@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ZstdCodec } from 'zstd-codec'
 import type { Field, Grid, Manifest, ManifestChunk, MrfHeader, Source } from '../src/core/contract'
+import { solarElevationSin } from '../src/core/solar'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const dataDir = resolve(root, 'public/data')
@@ -16,6 +17,7 @@ radiationQuant.push(null)
 const temperatureQuant = linearQuant(-25, 40)
 const feelsLikeQuant = linearQuant(-35, 45)
 const windQuant = linearQuant(-30, 30)
+const uvQuant = linearQuant(0, 12.7)
 
 interface ChunkPlan { name: string; source: Source; field: Field; run: number; times: number[] }
 const plans: ChunkPlan[] = []
@@ -27,6 +29,10 @@ for (let hour = -3; hour < 0; hour++) plans.push({
 plans.push({ name: 'nowcast-20260828T1500.mrf', source: 'nowcast', field: 'rain_rate', run: now, times: Array.from({ length: 25 }, (_, i) => now + i * 300_000) })
 plans.push({ name: 'harmonie-20260828T1200.mrf', source: 'harmonie', field: 'rain_rate', run: now - 3 * 3_600_000, times: Array.from({ length: 24 }, (_, i) => now + (i + 1) * 3_600_000) })
 plans.push({ name: 'radiation-20260828T1200.mrf', source: 'harmonie', field: 'radiation', run: now - 3 * 3_600_000, times: Array.from({ length: 24 }, (_, i) => now + (i + 1) * 3_600_000) })
+plans.push({
+  name: 'uv-20260828.mrf', source: 'uv', field: 'uv', run: Date.parse('2026-08-28T00:00:00Z'),
+  times: Array.from({ length: 72 }, (_, i) => Date.parse('2026-08-28T03:00:00Z') + i * 15 * 60_000),
+})
 const hourlyTimes = Array.from({ length: 24 }, (_, i) => now + (i + 1) * 3_600_000)
 for (const field of ['temp_c', 'feels_like_c', 'wind_u_ms', 'wind_v_ms'] as const) plans.push({
   name: `${field}-20260828T1200.mrf`, source: 'harmonie', field, run: now - 3 * 3_600_000, times: hourlyTimes,
@@ -63,6 +69,18 @@ function makeRadiationFrame(epoch: number): Uint8Array {
   for (let y = 0; y < grid.height; y++) for (let x = 0; x < grid.width; x++) {
     const cloudFactor = 0.62 + 0.3 * (0.5 + 0.5 * Math.sin(x * 0.045 + y * 0.031 + epoch / 7_200_000))
     values[y * grid.width + x] = Math.min(254, Math.round(850 * daylight * cloudFactor / 5))
+  }
+  return values
+}
+
+function makeUvFrame(epoch: number): Uint8Array {
+  const values = new Uint8Array(grid.width * grid.height)
+  const elevation = Math.max(0, solarElevationSin(epoch, 5.3, 52.15))
+  if (elevation === 0) return values
+  const clearUv = 7.5 * Math.pow(elevation, 0.8)
+  for (let y = 0; y < grid.height; y++) for (let x = 0; x < grid.width; x++) {
+    const cloudFactor = 0.58 + 0.37 * (0.5 + 0.5 * Math.sin(x * 0.045 + y * 0.031 + epoch / 7_200_000))
+    values[y * grid.width + x] = encodeLinear(clearUv * cloudFactor, uvQuant)
   }
   return values
 }
@@ -111,13 +129,14 @@ function quantFor(field: Field): Array<number | null> {
   if (field === 'radiation') return radiationQuant
   if (field === 'temp_c') return temperatureQuant
   if (field === 'feels_like_c') return feelsLikeQuant
+  if (field === 'uv') return uvQuant
   return windQuant
 }
 
 function frameFor(plan: ChunkPlan, time: number, index: number): Uint8Array {
   if (plan.field === 'rain_rate') return makeFrame(time, plan.source, index)
   if (plan.field === 'radiation') return makeRadiationFrame(time)
-  if (plan.field === 'uv') throw new Error('De synthgen publiceert nog geen uv-veld')
+  if (plan.field === 'uv') return makeUvFrame(time)
   return makeWeatherFrame(time, plan.field)
 }
 

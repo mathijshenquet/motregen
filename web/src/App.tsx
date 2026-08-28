@@ -4,11 +4,14 @@ import HistogramScrubber from './components/HistogramScrubber'
 import LocationSearch from './components/LocationSearch'
 import { loadBasemapStyle, type MapTheme } from './core/basemap'
 import type { Field, Grid, Manifest, ManifestChunk, TimelineFrame } from './core/contract'
+import { DayNightLayer } from './core/day-night-layer'
 import { buildHourlyForecast } from './core/forecast'
 import { MrfClient } from './core/mrf'
 import { RainLayer } from './core/rain-layer'
+import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
 import { temperatureLabels, type TemperatureFeatureCollection } from './core/temperature'
-import { buildTimeline, frameBlend } from './core/time-model'
+import { buildTimeline, frameBlend, seriesValueAt } from './core/time-model'
+import { uvAdvice } from './core/uv'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
 import { WindLayer } from './core/wind-layer'
 
@@ -18,11 +21,13 @@ const themes = ['light', 'system', 'dark'] as const
 type ThemeChoice = typeof themes[number]
 type TemperatureField = Extract<Field, 'temp_c' | 'feels_like_c'>
 const emptyTemperatureData: TemperatureFeatureCollection = { type: 'FeatureCollection', features: [] }
+const emptySunData: SunFeatureCollection = { type: 'FeatureCollection', features: [] }
 
 export default function App() {
   let mapElement!: HTMLDivElement
   let map: maplibregl.Map | undefined
   let marker: Marker | undefined
+  let dayNightLayer: DayNightLayer | undefined
   let layer: RainLayer | undefined
   let windLayer: WindLayer | undefined
   let windGrid: Grid | undefined
@@ -30,16 +35,20 @@ export default function App() {
   let shownFrameRequest = 0
   let shownWindRequest = 0
   let shownTemperatureRequest = 0
+  let shownSunRequest = 0
   let pointRequest = 0
   let styleRequest = 0
   let appliedMapTheme: MapTheme | undefined
   let temperatureLabelKey = ''
+  let sunFeatureKey = ''
+  let sunEpochBucket = Number.NaN
   const windFrameCache = new Map<string, Promise<Float32Array>>()
   const media = matchMedia('(prefers-color-scheme: dark)')
   const client = new MrfClient(manifestUrl)
   const [manifest, setManifest] = createSignal<Manifest>()
   const timeline = createMemo(() => manifest() ? buildTimeline(manifest()!) : [])
   const radiationTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'radiation') : [])
+  const uvTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'uv') : [])
   const tempTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'temp_c') : [])
   const feelsLikeTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'feels_like_c') : [])
   const windTimeline = createMemo(() => manifest() ? buildWindTimeline(manifest()!) : [])
@@ -49,6 +58,7 @@ export default function App() {
   const [location, setLocation] = createSignal(defaultLocation)
   const [rainSeries, setRainSeries] = createSignal<Array<number | null>>([])
   const [radiationSeries, setRadiationSeries] = createSignal<Array<number | null>>([])
+  const [uvSeries, setUvSeries] = createSignal<Array<number | null>>([])
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
   const [temperatureField, setTemperatureField] = createSignal<TemperatureField>('feels_like_c')
@@ -105,11 +115,17 @@ export default function App() {
   })
 
   createEffect(() => {
-    cursor()
+    const epoch = selectedEpoch()
     temperatureField()
+    dayNightLayer?.setEpoch(epoch)
     if (layer) void showFrame()
     if (windLayer) void showWind()
     if (map) void showTemperature()
+    const nextSunBucket = Math.floor(epoch / 300_000)
+    if (map && SUN_ICONS_ENABLED && nextSunBucket !== sunEpochBucket) {
+      sunEpochBucket = nextSunBucket
+      void showSun(epoch)
+    }
   })
   createEffect(() => {
     if (!playing()) { cancelAnimationFrame(animation); return }
@@ -137,16 +153,22 @@ export default function App() {
 
   function attachMapLayers(grid: Grid): void {
     if (!map || map.getLayer('motregen-rain')) return
+    dayNightLayer = new DayNightLayer(mapTheme())
+    map.addLayer(dayNightLayer)
+    dayNightLayer.setEpoch(selectedEpoch())
     if (windGrid && windTimeline().length) {
-      windLayer = new WindLayer(windGrid)
+      windLayer = new WindLayer(windGrid, mapTheme())
       map.addLayer(windLayer)
     }
     layer = new RainLayer(grid)
     map.addLayer(layer)
+    if (SUN_ICONS_ENABLED && (radiationTimeline().length || uvTimeline().length)) attachSunLayer()
     if (hasTemperature()) attachTemperatureLayer()
     void showFrame()
     void showWind()
     void showTemperature()
+    sunEpochBucket = Math.floor(selectedEpoch() / 300_000)
+    void showSun(selectedEpoch())
   }
 
   async function showFrame(): Promise<void> {
@@ -231,6 +253,33 @@ export default function App() {
     })
   }
 
+  function attachSunLayer(): void {
+    if (!map || map.getLayer('motregen-sun')) return
+    sunFeatureKey = ''
+    map.addSource('motregen-sun', { type: 'geojson', data: emptySunData })
+    const dark = mapTheme() === 'dark'
+    map.addLayer({
+      id: 'motregen-sun',
+      type: 'symbol',
+      source: 'motregen-sun',
+      layout: {
+        'text-field': '☀',
+        'text-size': ['interpolate', ['linear'], ['zoom'], 5, 15, 8, 20],
+        'text-font': ['Noto Sans Regular'],
+        'text-offset': [0, -1.25],
+        'text-allow-overlap': false,
+        'text-padding': 10,
+      },
+      paint: {
+        'text-color': dark ? '#ffd978' : '#e7a900',
+        'text-opacity': ['get', 'opacity'],
+        'text-halo-color': dark ? '#233139' : '#fffdf2',
+        'text-halo-width': 1.6,
+        'text-halo-blur': 0.45,
+      },
+    })
+  }
+
   async function showTemperature(): Promise<void> {
     const frames = activeTemperatureTimeline()
     if (!frames.length || !map?.getSource('motregen-temperature')) return
@@ -256,6 +305,41 @@ export default function App() {
     }
   }
 
+  async function showSun(epoch: number): Promise<void> {
+    if (!map?.getSource('motregen-sun')) return
+    const request = ++shownSunRequest
+    try {
+      const [radiation, uv] = await Promise.all([
+        loadFieldBlend(radiationTimeline(), epoch, 75 * 60_000),
+        loadFieldBlend(uvTimeline(), epoch, 30 * 60_000),
+      ])
+      if (request !== shownSunRequest || !map) return
+      const data = sunnyLocations(epoch, radiation, uv)
+      const key = data.features.map((feature) => `${feature.properties.name}:${feature.properties.opacity.toFixed(2)}`).join('|')
+      if (key !== sunFeatureKey) {
+        sunFeatureKey = key
+        const source = map.getSource('motregen-sun') as GeoJSONSource | undefined
+        source?.setData(data)
+      }
+    } catch {
+      if (request !== shownSunRequest) return
+      sunFeatureKey = ''
+      const source = map?.getSource('motregen-sun') as GeoJSONSource | undefined
+      source?.setData(emptySunData)
+    }
+  }
+
+  async function loadFieldBlend(frames: TimelineFrame[], epoch: number, edgeTolerance: number): Promise<FieldBlend | undefined> {
+    if (!frames.length || epoch < frames[0]!.epoch - edgeTolerance || epoch > frames.at(-1)!.epoch + edgeTolerance) return undefined
+    const blend = frameBlend(frames, epoch)
+    const leftFrame = frames[blend.left]!
+    const rightFrame = frames[blend.right]!
+    const [left, right, leftHeader, rightHeader] = await Promise.all([
+      load(leftFrame), load(rightFrame), client.getHeader(leftFrame.chunk), client.getHeader(rightFrame.chunk),
+    ])
+    return { left, right, leftHeader, rightHeader, mix: blend.mix }
+  }
+
   function selectedEpoch(): number {
     const frames = timeline()
     if (!frames.length) return 0
@@ -278,14 +362,17 @@ export default function App() {
   async function updatePointSeries(point: { lng: number; lat: number }, label: string): Promise<void> {
     const request = ++pointRequest
     setStatus(`${label} · verwachting laden…`)
+    setUvSeries([])
     try {
-      const [rain, radiation] = await Promise.all([
+      const [rain, radiation, uv] = await Promise.all([
         readPointSeries(timeline(), point),
-        readPointSeries(radiationTimeline(), point),
+        readPointSeries(radiationTimeline(), point).catch(() => []),
+        readPointSeries(uvTimeline(), point).catch(() => []),
       ])
       if (request !== pointRequest) return
       setRainSeries(rain)
       setRadiationSeries(radiation)
+      setUvSeries(uv)
       setStatus(label)
     } catch {
       if (request === pointRequest) setStatus(`${label} · verwachting kon niet worden geladen`)
@@ -336,8 +423,10 @@ export default function App() {
   }
 
   const intensity = createMemo(() => rainSeries()[Math.round(cursor())])
-  const forecast = createMemo(() => buildHourlyForecast(timeline(), radiationTimeline(), manifest() ? Date.parse(manifest()!.now) : 0))
-  const hasRadiation = createMemo(() => radiationTimeline().length > 0)
+  const forecast = createMemo(() => buildHourlyForecast(timeline(), radiationTimeline(), uvTimeline(), manifest() ? Date.parse(manifest()!.now) : 0))
+  const hasSunData = createMemo(() => radiationTimeline().length > 0 || uvTimeline().length > 0)
+  const cursorUv = createMemo(() => seriesValueAt(uvTimeline(), uvSeries(), selectedEpoch(), 30 * 60_000))
+  const cursorUvChip = createMemo(() => uvChipLabel(cursorUv()))
   const hasTemperature = createMemo(() => tempTimeline().length > 0 || feelsLikeTimeline().length > 0)
   const hasBothTemperatures = createMemo(() => tempTimeline().length > 0 && feelsLikeTimeline().length > 0)
   const activeTemperatureTimeline = createMemo(() => {
@@ -355,6 +444,7 @@ export default function App() {
     <header class="topbar">
       <span class="brand"><img src="/droplet.svg" alt="" />motregen</span>
       <div class="header-actions">
+        <Show when={cursorUvChip()}>{(label) => <span class="uv-chip header-uv-chip" title="Insmeren aanbevolen"><span aria-hidden="true">☀</span><span class="uv-long">{label()}</span><span class="uv-short">UV {formatUv(cursorUv())}</span></span>}</Show>
         <button class="round-action theme-button" onClick={cycleTheme} aria-label={`Thema: ${themeMeta().label}. Klik voor ${themeMeta().next}`} title={`Thema: ${themeMeta().label}`}>
           <span aria-hidden="true">{themeMeta().icon}</span><small>{themeMeta().label}</small>
         </button>
@@ -396,14 +486,16 @@ export default function App() {
         <div class="section-heading"><div><p class="eyebrow">Vooruitblik</p><h2>Komende 24 uur</h2></div><span>{location() ? 'Per uur' : ''}</span></div>
         <div class="table-scroll">
           <table>
-            <thead><tr><th>Uur</th><th>Regen</th><Show when={hasRadiation()}><th>Zon</th></Show></tr></thead>
+            <thead><tr><th>Uur</th><th>Regen</th><Show when={hasSunData()}><th>Zon</th></Show></tr></thead>
             <tbody><For each={forecast()}>{(row) => {
               const rain = () => row.rainIndex == null ? null : rainSeries()[row.rainIndex]
               const radiation = () => row.radiationIndex == null ? null : radiationSeries()[row.radiationIndex]
+              const uv = () => row.uvIndex == null ? null : uvSeries()[row.uvIndex]
+              const advice = () => uvChipLabel(uv())
               return <tr>
                 <td><strong>{new Date(row.epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</strong><span>{new Date(row.epoch).toLocaleDateString('nl-NL', { weekday: 'short' })}</span></td>
                 <td>{formatRain(rain())}<small> mm/u</small></td>
-                <Show when={hasRadiation()}><td class="sun-cell"><span class="sun-icon" style={{ opacity: String(sunOpacity(radiation())) }} aria-hidden="true">☀</span>{formatRadiation(radiation())}<small> W/m²</small></td></Show>
+                <Show when={hasSunData()}><td class="sun-cell"><div class="sun-reading"><Show when={sunOpacity(radiation()) > 0}><span class="sun-icon" style={{ opacity: String(sunOpacity(radiation())) }} aria-hidden="true">☀</span></Show><span>{formatRadiation(radiation())}<small> W/m²</small></span></div><Show when={advice()}>{(label) => <span class="uv-chip table-uv-chip">{label()}</span>}</Show></td></Show>
               </tr>
             }}</For></tbody>
           </table>
@@ -432,7 +524,16 @@ function formatRadiation(value: number | null | undefined): string {
 }
 
 function sunOpacity(value: number | null | undefined): number {
-  return value == null ? 0.18 : Math.max(0.22, Math.min(1, value / 700))
+  return value == null || value < 25 ? 0 : Math.max(0.25, Math.min(1, value / 700))
+}
+
+function formatUv(value: number | null | undefined): string {
+  return value == null ? '—' : value.toLocaleString('nl-NL', { maximumFractionDigits: 1 })
+}
+
+function uvChipLabel(value: number | null | undefined): string | null {
+  const advice = uvAdvice(value)
+  return advice ? `Insmeren · UV ${formatUv(advice.value)} ${advice.strength}` : null
 }
 
 function rainDescription(value: number | null | undefined): string {

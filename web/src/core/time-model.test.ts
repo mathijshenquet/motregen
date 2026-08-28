@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Manifest } from './contract'
-import { buildTimeline, frameBlend } from './time-model'
+import { buildTimeline, frameBlend, seriesValueAt } from './time-model'
 
 const chunk = (source: 'rtcor' | 'nowcast' | 'harmonie', run: string, times: string[]) => ({ url: `${source}.mrf`, source, run, header_len: 42, times })
 
@@ -25,6 +25,8 @@ describe('time model', () => {
     const timeline = buildTimeline(manifest)
     expect(frameBlend(timeline, Date.parse('2026-08-28T15:05:00Z'))).toEqual({ left: 0, right: 1, mix: 0.5 })
     expect(frameBlend(timeline, 0)).toEqual({ left: 0, right: 0, mix: 0 })
+    expect(seriesValueAt(timeline, [2, 6], Date.parse('2026-08-28T15:05:00Z'), 300_000)).toBe(4)
+    expect(seriesValueAt(timeline, [2, 6], Date.parse('2026-08-28T14:00:00Z'), 300_000)).toBeNull()
   })
 
   it('keeps field timelines separate and defaults missing fields to rain', () => {
@@ -35,5 +37,12 @@ describe('time model', () => {
 
     expect(buildTimeline(manifest).map((frame) => frame.chunk.url)).toEqual(['harmonie.mrf'])
     expect(buildTimeline(manifest, 'radiation').map((frame) => frame.chunk.url)).toEqual(['radiation.mrf'])
+  })
+
+  it('accepts the dedicated official UV source', () => {
+    const time = '2026-08-28T15:00:00Z'
+    const uv = { ...chunk('harmonie', time, [time]), source: 'uv' as const, field: 'uv' as const, url: 'uv.mrf' }
+    const manifest: Manifest = { version: 0, generated: time, now: time, chunks: [uv] }
+    expect(buildTimeline(manifest, 'uv')[0]?.source).toBe('uv')
   })
 })

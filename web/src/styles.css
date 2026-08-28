@@ -68,6 +68,22 @@ button { color: inherit; cursor: pointer; }
 .brand { display: flex; align-items: center; font-size: 21px; font-weight: 780; letter-spacing: -.045em; }
 .brand img { width: 28px; height: 34px; margin-right: 8px; }
 .header-actions { display: flex; gap: 7px; }
+.uv-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid color-mix(in srgb, #e6a400 42%, var(--line));
+  border-radius: 999px;
+  color: color-mix(in srgb, #ad7400 78%, var(--text));
+  background: color-mix(in srgb, #ffd75e 19%, var(--surface));
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: .01em;
+}
+:root[data-theme="dark"] .uv-chip { color: #ffe39a; background: color-mix(in srgb, #e6a400 14%, var(--surface)); }
+.header-uv-chip { height: 38px; padding: 0 11px; white-space: nowrap; }
+.header-uv-chip > span:first-child { color: #e6a400; font-size: 16px; }
+.uv-short { display: none; }
 .round-action {
   height: 38px;
   display: inline-flex;
@@ -251,7 +267,9 @@ td:first-child { padding-left: 0; text-align: left; }
 td:first-child strong { display: inline-block; min-width: 44px; font-size: 13px; }
 td:first-child span { color: var(--muted); font-size: 10px; text-transform: capitalize; }
 td small { color: var(--muted); font-size: 9px; }
+.sun-reading { display: flex; align-items: center; justify-content: flex-end; min-height: 17px; }
 .sun-icon { display: inline-block; margin-right: 5px; color: #e6a400; font-size: 15px; filter: saturate(1.15); }
+.table-uv-chip { width: max-content; margin: 4px 0 0 auto; padding: 2px 6px; }
 
 .maplibregl-ctrl-top-right { top: 57px; right: 2px; }
 .maplibregl-ctrl-group { overflow: hidden; border: 1px solid var(--line) !important; background: var(--surface-raised) !important; box-shadow: var(--shadow) !important; }
@@ -263,6 +281,9 @@ td small { color: var(--muted); font-size: 9px; }
   .round-action small { display: none; }
   .scrub-hint { display: none; }
   .search { right: 55px; }
+  .header-uv-chip { padding: 0 8px; }
+  .uv-long { display: none; }
+  .uv-short { display: inline; }
 }
 
 @media (min-width: 960px) {
