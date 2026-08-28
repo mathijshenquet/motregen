@@ -108,3 +108,9 @@ synthetische straling.
   ónder de regenlaag op ~60% opacity, dichtheid duidelijk lager dan Windy,
   particle-snelheid ∝ windsnelheid, subtiele kleurcodering op Beaufort.
   Data: 10m U/V uit AROME (contract-velden `wind_u_ms`/`wind_v_ms`).
+- 2026-08-28: amendement (PO, ronde 3): (a) provinciegrenzen zichtbaar op de
+  kaart (T3c-stijlpass); (b) zon-iconen op de kaart op proef, maar expliciet
+  GÉÉN wolkenweergave/bewolkingslaag — "dan zie je de kaart niet meer"
+  (vervangt het eerdere "zon/wolk-iconen op proef": alleen zon); (c)
+  day/night-cyclus op de kaart, gekoppeld aan de tijdcursor van de scrubber
+  (subtiele terminator-schaduw die meebeweegt bij scrubben) — T3d.
