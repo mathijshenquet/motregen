@@ -1,6 +1,7 @@
 import argparse
 import json
 from pathlib import Path
+from typing import Any
 
 import h5py
 import numpy as np
@@ -8,11 +9,11 @@ import numpy as np
 PROJECTION = "+proj=stere +lat_0=90 +lon_0=0 +lat_ts=60 +a=6378137 +b=6356752 +x_0=0 +y_0=0 +units=km"
 
 
-def scalar(group: h5py.Group, name: str):
+def scalar(group: Any, name: str) -> Any:
     return group.attrs[name][0]
 
 
-def text(group: h5py.Group, name: str) -> str:
+def text(group: Any, name: str) -> str:
     return group.attrs[name].decode("ascii")
 
 
@@ -24,7 +25,8 @@ def timestamp(value: str) -> str:
 
 
 def decode(path: Path, kind: str) -> dict:
-    with h5py.File(path) as source:
+    with h5py.File(path) as source_file:
+        source: Any = source_file
         geographic = source["geographic"]
         overview = source["overview"]
         count = int(scalar(overview, "number_image_groups"))
@@ -66,14 +68,16 @@ def decode(path: Path, kind: str) -> dict:
         }
 
 
-def copy_attribute(source, target, name: str):
+def copy_attribute(source: Any, target: Any, name: str):
     target.attrs[name] = source.attrs[name]
 
 
 def make_fixture(source_path: Path, target_path: Path, kind: str):
     row_slice = slice(300, 304)
     column_slice = slice(325, 330)
-    with h5py.File(source_path) as source, h5py.File(target_path, "w") as target:
+    with h5py.File(source_path) as source_file, h5py.File(target_path, "w") as target_file:
+        source: Any = source_file
+        target: Any = target_file
         geographic = target.create_group("geographic")
         source_geographic = source["geographic"]
         for name in (

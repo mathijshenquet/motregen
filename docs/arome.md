@@ -130,3 +130,33 @@ standaard ecCodes-definities benoemd, een toekomstige tabel/parameterwijziging
 moet expliciet worden gedetecteerd, en de waargenomen uurlijkse runfrequentie
 moet vóór ingestimplementatie worden bevestigd. Geen van deze punten vraagt
 om een pure-Rust GRIB-decoder; die route is daarom niet verder onderzocht.
+
+## T2-downloadstrategie: tar via Range
+
+De tijdelijke S3-download-URL antwoordt op een `GET` met
+`Range: bytes=0-511` met `206 Partial Content`, een exact 512-byteantwoord,
+`Accept-Ranges: bytes` en een correcte `Content-Range` over de volledige
+867.368.960 bytes van run `2026082813`. Een `HEAD` op dezelfde presigned URL
+geeft 403 omdat de URL voor GET is getekend; bereik/omvang worden daarom uit
+de download-URL-respons en GET-responses gecontroleerd, niet met HEAD.
+
+GNU tar zet vóór ieder GRIB-bestand een klein PAX-record. De ingest leest per
+lead time één probe van 1.536 bytes: PAX-header, maximaal één PAX-datablok en
+de echte bestandsheader. Uit de octale groottetekens rekent hij direct de
+volgende headeroffset uit. Checksums, `ustar`, type en een unieke volledige
+set `_00000_GB`…`_02400_GB` worden gevalideerd; de tarvolgorde zelf is niet
+numeriek. Daarna haalt hij alleen de
+25 data-ranges +0…+24 op; +0 is nodig als nulbasis voor de-accumulatie. De
+live T2-run mat 352.864.390 bytes (40,7%) tegenover de volledige
+867.368.960-byte tar. Er wordt geen gedeeltelijke tar
+als productieformaat bewaard: iedere member gaat rechtstreeks naar een
+cachebestand en vervolgens door ecCodes.
+
+AROME wordt standaard iedere drie uur gecontroleerd/ververst, configureerbaar
+met `--arome-cadence`/`MOTREGEN_AROME_CADENCE`. Daardoor is de gemiddelde
+download circa 117 MB/u in plaats van 868 MB/u bij het volgen van iedere
+gepubliceerde run. Een recentere run mag de vorige pas in het manifest
+vervangen nadat alle 25 ranges, GRIB-decodering en mrf-publicatie zijn
+geslaagd. RTCOR en nowcast blijven los iedere 60 seconden pollen; MQTT blijft
+een vervolg omdat polling binnen de geregistreerde API-quota past en minder
+operationele reconnecttoestand introduceert voor de MVP.

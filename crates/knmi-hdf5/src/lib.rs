@@ -2,10 +2,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result, bail, ensure};
 use chrono::{NaiveDateTime, SecondsFormat};
-use hdf5::{
-    File, Group,
-    types::{FixedAscii, VarLenAscii},
-};
+use hdf5::{File, Group, types::FixedAscii};
 use serde::{Deserialize, Serialize};
 
 const PRECIPITATION_PARAMETER: &str = "PRECIP_[MM]";
@@ -147,29 +144,10 @@ fn read_ascii(group: &Group, name: &str) -> Result<String> {
     let attribute = group
         .attr(name)
         .with_context(|| format!("missing {name} attribute"))?;
-    let value = match attribute.dtype()?.size() {
-        11 => attribute
-            .read_scalar::<FixedAscii<11>>()?
-            .as_str()
-            .to_owned(),
-        22 => attribute
-            .read_scalar::<FixedAscii<22>>()?
-            .as_str()
-            .to_owned(),
-        24 => attribute
-            .read_scalar::<FixedAscii<24>>()?
-            .as_str()
-            .to_owned(),
-        87 => attribute
-            .read_scalar::<FixedAscii<87>>()?
-            .as_str()
-            .to_owned(),
-        _ if attribute.dtype()?.is::<VarLenAscii>() => {
-            attribute.read_scalar::<VarLenAscii>()?.as_str().to_owned()
-        }
-        size => bail!("unsupported byte length {size} for string attribute {name}"),
-    };
-    Ok(value)
+    Ok(attribute
+        .read_scalar::<FixedAscii<256>>()?
+        .as_str()
+        .to_owned())
 }
 
 fn read_i32(group: &Group, name: &str) -> Result<i32> {

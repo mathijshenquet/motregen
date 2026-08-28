@@ -13,6 +13,7 @@
   };
 
   packages = [
+    pkgs.caddy
     pkgs.eccodes
     pkgs.hdf5
     pkgs.pkg-config
