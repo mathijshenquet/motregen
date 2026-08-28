@@ -1,0 +1,8 @@
+.env
+.direnv/
+.devenv/
+data/
+node_modules/
+dist/
+.venv/
+__pycache__/
