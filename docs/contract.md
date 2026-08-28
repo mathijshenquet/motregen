@@ -17,7 +17,7 @@ Het enige bestand dat de client pollt. JSON:
   "chunks": [
     {
       "url": "chunks/rtcor-20260828T1200.mrf",  // relatief aan het manifest
-      "source": "rtcor",                  // "rtcor" | "nowcast" | "harmonie"
+      "source": "rtcor",                  // "rtcor" | "nowcast" | "harmonie" | "uv" (cloud-modified UV index)
       "field": "rain_rate",               // optioneel; ontbreekt ⇒ "rain_rate". Zie veldenlijst onderaan
       "run": "2026-08-28T12:00:00Z",      // run-/referentietijd van de bron
       "header_len": 1342,                 // totale headerlengte in bytes (magic t/m JSON)
@@ -116,6 +116,10 @@ frame kan zippen tot vectoren.
   `field`-sleutel op manifest-chunk en mrf-header, default `"rain_rate"`;
   tweede veld `"radiation"` (W/m²) voor de per-uur zon/forecast-tabel.
   Bestaande implementaties zonder `field` blijven geldig.
+- 2026-08-28: `source`-enum uitgebreid met `"uv"` (cloud-modified UV
+  index-dataset) — lost de T2b-WALL "contract mist UV-source" op; de door
+  T2b gebruikte waarde is hiermee gelegitimeerd. NB (T2b-observatie): de
+  live UV-file eindigt om 20:45 UTC waar de catalogus 21:45 zegt.
 - 2026-08-28: veldenlijst uitgebreid (PO: wind-particles, temp op kaart, UV):
   `temp_c`, `feels_like_c`, `wind_u_ms`/`wind_v_ms` (paar-regel), `uv`.
   Quant-regel versoepeld: alleen index 255 = null is universeel; `quant[0]
