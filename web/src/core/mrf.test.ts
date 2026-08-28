@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { resolve } from 'node:path'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { Manifest } from './contract'
+import type { Field, Manifest, MrfHeader } from './contract'
 import { decodeFrame, LruCache, MrfClient, parseMrfHeader } from './mrf'
 import { buildTimeline } from './time-model'
 
@@ -21,6 +21,58 @@ beforeAll(async () => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('mrf v0', () => {
+  it.each([
+    ['rain_rate', 0, true],
+    ['radiation', 0, true],
+    ['rain_rate', -30, false],
+    ['radiation', -30, false],
+    ['temp_c', -30, true],
+    ['feels_like_c', -40, true],
+    ['wind_u_ms', -30, true],
+    ['wind_v_ms', -30, true],
+    ['uv', 0.2, true],
+  ] satisfies Array<[Field, number, boolean]>)('validates quantization by field for %s with quant[0]=%s', (field, first, valid) => {
+    const quant: Array<number | null> = Array.from({ length: 255 }, (_, index) => first + index)
+    quant.push(null)
+    const header: MrfHeader = {
+      version: 0,
+      field,
+      grid: { crs: 'EPSG:3857', x0: 0, y0: 1, dx: 1, dy: -1, width: 1, height: 1 },
+      quant,
+      source: 'harmonie',
+      run: '2026-08-28T12:00:00Z',
+      frames: [],
+      dict: null,
+    }
+    const json = new TextEncoder().encode(JSON.stringify(header))
+    const bytes = new Uint8Array(8 + json.length)
+    bytes.set(new TextEncoder().encode('mrf0'))
+    new DataView(bytes.buffer).setUint32(4, json.length, true)
+    bytes.set(json, 8)
+    if (valid) expect(parseMrfHeader(bytes).field).toBe(field)
+    else expect(() => parseMrfHeader(bytes)).toThrow('Ongeldige kwantisatietabel')
+  })
+
+  it('requires index 255 to remain null for every field', () => {
+    const quant: Array<number | null> = Array.from({ length: 256 }, (_, index) => index - 40)
+    const header: MrfHeader = {
+      version: 0,
+      field: 'wind_u_ms',
+      grid: { crs: 'EPSG:3857', x0: 0, y0: 1, dx: 1, dy: -1, width: 1, height: 1 },
+      quant,
+      source: 'harmonie',
+      run: '2026-08-28T12:00:00Z',
+      frames: [],
+      dict: null,
+    }
+    const json = new TextEncoder().encode(JSON.stringify(header))
+    const bytes = new Uint8Array(8 + json.length)
+    bytes.set(new TextEncoder().encode('mrf0'))
+    new DataView(bytes.buffer).setUint32(4, json.length, true)
+    bytes.set(json, 8)
+    expect(() => parseMrfHeader(bytes)).toThrow('Ongeldige kwantisatietabel')
+  })
+
   it('parses the synthgen header and decodes a frame byte-exact', () => {
     const header = parseMrfHeader(file.subarray(0, headerLength))
     const indexed = header.frames[3]!

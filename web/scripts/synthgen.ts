@@ -13,6 +13,9 @@ for (let i = 1; i < 255; i++) rainQuant.push(Number((0.01 * Math.pow(150 / 0.01,
 rainQuant.push(null)
 const radiationQuant: Array<number | null> = Array.from({ length: 255 }, (_, index) => index * 5)
 radiationQuant.push(null)
+const temperatureQuant = linearQuant(-25, 40)
+const feelsLikeQuant = linearQuant(-35, 45)
+const windQuant = linearQuant(-30, 30)
 
 interface ChunkPlan { name: string; source: Source; field: Field; run: number; times: number[] }
 const plans: ChunkPlan[] = []
@@ -24,6 +27,10 @@ for (let hour = -3; hour < 0; hour++) plans.push({
 plans.push({ name: 'nowcast-20260828T1500.mrf', source: 'nowcast', field: 'rain_rate', run: now, times: Array.from({ length: 25 }, (_, i) => now + i * 300_000) })
 plans.push({ name: 'harmonie-20260828T1200.mrf', source: 'harmonie', field: 'rain_rate', run: now - 3 * 3_600_000, times: Array.from({ length: 24 }, (_, i) => now + (i + 1) * 3_600_000) })
 plans.push({ name: 'radiation-20260828T1200.mrf', source: 'harmonie', field: 'radiation', run: now - 3 * 3_600_000, times: Array.from({ length: 24 }, (_, i) => now + (i + 1) * 3_600_000) })
+const hourlyTimes = Array.from({ length: 24 }, (_, i) => now + (i + 1) * 3_600_000)
+for (const field of ['temp_c', 'feels_like_c', 'wind_u_ms', 'wind_v_ms'] as const) plans.push({
+  name: `${field}-20260828T1200.mrf`, source: 'harmonie', field, run: now - 3 * 3_600_000, times: hourlyTimes,
+})
 
 function iso(epoch: number): string { return new Date(epoch).toISOString().replace('.000', '') }
 
@@ -60,9 +67,58 @@ function makeRadiationFrame(epoch: number): Uint8Array {
   return values
 }
 
+function makeWeatherFrame(epoch: number, field: Exclude<Field, 'rain_rate' | 'radiation' | 'uv'>): Uint8Array {
+  const values = new Uint8Array(grid.width * grid.height)
+  const hour = (epoch - now) / 3_600_000
+  for (let y = 0; y < grid.height; y++) for (let x = 0; x < grid.width; x++) {
+    const north = 1 - y / (grid.height - 1)
+    const east = x / (grid.width - 1)
+    const angle = hour * 0.08
+    const vortexX = x - (92 + 20 * Math.cos(angle))
+    const vortexY = y - (112 + 14 * Math.sin(angle))
+    const vortexScale = 7 * Math.exp(-(vortexX * vortexX + vortexY * vortexY) / 8_500)
+    const u = 4.5 + 3 * north - vortexY / 65 * vortexScale + 0.7 * Math.sin(y * 0.035 + angle)
+    const v = 1.2 + 2.2 * Math.sin(east * Math.PI + angle) + vortexX / 65 * vortexScale
+    const temperature = 16.5 + 4.2 * Math.sin((hour - 3) * Math.PI / 12) - 2.6 * north + 0.9 * Math.sin(x * 0.025 - y * 0.018)
+    const speed = Math.hypot(u, v)
+    const feelsLike = temperature - Math.max(0, 0.22 * speed - 0.7) + Math.max(0, temperature - 24) * 0.12
+    const value = field === 'wind_u_ms' ? u : field === 'wind_v_ms' ? v : field === 'temp_c' ? temperature : feelsLike
+    const quant = field.startsWith('wind_') ? windQuant : field === 'temp_c' ? temperatureQuant : feelsLikeQuant
+    values[y * grid.width + x] = encodeLinear(value, quant)
+  }
+  return values
+}
+
 function encodeRain(value: number): number {
   if (value < 0.01) return 0
   return Math.max(1, Math.min(254, Math.round(1 + 253 * Math.log(value / 0.01) / Math.log(150 / 0.01))))
+}
+
+function linearQuant(minimum: number, maximum: number): Array<number | null> {
+  const quant: Array<number | null> = Array.from({ length: 255 }, (_, index) => Number((minimum + (maximum - minimum) * index / 254).toFixed(4)))
+  quant.push(null)
+  return quant
+}
+
+function encodeLinear(value: number, quant: Array<number | null>): number {
+  const minimum = quant[0]!
+  const maximum = quant[254]!
+  return Math.max(0, Math.min(254, Math.round((value - minimum) / (maximum - minimum) * 254)))
+}
+
+function quantFor(field: Field): Array<number | null> {
+  if (field === 'rain_rate') return rainQuant
+  if (field === 'radiation') return radiationQuant
+  if (field === 'temp_c') return temperatureQuant
+  if (field === 'feels_like_c') return feelsLikeQuant
+  return windQuant
+}
+
+function frameFor(plan: ChunkPlan, time: number, index: number): Uint8Array {
+  if (plan.field === 'rain_rate') return makeFrame(time, plan.source, index)
+  if (plan.field === 'radiation') return makeRadiationFrame(time)
+  if (plan.field === 'uv') throw new Error('De synthgen publiceert nog geen uv-veld')
+  return makeWeatherFrame(time, plan.field)
 }
 
 async function zstdSimple(): Promise<{ compress(data: Uint8Array, level?: number): Uint8Array }> {
@@ -75,16 +131,13 @@ async function main(): Promise<void> {
   const compressor = await zstdSimple()
   const chunks: ManifestChunk[] = []
   for (const plan of plans) {
-    const compressed = plan.times.map((time, index) => compressor.compress(
-      plan.field === 'radiation' ? makeRadiationFrame(time) : makeFrame(time, plan.source, index),
-      9,
-    ))
+    const compressed = plan.times.map((time, index) => compressor.compress(frameFor(plan, time, index), 9))
     let offset = 0
     const header: MrfHeader = {
       version: 0,
       field: plan.field,
       grid,
-      quant: plan.field === 'radiation' ? radiationQuant : rainQuant,
+      quant: quantFor(plan.field),
       source: plan.source,
       run: iso(plan.run),
       dict: null,

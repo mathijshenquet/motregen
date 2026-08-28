@@ -1,34 +1,49 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
-import maplibregl, { Marker } from 'maplibre-gl'
+import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
 import HistogramScrubber from './components/HistogramScrubber'
 import LocationSearch from './components/LocationSearch'
 import { loadBasemapStyle, type MapTheme } from './core/basemap'
-import type { Grid, Manifest, ManifestChunk, TimelineFrame } from './core/contract'
+import type { Field, Grid, Manifest, ManifestChunk, TimelineFrame } from './core/contract'
 import { buildHourlyForecast } from './core/forecast'
 import { MrfClient } from './core/mrf'
 import { RainLayer } from './core/rain-layer'
+import { temperatureLabels, type TemperatureFeatureCollection } from './core/temperature'
 import { buildTimeline, frameBlend } from './core/time-model'
+import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
+import { WindLayer } from './core/wind-layer'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
 const defaultLocation = { lng: 5.18, lat: 52.1 }
 const themes = ['light', 'system', 'dark'] as const
 type ThemeChoice = typeof themes[number]
+type TemperatureField = Extract<Field, 'temp_c' | 'feels_like_c'>
+const emptyTemperatureData: TemperatureFeatureCollection = { type: 'FeatureCollection', features: [] }
 
 export default function App() {
   let mapElement!: HTMLDivElement
   let map: maplibregl.Map | undefined
   let marker: Marker | undefined
   let layer: RainLayer | undefined
+  let windLayer: WindLayer | undefined
+  let windGrid: Grid | undefined
   let animation = 0
   let shownFrameRequest = 0
+  let shownWindRequest = 0
+  let shownTemperatureRequest = 0
   let pointRequest = 0
   let styleRequest = 0
   let appliedMapTheme: MapTheme | undefined
+  let temperatureLabelKey = ''
+  const windFrameCache = new Map<string, Promise<Float32Array>>()
   const media = matchMedia('(prefers-color-scheme: dark)')
   const client = new MrfClient(manifestUrl)
   const [manifest, setManifest] = createSignal<Manifest>()
   const timeline = createMemo(() => manifest() ? buildTimeline(manifest()!) : [])
   const radiationTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'radiation') : [])
+  const tempTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'temp_c') : [])
+  const feelsLikeTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'feels_like_c') : [])
+  const windTimeline = createMemo(() => manifest() ? buildWindTimeline(manifest()!) : [])
+  const windUFrames = createMemo(() => windTimeline().map((frame) => frame.u))
   const [cursor, setCursor] = createSignal(0)
   const [playing, setPlaying] = createSignal(false)
   const [location, setLocation] = createSignal(defaultLocation)
@@ -36,6 +51,7 @@ export default function App() {
   const [radiationSeries, setRadiationSeries] = createSignal<Array<number | null>>([])
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
+  const [temperatureField, setTemperatureField] = createSignal<TemperatureField>('feels_like_c')
   const [systemDark, setSystemDark] = createSignal(media.matches)
   const mapTheme = createMemo<MapTheme>(() => theme() === 'system' ? systemDark() ? 'dark' : 'light' : theme() as MapTheme)
 
@@ -55,7 +71,10 @@ export default function App() {
       setCursor(nowIndex)
       const header = await client.getHeader(frames[0]!.chunk)
       const initialTheme = mapTheme()
-      const style = await loadBasemapStyle(initialTheme)
+      const [style] = await Promise.all([
+        loadBasemapStyle(initialTheme),
+        discoverWindGrid(),
+      ])
       appliedMapTheme = initialTheme
       map = new maplibregl.Map({
         container: mapElement,
@@ -65,7 +84,7 @@ export default function App() {
         attributionControl: false,
       })
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
-      map.on('style.load', () => attachRainLayer(header.grid))
+      map.on('style.load', () => attachMapLayers(header.grid))
       map.on('click', (event) => pick(event.lngLat.lng, event.lngLat.lat, `${event.lngLat.lat.toFixed(3)}° N, ${event.lngLat.lng.toFixed(3)}° O`))
       pick(defaultLocation.lng, defaultLocation.lat, 'De Bilt')
       if (mapTheme() !== appliedMapTheme) void applyMapTheme(mapTheme())
@@ -85,7 +104,13 @@ export default function App() {
     if (map && effective !== appliedMapTheme) void applyMapTheme(effective)
   })
 
-  createEffect(() => { cursor(); if (layer) void showFrame() })
+  createEffect(() => {
+    cursor()
+    temperatureField()
+    if (layer) void showFrame()
+    if (windLayer) void showWind()
+    if (map) void showTemperature()
+  })
   createEffect(() => {
     if (!playing()) { cancelAnimationFrame(animation); return }
     let previous = performance.now()
@@ -110,11 +135,18 @@ export default function App() {
     }
   }
 
-  function attachRainLayer(grid: Grid): void {
+  function attachMapLayers(grid: Grid): void {
     if (!map || map.getLayer('motregen-rain')) return
+    if (windGrid && windTimeline().length) {
+      windLayer = new WindLayer(windGrid)
+      map.addLayer(windLayer)
+    }
     layer = new RainLayer(grid)
     map.addLayer(layer)
+    if (hasTemperature()) attachTemperatureLayer()
     void showFrame()
+    void showWind()
+    void showTemperature()
   }
 
   async function showFrame(): Promise<void> {
@@ -129,6 +161,106 @@ export default function App() {
     layer.setFrames(left, right, blend.mix)
     map.triggerRepaint()
     for (const near of frames.slice(Math.max(0, lower - 2), upper + 4)) client.prefetch(near.chunk, [near.frameIndex])
+  }
+
+  async function discoverWindGrid(): Promise<void> {
+    const first = windTimeline()[0]
+    if (!first) return
+    try {
+      const [uHeader, vHeader] = await Promise.all([client.getHeader(first.u.chunk), client.getHeader(first.v.chunk)])
+      if (sameGrid(uHeader, vHeader)) windGrid = uHeader.grid
+    } catch {
+      windGrid = undefined
+    }
+  }
+
+  async function showWind(): Promise<void> {
+    const frames = windTimeline()
+    if (!frames.length || !windLayer || !map) return
+    const request = ++shownWindRequest
+    const blend = frameBlend(windUFrames(), selectedEpoch())
+    try {
+      const [left, right] = await Promise.all([loadWind(frames[blend.left]!), loadWind(frames[blend.right]!)])
+      if (request !== shownWindRequest || !windLayer || !map) return
+      windLayer.setFrames(left, right, blend.mix)
+      map.triggerRepaint()
+    } catch {
+      if (request === shownWindRequest && map.getLayer('motregen-wind')) map.removeLayer('motregen-wind')
+      windLayer = undefined
+    }
+  }
+
+  async function loadWind(frame: WindTimelineFrame): Promise<Float32Array> {
+    const key = `${frame.u.chunk.url}#${frame.u.frameIndex}|${frame.v.chunk.url}#${frame.v.frameIndex}`
+    let pending = windFrameCache.get(key)
+    if (!pending) {
+      pending = Promise.all([
+        load(frame.u),
+        load(frame.v),
+        client.getHeader(frame.u.chunk),
+        client.getHeader(frame.v.chunk),
+      ]).then(([u, v, uHeader, vHeader]) => zipWindFrame(u, v, uHeader, vHeader))
+      windFrameCache.set(key, pending)
+      void pending.catch(() => windFrameCache.delete(key))
+    }
+    return pending
+  }
+
+  function attachTemperatureLayer(): void {
+    if (!map || map.getLayer('motregen-temperature')) return
+    temperatureLabelKey = ''
+    map.addSource('motregen-temperature', { type: 'geojson', data: emptyTemperatureData })
+    const dark = mapTheme() === 'dark'
+    map.addLayer({
+      id: 'motregen-temperature',
+      type: 'symbol',
+      source: 'motregen-temperature',
+      layout: {
+        'text-field': ['get', 'label'],
+        'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 8, 14],
+        'text-font': ['Noto Sans Regular'],
+        'text-allow-overlap': true,
+        'text-padding': 3,
+      },
+      paint: {
+        'text-color': dark ? '#f3fbfd' : '#102630',
+        'text-halo-color': dark ? '#102027' : '#ffffff',
+        'text-halo-width': 2,
+        'text-halo-blur': 0.6,
+      },
+    })
+  }
+
+  async function showTemperature(): Promise<void> {
+    const frames = activeTemperatureTimeline()
+    if (!frames.length || !map?.getSource('motregen-temperature')) return
+    const request = ++shownTemperatureRequest
+    const blend = frameBlend(frames, selectedEpoch())
+    try {
+      const leftFrame = frames[blend.left]!, rightFrame = frames[blend.right]!
+      const [left, right, leftHeader, rightHeader] = await Promise.all([
+        load(leftFrame), load(rightFrame), client.getHeader(leftFrame.chunk), client.getHeader(rightFrame.chunk),
+      ])
+      if (request !== shownTemperatureRequest || !map) return
+      const source = map.getSource('motregen-temperature') as GeoJSONSource | undefined
+      const labels = temperatureLabels(left, right, leftHeader, rightHeader, blend.mix)
+      const key = labels.features.map((feature) => feature.properties.label).join('|')
+      if (key !== temperatureLabelKey) {
+        temperatureLabelKey = key
+        source?.setData(labels)
+      }
+    } catch {
+      const source = map?.getSource('motregen-temperature') as GeoJSONSource | undefined
+      temperatureLabelKey = ''
+      source?.setData(emptyTemperatureData)
+    }
+  }
+
+  function selectedEpoch(): number {
+    const frames = timeline()
+    if (!frames.length) return 0
+    const lower = Math.floor(cursor()), upper = Math.min(frames.length - 1, Math.ceil(cursor()))
+    return frames[lower]!.epoch + (frames[upper]!.epoch - frames[lower]!.epoch) * (cursor() - lower)
   }
 
   function load(frame: TimelineFrame): Promise<Uint8Array> {
@@ -206,6 +338,13 @@ export default function App() {
   const intensity = createMemo(() => rainSeries()[Math.round(cursor())])
   const forecast = createMemo(() => buildHourlyForecast(timeline(), radiationTimeline(), manifest() ? Date.parse(manifest()!.now) : 0))
   const hasRadiation = createMemo(() => radiationTimeline().length > 0)
+  const hasTemperature = createMemo(() => tempTimeline().length > 0 || feelsLikeTimeline().length > 0)
+  const hasBothTemperatures = createMemo(() => tempTimeline().length > 0 && feelsLikeTimeline().length > 0)
+  const activeTemperatureTimeline = createMemo(() => {
+    if (temperatureField() === 'feels_like_c' && feelsLikeTimeline().length) return feelsLikeTimeline()
+    if (temperatureField() === 'temp_c' && tempTimeline().length) return tempTimeline()
+    return feelsLikeTimeline().length ? feelsLikeTimeline() : tempTimeline()
+  })
   const themeMeta = createMemo(() => theme() === 'light'
     ? { icon: '☀', label: 'Licht', next: 'systeem' }
     : theme() === 'system'
@@ -225,6 +364,12 @@ export default function App() {
     <section class="map-shell" aria-label="Regenkaart van Nederland">
       <div ref={mapElement} class="map" />
       <LocationSearch onSelect={chooseSearch} />
+      <Show when={hasBothTemperatures()}>
+        <div class="temperature-switch" role="group" aria-label="Temperatuurlaag">
+          <button classList={{ active: temperatureField() === 'temp_c' }} onClick={() => setTemperatureField('temp_c')}>Temperatuur</button>
+          <button classList={{ active: temperatureField() === 'feels_like_c' }} onClick={() => setTemperatureField('feels_like_c')}>Gevoel</button>
+        </div>
+      </Show>
       <div class="source">Bron: KNMI · Kaart: OpenFreeMap</div>
     </section>
     <aside class="dashboard">
