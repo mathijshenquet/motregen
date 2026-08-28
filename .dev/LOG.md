@@ -1,5 +1,21 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-08-28 — MIP-4 draft; T1 profiling follow-up merged
+
+- PO refined the sun idea: it's "moet ik me insmeren" (zonkracht/UV, low
+  spatial specificity fine), asked about KNMI sun-icon semantics (answered:
+  deterministic cloud+precip summary, not a probability), added temp +
+  feels-like as map layers, and set the constraint "veel info, niet
+  overweldigend" → wrote MIP-4 (informatielagen): one map field at a time
+  (rain default + cycler), detail lives in the hourly table, relevance-gated
+  chips (insmeer-chip only at UV≥3), extra fields via the contract `field`
+  mechanism at reduced resolution, UV as proxy from radiation+solar elevation
+  until an official zonkracht source is found. Three open questions for PO.
+- T1 profiling follow-up (PO-driven, sol, 4m57s): −0.76% instructions via
+  selector short-circuit, peak heap ~4 MB, churn dominated by ecCodes message
+  scan; custom GRIB1 scanner sensibly declined (10× under latency bar).
+  Gates independently re-run green; follow-up commits merged to main.
+
 ## 2026-08-28 — PO visual review → T3 merged; contract field-amendment; T3b
 
 - PO reviewed the preview and gave UX round 1: histogram must BE the scrubber;
