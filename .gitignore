@@ -1,4 +1,5 @@
 .env
+tmp/
 .direnv/
 .devenv/
 data/
@@ -6,4 +7,5 @@ node_modules/
 dist/
 target/
 .venv/
+target/
 __pycache__/
