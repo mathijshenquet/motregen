@@ -147,6 +147,30 @@ button { color: inherit; cursor: pointer; }
 .search-results small { flex: none; color: var(--muted); font-size: 10px; text-transform: capitalize; }
 .search-results p { margin: 0; padding: 11px 12px; color: var(--muted); font-size: 12px; }
 
+.temperature-switch {
+  position: absolute;
+  left: 12px;
+  top: 62px;
+  z-index: 4;
+  display: flex;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+}
+.temperature-switch button {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 10px;
+  font-weight: 700;
+}
+.temperature-switch button.active { color: var(--surface); background: var(--accent); }
+
 .dashboard { min-width: 0; background: var(--surface); }
 .current-weather {
   display: flex;
@@ -254,6 +278,7 @@ td small { color: var(--muted); font-size: 9px; }
   .scrub-surface { height: 150px; }
   .forecast-panel { padding: 22px 24px 36px; }
   .search { top: 18px; left: 18px; right: auto; width: min(390px, calc(100% - 90px)); }
+  .temperature-switch { top: 70px; left: 18px; }
   .maplibregl-ctrl-top-right { top: 8px; right: 8px; }
   th { position: sticky; top: -1px; z-index: 1; background: var(--surface); }
 }

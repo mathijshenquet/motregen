@@ -25,6 +25,8 @@ void main() {
   color = texture(u_lut, vec2(value, 0.5));
 }`
 
+const normalizedFrames = new WeakMap<Uint8Array, Uint8Array>()
+
 export class RainLayer implements CustomLayerInterface {
   readonly id = 'motregen-rain'
   readonly type = 'custom' as const
@@ -56,7 +58,7 @@ export class RainLayer implements CustomLayerInterface {
     const lut = texture(gl); this.lut = lut
     gl.activeTexture(gl.TEXTURE2)
     gl.bindTexture(gl.TEXTURE_2D, lut)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, colormap())
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, rainColormap())
   }
 
   setFrames(left: Uint8Array, right: Uint8Array, mix: number): void {
@@ -108,7 +110,12 @@ function upload(gl: WebGL2RenderingContext, target: WebGLTexture, grid: Grid, da
   gl.activeTexture(gl.TEXTURE0)
   gl.bindTexture(gl.TEXTURE_2D, target)
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, grid.width, grid.height, 0, gl.RED, gl.UNSIGNED_BYTE, data)
+  let normalized = normalizedFrames.get(data)
+  if (!normalized) {
+    normalized = neutralizeNoData(data)
+    normalizedFrames.set(data, normalized)
+  }
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, grid.width, grid.height, 0, gl.RED, gl.UNSIGNED_BYTE, normalized)
 }
 
 function link(gl: WebGL2RenderingContext, vertex: string, fragment: string): WebGLProgram {
@@ -124,14 +131,21 @@ function link(gl: WebGL2RenderingContext, vertex: string, fragment: string): Web
   return program
 }
 
-function colormap(): Uint8Array {
-  const stops = [[0, 0, 0, 0], [55, 54, 183, 255], [105, 31, 231, 190], [150, 255, 222, 44], [195, 255, 82, 35], [235, 188, 45, 214], [255, 188, 45, 214]]
+export function rainColormap(): Uint8Array {
+  const stops = [[0, 54, 183, 255], [55, 54, 183, 255], [105, 31, 231, 190], [150, 255, 222, 44], [195, 255, 82, 35], [235, 188, 45, 214], [255, 188, 45, 214]]
   const lut = new Uint8Array(256 * 4)
-  for (let value = 1; value < 255; value++) {
+  for (let value = 0; value < 255; value++) {
     let stop = 1; while (value > stops[stop]![0]) stop++
     const a = stops[stop - 1]!, b = stops[stop]!, mix = (value - a[0]!) / (b[0]! - a[0]!)
     for (let channel = 1; channel < 4; channel++) lut[value * 4 + channel - 1] = Math.round(a[channel]! + (b[channel]! - a[channel]!) * mix)
-    lut[value * 4 + 3] = Math.min(210, Math.round(75 + value * 0.55))
+    lut[value * 4 + 3] = Math.min(210, Math.round(value * 1.6))
   }
   return lut
+}
+
+export function neutralizeNoData(data: Uint8Array): Uint8Array {
+  if (!data.includes(255)) return data
+  const normalized = data.slice()
+  for (let index = 0; index < normalized.length; index++) if (normalized[index] === 255) normalized[index] = 0
+  return normalized
 }

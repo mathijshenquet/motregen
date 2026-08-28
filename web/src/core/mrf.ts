@@ -1,5 +1,5 @@
 import { decompress } from 'fzstd'
-import type { ManifestChunk, MrfHeader } from './contract'
+import { chunkField, type ManifestChunk, type MrfHeader } from './contract'
 
 const decoder = new TextDecoder()
 
@@ -14,7 +14,9 @@ export function parseMrfHeader(bytes: Uint8Array): MrfHeader {
 
 function validateHeader(header: MrfHeader): void {
   if (header.version !== 0 || header.grid.crs !== 'EPSG:3857') throw new Error('Niet-ondersteunde mrf-versie of projectie')
-  if (header.quant.length !== 256 || header.quant[0] !== 0 || header.quant[255] !== null) throw new Error('Ongeldige kwantisatietabel')
+  const field = chunkField(header)
+  const zeroBased = field === 'rain_rate' || field === 'radiation'
+  if (header.quant.length !== 256 || header.quant[255] !== null || (zeroBased && header.quant[0] !== 0)) throw new Error('Ongeldige kwantisatietabel')
   if (header.dict !== null || header.grid.width < 1 || header.grid.height < 1) throw new Error('Ongeldige mrf-header')
 }
 
