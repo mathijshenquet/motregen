@@ -6,6 +6,8 @@ import WeatherIcon from './components/WeatherIcon'
 import { loadBasemapStyle, type MapTheme } from './core/basemap'
 import type { Field, Grid, Manifest, ManifestChunk, TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
+
+const DAY_NIGHT_ENABLED = false
 import { buildHourlyForecast } from './core/forecast'
 import { mapFrameFromGrid } from './core/map-frame'
 import { MrfClient } from './core/mrf'
