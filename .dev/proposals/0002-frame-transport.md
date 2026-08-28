@@ -1,6 +1,6 @@
 # MIP-2: encoding & transport van regenframes
 
-Status: draft
+Status: accepted (PO, 2026-08-28)
 Auteur: orchestrator (fable)
 
 ## 1. Het probleem
@@ -44,10 +44,22 @@ formaat met een publieke spec is de normdoorbrekende maar eerlijke optie.
 
 **v1: een eigen binair formaat ("mrf"), intra-only, zstd.** Per chunk-file:
 
-- header: magic + versie, griddefinitie (projectie, origin, celgrootte,
-  B×H), de kwantisatietabel, frame-aantal, metadata per frame
-  (geldigheidstijd, bron, run);
-- payload: per frame het zstd-gecomprimeerde 8-bit veld. Waarde 0 = droog,
+- header (vaste-grootte prefix, apart fetchbaar met één kleine range-request):
+  magic + versie, griddefinitie (projectie, origin, celgrootte, B×H), de
+  kwantisatietabel, frame-aantal, metadata per frame (geldigheidstijd, bron,
+  run) én een **frame-offset-index** (byte-offset + lengte van elk
+  gecomprimeerd frame);
+- payload: per frame het zstd-gecomprimeerde 8-bit veld, elk frame een
+  onafhankelijk zstd-member.
+
+De offset-index maakt twee dingen gratis: **HTTP Range-requests** op een
+willekeurige frame-range binnen een chunk (de statische webserver doet het
+werk), en **progressive decode** — bij een streaming fetch decodeert de
+worker elk frame zodra zijn bytes binnen zijn, dus frames rond "nu" zijn
+zichtbaar terwijl de rest nog laadt. Voor cross-frame compressiewinst zónder
+frames van elkaar afhankelijk te maken reserveert de header een veld voor een
+optionele per-chunk zstd-dictionary (v1 laat het leeg; alleen aanzetten als
+T2-metingen erom vragen). Waarde 0 = droog,
   255 = no-data-masker, 1–254 = regenintensiteit op een stuksgewijs-logschaal
   (~0,1…100+ mm/u — past op de perceptuele én meteorologische dynamiek; de
   exacte tabel wordt in de T2-spec vastgelegd en reist mee in de header,
@@ -80,8 +92,20 @@ een gemeten antwoord in plaats van een vibe.
 3. **Alleen regenintensiteit shippen** (aanbevolen) of vanaf dag één ook
    reflectiviteit/andere velden in de container?
 
+## 5. Besluit (PO, 2026-08-28)
+
+- **Intra-only** in v1 — YAGNI op delta-frames. Wél wil de PO frame-ranges
+  kunnen requesten en het liefst progressief kunnen decoderen; daarom is de
+  frame-offset-index in de header onderdeel van v1 (zie §3), plus het
+  gereserveerde dictionary-veld voor eventuele latere cross-frame winst.
+- **Kwantisatievloer**: KNMI's fijne 0,01 mm/u-stappen onderin behouden. De
+  "droog"-weergavedrempel is een frontend-keuze en kan later altijd nog.
+- **Alleen rain rate** in v1; geen reflectiviteit of andere velden.
+
 ## Changelog
 
 - 2026-08-28: draft (Engels).
 - 2026-08-28: vertaald naar NL (besluit MIP-1 §5); frame-aantallen bijgewerkt
   op de 3 u/+24 u-snit uit MIP-1.
+- 2026-08-28: accepted; bij adoptie §3 aangevuld met frame-offset-index,
+  range-requests/progressive decode en het optionele dictionary-veld.

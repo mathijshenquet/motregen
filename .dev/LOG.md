@@ -1,5 +1,20 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-08-28 — MIP-2 accepted
+
+- PO adopted MIP-2 with calls: intra-only (YAGNI), quantization floor stays at
+  0.01 mm/h (display threshold is a frontend concern), rain rate only. He asked
+  for frame-range requests and ideally progressive decode → format amended at
+  adoption: fixed-size header with a frame-offset-index (byte offset + length
+  per compressed frame), frames as independent zstd members ⇒ HTTP Range on
+  arbitrary frame ranges + decode-as-bytes-arrive; reserved per-chunk
+  dictionary field for later cross-frame wins (empty in v1).
+- PO also noted RainViewer runs on maplibre-gl and looks fine — supports the
+  MIP-1 map choice.
+- Open with Mathijs: MIP-1 §4 stack sanction (Rust + SolidJS/Tailwind) and the
+  two KNMI keys (Open Data API + Notification Service). Open for agents:
+  T-specs start the moment MIP-1 lands.
+
 ## 2026-08-28 — PO-ronde 1 op MIP-1
 
 - PO answered MIP-1: 3 h history, +24 h midcast (not 48), dev on ageq-mthq +
