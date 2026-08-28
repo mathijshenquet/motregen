@@ -18,6 +18,7 @@ Het enige bestand dat de client pollt. JSON:
     {
       "url": "chunks/rtcor-20260828T1200.mrf",  // relatief aan het manifest
       "source": "rtcor",                  // "rtcor" | "nowcast" | "harmonie"
+      "field": "rain_rate",               // optioneel; ontbreekt ⇒ "rain_rate". Ook: "radiation"
       "run": "2026-08-28T12:00:00Z",      // run-/referentietijd van de bron
       "header_len": 1342,                 // totale headerlengte in bytes (magic t/m JSON)
       "times": ["2026-08-28T12:00:00Z", "2026-08-28T12:05:00Z"]  // geldigheidstijden, volgorde = frame-volgorde in de chunk
@@ -26,8 +27,8 @@ Het enige bestand dat de client pollt. JSON:
 }
 ```
 
-Tijdlijncompositie (client): verzamel alle frames uit alle chunks, sorteer op
-tijd; bij meerdere frames voor dezelfde tijd wint regime-prioriteit
+Tijdlijncompositie (client): per veld; verzamel alle frames uit alle chunks
+van dat veld, sorteer op tijd; bij meerdere frames voor dezelfde tijd wint regime-prioriteit
 `rtcor > nowcast > harmonie` (gemeten verslaat voorspeld), daarbinnen de
 recentste run. `header_len` bestaat zodat de client de chunk-header met één
 exacte Range-request kan halen.
@@ -47,6 +48,7 @@ JSON-header:
 ```jsonc
 {
   "version": 0,
+  "field": "rain_rate",     // optioneel; ontbreekt ⇒ "rain_rate". Ook: "radiation" (W/m²)
   "grid": {
     "crs": "EPSG:3857",
     "x0": 364958.0,       // web-mercator x van de WESTrand (linkerrand cel 0)
@@ -69,8 +71,9 @@ JSON-header:
 
 - Velden zijn row-major, rij 0 = noordrand, kolom 0 = westrand.
 - Elk frame decomprimeert naar exact `width × height` bytes.
-- `quant` is de byte→mm/u-tabel: 256 entries; index 0 is altijd `0.0`
-  (droog), index 255 is altijd `null` (no-data-masker). De client rekent
+- `quant` is de byte→waarde-tabel in de eenheid van het veld (`rain_rate`:
+  mm/u; `radiation`: W/m²): 256 entries; index 0 is altijd `0.0`
+  (droog resp. donker), index 255 is altijd `null` (no-data-masker). De client rekent
   uitsluitend via deze tabel (intensity meter én colormap-input), nooit via
   een eigen schaal. Exacte productiecurve volgt in T2 (MIP-2: stuksgewijs-log,
   vloer 0,01 mm/u); synthetische data mag elke geldige tabel gebruiken.
@@ -86,3 +89,11 @@ Het exacte gedeelde grid (afmetingen/extent) wordt in T1/T2 bepaald; clients
 mogen dus geen afmetingen aannemen. De kwantisatietabel idem. Het contract
 zelf (layout, semantiek) is bevroren op versie 0; versiebump = nieuwe magic
 niet nodig, `version`-veld leidt.
+
+## Changelog
+
+- 2026-08-28: v0 vastgepind.
+- 2026-08-28: additief amendement (PO-verzoek zonactiviteit): optionele
+  `field`-sleutel op manifest-chunk en mrf-header, default `"rain_rate"`;
+  tweede veld `"radiation"` (W/m²) voor de per-uur zon/forecast-tabel.
+  Bestaande implementaties zonder `field` blijven geldig.

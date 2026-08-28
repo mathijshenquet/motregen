@@ -1,5 +1,25 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-08-28 — PO visual review → T3 merged; contract field-amendment; T3b
+
+- PO reviewed the preview and gave UX round 1: histogram must BE the scrubber;
+  search box missing; layout pass; hourly forecast table incl. sun activity;
+  light mode default with a light/system/dark cycler; basemap less
+  traffic-focused (no roads). Direction approved implicitly → merged T3
+  (PR #1) to main.
+- Sun in the hourly table needs a second data field → additive contract
+  amendment: optional `field` key (default `rain_rate`), new `radiation`
+  (W/m²); MIP-2 §5 rain-rate-only besluit amended (changelog). Backwards
+  compatible so terra's in-flight T2a stays valid; terra gets a soft steer to
+  optionally include the key in serde types.
+- Wrote `.dev/specs/track-t3b-ux-round1.md` (sol): the seven PO changes incl.
+  PDOK Locatieserver for search (free, no key, NL-authoritative).
+- PO sent T1's pane a perf follow-up himself (Python-vs-Rust delta; why not
+  faster) — watcher armed on that pane; any new commits on the merged t1
+  branch will need a follow-up merge.
+- T2 spec (ingest daemon) queued on T2a landing; will include radiation
+  extraction from AROME + download/cadence strategy for the hourly 868 MB tars.
+
 ## 2026-08-28 — T3 done+verified (awaiting PO eyes); T1 done+verified+MERGED
 
 - T3 (sol, 8m09s): full shell on synthetic data, PR #1. Independently re-ran

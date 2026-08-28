@@ -109,3 +109,7 @@ een gemeten antwoord in plaats van een vibe.
   op de 3 u/+24 u-snit uit MIP-1.
 - 2026-08-28: accepted; bij adoptie §3 aangevuld met frame-offset-index,
   range-requests/progressive decode en het optionele dictionary-veld.
+- 2026-08-28: amendement op §5 "alleen rain rate" (PO-verzoek
+  zonactiviteit/uurtabel): het contract kreeg een optionele `field`-sleutel
+  (default `rain_rate`); `radiation` (W/m²) komt erbij zodra T2 het uit AROME
+  levert. Rain rate blijft het enige kaart-veld; radiation voedt de uurtabel.
