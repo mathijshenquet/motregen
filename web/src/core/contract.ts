@@ -31,6 +31,17 @@ export interface FrameIndex {
   time: string
   offset: number
   len: number
+  motion?: PayloadIndex
+}
+
+export interface PayloadIndex {
+  offset: number
+  len: number
+}
+
+export interface MotionGrid {
+  bw: number
+  bh: number
 }
 
 export interface MrfHeader {
@@ -41,6 +52,7 @@ export interface MrfHeader {
   source: Source
   run: string
   frames: FrameIndex[]
+  motion_grid?: MotionGrid
   dict: null
 }
 

@@ -2,12 +2,13 @@ import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ZstdCodec } from 'zstd-codec'
-import type { Field, Grid, Manifest, ManifestChunk, MrfHeader, Source } from '../src/core/contract'
+import type { Field, FrameIndex, Grid, Manifest, ManifestChunk, MotionGrid, MrfHeader, Source } from '../src/core/contract'
 import { solarElevationSin } from '../src/core/solar'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const dataDir = resolve(root, 'public/data')
 const grid: Grid = { crs: 'EPSG:3857', x0: 320_000, y0: 7_170_000, dx: 3_000, dy: -3_000, width: 190, height: 230 }
+const motionGrid: MotionGrid = { bw: 19, bh: 23 }
 const now = Date.parse('2026-08-28T15:00:00Z')
 const rainQuant: Array<number | null> = [0]
 for (let i = 1; i < 255; i++) rainQuant.push(Number((0.01 * Math.pow(150 / 0.01, (i - 1) / 253)).toFixed(4)))
@@ -41,22 +42,55 @@ for (const field of ['temp_c', 'feels_like_c', 'wind_u_ms', 'wind_v_ms', 'rel_hu
 
 function iso(epoch: number): string { return new Date(epoch).toISOString().replace('.000', '') }
 
+interface RainCell {
+  x: number
+  y: number
+  rx: number
+  ry: number
+  peak: number
+  vx: number
+  vy: number
+}
+
+function rainCells(epoch: number): RainCell[] {
+  const minutes = (epoch - now) / 60_000
+  return [
+    { x: 62 + minutes * 0.1, y: 80 + minutes * 0.1, rx: 25, ry: 15, peak: 18, vx: 0.1, vy: 0.1 },
+    { x: 118 + minutes * 0.1, y: 135, rx: 16, ry: 30, peak: 55, vx: 0.1, vy: 0 },
+    { x: 38 + minutes * 0.1, y: 175 - minutes * 0.1, rx: 34, ry: 20, peak: 3.5, vx: 0.1, vy: -0.1 },
+  ]
+}
+
 function makeFrame(epoch: number, source: Source, ordinal: number): Uint8Array {
   const values = new Uint8Array(grid.width * grid.height)
   if ((source === 'rtcor' && ordinal === 7) || (source === 'harmonie' && ordinal > 20)) return values
-  const minutes = (epoch - now) / 60_000
-  const cells = [
-    { x: 62 + minutes * 0.035, y: 80 + minutes * 0.012, rx: 25, ry: 15, peak: 18 },
-    { x: 118 + minutes * 0.018, y: 135 - minutes * 0.006, rx: 16, ry: 30, peak: 55 },
-    { x: 38 + minutes * 0.022, y: 175 - minutes * 0.009, rx: 34, ry: 20, peak: 3.5 },
-  ]
+  const cells = rainCells(epoch)
   for (let y = 0; y < grid.height; y++) for (let x = 0; x < grid.width; x++) {
     let rain = 0
     for (const cell of cells) {
       const radius = ((x - cell.x) / cell.rx) ** 2 + ((y - cell.y) / cell.ry) ** 2
-      if (radius < 1) rain += cell.peak * (1 - radius) ** 2 * (0.78 + 0.22 * Math.sin(x * 0.31 + y * 0.19 + ordinal))
+      if (radius < 1) rain += cell.peak * (1 - radius) ** 2 * (0.78 + 0.22 * Math.sin((x - cell.x) * 0.31 + (y - cell.y) * 0.19))
     }
     values[y * grid.width + x] = encodeRain(Math.max(0, rain))
+  }
+  return values
+}
+
+function makeMotion(previousEpoch: number, epoch: number): Uint8Array {
+  const values = new Uint8Array(motionGrid.bw * motionGrid.bh * 2)
+  const cells = rainCells((previousEpoch + epoch) / 2)
+  for (let by = 0; by < motionGrid.bh; by++) for (let bx = 0; bx < motionGrid.bw; bx++) {
+    const x = (bx + 0.5) * grid.width / motionGrid.bw - 0.5
+    const y = (by + 0.5) * grid.height / motionGrid.bh - 0.5
+    let closest = cells[0]!
+    let closestRadius = Number.POSITIVE_INFINITY
+    for (const cell of cells) {
+      const radius = ((x - cell.x) / cell.rx) ** 2 + ((y - cell.y) / cell.ry) ** 2
+      if (radius < closestRadius) { closest = cell; closestRadius = radius }
+    }
+    const index = (by * motionGrid.bw + bx) * 2
+    values[index] = Math.round(closest.vx * 10)
+    values[index + 1] = Math.round(closest.vy * 10)
   }
   return values
 }
@@ -163,7 +197,21 @@ async function main(): Promise<void> {
   const chunks: ManifestChunk[] = []
   for (const plan of plans) {
     const compressed = plan.times.map((time, index) => compressor.compress(frameFor(plan, time, index), 9))
+    const compressedMotion = plan.field === 'rain_rate'
+      ? plan.times.map((time, index) => index === 0 ? undefined : compressor.compress(makeMotion(plan.times[index - 1]!, time), 9))
+      : plan.times.map(() => undefined)
     let offset = 0
+    const frames: FrameIndex[] = plan.times.map((time, index) => {
+      const frame = { time: iso(time), offset, len: compressed[index]!.length }
+      offset += frame.len
+      return frame
+    })
+    for (let index = 0; index < frames.length; index++) {
+      const motion = compressedMotion[index]
+      if (!motion) continue
+      frames[index]!.motion = { offset, len: motion.length }
+      offset += motion.length
+    }
     const header: MrfHeader = {
       version: 0,
       field: plan.field,
@@ -172,17 +220,14 @@ async function main(): Promise<void> {
       source: plan.source,
       run: iso(plan.run),
       dict: null,
-      frames: plan.times.map((time, index) => {
-        const frame = { time: iso(time), offset, len: compressed[index]!.length }
-        offset += frame.len
-        return frame
-      }),
+      frames,
+      ...(plan.field === 'rain_rate' ? { motion_grid: motionGrid } : {}),
     }
     const json = new TextEncoder().encode(JSON.stringify(header))
     const prefix = new Uint8Array(8)
     prefix.set(new TextEncoder().encode('mrf0'))
     new DataView(prefix.buffer).setUint32(4, json.length, true)
-    const file = Buffer.concat([prefix, json, ...compressed])
+    const file = Buffer.concat([prefix, json, ...compressed, ...compressedMotion.filter((member): member is Uint8Array => member !== undefined)])
     await writeFile(resolve(dataDir, 'chunks', plan.name), file)
     chunks.push({ url: `chunks/${plan.name}`, source: plan.source, field: plan.field, run: iso(plan.run), header_len: 8 + json.length, times: plan.times.map(iso) })
   }

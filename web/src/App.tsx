@@ -238,11 +238,20 @@ export default function App() {
     const lower = Math.floor(cursor()), upper = Math.min(frames.length - 1, Math.ceil(cursor()))
     const epoch = frames[lower]!.epoch + (frames[upper]!.epoch - frames[lower]!.epoch) * (cursor() - lower)
     const blend = frameBlend(frames, epoch)
-    const [left, right] = await Promise.all([load(frames[blend.left]!), load(frames[blend.right]!)])
+    const leftFrame = frames[blend.left]!, rightFrame = frames[blend.right]!
+    const motionApplies = leftFrame.chunk.url === rightFrame.chunk.url && rightFrame.frameIndex === leftFrame.frameIndex + 1
+    const [left, right, motion] = await Promise.all([
+      load(leftFrame),
+      load(rightFrame),
+      motionApplies ? client.getMotion(rightFrame.chunk, rightFrame.frameIndex).catch(() => undefined) : undefined,
+    ])
     if (request !== shownFrameRequest || !layer || !map) return
-    layer.setFrames(left, right, blend.mix)
+    layer.setFrames(left, right, blend.mix, motion, (rightFrame.epoch - leftFrame.epoch) / 60_000)
     map.triggerRepaint()
-    for (const near of frames.slice(Math.max(0, lower - 2), upper + 4)) client.prefetch(near.chunk, [near.frameIndex])
+    for (const near of frames.slice(Math.max(0, lower - 2), upper + 4)) {
+      client.prefetch(near.chunk, [near.frameIndex])
+      client.prefetchMotion(near.chunk, [near.frameIndex])
+    }
   }
 
   async function discoverWindGrid(): Promise<void> {
