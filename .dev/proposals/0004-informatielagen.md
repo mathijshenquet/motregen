@@ -130,6 +130,11 @@ synthetische straling.
   luchtvochtigheid, wind, regen — daarvoor nieuwe velden rel_humidity en
   cloud_frac (bewolking alléén voor pictogram-afleiding, nooit als
   kaartlaag).
+- 2026-08-28: amendement (PO, ronde 6): trails in dark mode "super mooi";
+  light mode nog te licht → contrast per thema bijtrekken; en de
+  particle/trail-rendering moet zoom-bewust (framebuffer op
+  device-pixelresolutie, her-seeden per viewport bij zoom — geen pixelatie
+  bij inzoomen). In T3e gestoken.
 - 2026-08-28: amendement (PO, ronde 5): wind-particles zijn te subtiel
   (alleen in dark mode nauwelijks zichtbaar) → upgrade naar Windy-stijl
   particles mét fading trails (fade-framebuffer), duidelijk zichtbaar in
