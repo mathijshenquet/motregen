@@ -1,5 +1,26 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-08-28 — codex re-auth incident; MIP-3; T2a launched
+
+- Incident: a codex re-auth wiped `~/.codex/config.toml` defaults → workers
+  started asking approval per command prefix. Restored defaults
+  (approval_policy never, danger-full-access, sol/high) + trusted the herdr
+  worktrees dir; Mathijs additionally set both sessions to yolo and restarted
+  them himself with continue-prompts. Both T1/T3 confirmed working again.
+  Lesson: after any codex re-auth, CHECK config.toml before launching workers.
+- PO asked: map track? codec track (server+client)? and ultra-cheap hosting
+  (Hetzner/Cloudflare; in-memory serving?). Answers: map is already in T3;
+  client mrf decode is in T3; server-side mrf encoder now split off as T2a
+  (terra, tight spec — format fully pinned); video-codec epsilon stays gated
+  on real frames per MIP-2. Hosting → wrote MIP-3 draft (origin box + Caddy
+  static + Cloudflare free, HTTP cache contract; no custom in-memory server —
+  page cache does that already). Awaiting PO on MIP-3's three questions.
+- Wrote `.dev/specs/track-t2a-mrf-core.md` (quant table v0 pinned: geometric
+  0.01→150 mm/h over indices 1..254; zstd level measured 3 vs 19; golden
+  fixtures; mrf CLI). Known merge point: workspace root Cargo.toml created by
+  both T1 and T2a — orchestrator resolves at merge.
+- In flight: T1 (sol), T3 (sol), T2a (terra).
+
 ## 2026-08-28 — MIP-1 accepted; contract pinned; T1+T3 launched
 
 - PO sanctioned the stack: Rust ingest ("geen super positieve ervaring met
