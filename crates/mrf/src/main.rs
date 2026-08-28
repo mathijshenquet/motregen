@@ -31,6 +31,13 @@ enum Command {
         #[arg(long)]
         output: PathBuf,
     },
+    /// Extract one motion annex as raw row-major i8 (u, v) pairs.
+    DumpMotion {
+        chunk: PathBuf,
+        frame_idx: usize,
+        #[arg(long)]
+        output: PathBuf,
+    },
 }
 
 #[derive(Deserialize)]
@@ -53,9 +60,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("{}", serde_json::to_string_pretty(&index.header)?);
             println!("frame table (payload-relative):");
             for (number, frame) in index.header.frames.iter().enumerate() {
+                let motion = frame.motion.as_ref().map_or_else(
+                    || "none".to_owned(),
+                    |motion| format!("offset={} len={}", motion.offset, motion.len),
+                );
                 println!(
-                    "{number}: {} offset={} len={}",
-                    frame.time, frame.offset, frame.len
+                    "{number}: {} offset={} len={} motion={motion}",
+                    frame.time, frame.offset, frame.len,
                 );
             }
         }
@@ -109,6 +120,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .get(frame_idx)
                 .ok_or("frame index is outside the chunk")?;
             fs::write(output, frame)?;
+        }
+        Command::DumpMotion {
+            chunk,
+            frame_idx,
+            output,
+        } => {
+            let bytes = fs::read(chunk)?;
+            let index = parse_header(&bytes)?;
+            let range = index.motion_range(frame_idx)?;
+            let motion = index.decode_motion(
+                frame_idx,
+                &bytes[usize::try_from(range.start)?..usize::try_from(range.end)?],
+            )?;
+            fs::write(
+                output,
+                motion
+                    .into_iter()
+                    .map(|value| value as u8)
+                    .collect::<Vec<_>>(),
+            )?;
         }
     }
     Ok(())

@@ -6,7 +6,9 @@ dependencies = [
   "cfgrib>=0.9.15",
   "h5py>=3.16",
   "numpy>=2.0",
+  "matplotlib>=3.10",
   "pyproj>=3.7",
+  "pysteps>=1.18",
   "xarray>=2025.1",
   "zstandard>=0.23",
 ]

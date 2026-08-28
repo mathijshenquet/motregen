@@ -1,7 +1,7 @@
 use base64::{Engine, engine::general_purpose::STANDARD};
 use mrf::{
-    COMPRESSION_LEVEL, ChunkMeta, Grid, decode, encode, parse_header, quantization_table, quantize,
-    quantize_with_table,
+    COMPRESSION_LEVEL, ChunkMeta, Grid, MotionGrid, decode, encode, encode_with_motion,
+    parse_header, quantization_table, quantize, quantize_with_table,
 };
 use proptest::prelude::*;
 
@@ -146,6 +146,7 @@ fn golden_chunk_decodes_byte_exactly() {
         .unwrap();
     let decoded = decode(&fixture).unwrap();
     assert_eq!(decoded.frames, vec![vec![0, 1, 255, 254], vec![3, 4, 5, 6]]);
+    assert_eq!(decoded.motions, vec![None, None]);
     assert_eq!(
         encode(
             &decoded.frames,
@@ -165,6 +166,82 @@ fn golden_chunk_decodes_byte_exactly() {
         )
         .unwrap(),
         fixture
+    );
+}
+
+#[test]
+fn motion_annex_roundtrips_through_full_and_ranged_decoders() {
+    let frames = vec![vec![0, 1, 2, 3], vec![4, 5, 6, 7], vec![8, 9, 10, 11]];
+    let motions = vec![
+        None,
+        Some(vec![10, -5, -128, -128]),
+        Some(vec![11, -4, 9, -6]),
+    ];
+    let chunk = encode_with_motion(
+        &frames,
+        &meta(2, 2, frames.len()),
+        MotionGrid { bw: 2, bh: 1 },
+        &motions,
+    )
+    .unwrap();
+    let fixture = STANDARD
+        .decode(
+            include_str!("fixtures/golden-motion.mrf.b64")
+                .lines()
+                .collect::<String>(),
+        )
+        .unwrap();
+    assert_eq!(chunk, fixture);
+    let index = parse_header(&chunk).unwrap();
+    assert_eq!(index.header.motion_grid, Some(MotionGrid { bw: 2, bh: 1 }));
+    assert!(index.header.frames[0].motion.is_none());
+    for (frame_index, expected) in motions.iter().enumerate().skip(1) {
+        let range = index.motion_range(frame_index).unwrap();
+        assert_eq!(
+            index
+                .decode_motion(
+                    frame_index,
+                    &chunk[range.start as usize..range.end as usize]
+                )
+                .unwrap(),
+            *expected.as_ref().unwrap()
+        );
+    }
+    let decoded = decode(&chunk).unwrap();
+    assert_eq!(decoded.frames, frames);
+    assert_eq!(decoded.motions, motions);
+}
+
+#[test]
+fn motion_annex_rejects_bad_shape_and_half_no_data() {
+    let frames = vec![vec![0], vec![1]];
+    let metadata = meta(1, 1, 2);
+    assert!(
+        encode_with_motion(
+            &frames,
+            &metadata,
+            MotionGrid { bw: 1, bh: 1 },
+            &[None, Some(vec![0])],
+        )
+        .is_err()
+    );
+    assert!(
+        encode_with_motion(
+            &frames,
+            &metadata,
+            MotionGrid { bw: 1, bh: 1 },
+            &[None, Some(vec![-128, 0])],
+        )
+        .is_err()
+    );
+    assert!(
+        encode_with_motion(
+            &frames,
+            &metadata,
+            MotionGrid { bw: 1, bh: 1 },
+            &[Some(vec![0, 0]), Some(vec![0, 0])],
+        )
+        .is_err()
     );
 }
 
