@@ -19,6 +19,8 @@ pub const AROME_DATASET: &str = "harmonie_arome_cy43_p1";
 pub const AROME_VERSION: &str = "1.0";
 pub const UV_DATASET: &str = "cloud_modified_UV_index_benelux";
 pub const UV_VERSION: &str = "1.0";
+pub const SEAMLESS_DATASET: &str = "seamless_precipitation_ensemble_forecast_members";
+pub const SEAMLESS_VERSION: &str = "1.0";
 const CHUNK_FORMAT_GENERATION: u32 = 1;
 
 pub fn latest_files(
@@ -120,6 +122,49 @@ pub fn build_nowcast_chunk(
         &format!("m{horizon_minutes}"),
     )?;
     Ok((chunk, product.grid))
+}
+
+pub fn build_seamless_chunk(
+    api: &ApiClient,
+    cache_root: &Path,
+    start_after_minutes: u32,
+) -> Result<ProducedChunk> {
+    ensure!(
+        start_after_minutes < 360,
+        "nowcast horizon must be shorter than the seamless horizon"
+    );
+    let file = latest_files(api, SEAMLESS_DATASET, SEAMLESS_VERSION, 1)?
+        .into_iter()
+        .next()
+        .expect("checked non-empty file list");
+    let path = api.cache_file(
+        SEAMLESS_DATASET,
+        SEAMLESS_VERSION,
+        &file,
+        &cache_root.join("seamless"),
+    )?;
+    let product = knmi_hdf5::decode_seamless(path, start_after_minutes)?;
+    let map = IndexMap::seamless(&product.grid)?;
+    let run_time = DateTime::parse_from_rfc3339(&product.run)?;
+    let mut frames = Vec::with_capacity(product.frames.len());
+    let mut times = Vec::with_capacity(product.frames.len());
+    for frame in product.frames {
+        times.push(frame.time);
+        frames.push(quantize_gathered(&map, &frame.rates_mm_h)?);
+    }
+    let first_time = DateTime::parse_from_rfc3339(times.first().context("no seamless frames")?)?;
+    let last_time = DateTime::parse_from_rfc3339(times.last().context("no seamless frames")?)?;
+    let first_lead = (first_time - run_time).num_minutes();
+    let last_lead = (last_time - run_time).num_minutes();
+    let meta = mrf::ChunkMeta::standard(SHARED_GRID.mrf_grid(), "seamless", &product.run, times);
+    let filename = generated_chunk_filename(
+        &format!(
+            "seamless-{}-m{first_lead}-{last_lead}",
+            compact_timestamp(&product.run)?
+        ),
+        &meta,
+    );
+    produced_chunk(filename, encode_rain_with_motion(&frames, &meta)?)
 }
 
 fn radar_frames_to_chunk(

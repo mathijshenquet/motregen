@@ -12,8 +12,9 @@ use motregen_ingest::{
     api::ApiClient,
     pipeline::{
         AROME_DATASET, AROME_VERSION, NOWCAST_DATASET, NOWCAST_VERSION, RTCOR_DATASET,
-        RTCOR_VERSION, UV_DATASET, UV_VERSION, build_arome_chunks, build_nowcast_chunk,
-        build_rtcor_chunk, build_uv_chunk, latest_files, prune_download_cache,
+        RTCOR_VERSION, SEAMLESS_DATASET, SEAMLESS_VERSION, UV_DATASET, UV_VERSION,
+        build_arome_chunks, build_nowcast_chunk, build_rtcor_chunk, build_seamless_chunk,
+        build_uv_chunk, latest_files, prune_download_cache,
     },
     publisher::{ProducedChunk, publish},
 };
@@ -34,6 +35,13 @@ struct Config {
         value_parser = parse_duration
     )]
     radar_cadence: Duration,
+    #[arg(
+        long,
+        env = "MOTREGEN_SEAMLESS_CADENCE",
+        default_value = "15m",
+        value_parser = parse_duration
+    )]
+    seamless_cadence: Duration,
     #[arg(
         long,
         env = "MOTREGEN_AROME_CADENCE",
@@ -86,13 +94,16 @@ struct Daemon {
     cache_root: PathBuf,
     rtcor_id: Option<String>,
     nowcast_id: Option<String>,
+    seamless_id: Option<String>,
     arome_id: Option<String>,
     uv_id: Option<String>,
     rtcor: Option<ProducedChunk>,
     nowcast: Option<ProducedChunk>,
+    seamless: Option<ProducedChunk>,
     arome: Vec<ProducedChunk>,
     uv: Option<ProducedChunk>,
     last_arome_check: Option<Instant>,
+    last_seamless_check: Option<Instant>,
     last_uv_check: Option<Instant>,
 }
 
@@ -111,13 +122,16 @@ impl Daemon {
             cache_root,
             rtcor_id: None,
             nowcast_id: None,
+            seamless_id: None,
             arome_id: None,
             uv_id: None,
             rtcor: None,
             nowcast: None,
+            seamless: None,
             arome: Vec::new(),
             uv: None,
             last_arome_check: None,
+            last_seamless_check: None,
             last_uv_check: None,
         })
     }
@@ -126,6 +140,7 @@ impl Daemon {
         info!("startup backfill begins");
         self.refresh_rtcor()?;
         self.refresh_nowcast()?;
+        self.refresh_seamless()?;
         self.refresh_arome()?;
         self.refresh_uv()?;
         self.publish()?;
@@ -171,6 +186,36 @@ impl Daemon {
         self.nowcast_id = Some(latest.filename);
         self.nowcast = Some(chunk);
         Ok(true)
+    }
+
+    fn refresh_seamless(&mut self) -> Result<bool> {
+        let checked_at = Instant::now();
+        let latest = latest_files(&self.api, SEAMLESS_DATASET, SEAMLESS_VERSION, 1)?
+            .into_iter()
+            .next()
+            .expect("checked non-empty seamless list");
+        if self.seamless_id.as_deref() == Some(&latest.filename) {
+            self.last_seamless_check = Some(checked_at);
+            info!(file = latest.filename, "seamless check found no newer run");
+            return Ok(false);
+        }
+        let started = Instant::now();
+        let chunk = build_seamless_chunk(&self.api, &self.cache_root, self.config.nowcast_minutes)?;
+        info!(
+            file = latest.filename,
+            frames = chunk.manifest.times.len(),
+            elapsed_seconds = started.elapsed().as_secs_f64(),
+            "seamless ensemble-median refresh decoded"
+        );
+        self.seamless_id = Some(latest.filename);
+        self.seamless = Some(chunk);
+        self.last_seamless_check = Some(checked_at);
+        Ok(true)
+    }
+
+    fn seamless_due(&self) -> bool {
+        self.last_seamless_check
+            .is_none_or(|last| last.elapsed() >= self.config.seamless_cadence)
     }
 
     fn arome_due(&self) -> bool {
@@ -243,6 +288,7 @@ impl Daemon {
     fn publish(&self) -> Result<()> {
         let rtcor = self.rtcor.as_ref().context("RTCOR is not ready")?;
         let nowcast = self.nowcast.as_ref().context("nowcast is not ready")?;
+        let seamless = self.seamless.as_ref().context("seamless is not ready")?;
         if self.arome.is_empty() {
             anyhow::bail!("AROME is not ready");
         }
@@ -252,7 +298,7 @@ impl Daemon {
             .last()
             .context("RTCOR chunk has no frames")?
             .clone();
-        let mut chunks = vec![rtcor, nowcast];
+        let mut chunks = vec![rtcor, nowcast, seamless];
         chunks.extend(self.arome.iter());
         if let Some(uv) = &self.uv {
             chunks.push(uv);
@@ -278,6 +324,14 @@ impl Daemon {
             Ok(value) => changed |= value,
             Err(error) => {
                 error!(error = %format!("{error:#}"), "nowcast refresh failed; retaining published chunk")
+            }
+        }
+        if self.seamless_due() {
+            match self.refresh_seamless() {
+                Ok(value) => changed |= value,
+                Err(error) => {
+                    error!(error = %format!("{error:#}"), "seamless refresh failed; retaining published chunk")
+                }
             }
         }
         if self.arome_due() {

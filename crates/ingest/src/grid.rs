@@ -1,6 +1,6 @@
 use anyhow::{Result, ensure};
 use knmi_grib::GridDefinition as AromeGrid;
-use knmi_hdf5::{RadarGrid, UvGrid};
+use knmi_hdf5::{RadarGrid, SeamlessGrid, UvGrid};
 
 const WEB_MERCATOR_RADIUS_M: f64 = 6_378_137.0;
 const RADAR_SEMI_MAJOR_M: f64 = 6_378_137.0;
@@ -133,6 +133,26 @@ impl IndexMap {
             height: source.height,
         };
         Self::build(UV_GRID, |x, y| {
+            let (longitude, latitude) = web_mercator_to_lon_lat(x, y);
+            nearest_index(longitude, latitude, raster, 0.0)
+        })
+    }
+
+    pub fn seamless(source: &SeamlessGrid) -> Result<Self> {
+        ensure!(source.width > 0 && source.height > 0, "empty seamless grid");
+        ensure!(
+            source.longitude_increment > 0.0 && source.latitude_increment > 0.0,
+            "seamless grid increments must be positive"
+        );
+        let raster = SourceRaster {
+            x0: source.longitude_first,
+            y0: source.latitude_first,
+            dx: source.longitude_increment,
+            dy: source.latitude_increment,
+            width: source.width,
+            height: source.height,
+        };
+        Self::build(SHARED_GRID, |x, y| {
             let (longitude, latitude) = web_mercator_to_lon_lat(x, y);
             nearest_index(longitude, latitude, raster, 0.0)
         })
@@ -277,6 +297,17 @@ mod tests {
         }
     }
 
+    fn seamless_grid() -> SeamlessGrid {
+        SeamlessGrid {
+            latitude_first: 48.9955,
+            longitude_first: -0.00725,
+            latitude_increment: 0.009,
+            longitude_increment: 0.0145,
+            width: 780,
+            height: 780,
+        }
+    }
+
     #[test]
     fn stereographic_formula_matches_knmi_corners() {
         let upper_left = radar_stereographic(0.0, 55.973_602);
@@ -293,6 +324,7 @@ mod tests {
         let arome = IndexMap::arome(&arome_grid()).unwrap();
         let hourly = IndexMap::arome_on(&arome_grid(), HOURLY_GRID).unwrap();
         let uv = IndexMap::uv(&uv_grid()).unwrap();
+        let seamless = IndexMap::seamless(&seamless_grid()).unwrap();
         assert_eq!(radar.indices.len(), SHARED_GRID.cell_count());
         assert_eq!(arome.indices.len(), SHARED_GRID.cell_count());
         assert_eq!(hourly.indices.len(), HOURLY_GRID.cell_count());
@@ -303,6 +335,8 @@ mod tests {
         assert!(hourly.missing_count() > 0);
         assert!(uv.missing_count() > 0);
         assert!(uv.missing_count() < UV_GRID.cell_count());
+        assert!(seamless.missing_count() > 0);
+        assert!(seamless.missing_count() < SHARED_GRID.cell_count());
     }
 
     #[test]
