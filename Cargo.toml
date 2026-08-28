@@ -1,0 +1,17 @@
+[workspace]
+members = ["crates/knmi-grib"]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+rust-version = "1.97"
+
+[workspace.dependencies]
+anyhow = "1.0"
+eccodes = { version = "0.14.0", default-features = false, features = ["ndarray"] }
+ndarray = "0.17"
+ndarray-npy = "0.10"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tempfile = "3.23"
