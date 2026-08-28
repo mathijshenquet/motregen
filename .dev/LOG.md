@@ -1,5 +1,12 @@
 # motregen — orchestrator log (newest first)
 
+## Backlog (PO-blessed, geen track)
+
+- Open-source-pass (PO 2026-08-28: "nice om te open sourcen later"): LICENSE
+  aan de root (workspace zegt al MIT), README per crate, en knmi-grib /
+  knmi-hdf5 / mrf als losse crates naar crates.io — incl. verwijzing naar de
+  spec/-referentieharnas als conformance-bewijs. Repo is al public.
+
 ## 2026-08-28 — PO live-review ronde 2 → T2b + T3c launched
 
 - PO on real data: light basemap duidelijk beter dan dark (dark toont
