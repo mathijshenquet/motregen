@@ -104,6 +104,8 @@ niet nodig, `version`-veld leidt.
 | `wind_u_ms` | m/s | 10m-wind, oostwaartse component |
 | `wind_v_ms` | m/s | 10m-wind, noordwaartse component |
 | `uv` | UV-index | zonkracht (cloud-modified) |
+| `rel_humidity` | % | 2m relatieve luchtvochtigheid |
+| `cloud_frac` | % | totale bewolkingsgraad (alleen voor pictogram-afleiding; nooit als kaartlaag — MIP-4 ronde 3) |
 
 `wind_u_ms`/`wind_v_ms` worden altijd als paar gepubliceerd met identiek
 grid, identieke tijden en gelijke frame-volgorde, zodat een client ze per
@@ -116,6 +118,8 @@ frame kan zippen tot vectoren.
   `field`-sleutel op manifest-chunk en mrf-header, default `"rain_rate"`;
   tweede veld `"radiation"` (W/m²) voor de per-uur zon/forecast-tabel.
   Bestaande implementaties zonder `field` blijven geldig.
+- 2026-08-28: velden `rel_humidity` en `cloud_frac` toegevoegd (MIP-4
+  ronde 4: rijkere uurtabel met pictogram). Additief.
 - 2026-08-28: `source`-enum uitgebreid met `"uv"` (cloud-modified UV
   index-dataset) — lost de T2b-WALL "contract mist UV-source" op; de door
   T2b gebruikte waarde is hiermee gelegitimeerd. NB (T2b-observatie): de

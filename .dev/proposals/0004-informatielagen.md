@@ -114,3 +114,19 @@ synthetische straling.
   (vervangt het eerdere "zon/wolk-iconen op proef": alleen zon); (c)
   day/night-cyclus op de kaart, gekoppeld aan de tijdcursor van de scrubber
   (subtiele terminator-schaduw die meebeweegt bij scrubben) — T3d.
+- 2026-08-28: amendement (PO, ronde 4 — nitpicks op de live app):
+  (a) datagrid ruimer om NL (het knipt nu vermoedelijk bruikbare radardata
+  weg) én een expliciet kaartframe: begrensde kaart met een EU4-achtige
+  rand, zodat de regen nooit zichtbaar "wegclipt" — T2c (grid) + T3e (frame);
+  (b) kaartklik toont de dichtstbijzijnde stad i.p.v. kale coördinaten;
+  (c) histogram-scrubber-redesign: de dynamische velden "Droog"/"x mm/u"
+  vervallen — die informatie verhuist naar een y-as met labels en shaded
+  classificatiebanden (licht/matig/zwaar) plus hover met exacte mm/u;
+  tijdlabels op de x-as; lijn- vs staafgrafiek als visueel experiment
+  (beide bouwen, PO kiest); regimes (Observaties | Nowcast | Model) als
+  gelabelde zones in de tijdlijn; (d) tijdlijncompositie: in het verleden
+  ALLEEN observaties tonen — geen model-frames voor t < nu;
+  (e) uurtabel wordt "vibe-based": pictogram, (gevoels)temperatuur,
+  luchtvochtigheid, wind, regen — daarvoor nieuwe velden rel_humidity en
+  cloud_frac (bewolking alléén voor pictogram-afleiding, nooit als
+  kaartlaag).
