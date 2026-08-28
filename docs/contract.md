@@ -18,7 +18,7 @@ Het enige bestand dat de client pollt. JSON:
     {
       "url": "chunks/rtcor-20260828T1200.mrf",  // relatief aan het manifest
       "source": "rtcor",                  // "rtcor" | "nowcast" | "harmonie"
-      "field": "rain_rate",               // optioneel; ontbreekt ⇒ "rain_rate". Ook: "radiation"
+      "field": "rain_rate",               // optioneel; ontbreekt ⇒ "rain_rate". Zie veldenlijst onderaan
       "run": "2026-08-28T12:00:00Z",      // run-/referentietijd van de bron
       "header_len": 1342,                 // totale headerlengte in bytes (magic t/m JSON)
       "times": ["2026-08-28T12:00:00Z", "2026-08-28T12:05:00Z"]  // geldigheidstijden, volgorde = frame-volgorde in de chunk
@@ -71,9 +71,12 @@ JSON-header:
 
 - Velden zijn row-major, rij 0 = noordrand, kolom 0 = westrand.
 - Elk frame decomprimeert naar exact `width × height` bytes.
-- `quant` is de byte→waarde-tabel in de eenheid van het veld (`rain_rate`:
-  mm/u; `radiation`: W/m²): 256 entries; index 0 is altijd `0.0`
-  (droog resp. donker), index 255 is altijd `null` (no-data-masker). De client rekent
+- `quant` is de byte→waarde-tabel in de eenheid van het veld: 256 entries;
+  index 255 is altijd `null` (no-data-masker). Voor `rain_rate` en
+  `radiation` is index 0 altijd `0.0` (droog resp. donker); voor velden met
+  een signed bereik (temperatuur, wind) is index 0 gewoon de onderkant van
+  het bereik en mag de tabel negatieve waarden bevatten. Clients en encoders
+  valideren dus per veld, niet generiek `quant[0] == 0`. De client rekent
   uitsluitend via deze tabel (intensity meter én colormap-input), nooit via
   een eigen schaal. Exacte productiecurve volgt in T2 (MIP-2: stuksgewijs-log,
   vloer 0,01 mm/u); synthetische data mag elke geldige tabel gebruiken.
@@ -90,6 +93,22 @@ mogen dus geen afmetingen aannemen. De kwantisatietabel idem. Het contract
 zelf (layout, semantiek) is bevroren op versie 0; versiebump = nieuwe magic
 niet nodig, `version`-veld leidt.
 
+## Velden
+
+| field | eenheid | betekenis |
+| --- | --- | --- |
+| `rain_rate` | mm/u | neerslagintensiteit (default; kaart + scrubber) |
+| `radiation` | W/m² | globale straling (uurtabel/zon) |
+| `temp_c` | °C | 2m-temperatuur |
+| `feels_like_c` | °C | gevoelstemperatuur (serverside afgeleid) |
+| `wind_u_ms` | m/s | 10m-wind, oostwaartse component |
+| `wind_v_ms` | m/s | 10m-wind, noordwaartse component |
+| `uv` | UV-index | zonkracht (cloud-modified) |
+
+`wind_u_ms`/`wind_v_ms` worden altijd als paar gepubliceerd met identiek
+grid, identieke tijden en gelijke frame-volgorde, zodat een client ze per
+frame kan zippen tot vectoren.
+
 ## Changelog
 
 - 2026-08-28: v0 vastgepind.
@@ -97,3 +116,8 @@ niet nodig, `version`-veld leidt.
   `field`-sleutel op manifest-chunk en mrf-header, default `"rain_rate"`;
   tweede veld `"radiation"` (W/m²) voor de per-uur zon/forecast-tabel.
   Bestaande implementaties zonder `field` blijven geldig.
+- 2026-08-28: veldenlijst uitgebreid (PO: wind-particles, temp op kaart, UV):
+  `temp_c`, `feels_like_c`, `wind_u_ms`/`wind_v_ms` (paar-regel), `uv`.
+  Quant-regel versoepeld: alleen index 255 = null is universeel; `quant[0]
+  == 0.0` geldt alleen voor rain_rate/radiation (signed velden toegestaan).
+  Bestaande rain/radiation-chunks blijven byte-identiek geldig.

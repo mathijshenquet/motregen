@@ -102,3 +102,9 @@ synthetische straling.
 - 2026-08-28: accepted — kaart = regen + temperatuurgetallen (+ iconen op
   proef) i.p.v. veld-cycler; gevoelstemperatuur default; officiële
   UV-datasets gevonden, proxy vervallen; besluit §5 toegevoegd.
+- 2026-08-28: amendement (PO na live review): (a) dark-kaart moet naar het
+  niveau van light — economische-zone-/maritieme grenzen weg, terrain-/
+  landcover-tinten terug; (b) Windy-achtige wind-particles toegevoegd:
+  ónder de regenlaag op ~60% opacity, dichtheid duidelijk lager dan Windy,
+  particle-snelheid ∝ windsnelheid, subtiele kleurcodering op Beaufort.
+  Data: 10m U/V uit AROME (contract-velden `wind_u_ms`/`wind_v_ms`).

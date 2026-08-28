@@ -1,5 +1,24 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-08-28 — PO live-review ronde 2 → T2b + T3c launched
+
+- PO on real data: light basemap duidelijk beter dan dark (dark toont
+  EEZ-/maritieme grenzen — weg ermee — en mist terrain-tinten); wil
+  Windy-stijl wind-particles, subtieler: onder de regen op ~60% opacity,
+  lagere dichtheid, snelheid ∝ wind, subtiele bft-kleurcodering. Vastgelegd
+  als MIP-4-amendement.
+- Contract additief uitgebreid: veldenlijst (temp_c, feels_like_c,
+  wind_u_ms/wind_v_ms als paar met identiek grid/tijden, uv) + quant-regel
+  versoepeld (alleen 255=null universeel; quant[0]==0 alleen
+  rain/radiation) zodat signed velden passen. Rain/radiation-chunks blijven
+  byte-identiek geldig; mrf-validators aan beide kanten moeten de
+  versoepeling volgen (in beide specs opgenomen).
+- Specs geschreven en gelanceerd: T2b (sol; AROME temp/wind/straling +
+  cloud-modified-UV-ingest, feels-like serverside, per-veld quant-tabellen,
+  paar-invariant-test) en T3c (sol; dark-parity, wind-particle-layer onder
+  regen, temp-labels + switcher, synthgen-uitbreiding; MOTREGEN_SYNTH=1
+  workflow tot T2b merged).
+
 ## 2026-08-28 — REAL RAIN LIVE: T2 verified+merged; end-to-end wired
 
 - Map-vanished bug (PO report): vite's public-dir middleware caches the file
