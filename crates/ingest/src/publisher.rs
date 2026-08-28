@@ -47,7 +47,7 @@ pub fn produced_chunk(filename: String, bytes: Vec<u8>) -> Result<ProducedChunk>
     let manifest = ManifestChunk {
         url: format!("chunks/{filename}"),
         source: index.header.source,
-        field: "rain_rate".to_owned(),
+        field: index.header.field,
         run: index.header.run,
         header_len: index.header_len,
         times: index

@@ -8,6 +8,7 @@ dependencies = [
   "numpy>=2.0",
   "pyproj>=3.7",
   "xarray>=2025.1",
+  "zstandard>=0.23",
 ]
 
 [tool.uv]

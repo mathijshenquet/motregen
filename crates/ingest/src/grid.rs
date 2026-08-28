@@ -29,6 +29,16 @@ pub const SHARED_GRID: GridSpec = GridSpec {
     height: 700,
 };
 
+pub const HOURLY_GRID: GridSpec = GridSpec {
+    crs: "EPSG:3857",
+    x0: 250_000.0,
+    y0: 7_200_000.0,
+    dx: 2_000.0,
+    dy: -2_000.0,
+    width: 325,
+    height: 350,
+};
+
 impl GridSpec {
     pub fn cell_count(self) -> usize {
         self.width as usize * self.height as usize
@@ -67,7 +77,7 @@ impl IndexMap {
             width: source.width,
             height: source.height,
         };
-        Self::build(|x, y| {
+        Self::build(SHARED_GRID, |x, y| {
             let (longitude, latitude) = web_mercator_to_lon_lat(x, y);
             let (source_x_m, source_y_m) = radar_stereographic(longitude, latitude);
             nearest_index(source_x_m / 1_000.0, source_y_m / 1_000.0, raster, 0.5)
@@ -75,6 +85,10 @@ impl IndexMap {
     }
 
     pub fn arome(source: &AromeGrid) -> Result<Self> {
+        Self::arome_on(source, SHARED_GRID)
+    }
+
+    pub fn arome_on(source: &AromeGrid, target: GridSpec) -> Result<Self> {
         ensure!(source.ni > 0 && source.nj > 0, "empty AROME grid");
         ensure!(
             source.longitude_increment > 0.0 && source.latitude_increment > 0.0,
@@ -88,18 +102,21 @@ impl IndexMap {
             width: source.ni,
             height: source.nj,
         };
-        Self::build(|x, y| {
+        Self::build(target, |x, y| {
             let (longitude, latitude) = web_mercator_to_lon_lat(x, y);
             nearest_index(longitude, latitude, raster, 0.0)
         })
     }
 
-    fn build(mut source_index: impl FnMut(f64, f64) -> Option<usize>) -> Result<Self> {
-        let mut indices = Vec::with_capacity(SHARED_GRID.cell_count());
-        for row in 0..SHARED_GRID.height {
-            let y = SHARED_GRID.y0 + (f64::from(row) + 0.5) * SHARED_GRID.dy;
-            for column in 0..SHARED_GRID.width {
-                let x = SHARED_GRID.x0 + (f64::from(column) + 0.5) * SHARED_GRID.dx;
+    fn build(
+        target: GridSpec,
+        mut source_index: impl FnMut(f64, f64) -> Option<usize>,
+    ) -> Result<Self> {
+        let mut indices = Vec::with_capacity(target.cell_count());
+        for row in 0..target.height {
+            let y = target.y0 + (f64::from(row) + 0.5) * target.dy;
+            for column in 0..target.width {
+                let x = target.x0 + (f64::from(column) + 0.5) * target.dx;
                 let index = source_index(x, y)
                     .map(u32::try_from)
                     .transpose()?
@@ -233,10 +250,13 @@ mod tests {
     fn shared_grid_is_covered_by_both_sources() {
         let radar = IndexMap::radar(&radar_grid()).unwrap();
         let arome = IndexMap::arome(&arome_grid()).unwrap();
+        let hourly = IndexMap::arome_on(&arome_grid(), HOURLY_GRID).unwrap();
         assert_eq!(radar.indices.len(), SHARED_GRID.cell_count());
         assert_eq!(arome.indices.len(), SHARED_GRID.cell_count());
+        assert_eq!(hourly.indices.len(), HOURLY_GRID.cell_count());
         assert_eq!(radar.missing_count(), 0);
         assert_eq!(arome.missing_count(), 0);
+        assert_eq!(hourly.missing_count(), 0);
     }
 
     #[test]

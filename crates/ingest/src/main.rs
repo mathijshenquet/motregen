@@ -12,7 +12,7 @@ use motregen_ingest::{
     api::ApiClient,
     pipeline::{
         AROME_DATASET, AROME_VERSION, NOWCAST_DATASET, NOWCAST_VERSION, RTCOR_DATASET,
-        RTCOR_VERSION, build_arome_chunk, build_nowcast_chunk, build_rtcor_chunk, latest_files,
+        RTCOR_VERSION, build_arome_chunks, build_nowcast_chunk, build_rtcor_chunk, latest_files,
         prune_download_cache,
     },
     publisher::{ProducedChunk, publish},
@@ -82,7 +82,7 @@ struct Daemon {
     arome_id: Option<String>,
     rtcor: Option<ProducedChunk>,
     nowcast: Option<ProducedChunk>,
-    arome: Option<ProducedChunk>,
+    arome: Vec<ProducedChunk>,
     last_arome_check: Option<Instant>,
 }
 
@@ -104,7 +104,7 @@ impl Daemon {
             arome_id: None,
             rtcor: None,
             nowcast: None,
-            arome: None,
+            arome: Vec::new(),
             last_arome_check: None,
         })
     }
@@ -176,17 +176,17 @@ impl Daemon {
             return Ok(false);
         }
         let started = Instant::now();
-        let (chunk, downloaded_bytes) =
-            build_arome_chunk(&self.api, &self.cache_root, self.config.arome_hours)?;
+        let publication = build_arome_chunks(&self.api, &self.cache_root, self.config.arome_hours)?;
         info!(
             file = latest.filename,
-            frames = chunk.manifest.times.len(),
-            downloaded_bytes,
+            chunks = publication.chunks.len(),
+            frames = publication.chunks[0].manifest.times.len(),
+            downloaded_bytes = publication.downloaded_bytes,
             elapsed_seconds = started.elapsed().as_secs_f64(),
             "arome ranged refresh decoded"
         );
         self.arome_id = Some(latest.filename);
-        self.arome = Some(chunk);
+        self.arome = publication.chunks;
         self.last_arome_check = Some(checked_at);
         Ok(true)
     }
@@ -194,19 +194,18 @@ impl Daemon {
     fn publish(&self) -> Result<()> {
         let rtcor = self.rtcor.as_ref().context("RTCOR is not ready")?;
         let nowcast = self.nowcast.as_ref().context("nowcast is not ready")?;
-        let arome = self.arome.as_ref().context("AROME is not ready")?;
+        if self.arome.is_empty() {
+            anyhow::bail!("AROME is not ready");
+        }
         let now = rtcor
             .manifest
             .times
             .last()
             .context("RTCOR chunk has no frames")?
             .clone();
-        let manifest = publish(
-            &self.config.data_dir,
-            now,
-            &[rtcor, nowcast, arome],
-            self.config.prune_age,
-        )?;
+        let mut chunks = vec![rtcor, nowcast];
+        chunks.extend(self.arome.iter());
+        let manifest = publish(&self.config.data_dir, now, &chunks, self.config.prune_age)?;
         info!(
             chunks = manifest.chunks.len(),
             generated = manifest.generated,
