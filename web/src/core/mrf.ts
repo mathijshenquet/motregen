@@ -43,7 +43,7 @@ interface WorkerReply { id: number; frame?: ArrayBuffer; error?: string }
 
 export class MrfClient {
   private readonly headers = new Map<string, Promise<MrfHeader>>()
-  private readonly frames = new LruCache<string, Uint8Array>(32)
+  private readonly frames = new LruCache<string, Uint8Array>(128)
   private readonly framePromises = new Map<string, Promise<Uint8Array>>()
   private readonly pending = new Map<number, { resolve: (frame: Uint8Array) => void; reject: (error: Error) => void }>()
   private readonly worker = new Worker(new URL('./zstd.worker.ts', import.meta.url), { type: 'module' })

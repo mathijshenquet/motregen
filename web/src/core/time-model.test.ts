@@ -26,4 +26,14 @@ describe('time model', () => {
     expect(frameBlend(timeline, Date.parse('2026-08-28T15:05:00Z'))).toEqual({ left: 0, right: 1, mix: 0.5 })
     expect(frameBlend(timeline, 0)).toEqual({ left: 0, right: 0, mix: 0 })
   })
+
+  it('keeps field timelines separate and defaults missing fields to rain', () => {
+    const time = '2026-08-28T16:00:00Z'
+    const rain = chunk('harmonie', time, [time])
+    const radiation = { ...chunk('harmonie', time, [time]), field: 'radiation' as const, url: 'radiation.mrf' }
+    const manifest: Manifest = { version: 0, generated: time, now: time, chunks: [rain, radiation] }
+
+    expect(buildTimeline(manifest).map((frame) => frame.chunk.url)).toEqual(['harmonie.mrf'])
+    expect(buildTimeline(manifest, 'radiation').map((frame) => frame.chunk.url)).toEqual(['radiation.mrf'])
+  })
 })

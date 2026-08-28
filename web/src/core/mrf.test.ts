@@ -7,9 +7,10 @@ import { decodeFrame, LruCache, parseMrfHeader } from './mrf'
 
 let file: Uint8Array
 let headerLength: number
+let manifest: Manifest
 
 beforeAll(async () => {
-  const manifest = JSON.parse(await readFile(resolve('public/data/manifest.json'), 'utf8')) as Manifest
+  manifest = JSON.parse(await readFile(resolve('public/data/manifest.json'), 'utf8')) as Manifest
   headerLength = manifest.chunks[0]!.header_len
   file = await readFile(resolve('public/data', manifest.chunks[0]!.url))
 })
@@ -28,5 +29,26 @@ describe('mrf v0', () => {
     cache.set('a', 1); cache.set('b', 2); cache.get('a'); cache.set('c', 3)
     expect(cache.get('a')).toBe(1)
     expect(cache.get('b')).toBeUndefined()
+  })
+
+  it('emits an hourly radiation chunk with a plausible day-night cycle', async () => {
+    const chunk = manifest.chunks.find((candidate) => candidate.field === 'radiation')
+    expect(chunk?.times).toHaveLength(24)
+    const radiationFile = new Uint8Array(await readFile(resolve('public/data', chunk!.url)))
+    const header = parseMrfHeader(radiationFile.subarray(0, chunk!.header_len))
+    expect(header.field).toBe('radiation')
+    expect(header.quant[100]).toBe(500)
+
+    const decode = (index: number) => {
+      const frame = header.frames[index]!
+      return decodeFrame(
+        radiationFile.subarray(chunk!.header_len + frame.offset, chunk!.header_len + frame.offset + frame.len),
+        header.grid.width * header.grid.height,
+      )
+    }
+    const nightIndex = chunk!.times.findIndex((time) => new Date(time).getUTCHours() === 23)
+    const noonIndex = chunk!.times.findIndex((time) => new Date(time).getUTCHours() === 12)
+    expect(Math.max(...decode(nightIndex))).toBe(0)
+    expect(Math.max(...decode(noonIndex))).toBeGreaterThan(100)
   })
 })
