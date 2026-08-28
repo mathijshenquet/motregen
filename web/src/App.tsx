@@ -22,7 +22,6 @@ import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } fro
 import { WindLayer } from './core/wind-layer'
 import { deriveWeatherIcon, summarizeWind } from './core/weather'
 
-const DAY_NIGHT_ENABLED = false
 const manifestUrl = new URL('/data/manifest.json', location.href)
 const defaultLocation = { lng: 5.18, lat: 52.1 }
 const themes = ['light', 'system', 'dark'] as const
