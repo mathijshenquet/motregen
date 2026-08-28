@@ -26,7 +26,10 @@ Branch: `track/t3e-nitpicks`.
    - hover/touch-tooltip met exacte mm/u + tijdstip;
    - tijdlabels op de x-as;
    - regimes als gelabelde zones in de tijdlijn: Observaties | Nowcast |
-     Model (vervangt losse dynamische regime-tekst);
+     Model (vervangt losse dynamische regime-tekst); leid de zones af uit de
+     manifest-sources en ga netjes om met de source `"seamless"` die
+     binnenkort verschijnt (T2e; vouw die in de verwachtings-zone of geef
+     hem een eigen subtiel label — jouw taste);
    - **experiment lijn vs staaf**: implementeer beide achter een zichtbare
      dev-toggle; PO kiest visueel. Documenteer je eigen aanbeveling in LOG.
 4. **Tijdlijncompositie: verleden = alleen observaties.** Geen model- of

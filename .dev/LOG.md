@@ -1,5 +1,20 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-08-28 — MIP-5 accepted; T2d/T3f specs queued; track-pijplijn
+
+- MIP-5 accepted met alle aanbevelingen (annex-in-chunk, AROME met cap,
+  pySTEPS-LK als executable spec). Contract additief uitgebreid:
+  motion-annex per frame + motion_grid in de header (i8-paren, 0,1 cel/min,
+  −128 no-data); crossfade blijft fallback.
+- Specs geschreven: T2d (motion-schatter + mrf-annex, sol) en T3f
+  (warp-shader + synthgen-motion, sol). Pijplijn om conflicts te vermijden:
+  crates-rij T2c(terra, loopt) → T2d; web-rij T3d(sol, loopt, incl.
+  wind-trails-steer) → T3e (nitpicks) → T3f.
+- In flight: T3d, T2c, live-daemon (9 velden zodra T2c landt).
+- PO ook: seamless blend (+2…+6 u) in scope → contract-source "seamless" +
+  regime-prioriteit bijgewerkt; T2e-spec queued na T2d. Crates-rij is nu
+  T2c → T2d → T2e; web-rij T3d → T3e → T3f.
+
 ## Backlog (PO-blessed, geen track)
 
 - Open-source-pass (PO 2026-08-28: "nice om te open sourcen later"): LICENSE

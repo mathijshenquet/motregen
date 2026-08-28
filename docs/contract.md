@@ -17,7 +17,7 @@ Het enige bestand dat de client pollt. JSON:
   "chunks": [
     {
       "url": "chunks/rtcor-20260828T1200.mrf",  // relatief aan het manifest
-      "source": "rtcor",                  // "rtcor" | "nowcast" | "harmonie" | "uv" (cloud-modified UV index)
+      "source": "rtcor",                  // "rtcor" | "nowcast" | "seamless" | "harmonie" | "uv"
       "field": "rain_rate",               // optioneel; ontbreekt ⇒ "rain_rate". Zie veldenlijst onderaan
       "run": "2026-08-28T12:00:00Z",      // run-/referentietijd van de bron
       "header_len": 1342,                 // totale headerlengte in bytes (magic t/m JSON)
@@ -29,8 +29,9 @@ Het enige bestand dat de client pollt. JSON:
 
 Tijdlijncompositie (client): per veld; verzamel alle frames uit alle chunks
 van dat veld, sorteer op tijd; bij meerdere frames voor dezelfde tijd wint regime-prioriteit
-`rtcor > nowcast > harmonie` (gemeten verslaat voorspeld), daarbinnen de
-recentste run. `header_len` bestaat zodat de client de chunk-header met één
+`rtcor > nowcast > seamless > harmonie` (gemeten verslaat voorspeld, blend
+verslaat ruw model), daarbinnen de recentste run. Voor t < nu tonen clients
+uitsluitend observaties (MIP-4 ronde 4). `header_len` bestaat zodat de client de chunk-header met één
 exacte Range-request kan halen.
 
 ## mrf-chunk (binair, little-endian)
@@ -63,8 +64,10 @@ JSON-header:
   "run": "2026-08-28T12:00:00Z",
   "frames": [
     { "time": "2026-08-28T12:00:00Z", "offset": 0,    "len": 18234 },
-    { "time": "2026-08-28T12:05:00Z", "offset": 18234, "len": 17102 }
+    { "time": "2026-08-28T12:05:00Z", "offset": 18234, "len": 17102,
+      "motion": { "offset": 35336, "len": 812 } }   // optioneel (MIP-5)
   ],
+  "motion_grid": { "bw": 21, "bh": 22 },  // optioneel; blokgrid van de motion-annexen
   "dict": null              // gereserveerd: per-chunk zstd-dictionary (MIP-2 §5); v0 altijd null
 }
 ```
@@ -85,6 +88,14 @@ JSON-header:
 - Progressief laden: frames zijn onafhankelijk; een client mag met
   Range-requests willekeurige subsets halen en decodeert per frame zodra de
   bytes binnen zijn.
+- **Motion-annex (MIP-5, optioneel).** Een frame mag een `motion`-verwijzing
+  dragen (offset/len relatief aan de payload-start, eigen onafhankelijk
+  zstd-member): het bewegingsveld van het VORIGE frame in de chunk naar dit
+  frame, op het `motion_grid`-blokgrid (row-major, zelfde oriëntatie als het
+  veld). Payload na decompressie: `bw × bh` i8-paren (u,v) in stappen van
+  0,1 gridcel per minuut (+u = oostwaarts, +v = zuidwaarts, conform dy<0);
+  −128 = no-data. Clients zonder motion-support of frames zonder annex
+  vallen terug op crossfade — de annex is puur een visuele verrijking.
 
 ## Wat de v0-onzekerheden zijn
 
@@ -118,6 +129,13 @@ frame kan zippen tot vectoren.
   `field`-sleutel op manifest-chunk en mrf-header, default `"rain_rate"`;
   tweede veld `"radiation"` (W/m²) voor de per-uur zon/forecast-tabel.
   Bestaande implementaties zonder `field` blijven geldig.
+- 2026-08-28: `source` "seamless" toegevoegd (PO: KNMI's seamless
+  nowcast⊕NWP-blend tot +6 u vult de naad tussen nowcast en model);
+  regime-prioriteit uitgebreid en verleden=alleen-observaties-regel
+  gecontractualiseerd.
+- 2026-08-28: motion-annex + `motion_grid` toegevoegd (MIP-5 accepted):
+  optioneel bewegingsveld per frame (i8-paren, 0,1 cel/min) voor
+  flow-tweening; crossfade blijft de fallback. Additief.
 - 2026-08-28: velden `rel_humidity` en `cloud_frac` toegevoegd (MIP-4
   ronde 4: rijkere uurtabel met pictogram). Additief.
 - 2026-08-28: `source`-enum uitgebreid met `"uv"` (cloud-modified UV

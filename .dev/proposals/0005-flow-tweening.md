@@ -1,6 +1,6 @@
 # MIP-5: flow-tweening — buien laten bewegen tussen frames
 
-Status: draft
+Status: accepted (PO, 2026-08-28: "doe maar, en doe maar met al jouw aanradingen")
 Auteur: orchestrator (fable), 2026-08-28
 
 ## 1. Het probleem
@@ -69,6 +69,15 @@ omvang.
    (aanbevolen — zelfde harnas-patroon als T1/T2) of alleen eigen
    golden-fixtures?
 
+## 5. Besluit (PO, 2026-08-28)
+
+Aangenomen inclusief alle aanbevelingen uit §4: (1) motion-data als
+per-frame annex in de bestaande chunk; (2) AROME doet in v1 mee, met
+warp-cap; (3) pySTEPS' Lucas-Kanade als executable spec in het
+spec/-harnas. Uitvoering: T2d (ingest-schatter + annex, na T2c) en T3f
+(motion-texture + warp-shader + crossfade-fallback, na T3e).
+
 ## Changelog
 
 - 2026-08-28: draft.
+- 2026-08-28: accepted; besluit §5 toegevoegd.
