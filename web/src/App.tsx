@@ -3,7 +3,7 @@ import maplibregl, { Marker } from 'maplibre-gl'
 import HistogramScrubber from './components/HistogramScrubber'
 import LocationSearch from './components/LocationSearch'
 import { loadBasemapStyle, type MapTheme } from './core/basemap'
-import type { Grid, Manifest, TimelineFrame } from './core/contract'
+import type { Grid, Manifest, ManifestChunk, TimelineFrame } from './core/contract'
 import { buildHourlyForecast } from './core/forecast'
 import { MrfClient } from './core/mrf'
 import { RainLayer } from './core/rain-layer'
@@ -162,13 +162,27 @@ export default function App() {
 
   async function readPointSeries(frames: TimelineFrame[], point: { lng: number; lat: number }): Promise<Array<number | null>> {
     const [x, y] = project(point.lng, point.lat)
-    return Promise.all(frames.map(async (frame) => {
-      const [bytes, header] = await Promise.all([load(frame), client.getHeader(frame.chunk)])
+    const values = new Array<number | null>(frames.length).fill(null)
+    const chunks = new Map<ManifestChunk, Array<{ position: number; frameIndex: number }>>()
+    for (let position = 0; position < frames.length; position++) {
+      const frame = frames[position]!
+      const entries = chunks.get(frame.chunk) ?? []
+      entries.push({ position, frameIndex: frame.frameIndex })
+      chunks.set(frame.chunk, entries)
+    }
+    await Promise.all([...chunks].map(async ([chunk, entries]) => {
+      const [decoded, header] = await Promise.all([
+        client.getFrames(chunk, entries.map((entry) => entry.frameIndex)),
+        client.getHeader(chunk),
+      ])
       const column = Math.floor((x - header.grid.x0) / header.grid.dx)
       const row = Math.floor((y - header.grid.y0) / header.grid.dy)
-      if (column < 0 || row < 0 || column >= header.grid.width || row >= header.grid.height) return null
-      return header.quant[bytes[row * header.grid.width + column]!] ?? null
+      if (column < 0 || row < 0 || column >= header.grid.width || row >= header.grid.height) return
+      for (let index = 0; index < entries.length; index++) {
+        values[entries[index]!.position] = header.quant[decoded[index]![row * header.grid.width + column]!] ?? null
+      }
     }))
+    return values
   }
 
   function locate(): void {
