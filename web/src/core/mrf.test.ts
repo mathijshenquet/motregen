@@ -109,6 +109,25 @@ describe('mrf v0', () => {
     expect(Math.max(...decode(noonIndex))).toBeGreaterThan(100)
   })
 
+  it('emits official-source synthetic UV only during its daylight publication window', async () => {
+    const chunk = manifest.chunks.find((candidate) => candidate.field === 'uv')
+    expect(chunk?.source).toBe('uv')
+    expect(chunk?.times).toHaveLength(72)
+    const uvFile = new Uint8Array(await readFile(resolve('public/data', chunk!.url)))
+    const header = parseMrfHeader(uvFile.subarray(0, chunk!.header_len))
+    const decode = (index: number) => {
+      const frame = header.frames[index]!
+      return decodeFrame(
+        uvFile.subarray(chunk!.header_len + frame.offset, chunk!.header_len + frame.offset + frame.len),
+        header.grid.width * header.grid.height,
+      )
+    }
+    const beforeSunrise = chunk!.times.findIndex((time) => new Date(time).getUTCHours() === 3)
+    const noon = chunk!.times.findIndex((time) => new Date(time).getUTCHours() === 12 && new Date(time).getUTCMinutes() === 0)
+    expect(Math.max(...decode(beforeSunrise))).toBe(0)
+    expect(header.quant[Math.max(...decode(noon))]!).toBeGreaterThan(3)
+  })
+
   it('coalesces a full location sample per chunk and serves the next location entirely from cache', async () => {
     class DecodeWorker {
       onmessage?: (event: MessageEvent) => void
@@ -131,7 +150,7 @@ describe('mrf v0', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
     const client = new MrfClient(new URL('https://example.test/data/manifest.json'))
-    const frames = [...buildTimeline(manifest), ...buildTimeline(manifest, 'radiation')]
+    const frames = [...buildTimeline(manifest), ...buildTimeline(manifest, 'radiation'), ...buildTimeline(manifest, 'uv')]
     const chunks = new Map(frames.map((frame) => [frame.chunk, [] as number[]]))
     for (const frame of frames) chunks.get(frame.chunk)!.push(frame.frameIndex)
 
@@ -139,8 +158,8 @@ describe('mrf v0', () => {
     fetchMock.mockClear()
     await Promise.all([...chunks].map(([chunk, indexes]) => client.getFrames(chunk, indexes)))
 
-    expect(frames).toHaveLength(107)
-    expect(fetchMock).toHaveBeenCalledTimes(11)
+    expect(frames).toHaveLength(179)
+    expect(fetchMock).toHaveBeenCalledTimes(13)
     for (const [chunk] of chunks) {
       const chunkFile = files.get(chunk.url)!
       const ranges = fetchMock.mock.calls

@@ -1,6 +1,6 @@
 import { chunkField, type Field, type Manifest, type Source, type TimelineFrame } from './contract'
 
-const priority: Record<Source, number> = { harmonie: 0, nowcast: 1, rtcor: 2 }
+const priority: Record<Source, number> = { harmonie: 0, uv: 0, nowcast: 1, rtcor: 2 }
 
 export function buildTimeline(manifest: Manifest, field: Field = 'rain_rate'): TimelineFrame[] {
   const byTime = new Map<number, TimelineFrame>()
@@ -29,6 +29,19 @@ export function frameBlend(timeline: TimelineFrame[], epoch: number): { left: nu
   return { left, right, mix: (epoch - timeline[left]!.epoch) / (timeline[right]!.epoch - timeline[left]!.epoch) }
 }
 
+export function seriesValueAt(
+  timeline: TimelineFrame[],
+  values: Array<number | null>,
+  epoch: number,
+  edgeTolerance: number,
+): number | null {
+  if (!timeline.length || epoch < timeline[0]!.epoch - edgeTolerance || epoch > timeline.at(-1)!.epoch + edgeTolerance) return null
+  const blend = frameBlend(timeline, epoch)
+  const left = values[blend.left] ?? null
+  const right = values[blend.right] ?? null
+  return left == null ? right : right == null ? left : left * (1 - blend.mix) + right * blend.mix
+}
+
 export function regimeLabel(source: Source): string {
-  return source === 'rtcor' ? 'Verleden' : source === 'nowcast' ? 'Nowcast' : 'Model'
+  return source === 'rtcor' ? 'Verleden' : source === 'nowcast' ? 'Nowcast' : source === 'uv' ? 'Zonkracht' : 'Model'
 }

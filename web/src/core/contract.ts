@@ -1,4 +1,4 @@
-export type Source = 'rtcor' | 'nowcast' | 'harmonie'
+export type Source = 'rtcor' | 'nowcast' | 'harmonie' | 'uv'
 export type Field = 'rain_rate' | 'radiation' | 'temp_c' | 'feels_like_c' | 'wind_u_ms' | 'wind_v_ms' | 'uv'
 
 export interface Grid {

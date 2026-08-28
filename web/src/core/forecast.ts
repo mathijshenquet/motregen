@@ -4,6 +4,7 @@ export interface HourlyForecastRow {
   epoch: number
   rainIndex: number | null
   radiationIndex: number | null
+  uvIndex: number | null
 }
 
 const hour = 3_600_000
@@ -11,6 +12,7 @@ const hour = 3_600_000
 export function buildHourlyForecast(
   rain: TimelineFrame[],
   radiation: TimelineFrame[],
+  uv: TimelineFrame[],
   now: number,
   count = 24,
 ): HourlyForecastRow[] {
@@ -21,6 +23,7 @@ export function buildHourlyForecast(
       epoch,
       rainIndex: nearestFrame(rain, epoch, hour / 2),
       radiationIndex: nearestFrame(radiation, epoch, hour / 2),
+      uvIndex: nearestFrame(uv, epoch, hour / 2),
     }
   })
 }
