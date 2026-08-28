@@ -93,6 +93,33 @@ Vijf opeenvolgende wall-times voor het decoderen en de-accumuleren van alle
 24 uurvelden waren 0,20, 0,19, 0,18, 0,19 en 0,18 seconde (mediaan 0,19 s).
 Dit ligt ruim onder de zachte grens van 2 seconden.
 
+### CPU- en geheugenprofiel
+
+Een release-run onder Valgrind Callgrind telde 1.348.080.640 instructies. De
+zichtbare afzonderlijke hotspot was ecCodes' simple-packingdecoder met
+120.660.933 instructies (8,95%). De selector las aanvankelijk vijf metadata-
+sleutels voor ieder bericht, ook wanneer de parameter al niet overeenkwam.
+Na goedkoop-naar-duur kortsluiten daalde het totaal naar 1.337.885.068
+instructies (-0,76%). De vijf warme native wall-times bleven binnen de
+meetruis: 0,22, 0,19, 0,19, 0,18 en 0,19 seconde, opnieuw mediaan 0,19 s.
+
+Massif mat een piek van 3.970.634 bytes nuttige heap plus 111.686 bytes
+allocatoroverhead. De grootste gelijktijdige eigen buffers waren twee
+float32-velden van samen 1.216.800 bytes en ecCodes' tijdelijke float64-
+decodeerbuffer van 1.216.800 bytes. DHAT rapporteerde over de hele run
+657.952.334 gealloceerde bytes in 650.373 blokken, maar geen live bytes aan
+het einde vanuit de grote databuffers. De allocation churn komt vooral van
+ecCodes: het maakt bij het sequentieel zoeken tijdelijke buffers voor de 43
+berichten vóór parameter 61 (alleen die berichtbuffers waren circa 278 MB
+over de run).
+
+Een GRIB1-headerprefilter met byte-offsets zou die churn en een groot deel van
+de resterende CPU kunnen vermijden door alleen het neerslagbericht aan
+ecCodes te geven. Dat zou eigen GRIB-framingcode en extra formatrisico
+introduceren voor een pad dat al circa tienmaal onder de snelheidsgrens zit.
+Daarom is die optimalisatie niet toegevoegd; bij grotere bestanden of een
+strengere latency-eis is dit de eerstvolgende meetbare optimalisatierichting.
+
 ## Verdict
 
 De MIP-1 GRIB-gate is **geslaagd**. De Rust-route decodeert de echte AROME

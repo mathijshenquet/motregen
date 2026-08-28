@@ -35,17 +35,24 @@ pub fn decode_total_precipitation(path: impl AsRef<Path>) -> Result<Precipitatio
         .with_context(|| format!("opening {}", path.display()))?;
 
     while let Some(message) = file.ref_message_iter().next()? {
-        let table_version: i64 = message.read_key("table2Version")?;
         let parameter: i64 = message.read_key("indicatorOfParameter")?;
+        if parameter != TOTAL_PRECIPITATION_PARAMETER {
+            continue;
+        }
+        let table_version: i64 = message.read_key("table2Version")?;
+        if table_version != TABLE_VERSION {
+            continue;
+        }
         let level_type: String = message.read_key("indicatorOfTypeOfLevel")?;
+        if level_type != HEIGHT_ABOVE_GROUND {
+            continue;
+        }
         let level: i64 = message.read_key("level")?;
+        if level != 0 {
+            continue;
+        }
         let time_range: i64 = message.read_key("timeRangeIndicator")?;
-        if table_version != TABLE_VERSION
-            || parameter != TOTAL_PRECIPITATION_PARAMETER
-            || level_type != HEIGHT_ABOVE_GROUND
-            || level != 0
-            || time_range != 4
-        {
+        if time_range != 4 {
             continue;
         }
 
