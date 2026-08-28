@@ -1,5 +1,26 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-08-28 — T3 done+verified (awaiting PO eyes); T1 done+verified+MERGED
+
+- T3 (sol, 8m09s): full shell on synthetic data, PR #1. Independently re-ran
+  all gates green (synthgen/typecheck/4 tests/build, exit 0 observed
+  synchronously); read mrf.ts — contract-conform incl. Range+progressive and
+  non-206 fallback. Preview for PO at http://ageq-mthq:4173 (vite allowedHosts
+  fix committed on the track branch; note: `fuser` does not exist on this box —
+  kill listeners via `ss -tlnp` pid instead). Merge waits on PO visual check.
+  Polish note: ~1 MB bundle (MapLibre) → code-split later.
+- T1 (sol, 13m24s): GRIB gate PASSED — knmi-grib crate (eccodes FFI) exactly
+  matches cfgrib over all 152,100 values; +1…+24 h decode+de-accumulate median
+  0.19 s (bar 2 s). Independently re-ran fmt/clippy/test green incl. the
+  elementwise conformance test. PR #2; MERGED to main (clean; devenv.nix grew
+  bindgen/libclang env). Key discoveries for T2: AROME publishes an ~868 MB
+  run-tar EVERY HOUR (not 4×/day); param = GRIB1 table 253/param 61
+  accumulated → hourly de-accumulation; 390×390 lat-lon grid. MIP-1 changelog
+  amended accordingly.
+- Next: T2 spec (ingest daemon: rtcor+nowcast HDF5, AROME cadence/download
+  strategy, reproject to shared grid, mrf encode + manifest) once T2a (terra,
+  still working) lands and merges; T3 merge after PO look.
+
 ## 2026-08-28 — codex re-auth incident; MIP-3; T2a launched
 
 - Incident: a codex re-auth wiped `~/.codex/config.toml` defaults → workers

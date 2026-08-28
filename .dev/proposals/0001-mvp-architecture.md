@@ -165,3 +165,8 @@ Geen — de stack-sanctie is gegeven, zie §5.
   horizon +48 u → +24 u; history 3 u.
 - 2026-08-28: accepted — stack-sanctie gegeven (Rust + SolidJS/Tailwind);
   T1 AROME-spike direct gestart met Python-referentie als conformance-spec.
+- 2026-08-28: GRIB-gate PASSED (T1): Rust/ecCodes exact gelijk aan cfgrib
+  over alle 152.100 waarden, +1…+24 u decoderen + de-accumuleren in mediaan
+  0,19 s. Rust-ingest definitief. Correctie op §2: `harmonie_arome_cy43_p1`
+  publiceert (waargenomen) élk uur een run-tar van ~868 MB, niet 4×/dag —
+  ingest-cadans en downloadstrategie worden in de T2-spec opnieuw bepaald.
