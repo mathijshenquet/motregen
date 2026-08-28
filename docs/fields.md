@@ -2,13 +2,14 @@
 
 ## Grid en kwantisatie
 
-Regen blijft byte-identiek op het gedeelde 1km-grid en gebruikt de bestaande
+Regen blijft op het gedeelde 1km-grid en gebruikt de bestaande
 stuksgewijs-logaritmische tabel. De AROME-uurvelden gebruiken een 2km-variant
-met dezelfde extent: EPSG:3857, `x0=250000`, `y0=7200000`, `dx=2000`,
-`dy=-2000`, 325×350 cellen. Dit is 75% minder ruwe bytes per frame dan het
+met dezelfde extent: EPSG:3857, `x0=0`, `y0=7600000`, `dx=2000`,
+`dy=-2000`, 625×675 cellen. Dit is 75% minder ruwe bytes per frame dan het
 1km-grid, terwijl het vrijwel de eigen circa-2km-informatie-inhoud van AROME
 behoudt. Met name voor windparticles is 4 km zichtbaar grover; daarom delen
-temperatuur, gevoelstemperatuur, wind en straling het 2km-grid.
+temperatuur, gevoelstemperatuur, wind, straling, relatieve vochtigheid en
+bewolkingsgraad het 2km-grid.
 
 Alle tabellen hebben 255 eindige, strikt stijgende waarden; index 255 is
 no-data. Waarden buiten het bereik satureren op 0/254 en midpoints kiezen de
@@ -21,11 +22,16 @@ lagere index.
 | `wind_u_ms`, `wind_v_ms` | −31,75 m/s | 0,25 m/s | +31,75 m/s | exact symmetrisch met 0 op index 127 |
 | `radiation` | 0 W/m² | 5 W/m² | 1270 W/m² | bestaande radiation-tabel blijft gelijk |
 | `uv` | 0 | 12/254 ≈ 0,0472 | 12 | volledige gebruikelijke UV-indexrange |
+| `rel_humidity` | 0 % | 100/254 ≈ 0,3937 % | 100 % | AROME 2m-RH is fractie 0–1 en wordt vóór kwantisatie ×100 |
+| `cloud_frac` | 0 % | 100/254 ≈ 0,3937 % | 100 % | AROME totale bewolking is fractie 0–1 en wordt vóór kwantisatie ×100; uitsluitend pictogram-input |
 
 U en V worden uit dezelfde decoded lead time, dezelfde indexmap en dezelfde
 tijdenlijst opgebouwd. De publisher weigert een AROME-publicatie wanneer de
 twee chunks niet hetzelfde grid, dezelfde tijden en dezelfde framevolgorde
 hebben.
+
+`cloud_frac` heeft geen kaartsemantiek: het is alleen invoer voor de
+frontend-pictogramafleiding, conform MIP-4 ronde 4.
 
 ## Gevoelstemperatuur
 

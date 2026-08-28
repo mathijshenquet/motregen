@@ -55,6 +55,10 @@ def main():
             or any(value is None or not math.isfinite(value) for value in quant[:255])
             or any(left >= right for left, right in zip(quant[:254], quant[1:255], strict=True))
             or (field in {"rain_rate", "radiation"} and quant[0] != 0.0)
+            or (
+                field in {"rel_humidity", "cloud_frac"}
+                and (not math.isclose(quant[0], 0.0) or not math.isclose(quant[254], 100.0))
+            )
         ):
             raise ValueError(f"invalid quant table in {path}")
         offset = 0

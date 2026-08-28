@@ -21,32 +21,32 @@ pub struct GridSpec {
 
 pub const SHARED_GRID: GridSpec = GridSpec {
     crs: "EPSG:3857",
-    x0: 250_000.0,
-    y0: 7_200_000.0,
+    x0: 0.0,
+    y0: 7_600_000.0,
     dx: 1_000.0,
     dy: -1_000.0,
-    width: 650,
-    height: 700,
+    width: 1_250,
+    height: 1_350,
 };
 
 pub const HOURLY_GRID: GridSpec = GridSpec {
     crs: "EPSG:3857",
-    x0: 250_000.0,
-    y0: 7_200_000.0,
+    x0: 0.0,
+    y0: 7_600_000.0,
     dx: 2_000.0,
     dy: -2_000.0,
-    width: 325,
-    height: 350,
+    width: 625,
+    height: 675,
 };
 
 pub const UV_GRID: GridSpec = GridSpec {
     crs: "EPSG:3857",
-    x0: 250_000.0,
-    y0: 7_200_000.0,
+    x0: 0.0,
+    y0: 7_600_000.0,
     dx: 5_000.0,
     dy: -5_000.0,
-    width: 130,
-    height: 140,
+    width: 250,
+    height: 270,
 };
 
 impl GridSpec {
@@ -288,7 +288,7 @@ mod tests {
     }
 
     #[test]
-    fn shared_grid_is_covered_by_both_sources() {
+    fn expanded_grid_keeps_out_of_source_cells_as_no_data() {
         let radar = IndexMap::radar(&radar_grid()).unwrap();
         let arome = IndexMap::arome(&arome_grid()).unwrap();
         let hourly = IndexMap::arome_on(&arome_grid(), HOURLY_GRID).unwrap();
@@ -297,11 +297,24 @@ mod tests {
         assert_eq!(arome.indices.len(), SHARED_GRID.cell_count());
         assert_eq!(hourly.indices.len(), HOURLY_GRID.cell_count());
         assert_eq!(uv.indices.len(), UV_GRID.cell_count());
-        assert_eq!(radar.missing_count(), 0);
-        assert_eq!(arome.missing_count(), 0);
-        assert_eq!(hourly.missing_count(), 0);
+        assert!(radar.missing_count() > 0);
+        assert!(radar.missing_count() < SHARED_GRID.cell_count());
+        assert!(arome.missing_count() > 0);
+        assert!(hourly.missing_count() > 0);
         assert!(uv.missing_count() > 0);
         assert!(uv.missing_count() < UV_GRID.cell_count());
+    }
+
+    #[test]
+    fn expanded_grid_contains_the_radar_source_footprint() {
+        let radar = IndexMap::radar(&radar_grid()).unwrap();
+        let represented = radar
+            .indices
+            .iter()
+            .copied()
+            .filter(|index| *index != MISSING_INDEX)
+            .collect::<std::collections::HashSet<_>>();
+        assert_eq!(represented.len(), radar_grid().width * radar_grid().height);
     }
 
     #[test]
