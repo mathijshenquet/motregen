@@ -6,6 +6,8 @@ use thiserror::Error;
 
 pub const BLOCK_SIZE: usize = 32;
 const SAMPLE_STEP: usize = 4;
+const GLOBAL_STEP: usize = 16;
+const GLOBAL_RADIUS: i32 = 8;
 const LOCAL_RADIUS: i32 = 8;
 const MIN_SIGNAL_SAMPLES: usize = 4;
 const MIN_CORRELATION_SAMPLES: usize = 8;
@@ -78,7 +80,7 @@ pub fn estimate(
         });
     }
     let grid = grid_for(width as u32, height as u32)?;
-    let seed = centroid_shift(previous, current, width, height);
+    let seed = global_shift(previous, current, width, height);
     let mut vectors = Vec::with_capacity(grid.bw as usize * grid.bh as usize);
     for block_y in 0..grid.bh as usize {
         for block_x in 0..grid.bw as usize {
@@ -107,31 +109,112 @@ pub fn estimate(
     })
 }
 
-fn centroid_shift(previous: &[f32], current: &[f32], width: usize, height: usize) -> (i32, i32) {
-    let centroid = |field: &[f32]| {
-        let mut weight = 0.0_f64;
-        let mut x_sum = 0.0_f64;
-        let mut y_sum = 0.0_f64;
-        for y in (0..height).step_by(SAMPLE_STEP) {
-            for x in (0..width).step_by(SAMPLE_STEP) {
-                let value = field[y * width + x];
-                if value.is_finite() && value > 0.0 {
-                    let value = f64::from(value.ln_1p());
-                    weight += value;
-                    x_sum += x as f64 * value;
-                    y_sum += y as f64 * value;
+fn global_shift(previous: &[f32], current: &[f32], width: usize, height: usize) -> (i32, i32) {
+    let coarse_width = width.div_ceil(GLOBAL_STEP);
+    let coarse_height = height.div_ceil(GLOBAL_STEP);
+    let downsample = |field: &[f32]| {
+        let mut coarse = Vec::with_capacity(coarse_width * coarse_height);
+        for block_y in 0..coarse_height {
+            for block_x in 0..coarse_width {
+                let mut sum = 0.0_f32;
+                let mut count = 0_usize;
+                let y1 = ((block_y + 1) * GLOBAL_STEP).min(height);
+                let x1 = ((block_x + 1) * GLOBAL_STEP).min(width);
+                for y in block_y * GLOBAL_STEP..y1 {
+                    for x in block_x * GLOBAL_STEP..x1 {
+                        let value = field[y * width + x];
+                        if value.is_finite() {
+                            sum += value.max(0.0).ln_1p();
+                            count += 1;
+                        }
+                    }
                 }
+                coarse.push(if count > 0 {
+                    sum / count as f32
+                } else {
+                    f32::NAN
+                });
             }
         }
-        (weight > 0.0).then_some((x_sum / weight, y_sum / weight))
+        coarse
     };
-    match (centroid(previous), centroid(current)) {
-        (Some((px, py)), Some((cx, cy))) => (
-            (cx - px).round().clamp(-120.0, 120.0) as i32,
-            (cy - py).round().clamp(-120.0, 120.0) as i32,
-        ),
-        _ => (0, 0),
+    let previous = downsample(previous);
+    let current = downsample(current);
+    let mut best: Option<(f32, i32, i32)> = None;
+    for v in -GLOBAL_RADIUS..=GLOBAL_RADIUS {
+        for u in -GLOBAL_RADIUS..=GLOBAL_RADIUS {
+            let Some(score) =
+                coarse_correlation(&previous, &current, coarse_width, coarse_height, u, v)
+            else {
+                continue;
+            };
+            let distance = u.abs() + v.abs();
+            if best.is_none_or(|(best_score, best_u, best_v)| {
+                score > best_score + 1.0e-6
+                    || ((score - best_score).abs() <= 1.0e-6
+                        && distance < best_u.abs() + best_v.abs())
+            }) {
+                best = Some((score, u, v));
+            }
+        }
     }
+    best.map_or((0, 0), |(_, u, v)| {
+        (u * GLOBAL_STEP as i32, v * GLOBAL_STEP as i32)
+    })
+}
+
+fn coarse_correlation(
+    previous: &[f32],
+    current: &[f32],
+    width: usize,
+    height: usize,
+    u: i32,
+    v: i32,
+) -> Option<f32> {
+    let mut count = 0_usize;
+    let mut signal = 0_usize;
+    let mut sum_a = 0.0_f64;
+    let mut sum_b = 0.0_f64;
+    let mut sum_aa = 0.0_f64;
+    let mut sum_bb = 0.0_f64;
+    let mut sum_ab = 0.0_f64;
+    for y in 0..height {
+        let cy = y as i32 + v;
+        if !(0..height as i32).contains(&cy) {
+            continue;
+        }
+        for x in 0..width {
+            let cx = x as i32 + u;
+            if !(0..width as i32).contains(&cx) {
+                continue;
+            }
+            let a = previous[y * width + x];
+            let b = current[cy as usize * width + cx as usize];
+            if !a.is_finite() || !b.is_finite() {
+                continue;
+            }
+            signal += usize::from(a > 0.0 || b > 0.0);
+            let a = f64::from(a);
+            let b = f64::from(b);
+            count += 1;
+            sum_a += a;
+            sum_b += b;
+            sum_aa += a * a;
+            sum_bb += b * b;
+            sum_ab += a * b;
+        }
+    }
+    if count < 64 || signal < 16 {
+        return None;
+    }
+    let count = count as f64;
+    let covariance = sum_ab - sum_a * sum_b / count;
+    let variance_a = sum_aa - sum_a * sum_a / count;
+    let variance_b = sum_bb - sum_b * sum_b / count;
+    if variance_a <= 1.0e-9 || variance_b <= 1.0e-9 {
+        return None;
+    }
+    Some((covariance / (variance_a * variance_b).sqrt()) as f32)
 }
 
 fn estimate_block(
@@ -357,6 +440,29 @@ mod tests {
         assert!(valid.len() >= 6);
         assert!(valid.iter().all(|pair| (pair[0] - 10).abs() <= 1));
         assert!(valid.iter().all(|pair| (pair[1] - -6).abs() <= 1));
+    }
+
+    #[test]
+    fn coarse_seed_recovers_hourly_translation_beyond_local_radius() {
+        let (previous, current) = translated_pair(256, 256, 48, 32);
+        let result = estimate(&previous, &current, 256, 256, 60.0).unwrap();
+        let valid = result
+            .vectors
+            .chunks_exact(2)
+            .filter(|pair| pair[0] != NO_DATA)
+            .collect::<Vec<_>>();
+        assert!(valid.len() >= 20);
+        assert!(valid.iter().all(|pair| (pair[0] - 8).abs() <= 1));
+        assert!(valid.iter().all(|pair| (pair[1] - 5).abs() <= 1));
+    }
+
+    #[test]
+    fn empty_block_inherits_supported_neighbor_median() {
+        let grid = MotionGrid { bw: 3, bh: 3 };
+        let mut vectors = vec![Some((4.0, -2.0)); 9];
+        vectors[4] = None;
+        inherit_empty(&mut vectors, grid);
+        assert_eq!(vectors[4], Some((4.0, -2.0)));
     }
 
     #[test]

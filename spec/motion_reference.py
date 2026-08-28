@@ -42,10 +42,17 @@ def read_chunk(path: Path) -> tuple[dict[str, Any], int, bytes]:
     return header, header_len, chunk
 
 
-def decompress_member(chunk: bytes, header_len: int, member: dict[str, Any]) -> bytes:
+def decompress_member(
+    chunk: bytes, header_len: int, member: dict[str, Any], expected_size: int
+) -> bytes:
     start = header_len + int(member["offset"])
     end = start + int(member["len"])
-    return zstandard.ZstdDecompressor().decompress(chunk[start:end])
+    decoded = zstandard.ZstdDecompressor().decompress(
+        chunk[start:end], max_output_size=expected_size
+    )
+    if len(decoded) != expected_size:
+        raise ValueError(f"member decoded to {len(decoded)} bytes; expected {expected_size}")
+    return decoded
 
 
 def dequantize(raw: bytes, quant: list[float | None], shape: tuple[int, int]) -> np.ndarray:
@@ -128,11 +135,18 @@ def main() -> None:
 
     grid = header["grid"]
     shape = (int(grid["height"]), int(grid["width"]))
+    frame_size = shape[0] * shape[1]
     quant = header["quant"]
     previous = dequantize(
-        decompress_member(chunk, header_len, frames[args.frame_idx - 1]), quant, shape
+        decompress_member(
+            chunk, header_len, frames[args.frame_idx - 1], frame_size
+        ),
+        quant,
+        shape,
     )
-    current = dequantize(decompress_member(chunk, header_len, current_entry), quant, shape)
+    current = dequantize(
+        decompress_member(chunk, header_len, current_entry, frame_size), quant, shape
+    )
     previous_time = datetime.fromisoformat(frames[args.frame_idx - 1]["time"].replace("Z", "+00:00"))
     current_time = datetime.fromisoformat(current_entry["time"].replace("Z", "+00:00"))
     interval_minutes = (current_time - previous_time).total_seconds() / 60.0
@@ -150,7 +164,7 @@ def main() -> None:
         reference_dense, signal, interval_minutes, bw, bh
     )
 
-    raw_motion = decompress_member(chunk, header_len, motion_member)
+    raw_motion = decompress_member(chunk, header_len, motion_member, bw * bh * 2)
     rust_raw = np.frombuffer(raw_motion, dtype=np.int8).reshape((bh, bw, 2))
     rust = rust_raw.astype(np.float32) / 10.0
     rust_valid = np.all(rust_raw != NO_DATA, axis=2)

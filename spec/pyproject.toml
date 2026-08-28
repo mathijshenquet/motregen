@@ -6,6 +6,7 @@ dependencies = [
   "cfgrib>=0.9.15",
   "h5py>=3.16",
   "numpy>=2.0",
+  "opencv-python-headless>=4.13",
   "matplotlib>=3.10",
   "pyproj>=3.7",
   "pysteps>=1.18",

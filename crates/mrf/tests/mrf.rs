@@ -246,6 +246,52 @@ fn motion_annex_rejects_bad_shape_and_half_no_data() {
 }
 
 #[test]
+fn cli_inspects_and_dumps_motion() {
+    let directory =
+        std::env::temp_dir().join(format!("mrf-motion-cli-test-{}", std::process::id()));
+    std::fs::create_dir_all(&directory).unwrap();
+    let chunk_path = directory.join("motion.mrf");
+    let output = directory.join("motion.i8");
+    let expected = vec![10_i8, -5, -128, -128];
+    let chunk = encode_with_motion(
+        &[vec![0, 1], vec![2, 3]],
+        &meta(2, 1, 2),
+        MotionGrid { bw: 2, bh: 1 },
+        &[None, Some(expected.clone())],
+    )
+    .unwrap();
+    std::fs::write(&chunk_path, chunk).unwrap();
+    let binary = env!("CARGO_BIN_EXE_mrf");
+    let inspect = std::process::Command::new(binary)
+        .arg("inspect")
+        .arg(&chunk_path)
+        .output()
+        .unwrap();
+    assert!(inspect.status.success());
+    let stdout = String::from_utf8(inspect.stdout).unwrap();
+    assert!(stdout.contains("motion_grid"));
+    assert!(stdout.contains("motion=offset="));
+    assert!(
+        std::process::Command::new(binary)
+            .arg("dump-motion")
+            .arg(&chunk_path)
+            .args(["1", "--output"])
+            .arg(&output)
+            .status()
+            .unwrap()
+            .success()
+    );
+    assert_eq!(
+        std::fs::read(&output).unwrap(),
+        expected
+            .into_iter()
+            .map(|value| value as u8)
+            .collect::<Vec<_>>()
+    );
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
 fn cli_encodes_inspects_and_decodes_raw_data() {
     let directory = std::env::temp_dir().join(format!("mrf-cli-test-{}", std::process::id()));
     std::fs::create_dir_all(&directory).unwrap();
