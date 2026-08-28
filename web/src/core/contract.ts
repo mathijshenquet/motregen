@@ -1,4 +1,5 @@
 export type Source = 'rtcor' | 'nowcast' | 'harmonie'
+export type Field = 'rain_rate' | 'radiation'
 
 export interface Grid {
   crs: 'EPSG:3857'
@@ -13,6 +14,7 @@ export interface Grid {
 export interface ManifestChunk {
   url: string
   source: Source
+  field?: Field
   run: string
   header_len: number
   times: string[]
@@ -33,6 +35,7 @@ export interface FrameIndex {
 
 export interface MrfHeader {
   version: 0
+  field?: Field
   grid: Grid
   quant: Array<number | null>
   source: Source
@@ -48,4 +51,8 @@ export interface TimelineFrame {
   run: string
   chunk: ManifestChunk
   frameIndex: number
+}
+
+export function chunkField(chunk: Pick<ManifestChunk, 'field'>): Field {
+  return chunk.field ?? 'rain_rate'
 }

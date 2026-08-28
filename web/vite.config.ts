@@ -8,6 +8,7 @@ const allowedHosts = ['ageq-mthq']
 
 export default defineConfig({
   plugins: [solid(), tailwindcss()],
+  build: { sourcemap: true },
   server: { allowedHosts },
   preview: { allowedHosts },
   test: { environment: 'node' },

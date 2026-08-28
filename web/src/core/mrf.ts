@@ -43,7 +43,7 @@ interface WorkerReply { id: number; frame?: ArrayBuffer; error?: string }
 
 export class MrfClient {
   private readonly headers = new Map<string, Promise<MrfHeader>>()
-  private readonly frames = new LruCache<string, Uint8Array>(32)
+  private readonly frames = new LruCache<string, Uint8Array>(256)
   private readonly framePromises = new Map<string, Promise<Uint8Array>>()
   private readonly pending = new Map<number, { resolve: (frame: Uint8Array) => void; reject: (error: Error) => void }>()
   private readonly worker = new Worker(new URL('./zstd.worker.ts', import.meta.url), { type: 'module' })
@@ -69,25 +69,68 @@ export class MrfClient {
   }
 
   async getFrame(chunk: ManifestChunk, frameIndex: number): Promise<Uint8Array> {
-    const url = new URL(chunk.url, this.manifestUrl).href
-    const key = `${url}#${frameIndex}`
-    const cached = this.frames.get(key)
-    if (cached) return cached
-    const pending = this.framePromises.get(key)
-    if (pending) return pending
-    const request = this.fetchFrame(url, chunk, frameIndex, key)
-    this.framePromises.set(key, request)
-    try { return await request } finally { this.framePromises.delete(key) }
+    return (await this.getFrames(chunk, [frameIndex]))[0]!
   }
 
-  private async fetchFrame(url: string, chunk: ManifestChunk, frameIndex: number, key: string): Promise<Uint8Array> {
-    const header = await this.getHeader(chunk), frame = header.frames[frameIndex]
-    if (!frame) throw new Error('Frame-index buiten bereik')
+  async getFrames(chunk: ManifestChunk, frameIndexes: number[]): Promise<Uint8Array[]> {
+    const url = new URL(chunk.url, this.manifestUrl).href
+    const header = await this.getHeader(chunk)
+    const uniqueIndexes = [...new Set(frameIndexes)]
+    for (const index of uniqueIndexes) if (!header.frames[index]) throw new Error('Frame-index buiten bereik')
+    const missing = uniqueIndexes.filter((index) => {
+      const key = frameKey(url, index)
+      return !this.frames.get(key) && !this.framePromises.has(key)
+    })
+
+    if (missing.length && uniqueIndexes.length > header.frames.length / 2) {
+      const batch = this.fetchChunkPayload(url, chunk, header, missing)
+      for (const index of missing) this.trackFramePromise(frameKey(url, index), batch.then((frames) => frames.get(index)!))
+    } else {
+      for (const index of missing) {
+        const key = frameKey(url, index)
+        this.trackFramePromise(key, this.fetchIndexedFrame(url, chunk, header, index, key))
+      }
+    }
+
+    return Promise.all(frameIndexes.map((index) => {
+      const key = frameKey(url, index)
+      const cached = this.frames.get(key)
+      if (cached) return cached
+      return this.framePromises.get(key)!
+    }))
+  }
+
+  private async fetchIndexedFrame(url: string, chunk: ManifestChunk, header: MrfHeader, frameIndex: number, key: string): Promise<Uint8Array> {
+    const frame = header.frames[frameIndex]!
     const start = chunk.header_len + frame.offset
     const compressed = await fetchRange(url, start, start + frame.len - 1)
     const decoded = await this.decodeInWorker(compressed, header.grid.width * header.grid.height)
     this.frames.set(key, decoded)
     return decoded
+  }
+
+  private async fetchChunkPayload(
+    url: string,
+    chunk: ManifestChunk,
+    header: MrfHeader,
+    indexes: number[],
+  ): Promise<Map<number, Uint8Array>> {
+    const finalFrame = header.frames.at(-1)!
+    const payload = await fetchRange(url, chunk.header_len, chunk.header_len + finalFrame.offset + finalFrame.len - 1)
+    const decoded = await Promise.all(indexes.map(async (index) => {
+      const frame = header.frames[index]!
+      const compressed = payload.slice(frame.offset, frame.offset + frame.len)
+      const bytes = await this.decodeInWorker(compressed, header.grid.width * header.grid.height)
+      this.frames.set(frameKey(url, index), bytes)
+      return [index, bytes] as const
+    }))
+    return new Map(decoded)
+  }
+
+  private trackFramePromise(key: string, promise: Promise<Uint8Array>): void {
+    this.framePromises.set(key, promise)
+    const clear = () => { if (this.framePromises.get(key) === promise) this.framePromises.delete(key) }
+    void promise.then(clear, clear)
   }
 
   prefetch(chunk: ManifestChunk, indexes: number[]): void {
@@ -101,6 +144,10 @@ export class MrfClient {
       this.worker.postMessage({ id, bytes: compressed.buffer, expectedLength }, [compressed.buffer])
     })
   }
+}
+
+function frameKey(url: string, index: number): string {
+  return `${url}#${index}`
 }
 
 async function fetchRange(url: string, start: number, end: number): Promise<Uint8Array> {
