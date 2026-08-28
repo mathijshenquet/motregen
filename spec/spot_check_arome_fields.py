@@ -42,7 +42,13 @@ def read_field(path: Path, parameter: int, level: int) -> tuple[np.ndarray, dict
         dataset.close()
 
 
-def target_values(source: np.ndarray, source_grid: dict[str, float], target: dict[str, Any]) -> np.ndarray:
+def target_values(
+    source: np.ndarray,
+    source_grid: dict[str, float],
+    target: dict[str, Any],
+    *,
+    allow_outside: bool = False,
+) -> np.ndarray:
     rows, columns = np.indices((int(target["height"]), int(target["width"])))
     x = float(target["x0"]) + (columns + 0.5) * float(target["dx"])
     y = float(target["y0"]) + (rows + 0.5) * float(target["dy"])
@@ -54,13 +60,25 @@ def target_values(source: np.ndarray, source_grid: dict[str, float], target: dic
     source_rows = np.floor(
         (latitude - source_grid["latitude_first"]) / source_grid["latitude_increment"] + 0.5
     ).astype(np.intp)
+    valid = (
+        (source_columns >= 0)
+        & (source_rows >= 0)
+        & (source_columns < int(source_grid["width"]))
+        & (source_rows < int(source_grid["height"]))
+    )
+    if not allow_outside and not np.all(valid):
+        raise AssertionError("target grid is not covered by source")
+    if allow_outside:
+        result = np.full(source_columns.shape, np.nan, dtype=np.float32)
+        result[valid] = source[source_rows[valid], source_columns[valid]]
+        return result
     if (
         source_columns.min() < 0
         or source_rows.min() < 0
         or source_columns.max() >= int(source_grid["width"])
         or source_rows.max() >= int(source_grid["height"])
     ):
-        raise AssertionError("target grid is not covered by AROME")
+        raise AssertionError("target grid is not covered by source")
     return source[source_rows, source_columns]
 
 

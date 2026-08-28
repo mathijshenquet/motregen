@@ -7,7 +7,7 @@ use knmi_hdf5::{RadarFrame, RadarGrid};
 use crate::{
     api::{ApiClient, RemoteFile},
     arome_tar::index_lead_members,
-    grid::{HOURLY_GRID, IndexMap, SHARED_GRID},
+    grid::{HOURLY_GRID, IndexMap, SHARED_GRID, UV_GRID},
     publisher::{ProducedChunk, produced_chunk},
 };
 
@@ -17,6 +17,8 @@ pub const NOWCAST_DATASET: &str = "radar_forecast";
 pub const NOWCAST_VERSION: &str = "2.0";
 pub const AROME_DATASET: &str = "harmonie_arome_cy43_p1";
 pub const AROME_VERSION: &str = "1.0";
+pub const UV_DATASET: &str = "cloud_modified_UV_index_benelux";
+pub const UV_VERSION: &str = "1.0";
 
 pub fn latest_files(
     api: &ApiClient,
@@ -278,6 +280,52 @@ pub fn build_arome_chunks(
     })
 }
 
+pub fn build_uv_chunk(
+    api: &ApiClient,
+    cache_root: &Path,
+    file: &RemoteFile,
+    now: DateTime<Utc>,
+) -> Result<Option<ProducedChunk>> {
+    let run = DateTime::parse_from_rfc3339(&file.last_modified)?.with_timezone(&Utc);
+    let cache_version = run.format("%Y%m%dT%H%M%S").to_string();
+    let path = api.cache_file(
+        UV_DATASET,
+        UV_VERSION,
+        file,
+        &cache_root.join("uv").join(cache_version),
+    )?;
+    let product = knmi_hdf5::decode_uv_index(path)?;
+    if !uv_window_active(&product.date, now)? || product.frames.is_empty() {
+        return Ok(None);
+    }
+    let map = IndexMap::uv(&product.grid)?;
+    let quant = uv_quantization_table();
+    let mut frames = Vec::with_capacity(product.frames.len());
+    let mut times = Vec::with_capacity(product.frames.len());
+    for frame in product.frames {
+        times.push(frame.time);
+        frames.push(quantize_values(&map.gather(&frame.values)?, &quant)?);
+    }
+    let run = run.to_rfc3339_opts(SecondsFormat::Secs, true);
+    let meta =
+        mrf::ChunkMeta::standard(UV_GRID.mrf_grid(), "uv", &run, times).with_field("uv", quant);
+    let filename = format!(
+        "uv-{}.mrf",
+        DateTime::parse_from_rfc3339(&run)?.format("%Y%m%dT%H%M%S")
+    );
+    Ok(Some(produced_chunk(
+        filename,
+        mrf::encode(&frames, &meta)?,
+    )?))
+}
+
+fn uv_window_active(date: &str, now: DateTime<Utc>) -> Result<bool> {
+    let window_start =
+        NaiveDateTime::parse_from_str(&format!("{date}030000"), "%Y%m%d%H%M%S")?.and_utc();
+    let window_end = window_start + Duration::hours(18) + Duration::minutes(45);
+    Ok(now >= window_start && now <= window_end)
+}
+
 fn quantize_gathered(map: &IndexMap, source: &[f32]) -> Result<Vec<u8>> {
     Ok(map.gather(source)?.into_iter().map(mrf::quantize).collect())
 }
@@ -481,5 +529,60 @@ mod tests {
         assert_eq!(wind[127], Some(0.0));
         assert_eq!(radiation_quantization_table()[254], Some(1_270.0));
         assert!((uv_quantization_table()[254].unwrap() - 12.0).abs() < 0.0001);
+    }
+
+    #[test]
+    fn uv_window_is_only_active_during_the_documented_utc_day() {
+        let timestamp = |value: &str| {
+            DateTime::parse_from_rfc3339(value)
+                .unwrap()
+                .with_timezone(&Utc)
+        };
+        assert!(!uv_window_active("20260828", timestamp("2026-08-28T02:59:59Z")).unwrap());
+        assert!(uv_window_active("20260828", timestamp("2026-08-28T03:00:00Z")).unwrap());
+        assert!(uv_window_active("20260828", timestamp("2026-08-28T21:45:00Z")).unwrap());
+        assert!(!uv_window_active("20260828", timestamp("2026-08-28T21:45:01Z")).unwrap());
+    }
+
+    #[test]
+    fn wind_pair_requires_identical_grid_times_and_order() {
+        let make = |field: &str, times: Vec<String>| {
+            let meta = mrf::ChunkMeta::standard(
+                HOURLY_GRID.mrf_grid(),
+                "harmonie",
+                "2026-08-28T12:00:00Z",
+                times.clone(),
+            )
+            .with_field(field, wind_quantization_table());
+            produced_chunk(
+                format!("{field}.mrf"),
+                mrf::encode(
+                    &vec![vec![127; HOURLY_GRID.cell_count()]; times.len()],
+                    &meta,
+                )
+                .unwrap(),
+            )
+            .unwrap()
+        };
+        let times = vec![
+            "2026-08-28T13:00:00Z".to_owned(),
+            "2026-08-28T14:00:00Z".to_owned(),
+        ];
+        let valid = [
+            make("wind_u_ms", times.clone()),
+            make("wind_v_ms", times.clone()),
+        ];
+        validate_wind_pair(&valid).unwrap();
+        let invalid = [
+            make("wind_u_ms", times),
+            make(
+                "wind_v_ms",
+                vec![
+                    "2026-08-28T14:00:00Z".to_owned(),
+                    "2026-08-28T13:00:00Z".to_owned(),
+                ],
+            ),
+        ];
+        assert!(validate_wind_pair(&invalid).is_err());
     }
 }

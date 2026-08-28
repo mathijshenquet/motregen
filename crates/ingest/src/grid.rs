@@ -1,6 +1,6 @@
 use anyhow::{Result, ensure};
 use knmi_grib::GridDefinition as AromeGrid;
-use knmi_hdf5::RadarGrid;
+use knmi_hdf5::{RadarGrid, UvGrid};
 
 const WEB_MERCATOR_RADIUS_M: f64 = 6_378_137.0;
 const RADAR_SEMI_MAJOR_M: f64 = 6_378_137.0;
@@ -37,6 +37,16 @@ pub const HOURLY_GRID: GridSpec = GridSpec {
     dy: -2_000.0,
     width: 325,
     height: 350,
+};
+
+pub const UV_GRID: GridSpec = GridSpec {
+    crs: "EPSG:3857",
+    x0: 250_000.0,
+    y0: 7_200_000.0,
+    dx: 5_000.0,
+    dy: -5_000.0,
+    width: 130,
+    height: 140,
 };
 
 impl GridSpec {
@@ -103,6 +113,26 @@ impl IndexMap {
             height: source.nj,
         };
         Self::build(target, |x, y| {
+            let (longitude, latitude) = web_mercator_to_lon_lat(x, y);
+            nearest_index(longitude, latitude, raster, 0.0)
+        })
+    }
+
+    pub fn uv(source: &UvGrid) -> Result<Self> {
+        ensure!(source.width > 0 && source.height > 0, "empty UV grid");
+        ensure!(
+            source.longitude_increment > 0.0 && source.latitude_increment > 0.0,
+            "UV grid increments must be positive"
+        );
+        let raster = SourceRaster {
+            x0: source.longitude_first,
+            y0: source.latitude_first,
+            dx: source.longitude_increment,
+            dy: source.latitude_increment,
+            width: source.width,
+            height: source.height,
+        };
+        Self::build(UV_GRID, |x, y| {
             let (longitude, latitude) = web_mercator_to_lon_lat(x, y);
             nearest_index(longitude, latitude, raster, 0.0)
         })
@@ -236,6 +266,17 @@ mod tests {
         }
     }
 
+    fn uv_grid() -> UvGrid {
+        UvGrid {
+            latitude_first: 49.275,
+            longitude_first: 2.275,
+            latitude_increment: 0.05,
+            longitude_increment: 0.05,
+            width: 110,
+            height: 95,
+        }
+    }
+
     #[test]
     fn stereographic_formula_matches_knmi_corners() {
         let upper_left = radar_stereographic(0.0, 55.973_602);
@@ -251,12 +292,16 @@ mod tests {
         let radar = IndexMap::radar(&radar_grid()).unwrap();
         let arome = IndexMap::arome(&arome_grid()).unwrap();
         let hourly = IndexMap::arome_on(&arome_grid(), HOURLY_GRID).unwrap();
+        let uv = IndexMap::uv(&uv_grid()).unwrap();
         assert_eq!(radar.indices.len(), SHARED_GRID.cell_count());
         assert_eq!(arome.indices.len(), SHARED_GRID.cell_count());
         assert_eq!(hourly.indices.len(), HOURLY_GRID.cell_count());
+        assert_eq!(uv.indices.len(), UV_GRID.cell_count());
         assert_eq!(radar.missing_count(), 0);
         assert_eq!(arome.missing_count(), 0);
         assert_eq!(hourly.missing_count(), 0);
+        assert!(uv.missing_count() > 0);
+        assert!(uv.missing_count() < UV_GRID.cell_count());
     }
 
     #[test]

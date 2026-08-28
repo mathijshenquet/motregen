@@ -60,6 +60,34 @@ Bronnen: [Environment and Climate Change Canada — Wind chill index](https://ww
 
 ## UV
 
-De UV-bron, het bestandsformaat, grid en publicatiecadans worden hieronder
-aangevuld na de live catalogus/API-verificatie. Buiten het gepubliceerde
-dagvenster maakt de ingest geen UV-chunk; ontbrekende UV-data is geen nul.
+De officiële bron is KNMI Open Data-dataset
+[`cloud_modified_UV_index_benelux` versie 1.0](https://dataplatform.knmi.nl/catalog/datasets/index.html?x-dataset=cloud_modified_UV_index_benelux&x-dataset-version=1.0).
+Iedere dag heeft één bestand `uviec_bx_hr_YYYYMMDD.nc` van momenteel circa
+3,8 MB. Het is NetCDF4/HDF5 en wordt gedurende de dag ongeveer ieder kwartier
+onder dezelfde bestandsnaam bijgewerkt. De ingest gebruikt daarom
+`lastModified` naast de naam als bronidentiteit en bewaart iedere download in
+een versiegestempelde cachedirectory.
+
+Onder `/PRODUCT` staan:
+
+- `latitude[95]` en `longitude[110]`: celcentra per 0,05°, extent van de
+  celranden 49,25–54,00° N en 2,25–7,75° O;
+- `time[72]`: kwartieren in UTC;
+- `status[time]`: 0 = niet beschikbaar, 1 = analyse, 2 = verwachting;
+- `uvi_cloudy[time, latitude, longitude]`: cloud-modified erythemale
+  UV-index, dimensieloos; `-1` is no-data. `uvi_clear` is aanwezig maar niet
+  het gekozen contractveld.
+
+Alleen frames met status 1 of 2 worden gepubliceerd. Ze gaan met nearest
+neighbour naar dezelfde EPSG:3857-extent op een passend grof 5km-grid
+(130×140); de KNMI-Beneluxdekking laat de buitenste gedeelde kaartmarge als
+no-data. De daemon controleert iedere 15 minuten. Buiten het door de
+trackspecificatie vastgelegde venster 03:00–21:45 UTC publiceert hij geen
+UV-chunk; ontbrekende UV-data is dus nooit nul.
+
+Er is een bronmetadata-afwijking: de catalogustekst en trackspecificatie
+noemen 21:45 UTC, maar het op 28 augustus 2026 gedownloade bestand bevat 72
+tijden van 03:00 tot 20:45 UTC en zegt hetzelfde in zijn `time`-commentaar.
+De daemon hardcodet geen frame-eindtijd: de bestandstijden bepalen welke
+frames bestaan, terwijl alleen de buitenvenster-gate de afgesproken 21:45
+gebruikt.
