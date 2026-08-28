@@ -35,6 +35,8 @@ enum Command {
 
 #[derive(Deserialize)]
 struct RawMeta {
+    #[serde(default = "default_field")]
+    field: String,
     grid: Grid,
     quant: Vec<Option<f32>>,
     source: String,
@@ -87,6 +89,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 frames.push(frame);
             }
             let chunk_meta = ChunkMeta {
+                field: meta.field,
                 grid: meta.grid,
                 quant: meta.quant,
                 source: meta.source,
@@ -109,4 +112,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     Ok(())
+}
+
+fn default_field() -> String {
+    "rain_rate".to_owned()
 }

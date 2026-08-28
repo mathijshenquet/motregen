@@ -39,6 +39,8 @@ pub struct Frame {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Header {
     pub version: u32,
+    #[serde(default = "default_field", skip_serializing_if = "is_default_field")]
+    pub field: String,
     pub grid: Grid,
     pub quant: Vec<Option<f32>>,
     pub source: String,
@@ -49,6 +51,7 @@ pub struct Header {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ChunkMeta {
+    pub field: String,
     pub grid: Grid,
     pub quant: Vec<Option<f32>>,
     pub source: String,
@@ -64,12 +67,19 @@ impl ChunkMeta {
         frame_times: Vec<String>,
     ) -> Self {
         Self {
+            field: default_field(),
             grid,
             quant: quantization_table(),
             source: source.into(),
             run: run.into(),
             frame_times,
         }
+    }
+
+    pub fn with_field(mut self, field: impl Into<String>, quant: Vec<Option<f32>>) -> Self {
+        self.field = field.into();
+        self.quant = quant;
+        self
     }
 }
 
@@ -101,9 +111,9 @@ pub enum Error {
     UnsupportedVersion(u32),
     #[error("grid dimensions overflow this platform")]
     GridTooLarge,
-    #[error(
-        "quantization table must contain exactly 256 entries, with 0.0 at index 0 and null at index 255"
-    )]
+    #[error("invalid quantization table for field {field}")]
+    InvalidQuantizationTableForField { field: String },
+    #[error("quantization table must contain 255 finite increasing values and null at index 255")]
     InvalidQuantizationTable,
     #[error("mrf v0 requires dict to be null")]
     UnsupportedDictionary,
@@ -163,9 +173,9 @@ pub fn quantize_with_table(value: f32, table: &[Option<f32>]) -> Result<u8, Erro
     if value.is_nan() {
         return Ok(255);
     }
-    let first = table[1].expect("validated table entry");
+    let first = table[0].expect("validated table entry");
     let last = table[254].expect("validated table entry");
-    if value <= first / 2.0 {
+    if value <= first {
         return Ok(0);
     }
     if value >= last {
@@ -209,6 +219,7 @@ pub fn encode(frames: &[Vec<u8>], meta: &ChunkMeta) -> Result<Vec<u8>, Error> {
         .collect();
     let header = Header {
         version: VERSION,
+        field: meta.field.clone(),
         grid: meta.grid.clone(),
         quant: meta.quant.clone(),
         source: meta.source.clone(),
@@ -336,7 +347,7 @@ pub fn decode(bytes: &[u8]) -> Result<DecodedChunk, Error> {
 }
 
 fn validate_meta(meta: &ChunkMeta, frames: &[Vec<u8>]) -> Result<(), Error> {
-    validate_quantization_table(&meta.quant)?;
+    validate_quantization_table_for_field(&meta.quant, &meta.field)?;
     if meta.frame_times.len() != frames.len() {
         return Err(Error::FrameCountMismatch {
             times: meta.frame_times.len(),
@@ -361,7 +372,7 @@ fn validate_header(header: &Header) -> Result<(), Error> {
         return Err(Error::UnsupportedVersion(header.version));
     }
     header.grid.cell_count()?;
-    validate_quantization_table(&header.quant)?;
+    validate_quantization_table_for_field(&header.quant, &header.field)?;
     if header.dict.is_some() {
         return Err(Error::UnsupportedDictionary);
     }
@@ -378,10 +389,15 @@ fn validate_header(header: &Header) -> Result<(), Error> {
 }
 
 fn validate_quantization_table(table: &[Option<f32>]) -> Result<(), Error> {
-    if table.len() != 256 || table[0] != Some(0.0) || table[255].is_some() {
+    if table.len() != 256 || table[255].is_some() {
         return Err(Error::InvalidQuantizationTable);
     }
-    let mut previous = 0.0_f32;
+    let Some(mut previous) = table[0] else {
+        return Err(Error::InvalidQuantizationTable);
+    };
+    if !previous.is_finite() {
+        return Err(Error::InvalidQuantizationTable);
+    }
     for value in table[1..255].iter().flatten() {
         if !value.is_finite() || *value <= previous {
             return Err(Error::InvalidQuantizationTable);
@@ -392,4 +408,22 @@ fn validate_quantization_table(table: &[Option<f32>]) -> Result<(), Error> {
         return Err(Error::InvalidQuantizationTable);
     }
     Ok(())
+}
+
+fn validate_quantization_table_for_field(table: &[Option<f32>], field: &str) -> Result<(), Error> {
+    validate_quantization_table(table)?;
+    if matches!(field, "rain_rate" | "radiation") && table[0] != Some(0.0) {
+        return Err(Error::InvalidQuantizationTableForField {
+            field: field.to_owned(),
+        });
+    }
+    Ok(())
+}
+
+fn default_field() -> String {
+    "rain_rate".to_owned()
+}
+
+fn is_default_field(field: &str) -> bool {
+    field == "rain_rate"
 }

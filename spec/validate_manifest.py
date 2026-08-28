@@ -1,5 +1,6 @@
 import argparse
 import json
+import math
 import struct
 from datetime import datetime
 from pathlib import Path, PurePosixPath
@@ -21,13 +22,12 @@ def main():
     timestamp(manifest["generated"])
     timestamp(manifest["now"])
     grids = []
+    fields = {}
     sources = set()
     for chunk in manifest["chunks"]:
         url = PurePosixPath(chunk["url"])
         if url.is_absolute() or ".." in url.parts or url.parts[0] != "chunks":
             raise ValueError(f"unsafe chunk URL: {url}")
-        if chunk["field"] != "rain_rate":
-            raise ValueError("unexpected field")
         timestamp(chunk["run"])
         for value in chunk["times"]:
             timestamp(value)
@@ -43,9 +43,19 @@ def main():
             raise ValueError(f"invalid mrf v0 header in {path}")
         if header["source"] != chunk["source"] or header["run"] != chunk["run"]:
             raise ValueError(f"manifest/header provenance mismatch in {path}")
+        field = chunk.get("field", "rain_rate")
+        if header.get("field", "rain_rate") != field:
+            raise ValueError(f"manifest/header field mismatch in {path}")
         if [frame["time"] for frame in header["frames"]] != chunk["times"]:
             raise ValueError(f"manifest/header times mismatch in {path}")
-        if len(header["quant"]) != 256 or header["quant"][0] != 0.0 or header["quant"][255] is not None:
+        quant = header["quant"]
+        if (
+            len(quant) != 256
+            or quant[255] is not None
+            or any(value is None or not math.isfinite(value) for value in quant[:255])
+            or any(left >= right for left, right in zip(quant[:254], quant[1:255], strict=True))
+            or (field in {"rain_rate", "radiation"} and quant[0] != 0.0)
+        ):
             raise ValueError(f"invalid quant table in {path}")
         offset = 0
         for frame in header["frames"]:
@@ -55,10 +65,26 @@ def main():
         if path.stat().st_size != chunk["header_len"] + offset:
             raise ValueError(f"payload length mismatch in {path}")
         grids.append(header["grid"])
+        fields[field] = {"grid": header["grid"], "times": chunk["times"]}
         sources.add(chunk["source"])
-    if any(grid != grids[0] for grid in grids[1:]):
-        raise ValueError("chunks do not share one grid")
-    print(json.dumps({"chunks": len(manifest["chunks"]), "sources": sorted(sources), "grid": grids[0]}))
+    if {"wind_u_ms", "wind_v_ms"}.intersection(fields) and not {
+        "wind_u_ms",
+        "wind_v_ms",
+    }.issubset(fields):
+        raise ValueError("wind fields must be published as a pair")
+    if {"wind_u_ms", "wind_v_ms"}.issubset(fields):
+        if fields["wind_u_ms"] != fields["wind_v_ms"]:
+            raise ValueError("wind pair grid/times invariant failed")
+    print(
+        json.dumps(
+            {
+                "chunks": len(manifest["chunks"]),
+                "sources": sorted(sources),
+                "fields": sorted(fields),
+                "grids": len({json.dumps(grid, sort_keys=True) for grid in grids}),
+            }
+        )
+    )
 
 
 if __name__ == "__main__":

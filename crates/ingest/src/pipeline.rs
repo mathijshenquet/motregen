@@ -7,7 +7,7 @@ use knmi_hdf5::{RadarFrame, RadarGrid};
 use crate::{
     api::{ApiClient, RemoteFile},
     arome_tar::index_lead_members,
-    grid::{IndexMap, SHARED_GRID},
+    grid::{HOURLY_GRID, IndexMap, SHARED_GRID, UV_GRID},
     publisher::{ProducedChunk, produced_chunk},
 };
 
@@ -17,6 +17,8 @@ pub const NOWCAST_DATASET: &str = "radar_forecast";
 pub const NOWCAST_VERSION: &str = "2.0";
 pub const AROME_DATASET: &str = "harmonie_arome_cy43_p1";
 pub const AROME_VERSION: &str = "1.0";
+pub const UV_DATASET: &str = "cloud_modified_UV_index_benelux";
+pub const UV_VERSION: &str = "1.0";
 
 pub fn latest_files(
     api: &ApiClient,
@@ -135,11 +137,16 @@ fn radar_frames_to_chunk(
     produced_chunk(filename, mrf::encode(&quantized, &meta)?)
 }
 
-pub fn build_arome_chunk(
+pub struct AromePublication {
+    pub chunks: Vec<ProducedChunk>,
+    pub downloaded_bytes: u64,
+}
+
+pub fn build_arome_chunks(
     api: &ApiClient,
     cache_root: &Path,
     horizon_hours: u32,
-) -> Result<(ProducedChunk, u64)> {
+) -> Result<AromePublication> {
     ensure!(
         (1..=60).contains(&horizon_hours),
         "AROME horizon must be 1..=60 hours"
@@ -168,36 +175,287 @@ pub fn build_arome_chunk(
         }
         paths.push(path);
     }
-    let totals = paths
-        .iter()
-        .map(knmi_grib::decode_total_precipitation)
-        .collect::<Result<Vec<_>>>()?;
-    ensure!(
-        totals.len() == horizon_hours as usize + 1,
-        "AROME member count changed while decoding"
-    );
-    let grid = totals[0].grid.clone();
-    let map = IndexMap::arome(&grid)?;
+    let mut decoded = paths.iter().map(knmi_grib::decode_arome_fields);
+    let first = decoded.next().context("AROME member set is empty")??;
+    let grid = first.precipitation_mm.grid.clone();
+    validate_arome_fields(&first, &grid)?;
+    let rain_map = IndexMap::arome(&grid)?;
+    let hourly_map = IndexMap::arome_on(&grid, HOURLY_GRID)?;
     let run_time = DateTime::parse_from_rfc3339(&run)?;
-    let mut frames = Vec::with_capacity(horizon_hours as usize);
+    let capacity = horizon_hours as usize;
+    let mut rain_frames = Vec::with_capacity(capacity);
+    let mut temperature_frames = Vec::with_capacity(capacity);
+    let mut feels_like_frames = Vec::with_capacity(capacity);
+    let mut wind_u_frames = Vec::with_capacity(capacity);
+    let mut wind_v_frames = Vec::with_capacity(capacity);
+    let mut radiation_frames = Vec::with_capacity(capacity);
     let mut times = Vec::with_capacity(horizon_hours as usize);
-    for lead in 1..totals.len() {
-        let rates = knmi_grib::hourly_precipitation(&totals[lead - 1], &totals[lead])?;
-        frames.push(quantize_gathered(&map, &rates)?);
+    let temperature_quant = temperature_quantization_table();
+    let feels_like_quant = temperature_quant.clone();
+    let wind_quant = wind_quantization_table();
+    let radiation_quant = radiation_quantization_table();
+    let mut previous_precipitation = first.precipitation_mm;
+    let mut previous_radiation = first.global_radiation_j_m2;
+
+    for (lead, current) in decoded.enumerate() {
+        let lead = lead + 1;
+        let current = current?;
+        validate_arome_fields(&current, &grid)?;
+        ensure!(
+            current.temperature_k.end_step == lead as i64,
+            "AROME lead-time order changed while decoding"
+        );
+        let rates =
+            knmi_grib::hourly_precipitation(&previous_precipitation, &current.precipitation_mm)?;
+        rain_frames.push(quantize_gathered(&rain_map, &rates)?);
+
+        let temperature = hourly_map
+            .gather(&current.temperature_k.values)?
+            .into_iter()
+            .map(|value| value - 273.15)
+            .collect::<Vec<_>>();
+        let relative_humidity = hourly_map.gather(&current.relative_humidity.values)?;
+        let wind_u = hourly_map.gather(&current.wind_u_ms.values)?;
+        let wind_v = hourly_map.gather(&current.wind_v_ms.values)?;
+        let feels_like = temperature
+            .iter()
+            .zip(&relative_humidity)
+            .zip(wind_u.iter().zip(&wind_v))
+            .map(|((temperature, humidity), (wind_u, wind_v))| {
+                feels_like_c(*temperature, *humidity, *wind_u, *wind_v)
+            })
+            .collect::<Vec<_>>();
+        temperature_frames.push(quantize_values(&temperature, &temperature_quant)?);
+        feels_like_frames.push(quantize_values(&feels_like, &feels_like_quant)?);
+        wind_u_frames.push(quantize_values(&wind_u, &wind_quant)?);
+        wind_v_frames.push(quantize_values(&wind_v, &wind_quant)?);
+
+        let radiation =
+            knmi_grib::hourly_precipitation(&previous_radiation, &current.global_radiation_j_m2)?
+                .into_iter()
+                .map(|energy| energy / 3_600.0)
+                .collect::<Vec<_>>();
+        let radiation = hourly_map.gather(&radiation)?;
+        radiation_frames.push(quantize_values(&radiation, &radiation_quant)?);
         times.push(
             (run_time + Duration::hours(lead as i64)).to_rfc3339_opts(SecondsFormat::Secs, true),
         );
+        previous_precipitation = current.precipitation_mm;
+        previous_radiation = current.global_radiation_j_m2;
     }
-    let meta = mrf::ChunkMeta::standard(SHARED_GRID.mrf_grid(), "harmonie", &run, times);
-    let filename = format!("harmonie-{}-h{horizon_hours}.mrf", compact_timestamp(&run)?);
-    Ok((
-        produced_chunk(filename, mrf::encode(&frames, &meta)?)?,
+    ensure!(
+        times.len() == horizon_hours as usize,
+        "AROME member count changed while decoding"
+    );
+
+    let compact_run = compact_timestamp(&run)?;
+    let rain_meta =
+        mrf::ChunkMeta::standard(SHARED_GRID.mrf_grid(), "harmonie", &run, times.clone());
+    let rain = produced_chunk(
+        format!("harmonie-{compact_run}-h{horizon_hours}.mrf"),
+        mrf::encode(&rain_frames, &rain_meta)?,
+    )?;
+    let field_chunk =
+        |field: &str, frames: &[Vec<u8>], quant: Vec<Option<f32>>| -> Result<ProducedChunk> {
+            let meta =
+                mrf::ChunkMeta::standard(HOURLY_GRID.mrf_grid(), "harmonie", &run, times.clone())
+                    .with_field(field, quant);
+            produced_chunk(
+                format!("harmonie-{field}-{compact_run}-h{horizon_hours}.mrf"),
+                mrf::encode(frames, &meta)?,
+            )
+        };
+    let chunks = vec![
+        rain,
+        field_chunk("temp_c", &temperature_frames, temperature_quant)?,
+        field_chunk("feels_like_c", &feels_like_frames, feels_like_quant)?,
+        field_chunk("wind_u_ms", &wind_u_frames, wind_quant.clone())?,
+        field_chunk("wind_v_ms", &wind_v_frames, wind_quant)?,
+        field_chunk("radiation", &radiation_frames, radiation_quant)?,
+    ];
+    validate_wind_pair(&chunks)?;
+    Ok(AromePublication {
+        chunks,
         downloaded_bytes,
-    ))
+    })
+}
+
+pub fn build_uv_chunk(
+    api: &ApiClient,
+    cache_root: &Path,
+    file: &RemoteFile,
+    now: DateTime<Utc>,
+) -> Result<Option<ProducedChunk>> {
+    let run = DateTime::parse_from_rfc3339(&file.last_modified)?.with_timezone(&Utc);
+    let cache_version = run.format("%Y%m%dT%H%M%S").to_string();
+    let path = api.cache_file(
+        UV_DATASET,
+        UV_VERSION,
+        file,
+        &cache_root.join("uv").join(cache_version),
+    )?;
+    let product = knmi_hdf5::decode_uv_index(path)?;
+    if !uv_window_active(&product.date, now)? || product.frames.is_empty() {
+        return Ok(None);
+    }
+    let map = IndexMap::uv(&product.grid)?;
+    let quant = uv_quantization_table();
+    let mut frames = Vec::with_capacity(product.frames.len());
+    let mut times = Vec::with_capacity(product.frames.len());
+    for frame in product.frames {
+        times.push(frame.time);
+        frames.push(quantize_values(&map.gather(&frame.values)?, &quant)?);
+    }
+    let run = run.to_rfc3339_opts(SecondsFormat::Secs, true);
+    let meta =
+        mrf::ChunkMeta::standard(UV_GRID.mrf_grid(), "uv", &run, times).with_field("uv", quant);
+    let filename = format!(
+        "uv-{}.mrf",
+        DateTime::parse_from_rfc3339(&run)?.format("%Y%m%dT%H%M%S")
+    );
+    Ok(Some(produced_chunk(
+        filename,
+        mrf::encode(&frames, &meta)?,
+    )?))
+}
+
+fn uv_window_active(date: &str, now: DateTime<Utc>) -> Result<bool> {
+    let window_start =
+        NaiveDateTime::parse_from_str(&format!("{date}030000"), "%Y%m%d%H%M%S")?.and_utc();
+    let window_end = window_start + Duration::hours(18) + Duration::minutes(45);
+    Ok(now >= window_start && now <= window_end)
 }
 
 fn quantize_gathered(map: &IndexMap, source: &[f32]) -> Result<Vec<u8>> {
     Ok(map.gather(source)?.into_iter().map(mrf::quantize).collect())
+}
+
+fn quantize_values(values: &[f32], quant: &[Option<f32>]) -> Result<Vec<u8>> {
+    values
+        .iter()
+        .map(|value| mrf::quantize_with_table(*value, quant).map_err(Into::into))
+        .collect()
+}
+
+pub fn temperature_quantization_table() -> Vec<Option<f32>> {
+    linear_quantization_table(-31.2, 0.3)
+}
+
+pub fn wind_quantization_table() -> Vec<Option<f32>> {
+    linear_quantization_table(-31.75, 0.25)
+}
+
+pub fn radiation_quantization_table() -> Vec<Option<f32>> {
+    linear_quantization_table(0.0, 5.0)
+}
+
+pub fn uv_quantization_table() -> Vec<Option<f32>> {
+    linear_quantization_table(0.0, 12.0 / 254.0)
+}
+
+fn linear_quantization_table(start: f32, step: f32) -> Vec<Option<f32>> {
+    (0..255)
+        .map(|index| Some(start + index as f32 * step))
+        .chain(std::iter::once(None))
+        .collect()
+}
+
+pub fn feels_like_c(
+    temperature_c: f32,
+    relative_humidity: f32,
+    wind_u_ms: f32,
+    wind_v_ms: f32,
+) -> f32 {
+    if [temperature_c, relative_humidity, wind_u_ms, wind_v_ms]
+        .into_iter()
+        .any(f32::is_nan)
+    {
+        return f32::NAN;
+    }
+    let wind_ms = wind_u_ms.hypot(wind_v_ms);
+    if temperature_c <= 10.0 && wind_ms > 4.8 / 3.6 {
+        let wind_factor = (wind_ms * 3.6).powf(0.16);
+        return 13.12 + 0.6215 * temperature_c - 11.37 * wind_factor
+            + 0.3965 * temperature_c * wind_factor;
+    }
+    if temperature_c >= 26.7 && relative_humidity >= 0.4 {
+        return heat_index_c(temperature_c, relative_humidity * 100.0);
+    }
+    temperature_c
+}
+
+fn heat_index_c(temperature_c: f32, relative_humidity_percent: f32) -> f32 {
+    let temperature_f = temperature_c * 1.8 + 32.0;
+    let simple = 0.5
+        * (temperature_f + 61.0 + (temperature_f - 68.0) * 1.2 + relative_humidity_percent * 0.094);
+    if (simple + temperature_f) / 2.0 < 80.0 {
+        return temperature_c;
+    }
+    let t = temperature_f;
+    let rh = relative_humidity_percent;
+    let mut heat_index = -42.379 + 2.049_015_3 * t + 10.143_332 * rh
+        - 0.224_755_4 * t * rh
+        - 0.006_837_83 * t * t
+        - 0.054_817_17 * rh * rh
+        + 0.001_228_74 * t * t * rh
+        + 0.000_852_82 * t * rh * rh
+        - 0.000_001_99 * t * t * rh * rh;
+    if rh < 13.0 && (80.0..=112.0).contains(&t) {
+        heat_index -= ((13.0 - rh) / 4.0) * ((17.0 - (t - 95.0).abs()) / 17.0).sqrt();
+    } else if rh > 85.0 && (80.0..=87.0).contains(&t) {
+        heat_index += ((rh - 85.0) / 10.0) * ((87.0 - t) / 5.0);
+    }
+    (heat_index - 32.0) / 1.8
+}
+
+fn validate_arome_fields(
+    fields: &knmi_grib::AromeFields,
+    grid: &knmi_grib::GridDefinition,
+) -> Result<()> {
+    let selected = [
+        &fields.precipitation_mm,
+        &fields.temperature_k,
+        &fields.relative_humidity,
+        &fields.wind_u_ms,
+        &fields.wind_v_ms,
+        &fields.global_radiation_j_m2,
+    ];
+    ensure!(
+        selected.iter().all(|field| &field.grid == grid),
+        "selected AROME fields do not share one grid"
+    );
+    let end_step = fields.temperature_k.end_step;
+    ensure!(
+        selected.iter().all(|field| field.end_step == end_step),
+        "selected AROME fields do not share one lead time"
+    );
+    Ok(())
+}
+
+pub fn validate_wind_pair(chunks: &[ProducedChunk]) -> Result<()> {
+    let wind_u = chunks
+        .iter()
+        .find(|chunk| chunk.manifest.field == "wind_u_ms")
+        .context("wind U chunk is missing")?;
+    let wind_v = chunks
+        .iter()
+        .find(|chunk| chunk.manifest.field == "wind_v_ms")
+        .context("wind V chunk is missing")?;
+    let wind_u_header = mrf::parse_header(&wind_u.bytes)?.header;
+    let wind_v_header = mrf::parse_header(&wind_v.bytes)?.header;
+    ensure!(
+        wind_u_header.grid == wind_v_header.grid,
+        "wind grids differ"
+    );
+    ensure!(
+        wind_u.manifest.times == wind_v.manifest.times,
+        "wind times or frame order differ"
+    );
+    ensure!(
+        wind_u_header.frames.len() == wind_v_header.frames.len(),
+        "wind frame counts differ"
+    );
+    Ok(())
 }
 
 fn compact_timestamp(timestamp: &str) -> Result<String> {
@@ -251,5 +509,80 @@ mod tests {
             arome_run("HARM43_V1_P1_2026082813.tar").unwrap(),
             "2026-08-28T13:00:00Z"
         );
+    }
+
+    #[test]
+    fn feels_like_uses_wind_chill_heat_index_and_fallback() {
+        let wind_chill = feels_like_c(-5.0, 0.8, 20.0 / 3.6, 0.0);
+        assert!((wind_chill - -11.6).abs() < 0.1);
+        let heat_index = feels_like_c(32.0, 0.7, 0.0, 0.0);
+        assert!((heat_index - 40.4).abs() < 0.2);
+        assert_eq!(feels_like_c(18.0, 0.7, 4.0, 3.0), 18.0);
+    }
+
+    #[test]
+    fn field_quantization_tables_cover_the_documented_ranges() {
+        let temperature = temperature_quantization_table();
+        assert_eq!(temperature[0], Some(-31.2));
+        assert!((temperature[254].unwrap() - 45.0).abs() < 0.0001);
+        let wind = wind_quantization_table();
+        assert_eq!(wind[127], Some(0.0));
+        assert_eq!(radiation_quantization_table()[254], Some(1_270.0));
+        assert!((uv_quantization_table()[254].unwrap() - 12.0).abs() < 0.0001);
+    }
+
+    #[test]
+    fn uv_window_is_only_active_during_the_documented_utc_day() {
+        let timestamp = |value: &str| {
+            DateTime::parse_from_rfc3339(value)
+                .unwrap()
+                .with_timezone(&Utc)
+        };
+        assert!(!uv_window_active("20260828", timestamp("2026-08-28T02:59:59Z")).unwrap());
+        assert!(uv_window_active("20260828", timestamp("2026-08-28T03:00:00Z")).unwrap());
+        assert!(uv_window_active("20260828", timestamp("2026-08-28T21:45:00Z")).unwrap());
+        assert!(!uv_window_active("20260828", timestamp("2026-08-28T21:45:01Z")).unwrap());
+    }
+
+    #[test]
+    fn wind_pair_requires_identical_grid_times_and_order() {
+        let make = |field: &str, times: Vec<String>| {
+            let meta = mrf::ChunkMeta::standard(
+                HOURLY_GRID.mrf_grid(),
+                "harmonie",
+                "2026-08-28T12:00:00Z",
+                times.clone(),
+            )
+            .with_field(field, wind_quantization_table());
+            produced_chunk(
+                format!("{field}.mrf"),
+                mrf::encode(
+                    &vec![vec![127; HOURLY_GRID.cell_count()]; times.len()],
+                    &meta,
+                )
+                .unwrap(),
+            )
+            .unwrap()
+        };
+        let times = vec![
+            "2026-08-28T13:00:00Z".to_owned(),
+            "2026-08-28T14:00:00Z".to_owned(),
+        ];
+        let valid = [
+            make("wind_u_ms", times.clone()),
+            make("wind_v_ms", times.clone()),
+        ];
+        validate_wind_pair(&valid).unwrap();
+        let invalid = [
+            make("wind_u_ms", times),
+            make(
+                "wind_v_ms",
+                vec![
+                    "2026-08-28T14:00:00Z".to_owned(),
+                    "2026-08-28T13:00:00Z".to_owned(),
+                ],
+            ),
+        ];
+        assert!(validate_wind_pair(&invalid).is_err());
     }
 }

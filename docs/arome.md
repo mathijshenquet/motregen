@@ -43,6 +43,33 @@ Daardoor rapporteren ecCodes/cfgrib `shortName=unknown`, `paramId=0` en
 maar op tabel 253, parameter 61, niveau 105/0 en accumulatiecode 4. Deze ruwe
 GRIB1-sleutels zijn wel beschikbaar en stabiel.
 
+## Extra parameters voor de informatielagen
+
+Dezelfde lead-timebestanden bevatten ook alle velden uit MIP-4. Omdat de
+ranged-tar-ingest al het volledige GRIB-lid per lead time ophaalt, kosten
+deze velden **0 extra downloadbytes (0 MB)**. Alleen decodering, herprojectie
+en mrf-uitvoer komen erbij. De gemeten GRIB-sleutels op de +0, +1 en +2
+leden van run `2026082812` zijn:
+
+| veld | `table2Version` | `indicatorOfParameter` | niveau | tijdverwerking | ruwe eenheid | productieconversie |
+| --- | ---: | ---: | --- | --- | --- | --- |
+| 2m-temperatuur | 253 | 11 | type 105, 2 m | instant, `timeRangeIndicator=0` | K | −273,15 → °C |
+| 2m-relatieve vochtigheid | 253 | 52 | type 105, 2 m | instant, `timeRangeIndicator=0` | fractie 0–1 | ×100 voor hitte-index |
+| 10m U-wind | 253 | 33 | type 105, 10 m | instant, `timeRangeIndicator=0` | m/s | geen |
+| 10m V-wind | 253 | 34 | type 105, 10 m | instant, `timeRangeIndicator=0` | m/s | geen |
+| globale stralingsenergie | 253 | 117 | type 105, 0 m | accumulatie vanaf runstart, `timeRangeIndicator=4` | J/m² | opeenvolgend verschil ÷ 3600 → W/m² |
+
+Ook dauwpunt is aanwezig als tabel 253, parameter 17 op 2 m, instant en in
+kelvin. Voor gevoelstemperatuur gebruikt de ingest de rechtstreeks aanwezige
+relatieve vochtigheid; dauwpunt hoeft daarom niet mee naar productie.
+
+Net als bij neerslag rapporteert de standaard ecCodes-definitie voor deze
+lokale tabel `paramId=0`, `shortName=unknown` en `units=unknown`. De
+eenheden hierboven volgen uit de KNMI/GRIB1-parameterbetekenis en zijn met de
+werkelijke waardebereiken gecontroleerd: temperatuur 287–304 K, RH 0,33–1,
+windcomponenten ongeveer −10…+13 m/s en globale straling 0 op +0 oplopend
+tot enkele MJ/m². Selectie blijft daarom volledig op de ruwe sleutels.
+
 Voor uur `N` is de regenintensiteit in mm/u:
 
 ```text

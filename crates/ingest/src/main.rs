@@ -12,8 +12,8 @@ use motregen_ingest::{
     api::ApiClient,
     pipeline::{
         AROME_DATASET, AROME_VERSION, NOWCAST_DATASET, NOWCAST_VERSION, RTCOR_DATASET,
-        RTCOR_VERSION, build_arome_chunk, build_nowcast_chunk, build_rtcor_chunk, latest_files,
-        prune_download_cache,
+        RTCOR_VERSION, UV_DATASET, UV_VERSION, build_arome_chunks, build_nowcast_chunk,
+        build_rtcor_chunk, build_uv_chunk, latest_files, prune_download_cache,
     },
     publisher::{ProducedChunk, publish},
 };
@@ -21,7 +21,7 @@ use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser)]
-#[command(about = "Turn live KNMI rain products into motregen mrf chunks")]
+#[command(about = "Turn live KNMI weather products into motregen mrf chunks")]
 struct Config {
     #[arg(long, env = "KNMI_OPEN_DATA_API_KEY", hide_env_values = true)]
     api_key: Option<String>,
@@ -41,6 +41,13 @@ struct Config {
         value_parser = parse_duration
     )]
     arome_cadence: Duration,
+    #[arg(
+        long,
+        env = "MOTREGEN_UV_CADENCE",
+        default_value = "15m",
+        value_parser = parse_duration
+    )]
+    uv_cadence: Duration,
     #[arg(long, env = "MOTREGEN_HISTORY_HOURS", default_value_t = 3)]
     history_hours: u32,
     #[arg(long, env = "MOTREGEN_NOWCAST_MINUTES", default_value_t = 120)]
@@ -80,10 +87,13 @@ struct Daemon {
     rtcor_id: Option<String>,
     nowcast_id: Option<String>,
     arome_id: Option<String>,
+    uv_id: Option<String>,
     rtcor: Option<ProducedChunk>,
     nowcast: Option<ProducedChunk>,
-    arome: Option<ProducedChunk>,
+    arome: Vec<ProducedChunk>,
+    uv: Option<ProducedChunk>,
     last_arome_check: Option<Instant>,
+    last_uv_check: Option<Instant>,
 }
 
 impl Daemon {
@@ -102,10 +112,13 @@ impl Daemon {
             rtcor_id: None,
             nowcast_id: None,
             arome_id: None,
+            uv_id: None,
             rtcor: None,
             nowcast: None,
-            arome: None,
+            arome: Vec::new(),
+            uv: None,
             last_arome_check: None,
+            last_uv_check: None,
         })
     }
 
@@ -114,6 +127,7 @@ impl Daemon {
         self.refresh_rtcor()?;
         self.refresh_nowcast()?;
         self.refresh_arome()?;
+        self.refresh_uv()?;
         self.publish()?;
         prune_download_cache(&self.cache_root, self.config.cache_age)?;
         info!("startup backfill published");
@@ -164,6 +178,11 @@ impl Daemon {
             .is_none_or(|last| last.elapsed() >= self.config.arome_cadence)
     }
 
+    fn uv_due(&self) -> bool {
+        self.last_uv_check
+            .is_none_or(|last| last.elapsed() >= self.config.uv_cadence)
+    }
+
     fn refresh_arome(&mut self) -> Result<bool> {
         let checked_at = Instant::now();
         let latest = latest_files(&self.api, AROME_DATASET, AROME_VERSION, 1)?
@@ -176,37 +195,69 @@ impl Daemon {
             return Ok(false);
         }
         let started = Instant::now();
-        let (chunk, downloaded_bytes) =
-            build_arome_chunk(&self.api, &self.cache_root, self.config.arome_hours)?;
+        let publication = build_arome_chunks(&self.api, &self.cache_root, self.config.arome_hours)?;
         info!(
             file = latest.filename,
-            frames = chunk.manifest.times.len(),
-            downloaded_bytes,
+            chunks = publication.chunks.len(),
+            frames = publication.chunks[0].manifest.times.len(),
+            downloaded_bytes = publication.downloaded_bytes,
             elapsed_seconds = started.elapsed().as_secs_f64(),
             "arome ranged refresh decoded"
         );
         self.arome_id = Some(latest.filename);
-        self.arome = Some(chunk);
+        self.arome = publication.chunks;
         self.last_arome_check = Some(checked_at);
         Ok(true)
+    }
+
+    fn refresh_uv(&mut self) -> Result<bool> {
+        let checked_at = Instant::now();
+        let latest = latest_files(&self.api, UV_DATASET, UV_VERSION, 1)?
+            .into_iter()
+            .next()
+            .expect("checked non-empty UV list");
+        let id = format!(
+            "{}:{}:{}",
+            latest.filename, latest.last_modified, latest.size
+        );
+        let chunk = build_uv_chunk(&self.api, &self.cache_root, &latest, chrono::Utc::now())?;
+        let changed = self.uv_id.as_deref() != Some(&id)
+            || self.uv.as_ref().map(|chunk| &chunk.filename)
+                != chunk.as_ref().map(|chunk| &chunk.filename);
+        info!(
+            file = latest.filename,
+            last_modified = latest.last_modified,
+            frames = chunk
+                .as_ref()
+                .map(|chunk| chunk.manifest.times.len())
+                .unwrap_or(0),
+            active = chunk.is_some(),
+            "uv quarter-hour batch decoded"
+        );
+        self.uv_id = Some(id);
+        self.uv = chunk;
+        self.last_uv_check = Some(checked_at);
+        Ok(changed)
     }
 
     fn publish(&self) -> Result<()> {
         let rtcor = self.rtcor.as_ref().context("RTCOR is not ready")?;
         let nowcast = self.nowcast.as_ref().context("nowcast is not ready")?;
-        let arome = self.arome.as_ref().context("AROME is not ready")?;
+        if self.arome.is_empty() {
+            anyhow::bail!("AROME is not ready");
+        }
         let now = rtcor
             .manifest
             .times
             .last()
             .context("RTCOR chunk has no frames")?
             .clone();
-        let manifest = publish(
-            &self.config.data_dir,
-            now,
-            &[rtcor, nowcast, arome],
-            self.config.prune_age,
-        )?;
+        let mut chunks = vec![rtcor, nowcast];
+        chunks.extend(self.arome.iter());
+        if let Some(uv) = &self.uv {
+            chunks.push(uv);
+        }
+        let manifest = publish(&self.config.data_dir, now, &chunks, self.config.prune_age)?;
         info!(
             chunks = manifest.chunks.len(),
             generated = manifest.generated,
@@ -234,6 +285,14 @@ impl Daemon {
                 Ok(value) => changed |= value,
                 Err(error) => {
                     error!(error = %format!("{error:#}"), "arome refresh failed; retaining published chunk")
+                }
+            }
+        }
+        if self.uv_due() {
+            match self.refresh_uv() {
+                Ok(value) => changed |= value,
+                Err(error) => {
+                    error!(error = %format!("{error:#}"), "uv refresh failed; retaining published chunk")
                 }
             }
         }

@@ -4,7 +4,13 @@
 
 ## Quantization v0
 
-The encoder writes the complete table in every header. It has 256 entries:
+The built-in table below is the rain-rate table. The encoder writes the
+complete table in every header; signed fields may use a different strictly
+increasing table with a negative index 0. Only index 255 being null is
+universal; `rain_rate` and `radiation` additionally require index 0 to be
+zero. The extra field tables are specified in `docs/fields.md`.
+
+The rain table has 256 entries:
 
 - `table[0] = 0.0` mm/h.
 - For `i = 1..=254`, `table[i] = 0.01 * (150.0 / 0.01)^((i - 1) / 253)` mm/h.

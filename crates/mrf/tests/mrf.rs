@@ -1,6 +1,7 @@
 use base64::{Engine, engine::general_purpose::STANDARD};
 use mrf::{
     COMPRESSION_LEVEL, ChunkMeta, Grid, decode, encode, parse_header, quantization_table, quantize,
+    quantize_with_table,
 };
 use proptest::prelude::*;
 
@@ -111,6 +112,30 @@ fn quantization_rules_are_exact() {
 }
 
 #[test]
+fn signed_quantization_uses_the_full_table() {
+    let table = (0..255)
+        .map(|index| Some(-30.0 + index as f32 * 0.3))
+        .chain(std::iter::once(None))
+        .collect::<Vec<_>>();
+    assert_eq!(quantize_with_table(-40.0, &table).unwrap(), 0);
+    assert_eq!(quantize_with_table(-29.85, &table).unwrap(), 0);
+    assert_eq!(quantize_with_table(0.0, &table).unwrap(), 100);
+    assert_eq!(quantize_with_table(60.0, &table).unwrap(), 254);
+
+    let meta = ChunkMeta::standard(
+        grid(1, 1),
+        "harmonie",
+        "2026-08-28T12:00:00Z",
+        vec!["2026-08-28T13:00:00Z".into()],
+    )
+    .with_field("temp_c", table);
+    let chunk = encode(&[vec![100]], &meta).unwrap();
+    let header = parse_header(&chunk).unwrap().header;
+    assert_eq!(header.field, "temp_c");
+    assert_eq!(header.quant[0], Some(-30.0));
+}
+
+#[test]
 fn golden_chunk_decodes_byte_exactly() {
     let fixture = STANDARD
         .decode(
@@ -125,6 +150,7 @@ fn golden_chunk_decodes_byte_exactly() {
         encode(
             &decoded.frames,
             &ChunkMeta {
+                field: decoded.header.field,
                 grid: decoded.header.grid,
                 quant: decoded.header.quant,
                 source: decoded.header.source,

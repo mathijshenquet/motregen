@@ -1,7 +1,7 @@
 # Ingestdaemon draaien
 
 `motregen-ingest` doet bij start een backfill en blijft daarna nieuwe
-radarproducten pollen. Vanuit de repository:
+radar-, AROME- en UV-producten pollen. Vanuit de repository:
 
 ```sh
 cargo run --release -p motregen-ingest
@@ -20,6 +20,7 @@ Belangrijkste instellingen:
 | `--data-dir` | `MOTREGEN_DATA_DIR` | `data` |
 | `--radar-cadence` | `MOTREGEN_RADAR_CADENCE` | `60s` |
 | `--arome-cadence` | `MOTREGEN_AROME_CADENCE` | `3h` |
+| `--uv-cadence` | `MOTREGEN_UV_CADENCE` | `15m` |
 | `--history-hours` | `MOTREGEN_HISTORY_HOURS` | `3` |
 | `--nowcast-minutes` | `MOTREGEN_NOWCAST_MINUTES` | `120` |
 | `--arome-hours` | `MOTREGEN_AROME_HOURS` | `24` |
@@ -32,9 +33,12 @@ minuten pollen en stopt daarna met exit 0; dit is bedoeld voor operationele
 receipts.
 
 Downloads landen atomair onder `<data-dir>/.ingest-cache`. Chunks worden
-eerst als tijdelijke file geschreven en hernoemd; pas als alle drie bronnen
-gereed zijn wordt `manifest.json` op dezelfde manier vervangen. Namen zijn
-run-gestempeld en bevatten de ingesthorizon, bijvoorbeeld
-`rtcor-20260828T1615-h3.mrf` en `harmonie-20260828T1300-h24.mrf`; daardoor
-blijven ze immutable, ook wanneer een operator de horizon wijzigt. Niet meer
-gerefereerde chunks worden na de ingestelde bewaartijd verwijderd.
+eerst als tijdelijke file geschreven en hernoemd; pas als radar en alle
+AROME-velden gereed zijn wordt `manifest.json` op dezelfde manier vervangen.
+UV is binnen zijn dagvenster onderdeel van dezelfde publicatie en ontbreekt
+daarbuiten bewust. Namen zijn run-gestempeld en bevatten waar relevant de
+ingesthorizon, bijvoorbeeld `rtcor-20260828T1615-h3.mrf`,
+`harmonie-temp_c-20260828T1300-h24.mrf` en `uv-20260828T185313.mrf`;
+daardoor blijven ze immutable, ook wanneer een operator de horizon wijzigt
+of een dagelijks UV-bestand onder dezelfde bronnaam wordt bijgewerkt. Niet
+meer gerefereerde chunks worden na de ingestelde bewaartijd verwijderd.
