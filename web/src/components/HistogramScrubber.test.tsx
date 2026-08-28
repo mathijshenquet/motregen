@@ -30,6 +30,7 @@ describe('histogram scrubber', () => {
       cursor={1}
       now={Date.parse('2026-08-28T15:00:00Z')}
       playing={false}
+      locationLabel="Utrecht"
       onCursor={onCursor}
       onPlaying={() => undefined}
     />)
@@ -41,5 +42,9 @@ describe('histogram scrubber', () => {
     expect(screen.getByText('Nu')).toBeTruthy()
     expect(screen.getByText('Nowcast')).toBeTruthy()
     expect(screen.getByText('Model')).toBeTruthy()
+    expect(screen.getByText('Observaties')).toBeTruthy()
+    expect(screen.getByRole('group', { name: 'Grafiektype' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Staaf' }))
+    expect(container.querySelectorAll('.rain-bar')).toHaveLength(4)
   })
 })

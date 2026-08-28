@@ -2,19 +2,25 @@ import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show }
 import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
 import HistogramScrubber from './components/HistogramScrubber'
 import LocationSearch from './components/LocationSearch'
+import WeatherIcon from './components/WeatherIcon'
 import { loadBasemapStyle, type MapTheme } from './core/basemap'
 import type { Field, Grid, Manifest, ManifestChunk, TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
 import { buildHourlyForecast } from './core/forecast'
+import { mapFrameFromGrid } from './core/map-frame'
 import { MrfClient } from './core/mrf'
+import { nearestPlace } from './core/places'
 import { RainLayer } from './core/rain-layer'
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
+import { solarElevationSin } from './core/solar'
 import { temperatureLabels, type TemperatureFeatureCollection } from './core/temperature'
 import { buildTimeline, frameBlend, seriesValueAt } from './core/time-model'
 import { uvAdvice } from './core/uv'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
 import { WindLayer } from './core/wind-layer'
+import { deriveWeatherIcon, summarizeWind } from './core/weather'
 
+const DAY_NIGHT_ENABLED = false
 const manifestUrl = new URL('/data/manifest.json', location.href)
 const defaultLocation = { lng: 5.18, lat: 52.1 }
 const themes = ['light', 'system', 'dark'] as const
@@ -51,14 +57,22 @@ export default function App() {
   const uvTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'uv') : [])
   const tempTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'temp_c') : [])
   const feelsLikeTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'feels_like_c') : [])
+  const humidityTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'rel_humidity') : [])
+  const cloudTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'cloud_frac') : [])
   const windTimeline = createMemo(() => manifest() ? buildWindTimeline(manifest()!) : [])
   const windUFrames = createMemo(() => windTimeline().map((frame) => frame.u))
+  const windVFrames = createMemo(() => windTimeline().map((frame) => frame.v))
   const [cursor, setCursor] = createSignal(0)
   const [playing, setPlaying] = createSignal(false)
   const [location, setLocation] = createSignal(defaultLocation)
   const [rainSeries, setRainSeries] = createSignal<Array<number | null>>([])
-  const [radiationSeries, setRadiationSeries] = createSignal<Array<number | null>>([])
   const [uvSeries, setUvSeries] = createSignal<Array<number | null>>([])
+  const [temperatureSeries, setTemperatureSeries] = createSignal<Array<number | null>>([])
+  const [feelsLikeSeries, setFeelsLikeSeries] = createSignal<Array<number | null>>([])
+  const [humiditySeries, setHumiditySeries] = createSignal<Array<number | null>>([])
+  const [cloudSeries, setCloudSeries] = createSignal<Array<number | null>>([])
+  const [windUSeries, setWindUSeries] = createSignal<Array<number | null>>([])
+  const [windVSeries, setWindVSeries] = createSignal<Array<number | null>>([])
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
   const [temperatureField, setTemperatureField] = createSignal<TemperatureField>('feels_like_c')
@@ -80,6 +94,7 @@ export default function App() {
       for (let index = 0; index < frames.length; index++) if (frames[index]!.epoch <= Date.parse(data.now)) nowIndex = index
       setCursor(nowIndex)
       const header = await client.getHeader(frames[0]!.chunk)
+      const frame = mapFrameFromGrid(header.grid)
       const initialTheme = mapTheme()
       const [style] = await Promise.all([
         loadBasemapStyle(initialTheme),
@@ -91,11 +106,13 @@ export default function App() {
         style,
         center: [5.3, 52.15],
         zoom: 6.4,
+        maxBounds: frame.maxBounds,
+        renderWorldCopies: false,
         attributionControl: false,
       })
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
       map.on('style.load', () => attachMapLayers(header.grid))
-      map.on('click', (event) => pick(event.lngLat.lng, event.lngLat.lat, `${event.lngLat.lat.toFixed(3)}° N, ${event.lngLat.lng.toFixed(3)}° O`))
+      map.on('click', (event) => pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name))
       pick(defaultLocation.lng, defaultLocation.lat, 'De Bilt')
       if (mapTheme() !== appliedMapTheme) void applyMapTheme(mapTheme())
     } catch (error) {
@@ -153,9 +170,13 @@ export default function App() {
 
   function attachMapLayers(grid: Grid): void {
     if (!map || map.getLayer('motregen-rain')) return
-    dayNightLayer = new DayNightLayer(mapTheme())
-    map.addLayer(dayNightLayer)
-    dayNightLayer.setEpoch(selectedEpoch())
+    // uitgezet op PO-verzoek (MIP-4 ronde 7): tinting-implementatie voldoet
+    // niet (en stond in dark mode verkeerd om); later iets beters of weglaten
+    if (DAY_NIGHT_ENABLED) {
+      dayNightLayer = new DayNightLayer(mapTheme())
+      map.addLayer(dayNightLayer)
+      dayNightLayer.setEpoch(selectedEpoch())
+    }
     if (windGrid && windTimeline().length) {
       windLayer = new WindLayer(windGrid, mapTheme())
       map.addLayer(windLayer)
@@ -164,11 +185,49 @@ export default function App() {
     map.addLayer(layer)
     if (SUN_ICONS_ENABLED && (radiationTimeline().length || uvTimeline().length)) attachSunLayer()
     if (hasTemperature()) attachTemperatureLayer()
+    attachMapFrame(grid)
     void showFrame()
     void showWind()
     void showTemperature()
     sunEpochBucket = Math.floor(selectedEpoch() / 300_000)
     void showSun(selectedEpoch())
+  }
+
+  function attachMapFrame(grid: Grid): void {
+    if (!map || map.getLayer('motregen-grid-frame')) return
+    const frame = mapFrameFromGrid(grid)
+    map.addSource('motregen-grid-frame', { type: 'geojson', data: frame.mask })
+    const dark = mapTheme() === 'dark'
+    map.addLayer({
+      id: 'motregen-grid-outside',
+      type: 'fill',
+      source: 'motregen-grid-frame',
+      paint: {
+        'fill-color': dark ? '#071319' : '#84969b',
+        'fill-opacity': dark ? 0.58 : 0.48,
+      },
+    })
+    map.addLayer({
+      id: 'motregen-grid-frame-shadow',
+      type: 'line',
+      source: 'motregen-grid-frame',
+      paint: {
+        'line-color': dark ? '#02080b' : '#30454c',
+        'line-opacity': 0.45,
+        'line-width': 7,
+        'line-blur': 2,
+      },
+    })
+    map.addLayer({
+      id: 'motregen-grid-frame',
+      type: 'line',
+      source: 'motregen-grid-frame',
+      paint: {
+        'line-color': dark ? '#8da6af' : '#405b64',
+        'line-opacity': 0.85,
+        'line-width': 1.5,
+      },
+    })
   }
 
   async function showFrame(): Promise<void> {
@@ -363,20 +422,40 @@ export default function App() {
     const request = ++pointRequest
     setStatus(`${label} · verwachting laden…`)
     setUvSeries([])
+    setTemperatureSeries([])
+    setFeelsLikeSeries([])
+    setHumiditySeries([])
+    setCloudSeries([])
+    setWindUSeries([])
+    setWindVSeries([])
     try {
-      const [rain, radiation, uv] = await Promise.all([
+      const [rain, uv, temperature, feelsLike, humidity, cloud, windU, windV] = await Promise.all([
         readPointSeries(timeline(), point),
-        readPointSeries(radiationTimeline(), point).catch(() => []),
-        readPointSeries(uvTimeline(), point).catch(() => []),
+        readOptionalPointSeries(uvTimeline(), point),
+        readOptionalPointSeries(tempTimeline(), point),
+        readOptionalPointSeries(feelsLikeTimeline(), point),
+        readOptionalPointSeries(humidityTimeline(), point),
+        readOptionalPointSeries(cloudTimeline(), point),
+        readOptionalPointSeries(windUFrames(), point),
+        readOptionalPointSeries(windVFrames(), point),
       ])
       if (request !== pointRequest) return
       setRainSeries(rain)
-      setRadiationSeries(radiation)
       setUvSeries(uv)
+      setTemperatureSeries(temperature)
+      setFeelsLikeSeries(feelsLike)
+      setHumiditySeries(humidity)
+      setCloudSeries(cloud)
+      setWindUSeries(windU)
+      setWindVSeries(windV)
       setStatus(label)
     } catch {
       if (request === pointRequest) setStatus(`${label} · verwachting kon niet worden geladen`)
     }
+  }
+
+  function readOptionalPointSeries(frames: TimelineFrame[], point: { lng: number; lat: number }): Promise<Array<number | null>> {
+    return frames.length ? readPointSeries(frames, point).catch(() => []) : Promise.resolve([])
   }
 
   async function readPointSeries(frames: TimelineFrame[], point: { lng: number; lat: number }): Promise<Array<number | null>> {
@@ -422,17 +501,31 @@ export default function App() {
     setTheme((current) => themes[(themes.indexOf(current) + 1) % themes.length]!)
   }
 
-  const intensity = createMemo(() => rainSeries()[Math.round(cursor())])
-  const forecast = createMemo(() => buildHourlyForecast(timeline(), radiationTimeline(), uvTimeline(), manifest() ? Date.parse(manifest()!.now) : 0))
-  const hasSunData = createMemo(() => radiationTimeline().length > 0 || uvTimeline().length > 0)
+  const forecast = createMemo(() => buildHourlyForecast({
+    rain: timeline(),
+    uv: uvTimeline(),
+    temperature: tempTimeline(),
+    feelsLike: feelsLikeTimeline(),
+    humidity: humidityTimeline(),
+    cloud: cloudTimeline(),
+    windU: windUFrames(),
+    windV: windVFrames(),
+  }, manifest() ? Date.parse(manifest()!.now) : 0))
   const cursorUv = createMemo(() => seriesValueAt(uvTimeline(), uvSeries(), selectedEpoch(), 30 * 60_000))
   const cursorUvChip = createMemo(() => uvChipLabel(cursorUv()))
   const hasTemperature = createMemo(() => tempTimeline().length > 0 || feelsLikeTimeline().length > 0)
   const hasBothTemperatures = createMemo(() => tempTimeline().length > 0 && feelsLikeTimeline().length > 0)
+  const hasWeatherIcons = createMemo(() => cloudTimeline().length > 0)
+  const hasWeatherColumn = createMemo(() => hasWeatherIcons() || uvTimeline().length > 0)
+  const hasHumidity = createMemo(() => humidityTimeline().length > 0)
+  const hasWind = createMemo(() => windUFrames().length > 0 && windVFrames().length > 0)
+  const activeTemperatureField = createMemo<TemperatureField>(() => {
+    if (temperatureField() === 'feels_like_c' && feelsLikeTimeline().length) return 'feels_like_c'
+    if (temperatureField() === 'temp_c' && tempTimeline().length) return 'temp_c'
+    return feelsLikeTimeline().length ? 'feels_like_c' : 'temp_c'
+  })
   const activeTemperatureTimeline = createMemo(() => {
-    if (temperatureField() === 'feels_like_c' && feelsLikeTimeline().length) return feelsLikeTimeline()
-    if (temperatureField() === 'temp_c' && tempTimeline().length) return tempTimeline()
-    return feelsLikeTimeline().length ? feelsLikeTimeline() : tempTimeline()
+    return activeTemperatureField() === 'feels_like_c' ? feelsLikeTimeline() : tempTimeline()
   })
   const themeMeta = createMemo(() => theme() === 'light'
     ? { icon: '☀', label: 'Licht', next: 'systeem' }
@@ -463,22 +556,13 @@ export default function App() {
       <div class="source">Bron: KNMI · Kaart: OpenFreeMap</div>
     </section>
     <aside class="dashboard">
-      <section class="current-weather">
-        <div>
-          <p class="eyebrow">{status()}</p>
-          <div class="reading"><strong>{formatRain(intensity())}</strong><span>mm/u</span></div>
-        </div>
-        <div class="current-summary">
-          <span class="rain-symbol" aria-hidden="true">●</span>
-          <span>{rainDescription(intensity())}</span>
-        </div>
-      </section>
       <HistogramScrubber
         timeline={timeline()}
         values={rainSeries()}
         cursor={cursor()}
         now={manifest() ? Date.parse(manifest()!.now) : 0}
         playing={playing()}
+        locationLabel={status()}
         onCursor={setCursor}
         onPlaying={setPlaying}
       />
@@ -486,16 +570,35 @@ export default function App() {
         <div class="section-heading"><div><p class="eyebrow">Vooruitblik</p><h2>Komende 24 uur</h2></div><span>{location() ? 'Per uur' : ''}</span></div>
         <div class="table-scroll">
           <table>
-            <thead><tr><th>Uur</th><th>Regen</th><Show when={hasSunData()}><th>Zon</th></Show></tr></thead>
+            <thead><tr>
+              <th>Uur</th>
+              <Show when={hasWeatherColumn()}><th class="weather-heading">Weer</th></Show>
+              <Show when={hasTemperature()}><th>{activeTemperatureField() === 'feels_like_c' ? 'Gevoel' : 'Temp.'}</th></Show>
+              <Show when={hasHumidity()}><th>RV</th></Show>
+              <Show when={hasWind()}><th>Wind</th></Show>
+              <th>Regen</th>
+            </tr></thead>
             <tbody><For each={forecast()}>{(row) => {
               const rain = () => row.rainIndex == null ? null : rainSeries()[row.rainIndex]
-              const radiation = () => row.radiationIndex == null ? null : radiationSeries()[row.radiationIndex]
               const uv = () => row.uvIndex == null ? null : uvSeries()[row.uvIndex]
+              const cloud = () => row.cloudIndex == null ? null : cloudSeries()[row.cloudIndex]
+              const temperature = () => activeTemperatureField() === 'feels_like_c'
+                ? row.feelsLikeIndex == null ? null : feelsLikeSeries()[row.feelsLikeIndex]
+                : row.temperatureIndex == null ? null : temperatureSeries()[row.temperatureIndex]
+              const humidity = () => row.humidityIndex == null ? null : humiditySeries()[row.humidityIndex]
+              const wind = () => summarizeWind(
+                row.windUIndex == null ? null : windUSeries()[row.windUIndex] ?? null,
+                row.windVIndex == null ? null : windVSeries()[row.windVIndex] ?? null,
+              )
+              const icon = () => deriveWeatherIcon(rain() ?? null, cloud() ?? null, solarElevationSin(row.epoch, location().lng, location().lat) > 0)
               const advice = () => uvChipLabel(uv())
               return <tr>
                 <td><strong>{new Date(row.epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</strong><span>{new Date(row.epoch).toLocaleDateString('nl-NL', { weekday: 'short' })}</span></td>
+                <Show when={hasWeatherColumn()}><td class="weather-cell"><Show when={icon()}>{(model) => <WeatherIcon model={model()} />}</Show><Show when={advice()}>{(label) => <span class="uv-chip table-uv-chip" title={label()}>UV {formatUv(uv())}</span>}</Show></td></Show>
+                <Show when={hasTemperature()}><td class="temperature-cell">{formatTemperature(temperature())}</td></Show>
+                <Show when={hasHumidity()}><td>{formatHumidity(humidity())}</td></Show>
+                <Show when={hasWind()}><td class="wind-cell"><Show when={wind()} fallback="—">{(value) => <span title={`${value().speed.toLocaleString('nl-NL', { maximumFractionDigits: 1 })} m/s`}>{value().direction} · {value().beaufort} Bft</span>}</Show></td></Show>
                 <td>{formatRain(rain())}<small> mm/u</small></td>
-                <Show when={hasSunData()}><td class="sun-cell"><div class="sun-reading"><Show when={sunOpacity(radiation()) > 0}><span class="sun-icon" style={{ opacity: String(sunOpacity(radiation())) }} aria-hidden="true">☀</span></Show><span>{formatRadiation(radiation())}<small> W/m²</small></span></div><Show when={advice()}>{(label) => <span class="uv-chip table-uv-chip">{label()}</span>}</Show></td></Show>
               </tr>
             }}</For></tbody>
           </table>
@@ -519,12 +622,12 @@ function formatRain(value: number | null | undefined): string {
   return value == null ? '—' : value.toLocaleString('nl-NL', { maximumFractionDigits: value < 1 ? 2 : 1 })
 }
 
-function formatRadiation(value: number | null | undefined): string {
-  return value == null ? '—' : Math.round(value).toLocaleString('nl-NL')
+function formatTemperature(value: number | null | undefined): string {
+  return value == null ? '—' : `${Math.round(value)}°`
 }
 
-function sunOpacity(value: number | null | undefined): number {
-  return value == null || value < 25 ? 0 : Math.max(0.25, Math.min(1, value / 700))
+function formatHumidity(value: number | null | undefined): string {
+  return value == null ? '—' : `${Math.round(value)}%`
 }
 
 function formatUv(value: number | null | undefined): string {
@@ -534,13 +637,4 @@ function formatUv(value: number | null | undefined): string {
 function uvChipLabel(value: number | null | undefined): string | null {
   const advice = uvAdvice(value)
   return advice ? `Insmeren · UV ${formatUv(advice.value)} ${advice.strength}` : null
-}
-
-function rainDescription(value: number | null | undefined): string {
-  if (value == null) return 'Geen meetpunt'
-  if (value < 0.1) return 'Droog'
-  if (value < 1) return 'Lichte regen'
-  if (value < 5) return 'Regen'
-  if (value < 15) return 'Stevige regen'
-  return 'Zware bui'
 }

@@ -1,20 +1,19 @@
 import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap } from 'maplibre-gl'
-import { MercatorCoordinate } from 'maplibre-gl'
 import type { MapTheme } from './basemap'
 import type { Grid } from './contract'
 
 export const WIND_TRAIL_OPACITY = 0.6
 export const WIND_TRAIL_FADE = 0.955
 export const WIND_PARTICLES_PER_MEGAPIXEL = 620
-const TRAIL_TEXTURE_LONG_EDGE = 640
 const SEGMENT_ALPHA = 0.95
 const MIN_PARTICLES = 96
 const MAX_PARTICLES = 1_100
 const ADVECTION_SCALE = 7_000
 const MAX_AGE = 150
+const MERCATOR_SCALE = 1 / (2 * Math.PI * 6_378_137)
 const BEAUFORT_STOPS = [0, 3.4, 8, 13.9, 20.8, 32.7] as const
 const LIGHT_RAMP = [
-  [8, 75, 135], [0, 105, 135], [22, 120, 62], [151, 104, 0], [191, 54, 16], [137, 25, 95],
+  [3, 48, 102], [0, 76, 108], [9, 91, 44], [119, 73, 0], [162, 39, 8], [108, 15, 73],
 ] as const
 const DARK_RAMP = [
   [112, 194, 255], [68, 224, 231], [108, 225, 146], [255, 218, 92], [255, 147, 79], [244, 113, 201],
@@ -23,9 +22,10 @@ const DARK_RAMP = [
 const particleVertexSource = `#version 300 es
 in vec2 a_pos;
 in vec4 a_color;
+uniform mat4 u_matrix;
 out vec4 v_color;
 void main() {
-  gl_Position = vec4(a_pos.x * 2.0 - 1.0, 1.0 - a_pos.y * 2.0, 0.0, 1.0);
+  gl_Position = u_matrix * vec4(a_pos, 0.0, 1.0);
   v_color = a_color;
 }`
 
@@ -53,12 +53,10 @@ void main() { color = texture(u_trail, v_uv) * u_fade; }`
 
 const compositeVertexSource = `#version 300 es
 in vec2 a_pos;
-in vec2 a_uv;
-uniform mat4 u_matrix;
 out vec2 v_uv;
 void main() {
-  v_uv = a_uv;
-  gl_Position = u_matrix * vec4(a_pos, 0.0, 1.0);
+  v_uv = a_pos * 0.5 + 0.5;
+  gl_Position = vec4(a_pos, 0.0, 1.0);
 }`
 
 const compositeFragmentSource = `#version 300 es
@@ -74,6 +72,13 @@ interface TrailTarget {
   framebuffer: WebGLFramebuffer
 }
 
+interface ParticleBounds {
+  west: number
+  north: number
+  east: number
+  south: number
+}
+
 export class WindLayer implements CustomLayerInterface {
   readonly id = 'motregen-wind'
   readonly type = 'custom' as const
@@ -85,21 +90,19 @@ export class WindLayer implements CustomLayerInterface {
   private compositeProgram?: WebGLProgram
   private particlePositionLocation = -1
   private particleColorLocation = -1
+  private particleMatrixLocation?: WebGLUniformLocation
   private fadePositionLocation = -1
   private fadeTrailLocation?: WebGLUniformLocation
   private fadeFactorLocation?: WebGLUniformLocation
   private compositePositionLocation = -1
-  private compositeUvLocation = -1
-  private compositeMatrixLocation?: WebGLUniformLocation
   private compositeTrailLocation?: WebGLUniformLocation
   private compositeOpacityLocation?: WebGLUniformLocation
   private particleBuffer?: WebGLBuffer
   private screenBuffer?: WebGLBuffer
-  private mapBuffer?: WebGLBuffer
   private trails?: [TrailTarget, TrailTarget]
   private trailIndex = 0
-  private readonly trailWidth: number
-  private readonly trailHeight: number
+  private trailWidth = 0
+  private trailHeight = 0
   private left?: Float32Array
   private right?: Float32Array
   private mix = 0
@@ -114,11 +117,10 @@ export class WindLayer implements CustomLayerInterface {
   private previousTime = 0
   private frameTotal = 0
   private frameCount = 0
+  private particleBounds: ParticleBounds = { west: 0, north: 0, east: 1, south: 1 }
+  private readonly viewportChanged = () => this.resetViewport()
 
   constructor(private readonly grid: Grid, private readonly theme: MapTheme) {
-    const aspect = grid.width / grid.height
-    this.trailWidth = aspect >= 1 ? TRAIL_TEXTURE_LONG_EDGE : Math.max(1, Math.round(TRAIL_TEXTURE_LONG_EDGE * aspect))
-    this.trailHeight = aspect >= 1 ? Math.max(1, Math.round(TRAIL_TEXTURE_LONG_EDGE / aspect)) : TRAIL_TEXTURE_LONG_EDGE
     for (let index = 0; index < MAX_PARTICLES; index++) this.respawn(index)
   }
 
@@ -130,12 +132,11 @@ export class WindLayer implements CustomLayerInterface {
     this.compositeProgram = link(this.gl, compositeVertexSource, compositeFragmentSource)
     this.particlePositionLocation = this.gl.getAttribLocation(this.particleProgram, 'a_pos')
     this.particleColorLocation = this.gl.getAttribLocation(this.particleProgram, 'a_color')
+    this.particleMatrixLocation = this.gl.getUniformLocation(this.particleProgram, 'u_matrix')!
     this.fadePositionLocation = this.gl.getAttribLocation(this.fadeProgram, 'a_pos')
     this.fadeTrailLocation = this.gl.getUniformLocation(this.fadeProgram, 'u_trail')!
     this.fadeFactorLocation = this.gl.getUniformLocation(this.fadeProgram, 'u_fade')!
     this.compositePositionLocation = this.gl.getAttribLocation(this.compositeProgram, 'a_pos')
-    this.compositeUvLocation = this.gl.getAttribLocation(this.compositeProgram, 'a_uv')
-    this.compositeMatrixLocation = this.gl.getUniformLocation(this.compositeProgram, 'u_matrix')!
     this.compositeTrailLocation = this.gl.getUniformLocation(this.compositeProgram, 'u_trail')!
     this.compositeOpacityLocation = this.gl.getUniformLocation(this.compositeProgram, 'u_opacity')!
     this.particleBuffer = this.gl.createBuffer()!
@@ -144,30 +145,17 @@ export class WindLayer implements CustomLayerInterface {
     this.screenBuffer = this.gl.createBuffer()!
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.screenBuffer)
     this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), this.gl.STATIC_DRAW)
-    this.mapBuffer = this.gl.createBuffer()!
-    const west = this.grid.x0
-    const east = west + this.grid.dx * this.grid.width
-    const north = this.grid.y0
-    const south = north + this.grid.dy * this.grid.height
-    const nw = mercator(west, north)
-    const se = mercator(east, south)
-    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.mapBuffer)
-    this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array([
-      nw.x, nw.y, 0, 1,
-      se.x, nw.y, 1, 1,
-      nw.x, se.y, 0, 0,
-      se.x, se.y, 1, 0,
-    ]), this.gl.STATIC_DRAW)
-    this.trails = [createTrailTarget(this.gl, this.trailWidth, this.trailHeight), createTrailTarget(this.gl, this.trailWidth, this.trailHeight)]
-    clearTrails(this.gl, this.trails, this.trailWidth, this.trailHeight)
-    const pixels = map.getCanvas().clientWidth * map.getCanvas().clientHeight
-    this.target = Math.max(MIN_PARTICLES, Math.min(MAX_PARTICLES, Math.round(pixels / 1_000_000 * WIND_PARTICLES_PER_MEGAPIXEL)))
-    this.active = this.target
+    this.ensureTrailTargets()
+    map.on('move', this.viewportChanged)
+    map.on('resize', this.viewportChanged)
+    this.resetViewport()
   }
 
   onRemove(): void {
     if (!this.gl) return
-    for (const buffer of [this.particleBuffer, this.screenBuffer, this.mapBuffer]) if (buffer) this.gl.deleteBuffer(buffer)
+    this.map?.off('move', this.viewportChanged)
+    this.map?.off('resize', this.viewportChanged)
+    for (const buffer of [this.particleBuffer, this.screenBuffer]) if (buffer) this.gl.deleteBuffer(buffer)
     for (const program of [this.particleProgram, this.fadeProgram, this.compositeProgram]) if (program) this.gl.deleteProgram(program)
     for (const target of this.trails ?? []) {
       this.gl.deleteFramebuffer(target.framebuffer)
@@ -184,7 +172,8 @@ export class WindLayer implements CustomLayerInterface {
 
   render(context: WebGLRenderingContext | WebGL2RenderingContext, options: CustomRenderMethodInput): void {
     const gl = context as WebGL2RenderingContext
-    if (!this.particleProgram || !this.fadeProgram || !this.compositeProgram || !this.particleBuffer || !this.screenBuffer || !this.mapBuffer || !this.trails || !this.left || !this.right) return
+    this.ensureTrailTargets()
+    if (!this.particleProgram || !this.fadeProgram || !this.compositeProgram || !this.particleBuffer || !this.screenBuffer || !this.trails || !this.left || !this.right) return
     const now = performance.now()
     const elapsed = this.previousTime ? Math.min(40, now - this.previousTime) : 16
     this.previousTime = now
@@ -207,7 +196,7 @@ export class WindLayer implements CustomLayerInterface {
     this.drawFade(gl, previous.texture)
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-    this.drawParticles(gl)
+    this.drawParticles(gl, options)
     this.trailIndex = nextIndex
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
@@ -232,7 +221,7 @@ export class WindLayer implements CustomLayerInterface {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   }
 
-  private drawParticles(gl: WebGL2RenderingContext): void {
+  private drawParticles(gl: WebGL2RenderingContext, options: CustomRenderMethodInput): void {
     gl.useProgram(this.particleProgram!)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.particleBuffer!)
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.vertices, 0, this.active * 12)
@@ -240,18 +229,17 @@ export class WindLayer implements CustomLayerInterface {
     gl.vertexAttribPointer(this.particlePositionLocation, 2, gl.FLOAT, false, 24, 0)
     gl.enableVertexAttribArray(this.particleColorLocation)
     gl.vertexAttribPointer(this.particleColorLocation, 4, gl.FLOAT, false, 24, 8)
+    gl.uniformMatrix4fv(this.particleMatrixLocation!, false, options.defaultProjectionData.mainMatrix)
     gl.lineWidth(1)
     gl.drawArrays(gl.LINES, 0, this.active * 2)
   }
 
   private drawComposite(gl: WebGL2RenderingContext, texture: WebGLTexture, options: CustomRenderMethodInput): void {
+    void options
     gl.useProgram(this.compositeProgram!)
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.mapBuffer!)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.screenBuffer!)
     gl.enableVertexAttribArray(this.compositePositionLocation)
-    gl.vertexAttribPointer(this.compositePositionLocation, 2, gl.FLOAT, false, 16, 0)
-    gl.enableVertexAttribArray(this.compositeUvLocation)
-    gl.vertexAttribPointer(this.compositeUvLocation, 2, gl.FLOAT, false, 16, 8)
-    gl.uniformMatrix4fv(this.compositeMatrixLocation!, false, options.defaultProjectionData.mainMatrix)
+    gl.vertexAttribPointer(this.compositePositionLocation, 2, gl.FLOAT, false, 0, 0)
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, texture)
     gl.uniform1i(this.compositeTrailLocation!, 0)
@@ -275,7 +263,8 @@ export class WindLayer implements CustomLayerInterface {
       const invalid = !Number.isFinite(east) || !Number.isFinite(north)
       const nextX = oldX + east * seconds * ADVECTION_SCALE / cellWidth
       const nextY = oldY - north * seconds * ADVECTION_SCALE / cellHeight
-      if (invalid || nextX < 0 || nextX > 1 || nextY < 0 || nextY > 1 || ++this.age[index]! > MAX_AGE) {
+      if (invalid || nextX < this.particleBounds.west || nextX > this.particleBounds.east ||
+        nextY < this.particleBounds.north || nextY > this.particleBounds.south || ++this.age[index]! > MAX_AGE) {
         this.respawn(index)
         this.vertices[index * 12 + 5] = 0
         this.vertices[index * 12 + 11] = 0
@@ -283,7 +272,11 @@ export class WindLayer implements CustomLayerInterface {
       }
       this.x[index] = nextX
       this.y[index] = nextY
-      writeParticle(this.vertices, index * 12, oldX, oldY, nextX, nextY, Math.hypot(east, north), this.theme, this.color)
+      const oldMercatorX = 0.5 + (this.grid.x0 + this.grid.dx * this.grid.width * oldX) * MERCATOR_SCALE
+      const oldMercatorY = 0.5 - (this.grid.y0 + this.grid.dy * this.grid.height * oldY) * MERCATOR_SCALE
+      const nextMercatorX = 0.5 + (this.grid.x0 + this.grid.dx * this.grid.width * nextX) * MERCATOR_SCALE
+      const nextMercatorY = 0.5 - (this.grid.y0 + this.grid.dy * this.grid.height * nextY) * MERCATOR_SCALE
+      writeParticle(this.vertices, index * 12, oldMercatorX, oldMercatorY, nextMercatorX, nextMercatorY, Math.hypot(east, north), this.theme, this.color)
     }
   }
 
@@ -299,9 +292,36 @@ export class WindLayer implements CustomLayerInterface {
   }
 
   private respawn(index: number): void {
-    this.x[index] = this.random()
-    this.y[index] = this.random()
+    this.x[index] = this.particleBounds.west + this.random() * (this.particleBounds.east - this.particleBounds.west)
+    this.y[index] = this.particleBounds.north + this.random() * (this.particleBounds.south - this.particleBounds.north)
     this.age[index] = Math.floor(this.random() * MAX_AGE)
+  }
+
+  private resetViewport(): void {
+    if (!this.map) return
+    this.ensureTrailTargets()
+    this.particleBounds = particleBounds(this.map, this.grid)
+    const canvas = this.map.getCanvas()
+    this.target = particleCountForViewport(canvas.clientWidth, canvas.clientHeight)
+    this.active = this.target
+    for (let index = 0; index < MAX_PARTICLES; index++) this.respawn(index)
+    if (this.gl && this.trails) clearTrails(this.gl, this.trails, this.trailWidth, this.trailHeight)
+  }
+
+  private ensureTrailTargets(): void {
+    if (!this.map || !this.gl) return
+    const canvas = this.map.getCanvas()
+    const [width, height] = trailTargetSize(canvas.width, canvas.height, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number)
+    if (width === this.trailWidth && height === this.trailHeight && this.trails) return
+    for (const target of this.trails ?? []) {
+      this.gl.deleteFramebuffer(target.framebuffer)
+      this.gl.deleteTexture(target.texture)
+    }
+    this.trailWidth = width
+    this.trailHeight = height
+    this.trails = [createTrailTarget(this.gl, width, height), createTrailTarget(this.gl, width, height)]
+    this.trailIndex = 0
+    clearTrails(this.gl, this.trails, width, height)
   }
 
   private random(): number {
@@ -318,6 +338,18 @@ export function windColor(speed: number, theme: MapTheme): [number, number, numb
   const color = new Float32Array(3)
   setWindColor(speed, theme, color)
   return [color[0]!, color[1]!, color[2]!]
+}
+
+export function trailTargetSize(canvasWidth: number, canvasHeight: number, maxTextureSize: number): [number, number] {
+  const width = Math.max(1, Math.round(canvasWidth))
+  const height = Math.max(1, Math.round(canvasHeight))
+  const scale = Math.min(1, maxTextureSize / Math.max(width, height))
+  return [Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale))]
+}
+
+export function particleCountForViewport(width: number, height: number): number {
+  const count = Math.round(Math.max(0, width) * Math.max(0, height) / 1_000_000 * WIND_PARTICLES_PER_MEGAPIXEL)
+  return Math.max(MIN_PARTICLES, Math.min(MAX_PARTICLES, count))
 }
 
 function setWindColor(speed: number, theme: MapTheme, color: Float32Array): void {
@@ -368,6 +400,9 @@ function createTrailTarget(gl: WebGL2RenderingContext, width: number, height: nu
 function clearTrails(gl: WebGL2RenderingContext, trails: [TrailTarget, TrailTarget], width: number, height: number): void {
   const framebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
   const viewport = gl.getParameter(gl.VIEWPORT) as Int32Array
+  const clearColor = gl.getParameter(gl.COLOR_CLEAR_VALUE) as Float32Array
+  const scissorEnabled = gl.isEnabled(gl.SCISSOR_TEST)
+  gl.disable(gl.SCISSOR_TEST)
   gl.viewport(0, 0, width, height)
   gl.clearColor(0, 0, 0, 0)
   for (const trail of trails) {
@@ -376,12 +411,41 @@ function clearTrails(gl: WebGL2RenderingContext, trails: [TrailTarget, TrailTarg
   }
   gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
   gl.viewport(viewport[0]!, viewport[1]!, viewport[2]!, viewport[3]!)
+  gl.clearColor(clearColor[0]!, clearColor[1]!, clearColor[2]!, clearColor[3]!)
+  if (scissorEnabled) gl.enable(gl.SCISSOR_TEST)
 }
 
-function mercator(x: number, y: number): MercatorCoordinate {
-  const lng = x / 6_378_137 * 180 / Math.PI
-  const lat = (2 * Math.atan(Math.exp(y / 6_378_137)) - Math.PI / 2) * 180 / Math.PI
-  return MercatorCoordinate.fromLngLat({ lng, lat })
+function particleBounds(map: MapLibreMap, grid: Grid): ParticleBounds {
+  const bounds = map.getBounds()
+  const west = gridFractionX(grid, projectX(bounds.getWest()))
+  const east = gridFractionX(grid, projectX(bounds.getEast()))
+  const north = gridFractionY(grid, projectY(bounds.getNorth()))
+  const south = gridFractionY(grid, projectY(bounds.getSouth()))
+  const clipped = {
+    west: Math.max(0, Math.min(1, Math.min(west, east))),
+    east: Math.max(0, Math.min(1, Math.max(west, east))),
+    north: Math.max(0, Math.min(1, Math.min(north, south))),
+    south: Math.max(0, Math.min(1, Math.max(north, south))),
+  }
+  return clipped.west < clipped.east && clipped.north < clipped.south
+    ? clipped
+    : { west: 0, north: 0, east: 1, south: 1 }
+}
+
+function gridFractionX(grid: Grid, projected: number): number {
+  return (projected - grid.x0) / (grid.dx * grid.width)
+}
+
+function gridFractionY(grid: Grid, projected: number): number {
+  return (projected - grid.y0) / (grid.dy * grid.height)
+}
+
+function projectX(longitude: number): number {
+  return longitude * Math.PI / 180 * 6_378_137
+}
+
+function projectY(latitude: number): number {
+  return Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360)) * 6_378_137
 }
 
 function link(gl: WebGL2RenderingContext, vertex: string, fragment: string): WebGLProgram {
