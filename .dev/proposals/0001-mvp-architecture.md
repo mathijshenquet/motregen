@@ -1,127 +1,161 @@
-# MIP-1: motregen.nl MVP architecture
+# MIP-1: motregen.nl MVP-architectuur
 
-Status: draft
-Author: orchestrator (fable), 2026-08-28
+Status: draft — herzien na PO-ronde 1; alleen de stack-sanctie (§4) ligt nog voor
+Auteur: orchestrator (fable)
 
-## 1. The problem
+## 1. Het probleem
 
-Build motregen.nl: a buienradar-class precipitation app for the Netherlands
-on KNMI open data. Product requirements from the PO:
+Bouw motregen.nl: een regen-app van buienradar-klasse voor Nederland op KNMI
+open data. Producteisen van de PO:
 
-- **Unified time slider** across three regimes: history (measured radar),
-  nowcast (KNMI's operational model, ~2 h), and AROME-style midcast (~2 days).
-- **Map of NL with rain overlaid** — not server-rendered PNGs but binary
-  data, unpacked and animated client-side (WebGL). Codec question is split
-  out into MIP-2.
-- **Location picker** + browser geolocation.
-- **Rain intensity meter**: the precipitation intensity at the picked
-  location, readable across the whole timeline.
-- Feel/reference: DWD WarnWetter.
+- **Eén unified time slider** over drie regimes: history (gemeten radar),
+  nowcast (KNMI's operationele model, ~2 u) en AROME-achtige midcast.
+- **Kaart van NL met regen eroverheen** — geen server-gerenderde PNG's maar
+  binaire data, client-side uitgepakt en geanimeerd (WebGL). De
+  codec-vraag is afgesplitst naar MIP-2.
+- **Locatie-picker** + browser-geolocation.
+- **Rain intensity meter**: de neerslagintensiteit op de gekozen locatie,
+  afleesbaar over de hele tijdlijn.
+- Gevoel/referentie: DWD WarnWetter.
 
-This MIP fixes the data sources, the pipeline shape, the frontend stack, and
-the MVP cut. It is the founding architecture decision.
+Deze MIP legt de databronnen, de pipeline-vorm, de frontend-stack en de
+MVP-snit vast. Het is het funderende architectuurbesluit.
 
-## 2. Prior work
+## 2. Eerder werk
 
-**Reference apps.** Buienradar (2 h nowcast as colormapped PNG frames over a
-static map; the classic per-location rain graph). DWD WarnWetter (proper
-pan/zoom map, timeline scrubber, per-location detail). RainViewer (global
-radar tiles, smooth WebGL animation).
+**Referentie-apps.** Buienradar (2 u nowcast als colormapped PNG-frames op een
+statische kaart; de klassieke regengrafiek per locatie). DWD WarnWetter
+(volwaardige pan/zoom-kaart, timeline-scrubber, detail per locatie).
+RainViewer (wereldwijde radartiles, vloeiende WebGL-animatie).
 
-**KNMI data (verified against the Data Platform, 2026-08-28).** All
-CC-BY-4.0, all reachable through one API
+**KNMI-data (geverifieerd op het Data Platform, 2026-08-28).** Alles
+CC-BY-4.0, alles bereikbaar via één API
 (`api.dataplatform.knmi.nl/open-data/v1/datasets/{name}/versions/{v}/files`,
-list + presigned download URL per file), plus an MQTT notification service
-that pushes a message per new file — KNMI explicitly prefers that over
-polling.
+list + presigned download-URL per file), plus een MQTT-notificatieservice die
+per nieuw bestand een bericht pusht — KNMI verkiest dat expliciet boven
+pollen. Portaal-technisch zijn **Open Data API** en **Notification Service**
+aparte key-aanvragen; EDR en WMS hebben we niet nodig.
 
-| regime | dataset | contents |
+| regime | dataset | inhoud |
 | --- | --- | --- |
-| history | `nl_rdr_data_rtcor_5m` 1.0 | 5-min radar accumulations, rain-gauge corrected in real time, 1×1 km, HDF5, every 5 min; archive since 2018-12 (separate `..._tar` dataset for bulk backfill) |
-| nowcast | `radar_forecast` 2.0 | KNMI's operational pySTEPS nowcast, initialized from RTCOR-5m: 25 steps × 5 min (+0…+120 min), 1×1 km, HDF5, fresh run every 5 min |
-| midcast | `harmonie_arome_cy43_p1` 1.0 | HARMONIE-AROME cy43 (UWC-West), regular lat-lon ~2 km, hourly steps to +60 h, GRIB, 4 runs/day; archive since 2026-01-08 |
+| history | `nl_rdr_data_rtcor_5m` 1.0 | 5-min radaraccumulaties, realtime regenmeter-gecorrigeerd, 1×1 km, HDF5, elke 5 min; archief sinds 2018-12 (aparte `..._tar`-dataset voor bulk-backfill) |
+| nowcast | `radar_forecast` 2.0 | KNMI's operationele pySTEPS-nowcast, geïnitialiseerd op RTCOR-5m: 25 stappen × 5 min (+0…+120 min), 1×1 km, HDF5, elke 5 min een verse run |
+| midcast | `harmonie_arome_cy43_p1` 1.0 | HARMONIE-AROME cy43 (UWC-West), regulier lat-lon ~2 km, uurstappen tot +60 u, GRIB, 4 runs/dag; archief sinds 2026-01-08 |
 
-Notable: KNMI also publishes a **seamless precipitation ensemble forecast**
-(nowcast⊕NWP blend, 5-min resolution to +6 h, members + exceedance
-probabilities). It is the natural later upgrade for the ugly seam at +2 h and
-for WarnWetter-style probability shading — deliberately out of MVP scope.
+Noemenswaardig: KNMI publiceert ook een **seamless precipitation ensemble
+forecast** (nowcast⊕NWP-blend, 5-min resolutie tot +6 u, members +
+overschrijdingskansen). Dat is de natuurlijke latere upgrade voor de lelijke
+naad bij +2 u en voor WarnWetter-achtige kans-arcering — bewust buiten de MVP.
 
-**API keys.** The public anonymous key is shared across all unregistered
-users; it was rate-limit-saturated during every probe today. A registered key
-(free, 200 req/s, 1000 req/h) is required in practice. PO action.
+**API-keys.** De publieke anonieme key wordt gedeeld door alle
+ongeregistreerde gebruikers en was bij elke probe vandaag rate-limited. Een
+geregistreerde key (gratis, 200 req/s, 1000 req/u) is in de praktijk vereist.
 
-**Grids.** The radar products live on the KNMI polar-stereographic 1 km
-composite grid (700×765); AROME on a regular lat-lon grid. Two different
-projections and resolutions that must look like *one* product on screen.
+**Grids.** De radarproducten leven op het KNMI polair-stereografische 1
+km-composietgrid (700×765); AROME op een regulier lat-lon-grid. Twee
+projecties en resoluties die op het scherm één product moeten lijken.
 
-## 3. Recommendation
+## 3. Aanbeveling
 
-Three components, connected by a static file contract.
+Drie componenten, verbonden door een statisch file-contract.
 
-**Ingest (Python, uv).** A small daemon: MQTT notifications (poll fallback) →
-download HDF5/GRIB (h5py, cfgrib) → reproject each source onto **one shared
-grid** (EPSG:3857 over NL + margin, ~1 km, precomputed nearest-neighbour index
-maps via pyproj — reprojection becomes a numpy gather) → quantize to 8-bit
-rain-rate (curve in MIP-2) → write one compressed binary frame per timestep
-(format: MIP-2) plus one `manifest.json` describing the whole timeline
-(atomically swapped). Solving the radar-vs-AROME seam once, server-side, keeps
-the client trivial: every frame is the same grid, same encoding, whatever its
-origin.
+**Ingest (Rust).** Een kleine daemon: MQTT-notificaties (poll-fallback) →
+HDF5/GRIB downloaden → elke bron reprojecteren naar **één gedeeld grid**
+(EPSG:3857 over NL + marge, ~1 km; de polair-stereografische transformatie is
+gepubliceerde, vaste wiskunde — we prebakken index-maps zodat reprojectie een
+gather wordt) → kwantiseren naar 8-bit regenintensiteit (curve in MIP-2) →
+per tijdstap één gecomprimeerd binair frame (formaat: MIP-2) plus één
+`manifest.json` met de hele tijdlijn (atomair geswapt). De naad
+radar-vs-AROME één keer serverside oplossen houdt de client triviaal: elk
+frame is hetzelfde grid, dezelfde encoding, ongeacht herkomst.
 
-Timeline composition: history = RTCOR frames; +0…+2 h = latest nowcast run;
-beyond = latest AROME run, hourly. The manifest carries per-frame provenance
-(source, run, valid time) so the UI can label regimes honestly.
+*Waarom Rust en niet Python?* De eerlijke afweging: Python's enige echte
+troeven zijn exploratiesnelheid (h5py/cfgrib/xarray/matplotlib) en de
+referentie-implementaties in het meteo-ecosysteem. Performance is irrelevant
+(één frame per 5 min). Voor de productie-daemon wint Rust op ops: één
+statische binary (nix-vriendelijk, huisstijl), geen venv-drift, robuust
+long-running (MQTT-reconnects, geheugen), en de frame-encoder deelt zijn
+typemodel met de format-spec. HDF5 is in Rust volwassen (`hdf5-metno`); het
+échte risico is GRIB — gemitigeerd via de eccodes-FFI-crate (libeccodes zit
+in nixpkgs) en afgedekt in T1: één AROME-bestand end-to-end decoderen vóór
+dit besluit definitief is. Python blijft toegestaan als wegwerp-verkenning en
+als onafhankelijke validator (uv-scripts die in T2 de Rust-output
+cross-checken tegen h5py/cfgrib) — nooit in het productiepad.
 
-**Serving.** Frames are immutable → static file tree behind a web server,
-long cache lifetimes; the client polls only the small manifest. No runtime
-backend in the MVP.
+Tijdlijncompositie: history = RTCOR-frames (3 u terug); +0…+2 u = laatste
+nowcast-run; daarna = laatste AROME-run, uurlijks tot +24 u. Totaal ~85
+frames. Het manifest draagt per frame provenance (bron, run, geldigheidstijd)
+zodat de UI de regimes eerlijk kan labelen.
 
-**Frontend (Vite + TypeScript + MapLibre GL).** MapLibre with a free vector
-basemap; rain as a custom WebGL layer: decoded frames upload as single-channel
-textures, a fragment shader applies the colormap LUT and blends adjacent
-frames for smooth scrubbing. Retina-sharp, and animation cost is one texture
-per frame. UI: the unified slider with visible regime segmentation
-(history | now | nowcast | model) and play/pause; tap-to-pick + geolocation;
-the intensity meter reads the *same decoded arrays* at the picked cell —
-meter and map agree by construction — rendered as a current-value dial plus a
-rain graph over the full timeline (the buienradar graph, but scrubbable).
+**Serving.** Frames zijn immutable → statische file-tree achter een
+webserver, lange cache-lifetimes; de client pollt alleen het kleine manifest.
+Geen runtime-backend in de MVP. Dev draait op **ageq-mthq**; deploy later
+naar een eigen box (zelfde statische contract, dus een rsync-doelwijziging).
 
-**Execution plan** (tracks in herdr worktrees, spec per track):
+**Frontend (Vite + TypeScript + MapLibre GL + SolidJS).** MapLibre met
+OpenFreeMap-vectortiles; regen als custom WebGL-layer: gedecodeerde frames
+als single-channel textures, een fragment shader doet de colormap-LUT en
+blendt aangrenzende frames voor vloeiend scrubben.
 
-- T0 scaffold: devenv, repo layout, CI skeleton — terra.
-- T1 ingest spike: registered key, one file of each dataset decoded,
-  reprojection PoC with plots — sol (measurement-sensitive).
-- T2 encoder + manifest per MIP-2 — sol designs, terra hardens.
-- T3 frontend shell against synthetic frames: map, WebGL layer, slider — sol.
-- T4 integration + intensity meter + geolocation — terra under tight spec.
-- T5 polish pass vs WarnWetter reference — orchestrator + PO review.
+*Waarom SolidJS?* De kern van deze app (decoder, WebGL-layer, tijdmodel) is
+sowieso framework-vrije TS — het framework is een dunne schil voor slider,
+meter en chrome. Solid's fine-grained signals passen precies op de hete
+toestand (de tijdcursor verandert op 60 fps tijdens scrubben; geen
+vdom-re-render-churn), de bundle is klein, en de PO is nieuwsgierig. React
+blijft de vluchtroute: doordat de kern framework-vrij is, is de schil
+verwisselbaar. *Styling:* geen shadcn — deze app heeft vrijwel geen
+stock-chrome (geen forms/tables/dialogs) en shadcn is bovendien
+React-centrisch. Tailwind v4 plus een klein eigen componentensetje, zodat de
+visuele identiteit (druppel-logo, kaart-first, WarnWetter-gevoel) echt van
+ons is.
 
-T1 and T3 run in parallel once T0 lands; the manifest/frame contract (MIP-2)
-is written down before either side consumes it.
+UI: de unified slider met zichtbare regime-segmentatie
+(history | nu | nowcast | model) en play/pause; tap-to-pick + geolocation; de
+intensity meter leest dezelfde gedecodeerde arrays op de gekozen cel — meter
+en kaart zijn per constructie consistent — als actuele waarde plus regengrafiek
+over de hele tijdlijn (de buienradar-grafiek, maar scrubbaar).
 
-**MVP cuts.** History defaults to a few hours back (archive backfill is a
-flag, not a feature); no PWA/push, no warnings layer, no ensemble/probability
-shading; responsive web only, no native apps.
+**Uitvoeringsplan** (tracks in herdr-worktrees, spec per track):
 
-## 4. Open questions
+- T0 scaffold: devenv, repo-layout, CI-skelet — terra.
+- T1 ingest-spike: keys, van elk dataset één bestand gedecodeerd,
+  reprojectie-PoC met plots; de Rust-GRIB-gate — sol (meetgevoelig).
+- T2 encoder + manifest conform MIP-2, incl. Python-cross-check — sol
+  ontwerpt, terra hardt af.
+- T3 frontend-shell op synthetische frames: kaart, WebGL-layer, slider — sol.
+- T4 integratie + intensity meter + geolocation — terra onder strakke spec.
+- T5 polish-pass vs WarnWetter-referentie, druppel-logo/favicon —
+  orchestrator + PO-review.
 
-1. **Basemap**: OpenFreeMap hosted tiles (zero setup, external dependency) vs
-   self-hosted Protomaps PMTiles extract (self-contained, one more moving
-   part) vs bare NL contour (buienradar-classic minimalism). Recommendation:
-   OpenFreeMap for MVP; the frontend doesn't change if we switch later.
-2. **History depth in the slider**: 3 h (recommended: matches the mental
-   model "did that shower just pass?") or deeper (day+, needs backfill and a
-   smarter frame-loading strategy)?
-3. **Midcast horizon**: cut at +48 h (recommended; tail quality is low) or
-   show the full +60 h?
-4. **Hosting**: which box serves motregen.nl (an ageq host + caddy?), and who
-   registers the domain? Decide by T4; PO action for the domain either way.
-5. **Proposal language**: these are in English (public repo house style);
-   fine, or prefer Dutch?
+T1 en T3 lopen parallel zodra T0 landt; het manifest/frame-contract (MIP-2)
+staat op papier vóór een van beide kanten het consumeert.
 
-PO actions regardless of the answers: register a free KNMI Data Platform API
-key; register motregen.nl.
+**MVP-snit.** History 3 u terug (archief-backfill is een vlag, geen feature);
+geen PWA/push, geen waarschuwingslaag, geen ensemble/kans-arcering;
+responsive web, geen native apps.
+
+## 4. Open vragen
+
+1. **Stack-sanctie**: akkoord met Rust-ingest (met de T1 GRIB-gate als
+   ontbindende voorwaarde) en SolidJS + Tailwind v4 zonder shadcn? Dit is de
+   laatste openstaande keuze van deze MIP.
+
+## 5. Besluiten (PO-ronde 1, 2026-08-28)
+
+- Kaartaanpak akkoord: MapLibre GL + OpenFreeMap-tiles.
+- History in de slider: **3 u** voor v1.
+- Midcast-horizon: **+24 u** (korter dan de voorgestelde +48 u).
+- Hosting: dev op **ageq-mthq**; deploy t.z.t. op een eigen box. Domein
+  motregen.nl is al geregeld (Porkbun).
+- Logo: **een druppel**.
+- Proposals en productteksten in het **Nederlands**.
+- Aan te vragen KNMI-keys: **Open Data API** + **Notification Service**
+  (aparte aanvragen; EDR/WMS niet nodig).
 
 ## Changelog
 
-- 2026-08-28: draft.
+- 2026-08-28: draft (Engels).
+- 2026-08-28: herzien na PO-ronde 1 — vertaald naar NL; besluiten §5
+  vastgelegd; backend-aanbeveling Python→Rust na PO-verzoek tot afweging;
+  frontend-framework (SolidJS) en styling (Tailwind, geen shadcn) toegevoegd;
+  horizon +48 u → +24 u; history 3 u.

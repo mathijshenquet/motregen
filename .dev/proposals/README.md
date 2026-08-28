@@ -1,24 +1,24 @@
 # MIPs — Motregen Improvement Proposals
 
-Lightweight variant of the composix CIP process (adopted for motregen
-2026-08-28). One flat directory; status lives in the file, not in
-subdirectories.
+Lichtgewicht variant van het composix-CIP-proces (aangenomen voor motregen
+2026-08-28). Eén platte directory; status staat in het bestand, niet in
+subdirectories. Proposals zijn in het Nederlands (PO, 2026-08-28).
 
-## Process
+## Proces
 
-- Proposals are numbered from MIP-1, filename `NNNN-<name>.md`, and carry a
-  `Status:` line: `draft` → `accepted` / `rejected (<why>)` / `deferred`.
-- `Status: draft` files are a strict inbox for Mathijs: the author (usually
-  the orchestrator) posts him the full GitHub URL and waits.
-- Adoption is Mathijs's call. On adoption a **Decision** section is appended
-  (what was decided, including answers to the open questions) and the status
-  flips. Amendments append a dated line to a Changelog section.
-- Accepted MIPs are the project's decision registry; cite as "MIP-1".
+- Proposals zijn genummerd vanaf MIP-1, bestandsnaam `NNNN-<naam>.md`, met een
+  `Status:`-regel: `draft` → `accepted` / `rejected (<waarom>)` / `deferred`.
+- `Status: draft`-bestanden zijn een strikte inbox voor Mathijs: de auteur
+  (meestal de orchestrator) stuurt hem de volledige GitHub-URL en wacht.
+- Adoptie is Mathijs's call. Bij adoptie komt er een **Besluit**-sectie bij
+  (wat besloten is, inclusief de antwoorden op de open vragen) en klapt de
+  status om. Amendementen voegen een gedateerde regel toe aan de Changelog.
+- Accepted MIPs vormen het besluitregister van het project; citeer als "MIP-1".
 
 ## Template
 
-1. **The problem** — from zero context, concise.
-2. **Prior work** — may be thicker.
-3. **Recommendation**.
-4. **Open questions** — each answerable with a short taste call.
-5. **Decision** (added at adoption) + Changelog.
+1. **Het probleem** — vanaf nul context, beknopt.
+2. **Eerder werk** — mag dikker zijn.
+3. **Aanbeveling**.
+4. **Open vragen** — elk te beantwoorden met een korte taste call.
+5. **Besluit** (toegevoegd bij adoptie) + Changelog.

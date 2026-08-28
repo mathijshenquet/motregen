@@ -15,14 +15,18 @@ product manager (proposals, specs, verification), codex agents
 1. `.dev/LOG.md` — session journal, newest entry first. Top entry = current state + open items.
 2. `.dev/proposals/` — numbered proposals (MIP-n). `Status: draft` = inbox for Mathijs;
    adoption is his call and flips the status to `accepted` plus a Decision section.
-   Accepted proposals are the decision registry; cite as "MIP-1".
+   Accepted proposals are the decision registry; cite as "MIP-1". Proposals and all
+   product-facing text are in Dutch (PO decision, 2026-08-28).
 3. `docs/` — dataset notes and design detail, once they exist.
 
 ## Environment
 - **jj** (colocated with git) is this project's VCS. The orchestrator works with jj in
   the main checkout; worker tracks run in herdr-managed git worktrees on
   `track/<name>` branches (colocation makes both views consistent).
-- devenv + direnv once T0 lands. Ingest: Python via uv. Frontend: pnpm + Vite + TypeScript.
+- devenv + direnv once T0 lands. Ingest: Rust (MIP-1, subject to the T1 GRIB gate);
+  Python only as throwaway exploration/independent validator via uv, never in the
+  production path. Frontend: pnpm + Vite + TypeScript + SolidJS + Tailwind v4 (no shadcn).
+- Dev host: ageq-mthq. Deploy later to a dedicated box; motregen.nl is registered (Porkbun).
 - KNMI Open Data API key lives in `.env` (never committed). The shared anonymous key is
   rate-limit-saturated in practice — use the registered key.
 

@@ -1,5 +1,23 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-08-28 — PO-ronde 1 op MIP-1
+
+- PO answered MIP-1: 3 h history, +24 h midcast (not 48), dev on ageq-mthq +
+  dedicated box later, domain already via Porkbun, droplet logo, everything in
+  Dutch. Asked for a serious Rust-vs-Python weighing and frontend
+  framework/styling proposals (React vs SolidJS vs frameworkless; shadcn vs own).
+- Revised MIP-1 (now in Dutch): recommendation flipped to Rust ingest
+  (hdf5-metno + eccodes FFI; T1 must decode one AROME GRIB end-to-end as the
+  ontbindende voorwaarde; Python stays as uv-based throwaway explorer and T2
+  cross-validator). Frontend: SolidJS + Tailwind v4, no shadcn; core
+  (decoder/WebGL/time model) framework-free TS so the shell stays swappable.
+  Decisions recorded in §5; sole remaining open question = stack sanction.
+- MIP-2 and proposals README translated to Dutch; AGENTS.md updated.
+- KNMI portal check: Open Data API and Notification Service are separate key
+  requests; EDR/WMS not needed. PO registers both keys.
+- Open with Mathijs: stack sanction (MIP-1 §4), MIP-2 adoption + its three open
+  questions, the two KNMI keys. Open for agents: still nothing until adoption.
+
 ## 2026-08-28 — kickoff: research + founding proposals
 
 - PM/PO kickoff (Mathijs = PO, fable = PM/orchestrator, codex sol/terra = workers).

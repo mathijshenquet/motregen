@@ -1,82 +1,87 @@
-# MIP-2: rain frame encoding & transport
+# MIP-2: encoding & transport van regenframes
 
 Status: draft
-Author: orchestrator (fable), 2026-08-28
+Auteur: orchestrator (fable)
 
-## 1. The problem
+## 1. Het probleem
 
-The client needs the full timeline of rain fields (order 100 frames on a
-~700×800 grid) fast enough for instant scrubbing, and it needs *data*, not
-pictures: the intensity meter must read exact mm/h at a cell, and the shader
-wants a single-channel field it can colormap and blend itself. Buienradar's
-colormapped PNGs fail both. The PO floated the interesting idea of using a
-real video codec for the temporal redundancy, decoded client-side, rendered
-via WebGL. This MIP fixes the wire format.
+De client heeft de volledige tijdlijn aan regenvelden nodig (orde 85 frames
+op een ~700×800-grid), snel genoeg voor instant scrubben, en hij heeft *data*
+nodig, geen plaatjes: de intensity meter moet exacte mm/u op een cel kunnen
+aflezen, en de shader wil een single-channel veld dat hij zelf colormapt en
+blendt. Buienradars colormapped PNG's falen op beide punten. De PO opperde
+het interessante idee om een echte videocodec in te zetten voor de temporele
+redundantie, client-side gedecodeerd, gerenderd via WebGL. Deze MIP legt het
+wire-formaat vast.
 
-## 2. Prior work
+## 2. Eerder werk
 
-**What a video codec buys and costs.** Buys: motion-compensated temporal
-prediction (rain fields advect — exactly what codecs model) and hardware
-decode via WebCodecs (VP9/AV1, broadly available). Costs: lossy quantization
-noise on what is *data* (phantom drizzle, eroded shower edges); a YUV
-pipeline where our field must masquerade as luma; codec/container plumbing
-(mp4/ivf muxing) on the encode side; and WebCodecs frame management on the
-decode side. AV1 has a true lossless mode, which would neutralize the fidelity
-objection at some bitrate cost — untested for this content.
+**Wat een videocodec koopt en kost.** Koopt: motion-compensated temporele
+predictie (regenvelden advecteren — precies wat codecs modelleren) en
+hardware-decode via WebCodecs (VP9/AV1, breed beschikbaar). Kost:
+lossy-kwantisatieruis op wat *data* is (fantoommotregen, uitgevreten
+buiranden); een YUV-pipeline waarin ons veld zich als luma moet vermommen;
+codec/container-loodgieterij (mp4/ivf-muxing) aan de encodeerkant; en
+WebCodecs-framemanagement aan de decodeerkant. AV1 heeft een echt lossless
+mode, die het fidelity-bezwaar zou neutraliseren tegen bitrate-kosten —
+ongetest voor deze content.
 
-**What plain compression buys.** Rain fields are sparse: typically well under
-10% of NL has rain, and the 8-bit quantized field is mostly zero bytes. zstd
-crushes that. Back of envelope: 700×765 = 535 KB raw per frame; sparse
-quantized fields should land at a few KB to some tens of KB compressed.
-A 100-frame timeline is then a very manageable initial payload, streamed
-progressively (frames around "now" first). Decode cost: a tiny wasm/JS zstd
-(e.g. fzstd) inflates a frame in ~1 ms; upload as an R8 texture is trivial.
-Optional later: delta-vs-previous-frame before zstd for the temporal win
-without any codec machinery.
+**Wat kale compressie koopt.** Regenvelden zijn sparse: doorgaans heeft ruim
+onder de 10% van NL regen, en het 8-bit gekwantiseerde veld is overwegend
+nulbytes. zstd vermorzelt dat. Bierviltje: 700×765 = 535 KB raw per frame;
+sparse gekwantiseerde velden zouden op enkele KB's tot enkele tientallen KB's
+gecomprimeerd moeten landen. Een tijdlijn van ~85 frames is dan een prima
+initiële payload, progressief gestreamd (frames rond "nu" eerst).
+Decodeerkosten: een kleine wasm/JS-zstd (bijv. fzstd) inflatet een frame in
+~1 ms; upload als R8-texture is triviaal. Optioneel later: delta t.o.v. het
+vorige frame vóór zstd, voor de temporele winst zonder codec-machinerie.
 
-**Precedents.** RainViewer and friends ship colormapped raster tiles (data
-lost); meteo tooling ships GRIB/HDF5 to clients only in desktop apps. A small
-custom format with a public spec is the norm-breaking but honest option.
+**Precedenten.** RainViewer c.s. shippen colormapped rastertiles (data weg);
+meteo-tooling shipt GRIB/HDF5 alleen naar desktop-apps. Een klein eigen
+formaat met een publieke spec is de normdoorbrekende maar eerlijke optie.
 
-## 3. Recommendation
+## 3. Aanbeveling
 
-**v1: a custom binary format ("mrf"), intra-only, zstd.** Per chunk file:
+**v1: een eigen binair formaat ("mrf"), intra-only, zstd.** Per chunk-file:
 
-- header: magic + version, grid definition (projection, origin, cell size,
-  W×H), the quantization table, frame count, per-frame metadata (valid time,
-  source, run);
-- payload: per frame the zstd-compressed 8-bit field. Value 0 = dry,
-  255 = no-data mask, 1–254 = rain rate on a piecewise-log scale
-  (~0.1…100+ mm/h — matches perceptual and meteorological dynamics; exact
-  table fixed in the T2 spec and carried in the header, never hardcoded
-  client-side).
+- header: magic + versie, griddefinitie (projectie, origin, celgrootte,
+  B×H), de kwantisatietabel, frame-aantal, metadata per frame
+  (geldigheidstijd, bron, run);
+- payload: per frame het zstd-gecomprimeerde 8-bit veld. Waarde 0 = droog,
+  255 = no-data-masker, 1–254 = regenintensiteit op een stuksgewijs-logschaal
+  (~0,1…100+ mm/u — past op de perceptuele én meteorologische dynamiek; de
+  exacte tabel wordt in de T2-spec vastgelegd en reist mee in de header,
+  nooit client-side hardcoded).
 
-Chunking: one file per source run (one nowcast run = 25 frames; one history
-hour = 12 frames; one AROME run = its hourly frames) so request count stays
-low and immutable-cache-friendly. The manifest maps timeline → chunk URLs.
+Chunking: één file per bronrun (één nowcast-run = 25 frames; één
+history-uur = 12 frames; één AROME-run = zijn uurframes) zodat het aantal
+requests laag blijft en immutable caching vanzelf werkt. Het manifest mapt
+tijdlijn → chunk-URL's.
 
-Client: fetch chunks in a web worker, zstd-decode to `Uint8Array`, upload R8
-textures; shader does colormap + inter-frame blending; the meter indexes the
-same arrays through the header's quantization table.
+Client: chunks fetchen in een web worker, zstd-decoderen naar `Uint8Array`,
+R8-textures uploaden; de shader doet colormap + inter-frame-blending; de
+meter indexeert dezelfde arrays door de kwantisatietabel uit de header.
 
-**The codec idea stays alive as an epsilon track**: once real frames exist
-(T2), a side experiment encodes the same timeline as grayscale AV1/VP9
-(lossless and near-lossless) and compares bytes, decode latency, and
-max-error vs the mrf baseline. Gate: adopt only on ≥3× byte win at
-acceptable fidelity — otherwise mrf's simplicity wins. Either way we get a
-measured answer instead of a vibe.
+**Het codec-idee blijft leven als epsilon-track**: zodra er echte frames
+zijn (T2) encodeert een zij-experiment dezelfde tijdlijn als grayscale
+AV1/VP9 (lossless en near-lossless) en vergelijkt bytes, decodeer-latency en
+max-fout t.o.v. de mrf-baseline. Gate: alleen adopteren bij ≥3× bytewinst
+bij acceptabele fidelity — anders wint mrf's eenvoud. Hoe dan ook krijgen we
+een gemeten antwoord in plaats van een vibe.
 
-## 4. Open questions
+## 4. Open vragen
 
-1. **Intra-only vs delta frames in v1**: recommendation intra-only (random
-   access for scrubbing stays trivial); revisit only if measured sizes
-   disappoint.
-2. **Quantization floor**: is 0.1 mm/h the right "dry" threshold, or keep
-   KNMI's finer 0.01 mm/h steps at the bottom (more phantom-drizzle risk on
-   screen, better meter fidelity)?
-3. **Ship rain rate only** (recommended) or also reflectivity/other fields in
-   the container from day one?
+1. **Intra-only vs delta-frames in v1**: aanbeveling intra-only (random
+   access voor scrubben blijft triviaal); alleen heroverwegen als de gemeten
+   groottes tegenvallen.
+2. **Kwantisatievloer**: is 0,1 mm/u de juiste "droog"-drempel, of houden we
+   KNMI's fijnere 0,01 mm/u-stappen onderin (meer fantoommotregen-risico op
+   het scherm, betere meter-fidelity)?
+3. **Alleen regenintensiteit shippen** (aanbevolen) of vanaf dag één ook
+   reflectiviteit/andere velden in de container?
 
 ## Changelog
 
-- 2026-08-28: draft.
+- 2026-08-28: draft (Engels).
+- 2026-08-28: vertaald naar NL (besluit MIP-1 §5); frame-aantallen bijgewerkt
+  op de 3 u/+24 u-snit uit MIP-1.
