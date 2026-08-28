@@ -19,6 +19,7 @@ pub const AROME_DATASET: &str = "harmonie_arome_cy43_p1";
 pub const AROME_VERSION: &str = "1.0";
 pub const UV_DATASET: &str = "cloud_modified_UV_index_benelux";
 pub const UV_VERSION: &str = "1.0";
+const CHUNK_FORMAT_GENERATION: u32 = 1;
 
 pub fn latest_files(
     api: &ApiClient,
@@ -71,10 +72,13 @@ pub fn build_rtcor_chunk(
         frames.push(quantize_gathered(&map, &frame.rates_mm_h)?);
     }
     let run = times.last().context("RTCOR backfill is empty")?.clone();
-    let filename = format!("rtcor-{}-h{history_hours}.mrf", compact_timestamp(&run)?);
     let meta = mrf::ChunkMeta::standard(SHARED_GRID.mrf_grid(), "rtcor", &run, times);
+    let filename = generated_chunk_filename(
+        &format!("rtcor-{}-h{history_hours}", compact_timestamp(&run)?),
+        &meta,
+    );
     Ok((
-        produced_chunk(filename, mrf::encode(&frames, &meta)?)?,
+        produced_chunk(filename, encode_rain_with_motion(&frames, &meta)?)?,
         grid,
     ))
 }
@@ -132,9 +136,12 @@ fn radar_frames_to_chunk(
         times.push(frame.time);
         quantized.push(quantize_gathered(&map, &frame.rates_mm_h)?);
     }
-    let filename = format!("{source}-{}-{variant}.mrf", compact_timestamp(run)?);
     let meta = mrf::ChunkMeta::standard(SHARED_GRID.mrf_grid(), source, run, times);
-    produced_chunk(filename, mrf::encode(&quantized, &meta)?)
+    let filename = generated_chunk_filename(
+        &format!("{source}-{}-{variant}", compact_timestamp(run)?),
+        &meta,
+    );
+    produced_chunk(filename, encode_rain_with_motion(&quantized, &meta)?)
 }
 
 pub struct AromePublication {
@@ -266,8 +273,11 @@ pub fn build_arome_chunks(
     let rain_meta =
         mrf::ChunkMeta::standard(SHARED_GRID.mrf_grid(), "harmonie", &run, times.clone());
     let rain = produced_chunk(
-        format!("harmonie-{compact_run}-h{horizon_hours}.mrf"),
-        mrf::encode(&rain_frames, &rain_meta)?,
+        generated_chunk_filename(
+            &format!("harmonie-{compact_run}-h{horizon_hours}"),
+            &rain_meta,
+        ),
+        encode_rain_with_motion(&rain_frames, &rain_meta)?,
     )?;
     let field_chunk =
         |field: &str, frames: &[Vec<u8>], quant: Vec<Option<f32>>| -> Result<ProducedChunk> {
@@ -275,7 +285,10 @@ pub fn build_arome_chunks(
                 mrf::ChunkMeta::standard(HOURLY_GRID.mrf_grid(), "harmonie", &run, times.clone())
                     .with_field(field, quant);
             produced_chunk(
-                format!("harmonie-{field}-{compact_run}-h{horizon_hours}.mrf"),
+                generated_chunk_filename(
+                    &format!("harmonie-{field}-{compact_run}-h{horizon_hours}"),
+                    &meta,
+                ),
                 mrf::encode(frames, &meta)?,
             )
         };
@@ -329,9 +342,12 @@ pub fn build_uv_chunk(
     let run = run.to_rfc3339_opts(SecondsFormat::Secs, true);
     let meta =
         mrf::ChunkMeta::standard(UV_GRID.mrf_grid(), "uv", &run, times).with_field("uv", quant);
-    let filename = format!(
-        "uv-{}.mrf",
-        DateTime::parse_from_rfc3339(&run)?.format("%Y%m%dT%H%M%S")
+    let filename = generated_chunk_filename(
+        &format!(
+            "uv-{}",
+            DateTime::parse_from_rfc3339(&run)?.format("%Y%m%dT%H%M%S")
+        ),
+        &meta,
     );
     Ok(Some(produced_chunk(
         filename,
@@ -355,6 +371,80 @@ fn quantize_values(values: &[f32], quant: &[Option<f32>]) -> Result<Vec<u8>> {
         .iter()
         .map(|value| mrf::quantize_with_table(*value, quant).map_err(Into::into))
         .collect()
+}
+
+fn encode_rain_with_motion(frames: &[Vec<u8>], meta: &mrf::ChunkMeta) -> Result<Vec<u8>> {
+    if frames.len() < 2 {
+        return Ok(mrf::encode(frames, meta)?);
+    }
+    let width = meta.grid.width;
+    let height = meta.grid.height;
+    let estimated_grid = motion::grid_for(width, height)?;
+    let motion_grid = mrf::MotionGrid {
+        bw: estimated_grid.bw,
+        bh: estimated_grid.bh,
+    };
+    let mut annexes = Vec::with_capacity(frames.len());
+    annexes.push(None);
+    let mut previous = dequantize_rain_frame(&frames[0], &meta.quant);
+    for (index, frame) in frames.iter().enumerate().skip(1) {
+        let current = dequantize_rain_frame(frame, &meta.quant);
+        let previous_time = DateTime::parse_from_rfc3339(&meta.frame_times[index - 1])?;
+        let current_time = DateTime::parse_from_rfc3339(&meta.frame_times[index])?;
+        ensure!(
+            current_time > previous_time,
+            "rain frame times must increase"
+        );
+        let interval_minutes = (current_time - previous_time).num_seconds() as f32 / 60.0;
+        let field = motion::estimate(&previous, &current, width, height, interval_minutes)?;
+        ensure!(
+            field.grid == estimated_grid,
+            "motion estimator returned a different grid"
+        );
+        annexes.push(Some(field.vectors));
+        previous = current;
+    }
+    Ok(mrf::encode_with_motion(
+        frames,
+        meta,
+        motion_grid,
+        &annexes,
+    )?)
+}
+
+fn dequantize_rain_frame(frame: &[u8], quant: &[Option<f32>]) -> Vec<f32> {
+    frame
+        .iter()
+        .map(|value| quant[*value as usize].unwrap_or(f32::NAN))
+        .collect()
+}
+
+fn generated_chunk_filename(stem: &str, meta: &mrf::ChunkMeta) -> String {
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    let mut update = |bytes: &[u8]| {
+        for byte in bytes {
+            hash ^= u64::from(*byte);
+            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    };
+    update(&CHUNK_FORMAT_GENERATION.to_le_bytes());
+    update(meta.field.as_bytes());
+    update(meta.grid.crs.as_bytes());
+    for value in [meta.grid.x0, meta.grid.y0, meta.grid.dx, meta.grid.dy] {
+        update(&value.to_bits().to_le_bytes());
+    }
+    update(&meta.grid.width.to_le_bytes());
+    update(&meta.grid.height.to_le_bytes());
+    for value in &meta.quant {
+        match value {
+            Some(value) => {
+                update(&[1]);
+                update(&value.to_bits().to_le_bytes());
+            }
+            None => update(&[0]),
+        }
+    }
+    format!("{stem}-g{hash:016x}.mrf")
 }
 
 pub fn temperature_quantization_table() -> Vec<Option<f32>> {
@@ -611,5 +701,75 @@ mod tests {
             ),
         ];
         assert!(validate_wind_pair(&invalid).is_err());
+    }
+
+    #[test]
+    fn rain_encoder_adds_motion_but_other_fields_remain_annex_free() {
+        let grid = mrf::Grid {
+            crs: "EPSG:3857".to_owned(),
+            x0: 0.0,
+            y0: 64_000.0,
+            dx: 1_000.0,
+            dy: -1_000.0,
+            width: 64,
+            height: 64,
+        };
+        let times = vec![
+            "2026-08-28T12:00:00Z".to_owned(),
+            "2026-08-28T12:05:00Z".to_owned(),
+        ];
+        let meta =
+            mrf::ChunkMeta::standard(grid.clone(), "rtcor", "2026-08-28T12:05:00Z", times.clone());
+        let mut previous = vec![0_u8; 64 * 64];
+        let mut current = vec![0_u8; 64 * 64];
+        for y in 10..50 {
+            for x in 10..50 {
+                let value = 20 + ((x * 7 + y * 11) % 30) as u8;
+                previous[y * 64 + x] = value;
+                current[(y + 2) * 64 + x + 3] = value;
+            }
+        }
+        let rain =
+            mrf::decode(&encode_rain_with_motion(&[previous, current], &meta).unwrap()).unwrap();
+        assert_eq!(
+            rain.header.motion_grid,
+            Some(mrf::MotionGrid { bw: 2, bh: 2 })
+        );
+        assert!(rain.motions[0].is_none());
+        assert!(rain.motions[1].is_some());
+
+        let temp_meta = mrf::ChunkMeta::standard(grid, "harmonie", "2026-08-28T12:00:00Z", times)
+            .with_field("temp_c", temperature_quantization_table());
+        let temp_frames = vec![vec![100; 64 * 64]; 2];
+        let temp = mrf::decode(&mrf::encode(&temp_frames, &temp_meta).unwrap()).unwrap();
+        assert!(temp.header.motion_grid.is_none());
+        assert!(temp.motions.iter().all(Option::is_none));
+    }
+
+    #[test]
+    fn chunk_generation_is_stable_and_changes_with_grid_or_quantization() {
+        let base = mrf::ChunkMeta::standard(
+            SHARED_GRID.mrf_grid(),
+            "rtcor",
+            "2026-08-28T12:00:00Z",
+            vec!["2026-08-28T12:00:00Z".to_owned()],
+        );
+        let first = generated_chunk_filename("rtcor-run-h3", &base);
+        assert_eq!(first, generated_chunk_filename("rtcor-run-h3", &base));
+        assert!(first.starts_with("rtcor-run-h3-g"));
+
+        let mut changed_grid = base.clone();
+        changed_grid.grid.width += 1;
+        assert_ne!(
+            first,
+            generated_chunk_filename("rtcor-run-h3", &changed_grid)
+        );
+
+        let mut changed_quant = base.clone();
+        changed_quant.quant[1] = Some(changed_quant.quant[1].unwrap() + 0.001);
+        assert_ne!(
+            first,
+            generated_chunk_filename("rtcor-run-h3", &changed_quant)
+        );
     }
 }

@@ -993,6 +993,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "motion"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "motregen-ingest"
 version = "0.1.0"
 dependencies = [
@@ -1002,6 +1009,7 @@ dependencies = [
  "humantime",
  "knmi-grib",
  "knmi-hdf5",
+ "motion",
  "mrf",
  "reqwest",
  "serde",

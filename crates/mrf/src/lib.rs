@@ -34,6 +34,30 @@ pub struct Frame {
     pub time: String,
     pub offset: u64,
     pub len: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion: Option<MotionMember>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct MotionMember {
+    pub offset: u64,
+    pub len: u64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MotionGrid {
+    pub bw: u32,
+    pub bh: u32,
+}
+
+impl MotionGrid {
+    pub fn byte_count(self) -> Result<usize, Error> {
+        let count = u64::from(self.bw)
+            .checked_mul(u64::from(self.bh))
+            .and_then(|count| count.checked_mul(2))
+            .ok_or(Error::MotionGridTooLarge)?;
+        usize::try_from(count).map_err(|_| Error::MotionGridTooLarge)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -46,6 +70,8 @@ pub struct Header {
     pub source: String,
     pub run: String,
     pub frames: Vec<Frame>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_grid: Option<MotionGrid>,
     pub dict: Option<Vec<u8>>,
 }
 
@@ -87,6 +113,7 @@ impl ChunkMeta {
 pub struct DecodedChunk {
     pub header: Header,
     pub frames: Vec<Vec<u8>>,
+    pub motions: Vec<Option<Vec<i8>>>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -111,6 +138,10 @@ pub enum Error {
     UnsupportedVersion(u32),
     #[error("grid dimensions overflow this platform")]
     GridTooLarge,
+    #[error("motion-grid dimensions must be positive")]
+    EmptyMotionGrid,
+    #[error("motion-grid dimensions overflow this platform")]
+    MotionGridTooLarge,
     #[error("invalid quantization table for field {field}")]
     InvalidQuantizationTableForField { field: String },
     #[error("quantization table must contain 255 finite increasing values and null at index 255")]
@@ -119,6 +150,10 @@ pub enum Error {
     UnsupportedDictionary,
     #[error("frame count ({times}) does not match supplied frame count ({frames})")]
     FrameCountMismatch { times: usize, frames: usize },
+    #[error("motion count ({motions}) does not match supplied frame count ({frames})")]
+    MotionCountMismatch { motions: usize, frames: usize },
+    #[error("the first frame cannot have a previous-to-current motion member")]
+    MotionOnFirstFrame,
     #[error("frame {index} has {actual} bytes; grid requires {expected}")]
     WrongFrameLength {
         index: usize,
@@ -129,6 +164,10 @@ pub enum Error {
     FrameOutOfBounds(usize),
     #[error("frame {index} range overflows the payload")]
     FrameRangeOverflow { index: usize },
+    #[error("motion member for frame {0} is not present in the header")]
+    MotionNotPresent(usize),
+    #[error("motion member for frame {index} range overflows the payload")]
+    MotionRangeOverflow { index: usize },
     #[error("frame {index} is outside the supplied chunk")]
     TruncatedPayload { index: usize },
     #[error(
@@ -141,6 +180,14 @@ pub enum Error {
         actual: usize,
         expected: usize,
     },
+    #[error("motion member for frame {index} has {actual} bytes; motion grid requires {expected}")]
+    WrongMotionLength {
+        index: usize,
+        actual: usize,
+        expected: usize,
+    },
+    #[error("motion member for frame {index} has a half no-data vector at block {block}")]
+    HalfNoDataMotion { index: usize, block: usize },
     #[error("zstd failed: {0}")]
     Zstd(#[from] std::io::Error),
 }
@@ -194,7 +241,29 @@ pub fn quantize_with_table(value: f32, table: &[Option<f32>]) -> Result<u8, Erro
 }
 
 pub fn encode(frames: &[Vec<u8>], meta: &ChunkMeta) -> Result<Vec<u8>, Error> {
+    encode_inner(frames, meta, None)
+}
+
+/// Encodes frames plus one optional previous-to-current motion field per frame.
+/// The first entry must normally be `None`, because no previous frame exists.
+pub fn encode_with_motion(
+    frames: &[Vec<u8>],
+    meta: &ChunkMeta,
+    motion_grid: MotionGrid,
+    motions: &[Option<Vec<i8>>],
+) -> Result<Vec<u8>, Error> {
+    encode_inner(frames, meta, Some((motion_grid, motions)))
+}
+
+fn encode_inner(
+    frames: &[Vec<u8>],
+    meta: &ChunkMeta,
+    motion: Option<(MotionGrid, &[Option<Vec<i8>>])>,
+) -> Result<Vec<u8>, Error> {
     validate_meta(meta, frames)?;
+    if let Some((grid, motions)) = motion {
+        validate_motions(grid, motions, frames.len())?;
+    }
     let mut compressed = Vec::with_capacity(frames.len());
     for frame in frames {
         compressed.push(zstd::stream::encode_all(
@@ -203,7 +272,7 @@ pub fn encode(frames: &[Vec<u8>], meta: &ChunkMeta) -> Result<Vec<u8>, Error> {
         )?);
     }
     let mut offset = 0_u64;
-    let entries = compressed
+    let mut entries = compressed
         .iter()
         .zip(&meta.frame_times)
         .map(|(bytes, time)| {
@@ -212,11 +281,31 @@ pub fn encode(frames: &[Vec<u8>], meta: &ChunkMeta) -> Result<Vec<u8>, Error> {
                 time: time.clone(),
                 offset,
                 len,
+                motion: None,
             };
             offset += len;
             frame
         })
-        .collect();
+        .collect::<Vec<_>>();
+    let compressed_motion = if let Some((_, motions)) = motion {
+        let mut members = Vec::with_capacity(motions.len());
+        for (index, values) in motions.iter().enumerate() {
+            let member = if let Some(values) = values {
+                let bytes = values.iter().map(|value| *value as u8).collect::<Vec<_>>();
+                let bytes = zstd::stream::encode_all(bytes.as_slice(), COMPRESSION_LEVEL)?;
+                let len = bytes.len() as u64;
+                entries[index].motion = Some(MotionMember { offset, len });
+                offset += len;
+                Some(bytes)
+            } else {
+                None
+            };
+            members.push(member);
+        }
+        members
+    } else {
+        vec![None; frames.len()]
+    };
     let header = Header {
         version: VERSION,
         field: meta.field.clone(),
@@ -225,17 +314,26 @@ pub fn encode(frames: &[Vec<u8>], meta: &ChunkMeta) -> Result<Vec<u8>, Error> {
         source: meta.source.clone(),
         run: meta.run.clone(),
         frames: entries,
+        motion_grid: motion.map(|(grid, _)| grid),
         dict: None,
     };
     let json = serde_json::to_vec(&header)?;
     let header_len = u32::try_from(json.len()).map_err(|_| Error::HeaderTooLarge)?;
-    let payload_len: usize = compressed.iter().map(Vec::len).sum();
+    let payload_len: usize = compressed.iter().map(Vec::len).sum::<usize>()
+        + compressed_motion
+            .iter()
+            .flatten()
+            .map(Vec::len)
+            .sum::<usize>();
     let mut chunk = Vec::with_capacity(8 + json.len() + payload_len);
     chunk.extend_from_slice(&MAGIC);
     chunk.extend_from_slice(&header_len.to_le_bytes());
     chunk.extend_from_slice(&json);
     for frame in compressed {
         chunk.extend_from_slice(&frame);
+    }
+    for member in compressed_motion.into_iter().flatten() {
+        chunk.extend_from_slice(&member);
     }
     Ok(chunk)
 }
@@ -287,6 +385,24 @@ impl HeaderIndex {
         Ok(frame.offset..end)
     }
 
+    pub fn motion_range(&self, index: usize) -> Result<Range<u64>, Error> {
+        let member = self
+            .header
+            .frames
+            .get(index)
+            .ok_or(Error::FrameOutOfBounds(index))?
+            .motion
+            .as_ref()
+            .ok_or(Error::MotionNotPresent(index))?;
+        let start = (self.header_len as u64)
+            .checked_add(member.offset)
+            .ok_or(Error::MotionRangeOverflow { index })?;
+        let end = start
+            .checked_add(member.len)
+            .ok_or(Error::MotionRangeOverflow { index })?;
+        Ok(start..end)
+    }
+
     /// Decodes one independently fetched compressed frame member.
     pub fn decode_frame(&self, index: usize, compressed: &[u8]) -> Result<Vec<u8>, Error> {
         let frame = self
@@ -308,6 +424,36 @@ impl HeaderIndex {
         }
         Ok(decoded)
     }
+
+    /// Decodes one independently fetched motion member into row-major i8 pairs.
+    pub fn decode_motion(&self, index: usize, compressed: &[u8]) -> Result<Vec<i8>, Error> {
+        let member = self
+            .header
+            .frames
+            .get(index)
+            .ok_or(Error::FrameOutOfBounds(index))?
+            .motion
+            .as_ref()
+            .ok_or(Error::MotionNotPresent(index))?;
+        if usize::try_from(member.len).ok() != Some(compressed.len()) {
+            return Err(Error::TruncatedPayload { index });
+        }
+        let decoded = zstd::stream::decode_all(compressed)?;
+        let expected = self
+            .header
+            .motion_grid
+            .ok_or(Error::MotionNotPresent(index))?
+            .byte_count()?;
+        if decoded.len() != expected {
+            return Err(Error::WrongMotionLength {
+                index,
+                actual: decoded.len(),
+                expected,
+            });
+        }
+        validate_motion_pairs(index, &decoded)?;
+        Ok(decoded.into_iter().map(|value| value as i8).collect())
+    }
 }
 
 pub fn decode(bytes: &[u8]) -> Result<DecodedChunk, Error> {
@@ -324,12 +470,23 @@ pub fn decode(bytes: &[u8]) -> Result<DecodedChunk, Error> {
             .ok_or(Error::TruncatedPayload { index: frame_index })?;
         frames.push(index.decode_frame(frame_index, member)?);
     }
-    let payload_end = index
-        .header
-        .frames
-        .last()
-        .map(|frame| frame.offset + frame.len)
-        .unwrap_or(0);
+    let mut motions = Vec::with_capacity(index.header.frames.len());
+    for frame_index in 0..index.header.frames.len() {
+        if index.header.frames[frame_index].motion.is_some() {
+            let range = index.motion_range(frame_index)?;
+            let start = usize::try_from(range.start)
+                .map_err(|_| Error::MotionRangeOverflow { index: frame_index })?;
+            let end = usize::try_from(range.end)
+                .map_err(|_| Error::MotionRangeOverflow { index: frame_index })?;
+            let member = bytes
+                .get(start..end)
+                .ok_or(Error::TruncatedPayload { index: frame_index })?;
+            motions.push(Some(index.decode_motion(frame_index, member)?));
+        } else {
+            motions.push(None);
+        }
+    }
+    let payload_end = payload_end(&index.header)?;
     let expected_len = index
         .header_len
         .checked_add(usize::try_from(payload_end).map_err(|_| Error::HeaderTooLarge)?)
@@ -343,6 +500,7 @@ pub fn decode(bytes: &[u8]) -> Result<DecodedChunk, Error> {
     Ok(DecodedChunk {
         header: index.header,
         frames,
+        motions,
     })
 }
 
@@ -385,7 +543,109 @@ fn validate_header(header: &Header) -> Result<(), Error> {
             .checked_add(frame.len)
             .ok_or(Error::FrameRangeOverflow { index })?;
     }
+    match header.motion_grid {
+        Some(grid) => {
+            validate_motion_grid(grid)?;
+            if header
+                .frames
+                .first()
+                .is_some_and(|frame| frame.motion.is_some())
+            {
+                return Err(Error::MotionOnFirstFrame);
+            }
+            if !header.frames.iter().any(|frame| frame.motion.is_some()) {
+                return Err(Error::MotionNotPresent(0));
+            }
+            for (index, frame) in header.frames.iter().enumerate() {
+                if let Some(member) = &frame.motion {
+                    if member.offset != expected_offset {
+                        return Err(Error::MotionRangeOverflow { index });
+                    }
+                    expected_offset = expected_offset
+                        .checked_add(member.len)
+                        .ok_or(Error::MotionRangeOverflow { index })?;
+                }
+            }
+        }
+        None if header.frames.iter().any(|frame| frame.motion.is_some()) => {
+            return Err(Error::MotionGridTooLarge);
+        }
+        None => {}
+    }
     Ok(())
+}
+
+fn validate_motions(
+    grid: MotionGrid,
+    motions: &[Option<Vec<i8>>],
+    frame_count: usize,
+) -> Result<(), Error> {
+    validate_motion_grid(grid)?;
+    if motions.len() != frame_count {
+        return Err(Error::MotionCountMismatch {
+            motions: motions.len(),
+            frames: frame_count,
+        });
+    }
+    if !motions.iter().any(Option::is_some) {
+        return Err(Error::MotionNotPresent(0));
+    }
+    if motions.first().is_some_and(Option::is_some) {
+        return Err(Error::MotionOnFirstFrame);
+    }
+    let expected = grid.byte_count()?;
+    for (index, values) in motions.iter().enumerate() {
+        if let Some(values) = values {
+            if values.len() != expected {
+                return Err(Error::WrongMotionLength {
+                    index,
+                    actual: values.len(),
+                    expected,
+                });
+            }
+            let bytes = values.iter().map(|value| *value as u8).collect::<Vec<_>>();
+            validate_motion_pairs(index, &bytes)?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_motion_grid(grid: MotionGrid) -> Result<(), Error> {
+    if grid.bw == 0 || grid.bh == 0 {
+        return Err(Error::EmptyMotionGrid);
+    }
+    grid.byte_count().map(|_| ())
+}
+
+fn validate_motion_pairs(index: usize, bytes: &[u8]) -> Result<(), Error> {
+    for (block, pair) in bytes.chunks_exact(2).enumerate() {
+        if (pair[0] == 128) != (pair[1] == 128) {
+            return Err(Error::HalfNoDataMotion { index, block });
+        }
+    }
+    Ok(())
+}
+
+fn payload_end(header: &Header) -> Result<u64, Error> {
+    let frame_end = if let Some((index, frame)) = header.frames.iter().enumerate().next_back() {
+        frame
+            .offset
+            .checked_add(frame.len)
+            .ok_or(Error::FrameRangeOverflow { index })?
+    } else {
+        0
+    };
+    header
+        .frames
+        .iter()
+        .enumerate()
+        .filter_map(|(index, frame)| frame.motion.as_ref().map(|member| (index, member)))
+        .try_fold(frame_end, |_, (index, member)| {
+            member
+                .offset
+                .checked_add(member.len)
+                .ok_or(Error::MotionRangeOverflow { index })
+        })
 }
 
 fn validate_quantization_table(table: &[Option<f32>]) -> Result<(), Error> {

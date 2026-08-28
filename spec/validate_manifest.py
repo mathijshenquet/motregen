@@ -66,6 +66,22 @@ def main():
             if frame["offset"] != offset or frame["len"] <= 0:
                 raise ValueError(f"invalid frame index in {path}")
             offset += frame["len"]
+        motion_grid = header.get("motion_grid")
+        motion_members = [frame.get("motion") for frame in header["frames"]]
+        if motion_grid is None and any(member is not None for member in motion_members):
+            raise ValueError(f"motion member without motion_grid in {path}")
+        if motion_grid is not None:
+            if motion_grid["bw"] <= 0 or motion_grid["bh"] <= 0:
+                raise ValueError(f"invalid motion_grid in {path}")
+            if not any(member is not None for member in motion_members):
+                raise ValueError(f"motion_grid without motion members in {path}")
+            if motion_members and motion_members[0] is not None:
+                raise ValueError(f"first frame has a motion member in {path}")
+            for member in motion_members:
+                if member is not None:
+                    if member["offset"] != offset or member["len"] <= 0:
+                        raise ValueError(f"invalid motion index in {path}")
+                    offset += member["len"]
         if path.stat().st_size != chunk["header_len"] + offset:
             raise ValueError(f"payload length mismatch in {path}")
         grids.append(header["grid"])
