@@ -1,6 +1,6 @@
 # MIP-4: informatielagen — veel weer, geen overweldiging
 
-Status: draft
+Status: accepted (PO, 2026-08-28, met wijzigingen — zie §5)
 Auteur: orchestrator (fable), 2026-08-28
 
 ## 1. Het probleem
@@ -78,6 +78,27 @@ synthetische straling.
 3. **Symbolen**: eigen minimalistische set in druppel-stijl (aanbevolen) of
    een bestaande open iconenset (bijv. een weather-icons-font)?
 
+## 5. Besluit (PO, 2026-08-28)
+
+- **Geen veld-cycler** (aanbeveling §3.1 vervangen): de kaart toont regen
+  mét temperatuur-getalletjes tegelijk (stads-verankerde labels), en in
+  principe ook zon/wolk-iconen op de kaart — of dat overweldigt testen we
+  empirisch; de PO stuurt op visual feedback. Wel een **switcher
+  temperatuur ↔ gevoelstemperatuur, default gevoelstemperatuur**. Geen
+  isolines.
+- **Zonkracht**: KNMI blijkt een officieel open-data-product te hebben —
+  `cloud-modified-uv-index` (Benelux, per 15 min, 03:00–21:45 UTC) naast de
+  dagelijkse `uv-index`-forecast. De UV-proxy uit §3 vervalt; de
+  insmeer-chip (relevantie-gating, ≥3) draait op het officiële product.
+- **Symbolen**: de KNMI-app staat in het overheids-OSS-register; licentie
+  van de icon-assets checken. Zo niet bruikbaar: Meteocons (MIT) of eigen
+  set — "probeer maar iets", PO geeft visual feedback.
+- Overige principes (§3.2 detail-in-tabel, §3.3 relevantie-gating, lage
+  resolutie voor uurvelden) ongewijzigd akkoord.
+
 ## Changelog
 
 - 2026-08-28: draft.
+- 2026-08-28: accepted — kaart = regen + temperatuurgetallen (+ iconen op
+  proef) i.p.v. veld-cycler; gevoelstemperatuur default; officiële
+  UV-datasets gevonden, proxy vervallen; besluit §5 toegevoegd.

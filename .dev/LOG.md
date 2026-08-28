@@ -1,5 +1,23 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-08-28 — MIP-3+4 accepted; T2 (echte ingest) launched
+
+- MIP-3 accepted: bare Hetzner/OVH first, Cloudflare deferred until real
+  traffic; header contract implemented from day one so CDN is later drop-in.
+- MIP-4 accepted with PO modifications: NO field cycler — map shows rain +
+  temperature numbers simultaneously (+ sun/cloud icons on trial, test
+  overwhelm empirically); temp↔feels-like switcher, default feels-like; no
+  isolines. UV: official KNMI open datasets found (`cloud-modified-uv-index`
+  Benelux/15-min + daily `uv-index`) → proxy plan dropped. Symbols: KNMI app
+  is in the government OSS register — check icon-asset license; else
+  Meteocons (MIT)/own, iterate on PO visual feedback.
+- Wrote `.dev/specs/track-t2-ingest.md` (sol): real rain end-to-end — shared
+  grid + index maps, knmi-hdf5 crate (RTCOR + nowcast, Python cross-checks),
+  AROME ranged-tar partial download strategy (avoid 868 MB/h), daemon with
+  atomic manifest, caddy dev-serving on 8080 per MIP-3 contract, knmi-grib
+  fixture self-skip. Rain only; extra MIP-4 fields = follow-up track.
+- In flight: T3b (sol, UX + click-fix), T2 (sol, launching).
+
 ## 2026-08-28 — T2a merged (luna!); HAR-bug diagnosed → T3b steer; dev topology
 
 - T2a delivered (14m41s) — but the pane footer read `gpt-5.6-luna low`, NOT
