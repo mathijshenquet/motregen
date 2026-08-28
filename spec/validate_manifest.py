@@ -6,6 +6,9 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 
 
+VALID_SOURCES = {"rtcor", "nowcast", "seamless", "harmonie", "uv"}
+
+
 def timestamp(value: str):
     if not value.endswith("Z"):
         raise ValueError(f"timestamp is not UTC: {value}")
@@ -25,6 +28,8 @@ def main():
     fields = {}
     sources = set()
     for chunk in manifest["chunks"]:
+        if chunk["source"] not in VALID_SOURCES:
+            raise ValueError(f"unknown source: {chunk['source']}")
         url = PurePosixPath(chunk["url"])
         if url.is_absolute() or ".." in url.parts or url.parts[0] != "chunks":
             raise ValueError(f"unsafe chunk URL: {url}")
@@ -44,6 +49,8 @@ def main():
         if header["source"] != chunk["source"] or header["run"] != chunk["run"]:
             raise ValueError(f"manifest/header provenance mismatch in {path}")
         field = chunk.get("field", "rain_rate")
+        if chunk["source"] == "seamless" and field != "rain_rate":
+            raise ValueError(f"seamless source must contain rain_rate in {path}")
         if header.get("field", "rain_rate") != field:
             raise ValueError(f"manifest/header field mismatch in {path}")
         if [frame["time"] for frame in header["frames"]] != chunk["times"]:
