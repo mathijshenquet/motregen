@@ -1,6 +1,6 @@
 # MIP-1: motregen.nl MVP-architectuur
 
-Status: draft — herzien na PO-ronde 1; alleen de stack-sanctie (§4) ligt nog voor
+Status: accepted (PO, 2026-08-28)
 Auteur: orchestrator (fable)
 
 ## 1. Het probleem
@@ -136,11 +136,15 @@ responsive web, geen native apps.
 
 ## 4. Open vragen
 
-1. **Stack-sanctie**: akkoord met Rust-ingest (met de T1 GRIB-gate als
-   ontbindende voorwaarde) en SolidJS + Tailwind v4 zonder shadcn? Dit is de
-   laatste openstaande keuze van deze MIP.
+Geen — de stack-sanctie is gegeven, zie §5.
 
-## 5. Besluiten (PO-ronde 1, 2026-08-28)
+## 5. Besluiten (PO, 2026-08-28)
+
+- **Stack-sanctie (ronde 2)**: Rust-ingest akkoord (PO heeft zelf geen goede
+  ervaringen met Python), met de T1 GRIB-gate als ontbindende voorwaarde;
+  SolidJS + Tailwind v4 zonder shadcn akkoord. De PO wil de AROME-spike
+  meteen gestart, waarbij de Python-library (cfgrib/eccodes) als *executable
+  spec* dient: de Rust-lib moet **snel en conform** die referentie zijn.
 
 - Kaartaanpak akkoord: MapLibre GL + OpenFreeMap-tiles.
 - History in de slider: **3 u** voor v1.
@@ -159,3 +163,5 @@ responsive web, geen native apps.
   vastgelegd; backend-aanbeveling Python→Rust na PO-verzoek tot afweging;
   frontend-framework (SolidJS) en styling (Tailwind, geen shadcn) toegevoegd;
   horizon +48 u → +24 u; history 3 u.
+- 2026-08-28: accepted — stack-sanctie gegeven (Rust + SolidJS/Tailwind);
+  T1 AROME-spike direct gestart met Python-referentie als conformance-spec.

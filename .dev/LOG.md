@@ -1,5 +1,31 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-08-28 — MIP-1 accepted; contract pinned; T1+T3 launched
+
+- PO sanctioned the stack: Rust ingest ("geen super positieve ervaring met
+  Python"), and asked for (a) an immediate sol spike on AROME GRIB parsing with
+  the Python library as executable conformance spec — "snel en conform" — and
+  (b) an immediate frontend scaffold. On shadcn he said "ook ok" (permissive);
+  PM call: staying with MIP-1's SolidJS + Tailwind v4 without shadcn.
+- MIP-1 flipped to accepted (§5 records the sanction).
+- Pinned `docs/contract.md` (manifest v0 + mrf v0: magic/len/JSON-header with
+  frame-offset-index + quant table, independent zstd members, Range +
+  progressive decode) so T1/T2 and T3 build against the same wire format
+  without coordination.
+- Seeded devenv at repo root (rust, node/pnpm, eccodes, hdf5, pkg-config, uv,
+  zstd) so parallel tracks don't invent competing envs. Note: transient DNS
+  failures on github.com via MagicDNS broke two devenv builds; also, devenv
+  can exit 0 while the underlying nix fetch failed — check for devenv.lock as
+  the real receipt.
+- Wrote `.dev/specs/track-t1-arome-spike.md` (sol; GRIB gate + Python
+  reference harness + speed bar ≤2 s) and `.dev/specs/track-t3-frontend-shell.md`
+  (sol; shell on synthetic data per contract).
+- KNMI license question from PO: all used datasets are CC-BY 4.0 → any use
+  incl. commercial is fine with attribution; "Bron: KNMI" requirement added to
+  the T3 spec. Use-case field on key registration is informational only.
+- Open with Mathijs: drop KNMI keys in `.env` (T1 falls back to the saturated
+  anonymous key otherwise). Open for agents: T1 + T3 in flight.
+
 ## 2026-08-28 — MIP-2 accepted
 
 - PO adopted MIP-2 with calls: intra-only (YAGNI), quantization floor stays at
