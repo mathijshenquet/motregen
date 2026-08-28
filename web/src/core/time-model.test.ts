@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { Manifest } from './contract'
-import { buildTimeline, frameBlend, seriesValueAt } from './time-model'
+import { buildTimeline, frameBlend, seriesValueAt, timelineZones } from './time-model'
 
-const chunk = (source: 'rtcor' | 'nowcast' | 'harmonie', run: string, times: string[]) => ({ url: `${source}.mrf`, source, run, header_len: 42, times })
+const chunk = (source: 'rtcor' | 'nowcast' | 'seamless' | 'harmonie', run: string, times: string[]) => ({ url: `${source}.mrf`, source, run, header_len: 42, times })
 
 describe('time model', () => {
   it('sorts frames and resolves overlap by source priority then latest run', () => {
@@ -44,5 +44,34 @@ describe('time model', () => {
     const uv = { ...chunk('harmonie', time, [time]), source: 'uv' as const, field: 'uv' as const, url: 'uv.mrf' }
     const manifest: Manifest = { version: 0, generated: time, now: time, chunks: [uv] }
     expect(buildTimeline(manifest, 'uv')[0]?.source).toBe('uv')
+  })
+
+  it('removes all non-observations before now while retaining forecasts at now', () => {
+    const now = '2026-08-28T15:00:00Z'
+    const past = '2026-08-28T14:00:00Z'
+    const manifest: Manifest = { version: 0, generated: now, now, chunks: [
+      chunk('harmonie', '2026-08-28T12:00:00Z', [past, now]),
+      chunk('nowcast', now, [past, now]),
+      chunk('rtcor', now, [past]),
+    ] }
+
+    expect(buildTimeline(manifest).map(({ time, source }) => [time, source])).toEqual([
+      [past, 'rtcor'],
+      [now, 'nowcast'],
+    ])
+  })
+
+  it('prefers seamless over raw model and folds it into the model zone', () => {
+    const now = '2026-08-28T15:00:00Z'
+    const later = '2026-08-28T18:00:00Z'
+    const manifest: Manifest = { version: 0, generated: now, now, chunks: [
+      chunk('harmonie', '2026-08-28T12:00:00Z', [later]),
+      chunk('seamless', now, [later]),
+      chunk('nowcast', now, [now]),
+    ] }
+    const timeline = buildTimeline(manifest)
+
+    expect(timeline[1]?.source).toBe('seamless')
+    expect(timelineZones(timeline).map(({ label }) => label)).toEqual(['Nowcast', 'Model'])
   })
 })

@@ -17,21 +17,25 @@ function frame(epoch: number): TimelineFrame {
 }
 
 describe('hourly forecast', () => {
-  it('selects the next 24 whole hours and joins both fields by nearest time', () => {
+  it('selects the next 24 whole hours and joins optional fields by nearest time', () => {
     const rain = Array.from({ length: 25 }, (_, index) => frame(Date.parse('2026-08-28T16:00:00Z') + index * 3_600_000 + 5 * 60_000))
-    const radiation = Array.from({ length: 24 }, (_, index) => frame(Date.parse('2026-08-28T16:00:00Z') + index * 3_600_000))
+    const temperature = Array.from({ length: 24 }, (_, index) => frame(Date.parse('2026-08-28T16:00:00Z') + index * 3_600_000))
     const uv = Array.from({ length: 8 }, (_, index) => frame(Date.parse('2026-08-28T15:45:00Z') + index * 15 * 60_000))
-    const rows = buildHourlyForecast(rain, radiation, uv, start)
+    const rows = buildHourlyForecast(timelines({ rain, uv, temperature }), start)
 
     expect(rows).toHaveLength(24)
-    expect(rows[0]).toEqual({ epoch: Date.parse('2026-08-28T16:00:00Z'), rainIndex: 0, radiationIndex: 0, uvIndex: 1 })
-    expect(rows[23]?.radiationIndex).toBe(23)
+    expect(rows[0]).toMatchObject({ epoch: Date.parse('2026-08-28T16:00:00Z'), rainIndex: 0, temperatureIndex: 0, uvIndex: 1 })
+    expect(rows[23]?.temperatureIndex).toBe(23)
   })
 
-  it('leaves unavailable radiation empty without hiding rain', () => {
+  it('leaves unavailable optional fields empty without hiding rain', () => {
     const rain = [frame(Date.parse('2026-08-28T16:00:00Z'))]
-    expect(buildHourlyForecast(rain, [], [], start, 1)).toEqual([
-      { epoch: Date.parse('2026-08-28T16:00:00Z'), rainIndex: 0, radiationIndex: null, uvIndex: null },
-    ])
+    expect(buildHourlyForecast(timelines({ rain }), start, 1)[0]).toMatchObject({
+      epoch: Date.parse('2026-08-28T16:00:00Z'), rainIndex: 0, humidityIndex: null, cloudIndex: null, windUIndex: null,
+    })
   })
 })
+
+function timelines(overrides: Partial<Parameters<typeof buildHourlyForecast>[0]>): Parameters<typeof buildHourlyForecast>[0] {
+  return { rain: [], uv: [], temperature: [], feelsLike: [], humidity: [], cloud: [], windU: [], windV: [], ...overrides }
+}

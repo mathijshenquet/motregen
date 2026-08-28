@@ -18,6 +18,7 @@ const temperatureQuant = linearQuant(-25, 40)
 const feelsLikeQuant = linearQuant(-35, 45)
 const windQuant = linearQuant(-30, 30)
 const uvQuant = linearQuant(0, 12.7)
+const percentQuant = linearQuant(0, 100)
 
 interface ChunkPlan { name: string; source: Source; field: Field; run: number; times: number[] }
 const plans: ChunkPlan[] = []
@@ -34,7 +35,7 @@ plans.push({
   times: Array.from({ length: 72 }, (_, i) => Date.parse('2026-08-28T03:00:00Z') + i * 15 * 60_000),
 })
 const hourlyTimes = Array.from({ length: 24 }, (_, i) => now + (i + 1) * 3_600_000)
-for (const field of ['temp_c', 'feels_like_c', 'wind_u_ms', 'wind_v_ms'] as const) plans.push({
+for (const field of ['temp_c', 'feels_like_c', 'wind_u_ms', 'wind_v_ms', 'rel_humidity', 'cloud_frac'] as const) plans.push({
   name: `${field}-20260828T1200.mrf`, source: 'harmonie', field, run: now - 3 * 3_600_000, times: hourlyTimes,
 })
 
@@ -100,8 +101,18 @@ function makeWeatherFrame(epoch: number, field: Exclude<Field, 'rain_rate' | 'ra
     const temperature = 16.5 + 4.2 * Math.sin((hour - 3) * Math.PI / 12) - 2.6 * north + 0.9 * Math.sin(x * 0.025 - y * 0.018)
     const speed = Math.hypot(u, v)
     const feelsLike = temperature - Math.max(0, 0.22 * speed - 0.7) + Math.max(0, temperature - 24) * 0.12
-    const value = field === 'wind_u_ms' ? u : field === 'wind_v_ms' ? v : field === 'temp_c' ? temperature : feelsLike
-    const quant = field.startsWith('wind_') ? windQuant : field === 'temp_c' ? temperatureQuant : feelsLikeQuant
+    const cloud = Math.max(0, Math.min(100, 48 + 42 * Math.sin(x * 0.035 + y * 0.018 + hour * 0.35)))
+    const humidity = Math.max(25, Math.min(100, 58 + cloud * 0.28 - temperature * 0.35 + 8 * Math.sin(y * 0.04 - hour * 0.2)))
+    const value = field === 'wind_u_ms' ? u
+      : field === 'wind_v_ms' ? v
+        : field === 'temp_c' ? temperature
+          : field === 'feels_like_c' ? feelsLike
+            : field === 'rel_humidity' ? humidity
+              : cloud
+    const quant = field.startsWith('wind_') ? windQuant
+      : field === 'temp_c' ? temperatureQuant
+        : field === 'feels_like_c' ? feelsLikeQuant
+          : percentQuant
     values[y * grid.width + x] = encodeLinear(value, quant)
   }
   return values
@@ -130,6 +141,7 @@ function quantFor(field: Field): Array<number | null> {
   if (field === 'temp_c') return temperatureQuant
   if (field === 'feels_like_c') return feelsLikeQuant
   if (field === 'uv') return uvQuant
+  if (field === 'rel_humidity' || field === 'cloud_frac') return percentQuant
   return windQuant
 }
 

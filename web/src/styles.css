@@ -212,8 +212,8 @@ button { color: inherit; cursor: pointer; }
 .current-summary { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
 .rain-symbol { color: var(--accent); font-size: 12px; box-shadow: 0 0 0 5px var(--accent-soft); border-radius: 50%; }
 
-.scrubber { padding: 15px 16px 12px; border-bottom: 1px solid var(--line); background: var(--surface); }
-.scrubber-heading { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
+.scrubber { padding: 17px 16px 13px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.scrubber-heading { display: flex; align-items: center; gap: 11px; margin-bottom: 11px; }
 .play {
   width: 40px;
   height: 40px;
@@ -227,30 +227,51 @@ button { color: inherit; cursor: pointer; }
 .selected-time { min-width: 0; display: flex; flex-direction: column; }
 .selected-time strong { font-size: 21px; line-height: 1; letter-spacing: -.025em; }
 .selected-time span { margin-top: 3px; color: var(--muted); font-size: 11px; }
-.scrub-hint { margin-left: auto; color: var(--muted); font-size: 10px; }
+.selected-time .location-label { max-width: 180px; margin: 0 0 5px; overflow: hidden; font-size: 10px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.chart-toggle { margin-left: auto; display: flex; align-items: center; padding: 2px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-soft); }
+.chart-toggle > span { padding: 0 5px; color: var(--muted); font-size: 8px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+.chart-toggle button { padding: 5px 7px; border: 0; border-radius: 5px; color: var(--muted); background: transparent; font-size: 9px; font-weight: 700; }
+.chart-toggle button.active { color: var(--surface); background: var(--accent); }
 .scrub-surface {
   position: relative;
-  height: 122px;
+  height: 180px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 9px 9px 3px 3px;
   outline: none;
-  background:
-    repeating-linear-gradient(to top, transparent 0, transparent 27px, color-mix(in srgb, var(--line) 65%, transparent) 28px),
-    linear-gradient(180deg, color-mix(in srgb, var(--accent-soft) 42%, transparent), transparent);
+  background: var(--surface-soft);
   cursor: ew-resize;
   touch-action: none;
   user-select: none;
 }
 .scrub-surface:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
-.scrub-surface svg { position: absolute; inset: 8px 0 1px; width: 100%; height: calc(100% - 9px); overflow: visible; }
-.rain-bar { fill: var(--accent-bright); opacity: .82; }
+.y-axis { position: absolute; top: 10px; bottom: 32px; left: 0; width: 44px; border-right: 1px solid var(--line-strong); color: var(--muted); font-size: 8px; font-variant-numeric: tabular-nums; pointer-events: none; }
+.y-axis::before { content: 'mm/u'; position: absolute; top: 2px; left: 5px; font-size: 7px; font-weight: 750; letter-spacing: .04em; }
+.y-axis span { position: absolute; right: 5px; line-height: 1; transform: translateY(-50%); }
+.y-axis span:first-child { transform: translateY(-100%); }
+.chart-plot { position: absolute; top: 10px; right: 8px; bottom: 32px; left: 45px; }
+.chart-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.rain-band.dry { fill: color-mix(in srgb, var(--muted) 8%, transparent); }
+.rain-band.light { fill: color-mix(in srgb, #72cdec 15%, transparent); }
+.rain-band.moderate { fill: color-mix(in srgb, #5dbb86 14%, transparent); }
+.rain-band.heavy { fill: color-mix(in srgb, #d8879f 15%, transparent); }
+.rain-bar { fill: var(--accent-bright); opacity: .72; }
+.rain-line { fill: none; stroke: var(--accent-bright); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; filter: drop-shadow(0 1px 1px color-mix(in srgb, var(--surface) 70%, transparent)); }
 .cursor-line { stroke: var(--text); stroke-width: 2; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 2px var(--surface)); }
+.band-labels { position: absolute; inset: 0; color: var(--muted); font-size: 8px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; pointer-events: none; }
+.band-labels span { position: absolute; right: 5px; transform: translateY(-50%); opacity: .72; }
 .empty-graph { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 12px; pointer-events: none; }
 .now-line { position: absolute; top: 0; bottom: 0; width: 1px; border-left: 1px dashed color-mix(in srgb, var(--text) 55%, transparent); pointer-events: none; }
 .now-line span { position: absolute; top: 3px; left: 0; padding: 2px 5px; border-radius: 4px; color: var(--surface); background: var(--text); font-size: 9px; font-weight: 750; text-transform: uppercase; transform: translateX(-50%); }
-.regimes { position: relative; height: 27px; color: var(--muted); font-size: 9px; font-weight: 750; letter-spacing: .075em; text-transform: uppercase; }
-.regimes span { position: absolute; top: 0; min-width: 28px; padding-top: 6px; border-top: 3px solid var(--history); overflow: hidden; white-space: nowrap; }
+.chart-tooltip { position: absolute; top: 8px; z-index: 2; min-width: 74px; display: flex; flex-direction: column; padding: 5px 7px; border: 1px solid var(--line-strong); border-radius: 6px; color: var(--text); background: var(--surface-raised); box-shadow: 0 4px 12px rgba(15, 38, 47, .2); font-size: 9px; pointer-events: none; transform: translateX(-50%); }
+.chart-tooltip strong { font-size: 10px; }
+.chart-tooltip span { margin-top: 1px; color: var(--muted); }
+.x-axis { position: absolute; right: 0; bottom: -25px; left: 0; color: var(--muted); font-size: 8px; font-variant-numeric: tabular-nums; pointer-events: none; }
+.x-axis span { position: absolute; transform: translateX(-50%); }
+.x-axis span:first-child { transform: none; }
+.x-axis span:last-child { transform: translateX(-100%); }
+.regimes { position: relative; height: 27px; margin: 0 8px 0 45px; color: var(--muted); font-size: 9px; font-weight: 750; letter-spacing: .075em; text-transform: uppercase; }
+.regimes span { position: absolute; top: 0; min-width: 28px; padding: 6px 3px 0; border-top: 3px solid var(--history); overflow: hidden; white-space: nowrap; }
 .regimes .nowcast { border-color: var(--nowcast); }
 .regimes .model { border-color: var(--model); }
 
@@ -267,9 +288,20 @@ td:first-child { padding-left: 0; text-align: left; }
 td:first-child strong { display: inline-block; min-width: 44px; font-size: 13px; }
 td:first-child span { color: var(--muted); font-size: 10px; text-transform: capitalize; }
 td small { color: var(--muted); font-size: 9px; }
-.sun-reading { display: flex; align-items: center; justify-content: flex-end; min-height: 17px; }
-.sun-icon { display: inline-block; margin-right: 5px; color: #e6a400; font-size: 15px; filter: saturate(1.15); }
-.table-uv-chip { width: max-content; margin: 4px 0 0 auto; padding: 2px 6px; }
+.weather-heading, .weather-cell { text-align: center; }
+.weather-cell { min-width: 48px; }
+.weather-icon { width: 38px; height: 31px; display: block; margin: 0 auto; overflow: visible; }
+.weather-sun circle { fill: #f3b918; stroke: #d69b00; stroke-width: 1; }
+.weather-sun path { fill: none; stroke: #e6a400; stroke-linecap: round; stroke-width: 1.5; }
+.weather-moon { fill: #768da2; }
+:root[data-theme="dark"] .weather-moon { fill: #cbddeb; }
+.weather-cloud { fill: #e7eef1; stroke: #8399a3; stroke-width: 1; }
+:root[data-theme="dark"] .weather-cloud { fill: #607780; stroke: #adc2ca; }
+.weather-rain path { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-width: 1.8; }
+.heavy-rain .weather-rain path { stroke-width: 2.2; }
+.table-uv-chip { width: max-content; margin: 2px auto 0; padding: 1px 5px; }
+.temperature-cell { font-size: 16px; font-weight: 720; letter-spacing: -.03em; }
+.wind-cell { color: var(--text); font-size: 11px; }
 
 .maplibregl-ctrl-top-right { top: 57px; right: 2px; }
 .maplibregl-ctrl-group { overflow: hidden; border: 1px solid var(--line) !important; background: var(--surface-raised) !important; box-shadow: var(--shadow) !important; }
@@ -296,7 +328,7 @@ td small { color: var(--muted); font-size: 9px; }
   .current-weather { min-height: 113px; padding: 22px 24px; }
   .reading strong { font-size: 49px; }
   .scrubber { padding: 20px 24px 16px; }
-  .scrub-surface { height: 150px; }
+  .scrub-surface { height: 196px; }
   .forecast-panel { padding: 22px 24px 36px; }
   .search { top: 18px; left: 18px; right: auto; width: min(390px, calc(100% - 90px)); }
   .temperature-switch { top: 70px; left: 18px; }

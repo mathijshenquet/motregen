@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { WIND_PARTICLES_PER_MEGAPIXEL, WIND_TRAIL_FADE, WIND_TRAIL_OPACITY, windColor } from './wind-layer'
+import {
+  particleCountForViewport,
+  trailTargetSize,
+  WIND_PARTICLES_PER_MEGAPIXEL,
+  WIND_TRAIL_FADE,
+  WIND_TRAIL_OPACITY,
+  windColor,
+} from './wind-layer'
 
 describe('wind trail presentation', () => {
   it('pins visible but persistent trail tunables below a dense Windy field', () => {
@@ -14,6 +21,14 @@ describe('wind trail presentation', () => {
     const dark = windColor(8, 'dark')
     expect(light).not.toEqual(dark)
     expect(dark[0] + dark[1] + dark[2]).toBeGreaterThan(light[0] + light[1] + light[2])
+    expect(Math.max(...light)).toBeLessThan(0.65)
     expect(windColor(25, 'light')).not.toEqual(light)
+  })
+
+  it('matches the device-pixel canvas and keeps particle density tied to screen area', () => {
+    expect(trailTargetSize(1170, 2532, 4096)).toEqual([1170, 2532])
+    expect(trailTargetSize(5000, 2500, 4096)).toEqual([4096, 2048])
+    expect(particleCountForViewport(1_000, 1_000)).toBe(620)
+    expect(particleCountForViewport(500, 500)).toBeLessThan(620)
   })
 })

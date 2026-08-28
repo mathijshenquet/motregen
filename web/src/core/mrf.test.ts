@@ -31,6 +31,8 @@ describe('mrf v0', () => {
     ['wind_u_ms', -30, true],
     ['wind_v_ms', -30, true],
     ['uv', 0.2, true],
+    ['rel_humidity', 0, true],
+    ['cloud_frac', 0, true],
   ] satisfies Array<[Field, number, boolean]>)('validates quantization by field for %s with quant[0]=%s', (field, first, valid) => {
     const quant: Array<number | null> = Array.from({ length: 255 }, (_, index) => first + index)
     quant.push(null)
@@ -158,7 +160,7 @@ describe('mrf v0', () => {
     fetchMock.mockClear()
     await Promise.all([...chunks].map(([chunk, indexes]) => client.getFrames(chunk, indexes)))
 
-    expect(frames).toHaveLength(179)
+    expect(frames).toHaveLength(131)
     expect(fetchMock).toHaveBeenCalledTimes(13)
     for (const [chunk] of chunks) {
       const chunkFile = files.get(chunk.url)!

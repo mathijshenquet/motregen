@@ -3,16 +3,30 @@ import type { TimelineFrame } from './contract'
 export interface HourlyForecastRow {
   epoch: number
   rainIndex: number | null
-  radiationIndex: number | null
   uvIndex: number | null
+  temperatureIndex: number | null
+  feelsLikeIndex: number | null
+  humidityIndex: number | null
+  cloudIndex: number | null
+  windUIndex: number | null
+  windVIndex: number | null
+}
+
+export interface HourlyTimelines {
+  rain: TimelineFrame[]
+  uv: TimelineFrame[]
+  temperature: TimelineFrame[]
+  feelsLike: TimelineFrame[]
+  humidity: TimelineFrame[]
+  cloud: TimelineFrame[]
+  windU: TimelineFrame[]
+  windV: TimelineFrame[]
 }
 
 const hour = 3_600_000
 
 export function buildHourlyForecast(
-  rain: TimelineFrame[],
-  radiation: TimelineFrame[],
-  uv: TimelineFrame[],
+  timelines: HourlyTimelines,
   now: number,
   count = 24,
 ): HourlyForecastRow[] {
@@ -21,9 +35,14 @@ export function buildHourlyForecast(
     const epoch = firstHour + index * hour
     return {
       epoch,
-      rainIndex: nearestFrame(rain, epoch, hour / 2),
-      radiationIndex: nearestFrame(radiation, epoch, hour / 2),
-      uvIndex: nearestFrame(uv, epoch, hour / 2),
+      rainIndex: nearestFrame(timelines.rain, epoch, hour / 2),
+      uvIndex: nearestFrame(timelines.uv, epoch, hour / 2),
+      temperatureIndex: nearestFrame(timelines.temperature, epoch, hour / 2),
+      feelsLikeIndex: nearestFrame(timelines.feelsLike, epoch, hour / 2),
+      humidityIndex: nearestFrame(timelines.humidity, epoch, hour / 2),
+      cloudIndex: nearestFrame(timelines.cloud, epoch, hour / 2),
+      windUIndex: nearestFrame(timelines.windU, epoch, hour / 2),
+      windVIndex: nearestFrame(timelines.windV, epoch, hour / 2),
     }
   })
 }

@@ -1,5 +1,5 @@
-export type Source = 'rtcor' | 'nowcast' | 'harmonie' | 'uv'
-export type Field = 'rain_rate' | 'radiation' | 'temp_c' | 'feels_like_c' | 'wind_u_ms' | 'wind_v_ms' | 'uv'
+export type Source = 'rtcor' | 'nowcast' | 'seamless' | 'harmonie' | 'uv'
+export type Field = 'rain_rate' | 'radiation' | 'temp_c' | 'feels_like_c' | 'wind_u_ms' | 'wind_v_ms' | 'uv' | 'rel_humidity' | 'cloud_frac'
 
 export interface Grid {
   crs: 'EPSG:3857'

@@ -1,6 +1,7 @@
-import { createMemo, For, Show } from 'solid-js'
+import { createMemo, createSignal, For, Show } from 'solid-js'
 import type { TimelineFrame } from '../core/contract'
-import { regimeLabel } from '../core/time-model'
+import { RAIN_BANDS, rainChartMaximum, rainChartPosition } from '../core/rain-chart'
+import { timelineZones } from '../core/time-model'
 
 interface Props {
   timeline: TimelineFrame[]
@@ -8,53 +9,74 @@ interface Props {
   cursor: number
   now: number
   playing: boolean
+  locationLabel: string
   onCursor: (cursor: number) => void
   onPlaying: (playing: boolean) => void
 }
 
+type ChartMode = 'line' | 'bars'
 const width = 1000
-const plotHeight = 112
+const plotHeight = 132
 
 export default function HistogramScrubber(props: Props) {
+  let plotElement!: HTMLDivElement
+  const [mode, setMode] = createSignal<ChartMode>('line')
+  const [hovered, setHovered] = createSignal<number | null>(null)
   const selected = createMemo(() => props.timeline[Math.round(props.cursor)])
+  const maximum = createMemo(() => rainChartMaximum(props.values))
+  const y = (value: number) => plotHeight * (1 - rainChartPosition(value, maximum()))
   const bars = createMemo(() => {
-    const values = props.values
-    const maximum = Math.max(1, ...values.map((value) => value ?? 0))
     const barWidth = width / Math.max(1, props.timeline.length)
-    return props.timeline.map((_, index) => ({
-      x: index * barWidth,
-      width: Math.max(1.2, barWidth - 1),
-      height: Math.max(1, Math.sqrt((values[index] ?? 0) / maximum) * (plotHeight - 5)),
-    }))
+    return props.timeline.map((_, index) => {
+      const value = props.values[index]
+      return { x: index * barWidth, width: Math.max(1.4, barWidth - 1), y: value == null ? plotHeight : y(value) }
+    })
+  })
+  const paths = createMemo(() => {
+    const result: string[] = []
+    let path = ''
+    for (let index = 0; index < props.timeline.length; index++) {
+      const value = props.values[index]
+      if (value == null) {
+        if (path) result.push(path)
+        path = ''
+        continue
+      }
+      const x = index / Math.max(1, props.timeline.length - 1) * width
+      path += `${path ? ' L' : 'M'} ${x.toFixed(2)} ${y(value).toFixed(2)}`
+    }
+    if (path) result.push(path)
+    return result
+  })
+  const bands = createMemo(() => RAIN_BANDS.map((band) => {
+    const upper = Number.isFinite(band.maximum) ? band.maximum : maximum()
+    const top = y(upper)
+    const bottom = y(band.minimum)
+    return { ...band, top: top / plotHeight * 100, height: Math.max(0, bottom - top) / plotHeight * 100 }
+  }))
+  const yTicks = createMemo(() => [...new Set([0, 0.1, 2.5, 7.5, maximum()])].map((value) => ({ value, top: y(value) / plotHeight * 100 })))
+  const xTicks = createMemo(() => {
+    const count = Math.min(5, props.timeline.length)
+    return Array.from({ length: count }, (_, tick) => {
+      const index = Math.round(tick / Math.max(1, count - 1) * Math.max(0, props.timeline.length - 1))
+      return { index, left: index / Math.max(1, props.timeline.length - 1) * 100, frame: props.timeline[index]! }
+    })
   })
   const nowPosition = createMemo(() => {
     if (props.timeline.length < 2) return 0
     let index = 0
-    for (let candidate = 0; candidate < props.timeline.length; candidate++) {
-      if (props.timeline[candidate]!.epoch <= props.now) index = candidate
-    }
+    for (let candidate = 0; candidate < props.timeline.length; candidate++) if (props.timeline[candidate]!.epoch <= props.now) index = candidate
     return index / (props.timeline.length - 1) * 100
   })
-  const regimes = createMemo(() => {
-    const result: Array<{ label: string; start: number; end: number; className: string }> = []
-    const timeline = props.timeline
-    if (!timeline.length) return result
-    let nowIndex = 0
-    for (let index = 0; index < timeline.length; index++) if (timeline[index]!.epoch <= props.now) nowIndex = index
-    const nowcastStart = timeline.findIndex((frame, index) => index > nowIndex && frame.source === 'nowcast')
-    const modelStart = timeline.findIndex((frame, index) => index > nowIndex && frame.source === 'harmonie')
-    const boundary = (index: number) => Math.max(0, index) / timeline.length * 100
-    const forecastStart = nowcastStart >= 0 ? nowcastStart : modelStart >= 0 ? modelStart : timeline.length
-    result.push({ label: 'Verleden', start: 0, end: boundary(forecastStart), className: 'history' })
-    if (nowcastStart >= 0) result.push({ label: 'Nowcast', start: boundary(nowcastStart), end: boundary(modelStart >= 0 ? modelStart : timeline.length), className: 'nowcast' })
-    if (modelStart >= 0) result.push({ label: 'Model', start: boundary(modelStart), end: 100, className: 'model' })
-    return result
+  const hoverData = createMemo(() => {
+    const index = hovered()
+    return index == null ? undefined : { index, frame: props.timeline[index], value: props.values[index] }
   })
 
-  function updateFromPointer(event: PointerEvent): void {
-    const bounds = (event.currentTarget as HTMLDivElement).getBoundingClientRect()
+  function pointerIndex(event: PointerEvent): number {
+    const bounds = plotElement.getBoundingClientRect()
     const fraction = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width))
-    props.onCursor(fraction * Math.max(0, props.timeline.length - 1))
+    return Math.round(fraction * Math.max(0, props.timeline.length - 1))
   }
 
   function keyDown(event: KeyboardEvent): void {
@@ -72,10 +94,15 @@ export default function HistogramScrubber(props: Props) {
         {props.playing ? 'Ⅱ' : '▶'}
       </button>
       <div class="selected-time">
+        <span class="location-label">{props.locationLabel}</span>
         <strong>{selected() ? new Date(selected()!.epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : '--:--'}</strong>
-        <span>{selected() && `${regimeLabel(selected()!.source)} · ${new Date(selected()!.epoch).toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' })}`}</span>
+        <span>{selected() && new Date(selected()!.epoch).toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
       </div>
-      <span class="scrub-hint">Sleep door de verwachting</span>
+      <div class="chart-toggle" role="group" aria-label="Grafiektype">
+        <span>Dev</span>
+        <button classList={{ active: mode() === 'line' }} onClick={() => setMode('line')}>Lijn</button>
+        <button classList={{ active: mode() === 'bars' }} onClick={() => setMode('bars')}>Staaf</button>
+      </div>
     </div>
     <div
       class="scrub-surface"
@@ -85,20 +112,56 @@ export default function HistogramScrubber(props: Props) {
       aria-valuemin={0}
       aria-valuemax={Math.max(0, props.timeline.length - 1)}
       aria-valuenow={Math.round(props.cursor)}
-      aria-valuetext={selected() ? new Date(selected()!.epoch).toLocaleString('nl-NL') : undefined}
+      aria-valuetext={selected() ? `${new Date(selected()!.epoch).toLocaleString('nl-NL')}, ${formatRain(props.values[Math.round(props.cursor)])}` : undefined}
       onKeyDown={keyDown}
-      onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); updateFromPointer(event) }}
-      onPointerMove={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) updateFromPointer(event) }}
+      onPointerDown={(event) => {
+        event.currentTarget.setPointerCapture(event.pointerId)
+        const index = pointerIndex(event)
+        setHovered(index)
+        props.onCursor(index)
+      }}
+      onPointerMove={(event) => {
+        const index = pointerIndex(event)
+        setHovered(index)
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) props.onCursor(index)
+      }}
+      onPointerLeave={(event) => { if (!event.currentTarget.hasPointerCapture(event.pointerId)) setHovered(null) }}
     >
-      <svg viewBox={`0 0 ${width} ${plotHeight}`} preserveAspectRatio="none" aria-hidden="true">
-        <For each={bars()}>{(bar) => <rect class="rain-bar" x={bar.x} y={plotHeight - bar.height} width={bar.width} height={bar.height} rx="1" />}</For>
-        <line class="cursor-line" x1={props.cursor / Math.max(1, props.timeline.length - 1) * width} x2={props.cursor / Math.max(1, props.timeline.length - 1) * width} y1="0" y2={plotHeight} />
-      </svg>
-      <Show when={!props.values.length}><span class="empty-graph">Kies een locatie voor de regengrafiek</span></Show>
-      <div class="now-line" style={{ left: `${nowPosition()}%` }}><span>Nu</span></div>
+      <div class="y-axis" aria-hidden="true">
+        <For each={yTicks()}>{(tick) => <span style={{ top: `${tick.top}%` }}>{formatAxis(tick.value)}</span>}</For>
+      </div>
+      <div class="chart-plot" ref={plotElement}>
+        <svg viewBox={`0 0 ${width} ${plotHeight}`} preserveAspectRatio="none" aria-hidden="true">
+          <For each={bands()}>{(band) => <rect class={`rain-band ${band.key}`} x="0" y={band.top / 100 * plotHeight} width={width} height={band.height / 100 * plotHeight} />}</For>
+          <Show when={mode() === 'bars'}>
+            <For each={bars()}>{(bar) => <rect class="rain-bar" x={bar.x} y={bar.y} width={bar.width} height={plotHeight - bar.y} rx="1" />}</For>
+          </Show>
+          <Show when={mode() === 'line'}>
+            <For each={paths()}>{(path) => <path class="rain-line" d={path} />}</For>
+          </Show>
+          <line class="cursor-line" x1={props.cursor / Math.max(1, props.timeline.length - 1) * width} x2={props.cursor / Math.max(1, props.timeline.length - 1) * width} y1="0" y2={plotHeight} />
+        </svg>
+        <div class="band-labels" aria-hidden="true"><For each={bands()}>{(band) => <span class={band.key} style={{ top: `${band.top + band.height / 2}%` }}>{band.label}</span>}</For></div>
+        <Show when={!props.values.length}><span class="empty-graph">Kies een locatie voor de regengrafiek</span></Show>
+        <div class="now-line" style={{ left: `${nowPosition()}%` }}><span>Nu</span></div>
+        <Show when={hoverData()?.frame}>{(frame) => <div
+          class="chart-tooltip"
+          style={{ left: `${hoverData()!.index / Math.max(1, props.timeline.length - 1) * 100}%` }}
+          role="status"
+        ><strong>{formatRain(hoverData()!.value)}</strong><span>{new Date(frame().epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</span></div>}</Show>
+        <div class="x-axis" aria-hidden="true"><For each={xTicks()}>{(tick) => <span style={{ left: `${tick.left}%` }}>{new Date(tick.frame.epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</span>}</For></div>
+      </div>
     </div>
-    <div class="regimes" aria-hidden="true">
-      <For each={regimes()}>{(regime) => <span class={regime.className} style={{ left: `${regime.start}%`, width: `${regime.end - regime.start}%` }}>{regime.label}</span>}</For>
+    <div class="regimes" aria-label="Databronzones">
+      <For each={timelineZones(props.timeline)}>{(zone) => <span class={zone.kind} style={{ left: `${zone.start}%`, width: `${zone.end - zone.start}%` }}>{zone.label}</span>}</For>
     </div>
   </section>
+}
+
+function formatRain(value: number | null | undefined): string {
+  return value == null ? 'Geen data' : `${value.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} mm/u`
+}
+
+function formatAxis(value: number): string {
+  return value < 1 ? value.toLocaleString('nl-NL', { maximumFractionDigits: 1 }) : value.toLocaleString('nl-NL')
 }
