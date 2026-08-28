@@ -9,7 +9,9 @@ rust-version = "1.97"
 
 [workspace.dependencies]
 anyhow = "1.0"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
 eccodes = { version = "0.14.0", default-features = false, features = ["ndarray"] }
+hdf5 = { package = "hdf5-metno", version = "0.14.1" }
 ndarray = "0.17"
 ndarray-npy = "0.10"
 serde = { version = "1.0", features = ["derive"] }
