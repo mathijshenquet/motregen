@@ -4,5 +4,6 @@
 data/
 node_modules/
 dist/
+target/
 .venv/
 __pycache__/

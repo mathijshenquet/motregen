@@ -1,6 +1,10 @@
 { pkgs, ... }:
 
 {
+  env.ECCODES_DIR = pkgs.eccodes;
+  env.BINDGEN_EXTRA_CLANG_ARGS = "-isystem ${pkgs.glibc.dev}/include";
+  env.LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+
   languages.rust.enable = true;
 
   languages.javascript = {
@@ -15,5 +19,6 @@
     pkgs.uv
     pkgs.zstd
     pkgs.jq
+    pkgs.llvmPackages.libclang
   ];
 }
