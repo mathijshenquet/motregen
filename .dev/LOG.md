@@ -1,5 +1,26 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-08-28 — REAL RAIN LIVE: T2 verified+merged; end-to-end wired
+
+- Map-vanished bug (PO report): vite's public-dir middleware caches the file
+  list at boot; the T3b-merge config change restarted vite at 15:40:43 and my
+  synthgen wrote at 15:41 → /data/* fell through to SPA-fallback HTML.
+  Server restart fixed it. Lesson: after regenerating public/ data, restart
+  vite dev.
+- T2 landed (sol, 1h03m): live RTCOR+nowcast+ranged-AROME ingest (352.9 MB
+  i.p.v. 867.4 MB per run), shared 650×700 EPSG:3857 grid, atomic
+  manifest/chunks + pruning, HDF5 fixtures + h5py/pyproj cross-checks
+  (455k cellen binnen één quant-stap), Caddyfile.dev per MIP-3. Independently
+  re-verified: workspace gates green (13 suites), mrf inspect op echte chunk,
+  manifest = rtcor 36f + nowcast 25f + harmonie 24f. MERGED.
+- Wiring (orchestrator): release binary gebouwd; daemon draait live op main
+  (data/); caddy :8080; vite dev proxyt /data → :8080 (MOTREGEN_SYNTH=1 =
+  synthetische fallback); 4173 toont echte regen. Committed+pushed.
+- Running processes on ageq-mthq: motregen-ingest (daemon), caddy :8080,
+  vite dev :4173 — all background tasks of this session.
+- Next: PO visual round on real data; MIP-4 fields track (temp/feels-like/
+  UV/cloud symbols) as T2b; icon-license check; deploy (T4) when PO wants.
+
 ## 2026-08-28 — MIP-3+4 accepted; T2 (echte ingest) launched
 
 - MIP-3 accepted: bare Hetzner/OVH first, Cloudflare deferred until real
