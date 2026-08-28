@@ -146,6 +146,10 @@ fn regular_increment(values: &[f32], name: &str) -> Result<f32> {
 }
 
 fn uv_timestamp(date: NaiveDate, hours: f32) -> Result<String> {
+    ensure!(
+        (0.0..24.0).contains(&hours),
+        "UV time is outside one UTC day"
+    );
     let quarter_hours = (hours * 4.0).round();
     ensure!(
         (hours * 4.0 - quarter_hours).abs() < 1e-4,

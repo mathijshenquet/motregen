@@ -21,7 +21,7 @@ use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser)]
-#[command(about = "Turn live KNMI rain products into motregen mrf chunks")]
+#[command(about = "Turn live KNMI weather products into motregen mrf chunks")]
 struct Config {
     #[arg(long, env = "KNMI_OPEN_DATA_API_KEY", hide_env_values = true)]
     api_key: Option<String>,

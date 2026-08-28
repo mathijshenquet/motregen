@@ -1,7 +1,7 @@
 # Ingestdaemon draaien
 
 `motregen-ingest` doet bij start een backfill en blijft daarna nieuwe
-radarproducten pollen. Vanuit de repository:
+radar-, AROME- en UV-producten pollen. Vanuit de repository:
 
 ```sh
 cargo run --release -p motregen-ingest
