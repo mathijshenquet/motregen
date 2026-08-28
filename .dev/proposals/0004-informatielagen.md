@@ -130,3 +130,8 @@ synthetische straling.
   luchtvochtigheid, wind, regen — daarvoor nieuwe velden rel_humidity en
   cloud_frac (bewolking alléén voor pictogram-afleiding, nooit als
   kaartlaag).
+- 2026-08-28: amendement (PO, ronde 5): wind-particles zijn te subtiel
+  (alleen in dark mode nauwelijks zichtbaar) → upgrade naar Windy-stijl
+  particles mét fading trails (fade-framebuffer), duidelijk zichtbaar in
+  beide thema's, verder binnen de ronde-2-kaders (onder regen, ~60%,
+  bft-kleur, minder dicht dan Windy, 60 fps mobiel) — in T3d gestoken.
