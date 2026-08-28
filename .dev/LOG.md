@@ -1,5 +1,26 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-08-28 (avond) — T3e/T2d/T3f verified+merged; flow-tween LIVE; T2e in flight
+
+- T3e (sol, 26m, 52 tests): kaartframe+maxBounds, dichtstbijzijnde stad,
+  histogram-redesign (y-as/banden/hover, lijn-vs-staaf-toggle; sols advies:
+  lijn), verleden=observaties, vibe-uurtabel, wind light-mode+zoom-fixes.
+- Incident tussendoor: daemon exit 1 "immutable chunk collision" na de
+  T2c-gridwijziging (namen dragen grid niet) → data/chunks+manifest geruimd,
+  herstart; PO zag daardoor kort 404/lege velden. Structurele fix via T2d.
+- Day/night-tinting op PO-verzoek uitgezet (flag, MIP-4 ronde 7).
+- T2d (sol, 31m, 15 suites): 32px-blok motion (pySTEPS-medianen 0,27–0,79
+  cel/min, bar 1,0), mrf motion-annexen (~0,5–0,7 kB/frame), CLI dump, en
+  generatie-suffix in chunknamen (collision/cache-fix). Merged; daemon
+  herbouwd+herstart, live annexen geverifieerd.
+- T3f (sol, 14m, 55 tests): RG8-motion-textures + masker, tweezijdige
+  semi-Lagrangiaanse warp (15-cel-cap), crossfade-fallback, synthgen-motion.
+  Merge had één docs/mrf.md-conflict (T2d↔T3f) — unie-resolutie, gesquasht
+  in de merge-commit (NB: jj weigert conflicted ancestors te pushen; los
+  conflicts op vóór jj new, of squash terug). LIVE op 4173 met echte annexen.
+- In flight: T2e (seamless, sol). Web-rij leeg. Openstaand voor PO:
+  lijn-vs-staaf-keuze, mobiele-GPU-check wind/warp.
+
 ## 2026-08-28 — MIP-5 accepted; T2d/T3f specs queued; track-pijplijn
 
 - MIP-5 accepted met alle aanbevelingen (annex-in-chunk, AROME met cap,
