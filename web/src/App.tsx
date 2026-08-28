@@ -5,6 +5,8 @@ import LocationSearch from './components/LocationSearch'
 import { loadBasemapStyle, type MapTheme } from './core/basemap'
 import type { Field, Grid, Manifest, ManifestChunk, TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
+
+const DAY_NIGHT_ENABLED = false
 import { buildHourlyForecast } from './core/forecast'
 import { MrfClient } from './core/mrf'
 import { RainLayer } from './core/rain-layer'
@@ -153,9 +155,13 @@ export default function App() {
 
   function attachMapLayers(grid: Grid): void {
     if (!map || map.getLayer('motregen-rain')) return
-    dayNightLayer = new DayNightLayer(mapTheme())
-    map.addLayer(dayNightLayer)
-    dayNightLayer.setEpoch(selectedEpoch())
+    // uitgezet op PO-verzoek (MIP-4 ronde 7): tinting-implementatie voldoet
+    // niet (en stond in dark mode verkeerd om); later iets beters of weglaten
+    if (DAY_NIGHT_ENABLED) {
+      dayNightLayer = new DayNightLayer(mapTheme())
+      map.addLayer(dayNightLayer)
+      dayNightLayer.setEpoch(selectedEpoch())
+    }
     if (windGrid && windTimeline().length) {
       windLayer = new WindLayer(windGrid, mapTheme())
       map.addLayer(windLayer)
