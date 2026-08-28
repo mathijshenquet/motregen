@@ -189,11 +189,14 @@ pub fn build_arome_chunks(
     let mut wind_u_frames = Vec::with_capacity(capacity);
     let mut wind_v_frames = Vec::with_capacity(capacity);
     let mut radiation_frames = Vec::with_capacity(capacity);
+    let mut relative_humidity_frames = Vec::with_capacity(capacity);
+    let mut cloud_fraction_frames = Vec::with_capacity(capacity);
     let mut times = Vec::with_capacity(horizon_hours as usize);
     let temperature_quant = temperature_quantization_table();
     let feels_like_quant = temperature_quant.clone();
     let wind_quant = wind_quantization_table();
     let radiation_quant = radiation_quantization_table();
+    let percent_quant = percent_quantization_table();
     let mut previous_precipitation = first.precipitation_mm;
     let mut previous_radiation = first.global_radiation_j_m2;
 
@@ -215,6 +218,15 @@ pub fn build_arome_chunks(
             .map(|value| value - 273.15)
             .collect::<Vec<_>>();
         let relative_humidity = hourly_map.gather(&current.relative_humidity.values)?;
+        let relative_humidity_percent = relative_humidity
+            .iter()
+            .map(|value| value * 100.0)
+            .collect::<Vec<_>>();
+        let cloud_fraction = hourly_map
+            .gather(&current.total_cloud_cover.values)?
+            .into_iter()
+            .map(|value| value * 100.0)
+            .collect::<Vec<_>>();
         let wind_u = hourly_map.gather(&current.wind_u_ms.values)?;
         let wind_v = hourly_map.gather(&current.wind_v_ms.values)?;
         let feels_like = temperature
@@ -229,6 +241,8 @@ pub fn build_arome_chunks(
         feels_like_frames.push(quantize_values(&feels_like, &feels_like_quant)?);
         wind_u_frames.push(quantize_values(&wind_u, &wind_quant)?);
         wind_v_frames.push(quantize_values(&wind_v, &wind_quant)?);
+        relative_humidity_frames.push(quantize_values(&relative_humidity_percent, &percent_quant)?);
+        cloud_fraction_frames.push(quantize_values(&cloud_fraction, &percent_quant)?);
 
         let radiation =
             knmi_grib::hourly_precipitation(&previous_radiation, &current.global_radiation_j_m2)?
@@ -272,6 +286,12 @@ pub fn build_arome_chunks(
         field_chunk("wind_u_ms", &wind_u_frames, wind_quant.clone())?,
         field_chunk("wind_v_ms", &wind_v_frames, wind_quant)?,
         field_chunk("radiation", &radiation_frames, radiation_quant)?,
+        field_chunk(
+            "rel_humidity",
+            &relative_humidity_frames,
+            percent_quant.clone(),
+        )?,
+        field_chunk("cloud_frac", &cloud_fraction_frames, percent_quant)?,
     ];
     validate_wind_pair(&chunks)?;
     Ok(AromePublication {
@@ -353,6 +373,10 @@ pub fn uv_quantization_table() -> Vec<Option<f32>> {
     linear_quantization_table(0.0, 12.0 / 254.0)
 }
 
+pub fn percent_quantization_table() -> Vec<Option<f32>> {
+    linear_quantization_table(0.0, 100.0 / 254.0)
+}
+
 fn linear_quantization_table(start: f32, step: f32) -> Vec<Option<f32>> {
     (0..255)
         .map(|index| Some(start + index as f32 * step))
@@ -419,6 +443,7 @@ fn validate_arome_fields(
         &fields.wind_u_ms,
         &fields.wind_v_ms,
         &fields.global_radiation_j_m2,
+        &fields.total_cloud_cover,
     ];
     ensure!(
         selected.iter().all(|field| &field.grid == grid),
@@ -529,6 +554,8 @@ mod tests {
         assert_eq!(wind[127], Some(0.0));
         assert_eq!(radiation_quantization_table()[254], Some(1_270.0));
         assert!((uv_quantization_table()[254].unwrap() - 12.0).abs() < 0.0001);
+        assert_eq!(percent_quantization_table()[0], Some(0.0));
+        assert!((percent_quantization_table()[254].unwrap() - 100.0).abs() < 0.0001);
     }
 
     #[test]

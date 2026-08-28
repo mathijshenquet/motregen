@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cross-check published temperature and U-wind against cfgrib."""
+"""Cross-check published AROME fields against cfgrib."""
 
 import argparse
 import json
@@ -112,24 +112,32 @@ def check(data_dir: Path, member: Path) -> None:
     ).isoformat().replace("+00:00", "Z")
     temperature, source_grid = read_field(member, 11, 2)
     wind_u, wind_grid = read_field(member, 33, 10)
-    if source_grid != wind_grid:
-        raise AssertionError("cfgrib temperature and wind grids differ")
+    relative_humidity, humidity_grid = read_field(member, 52, 2)
+    cloud_fraction, cloud_grid = read_field(member, 71, 0)
+    if any(grid != source_grid for grid in (wind_grid, humidity_grid, cloud_grid)):
+        raise AssertionError("cfgrib AROME field grids differ")
 
     checks = [
         ("temp_c", temperature - np.float32(273.15), 0.3),
         ("wind_u_ms", wind_u, 0.25),
+        ("rel_humidity", relative_humidity * np.float32(100.0), 100.0 / 254.0),
+        ("cloud_frac", cloud_fraction * np.float32(100.0), 100.0 / 254.0),
     ]
     for field, source_values, quant_step in checks:
         codes, header = chunk_frame(data_dir, field, time)
-        expected = target_values(source_values, source_grid, header["grid"])
+        expected = target_values(source_values, source_grid, header["grid"], allow_outside=True)
         quant = np.asarray([np.nan if value is None else value for value in header["quant"]])
         actual = quant[codes]
-        error = np.abs(actual - expected)
-        if np.any(codes == 255) or np.any(error > quant_step + 1e-4):
+        covered = ~np.isnan(expected)
+        error = np.abs(actual[covered] - expected[covered])
+        if np.any((codes == 255) != ~covered) or np.any(error > quant_step + 1e-4):
             raise AssertionError(
                 f"{field}: {int(np.count_nonzero(error > quant_step + 1e-4))} cells exceed one quantization step"
             )
-        print(f"{field}: {error.size} cells, max error {float(error.max()):.6f}")
+        print(
+            f"{field}: {error.size} covered cells, {int(np.count_nonzero(~covered))} no-data cells, "
+            f"max error {float(error.max()):.6f}"
+        )
 
 
 def main() -> None:

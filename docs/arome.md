@@ -58,10 +58,15 @@ leden van run `2026082812` zijn:
 | 10m U-wind | 253 | 33 | type 105, 10 m | instant, `timeRangeIndicator=0` | m/s | geen |
 | 10m V-wind | 253 | 34 | type 105, 10 m | instant, `timeRangeIndicator=0` | m/s | geen |
 | globale stralingsenergie | 253 | 117 | type 105, 0 m | accumulatie vanaf runstart, `timeRangeIndicator=4` | J/m² | opeenvolgend verschil ÷ 3600 → W/m² |
+| totale bewolkingsgraad | 253 | 71 | type 105, 0 m | instant, `timeRangeIndicator=0` | fractie 0–1 | ×100 → % |
 
 Ook dauwpunt is aanwezig als tabel 253, parameter 17 op 2 m, instant en in
 kelvin. Voor gevoelstemperatuur gebruikt de ingest de rechtstreeks aanwezige
 relatieve vochtigheid; dauwpunt hoeft daarom niet mee naar productie.
+Relatieve vochtigheid wordt bij publicatie van fractie naar procent omgezet.
+Parameter 71 werd in het echte +1-lid gemeten op 0,0000916…1,0 en is de
+totale bewolkingsgraad; `cloud_frac` gebruikt hem uitsluitend voor
+pictogram-afleiding.
 
 Net als bij neerslag rapporteert de standaard ecCodes-definitie voor deze
 lokale tabel `paramId=0`, `shortName=unknown` en `units=unknown`. De

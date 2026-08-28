@@ -11,6 +11,7 @@ const RELATIVE_HUMIDITY_PARAMETER: i64 = 52;
 const U_WIND_PARAMETER: i64 = 33;
 const V_WIND_PARAMETER: i64 = 34;
 const GLOBAL_RADIATION_PARAMETER: i64 = 117;
+const TOTAL_CLOUD_COVER_PARAMETER: i64 = 71;
 const HEIGHT_ABOVE_GROUND: &str = "sfc";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -42,6 +43,7 @@ pub struct AromeFields {
     pub wind_u_ms: PrecipitationField,
     pub wind_v_ms: PrecipitationField,
     pub global_radiation_j_m2: PrecipitationField,
+    pub total_cloud_cover: PrecipitationField,
 }
 
 #[derive(Clone, Copy)]
@@ -52,6 +54,7 @@ enum FieldKind {
     WindU,
     WindV,
     GlobalRadiation,
+    TotalCloudCover,
 }
 
 pub fn decode_arome_fields(path: impl AsRef<Path>) -> Result<AromeFields> {
@@ -64,6 +67,7 @@ pub fn decode_arome_fields(path: impl AsRef<Path>) -> Result<AromeFields> {
     let mut wind_u = None;
     let mut wind_v = None;
     let mut global_radiation = None;
+    let mut total_cloud_cover = None;
 
     while let Some(message) = file.ref_message_iter().next()? {
         let parameter: i64 = message.read_key("indicatorOfParameter")?;
@@ -74,6 +78,7 @@ pub fn decode_arome_fields(path: impl AsRef<Path>) -> Result<AromeFields> {
             U_WIND_PARAMETER => (FieldKind::WindU, 10, 0),
             V_WIND_PARAMETER => (FieldKind::WindV, 10, 0),
             GLOBAL_RADIATION_PARAMETER => (FieldKind::GlobalRadiation, 0, 4),
+            TOTAL_CLOUD_COVER_PARAMETER => (FieldKind::TotalCloudCover, 0, 0),
             _ => continue,
         };
         let table_version: i64 = message.read_key("table2Version")?;
@@ -124,6 +129,7 @@ pub fn decode_arome_fields(path: impl AsRef<Path>) -> Result<AromeFields> {
             FieldKind::WindU => &mut wind_u,
             FieldKind::WindV => &mut wind_v,
             FieldKind::GlobalRadiation => &mut global_radiation,
+            FieldKind::TotalCloudCover => &mut total_cloud_cover,
         };
         if slot.replace(field).is_some() {
             bail!("duplicate selected AROME field in {}", path.display());
@@ -138,6 +144,7 @@ pub fn decode_arome_fields(path: impl AsRef<Path>) -> Result<AromeFields> {
         wind_u_ms: wind_u.ok_or_else(|| missing("10 m U-wind"))?,
         wind_v_ms: wind_v.ok_or_else(|| missing("10 m V-wind"))?,
         global_radiation_j_m2: global_radiation.ok_or_else(|| missing("global-radiation"))?,
+        total_cloud_cover: total_cloud_cover.ok_or_else(|| missing("total cloud cover"))?,
     })
 }
 
