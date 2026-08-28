@@ -18,6 +18,9 @@ function validateHeader(header: MrfHeader): void {
   const zeroBased = field === 'rain_rate' || field === 'radiation'
   if (header.quant.length !== 256 || header.quant[255] !== null || (zeroBased && header.quant[0] !== 0)) throw new Error('Ongeldige kwantisatietabel')
   if (header.dict !== null || header.grid.width < 1 || header.grid.height < 1) throw new Error('Ongeldige mrf-header')
+  if (header.motion_grid && (!Number.isInteger(header.motion_grid.bw) || !Number.isInteger(header.motion_grid.bh) || header.motion_grid.bw < 1 || header.motion_grid.bh < 1)) throw new Error('Ongeldig motion-grid')
+  if (!header.motion_grid && header.frames.some((frame) => frame.motion)) throw new Error('Motion-annex zonder motion-grid')
+  if (header.frames.some((frame) => frame.motion && (!Number.isInteger(frame.motion.offset) || !Number.isInteger(frame.motion.len) || frame.motion.offset < 0 || frame.motion.len < 1))) throw new Error('Ongeldige motion-verwijzing')
 }
 
 export function decodeFrame(bytes: Uint8Array, expectedLength: number): Uint8Array {
@@ -43,10 +46,18 @@ export class LruCache<K, V> {
 
 interface WorkerReply { id: number; frame?: ArrayBuffer; error?: string }
 
+export interface MotionField {
+  width: number
+  height: number
+  vectors: Uint8Array
+}
+
 export class MrfClient {
   private readonly headers = new Map<string, Promise<MrfHeader>>()
   private readonly frames = new LruCache<string, Uint8Array>(256)
   private readonly framePromises = new Map<string, Promise<Uint8Array>>()
+  private readonly motions = new LruCache<string, MotionField>(256)
+  private readonly motionPromises = new Map<string, Promise<MotionField>>()
   private readonly pending = new Map<number, { resolve: (frame: Uint8Array) => void; reject: (error: Error) => void }>()
   private readonly worker = new Worker(new URL('./zstd.worker.ts', import.meta.url), { type: 'module' })
   private requestId = 0
@@ -102,6 +113,30 @@ export class MrfClient {
     }))
   }
 
+  async getMotion(chunk: ManifestChunk, frameIndex: number): Promise<MotionField | undefined> {
+    const url = new URL(chunk.url, this.manifestUrl).href
+    const header = await this.getHeader(chunk)
+    const motion = header.frames[frameIndex]?.motion
+    if (!motion || !header.motion_grid) return undefined
+    const key = frameKey(url, frameIndex)
+    const cached = this.motions.get(key)
+    if (cached) return cached
+    let pending = this.motionPromises.get(key)
+    if (!pending) {
+      pending = (async () => {
+        const compressed = await fetchRange(url, chunk.header_len + motion.offset, chunk.header_len + motion.offset + motion.len - 1)
+        const vectors = await this.decodeInWorker(compressed, header.motion_grid!.bw * header.motion_grid!.bh * 2)
+        const field = { width: header.motion_grid!.bw, height: header.motion_grid!.bh, vectors }
+        this.motions.set(key, field)
+        return field
+      })()
+      this.motionPromises.set(key, pending)
+      const clear = () => { if (this.motionPromises.get(key) === pending) this.motionPromises.delete(key) }
+      void pending.then(clear, clear)
+    }
+    return pending
+  }
+
   private async fetchIndexedFrame(url: string, chunk: ManifestChunk, header: MrfHeader, frameIndex: number, key: string): Promise<Uint8Array> {
     const frame = header.frames[frameIndex]!
     const start = chunk.header_len + frame.offset
@@ -139,11 +174,18 @@ export class MrfClient {
     for (const index of indexes) void this.getFrame(chunk, index).catch(() => undefined)
   }
 
+  prefetchMotion(chunk: ManifestChunk, indexes: number[]): void {
+    for (const index of indexes) void this.getMotion(chunk, index).catch(() => undefined)
+  }
+
   private decodeInWorker(compressed: Uint8Array, expectedLength: number): Promise<Uint8Array> {
     const id = ++this.requestId
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject })
-      this.worker.postMessage({ id, bytes: compressed.buffer, expectedLength }, [compressed.buffer])
+      const bytes = compressed.byteOffset === 0 && compressed.byteLength === compressed.buffer.byteLength
+        ? compressed.buffer
+        : compressed.slice().buffer
+      this.worker.postMessage({ id, bytes, expectedLength }, [bytes])
     })
   }
 }

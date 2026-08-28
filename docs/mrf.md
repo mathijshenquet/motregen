@@ -41,3 +41,14 @@ The example abbreviates `quant`; real input must contain the valid 256-entry tab
 ## Motion annexes
 
 `encode_with_motion` appends independently compressed motion members after all independently compressed image members. Their offsets remain relative to the payload start. The full decoder and `HeaderIndex::decode_motion` both validate the `motion_grid` byte count and reject half-no-data pairs; legacy chunks omit both `motion_grid` and per-frame `motion` and retain their original bytes.
+
+## Client motion texture encoding
+
+The worker keeps a motion annex byte-exact after zstd decode. Before GPU
+upload, the client converts each wire i8 component to RG8 as `signed value +
+128`; the shader reverses that offset and multiplies by 0.1 to recover grid
+cells per minute. A separate linearly sampled R8 mask is 255 only when both
+components are valid, because the wire value −128 is no-data and must not
+participate in bilinear interpolation. Rain textures likewise carry intensity
+and validity in RG8, so clamped warp samples cannot draw field-edge or no-data
+pixels inward.

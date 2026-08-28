@@ -80,7 +80,29 @@ describe('mrf v0', () => {
     const indexed = header.frames[3]!
     const actual = decodeFrame(file.subarray(headerLength + indexed.offset, headerLength + indexed.offset + indexed.len), header.grid.width * header.grid.height)
     expect(actual.length).toBe(header.grid.width * header.grid.height)
-    expect(createHash('sha256').update(actual).digest('hex')).toBe('c2fb5773d09e81d8487c3cabfe4bdb04a0fdd66827089cd1886614bd10807b1b')
+    expect(createHash('sha256').update(actual).digest('hex')).toBe('ad6cb94652796a3940c6afd4cdea43242063be859be128f4b165ed71c958f26b')
+  })
+
+  it('decodes a synthgen motion annex byte-exact through the existing worker path', async () => {
+    class DecodeWorker {
+      onmessage?: (event: MessageEvent) => void
+      postMessage(message: { id: number; bytes: ArrayBuffer; expectedLength: number }): void {
+        const frame = decodeFrame(new Uint8Array(message.bytes), message.expectedLength)
+        queueMicrotask(() => this.onmessage?.({ data: { id: message.id, frame: frame.slice().buffer } } as MessageEvent))
+      }
+    }
+    vi.stubGlobal('Worker', DecodeWorker)
+    vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(String(input))
+      const bytes = files.get(url.pathname.replace('/data/', ''))!
+      const match = /^bytes=(\d+)-(\d+)$/.exec(new Headers(init?.headers).get('Range')!)!
+      return new Response(Uint8Array.from(bytes.subarray(Number(match[1]), Number(match[2]) + 1)).buffer, { status: 206 })
+    })
+    const client = new MrfClient(new URL('https://example.test/data/manifest.json'))
+    const motion = await client.getMotion(manifest.chunks[0]!, 3)
+
+    expect(motion && [motion.width, motion.height, motion.vectors.length]).toEqual([19, 23, 874])
+    expect(createHash('sha256').update(motion!.vectors).digest('hex')).toBe('5c93ea09d6e84618dcb2310660343c13716d809bbf7532203bab3f1a29d6525f')
   })
 
   it('evicts the least recently used value', () => {
@@ -135,7 +157,7 @@ describe('mrf v0', () => {
       onmessage?: (event: MessageEvent) => void
       postMessage(message: { id: number; bytes: ArrayBuffer; expectedLength: number }): void {
         const frame = decodeFrame(new Uint8Array(message.bytes), message.expectedLength)
-        queueMicrotask(() => this.onmessage?.({ data: { id: message.id, frame: frame.buffer } } as MessageEvent))
+        queueMicrotask(() => this.onmessage?.({ data: { id: message.id, frame: frame.slice().buffer } } as MessageEvent))
       }
     }
     vi.stubGlobal('Worker', DecodeWorker)
@@ -164,10 +186,12 @@ describe('mrf v0', () => {
     expect(fetchMock).toHaveBeenCalledTimes(13)
     for (const [chunk] of chunks) {
       const chunkFile = files.get(chunk.url)!
+      const header = parseMrfHeader(chunkFile.subarray(0, chunk.header_len))
+      const finalFrame = header.frames.at(-1)!
       const ranges = fetchMock.mock.calls
         .filter(([input]) => String(input).endsWith(chunk.url))
         .map(([, init]) => new Headers(init?.headers).get('Range'))
-      expect(ranges).toContain(`bytes=${chunk.header_len}-${chunkFile.length - 1}`)
+      expect(ranges).toContain(`bytes=${chunk.header_len}-${chunk.header_len + finalFrame.offset + finalFrame.len - 1}`)
     }
 
     fetchMock.mockClear()

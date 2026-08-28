@@ -8,7 +8,7 @@
       "source": "rtcor",
       "field": "rain_rate",
       "run": "2026-08-28T12:00:00Z",
-      "header_len": 2740,
+      "header_len": 3157,
       "times": [
         "2026-08-28T12:00:00Z",
         "2026-08-28T12:05:00Z",
@@ -29,7 +29,7 @@
       "source": "rtcor",
       "field": "rain_rate",
       "run": "2026-08-28T13:00:00Z",
-      "header_len": 2740,
+      "header_len": 3157,
       "times": [
         "2026-08-28T13:00:00Z",
         "2026-08-28T13:05:00Z",
@@ -50,7 +50,7 @@
       "source": "rtcor",
       "field": "rain_rate",
       "run": "2026-08-28T14:00:00Z",
-      "header_len": 2740,
+      "header_len": 3157,
       "times": [
         "2026-08-28T14:00:00Z",
         "2026-08-28T14:05:00Z",
@@ -71,7 +71,7 @@
       "source": "nowcast",
       "field": "rain_rate",
       "run": "2026-08-28T15:00:00Z",
-      "header_len": 3500,
+      "header_len": 4396,
       "times": [
         "2026-08-28T15:00:00Z",
         "2026-08-28T15:05:00Z",
@@ -105,7 +105,7 @@
       "source": "harmonie",
       "field": "rain_rate",
       "run": "2026-08-28T12:00:00Z",
-      "header_len": 3435,
+      "header_len": 4272,
       "times": [
         "2026-08-28T16:00:00Z",
         "2026-08-28T17:00:00Z",
