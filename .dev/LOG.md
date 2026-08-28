@@ -1,5 +1,30 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-08-28 — T2a merged (luna!); HAR-bug diagnosed → T3b steer; dev topology
+
+- T2a delivered (14m41s) — but the pane footer read `gpt-5.6-luna low`, NOT
+  terra: the herdr queued-prompt model-switch artifact struck again (likely my
+  contract soft-steer). Verified extra hard: full gates re-run green
+  (7 property tests), quant formula matches spec exactly, AND a
+  cross-implementation check: Rust CLI decodes sol's TS synthgen chunk, frame 0
+  = exactly width×height bytes. zstd level 19 chosen on measurement. Merged
+  with Cargo workspace union (glob members, resolver 3); positive luna-low
+  datapoint for tight-spec Rust work. LESSON (mine): first merge-gate receipt
+  was false-green via `cargo test | grep` without pipefail — always
+  `set -o pipefail` or echo the exit INSIDE the inner shell.
+- knmi-grib conformance test hard-fails without data/ fixture (1.2 GB in T1
+  worktree; copied to main checkout). Follow-up for T2: fixture strategy
+  (self-skip with loud message, or small committed fixture).
+- PO HAR analysis (tmp/click_har.log, gitignored): one location click
+  re-fetches the whole timeline per frame (83×206 per click). Cause: LRU 32 <
+  85 timeline frames + meter samples all frames per click → thrash. T3b
+  steered: cache holds full timeline, zero-network second click + test, chunk
+  coalescing (>50% of frames → one request), build.sourcemap true.
+- Dev topology per PO wish (poke testing): 4173 now runs `pnpm dev` (HMR,
+  sourcemaps) from the main checkout, /data served by vite with Range 206
+  verified. Real split (data as separate origin + proxy) lands with T2 per
+  MIP-3; recorded as T2 spec requirement.
+
 ## 2026-08-28 — MIP-4 draft; T1 profiling follow-up merged
 
 - PO refined the sun idea: it's "moet ik me insmeren" (zonkracht/UV, low
