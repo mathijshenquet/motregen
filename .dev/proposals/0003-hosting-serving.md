@@ -1,6 +1,6 @@
 # MIP-3: hosting & serving — ultra goedkoop
 
-Status: draft
+Status: accepted (PO, 2026-08-28, met wijziging: CDN uitgesteld)
 Auteur: orchestrator (fable), 2026-08-28
 
 ## 1. Het probleem
@@ -78,6 +78,19 @@ verwaarloosbaar (het is DNS + een cache, origin blijft van ons).
 3. **Frontend-assets van dezelfde origin** (aanbevolen, één deploy) of via
    Cloudflare Pages?
 
+## 5. Besluit (PO, 2026-08-28)
+
+- **Start bare**: één goedkope box, Hetzner of OVH (definitieve keuze bij
+  T4/T5 — niets hiervan is nu nodig). Dev blijft ageq-mthq.
+- **Cloudflare uitgesteld**: pas ervoor zetten als er echt verkeer is. Het
+  HTTP-cachecontract uit §2 wordt wél meteen zo geïmplementeerd — juist dat
+  maakt de CDN later een drop-in (DNS omzetten, klaar) in plaats van een
+  verbouwing.
+- Frontend-assets van dezelfde origin (aanbeveling gevolgd; herzien kan
+  altijd nog).
+
 ## Changelog
 
 - 2026-08-28: draft.
+- 2026-08-28: accepted — bare Hetzner/OVH eerst, Cloudflare pas bij echt
+  verkeer; besluit §5 toegevoegd.
