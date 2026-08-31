@@ -133,6 +133,20 @@ datarequests, nul pending balken en geen enkele mutatie weg van `complete`.
 | 2 / Mobiel 4G | 1.619,2 ms | 564.835 B | 1.094,0 ms | 4 / 85 | 5.430 B | 1.256.843 B |
 | 2 / Mobiel Fast 3G | 3.623,9 ms | 631.607 B | 1.591,0 ms | 6 / 85 | 8.454 B | 1.286.698 B |
 
+T3l voegt aan dezelfde journey een manifestwissel toe: na een gesimuleerde
+zichtbaarheidsterugkeer schuift `now` vijf minuten, terwijl cursortijd,
+`complete`-status en alle bestaande balken behouden blijven. In twee direct
+opeenvolgende runs vroeg die wissel in alle profielen nul chunktransfers.
+
+| Run / profiel | Cold TTFR | Passieve chunks | L2 compleet / transfers | Manifest→scherm | Warm chunks | Sessie |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 / Desktop | 504,6 ms | 547.578 B | 192,0 ms / 4 | 41,7 ms | 0 B | 1.257.022 B |
+| 1 / Mobiel 4G | 1.651,7 ms | 559.656 B | 909,4 ms / 4 | 151,4 ms | 5.430 B | 1.266.508 B |
+| 1 / Mobiel Fast 3G | 3.765,8 ms | 661.976 B | 1.624,9 ms / 3 | 145,2 ms | 5.879 B | 1.314.418 B |
+| 2 / Desktop | 442,2 ms | 547.578 B | 179,0 ms / 4 | 49,5 ms | 0 B | 1.257.022 B |
+| 2 / Mobiel 4G | 1.769,9 ms | 559.656 B | 1.051,9 ms / 4 | 143,4 ms | 5.430 B | 1.266.508 B |
+| 2 / Mobiel Fast 3G | 3.714,8 ms | 631.545 B | 1.994,1 ms / 7 | 118,3 ms | 5.879 B | 1.313.459 B |
+
 Het synthetische passiefbudget is na desktop, 4G en Fast 3G gekalibreerd op
 **800.000 chunkbytes**. De hoogste waarneming tijdens ontwikkeling was 698.659
 B onder Fast 3G; de twee definitieve gateruns bleven op maximaal 631.607 B. Deze grens is ruim
