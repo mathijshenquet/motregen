@@ -46,8 +46,10 @@ describe('location search', () => {
     expect(onSave).toHaveBeenCalledWith('Werk')
   })
 
-  it('removes the saved version of the current place from the filled star', () => {
+  it('hides the input star for the current favorite and offers removal in the saved list', () => {
     const { onRemove } = renderSearch([home])
+    expect(screen.queryByRole('button', { name: 'Deze plaats opslaan' })).toBeNull()
+    fireEvent.focus(screen.getByRole('textbox', { name: 'Zoek plaats' }))
     fireEvent.click(screen.getByRole('button', { name: 'Thuis verwijderen uit opgeslagen plaatsen' }))
     expect(onRemove).toHaveBeenCalledWith('home')
   })

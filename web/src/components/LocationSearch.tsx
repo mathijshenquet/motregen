@@ -111,12 +111,7 @@ export default function LocationSearch(props: Props) {
     }
   }
 
-  function toggleSaved(): void {
-    const saved = savedCurrent()
-    if (saved) {
-      props.onRemove(saved.id)
-      return
-    }
+  function startSaving(): void {
     setCustomName(props.locationLabel)
     setEditingName(true)
     setOpen(true)
@@ -133,6 +128,7 @@ export default function LocationSearch(props: Props) {
 
   return <div
     class="search"
+    classList={{ 'saved-current': Boolean(savedCurrent()) }}
     onFocusIn={() => { window.clearTimeout(timer); setFocused(true) }}
     onFocusOut={(event) => {
       if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return
@@ -155,15 +151,14 @@ export default function LocationSearch(props: Props) {
       aria-expanded={open()}
       aria-activedescendant={active() >= 0 ? `location-${active()}` : undefined}
     />
-    <button
+    <Show when={!savedCurrent()}><button
       class="save-place"
-      classList={{ saved: Boolean(savedCurrent()) }}
       type="button"
-      onClick={toggleSaved}
+      onClick={startSaving}
       disabled={!selectedLabel()}
-      aria-label={savedCurrent() ? `${savedCurrent()!.name} verwijderen uit opgeslagen plaatsen` : 'Deze plaats opslaan'}
-      title={savedCurrent() ? 'Opgeslagen plaats verwijderen' : 'Plaats opslaan'}
-    >{savedCurrent() ? '★' : '☆'}</button>
+      aria-label="Deze plaats opslaan"
+      title="Plaats opslaan"
+    >☆</button></Show>
     <Show when={open()}>
       <div class="search-results" id="location-results" role="listbox">
         <button class="quick-location" role="option" aria-selected="false" onClick={() => { setOpen(false); props.onLocate() }}>
@@ -172,9 +167,12 @@ export default function LocationSearch(props: Props) {
         <Show when={visibleSaved().length}>
           <p class="search-section-label">Opgeslagen</p>
           <For each={visibleSaved()}>{(place) =>
-            <button class="saved-location" role="option" aria-selected={samePlace(place, props.location)} onClick={() => commitSelection(place, place.name)}>
-              <span><b aria-hidden="true">★</b> {place.name}</span><small>{place.sourceLabel === place.name ? 'opgeslagen' : place.sourceLabel}</small>
-            </button>
+            <div class="saved-location-row">
+              <button class="saved-location" role="option" aria-selected={samePlace(place, props.location)} onClick={() => commitSelection(place, place.name)}>
+                <span><b aria-hidden="true">★</b> {place.name}</span><small>{place.sourceLabel === place.name ? 'opgeslagen' : place.sourceLabel}</small>
+              </button>
+              <button class="remove-saved" type="button" onClick={() => props.onRemove(place.id)} aria-label={`${place.name} verwijderen uit opgeslagen plaatsen`} title="Verwijderen">×</button>
+            </div>
           }</For>
         </Show>
         <Show when={editingName()}>
@@ -192,7 +190,7 @@ export default function LocationSearch(props: Props) {
             classList={{ active: index() === active() }}
             onClick={() => void choose(suggestion)}
           >
-            <span>{suggestion.label}</span><small>{suggestion.type}</small>
+            <span>{suggestion.label}</span><small>{suggestion.detail ?? suggestion.type}</small>
           </button>
         }</For>
         <Show when={message()}><p class="search-message" aria-live="polite">{message()}</p></Show>

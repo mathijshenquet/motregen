@@ -551,13 +551,13 @@ export default function App() {
     if (!navigator.geolocation) { setStatus('Locatie is niet beschikbaar in deze browser'); return }
     setStatus('Locatie bepalen…')
     navigator.geolocation.getCurrentPosition(({ coords }) => {
-      map?.flyTo({ center: [coords.longitude, coords.latitude], zoom: 9 })
+      map?.easeTo({ center: [coords.longitude, coords.latitude], duration: 450 })
       pick(coords.longitude, coords.latitude, 'Mijn locatie')
     }, () => setStatus('Locatietoegang geweigerd — tik op de kaart'), { timeout: 10_000 })
   }
 
   function chooseSearch(point: { lng: number; lat: number }, label: string): void {
-    map?.flyTo({ center: [point.lng, point.lat], zoom: 9 })
+    map?.easeTo({ center: [point.lng, point.lat], duration: 450 })
     pick(point.lng, point.lat, label)
   }
 
