@@ -1,6 +1,6 @@
 # MIP-7: end-to-end- en performancetests — meetbaar voor eindgebruikers
 
-Status: draft
+Status: accepted (PO, 2026-08-31)
 Auteur: orchestrator (fable), 2026-08-31
 
 ## 1. Het probleem
@@ -66,6 +66,16 @@ de echte site (informatief, geen gate). Hoort bij T4's runbook.
 4. **CI**: de repo is public — GitHub Actions kan de lab-suite + workspace-
    gates gratis draaien bij elke push. Meenemen in deze track of apart?
 
+## 5. Besluit (PO, 2026-08-31)
+
+Aangenomen. Expliciete PO-call op §4.4: **géén CI-per-push** — de suite is
+een on-demand target ("af en toe dit target draaien"): `pnpm e2e` lokaal,
+plus opname in de gates van frontend-tracks bij verificatie door de
+orchestrator. Overige open vragen per aanbeveling: budgetten als
+startwaarden met kalibratie in de track; HUD via `?perf=1` + triple-tap;
+RUM-beaconing is een aparte latere beslissing.
+
 ## Changelog
 
 - 2026-08-31: draft.
+- 2026-08-31: accepted; besluit §5 (on-demand i.p.v. CI-per-push).
