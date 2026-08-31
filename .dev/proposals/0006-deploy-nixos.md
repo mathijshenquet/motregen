@@ -73,3 +73,8 @@ Alles in-repo als flake, zodat de hele machine één closure is:
 - 2026-08-31: draft; track T4 direct gestart op PO-go.
 - 2026-08-31: accepted; besluit §5 (main-deploy, geen alerting, stable
   26.05).
+- 2026-08-31: PO-verduidelijking op de versie-call: stable geldt specifiek
+  voor het OS/de deploy-flake; development mag prima unstable/rolling
+  blijven. Zo staat het ook: devenv gebruikt devenv-nixpkgs/rolling (dev,
+  ageq-mthq), de deploy-flake nixos-26.05 + gelockte rust-overlay (VPS).
+  Deze scheiding is bewust — niet gelijktrekken.
