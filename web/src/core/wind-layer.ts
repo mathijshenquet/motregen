@@ -19,7 +19,7 @@ export interface WindTuning {
 
 export const DEFAULT_WIND_TUNING: WindTuning = {
   visibility: 1,
-  thickness: 1,
+  thickness: 2.5,
   particlesPerMegapixel: WIND_PARTICLES_PER_MEGAPIXEL,
   particleOpacity: WIND_PARTICLE_OPACITY,
   trailFade: WIND_TRAIL_FADE,
@@ -36,7 +36,7 @@ const LIGHT_RAMP = [
   [3, 48, 102], [0, 76, 108], [9, 91, 44], [119, 73, 0], [162, 39, 8], [108, 15, 73],
 ] as const
 const DARK_RAMP = [
-  [112, 194, 255], [68, 224, 231], [108, 225, 146], [255, 218, 92], [255, 147, 79], [244, 113, 201],
+  [255, 255, 255], [255, 255, 255], [255, 255, 255], [255, 255, 255], [255, 255, 255], [255, 255, 255],
 ] as const
 const lineOffsetCache = new Map<number, ReadonlyArray<readonly [number, number]>>()
 
@@ -154,7 +154,7 @@ export class WindLayer implements CustomLayerInterface {
   private tuning: WindTuning
   private readonly viewportChanged = () => this.resetViewport()
 
-  constructor(private readonly grid: Grid, private readonly theme: MapTheme, tuning: WindTuning = DEFAULT_WIND_TUNING) {
+  constructor(private readonly grid: Grid, private theme: MapTheme, tuning: WindTuning = DEFAULT_WIND_TUNING) {
     this.tuning = { ...tuning }
     for (let index = 0; index < MAX_PARTICLES; index++) this.respawn(index)
   }
@@ -206,6 +206,13 @@ export class WindLayer implements CustomLayerInterface {
     this.left = left
     this.right = right
     this.mix = mix
+  }
+
+  setTheme(theme: MapTheme): void {
+    if (theme === this.theme) return
+    this.theme = theme
+    if (this.gl && this.trails) clearTrails(this.gl, this.trails, this.trailWidth, this.trailHeight)
+    this.map?.triggerRepaint()
   }
 
   setTuning(tuning: WindTuning): void {
@@ -418,15 +425,17 @@ export function windZoomCompensation(zoom: number): number {
 }
 
 export function windLineOffsets(thickness: number): ReadonlyArray<readonly [number, number]> {
-  const size = Math.max(1, Math.min(5, Math.round(thickness)))
-  const cached = lineOffsetCache.get(size)
+  const value = Math.max(1, Math.min(5, thickness))
+  const cached = lineOffsetCache.get(value)
   if (cached) return cached
-  const start = -(size - 1) / 2
+  const size = Math.ceil(value)
+  const start = -(value - 1) / 2
+  const step = size === 1 ? 0 : (value - 1) / (size - 1)
   const offsets = Array.from({ length: size * size }, (_, index) => [
-    start + index % size,
-    start + Math.floor(index / size),
+    start + index % size * step,
+    start + Math.floor(index / size) * step,
   ] as const)
-  lineOffsetCache.set(size, offsets)
+  lineOffsetCache.set(value, offsets)
   return offsets
 }
 

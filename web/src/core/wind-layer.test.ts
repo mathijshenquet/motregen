@@ -18,11 +18,11 @@ describe('wind trail presentation', () => {
     expect(WIND_PARTICLES_PER_MEGAPIXEL).toBeLessThan(1_000)
   })
 
-  it('uses brighter Beaufort colors on the dark basemap and stronger colors on light', () => {
+  it('uses white particles on dark and the Beaufort contrast ramp on light', () => {
     const light = windColor(8, 'light')
     const dark = windColor(8, 'dark')
     expect(light).not.toEqual(dark)
-    expect(dark[0] + dark[1] + dark[2]).toBeGreaterThan(light[0] + light[1] + light[2])
+    expect(dark).toEqual([1, 1, 1])
     expect(Math.max(...light)).toBeLessThan(0.65)
     expect(windColor(25, 'light')).not.toEqual(light)
   })
@@ -44,6 +44,11 @@ describe('wind trail presentation', () => {
   it('expands trail thickness in screen pixels', () => {
     expect(windLineOffsets(1)).toEqual([[0, 0]])
     expect(windLineOffsets(2)).toHaveLength(4)
+    expect(windLineOffsets(2.5)).toEqual([
+      [-0.75, -0.75], [0, -0.75], [0.75, -0.75],
+      [-0.75, 0], [0, 0], [0.75, 0],
+      [-0.75, 0.75], [0, 0.75], [0.75, 0.75],
+    ])
     expect(windLineOffsets(5)).toHaveLength(25)
   })
 })
