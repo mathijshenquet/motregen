@@ -1,5 +1,25 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-08-31 — 3 dagen unattended; PO-iteratiesessie; OVH-deployplan
+
+- Seamless ging op 28-08 avond live: volledige regenketen rtcor(5m) →
+  nowcast(+2u,5m) → seamless(+6u,5m) → harmonie(uurlijks). Daarmee was de
+  hele PO-wensenlijst van dag 1 gemerged (11 tracks, MIP-1…5 accepted).
+- Stabiliteitsdatapoint: daemon draaide 2d12u onbeheerd door op ageq-mthq;
+  manifest vandaag vers (08:54Z), piek-RSS 324 MB (VmHWM — seamless-mediaan
+  streamt per lead), caddy 32 MB, chunks-werkset 300 MB. Sterk bewijs voor
+  de 4 GB-VPS-sizing.
+- PO-iteratiesessie geopend: track/t3g-po-iteratie (sol, eigen dev-server op
+  :4175) — PO stuurt deze pane ZELF interactief; orchestrator monitort niet
+  mee en merget na afloop met de gebruikelijke verificatie. 4173 blijft de
+  stabiele main-preview.
+- Deployplan PO: OVH VPS (2 vCPU/4 GB/40 GB NVMe/500 Mbps onbeperkt,
+  ~€45/jr), NixOS, alles unattended, Cloudflare ervoor (vervroegt het
+  CDN-moment uit MIP-3 §5 — prima, het cachecontract lag er al). Locaties:
+  Limburg(DE)/Gravelines(FR); advies Limburg (dichtst bij NL). RAM-verdict:
+  ruim voldoende (zie datapoint). T4-spec + MIP-6 (unattended
+  NixOS-inrichting, secrets, auto-updates) zodra de box er is.
+
 ## 2026-08-28 (avond) — T3e/T2d/T3f verified+merged; flow-tween LIVE; T2e in flight
 
 - T3e (sol, 26m, 52 tests): kaartframe+maxBounds, dichtstbijzijnde stad,
