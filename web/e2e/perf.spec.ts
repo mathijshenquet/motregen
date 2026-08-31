@@ -78,6 +78,8 @@ test('user journey measures performance and cache behaviour', async ({ page, con
   await test.step('warm reload measures cache reuse', async () => {
     await page.goto('/?perf=1')
     warm = await waitForTtfr(page)
+    const warmChunkResources = await transferredResources(page, '/data/chunks/')
+    if (warmChunkResources.length) console.log(`${profile.label}: warm chunk resources ${JSON.stringify(warmChunkResources)}`)
     if (!live) {
       expect(warm.ttfrMs).toBeLessThan(profile.warmTtfrBudgetMs)
       expect(warm.network.manifest.requests).toBe(1)
@@ -215,4 +217,13 @@ function perfSnapshot(page: Page): Promise<PerfSnapshot> {
 function transferredDataRequests(page: Page, path: string): Promise<number> {
   return page.evaluate((needle) => performance.getEntriesByType('resource')
     .filter((entry) => entry.name.includes(needle) && (entry as PerformanceResourceTiming).transferSize > 0).length, path)
+}
+
+function transferredResources(page: Page, path: string): Promise<Array<{ name: string; transferSize: number; encodedBodySize: number }>> {
+  return page.evaluate((needle) => performance.getEntriesByType('resource')
+    .filter((entry) => entry.name.includes(needle) && (entry as PerformanceResourceTiming).transferSize > 0)
+    .map((entry) => {
+      const resource = entry as PerformanceResourceTiming
+      return { name: resource.name, transferSize: resource.transferSize, encodedBodySize: resource.encodedBodySize }
+    }), path)
 }

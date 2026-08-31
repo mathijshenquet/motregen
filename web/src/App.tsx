@@ -347,9 +347,13 @@ export default function App() {
     }
     map.once('render', () => perf.markRainFrameCommitted())
     map.triggerRepaint()
-    for (const near of nearbyFrames) {
-      client.prefetch(near.chunk, [near.frameIndex])
-      client.prefetchMotion(near.chunk, [near.frameIndex])
+    // De eerste locatiereeks haalt dezelfde chunks direct in bulk op. Losse,
+    // overlappende Range-prefetches maken Chromiums sparse HTTP-cache instabiel.
+    if (initialPickStarted) {
+      for (const near of nearbyFrames) {
+        client.prefetch(near.chunk, [near.frameIndex])
+        client.prefetchMotion(near.chunk, [near.frameIndex])
+      }
     }
   }
 
