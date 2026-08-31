@@ -1,5 +1,36 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-08-31 — 🌧 MOTREGEN.NL IS LIVE (T4/T2f/T5 merged; Cloudflare-cutover)
+
+- T5 (sol, 58m): perf-module + HUD (?perf=1/triple-tap), Playwright-suite
+  `pnpm e2e` (on-demand per MIP-7 §5), smoke-script, baselines in
+  docs/perf.md. Verified (58 tests + e2e green) en merged. BEVINDING: echte
+  sessie = 20,1 MB (synth 1,31 MB); uitsplitsing gemeten: regen 12,2 MB over
+  4 bronnen, uurvelden 11,3 MB waarvan cloud_frac 2,5 + rel_humidity 2,4 —
+  data-dieet (subsampling tabelvelden, dictionary, lazy fields) geparkeerd
+  als kandidaat-MIP; Cloudflare-technisch geen probleem (cacheable, gedeeld).
+- T2f (sol, ~60m): 300m-windbaseline met online s/θ-kalibratie; gates green,
+  quiver-bewijs in track-LOG; merged; lokale daemon herstart.
+- T4 (sol, 24m + PO-gedreven installatie): volledige NixOS-config VM-bewezen
+  (nix flake check onafhankelijk gere-rund, exit 0) én — met expliciete
+  PO-autorisatie in de pane — nixos-anywhere-installatie op de OVH-VPS
+  (57.129.47.17 / 2001:41d0:701:1100::d923, legacy-kexec-vlag nodig op
+  Ubuntu 26.04). Secrets via .env-overdracht geplaatst. Merged naar main —
+  auto-upgrade (dagelijks 03:19) maakt main = productie.
+- Livegang uitgevoerd (orchestrator, via API's): Porkbun parkeer-ALIAS+
+  wildcard weg (NB: A-create naast bestaand ALIAS rapporteert SUCCESS maar
+  wordt opgeslokt — eerst ALIAS deleten), A/AAAA → VPS; Caddy pakte LE-cert;
+  volledige regenketen live geverifieerd (5 bronnen, Range 206). Cloudflare:
+  zone eceaddc…, proxied A/AAAA, SSL Full (strict), cache-rule /data/*,
+  NS-cutover bij Porkbun → bayan/venus.ns.cloudflare.com; activatie-watcher
+  loopt. Backfill-piek op VPS: load ~1,0, 591 MB RAM — ruim binnen 4 GB.
+- Metingen: temp-vs-gevoel vandaag exact 0,00 °C verschil over 401.875
+  cellen (alle temps 11,4–19,5 °C = dode zone) — switcher werkt, seizoen
+  slaapt; UX-verfijning (dempen bij gelijkheid) op de polish-lijst.
+- Open: PO's t3g-sessie (zijn merge-call), 20 MB-data-dieet-MIP (geparkeerd),
+  smoke-script als systemd-timer op de VPS (na CF-activatie), open-source-
+  pass (backlog), day/night v2 (geparkeerd).
+
 ## 2026-08-31 — 3 dagen unattended; PO-iteratiesessie; OVH-deployplan
 
 - Seamless ging op 28-08 avond live: volledige regenketen rtcor(5m) →

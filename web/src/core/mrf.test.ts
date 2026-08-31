@@ -187,11 +187,11 @@ describe('mrf v0', () => {
     for (const [chunk] of chunks) {
       const chunkFile = files.get(chunk.url)!
       const header = parseMrfHeader(chunkFile.subarray(0, chunk.header_len))
-      const finalFrame = header.frames.at(-1)!
+      const finalOffset = Math.max(...header.frames.flatMap((frame) => [frame.offset + frame.len, frame.motion ? frame.motion.offset + frame.motion.len : 0]))
       const ranges = fetchMock.mock.calls
         .filter(([input]) => String(input).endsWith(chunk.url))
         .map(([, init]) => new Headers(init?.headers).get('Range'))
-      expect(ranges).toContain(`bytes=${chunk.header_len}-${chunk.header_len + finalFrame.offset + finalFrame.len - 1}`)
+      expect(ranges).toContain(`bytes=${chunk.header_len}-${chunk.header_len + finalOffset - 1}`)
     }
 
     fetchMock.mockClear()
