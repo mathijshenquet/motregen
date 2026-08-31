@@ -244,7 +244,9 @@ button { color: inherit; cursor: pointer; }
   border: 0;
   color: #e5aa08;
   background: transparent;
-  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, .95)) drop-shadow(0 2px 3px rgba(14, 35, 43, .5));
+  -webkit-text-stroke: 2px rgba(255, 255, 255, .96);
+  paint-order: stroke fill;
+  filter: drop-shadow(0 2px 4px rgba(14, 35, 43, .72));
   font-size: 29px;
   line-height: 1;
   z-index: 4;
