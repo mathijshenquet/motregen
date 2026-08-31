@@ -4,7 +4,7 @@ import HistogramScrubber from './components/HistogramScrubber'
 import LocationSearch from './components/LocationSearch'
 import PerfHud from './components/PerfHud'
 import WeatherIcon from './components/WeatherIcon'
-import { loadBasemapStyle, type MapTheme } from './core/basemap'
+import { firstBasemapTextLayerId, loadBasemapStyle, type MapTheme } from './core/basemap'
 import { CloudEdgeLayer } from './core/cloud-edge-layer'
 import type { Field, Grid, Manifest, ManifestChunk, TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
@@ -22,7 +22,7 @@ import { RainLayer } from './core/rain-layer'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
 import { solarElevationSin } from './core/solar'
-import { temperatureLabels, type TemperatureFeatureCollection } from './core/temperature'
+import { temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
 import { buildTimeline, frameBlend, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor } from './core/time-model'
 import { uvAdvice } from './core/uv'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
@@ -520,25 +520,8 @@ export default function App() {
     if (!map || map.getLayer('motregen-temperature')) return
     temperatureLabelKey = ''
     map.addSource('motregen-temperature', { type: 'geojson', data: emptyTemperatureData })
-    const dark = mapTheme() === 'dark'
-    map.addLayer({
-      id: 'motregen-temperature',
-      type: 'symbol',
-      source: 'motregen-temperature',
-      layout: {
-        'text-field': ['get', 'label'],
-        'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 8, 14],
-        'text-font': ['Noto Sans Regular'],
-        'text-allow-overlap': true,
-        'text-padding': 3,
-      },
-      paint: {
-        'text-color': dark ? '#f3fbfd' : '#102630',
-        'text-halo-color': dark ? '#102027' : '#ffffff',
-        'text-halo-width': 2,
-        'text-halo-blur': 0.6,
-      },
-    })
+    const beforeId = firstBasemapTextLayerId(map.getStyle().layers)
+    map.addLayer(temperatureLayer(mapTheme()), beforeId)
   }
 
   function attachSunLayer(): void {
