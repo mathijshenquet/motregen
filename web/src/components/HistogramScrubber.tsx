@@ -25,7 +25,6 @@ export default function HistogramScrubber(props: Props) {
   let pressedX: number | undefined
   let dragged = false
   let pointerInside = false
-  const [hovered, setHovered] = createSignal<number | null>(null)
   const [hoverScrubbing, setHoverScrubbing] = createSignal(true)
   const [resumePlayback, setResumePlayback] = createSignal(false)
   const timelineStart = createMemo(() => props.timeline[0]?.epoch ?? 0)
@@ -86,16 +85,10 @@ export default function HistogramScrubber(props: Props) {
     }
     return markers
   })
-  const hoverData = createMemo(() => {
-    const index = hovered()
-    return index == null ? undefined : { index, frame: props.timeline[index], value: props.values[index] }
-  })
-
-  function pointerPosition(event: PointerEvent): { cursor: number; index: number } {
+  function pointerPosition(event: PointerEvent): number {
     const bounds = plotElement.getBoundingClientRect()
     const fraction = bounds.width ? Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)) : 0
-    const cursor = timelineCursorAtEpoch(props.timeline, timelineStart() + fraction * timelineSpan())
-    return { cursor, index: Math.round(cursor) }
+    return timelineCursorAtEpoch(props.timeline, timelineStart() + fraction * timelineSpan())
   }
 
   function positionAtEpoch(epoch: number): number {
@@ -162,7 +155,6 @@ export default function HistogramScrubber(props: Props) {
       onMouseLeave={() => {
         pointerInside = false
         if (pressedX === undefined) {
-          setHovered(null)
           if (hoverScrubbing()) resumeAfterPointerInteraction()
         }
       }}
@@ -171,19 +163,15 @@ export default function HistogramScrubber(props: Props) {
         dragged = false
         pauseForPointerInteraction()
         event.currentTarget.setPointerCapture(event.pointerId)
-        const { index } = pointerPosition(event)
-        setHovered(index)
       }}
       onPointerMove={(event) => {
-        const { cursor, index } = pointerPosition(event)
-        setHovered(index)
+        const cursor = pointerPosition(event)
         const captured = event.currentTarget.hasPointerCapture(event.pointerId)
         if (captured && pressedX !== undefined && Math.abs(event.clientX - pressedX) > 3) dragged = true
         if ((hoverScrubbing() && event.pointerType === 'mouse' && !captured) || (captured && dragged)) props.onCursor(cursor)
       }}
       onPointerUp={(event) => {
-        const { cursor, index } = pointerPosition(event)
-        setHovered(index)
+        const cursor = pointerPosition(event)
         props.onCursor(cursor)
         const nextHoverScrubbing = dragged
           ? false
@@ -231,11 +219,6 @@ export default function HistogramScrubber(props: Props) {
             <span class="cursor-playback" aria-hidden="true">{(resumePlayback() || props.playing) ? 'Ⅱ' : '▶'}</span>
           </button>
         </div>
-        <Show when={hoverData()?.frame}>{(frame) => <div
-          class="chart-tooltip"
-          style={{ left: `${positionAtEpoch(frame().epoch)}%` }}
-          role="status"
-        ><strong>{formatRain(hoverData()!.value)}</strong><span>{new Date(frame().epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</span></div>}</Show>
         <div class="x-axis" aria-hidden="true"><For each={xTicks()}>{(tick) => <span style={{ left: `${tick.left}%` }}>{new Date(tick.epoch).getHours()}u</span>}</For></div>
       </div>
     </div>

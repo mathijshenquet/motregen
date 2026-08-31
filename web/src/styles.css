@@ -392,9 +392,6 @@ button { color: inherit; cursor: pointer; }
 .cursor-playback { display: none; font-size: 10px; }
 .cursor-marker:hover .cursor-time, .cursor-marker button:focus-visible .cursor-time { display: none; }
 .cursor-marker:hover .cursor-playback, .cursor-marker button:focus-visible .cursor-playback { display: inline; }
-.chart-tooltip { position: absolute; top: 8px; z-index: 2; min-width: 74px; display: flex; flex-direction: column; padding: 5px 7px; border: 1px solid var(--line-strong); border-radius: 6px; color: var(--text); background: var(--surface-raised); box-shadow: 0 4px 12px rgba(15, 38, 47, .2); font-size: 9px; pointer-events: none; transform: translateX(-50%); }
-.chart-tooltip strong { font-size: 10px; }
-.chart-tooltip span { margin-top: 1px; color: var(--muted); }
 .x-axis { position: absolute; right: 0; bottom: 0; left: 0; color: var(--muted); font-size: 7px; font-variant-numeric: tabular-nums; pointer-events: none; }
 .x-axis span { position: absolute; transform: translateX(-50%); }
 .regimes { position: relative; height: 27px; margin: 0 8px 0 45px; color: var(--muted); font-size: 9px; font-weight: 750; letter-spacing: .075em; text-transform: uppercase; }
