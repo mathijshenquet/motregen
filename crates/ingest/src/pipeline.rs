@@ -263,10 +263,11 @@ pub fn build_arome_chunks(
     validate_arome_fields(&first, &grid)?;
     let rain_map = IndexMap::arome(&grid)?;
     let hourly_map = IndexMap::arome_on(&grid, HOURLY_GRID)?;
+    let motion_wind_map = IndexMap::arome_clamped_on(&grid, SHARED_GRID)?;
     let run_time = DateTime::parse_from_rfc3339(&run)?;
     let mut wind_times = vec![run_time.with_timezone(&Utc)];
     let mut motion_wind_frames = vec![motion_wind_blocks(
-        &rain_map,
+        &motion_wind_map,
         &first.motion_wind_u_ms.values,
         &first.motion_wind_v_ms.values,
     )?];
@@ -299,7 +300,7 @@ pub fn build_arome_chunks(
         let valid_time = run_time + Duration::hours(lead as i64);
         wind_times.push(valid_time.with_timezone(&Utc));
         motion_wind_frames.push(motion_wind_blocks(
-            &rain_map,
+            &motion_wind_map,
             &current.motion_wind_u_ms.values,
             &current.motion_wind_v_ms.values,
         )?);

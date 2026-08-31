@@ -236,7 +236,14 @@ def main() -> None:
     fresh = finite & (current > 0.01) & (previous <= 0.01)
     fresh_blocks = block_any(fresh, bw, bh)
     before_plot: tuple[np.ndarray, np.ndarray] | None = None
-    before_metrics = ""
+    after_fill = float(rust_valid.mean() * 100.0)
+    after_fresh_fill = (
+        float(rust_valid[fresh_blocks].mean() * 100.0) if fresh_blocks.any() else math.nan
+    )
+    fill_metrics = (
+        f" fill_after={after_fill:.1f}% fresh_blocks={int(fresh_blocks.sum())} "
+        f"fresh_fill_after={after_fresh_fill:.1f}%"
+    )
     if args.before_chunk is not None:
         before_idx = args.before_frame_idx or args.frame_idx
         before_header, before, before_raw, before_previous, before_current = read_motion(
@@ -270,20 +277,16 @@ def main() -> None:
         before_fresh_fill = (
             float(before_valid[fresh_blocks].mean() * 100.0) if fresh_blocks.any() else math.nan
         )
-        after_fill = float(rust_valid.mean() * 100.0)
-        after_fresh_fill = (
-            float(rust_valid[fresh_blocks].mean() * 100.0) if fresh_blocks.any() else math.nan
-        )
-        before_metrics = (
+        fill_metrics = (
             f" before_median={before_median:.3f} after_common_median={after_common_median:.3f} "
-            f"fill_before={before_fill:.1f}% "
-            f"fill_after={after_fill:.1f}% fresh_blocks={int(fresh_blocks.sum())} "
+            f"fill_before={before_fill:.1f}% fill_after={after_fill:.1f}% "
+            f"fresh_blocks={int(fresh_blocks.sum())} "
             f"fresh_fill_before={before_fresh_fill:.1f}% fresh_fill_after={after_fresh_fill:.1f}%"
         )
     plot_quivers(rust, reference, valid, args.output, before_plot)
     print(
         f"motion_reference: blocks={compared} median_error={median_error:.3f} cell/min "
-        f"p90={np.percentile(errors, 90):.3f}{before_metrics} artifact={args.output}"
+        f"p90={np.percentile(errors, 90):.3f}{fill_metrics} artifact={args.output}"
     )
 
 

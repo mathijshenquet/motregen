@@ -76,7 +76,10 @@ het 32×32-cellenblokgrid gemiddeld. De omzetting van m/s naar cellen/minuut
 neemt de lokale schaal van EPSG:3857 mee; noordwaartse V krijgt een negatief
 raster-y-teken. Tussen modeluren wordt lineair geïnterpoleerd. Voor een
 regenframe buiten het beschikbare runvenster wordt het dichtstbijzijnde
-eindframe gebruikt.
+eindframe gebruikt. De gedeelde kaart steekt aan noord- en zuidrand enkele
+rijen buiten het p1-raster; alleen voor deze interne prior wordt daar de
+dichtstbijzijnde randwind doorgetrokken. De gepubliceerde velden behouden
+hun bestaande no-data-masker.
 
 De online kalibratie start zonder geschiedenis op schaal 1 en rotatie 0°.
 De per bronrun gelogde fits leren vervolgens het verschil tussen 300m-wind
