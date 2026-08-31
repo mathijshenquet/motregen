@@ -27,3 +27,13 @@
 - Live publicatiereceipt in dezelfde run: manifest om 20:43:00Z direct na RTCOR (9 chunks), 20:43:05Z na nowcast (10), 20:43:09Z na UV (11), 20:43:38Z na seamless (12). Exacte output: `data/t2h-profile-after-optimized.log` (gitignored).
 - Gerichte synchrone receipts exit 0: slow-seamless-test (kunstmatig 1 s, verse RTCOR-publicatie terwijl worker nog liep), partial-startup-test, h5py seamless-cross-check, byte-identieke parallelle mrf-encoding, quantisatieregels en strict clippy voor de gewijzigde crates.
 - Volgende stap: documentatie/commit/draft-PR, volledige workspace-gates en live spotcheck van de geproduceerde seamless-chunk.
+
+## 2026-08-31T20:53:00Z — Finale receipts en oplevering
+
+- Implementatiecommit `a5ab0a1` gepubliceerd; draft-PR #25: https://github.com/mathijshenquet/motregen/pull/25. Remote branch en PR-head stonden beide exact op die commit vóór deze afsluitende logcommit.
+- Volledige Rust-gate synchroon exit 0: `direnv exec . bash -c 'set -e; cargo fmt --all -- --check; cargo clippy --workspace --all-targets -- -D warnings; cargo test --workspace'`. Alle unit-, integratie-, property-, h5py-crosscheck- en doctests groen; ingest-binary bevat 3/3 tests inclusief de trage-workerreceipt, mrf 12/12.
+- Python/contract synchroon exit 0: `uv lock --check --project spec`; pyright over `spec/*.py` met 0 fouten; manifestvalidator op `data/t2h-baseline` meldt 12 chunks, 5 bronnen, 9 velden en 5 grids.
+- Onafhankelijke live seamless-spotcheck synchroon exit 0 tegen `KNMI_PYSTEPS_BLEND_ENS_202608312035.nc`: eerste/middelste/laatste gepubliceerde frame, elk 1.610.000 geldige en 77.500 gemaskeerde cellen; no-data exact en iedere geldige cel binnen één lokale kwantisatiestap (maxfouten 0,03387 / 0,01644 / 0,00767 mm/u).
+- Webgate synchroon exit 0: `pnpm typecheck`; `pnpm test` (25 bestanden/85 tests); `pnpm build` (alleen de bestaande >500-kB chunkwaarschuwing).
+- Cargo.lock/Nix-gate synchroon exit 0: `nix flake check -L`; ingest- en webclosures opnieuw gebouwd en de volledige NixOS-VM-test groen (services actief, manifest 200, byte-range 206 met `MRF0TEST`, frontend 200).
+- `git diff --check` schoon. Track compleet; geen open implementatie- of verificatiepunten.
