@@ -1,4 +1,37 @@
+import type { SymbolLayerSpecification } from 'maplibre-gl'
+import type { MapTheme } from './basemap'
 import type { Grid, MrfHeader } from './contract'
+
+export const TEMPERATURE_VARIABLE_ANCHORS = [
+  'top', 'bottom', 'left', 'right', 'top-left', 'top-right', 'bottom-left', 'bottom-right',
+] as const
+
+export function temperatureLayer(theme: MapTheme): SymbolLayerSpecification {
+  const dark = theme === 'dark'
+  return {
+    id: 'motregen-temperature',
+    type: 'symbol',
+    source: 'motregen-temperature',
+    layout: {
+      'text-field': ['get', 'label'],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 8, 14],
+      'text-font': ['Noto Sans Regular'],
+      'text-variable-anchor': [...TEMPERATURE_VARIABLE_ANCHORS],
+      'text-radial-offset': 1.15,
+      'text-justify': 'auto',
+      'text-allow-overlap': false,
+      'text-ignore-placement': false,
+      'text-optional': true,
+      'text-padding': 3,
+    },
+    paint: {
+      'text-color': dark ? '#f3fbfd' : '#102630',
+      'text-halo-color': dark ? '#102027' : '#ffffff',
+      'text-halo-width': 2,
+      'text-halo-blur': 0.6,
+    },
+  }
+}
 
 export const temperatureCities = [
   { name: 'Groningen', lng: 6.57, lat: 53.22 },
