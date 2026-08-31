@@ -97,6 +97,17 @@ later voltooide telde daardoor willekeurig wel of niet mee. TTFR zelf behoudt
 zijn oorspronkelijke eerste-rendermeetpunt, maar de cache-gate omvat nu de
 volledige warme startup.
 
+Drie opeenvolgende merge-gateruns op de aangescherpte meting waren groen:
+
+| Run | Desktop warm chunks | 4G warm chunks | Fast 3G warm chunks | Desktop sessie |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 0 B | 5.430 B | 5.430 B | 1.282.633 B |
+| 2 | 0 B | 5.430 B | 5.430 B | 1.282.633 B |
+| 3 | 0 B | 5.430 B | 5.430 B | 1.282.633 B |
+
+De mobiele transfer bestaat telkens uit drie `feels_like_c`-ranges; 5.430 B
+ligt ruim onder maar blijft expliciet begrensd door het bestaande 12-kB-budget.
+
 De warmbudgetten zijn gekalibreerd tijdens zowel normale hostbelasting als een
 load-average van 12 door gelijktijdige ingest. Daarbij werden uitschieters van
 1.285 ms desktop en 2.991 ms op 4G gezien; 1.500/3.500 ms blijft streng maar
