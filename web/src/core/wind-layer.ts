@@ -108,7 +108,7 @@ interface TrailTarget {
   framebuffer: WebGLFramebuffer
 }
 
-interface ParticleBounds {
+export interface ParticleBounds {
   west: number
   north: number
   east: number
@@ -297,8 +297,8 @@ export class WindLayer implements CustomLayerInterface {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, texture)
     gl.uniform1i(this.fadeTrailLocation!, 0)
-    gl.uniform1f(this.fadeFactorLocation!, this.tuning.trailFade)
     const transform = trailUvTransform(this.trailView ?? currentView, currentView)
+    gl.uniform1f(this.fadeFactorLocation!, this.tuning.trailFade * transform.retention)
     gl.uniform2f(this.fadeUvScaleLocation!, transform.scaleX, transform.scaleY)
     gl.uniform2f(this.fadeUvOffsetLocation!, transform.offsetX, transform.offsetY)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
@@ -390,7 +390,10 @@ export class WindLayer implements CustomLayerInterface {
   private resetViewport(resetAll = false): void {
     if (!this.map) return
     this.ensureTrailTargets()
-    this.particleBounds = particleBounds(this.map, this.grid)
+    const previousBounds = this.particleBounds
+    const nextBounds = particleBounds(this.map, this.grid)
+    const retention = viewportParticleRetention(previousBounds, nextBounds)
+    this.particleBounds = nextBounds
     const canvas = this.map.getCanvas()
     const previousActive = this.active
     this.target = particleCountForViewport(canvas.clientWidth, canvas.clientHeight, this.tuning.particlesPerMegapixel)
@@ -398,7 +401,7 @@ export class WindLayer implements CustomLayerInterface {
     for (let index = 0; index < this.active; index++) {
       const outside = this.x[index]! < this.particleBounds.west || this.x[index]! > this.particleBounds.east ||
         this.y[index]! < this.particleBounds.north || this.y[index]! > this.particleBounds.south
-      if (resetAll || index >= previousActive || outside) this.respawn(index)
+      if (resetAll || index >= previousActive || outside || (retention < 1 && this.random() > retention)) this.respawn(index)
     }
     if (resetAll && this.gl && this.trails) {
       clearTrails(this.gl, this.trails, this.trailWidth, this.trailHeight)
@@ -467,7 +470,7 @@ export function windZoomCompensation(zoom: number): number {
   return 2 ** (WIND_REFERENCE_ZOOM - zoom)
 }
 
-export function trailUvTransform(previous: TrailView, current: TrailView): { scaleX: number; scaleY: number; offsetX: number; offsetY: number } {
+export function trailUvTransform(previous: TrailView, current: TrailView): { scaleX: number; scaleY: number; offsetX: number; offsetY: number; retention: number } {
   const zoomScale = 2 ** (previous.zoom - current.zoom)
   const scaleX = zoomScale * current.width / previous.width
   const scaleY = zoomScale * current.height / previous.height
@@ -477,7 +480,14 @@ export function trailUvTransform(previous: TrailView, current: TrailView): { sca
     scaleY,
     offsetX: 0.5 * (1 - scaleX) + (current.centerX - previous.centerX) * previousWorldSize / previous.width,
     offsetY: 0.5 * (1 - scaleY) - (current.centerY - previous.centerY) * previousWorldSize / previous.height,
+    retention: Math.min(1, 1 / (zoomScale * zoomScale)),
   }
+}
+
+export function viewportParticleRetention(previous: ParticleBounds, current: ParticleBounds): number {
+  const previousArea = Math.max(0, previous.east - previous.west) * Math.max(0, previous.south - previous.north)
+  const currentArea = Math.max(0, current.east - current.west) * Math.max(0, current.south - current.north)
+  return currentArea > previousArea && currentArea > 0 ? previousArea / currentArea : 1
 }
 
 export function windLineOffsets(thickness: number): ReadonlyArray<readonly [number, number]> {

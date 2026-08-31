@@ -3,6 +3,7 @@ import {
   particleCountForViewport,
   trailUvTransform,
   trailTargetSize,
+  viewportParticleRetention,
   WIND_PARTICLES_PER_MEGAPIXEL,
   WIND_TRAIL_FADE,
   WIND_TRAIL_OPACITY,
@@ -55,10 +56,19 @@ describe('wind trail presentation', () => {
 
   it('reprojects accumulated trails with pan and zoom instead of pinning them to the viewport', () => {
     const view = { centerX: 0.5, centerY: 0.5, zoom: 6, width: 512, height: 512 }
-    expect(trailUvTransform(view, view)).toEqual({ scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0 })
-    expect(trailUvTransform(view, { ...view, zoom: 7 })).toEqual({ scaleX: 0.5, scaleY: 0.5, offsetX: 0.25, offsetY: 0.25 })
+    expect(trailUvTransform(view, view)).toEqual({ scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0, retention: 1 })
+    expect(trailUvTransform(view, { ...view, zoom: 7 })).toEqual({ scaleX: 0.5, scaleY: 0.5, offsetX: 0.25, offsetY: 0.25, retention: 1 })
+    expect(trailUvTransform(view, { ...view, zoom: 5 }).retention).toBe(0.25)
     const panned = trailUvTransform(view, { ...view, centerX: 0.51, centerY: 0.49 })
     expect(panned.offsetX).toBeCloseTo(0.64)
     expect(panned.offsetY).toBeCloseTo(0.64)
+  })
+
+  it('redistributes only the excess particle density when the viewport expands', () => {
+    const focused = { west: 0.25, north: 0.25, east: 0.75, south: 0.75 }
+    const full = { west: 0, north: 0, east: 1, south: 1 }
+    expect(viewportParticleRetention(focused, full)).toBe(0.25)
+    expect(viewportParticleRetention(full, focused)).toBe(1)
+    expect(viewportParticleRetention(full, full)).toBe(1)
   })
 })
