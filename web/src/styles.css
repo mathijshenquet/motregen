@@ -383,6 +383,7 @@ button { color: inherit; cursor: pointer; }
 .scrubber-placeholder-bars { position: absolute; inset: 14px 8px 8px; display: flex; align-items: end; gap: 3px; opacity: .22; }
 .scrubber-placeholder-bars i { min-width: 3px; flex: 1; border-radius: 2px 2px 0 0; background: var(--accent); animation: scrubber-pulse 1.3s ease-in-out infinite alternate; }
 .scrubber-placeholder span { position: relative; padding: 5px 8px; border-radius: 6px; background: color-mix(in srgb, var(--surface) 82%, transparent); }
+.rain-bar.pending { fill: color-mix(in srgb, var(--muted) 10%, transparent); }
 @keyframes scrubber-pulse { from { opacity: .3; transform: scaleY(.72); } to { opacity: .85; transform: scaleY(1); } }
 .now-line { position: absolute; top: 0; bottom: 0; width: 1px; border-left: 1px dashed color-mix(in srgb, var(--text) 55%, transparent); pointer-events: none; }
 .now-line span { position: absolute; top: 25px; left: 0; padding: 2px 5px; border-radius: 4px; color: var(--surface); background: var(--text); font-size: 9px; font-weight: 750; text-transform: uppercase; transform: translateX(-50%); }

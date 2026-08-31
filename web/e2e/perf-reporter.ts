@@ -14,6 +14,8 @@ interface PerfResult {
   cpuThrottleRate: number
   coldTtfrMs: number | null
   warmTtfrMs: number | null
+  passiveChunkBytes: number
+  timeToCompleteMs: number
   scrubP50Ms: number | null
   scrubP95Ms: number | null
   scrubTransfers: number
@@ -73,6 +75,7 @@ function markdownReport(report: {
     measurement.label,
     formatMs(measurement.coldTtfrMs),
     formatMs(measurement.warmTtfrMs),
+    `${formatBytes(measurement.passiveChunkBytes)} / ${formatMs(measurement.timeToCompleteMs)}`,
     `${formatMs(measurement.scrubP50Ms)} / ${formatMs(measurement.scrubP95Ms)}`,
     `${measurement.scrubTransfers} / ${measurement.scrubFrames}`,
     String(measurement.secondClickRequests),
@@ -89,8 +92,8 @@ function markdownReport(report: {
 - Playwright-status: ${report.status}
 - Modus: informatief; er zijn geen performancebudgetten toegepast.
 
-| Profiel | Cold TTFR | Warm TTFR | Scrub p50 / p95 | Scrubtransfers / frames | Tweede klik | Sessie | Downloadtijd | FPS | Fouten |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Profiel | Cold TTFR | Warm TTFR | Passief / compleet | Scrub p50 / p95 | Scrubtransfers / frames | Tweede klik | Sessie | Downloadtijd | FPS | Fouten |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 ${rows.map((row) => `| ${row} |`).join('\n')}
 
 De downloadtijd loopt van de cold navigatie tot de laatste voltooide response in de gescripte journey. Daardoor omvat hij ook de vaste interactiestappen en is hij alleen vergelijkbaar tussen runs van deze suite.

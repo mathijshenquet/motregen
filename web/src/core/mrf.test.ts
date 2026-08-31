@@ -152,6 +152,18 @@ describe('mrf v0', () => {
     expect(header.quant[Math.max(...decode(noon))]!).toBeGreaterThan(3)
   })
 
+  it('emits a visible nowcast-to-seamless boundary whose first frame borrows the next annex', () => {
+    const timeline = buildTimeline(manifest)
+    const boundary = timeline.findIndex((frame, index) => frame.source === 'seamless' && timeline[index - 1]?.source === 'nowcast')
+    const first = timeline[boundary]!
+    const chunkFile = files.get(first.chunk.url)!
+    const header = parseMrfHeader(chunkFile.subarray(0, first.chunk.header_len))
+
+    expect(first.frameIndex).toBe(0)
+    expect(header.frames[0]?.motion).toBeUndefined()
+    expect(header.frames[1]?.motion).toBeDefined()
+  })
+
   it('coalesces a full location sample per chunk and serves the next location entirely from cache', async () => {
     class DecodeWorker {
       onmessage?: (event: MessageEvent) => void
@@ -182,16 +194,21 @@ describe('mrf v0', () => {
     fetchMock.mockClear()
     await Promise.all([...chunks].map(([chunk, indexes]) => client.getFrames(chunk, indexes)))
 
-    expect(frames).toHaveLength(131)
-    expect(fetchMock).toHaveBeenCalledTimes(13)
-    for (const [chunk] of chunks) {
+    expect(frames).toHaveLength(133)
+    expect(fetchMock).toHaveBeenCalledTimes(15)
+    for (const [chunk, indexes] of chunks) {
       const chunkFile = files.get(chunk.url)!
       const header = parseMrfHeader(chunkFile.subarray(0, chunk.header_len))
-      const finalOffset = Math.max(...header.frames.flatMap((frame) => [frame.offset + frame.len, frame.motion ? frame.motion.offset + frame.motion.len : 0]))
+      const selected = indexes.map((index) => header.frames[index]!)
+      const fullChunk = indexes.length > header.frames.length / 2
+      const firstOffset = fullChunk ? 0 : Math.min(...selected.flatMap((frame) => [frame.offset, frame.motion?.offset ?? frame.offset]))
+      const finalOffset = fullChunk
+        ? Math.max(...header.frames.flatMap((frame) => [frame.offset + frame.len, frame.motion ? frame.motion.offset + frame.motion.len : 0]))
+        : Math.max(...selected.flatMap((frame) => [frame.offset + frame.len, frame.motion ? frame.motion.offset + frame.motion.len : 0]))
       const ranges = fetchMock.mock.calls
         .filter(([input]) => String(input).endsWith(chunk.url))
         .map(([, init]) => new Headers(init?.headers).get('Range'))
-      expect(ranges).toContain(`bytes=${chunk.header_len}-${chunk.header_len + finalOffset - 1}`)
+      expect(ranges).toContain(`bytes=${chunk.header_len + firstOffset}-${chunk.header_len + finalOffset - 1}`)
     }
 
     fetchMock.mockClear()

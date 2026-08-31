@@ -101,6 +101,17 @@
       ]
     },
     {
+      "url": "chunks/seamless-20260828T1500.mrf",
+      "source": "seamless",
+      "field": "rain_rate",
+      "run": "2026-08-28T15:00:00Z",
+      "header_len": 2232,
+      "times": [
+        "2026-08-28T17:05:00Z",
+        "2026-08-28T17:10:00Z"
+      ]
+    },
+    {
       "url": "chunks/harmonie-20260828T1200.mrf",
       "source": "harmonie",
       "field": "rain_rate",

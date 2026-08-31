@@ -29,6 +29,7 @@ describe('histogram scrubber', () => {
     const { container } = render(() => <HistogramScrubber
       timeline={timeline}
       values={[0, 1, 4, 2]}
+      loaded={[true, false, true, true]}
       cursor={1}
       now={Date.parse('2026-08-28T15:00:00Z')}
       playing={false}
@@ -50,6 +51,7 @@ describe('histogram scrubber', () => {
     expect(screen.getByText('Observaties')).toBeTruthy()
     expect(screen.queryByRole('group', { name: 'Grafiektype' })).toBeNull()
     expect(container.querySelectorAll('.rain-bar')).toHaveLength(4)
+    expect(container.querySelectorAll('.rain-bar.pending')).toHaveLength(1)
 
     Object.defineProperty(container.querySelector('.chart-plot')!, 'getBoundingClientRect', {
       value: () => ({ left: 100, width: 400, right: 500, top: 0, bottom: 180, height: 180, x: 100, y: 0, toJSON: () => undefined }),

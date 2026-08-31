@@ -29,6 +29,7 @@ for (let hour = -3; hour < 0; hour++) plans.push({
   times: Array.from({ length: 12 }, (_, i) => now + hour * 3_600_000 + i * 300_000),
 })
 plans.push({ name: 'nowcast-20260828T1500.mrf', source: 'nowcast', field: 'rain_rate', run: now, times: Array.from({ length: 25 }, (_, i) => now + i * 300_000) })
+plans.push({ name: 'seamless-20260828T1500.mrf', source: 'seamless', field: 'rain_rate', run: now, times: [now + 125 * 60_000, now + 130 * 60_000] })
 plans.push({ name: 'harmonie-20260828T1200.mrf', source: 'harmonie', field: 'rain_rate', run: now - 3 * 3_600_000, times: Array.from({ length: 24 }, (_, i) => now + (i + 1) * 3_600_000) })
 plans.push({ name: 'radiation-20260828T1200.mrf', source: 'harmonie', field: 'radiation', run: now - 3 * 3_600_000, times: Array.from({ length: 24 }, (_, i) => now + (i + 1) * 3_600_000) })
 plans.push({
