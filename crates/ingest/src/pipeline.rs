@@ -7,7 +7,9 @@ use knmi_hdf5::{RadarFrame, RadarGrid};
 use crate::{
     api::{ApiClient, RemoteFile},
     arome_tar::index_lead_members,
-    grid::{HOURLY_GRID, IndexMap, SHARED_GRID, UV_GRID},
+    grid::{
+        DETAIL_GRID, HOURLY_GRID, IndexMap, RADIATION_GRID, SHARED_GRID, SUMMARY_GRID, UV_GRID,
+    },
     publisher::{ProducedChunk, produced_chunk},
     wind_prior::WindTimeline,
 };
@@ -333,12 +335,30 @@ pub fn build_arome_chunks(
                 feels_like_c(*temperature, *humidity, *wind_u, *wind_v)
             })
             .collect::<Vec<_>>();
-        temperature_frames.push(quantize_values(&temperature, &temperature_quant)?);
-        feels_like_frames.push(quantize_values(&feels_like, &feels_like_quant)?);
-        wind_u_frames.push(quantize_values(&wind_u, &wind_quant)?);
-        wind_v_frames.push(quantize_values(&wind_v, &wind_quant)?);
-        relative_humidity_frames.push(quantize_values(&relative_humidity_percent, &percent_quant)?);
-        cloud_fraction_frames.push(quantize_values(&cloud_fraction, &percent_quant)?);
+        temperature_frames.push(quantize_values(
+            &integrate_values(&temperature, 3)?,
+            &temperature_quant,
+        )?);
+        feels_like_frames.push(quantize_values(
+            &integrate_values(&feels_like, 3)?,
+            &feels_like_quant,
+        )?);
+        wind_u_frames.push(quantize_values(
+            &integrate_values(&wind_u, 3)?,
+            &wind_quant,
+        )?);
+        wind_v_frames.push(quantize_values(
+            &integrate_values(&wind_v, 3)?,
+            &wind_quant,
+        )?);
+        relative_humidity_frames.push(quantize_values(
+            &integrate_values(&relative_humidity_percent, 8)?,
+            &percent_quant,
+        )?);
+        cloud_fraction_frames.push(quantize_values(
+            &integrate_values(&cloud_fraction, 8)?,
+            &percent_quant,
+        )?);
 
         let radiation =
             knmi_grib::hourly_precipitation(&previous_radiation, &current.global_radiation_j_m2)?
@@ -346,7 +366,10 @@ pub fn build_arome_chunks(
                 .map(|energy| energy / 3_600.0)
                 .collect::<Vec<_>>();
         let radiation = hourly_map.gather(&radiation)?;
-        radiation_frames.push(quantize_values(&radiation, &radiation_quant)?);
+        radiation_frames.push(quantize_values(
+            &integrate_values(&radiation, 4)?,
+            &radiation_quant,
+        )?);
         times.push(valid_time.to_rfc3339_opts(SecondsFormat::Secs, true));
         previous_precipitation = current.precipitation_mm;
         previous_radiation = current.global_radiation_j_m2;
@@ -372,32 +395,55 @@ pub fn build_arome_chunks(
         ),
         encoded.bytes,
     )?;
-    let field_chunk =
-        |field: &str, frames: &[Vec<u8>], quant: Vec<Option<f32>>| -> Result<ProducedChunk> {
-            let meta =
-                mrf::ChunkMeta::standard(HOURLY_GRID.mrf_grid(), "harmonie", &run, times.clone())
-                    .with_field(field, quant);
-            produced_chunk(
-                generated_chunk_filename(
-                    &format!("harmonie-{field}-{compact_run}-h{horizon_hours}"),
-                    &meta,
-                ),
-                mrf::encode(frames, &meta)?,
-            )
-        };
+    let field_chunk = |field: &str,
+                       grid: crate::grid::GridSpec,
+                       frames: &[Vec<u8>],
+                       quant: Vec<Option<f32>>|
+     -> Result<ProducedChunk> {
+        let meta = mrf::ChunkMeta::standard(grid.mrf_grid(), "harmonie", &run, times.clone())
+            .with_field(field, quant);
+        produced_chunk(
+            generated_chunk_filename(
+                &format!("harmonie-{field}-{compact_run}-h{horizon_hours}"),
+                &meta,
+            ),
+            mrf::encode(frames, &meta)?,
+        )
+    };
     let chunks = vec![
         rain,
-        field_chunk("temp_c", &temperature_frames, temperature_quant)?,
-        field_chunk("feels_like_c", &feels_like_frames, feels_like_quant)?,
-        field_chunk("wind_u_ms", &wind_u_frames, wind_quant.clone())?,
-        field_chunk("wind_v_ms", &wind_v_frames, wind_quant)?,
-        field_chunk("radiation", &radiation_frames, radiation_quant)?,
+        field_chunk(
+            "temp_c",
+            DETAIL_GRID,
+            &temperature_frames,
+            temperature_quant,
+        )?,
+        field_chunk(
+            "feels_like_c",
+            DETAIL_GRID,
+            &feels_like_frames,
+            feels_like_quant,
+        )?,
+        field_chunk("wind_u_ms", DETAIL_GRID, &wind_u_frames, wind_quant.clone())?,
+        field_chunk("wind_v_ms", DETAIL_GRID, &wind_v_frames, wind_quant)?,
+        field_chunk(
+            "radiation",
+            RADIATION_GRID,
+            &radiation_frames,
+            radiation_quant,
+        )?,
         field_chunk(
             "rel_humidity",
+            SUMMARY_GRID,
             &relative_humidity_frames,
             percent_quant.clone(),
         )?,
-        field_chunk("cloud_frac", &cloud_fraction_frames, percent_quant)?,
+        field_chunk(
+            "cloud_frac",
+            SUMMARY_GRID,
+            &cloud_fraction_frames,
+            percent_quant,
+        )?,
     ];
     validate_wind_pair(&chunks)?;
     Ok(AromePublication {
@@ -466,6 +512,40 @@ fn quantize_values(values: &[f32], quant: &[Option<f32>]) -> Result<Vec<u8>> {
         .iter()
         .map(|value| mrf::quantize_with_table(*value, quant).map_err(Into::into))
         .collect()
+}
+
+fn integrate_values(values: &[f32], factor: usize) -> Result<Vec<f32>> {
+    ensure!(
+        values.len() == HOURLY_GRID.cell_count(),
+        "hourly field does not match integration grid"
+    );
+    ensure!(factor > 0, "integration factor must be positive");
+    let width = HOURLY_GRID.width as usize;
+    let height = HOURLY_GRID.height as usize;
+    let coarse_width = width.div_ceil(factor);
+    let coarse_height = height.div_ceil(factor);
+    let mut integrated = Vec::with_capacity(coarse_width * coarse_height);
+    for coarse_row in 0..coarse_height {
+        for coarse_column in 0..coarse_width {
+            let mut sum = 0.0_f64;
+            let mut count = 0_usize;
+            for row in coarse_row * factor..((coarse_row + 1) * factor).min(height) {
+                for column in coarse_column * factor..((coarse_column + 1) * factor).min(width) {
+                    let value = values[row * width + column];
+                    if value.is_finite() {
+                        sum += f64::from(value);
+                        count += 1;
+                    }
+                }
+            }
+            integrated.push(if count == 0 {
+                f32::NAN
+            } else {
+                (sum / count as f64) as f32
+            });
+        }
+    }
+    Ok(integrated)
 }
 
 struct EncodedMotion {
@@ -834,6 +914,18 @@ mod tests {
     }
 
     #[test]
+    fn spatial_integration_averages_valid_cells_and_keeps_empty_blocks_missing() {
+        let mut values = vec![f32::NAN; HOURLY_GRID.cell_count()];
+        values[0] = 2.0;
+        values[1] = 4.0;
+        values[HOURLY_GRID.width as usize] = 6.0;
+        let integrated = integrate_values(&values, 2).unwrap();
+        assert_eq!(integrated.len(), 313 * 338);
+        assert_eq!(integrated[0], 4.0);
+        assert!(integrated[1].is_nan());
+    }
+
+    #[test]
     fn uv_window_is_only_active_during_the_documented_utc_day() {
         let timestamp = |value: &str| {
             DateTime::parse_from_rfc3339(value)
@@ -850,7 +942,7 @@ mod tests {
     fn wind_pair_requires_identical_grid_times_and_order() {
         let make = |field: &str, times: Vec<String>| {
             let meta = mrf::ChunkMeta::standard(
-                HOURLY_GRID.mrf_grid(),
+                DETAIL_GRID.mrf_grid(),
                 "harmonie",
                 "2026-08-28T12:00:00Z",
                 times.clone(),
@@ -859,7 +951,7 @@ mod tests {
             produced_chunk(
                 format!("{field}.mrf"),
                 mrf::encode(
-                    &vec![vec![127; HOURLY_GRID.cell_count()]; times.len()],
+                    &vec![vec![127; DETAIL_GRID.cell_count()]; times.len()],
                     &meta,
                 )
                 .unwrap(),

@@ -39,6 +39,36 @@ pub const HOURLY_GRID: GridSpec = GridSpec {
     height: 675,
 };
 
+pub const DETAIL_GRID: GridSpec = GridSpec {
+    crs: "EPSG:3857",
+    x0: 0.0,
+    y0: 7_600_000.0,
+    dx: 6_000.0,
+    dy: -6_000.0,
+    width: 209,
+    height: 225,
+};
+
+pub const RADIATION_GRID: GridSpec = GridSpec {
+    crs: "EPSG:3857",
+    x0: 0.0,
+    y0: 7_600_000.0,
+    dx: 8_000.0,
+    dy: -8_000.0,
+    width: 157,
+    height: 169,
+};
+
+pub const SUMMARY_GRID: GridSpec = GridSpec {
+    crs: "EPSG:3857",
+    x0: 0.0,
+    y0: 7_600_000.0,
+    dx: 16_000.0,
+    dy: -16_000.0,
+    width: 79,
+    height: 85,
+};
+
 pub const UV_GRID: GridSpec = GridSpec {
     crs: "EPSG:3857",
     x0: 0.0,
@@ -365,6 +395,21 @@ mod tests {
         assert!(uv.missing_count() < UV_GRID.cell_count());
         assert!(seamless.missing_count() > 0);
         assert!(seamless.missing_count() < SHARED_GRID.cell_count());
+    }
+
+    #[test]
+    fn integrated_field_grids_cover_the_hourly_extent() {
+        for grid in [DETAIL_GRID, RADIATION_GRID, SUMMARY_GRID] {
+            let hourly_east = HOURLY_GRID.x0 + HOURLY_GRID.dx * f64::from(HOURLY_GRID.width);
+            let hourly_south = HOURLY_GRID.y0 + HOURLY_GRID.dy * f64::from(HOURLY_GRID.height);
+            let east = grid.x0 + grid.dx * f64::from(grid.width);
+            let south = grid.y0 + grid.dy * f64::from(grid.height);
+            assert!(east >= hourly_east && east - hourly_east < grid.dx);
+            assert!(south <= hourly_south && hourly_south - south < -grid.dy);
+        }
+        assert_eq!(DETAIL_GRID.cell_count(), 209 * 225);
+        assert_eq!(RADIATION_GRID.cell_count(), 157 * 169);
+        assert_eq!(SUMMARY_GRID.cell_count(), 79 * 85);
     }
 
     #[test]
