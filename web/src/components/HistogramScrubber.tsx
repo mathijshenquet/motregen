@@ -22,7 +22,7 @@ export default function HistogramScrubber(props: Props) {
   let pressedX: number | undefined
   let dragged = false
   const [hovered, setHovered] = createSignal<number | null>(null)
-  const [hoverScrubbing, setHoverScrubbing] = createSignal(true)
+  const [hoverScrubbing, setHoverScrubbing] = createSignal(false)
   const selected = createMemo(() => props.timeline[Math.round(props.cursor)])
   const maximum = createMemo(() => rainChartMaximum(props.values))
   const y = (value: number) => plotHeight * (1 - rainChartPosition(value, maximum()))
@@ -66,6 +66,7 @@ export default function HistogramScrubber(props: Props) {
   }
 
   function keyDown(event: KeyboardEvent): void {
+    setHoverScrubbing(false)
     const last = Math.max(0, props.timeline.length - 1)
     const steps: Record<string, number> = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1, PageDown: -6, PageUp: 6 }
     if (event.key === 'Home') { event.preventDefault(); props.onCursor(0); return }
@@ -95,25 +96,28 @@ export default function HistogramScrubber(props: Props) {
       aria-valuemax={Math.max(0, props.timeline.length - 1)}
       aria-valuenow={Math.round(props.cursor)}
       aria-valuetext={selected() ? `${new Date(selected()!.epoch).toLocaleString('nl-NL')}, ${formatRain(props.values[Math.round(props.cursor)])}` : undefined}
-      title={hoverScrubbing() ? 'Hover-scrubben aan · klik voor klik/slepen' : 'Klik/slepen aan · klik voor hover-scrubben'}
+      title={hoverScrubbing() ? 'Hover-scrubben · klik om hier te blijven' : 'Vast · klik voor hover of sleep om te scrubben'}
       onKeyDown={keyDown}
       onPointerDown={(event) => {
         pressedX = event.clientX
         dragged = false
         event.currentTarget.setPointerCapture(event.pointerId)
-        const { cursor, index } = pointerPosition(event)
+        const { index } = pointerPosition(event)
         setHovered(index)
-        props.onCursor(hoverScrubbing() ? cursor : index)
       }}
       onPointerMove={(event) => {
         const { cursor, index } = pointerPosition(event)
         setHovered(index)
         const captured = event.currentTarget.hasPointerCapture(event.pointerId)
         if (captured && pressedX !== undefined && Math.abs(event.clientX - pressedX) > 3) dragged = true
-        if ((hoverScrubbing() && event.pointerType === 'mouse') || captured) props.onCursor(hoverScrubbing() ? cursor : index)
+        if ((hoverScrubbing() && event.pointerType === 'mouse' && !captured) || (captured && dragged)) props.onCursor(cursor)
       }}
       onPointerUp={(event) => {
-        if (event.pointerType === 'mouse' && !dragged) setHoverScrubbing((value) => !value)
+        const { cursor, index } = pointerPosition(event)
+        setHovered(index)
+        props.onCursor(cursor)
+        if (dragged) setHoverScrubbing(false)
+        else if (event.pointerType === 'mouse') setHoverScrubbing((value) => !value)
         if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
         pressedX = undefined
         dragged = false

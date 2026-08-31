@@ -133,7 +133,10 @@ export default function App() {
     if (map && effective !== appliedMapTheme) void applyMapTheme(effective)
   })
 
-  createEffect(() => windLayer?.setTuning(windTuning()))
+  createEffect(() => {
+    const tuning = windTuning()
+    windLayer?.setTuning(tuning)
+  })
 
   createEffect(() => {
     const epoch = selectedEpoch()
@@ -573,6 +576,7 @@ export default function App() {
       <Show when={windTimeline().length}>
         <details class="wind-debug" open>
           <summary>Wind debug</summary>
+          <label><span>Helderheid</span><input type="range" min="0.5" max="3" step="0.1" value={windTuning().brightness} onInput={(event) => tuneWind('brightness', event.currentTarget.valueAsNumber)} /><output>{windTuning().brightness.toFixed(1)}</output></label>
           <label><span>Dichtheid</span><input type="range" min="100" max="1600" step="20" value={windTuning().particlesPerMegapixel} onInput={(event) => tuneWind('particlesPerMegapixel', event.currentTarget.valueAsNumber)} /><output>{windTuning().particlesPerMegapixel}</output></label>
           <label><span>Deeltjes</span><input type="range" min="0.1" max="1" step="0.05" value={windTuning().particleOpacity} onInput={(event) => tuneWind('particleOpacity', event.currentTarget.valueAsNumber)} /><output>{windTuning().particleOpacity.toFixed(2)}</output></label>
           <label><span>Trailduur</span><input type="range" min="0.9" max="0.99" step="0.001" value={windTuning().trailFade} onInput={(event) => tuneWind('trailFade', event.currentTarget.valueAsNumber)} /><output>{windTuning().trailFade.toFixed(3)}</output></label>

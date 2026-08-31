@@ -9,6 +9,7 @@ export const WIND_PARTICLE_OPACITY = 0.95
 export const WIND_REFERENCE_ZOOM = 6.4
 
 export interface WindTuning {
+  brightness: number
   particlesPerMegapixel: number
   particleOpacity: number
   trailFade: number
@@ -16,6 +17,7 @@ export interface WindTuning {
 }
 
 export const DEFAULT_WIND_TUNING: WindTuning = {
+  brightness: 1,
   particlesPerMegapixel: WIND_PARTICLES_PER_MEGAPIXEL,
   particleOpacity: WIND_PARTICLE_OPACITY,
   trailFade: WIND_TRAIL_FADE,
@@ -48,8 +50,12 @@ void main() {
 const particleFragmentSource = `#version 300 es
 precision mediump float;
 in vec4 v_color;
+uniform float u_brightness;
 out vec4 color;
-void main() { color = vec4(v_color.rgb * v_color.a, v_color.a); }`
+void main() {
+  vec3 rgb = min(vec3(1.0), v_color.rgb * u_brightness);
+  color = vec4(rgb * v_color.a, v_color.a);
+}`
 
 const fadeVertexSource = `#version 300 es
 in vec2 a_pos;
@@ -107,6 +113,7 @@ export class WindLayer implements CustomLayerInterface {
   private particlePositionLocation = -1
   private particleColorLocation = -1
   private particleMatrixLocation?: WebGLUniformLocation
+  private particleBrightnessLocation?: WebGLUniformLocation
   private fadePositionLocation = -1
   private fadeTrailLocation?: WebGLUniformLocation
   private fadeFactorLocation?: WebGLUniformLocation
@@ -151,6 +158,7 @@ export class WindLayer implements CustomLayerInterface {
     this.particlePositionLocation = this.gl.getAttribLocation(this.particleProgram, 'a_pos')
     this.particleColorLocation = this.gl.getAttribLocation(this.particleProgram, 'a_color')
     this.particleMatrixLocation = this.gl.getUniformLocation(this.particleProgram, 'u_matrix')!
+    this.particleBrightnessLocation = this.gl.getUniformLocation(this.particleProgram, 'u_brightness')!
     this.fadePositionLocation = this.gl.getAttribLocation(this.fadeProgram, 'a_pos')
     this.fadeTrailLocation = this.gl.getUniformLocation(this.fadeProgram, 'u_trail')!
     this.fadeFactorLocation = this.gl.getUniformLocation(this.fadeProgram, 'u_fade')!
@@ -166,7 +174,7 @@ export class WindLayer implements CustomLayerInterface {
     this.ensureTrailTargets()
     map.on('move', this.viewportChanged)
     map.on('resize', this.viewportChanged)
-    this.resetViewport()
+    this.resetViewport(true)
   }
 
   onRemove(): void {
@@ -189,13 +197,13 @@ export class WindLayer implements CustomLayerInterface {
   }
 
   setTuning(tuning: WindTuning): void {
+    const previousActive = this.active
     this.tuning = { ...tuning }
     if (!this.map) return
     const canvas = this.map.getCanvas()
     this.target = particleCountForViewport(canvas.clientWidth, canvas.clientHeight, tuning.particlesPerMegapixel)
     this.active = this.target
-    for (let index = 0; index < this.active; index++) this.respawn(index)
-    if (this.gl && this.trails) clearTrails(this.gl, this.trails, this.trailWidth, this.trailHeight)
+    for (let index = previousActive; index < this.active; index++) this.respawn(index)
     this.map.triggerRepaint()
   }
 
@@ -259,6 +267,7 @@ export class WindLayer implements CustomLayerInterface {
     gl.enableVertexAttribArray(this.particleColorLocation)
     gl.vertexAttribPointer(this.particleColorLocation, 4, gl.FLOAT, false, 24, 8)
     gl.uniformMatrix4fv(this.particleMatrixLocation!, false, options.defaultProjectionData.mainMatrix)
+    gl.uniform1f(this.particleBrightnessLocation!, this.tuning.brightness)
     gl.lineWidth(1)
     gl.drawArrays(gl.LINES, 0, this.active * 2)
   }
@@ -327,15 +336,20 @@ export class WindLayer implements CustomLayerInterface {
     this.age[index] = Math.floor(this.random() * MAX_AGE)
   }
 
-  private resetViewport(): void {
+  private resetViewport(resetAll = false): void {
     if (!this.map) return
     this.ensureTrailTargets()
     this.particleBounds = particleBounds(this.map, this.grid)
     const canvas = this.map.getCanvas()
+    const previousActive = this.active
     this.target = particleCountForViewport(canvas.clientWidth, canvas.clientHeight, this.tuning.particlesPerMegapixel)
     this.active = this.target
-    for (let index = 0; index < MAX_PARTICLES; index++) this.respawn(index)
-    if (this.gl && this.trails) clearTrails(this.gl, this.trails, this.trailWidth, this.trailHeight)
+    for (let index = 0; index < this.active; index++) {
+      const outside = this.x[index]! < this.particleBounds.west || this.x[index]! > this.particleBounds.east ||
+        this.y[index]! < this.particleBounds.north || this.y[index]! > this.particleBounds.south
+      if (resetAll || index >= previousActive || outside) this.respawn(index)
+    }
+    if (resetAll && this.gl && this.trails) clearTrails(this.gl, this.trails, this.trailWidth, this.trailHeight)
   }
 
   private ensureTrailTargets(): void {
