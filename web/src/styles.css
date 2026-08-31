@@ -130,10 +130,11 @@ button { color: inherit; cursor: pointer; }
   will-change: mask-size, opacity;
 }
 .map-splash.ready .map-splash-veil { opacity: 0; -webkit-mask-size: 100% 100%, 320vmax 320vmax; mask-size: 100% 100%, 320vmax 320vmax; }
-.map-splash-mark { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; transform: scale(1); transition: opacity var(--splash-mark-duration) ease-out, transform var(--splash-reveal-duration) cubic-bezier(.22, .7, .2, 1); will-change: opacity, transform; }
-.map-splash.ready .map-splash-mark { opacity: 0; transform: scale(1.25); }
-.map-splash-mark img { width: 208px; height: 208px; }
-.map-splash-mark strong { font-size: clamp(28px, 5vw, 46px); font-weight: 790; letter-spacing: -.055em; }
+.map-splash-mark { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.map-splash-mark img { width: 139px; height: 139px; transform: translateY(0); transition: transform var(--splash-mark-duration) cubic-bezier(.333333, 0, .666667, .333333); will-change: transform; }
+.map-splash.ready .map-splash-mark img { transform: translateY(75vh); }
+.map-splash-mark strong { font-size: clamp(28px, 5vw, 46px); font-weight: 790; letter-spacing: -.055em; opacity: 1; transition: opacity var(--splash-mark-duration) ease-out; }
+.map-splash.ready .map-splash-mark strong { opacity: 0; }
 .source {
   position: absolute;
   right: 7px;

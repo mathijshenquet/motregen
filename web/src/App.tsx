@@ -546,7 +546,7 @@ export default function App() {
     setMapReady(false)
     for (const animation of splashElement.getAnimations({ subtree: true })) animation.cancel()
     void splashElement.offsetWidth
-    splashReplayTimer = window.setTimeout(() => setMapReady(true), 150)
+    splashReplayTimer = window.setTimeout(() => setMapReady(true), 1_000)
   }
 
   const forecast = createMemo(() => buildHourlyForecast({
@@ -682,8 +682,10 @@ function storedTheme(): ThemeChoice {
 }
 
 function storedSplashSlowdown(): number {
-  const value = Number(localStorage.getItem('motregen-splash-slowdown'))
-  return Number.isFinite(value) ? Math.max(1, Math.min(8, value)) : 1
+  const stored = localStorage.getItem('motregen-splash-slowdown')
+  if (stored === null) return 1.5
+  const value = Number(stored)
+  return Number.isFinite(value) ? Math.max(1, Math.min(8, value)) : 1.5
 }
 
 function project(lng: number, lat: number): [number, number] {
