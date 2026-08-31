@@ -54,14 +54,20 @@ export interface TimelineZone {
 
 export function timelineZones(timeline: TimelineFrame[]): TimelineZone[] {
   if (!timeline.length) return []
+  if (timeline.length === 1) return [{ ...sourceZone(timeline[0]!.source), start: 0, end: 100 }]
   const result: TimelineZone[] = []
-  let start = 0
+  const firstEpoch = timeline[0]!.epoch
+  const span = Math.max(1, timeline.at(-1)!.epoch - firstEpoch)
+  let start = firstEpoch
   let current = sourceZone(timeline[0]!.source)
   for (let index = 1; index <= timeline.length; index++) {
     const next = index < timeline.length ? sourceZone(timeline[index]!.source) : undefined
     if (next?.kind === current.kind) continue
-    result.push({ ...current, start: start / timeline.length * 100, end: index / timeline.length * 100 })
-    start = index
+    const end = index === timeline.length
+      ? timeline.at(-1)!.epoch
+      : (timeline[index - 1]!.epoch + timeline[index]!.epoch) / 2
+    result.push({ ...current, start: (start - firstEpoch) / span * 100, end: (end - firstEpoch) / span * 100 })
+    start = end
     if (next) current = next
   }
   return result

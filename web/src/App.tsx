@@ -195,7 +195,17 @@ export default function App() {
     const tick = (now: number) => {
       const elapsed = now - previous
       previous = now
-      setCursor((value) => value >= timeline().length - 1 ? 0 : Math.min(timeline().length - 1, value + elapsed / 650))
+      setCursor((value) => {
+        const frames = timeline()
+        if (frames.length < 2) return 0
+        const firstEpoch = frames[0]!.epoch
+        const lastEpoch = frames.at(-1)!.epoch
+        const epoch = timelineEpochAtCursor(frames, value)
+        const nextEpoch = epoch + elapsed * (lastEpoch - firstEpoch) / ((frames.length - 1) * 650)
+        if (nextEpoch >= lastEpoch) return 0
+        const blend = frameBlend(frames, nextEpoch)
+        return blend.left + (blend.right - blend.left) * blend.mix
+      })
       animation = requestAnimationFrame(tick)
     }
     animation = requestAnimationFrame(tick)
@@ -499,9 +509,7 @@ export default function App() {
 
   function selectedEpoch(): number {
     const frames = timeline()
-    if (!frames.length) return 0
-    const lower = Math.floor(cursor()), upper = Math.min(frames.length - 1, Math.ceil(cursor()))
-    return frames[lower]!.epoch + (frames[upper]!.epoch - frames[lower]!.epoch) * (cursor() - lower)
+    return timelineEpochAtCursor(frames, cursor())
   }
 
   function load(frame: TimelineFrame): Promise<Uint8Array> {
@@ -819,6 +827,13 @@ export default function App() {
 function storedTheme(): ThemeChoice {
   const stored = localStorage.getItem('motregen-theme')
   return stored === 'light' || stored === 'system' || stored === 'dark' ? stored : 'light'
+}
+
+function timelineEpochAtCursor(frames: TimelineFrame[], cursor: number): number {
+  if (!frames.length) return 0
+  const lower = Math.max(0, Math.min(frames.length - 1, Math.floor(cursor)))
+  const upper = Math.min(frames.length - 1, Math.ceil(cursor))
+  return frames[lower]!.epoch + (frames[upper]!.epoch - frames[lower]!.epoch) * (cursor - lower)
 }
 
 function storedSplashSlowdown(): number {

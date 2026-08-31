@@ -1,7 +1,7 @@
 import { createMemo, createSignal, For, Show } from 'solid-js'
 import type { TimelineFrame } from '../core/contract'
 import { RAIN_BANDS, rainChartMaximum, rainChartPosition } from '../core/rain-chart'
-import { timelineZones } from '../core/time-model'
+import { frameBlend, timelineZones } from '../core/time-model'
 
 interface Props {
   timeline: TimelineFrame[]
@@ -27,13 +27,20 @@ export default function HistogramScrubber(props: Props) {
   const [hovered, setHovered] = createSignal<number | null>(null)
   const [hoverScrubbing, setHoverScrubbing] = createSignal(true)
   const selected = createMemo(() => props.timeline[Math.round(props.cursor)])
+  const timelineStart = createMemo(() => props.timeline[0]?.epoch ?? 0)
+  const timelineEnd = createMemo(() => props.timeline.at(-1)?.epoch ?? timelineStart())
+  const timelineSpan = createMemo(() => Math.max(1, timelineEnd() - timelineStart()))
   const maximum = createMemo(() => rainChartMaximum(props.values))
   const y = (value: number) => plotHeight * (1 - rainChartPosition(value, maximum()))
   const bars = createMemo(() => {
-    const barWidth = width / Math.max(1, props.timeline.length)
-    return props.timeline.map((_, index) => {
+    if (props.timeline.length === 1) return [{ x: 0, width: width - 1, y: props.values[0] == null ? plotHeight : y(props.values[0]!) }]
+    return props.timeline.map((frame, index) => {
       const value = props.values[index]
-      return { x: index * barWidth, width: Math.max(1.4, barWidth - 1), y: value == null ? plotHeight : y(value) }
+      const leftEpoch = index === 0 ? timelineStart() : (props.timeline[index - 1]!.epoch + frame.epoch) / 2
+      const rightEpoch = index === props.timeline.length - 1 ? timelineEnd() : (frame.epoch + props.timeline[index + 1]!.epoch) / 2
+      const x = (leftEpoch - timelineStart()) / timelineSpan() * width
+      const right = (rightEpoch - timelineStart()) / timelineSpan() * width
+      return { x, width: Math.max(1.4, right - x - 1), y: value == null ? plotHeight : y(value) }
     })
   })
   const bands = createMemo(() => RAIN_BANDS.map((band) => {
@@ -44,17 +51,15 @@ export default function HistogramScrubber(props: Props) {
   }))
   const yTicks = createMemo(() => [...new Set([0, 0.1, 2.5, 7.5, maximum()])].map((value) => ({ value, top: y(value) / plotHeight * 100 })))
   const xTicks = createMemo(() => {
-    const count = Math.min(5, props.timeline.length)
-    return Array.from({ length: count }, (_, tick) => {
-      const index = Math.round(tick / Math.max(1, count - 1) * Math.max(0, props.timeline.length - 1))
-      return { index, left: index / Math.max(1, props.timeline.length - 1) * 100, frame: props.timeline[index]! }
-    })
+    if (!props.timeline.length) return []
+    const hour = 3_600_000
+    const firstHour = Math.ceil(timelineStart() / hour) * hour
+    const ticks = []
+    for (let epoch = firstHour; epoch <= timelineEnd(); epoch += hour) ticks.push({ epoch, left: positionAtEpoch(epoch) })
+    return ticks
   })
   const nowPosition = createMemo(() => {
-    if (props.timeline.length < 2) return 0
-    let index = 0
-    for (let candidate = 0; candidate < props.timeline.length; candidate++) if (props.timeline[candidate]!.epoch <= props.now) index = candidate
-    return index / (props.timeline.length - 1) * 100
+    return positionAtEpoch(Math.max(timelineStart(), Math.min(timelineEnd(), props.now)))
   })
   const hoverData = createMemo(() => {
     const index = hovered()
@@ -64,8 +69,24 @@ export default function HistogramScrubber(props: Props) {
   function pointerPosition(event: PointerEvent): { cursor: number; index: number } {
     const bounds = plotElement.getBoundingClientRect()
     const fraction = bounds.width ? Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)) : 0
-    const cursor = fraction * Math.max(0, props.timeline.length - 1)
+    const cursor = cursorAtEpoch(timelineStart() + fraction * timelineSpan())
     return { cursor, index: Math.round(cursor) }
+  }
+
+  function cursorAtEpoch(epoch: number): number {
+    const blend = frameBlend(props.timeline, epoch)
+    return blend.left + (blend.right - blend.left) * blend.mix
+  }
+
+  function epochAtCursor(cursor: number): number {
+    if (!props.timeline.length) return 0
+    const lower = Math.max(0, Math.min(props.timeline.length - 1, Math.floor(cursor)))
+    const upper = Math.min(props.timeline.length - 1, Math.ceil(cursor))
+    return props.timeline[lower]!.epoch + (props.timeline[upper]!.epoch - props.timeline[lower]!.epoch) * (cursor - lower)
+  }
+
+  function positionAtEpoch(epoch: number): number {
+    return (epoch - timelineStart()) / timelineSpan() * 100
   }
 
   function keyDown(event: KeyboardEvent): void {
@@ -164,8 +185,9 @@ export default function HistogramScrubber(props: Props) {
         <svg viewBox={`0 0 ${width} ${plotHeight}`} preserveAspectRatio="none" aria-hidden="true">
           <For each={bands()}>{(band) => <rect class={`rain-band ${band.key}`} x="0" y={band.top / 100 * plotHeight} width={width} height={band.height / 100 * plotHeight} />}</For>
           <For each={bars()}>{(bar) => <rect class="rain-bar" x={bar.x} y={bar.y} width={bar.width} height={plotHeight - bar.y} rx="1" />}</For>
-          <line class="cursor-line" x1={props.cursor / Math.max(1, props.timeline.length - 1) * width} x2={props.cursor / Math.max(1, props.timeline.length - 1) * width} y1="0" y2={plotHeight} />
+          <line class="cursor-line" x1={positionAtEpoch(epochAtCursor(props.cursor)) / 100 * width} x2={positionAtEpoch(epochAtCursor(props.cursor)) / 100 * width} y1="0" y2={plotHeight} />
         </svg>
+        <div class="hour-grid" aria-hidden="true"><For each={xTicks()}>{(tick) => <i style={{ left: `${tick.left}%` }} />}</For></div>
         <div class="band-labels" aria-hidden="true"><For each={bands()}>{(band) => <span class={band.key} style={{ top: `${band.top + band.height / 2}%` }}>{band.label}</span>}</For></div>
         <Show when={props.loading}>
           <div class="scrubber-placeholder" role="status">
@@ -177,10 +199,10 @@ export default function HistogramScrubber(props: Props) {
         <div class="now-line" style={{ left: `${nowPosition()}%` }}><span>Nu</span></div>
         <Show when={hoverData()?.frame}>{(frame) => <div
           class="chart-tooltip"
-          style={{ left: `${hoverData()!.index / Math.max(1, props.timeline.length - 1) * 100}%` }}
+          style={{ left: `${positionAtEpoch(frame().epoch)}%` }}
           role="status"
         ><strong>{formatRain(hoverData()!.value)}</strong><span>{new Date(frame().epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</span></div>}</Show>
-        <div class="x-axis" aria-hidden="true"><For each={xTicks()}>{(tick) => <span style={{ left: `${tick.left}%` }}>{new Date(tick.frame.epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</span>}</For></div>
+        <div class="x-axis" aria-hidden="true"><For each={xTicks()}>{(tick) => <span style={{ left: `${tick.left}%` }}>{new Date(tick.epoch).getHours()}u</span>}</For></div>
       </div>
     </div>
     <div class="regimes" aria-label="Databronzones">
