@@ -15,7 +15,7 @@ frontend. De manifest-werkset daalt daarmee van 21.904.585 B naar circa
 12.590.999 B. Op hetzelfde browserpad zou de volledige chunktransfer van
 17.768.318 B naar circa 8.454.732 B dalen.
 
-| gebruik | velden | oud | nieuw | gemeten chunks |
+| gebruik | velden | oud | nieuw | projectie op baseline |
 | --- | --- | ---: | ---: | ---: |
 | labels, tabel en particles | temperatuur, gevoel, U/V-wind | 2 km | 6 km | 1.456.146 B |
 | zon/pictogram | straling | 2 km | 8 km | 224.056 B |
@@ -25,6 +25,15 @@ Bewolking en vochtigheid zijn op expliciete PO-call geïntegreerde
 grootheden: het gemiddelde over de grotere schaal is daar het gewenste
 signaal, niet een inferieure benadering van een puntwaarde. Regen blijft
 ongewijzigd op 1 km.
+
+De implementatie is daarnaast met een nieuwe echte 11:00-AROME-run door de
+volledige daemon gevoerd. De zeven geproduceerde uurveldchunks zijn samen
+**1.880.357 B**; alle 12 chunks valideren met `mrf inspect`. Op die nieuwe
+weerwerkset mat het browserpad 6.841.689 B chunks passief en 6.976.263 B na
+124 frames scrubben, zonder browserfouten. Deze browsersommen zijn niet één op
+één met de nulmeting te vergelijken omdat ook alle vier regenbronnen en UV
+naar een nieuw tijdstip/weerbeeld opschoven; de uurveldvergelijking hierboven
+is wel corpusgelijk.
 
 ## Meetopzet
 
@@ -128,6 +137,23 @@ Voor de gekozen tussenstap 3× (6 km) zijn de label- en particlemetingen:
   Die verschillen zijn verwacht bij schaalintegratie. Regenachtige
   pictogrammen worden bovendien door regen, niet de bewolkingsklasse,
   bepaald.
+
+De impact op de daadwerkelijk afgeronde tabel-/labelpresentatie is daarmee:
+
+| uitvoer | voor/na gelijk op stadsankers | p95 waardeverschil |
+| --- | ---: | ---: |
+| temperatuurgetal | 85,2% | 0,3 °C |
+| gevoelstemperatuurgetal | 85,2% | 0,3 °C |
+| windrichting (8 streken) | 98,5% | 6,6° |
+| Beaufortklasse | 89,0% | — |
+| straling in stappen van 25 W/m² | 79,5% | 40 W/m² |
+| vochtigheid als heel percentage | 10,6% | 6,7 procentpunt |
+| droge bewolkingsklasse (<20 / <70 / ≥70%) | 83,0% | 44,9 procentpunt |
+
+Bij vochtigheid en bewolking is „gelijk aan de oude puntcel” nadrukkelijk
+geen kwaliteitsdoel: de nieuwe waarde is het door de PO gewenste
+gebiedsgemiddelde. De tabel laat juist zien dat dit een inhoudelijke
+schaalwijziging is en geen cosmetische bytehack.
 
 ## Dictionary en delta
 

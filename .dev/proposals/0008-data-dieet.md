@@ -28,6 +28,9 @@ methode en veldtabellen staan in `docs/data-dieet.md`.
   scrubben (97,0% passief);
 - veilige T2g-projectie op hetzelfde browserpad: circa 7,78 MB passief en
   8,45 MB na scrubben;
+- daemonreceipt op een volgende echte AROME-run: 1.880.357 B voor de zeven
+  uurvelden; browserpad 6.841.689 B chunks passief en 6.976.263 B na scrub,
+  zonder fouten (regen/UV waren eveneens naar een nieuw weerbeeld geschoven);
 - een dictionary tot 64 KiB, getraind op alle frames van zijn eigen chunk,
   vergroot het totale beeldpayload van 21.720.023 B naar 22.325.966 B:
   **−0,606 MB winst** oftewel +2,8%; per veld is de uitkomst +0,5…+7,9%;

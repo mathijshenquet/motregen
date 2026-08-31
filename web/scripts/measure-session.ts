@@ -15,6 +15,7 @@ const browser = await chromium.launch({
 })
 const context = await browser.newContext({ viewport: { width: 1280, height: 720 } })
 const page = await context.newPage()
+page.setDefaultTimeout(120_000)
 const errors: string[] = []
 page.on('console', (message) => { if (message.type() === 'error') errors.push(`console: ${message.text()}`) })
 page.on('pageerror', (error) => errors.push(`page: ${error.message}`))
