@@ -17,6 +17,11 @@ is; pas anders `nix/disko.nix` aan. De installatie wist die hele schijf:
 ssh ubuntu@57.129.47.17 'lsblk -o NAME,SIZE,TYPE,MOUNTPOINTS'
 ```
 
+De productieconfiguratie matcht de OVH-interface op MAC-adres
+`fa:16:3e:c7:02:3f`, gebruikt DHCP voor IPv4 en configureert het toegekende
+IPv6-adres en de on-link-gateway statisch. Controleer bij een vervangende VPS
+ook het MAC-adres en pas `nix/configuration.nix` zo nodig aan.
+
 `nixos-anywhere` ondersteunt de tijdelijke gebruiker `ubuntu` zodra die zonder
 wachtwoord `sudo` mag uitvoeren. Maak daarvoor via `sudo visudo` tijdelijk
 `/etc/sudoers.d/90-nixos-anywhere` met deze ene regel:
