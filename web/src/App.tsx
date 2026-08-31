@@ -67,9 +67,10 @@ export default function App() {
   const windUFrames = createMemo(() => windTimeline().map((frame) => frame.u))
   const windVFrames = createMemo(() => windTimeline().map((frame) => frame.v))
   const [cursor, setCursor] = createSignal(0)
-  const [playing, setPlaying] = createSignal(false)
+  const [playing, setPlaying] = createSignal(true)
   const [location, setLocation] = createSignal(defaultLocation)
   const [rainSeries, setRainSeries] = createSignal<Array<number | null>>([])
+  const [pointSeriesLoading, setPointSeriesLoading] = createSignal(true)
   const [uvSeries, setUvSeries] = createSignal<Array<number | null>>([])
   const [temperatureSeries, setTemperatureSeries] = createSignal<Array<number | null>>([])
   const [feelsLikeSeries, setFeelsLikeSeries] = createSignal<Array<number | null>>([])
@@ -457,6 +458,8 @@ export default function App() {
   async function updatePointSeries(point: { lng: number; lat: number }, label: string): Promise<void> {
     const request = ++pointRequest
     setStatus(`${label} · verwachting laden…`)
+    setPointSeriesLoading(true)
+    setRainSeries([])
     setUvSeries([])
     setTemperatureSeries([])
     setFeelsLikeSeries([])
@@ -485,8 +488,12 @@ export default function App() {
       setWindUSeries(windU)
       setWindVSeries(windV)
       setStatus(label)
+      setPointSeriesLoading(false)
     } catch {
-      if (request === pointRequest) setStatus(`${label} · verwachting kon niet worden geladen`)
+      if (request === pointRequest) {
+        setStatus(`${label} · verwachting kon niet worden geladen`)
+        setPointSeriesLoading(false)
+      }
     }
   }
 
@@ -594,6 +601,13 @@ export default function App() {
     </header>
     <section class="map-shell" aria-label="Regenkaart van Nederland">
       <div ref={mapElement} class="map" />
+      <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() }} style={splashStyle()} aria-hidden={mapReady()}>
+        <div class="map-splash-veil" />
+        <div class="map-splash-mark">
+          <img src="/droplet.svg" alt="" />
+          <strong>motregen.nl</strong>
+        </div>
+      </div>
       <LocationSearch onSelect={chooseSearch} />
       <Show when={hasBothTemperatures()}>
         <div class="temperature-switch" role="group" aria-label="Temperatuurlaag">
@@ -623,6 +637,7 @@ export default function App() {
         cursor={cursor()}
         now={manifest() ? Date.parse(manifest()!.now) : 0}
         playing={playing()}
+        loading={pointSeriesLoading()}
         locationLabel={status()}
         onCursor={setCursor}
         onPlaying={setPlaying}
@@ -666,13 +681,6 @@ export default function App() {
         </div>
       </section>
     </aside>
-    <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() }} style={splashStyle()} aria-hidden={mapReady()}>
-      <div class="map-splash-veil" />
-      <div class="map-splash-mark">
-        <img src="/droplet.svg" alt="" />
-        <strong>motregen.nl</strong>
-      </div>
-    </div>
   </main>
 }
 

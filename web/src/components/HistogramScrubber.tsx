@@ -9,6 +9,7 @@ interface Props {
   cursor: number
   now: number
   playing: boolean
+  loading: boolean
   locationLabel: string
   onCursor: (cursor: number) => void
   onPlaying: (playing: boolean) => void
@@ -21,8 +22,10 @@ export default function HistogramScrubber(props: Props) {
   let plotElement!: HTMLDivElement
   let pressedX: number | undefined
   let dragged = false
+  let pointerInside = false
+  let resumePlayback = false
   const [hovered, setHovered] = createSignal<number | null>(null)
-  const [hoverScrubbing, setHoverScrubbing] = createSignal(false)
+  const [hoverScrubbing, setHoverScrubbing] = createSignal(true)
   const selected = createMemo(() => props.timeline[Math.round(props.cursor)])
   const maximum = createMemo(() => rainChartMaximum(props.values))
   const y = (value: number) => plotHeight * (1 - rainChartPosition(value, maximum()))
@@ -66,13 +69,24 @@ export default function HistogramScrubber(props: Props) {
   }
 
   function keyDown(event: KeyboardEvent): void {
-    setHoverScrubbing(false)
     const last = Math.max(0, props.timeline.length - 1)
     const steps: Record<string, number> = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1, PageDown: -6, PageUp: 6 }
     if (event.key === 'Home') { event.preventDefault(); props.onCursor(0); return }
     if (event.key === 'End') { event.preventDefault(); props.onCursor(last); return }
     const step = steps[event.key]
     if (step) { event.preventDefault(); props.onCursor(Math.max(0, Math.min(last, props.cursor + step))) }
+  }
+
+  function pauseForPointerInteraction(): void {
+    if (resumePlayback || !props.playing) return
+    resumePlayback = true
+    props.onPlaying(false)
+  }
+
+  function resumeAfterPointerInteraction(): void {
+    if (!resumePlayback) return
+    resumePlayback = false
+    props.onPlaying(true)
   }
 
   return <section class="scrubber" aria-label="Regenverwachting en tijd">
@@ -95,12 +109,18 @@ export default function HistogramScrubber(props: Props) {
       aria-valuemin={0}
       aria-valuemax={Math.max(0, props.timeline.length - 1)}
       aria-valuenow={Math.round(props.cursor)}
+      aria-disabled={props.loading}
       aria-valuetext={selected() ? `${new Date(selected()!.epoch).toLocaleString('nl-NL')}, ${formatRain(props.values[Math.round(props.cursor)])}` : undefined}
       title={hoverScrubbing() ? 'Hover-scrubben · klik om hier te blijven' : 'Vast · klik voor hover of sleep om te scrubben'}
       onKeyDown={keyDown}
+      onPointerEnter={(event) => {
+        pointerInside = true
+        if (hoverScrubbing() && event.pointerType === 'mouse') pauseForPointerInteraction()
+      }}
       onPointerDown={(event) => {
         pressedX = event.clientX
         dragged = false
+        pauseForPointerInteraction()
         event.currentTarget.setPointerCapture(event.pointerId)
         const { index } = pointerPosition(event)
         setHovered(index)
@@ -116,14 +136,26 @@ export default function HistogramScrubber(props: Props) {
         const { cursor, index } = pointerPosition(event)
         setHovered(index)
         props.onCursor(cursor)
-        if (dragged) setHoverScrubbing(false)
-        else if (event.pointerType === 'mouse') setHoverScrubbing((value) => !value)
+        const nextHoverScrubbing = dragged
+          ? false
+          : event.pointerType === 'mouse' ? !hoverScrubbing() : hoverScrubbing()
+        setHoverScrubbing(nextHoverScrubbing)
+        if (!(nextHoverScrubbing && pointerInside && event.pointerType === 'mouse')) resumeAfterPointerInteraction()
         if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
         pressedX = undefined
         dragged = false
       }}
-      onPointerCancel={() => { pressedX = undefined; dragged = false }}
-      onPointerLeave={(event) => { if (!event.currentTarget.hasPointerCapture(event.pointerId)) setHovered(null) }}
+      onPointerCancel={(event) => {
+        pressedX = undefined
+        dragged = false
+        if (!(hoverScrubbing() && pointerInside && event.pointerType === 'mouse')) resumeAfterPointerInteraction()
+      }}
+      onPointerLeave={(event) => {
+        pointerInside = false
+        const captured = event.currentTarget.hasPointerCapture(event.pointerId)
+        if (!captured) setHovered(null)
+        if (!captured && hoverScrubbing() && event.pointerType === 'mouse') resumeAfterPointerInteraction()
+      }}
     >
       <div class="y-axis" aria-hidden="true">
         <For each={yTicks()}>{(tick) => <span style={{ top: `${tick.top}%` }}>{formatAxis(tick.value)}</span>}</For>
@@ -135,7 +167,13 @@ export default function HistogramScrubber(props: Props) {
           <line class="cursor-line" x1={props.cursor / Math.max(1, props.timeline.length - 1) * width} x2={props.cursor / Math.max(1, props.timeline.length - 1) * width} y1="0" y2={plotHeight} />
         </svg>
         <div class="band-labels" aria-hidden="true"><For each={bands()}>{(band) => <span class={band.key} style={{ top: `${band.top + band.height / 2}%` }}>{band.label}</span>}</For></div>
-        <Show when={!props.values.length}><span class="empty-graph">Kies een locatie voor de regengrafiek</span></Show>
+        <Show when={props.loading}>
+          <div class="scrubber-placeholder" role="status">
+            <div class="scrubber-placeholder-bars" aria-hidden="true"><For each={[26, 44, 31, 58, 76, 49, 67, 39, 55, 72, 46, 62]}>{(height) => <i style={{ height: `${height}%` }} />}</For></div>
+            <span>Regenverwachting laden…</span>
+          </div>
+        </Show>
+        <Show when={!props.loading && !props.values.length}><span class="empty-graph">Kies een locatie voor de regengrafiek</span></Show>
         <div class="now-line" style={{ left: `${nowPosition()}%` }}><span>Nu</span></div>
         <Show when={hoverData()?.frame}>{(frame) => <div
           class="chart-tooltip"
