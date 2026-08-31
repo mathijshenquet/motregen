@@ -19,6 +19,9 @@ naar een server verstuurd.
   alleen werkelijk overgedragen bytes; een cache-hit heeft nul bytes.
   Requests en bytes zijn uitgesplitst in manifest, chunks, tiles en overig.
 - **Manifestleeftijd** is `Date.now() - manifest.generated`.
+  De monitor neemt een geaccepteerde automatische manifestrefresh meteen over,
+  zodat een lang openstaande tab niet de leeftijd van zijn mountmoment blijft
+  rapporteren.
 
 De HUD opent met `?perf=1` of drie tikken binnen 700 ms op het logo. De knop
 `Kopieer JSON` kopieert de volledige actuele snapshot.

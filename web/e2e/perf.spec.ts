@@ -149,15 +149,18 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     const cursorTime = await page.locator('.cursor-time').textContent()
     const nowStyle = await page.locator('.now-line').getAttribute('style')
     const chunkRequestStart = await transferredDataRequests(page, '/data/chunks/')
+    const refreshStartedAt = performance.now()
     await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
 
     await expect.poll(() => page.locator('.now-line').getAttribute('style')).not.toBe(nowStyle)
+    const refreshMs = performance.now() - refreshStartedAt
     expect(await page.locator('.cursor-time').textContent()).toBe(cursorTime)
     await expect(scrubber).toHaveAttribute('data-load-stage', 'complete')
     await expect(page.locator('rect.rain-bar.pending')).toHaveCount(0)
     await page.waitForTimeout(100)
     if (!live) expect(await transferredDataRequests(page, '/data/chunks/') - chunkRequestStart).toBe(0)
     await page.unroute('**/data/manifest.json')
+    console.log(`${profile.label}: manifest visible-return refresh ${refreshMs.toFixed(1)} ms; unchanged chunk requests 0`)
   })
 
   await test.step('warm reload measures cache reuse', async () => {
