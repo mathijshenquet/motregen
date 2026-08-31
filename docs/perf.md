@@ -90,6 +90,13 @@ Het desktopbudget blijft dus bewust de strenge 0 B in plaats van de regressie
 met een ruimer budget te maskeren. Bij een toekomstige failure logt de suite
 de overgedragen chunk-URL en Resource Timing-bytevelden direct.
 
+De warmbyte-snapshot wordt pas gemaakt nadat TTFR is vastgelegd, autoplay via
+scrubberhover is gepauzeerd, de locatiereeks gereed is en het netwerk idle is.
+Voorheen viel de snapshot precies op TTFR; een range die enkele milliseconden
+later voltooide telde daardoor willekeurig wel of niet mee. TTFR zelf behoudt
+zijn oorspronkelijke eerste-rendermeetpunt, maar de cache-gate omvat nu de
+volledige warme startup.
+
 De warmbudgetten zijn gekalibreerd tijdens zowel normale hostbelasting als een
 load-average van 12 door gelijktijdige ingest. Daarbij werden uitschieters van
 1.285 ms desktop en 2.991 ms op 4G gezien; 1.500/3.500 ms blijft streng maar

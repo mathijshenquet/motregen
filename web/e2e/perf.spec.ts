@@ -77,7 +77,12 @@ test('user journey measures performance and cache behaviour', async ({ page, con
 
   await test.step('warm reload measures cache reuse', async () => {
     await page.goto('/?perf=1')
-    warm = await waitForTtfr(page)
+    await waitForTtfr(page)
+    const warmScrubber = page.getByRole('slider', { name: 'Tijd' })
+    await warmScrubber.hover()
+    await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor De Bilt$/)
+    await page.waitForLoadState('networkidle')
+    warm = await perfSnapshot(page)
     const warmChunkResources = await transferredResources(page, '/data/chunks/')
     if (warmChunkResources.length) console.log(`${profile.label}: warm chunk resources ${JSON.stringify(warmChunkResources)}`)
     if (!live) {
