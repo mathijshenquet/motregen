@@ -1,7 +1,6 @@
 # MIP-6: deploy — unattended NixOS op de OVH-VPS
 
-Status: draft (uitvoering alvast gestart op PO-verzoek: "laat maar alvast
-die nix inrichten"; open vragen §4 zijn bijstuurbaar tijdens de track)
+Status: accepted (PO, 2026-08-31)
 Auteur: orchestrator (fable), 2026-08-31
 
 ## 1. Het probleem
@@ -58,6 +57,19 @@ Alles in-repo als flake, zodat de hele machine één closure is:
 2. Monitoring v1: alleen restart-policies + manifest-versheid als
    healthcheck-endpoint (aanbevolen), of meteen externe alerting?
 
+## 5. Besluit (PO, 2026-08-31)
+
+- **Auto-upgrade direct van `main`**: ja — elke geverifieerde merge is
+  's nachts productie; de VM-test in `nix flake check` is de extra gordel.
+- **Alerting**: YAGNI — restart-policies + het smoke-script als timer
+  volstaan; externe alerting pas als er een reden is.
+- **NixOS-versie**: de installatie bleek op unstable te staan
+  (26.11-pre-pin); PO wil gewoon de stabiele release → nixpkgs-input om
+  naar **nixos-26.05** (uitgevoerd als T4-follow-up, met volledige
+  flake-check + VM-test vóór de switch).
+
 ## Changelog
 
 - 2026-08-31: draft; track T4 direct gestart op PO-go.
+- 2026-08-31: accepted; besluit §5 (main-deploy, geen alerting, stable
+  26.05).
