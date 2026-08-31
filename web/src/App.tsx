@@ -594,13 +594,6 @@ export default function App() {
     </header>
     <section class="map-shell" aria-label="Regenkaart van Nederland">
       <div ref={mapElement} class="map" />
-      <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() }} style={splashStyle()} aria-hidden={mapReady()}>
-        <div class="map-splash-veil" />
-        <div class="map-splash-mark">
-          <img src="/droplet.svg" alt="" />
-          <strong>motregen.nl</strong>
-        </div>
-      </div>
       <LocationSearch onSelect={chooseSearch} />
       <Show when={hasBothTemperatures()}>
         <div class="temperature-switch" role="group" aria-label="Temperatuurlaag">
@@ -673,6 +666,13 @@ export default function App() {
         </div>
       </section>
     </aside>
+    <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() }} style={splashStyle()} aria-hidden={mapReady()}>
+      <div class="map-splash-veil" />
+      <div class="map-splash-mark">
+        <img src="/droplet.svg" alt="" />
+        <strong>motregen.nl</strong>
+      </div>
+    </div>
   </main>
 }
 

@@ -101,9 +101,9 @@ button { color: inherit; cursor: pointer; }
 .map-shell { position: relative; min-height: 0; overflow: hidden; background: #c6dbe2; }
 .map { position: absolute; inset: 0; }
 .map-splash {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: 9;
+  z-index: 50;
   display: grid;
   place-items: center;
   overflow: hidden;
