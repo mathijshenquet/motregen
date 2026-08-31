@@ -6,6 +6,7 @@ import {
   WIND_TRAIL_FADE,
   WIND_TRAIL_OPACITY,
   windColor,
+  windZoomCompensation,
 } from './wind-layer'
 
 describe('wind trail presentation', () => {
@@ -30,5 +31,12 @@ describe('wind trail presentation', () => {
     expect(trailTargetSize(5000, 2500, 4096)).toEqual([4096, 2048])
     expect(particleCountForViewport(1_000, 1_000)).toBe(620)
     expect(particleCountForViewport(500, 500)).toBeLessThan(620)
+    expect(particleCountForViewport(1_000, 1_000, 1_200)).toBe(1_200)
+  })
+
+  it('cancels map zoom so equal wind keeps equal screen speed and trail length', () => {
+    expect(windZoomCompensation(6.4)).toBe(1)
+    expect(windZoomCompensation(7.4)).toBeCloseTo(0.5)
+    expect(windZoomCompensation(5.4)).toBeCloseTo(2)
   })
 })

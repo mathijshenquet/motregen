@@ -5,9 +5,25 @@ import type { Grid } from './contract'
 export const WIND_TRAIL_OPACITY = 0.6
 export const WIND_TRAIL_FADE = 0.955
 export const WIND_PARTICLES_PER_MEGAPIXEL = 620
-const SEGMENT_ALPHA = 0.95
+export const WIND_PARTICLE_OPACITY = 0.95
+export const WIND_REFERENCE_ZOOM = 6.4
+
+export interface WindTuning {
+  particlesPerMegapixel: number
+  particleOpacity: number
+  trailFade: number
+  trailOpacity: number
+}
+
+export const DEFAULT_WIND_TUNING: WindTuning = {
+  particlesPerMegapixel: WIND_PARTICLES_PER_MEGAPIXEL,
+  particleOpacity: WIND_PARTICLE_OPACITY,
+  trailFade: WIND_TRAIL_FADE,
+  trailOpacity: WIND_TRAIL_OPACITY,
+}
+
 const MIN_PARTICLES = 96
-const MAX_PARTICLES = 1_100
+const MAX_PARTICLES = 2_400
 const ADVECTION_SCALE = 7_000
 const MAX_AGE = 150
 const MERCATOR_SCALE = 1 / (2 * Math.PI * 6_378_137)
@@ -118,9 +134,11 @@ export class WindLayer implements CustomLayerInterface {
   private frameTotal = 0
   private frameCount = 0
   private particleBounds: ParticleBounds = { west: 0, north: 0, east: 1, south: 1 }
+  private tuning: WindTuning
   private readonly viewportChanged = () => this.resetViewport()
 
-  constructor(private readonly grid: Grid, private readonly theme: MapTheme) {
+  constructor(private readonly grid: Grid, private readonly theme: MapTheme, tuning: WindTuning = DEFAULT_WIND_TUNING) {
+    this.tuning = { ...tuning }
     for (let index = 0; index < MAX_PARTICLES; index++) this.respawn(index)
   }
 
@@ -170,6 +188,17 @@ export class WindLayer implements CustomLayerInterface {
     this.mix = mix
   }
 
+  setTuning(tuning: WindTuning): void {
+    this.tuning = { ...tuning }
+    if (!this.map) return
+    const canvas = this.map.getCanvas()
+    this.target = particleCountForViewport(canvas.clientWidth, canvas.clientHeight, tuning.particlesPerMegapixel)
+    this.active = this.target
+    for (let index = 0; index < this.active; index++) this.respawn(index)
+    if (this.gl && this.trails) clearTrails(this.gl, this.trails, this.trailWidth, this.trailHeight)
+    this.map.triggerRepaint()
+  }
+
   render(context: WebGLRenderingContext | WebGL2RenderingContext, options: CustomRenderMethodInput): void {
     const gl = context as WebGL2RenderingContext
     this.ensureTrailTargets()
@@ -217,7 +246,7 @@ export class WindLayer implements CustomLayerInterface {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, texture)
     gl.uniform1i(this.fadeTrailLocation!, 0)
-    gl.uniform1f(this.fadeFactorLocation!, WIND_TRAIL_FADE)
+    gl.uniform1f(this.fadeFactorLocation!, this.tuning.trailFade)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   }
 
@@ -243,13 +272,14 @@ export class WindLayer implements CustomLayerInterface {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, texture)
     gl.uniform1i(this.compositeTrailLocation!, 0)
-    gl.uniform1f(this.compositeOpacityLocation!, WIND_TRAIL_OPACITY)
+    gl.uniform1f(this.compositeOpacityLocation!, this.tuning.trailOpacity)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   }
 
   private advance(seconds: number): void {
     const cellWidth = Math.abs(this.grid.dx) * this.grid.width
     const cellHeight = Math.abs(this.grid.dy) * this.grid.height
+    const advectionScale = ADVECTION_SCALE * windZoomCompensation(this.map?.getZoom() ?? WIND_REFERENCE_ZOOM)
     const leftFrame = this.left!
     const rightFrame = this.right!
     for (let index = 0; index < this.active; index++) {
@@ -261,8 +291,8 @@ export class WindLayer implements CustomLayerInterface {
       const east = leftFrame[vectorOffset]! * (1 - this.mix) + rightFrame[vectorOffset]! * this.mix
       const north = leftFrame[vectorOffset + 1]! * (1 - this.mix) + rightFrame[vectorOffset + 1]! * this.mix
       const invalid = !Number.isFinite(east) || !Number.isFinite(north)
-      const nextX = oldX + east * seconds * ADVECTION_SCALE / cellWidth
-      const nextY = oldY - north * seconds * ADVECTION_SCALE / cellHeight
+      const nextX = oldX + east * seconds * advectionScale / cellWidth
+      const nextY = oldY - north * seconds * advectionScale / cellHeight
       if (invalid || nextX < this.particleBounds.west || nextX > this.particleBounds.east ||
         nextY < this.particleBounds.north || nextY > this.particleBounds.south || ++this.age[index]! > MAX_AGE) {
         this.respawn(index)
@@ -276,7 +306,7 @@ export class WindLayer implements CustomLayerInterface {
       const oldMercatorY = 0.5 - (this.grid.y0 + this.grid.dy * this.grid.height * oldY) * MERCATOR_SCALE
       const nextMercatorX = 0.5 + (this.grid.x0 + this.grid.dx * this.grid.width * nextX) * MERCATOR_SCALE
       const nextMercatorY = 0.5 - (this.grid.y0 + this.grid.dy * this.grid.height * nextY) * MERCATOR_SCALE
-      writeParticle(this.vertices, index * 12, oldMercatorX, oldMercatorY, nextMercatorX, nextMercatorY, Math.hypot(east, north), this.theme, this.color)
+      writeParticle(this.vertices, index * 12, oldMercatorX, oldMercatorY, nextMercatorX, nextMercatorY, Math.hypot(east, north), this.theme, this.tuning.particleOpacity, this.color)
     }
   }
 
@@ -302,7 +332,7 @@ export class WindLayer implements CustomLayerInterface {
     this.ensureTrailTargets()
     this.particleBounds = particleBounds(this.map, this.grid)
     const canvas = this.map.getCanvas()
-    this.target = particleCountForViewport(canvas.clientWidth, canvas.clientHeight)
+    this.target = particleCountForViewport(canvas.clientWidth, canvas.clientHeight, this.tuning.particlesPerMegapixel)
     this.active = this.target
     for (let index = 0; index < MAX_PARTICLES; index++) this.respawn(index)
     if (this.gl && this.trails) clearTrails(this.gl, this.trails, this.trailWidth, this.trailHeight)
@@ -347,9 +377,13 @@ export function trailTargetSize(canvasWidth: number, canvasHeight: number, maxTe
   return [Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale))]
 }
 
-export function particleCountForViewport(width: number, height: number): number {
-  const count = Math.round(Math.max(0, width) * Math.max(0, height) / 1_000_000 * WIND_PARTICLES_PER_MEGAPIXEL)
+export function particleCountForViewport(width: number, height: number, particlesPerMegapixel = WIND_PARTICLES_PER_MEGAPIXEL): number {
+  const count = Math.round(Math.max(0, width) * Math.max(0, height) / 1_000_000 * particlesPerMegapixel)
   return Math.max(MIN_PARTICLES, Math.min(MAX_PARTICLES, count))
+}
+
+export function windZoomCompensation(zoom: number): number {
+  return 2 ** (WIND_REFERENCE_ZOOM - zoom)
 }
 
 function setWindColor(speed: number, theme: MapTheme, color: Float32Array): void {
@@ -366,20 +400,20 @@ function setWindColor(speed: number, theme: MapTheme, color: Float32Array): void
   color[2] = (left[2] + (right[2] - left[2]) * mix) / 255
 }
 
-function writeParticle(vertices: Float32Array, offset: number, oldX: number, oldY: number, nextX: number, nextY: number, speed: number, theme: MapTheme, color: Float32Array): void {
+function writeParticle(vertices: Float32Array, offset: number, oldX: number, oldY: number, nextX: number, nextY: number, speed: number, theme: MapTheme, opacity: number, color: Float32Array): void {
   setWindColor(speed, theme, color)
   vertices[offset] = oldX
   vertices[offset + 1] = oldY
   vertices[offset + 2] = color[0]!
   vertices[offset + 3] = color[1]!
   vertices[offset + 4] = color[2]!
-  vertices[offset + 5] = SEGMENT_ALPHA
+  vertices[offset + 5] = opacity
   vertices[offset + 6] = nextX
   vertices[offset + 7] = nextY
   vertices[offset + 8] = color[0]!
   vertices[offset + 9] = color[1]!
   vertices[offset + 10] = color[2]!
-  vertices[offset + 11] = SEGMENT_ALPHA
+  vertices[offset + 11] = opacity
 }
 
 function createTrailTarget(gl: WebGL2RenderingContext, width: number, height: number): TrailTarget {

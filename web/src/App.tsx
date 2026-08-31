@@ -19,7 +19,7 @@ import { temperatureLabels, type TemperatureFeatureCollection } from './core/tem
 import { buildTimeline, frameBlend, seriesValueAt } from './core/time-model'
 import { uvAdvice } from './core/uv'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
-import { WindLayer } from './core/wind-layer'
+import { DEFAULT_WIND_TUNING, WindLayer, type WindTuning } from './core/wind-layer'
 import { deriveWeatherIcon, summarizeWind } from './core/weather'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
@@ -77,6 +77,7 @@ export default function App() {
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
   const [temperatureField, setTemperatureField] = createSignal<TemperatureField>('feels_like_c')
+  const [windTuning, setWindTuning] = createSignal<WindTuning>({ ...DEFAULT_WIND_TUNING })
   const [systemDark, setSystemDark] = createSignal(media.matches)
   const mapTheme = createMemo<MapTheme>(() => theme() === 'system' ? systemDark() ? 'dark' : 'light' : theme() as MapTheme)
 
@@ -132,6 +133,8 @@ export default function App() {
     if (map && effective !== appliedMapTheme) void applyMapTheme(effective)
   })
 
+  createEffect(() => windLayer?.setTuning(windTuning()))
+
   createEffect(() => {
     const epoch = selectedEpoch()
     temperatureField()
@@ -179,7 +182,7 @@ export default function App() {
       dayNightLayer.setEpoch(selectedEpoch())
     }
     if (windGrid && windTimeline().length) {
-      windLayer = new WindLayer(windGrid, mapTheme())
+      windLayer = new WindLayer(windGrid, mapTheme(), windTuning())
       map.addLayer(windLayer)
     }
     layer = new RainLayer(grid)
@@ -511,6 +514,10 @@ export default function App() {
     setTheme((current) => themes[(themes.indexOf(current) + 1) % themes.length]!)
   }
 
+  function tuneWind<Key extends keyof WindTuning>(key: Key, value: WindTuning[Key]): void {
+    setWindTuning((current) => ({ ...current, [key]: value }))
+  }
+
   const forecast = createMemo(() => buildHourlyForecast({
     rain: timeline(),
     uv: uvTimeline(),
@@ -562,6 +569,15 @@ export default function App() {
           <button classList={{ active: temperatureField() === 'temp_c' }} onClick={() => setTemperatureField('temp_c')}>Temperatuur</button>
           <button classList={{ active: temperatureField() === 'feels_like_c' }} onClick={() => setTemperatureField('feels_like_c')}>Gevoel</button>
         </div>
+      </Show>
+      <Show when={windTimeline().length}>
+        <details class="wind-debug" open>
+          <summary>Wind debug</summary>
+          <label><span>Dichtheid</span><input type="range" min="100" max="1600" step="20" value={windTuning().particlesPerMegapixel} onInput={(event) => tuneWind('particlesPerMegapixel', event.currentTarget.valueAsNumber)} /><output>{windTuning().particlesPerMegapixel}</output></label>
+          <label><span>Deeltjes</span><input type="range" min="0.1" max="1" step="0.05" value={windTuning().particleOpacity} onInput={(event) => tuneWind('particleOpacity', event.currentTarget.valueAsNumber)} /><output>{windTuning().particleOpacity.toFixed(2)}</output></label>
+          <label><span>Trailduur</span><input type="range" min="0.9" max="0.99" step="0.001" value={windTuning().trailFade} onInput={(event) => tuneWind('trailFade', event.currentTarget.valueAsNumber)} /><output>{windTuning().trailFade.toFixed(3)}</output></label>
+          <label><span>Dekking</span><input type="range" min="0.1" max="1" step="0.05" value={windTuning().trailOpacity} onInput={(event) => tuneWind('trailOpacity', event.currentTarget.valueAsNumber)} /><output>{windTuning().trailOpacity.toFixed(2)}</output></label>
+        </details>
       </Show>
       <div class="source">Bron: KNMI · Kaart: OpenFreeMap</div>
     </section>

@@ -187,6 +187,27 @@ button { color: inherit; cursor: pointer; }
 }
 .temperature-switch button.active { color: var(--surface); background: var(--accent); }
 
+.wind-debug {
+  position: absolute;
+  top: 105px;
+  left: 12px;
+  z-index: 4;
+  width: min(260px, calc(100% - 72px));
+  padding: 8px 10px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  color: var(--text);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
+  font-size: 10px;
+  backdrop-filter: blur(8px);
+}
+.wind-debug summary { font-weight: 760; cursor: pointer; }
+.wind-debug[open] summary { margin-bottom: 7px; }
+.wind-debug label { display: grid; grid-template-columns: 58px minmax(0, 1fr) 38px; align-items: center; gap: 6px; min-height: 24px; }
+.wind-debug input { width: 100%; accent-color: var(--accent); }
+.wind-debug output { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+
 .dashboard { min-width: 0; background: var(--surface); }
 .current-weather {
   display: flex;
@@ -327,6 +348,7 @@ td small { color: var(--muted); font-size: 9px; }
   .forecast-panel { padding: 22px 24px 36px; }
   .search { top: 18px; left: 18px; right: auto; width: min(390px, calc(100% - 90px)); }
   .temperature-switch { top: 70px; left: 18px; }
+  .wind-debug { top: 112px; left: 18px; }
   .maplibregl-ctrl-top-right { top: 8px; right: 8px; }
   th { position: sticky; top: -1px; z-index: 1; background: var(--surface); }
 }
