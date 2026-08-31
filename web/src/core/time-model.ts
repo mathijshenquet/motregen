@@ -23,6 +23,7 @@ export function buildTimeline(manifest: Manifest, field: Field = 'rain_rate'): T
 
 export function frameBlend(timeline: TimelineFrame[], epoch: number): { left: number; right: number; mix: number } {
   if (timeline.length === 0) return { left: 0, right: 0, mix: 0 }
+  if (!Number.isFinite(epoch)) return { left: 0, right: 0, mix: 0 }
   if (epoch <= timeline[0]!.epoch) return { left: 0, right: 0, mix: 0 }
   const last = timeline.length - 1
   if (epoch >= timeline[last]!.epoch) return { left: last, right: last, mix: 0 }
@@ -30,6 +31,19 @@ export function frameBlend(timeline: TimelineFrame[], epoch: number): { left: nu
   while (timeline[right]!.epoch < epoch) right++
   const left = right - 1
   return { left, right, mix: (epoch - timeline[left]!.epoch) / (timeline[right]!.epoch - timeline[left]!.epoch) }
+}
+
+export function timelineEpochAtCursor(timeline: TimelineFrame[], cursor: number): number {
+  if (!timeline.length) return 0
+  const bounded = Number.isFinite(cursor) ? Math.max(0, Math.min(timeline.length - 1, cursor)) : 0
+  const lower = Math.floor(bounded)
+  const upper = Math.ceil(bounded)
+  return timeline[lower]!.epoch + (timeline[upper]!.epoch - timeline[lower]!.epoch) * (bounded - lower)
+}
+
+export function timelineCursorAtEpoch(timeline: TimelineFrame[], epoch: number): number {
+  const blend = frameBlend(timeline, epoch)
+  return blend.left + (blend.right - blend.left) * blend.mix
 }
 
 export function seriesValueAt(

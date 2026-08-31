@@ -18,7 +18,7 @@ import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedP
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
 import { solarElevationSin } from './core/solar'
 import { temperatureLabels, type TemperatureFeatureCollection } from './core/temperature'
-import { buildTimeline, frameBlend, seriesValueAt } from './core/time-model'
+import { buildTimeline, frameBlend, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor } from './core/time-model'
 import { uvAdvice } from './core/uv'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
 import { DEFAULT_WIND_TUNING, WindLayer, type WindTuning } from './core/wind-layer'
@@ -202,9 +202,8 @@ export default function App() {
         const lastEpoch = frames.at(-1)!.epoch
         const epoch = timelineEpochAtCursor(frames, value)
         const nextEpoch = epoch + elapsed * (lastEpoch - firstEpoch) / ((frames.length - 1) * 650)
-        if (nextEpoch >= lastEpoch) return 0
-        const blend = frameBlend(frames, nextEpoch)
-        return blend.left + (blend.right - blend.left) * blend.mix
+        if (!Number.isFinite(nextEpoch) || nextEpoch >= lastEpoch) return 0
+        return timelineCursorAtEpoch(frames, nextEpoch)
       })
       animation = requestAnimationFrame(tick)
     }
@@ -827,13 +826,6 @@ export default function App() {
 function storedTheme(): ThemeChoice {
   const stored = localStorage.getItem('motregen-theme')
   return stored === 'light' || stored === 'system' || stored === 'dark' ? stored : 'light'
-}
-
-function timelineEpochAtCursor(frames: TimelineFrame[], cursor: number): number {
-  if (!frames.length) return 0
-  const lower = Math.max(0, Math.min(frames.length - 1, Math.floor(cursor)))
-  const upper = Math.min(frames.length - 1, Math.ceil(cursor))
-  return frames[lower]!.epoch + (frames[upper]!.epoch - frames[lower]!.epoch) * (cursor - lower)
 }
 
 function storedSplashSlowdown(): number {

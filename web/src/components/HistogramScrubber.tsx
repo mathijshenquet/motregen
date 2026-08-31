@@ -1,7 +1,7 @@
 import { createMemo, createSignal, For, Show } from 'solid-js'
 import type { TimelineFrame } from '../core/contract'
 import { RAIN_BANDS, rainChartMaximum, rainChartPosition } from '../core/rain-chart'
-import { frameBlend, timelineZones } from '../core/time-model'
+import { timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
 
 interface Props {
   timeline: TimelineFrame[]
@@ -69,20 +69,8 @@ export default function HistogramScrubber(props: Props) {
   function pointerPosition(event: PointerEvent): { cursor: number; index: number } {
     const bounds = plotElement.getBoundingClientRect()
     const fraction = bounds.width ? Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)) : 0
-    const cursor = cursorAtEpoch(timelineStart() + fraction * timelineSpan())
+    const cursor = timelineCursorAtEpoch(props.timeline, timelineStart() + fraction * timelineSpan())
     return { cursor, index: Math.round(cursor) }
-  }
-
-  function cursorAtEpoch(epoch: number): number {
-    const blend = frameBlend(props.timeline, epoch)
-    return blend.left + (blend.right - blend.left) * blend.mix
-  }
-
-  function epochAtCursor(cursor: number): number {
-    if (!props.timeline.length) return 0
-    const lower = Math.max(0, Math.min(props.timeline.length - 1, Math.floor(cursor)))
-    const upper = Math.min(props.timeline.length - 1, Math.ceil(cursor))
-    return props.timeline[lower]!.epoch + (props.timeline[upper]!.epoch - props.timeline[lower]!.epoch) * (cursor - lower)
   }
 
   function positionAtEpoch(epoch: number): number {
@@ -185,7 +173,7 @@ export default function HistogramScrubber(props: Props) {
         <svg viewBox={`0 0 ${width} ${plotHeight}`} preserveAspectRatio="none" aria-hidden="true">
           <For each={bands()}>{(band) => <rect class={`rain-band ${band.key}`} x="0" y={band.top / 100 * plotHeight} width={width} height={band.height / 100 * plotHeight} />}</For>
           <For each={bars()}>{(bar) => <rect class="rain-bar" x={bar.x} y={bar.y} width={bar.width} height={plotHeight - bar.y} rx="1" />}</For>
-          <line class="cursor-line" x1={positionAtEpoch(epochAtCursor(props.cursor)) / 100 * width} x2={positionAtEpoch(epochAtCursor(props.cursor)) / 100 * width} y1="0" y2={plotHeight} />
+          <line class="cursor-line" x1={positionAtEpoch(timelineEpochAtCursor(props.timeline, props.cursor)) / 100 * width} x2={positionAtEpoch(timelineEpochAtCursor(props.timeline, props.cursor)) / 100 * width} y1="0" y2={plotHeight} />
         </svg>
         <div class="hour-grid" aria-hidden="true"><For each={xTicks()}>{(tick) => <i style={{ left: `${tick.left}%` }} />}</For></div>
         <div class="band-labels" aria-hidden="true"><For each={bands()}>{(band) => <span class={band.key} style={{ top: `${band.top + band.height / 2}%` }}>{band.label}</span>}</For></div>
