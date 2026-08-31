@@ -49,7 +49,7 @@ export default function HistogramScrubber(props: Props) {
     const bottom = y(band.minimum)
     return { ...band, top: top / plotHeight * 100, height: Math.max(0, bottom - top) / plotHeight * 100 }
   }))
-  const yTicks = createMemo(() => [...new Set([0, 0.1, 2.5, 7.5, maximum()])].map((value) => ({ value, top: y(value) / plotHeight * 100 })))
+  const yTicks = createMemo(() => [...new Set([0, 2.5, 7.5, maximum()])].map((value) => ({ value, top: y(value) / plotHeight * 100 })))
   const xTicks = createMemo(() => {
     if (!props.timeline.length) return []
     const hour = 3_600_000

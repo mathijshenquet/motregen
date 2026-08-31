@@ -374,9 +374,8 @@ button { color: inherit; cursor: pointer; }
 .y-axis span:first-child { transform: translateY(-100%); }
 .chart-plot { position: absolute; top: 10px; right: 8px; bottom: 32px; left: 45px; }
 .chart-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.rain-band.dry { fill: color-mix(in srgb, var(--muted) 10%, transparent); }
-.rain-band.light { fill: color-mix(in srgb, #36b7e8 27%, transparent); }
-.rain-band.moderate { fill: color-mix(in srgb, #27c58a 26%, transparent); }
+.rain-band.light { fill: color-mix(in srgb, var(--muted) 20%, transparent); }
+.rain-band.moderate { fill: color-mix(in srgb, #278fd7 29%, transparent); }
 .rain-band.heavy { fill: color-mix(in srgb, #e14f67 27%, transparent); }
 .rain-bar { fill: var(--accent-bright); opacity: .72; }
 .cursor-line { stroke: var(--text); stroke-width: 2; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 2px var(--surface)); }
@@ -384,8 +383,8 @@ button { color: inherit; cursor: pointer; }
 .hour-grid i { position: absolute; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--line-strong) 48%, transparent); }
 .band-labels { position: absolute; inset: 0; color: var(--muted); font-size: 8px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; pointer-events: none; }
 .band-labels span { position: absolute; right: 5px; transform: translateY(-50%); opacity: .72; }
-.band-labels .light { color: color-mix(in srgb, #159bc8 76%, var(--text)); }
-.band-labels .moderate { color: color-mix(in srgb, #159b68 78%, var(--text)); }
+.band-labels .light { color: color-mix(in srgb, var(--muted) 74%, var(--text)); }
+.band-labels .moderate { color: color-mix(in srgb, #278fd7 78%, var(--text)); }
 .band-labels .heavy { color: color-mix(in srgb, #d13e59 78%, var(--text)); }
 .empty-graph { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 12px; pointer-events: none; }
 .scrubber-placeholder { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; overflow: hidden; color: var(--muted); background: color-mix(in srgb, var(--surface-soft) 92%, transparent); font-size: 11px; font-weight: 700; pointer-events: none; }
