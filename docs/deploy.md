@@ -34,8 +34,12 @@ Controleer dit met `ssh ubuntu@57.129.47.17 'sudo -n true'` en installeer daarna
 vanuit deze repository:
 
 ```sh
-nix run github:nix-community/nixos-anywhere -- --copy-host-keys --flake .#motregen ubuntu@57.129.47.17
+nix run github:nix-community/nixos-anywhere -- --copy-host-keys --kexec-extra-flags '--kexec-syscall' --flake .#motregen ubuntu@57.129.47.17
 ```
+
+De OVH Ubuntu 26.04-kernel retourneert `Address not available` voor
+`kexec_file_load`. `--kexec-syscall` dwingt daarom de compatibele
+`kexec_load`-route af die op deze VPS is bewezen.
 
 Na de installatie is root uitsluitend met de twee gecommitteerde publieke
 sleutels bereikbaar. De installatie wist ook de tijdelijke Ubuntu-configuratie
