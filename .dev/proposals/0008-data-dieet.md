@@ -106,10 +106,43 @@ een PO-smaaktest doen op onmiddellijk compleet histogram versus current-first.
 
 1. Dictionary sluiten op basis van de negatieve meting? Aanbeveling: ja.
 2. Intra-only uit MIP-2 handhaven? Aanbeveling: ja.
-3. Na livegang van T2g een current-first prototype laten maken, of de
-   resterende bytes accepteren voor een onmiddellijk complete regenlijn?
-   Aanbeveling: eerst de nieuwe live baseline bekijken.
+3. Progressief laden (optie C) bouwen? — de PO heeft aangegeven dit te
+   willen tackelen; §7 is het bouwontwerp. Formele adoptie bij de start.
+
+## 7. Ontwerp progressief laden (voor de uitvoerende track)
+
+Motivatie in eindgebruikerstermen (T5b-metingen, pre-dieet): de volle
+sessie kostte 47 s op 4G en 142 s op Fast-3G; na T2g nog altijd ~16/48 s.
+Progressief laden haalt die kosten uit het kritieke pad: openen wordt
+licht, de rest komt wanneer het er niet toe doet.
+
+**Drie lagen, elk met een expliciet doelbudget:**
+
+- **L0 — direct (doel ≤ ~1,5 MB):** manifest + chunk-headers, het
+  regenframepaar rond "nu" (bewegend beeld via de bestaande blending),
+  actueel temperatuur-/windpaar en de volledige uurvelden voor tabel en
+  labels (na T2g samen ~1,9 MB incl. regenvenster). TTFR verandert niet.
+- **L1 — achtergrond, lage prioriteit (idle callback):** het zichtbare
+  histogramvenster rond nu (bijv. −1 u…+2 u) zodat de regenlijn zich
+  zichtbaar en eerlijk opbouwt — een skeleton dat invult, geen verzonnen
+  data en geen verborgen volledige fetch.
+- **L2 — bij intentie of diepe idle:** de volledige reeks; triggers:
+  pointer/touch op de scrubber, play (met prefetch-ahead-venster zodat
+  afspelen nooit op het netwerk wacht), of ruime idle.
+
+**Harde eisen (regressiebewaking):** chunk-coalescing blijft (geen
+requeststorm bij eerste scrub — het HAR-trauma), tweede locatieklik blijft
+0 requests, scrub naar nog niet geladen gebied toont het laatste bekende
+frame zonder jank en fetcht gericht. De e2e-suite splitst de passieve
+meting van de scrub-meting en krijgt een passief-budget ≤ 3 MB; de
+mobiele profielen meten de nieuwe tijd-tot-compleet.
+
+**Smaaktest in de track:** twee varianten achter een toggle voor de PO —
+histogram als invullend skeleton vs. wachten-tot-compleet — beslist op
+zicht, zoals bij lijn-vs-staaf.
 
 ## Changelog
 
 - 2026-08-31: draft op basis van de T2g-livecorpus- en sessiemetingen.
+- 2026-08-31: §7 bouwontwerp progressief laden toegevoegd (PO: "we gaan
+  dit morgen tackelen"); §6.3 dienovereenkomstig aangescherpt.
