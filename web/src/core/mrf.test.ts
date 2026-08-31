@@ -215,4 +215,56 @@ describe('mrf v0', () => {
     await Promise.all([...chunks].map(([chunk, indexes]) => client.getFrames(chunk, indexes)))
     expect(fetchMock).not.toHaveBeenCalled()
   })
+
+  it('fills a series in many incremental steps while one coalesced range is still streaming', async () => {
+    class DecodeWorker {
+      onmessage?: (event: MessageEvent) => void
+      postMessage(message: { id: number; bytes: ArrayBuffer; expectedLength: number }): void {
+        const frame = decodeFrame(new Uint8Array(message.bytes), message.expectedLength)
+        queueMicrotask(() => this.onmessage?.({ data: { id: message.id, frame: frame.slice().buffer } } as MessageEvent))
+      }
+    }
+    vi.stubGlobal('Worker', DecodeWorker)
+    let streamPayload = false
+    let deliveredParts = 0
+    const partCount = 10
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(String(input))
+      const bytes = files.get(url.pathname.replace('/data/', ''))!
+      const match = /^bytes=(\d+)-(\d+)$/.exec(new Headers(init?.headers).get('Range')!)!
+      const selected = Uint8Array.from(bytes.subarray(Number(match[1]), Number(match[2]) + 1))
+      if (!streamPayload) return new Response(selected.buffer, { status: 206 })
+      const partLength = Math.ceil(selected.length / partCount)
+      let offset = 0
+      return new Response(new ReadableStream<Uint8Array>({
+        async pull(controller) {
+          await new Promise((resolve) => setTimeout(resolve, 1))
+          if (offset >= selected.length) { controller.close(); return }
+          const next = Math.min(selected.length, offset + partLength)
+          controller.enqueue(selected.slice(offset, next))
+          offset = next
+          deliveredParts++
+        },
+      }), { status: 206 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const chunk = manifest.chunks.find((candidate) => candidate.source === 'nowcast')!
+    const client = new MrfClient(new URL('https://example.test/data/manifest.json'))
+    const header = await client.getHeader(chunk)
+    fetchMock.mockClear()
+    streamPayload = true
+    const indexes = header.frames.map((_, index) => index)
+    const loaded = new Set<number>()
+    const steps: Array<{ loaded: number; deliveredParts: number }> = []
+
+    await client.getFrames(chunk, indexes, 'low', (index) => {
+      loaded.add(index)
+      steps.push({ loaded: loaded.size, deliveredParts })
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(new Set(steps.map((step) => step.loaded)).size).toBeGreaterThan(5)
+    expect(steps.some((step) => step.loaded < indexes.length && step.deliveredParts < partCount)).toBe(true)
+    expect(loaded.size).toBe(indexes.length)
+  })
 })
