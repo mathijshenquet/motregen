@@ -6,6 +6,7 @@ import {
   WIND_TRAIL_FADE,
   WIND_TRAIL_OPACITY,
   windColor,
+  windLineOffsets,
   windZoomCompensation,
 } from './wind-layer'
 
@@ -38,5 +39,11 @@ describe('wind trail presentation', () => {
     expect(windZoomCompensation(6.4)).toBe(1)
     expect(windZoomCompensation(7.4)).toBeCloseTo(0.5)
     expect(windZoomCompensation(5.4)).toBeCloseTo(2)
+  })
+
+  it('expands trail thickness in screen pixels', () => {
+    expect(windLineOffsets(1)).toEqual([[0, 0]])
+    expect(windLineOffsets(2)).toHaveLength(4)
+    expect(windLineOffsets(5)).toHaveLength(25)
   })
 })

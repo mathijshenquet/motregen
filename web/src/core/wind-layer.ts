@@ -9,7 +9,8 @@ export const WIND_PARTICLE_OPACITY = 0.95
 export const WIND_REFERENCE_ZOOM = 6.4
 
 export interface WindTuning {
-  brightness: number
+  visibility: number
+  thickness: number
   particlesPerMegapixel: number
   particleOpacity: number
   trailFade: number
@@ -17,7 +18,8 @@ export interface WindTuning {
 }
 
 export const DEFAULT_WIND_TUNING: WindTuning = {
-  brightness: 1,
+  visibility: 1,
+  thickness: 1,
   particlesPerMegapixel: WIND_PARTICLES_PER_MEGAPIXEL,
   particleOpacity: WIND_PARTICLE_OPACITY,
   trailFade: WIND_TRAIL_FADE,
@@ -36,25 +38,31 @@ const LIGHT_RAMP = [
 const DARK_RAMP = [
   [112, 194, 255], [68, 224, 231], [108, 225, 146], [255, 218, 92], [255, 147, 79], [244, 113, 201],
 ] as const
+const lineOffsetCache = new Map<number, ReadonlyArray<readonly [number, number]>>()
 
 const particleVertexSource = `#version 300 es
 in vec2 a_pos;
 in vec4 a_color;
 uniform mat4 u_matrix;
+uniform vec2 u_offset;
 out vec4 v_color;
 void main() {
-  gl_Position = u_matrix * vec4(a_pos, 0.0, 1.0);
+  vec4 position = u_matrix * vec4(a_pos, 0.0, 1.0);
+  position.xy += u_offset * position.w;
+  gl_Position = position;
   v_color = a_color;
 }`
 
 const particleFragmentSource = `#version 300 es
 precision mediump float;
 in vec4 v_color;
-uniform float u_brightness;
+uniform float u_visibility;
+uniform vec3 u_contrast;
 out vec4 color;
 void main() {
-  vec3 rgb = min(vec3(1.0), v_color.rgb * u_brightness);
-  color = vec4(rgb * v_color.a, v_color.a);
+  float alpha = v_color.a * min(u_visibility, 1.0);
+  vec3 rgb = mix(v_color.rgb, u_contrast, clamp((u_visibility - 1.0) * 0.5, 0.0, 1.0));
+  color = vec4(rgb * alpha, alpha);
 }`
 
 const fadeVertexSource = `#version 300 es
@@ -113,7 +121,9 @@ export class WindLayer implements CustomLayerInterface {
   private particlePositionLocation = -1
   private particleColorLocation = -1
   private particleMatrixLocation?: WebGLUniformLocation
-  private particleBrightnessLocation?: WebGLUniformLocation
+  private particleOffsetLocation?: WebGLUniformLocation
+  private particleVisibilityLocation?: WebGLUniformLocation
+  private particleContrastLocation?: WebGLUniformLocation
   private fadePositionLocation = -1
   private fadeTrailLocation?: WebGLUniformLocation
   private fadeFactorLocation?: WebGLUniformLocation
@@ -158,7 +168,9 @@ export class WindLayer implements CustomLayerInterface {
     this.particlePositionLocation = this.gl.getAttribLocation(this.particleProgram, 'a_pos')
     this.particleColorLocation = this.gl.getAttribLocation(this.particleProgram, 'a_color')
     this.particleMatrixLocation = this.gl.getUniformLocation(this.particleProgram, 'u_matrix')!
-    this.particleBrightnessLocation = this.gl.getUniformLocation(this.particleProgram, 'u_brightness')!
+    this.particleOffsetLocation = this.gl.getUniformLocation(this.particleProgram, 'u_offset')!
+    this.particleVisibilityLocation = this.gl.getUniformLocation(this.particleProgram, 'u_visibility')!
+    this.particleContrastLocation = this.gl.getUniformLocation(this.particleProgram, 'u_contrast')!
     this.fadePositionLocation = this.gl.getAttribLocation(this.fadeProgram, 'a_pos')
     this.fadeTrailLocation = this.gl.getUniformLocation(this.fadeProgram, 'u_trail')!
     this.fadeFactorLocation = this.gl.getUniformLocation(this.fadeProgram, 'u_fade')!
@@ -267,9 +279,14 @@ export class WindLayer implements CustomLayerInterface {
     gl.enableVertexAttribArray(this.particleColorLocation)
     gl.vertexAttribPointer(this.particleColorLocation, 4, gl.FLOAT, false, 24, 8)
     gl.uniformMatrix4fv(this.particleMatrixLocation!, false, options.defaultProjectionData.mainMatrix)
-    gl.uniform1f(this.particleBrightnessLocation!, this.tuning.brightness)
+    gl.uniform1f(this.particleVisibilityLocation!, this.tuning.visibility)
+    const contrast = this.theme === 'dark' ? 1 : 0
+    gl.uniform3f(this.particleContrastLocation!, contrast, contrast, contrast)
     gl.lineWidth(1)
-    gl.drawArrays(gl.LINES, 0, this.active * 2)
+    for (const [x, y] of windLineOffsets(this.tuning.thickness)) {
+      gl.uniform2f(this.particleOffsetLocation!, x * 2 / this.trailWidth, y * 2 / this.trailHeight)
+      gl.drawArrays(gl.LINES, 0, this.active * 2)
+    }
   }
 
   private drawComposite(gl: WebGL2RenderingContext, texture: WebGLTexture, options: CustomRenderMethodInput): void {
@@ -281,7 +298,7 @@ export class WindLayer implements CustomLayerInterface {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, texture)
     gl.uniform1i(this.compositeTrailLocation!, 0)
-    gl.uniform1f(this.compositeOpacityLocation!, this.tuning.trailOpacity)
+    gl.uniform1f(this.compositeOpacityLocation!, this.tuning.trailOpacity * Math.min(this.tuning.visibility, 1))
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   }
 
@@ -398,6 +415,19 @@ export function particleCountForViewport(width: number, height: number, particle
 
 export function windZoomCompensation(zoom: number): number {
   return 2 ** (WIND_REFERENCE_ZOOM - zoom)
+}
+
+export function windLineOffsets(thickness: number): ReadonlyArray<readonly [number, number]> {
+  const size = Math.max(1, Math.min(5, Math.round(thickness)))
+  const cached = lineOffsetCache.get(size)
+  if (cached) return cached
+  const start = -(size - 1) / 2
+  const offsets = Array.from({ length: size * size }, (_, index) => [
+    start + index % size,
+    start + Math.floor(index / size),
+  ] as const)
+  lineOffsetCache.set(size, offsets)
+  return offsets
 }
 
 function setWindColor(speed: number, theme: MapTheme, color: Float32Array): void {
