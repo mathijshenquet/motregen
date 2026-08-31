@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
-    "synthgen": "tsx scripts/synthgen.ts"
+    "synthgen": "tsx scripts/synthgen.ts",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "fzstd": "^0.1.1",
@@ -17,6 +18,7 @@
     "solid-js": "^1.9.9"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@solidjs/testing-library": "^0.8.10",
     "@tailwindcss/vite": "^4.1.13",
     "@types/node": "^24.5.2",

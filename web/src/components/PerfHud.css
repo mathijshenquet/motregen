@@ -1,0 +1,31 @@
+.perf-hud {
+  position: fixed;
+  right: max(8px, env(safe-area-inset-right));
+  bottom: max(8px, env(safe-area-inset-bottom));
+  z-index: 1000;
+  width: min(286px, calc(100vw - 16px));
+  padding: 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: var(--shadow);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  backdrop-filter: blur(10px);
+}
+
+.perf-title { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 7px; }
+.perf-title strong { font-size: 14px; }
+.perf-title span { color: var(--muted); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+.perf-hud dl { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 12px; margin: 0 0 8px; }
+.perf-hud dl div { min-width: 0; }
+.perf-hud dt { color: var(--muted); font-size: 9px; }
+.perf-hud dd { margin: 1px 0 0; font-weight: 700; white-space: nowrap; }
+.perf-hud table { width: 100%; margin-bottom: 8px; }
+.perf-hud th, .perf-hud td { position: static; padding: 2px 3px; border: 0; background: transparent; font-size: 9px; text-align: right; text-transform: none; }
+.perf-hud th:first-child { text-align: left; }
+.perf-hud thead th { color: var(--muted); font-weight: 600; }
+.perf-hud tbody th { color: var(--text); font-weight: 600; }
+.perf-hud button { width: 100%; padding: 6px 9px; border: 1px solid var(--line-strong); border-radius: 7px; color: var(--text); background: var(--surface-soft); font-size: 10px; font-weight: 700; }
+.perf-hud button:hover { border-color: var(--accent); background: var(--accent-soft); }

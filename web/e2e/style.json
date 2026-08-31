@@ -1,0 +1,12 @@
+{
+  "version": 8,
+  "name": "motregen-e2e",
+  "sources": {},
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": { "background-color": "#dcebed" }
+    }
+  ]
+}

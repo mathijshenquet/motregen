@@ -58,6 +58,7 @@ export class MrfClient {
   private readonly framePromises = new Map<string, Promise<Uint8Array>>()
   private readonly motions = new LruCache<string, MotionField>(256)
   private readonly motionPromises = new Map<string, Promise<MotionField>>()
+  private readonly payloadPromises = new Map<string, Promise<Uint8Array>>()
   private readonly pending = new Map<number, { resolve: (frame: Uint8Array) => void; reject: (error: Error) => void }>()
   private readonly worker = new Worker(new URL('./zstd.worker.ts', import.meta.url), { type: 'module' })
   private requestId = 0
@@ -95,7 +96,7 @@ export class MrfClient {
       return !this.frames.get(key) && !this.framePromises.has(key)
     })
 
-    if (missing.length && (uniqueIndexes.length > header.frames.length / 2 || uniqueIndexes.length >= 12)) {
+    if (missing.length && (uniqueIndexes.length > header.frames.length / 2 || uniqueIndexes.length >= 4)) {
       const batch = this.fetchChunkPayload(url, chunk, header, missing)
       for (const index of missing) this.trackFramePromise(frameKey(url, index), batch.then((frames) => frames.get(index)!))
     } else {
@@ -124,7 +125,10 @@ export class MrfClient {
     let pending = this.motionPromises.get(key)
     if (!pending) {
       pending = (async () => {
-        const compressed = await fetchRange(url, chunk.header_len + motion.offset, chunk.header_len + motion.offset + motion.len - 1)
+        const payload = this.payloadPromises.get(url)
+        const compressed = payload
+          ? (await payload).slice(motion.offset, motion.offset + motion.len)
+          : await fetchRange(url, chunk.header_len + motion.offset, chunk.header_len + motion.offset + motion.len - 1)
         const vectors = await this.decodeInWorker(compressed, header.motion_grid!.bw * header.motion_grid!.bh * 2)
         const field = { width: header.motion_grid!.bw, height: header.motion_grid!.bh, vectors }
         this.motions.set(key, field)
@@ -152,14 +156,21 @@ export class MrfClient {
     header: MrfHeader,
     indexes: number[],
   ): Promise<Map<number, Uint8Array>> {
-    const finalFrame = header.frames.at(-1)!
-    const payload = await fetchRange(url, chunk.header_len, chunk.header_len + finalFrame.offset + finalFrame.len - 1)
+    let payload = this.payloadPromises.get(url)
+    if (!payload) {
+      const finalOffset = Math.max(...header.frames.flatMap((frame) => [frame.offset + frame.len, frame.motion ? frame.motion.offset + frame.motion.len : 0]))
+      payload = fetchRange(url, chunk.header_len, chunk.header_len + finalOffset - 1)
+      this.payloadPromises.set(url, payload)
+      const clear = () => { if (this.payloadPromises.get(url) === payload) this.payloadPromises.delete(url) }
+      void payload.then(clear, clear)
+    }
+    const payloadBytes = await payload
     const decoded = await Promise.all(indexes.map(async (index) => {
       const frame = header.frames[index]!
-      const compressed = payload.slice(frame.offset, frame.offset + frame.len)
-      const bytes = await this.decodeInWorker(compressed, header.grid.width * header.grid.height)
-      this.frames.set(frameKey(url, index), bytes)
-      return [index, bytes] as const
+      const compressed = payloadBytes.slice(frame.offset, frame.offset + frame.len)
+      const decodedBytes = await this.decodeInWorker(compressed, header.grid.width * header.grid.height)
+      this.frames.set(frameKey(url, index), decodedBytes)
+      return [index, decodedBytes] as const
     }))
     return new Map(decoded)
   }
@@ -171,7 +182,7 @@ export class MrfClient {
   }
 
   prefetch(chunk: ManifestChunk, indexes: number[]): void {
-    for (const index of indexes) void this.getFrame(chunk, index).catch(() => undefined)
+    void this.getFrames(chunk, indexes).catch(() => undefined)
   }
 
   prefetchMotion(chunk: ManifestChunk, indexes: number[]): void {
