@@ -1,5 +1,34 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-08-31 (nacht) — t3k + T2h live: playbackbug weg, versheid ~100 s
+
+- **t3k gemerged + gedeployed** (`e65027d4`): sol loste de vier App.tsx-
+  conflicten op (t3j-temp-dodge behouden, lifecycle-harde `startFrameLoop`
+  wint van de oude globale rAF-lus, +3u-horizonpill erbij). Onafhankelijk
+  hergroen: typecheck 0, 91/91 tests, build 0, e2e 3/3 (desktop warm 0 B,
+  mobiel 5430 B binnen budget). Upgrade-journal bevestigt exact
+  `motregen/e65027d4`; live bundle bevat `[3,8,24]`+"Tijdsbereik". De
+  N×-playbacksnelheid-bug is daarmee van productie af.
+- **T2h gemerged + gedeployed** (`88b521c6`, draft-PR #25): incrementele
+  manifestpublicatie per bron (rtcor/nowcast/uv direct, seamless zodra
+  klaar), seamless via eigen 2-thread-pools van het kritieke pad, mediaan
+  op 2 cores 266 s → 32,6 s (8,16×; hoofdvondst: `mrf::quantize` herbouwde
+  de 256-entry-tabel ~81 M×/run → `LazyLock`; byte-identiek getest).
+  Onafhankelijk: cargo-workspace groen + `nix flake check -L` (VM-test)
+  op de gemergde tree — verplicht want Cargo.lock wijzigde (PR-#17-les).
+  Merge conflictvrij (ingest⊥web).
+- **Live versheidsreceipt**: 21:15:56Z → manifest generated 21:14:15Z met
+  rtcor-frame 21:10 erin = ~100 s publicatievertraging (was ~14 min).
+  Tweede datapoint na volgende radarcyclus gelogd in sessie.
+- Ops: SSH:22 naar de VPS opnieuw intermitterend gefilterd (meerdere
+  timeouts, retries raak); HTTPS via CF onverstoord. Ingest-rebuild op de
+  VPS duurde 7,4 min (Rust op 2 vCPU) — CI-closure-push blijft geparkeerd
+  in MIP-6 §5.
+- Open: PO-keuzes (prospect ronde A/B/C, skeleton-vs-wait, line-vs-bar,
+  mobiele GPU-check); backlog T2h-historical-observations, MQTT, day/night
+  v2, open-source-pass. T2h-worktree opgeruimd; t3g-pane blijft staan voor
+  PO-iteratie.
+
 ## 2026-08-31 (laat) — grote avondronde: t3g→t3l gemerged, prospect, T2h
 
 - MERGED (elk onafhankelijk geverifieerd, e2e in de gates): t3g (PO-ronde:
