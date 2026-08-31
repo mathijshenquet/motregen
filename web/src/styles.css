@@ -143,15 +143,16 @@ button { color: inherit; cursor: pointer; }
 .map-splash.ready .map-splash-mark strong { opacity: 0; }
 .source {
   position: absolute;
-  right: 7px;
-  bottom: 6px;
+  right: 2px;
+  bottom: 2px;
   z-index: 3;
-  padding: 4px 7px;
-  border-radius: 5px;
-  color: #edf8fc;
-  background: rgba(8, 21, 28, .75);
-  font-size: 10px;
-  backdrop-filter: blur(6px);
+  padding: 2px 4px;
+  border-radius: 3px 0 0;
+  color: rgba(237, 248, 252, .72);
+  background: rgba(8, 21, 28, .48);
+  font-size: 8px;
+  line-height: 1.2;
+  backdrop-filter: blur(4px);
 }
 
 .search {
