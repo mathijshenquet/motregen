@@ -81,6 +81,12 @@ spec/-harnas. Uitvoering: T2d (ingest-schatter + annex, na T2c) en T3f
 
 - 2026-08-28: draft.
 - 2026-08-28: accepted; besluit §5 toegevoegd.
+- 2026-08-31: bekende-naad-notitie (PO-melding op live): eerste frames van
+  een chunk hebben per contract geen motion-annex → crossfade-terugval op
+  bronovergangen (zichtbaar op "now"). Client-fix in T3h: dichtstbijzijnde
+  bewegingsveld in de tijd lenen met warp-cap. Als er restnaad blijft is de
+  ingest-optie een annex op frame 0 t.o.v. de tijdlijn-voorganger
+  (contract-amendement, aparte call).
 - 2026-08-31: amendement (PO-voorstel): de AROME-modelwind (velden
   `wind_u_ms`/`wind_v_ms`, al geïngest) wordt **gekalibreerde baseline**
   voor de motion-schatting. Nuance: 10m-wind ≠ stuurstroming (wrijving:
