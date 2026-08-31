@@ -1,7 +1,7 @@
 import type { MrfHeader } from './contract'
 import { solarElevationSin } from './solar'
 
-export const SUN_ICONS_ENABLED = true
+export const SUN_ICONS_ENABLED = false
 
 export const sunAnchors = [
   { name: 'Den Helder', lng: 4.76, lat: 52.96 },
