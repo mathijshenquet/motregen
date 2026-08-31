@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   particleCountForViewport,
+  trailUvTransform,
   trailTargetSize,
   WIND_PARTICLES_PER_MEGAPIXEL,
   WIND_TRAIL_FADE,
@@ -50,5 +51,14 @@ describe('wind trail presentation', () => {
       [-0.75, 0.75], [0, 0.75], [0.75, 0.75],
     ])
     expect(windLineOffsets(5)).toHaveLength(25)
+  })
+
+  it('reprojects accumulated trails with pan and zoom instead of pinning them to the viewport', () => {
+    const view = { centerX: 0.5, centerY: 0.5, zoom: 6, width: 512, height: 512 }
+    expect(trailUvTransform(view, view)).toEqual({ scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0 })
+    expect(trailUvTransform(view, { ...view, zoom: 7 })).toEqual({ scaleX: 0.5, scaleY: 0.5, offsetX: 0.25, offsetY: 0.25 })
+    const panned = trailUvTransform(view, { ...view, centerX: 0.51, centerY: 0.49 })
+    expect(panned.offsetX).toBeCloseTo(0.64)
+    expect(panned.offsetY).toBeCloseTo(0.64)
   })
 })

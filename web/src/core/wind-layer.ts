@@ -77,9 +77,15 @@ const fadeFragmentSource = `#version 300 es
 precision mediump float;
 uniform sampler2D u_trail;
 uniform float u_fade;
+uniform vec2 u_uv_scale;
+uniform vec2 u_uv_offset;
 in vec2 v_uv;
 out vec4 color;
-void main() { color = texture(u_trail, v_uv) * u_fade; }`
+void main() {
+  vec2 previousUv = v_uv * u_uv_scale + u_uv_offset;
+  float inside = step(0.0, previousUv.x) * step(previousUv.x, 1.0) * step(0.0, previousUv.y) * step(previousUv.y, 1.0);
+  color = texture(u_trail, clamp(previousUv, vec2(0.0), vec2(1.0))) * u_fade * inside;
+}`
 
 const compositeVertexSource = `#version 300 es
 in vec2 a_pos;
@@ -109,6 +115,14 @@ interface ParticleBounds {
   south: number
 }
 
+export interface TrailView {
+  centerX: number
+  centerY: number
+  zoom: number
+  width: number
+  height: number
+}
+
 export class WindLayer implements CustomLayerInterface {
   readonly id = 'motregen-wind'
   readonly type = 'custom' as const
@@ -127,6 +141,8 @@ export class WindLayer implements CustomLayerInterface {
   private fadePositionLocation = -1
   private fadeTrailLocation?: WebGLUniformLocation
   private fadeFactorLocation?: WebGLUniformLocation
+  private fadeUvScaleLocation?: WebGLUniformLocation
+  private fadeUvOffsetLocation?: WebGLUniformLocation
   private compositePositionLocation = -1
   private compositeTrailLocation?: WebGLUniformLocation
   private compositeOpacityLocation?: WebGLUniformLocation
@@ -136,6 +152,7 @@ export class WindLayer implements CustomLayerInterface {
   private trailIndex = 0
   private trailWidth = 0
   private trailHeight = 0
+  private trailView?: TrailView
   private left?: Float32Array
   private right?: Float32Array
   private mix = 0
@@ -174,6 +191,8 @@ export class WindLayer implements CustomLayerInterface {
     this.fadePositionLocation = this.gl.getAttribLocation(this.fadeProgram, 'a_pos')
     this.fadeTrailLocation = this.gl.getUniformLocation(this.fadeProgram, 'u_trail')!
     this.fadeFactorLocation = this.gl.getUniformLocation(this.fadeProgram, 'u_fade')!
+    this.fadeUvScaleLocation = this.gl.getUniformLocation(this.fadeProgram, 'u_uv_scale')!
+    this.fadeUvOffsetLocation = this.gl.getUniformLocation(this.fadeProgram, 'u_uv_offset')!
     this.compositePositionLocation = this.gl.getAttribLocation(this.compositeProgram, 'a_pos')
     this.compositeTrailLocation = this.gl.getUniformLocation(this.compositeProgram, 'u_trail')!
     this.compositeOpacityLocation = this.gl.getUniformLocation(this.compositeProgram, 'u_opacity')!
@@ -211,7 +230,10 @@ export class WindLayer implements CustomLayerInterface {
   setTheme(theme: MapTheme): void {
     if (theme === this.theme) return
     this.theme = theme
-    if (this.gl && this.trails) clearTrails(this.gl, this.trails, this.trailWidth, this.trailHeight)
+    if (this.gl && this.trails) {
+      clearTrails(this.gl, this.trails, this.trailWidth, this.trailHeight)
+      this.trailView = this.currentTrailView()
+    }
     this.map?.triggerRepaint()
   }
 
@@ -249,11 +271,13 @@ export class WindLayer implements CustomLayerInterface {
     gl.bindFramebuffer(gl.FRAMEBUFFER, next.framebuffer)
     gl.viewport(0, 0, this.trailWidth, this.trailHeight)
     gl.disable(gl.BLEND)
-    this.drawFade(gl, previous.texture)
+    const currentView = this.currentTrailView()
+    this.drawFade(gl, previous.texture, currentView)
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     this.drawParticles(gl, options)
     this.trailIndex = nextIndex
+    this.trailView = currentView
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
     gl.viewport(viewport[0]!, viewport[1]!, viewport[2]!, viewport[3]!)
@@ -265,7 +289,7 @@ export class WindLayer implements CustomLayerInterface {
     this.map?.triggerRepaint()
   }
 
-  private drawFade(gl: WebGL2RenderingContext, texture: WebGLTexture): void {
+  private drawFade(gl: WebGL2RenderingContext, texture: WebGLTexture, currentView: TrailView): void {
     gl.useProgram(this.fadeProgram!)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.screenBuffer!)
     gl.enableVertexAttribArray(this.fadePositionLocation)
@@ -274,6 +298,9 @@ export class WindLayer implements CustomLayerInterface {
     gl.bindTexture(gl.TEXTURE_2D, texture)
     gl.uniform1i(this.fadeTrailLocation!, 0)
     gl.uniform1f(this.fadeFactorLocation!, this.tuning.trailFade)
+    const transform = trailUvTransform(this.trailView ?? currentView, currentView)
+    gl.uniform2f(this.fadeUvScaleLocation!, transform.scaleX, transform.scaleY)
+    gl.uniform2f(this.fadeUvOffsetLocation!, transform.offsetX, transform.offsetY)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   }
 
@@ -373,7 +400,22 @@ export class WindLayer implements CustomLayerInterface {
         this.y[index]! < this.particleBounds.north || this.y[index]! > this.particleBounds.south
       if (resetAll || index >= previousActive || outside) this.respawn(index)
     }
-    if (resetAll && this.gl && this.trails) clearTrails(this.gl, this.trails, this.trailWidth, this.trailHeight)
+    if (resetAll && this.gl && this.trails) {
+      clearTrails(this.gl, this.trails, this.trailWidth, this.trailHeight)
+      this.trailView = this.currentTrailView()
+    }
+  }
+
+  private currentTrailView(): TrailView {
+    const center = this.map!.getCenter()
+    const canvas = this.map!.getCanvas()
+    return {
+      centerX: 0.5 + projectX(center.lng) * MERCATOR_SCALE,
+      centerY: 0.5 - projectY(center.lat) * MERCATOR_SCALE,
+      zoom: this.map!.getZoom(),
+      width: Math.max(1, canvas.clientWidth),
+      height: Math.max(1, canvas.clientHeight),
+    }
   }
 
   private ensureTrailTargets(): void {
@@ -390,6 +432,7 @@ export class WindLayer implements CustomLayerInterface {
     this.trails = [createTrailTarget(this.gl, width, height), createTrailTarget(this.gl, width, height)]
     this.trailIndex = 0
     clearTrails(this.gl, this.trails, width, height)
+    this.trailView = this.currentTrailView()
   }
 
   private random(): number {
@@ -422,6 +465,19 @@ export function particleCountForViewport(width: number, height: number, particle
 
 export function windZoomCompensation(zoom: number): number {
   return 2 ** (WIND_REFERENCE_ZOOM - zoom)
+}
+
+export function trailUvTransform(previous: TrailView, current: TrailView): { scaleX: number; scaleY: number; offsetX: number; offsetY: number } {
+  const zoomScale = 2 ** (previous.zoom - current.zoom)
+  const scaleX = zoomScale * current.width / previous.width
+  const scaleY = zoomScale * current.height / previous.height
+  const previousWorldSize = 512 * 2 ** previous.zoom
+  return {
+    scaleX,
+    scaleY,
+    offsetX: 0.5 * (1 - scaleX) + (current.centerX - previous.centerX) * previousWorldSize / previous.width,
+    offsetY: 0.5 * (1 - scaleY) - (current.centerY - previous.centerY) * previousWorldSize / previous.height,
+  }
 }
 
 export function windLineOffsets(thickness: number): ReadonlyArray<readonly [number, number]> {
