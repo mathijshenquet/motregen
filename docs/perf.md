@@ -39,9 +39,9 @@ expliciet kan forceren en daarmee een ander scenario meet.
 | warm TTFR | profielafhankelijk, zie hieronder | desktop blijft sneller dan cold; mobiele CPU-/netwerkprofielen hebben eigen marge |
 | warm chunks | profielafhankelijk, zie hieronder | desktop blijft 0 B; CDP-netwerkthrottling draagt enkele actuele ranges opnieuw over |
 | passief geopende chunks | ≤ 800.000 B | progressieve L0+L1 gemeten op 545–634 kB; ruim onder MIP-8's bovengrens van 3 MB |
-| volledige scrub | < 1 chunktransfer per 3 frames | L2-intentie plus 83 frames kost 3 transfers; grens 27,7 |
+| volledige scrub | < 1 chunktransfer per 3 frames | L2-intentie plus 85 frames kost 4–7 transfers; grens 28,3 |
 | tweede locatieklik | 0 data-transfers | alle benodigde immutable ranges komen uit browser-/sessiecache |
-| volledige sessie | < 8.000.000 bytes | gemeten 1.310.182 bytes |
+| volledige sessie | < 8.000.000 bytes | progressief gemeten 1,25–1,36 MB |
 | browserfouten | 0 | console, page errors en mislukte requests |
 
 FPS wordt alleen gelogd: headless Chromium gebruikt SwiftShader en is geen
@@ -110,22 +110,28 @@ zij niet opnieuw de door T3g opgeloste overlappende-Range-race introduceren.
 
 Het synthetische passiefbudget is na desktop, 4G en Fast 3G gekalibreerd op
 **800.000 chunkbytes**. De hoogste waarneming tijdens ontwikkeling was 698.659
-B onder Fast 3G; de definitieve gaterun bleef op 634.119 B. Deze grens is ruim
+B onder Fast 3G; de twee definitieve gateruns bleven op maximaal 631.607 B. Deze grens is ruim
 strenger dan MIP-8's maximum van 3 MB, maar houdt marge voor de bekende
 throttling-herhalingen. De smaaktest is beschikbaar als progressief skeleton
 (standaard) of wacht-overlay via `?histogram=wait`; in `?dev` staat dezelfde
 keuze als live toggle.
 
-| Profiel | Cold TTFR | Passieve chunks | L2 tijd-tot-compleet | L2/scrubtransfers | Warm chunks | Sessie | Tweede klik |
+| Run / profiel | Cold TTFR | Passieve chunks | L2 tijd-tot-compleet | L2/scrubtransfers | Warm chunks | Sessie | Tweede klik |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Desktop | 436,6 ms | 545.046 B | 231,3 ms | 3 / 83 | 0 B | 1.232.459 B | 0 |
-| Mobiel 4G | 1.638,0 ms | 562.303 B | 1.049,8 ms | 3 / 83 | 5.430 B | 1.242.910 B | 0 |
-| Mobiel Fast 3G | 3.569,9 ms | 634.119 B | 1.790,5 ms | 3 / 83 | 7.595 B | 1.285.444 B | 0 |
+| 1 / Desktop | 469,6 ms | 547.578 B | 202,5 ms | 4 / 85 | 0 B | 1.245.200 B | 0 |
+| 1 / Mobiel 4G | 1.672,3 ms | 559.471 B | 1.077,4 ms | 4 / 85 | 5.430 B | 1.262.647 B | 0 |
+| 1 / Mobiel Fast 3G | 3.623,3 ms | 631.607 B | 1.409,3 ms | 5 / 85 | 10.451 B | 1.363.887 B | 0 |
+| 2 / Desktop | 428,7 ms | 547.578 B | 178,8 ms | 4 / 85 | 0 B | 1.245.200 B | 0 |
+| 2 / Mobiel 4G | 1.717,9 ms | 559.504 B | 1.243,4 ms | 4 / 85 | 5.430 B | 1.258.521 B | 0 |
+| 2 / Mobiel Fast 3G | 3.759,1 ms | 631.607 B | 1.593,4 ms | 7 / 85 | 5.879 B | 1.304.437 B | 0 |
 
 De tijd-tot-compleet loopt vanaf de expliciete L2-intentie tot de client alle
 puntreeksen heeft. De sessieduur blijft de bredere journeymaat uit de suite.
-Historische tabellen hieronder documenteren de pre-progressieve baselines en
-blijven daarom ongewijzigd.
+De twee runs hierboven zijn opeenvolgend uitgevoerd op de definitieve code. De
+synthetische tijdlijn bevat daarbij expliciet een nowcast→seamless-grens zonder
+motion-annex op het eerste seamless-frame; het volgende annex wordt voor die
+overgang geleend. Historische tabellen hieronder documenteren de
+pre-progressieve baselines en blijven daarom ongewijzigd.
 
 Drie opeenvolgende merge-gateruns op de aangescherpte meting waren groen:
 

@@ -12,7 +12,8 @@ import { DayNightLayer } from './core/day-night-layer'
 const DAY_NIGHT_ENABLED = false
 import { buildHourlyForecast } from './core/forecast'
 import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS, paddedGeographicBounds } from './core/map-frame'
-import { MrfClient } from './core/mrf'
+import { MrfClient, type MotionField } from './core/mrf'
+import { selectPairMotion } from './core/motion-selection'
 import { nearestPlace } from './core/places'
 import { installPerfMonitor } from './core/perf'
 import { RainLayer } from './core/rain-layer'
@@ -336,7 +337,6 @@ export default function App() {
     const epoch = frames[lower]!.epoch + (frames[upper]!.epoch - frames[lower]!.epoch) * (cursor() - lower)
     const blend = frameBlend(frames, epoch)
     const leftFrame = frames[blend.left]!, rightFrame = frames[blend.right]!
-    const motionApplies = leftFrame.chunk.url === rightFrame.chunk.url && rightFrame.frameIndex === leftFrame.frameIndex + 1
     const nearbyFrames = frames.slice(Math.max(0, lower - 2), upper + 4)
     const batchPrefetch = scrubPrefetch
     scrubPrefetch = false
@@ -349,7 +349,7 @@ export default function App() {
     const [left, right, motion] = await Promise.all([
       load(leftFrame),
       load(rightFrame),
-      motionApplies ? client.getMotion(rightFrame.chunk, rightFrame.frameIndex).catch(() => undefined) : undefined,
+      loadPairMotion(leftFrame, rightFrame).catch(() => undefined),
     ])
     if (request !== shownFrameRequest || !layer || !map) return
     layer.setFrames(left, right, blend.mix, motion, (rightFrame.epoch - leftFrame.epoch) / 60_000)
@@ -377,6 +377,16 @@ export default function App() {
       for (const [chunk, indexes] of nearby) client.prefetch(chunk, indexes)
       for (const near of nearbyFrames) client.prefetchMotion(near.chunk, [near.frameIndex])
     }
+  }
+
+  async function loadPairMotion(left: TimelineFrame, right: TimelineFrame): Promise<MotionField | undefined> {
+    if (left.epoch >= right.epoch) return undefined
+    const [leftHeader, rightHeader] = await Promise.all([client.getHeader(left.chunk), client.getHeader(right.chunk)])
+    const selected = selectPairMotion(left, right, (frame) => {
+      const header = frame.chunk.url === left.chunk.url ? leftHeader : rightHeader
+      return header.frames[frame.frameIndex]?.motion !== undefined
+    })
+    return selected ? client.getMotion(selected.frame.chunk, selected.frame.frameIndex) : undefined
   }
 
   async function discoverWindGrid(): Promise<void> {

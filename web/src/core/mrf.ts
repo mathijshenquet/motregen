@@ -104,7 +104,7 @@ export class MrfClient {
       return !this.frames.get(key) && !this.framePromises.has(key)
     })
 
-    if (missing.length && (missing.length === header.frames.length || missing.length >= 4)) {
+    if (missing.length >= 2) {
       const batch = this.fetchFrameSpan(url, chunk, header, missing, priority)
       for (const index of missing) this.trackFramePromise(frameKey(url, index), batch.then((frames) => frames.get(index)!))
     } else {
