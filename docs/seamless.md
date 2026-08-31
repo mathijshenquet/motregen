@@ -63,15 +63,25 @@ standaard is daarom één check/download per vijftien minuten via
 `MOTREGEN_SEAMLESS_CADENCE=15m`: 96 downloads en circa 5,2–5,8 GB per dag,
 exact een derde van de native ingress.
 
-Op de devhost kostte de eerste echte +125…+360-decode, reprojection,
-kwantisatie en 47 motion-annexen 256,7 seconden bij gelijktijdige
-daemonbelasting. Dat past ruim binnen vijftien minuten. Bij iedere check wordt
-wel steeds het nieuwste vijfminutenbestand gekozen; de bronrun is daardoor bij
-start maximaal ongeveer vijf minuten oud en na deze gemeten verwerking typisch
-minder dan tien minuten oud. De verse pySTEPS-nowcast blijft +0…+2 uur bezitten,
-waardoor vijfminutenrefresh van de veel duurdere verre blend weinig extra
-kaartwaarde geeft. Een beheerder kan de cadence bewust lager zetten wanneer
-bandbreedte minder belangrijk is.
+Bij iedere check wordt steeds het nieuwste vijfminutenbestand gekozen. De verse
+pySTEPS-nowcast blijft +0…+2 uur bezitten, waardoor vijfminutenrefresh van de
+veel duurdere verre blend weinig extra kaartwaarde geeft. Een beheerder kan de
+cadence bewust lager zetten wanneer bandbreedte minder belangrijk is.
+
+Een T2h-profiel met `taskset -c 0,1` mat vóór optimalisatie 266,03 seconden voor
+een volledige +125…+360-refresh. De NetCDF/gzip-read kostte 25,66 seconden en de
+28,6 miljoen broncelmedianen 2,05 seconden. Het werk ná de mediaan domineerde:
+de ingebouwde regentabel werd voor ieder van de circa 81 miljoen doelcellen
+opnieuw opgebouwd en gevalideerd, gevolgd door seriële motion en zstd-encoding.
+
+De regentabel wordt nu eenmaal procesbreed geïnitialiseerd, bronframes worden
+via een iterator direct gegatherd en gekwantiseerd, en motionparen plus de
+onafhankelijke zstd-frameleden gebruiken maximaal twee threads. Een live
+2-core-nameting met opnieuw 48 frames kostte 32,62 seconden: 27,58 seconden
+framevoorbereiding en 4,40 seconden motion plus encoding, 8,16× sneller dan de
+baseline. De volledige eenmalige ingest ging van 484,23 naar 44,33 seconden.
+De piek-RSS steeg door twee gelijktijdige zstd-workspaces van 247 naar 353 MB;
+dat blijft ruim binnen het 4-GB-budget.
 
 ## Publicatie
 
@@ -87,3 +97,13 @@ kwantisatietabel, bijvoorbeeld
 `spec/seamless_reference.py` berekent de celmedianen onafhankelijk met h5py
 en NumPy. `spec/spot_check_seamless.py` vergelijkt drie live bronframes na
 reprojectie met de gepubliceerde mrf-codes en hun lokale kwantisatiestap.
+
+De daemon voert maximaal één seamless-refresh tegelijk uit in een eigen worker.
+Alle daemonstaat en manifestpublicatie blijven op de hoofdthread; een resultaat
+dat nog op een inmiddels vervangen AROME-windprior is gebaseerd wordt verworpen.
+RTCOR, nowcast, AROME en UV publiceren ieder direct na hun volledige refresh een
+nieuw atomisch manifest. Daardoor kan een lopende seamless-refresh radar niet
+meer serieel ophouden. Op een lege start verschijnt het eerste bruikbare
+manifest zodra AROME en RTCOR gereed zijn; nowcast, UV en seamless worden daarna
+elk atomisch toegevoegd. Downloadcache- en chunkpruning blijven na iedere
+geslaagde manifestpublicatie actief.

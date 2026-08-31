@@ -228,6 +228,14 @@ impl IndexMap {
     }
 
     pub fn gather(&self, source: &[f32]) -> Result<Vec<f32>> {
+        self.gather_with(source, |value| value)
+    }
+
+    pub fn gather_with<T>(
+        &self,
+        source: &[f32],
+        mut transform: impl FnMut(f32) -> T,
+    ) -> Result<Vec<T>> {
         ensure!(
             self.indices
                 .iter()
@@ -240,9 +248,9 @@ impl IndexMap {
             .iter()
             .map(|index| {
                 if *index == MISSING_INDEX {
-                    f32::NAN
+                    transform(f32::NAN)
                 } else {
-                    source[*index as usize]
+                    transform(source[*index as usize])
                 }
             })
             .collect())

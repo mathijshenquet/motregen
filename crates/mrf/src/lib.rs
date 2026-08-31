@@ -1,13 +1,16 @@
 //! The mrf v0 chunk format shared by motregen ingest and tooling.
 
-use std::ops::Range;
+use std::{ops::Range, sync::LazyLock};
 
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub const MAGIC: [u8; 4] = *b"mrf0";
 pub const VERSION: u32 = 0;
 pub const COMPRESSION_LEVEL: i32 = 19;
+
+static RAIN_QUANTIZATION_TABLE: LazyLock<Vec<Option<f32>>> = LazyLock::new(make_quantization_table);
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Grid {
@@ -190,10 +193,18 @@ pub enum Error {
     HalfNoDataMotion { index: usize, block: usize },
     #[error("zstd failed: {0}")]
     Zstd(#[from] std::io::Error),
+    #[error("failed to start parallel compressor: {0}")]
+    ParallelCompressor(String),
+    #[error("parallel compression requires at least one thread")]
+    EmptyParallelCompressor,
 }
 
 /// Returns the v0 byte-to-mm/h table. Entry 255 is `None` for no-data.
 pub fn quantization_table() -> Vec<Option<f32>> {
+    RAIN_QUANTIZATION_TABLE.clone()
+}
+
+fn make_quantization_table() -> Vec<Option<f32>> {
     let mut table = Vec::with_capacity(256);
     table.push(Some(0.0));
     for index in 1..=254 {
@@ -210,23 +221,26 @@ pub fn quantization_table() -> Vec<Option<f32>> {
 /// below half of 0.01 map to dry (0), values above 150 map to 254, and a tie
 /// between two table values selects the lower index.
 pub fn quantize(value: f32) -> u8 {
-    quantize_with_table(value, &quantization_table())
-        .expect("the built-in quantization table is valid")
+    quantize_validated(value, &RAIN_QUANTIZATION_TABLE)
 }
 
 /// Quantizes against a table supplied by an mrf header.
 pub fn quantize_with_table(value: f32, table: &[Option<f32>]) -> Result<u8, Error> {
     validate_quantization_table(table)?;
+    Ok(quantize_validated(value, table))
+}
+
+fn quantize_validated(value: f32, table: &[Option<f32>]) -> u8 {
     if value.is_nan() {
-        return Ok(255);
+        return 255;
     }
     let first = table[0].expect("validated table entry");
     let last = table[254].expect("validated table entry");
     if value <= first {
-        return Ok(0);
+        return 0;
     }
     if value >= last {
-        return Ok(254);
+        return 254;
     }
     let upper =
         table[..255].partition_point(|candidate| candidate.expect("validated table entry") < value);
@@ -234,14 +248,14 @@ pub fn quantize_with_table(value: f32, table: &[Option<f32>]) -> Result<u8, Erro
     let lower_value = table[lower].expect("validated table entry");
     let upper_value = table[upper].expect("validated table entry");
     if value - lower_value <= upper_value - value {
-        Ok(lower as u8)
+        lower as u8
     } else {
-        Ok(upper as u8)
+        upper as u8
     }
 }
 
 pub fn encode(frames: &[Vec<u8>], meta: &ChunkMeta) -> Result<Vec<u8>, Error> {
-    encode_inner(frames, meta, None)
+    encode_inner(frames, meta, None, Compression::Serial)
 }
 
 /// Encodes frames plus one optional previous-to-current motion field per frame.
@@ -252,25 +266,65 @@ pub fn encode_with_motion(
     motion_grid: MotionGrid,
     motions: &[Option<Vec<i8>>],
 ) -> Result<Vec<u8>, Error> {
-    encode_inner(frames, meta, Some((motion_grid, motions)))
+    encode_inner(
+        frames,
+        meta,
+        Some((motion_grid, motions)),
+        Compression::Serial,
+    )
+}
+
+pub fn encode_with_motion_parallel(
+    frames: &[Vec<u8>],
+    meta: &ChunkMeta,
+    motion_grid: MotionGrid,
+    motions: &[Option<Vec<i8>>],
+    threads: usize,
+) -> Result<Vec<u8>, Error> {
+    if threads == 0 {
+        return Err(Error::EmptyParallelCompressor);
+    }
+    encode_inner(
+        frames,
+        meta,
+        Some((motion_grid, motions)),
+        Compression::Parallel(threads),
+    )
+}
+
+#[derive(Clone, Copy)]
+enum Compression {
+    Serial,
+    Parallel(usize),
 }
 
 fn encode_inner(
     frames: &[Vec<u8>],
     meta: &ChunkMeta,
     motion: Option<(MotionGrid, &[Option<Vec<i8>>])>,
+    compression: Compression,
 ) -> Result<Vec<u8>, Error> {
     validate_meta(meta, frames)?;
     if let Some((grid, motions)) = motion {
         validate_motions(grid, motions, frames.len())?;
     }
-    let mut compressed = Vec::with_capacity(frames.len());
-    for frame in frames {
-        compressed.push(zstd::stream::encode_all(
-            frame.as_slice(),
-            COMPRESSION_LEVEL,
-        )?);
-    }
+    let compress = |frame: &Vec<u8>| {
+        zstd::stream::encode_all(frame.as_slice(), COMPRESSION_LEVEL).map_err(Error::from)
+    };
+    let compressed = match compression {
+        Compression::Serial => frames.iter().map(compress).collect::<Result<Vec<_>, _>>()?,
+        Compression::Parallel(threads) => rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .thread_name(|index| format!("mrf-compress-{index}"))
+            .build()
+            .map_err(|error| Error::ParallelCompressor(error.to_string()))?
+            .install(|| {
+                frames
+                    .par_iter()
+                    .map(compress)
+                    .collect::<Result<Vec<_>, _>>()
+            })?,
+    };
     let mut offset = 0_u64;
     let mut entries = compressed
         .iter()
