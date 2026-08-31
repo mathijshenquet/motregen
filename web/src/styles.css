@@ -246,7 +246,7 @@ button { color: inherit; cursor: pointer; }
   background: transparent;
   -webkit-text-stroke: 2px rgba(255, 255, 255, .96);
   paint-order: stroke fill;
-  filter: drop-shadow(0 2px 4px rgba(14, 35, 43, .72));
+  filter: drop-shadow(0 1px 3px rgba(255, 255, 255, .95));
   font-size: 29px;
   line-height: 1;
   z-index: 4;
