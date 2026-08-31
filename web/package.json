@@ -10,7 +10,8 @@
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
     "synthgen": "tsx scripts/synthgen.ts",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "e2e:live": "MOTREGEN_PERF_MODE=live playwright test --config playwright.live.config.ts"
   },
   "dependencies": {
     "fzstd": "^0.1.1",

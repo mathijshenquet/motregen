@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type CDPSession, type Locator, type Page } from '@playwright/test'
+import { performanceProfile, type PerformanceProfile } from './profiles'
 
 interface PerfSnapshot {
   ttfrMs: number | null
@@ -11,97 +12,196 @@ interface PerfSnapshot {
   }
 }
 
-const coldTtfrBudgetMs = 2_000
-const warmTtfrBudgetMs = 750
-const sessionByteBudget = 8_000_000
+interface JourneyResult {
+  profile: string
+  label: string
+  emulation: string
+  cpuThrottleRate: number
+  coldTtfrMs: number | null
+  warmTtfrMs: number | null
+  scrubP50Ms: number | null
+  scrubP95Ms: number | null
+  scrubTransfers: number
+  scrubFrames: number
+  secondClickRequests: number
+  sessionBytes: number
+  resourceBytes: number
+  sessionDownloadMs: number
+  fps: number | null
+  errors: string[]
+}
 
-test('deterministic user journey stays within performance budgets', async ({ page, context }) => {
+const sessionByteBudget = 8_000_000
+const live = process.env.MOTREGEN_PERF_MODE === 'live'
+
+test('user journey measures performance and cache behaviour', async ({ page, context }, testInfo) => {
+  const profile = performanceProfile(testInfo.project.name)
+  testInfo.setTimeout(live ? 240_000 : 120_000)
+
   const errors: string[] = []
   page.on('console', (message) => { if (message.type() === 'error') errors.push(`console: ${message.text()}`) })
   page.on('pageerror', (error) => errors.push(`page: ${error.message}`))
   page.on('requestfailed', (request) => errors.push(`request: ${request.url()} (${request.failure()?.errorText ?? 'failed'})`))
 
   const cdp = await context.newCDPSession(page)
-  let sessionBytes = 0
-  cdp.on('Network.loadingFinished', (event) => { sessionBytes += event.encodedDataLength })
-  await cdp.send('Network.enable')
+  const network = await observeNetwork(cdp)
+  await applyEmulation(cdp, profile)
+
+  let cold: PerfSnapshot | null = null
+  let warm: PerfSnapshot | null = null
+  let scrubTransfers = 0
+  let scrubFrames = 0
+  let secondClickRequests = 0
 
   await test.step('cold load renders rain without browser errors', async () => {
+    network.startJourney()
     await page.goto('/?perf=1')
-    const cold = await waitForTtfr(page)
-    expect(cold.ttfrMs).toBeLessThan(coldTtfrBudgetMs)
+    cold = await waitForTtfr(page)
+    if (!live) expect(cold.ttfrMs).toBeLessThan(profile.coldTtfrBudgetMs)
     await expect(page.getByTestId('perf-hud')).toBeVisible()
-    await expect(page.locator('.location-label')).toHaveText('De Bilt')
+    await expect(page.locator('.location-label')).toHaveText('De Bilt', { timeout: live ? 180_000 : 10_000 })
     expect(errors).toEqual([])
-    console.log(`cold TTFR ${cold.ttfrMs} ms`)
+    console.log(`${profile.label}: cold TTFR ${cold.ttfrMs} ms`)
   })
 
   await test.step('logo triple-tap toggles the HUD and JSON is copyable', async () => {
-    await page.locator('.brand').click({ clickCount: 3, delay: 80 })
+    await page.locator('.brand').click({ clickCount: 3, delay: 20 })
     await expect(page.getByTestId('perf-hud')).toBeHidden()
-    await page.locator('.brand').click({ clickCount: 3, delay: 80 })
+    await page.locator('.brand').click({ clickCount: 3, delay: 20 })
     await expect(page.getByTestId('perf-hud')).toBeVisible()
     await page.getByRole('button', { name: 'Kopieer JSON' }).click()
     await expect(page.getByRole('button', { name: 'Gekopieerd' })).toBeVisible()
   })
 
-  await test.step('warm reload uses cached chunks and meets TTFR budget', async () => {
+  await test.step('warm reload measures cache reuse', async () => {
     await page.goto('/?perf=1')
-    const warm = await waitForTtfr(page)
-    expect(warm.ttfrMs).toBeLessThan(warmTtfrBudgetMs)
-    expect(warm.network.manifest.requests).toBe(1)
-    expect(warm.network.chunks.bytes).toBe(0)
+    warm = await waitForTtfr(page)
+    if (!live) {
+      expect(warm.ttfrMs).toBeLessThan(profile.warmTtfrBudgetMs)
+      expect(warm.network.manifest.requests).toBe(1)
+      expect(warm.network.chunks.bytes).toBeLessThanOrEqual(profile.warmChunkByteBudget)
+    }
     expect(errors).toEqual([])
-    console.log(`warm TTFR ${warm.ttfrMs} ms; chunk transfer ${warm.network.chunks.bytes} B`)
+    console.log(`${profile.label}: warm TTFR ${warm.ttfrMs} ms; chunk transfer ${warm.network.chunks.bytes} B`)
   })
 
-  await test.step('full timeline scrub avoids a request storm', async () => {
+  await test.step('full timeline scrub measures request coalescing', async () => {
     await expect(page.locator('.location-label')).toHaveText('De Bilt')
     const scrubber = page.getByRole('slider', { name: 'Tijd' })
-    const frames = Number(await scrubber.getAttribute('aria-valuemax')) + 1
+    scrubFrames = Number(await scrubber.getAttribute('aria-valuemax')) + 1
     const requestStart = await transferredDataRequests(page, '/data/chunks/')
     await scrubber.focus()
     await scrubber.press('Home')
-    for (let index = 1; index < frames; index++) await scrubber.press('ArrowRight')
+    for (let index = 1; index < scrubFrames; index++) await scrubber.press('ArrowRight')
     await page.waitForTimeout(1_000)
-    const chunkRequests = await transferredDataRequests(page, '/data/chunks/') - requestStart
-    expect(chunkRequests).toBeLessThan(frames / 3)
+    scrubTransfers = await transferredDataRequests(page, '/data/chunks/') - requestStart
+    if (!live) expect(scrubTransfers).toBeLessThan(scrubFrames / 3)
     const measured = await perfSnapshot(page)
     expect(measured.scrub.samples).toBeGreaterThan(0)
     expect(errors).toEqual([])
-    console.log(`scrub ${chunkRequests} chunk requests / ${frames} frames; p50 ${measured.scrub.p50Ms} ms; p95 ${measured.scrub.p95Ms} ms; fps ${measured.fps ?? 'pending'}`)
+    console.log(`${profile.label}: scrub ${scrubTransfers} chunk requests / ${scrubFrames} frames; p50 ${measured.scrub.p50Ms} ms; p95 ${measured.scrub.p95Ms} ms; fps ${measured.fps ?? 'pending'}`)
   })
 
-  await test.step('a second location click reads cached data without requests', async () => {
+  await test.step('two location clicks measure session-cache reuse', async () => {
     const canvas = page.locator('.map canvas').first()
-    await canvas.click({ position: { x: 250, y: 240 } })
+    await clickCanvasAtRatio(canvas, 0.25, 0.4)
     await expect(page.locator('.location-label')).not.toContainText('laden')
     await expect(page.locator('tbody tr').first().locator('td').last()).not.toContainText('—')
     await page.waitForTimeout(250)
 
     const requestStart = await transferredDataRequests(page, '/data/')
-    await canvas.click({ position: { x: 700, y: 300 } })
+    await clickCanvasAtRatio(canvas, 0.75, 0.5)
     await expect(page.locator('.location-label')).not.toContainText('laden')
     await expect(page.locator('tbody tr').first().locator('td').last()).not.toContainText('—')
     await page.waitForTimeout(250)
-    const secondClickRequests = await transferredDataRequests(page, '/data/') - requestStart
-    expect(secondClickRequests).toBe(0)
+    secondClickRequests = await transferredDataRequests(page, '/data/') - requestStart
+    if (!live) expect(secondClickRequests).toBe(0)
     expect(errors).toEqual([])
   })
 
-  await test.step('the complete session remains below eight megabytes', async () => {
+  await test.step('the complete session reports transfer volume and duration', async () => {
     await page.waitForTimeout(500)
-    expect(sessionBytes).toBeLessThan(sessionByteBudget)
+    if (!live) expect(network.bytes()).toBeLessThan(sessionByteBudget)
     const measured = await perfSnapshot(page)
-    console.log(`session ${sessionBytes} transferred bytes; browser resource total ${measured.network.total.bytes} B; fps ${measured.fps ?? 'pending'}`)
+    const result: JourneyResult = {
+      profile: profile.id,
+      label: profile.label,
+      emulation: profile.network?.label ?? 'Geen netwerkemulatie',
+      cpuThrottleRate: profile.cpuThrottleRate,
+      coldTtfrMs: cold?.ttfrMs ?? null,
+      warmTtfrMs: warm?.ttfrMs ?? null,
+      scrubP50Ms: measured.scrub.p50Ms,
+      scrubP95Ms: measured.scrub.p95Ms,
+      scrubTransfers,
+      scrubFrames,
+      secondClickRequests,
+      sessionBytes: network.bytes(),
+      resourceBytes: measured.network.total.bytes,
+      sessionDownloadMs: network.downloadDurationMs(),
+      fps: measured.fps,
+      errors,
+    }
+    await testInfo.attach('perf-result', { body: JSON.stringify(result), contentType: 'application/json' })
+    console.log(`${profile.label}: session ${result.sessionBytes} transferred bytes in ${result.sessionDownloadMs.toFixed(1)} ms; browser resource total ${result.resourceBytes} B; second click ${secondClickRequests} requests`)
   })
 })
 
-async function waitForTtfr(page: Page): Promise<PerfSnapshot> {
-  await page.waitForFunction(() => {
-    const monitor = (window as typeof window & { __motregenPerf?: { snapshot: () => PerfSnapshot } }).__motregenPerf
-    return monitor?.snapshot().ttfrMs !== null
+async function applyEmulation(cdp: CDPSession, profile: PerformanceProfile): Promise<void> {
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: profile.cpuThrottleRate })
+  await cdp.send('Network.setCacheDisabled', { cacheDisabled: false })
+  if (!profile.network) return
+  const conditions = {
+    offline: false,
+    latency: profile.network.latency,
+    downloadThroughput: profile.network.downloadThroughput,
+    uploadThroughput: profile.network.uploadThroughput,
+    connectionType: profile.network.connectionType,
+  } as const
+  await cdp.send('Network.overrideNetworkState', conditions)
+  await cdp.send('Network.emulateNetworkConditionsByRule', {
+    matchedNetworkConditions: [{ urlPattern: '', ...conditions }],
   })
+}
+
+async function observeNetwork(cdp: CDPSession): Promise<{
+  startJourney: () => void
+  bytes: () => number
+  downloadDurationMs: () => number
+}> {
+  let sessionBytes = 0
+  let journeyStartedAt = 0
+  let lastResponseAt = 0
+  cdp.on('Network.loadingFinished', (event) => {
+    sessionBytes += event.encodedDataLength
+    lastResponseAt = performance.now()
+  })
+  await cdp.send('Network.enable')
+  return {
+    startJourney() {
+      journeyStartedAt = performance.now()
+      lastResponseAt = journeyStartedAt
+    },
+    bytes: () => sessionBytes,
+    downloadDurationMs: () => Math.max(0, lastResponseAt - journeyStartedAt),
+  }
+}
+
+async function clickCanvasAtRatio(canvas: Locator, xRatio: number, yRatio: number): Promise<void> {
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('Kaartcanvas heeft geen zichtbare bounding box')
+  await canvas.click({ position: { x: box.width * xRatio, y: box.height * yRatio } })
+}
+
+async function waitForTtfr(page: Page): Promise<PerfSnapshot> {
+  try {
+    await page.waitForFunction(() => (window as typeof window & { __motregenPerf?: unknown }).__motregenPerf !== undefined, undefined, { timeout: 30_000 })
+  } catch {
+    throw new Error('De origin publiceert geen window.__motregenPerf; draai eerst een frontend met MIP-7-instrumentatie')
+  }
+  await page.waitForFunction(() => {
+    const monitor = (window as typeof window & { __motregenPerf: { snapshot: () => PerfSnapshot } }).__motregenPerf
+    return monitor.snapshot().ttfrMs !== null
+  }, undefined, { timeout: live ? 180_000 : 10_000 })
   return perfSnapshot(page)
 }
 
