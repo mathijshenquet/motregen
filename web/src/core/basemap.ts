@@ -3,8 +3,8 @@ import type { StyleSpecification } from 'maplibre-gl'
 export type MapTheme = 'light' | 'dark'
 
 const styleUrls: Record<MapTheme, string> = {
-  light: 'https://tiles.openfreemap.org/styles/liberty',
-  dark: 'https://tiles.openfreemap.org/styles/liberty',
+  light: import.meta.env.VITE_BASEMAP_STYLE_URL ?? 'https://tiles.openfreemap.org/styles/liberty',
+  dark: import.meta.env.VITE_BASEMAP_STYLE_URL ?? 'https://tiles.openfreemap.org/styles/liberty',
 }
 
 const cache = new Map<MapTheme, Promise<StyleSpecification>>()
