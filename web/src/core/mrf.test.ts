@@ -216,6 +216,33 @@ describe('mrf v0', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('reuses decoded frames when a refreshed manifest recreates an unchanged chunk', async () => {
+    class DecodeWorker {
+      onmessage?: (event: MessageEvent) => void
+      postMessage(message: { id: number; bytes: ArrayBuffer; expectedLength: number }): void {
+        const frame = decodeFrame(new Uint8Array(message.bytes), message.expectedLength)
+        queueMicrotask(() => this.onmessage?.({ data: { id: message.id, frame: frame.slice().buffer } } as MessageEvent))
+      }
+    }
+    vi.stubGlobal('Worker', DecodeWorker)
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(String(input))
+      const bytes = files.get(url.pathname.replace('/data/', ''))!
+      const match = /^(?:bytes=)(\d+)-(\d+)$/.exec(new Headers(init?.headers).get('Range')!)!
+      return new Response(Uint8Array.from(bytes.subarray(Number(match[1]), Number(match[2]) + 1)).buffer, { status: 206 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const client = new MrfClient(new URL('https://example.test/data/manifest.json'))
+    const original = manifest.chunks[0]!
+    const decoded = await client.getFrame(original, 3)
+    const refreshed = { ...original, times: [...original.times] }
+    fetchMock.mockClear()
+
+    expect(await client.getFrame(refreshed, 3)).toBe(decoded)
+    expect(await client.getHeader(refreshed)).toBe(await client.getHeader(original))
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('fills a series in many incremental steps while one coalesced range is still streaming', async () => {
     class DecodeWorker {
       onmessage?: (event: MessageEvent) => void

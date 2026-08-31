@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
+import { batch, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
 import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
 import HistogramScrubber from './components/HistogramScrubber'
 import LocationSearch from './components/LocationSearch'
@@ -12,6 +12,7 @@ import { DayNightLayer } from './core/day-night-layer'
 const DAY_NIGHT_ENABLED = false
 import { buildHourlyForecast } from './core/forecast'
 import { FrameBatcher } from './core/frame-batcher'
+import { cursorAfterTimelineRefresh, isNewerManifest, reconcileTimelineSeries, scheduleManifestRefresh } from './core/manifest-refresh'
 import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS, paddedGeographicBounds } from './core/map-frame'
 import { MrfClient, type MotionField } from './core/mrf'
 import { selectPairMotion } from './core/motion-selection'
@@ -68,6 +69,7 @@ export default function App() {
   let windGrid: Grid | undefined
   let animation = 0
   let splashReplayTimer: number | undefined
+  let stopManifestRefresh: (() => void) | undefined
   let shownFrameRequest = 0
   let shownWindRequest = 0
   let shownTemperatureRequest = 0
@@ -139,14 +141,19 @@ export default function App() {
     media.addEventListener('change', mediaChanged)
     onCleanup(() => media.removeEventListener('change', mediaChanged))
     try {
-      const response = await fetch(manifestUrl)
-      if (!response.ok) throw new Error(`Manifest laden mislukt (${response.status})`)
-      const data = await response.json() as Manifest
+      const data = await fetchManifest()
       perf.setManifestGenerated(data.generated)
       const frames = buildTimeline(data)
       if (!frames.length) throw new Error('De tijdlijn is leeg')
       setManifest(data)
       void Promise.all(data.chunks.map((chunk) => client.getHeader(chunk))).catch(() => undefined)
+      stopManifestRefresh = scheduleManifestRefresh(refreshManifest, {
+        setInterval: (callback, interval) => window.setInterval(callback, interval),
+        clearInterval: (handle) => window.clearInterval(handle),
+        visibilityState: () => document.visibilityState,
+        addVisibilityListener: (callback) => document.addEventListener('visibilitychange', callback),
+        removeVisibilityListener: (callback) => document.removeEventListener('visibilitychange', callback),
+      })
       let nowIndex = 0
       for (let index = 0; index < frames.length; index++) if (frames[index]!.epoch <= Date.parse(data.now)) nowIndex = index
       setCursor(nowIndex)
@@ -177,10 +184,76 @@ export default function App() {
   onCleanup(() => {
     cancelAnimationFrame(animation)
     window.clearTimeout(splashReplayTimer)
+    stopManifestRefresh?.()
     cancelPointLoad(pointLoad)
     for (const savedMarker of savedMarkers) savedMarker.remove()
     map?.remove()
   })
+
+  async function fetchManifest(cache: RequestCache = 'default'): Promise<Manifest> {
+    const response = await fetch(manifestUrl, { cache })
+    if (!response.ok) throw new Error(`Manifest laden mislukt (${response.status})`)
+    return response.json() as Promise<Manifest>
+  }
+
+  async function refreshManifest(): Promise<void> {
+    const current = manifest()
+    if (!current) return
+    try {
+      const candidate = await fetchManifest('no-cache')
+      if (!isNewerManifest(current, candidate)) return
+      applyManifestRefresh(candidate)
+    } catch {
+      // De atomair gepubliceerde vorige generatie blijft volledig bruikbaar.
+    }
+  }
+
+  function applyManifestRefresh(nextManifest: Manifest): void {
+    const previousRain = timeline()
+    const nextRain = buildTimeline(nextManifest)
+    if (!nextRain.length) return
+    const nextUv = buildTimeline(nextManifest, 'uv')
+    const nextTemperature = buildTimeline(nextManifest, 'temp_c')
+    const nextFeelsLike = buildTimeline(nextManifest, 'feels_like_c')
+    const nextHumidity = buildTimeline(nextManifest, 'rel_humidity')
+    const nextCloud = buildTimeline(nextManifest, 'cloud_frac')
+    const nextWind = buildWindTimeline(nextManifest)
+    const nextWindU = nextWind.map((frame) => frame.u)
+    const nextWindV = nextWind.map((frame) => frame.v)
+    const previousState = pointLoad
+    const previousStage = pointLoadStage()
+    const previousRainValues = previousState?.rainValues ?? rainSeries()
+    const previousRainLoaded = previousRain.map((_, index) => previousState?.rainLoaded.has(index) ?? rainLoaded()[index] ?? false)
+    const rain = reconcileTimelineSeries(previousRain, nextRain, previousRainValues, previousRainLoaded)
+    const uv = reconcileTimelineSeries(uvTimeline(), nextUv, uvSeries())
+    const temperature = reconcileTimelineSeries(tempTimeline(), nextTemperature, temperatureSeries())
+    const feelsLike = reconcileTimelineSeries(feelsLikeTimeline(), nextFeelsLike, feelsLikeSeries())
+    const humidity = reconcileTimelineSeries(humidityTimeline(), nextHumidity, humiditySeries())
+    const cloud = reconcileTimelineSeries(cloudTimeline(), nextCloud, cloudSeries())
+    const windU = reconcileTimelineSeries(windUFrames(), nextWindU, windUSeries())
+    const windV = reconcileTimelineSeries(windVFrames(), nextWindV, windVSeries())
+    const nextCursor = cursorAfterTimelineRefresh(previousRain, nextRain, cursor())
+
+    cancelPointLoad(previousState)
+    const state = previousState ? newPointLoadState(previousState.point, rain.values, rain.loaded) : undefined
+    pointLoad = state
+    batch(() => {
+      setManifest(nextManifest)
+      setCursor(nextCursor)
+      setRainSeries([...rain.values])
+      setRainLoaded(rain.loaded)
+      setUvSeries(uv.values)
+      setTemperatureSeries(temperature.values)
+      setFeelsLikeSeries(feelsLike.values)
+      setHumiditySeries(humidity.values)
+      setCloudSeries(cloud.values)
+      setWindUSeries(windU.values)
+      setWindVSeries(windV.values)
+    })
+    perf.setManifestGenerated(nextManifest.generated)
+    void Promise.all(nextManifest.chunks.map((chunk) => client.getHeader(chunk))).catch(() => undefined)
+    if (state) resumePointLoadAfterRefresh(state, previousStage)
+  }
 
   createEffect(() => {
     const choice = theme()
@@ -227,6 +300,7 @@ export default function App() {
     const horizonHours = timeHorizonHours()
     let previous = performance.now()
     const tick = (now: number) => {
+      if (!playing()) return
       const elapsed = now - previous
       previous = now
       setCursor((value) => {
@@ -240,7 +314,7 @@ export default function App() {
         if (!Number.isFinite(nextEpoch) || nextEpoch >= lastEpoch) return 0
         return timelineCursorAtEpoch(frames, nextEpoch)
       })
-      animation = requestAnimationFrame(tick)
+      if (playing()) animation = requestAnimationFrame(tick)
     }
     animation = requestAnimationFrame(tick)
   })
@@ -607,7 +681,6 @@ export default function App() {
   }
 
   async function updatePointSeries(point: { lng: number; lat: number }, label: string): Promise<void> {
-    const request = ++pointRequest
     cancelPointLoad(pointLoad)
     const cachedRain = readCachedPointSeries(client, timeline(), point)
     const cachedForecast = [
@@ -619,16 +692,9 @@ export default function App() {
       readCachedPointSeries(client, windUFrames(), point),
       readCachedPointSeries(client, windVFrames(), point),
     ]
-    const state: PointLoadState = {
-      request,
-      point,
-      rainValues: cachedRain.values,
-      rainLoaded: new Set(cachedRain.loaded.flatMap((loaded, index) => loaded ? [index] : [])),
-      rainQueue: Promise.resolve(),
-      direct: Promise.resolve(),
-    }
+    const state = newPointLoadState(point, cachedRain.values, cachedRain.loaded)
+    const request = state.request
     pointLoad = state
-    state.rainPublisher = new FrameBatcher(() => publishRain(state))
     if (cachedRain.complete && cachedForecast.every((series) => series.complete)) {
       state.full = Promise.resolve()
       setRainSeries([...state.rainValues])
@@ -649,7 +715,7 @@ export default function App() {
     setPointSeriesLoading(true)
     setPointLoadStage('initial')
     setRainSeries([...state.rainValues])
-    setRainLoaded(state.rainValues.map(() => false))
+    setRainLoaded(cachedRain.loaded)
     setUvSeries([])
     setTemperatureSeries([])
     setFeelsLikeSeries([])
@@ -689,6 +755,67 @@ export default function App() {
         setPointSeriesLoading(false)
       }
     }
+  }
+
+  function newPointLoadState(
+    point: { lng: number; lat: number },
+    rainValues: Array<number | null>,
+    rainLoaded: boolean[],
+  ): PointLoadState {
+    const state: PointLoadState = {
+      request: ++pointRequest,
+      point,
+      rainValues,
+      rainLoaded: new Set(rainLoaded.flatMap((loaded, index) => loaded ? [index] : [])),
+      rainQueue: Promise.resolve(),
+      direct: Promise.resolve(),
+    }
+    state.rainPublisher = new FrameBatcher(() => publishRain(state))
+    return state
+  }
+
+  function resumePointLoadAfterRefresh(state: PointLoadState, previousStage: PointLoadStage): void {
+    state.direct = (async () => {
+      const [uv, temperature, feelsLike, humidity, cloud, windU, windV] = await Promise.all([
+        readForecastPointSeries(uvTimeline(), state.point, 'uvIndex'),
+        readForecastPointSeries(tempTimeline(), state.point, 'temperatureIndex'),
+        readForecastPointSeries(feelsLikeTimeline(), state.point, 'feelsLikeIndex'),
+        readForecastPointSeries(humidityTimeline(), state.point, 'humidityIndex'),
+        readForecastPointSeries(cloudTimeline(), state.point, 'cloudIndex'),
+        readForecastPointSeries(windUFrames(), state.point, 'windUIndex'),
+        readForecastPointSeries(windVFrames(), state.point, 'windVIndex'),
+        enqueueRain(state, directRainIndexes(timeline(), manifest() ? Date.parse(manifest()!.now) : 0), 'low'),
+      ])
+      if (state.request !== pointRequest) return
+      if (previousStage !== 'complete') {
+        setUvSeries(uv)
+        setTemperatureSeries(temperature)
+        setFeelsLikeSeries(feelsLike)
+        setHumiditySeries(humidity)
+        setCloudSeries(cloud)
+        setWindUSeries(windU)
+        setWindVSeries(windV)
+      }
+    })()
+    if (previousStage === 'complete') {
+      void completePointSeries(state, 'low')
+      return
+    }
+    if (previousStage === 'window') {
+      void state.direct.then(async () => {
+        const now = manifest() ? Date.parse(manifest()!.now) : 0
+        const indexes = timeline().flatMap((frame, index) => frame.epoch >= now - 3_600_000 && frame.epoch <= now + 2 * 3_600_000 ? [index] : [])
+        await enqueueRain(state, indexes, 'low')
+        if (state.request !== pointRequest || state.full) return
+        state.deepIdle = window.setTimeout(() => {
+          state.idle = scheduleIdle(() => { void completePointSeries(state, 'low') }, 5_000)
+        }, 30_000)
+      }).catch(() => undefined)
+      return
+    }
+    void state.direct.then(() => {
+      if (state.request === pointRequest && !state.full) scheduleRainWindow(state)
+    }).catch(() => undefined)
   }
 
   function readForecastPointSeries(frames: TimelineFrame[], point: { lng: number; lat: number }, key: ForecastIndex): Promise<Array<number | null>> {

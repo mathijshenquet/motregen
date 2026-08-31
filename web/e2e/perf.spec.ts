@@ -1,4 +1,5 @@
 import { expect, test, type CDPSession, type Locator, type Page } from '@playwright/test'
+import type { Manifest } from '../src/core/contract'
 import { performanceProfile, type PerformanceProfile } from './profiles'
 
 interface PerfSnapshot {
@@ -128,6 +129,38 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     expect(state).toEqual({ reset: false, stage: 'complete', pending: 0 })
     await page.waitForTimeout(100)
     if (!live) expect(await transferredDataRequests(page, '/data/') - requestStart).toBe(0)
+  })
+
+  await test.step('manifest refresh preserves the cursor and decoded chunk cache', async () => {
+    const response = await page.request.get('/data/manifest.json')
+    expect(response.ok()).toBe(true)
+    const current = await response.json() as Manifest
+    const advanced: Manifest = {
+      ...current,
+      generated: new Date(Date.parse(current.generated) + 60_000).toISOString(),
+      now: new Date(Date.parse(current.now) + 5 * 60_000).toISOString(),
+      chunks: current.chunks.map((chunk) => ({ ...chunk, times: [...chunk.times] })),
+    }
+    await page.route('**/data/manifest.json', (route) => route.fulfill({ json: advanced }))
+    const scrubber = page.getByRole('slider', { name: 'Tijd' })
+    const pause = page.getByRole('button', { name: 'Pauzeren' })
+    if (await pause.isVisible()) await pause.evaluate((button: HTMLButtonElement) => button.click())
+    await expect(page.getByRole('button', { name: 'Afspelen' })).toBeVisible()
+    const cursorTime = await page.locator('.cursor-time').textContent()
+    const nowStyle = await page.locator('.now-line').getAttribute('style')
+    const chunkRequestStart = await transferredDataRequests(page, '/data/chunks/')
+    const refreshStartedAt = performance.now()
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+
+    await expect.poll(() => page.locator('.now-line').getAttribute('style')).not.toBe(nowStyle)
+    const refreshMs = performance.now() - refreshStartedAt
+    expect(await page.locator('.cursor-time').textContent()).toBe(cursorTime)
+    await expect(scrubber).toHaveAttribute('data-load-stage', 'complete')
+    await expect(page.locator('rect.rain-bar.pending')).toHaveCount(0)
+    await page.waitForTimeout(100)
+    if (!live) expect(await transferredDataRequests(page, '/data/chunks/') - chunkRequestStart).toBe(0)
+    await page.unroute('**/data/manifest.json')
+    console.log(`${profile.label}: manifest visible-return refresh ${refreshMs.toFixed(1)} ms; unchanged chunk requests 0`)
   })
 
   await test.step('warm reload measures cache reuse', async () => {
