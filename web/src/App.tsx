@@ -11,6 +11,7 @@ import { DayNightLayer } from './core/day-night-layer'
 
 const DAY_NIGHT_ENABLED = false
 import { buildHourlyForecast } from './core/forecast'
+import { FrameBatcher } from './core/frame-batcher'
 import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS, paddedGeographicBounds } from './core/map-frame'
 import { MrfClient, type MotionField } from './core/mrf'
 import { selectPairMotion } from './core/motion-selection'
@@ -48,6 +49,7 @@ interface PointLoadState {
   full?: Promise<void>
   idle?: number
   deepIdle?: number
+  rainPublisher?: FrameBatcher
 }
 const emptyTemperatureData: TemperatureFeatureCollection = { type: 'FeatureCollection', features: [] }
 const emptySunData: SunFeatureCollection = { type: 'FeatureCollection', features: [] }
@@ -607,15 +609,42 @@ export default function App() {
   async function updatePointSeries(point: { lng: number; lat: number }, label: string): Promise<void> {
     const request = ++pointRequest
     cancelPointLoad(pointLoad)
+    const cachedRain = readCachedPointSeries(client, timeline(), point)
+    const cachedForecast = [
+      readCachedPointSeries(client, uvTimeline(), point),
+      readCachedPointSeries(client, tempTimeline(), point),
+      readCachedPointSeries(client, feelsLikeTimeline(), point),
+      readCachedPointSeries(client, humidityTimeline(), point),
+      readCachedPointSeries(client, cloudTimeline(), point),
+      readCachedPointSeries(client, windUFrames(), point),
+      readCachedPointSeries(client, windVFrames(), point),
+    ]
     const state: PointLoadState = {
       request,
       point,
-      rainValues: new Array(timeline().length).fill(null),
-      rainLoaded: new Set(),
+      rainValues: cachedRain.values,
+      rainLoaded: new Set(cachedRain.loaded.flatMap((loaded, index) => loaded ? [index] : [])),
       rainQueue: Promise.resolve(),
       direct: Promise.resolve(),
     }
     pointLoad = state
+    state.rainPublisher = new FrameBatcher(() => publishRain(state))
+    if (cachedRain.complete && cachedForecast.every((series) => series.complete)) {
+      state.full = Promise.resolve()
+      setRainSeries([...state.rainValues])
+      setRainLoaded(cachedRain.loaded)
+      setUvSeries(cachedForecast[0]!.values)
+      setTemperatureSeries(cachedForecast[1]!.values)
+      setFeelsLikeSeries(cachedForecast[2]!.values)
+      setHumiditySeries(cachedForecast[3]!.values)
+      setCloudSeries(cachedForecast[4]!.values)
+      setWindUSeries(cachedForecast[5]!.values)
+      setWindVSeries(cachedForecast[6]!.values)
+      setStatus(label)
+      setPointSeriesLoading(false)
+      setPointLoadStage('complete')
+      return
+    }
     setStatus(`${label} · verwachting laden…`)
     setPointSeriesLoading(true)
     setPointLoadStage('initial')
@@ -685,20 +714,17 @@ export default function App() {
       chunks.set(frame.chunk, entries)
     }
     await Promise.all([...chunks].map(async ([chunk, entries]) => {
-      const [decoded, header] = await Promise.all([
-        client.getFrames(chunk, entries.map((entry) => entry.frameIndex), priority),
-        client.getHeader(chunk),
-      ])
+      const header = await client.getHeader(chunk)
       const column = Math.floor((x - header.grid.x0) / header.grid.dx)
       const row = Math.floor((y - header.grid.y0) / header.grid.dy)
-      if (column < 0 || row < 0 || column >= header.grid.width || row >= header.grid.height) {
-        progress?.(values, entries.map((entry) => entry.position))
-        return
-      }
-      for (let index = 0; index < entries.length; index++) {
-        values[entries[index]!.position] = header.quant[decoded[index]![row * header.grid.width + column]!] ?? null
-      }
-      progress?.(values, entries.map((entry) => entry.position))
+      const inside = column >= 0 && row >= 0 && column < header.grid.width && row < header.grid.height
+      const positions = new Map<number, number[]>()
+      for (const entry of entries) positions.set(entry.frameIndex, [...(positions.get(entry.frameIndex) ?? []), entry.position])
+      await client.getFrames(chunk, entries.map((entry) => entry.frameIndex), priority, (frameIndex, decoded) => {
+        const loaded = positions.get(frameIndex) ?? []
+        if (inside) for (const position of loaded) values[position] = header.quant[decoded[row * header.grid.width + column]!] ?? null
+        progress?.(values, loaded)
+      })
     }))
     return values
   }
@@ -707,13 +733,11 @@ export default function App() {
     const task = state.rainQueue.then(async () => {
       const missing = indexes.filter((index) => !state.rainLoaded.has(index))
       if (!missing.length || state.request !== pointRequest) return
-      await readPointSeries(timeline(), state.point, missing, priority, state.rainValues, (values, loaded) => {
+      await readPointSeries(timeline(), state.point, missing, priority, state.rainValues, (_, loaded) => {
         for (const index of loaded) state.rainLoaded.add(index)
-        if (state.request === pointRequest) {
-          setRainSeries([...values])
-          setRainLoaded(values.map((_, index) => state.rainLoaded.has(index)))
-        }
+        if (state.request === pointRequest) state.rainPublisher?.schedule()
       })
+      if (state.request === pointRequest) state.rainPublisher?.flush()
     })
     state.rainQueue = task.catch(() => undefined)
     return task
@@ -771,6 +795,13 @@ export default function App() {
     if (!state) return
     if (state.idle !== undefined) cancelIdle(state.idle)
     window.clearTimeout(state.deepIdle)
+    state.rainPublisher?.cancel()
+  }
+
+  function publishRain(state: PointLoadState): void {
+    if (state.request !== pointRequest) return
+    setRainSeries([...state.rainValues])
+    setRainLoaded(state.rainValues.map((_, index) => state.rainLoaded.has(index)))
   }
 
   function locate(): void {
@@ -1028,6 +1059,29 @@ export default function App() {
 function storedTheme(): ThemeChoice {
   const stored = localStorage.getItem('motregen-theme')
   return stored === 'light' || stored === 'system' || stored === 'dark' ? stored : 'light'
+}
+
+function readCachedPointSeries(
+  client: MrfClient,
+  frames: TimelineFrame[],
+  point: { lng: number; lat: number },
+): { values: Array<number | null>; loaded: boolean[]; complete: boolean } {
+  const values = new Array<number | null>(frames.length).fill(null)
+  const loaded = frames.map(() => false)
+  const [x, y] = project(point.lng, point.lat)
+  for (let index = 0; index < frames.length; index++) {
+    const timelineFrame = frames[index]!
+    const header = client.getCachedHeader(timelineFrame.chunk)
+    const frame = client.getCachedFrame(timelineFrame.chunk, timelineFrame.frameIndex)
+    if (!header || !frame) continue
+    loaded[index] = true
+    const column = Math.floor((x - header.grid.x0) / header.grid.dx)
+    const row = Math.floor((y - header.grid.y0) / header.grid.dy)
+    if (column >= 0 && row >= 0 && column < header.grid.width && row < header.grid.height) {
+      values[index] = header.quant[frame[row * header.grid.width + column]!] ?? null
+    }
+  }
+  return { values, loaded, complete: loaded.every(Boolean) }
 }
 
 function timelineHorizonEnd(frames: TimelineFrame[], now: number, hours: number | null): number {

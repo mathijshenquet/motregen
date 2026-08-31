@@ -103,6 +103,33 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     console.log(`${profile.label}: complete in ${timeToCompleteMs.toFixed(1)} ms; scrub ${scrubTransfers} chunk requests / ${scrubFrames} frames; p50 ${measured.scrub.p50Ms} ms; p95 ${measured.scrub.p95Ms} ms; fps ${measured.fps ?? 'pending'}`)
   })
 
+  await test.step('fully decoded location change stays complete in the same tick', async () => {
+    const scrubber = page.getByRole('slider', { name: 'Tijd' })
+    await expect(scrubber).toHaveAttribute('data-load-stage', 'complete')
+    await expect(page.locator('rect.rain-bar.pending')).toHaveCount(0)
+    await page.evaluate(() => {
+      const state = window as typeof window & { __skeletonReset?: boolean; __skeletonObserver?: MutationObserver }
+      const slider = document.querySelector('[role="slider"][aria-label="Tijd"]')!
+      state.__skeletonReset = false
+      state.__skeletonObserver = new MutationObserver(() => { state.__skeletonReset = true })
+      state.__skeletonObserver.observe(slider, { attributes: true, attributeFilter: ['data-load-stage'] })
+    })
+    const requestStart = await transferredDataRequests(page, '/data/')
+    await clickCanvasAtRatio(page.locator('.map canvas').first(), 0.25, 0.4)
+    const state = await page.evaluate(() => {
+      const tracked = window as typeof window & { __skeletonReset?: boolean; __skeletonObserver?: MutationObserver }
+      tracked.__skeletonObserver?.disconnect()
+      return {
+        reset: tracked.__skeletonReset ?? false,
+        stage: document.querySelector('[role="slider"][aria-label="Tijd"]')?.getAttribute('data-load-stage'),
+        pending: document.querySelectorAll('rect.rain-bar.pending').length,
+      }
+    })
+    expect(state).toEqual({ reset: false, stage: 'complete', pending: 0 })
+    await page.waitForTimeout(100)
+    if (!live) expect(await transferredDataRequests(page, '/data/') - requestStart).toBe(0)
+  })
+
   await test.step('warm reload measures cache reuse', async () => {
     await page.goto('/?perf=1')
     await waitForTtfr(page)

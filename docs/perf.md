@@ -40,7 +40,7 @@ expliciet kan forceren en daarmee een ander scenario meet.
 | warm chunks | profielafhankelijk, zie hieronder | desktop blijft 0 B; CDP-netwerkthrottling draagt enkele actuele ranges opnieuw over |
 | passief geopende chunks | ≤ 800.000 B | progressieve L0+L1 gemeten op 545–634 kB; ruim onder MIP-8's bovengrens van 3 MB |
 | volledige scrub | < 1 chunktransfer per 3 frames | L2-intentie plus 85 frames kost 4–7 transfers; grens 28,3 |
-| tweede locatieklik | 0 data-transfers | alle benodigde immutable ranges komen uit browser-/sessiecache |
+| warme locatiewissel | 0 data-transfers en 0 skeleton-reset | volledig gedecodeerde frames worden in dezelfde tick opnieuw bemonsterd |
 | volledige sessie | < 8.000.000 bytes | progressief gemeten 1,25–1,36 MB |
 | browserfouten | 0 | console, page errors en mislukte requests |
 
@@ -107,6 +107,28 @@ histogramvenster van −1 tot +2 uur; niet-geladen posities blijven als neutraal
 skeleton herkenbaar. L2 haalt de resterende reeks bij scrub-/playintentie of na
 30 seconden diepe idle. Autoplay en buurprefetch wachten tot L1 klaar is, zodat
 zij niet opnieuw de door T3g opgeloste overlappende-Range-race introduceren.
+
+T3h2 verwijdert de publicatiebarrière binnen L1/L2. De gecoalesceerde
+Range-request blijft één transfer, maar de responsebody vult een oplopende
+payloadspan. Ieder zelfstandig zstd-member decodeert zodra zijn eigen bytes
+compleet zijn; een later frame of trage chunk blokkeert reeds complete balken
+niet. De UI bundelt voortgang maximaal eenmaal per animation frame. Na een
+volledige load gebruikt een locatiewissel uitsluitend de decoded framecache:
+de serie is in dezelfde tick compleet, `data-load-stage` blijft `complete` en
+er verschijnt geen skeleton.
+
+De twee verplichte opeenvolgende T3h2-runs bleven binnen alle bestaande
+budgetten. De nieuwe locatiewisselassertie zag in ieder profiel nul
+datarequests, nul pending balken en geen enkele mutatie weg van `complete`.
+
+| Run / profiel | Cold TTFR | Passieve chunks | L2 tijd-tot-compleet | L2/scrubtransfers | Warm chunks | Sessie |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 / Desktop | 495,3 ms | 547.578 B | 197,5 ms | 4 / 85 | 0 B | 1.246.392 B |
+| 1 / Mobiel 4G | 1.641,8 ms | 564.346 B | 914,6 ms | 4 / 85 | 5.430 B | 1.256.330 B |
+| 1 / Mobiel Fast 3G | 3.606,3 ms | 631.607 B | 1.703,5 ms | 7 / 85 | 5.879 B | 1.302.354 B |
+| 2 / Desktop | 428,6 ms | 547.578 B | 176,4 ms | 4 / 85 | 0 B | 1.246.392 B |
+| 2 / Mobiel 4G | 1.619,2 ms | 564.835 B | 1.094,0 ms | 4 / 85 | 5.430 B | 1.256.843 B |
+| 2 / Mobiel Fast 3G | 3.623,9 ms | 631.607 B | 1.591,0 ms | 6 / 85 | 8.454 B | 1.286.698 B |
 
 Het synthetische passiefbudget is na desktop, 4G en Fast 3G gekalibreerd op
 **800.000 chunkbytes**. De hoogste waarneming tijdens ontwikkeling was 698.659
