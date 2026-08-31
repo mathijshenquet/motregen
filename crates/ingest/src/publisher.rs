@@ -81,6 +81,7 @@ pub fn publish(
                 "immutable chunk collision at {}",
                 path.display()
             );
+            set_public_permissions(&path)?;
         } else {
             atomic_write(&path, &chunk.bytes)?;
         }
@@ -103,8 +104,22 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
     let mut temporary = tempfile::NamedTempFile::new_in(parent)?;
     temporary.write_all(bytes)?;
     temporary.flush()?;
+    set_public_permissions(temporary.path())?;
     temporary.as_file().sync_all()?;
     temporary.persist(path).map_err(|error| error.error)?;
+    Ok(())
+}
+
+#[cfg(unix)]
+fn set_public_permissions(path: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    fs::set_permissions(path, fs::Permissions::from_mode(0o644))?;
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn set_public_permissions(_path: &Path) -> Result<()> {
     Ok(())
 }
 
@@ -176,5 +191,45 @@ mod tests {
             serde_json::from_slice(&fs::read(directory.path().join("manifest.json")).unwrap())
                 .unwrap();
         assert_eq!(disk, manifest);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn published_files_are_world_readable_and_existing_chunks_are_repaired() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let directory = tempfile::tempdir().unwrap();
+        let chunk = chunk("rtcor", "2026-08-28T15:00:00Z", "rtcor-20260828T1500.mrf");
+        publish(
+            directory.path(),
+            "2026-08-28T15:00:00Z".into(),
+            &[&chunk],
+            Duration::from_secs(0),
+        )
+        .unwrap();
+
+        let manifest_path = directory.path().join("manifest.json");
+        let chunk_path = directory.path().join("chunks").join(&chunk.filename);
+        assert_eq!(
+            fs::metadata(&manifest_path).unwrap().permissions().mode() & 0o777,
+            0o644
+        );
+        assert_eq!(
+            fs::metadata(&chunk_path).unwrap().permissions().mode() & 0o777,
+            0o644
+        );
+
+        fs::set_permissions(&chunk_path, fs::Permissions::from_mode(0o600)).unwrap();
+        publish(
+            directory.path(),
+            "2026-08-28T15:00:00Z".into(),
+            &[&chunk],
+            Duration::from_secs(0),
+        )
+        .unwrap();
+        assert_eq!(
+            fs::metadata(chunk_path).unwrap().permissions().mode() & 0o777,
+            0o644
+        );
     }
 }
