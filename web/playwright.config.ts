@@ -1,4 +1,5 @@
-import { defineConfig, devices } from '@playwright/test'
+import { defineConfig } from '@playwright/test'
+import { performanceProjects } from './e2e/profiles'
 
 const port = 4185
 
@@ -11,8 +12,8 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 10_000 },
   reporter: [['list']],
+  projects: performanceProjects,
   use: {
-    ...devices['Desktop Chrome'],
     baseURL: `http://127.0.0.1:${port}`,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
