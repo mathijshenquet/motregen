@@ -1,4 +1,4 @@
-import type { StyleSpecification } from 'maplibre-gl'
+import type { LayerSpecification, StyleSpecification } from 'maplibre-gl'
 
 export type MapTheme = 'light' | 'dark'
 
@@ -46,6 +46,10 @@ export function prepareBasemapStyle(style: StyleSpecification, theme: MapTheme):
     ...style,
     layers,
   }
+}
+
+export function firstBasemapTextLayerId(layers: readonly LayerSpecification[]): string | undefined {
+  return layers.find((layer) => layer.type === 'symbol' && !layer.id.startsWith('motregen-') && layer.layout?.['text-field'] !== undefined)?.id
 }
 
 function provinceBoundaryLayer(boundary: StyleSpecification['layers'][number], theme: MapTheme): StyleSpecification['layers'][number] {

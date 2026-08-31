@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { StyleSpecification } from 'maplibre-gl'
-import { prepareBasemapStyle } from './basemap'
+import { firstBasemapTextLayerId, prepareBasemapStyle } from './basemap'
 
 describe('road-free basemap', () => {
   it('removes transport geometry and names while retaining map context', () => {
@@ -41,5 +41,16 @@ describe('road-free basemap', () => {
     expect(dark.layers[1]!.paint).toMatchObject({ 'fill-color': '#203a2d' })
     expect(dark.layers[2]!.paint).toMatchObject({ 'fill-color': '#183746' })
     expect(dark.layers[4]!.paint).toMatchObject({ 'line-color': '#80969c', 'line-opacity': 0.72 })
+  })
+
+  it('finds the first basemap text layer below which weather labels belong', () => {
+    const layers = [
+      { id: 'background', type: 'background' },
+      { id: 'motregen-sun', type: 'symbol', source: 'sun', layout: { 'text-field': '☀' } },
+      { id: 'icons', type: 'symbol', source: 'map', layout: { 'icon-image': 'marker' } },
+      { id: 'water-labels', type: 'symbol', source: 'map', layout: { 'text-field': ['get', 'name'] } },
+      { id: 'places', type: 'symbol', source: 'map', layout: { 'text-field': ['get', 'name'] } },
+    ] as StyleSpecification['layers']
+    expect(firstBasemapTextLayerId(layers)).toBe('water-labels')
   })
 })

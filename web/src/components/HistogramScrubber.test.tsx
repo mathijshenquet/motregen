@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@solidjs/testing-library'
+import { createSignal } from 'solid-js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { TimelineFrame } from '../core/contract'
 import HistogramScrubber from './HistogramScrubber'
@@ -187,5 +188,31 @@ describe('histogram scrubber', () => {
     />)
     expect(screen.getByRole('status').textContent).toContain('Regenverwachting laden…')
     expect(screen.getByRole('slider', { name: 'Tijd' }).getAttribute('aria-disabled')).toBe('true')
+  })
+
+  it('moves the now marker when a refreshed manifest advances now', () => {
+    const timeline = [
+      frame('2026-08-28T14:00:00Z', 'rtcor'),
+      frame('2026-08-28T15:00:00Z', 'nowcast'),
+      frame('2026-08-28T16:00:00Z', 'harmonie'),
+    ]
+    const [now, setNow] = createSignal(Date.parse('2026-08-28T14:30:00Z'))
+    const { container } = render(() => <HistogramScrubber
+      timeline={timeline}
+      values={[0, 1, 2]}
+      cursor={1}
+      now={now()}
+      playing={false}
+      horizonHours={null}
+      loading={false}
+      locationLabel="Utrecht"
+      onCursor={() => undefined}
+      onHorizonHours={() => undefined}
+      onPlaying={() => undefined}
+    />)
+    const marker = container.querySelector<HTMLElement>('.now-line')!
+    expect(marker.style.left).toBe('25%')
+    setNow(Date.parse('2026-08-28T15:30:00Z'))
+    expect(marker.style.left).toBe('75%')
   })
 })

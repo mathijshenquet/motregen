@@ -1,5 +1,40 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-08-31 (laat) — grote avondronde: t3g→t3l gemerged, prospect, T2h
+
+- MERGED (elk onafhankelijk geverifieerd, e2e in de gates): t3g (PO-ronde:
+  favorieten/splash/horizon + warm-refetch-fix na mijn e2e-vangst), t3h
+  (progressief laden L0/L1/L2 — passief ≤632 kB — + now-naad via geleende
+  annexen; skeleton default, ?histogram=wait alternatief), t3h2 (per-frame
+  streaming; head-of-line + straggler weg; locatiewissel instant), t3i
+  (Android-trail-ghosts: fade-vloer max(0,v·d−1/255)), t3l
+  (manifest-autorefresh 60s+visibility met ETag-304; tijdlijn verlengt
+  naadloos; versheid KNMI→scherm nominaal ≤~7 min beheerst). t2g/t5b/t5c
+  eerder vandaag. In flight: t3j (temp-labels dodgen plaatsnamen), t3k
+  (+3u-horizon + gelekte-rAF-playback-fix).
+- PROD: NixOS stable 26.05 live (upgrade staged→reboot; "reboot window"
+  werkte zoals ontworpen), progressief laden live. LESSEN: GitHub-tarball-
+  cache loopt minuten achter op push (wachten vóór upgrade-trigger);
+  kernel-upgrades wachten op reboot-venster; CF herschreef browser-TTL
+  manifest naar 4u → zone browser_cache_ttl=0 (respect headers) gezet;
+  CF-botbescherming blokkeert non-browser-UA's (urllib 403).
+- PROSPECT (PO-verzoek, na correctie: sol-agents i.p.v. Claude-subagents —
+  in memory opgeslagen): 5 rapporten + synthese in
+  .dev/research/prospect-2026-08/. Kern: buienradar groot maar kwetsbaar
+  (ads/pay-or-ok/churn), KNMI=autoriteit zonder interface, WarnWetter=
+  waarschuwingsketen, yr/Windy=onze middenpositie bevestigd. Steel-lijst
+  gerangschikt; fasering A (provenance/antwoordregel/tik) → B
+  (waarschuwingen/kansen) → C (push/widgets). PO nog geen ronde gekozen.
+- T5c-scorebord: radar 2,1–7,4× sneller, ~10× minder requests; bytes-
+  achterstand gedicht door t2g+t3h.
+- NIEUW GEVONDEN (PO-versheidsvraag → diagnose): VPS-seamless-mediaan kost
+  707 s op 2 vCPU en de seriële cyclus publiceert pas aan het eind →
+  manifest liep ~14 min achter op gedecodeerde radar. Track T2h gestart
+  (incrementele publicatie per bron, seamless van kritiek pad, mediaan
+  versnellen met 2-core-meting). MQTT blijft optionele versnelling daarna.
+- Open met PO: prospect-ronde kiezen (A/B/C), skeleton-vs-wait-smaaktest,
+  lijn-vs-staaf-keuze, mobiele-GPU-check op echte telefoon.
+
 ## 2026-08-31 (avond) — dieet live op prod; scorebord; morgen: progressief laden
 
 - T2g merged (sessie 20,1→6,9 MB; dictionary +2,8% en delta +41% = gemeten

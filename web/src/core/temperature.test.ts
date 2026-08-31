@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MrfHeader } from './contract'
-import { temperatureLabels } from './temperature'
+import { TEMPERATURE_VARIABLE_ANCHORS, temperatureLabels, temperatureLayer } from './temperature'
 
 describe('temperature labels', () => {
   it('interpolates values in time and omits cities outside the field grid', () => {
@@ -20,5 +20,20 @@ describe('temperature labels', () => {
     const labels = temperatureLabels(new Uint8Array(size).fill(110), new Uint8Array(size).fill(114), header, header, 0.25)
     expect(labels.features.length).toBeGreaterThan(5)
     expect(labels.features[0]!.properties.label).toBe('11°')
+  })
+
+  it.each(['light', 'dark'] as const)('dodges basemap names at every zoom in %s mode', (theme) => {
+    const layer = temperatureLayer(theme)
+    expect(layer.minzoom).toBeUndefined()
+    expect(layer.maxzoom).toBeUndefined()
+    expect(layer.layout).toMatchObject({
+      'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 8, 14],
+      'text-variable-anchor': [...TEMPERATURE_VARIABLE_ANCHORS],
+      'text-radial-offset': 1.15,
+      'text-allow-overlap': false,
+      'text-ignore-placement': false,
+      'text-optional': true,
+    })
+    expect(layer.paint?.['text-color']).toBe(theme === 'dark' ? '#f3fbfd' : '#102630')
   })
 })

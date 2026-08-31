@@ -11,6 +11,13 @@ de configuratie zet daarnaast het MIP-3-contract expliciet:
 - `Accept-Ranges: bytes` en geen `Content-Encoding` op al zstd-gecomprimeerde
   mrf-chunks.
 
+De webclient hervalideert het manifest iedere 60 seconden en meteen wanneer
+een verborgen tab weer zichtbaar wordt. Vervolgrequests gebruiken
+`cache: no-cache`: de browser gaat daardoor altijd langs de HTTP-cache, maar
+ETag-validatie houdt een ongewijzigd manifest bij een header-only `304`.
+Ongewijzigde chunk-URL's blijven decoded in de sessiecache; alleen nieuwe
+generatie-URL's vragen bytes en verschijnen tijdelijk als pending frame.
+
 Chunknamen eindigen vóór `.mrf` op een generatiesuffix `-g<16 hex-cijfers>`.
 Die suffix is deterministisch afgeleid van een expliciete
 encodeergeneratie, het veld, de volledige griddefinitie en de volledige
