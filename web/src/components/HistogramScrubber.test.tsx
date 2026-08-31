@@ -49,7 +49,24 @@ describe('histogram scrubber', () => {
     Object.defineProperty(container.querySelector('.chart-plot')!, 'getBoundingClientRect', {
       value: () => ({ left: 100, width: 400, right: 500, top: 0, bottom: 180, height: 180, x: 100, y: 0, toJSON: () => undefined }),
     })
+    Object.assign(slider, {
+      setPointerCapture: vi.fn(),
+      hasPointerCapture: vi.fn(() => false),
+      releasePointerCapture: vi.fn(),
+    })
     fireEvent.pointerMove(slider, { clientX: 300, pointerId: 1, pointerType: 'mouse' })
     expect(onCursor).toHaveBeenLastCalledWith(1.5)
+
+    fireEvent.pointerDown(slider, { clientX: 300, pointerId: 1, pointerType: 'mouse' })
+    fireEvent.pointerUp(slider, { clientX: 300, pointerId: 1, pointerType: 'mouse' })
+    onCursor.mockClear()
+    fireEvent.pointerMove(slider, { clientX: 400, pointerId: 1, pointerType: 'mouse' })
+    expect(onCursor).not.toHaveBeenCalled()
+
+    fireEvent.pointerDown(slider, { clientX: 400, pointerId: 1, pointerType: 'mouse' })
+    expect(onCursor).toHaveBeenLastCalledWith(2)
+    fireEvent.pointerUp(slider, { clientX: 400, pointerId: 1, pointerType: 'mouse' })
+    fireEvent.pointerMove(slider, { clientX: 400, pointerId: 1, pointerType: 'mouse' })
+    expect(onCursor).toHaveBeenLastCalledWith(2.25)
   })
 })

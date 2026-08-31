@@ -262,6 +262,7 @@ button { color: inherit; cursor: pointer; }
   user-select: none;
 }
 .scrub-surface:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+.scrub-surface.hover-scrubbing { cursor: crosshair; }
 .y-axis { position: absolute; top: 10px; bottom: 32px; left: 0; width: 44px; border-right: 1px solid var(--line-strong); color: var(--muted); font-size: 8px; font-variant-numeric: tabular-nums; pointer-events: none; }
 .y-axis::before { content: 'mm/u'; position: absolute; top: 2px; left: 5px; font-size: 7px; font-weight: 750; letter-spacing: .04em; }
 .y-axis span { position: absolute; right: 5px; line-height: 1; transform: translateY(-50%); }
