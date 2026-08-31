@@ -50,6 +50,7 @@ fn deserialize_u64<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u64, D:
     }
 }
 
+#[derive(Clone)]
 pub struct ApiClient {
     client: Client,
     api_key: String,

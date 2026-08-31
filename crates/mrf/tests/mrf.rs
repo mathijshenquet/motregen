@@ -1,7 +1,7 @@
 use base64::{Engine, engine::general_purpose::STANDARD};
 use mrf::{
     COMPRESSION_LEVEL, ChunkMeta, Grid, MotionGrid, decode, encode, encode_with_motion,
-    parse_header, quantization_table, quantize, quantize_with_table,
+    encode_with_motion_parallel, parse_header, quantization_table, quantize, quantize_with_table,
 };
 use proptest::prelude::*;
 
@@ -210,6 +210,22 @@ fn motion_annex_roundtrips_through_full_and_ranged_decoders() {
     let decoded = decode(&chunk).unwrap();
     assert_eq!(decoded.frames, frames);
     assert_eq!(decoded.motions, motions);
+}
+
+#[test]
+fn parallel_motion_encoding_is_byte_identical() {
+    let frames = vec![
+        (0..4096).map(|index| (index % 256) as u8).collect(),
+        (0..4096).map(|index| (255 - index % 256) as u8).collect(),
+        vec![0; 4096],
+    ];
+    let motions = vec![None, Some(vec![10, -5]), Some(vec![-128, -128])];
+    let metadata = meta(64, 64, frames.len());
+    let grid = MotionGrid { bw: 1, bh: 1 };
+    assert_eq!(
+        encode_with_motion_parallel(&frames, &metadata, grid, &motions, 2).unwrap(),
+        encode_with_motion(&frames, &metadata, grid, &motions).unwrap()
+    );
 }
 
 #[test]
