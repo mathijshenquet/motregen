@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Manifest } from './contract'
-import { buildTimeline, frameBlend, seriesValueAt, timelineZones } from './time-model'
+import { buildTimeline, frameBlend, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from './time-model'
 
 const chunk = (source: 'rtcor' | 'nowcast' | 'seamless' | 'harmonie', run: string, times: string[]) => ({ url: `${source}.mrf`, source, run, header_len: 42, times })
 
@@ -25,6 +25,10 @@ describe('time model', () => {
     const timeline = buildTimeline(manifest)
     expect(frameBlend(timeline, Date.parse('2026-08-28T15:05:00Z'))).toEqual({ left: 0, right: 1, mix: 0.5 })
     expect(frameBlend(timeline, 0)).toEqual({ left: 0, right: 0, mix: 0 })
+    expect(timelineEpochAtCursor(timeline, Number.NaN)).toBe(timeline[0]!.epoch)
+    expect(timelineEpochAtCursor(timeline, 99)).toBe(timeline[1]!.epoch)
+    expect(timelineCursorAtEpoch(timeline, Number.NaN)).toBe(0)
+    expect(timelineCursorAtEpoch(timeline, Date.parse('2026-08-28T15:05:00Z'))).toBe(0.5)
     expect(seriesValueAt(timeline, [2, 6], Date.parse('2026-08-28T15:05:00Z'), 300_000)).toBe(4)
     expect(seriesValueAt(timeline, [2, 6], Date.parse('2026-08-28T14:00:00Z'), 300_000)).toBeNull()
   })

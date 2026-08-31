@@ -59,7 +59,7 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     cold = await waitForTtfr(page)
     if (!live) expect(cold.ttfrMs).toBeLessThan(profile.coldTtfrBudgetMs)
     await expect(page.getByTestId('perf-hud')).toBeVisible()
-    await expect(page.locator('.location-label')).toHaveText('De Bilt', { timeout: live ? 180_000 : 10_000 })
+    await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor De Bilt$/, { timeout: live ? 180_000 : 10_000 })
     expect(errors).toEqual([])
     console.log(`${profile.label}: cold TTFR ${cold.ttfrMs} ms`)
   })
@@ -71,11 +71,20 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     await expect(page.getByTestId('perf-hud')).toBeVisible()
     await page.getByRole('button', { name: 'Kopieer JSON' }).click()
     await expect(page.getByRole('button', { name: 'Gekopieerd' })).toBeVisible()
+    await page.getByRole('slider', { name: 'Tijd' }).hover()
+    await page.waitForLoadState('networkidle')
   })
 
   await test.step('warm reload measures cache reuse', async () => {
     await page.goto('/?perf=1')
-    warm = await waitForTtfr(page)
+    await waitForTtfr(page)
+    const warmScrubber = page.getByRole('slider', { name: 'Tijd' })
+    await warmScrubber.hover()
+    await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor De Bilt$/)
+    await page.waitForLoadState('networkidle')
+    warm = await perfSnapshot(page)
+    const warmChunkResources = await transferredResources(page, '/data/chunks/')
+    if (warmChunkResources.length) console.log(`${profile.label}: warm chunk resources ${JSON.stringify(warmChunkResources)}`)
     if (!live) {
       expect(warm.ttfrMs).toBeLessThan(profile.warmTtfrBudgetMs)
       expect(warm.network.manifest.requests).toBe(1)
@@ -86,7 +95,8 @@ test('user journey measures performance and cache behaviour', async ({ page, con
   })
 
   await test.step('full timeline scrub measures request coalescing', async () => {
-    await expect(page.locator('.location-label')).toHaveText('De Bilt')
+    await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor De Bilt$/)
+    await page.getByRole('button', { name: 'Alles' }).click()
     const scrubber = page.getByRole('slider', { name: 'Tijd' })
     scrubFrames = Number(await scrubber.getAttribute('aria-valuemax')) + 1
     const requestStart = await transferredDataRequests(page, '/data/chunks/')
@@ -105,14 +115,14 @@ test('user journey measures performance and cache behaviour', async ({ page, con
   await test.step('two location clicks measure session-cache reuse', async () => {
     const canvas = page.locator('.map canvas').first()
     await clickCanvasAtRatio(canvas, 0.25, 0.4)
-    await expect(page.locator('.location-label')).not.toContainText('laden')
-    await expect(page.locator('tbody tr').first().locator('td').last()).not.toContainText('—')
+    await expect(page.locator('.scrubber')).not.toHaveAttribute('aria-label', /laden/)
+    await expect(page.locator('tr.current-hour td').last()).not.toContainText('—')
     await page.waitForTimeout(250)
 
     const requestStart = await transferredDataRequests(page, '/data/')
     await clickCanvasAtRatio(canvas, 0.75, 0.5)
-    await expect(page.locator('.location-label')).not.toContainText('laden')
-    await expect(page.locator('tbody tr').first().locator('td').last()).not.toContainText('—')
+    await expect(page.locator('.scrubber')).not.toHaveAttribute('aria-label', /laden/)
+    await expect(page.locator('tr.current-hour td').last()).not.toContainText('—')
     await page.waitForTimeout(250)
     secondClickRequests = await transferredDataRequests(page, '/data/') - requestStart
     if (!live) expect(secondClickRequests).toBe(0)
@@ -212,4 +222,13 @@ function perfSnapshot(page: Page): Promise<PerfSnapshot> {
 function transferredDataRequests(page: Page, path: string): Promise<number> {
   return page.evaluate((needle) => performance.getEntriesByType('resource')
     .filter((entry) => entry.name.includes(needle) && (entry as PerformanceResourceTiming).transferSize > 0).length, path)
+}
+
+function transferredResources(page: Page, path: string): Promise<Array<{ name: string; transferSize: number; encodedBodySize: number }>> {
+  return page.evaluate((needle) => performance.getEntriesByType('resource')
+    .filter((entry) => entry.name.includes(needle) && (entry as PerformanceResourceTiming).transferSize > 0)
+    .map((entry) => {
+      const resource = entry as PerformanceResourceTiming
+      return { name: resource.name, transferSize: resource.transferSize, encodedBodySize: resource.encodedBodySize }
+    }), path)
 }

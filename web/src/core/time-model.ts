@@ -23,6 +23,7 @@ export function buildTimeline(manifest: Manifest, field: Field = 'rain_rate'): T
 
 export function frameBlend(timeline: TimelineFrame[], epoch: number): { left: number; right: number; mix: number } {
   if (timeline.length === 0) return { left: 0, right: 0, mix: 0 }
+  if (!Number.isFinite(epoch)) return { left: 0, right: 0, mix: 0 }
   if (epoch <= timeline[0]!.epoch) return { left: 0, right: 0, mix: 0 }
   const last = timeline.length - 1
   if (epoch >= timeline[last]!.epoch) return { left: last, right: last, mix: 0 }
@@ -30,6 +31,19 @@ export function frameBlend(timeline: TimelineFrame[], epoch: number): { left: nu
   while (timeline[right]!.epoch < epoch) right++
   const left = right - 1
   return { left, right, mix: (epoch - timeline[left]!.epoch) / (timeline[right]!.epoch - timeline[left]!.epoch) }
+}
+
+export function timelineEpochAtCursor(timeline: TimelineFrame[], cursor: number): number {
+  if (!timeline.length) return 0
+  const bounded = Number.isFinite(cursor) ? Math.max(0, Math.min(timeline.length - 1, cursor)) : 0
+  const lower = Math.floor(bounded)
+  const upper = Math.ceil(bounded)
+  return timeline[lower]!.epoch + (timeline[upper]!.epoch - timeline[lower]!.epoch) * (bounded - lower)
+}
+
+export function timelineCursorAtEpoch(timeline: TimelineFrame[], epoch: number): number {
+  const blend = frameBlend(timeline, epoch)
+  return blend.left + (blend.right - blend.left) * blend.mix
 }
 
 export function seriesValueAt(
@@ -52,16 +66,27 @@ export interface TimelineZone {
   kind: 'observations' | 'nowcast' | 'model'
 }
 
-export function timelineZones(timeline: TimelineFrame[]): TimelineZone[] {
+export function timelineZones(timeline: TimelineFrame[], rangeStart?: number, rangeEnd?: number): TimelineZone[] {
   if (!timeline.length) return []
+  if (timeline.length === 1) return [{ ...sourceZone(timeline[0]!.source), start: 0, end: 100 }]
   const result: TimelineZone[] = []
-  let start = 0
+  const firstEpoch = timeline[0]!.epoch
+  const lastEpoch = timeline.at(-1)!.epoch
+  const visibleStart = Math.max(firstEpoch, rangeStart ?? firstEpoch)
+  const visibleEnd = Math.min(lastEpoch, rangeEnd ?? lastEpoch)
+  const span = Math.max(1, visibleEnd - visibleStart)
+  let start = firstEpoch
   let current = sourceZone(timeline[0]!.source)
   for (let index = 1; index <= timeline.length; index++) {
     const next = index < timeline.length ? sourceZone(timeline[index]!.source) : undefined
     if (next?.kind === current.kind) continue
-    result.push({ ...current, start: start / timeline.length * 100, end: index / timeline.length * 100 })
-    start = index
+    const end = index === timeline.length
+      ? timeline.at(-1)!.epoch
+      : (timeline[index - 1]!.epoch + timeline[index]!.epoch) / 2
+    const clippedStart = Math.max(start, visibleStart)
+    const clippedEnd = Math.min(end, visibleEnd)
+    if (clippedEnd > clippedStart) result.push({ ...current, start: (clippedStart - visibleStart) / span * 100, end: (clippedEnd - visibleStart) / span * 100 })
+    start = end
     if (next) current = next
   }
   return result

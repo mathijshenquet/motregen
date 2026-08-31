@@ -29,9 +29,10 @@ export function buildHourlyForecast(
   timelines: HourlyTimelines,
   now: number,
   count = 24,
+  historyCount = 4,
 ): HourlyForecastRow[] {
-  const firstHour = Math.floor(now / hour) * hour + hour
-  return Array.from({ length: count }, (_, index) => {
+  const firstHour = Math.floor(now / hour) * hour - historyCount * hour
+  return Array.from({ length: historyCount + count }, (_, index) => {
     const epoch = firstHour + index * hour
     return {
       epoch,

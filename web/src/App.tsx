@@ -5,28 +5,31 @@ import LocationSearch from './components/LocationSearch'
 import PerfHud from './components/PerfHud'
 import WeatherIcon from './components/WeatherIcon'
 import { loadBasemapStyle, type MapTheme } from './core/basemap'
+import { CloudEdgeLayer } from './core/cloud-edge-layer'
 import type { Field, Grid, Manifest, ManifestChunk, TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
 
 const DAY_NIGHT_ENABLED = false
 import { buildHourlyForecast } from './core/forecast'
-import { mapFrameFromGrid } from './core/map-frame'
+import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS, paddedGeographicBounds } from './core/map-frame'
 import { MrfClient } from './core/mrf'
 import { nearestPlace } from './core/places'
 import { installPerfMonitor } from './core/perf'
 import { RainLayer } from './core/rain-layer'
+import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
 import { solarElevationSin } from './core/solar'
 import { temperatureLabels, type TemperatureFeatureCollection } from './core/temperature'
-import { buildTimeline, frameBlend, seriesValueAt } from './core/time-model'
+import { buildTimeline, frameBlend, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor } from './core/time-model'
 import { uvAdvice } from './core/uv'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
-import { WindLayer } from './core/wind-layer'
+import { DEFAULT_WIND_TUNING, WindLayer, type WindTuning } from './core/wind-layer'
 import { deriveWeatherIcon, summarizeWind } from './core/weather'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
 const perf = installPerfMonitor()
 const defaultLocation = { lng: 5.18, lat: 52.1 }
+const mapMovementBounds = paddedGeographicBounds(NETHERLANDS_FLANDERS_BOUNDS, { west: 0.05, south: 0.1, east: 0.15, north: 0.1 })
 const themes = ['light', 'system', 'dark'] as const
 type ThemeChoice = typeof themes[number]
 type TemperatureField = Extract<Field, 'temp_c' | 'feels_like_c'>
@@ -34,24 +37,31 @@ const emptyTemperatureData: TemperatureFeatureCollection = { type: 'FeatureColle
 const emptySunData: SunFeatureCollection = { type: 'FeatureCollection', features: [] }
 
 export default function App() {
+  const devMode = new URLSearchParams(window.location.search).has('dev')
   let mapElement!: HTMLDivElement
+  let splashElement!: HTMLDivElement
   let map: maplibregl.Map | undefined
   let marker: Marker | undefined
+  let savedMarkers: Marker[] = []
   let dayNightLayer: DayNightLayer | undefined
   let layer: RainLayer | undefined
   let windLayer: WindLayer | undefined
+  let cloudEdgeLayer: CloudEdgeLayer | undefined
   let windGrid: Grid | undefined
   let animation = 0
+  let splashReplayTimer: number | undefined
   let shownFrameRequest = 0
   let shownWindRequest = 0
   let shownTemperatureRequest = 0
   let shownSunRequest = 0
+  let shownCloudEdgeRequest = 0
   let pointRequest = 0
   let styleRequest = 0
   let appliedMapTheme: MapTheme | undefined
   let temperatureLabelKey = ''
   let sunFeatureKey = ''
   let sunEpochBucket = Number.NaN
+  let rainReadyPending = false
   let scrubPrefetch = false
   let logoTapCount = 0
   let lastLogoTap = 0
@@ -71,9 +81,13 @@ export default function App() {
   const windUFrames = createMemo(() => windTimeline().map((frame) => frame.u))
   const windVFrames = createMemo(() => windTimeline().map((frame) => frame.v))
   const [cursor, setCursor] = createSignal(0)
-  const [playing, setPlaying] = createSignal(false)
+  const [playing, setPlaying] = createSignal(true)
+  const [timeHorizonHours, setTimeHorizonHours] = createSignal<number | null>(8)
   const [location, setLocation] = createSignal(defaultLocation)
+  const [locationLabel, setLocationLabel] = createSignal('De Bilt')
+  const [savedPlaces, setSavedPlaces] = createSignal<SavedPlace[]>(loadSavedPlaces())
   const [rainSeries, setRainSeries] = createSignal<Array<number | null>>([])
+  const [pointSeriesLoading, setPointSeriesLoading] = createSignal(true)
   const [uvSeries, setUvSeries] = createSignal<Array<number | null>>([])
   const [temperatureSeries, setTemperatureSeries] = createSignal<Array<number | null>>([])
   const [feelsLikeSeries, setFeelsLikeSeries] = createSignal<Array<number | null>>([])
@@ -84,9 +98,19 @@ export default function App() {
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
   const [temperatureField, setTemperatureField] = createSignal<TemperatureField>('feels_like_c')
+  const [windTuning, setWindTuning] = createSignal<WindTuning>({ ...DEFAULT_WIND_TUNING })
+  const [cloudEdgesEnabled, setCloudEdgesEnabled] = createSignal(false)
+  const [mapReady, setMapReady] = createSignal(false)
+  const [splashSlowdown, setSplashSlowdown] = createSignal(storedSplashSlowdown())
+  const [minimumMapWidthKm, setMinimumMapWidthKm] = createSignal(20)
+  const [devMaximumZoom, setDevMaximumZoom] = createSignal(0)
   const [perfVisible, setPerfVisible] = createSignal(new URLSearchParams(window.location.search).get('perf') === '1')
   const [systemDark, setSystemDark] = createSignal(media.matches)
   const mapTheme = createMemo<MapTheme>(() => theme() === 'system' ? systemDark() ? 'dark' : 'light' : theme() as MapTheme)
+  const splashStyle = createMemo(() => {
+    const factor = splashSlowdown()
+    return `--splash-reveal-duration:${1_200 * factor}ms;--splash-mark-duration:${300 * factor}ms;--splash-outer-delay:${600 * factor}ms;--splash-outer-duration:${600 * factor}ms`
+  })
 
   onMount(async () => {
     const mediaChanged = (event: MediaQueryListEvent) => setSystemDark(event.matches)
@@ -104,23 +128,21 @@ export default function App() {
       for (let index = 0; index < frames.length; index++) if (frames[index]!.epoch <= Date.parse(data.now)) nowIndex = index
       setCursor(nowIndex)
       const header = await client.getHeader(frames[0]!.chunk)
-      const frame = mapFrameFromGrid(header.grid)
       const initialTheme = mapTheme()
-      const [style] = await Promise.all([
-        loadBasemapStyle(initialTheme),
-        discoverWindGrid(),
-      ])
+      const style = await loadBasemapStyle(initialTheme)
       appliedMapTheme = initialTheme
       map = new maplibregl.Map({
         container: mapElement,
         style,
         center: [5.3, 52.15],
         zoom: 6.4,
-        maxBounds: frame.maxBounds,
+        maxBounds: mapMovementBounds,
         renderWorldCopies: false,
         attributionControl: false,
       })
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
+      applyMapDetailLimit(minimumMapWidthKm())
+      syncSavedMarkers(savedPlaces())
       map.on('style.load', () => attachMapLayers(header.grid))
       map.on('click', (event) => pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name))
       if (mapTheme() !== appliedMapTheme) void applyMapTheme(mapTheme())
@@ -129,7 +151,12 @@ export default function App() {
     }
   })
 
-  onCleanup(() => { cancelAnimationFrame(animation); map?.remove() })
+  onCleanup(() => {
+    cancelAnimationFrame(animation)
+    window.clearTimeout(splashReplayTimer)
+    for (const savedMarker of savedMarkers) savedMarker.remove()
+    map?.remove()
+  })
 
   createEffect(() => {
     const choice = theme()
@@ -137,15 +164,32 @@ export default function App() {
     localStorage.setItem('motregen-theme', choice)
     document.documentElement.dataset.theme = effective
     document.documentElement.style.colorScheme = effective
+    windLayer?.setTheme(effective)
     if (map && effective !== appliedMapTheme) void applyMapTheme(effective)
+  })
+
+  createEffect(() => localStorage.setItem('motregen-splash-slowdown', String(splashSlowdown())))
+
+  createEffect(() => {
+    const places = savedPlaces()
+    storeSavedPlaces(places)
+    syncSavedMarkers(places)
+  })
+
+  createEffect(() => {
+    const tuning = windTuning()
+    windLayer?.setTuning(tuning)
   })
 
   createEffect(() => {
     const epoch = selectedEpoch()
+    const ready = mapReady()
     temperatureField()
     dayNightLayer?.setEpoch(epoch)
-    if (layer) void showFrame()
+    if (ready && layer) void showFrame()
+    if (!ready) return
     if (windLayer) void showWind()
+    if (cloudEdgeLayer) void showCloudEdges()
     if (map) void showTemperature()
     const nextSunBucket = Math.floor(epoch / 300_000)
     if (map && SUN_ICONS_ENABLED && nextSunBucket !== sunEpochBucket) {
@@ -154,16 +198,35 @@ export default function App() {
     }
   })
   createEffect(() => {
-    if (!playing()) { cancelAnimationFrame(animation); return }
+    if (!playing() || !mapReady()) { cancelAnimationFrame(animation); return }
+    const horizonHours = timeHorizonHours()
     let previous = performance.now()
     const tick = (now: number) => {
       const elapsed = now - previous
       previous = now
-      setCursor((value) => value >= timeline().length - 1 ? 0 : Math.min(timeline().length - 1, value + elapsed / 650))
+      setCursor((value) => {
+        const frames = timeline()
+        if (frames.length < 2) return 0
+        const firstEpoch = frames[0]!.epoch
+        const timelineLastEpoch = frames.at(-1)!.epoch
+        const lastEpoch = timelineHorizonEnd(frames, manifest() ? Date.parse(manifest()!.now) : frames[0]!.epoch, horizonHours)
+        const epoch = timelineEpochAtCursor(frames, value)
+        const nextEpoch = epoch + elapsed * (timelineLastEpoch - firstEpoch) / ((frames.length - 1) * 650)
+        if (!Number.isFinite(nextEpoch) || nextEpoch >= lastEpoch) return 0
+        return timelineCursorAtEpoch(frames, nextEpoch)
+      })
       animation = requestAnimationFrame(tick)
     }
     animation = requestAnimationFrame(tick)
   })
+
+  function chooseTimeHorizon(hours: number | null): void {
+    setTimeHorizonHours(hours)
+    const frames = timeline()
+    if (!frames.length) return
+    const end = timelineHorizonEnd(frames, manifest() ? Date.parse(manifest()!.now) : frames[0]!.epoch, hours)
+    setCursor((value) => timelineEpochAtCursor(frames, value) > end ? timelineCursorAtEpoch(frames, end) : value)
+  }
 
   async function applyMapTheme(nextTheme: MapTheme): Promise<void> {
     const request = ++styleRequest
@@ -179,6 +242,7 @@ export default function App() {
 
   function attachMapLayers(grid: Grid): void {
     if (!map || map.getLayer('motregen-rain')) return
+    cloudEdgeLayer = undefined
     // uitgezet op PO-verzoek (MIP-4 ronde 7): tinting-implementatie voldoet
     // niet (en stond in dark mode verkeerd om); later iets beters of weglaten
     if (DAY_NIGHT_ENABLED) {
@@ -187,23 +251,22 @@ export default function App() {
       dayNightLayer.setEpoch(selectedEpoch())
     }
     if (windGrid && windTimeline().length) {
-      windLayer = new WindLayer(windGrid, mapTheme())
+      windLayer = new WindLayer(windGrid, mapTheme(), windTuning())
       map.addLayer(windLayer)
     }
     layer = new RainLayer(grid)
     map.addLayer(layer)
+    if (cloudEdgesEnabled()) void attachCloudEdgeLayer()
     if (SUN_ICONS_ENABLED && (radiationTimeline().length || uvTimeline().length)) attachSunLayer()
     if (hasTemperature()) attachTemperatureLayer()
     attachMapFrame(grid)
     void showFrame()
-    if (!initialPickStarted) {
-      initialPickStarted = true
-      pick(defaultLocation.lng, defaultLocation.lat, 'De Bilt')
+    if (mapReady()) {
+      void showWind()
+      void showTemperature()
+      sunEpochBucket = Math.floor(selectedEpoch() / 300_000)
+      void showSun(selectedEpoch())
     }
-    void showWind()
-    void showTemperature()
-    sunEpochBucket = Math.floor(selectedEpoch() / 300_000)
-    void showSun(selectedEpoch())
   }
 
   function attachMapFrame(grid: Grid): void {
@@ -268,11 +331,29 @@ export default function App() {
     ])
     if (request !== shownFrameRequest || !layer || !map) return
     layer.setFrames(left, right, blend.mix, motion, (rightFrame.epoch - leftFrame.epoch) / 60_000)
+    if (!mapReady() && !rainReadyPending) {
+      const renderedMap = map
+      rainReadyPending = true
+      renderedMap.once('render', () => {
+        rainReadyPending = false
+        if (map !== renderedMap) return
+        setMapReady(true)
+        void attachWindLayer()
+        if (!initialPickStarted) {
+          initialPickStarted = true
+          pick(defaultLocation.lng, defaultLocation.lat, 'De Bilt')
+        }
+      })
+    }
     map.once('render', () => perf.markRainFrameCommitted())
     map.triggerRepaint()
-    for (const near of nearbyFrames) {
-      client.prefetch(near.chunk, [near.frameIndex])
-      client.prefetchMotion(near.chunk, [near.frameIndex])
+    // De eerste locatiereeks haalt dezelfde chunks direct in bulk op. Losse,
+    // overlappende Range-prefetches maken Chromiums sparse HTTP-cache instabiel.
+    if (initialPickStarted) {
+      for (const near of nearbyFrames) {
+        client.prefetch(near.chunk, [near.frameIndex])
+        client.prefetchMotion(near.chunk, [near.frameIndex])
+      }
     }
   }
 
@@ -285,6 +366,14 @@ export default function App() {
     } catch {
       windGrid = undefined
     }
+  }
+
+  async function attachWindLayer(): Promise<void> {
+    await discoverWindGrid()
+    if (!map || !windGrid || !windTimeline().length || map.getLayer('motregen-wind')) return
+    windLayer = new WindLayer(windGrid, mapTheme(), windTuning())
+    map.addLayer(windLayer, map.getLayer('motregen-rain') ? 'motregen-rain' : undefined)
+    await showWind()
   }
 
   async function showWind(): Promise<void> {
@@ -358,7 +447,8 @@ export default function App() {
         'text-size': ['interpolate', ['linear'], ['zoom'], 5, 15, 8, 20],
         'text-font': ['Noto Sans Regular'],
         'text-offset': [0, -1.25],
-        'text-allow-overlap': false,
+        'text-allow-overlap': true,
+        'text-ignore-placement': true,
         'text-padding': 10,
       },
       paint: {
@@ -420,6 +510,39 @@ export default function App() {
     }
   }
 
+  async function attachCloudEdgeLayer(): Promise<void> {
+    const renderedMap = map
+    const first = cloudTimeline()[0]
+    if (!renderedMap || !first || !cloudEdgesEnabled() || renderedMap.getLayer('motregen-cloud-edges')) return
+    try {
+      const header = await client.getHeader(first.chunk)
+      if (map !== renderedMap || !cloudEdgesEnabled() || renderedMap.getLayer('motregen-cloud-edges')) return
+      const cloudLayer = new CloudEdgeLayer(header.grid)
+      const before = renderedMap.getLayer('motregen-sun') ? 'motregen-sun'
+        : renderedMap.getLayer('motregen-temperature') ? 'motregen-temperature'
+          : undefined
+      renderedMap.addLayer(cloudLayer, before)
+      cloudEdgeLayer = cloudLayer
+      await showCloudEdges()
+    } catch {
+      cloudEdgeLayer = undefined
+    }
+  }
+
+  async function showCloudEdges(): Promise<void> {
+    if (!cloudEdgeLayer || !map) return
+    const request = ++shownCloudEdgeRequest
+    try {
+      const blend = await loadFieldBlend(cloudTimeline(), selectedEpoch(), 75 * 60_000)
+      if (request !== shownCloudEdgeRequest || !blend || !cloudEdgeLayer || !map) return
+      if (!sameGrid(blend.leftHeader, blend.rightHeader)) return
+      cloudEdgeLayer.setFrames(blend.left, blend.right, blend.leftHeader, blend.rightHeader, blend.mix)
+      map.triggerRepaint()
+    } catch {
+      if (request === shownCloudEdgeRequest) toggleCloudEdges(false)
+    }
+  }
+
   async function loadFieldBlend(frames: TimelineFrame[], epoch: number, edgeTolerance: number): Promise<FieldBlend | undefined> {
     if (!frames.length || epoch < frames[0]!.epoch - edgeTolerance || epoch > frames.at(-1)!.epoch + edgeTolerance) return undefined
     const blend = frameBlend(frames, epoch)
@@ -433,9 +556,7 @@ export default function App() {
 
   function selectedEpoch(): number {
     const frames = timeline()
-    if (!frames.length) return 0
-    const lower = Math.floor(cursor()), upper = Math.min(frames.length - 1, Math.ceil(cursor()))
-    return frames[lower]!.epoch + (frames[upper]!.epoch - frames[lower]!.epoch) * (cursor() - lower)
+    return timelineEpochAtCursor(frames, cursor())
   }
 
   function load(frame: TimelineFrame): Promise<Uint8Array> {
@@ -445,6 +566,7 @@ export default function App() {
   function pick(lng: number, lat: number, label: string): void {
     const point = { lng, lat }
     setLocation(point)
+    setLocationLabel(label)
     marker?.remove()
     if (map) marker = new Marker({ color: '#1688ad' }).setLngLat([lng, lat]).addTo(map)
     void updatePointSeries(point, label)
@@ -453,6 +575,8 @@ export default function App() {
   async function updatePointSeries(point: { lng: number; lat: number }, label: string): Promise<void> {
     const request = ++pointRequest
     setStatus(`${label} · verwachting laden…`)
+    setPointSeriesLoading(true)
+    setRainSeries([])
     setUvSeries([])
     setTemperatureSeries([])
     setFeelsLikeSeries([])
@@ -481,8 +605,12 @@ export default function App() {
       setWindUSeries(windU)
       setWindVSeries(windV)
       setStatus(label)
+      setPointSeriesLoading(false)
     } catch {
-      if (request === pointRequest) setStatus(`${label} · verwachting kon niet worden geladen`)
+      if (request === pointRequest) {
+        setStatus(`${label} · verwachting kon niet worden geladen`)
+        setPointSeriesLoading(false)
+      }
     }
   }
 
@@ -519,18 +647,86 @@ export default function App() {
     if (!navigator.geolocation) { setStatus('Locatie is niet beschikbaar in deze browser'); return }
     setStatus('Locatie bepalen…')
     navigator.geolocation.getCurrentPosition(({ coords }) => {
-      map?.flyTo({ center: [coords.longitude, coords.latitude], zoom: 9 })
+      map?.easeTo({ center: [coords.longitude, coords.latitude], duration: 450 })
       pick(coords.longitude, coords.latitude, 'Mijn locatie')
     }, () => setStatus('Locatietoegang geweigerd — tik op de kaart'), { timeout: 10_000 })
   }
 
   function chooseSearch(point: { lng: number; lat: number }, label: string): void {
-    map?.flyTo({ center: [point.lng, point.lat], zoom: 9 })
+    map?.easeTo({ center: [point.lng, point.lat], duration: 450 })
     pick(point.lng, point.lat, label)
+  }
+
+  function saveCurrentPlace(name: string): void {
+    const point = location()
+    const sourceLabel = locationLabel()
+    const saved: SavedPlace = { id: savedPlaceId(point.lng, point.lat), name, sourceLabel, ...point }
+    setSavedPlaces((places) => [saved, ...places.filter((place) => !samePlace(place, point))].slice(0, 20))
+    setLocationLabel(name)
+  }
+
+  function removeSavedPlace(id: string): void {
+    setSavedPlaces((places) => places.filter((place) => place.id !== id))
+  }
+
+  function syncSavedMarkers(places: SavedPlace[]): void {
+    for (const savedMarker of savedMarkers) savedMarker.remove()
+    savedMarkers = []
+    if (!map) return
+    for (const place of places) {
+      const element = document.createElement('button')
+      element.type = 'button'
+      element.className = 'saved-place-marker'
+      element.textContent = '★'
+      element.title = place.name
+      element.setAttribute('aria-label', `${place.name} bekijken`)
+      element.addEventListener('pointerdown', (event) => event.stopPropagation())
+      element.addEventListener('click', (event) => {
+        event.stopPropagation()
+        chooseSearch(place, place.name)
+      })
+      savedMarkers.push(new Marker({ element, anchor: 'center' }).setLngLat([place.lng, place.lat]).addTo(map))
+    }
   }
 
   function cycleTheme(): void {
     setTheme((current) => themes[(themes.indexOf(current) + 1) % themes.length]!)
+  }
+
+  function tuneWind<Key extends keyof WindTuning>(key: Key, value: WindTuning[Key]): void {
+    setWindTuning((current) => ({ ...current, [key]: value }))
+  }
+
+  function tuneMapDetail(minimumWidthKm: number): void {
+    setMinimumMapWidthKm(minimumWidthKm)
+    applyMapDetailLimit(minimumWidthKm)
+  }
+
+  function toggleCloudEdges(enabled: boolean): void {
+    setCloudEdgesEnabled(enabled)
+    if (!enabled) {
+      if (map?.getLayer('motregen-cloud-edges')) map.removeLayer('motregen-cloud-edges')
+      cloudEdgeLayer = undefined
+      return
+    }
+    void attachCloudEdgeLayer()
+  }
+
+  function applyMapDetailLimit(minimumWidthKm: number): void {
+    if (!map) return
+    const latitude = map.getCenter().lat
+    const circumferenceKm = 40_075.017 * Math.cos(latitude * Math.PI / 180)
+    const maximumZoom = Math.log2(circumferenceKm * map.getContainer().clientWidth / (512 * minimumWidthKm))
+    map.setMaxZoom(maximumZoom)
+    setDevMaximumZoom(maximumZoom)
+  }
+
+  function replaySplash(): void {
+    window.clearTimeout(splashReplayTimer)
+    setMapReady(false)
+    for (const animation of splashElement.getAnimations({ subtree: true })) animation.cancel()
+    void splashElement.offsetWidth
+    splashReplayTimer = window.setTimeout(() => setMapReady(true), 1_000)
   }
 
   function scrub(cursor: number): void {
@@ -559,6 +755,7 @@ export default function App() {
     windU: windUFrames(),
     windV: windVFrames(),
   }, manifest() ? Date.parse(manifest()!.now) : 0))
+  const currentHour = createMemo(() => Math.floor((manifest() ? Date.parse(manifest()!.now) : 0) / 3_600_000) * 3_600_000)
   const cursorUv = createMemo(() => seriesValueAt(uvTimeline(), uvSeries(), selectedEpoch(), 30 * 60_000))
   const cursorUvChip = createMemo(() => uvChipLabel(cursorUv()))
   const hasTemperature = createMemo(() => tempTimeline().length > 0 || feelsLikeTimeline().length > 0)
@@ -582,40 +779,75 @@ export default function App() {
       : { icon: '☾', label: 'Donker', next: 'licht' })
 
   return <main class="app-shell">
-    <header class="topbar">
-      <span class="brand" onClick={tapLogo}><img src="/droplet.svg" alt="" />motregen</span>
-      <div class="header-actions">
-        <Show when={cursorUvChip()}>{(label) => <span class="uv-chip header-uv-chip" title="Insmeren aanbevolen"><span aria-hidden="true">☀</span><span class="uv-long">{label()}</span><span class="uv-short">UV {formatUv(cursorUv())}</span></span>}</Show>
-        <button class="round-action theme-button" onClick={cycleTheme} aria-label={`Thema: ${themeMeta().label}. Klik voor ${themeMeta().next}`} title={`Thema: ${themeMeta().label}`}>
-          <span aria-hidden="true">{themeMeta().icon}</span><small>{themeMeta().label}</small>
-        </button>
-        <button class="round-action locate" onClick={locate} aria-label="Gebruik mijn locatie"><span aria-hidden="true">⌖</span><small>Mijn locatie</small></button>
-      </div>
-    </header>
     <section class="map-shell" aria-label="Regenkaart van Nederland">
       <div ref={mapElement} class="map" />
-      <LocationSearch onSelect={chooseSearch} />
+      <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() }} style={splashStyle()} aria-hidden={mapReady()}>
+        <div class="map-splash-veil" />
+        <div class="map-splash-mark">
+          <img src="/droplet.svg" alt="" />
+          <strong>motregen.nl</strong>
+        </div>
+      </div>
+      <button type="button" class="map-brand brand" onClick={tapLogo} aria-label="motregen.nl"><img src="/droplet.svg" alt="" /><strong>motregen.nl</strong></button>
+      <button class="round-action theme-button mobile-map-theme" onClick={cycleTheme} aria-label={`Thema: ${themeMeta().label}. Klik voor ${themeMeta().next}`} title={`Thema: ${themeMeta().label}`}>
+        <span aria-hidden="true">{themeMeta().icon}</span>
+      </button>
+      <LocationSearch
+        location={location()}
+        locationLabel={locationLabel()}
+        savedPlaces={savedPlaces()}
+        onLocate={locate}
+        onRemove={removeSavedPlace}
+        onSave={saveCurrentPlace}
+        onSelect={chooseSearch}
+      />
       <Show when={hasBothTemperatures()}>
         <div class="temperature-switch" role="group" aria-label="Temperatuurlaag">
           <button classList={{ active: temperatureField() === 'temp_c' }} onClick={() => setTemperatureField('temp_c')}>Temperatuur</button>
           <button classList={{ active: temperatureField() === 'feels_like_c' }} onClick={() => setTemperatureField('feels_like_c')}>Gevoel</button>
         </div>
       </Show>
+      <Show when={devMode && windTimeline().length}>
+        <details class="wind-debug" open>
+          <summary>Wind debug</summary>
+          <label><span>Zichtbaar</span><input type="range" min="0" max="3" step="0.1" value={windTuning().visibility} onInput={(event) => tuneWind('visibility', event.currentTarget.valueAsNumber)} /><output>{windTuning().visibility.toFixed(1)}</output></label>
+          <label><span>Dikte</span><input type="range" min="1" max="5" step="0.25" value={windTuning().thickness} onInput={(event) => tuneWind('thickness', event.currentTarget.valueAsNumber)} /><output>{windTuning().thickness.toLocaleString('nl-NL', { maximumFractionDigits: 2 })} px</output></label>
+          <label><span>Dichtheid</span><input type="range" min="100" max="1600" step="20" value={windTuning().particlesPerMegapixel} onInput={(event) => tuneWind('particlesPerMegapixel', event.currentTarget.valueAsNumber)} /><output>{windTuning().particlesPerMegapixel}</output></label>
+          <label><span>Deeltjes</span><input type="range" min="0.1" max="1" step="0.05" value={windTuning().particleOpacity} onInput={(event) => tuneWind('particleOpacity', event.currentTarget.valueAsNumber)} /><output>{windTuning().particleOpacity.toFixed(2)}</output></label>
+          <label><span>Trailduur</span><input type="range" min="0.9" max="0.99" step="0.001" value={windTuning().trailFade} onInput={(event) => tuneWind('trailFade', event.currentTarget.valueAsNumber)} /><output>{windTuning().trailFade.toFixed(3)}</output></label>
+          <label><span>Dekking</span><input type="range" min="0.1" max="1" step="0.05" value={windTuning().trailOpacity} onInput={(event) => tuneWind('trailOpacity', event.currentTarget.valueAsNumber)} /><output>{windTuning().trailOpacity.toFixed(2)}</output></label>
+          <label class="debug-toggle"><span>Wolkrand</span><input type="checkbox" checked={cloudEdgesEnabled()} onChange={(event) => toggleCloudEdges(event.currentTarget.checked)} /><output>{cloudEdgesEnabled() ? 'Aan' : 'Uit'}</output></label>
+          <label><span>Min. breedte</span><input type="range" min="5" max="100" step="5" value={minimumMapWidthKm()} onInput={(event) => tuneMapDetail(event.currentTarget.valueAsNumber)} /><output>{minimumMapWidthKm()} km</output></label>
+          <p class="wind-debug-note">Maximale kaartzoom: {devMaximumZoom().toFixed(1)}</p>
+          <label><span>Splash ×</span><input type="range" min="1" max="8" step="0.5" value={splashSlowdown()} onInput={(event) => setSplashSlowdown(event.currentTarget.valueAsNumber)} /><output>{splashSlowdown().toLocaleString('nl-NL', { maximumFractionDigits: 1 })}×</output></label>
+          <button class="wind-debug-replay" onClick={replaySplash}>Herhaal splash</button>
+        </details>
+      </Show>
       <div class="source">Bron: KNMI · Kaart: OpenFreeMap</div>
     </section>
     <aside class="dashboard">
+      <nav class="sidebar-nav" aria-label="Instellingen en locatie">
+        <Show when={cursorUvChip()}>{(label) => <span class="uv-chip sidebar-uv-chip" title="Insmeren aanbevolen"><span aria-hidden="true">☀</span><span class="uv-long">{label()}</span><span class="uv-short">UV {formatUv(cursorUv())}</span></span>}</Show>
+        <div class="sidebar-actions">
+          <button class="round-action theme-button sidebar-theme" onClick={cycleTheme} aria-label={`Thema: ${themeMeta().label}. Klik voor ${themeMeta().next}`} title={`Thema: ${themeMeta().label}`}>
+            <span aria-hidden="true">{themeMeta().icon}</span><small>{themeMeta().label}</small>
+          </button>
+        </div>
+      </nav>
       <HistogramScrubber
         timeline={timeline()}
         values={rainSeries()}
         cursor={cursor()}
         now={manifest() ? Date.parse(manifest()!.now) : 0}
         playing={playing()}
+        horizonHours={timeHorizonHours()}
+        loading={pointSeriesLoading()}
         locationLabel={status()}
         onCursor={scrub}
+        onHorizonHours={chooseTimeHorizon}
         onPlaying={setPlaying}
       />
       <section class="forecast-panel">
-        <div class="section-heading"><div><p class="eyebrow">Vooruitblik</p><h2>Komende 24 uur</h2></div><span>{location() ? 'Per uur' : ''}</span></div>
         <div class="table-scroll">
           <table>
             <thead><tr>
@@ -640,8 +872,9 @@ export default function App() {
               )
               const icon = () => deriveWeatherIcon(rain() ?? null, cloud() ?? null, solarElevationSin(row.epoch, location().lng, location().lat) > 0)
               const advice = () => uvChipLabel(uv())
-              return <tr>
-                <td><strong>{new Date(row.epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</strong><span>{new Date(row.epoch).toLocaleDateString('nl-NL', { weekday: 'short' })}</span></td>
+              const isNow = () => row.epoch === currentHour()
+              return <tr classList={{ 'current-hour': isNow(), 'past-hour': row.epoch < currentHour() }}>
+                <td><strong>{new Date(row.epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</strong><span classList={{ 'now-label': isNow() }}>{isNow() ? 'Nu' : new Date(row.epoch).toLocaleDateString('nl-NL', { weekday: 'short' })}</span></td>
                 <Show when={hasWeatherColumn()}><td class="weather-cell"><Show when={icon()}>{(model) => <WeatherIcon model={model()} />}</Show><Show when={advice()}>{(label) => <span class="uv-chip table-uv-chip" title={label()}>UV {formatUv(uv())}</span>}</Show></td></Show>
                 <Show when={hasTemperature()}><td class="temperature-cell">{formatTemperature(temperature())}</td></Show>
                 <Show when={hasHumidity()}><td>{formatHumidity(humidity())}</td></Show>
@@ -660,6 +893,18 @@ export default function App() {
 function storedTheme(): ThemeChoice {
   const stored = localStorage.getItem('motregen-theme')
   return stored === 'light' || stored === 'system' || stored === 'dark' ? stored : 'light'
+}
+
+function timelineHorizonEnd(frames: TimelineFrame[], now: number, hours: number | null): number {
+  const last = frames.at(-1)?.epoch ?? 0
+  return hours === null ? last : Math.min(last, now + hours * 3_600_000)
+}
+
+function storedSplashSlowdown(): number {
+  const stored = localStorage.getItem('motregen-splash-slowdown')
+  if (stored === null) return 1.5
+  const value = Number(stored)
+  return Number.isFinite(value) ? Math.max(1, Math.min(8, value)) : 1.5
 }
 
 function project(lng: number, lat: number): [number, number] {

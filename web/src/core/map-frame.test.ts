@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mapFrameFromGrid } from './map-frame'
+import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS, paddedGeographicBounds } from './map-frame'
 
 describe('map frame', () => {
   it('derives its data edge, movement bounds and mask from arbitrary header grids', () => {
@@ -11,5 +11,14 @@ describe('map frame', () => {
     expect(frame.maxBounds[1][1]).toBeGreaterThan(frame.dataBounds.north)
     expect(frame.mask.geometry.coordinates).toHaveLength(2)
     expect(frame.mask.geometry.coordinates[1]?.[0]).toEqual(frame.mask.geometry.coordinates[1]?.at(-1))
+  })
+
+  it('pads the Netherlands and Flanders focus bounds by a tunable fraction on every side', () => {
+    const bounds = paddedGeographicBounds(NETHERLANDS_FLANDERS_BOUNDS, { west: 0.05, south: 0.1, east: 0.15, north: 0.1 })
+
+    expect(bounds[0][0]).toBeCloseTo(2.2635)
+    expect(bounds[0][1]).toBeCloseTo(50.381)
+    expect(bounds[1][0]).toBeCloseTo(7.9395)
+    expect(bounds[1][1]).toBeCloseTo(53.849)
   })
 })

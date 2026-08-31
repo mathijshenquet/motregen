@@ -3,6 +3,7 @@ const baseUrl = 'https://api.pdok.nl/bzk/locatieserver/search/v3_1/'
 export interface PdokSuggestion {
   id: string
   label: string
+  detail?: string
   type: string
 }
 
@@ -20,14 +21,21 @@ interface PdokResponse {
 export async function suggestLocations(query: string, signal?: AbortSignal): Promise<PdokSuggestion[]> {
   const url = new URL('suggest', baseUrl)
   url.searchParams.set('q', query)
+  url.searchParams.set('fq', 'type:(woonplaats OR wijk)')
+  url.searchParams.set('rows', '5')
   const response = await fetch(url, { signal })
   if (!response.ok) throw new Error(`Zoeken mislukt (${response.status})`)
   const data = await response.json() as PdokResponse
-  return (data.response?.docs ?? []).slice(0, 7).flatMap((document) =>
-    document.id && document.weergavenaam
-      ? [{ id: document.id, label: document.weergavenaam, type: document.type ?? 'locatie' }]
-      : [],
-  )
+  return (data.response?.docs ?? []).slice(0, 5).flatMap((document) => {
+    if (!document.id || !document.weergavenaam) return []
+    const { label, detail } = conciseLocationLabel(document.weergavenaam)
+    return [{ id: document.id, label, detail, type: document.type ?? 'locatie' }]
+  })
+}
+
+export function conciseLocationLabel(value: string): { label: string; detail?: string } {
+  const [label, ...context] = value.split(',').map((part) => part.trim()).filter(Boolean)
+  return { label: label ?? value, detail: context.length ? context.join(' · ') : undefined }
 }
 
 export async function lookupLocation(id: string, signal?: AbortSignal): Promise<{ lng: number; lat: number }> {

@@ -5,9 +5,29 @@ import type { Grid } from './contract'
 export const WIND_TRAIL_OPACITY = 0.6
 export const WIND_TRAIL_FADE = 0.955
 export const WIND_PARTICLES_PER_MEGAPIXEL = 620
-const SEGMENT_ALPHA = 0.95
+export const WIND_PARTICLE_OPACITY = 0.95
+export const WIND_REFERENCE_ZOOM = 6.4
+
+export interface WindTuning {
+  visibility: number
+  thickness: number
+  particlesPerMegapixel: number
+  particleOpacity: number
+  trailFade: number
+  trailOpacity: number
+}
+
+export const DEFAULT_WIND_TUNING: WindTuning = {
+  visibility: 1,
+  thickness: 2.5,
+  particlesPerMegapixel: WIND_PARTICLES_PER_MEGAPIXEL,
+  particleOpacity: WIND_PARTICLE_OPACITY,
+  trailFade: WIND_TRAIL_FADE,
+  trailOpacity: WIND_TRAIL_OPACITY,
+}
+
 const MIN_PARTICLES = 96
-const MAX_PARTICLES = 1_100
+const MAX_PARTICLES = 2_400
 const ADVECTION_SCALE = 7_000
 const MAX_AGE = 150
 const MERCATOR_SCALE = 1 / (2 * Math.PI * 6_378_137)
@@ -16,24 +36,34 @@ const LIGHT_RAMP = [
   [3, 48, 102], [0, 76, 108], [9, 91, 44], [119, 73, 0], [162, 39, 8], [108, 15, 73],
 ] as const
 const DARK_RAMP = [
-  [112, 194, 255], [68, 224, 231], [108, 225, 146], [255, 218, 92], [255, 147, 79], [244, 113, 201],
+  [255, 255, 255], [255, 255, 255], [255, 255, 255], [255, 255, 255], [255, 255, 255], [255, 255, 255],
 ] as const
+const lineOffsetCache = new Map<number, ReadonlyArray<readonly [number, number]>>()
 
 const particleVertexSource = `#version 300 es
 in vec2 a_pos;
 in vec4 a_color;
 uniform mat4 u_matrix;
+uniform vec2 u_offset;
 out vec4 v_color;
 void main() {
-  gl_Position = u_matrix * vec4(a_pos, 0.0, 1.0);
+  vec4 position = u_matrix * vec4(a_pos, 0.0, 1.0);
+  position.xy += u_offset * position.w;
+  gl_Position = position;
   v_color = a_color;
 }`
 
 const particleFragmentSource = `#version 300 es
 precision mediump float;
 in vec4 v_color;
+uniform float u_visibility;
+uniform vec3 u_contrast;
 out vec4 color;
-void main() { color = vec4(v_color.rgb * v_color.a, v_color.a); }`
+void main() {
+  float alpha = v_color.a * min(u_visibility, 1.0);
+  vec3 rgb = mix(v_color.rgb, u_contrast, clamp((u_visibility - 1.0) * 0.5, 0.0, 1.0));
+  color = vec4(rgb * alpha, alpha);
+}`
 
 const fadeVertexSource = `#version 300 es
 in vec2 a_pos;
@@ -47,9 +77,15 @@ const fadeFragmentSource = `#version 300 es
 precision mediump float;
 uniform sampler2D u_trail;
 uniform float u_fade;
+uniform vec2 u_uv_scale;
+uniform vec2 u_uv_offset;
 in vec2 v_uv;
 out vec4 color;
-void main() { color = texture(u_trail, v_uv) * u_fade; }`
+void main() {
+  vec2 previousUv = v_uv * u_uv_scale + u_uv_offset;
+  float inside = step(0.0, previousUv.x) * step(previousUv.x, 1.0) * step(0.0, previousUv.y) * step(previousUv.y, 1.0);
+  color = texture(u_trail, clamp(previousUv, vec2(0.0), vec2(1.0))) * u_fade * inside;
+}`
 
 const compositeVertexSource = `#version 300 es
 in vec2 a_pos;
@@ -72,11 +108,19 @@ interface TrailTarget {
   framebuffer: WebGLFramebuffer
 }
 
-interface ParticleBounds {
+export interface ParticleBounds {
   west: number
   north: number
   east: number
   south: number
+}
+
+export interface TrailView {
+  centerX: number
+  centerY: number
+  zoom: number
+  width: number
+  height: number
 }
 
 export class WindLayer implements CustomLayerInterface {
@@ -91,9 +135,14 @@ export class WindLayer implements CustomLayerInterface {
   private particlePositionLocation = -1
   private particleColorLocation = -1
   private particleMatrixLocation?: WebGLUniformLocation
+  private particleOffsetLocation?: WebGLUniformLocation
+  private particleVisibilityLocation?: WebGLUniformLocation
+  private particleContrastLocation?: WebGLUniformLocation
   private fadePositionLocation = -1
   private fadeTrailLocation?: WebGLUniformLocation
   private fadeFactorLocation?: WebGLUniformLocation
+  private fadeUvScaleLocation?: WebGLUniformLocation
+  private fadeUvOffsetLocation?: WebGLUniformLocation
   private compositePositionLocation = -1
   private compositeTrailLocation?: WebGLUniformLocation
   private compositeOpacityLocation?: WebGLUniformLocation
@@ -103,6 +152,7 @@ export class WindLayer implements CustomLayerInterface {
   private trailIndex = 0
   private trailWidth = 0
   private trailHeight = 0
+  private trailView?: TrailView
   private left?: Float32Array
   private right?: Float32Array
   private mix = 0
@@ -118,9 +168,11 @@ export class WindLayer implements CustomLayerInterface {
   private frameTotal = 0
   private frameCount = 0
   private particleBounds: ParticleBounds = { west: 0, north: 0, east: 1, south: 1 }
+  private tuning: WindTuning
   private readonly viewportChanged = () => this.resetViewport()
 
-  constructor(private readonly grid: Grid, private readonly theme: MapTheme) {
+  constructor(private readonly grid: Grid, private theme: MapTheme, tuning: WindTuning = DEFAULT_WIND_TUNING) {
+    this.tuning = { ...tuning }
     for (let index = 0; index < MAX_PARTICLES; index++) this.respawn(index)
   }
 
@@ -133,9 +185,14 @@ export class WindLayer implements CustomLayerInterface {
     this.particlePositionLocation = this.gl.getAttribLocation(this.particleProgram, 'a_pos')
     this.particleColorLocation = this.gl.getAttribLocation(this.particleProgram, 'a_color')
     this.particleMatrixLocation = this.gl.getUniformLocation(this.particleProgram, 'u_matrix')!
+    this.particleOffsetLocation = this.gl.getUniformLocation(this.particleProgram, 'u_offset')!
+    this.particleVisibilityLocation = this.gl.getUniformLocation(this.particleProgram, 'u_visibility')!
+    this.particleContrastLocation = this.gl.getUniformLocation(this.particleProgram, 'u_contrast')!
     this.fadePositionLocation = this.gl.getAttribLocation(this.fadeProgram, 'a_pos')
     this.fadeTrailLocation = this.gl.getUniformLocation(this.fadeProgram, 'u_trail')!
     this.fadeFactorLocation = this.gl.getUniformLocation(this.fadeProgram, 'u_fade')!
+    this.fadeUvScaleLocation = this.gl.getUniformLocation(this.fadeProgram, 'u_uv_scale')!
+    this.fadeUvOffsetLocation = this.gl.getUniformLocation(this.fadeProgram, 'u_uv_offset')!
     this.compositePositionLocation = this.gl.getAttribLocation(this.compositeProgram, 'a_pos')
     this.compositeTrailLocation = this.gl.getUniformLocation(this.compositeProgram, 'u_trail')!
     this.compositeOpacityLocation = this.gl.getUniformLocation(this.compositeProgram, 'u_opacity')!
@@ -148,7 +205,7 @@ export class WindLayer implements CustomLayerInterface {
     this.ensureTrailTargets()
     map.on('move', this.viewportChanged)
     map.on('resize', this.viewportChanged)
-    this.resetViewport()
+    this.resetViewport(true)
   }
 
   onRemove(): void {
@@ -168,6 +225,27 @@ export class WindLayer implements CustomLayerInterface {
     this.left = left
     this.right = right
     this.mix = mix
+  }
+
+  setTheme(theme: MapTheme): void {
+    if (theme === this.theme) return
+    this.theme = theme
+    if (this.gl && this.trails) {
+      clearTrails(this.gl, this.trails, this.trailWidth, this.trailHeight)
+      this.trailView = this.currentTrailView()
+    }
+    this.map?.triggerRepaint()
+  }
+
+  setTuning(tuning: WindTuning): void {
+    const previousActive = this.active
+    this.tuning = { ...tuning }
+    if (!this.map) return
+    const canvas = this.map.getCanvas()
+    this.target = particleCountForViewport(canvas.clientWidth, canvas.clientHeight, tuning.particlesPerMegapixel)
+    this.active = this.target
+    for (let index = previousActive; index < this.active; index++) this.respawn(index)
+    this.map.triggerRepaint()
   }
 
   render(context: WebGLRenderingContext | WebGL2RenderingContext, options: CustomRenderMethodInput): void {
@@ -193,11 +271,13 @@ export class WindLayer implements CustomLayerInterface {
     gl.bindFramebuffer(gl.FRAMEBUFFER, next.framebuffer)
     gl.viewport(0, 0, this.trailWidth, this.trailHeight)
     gl.disable(gl.BLEND)
-    this.drawFade(gl, previous.texture)
+    const currentView = this.currentTrailView()
+    this.drawFade(gl, previous.texture, currentView)
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     this.drawParticles(gl, options)
     this.trailIndex = nextIndex
+    this.trailView = currentView
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
     gl.viewport(viewport[0]!, viewport[1]!, viewport[2]!, viewport[3]!)
@@ -209,7 +289,7 @@ export class WindLayer implements CustomLayerInterface {
     this.map?.triggerRepaint()
   }
 
-  private drawFade(gl: WebGL2RenderingContext, texture: WebGLTexture): void {
+  private drawFade(gl: WebGL2RenderingContext, texture: WebGLTexture, currentView: TrailView): void {
     gl.useProgram(this.fadeProgram!)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.screenBuffer!)
     gl.enableVertexAttribArray(this.fadePositionLocation)
@@ -217,7 +297,10 @@ export class WindLayer implements CustomLayerInterface {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, texture)
     gl.uniform1i(this.fadeTrailLocation!, 0)
-    gl.uniform1f(this.fadeFactorLocation!, WIND_TRAIL_FADE)
+    const transform = trailUvTransform(this.trailView ?? currentView, currentView)
+    gl.uniform1f(this.fadeFactorLocation!, this.tuning.trailFade * transform.retention)
+    gl.uniform2f(this.fadeUvScaleLocation!, transform.scaleX, transform.scaleY)
+    gl.uniform2f(this.fadeUvOffsetLocation!, transform.offsetX, transform.offsetY)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   }
 
@@ -230,8 +313,14 @@ export class WindLayer implements CustomLayerInterface {
     gl.enableVertexAttribArray(this.particleColorLocation)
     gl.vertexAttribPointer(this.particleColorLocation, 4, gl.FLOAT, false, 24, 8)
     gl.uniformMatrix4fv(this.particleMatrixLocation!, false, options.defaultProjectionData.mainMatrix)
+    gl.uniform1f(this.particleVisibilityLocation!, this.tuning.visibility)
+    const contrast = this.theme === 'dark' ? 1 : 0
+    gl.uniform3f(this.particleContrastLocation!, contrast, contrast, contrast)
     gl.lineWidth(1)
-    gl.drawArrays(gl.LINES, 0, this.active * 2)
+    for (const [x, y] of windLineOffsets(this.tuning.thickness)) {
+      gl.uniform2f(this.particleOffsetLocation!, x * 2 / this.trailWidth, y * 2 / this.trailHeight)
+      gl.drawArrays(gl.LINES, 0, this.active * 2)
+    }
   }
 
   private drawComposite(gl: WebGL2RenderingContext, texture: WebGLTexture, options: CustomRenderMethodInput): void {
@@ -243,13 +332,14 @@ export class WindLayer implements CustomLayerInterface {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, texture)
     gl.uniform1i(this.compositeTrailLocation!, 0)
-    gl.uniform1f(this.compositeOpacityLocation!, WIND_TRAIL_OPACITY)
+    gl.uniform1f(this.compositeOpacityLocation!, this.tuning.trailOpacity * Math.min(this.tuning.visibility, 1))
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   }
 
   private advance(seconds: number): void {
     const cellWidth = Math.abs(this.grid.dx) * this.grid.width
     const cellHeight = Math.abs(this.grid.dy) * this.grid.height
+    const advectionScale = ADVECTION_SCALE * windZoomCompensation(this.map?.getZoom() ?? WIND_REFERENCE_ZOOM)
     const leftFrame = this.left!
     const rightFrame = this.right!
     for (let index = 0; index < this.active; index++) {
@@ -261,8 +351,8 @@ export class WindLayer implements CustomLayerInterface {
       const east = leftFrame[vectorOffset]! * (1 - this.mix) + rightFrame[vectorOffset]! * this.mix
       const north = leftFrame[vectorOffset + 1]! * (1 - this.mix) + rightFrame[vectorOffset + 1]! * this.mix
       const invalid = !Number.isFinite(east) || !Number.isFinite(north)
-      const nextX = oldX + east * seconds * ADVECTION_SCALE / cellWidth
-      const nextY = oldY - north * seconds * ADVECTION_SCALE / cellHeight
+      const nextX = oldX + east * seconds * advectionScale / cellWidth
+      const nextY = oldY - north * seconds * advectionScale / cellHeight
       if (invalid || nextX < this.particleBounds.west || nextX > this.particleBounds.east ||
         nextY < this.particleBounds.north || nextY > this.particleBounds.south || ++this.age[index]! > MAX_AGE) {
         this.respawn(index)
@@ -276,7 +366,7 @@ export class WindLayer implements CustomLayerInterface {
       const oldMercatorY = 0.5 - (this.grid.y0 + this.grid.dy * this.grid.height * oldY) * MERCATOR_SCALE
       const nextMercatorX = 0.5 + (this.grid.x0 + this.grid.dx * this.grid.width * nextX) * MERCATOR_SCALE
       const nextMercatorY = 0.5 - (this.grid.y0 + this.grid.dy * this.grid.height * nextY) * MERCATOR_SCALE
-      writeParticle(this.vertices, index * 12, oldMercatorX, oldMercatorY, nextMercatorX, nextMercatorY, Math.hypot(east, north), this.theme, this.color)
+      writeParticle(this.vertices, index * 12, oldMercatorX, oldMercatorY, nextMercatorX, nextMercatorY, Math.hypot(east, north), this.theme, this.tuning.particleOpacity, this.color)
     }
   }
 
@@ -297,15 +387,38 @@ export class WindLayer implements CustomLayerInterface {
     this.age[index] = Math.floor(this.random() * MAX_AGE)
   }
 
-  private resetViewport(): void {
+  private resetViewport(resetAll = false): void {
     if (!this.map) return
     this.ensureTrailTargets()
-    this.particleBounds = particleBounds(this.map, this.grid)
+    const previousBounds = this.particleBounds
+    const nextBounds = particleBounds(this.map, this.grid)
+    const retention = viewportParticleRetention(previousBounds, nextBounds)
+    this.particleBounds = nextBounds
     const canvas = this.map.getCanvas()
-    this.target = particleCountForViewport(canvas.clientWidth, canvas.clientHeight)
+    const previousActive = this.active
+    this.target = particleCountForViewport(canvas.clientWidth, canvas.clientHeight, this.tuning.particlesPerMegapixel)
     this.active = this.target
-    for (let index = 0; index < MAX_PARTICLES; index++) this.respawn(index)
-    if (this.gl && this.trails) clearTrails(this.gl, this.trails, this.trailWidth, this.trailHeight)
+    for (let index = 0; index < this.active; index++) {
+      const outside = this.x[index]! < this.particleBounds.west || this.x[index]! > this.particleBounds.east ||
+        this.y[index]! < this.particleBounds.north || this.y[index]! > this.particleBounds.south
+      if (resetAll || index >= previousActive || outside || (retention < 1 && this.random() > retention)) this.respawn(index)
+    }
+    if (resetAll && this.gl && this.trails) {
+      clearTrails(this.gl, this.trails, this.trailWidth, this.trailHeight)
+      this.trailView = this.currentTrailView()
+    }
+  }
+
+  private currentTrailView(): TrailView {
+    const center = this.map!.getCenter()
+    const canvas = this.map!.getCanvas()
+    return {
+      centerX: 0.5 + projectX(center.lng) * MERCATOR_SCALE,
+      centerY: 0.5 - projectY(center.lat) * MERCATOR_SCALE,
+      zoom: this.map!.getZoom(),
+      width: Math.max(1, canvas.clientWidth),
+      height: Math.max(1, canvas.clientHeight),
+    }
   }
 
   private ensureTrailTargets(): void {
@@ -322,6 +435,7 @@ export class WindLayer implements CustomLayerInterface {
     this.trails = [createTrailTarget(this.gl, width, height), createTrailTarget(this.gl, width, height)]
     this.trailIndex = 0
     clearTrails(this.gl, this.trails, width, height)
+    this.trailView = this.currentTrailView()
   }
 
   private random(): number {
@@ -347,9 +461,48 @@ export function trailTargetSize(canvasWidth: number, canvasHeight: number, maxTe
   return [Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale))]
 }
 
-export function particleCountForViewport(width: number, height: number): number {
-  const count = Math.round(Math.max(0, width) * Math.max(0, height) / 1_000_000 * WIND_PARTICLES_PER_MEGAPIXEL)
+export function particleCountForViewport(width: number, height: number, particlesPerMegapixel = WIND_PARTICLES_PER_MEGAPIXEL): number {
+  const count = Math.round(Math.max(0, width) * Math.max(0, height) / 1_000_000 * particlesPerMegapixel)
   return Math.max(MIN_PARTICLES, Math.min(MAX_PARTICLES, count))
+}
+
+export function windZoomCompensation(zoom: number): number {
+  return 2 ** (WIND_REFERENCE_ZOOM - zoom)
+}
+
+export function trailUvTransform(previous: TrailView, current: TrailView): { scaleX: number; scaleY: number; offsetX: number; offsetY: number; retention: number } {
+  const zoomScale = 2 ** (previous.zoom - current.zoom)
+  const scaleX = zoomScale * current.width / previous.width
+  const scaleY = zoomScale * current.height / previous.height
+  const previousWorldSize = 512 * 2 ** previous.zoom
+  return {
+    scaleX,
+    scaleY,
+    offsetX: 0.5 * (1 - scaleX) + (current.centerX - previous.centerX) * previousWorldSize / previous.width,
+    offsetY: 0.5 * (1 - scaleY) - (current.centerY - previous.centerY) * previousWorldSize / previous.height,
+    retention: Math.min(1, 1 / (zoomScale * zoomScale)),
+  }
+}
+
+export function viewportParticleRetention(previous: ParticleBounds, current: ParticleBounds): number {
+  const previousArea = Math.max(0, previous.east - previous.west) * Math.max(0, previous.south - previous.north)
+  const currentArea = Math.max(0, current.east - current.west) * Math.max(0, current.south - current.north)
+  return currentArea > previousArea && currentArea > 0 ? previousArea / currentArea : 1
+}
+
+export function windLineOffsets(thickness: number): ReadonlyArray<readonly [number, number]> {
+  const value = Math.max(1, Math.min(5, thickness))
+  const cached = lineOffsetCache.get(value)
+  if (cached) return cached
+  const size = Math.ceil(value)
+  const start = -(value - 1) / 2
+  const step = size === 1 ? 0 : (value - 1) / (size - 1)
+  const offsets = Array.from({ length: size * size }, (_, index) => [
+    start + index % size * step,
+    start + Math.floor(index / size) * step,
+  ] as const)
+  lineOffsetCache.set(value, offsets)
+  return offsets
 }
 
 function setWindColor(speed: number, theme: MapTheme, color: Float32Array): void {
@@ -366,20 +519,20 @@ function setWindColor(speed: number, theme: MapTheme, color: Float32Array): void
   color[2] = (left[2] + (right[2] - left[2]) * mix) / 255
 }
 
-function writeParticle(vertices: Float32Array, offset: number, oldX: number, oldY: number, nextX: number, nextY: number, speed: number, theme: MapTheme, color: Float32Array): void {
+function writeParticle(vertices: Float32Array, offset: number, oldX: number, oldY: number, nextX: number, nextY: number, speed: number, theme: MapTheme, opacity: number, color: Float32Array): void {
   setWindColor(speed, theme, color)
   vertices[offset] = oldX
   vertices[offset + 1] = oldY
   vertices[offset + 2] = color[0]!
   vertices[offset + 3] = color[1]!
   vertices[offset + 4] = color[2]!
-  vertices[offset + 5] = SEGMENT_ALPHA
+  vertices[offset + 5] = opacity
   vertices[offset + 6] = nextX
   vertices[offset + 7] = nextY
   vertices[offset + 8] = color[0]!
   vertices[offset + 9] = color[1]!
   vertices[offset + 10] = color[2]!
-  vertices[offset + 11] = SEGMENT_ALPHA
+  vertices[offset + 11] = opacity
 }
 
 function createTrailTarget(gl: WebGL2RenderingContext, width: number, height: number): TrailTarget {

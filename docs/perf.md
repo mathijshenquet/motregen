@@ -76,6 +76,38 @@ nowcastchunk opnieuw over: 8.792 B op 4G en 4.696 B op Fast 3G in de
 kalibratieruns. Een limiet van 12 kB houdt dit expliciet begrensd; zonder
 netwerkthrottling blijft dezelfde warmnavigatie exact 0 B.
 
+Na integratie van de standaard autoplay en de verkorte scrubberhorizon bleek
+die desktopnulgrens intermitterend te falen. Een falende run droeg 2.663 B
+opnieuw over: drie motion-ranges van elk 63 B plus 1.274 B uit een grotere
+nowcastrange. De horizon was niet de oorzaak. De eerste kaartframe prefetchte
+buurframes als losse 206-ranges, terwijl de direct daarop gestarte
+locatiereeks dezelfde immutable MRF-payload in bulk ophaalde. Die overlappende
+responses leverden soms een onvolledige sparse Chromium-cache-entry op. De
+redundante prefetch vóór de eerste locatiereeks is daarom verwijderd; latere
+prefetch blijft ongewijzigd. Zes verse desktopjourneys daarna maten elk 0 B
+warm en 1.282.633 B voor de volledige sessie, 6.865 B minder dan vóór de fix.
+Het desktopbudget blijft dus bewust de strenge 0 B in plaats van de regressie
+met een ruimer budget te maskeren. Bij een toekomstige failure logt de suite
+de overgedragen chunk-URL en Resource Timing-bytevelden direct.
+
+De warmbyte-snapshot wordt pas gemaakt nadat TTFR is vastgelegd, autoplay via
+scrubberhover is gepauzeerd, de locatiereeks gereed is en het netwerk idle is.
+Voorheen viel de snapshot precies op TTFR; een range die enkele milliseconden
+later voltooide telde daardoor willekeurig wel of niet mee. TTFR zelf behoudt
+zijn oorspronkelijke eerste-rendermeetpunt, maar de cache-gate omvat nu de
+volledige warme startup.
+
+Drie opeenvolgende merge-gateruns op de aangescherpte meting waren groen:
+
+| Run | Desktop warm chunks | 4G warm chunks | Fast 3G warm chunks | Desktop sessie |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 0 B | 5.430 B | 5.430 B | 1.282.633 B |
+| 2 | 0 B | 5.430 B | 5.430 B | 1.282.633 B |
+| 3 | 0 B | 5.430 B | 5.430 B | 1.282.633 B |
+
+De mobiele transfer bestaat telkens uit drie `feels_like_c`-ranges; 5.430 B
+ligt ruim onder maar blijft expliciet begrensd door het bestaande 12-kB-budget.
+
 De warmbudgetten zijn gekalibreerd tijdens zowel normale hostbelasting als een
 load-average van 12 door gelijktijdige ingest. Daarbij werden uitschieters van
 1.285 ms desktop en 2.991 ms op 4G gezien; 1.500/3.500 ms blijft streng maar

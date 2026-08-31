@@ -7,6 +7,13 @@ export interface GeographicBounds {
   north: number
 }
 
+export interface GeographicMargins {
+  west: number
+  south: number
+  east: number
+  north: number
+}
+
 export interface MapFrame {
   dataBounds: GeographicBounds
   maxBounds: [[number, number], [number, number]]
@@ -15,6 +22,13 @@ export interface MapFrame {
     properties: Record<string, never>
     geometry: { type: 'Polygon'; coordinates: number[][][] }
   }
+}
+
+export const NETHERLANDS_FLANDERS_BOUNDS: GeographicBounds = {
+  west: 2.5,
+  south: 50.67,
+  east: 7.23,
+  north: 53.56,
 }
 
 const defaultMarginMeters = 140_000
@@ -39,6 +53,18 @@ export function mapFrameFromGrid(grid: Grid, marginMeters = defaultMarginMeters)
       geometry: { type: 'Polygon', coordinates: [outerRing, innerRing] },
     },
   }
+}
+
+export function paddedGeographicBounds(bounds: GeographicBounds, margins: number | GeographicMargins): [[number, number], [number, number]] {
+  const fractions = typeof margins === 'number'
+    ? { west: margins, south: margins, east: margins, north: margins }
+    : margins
+  const longitudeSpan = bounds.east - bounds.west
+  const latitudeSpan = bounds.north - bounds.south
+  return [
+    [bounds.west - longitudeSpan * fractions.west, bounds.south - latitudeSpan * fractions.south],
+    [bounds.east + longitudeSpan * fractions.east, bounds.north + latitudeSpan * fractions.north],
+  ]
 }
 
 function projectedBounds(west: number, south: number, east: number, north: number): GeographicBounds {
