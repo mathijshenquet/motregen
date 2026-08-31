@@ -165,10 +165,10 @@ button { color: inherit; cursor: pointer; }
   color: var(--text);
 }
 .search-icon { position: absolute; left: 13px; top: 9px; z-index: 1; color: var(--muted); font-size: 20px; line-height: 1; }
-.search input {
+.search > input {
   width: 100%;
   height: 42px;
-  padding: 0 38px;
+  padding: 0 46px 0 38px;
   border: 1px solid var(--line-strong);
   border-radius: 12px;
   outline: none;
@@ -177,16 +177,36 @@ button { color: inherit; cursor: pointer; }
   box-shadow: var(--shadow);
   appearance: none;
 }
-.search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent), var(--shadow); }
+.search > input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent), var(--shadow); }
+.save-place {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 21px;
+  line-height: 1;
+}
+.save-place:hover { color: #d59b00; background: color-mix(in srgb, #ffd75e 20%, transparent); }
+.save-place.saved { color: #d59b00; }
+.save-place:disabled { opacity: .35; cursor: default; }
 .search-results {
   margin-top: 6px;
+  max-height: min(380px, calc(48svh - 64px));
   overflow: hidden;
+  overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface-raised);
   box-shadow: var(--shadow);
 }
-.search-results button {
+.search-results > button {
   width: 100%;
   display: flex;
   align-items: center;
@@ -199,11 +219,34 @@ button { color: inherit; cursor: pointer; }
   text-align: left;
   background: transparent;
 }
-.search-results button:last-of-type { border-bottom: 0; }
-.search-results button:hover, .search-results button.active { background: var(--accent-soft); }
-.search-results button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.search-results small { flex: none; color: var(--muted); font-size: 10px; text-transform: capitalize; }
-.search-results p { margin: 0; padding: 11px 12px; color: var(--muted); font-size: 12px; }
+.search-results > button:last-of-type { border-bottom: 0; }
+.search-results > button:hover, .search-results > button.active { background: var(--accent-soft); }
+.search-results > button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-results > button span b { display: inline-block; min-width: 16px; color: var(--accent); font-size: 15px; text-align: center; }
+.search-results > button.saved-location span b { color: #d59b00; }
+.search-results small { flex: none; max-width: 45%; overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; text-transform: capitalize; white-space: nowrap; }
+.search-section-label { margin: 0; padding: 7px 12px 5px; border-bottom: 1px solid var(--line); color: var(--muted); background: var(--surface-soft); font-size: 8px; font-weight: 780; letter-spacing: .08em; text-transform: uppercase; }
+.search-message { margin: 0; padding: 11px 12px; color: var(--muted); font-size: 12px; }
+.save-place-editor { padding: 10px 12px 12px; border-bottom: 1px solid var(--line); background: var(--surface-soft); }
+.save-place-editor label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 9px; font-weight: 700; }
+.save-place-editor div { display: flex; gap: 6px; }
+.save-place-editor input { min-width: 0; height: 34px; flex: 1; padding: 0 9px; border: 1px solid var(--line-strong); border-radius: 7px; outline: none; color: var(--text); background: var(--surface); }
+.save-place-editor input:focus { border-color: var(--accent); }
+.save-place-editor button { padding: 0 10px; border: 0; border-radius: 7px; color: var(--surface); background: var(--accent); font-size: 10px; font-weight: 750; }
+.saved-place-marker {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 2px solid rgba(255, 255, 255, .94);
+  border-radius: 50%;
+  color: #d09400;
+  background: rgba(255, 238, 164, .96);
+  box-shadow: 0 3px 12px rgba(14, 35, 43, .34);
+  font-size: 19px;
+  line-height: 1;
+  z-index: 4;
+}
+.saved-place-marker:hover, .saved-place-marker:focus-visible { color: #a87000; background: #fff2b5; transform: scale(1.12); }
 
 .temperature-switch {
   position: absolute;

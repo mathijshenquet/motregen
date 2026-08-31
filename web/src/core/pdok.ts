@@ -20,10 +20,12 @@ interface PdokResponse {
 export async function suggestLocations(query: string, signal?: AbortSignal): Promise<PdokSuggestion[]> {
   const url = new URL('suggest', baseUrl)
   url.searchParams.set('q', query)
+  url.searchParams.set('fq', 'type:(woonplaats OR wijk)')
+  url.searchParams.set('rows', '5')
   const response = await fetch(url, { signal })
   if (!response.ok) throw new Error(`Zoeken mislukt (${response.status})`)
   const data = await response.json() as PdokResponse
-  return (data.response?.docs ?? []).slice(0, 7).flatMap((document) =>
+  return (data.response?.docs ?? []).slice(0, 5).flatMap((document) =>
     document.id && document.weergavenaam
       ? [{ id: document.id, label: document.weergavenaam, type: document.type ?? 'locatie' }]
       : [],

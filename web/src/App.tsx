@@ -13,6 +13,7 @@ import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS, paddedGeographicBounds }
 import { MrfClient } from './core/mrf'
 import { nearestPlace } from './core/places'
 import { RainLayer } from './core/rain-layer'
+import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
 import { solarElevationSin } from './core/solar'
 import { temperatureLabels, type TemperatureFeatureCollection } from './core/temperature'
@@ -37,6 +38,7 @@ export default function App() {
   let splashElement!: HTMLDivElement
   let map: maplibregl.Map | undefined
   let marker: Marker | undefined
+  let savedMarkers: Marker[] = []
   let dayNightLayer: DayNightLayer | undefined
   let layer: RainLayer | undefined
   let windLayer: WindLayer | undefined
@@ -72,6 +74,7 @@ export default function App() {
   const [playing, setPlaying] = createSignal(true)
   const [location, setLocation] = createSignal(defaultLocation)
   const [locationLabel, setLocationLabel] = createSignal('De Bilt')
+  const [savedPlaces, setSavedPlaces] = createSignal<SavedPlace[]>(loadSavedPlaces())
   const [rainSeries, setRainSeries] = createSignal<Array<number | null>>([])
   const [pointSeriesLoading, setPointSeriesLoading] = createSignal(true)
   const [uvSeries, setUvSeries] = createSignal<Array<number | null>>([])
@@ -128,6 +131,7 @@ export default function App() {
       })
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
       applyMapDetailLimit(minimumMapWidthKm())
+      syncSavedMarkers(savedPlaces())
       map.on('style.load', () => attachMapLayers(header.grid))
       map.on('click', (event) => pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name))
       pick(defaultLocation.lng, defaultLocation.lat, 'De Bilt')
@@ -137,7 +141,12 @@ export default function App() {
     }
   })
 
-  onCleanup(() => { cancelAnimationFrame(animation); window.clearTimeout(splashReplayTimer); map?.remove() })
+  onCleanup(() => {
+    cancelAnimationFrame(animation)
+    window.clearTimeout(splashReplayTimer)
+    for (const savedMarker of savedMarkers) savedMarker.remove()
+    map?.remove()
+  })
 
   createEffect(() => {
     const choice = theme()
@@ -150,6 +159,12 @@ export default function App() {
   })
 
   createEffect(() => localStorage.setItem('motregen-splash-slowdown', String(splashSlowdown())))
+
+  createEffect(() => {
+    const places = savedPlaces()
+    storeSavedPlaces(places)
+    syncSavedMarkers(places)
+  })
 
   createEffect(() => {
     const tuning = windTuning()
@@ -546,6 +561,38 @@ export default function App() {
     pick(point.lng, point.lat, label)
   }
 
+  function saveCurrentPlace(name: string): void {
+    const point = location()
+    const sourceLabel = locationLabel()
+    const saved: SavedPlace = { id: savedPlaceId(point.lng, point.lat), name, sourceLabel, ...point }
+    setSavedPlaces((places) => [saved, ...places.filter((place) => !samePlace(place, point))].slice(0, 20))
+    setLocationLabel(name)
+  }
+
+  function removeSavedPlace(id: string): void {
+    setSavedPlaces((places) => places.filter((place) => place.id !== id))
+  }
+
+  function syncSavedMarkers(places: SavedPlace[]): void {
+    for (const savedMarker of savedMarkers) savedMarker.remove()
+    savedMarkers = []
+    if (!map) return
+    for (const place of places) {
+      const element = document.createElement('button')
+      element.type = 'button'
+      element.className = 'saved-place-marker'
+      element.textContent = '★'
+      element.title = place.name
+      element.setAttribute('aria-label', `${place.name} bekijken`)
+      element.addEventListener('pointerdown', (event) => event.stopPropagation())
+      element.addEventListener('click', (event) => {
+        event.stopPropagation()
+        chooseSearch(place, place.name)
+      })
+      savedMarkers.push(new Marker({ element, anchor: 'center' }).setLngLat([place.lng, place.lat]).addTo(map))
+    }
+  }
+
   function cycleTheme(): void {
     setTheme((current) => themes[(themes.indexOf(current) + 1) % themes.length]!)
   }
@@ -622,7 +669,15 @@ export default function App() {
       <button class="round-action theme-button mobile-map-theme" onClick={cycleTheme} aria-label={`Thema: ${themeMeta().label}. Klik voor ${themeMeta().next}`} title={`Thema: ${themeMeta().label}`}>
         <span aria-hidden="true">{themeMeta().icon}</span>
       </button>
-      <LocationSearch locationLabel={locationLabel()} onSelect={chooseSearch} />
+      <LocationSearch
+        location={location()}
+        locationLabel={locationLabel()}
+        savedPlaces={savedPlaces()}
+        onLocate={locate}
+        onRemove={removeSavedPlace}
+        onSave={saveCurrentPlace}
+        onSelect={chooseSearch}
+      />
       <Show when={hasBothTemperatures()}>
         <div class="temperature-switch" role="group" aria-label="Temperatuurlaag">
           <button classList={{ active: temperatureField() === 'temp_c' }} onClick={() => setTemperatureField('temp_c')}>Temperatuur</button>
@@ -653,7 +708,6 @@ export default function App() {
           <button class="round-action theme-button sidebar-theme" onClick={cycleTheme} aria-label={`Thema: ${themeMeta().label}. Klik voor ${themeMeta().next}`} title={`Thema: ${themeMeta().label}`}>
             <span aria-hidden="true">{themeMeta().icon}</span><small>{themeMeta().label}</small>
           </button>
-          <button class="round-action locate" onClick={locate} aria-label="Gebruik mijn locatie"><span aria-hidden="true">⌖</span><small>Mijn locatie</small></button>
         </div>
       </nav>
       <HistogramScrubber
