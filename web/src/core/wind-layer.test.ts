@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  fadeTrailChannel,
   particleCountForViewport,
   trailUvTransform,
   trailTargetSize,
   viewportParticleRetention,
   WIND_PARTICLES_PER_MEGAPIXEL,
   WIND_TRAIL_FADE,
+  WIND_TRAIL_FADE_FLOOR,
   WIND_TRAIL_OPACITY,
   windColor,
   windLineOffsets,
@@ -18,6 +20,15 @@ describe('wind trail presentation', () => {
     expect(WIND_TRAIL_FADE).toBeLessThanOrEqual(0.97)
     expect(WIND_TRAIL_OPACITY).toBe(0.6)
     expect(WIND_PARTICLES_PER_MEGAPIXEL).toBeLessThan(1_000)
+  })
+
+  it('fades every 8-bit trail intensity completely to zero in finite time', () => {
+    expect(fadeTrailChannel(WIND_TRAIL_FADE_FLOOR, 1)).toBe(0)
+    for (let start = 0; start <= 255; start++) {
+      let intensity = start / 255
+      for (let step = 0; step < 64; step++) intensity = fadeTrailChannel(intensity, WIND_TRAIL_FADE)
+      expect(intensity, `start intensity ${start}/255`).toBe(0)
+    }
   })
 
   it('uses white particles on dark and the Beaufort contrast ramp on light', () => {

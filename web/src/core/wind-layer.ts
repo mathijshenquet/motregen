@@ -4,6 +4,7 @@ import type { Grid } from './contract'
 
 export const WIND_TRAIL_OPACITY = 0.6
 export const WIND_TRAIL_FADE = 0.955
+export const WIND_TRAIL_FADE_FLOOR = 1 / 255
 export const WIND_PARTICLES_PER_MEGAPIXEL = 620
 export const WIND_PARTICLE_OPACITY = 0.95
 export const WIND_REFERENCE_ZOOM = 6.4
@@ -84,7 +85,8 @@ out vec4 color;
 void main() {
   vec2 previousUv = v_uv * u_uv_scale + u_uv_offset;
   float inside = step(0.0, previousUv.x) * step(previousUv.x, 1.0) * step(0.0, previousUv.y) * step(previousUv.y, 1.0);
-  color = texture(u_trail, clamp(previousUv, vec2(0.0), vec2(1.0))) * u_fade * inside;
+  vec4 previous = texture(u_trail, clamp(previousUv, vec2(0.0), vec2(1.0)));
+  color = max(vec4(0.0), previous * u_fade - vec4(${WIND_TRAIL_FADE_FLOOR})) * inside;
 }`
 
 const compositeVertexSource = `#version 300 es
@@ -218,6 +220,17 @@ export class WindLayer implements CustomLayerInterface {
       this.gl.deleteFramebuffer(target.framebuffer)
       this.gl.deleteTexture(target.texture)
     }
+    this.particleBuffer = undefined
+    this.screenBuffer = undefined
+    this.particleProgram = undefined
+    this.fadeProgram = undefined
+    this.compositeProgram = undefined
+    this.trails = undefined
+    this.trailIndex = 0
+    this.trailWidth = 0
+    this.trailHeight = 0
+    this.trailView = undefined
+    this.gl = undefined
     this.map = undefined
   }
 
@@ -468,6 +481,10 @@ export function particleCountForViewport(width: number, height: number, particle
 
 export function windZoomCompensation(zoom: number): number {
   return 2 ** (WIND_REFERENCE_ZOOM - zoom)
+}
+
+export function fadeTrailChannel(previous: number, decay: number): number {
+  return Math.max(0, previous * decay - WIND_TRAIL_FADE_FLOOR)
 }
 
 export function trailUvTransform(previous: TrailView, current: TrailView): { scaleX: number; scaleY: number; offsetX: number; offsetY: number; retention: number } {

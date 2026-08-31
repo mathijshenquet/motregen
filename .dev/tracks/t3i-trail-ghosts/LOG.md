@@ -1,0 +1,3 @@
+# Track T3i — wind-trail ghosts
+
+- 2026-08-31 17:44 UTC — Branch `track/t3i-trail-ghosts` aangemaakt vanaf `origin/main` (`97fb14a`). Firefox/Android-ghosts herleid tot de multiplicatieve fade van een RGBA8-trailtarget: lage kanaalwaarden kunnen door GPU-afronding op dezelfde 8-bitwaarde blijven staan. Fade-shader trekt nu na decay gegarandeerd `1/255` af en clampt op nul. Numerieke regressietest doorloopt alle 256 8-bit-startwaarden en eist nul binnen 64 stappen bij de productiedecay. Theme-switch wist al beide targets; `onRemove` verwijderde ze al en wist nu ook alle GL-referenties en dimensies, zodat re-add geen verwijderde targets kan hergebruiken. Gerichte receipt: wind-layer 8/8 tests groen; typecheck exit 0. Volgende stap: volledige frontendgates.
