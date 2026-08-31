@@ -6,14 +6,17 @@ import { timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../
 interface Props {
   timeline: TimelineFrame[]
   values: Array<number | null>
+  loaded?: boolean[]
   cursor: number
   now: number
   playing: boolean
   horizonHours: number | null
   loading: boolean
+  loadStage?: 'initial' | 'direct' | 'window' | 'complete'
   locationLabel: string
   onCursor: (cursor: number) => void
   onHorizonHours: (hours: number | null) => void
+  onIntent?: () => void
   onPlaying: (playing: boolean) => void
 }
 
@@ -36,7 +39,7 @@ export default function HistogramScrubber(props: Props) {
   const maximum = createMemo(() => rainChartMaximum(props.values))
   const y = (value: number) => plotHeight * (1 - rainChartPosition(value, maximum()))
   const bars = createMemo(() => {
-    if (props.timeline.length === 1) return [{ x: 0, width: width - 1, y: props.values[0] == null ? plotHeight : y(props.values[0]!) }]
+    if (props.timeline.length === 1) return [{ x: 0, width: width - 1, y: props.values[0] == null ? plotHeight : y(props.values[0]!), pending: props.loaded ? !props.loaded[0] : false }]
     return props.timeline.flatMap((frame, index) => {
       const value = props.values[index]
       const leftEpoch = index === 0 ? timelineStart() : (props.timeline[index - 1]!.epoch + frame.epoch) / 2
@@ -44,7 +47,8 @@ export default function HistogramScrubber(props: Props) {
       if (leftEpoch >= timelineEnd() || rightEpoch <= timelineStart()) return []
       const x = positionAtEpoch(Math.max(timelineStart(), leftEpoch)) / 100 * width
       const right = positionAtEpoch(Math.min(timelineEnd(), rightEpoch)) / 100 * width
-      return [{ x, width: Math.max(1.4, right - x - 1), y: value == null ? plotHeight : y(value) }]
+      const pending = props.loaded ? !props.loaded[index] : false
+      return [{ x, width: Math.max(1.4, right - x - 1), y: value == null ? plotHeight : y(value), pending }]
     })
   })
   const bands = createMemo(() => RAIN_BANDS.map((band) => {
@@ -118,6 +122,7 @@ export default function HistogramScrubber(props: Props) {
 
   function togglePlaybackFromCursor(event: MouseEvent): void {
     event.stopPropagation()
+    props.onIntent?.()
     if (resumePlayback()) {
       setResumePlayback(false)
       props.onPlaying(false)
@@ -131,8 +136,8 @@ export default function HistogramScrubber(props: Props) {
   return <section class="scrubber" aria-label={`Regenverwachting en tijd voor ${props.locationLabel}`}>
     <div class="scrubber-toolbar">
       <div class="time-horizon" role="group" aria-label="Tijdsbereik">
-        <For each={[8, 24] as const}>{(hours) => <button type="button" classList={{ active: props.horizonHours === hours }} aria-pressed={props.horizonHours === hours} onClick={() => props.onHorizonHours(hours)}>+{hours}u</button>}</For>
-        <button type="button" classList={{ active: props.horizonHours === null }} aria-pressed={props.horizonHours === null} onClick={() => props.onHorizonHours(null)}>Alles</button>
+        <For each={[8, 24] as const}>{(hours) => <button type="button" classList={{ active: props.horizonHours === hours }} aria-pressed={props.horizonHours === hours} onClick={() => { props.onIntent?.(); props.onHorizonHours(hours) }}>+{hours}u</button>}</For>
+        <button type="button" classList={{ active: props.horizonHours === null }} aria-pressed={props.horizonHours === null} onClick={() => { props.onIntent?.(); props.onHorizonHours(null) }}>Alles</button>
       </div>
     </div>
     <div
@@ -145,12 +150,14 @@ export default function HistogramScrubber(props: Props) {
       aria-valuemax={timelineCursorAtEpoch(props.timeline, timelineEnd())}
       aria-valuenow={Math.round(props.cursor)}
       aria-disabled={props.loading}
+      aria-busy={props.loadStage !== undefined && props.loadStage !== 'complete'}
+      data-load-stage={props.loadStage}
       aria-valuetext={props.timeline.length ? `${new Date(cursorEpoch()).toLocaleString('nl-NL')}, ${formatRain(props.values[Math.round(props.cursor)])}` : undefined}
       title={hoverScrubbing() ? 'Hover-scrubben · klik om hier te blijven' : 'Vast · klik voor hover of sleep om te scrubben'}
       onKeyDown={keyDown}
       onMouseEnter={() => {
         pointerInside = true
-        if (hoverScrubbing()) pauseForPointerInteraction()
+        if (hoverScrubbing()) { props.onIntent?.(); pauseForPointerInteraction() }
       }}
       onMouseLeave={() => {
         pointerInside = false
@@ -159,6 +166,7 @@ export default function HistogramScrubber(props: Props) {
         }
       }}
       onPointerDown={(event) => {
+        props.onIntent?.()
         pressedX = event.clientX
         dragged = false
         pauseForPointerInteraction()
@@ -194,7 +202,9 @@ export default function HistogramScrubber(props: Props) {
       <div class="chart-plot" ref={plotElement}>
         <svg viewBox={`0 0 ${width} ${plotHeight}`} preserveAspectRatio="none" aria-hidden="true">
           <For each={bands()}>{(band) => <rect class={`rain-band ${band.key}`} x="0" y={band.top / 100 * plotHeight} width={width} height={band.height / 100 * plotHeight} />}</For>
-          <For each={bars()}>{(bar) => <rect class="rain-bar" x={bar.x} y={bar.y} width={bar.width} height={plotHeight - bar.y} rx="1" />}</For>
+          <For each={bars()}>{(bar) => bar.pending
+            ? <rect class="rain-bar pending" x={bar.x} y="0" width={bar.width} height={plotHeight} rx="1" />
+            : <rect class="rain-bar" x={bar.x} y={bar.y} width={bar.width} height={plotHeight - bar.y} rx="1" />}</For>
         </svg>
         <div class="hour-grid" aria-hidden="true"><For each={xTicks()}>{(tick) => <i style={{ left: `${tick.left}%` }} />}</For></div>
         <div class="day-grid" aria-hidden="true"><For each={dayMarkers()}>{(marker) => <div classList={{ boundary: marker.boundary }} style={{ left: `${positionAtEpoch(marker.epoch)}%` }}><span>{marker.label}</span></div>}</For></div>

@@ -33,6 +33,21 @@ const mapMovementBounds = paddedGeographicBounds(NETHERLANDS_FLANDERS_BOUNDS, { 
 const themes = ['light', 'system', 'dark'] as const
 type ThemeChoice = typeof themes[number]
 type TemperatureField = Extract<Field, 'temp_c' | 'feels_like_c'>
+type PointLoadStage = 'initial' | 'direct' | 'window' | 'complete'
+type FetchPriority = 'high' | 'low'
+type ForecastIndex = 'uvIndex' | 'temperatureIndex' | 'feelsLikeIndex' | 'humidityIndex' | 'cloudIndex' | 'windUIndex' | 'windVIndex'
+
+interface PointLoadState {
+  request: number
+  point: { lng: number; lat: number }
+  rainValues: Array<number | null>
+  rainLoaded: Set<number>
+  rainQueue: Promise<void>
+  direct: Promise<void>
+  full?: Promise<void>
+  idle?: number
+  deepIdle?: number
+}
 const emptyTemperatureData: TemperatureFeatureCollection = { type: 'FeatureCollection', features: [] }
 const emptySunData: SunFeatureCollection = { type: 'FeatureCollection', features: [] }
 
@@ -66,6 +81,7 @@ export default function App() {
   let logoTapCount = 0
   let lastLogoTap = 0
   let initialPickStarted = false
+  let pointLoad: PointLoadState | undefined
   const windFrameCache = new Map<string, Promise<Float32Array>>()
   const media = matchMedia('(prefers-color-scheme: dark)')
   const client = new MrfClient(manifestUrl)
@@ -87,7 +103,10 @@ export default function App() {
   const [locationLabel, setLocationLabel] = createSignal('De Bilt')
   const [savedPlaces, setSavedPlaces] = createSignal<SavedPlace[]>(loadSavedPlaces())
   const [rainSeries, setRainSeries] = createSignal<Array<number | null>>([])
+  const [rainLoaded, setRainLoaded] = createSignal<boolean[]>([])
   const [pointSeriesLoading, setPointSeriesLoading] = createSignal(true)
+  const [pointLoadStage, setPointLoadStage] = createSignal<PointLoadStage>('initial')
+  const [progressiveHistogram, setProgressiveHistogram] = createSignal(new URLSearchParams(window.location.search).get('histogram') !== 'wait')
   const [uvSeries, setUvSeries] = createSignal<Array<number | null>>([])
   const [temperatureSeries, setTemperatureSeries] = createSignal<Array<number | null>>([])
   const [feelsLikeSeries, setFeelsLikeSeries] = createSignal<Array<number | null>>([])
@@ -124,6 +143,7 @@ export default function App() {
       const frames = buildTimeline(data)
       if (!frames.length) throw new Error('De tijdlijn is leeg')
       setManifest(data)
+      void Promise.all(data.chunks.map((chunk) => client.getHeader(chunk))).catch(() => undefined)
       let nowIndex = 0
       for (let index = 0; index < frames.length; index++) if (frames[index]!.epoch <= Date.parse(data.now)) nowIndex = index
       setCursor(nowIndex)
@@ -154,6 +174,7 @@ export default function App() {
   onCleanup(() => {
     cancelAnimationFrame(animation)
     window.clearTimeout(splashReplayTimer)
+    cancelPointLoad(pointLoad)
     for (const savedMarker of savedMarkers) savedMarker.remove()
     map?.remove()
   })
@@ -198,7 +219,8 @@ export default function App() {
     }
   })
   createEffect(() => {
-    if (!playing() || !mapReady()) { cancelAnimationFrame(animation); return }
+    const loadStage = pointLoadStage()
+    if (!playing() || !mapReady() || (initialPickStarted && (loadStage === 'initial' || loadStage === 'direct'))) { cancelAnimationFrame(animation); return }
     const horizonHours = timeHorizonHours()
     let previous = performance.now()
     const tick = (now: number) => {
@@ -349,11 +371,11 @@ export default function App() {
     map.triggerRepaint()
     // De eerste locatiereeks haalt dezelfde chunks direct in bulk op. Losse,
     // overlappende Range-prefetches maken Chromiums sparse HTTP-cache instabiel.
-    if (initialPickStarted) {
-      for (const near of nearbyFrames) {
-        client.prefetch(near.chunk, [near.frameIndex])
-        client.prefetchMotion(near.chunk, [near.frameIndex])
-      }
+    if (initialPickStarted && pointLoadStage() !== 'initial' && pointLoadStage() !== 'direct' && playing() && !batchPrefetch) {
+      const nearby = new Map<ManifestChunk, number[]>()
+      for (const near of nearbyFrames) nearby.set(near.chunk, [...(nearby.get(near.chunk) ?? []), near.frameIndex])
+      for (const [chunk, indexes] of nearby) client.prefetch(chunk, indexes)
+      for (const near of nearbyFrames) client.prefetchMotion(near.chunk, [near.frameIndex])
     }
   }
 
@@ -574,9 +596,21 @@ export default function App() {
 
   async function updatePointSeries(point: { lng: number; lat: number }, label: string): Promise<void> {
     const request = ++pointRequest
+    cancelPointLoad(pointLoad)
+    const state: PointLoadState = {
+      request,
+      point,
+      rainValues: new Array(timeline().length).fill(null),
+      rainLoaded: new Set(),
+      rainQueue: Promise.resolve(),
+      direct: Promise.resolve(),
+    }
+    pointLoad = state
     setStatus(`${label} · verwachting laden…`)
     setPointSeriesLoading(true)
-    setRainSeries([])
+    setPointLoadStage('initial')
+    setRainSeries([...state.rainValues])
+    setRainLoaded(state.rainValues.map(() => false))
     setUvSeries([])
     setTemperatureSeries([])
     setFeelsLikeSeries([])
@@ -584,19 +618,18 @@ export default function App() {
     setCloudSeries([])
     setWindUSeries([])
     setWindVSeries([])
-    try {
-      const [rain, uv, temperature, feelsLike, humidity, cloud, windU, windV] = await Promise.all([
-        readPointSeries(timeline(), point),
-        readOptionalPointSeries(uvTimeline(), point),
-        readOptionalPointSeries(tempTimeline(), point),
-        readOptionalPointSeries(feelsLikeTimeline(), point),
-        readOptionalPointSeries(humidityTimeline(), point),
-        readOptionalPointSeries(cloudTimeline(), point),
-        readOptionalPointSeries(windUFrames(), point),
-        readOptionalPointSeries(windVFrames(), point),
+    state.direct = (async () => {
+      const [uv, temperature, feelsLike, humidity, cloud, windU, windV] = await Promise.all([
+        readForecastPointSeries(uvTimeline(), point, 'uvIndex'),
+        readForecastPointSeries(tempTimeline(), point, 'temperatureIndex'),
+        readForecastPointSeries(feelsLikeTimeline(), point, 'feelsLikeIndex'),
+        readForecastPointSeries(humidityTimeline(), point, 'humidityIndex'),
+        readForecastPointSeries(cloudTimeline(), point, 'cloudIndex'),
+        readForecastPointSeries(windUFrames(), point, 'windUIndex'),
+        readForecastPointSeries(windVFrames(), point, 'windVIndex'),
+        enqueueRain(state, directRainIndexes(timeline(), manifest() ? Date.parse(manifest()!.now) : 0), 'high'),
       ])
       if (request !== pointRequest) return
-      setRainSeries(rain)
       setUvSeries(uv)
       setTemperatureSeries(temperature)
       setFeelsLikeSeries(feelsLike)
@@ -606,6 +639,11 @@ export default function App() {
       setWindVSeries(windV)
       setStatus(label)
       setPointSeriesLoading(false)
+      setPointLoadStage('direct')
+      if (!state.full) scheduleRainWindow(state)
+    })()
+    try {
+      await state.direct
     } catch {
       if (request === pointRequest) {
         setStatus(`${label} · verwachting kon niet worden geladen`)
@@ -614,33 +652,115 @@ export default function App() {
     }
   }
 
-  function readOptionalPointSeries(frames: TimelineFrame[], point: { lng: number; lat: number }): Promise<Array<number | null>> {
-    return frames.length ? readPointSeries(frames, point).catch(() => []) : Promise.resolve([])
+  function readForecastPointSeries(frames: TimelineFrame[], point: { lng: number; lat: number }, key: ForecastIndex): Promise<Array<number | null>> {
+    const indexes = forecast().flatMap((row) => row[key] == null ? [] : [row[key]])
+    return frames.length ? readPointSeries(frames, point, indexes).catch(() => []) : Promise.resolve([])
   }
 
-  async function readPointSeries(frames: TimelineFrame[], point: { lng: number; lat: number }): Promise<Array<number | null>> {
+  async function readPointSeries(
+    frames: TimelineFrame[],
+    point: { lng: number; lat: number },
+    indexes = frames.map((_, index) => index),
+    priority: FetchPriority = 'high',
+    values = new Array<number | null>(frames.length).fill(null),
+    progress?: (values: Array<number | null>, loaded: number[]) => void,
+  ): Promise<Array<number | null>> {
     const [x, y] = project(point.lng, point.lat)
-    const values = new Array<number | null>(frames.length).fill(null)
     const chunks = new Map<ManifestChunk, Array<{ position: number; frameIndex: number }>>()
-    for (let position = 0; position < frames.length; position++) {
+    for (const position of [...new Set(indexes)]) {
       const frame = frames[position]!
+      if (!frame) continue
       const entries = chunks.get(frame.chunk) ?? []
       entries.push({ position, frameIndex: frame.frameIndex })
       chunks.set(frame.chunk, entries)
     }
     await Promise.all([...chunks].map(async ([chunk, entries]) => {
       const [decoded, header] = await Promise.all([
-        client.getFrames(chunk, entries.map((entry) => entry.frameIndex)),
+        client.getFrames(chunk, entries.map((entry) => entry.frameIndex), priority),
         client.getHeader(chunk),
       ])
       const column = Math.floor((x - header.grid.x0) / header.grid.dx)
       const row = Math.floor((y - header.grid.y0) / header.grid.dy)
-      if (column < 0 || row < 0 || column >= header.grid.width || row >= header.grid.height) return
+      if (column < 0 || row < 0 || column >= header.grid.width || row >= header.grid.height) {
+        progress?.(values, entries.map((entry) => entry.position))
+        return
+      }
       for (let index = 0; index < entries.length; index++) {
         values[entries[index]!.position] = header.quant[decoded[index]![row * header.grid.width + column]!] ?? null
       }
+      progress?.(values, entries.map((entry) => entry.position))
     }))
     return values
+  }
+
+  function enqueueRain(state: PointLoadState, indexes: number[], priority: FetchPriority): Promise<void> {
+    const task = state.rainQueue.then(async () => {
+      const missing = indexes.filter((index) => !state.rainLoaded.has(index))
+      if (!missing.length || state.request !== pointRequest) return
+      await readPointSeries(timeline(), state.point, missing, priority, state.rainValues, (values, loaded) => {
+        for (const index of loaded) state.rainLoaded.add(index)
+        if (state.request === pointRequest) {
+          setRainSeries([...values])
+          setRainLoaded(values.map((_, index) => state.rainLoaded.has(index)))
+        }
+      })
+    })
+    state.rainQueue = task.catch(() => undefined)
+    return task
+  }
+
+  function scheduleRainWindow(state: PointLoadState): void {
+    state.idle = scheduleIdle(() => {
+      void (async () => {
+        const now = manifest() ? Date.parse(manifest()!.now) : 0
+        const indexes = timeline().flatMap((frame, index) => frame.epoch >= now - 3_600_000 && frame.epoch <= now + 2 * 3_600_000 ? [index] : [])
+        await enqueueRain(state, indexes, 'low')
+        if (state.request !== pointRequest || state.full) return
+        setPointLoadStage('window')
+        state.deepIdle = window.setTimeout(() => {
+          state.idle = scheduleIdle(() => { void completePointSeries(state, 'low') }, 5_000)
+        }, 30_000)
+      })().catch(() => {
+        if (state.request === pointRequest) setStatus(`${locationLabel()} · regenvenster kon niet worden geladen`)
+      })
+    }, 2_000)
+  }
+
+  function completePointSeries(state = pointLoad, priority: FetchPriority = 'high'): Promise<void> | undefined {
+    if (!state || state.request !== pointRequest) return undefined
+    if (state.full) return state.full
+    window.clearTimeout(state.deepIdle)
+    state.full = (async () => {
+      await state.direct
+      const [uv, temperature, feelsLike, humidity, cloud, windU, windV] = await Promise.all([
+        readPointSeries(uvTimeline(), state.point, undefined, priority),
+        readPointSeries(tempTimeline(), state.point, undefined, priority),
+        readPointSeries(feelsLikeTimeline(), state.point, undefined, priority),
+        readPointSeries(humidityTimeline(), state.point, undefined, priority),
+        readPointSeries(cloudTimeline(), state.point, undefined, priority),
+        readPointSeries(windUFrames(), state.point, undefined, priority),
+        readPointSeries(windVFrames(), state.point, undefined, priority),
+        enqueueRain(state, timeline().map((_, index) => index), priority),
+      ])
+      if (state.request !== pointRequest) return
+      setUvSeries(uv)
+      setTemperatureSeries(temperature)
+      setFeelsLikeSeries(feelsLike)
+      setHumiditySeries(humidity)
+      setCloudSeries(cloud)
+      setWindUSeries(windU)
+      setWindVSeries(windV)
+      setPointLoadStage('complete')
+    })().catch(() => {
+      if (state.request === pointRequest) setStatus(`${locationLabel()} · volledige reeks kon niet worden geladen`)
+    })
+    return state.full
+  }
+
+  function cancelPointLoad(state: PointLoadState | undefined): void {
+    if (!state) return
+    if (state.idle !== undefined) cancelIdle(state.idle)
+    window.clearTimeout(state.deepIdle)
   }
 
   function locate(): void {
@@ -732,6 +852,7 @@ export default function App() {
   function scrub(cursor: number): void {
     perf.markScrubInput()
     scrubPrefetch = true
+    void completePointSeries(pointLoad, 'high')
     setCursor(cursor)
   }
 
@@ -817,6 +938,7 @@ export default function App() {
           <label><span>Trailduur</span><input type="range" min="0.9" max="0.99" step="0.001" value={windTuning().trailFade} onInput={(event) => tuneWind('trailFade', event.currentTarget.valueAsNumber)} /><output>{windTuning().trailFade.toFixed(3)}</output></label>
           <label><span>Dekking</span><input type="range" min="0.1" max="1" step="0.05" value={windTuning().trailOpacity} onInput={(event) => tuneWind('trailOpacity', event.currentTarget.valueAsNumber)} /><output>{windTuning().trailOpacity.toFixed(2)}</output></label>
           <label class="debug-toggle"><span>Wolkrand</span><input type="checkbox" checked={cloudEdgesEnabled()} onChange={(event) => toggleCloudEdges(event.currentTarget.checked)} /><output>{cloudEdgesEnabled() ? 'Aan' : 'Uit'}</output></label>
+          <label class="debug-toggle"><span>Grafiek vult</span><input type="checkbox" checked={progressiveHistogram()} onChange={(event) => setProgressiveHistogram(event.currentTarget.checked)} /><output>{progressiveHistogram() ? 'Skeleton' : 'Wachten'}</output></label>
           <label><span>Min. breedte</span><input type="range" min="5" max="100" step="5" value={minimumMapWidthKm()} onInput={(event) => tuneMapDetail(event.currentTarget.valueAsNumber)} /><output>{minimumMapWidthKm()} km</output></label>
           <p class="wind-debug-note">Maximale kaartzoom: {devMaximumZoom().toFixed(1)}</p>
           <label><span>Splash ×</span><input type="range" min="1" max="8" step="0.5" value={splashSlowdown()} onInput={(event) => setSplashSlowdown(event.currentTarget.valueAsNumber)} /><output>{splashSlowdown().toLocaleString('nl-NL', { maximumFractionDigits: 1 })}×</output></label>
@@ -837,14 +959,17 @@ export default function App() {
       <HistogramScrubber
         timeline={timeline()}
         values={rainSeries()}
+        loaded={rainLoaded()}
         cursor={cursor()}
         now={manifest() ? Date.parse(manifest()!.now) : 0}
         playing={playing()}
         horizonHours={timeHorizonHours()}
-        loading={pointSeriesLoading()}
+        loading={pointSeriesLoading() || (!progressiveHistogram() && pointLoadStage() !== 'complete')}
+        loadStage={pointLoadStage()}
         locationLabel={status()}
         onCursor={scrub}
         onHorizonHours={chooseTimeHorizon}
+        onIntent={() => { void completePointSeries(pointLoad, 'high') }}
         onPlaying={setPlaying}
       />
       <section class="forecast-panel">
@@ -898,6 +1023,24 @@ function storedTheme(): ThemeChoice {
 function timelineHorizonEnd(frames: TimelineFrame[], now: number, hours: number | null): number {
   const last = frames.at(-1)?.epoch ?? 0
   return hours === null ? last : Math.min(last, now + hours * 3_600_000)
+}
+
+function directRainIndexes(frames: TimelineFrame[], now: number): number[] {
+  if (!frames.length) return []
+  const blend = frameBlend(frames, now)
+  return [...new Set([blend.left, blend.right])]
+}
+
+function scheduleIdle(callback: () => void, timeout: number): number {
+  const requestIdle = (window as unknown as { requestIdleCallback?: (callback: () => void, options: { timeout: number }) => number }).requestIdleCallback
+  if (requestIdle) return requestIdle.call(window, callback, { timeout })
+  return window.setTimeout(callback, 50)
+}
+
+function cancelIdle(handle: number): void {
+  const cancel = (window as unknown as { cancelIdleCallback?: (handle: number) => void }).cancelIdleCallback
+  if (cancel) cancel.call(window, handle)
+  else window.clearTimeout(handle)
 }
 
 function storedSplashSlowdown(): number {

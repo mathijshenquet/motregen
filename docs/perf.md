@@ -38,7 +38,8 @@ expliciet kan forceren en daarmee een ander scenario meet.
 | cold TTFR | < 2.000 ms | gemeten 461–475 ms; ruime marge voor tragere hosts |
 | warm TTFR | profielafhankelijk, zie hieronder | desktop blijft sneller dan cold; mobiele CPU-/netwerkprofielen hebben eigen marge |
 | warm chunks | profielafhankelijk, zie hieronder | desktop blijft 0 B; CDP-netwerkthrottling draagt enkele actuele ranges opnieuw over |
-| volledige scrub | < 1 chunktransfer per 3 frames | 23 transfers bij 83 frames; grens 27,7 |
+| passief geopende chunks | ≤ 800.000 B | progressieve L0+L1 gemeten op 545–634 kB; ruim onder MIP-8's bovengrens van 3 MB |
+| volledige scrub | < 1 chunktransfer per 3 frames | L2-intentie plus 83 frames kost 3 transfers; grens 27,7 |
 | tweede locatieklik | 0 data-transfers | alle benodigde immutable ranges komen uit browser-/sessiecache |
 | volledige sessie | < 8.000.000 bytes | gemeten 1.310.182 bytes |
 | browserfouten | 0 | console, page errors en mislukte requests |
@@ -90,12 +91,41 @@ Het desktopbudget blijft dus bewust de strenge 0 B in plaats van de regressie
 met een ruimer budget te maskeren. Bij een toekomstige failure logt de suite
 de overgedragen chunk-URL en Resource Timing-bytevelden direct.
 
-De warmbyte-snapshot wordt pas gemaakt nadat TTFR is vastgelegd, autoplay via
-scrubberhover is gepauzeerd, de locatiereeks gereed is en het netwerk idle is.
-Voorheen viel de snapshot precies op TTFR; een range die enkele milliseconden
-later voltooide telde daardoor willekeurig wel of niet mee. TTFR zelf behoudt
-zijn oorspronkelijke eerste-rendermeetpunt, maar de cache-gate omvat nu de
-volledige warme startup.
+De passieve snapshot wordt pas gemaakt nadat TTFR is vastgelegd, L0 gereed is,
+het L1-venster rond nu is ingevuld en het netwerk idle is. Daarna activeert de
+suite met `Alles` plus een scrub naar het eerste frame L2, wacht op compleet en
+loopt door alle frames. Pas na die afzonderlijke scrubmeting volgt de warme
+navigatie. De warmbyte-snapshot wacht opnieuw op het L1-stadium en netwerk-idle.
+TTFR zelf behoudt zijn oorspronkelijke eerste-rendermeetpunt; passief, intentie
+en warm cachegebruik zijn daardoor drie afzonderlijke meetfasen.
+
+### Progressieve laadbaseline
+
+T3h voert MIP-8 §7 uit. L0 haalt alle headers, het regenpaar rond nu en de
+uurvelden voor de volledige tabel. L1 vult tijdens browser-idle het eerlijke
+histogramvenster van −1 tot +2 uur; niet-geladen posities blijven als neutraal
+skeleton herkenbaar. L2 haalt de resterende reeks bij scrub-/playintentie of na
+30 seconden diepe idle. Autoplay en buurprefetch wachten tot L1 klaar is, zodat
+zij niet opnieuw de door T3g opgeloste overlappende-Range-race introduceren.
+
+Het synthetische passiefbudget is na desktop, 4G en Fast 3G gekalibreerd op
+**800.000 chunkbytes**. De hoogste waarneming tijdens ontwikkeling was 698.659
+B onder Fast 3G; de definitieve gaterun bleef op 634.119 B. Deze grens is ruim
+strenger dan MIP-8's maximum van 3 MB, maar houdt marge voor de bekende
+throttling-herhalingen. De smaaktest is beschikbaar als progressief skeleton
+(standaard) of wacht-overlay via `?histogram=wait`; in `?dev` staat dezelfde
+keuze als live toggle.
+
+| Profiel | Cold TTFR | Passieve chunks | L2 tijd-tot-compleet | L2/scrubtransfers | Warm chunks | Sessie | Tweede klik |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Desktop | 436,6 ms | 545.046 B | 231,3 ms | 3 / 83 | 0 B | 1.232.459 B | 0 |
+| Mobiel 4G | 1.638,0 ms | 562.303 B | 1.049,8 ms | 3 / 83 | 5.430 B | 1.242.910 B | 0 |
+| Mobiel Fast 3G | 3.569,9 ms | 634.119 B | 1.790,5 ms | 3 / 83 | 7.595 B | 1.285.444 B | 0 |
+
+De tijd-tot-compleet loopt vanaf de expliciete L2-intentie tot de client alle
+puntreeksen heeft. De sessieduur blijft de bredere journeymaat uit de suite.
+Historische tabellen hieronder documenteren de pre-progressieve baselines en
+blijven daarom ongewijzigd.
 
 Drie opeenvolgende merge-gateruns op de aangescherpte meting waren groen:
 

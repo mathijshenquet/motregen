@@ -184,14 +184,19 @@ describe('mrf v0', () => {
 
     expect(frames).toHaveLength(131)
     expect(fetchMock).toHaveBeenCalledTimes(13)
-    for (const [chunk] of chunks) {
+    for (const [chunk, indexes] of chunks) {
       const chunkFile = files.get(chunk.url)!
       const header = parseMrfHeader(chunkFile.subarray(0, chunk.header_len))
-      const finalOffset = Math.max(...header.frames.flatMap((frame) => [frame.offset + frame.len, frame.motion ? frame.motion.offset + frame.motion.len : 0]))
+      const selected = indexes.map((index) => header.frames[index]!)
+      const fullChunk = indexes.length > header.frames.length / 2
+      const firstOffset = fullChunk ? 0 : Math.min(...selected.flatMap((frame) => [frame.offset, frame.motion?.offset ?? frame.offset]))
+      const finalOffset = fullChunk
+        ? Math.max(...header.frames.flatMap((frame) => [frame.offset + frame.len, frame.motion ? frame.motion.offset + frame.motion.len : 0]))
+        : Math.max(...selected.flatMap((frame) => [frame.offset + frame.len, frame.motion ? frame.motion.offset + frame.motion.len : 0]))
       const ranges = fetchMock.mock.calls
         .filter(([input]) => String(input).endsWith(chunk.url))
         .map(([, init]) => new Headers(init?.headers).get('Range'))
-      expect(ranges).toContain(`bytes=${chunk.header_len}-${chunk.header_len + finalOffset - 1}`)
+      expect(ranges).toContain(`bytes=${chunk.header_len + firstOffset}-${chunk.header_len + finalOffset - 1}`)
     }
 
     fetchMock.mockClear()

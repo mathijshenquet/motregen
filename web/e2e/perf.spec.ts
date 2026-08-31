@@ -19,6 +19,8 @@ interface JourneyResult {
   cpuThrottleRate: number
   coldTtfrMs: number | null
   warmTtfrMs: number | null
+  passiveChunkBytes: number
+  timeToCompleteMs: number
   scrubP50Ms: number | null
   scrubP95Ms: number | null
   scrubTransfers: number
@@ -32,6 +34,7 @@ interface JourneyResult {
 }
 
 const sessionByteBudget = 8_000_000
+const passiveChunkByteBudget = 800_000
 const live = process.env.MOTREGEN_PERF_MODE === 'live'
 
 test('user journey measures performance and cache behaviour', async ({ page, context }, testInfo) => {
@@ -49,6 +52,8 @@ test('user journey measures performance and cache behaviour', async ({ page, con
 
   let cold: PerfSnapshot | null = null
   let warm: PerfSnapshot | null = null
+  let passive: PerfSnapshot | null = null
+  let timeToCompleteMs = 0
   let scrubTransfers = 0
   let scrubFrames = 0
   let secondClickRequests = 0
@@ -60,8 +65,12 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     if (!live) expect(cold.ttfrMs).toBeLessThan(profile.coldTtfrBudgetMs)
     await expect(page.getByTestId('perf-hud')).toBeVisible()
     await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor De Bilt$/, { timeout: live ? 180_000 : 10_000 })
+    await expect(page.getByRole('slider', { name: 'Tijd' })).toHaveAttribute('data-load-stage', 'window', { timeout: live ? 180_000 : 20_000 })
+    await page.waitForLoadState('networkidle')
+    passive = await perfSnapshot(page)
+    if (!live) expect(passive.network.chunks.bytes).toBeLessThanOrEqual(passiveChunkByteBudget)
     expect(errors).toEqual([])
-    console.log(`${profile.label}: cold TTFR ${cold.ttfrMs} ms`)
+    console.log(`${profile.label}: cold TTFR ${cold.ttfrMs} ms; passive chunks ${passive.network.chunks.bytes} B`)
   })
 
   await test.step('logo triple-tap toggles the HUD and JSON is copyable', async () => {
@@ -71,16 +80,35 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     await expect(page.getByTestId('perf-hud')).toBeVisible()
     await page.getByRole('button', { name: 'Kopieer JSON' }).click()
     await expect(page.getByRole('button', { name: 'Gekopieerd' })).toBeVisible()
-    await page.getByRole('slider', { name: 'Tijd' }).hover()
-    await page.waitForLoadState('networkidle')
+  })
+
+  await test.step('full timeline scrub measures request coalescing', async () => {
+    await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor De Bilt$/)
+    const requestStart = await transferredDataRequests(page, '/data/chunks/')
+    const completeStartedAt = performance.now()
+    await page.getByRole('button', { name: 'Alles' }).click()
+    const scrubber = page.getByRole('slider', { name: 'Tijd' })
+    scrubFrames = Number(await scrubber.getAttribute('aria-valuemax')) + 1
+    await scrubber.focus()
+    await scrubber.press('Home')
+    await expect(scrubber).toHaveAttribute('data-load-stage', 'complete', { timeout: live ? 180_000 : 30_000 })
+    timeToCompleteMs = performance.now() - completeStartedAt
+    for (let index = 1; index < scrubFrames; index++) await scrubber.press('ArrowRight')
+    await page.waitForTimeout(1_000)
+    scrubTransfers = await transferredDataRequests(page, '/data/chunks/') - requestStart
+    if (!live) expect(scrubTransfers).toBeLessThan(scrubFrames / 3)
+    const measured = await perfSnapshot(page)
+    expect(measured.scrub.samples).toBeGreaterThan(0)
+    expect(errors).toEqual([])
+    console.log(`${profile.label}: complete in ${timeToCompleteMs.toFixed(1)} ms; scrub ${scrubTransfers} chunk requests / ${scrubFrames} frames; p50 ${measured.scrub.p50Ms} ms; p95 ${measured.scrub.p95Ms} ms; fps ${measured.fps ?? 'pending'}`)
   })
 
   await test.step('warm reload measures cache reuse', async () => {
     await page.goto('/?perf=1')
     await waitForTtfr(page)
     const warmScrubber = page.getByRole('slider', { name: 'Tijd' })
-    await warmScrubber.hover()
     await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor De Bilt$/)
+    await expect(warmScrubber).toHaveAttribute('data-load-stage', 'window', { timeout: live ? 180_000 : 20_000 })
     await page.waitForLoadState('networkidle')
     warm = await perfSnapshot(page)
     const warmChunkResources = await transferredResources(page, '/data/chunks/')
@@ -92,24 +120,6 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     }
     expect(errors).toEqual([])
     console.log(`${profile.label}: warm TTFR ${warm.ttfrMs} ms; chunk transfer ${warm.network.chunks.bytes} B`)
-  })
-
-  await test.step('full timeline scrub measures request coalescing', async () => {
-    await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor De Bilt$/)
-    await page.getByRole('button', { name: 'Alles' }).click()
-    const scrubber = page.getByRole('slider', { name: 'Tijd' })
-    scrubFrames = Number(await scrubber.getAttribute('aria-valuemax')) + 1
-    const requestStart = await transferredDataRequests(page, '/data/chunks/')
-    await scrubber.focus()
-    await scrubber.press('Home')
-    for (let index = 1; index < scrubFrames; index++) await scrubber.press('ArrowRight')
-    await page.waitForTimeout(1_000)
-    scrubTransfers = await transferredDataRequests(page, '/data/chunks/') - requestStart
-    if (!live) expect(scrubTransfers).toBeLessThan(scrubFrames / 3)
-    const measured = await perfSnapshot(page)
-    expect(measured.scrub.samples).toBeGreaterThan(0)
-    expect(errors).toEqual([])
-    console.log(`${profile.label}: scrub ${scrubTransfers} chunk requests / ${scrubFrames} frames; p50 ${measured.scrub.p50Ms} ms; p95 ${measured.scrub.p95Ms} ms; fps ${measured.fps ?? 'pending'}`)
   })
 
   await test.step('two location clicks measure session-cache reuse', async () => {
@@ -140,6 +150,8 @@ test('user journey measures performance and cache behaviour', async ({ page, con
       cpuThrottleRate: profile.cpuThrottleRate,
       coldTtfrMs: cold?.ttfrMs ?? null,
       warmTtfrMs: warm?.ttfrMs ?? null,
+      passiveChunkBytes: passive?.network.chunks.bytes ?? 0,
+      timeToCompleteMs,
       scrubP50Ms: measured.scrub.p50Ms,
       scrubP95Ms: measured.scrub.p95Ms,
       scrubTransfers,
