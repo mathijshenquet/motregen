@@ -1,5 +1,32 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-08-31 (avond) — dieet live op prod; scorebord; morgen: progressief laden
+
+- T2g merged (sessie 20,1→6,9 MB; dictionary +2,8% en delta +41% = gemeten
+  regressies, afgewezen; MIP-2-intra-only empirisch gevalideerd). T5b merged
+  (mobiele profielen: pre-dieet 47 s op 4G / 142 s op 3G). T5c merged:
+  scorebord vs buienradar.nl — radar 2,1–7,4× sneller, ~10× minder requests,
+  bytes hun enige winst (pre-dieet-snapshot).
+- T4-vangst: pnpm-fixed-output-hash was stale na T2g → nachtelijke upgrade
+  zou stranden; fix geverifieerd+merged; upgrade handmatig getriggerd.
+  LES: tracks die pnpm-lock/Cargo.lock raken krijgen voortaan nix flake
+  check in de merge-verificatie. Prod nu: nieuwe closure, dieet-manifest
+  publiek, werkset 8,60 MB (was 21,9), nul failed units. SSH naar de VPS
+  vanaf ageq-mthq intermitterend geblokkeerd (poort 22; 443 fijn) — retries
+  werken; observeren.
+- CF-observatie: bot-bescherming blokkeert non-browser-UA's (urllib 403;
+  curl/browsers ok) — regel versoepelen ALS data-endpoint ooit open data
+  voor derden moet zijn. Geparkeerd.
+- t3g (PO-sessie): conflicten met T5-instrumentatie opgelost, 73 tests, maar
+  mijn onafhankelijke e2e ving een intermitterende warm-chunk-budget-
+  overschrijding op desktop → terug naar sol (regressie fixen of budget
+  herkalibreren met onderbouwing; 3× green vereist). Merge wacht daarop.
+  PO meldde: t3g bevat ook al optimalisatiewerk; morgen MIP-8-spec daarop
+  bijsnijden. Backend-vervolg nodig: historische observaties voor de
+  uitgebreide tabel-history (T2h, spec na t3g-merge).
+- MIP-8 §7: bouwontwerp progressief laden (L0≤1,5 MB / L1 skeleton / L2
+  intentie; passief-budget ≤3 MB) — PO: morgen tackelen.
+
 ## 2026-08-31 — 🌧 MOTREGEN.NL IS LIVE (T4/T2f/T5 merged; Cloudflare-cutover)
 
 - T5 (sol, 58m): perf-module + HUD (?perf=1/triple-tap), Playwright-suite
