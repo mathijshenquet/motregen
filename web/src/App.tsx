@@ -15,6 +15,7 @@ import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS, paddedGeographicBounds }
 import { MrfClient, type MotionField } from './core/mrf'
 import { selectPairMotion } from './core/motion-selection'
 import { nearestPlace } from './core/places'
+import { startFrameLoop } from './core/playback'
 import { installPerfMonitor } from './core/perf'
 import { RainLayer } from './core/rain-layer'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
@@ -64,7 +65,6 @@ export default function App() {
   let windLayer: WindLayer | undefined
   let cloudEdgeLayer: CloudEdgeLayer | undefined
   let windGrid: Grid | undefined
-  let animation = 0
   let splashReplayTimer: number | undefined
   let shownFrameRequest = 0
   let shownWindRequest = 0
@@ -173,7 +173,6 @@ export default function App() {
   })
 
   onCleanup(() => {
-    cancelAnimationFrame(animation)
     window.clearTimeout(splashReplayTimer)
     cancelPointLoad(pointLoad)
     for (const savedMarker of savedMarkers) savedMarker.remove()
@@ -220,7 +219,6 @@ export default function App() {
     }
   })
   createEffect(() => {
-    cancelAnimationFrame(animation)
     const loadStage = pointLoadStage()
     if (!playing() || !mapReady() || (initialPickStarted && (loadStage === 'initial' || loadStage === 'direct'))) return
     const horizonHours = timeHorizonHours()
@@ -230,7 +228,7 @@ export default function App() {
     const lastEpoch = timelineHorizonEnd(frames, nowEpoch, horizonHours)
     const playbackRate = timelinePlaybackRate(frames, nowEpoch, horizonHours)
     let previous = performance.now()
-    const tick = (now: number) => {
+    const stop = startFrameLoop((now) => {
       const elapsed = now - previous
       previous = now
       setCursor((value) => {
@@ -239,9 +237,8 @@ export default function App() {
         if (!Number.isFinite(nextEpoch) || nextEpoch >= lastEpoch) return 0
         return timelineCursorAtEpoch(frames, nextEpoch)
       })
-      animation = requestAnimationFrame(tick)
-    }
-    animation = requestAnimationFrame(tick)
+    }, requestAnimationFrame, cancelAnimationFrame)
+    onCleanup(stop)
   })
 
   function chooseTimeHorizon(hours: number | null): void {
