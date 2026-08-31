@@ -1,0 +1,14 @@
+{
+  "version": 0,
+  "generated": "2026-08-31T09:00:00Z",
+  "chunks": [
+    {
+      "url": "chunks/test-g0000000000000000.mrf",
+      "source": "rtcor",
+      "field": "rain_rate",
+      "run": "2026-08-31T09:00:00Z",
+      "header_len": 8,
+      "times": ["2026-08-31T09:00:00Z"]
+    }
+  ]
+}
