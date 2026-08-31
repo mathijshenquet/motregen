@@ -21,7 +21,7 @@ import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedP
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
 import { solarElevationSin } from './core/solar'
 import { temperatureLabels, type TemperatureFeatureCollection } from './core/temperature'
-import { buildTimeline, frameBlend, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor } from './core/time-model'
+import { buildTimeline, frameBlend, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelinePlaybackRate } from './core/time-model'
 import { uvAdvice } from './core/uv'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
 import { DEFAULT_WIND_TUNING, WindLayer, type WindTuning } from './core/wind-layer'
@@ -220,21 +220,22 @@ export default function App() {
     }
   })
   createEffect(() => {
+    cancelAnimationFrame(animation)
     const loadStage = pointLoadStage()
-    if (!playing() || !mapReady() || (initialPickStarted && (loadStage === 'initial' || loadStage === 'direct'))) { cancelAnimationFrame(animation); return }
+    if (!playing() || !mapReady() || (initialPickStarted && (loadStage === 'initial' || loadStage === 'direct'))) return
     const horizonHours = timeHorizonHours()
+    const frames = timeline()
+    if (frames.length < 2) return
+    const nowEpoch = manifest() ? Date.parse(manifest()!.now) : frames[0]!.epoch
+    const lastEpoch = timelineHorizonEnd(frames, nowEpoch, horizonHours)
+    const playbackRate = timelinePlaybackRate(frames, nowEpoch, horizonHours)
     let previous = performance.now()
     const tick = (now: number) => {
       const elapsed = now - previous
       previous = now
       setCursor((value) => {
-        const frames = timeline()
-        if (frames.length < 2) return 0
-        const firstEpoch = frames[0]!.epoch
-        const timelineLastEpoch = frames.at(-1)!.epoch
-        const lastEpoch = timelineHorizonEnd(frames, manifest() ? Date.parse(manifest()!.now) : frames[0]!.epoch, horizonHours)
         const epoch = timelineEpochAtCursor(frames, value)
-        const nextEpoch = epoch + elapsed * (timelineLastEpoch - firstEpoch) / ((frames.length - 1) * 650)
+        const nextEpoch = epoch + elapsed * playbackRate
         if (!Number.isFinite(nextEpoch) || nextEpoch >= lastEpoch) return 0
         return timelineCursorAtEpoch(frames, nextEpoch)
       })
@@ -1028,11 +1029,6 @@ export default function App() {
 function storedTheme(): ThemeChoice {
   const stored = localStorage.getItem('motregen-theme')
   return stored === 'light' || stored === 'system' || stored === 'dark' ? stored : 'light'
-}
-
-function timelineHorizonEnd(frames: TimelineFrame[], now: number, hours: number | null): number {
-  const last = frames.at(-1)?.epoch ?? 0
-  return hours === null ? last : Math.min(last, now + hours * 3_600_000)
 }
 
 function directRainIndexes(frames: TimelineFrame[], now: number): number[] {

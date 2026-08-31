@@ -161,6 +161,8 @@ describe('histogram scrubber', () => {
     />)
 
     expect(screen.getByRole('button', { name: '+8u' }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: '+3u' }))
+    expect(onHorizonHours).toHaveBeenCalledWith(3)
     expect(screen.getByText('Vandaag')).toBeTruthy()
     expect(screen.getByText('Morgen')).toBeTruthy()
     expect(container.querySelectorAll('.day-grid .boundary')).toHaveLength(1)

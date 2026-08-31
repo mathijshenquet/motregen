@@ -1,6 +1,7 @@
 import { chunkField, type Field, type Manifest, type Source, type TimelineFrame } from './contract'
 
 const priority: Record<Source, number> = { harmonie: 0, uv: 0, seamless: 1, nowcast: 2, rtcor: 3 }
+const PLAYBACK_FRAME_DURATION_MS = 650
 
 export function buildTimeline(manifest: Manifest, field: Field = 'rain_rate'): TimelineFrame[] {
   const byTime = new Map<number, TimelineFrame>()
@@ -44,6 +45,19 @@ export function timelineEpochAtCursor(timeline: TimelineFrame[], cursor: number)
 export function timelineCursorAtEpoch(timeline: TimelineFrame[], epoch: number): number {
   const blend = frameBlend(timeline, epoch)
   return blend.left + (blend.right - blend.left) * blend.mix
+}
+
+export function timelineHorizonEnd(timeline: TimelineFrame[], now: number, hours: number | null): number {
+  const last = timeline.at(-1)?.epoch ?? 0
+  return hours === null ? last : Math.min(last, now + hours * 3_600_000)
+}
+
+export function timelinePlaybackRate(timeline: TimelineFrame[], now: number, hours: number | null): number {
+  if (timeline.length < 2) return 0
+  const firstEpoch = timeline[0]!.epoch
+  const lastEpoch = timelineHorizonEnd(timeline, now, hours)
+  const cursorSpan = Math.max(1, timelineCursorAtEpoch(timeline, lastEpoch))
+  return Math.max(0, lastEpoch - firstEpoch) / (cursorSpan * PLAYBACK_FRAME_DURATION_MS)
 }
 
 export function seriesValueAt(
