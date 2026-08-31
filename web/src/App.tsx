@@ -9,7 +9,7 @@ import { DayNightLayer } from './core/day-night-layer'
 
 const DAY_NIGHT_ENABLED = false
 import { buildHourlyForecast } from './core/forecast'
-import { mapFrameFromGrid } from './core/map-frame'
+import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS, paddedGeographicBounds } from './core/map-frame'
 import { MrfClient } from './core/mrf'
 import { nearestPlace } from './core/places'
 import { RainLayer } from './core/rain-layer'
@@ -24,6 +24,7 @@ import { deriveWeatherIcon, summarizeWind } from './core/weather'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
 const defaultLocation = { lng: 5.18, lat: 52.1 }
+const mapMovementBounds = paddedGeographicBounds(NETHERLANDS_FLANDERS_BOUNDS, { west: 0.05, south: 0.1, east: 0.15, north: 0.1 })
 const themes = ['light', 'system', 'dark'] as const
 type ThemeChoice = typeof themes[number]
 type TemperatureField = Extract<Field, 'temp_c' | 'feels_like_c'>
@@ -31,6 +32,7 @@ const emptyTemperatureData: TemperatureFeatureCollection = { type: 'FeatureColle
 const emptySunData: SunFeatureCollection = { type: 'FeatureCollection', features: [] }
 
 export default function App() {
+  const devMode = new URLSearchParams(window.location.search).has('dev')
   let mapElement!: HTMLDivElement
   let splashElement!: HTMLDivElement
   let map: maplibregl.Map | undefined
@@ -69,6 +71,7 @@ export default function App() {
   const [cursor, setCursor] = createSignal(0)
   const [playing, setPlaying] = createSignal(true)
   const [location, setLocation] = createSignal(defaultLocation)
+  const [locationLabel, setLocationLabel] = createSignal('De Bilt')
   const [rainSeries, setRainSeries] = createSignal<Array<number | null>>([])
   const [pointSeriesLoading, setPointSeriesLoading] = createSignal(true)
   const [uvSeries, setUvSeries] = createSignal<Array<number | null>>([])
@@ -84,6 +87,8 @@ export default function App() {
   const [windTuning, setWindTuning] = createSignal<WindTuning>({ ...DEFAULT_WIND_TUNING })
   const [mapReady, setMapReady] = createSignal(false)
   const [splashSlowdown, setSplashSlowdown] = createSignal(storedSplashSlowdown())
+  const [minimumMapWidthKm, setMinimumMapWidthKm] = createSignal(20)
+  const [devMaximumZoom, setDevMaximumZoom] = createSignal(0)
   const [systemDark, setSystemDark] = createSignal(media.matches)
   const mapTheme = createMemo<MapTheme>(() => theme() === 'system' ? systemDark() ? 'dark' : 'light' : theme() as MapTheme)
   const splashStyle = createMemo(() => {
@@ -106,7 +111,6 @@ export default function App() {
       for (let index = 0; index < frames.length; index++) if (frames[index]!.epoch <= Date.parse(data.now)) nowIndex = index
       setCursor(nowIndex)
       const header = await client.getHeader(frames[0]!.chunk)
-      const frame = mapFrameFromGrid(header.grid)
       const initialTheme = mapTheme()
       const [style] = await Promise.all([
         loadBasemapStyle(initialTheme),
@@ -118,11 +122,12 @@ export default function App() {
         style,
         center: [5.3, 52.15],
         zoom: 6.4,
-        maxBounds: frame.maxBounds,
+        maxBounds: mapMovementBounds,
         renderWorldCopies: false,
         attributionControl: false,
       })
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
+      applyMapDetailLimit(minimumMapWidthKm())
       map.on('style.load', () => attachMapLayers(header.grid))
       map.on('click', (event) => pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name))
       pick(defaultLocation.lng, defaultLocation.lat, 'De Bilt')
@@ -450,6 +455,7 @@ export default function App() {
   function pick(lng: number, lat: number, label: string): void {
     const point = { lng, lat }
     setLocation(point)
+    setLocationLabel(label)
     marker?.remove()
     if (map) marker = new Marker({ color: '#1688ad' }).setLngLat([lng, lat]).addTo(map)
     void updatePointSeries(point, label)
@@ -548,6 +554,20 @@ export default function App() {
     setWindTuning((current) => ({ ...current, [key]: value }))
   }
 
+  function tuneMapDetail(minimumWidthKm: number): void {
+    setMinimumMapWidthKm(minimumWidthKm)
+    applyMapDetailLimit(minimumWidthKm)
+  }
+
+  function applyMapDetailLimit(minimumWidthKm: number): void {
+    if (!map) return
+    const latitude = map.getCenter().lat
+    const circumferenceKm = 40_075.017 * Math.cos(latitude * Math.PI / 180)
+    const maximumZoom = Math.log2(circumferenceKm * map.getContainer().clientWidth / (512 * minimumWidthKm))
+    map.setMaxZoom(maximumZoom)
+    setDevMaximumZoom(maximumZoom)
+  }
+
   function replaySplash(): void {
     window.clearTimeout(splashReplayTimer)
     setMapReady(false)
@@ -589,16 +609,6 @@ export default function App() {
       : { icon: '☾', label: 'Donker', next: 'licht' })
 
   return <main class="app-shell">
-    <header class="topbar">
-      <span class="brand"><img src="/droplet.svg" alt="" />motregen</span>
-      <div class="header-actions">
-        <Show when={cursorUvChip()}>{(label) => <span class="uv-chip header-uv-chip" title="Insmeren aanbevolen"><span aria-hidden="true">☀</span><span class="uv-long">{label()}</span><span class="uv-short">UV {formatUv(cursorUv())}</span></span>}</Show>
-        <button class="round-action theme-button" onClick={cycleTheme} aria-label={`Thema: ${themeMeta().label}. Klik voor ${themeMeta().next}`} title={`Thema: ${themeMeta().label}`}>
-          <span aria-hidden="true">{themeMeta().icon}</span><small>{themeMeta().label}</small>
-        </button>
-        <button class="round-action locate" onClick={locate} aria-label="Gebruik mijn locatie"><span aria-hidden="true">⌖</span><small>Mijn locatie</small></button>
-      </div>
-    </header>
     <section class="map-shell" aria-label="Regenkaart van Nederland">
       <div ref={mapElement} class="map" />
       <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() }} style={splashStyle()} aria-hidden={mapReady()}>
@@ -608,14 +618,18 @@ export default function App() {
           <strong>motregen.nl</strong>
         </div>
       </div>
-      <LocationSearch onSelect={chooseSearch} />
+      <div class="map-brand" aria-label="motregen.nl"><img src="/droplet.svg" alt="" /><strong>motregen.nl</strong></div>
+      <button class="round-action theme-button mobile-map-theme" onClick={cycleTheme} aria-label={`Thema: ${themeMeta().label}. Klik voor ${themeMeta().next}`} title={`Thema: ${themeMeta().label}`}>
+        <span aria-hidden="true">{themeMeta().icon}</span>
+      </button>
+      <LocationSearch locationLabel={locationLabel()} onSelect={chooseSearch} />
       <Show when={hasBothTemperatures()}>
         <div class="temperature-switch" role="group" aria-label="Temperatuurlaag">
           <button classList={{ active: temperatureField() === 'temp_c' }} onClick={() => setTemperatureField('temp_c')}>Temperatuur</button>
           <button classList={{ active: temperatureField() === 'feels_like_c' }} onClick={() => setTemperatureField('feels_like_c')}>Gevoel</button>
         </div>
       </Show>
-      <Show when={windTimeline().length}>
+      <Show when={devMode && windTimeline().length}>
         <details class="wind-debug" open>
           <summary>Wind debug</summary>
           <label><span>Zichtbaar</span><input type="range" min="0" max="3" step="0.1" value={windTuning().visibility} onInput={(event) => tuneWind('visibility', event.currentTarget.valueAsNumber)} /><output>{windTuning().visibility.toFixed(1)}</output></label>
@@ -624,6 +638,8 @@ export default function App() {
           <label><span>Deeltjes</span><input type="range" min="0.1" max="1" step="0.05" value={windTuning().particleOpacity} onInput={(event) => tuneWind('particleOpacity', event.currentTarget.valueAsNumber)} /><output>{windTuning().particleOpacity.toFixed(2)}</output></label>
           <label><span>Trailduur</span><input type="range" min="0.9" max="0.99" step="0.001" value={windTuning().trailFade} onInput={(event) => tuneWind('trailFade', event.currentTarget.valueAsNumber)} /><output>{windTuning().trailFade.toFixed(3)}</output></label>
           <label><span>Dekking</span><input type="range" min="0.1" max="1" step="0.05" value={windTuning().trailOpacity} onInput={(event) => tuneWind('trailOpacity', event.currentTarget.valueAsNumber)} /><output>{windTuning().trailOpacity.toFixed(2)}</output></label>
+          <label><span>Min. breedte</span><input type="range" min="5" max="100" step="5" value={minimumMapWidthKm()} onInput={(event) => tuneMapDetail(event.currentTarget.valueAsNumber)} /><output>{minimumMapWidthKm()} km</output></label>
+          <p class="wind-debug-note">Maximale kaartzoom: {devMaximumZoom().toFixed(1)}</p>
           <label><span>Splash ×</span><input type="range" min="1" max="8" step="0.5" value={splashSlowdown()} onInput={(event) => setSplashSlowdown(event.currentTarget.valueAsNumber)} /><output>{splashSlowdown().toLocaleString('nl-NL', { maximumFractionDigits: 1 })}×</output></label>
           <button class="wind-debug-replay" onClick={replaySplash}>Herhaal splash</button>
         </details>
@@ -631,6 +647,15 @@ export default function App() {
       <div class="source">Bron: KNMI · Kaart: OpenFreeMap</div>
     </section>
     <aside class="dashboard">
+      <nav class="sidebar-nav" aria-label="Instellingen en locatie">
+        <Show when={cursorUvChip()}>{(label) => <span class="uv-chip sidebar-uv-chip" title="Insmeren aanbevolen"><span aria-hidden="true">☀</span><span class="uv-long">{label()}</span><span class="uv-short">UV {formatUv(cursorUv())}</span></span>}</Show>
+        <div class="sidebar-actions">
+          <button class="round-action theme-button sidebar-theme" onClick={cycleTheme} aria-label={`Thema: ${themeMeta().label}. Klik voor ${themeMeta().next}`} title={`Thema: ${themeMeta().label}`}>
+            <span aria-hidden="true">{themeMeta().icon}</span><small>{themeMeta().label}</small>
+          </button>
+          <button class="round-action locate" onClick={locate} aria-label="Gebruik mijn locatie"><span aria-hidden="true">⌖</span><small>Mijn locatie</small></button>
+        </div>
+      </nav>
       <HistogramScrubber
         timeline={timeline()}
         values={rainSeries()}

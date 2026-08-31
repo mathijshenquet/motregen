@@ -2,6 +2,7 @@ import { createEffect, createSignal, For, onCleanup, Show } from 'solid-js'
 import { lookupLocation, suggestLocations, type PdokSuggestion } from '../core/pdok'
 
 interface Props {
+  locationLabel: string
   onSelect: (location: { lng: number; lat: number }, label: string) => void
 }
 
@@ -14,6 +15,13 @@ export default function LocationSearch(props: Props) {
   const [active, setActive] = createSignal(-1)
   const [message, setMessage] = createSignal('')
   const [open, setOpen] = createSignal(false)
+
+  createEffect(() => {
+    setSelectedLabel(props.locationLabel)
+    setQuery(props.locationLabel)
+    setSuggestions([])
+    setOpen(false)
+  })
 
   createEffect(() => {
     const value = query().trim()
