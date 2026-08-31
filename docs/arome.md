@@ -60,6 +60,34 @@ leden van run `2026082812` zijn:
 | globale stralingsenergie | 253 | 117 | type 105, 0 m | accumulatie vanaf runstart, `timeRangeIndicator=4` | J/m² | opeenvolgend verschil ÷ 3600 → W/m² |
 | totale bewolkingsgraad | 253 | 71 | type 105, 0 m | instant, `timeRangeIndicator=0` | fractie 0–1 | ×100 → % |
 
+### Wind voor de motion-prior
+
+De volledige inventaris van alle 49 berichten in het echte +1-lid van run
+`2026082812` bevat U/V-wind (parameters 33/34, type 105) op 10, 50, 100,
+200 en 300 m. De motion-schatter gebruikt het hoogste beschikbare p1-paar,
+300 m: dat ligt dichter bij de stuurstroming van neerslag dan de door
+oppervlaktewrijving beïnvloede 10m-wind. Dit kost geen extra downloadbytes,
+omdat dezelfde ranged GRIB-leden al binnenkomen.
+
+De gepubliceerde velden `wind_u_ms` en `wind_v_ms` blijven ongewijzigd de
+10m-berichten gebruiken voor de particles en gevoelstemperatuur. De
+300m-velden zijn alleen interne schatterinput. Per modeltijd worden ze naar
+het 32×32-cellenblokgrid gemiddeld. De omzetting van m/s naar cellen/minuut
+neemt de lokale schaal van EPSG:3857 mee; noordwaartse V krijgt een negatief
+raster-y-teken. Tussen modeluren wordt lineair geïnterpoleerd. Voor een
+regenframe buiten het beschikbare runvenster wordt het dichtstbijzijnde
+eindframe gebruikt. De gedeelde kaart steekt aan noord- en zuidrand enkele
+rijen buiten het p1-raster; alleen voor deze interne prior wordt daar de
+dichtstbijzijnde randwind doorgetrokken. De gepubliceerde velden behouden
+hun bestaande no-data-masker.
+
+De online kalibratie start zonder geschiedenis op schaal 1 en rotatie 0°.
+De per bronrun gelogde fits leren vervolgens het verschil tussen 300m-wind
+en waargenomen neerslagverplaatsing. Wind op echte stuurvlakken (700/850
+hPa) staat alleen in de afzonderlijke p3-dataset en valt buiten dit track.
+Een aanhoudend grote schaal of rotatie in die logreeks is het concrete
+beslissignaal voor een latere p3-afweging.
+
 Ook dauwpunt is aanwezig als tabel 253, parameter 17 op 2 m, instant en in
 kelvin. Voor gevoelstemperatuur gebruikt de ingest de rechtstreeks aanwezige
 relatieve vochtigheid; dauwpunt hoeft daarom niet mee naar productie.

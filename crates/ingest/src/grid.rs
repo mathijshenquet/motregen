@@ -118,6 +118,26 @@ impl IndexMap {
         })
     }
 
+    pub fn arome_clamped_on(source: &AromeGrid, target: GridSpec) -> Result<Self> {
+        ensure!(source.ni > 0 && source.nj > 0, "empty AROME grid");
+        ensure!(
+            source.longitude_increment > 0.0 && source.latitude_increment > 0.0,
+            "AROME grid increments must be positive"
+        );
+        let raster = SourceRaster {
+            x0: source.longitude_first,
+            y0: source.latitude_first,
+            dx: source.longitude_increment,
+            dy: source.latitude_increment,
+            width: source.ni,
+            height: source.nj,
+        };
+        Self::build(target, |x, y| {
+            let (longitude, latitude) = web_mercator_to_lon_lat(x, y);
+            Some(nearest_clamped_index(longitude, latitude, raster))
+        })
+    }
+
     pub fn uv(source: &UvGrid) -> Result<Self> {
         ensure!(source.width > 0 && source.height > 0, "empty UV grid");
         ensure!(
@@ -220,6 +240,14 @@ fn nearest_index(x: f64, y: f64, raster: SourceRaster, center_offset: f64) -> Op
     let column = ((x - raster.x0) / raster.dx - center_offset).round() as isize;
     let row = ((y - raster.y0) / raster.dy - center_offset).round() as isize;
     grid_index(column, row, raster.width, raster.height)
+}
+
+fn nearest_clamped_index(x: f64, y: f64, raster: SourceRaster) -> usize {
+    let column = ((x - raster.x0) / raster.dx).round() as isize;
+    let row = ((y - raster.y0) / raster.dy).round() as isize;
+    let column = column.clamp(0, raster.width as isize - 1) as usize;
+    let row = row.clamp(0, raster.height as isize - 1) as usize;
+    row * raster.width + column
 }
 
 fn grid_index(column: isize, row: isize, width: usize, height: usize) -> Option<usize> {
@@ -337,6 +365,14 @@ mod tests {
         assert!(uv.missing_count() < UV_GRID.cell_count());
         assert!(seamless.missing_count() > 0);
         assert!(seamless.missing_count() < SHARED_GRID.cell_count());
+    }
+
+    #[test]
+    fn clamped_arome_map_extends_wind_to_shared_grid_margin() {
+        let map = IndexMap::arome_clamped_on(&arome_grid(), SHARED_GRID).unwrap();
+        assert_eq!(map.missing_count(), 0);
+        let gathered = map.gather(&vec![1.0; 390 * 390]).unwrap();
+        assert!(gathered.iter().all(|value| *value == 1.0));
     }
 
     #[test]

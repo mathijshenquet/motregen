@@ -17,6 +17,7 @@ use motregen_ingest::{
         build_uv_chunk, latest_files, prune_download_cache,
     },
     publisher::{ProducedChunk, publish},
+    wind_prior::WindTimeline,
 };
 use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
@@ -102,6 +103,11 @@ struct Daemon {
     seamless: Option<ProducedChunk>,
     arome: Vec<ProducedChunk>,
     uv: Option<ProducedChunk>,
+    wind: Option<WindTimeline>,
+    rtcor_calibration: Option<motion::Calibration>,
+    nowcast_calibration: Option<motion::Calibration>,
+    seamless_calibration: Option<motion::Calibration>,
+    arome_calibration: Option<motion::Calibration>,
     last_arome_check: Option<Instant>,
     last_seamless_check: Option<Instant>,
     last_uv_check: Option<Instant>,
@@ -130,6 +136,11 @@ impl Daemon {
             seamless: None,
             arome: Vec::new(),
             uv: None,
+            wind: None,
+            rtcor_calibration: None,
+            nowcast_calibration: None,
+            seamless_calibration: None,
+            arome_calibration: None,
             last_arome_check: None,
             last_seamless_check: None,
             last_uv_check: None,
@@ -138,10 +149,10 @@ impl Daemon {
 
     fn initialize(&mut self) -> Result<()> {
         info!("startup backfill begins");
+        self.refresh_arome()?;
         self.refresh_rtcor()?;
         self.refresh_nowcast()?;
         self.refresh_seamless()?;
-        self.refresh_arome()?;
         self.refresh_uv()?;
         self.publish()?;
         prune_download_cache(&self.cache_root, self.config.cache_age)?;
@@ -157,7 +168,18 @@ impl Daemon {
         if self.rtcor_id.as_deref() == Some(&latest.filename) {
             return Ok(false);
         }
-        let (chunk, _) = build_rtcor_chunk(&self.api, &self.cache_root, self.config.history_hours)?;
+        let wind = self
+            .wind
+            .as_ref()
+            .context("AROME wind prior is not ready")?;
+        let (chunk, _, calibration) = build_rtcor_chunk(
+            &self.api,
+            &self.cache_root,
+            self.config.history_hours,
+            wind,
+            self.rtcor_calibration,
+        )?;
+        log_calibration("rtcor", &chunk.manifest.run, calibration);
         info!(
             file = latest.filename,
             frames = chunk.manifest.times.len(),
@@ -165,6 +187,7 @@ impl Daemon {
         );
         self.rtcor_id = Some(latest.filename);
         self.rtcor = Some(chunk);
+        self.rtcor_calibration = Some(calibration.calibration);
         Ok(true)
     }
 
@@ -176,8 +199,18 @@ impl Daemon {
         if self.nowcast_id.as_deref() == Some(&latest.filename) {
             return Ok(false);
         }
-        let (chunk, _) =
-            build_nowcast_chunk(&self.api, &self.cache_root, self.config.nowcast_minutes)?;
+        let wind = self
+            .wind
+            .as_ref()
+            .context("AROME wind prior is not ready")?;
+        let (chunk, _, calibration) = build_nowcast_chunk(
+            &self.api,
+            &self.cache_root,
+            self.config.nowcast_minutes,
+            wind,
+            self.nowcast_calibration,
+        )?;
+        log_calibration("nowcast", &chunk.manifest.run, calibration);
         info!(
             file = latest.filename,
             frames = chunk.manifest.times.len(),
@@ -185,6 +218,7 @@ impl Daemon {
         );
         self.nowcast_id = Some(latest.filename);
         self.nowcast = Some(chunk);
+        self.nowcast_calibration = Some(calibration.calibration);
         Ok(true)
     }
 
@@ -200,7 +234,18 @@ impl Daemon {
             return Ok(false);
         }
         let started = Instant::now();
-        let chunk = build_seamless_chunk(&self.api, &self.cache_root, self.config.nowcast_minutes)?;
+        let wind = self
+            .wind
+            .as_ref()
+            .context("AROME wind prior is not ready")?;
+        let (chunk, calibration) = build_seamless_chunk(
+            &self.api,
+            &self.cache_root,
+            self.config.nowcast_minutes,
+            wind,
+            self.seamless_calibration,
+        )?;
+        log_calibration("seamless", &chunk.manifest.run, calibration);
         info!(
             file = latest.filename,
             frames = chunk.manifest.times.len(),
@@ -209,6 +254,7 @@ impl Daemon {
         );
         self.seamless_id = Some(latest.filename);
         self.seamless = Some(chunk);
+        self.seamless_calibration = Some(calibration.calibration);
         self.last_seamless_check = Some(checked_at);
         Ok(true)
     }
@@ -240,7 +286,17 @@ impl Daemon {
             return Ok(false);
         }
         let started = Instant::now();
-        let publication = build_arome_chunks(&self.api, &self.cache_root, self.config.arome_hours)?;
+        let publication = build_arome_chunks(
+            &self.api,
+            &self.cache_root,
+            self.config.arome_hours,
+            self.arome_calibration,
+        )?;
+        log_calibration(
+            "harmonie",
+            &publication.chunks[0].manifest.run,
+            publication.calibration,
+        );
         info!(
             file = latest.filename,
             chunks = publication.chunks.len(),
@@ -251,6 +307,11 @@ impl Daemon {
         );
         self.arome_id = Some(latest.filename);
         self.arome = publication.chunks;
+        self.wind = Some(publication.wind);
+        self.arome_calibration = Some(publication.calibration.calibration);
+        self.rtcor_id = None;
+        self.nowcast_id = None;
+        self.seamless_id = None;
         self.last_arome_check = Some(checked_at);
         Ok(true)
     }
@@ -314,6 +375,14 @@ impl Daemon {
 
     fn poll(&mut self) {
         let mut changed = false;
+        if self.arome_due() {
+            match self.refresh_arome() {
+                Ok(value) => changed |= value,
+                Err(error) => {
+                    error!(error = %format!("{error:#}"), "arome refresh failed; retaining published chunk")
+                }
+            }
+        }
         match self.refresh_rtcor() {
             Ok(value) => changed |= value,
             Err(error) => {
@@ -326,19 +395,11 @@ impl Daemon {
                 error!(error = %format!("{error:#}"), "nowcast refresh failed; retaining published chunk")
             }
         }
-        if self.seamless_due() {
+        if self.seamless_id.is_none() || self.seamless_due() {
             match self.refresh_seamless() {
                 Ok(value) => changed |= value,
                 Err(error) => {
                     error!(error = %format!("{error:#}"), "seamless refresh failed; retaining published chunk")
-                }
-            }
-        }
-        if self.arome_due() {
-            match self.refresh_arome() {
-                Ok(value) => changed |= value,
-                Err(error) => {
-                    error!(error = %format!("{error:#}"), "arome refresh failed; retaining published chunk")
                 }
             }
         }
@@ -361,6 +422,18 @@ impl Daemon {
             info!("poll complete; no new products");
         }
     }
+}
+
+fn log_calibration(source: &str, run: &str, report: motion::CalibrationReport) {
+    info!(
+        source,
+        run,
+        scale = report.calibration.scale,
+        rotation_degrees = report.calibration.rotation_radians.to_degrees(),
+        reliable_samples = report.reliable_samples,
+        calibration_source = ?report.source,
+        "motion wind calibration"
+    );
 }
 
 fn main() -> Result<()> {
