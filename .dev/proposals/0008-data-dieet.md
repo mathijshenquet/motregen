@@ -1,6 +1,7 @@
 # MIP-8: data-dieet na veilige ruimtelijke integratie
 
-Status: draft
+Status: accepted (PO, 2026-08-31: dictionary dicht, intra-only blijft,
+progressief laden bouwen per §7 — ná de t3g-merge, bovenop de nieuwe UI)
 Auteur: T2g (codex), 2026-08-31
 
 ## 1. Het probleem na de veilige winst
