@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Manifest } from './contract'
-import { buildTimeline, frameBlend, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from './time-model'
+import { buildTimeline, frameBlend, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelinePlaybackRate, timelineZones } from './time-model'
 
 const chunk = (source: 'rtcor' | 'nowcast' | 'seamless' | 'harmonie', run: string, times: string[]) => ({ url: `${source}.mrf`, source, run, header_len: 42, times })
 
@@ -77,5 +77,36 @@ describe('time model', () => {
 
     expect(timeline[1]?.source).toBe('seamless')
     expect(timelineZones(timeline).map(({ label }) => label)).toEqual(['Nowcast', 'Model'])
+  })
+
+  it('recomputes playback speed when switching horizon in both directions', () => {
+    const now = '2026-08-28T15:00:00Z'
+    const nowEpoch = Date.parse(now)
+    const quarterHours = Array.from({ length: 13 }, (_, index) => new Date(nowEpoch + index * 15 * 60_000).toISOString())
+    const modelHours = Array.from({ length: 21 }, (_, index) => new Date(nowEpoch + (index + 4) * 3_600_000).toISOString())
+    const manifest: Manifest = { version: 0, generated: now, now, chunks: [
+      chunk('nowcast', now, quarterHours),
+      chunk('harmonie', '2026-08-28T12:00:00Z', modelHours),
+    ] }
+    const timeline = buildTimeline(manifest)
+    const speed3 = timelinePlaybackRate(timeline, nowEpoch, 3)
+    const speed8 = timelinePlaybackRate(timeline, nowEpoch, 8)
+    const speed24 = timelinePlaybackRate(timeline, nowEpoch, 24)
+
+    let horizon = 24
+    const beforeNarrowing = timelinePlaybackRate(timeline, nowEpoch, horizon)
+    horizon = 8
+    const afterNarrowing = timelinePlaybackRate(timeline, nowEpoch, horizon)
+    expect([beforeNarrowing, afterNarrowing]).toEqual([speed24, speed8])
+    expect(afterNarrowing).toBeLessThan(beforeNarrowing)
+
+    horizon = 8
+    const beforeWidening = timelinePlaybackRate(timeline, nowEpoch, horizon)
+    horizon = 24
+    const afterWidening = timelinePlaybackRate(timeline, nowEpoch, horizon)
+    expect([beforeWidening, afterWidening]).toEqual([speed8, speed24])
+    expect(afterWidening).toBeGreaterThan(beforeWidening)
+    expect(speed3).toBeLessThan(speed8)
+    expect(speed8).toBeLessThan(speed24)
   })
 })

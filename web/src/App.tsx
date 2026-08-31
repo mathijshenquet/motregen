@@ -17,13 +17,14 @@ import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS, paddedGeographicBounds }
 import { MrfClient, type MotionField } from './core/mrf'
 import { selectPairMotion } from './core/motion-selection'
 import { nearestPlace } from './core/places'
+import { startFrameLoop } from './core/playback'
 import { installPerfMonitor } from './core/perf'
 import { RainLayer } from './core/rain-layer'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
 import { solarElevationSin } from './core/solar'
 import { temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
-import { buildTimeline, frameBlend, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor } from './core/time-model'
+import { buildTimeline, frameBlend, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelinePlaybackRate } from './core/time-model'
 import { uvAdvice } from './core/uv'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
 import { DEFAULT_WIND_TUNING, WindLayer, type WindTuning } from './core/wind-layer'
@@ -67,7 +68,6 @@ export default function App() {
   let windLayer: WindLayer | undefined
   let cloudEdgeLayer: CloudEdgeLayer | undefined
   let windGrid: Grid | undefined
-  let animation = 0
   let splashReplayTimer: number | undefined
   let stopManifestRefresh: (() => void) | undefined
   let shownFrameRequest = 0
@@ -182,7 +182,6 @@ export default function App() {
   })
 
   onCleanup(() => {
-    cancelAnimationFrame(animation)
     window.clearTimeout(splashReplayTimer)
     stopManifestRefresh?.()
     cancelPointLoad(pointLoad)
@@ -296,27 +295,25 @@ export default function App() {
   })
   createEffect(() => {
     const loadStage = pointLoadStage()
-    if (!playing() || !mapReady() || (initialPickStarted && (loadStage === 'initial' || loadStage === 'direct'))) { cancelAnimationFrame(animation); return }
+    if (!playing() || !mapReady() || (initialPickStarted && (loadStage === 'initial' || loadStage === 'direct'))) return
     const horizonHours = timeHorizonHours()
+    const frames = timeline()
+    if (frames.length < 2) return
+    const nowEpoch = manifest() ? Date.parse(manifest()!.now) : frames[0]!.epoch
+    const lastEpoch = timelineHorizonEnd(frames, nowEpoch, horizonHours)
+    const playbackRate = timelinePlaybackRate(frames, nowEpoch, horizonHours)
     let previous = performance.now()
-    const tick = (now: number) => {
-      if (!playing()) return
+    const stop = startFrameLoop((now) => {
       const elapsed = now - previous
       previous = now
       setCursor((value) => {
-        const frames = timeline()
-        if (frames.length < 2) return 0
-        const firstEpoch = frames[0]!.epoch
-        const timelineLastEpoch = frames.at(-1)!.epoch
-        const lastEpoch = timelineHorizonEnd(frames, manifest() ? Date.parse(manifest()!.now) : frames[0]!.epoch, horizonHours)
         const epoch = timelineEpochAtCursor(frames, value)
-        const nextEpoch = epoch + elapsed * (timelineLastEpoch - firstEpoch) / ((frames.length - 1) * 650)
+        const nextEpoch = epoch + elapsed * playbackRate
         if (!Number.isFinite(nextEpoch) || nextEpoch >= lastEpoch) return 0
         return timelineCursorAtEpoch(frames, nextEpoch)
       })
-      if (playing()) animation = requestAnimationFrame(tick)
-    }
-    animation = requestAnimationFrame(tick)
+    }, requestAnimationFrame, cancelAnimationFrame)
+    onCleanup(stop)
   })
 
   function chooseTimeHorizon(hours: number | null): void {
@@ -1193,12 +1190,6 @@ function readCachedPointSeries(
   }
   return { values, loaded, complete: loaded.every(Boolean) }
 }
-
-function timelineHorizonEnd(frames: TimelineFrame[], now: number, hours: number | null): number {
-  const last = frames.at(-1)?.epoch ?? 0
-  return hours === null ? last : Math.min(last, now + hours * 3_600_000)
-}
-
 function directRainIndexes(frames: TimelineFrame[], now: number): number[] {
   if (!frames.length) return []
   const blend = frameBlend(frames, now)

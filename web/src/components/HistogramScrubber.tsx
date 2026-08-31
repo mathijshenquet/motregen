@@ -136,7 +136,7 @@ export default function HistogramScrubber(props: Props) {
   return <section class="scrubber" aria-label={`Regenverwachting en tijd voor ${props.locationLabel}`}>
     <div class="scrubber-toolbar">
       <div class="time-horizon" role="group" aria-label="Tijdsbereik">
-        <For each={[8, 24] as const}>{(hours) => <button type="button" classList={{ active: props.horizonHours === hours }} aria-pressed={props.horizonHours === hours} onClick={() => { props.onIntent?.(); props.onHorizonHours(hours) }}>+{hours}u</button>}</For>
+        <For each={[3, 8, 24] as const}>{(hours) => <button type="button" classList={{ active: props.horizonHours === hours }} aria-pressed={props.horizonHours === hours} onClick={() => { props.onIntent?.(); props.onHorizonHours(hours) }}>+{hours}u</button>}</For>
         <button type="button" classList={{ active: props.horizonHours === null }} aria-pressed={props.horizonHours === null} onClick={() => { props.onIntent?.(); props.onHorizonHours(null) }}>Alles</button>
       </div>
     </div>
