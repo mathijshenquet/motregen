@@ -59,7 +59,7 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     cold = await waitForTtfr(page)
     if (!live) expect(cold.ttfrMs).toBeLessThan(profile.coldTtfrBudgetMs)
     await expect(page.getByTestId('perf-hud')).toBeVisible()
-    await expect(page.locator('.location-label')).toHaveText('De Bilt')
+    await expect(page.locator('.location-label')).toHaveText('De Bilt', { timeout: live ? 180_000 : 10_000 })
     expect(errors).toEqual([])
     console.log(`${profile.label}: cold TTFR ${cold.ttfrMs} ms`)
   })
@@ -193,10 +193,15 @@ async function clickCanvasAtRatio(canvas: Locator, xRatio: number, yRatio: numbe
 }
 
 async function waitForTtfr(page: Page): Promise<PerfSnapshot> {
+  try {
+    await page.waitForFunction(() => (window as typeof window & { __motregenPerf?: unknown }).__motregenPerf !== undefined, undefined, { timeout: 30_000 })
+  } catch {
+    throw new Error('De origin publiceert geen window.__motregenPerf; draai eerst een frontend met MIP-7-instrumentatie')
+  }
   await page.waitForFunction(() => {
-    const monitor = (window as typeof window & { __motregenPerf?: { snapshot: () => PerfSnapshot } }).__motregenPerf
-    return monitor?.snapshot().ttfrMs !== null
-  })
+    const monitor = (window as typeof window & { __motregenPerf: { snapshot: () => PerfSnapshot } }).__motregenPerf
+    return monitor.snapshot().ttfrMs !== null
+  }, undefined, { timeout: live ? 180_000 : 10_000 })
   return perfSnapshot(page)
 }
 

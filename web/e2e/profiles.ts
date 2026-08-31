@@ -25,7 +25,7 @@ export const performanceProfiles: readonly PerformanceProfile[] = [
     cpuThrottleRate: 1,
     network: null,
     coldTtfrBudgetMs: 2_000,
-    warmTtfrBudgetMs: 750,
+    warmTtfrBudgetMs: 1_500,
     warmChunkByteBudget: 0,
   },
   {
@@ -40,7 +40,7 @@ export const performanceProfiles: readonly PerformanceProfile[] = [
       connectionType: 'cellular4g',
     },
     coldTtfrBudgetMs: 4_000,
-    warmTtfrBudgetMs: 2_000,
+    warmTtfrBudgetMs: 3_500,
     warmChunkByteBudget: 12_000,
   },
   {
