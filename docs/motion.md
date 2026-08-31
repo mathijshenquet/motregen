@@ -8,13 +8,29 @@ De productiecode staat bewust in de losse crate `motion`: de schatter is een det
 
 Het uitvoerraster gebruikt blokken van 32×32 broncellen en rondt aan oost- en zuidrand naar boven af. Op het gedeelde raster van 1.250×1.350 cellen is `motion_grid` daardoor 40×43. Per blok vergelijkt de schatter `log1p`-getransformeerde regenintensiteiten met genormaliseerde kruiscorrelatie. Een tweede kruiscorrelatie op een 16× verkleinde versie van het hele veld vormt het startpunt; de lokale zoektocht beslaat ±8 cellen daaromheen. Dit vangt een grote, coherente verplaatsing bij uurframes zonder per blok een onbegrensd zoekvenster te hoeven doorlopen en is minder gevoelig voor groeiende of uitdovende regengebieden dan een intensiteitszwaartepunt.
 
-Ruwe blokvectoren worden als volgt gestabiliseerd:
+Iedere correlatievector krijgt een betrouwbaarheid tussen 0 en 1 uit drie
+meetbare eigenschappen: de genormaliseerde correlatiescore, het verschil
+tussen de beste piek en een niet-aangrenzende tweede piek, en de hoeveelheid
+regensignaal in het blok. Een vector met betrouwbaarheid minstens 0,75 geldt
+als sterk. Een ruimtelijke uitbijter die meer dan 6 cellen van de
+componentgewijze mediaan in zijn 3×3-buurt ligt, wordt vóór de menging
+gedempt.
 
-1. een vector die meer dan 6 cellen van de componentgewijze mediaan in zijn 3×3-buurt afwijkt, wordt door die mediaan vervangen;
-2. een leeg blok erft maximaal vier ringen lang de mediaan van minstens twee geldige buren;
-3. geldige vectoren worden eenmaal gemiddeld over hun 3×3-buurt.
+Voor iedere bronrun fit de ingest één gewogen least-squares complexe factor
+`s·R(θ)` tussen sterke correlatievectoren en de tijdgeïnterpoleerde 300m-wind
+op dezelfde blokken. Er zijn minimaal 12 sterke blokken nodig. De fit wordt
+begrensd op `s ∈ [0,5; 2,5]` en `|θ| ≤ 60°`; bij te weinig blokken geldt de
+vorige fit van die bron, en bij de eerste run de default `s=1, θ=0`. Iedere
+run logt schaal, rotatie, aantal sterke blokken en fit/fallback op INFO.
 
-Een blok blijft `(-128, -128)` wanneer het zelf en zijn bereikbare buurt geen bruikbaar regensignaal bevatten. Zo ontstaan geen verzonnen vectoren in een volledig droog veld, terwijl kleine gaten in een samenhangend regenfront wel het gesmoothte buurveld erven. De uiteindelijke verplaatsing wordt door het werkelijke tijdsverschil gedeeld en afgerond naar 0,1 cel/minuut; geldige bytecodes worden op `[-127, 127]` begrensd, oftewel ±12,7 cel/minuut.
+Sterke blokken blijven puur correlatie. Matige blokken mengen correlatie en
+gekalibreerde wind met de betrouwbaarheid als correlatiegewicht; blokken
+zonder betrouwbare correlatie krijgen volledig de windprior. Pas daarna
+worden geldige vectoren eenmaal over hun 3×3-buurt gemiddeld. Alleen waar
+ook de modelwind geen dekking heeft blijft `(-128, -128)` staan. De
+uiteindelijke snelheid wordt afgerond naar 0,1 cel/minuut; geldige bytecodes
+worden op `[-127, 127]` begrensd, oftewel ±12,7 cel/minuut. Annexvorm en
+kwantisatie zijn daarmee ongewijzigd.
 
 ## Onafhankelijke acceptatiemaat
 

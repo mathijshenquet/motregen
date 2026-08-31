@@ -36,7 +36,10 @@ zstd-grootte blijft van het weerbeeld afhangen. De vaste factor is 3,7088×:
 | chunktype | oud grid / bytes per frame | nieuw grid / bytes per frame | toename |
 | --- | ---: | ---: | ---: |
 | radar: RTCOR, nowcast, HARMONIE-regen | 650×700 / 455.000 | 1.250×1.350 / 1.687.500 | +1.232.500 (+270,9%) |
-| 2km-uurvelden: temperatuur, gevoelstemp, wind, straling, RH, bewolking | 325×350 / 113.750 | 625×675 / 421.875 | +308.125 (+270,9%) |
+| 2km-intern werkraster uurvelden | 325×350 / 113.750 | 625×675 / 421.875 | +308.125 (+270,9%) |
+| 6km temperatuur, gevoel en wind | 109×117 / 12.753 | 209×225 / 47.025 | +34.272 (+268,7%) |
+| 8km straling | 82×88 / 7.216 | 157×169 / 26.533 | +19.317 (+267,7%) |
+| 16km vochtigheid en bewolking | 41×44 / 1.804 | 79×85 / 6.715 | +4.911 (+272,2%) |
 | 5km-UV | 130×140 / 18.200 | 250×270 / 67.500 | +49.300 (+270,9%) |
 
 ## Indexmaps

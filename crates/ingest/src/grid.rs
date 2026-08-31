@@ -39,6 +39,36 @@ pub const HOURLY_GRID: GridSpec = GridSpec {
     height: 675,
 };
 
+pub const DETAIL_GRID: GridSpec = GridSpec {
+    crs: "EPSG:3857",
+    x0: 0.0,
+    y0: 7_600_000.0,
+    dx: 6_000.0,
+    dy: -6_000.0,
+    width: 209,
+    height: 225,
+};
+
+pub const RADIATION_GRID: GridSpec = GridSpec {
+    crs: "EPSG:3857",
+    x0: 0.0,
+    y0: 7_600_000.0,
+    dx: 8_000.0,
+    dy: -8_000.0,
+    width: 157,
+    height: 169,
+};
+
+pub const SUMMARY_GRID: GridSpec = GridSpec {
+    crs: "EPSG:3857",
+    x0: 0.0,
+    y0: 7_600_000.0,
+    dx: 16_000.0,
+    dy: -16_000.0,
+    width: 79,
+    height: 85,
+};
+
 pub const UV_GRID: GridSpec = GridSpec {
     crs: "EPSG:3857",
     x0: 0.0,
@@ -115,6 +145,26 @@ impl IndexMap {
         Self::build(target, |x, y| {
             let (longitude, latitude) = web_mercator_to_lon_lat(x, y);
             nearest_index(longitude, latitude, raster, 0.0)
+        })
+    }
+
+    pub fn arome_clamped_on(source: &AromeGrid, target: GridSpec) -> Result<Self> {
+        ensure!(source.ni > 0 && source.nj > 0, "empty AROME grid");
+        ensure!(
+            source.longitude_increment > 0.0 && source.latitude_increment > 0.0,
+            "AROME grid increments must be positive"
+        );
+        let raster = SourceRaster {
+            x0: source.longitude_first,
+            y0: source.latitude_first,
+            dx: source.longitude_increment,
+            dy: source.latitude_increment,
+            width: source.ni,
+            height: source.nj,
+        };
+        Self::build(target, |x, y| {
+            let (longitude, latitude) = web_mercator_to_lon_lat(x, y);
+            Some(nearest_clamped_index(longitude, latitude, raster))
         })
     }
 
@@ -220,6 +270,14 @@ fn nearest_index(x: f64, y: f64, raster: SourceRaster, center_offset: f64) -> Op
     let column = ((x - raster.x0) / raster.dx - center_offset).round() as isize;
     let row = ((y - raster.y0) / raster.dy - center_offset).round() as isize;
     grid_index(column, row, raster.width, raster.height)
+}
+
+fn nearest_clamped_index(x: f64, y: f64, raster: SourceRaster) -> usize {
+    let column = ((x - raster.x0) / raster.dx).round() as isize;
+    let row = ((y - raster.y0) / raster.dy).round() as isize;
+    let column = column.clamp(0, raster.width as isize - 1) as usize;
+    let row = row.clamp(0, raster.height as isize - 1) as usize;
+    row * raster.width + column
 }
 
 fn grid_index(column: isize, row: isize, width: usize, height: usize) -> Option<usize> {
@@ -337,6 +395,29 @@ mod tests {
         assert!(uv.missing_count() < UV_GRID.cell_count());
         assert!(seamless.missing_count() > 0);
         assert!(seamless.missing_count() < SHARED_GRID.cell_count());
+    }
+
+    #[test]
+    fn integrated_field_grids_cover_the_hourly_extent() {
+        for grid in [DETAIL_GRID, RADIATION_GRID, SUMMARY_GRID] {
+            let hourly_east = HOURLY_GRID.x0 + HOURLY_GRID.dx * f64::from(HOURLY_GRID.width);
+            let hourly_south = HOURLY_GRID.y0 + HOURLY_GRID.dy * f64::from(HOURLY_GRID.height);
+            let east = grid.x0 + grid.dx * f64::from(grid.width);
+            let south = grid.y0 + grid.dy * f64::from(grid.height);
+            assert!(east >= hourly_east && east - hourly_east < grid.dx);
+            assert!(south <= hourly_south && hourly_south - south < -grid.dy);
+        }
+        assert_eq!(DETAIL_GRID.cell_count(), 209 * 225);
+        assert_eq!(RADIATION_GRID.cell_count(), 157 * 169);
+        assert_eq!(SUMMARY_GRID.cell_count(), 79 * 85);
+    }
+
+    #[test]
+    fn clamped_arome_map_extends_wind_to_shared_grid_margin() {
+        let map = IndexMap::arome_clamped_on(&arome_grid(), SHARED_GRID).unwrap();
+        assert_eq!(map.missing_count(), 0);
+        let gathered = map.gather(&vec![1.0; 390 * 390]).unwrap();
+        assert!(gathered.iter().all(|value| *value == 1.0));
     }
 
     #[test]

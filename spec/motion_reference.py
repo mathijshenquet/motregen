@@ -29,6 +29,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("frame_idx", type=int)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--max-median-error", type=float, default=1.0)
+    parser.add_argument("--before-chunk", type=Path)
+    parser.add_argument("--before-frame-idx", type=int)
     return parser.parse_args()
 
 
@@ -93,21 +95,33 @@ def plot_quivers(
     reference: np.ndarray,
     valid: np.ndarray,
     output: Path,
+    before: tuple[np.ndarray, np.ndarray] | None = None,
 ) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     y, x = np.mgrid[: rust.shape[0], : rust.shape[1]]
-    figure, axes = plt.subplots(1, 2, figsize=(14, 7), constrained_layout=True)
-    for axis, title, vectors in zip(
+    columns: list[tuple[str, np.ndarray, np.ndarray]] = []
+    if before is not None:
+        columns.append(("Voor windprior", before[0], before[1]))
+    columns.extend(
+        [
+            ("Na gekalibreerde windprior", rust, valid),
+            ("pySTEPS Lucas-Kanade", reference, valid),
+        ]
+    )
+    figure, axes = plt.subplots(
+        1, len(columns), figsize=(7 * len(columns), 7), constrained_layout=True
+    )
+    axes = np.atleast_1d(axes)
+    for axis, (title, vectors, vector_mask) in zip(
         axes,
-        ("Rust blokcorrelatie", "pySTEPS Lucas-Kanade"),
-        (rust, reference),
+        columns,
         strict=True,
     ):
         axis.quiver(
-            x[valid],
-            y[valid],
-            vectors[..., 0][valid],
-            -vectors[..., 1][valid],
+            x[vector_mask],
+            y[vector_mask],
+            vectors[..., 0][vector_mask],
+            -vectors[..., 1][vector_mask],
             angles="xy",
             scale_units="xy",
             scale=0.25,
@@ -119,6 +133,45 @@ def plot_quivers(
         axis.set_ylabel("motion-blok y")
     figure.savefig(output, dpi=150)
     plt.close(figure)
+
+
+def block_any(mask: np.ndarray, bw: int, bh: int) -> np.ndarray:
+    height, width = mask.shape
+    result = np.zeros((bh, bw), dtype=bool)
+    for block_y in range(bh):
+        for block_x in range(bw):
+            y0 = block_y * BLOCK_SIZE
+            x0 = block_x * BLOCK_SIZE
+            result[block_y, block_x] = bool(
+                mask[
+                    y0 : min(y0 + BLOCK_SIZE, height),
+                    x0 : min(x0 + BLOCK_SIZE, width),
+                ].any()
+            )
+    return result
+
+
+def read_motion(
+    path: Path, frame_idx: int
+) -> tuple[dict[str, Any], np.ndarray, np.ndarray, bytes, bytes]:
+    header, header_len, chunk = read_chunk(path)
+    frames = header["frames"]
+    motion_grid = header.get("motion_grid")
+    if not 0 < frame_idx < len(frames) or motion_grid is None:
+        raise ValueError("frame_idx must identify a frame with a motion annex")
+    motion_member = frames[frame_idx].get("motion")
+    if motion_member is None:
+        raise ValueError("selected frame has no motion annex")
+    grid = header["grid"]
+    frame_size = int(grid["width"]) * int(grid["height"])
+    previous_raw = decompress_member(
+        chunk, header_len, frames[frame_idx - 1], frame_size
+    )
+    current_raw = decompress_member(chunk, header_len, frames[frame_idx], frame_size)
+    bw, bh = int(motion_grid["bw"]), int(motion_grid["bh"])
+    raw = decompress_member(chunk, header_len, motion_member, bw * bh * 2)
+    encoded = np.frombuffer(raw, dtype=np.int8).reshape((bh, bw, 2))
+    return header, encoded.astype(np.float32) / 10.0, encoded, previous_raw, current_raw
 
 
 def main() -> None:
@@ -180,10 +233,60 @@ def main() -> None:
             f"median vector error {median_error:.3f} cell/min is not below "
             f"{args.max_median_error:.3f}"
         )
-    plot_quivers(rust, reference, valid, args.output)
+    fresh = finite & (current > 0.01) & (previous <= 0.01)
+    fresh_blocks = block_any(fresh, bw, bh)
+    before_plot: tuple[np.ndarray, np.ndarray] | None = None
+    after_fill = float(rust_valid.mean() * 100.0)
+    after_fresh_fill = (
+        float(rust_valid[fresh_blocks].mean() * 100.0) if fresh_blocks.any() else math.nan
+    )
+    fill_metrics = (
+        f" fill_after={after_fill:.1f}% fresh_blocks={int(fresh_blocks.sum())} "
+        f"fresh_fill_after={after_fresh_fill:.1f}%"
+    )
+    if args.before_chunk is not None:
+        before_idx = args.before_frame_idx or args.frame_idx
+        before_header, before, before_raw, before_previous, before_current = read_motion(
+            args.before_chunk, before_idx
+        )
+        if before_header["grid"] != header["grid"] or before.shape != rust.shape:
+            raise ValueError("before/after motion grids differ")
+        if before_previous != decompress_member(
+            chunk, header_len, frames[args.frame_idx - 1], frame_size
+        ) or before_current != decompress_member(
+            chunk, header_len, current_entry, frame_size
+        ):
+            raise ValueError("before/after chunks do not contain the same frame pair")
+        before_valid = np.all(before_raw != NO_DATA, axis=2)
+        before_comparable = has_signal & before_valid & rust_valid & reference_valid
+        before_errors = np.linalg.norm(
+            before[before_comparable] - reference[before_comparable], axis=1
+        )
+        after_common_errors = np.linalg.norm(
+            rust[before_comparable] - reference[before_comparable], axis=1
+        )
+        before_median = float(np.median(before_errors))
+        after_common_median = float(np.median(after_common_errors))
+        if after_common_median > before_median + 1.0e-6:
+            raise AssertionError(
+                f"mixed median {after_common_median:.3f} worsened from "
+                f"{before_median:.3f} cell/min on common signal blocks"
+            )
+        before_plot = (before, before_valid)
+        before_fill = float(before_valid.mean() * 100.0)
+        before_fresh_fill = (
+            float(before_valid[fresh_blocks].mean() * 100.0) if fresh_blocks.any() else math.nan
+        )
+        fill_metrics = (
+            f" before_median={before_median:.3f} after_common_median={after_common_median:.3f} "
+            f"fill_before={before_fill:.1f}% fill_after={after_fill:.1f}% "
+            f"fresh_blocks={int(fresh_blocks.sum())} "
+            f"fresh_fill_before={before_fresh_fill:.1f}% fresh_fill_after={after_fresh_fill:.1f}%"
+        )
+    plot_quivers(rust, reference, valid, args.output, before_plot)
     print(
         f"motion_reference: blocks={compared} median_error={median_error:.3f} cell/min "
-        f"p90={np.percentile(errors, 90):.3f} artifact={args.output}"
+        f"p90={np.percentile(errors, 90):.3f}{fill_metrics} artifact={args.output}"
     )
 
 

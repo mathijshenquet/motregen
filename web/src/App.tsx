@@ -2,6 +2,7 @@ import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show }
 import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
 import HistogramScrubber from './components/HistogramScrubber'
 import LocationSearch from './components/LocationSearch'
+import PerfHud from './components/PerfHud'
 import WeatherIcon from './components/WeatherIcon'
 import { loadBasemapStyle, type MapTheme } from './core/basemap'
 import { CloudEdgeLayer } from './core/cloud-edge-layer'
@@ -13,6 +14,7 @@ import { buildHourlyForecast } from './core/forecast'
 import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS, paddedGeographicBounds } from './core/map-frame'
 import { MrfClient } from './core/mrf'
 import { nearestPlace } from './core/places'
+import { installPerfMonitor } from './core/perf'
 import { RainLayer } from './core/rain-layer'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
@@ -25,6 +27,7 @@ import { DEFAULT_WIND_TUNING, WindLayer, type WindTuning } from './core/wind-lay
 import { deriveWeatherIcon, summarizeWind } from './core/weather'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
+const perf = installPerfMonitor()
 const defaultLocation = { lng: 5.18, lat: 52.1 }
 const mapMovementBounds = paddedGeographicBounds(NETHERLANDS_FLANDERS_BOUNDS, { west: 0.05, south: 0.1, east: 0.15, north: 0.1 })
 const themes = ['light', 'system', 'dark'] as const
@@ -59,6 +62,10 @@ export default function App() {
   let sunFeatureKey = ''
   let sunEpochBucket = Number.NaN
   let rainReadyPending = false
+  let scrubPrefetch = false
+  let logoTapCount = 0
+  let lastLogoTap = 0
+  let initialPickStarted = false
   const windFrameCache = new Map<string, Promise<Float32Array>>()
   const media = matchMedia('(prefers-color-scheme: dark)')
   const client = new MrfClient(manifestUrl)
@@ -97,6 +104,7 @@ export default function App() {
   const [splashSlowdown, setSplashSlowdown] = createSignal(storedSplashSlowdown())
   const [minimumMapWidthKm, setMinimumMapWidthKm] = createSignal(20)
   const [devMaximumZoom, setDevMaximumZoom] = createSignal(0)
+  const [perfVisible, setPerfVisible] = createSignal(new URLSearchParams(window.location.search).get('perf') === '1')
   const [systemDark, setSystemDark] = createSignal(media.matches)
   const mapTheme = createMemo<MapTheme>(() => theme() === 'system' ? systemDark() ? 'dark' : 'light' : theme() as MapTheme)
   const splashStyle = createMemo(() => {
@@ -112,6 +120,7 @@ export default function App() {
       const response = await fetch(manifestUrl)
       if (!response.ok) throw new Error(`Manifest laden mislukt (${response.status})`)
       const data = await response.json() as Manifest
+      perf.setManifestGenerated(data.generated)
       const frames = buildTimeline(data)
       if (!frames.length) throw new Error('De tijdlijn is leeg')
       setManifest(data)
@@ -120,10 +129,7 @@ export default function App() {
       setCursor(nowIndex)
       const header = await client.getHeader(frames[0]!.chunk)
       const initialTheme = mapTheme()
-      const [style] = await Promise.all([
-        loadBasemapStyle(initialTheme),
-        discoverWindGrid(),
-      ])
+      const style = await loadBasemapStyle(initialTheme)
       appliedMapTheme = initialTheme
       map = new maplibregl.Map({
         container: mapElement,
@@ -139,7 +145,6 @@ export default function App() {
       syncSavedMarkers(savedPlaces())
       map.on('style.load', () => attachMapLayers(header.grid))
       map.on('click', (event) => pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name))
-      pick(defaultLocation.lng, defaultLocation.lat, 'De Bilt')
       if (mapTheme() !== appliedMapTheme) void applyMapTheme(mapTheme())
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error))
@@ -178,9 +183,11 @@ export default function App() {
 
   createEffect(() => {
     const epoch = selectedEpoch()
+    const ready = mapReady()
     temperatureField()
     dayNightLayer?.setEpoch(epoch)
-    if (layer) void showFrame()
+    if (ready && layer) void showFrame()
+    if (!ready) return
     if (windLayer) void showWind()
     if (cloudEdgeLayer) void showCloudEdges()
     if (map) void showTemperature()
@@ -191,7 +198,7 @@ export default function App() {
     }
   })
   createEffect(() => {
-    if (!playing()) { cancelAnimationFrame(animation); return }
+    if (!playing() || !mapReady()) { cancelAnimationFrame(animation); return }
     const horizonHours = timeHorizonHours()
     let previous = performance.now()
     const tick = (now: number) => {
@@ -254,10 +261,12 @@ export default function App() {
     if (hasTemperature()) attachTemperatureLayer()
     attachMapFrame(grid)
     void showFrame()
-    void showWind()
-    void showTemperature()
-    sunEpochBucket = Math.floor(selectedEpoch() / 300_000)
-    void showSun(selectedEpoch())
+    if (mapReady()) {
+      void showWind()
+      void showTemperature()
+      sunEpochBucket = Math.floor(selectedEpoch() / 300_000)
+      void showSun(selectedEpoch())
+    }
   }
 
   function attachMapFrame(grid: Grid): void {
@@ -306,6 +315,15 @@ export default function App() {
     const blend = frameBlend(frames, epoch)
     const leftFrame = frames[blend.left]!, rightFrame = frames[blend.right]!
     const motionApplies = leftFrame.chunk.url === rightFrame.chunk.url && rightFrame.frameIndex === leftFrame.frameIndex + 1
+    const nearbyFrames = frames.slice(Math.max(0, lower - 2), upper + 4)
+    const batchPrefetch = scrubPrefetch
+    scrubPrefetch = false
+    if (batchPrefetch) {
+      const nearby = new Map<ManifestChunk, number[]>()
+      for (const near of nearbyFrames) nearby.set(near.chunk, [...(nearby.get(near.chunk) ?? []), near.frameIndex])
+      for (const [chunk, indexes] of nearby) client.prefetch(chunk, indexes)
+      for (const near of nearbyFrames) client.prefetchMotion(near.chunk, [near.frameIndex])
+    }
     const [left, right, motion] = await Promise.all([
       load(leftFrame),
       load(rightFrame),
@@ -318,11 +336,18 @@ export default function App() {
       rainReadyPending = true
       renderedMap.once('render', () => {
         rainReadyPending = false
-        if (map === renderedMap) setMapReady(true)
+        if (map !== renderedMap) return
+        setMapReady(true)
+        void attachWindLayer()
+        if (!initialPickStarted) {
+          initialPickStarted = true
+          pick(defaultLocation.lng, defaultLocation.lat, 'De Bilt')
+        }
       })
     }
+    map.once('render', () => perf.markRainFrameCommitted())
     map.triggerRepaint()
-    for (const near of frames.slice(Math.max(0, lower - 2), upper + 4)) {
+    for (const near of nearbyFrames) {
       client.prefetch(near.chunk, [near.frameIndex])
       client.prefetchMotion(near.chunk, [near.frameIndex])
     }
@@ -337,6 +362,14 @@ export default function App() {
     } catch {
       windGrid = undefined
     }
+  }
+
+  async function attachWindLayer(): Promise<void> {
+    await discoverWindGrid()
+    if (!map || !windGrid || !windTimeline().length || map.getLayer('motregen-wind')) return
+    windLayer = new WindLayer(windGrid, mapTheme(), windTuning())
+    map.addLayer(windLayer, map.getLayer('motregen-rain') ? 'motregen-rain' : undefined)
+    await showWind()
   }
 
   async function showWind(): Promise<void> {
@@ -692,6 +725,22 @@ export default function App() {
     splashReplayTimer = window.setTimeout(() => setMapReady(true), 1_000)
   }
 
+  function scrub(cursor: number): void {
+    perf.markScrubInput()
+    scrubPrefetch = true
+    setCursor(cursor)
+  }
+
+  function tapLogo(): void {
+    const now = performance.now()
+    logoTapCount = now - lastLogoTap <= 700 ? logoTapCount + 1 : 1
+    lastLogoTap = now
+    if (logoTapCount === 3) {
+      logoTapCount = 0
+      setPerfVisible((visible) => !visible)
+    }
+  }
+
   const forecast = createMemo(() => buildHourlyForecast({
     rain: timeline(),
     uv: uvTimeline(),
@@ -735,7 +784,7 @@ export default function App() {
           <strong>motregen.nl</strong>
         </div>
       </div>
-      <div class="map-brand" aria-label="motregen.nl"><img src="/droplet.svg" alt="" /><strong>motregen.nl</strong></div>
+      <button type="button" class="map-brand brand" onClick={tapLogo} aria-label="motregen.nl"><img src="/droplet.svg" alt="" /><strong>motregen.nl</strong></button>
       <button class="round-action theme-button mobile-map-theme" onClick={cycleTheme} aria-label={`Thema: ${themeMeta().label}. Klik voor ${themeMeta().next}`} title={`Thema: ${themeMeta().label}`}>
         <span aria-hidden="true">{themeMeta().icon}</span>
       </button>
@@ -790,7 +839,7 @@ export default function App() {
         horizonHours={timeHorizonHours()}
         loading={pointSeriesLoading()}
         locationLabel={status()}
-        onCursor={setCursor}
+        onCursor={scrub}
         onHorizonHours={chooseTimeHorizon}
         onPlaying={setPlaying}
       />
@@ -833,6 +882,7 @@ export default function App() {
         </div>
       </section>
     </aside>
+    <Show when={perfVisible()}><PerfHud monitor={perf} /></Show>
   </main>
 }
 

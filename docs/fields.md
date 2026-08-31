@@ -3,13 +3,21 @@
 ## Grid en kwantisatie
 
 Regen blijft op het gedeelde 1km-grid en gebruikt de bestaande
-stuksgewijs-logaritmische tabel. De AROME-uurvelden gebruiken een 2km-variant
-met dezelfde extent: EPSG:3857, `x0=0`, `y0=7600000`, `dx=2000`,
-`dy=-2000`, 625×675 cellen. Dit is 75% minder ruwe bytes per frame dan het
-1km-grid, terwijl het vrijwel de eigen circa-2km-informatie-inhoud van AROME
-behoudt. Met name voor windparticles is 4 km zichtbaar grover; daarom delen
-temperatuur, gevoelstemperatuur, wind, straling, relatieve vochtigheid en
-bewolkingsgraad het 2km-grid.
+stuksgewijs-logaritmische tabel. AROME-uurvelden worden eerst op een intern
+2km-werkraster gezet en daarna in fysieke eenheden per blok gemiddeld, met
+uitsluiting van no-data. Pas daarna volgt kwantisatie. De mrf-header beschrijft
+het resulterende veld; clients hoeven geen resolutie te kennen.
+
+| gebruik | velden | grid | afmetingen |
+| --- | --- | ---: | ---: |
+| stadslabels, tabel en particles | `temp_c`, `feels_like_c`, `wind_u_ms`, `wind_v_ms` | 6 km | 209×225 |
+| zon/pictogram | `radiation` | 8 km | 157×169 |
+| geïntegreerde tabel/pictogram-input | `rel_humidity`, `cloud_frac` | 16 km | 79×85 |
+
+De laatste randblokken zijn partieel omdat 625 niet door alle factoren
+deelbaar is; daardoor dekken de nieuwe grids het volledige oude extent met
+minder dan één nieuwe cel overhang. De resolutiekeuze en live byte-/
+kwaliteitsmetingen staan in `docs/data-dieet.md`.
 
 Alle tabellen hebben 255 eindige, strikt stijgende waarden; index 255 is
 no-data. Waarden buiten het bereik satureren op 0/254 en midpoints kiezen de

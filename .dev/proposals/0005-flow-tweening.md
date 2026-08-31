@@ -81,3 +81,14 @@ spec/-harnas. Uitvoering: T2d (ingest-schatter + annex, na T2c) en T3f
 
 - 2026-08-28: draft.
 - 2026-08-28: accepted; besluit §5 toegevoegd.
+- 2026-08-31: amendement (PO-voorstel): de AROME-modelwind (velden
+  `wind_u_ms`/`wind_v_ms`, al geïngest) wordt **gekalibreerde baseline**
+  voor de motion-schatting. Nuance: 10m-wind ≠ stuurstroming (wrijving:
+  langzamer + gedraaid), dus per run wordt een schaal+rotatie online gefit
+  tussen betrouwbare correlatievectoren en de geïnterpoleerde modelwind;
+  de gekalibreerde wind vult signaalloze blokken en regulariseert
+  laag-betrouwbare blokken. Doel: minder crossfade-terugval bij verse
+  cellen en veldranden. Contract/annex ongewijzigd — frontend merkt alleen
+  dat er vaker geldige motion is. Track T2f. Tevens onderzoeken: heeft
+  AROME p1 een hoger windniveau (boundary layer tot 300 m) dat dichter bij
+  de stuurstroming zit dan 10 m.
