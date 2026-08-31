@@ -78,3 +78,13 @@ Alles in-repo als flake, zodat de hele machine één closure is:
   blijven. Zo staat het ook: devenv gebruikt devenv-nixpkgs/rolling (dev,
   ageq-mthq), de deploy-flake nixos-26.05 + gelockte rust-overlay (VPS).
   Deze scheiding is bewust — niet gelijktrekken.
+- 2026-08-31: overwogen en geparkeerd (PO-vraag, orchestrator-call):
+  (a) Rust uit een unstable-input i.p.v. rust-overlay — gelijkwaardig,
+  overlay is de nettere pin; alleen de moeite als een crates-track ooit
+  gratis kan zakken naar rust-version 1.95. (b) Closures pushen vanuit
+  CI i.p.v. on-box bouwen — afgewezen voor nu: het pull-model is de
+  unattended-eis zelf, de box bewees de zwaarste rebuild aan te kunnen
+  zonder serveerimpact, en elke extra schakel (runner/cache/secrets) is
+  een nieuw faalpunt. Herzien pas bij bewezen build-pijn; dan is een
+  binary cache gevuld vanaf ageq-mthq (waar merge-verificatie toch al
+  bouwt) de tussenvorm — box downloadt dan, maar blijft autonoom.
