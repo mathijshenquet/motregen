@@ -4,12 +4,22 @@ import { solarElevationSin } from './solar'
 export const SUN_ICONS_ENABLED = true
 
 export const sunAnchors = [
-  { name: 'Groningen', lng: 6.57, lat: 53.22 },
+  { name: 'Den Helder', lng: 4.76, lat: 52.96 },
   { name: 'Leeuwarden', lng: 5.8, lat: 53.2 },
+  { name: 'Groningen', lng: 6.57, lat: 53.22 },
+  { name: 'Assen', lng: 6.56, lat: 52.99 },
+  { name: 'Zwolle', lng: 6.09, lat: 52.52 },
   { name: 'Amsterdam', lng: 4.9, lat: 52.37 },
+  { name: 'Den Haag', lng: 4.3, lat: 52.08 },
+  { name: 'Utrecht', lng: 5.12, lat: 52.09 },
   { name: 'Enschede', lng: 6.9, lat: 52.22 },
+  { name: 'Rotterdam', lng: 4.48, lat: 51.92 },
+  { name: 'Arnhem', lng: 5.91, lat: 51.98 },
   { name: 'Vlissingen', lng: 3.57, lat: 51.45 },
+  { name: 'Breda', lng: 4.78, lat: 51.59 },
+  { name: 'Den Bosch', lng: 5.3, lat: 51.69 },
   { name: 'Eindhoven', lng: 5.48, lat: 51.44 },
+  { name: 'Venlo', lng: 6.17, lat: 51.37 },
   { name: 'Maastricht', lng: 5.69, lat: 50.85 },
 ] as const
 

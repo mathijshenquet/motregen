@@ -15,7 +15,14 @@ describe('rain classification bands', () => {
   it('keeps low rain legible while scaling to the observed peak', () => {
     expect(rainChartMaximum([0, 42, null])).toBe(60)
     expect(rainChartPosition(0, 15)).toBe(0)
-    expect(rainChartPosition(0.1, 15)).toBeGreaterThan(0.1)
+    expect(rainChartPosition(0.1, 15)).toBeGreaterThan(0.05)
     expect(rainChartPosition(15, 15)).toBe(1)
+  })
+
+  it('gives the light, moderate and heavy classes near-equal visual height', () => {
+    const boundaries = [0.1, 2.5, 7.5, 15].map((value) => rainChartPosition(value, 15))
+    expect(boundaries).toEqual([0.08, 0.39, 0.7, 1])
+    expect(boundaries[1]! - boundaries[0]!).toBeCloseTo(boundaries[2]! - boundaries[1]!)
+    expect(boundaries[2]! - boundaries[1]!).toBeCloseTo(boundaries[3]! - boundaries[2]!, 1)
   })
 })

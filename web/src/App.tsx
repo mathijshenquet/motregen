@@ -4,6 +4,7 @@ import HistogramScrubber from './components/HistogramScrubber'
 import LocationSearch from './components/LocationSearch'
 import WeatherIcon from './components/WeatherIcon'
 import { loadBasemapStyle, type MapTheme } from './core/basemap'
+import { CloudEdgeLayer } from './core/cloud-edge-layer'
 import type { Field, Grid, Manifest, ManifestChunk, TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
 
@@ -42,6 +43,7 @@ export default function App() {
   let dayNightLayer: DayNightLayer | undefined
   let layer: RainLayer | undefined
   let windLayer: WindLayer | undefined
+  let cloudEdgeLayer: CloudEdgeLayer | undefined
   let windGrid: Grid | undefined
   let animation = 0
   let splashReplayTimer: number | undefined
@@ -49,6 +51,7 @@ export default function App() {
   let shownWindRequest = 0
   let shownTemperatureRequest = 0
   let shownSunRequest = 0
+  let shownCloudEdgeRequest = 0
   let pointRequest = 0
   let styleRequest = 0
   let appliedMapTheme: MapTheme | undefined
@@ -88,6 +91,7 @@ export default function App() {
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
   const [temperatureField, setTemperatureField] = createSignal<TemperatureField>('feels_like_c')
   const [windTuning, setWindTuning] = createSignal<WindTuning>({ ...DEFAULT_WIND_TUNING })
+  const [cloudEdgesEnabled, setCloudEdgesEnabled] = createSignal(false)
   const [mapReady, setMapReady] = createSignal(false)
   const [splashSlowdown, setSplashSlowdown] = createSignal(storedSplashSlowdown())
   const [minimumMapWidthKm, setMinimumMapWidthKm] = createSignal(20)
@@ -177,6 +181,7 @@ export default function App() {
     dayNightLayer?.setEpoch(epoch)
     if (layer) void showFrame()
     if (windLayer) void showWind()
+    if (cloudEdgeLayer) void showCloudEdges()
     if (map) void showTemperature()
     const nextSunBucket = Math.floor(epoch / 300_000)
     if (map && SUN_ICONS_ENABLED && nextSunBucket !== sunEpochBucket) {
@@ -210,6 +215,7 @@ export default function App() {
 
   function attachMapLayers(grid: Grid): void {
     if (!map || map.getLayer('motregen-rain')) return
+    cloudEdgeLayer = undefined
     // uitgezet op PO-verzoek (MIP-4 ronde 7): tinting-implementatie voldoet
     // niet (en stond in dark mode verkeerd om); later iets beters of weglaten
     if (DAY_NIGHT_ENABLED) {
@@ -223,6 +229,7 @@ export default function App() {
     }
     layer = new RainLayer(grid)
     map.addLayer(layer)
+    if (cloudEdgesEnabled()) void attachCloudEdgeLayer()
     if (SUN_ICONS_ENABLED && (radiationTimeline().length || uvTimeline().length)) attachSunLayer()
     if (hasTemperature()) attachTemperatureLayer()
     attachMapFrame(grid)
@@ -383,7 +390,8 @@ export default function App() {
         'text-size': ['interpolate', ['linear'], ['zoom'], 5, 15, 8, 20],
         'text-font': ['Noto Sans Regular'],
         'text-offset': [0, -1.25],
-        'text-allow-overlap': false,
+        'text-allow-overlap': true,
+        'text-ignore-placement': true,
         'text-padding': 10,
       },
       paint: {
@@ -442,6 +450,39 @@ export default function App() {
       sunFeatureKey = ''
       const source = map?.getSource('motregen-sun') as GeoJSONSource | undefined
       source?.setData(emptySunData)
+    }
+  }
+
+  async function attachCloudEdgeLayer(): Promise<void> {
+    const renderedMap = map
+    const first = cloudTimeline()[0]
+    if (!renderedMap || !first || !cloudEdgesEnabled() || renderedMap.getLayer('motregen-cloud-edges')) return
+    try {
+      const header = await client.getHeader(first.chunk)
+      if (map !== renderedMap || !cloudEdgesEnabled() || renderedMap.getLayer('motregen-cloud-edges')) return
+      const cloudLayer = new CloudEdgeLayer(header.grid)
+      const before = renderedMap.getLayer('motregen-sun') ? 'motregen-sun'
+        : renderedMap.getLayer('motregen-temperature') ? 'motregen-temperature'
+          : undefined
+      renderedMap.addLayer(cloudLayer, before)
+      cloudEdgeLayer = cloudLayer
+      await showCloudEdges()
+    } catch {
+      cloudEdgeLayer = undefined
+    }
+  }
+
+  async function showCloudEdges(): Promise<void> {
+    if (!cloudEdgeLayer || !map) return
+    const request = ++shownCloudEdgeRequest
+    try {
+      const blend = await loadFieldBlend(cloudTimeline(), selectedEpoch(), 75 * 60_000)
+      if (request !== shownCloudEdgeRequest || !blend || !cloudEdgeLayer || !map) return
+      if (!sameGrid(blend.leftHeader, blend.rightHeader)) return
+      cloudEdgeLayer.setFrames(blend.left, blend.right, blend.leftHeader, blend.rightHeader, blend.mix)
+      map.triggerRepaint()
+    } catch {
+      if (request === shownCloudEdgeRequest) toggleCloudEdges(false)
     }
   }
 
@@ -606,6 +647,16 @@ export default function App() {
     applyMapDetailLimit(minimumWidthKm)
   }
 
+  function toggleCloudEdges(enabled: boolean): void {
+    setCloudEdgesEnabled(enabled)
+    if (!enabled) {
+      if (map?.getLayer('motregen-cloud-edges')) map.removeLayer('motregen-cloud-edges')
+      cloudEdgeLayer = undefined
+      return
+    }
+    void attachCloudEdgeLayer()
+  }
+
   function applyMapDetailLimit(minimumWidthKm: number): void {
     if (!map) return
     const latitude = map.getCenter().lat
@@ -633,6 +684,7 @@ export default function App() {
     windU: windUFrames(),
     windV: windVFrames(),
   }, manifest() ? Date.parse(manifest()!.now) : 0))
+  const currentHour = createMemo(() => Math.floor((manifest() ? Date.parse(manifest()!.now) : 0) / 3_600_000) * 3_600_000)
   const cursorUv = createMemo(() => seriesValueAt(uvTimeline(), uvSeries(), selectedEpoch(), 30 * 60_000))
   const cursorUvChip = createMemo(() => uvChipLabel(cursorUv()))
   const hasTemperature = createMemo(() => tempTimeline().length > 0 || feelsLikeTimeline().length > 0)
@@ -693,6 +745,7 @@ export default function App() {
           <label><span>Deeltjes</span><input type="range" min="0.1" max="1" step="0.05" value={windTuning().particleOpacity} onInput={(event) => tuneWind('particleOpacity', event.currentTarget.valueAsNumber)} /><output>{windTuning().particleOpacity.toFixed(2)}</output></label>
           <label><span>Trailduur</span><input type="range" min="0.9" max="0.99" step="0.001" value={windTuning().trailFade} onInput={(event) => tuneWind('trailFade', event.currentTarget.valueAsNumber)} /><output>{windTuning().trailFade.toFixed(3)}</output></label>
           <label><span>Dekking</span><input type="range" min="0.1" max="1" step="0.05" value={windTuning().trailOpacity} onInput={(event) => tuneWind('trailOpacity', event.currentTarget.valueAsNumber)} /><output>{windTuning().trailOpacity.toFixed(2)}</output></label>
+          <label class="debug-toggle"><span>Wolkrand</span><input type="checkbox" checked={cloudEdgesEnabled()} onChange={(event) => toggleCloudEdges(event.currentTarget.checked)} /><output>{cloudEdgesEnabled() ? 'Aan' : 'Uit'}</output></label>
           <label><span>Min. breedte</span><input type="range" min="5" max="100" step="5" value={minimumMapWidthKm()} onInput={(event) => tuneMapDetail(event.currentTarget.valueAsNumber)} /><output>{minimumMapWidthKm()} km</output></label>
           <p class="wind-debug-note">Maximale kaartzoom: {devMaximumZoom().toFixed(1)}</p>
           <label><span>Splash ×</span><input type="range" min="1" max="8" step="0.5" value={splashSlowdown()} onInput={(event) => setSplashSlowdown(event.currentTarget.valueAsNumber)} /><output>{splashSlowdown().toLocaleString('nl-NL', { maximumFractionDigits: 1 })}×</output></label>
@@ -722,7 +775,6 @@ export default function App() {
         onPlaying={setPlaying}
       />
       <section class="forecast-panel">
-        <div class="section-heading"><div><p class="eyebrow">Vooruitblik</p><h2>Komende 24 uur</h2></div><span>{location() ? 'Per uur' : ''}</span></div>
         <div class="table-scroll">
           <table>
             <thead><tr>
@@ -747,8 +799,9 @@ export default function App() {
               )
               const icon = () => deriveWeatherIcon(rain() ?? null, cloud() ?? null, solarElevationSin(row.epoch, location().lng, location().lat) > 0)
               const advice = () => uvChipLabel(uv())
-              return <tr>
-                <td><strong>{new Date(row.epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</strong><span>{new Date(row.epoch).toLocaleDateString('nl-NL', { weekday: 'short' })}</span></td>
+              const isNow = () => row.epoch === currentHour()
+              return <tr classList={{ 'current-hour': isNow(), 'past-hour': row.epoch < currentHour() }}>
+                <td><strong>{new Date(row.epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</strong><span classList={{ 'now-label': isNow() }}>{isNow() ? 'Nu' : new Date(row.epoch).toLocaleDateString('nl-NL', { weekday: 'short' })}</span></td>
                 <Show when={hasWeatherColumn()}><td class="weather-cell"><Show when={icon()}>{(model) => <WeatherIcon model={model()} />}</Show><Show when={advice()}>{(label) => <span class="uv-chip table-uv-chip" title={label()}>UV {formatUv(uv())}</span>}</Show></td></Show>
                 <Show when={hasTemperature()}><td class="temperature-cell">{formatTemperature(temperature())}</td></Show>
                 <Show when={hasHumidity()}><td>{formatHumidity(humidity())}</td></Show>
