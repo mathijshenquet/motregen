@@ -146,6 +146,88 @@ hierboven expliciet als productiebuild plus operationele ingestsnapshot. Zodra
 de frontenddeploy `main` heeft ingehaald, meet dezelfde live-opdracht de origin
 zonder budgetasserties.
 
+## Benchmark tegenover Buienradar
+
+Op 2026-08-31 is één geldige cold journey per site en profiel gemeten. De live
+Motregen-origin had nog geen `window.__motregenPerf`; daarom draaide Motregen als
+lokale productiebuild tegen een bevroren snapshot van echte ingestdata,
+gegenereerd om 14:53:14Z: 12 chunks en 9 velden. Een lokale Caddy serveerde de
+chunks met Range-ondersteuning en een deterministische basemap zonder externe
+tiles. Buienradar draaide rechtstreeks tegen `https://www.buienradar.nl` met
+zijn eigen tiles, consent-, advertentie- en derdepartijverkeer.
+
+| Profiel | Site | Eerste radar: tijd / bytes / requests | Netwerkstil: tijd / bytes / requests | LCP | Sessie: tijd / bytes / requests |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Desktop | Motregen | 0,94 s / 18,71 MB / 37 | 2,95 s / 18,71 MB / 37 | 0,27 s | 7,44 s / 18,83 MB / 47 |
+| Desktop | Buienradar | 1,97 s / 3,18 MB / 162 | timeout @ 31,99 s / 6,76 MB / 406 | 1,25 s | timeout @ 65,95 s / 10,23 MB / 511 |
+| Pixel 5 4G | Motregen | 2,26 s / 0,54 MB / 35 | 20,02 s / 18,71 MB / 35 | 0,91 s | 25,09 s / 18,83 MB / 45 |
+| Pixel 5 4G | Buienradar | 16,71 s / 2,24 MB / 140 | timeout @ 76,73 s / 8,72 MB / 456 | 14,77 s | timeout @ 143,17 s / 15,18 MB / 565 |
+| Pixel 5 Fast 3G | Motregen | 5,84 s / 0,54 MB / 35 | timeout @ 65,84 s / 7,05 MB / 35 | 2,42 s | 98,02 s / 18,83 MB / 45 |
+| Pixel 5 Fast 3G | Buienradar | 34,15 s / 2,40 MB / 149 | timeout @ 94,25 s / 7,69 MB / 436 | 30,43 s | timeout @ 160,32 s / 13,78 MB / 604 |
+
+Een timeout betekent dat de site sinds de radarmijlpaal binnen 30 seconden op
+desktop of 60 seconden op mobiel geen twee seconden netwerkstilte bereikte. De
+bytes en requests zijn dan de stand op de timeoutgrens, niet een claim dat de
+site volledig geladen was. De korte sessie krijgt dezelfde stiltegrens.
+
+### Vergelijkbaar meetcontract
+
+- Iedere test gebruikt een verse browsercontext met uitgeschakelde cache. De
+  drie profielen en CDP-netwerk-/CPU-instellingen zijn gelijk aan de mobiele
+  labprofielen hierboven.
+- `requests` telt via CDP gestarte requests. `bytes` is
+  `Network.loadingFinished.encodedDataLength` en telt alleen responses die op
+  het meetmoment voltooid zijn. Een download die bij de eerste radar nog loopt,
+  staat dus wel bij requests maar nog niet bij bytes.
+- De eerste Motregen-radar vereist de interne TTFR-renderbevestiging én een
+  zichtbaar WebGL-canvas. Bij Buienradar vereist hij een volledig geladen,
+  zichtbare `leaflet-image-layer` voor regen nadat de verplichte gratis keuze
+  en cookietoestemming zijn afgehandeld. Dit zijn implementatiespecifieke
+  detectors voor dezelfde gebruikersmijlpaal, geen identieke renderpipeline.
+- Netwerkstilte betekent twee seconden zonder requeststart of -einde met
+  maximaal twee langlopende verbindingen. Dit is een expliciete proxy voor
+  “fully loaded”; advertentiepagina's bereiken de strengere nul-open-requests
+  toestand vaak nooit.
+- LCP komt uit de gebufferde browser-`PerformanceObserver`. De eerste interactie
+  bevriest LCP volgens de web-vitalssemantiek. Bij Buienradar kan het grootste
+  element daardoor de verplichte toegangsdialoog zijn in plaats van de kaart;
+  dat is onderdeel van de gemeten cold-openervaring.
+- De Motregen-journey toont de radar, schuift vijf tijdstappen, speelt twee
+  seconden en pauzeert. Buienradar toont de radar, sluit de eventuele
+  promotie, kiest `-1u`, keert terug naar `+3u` en kijkt nog twee seconden. De
+  compacte Buienradarkaart bood geen gelijkwaardig Play/Pauze-control.
+
+Dit is een richtinggevende momentopname, geen statistische verdeling. Vooral
+Buienradars advertenties, campagnes en CDN-responses variëren per bezoek. Ook
+heeft de lokale Motregen-origin op desktop geen internetafstand, terwijl de
+mobiele profielen wel browser-side RTT en bandbreedte op zowel lokale als
+externe requests toepassen. Mislukte diagnostische runs zijn niet in de tabel
+opgenomen. De on-demand suite draait alleen met een expliciete origin en schrijft
+de ruwe resultaten naar `web/tmp/competitive-benchmark.json`:
+
+```sh
+cd web
+MOTREGEN_BENCHMARK_ORIGIN=http://127.0.0.1:4192 pnpm e2e:benchmark
+```
+
+### Verdict
+
+Motregen wint nu overtuigend op het moment waarop de radar bruikbaar wordt:
+ongeveer 2,1× sneller op desktop, 7,4× op 4G en 5,8× op Fast 3G. Ook LCP en het
+requestaantal zijn veel lager. Motregen bereikt netwerkstilte op desktop en 4G;
+Buienradar bleef in alle profielen verkeer genereren en eindigde na de korte
+journey op 511–604 requests tegenover 45–47 voor Motregen.
+
+Buienradar wint op het totale datadieet van deze journey: 10,23–15,18 MB
+tegenover Motregens vrijwel vaste 18,83 MB, dus 19–46% minder. Omdat
+Buienradar bij de cutoff nog niet stil was, kan zijn uiteindelijke totaal verder
+oplopen; de gemeten journey blijft desondanks lichter. Motregen haalt de eerste
+mobiele radar slim binnen na slechts 0,54 MB, maar laadt daarna op de achtergrond
+alle huidige databundels. Op Fast 3G was na 60 seconden pas 7,05 MB voltooid en
+kwam de rest tijdens de interactie alsnog binnen. De prioriteit is daarom niet
+de eerste render maar demand-driven laden en een kleiner sessiedatadieet, zonder
+de huidige voorsprong in bruikbaarheid en requestdiscipline op te geven.
+
 ## Meetoverhead
 
 Wanneer de HUD verborgen is, doet de collector per rAF alleen teller- en
