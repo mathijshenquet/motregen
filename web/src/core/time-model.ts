@@ -66,12 +66,15 @@ export interface TimelineZone {
   kind: 'observations' | 'nowcast' | 'model'
 }
 
-export function timelineZones(timeline: TimelineFrame[]): TimelineZone[] {
+export function timelineZones(timeline: TimelineFrame[], rangeStart?: number, rangeEnd?: number): TimelineZone[] {
   if (!timeline.length) return []
   if (timeline.length === 1) return [{ ...sourceZone(timeline[0]!.source), start: 0, end: 100 }]
   const result: TimelineZone[] = []
   const firstEpoch = timeline[0]!.epoch
-  const span = Math.max(1, timeline.at(-1)!.epoch - firstEpoch)
+  const lastEpoch = timeline.at(-1)!.epoch
+  const visibleStart = Math.max(firstEpoch, rangeStart ?? firstEpoch)
+  const visibleEnd = Math.min(lastEpoch, rangeEnd ?? lastEpoch)
+  const span = Math.max(1, visibleEnd - visibleStart)
   let start = firstEpoch
   let current = sourceZone(timeline[0]!.source)
   for (let index = 1; index <= timeline.length; index++) {
@@ -80,7 +83,9 @@ export function timelineZones(timeline: TimelineFrame[]): TimelineZone[] {
     const end = index === timeline.length
       ? timeline.at(-1)!.epoch
       : (timeline[index - 1]!.epoch + timeline[index]!.epoch) / 2
-    result.push({ ...current, start: (start - firstEpoch) / span * 100, end: (end - firstEpoch) / span * 100 })
+    const clippedStart = Math.max(start, visibleStart)
+    const clippedEnd = Math.min(end, visibleEnd)
+    if (clippedEnd > clippedStart) result.push({ ...current, start: (clippedStart - visibleStart) / span * 100, end: (clippedEnd - visibleStart) / span * 100 })
     start = end
     if (next) current = next
   }

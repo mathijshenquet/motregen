@@ -32,9 +32,11 @@ describe('histogram scrubber', () => {
       cursor={1}
       now={Date.parse('2026-08-28T15:00:00Z')}
       playing={false}
+      horizonHours={8}
       loading={false}
       locationLabel="Utrecht"
       onCursor={onCursor}
+      onHorizonHours={() => undefined}
       onPlaying={() => undefined}
     />)
 
@@ -97,9 +99,11 @@ describe('histogram scrubber', () => {
       cursor={0}
       now={Date.parse('2026-08-28T14:00:00Z')}
       playing
+      horizonHours={8}
       loading={false}
       locationLabel="Utrecht"
       onCursor={() => undefined}
+      onHorizonHours={() => undefined}
       onPlaying={onPlaying}
     />)
     const slider = screen.getByRole('slider', { name: 'Tijd' })
@@ -131,6 +135,38 @@ describe('histogram scrubber', () => {
     expect(onPlaying.mock.calls).toEqual([[false], [true]])
   })
 
+  it('defaults to a bounded horizon and marks local day transitions', () => {
+    const onHorizonHours = vi.fn()
+    const timeline = [
+      frame('2026-08-31T20:00:00Z', 'rtcor'),
+      frame('2026-08-31T21:00:00Z', 'nowcast'),
+      frame('2026-09-01T00:00:00Z', 'harmonie'),
+      frame('2026-09-01T05:00:00Z', 'harmonie'),
+      frame('2026-09-01T06:00:00Z', 'harmonie'),
+    ]
+    const { container } = render(() => <HistogramScrubber
+      timeline={timeline}
+      values={[0, 1, 2, 3, 4]}
+      cursor={1}
+      now={Date.parse('2026-08-31T21:00:00Z')}
+      playing={false}
+      horizonHours={8}
+      loading={false}
+      locationLabel="Thuis"
+      onCursor={() => undefined}
+      onHorizonHours={onHorizonHours}
+      onPlaying={() => undefined}
+    />)
+
+    expect(screen.getByRole('button', { name: '+8u' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText('Vandaag')).toBeTruthy()
+    expect(screen.getByText('Morgen')).toBeTruthy()
+    expect(container.querySelectorAll('.day-grid .boundary')).toHaveLength(1)
+    expect(container.querySelectorAll('.rain-bar')).toHaveLength(4)
+    fireEvent.click(screen.getByRole('button', { name: '+24u' }))
+    expect(onHorizonHours).toHaveBeenCalledWith(24)
+  })
+
   it('covers stale rain values with a loading placeholder', () => {
     render(() => <HistogramScrubber
       timeline={[frame('2026-08-28T14:00:00Z', 'rtcor')]}
@@ -138,9 +174,11 @@ describe('histogram scrubber', () => {
       cursor={0}
       now={Date.parse('2026-08-28T14:00:00Z')}
       playing={false}
+      horizonHours={8}
       loading
       locationLabel="Utrecht · verwachting laden…"
       onCursor={() => undefined}
+      onHorizonHours={() => undefined}
       onPlaying={() => undefined}
     />)
     expect(screen.getByRole('status').textContent).toContain('Regenverwachting laden…')

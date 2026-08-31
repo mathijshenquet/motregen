@@ -105,7 +105,7 @@ button { color: inherit; cursor: pointer; }
   backdrop-filter: blur(8px);
 }
 .map-brand img { width: 21px; height: 25px; }
-.map-brand strong { font-size: 15px; font-weight: 790; letter-spacing: -.045em; }
+.map-brand strong { font-family: "Avenir Next", Avenir, "Trebuchet MS", ui-sans-serif, sans-serif; font-size: 15px; font-weight: 600; letter-spacing: .015em; }
 .map-splash {
   position: absolute;
   inset: 0;
@@ -139,7 +139,7 @@ button { color: inherit; cursor: pointer; }
 .map-splash-mark { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .map-splash-mark img { width: 139px; height: 139px; transform: translateY(0); transition: transform var(--splash-mark-duration) cubic-bezier(.333333, 0, .666667, .333333); will-change: transform; }
 .map-splash.ready .map-splash-mark img { transform: translateY(75vh); }
-.map-splash-mark strong { font-size: clamp(28px, 5vw, 46px); font-weight: 790; letter-spacing: -.055em; opacity: 1; transition: opacity var(--splash-mark-duration) ease-out; }
+.map-splash-mark strong { font-family: "Avenir Next", Avenir, "Trebuchet MS", ui-sans-serif, sans-serif; font-size: clamp(28px, 5vw, 46px); font-weight: 600; letter-spacing: .015em; opacity: 1; transition: opacity var(--splash-mark-duration) ease-out; }
 .map-splash.ready .map-splash-mark strong { opacity: 0; }
 .source {
   position: absolute;
@@ -339,21 +339,10 @@ button { color: inherit; cursor: pointer; }
 .rain-symbol { color: var(--accent); font-size: 12px; box-shadow: 0 0 0 5px var(--accent-soft); border-radius: 50%; }
 
 .scrubber { padding: 17px 16px 13px; border-bottom: 1px solid var(--line); background: var(--surface); }
-.scrubber-heading { display: flex; align-items: center; gap: 11px; margin-bottom: 11px; }
-.play {
-  width: 40px;
-  height: 40px;
-  flex: none;
-  border: 1px solid var(--accent);
-  border-radius: 50%;
-  color: var(--accent);
-  background: var(--accent-soft);
-  font-size: 13px;
-}
-.selected-time { min-width: 0; display: flex; flex-direction: column; }
-.selected-time strong { font-size: 21px; line-height: 1; letter-spacing: -.025em; }
-.selected-time span { margin-top: 3px; color: var(--muted); font-size: 11px; }
-.selected-time .location-label { max-width: 180px; margin: 0 0 5px; overflow: hidden; font-size: 10px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.scrubber-toolbar { display: flex; justify-content: flex-end; margin-bottom: 7px; }
+.time-horizon { display: flex; gap: 4px; }
+.time-horizon button { min-width: 34px; padding: 4px 7px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: var(--surface-soft); font-size: 9px; font-weight: 750; }
+.time-horizon button.active { border-color: color-mix(in srgb, var(--accent) 42%, var(--line)); color: var(--accent); background: var(--accent-soft); }
 .scrub-surface {
   position: relative;
   height: 180px;
@@ -378,9 +367,12 @@ button { color: inherit; cursor: pointer; }
 .rain-band.moderate { fill: color-mix(in srgb, #278fd7 18%, transparent); }
 .rain-band.heavy { fill: color-mix(in srgb, #e14f67 17%, transparent); }
 .rain-bar { fill: var(--accent-bright); opacity: .72; }
-.cursor-line { stroke: var(--text); stroke-width: 2; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 2px var(--surface)); }
 .hour-grid { position: absolute; inset: 0; pointer-events: none; }
 .hour-grid i { position: absolute; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--line-strong) 48%, transparent); }
+.day-grid { position: absolute; inset: 0; pointer-events: none; }
+.day-grid > div { position: absolute; top: 0; bottom: 0; }
+.day-grid > div.boundary { border-left: 2px solid color-mix(in srgb, var(--text) 34%, transparent); }
+.day-grid span { position: absolute; top: 4px; left: 5px; padding: 1px 3px; border-radius: 3px; color: var(--muted); background: color-mix(in srgb, var(--surface-soft) 82%, transparent); font-size: 7px; font-weight: 760; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
 .band-labels { position: absolute; inset: 0; color: var(--muted); font-size: 8px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; pointer-events: none; }
 .band-labels span { position: absolute; right: 5px; transform: translateY(-50%); opacity: .64; }
 .band-labels .light { color: color-mix(in srgb, var(--muted) 66%, var(--text)); }
@@ -393,7 +385,12 @@ button { color: inherit; cursor: pointer; }
 .scrubber-placeholder span { position: relative; padding: 5px 8px; border-radius: 6px; background: color-mix(in srgb, var(--surface) 82%, transparent); }
 @keyframes scrubber-pulse { from { opacity: .3; transform: scaleY(.72); } to { opacity: .85; transform: scaleY(1); } }
 .now-line { position: absolute; top: 0; bottom: 0; width: 1px; border-left: 1px dashed color-mix(in srgb, var(--text) 55%, transparent); pointer-events: none; }
-.now-line span { position: absolute; top: 3px; left: 0; padding: 2px 5px; border-radius: 4px; color: var(--surface); background: var(--text); font-size: 9px; font-weight: 750; text-transform: uppercase; transform: translateX(-50%); }
+.now-line span { position: absolute; top: 25px; left: 0; padding: 2px 5px; border-radius: 4px; color: var(--surface); background: var(--text); font-size: 9px; font-weight: 750; text-transform: uppercase; transform: translateX(-50%); }
+.cursor-marker { position: absolute; top: 0; bottom: 0; z-index: 2; width: 1px; background: color-mix(in srgb, var(--text) 72%, transparent); pointer-events: none; }
+.cursor-marker button { position: absolute; top: 0; left: 0; min-width: 45px; height: 22px; padding: 0 6px; border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: 0 0 5px 5px; color: var(--surface); background: var(--text); font-size: 9px; font-weight: 760; font-variant-numeric: tabular-nums; transform: translateX(-50%); pointer-events: auto; }
+.cursor-playback { display: none; font-size: 10px; }
+.cursor-marker button:hover .cursor-time, .cursor-marker button:focus-visible .cursor-time { display: none; }
+.cursor-marker button:hover .cursor-playback, .cursor-marker button:focus-visible .cursor-playback { display: inline; }
 .chart-tooltip { position: absolute; top: 8px; z-index: 2; min-width: 74px; display: flex; flex-direction: column; padding: 5px 7px; border: 1px solid var(--line-strong); border-radius: 6px; color: var(--text); background: var(--surface-raised); box-shadow: 0 4px 12px rgba(15, 38, 47, .2); font-size: 9px; pointer-events: none; transform: translateX(-50%); }
 .chart-tooltip strong { font-size: 10px; }
 .chart-tooltip span { margin-top: 1px; color: var(--muted); }

@@ -75,6 +75,7 @@ export default function App() {
   const windVFrames = createMemo(() => windTimeline().map((frame) => frame.v))
   const [cursor, setCursor] = createSignal(0)
   const [playing, setPlaying] = createSignal(true)
+  const [timeHorizonHours, setTimeHorizonHours] = createSignal<number | null>(8)
   const [location, setLocation] = createSignal(defaultLocation)
   const [locationLabel, setLocationLabel] = createSignal('De Bilt')
   const [savedPlaces, setSavedPlaces] = createSignal<SavedPlace[]>(loadSavedPlaces())
@@ -191,6 +192,7 @@ export default function App() {
   })
   createEffect(() => {
     if (!playing()) { cancelAnimationFrame(animation); return }
+    const horizonHours = timeHorizonHours()
     let previous = performance.now()
     const tick = (now: number) => {
       const elapsed = now - previous
@@ -199,9 +201,10 @@ export default function App() {
         const frames = timeline()
         if (frames.length < 2) return 0
         const firstEpoch = frames[0]!.epoch
-        const lastEpoch = frames.at(-1)!.epoch
+        const lastEpoch = timelineHorizonEnd(frames, manifest() ? Date.parse(manifest()!.now) : frames[0]!.epoch, horizonHours)
+        const lastCursor = Math.max(1, timelineCursorAtEpoch(frames, lastEpoch))
         const epoch = timelineEpochAtCursor(frames, value)
-        const nextEpoch = epoch + elapsed * (lastEpoch - firstEpoch) / ((frames.length - 1) * 650)
+        const nextEpoch = epoch + elapsed * (lastEpoch - firstEpoch) / (lastCursor * 650)
         if (!Number.isFinite(nextEpoch) || nextEpoch >= lastEpoch) return 0
         return timelineCursorAtEpoch(frames, nextEpoch)
       })
@@ -209,6 +212,14 @@ export default function App() {
     }
     animation = requestAnimationFrame(tick)
   })
+
+  function chooseTimeHorizon(hours: number | null): void {
+    setTimeHorizonHours(hours)
+    const frames = timeline()
+    if (!frames.length) return
+    const end = timelineHorizonEnd(frames, manifest() ? Date.parse(manifest()!.now) : frames[0]!.epoch, hours)
+    setCursor((value) => timelineEpochAtCursor(frames, value) > end ? timelineCursorAtEpoch(frames, end) : value)
+  }
 
   async function applyMapTheme(nextTheme: MapTheme): Promise<void> {
     const request = ++styleRequest
@@ -776,9 +787,11 @@ export default function App() {
         cursor={cursor()}
         now={manifest() ? Date.parse(manifest()!.now) : 0}
         playing={playing()}
+        horizonHours={timeHorizonHours()}
         loading={pointSeriesLoading()}
         locationLabel={status()}
         onCursor={setCursor}
+        onHorizonHours={chooseTimeHorizon}
         onPlaying={setPlaying}
       />
       <section class="forecast-panel">
@@ -826,6 +839,11 @@ export default function App() {
 function storedTheme(): ThemeChoice {
   const stored = localStorage.getItem('motregen-theme')
   return stored === 'light' || stored === 'system' || stored === 'dark' ? stored : 'light'
+}
+
+function timelineHorizonEnd(frames: TimelineFrame[], now: number, hours: number | null): number {
+  const last = frames.at(-1)?.epoch ?? 0
+  return hours === null ? last : Math.min(last, now + hours * 3_600_000)
 }
 
 function storedSplashSlowdown(): number {
