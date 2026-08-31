@@ -14,13 +14,11 @@ interface Props {
   onPlaying: (playing: boolean) => void
 }
 
-type ChartMode = 'line' | 'bars'
 const width = 1000
 const plotHeight = 132
 
 export default function HistogramScrubber(props: Props) {
   let plotElement!: HTMLDivElement
-  const [mode, setMode] = createSignal<ChartMode>('line')
   const [hovered, setHovered] = createSignal<number | null>(null)
   const selected = createMemo(() => props.timeline[Math.round(props.cursor)])
   const maximum = createMemo(() => rainChartMaximum(props.values))
@@ -31,22 +29,6 @@ export default function HistogramScrubber(props: Props) {
       const value = props.values[index]
       return { x: index * barWidth, width: Math.max(1.4, barWidth - 1), y: value == null ? plotHeight : y(value) }
     })
-  })
-  const paths = createMemo(() => {
-    const result: string[] = []
-    let path = ''
-    for (let index = 0; index < props.timeline.length; index++) {
-      const value = props.values[index]
-      if (value == null) {
-        if (path) result.push(path)
-        path = ''
-        continue
-      }
-      const x = index / Math.max(1, props.timeline.length - 1) * width
-      path += `${path ? ' L' : 'M'} ${x.toFixed(2)} ${y(value).toFixed(2)}`
-    }
-    if (path) result.push(path)
-    return result
   })
   const bands = createMemo(() => RAIN_BANDS.map((band) => {
     const upper = Number.isFinite(band.maximum) ? band.maximum : maximum()
@@ -73,10 +55,11 @@ export default function HistogramScrubber(props: Props) {
     return index == null ? undefined : { index, frame: props.timeline[index], value: props.values[index] }
   })
 
-  function pointerIndex(event: PointerEvent): number {
+  function pointerPosition(event: PointerEvent): { cursor: number; index: number } {
     const bounds = plotElement.getBoundingClientRect()
-    const fraction = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width))
-    return Math.round(fraction * Math.max(0, props.timeline.length - 1))
+    const fraction = bounds.width ? Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)) : 0
+    const cursor = fraction * Math.max(0, props.timeline.length - 1)
+    return { cursor, index: Math.round(cursor) }
   }
 
   function keyDown(event: KeyboardEvent): void {
@@ -98,11 +81,6 @@ export default function HistogramScrubber(props: Props) {
         <strong>{selected() ? new Date(selected()!.epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : '--:--'}</strong>
         <span>{selected() && new Date(selected()!.epoch).toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
       </div>
-      <div class="chart-toggle" role="group" aria-label="Grafiektype">
-        <span>Dev</span>
-        <button classList={{ active: mode() === 'line' }} onClick={() => setMode('line')}>Lijn</button>
-        <button classList={{ active: mode() === 'bars' }} onClick={() => setMode('bars')}>Staaf</button>
-      </div>
     </div>
     <div
       class="scrub-surface"
@@ -116,14 +94,14 @@ export default function HistogramScrubber(props: Props) {
       onKeyDown={keyDown}
       onPointerDown={(event) => {
         event.currentTarget.setPointerCapture(event.pointerId)
-        const index = pointerIndex(event)
+        const { cursor, index } = pointerPosition(event)
         setHovered(index)
-        props.onCursor(index)
+        props.onCursor(cursor)
       }}
       onPointerMove={(event) => {
-        const index = pointerIndex(event)
+        const { cursor, index } = pointerPosition(event)
         setHovered(index)
-        if (event.currentTarget.hasPointerCapture(event.pointerId)) props.onCursor(index)
+        if (event.pointerType === 'mouse' || event.currentTarget.hasPointerCapture(event.pointerId)) props.onCursor(cursor)
       }}
       onPointerLeave={(event) => { if (!event.currentTarget.hasPointerCapture(event.pointerId)) setHovered(null) }}
     >
@@ -133,12 +111,7 @@ export default function HistogramScrubber(props: Props) {
       <div class="chart-plot" ref={plotElement}>
         <svg viewBox={`0 0 ${width} ${plotHeight}`} preserveAspectRatio="none" aria-hidden="true">
           <For each={bands()}>{(band) => <rect class={`rain-band ${band.key}`} x="0" y={band.top / 100 * plotHeight} width={width} height={band.height / 100 * plotHeight} />}</For>
-          <Show when={mode() === 'bars'}>
-            <For each={bars()}>{(bar) => <rect class="rain-bar" x={bar.x} y={bar.y} width={bar.width} height={plotHeight - bar.y} rx="1" />}</For>
-          </Show>
-          <Show when={mode() === 'line'}>
-            <For each={paths()}>{(path) => <path class="rain-line" d={path} />}</For>
-          </Show>
+          <For each={bars()}>{(bar) => <rect class="rain-bar" x={bar.x} y={bar.y} width={bar.width} height={plotHeight - bar.y} rx="1" />}</For>
           <line class="cursor-line" x1={props.cursor / Math.max(1, props.timeline.length - 1) * width} x2={props.cursor / Math.max(1, props.timeline.length - 1) * width} y1="0" y2={plotHeight} />
         </svg>
         <div class="band-labels" aria-hidden="true"><For each={bands()}>{(band) => <span class={band.key} style={{ top: `${band.top + band.height / 2}%` }}>{band.label}</span>}</For></div>
