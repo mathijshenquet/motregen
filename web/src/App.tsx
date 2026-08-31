@@ -32,6 +32,7 @@ const emptySunData: SunFeatureCollection = { type: 'FeatureCollection', features
 
 export default function App() {
   let mapElement!: HTMLDivElement
+  let splashElement!: HTMLDivElement
   let map: maplibregl.Map | undefined
   let marker: Marker | undefined
   let dayNightLayer: DayNightLayer | undefined
@@ -39,6 +40,7 @@ export default function App() {
   let windLayer: WindLayer | undefined
   let windGrid: Grid | undefined
   let animation = 0
+  let splashReplayTimer: number | undefined
   let shownFrameRequest = 0
   let shownWindRequest = 0
   let shownTemperatureRequest = 0
@@ -49,6 +51,7 @@ export default function App() {
   let temperatureLabelKey = ''
   let sunFeatureKey = ''
   let sunEpochBucket = Number.NaN
+  let rainReadyPending = false
   const windFrameCache = new Map<string, Promise<Float32Array>>()
   const media = matchMedia('(prefers-color-scheme: dark)')
   const client = new MrfClient(manifestUrl)
@@ -78,8 +81,14 @@ export default function App() {
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
   const [temperatureField, setTemperatureField] = createSignal<TemperatureField>('feels_like_c')
   const [windTuning, setWindTuning] = createSignal<WindTuning>({ ...DEFAULT_WIND_TUNING })
+  const [mapReady, setMapReady] = createSignal(false)
+  const [splashSlowdown, setSplashSlowdown] = createSignal(storedSplashSlowdown())
   const [systemDark, setSystemDark] = createSignal(media.matches)
   const mapTheme = createMemo<MapTheme>(() => theme() === 'system' ? systemDark() ? 'dark' : 'light' : theme() as MapTheme)
+  const splashStyle = createMemo(() => {
+    const factor = splashSlowdown()
+    return `--splash-reveal-duration:${1_200 * factor}ms;--splash-mark-duration:${300 * factor}ms;--splash-outer-delay:${600 * factor}ms;--splash-outer-duration:${600 * factor}ms`
+  })
 
   onMount(async () => {
     const mediaChanged = (event: MediaQueryListEvent) => setSystemDark(event.matches)
@@ -122,7 +131,7 @@ export default function App() {
     }
   })
 
-  onCleanup(() => { cancelAnimationFrame(animation); map?.remove() })
+  onCleanup(() => { cancelAnimationFrame(animation); window.clearTimeout(splashReplayTimer); map?.remove() })
 
   createEffect(() => {
     const choice = theme()
@@ -133,6 +142,8 @@ export default function App() {
     windLayer?.setTheme(effective)
     if (map && effective !== appliedMapTheme) void applyMapTheme(effective)
   })
+
+  createEffect(() => localStorage.setItem('motregen-splash-slowdown', String(splashSlowdown())))
 
   createEffect(() => {
     const tuning = windTuning()
@@ -254,6 +265,14 @@ export default function App() {
     ])
     if (request !== shownFrameRequest || !layer || !map) return
     layer.setFrames(left, right, blend.mix, motion, (rightFrame.epoch - leftFrame.epoch) / 60_000)
+    if (!mapReady() && !rainReadyPending) {
+      const renderedMap = map
+      rainReadyPending = true
+      renderedMap.once('render', () => {
+        rainReadyPending = false
+        if (map === renderedMap) setMapReady(true)
+      })
+    }
     map.triggerRepaint()
     for (const near of frames.slice(Math.max(0, lower - 2), upper + 4)) {
       client.prefetch(near.chunk, [near.frameIndex])
@@ -522,6 +541,14 @@ export default function App() {
     setWindTuning((current) => ({ ...current, [key]: value }))
   }
 
+  function replaySplash(): void {
+    window.clearTimeout(splashReplayTimer)
+    setMapReady(false)
+    for (const animation of splashElement.getAnimations({ subtree: true })) animation.cancel()
+    void splashElement.offsetWidth
+    splashReplayTimer = window.setTimeout(() => setMapReady(true), 150)
+  }
+
   const forecast = createMemo(() => buildHourlyForecast({
     rain: timeline(),
     uv: uvTimeline(),
@@ -567,6 +594,13 @@ export default function App() {
     </header>
     <section class="map-shell" aria-label="Regenkaart van Nederland">
       <div ref={mapElement} class="map" />
+      <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() }} style={splashStyle()} aria-hidden={mapReady()}>
+        <div class="map-splash-veil" />
+        <div class="map-splash-mark">
+          <img src="/droplet.svg" alt="" />
+          <strong>motregen.nl</strong>
+        </div>
+      </div>
       <LocationSearch onSelect={chooseSearch} />
       <Show when={hasBothTemperatures()}>
         <div class="temperature-switch" role="group" aria-label="Temperatuurlaag">
@@ -583,6 +617,8 @@ export default function App() {
           <label><span>Deeltjes</span><input type="range" min="0.1" max="1" step="0.05" value={windTuning().particleOpacity} onInput={(event) => tuneWind('particleOpacity', event.currentTarget.valueAsNumber)} /><output>{windTuning().particleOpacity.toFixed(2)}</output></label>
           <label><span>Trailduur</span><input type="range" min="0.9" max="0.99" step="0.001" value={windTuning().trailFade} onInput={(event) => tuneWind('trailFade', event.currentTarget.valueAsNumber)} /><output>{windTuning().trailFade.toFixed(3)}</output></label>
           <label><span>Dekking</span><input type="range" min="0.1" max="1" step="0.05" value={windTuning().trailOpacity} onInput={(event) => tuneWind('trailOpacity', event.currentTarget.valueAsNumber)} /><output>{windTuning().trailOpacity.toFixed(2)}</output></label>
+          <label><span>Splash ×</span><input type="range" min="1" max="8" step="0.5" value={splashSlowdown()} onInput={(event) => setSplashSlowdown(event.currentTarget.valueAsNumber)} /><output>{splashSlowdown().toLocaleString('nl-NL', { maximumFractionDigits: 1 })}×</output></label>
+          <button class="wind-debug-replay" onClick={replaySplash}>Herhaal splash</button>
         </details>
       </Show>
       <div class="source">Bron: KNMI · Kaart: OpenFreeMap</div>
@@ -643,6 +679,11 @@ export default function App() {
 function storedTheme(): ThemeChoice {
   const stored = localStorage.getItem('motregen-theme')
   return stored === 'light' || stored === 'system' || stored === 'dark' ? stored : 'light'
+}
+
+function storedSplashSlowdown(): number {
+  const value = Number(localStorage.getItem('motregen-splash-slowdown'))
+  return Number.isFinite(value) ? Math.max(1, Math.min(8, value)) : 1
 }
 
 function project(lng: number, lat: number): [number, number] {
