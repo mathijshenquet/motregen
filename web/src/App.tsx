@@ -201,10 +201,10 @@ export default function App() {
         const frames = timeline()
         if (frames.length < 2) return 0
         const firstEpoch = frames[0]!.epoch
+        const timelineLastEpoch = frames.at(-1)!.epoch
         const lastEpoch = timelineHorizonEnd(frames, manifest() ? Date.parse(manifest()!.now) : frames[0]!.epoch, horizonHours)
-        const lastCursor = Math.max(1, timelineCursorAtEpoch(frames, lastEpoch))
         const epoch = timelineEpochAtCursor(frames, value)
-        const nextEpoch = epoch + elapsed * (lastEpoch - firstEpoch) / (lastCursor * 650)
+        const nextEpoch = epoch + elapsed * (timelineLastEpoch - firstEpoch) / ((frames.length - 1) * 650)
         if (!Number.isFinite(nextEpoch) || nextEpoch >= lastEpoch) return 0
         return timelineCursorAtEpoch(frames, nextEpoch)
       })

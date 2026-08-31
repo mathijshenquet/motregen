@@ -61,7 +61,7 @@ describe('histogram scrubber', () => {
       releasePointerCapture: vi.fn(() => { captured = false }),
     })
     onCursor.mockClear()
-    fireEvent.pointerEnter(slider, { clientX: 300, pointerId: 1, pointerType: 'mouse' })
+    fireEvent.mouseEnter(slider, { clientX: 300 })
     fireEvent.pointerMove(slider, { clientX: 300, pointerId: 1, pointerType: 'mouse' })
     expect(onCursor).toHaveBeenLastCalledWith(2)
 
@@ -117,13 +117,13 @@ describe('histogram scrubber', () => {
       releasePointerCapture: vi.fn(() => { captured = false }),
     })
 
-    fireEvent.pointerEnter(slider, { clientX: 100, pointerId: 1, pointerType: 'mouse' })
+    fireEvent.mouseEnter(slider, { clientX: 100 })
     expect(onPlaying).toHaveBeenLastCalledWith(false)
-    fireEvent.pointerLeave(slider, { clientX: 100, pointerId: 1, pointerType: 'mouse' })
+    fireEvent.mouseLeave(slider, { clientX: 100 })
     expect(onPlaying).toHaveBeenLastCalledWith(true)
 
     onPlaying.mockClear()
-    fireEvent.pointerEnter(slider, { clientX: 100, pointerId: 1, pointerType: 'mouse' })
+    fireEvent.mouseEnter(slider, { clientX: 100 })
     fireEvent.pointerDown(slider, { clientX: 100, pointerId: 1, pointerType: 'mouse' })
     fireEvent.pointerUp(slider, { clientX: 100, pointerId: 1, pointerType: 'mouse' })
     expect(onPlaying.mock.calls).toEqual([[false], [true]])

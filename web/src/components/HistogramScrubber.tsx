@@ -155,9 +155,16 @@ export default function HistogramScrubber(props: Props) {
       aria-valuetext={props.timeline.length ? `${new Date(cursorEpoch()).toLocaleString('nl-NL')}, ${formatRain(props.values[Math.round(props.cursor)])}` : undefined}
       title={hoverScrubbing() ? 'Hover-scrubben · klik om hier te blijven' : 'Vast · klik voor hover of sleep om te scrubben'}
       onKeyDown={keyDown}
-      onPointerEnter={(event) => {
+      onMouseEnter={() => {
         pointerInside = true
-        if (hoverScrubbing() && event.pointerType === 'mouse') pauseForPointerInteraction()
+        if (hoverScrubbing()) pauseForPointerInteraction()
+      }}
+      onMouseLeave={() => {
+        pointerInside = false
+        if (pressedX === undefined) {
+          setHovered(null)
+          if (hoverScrubbing()) resumeAfterPointerInteraction()
+        }
       }}
       onPointerDown={(event) => {
         pressedX = event.clientX
@@ -191,12 +198,6 @@ export default function HistogramScrubber(props: Props) {
         pressedX = undefined
         dragged = false
         if (!(hoverScrubbing() && pointerInside && event.pointerType === 'mouse')) resumeAfterPointerInteraction()
-      }}
-      onPointerLeave={(event) => {
-        pointerInside = false
-        const captured = event.currentTarget.hasPointerCapture(event.pointerId)
-        if (!captured) setHovered(null)
-        if (!captured && hoverScrubbing() && event.pointerType === 'mouse') resumeAfterPointerInteraction()
       }}
     >
       <div class="y-axis" aria-hidden="true">

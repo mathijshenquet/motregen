@@ -386,11 +386,12 @@ button { color: inherit; cursor: pointer; }
 @keyframes scrubber-pulse { from { opacity: .3; transform: scaleY(.72); } to { opacity: .85; transform: scaleY(1); } }
 .now-line { position: absolute; top: 0; bottom: 0; width: 1px; border-left: 1px dashed color-mix(in srgb, var(--text) 55%, transparent); pointer-events: none; }
 .now-line span { position: absolute; top: 25px; left: 0; padding: 2px 5px; border-radius: 4px; color: var(--surface); background: var(--text); font-size: 9px; font-weight: 750; text-transform: uppercase; transform: translateX(-50%); }
-.cursor-marker { position: absolute; top: 0; bottom: 0; z-index: 2; width: 1px; background: color-mix(in srgb, var(--text) 72%, transparent); pointer-events: none; }
-.cursor-marker button { position: absolute; top: 0; left: 0; min-width: 45px; height: 22px; padding: 0 6px; border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: 0 0 5px 5px; color: var(--surface); background: var(--text); font-size: 9px; font-weight: 760; font-variant-numeric: tabular-nums; transform: translateX(-50%); pointer-events: auto; }
+.cursor-marker { position: absolute; top: 0; bottom: 0; z-index: 2; width: 15px; transform: translateX(-50%); }
+.cursor-marker::before { position: absolute; top: 0; bottom: 0; left: 7px; width: 1px; background: color-mix(in srgb, var(--text) 72%, transparent); content: ''; }
+.cursor-marker button { position: absolute; top: 0; left: 50%; min-width: 45px; height: 22px; padding: 0 6px; border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: 0 0 5px 5px; color: var(--surface); background: var(--text); font-size: 9px; font-weight: 760; font-variant-numeric: tabular-nums; transform: translateX(-50%); }
 .cursor-playback { display: none; font-size: 10px; }
-.cursor-marker button:hover .cursor-time, .cursor-marker button:focus-visible .cursor-time { display: none; }
-.cursor-marker button:hover .cursor-playback, .cursor-marker button:focus-visible .cursor-playback { display: inline; }
+.cursor-marker:hover .cursor-time, .cursor-marker button:focus-visible .cursor-time { display: none; }
+.cursor-marker:hover .cursor-playback, .cursor-marker button:focus-visible .cursor-playback { display: inline; }
 .chart-tooltip { position: absolute; top: 8px; z-index: 2; min-width: 74px; display: flex; flex-direction: column; padding: 5px 7px; border: 1px solid var(--line-strong); border-radius: 6px; color: var(--text); background: var(--surface-raised); box-shadow: 0 4px 12px rgba(15, 38, 47, .2); font-size: 9px; pointer-events: none; transform: translateX(-50%); }
 .chart-tooltip strong { font-size: 10px; }
 .chart-tooltip span { margin-top: 1px; color: var(--muted); }
