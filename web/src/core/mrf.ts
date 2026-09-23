@@ -122,16 +122,26 @@ export class MrfClient {
   private readonly motions = new LruCache<string, MotionField>(256)
   private readonly motionPromises = new Map<string, Promise<MotionField>>()
   private readonly payloads = new Map<string, PayloadSpan[]>()
-  private readonly pending = new Map<number, { resolve: (frame: Uint8Array) => void; reject: (error: Error) => void }>()
-  private readonly worker = new Worker(new URL('./zstd.worker.ts', import.meta.url), { type: 'module' })
+  private readonly pending = new Map<number, { worker: number; resolve: (frame: Uint8Array) => void; reject: (error: Error) => void }>()
+  // Eén worker maakte zstd-decode de poort van het koude laden (U1-profiel:
+  // alle bytes binnen op 3,3 s, laatste balk pas op 6,7 s).
+  private readonly workers: Worker[]
+  private readonly workerLoad: number[]
   private requestId = 0
+  onFrameDecoded?: (url: string, frameIndex: number, frame: Uint8Array) => void
 
   constructor(private readonly manifestUrl: URL, private readonly trace?: LoadTrace) {
-    this.worker.onmessage = ({ data }: MessageEvent<WorkerReply>) => {
-      const request = this.pending.get(data.id)
-      if (!request) return
-      this.pending.delete(data.id)
-      if (data.error) request.reject(new Error(data.error)); else request.resolve(new Uint8Array(data.frame!))
+    const cores = globalThis.navigator?.hardwareConcurrency ?? 2
+    this.workers = Array.from({ length: Math.max(1, Math.min(4, cores - 1)) }, () => new Worker(new URL('./zstd.worker.ts', import.meta.url), { type: 'module' }))
+    this.workerLoad = this.workers.map(() => 0)
+    for (const worker of this.workers) {
+      worker.onmessage = ({ data }: MessageEvent<WorkerReply>) => {
+        const request = this.pending.get(data.id)
+        if (!request) return
+        this.pending.delete(data.id)
+        this.workerLoad[request.worker]!--
+        if (data.error) request.reject(new Error(data.error)); else request.resolve(new Uint8Array(data.frame!))
+      }
     }
   }
 
@@ -236,6 +246,7 @@ export class MrfClient {
     const decoded = await this.decodeInWorker(compressed, header.grid.width * header.grid.height)
     this.trace?.frameDecoded(url, frameIndex)
     this.frames.set(key, decoded)
+    this.onFrameDecoded?.(url, frameIndex, decoded)
     return decoded
   }
 
@@ -247,13 +258,16 @@ export class MrfClient {
     priority: FetchPriority,
     layer: LoadLayer,
   ): Map<number, Promise<Uint8Array>> {
+    // Bewust één omvattende span (incl. motion-annexen) en geen splitsing rond
+    // al geladen frames: Chromium verliest gecachte Range-bytes bij aangrenzende,
+    // apart geschreven Ranges, maar niet bij een omvattende (U1-probe).
     const selected = indexes.map((index) => header.frames[index]!)
     const fullChunk = indexes.length > header.frames.length / 2
     const start = fullChunk ? 0 : Math.min(...selected.flatMap((frame) => [frame.offset, frame.motion?.offset ?? frame.offset]))
     const end = fullChunk
       ? Math.max(...header.frames.flatMap((frame) => [frame.offset + frame.len, frame.motion ? frame.motion.offset + frame.motion.len : 0]))
       : Math.max(...selected.flatMap((frame) => [frame.offset + frame.len, frame.motion ? frame.motion.offset + frame.motion.len : 0]))
-    const covered = fullChunk ? header.frames.map((_, index) => index) : header.frames.flatMap((frame, index) => frame.offset >= start && frame.offset + frame.len <= end ? [index] : [])
+    const covered = header.frames.flatMap((frame, index) => frame.offset >= start && frame.offset + frame.len <= end ? [index] : [])
     const payload = this.payload(url, chunk, start, end, priority, layer, covered)
     for (const index of indexes) this.trace?.frame(url, index, layer)
     return new Map(indexes.map((index) => [index, (async () => {
@@ -263,6 +277,7 @@ export class MrfClient {
       const decodedBytes = await this.decodeInWorker(compressed, header.grid.width * header.grid.height)
       this.trace?.frameDecoded(url, index)
       this.frames.set(frameKey(url, index), decodedBytes)
+      this.onFrameDecoded?.(url, index, decodedBytes)
       return decodedBytes
     })()]))
   }
@@ -309,11 +324,13 @@ export class MrfClient {
   private decodeInWorker(compressed: Uint8Array, expectedLength: number): Promise<Uint8Array> {
     const id = ++this.requestId
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject })
+      const worker = this.workerLoad.indexOf(Math.min(...this.workerLoad))
+      this.workerLoad[worker]!++
+      this.pending.set(id, { worker, resolve, reject })
       const bytes = compressed.byteOffset === 0 && compressed.byteLength === compressed.buffer.byteLength
         ? compressed.buffer
         : compressed.slice().buffer
-      this.worker.postMessage({ id, bytes, expectedLength }, [bytes])
+      this.workers[worker]!.postMessage({ id, bytes, expectedLength }, [bytes])
     })
   }
 }
@@ -337,7 +354,26 @@ async function fetchRange(url: string, start: number, end: number, priority: Fet
   return bytes
 }
 
-async function fetchRangeChunks(
+const rangeQueues = new Map<string, Promise<void>>()
+
+// Eén Range tegelijk per chunk-URL: Chromium cachet een tweede, gelijktijdige
+// Range op een bezette cache-entry niet, waarna die warm opnieuw overkomt.
+function fetchRangeChunks(
+  url: string,
+  start: number,
+  end: number,
+  priority: FetchPriority,
+  trace: RangeTrace | undefined,
+  receive: (chunk: Uint8Array) => void,
+): Promise<void> {
+  const current = (rangeQueues.get(url) ?? Promise.resolve()).then(() => fetchTracedRange(url, start, end, priority, trace, receive))
+  const settled = current.catch(() => undefined)
+  rangeQueues.set(url, settled)
+  void settled.then(() => { if (rangeQueues.get(url) === settled) rangeQueues.delete(url) })
+  return current
+}
+
+async function fetchTracedRange(
   url: string,
   start: number,
   end: number,

@@ -6,7 +6,7 @@ import PerfHud from './components/PerfHud'
 import WeatherIcon from './components/WeatherIcon'
 import { firstBasemapTextLayerId, loadBasemapStyle, type MapTheme } from './core/basemap'
 import { CloudEdgeLayer } from './core/cloud-edge-layer'
-import type { Field, Grid, Manifest, ManifestChunk, TimelineFrame } from './core/contract'
+import type { Field, Grid, Manifest, ManifestChunk, MrfHeader, TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
 
 const DAY_NIGHT_ENABLED = false
@@ -101,6 +101,18 @@ export default function App() {
   const windTimeline = createMemo(() => manifest() ? buildWindTimeline(manifest()!) : [])
   const windUFrames = createMemo(() => windTimeline().map((frame) => frame.u))
   const windVFrames = createMemo(() => windTimeline().map((frame) => frame.v))
+  const rainTimelineIndex = createMemo(() => new Map(timeline().map((frame, index) => [`${new URL(frame.chunk.url, manifestUrl).href}#${frame.frameIndex}`, index])))
+  // Ieder gedecodeerd regenframe (kaart, prefetch, L0–L2) vult direct zijn balk.
+  client.onFrameDecoded = (url, frameIndex, frame) => {
+    const state = pointLoad
+    const index = rainTimelineIndex().get(`${url}#${frameIndex}`)
+    if (!state || state.request !== pointRequest || index === undefined || state.rainLoaded.has(index)) return
+    const header = client.getCachedHeader(timeline()[index]!.chunk)
+    if (!header) return
+    state.rainValues[index] = samplePoint(header, frame, state.point)
+    state.rainLoaded.add(index)
+    state.rainPublisher?.schedule()
+  }
   const [cursor, setCursor] = createSignal(0)
   const [playing, setPlaying] = createSignal(true)
   const [timeHorizonHours, setTimeHorizonHours] = createSignal<number | null>(8)
@@ -738,8 +750,8 @@ export default function App() {
       setStatus(label)
       setPointSeriesLoading(false)
       setPointLoadStage('direct')
-      if (!state.full) scheduleRainWindow(state)
     })()
+    scheduleRainWindow(state)
     try {
       await state.direct
     } catch {
@@ -796,19 +808,13 @@ export default function App() {
     }
     if (previousStage === 'window') {
       void state.direct.then(async () => {
-        const now = manifest() ? Date.parse(manifest()!.now) : 0
-        const indexes = timeline().flatMap((frame, index) => frame.epoch >= now - 3_600_000 && frame.epoch <= now + 2 * 3_600_000 ? [index] : [])
-        await enqueueRain(state, indexes, 'low', 'refresh', 'manifest')
+        await enqueueRain(state, visibleRainIndexes(), 'low', 'refresh', 'manifest')
         if (state.request !== pointRequest || state.full) return
-        state.deepIdle = window.setTimeout(() => {
-          state.idle = scheduleIdle(() => { void completePointSeries(state, 'low', 'L2', 'diepe idle') }, 5_000)
-        }, 30_000)
+        scheduleDeepIdle(state)
       }).catch(() => undefined)
       return
     }
-    void state.direct.then(() => {
-      if (state.request === pointRequest && !state.full) scheduleRainWindow(state)
-    }).catch(() => undefined)
+    scheduleRainWindow(state)
   }
 
   function readForecastPointSeries(frames: TimelineFrame[], point: { lng: number; lat: number }, key: ForecastIndex, layer: LoadLayer): Promise<Array<number | null>> {
@@ -866,21 +872,34 @@ export default function App() {
     return task
   }
 
+  // L1 = het hele zichtbare histogrambereik, direct na de locatiekeuze en
+  // dichtst-bij-nu eerst; alleen wat buiten de horizon valt wacht op L2.
   function scheduleRainWindow(state: PointLoadState): void {
-    state.idle = scheduleIdle(() => {
-      void (async () => {
-        const now = manifest() ? Date.parse(manifest()!.now) : 0
-        const indexes = timeline().flatMap((frame, index) => frame.epoch >= now - 3_600_000 && frame.epoch <= now + 2 * 3_600_000 ? [index] : [])
-        await enqueueRain(state, indexes, 'low', 'L1', 'idle')
-        if (state.request !== pointRequest || state.full) return
-        setPointLoadStage('window')
-        state.deepIdle = window.setTimeout(() => {
-          state.idle = scheduleIdle(() => { void completePointSeries(state, 'low', 'L2', 'diepe idle') }, 5_000)
-        }, 30_000)
-      })().catch(() => {
-        if (state.request === pointRequest) setStatus(`${locationLabel()} · regenvenster kon niet worden geladen`)
-      })
-    }, 2_000)
+    void (async () => {
+      await enqueueRain(state, visibleRainIndexes(), 'low', 'L1', 'zichtbaar bereik')
+      await state.direct
+      if (state.request !== pointRequest || state.full) return
+      setPointLoadStage('window')
+      scheduleDeepIdle(state)
+    })().catch(() => {
+      if (state.request === pointRequest) setStatus(`${locationLabel()} · regenvenster kon niet worden geladen`)
+    })
+  }
+
+  function scheduleDeepIdle(state: PointLoadState): void {
+    state.deepIdle = window.setTimeout(() => {
+      state.idle = scheduleIdle(() => { void completePointSeries(state, 'low', 'L2', 'diepe idle') }, 5_000)
+    }, 30_000)
+  }
+
+  function visibleRainIndexes(): number[] {
+    const frames = timeline()
+    if (!frames.length) return []
+    const now = manifest() ? Date.parse(manifest()!.now) : frames[0]!.epoch
+    const end = timelineHorizonEnd(frames, now, timeHorizonHours())
+    return frames
+      .flatMap((frame, index) => index === 0 || (frames[index - 1]!.epoch + frame.epoch) / 2 < end ? [index] : [])
+      .sort((left, right) => Math.abs(frames[left]!.epoch - now) - Math.abs(frames[right]!.epoch - now))
   }
 
   function completePointSeries(state = pointLoad, priority: FetchPriority = 'high', layer: LoadLayer = 'L2', reason = 'intentie'): Promise<void> | undefined {
@@ -1192,20 +1211,23 @@ function readCachedPointSeries(
 ): { values: Array<number | null>; loaded: boolean[]; complete: boolean } {
   const values = new Array<number | null>(frames.length).fill(null)
   const loaded = frames.map(() => false)
-  const [x, y] = project(point.lng, point.lat)
   for (let index = 0; index < frames.length; index++) {
     const timelineFrame = frames[index]!
     const header = client.getCachedHeader(timelineFrame.chunk)
     const frame = client.getCachedFrame(timelineFrame.chunk, timelineFrame.frameIndex)
     if (!header || !frame) continue
     loaded[index] = true
-    const column = Math.floor((x - header.grid.x0) / header.grid.dx)
-    const row = Math.floor((y - header.grid.y0) / header.grid.dy)
-    if (column >= 0 && row >= 0 && column < header.grid.width && row < header.grid.height) {
-      values[index] = header.quant[frame[row * header.grid.width + column]!] ?? null
-    }
+    values[index] = samplePoint(header, frame, point)
   }
   return { values, loaded, complete: loaded.every(Boolean) }
+}
+
+function samplePoint(header: MrfHeader, frame: Uint8Array, point: { lng: number; lat: number }): number | null {
+  const [x, y] = project(point.lng, point.lat)
+  const column = Math.floor((x - header.grid.x0) / header.grid.dx)
+  const row = Math.floor((y - header.grid.y0) / header.grid.dy)
+  if (column < 0 || row < 0 || column >= header.grid.width || row >= header.grid.height) return null
+  return header.quant[frame[row * header.grid.width + column]!] ?? null
 }
 function directRainIndexes(frames: TimelineFrame[], now: number): number[] {
   if (!frames.length) return []

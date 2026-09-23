@@ -41,7 +41,7 @@ expliciet kan forceren en daarmee een ander scenario meet.
 | cold TTFR | < 2.000 ms | gemeten 461–475 ms; ruime marge voor tragere hosts |
 | warm TTFR | profielafhankelijk, zie hieronder | desktop blijft sneller dan cold; mobiele CPU-/netwerkprofielen hebben eigen marge |
 | warm chunks | profielafhankelijk, zie hieronder | desktop blijft 0 B; CDP-netwerkthrottling draagt enkele actuele ranges opnieuw over |
-| passief geopende chunks | ≤ 800.000 B | progressieve L0+L1 gemeten op 545–634 kB; ruim onder MIP-8's bovengrens van 3 MB |
+| passief geopende chunks | ≤ 800.000 B | progressieve L0+L1 (sinds U1: heel het zichtbare bereik) gemeten op 720 kB; ruim onder MIP-8's bovengrens van 3 MB |
 | volledige scrub | < 1 chunktransfer per 3 frames | L2-intentie plus 85 frames kost 4–7 transfers; grens 28,3 |
 | warme locatiewissel | 0 data-transfers en 0 skeleton-reset | volledig gedecodeerde frames worden in dezelfde tick opnieuw bemonsterd |
 | volledige sessie | < 8.000.000 bytes | progressief gemeten 1,25–1,36 MB |
@@ -203,6 +203,54 @@ opeenvolgende runs na de finale kalibratie waren:
 de gescripte journey. De vaste interactiestappen zitten dus in het interval;
 het getal is bedoeld om profielen en latere data-diëten binnen deze suite te
 vergelijken, niet als losse netwerkbenchmark.
+
+### U1: zichtbaar bereik direct, geen deep-idle-poort
+
+Het U1-laadprofiel (zie hieronder) toonde dat de histogrambalken buiten −1…+2 u
+pas na de vaste deep-idle-timer van 30 s laadden: op prod 100% gevuld na 37,4 s
+desktop en 40,7 s op 4G, terwijl netwerk en decode voor die rest samen maar
+~1,5 s kostten. Sindsdien:
+
+- L1 is het volledige zichtbare histogrambereik (tijdlijnstart tot de gekozen
+  horizon), gestart direct na de locatiekeuze in plaats van na idle, en
+  geordend dichtst-bij-nu eerst. Alleen wat buiten de horizon valt (plus de
+  volledige uurveldreeksen) blijft L2: intentie of diepe idle.
+- Ieder gedecodeerd regenframe vult direct zijn balk, ook als kaart of
+  prefetch het opvroeg.
+- zstd-decode draait in een pool van maximaal vier workers; met één worker was
+  decode de nieuwe poort (alle bytes binnen op 3,3 s, laatste balk op 6,7 s).
+- Per chunk-URL loopt één Range tegelijk. Chromium cachet een tweede,
+  gelijktijdige Range op dezelfde cache-entry niet betrouwbaar; dit haalde ook de
+  bekende mobiele warm-hertransfer van 5.430 B (`feels_like_c`) weg.
+- Spans blijven bewust omvattend (één per chunk, incl. motion-annexen). Een
+  geïsoleerde probe liet zien dat Chromium gecachte bytes verliest bij
+  aangrenzende, apart geschreven Ranges (het gedeelde blok van de oudere Range)
+  en bij een EOF-Range met een latere buur, maar niet bij een Range die volledig
+  binnen een andere valt. Splitsen rond al geladen frames brak daarom warm 0 B.
+
+Prod (deze build, `/data` van motregen.nl, 2026-09-23 ~13:30Z), koud:
+
+| Profiel | 100% gevuld vóór | 100% gevuld na | /data-requests | /data-bytes |
+| --- | ---: | ---: | ---: | ---: |
+| Desktop | 37.360 ms | 4.100 ms | 114 → 27 | 6,91 → 6,50 MB |
+| Mobiel 4G | 40.737 ms | 9.399 ms | 102 → 27 | 7,01 → 6,50 MB |
+
+Het passieve pad op prod omvat nu het volledige zichtbare bereik (circa
+4,7 MB regen + 1,7 MB uurvelden); vóór U1 kwam vergelijkbaar volume binnen de
+eerste 40 s alsnog binnen via autoplay-prefetch en de deep-idle-L2. Op de
+synthetische gate:
+
+| Run / profiel | Cold TTFR | Passieve chunks | L2 compleet / transfers | Warm chunks | Sessie | Tweede klik |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 / Desktop | 918,7 ms | 719.874 B | 313,0 ms / 1 | 0 B | 1.262.516 B | 0 |
+| 1 / Mobiel 4G | 2.387,9 ms | 719.874 B | 1.219,0 ms / 1 | 0 B | 1.262.516 B | 0 |
+| 1 / Mobiel Fast 3G | 3.882,6 ms | 719.874 B | 838,6 ms / 1 | 0 B | 1.262.516 B | 0 |
+| 2 / Desktop | 707,6 ms | 719.874 B | 238,6 ms / 1 | 0 B | 1.262.516 B | 0 |
+| 2 / Mobiel 4G | 2.236,1 ms | 719.874 B | 962,9 ms / 1 | 0 B | 1.262.516 B | 0 |
+| 2 / Mobiel Fast 3G | 5.728,4 ms | 719.874 B | 1.352,5 ms / 1 | 0 B | 1.262.516 B | 0 |
+
+De runs liepen terwijl een parallelle track op dezelfde host zijn e2e draaide
+(fps-indicatie tot 5,6); de hogere cold-TTFR's vallen binnen de budgetten.
 
 ## Nulmeting echte data
 
