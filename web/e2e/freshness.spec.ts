@@ -16,10 +16,20 @@ async function openAt(page: Page, epoch: number): Promise<void> {
 
 async function useTheme(page: Page, theme: 'light' | 'dark'): Promise<void> {
   const html = page.locator('html')
-  for (let clicks = 0; clicks < 3 && await html.getAttribute('data-theme') !== theme; clicks++) await page.locator('.theme-button:visible').click()
+  for (let clicks = 0; clicks < 3 && await html.getAttribute('data-theme') !== theme; clicks++) await page.locator('.theme-button:visible').dispatchEvent('click')
   await expect(html).toHaveAttribute('data-theme', theme)
+  // dispatchEvent: onder SwiftShader haalt de themaknop soms nooit Playwrights
+  // 'stable'-check terwijl de basemap herlaadt; die wissel is hier niet onder test.
   // De basemap wisselt asynchroon van stijl.
   await page.waitForTimeout(800)
+}
+
+// Op een smalle telefoon mag de pil het merk links niet raken (anders vangt hij diens tikken).
+async function expectClearOfBrand(page: Page): Promise<void> {
+  const pillBox = (await pill(page).boundingBox())!
+  const brandBox = (await page.locator('.map-brand').boundingBox())!
+  const apart = pillBox.x >= brandBox.x + brandBox.width || pillBox.y + pillBox.height <= brandBox.y
+  expect(apart, `pil ${JSON.stringify(pillBox)} overlapt merk ${JSON.stringify(brandBox)}`).toBe(true)
 }
 
 // Per thema: optioneel het paneel openen, vastleggen en weer sluiten.
@@ -54,10 +64,7 @@ test('fresh radar reads as current, with the scan time and its age', async ({ pa
   await expect(dialog).toBeHidden()
   await expect(details(page)).toBeFocused()
   await shoot(page, testInfo, 'paneel', true)
-  // Op een smalle telefoon mag de pil het merk links niet raken.
-  const pillBox = (await pill(page).boundingBox())!
-  const brandBox = (await page.locator('.map-brand').boundingBox())!
-  expect(pillBox.x).toBeGreaterThanOrEqual(brandBox.x + brandBox.width)
+  await expectClearOfBrand(page)
 })
 
 test('radar that stopped arriving is marked aging, then stale', async ({ page }, testInfo) => {
@@ -69,7 +76,16 @@ test('radar that stopped arriving is marked aging, then stale', async ({ page },
   await openAt(page, LATEST_RADAR + minutes(95))
   await expect(pill(page)).toHaveAttribute('data-freshness', 'stale')
   await expect(pill(page).locator('.freshness-age')).toHaveText('1 u')
+  await expectClearOfBrand(page)
   await shoot(page, testInfo, 'verouderd')
+
+  // Weken stil (zoals het synth-manifest zonder vaste klok): geen datum in de pil, die blijft smal.
+  await openAt(page, LATEST_RADAR + minutes(60 * 24 * 26))
+  await expect(pill(page).locator('.freshness-age')).toHaveText('26 d')
+  await expect(pill(page).locator('.freshness-trigger strong')).toHaveText('14:55')
+  await page.locator('.scrub-surface').click({ position: { x: 30, y: 60 } })
+  await expect(pill(page).locator('.map-clock-map')).toBeVisible()
+  await expectClearOfBrand(page)
 })
 
 test('a failed manifest refresh shows offline instead of silently stale data', async ({ page }, testInfo) => {

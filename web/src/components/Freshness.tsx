@@ -61,7 +61,7 @@ export default function Freshness(props: Props) {
     >
       <i class="freshness-dot" aria-hidden="true" />
       <Show when={radarAge() !== undefined} fallback={<small>Geen radar</small>}>
-        <small>Radar</small><strong>{formatClock(radar()!, clock())}</strong>
+        <small>Radar</small><strong>{time(radar()!)}</strong>
         <span class="freshness-age">{status() === 'offline' ? 'offline' : formatAgeShort(radarAge()!)}</span>
       </Show>
     </button>
