@@ -59,6 +59,15 @@ export function firstBasemapTextLayerId(layers: readonly LayerSpecification[]): 
   return layers.find((layer) => layer.type === 'symbol' && !layer.id.startsWith('motregen-') && layer.layout?.['text-field'] !== undefined)?.id
 }
 
+// Temperatures outrank water names, POIs and villages in label collision, but
+// yield to town, city and region names so the map keeps its orientation.
+export function temperatureLayerBeforeId(layers: readonly LayerSpecification[]): string | undefined {
+  const major = ['town', 'city', 'state', 'country'].map((kind) => ['==', ['get', 'class'], kind])
+  const placeLayer = layers.find((layer) => layer.type === 'symbol' && layer['source-layer'] === 'place'
+    && layer.layout?.['text-field'] !== undefined && major.some((clause) => mentions(layer.filter, clause)))
+  return placeLayer?.id ?? firstBasemapTextLayerId(layers)
+}
+
 function provinceBoundaryLayer(boundary: StyleSpecification['layers'][number], theme: MapTheme): StyleSpecification['layers'][number] {
   if (!('source' in boundary)) return boundary
   return {

@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, Show } from 'solid-js'
+import { createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
 import type { TimelineFrame } from '../core/contract'
 import { RAIN_BANDS, rainChartMaximum, rainChartPosition } from '../core/rain-chart'
 import { timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
@@ -22,6 +22,14 @@ interface Props {
 
 const width = 1000
 const plotHeight = 132
+const hourLabelSteps = [1, 2, 3, 6, 12, 24]
+// Wide enough for "23u" at the axis font size plus breathing room.
+const minimumHourLabelSpacingPx = 34
+
+export function hourLabelStep(spanHours: number, plotWidthPx: number): number {
+  const fit = Math.max(1, plotWidthPx / minimumHourLabelSpacingPx)
+  return hourLabelSteps.find((step) => spanHours / step <= fit) ?? hourLabelSteps.at(-1)!
+}
 
 export default function HistogramScrubber(props: Props) {
   let plotElement!: HTMLDivElement
@@ -30,6 +38,13 @@ export default function HistogramScrubber(props: Props) {
   let pointerInside = false
   const [hoverScrubbing, setHoverScrubbing] = createSignal(true)
   const [resumePlayback, setResumePlayback] = createSignal(false)
+  const [plotWidth, setPlotWidth] = createSignal(320)
+  onMount(() => {
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(([entry]) => { if (entry) setPlotWidth(entry.contentRect.width) })
+    observer.observe(plotElement)
+    onCleanup(() => observer.disconnect())
+  })
   const timelineStart = createMemo(() => props.timeline[0]?.epoch ?? 0)
   const timelineEnd = createMemo(() => {
     const last = props.timeline.at(-1)?.epoch ?? timelineStart()
@@ -58,12 +73,17 @@ export default function HistogramScrubber(props: Props) {
     return { ...band, top: top / plotHeight * 100, height: Math.max(0, bottom - top) / plotHeight * 100 }
   }))
   const yTicks = createMemo(() => [...new Set([0, 2.5, 7.5, maximum()])].map((value) => ({ value, top: y(value) / plotHeight * 100 })))
+  const hourStep = createMemo(() => hourLabelStep(timelineSpan() / 3_600_000, plotWidth()))
   const xTicks = createMemo(() => {
     if (!props.timeline.length) return []
     const hour = 3_600_000
     const firstHour = Math.ceil(timelineStart() / hour) * hour
     const ticks = []
-    for (let epoch = firstHour; epoch <= timelineEnd(); epoch += hour) ticks.push({ epoch, left: positionAtEpoch(epoch) })
+    const step = hourStep()
+    for (let epoch = firstHour; epoch <= timelineEnd(); epoch += hour) {
+      const labelled = new Date(epoch).getHours() % step === 0
+      ticks.push({ epoch, left: positionAtEpoch(epoch), labelled })
+    }
     return ticks
   })
   const nowPosition = createMemo(() => {
@@ -206,8 +226,8 @@ export default function HistogramScrubber(props: Props) {
             ? <rect class="rain-bar pending" x={bar.x} y="0" width={bar.width} height={plotHeight} rx="1" />
             : <rect class="rain-bar" x={bar.x} y={bar.y} width={bar.width} height={plotHeight - bar.y} rx="1" />}</For>
         </svg>
-        <div class="hour-grid" aria-hidden="true"><For each={xTicks()}>{(tick) => <i style={{ left: `${tick.left}%` }} />}</For></div>
-        <div class="day-grid" aria-hidden="true"><For each={dayMarkers()}>{(marker) => <div classList={{ boundary: marker.boundary }} style={{ left: `${positionAtEpoch(marker.epoch)}%` }}><span>{marker.label}</span></div>}</For></div>
+        <div class="hour-grid" aria-hidden="true"><For each={xTicks().filter((tick) => tick.labelled || hourStep() <= 2)}>{(tick) => <i classList={{ labelled: tick.labelled }} style={{ left: `${tick.left}%` }} />}</For></div>
+        <div class="day-grid" aria-hidden="true"><For each={dayMarkers()}>{(marker) => <div classList={{ boundary: marker.boundary }} style={{ left: `${positionAtEpoch(marker.epoch)}%` }}><Show when={(100 - positionAtEpoch(marker.epoch)) / 100 * plotWidth() > 80}><span>{marker.label}</span></Show></div>}</For></div>
         <div class="band-labels" aria-hidden="true"><For each={bands()}>{(band) => <span class={band.key} style={{ top: `${band.top + band.height / 2}%` }}>{band.label}</span>}</For></div>
         <Show when={props.loading}>
           <div class="scrubber-placeholder" role="status">
@@ -229,7 +249,7 @@ export default function HistogramScrubber(props: Props) {
             <span class="cursor-playback" aria-hidden="true">{(resumePlayback() || props.playing) ? 'Ⅱ' : '▶'}</span>
           </button>
         </div>
-        <div class="x-axis" aria-hidden="true"><For each={xTicks()}>{(tick) => <span style={{ left: `${tick.left}%` }}>{new Date(tick.epoch).getHours()}u</span>}</For></div>
+        <div class="x-axis" aria-hidden="true"><For each={xTicks().filter((tick) => tick.labelled && tick.left > 2 && tick.left < 98 && Math.abs(tick.left - nowPosition()) / 100 * plotWidth() > 30)}>{(tick) => <span classList={{ midnight: new Date(tick.epoch).getHours() === 0 }} style={{ left: `${tick.left}%` }}>{hourLabel(tick.epoch)}</span>}</For></div>
       </div>
     </div>
     <div class="regimes" aria-label="Databronzones">
@@ -240,6 +260,11 @@ export default function HistogramScrubber(props: Props) {
 
 function formatRain(value: number | null | undefined): string {
   return value == null ? 'Geen data' : `${value.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} mm/u`
+}
+
+function hourLabel(epoch: number): string {
+  const date = new Date(epoch)
+  return date.getHours() === 0 ? date.toLocaleDateString('nl-NL', { weekday: 'short' }) : `${date.getHours()}u`
 }
 
 function formatAxis(value: number): string {
