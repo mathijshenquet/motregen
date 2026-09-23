@@ -1,5 +1,6 @@
 import { decompress } from 'fzstd'
 import { chunkField, type ManifestChunk, type MrfHeader } from './contract'
+import type { LoadLayer, LoadTrace } from './perf'
 
 const decoder = new TextDecoder()
 
@@ -75,9 +76,10 @@ class PayloadSpan {
     absoluteStart: number,
     absoluteEnd: number,
     priority: FetchPriority,
+    trace?: RangeTrace,
   ) {
     this.data = new Uint8Array(end - start)
-    this.bytes = fetchRangeChunks(url, absoluteStart, absoluteEnd, priority, (chunk) => {
+    this.bytes = fetchRangeChunks(url, absoluteStart, absoluteEnd, priority, trace, (chunk) => {
       this.data.set(chunk, this.available)
       this.available += chunk.length
       this.releaseReady()
@@ -120,16 +122,26 @@ export class MrfClient {
   private readonly motions = new LruCache<string, MotionField>(256)
   private readonly motionPromises = new Map<string, Promise<MotionField>>()
   private readonly payloads = new Map<string, PayloadSpan[]>()
-  private readonly pending = new Map<number, { resolve: (frame: Uint8Array) => void; reject: (error: Error) => void }>()
-  private readonly worker = new Worker(new URL('./zstd.worker.ts', import.meta.url), { type: 'module' })
+  private readonly pending = new Map<number, { worker: number; resolve: (frame: Uint8Array) => void; reject: (error: Error) => void }>()
+  // Eén worker maakte zstd-decode de poort van het koude laden (U1-profiel:
+  // alle bytes binnen op 3,3 s, laatste balk pas op 6,7 s).
+  private readonly workers: Worker[]
+  private readonly workerLoad: number[]
   private requestId = 0
+  onFrameDecoded?: (url: string, frameIndex: number, frame: Uint8Array) => void
 
-  constructor(private readonly manifestUrl: URL) {
-    this.worker.onmessage = ({ data }: MessageEvent<WorkerReply>) => {
-      const request = this.pending.get(data.id)
-      if (!request) return
-      this.pending.delete(data.id)
-      if (data.error) request.reject(new Error(data.error)); else request.resolve(new Uint8Array(data.frame!))
+  constructor(private readonly manifestUrl: URL, private readonly trace?: LoadTrace) {
+    const cores = globalThis.navigator?.hardwareConcurrency ?? 2
+    this.workers = Array.from({ length: Math.max(1, Math.min(4, cores - 1)) }, () => new Worker(new URL('./zstd.worker.ts', import.meta.url), { type: 'module' }))
+    this.workerLoad = this.workers.map(() => 0)
+    for (const worker of this.workers) {
+      worker.onmessage = ({ data }: MessageEvent<WorkerReply>) => {
+        const request = this.pending.get(data.id)
+        if (!request) return
+        this.pending.delete(data.id)
+        this.workerLoad[request.worker]!--
+        if (data.error) request.reject(new Error(data.error)); else request.resolve(new Uint8Array(data.frame!))
+      }
     }
   }
 
@@ -137,7 +149,7 @@ export class MrfClient {
     const url = new URL(chunk.url, this.manifestUrl).href
     let promise = this.headers.get(url)
     if (!promise) {
-      promise = fetchRange(url, 0, chunk.header_len - 1).then((bytes) => {
+      promise = fetchRange(url, 0, chunk.header_len - 1, 'high', this.rangeTrace('header', [])).then((bytes) => {
         const header = parseMrfHeader(bytes)
         this.resolvedHeaders.set(url, header)
         return header
@@ -164,6 +176,7 @@ export class MrfClient {
     frameIndexes: number[],
     priority: FetchPriority = 'high',
     progress?: (frameIndex: number, frame: Uint8Array) => void,
+    layer: LoadLayer = 'map',
   ): Promise<Uint8Array[]> {
     const url = new URL(chunk.url, this.manifestUrl).href
     const header = await this.getHeader(chunk)
@@ -175,12 +188,12 @@ export class MrfClient {
     })
 
     if (missing.length >= 2) {
-      const batch = this.fetchFrameSpan(url, chunk, header, missing, priority)
+      const batch = this.fetchFrameSpan(url, chunk, header, missing, priority, layer)
       for (const [index, promise] of batch) this.trackFramePromise(frameKey(url, index), promise)
     } else {
       for (const index of missing) {
         const key = frameKey(url, index)
-        this.trackFramePromise(key, this.fetchIndexedFrame(url, chunk, header, index, key, priority))
+        this.trackFramePromise(key, this.fetchIndexedFrame(url, chunk, header, index, key, priority, layer))
       }
     }
 
@@ -208,7 +221,7 @@ export class MrfClient {
         const payload = this.coveringPayload(url, motion.offset, end)
         const compressed = payload
           ? await payload.read(motion.offset, end)
-          : await fetchRange(url, chunk.header_len + motion.offset, chunk.header_len + end - 1)
+          : await fetchRange(url, chunk.header_len + motion.offset, chunk.header_len + end - 1, 'high', this.rangeTrace('motion', [frameIndex]))
         const vectors = await this.decodeInWorker(compressed, header.motion_grid!.bw * header.motion_grid!.bh * 2)
         const field = { width: header.motion_grid!.bw, height: header.motion_grid!.bh, vectors }
         this.motions.set(key, field)
@@ -221,15 +234,19 @@ export class MrfClient {
     return pending
   }
 
-  private async fetchIndexedFrame(url: string, chunk: ManifestChunk, header: MrfHeader, frameIndex: number, key: string, priority: FetchPriority): Promise<Uint8Array> {
+  private async fetchIndexedFrame(url: string, chunk: ManifestChunk, header: MrfHeader, frameIndex: number, key: string, priority: FetchPriority, layer: LoadLayer): Promise<Uint8Array> {
     const frame = header.frames[frameIndex]!
     const start = chunk.header_len + frame.offset
     const payload = this.coveringPayload(url, frame.offset, frame.offset + frame.len)
+    this.trace?.frame(url, frameIndex, layer)
     const compressed = payload
       ? await payload.read(frame.offset, frame.offset + frame.len)
-      : await fetchRange(url, start, start + frame.len - 1, priority)
+      : await fetchRange(url, start, start + frame.len - 1, priority, this.rangeTrace(layer, [frameIndex]))
+    this.trace?.frameBytesReady(url, frameIndex)
     const decoded = await this.decodeInWorker(compressed, header.grid.width * header.grid.height)
+    this.trace?.frameDecoded(url, frameIndex)
     this.frames.set(key, decoded)
+    this.onFrameDecoded?.(url, frameIndex, decoded)
     return decoded
   }
 
@@ -239,27 +256,36 @@ export class MrfClient {
     header: MrfHeader,
     indexes: number[],
     priority: FetchPriority,
+    layer: LoadLayer,
   ): Map<number, Promise<Uint8Array>> {
+    // Bewust één omvattende span (incl. motion-annexen) en geen splitsing rond
+    // al geladen frames: Chromium verliest gecachte Range-bytes bij aangrenzende,
+    // apart geschreven Ranges, maar niet bij een omvattende (U1-probe).
     const selected = indexes.map((index) => header.frames[index]!)
     const fullChunk = indexes.length > header.frames.length / 2
     const start = fullChunk ? 0 : Math.min(...selected.flatMap((frame) => [frame.offset, frame.motion?.offset ?? frame.offset]))
     const end = fullChunk
       ? Math.max(...header.frames.flatMap((frame) => [frame.offset + frame.len, frame.motion ? frame.motion.offset + frame.motion.len : 0]))
       : Math.max(...selected.flatMap((frame) => [frame.offset + frame.len, frame.motion ? frame.motion.offset + frame.motion.len : 0]))
-    const payload = this.payload(url, chunk, start, end, priority)
+    const covered = header.frames.flatMap((frame, index) => frame.offset >= start && frame.offset + frame.len <= end ? [index] : [])
+    const payload = this.payload(url, chunk, start, end, priority, layer, covered)
+    for (const index of indexes) this.trace?.frame(url, index, layer)
     return new Map(indexes.map((index) => [index, (async () => {
       const frame = header.frames[index]!
       const compressed = await payload.read(frame.offset, frame.offset + frame.len)
+      this.trace?.frameBytesReady(url, index)
       const decodedBytes = await this.decodeInWorker(compressed, header.grid.width * header.grid.height)
+      this.trace?.frameDecoded(url, index)
       this.frames.set(frameKey(url, index), decodedBytes)
+      this.onFrameDecoded?.(url, index, decodedBytes)
       return decodedBytes
     })()]))
   }
 
-  private payload(url: string, chunk: ManifestChunk, start: number, end: number, priority: FetchPriority): PayloadSpan {
+  private payload(url: string, chunk: ManifestChunk, start: number, end: number, priority: FetchPriority, layer: LoadLayer, frames: number[]): PayloadSpan {
     const covered = this.coveringPayload(url, start, end)
     if (covered) return covered
-    const span = new PayloadSpan(start, end, url, chunk.header_len + start, chunk.header_len + end - 1, priority)
+    const span = new PayloadSpan(start, end, url, chunk.header_len + start, chunk.header_len + end - 1, priority, this.rangeTrace(layer, frames))
     const spans = this.payloads.get(url) ?? []
     spans.push(span)
     this.payloads.set(url, spans)
@@ -283,7 +309,12 @@ export class MrfClient {
   }
 
   prefetch(chunk: ManifestChunk, indexes: number[], priority: FetchPriority = 'low'): void {
-    void this.getFrames(chunk, indexes, priority).catch(() => undefined)
+    void this.getFrames(chunk, indexes, priority, undefined, 'prefetch').catch(() => undefined)
+  }
+
+  private rangeTrace(layer: LoadLayer, frames: number[]): RangeTrace | undefined {
+    const trace = this.trace
+    return trace ? { trace, layer, frames } : undefined
   }
 
   prefetchMotion(chunk: ManifestChunk, indexes: number[]): void {
@@ -293,36 +324,86 @@ export class MrfClient {
   private decodeInWorker(compressed: Uint8Array, expectedLength: number): Promise<Uint8Array> {
     const id = ++this.requestId
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject })
+      const worker = this.workerLoad.indexOf(Math.min(...this.workerLoad))
+      this.workerLoad[worker]!++
+      this.pending.set(id, { worker, resolve, reject })
       const bytes = compressed.byteOffset === 0 && compressed.byteLength === compressed.buffer.byteLength
         ? compressed.buffer
         : compressed.slice().buffer
-      this.worker.postMessage({ id, bytes, expectedLength }, [bytes])
+      this.workers[worker]!.postMessage({ id, bytes, expectedLength }, [bytes])
     })
   }
+}
+
+interface RangeTrace {
+  trace: LoadTrace
+  layer: LoadLayer
+  frames: number[]
 }
 
 function frameKey(url: string, index: number): string {
   return `${url}#${index}`
 }
 
-async function fetchRange(url: string, start: number, end: number, priority: FetchPriority = 'high'): Promise<Uint8Array> {
+async function fetchRange(url: string, start: number, end: number, priority: FetchPriority = 'high', trace?: RangeTrace): Promise<Uint8Array> {
   const chunks: Uint8Array[] = []
-  await fetchRangeChunks(url, start, end, priority, (chunk) => chunks.push(chunk.slice()))
+  await fetchRangeChunks(url, start, end, priority, trace, (chunk) => chunks.push(chunk.slice()))
   const bytes = new Uint8Array(end - start + 1)
   let offset = 0
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length }
   return bytes
 }
 
-async function fetchRangeChunks(
+const rangeQueues = new Map<string, Promise<void>>()
+
+// Eén Range tegelijk per chunk-URL: Chromium cachet een tweede, gelijktijdige
+// Range op een bezette cache-entry niet, waarna die warm opnieuw overkomt.
+function fetchRangeChunks(
+  url: string,
+  start: number,
+  end: number,
+  priority: FetchPriority,
+  trace: RangeTrace | undefined,
+  receive: (chunk: Uint8Array) => void,
+): Promise<void> {
+  const current = (rangeQueues.get(url) ?? Promise.resolve()).then(() => fetchTracedRange(url, start, end, priority, trace, receive))
+  const settled = current.catch(() => undefined)
+  rangeQueues.set(url, settled)
+  void settled.then(() => { if (rangeQueues.get(url) === settled) rangeQueues.delete(url) })
+  return current
+}
+
+async function fetchTracedRange(
+  url: string,
+  start: number,
+  end: number,
+  priority: FetchPriority,
+  trace: RangeTrace | undefined,
+  receive: (chunk: Uint8Array) => void,
+): Promise<void> {
+  const request = trace?.trace.request(url, [start, end], priority, trace.layer, trace.frames)
+  try {
+    await fetchRangeBody(url, start, end, priority, (chunk) => {
+      if (request) trace!.trace.received(request, chunk.length)
+      receive(chunk)
+    }, () => { if (request) trace!.trace.response(request) })
+    if (request) trace!.trace.finished(request)
+  } catch (error) {
+    if (request) trace!.trace.finished(request, error)
+    throw error
+  }
+}
+
+async function fetchRangeBody(
   url: string,
   start: number,
   end: number,
   priority: FetchPriority,
   receive: (chunk: Uint8Array) => void,
+  responded: () => void,
 ): Promise<void> {
   const response = await fetch(url, { headers: { Range: `bytes=${start}-${end}` }, priority } as RequestInit & { priority: FetchPriority })
+  responded()
   if (!response.ok) throw new Error(`Laden mislukt (${response.status})`)
   const wantedLength = end - start + 1
   const sourceStart = response.status === 206 ? 0 : start
