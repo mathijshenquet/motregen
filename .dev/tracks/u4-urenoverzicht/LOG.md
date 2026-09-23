@@ -111,7 +111,7 @@ Desktop-overzicht: `desktop-urenoverzicht.png`; kaartlabel:
 ## 2026-09-23 13:35Z — ontwerpcorrecties op bytes, merge main
 
 - **Historie ingeklapt** achter een kopregel "Afgelopen 6 uur tonen" (commit
-  36e…; zie `historie-ingeklapt.png`, `historie-uitgeklapt.png`). De nu-rij
+  d19ea9e; zie `historie-ingeklapt.png`, `historie-uitgeklapt.png`). De nu-rij
   staat daardoor bovenaan het zichtbare deel van de tabel; op mobiel hoef je
   niet eerst 6 verleden-uren door te scrollen, en historie kost bytes pas
   na een tik. Uitgeklapt: getinte rijen, UV = KNMI-analyse, regen alleen
