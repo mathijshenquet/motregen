@@ -2,6 +2,7 @@ import { createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-j
 import type { TimelineFrame } from '../core/contract'
 import { RAIN_BANDS, rainChartMaximum, rainChartPosition } from '../core/rain-chart'
 import { timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
+import { INLINE_ICON, Pause, Play } from './icons'
 
 interface Props {
   timeline: TimelineFrame[]
@@ -246,7 +247,7 @@ export default function HistogramScrubber(props: Props) {
             onClick={togglePlaybackFromCursor}
           >
             <span class="cursor-time">{props.timeline.length ? new Date(cursorEpoch()).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : '--:--'}</span>
-            <span class="cursor-playback" aria-hidden="true">{(resumePlayback() || props.playing) ? 'Ⅱ' : '▶'}</span>
+            <span class="cursor-playback" aria-hidden="true">{(resumePlayback() || props.playing) ? <Pause {...INLINE_ICON} fill="currentColor" /> : <Play {...INLINE_ICON} fill="currentColor" />}</span>
           </button>
         </div>
         <div class="x-axis" aria-hidden="true"><For each={xTicks().filter((tick) => tick.labelled && tick.left > 2 && tick.left < 98 && Math.abs(tick.left - nowPosition()) / 100 * plotWidth() > 30)}>{(tick) => <span classList={{ midnight: new Date(tick.epoch).getHours() === 0 }} style={{ left: `${tick.left}%` }}>{hourLabel(tick.epoch)}</span>}</For></div>

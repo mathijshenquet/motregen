@@ -39,6 +39,17 @@ describe('location search', () => {
     expect(onLocate).toHaveBeenCalledOnce()
   })
 
+  it('draws its icons as decorative Lucide SVGs and keeps the labels on the buttons', () => {
+    renderSearch([home])
+    fireEvent.focus(screen.getByRole('textbox', { name: 'Zoek plaats' }))
+    const icons = [...document.querySelectorAll('svg.lucide')]
+    expect(icons.map((icon) => [...icon.classList].find((name) => name !== 'lucide' && name !== 'lucide-icon' && name.startsWith('lucide-')))).toEqual(
+      ['lucide-search', 'lucide-locate-fixed', 'lucide-star', 'lucide-x'],
+    )
+    for (const icon of icons) expect(icon.getAttribute('aria-hidden')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Thuis verwijderen uit opgeslagen plaatsen' }).querySelector('svg')?.getAttribute('width')).toBe('18')
+  })
+
   it('reports saved-place clicks separately from search selections', () => {
     const work: SavedPlace = { id: 'work', name: 'Werk', sourceLabel: 'Utrecht', lng: 5.12, lat: 52.09 }
     const { onSelect, onSelectSaved } = renderSearch([home, work])

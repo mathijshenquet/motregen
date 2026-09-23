@@ -1,7 +1,9 @@
 import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show } from 'solid-js'
+import { Dynamic } from 'solid-js/web'
 import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
 import About from './components/About'
 import HistogramScrubber from './components/HistogramScrubber'
+import { BUTTON_ICON, INLINE_ICON, Moon, Star, Sun, SunMoon } from './components/icons'
 import LocationSearch from './components/LocationSearch'
 import Freshness from './components/Freshness'
 import PerfHud from './components/PerfHud'
@@ -67,6 +69,7 @@ export default function App() {
   let map: maplibregl.Map | undefined
   let marker: Marker | undefined
   let savedMarkers: Marker[] = []
+  const savedPlaceStar = <Star class="saved-place-star" size={28} strokeWidth={2} fill="currentColor" /> as SVGSVGElement
   let dayNightLayer: DayNightLayer | undefined
   let layer: RainLayer | undefined
   let windLayer: WindLayer | undefined
@@ -92,8 +95,6 @@ export default function App() {
   let sunEpochBucket = Number.NaN
   let rainReadyPending = false
   let scrubPrefetch = false
-  let logoTapCount = 0
-  let lastLogoTap = 0
   let initialPickStarted = false
   let pointLoad: PointLoadState | undefined
   const windFrameCache = new Map<string, Promise<Float32Array>>()
@@ -1143,7 +1144,7 @@ export default function App() {
       const element = document.createElement('button')
       element.type = 'button'
       element.className = 'saved-place-marker'
-      element.textContent = '★'
+      element.append(savedPlaceStar.cloneNode(true))
       element.title = place.name
       element.setAttribute('aria-label', `${place.name} bekijken`)
       element.addEventListener('pointerdown', (event) => event.stopPropagation())
@@ -1223,16 +1224,6 @@ export default function App() {
     setCursor(cursor)
   }
 
-  function tapLogo(): void {
-    const now = performance.now()
-    logoTapCount = now - lastLogoTap <= 700 ? logoTapCount + 1 : 1
-    lastLogoTap = now
-    if (logoTapCount === 3) {
-      logoTapCount = 0
-      setPerfVisible((visible) => !visible)
-    }
-  }
-
   const manifestNow = () => manifest() ? Date.parse(manifest()!.now) : 0
   const forecast = createMemo(() => buildHourlyForecast({
     rain: timeline(),
@@ -1271,10 +1262,10 @@ export default function App() {
   const hasHumidity = createMemo(() => humidityTimeline().length > 0)
   const hasWind = createMemo(() => windUFrames().length > 0 && windVFrames().length > 0)
   const themeMeta = createMemo(() => theme() === 'light'
-    ? { icon: '☀', label: 'Licht', next: 'systeem' }
+    ? { icon: Sun, label: 'Licht', next: 'systeem' }
     : theme() === 'system'
-      ? { icon: '◐', label: 'Systeem', next: 'donker' }
-      : { icon: '☾', label: 'Donker', next: 'licht' })
+      ? { icon: SunMoon, label: 'Systeem', next: 'donker' }
+      : { icon: Moon, label: 'Donker', next: 'licht' })
 
   return <main class="app-shell">
     <section class="map-shell" aria-label="Regenkaart van Nederland" data-focus={focus().toFixed(2)} data-isolines={isolineCount()}>
@@ -1286,9 +1277,9 @@ export default function App() {
           <strong>motregen.nl</strong>
         </div>
       </div>
-      <button type="button" class="map-brand brand" onClick={tapLogo} aria-label="motregen.nl"><img src="/droplet.svg" alt="" /><strong>motregen.nl</strong></button>
+      <About onTripleTap={() => setPerfVisible((visible) => !visible)} />
       <button class="round-action theme-button mobile-map-theme" onClick={cycleTheme} aria-label={`Thema: ${themeMeta().label}. Klik voor ${themeMeta().next}`} title={`Thema: ${themeMeta().label}`}>
-        <span aria-hidden="true">{themeMeta().icon}</span>
+        <Dynamic component={themeMeta().icon} {...BUTTON_ICON} />
       </button>
       <LocationSearch
         location={location()}
@@ -1319,14 +1310,13 @@ export default function App() {
         </details>
       </Show>
       <Freshness mapEpoch={selectedEpoch()} now={manifestNow()} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} />
-      <About />
     </section>
     <aside class="dashboard">
       <nav class="sidebar-nav" aria-label="Instellingen en locatie">
-        <Show when={cursorUvChip()}>{(label) => <span class="uv-chip sidebar-uv-chip" title="Insmeren aanbevolen"><span aria-hidden="true">☀</span><span class="uv-long">{label()}</span><span class="uv-short">UV {formatUv(cursorUv())}</span></span>}</Show>
+        <Show when={cursorUvChip()}>{(label) => <span class="uv-chip sidebar-uv-chip" title="Insmeren aanbevolen"><Sun {...INLINE_ICON} /><span class="uv-long">{label()}</span><span class="uv-short">UV {formatUv(cursorUv())}</span></span>}</Show>
         <div class="sidebar-actions">
           <button class="round-action theme-button sidebar-theme" onClick={cycleTheme} aria-label={`Thema: ${themeMeta().label}. Klik voor ${themeMeta().next}`} title={`Thema: ${themeMeta().label}`}>
-            <span aria-hidden="true">{themeMeta().icon}</span><small>{themeMeta().label}</small>
+            <Dynamic component={themeMeta().icon} {...BUTTON_ICON} /><small>{themeMeta().label}</small>
           </button>
         </div>
       </nav>
