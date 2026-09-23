@@ -611,6 +611,13 @@ tr.history-toggle-row td { padding: 0; border-bottom: 1px solid var(--line); bac
 .history-toggle { display: flex; width: 100%; align-items: center; gap: 7px; padding: 7px 0; border: 0; color: var(--muted); background: none; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-align: left; }
 .history-toggle:hover, .history-toggle:focus-visible { color: var(--text); }
 
+.map-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
 .isoline-label {
   pointer-events: none;
   font-size: 11px;

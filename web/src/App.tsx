@@ -7,6 +7,7 @@ import { BUTTON_ICON, INLINE_ICON, Moon, Star, Sun, SunMoon } from './components
 import LocationSearch from './components/LocationSearch'
 import Freshness from './components/Freshness'
 import PerfHud from './components/PerfHud'
+import type { IsolineCounters } from './core/perf'
 import ForecastTable, { type SunForm } from './components/ForecastTable'
 import { loadBasemapStyle, temperatureLayerBeforeId, type MapTheme } from './core/basemap'
 import { CloudEdgeLayer } from './core/cloud-edge-layer'
@@ -31,6 +32,7 @@ import { nearestPlace } from './core/places'
 import { startFrameLoop } from './core/playback'
 import { installPerfMonitor, type LoadLayer } from './core/perf'
 import { RainLayer } from './core/rain-layer'
+import { LayerOverlay } from './core/overlay-canvas'
 import { loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastSavedPlaceId, storeMapView } from './core/location-memory'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
@@ -83,6 +85,10 @@ export default function App() {
   const savedPlaceStar = <Star class="saved-place-star" size={28} strokeWidth={2} fill="currentColor" /> as SVGSVGElement
   let dayNightLayer: DayNightLayer | undefined
   let layer: RainLayer | undefined
+  // Regen en wind tekenen op eigen canvassen boven de kaart (U8c): hun animatie laat MapLibre
+  // niet elke frame basiskaart, symboolplaatsing en isolijnen opnieuw renderen.
+  let rainOverlay: LayerOverlay | undefined
+  let windOverlay: LayerOverlay | undefined
   let windLayer: WindLayer | undefined
   let cloudEdgeLayer: CloudEdgeLayer | undefined
   let windGrid: Grid | undefined
@@ -105,11 +111,19 @@ export default function App() {
   let isolineTime = 0
   const preparedIsolineFields = new Map<string, Promise<{ grid: Grid; field: PreparedField }>>()
   const isolineLabelCache = new Map<string, Promise<IsolineFeatureCollection | undefined>>()
-  // Meetpunt voor de kostenmeting (track-LOG U8b): contour-passes, blits en label-rondes.
-  ;(window as unknown as { __motregenIsolines: () => object }).__motregenIsolines = () => ({
+  let mapRepaints = 0
+  const isolineCounters = (): IsolineCounters => ({
     ...isolineLayer?.stats,
+    repaints: mapRepaints,
+    rainUploads: layer?.uploads ?? 0,
+    rainDraws: rainOverlay?.draws ?? 0,
+    windDraws: windOverlay?.draws ?? 0,
     labelRounds: isolineLabelRounds,
     labels: isolineLabels?.count ?? 0,
+  })
+  // Meetpunt voor de kostenmeting (track-LOGs U8b/U8c): repaints, contour-passes, blits, label-rondes.
+  ;(window as unknown as { __motregenIsolines: () => object }).__motregenIsolines = () => ({
+    ...isolineCounters(),
     bench: (passes: number, resolution?: number) => isolineLayer?.bench(passes, resolution),
   })
   let lastMapPointer = 'mouse'
@@ -245,6 +259,7 @@ export default function App() {
       map.on('resize', applyMapContainLimit)
       syncSavedMarkers(savedPlaces())
       map.on('style.load', () => attachMapLayers(header.grid))
+      map.on('render', () => { mapRepaints++ })
       map.on('moveend', rememberMapView)
       map.on('zoomend', () => void showTemperature())
       map.on('moveend', () => { isolineLabels?.requestSpawn(); updateIsolineLabels() })
@@ -269,6 +284,8 @@ export default function App() {
     isolineLabels?.clear()
     cancelPointLoad(pointLoad)
     for (const savedMarker of savedMarkers) savedMarker.remove()
+    rainOverlay?.remove()
+    windOverlay?.remove()
     map?.remove()
   })
 
@@ -458,7 +475,7 @@ export default function App() {
   }
 
   function attachMapLayers(grid: Grid): void {
-    if (!map || map.getLayer('motregen-rain')) return
+    if (!map || map.getLayer('motregen-grid-outside')) return
     cloudEdgeLayer = undefined
     // uitgezet op PO-verzoek (MIP-4 ronde 7): tinting-implementatie voldoet
     // niet (en stond in dark mode verkeerd om); later iets beters of weglaten
@@ -467,12 +484,11 @@ export default function App() {
       map.addLayer(dayNightLayer)
       dayNightLayer.setEpoch(selectedEpoch())
     }
-    if (windGrid && windTimeline().length) {
-      windLayer = new WindLayer(windGrid, mapTheme(), focusedWindTuning())
-      map.addLayer(windLayer)
-    }
-    layer = new RainLayer(grid)
-    map.addLayer(layer)
+    // Overlays overleven een stijlwissel; de terugval als kaartlaag moet opnieuw in de stijl.
+    if (windGrid && windTimeline().length && !windLayer) mountWind(windGrid)
+    else if (windLayer && !windOverlay && !map.getLayer(windLayer.id)) map.addLayer(windLayer)
+    if (!layer) mountRain(grid)
+    else if (!rainOverlay && !map.getLayer(layer.id)) map.addLayer(layer)
     if (cloudEdgesEnabled()) void attachCloudEdgeLayer()
     if (SUN_ICONS_ENABLED && (radiationTimeline().length || uvTimeline().length)) attachSunLayer()
     if (hasTemperature()) attachTemperatureLayer()
@@ -550,10 +566,11 @@ export default function App() {
     ])
     if (request !== shownFrameRequest || !layer || !map) return
     layer.setFrames(left, right, blend.mix, motion, (rightFrame.epoch - leftFrame.epoch) / 60_000)
+    const afterRainDraw = (callback: () => void) => rainOverlay ? rainOverlay.once(callback) : map!.once('render', callback)
     if (!mapReady() && !rainReadyPending) {
       const renderedMap = map
       rainReadyPending = true
-      renderedMap.once('render', () => {
+      afterRainDraw(() => {
         rainReadyPending = false
         if (map !== renderedMap) return
         setMapReady(true)
@@ -564,8 +581,8 @@ export default function App() {
         }
       })
     }
-    map.once('render', () => perf.markRainFrameCommitted())
-    map.triggerRepaint()
+    afterRainDraw(() => perf.markRainFrameCommitted())
+    if (!rainOverlay) map.triggerRepaint()
     // De eerste locatiereeks haalt dezelfde chunks direct in bulk op. Losse,
     // overlappende Range-prefetches maken Chromiums sparse HTTP-cache instabiel.
     if (initialPickStarted && pointLoadStage() !== 'initial' && pointLoadStage() !== 'direct' && playing() && !batchPrefetch) {
@@ -599,10 +616,40 @@ export default function App() {
 
   async function attachWindLayer(): Promise<void> {
     await discoverWindGrid()
-    if (!map || !windGrid || !windTimeline().length || map.getLayer('motregen-wind')) return
-    windLayer = new WindLayer(windGrid, mapTheme(), focusedWindTuning())
-    map.addLayer(windLayer, map.getLayer('motregen-rain') ? 'motregen-rain' : undefined)
+    if (!map || !windGrid || !windTimeline().length || windLayer) return
+    mountWind(windGrid)
     await showWind()
+  }
+
+  function mountRain(grid: Grid): void {
+    if (!map) return
+    layer = new RainLayer(grid)
+    try {
+      rainOverlay = new LayerOverlay(map, layer, windOverlay?.canvas ?? map.getCanvas())
+    } catch {
+      rainOverlay = undefined
+      map.addLayer(layer)
+    }
+  }
+
+  function mountWind(grid: Grid): void {
+    if (!map) return
+    const wind = new WindLayer(grid, mapTheme(), focusedWindTuning())
+    windLayer = wind
+    try {
+      // Direct boven de kaartcanvas: onder de regen, zoals vroeger in de lagenstapel.
+      windOverlay = new LayerOverlay(map, wind, map.getCanvas(), () => wind.maxFps)
+    } catch {
+      windOverlay = undefined
+      map.addLayer(wind, map.getLayer('motregen-rain') ? 'motregen-rain' : undefined)
+    }
+  }
+
+  function unmountWind(): void {
+    if (windOverlay) windOverlay.remove()
+    else if (windLayer && map?.getLayer(windLayer.id)) map.removeLayer(windLayer.id)
+    windOverlay = undefined
+    windLayer = undefined
   }
 
   async function showWind(): Promise<void> {
@@ -614,10 +661,10 @@ export default function App() {
       const [left, right] = await Promise.all([loadWind(frames[blend.left]!), loadWind(frames[blend.right]!)])
       if (request !== shownWindRequest || !windLayer || !map) return
       windLayer.setFrames(left, right, blend.mix)
-      map.triggerRepaint()
+      if (windOverlay) windOverlay.triggerRepaint()
+      else map.triggerRepaint()
     } catch {
-      if (request === shownWindRequest && map.getLayer('motregen-wind')) map.removeLayer('motregen-wind')
-      windLayer = undefined
+      if (request === shownWindRequest) unmountWind()
     }
   }
 
@@ -653,6 +700,7 @@ export default function App() {
     if (!map) return
     const context = contextOpacity(value, dim)
     layer?.setOpacity(context)
+    rainOverlay?.triggerRepaint()
     cloudEdgeLayer?.setOpacity(context)
     if (map.getLayer('motregen-sun')) map.setPaintProperty('motregen-sun', 'text-opacity', ['*', ['get', 'opacity'], context])
     isolineLayer?.setOpacity(value * ISOLINE_LINE_OPACITY)
@@ -1421,7 +1469,7 @@ export default function App() {
           <label><span>Label-afstand</span><input type="range" min="30" max="240" step="10" value={labelTuning().minDistancePx} onInput={(event) => setLabelTuning((current) => ({ ...current, minDistancePx: event.currentTarget.valueAsNumber }))} /><output>{labelTuning().minDistancePx} px</output></label>
           <label><span>Label-spatiëring</span><input type="range" min="100" max="600" step="20" value={labelTuning().spacingPx} onInput={(event) => setLabelTuning((current) => ({ ...current, spacingPx: event.currentTarget.valueAsNumber }))} /><output>{labelTuning().spacingPx} px</output></label>
           <label class="debug-toggle"><span>Bicubisch</span><input type="checkbox" checked={isolineTuning().bicubic} onChange={(event) => setIsolineTuning((current) => ({ ...current, bicubic: event.currentTarget.checked }))} /><output>{isolineTuning().bicubic ? 'Aan' : 'Uit'}</output></label>
-          <label><span>Contour-res.</span><input type="range" min="0.25" max="1" step="0.25" value={isolineTuning().resolution} onInput={(event) => setIsolineTuning((current) => ({ ...current, resolution: event.currentTarget.valueAsNumber }))} /><output>{isolineTuning().resolution}×</output></label>
+          <label><span>Contour px/CSS-px</span><input type="range" min="0.25" max="1" step="0.25" value={isolineTuning().resolution} onInput={(event) => setIsolineTuning((current) => ({ ...current, resolution: event.currentTarget.valueAsNumber }))} /><output>{isolineTuning().resolution}×</output></label>
           <label><span>Contour max</span><input type="range" min="5" max="60" step="5" value={isolineTuning().maxHz} onInput={(event) => setIsolineTuning((current) => ({ ...current, maxHz: event.currentTarget.valueAsNumber }))} /><output>{isolineTuning().maxHz} Hz</output></label>
           <label class="debug-toggle"><span>Glad (labels)</span><input type="checkbox" checked={isolineTuning().smoothing} onChange={(event) => setIsolineTuning((current) => ({ ...current, smoothing: event.currentTarget.checked }))} /><output>{isolineTuning().smoothing ? 'Aan' : 'Uit'}</output></label>
           <label><span>Veldblur</span><input type="range" min="0" max="4" step="1" value={isolineTuning().blur} onInput={(event) => setIsolineTuning((current) => ({ ...current, blur: event.currentTarget.valueAsNumber }))} /><output>{isolineTuning().blur}×</output></label>
@@ -1490,7 +1538,7 @@ export default function App() {
         </div>
       </section>
     </aside>
-    <Show when={perfVisible()}><PerfHud monitor={perf} windTuning={windTuning()} onWindTuning={tuneWind} /></Show>
+    <Show when={perfVisible()}><PerfHud monitor={perf} isolines={isolineCounters} windTuning={windTuning()} onWindTuning={tuneWind} /></Show>
   </main>
 }
 

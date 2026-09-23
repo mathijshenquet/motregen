@@ -27,6 +27,8 @@ export interface WindTuning {
   speed: number
   intensity: number
   visibility: number
+  /** Bovengrens voor de kaartrepaint die de wind aanvraagt (120 Hz-schermen renderen anders alles dubbel). */
+  maxFps: number
 }
 
 export const DEFAULT_WIND_TUNING: WindTuning = {
@@ -47,6 +49,7 @@ export const DEFAULT_WIND_TUNING: WindTuning = {
   speed: 1,
   intensity: 1.9,
   visibility: 1,
+  maxFps: 60,
 }
 
 export interface WindTuningControl {
@@ -73,6 +76,7 @@ export const WIND_TUNING_CONTROLS: readonly WindTuningControl[] = [
   { key: 'speed', label: 'Tempo', min: 0.2, max: 3, step: 0.05, unit: '×' },
   { key: 'intensity', label: 'Intensiteit', min: 0, max: 2, step: 0.01, unit: '×' },
   { key: 'visibility', label: 'Contrast', min: 0, max: 3, step: 0.1 },
+  { key: 'maxFps', label: 'Max. fps', min: 10, max: 120, step: 5, unit: 'Hz' },
 ]
 
 const MIN_PARTICLES = 96
@@ -243,6 +247,9 @@ export class WindLayer implements CustomLayerInterface {
   private columns = 1
   private rows = 1
   private previousTime = 0
+  private repaintFrame?: number
+  /** Gezet door een `LayerOverlay`: die tekent de windcanvas zelf (met de fps-grens). */
+  requestRepaint?: () => void
   private frameTotal = 0
   private frameCount = 0
   private particleBounds: ParticleBounds = { west: 0, north: 0, east: 1, south: 1 }
@@ -295,6 +302,8 @@ export class WindLayer implements CustomLayerInterface {
   onRemove(): void {
     const gl = this.gl
     if (!gl) return
+    if (this.repaintFrame !== undefined) cancelAnimationFrame(this.repaintFrame)
+    this.repaintFrame = undefined
     this.map?.off('move', this.viewportChanged)
     this.map?.off('resize', this.viewportChanged)
     for (const buffer of [this.instanceBuffer, this.screenBuffer]) if (buffer) gl.deleteBuffer(buffer)
@@ -337,7 +346,7 @@ export class WindLayer implements CustomLayerInterface {
     if (theme === this.theme) return
     this.theme = theme
     this.clearTrails()
-    this.map?.triggerRepaint()
+    this.repaint()
   }
 
   setTuning(tuning: WindTuning): void {
@@ -349,11 +358,22 @@ export class WindLayer implements CustomLayerInterface {
     this.target = particleCountForViewport(canvas.clientWidth, canvas.clientHeight, tuning.particlesPerMegapixel)
     this.active = this.target
     for (let index = previousActive; index < this.active; index++) this.respawn(index, this.random() * INITIAL_STAGGER_SECONDS)
-    this.map.triggerRepaint()
+    this.repaint()
+  }
+
+  get maxFps(): number {
+    return this.tuning.maxFps
+  }
+
+  private repaint(): void {
+    if (this.requestRepaint) this.requestRepaint()
+    else this.map?.triggerRepaint()
   }
 
   render(context: WebGLRenderingContext | WebGL2RenderingContext, options: CustomRenderMethodInput): void {
     const gl = context as WebGL2RenderingContext
+    // Onzichtbaar: geen frame en geen volgende aanvraag; setTuning/setTheme wekken weer.
+    if (this.tuning.intensity * Math.min(this.tuning.visibility, 1) <= 0) { this.previousTime = 0; return }
     this.ensureTrailTargets()
     if (!this.map || !this.trails || !this.segmentArray || !this.fadeArray || !this.compositeArray || !this.left || !this.right) return
     const now = performance.now()
@@ -421,7 +441,25 @@ export class WindLayer implements CustomLayerInterface {
     gl.bindVertexArray(null)
     if (depthEnabled) gl.enable(gl.DEPTH_TEST)
     if (scissorEnabled) gl.enable(gl.SCISSOR_TEST)
-    this.map.triggerRepaint()
+    if (this.requestRepaint) this.requestRepaint()
+    else this.requestNextFrame(now)
+  }
+
+  /**
+   * Volgende windframe op hooguit `maxFps`: tussenliggende vsyncs krijgen alleen een lege
+   * rAF-callback (geen kaartrender), zodat de hele kaart niet op 120 Hz meedraait.
+   */
+  private requestNextFrame(renderedAt: number): void {
+    if (this.repaintFrame !== undefined) return
+    const interval = 1_000 / this.tuning.maxFps
+    const tick = (time: number) => {
+      this.repaintFrame = undefined
+      if (!this.map) return
+      // Halve vsync speling: bij 60 fps op 120 Hz valt elke tweede vsync net vóór de grens.
+      if (time - renderedAt < interval - 4) { this.repaintFrame = requestAnimationFrame(tick); return }
+      this.map.triggerRepaint()
+    }
+    this.repaintFrame = requestAnimationFrame(tick)
   }
 
   private advance(seconds: number, worldPx: number): void {
@@ -481,8 +519,10 @@ export class WindLayer implements CustomLayerInterface {
     this.frameCount++
     if (this.frameCount < 45) return
     const average = this.frameTotal / this.frameCount
-    if (average > 19 && this.active > MIN_PARTICLES) this.active = Math.max(MIN_PARTICLES, Math.floor(this.active * 0.78))
-    else if (average < 17.2 && this.active < this.target) {
+    // Tegen het eigen framebudget: een bewust lagere maxFps is geen trage GPU.
+    const budget = Math.max(16.7, 1_000 / this.tuning.maxFps)
+    if (average > budget * 1.14 && this.active > MIN_PARTICLES) this.active = Math.max(MIN_PARTICLES, Math.floor(this.active * 0.78))
+    else if (average < budget * 1.03 && this.active < this.target) {
       const previousActive = this.active
       this.active = Math.min(this.target, this.active + Math.max(12, Math.floor(this.target * 0.06)))
       for (let index = previousActive; index < this.active; index++) this.respawn(index, this.random() * INITIAL_STAGGER_SECONDS)

@@ -1,10 +1,11 @@
 import { createSignal, For, onCleanup, onMount, Show } from 'solid-js'
-import type { PerfMonitor, PerfSnapshot } from '../core/perf'
+import { isolineRates, type IsolineCounters, type IsolineRates, type PerfMonitor, type PerfSnapshot } from '../core/perf'
 import { DEFAULT_WIND_TUNING, sanitizeWindTuning, WIND_TUNING_CONTROLS, type WindTuning, type WindTuningControl } from '../core/wind-layer'
 import './PerfHud.css'
 
 interface Props {
   monitor: PerfMonitor
+  isolines?: () => IsolineCounters
   windTuning?: WindTuning
   onWindTuning?: (tuning: WindTuning) => void
 }
@@ -13,8 +14,19 @@ export default function PerfHud(props: Props) {
   const [snapshot, setSnapshot] = createSignal<PerfSnapshot>(props.monitor.snapshot())
   const [copied, setCopied] = createSignal(false)
 
+  const [rates, setRates] = createSignal<IsolineRates>()
+  let counters = props.isolines?.()
+  let countedAt = performance.now()
+
   onMount(() => {
-    const timer = window.setInterval(() => setSnapshot(props.monitor.snapshot()), 500)
+    const timer = window.setInterval(() => {
+      setSnapshot(props.monitor.snapshot())
+      const next = props.isolines?.()
+      const now = performance.now()
+      if (next && counters) setRates(isolineRates(counters, next, now - countedAt))
+      counters = next
+      countedAt = now
+    }, 1_000)
     onCleanup(() => window.clearInterval(timer))
   })
 
@@ -45,6 +57,12 @@ export default function PerfHud(props: Props) {
       <div><dt>Scrub p50 / p95</dt><dd>{milliseconds(metric().scrub.p50Ms)} / {milliseconds(metric().scrub.p95Ms)}</dd></div>
       <div><dt>FPS</dt><dd>{metric().fps?.toFixed(1) ?? '—'}</dd></div>
       <div><dt>Manifest</dt><dd>{age(metric().manifestAgeMs)}</dd></div>
+      <Show when={rates()}>{(rate) => <>
+        <div><dt>Kaart</dt><dd data-testid="perf-repaints">{rate().repaintsPerSecond.toFixed(0)} repaints/s</dd></div>
+        <div><dt>Regen · wind</dt><dd>{rate().rainDrawsPerSecond.toFixed(0)} · {rate().windDrawsPerSecond.toFixed(0)} frames/s · {rate().rainUploadsPerSecond.toFixed(1)} uploads/s</dd></div>
+        <div><dt>Isolijnen</dt><dd data-testid="perf-isolines">{rate().passesPerSecond.toFixed(1)} passes/s · {passCost(rate())} · {rate().labels} labels</dd></div>
+        <div><dt>Isolijnen blit</dt><dd>{rate().compositeMs === null ? '—' : `${rate().compositeMs!.toFixed(2)} ms${rate().timing === 'cpu' ? ' (cpu)' : ''}`} · {rate().passPixels === null ? '—' : `${(rate().passPixels! / 1e6).toFixed(2)} Mpx/pass`}</dd></div>
+      </>}</Show>
     </dl>
     <table>
       <thead><tr><th>Netwerk</th><th>req</th><th>bytes</th></tr></thead>
@@ -79,6 +97,11 @@ async function copyText(text: string): Promise<void> {
     document.execCommand('copy')
     area.remove()
   }
+}
+
+function passCost(rate: IsolineRates): string {
+  if (rate.passMs === null) return '— ms/pass'
+  return `${rate.passMs.toFixed(2)} ms/pass${rate.timing === 'cpu' ? ' (cpu)' : ''}`
 }
 
 function milliseconds(value: number | null): string {

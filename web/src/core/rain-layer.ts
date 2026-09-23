@@ -85,6 +85,11 @@ export class RainLayer implements CustomLayerInterface {
   private lut?: WebGLTexture
   private motion?: WebGLTexture
   private motionMask?: WebGLTexture
+  private leftData?: Uint8Array
+  private rightData?: Uint8Array
+  private motionData?: MotionField
+  /** Texture-uploads (regenframes + motion); tijdens afspelen alleen bij een nieuw framepaar. */
+  uploads = 0
   private mix = 0
   private opacity = 1
   private hasMotion = false
@@ -95,6 +100,7 @@ export class RainLayer implements CustomLayerInterface {
   onAdd(_map: MapLibreMap, context: WebGLRenderingContext | WebGL2RenderingContext): void {
     const gl = context as WebGL2RenderingContext
     this.gl = gl
+    this.leftData = this.rightData = this.motionData = undefined
     this.program = link(gl, vertexSource, fragmentSource)
     this.buffer = gl.createBuffer()!
     const west = this.grid.x0
@@ -122,9 +128,20 @@ export class RainLayer implements CustomLayerInterface {
 
   setFrames(left: Uint8Array, right: Uint8Array, mix: number, motion?: MotionField, intervalMinutes = 0): void {
     if (!this.gl || !this.left || !this.right) return
-    uploadRain(this.gl, this.left, this.grid, left)
-    uploadRain(this.gl, this.right, this.grid, right)
-    if (motion && this.motion && this.motionMask) uploadMotion(this.gl, this.motion, this.motionMask, motion)
+    // Afspelen zet dit op elke frame; een upload kost op Apple-GPU's een CPU-swizzle in het
+    // GPU-proces (PO-profiel U8c), dus alleen uploaden wat echt nieuw is.
+    const plan = planRainUploads({ left: this.leftData, right: this.rightData }, { left, right })
+    if (plan.swap) {
+      [this.left, this.right] = [this.right, this.left];
+      [this.leftData, this.rightData] = [this.rightData, this.leftData]
+    }
+    if (plan.left) { uploadRain(this.gl, this.left, this.grid, left); this.leftData = left; this.uploads++ }
+    if (plan.right) { uploadRain(this.gl, this.right, this.grid, right); this.rightData = right; this.uploads++ }
+    if (motion && motion !== this.motionData && this.motion && this.motionMask) {
+      uploadMotion(this.gl, this.motion, this.motionMask, motion)
+      this.motionData = motion
+      this.uploads++
+    }
     this.mix = mix
     this.hasMotion = motion !== undefined
     this.intervalMinutes = intervalMinutes
@@ -160,6 +177,14 @@ export class RainLayer implements CustomLayerInterface {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   }
+}
+
+/** Welke regentextures opnieuw moeten; `swap` als het nieuwe linkerframe het oude rechter is. */
+export function planRainUploads<T>(current: { left?: T; right?: T }, next: { left: T; right: T }): { swap: boolean; left: boolean; right: boolean } {
+  const swap = next.left !== current.left && next.left === current.right
+  const left = swap ? current.right : current.left
+  const right = swap ? current.left : current.right
+  return { swap, left: next.left !== left, right: next.right !== right }
 }
 
 function mercator(x: number, y: number): MercatorCoordinate {

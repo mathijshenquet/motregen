@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { encodeMotionTexture, motionWarpStrength, neutralizeNoData, packRainTexture, rainColormap, WARP_CAP_CELLS } from './rain-layer'
+import { encodeMotionTexture, motionWarpStrength, neutralizeNoData, packRainTexture, planRainUploads, rainColormap, WARP_CAP_CELLS } from './rain-layer'
 
 describe('rain rendering transitions', () => {
   it('keeps a blue hue while alpha rises continuously from dry into drizzle', () => {
@@ -32,5 +32,14 @@ describe('rain rendering transitions', () => {
     expect(motionWarpStrength(WARP_CAP_CELLS)).toBe(1)
     expect(motionWarpStrength(20) * 20).toBeLessThanOrEqual(WARP_CAP_CELLS)
     expect(motionWarpStrength(30)).toBe(0)
+  })
+
+  it('uploads a rain frame only when the pair changes, and swaps when playback steps forward', () => {
+    const [a, b, c] = ['a', 'b', 'c']
+    expect(planRainUploads({}, { left: a, right: b })).toEqual({ swap: false, left: true, right: true })
+    expect(planRainUploads({ left: a, right: b }, { left: a, right: b })).toEqual({ swap: false, left: false, right: false })
+    expect(planRainUploads({ left: a, right: b }, { left: b, right: c })).toEqual({ swap: true, left: false, right: true })
+    expect(planRainUploads({ left: a, right: b }, { left: c, right: a })).toEqual({ swap: false, left: true, right: true })
+    expect(planRainUploads({ left: a, right: b }, { left: b, right: b })).toEqual({ swap: true, left: false, right: true })
   })
 })

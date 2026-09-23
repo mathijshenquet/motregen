@@ -22,7 +22,7 @@ export interface IsolineTuning {
   maxHz: number
 }
 
-export const DEFAULT_ISOLINE_TUNING: IsolineTuning = { step: 1, dashed: true, smoothing: true, blur: 2, window: 1, bicubic: true, resolution: 0.5, maxHz: 20 }
+export const DEFAULT_ISOLINE_TUNING: IsolineTuning = { step: 1, dashed: true, smoothing: true, blur: 2, window: 1, bicubic: true, resolution: 0.5, maxHz: 10 }
 
 export const ISOLINE_WINDOWS = [0, 1] as const
 
