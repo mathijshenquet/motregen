@@ -24,7 +24,6 @@ interface Props {
   rows: HourlyForecastRow[]
   series: ForecastSeries
   location: { lng: number; lat: number }
-  temperatureField: 'temp_c' | 'feels_like_c'
   columns: { weather: boolean; uv: boolean; temperature: boolean; humidity: boolean; wind: boolean }
   // Rows after this epoch have not been fetched yet; scrolling near them asks for them.
   loadedUntil: number
@@ -70,7 +69,7 @@ export default function ForecastTable(props: Props) {
       <th>Uur</th>
       <Show when={props.columns.weather}><th class="weather-heading">Weer</th></Show>
       <Show when={props.columns.uv}><th class="uv-heading" title="UV-index; ≈ = schatting uit modelstraling en zonshoogte">UV</th></Show>
-      <Show when={props.columns.temperature}><th>{props.temperatureField === 'feels_like_c' ? 'Gevoel' : 'Temp.'}</th></Show>
+      <Show when={props.columns.temperature}><th>Gevoel</th></Show>
       <Show when={props.columns.humidity}><th>RV</th></Show>
       <Show when={props.columns.wind}><th>Wind</th></Show>
       <th>Regen</th>
@@ -91,9 +90,9 @@ export default function ForecastTable(props: Props) {
       const value = (series: Array<number | null>, index: number | null) => index == null ? null : series[index] ?? null
       const rain = () => value(props.series.rain, row.rainIndex)
       const cloud = () => value(props.series.cloud, row.cloudIndex)
-      const temperature = () => props.temperatureField === 'feels_like_c'
-        ? value(props.series.feelsLike, row.feelsLikeIndex)
-        : value(props.series.temperature, row.temperatureIndex)
+      const feelsLike = () => value(props.series.feelsLike, row.feelsLikeIndex)
+      const temperature = () => value(props.series.temperature, row.temperatureIndex)
+      const degrees = (reading: number | null) => reading == null ? placeholder() : `${Math.round(reading)}°`
       const humidity = () => value(props.series.humidity, row.humidityIndex)
       const wind = () => summarizeWind(value(props.series.windU, row.windUIndex), value(props.series.windV, row.windVIndex))
       const icon = () => deriveWeatherIcon(rain(), cloud(), elevation(row.epoch) > 0)
@@ -137,7 +136,7 @@ export default function ForecastTable(props: Props) {
               {uvText()}
             </td>
           </Show>
-          <Show when={props.columns.temperature}><td class="temperature-cell">{temperature() == null ? placeholder() : `${Math.round(temperature()!)}°`}</td></Show>
+          <Show when={props.columns.temperature}><td class="temperature-cell">{degrees(feelsLike())}<small class="air-temperature" title="Luchttemperatuur">{degrees(temperature())}</small></td></Show>
           <Show when={props.columns.humidity}><td>{humidity() == null ? placeholder() : `${Math.round(humidity()!)}%`}</td></Show>
           <Show when={props.columns.wind}><td class="wind-cell"><Show when={wind()} fallback={placeholder()}>{(summary) =>
             <span title={`${summary().speed.toLocaleString('nl-NL', { maximumFractionDigits: 1 })} m/s`}>{summary().direction} · {summary().beaufort} Bft</span>

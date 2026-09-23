@@ -43,34 +43,50 @@ frontend-pictogramafleiding, conform MIP-4 ronde 4.
 
 ## Gevoelstemperatuur
 
-De afleiding gebeurt per cel vóór kwantisatie:
+Definitie volgens MIP-10. De afleiding gebeurt per cel vóór kwantisatie, met
+`T` de 2m-temperatuur in °C, `RH` de 2m-relatieve vochtigheid en `v =
+sqrt(u²+v²)` de 10m-windsnelheid in m/s.
 
-1. Bij `T ≤ 10 °C` en windsnelheid `v > 4,8 km/u` gebruikt de ingest de
-   JAG/TI-windchill:
+1. **`T ≤ 10 °C`: KNMI-windchill (JAG/TI).** Bij `v ≥ 1,3 m/s`:
 
-   `W = 13,12 + 0,6215T − 11,37v^0,16 + 0,3965T v^0,16`
+   `G = 13,12 + 0,6215T − 11,37(3,6v)^0,16 + 0,3965T(3,6v)^0,16`
 
-   Hier is `T` in °C en `v = 3,6·sqrt(u²+v²)` in km/u. Dit is de formule en
-   geldigheidsgrens van de door Environment and Climate Change Canada
-   gedocumenteerde windchill-index.
-2. Bij `T ≥ 26,7 °C` en relatieve vochtigheid `RH ≥ 40%` gebruikt de ingest
-   de NOAA/NWS-hitte-index. Eerst wordt Steadmans eenvoudige schatting
-   berekend; wanneer het gemiddelde daarvan met de luchttemperatuur minstens
-   80 °F is, volgt Rothfusz' regressie:
+   Bij `v < 1,3 m/s` is gevoel gelijk aan `T`. Formule, windhoogte (10 m,
+   de exponent 0,16 herleidt naar 1,5 m) en geldigheid (−46 tot +10 °C, wind
+   1,3–49,0 m/s) staan in KNMI TR-309 §2.3 (vgl. 2.3), het KNMI-rapport
+   waarmee KNMI in 2009 op JAG/TI overging.
+2. **`T ≥ 15 °C`: Steadman apparent temperature, BoM-vorm zonder straling.**
 
-   `HI = −42,379 + 2,0490153T + 10,14333127RH − 0,22475541T·RH`
+   `AT = T + 0,33e − 0,70v − 4,00`, met dampdruk
+   `e = RH · 6,105 · exp(17,27T / (237,7 + T))` in hPa (RH als fractie).
 
-   `     − 0,00683783T² − 0,05481717RH² + 0,00122874T²·RH`
+   Wind is ook hier de 10m-wind, zoals BoM voorschrijft.
+3. **`10 < T < 15 °C`: lineaire overgang** tussen beide:
+   `(1 − w)·G + w·AT` met `w = (T − 10)/5`.
 
-   `     + 0,00085282T·RH² − 0,00000199T²·RH²`
+No-data in temperatuur, vochtigheid of een windcomponent blijft no-data.
 
-   `T` en `HI` staan in °F en `RH` in procenten. De gedocumenteerde lage-RH-
-   en hoge-RH-correcties worden eveneens toegepast; het resultaat wordt naar
-   °C teruggerekend.
-3. Buiten die domeinen is gevoelstemperatuur gelijk aan de 2m-temperatuur.
-   No-data in temperatuur, vochtigheid of een windcomponent blijft no-data.
+**Afwijking van "zoals KNMI", bewust.** KNMI publiceert alleen de winter-
+gevoelstemperatuur (JAG/TI). Voor warm weer heeft KNMI geen gevoelstemperatuur
+maar de hittekracht-index (0–10, op WBGT-basis), die zich niet laat vergelijken
+met een temperatuur. Tak 2 is daarom de Steadman/BoM-vorm uit MIP-10 en geen
+KNMI-definitie. Tak 3 staat niet in MIP-10. Een harde overgang op 10 °C geeft bij
+gangbare wind en RH een sprong van tot ruim 2 °C (1,4 °C bij 3 m/s en RH 80 %; 2,2 °C bij RH 60 %). Dat botst
+met MIP-10's continuïteitseis (≤ 1 °C). De band houdt KNMI exact tot en met
+10 °C en BoM exact vanaf 15 °C. Neveneffect: bij harde wind (≳ 10 m/s) in
+droge lucht blijft gevoel binnen de band ongeveer vlak, met een helling tot
+−0,1 °C per °C. Dat volgt uit het verschil tussen beide formules en is
+getest.
 
-Bronnen: [Environment and Climate Change Canada — Wind chill index](https://www.canada.ca/en/environment-climate-change/services/weather-health/wind-chill-cold-weather/wind-chill-index.html) en [NOAA/NWS Weather Prediction Center — Heat Index Equation](https://www.wpc.ncep.noaa.gov/html/heatindex_equation.shtml).
+Tot MIP-10 gebruikte de ingest windchill alleen bij `T ≤ 10 °C` en de NOAA-
+hitte-index alleen bij `T ≥ 26,7 °C`. Daartussen was gevoel gelijk aan `T`,
+dus het grootste deel van het Nederlandse jaar.
+
+Bronnen: [KNMI TR-309, Wind chill equivalente temperatuur (WCET), KNMI
+implementatie JAG/TI-methode](https://cdn.knmi.nl/knmi/pdf/bibliotheek/knmipubTR/TR309.pdf);
+[KNMI — Gevoelstemperatuur (windchill)](https://www.knmi.nl/kennis-en-datacentrum/uitleg/gevoelstemperatuur-windchill);
+[KNMI — Hittekracht](https://www.knmi.nl/kennis-en-datacentrum/uitleg/hittekracht);
+[Bureau of Meteorology — Thermal comfort observations](https://www.bom.gov.au/info/thermal_stress/).
 
 ## UV
 
