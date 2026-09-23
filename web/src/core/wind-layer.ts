@@ -20,7 +20,7 @@ export interface WindTuning {
   maxAge: number
   spawnBalance: number
   bufferFade: number
-  bufferScale: number
+  bufferDpr: number
   headIntensity: number
   lineWidth: number
   speed: number
@@ -34,10 +34,12 @@ export const DEFAULT_WIND_TUNING: WindTuning = {
   fadeInPx: 15,
   fadeOutPx: 30,
   maxAge: 6,
-  spawnBalance: 0,
+  spawnBalance: -0.6,
   // 0,955 per frame bij 60 Hz, de fade van vóór U3.
   bufferFade: 0.063,
-  bufferScale: 1,
+  // Buffer nooit fijner dan 1,5 device-px per CSS-px: op een Pixel 5 (DPR 2,75)
+  // kostten fade + composite op volle resolutie ~1 s warme TTFR in de 4G-gate.
+  bufferDpr: 1.5,
   headIntensity: 0.95,
   lineWidth: 2.5,
   speed: 1,
@@ -60,9 +62,9 @@ export const WIND_TUNING_CONTROLS: readonly WindTuningControl[] = [
   { key: 'fadeInPx', label: 'Fade-in', min: 0, max: 150, step: 1, unit: 'px' },
   { key: 'fadeOutPx', label: 'Fade-out', min: 0, max: 150, step: 1, unit: 'px' },
   { key: 'maxAge', label: 'Max. leeftijd', min: 0.5, max: 20, step: 0.1, unit: 's' },
-  { key: 'spawnBalance', label: 'Spawnbalans', min: 0, max: 1, step: 0.05 },
+  { key: 'spawnBalance', label: 'Spawnbalans', min: -1, max: 1, step: 0.05 },
   { key: 'bufferFade', label: 'Buffer-rest', min: 0.001, max: 0.6, step: 0.001, unit: '/s' },
-  { key: 'bufferScale', label: 'Bufferresolutie', min: 0.5, max: 1, step: 0.5, unit: '×' },
+  { key: 'bufferDpr', label: 'Buffer-DPR max', min: 0.5, max: 4, step: 0.25, unit: '×' },
   { key: 'headIntensity', label: 'Kopintensiteit', min: 0, max: 1, step: 0.01 },
   { key: 'lineWidth', label: 'Lijnbreedte', min: 0.5, max: 8, step: 0.05, unit: 'dpx' },
   { key: 'speed', label: 'Tempo', min: 0.2, max: 3, step: 0.05, unit: '×' },
@@ -519,7 +521,8 @@ export class WindLayer implements CustomLayerInterface {
   private ensureTrailTargets(): void {
     if (!this.map || !this.gl) return
     const canvas = this.map.getCanvas()
-    const [width, height] = trailTargetSize(canvas.width, canvas.height, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number, this.tuning.bufferScale)
+    const scale = Math.min(1, this.tuning.bufferDpr / Math.max(1e-3, this.map.getPixelRatio()))
+    const [width, height] = trailTargetSize(canvas.width, canvas.height, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number, scale)
     if (width === this.trailWidth && height === this.trailHeight && this.trails) return
     this.deleteTrailTargets()
     this.trailWidth = width
@@ -612,13 +615,17 @@ export function expectedLifetime(speedPx: number, tuning: Pick<WindTuning, 'trai
 }
 
 /**
- * Spawnkans. In het buffermodel legt iedere particle ~dezelfde inkt neer
- * (afstand × breedte × buffertijd), dus uniforme spawn (balans 0) geeft inkt
- * per oppervlak die niet van windsnelheid afhangt. Balans 1 maakt de
- * koppendichtheid uniform; dan groeit de inkt met de snelheid.
+ * Spawnkans ∝ levensduur^−balans. In het buffermodel legt iedere particle
+ * ~dezelfde inkt neer (afstand × breedte × buffertijd), dus balans 0 (uniforme
+ * spawn) geeft in theorie snelheidsonafhankelijke inkt. Balans 1 maakt de
+ * koppendichtheid uniform (U3-gedrag); een negatieve balans dunt harde wind
+ * uit, tegen de zichtbare drukte van lange, niet-overlappende zeestrepen.
  */
 export function spawnAcceptance(speedPx: number, tuning: Pick<WindTuning, 'trailDistance' | 'maxAge' | 'spawnBalance'>): number {
-  return Math.min(1, SPAWN_REFERENCE_LIFETIME / expectedLifetime(speedPx, tuning)) ** tuning.spawnBalance
+  const lifetime = expectedLifetime(speedPx, tuning)
+  return tuning.spawnBalance >= 0
+    ? Math.min(1, SPAWN_REFERENCE_LIFETIME / lifetime) ** tuning.spawnBalance
+    : (lifetime / tuning.maxAge) ** -tuning.spawnBalance
 }
 
 /**

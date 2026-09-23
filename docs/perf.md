@@ -34,8 +34,9 @@ set om terug te sturen.
 
 ## Windlaag
 
-Sinds track U3b tekent de windlaag weer in een trailbuffer (ping-pong-FBO op
-canvasresolutie, knop *Bufferresolutie* 0,5× halveert hem per as): per frame
+Sinds track U3b tekent de windlaag weer in een trailbuffer (ping-pong-FBO,
+hooguit 1,5 device-px per CSS-px via de knop *Buffer-DPR max*; op volle
+Pixel 5-resolutie kostte hij ~1 s warme TTFR in de 4G-gate): per frame
 één fullscreen fadepass, dan per particle één instanced, analytisch
 gefeatherd segment van de vorige naar de huidige kop, en één fullscreen
 compositepass. De staart is dus buffer, niet geometrie. De fade is een rest
@@ -44,7 +45,10 @@ afhangt; de vloer tegen 8-bit-ghosts (t3i) blijft. Het leven is in CSS-px:
 iedere particle legt ~*Afstand per leven* af, de kop faded in over de eerste
 en uit over de laatste pixels, waarna de buffer de staart laat uitsterven.
 Omdat iedere particle zo ongeveer dezelfde inkt neerlegt, geeft uniforme
-spawn (*Spawnbalans* 0) inkt per oppervlak die niet van windsnelheid afhangt.
+spawn (*Spawnbalans* 0) in theorie inkt per oppervlak die niet van
+windsnelheid afhangt; gemeten bleef zee dan tot 1,2–1,5× land (lange,
+niet-overlappende zeestrepen), dus de default −0,6 dunt harde wind uit.
+*Lijnbreedte* is in device-px, zoals vóór U3.
 
 Twee meetscripts horen erbij, beide tegen een draaiende preview
 (`MOTREGEN_DATA_ORIGIN=https://motregen.nl/data pnpm preview`):

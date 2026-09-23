@@ -130,6 +130,19 @@ describe('wind spawn balance', () => {
     expect(ink).toBeGreaterThan(3)
   })
 
+  it('negative balance thins out fast wind, lowering its share of the ink', () => {
+    const neutral = spawnWorld(0)
+    const thinned = spawnWorld(-0.5)
+    expect(thinned.ink).toBeLessThan(0.85 * neutral.ink)
+    for (const balance of [-1, -0.5, 0, 0.5, 1]) {
+      for (const speedPx of [0, 10, 100, 1_000]) {
+        const acceptance = spawnAcceptance(speedPx, { ...DEFAULT_WIND_TUNING, spawnBalance: balance })
+        expect(acceptance).toBeGreaterThan(0)
+        expect(acceptance).toBeLessThanOrEqual(1)
+      }
+    }
+  })
+
   it('avoids spawning where there is no wind data unless every candidate lacks it', () => {
     let state = 7
     const random = () => (state = (state * 16_807) % 2_147_483_647) / 2_147_483_647
