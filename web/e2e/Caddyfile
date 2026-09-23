@@ -3,7 +3,7 @@
 	admin off
 }
 
-:8185 {
+:{$MOTREGEN_E2E_DATA_PORT:8185} {
 	root * public/data
 	header {
 		Access-Control-Allow-Origin "*"

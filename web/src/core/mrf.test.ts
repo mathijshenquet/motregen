@@ -294,4 +294,30 @@ describe('mrf v0', () => {
     expect(steps.some((step) => step.loaded < indexes.length && step.deliveredParts < partCount)).toBe(true)
     expect(loaded.size).toBe(indexes.length)
   })
+
+  it('reports every decoded frame, whichever consumer requested it', async () => {
+    class DecodeWorker {
+      onmessage?: (event: MessageEvent) => void
+      postMessage(message: { id: number; bytes: ArrayBuffer; expectedLength: number }): void {
+        const frame = decodeFrame(new Uint8Array(message.bytes), message.expectedLength)
+        queueMicrotask(() => this.onmessage?.({ data: { id: message.id, frame: frame.slice().buffer } } as MessageEvent))
+      }
+    }
+    vi.stubGlobal('Worker', DecodeWorker)
+    vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
+      const bytes = files.get(new URL(String(input)).pathname.replace('/data/', ''))!
+      const match = /^bytes=(\d+)-(\d+)$/.exec(new Headers(init?.headers).get('Range')!)!
+      return new Response(Uint8Array.from(bytes.subarray(Number(match[1]), Number(match[2]) + 1)).buffer, { status: 206 })
+    })
+    const client = new MrfClient(new URL('https://example.test/data/manifest.json'))
+    const decoded: string[] = []
+    client.onFrameDecoded = (url, frameIndex) => decoded.push(`${url.split('/').at(-1)}#${frameIndex}`)
+    const chunk = manifest.chunks[0]!
+
+    await client.getFrame(chunk, 0)
+    await client.getFrames(chunk, [1, 2], 'low')
+    await client.getFrame(chunk, 0)
+
+    expect(decoded).toEqual([`${chunk.url.split('/').at(-1)}#0`, `${chunk.url.split('/').at(-1)}#1`, `${chunk.url.split('/').at(-1)}#2`])
+  })
 })

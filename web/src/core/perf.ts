@@ -29,6 +29,100 @@ export interface PerfEnvironment {
 }
 
 const sampleCapacity = 256
+const loadTraceCapacity = 4_000
+
+export type LoadLayer = 'header' | 'map' | 'motion' | 'prefetch' | 'L0' | 'L1' | 'L2' | 'refresh'
+
+export interface LoadRequestTrace {
+  id: number
+  url: string
+  range: [number, number]
+  priority: string
+  layer: LoadLayer
+  frames: number[]
+  startMs: number
+  responseMs?: number
+  endMs?: number
+  bytes: number
+  error?: string
+}
+
+export interface LoadFrameTrace {
+  url: string
+  frameIndex: number
+  layer: LoadLayer
+  requestId: number | null
+  requestedMs: number
+  bytesReadyMs?: number
+  decodedMs?: number
+}
+
+export type LoadMarkTrace =
+  | { kind: 'schedule'; t: number; layer: LoadLayer; field: string; indexes: number[]; reason: string }
+  | { kind: 'start'; t: number; layer: LoadLayer; field: string; indexes: number[] }
+  | { kind: 'stage'; t: number; stage: string }
+  | { kind: 'rain'; t: number; loaded: number[]; total: number }
+  | { kind: 'timeline'; t: number; now: number; horizonEnd: number; frames: Array<{ url: string; frameIndex: number; epoch: number; source: string }> }
+
+export interface LoadTraceSnapshot {
+  requests: LoadRequestTrace[]
+  frames: LoadFrameTrace[]
+  marks: LoadMarkTrace[]
+}
+
+/** Laadtijdlijn voor het Playwright-laadprofiel (U1); goedkoop genoeg om altijd aan te staan. */
+export class LoadTrace {
+  private readonly requests: LoadRequestTrace[] = []
+  private readonly frames = new Map<string, LoadFrameTrace>()
+  private readonly marks: LoadMarkTrace[] = []
+  private nextId = 0
+
+  constructor(private readonly now: () => number) {}
+
+  request(url: string, range: [number, number], priority: string, layer: LoadLayer, frames: number[]): LoadRequestTrace {
+    const trace: LoadRequestTrace = { id: ++this.nextId, url, range, priority, layer, frames, startMs: this.now(), bytes: 0 }
+    if (this.requests.length < loadTraceCapacity) this.requests.push(trace)
+    for (const frameIndex of frames) this.frame(url, frameIndex, layer).requestId ??= trace.id
+    return trace
+  }
+
+  response(trace: LoadRequestTrace): void { trace.responseMs = this.now() }
+  received(trace: LoadRequestTrace, bytes: number): void { trace.bytes += bytes }
+  finished(trace: LoadRequestTrace, error?: unknown): void {
+    trace.endMs = this.now()
+    if (error !== undefined) trace.error = error instanceof Error ? error.message : String(error)
+  }
+
+  frame(url: string, frameIndex: number, layer: LoadLayer): LoadFrameTrace {
+    const key = `${url}#${frameIndex}`
+    let trace = this.frames.get(key)
+    if (!trace) {
+      trace = { url, frameIndex, layer, requestId: null, requestedMs: this.now() }
+      if (this.frames.size < loadTraceCapacity) this.frames.set(key, trace)
+    }
+    return trace
+  }
+
+  frameBytesReady(url: string, frameIndex: number): void {
+    const trace = this.frames.get(`${url}#${frameIndex}`)
+    if (trace) trace.bytesReadyMs ??= this.now()
+  }
+
+  frameDecoded(url: string, frameIndex: number): void {
+    const trace = this.frames.get(`${url}#${frameIndex}`)
+    if (trace) trace.decodedMs ??= this.now()
+  }
+
+  mark(mark: DistributiveOmit<LoadMarkTrace, 't'>): void {
+    if (this.marks.length < loadTraceCapacity) this.marks.push({ ...mark, t: this.now() } as LoadMarkTrace)
+  }
+
+  snapshot(): LoadTraceSnapshot {
+    return { requests: this.requests.map((trace) => ({ ...trace })), frames: [...this.frames.values()].map((trace) => ({ ...trace })), marks: [...this.marks] }
+  }
+}
+
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
 export class PerfMonitor {
   private ttfrMs: number | null = null
@@ -41,8 +135,11 @@ export class PerfMonitor {
   private fpsWindowStart: number | null = null
   private fpsFrames = 0
   private fpsValue: number | null = null
+  readonly loads: LoadTrace
 
-  constructor(private readonly environment: PerfEnvironment) {}
+  constructor(private readonly environment: PerfEnvironment) {
+    this.loads = new LoadTrace(environment.now)
+  }
 
   start(): void {
     if (this.frameHandle !== null) return

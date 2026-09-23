@@ -9,3 +9,4 @@ target/
 .venv/
 target/
 __pycache__/
+web/e2e/profiles/

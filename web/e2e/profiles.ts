@@ -1,4 +1,4 @@
-import { devices, type PlaywrightTestConfig } from '@playwright/test'
+import { devices, type CDPSession, type PlaywrightTestConfig } from '@playwright/test'
 
 export interface PerformanceProfile {
   id: 'desktop' | 'mobile-4g' | 'mobile-fast-3g'
@@ -72,4 +72,21 @@ export function performanceProfile(projectName: string): PerformanceProfile {
   const profile = performanceProfiles.find((candidate) => candidate.id === projectName)
   if (!profile) throw new Error(`Onbekend performanceprofiel: ${projectName}`)
   return profile
+}
+
+export async function applyEmulation(cdp: CDPSession, profile: PerformanceProfile): Promise<void> {
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: profile.cpuThrottleRate })
+  await cdp.send('Network.setCacheDisabled', { cacheDisabled: false })
+  if (!profile.network) return
+  const conditions = {
+    offline: false,
+    latency: profile.network.latency,
+    downloadThroughput: profile.network.downloadThroughput,
+    uploadThroughput: profile.network.uploadThroughput,
+    connectionType: profile.network.connectionType,
+  } as const
+  await cdp.send('Network.overrideNetworkState', conditions)
+  await cdp.send('Network.emulateNetworkConditionsByRule', {
+    matchedNetworkConditions: [{ urlPattern: '', ...conditions }],
+  })
 }
