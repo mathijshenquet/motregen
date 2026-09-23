@@ -4,7 +4,7 @@ import HistogramScrubber from './components/HistogramScrubber'
 import LocationSearch from './components/LocationSearch'
 import PerfHud from './components/PerfHud'
 import WeatherIcon from './components/WeatherIcon'
-import { firstBasemapTextLayerId, loadBasemapStyle, type MapTheme } from './core/basemap'
+import { loadBasemapStyle, temperatureLayerBeforeId, type MapTheme } from './core/basemap'
 import { CloudEdgeLayer } from './core/cloud-edge-layer'
 import type { Grid, Manifest, ManifestChunk, TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
@@ -24,7 +24,7 @@ import { loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastSaved
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
 import { solarElevationSin } from './core/solar'
-import { temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
+import { selectTemperaturePlaces, TEMPERATURE_LABEL_SPACING_PX, temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
 import { buildTimeline, frameBlend, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelinePlaybackRate } from './core/time-model'
 import { uvAdvice } from './core/uv'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
@@ -129,6 +129,7 @@ export default function App() {
   const [cloudEdgesEnabled, setCloudEdgesEnabled] = createSignal(false)
   const [mapReady, setMapReady] = createSignal(false)
   const [splashSlowdown, setSplashSlowdown] = createSignal(storedSplashSlowdown())
+  const [temperatureSpacing, setTemperatureSpacing] = createSignal(TEMPERATURE_LABEL_SPACING_PX)
   const [minimumMapWidthKm, setMinimumMapWidthKm] = createSignal(20)
   const [devMaximumZoom, setDevMaximumZoom] = createSignal(0)
   const [perfVisible, setPerfVisible] = createSignal(new URLSearchParams(window.location.search).get('perf') === '1')
@@ -178,6 +179,7 @@ export default function App() {
       syncSavedMarkers(savedPlaces())
       map.on('style.load', () => attachMapLayers(header.grid))
       map.on('moveend', rememberMapView)
+      map.on('zoomend', () => void showTemperature())
       map.on('click', (event) => pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name))
       if (mapTheme() !== appliedMapTheme) void applyMapTheme(mapTheme())
     } catch (error) {
@@ -521,7 +523,7 @@ export default function App() {
     if (!map || map.getLayer('motregen-temperature')) return
     temperatureLabelKey = ''
     map.addSource('motregen-temperature', { type: 'geojson', data: emptyTemperatureData })
-    const beforeId = firstBasemapTextLayerId(map.getStyle().layers)
+    const beforeId = temperatureLayerBeforeId(map.getStyle().layers)
     map.addLayer(temperatureLayer(mapTheme()), beforeId)
   }
 
@@ -565,8 +567,8 @@ export default function App() {
       ])
       if (request !== shownTemperatureRequest || !map) return
       const source = map.getSource('motregen-temperature') as GeoJSONSource | undefined
-      const labels = temperatureLabels(left, right, leftHeader, rightHeader, blend.mix)
-      const key = labels.features.map((feature) => feature.properties.label).join('|')
+      const labels = temperatureLabels(left, right, leftHeader, rightHeader, blend.mix, selectTemperaturePlaces(map.getZoom(), temperatureSpacing()))
+      const key = labels.features.map((feature) => `${feature.properties.name}:${feature.properties.label}`).join('|')
       if (key !== temperatureLabelKey) {
         temperatureLabelKey = key
         source?.setData(labels)
@@ -1093,6 +1095,7 @@ export default function App() {
           <label class="debug-toggle"><span>Grafiek vult</span><input type="checkbox" checked={progressiveHistogram()} onChange={(event) => setProgressiveHistogram(event.currentTarget.checked)} /><output>{progressiveHistogram() ? 'Skeleton' : 'Wachten'}</output></label>
           <label><span>Min. breedte</span><input type="range" min="5" max="100" step="5" value={minimumMapWidthKm()} onInput={(event) => tuneMapDetail(event.currentTarget.valueAsNumber)} /><output>{minimumMapWidthKm()} km</output></label>
           <p class="wind-debug-note">Maximale kaartzoom: {devMaximumZoom().toFixed(1)}</p>
+          <label><span>Temp-afstand</span><input type="range" min="40" max="200" step="4" value={temperatureSpacing()} onInput={(event) => { setTemperatureSpacing(event.currentTarget.valueAsNumber); void showTemperature() }} /><output>{temperatureSpacing()} px</output></label>
           <label><span>Splash ×</span><input type="range" min="1" max="8" step="0.5" value={splashSlowdown()} onInput={(event) => setSplashSlowdown(event.currentTarget.valueAsNumber)} /><output>{splashSlowdown().toLocaleString('nl-NL', { maximumFractionDigits: 1 })}×</output></label>
           <button class="wind-debug-replay" onClick={replaySplash}>Herhaal splash</button>
         </details>

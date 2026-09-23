@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { StyleSpecification } from 'maplibre-gl'
-import { firstBasemapTextLayerId, prepareBasemapStyle } from './basemap'
+import { firstBasemapTextLayerId, prepareBasemapStyle, temperatureLayerBeforeId } from './basemap'
 
 describe('road-free basemap', () => {
   it('removes transport geometry and names while retaining map context', () => {
@@ -82,5 +82,17 @@ describe('road-free basemap', () => {
       { id: 'places', type: 'symbol', source: 'map', layout: { 'text-field': ['get', 'name'] } },
     ] as StyleSpecification['layers']
     expect(firstBasemapTextLayerId(layers)).toBe('water-labels')
+  })
+
+  it('ranks temperatures above villages and water names but below towns and cities', () => {
+    const layers = [
+      { id: 'water-labels', type: 'symbol', source: 'map', 'source-layer': 'water_name', layout: { 'text-field': ['get', 'name'] } },
+      { id: 'label_other', type: 'symbol', source: 'map', 'source-layer': 'place', filter: ['match', ['get', 'class'], ['city', 'town', 'village'], false, true], layout: { 'text-field': ['get', 'name'] } },
+      { id: 'label_village', type: 'symbol', source: 'map', 'source-layer': 'place', filter: ['==', ['get', 'class'], 'village'], layout: { 'text-field': ['get', 'name'] } },
+      { id: 'label_town', type: 'symbol', source: 'map', 'source-layer': 'place', filter: ['==', ['get', 'class'], 'town'], layout: { 'text-field': ['get', 'name'] } },
+      { id: 'label_city', type: 'symbol', source: 'map', 'source-layer': 'place', filter: ['all', ['==', ['get', 'class'], 'city']], layout: { 'text-field': ['get', 'name'] } },
+    ] as StyleSpecification['layers']
+    expect(temperatureLayerBeforeId(layers)).toBe('label_town')
+    expect(temperatureLayerBeforeId(layers.slice(0, 3))).toBe('water-labels')
   })
 })
