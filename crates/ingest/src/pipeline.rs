@@ -817,6 +817,7 @@ fn linear_quantization_table(start: f32, step: f32) -> Vec<Option<f32>> {
         .collect()
 }
 
+/// Gevoelstemperatuur; definitie, bronnen en de overgangsband: docs/fields.md §Gevoelstemperatuur.
 pub fn feels_like_c(
     temperature_c: f32,
     relative_humidity: f32,
@@ -830,39 +831,34 @@ pub fn feels_like_c(
         return f32::NAN;
     }
     let wind_ms = wind_u_ms.hypot(wind_v_ms);
-    if temperature_c <= 10.0 && wind_ms > 4.8 / 3.6 {
-        let wind_factor = (wind_ms * 3.6).powf(0.16);
-        return 13.12 + 0.6215 * temperature_c - 11.37 * wind_factor
-            + 0.3965 * temperature_c * wind_factor;
+    let blend = ((temperature_c - WIND_CHILL_MAX_C) / FEELS_LIKE_BLEND_C).clamp(0.0, 1.0);
+    if blend == 0.0 {
+        return wind_chill_c(temperature_c, wind_ms);
     }
-    if temperature_c >= 26.7 && relative_humidity >= 0.4 {
-        return heat_index_c(temperature_c, relative_humidity * 100.0);
+    let apparent = apparent_temperature_c(temperature_c, relative_humidity, wind_ms);
+    if blend == 1.0 {
+        return apparent;
     }
-    temperature_c
+    wind_chill_c(temperature_c, wind_ms) * (1.0 - blend) + apparent * blend
 }
 
-fn heat_index_c(temperature_c: f32, relative_humidity_percent: f32) -> f32 {
-    let temperature_f = temperature_c * 1.8 + 32.0;
-    let simple = 0.5
-        * (temperature_f + 61.0 + (temperature_f - 68.0) * 1.2 + relative_humidity_percent * 0.094);
-    if (simple + temperature_f) / 2.0 < 80.0 {
+const WIND_CHILL_MAX_C: f32 = 10.0;
+const WIND_CHILL_MIN_WIND_MS: f32 = 1.3;
+const FEELS_LIKE_BLEND_C: f32 = 5.0;
+
+fn wind_chill_c(temperature_c: f32, wind_ms: f32) -> f32 {
+    if wind_ms < WIND_CHILL_MIN_WIND_MS {
         return temperature_c;
     }
-    let t = temperature_f;
-    let rh = relative_humidity_percent;
-    let mut heat_index = -42.379 + 2.049_015_3 * t + 10.143_332 * rh
-        - 0.224_755_4 * t * rh
-        - 0.006_837_83 * t * t
-        - 0.054_817_17 * rh * rh
-        + 0.001_228_74 * t * t * rh
-        + 0.000_852_82 * t * rh * rh
-        - 0.000_001_99 * t * t * rh * rh;
-    if rh < 13.0 && (80.0..=112.0).contains(&t) {
-        heat_index -= ((13.0 - rh) / 4.0) * ((17.0 - (t - 95.0).abs()) / 17.0).sqrt();
-    } else if rh > 85.0 && (80.0..=87.0).contains(&t) {
-        heat_index += ((rh - 85.0) / 10.0) * ((87.0 - t) / 5.0);
-    }
-    (heat_index - 32.0) / 1.8
+    let wind_factor = (wind_ms * 3.6).powf(0.16);
+    13.12 + 0.6215 * temperature_c - 11.37 * wind_factor + 0.3965 * temperature_c * wind_factor
+}
+
+fn apparent_temperature_c(temperature_c: f32, relative_humidity: f32, wind_ms: f32) -> f32 {
+    let vapour_pressure_hpa = relative_humidity.clamp(0.0, 1.0)
+        * 6.105
+        * (17.27 * temperature_c / (237.7 + temperature_c)).exp();
+    temperature_c + 0.33 * vapour_pressure_hpa - 0.70 * wind_ms - 4.00
 }
 
 fn validate_arome_fields(
@@ -972,12 +968,40 @@ mod tests {
     }
 
     #[test]
-    fn feels_like_uses_wind_chill_heat_index_and_fallback() {
+    fn feels_like_follows_knmi_wind_chill_up_to_ten_degrees() {
         let wind_chill = feels_like_c(-5.0, 0.8, 20.0 / 3.6, 0.0);
         assert!((wind_chill - -11.6).abs() < 0.1);
-        let heat_index = feels_like_c(32.0, 0.7, 0.0, 0.0);
-        assert!((heat_index - 40.4).abs() < 0.2);
-        assert_eq!(feels_like_c(18.0, 0.7, 4.0, 3.0), 18.0);
+        // KNMI TR-309 tabel 3 (JAG/TI): 0 °C bij 10 km/u geeft −3.
+        assert_eq!(feels_like_c(0.0, 0.8, 0.0, 10.0 / 3.6).round(), -3.0);
+        assert_eq!(feels_like_c(4.0, 0.8, 1.0, 0.5), 4.0);
+    }
+
+    #[test]
+    fn feels_like_uses_steadman_apparent_temperature_when_warm() {
+        let apparent = feels_like_c(25.0, 0.6, 0.0, 2.0);
+        assert!((apparent - 25.85).abs() < 0.05, "{apparent}");
+        let muggy = feels_like_c(30.0, 0.8, 1.0, 0.0);
+        assert!(muggy > 34.0, "{muggy}");
+    }
+
+    #[test]
+    fn feels_like_is_continuous_around_ten_degrees() {
+        for relative_humidity in [0.5, 0.7, 0.85, 0.95] {
+            for wind_ms in [0.5, 1.5, 3.0, 5.0, 8.0, 12.0] {
+                let edge = feels_like_c(10.005, relative_humidity, wind_ms, 0.0)
+                    - feels_like_c(9.995, relative_humidity, wind_ms, 0.0);
+                assert!(edge.abs() < 0.05, "rh {relative_humidity} wind {wind_ms}: {edge}");
+                for step in 0..200 {
+                    let temperature = 5.0 + step as f32 * 0.1;
+                    let jump = feels_like_c(temperature + 0.1, relative_humidity, wind_ms, 0.0)
+                        - feels_like_c(temperature, relative_humidity, wind_ms, 0.0);
+                    assert!(
+                        (-0.05..0.3).contains(&jump),
+                        "rh {relative_humidity} wind {wind_ms} at {temperature}: {jump}"
+                    );
+                }
+            }
+        }
     }
 
     #[test]

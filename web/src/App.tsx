@@ -6,7 +6,7 @@ import PerfHud from './components/PerfHud'
 import WeatherIcon from './components/WeatherIcon'
 import { firstBasemapTextLayerId, loadBasemapStyle, type MapTheme } from './core/basemap'
 import { CloudEdgeLayer } from './core/cloud-edge-layer'
-import type { Field, Grid, Manifest, ManifestChunk, TimelineFrame } from './core/contract'
+import type { Grid, Manifest, ManifestChunk, TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
 
 const DAY_NIGHT_ENABLED = false
@@ -37,7 +37,6 @@ const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
 const mapMovementBounds = paddedGeographicBounds(NETHERLANDS_FLANDERS_BOUNDS, { west: 0.05, south: 0.1, east: 0.15, north: 0.1 })
 const themes = ['light', 'system', 'dark'] as const
 type ThemeChoice = typeof themes[number]
-type TemperatureField = Extract<Field, 'temp_c' | 'feels_like_c'>
 type PointLoadStage = 'initial' | 'direct' | 'window' | 'complete'
 type FetchPriority = 'high' | 'low'
 type ForecastIndex = 'uvIndex' | 'temperatureIndex' | 'feelsLikeIndex' | 'humidityIndex' | 'cloudIndex' | 'windUIndex' | 'windVIndex'
@@ -126,7 +125,6 @@ export default function App() {
   const [windVSeries, setWindVSeries] = createSignal<Array<number | null>>([])
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
-  const [temperatureField, setTemperatureField] = createSignal<TemperatureField>('feels_like_c')
   const [windTuning, setWindTuning] = createSignal<WindTuning>({ ...DEFAULT_WIND_TUNING })
   const [cloudEdgesEnabled, setCloudEdgesEnabled] = createSignal(false)
   const [mapReady, setMapReady] = createSignal(false)
@@ -287,7 +285,6 @@ export default function App() {
   createEffect(() => {
     const epoch = selectedEpoch()
     const ready = mapReady()
-    temperatureField()
     dayNightLayer?.setEpoch(epoch)
     if (ready && layer) void showFrame()
     if (!ready) return
@@ -557,7 +554,7 @@ export default function App() {
   }
 
   async function showTemperature(): Promise<void> {
-    const frames = activeTemperatureTimeline()
+    const frames = feelsLikeTimeline()
     if (!frames.length || !map?.getSource('motregen-temperature')) return
     const request = ++shownTemperatureRequest
     const blend = frameBlend(frames, selectedEpoch())
@@ -1048,20 +1045,11 @@ export default function App() {
   const currentHour = createMemo(() => Math.floor((manifest() ? Date.parse(manifest()!.now) : 0) / 3_600_000) * 3_600_000)
   const cursorUv = createMemo(() => seriesValueAt(uvTimeline(), uvSeries(), selectedEpoch(), 30 * 60_000))
   const cursorUvChip = createMemo(() => uvChipLabel(cursorUv()))
-  const hasTemperature = createMemo(() => tempTimeline().length > 0 || feelsLikeTimeline().length > 0)
-  const hasBothTemperatures = createMemo(() => tempTimeline().length > 0 && feelsLikeTimeline().length > 0)
+  const hasTemperature = createMemo(() => feelsLikeTimeline().length > 0)
   const hasWeatherIcons = createMemo(() => cloudTimeline().length > 0)
   const hasWeatherColumn = createMemo(() => hasWeatherIcons() || uvTimeline().length > 0)
   const hasHumidity = createMemo(() => humidityTimeline().length > 0)
   const hasWind = createMemo(() => windUFrames().length > 0 && windVFrames().length > 0)
-  const activeTemperatureField = createMemo<TemperatureField>(() => {
-    if (temperatureField() === 'feels_like_c' && feelsLikeTimeline().length) return 'feels_like_c'
-    if (temperatureField() === 'temp_c' && tempTimeline().length) return 'temp_c'
-    return feelsLikeTimeline().length ? 'feels_like_c' : 'temp_c'
-  })
-  const activeTemperatureTimeline = createMemo(() => {
-    return activeTemperatureField() === 'feels_like_c' ? feelsLikeTimeline() : tempTimeline()
-  })
   const themeMeta = createMemo(() => theme() === 'light'
     ? { icon: '☀', label: 'Licht', next: 'systeem' }
     : theme() === 'system'
@@ -1092,11 +1080,8 @@ export default function App() {
         onSelect={chooseSearch}
         onSelectSaved={chooseSaved}
       />
-      <Show when={hasBothTemperatures()}>
-        <div class="temperature-switch" role="group" aria-label="Temperatuurlaag">
-          <button classList={{ active: temperatureField() === 'temp_c' }} onClick={() => setTemperatureField('temp_c')}>Temperatuur</button>
-          <button classList={{ active: temperatureField() === 'feels_like_c' }} onClick={() => setTemperatureField('feels_like_c')}>Gevoel</button>
-        </div>
+      <Show when={hasTemperature()}>
+        <div class="temperature-caption" title="Kaarttemperaturen zijn gevoelstemperatuur">° gevoel</div>
       </Show>
       <Show when={devMode && windTimeline().length}>
         <details class="wind-debug" open>
@@ -1148,7 +1133,7 @@ export default function App() {
             <thead><tr>
               <th>Uur</th>
               <Show when={hasWeatherColumn()}><th class="weather-heading">Weer</th></Show>
-              <Show when={hasTemperature()}><th>{activeTemperatureField() === 'feels_like_c' ? 'Gevoel' : 'Temp.'}</th></Show>
+              <Show when={hasTemperature()}><th>Gevoel</th></Show>
               <Show when={hasHumidity()}><th>RV</th></Show>
               <Show when={hasWind()}><th>Wind</th></Show>
               <th>Regen</th>
@@ -1157,9 +1142,8 @@ export default function App() {
               const rain = () => row.rainIndex == null ? null : rainSeries()[row.rainIndex]
               const uv = () => row.uvIndex == null ? null : uvSeries()[row.uvIndex]
               const cloud = () => row.cloudIndex == null ? null : cloudSeries()[row.cloudIndex]
-              const temperature = () => activeTemperatureField() === 'feels_like_c'
-                ? row.feelsLikeIndex == null ? null : feelsLikeSeries()[row.feelsLikeIndex]
-                : row.temperatureIndex == null ? null : temperatureSeries()[row.temperatureIndex]
+              const feelsLike = () => row.feelsLikeIndex == null ? null : feelsLikeSeries()[row.feelsLikeIndex]
+              const temperature = () => row.temperatureIndex == null ? null : temperatureSeries()[row.temperatureIndex]
               const humidity = () => row.humidityIndex == null ? null : humiditySeries()[row.humidityIndex]
               const wind = () => summarizeWind(
                 row.windUIndex == null ? null : windUSeries()[row.windUIndex] ?? null,
@@ -1171,7 +1155,7 @@ export default function App() {
               return <tr classList={{ 'current-hour': isNow(), 'past-hour': row.epoch < currentHour() }}>
                 <td><strong>{new Date(row.epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</strong><span classList={{ 'now-label': isNow() }}>{isNow() ? 'Nu' : new Date(row.epoch).toLocaleDateString('nl-NL', { weekday: 'short' })}</span></td>
                 <Show when={hasWeatherColumn()}><td class="weather-cell"><Show when={icon()}>{(model) => <WeatherIcon model={model()} />}</Show><Show when={advice()}>{(label) => <span class="uv-chip table-uv-chip" title={label()}>UV {formatUv(uv())}</span>}</Show></td></Show>
-                <Show when={hasTemperature()}><td class="temperature-cell">{formatTemperature(temperature())}</td></Show>
+                <Show when={hasTemperature()}><td class="temperature-cell">{formatTemperature(feelsLike())}<small class="air-temperature" title="Luchttemperatuur">{formatTemperature(temperature())}</small></td></Show>
                 <Show when={hasHumidity()}><td>{formatHumidity(humidity())}</td></Show>
                 <Show when={hasWind()}><td class="wind-cell"><Show when={wind()} fallback="—">{(value) => <span title={`${value().speed.toLocaleString('nl-NL', { maximumFractionDigits: 1 })} m/s`}>{value().direction} · {value().beaufort} Bft</span>}</Show></td></Show>
                 <td>{formatRain(rain())}<small> mm/u</small></td>
