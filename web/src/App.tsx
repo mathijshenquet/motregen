@@ -18,7 +18,10 @@ import { buildHourlyForecast, isPassiveRow, PASSIVE_FORECAST_HOURS } from './cor
 import { contextOpacity, DEFAULT_FOCUS_TUNING, FocusMode, type FocusTuning } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import type { RefreshState } from './core/freshness'
-import { DEFAULT_ISOLINE_TUNING, emptyIsolineData, ISOLINE_LINE_OPACITY, ISOLINE_STEPS, IsolineWorker, isolineLayers, type IsolineStep, type IsolineTuning } from './core/isolines'
+import { blendFrames, blurField, DEFAULT_ISOLINE_TUNING, ISOLINE_LINE_OPACITY, ISOLINE_STEPS, ISOLINE_WINDOWS, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineStep, type IsolineTuning } from './core/isolines'
+import { DEFAULT_LABEL_TUNING, IsolineLabels, sliceWeights, type IsolineLabelTuning } from './core/isoline-labels'
+import { prepareField, type PreparedField } from './core/isoline-field'
+import { hexColor, IsolineLayer, isolineLayerIndices, type IsolineStyle } from './core/isoline-layer'
 import { cursorAfterTimelineRefresh, isNewerManifest, reconcileTimelineSeries, scheduleManifestRefresh } from './core/manifest-refresh'
 import { constrainView, containView, containZoom, MAP_CONTAIN_BOUNDS } from './core/map-constraint'
 import { mapFrameFromGrid } from './core/map-frame'
@@ -69,6 +72,9 @@ const emptySunData: SunFeatureCollection = { type: 'FeatureCollection', features
 
 export default function App() {
   const devMode = new URLSearchParams(window.location.search).has('dev')
+  // Een gewijzigde symbooltekst is voor MapLibre een nieuw symbool: met fade flitst 16°→17°
+  // weg en weer in. Zonder fade wisselt het label in place; ?labelfade=300 voor de A/B.
+  const labelFadeMs = Number(new URLSearchParams(window.location.search).get('labelfade') ?? 0)
   let mapElement!: HTMLDivElement
   let splashElement!: HTMLDivElement
   let map: maplibregl.Map | undefined
@@ -91,6 +97,21 @@ export default function App() {
   let shownIsolineRequest = 0
   let isolineKey = ''
   let isolineWorker: IsolineWorker | undefined
+  let isolineLayer: IsolineLayer | undefined
+  let isolineLayerKey = ''
+  let isolineLabelRounds = 0
+  let isolineLabels: IsolineLabels | undefined
+  let isolineFields: Array<PreparedField | undefined> = []
+  let isolineTime = 0
+  const preparedIsolineFields = new Map<string, Promise<{ grid: Grid; field: PreparedField }>>()
+  const isolineLabelCache = new Map<string, Promise<IsolineFeatureCollection | undefined>>()
+  // Meetpunt voor de kostenmeting (track-LOG U8b): contour-passes, blits en label-rondes.
+  ;(window as unknown as { __motregenIsolines: () => object }).__motregenIsolines = () => ({
+    ...isolineLayer?.stats,
+    labelRounds: isolineLabelRounds,
+    labels: isolineLabels?.count ?? 0,
+    bench: (passes: number, resolution?: number) => isolineLayer?.bench(passes, resolution),
+  })
   let lastMapPointer = 'mouse'
   let pointRequest = 0
   let styleRequest = 0
@@ -164,6 +185,7 @@ export default function App() {
   const [focus, setFocus] = createSignal(0)
   const [focusPinned, setFocusPinned] = createSignal(false)
   const [isolineCount, setIsolineCount] = createSignal(0)
+  const [labelTuning, setLabelTuning] = createSignal<IsolineLabelTuning>({ ...DEFAULT_LABEL_TUNING })
   const focusMode = new FocusMode(setFocus, focusTuning, () => reducedMotion.matches)
   const isolinesActive = createMemo(() => focus() > 0)
   const focusedWindTuning = createMemo<WindTuning>(() => ({ ...windTuning(), visibility: windTuning().visibility * contextOpacity(focus(), focusTuning().dim) }))
@@ -213,6 +235,7 @@ export default function App() {
         center: [initialView.lng, initialView.lat],
         zoom: initialView.zoom,
         transformConstrain: constrainMapView,
+        fadeDuration: labelFadeMs,
         renderWorldCopies: false,
         attributionControl: false,
       })
@@ -224,6 +247,7 @@ export default function App() {
       map.on('style.load', () => attachMapLayers(header.grid))
       map.on('moveend', rememberMapView)
       map.on('zoomend', () => void showTemperature())
+      map.on('moveend', () => { isolineLabels?.requestSpawn(); updateIsolineLabels() })
       map.on('click', (event) => pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name))
       // Na een tap vuurt de browser compatibiliteits-muisevents; die mogen geen hover worden.
       mapElement.addEventListener('pointermove', (event) => { lastMapPointer = event.pointerType }, { capture: true })
@@ -242,6 +266,7 @@ export default function App() {
     stopManifestRefresh?.()
     focusMode.dispose()
     isolineWorker?.dispose()
+    isolineLabels?.clear()
     cancelPointLoad(pointLoad)
     for (const savedMarker of savedMarkers) savedMarker.remove()
     map?.remove()
@@ -356,14 +381,22 @@ export default function App() {
   createEffect(() => {
     selectedEpoch()
     isolineTuning()
-    if (isolinesActive() && mapReady()) { void showIsolines(); return }
-    // Pas na de uitfade leegmaken, zodat een volgende hover geen verouderde lijnen laat invaden.
+    if (isolinesActive() && mapReady()) { void showIsolineField(); void showIsolines(); return }
+    // Pas na de uitfade leegmaken, zodat een volgende hover geen verouderde labels laat invaden.
     if (isolineKey) {
       isolineKey = ''
       shownIsolineRequest++
-      ;(map?.getSource('motregen-isolines') as GeoJSONSource | undefined)?.setData(emptyIsolineData)
+      isolineLabels?.clear()
       setIsolineCount(0)
     }
+  })
+
+  createEffect(() => isolineLabels?.setTuning(labelTuning()))
+
+  createEffect(() => {
+    const { resolution, maxHz } = isolineTuning()
+    isolineLayer?.setStyle(isolineStyle())
+    isolineLayer?.setTuning({ resolution, maxHz })
   })
 
   createEffect(() => {
@@ -445,6 +478,8 @@ export default function App() {
     if (hasTemperature()) attachTemperatureLayer()
     attachMapFrame(grid)
     applyFocus(focus(), focusTuning().dim)
+    // Na een stijlwissel met vastgezette focus loopt het isolijn-effect niet vanzelf opnieuw.
+    if (isolinesActive() && mapReady()) { void showIsolineField(); void showIsolines() }
     void showFrame()
     if (mapReady()) {
       void showWind()
@@ -608,8 +643,9 @@ export default function App() {
     map.addSource('motregen-temperature', { type: 'geojson', data: emptyTemperatureData })
     const beforeId = temperatureLayerBeforeId(map.getStyle().layers)
     isolineKey = ''
-    map.addSource('motregen-isolines', { type: 'geojson', data: emptyIsolineData })
-    for (const isolineLayer of isolineLayers(mapTheme())) map.addLayer(isolineLayer, beforeId)
+    isolineLayer = undefined
+    isolineLabels?.clear()
+    isolineLabels = undefined
     map.addLayer(temperatureLayer(mapTheme()), beforeId)
   }
 
@@ -619,45 +655,129 @@ export default function App() {
     layer?.setOpacity(context)
     cloudEdgeLayer?.setOpacity(context)
     if (map.getLayer('motregen-sun')) map.setPaintProperty('motregen-sun', 'text-opacity', ['*', ['get', 'opacity'], context])
-    if (map.getLayer('motregen-isolines')) {
-      const visibility = value > 0 ? 'visible' : 'none'
-      map.setLayoutProperty('motregen-isolines', 'visibility', visibility)
-      map.setLayoutProperty('motregen-isoline-labels', 'visibility', visibility)
-      map.setPaintProperty('motregen-isolines', 'line-opacity', value * ISOLINE_LINE_OPACITY)
-      map.setPaintProperty('motregen-isoline-labels', 'text-opacity', value)
+    isolineLayer?.setOpacity(value * ISOLINE_LINE_OPACITY)
+    isolineLabels?.setOpacity(value)
+    if (map.getLayer('motregen-temperature')) {
+      // In focus dragen de lijnen de waarde; de stadslabels faden uit en geven hun plek vrij
+      // (ignore-placement), maar blijven hoverbaar zodat de focus niet wegvalt.
+      map.setPaintProperty('motregen-temperature', 'text-opacity', 1 - value)
+      map.setLayoutProperty('motregen-temperature', 'text-ignore-placement', value >= 0.5)
     }
     map.triggerRepaint()
   }
 
+  function isolineStyle(): IsolineStyle {
+    const { step, dashed, window, bicubic } = isolineTuning()
+    return { step, dashed, window, bicubic, color: hexColor(isolineColor(mapTheme())) }
+  }
+
+  function preparedIsolineField(frame: TimelineFrame, blur: number): Promise<{ grid: Grid; field: PreparedField }> {
+    const key = `${frame.chunk.url}#${frame.frameIndex}|${blur}`
+    let prepared = preparedIsolineFields.get(key)
+    if (!prepared) {
+      prepared = Promise.all([load(frame), client.getHeader(frame.chunk)]).then(([data, header]) => {
+        const { grid } = header
+        return { grid, field: prepareField(blurField(blendFrames([{ data, quant: header.quant, weight: 1 }], grid.width, grid.height), blur)) }
+      })
+      prepared.catch(() => preparedIsolineFields.delete(key))
+      preparedIsolineFields.set(key, prepared)
+      if (preparedIsolineFields.size > 16) preparedIsolineFields.delete(preparedIsolineFields.keys().next().value!)
+    }
+    return prepared
+  }
+
+  /**
+   * Lijnen: de snede door het uurvolume staat op de GPU; hier alleen de tijd zetten en
+   * ontbrekende uurlagen (één keer per uurframe) uploaden. Geen werk zonder wijziging.
+   */
+  async function showIsolineField(): Promise<void> {
+    const frames = feelsLikeTimeline()
+    const renderedMap = map
+    if (!frames.length || !renderedMap?.getLayer('motregen-temperature')) return
+    const { blur, window } = isolineTuning()
+    const blend = frameBlend(frames, selectedEpoch())
+    const time = blend.left + blend.mix
+    isolineTime = time
+    const key = `${frames[0]!.chunk.url}|${frames.length}|${blur}`
+    if (isolineLayer && isolineLayerKey !== key) {
+      if (renderedMap.getLayer(isolineLayer.id)) renderedMap.removeLayer(isolineLayer.id)
+      isolineLayer = undefined
+    }
+    const required = isolineLayerIndices(time, frames.length, window)
+    // Tijdens afspelen alvast de volgende uurlaag, zodat de snede nooit op een upload wacht.
+    const wanted = playing() ? [...required, Math.min(frames.length - 1, Math.floor(time) + 3)] : required
+    try {
+      if (!isolineLayer) {
+        const { grid } = await preparedIsolineField(frames[required[0]!]!, blur)
+        if (map !== renderedMap || isolineLayer || !renderedMap.getLayer('motregen-temperature')) return
+        isolineLayer = new IsolineLayer(grid, frames.length, isolineStyle(), isolineTuning())
+        isolineLayerKey = key
+        isolineFields = []
+        isolineLabels?.clear()
+        isolineLabels = new IsolineLabels(renderedMap, grid, labelTuning(), mapTheme(), () => reducedMotion.matches)
+        isolineLabels.setOpacity(focus())
+        isolineKey = ''
+        // Labels schuiven mee op exact de snede die de lijnen net kregen (zelfde cadans).
+        isolineLayer.onPass = updateIsolineLabels
+        renderedMap.addLayer(isolineLayer, 'motregen-temperature')
+        isolineLayer.setOpacity(focus() * ISOLINE_LINE_OPACITY)
+        void showIsolines()
+      }
+      const layer = isolineLayer
+      layer.setTime(time)
+      await Promise.all(wanted.filter((index) => !layer.hasLayer(index)).map(async (index) => {
+        const prepared = await preparedIsolineField(frames[index]!, blur)
+        if (layer !== isolineLayer || !sameGrid(prepared, { grid: layer.grid })) return
+        isolineFields[index] = prepared.field
+        layer.setLayer(index, prepared.field)
+      }))
+    } catch {
+      // Een ontbrekend uurframe laat de vorige snede staan; de volgende tijdstap probeert opnieuw.
+    }
+  }
+
+  /**
+   * Labels: contourgeometrie per uurframe éénmalig in de worker (gecachet per frame+stap), en
+   * het label volgt het dichtstbijzijnde uur. Afspelen kost zo één ronde per uur, rust nul.
+   */
   async function showIsolines(): Promise<void> {
     const frames = feelsLikeTimeline()
-    if (!frames.length || !map?.getSource('motregen-isolines')) return
+    if (!frames.length || !isolineLabels) return
     const request = ++shownIsolineRequest
-    const blend = frameBlend(frames, selectedEpoch())
     const tuning = isolineTuning()
-    const leftFrame = frames[blend.left]!, rightFrame = frames[blend.right]!
-    // Mix in twintigsten: tijdens playback hoeft niet elke rAF een nieuwe contourset.
-    const mix = Math.round(blend.mix * 20) / 20
-    const key = `${leftFrame.chunk.url}#${leftFrame.frameIndex}|${rightFrame.chunk.url}#${rightFrame.frameIndex}|${mix}|${tuning.step}|${tuning.smoothing}|${tuning.blur}`
+    const blend = frameBlend(frames, selectedEpoch())
+    const frame = frames[blend.mix < 0.5 ? blend.left : blend.right]!
+    const key = `${frame.chunk.url}#${frame.frameIndex}|${tuning.step}|${tuning.smoothing}|${tuning.blur}`
     if (key === isolineKey) return
     try {
-      const [left, right, leftHeader, rightHeader] = await Promise.all([
-        load(leftFrame), load(rightFrame), client.getHeader(leftFrame.chunk), client.getHeader(rightFrame.chunk),
-      ])
-      if (request !== shownIsolineRequest || !map) return
-      const blendable = sameGrid(leftHeader, rightHeader)
-      isolineWorker ??= new IsolineWorker()
-      const data = await isolineWorker.compute({
-        left, right: blendable ? right : left, leftQuant: leftHeader.quant, rightQuant: blendable ? rightHeader.quant : leftHeader.quant,
-        grid: leftHeader.grid, mix: blendable ? mix : 0, tuning,
-      })
-      if (!data || request !== shownIsolineRequest || !map) return
+      let labels = isolineLabelCache.get(key)
+      if (!labels) {
+        const [data, header] = await Promise.all([load(frame), client.getHeader(frame.chunk)])
+        isolineWorker ??= new IsolineWorker()
+        isolineLabelRounds++
+        labels = isolineWorker.compute({ frames: [{ data, quant: header.quant, weight: 1 }], grid: header.grid, tuning })
+        isolineLabelCache.set(key, labels)
+        if (isolineLabelCache.size > 24) isolineLabelCache.delete(isolineLabelCache.keys().next().value!)
+      }
+      const data = await labels
+      if (!data) isolineLabelCache.delete(key)
+      if (!data || request !== shownIsolineRequest || !isolineLabels) return
       isolineKey = key
-      ;(map.getSource('motregen-isolines') as GeoJSONSource | undefined)?.setData(data)
+      isolineLabels.setLines(data, tuning.step)
       setIsolineCount(data.features.length)
+      updateIsolineLabels()
     } catch {
       if (request === shownIsolineRequest) isolineKey = ''
     }
+  }
+
+  function updateIsolineLabels(): void {
+    const layer = isolineLayer
+    if (!isolineLabels || !layer || !isolinesActive()) return
+    const weights = sliceWeights(isolineTime, layer.depth, isolineTuning().window)
+    const fields = weights.map(({ index }) => isolineFields[index])
+    if (fields.some((field) => !field)) return
+    isolineLabels.update({ width: layer.grid.width, height: layer.grid.height, fields: fields as PreparedField[], weights: weights.map(({ weight }) => weight) })
   }
 
   function toggleFocusPin(): void {
@@ -1296,7 +1416,14 @@ export default function App() {
         <details class="wind-debug" open>
           <summary>Wind debug</summary>
           <label><span>Isolijnen</span><select value={isolineTuning().step} onChange={(event) => setIsolineTuning((current) => ({ ...current, step: Number(event.currentTarget.value) as IsolineStep }))}>{ISOLINE_STEPS.map((step) => <option value={step}>{step} °C</option>)}</select><output>{isolineTuning().step}°</output></label>
-          <label class="debug-toggle"><span>Glad</span><input type="checkbox" checked={isolineTuning().smoothing} onChange={(event) => setIsolineTuning((current) => ({ ...current, smoothing: event.currentTarget.checked }))} /><output>{isolineTuning().smoothing ? 'Aan' : 'Uit'}</output></label>
+          <label class="debug-toggle"><span>Stippel oneven</span><input type="checkbox" checked={isolineTuning().dashed} onChange={(event) => setIsolineTuning((current) => ({ ...current, dashed: event.currentTarget.checked }))} /><output>{isolineTuning().dashed ? 'Aan' : 'Uit'}</output></label>
+          <label><span>Tijdvenster</span><select value={isolineTuning().window} onChange={(event) => setIsolineTuning((current) => ({ ...current, window: Number(event.currentTarget.value) }))}>{ISOLINE_WINDOWS.map((window) => <option value={window}>{window === 0 ? 'lineair' : 'B-spline'}</option>)}</select><output>{isolineTuning().window}</output></label>
+          <label><span>Label-afstand</span><input type="range" min="30" max="240" step="10" value={labelTuning().minDistancePx} onInput={(event) => setLabelTuning((current) => ({ ...current, minDistancePx: event.currentTarget.valueAsNumber }))} /><output>{labelTuning().minDistancePx} px</output></label>
+          <label><span>Label-spatiëring</span><input type="range" min="100" max="600" step="20" value={labelTuning().spacingPx} onInput={(event) => setLabelTuning((current) => ({ ...current, spacingPx: event.currentTarget.valueAsNumber }))} /><output>{labelTuning().spacingPx} px</output></label>
+          <label class="debug-toggle"><span>Bicubisch</span><input type="checkbox" checked={isolineTuning().bicubic} onChange={(event) => setIsolineTuning((current) => ({ ...current, bicubic: event.currentTarget.checked }))} /><output>{isolineTuning().bicubic ? 'Aan' : 'Uit'}</output></label>
+          <label><span>Contour-res.</span><input type="range" min="0.25" max="1" step="0.25" value={isolineTuning().resolution} onInput={(event) => setIsolineTuning((current) => ({ ...current, resolution: event.currentTarget.valueAsNumber }))} /><output>{isolineTuning().resolution}×</output></label>
+          <label><span>Contour max</span><input type="range" min="5" max="60" step="5" value={isolineTuning().maxHz} onInput={(event) => setIsolineTuning((current) => ({ ...current, maxHz: event.currentTarget.valueAsNumber }))} /><output>{isolineTuning().maxHz} Hz</output></label>
+          <label class="debug-toggle"><span>Glad (labels)</span><input type="checkbox" checked={isolineTuning().smoothing} onChange={(event) => setIsolineTuning((current) => ({ ...current, smoothing: event.currentTarget.checked }))} /><output>{isolineTuning().smoothing ? 'Aan' : 'Uit'}</output></label>
           <label><span>Veldblur</span><input type="range" min="0" max="4" step="1" value={isolineTuning().blur} onInput={(event) => setIsolineTuning((current) => ({ ...current, blur: event.currentTarget.valueAsNumber }))} /><output>{isolineTuning().blur}×</output></label>
           <label><span>Focus dim</span><input type="range" min="0" max="1" step="0.05" value={focusTuning().dim} onInput={(event) => tuneFocus('dim', event.currentTarget.valueAsNumber)} /><output>{Math.round(focusTuning().dim * 100)}%</output></label>
           <label><span>Tween in</span><input type="range" min="0" max="1000" step="25" value={focusTuning().inMs} onInput={(event) => tuneFocus('inMs', event.currentTarget.valueAsNumber)} /><output>{focusTuning().inMs} ms</output></label>

@@ -610,3 +610,13 @@ td:first-child span.sun-mark { display: block; margin-top: 1px; color: #b07800; 
 tr.history-toggle-row td { padding: 0; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface-soft) 70%, var(--surface)); }
 .history-toggle { display: flex; width: 100%; align-items: center; gap: 7px; padding: 7px 0; border: 0; color: var(--muted); background: none; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-align: left; }
 .history-toggle:hover, .history-toggle:focus-visible { color: var(--text); }
+
+.isoline-label {
+  pointer-events: none;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+.isoline-label-light span { text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff; }
+.isoline-label-dark span { text-shadow: 0 0 2px #102027, 0 0 2px #102027, 0 0 3px #102027; }

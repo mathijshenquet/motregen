@@ -30,6 +30,7 @@ export function temperatureLayer(theme: MapTheme): SymbolLayerSpecification {
       'text-halo-color': dark ? '#102027' : '#ffffff',
       'text-halo-width': 2,
       'text-halo-blur': 0.6,
+      'text-opacity-transition': { duration: 0 },
     },
   }
 }

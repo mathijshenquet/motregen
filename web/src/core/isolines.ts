@@ -1,19 +1,30 @@
-import type { LineLayerSpecification, SymbolLayerSpecification } from 'maplibre-gl'
 import type { MapTheme } from './basemap'
-import type { Grid, MrfHeader } from './contract'
+import type { Grid } from './contract'
 
 export const ISOLINE_STEPS = [1, 2, 5] as const
 export type IsolineStep = typeof ISOLINE_STEPS[number]
 
 export interface IsolineTuning {
   step: IsolineStep
-  /** Chaikin op de lijnen. */
+  /** Oneven graden gestippeld, even graden doorgetrokken. */
+  dashed: boolean
+  /** Chaikin op de labelgeometrie. */
   smoothing: boolean
-  /** Aantal 3×3-boxblur-passes op het veld vóór het contouren (2 ≈ Gauss σ 1,2 cel). */
+  /** Aantal 3×3-boxblur-passes op elk uurframe (2 ≈ Gauss σ 1,2 cel). */
   blur: number
+  /** 0 = lineair tussen twee uurframes; 1 = kubische B-spline over vier (C2 in de tijd). */
+  window: number
+  /** Ruimtelijk bicubisch samplen i.p.v. bilineair. */
+  bicubic: boolean
+  /** Resolutie van de offscreen contour-snede t.o.v. het canvas. */
+  resolution: number
+  /** Maximale contour-herberekening per seconde bij tijdwijzigingen. */
+  maxHz: number
 }
 
-export const DEFAULT_ISOLINE_TUNING: IsolineTuning = { step: 2, smoothing: true, blur: 2 }
+export const DEFAULT_ISOLINE_TUNING: IsolineTuning = { step: 1, dashed: true, smoothing: true, blur: 2, window: 1, bicubic: true, resolution: 0.5, maxHz: 20 }
+
+export const ISOLINE_WINDOWS = [0, 1] as const
 
 /** Punten in roosterindex-coördinaten: (kolom, rij) van de celcentra. */
 export interface Isoline {
@@ -33,20 +44,70 @@ const MIN_LENGTH_CELLS = 2
 const MIN_RING_CELLS = 8
 const CHAIKIN_ITERATIONS = 2
 
-export function blendField(left: Uint8Array, right: Uint8Array, leftHeader: Pick<MrfHeader, 'grid' | 'quant'>, rightHeader: Pick<MrfHeader, 'grid' | 'quant'>, mix: number): ScalarField {
-  const { width, height } = leftHeader.grid
+export interface WeightedFrame {
+  data: Uint8Array
+  quant: Array<number | null>
+  weight: number
+}
+
+/** Gewogen som van gekwantiseerde frames; no-data in één frame met gewicht > 0 geeft no-data. */
+export function blendFrames(frames: WeightedFrame[], width: number, height: number): ScalarField {
   const values = new Float32Array(width * height)
-  const sameFrame = left === right || mix === 0
+  const total = frames.reduce((sum, frame) => sum + frame.weight, 0)
   for (let index = 0; index < values.length; index++) {
-    const first = leftHeader.quant[left[index]!]
-    if (sameFrame) {
-      values[index] = first ?? Number.NaN
-      continue
+    let sum = 0
+    for (const frame of frames) {
+      const value = frame.quant[frame.data[index]!]
+      if (value == null) { sum = Number.NaN; break }
+      sum += value * frame.weight
     }
-    const second = rightHeader.quant[right[index]!]
-    values[index] = first == null || second == null ? Number.NaN : first * (1 - mix) + second * mix
+    values[index] = sum / total
   }
   return { width, height, values }
+}
+
+export interface FrameWeight {
+  index: number
+  weight: number
+}
+
+function cubicBSpline(x: number): number {
+  const a = Math.abs(x)
+  if (a < 1) return (4 - 6 * a * a + 3 * a * a * a) / 6
+  if (a < 2) return (2 - a) ** 3 / 6
+  return 0
+}
+
+/**
+ * Tijdgewichten voor `epoch`. `window` 0 is de lineaire blend tussen de twee buurframes (C0:
+ * een knik op elk frame). Daarboven een kubische B-spline-kern met schaal `window` × het
+ * frame-interval: C2 in de tijd, dus de lijnen veranderen niet per frame van richting, ten
+ * koste van wat demping van pieken (niet-interpolerend). Genormaliseerd, ook aan de randen.
+ */
+export function temporalWeights(epochs: readonly number[], epoch: number, window: number): FrameWeight[] {
+  if (!epochs.length || !Number.isFinite(epoch)) return []
+  const last = epochs.length - 1
+  if (window <= 0 || epochs.length < 2) {
+    if (epoch <= epochs[0]!) return [{ index: 0, weight: 1 }]
+    if (epoch >= epochs[last]!) return [{ index: last, weight: 1 }]
+    let right = 1
+    while (epochs[right]! < epoch) right++
+    const mix = (epoch - epochs[right - 1]!) / (epochs[right]! - epochs[right - 1]!)
+    return mix === 1 ? [{ index: right, weight: 1 }] : [{ index: right - 1, weight: 1 - mix }, { index: right, weight: mix }]
+  }
+  const interval = (epochs[last]! - epochs[0]!) / last
+  const scale = window * interval
+  const weights: FrameWeight[] = []
+  let total = 0
+  for (let index = 0; index < epochs.length; index++) {
+    const weight = cubicBSpline((epoch - epochs[index]!) / scale)
+    if (weight <= 1e-6) continue
+    weights.push({ index, weight })
+    total += weight
+  }
+  if (!total) return [{ index: epoch < epochs[0]! ? 0 : last, weight: 1 }]
+  for (const entry of weights) entry.weight /= total
+  return weights
 }
 
 /**
@@ -229,9 +290,7 @@ export interface IsolineFeatureCollection {
   }>
 }
 
-export const emptyIsolineData: IsolineFeatureCollection = { type: 'FeatureCollection', features: [] }
-
-export function isolineFeatures(field: ScalarField, grid: Grid, tuning: IsolineTuning): IsolineFeatureCollection {
+export function isolineFeatures(field: ScalarField, grid: Grid, tuning: Pick<IsolineTuning, 'step' | 'smoothing'>): IsolineFeatureCollection {
   const features: IsolineFeatureCollection['features'] = []
   const buffers = workspace(field)
   const toLngLat = gridProjection(grid)
@@ -251,17 +310,13 @@ export function isolineFeatures(field: ScalarField, grid: Grid, tuning: IsolineT
 }
 
 export interface IsolineRequest {
-  left: Uint8Array
-  right: Uint8Array
-  leftQuant: Array<number | null>
-  rightQuant: Array<number | null>
+  frames: WeightedFrame[]
   grid: Grid
-  mix: number
   tuning: IsolineTuning
 }
 
 export function computeIsolines(request: IsolineRequest): IsolineFeatureCollection {
-  const field = blendField(request.left, request.right, { grid: request.grid, quant: request.leftQuant }, { grid: request.grid, quant: request.rightQuant }, request.mix)
+  const field = blendFrames(request.frames, request.grid.width, request.grid.height)
   return isolineFeatures(blurField(field, request.tuning.blur), request.grid, request.tuning)
 }
 
@@ -310,53 +365,17 @@ export class IsolineWorker {
       }
     }
     // Kopieën: de originele frames zitten in de MrfClient-cache en mogen niet detachen.
-    const left = request.left.slice(), right = request.right === request.left ? left : request.right.slice()
-    const transfer = right === left ? [left.buffer] : [left.buffer, right.buffer]
-    this.worker.postMessage({ ...request, left, right }, transfer)
+    const frames = request.frames.map((frame) => ({ ...frame, data: frame.data.slice() }))
+    this.worker.postMessage({ ...request, frames }, frames.map((frame) => frame.data.buffer))
   }
 }
 
-export function isolineLayers(theme: MapTheme): [LineLayerSpecification, SymbolLayerSpecification] {
-  const dark = theme === 'dark'
-  // Neutraal en gedempt: warm/koud niet inkleuren, de labels dragen de waarde.
-  const color = dark ? '#d5e2e6' : '#33474f'
-  return [{
-    id: 'motregen-isolines',
-    type: 'line',
-    source: 'motregen-isolines',
-    layout: { 'line-join': 'round', 'line-cap': 'round', visibility: 'none' },
-    paint: {
-      'line-color': color,
-      'line-width': ['interpolate', ['linear'], ['zoom'], 5, 1, 9, 1.6],
-      'line-opacity': 0,
-      'line-opacity-transition': { duration: 0 },
-    },
-  }, {
-    id: 'motregen-isoline-labels',
-    type: 'symbol',
-    source: 'motregen-isolines',
-    layout: {
-      'symbol-placement': 'line',
-      'symbol-spacing': 280,
-      'text-field': ['get', 'label'],
-      'text-size': ['interpolate', ['linear'], ['zoom'], 5, 10, 9, 12],
-      'text-font': ['Noto Sans Regular'],
-      'text-keep-upright': true,
-      'text-max-angle': 35,
-      'text-padding': 2,
-      visibility: 'none',
-    },
-    paint: {
-      'text-color': color,
-      'text-halo-color': dark ? '#102027' : '#ffffff',
-      'text-halo-width': 1.6,
-      'text-opacity': 0,
-      'text-opacity-transition': { duration: 0 },
-    },
-  }]
+/** Neutraal en gedempt: warm/koud niet inkleuren, de labels dragen de waarde. */
+export function isolineColor(theme: MapTheme): string {
+  return theme === 'dark' ? '#d5e2e6' : '#33474f'
 }
 
-export const ISOLINE_LINE_OPACITY = 0.62
+export const ISOLINE_LINE_OPACITY = 0.8
 
 function gridProjection(grid: Grid): (column: number, row: number) => [number, number] {
   const radius = 6378137
