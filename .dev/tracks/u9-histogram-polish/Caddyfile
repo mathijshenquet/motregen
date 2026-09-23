@@ -1,0 +1,12 @@
+{
+	auto_https off
+	admin off
+}
+
+:8391 {
+	root * {$SNAPSHOT_ROOT}
+	header Access-Control-Allow-Origin "*"
+	header Access-Control-Expose-Headers "Accept-Ranges, Content-Length, Content-Range, ETag"
+	header /chunks/* -Content-Encoding
+	file_server
+}
