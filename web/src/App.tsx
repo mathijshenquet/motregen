@@ -1080,9 +1080,6 @@ export default function App() {
         onSelect={chooseSearch}
         onSelectSaved={chooseSaved}
       />
-      <Show when={hasTemperature()}>
-        <div class="temperature-caption" title="Kaarttemperaturen zijn gevoelstemperatuur">° gevoel</div>
-      </Show>
       <Show when={devMode && windTimeline().length}>
         <details class="wind-debug" open>
           <summary>Wind debug</summary>

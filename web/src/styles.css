@@ -253,23 +253,6 @@ button { color: inherit; cursor: pointer; }
 }
 .saved-place-marker:hover, .saved-place-marker:focus-visible { color: #ffbd08; }
 
-.temperature-caption {
-  position: absolute;
-  left: 12px;
-  top: 62px;
-  z-index: 4;
-  padding: 4px 9px;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  color: var(--muted);
-  background: var(--surface-raised);
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(6px);
-  font-size: 10px;
-  font-weight: 700;
-  pointer-events: none;
-}
-
 .wind-debug {
   position: absolute;
   top: 105px;
@@ -460,7 +443,6 @@ td small { color: var(--muted); font-size: 9px; }
   .scrub-surface { height: 196px; }
   .forecast-panel { padding: 0 24px 36px; }
   .search { top: 18px; left: 18px; right: auto; width: min(390px, calc(100% - 90px)); }
-  .temperature-caption { top: 70px; left: 18px; }
   .wind-debug { top: 112px; left: 18px; }
   .maplibregl-ctrl-top-right { top: 8px; right: 8px; }
   th { position: sticky; top: -1px; z-index: 1; background: var(--surface); }
