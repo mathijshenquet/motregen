@@ -12,6 +12,8 @@ function renderSearch(savedPlaces: SavedPlace[] = []) {
   const onLocate = vi.fn()
   const onRemove = vi.fn()
   const onSave = vi.fn()
+  const onSelect = vi.fn()
+  const onSelectSaved = vi.fn()
   render(() => <LocationSearch
     location={{ lng: 5.18, lat: 52.1 }}
     locationLabel="De Bilt"
@@ -19,9 +21,10 @@ function renderSearch(savedPlaces: SavedPlace[] = []) {
     onLocate={onLocate}
     onRemove={onRemove}
     onSave={onSave}
-    onSelect={() => undefined}
+    onSelect={onSelect}
+    onSelectSaved={onSelectSaved}
   />)
-  return { onLocate, onRemove, onSave }
+  return { onLocate, onRemove, onSave, onSelect, onSelectSaved }
 }
 
 describe('location search', () => {
@@ -34,6 +37,16 @@ describe('location search', () => {
     expect(options[1]!.textContent).toContain('Thuis')
     fireEvent.click(options[0]!)
     expect(onLocate).toHaveBeenCalledOnce()
+  })
+
+  it('reports saved-place clicks separately from search selections', () => {
+    const work: SavedPlace = { id: 'work', name: 'Werk', sourceLabel: 'Utrecht', lng: 5.12, lat: 52.09 }
+    const { onSelect, onSelectSaved } = renderSearch([home, work])
+    fireEvent.focus(screen.getByRole('textbox', { name: 'Zoek plaats' }))
+    fireEvent.click(screen.getByRole('option', { name: /Werk/ }))
+
+    expect(onSelectSaved).toHaveBeenCalledWith(work)
+    expect(onSelect).not.toHaveBeenCalled()
   })
 
   it('saves the current place under a custom name', () => {
