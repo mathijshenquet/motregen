@@ -32,9 +32,11 @@ export interface HourlyTimelines {
 const hour = 3_600_000
 
 export const FORECAST_HISTORY_HOURS = 6
-// Rows further ahead only load once the table is scrolled near them, so the
-// passive cost stays that of the former fixed 24-hour table (MIP-8).
-export const PASSIVE_FORECAST_HOURS = 24
+// Rows further ahead only load once the table is scrolled near them. The former
+// table asked for 24 h but its run-start-anchored data reached only now + 17…20 h,
+// so 18 h keeps the passive cost of that table (MIP-8) and usually stays inside
+// the first day-sized hourly chunk.
+export const PASSIVE_FORECAST_HOURS = 18
 
 /**
  * One row per whole hour from `historyHours` before the current hour up to

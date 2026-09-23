@@ -120,8 +120,9 @@ export default function App() {
   const [windUSeries, setWindUSeries] = createSignal<Array<number | null>>([])
   const [windVSeries, setWindVSeries] = createSignal<Array<number | null>>([])
   const [radiationSeries, setRadiationSeries] = createSignal<Array<number | null>>([])
-  // History rows cost bytes the old table never loaded, so they wait until they scroll into view.
+  // History rows cost bytes the old table never loaded; they stay folded until asked for.
   const [historyRowsWanted, setHistoryRowsWanted] = createSignal(false)
+  const [historyOpen, setHistoryOpen] = createSignal(false)
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
   const [temperatureField, setTemperatureField] = createSignal<TemperatureField>('feels_like_c')
@@ -1187,9 +1188,13 @@ export default function App() {
             temperatureField={activeTemperatureField()}
             columns={{ weather: hasWeatherIcons(), uv: uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), humidity: hasHumidity(), wind: hasWind() }}
             loadedUntil={pointLoadStage() === 'complete' ? Number.POSITIVE_INFINITY : manifestNow() + PASSIVE_FORECAST_HOURS * 3_600_000}
+            historyOpen={historyOpen()}
             historyLoaded={historyRowsWanted() || pointLoadStage() === 'complete'}
             onNeedRows={() => { void completePointSeries(pointLoad, 'high') }}
-            onNeedHistory={() => { void loadHistoryRows() }}
+            onOpenHistory={() => {
+              setHistoryOpen((open) => !open)
+              void loadHistoryRows()
+            }}
             sunForm={sunForm}
           />
         </div>

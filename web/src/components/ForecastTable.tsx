@@ -28,10 +28,11 @@ interface Props {
   columns: { weather: boolean; uv: boolean; temperature: boolean; humidity: boolean; wind: boolean }
   // Rows after this epoch have not been fetched yet; scrolling near them asks for them.
   loadedUntil: number
-  // History rows are fetched once they scroll into view.
+  // History rows stay folded (and unfetched) until the header row is tapped.
+  historyOpen: boolean
   historyLoaded: boolean
   onNeedRows: () => void
-  onNeedHistory: () => void
+  onOpenHistory: () => void
   sunForm: SunForm
 }
 
@@ -47,28 +48,18 @@ export default function ForecastTable(props: Props) {
   })
   const elevation = (epoch: number) => solarElevationSin(epoch, props.location.lng, props.location.lat)
 
-  const rowElements = new Map<number, { element: HTMLTableRowElement; row: HourlyForecastRow }>()
-  const history = new WeakSet<Element>()
+  const rowElements = new Map<number, HTMLTableRowElement>()
   const observer = typeof IntersectionObserver === 'undefined' ? undefined : new IntersectionObserver((entries) => {
-    const visible = entries.filter((entry) => entry.isIntersecting)
-    if (visible.some((entry) => history.has(entry.target))) props.onNeedHistory()
-    if (visible.some((entry) => !history.has(entry.target))) props.onNeedRows()
-  }, { rootMargin: '320px 0px 320px 0px' })
+    if (entries.some((entry) => entry.isIntersecting)) props.onNeedRows()
+  }, { rootMargin: '0px 0px 320px 0px' })
   createEffect(() => {
     const until = props.loadedUntil
-    const historyLoaded = props.historyLoaded
     void props.rows
     observer?.disconnect()
-    for (const { element, row } of rowElements.values()) {
-      if (row.kind === 'past' && !historyLoaded) {
-        history.add(element)
-        observer?.observe(element)
-      } else if (row.epoch > until) {
-        history.delete(element)
-        observer?.observe(element)
-      }
-    }
+    for (const [epoch, element] of rowElements) if (epoch > until) observer?.observe(element)
   })
+  const pastCount = () => props.rows.filter((row) => row.kind === 'past').length
+  const visibleRows = () => props.historyOpen ? props.rows : props.rows.filter((row) => row.kind !== 'past')
   onCleanup(() => observer?.disconnect())
 
   const columnCount = () => 2 + Number(props.columns.weather) + Number(props.columns.uv) + Number(props.columns.temperature) +
@@ -84,7 +75,18 @@ export default function ForecastTable(props: Props) {
       <Show when={props.columns.wind}><th>Wind</th></Show>
       <th>Regen</th>
     </tr></thead>
-    <tbody><For each={props.rows}>{(row) => {
+    <tbody>
+    <Show when={pastCount() > 0}>
+      <tr class="history-toggle-row">
+        <td colSpan={columnCount()}>
+          <button type="button" class="history-toggle" aria-expanded={props.historyOpen} onClick={() => props.onOpenHistory()}>
+            <span aria-hidden="true">{props.historyOpen ? '▾' : '▸'}</span>
+            {props.historyOpen ? 'Afgelopen uren verbergen' : `Afgelopen ${pastCount()} uur tonen`}
+          </button>
+        </td>
+      </tr>
+    </Show>
+    <For each={visibleRows()}>{(row) => {
       const pending = () => row.epoch > props.loadedUntil || (row.kind === 'past' && !props.historyLoaded)
       const value = (series: Array<number | null>, index: number | null) => index == null ? null : series[index] ?? null
       const rain = () => value(props.series.rain, row.rainIndex)
@@ -116,7 +118,7 @@ export default function ForecastTable(props: Props) {
       return <>
         <tr
           ref={(element) => {
-            rowElements.set(row.epoch, { element, row })
+            rowElements.set(row.epoch, element)
             onCleanup(() => rowElements.delete(row.epoch))
           }}
           classList={{ 'current-hour': row.kind === 'now', 'past-hour': row.kind === 'past', 'pending-hour': pending() }}
@@ -148,7 +150,8 @@ export default function ForecastTable(props: Props) {
           </tr>
         }</Show>
       </>
-    }}</For></tbody>
+    }}</For>
+    </tbody>
   </table>
 }
 

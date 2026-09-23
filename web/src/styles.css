@@ -512,3 +512,6 @@ td:first-child span.sun-mark { display: block; margin-top: 1px; color: #b07800; 
 .map-clock-map { border-left: 1px solid var(--line); color: var(--history); }
 .map-clock-map.future { color: var(--nowcast); }
 .map-clock-map small { color: inherit; opacity: .8; }
+tr.history-toggle-row td { padding: 0; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface-soft) 70%, var(--surface)); }
+.history-toggle { display: flex; width: 100%; align-items: center; gap: 7px; padding: 7px 0; border: 0; color: var(--muted); background: none; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-align: left; }
+.history-toggle:hover, .history-toggle:focus-visible { color: var(--text); }

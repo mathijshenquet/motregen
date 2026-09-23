@@ -46,9 +46,9 @@ describe('hourly forecast', () => {
     expect(rows[1]).toMatchObject({ radiationIndex: 1, radiationNextIndex: null })
   })
 
-  it('loads rows beyond the passive day only on demand', () => {
-    expect(isPassiveRow({ epoch: start + 24 * 3_600_000 } as never, start)).toBe(true)
-    expect(isPassiveRow({ epoch: start + 25 * 3_600_000 } as never, start)).toBe(false)
+  it('loads rows beyond the passive horizon only on demand', () => {
+    expect(isPassiveRow({ epoch: start + 18 * 3_600_000 } as never, start)).toBe(true)
+    expect(isPassiveRow({ epoch: start + 19 * 3_600_000 } as never, start)).toBe(false)
   })
 })
 
