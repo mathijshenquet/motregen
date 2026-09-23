@@ -114,7 +114,7 @@ describe('mrf v0', () => {
 
   it('emits an hourly radiation chunk with a plausible day-night cycle', async () => {
     const chunk = manifest.chunks.find((candidate) => candidate.field === 'radiation')
-    expect(chunk?.times).toHaveLength(24)
+    expect(chunk?.times).toHaveLength(48)
     const radiationFile = new Uint8Array(await readFile(resolve('public/data', chunk!.url)))
     const header = parseMrfHeader(radiationFile.subarray(0, chunk!.header_len))
     expect(header.field).toBe('radiation')
@@ -136,7 +136,7 @@ describe('mrf v0', () => {
   it('emits official-source synthetic UV only during its daylight publication window', async () => {
     const chunk = manifest.chunks.find((candidate) => candidate.field === 'uv')
     expect(chunk?.source).toBe('uv')
-    expect(chunk?.times).toHaveLength(72)
+    expect(chunk?.times).toHaveLength(49)
     const uvFile = new Uint8Array(await readFile(resolve('public/data', chunk!.url)))
     const header = parseMrfHeader(uvFile.subarray(0, chunk!.header_len))
     const decode = (index: number) => {
@@ -194,8 +194,8 @@ describe('mrf v0', () => {
     fetchMock.mockClear()
     await Promise.all([...chunks].map(([chunk, indexes]) => client.getFrames(chunk, indexes)))
 
-    expect(frames).toHaveLength(133)
-    expect(fetchMock).toHaveBeenCalledTimes(15)
+    expect(frames).toHaveLength(207)
+    expect(fetchMock).toHaveBeenCalledTimes(17)
     for (const [chunk, indexes] of chunks) {
       const chunkFile = files.get(chunk.url)!
       const header = parseMrfHeader(chunkFile.subarray(0, chunk.header_len))
