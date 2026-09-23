@@ -32,8 +32,9 @@ for (const profile of profiles) for (const theme of ['licht', 'donker']) {
   await page.waitForTimeout(400)
   await page.screenshot({ path: `${out}/${name}-search.png` })
   await page.keyboard.press('Escape')
-  await page.locator('.about-button').click()
-  await page.waitForTimeout(300)
+  // Vóór U11 punt 5 opende About via .about-button, daarna via het merk (met vertraging voor de triple-tap).
+  await page.locator((await page.locator('.about-button').count()) ? '.about-button' : '.map-brand').click()
+  await page.waitForTimeout(700)
   await page.screenshot({ path: `${out}/${name}-about.png` })
   await context.close()
 }

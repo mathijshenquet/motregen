@@ -94,8 +94,6 @@ export default function App() {
   let sunEpochBucket = Number.NaN
   let rainReadyPending = false
   let scrubPrefetch = false
-  let logoTapCount = 0
-  let lastLogoTap = 0
   let initialPickStarted = false
   let pointLoad: PointLoadState | undefined
   const windFrameCache = new Map<string, Promise<Float32Array>>()
@@ -1220,16 +1218,6 @@ export default function App() {
     setCursor(cursor)
   }
 
-  function tapLogo(): void {
-    const now = performance.now()
-    logoTapCount = now - lastLogoTap <= 700 ? logoTapCount + 1 : 1
-    lastLogoTap = now
-    if (logoTapCount === 3) {
-      logoTapCount = 0
-      setPerfVisible((visible) => !visible)
-    }
-  }
-
   const manifestNow = () => manifest() ? Date.parse(manifest()!.now) : 0
   const forecast = createMemo(() => buildHourlyForecast({
     rain: timeline(),
@@ -1283,7 +1271,7 @@ export default function App() {
           <strong>motregen.nl</strong>
         </div>
       </div>
-      <button type="button" class="map-brand brand" onClick={tapLogo} aria-label="motregen.nl"><img src="/droplet.svg" alt="" /><strong>motregen.nl</strong></button>
+      <About onTripleTap={() => setPerfVisible((visible) => !visible)} />
       <button class="round-action theme-button mobile-map-theme" onClick={cycleTheme} aria-label={`Thema: ${themeMeta().label}. Klik voor ${themeMeta().next}`} title={`Thema: ${themeMeta().label}`}>
         <Dynamic component={themeMeta().icon} {...BUTTON_ICON} />
       </button>
@@ -1316,7 +1304,6 @@ export default function App() {
         </details>
       </Show>
       <MapClock mapEpoch={selectedEpoch()} now={manifestNow()} />
-      <About />
     </section>
     <aside class="dashboard">
       <nav class="sidebar-nav" aria-label="Instellingen en locatie">

@@ -105,6 +105,8 @@ button { color: inherit; cursor: pointer; }
   backdrop-filter: blur(8px);
 }
 .map-brand img { width: 21px; height: 25px; }
+.map-brand svg { flex: none; color: var(--muted); }
+.map-brand:hover svg, .map-brand:focus-visible svg { color: var(--accent); }
 .map-brand strong { font-family: "Avenir Next", Avenir, "Trebuchet MS", ui-sans-serif, sans-serif; font-size: 15px; font-weight: 600; letter-spacing: .015em; }
 .map-splash {
   position: absolute;
@@ -179,19 +181,6 @@ button { color: inherit; cursor: pointer; }
   line-height: 1.2;
   backdrop-filter: blur(4px);
 }
-.about-button {
-  position: relative;
-  width: 18px;
-  height: 18px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  color: inherit;
-  background: transparent;
-}
-.about-button:hover, .about-button:focus-visible { color: #fff; background: rgba(255, 255, 255, .14); outline: none; }
 .about-dialog {
   inset: 0;
   width: min(420px, calc(100vw - 32px));
@@ -500,7 +489,7 @@ td:first-child span.sun-mark { display: block; margin-top: 1px; color: #b07800; 
   .round-action { height: 44px; min-width: 44px; }
   .about-close { width: 44px; height: 44px; }
   .remove-saved { width: 44px; }
-  .about-button::after { position: absolute; inset: -13px; content: ''; }
+  .map-brand { min-height: 44px; }
   .save-place::after { position: absolute; inset: -6px; content: ''; }
 }
 
