@@ -120,6 +120,8 @@ export default function App() {
   const [windUSeries, setWindUSeries] = createSignal<Array<number | null>>([])
   const [windVSeries, setWindVSeries] = createSignal<Array<number | null>>([])
   const [radiationSeries, setRadiationSeries] = createSignal<Array<number | null>>([])
+  // History rows cost bytes the old table never loaded, so they wait until they scroll into view.
+  const [historyRowsWanted, setHistoryRowsWanted] = createSignal(false)
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
   const [temperatureField, setTemperatureField] = createSignal<TemperatureField>('feels_like_c')
@@ -799,9 +801,40 @@ export default function App() {
     }).catch(() => undefined)
   }
 
+  async function loadHistoryRows(): Promise<void> {
+    if (historyRowsWanted()) return
+    setHistoryRowsWanted(true)
+    const state = pointLoad
+    if (!state) return
+    await state.direct.catch(() => undefined)
+    if (state.request !== pointRequest) return
+    const [uv, temperature, feelsLike, humidity, cloud, windU, windV] = await Promise.all([
+      readForecastPointSeries(uvTimeline(), state.point, 'uvIndex'),
+      readForecastPointSeries(tempTimeline(), state.point, 'temperatureIndex'),
+      readForecastPointSeries(feelsLikeTimeline(), state.point, 'feelsLikeIndex'),
+      readForecastPointSeries(humidityTimeline(), state.point, 'humidityIndex'),
+      readForecastPointSeries(cloudTimeline(), state.point, 'cloudIndex'),
+      readForecastPointSeries(windUFrames(), state.point, 'windUIndex'),
+      readForecastPointSeries(windVFrames(), state.point, 'windVIndex'),
+    ])
+    if (state.request !== pointRequest) return
+    const merge = (next: Array<number | null>) => (previous: Array<number | null>) =>
+      Array.from({ length: Math.max(previous.length, next.length) }, (_, index) => next[index] ?? previous[index] ?? null)
+    batch(() => {
+      setUvSeries(merge(uv))
+      setTemperatureSeries(merge(temperature))
+      setFeelsLikeSeries(merge(feelsLike))
+      setHumiditySeries(merge(humidity))
+      setCloudSeries(merge(cloud))
+      setWindUSeries(merge(windU))
+      setWindVSeries(merge(windV))
+    })
+  }
+
   function readForecastPointSeries(frames: TimelineFrame[], point: { lng: number; lat: number }, key: ForecastIndex): Promise<Array<number | null>> {
     const now = manifestNow()
-    const indexes = forecast().flatMap((row) => row[key] == null || !isPassiveRow(row, now) ? [] : [row[key]])
+    const history = historyRowsWanted()
+    const indexes = forecast().flatMap((row) => row[key] == null || !isPassiveRow(row, now) || (row.kind === 'past' && !history) ? [] : [row[key]])
     return frames.length ? readPointSeries(frames, point, indexes).catch(() => []) : Promise.resolve([])
   }
 
@@ -1154,7 +1187,9 @@ export default function App() {
             temperatureField={activeTemperatureField()}
             columns={{ weather: hasWeatherIcons(), uv: uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), humidity: hasHumidity(), wind: hasWind() }}
             loadedUntil={pointLoadStage() === 'complete' ? Number.POSITIVE_INFINITY : manifestNow() + PASSIVE_FORECAST_HOURS * 3_600_000}
+            historyLoaded={historyRowsWanted() || pointLoadStage() === 'complete'}
             onNeedRows={() => { void completePointSeries(pointLoad, 'high') }}
+            onNeedHistory={() => { void loadHistoryRows() }}
             sunForm={sunForm}
           />
         </div>

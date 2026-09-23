@@ -579,29 +579,50 @@ fn decode_arome_run(
     Ok(out)
 }
 
+/// Frames per hourly-field chunk. The client fetches a whole chunk once a
+/// location sample needs more than half of it, so a day-sized part keeps the
+/// passive table load at one day even when the horizon is longer.
+const HOURLY_CHUNK_LEADS: usize = 24;
+
 fn hourly_field_chunks(decoded: &DecodedArome, horizon_label: &str) -> Result<Vec<ProducedChunk>> {
     let run = &decoded.run;
     let compact_run = compact_timestamp(run)?;
+    let parts = decoded.times.len().div_ceil(HOURLY_CHUNK_LEADS);
     let field_chunk = |field: &str,
                        grid: crate::grid::GridSpec,
                        frames: &[Vec<u8>],
                        quant: Vec<Option<f32>>|
-     -> Result<ProducedChunk> {
-        let meta =
-            mrf::ChunkMeta::standard(grid.mrf_grid(), "harmonie", run, decoded.times.clone())
-                .with_field(field, quant);
-        produced_chunk(
-            generated_chunk_filename(
-                &format!("harmonie-{field}-{compact_run}-{horizon_label}"),
-                &meta,
-            ),
-            mrf::encode(frames, &meta)?,
-        )
+     -> Result<Vec<ProducedChunk>> {
+        (0..parts)
+            .map(|part| {
+                let first = part * HOURLY_CHUNK_LEADS;
+                let last = (first + HOURLY_CHUNK_LEADS).min(frames.len());
+                let label = if parts == 1 {
+                    horizon_label.to_owned()
+                } else {
+                    format!("{horizon_label}-l{}-{last}", first + 1)
+                };
+                let meta = mrf::ChunkMeta::standard(
+                    grid.mrf_grid(),
+                    "harmonie",
+                    run,
+                    decoded.times[first..last].to_vec(),
+                )
+                .with_field(field, quant.clone());
+                produced_chunk(
+                    generated_chunk_filename(
+                        &format!("harmonie-{field}-{compact_run}-{label}"),
+                        &meta,
+                    ),
+                    mrf::encode(&frames[first..last], &meta)?,
+                )
+            })
+            .collect()
     };
     let temperature_quant = temperature_quantization_table();
     let wind_quant = wind_quantization_table();
     let percent_quant = percent_quantization_table();
-    Ok(vec![
+    Ok([
         field_chunk(
             "temp_c",
             DETAIL_GRID,
@@ -639,7 +660,8 @@ fn hourly_field_chunks(decoded: &DecodedArome, horizon_label: &str) -> Result<Ve
             &decoded.cloud_fraction,
             percent_quant,
         )?,
-    ])
+    ]
+    .concat())
 }
 
 pub fn build_uv_chunk(
@@ -1023,28 +1045,32 @@ fn validate_arome_fields(
 }
 
 pub fn validate_wind_pair(chunks: &[ProducedChunk]) -> Result<()> {
-    let wind_u = chunks
-        .iter()
-        .find(|chunk| chunk.manifest.field == "wind_u_ms")
-        .context("wind U chunk is missing")?;
-    let wind_v = chunks
-        .iter()
-        .find(|chunk| chunk.manifest.field == "wind_v_ms")
-        .context("wind V chunk is missing")?;
-    let wind_u_header = mrf::parse_header(&wind_u.bytes)?.header;
-    let wind_v_header = mrf::parse_header(&wind_v.bytes)?.header;
-    ensure!(
-        wind_u_header.grid == wind_v_header.grid,
-        "wind grids differ"
-    );
-    ensure!(
-        wind_u.manifest.times == wind_v.manifest.times,
-        "wind times or frame order differ"
-    );
-    ensure!(
-        wind_u_header.frames.len() == wind_v_header.frames.len(),
-        "wind frame counts differ"
-    );
+    let of_field = |field: &str| {
+        chunks
+            .iter()
+            .filter(|chunk| chunk.manifest.field == field)
+            .collect::<Vec<_>>()
+    };
+    let (wind_u, wind_v) = (of_field("wind_u_ms"), of_field("wind_v_ms"));
+    ensure!(!wind_u.is_empty(), "wind U chunk is missing");
+    ensure!(!wind_v.is_empty(), "wind V chunk is missing");
+    ensure!(wind_u.len() == wind_v.len(), "wind chunk counts differ");
+    for (wind_u, wind_v) in wind_u.into_iter().zip(wind_v) {
+        let wind_u_header = mrf::parse_header(&wind_u.bytes)?.header;
+        let wind_v_header = mrf::parse_header(&wind_v.bytes)?.header;
+        ensure!(
+            wind_u_header.grid == wind_v_header.grid,
+            "wind grids differ"
+        );
+        ensure!(
+            wind_u.manifest.times == wind_v.manifest.times,
+            "wind times or frame order differ"
+        );
+        ensure!(
+            wind_u_header.frames.len() == wind_v_header.frames.len(),
+            "wind frame counts differ"
+        );
+    }
     Ok(())
 }
 
@@ -1092,6 +1118,50 @@ fn prune_directory(path: &Path, cutoff: std::time::SystemTime) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hourly_fields_are_split_into_day_sized_chunks() {
+        let times = (1..=30)
+            .map(|lead| format!("2026-09-23T{:02}:00:00Z", lead % 24))
+            .collect::<Vec<_>>();
+        let frames = |grid: crate::grid::GridSpec| {
+            vec![vec![0_u8; (grid.width * grid.height) as usize]; times.len()]
+        };
+        let decoded = DecodedArome {
+            run: "2026-09-23T00:00:00Z".to_owned(),
+            times: times.clone(),
+            downloaded_bytes: 0,
+            rain_frames: Vec::new(),
+            wind_times: Vec::new(),
+            motion_wind_frames: Vec::new(),
+            temperature: frames(DETAIL_GRID),
+            feels_like: frames(DETAIL_GRID),
+            wind_u: frames(DETAIL_GRID),
+            wind_v: frames(DETAIL_GRID),
+            radiation: frames(RADIATION_GRID),
+            relative_humidity: frames(SUMMARY_GRID),
+            cloud_fraction: frames(SUMMARY_GRID),
+        };
+        let chunks = hourly_field_chunks(&decoded, "h30").unwrap();
+        assert_eq!(chunks.len(), 14);
+        let temperature = chunks
+            .iter()
+            .filter(|chunk| chunk.manifest.field == "temp_c")
+            .collect::<Vec<_>>();
+        assert_eq!(temperature[0].manifest.times, times[..24]);
+        assert_eq!(temperature[1].manifest.times, times[24..]);
+        assert!(
+            temperature[0]
+                .filename
+                .starts_with("harmonie-temp_c-20260923T0000-h30-l1-24-")
+        );
+        assert!(
+            temperature[1]
+                .filename
+                .starts_with("harmonie-temp_c-20260923T0000-h30-l25-30-")
+        );
+        validate_wind_pair(&chunks).unwrap();
+    }
 
     #[test]
     fn history_run_covers_six_hours_before_the_current_run() {

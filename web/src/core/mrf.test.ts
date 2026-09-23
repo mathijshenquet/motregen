@@ -114,7 +114,7 @@ describe('mrf v0', () => {
 
   it('emits an hourly radiation chunk with a plausible day-night cycle', async () => {
     const chunk = manifest.chunks.find((candidate) => candidate.field === 'radiation')
-    expect(chunk?.times).toHaveLength(48)
+    expect(chunk?.times).toHaveLength(24)
     const radiationFile = new Uint8Array(await readFile(resolve('public/data', chunk!.url)))
     const header = parseMrfHeader(radiationFile.subarray(0, chunk!.header_len))
     expect(header.field).toBe('radiation')
@@ -195,7 +195,7 @@ describe('mrf v0', () => {
     await Promise.all([...chunks].map(([chunk, indexes]) => client.getFrames(chunk, indexes)))
 
     expect(frames).toHaveLength(207)
-    expect(fetchMock).toHaveBeenCalledTimes(17)
+    expect(fetchMock).toHaveBeenCalledTimes(19)
     for (const [chunk, indexes] of chunks) {
       const chunkFile = files.get(chunk.url)!
       const header = parseMrfHeader(chunkFile.subarray(0, chunk.header_len))
