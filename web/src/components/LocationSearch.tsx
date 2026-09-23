@@ -1,6 +1,7 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from 'solid-js'
 import { lookupLocation, suggestLocations, type PdokSuggestion } from '../core/pdok'
 import { samePlace, type SavedPlace } from '../core/saved-places'
+import { BUTTON_ICON, INLINE_ICON, LocateFixed, Search, Star, X } from './icons'
 
 interface Props {
   location: { lng: number; lat: number }
@@ -146,7 +147,7 @@ export default function LocationSearch(props: Props) {
       timer = window.setTimeout(() => { setOpen(false); setEditingName(false) }, 100)
     }}
   >
-    <span class="search-icon" aria-hidden="true">⌕</span>
+    <Search class="search-icon" {...BUTTON_ICON} />
     <input
       type="text"
       inputMode="search"
@@ -168,20 +169,20 @@ export default function LocationSearch(props: Props) {
       disabled={!selectedLabel()}
       aria-label="Deze plaats opslaan"
       title="Plaats opslaan"
-    >☆</button></Show>
+    ><Star {...BUTTON_ICON} /></button></Show>
     <Show when={open()}>
       <div class="search-results" id="location-results" role="listbox">
         <button class="quick-location" role="option" aria-selected="false" onClick={() => { setOpen(false); props.onLocate() }}>
-          <span><b aria-hidden="true">⌖</b> Mijn locatie</span><small>apparaat</small>
+          <span><LocateFixed {...INLINE_ICON} /> Mijn locatie</span><small>apparaat</small>
         </button>
         <Show when={visibleSaved().length}>
           <p class="search-section-label">Opgeslagen</p>
           <For each={visibleSaved()}>{(place) =>
             <div class="saved-location-row">
               <button class="saved-location" role="option" aria-selected={samePlace(place, props.location)} onClick={() => commitSaved(place)}>
-                <span><b aria-hidden="true">★</b> {place.name}</span><small>{place.sourceLabel === place.name ? 'opgeslagen' : place.sourceLabel}</small>
+                <span><Star {...INLINE_ICON} fill="currentColor" /> {place.name}</span><small>{place.sourceLabel === place.name ? 'opgeslagen' : place.sourceLabel}</small>
               </button>
-              <button class="remove-saved" type="button" onClick={() => props.onRemove(place.id)} aria-label={`${place.name} verwijderen uit opgeslagen plaatsen`} title="Verwijderen">×</button>
+              <button class="remove-saved" type="button" onClick={() => props.onRemove(place.id)} aria-label={`${place.name} verwijderen uit opgeslagen plaatsen`} title="Verwijderen"><X {...BUTTON_ICON} /></button>
             </div>
           }</For>
         </Show>

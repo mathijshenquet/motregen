@@ -1,3 +1,5 @@
+import { BUTTON_ICON, INLINE_ICON, Info, X } from './icons'
+
 export const REPOSITORY_URL = 'https://github.com/mathijshenquet/motregen'
 
 export default function About() {
@@ -14,7 +16,7 @@ export default function About() {
 
   return <div class="source">
     <span>Bron: KNMI · Kaart: OpenFreeMap</span>
-    <button ref={trigger} type="button" class="about-button" aria-haspopup="dialog" aria-label="Over motregen" title="Over motregen" onClick={open}>i</button>
+    <button ref={trigger} type="button" class="about-button" aria-haspopup="dialog" aria-label="Over motregen" title="Over motregen" onClick={open}><Info {...INLINE_ICON} /></button>
     <dialog
       ref={dialog}
       class="about-dialog"
@@ -26,7 +28,7 @@ export default function About() {
         <header>
           <img src="/droplet.svg" alt="" />
           <h2 id="about-title">Over motregen</h2>
-          <button type="button" class="about-close" aria-label="Sluiten" onClick={close} autofocus>×</button>
+          <button type="button" class="about-close" aria-label="Sluiten" onClick={close} autofocus><X {...BUTTON_ICON} /></button>
         </header>
         <p class="about-lead">Data rechtstreeks van het KNMI. Gratis, zonder reclame, open source.</p>
         <p>Eén tijdlijn, van de regen die viel tot de verwachting voor morgen:</p>

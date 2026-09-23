@@ -11,6 +11,9 @@ importers:
       fzstd:
         specifier: ^0.1.1
         version: 0.1.1
+      lucide-solid:
+        specifier: ^1.47.0
+        version: 1.47.0(solid-js@1.9.15)
       maplibre-gl:
         specifier: ^5.7.1
         version: 5.24.0
@@ -1039,6 +1042,11 @@ packages:
 
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
+
+  lucide-solid@1.47.0:
+    resolution: {integrity: sha512-upKY9VSMWsk91pjSCJ/2VtstGJha6qXflfJSN/ahtmWNfy+vtl0ZTMj3KNcnGZCgHVQO5SCG2OecFV7ZlvWVyQ==}
+    peerDependencies:
+      solid-js: ^1.4.7
 
   lz-string@1.5.0:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
@@ -2232,6 +2240,10 @@ snapshots:
   lru-cache@5.1.1:
     dependencies:
       yallist: 3.1.1
+
+  lucide-solid@1.47.0(solid-js@1.9.15):
+    dependencies:
+      solid-js: 1.9.15
 
   lz-string@1.5.0: {}
 
