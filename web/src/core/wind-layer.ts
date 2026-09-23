@@ -10,6 +10,8 @@ export const WIND_TUNING_STORAGE_KEY = 'motregen-wind-tuning-v2'
 // De staart ontstaat in een trailbuffer die per seconde vervaagt; de particle
 // zelf stempelt alleen zijn kop. Leven en fades zijn schermafstanden (CSS-px),
 // zodat snelheid tempo wordt en niet de hoeveelheid inkt per particle.
+// lineWidth is in device-px, zoals vóór U3: dat hield mobiel fijn en desktop
+// voller, en de PO wil die look terug.
 export interface WindTuning {
   particlesPerMegapixel: number
   trailDistance: number
@@ -37,9 +39,9 @@ export const DEFAULT_WIND_TUNING: WindTuning = {
   bufferFade: 0.063,
   bufferScale: 1,
   headIntensity: 0.95,
-  lineWidth: 1.5,
+  lineWidth: 2.5,
   speed: 1,
-  intensity: 0.5,
+  intensity: 1.4,
   visibility: 1,
 }
 
@@ -62,7 +64,7 @@ export const WIND_TUNING_CONTROLS: readonly WindTuningControl[] = [
   { key: 'bufferFade', label: 'Buffer-rest', min: 0.001, max: 0.6, step: 0.001, unit: '/s' },
   { key: 'bufferScale', label: 'Bufferresolutie', min: 0.5, max: 1, step: 0.5, unit: '×' },
   { key: 'headIntensity', label: 'Kopintensiteit', min: 0, max: 1, step: 0.01 },
-  { key: 'lineWidth', label: 'Lijnbreedte', min: 0.25, max: 6, step: 0.05, unit: 'px' },
+  { key: 'lineWidth', label: 'Lijnbreedte', min: 0.5, max: 8, step: 0.05, unit: 'dpx' },
   { key: 'speed', label: 'Tempo', min: 0.2, max: 3, step: 0.05, unit: '×' },
   { key: 'intensity', label: 'Intensiteit', min: 0, max: 2, step: 0.01, unit: '×' },
   { key: 'visibility', label: 'Contrast', min: 0, max: 3, step: 0.1 },
@@ -368,8 +370,7 @@ export class WindLayer implements CustomLayerInterface {
 
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-    const deviceScale = this.trailWidth / Math.max(1, this.map.getCanvas().clientWidth)
-    const halfWidth = Math.max(0.05, this.tuning.lineWidth) / 2 * deviceScale
+    const halfWidth = this.tuning.lineWidth / 2 * this.trailWidth / Math.max(1, this.map.getCanvas().width)
     gl.useProgram(this.segmentProgram!)
     gl.bindVertexArray(this.segmentArray)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer!)
