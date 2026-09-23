@@ -25,6 +25,7 @@ uniform sampler2D u_lut;
 uniform sampler2D u_motion;
 uniform sampler2D u_motion_mask;
 uniform float u_mix;
+uniform float u_opacity;
 uniform float u_has_motion;
 uniform float u_interval_minutes;
 uniform vec2 u_grid_size;
@@ -63,6 +64,7 @@ void main() {
   vec2 right = rainSample(u_right, rightUv);
   float value = mix(left.r * left.g, right.r * right.g, weight);
   color = texture(u_lut, vec2(value, 0.5));
+  color.a *= u_opacity;
 }`
 
 const packedFrames = new WeakMap<Uint8Array, Uint8Array>()
@@ -81,6 +83,7 @@ export class RainLayer implements CustomLayerInterface {
   private motion?: WebGLTexture
   private motionMask?: WebGLTexture
   private mix = 0
+  private opacity = 1
   private hasMotion = false
   private intervalMinutes = 0
 
@@ -124,9 +127,13 @@ export class RainLayer implements CustomLayerInterface {
     this.intervalMinutes = intervalMinutes
   }
 
+  setOpacity(opacity: number): void {
+    this.opacity = opacity
+  }
+
   render(context: WebGLRenderingContext | WebGL2RenderingContext, options: CustomRenderMethodInput): void {
     const gl = context as WebGL2RenderingContext
-    if (!this.program || !this.buffer) return
+    if (!this.program || !this.buffer || this.opacity <= 0) return
     gl.useProgram(this.program)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer)
     const position = gl.getAttribLocation(this.program, 'a_pos')
@@ -137,6 +144,7 @@ export class RainLayer implements CustomLayerInterface {
     gl.vertexAttribPointer(uv, 2, gl.FLOAT, false, 16, 8)
     gl.uniformMatrix4fv(gl.getUniformLocation(this.program, 'u_matrix'), false, options.defaultProjectionData.mainMatrix)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_mix'), this.mix)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_opacity'), this.opacity)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_has_motion'), this.hasMotion ? 1 : 0)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_interval_minutes'), this.intervalMinutes)
     gl.uniform2f(gl.getUniformLocation(this.program, 'u_grid_size'), this.grid.width, this.grid.height)

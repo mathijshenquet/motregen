@@ -33,11 +33,21 @@ interface Props {
   onNeedRows: () => void
   onOpenHistory: () => void
   sunForm: SunForm
+  // Hover/toetsenbordfocus op de gevoelskolom zet de temperatuurfocus van de kaart aan.
+  temperatureFocus: {
+    pinned: boolean
+    onTogglePin: () => void
+    onFocus: (source: 'table' | 'keyboard', active: boolean) => void
+  }
 }
 
 const hour = 3_600_000
 
 export default function ForecastTable(props: Props) {
+  // Touch vuurt ook pointerenter; dat mag geen blijvende hover worden (tap op de kop toggelt).
+  const hover = (event: PointerEvent, active: boolean) => {
+    if (event.pointerType !== 'touch') props.temperatureFocus.onFocus('table', active)
+  }
   const sun = createMemo(() => {
     const first = props.rows[0]
     const last = props.rows.at(-1)
@@ -69,7 +79,19 @@ export default function ForecastTable(props: Props) {
       <th>Uur</th>
       <Show when={props.columns.weather}><th class="weather-heading">Weer</th></Show>
       <Show when={props.columns.uv}><th class="uv-heading" title="UV-index; ≈ = schatting uit modelstraling en zonshoogte">UV</th></Show>
-      <Show when={props.columns.temperature}><th>Gevoel</th></Show>
+      <Show when={props.columns.temperature}><th class="temperature-heading">
+        <button
+          type="button"
+          class="temperature-focus"
+          aria-pressed={props.temperatureFocus.pinned}
+          title="Toon temperatuurlijnen op de kaart"
+          onClick={() => props.temperatureFocus.onTogglePin()}
+          onFocus={(event) => { if (event.currentTarget.matches(':focus-visible')) props.temperatureFocus.onFocus('keyboard', true) }}
+          onBlur={() => props.temperatureFocus.onFocus('keyboard', false)}
+          onPointerEnter={(event) => hover(event, true)}
+          onPointerLeave={(event) => hover(event, false)}
+        >Gevoel</button>
+      </th></Show>
       <Show when={props.columns.humidity}><th>RV</th></Show>
       <Show when={props.columns.wind}><th>Wind</th></Show>
       <th>Regen</th>
@@ -136,7 +158,7 @@ export default function ForecastTable(props: Props) {
               {uvText()}
             </td>
           </Show>
-          <Show when={props.columns.temperature}><td class="temperature-cell">{degrees(feelsLike())}<small class="air-temperature" title="Luchttemperatuur">{degrees(temperature())}</small></td></Show>
+          <Show when={props.columns.temperature}><td class="temperature-cell" onPointerEnter={(event) => hover(event, true)} onPointerLeave={(event) => hover(event, false)}>{degrees(feelsLike())}<small class="air-temperature" title="Luchttemperatuur">{degrees(temperature())}</small></td></Show>
           <Show when={props.columns.humidity}><td>{humidity() == null ? placeholder() : `${Math.round(humidity()!)}%`}</td></Show>
           <Show when={props.columns.wind}><td class="wind-cell"><Show when={wind()} fallback={placeholder()}>{(summary) =>
             <span title={`${summary().speed.toLocaleString('nl-NL', { maximumFractionDigits: 1 })} m/s`}>{summary().direction} · {summary().beaufort} Bft</span>
