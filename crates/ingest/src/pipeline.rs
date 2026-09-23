@@ -1,7 +1,7 @@
 use std::{fs, path::Path, time::Instant};
 
 use anyhow::{Context, Result, ensure};
-use chrono::{DateTime, Duration, NaiveDateTime, SecondsFormat, Utc};
+use chrono::{DateTime, Duration, DurationRound, NaiveDateTime, SecondsFormat, Utc};
 use knmi_hdf5::{RadarFrame, RadarGrid};
 use rayon::prelude::*;
 use tracing::info;
@@ -291,11 +291,143 @@ pub fn build_arome_chunks(
         .into_iter()
         .next()
         .expect("checked non-empty file list");
-    let url = api.download_url(AROME_DATASET, AROME_VERSION, &file)?;
-    let members = index_lead_members(
-        |start, end| api.fetch_range(&url, start, end),
-        horizon_hours,
+    let mut decoded = decode_arome_run(api, cache_root, &file, horizon_hours, true)?;
+    let run = decoded.run.clone();
+    let times = decoded.times.clone();
+    let wind = WindTimeline::new(
+        run.clone(),
+        std::mem::take(&mut decoded.wind_times),
+        std::mem::take(&mut decoded.motion_wind_frames),
     )?;
+
+    let compact_run = compact_timestamp(&run)?;
+    let rain_meta =
+        mrf::ChunkMeta::standard(SHARED_GRID.mrf_grid(), "harmonie", &run, times.clone());
+    let encoded = encode_rain_with_motion(
+        &decoded.rain_frames,
+        &rain_meta,
+        &wind,
+        previous_calibration,
+        MotionParallelism::Inline,
+    )?;
+    let calibration = encoded.report;
+    let rain = produced_chunk(
+        generated_chunk_filename(
+            &format!(
+                "harmonie-{compact_run}-h{horizon_hours}-w{compact_run}-c{}",
+                calibration_suffix(encoded.report)
+            ),
+            &rain_meta,
+        ),
+        encoded.bytes,
+    )?;
+    let mut chunks = vec![rain];
+    chunks.extend(hourly_field_chunks(&decoded, &format!("h{horizon_hours}"))?);
+    validate_wind_pair(&chunks)?;
+    Ok(AromePublication {
+        chunks,
+        downloaded_bytes: decoded.downloaded_bytes,
+        wind,
+        calibration,
+    })
+}
+
+pub struct AromeHistory {
+    pub chunks: Vec<ProducedChunk>,
+    pub downloaded_bytes: u64,
+}
+
+/// Older run whose early leads cover the hours between `now - history_hours`
+/// and the current run start, as `(file, leads)`; `None` when the current
+/// run already reaches far enough back.
+pub fn arome_history_choice(
+    files: &[RemoteFile],
+    current_run: DateTime<Utc>,
+    now: DateTime<Utc>,
+    history_hours: u32,
+) -> Result<Option<(RemoteFile, u32)>> {
+    let first_row = now
+        .duration_trunc(Duration::hours(1))?
+        .checked_sub_signed(Duration::hours(i64::from(history_hours)))
+        .context("history window underflow")?;
+    if current_run + Duration::hours(1) <= first_row {
+        return Ok(None);
+    }
+    let latest_start = (first_row - Duration::hours(1)).min(current_run - Duration::hours(1));
+    let mut best: Option<(RemoteFile, DateTime<Utc>)> = None;
+    for file in files {
+        let Ok(run) = arome_run(&file.filename) else {
+            continue;
+        };
+        let run = DateTime::parse_from_rfc3339(&run)?.with_timezone(&Utc);
+        if run <= latest_start && best.as_ref().is_none_or(|(_, best)| run > *best) {
+            best = Some((file.clone(), run));
+        }
+    }
+    let Some((file, run)) = best else {
+        return Ok(None);
+    };
+    let leads = u32::try_from((current_run - run).num_hours())?;
+    ensure!(
+        (1..=60).contains(&leads),
+        "AROME history run {} is {leads} h older than the current run",
+        file.filename
+    );
+    Ok(Some((file, leads)))
+}
+
+pub fn build_arome_history_chunks(
+    api: &ApiClient,
+    cache_root: &Path,
+    current_run: &str,
+    now: DateTime<Utc>,
+    history_hours: u32,
+) -> Result<Option<AromeHistory>> {
+    if history_hours == 0 {
+        return Ok(None);
+    }
+    let current_run = DateTime::parse_from_rfc3339(current_run)?.with_timezone(&Utc);
+    let files = latest_files(api, AROME_DATASET, AROME_VERSION, 24)?;
+    let Some((file, leads)) = arome_history_choice(&files, current_run, now, history_hours)? else {
+        return Ok(None);
+    };
+    let decoded = decode_arome_run(api, cache_root, &file, leads, false)?;
+    let chunks = hourly_field_chunks(&decoded, &format!("hist{leads}"))?;
+    validate_wind_pair(&chunks)?;
+    Ok(Some(AromeHistory {
+        chunks,
+        downloaded_bytes: decoded.downloaded_bytes,
+    }))
+}
+
+struct DecodedArome {
+    run: String,
+    times: Vec<String>,
+    downloaded_bytes: u64,
+    rain_frames: Vec<Vec<u8>>,
+    wind_times: Vec<DateTime<Utc>>,
+    motion_wind_frames: Vec<Vec<Option<(f32, f32)>>>,
+    temperature: Vec<Vec<u8>>,
+    feels_like: Vec<Vec<u8>>,
+    wind_u: Vec<Vec<u8>>,
+    wind_v: Vec<Vec<u8>>,
+    radiation: Vec<Vec<u8>>,
+    relative_humidity: Vec<Vec<u8>>,
+    cloud_fraction: Vec<Vec<u8>>,
+}
+
+/// Decodes leads +1..=`leads` of one AROME run; +0 is only the
+/// de-accumulation base. Rain and the motion wind prior are skipped when
+/// `with_rain` is false (history hours are never shown as rain).
+fn decode_arome_run(
+    api: &ApiClient,
+    cache_root: &Path,
+    file: &RemoteFile,
+    leads: u32,
+    with_rain: bool,
+) -> Result<DecodedArome> {
+    let url = api.download_url(AROME_DATASET, AROME_VERSION, file)?;
+    let members = index_lead_members(|start, end| api.fetch_range(&url, start, end), leads)?;
     let run = arome_run(&file.filename)?;
     let member_dir = cache_root.join("arome").join(compact_timestamp(&run)?);
     let mut paths = Vec::with_capacity(members.len());
@@ -319,24 +451,33 @@ pub fn build_arome_chunks(
     let hourly_map = IndexMap::arome_on(&grid, HOURLY_GRID)?;
     let motion_wind_map = IndexMap::arome_clamped_on(&grid, SHARED_GRID)?;
     let run_time = DateTime::parse_from_rfc3339(&run)?;
-    let mut wind_times = vec![run_time.with_timezone(&Utc)];
-    let mut motion_wind_frames = vec![motion_wind_blocks(
-        &motion_wind_map,
-        &first.motion_wind_u_ms.values,
-        &first.motion_wind_v_ms.values,
-    )?];
-    let capacity = horizon_hours as usize;
-    let mut rain_frames = Vec::with_capacity(capacity);
-    let mut temperature_frames = Vec::with_capacity(capacity);
-    let mut feels_like_frames = Vec::with_capacity(capacity);
-    let mut wind_u_frames = Vec::with_capacity(capacity);
-    let mut wind_v_frames = Vec::with_capacity(capacity);
-    let mut radiation_frames = Vec::with_capacity(capacity);
-    let mut relative_humidity_frames = Vec::with_capacity(capacity);
-    let mut cloud_fraction_frames = Vec::with_capacity(capacity);
-    let mut times = Vec::with_capacity(horizon_hours as usize);
+    let mut wind_times = Vec::new();
+    let mut motion_wind_frames = Vec::new();
+    if with_rain {
+        wind_times.push(run_time.with_timezone(&Utc));
+        motion_wind_frames.push(motion_wind_blocks(
+            &motion_wind_map,
+            &first.motion_wind_u_ms.values,
+            &first.motion_wind_v_ms.values,
+        )?);
+    }
+    let capacity = leads as usize;
+    let mut out = DecodedArome {
+        run: run.clone(),
+        times: Vec::with_capacity(capacity),
+        downloaded_bytes,
+        rain_frames: Vec::with_capacity(capacity),
+        wind_times,
+        motion_wind_frames,
+        temperature: Vec::with_capacity(capacity),
+        feels_like: Vec::with_capacity(capacity),
+        wind_u: Vec::with_capacity(capacity),
+        wind_v: Vec::with_capacity(capacity),
+        radiation: Vec::with_capacity(capacity),
+        relative_humidity: Vec::with_capacity(capacity),
+        cloud_fraction: Vec::with_capacity(capacity),
+    };
     let temperature_quant = temperature_quantization_table();
-    let feels_like_quant = temperature_quant.clone();
     let wind_quant = wind_quantization_table();
     let radiation_quant = radiation_quantization_table();
     let percent_quant = percent_quantization_table();
@@ -352,15 +493,19 @@ pub fn build_arome_chunks(
             "AROME lead-time order changed while decoding"
         );
         let valid_time = run_time + Duration::hours(lead as i64);
-        wind_times.push(valid_time.with_timezone(&Utc));
-        motion_wind_frames.push(motion_wind_blocks(
-            &motion_wind_map,
-            &current.motion_wind_u_ms.values,
-            &current.motion_wind_v_ms.values,
-        )?);
-        let rates =
-            knmi_grib::hourly_precipitation(&previous_precipitation, &current.precipitation_mm)?;
-        rain_frames.push(quantize_gathered(&rain_map, &rates)?);
+        if with_rain {
+            out.wind_times.push(valid_time.with_timezone(&Utc));
+            out.motion_wind_frames.push(motion_wind_blocks(
+                &motion_wind_map,
+                &current.motion_wind_u_ms.values,
+                &current.motion_wind_v_ms.values,
+            )?);
+            let rates = knmi_grib::hourly_precipitation(
+                &previous_precipitation,
+                &current.precipitation_mm,
+            )?;
+            out.rain_frames.push(quantize_gathered(&rain_map, &rates)?);
+        }
 
         let temperature = hourly_map
             .gather(&current.temperature_k.values)?
@@ -387,27 +532,27 @@ pub fn build_arome_chunks(
                 feels_like_c(*temperature, *humidity, *wind_u, *wind_v)
             })
             .collect::<Vec<_>>();
-        temperature_frames.push(quantize_values(
+        out.temperature.push(quantize_values(
             &integrate_values(&temperature, 3)?,
             &temperature_quant,
         )?);
-        feels_like_frames.push(quantize_values(
+        out.feels_like.push(quantize_values(
             &integrate_values(&feels_like, 3)?,
-            &feels_like_quant,
+            &temperature_quant,
         )?);
-        wind_u_frames.push(quantize_values(
+        out.wind_u.push(quantize_values(
             &integrate_values(&wind_u, 3)?,
             &wind_quant,
         )?);
-        wind_v_frames.push(quantize_values(
+        out.wind_v.push(quantize_values(
             &integrate_values(&wind_v, 3)?,
             &wind_quant,
         )?);
-        relative_humidity_frames.push(quantize_values(
+        out.relative_humidity.push(quantize_values(
             &integrate_values(&relative_humidity_percent, 8)?,
             &percent_quant,
         )?);
-        cloud_fraction_frames.push(quantize_values(
+        out.cloud_fraction.push(quantize_values(
             &integrate_values(&cloud_fraction, 8)?,
             &percent_quant,
         )?);
@@ -418,98 +563,83 @@ pub fn build_arome_chunks(
                 .map(|energy| energy / 3_600.0)
                 .collect::<Vec<_>>();
         let radiation = hourly_map.gather(&radiation)?;
-        radiation_frames.push(quantize_values(
+        out.radiation.push(quantize_values(
             &integrate_values(&radiation, 4)?,
             &radiation_quant,
         )?);
-        times.push(valid_time.to_rfc3339_opts(SecondsFormat::Secs, true));
+        out.times
+            .push(valid_time.to_rfc3339_opts(SecondsFormat::Secs, true));
         previous_precipitation = current.precipitation_mm;
         previous_radiation = current.global_radiation_j_m2;
     }
     ensure!(
-        times.len() == horizon_hours as usize,
+        out.times.len() == leads as usize,
         "AROME member count changed while decoding"
     );
-    let wind = WindTimeline::new(run.clone(), wind_times, motion_wind_frames)?;
+    Ok(out)
+}
 
-    let compact_run = compact_timestamp(&run)?;
-    let rain_meta =
-        mrf::ChunkMeta::standard(SHARED_GRID.mrf_grid(), "harmonie", &run, times.clone());
-    let encoded = encode_rain_with_motion(
-        &rain_frames,
-        &rain_meta,
-        &wind,
-        previous_calibration,
-        MotionParallelism::Inline,
-    )?;
-    let calibration = encoded.report;
-    let rain = produced_chunk(
-        generated_chunk_filename(
-            &format!(
-                "harmonie-{compact_run}-h{horizon_hours}-w{compact_run}-c{}",
-                calibration_suffix(encoded.report)
-            ),
-            &rain_meta,
-        ),
-        encoded.bytes,
-    )?;
+fn hourly_field_chunks(decoded: &DecodedArome, horizon_label: &str) -> Result<Vec<ProducedChunk>> {
+    let run = &decoded.run;
+    let compact_run = compact_timestamp(run)?;
     let field_chunk = |field: &str,
                        grid: crate::grid::GridSpec,
                        frames: &[Vec<u8>],
                        quant: Vec<Option<f32>>|
      -> Result<ProducedChunk> {
-        let meta = mrf::ChunkMeta::standard(grid.mrf_grid(), "harmonie", &run, times.clone())
-            .with_field(field, quant);
+        let meta =
+            mrf::ChunkMeta::standard(grid.mrf_grid(), "harmonie", run, decoded.times.clone())
+                .with_field(field, quant);
         produced_chunk(
             generated_chunk_filename(
-                &format!("harmonie-{field}-{compact_run}-h{horizon_hours}"),
+                &format!("harmonie-{field}-{compact_run}-{horizon_label}"),
                 &meta,
             ),
             mrf::encode(frames, &meta)?,
         )
     };
-    let chunks = vec![
-        rain,
+    let temperature_quant = temperature_quantization_table();
+    let wind_quant = wind_quantization_table();
+    let percent_quant = percent_quantization_table();
+    Ok(vec![
         field_chunk(
             "temp_c",
             DETAIL_GRID,
-            &temperature_frames,
-            temperature_quant,
+            &decoded.temperature,
+            temperature_quant.clone(),
         )?,
         field_chunk(
             "feels_like_c",
             DETAIL_GRID,
-            &feels_like_frames,
-            feels_like_quant,
+            &decoded.feels_like,
+            temperature_quant,
         )?,
-        field_chunk("wind_u_ms", DETAIL_GRID, &wind_u_frames, wind_quant.clone())?,
-        field_chunk("wind_v_ms", DETAIL_GRID, &wind_v_frames, wind_quant)?,
+        field_chunk(
+            "wind_u_ms",
+            DETAIL_GRID,
+            &decoded.wind_u,
+            wind_quant.clone(),
+        )?,
+        field_chunk("wind_v_ms", DETAIL_GRID, &decoded.wind_v, wind_quant)?,
         field_chunk(
             "radiation",
             RADIATION_GRID,
-            &radiation_frames,
-            radiation_quant,
+            &decoded.radiation,
+            radiation_quantization_table(),
         )?,
         field_chunk(
             "rel_humidity",
             SUMMARY_GRID,
-            &relative_humidity_frames,
+            &decoded.relative_humidity,
             percent_quant.clone(),
         )?,
         field_chunk(
             "cloud_frac",
             SUMMARY_GRID,
-            &cloud_fraction_frames,
+            &decoded.cloud_fraction,
             percent_quant,
         )?,
-    ];
-    validate_wind_pair(&chunks)?;
-    Ok(AromePublication {
-        chunks,
-        downloaded_bytes,
-        wind,
-        calibration,
-    })
+    ])
 }
 
 pub fn build_uv_chunk(
@@ -962,6 +1092,54 @@ fn prune_directory(path: &Path, cutoff: std::time::SystemTime) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn history_run_covers_six_hours_before_the_current_run() {
+        let file = |hour: u32| RemoteFile {
+            filename: format!("HARM43_V1_P1_20260923{hour:02}.tar"),
+            size: 1,
+            last_modified: String::new(),
+        };
+        let at = |hour: u32, minute: u32| {
+            chrono::NaiveDate::from_ymd_opt(2026, 9, 23)
+                .unwrap()
+                .and_hms_opt(hour, minute, 0)
+                .unwrap()
+                .and_utc()
+        };
+        let files = (0..=10).rev().map(file).collect::<Vec<_>>();
+        let (chosen, leads) = arome_history_choice(&files, at(8, 0), at(12, 35), 6)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            (chosen.filename.as_str(), leads),
+            ("HARM43_V1_P1_2026092305.tar", 3)
+        );
+
+        let without_05 = files
+            .iter()
+            .filter(|file| !file.filename.ends_with("05.tar"))
+            .cloned()
+            .collect::<Vec<_>>();
+        let (chosen, leads) = arome_history_choice(&without_05, at(8, 0), at(12, 35), 6)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            (chosen.filename.as_str(), leads),
+            ("HARM43_V1_P1_2026092304.tar", 4)
+        );
+
+        assert!(
+            arome_history_choice(&files, at(5, 0), at(12, 35), 6)
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            arome_history_choice(&files[..3], at(8, 0), at(12, 35), 6)
+                .unwrap()
+                .is_none()
+        );
+    }
 
     #[test]
     fn parses_arome_run_timestamp() {
