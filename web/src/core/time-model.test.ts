@@ -65,6 +65,17 @@ describe('time model', () => {
     ])
   })
 
+  it('keeps past model hours and UV analyses for fields without observations', () => {
+    const now = '2026-08-28T15:00:00Z'
+    const past = '2026-08-28T14:00:00Z'
+    const temp = { ...chunk('harmonie', '2026-08-28T12:00:00Z', [past, now]), field: 'temp_c' as const, url: 'temp.mrf' }
+    const uv = { ...chunk('harmonie', now, [past]), source: 'uv' as const, field: 'uv' as const, url: 'uv.mrf' }
+    const manifest: Manifest = { version: 0, generated: now, now, chunks: [temp, uv] }
+
+    expect(buildTimeline(manifest, 'temp_c').map(({ time }) => time)).toEqual([past, now])
+    expect(buildTimeline(manifest, 'uv').map(({ time }) => time)).toEqual([past])
+  })
+
   it('prefers seamless over raw model and folds it into the model zone', () => {
     const now = '2026-08-28T15:00:00Z'
     const later = '2026-08-28T18:00:00Z'

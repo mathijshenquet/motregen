@@ -31,7 +31,9 @@ Tijdlijncompositie (client): per veld; verzamel alle frames uit alle chunks
 van dat veld, sorteer op tijd; bij meerdere frames voor dezelfde tijd wint regime-prioriteit
 `rtcor > nowcast > seamless > harmonie` (gemeten verslaat voorspeld, blend
 verslaat ruw model), daarbinnen de recentste run. Voor t < nu tonen clients
-uitsluitend observaties (MIP-4 ronde 4). `header_len` bestaat zodat de client de chunk-header met één
+voor `rain_rate` uitsluitend observaties (MIP-4 ronde 4); uurvelden en UV
+hebben geen waarnemingsalternatief en tonen in het verleden hun (analyse-
+nabije) modelwaarde resp. KNMI-UV-analyse. `header_len` bestaat zodat de client de chunk-header met één
 exacte Range-request kan halen.
 
 ## mrf-chunk (binair, little-endian)
@@ -147,3 +149,9 @@ frame kan zippen tot vectoren.
   Quant-regel versoepeld: alleen index 255 = null is universeel; `quant[0]
   == 0.0` geldt alleen voor rain_rate/radiation (signed velden toegestaan).
   Bestaande rain/radiation-chunks blijven byte-identiek geldig.
+- 2026-09-23 (U4, ter review door orchestrator): verduidelijking
+  verleden-regel — "t < nu alleen observaties" geldt voor `rain_rate`;
+  overige velden houden hun frames uit het verleden (urenoverzicht-historie).
+  HARMONIE-uurvelden mogen over meerdere chunks per run verdeeld zijn
+  (dagdelen) en een oudere run mag als historie-chunk meereizen; geen
+  formaatwijziging.

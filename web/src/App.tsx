@@ -1,16 +1,17 @@
-import { batch, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
+import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show } from 'solid-js'
 import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
 import HistogramScrubber from './components/HistogramScrubber'
 import LocationSearch from './components/LocationSearch'
+import MapClock from './components/MapClock'
 import PerfHud from './components/PerfHud'
-import WeatherIcon from './components/WeatherIcon'
+import ForecastTable, { type SunForm } from './components/ForecastTable'
 import { firstBasemapTextLayerId, loadBasemapStyle, type MapTheme } from './core/basemap'
 import { CloudEdgeLayer } from './core/cloud-edge-layer'
 import type { Grid, Manifest, ManifestChunk, MrfHeader, TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
 
 const DAY_NIGHT_ENABLED = false
-import { buildHourlyForecast } from './core/forecast'
+import { buildHourlyForecast, isPassiveRow, PASSIVE_FORECAST_HOURS } from './core/forecast'
 import { contextOpacity, DEFAULT_FOCUS_TUNING, FocusMode, type FocusTuning } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import { DEFAULT_ISOLINE_TUNING, emptyIsolineData, ISOLINE_LINE_OPACITY, ISOLINE_STEPS, IsolineWorker, isolineLayers, type IsolineStep, type IsolineTuning } from './core/isolines'
@@ -29,10 +30,9 @@ import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureColl
 import { solarElevationSin } from './core/solar'
 import { temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
 import { buildTimeline, frameBlend, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelinePlaybackRate } from './core/time-model'
-import { uvAdvice } from './core/uv'
+import { formatUv, uvChipLabel } from './core/uv'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
-import { DEFAULT_WIND_TUNING, WindLayer, type WindTuning } from './core/wind-layer'
-import { deriveWeatherIcon, summarizeWind } from './core/weather'
+import { loadWindTuning, storeWindTuning, WindLayer, type WindTuning } from './core/wind-layer'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
 const perf = installPerfMonitor()
@@ -41,7 +41,7 @@ const themes = ['light', 'system', 'dark'] as const
 type ThemeChoice = typeof themes[number]
 type PointLoadStage = 'initial' | 'direct' | 'window' | 'complete'
 type FetchPriority = 'high' | 'low'
-type ForecastIndex = 'uvIndex' | 'temperatureIndex' | 'feelsLikeIndex' | 'humidityIndex' | 'cloudIndex' | 'windUIndex' | 'windVIndex'
+type ForecastIndex = 'radiationIndex' | 'uvIndex' | 'temperatureIndex' | 'feelsLikeIndex' | 'humidityIndex' | 'cloudIndex' | 'windUIndex' | 'windVIndex'
 
 interface PointLoadState {
   request: number
@@ -142,9 +142,13 @@ export default function App() {
   const [cloudSeries, setCloudSeries] = createSignal<Array<number | null>>([])
   const [windUSeries, setWindUSeries] = createSignal<Array<number | null>>([])
   const [windVSeries, setWindVSeries] = createSignal<Array<number | null>>([])
+  const [radiationSeries, setRadiationSeries] = createSignal<Array<number | null>>([])
+  // History rows cost bytes the old table never loaded; they stay folded until asked for.
+  const [historyRowsWanted, setHistoryRowsWanted] = createSignal(false)
+  const [historyOpen, setHistoryOpen] = createSignal(false)
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
-  const [windTuning, setWindTuning] = createSignal<WindTuning>({ ...DEFAULT_WIND_TUNING })
+  const [windTuning, setWindTuning] = createSignal<WindTuning>(loadWindTuning())
   const [cloudEdgesEnabled, setCloudEdgesEnabled] = createSignal(false)
   const [focusTuning, setFocusTuning] = createSignal<FocusTuning>({ ...DEFAULT_FOCUS_TUNING })
   const [isolineTuning, setIsolineTuning] = createSignal<IsolineTuning>({ ...DEFAULT_ISOLINE_TUNING })
@@ -641,10 +645,6 @@ export default function App() {
     }
   }
 
-  function hoverFocus(source: string, active: boolean, event: PointerEvent): void {
-    if (event.pointerType !== 'touch') focusMode.set(source, active)
-  }
-
   function toggleFocusPin(): void {
     const pinned = !focusPinned()
     setFocusPinned(pinned)
@@ -924,8 +924,40 @@ export default function App() {
     scheduleRainWindow(state)
   }
 
+  async function loadHistoryRows(): Promise<void> {
+    if (historyRowsWanted()) return
+    setHistoryRowsWanted(true)
+    const state = pointLoad
+    if (!state) return
+    await state.direct.catch(() => undefined)
+    if (state.request !== pointRequest) return
+    const [uv, temperature, feelsLike, humidity, cloud, windU, windV] = await Promise.all([
+      readForecastPointSeries(uvTimeline(), state.point, 'uvIndex', 'L2'),
+      readForecastPointSeries(tempTimeline(), state.point, 'temperatureIndex', 'L2'),
+      readForecastPointSeries(feelsLikeTimeline(), state.point, 'feelsLikeIndex', 'L2'),
+      readForecastPointSeries(humidityTimeline(), state.point, 'humidityIndex', 'L2'),
+      readForecastPointSeries(cloudTimeline(), state.point, 'cloudIndex', 'L2'),
+      readForecastPointSeries(windUFrames(), state.point, 'windUIndex', 'L2'),
+      readForecastPointSeries(windVFrames(), state.point, 'windVIndex', 'L2'),
+    ])
+    if (state.request !== pointRequest) return
+    const merge = (next: Array<number | null>) => (previous: Array<number | null>) =>
+      Array.from({ length: Math.max(previous.length, next.length) }, (_, index) => next[index] ?? previous[index] ?? null)
+    batch(() => {
+      setUvSeries(merge(uv))
+      setTemperatureSeries(merge(temperature))
+      setFeelsLikeSeries(merge(feelsLike))
+      setHumiditySeries(merge(humidity))
+      setCloudSeries(merge(cloud))
+      setWindUSeries(merge(windU))
+      setWindVSeries(merge(windV))
+    })
+  }
+
   function readForecastPointSeries(frames: TimelineFrame[], point: { lng: number; lat: number }, key: ForecastIndex, layer: LoadLayer): Promise<Array<number | null>> {
-    const indexes = forecast().flatMap((row) => row[key] == null ? [] : [row[key]])
+    const now = manifestNow()
+    const history = historyRowsWanted()
+    const indexes = forecast().flatMap((row) => row[key] == null || !isPassiveRow(row, now) || (row.kind === 'past' && !history) ? [] : [row[key]])
     return frames.length ? readPointSeries(frames, point, indexes, 'high', undefined, undefined, layer).catch(() => []) : Promise.resolve([])
   }
 
@@ -1118,8 +1150,9 @@ export default function App() {
     setTheme((current) => themes[(themes.indexOf(current) + 1) % themes.length]!)
   }
 
-  function tuneWind<Key extends keyof WindTuning>(key: Key, value: WindTuning[Key]): void {
-    setWindTuning((current) => ({ ...current, [key]: value }))
+  function tuneWind(tuning: WindTuning): void {
+    setWindTuning(tuning)
+    storeWindTuning(tuning)
   }
 
   function tuneFocus<Key extends keyof FocusTuning>(key: Key, value: FocusTuning[Key]): void {
@@ -1191,9 +1224,11 @@ export default function App() {
     }
   }
 
+  const manifestNow = () => manifest() ? Date.parse(manifest()!.now) : 0
   const forecast = createMemo(() => buildHourlyForecast({
     rain: timeline(),
     uv: uvTimeline(),
+    radiation: radiationTimeline(),
     temperature: tempTimeline(),
     feelsLike: feelsLikeTimeline(),
     humidity: humidityTimeline(),
@@ -1201,12 +1236,29 @@ export default function App() {
     windU: windUFrames(),
     windV: windVFrames(),
   }, manifest() ? Date.parse(manifest()!.now) : 0))
-  const currentHour = createMemo(() => Math.floor((manifest() ? Date.parse(manifest()!.now) : 0) / 3_600_000) * 3_600_000)
+  // PO-smaaktest: ?zon=markering zet zon op/onder in de uurcel i.p.v. als tussenrij.
+  const sunForm: SunForm = new URLSearchParams(window.location.search).get('zon') === 'markering' ? 'marker' : 'row'
+  let radiationRequest = 0
+  createEffect(() => {
+    const point = location()
+    const frames = radiationTimeline()
+    const all = pointLoadStage() === 'complete'
+    const now = manifestNow()
+    const indexes = forecast().flatMap((row) => {
+      if (row.kind === 'past' || (!all && !isPassiveRow(row, now))) return []
+      if (solarElevationSin(row.epoch, point.lng, point.lat) <= 0) return []
+      return [row.radiationIndex, row.radiationNextIndex].filter((index): index is number => index != null)
+    })
+    const request = ++radiationRequest
+    if (!indexes.length) return
+    void readPointSeries(frames, point, indexes, 'low', undefined, undefined, 'L0').then((values) => {
+      if (request === radiationRequest) setRadiationSeries(values)
+    }).catch(() => undefined)
+  })
   const cursorUv = createMemo(() => seriesValueAt(uvTimeline(), uvSeries(), selectedEpoch(), 30 * 60_000))
   const cursorUvChip = createMemo(() => uvChipLabel(cursorUv()))
   const hasTemperature = createMemo(() => feelsLikeTimeline().length > 0)
   const hasWeatherIcons = createMemo(() => cloudTimeline().length > 0)
-  const hasWeatherColumn = createMemo(() => hasWeatherIcons() || uvTimeline().length > 0)
   const hasHumidity = createMemo(() => humidityTimeline().length > 0)
   const hasWind = createMemo(() => windUFrames().length > 0 && windVFrames().length > 0)
   const themeMeta = createMemo(() => theme() === 'light'
@@ -1242,13 +1294,7 @@ export default function App() {
       <Show when={devMode && windTimeline().length}>
         <details class="wind-debug" open>
           <summary>Wind debug</summary>
-          <label><span>Zichtbaar</span><input type="range" min="0" max="3" step="0.1" value={windTuning().visibility} onInput={(event) => tuneWind('visibility', event.currentTarget.valueAsNumber)} /><output>{windTuning().visibility.toFixed(1)}</output></label>
-          <label><span>Dikte</span><input type="range" min="1" max="5" step="0.25" value={windTuning().thickness} onInput={(event) => tuneWind('thickness', event.currentTarget.valueAsNumber)} /><output>{windTuning().thickness.toLocaleString('nl-NL', { maximumFractionDigits: 2 })} px</output></label>
-          <label><span>Dichtheid</span><input type="range" min="100" max="1600" step="20" value={windTuning().particlesPerMegapixel} onInput={(event) => tuneWind('particlesPerMegapixel', event.currentTarget.valueAsNumber)} /><output>{windTuning().particlesPerMegapixel}</output></label>
-          <label><span>Deeltjes</span><input type="range" min="0.1" max="1" step="0.05" value={windTuning().particleOpacity} onInput={(event) => tuneWind('particleOpacity', event.currentTarget.valueAsNumber)} /><output>{windTuning().particleOpacity.toFixed(2)}</output></label>
-          <label><span>Trailduur</span><input type="range" min="0.9" max="0.99" step="0.001" value={windTuning().trailFade} onInput={(event) => tuneWind('trailFade', event.currentTarget.valueAsNumber)} /><output>{windTuning().trailFade.toFixed(3)}</output></label>
-          <label><span>Dekking</span><input type="range" min="0.1" max="1" step="0.05" value={windTuning().trailOpacity} onInput={(event) => tuneWind('trailOpacity', event.currentTarget.valueAsNumber)} /><output>{windTuning().trailOpacity.toFixed(2)}</output></label>
-          <label><span>Isolijnen</span><select value={isolineTuning().step} onChange={(event) => setIsolineTuning((current) => ({ ...current, step: Number(event.currentTarget.value) as IsolineStep }))}><For each={[...ISOLINE_STEPS]}>{(step) => <option value={step}>{step} °C</option>}</For></select><output>{isolineTuning().step}°</output></label>
+          <label><span>Isolijnen</span><select value={isolineTuning().step} onChange={(event) => setIsolineTuning((current) => ({ ...current, step: Number(event.currentTarget.value) as IsolineStep }))}>{ISOLINE_STEPS.map((step) => <option value={step}>{step} °C</option>)}</select><output>{isolineTuning().step}°</output></label>
           <label class="debug-toggle"><span>Glad</span><input type="checkbox" checked={isolineTuning().smoothing} onChange={(event) => setIsolineTuning((current) => ({ ...current, smoothing: event.currentTarget.checked }))} /><output>{isolineTuning().smoothing ? 'Aan' : 'Uit'}</output></label>
           <label><span>Veldblur</span><input type="range" min="0" max="4" step="1" value={isolineTuning().blur} onInput={(event) => setIsolineTuning((current) => ({ ...current, blur: event.currentTarget.valueAsNumber }))} /><output>{isolineTuning().blur}×</output></label>
           <label><span>Focus dim</span><input type="range" min="0" max="1" step="0.05" value={focusTuning().dim} onInput={(event) => tuneFocus('dim', event.currentTarget.valueAsNumber)} /><output>{Math.round(focusTuning().dim * 100)}%</output></label>
@@ -1263,6 +1309,7 @@ export default function App() {
         </details>
       </Show>
       <div class="source">Bron: KNMI · Kaart: OpenFreeMap</div>
+      <MapClock mapEpoch={selectedEpoch()} now={manifestNow()} />
     </section>
     <aside class="dashboard">
       <nav class="sidebar-nav" aria-label="Instellingen en locatie">
@@ -1291,55 +1338,29 @@ export default function App() {
       />
       <section class="forecast-panel">
         <div class="table-scroll">
-          <table>
-            <thead><tr>
-              <th>Uur</th>
-              <Show when={hasWeatherColumn()}><th class="weather-heading">Weer</th></Show>
-              <Show when={hasTemperature()}><th class="temperature-heading">
-                <button
-                  type="button"
-                  class="temperature-focus"
-                  aria-pressed={focusPinned()}
-                  title="Toon temperatuurlijnen op de kaart"
-                  onClick={toggleFocusPin}
-                  onFocus={(event) => { if (event.currentTarget.matches(':focus-visible')) focusMode.set('keyboard', true) }}
-                  onBlur={() => focusMode.set('keyboard', false)}
-                  onPointerEnter={(event) => hoverFocus('table', true, event)}
-                  onPointerLeave={(event) => hoverFocus('table', false, event)}
-                >Gevoel</button>
-              </th></Show>
-              <Show when={hasHumidity()}><th>RV</th></Show>
-              <Show when={hasWind()}><th>Wind</th></Show>
-              <th>Regen</th>
-            </tr></thead>
-            <tbody><For each={forecast()}>{(row) => {
-              const rain = () => row.rainIndex == null ? null : rainSeries()[row.rainIndex]
-              const uv = () => row.uvIndex == null ? null : uvSeries()[row.uvIndex]
-              const cloud = () => row.cloudIndex == null ? null : cloudSeries()[row.cloudIndex]
-              const feelsLike = () => row.feelsLikeIndex == null ? null : feelsLikeSeries()[row.feelsLikeIndex]
-              const temperature = () => row.temperatureIndex == null ? null : temperatureSeries()[row.temperatureIndex]
-              const humidity = () => row.humidityIndex == null ? null : humiditySeries()[row.humidityIndex]
-              const wind = () => summarizeWind(
-                row.windUIndex == null ? null : windUSeries()[row.windUIndex] ?? null,
-                row.windVIndex == null ? null : windVSeries()[row.windVIndex] ?? null,
-              )
-              const icon = () => deriveWeatherIcon(rain() ?? null, cloud() ?? null, solarElevationSin(row.epoch, location().lng, location().lat) > 0)
-              const advice = () => uvChipLabel(uv())
-              const isNow = () => row.epoch === currentHour()
-              return <tr classList={{ 'current-hour': isNow(), 'past-hour': row.epoch < currentHour() }}>
-                <td><strong>{new Date(row.epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</strong><span classList={{ 'now-label': isNow() }}>{isNow() ? 'Nu' : new Date(row.epoch).toLocaleDateString('nl-NL', { weekday: 'short' })}</span></td>
-                <Show when={hasWeatherColumn()}><td class="weather-cell"><Show when={icon()}>{(model) => <WeatherIcon model={model()} />}</Show><Show when={advice()}>{(label) => <span class="uv-chip table-uv-chip" title={label()}>UV {formatUv(uv())}</span>}</Show></td></Show>
-                <Show when={hasTemperature()}><td class="temperature-cell" onPointerEnter={(event) => hoverFocus('table', true, event)} onPointerLeave={(event) => hoverFocus('table', false, event)}>{formatTemperature(feelsLike())}<small class="air-temperature" title="Luchttemperatuur">{formatTemperature(temperature())}</small></td></Show>
-                <Show when={hasHumidity()}><td>{formatHumidity(humidity())}</td></Show>
-                <Show when={hasWind()}><td class="wind-cell"><Show when={wind()} fallback="—">{(value) => <span title={`${value().speed.toLocaleString('nl-NL', { maximumFractionDigits: 1 })} m/s`}>{value().direction} · {value().beaufort} Bft</span>}</Show></td></Show>
-                <td>{formatRain(rain())}<small> mm/u</small></td>
-              </tr>
-            }}</For></tbody>
-          </table>
+          <ForecastTable
+            rows={forecast()}
+            series={{
+              rain: rainSeries(), rainLoaded: rainLoaded(), uv: uvSeries(), radiation: radiationSeries(), temperature: temperatureSeries(),
+              feelsLike: feelsLikeSeries(), humidity: humiditySeries(), cloud: cloudSeries(), windU: windUSeries(), windV: windVSeries(),
+            }}
+            location={location()}
+            columns={{ weather: hasWeatherIcons(), uv: uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), humidity: hasHumidity(), wind: hasWind() }}
+            loadedUntil={pointLoadStage() === 'complete' ? Number.POSITIVE_INFINITY : manifestNow() + PASSIVE_FORECAST_HOURS * 3_600_000}
+            historyOpen={historyOpen()}
+            historyLoaded={historyRowsWanted() || pointLoadStage() === 'complete'}
+            onNeedRows={() => { void completePointSeries(pointLoad, 'high') }}
+            onOpenHistory={() => {
+              setHistoryOpen((open) => !open)
+              void loadHistoryRows()
+            }}
+            sunForm={sunForm}
+            temperatureFocus={{ pinned: focusPinned(), onTogglePin: toggleFocusPin, onFocus: (source, active) => focusMode.set(source, active) }}
+          />
         </div>
       </section>
     </aside>
-    <Show when={perfVisible()}><PerfHud monitor={perf} /></Show>
+    <Show when={perfVisible()}><PerfHud monitor={perf} windTuning={windTuning()} onWindTuning={tuneWind} /></Show>
   </main>
 }
 
@@ -1403,23 +1424,3 @@ function project(lng: number, lat: number): [number, number] {
   return [lng * Math.PI / 180 * radius, Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) * radius]
 }
 
-function formatRain(value: number | null | undefined): string {
-  return value == null ? '—' : value.toLocaleString('nl-NL', { maximumFractionDigits: value < 1 ? 2 : 1 })
-}
-
-function formatTemperature(value: number | null | undefined): string {
-  return value == null ? '—' : `${Math.round(value)}°`
-}
-
-function formatHumidity(value: number | null | undefined): string {
-  return value == null ? '—' : `${Math.round(value)}%`
-}
-
-function formatUv(value: number | null | undefined): string {
-  return value == null ? '—' : value.toLocaleString('nl-NL', { maximumFractionDigits: 1 })
-}
-
-function uvChipLabel(value: number | null | undefined): string | null {
-  const advice = uvAdvice(value)
-  return advice ? `Insmeren · UV ${formatUv(advice.value)} ${advice.strength}` : null
-}

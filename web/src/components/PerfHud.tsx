@@ -1,9 +1,12 @@
-import { createSignal, onCleanup, onMount } from 'solid-js'
+import { createSignal, For, onCleanup, onMount, Show } from 'solid-js'
 import type { PerfMonitor, PerfSnapshot } from '../core/perf'
+import { DEFAULT_WIND_TUNING, sanitizeWindTuning, WIND_TUNING_CONTROLS, type WindTuning, type WindTuningControl } from '../core/wind-layer'
 import './PerfHud.css'
 
 interface Props {
   monitor: PerfMonitor
+  windTuning?: WindTuning
+  onWindTuning?: (tuning: WindTuning) => void
 }
 
 export default function PerfHud(props: Props) {
@@ -15,20 +18,23 @@ export default function PerfHud(props: Props) {
     onCleanup(() => window.clearInterval(timer))
   })
 
+  const [windCopied, setWindCopied] = createSignal(false)
+
   async function copyDump(): Promise<void> {
-    const text = JSON.stringify(props.monitor.snapshot(), null, 2)
-    try {
-      await navigator.clipboard.writeText(text)
-    } catch {
-      const area = document.createElement('textarea')
-      area.value = text
-      document.body.append(area)
-      area.select()
-      document.execCommand('copy')
-      area.remove()
-    }
+    await copyText(JSON.stringify(props.monitor.snapshot(), null, 2))
     setCopied(true)
     window.setTimeout(() => setCopied(false), 1_500)
+  }
+
+  async function copyWind(): Promise<void> {
+    await copyText(JSON.stringify(props.windTuning, null, 2))
+    setWindCopied(true)
+    window.setTimeout(() => setWindCopied(false), 1_500)
+  }
+
+  function tune(control: WindTuningControl, value: number): void {
+    if (!props.windTuning || !Number.isFinite(value)) return
+    props.onWindTuning?.(sanitizeWindTuning({ ...props.windTuning, [control.key]: value }))
   }
 
   const metric = () => snapshot()
@@ -47,7 +53,32 @@ export default function PerfHud(props: Props) {
       </tr>)}</tbody>
     </table>
     <button type="button" onClick={() => void copyDump()}>{copied() ? 'Gekopieerd' : 'Kopieer JSON'}</button>
+    <Show when={props.windTuning}>{(tuning) => <details class="perf-wind" data-testid="wind-tuning">
+      <summary>Wind</summary>
+      <For each={WIND_TUNING_CONTROLS}>{(control) => <label>
+        <span>{control.label}{control.unit ? ` (${control.unit})` : ''}</span>
+        <input type="range" min={control.min} max={control.max} step={control.step} value={tuning()[control.key]} onInput={(event) => tune(control, event.currentTarget.valueAsNumber)} />
+        <input type="number" min={control.min} max={control.max} step={control.step} value={tuning()[control.key]} aria-label={control.label} onChange={(event) => tune(control, event.currentTarget.valueAsNumber)} />
+      </label>}</For>
+      <div class="perf-wind-actions">
+        <button type="button" onClick={() => props.onWindTuning?.({ ...DEFAULT_WIND_TUNING })}>Reset</button>
+        <button type="button" onClick={() => void copyWind()}>{windCopied() ? 'Gekopieerd' : 'Kopieer als JSON'}</button>
+      </div>
+    </details>}</Show>
   </aside>
+}
+
+async function copyText(text: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const area = document.createElement('textarea')
+    area.value = text
+    document.body.append(area)
+    area.select()
+    document.execCommand('copy')
+    area.remove()
+  }
 }
 
 function milliseconds(value: number | null): string {

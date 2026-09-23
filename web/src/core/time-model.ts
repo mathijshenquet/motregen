@@ -13,7 +13,7 @@ export function buildTimeline(manifest: Manifest, field: Field = 'rain_rate'): T
       const time = chunk.times[frameIndex]!
       const candidate: TimelineFrame = { time, epoch: Date.parse(time), source: chunk.source, run: chunk.run, chunk, frameIndex }
       if (!Number.isFinite(candidate.epoch)) throw new Error(`Ongeldige tijd: ${time}`)
-      if (candidate.epoch < now && candidate.source !== 'rtcor') continue
+      if (field === 'rain_rate' && candidate.epoch < now && candidate.source !== 'rtcor') continue
       const current = byTime.get(candidate.epoch)
       if (!current || priority[candidate.source] > priority[current.source] ||
         (candidate.source === current.source && Date.parse(candidate.run) > Date.parse(current.run))) byTime.set(candidate.epoch, candidate)
