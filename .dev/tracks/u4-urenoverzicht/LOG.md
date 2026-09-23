@@ -145,3 +145,22 @@ Desktop-overzicht: `desktop-urenoverzicht.png`; kaartlabel:
   seamless-leden (al gedownload), seamless-kansen 7,7–8,4 MB, HARMONIE EPS
   P2a gelagd (per uurrun 000 + 5 roterende leden, leads 0–60, ≈ 1,9 GB/run,
   neerslag als 181+184+201).
+
+## 2026-09-23 (na host-herstart) — merge U1, gates groen
+
+- Achtergrond-e2e van vóór de herstart was weg (geen uitslag). Werkboom
+  schoon op 6f389ce + LOG-fix.
+- Merge main (U1 laadprofiel, ddef2d9): alleen `readForecastPointSeries`
+  conflicteerde. De nieuwe `layer`-parameter is overgenomen; historierijen laden
+  als `L2` (intentie), stralingsreads voor de UV-schatting als `L0`. U1 liet de
+  hele-chunkregel in `MrfClient` gelijk, dus de dagdelen blijven nodig.
+- Gates (ddef2d9): `cargo fmt --all -- --check` → FMT-EXIT 0; `cargo clippy
+  --workspace -- -D warnings` → CLIPPY-EXIT 0; `cargo test --workspace` →
+  CARGO-TEST-EXIT 0 (54 passed); Cargo.lock == main. `pnpm typecheck` 0;
+  `pnpm test` 112/112.
+- `MOTREGEN_E2E_PORT=4486 MOTREGEN_E2E_DATA_PORT=8486 pnpm e2e` →
+  **E2E-EXIT: 0, 6/6**. Load bij start 5,9. Passief **755.460 B** in alle
+  drie profielen (main na U1: 720 kB volgens U1-LOG, dus +35 kB: straling
+  voor de UV-schatting en headers van de extra chunks). Warm 0 B in alle
+  profielen, tweede klik 0 requests, sessie 1,96–1,98 MB.
+- Klaar voor review. Open punten staan in de PR.
