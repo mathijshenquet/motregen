@@ -56,13 +56,14 @@ describe('histogram scrubber', () => {
     />)
 
     const slider = screen.getByRole('slider', { name: 'Tijd' })
+    expect(slider.getAttribute('aria-valuetext')).toMatch(/^vandaag \d\d:00, 1 mm\/u, licht, nowcast$/)
     fireEvent.keyDown(slider, { key: 'ArrowRight' })
     expect(onCursor).toHaveBeenCalledWith(2)
     expect(container.querySelector('input[type="range"]')).toBeNull()
     expect(screen.getByText('Nu')).toBeTruthy()
-    expect(screen.getByText('Nowcast')).toBeTruthy()
-    expect(screen.getByText('Model')).toBeTruthy()
-    expect(screen.getByText('Observaties')).toBeTruthy()
+    // the source strip is textless (titles only); the toolbar names the source under the cursor
+    expect([...container.querySelectorAll('.regimes span')].map((zone) => zone.getAttribute('title'))).toEqual(['Observaties', 'Nowcast', 'Model'])
+    expect(container.querySelector('.scrubber-source')!.textContent).toBe('Nowcast')
     expect(screen.queryByRole('group', { name: 'Grafiektype' })).toBeNull()
     expect(container.querySelectorAll('.rain-bar')).toHaveLength(4)
     expect(container.querySelectorAll('.rain-bar.pending')).toHaveLength(1)
@@ -151,6 +152,47 @@ describe('histogram scrubber', () => {
     fireEvent.pointerMove(slider, { clientX: 200, pointerId: 1, pointerType: 'mouse' })
     fireEvent.pointerUp(slider, { clientX: 200, pointerId: 1, pointerType: 'mouse' })
     expect(onPlaying.mock.calls).toEqual([[false], [true]])
+  })
+
+  it('damps touch scrubbing to a quarter once the finger leaves the plot vertically, without jumping', () => {
+    const timeline = ['14', '15', '16', '17', '18'].map((hour) => frame(`2026-08-28T${hour}:00:00Z`, 'harmonie'))
+    const [cursor, setCursor] = createSignal(0)
+    const onCursor = vi.fn(setCursor)
+    const { container } = render(() => <HistogramScrubber
+      timeline={timeline}
+      values={[0, 0, 0, 0, 0]}
+      cursor={cursor()}
+      now={timeline[0]!.epoch}
+      playing={false}
+      horizonHours={null}
+      loading={false}
+      locationLabel="Utrecht"
+      onCursor={onCursor}
+      onHorizonHours={() => undefined}
+      onPlaying={() => undefined}
+    />)
+    const slider = screen.getByRole('slider', { name: 'Tijd' })
+    Object.defineProperty(container.querySelector('.chart-plot')!, 'getBoundingClientRect', {
+      value: () => ({ left: 0, width: 400, right: 400, top: 0, bottom: 180, height: 180, x: 0, y: 0, toJSON: () => undefined }),
+    })
+    let captured = false
+    Object.assign(slider, {
+      setPointerCapture: vi.fn(() => { captured = true }),
+      hasPointerCapture: vi.fn(() => captured),
+      releasePointerCapture: vi.fn(() => { captured = false }),
+    })
+
+    fireEvent.pointerDown(slider, { clientX: 0, clientY: 90, pointerId: 1, pointerType: 'touch' })
+    fireEvent.pointerMove(slider, { clientX: 200, clientY: 90, pointerId: 1, pointerType: 'touch' })
+    expect(onCursor).toHaveBeenLastCalledWith(2)
+    fireEvent.pointerMove(slider, { clientX: 200, clientY: 160, pointerId: 1, pointerType: 'touch' })
+    expect(onCursor).toHaveBeenLastCalledWith(2)
+    expect(container.querySelector('.cursor-pill.fine')).toBeTruthy()
+    fireEvent.pointerMove(slider, { clientX: 400, clientY: 160, pointerId: 1, pointerType: 'touch' })
+    expect(onCursor).toHaveBeenLastCalledWith(2.5)
+    fireEvent.pointerUp(slider, { clientX: 400, clientY: 160, pointerId: 1, pointerType: 'touch' })
+    expect(onCursor).toHaveBeenLastCalledWith(2.5)
+    expect(container.querySelector('.cursor-pill.fine')).toBeNull()
   })
 
   it('defaults to a bounded horizon and marks local day transitions', () => {

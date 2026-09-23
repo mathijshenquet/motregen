@@ -2,6 +2,9 @@ import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap 
 import { MercatorCoordinate } from 'maplibre-gl'
 import type { Grid } from './contract'
 import type { MotionField } from './mrf'
+import { rainColormap } from './rain-chart'
+
+export { rainColormap }
 
 export const WARP_CAP_CELLS = 15
 export const WARP_FADE_END_CELLS = 30
@@ -209,18 +212,6 @@ function link(gl: WebGL2RenderingContext, vertex: string, fragment: string): Web
   gl.attachShader(program, compile(gl.VERTEX_SHADER, vertex)); gl.attachShader(program, compile(gl.FRAGMENT_SHADER, fragment)); gl.linkProgram(program)
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program) ?? 'Shader-linkfout')
   return program
-}
-
-export function rainColormap(): Uint8Array {
-  const stops = [[0, 54, 183, 255], [55, 54, 183, 255], [105, 31, 231, 190], [150, 255, 222, 44], [195, 255, 82, 35], [235, 188, 45, 214], [255, 188, 45, 214]]
-  const lut = new Uint8Array(256 * 4)
-  for (let value = 0; value < 255; value++) {
-    let stop = 1; while (value > stops[stop]![0]) stop++
-    const a = stops[stop - 1]!, b = stops[stop]!, mix = (value - a[0]!) / (b[0]! - a[0]!)
-    for (let channel = 1; channel < 4; channel++) lut[value * 4 + channel - 1] = Math.round(a[channel]! + (b[channel]! - a[channel]!) * mix)
-    lut[value * 4 + 3] = Math.min(210, Math.round(value * 1.6))
-  }
-  return lut
 }
 
 export function neutralizeNoData(data: Uint8Array): Uint8Array {

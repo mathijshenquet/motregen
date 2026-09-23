@@ -1,6 +1,6 @@
-import { createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
+import { createMemo, createSignal, For, Index, onCleanup, onMount, Show } from 'solid-js'
 import type { TimelineFrame } from '../core/contract'
-import { RAIN_BANDS, rainChartMaximum, rainChartPosition } from '../core/rain-chart'
+import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColor } from '../core/rain-chart'
 import { timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
 import { INLINE_ICON, Pause, Play } from './icons'
 
@@ -21,11 +21,11 @@ interface Props {
   onPlaying: (playing: boolean) => void
 }
 
-const width = 1000
-const plotHeight = 132
 const hourLabelSteps = [1, 2, 3, 6, 12, 24]
 // Wide enough for "23u" at the axis font size plus breathing room.
 const minimumHourLabelSpacingPx = 34
+const fineScrubOffsetPx = 48
+const fineScrubFactor = 0.25
 
 export function hourLabelStep(spanHours: number, plotWidthPx: number): number {
   const fit = Math.max(1, plotWidthPx / minimumHourLabelSpacingPx)
@@ -35,14 +35,23 @@ export function hourLabelStep(spanHours: number, plotWidthPx: number): number {
 export default function HistogramScrubber(props: Props) {
   let plotElement!: HTMLDivElement
   let pressedX: number | undefined
+  let pressedY = 0
+  // Touch drags are relative to an anchor so the fine (damped) mode can switch in without a jump.
+  let touchAnchor: { x: number; epoch: number; fine: boolean } | undefined
   let dragged = false
   let pointerInside = false
   const [hoverScrubbing, setHoverScrubbing] = createSignal(true)
+  const [fineScrub, setFineScrub] = createSignal(false)
   const [resumePlayback, setResumePlayback] = createSignal(false)
   const [plotWidth, setPlotWidth] = createSignal(320)
+  const [plotHeight, setPlotHeight] = createSignal(160)
   onMount(() => {
     if (typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(([entry]) => { if (entry) setPlotWidth(entry.contentRect.width) })
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return
+      setPlotWidth(entry.contentRect.width)
+      setPlotHeight(entry.contentRect.height)
+    })
     observer.observe(plotElement)
     onCleanup(() => observer.disconnect())
   })
@@ -53,9 +62,13 @@ export default function HistogramScrubber(props: Props) {
   })
   const timelineSpan = createMemo(() => Math.max(1, timelineEnd() - timelineStart()))
   const maximum = createMemo(() => rainChartMaximum(props.values))
-  const y = (value: number) => plotHeight * (1 - rainChartPosition(value, maximum()))
+  const y = (value: number) => plotHeight() * (1 - rainChartPosition(value, maximum()))
+  const barTop = (value: number | null | undefined) => value == null || value <= 0 ? plotHeight() : Math.min(plotHeight() - 2, y(value))
   const bars = createMemo(() => {
-    if (props.timeline.length === 1) return [{ x: 0, width: width - 1, y: props.values[0] == null ? plotHeight : y(props.values[0]!), pending: props.loaded ? !props.loaded[0] : false }]
+    const width = plotWidth()
+    const pitch = width / Math.max(1, props.timeline.length)
+    const gap = pitch > 6 ? 1.5 : pitch > 3.5 ? 1 : 0.5
+    if (props.timeline.length === 1) return [{ x: 0, width, top: barTop(props.values[0]), value: props.values[0] ?? 0, pending: props.loaded ? !props.loaded[0] : false, past: false }]
     return props.timeline.flatMap((frame, index) => {
       const value = props.values[index]
       const leftEpoch = index === 0 ? timelineStart() : (props.timeline[index - 1]!.epoch + frame.epoch) / 2
@@ -64,16 +77,14 @@ export default function HistogramScrubber(props: Props) {
       const x = positionAtEpoch(Math.max(timelineStart(), leftEpoch)) / 100 * width
       const right = positionAtEpoch(Math.min(timelineEnd(), rightEpoch)) / 100 * width
       const pending = props.loaded ? !props.loaded[index] : false
-      return [{ x, width: Math.max(1.4, right - x - 1), y: value == null ? plotHeight : y(value), pending }]
+      return [{ x: x + gap / 2, width: Math.max(1.2, right - x - gap), top: barTop(value), value: value ?? 0, pending, past: frame.epoch < props.now }]
     })
   })
-  const bands = createMemo(() => RAIN_BANDS.map((band) => {
+  const guides = createMemo(() => RAIN_BANDS.slice(1).map((band) => y(band.minimum)))
+  const bandLabels = createMemo(() => RAIN_BANDS.map((band) => {
     const upper = Number.isFinite(band.maximum) ? band.maximum : maximum()
-    const top = y(upper)
-    const bottom = y(band.minimum)
-    return { ...band, top: top / plotHeight * 100, height: Math.max(0, bottom - top) / plotHeight * 100 }
+    return { ...band, center: (y(upper) + y(band.minimum)) / 2 / plotHeight() * 100 }
   }))
-  const yTicks = createMemo(() => [...new Set([0, 2.5, 7.5, maximum()])].map((value) => ({ value, top: y(value) / plotHeight * 100 })))
   const hourStep = createMemo(() => hourLabelStep(timelineSpan() / 3_600_000, plotWidth()))
   const xTicks = createMemo(() => {
     if (!props.timeline.length) return []
@@ -92,6 +103,24 @@ export default function HistogramScrubber(props: Props) {
   })
   const cursorEpoch = createMemo(() => timelineEpochAtCursor(props.timeline, props.cursor))
   const cursorPosition = createMemo(() => Math.max(0, Math.min(100, positionAtEpoch(cursorEpoch()))))
+  const cursorValue = createMemo(() => props.values[Math.round(props.cursor)])
+  const zones = createMemo(() => timelineZones(props.timeline, timelineStart(), timelineEnd()))
+  const cursorZone = createMemo(() => {
+    const frame = props.timeline[Math.round(props.cursor)] ?? props.timeline[0]
+    return frame ? timelineZones([frame])[0] : undefined
+  })
+  const valueText = () => {
+    const epoch = cursorEpoch()
+    const time = new Date(epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+    const value = cursorValue()
+    const rain = value == null ? 'geen data' : value < 0.05 ? 'droog' : `${formatRate(value)}, ${RAIN_BANDS.find((band) => band.key === classifyRain(value))!.label.toLowerCase()}`
+    const source = cursorZone()?.label.toLowerCase()
+    return `${dayLabel(epoch, props.now).toLowerCase()} ${time}, ${rain}, ${source}`
+  }
+  // Playback already advances the cursor every animation frame; only discrete
+  // keyboard steps get a short glide, pointer scrubbing stays immediate.
+  const [keyStepping, setKeyStepping] = createSignal(false)
+  const tween = () => keyStepping() && !props.playing
   const dayMarkers = createMemo(() => {
     if (!props.timeline.length) return []
     const today = new Date(props.now)
@@ -110,10 +139,21 @@ export default function HistogramScrubber(props: Props) {
     }
     return markers
   })
-  function pointerPosition(event: PointerEvent): number {
+  function epochAtClientX(clientX: number): number {
     const bounds = plotElement.getBoundingClientRect()
-    const fraction = bounds.width ? Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)) : 0
-    return timelineCursorAtEpoch(props.timeline, timelineStart() + fraction * timelineSpan())
+    const fraction = bounds.width ? Math.max(0, Math.min(1, (clientX - bounds.left) / bounds.width)) : 0
+    return timelineStart() + fraction * timelineSpan()
+  }
+
+  function pointerPosition(event: PointerEvent): number {
+    if (event.pointerType === 'mouse' || !touchAnchor) return timelineCursorAtEpoch(props.timeline, epochAtClientX(event.clientX))
+    // Moving the finger well above or below the plot slows the scrub to a quarter.
+    const fine = Math.abs(event.clientY - pressedY) > fineScrubOffsetPx
+    if (fine !== touchAnchor.fine) touchAnchor = { x: event.clientX, epoch: timelineEpochAtCursor(props.timeline, props.cursor), fine }
+    const width = plotElement.getBoundingClientRect().width || 1
+    const epoch = touchAnchor.epoch + (event.clientX - touchAnchor.x) / width * timelineSpan() * (fine ? fineScrubFactor : 1)
+    setFineScrub(fine)
+    return timelineCursorAtEpoch(props.timeline, Math.max(timelineStart(), Math.min(timelineEnd(), epoch)))
   }
 
   function positionAtEpoch(epoch: number): number {
@@ -121,6 +161,7 @@ export default function HistogramScrubber(props: Props) {
   }
 
   function keyDown(event: KeyboardEvent): void {
+    setKeyStepping(true)
     const last = timelineCursorAtEpoch(props.timeline, timelineEnd())
     const steps: Record<string, number> = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1, PageDown: -6, PageUp: 6 }
     if (event.key === 'Home') { event.preventDefault(); props.onCursor(0); return }
@@ -156,7 +197,8 @@ export default function HistogramScrubber(props: Props) {
 
   return <section class="scrubber" aria-label={`Regenverwachting en tijd voor ${props.locationLabel}`}>
     <div class="scrubber-toolbar">
-      <div class="time-horizon" role="group" aria-label="Tijdsbereik">
+      <Show when={cursorZone()}>{(zone) => <span class={`scrubber-source ${zone().kind}`} title="Bron op het gekozen tijdstip">{zone().label}</span>}</Show>
+      <div class="segmented time-horizon" role="group" aria-label="Tijdsbereik">
         <For each={[3, 8, 24] as const}>{(hours) => <button type="button" classList={{ active: props.horizonHours === hours }} aria-pressed={props.horizonHours === hours} onClick={() => { props.onIntent?.(); props.onHorizonHours(hours) }}>+{hours}u</button>}</For>
         <button type="button" classList={{ active: props.horizonHours === null }} aria-pressed={props.horizonHours === null} onClick={() => { props.onIntent?.(); props.onHorizonHours(null) }}>Alles</button>
       </div>
@@ -173,11 +215,12 @@ export default function HistogramScrubber(props: Props) {
       aria-disabled={props.loading}
       aria-busy={props.loadStage !== undefined && props.loadStage !== 'complete'}
       data-load-stage={props.loadStage}
-      aria-valuetext={props.timeline.length ? `${new Date(cursorEpoch()).toLocaleString('nl-NL')}, ${formatRain(props.values[Math.round(props.cursor)])}` : undefined}
+      aria-valuetext={props.timeline.length ? valueText() : undefined}
       title={hoverScrubbing() ? 'Hover-scrubben · klik om hier te blijven' : 'Vast · klik voor hover of sleep om te scrubben'}
       onKeyDown={keyDown}
       onMouseEnter={() => {
         pointerInside = true
+        setKeyStepping(false)
         if (hoverScrubbing()) { props.onIntent?.(); pauseForPointerInteraction() }
       }}
       onMouseLeave={() => {
@@ -187,8 +230,11 @@ export default function HistogramScrubber(props: Props) {
         }
       }}
       onPointerDown={(event) => {
+        setKeyStepping(false)
         props.onIntent?.()
         pressedX = event.clientX
+        pressedY = event.clientY
+        touchAnchor = event.pointerType === 'mouse' ? undefined : { x: event.clientX, epoch: epochAtClientX(event.clientX), fine: false }
         dragged = false
         pauseForPointerInteraction()
         event.currentTarget.setPointerCapture(event.pointerId)
@@ -209,67 +255,77 @@ export default function HistogramScrubber(props: Props) {
         if (!(nextHoverScrubbing && pointerInside && event.pointerType === 'mouse')) resumeAfterPointerInteraction()
         if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
         pressedX = undefined
+        touchAnchor = undefined
+        setFineScrub(false)
         dragged = false
       }}
       onPointerCancel={(event) => {
         pressedX = undefined
+        touchAnchor = undefined
+        setFineScrub(false)
         dragged = false
         if (!(hoverScrubbing() && pointerInside && event.pointerType === 'mouse')) resumeAfterPointerInteraction()
       }}
     >
       <div class="y-axis" aria-hidden="true">
-        <For each={yTicks()}>{(tick) => <span style={{ top: `${tick.top}%` }}>{formatAxis(tick.value)}</span>}</For>
+        <For each={bandLabels()}>{(band) => <span class={band.key} style={{ top: `${band.center}%` }}>{band.label}</span>}</For>
       </div>
       <div class="chart-plot" ref={plotElement}>
-        <svg viewBox={`0 0 ${width} ${plotHeight}`} preserveAspectRatio="none" aria-hidden="true">
-          <For each={bands()}>{(band) => <rect class={`rain-band ${band.key}`} x="0" y={band.top / 100 * plotHeight} width={width} height={band.height / 100 * plotHeight} />}</For>
-          <For each={bars()}>{(bar) => bar.pending
-            ? <rect class="rain-bar pending" x={bar.x} y="0" width={bar.width} height={plotHeight} rx="1" />
-            : <rect class="rain-bar" x={bar.x} y={bar.y} width={bar.width} height={plotHeight - bar.y} rx="1" />}</For>
+        <div class="past-shade" style={{ width: `${nowPosition()}%` }} aria-hidden="true" />
+        <div class="hour-grid" aria-hidden="true"><For each={xTicks().filter((tick) => tick.labelled)}>{(tick) => <i style={{ left: `${tick.left}%` }} />}</For></div>
+        <div class="day-grid" aria-hidden="true"><For each={dayMarkers()}>{(marker, index) => <div classList={{ boundary: marker.boundary }} style={{ left: `${positionAtEpoch(marker.epoch)}%` }}><Show when={(positionAtEpoch(dayMarkers()[index() + 1]?.epoch ?? timelineEnd()) - positionAtEpoch(marker.epoch)) / 100 * plotWidth() > marker.label.length * 7 + 16}><span>{marker.label}</span></Show></div>}</For></div>
+        <svg viewBox={`0 0 ${plotWidth()} ${plotHeight()}`} aria-hidden="true">
+          <For each={guides()}>{(top) => <line class="rain-guide" x1="0" x2={plotWidth()} y1={top} y2={top} />}</For>
+          {/* Index keeps each slot's rect alive, so only frames that arrive (pending → loaded) fade in. */}
+          <g class="rain-bars"><Index each={bars()}>{(bar) => <Show
+            when={!bar().pending}
+            fallback={<rect class="rain-bar pending" x={bar().x} y={plotHeight() - 2} width={bar().width} height="2" rx="1" />}
+          ><rect class="rain-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={rainColor(bar().value)} /></Show>}</Index></g>
+          <line class="rain-baseline" x1="0" x2={plotWidth()} y1={plotHeight() - 0.5} y2={plotHeight() - 0.5} />
         </svg>
-        <div class="hour-grid" aria-hidden="true"><For each={xTicks().filter((tick) => tick.labelled || hourStep() <= 2)}>{(tick) => <i classList={{ labelled: tick.labelled }} style={{ left: `${tick.left}%` }} />}</For></div>
-        <div class="day-grid" aria-hidden="true"><For each={dayMarkers()}>{(marker) => <div classList={{ boundary: marker.boundary }} style={{ left: `${positionAtEpoch(marker.epoch)}%` }}><Show when={(100 - positionAtEpoch(marker.epoch)) / 100 * plotWidth() > 80}><span>{marker.label}</span></Show></div>}</For></div>
-        <div class="band-labels" aria-hidden="true"><For each={bands()}>{(band) => <span class={band.key} style={{ top: `${band.top + band.height / 2}%` }}>{band.label}</span>}</For></div>
         <Show when={props.loading}>
           <div class="scrubber-placeholder" role="status">
-            <div class="scrubber-placeholder-bars" aria-hidden="true"><For each={[26, 44, 31, 58, 76, 49, 67, 39, 55, 72, 46, 62]}>{(height) => <i style={{ height: `${height}%` }} />}</For></div>
+            <div class="scrubber-placeholder-bars" aria-hidden="true" />
             <span>Regenverwachting laden…</span>
           </div>
         </Show>
         <Show when={!props.loading && !props.values.length}><span class="empty-graph">Kies een locatie voor de regengrafiek</span></Show>
         <div class="now-line" style={{ left: `${nowPosition()}%` }}><span>Nu</span></div>
-        <div class="cursor-marker" style={{ left: `${cursorPosition()}%` }}>
-          <button
-            type="button"
-            aria-label={(resumePlayback() || props.playing) ? 'Pauzeren' : 'Afspelen'}
-            onPointerDown={(event) => event.stopPropagation()}
-            onPointerUp={(event) => event.stopPropagation()}
-            onClick={togglePlaybackFromCursor}
-          >
-            <span class="cursor-time">{props.timeline.length ? new Date(cursorEpoch()).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : '--:--'}</span>
-            <span class="cursor-playback" aria-hidden="true">{(resumePlayback() || props.playing) ? <Pause {...INLINE_ICON} fill="currentColor" /> : <Play {...INLINE_ICON} fill="currentColor" />}</span>
-          </button>
-        </div>
+        <div class="cursor-marker" classList={{ tween: tween() }} style={{ left: `${cursorPosition()}%` }} />
+        <Show when={!props.loading && (cursorValue() ?? 0) >= 0.05}>
+          <div class="cursor-readout" classList={{ tween: tween(), flip: cursorPosition() > 70 }} style={{ left: `${cursorPosition()}%`, top: `${barTop(cursorValue())}px` }} aria-hidden="true">
+            <span>{formatRate(cursorValue()!)}</span>
+          </div>
+        </Show>
+        <button
+          type="button"
+          class="cursor-pill"
+          classList={{ tween: tween(), fine: fineScrub() }}
+          style={{ left: `clamp(29px, ${cursorPosition()}%, calc(100% - 29px))` }}
+          aria-label={(resumePlayback() || props.playing) ? 'Pauzeren' : 'Afspelen'}
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerUp={(event) => event.stopPropagation()}
+          onClick={togglePlaybackFromCursor}
+        >
+          <span class="cursor-time">{props.timeline.length ? new Date(cursorEpoch()).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : '--:--'}</span>
+          <span class="cursor-playback" aria-hidden="true">{(resumePlayback() || props.playing) ? <Pause {...INLINE_ICON} fill="currentColor" /> : <Play {...INLINE_ICON} fill="currentColor" />}</span>
+        </button>
         <div class="x-axis" aria-hidden="true"><For each={xTicks().filter((tick) => tick.labelled && tick.left > 2 && tick.left < 98 && Math.abs(tick.left - nowPosition()) / 100 * plotWidth() > 30)}>{(tick) => <span classList={{ midnight: new Date(tick.epoch).getHours() === 0 }} style={{ left: `${tick.left}%` }}>{hourLabel(tick.epoch)}</span>}</For></div>
       </div>
     </div>
-    <div class="regimes" aria-label="Databronzones">
-      <For each={timelineZones(props.timeline, timelineStart(), timelineEnd())}>{(zone) => <span class={zone.kind} style={{ left: `${zone.start}%`, width: `${zone.end - zone.start}%` }}>{zone.label}</span>}</For>
+    <div class="regimes" role="img" aria-label={`Databronnen: ${zones().map((zone) => zone.label).join(', ')}`}>
+      <For each={zones()}>{(zone) => <span class={zone.kind} title={zone.label} style={{ left: `${zone.start}%`, width: `${zone.end - zone.start}%` }} />}</For>
     </div>
   </section>
 }
 
-function formatRain(value: number | null | undefined): string {
-  return value == null ? 'Geen data' : `${value.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} mm/u`
+function formatRate(value: number): string {
+  return `${value < 0.1 ? '<0,1' : value.toLocaleString('nl-NL', { maximumFractionDigits: value < 10 ? 1 : 0 })} mm/u`
 }
 
 function hourLabel(epoch: number): string {
   const date = new Date(epoch)
   return date.getHours() === 0 ? date.toLocaleDateString('nl-NL', { weekday: 'short' }) : `${date.getHours()}u`
-}
-
-function formatAxis(value: number): string {
-  return value < 1 ? value.toLocaleString('nl-NL', { maximumFractionDigits: 1 }) : value.toLocaleString('nl-NL')
 }
 
 function dayLabel(epoch: number, todayEpoch: number): string {

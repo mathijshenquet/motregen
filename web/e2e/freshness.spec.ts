@@ -16,7 +16,10 @@ async function openAt(page: Page, epoch: number): Promise<void> {
 
 async function useTheme(page: Page, theme: 'light' | 'dark'): Promise<void> {
   const html = page.locator('html')
-  for (let clicks = 0; clicks < 3 && await html.getAttribute('data-theme') !== theme; clicks++) await page.locator('.theme-button:visible').dispatchEvent('click')
+  // Desktop (U9): segmented control met Licht/Systeem/Donker; mobiel: cyclusknop.
+  const segment = page.locator('.sidebar-theme:visible button', { hasText: theme === 'dark' ? 'Donker' : 'Licht' })
+  if (await segment.count()) await segment.first().dispatchEvent('click')
+  else for (let clicks = 0; clicks < 3 && await html.getAttribute('data-theme') !== theme; clicks++) await page.locator('.theme-button:visible').dispatchEvent('click')
   await expect(html).toHaveAttribute('data-theme', theme)
   // dispatchEvent: onder SwiftShader haalt de themaknop soms nooit Playwrights
   // 'stable'-check terwijl de basemap herlaadt; die wissel is hier niet onder test.
