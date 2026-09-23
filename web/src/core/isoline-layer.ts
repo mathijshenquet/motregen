@@ -17,16 +17,23 @@ export interface IsolineStyle {
   window: number
   /** Ruimtelijk bicubisch (8 fetches) i.p.v. bilineair (2). */
   bicubic: boolean
+  /** 0 = geen vervaging, 1 = op |∇T| (°C/km), 2 = op lijnsnelheid (km/u; kost 8 extra fetches). */
+  fade: number
+  gradient: [number, number]
+  speed: [number, number]
 }
 
 export interface IsolinePassTuning {
-  /** Resolutie van de offscreen snede t.o.v. het canvas (ondergrens 1/DPR). */
+  /** Offscreen pixels per CSS-pixel van de snede (device-DPR telt niet mee: hooguit 1). */
   resolution: number
   /** Maximale herberekeningsfrequentie bij tijdwijzigingen; kaartbewegingen gaan altijd direct. */
   maxHz: number
 }
 
-export const DEFAULT_PASS_TUNING: IsolinePassTuning = { resolution: 0.5, maxHz: 20 }
+export const DEFAULT_PASS_TUNING: IsolinePassTuning = { resolution: 0.5, maxHz: 60 }
+
+const EQUATOR_KM = 40_075.017
+const DASH_DIRECTIONS = new Float32Array(Array.from({ length: DASH_BINS + 1 }, (_, bin) => [Math.cos(bin * Math.PI / DASH_BINS), Math.sin(bin * Math.PI / DASH_BINS)]).flat())
 
 const quadVertex = `#version 300 es
 in vec2 a_pos;
@@ -61,6 +68,11 @@ uniform float u_dashed;
 uniform float u_dash_period;
 uniform float u_dash_on;
 uniform vec3 u_color;
+uniform vec2 u_dash_dirs[${DASH_BINS + 1}];
+uniform float u_fade;
+uniform vec2 u_fade_gradient;
+uniform vec2 u_fade_speed;
+uniform float u_km_per_px;
 in vec2 v_uv;
 in vec2 v_px;
 out vec4 color;
@@ -68,16 +80,17 @@ out vec4 color;
 const float PI = 3.141592653589793;
 const float BINS = ${DASH_BINS.toFixed(1)};
 
+// Eén mipniveau: textureLod mag ook na de (niet-uniforme) vroege return.
 vec2 fetchAt(vec2 uv, float index) {
-  return texture(u_field, vec3(uv, (index + 0.5) / u_depth)).rg;
+  return textureLod(u_field, vec3(uv, (index + 0.5) / u_depth), 0.0).rg;
 }
 
 // Kubische B-spline in de tijd met twee lineaire fetches (GPU Gems 2, hfst. 20): C2, dus de
 // lijnen veranderen niet op elk heel uur van richting.
-vec2 sampleTime(vec2 uv) {
-  if (u_window < 0.5) return fetchAt(uv, u_time);
-  float i = floor(u_time);
-  float f = u_time - i;
+vec2 sampleTime(vec2 uv, float time) {
+  if (u_window < 0.5) return fetchAt(uv, time);
+  float i = floor(time);
+  float f = time - i;
   float f2 = f * f, f3 = f2 * f;
   float w0 = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0;
   float w1 = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0;
@@ -87,8 +100,8 @@ vec2 sampleTime(vec2 uv) {
   return g0 * fetchAt(uv, i - 1.0 + w1 / g0) + g1 * fetchAt(uv, i + 1.0 + w3 / g1);
 }
 
-vec2 sampleField(vec2 uv) {
-  if (u_bicubic < 0.5) return sampleTime(uv);
+vec2 sampleField(vec2 uv, float time) {
+  if (u_bicubic < 0.5) return sampleTime(uv, time);
   vec2 coord = uv * u_grid_size - 0.5;
   vec2 cell = floor(coord);
   vec2 f = coord - cell;
@@ -100,8 +113,8 @@ vec2 sampleField(vec2 uv) {
   vec2 g0 = w0 + w1, g1 = w2 + w3;
   vec2 h0 = (cell - 0.5 + w1 / g0) / u_grid_size;
   vec2 h1 = (cell + 1.5 + w3 / g1) / u_grid_size;
-  return g0.y * (g0.x * sampleTime(vec2(h0.x, h0.y)) + g1.x * sampleTime(vec2(h1.x, h0.y)))
-       + g1.y * (g0.x * sampleTime(vec2(h0.x, h1.y)) + g1.x * sampleTime(vec2(h1.x, h1.y)));
+  return g0.y * (g0.x * sampleTime(vec2(h0.x, h0.y), time) + g1.x * sampleTime(vec2(h1.x, h0.y), time))
+       + g1.y * (g0.x * sampleTime(vec2(h0.x, h1.y), time) + g1.x * sampleTime(vec2(h1.x, h1.y), time));
 }
 
 // Symmetrisch rond 0 (dash(u) == dash(-u)), zodat de richtingsomslag bij 180° naadloos is.
@@ -111,24 +124,41 @@ float dash(float u) {
 }
 
 void main() {
-  vec2 field = sampleField(v_uv);
+  vec2 field = sampleField(v_uv, u_time);
   float s = field.r / u_step;
   vec2 ds = vec2(dFdx(s), dFdy(s));
   vec2 pdx = dFdx(v_px), pdy = dFdy(v_px);
   float level = floor(s + 0.5);
   float distance = abs(s - level) / max(length(ds), 1e-6);
-  float line = clamp(u_half_width + 0.5 - distance, 0.0, 1.0);
+  float line = clamp(u_half_width + 0.5 - distance, 0.0, 1.0) * step(0.5, field.g);
+  float odd = step(0.5, mod(level * u_step + 0.25, 2.0));
+  // Na de afgeleiden (die uniforme controleflow vragen): het gros van de pixels ligt niet op
+  // een lijn en heeft vervaging noch stippel nodig.
+  if (line <= 0.0) {
+    color = vec4(0.0);
+    return;
+  }
+  // Waar |∇T| klein is dragen de lijnen weinig informatie en bewegen ze het snelst
+  // (lijnsnelheid = |∂T/∂t| / |∇T|): daar vervagen ze.
+  float gradient = length(ds) * u_step / u_km_per_px;
+  if (u_fade > 0.5 && u_fade < 1.5) line *= smoothstep(u_fade_gradient.x, u_fade_gradient.y, gradient);
+  if (u_fade > 1.5) {
+    float change = abs(sampleField(v_uv, u_time + 0.25).r - field.r) * 4.0;
+    line *= 1.0 - smoothstep(u_fade_speed.x, u_fade_speed.y, change / max(gradient, 1e-4));
+  }
+  if (odd * u_dashed < 0.5) {
+    color = vec4(u_color * line, line);
+    return;
+  }
   // Een fragmentshader kent geen booglengte. Projectie op de raaklijn werkt voor rechte stukken
   // maar breekt bij kromming (|p| is groot); daarom projecteren we op een vaste richting per
   // hoekbak van 180°/16: binnen een bak wijkt de schaal < 2 % af, en tussen twee bakken
   // mengen we beide patronen zodat de fase nergens springt.
   vec2 tangent = pdx * -ds.y + pdy * ds.x;
   float bin = mod(atan(tangent.y, tangent.x), PI) / (PI / BINS);
-  float b0 = floor(bin);
-  float a0 = b0 * PI / BINS, a1 = (b0 + 1.0) * PI / BINS;
-  float pattern = mix(dash(dot(v_px, vec2(cos(a0), sin(a0)))), dash(dot(v_px, vec2(cos(a1), sin(a1)))), bin - b0);
-  float odd = step(0.5, mod(level * u_step + 0.25, 2.0));
-  float alpha = line * mix(1.0, pattern, odd * u_dashed) * step(0.5, field.g);
+  int b0 = min(int(bin), ${DASH_BINS - 1});
+  float pattern = mix(dash(dot(v_px, u_dash_dirs[b0])), dash(dot(v_px, u_dash_dirs[b0 + 1])), bin - float(b0));
+  float alpha = line * pattern;
   color = vec4(u_color * alpha, alpha);
 }`
 
@@ -154,6 +184,13 @@ export interface IsolinePassStats {
   passes: number
   composites: number
   uploads: number
+  /** Opgetelde fragmenten (offscreen pixels) van alle contour-passes resp. blits. */
+  passPixels: number
+  compositePixels: number
+  /** Voortschrijdend gemiddelde ms per contour-pass resp. blit; `timing` zegt of het GPU-tijd is. */
+  passMs: number
+  compositeMs: number
+  timing: 'gpu' | 'cpu'
 }
 
 /**
@@ -166,9 +203,12 @@ export class IsolineLayer implements CustomLayerInterface {
   readonly id = 'motregen-isolines'
   readonly type = 'custom' as const
   readonly renderingMode = '2d' as const
-  readonly stats: IsolinePassStats = { passes: 0, composites: 0, uploads: 0 }
+  readonly stats: IsolinePassStats = { passes: 0, composites: 0, uploads: 0, passPixels: 0, compositePixels: 0, passMs: 0, compositeMs: 0, timing: 'cpu' }
+  private timer?: GpuTimer
   /** Na elke contour-pass: de snede is veranderd (tijd, kaartbeeld, stijl of lagen). */
   onPass?: () => void
+  /** Gezet door een `LayerOverlay`: de isolijnen tekenen dan zonder MapLibre-render. */
+  requestRepaint?: () => void
   private map?: MapLibreMap
   private gl?: WebGL2RenderingContext
   private contour?: WebGLProgram
@@ -180,6 +220,7 @@ export class IsolineLayer implements CustomLayerInterface {
   private framebuffer?: WebGLFramebuffer
   private resultSize: [number, number] = [0, 0]
   private readonly loaded: Uint8Array
+  private frameKeys: string[] = []
   private time = 0
   private opacity = 0
   private version = 1
@@ -219,6 +260,8 @@ export class IsolineLayer implements CustomLayerInterface {
     this.result = gl.createTexture()!
     this.framebuffer = gl.createFramebuffer()!
     this.resultSize = [0, 0]
+    this.timer = GpuTimer.create(gl)
+    this.stats.timing = this.timer ? 'gpu' : 'cpu'
     this.loaded.fill(0)
     this.passedVersion = 0
     this.version++
@@ -230,6 +273,8 @@ export class IsolineLayer implements CustomLayerInterface {
     this.catchUp = undefined
     for (const texture of [this.volume, this.result]) if (texture) gl.deleteTexture(texture)
     if (this.framebuffer) gl.deleteFramebuffer(this.framebuffer)
+    this.timer?.dispose()
+    this.timer = undefined
     for (const buffer of [this.quad, this.screen]) if (buffer) gl.deleteBuffer(buffer)
     this.map = undefined
     this.gl = undefined
@@ -237,6 +282,27 @@ export class IsolineLayer implements CustomLayerInterface {
 
   hasLayer(index: number): boolean {
     return this.loaded[index] === 1
+  }
+
+  frameKey(index: number): string | undefined {
+    return this.frameKeys[index]
+  }
+
+  /**
+   * Identiteit per uurlaag (chunk, frame, blur). Een manifest-refresh met een nieuwe run
+   * vervangt frames midden in de tijdlijn bij gelijke diepte; die lagen moeten opnieuw geüpload
+   * worden, anders tekent de snede de oude run. Geeft de gewijzigde indices terug.
+   */
+  setFrameKeys(keys: readonly string[]): number[] {
+    const changed: number[] = []
+    for (let index = 0; index < this.depth; index++) {
+      if (keys[index] === this.frameKeys[index]) continue
+      this.loaded[index] = 0
+      changed.push(index)
+    }
+    this.frameKeys = keys.slice(0, this.depth)
+    if (changed.length) this.invalidate()
+    return changed
   }
 
   /** Uurframe `index` als laag van het volume; `field` is geblurd en opgevuld. */
@@ -261,13 +327,19 @@ export class IsolineLayer implements CustomLayerInterface {
   setTime(time: number): void {
     if (time === this.time) return
     this.time = time
-    this.invalidate()
+    this.version++
+    // Afspelen zet elke frame een nieuwe tijd; een kaartrender daarvoor zou tussen twee passes
+    // alleen de oude snede blitten (plus volledige symboolplaatsing). Vraag hem pas aan als het
+    // maxHz-venster een pass toelaat (PO-heropname U8c: 120 kaartrenders/s bij afspelen+focus).
+    const wait = this.lastPass + 1000 / this.tuning.maxHz - performance.now()
+    if (wait <= 0 || !this.passedVersion) this.repaint()
+    else this.scheduleCatchUp(wait)
   }
 
   setOpacity(opacity: number): void {
     if (opacity === this.opacity) return
     this.opacity = opacity
-    this.map?.triggerRepaint()
+    this.repaint()
   }
 
   setStyle(style: IsolineStyle): void {
@@ -284,10 +356,7 @@ export class IsolineLayer implements CustomLayerInterface {
     const gl = context as WebGL2RenderingContext
     const map = this.map
     if (!map || !this.contour || this.opacity <= 0 || !this.ready()) return
-    // Nooit onder één offscreen-pixel per CSS-pixel: op DPR 1 smeert halve resolutie de stippel uit.
-    const resolution = Math.min(1, Math.max(this.tuning.resolution, 1 / (window.devicePixelRatio || 1)))
-    const width = Math.max(1, Math.round(gl.drawingBufferWidth * resolution))
-    const height = Math.max(1, Math.round(gl.drawingBufferHeight * resolution))
+    const [width, height] = this.targetSize(gl, this.tuning.resolution)
     const matrix = options.defaultProjectionData.mainMatrix
     const camera = `${width}x${height}:${Array.prototype.join.call(matrix, ',')}`
     if (camera === this.passedCamera && this.version === this.passedVersion) return
@@ -295,7 +364,7 @@ export class IsolineLayer implements CustomLayerInterface {
     const wait = this.lastPass + 1000 / this.tuning.maxHz - now
     // Alleen tijd/stijl gewijzigd: begrens de cadans en hergebruik tot dan het vorige resultaat.
     if (camera === this.passedCamera && this.passedVersion && wait > 0) {
-      if (this.catchUp === undefined) this.catchUp = window.setTimeout(() => { this.catchUp = undefined; this.map?.triggerRepaint() }, wait)
+      this.scheduleCatchUp(wait)
       return
     }
     this.pass(gl, map, matrix, width, height)
@@ -320,8 +389,21 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.uniform1f(gl.getUniformLocation(program, 'u_opacity'), this.opacity)
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+    this.measure('compositeMs', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4))
     this.stats.composites++
+    this.stats.compositePixels += gl.drawingBufferWidth * gl.drawingBufferHeight
+  }
+
+  /** GPU-tijd via EXT_disjoint_timer_query_webgl2 (asynchroon, frames later binnen), anders CPU-tijd. */
+  private measure(key: 'passMs' | 'compositeMs', draw: () => void): void {
+    if (this.timer) {
+      this.timer.collect()
+      if (!this.timer.time(draw, (ms) => { this.stats[key] = smooth(this.stats[key], ms) })) draw()
+      return
+    }
+    const started = performance.now()
+    draw()
+    this.stats[key] = smooth(this.stats[key], performance.now() - started)
   }
 
   /**
@@ -332,9 +414,8 @@ export class IsolineLayer implements CustomLayerInterface {
   bench(passes: number, resolution = this.tuning.resolution): number | undefined {
     const gl = this.gl, map = this.map
     if (!gl || !map || !this.contour || !this.ready()) return undefined
-    const matrix = map.transform.modelViewProjectionMatrix
-    const width = Math.max(1, Math.round(gl.drawingBufferWidth * resolution))
-    const height = Math.max(1, Math.round(gl.drawingBufferHeight * resolution))
+    const matrix = map.transform.getProjectionDataForCustomLayer(false).mainMatrix
+    const [width, height] = this.targetSize(gl, resolution)
     const sync = () => {
       const previous = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer!)
@@ -348,8 +429,23 @@ export class IsolineLayer implements CustomLayerInterface {
     sync()
     const elapsed = (performance.now() - started) / passes
     this.passedCamera = ''
-    map.triggerRepaint()
+    this.repaint()
     return elapsed
+  }
+
+  /** Offscreen snede in CSS-pixels × `resolution`: de device-DPR (2 op Retina) telt niet mee. */
+  private targetSize(gl: WebGL2RenderingContext, resolution: number): [number, number] {
+    const scale = Math.min(1, resolution) / Math.max(1, window.devicePixelRatio || 1)
+    return [Math.max(1, Math.round(gl.drawingBufferWidth * scale)), Math.max(1, Math.round(gl.drawingBufferHeight * scale))]
+  }
+
+  private repaint(): void {
+    if (this.requestRepaint) this.requestRepaint()
+    else this.map?.triggerRepaint()
+  }
+
+  private scheduleCatchUp(wait: number): void {
+    if (this.catchUp === undefined) this.catchUp = window.setTimeout(() => { this.catchUp = undefined; this.repaint() }, wait)
   }
 
   private ready(): boolean {
@@ -358,7 +454,7 @@ export class IsolineLayer implements CustomLayerInterface {
 
   private invalidate(): void {
     this.version++
-    this.map?.triggerRepaint()
+    this.repaint()
   }
 
   private pass(gl: WebGL2RenderingContext, map: MapLibreMap, matrix: ArrayLike<number>, width: number, height: number): void {
@@ -416,14 +512,67 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.uniform1f(uniform('u_dash_period'), DASH_PERIOD_PX * ratio)
     gl.uniform1f(uniform('u_dash_on'), DASH_ON_PX * ratio)
     gl.uniform3f(uniform('u_color'), ...this.style.color)
+    gl.uniform2fv(uniform('u_dash_dirs[0]'), DASH_DIRECTIONS)
+    gl.uniform1f(uniform('u_fade'), this.style.fade)
+    gl.uniform2f(uniform('u_fade_gradient'), ...this.style.gradient)
+    gl.uniform2f(uniform('u_fade_speed'), ...this.style.speed)
+    gl.uniform1f(uniform('u_km_per_px'), EQUATOR_KM * Math.cos(map.getCenter().lat * Math.PI / 180) / world)
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_3D, this.volume!)
     gl.uniform1i(uniform('u_field'), 0)
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+    this.measure('passMs', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4))
+    this.stats.passPixels += width * height
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, previousFramebuffer)
     gl.viewport(previousViewport[0]!, previousViewport[1]!, previousViewport[2]!, previousViewport[3]!)
     this.stats.passes++
+  }
+}
+
+function smooth(previous: number, sample: number): number {
+  return previous ? previous * 0.8 + sample * 0.2 : sample
+}
+
+interface TimerQueryExtension {
+  TIME_ELAPSED_EXT: number
+  GPU_DISJOINT_EXT: number
+}
+
+/** Hooguit een handvol queries tegelijk in de lucht; oudere uitslagen worden per frame opgehaald. */
+class GpuTimer {
+  private readonly pending: Array<{ query: WebGLQuery; done: (ms: number) => void }> = []
+
+  private constructor(private readonly gl: WebGL2RenderingContext, private readonly ext: TimerQueryExtension) {}
+
+  static create(gl: WebGL2RenderingContext): GpuTimer | undefined {
+    const ext = gl.getExtension('EXT_disjoint_timer_query_webgl2') as TimerQueryExtension | null
+    return ext ? new GpuTimer(gl, ext) : undefined
+  }
+
+  time(draw: () => void, done: (ms: number) => void): boolean {
+    if (this.pending.length >= 8) return false
+    const query = this.gl.createQuery()
+    if (!query) return false
+    this.gl.beginQuery(this.ext.TIME_ELAPSED_EXT, query)
+    draw()
+    this.gl.endQuery(this.ext.TIME_ELAPSED_EXT)
+    this.pending.push({ query, done })
+    return true
+  }
+
+  collect(): void {
+    const gl = this.gl
+    const disjoint = gl.getParameter(this.ext.GPU_DISJOINT_EXT) as boolean
+    while (this.pending.length && gl.getQueryParameter(this.pending[0]!.query, gl.QUERY_RESULT_AVAILABLE)) {
+      const { query, done } = this.pending.shift()!
+      if (!disjoint) done((gl.getQueryParameter(query, gl.QUERY_RESULT) as number) / 1e6)
+      gl.deleteQuery(query)
+    }
+  }
+
+  dispose(): void {
+    for (const { query } of this.pending) this.gl.deleteQuery(query)
+    this.pending.length = 0
   }
 }
 

@@ -100,6 +100,8 @@ interface Anchor {
   column: number
   row: number
   born: number
+  /** Vervaging op de lokale |∇T|, zoals de lijn eronder. */
+  fade: number
   marker: Marker
   text: HTMLElement
   dying: boolean
@@ -118,6 +120,7 @@ export class IsolineLabels {
   private linesChanged = false
   private opacity = 0
   private step = 1
+  private fade?: [number, number]
 
   constructor(
     private readonly map: MapLibreMap,
@@ -149,8 +152,14 @@ export class IsolineLabels {
   }
 
   setOpacity(opacity: number): void {
+    if (opacity === this.opacity) return
     this.opacity = opacity
-    for (const anchor of this.anchors) anchor.marker.getElement().style.opacity = String(opacity)
+    for (const anchor of this.anchors) anchor.marker.getElement().style.opacity = String(opacity * anchor.fade)
+  }
+
+  /** smoothstep-grenzen in °C/km, of undefined voor geen vervaging. */
+  setFade(fade: [number, number] | undefined): void {
+    this.fade = fade
   }
 
   clear(): void {
@@ -216,13 +225,13 @@ export class IsolineLabels {
     const element = document.createElement('div')
     element.className = `isoline-label isoline-label-${this.theme}`
     element.style.color = isolineColor(this.theme)
-    element.style.opacity = String(this.opacity)
+    element.style.opacity = '0'
     const text = document.createElement('span')
     text.textContent = `${level}°`
     text.style.opacity = '0'
     if (!this.reducedMotion()) text.style.transition = `opacity ${FADE_MS}ms ease-out`
     element.append(text)
-    const anchor: Anchor = { level, column, row, born: now, text, dying: false, marker: new Marker({ element, rotationAlignment: 'map', pitchAlignment: 'map' }) }
+    const anchor: Anchor = { level, column, row, born: now, text, dying: false, fade: 1, marker: new Marker({ element, rotationAlignment: 'map', pitchAlignment: 'map' }) }
     this.place(anchor, sample)
     anchor.marker.addTo(this.map)
     this.anchors.push(anchor)
@@ -239,13 +248,21 @@ export class IsolineLabels {
   }
 
   private place(anchor: Anchor, sample: SliceSample): void {
-    anchor.marker.setLngLat(this.toLngLat(anchor.column, anchor.row))
+    const lngLat = this.toLngLat(anchor.column, anchor.row)
+    anchor.marker.setLngLat(lngLat)
+    anchor.fade = this.fade ? smoothstep(this.fade[0], this.fade[1], Math.hypot(sample.gx, sample.gy) / this.kmPerCell(lngLat[1])) : 1
+    anchor.marker.getElement().style.opacity = String(this.opacity * anchor.fade)
     // Het 3857-rooster is op schermschaal conform: rij omlaag = scherm omlaag. De tekst loopt
     // langs de raaklijn (loodrecht op de gradiënt) en blijft rechtop leesbaar.
     let angle = Math.atan2(sample.gy, sample.gx) * 180 / Math.PI + 90
     if (angle > 90) angle -= 180
     if (angle <= -90) angle += 180
     anchor.marker.setRotation(angle)
+  }
+
+  /** Het rooster is Web Mercator: een cel is op breedte φ dx·cos φ echte meters. */
+  private kmPerCell(lat: number): number {
+    return this.grid.dx * Math.cos(lat * Math.PI / 180) / 1_000
   }
 
   private pxPerCell(): number {
@@ -270,6 +287,11 @@ export class IsolineLabels {
     const y = this.grid.y0 + (row + 0.5) * this.grid.dy
     return [x / EARTH_RADIUS * 180 / Math.PI, (2 * Math.atan(Math.exp(y / EARTH_RADIUS)) - Math.PI / 2) * 180 / Math.PI]
   }
+}
+
+export function smoothstep(low: number, high: number, value: number): number {
+  const t = Math.max(0, Math.min(1, (value - low) / Math.max(high - low, 1e-9)))
+  return t * t * (3 - 2 * t)
 }
 
 /** Tijdgewichten van de snede in frame-index-ruimte, gelijk aan de shader (lineair of B-spline). */

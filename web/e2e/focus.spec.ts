@@ -91,3 +91,60 @@ test('pinned focus at rest does no contour or worker work', async ({ page }, tes
   expect(after.passes).toBe(before.passes)
   expect(after.labelRounds).toBe(before.labelRounds)
 })
+
+type IsolineCounters = { passes?: number; uploads?: number; labelRounds: number; repaints: number }
+const isolineCounters = (page: Page) => page.evaluate(() => (window as typeof window & { __motregenIsolines: () => IsolineCounters }).__motregenIsolines())
+
+test('pinned isolines re-render after a manifest refresh with a new run and after a scroll-zoom, then rest again', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'structurele teller, één profiel volstaat')
+  let newRun = false
+  await page.route('**/manifest.json', async (route) => {
+    const response = await route.fetch()
+    const manifest = await response.json() as { generated: string; chunks: Array<{ url: string; field?: string }> }
+    if (newRun) {
+      // Een nieuwe run bij gelijke tijdlijnlengte: andere chunk-URL's, dezelfde frames.
+      manifest.generated = new Date(Date.parse(manifest.generated) + 60_000).toISOString()
+      for (const chunk of manifest.chunks) if (chunk.field === 'feels_like_c') chunk.url += '?run=2'
+    }
+    await route.fulfill({ response, json: manifest })
+  })
+  await ready(page)
+  await page.getByRole('button', { name: 'Pauzeren' }).first().click({ force: true })
+  await heading(page).click()
+  await heading(page).blur()
+  await page.mouse.move(5, 5)
+  await expect(shell(page)).toHaveAttribute('data-focus', '1.00')
+  await expect.poll(() => page.locator('.isoline-label').count()).toBeGreaterThan(0)
+  await page.waitForTimeout(1_000)
+
+  const rest = await isolineCounters(page)
+  await page.waitForTimeout(1_500)
+  expect((await isolineCounters(page)).passes).toBe(rest.passes)
+
+  newRun = true
+  await page.locator('.freshness-trigger').first().click()
+  await page.locator('.freshness-refresh').click()
+  await page.keyboard.press('Escape')
+  await page.mouse.move(5, 5)
+  // De uurlagen van de nieuwe run worden opnieuw geüpload en de snede opnieuw getekend.
+  await expect.poll(async () => (await isolineCounters(page)).uploads ?? 0).toBeGreaterThan(rest.uploads ?? 0)
+  await expect.poll(async () => (await isolineCounters(page)).passes ?? 0).toBeGreaterThan(rest.passes ?? 0)
+
+  const refreshed = await isolineCounters(page)
+  const map = page.locator('.maplibregl-canvas')
+  const box = (await map.boundingBox())!
+  // Scroll-zoom: op minimale zoom houdt de contain-grens (U6) de kaart vast, pannen verschuift niets.
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.wheel(0, -300)
+  await page.mouse.move(5, 5)
+  await expect.poll(async () => (await isolineCounters(page)).passes ?? 0).toBeGreaterThan(refreshed.passes ?? 0)
+
+  await page.waitForTimeout(1_000)
+  const settled = await isolineCounters(page)
+  await page.waitForTimeout(1_500)
+  const after = await isolineCounters(page)
+  expect(after.passes).toBe(settled.passes)
+  expect(after.labelRounds).toBe(settled.labelRounds)
+  // Wind en regen tekenen op eigen canvassen: de kaart zelf rendert in rust niet.
+  expect(after.repaints).toBe(settled.repaints)
+})

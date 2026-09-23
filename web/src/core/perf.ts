@@ -1,3 +1,61 @@
+/** Cumulatieve tellers van de kaart en de isolijnlaag (die per laag-instantie opnieuw begint). */
+export interface IsolineCounters {
+  repaints: number
+  rainUploads?: number
+  rainDraws?: number
+  isolineDraws?: number
+  windDraws?: number
+  passes?: number
+  composites?: number
+  passPixels?: number
+  compositePixels?: number
+  passMs?: number
+  compositeMs?: number
+  timing?: 'gpu' | 'cpu'
+  labelRounds: number
+  labels: number
+  /** Frame-index-coördinaat van de laatst gezette isolijnsnede. */
+  sliceTime?: number
+  /** 0–1: dekking van de gevoelstemperatuur op de gekozen tijd (buiten de uurframes: uitfade). */
+  coverage?: number
+}
+
+export interface IsolineRates {
+  repaintsPerSecond: number
+  rainDrawsPerSecond: number
+  windDrawsPerSecond: number
+  rainUploadsPerSecond: number
+  passesPerSecond: number
+  passMs: number | null
+  compositeMs: number | null
+  /** Offscreen pixels per pass (laatste venster). */
+  passPixels: number | null
+  timing: 'gpu' | 'cpu'
+  labels: number
+}
+
+/** Tempo's tussen twee tellerstanden; een teruggelopen teller (nieuwe laag) telt vanaf nul. */
+export function isolineRates(previous: IsolineCounters, next: IsolineCounters, elapsedMs: number): IsolineRates {
+  const delta = (key: 'repaints' | 'passes' | 'passPixels' | 'rainDraws' | 'windDraws' | 'rainUploads') => {
+    const before = previous[key] ?? 0, after = next[key] ?? 0
+    return after >= before ? after - before : after
+  }
+  const seconds = Math.max(elapsedMs, 1) / 1_000
+  const passes = delta('passes')
+  return {
+    repaintsPerSecond: delta('repaints') / seconds,
+    rainDrawsPerSecond: delta('rainDraws') / seconds,
+    windDrawsPerSecond: delta('windDraws') / seconds,
+    rainUploadsPerSecond: delta('rainUploads') / seconds,
+    passesPerSecond: passes / seconds,
+    passMs: next.passes ? next.passMs ?? null : null,
+    compositeMs: next.composites ? next.compositeMs ?? null : null,
+    passPixels: passes ? delta('passPixels') / passes : null,
+    timing: next.timing ?? 'cpu',
+    labels: next.labels,
+  }
+}
+
 export type PerfResourceKind = 'manifest' | 'chunks' | 'tiles' | 'other'
 
 export interface PerfResourceTotals {
