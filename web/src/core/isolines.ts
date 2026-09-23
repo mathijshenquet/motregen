@@ -20,9 +20,22 @@ export interface IsolineTuning {
   resolution: number
   /** Maximale contour-herberekening per seconde bij tijdwijzigingen. */
   maxHz: number
+  /** Lijnen vervagen waar ze weinig zeggen: vlak veld (|∇T| klein) of snel bewegend. */
+  fade: IsolineFade
+  /** smoothstep-grenzen voor |∇T| in °C/km (modus gradiënt). */
+  gradientLow: number
+  gradientHigh: number
+  /** Grenzen voor de lijnsnelheid |∂T/∂t|/|∇T| in km/u (modus snelheid): daarboven weg. */
+  speedLow: number
+  speedHigh: number
 }
 
-export const DEFAULT_ISOLINE_TUNING: IsolineTuning = { step: 1, dashed: true, smoothing: true, blur: 2, window: 1, bicubic: true, resolution: 0.5, maxHz: 10 }
+export const ISOLINE_FADES = ['uit', 'gradiënt', 'snelheid'] as const
+export type IsolineFade = typeof ISOLINE_FADES[number]
+
+export const DEFAULT_ISOLINE_TUNING: IsolineTuning = { step: 1, dashed: true, smoothing: true, blur: 2, window: 1, bicubic: true, resolution: 0.5, maxHz: 60,
+  // Gekalibreerd op prod 2026-09-23 avond: |∇T| op lijnpixels p10/p25/p50/p90 = 0,02/0,044/0,08/0,17 °C/km.
+  fade: 'gradiënt', gradientLow: 0.02, gradientHigh: 0.06, speedLow: 80, speedHigh: 250 }
 
 export const ISOLINE_WINDOWS = [0, 1] as const
 

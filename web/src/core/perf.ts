@@ -3,6 +3,7 @@ export interface IsolineCounters {
   repaints: number
   rainUploads?: number
   rainDraws?: number
+  isolineDraws?: number
   windDraws?: number
   passes?: number
   composites?: number

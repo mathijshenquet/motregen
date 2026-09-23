@@ -149,3 +149,43 @@ op DPR 2) in software — geen maat voor een echte GPU; daarvoor de PO-heropname
 
 ### Gates op 0f20f4f+ (vóór de throttle/timer-commit)
 - `MOTREGEN_E2E_PORT=4321 MOTREGEN_E2E_DATA_PORT=8321 direnv exec .. pnpm e2e` → E2E-EXIT: 0 (20 passed, 13 skipped)
+
+## 2026-09-23 22:55 — isolijnen op eigen canvas (60 Hz), gradiënt-fade (PO-wachtrij)
+- PO: "10 Hz ziet er niet smooth meer uit". De 10 Hz-grens bestond alleen omdat elke pass een
+  volledige MapLibre-render (plaatsing, alle lagen) kostte. Nu draait `IsolineLayer` via
+  `LayerOverlay` op een eigen canvas direct boven de kaart (onder wind en regen): een tijdstap
+  tekent alleen snede + blit van die canvas. `maxHz` default 60 (knop 5–60), overlay volgt de
+  algemene `Max. fps`. Rust: 0 draws. Gemeten (SwiftShader, DPR 2): afspelen+focus 10 passes/s
+  (= SwiftShader-plafond; was 5,5 bij 10 Hz + kaartrender), kaartrenders 3/s los van isolijnen.
+- Zichtbaar verschil voor de PO: de lijnen liggen nu **boven** de plaatsnamen van de basiskaart
+  (voorheen eronder, vóór `motregen-temperature`). De stadstemperatuurlabels zijn in focus toch
+  uitgefaded; de lijnlabels (HTML) blijven erboven. Terug naar in-kaart = alleen weer tegen
+  kaartrenders per pass.
+- **Vervagen** (knop `Vervagen`: uit / gradiënt / snelheid): alpha × smoothstep(g_lo, g_hi, |∇T|)
+  met |∇T| = |∇s|·stap / km-per-offscreen-px (40075·cos φ / world), dezelfde afgeleide als de
+  lijnbreedte. Kalibratie op prod (vanavond, blur 2, cel 3,64 km, `web/tmp/u8c-grad.mjs`):
+  |∇T| op lijnpixels p10/p25/p50/p75/p90 = 0,02/0,044/0,08/0,12/0,17 °C/km (alle cellen p50 0,03).
+  De voorgestelde 0,1–0,3 zou vanavond vrijwel alles wegfaden → default **0,02–0,06 °C/km**.
+  Modus snelheid: |∂T/∂t|/|∇T| met ∂T/∂t uit een tweede snede op t+¼ u (+8 fetches), 1 −
+  smoothstep(80, 250 km/u). Labels volgen de gradiënt-alpha per anker (analytische ∇T uit de
+  CPU-spline, cel = dx·cos φ); in snelheidsmodus niet (alleen lijnvergelijking).
+- Screenshots `web/tmp/shots/fade-{licht,donker}-{uit,gradient,snelheid,blur4}.png`: gradiënt
+  vervaagt de lussen in het vlakke binnenland (Utrecht/Veluwe/Brabant), kust en Duitse
+  gradiënten blijven vol; snelheid ≈ uit in rust bij deze grenzen; blur 4 rondt af maar vervaagt
+  niets. Default gradiënt; smaakoordeel bij de PO.
+
+### Gates op deze tip (synchroon, web/)
+- `direnv exec .. pnpm typecheck` → TYPECHECK-EXIT: 0
+- `direnv exec .. pnpm test` → TEST-EXIT: 0 (191 tests)
+- `direnv exec .. pnpm build` → BUILD-EXIT: 0
+- `MOTREGEN_E2E_PORT=4321 MOTREGEN_E2E_DATA_PORT=8321 direnv exec .. pnpm e2e` → E2E-EXIT: 0
+  (20 passed, 13 skipped; host-load ~6,5)
+
+### Voor de PO
+- Heropname op http://ageq-mthq:4323/ (deze tip, prod-data; één tab). HUD `?perf=1`: "Kaart N
+  repaints/s" hoort in rust 0 te zijn, ook met focus; "Regen · wind" frames/s; "Isolijnen
+  passes/s · ms/pass" — ms/pass is GPU-tijd via EXT_disjoint_timer_query_webgl2 (Firefox op macOS
+  biedt die meestal niet → dan "(cpu)" = alleen de tijd om de draw in te dienen, geen GPU-kost).
+- Keuzes: isolijnen boven plaatsnamen (ok?); vervaag-grenzen/modus; ½ CSS-px-resolutie op DPR 1
+  is iets zachter (knop "Contour px/CSS-px" = 1 voor scherp); wind blijft ook bij stilstaande
+  scrubber animeren (enige rust-werk; `Max. fps` 30 halveert het).

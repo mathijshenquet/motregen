@@ -17,6 +17,10 @@ export interface IsolineStyle {
   window: number
   /** Ruimtelijk bicubisch (8 fetches) i.p.v. bilineair (2). */
   bicubic: boolean
+  /** 0 = geen vervaging, 1 = op |∇T| (°C/km), 2 = op lijnsnelheid (km/u; kost 8 extra fetches). */
+  fade: number
+  gradient: [number, number]
+  speed: [number, number]
 }
 
 export interface IsolinePassTuning {
@@ -26,8 +30,9 @@ export interface IsolinePassTuning {
   maxHz: number
 }
 
-export const DEFAULT_PASS_TUNING: IsolinePassTuning = { resolution: 0.5, maxHz: 10 }
+export const DEFAULT_PASS_TUNING: IsolinePassTuning = { resolution: 0.5, maxHz: 60 }
 
+const EQUATOR_KM = 40_075.017
 const DASH_DIRECTIONS = new Float32Array(Array.from({ length: DASH_BINS + 1 }, (_, bin) => [Math.cos(bin * Math.PI / DASH_BINS), Math.sin(bin * Math.PI / DASH_BINS)]).flat())
 
 const quadVertex = `#version 300 es
@@ -64,6 +69,10 @@ uniform float u_dash_period;
 uniform float u_dash_on;
 uniform vec3 u_color;
 uniform vec2 u_dash_dirs[${DASH_BINS + 1}];
+uniform float u_fade;
+uniform vec2 u_fade_gradient;
+uniform vec2 u_fade_speed;
+uniform float u_km_per_px;
 in vec2 v_uv;
 in vec2 v_px;
 out vec4 color;
@@ -71,16 +80,17 @@ out vec4 color;
 const float PI = 3.141592653589793;
 const float BINS = ${DASH_BINS.toFixed(1)};
 
+// Eén mipniveau: textureLod mag ook na de (niet-uniforme) vroege return.
 vec2 fetchAt(vec2 uv, float index) {
-  return texture(u_field, vec3(uv, (index + 0.5) / u_depth)).rg;
+  return textureLod(u_field, vec3(uv, (index + 0.5) / u_depth), 0.0).rg;
 }
 
 // Kubische B-spline in de tijd met twee lineaire fetches (GPU Gems 2, hfst. 20): C2, dus de
 // lijnen veranderen niet op elk heel uur van richting.
-vec2 sampleTime(vec2 uv) {
-  if (u_window < 0.5) return fetchAt(uv, u_time);
-  float i = floor(u_time);
-  float f = u_time - i;
+vec2 sampleTime(vec2 uv, float time) {
+  if (u_window < 0.5) return fetchAt(uv, time);
+  float i = floor(time);
+  float f = time - i;
   float f2 = f * f, f3 = f2 * f;
   float w0 = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0;
   float w1 = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0;
@@ -90,8 +100,8 @@ vec2 sampleTime(vec2 uv) {
   return g0 * fetchAt(uv, i - 1.0 + w1 / g0) + g1 * fetchAt(uv, i + 1.0 + w3 / g1);
 }
 
-vec2 sampleField(vec2 uv) {
-  if (u_bicubic < 0.5) return sampleTime(uv);
+vec2 sampleField(vec2 uv, float time) {
+  if (u_bicubic < 0.5) return sampleTime(uv, time);
   vec2 coord = uv * u_grid_size - 0.5;
   vec2 cell = floor(coord);
   vec2 f = coord - cell;
@@ -103,8 +113,8 @@ vec2 sampleField(vec2 uv) {
   vec2 g0 = w0 + w1, g1 = w2 + w3;
   vec2 h0 = (cell - 0.5 + w1 / g0) / u_grid_size;
   vec2 h1 = (cell + 1.5 + w3 / g1) / u_grid_size;
-  return g0.y * (g0.x * sampleTime(vec2(h0.x, h0.y)) + g1.x * sampleTime(vec2(h1.x, h0.y)))
-       + g1.y * (g0.x * sampleTime(vec2(h0.x, h1.y)) + g1.x * sampleTime(vec2(h1.x, h1.y)));
+  return g0.y * (g0.x * sampleTime(vec2(h0.x, h0.y), time) + g1.x * sampleTime(vec2(h1.x, h0.y), time))
+       + g1.y * (g0.x * sampleTime(vec2(h0.x, h1.y), time) + g1.x * sampleTime(vec2(h1.x, h1.y), time));
 }
 
 // Symmetrisch rond 0 (dash(u) == dash(-u)), zodat de richtingsomslag bij 180° naadloos is.
@@ -114,7 +124,7 @@ float dash(float u) {
 }
 
 void main() {
-  vec2 field = sampleField(v_uv);
+  vec2 field = sampleField(v_uv, u_time);
   float s = field.r / u_step;
   vec2 ds = vec2(dFdx(s), dFdy(s));
   vec2 pdx = dFdx(v_px), pdy = dFdy(v_px);
@@ -123,8 +133,20 @@ void main() {
   float line = clamp(u_half_width + 0.5 - distance, 0.0, 1.0) * step(0.5, field.g);
   float odd = step(0.5, mod(level * u_step + 0.25, 2.0));
   // Na de afgeleiden (die uniforme controleflow vragen): het gros van de pixels ligt niet op
-  // een lijn of op een doorgetrokken lijn en heeft de stippel niet nodig.
-  if (line <= 0.0 || odd * u_dashed < 0.5) {
+  // een lijn en heeft vervaging noch stippel nodig.
+  if (line <= 0.0) {
+    color = vec4(0.0);
+    return;
+  }
+  // Waar |∇T| klein is dragen de lijnen weinig informatie en bewegen ze het snelst
+  // (lijnsnelheid = |∂T/∂t| / |∇T|): daar vervagen ze.
+  float gradient = length(ds) * u_step / u_km_per_px;
+  if (u_fade > 0.5 && u_fade < 1.5) line *= smoothstep(u_fade_gradient.x, u_fade_gradient.y, gradient);
+  if (u_fade > 1.5) {
+    float change = abs(sampleField(v_uv, u_time + 0.25).r - field.r) * 4.0;
+    line *= 1.0 - smoothstep(u_fade_speed.x, u_fade_speed.y, change / max(gradient, 1e-4));
+  }
+  if (odd * u_dashed < 0.5) {
     color = vec4(u_color * line, line);
     return;
   }
@@ -185,6 +207,8 @@ export class IsolineLayer implements CustomLayerInterface {
   private timer?: GpuTimer
   /** Na elke contour-pass: de snede is veranderd (tijd, kaartbeeld, stijl of lagen). */
   onPass?: () => void
+  /** Gezet door een `LayerOverlay`: de isolijnen tekenen dan zonder MapLibre-render. */
+  requestRepaint?: () => void
   private map?: MapLibreMap
   private gl?: WebGL2RenderingContext
   private contour?: WebGLProgram
@@ -308,14 +332,14 @@ export class IsolineLayer implements CustomLayerInterface {
     // alleen de oude snede blitten (plus volledige symboolplaatsing). Vraag hem pas aan als het
     // maxHz-venster een pass toelaat (PO-heropname U8c: 120 kaartrenders/s bij afspelen+focus).
     const wait = this.lastPass + 1000 / this.tuning.maxHz - performance.now()
-    if (wait <= 0 || !this.passedVersion) this.map?.triggerRepaint()
+    if (wait <= 0 || !this.passedVersion) this.repaint()
     else this.scheduleCatchUp(wait)
   }
 
   setOpacity(opacity: number): void {
     if (opacity === this.opacity) return
     this.opacity = opacity
-    this.map?.triggerRepaint()
+    this.repaint()
   }
 
   setStyle(style: IsolineStyle): void {
@@ -405,7 +429,7 @@ export class IsolineLayer implements CustomLayerInterface {
     sync()
     const elapsed = (performance.now() - started) / passes
     this.passedCamera = ''
-    map.triggerRepaint()
+    this.repaint()
     return elapsed
   }
 
@@ -415,8 +439,13 @@ export class IsolineLayer implements CustomLayerInterface {
     return [Math.max(1, Math.round(gl.drawingBufferWidth * scale)), Math.max(1, Math.round(gl.drawingBufferHeight * scale))]
   }
 
+  private repaint(): void {
+    if (this.requestRepaint) this.requestRepaint()
+    else this.map?.triggerRepaint()
+  }
+
   private scheduleCatchUp(wait: number): void {
-    if (this.catchUp === undefined) this.catchUp = window.setTimeout(() => { this.catchUp = undefined; this.map?.triggerRepaint() }, wait)
+    if (this.catchUp === undefined) this.catchUp = window.setTimeout(() => { this.catchUp = undefined; this.repaint() }, wait)
   }
 
   private ready(): boolean {
@@ -425,7 +454,7 @@ export class IsolineLayer implements CustomLayerInterface {
 
   private invalidate(): void {
     this.version++
-    this.map?.triggerRepaint()
+    this.repaint()
   }
 
   private pass(gl: WebGL2RenderingContext, map: MapLibreMap, matrix: ArrayLike<number>, width: number, height: number): void {
@@ -484,6 +513,10 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.uniform1f(uniform('u_dash_on'), DASH_ON_PX * ratio)
     gl.uniform3f(uniform('u_color'), ...this.style.color)
     gl.uniform2fv(uniform('u_dash_dirs[0]'), DASH_DIRECTIONS)
+    gl.uniform1f(uniform('u_fade'), this.style.fade)
+    gl.uniform2f(uniform('u_fade_gradient'), ...this.style.gradient)
+    gl.uniform2f(uniform('u_fade_speed'), ...this.style.speed)
+    gl.uniform1f(uniform('u_km_per_px'), EQUATOR_KM * Math.cos(map.getCenter().lat * Math.PI / 180) / world)
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_3D, this.volume!)
     gl.uniform1i(uniform('u_field'), 0)
