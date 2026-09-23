@@ -1,0 +1,11 @@
+# Track U5 — gevoelstemperatuur zoals KNMI, switch weg
+
+## 2026-09-23T — Start, bronverificatie, ingest
+
+- Gelezen: AGENTS.md, spec, MIP-10, docs/fields.md, `feels_like_c` en tests, App.tsx-temperatuurpaden, `web/src/core/temperature.ts`. Worker: claude opus (geen codex, per spec).
+- Bronverificatie KNMI: TR-309 (cdn.knmi.nl/knmi/pdf/bibliotheek/knmipubTR/TR309.pdf) §2.3 geeft JAG/TI met T op 1,5 m, W in m/s op 10 m, geldig −46…+10 °C en 1,3…49,0 m/s. De KNMI-uitlegpagina's (gevoelstemperatuur-windchill, "gevoelstemperatuur in het weerbericht" 2009) noemen alleen JAG/TI. **KNMI publiceert geen gevoelstemperatuur voor warm weer**: daarvoor is er sinds 2026 "hittekracht" (0–10, WBGT-basis, in de KNMI-app). De Steadman/BoM-tak uit MIP-10 is dus geen KNMI-definitie. Bron is BoM (bom.gov.au/info/thermal_stress): AT = Ta + 0,33e − 0,70ws − 4,00, e = rh/100·6,105·exp(17,27Ta/(237,7+Ta)), ws op 10 m. Vastgelegd in docs/fields.md.
+- **Afwijking, bewust en niet stil:** een harde overgang op 10 °C geeft 1,4 °C sprong (3 m/s, RH 80 %) tot 2,2 °C (RH 60 %). Dat botst met MIP-10's eigen eis "geen sprong > 1 °C". Oplossing: een lineaire band 10→15 °C tussen JAG/TI en AT. KNMI blijft exact tot en met 10 °C, BoM exact vanaf 15 °C. Neveneffect: bij ≳10 m/s in droge lucht is gevoel in de band vrijwel vlak (tot −0,1 °C/°C), wat de test toelaat (≥ −0,05 per 0,1 °C). PM/PO kan de bandbreedte (`FEELS_LIKE_BLEND_C`) of de hele band terugdraaien.
+- Windchill-drempel nu `v ≥ 1,3 m/s` (TR-309) in plaats van `> 4,8 km/u`.
+- Tests: `feels_like_follows_knmi_wind_chill_up_to_ten_degrees` (−5 °C/20 km/u → −11,6; TR-309 tabel 3: 0 °C/10 km/u → −3; calm → T), `feels_like_uses_steadman_apparent_temperature_when_warm` (25 °C/RH 60/2 m/s → 25,85, met de hand nagerekend), `feels_like_is_continuous_around_ten_degrees` (RH 0,5–0,95 × wind 0,5–12 m/s; sprong over 10 °C < 0,05; stappen 5–25 °C binnen −0,05…0,3). De oude test `feels_like_uses_wind_chill_heat_index_and_fallback` vervalt: de NOAA-heat-index-tak bestaat niet meer, en de bewering "18 °C → 18 °C" is precies het gedrag dat MIP-10 afschaft.
+- Gates (direnv exec ., sandbox uit): `cargo test --workspace` → CARGO-TEST-EXIT: 0; `cargo clippy --workspace -- -D warnings` → CLIPPY-EXIT: 0. Cargo.lock ongewijzigd.
+- Volgende: live AROME-meting gevoel−temp, daarna frontend.
