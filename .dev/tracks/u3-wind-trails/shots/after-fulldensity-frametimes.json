@@ -1,0 +1,30 @@
+{
+  "mobile-light": {
+    "frames": 24,
+    "meanFrameMs": 127.77,
+    "p50FrameMs": 116.6,
+    "p95FrameMs": 300,
+    "mainThreadBusyPct": 57.24
+  },
+  "mobile-dark": {
+    "frames": 30,
+    "meanFrameMs": 101.11,
+    "p50FrameMs": 83.3,
+    "p95FrameMs": 233.3,
+    "mainThreadBusyPct": 73.33
+  },
+  "desktop-light": {
+    "frames": 26,
+    "meanFrameMs": 118.58,
+    "p50FrameMs": 100,
+    "p95FrameMs": 266.7,
+    "mainThreadBusyPct": 90.93
+  },
+  "desktop-dark": {
+    "frames": 36,
+    "meanFrameMs": 82.87,
+    "p50FrameMs": 66.7,
+    "p95FrameMs": 250,
+    "mainThreadBusyPct": 84.81
+  }
+}
