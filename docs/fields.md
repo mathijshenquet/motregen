@@ -105,3 +105,42 @@ tijden van 03:00 tot 20:45 UTC en zegt hetzelfde in zijn `time`-commentaar.
 De daemon hardcodet geen frame-eindtijd: de bestandstijden bepalen welke
 frames bestaan, terwijl alleen de buitenvenster-gate de afgesproken 21:45
 gebruikt.
+
+## UV-schatting in het urenoverzicht
+
+De UV-bron bevat in de praktijk alleen analyses (status 1) tot het laatste
+kwartier. Op 23 september 2026 liep de live file van 06:00 tot 12:15 UTC. Voor
+verleden en nu toont de uurtabel die analyse (dichtstbijzijnde kwartier binnen
+30 min). Voor latere uren schat de frontend de UV-index uit HARMONIE-
+straling en zonshoogte. De tabel toont zo'n waarde als "≈" met tooltip
+"Schatting uit modelstraling en zonshoogte".
+
+Afleiding voor rijtijd `t` op de gekozen locatie, met μ = sin(zonshoogte)
+uit `solar.ts`:
+
+1. Heldere-hemel-UV (Madronich, ozon ≈ 300 DU): `UV_c(t) = 12,5·μ(t)^2,42`.
+2. Heldere-hemel-straling (Haurwitz): `G_c(μ) = 1098·μ·exp(−0,057/μ)`,
+   gemiddeld over het uur waarop een HARMONIE-stralingsframe betrekking
+   heeft. Een frame op tijd `T` is het uurgemiddelde over [T−1 u, T].
+3. Bewolkingsfactor per aangrenzend uur `CMF = G/G_c` (alleen als G_c > 20
+   W/m², begrensd op 0…1,2). De tabel middelt de twee uren die aan `t`
+   grenzen (frames `t` en `t+1 u`).
+4. `UV(t) = k · UV_c(t) · CMF^p`.
+
+UV wordt minder door wolken verzwakt dan globale straling. Daarom is `p < 1`.
+`k` vangt de systematische afwijking van de heldere-hemelformule en de
+ozonaanname. Kalibratie op 2026-09-23 tegen de KNMI-UV-analyse per 5km-cel
+over land en kust van Nederland (50,7–53,6° N, 3,3–7,3° O), 06:00–12:00
+UTC, n ≈ 62.000 cel-uren, straling uit HARMONIE-runs 05Z (historie) en 10Z:
+
+| model | RMSE | bias | p90 \|fout\| |
+| --- | ---: | ---: | ---: |
+| alleen heldere hemel | 0,888 | +0,661 | 1,526 |
+| lineair (p = 1, k = 1) | 0,481 | −0,120 | 0,835 |
+| **gefit p = 0,35, k = 0,84** | **0,269** | **+0,004** | **0,438** |
+
+Dit is één ochtend in september met gebroken bewolking. De fit is
+bruikbaar voor een "≈"-kolom, maar niet algemeen gevalideerd: lage zon,
+zomerse hoge UV en zware bewolking zijn ondervertegenwoordigd. Herkalibreer
+zodra een paar weken analyses en historiestraling naast elkaar bewaard zijn.
+Reproduceren: `uv run --with numpy --with zstandard python .dev/tracks/u4-urenoverzicht/uvcal.py <data-dir>` op een datadir met UV- en historie-/huidige stralingschunks.

@@ -53,3 +53,50 @@ Ontwerp (keuzes; motivatie):
 6. Kaartlabel "nu": klok lokale tijd, eigen component (diff in App.tsx
    minimaal i.v.m. U2), plus scrubbertijd als die ≠ nu.
 7. MIP-9 regenkans: draft, niet implementeren.
+
+## 2026-09-23 13:00Z — ingest live, frontend gebouwd
+
+- Ingest (commit 8be1be8): `--arome-hours` 48, `--arome-history-hours` 6;
+  `decode_arome_run` gedeeld; `arome_history_choice` getest.
+- Live receipt, synchroon: `RUST_LOG=info target/release/motregen-ingest --once
+  --data-dir <scratch>/live/data` → `DAEMON-EXIT: 0`. Run 10Z +48 in 46,9 s,
+  693.501.914 B download; historierun 05Z, 5 frames (06–10Z), 82.887.104 B
+  (koude cache). Manifest 18→19 chunks, 22.446 B (gzip 1.373 B tegen 1.124 B
+  prod vóór = +249 B per poll). `uv run --project spec
+  spec/validate_manifest.py <live>` → `VALIDATE-EXIT: 0`.
+- Correctie op mijn ontwerpaanname: KNMI publiceert P1 uurlijks met ≈ 3 u
+  vertraging (10Z beschikbaar vóór 12:52Z). De historierun is daarom meestal
+  NIET de vorige opgehaalde run, dus steady state ≈ 83 MB extra per
+  verversing en geen 0. Geaccepteerd (≈ +12% ingestdownload); gedocumenteerd
+  in docs/ingest.md.
+- Frontend (commit 30741cd): ForecastTable-component, MapClock, zon op/onder,
+  UV-kolom, verleden-regel alleen voor regen. Unit 98/98, typecheck 0.
+- Zonsopgang/-ondergang geverifieerd tegen Python astral (NOAA): De Bilt
+  2026-09-23 op 05:26:44Z tegen 05:27:04Z, onder 17:35:32Z tegen 17:35:16Z.
+  Een eerste gegokte almanak-referentie in de test heb ik vervangen.
+- UV-kalibratie (één ochtend, n ≈ 62k cel-uren): zie docs/fields.md;
+  script `uvcal.py` in deze map. Middaguren volgen voor een herkalibratie.
+
+### Zon-vorm (PO beslist op zicht)
+
+Default = **tussenrij** (`zon-tussenrij.png`); alternatief via `?zon=markering`
+(`zon-markering.png`). Motivatie: de tussenrij leest als gebeurtenis in de
+tijdlijn ("Zon onder 19:35" tussen 19:00 en 20:00), houdt het
+rijritme gelijk en is met woord zelfverklarend. De markering maakt de
+betreffende uurrij hoger, en een los "19:35" met klein icoon is cryptisch.
+Desktop-overzicht: `desktop-urenoverzicht.png`; kaartlabel:
+`kaart-nu-label.png` (Nu 15:07 · Kaart 15:37 tijdens playback).
+
+### e2e-ronde 1–2: passief-budget
+
+- e2e-1 (exit 1 kwam door een redirect naar een niet-bestaande $TMPDIR buiten de
+  sandbox; geen testuitslag). Herhaling: passief desktop 1.161.816 B, 4G
+  1.167.484 B, Fast 3G 1.229.053 B (budget 800.000; baseline docs/perf.md
+  547.578 B). Oorzaak: `MrfClient.fetchFrameSpan` haalt de hele chunk zodra
+  > helft van de frames gevraagd wordt; met 48-frame-uurchunks trok de
+  passieve tabel alle 48 frames per veld.
+- Poging 1 (clientregel: hele chunk pas bij ≥ 75% span): passief 753.769 B
+  desktop, maar Fast 3G 810.848 B en warm desktop 4.650 B (budget 0). Losse
+  temperatuurlabelframes vielen buiten de kortere spans. Teruggedraaid.
+- Poging 2 (huidig): de ingest splitst uurvelden in dagdelen van 24 leads
+  (`-l1-24`, `-l25-48`); de clientregel blijft ongemoeid. Synthgen spiegelt dat.
