@@ -44,3 +44,16 @@ MOTREGEN_E2E_DATA_PORT=8303 pnpm e2e` green, synchrone exit statussen in
 LOG. Korte Playwright-video van afspelen in focusmodus vóór/na. Draft-PR
 vroeg. Geen codex. U9 (histogram) en U10 (versheid) werken parallel in
 App.tsx — houd je diff daar bij de isolijn-/focuspaden.
+
+## Aanvulling PO (2026-09-23, punt 5): temperatuurlabels updaten in place
+
+Als een stadslabel van 16° naar 17° gaat, flitst het oude label weg en
+fadet het nieuwe in (MapLibre plaatst een gewijzigde symbol-tekst opnieuw,
+met collision-fade). Gewenst: in place updaten, of mooier: rollende
+cijfers (odometer). Onderzoek: (a) `fadeDuration: 0`/`text-fade`-gedrag
+op de symbol-laag — verhelpt het de flits, en wat kost het aan de andere
+labels? (b) de temperatuurlabels als HTML-`Marker`s (zoals de ★-markers)
+met een CSS-odometer per cijfer (translateY, ~250 ms, reduced-motion →
+direct), collision/dodging dan zelf via de bestaande labelselectie van U7.
+Kies met een korte meting (frametijd, aantal labels) en laat een video
+zien. Dezelfde tween-familie als de focusmodus.
