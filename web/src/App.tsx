@@ -3,7 +3,7 @@ import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
 import About from './components/About'
 import HistogramScrubber from './components/HistogramScrubber'
 import LocationSearch from './components/LocationSearch'
-import MapClock from './components/MapClock'
+import Freshness from './components/Freshness'
 import PerfHud from './components/PerfHud'
 import ForecastTable, { type SunForm } from './components/ForecastTable'
 import { loadBasemapStyle, temperatureLayerBeforeId, type MapTheme } from './core/basemap'
@@ -15,6 +15,7 @@ const DAY_NIGHT_ENABLED = false
 import { buildHourlyForecast, isPassiveRow, PASSIVE_FORECAST_HOURS } from './core/forecast'
 import { contextOpacity, DEFAULT_FOCUS_TUNING, FocusMode, type FocusTuning } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
+import type { RefreshState } from './core/freshness'
 import { DEFAULT_ISOLINE_TUNING, emptyIsolineData, ISOLINE_LINE_OPACITY, ISOLINE_STEPS, IsolineWorker, isolineLayers, type IsolineStep, type IsolineTuning } from './core/isolines'
 import { cursorAfterTimelineRefresh, isNewerManifest, reconcileTimelineSeries, scheduleManifestRefresh } from './core/manifest-refresh'
 import { constrainView, containView, containZoom, MAP_CONTAIN_BOUNDS } from './core/map-constraint'
@@ -100,6 +101,7 @@ export default function App() {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
   const client = new MrfClient(manifestUrl, perf.loads)
   const [manifest, setManifest] = createSignal<Manifest>()
+  const [manifestRefresh, setManifestRefresh] = createSignal<RefreshState>()
   const timeline = createMemo(() => manifest() ? buildTimeline(manifest()!) : [])
   const radiationTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'radiation') : [])
   const uvTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'uv') : [])
@@ -179,6 +181,7 @@ export default function App() {
     try {
       const data = await fetchManifest()
       perf.setManifestGenerated(data.generated)
+      setManifestRefresh({ checkedAt: Date.now() })
       const frames = buildTimeline(data)
       if (!frames.length) throw new Error('De tijdlijn is leeg')
       setManifest(data)
@@ -249,10 +252,13 @@ export default function App() {
     if (!current) return
     try {
       const candidate = await fetchManifest('no-cache')
+      setManifestRefresh({ checkedAt: Date.now() })
       if (!isNewerManifest(current, candidate)) return
       applyManifestRefresh(candidate)
     } catch {
-      // De atomair gepubliceerde vorige generatie blijft volledig bruikbaar.
+      // De atomair gepubliceerde vorige generatie blijft volledig bruikbaar,
+      // maar de gebruiker moet zien dat ze niet meer ververst.
+      setManifestRefresh((previous) => ({ checkedAt: previous?.checkedAt ?? 0, failedAt: Date.now() }))
     }
   }
 
@@ -1312,7 +1318,7 @@ export default function App() {
           <button class="wind-debug-replay" onClick={replaySplash}>Herhaal splash</button>
         </details>
       </Show>
-      <MapClock mapEpoch={selectedEpoch()} now={manifestNow()} />
+      <Freshness mapEpoch={selectedEpoch()} now={manifestNow()} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} />
       <About />
     </section>
     <aside class="dashboard">
