@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
+import { createMemo, createSignal, For, Index, onCleanup, onMount, Show } from 'solid-js'
 import type { TimelineFrame } from '../core/contract'
 import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColor } from '../core/rain-chart'
 import { timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
@@ -23,6 +23,8 @@ interface Props {
 const hourLabelSteps = [1, 2, 3, 6, 12, 24]
 // Wide enough for "23u" at the axis font size plus breathing room.
 const minimumHourLabelSpacingPx = 34
+const fineScrubOffsetPx = 48
+const fineScrubFactor = 0.25
 
 export function hourLabelStep(spanHours: number, plotWidthPx: number): number {
   const fit = Math.max(1, plotWidthPx / minimumHourLabelSpacingPx)
@@ -32,9 +34,13 @@ export function hourLabelStep(spanHours: number, plotWidthPx: number): number {
 export default function HistogramScrubber(props: Props) {
   let plotElement!: HTMLDivElement
   let pressedX: number | undefined
+  let pressedY = 0
+  // Touch drags are relative to an anchor so the fine (damped) mode can switch in without a jump.
+  let touchAnchor: { x: number; epoch: number; fine: boolean } | undefined
   let dragged = false
   let pointerInside = false
   const [hoverScrubbing, setHoverScrubbing] = createSignal(true)
+  const [fineScrub, setFineScrub] = createSignal(false)
   const [resumePlayback, setResumePlayback] = createSignal(false)
   const [plotWidth, setPlotWidth] = createSignal(320)
   const [plotHeight, setPlotHeight] = createSignal(160)
@@ -97,12 +103,17 @@ export default function HistogramScrubber(props: Props) {
   const cursorEpoch = createMemo(() => timelineEpochAtCursor(props.timeline, props.cursor))
   const cursorPosition = createMemo(() => Math.max(0, Math.min(100, positionAtEpoch(cursorEpoch()))))
   const cursorValue = createMemo(() => props.values[Math.round(props.cursor)])
+  const zones = createMemo(() => timelineZones(props.timeline, timelineStart(), timelineEnd()))
+  const cursorZone = createMemo(() => {
+    const frame = props.timeline[Math.round(props.cursor)] ?? props.timeline[0]
+    return frame ? timelineZones([frame])[0] : undefined
+  })
   const valueText = () => {
     const epoch = cursorEpoch()
     const time = new Date(epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
     const value = cursorValue()
     const rain = value == null ? 'geen data' : value < 0.05 ? 'droog' : `${formatRate(value)}, ${RAIN_BANDS.find((band) => band.key === classifyRain(value))!.label.toLowerCase()}`
-    const source = timelineZones([props.timeline[Math.round(props.cursor)] ?? props.timeline[0]!])[0]?.label.toLowerCase()
+    const source = cursorZone()?.label.toLowerCase()
     return `${dayLabel(epoch, props.now).toLowerCase()} ${time}, ${rain}, ${source}`
   }
   // Playback already advances the cursor every animation frame; only discrete
@@ -127,10 +138,21 @@ export default function HistogramScrubber(props: Props) {
     }
     return markers
   })
-  function pointerPosition(event: PointerEvent): number {
+  function epochAtClientX(clientX: number): number {
     const bounds = plotElement.getBoundingClientRect()
-    const fraction = bounds.width ? Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)) : 0
-    return timelineCursorAtEpoch(props.timeline, timelineStart() + fraction * timelineSpan())
+    const fraction = bounds.width ? Math.max(0, Math.min(1, (clientX - bounds.left) / bounds.width)) : 0
+    return timelineStart() + fraction * timelineSpan()
+  }
+
+  function pointerPosition(event: PointerEvent): number {
+    if (event.pointerType === 'mouse' || !touchAnchor) return timelineCursorAtEpoch(props.timeline, epochAtClientX(event.clientX))
+    // Moving the finger well above or below the plot slows the scrub to a quarter.
+    const fine = Math.abs(event.clientY - pressedY) > fineScrubOffsetPx
+    if (fine !== touchAnchor.fine) touchAnchor = { x: event.clientX, epoch: timelineEpochAtCursor(props.timeline, props.cursor), fine }
+    const width = plotElement.getBoundingClientRect().width || 1
+    const epoch = touchAnchor.epoch + (event.clientX - touchAnchor.x) / width * timelineSpan() * (fine ? fineScrubFactor : 1)
+    setFineScrub(fine)
+    return timelineCursorAtEpoch(props.timeline, Math.max(timelineStart(), Math.min(timelineEnd(), epoch)))
   }
 
   function positionAtEpoch(epoch: number): number {
@@ -174,7 +196,8 @@ export default function HistogramScrubber(props: Props) {
 
   return <section class="scrubber" aria-label={`Regenverwachting en tijd voor ${props.locationLabel}`}>
     <div class="scrubber-toolbar">
-      <div class="time-horizon" role="group" aria-label="Tijdsbereik">
+      <Show when={cursorZone()}>{(zone) => <span class={`scrubber-source ${zone().kind}`} title="Bron op het gekozen tijdstip">{zone().label}</span>}</Show>
+      <div class="segmented time-horizon" role="group" aria-label="Tijdsbereik">
         <For each={[3, 8, 24] as const}>{(hours) => <button type="button" classList={{ active: props.horizonHours === hours }} aria-pressed={props.horizonHours === hours} onClick={() => { props.onIntent?.(); props.onHorizonHours(hours) }}>+{hours}u</button>}</For>
         <button type="button" classList={{ active: props.horizonHours === null }} aria-pressed={props.horizonHours === null} onClick={() => { props.onIntent?.(); props.onHorizonHours(null) }}>Alles</button>
       </div>
@@ -209,6 +232,8 @@ export default function HistogramScrubber(props: Props) {
         setKeyStepping(false)
         props.onIntent?.()
         pressedX = event.clientX
+        pressedY = event.clientY
+        touchAnchor = event.pointerType === 'mouse' ? undefined : { x: event.clientX, epoch: epochAtClientX(event.clientX), fine: false }
         dragged = false
         pauseForPointerInteraction()
         event.currentTarget.setPointerCapture(event.pointerId)
@@ -229,10 +254,14 @@ export default function HistogramScrubber(props: Props) {
         if (!(nextHoverScrubbing && pointerInside && event.pointerType === 'mouse')) resumeAfterPointerInteraction()
         if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
         pressedX = undefined
+        touchAnchor = undefined
+        setFineScrub(false)
         dragged = false
       }}
       onPointerCancel={(event) => {
         pressedX = undefined
+        touchAnchor = undefined
+        setFineScrub(false)
         dragged = false
         if (!(hoverScrubbing() && pointerInside && event.pointerType === 'mouse')) resumeAfterPointerInteraction()
       }}
@@ -246,9 +275,11 @@ export default function HistogramScrubber(props: Props) {
         <div class="day-grid" aria-hidden="true"><For each={dayMarkers()}>{(marker, index) => <div classList={{ boundary: marker.boundary }} style={{ left: `${positionAtEpoch(marker.epoch)}%` }}><Show when={(positionAtEpoch(dayMarkers()[index() + 1]?.epoch ?? timelineEnd()) - positionAtEpoch(marker.epoch)) / 100 * plotWidth() > marker.label.length * 7 + 16}><span>{marker.label}</span></Show></div>}</For></div>
         <svg viewBox={`0 0 ${plotWidth()} ${plotHeight()}`} aria-hidden="true">
           <For each={guides()}>{(top) => <line class="rain-guide" x1="0" x2={plotWidth()} y1={top} y2={top} />}</For>
-          <g class="rain-bars"><For each={bars()}>{(bar) => bar.pending
-            ? <rect class="rain-bar pending" x={bar.x} y={plotHeight() - 2} width={bar.width} height="2" rx="1" />
-            : <rect class="rain-bar" classList={{ past: bar.past }} x={bar.x} y={bar.top} width={bar.width} height={plotHeight() - bar.top + 3} rx={Math.min(3, bar.width / 2)} fill={rainColor(bar.value)} />}</For></g>
+          {/* Index keeps each slot's rect alive, so only frames that arrive (pending → loaded) fade in. */}
+          <g class="rain-bars"><Index each={bars()}>{(bar) => <Show
+            when={!bar().pending}
+            fallback={<rect class="rain-bar pending" x={bar().x} y={plotHeight() - 2} width={bar().width} height="2" rx="1" />}
+          ><rect class="rain-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={rainColor(bar().value)} /></Show>}</Index></g>
           <line class="rain-baseline" x1="0" x2={plotWidth()} y1={plotHeight() - 0.5} y2={plotHeight() - 0.5} />
         </svg>
         <Show when={props.loading}>
@@ -268,7 +299,7 @@ export default function HistogramScrubber(props: Props) {
         <button
           type="button"
           class="cursor-pill"
-          classList={{ tween: tween() }}
+          classList={{ tween: tween(), fine: fineScrub() }}
           style={{ left: `clamp(29px, ${cursorPosition()}%, calc(100% - 29px))` }}
           aria-label={(resumePlayback() || props.playing) ? 'Pauzeren' : 'Afspelen'}
           onPointerDown={(event) => event.stopPropagation()}
@@ -281,8 +312,8 @@ export default function HistogramScrubber(props: Props) {
         <div class="x-axis" aria-hidden="true"><For each={xTicks().filter((tick) => tick.labelled && tick.left > 2 && tick.left < 98 && Math.abs(tick.left - nowPosition()) / 100 * plotWidth() > 30)}>{(tick) => <span classList={{ midnight: new Date(tick.epoch).getHours() === 0 }} style={{ left: `${tick.left}%` }}>{hourLabel(tick.epoch)}</span>}</For></div>
       </div>
     </div>
-    <div class="regimes" aria-label="Databronzones">
-      <For each={timelineZones(props.timeline, timelineStart(), timelineEnd())}>{(zone) => <span class={zone.kind} classList={{ narrow: (zone.end - zone.start) / 100 * plotWidth() < zone.label.length * 6.5 + 8 }} title={zone.label} style={{ left: `${zone.start}%`, width: `${zone.end - zone.start}%` }}><b>{zone.label}</b></span>}</For>
+    <div class="regimes" role="img" aria-label={`Databronnen: ${zones().map((zone) => zone.label).join(', ')}`}>
+      <For each={zones()}>{(zone) => <span class={zone.kind} title={zone.label} style={{ left: `${zone.start}%`, width: `${zone.end - zone.start}%` }} />}</For>
     </div>
   </section>
 }

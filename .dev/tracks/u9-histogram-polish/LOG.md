@@ -77,3 +77,39 @@ Synth (zware bui, byte 226 ≈ 50 mm/u, 5,637 E 51,764 N; caddy :8392 op
 uurlijkse modelbalken met afgeronde top zien er goed uit. Gevonden en opgelost:
 VANDAAG/MORGEN-labels botsten bij Alles, en hoge balken tekenden over VANDAAG.
 Loading (licht): alleen tekst + sweep-lijn, as en bronstrook blijven staan — rustig.
+
+## 2026-09-23 18:10 — code-review eigen diff + fijn scrubben
+- Vondst: `<For>` over een steeds nieuw `bars()`-array maakte bij elke waarde-update
+  (progressief laden: per frame) álle rects opnieuw → de fade-in zou steeds opnieuw
+  flitsen. Nu `<Index>` + `<Show>`: alleen een slot dat pending → geladen gaat krijgt
+  een nieuw element en fadet in.
+- Fijn scrubben met dempen (touch/pen): slepen is relatief t.o.v. een anker; zodra de
+  vinger > 48 px verticaal van het aanzetpunt afwijkt gaat het tempo naar ¼ (her-anker
+  bij omschakelen → geen sprong); de pil krijgt dan een accentring. Muis ongewijzigd.
+  Test: `damps touch scrubbing to a quarter…` (2 → 2,5 bij 200 px in fijn-modus).
+
+## 2026-09-23 18:40 — iteratie 4 (`shots/i4/`, `shots/i4-synth/`) — volledige set
+Alle vier varianten × prod-snapshot en synth. Geen regressies; maar bij Alles/+24u
+toonde de bronstrook alleen nog "Model" (mijn verbergregel voorkomt overlap maar
+verliest informatie).
+
+## 2026-09-23 18:45 — PO-bijsturing (mid-track)
+"neem ook even de +3u +8u +24u pills en light/darkmode mee, misschien zijn
+observaties/nowcast/model ook niet ideaal, die overlappen ook als je naar 24u gaat."
+
+## 2026-09-23 19:05 — iteratie 5 (`shots/i5/`, `shots/i5-synth/`)
+Veranderd:
+- Bronnen: strook onder de plot is nu alleen een 3 px gekleurde lijn per zone
+  (title-tooltip, `role="img"` met aria-label "Databronnen: …"), géén tekst meer →
+  kan niet overlappen bij welke horizon ook. De bron van het cursormoment staat als
+  één bijschrift met kleurstip links in de toolbar (`● Observaties` / `● Nowcast` /
+  `● Model`), en in de aria-valuetext.
+- Pillen: één `.segmented`-familie (30 px segmenten, raakvlak ≥ 44 px via ::after)
+  voor horizon én thema. Thema in de sidebar: cyclusknop → segmented
+  `☀ Licht | ◐ Systeem | ☾ Donker` (App.tsx: markup + `themeChoices`-tabel; buiten
+  de oorspronkelijke scope "App.tsx alleen props", op expliciet PO-verzoek). De
+  ronde themaknop op de kaart (mobiel) blijft een cyclusknop.
+Wat ik zie: toolbar leest rustig, bijschrift wisselt mee met scrubben; +24u op
+Pixel 5 heeft geen overlap meer; thema-segment en horizon-segment zijn zichtbaar
+familie; donker thema consistent.
+Tests: bronstrook-titels + bijschrift-test i.p.v. zichtbare labels.

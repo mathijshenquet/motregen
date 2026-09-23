@@ -1,4 +1,4 @@
-import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show } from 'solid-js'
+import { batch, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
 import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
 import About from './components/About'
 import HistogramScrubber from './components/HistogramScrubber'
@@ -40,6 +40,11 @@ const perf = installPerfMonitor()
 const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
 const themes = ['light', 'system', 'dark'] as const
 type ThemeChoice = typeof themes[number]
+const themeChoices: Record<ThemeChoice, { icon: string; label: string }> = {
+  light: { icon: '☀', label: 'Licht' },
+  system: { icon: '◐', label: 'Systeem' },
+  dark: { icon: '☾', label: 'Donker' },
+}
 type PointLoadStage = 'initial' | 'direct' | 'window' | 'complete'
 type FetchPriority = 'high' | 'low'
 type ForecastIndex = 'radiationIndex' | 'uvIndex' | 'temperatureIndex' | 'feelsLikeIndex' | 'humidityIndex' | 'cloudIndex' | 'windUIndex' | 'windVIndex'
@@ -1264,11 +1269,7 @@ export default function App() {
   const hasWeatherIcons = createMemo(() => cloudTimeline().length > 0)
   const hasHumidity = createMemo(() => humidityTimeline().length > 0)
   const hasWind = createMemo(() => windUFrames().length > 0 && windVFrames().length > 0)
-  const themeMeta = createMemo(() => theme() === 'light'
-    ? { icon: '☀', label: 'Licht', next: 'systeem' }
-    : theme() === 'system'
-      ? { icon: '◐', label: 'Systeem', next: 'donker' }
-      : { icon: '☾', label: 'Donker', next: 'licht' })
+  const themeMeta = createMemo(() => ({ ...themeChoices[theme()], next: themeChoices[themes[(themes.indexOf(theme()) + 1) % themes.length]!].label.toLowerCase() }))
 
   return <main class="app-shell">
     <section class="map-shell" aria-label="Regenkaart van Nederland" data-focus={focus().toFixed(2)} data-isolines={isolineCount()}>
@@ -1319,9 +1320,11 @@ export default function App() {
       <nav class="sidebar-nav" aria-label="Instellingen en locatie">
         <Show when={cursorUvChip()}>{(label) => <span class="uv-chip sidebar-uv-chip" title="Insmeren aanbevolen"><span aria-hidden="true">☀</span><span class="uv-long">{label()}</span><span class="uv-short">UV {formatUv(cursorUv())}</span></span>}</Show>
         <div class="sidebar-actions">
-          <button class="round-action theme-button sidebar-theme" onClick={cycleTheme} aria-label={`Thema: ${themeMeta().label}. Klik voor ${themeMeta().next}`} title={`Thema: ${themeMeta().label}`}>
-            <span aria-hidden="true">{themeMeta().icon}</span><small>{themeMeta().label}</small>
-          </button>
+          <div class="segmented sidebar-theme" role="group" aria-label="Thema">
+            <For each={themes}>{(choice) => <button type="button" classList={{ active: theme() === choice }} aria-pressed={theme() === choice} onClick={() => setTheme(choice)}>
+              <span aria-hidden="true">{themeChoices[choice].icon}</span>{themeChoices[choice].label}
+            </button>}</For>
+          </div>
         </div>
       </nav>
       <HistogramScrubber
