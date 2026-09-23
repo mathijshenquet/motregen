@@ -1,4 +1,4 @@
-// Usage (from web/): node ../.dev/tracks/u9-histogram-polish/shots.mjs <url> <prefix> [profile-filter]
+// Usage (from web/): node ../.dev/tracks/u9-histogram-polish/shots.mjs <url> <prefix> [tag-regex]
 // Seeds Texel (rain in radar history + model on the 2026-09-23 snapshot) as the saved place.
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
@@ -9,7 +9,10 @@ const { chromium, devices } = require('@playwright/test')
 const [url, prefix, filter] = process.argv.slice(2)
 const out = join(dirname(fileURLToPath(import.meta.url)), 'shots', prefix)
 mkdirSync(out, { recursive: true })
-const place = { id: '4.76000,53.04000', name: 'Texel', sourceLabel: 'Texel', lng: 4.76, lat: 53.04 }
+// PLACE="lng,lat,name" and PINS="future,past" override the Texel defaults (e.g. for synth data).
+const [lng, lat, name] = (process.env.PLACE ?? '4.76,53.04,Texel').split(',')
+const place = { id: `${Number(lng).toFixed(5)},${Number(lat).toFixed(5)}`, name, sourceLabel: name, lng: Number(lng), lat: Number(lat) }
+const [futurePin, pastPin] = (process.env.PINS ?? '20:00,14:45').split(',')
 const profiles = [
   { id: 'desktop', options: { viewport: { width: 1440, height: 900 } } },
   { id: 'pixel5', options: { ...devices['Pixel 5'] } },
@@ -22,9 +25,9 @@ async function shot(page, path) {
 }
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] })
 for (const profile of profiles) {
-  if (filter && !profile.id.includes(filter)) continue
   for (const theme of ['light', 'dark']) {
     const tag = `${profile.id}-${theme}`
+    if (filter && !new RegExp(filter).test(tag)) continue
     const context = await browser.newContext({ ...profile.options, locale: 'nl-NL', timezoneId: 'Europe/Amsterdam', colorScheme: theme })
     await context.addInitScript(([place, theme]) => {
       localStorage.setItem('motregen-theme', theme)
@@ -46,21 +49,22 @@ for (const profile of profiles) {
     await page.waitForTimeout(1_500)
     await shot(page, `${out}/${tag}-scrubber.png`)
     if (profile.id === 'desktop') await page.screenshot({ path: `${out}/${tag}-page.png` })
-    const touch = profile.id !== 'desktop'
-    const plot = await page.locator('.chart-plot').boundingBox()
-    // Pin the cursor at a plot fraction and pause playback (autoplay is on by default).
-    async function pin(fraction) {
-      const x = plot.x + plot.width * fraction, y = plot.y + plot.height * 0.6
-      if (touch) await page.touchscreen.tap(x, y); else await page.mouse.click(x, y)
-      await page.waitForTimeout(150)
-      const pill = page.locator('.cursor-marker button')
-      if ((await pill.getAttribute('aria-label')) === 'Pauzeren') { if (touch) await pill.tap({ force: true }); else await pill.click({ force: true }) }
-      if (!touch) await page.mouse.move(2, 2)
-      await page.waitForTimeout(500)
+    const slider = page.locator('.scrub-surface')
+    // Pin the cursor at a local time (rain on the snapshot: radar 14:45, model 20:00) and pause autoplay, keyboard-only
+    // (pointer paths re-enter hover-scrubbing and keep the renderer busy).
+    async function pin(time) {
+      const pill = page.locator('.cursor-pill, .cursor-marker button').first()
+      if ((await pill.getAttribute('aria-label')) === 'Pauzeren') { await pill.focus(); await page.keyboard.press('Enter') }
+      await slider.focus()
+      await page.keyboard.press('Home')
+      const last = Number(await slider.getAttribute('aria-valuemax'))
+      for (let i = 0; i < last && !(await slider.getAttribute('aria-valuetext'))?.includes(` ${time}`); i++) await page.keyboard.press('ArrowRight')
+      await page.evaluate(() => document.activeElement?.blur())
+      await page.waitForTimeout(600)
     }
-    await pin(0.62)
+    await pin(futurePin)
     await shot(page, `${out}/${tag}-future.png`)
-    await pin(0.16)
+    await pin(pastPin)
     await shot(page, `${out}/${tag}-past.png`)
     await page.locator('.scrub-surface').focus()
     await page.keyboard.press('ArrowRight')

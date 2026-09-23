@@ -3,7 +3,7 @@
 	admin off
 }
 
-:8391 {
+:{$SNAPSHOT_PORT:8391} {
 	root * {$SNAPSHOT_ROOT}
 	header Access-Control-Allow-Origin "*"
 	header Access-Control-Expose-Headers "Accept-Ranges, Content-Length, Content-Range, ETag"

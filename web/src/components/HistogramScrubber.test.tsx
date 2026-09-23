@@ -56,6 +56,7 @@ describe('histogram scrubber', () => {
     />)
 
     const slider = screen.getByRole('slider', { name: 'Tijd' })
+    expect(slider.getAttribute('aria-valuetext')).toMatch(/^vandaag \d\d:00, 1 mm\/u, licht, nowcast$/)
     fireEvent.keyDown(slider, { key: 'ArrowRight' })
     expect(onCursor).toHaveBeenCalledWith(2)
     expect(container.querySelector('input[type="range"]')).toBeNull()

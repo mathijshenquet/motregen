@@ -34,3 +34,46 @@ Wat ik zie:
    dan de echte grafiek.
 7. Middernachtlijn (2 px, donker) en uur-rasterlijnen vrij hard, vooral donker thema.
 8. Horizonpillen (28 px hoog) en cursorpil (hoekig bovenaan) zijn geen familie.
+
+## 2026-09-23 17:10 — iteratie 1 (`shots/i1/`, desktop-licht + pixel5-donker)
+Veranderd: intensiteitsbanden weg → twee gestippelde hulplijnen (2,5 en 7,5 mm/u) en
+woordlabels Licht/Matig/Zwaar als y-as; balken in pixelruimte (geen vervormde
+`preserveAspectRatio="none"` meer) met afgeronde top (rx, onderkant weggeclipt),
+kleur = kaart-colormap op de gekwantiseerde index (`rainColor`, colormap verhuisd naar
+`core/rain-chart.ts`, `rain-layer` her-exporteert); verleden licht getint + balken
+72 %; Nu = dunne lijn + omlijnde pil; cursor = 2 px lijn + pil boven de plot, geklemd
+binnen de plotbreedte; sticky-hover-bug: ▶ alleen onder `@media (hover: hover)`;
+skeleton = tekst + sweep-lijntje op de basislijn; pending-frames = stipjes op de
+basislijn; bronstrook dun, labels verbergen (sr-only + title) als ze niet passen.
+Screenshots nu keyboard-gestuurd gepind op 14:45 (radar-bui) en 20:00 (model).
+Wat ik zie:
+- Veel rustiger; kleur leest als de kaart (groen/geel in de radarbui, blauw bij 20u).
+- Actieve horizonpil (zwart) en cursorpil (zwart) concurreren om aandacht.
+- 5-min-balken erg dun (~2,5 px + 1 px gat), vooral in het getinte verleden.
+- Uurlijnen in donker nog vrij aanwezig.
+- Tijd is leesbaar, maar de waarde op de cursor zie je nergens (alleen aria).
+
+## 2026-09-23 17:35 — iteratie 2 (`shots/i2/`, desktop-donker + pixel5-licht)
+Veranderd: waarde-uitlezing bij de cursor (stip op de balktop + `1,8 mm/u`, klapt
+om voorbij 70 %); horizonkeuze als rustige segmented control (actief = verhoogd wit
+segment i.p.v. zwarte pil) — cursorpil is nu het enige donkere element; balk-
+tussenruimte schaalt met de pitch (0,5/1/1,5 px); uurlijnen zachter.
+Wat ik zie: uitlezing werkt en leest prettig; focusring (2 px accent) duidelijk om
+het hele oppervlak. Maar in licht zijn gele/lichtgroene balken op wit bijna
+onzichtbaar (geel op wit ≈ 1,5:1).
+Vondst: afspelen zet de cursor al per rAF-frame (fractionele cursor) → een CSS-
+transitie tijdens afspelen voegt alleen naijlen toe. Tween nu alleen bij
+toetsenbordstappen (140 ms ease-out), pointer-scrubben blijft direct.
+
+## 2026-09-23 17:50 — iteratie 3 (`shots/i3/` licht, `shots/i3-synth/` zware regen)
+Veranderd: in licht thema `filter: brightness(.86) saturate(1.35)` op de balkgroep
+(één laag, kaarttint blijft herkenbaar); daglabels alleen als het segment tot de
+volgende dag breed genoeg is, en boven de balken met een zachte achtergrond;
+scrubber-lokale `--muted: #58707a` in licht (AA: 5,2:1 op wit, 4,8:1 op de tint; het
+globale #637b85 haalde 4,47/4,13); aria-valuetext → `vandaag 14:45, 1,8 mm/u,
+licht, observaties` (+ test); unit-test dat `rainColor` exact de kaart-stops raakt.
+Synth (zware bui, byte 226 ≈ 50 mm/u, 5,637 E 51,764 N; caddy :8392 op
+`web/public/data`, `PLACE=… PINS=18:00,16:00`): roze/paars/rood/oranje komen door,
+uurlijkse modelbalken met afgeronde top zien er goed uit. Gevonden en opgelost:
+VANDAAG/MORGEN-labels botsten bij Alles, en hoge balken tekenden over VANDAAG.
+Loading (licht): alleen tekst + sweep-lijn, as en bronstrook blijven staan — rustig.

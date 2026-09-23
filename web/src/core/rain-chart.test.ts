@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition } from './rain-chart'
+import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColor } from './rain-chart'
 
 describe('rain classification bands', () => {
   it('uses light, moderate and heavy meteorological intensity boundaries', () => {
@@ -24,5 +24,16 @@ describe('rain classification bands', () => {
     expect(boundaries).toEqual([0, 1 / 3, 2 / 3, 1])
     expect(boundaries[1]! - boundaries[0]!).toBeCloseTo(boundaries[2]! - boundaries[1]!)
     expect(boundaries[2]! - boundaries[1]!).toBeCloseTo(boundaries[3]! - boundaries[2]!)
+  })
+})
+
+describe('rain bar colour', () => {
+  it('matches the map overlay colour stops at their mrf byte index', () => {
+    const rate = (index: number) => 0.01 * (150 / 0.01) ** ((index - 1) / 253)
+    expect(rainColor(rate(55))).toBe('rgb(54, 183, 255)')
+    expect(rainColor(rate(105))).toBe('rgb(31, 231, 190)')
+    expect(rainColor(rate(150))).toBe('rgb(255, 222, 44)')
+    expect(rainColor(rate(235))).toBe('rgb(188, 45, 214)')
+    expect(rainColor(500)).toBe(rainColor(150))
   })
 })
