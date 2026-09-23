@@ -131,3 +131,44 @@ Mobiel profiel (4× CPU-throttle):
 - Frametijd-trace (`web/tmp/trace.mjs`): onder SwiftShader op deze host bij ~5 fps niet
   scheidend (frames zonder pass zijn per constructie de korte binnen het 50-ms-venster).
   Uploads: 2 per 12 s (één per nieuw uurframe), label-rondes 1–2 per 12 s.
+
+## 2026-09-23 18:00 — lijnlabels als ankers op het (x,y,t)-oppervlak (PO-eis)
+- `core/isoline-labels.ts`: elk label is een persistent anker (niveau, kolom, rij). Na elke
+  contour-pass (`IsolineLayer.onPass`, dus exact dezelfde snede en ≤20-Hz-cadans als de lijnen)
+  schuift het met twee Newton-stappen p ← p − (T−L)∇T/|∇T|² terug op zijn niveau; T en ∇T via
+  dezelfde kubische B-spline (ruimte) en tijdgewichten (`sliceWeights`) als de shader, op de
+  CPU-kopie van de uurvelden. Despawn met fade (300 ms, reduced motion direct) als het niveau
+  wegvalt (residu > 0,1·stap, geldigheid, of een Newton-stap > 2 cellen = sprong naar een andere
+  lijn) of als twee ankers dichter dan `minDistancePx` (knop, 90) naderen — de oudste blijft.
+  Spawn langs de uurgeometrie uit de worker (per uurframe gecachet) met `spacingPx` (knop, 260),
+  alleen in beeld, bij nieuwe geometrie, na moveend of hooguit elke 750 ms; max 60 ankers.
+  Rotatie = tangent (loodrecht op ∇T), rechtop gehouden.
+- Keuze HTML-`Marker` i.p.v. point-symbols op een GeoJSON-bron: een setData per snede laat
+  MapLibre asynchroon her-tilen (label loopt een of meer frames achter op de GPU-lijn en het
+  kost een worker-rondje per update); markers zetten de positie synchroon in dezelfde frame.
+  Geen MapLibre-collision in beide gevallen. De GeoJSON-symbollaag voor labels is weg.
+- Meting glijden (`web/tmp/glide.mjs`, 12 s afspelen met focus, SwiftShader ~7 fps = ~4
+  gesimuleerde minuten per frame): verplaatsing per label per frame p50 1,0 / p95 4,1 / p99 7,3 /
+  max 15 px; uitschieters > 5 px verspreid over 33 van 85 frames, 1–7 labels per frame (nooit
+  alle tegelijk) → normaalsnelheid van de lijn, geen sprongen. Bij 60 fps ≈ 1/12 daarvan.
+  48 spawns, 24 despawns, ~26 levend; 4 worker-rondes in 12 s (één per nieuw uur).
+  Video: `afspelen-focus-na.webm` (vóór: `afspelen-focus-voor.webm`); beeld `licht-focus-ankers.png`.
+- e2e uitgebreid: labels verschijnen in focus en zijn na de uitfade weg; nieuwe test "pinned
+  focus at rest does no contour or worker work" (passes en labelRounds gelijk over 2 s).
+
+### Gates op deze tip (synchroon, web/)
+- `direnv exec .. pnpm typecheck` → TYPECHECK-EXIT: 0
+- `direnv exec .. pnpm test` → TEST-EXIT: 0 (170 tests)
+- `direnv exec .. pnpm build` → BUILD-EXIT: 0
+- `MOTREGEN_E2E_PORT=4303 MOTREGEN_E2E_DATA_PORT=8303 direnv exec .. pnpm e2e` → E2E-EXIT: 0
+  (10 passed, 11 skipped). Eerdere run op c681547+ gaf 1 rood in perf.spec mobile-4g
+  (manifest-refresh now-line binnen 10 s, host-load ~50; de fast-3g-variant slaagde); kwam niet
+  terug.
+
+### Open
+- Voor PO: (1) bench op echte hardware: focus vastzetten, console `__motregenIsolines().bench(60)`
+  (ms per contour-pass) — hier alleen SwiftShader in een VM; (2) odometer-stadslabels (b) als
+  aparte keuze (kost de t3j-collision tenzij eigen dodge); (3) stippel vs streep en
+  lijnkleur/-dikte beoordelen (`donker-focus-crop.png`, `licht-focus-ankers.png`).
+- Voor orchestrator: bestaande bug op main — stadslabels weg na runtime-themawissel.
+- Ingest: geen gesmoothed/grover veld nodig voor kosten (blur 0,64 ms per uurframe, éénmalig).

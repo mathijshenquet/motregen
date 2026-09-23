@@ -167,6 +167,8 @@ export class IsolineLayer implements CustomLayerInterface {
   readonly type = 'custom' as const
   readonly renderingMode = '2d' as const
   readonly stats: IsolinePassStats = { passes: 0, composites: 0, uploads: 0 }
+  /** Na elke contour-pass: de snede is veranderd (tijd, kaartbeeld, stijl of lagen). */
+  onPass?: () => void
   private map?: MapLibreMap
   private gl?: WebGL2RenderingContext
   private contour?: WebGLProgram
@@ -300,6 +302,7 @@ export class IsolineLayer implements CustomLayerInterface {
     this.passedCamera = camera
     this.passedVersion = this.version
     this.lastPass = now
+    this.onPass?.()
   }
 
   render(context: WebGLRenderingContext | WebGL2RenderingContext): void {

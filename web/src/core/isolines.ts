@@ -1,4 +1,3 @@
-import type { SymbolLayerSpecification } from 'maplibre-gl'
 import type { MapTheme } from './basemap'
 import type { Grid } from './contract'
 
@@ -291,8 +290,6 @@ export interface IsolineFeatureCollection {
   }>
 }
 
-export const emptyIsolineData: IsolineFeatureCollection = { type: 'FeatureCollection', features: [] }
-
 export function isolineFeatures(field: ScalarField, grid: Grid, tuning: Pick<IsolineTuning, 'step' | 'smoothing'>): IsolineFeatureCollection {
   const features: IsolineFeatureCollection['features'] = []
   const buffers = workspace(field)
@@ -370,34 +367,6 @@ export class IsolineWorker {
     // Kopieën: de originele frames zitten in de MrfClient-cache en mogen niet detachen.
     const frames = request.frames.map((frame) => ({ ...frame, data: frame.data.slice() }))
     this.worker.postMessage({ ...request, frames }, frames.map((frame) => frame.data.buffer))
-  }
-}
-
-/** Alleen de labels komen uit de worker-geometrie; de lijnen tekent `IsolineLayer` per frame. */
-export function isolineLabelLayer(theme: MapTheme): SymbolLayerSpecification {
-  const dark = theme === 'dark'
-  return {
-    id: 'motregen-isoline-labels',
-    type: 'symbol',
-    source: 'motregen-isolines',
-    layout: {
-      'symbol-placement': 'line',
-      'symbol-spacing': 280,
-      'text-field': ['get', 'label'],
-      'text-size': ['interpolate', ['linear'], ['zoom'], 5, 10, 9, 12],
-      'text-font': ['Noto Sans Regular'],
-      'text-keep-upright': true,
-      'text-max-angle': 35,
-      'text-padding': 2,
-      visibility: 'none',
-    },
-    paint: {
-      'text-color': isolineColor(theme),
-      'text-halo-color': dark ? '#102027' : '#ffffff',
-      'text-halo-width': 1.6,
-      'text-opacity': 0,
-      'text-opacity-transition': { duration: 0 },
-    },
   }
 }
 
