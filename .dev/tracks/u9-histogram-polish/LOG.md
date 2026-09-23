@@ -113,3 +113,37 @@ Wat ik zie: toolbar leest rustig, bijschrift wisselt mee met scrubben; +24u op
 Pixel 5 heeft geen overlap meer; thema-segment en horizon-segment zijn zichtbaar
 familie; donker thema consistent.
 Tests: bronstrook-titels + bijschrift-test i.p.v. zichtbare labels.
+
+## 2026-09-23 19:25 — gates (synchroon, op `5937b49`)
+Vanuit `web/`, elk commando los met `; echo "X-EXIT: $?"`:
+- `direnv exec .. pnpm typecheck` → TYPECHECK-EXIT: 0
+- `direnv exec .. pnpm test` → 31 files, 162 tests passed, TEST-EXIT: 0
+- `direnv exec .. pnpm build` → BUILD-EXIT: 0
+- `MOTREGEN_E2E_PORT=4301 MOTREGEN_E2E_DATA_PORT=8301 direnv exec .. pnpm e2e` → 9 passed
+  (4,0 min), E2E-EXIT: 0
+
+## Eindvergelijking (vóór → na)
+| variant | vóór | na |
+| --- | --- | --- |
+| desktop licht, cursor in radarbui | `shots/i0-before/desktop-light-past.png` | `shots/i5/desktop-light-past.png` |
+| desktop donker, model 20u | `shots/i0-before/desktop-dark-future.png` | `shots/i5/desktop-dark-future.png` |
+| Pixel 5 licht, +8u tijdens afspelen | `shots/i0-before/pixel5-light-scrubber.png` | `shots/i5/pixel5-light-scrubber.png` |
+| Pixel 5 donker, Alles | `shots/i0-before/pixel5-dark-alles.png` | `shots/i5/pixel5-dark-alles.png` |
+| laden (skeleton) | `shots/i0-before/desktop-light-loading.png` | `shots/i5/desktop-light-loading.png` |
+| hele pagina | `shots/i0-before/desktop-light-page.png` | `shots/i5/desktop-light-page.png`, `…dark-page.png` |
+| zware regen (synth) | — | `shots/i5-synth/desktop-dark-past.png`, `pixel5-light-24u.png` |
+
+Samenvatting: gekleurde bandvlakken → hulplijnen + woord-as; balken in kaartkleuren
+met ronde top, zichtbare lichte regen, fade-in alleen voor binnenkomende frames;
+verleden zacht getint; cursorpil geklemd, tijd altijd leesbaar (sticky-hover-bug
+weg), waarde-uitlezing bij de cursor; skeleton = tekst + sweep; bronnen als lijn +
+cursorbijschrift (geen overlap); horizon + thema als één segmented-familie; AA-
+contrast voor klein grijs in licht; aria-valuetext menselijk; fijn touch-scrubben.
+
+Open / voor PO:
+- De ronde themaknop op de kaart (mobiel) is nog een cyclusknop; sidebar is nu
+  segmented. Gelijktrekken kan, maar op de kaart kost een 3-delig segment ruimte.
+- Schaal: de Zwaar-band beslaat een derde van de hoogte, ook op droge dagen
+  (bestaand ontwerp, niet aangeraakt).
+- Opnames zijn met swiftshader traag (~4–8 min per volledige set); het script
+  pint de cursor via het toetsenbord omdat pointer-paden de renderer bezig hielden.
