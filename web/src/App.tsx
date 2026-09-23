@@ -13,7 +13,8 @@ const DAY_NIGHT_ENABLED = false
 import { buildHourlyForecast } from './core/forecast'
 import { FrameBatcher } from './core/frame-batcher'
 import { cursorAfterTimelineRefresh, isNewerManifest, reconcileTimelineSeries, scheduleManifestRefresh } from './core/manifest-refresh'
-import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS, paddedGeographicBounds } from './core/map-frame'
+import { constrainView, containView, containZoom, MAP_CONTAIN_BOUNDS } from './core/map-constraint'
+import { mapFrameFromGrid } from './core/map-frame'
 import { MrfClient, type MotionField } from './core/mrf'
 import { selectPairMotion } from './core/motion-selection'
 import { nearestPlace } from './core/places'
@@ -34,7 +35,6 @@ import { deriveWeatherIcon, summarizeWind } from './core/weather'
 const manifestUrl = new URL('/data/manifest.json', location.href)
 const perf = installPerfMonitor()
 const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
-const mapMovementBounds = paddedGeographicBounds(NETHERLANDS_FLANDERS_BOUNDS, { west: 0.05, south: 0.1, east: 0.15, north: 0.1 })
 const themes = ['light', 'system', 'dark'] as const
 type ThemeChoice = typeof themes[number]
 type PointLoadStage = 'initial' | 'direct' | 'window' | 'complete'
@@ -164,17 +164,20 @@ export default function App() {
       const initialTheme = mapTheme()
       const style = await loadBasemapStyle(initialTheme)
       appliedMapTheme = initialTheme
+      const initialView = constrainView(initialMapView ?? containView(MAP_CONTAIN_BOUNDS, mapViewport()), MAP_CONTAIN_BOUNDS, mapViewport())
       map = new maplibregl.Map({
         container: mapElement,
         style,
-        center: initialMapView ? [initialMapView.lng, initialMapView.lat] : [5.3, 52.15],
-        zoom: initialMapView?.zoom ?? 6.4,
-        maxBounds: mapMovementBounds,
+        center: [initialView.lng, initialView.lat],
+        zoom: initialView.zoom,
+        transformConstrain: constrainMapView,
         renderWorldCopies: false,
         attributionControl: false,
       })
-      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
       applyMapDetailLimit(minimumMapWidthKm())
+      applyMapContainLimit()
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
+      map.on('resize', applyMapContainLimit)
       syncSavedMarkers(savedPlaces())
       map.on('style.load', () => attachMapLayers(header.grid))
       map.on('moveend', rememberMapView)
@@ -996,6 +999,22 @@ export default function App() {
       return
     }
     void attachCloudEdgeLayer()
+  }
+
+  function mapViewport(): { width: number; height: number } {
+    return { width: mapElement.clientWidth, height: mapElement.clientHeight }
+  }
+
+  // Vervangt maxBounds (dat altijd cover afdwingt): per as contain of cover, zie map-constraint.
+  function constrainMapView(center: maplibregl.LngLat, zoom: number): { center: maplibregl.LngLat; zoom: number } {
+    const view = constrainView({ lng: center.lng, lat: center.lat, zoom }, MAP_CONTAIN_BOUNDS, mapViewport(), map?.getMaxZoom())
+    return { center: new maplibregl.LngLat(view.lng, view.lat), zoom: view.zoom }
+  }
+
+  function applyMapContainLimit(): void {
+    if (!map) return
+    const minimumZoom = containZoom(MAP_CONTAIN_BOUNDS, mapViewport())
+    if (Number.isFinite(minimumZoom)) map.setMinZoom(Math.min(Math.max(minimumZoom, -2), map.getMaxZoom()))
   }
 
   function applyMapDetailLimit(minimumWidthKm: number): void {
