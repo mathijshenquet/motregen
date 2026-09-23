@@ -1,5 +1,18 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-09-23 — PM-inventaris na 3 weken stilte: fleet opgeruimd, prod vers
+
+- Inventaris: geen open PRs (#21–#25 alle MERGED 2026-08-31), alle zeven
+  resterende track-worktrees volledig in main (0 unmerged commits, schoon).
+  Zeven herdr-workspaces (t3g/t4/t2f/t5/t5b/t2g/t3h) gesloten en de
+  worktrees verwijderd; alleen de orchestrator-pane blijft.
+- Prod-receipt 12:28:40Z: manifest generated 12:27:49Z met rtcor-run 12:25
+  = ~3,5 min achter KNMI-tijd, site 200 in 0,19 s. Versheidsdoel houdt.
+- Open (ongewijzigd sinds 08-31) — MET PO: prospect-ronde A/B/C, skeleton-vs-
+  wait, lijn-vs-staaf, mobiele-GPU-check. VOOR AGENTS (wacht op PO-keuze):
+  T2h-historische observaties, MQTT, day/night v2, open-source-pass,
+  CI-closure-push (MIP-6 §5).
+
 ## 2026-08-31 (nacht) — t3k + T2h live: playbackbug weg, versheid ~100 s
 
 - **t3k gemerged + gedeployed** (`e65027d4`): sol loste de vier App.tsx-
