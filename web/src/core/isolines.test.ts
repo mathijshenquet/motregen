@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MrfHeader } from './contract'
-import { blendField, blurField, chaikin, isolineFeatures, isolineLevels, marchingSquares, type ScalarField } from './isolines'
+import { blendFrames, blurField, chaikin, isolineFeatures, isolineLevels, marchingSquares, temporalWeights, type ScalarField } from './isolines'
 
 function field(rows: number[][]): ScalarField {
   return { width: rows[0]!.length, height: rows.length, values: Float32Array.from(rows.flat()) }
@@ -121,16 +121,18 @@ describe('isoline features', () => {
     return data
   }
 
-  it('blends frames like the labels and treats no-data as a hole', () => {
-    const blended = blendField(frame(0), frame(10), header, header, 0.5)
+  it('blends weighted frames and treats no-data as a hole', () => {
+    const blended = blendFrames([{ data: frame(0), quant, weight: 0.5 }, { data: frame(10), quant, weight: 0.5 }], 209, 225)
     expect(Number.isNaN(blended.values[0]!)).toBe(true)
     expect(blended.values[1]).toBeCloseTo((quant[frame(0)[1]!]! + quant[frame(10)[1]!]!) / 2, 4)
+    const three = blendFrames([{ data: frame(0), quant, weight: 1 }, { data: frame(6), quant, weight: 4 }, { data: frame(12), quant, weight: 1 }], 209, 225)
+    expect(three.values[1]).toBeCloseTo((quant[frame(0)[1]!]! + 4 * quant[frame(6)[1]!]! + quant[frame(12)[1]!]!) / 6, 4)
   })
 
   it('emits labelled lng/lat lines for the 6 km grid within a main-thread budget', () => {
-    const blended = blendField(frame(0), frame(6), header, header, 0.4)
+    const blended = blendFrames([{ data: frame(0), quant, weight: 0.6 }, { data: frame(6), quant, weight: 0.4 }], 209, 225)
     const started = performance.now()
-    const data = isolineFeatures(blended, header.grid, { step: 1, smoothing: true, blur: 2 })
+    const data = isolineFeatures(blended, header.grid, { step: 1, smoothing: true })
     const elapsed = performance.now() - started
     expect(data.features.length).toBeGreaterThan(10)
     const first = data.features[0]!
@@ -140,5 +142,43 @@ describe('isoline features', () => {
     expect(lat).toBeGreaterThan(50); expect(lat).toBeLessThan(56)
     // Ruim budget voor CI; gemeten waarden staan in de track-LOG.
     expect(elapsed).toBeLessThan(250)
+  })
+})
+
+describe('temporal weights', () => {
+  const hour = 3_600_000
+  const epochs = Array.from({ length: 20 }, (_, index) => index * hour)
+  const value = (weights: ReturnType<typeof temporalWeights>, series: (index: number) => number) => weights.reduce((sum, { index, weight }) => sum + weight * series(index), 0)
+
+  it('window 0 is the plain two-frame linear blend', () => {
+    expect(temporalWeights(epochs, 2.25 * hour, 0)).toEqual([{ index: 2, weight: 0.75 }, { index: 3, weight: 0.25 }])
+    expect(temporalWeights(epochs, 3 * hour, 0)).toEqual([{ index: 3, weight: 1 }])
+    expect(temporalWeights(epochs, -hour, 0)).toEqual([{ index: 0, weight: 1 }])
+    expect(temporalWeights(epochs, 30 * hour, 0)).toEqual([{ index: 19, weight: 1 }])
+  })
+
+  it('the B-spline kernel sums to one and reproduces linear trends in the interior', () => {
+    for (const window of [1, 2, 3]) {
+      for (const t of [8, 8.3, 9.5, 10.99]) {
+        const weights = temporalWeights(epochs, t * hour, window)
+        expect(weights.reduce((sum, { weight }) => sum + weight, 0)).toBeCloseTo(1, 10)
+        expect(value(weights, (index) => 2 * index + 1)).toBeCloseTo(2 * t + 1, 4)
+      }
+    }
+    expect(temporalWeights(epochs, 4 * hour, 1).map(({ weight }) => weight)).toEqual([1 / 6, 4 / 6, 1 / 6].map((weight) => expect.closeTo(weight, 10)))
+    expect(temporalWeights(epochs, 4.5 * hour, 2)).toHaveLength(8)
+  })
+
+  it('removes the velocity kink at frame boundaries that the linear blend has', () => {
+    // Zigzag-reeks: lineair wisselt de helling op elk uur van teken; de B-spline niet.
+    const zigzag = (index: number) => index % 2 ? 1 : 0
+    const slope = (window: number, t: number, side: number) => {
+      const h = 1e-4
+      const at = (time: number) => value(temporalWeights(epochs, time * hour, window), zigzag)
+      return side < 0 ? (at(t) - at(t - h)) / h : (at(t + h) - at(t)) / h
+    }
+    const kink = (window: number) => Math.abs(slope(window, 5, 1) - slope(window, 5, -1))
+    expect(kink(0)).toBeCloseTo(2, 3)
+    expect(kink(1)).toBeLessThan(1e-2)
   })
 })

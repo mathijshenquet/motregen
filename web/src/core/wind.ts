@@ -27,7 +27,7 @@ export function zipWindFrame(u: Uint8Array, v: Uint8Array, uHeader: MrfHeader, v
   return vectors
 }
 
-export function sameGrid(left: MrfHeader, right: MrfHeader): boolean {
+export function sameGrid(left: Pick<MrfHeader, 'grid'>, right: Pick<MrfHeader, 'grid'>): boolean {
   return left.grid.crs === right.grid.crs && left.grid.x0 === right.grid.x0 && left.grid.y0 === right.grid.y0 &&
     left.grid.dx === right.grid.dx && left.grid.dy === right.grid.dy && left.grid.width === right.grid.width &&
     left.grid.height === right.grid.height
