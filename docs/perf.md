@@ -44,13 +44,15 @@ per seconde (`rest^dt` per frame), zodat de staart niet van de framerate
 afhangt; de vloer tegen 8-bit-ghosts (t3i) blijft. Het leven is in CSS-px:
 iedere particle legt ~*Afstand per leven* af, de kop faded in over de eerste
 en uit over de laatste pixels, waarna de buffer de staart laat uitsterven.
-Omdat iedere particle zo ongeveer dezelfde inkt neerlegt, geeft uniforme
-spawn (*Spawnbalans* 0) in theorie inkt per oppervlak die niet van
-windsnelheid afhangt; gemeten bleef zee dan tot 1,2–1,5× land (lange,
-niet-overlappende zeestrepen), dus de default −0,6 dunt harde wind uit.
+Respawn gebeurt in de leegste cel van een bezettingsraster met ~1 particle
+per cel, op een positie binnen die cel (*Spawn-jitter*: 0 = celmidden, 1 =
+uniform binnen de cel). Dat houdt de koppendichtheid gelijkmatig, maar omdat
+iedere particle ~dezelfde inkt per leven neerlegt en snelle particles vaker
+respawnen, wordt inkt dan ∝ windsnelheid; *Snelheidsdemping* γ dimt de kop
+boven 3 m/s met (3/v)^γ (default 0,7) zodat zee niet drukker oogt dan land.
 *Lijnbreedte* is in device-px, zoals vóór U3.
 
-Twee meetscripts horen erbij, beide tegen een draaiende preview
+Vier meetscripts horen erbij, alle tegen een draaiende preview
 (`MOTREGEN_DATA_ORIGIN=https://motregen.nl/data pnpm preview`):
 
 - `pnpm exec tsx scripts/measure-wind.ts ORIGIN OUT LABEL` — rAF-intervallen en
@@ -60,6 +62,13 @@ Twee meetscripts horen erbij, beide tegen een draaiende preview
   RGB-bijdrage van de trails per land- en zeepixel (autoplay gepauzeerd,
   referentie = dezelfde pagina met wind onzichtbaar). `before` stuurt de
   `?dev`-slider van builds vóór U3 aan, `after` het HUD-veld *Intensiteit*.
+- `pnpm exec tsx scripts/wind-density.ts ORIGIN OUT [JITTERS]` —
+  spreidingsindex (variantie/gemiddelde per cel) van de zichtbare koppen via
+  de meethaak `__motregenWind.dispersion()`, per spawn-jitter, met screenshots.
+- `pnpm exec tsx scripts/wind-video.ts ORIGIN OUT [LABEL] [light|dark]` — korte
+  ingezoomde video van spawn tot uitsterven.
+
+`measure-wind` en `wind-ink` nemen `WIND_TUNING='{"…":…}'` om tuning zonder rebuild te zetten.
 
 In headless SwiftShader verlaagt het adaptieve particlebudget het aantal
 particles meteen naar het minimum (96); voor screenshots en inkt op volle
