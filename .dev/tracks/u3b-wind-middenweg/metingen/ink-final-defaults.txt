@@ -1,0 +1,10 @@
+old before mobile-light {"seaInk":4.483,"landInk":4.227,"seaPixels":290876,"landPixels":256923,"seaColor":[156,188,252],"landColor":[236,236,224]}
+old before mobile-dark {"seaInk":5.002,"landInk":2.273,"seaPixels":300663,"landPixels":425698,"seaColor":[24,52,68],"landColor":[20,36,36]}
+old before desktop-light {"seaInk":13.168,"landInk":8.834,"seaPixels":198418,"landPixels":194437,"seaColor":[156,188,252],"landColor":[240,240,232]}
+old before desktop-dark {"seaInk":16.958,"landInk":9.708,"seaPixels":200103,"landPixels":218803,"seaColor":[24,52,68],"landColor":[20,36,36]}
+new after mobile-light {"seaInk":1.624,"landInk":3.251,"seaPixels":291526,"landPixels":242392,"seaColor":[156,188,252],"landColor":[236,236,224]}
+new after mobile-dark {"seaInk":2.057,"landInk":2.321,"seaPixels":300403,"landPixels":450379,"seaColor":[24,52,68],"landColor":[20,36,36]}
+new after desktop-light {"seaInk":4.719,"landInk":8.424,"seaPixels":198677,"landPixels":192917,"seaColor":[156,188,252],"landColor":[240,240,232]}
+new after desktop-dark {"seaInk":5.693,"landInk":8.722,"seaPixels":199506,"landPixels":222575,"seaColor":[24,52,68],"landColor":[20,36,36]}
+SHOTS-EXIT: 0
+ROUND6-DONE

@@ -1,0 +1,24 @@
+mobile jitter=0 dispersion=0.858 particles=92/95/94/91/95/94/93/94 samples=0.78/1.01/0.87/0.94/0.84/0.85/0.80/0.77
+mobile jitter=0.6 dispersion=0.938 particles=95/95/95/95/92/93/90/94 samples=1.01/0.76/0.93/0.91/1.08/1.07/0.81/0.92
+mobile jitter=1 dispersion=0.941 particles=95/94/94/94/95/94/90/92 samples=1.39/1.13/0.92/0.89/0.93/0.85/0.68/0.74
+desktop jitter=0 dispersion=0.998 particles=358/352/355/358/356/353/354/347 samples=0.99/1.02/1.02/1.02/0.99/1.08/0.96/0.91
+desktop jitter=0.6 dispersion=0.936 particles=351/349/351/353/350/350/354/355 samples=1.16/1.06/0.92/0.90/0.90/0.87/0.85/0.84
+desktop jitter=1 dispersion=1.022 particles=356/355/359/350/351/353/350/350 samples=1.04/1.09/0.94/0.94/0.93/1.04/1.04/1.15
+DENSITY-PHASE-DONE
+old before mobile-light {"seaInk":4.674,"landInk":4.674
+old before mobile-dark {"seaInk":5.711,"landInk":3.868
+old before desktop-light {"seaInk":14.26,"landInk":9.037
+old before desktop-dark {"seaInk":19.341,"landInk":10.349
+{"speedDamping":1,"intensity":2} after mobile-light {"seaInk":1.203,"landInk":3.111
+{"speedDamping":1,"intensity":2} after mobile-dark {"seaInk":1.407,"landInk":2.443
+{"speedDamping":1,"intensity":2} after desktop-light {"seaInk":3.266,"landInk":7.894
+{"speedDamping":1,"intensity":2} after desktop-dark {"seaInk":3.975,"landInk":8.563
+{"speedDamping":0.7,"intensity":1.8} after mobile-light {"seaInk":1.698,"landInk":2.981
+{"speedDamping":0.7,"intensity":1.8} after mobile-dark {"seaInk":1.955,"landInk":2.32
+{"speedDamping":0.7,"intensity":1.8} after desktop-light {"seaInk":4.557,"landInk":7.861
+{"speedDamping":0.7,"intensity":1.8} after desktop-dark {"seaInk":5.252,"landInk":8.433
+{"speedDamping":0.5,"intensity":1.6} after mobile-light {"seaInk":1.653,"landInk":2.914
+{"speedDamping":0.5,"intensity":1.6} after mobile-dark {"seaInk":2.323,"landInk":2.019
+{"speedDamping":0.5,"intensity":1.6} after desktop-light {"seaInk":4.91,"landInk":7.551
+{"speedDamping":0.5,"intensity":1.6} after desktop-dark {"seaInk":6.073,"landInk":7.877
+ROUND5-DONE

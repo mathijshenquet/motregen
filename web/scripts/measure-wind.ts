@@ -15,6 +15,8 @@ const profiles: Array<{ id: string; context: BrowserContextOptions; cpuThrottleR
 const sampleMs = Number(process.env.MEASURE_SAMPLE_MS ?? 8_000)
 const profileFilter = process.env.MEASURE_PROFILES?.split(',')
 const screenshots = process.env.MEASURE_SCREENSHOTS !== '0'
+// WIND_TUNING='{"bufferDpr":1}' zet tuning (U3b-sleutel) zonder rebuild.
+const tuning = process.env.WIND_TUNING ?? null
 const browser = await chromium.launch({
   headless: true,
   args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'],
@@ -24,7 +26,10 @@ const results: Record<string, unknown> = {}
 for (const profile of profiles.filter((candidate) => !profileFilter || profileFilter.includes(candidate.id))) {
   for (const theme of ['light', 'dark'] as const) {
     const context = await browser.newContext(profile.context)
-    await context.addInitScript((value) => localStorage.setItem('motregen-theme', value), theme)
+    await context.addInitScript(([value, custom]) => {
+      localStorage.setItem('motregen-theme', value!)
+      if (custom) localStorage.setItem('motregen-wind-tuning-v2', custom)
+    }, [theme, tuning])
     const page = await context.newPage()
     page.setDefaultTimeout(120_000)
     const cdp = await context.newCDPSession(page)
