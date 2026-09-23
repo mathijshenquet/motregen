@@ -31,15 +31,14 @@ describe('map constraint', () => {
     expect(constrainView({ lng: 5, lat: 52, zoom: 14 }, bounds, desktop, 11).zoom).toBe(11)
   })
 
-  it('contain axis: the bounds cannot be pushed out of view, but may float', () => {
+  it('contain axis: the centre is pinned to the middle of the bounds, no sideways drift', () => {
     const zoom = containZoom(bounds, desktop) + 0.2
+    const centred = containView(bounds, desktop)
     const pushedWest = constrainView({ lng: -10, lat: 52, zoom }, bounds, desktop)
-    const screen = screenBounds(pushedWest, desktop)
-    expect(screen.right).toBeCloseTo(desktop.width, 6)
-    expect(screen.left).toBeGreaterThan(0)
-
-    const floating = { lng: 5.4, lat: 52.1, zoom: containZoom(bounds, desktop) }
-    expect(constrainView(floating, bounds, desktop).lng).toBeCloseTo(5.4, 9)
+    expect(pushedWest.lng).toBeCloseTo(centred.lng, 9)
+    const nudged = constrainView({ lng: 5.4, lat: 52.1, zoom: containZoom(bounds, desktop) }, bounds, desktop)
+    expect(nudged.lng).toBeCloseTo(centred.lng, 9)
+    expect(nudged.lat).toBeCloseTo(centred.lat, 9)
   })
 
   it('cover axis: the viewport stays inside the bounds', () => {
@@ -53,12 +52,12 @@ describe('map constraint', () => {
     expect(constrainView(inside, bounds, desktop)).toEqual(expect.objectContaining({ lng: expect.closeTo(5.1, 9), lat: expect.closeTo(52.1, 9) }))
   })
 
-  it('mixed portrait: latitude floats (contain) while longitude covers', () => {
+  it('mixed portrait: latitude is pinned (contain) while longitude covers', () => {
     const zoom = containZoom(bounds, portrait) + 0.3
     const view = constrainView({ lng: 0, lat: 40, zoom }, bounds, portrait)
     const screen = screenBounds(view, portrait)
     expect(screen.left).toBeCloseTo(0, 6)
-    expect(screen.top).toBeCloseTo(0, 6)
+    expect(view.lat).toBeCloseTo(containView(bounds, portrait).lat, 9)
     expect(screen.bottom - screen.top).toBeLessThan(portrait.height)
     expect(screen.right - screen.left).toBeGreaterThan(portrait.width)
   })

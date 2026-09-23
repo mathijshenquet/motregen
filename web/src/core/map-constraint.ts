@@ -23,9 +23,9 @@ export function containView(bounds: GeographicBounds, viewport: Viewport): MapVi
   return { lng: lngFromMercatorX(x), lat: latFromMercatorY(y), zoom: containZoom(bounds, viewport) }
 }
 
-// Per as: past de viewport om de bounds heen, dan blijven de bounds volledig in beeld;
-// anders blijft de viewport binnen de bounds. Beide gevallen zijn hetzelfde interval
-// voor het centrum, met de grenzen omgewisseld; bij gelijke span vallen ze samen.
+// Per as: past de viewport om de bounds heen, dan staat het centrum vast op het midden
+// van de bounds (geen zinloos schuiven op een widescreen); anders blijft de viewport
+// binnen de bounds (cover).
 export function constrainView(view: MapView, bounds: GeographicBounds, viewport: Viewport, maxZoom = Infinity): MapView {
   const zoom = Math.max(containZoom(bounds, viewport), Math.min(view.zoom, maxZoom))
   const worldSize = tileSize * 2 ** zoom
@@ -35,9 +35,8 @@ export function constrainView(view: MapView, bounds: GeographicBounds, viewport:
 }
 
 function clampAxis(center: number, low: number, high: number, halfSpan: number): number {
-  const a = low + halfSpan
-  const b = high - halfSpan
-  return Math.min(Math.max(center, Math.min(a, b)), Math.max(a, b))
+  if (2 * halfSpan >= high - low) return (low + high) / 2
+  return Math.min(Math.max(center, low + halfSpan), high - halfSpan)
 }
 
 function mercatorX(lng: number): number {
