@@ -10,6 +10,7 @@ interface Props {
   onRemove: (id: string) => void
   onSave: (name: string) => void
   onSelect: (location: { lng: number; lat: number }, label: string) => void
+  onSelectSaved: (place: SavedPlace) => void
 }
 
 export default function LocationSearch(props: Props) {
@@ -89,12 +90,21 @@ export default function LocationSearch(props: Props) {
   }
 
   function commitSelection(location: { lng: number; lat: number }, label: string): void {
+    closeWith(label)
+    props.onSelect(location, label)
+  }
+
+  function commitSaved(place: SavedPlace): void {
+    closeWith(place.name)
+    props.onSelectSaved(place)
+  }
+
+  function closeWith(label: string): void {
     setSelectedLabel(label)
     setQuery(label)
     setSuggestions([])
     setOpen(false)
     setMessage('')
-    props.onSelect(location, label)
   }
 
   function keyDown(event: KeyboardEvent): void {
@@ -168,7 +178,7 @@ export default function LocationSearch(props: Props) {
           <p class="search-section-label">Opgeslagen</p>
           <For each={visibleSaved()}>{(place) =>
             <div class="saved-location-row">
-              <button class="saved-location" role="option" aria-selected={samePlace(place, props.location)} onClick={() => commitSelection(place, place.name)}>
+              <button class="saved-location" role="option" aria-selected={samePlace(place, props.location)} onClick={() => commitSaved(place)}>
                 <span><b aria-hidden="true">★</b> {place.name}</span><small>{place.sourceLabel === place.name ? 'opgeslagen' : place.sourceLabel}</small>
               </button>
               <button class="remove-saved" type="button" onClick={() => props.onRemove(place.id)} aria-label={`${place.name} verwijderen uit opgeslagen plaatsen`} title="Verwijderen">×</button>

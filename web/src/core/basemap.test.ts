@@ -43,6 +43,36 @@ describe('road-free basemap', () => {
     expect(dark.layers[4]!.paint).toMatchObject({ 'line-color': '#80969c', 'line-opacity': 0.72 })
   })
 
+  it('labels places in Dutch without a country label or enlarged capital', () => {
+    const libertyName = ['case', ['has', 'name:nonlatin'],
+      ['concat', ['get', 'name:latin'], '\n', ['get', 'name:nonlatin']],
+      ['coalesce', ['get', 'name_en'], ['get', 'name']]]
+    const place = (id: string, filter: unknown) => ({
+      id, type: 'symbol', source: 'map', 'source-layer': 'place', filter, layout: { 'text-field': libertyName },
+    })
+    const style = {
+      version: 8,
+      sources: { map: { type: 'vector', url: 'https://example.test' } },
+      layers: [
+        { id: 'water_name', type: 'symbol', source: 'map', 'source-layer': 'water_name', layout: { 'text-field': libertyName } },
+        place('label_town', ['==', ['get', 'class'], 'town']),
+        place('label_city', ['all', ['==', ['get', 'class'], 'city'], ['!=', ['get', 'capital'], 2]]),
+        place('label_city_capital', ['all', ['==', ['get', 'class'], 'city'], ['==', ['get', 'capital'], 2]]),
+        place('label_country_3', ['all', ['==', ['get', 'class'], 'country'], ['>=', ['get', 'rank'], 3]]),
+        { id: 'poi_ref', type: 'symbol', source: 'map', 'source-layer': 'poi', layout: { 'text-field': ['to-string', ['get', 'ref']] } },
+      ],
+    } as unknown as StyleSpecification
+
+    for (const theme of ['light', 'dark'] as const) {
+      const prepared = prepareBasemapStyle(style, theme)
+      expect(prepared.layers.map((layer) => layer.id)).toEqual(['water_name', 'label_town', 'label_city', 'poi_ref'])
+      const dutch = ['coalesce', ['get', 'name:nl'], ['get', 'name']]
+      for (const layer of prepared.layers.slice(0, 3)) expect(layer.layout?.['text-field' as never]).toEqual(dutch)
+      expect(prepared.layers[3]!.layout?.['text-field' as never]).toEqual(['to-string', ['get', 'ref']])
+      expect('filter' in prepared.layers[2]! ? prepared.layers[2]!.filter : undefined).toEqual(['==', ['get', 'class'], 'city'])
+    }
+  })
+
   it('finds the first basemap text layer below which weather labels belong', () => {
     const layers = [
       { id: 'background', type: 'background' },

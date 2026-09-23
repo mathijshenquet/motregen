@@ -6,20 +6,22 @@ import PerfHud from './components/PerfHud'
 import WeatherIcon from './components/WeatherIcon'
 import { firstBasemapTextLayerId, loadBasemapStyle, type MapTheme } from './core/basemap'
 import { CloudEdgeLayer } from './core/cloud-edge-layer'
-import type { Field, Grid, Manifest, ManifestChunk, TimelineFrame } from './core/contract'
+import type { Grid, Manifest, ManifestChunk, TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
 
 const DAY_NIGHT_ENABLED = false
 import { buildHourlyForecast } from './core/forecast'
 import { FrameBatcher } from './core/frame-batcher'
 import { cursorAfterTimelineRefresh, isNewerManifest, reconcileTimelineSeries, scheduleManifestRefresh } from './core/manifest-refresh'
-import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS, paddedGeographicBounds } from './core/map-frame'
+import { constrainView, containView, containZoom, MAP_CONTAIN_BOUNDS } from './core/map-constraint'
+import { mapFrameFromGrid } from './core/map-frame'
 import { MrfClient, type MotionField } from './core/mrf'
 import { selectPairMotion } from './core/motion-selection'
 import { nearestPlace } from './core/places'
 import { startFrameLoop } from './core/playback'
 import { installPerfMonitor } from './core/perf'
 import { RainLayer } from './core/rain-layer'
+import { loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastSavedPlaceId, storeMapView } from './core/location-memory'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
 import { solarElevationSin } from './core/solar'
@@ -32,11 +34,9 @@ import { deriveWeatherIcon, summarizeWind } from './core/weather'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
 const perf = installPerfMonitor()
-const defaultLocation = { lng: 5.18, lat: 52.1 }
-const mapMovementBounds = paddedGeographicBounds(NETHERLANDS_FLANDERS_BOUNDS, { west: 0.05, south: 0.1, east: 0.15, north: 0.1 })
+const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
 const themes = ['light', 'system', 'dark'] as const
 type ThemeChoice = typeof themes[number]
-type TemperatureField = Extract<Field, 'temp_c' | 'feels_like_c'>
 type PointLoadStage = 'initial' | 'direct' | 'window' | 'complete'
 type FetchPriority = 'high' | 'low'
 type ForecastIndex = 'uvIndex' | 'temperatureIndex' | 'feelsLikeIndex' | 'humidityIndex' | 'cloudIndex' | 'windUIndex' | 'windVIndex'
@@ -69,6 +69,7 @@ export default function App() {
   let cloudEdgeLayer: CloudEdgeLayer | undefined
   let windGrid: Grid | undefined
   let splashReplayTimer: number | undefined
+  let mapViewTimer: number | undefined
   let stopManifestRefresh: (() => void) | undefined
   let shownFrameRequest = 0
   let shownWindRequest = 0
@@ -104,9 +105,12 @@ export default function App() {
   const [cursor, setCursor] = createSignal(0)
   const [playing, setPlaying] = createSignal(true)
   const [timeHorizonHours, setTimeHorizonHours] = createSignal<number | null>(8)
-  const [location, setLocation] = createSignal(defaultLocation)
-  const [locationLabel, setLocationLabel] = createSignal('De Bilt')
-  const [savedPlaces, setSavedPlaces] = createSignal<SavedPlace[]>(loadSavedPlaces())
+  const initialSavedPlaces = loadSavedPlaces()
+  const initialMapView = loadMapView()
+  const startLocation = resolveStartLocation(initialSavedPlaces, loadLastSavedPlaceId(), initialMapView, defaultLocation)
+  const [location, setLocation] = createSignal({ lng: startLocation.lng, lat: startLocation.lat })
+  const [locationLabel, setLocationLabel] = createSignal(startLocation.label)
+  const [savedPlaces, setSavedPlaces] = createSignal<SavedPlace[]>(initialSavedPlaces)
   const [rainSeries, setRainSeries] = createSignal<Array<number | null>>([])
   const [rainLoaded, setRainLoaded] = createSignal<boolean[]>([])
   const [pointSeriesLoading, setPointSeriesLoading] = createSignal(true)
@@ -121,7 +125,6 @@ export default function App() {
   const [windVSeries, setWindVSeries] = createSignal<Array<number | null>>([])
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
-  const [temperatureField, setTemperatureField] = createSignal<TemperatureField>('feels_like_c')
   const [windTuning, setWindTuning] = createSignal<WindTuning>(loadWindTuning())
   const [cloudEdgesEnabled, setCloudEdgesEnabled] = createSignal(false)
   const [mapReady, setMapReady] = createSignal(false)
@@ -161,19 +164,23 @@ export default function App() {
       const initialTheme = mapTheme()
       const style = await loadBasemapStyle(initialTheme)
       appliedMapTheme = initialTheme
+      const initialView = constrainView(initialMapView ?? containView(MAP_CONTAIN_BOUNDS, mapViewport()), MAP_CONTAIN_BOUNDS, mapViewport())
       map = new maplibregl.Map({
         container: mapElement,
         style,
-        center: [5.3, 52.15],
-        zoom: 6.4,
-        maxBounds: mapMovementBounds,
+        center: [initialView.lng, initialView.lat],
+        zoom: initialView.zoom,
+        transformConstrain: constrainMapView,
         renderWorldCopies: false,
         attributionControl: false,
       })
-      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
       applyMapDetailLimit(minimumMapWidthKm())
+      applyMapContainLimit()
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
+      map.on('resize', applyMapContainLimit)
       syncSavedMarkers(savedPlaces())
       map.on('style.load', () => attachMapLayers(header.grid))
+      map.on('moveend', rememberMapView)
       map.on('click', (event) => pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name))
       if (mapTheme() !== appliedMapTheme) void applyMapTheme(mapTheme())
     } catch (error) {
@@ -183,6 +190,7 @@ export default function App() {
 
   onCleanup(() => {
     window.clearTimeout(splashReplayTimer)
+    window.clearTimeout(mapViewTimer)
     stopManifestRefresh?.()
     cancelPointLoad(pointLoad)
     for (const savedMarker of savedMarkers) savedMarker.remove()
@@ -280,7 +288,6 @@ export default function App() {
   createEffect(() => {
     const epoch = selectedEpoch()
     const ready = mapReady()
-    temperatureField()
     dayNightLayer?.setEpoch(epoch)
     if (ready && layer) void showFrame()
     if (!ready) return
@@ -436,7 +443,7 @@ export default function App() {
         void attachWindLayer()
         if (!initialPickStarted) {
           initialPickStarted = true
-          pick(defaultLocation.lng, defaultLocation.lat, 'De Bilt')
+          pick(startLocation.lng, startLocation.lat, startLocation.label)
         }
       })
     }
@@ -550,7 +557,7 @@ export default function App() {
   }
 
   async function showTemperature(): Promise<void> {
-    const frames = activeTemperatureTimeline()
+    const frames = feelsLikeTimeline()
     if (!frames.length || !map?.getSource('motregen-temperature')) return
     const request = ++shownTemperatureRequest
     const blend = frameBlend(frames, selectedEpoch())
@@ -925,6 +932,20 @@ export default function App() {
     pick(point.lng, point.lat, label)
   }
 
+  function chooseSaved(place: SavedPlace): void {
+    storeLastSavedPlaceId(place.id)
+    pick(place.lng, place.lat, place.name)
+  }
+
+  function rememberMapView(): void {
+    window.clearTimeout(mapViewTimer)
+    mapViewTimer = window.setTimeout(() => {
+      if (!map) return
+      const center = map.getCenter()
+      storeMapView({ lng: center.lng, lat: center.lat, zoom: map.getZoom() })
+    }, 500)
+  }
+
   function saveCurrentPlace(name: string): void {
     const point = location()
     const sourceLabel = locationLabel()
@@ -951,7 +972,7 @@ export default function App() {
       element.addEventListener('pointerdown', (event) => event.stopPropagation())
       element.addEventListener('click', (event) => {
         event.stopPropagation()
-        chooseSearch(place, place.name)
+        chooseSaved(place)
       })
       savedMarkers.push(new Marker({ element, anchor: 'center' }).setLngLat([place.lng, place.lat]).addTo(map))
     }
@@ -979,6 +1000,22 @@ export default function App() {
       return
     }
     void attachCloudEdgeLayer()
+  }
+
+  function mapViewport(): { width: number; height: number } {
+    return { width: mapElement.clientWidth, height: mapElement.clientHeight }
+  }
+
+  // Vervangt maxBounds (dat altijd cover afdwingt): per as contain of cover, zie map-constraint.
+  function constrainMapView(center: maplibregl.LngLat, zoom: number): { center: maplibregl.LngLat; zoom: number } {
+    const view = constrainView({ lng: center.lng, lat: center.lat, zoom }, MAP_CONTAIN_BOUNDS, mapViewport(), map?.getMaxZoom())
+    return { center: new maplibregl.LngLat(view.lng, view.lat), zoom: view.zoom }
+  }
+
+  function applyMapContainLimit(): void {
+    if (!map) return
+    const minimumZoom = containZoom(MAP_CONTAIN_BOUNDS, mapViewport())
+    if (Number.isFinite(minimumZoom)) map.setMinZoom(Math.min(Math.max(minimumZoom, -2), map.getMaxZoom()))
   }
 
   function applyMapDetailLimit(minimumWidthKm: number): void {
@@ -1028,20 +1065,11 @@ export default function App() {
   const currentHour = createMemo(() => Math.floor((manifest() ? Date.parse(manifest()!.now) : 0) / 3_600_000) * 3_600_000)
   const cursorUv = createMemo(() => seriesValueAt(uvTimeline(), uvSeries(), selectedEpoch(), 30 * 60_000))
   const cursorUvChip = createMemo(() => uvChipLabel(cursorUv()))
-  const hasTemperature = createMemo(() => tempTimeline().length > 0 || feelsLikeTimeline().length > 0)
-  const hasBothTemperatures = createMemo(() => tempTimeline().length > 0 && feelsLikeTimeline().length > 0)
+  const hasTemperature = createMemo(() => feelsLikeTimeline().length > 0)
   const hasWeatherIcons = createMemo(() => cloudTimeline().length > 0)
   const hasWeatherColumn = createMemo(() => hasWeatherIcons() || uvTimeline().length > 0)
   const hasHumidity = createMemo(() => humidityTimeline().length > 0)
   const hasWind = createMemo(() => windUFrames().length > 0 && windVFrames().length > 0)
-  const activeTemperatureField = createMemo<TemperatureField>(() => {
-    if (temperatureField() === 'feels_like_c' && feelsLikeTimeline().length) return 'feels_like_c'
-    if (temperatureField() === 'temp_c' && tempTimeline().length) return 'temp_c'
-    return feelsLikeTimeline().length ? 'feels_like_c' : 'temp_c'
-  })
-  const activeTemperatureTimeline = createMemo(() => {
-    return activeTemperatureField() === 'feels_like_c' ? feelsLikeTimeline() : tempTimeline()
-  })
   const themeMeta = createMemo(() => theme() === 'light'
     ? { icon: '☀', label: 'Licht', next: 'systeem' }
     : theme() === 'system'
@@ -1070,13 +1098,8 @@ export default function App() {
         onRemove={removeSavedPlace}
         onSave={saveCurrentPlace}
         onSelect={chooseSearch}
+        onSelectSaved={chooseSaved}
       />
-      <Show when={hasBothTemperatures()}>
-        <div class="temperature-switch" role="group" aria-label="Temperatuurlaag">
-          <button classList={{ active: temperatureField() === 'temp_c' }} onClick={() => setTemperatureField('temp_c')}>Temperatuur</button>
-          <button classList={{ active: temperatureField() === 'feels_like_c' }} onClick={() => setTemperatureField('feels_like_c')}>Gevoel</button>
-        </div>
-      </Show>
       <Show when={devMode && windTimeline().length}>
         <details class="wind-debug" open>
           <summary>Wind debug</summary>
@@ -1121,7 +1144,7 @@ export default function App() {
             <thead><tr>
               <th>Uur</th>
               <Show when={hasWeatherColumn()}><th class="weather-heading">Weer</th></Show>
-              <Show when={hasTemperature()}><th>{activeTemperatureField() === 'feels_like_c' ? 'Gevoel' : 'Temp.'}</th></Show>
+              <Show when={hasTemperature()}><th>Gevoel</th></Show>
               <Show when={hasHumidity()}><th>RV</th></Show>
               <Show when={hasWind()}><th>Wind</th></Show>
               <th>Regen</th>
@@ -1130,9 +1153,8 @@ export default function App() {
               const rain = () => row.rainIndex == null ? null : rainSeries()[row.rainIndex]
               const uv = () => row.uvIndex == null ? null : uvSeries()[row.uvIndex]
               const cloud = () => row.cloudIndex == null ? null : cloudSeries()[row.cloudIndex]
-              const temperature = () => activeTemperatureField() === 'feels_like_c'
-                ? row.feelsLikeIndex == null ? null : feelsLikeSeries()[row.feelsLikeIndex]
-                : row.temperatureIndex == null ? null : temperatureSeries()[row.temperatureIndex]
+              const feelsLike = () => row.feelsLikeIndex == null ? null : feelsLikeSeries()[row.feelsLikeIndex]
+              const temperature = () => row.temperatureIndex == null ? null : temperatureSeries()[row.temperatureIndex]
               const humidity = () => row.humidityIndex == null ? null : humiditySeries()[row.humidityIndex]
               const wind = () => summarizeWind(
                 row.windUIndex == null ? null : windUSeries()[row.windUIndex] ?? null,
@@ -1144,7 +1166,7 @@ export default function App() {
               return <tr classList={{ 'current-hour': isNow(), 'past-hour': row.epoch < currentHour() }}>
                 <td><strong>{new Date(row.epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</strong><span classList={{ 'now-label': isNow() }}>{isNow() ? 'Nu' : new Date(row.epoch).toLocaleDateString('nl-NL', { weekday: 'short' })}</span></td>
                 <Show when={hasWeatherColumn()}><td class="weather-cell"><Show when={icon()}>{(model) => <WeatherIcon model={model()} />}</Show><Show when={advice()}>{(label) => <span class="uv-chip table-uv-chip" title={label()}>UV {formatUv(uv())}</span>}</Show></td></Show>
-                <Show when={hasTemperature()}><td class="temperature-cell">{formatTemperature(temperature())}</td></Show>
+                <Show when={hasTemperature()}><td class="temperature-cell">{formatTemperature(feelsLike())}<small class="air-temperature" title="Luchttemperatuur">{formatTemperature(temperature())}</small></td></Show>
                 <Show when={hasHumidity()}><td>{formatHumidity(humidity())}</td></Show>
                 <Show when={hasWind()}><td class="wind-cell"><Show when={wind()} fallback="—">{(value) => <span title={`${value().speed.toLocaleString('nl-NL', { maximumFractionDigits: 1 })} m/s`}>{value().direction} · {value().beaufort} Bft</span>}</Show></td></Show>
                 <td>{formatRain(rain())}<small> mm/u</small></td>
