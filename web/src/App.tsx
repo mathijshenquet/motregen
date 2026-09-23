@@ -27,7 +27,7 @@ import { temperatureLabels, temperatureLayer, type TemperatureFeatureCollection 
 import { buildTimeline, frameBlend, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelinePlaybackRate } from './core/time-model'
 import { uvAdvice } from './core/uv'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
-import { DEFAULT_WIND_TUNING, WindLayer, type WindTuning } from './core/wind-layer'
+import { loadWindTuning, storeWindTuning, WindLayer, type WindTuning } from './core/wind-layer'
 import { deriveWeatherIcon, summarizeWind } from './core/weather'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
@@ -122,7 +122,7 @@ export default function App() {
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
   const [temperatureField, setTemperatureField] = createSignal<TemperatureField>('feels_like_c')
-  const [windTuning, setWindTuning] = createSignal<WindTuning>({ ...DEFAULT_WIND_TUNING })
+  const [windTuning, setWindTuning] = createSignal<WindTuning>(loadWindTuning())
   const [cloudEdgesEnabled, setCloudEdgesEnabled] = createSignal(false)
   const [mapReady, setMapReady] = createSignal(false)
   const [splashSlowdown, setSplashSlowdown] = createSignal(storedSplashSlowdown())
@@ -961,8 +961,9 @@ export default function App() {
     setTheme((current) => themes[(themes.indexOf(current) + 1) % themes.length]!)
   }
 
-  function tuneWind<Key extends keyof WindTuning>(key: Key, value: WindTuning[Key]): void {
-    setWindTuning((current) => ({ ...current, [key]: value }))
+  function tuneWind(tuning: WindTuning): void {
+    setWindTuning(tuning)
+    storeWindTuning(tuning)
   }
 
   function tuneMapDetail(minimumWidthKm: number): void {
@@ -1079,12 +1080,6 @@ export default function App() {
       <Show when={devMode && windTimeline().length}>
         <details class="wind-debug" open>
           <summary>Wind debug</summary>
-          <label><span>Zichtbaar</span><input type="range" min="0" max="3" step="0.1" value={windTuning().visibility} onInput={(event) => tuneWind('visibility', event.currentTarget.valueAsNumber)} /><output>{windTuning().visibility.toFixed(1)}</output></label>
-          <label><span>Dikte</span><input type="range" min="1" max="5" step="0.25" value={windTuning().thickness} onInput={(event) => tuneWind('thickness', event.currentTarget.valueAsNumber)} /><output>{windTuning().thickness.toLocaleString('nl-NL', { maximumFractionDigits: 2 })} px</output></label>
-          <label><span>Dichtheid</span><input type="range" min="100" max="1600" step="20" value={windTuning().particlesPerMegapixel} onInput={(event) => tuneWind('particlesPerMegapixel', event.currentTarget.valueAsNumber)} /><output>{windTuning().particlesPerMegapixel}</output></label>
-          <label><span>Deeltjes</span><input type="range" min="0.1" max="1" step="0.05" value={windTuning().particleOpacity} onInput={(event) => tuneWind('particleOpacity', event.currentTarget.valueAsNumber)} /><output>{windTuning().particleOpacity.toFixed(2)}</output></label>
-          <label><span>Trailduur</span><input type="range" min="0.9" max="0.99" step="0.001" value={windTuning().trailFade} onInput={(event) => tuneWind('trailFade', event.currentTarget.valueAsNumber)} /><output>{windTuning().trailFade.toFixed(3)}</output></label>
-          <label><span>Dekking</span><input type="range" min="0.1" max="1" step="0.05" value={windTuning().trailOpacity} onInput={(event) => tuneWind('trailOpacity', event.currentTarget.valueAsNumber)} /><output>{windTuning().trailOpacity.toFixed(2)}</output></label>
           <label class="debug-toggle"><span>Wolkrand</span><input type="checkbox" checked={cloudEdgesEnabled()} onChange={(event) => toggleCloudEdges(event.currentTarget.checked)} /><output>{cloudEdgesEnabled() ? 'Aan' : 'Uit'}</output></label>
           <label class="debug-toggle"><span>Grafiek vult</span><input type="checkbox" checked={progressiveHistogram()} onChange={(event) => setProgressiveHistogram(event.currentTarget.checked)} /><output>{progressiveHistogram() ? 'Skeleton' : 'Wachten'}</output></label>
           <label><span>Min. breedte</span><input type="range" min="5" max="100" step="5" value={minimumMapWidthKm()} onInput={(event) => tuneMapDetail(event.currentTarget.valueAsNumber)} /><output>{minimumMapWidthKm()} km</output></label>
@@ -1159,7 +1154,7 @@ export default function App() {
         </div>
       </section>
     </aside>
-    <Show when={perfVisible()}><PerfHud monitor={perf} /></Show>
+    <Show when={perfVisible()}><PerfHud monitor={perf} windTuning={windTuning()} onWindTuning={tuneWind} /></Show>
   </main>
 }
 
