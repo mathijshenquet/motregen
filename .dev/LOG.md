@@ -1,5 +1,51 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-09-23 — PO-dag: dertien tracks gemerged (U1–U11, U3b, U8b), alles claude-opus
+
+- **Werkwijze**: uitsluitend claude/opus-agents via herdr-worktrees (PO-verzoek),
+  elke merge onafhankelijk hergroen (typecheck, unit, build, volledige e2e op
+  eigen poorten `MOTREGEN_E2E_PORT`/`_DATA_PORT` sinds U1) en daarna de
+  integratie-instantie op http://ageq-mthq:4300/ (tailnet, `/data` → prod)
+  herbouwd. jj-metadata na de host-herstart opnieuw geïnitialiseerd vanaf git
+  (verloren tree-object); agentnamen verdwenen daarbij, sindsdien per pane-id.
+- **Gemerged**: U1 laadprofiel (`pnpm e2e:profile`; histogram vol 37→4 s desktop,
+  41→9 s 4G; oorzaak vaste 30 s-timer vóór L2 + al gedecodeerde frames telden niet
+  + dubbele/losse ranges; L1 = zichtbaar bereik, zstd-workerpool, één Range per
+  chunk → warm 0 B op alle profielen). U2 NL-kaartlabels + locatiegeheugen +
+  favoriet centreert niet. U3→U3b wind: buffer-trails met afstandsleven,
+  head-fade, AA, leegste-cel-respawn (clusters 2,6× minder), snelheidsdemping;
+  zee/land-inkt 0,5–0,9 (was 1,1–2,2); knoppen v2 + JSON-export. U4 HARMONIE
+  +48 u + historierun (dagdeel-chunks), urenoverzicht met historie/nu-rij/UV
+  (schatting vooruit)/zon op-onder, kaartklok → U10 versheidspil (radar-leeftijd,
+  status, detailpaneel, verversknop; echte overlapbug op mobiel gevangen door
+  mijn volledige e2e — agent had alleen eigen spec gedraaid). U5 MIP-10
+  gevoelstemperatuur (JAG/TI ≤10, Steadman ≥15, band), switch weg; live
+  gevoel−temp mediaan −2,6 °C (was 0,00). U6 kaart contain i.p.v. cover
+  (`transformConstrain`), contain-as gepind. U7 ontwerp: histogram, hoek, splash-
+  druppel, About, labeldichtheid (Zeeland), README. U8→U8b isolijnen: GPU-snede
+  door (x,y,t)-volume, 1 °C stippel/streep, temporele B-spline, ≤20 Hz, nul werk
+  in rust (gemeten: 0 passes/0 worker-rondes), labels als persistente ankers,
+  stadslabels in place (`fadeDuration: 0`). U9 histogram-polish (screenshot-loop).
+  U11 Lucide-iconen, About via het merk linksonder, pnpm-hash + `nix flake check`
+  groen.
+- **Prod**: draait nog de oude ingest (24 leads, oude gevoelstemp) tot de auto-
+  upgrade ~03:19; eerste manifest met nieuwe waarden = HARMONIE-run 00Z/01Z.
+  Check morgen: harmonie-chunks 48 frames + `-l25-48` + `hist`-chunks, en
+  gevoel ≠ temp.
+- **Lessen**: agent-"groen" op alleen de eigen spec is geen receipt (U10);
+  host-load > 40 laat mobiele TTFR-budgetten flaken (rerun op rustige host);
+  `jj new` na een push laat een lege commit achter die de volgende push blokkeert
+  (abandon eerst); herdr-namen overleven een herstart niet.
+- **Open MET PO**: LICENSE (About/README beloven open source); mobiel cold-TTFR-
+  budget 4 s is krap na U11 (+5,8 kB gzip); smaak op zicht: zon op/onder-vorm,
+  historie ingeklapt, isolijnkleur/stippel, wind-fades/buffer-rest, spawn-jitter;
+  odometer-stadslabels (kost t3j-dodge tenzij eigen collision); ~60 px lege band
+  onder de kaart op mobiel (U7); MIP-9 regenkans (draft, optie A aanbevolen).
+- **Open VOOR AGENTS**: bestaande bug — stadstemperatuurlabels verdwijnen na
+  runtime-themawissel (U8b, ook op main vóór U8b); mobiele themaknop nog
+  cyclus vs segmented in sidebar (U9); Freshness-verversknop → Lucide
+  `RefreshCw` (U11-vervolg); T2h-historische observaties/MQTT/day-night v2.
+
 ## 2026-09-23 — PM-inventaris na 3 weken stilte: fleet opgeruimd, prod vers
 
 - Inventaris: geen open PRs (#21–#25 alle MERGED 2026-08-31), alle zeven
