@@ -346,6 +346,33 @@ met 120 resource-entries in 549 ms (**0,055 ms/snapshot**). Dit is ruim onder
 één promille van een 16,7-ms framebudget; in de labruns was geen afzonderlijk
 meetbaar fps-effect zichtbaar.
 
+## Laadprofiel (U1)
+
+`pnpm e2e:profile` (synth) en `pnpm e2e:profile:prod` (deze build, `/data`
+geproxyd naar `https://motregen.nl`) openen de app koud voor desktop en mobiel
+4G, zonder interactie, en wachten tot alle zichtbare histogrambalken gevuld
+zijn (time-out 90/150 s). Met `MOTREGEN_PROFILE_TARGET=origin` draait hetzelfde
+rechtstreeks tegen een origin; dan ontbreken de app-interne lagen als die
+bundle geen loadtrace heeft. Per run komen een JSON en een leesbare tijdlijn in
+`web/e2e/profiles/` (gitignored):
+
+- elke `/data`-request met start, eerste byte, einde, bytes (CDP
+  `encodedDataLength`), Range, bron/veld en frame-indexen, plus de laag
+  (`header`, `map`, `motion`, `prefetch`, `L0`, `L1`, `L2`, `refresh`) en
+  prioriteit uit `window.__motregenPerf.loads`;
+- de histogramvulling als tijdreeks (DOM-sampler op iedere wijziging van
+  `rect.rain-bar[.pending]`) en de mijlpalen 50/90/100%;
+- per zichtbare balk de keten ingepland → queue-start → request → bytes →
+  decoded → balk, met het grootste wachtsegment als poort, en de kritieke
+  keten van de laatst gevulde balk.
+
+De loadtrace staat altijd aan maar is begrensd (4.000 requests/frames/marks) en
+doet per event alleen een push; er wordt niets verstuurd.
+
+`MOTREGEN_E2E_PORT`/`MOTREGEN_E2E_DATA_PORT` verschuiven de preview- en
+Caddy-poorten van `pnpm e2e` en het profiel, zodat parallelle tracks op één
+host elkaar niet blokkeren.
+
 ## Live-smoke
 
 `cd web && pnpm e2e:live` draait de volledige journey voor desktop, 4G en Fast

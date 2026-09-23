@@ -78,4 +78,28 @@ describe('performance monitor', () => {
     expect(snapshot.scrub.samples).toBe(256)
     expect(snapshot.scrub.p95Ms).toBe(287)
   })
+
+  it('traces a load request from start to decoded frames and marks', () => {
+    const test = harness()
+    const loads = test.monitor.loads
+    loads.mark({ kind: 'schedule', layer: 'L1', field: 'rain_rate', indexes: [3, 4], reason: 'idle' })
+    test.advance(10)
+    const request = loads.request('https://motregen.nl/data/chunks/rain.mrf', [100, 199], 'low', 'L1', [3, 4])
+    test.advance(20)
+    loads.response(request)
+    loads.received(request, 60)
+    loads.frameBytesReady('https://motregen.nl/data/chunks/rain.mrf', 3)
+    test.advance(5)
+    loads.received(request, 40)
+    loads.finished(request)
+    loads.frameDecoded('https://motregen.nl/data/chunks/rain.mrf', 3)
+
+    const snapshot = loads.snapshot()
+    expect(snapshot.requests).toEqual([{ id: 1, url: 'https://motregen.nl/data/chunks/rain.mrf', range: [100, 199], priority: 'low', layer: 'L1', frames: [3, 4], startMs: 10, responseMs: 30, endMs: 35, bytes: 100 }])
+    expect(snapshot.frames).toEqual([
+      { url: 'https://motregen.nl/data/chunks/rain.mrf', frameIndex: 3, layer: 'L1', requestId: 1, requestedMs: 10, bytesReadyMs: 30, decodedMs: 35 },
+      { url: 'https://motregen.nl/data/chunks/rain.mrf', frameIndex: 4, layer: 'L1', requestId: 1, requestedMs: 10 },
+    ])
+    expect(snapshot.marks).toEqual([{ kind: 'schedule', layer: 'L1', field: 'rain_rate', indexes: [3, 4], reason: 'idle', t: 0 }])
+  })
 })

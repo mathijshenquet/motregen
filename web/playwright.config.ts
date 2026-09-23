@@ -1,7 +1,9 @@
 import { defineConfig } from '@playwright/test'
 import { performanceProjects } from './e2e/profiles'
 
-const port = 4185
+// Instelbaar zodat parallelle tracks op één host elkaars e2e-servers niet raken.
+const port = Number(process.env.MOTREGEN_E2E_PORT ?? 4185)
+const dataPort = Number(process.env.MOTREGEN_E2E_DATA_PORT ?? 8185)
 
 export default defineConfig({
   testDir: './e2e',
@@ -23,13 +25,13 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'pnpm synthgen && caddy run --config e2e/Caddyfile',
-      url: 'http://127.0.0.1:8185/manifest.json',
+      command: `pnpm synthgen && MOTREGEN_E2E_DATA_PORT=${dataPort} caddy run --config e2e/Caddyfile`,
+      url: `http://127.0.0.1:${dataPort}/manifest.json`,
       reuseExistingServer: false,
       timeout: 120_000,
     },
     {
-      command: `VITE_BASEMAP_STYLE_URL=http://127.0.0.1:8185/style.json pnpm build && MOTREGEN_DATA_ORIGIN=http://127.0.0.1:8185 pnpm preview --host 127.0.0.1 --port ${port}`,
+      command: `VITE_BASEMAP_STYLE_URL=http://127.0.0.1:${dataPort}/style.json pnpm build && MOTREGEN_DATA_ORIGIN=http://127.0.0.1:${dataPort} pnpm preview --host 127.0.0.1 --port ${port}`,
       url: `http://127.0.0.1:${port}`,
       reuseExistingServer: false,
       timeout: 120_000,

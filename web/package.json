@@ -12,6 +12,8 @@
     "synthgen": "tsx scripts/synthgen.ts",
     "e2e": "playwright test",
     "e2e:live": "MOTREGEN_PERF_MODE=live playwright test --config playwright.live.config.ts",
+    "e2e:profile": "playwright test --config playwright.profile.config.ts --project desktop --project mobile-4g",
+    "e2e:profile:prod": "MOTREGEN_PROFILE_TARGET=prod playwright test --config playwright.profile.config.ts --project desktop --project mobile-4g",
     "e2e:benchmark": "playwright test --config playwright.benchmark.config.ts"
   },
   "dependencies": {

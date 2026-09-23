@@ -1,6 +1,6 @@
 import { expect, test, type CDPSession, type Locator, type Page } from '@playwright/test'
 import type { Manifest } from '../src/core/contract'
-import { performanceProfile, type PerformanceProfile } from './profiles'
+import { applyEmulation, performanceProfile } from './profiles'
 
 interface PerfSnapshot {
   ttfrMs: number | null
@@ -227,23 +227,6 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     console.log(`${profile.label}: session ${result.sessionBytes} transferred bytes in ${result.sessionDownloadMs.toFixed(1)} ms; browser resource total ${result.resourceBytes} B; second click ${secondClickRequests} requests`)
   })
 })
-
-async function applyEmulation(cdp: CDPSession, profile: PerformanceProfile): Promise<void> {
-  await cdp.send('Emulation.setCPUThrottlingRate', { rate: profile.cpuThrottleRate })
-  await cdp.send('Network.setCacheDisabled', { cacheDisabled: false })
-  if (!profile.network) return
-  const conditions = {
-    offline: false,
-    latency: profile.network.latency,
-    downloadThroughput: profile.network.downloadThroughput,
-    uploadThroughput: profile.network.uploadThroughput,
-    connectionType: profile.network.connectionType,
-  } as const
-  await cdp.send('Network.overrideNetworkState', conditions)
-  await cdp.send('Network.emulateNetworkConditionsByRule', {
-    matchedNetworkConditions: [{ urlPattern: '', ...conditions }],
-  })
-}
 
 async function observeNetwork(cdp: CDPSession): Promise<{
   startJourney: () => void

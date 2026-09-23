@@ -18,7 +18,7 @@ import { MrfClient, type MotionField } from './core/mrf'
 import { selectPairMotion } from './core/motion-selection'
 import { nearestPlace } from './core/places'
 import { startFrameLoop } from './core/playback'
-import { installPerfMonitor } from './core/perf'
+import { installPerfMonitor, type LoadLayer } from './core/perf'
 import { RainLayer } from './core/rain-layer'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
@@ -89,7 +89,7 @@ export default function App() {
   let pointLoad: PointLoadState | undefined
   const windFrameCache = new Map<string, Promise<Float32Array>>()
   const media = matchMedia('(prefers-color-scheme: dark)')
-  const client = new MrfClient(manifestUrl)
+  const client = new MrfClient(manifestUrl, perf.loads)
   const [manifest, setManifest] = createSignal<Manifest>()
   const timeline = createMemo(() => manifest() ? buildTimeline(manifest()!) : [])
   const radiationTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'radiation') : [])
@@ -265,6 +265,19 @@ export default function App() {
   })
 
   createEffect(() => localStorage.setItem('motregen-splash-slowdown', String(splashSlowdown())))
+
+  createEffect(() => perf.loads.mark({ kind: 'stage', stage: pointLoadStage() }))
+  createEffect(() => {
+    const frames = timeline()
+    if (!frames.length) return
+    const now = manifest() ? Date.parse(manifest()!.now) : frames[0]!.epoch
+    perf.loads.mark({
+      kind: 'timeline',
+      now,
+      horizonEnd: timelineHorizonEnd(frames, now, timeHorizonHours()),
+      frames: frames.map((frame) => ({ url: new URL(frame.chunk.url, manifestUrl).href, frameIndex: frame.frameIndex, epoch: frame.epoch, source: frame.source })),
+    })
+  })
 
   createEffect(() => {
     const places = savedPlaces()
@@ -705,14 +718,14 @@ export default function App() {
     setWindVSeries([])
     state.direct = (async () => {
       const [uv, temperature, feelsLike, humidity, cloud, windU, windV] = await Promise.all([
-        readForecastPointSeries(uvTimeline(), point, 'uvIndex'),
-        readForecastPointSeries(tempTimeline(), point, 'temperatureIndex'),
-        readForecastPointSeries(feelsLikeTimeline(), point, 'feelsLikeIndex'),
-        readForecastPointSeries(humidityTimeline(), point, 'humidityIndex'),
-        readForecastPointSeries(cloudTimeline(), point, 'cloudIndex'),
-        readForecastPointSeries(windUFrames(), point, 'windUIndex'),
-        readForecastPointSeries(windVFrames(), point, 'windVIndex'),
-        enqueueRain(state, directRainIndexes(timeline(), manifest() ? Date.parse(manifest()!.now) : 0), 'high'),
+        readForecastPointSeries(uvTimeline(), point, 'uvIndex', 'L0'),
+        readForecastPointSeries(tempTimeline(), point, 'temperatureIndex', 'L0'),
+        readForecastPointSeries(feelsLikeTimeline(), point, 'feelsLikeIndex', 'L0'),
+        readForecastPointSeries(humidityTimeline(), point, 'humidityIndex', 'L0'),
+        readForecastPointSeries(cloudTimeline(), point, 'cloudIndex', 'L0'),
+        readForecastPointSeries(windUFrames(), point, 'windUIndex', 'L0'),
+        readForecastPointSeries(windVFrames(), point, 'windVIndex', 'L0'),
+        enqueueRain(state, directRainIndexes(timeline(), manifest() ? Date.parse(manifest()!.now) : 0), 'high', 'L0', 'locatie'),
       ])
       if (request !== pointRequest) return
       setUvSeries(uv)
@@ -757,14 +770,14 @@ export default function App() {
   function resumePointLoadAfterRefresh(state: PointLoadState, previousStage: PointLoadStage): void {
     state.direct = (async () => {
       const [uv, temperature, feelsLike, humidity, cloud, windU, windV] = await Promise.all([
-        readForecastPointSeries(uvTimeline(), state.point, 'uvIndex'),
-        readForecastPointSeries(tempTimeline(), state.point, 'temperatureIndex'),
-        readForecastPointSeries(feelsLikeTimeline(), state.point, 'feelsLikeIndex'),
-        readForecastPointSeries(humidityTimeline(), state.point, 'humidityIndex'),
-        readForecastPointSeries(cloudTimeline(), state.point, 'cloudIndex'),
-        readForecastPointSeries(windUFrames(), state.point, 'windUIndex'),
-        readForecastPointSeries(windVFrames(), state.point, 'windVIndex'),
-        enqueueRain(state, directRainIndexes(timeline(), manifest() ? Date.parse(manifest()!.now) : 0), 'low'),
+        readForecastPointSeries(uvTimeline(), state.point, 'uvIndex', 'refresh'),
+        readForecastPointSeries(tempTimeline(), state.point, 'temperatureIndex', 'refresh'),
+        readForecastPointSeries(feelsLikeTimeline(), state.point, 'feelsLikeIndex', 'refresh'),
+        readForecastPointSeries(humidityTimeline(), state.point, 'humidityIndex', 'refresh'),
+        readForecastPointSeries(cloudTimeline(), state.point, 'cloudIndex', 'refresh'),
+        readForecastPointSeries(windUFrames(), state.point, 'windUIndex', 'refresh'),
+        readForecastPointSeries(windVFrames(), state.point, 'windVIndex', 'refresh'),
+        enqueueRain(state, directRainIndexes(timeline(), manifest() ? Date.parse(manifest()!.now) : 0), 'low', 'refresh', 'manifest'),
       ])
       if (state.request !== pointRequest) return
       if (previousStage !== 'complete') {
@@ -778,17 +791,17 @@ export default function App() {
       }
     })()
     if (previousStage === 'complete') {
-      void completePointSeries(state, 'low')
+      void completePointSeries(state, 'low', 'refresh')
       return
     }
     if (previousStage === 'window') {
       void state.direct.then(async () => {
         const now = manifest() ? Date.parse(manifest()!.now) : 0
         const indexes = timeline().flatMap((frame, index) => frame.epoch >= now - 3_600_000 && frame.epoch <= now + 2 * 3_600_000 ? [index] : [])
-        await enqueueRain(state, indexes, 'low')
+        await enqueueRain(state, indexes, 'low', 'refresh', 'manifest')
         if (state.request !== pointRequest || state.full) return
         state.deepIdle = window.setTimeout(() => {
-          state.idle = scheduleIdle(() => { void completePointSeries(state, 'low') }, 5_000)
+          state.idle = scheduleIdle(() => { void completePointSeries(state, 'low', 'L2', 'diepe idle') }, 5_000)
         }, 30_000)
       }).catch(() => undefined)
       return
@@ -798,9 +811,9 @@ export default function App() {
     }).catch(() => undefined)
   }
 
-  function readForecastPointSeries(frames: TimelineFrame[], point: { lng: number; lat: number }, key: ForecastIndex): Promise<Array<number | null>> {
+  function readForecastPointSeries(frames: TimelineFrame[], point: { lng: number; lat: number }, key: ForecastIndex, layer: LoadLayer): Promise<Array<number | null>> {
     const indexes = forecast().flatMap((row) => row[key] == null ? [] : [row[key]])
-    return frames.length ? readPointSeries(frames, point, indexes).catch(() => []) : Promise.resolve([])
+    return frames.length ? readPointSeries(frames, point, indexes, 'high', undefined, undefined, layer).catch(() => []) : Promise.resolve([])
   }
 
   async function readPointSeries(
@@ -810,6 +823,7 @@ export default function App() {
     priority: FetchPriority = 'high',
     values = new Array<number | null>(frames.length).fill(null),
     progress?: (values: Array<number | null>, loaded: number[]) => void,
+    layer: LoadLayer = 'map',
   ): Promise<Array<number | null>> {
     const [x, y] = project(point.lng, point.lat)
     const chunks = new Map<ManifestChunk, Array<{ position: number; frameIndex: number }>>()
@@ -831,19 +845,21 @@ export default function App() {
         const loaded = positions.get(frameIndex) ?? []
         if (inside) for (const position of loaded) values[position] = header.quant[decoded[row * header.grid.width + column]!] ?? null
         progress?.(values, loaded)
-      })
+      }, layer)
     }))
     return values
   }
 
-  function enqueueRain(state: PointLoadState, indexes: number[], priority: FetchPriority): Promise<void> {
+  function enqueueRain(state: PointLoadState, indexes: number[], priority: FetchPriority, layer: LoadLayer, reason: string): Promise<void> {
+    perf.loads.mark({ kind: 'schedule', layer, field: 'rain_rate', indexes, reason })
     const task = state.rainQueue.then(async () => {
       const missing = indexes.filter((index) => !state.rainLoaded.has(index))
       if (!missing.length || state.request !== pointRequest) return
+      perf.loads.mark({ kind: 'start', layer, field: 'rain_rate', indexes: missing })
       await readPointSeries(timeline(), state.point, missing, priority, state.rainValues, (_, loaded) => {
         for (const index of loaded) state.rainLoaded.add(index)
         if (state.request === pointRequest) state.rainPublisher?.schedule()
-      })
+      }, layer)
       if (state.request === pointRequest) state.rainPublisher?.flush()
     })
     state.rainQueue = task.catch(() => undefined)
@@ -855,11 +871,11 @@ export default function App() {
       void (async () => {
         const now = manifest() ? Date.parse(manifest()!.now) : 0
         const indexes = timeline().flatMap((frame, index) => frame.epoch >= now - 3_600_000 && frame.epoch <= now + 2 * 3_600_000 ? [index] : [])
-        await enqueueRain(state, indexes, 'low')
+        await enqueueRain(state, indexes, 'low', 'L1', 'idle')
         if (state.request !== pointRequest || state.full) return
         setPointLoadStage('window')
         state.deepIdle = window.setTimeout(() => {
-          state.idle = scheduleIdle(() => { void completePointSeries(state, 'low') }, 5_000)
+          state.idle = scheduleIdle(() => { void completePointSeries(state, 'low', 'L2', 'diepe idle') }, 5_000)
         }, 30_000)
       })().catch(() => {
         if (state.request === pointRequest) setStatus(`${locationLabel()} · regenvenster kon niet worden geladen`)
@@ -867,21 +883,21 @@ export default function App() {
     }, 2_000)
   }
 
-  function completePointSeries(state = pointLoad, priority: FetchPriority = 'high'): Promise<void> | undefined {
+  function completePointSeries(state = pointLoad, priority: FetchPriority = 'high', layer: LoadLayer = 'L2', reason = 'intentie'): Promise<void> | undefined {
     if (!state || state.request !== pointRequest) return undefined
     if (state.full) return state.full
     window.clearTimeout(state.deepIdle)
     state.full = (async () => {
       await state.direct
       const [uv, temperature, feelsLike, humidity, cloud, windU, windV] = await Promise.all([
-        readPointSeries(uvTimeline(), state.point, undefined, priority),
-        readPointSeries(tempTimeline(), state.point, undefined, priority),
-        readPointSeries(feelsLikeTimeline(), state.point, undefined, priority),
-        readPointSeries(humidityTimeline(), state.point, undefined, priority),
-        readPointSeries(cloudTimeline(), state.point, undefined, priority),
-        readPointSeries(windUFrames(), state.point, undefined, priority),
-        readPointSeries(windVFrames(), state.point, undefined, priority),
-        enqueueRain(state, timeline().map((_, index) => index), priority),
+        readPointSeries(uvTimeline(), state.point, undefined, priority, undefined, undefined, layer),
+        readPointSeries(tempTimeline(), state.point, undefined, priority, undefined, undefined, layer),
+        readPointSeries(feelsLikeTimeline(), state.point, undefined, priority, undefined, undefined, layer),
+        readPointSeries(humidityTimeline(), state.point, undefined, priority, undefined, undefined, layer),
+        readPointSeries(cloudTimeline(), state.point, undefined, priority, undefined, undefined, layer),
+        readPointSeries(windUFrames(), state.point, undefined, priority, undefined, undefined, layer),
+        readPointSeries(windVFrames(), state.point, undefined, priority, undefined, undefined, layer),
+        enqueueRain(state, timeline().map((_, index) => index), priority, layer, reason),
       ])
       if (state.request !== pointRequest) return
       setUvSeries(uv)
@@ -909,6 +925,7 @@ export default function App() {
     if (state.request !== pointRequest) return
     setRainSeries([...state.rainValues])
     setRainLoaded(state.rainValues.map((_, index) => state.rainLoaded.has(index)))
+    perf.loads.mark({ kind: 'rain', loaded: [...state.rainLoaded], total: state.rainValues.length })
   }
 
   function locate(): void {
