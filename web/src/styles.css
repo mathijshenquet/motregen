@@ -403,6 +403,10 @@ td small { color: var(--muted); font-size: 9px; }
 .heavy-rain .weather-rain path { stroke-width: 2.2; }
 .table-uv-chip { width: max-content; margin: 2px auto 0; padding: 1px 5px; }
 .temperature-cell { font-size: 16px; font-weight: 720; letter-spacing: -.03em; }
+.temperature-focus { margin: -3px -5px; padding: 3px 5px; border: 0; border-radius: 5px; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
+.temperature-focus:hover, .temperature-focus[aria-pressed="true"] { color: var(--accent); }
+.temperature-focus[aria-pressed="true"] { background: var(--accent-soft); text-decoration: none; }
+.temperature-focus:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .air-temperature { display: block; color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: 0; }
 .wind-cell { color: var(--text); font-size: 11px; }
 

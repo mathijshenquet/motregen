@@ -11,7 +11,9 @@ import { DayNightLayer } from './core/day-night-layer'
 
 const DAY_NIGHT_ENABLED = false
 import { buildHourlyForecast } from './core/forecast'
+import { contextOpacity, DEFAULT_FOCUS_TUNING, FocusMode, type FocusTuning } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
+import { DEFAULT_ISOLINE_TUNING, emptyIsolineData, ISOLINE_LINE_OPACITY, ISOLINE_STEPS, IsolineWorker, isolineLayers, type IsolineStep, type IsolineTuning } from './core/isolines'
 import { cursorAfterTimelineRefresh, isNewerManifest, reconcileTimelineSeries, scheduleManifestRefresh } from './core/manifest-refresh'
 import { constrainView, containView, containZoom, MAP_CONTAIN_BOUNDS } from './core/map-constraint'
 import { mapFrameFromGrid } from './core/map-frame'
@@ -76,6 +78,10 @@ export default function App() {
   let shownTemperatureRequest = 0
   let shownSunRequest = 0
   let shownCloudEdgeRequest = 0
+  let shownIsolineRequest = 0
+  let isolineKey = ''
+  let isolineWorker: IsolineWorker | undefined
+  let lastMapPointer = 'mouse'
   let pointRequest = 0
   let styleRequest = 0
   let appliedMapTheme: MapTheme | undefined
@@ -90,6 +96,7 @@ export default function App() {
   let pointLoad: PointLoadState | undefined
   const windFrameCache = new Map<string, Promise<Float32Array>>()
   const media = matchMedia('(prefers-color-scheme: dark)')
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
   const client = new MrfClient(manifestUrl)
   const [manifest, setManifest] = createSignal<Manifest>()
   const timeline = createMemo(() => manifest() ? buildTimeline(manifest()!) : [])
@@ -127,6 +134,14 @@ export default function App() {
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
   const [windTuning, setWindTuning] = createSignal<WindTuning>({ ...DEFAULT_WIND_TUNING })
   const [cloudEdgesEnabled, setCloudEdgesEnabled] = createSignal(false)
+  const [focusTuning, setFocusTuning] = createSignal<FocusTuning>({ ...DEFAULT_FOCUS_TUNING })
+  const [isolineTuning, setIsolineTuning] = createSignal<IsolineTuning>({ ...DEFAULT_ISOLINE_TUNING })
+  const [focus, setFocus] = createSignal(0)
+  const [focusPinned, setFocusPinned] = createSignal(false)
+  const [isolineCount, setIsolineCount] = createSignal(0)
+  const focusMode = new FocusMode(setFocus, focusTuning, () => reducedMotion.matches)
+  const isolinesActive = createMemo(() => focus() > 0)
+  const focusedWindTuning = createMemo<WindTuning>(() => ({ ...windTuning(), visibility: windTuning().visibility * contextOpacity(focus(), focusTuning().dim) }))
   const [mapReady, setMapReady] = createSignal(false)
   const [splashSlowdown, setSplashSlowdown] = createSignal(storedSplashSlowdown())
   const [minimumMapWidthKm, setMinimumMapWidthKm] = createSignal(20)
@@ -182,6 +197,11 @@ export default function App() {
       map.on('style.load', () => attachMapLayers(header.grid))
       map.on('moveend', rememberMapView)
       map.on('click', (event) => pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name))
+      // Na een tap vuurt de browser compatibiliteits-muisevents; die mogen geen hover worden.
+      mapElement.addEventListener('pointermove', (event) => { lastMapPointer = event.pointerType }, { capture: true })
+      mapElement.addEventListener('pointerdown', (event) => { lastMapPointer = event.pointerType }, { capture: true })
+      map.on('mouseenter', 'motregen-temperature', () => { if (lastMapPointer !== 'touch') focusMode.set('map', true) })
+      map.on('mouseleave', 'motregen-temperature', () => focusMode.set('map', false))
       if (mapTheme() !== appliedMapTheme) void applyMapTheme(mapTheme())
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error))
@@ -192,6 +212,8 @@ export default function App() {
     window.clearTimeout(splashReplayTimer)
     window.clearTimeout(mapViewTimer)
     stopManifestRefresh?.()
+    focusMode.dispose()
+    isolineWorker?.dispose()
     cancelPointLoad(pointLoad)
     for (const savedMarker of savedMarkers) savedMarker.remove()
     map?.remove()
@@ -281,8 +303,23 @@ export default function App() {
   })
 
   createEffect(() => {
-    const tuning = windTuning()
+    const tuning = focusedWindTuning()
     windLayer?.setTuning(tuning)
+  })
+
+  createEffect(() => applyFocus(focus(), focusTuning().dim))
+
+  createEffect(() => {
+    selectedEpoch()
+    isolineTuning()
+    if (isolinesActive() && mapReady()) { void showIsolines(); return }
+    // Pas na de uitfade leegmaken, zodat een volgende hover geen verouderde lijnen laat invaden.
+    if (isolineKey) {
+      isolineKey = ''
+      shownIsolineRequest++
+      ;(map?.getSource('motregen-isolines') as GeoJSONSource | undefined)?.setData(emptyIsolineData)
+      setIsolineCount(0)
+    }
   })
 
   createEffect(() => {
@@ -354,7 +391,7 @@ export default function App() {
       dayNightLayer.setEpoch(selectedEpoch())
     }
     if (windGrid && windTimeline().length) {
-      windLayer = new WindLayer(windGrid, mapTheme(), windTuning())
+      windLayer = new WindLayer(windGrid, mapTheme(), focusedWindTuning())
       map.addLayer(windLayer)
     }
     layer = new RainLayer(grid)
@@ -363,6 +400,7 @@ export default function App() {
     if (SUN_ICONS_ENABLED && (radiationTimeline().length || uvTimeline().length)) attachSunLayer()
     if (hasTemperature()) attachTemperatureLayer()
     attachMapFrame(grid)
+    applyFocus(focus(), focusTuning().dim)
     void showFrame()
     if (mapReady()) {
       void showWind()
@@ -483,7 +521,7 @@ export default function App() {
   async function attachWindLayer(): Promise<void> {
     await discoverWindGrid()
     if (!map || !windGrid || !windTimeline().length || map.getLayer('motregen-wind')) return
-    windLayer = new WindLayer(windGrid, mapTheme(), windTuning())
+    windLayer = new WindLayer(windGrid, mapTheme(), focusedWindTuning())
     map.addLayer(windLayer, map.getLayer('motregen-rain') ? 'motregen-rain' : undefined)
     await showWind()
   }
@@ -525,7 +563,67 @@ export default function App() {
     temperatureLabelKey = ''
     map.addSource('motregen-temperature', { type: 'geojson', data: emptyTemperatureData })
     const beforeId = firstBasemapTextLayerId(map.getStyle().layers)
+    isolineKey = ''
+    map.addSource('motregen-isolines', { type: 'geojson', data: emptyIsolineData })
+    for (const isolineLayer of isolineLayers(mapTheme())) map.addLayer(isolineLayer, beforeId)
     map.addLayer(temperatureLayer(mapTheme()), beforeId)
+  }
+
+  function applyFocus(value: number, dim: number): void {
+    if (!map) return
+    const context = contextOpacity(value, dim)
+    layer?.setOpacity(context)
+    cloudEdgeLayer?.setOpacity(context)
+    if (map.getLayer('motregen-sun')) map.setPaintProperty('motregen-sun', 'text-opacity', ['*', ['get', 'opacity'], context])
+    if (map.getLayer('motregen-isolines')) {
+      const visibility = value > 0 ? 'visible' : 'none'
+      map.setLayoutProperty('motregen-isolines', 'visibility', visibility)
+      map.setLayoutProperty('motregen-isoline-labels', 'visibility', visibility)
+      map.setPaintProperty('motregen-isolines', 'line-opacity', value * ISOLINE_LINE_OPACITY)
+      map.setPaintProperty('motregen-isoline-labels', 'text-opacity', value)
+    }
+    map.triggerRepaint()
+  }
+
+  async function showIsolines(): Promise<void> {
+    const frames = feelsLikeTimeline()
+    if (!frames.length || !map?.getSource('motregen-isolines')) return
+    const request = ++shownIsolineRequest
+    const blend = frameBlend(frames, selectedEpoch())
+    const tuning = isolineTuning()
+    const leftFrame = frames[blend.left]!, rightFrame = frames[blend.right]!
+    // Mix in twintigsten: tijdens playback hoeft niet elke rAF een nieuwe contourset.
+    const mix = Math.round(blend.mix * 20) / 20
+    const key = `${leftFrame.chunk.url}#${leftFrame.frameIndex}|${rightFrame.chunk.url}#${rightFrame.frameIndex}|${mix}|${tuning.step}|${tuning.smoothing}|${tuning.blur}`
+    if (key === isolineKey) return
+    try {
+      const [left, right, leftHeader, rightHeader] = await Promise.all([
+        load(leftFrame), load(rightFrame), client.getHeader(leftFrame.chunk), client.getHeader(rightFrame.chunk),
+      ])
+      if (request !== shownIsolineRequest || !map) return
+      const blendable = sameGrid(leftHeader, rightHeader)
+      isolineWorker ??= new IsolineWorker()
+      const data = await isolineWorker.compute({
+        left, right: blendable ? right : left, leftQuant: leftHeader.quant, rightQuant: blendable ? rightHeader.quant : leftHeader.quant,
+        grid: leftHeader.grid, mix: blendable ? mix : 0, tuning,
+      })
+      if (!data || request !== shownIsolineRequest || !map) return
+      isolineKey = key
+      ;(map.getSource('motregen-isolines') as GeoJSONSource | undefined)?.setData(data)
+      setIsolineCount(data.features.length)
+    } catch {
+      if (request === shownIsolineRequest) isolineKey = ''
+    }
+  }
+
+  function hoverFocus(source: string, active: boolean, event: PointerEvent): void {
+    if (event.pointerType !== 'touch') focusMode.set(source, active)
+  }
+
+  function toggleFocusPin(): void {
+    const pinned = !focusPinned()
+    setFocusPinned(pinned)
+    focusMode.set('pinned', pinned)
   }
 
   function attachSunLayer(): void {
@@ -548,7 +646,8 @@ export default function App() {
       },
       paint: {
         'text-color': dark ? '#ffd978' : '#e7a900',
-        'text-opacity': ['get', 'opacity'],
+        'text-opacity': ['*', ['get', 'opacity'], contextOpacity(focus(), focusTuning().dim)],
+        'text-opacity-transition': { duration: 0 },
         'text-halo-color': dark ? '#233139' : '#fffdf2',
         'text-halo-width': 1.6,
         'text-halo-blur': 0.45,
@@ -618,6 +717,7 @@ export default function App() {
           : undefined
       renderedMap.addLayer(cloudLayer, before)
       cloudEdgeLayer = cloudLayer
+      cloudLayer.setOpacity(contextOpacity(focus(), focusTuning().dim))
       await showCloudEdges()
     } catch {
       cloudEdgeLayer = undefined
@@ -986,6 +1086,10 @@ export default function App() {
     setWindTuning((current) => ({ ...current, [key]: value }))
   }
 
+  function tuneFocus<Key extends keyof FocusTuning>(key: Key, value: FocusTuning[Key]): void {
+    setFocusTuning((current) => ({ ...current, [key]: value }))
+  }
+
   function tuneMapDetail(minimumWidthKm: number): void {
     setMinimumMapWidthKm(minimumWidthKm)
     applyMapDetailLimit(minimumWidthKm)
@@ -1076,7 +1180,7 @@ export default function App() {
       : { icon: '☾', label: 'Donker', next: 'licht' })
 
   return <main class="app-shell">
-    <section class="map-shell" aria-label="Regenkaart van Nederland">
+    <section class="map-shell" aria-label="Regenkaart van Nederland" data-focus={focus().toFixed(2)} data-isolines={isolineCount()}>
       <div ref={mapElement} class="map" />
       <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() }} style={splashStyle()} aria-hidden={mapReady()}>
         <div class="map-splash-veil" />
@@ -1108,6 +1212,12 @@ export default function App() {
           <label><span>Deeltjes</span><input type="range" min="0.1" max="1" step="0.05" value={windTuning().particleOpacity} onInput={(event) => tuneWind('particleOpacity', event.currentTarget.valueAsNumber)} /><output>{windTuning().particleOpacity.toFixed(2)}</output></label>
           <label><span>Trailduur</span><input type="range" min="0.9" max="0.99" step="0.001" value={windTuning().trailFade} onInput={(event) => tuneWind('trailFade', event.currentTarget.valueAsNumber)} /><output>{windTuning().trailFade.toFixed(3)}</output></label>
           <label><span>Dekking</span><input type="range" min="0.1" max="1" step="0.05" value={windTuning().trailOpacity} onInput={(event) => tuneWind('trailOpacity', event.currentTarget.valueAsNumber)} /><output>{windTuning().trailOpacity.toFixed(2)}</output></label>
+          <label><span>Isolijnen</span><select value={isolineTuning().step} onChange={(event) => setIsolineTuning((current) => ({ ...current, step: Number(event.currentTarget.value) as IsolineStep }))}><For each={[...ISOLINE_STEPS]}>{(step) => <option value={step}>{step} °C</option>}</For></select><output>{isolineTuning().step}°</output></label>
+          <label class="debug-toggle"><span>Glad</span><input type="checkbox" checked={isolineTuning().smoothing} onChange={(event) => setIsolineTuning((current) => ({ ...current, smoothing: event.currentTarget.checked }))} /><output>{isolineTuning().smoothing ? 'Aan' : 'Uit'}</output></label>
+          <label><span>Veldblur</span><input type="range" min="0" max="4" step="1" value={isolineTuning().blur} onInput={(event) => setIsolineTuning((current) => ({ ...current, blur: event.currentTarget.valueAsNumber }))} /><output>{isolineTuning().blur}×</output></label>
+          <label><span>Focus dim</span><input type="range" min="0" max="1" step="0.05" value={focusTuning().dim} onInput={(event) => tuneFocus('dim', event.currentTarget.valueAsNumber)} /><output>{Math.round(focusTuning().dim * 100)}%</output></label>
+          <label><span>Tween in</span><input type="range" min="0" max="1000" step="25" value={focusTuning().inMs} onInput={(event) => tuneFocus('inMs', event.currentTarget.valueAsNumber)} /><output>{focusTuning().inMs} ms</output></label>
+          <label><span>Tween uit</span><input type="range" min="0" max="1500" step="25" value={focusTuning().outMs} onInput={(event) => tuneFocus('outMs', event.currentTarget.valueAsNumber)} /><output>{focusTuning().outMs} ms</output></label>
           <label class="debug-toggle"><span>Wolkrand</span><input type="checkbox" checked={cloudEdgesEnabled()} onChange={(event) => toggleCloudEdges(event.currentTarget.checked)} /><output>{cloudEdgesEnabled() ? 'Aan' : 'Uit'}</output></label>
           <label class="debug-toggle"><span>Grafiek vult</span><input type="checkbox" checked={progressiveHistogram()} onChange={(event) => setProgressiveHistogram(event.currentTarget.checked)} /><output>{progressiveHistogram() ? 'Skeleton' : 'Wachten'}</output></label>
           <label><span>Min. breedte</span><input type="range" min="5" max="100" step="5" value={minimumMapWidthKm()} onInput={(event) => tuneMapDetail(event.currentTarget.valueAsNumber)} /><output>{minimumMapWidthKm()} km</output></label>
@@ -1149,7 +1259,19 @@ export default function App() {
             <thead><tr>
               <th>Uur</th>
               <Show when={hasWeatherColumn()}><th class="weather-heading">Weer</th></Show>
-              <Show when={hasTemperature()}><th>Gevoel</th></Show>
+              <Show when={hasTemperature()}><th class="temperature-heading">
+                <button
+                  type="button"
+                  class="temperature-focus"
+                  aria-pressed={focusPinned()}
+                  title="Toon temperatuurlijnen op de kaart"
+                  onClick={toggleFocusPin}
+                  onFocus={(event) => { if (event.currentTarget.matches(':focus-visible')) focusMode.set('keyboard', true) }}
+                  onBlur={() => focusMode.set('keyboard', false)}
+                  onPointerEnter={(event) => hoverFocus('table', true, event)}
+                  onPointerLeave={(event) => hoverFocus('table', false, event)}
+                >Gevoel</button>
+              </th></Show>
               <Show when={hasHumidity()}><th>RV</th></Show>
               <Show when={hasWind()}><th>Wind</th></Show>
               <th>Regen</th>
@@ -1171,7 +1293,7 @@ export default function App() {
               return <tr classList={{ 'current-hour': isNow(), 'past-hour': row.epoch < currentHour() }}>
                 <td><strong>{new Date(row.epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</strong><span classList={{ 'now-label': isNow() }}>{isNow() ? 'Nu' : new Date(row.epoch).toLocaleDateString('nl-NL', { weekday: 'short' })}</span></td>
                 <Show when={hasWeatherColumn()}><td class="weather-cell"><Show when={icon()}>{(model) => <WeatherIcon model={model()} />}</Show><Show when={advice()}>{(label) => <span class="uv-chip table-uv-chip" title={label()}>UV {formatUv(uv())}</span>}</Show></td></Show>
-                <Show when={hasTemperature()}><td class="temperature-cell">{formatTemperature(feelsLike())}<small class="air-temperature" title="Luchttemperatuur">{formatTemperature(temperature())}</small></td></Show>
+                <Show when={hasTemperature()}><td class="temperature-cell" onPointerEnter={(event) => hoverFocus('table', true, event)} onPointerLeave={(event) => hoverFocus('table', false, event)}>{formatTemperature(feelsLike())}<small class="air-temperature" title="Luchttemperatuur">{formatTemperature(temperature())}</small></td></Show>
                 <Show when={hasHumidity()}><td>{formatHumidity(humidity())}</td></Show>
                 <Show when={hasWind()}><td class="wind-cell"><Show when={wind()} fallback="—">{(value) => <span title={`${value().speed.toLocaleString('nl-NL', { maximumFractionDigits: 1 })} m/s`}>{value().direction} · {value().beaufort} Bft</span>}</Show></td></Show>
                 <td>{formatRain(rain())}<small> mm/u</small></td>

@@ -17,6 +17,7 @@ precision highp float;
 uniform sampler2D u_left;
 uniform sampler2D u_right;
 uniform float u_mix;
+uniform float u_opacity;
 uniform vec2 u_grid_size;
 in vec2 v_uv;
 out vec4 color;
@@ -54,7 +55,7 @@ void main() {
   vec3 sunlight = vec3(1.0, 0.78, 0.22);
   vec3 cloudShadow = vec3(0.25, 0.42, 0.52);
   vec3 tint = mix(sunlight, cloudShadow, cloudSide);
-  float alpha = boundary * mix(0.18, 0.42, cloudSide);
+  float alpha = boundary * mix(0.18, 0.42, cloudSide) * u_opacity;
   color = vec4(tint, alpha);
 }`
 
@@ -68,6 +69,7 @@ export class CloudEdgeLayer implements CustomLayerInterface {
   private left?: WebGLTexture
   private right?: WebGLTexture
   private mix = 0
+  private opacity = 1
 
   constructor(private readonly grid: Grid) {}
 
@@ -103,9 +105,13 @@ export class CloudEdgeLayer implements CustomLayerInterface {
     this.mix = mix
   }
 
+  setOpacity(opacity: number): void {
+    this.opacity = opacity
+  }
+
   render(context: WebGLRenderingContext | WebGL2RenderingContext, options: CustomRenderMethodInput): void {
     const gl = context as WebGL2RenderingContext
-    if (!this.program || !this.buffer || !this.left || !this.right) return
+    if (!this.program || !this.buffer || !this.left || !this.right || this.opacity <= 0) return
     gl.useProgram(this.program)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer)
     const position = gl.getAttribLocation(this.program, 'a_pos')
@@ -116,6 +122,7 @@ export class CloudEdgeLayer implements CustomLayerInterface {
     gl.vertexAttribPointer(uv, 2, gl.FLOAT, false, 16, 8)
     gl.uniformMatrix4fv(gl.getUniformLocation(this.program, 'u_matrix'), false, options.defaultProjectionData.mainMatrix)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_mix'), this.mix)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_opacity'), this.opacity)
     gl.uniform2f(gl.getUniformLocation(this.program, 'u_grid_size'), this.grid.width, this.grid.height)
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.left); gl.uniform1i(gl.getUniformLocation(this.program, 'u_left'), 0)
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.right); gl.uniform1i(gl.getUniformLocation(this.program, 'u_right'), 1)
