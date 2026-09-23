@@ -25,7 +25,7 @@ describe('wind field pairing', () => {
     const vHeader = parseMrfHeader(vFile.subarray(0, vChunk.header_len))
     expect(uHeader.grid).toEqual(vHeader.grid)
     expect(uHeader.frames.map((frame) => frame.time)).toEqual(vHeader.frames.map((frame) => frame.time))
-    expect(buildWindTimeline(manifest)).toHaveLength(24)
+    expect(buildWindTimeline(manifest)).toHaveLength(4 + 48)
 
     const uIndex = uHeader.frames[0]!
     const vIndex = vHeader.frames[0]!

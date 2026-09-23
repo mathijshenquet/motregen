@@ -45,3 +45,35 @@ function signed(value: number): number {
   const normalized = normalize(value)
   return normalized > Math.PI ? normalized - Math.PI * 2 : normalized
 }
+
+export interface SunEvent {
+  epoch: number
+  kind: 'rise' | 'set'
+}
+
+// Upper limb on the apparent horizon: 34′ refraction plus 16′ semi-diameter.
+const horizonSin = Math.sin(-0.833 * radians)
+
+export function sunEvents(start: number, end: number, longitude: number, latitude: number): SunEvent[] {
+  const step = 10 * 60_000
+  const above = (epoch: number) => solarElevationSin(epoch, longitude, latitude) > horizonSin
+  const events: SunEvent[] = []
+  let previous = start
+  let previousAbove = above(start)
+  for (let epoch = Math.min(end, start + step); epoch <= end; epoch = epoch === end ? end + 1 : Math.min(end, epoch + step)) {
+    const currentAbove = above(epoch)
+    if (currentAbove !== previousAbove) {
+      let low = previous
+      let high = epoch
+      while (high - low > 1_000) {
+        const middle = (low + high) / 2
+        if (above(middle) === previousAbove) low = middle
+        else high = middle
+      }
+      events.push({ epoch: Math.round(high), kind: currentAbove ? 'rise' : 'set' })
+    }
+    previous = epoch
+    previousAbove = currentAbove
+  }
+  return events
+}

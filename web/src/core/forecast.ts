@@ -1,9 +1,14 @@
 import type { TimelineFrame } from './contract'
 
+export type HourlyRowKind = 'past' | 'now' | 'future'
+
 export interface HourlyForecastRow {
   epoch: number
+  kind: HourlyRowKind
   rainIndex: number | null
   uvIndex: number | null
+  radiationIndex: number | null
+  radiationNextIndex: number | null
   temperatureIndex: number | null
   feelsLikeIndex: number | null
   humidityIndex: number | null
@@ -15,6 +20,7 @@ export interface HourlyForecastRow {
 export interface HourlyTimelines {
   rain: TimelineFrame[]
   uv: TimelineFrame[]
+  radiation: TimelineFrame[]
   temperature: TimelineFrame[]
   feelsLike: TimelineFrame[]
   humidity: TimelineFrame[]
@@ -25,30 +31,59 @@ export interface HourlyTimelines {
 
 const hour = 3_600_000
 
+export const FORECAST_HISTORY_HOURS = 6
+// Rows further ahead only load once the table is scrolled near them. The former
+// table asked for 24 h but its run-start-anchored data reached only now + 17…20 h,
+// so 18 h keeps the passive cost of that table (MIP-8) and usually stays inside
+// the first day-sized hourly chunk.
+export const PASSIVE_FORECAST_HOURS = 18
+
+/**
+ * One row per whole hour from `historyHours` before the current hour up to
+ * the last hour any field reaches; leading history and trailing rows without
+ * any data are dropped, the current hour always stays.
+ */
 export function buildHourlyForecast(
   timelines: HourlyTimelines,
   now: number,
-  count = 24,
-  historyCount = 4,
+  historyHours = FORECAST_HISTORY_HOURS,
 ): HourlyForecastRow[] {
-  const firstHour = Math.floor(now / hour) * hour - historyCount * hour
-  return Array.from({ length: historyCount + count }, (_, index) => {
-    const epoch = firstHour + index * hour
-    return {
+  const currentHour = Math.floor(now / hour) * hour
+  const lastEpoch = Math.max(currentHour, ...Object.values(timelines).map((frames) => frames.at(-1)?.epoch ?? 0))
+  const lastHour = Math.floor((lastEpoch + hour / 2) / hour) * hour
+  const rows: HourlyForecastRow[] = []
+  for (let epoch = currentHour - historyHours * hour; epoch <= lastHour; epoch += hour) {
+    rows.push({
       epoch,
-      rainIndex: nearestFrame(timelines.rain, epoch, hour / 2),
-      uvIndex: nearestFrame(timelines.uv, epoch, hour / 2),
-      temperatureIndex: nearestFrame(timelines.temperature, epoch, hour / 2),
-      feelsLikeIndex: nearestFrame(timelines.feelsLike, epoch, hour / 2),
-      humidityIndex: nearestFrame(timelines.humidity, epoch, hour / 2),
-      cloudIndex: nearestFrame(timelines.cloud, epoch, hour / 2),
-      windUIndex: nearestFrame(timelines.windU, epoch, hour / 2),
-      windVIndex: nearestFrame(timelines.windV, epoch, hour / 2),
-    }
-  })
+      kind: epoch < currentHour ? 'past' : epoch === currentHour ? 'now' : 'future',
+      rainIndex: nearestFrame(timelines.rain, epoch),
+      uvIndex: nearestFrame(timelines.uv, epoch),
+      radiationIndex: nearestFrame(timelines.radiation, epoch),
+      radiationNextIndex: nearestFrame(timelines.radiation, epoch + hour),
+      temperatureIndex: nearestFrame(timelines.temperature, epoch),
+      feelsLikeIndex: nearestFrame(timelines.feelsLike, epoch),
+      humidityIndex: nearestFrame(timelines.humidity, epoch),
+      cloudIndex: nearestFrame(timelines.cloud, epoch),
+      windUIndex: nearestFrame(timelines.windU, epoch),
+      windVIndex: nearestFrame(timelines.windV, epoch),
+    })
+  }
+  const first = rows.findIndex((row) => row.kind === 'now' || hasData(row))
+  let last = rows.length - 1
+  while (last > 0 && rows[last]!.kind === 'future' && !hasData(rows[last]!)) last--
+  return rows.slice(first, last + 1)
 }
 
-function nearestFrame(frames: TimelineFrame[], epoch: number, tolerance: number): number | null {
+export function isPassiveRow(row: HourlyForecastRow, now: number): boolean {
+  return row.epoch <= now + PASSIVE_FORECAST_HOURS * hour
+}
+
+function hasData(row: HourlyForecastRow): boolean {
+  return row.rainIndex != null || row.uvIndex != null || row.temperatureIndex != null || row.feelsLikeIndex != null ||
+    row.humidityIndex != null || row.cloudIndex != null || row.windUIndex != null || row.windVIndex != null
+}
+
+function nearestFrame(frames: TimelineFrame[], epoch: number, tolerance = hour / 2): number | null {
   let nearest: number | null = null
   let distance = Number.POSITIVE_INFINITY
   for (let index = 0; index < frames.length; index++) {

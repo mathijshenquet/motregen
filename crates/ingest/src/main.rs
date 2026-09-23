@@ -14,8 +14,8 @@ use motregen_ingest::{
     pipeline::{
         AROME_DATASET, AROME_VERSION, NOWCAST_DATASET, NOWCAST_VERSION, RTCOR_DATASET,
         RTCOR_VERSION, SEAMLESS_DATASET, SEAMLESS_VERSION, UV_DATASET, UV_VERSION,
-        build_arome_chunks, build_nowcast_chunk, build_rtcor_chunk, build_seamless_chunk_for_file,
-        build_uv_chunk, latest_files, prune_download_cache,
+        build_arome_chunks, build_arome_history_chunks, build_nowcast_chunk, build_rtcor_chunk,
+        build_seamless_chunk_for_file, build_uv_chunk, latest_files, prune_download_cache,
     },
     publisher::{ProducedChunk, publish},
     wind_prior::WindTimeline,
@@ -62,8 +62,10 @@ struct Config {
     history_hours: u32,
     #[arg(long, env = "MOTREGEN_NOWCAST_MINUTES", default_value_t = 120)]
     nowcast_minutes: u32,
-    #[arg(long, env = "MOTREGEN_AROME_HOURS", default_value_t = 24)]
+    #[arg(long, env = "MOTREGEN_AROME_HOURS", default_value_t = 48)]
     arome_hours: u32,
+    #[arg(long, env = "MOTREGEN_AROME_HISTORY_HOURS", default_value_t = 6)]
+    arome_history_hours: u32,
     #[arg(
         long,
         env = "MOTREGEN_PRUNE_AGE",
@@ -200,6 +202,7 @@ struct Daemon {
     nowcast: Option<ProducedChunk>,
     seamless: Option<ProducedChunk>,
     arome: Vec<ProducedChunk>,
+    arome_history: Vec<ProducedChunk>,
     uv: Option<ProducedChunk>,
     wind: Option<WindTimeline>,
     rtcor_calibration: Option<motion::Calibration>,
@@ -237,6 +240,7 @@ impl Daemon {
             nowcast: None,
             seamless: None,
             arome: Vec::new(),
+            arome_history: Vec::new(),
             uv: None,
             wind: None,
             rtcor_calibration: None,
@@ -439,6 +443,29 @@ impl Daemon {
             elapsed_seconds = started.elapsed().as_secs_f64(),
             "arome ranged refresh decoded"
         );
+        let run = publication.chunks[0].manifest.run.clone();
+        self.arome_history = match build_arome_history_chunks(
+            &self.api,
+            &self.cache_root,
+            &run,
+            chrono::Utc::now(),
+            self.config.arome_history_hours,
+        ) {
+            Ok(Some(history)) => {
+                info!(
+                    run = history.chunks[0].manifest.run,
+                    frames = history.chunks[0].manifest.times.len(),
+                    downloaded_bytes = history.downloaded_bytes,
+                    "arome history run decoded"
+                );
+                history.chunks
+            }
+            Ok(None) => Vec::new(),
+            Err(error) => {
+                warn!(error = %format!("{error:#}"), "arome history unavailable");
+                Vec::new()
+            }
+        };
         self.arome_id = Some(latest.filename);
         self.arome = publication.chunks;
         self.wind = Some(publication.wind);
@@ -500,6 +527,7 @@ impl Daemon {
             chunks.push(seamless);
         }
         chunks.extend(self.arome.iter());
+        chunks.extend(self.arome_history.iter());
         if let Some(uv) = &self.uv {
             chunks.push(uv);
         }
@@ -709,6 +737,7 @@ mod tests {
                 history_hours: 1,
                 nowcast_minutes: 120,
                 arome_hours: 1,
+                arome_history_hours: 0,
                 prune_age: Duration::from_secs(21_600),
                 cache_age: Duration::from_secs(43_200),
                 once: false,
@@ -727,6 +756,7 @@ mod tests {
             nowcast: None,
             seamless: None,
             arome: Vec::new(),
+            arome_history: Vec::new(),
             uv: None,
             wind: None,
             rtcor_calibration: None,

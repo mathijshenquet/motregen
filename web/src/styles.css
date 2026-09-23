@@ -385,7 +385,8 @@ td { padding: 10px 6px; border-bottom: 1px solid var(--line); font-size: 13px; t
 td:first-child { padding-left: 0; text-align: left; }
 td:first-child strong { display: inline-block; min-width: 44px; font-size: 13px; }
 td:first-child span { color: var(--muted); font-size: 10px; text-transform: capitalize; }
-tr.past-hour td { color: color-mix(in srgb, var(--text) 68%, var(--muted)); }
+tr.past-hour td { color: color-mix(in srgb, var(--text) 68%, var(--muted)); background: color-mix(in srgb, var(--surface-soft) 70%, var(--surface)); }
+tr.pending-hour td { color: var(--muted); }
 tr.current-hour td { border-bottom-color: color-mix(in srgb, var(--accent) 38%, var(--line)); background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface)); }
 tr.current-hour td:first-child { padding-left: 9px; box-shadow: inset 3px 0 var(--accent); }
 td:first-child span.now-label { color: var(--accent); font-weight: 820; letter-spacing: .06em; text-transform: uppercase; }
@@ -401,7 +402,19 @@ td small { color: var(--muted); font-size: 9px; }
 :root[data-theme="dark"] .weather-cloud { fill: #607780; stroke: #adc2ca; }
 .weather-rain path { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-width: 1.8; }
 .heavy-rain .weather-rain path { stroke-width: 2.2; }
-.table-uv-chip { width: max-content; margin: 2px auto 0; padding: 1px 5px; }
+.uv-heading, .uv-cell { text-align: center; }
+.uv-cell { min-width: 34px; font-size: 12px; }
+.uv-cell.estimated { color: var(--muted); font-style: italic; }
+.uv-cell.strong { color: #b07800; font-weight: 760; }
+:root[data-theme="dark"] .uv-cell.strong { color: #ffd86b; }
+tr.sun-row td { padding: 3px 0 3px; border-bottom: 1px dashed var(--line); color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .04em; text-align: left; }
+.sun-glyph { display: inline-block; width: 20px; height: 12px; margin: 0 6px -1px 44px; vertical-align: baseline; overflow: visible; }
+.sun-glyph-horizon { fill: none; stroke: var(--muted); stroke-linecap: round; stroke-width: 1.2; }
+.sun-glyph-disc { fill: #f3b918; stroke: #d69b00; stroke-width: .8; }
+.sun-glyph-arrow { fill: none; stroke: #e6a400; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.4; }
+td:first-child span.sun-mark { display: block; margin-top: 1px; color: #b07800; font-size: 9px; font-weight: 700; text-transform: none; }
+:root[data-theme="dark"] td:first-child span.sun-mark { color: #ffd86b; }
+.sun-mark .sun-glyph { width: 14px; height: 9px; margin: 0 3px -1px 0; }
 .temperature-cell { font-size: 16px; font-weight: 720; letter-spacing: -.03em; }
 .air-temperature { display: block; color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: 0; }
 .wind-cell { color: var(--text); font-size: 11px; }
@@ -451,3 +464,30 @@ td small { color: var(--muted); font-size: 9px; }
 @media (min-width: 1450px) {
   .app-shell { grid-template-columns: minmax(0, 1fr) 520px; }
 }
+
+.map-clock {
+  position: absolute;
+  right: 10px;
+  bottom: 22px;
+  z-index: 3;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 75%, transparent);
+  border-radius: 10px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  box-shadow: 0 3px 14px rgba(10, 32, 41, .13);
+  backdrop-filter: blur(8px);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.map-clock > span { display: flex; align-items: baseline; gap: 5px; padding: 5px 9px; }
+.map-clock small { color: var(--muted); font-size: 9px; font-weight: 760; letter-spacing: .07em; text-transform: uppercase; }
+.map-clock strong { font-size: 14px; font-weight: 720; }
+.map-clock-map { border-left: 1px solid var(--line); color: var(--history); }
+.map-clock-map.future { color: var(--nowcast); }
+.map-clock-map small { color: inherit; opacity: .8; }
+tr.history-toggle-row td { padding: 0; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface-soft) 70%, var(--surface)); }
+.history-toggle { display: flex; width: 100%; align-items: center; gap: 7px; padding: 7px 0; border: 0; color: var(--muted); background: none; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-align: left; }
+.history-toggle:hover, .history-toggle:focus-visible { color: var(--text); }

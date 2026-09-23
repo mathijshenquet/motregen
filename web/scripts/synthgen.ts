@@ -30,16 +30,23 @@ for (let hour = -3; hour < 0; hour++) plans.push({
 })
 plans.push({ name: 'nowcast-20260828T1500.mrf', source: 'nowcast', field: 'rain_rate', run: now, times: Array.from({ length: 25 }, (_, i) => now + i * 300_000) })
 plans.push({ name: 'seamless-20260828T1500.mrf', source: 'seamless', field: 'rain_rate', run: now, times: [now + 125 * 60_000, now + 130 * 60_000] })
-plans.push({ name: 'harmonie-20260828T1200.mrf', source: 'harmonie', field: 'rain_rate', run: now - 3 * 3_600_000, times: Array.from({ length: 24 }, (_, i) => now + (i + 1) * 3_600_000) })
-plans.push({ name: 'radiation-20260828T1200.mrf', source: 'harmonie', field: 'radiation', run: now - 3 * 3_600_000, times: Array.from({ length: 24 }, (_, i) => now + (i + 1) * 3_600_000) })
+// Mirrors the ingest: run R = now − 3 h with leads +1…+48 (hourly fields in
+// day-sized chunks), plus the history run the daemon picks (latest run ≤ now − 7 h)
+// for the hours up to R.
+const run = now - 3 * 3_600_000
+const historyRun = now - 7 * 3_600_000
+const runTimes = Array.from({ length: 48 }, (_, i) => run + (i + 1) * 3_600_000)
+const historyTimes = Array.from({ length: 4 }, (_, i) => historyRun + (i + 1) * 3_600_000)
+plans.push({ name: 'harmonie-20260828T1200.mrf', source: 'harmonie', field: 'rain_rate', run, times: runTimes })
 plans.push({
   name: 'uv-20260828.mrf', source: 'uv', field: 'uv', run: Date.parse('2026-08-28T00:00:00Z'),
-  times: Array.from({ length: 72 }, (_, i) => Date.parse('2026-08-28T03:00:00Z') + i * 15 * 60_000),
+  times: Array.from({ length: 49 }, (_, i) => Date.parse('2026-08-28T03:00:00Z') + i * 15 * 60_000),
 })
-const hourlyTimes = Array.from({ length: 24 }, (_, i) => now + (i + 1) * 3_600_000)
-for (const field of ['temp_c', 'feels_like_c', 'wind_u_ms', 'wind_v_ms', 'rel_humidity', 'cloud_frac'] as const) plans.push({
-  name: `${field}-20260828T1200.mrf`, source: 'harmonie', field, run: now - 3 * 3_600_000, times: hourlyTimes,
-})
+for (const field of ['radiation', 'temp_c', 'feels_like_c', 'wind_u_ms', 'wind_v_ms', 'rel_humidity', 'cloud_frac'] as const) {
+  plans.push({ name: `${field}-20260828T1200.mrf`, source: 'harmonie', field, run, times: runTimes.slice(0, 24) })
+  plans.push({ name: `${field}-20260828T1200-l25-48.mrf`, source: 'harmonie', field, run, times: runTimes.slice(24) })
+  plans.push({ name: `${field}-20260828T0800-hist4.mrf`, source: 'harmonie', field, run: historyRun, times: historyTimes })
+}
 
 function iso(epoch: number): string { return new Date(epoch).toISOString().replace('.000', '') }
 
