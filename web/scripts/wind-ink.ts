@@ -17,7 +17,7 @@ const browser = await chromium.launch({ headless: true, args: ['--enable-webgl',
 for (const profile of profiles) {
   for (const theme of ['light', 'dark'] as const) {
     const context = await browser.newContext(profile.context)
-    await context.addInitScript((value) => { localStorage.setItem('motregen-theme', value); localStorage.removeItem('motregen-wind-tuning') }, theme)
+    await context.addInitScript((value) => { localStorage.setItem('motregen-theme', value); localStorage.removeItem('motregen-wind-tuning'); localStorage.removeItem('motregen-wind-tuning-v2') }, theme)
     const page = await context.newPage()
     page.setDefaultTimeout(120_000)
     await page.goto(new URL(mode === 'before' ? '/?dev' : '/?perf=1', origin).href)
