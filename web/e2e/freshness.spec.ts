@@ -86,6 +86,7 @@ test('radar that stopped arriving is marked aging, then stale', async ({ page },
   await page.locator('.scrub-surface').click({ position: { x: 30, y: 60 } })
   await expect(pill(page).locator('.map-clock-map')).toBeVisible()
   await expectClearOfBrand(page)
+  await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-weken-oud-kaart-light.png`) })
 })
 
 test('a failed manifest refresh shows offline instead of silently stale data', async ({ page }, testInfo) => {
