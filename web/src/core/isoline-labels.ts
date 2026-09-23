@@ -149,6 +149,7 @@ export class IsolineLabels {
   }
 
   setOpacity(opacity: number): void {
+    if (opacity === this.opacity) return
     this.opacity = opacity
     for (const anchor of this.anchors) anchor.marker.getElement().style.opacity = String(opacity)
   }

@@ -196,6 +196,7 @@ export class IsolineLayer implements CustomLayerInterface {
   private framebuffer?: WebGLFramebuffer
   private resultSize: [number, number] = [0, 0]
   private readonly loaded: Uint8Array
+  private frameKeys: string[] = []
   private time = 0
   private opacity = 0
   private version = 1
@@ -259,6 +260,27 @@ export class IsolineLayer implements CustomLayerInterface {
     return this.loaded[index] === 1
   }
 
+  frameKey(index: number): string | undefined {
+    return this.frameKeys[index]
+  }
+
+  /**
+   * Identiteit per uurlaag (chunk, frame, blur). Een manifest-refresh met een nieuwe run
+   * vervangt frames midden in de tijdlijn bij gelijke diepte; die lagen moeten opnieuw geüpload
+   * worden, anders tekent de snede de oude run. Geeft de gewijzigde indices terug.
+   */
+  setFrameKeys(keys: readonly string[]): number[] {
+    const changed: number[] = []
+    for (let index = 0; index < this.depth; index++) {
+      if (keys[index] === this.frameKeys[index]) continue
+      this.loaded[index] = 0
+      changed.push(index)
+    }
+    this.frameKeys = keys.slice(0, this.depth)
+    if (changed.length) this.invalidate()
+    return changed
+  }
+
   /** Uurframe `index` als laag van het volume; `field` is geblurd en opgevuld. */
   setLayer(index: number, field: PreparedField): void {
     const gl = this.gl
@@ -281,7 +303,13 @@ export class IsolineLayer implements CustomLayerInterface {
   setTime(time: number): void {
     if (time === this.time) return
     this.time = time
-    this.invalidate()
+    this.version++
+    // Afspelen zet elke frame een nieuwe tijd; een kaartrender daarvoor zou tussen twee passes
+    // alleen de oude snede blitten (plus volledige symboolplaatsing). Vraag hem pas aan als het
+    // maxHz-venster een pass toelaat (PO-heropname U8c: 120 kaartrenders/s bij afspelen+focus).
+    const wait = this.lastPass + 1000 / this.tuning.maxHz - performance.now()
+    if (wait <= 0 || !this.passedVersion) this.map?.triggerRepaint()
+    else this.scheduleCatchUp(wait)
   }
 
   setOpacity(opacity: number): void {
@@ -312,7 +340,7 @@ export class IsolineLayer implements CustomLayerInterface {
     const wait = this.lastPass + 1000 / this.tuning.maxHz - now
     // Alleen tijd/stijl gewijzigd: begrens de cadans en hergebruik tot dan het vorige resultaat.
     if (camera === this.passedCamera && this.passedVersion && wait > 0) {
-      if (this.catchUp === undefined) this.catchUp = window.setTimeout(() => { this.catchUp = undefined; this.map?.triggerRepaint() }, wait)
+      this.scheduleCatchUp(wait)
       return
     }
     this.pass(gl, map, matrix, width, height)
@@ -385,6 +413,10 @@ export class IsolineLayer implements CustomLayerInterface {
   private targetSize(gl: WebGL2RenderingContext, resolution: number): [number, number] {
     const scale = Math.min(1, resolution) / Math.max(1, window.devicePixelRatio || 1)
     return [Math.max(1, Math.round(gl.drawingBufferWidth * scale)), Math.max(1, Math.round(gl.drawingBufferHeight * scale))]
+  }
+
+  private scheduleCatchUp(wait: number): void {
+    if (this.catchUp === undefined) this.catchUp = window.setTimeout(() => { this.catchUp = undefined; this.map?.triggerRepaint() }, wait)
   }
 
   private ready(): boolean {

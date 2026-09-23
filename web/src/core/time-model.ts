@@ -34,6 +34,16 @@ export function frameBlend(timeline: TimelineFrame[], epoch: number): { left: nu
   return { left, right, mix: (epoch - timeline[left]!.epoch) / (timeline[right]!.epoch - timeline[left]!.epoch) }
 }
 
+/**
+ * 1 binnen de frames van `timeline`, daarbuiten lineair naar 0 over `rampMs`: een snede buiten
+ * de dekking is bevroren op het randframe en hoort niet als actueel getoond te worden.
+ */
+export function timelineCoverage(timeline: ReadonlyArray<{ epoch: number }>, epoch: number, rampMs: number): number {
+  if (!timeline.length || !Number.isFinite(epoch)) return 0
+  const outside = Math.max(timeline[0]!.epoch - epoch, epoch - timeline[timeline.length - 1]!.epoch, 0)
+  return rampMs > 0 ? Math.max(0, 1 - outside / rampMs) : outside > 0 ? 0 : 1
+}
+
 export function timelineEpochAtCursor(timeline: TimelineFrame[], cursor: number): number {
   if (!timeline.length) return 0
   const bounded = Number.isFinite(cursor) ? Math.max(0, Math.min(timeline.length - 1, cursor)) : 0

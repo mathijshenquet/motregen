@@ -376,6 +376,8 @@ export function isolineColor(theme: MapTheme): string {
 }
 
 export const ISOLINE_LINE_OPACITY = 0.8
+/** Uitfade van de isolijnen buiten de uurframes van de gevoelstemperatuur. */
+export const ISOLINE_EDGE_FADE_MS = 20 * 60_000
 
 function gridProjection(grid: Grid): (column: number, row: number) => [number, number] {
   const radius = 6378137

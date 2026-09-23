@@ -13,6 +13,10 @@ export interface IsolineCounters {
   timing?: 'gpu' | 'cpu'
   labelRounds: number
   labels: number
+  /** Frame-index-coördinaat van de laatst gezette isolijnsnede. */
+  sliceTime?: number
+  /** 0–1: dekking van de gevoelstemperatuur op de gekozen tijd (buiten de uurframes: uitfade). */
+  coverage?: number
 }
 
 export interface IsolineRates {

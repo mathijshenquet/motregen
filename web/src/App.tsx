@@ -19,7 +19,7 @@ import { buildHourlyForecast, isPassiveRow, PASSIVE_FORECAST_HOURS } from './cor
 import { contextOpacity, DEFAULT_FOCUS_TUNING, FocusMode, type FocusTuning } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import type { RefreshState } from './core/freshness'
-import { blendFrames, blurField, DEFAULT_ISOLINE_TUNING, ISOLINE_LINE_OPACITY, ISOLINE_STEPS, ISOLINE_WINDOWS, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineStep, type IsolineTuning } from './core/isolines'
+import { blendFrames, blurField, DEFAULT_ISOLINE_TUNING, ISOLINE_EDGE_FADE_MS, ISOLINE_LINE_OPACITY, ISOLINE_STEPS, ISOLINE_WINDOWS, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineStep, type IsolineTuning } from './core/isolines'
 import { DEFAULT_LABEL_TUNING, IsolineLabels, sliceWeights, type IsolineLabelTuning } from './core/isoline-labels'
 import { prepareField, type PreparedField } from './core/isoline-field'
 import { hexColor, IsolineLayer, isolineLayerIndices, type IsolineStyle } from './core/isoline-layer'
@@ -38,7 +38,7 @@ import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedP
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
 import { solarElevationSin } from './core/solar'
 import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
-import { buildTimeline, frameBlend, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelinePlaybackRate } from './core/time-model'
+import { buildTimeline, frameBlend, seriesValueAt, timelineCoverage, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelinePlaybackRate } from './core/time-model'
 import { formatUv, uvChipLabel } from './core/uv'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
 import { loadWindTuning, storeWindTuning, WindLayer, type WindTuning } from './core/wind-layer'
@@ -120,6 +120,8 @@ export default function App() {
     windDraws: windOverlay?.draws ?? 0,
     labelRounds: isolineLabelRounds,
     labels: isolineLabels?.count ?? 0,
+    sliceTime: isolineLayer ? isolineTime : undefined,
+    coverage: isolineCoverage(),
   })
   // Meetpunt voor de kostenmeting (track-LOGs U8b/U8c): repaints, contour-passes, blits, label-rondes.
   ;(window as unknown as { __motregenIsolines: () => object }).__motregenIsolines = () => ({
@@ -201,6 +203,7 @@ export default function App() {
   const [isolineCount, setIsolineCount] = createSignal(0)
   const [labelTuning, setLabelTuning] = createSignal<IsolineLabelTuning>({ ...DEFAULT_LABEL_TUNING })
   const focusMode = new FocusMode(setFocus, focusTuning, () => reducedMotion.matches)
+  const isolineCoverage = createMemo(() => timelineCoverage(feelsLikeTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
   const isolinesActive = createMemo(() => focus() > 0)
   const focusedWindTuning = createMemo<WindTuning>(() => ({ ...windTuning(), visibility: windTuning().visibility * contextOpacity(focus(), focusTuning().dim) }))
   const [mapReady, setMapReady] = createSignal(false)
@@ -394,6 +397,7 @@ export default function App() {
   })
 
   createEffect(() => applyFocus(focus(), focusTuning().dim))
+  createEffect(() => { isolineCoverage(); applyIsolineOpacity() })
 
   createEffect(() => {
     selectedEpoch()
@@ -443,6 +447,8 @@ export default function App() {
     let previous = performance.now()
     const stop = startFrameLoop((now) => {
       const elapsed = now - previous
+      // Zelfde grens als de windcanvas: op 120 Hz-schermen elke tweede vsync overslaan.
+      if (elapsed < 1_000 / windTuning().maxFps - 4) return
       previous = now
       setCursor((value) => {
         const epoch = timelineEpochAtCursor(frames, value)
@@ -625,7 +631,7 @@ export default function App() {
     if (!map) return
     layer = new RainLayer(grid)
     try {
-      rainOverlay = new LayerOverlay(map, layer, windOverlay?.canvas ?? map.getCanvas())
+      rainOverlay = new LayerOverlay(map, layer, windOverlay?.canvas ?? map.getCanvas(), () => windTuning().maxFps)
     } catch {
       rainOverlay = undefined
       map.addLayer(layer)
@@ -703,8 +709,7 @@ export default function App() {
     rainOverlay?.triggerRepaint()
     cloudEdgeLayer?.setOpacity(context)
     if (map.getLayer('motregen-sun')) map.setPaintProperty('motregen-sun', 'text-opacity', ['*', ['get', 'opacity'], context])
-    isolineLayer?.setOpacity(value * ISOLINE_LINE_OPACITY)
-    isolineLabels?.setOpacity(value)
+    applyIsolineOpacity(value)
     if (map.getLayer('motregen-temperature')) {
       // In focus dragen de lijnen de waarde; de stadslabels faden uit en geven hun plek vrij
       // (ignore-placement), maar blijven hoverbaar zodat de focus niet wegvalt.
@@ -712,6 +717,16 @@ export default function App() {
       map.setLayoutProperty('motregen-temperature', 'text-ignore-placement', value >= 0.5)
     }
     map.triggerRepaint()
+  }
+
+  /**
+   * Buiten de uurframes van de gevoelstemperatuur (historie vóór de run, na de horizon) zou de
+   * snede op het randframe bevriezen terwijl regen en wind doorlopen; daar faden de lijnen weg.
+   */
+  function applyIsolineOpacity(value = focus()): void {
+    const visible = value * isolineCoverage()
+    isolineLayer?.setOpacity(visible * ISOLINE_LINE_OPACITY)
+    isolineLabels?.setOpacity(visible)
   }
 
   function isolineStyle(): IsolineStyle {
@@ -746,7 +761,9 @@ export default function App() {
     const blend = frameBlend(frames, selectedEpoch())
     const time = blend.left + blend.mix
     isolineTime = time
-    const key = `${frames[0]!.chunk.url}|${frames.length}|${blur}`
+    // De diepte van het volume ligt vast per laag; welke run in welke uurlaag zit regelt
+    // setFrameKeys per index (manifest-refresh, blur).
+    const key = String(frames.length)
     if (isolineLayer && isolineLayerKey !== key) {
       if (renderedMap.getLayer(isolineLayer.id)) renderedMap.removeLayer(isolineLayer.id)
       isolineLayer = undefined
@@ -763,19 +780,20 @@ export default function App() {
         isolineFields = []
         isolineLabels?.clear()
         isolineLabels = new IsolineLabels(renderedMap, grid, labelTuning(), mapTheme(), () => reducedMotion.matches)
-        isolineLabels.setOpacity(focus())
         isolineKey = ''
         // Labels schuiven mee op exact de snede die de lijnen net kregen (zelfde cadans).
         isolineLayer.onPass = updateIsolineLabels
         renderedMap.addLayer(isolineLayer, 'motregen-temperature')
-        isolineLayer.setOpacity(focus() * ISOLINE_LINE_OPACITY)
+        applyIsolineOpacity()
         void showIsolines()
       }
       const layer = isolineLayer
+      const frameKeys = frames.map((frame) => `${frame.chunk.url}#${frame.frameIndex}|${blur}`)
+      for (const index of layer.setFrameKeys(frameKeys)) isolineFields[index] = undefined
       layer.setTime(time)
       await Promise.all(wanted.filter((index) => !layer.hasLayer(index)).map(async (index) => {
         const prepared = await preparedIsolineField(frames[index]!, blur)
-        if (layer !== isolineLayer || !sameGrid(prepared, { grid: layer.grid })) return
+        if (layer !== isolineLayer || layer.frameKey(index) !== frameKeys[index] || !sameGrid(prepared, { grid: layer.grid })) return
         isolineFields[index] = prepared.field
         layer.setLayer(index, prepared.field)
       }))

@@ -100,3 +100,52 @@ Chromium-CPU blijft ~1100–1300 % want SwiftShader rastert de windcanvas (fulls
 op DPR 2) in software — geen maat voor een echte GPU; daarvoor de PO-heropname.
 - Harnas-valkuil (geen bug): Afspelen klikken terwijl de muis in de scrubber staat = U9-hover-scrub
   → "hervat na verlaten"; knop toont Pauzeren maar de tijd staat stil tot de muis weggaat.
+
+## 2026-09-23 22:30 — stilstandbug, invalidatie, PO-heropname 22:07
+### stilstand (spec-opdracht 1)
+- Harnas `web/tmp/u8c-stall.mjs` (focus vast + afspelen, prod-data): refresh met zelfde runs /
+  nieuwe HARMONIE-run (chunk-URL's `?run=2`) / nieuwe `now`, pan, scroll-zoom, resize, verborgen
+  tab (visibilitychange), andere tab + terug, volledige reload — op main (vóór) én deze branch:
+  snede loopt door, 6–10 passes/s. Geen stilstand in die paden. Focus-pin staat niet in
+  localStorage (koude start = niet vastgezet), dus (d) bestaat niet als pad.
+- **Wel gevonden, reproduceerbaar op prod**: de gevoelstemperatuur-tijdlijn begint bij het eerste
+  HARMONIE-frame (run 17Z → 18:00), de regenhistorie 3 u terug (16:50). `frameBlend` klemt
+  daarvóór op frame 0 → tijdens afspelen door de historie **staan de isolijnen stil** terwijl regen
+  en wind doorlopen (`web/tmp/u8c-scrub.mjs`: 17:31 → t = 0,000; 18:03 → 0,066). Na elke refresh
+  met een nieuwe run schuift die grens op en wordt het bevroren stuk groter — past bij "na een
+  refresh stonden ze stil". Fix: `timelineCoverage` → isolijnen + labels faden buiten de uurframes
+  lineair uit over 20 min (`ISOLINE_EDGE_FADE_MS`); bij dekking 0 is de laag onzichtbaar en doet
+  geen pass. Met de U4-`hist`-chunks in prod (na de ingest-upgrade) krimpt het gat tot vóór de
+  oudste historierun.
+- **Invalidatie per uurlaag**: de laagsleutel was `eerste chunk-URL | lengte | blur`; een nieuwe run
+  die middenin frames vervangt bij gelijke lengte liet de oude run in het volume staan (lijnen
+  oud, labels — per chunk gecachet — nieuw). Nu `IsolineLayer.setFrameKeys` per index
+  (chunk#frame|blur): gewijzigde lagen worden gemarkeerd, opnieuw geüpload (upload-race bewaakt
+  met `frameKey`) en de snede herrekend; de laag wordt alleen herbouwd als de diepte verandert.
+  Centraal punt = `showIsolineField` (manifest-apply en tijdlijnwissel lopen via de tijdlijn-memo's);
+  kaartbeeld/resize zit in de camera-sleutel van `prerender`; visibility is een no-op (rAF).
+- e2e `focus.spec.ts`: "pinned isolines re-render after a manifest refresh with a new run and after
+  a scroll-zoom, then rest again" (uploads én passes stijgen na refresh, passes na zoom, daarna
+  passes/labelRounds/kaart-repaints stil). Pannen verschuift op minimale zoom niets (U6-contain),
+  dus scroll-zoom.
+- Harnas-valkuil: Afspelen klikken met de muis in de scrubber = U9 hover-scrub ("hervat na verlaten").
+
+### PO-heropname 22:07 (`web/tmp/profiles/po-macbook-firefox-2026-09-23-2207.json.gz`, 31,6 s, build 0f20f4f op :4323)
+| thread | 21:35 (main, 13 s) | 22:07 (U8c, 31,6 s) |
+|---|---|---|
+| GPU CanvasRenderer | 9,9 s = 76 % | 3,4 s = **11 %** (twiddle 5,4 s → 0,66 s) |
+| GPU Renderer | 87 % | 42 % |
+| motregen-tab main | 48 % + 39 % (twee tabs) | 39 % (één tab) |
+- Per seconde (`web/tmp/fftimeline.py`-snippet in LOG-historie): in rust geen MapLibre-`_render`
+  meer (main ~19 %). Maar bij **afspelen + focus** (s 16–30) nog ~120 kaartrenders/s: elke
+  `setTime` deed `triggerRepaint`, terwijl de pass maar 10 Hz mag — 110 renders/s alleen om de
+  oude snede te blitten, incl. volledige plaatsing. Fix: `setTime` vraagt pas een render aan als
+  het maxHz-venster open is (anders catch-up-timer). Gemeten: afspelen+focus kaartrenders ≈ passes.
+- rAF bleef 120/s in rust door lege gating-ticks van de fps-grens → vervangen door een timer tot
+  vlak vóór de volgende toegestane frame. Afspeellus en regencanvas volgen nu dezelfde
+  `Max. fps` (default 60): op 120 Hz geen dubbele cursor-effecten meer.
+- NB Firefox-functienamen in de geminificeerde bundle zijn onbetrouwbaar (`update`,
+  `_calcMatrices` als rAF-callback); de boom eronder is de MapLibre-render + plaatsing.
+
+### Gates op 0f20f4f+ (vóór de throttle/timer-commit)
+- `MOTREGEN_E2E_PORT=4321 MOTREGEN_E2E_DATA_PORT=8321 direnv exec .. pnpm e2e` → E2E-EXIT: 0 (20 passed, 13 skipped)

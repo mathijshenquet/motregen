@@ -27,7 +27,7 @@ export interface WindTuning {
   speed: number
   intensity: number
   visibility: number
-  /** Bovengrens voor de kaartrepaint die de wind aanvraagt (120 Hz-schermen renderen anders alles dubbel). */
+  /** Bovengrens voor wind-, regen- en afspeelframes (120 Hz-schermen tekenen anders alles dubbel). */
   maxFps: number
 }
 

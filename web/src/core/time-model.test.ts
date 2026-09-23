@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Manifest } from './contract'
-import { buildTimeline, frameBlend, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelinePlaybackRate, timelineZones } from './time-model'
+import { buildTimeline, frameBlend, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineCoverage, timelinePlaybackRate, timelineZones } from './time-model'
 
 const chunk = (source: 'rtcor' | 'nowcast' | 'seamless' | 'harmonie', run: string, times: string[]) => ({ url: `${source}.mrf`, source, run, header_len: 42, times })
 
@@ -119,5 +119,19 @@ describe('time model', () => {
     expect(afterWidening).toBeGreaterThan(beforeWidening)
     expect(speed3).toBeLessThan(speed8)
     expect(speed8).toBeLessThan(speed24)
+  })
+})
+
+describe('timelineCoverage', () => {
+  const hour = 3_600_000
+  const frames = [0, 1, 2].map((index) => ({ epoch: 10 * hour + index * hour }))
+
+  it('is full inside the frames and ramps to zero outside them', () => {
+    expect(timelineCoverage(frames, 10 * hour, hour / 3)).toBe(1)
+    expect(timelineCoverage(frames, 11.5 * hour, hour / 3)).toBe(1)
+    expect(timelineCoverage(frames, 10 * hour - hour / 6, hour / 3)).toBeCloseTo(0.5)
+    expect(timelineCoverage(frames, 12 * hour + hour / 6, hour / 3)).toBeCloseTo(0.5)
+    expect(timelineCoverage(frames, 9 * hour, hour / 3)).toBe(0)
+    expect(timelineCoverage([], 10 * hour, hour / 3)).toBe(0)
   })
 })

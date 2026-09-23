@@ -17,6 +17,7 @@ export class LayerOverlay {
   readonly gl: WebGL2RenderingContext
   draws = 0
   private frame?: number
+  private delay?: number
   private drawnAt = -Infinity
   private drawnCamera = ''
   private readonly afterDraw: Array<() => void> = []
@@ -44,14 +45,18 @@ export class LayerOverlay {
   }
 
   triggerRepaint(): void {
-    if (this.frame !== undefined) return
-    const tick = (time: number) => {
-      this.frame = undefined
-      // Vier ms speling: bij 60 fps op 120 Hz valt elke tweede vsync net vóór de grens.
-      if (time - this.drawnAt < 1_000 / this.maxFps() - 4) { this.frame = requestAnimationFrame(tick); return }
-      this.draw()
+    if (this.frame !== undefined || this.delay !== undefined) return
+    // Te vroeg voor maxFps: wachten met een timer i.p.v. lege rAF-ticks, die de refresh driver
+    // op 120 Hz laten draaien (PO-heropname). Vier ms speling voor de vsync-fase.
+    const early = this.drawnAt + 1_000 / this.maxFps() - 4 - performance.now()
+    if (early > 0) {
+      this.delay = window.setTimeout(() => { this.delay = undefined; this.triggerRepaint() }, early)
+      return
     }
-    this.frame = requestAnimationFrame(tick)
+    this.frame = requestAnimationFrame(() => {
+      this.frame = undefined
+      this.draw()
+    })
   }
 
   /** Eenmalig na de eerstvolgende tekening (bv. TTFR/scrub-latentie). */
@@ -62,7 +67,8 @@ export class LayerOverlay {
 
   remove(): void {
     if (this.frame !== undefined) cancelAnimationFrame(this.frame)
-    this.frame = undefined
+    window.clearTimeout(this.delay)
+    this.frame = this.delay = undefined
     this.map.off('render', this.mapRendered)
     this.map.off('resize', this.resized)
     this.layer.onRemove?.(this.map, this.gl)
