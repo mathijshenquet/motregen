@@ -100,3 +100,48 @@ Desktop-overzicht: `desktop-urenoverzicht.png`; kaartlabel:
   temperatuurlabelframes vielen buiten de kortere spans. Teruggedraaid.
 - Poging 2 (huidig): de ingest splitst uurvelden in dagdelen van 24 leads
   (`-l1-24`, `-l25-48`); de clientregel blijft ongemoeid. Synthgen spiegelt dat.
+- e2e-3 (dagdelen): desktop groen (passief 775.345 B, warm 0 B), Fast 3G
+  832.424 B. e2e-4 (historie laden bij zicht): desktop 785.236 B en 4G
+  790.904 B groen, Fast 3G 831.417 B.
+- Uitsplitsing per bestand (eigen meetscript, zelfde synthdata, main-build
+  ed05b51 tegen de mijne, Fast-3G-profiel): historiechunks ≈ 96 kB (op een
+  telefoon staan de eerste tabelrijen al in beeld), dagdeel 2 ≈ 91 kB
+  (passief tot nu+24 u liep over dagdeel 1 heen), straling ≈ 36 kB, UV +15 kB.
+
+## 2026-09-23 13:35Z — ontwerpcorrecties op bytes, merge main
+
+- **Historie ingeklapt** achter een kopregel "Afgelopen 6 uur tonen" (commit
+  36e…; zie `historie-ingeklapt.png`, `historie-uitgeklapt.png`). De nu-rij
+  staat daardoor bovenaan het zichtbare deel van de tabel; op mobiel hoef je
+  niet eerst 6 verleden-uren door te scrollen, en historie kost bytes pas
+  na een tik. Uitgeklapt: getinte rijen, UV = KNMI-analyse, regen alleen
+  binnen de 3 u RTCOR-historie.
+- **Passieve horizon 18 u.** De oude tabel vroeg +24 u, maar de run-
+  verankerde data reikte tot R+24 ≈ nu+17…20 u. 18 u is dus gelijkwaardig en
+  blijft meestal binnen dagdeel 1. Verdere rijen laden via L2 bij scroll.
+- Merge main (U2 locatie, U5 gevoelstemperatuur): alleen het tabelblok in
+  App.tsx conflicteerde; ForecastTable neemt U5's weergave over (gevoel
+  groot, luchttemp klein, geen switch). U5's `feels_like_c`-body zit in de
+  gedeelde decoder (alleen de aanroep bleef). `cargo fmt` reflowt één assert
+  in U5's test; main zelf is daar niet fmt-schoon (rustfmt --check op
+  main:pipeline.rs → exit 1).
+- Gates op de gemergde boom (f2e31e5 + docs):
+  `cargo fmt --all -- --check` → FMT-EXIT 0; `cargo clippy --workspace --
+  -D warnings` → CLIPPY-EXIT 0; `cargo test --workspace` → CARGO-TEST-EXIT 0
+  (54 passed); Cargo.lock == main, dus geen `nix flake check` nodig.
+  `pnpm typecheck` 0; `pnpm test` 110/110.
+- e2e-5 (gemergde boom), 5/6 groen: passief desktop **590.306 B**, 4G
+  **600.560 B**, Fast 3G **631.385 B** (budget 800.000; main-build op
+  dezelfde synthdata 547.578 B desktop). Warm 0 B, tweede klik 0 requests,
+  manifest-refresh 0 chunkrequests. Eén fout: 4G warm TTFR 4.133,6 ms tegen
+  een grens van 3.500. De host stond op load average 42 (Chromium-e2e van andere
+  tracks tegelijk; fps 20 tegen 45–58 in docs/perf.md). Herhaling volgt op
+  een rustige host.
+- Tweede live daemonrun (dagdelen): `DAEMON-EXIT: 0`; hoofdrun 10Z uit cache
+  (0 B, 38,5 s decode), historierun 06Z 4 leden 68.819.530 B. Dat bevestigt
+  de cachemisser. UV-herkalibratie op deze data (07–13Z, historie 06Z):
+  dezelfde p = 0,35 en k = 0,84, RMSE 0,295.
+- MIP-9 (regenkans) draft geschreven met bronnen geverifieerd via de API:
+  seamless-leden (al gedownload), seamless-kansen 7,7–8,4 MB, HARMONIE EPS
+  P2a gelagd (per uurrun 000 + 5 roterende leden, leads 0–60, ≈ 1,9 GB/run,
+  neerslag als 181+184+201).

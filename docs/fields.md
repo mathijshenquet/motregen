@@ -155,7 +155,9 @@ UTC, n ≈ 62.000 cel-uren, straling uit HARMONIE-runs 05Z (historie) en 10Z:
 | lineair (p = 1, k = 1) | 0,481 | −0,120 | 0,835 |
 | **gefit p = 0,35, k = 0,84** | **0,269** | **+0,004** | **0,438** |
 
-Dit is één ochtend in september met gebroken bewolking. De fit is
+Een tweede run om 13:29Z, met historierun 06Z en het uur 13:00 erbij (n ≈
+71.000), gaf dezelfde optimale p en k met RMSE 0,295 (lineair 0,503). Dit is
+wel nog steeds één septemberdag met gebroken bewolking. De fit is
 bruikbaar voor een "≈"-kolom, maar niet algemeen gevalideerd: lage zon,
 zomerse hoge UV en zware bewolking zijn ondervertegenwoordigd. Herkalibreer
 zodra een paar weken analyses en historiestraling naast elkaar bewaard zijn.
