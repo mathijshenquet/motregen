@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { mixPreparedFields, prepareField } from './isoline-layer'
+import { prepareField } from './isoline-field'
+import { isolineLayerIndices } from './isoline-layer'
 
 describe('isoline GPU field', () => {
   it('fills no-data from valid neighbours but marks it invalid', () => {
@@ -13,11 +14,10 @@ describe('isoline GPU field', () => {
     expect([...prepared.values]).toEqual([0, 0])
   })
 
-  it('mixes prepared fields into interleaved value/validity pairs', () => {
-    const a = prepareField({ width: 2, height: 1, values: Float32Array.of(0, 10) })
-    const b = prepareField({ width: 2, height: 1, values: Float32Array.of(4, Number.NaN) })
-    const out = mixPreparedFields([a, b], [{ index: 0, weight: 0.75 }, { index: 1, weight: 0.25 }], new Float32Array(4))
-    // Het gat in b is met de buurwaarde 4 gevuld en telt als ongeldig mee.
-    expect([...out]).toEqual([1, 1, 7.5 + 1, 0.75])
+  it('names the hourly layers a time slice touches, clamped to the volume', () => {
+    expect(isolineLayerIndices(3.4, 10, 0)).toEqual([3, 4])
+    expect(isolineLayerIndices(3.4, 10, 1)).toEqual([2, 3, 4, 5])
+    expect(isolineLayerIndices(0.2, 10, 1)).toEqual([0, 1, 2])
+    expect(isolineLayerIndices(9, 10, 1)).toEqual([8, 9])
   })
 })

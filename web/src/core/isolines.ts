@@ -7,22 +7,25 @@ export type IsolineStep = typeof ISOLINE_STEPS[number]
 
 export interface IsolineTuning {
   step: IsolineStep
-  /** Oneven graden gestreept, even graden doorgetrokken. */
+  /** Oneven graden gestippeld, even graden doorgetrokken. */
   dashed: boolean
   /** Chaikin op de labelgeometrie. */
   smoothing: boolean
-  /** Aantal 3×3-boxblur-passes op het veld vóór het contouren (2 ≈ Gauss σ 1,2 cel). */
+  /** Aantal 3×3-boxblur-passes op elk uurframe (2 ≈ Gauss σ 1,2 cel). */
   blur: number
-  /** Schaal van de temporele B-spline-kern in frame-intervallen; 0 = lineair tussen twee buurframes. */
+  /** 0 = lineair tussen twee uurframes; 1 = kubische B-spline over vier (C2 in de tijd). */
   window: number
-  /** Minimale tijd tussen twee label-herberekeningen (de lijnen zelf lopen per frame mee). */
-  labelCadenceMs: number
+  /** Ruimtelijk bicubisch samplen i.p.v. bilineair. */
+  bicubic: boolean
+  /** Resolutie van de offscreen contour-snede t.o.v. het canvas. */
+  resolution: number
+  /** Maximale contour-herberekening per seconde bij tijdwijzigingen. */
+  maxHz: number
 }
 
-export const DEFAULT_ISOLINE_TUNING: IsolineTuning = { step: 1, dashed: true, smoothing: true, blur: 2, window: 1, labelCadenceMs: 400 }
+export const DEFAULT_ISOLINE_TUNING: IsolineTuning = { step: 1, dashed: true, smoothing: true, blur: 2, window: 1, bicubic: true, resolution: 0.5, maxHz: 20 }
 
-// Gehele schalen: dan telt de kern op zonder normalisatie tot 1 op en reproduceert hij lineaire trends.
-export const ISOLINE_WINDOWS = [0, 1, 2, 3] as const
+export const ISOLINE_WINDOWS = [0, 1] as const
 
 /** Punten in roosterindex-coördinaten: (kolom, rij) van de celcentra. */
 export interface Isoline {
