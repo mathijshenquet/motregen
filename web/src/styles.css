@@ -20,6 +20,9 @@
   --nowcast: #159bc8;
   --model: #8054b8;
   --shadow: 0 8px 30px rgba(23, 55, 67, .16);
+  --fresh: #23855a;
+  --aging: #a86f00;
+  --stale: #bf4530;
 }
 
 :root[data-theme="dark"] {
@@ -40,6 +43,9 @@
   --nowcast: #3bbde7;
   --model: #ae78df;
   --shadow: 0 8px 32px rgba(0, 0, 0, .4);
+  --fresh: #4cc48b;
+  --aging: #eab13b;
+  --stale: #ef7a64;
 }
 
 * { box-sizing: border-box; }
@@ -556,12 +562,41 @@ td:first-child span.sun-mark { display: block; margin-top: 1px; color: #b07800; 
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
-.map-clock > span { display: flex; align-items: baseline; gap: 5px; padding: 5px 9px; }
+.map-clock > span, .freshness-trigger { display: flex; align-items: baseline; gap: 5px; padding: 5px 9px; }
+.freshness-trigger { border: 0; border-radius: 0; color: inherit; background: none; font: inherit; pointer-events: auto; cursor: pointer; }
+.freshness-trigger:hover, .freshness-trigger:focus-visible { background: color-mix(in srgb, var(--accent-soft) 60%, transparent); outline: none; }
+.freshness-dot { --dot: var(--fresh); width: 7px; height: 7px; flex: none; align-self: center; border-radius: 50%; background: var(--dot); box-shadow: 0 0 0 2px color-mix(in srgb, var(--dot) 22%, transparent); }
+[data-freshness="aging"] .freshness-dot, .freshness-dot[data-status="aging"] { --dot: var(--aging); }
+[data-freshness="stale"] .freshness-dot, .freshness-dot[data-status="stale"],
+[data-freshness="offline"] .freshness-dot, .freshness-dot[data-status="offline"] { --dot: var(--stale); }
+.freshness-age { color: var(--muted); font-size: 11px; font-weight: 650; }
+[data-freshness="aging"] .freshness-age { color: var(--aging); }
+[data-freshness="stale"] .freshness-age, [data-freshness="offline"] .freshness-age { color: var(--stale); }
+.freshness-dialog { font-variant-numeric: tabular-nums; }
+.freshness-dialog .freshness-dot { width: 10px; height: 10px; }
+.freshness-lead { font-size: 14px; }
+.freshness-lead strong { color: var(--fresh); }
+.freshness-lead[data-status="aging"] strong { color: var(--aging); }
+.freshness-lead[data-status="stale"] strong, .freshness-lead[data-status="offline"] strong { color: var(--stale); }
+.freshness-sources dd { display: grid; grid-template-columns: 1fr auto; gap: 0 10px; }
+.freshness-sources dd small { grid-column: 1 / -1; color: var(--muted); font-size: 11px; }
+.freshness-row-age { color: var(--muted); text-align: right; }
+.freshness-meta { color: var(--muted); font-size: 12px; }
+.freshness-refresh { padding: 7px 14px; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--accent); background: transparent; font-size: 12px; font-weight: 700; cursor: pointer; }
+.freshness-refresh:hover:not(:disabled), .freshness-refresh:focus-visible { background: var(--accent-soft); outline: none; }
+.freshness-refresh:disabled { color: var(--muted); cursor: progress; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .map-clock small { color: var(--muted); font-size: 9px; font-weight: 760; letter-spacing: .07em; text-transform: uppercase; }
 .map-clock strong { font-size: 14px; font-weight: 720; }
 .map-clock-map { border-left: 1px solid var(--line); color: var(--history); }
 .map-clock-map.future { color: var(--nowcast); }
 .map-clock-map small { color: inherit; opacity: .8; }
+@media (max-width: 430px) {
+  .map-clock { flex-direction: column; align-items: stretch; }
+  .map-clock > span, .freshness-trigger { gap: 4px; padding: 4px 8px; }
+  .map-clock-map { border-top: 1px solid var(--line); border-left: 0; }
+  .map-clock strong { font-size: 13px; }
+}
 tr.history-toggle-row td { padding: 0; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface-soft) 70%, var(--surface)); }
 .history-toggle { display: flex; width: 100%; align-items: center; gap: 7px; padding: 7px 0; border: 0; color: var(--muted); background: none; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-align: left; }
 .history-toggle:hover, .history-toggle:focus-visible { color: var(--text); }
