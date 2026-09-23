@@ -41,6 +41,20 @@
   historie ingeklapt, isolijnkleur/stippel, wind-fades/buffer-rest, spawn-jitter;
   odometer-stadslabels (kost t3j-dodge tenzij eigen collision); ~60 px lege band
   onder de kaart op mobiel (U7); MIP-9 regenkans (draft, optie A aanbevolen).
+- **U8c (avond, na PO-Firefox-profielen)**: fans op de MacBook kwamen NIET van de
+  isolijnen (~3 % van één core) maar van de windlaag (continue kaartrepaint 95–112 Hz),
+  regen-heruploads per frame en `fadeDuration: 0` (volledige symboolplaatsing per
+  render). Fix: wind, regen én isolijnen op eigen canvassen (kaart in rust 0 repaints),
+  regen-upload alleen bij framewissel, isolijnpass ½-res in CSS-px, render alleen in
+  het fps-venster. PO-heropname: CanvasRenderer 76 % → 11 %, Renderer 87 % → 42 %.
+  Stilstandbug gevonden: gevoelstemp-tijdlijn begint bij het eerste HARMONIE-frame,
+  regenhistorie 3 u eerder → blend klemde op frame 0 (groeit na elke refresh); nu
+  faden isolijnen/labels buiten de uurframes, plus invalidatie per uurlaag bij een
+  nieuwe run met gelijke lengte. Extra: vervagen op |∇T| (default 0,02–0,06 °C/km,
+  gekalibreerd op prod; snelheidsmodus ter vergelijking), perf-HUD met kaart-
+  repaints/s, regen/wind-frames/s, isolijn-passes/s + ms/pass. Merged, 191 tests,
+  e2e 20/20. Voor PO: isolijnen liggen nu bóven plaatsnamen (ok?); derde Firefox-
+  opname gevraagd (met en zonder focus).
 - **Open VOOR AGENTS**: bestaande bug — stadstemperatuurlabels verdwijnen na
   runtime-themawissel (U8b, ook op main vóór U8b); mobiele themaknop nog
   cyclus vs segmented in sidebar (U9); Freshness-verversknop → Lucide
