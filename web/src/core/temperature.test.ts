@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MrfHeader } from './contract'
-import { selectTemperaturePlaces, TEMPERATURE_LABEL_SPACING_PX, TEMPERATURE_VARIABLE_ANCHORS, temperatureLabels, temperatureLayer, temperaturePlaces } from './temperature'
+import { selectTemperaturePlaces, temperatureLabelSpacingPx, TEMPERATURE_VARIABLE_ANCHORS, temperatureLabels, temperatureLayer, temperaturePlaces } from './temperature'
 
 describe('temperature labels', () => {
   it('interpolates values in time and omits cities outside the field grid', () => {
@@ -69,9 +69,9 @@ describe('temperature place selection', () => {
     expect([...assigned].sort()).toEqual(temperaturePlaces.map((place) => place.name).sort())
   })
 
-  it.each([5.5, 6, 6.5, 7, 7.5, 8, 9])('leaves no candidate further than the spacing from a label at zoom %s', (zoom) => {
-    const chosen = selectTemperaturePlaces(zoom).map(mercator)
-    const spacing = TEMPERATURE_LABEL_SPACING_PX * metersPerPixel(zoom)
+  it.each([[5.5, 56], [6, 56], [6.5, 96], [7, 96], [7.5, 96], [8, 72], [9, 96]])('leaves no candidate further than the spacing from a label at zoom %s, %s px', (zoom, spacingPx) => {
+    const chosen = selectTemperaturePlaces(zoom, spacingPx).map(mercator)
+    const spacing = spacingPx * metersPerPixel(zoom)
     for (const candidate of temperaturePlaces.map(mercator)) {
       expect(Math.min(...chosen.map(([x, y]) => Math.hypot(x - candidate[0], y - candidate[1])))).toBeLessThan(spacing)
     }
@@ -80,24 +80,35 @@ describe('temperature place selection', () => {
     }
   })
 
+  it('scales the spacing with the map and clamps it', () => {
+    expect(temperatureLabelSpacingPx(393, 408)).toBe(56)
+    expect(temperatureLabelSpacingPx(970, 900)).toBe(96)
+    expect(temperatureLabelSpacingPx(200, 200)).toBe(56)
+    expect(temperatureLabelSpacingPx(560, 700)).toBe(80)
+  })
+
+  // Overview zooms after U6 (contain): Pixel 5 ≈ 5.6, desktop 1440×900 ≈ 7.0.
   it('shows about ten labels on the overview and twenty or more zoomed in', () => {
-    expect(selectTemperaturePlaces(6.5).length).toBeGreaterThanOrEqual(10)
-    expect(selectTemperaturePlaces(6.5).length).toBeLessThanOrEqual(16)
-    expect(selectTemperaturePlaces(7).length).toBeGreaterThanOrEqual(20)
-    expect(selectTemperaturePlaces(7.5).length).toBeGreaterThan(30)
+    const phone = temperatureLabelSpacingPx(393, 408), desktop = temperatureLabelSpacingPx(970, 900)
+    expect(selectTemperaturePlaces(5.6, phone).length).toBeGreaterThanOrEqual(9)
+    expect(selectTemperaturePlaces(5.6, phone).length).toBeLessThanOrEqual(16)
+    expect(selectTemperaturePlaces(7, desktop).length).toBeGreaterThanOrEqual(10)
+    expect(selectTemperaturePlaces(7, desktop).length).toBeLessThanOrEqual(20)
+    expect(selectTemperaturePlaces(7, phone).length).toBeGreaterThanOrEqual(20)
+    expect(selectTemperaturePlaces(7.5, desktop).length).toBeGreaterThanOrEqual(20)
   })
 
-  it.each([5, 5.5, 6, 6.5, 7])('always labels Zeeland at overview zoom %s', (zoom) => {
-    expect(selectTemperaturePlaces(zoom).some((place) => provinces.Zeeland!.includes(place.name))).toBe(true)
+  it.each([[5, 56], [5.5, 56], [6, 56], [6.5, 96], [7, 96], [6.5, 72]])('always labels Zeeland at overview zoom %s, %s px', (zoom, spacingPx) => {
+    expect(selectTemperaturePlaces(zoom, spacingPx).some((place) => provinces.Zeeland!.includes(place.name))).toBe(true)
   })
 
-  it('covers every province once zoomed in to 7', () => {
-    const chosen = new Set(selectTemperaturePlaces(7).map((place) => place.name))
+  it('covers every province once zoomed in', () => {
+    const chosen = new Set(selectTemperaturePlaces(7, 72).map((place) => place.name))
     for (const [province, names] of Object.entries(provinces)) expect(names.some((name) => chosen.has(name)), province).toBe(true)
   })
 
   it('grows monotonically denser with zoom and with a smaller spacing', () => {
-    expect(selectTemperaturePlaces(8).length).toBeGreaterThan(selectTemperaturePlaces(7).length)
+    expect(selectTemperaturePlaces(8, 96).length).toBeGreaterThan(selectTemperaturePlaces(7, 96).length)
     expect(selectTemperaturePlaces(7, 60).length).toBeGreaterThan(selectTemperaturePlaces(7, 120).length)
   })
 })

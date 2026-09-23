@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@solidjs/testing-library'
 import { createSignal } from 'solid-js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { TimelineFrame } from '../core/contract'
-import HistogramScrubber from './HistogramScrubber'
+import HistogramScrubber, { hourLabelStep } from './HistogramScrubber'
 
 afterEach(cleanup)
 
@@ -17,6 +17,19 @@ function frame(time: string, source: TimelineFrame['source']): TimelineFrame {
     chunk: { url: time, source, run: time, header_len: 8, times: [time] },
   }
 }
+
+describe('hour label step', () => {
+  it('labels every hour when there is room and thins out so labels never touch', () => {
+    expect(hourLabelStep(8, 330)).toBe(1)
+    expect(hourLabelStep(10, 280)).toBe(2)
+    expect(hourLabelStep(24, 330)).toBe(3)
+    expect(hourLabelStep(50, 330)).toBe(6)
+    expect(hourLabelStep(50, 1200)).toBe(2)
+    for (const [span, width] of [[3, 200], [8, 280], [24, 330], [60, 330], [60, 900]] as const) {
+      expect(width / (span / hourLabelStep(span, width))).toBeGreaterThanOrEqual(34)
+    }
+  })
+})
 
 describe('histogram scrubber', () => {
   it('is the only slider and supports keyboard scrubbing across visible regimes', () => {
@@ -91,7 +104,9 @@ describe('histogram scrubber', () => {
     onCursor.mockClear()
     fireEvent.pointerMove(slider, { clientX: 400, pointerId: 1, pointerType: 'mouse' })
     expect(onCursor).not.toHaveBeenCalled()
-    expect(screen.getByText('15u')).toBeTruthy()
+    expect(screen.getByText('16u')).toBeTruthy()
+    // the hour label under the now marker gives way to the "Nu" pill
+    expect(screen.queryByText('15u')).toBeNull()
   })
 
   it('temporarily pauses autoplay for hover and drag interactions', () => {

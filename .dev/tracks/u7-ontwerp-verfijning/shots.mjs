@@ -15,6 +15,8 @@ for (const profile of profiles) {
   const context = await browser.newContext({ ...profile.options, locale: 'nl-NL', timezoneId: 'Europe/Amsterdam', colorScheme: 'light' })
   const page = await context.newPage()
   await page.goto(url)
+  await page.waitForTimeout(700)
+  if (await page.locator('.map-splash:not(.ready)').count()) await page.screenshot({ path: `${out}/${prefix}-${profile.id}-splash.png` })
   await page.waitForSelector('.map-splash.ready', { timeout: 60_000 })
   await page.waitForTimeout(6_000)
   // CLICK="x,y;x,y" (desktop;pixel5, CSS px on the map) picks a location first.
@@ -28,6 +30,12 @@ for (const profile of profiles) {
   await page.locator('.scrubber').screenshot({ path: `${out}/${prefix}-${profile.id}-scrubber.png` })
   const box = await page.locator('.map-shell').boundingBox()
   await page.screenshot({ path: `${out}/${prefix}-${profile.id}-corner.png`, clip: { x: box.x + box.width - 260, y: box.y + box.height - 90, width: 260, height: 90 } })
+  if (await page.locator('.about-button').count()) {
+    await page.locator('.about-button').click()
+    await page.waitForTimeout(300)
+    await page.screenshot({ path: `${out}/${prefix}-${profile.id}-about.png` })
+    await page.keyboard.press('Escape')
+  }
   await context.close()
 }
 await browser.close()

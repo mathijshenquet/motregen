@@ -115,12 +115,19 @@ export interface TemperaturePlace {
 
 // Minimum on-screen distance between two temperature labels. Every candidate
 // that is left out lies within this distance of a chosen one, so the spacing
-// is also the largest label-free gap over the country. Tunable in ?dev.
-export const TEMPERATURE_LABEL_SPACING_PX = 84
+// is also the largest label-free gap over the country. It scales with the map
+// so a phone gets about as many labels on the overview as a desktop; ?dev has
+// a pixel override.
+export const TEMPERATURE_LABEL_SPACING = { viewportFraction: 1 / 7, minimumPx: 56, maximumPx: 96 } as const
+
+export function temperatureLabelSpacingPx(width: number, height: number): number {
+  const { viewportFraction, minimumPx, maximumPx } = TEMPERATURE_LABEL_SPACING
+  return Math.round(Math.max(minimumPx, Math.min(maximumPx, Math.min(width, height) * viewportFraction)))
+}
 
 export function selectTemperaturePlaces(
   zoom: number,
-  spacingPx = TEMPERATURE_LABEL_SPACING_PX,
+  spacingPx: number,
   candidates: readonly TemperaturePlace[] = temperaturePlaces,
 ): TemperaturePlace[] {
   // Half-zoom steps keep the set stable while pinching.

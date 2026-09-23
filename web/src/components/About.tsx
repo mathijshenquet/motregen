@@ -29,7 +29,7 @@ export default function About() {
           <button type="button" class="about-close" aria-label="Sluiten" onClick={close} autofocus>×</button>
         </header>
         <p class="about-lead">Data rechtstreeks van het KNMI. Gratis, zonder reclame, open source.</p>
-        <p>Eén tijdlijn van gemeten regen tot de verwachting voor overmorgen:</p>
+        <p>Eén tijdlijn, van de regen die viel tot de verwachting voor morgen:</p>
         <dl>
           <dt>Radar</dt><dd>gemeten neerslag van de KNMI-radar, elke 5 minuten</dd>
           <dt>Nowcast</dt><dd>KNMI-neerslagverwachting voor de komende 2 uur</dd>

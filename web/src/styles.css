@@ -141,6 +141,28 @@ button { color: inherit; cursor: pointer; }
 .map-splash.ready .map-splash-mark img { transform: translateY(75vh); }
 .map-splash-mark strong { font-family: "Avenir Next", Avenir, "Trebuchet MS", ui-sans-serif, sans-serif; font-size: clamp(28px, 5vw, 46px); font-weight: 600; letter-spacing: .015em; opacity: 1; transition: opacity var(--splash-mark-duration) ease-out; }
 .map-splash.ready .map-splash-mark strong { opacity: 0; }
+/* Loading signal while the map is not ready: the droplet bobs (via `translate`, so the
+   `transform` fall on ready still composes) and a ripple spreads where it lands. */
+.map-splash-mark img { animation: splash-bob 1.6s cubic-bezier(.45, 0, .55, 1) infinite; }
+.map-splash-mark::before {
+  position: absolute;
+  top: 124px;
+  left: 50%;
+  width: 84px;
+  height: 18px;
+  margin-left: -42px;
+  border: 2px solid #59d8ff;
+  border-radius: 50%;
+  opacity: 0;
+  content: '';
+  animation: splash-ripple 1.6s ease-out infinite;
+  pointer-events: none;
+}
+.map-splash.ready .map-splash-mark img { animation: none; }
+.map-splash.ready .map-splash-mark::before { animation: none; opacity: 0; }
+@keyframes splash-bob { 0%, 100% { translate: 0 -9px; } 50% { translate: 0 3px; } }
+@keyframes splash-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+@keyframes splash-ripple { 0%, 45% { opacity: 0; scale: .25; } 55% { opacity: .75; scale: .4; } 100% { opacity: 0; scale: 1.25; } }
 .source {
   position: absolute;
   right: 0;
@@ -171,7 +193,9 @@ button { color: inherit; cursor: pointer; }
 }
 .about-button:hover, .about-button:focus-visible { color: #fff; border-color: #fff; background: rgba(255, 255, 255, .14); outline: none; }
 .about-dialog {
+  inset: 0;
   width: min(420px, calc(100vw - 32px));
+  margin: auto;
   max-height: calc(100dvh - 32px);
   padding: 0;
   border: 1px solid var(--line);
@@ -415,8 +439,8 @@ button { color: inherit; cursor: pointer; }
 .x-axis { position: absolute; top: calc(100% + 7px); right: 0; left: 0; color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; pointer-events: none; }
 .x-axis span { position: absolute; transform: translateX(-50%); }
 .x-axis span.midnight { color: var(--text); font-weight: 760; }
-.regimes { position: relative; height: 30px; margin: 0 10px 0 41px; color: var(--muted); font-size: 10px; font-weight: 750; letter-spacing: .075em; text-transform: uppercase; }
-.regimes span { position: absolute; top: 0; min-width: 28px; padding: 7px 4px 0; border-top: 3px solid var(--history); overflow: hidden; white-space: nowrap; }
+.regimes { position: relative; height: 30px; margin: 0 10px 0 41px; color: var(--muted); font-size: 10px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; }
+.regimes span { position: absolute; top: 0; min-width: 28px; padding: 7px 3px 0; border-top: 3px solid var(--history); overflow: hidden; white-space: nowrap; }
 .regimes .nowcast { border-color: var(--nowcast); }
 .regimes .model { border-color: var(--model); }
 
@@ -472,6 +496,8 @@ td small { color: var(--muted); font-size: 9px; }
 
 @media (prefers-reduced-motion: reduce) {
   .map-splash, .map-splash-veil, .map-splash-mark { transition-duration: 1ms; transition-delay: 0s; }
+  .map-splash-mark img { animation: splash-breathe 2.4s ease-in-out infinite; }
+  .map-splash-mark::before { display: none; }
   .scrubber-placeholder-bars i { animation: none; }
 }
 
