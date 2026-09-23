@@ -30,11 +30,18 @@ export function loadBasemapStyle(theme: MapTheme): Promise<StyleSpecification> {
 export function prepareBasemapStyle(style: StyleSpecification, theme: MapTheme): StyleSpecification {
   const layers = style.layers.filter((layer) => {
     const sourceLayer = 'source-layer' in layer ? layer['source-layer'] : undefined
+    if (sourceLayer === 'place' && 'filter' in layer && (
+      mentions(layer.filter, ['==', ['get', 'class'], 'country'])
+      || mentions(layer.filter, ['==', ['get', 'capital'], 2])
+    )) return false
     return sourceLayer !== 'transportation' && sourceLayer !== 'transportation_name'
   }).map((layer) => {
     const sourceLayer = 'source-layer' in layer ? layer['source-layer'] : undefined
-    const filtered = sourceLayer === 'boundary' ? withoutMaritimeBoundaries(layer) : layer
-    return theme === 'dark' ? darkenLibertyLayer(filtered) : filtered
+    const filtered = sourceLayer === 'boundary' ? withoutMaritimeBoundaries(layer)
+      : sourceLayer === 'place' ? withoutCapitalExclusion(layer)
+        : layer
+    const named = withDutchNames(filtered)
+    return theme === 'dark' ? darkenLibertyLayer(named) : named
   })
   let boundaryIndex = -1
   for (let index = layers.length - 1; index >= 0; index--) {
@@ -68,6 +75,32 @@ function provinceBoundaryLayer(boundary: StyleSpecification['layers'][number], t
       'line-dasharray': [2, 1.5],
     },
   }
+}
+
+// Liberty labels in English (`name_en`) and draws capitals in a separate,
+// larger layer; on a Dutch map both are noise. The capital layer is dropped
+// above and its `capital != 2` exclusion here, so Amsterdam labels as a city.
+function withDutchNames(layer: StyleSpecification['layers'][number]): StyleSpecification['layers'][number] {
+  if (layer.type !== 'symbol' || !mentions(layer.layout?.['text-field'], ['get', 'name_en'])) return layer
+  return { ...layer, layout: { ...layer.layout, 'text-field': ['coalesce', ['get', 'name:nl'], ['get', 'name']] } }
+}
+
+function withoutCapitalExclusion(layer: StyleSpecification['layers'][number]): StyleSpecification['layers'][number] {
+  const filter = 'filter' in layer ? layer.filter as unknown : undefined
+  if (!Array.isArray(filter) || filter[0] !== 'all') return layer
+  const exclusion = ['!=', ['get', 'capital'], 2]
+  const kept = filter.slice(1).filter((clause) => !sameExpression(clause, exclusion))
+  if (kept.length === filter.length - 1) return layer
+  return { ...layer, filter: kept.length === 1 ? kept[0] : ['all', ...kept] } as unknown as typeof layer
+}
+
+function mentions(expression: unknown, needle: unknown): boolean {
+  if (sameExpression(expression, needle)) return true
+  return Array.isArray(expression) && expression.some((part) => mentions(part, needle))
+}
+
+function sameExpression(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right)
 }
 
 function withoutMaritimeBoundaries(layer: StyleSpecification['layers'][number]): StyleSpecification['layers'][number] {

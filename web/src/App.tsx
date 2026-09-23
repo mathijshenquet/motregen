@@ -20,6 +20,7 @@ import { nearestPlace } from './core/places'
 import { startFrameLoop } from './core/playback'
 import { installPerfMonitor } from './core/perf'
 import { RainLayer } from './core/rain-layer'
+import { loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastSavedPlaceId, storeMapView } from './core/location-memory'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
 import { solarElevationSin } from './core/solar'
@@ -32,7 +33,7 @@ import { deriveWeatherIcon, summarizeWind } from './core/weather'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
 const perf = installPerfMonitor()
-const defaultLocation = { lng: 5.18, lat: 52.1 }
+const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
 const mapMovementBounds = paddedGeographicBounds(NETHERLANDS_FLANDERS_BOUNDS, { west: 0.05, south: 0.1, east: 0.15, north: 0.1 })
 const themes = ['light', 'system', 'dark'] as const
 type ThemeChoice = typeof themes[number]
@@ -69,6 +70,7 @@ export default function App() {
   let cloudEdgeLayer: CloudEdgeLayer | undefined
   let windGrid: Grid | undefined
   let splashReplayTimer: number | undefined
+  let mapViewTimer: number | undefined
   let stopManifestRefresh: (() => void) | undefined
   let shownFrameRequest = 0
   let shownWindRequest = 0
@@ -104,9 +106,12 @@ export default function App() {
   const [cursor, setCursor] = createSignal(0)
   const [playing, setPlaying] = createSignal(true)
   const [timeHorizonHours, setTimeHorizonHours] = createSignal<number | null>(8)
-  const [location, setLocation] = createSignal(defaultLocation)
-  const [locationLabel, setLocationLabel] = createSignal('De Bilt')
-  const [savedPlaces, setSavedPlaces] = createSignal<SavedPlace[]>(loadSavedPlaces())
+  const initialSavedPlaces = loadSavedPlaces()
+  const initialMapView = loadMapView()
+  const startLocation = resolveStartLocation(initialSavedPlaces, loadLastSavedPlaceId(), initialMapView, defaultLocation)
+  const [location, setLocation] = createSignal({ lng: startLocation.lng, lat: startLocation.lat })
+  const [locationLabel, setLocationLabel] = createSignal(startLocation.label)
+  const [savedPlaces, setSavedPlaces] = createSignal<SavedPlace[]>(initialSavedPlaces)
   const [rainSeries, setRainSeries] = createSignal<Array<number | null>>([])
   const [rainLoaded, setRainLoaded] = createSignal<boolean[]>([])
   const [pointSeriesLoading, setPointSeriesLoading] = createSignal(true)
@@ -164,8 +169,8 @@ export default function App() {
       map = new maplibregl.Map({
         container: mapElement,
         style,
-        center: [5.3, 52.15],
-        zoom: 6.4,
+        center: initialMapView ? [initialMapView.lng, initialMapView.lat] : [5.3, 52.15],
+        zoom: initialMapView?.zoom ?? 6.4,
         maxBounds: mapMovementBounds,
         renderWorldCopies: false,
         attributionControl: false,
@@ -174,6 +179,7 @@ export default function App() {
       applyMapDetailLimit(minimumMapWidthKm())
       syncSavedMarkers(savedPlaces())
       map.on('style.load', () => attachMapLayers(header.grid))
+      map.on('moveend', rememberMapView)
       map.on('click', (event) => pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name))
       if (mapTheme() !== appliedMapTheme) void applyMapTheme(mapTheme())
     } catch (error) {
@@ -183,6 +189,7 @@ export default function App() {
 
   onCleanup(() => {
     window.clearTimeout(splashReplayTimer)
+    window.clearTimeout(mapViewTimer)
     stopManifestRefresh?.()
     cancelPointLoad(pointLoad)
     for (const savedMarker of savedMarkers) savedMarker.remove()
@@ -436,7 +443,7 @@ export default function App() {
         void attachWindLayer()
         if (!initialPickStarted) {
           initialPickStarted = true
-          pick(defaultLocation.lng, defaultLocation.lat, 'De Bilt')
+          pick(startLocation.lng, startLocation.lat, startLocation.label)
         }
       })
     }
@@ -925,6 +932,20 @@ export default function App() {
     pick(point.lng, point.lat, label)
   }
 
+  function chooseSaved(place: SavedPlace): void {
+    storeLastSavedPlaceId(place.id)
+    pick(place.lng, place.lat, place.name)
+  }
+
+  function rememberMapView(): void {
+    window.clearTimeout(mapViewTimer)
+    mapViewTimer = window.setTimeout(() => {
+      if (!map) return
+      const center = map.getCenter()
+      storeMapView({ lng: center.lng, lat: center.lat, zoom: map.getZoom() })
+    }, 500)
+  }
+
   function saveCurrentPlace(name: string): void {
     const point = location()
     const sourceLabel = locationLabel()
@@ -951,7 +972,7 @@ export default function App() {
       element.addEventListener('pointerdown', (event) => event.stopPropagation())
       element.addEventListener('click', (event) => {
         event.stopPropagation()
-        chooseSearch(place, place.name)
+        chooseSaved(place)
       })
       savedMarkers.push(new Marker({ element, anchor: 'center' }).setLngLat([place.lng, place.lat]).addTo(map))
     }
@@ -1069,6 +1090,7 @@ export default function App() {
         onRemove={removeSavedPlace}
         onSave={saveCurrentPlace}
         onSelect={chooseSearch}
+        onSelectSaved={chooseSaved}
       />
       <Show when={hasBothTemperatures()}>
         <div class="temperature-switch" role="group" aria-label="Temperatuurlaag">
