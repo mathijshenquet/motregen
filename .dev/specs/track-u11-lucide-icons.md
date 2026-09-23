@@ -45,3 +45,17 @@ LOG. Screenshots vóór/na desktop + Pixel 5, licht + donker. Draft-PR
 vroeg. Geen codex. U9 (histogram) en U8b (isolijnen) werken parallel:
 houd je diffs klein en per component; play/pauze in HistogramScrubber
 alleen de glyph-regel.
+
+## Aanvulling PO (2026-09-23, punt 5): About via het merk linksonder
+
+De About-dialog opent nu via een losse "i"-knop rechtsonder bij de
+bronregel. PO: "doe dat liever op motregen.nl linksonder". Maak het
+motregen.nl-merkpilletje (`.map-brand`, desktop linksonder) de ingang voor
+de About-dialog: klik/tik = About, met een klein Lucide `Info`-icoon in
+het pilletje als affordance. De verborgen triple-tap voor de perf-HUD
+blijft werken op hetzelfde element (single click → About mag de triple-
+tap niet breken: open About pas na de click-timeout of op `click` met
+`detail === 1` en annuleer bij `detail >= 2`; e2e `perf.spec` "logo
+triple-tap" moet groen blijven). De "i"-knop rechtsonder vervalt; de
+bronregel blijft. Op mobiel staat het merk bovenaan — daar geldt hetzelfde
+gedrag op dezelfde plek.
