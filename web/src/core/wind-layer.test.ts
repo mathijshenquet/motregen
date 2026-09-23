@@ -2,14 +2,18 @@ import { describe, expect, it } from 'vitest'
 import {
   advanceLife,
   bufferDecay,
+  cellDispersion,
   DEFAULT_WIND_TUNING,
   expectedLifetime,
+  jitteredCellPoint,
+  leastOccupiedCell,
+  occupancyGrid,
   headAlpha,
   loadWindTuning,
   particleCountForViewport,
   pickSpawn,
   sanitizeWindTuning,
-  spawnAcceptance,
+  speedDamping,
   storeWindTuning,
   trailFloor,
   trailTargetSize,
@@ -93,65 +97,115 @@ describe('wind particle life', () => {
   })
 })
 
-describe('wind spawn balance', () => {
-  // 1D-wereld: west (x < 0,5) harde wind, oost zwakke wind; N slots die steeds respawnen.
-  function spawnWorld(spawnBalance: number) {
-    const tuning = { ...DEFAULT_WIND_TUNING, spawnBalance }
-    let state = 12345
-    const random = () => (state = (state * 1_103_515_245 + 12_345) % 2 ** 31) / 2 ** 31
-    const speedAt = (x: number) => x < 0.5 ? windScreenSpeed(16) : windScreenSpeed(3)
-    const bounds = { west: 0, north: 0, east: 1, south: 1 }
-    const occupancy = [0, 0]
-    const ink = [0, 0]
-    for (let particle = 0; particle < 200; particle++) {
-      let elapsed = 0
-      while (elapsed < 200) {
-        const [x] = pickSpawn(bounds, 32, random, (candidateX) => spawnAcceptance(speedAt(candidateX), tuning))
-        const lifetime = expectedLifetime(speedAt(x), tuning)
-        occupancy[x < 0.5 ? 0 : 1] += lifetime
-        ink[x < 0.5 ? 0 : 1] += Math.min(tuning.trailDistance, speedAt(x) * lifetime)
-        elapsed += lifetime
-      }
-    }
-    return { heads: occupancy[0]! / occupancy[1]!, ink: ink[0]! / ink[1]! }
+describe('wind spawn', () => {
+  function lcg(seed: number) {
+    let state = seed
+    return () => (state = (state * 16_807) % 2_147_483_647) / 2_147_483_647
   }
 
-  it('balance 0 spawns uniformly: equal ink per area in fast and slow wind', () => {
-    const { ink, heads } = spawnWorld(0)
-    expect(ink).toBeGreaterThan(0.93)
-    expect(ink).toBeLessThan(1.07)
-    expect(heads).toBeLessThan(0.3)
+  // Stilstaande particles op een 10×10-raster (100 slots); west harde wind (korte levens),
+  // oost zwakke wind. Tijdgemiddelde koppen en inkt per helft plus spreiding over de cellen.
+  function spawnWorld(jitter: number, gamma = 1) {
+    const tuning = { ...DEFAULT_WIND_TUNING, spawnJitter: jitter }
+    const random = lcg(4242)
+    const [columns, rows] = [10, 10]
+    const slots = columns * rows
+    const speeds = [16, 3]
+    const xs = new Float64Array(slots)
+    const ys = new Float64Array(slots)
+    const deaths = new Float64Array(slots)
+    const counts = new Uint16Array(slots)
+    const heads = [0, 0]
+    const ink = [0, 0]
+    let dispersionSum = 0
+    let samples = 0
+    const place = (slot: number, now: number) => {
+      const cell = leastOccupiedCell(counts, slots, random())
+      const [x, y] = jitteredCellPoint(cell, columns, rows, tuning.spawnJitter, random)
+      xs[slot] = x
+      ys[slot] = y
+      const half = x < 0.5 ? 0 : 1
+      const speedPx = windScreenSpeed(speeds[half]!)
+      deaths[slot] = now + expectedLifetime(speedPx, tuning)
+      ink[half]! += Math.min(tuning.trailDistance, speedPx * expectedLifetime(speedPx, tuning)) * speedDamping(speeds[half]!, gamma)
+    }
+    const recount = () => {
+      counts.fill(0)
+      for (let slot = 0; slot < slots; slot++) counts[Math.floor(ys[slot]! * rows) * columns + Math.floor(xs[slot]! * columns)]!++
+    }
+    for (let slot = 0; slot < slots; slot++) {
+      place(slot, random() * 2)
+      recount()
+    }
+    for (let now = 0; now < 200; now += 0.05) {
+      recount()
+      for (let slot = 0; slot < slots; slot++) {
+        if (deaths[slot]! > now) continue
+        counts[Math.floor(ys[slot]! * rows) * columns + Math.floor(xs[slot]! * columns)]!--
+        place(slot, now)
+        counts[Math.floor(ys[slot]! * rows) * columns + Math.floor(xs[slot]! * columns)]!++
+      }
+      if (now < 20) continue
+      for (let slot = 0; slot < slots; slot++) heads[xs[slot]! < 0.5 ? 0 : 1]!++
+      dispersionSum += cellDispersion(xs, ys, slots, 5, 5)
+      samples++
+    }
+    return { heads: heads[0]! / heads[1]!, ink: ink[0]! / ink[1]!, dispersion: dispersionSum / samples }
+  }
+
+  it('respawns into the emptiest cell: even head density in fast and slow wind for any jitter', () => {
+    for (const jitter of [0, DEFAULT_WIND_TUNING.spawnJitter, 1]) {
+      const { heads, dispersion } = spawnWorld(jitter)
+      expect(heads, `jitter ${jitter}`).toBeGreaterThan(0.9)
+      expect(heads, `jitter ${jitter}`).toBeLessThan(1.1)
+      // Uniform random zou ~1 geven (Poisson); hier blijft het ver daaronder.
+      expect(dispersion, `jitter ${jitter}`).toBeLessThan(0.3)
+    }
   })
 
-  it('balance 1 equalises head density instead, at the cost of more ink in fast wind', () => {
-    const { ink, heads } = spawnWorld(1)
-    expect(heads).toBeGreaterThan(0.93)
-    expect(heads).toBeLessThan(1.07)
-    expect(ink).toBeGreaterThan(3)
+  it('damps heads in hard wind so ink per area stays speed-independent at gamma 1', () => {
+    const undamped = spawnWorld(DEFAULT_WIND_TUNING.spawnJitter, 0)
+    const damped = spawnWorld(DEFAULT_WIND_TUNING.spawnJitter, 1)
+    expect(undamped.ink).toBeGreaterThan(3)
+    expect(damped.ink).toBeGreaterThan(0.8)
+    expect(damped.ink).toBeLessThan(1.25)
+    expect(speedDamping(2, 1)).toBe(1)
+    expect(speedDamping(6, 1)).toBeCloseTo(0.5)
+    expect(speedDamping(6, 0)).toBe(1)
   })
 
-  it('negative balance thins out fast wind, lowering its share of the ink', () => {
-    const neutral = spawnWorld(0)
-    const thinned = spawnWorld(-0.5)
-    expect(thinned.ink).toBeLessThan(0.85 * neutral.ink)
-    for (const balance of [-1, -0.5, 0, 0.5, 1]) {
-      for (const speedPx of [0, 10, 100, 1_000]) {
-        const acceptance = spawnAcceptance(speedPx, { ...DEFAULT_WIND_TUNING, spawnBalance: balance })
-        expect(acceptance).toBeGreaterThan(0)
-        expect(acceptance).toBeLessThanOrEqual(1)
+  it('jitters around the cell centre without leaving the cell', () => {
+    expect(jitteredCellPoint(5, 4, 2, 0, () => 0.9)).toEqual([0.375, 0.75])
+    const random = lcg(1)
+    for (const jitter of [0, 0.3, 0.6, 1]) {
+      for (let cell = 0; cell < 8; cell++) {
+        const [x, y] = jitteredCellPoint(cell, 4, 2, jitter, random)
+        expect(Math.floor(x * 4) + Math.floor(y * 2) * 4, `cel ${cell}, jitter ${jitter}`).toBe(cell)
       }
     }
+  })
+
+  it('picks the emptiest cell with a random tie-break start and sizes square-ish cells', () => {
+    expect(leastOccupiedCell([3, 0, 2, 5], 4, 0.9)).toBe(1)
+    expect(leastOccupiedCell([1, 0, 1, 0], 4, 0.6)).toBe(3)
+    expect(leastOccupiedCell([1, 0, 1, 0], 4, 0)).toBe(1)
+    expect(occupancyGrid(1_280, 720, 570)).toEqual([32, 18])
+    expect(occupancyGrid(393, 727, 177)).toEqual([10, 18])
+  })
+
+  it('computes dispersion 0 for a perfectly even grid', () => {
+    expect(cellDispersion([0.25, 0.75, 0.25, 0.75], [0.25, 0.25, 0.75, 0.75], 4, 2, 2)).toBe(0)
+    expect(cellDispersion([0.1, 0.1], [0.1, 0.1], 2, 2, 1)).toBe(1)
   })
 
   it('avoids spawning where there is no wind data unless every candidate lacks it', () => {
-    let state = 7
-    const random = () => (state = (state * 16_807) % 2_147_483_647) / 2_147_483_647
-    const bounds = { west: 0, north: 0, east: 1, south: 1 }
+    const random = lcg(7)
+    const uniform = (): [number, number] => [random(), random()]
     for (let draw = 0; draw < 200; draw++) {
-      const [x] = pickSpawn(bounds, 32, random, (candidateX) => candidateX < 0.5 ? 0 : 1)
+      const [x] = pickSpawn(32, uniform, random, (candidateX) => candidateX < 0.5 ? 0 : 1)
       if (x < 0.5) expect.fail('spawn in gebied zonder wind terwijl er alternatieven waren')
     }
-    const [x, y] = pickSpawn(bounds, 32, random, () => 0)
+    const [x, y] = pickSpawn(32, uniform, random, () => 0)
     expect(x).toBeGreaterThanOrEqual(0)
     expect(y).toBeLessThanOrEqual(1)
   })

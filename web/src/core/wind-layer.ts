@@ -18,7 +18,8 @@ export interface WindTuning {
   fadeInPx: number
   fadeOutPx: number
   maxAge: number
-  spawnBalance: number
+  spawnJitter: number
+  speedDamping: number
   bufferFade: number
   bufferDpr: number
   headIntensity: number
@@ -34,7 +35,8 @@ export const DEFAULT_WIND_TUNING: WindTuning = {
   fadeInPx: 15,
   fadeOutPx: 30,
   maxAge: 6,
-  spawnBalance: -0.6,
+  spawnJitter: 0.6,
+  speedDamping: 0.7,
   // 0,955 per frame bij 60 Hz, de fade van vóór U3.
   bufferFade: 0.063,
   // Buffer nooit fijner dan 1,5 device-px per CSS-px: op een Pixel 5 (DPR 2,75)
@@ -43,7 +45,7 @@ export const DEFAULT_WIND_TUNING: WindTuning = {
   headIntensity: 0.95,
   lineWidth: 2.5,
   speed: 1,
-  intensity: 1.4,
+  intensity: 1.9,
   visibility: 1,
 }
 
@@ -62,7 +64,8 @@ export const WIND_TUNING_CONTROLS: readonly WindTuningControl[] = [
   { key: 'fadeInPx', label: 'Fade-in', min: 0, max: 150, step: 1, unit: 'px' },
   { key: 'fadeOutPx', label: 'Fade-out', min: 0, max: 150, step: 1, unit: 'px' },
   { key: 'maxAge', label: 'Max. leeftijd', min: 0.5, max: 20, step: 0.1, unit: 's' },
-  { key: 'spawnBalance', label: 'Spawnbalans', min: -1, max: 1, step: 0.05 },
+  { key: 'spawnJitter', label: 'Spawn-jitter', min: 0, max: 1, step: 0.05 },
+  { key: 'speedDamping', label: 'Snelheidsdemping', min: 0, max: 2, step: 0.05 },
   { key: 'bufferFade', label: 'Buffer-rest', min: 0.001, max: 0.6, step: 0.001, unit: '/s' },
   { key: 'bufferDpr', label: 'Buffer-DPR max', min: 0.5, max: 4, step: 0.25, unit: '×' },
   { key: 'headIntensity', label: 'Kopintensiteit', min: 0, max: 1, step: 0.01 },
@@ -79,8 +82,8 @@ const ADVECTION_SCALE = 7_000
 const WORLD_TILE_SIZE = 512
 const INITIAL_STAGGER_SECONDS = 2
 const SPAWN_ATTEMPTS = 32
-// Levensduur waarboven spawnBalance de spawnkans begint te verlagen.
-const SPAWN_REFERENCE_LIFETIME = 0.5
+// Boven deze windsnelheid (m/s) dimt speedDamping de kop.
+const DAMPING_REFERENCE_SPEED = 3
 const MERCATOR_SCALE = 1 / (2 * Math.PI * 6_378_137)
 const BEAUFORT_STOPS = [0, 3.4, 8, 13.9, 20.8, 32.7] as const
 const LIGHT_RAMP = [
@@ -236,6 +239,9 @@ export class WindLayer implements CustomLayerInterface {
   private active = MIN_PARTICLES
   private target = MIN_PARTICLES
   private randomState = 0x6d2b79f5
+  private cellCounts = new Uint16Array(MAX_PARTICLES * 2)
+  private columns = 1
+  private rows = 1
   private previousTime = 0
   private frameTotal = 0
   private frameCount = 0
@@ -283,6 +289,7 @@ export class WindLayer implements CustomLayerInterface {
     map.on('move', this.viewportChanged)
     map.on('resize', this.viewportChanged)
     this.resetViewport(true)
+    ;(globalThis as { __motregenWind?: WindLayer }).__motregenWind = this
   }
 
   onRemove(): void {
@@ -305,6 +312,19 @@ export class WindLayer implements CustomLayerInterface {
     this.trailView = undefined
     this.gl = undefined
     this.map = undefined
+  }
+
+  /** Meethaak (U3b): spreidingsindex van de zichtbare koppen over een celraster van het beeld. */
+  dispersion(columns = 12, rows = 12): { particles: number; dispersion: number } {
+    const bounds = this.particleBounds
+    const xs: number[] = []
+    const ys: number[] = []
+    for (let index = 0; index < this.active; index++) {
+      if (this.ages[index]! <= 0 || this.instanceBytes[index * INSTANCE_BYTES + 19] === 0) continue
+      xs.push((this.x[index]! - bounds.west) / (bounds.east - bounds.west))
+      ys.push((this.y[index]! - bounds.north) / (bounds.south - bounds.north))
+    }
+    return { particles: xs.length, dispersion: cellDispersion(xs, ys, xs.length, columns, rows) }
   }
 
   setFrames(left: Float32Array, right: Float32Array, mix: number): void {
@@ -413,6 +433,7 @@ export class WindLayer implements CustomLayerInterface {
     const unitY = -gridHeight * MERCATOR_SCALE
     const life = this.life
     const floats = this.instanceFloats
+    this.countCells()
     for (let index = 0; index < this.active; index++) {
       const oldX = this.x[index]!
       const oldY = this.y[index]!
@@ -433,6 +454,7 @@ export class WindLayer implements CustomLayerInterface {
         nextY < this.particleBounds.north || nextY > this.particleBounds.south
       const offset = index * INSTANCE_BYTES / 4
       if (outside || !advanceLife(life, stepPx, seconds, tuning)) {
+        this.leaveCell(oldX, oldY)
         this.respawn(index, 0)
         this.instanceBytes[index * INSTANCE_BYTES + 19] = 0
         continue
@@ -450,7 +472,7 @@ export class WindLayer implements CustomLayerInterface {
       this.instanceBytes[byte] = Math.round(this.color[0]! * 255)
       this.instanceBytes[byte + 1] = Math.round(this.color[1]! * 255)
       this.instanceBytes[byte + 2] = Math.round(this.color[2]! * 255)
-      this.instanceBytes[byte + 3] = Math.round(headAlpha(life, tuning) * 255)
+      this.instanceBytes[byte + 3] = Math.round(headAlpha(life, tuning) * speedDamping(speed, tuning.speedDamping) * 255)
     }
   }
 
@@ -469,10 +491,19 @@ export class WindLayer implements CustomLayerInterface {
     this.frameCount = 0
   }
 
+  // Respawn in de leegste cel van een raster met
+  // ~1 particle per cel, op een gejitterde positie: gelijkmatige koppendichtheid
+  // zonder zichtbaar raster. Dat maakt de inkt ∝ windsnelheid; speedDamping
+  // compenseert dat in de kopintensiteit.
   private respawn(index: number, delaySeconds: number): void {
-    const [x, y] = pickSpawn(this.particleBounds, SPAWN_ATTEMPTS, () => this.random(), (candidateX, candidateY) => !this.left ? 1
-      : this.sampleWind(candidateX, candidateY) ? spawnAcceptance(windScreenSpeed(Math.hypot(this.east, this.north), this.tuning.speed), this.tuning)
-        : 0)
+    const bounds = this.particleBounds
+    let cell = 0
+    const [x, y] = pickSpawn(SPAWN_ATTEMPTS, () => {
+      cell = leastOccupiedCell(this.cellCounts, this.columns * this.rows, this.random())
+      const [u, v] = jitteredCellPoint(cell, this.columns, this.rows, this.tuning.spawnJitter, () => this.random())
+      return [bounds.west + u * (bounds.east - bounds.west), bounds.north + v * (bounds.south - bounds.north)]
+    }, () => this.random(), (candidateX, candidateY) => !this.left || this.sampleWind(candidateX, candidateY) ? 1 : 0)
+    this.cellCounts[cell]!++
     this.x[index] = x
     this.y[index] = y
     this.ages[index] = -delaySeconds
@@ -495,15 +526,38 @@ export class WindLayer implements CustomLayerInterface {
     const previousActive = this.active
     this.target = particleCountForViewport(canvas.clientWidth, canvas.clientHeight, this.tuning.particlesPerMegapixel)
     this.active = this.target
+    ;[this.columns, this.rows] = occupancyGrid(canvas.clientWidth, canvas.clientHeight, this.target)
+    this.countCells()
     for (let index = 0; index < this.active; index++) {
       const outside = this.x[index]! < this.particleBounds.west || this.x[index]! > this.particleBounds.east ||
         this.y[index]! < this.particleBounds.north || this.y[index]! > this.particleBounds.south
       if (resetAll || index >= previousActive || outside || (retention < 1 && this.random() > retention)) {
+        if (!resetAll && index < previousActive) this.leaveCell(this.x[index]!, this.y[index]!)
         this.respawn(index, this.random() * INITIAL_STAGGER_SECONDS)
         this.instanceBytes[index * INSTANCE_BYTES + 19] = 0
       }
     }
     if (resetAll) this.clearTrails()
+  }
+
+  private countCells(): void {
+    this.cellCounts.fill(0, 0, this.columns * this.rows)
+    for (let index = 0; index < this.active; index++) {
+      const cell = this.cellOf(this.x[index]!, this.y[index]!)
+      if (cell >= 0) this.cellCounts[cell]!++
+    }
+  }
+
+  private leaveCell(x: number, y: number): void {
+    const cell = this.cellOf(x, y)
+    if (cell >= 0 && this.cellCounts[cell]! > 0) this.cellCounts[cell]!--
+  }
+
+  private cellOf(x: number, y: number): number {
+    const bounds = this.particleBounds
+    const u = (x - bounds.west) / (bounds.east - bounds.west)
+    const v = (y - bounds.north) / (bounds.south - bounds.north)
+    return u >= 0 && u < 1 && v >= 0 && v < 1 ? Math.floor(v * this.rows) * this.columns + Math.floor(u * this.columns) : -1
   }
 
   private currentTrailView(): TrailView {
@@ -615,33 +669,75 @@ export function expectedLifetime(speedPx: number, tuning: Pick<WindTuning, 'trai
 }
 
 /**
- * Spawnkans ∝ levensduur^−balans. In het buffermodel legt iedere particle
- * ~dezelfde inkt neer (afstand × breedte × buffertijd), dus balans 0 (uniforme
- * spawn) geeft in theorie snelheidsonafhankelijke inkt. Balans 1 maakt de
- * koppendichtheid uniform (U3-gedrag); een negatieve balans dunt harde wind
- * uit, tegen de zichtbare drukte van lange, niet-overlappende zeestrepen.
+ * Kopdemping voor harde wind. Iedere particle legt ~dezelfde inkt per leven
+ * neer, en bij gelijkmatige koppendichtheid respawnen snelle particles vaker:
+ * inkt per oppervlak ∝ snelheid. Demping (v_ref/v)^γ boven v_ref heft dat bij
+ * γ = 1 op; zeestrepen worden zachter in plaats van schaarser.
  */
-export function spawnAcceptance(speedPx: number, tuning: Pick<WindTuning, 'trailDistance' | 'maxAge' | 'spawnBalance'>): number {
-  const lifetime = expectedLifetime(speedPx, tuning)
-  return tuning.spawnBalance >= 0
-    ? Math.min(1, SPAWN_REFERENCE_LIFETIME / lifetime) ** tuning.spawnBalance
-    : (lifetime / tuning.maxAge) ** -tuning.spawnBalance
+export function speedDamping(windSpeed: number, gamma: number): number {
+  return windSpeed > DAMPING_REFERENCE_SPEED ? (DAMPING_REFERENCE_SPEED / windSpeed) ** gamma : 1
 }
 
 /**
- * Rejection sampling: een kandidaat wordt aangenomen met kans `acceptance`
- * (0–1). Exact zolang een poging slaagt; na `attempts` pogingen valt hij terug
- * op de laatste kandidaat, zodat een respawn altijd begrensd is.
+ * Neemt de eerste kandidaat die `acceptance` (kans 0–1) haalt; na `attempts`
+ * pogingen de laatste, zodat een respawn altijd begrensd is.
  */
-export function pickSpawn(bounds: ParticleBounds, attempts: number, random: () => number, acceptance: (x: number, y: number) => number): [number, number] {
+export function pickSpawn(attempts: number, candidate: () => [number, number], random: () => number, acceptance: (x: number, y: number) => number): [number, number] {
   let x = 0
   let y = 0
   for (let attempt = 0; attempt < attempts; attempt++) {
-    x = bounds.west + random() * (bounds.east - bounds.west)
-    y = bounds.north + random() * (bounds.south - bounds.north)
+    [x, y] = candidate()
     if (random() < acceptance(x, y)) break
   }
   return [x, y]
+}
+
+/** Raster van ~`target` bijna vierkante cellen over een beeld van width×height. */
+export function occupancyGrid(width: number, height: number, target: number): [number, number] {
+  const columns = Math.max(1, Math.round(Math.sqrt(target * Math.max(1, width) / Math.max(1, height))))
+  return [columns, Math.max(1, Math.round(target / columns))]
+}
+
+/** De leegste cel; bij gelijkspel de eerste vanaf een willekeurig startpunt (`start` in [0, 1)). */
+export function leastOccupiedCell(counts: ArrayLike<number>, cells: number, start: number): number {
+  const offset = Math.floor(start * cells)
+  let best = offset
+  for (let step = 1; step < cells && counts[best]! > 0; step++) {
+    const cell = (offset + step) % cells
+    if (counts[cell]! < counts[best]!) best = cell
+  }
+  return best
+}
+
+/**
+ * Punt binnen `cell` in het eenheidsvierkant: j = 0 is het celmidden, j = 1
+ * uniform over de cel. De jitter blijft binnen de cel, anders vult de respawn
+ * de gekozen lege cel niet en valt de gelijkmatigheid weg.
+ */
+export function jitteredCellPoint(cell: number, columns: number, rows: number, jitter: number, random: () => number): [number, number] {
+  const amplitude = Math.max(0, Math.min(1, jitter))
+  return [
+    (cell % columns + 0.5 + amplitude * (random() - 0.5)) / columns,
+    (Math.floor(cell / columns) + 0.5 + amplitude * (random() - 0.5)) / rows,
+  ]
+}
+
+/** Spreidingsindex (variantie/gemiddelde) van aantallen per cel; ~1 bij uniform random, lager is gelijkmatiger. */
+export function cellDispersion(xs: ArrayLike<number>, ys: ArrayLike<number>, count: number, columns: number, rows: number): number {
+  const cells = new Float64Array(columns * rows)
+  let inside = 0
+  for (let index = 0; index < count; index++) {
+    const x = xs[index]!
+    const y = ys[index]!
+    if (!(x >= 0 && x < 1 && y >= 0 && y < 1)) continue
+    cells[Math.floor(y * rows) * columns + Math.floor(x * columns)]!++
+    inside++
+  }
+  const mean = inside / cells.length
+  if (mean === 0) return 0
+  let variance = 0
+  for (const value of cells) variance += (value - mean) ** 2
+  return variance / cells.length / mean
 }
 
 /** Framefactor van de buffer-fade: `restPerSecond` blijft na één seconde over, ongeacht de framerate. */
