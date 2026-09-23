@@ -1,5 +1,6 @@
 import { batch, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
 import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
+import About from './components/About'
 import HistogramScrubber from './components/HistogramScrubber'
 import LocationSearch from './components/LocationSearch'
 import PerfHud from './components/PerfHud'
@@ -1100,7 +1101,7 @@ export default function App() {
           <button class="wind-debug-replay" onClick={replaySplash}>Herhaal splash</button>
         </details>
       </Show>
-      <div class="source">Bron: KNMI · Kaart: OpenFreeMap</div>
+      <About />
     </section>
     <aside class="dashboard">
       <nav class="sidebar-nav" aria-label="Instellingen en locatie">
