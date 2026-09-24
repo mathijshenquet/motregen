@@ -8,10 +8,14 @@ stuksgewijs-logaritmische tabel. AROME-uurvelden worden eerst op een intern
 uitsluiting van no-data. Pas daarna volgt kwantisatie. De mrf-header beschrijft
 het resulterende veld; clients hoeven geen resolutie te kennen.
 
+`feels_like_c` is voor kaart én tabel één veld. Zijn frames staan als
+verliesvrije predictieve members in de chunk (`pred` in de header,
+docs/mrf.md §Predictive frames): dezelfde cellen als de bitmap, ~62 % van de
+bytes.
+
 | gebruik | velden | grid | afmetingen |
 | --- | --- | ---: | ---: |
 | stadslabels, tabel en particles | `temp_c`, `feels_like_c`, `wind_u_ms`, `wind_v_ms` | 6 km | 209×225 |
-| isolijnen, kaartlabels (DCT, K=64) | `feels_like_dct` | 6 km | 209×225 |
 | zon/pictogram | `radiation` | 8 km | 157×169 |
 | geïntegreerde tabel/pictogram-input | `rel_humidity`, `cloud_frac` | 16 km | 79×85 |
 
@@ -41,43 +45,6 @@ hebben.
 
 `cloud_frac` heeft geen kaartsemantiek: het is alleen invoer voor de
 frontend-pictogramafleiding, conform MIP-4 ronde 4.
-
-## DCT-veld (`feels_like_dct`)
-
-Naast de bitmap `feels_like_c` publiceert de ingest per dagdeel- en
-historiechunk een `feels_like_dct`-chunk: hetzelfde 6-km-veld, vóór
-kwantisatie, als de 64×64 laagste DCT-coëfficiënten (formaat:
-`docs/mrf.md` §DCT fields). De kaart (isolijnen, isolijnlabels,
-stadslabels) gebruikt dit veld als het in het manifest staat. Het
-urenoverzicht blijft de bitmap lezen, want dat toont een puntwaarde. Een
-client die het veld niet kent, negeert de chunk.
-
-Gemeten op 4 runs (100 uurframes: 23-09 06Z/10Z, 24-09 03Z/07Z). De referentie
-is het veld dat de isolijnen tot U18 tekenden: 2 passes boxblur op de bitmap.
-Codering `i16`, stap 0,2.
-
-| K | B/frame | rms °C (DCT + blur 2) | max °C in NL-box | stadsanker vs. rauwe cel: rms / max | afgerond gelijk |
-| ---: | ---: | ---: | ---: | ---: | ---: |
-| 16 | 356 | 0,46 | 5,6 | 1,07 / 3,9 | 34 % |
-| 24 | 717 | 0,33 | 4,0 | 1,02 / 4,5 | 35 % |
-| 32 | 1.144 | 0,25 | 3,1 | 0,96 / 4,2 | 38 % |
-| 48 | 2.252 | 0,14 | 1,8 | 0,86 / 4,2 | 42 % |
-| **64** | **3.669** | **0,08** | **1,1** | **0,69 / 3,2** | **52 %** |
-| 96 | 7.244 | 0,02 | 0,2 | 0,45 / 2,6 | 67 % |
-
-Een 6-km-bitmapframe is ~15,5 kB. K=64 is de kleinste orde die de
-isolijnen binnen 0,25 °C rms houdt, met ruime marge op de kust (max ≤ 2 °C).
-K=48 haalt dat ook net, maar dan tonen de stadslabels minder vaak dezelfde
-graad. Een alternatief was DCT plus een restveld (rauw − DCT, 0,3 °C, u8),
-exact op de bitmapresolutie. Dat kost 13,9–14,1 kB en levert dus niets op:
-het 6-km-veld heeft echte kleinschalige inhoud langs de kust. Reproduceren:
-`.dev/tracks/u18-dct-veld/measure.py`.
-
-Puntwaarden zijn de prijs: op stadsankers wijkt het DCT-veld rms 0,7 °C
-af van de rauwe cel (max 3,2 °C, aan de kust). Stadslabels op de kaart en
-het urenoverzicht kunnen daardoor voor dezelfde plaats een andere graad
-tonen. `?gevoelveld=bitmap` zet de kaart terug op de bitmap, om te
-vergelijken.
 
 ## Gevoelstemperatuur
 

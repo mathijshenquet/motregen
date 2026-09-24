@@ -12,7 +12,7 @@ import ForecastTable, { type SunForm } from './components/ForecastTable'
 import UvBar, { uvBarLabel, type UvBarVariant } from './components/UvBar'
 import { loadBasemapStyle, temperatureLayerBeforeId, type MapTheme } from './core/basemap'
 import { CloudEdgeLayer } from './core/cloud-edge-layer'
-import { chunkField, type Grid, type Manifest, type ManifestChunk, type MrfHeader, type TimelineFrame } from './core/contract'
+import type { Grid, Manifest, ManifestChunk, MrfHeader, TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
 
 const DAY_NIGHT_ENABLED = false
@@ -77,7 +77,6 @@ const emptySunData: SunFeatureCollection = { type: 'FeatureCollection', features
 
 export default function App() {
   const devMode = new URLSearchParams(window.location.search).has('dev')
-  const feelsLikeFieldSource = new URLSearchParams(window.location.search).get('gevoelveld')
   // Een gewijzigde symbooltekst is voor MapLibre een nieuw symbool: met fade flitst 16°→17°
   // weg en weer in. Zonder fade wisselt het label in place; ?labelfade=300 voor de A/B.
   const labelFadeMs = Number(new URLSearchParams(window.location.search).get('labelfade') ?? 0)
@@ -172,13 +171,6 @@ export default function App() {
   const uvClearTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'uv_clear') : [])
   const tempTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'temp_c') : [])
   const feelsLikeTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'feels_like_c') : [])
-  // Kaart (isolijnen, labels, stadslabels) leest het DCT-veld als de ingest het publiceert; de tabel houdt
-  // de exacte bitmap (U18). ?gevoelveld=bitmap forceert de bitmap voor vergelijking.
-  const feelsLikeMapTimeline = createMemo(() => {
-    const dct = manifest() && feelsLikeFieldSource !== 'bitmap' ? buildTimeline(manifest()!, 'feels_like_dct') : []
-    return dct.length ? dct : feelsLikeTimeline()
-  })
-  const mapFieldChunks = () => [...new Set(feelsLikeMapTimeline().filter((frame) => chunkField(frame.chunk) === 'feels_like_dct').map((frame) => frame.chunk))]
   const humidityTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'rel_humidity') : [])
   const cloudTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'cloud_frac') : [])
   const windTimeline = createMemo(() => manifest() ? buildWindTimeline(manifest()!) : [])
@@ -233,7 +225,7 @@ export default function App() {
   const [isolineCount, setIsolineCount] = createSignal(0)
   const [labelTuning, setLabelTuning] = createSignal<IsolineLabelTuning>({ ...DEFAULT_LABEL_TUNING })
   const focusMode = new FocusMode(setFocus, focusTuning, () => reducedMotion.matches)
-  const isolineCoverage = createMemo(() => timelineCoverage(feelsLikeMapTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
+  const isolineCoverage = createMemo(() => timelineCoverage(feelsLikeTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
   const isolinesActive = createMemo(() => focus() > 0)
   const focusedWindTuning = createMemo<WindTuning>(() => ({ ...windTuning(), visibility: windTuning().visibility * contextOpacity(focus(), focusTuning().dim) }))
   const [mapReady, setMapReady] = createSignal(false)
@@ -817,7 +809,7 @@ export default function App() {
    * ontbrekende uurlagen (één keer per uurframe) uploaden. Geen werk zonder wijziging.
    */
   async function showIsolineField(): Promise<void> {
-    const frames = feelsLikeMapTimeline()
+    const frames = feelsLikeTimeline()
     const renderedMap = map
     if (!frames.length || !renderedMap?.getLayer('motregen-temperature')) return
     const { blur, window } = isolineTuning()
@@ -868,7 +860,7 @@ export default function App() {
    * het label volgt het dichtstbijzijnde uur. Afspelen kost zo één ronde per uur, rust nul.
    */
   async function showIsolines(): Promise<void> {
-    const frames = feelsLikeMapTimeline()
+    const frames = feelsLikeTimeline()
     if (!frames.length || !isolineLabels) return
     const request = ++shownIsolineRequest
     const tuning = isolineTuning()
@@ -944,7 +936,7 @@ export default function App() {
   }
 
   async function showTemperature(): Promise<void> {
-    const frames = feelsLikeMapTimeline()
+    const frames = feelsLikeTimeline()
     if (!frames.length || !map?.getSource('motregen-temperature')) return
     const request = ++shownTemperatureRequest
     const blend = frameBlend(frames, selectedEpoch())
@@ -1042,10 +1034,7 @@ export default function App() {
     return timelineEpochAtCursor(frames, cursor())
   }
 
-  async function load(frame: TimelineFrame): Promise<Uint8Array> {
-    // DCT-chunks zijn klein: altijd als één payload-Range. Losse frame-Ranges erop kwamen bij een warme
-    // reload opnieuw over (Chromium-sparse-cache, zie uv_clear; perf.spec warm = 0 B).
-    if (chunkField(frame.chunk) === 'feels_like_dct') await client.fetchPayload(frame.chunk, 'high', 'map')
+  function load(frame: TimelineFrame): Promise<Uint8Array> {
     return client.getFrame(frame.chunk, frame.frameIndex)
   }
 
@@ -1322,9 +1311,6 @@ export default function App() {
         readPointSeries(windUFrames(), state.point, undefined, priority, undefined, undefined, layer),
         readPointSeries(windVFrames(), state.point, undefined, priority, undefined, undefined, layer),
         enqueueRain(state, timeline().map((_, index) => index), priority, layer, reason),
-        // Het DCT-kaartveld is klein (~4 kB/frame): bij volledig laden in één Range per chunk, anders
-        // haalt scrubben elk uurframe apart op (perf.spec: scrub-requests).
-        ...mapFieldChunks().map((chunk) => client.fetchPayload(chunk, priority, layer)),
       ])
       if (state.request !== pointRequest) return
       setUvSeries(uv)
