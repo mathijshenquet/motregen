@@ -57,3 +57,57 @@ Bitmap nu: 6-km-frame ~15,5 kB.
   (255 = no-data uit het masker) → een frame dat er voor alle kaartconsumenten uitziet als een bitmapframe,
   gecachet in de bestaande frame-LRU. Daardoor blijven isolijnen/labels/stadslabels code-ongewijzigd; alleen
   de tijdlijnbron wisselt (feature-detectie: `feels_like_dct` in het manifest → kaart; anders bitmap).
+
+## 2026-09-24 ~16:30 — gebouwd (73084f9, 4f4d7bc), main gemerged (1728445), gates + metingen
+- **Rust**: `mrf::dct` (eigen DCT-II ortho in matrixvorm, BFS-naaste-buur-vulling, stap max(0,2, max|c|/32767),
+  bitmasker, gesplitste bytevlakken); optionele `dct`-sleutel in `Header`/`ChunkMeta`, framelengte gevalideerd;
+  ingest publiceert `feels_like_dct` (K=64) per dagdeel en hist naast `feels_like_c`; K zit in de chunknaam-hash.
+  Tests: round-trip glad veld, volle K ≈ exact, byte-determinisme, no-data-masker, warme DC zonder overloop,
+  golden frame (gedeeld met TS: byte-pariteit Rust ↔ TS-encoder), container-round-trip, ingest-chunks.
+  Geen nieuwe dependency → Cargo.lock ongewijzigd → `nix flake check` niet nodig.
+- **Client**: `web/src/core/dct.ts` (IDCT + terugkwantisering + encoder voor synthgen); de zstd-worker levert voor
+  DCT-chunks direct een bitmapframe. App: `feelsLikeMapTimeline` (DCT als aanwezig, `?gevoelveld=bitmap` forceert
+  bitmap) voor isolijnen, isolijnlabels en stadslabels; tabel onveranderd op `feels_like_c`. Tijdens de e2e gevonden:
+  (1) losse DCT-frame-Ranges → warme reload 4.362 B i.p.v. 0 (Chromium sparse cache, U15-les) → DCT-chunk altijd
+  als één payload-Range; (2) DCT-frames in de gedeelde 512-LRU drukten tabelframes eruit (locatieklik viel terug
+  naar skeleton) → eigen LRU van 64; (3) scrubben haalde elk uur apart (63 requests) → bij volledig laden alle
+  DCT-payloads. focus.spec ververst nu ook `feels_like_dct`. Synthgen levert DCT-chunks (bestaande chunks byte-gelijk).
+- **Gates op 1728445** (synchroon): `pnpm typecheck` TYPECHECK-EXIT 0; `pnpm test` TEST-EXIT 0 (40 files, 223);
+  `pnpm build` BUILD-EXIT 0; `MOTREGEN_E2E_PORT=4344 MOTREGEN_E2E_DATA_PORT=8344 pnpm e2e` E2E-EXIT 0
+  (20 passed, 13 skipped; load 13,4 → 13,7). Poort 4342 was bezet door de U17-preview (pid van track-u17-ui-polish,
+  niet aangeraakt) → 4344/8344. `cargo fmt --check` 0, `cargo clippy --workspace -- -D warnings` 0 (ook
+  `--all-targets`), `cargo test --workspace` 0.
+- **Live** (`RUST_LOG=info target/release/motregen-ingest --once --data-dir <scratch>/live/data`, key uit `.env`):
+  DAEMON-EXIT 0 (1 m 41 s); `uv run --project spec spec/validate_manifest.py <live>` VALIDATE-EXIT 0 (30 chunks,
+  `feels_like_dct` erin; validator checkt nu `dct`); `mrf inspect` op de 3 DCT-chunks 0. Run 09Z: DCT
+  90.129 / 92.660 / 20.372 B (l1-24 / l25-48 / hist5) tegen bitmap 364.439 / 406.526 / 69.266 B → 3,8 kB i.p.v.
+  15,5 kB per frame. TS-decoder op die live frames (`web/tmp/u18-live.ts`): rms 0,087 °C, max 0,92 °C t.o.v.
+  blur2(bitmap), na terugkwantisering, 53 frames.
+- **Bytes (e2e, synth)**: passief main 762.274 B → U18 781.936 B (+19,7 kB; budget 800.000); scrub 16 → 18
+  requests/106 frames; warm 0 B beide. Live-projectie: passief +~90 kB (DCT l1-24-payload), volledig laden +~203 kB.
+- **Decodetijd per frame** (Chromium, leeg tabblad, live l1-24, `web/tmp/u18-split.mjs`): desktop zstd 7,1 + IDCT 4,5
+  + kwantisering 0,9 ms; mobiel (CPU 4×) 30,3 + 17,6 + 3,6 ms. In de worker, één keer per uurframe, gecachet.
+  Node: 0,8 + 3,5 + 0,9 ms.
+- **Visueel** (`web/tmp/shots/u18-{z6,z9}-{dct,bitmap}.png`, live 09Z, 11:40, isolijnen gepind, 1280×800):
+  z6 topologie grotendeels gelijk; kleine ringen (Amsterdam, IJsselmeerkust) vallen weg bij DCT. z9 Zeeland: de
+  16°-lijn volgt bij de bitmap de Westerschelde/Walcheren-kust, bij DCT niet — lijnen liggen tot ~10–15 km anders.
+  Het veld wijkt maar ~0,1–0,9 °C af, maar in vlakke gradiënten schuift een lijn daardoor ver.
+
+## Bevindingen voor orchestrator/PO
+1. **In de huidige laadpolitiek bespaart het DCT-veld géén bytes; het kost bytes.** De tabel leest `feels_like_c`
+   als puntwaarde en laadt bij scrub/"Alles"/diepe idle alle bitmapchunks toch helemaal (fase `complete`). Het
+   DCT-veld komt er dus bovenop: live +~90 kB passief, +~203 kB volledig. Winst vraagt dat ook de tabel het
+   bitmapveld niet meer nodig heeft:
+   - (B) tabel op DCT: −~640 kB per volledige sessie live, maar puntfout rms 0,7 °C, max 3,2 °C (kuststeden; 52 %
+     afgerond gelijk). Afgeraden.
+   - (F) gevoel in de client afleiden uit velden die de tabel al laadt (`temp_c`, windpaar 6 km, `rel_humidity`
+     16 km) met de MIP-10-formule; `feels_like_c` niet meer publiceren → kaart DCT, tabel formule. Niet gemeten:
+     de fout van een formule op gemiddelde invoer (RH 16 km!). Voorstel, niet gebouwd.
+   - (C) niet mergen/uitzetten tot er een besluit ligt; de code is additief en kan ook achter de
+     feature-detectie blijven staan (ingest publiceert, client negeert via bv. een default `?gevoelveld=bitmap`).
+2. **Kustprecisie**: z9 laat zien dat K=64 op 6 km de land-zeegrens niet volgt; de meetcriteria (rms ≤ 0,25,
+   max ≤ 2 °C) worden gehaald, maar lijnen schuiven op zicht. PO-oordeel op de shots nodig.
+3. **Los van U18 — fzstd-allocatie**: onze zstd-members hebben geen content-size; fzstd alloceert dan per frame
+   een venster van 8 MB. Met een vooraf gemaakte outputbuffer: 47 kB-frame 7,6 → 1,0 ms, DCT 6,3 → 0,3 ms, maar
+   1,7 MB-regenframe 12,6 → 20,1 ms (`web/tmp/u18-zstd.mjs`). Kan ook in de ingest (pledged size → content-size
+   in de header). Niet gebouwd: met buffer meldt fzstd te korte output niet meer (lengtecontrole valt weg).
