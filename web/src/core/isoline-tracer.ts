@@ -1,6 +1,6 @@
 import type { Grid } from './contract'
 import type { PreparedField } from './isoline-field'
-import { blendSlice, buildSegments, traceContours, type SegmentStats } from './isoline-contours'
+import { blendSlice, buildSegments, shortRings, traceContours, type SegmentStats, type ShortRing } from './isoline-contours'
 import { sliceWeights } from './isoline-spline'
 
 export interface TraceRequest {
@@ -17,6 +17,8 @@ export interface TraceRequest {
 export interface TraceResult {
   request: TraceRequest
   data: Float32Array
+  /** Korte ringen van deze snede: de lijnlabels erop vervagen mee. */
+  rings: ShortRing[]
   stats: SegmentStats & { points: number; ms: number }
 }
 
@@ -41,7 +43,7 @@ export class TraceCore {
     const contours = traceContours(slice, this.grid, { step: request.step, toleranceCells: request.toleranceCells })
     const { data, stats } = buildSegments(contours, { ringKm: request.ringKm, gradient: request.gradient })
     const points = contours.reduce((sum, contour) => sum + contour.points.length / 2, 0)
-    return { request, data, stats: { ...stats, points, ms: performance.now() - started } }
+    return { request, data, rings: shortRings(contours, request.ringKm, request.toleranceCells), stats: { ...stats, points, ms: performance.now() - started } }
   }
 }
 

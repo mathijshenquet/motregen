@@ -2,8 +2,9 @@ import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap 
 import { MercatorCoordinate } from 'maplibre-gl'
 import type { Grid } from './contract'
 import type { PreparedField } from './isoline-field'
-import { SEGMENT_FLOATS } from './isoline-contours'
+import { SEGMENT_FLOATS, type ShortRing } from './isoline-contours'
 import { ContourTracer, type TraceRequest, type TraceResult } from './isoline-tracer'
+import type { IsolineOdd } from './isolines'
 
 // Hoekbakken voor de richting-onafhankelijke stippel; zie de shader. Stippel i.p.v. streep:
 // de basiskaart tekent provinciegrenzen al gestreept.
@@ -13,7 +14,7 @@ export const DASH_ON_PX = 2.4
 
 export interface IsolineStyle {
   step: number
-  dashed: boolean
+  odd: IsolineOdd
   color: [number, number, number]
   /** 0 = lineair tussen twee uurframes, 1 = kubische B-spline over vier. */
   window: number
@@ -72,6 +73,8 @@ uniform float u_window;
 uniform float u_bicubic;
 uniform float u_step;
 uniform float u_half_width;
+uniform float u_odd_half_width;
+uniform float u_odd_alpha;
 uniform float u_dashed;
 uniform float u_dash_period;
 uniform float u_dash_on;
@@ -138,8 +141,8 @@ void main() {
   vec2 pdx = dFdx(v_px), pdy = dFdy(v_px);
   float level = floor(s + 0.5);
   float distance = abs(s - level) / max(length(ds), 1e-6);
-  float line = clamp(u_half_width + 0.5 - distance, 0.0, 1.0) * step(0.5, field.g);
   float odd = step(0.5, mod(level * u_step + 0.25, 2.0));
+  float line = clamp(mix(u_half_width, u_odd_half_width, odd) + 0.5 - distance, 0.0, 1.0) * mix(1.0, u_odd_alpha, odd) * step(0.5, field.g);
   // Na de afgeleiden (die uniforme controleflow vragen): het gros van de pixels ligt niet op
   // een lijn en heeft vervaging noch stippel nodig.
   if (line <= 0.0) {
@@ -224,6 +227,8 @@ void main() {
 const lineFragment = `#version 300 es
 precision highp float;
 uniform float u_half_width;
+uniform float u_odd_half_width;
+uniform float u_odd_alpha;
 uniform float u_dashed;
 uniform float u_dash_period;
 uniform float u_dash_on;
@@ -244,7 +249,7 @@ void main() {
   vec2 ab = v_b - v_a;
   float t = clamp(dot(v_px - v_a, ab) / max(dot(ab, ab), 1e-8), 0.0, 1.0);
   float d = length(v_px - (v_a + ab * t));
-  float line = clamp(u_half_width + 0.5 - d, 0.0, 1.0) * mix(v_alpha.x, v_alpha.y, t);
+  float line = clamp(mix(u_half_width, u_odd_half_width, v_odd) + 0.5 - d, 0.0, 1.0) * mix(1.0, u_odd_alpha, v_odd) * mix(v_alpha.x, v_alpha.y, t);
   if (v_odd * u_dashed > 0.5) line *= dash(mix(v_arc.x, v_arc.y, t) * u_px_per_cell);
   if (line <= 0.0) discard;
   color = vec4(u_color * line, line);
@@ -313,6 +318,8 @@ export class IsolineLayer implements CustomLayerInterface {
   private pendingTrace?: TraceResult
   /** Tracer-resultaten tot nu toe: nieuwe geometrie is ook een nieuwe snede. */
   private geometryVersion = 0
+  private shownRings: ShortRing[] = []
+  private shownTime = 0
 
   constructor(readonly grid: Grid, readonly depth: number, private style: IsolineStyle, private tuning: IsolinePassTuning = DEFAULT_PASS_TUNING) {
     this.loaded = new Uint8Array(depth)
@@ -380,6 +387,16 @@ export class IsolineLayer implements CustomLayerInterface {
 
   hasLayer(index: number): boolean {
     return this.loaded[index] === 1
+  }
+
+  /** Korte ringen van de getekende vectorsnede (lijnlabels vervagen mee); raster: geen. */
+  get rings(): readonly ShortRing[] {
+    return this.style.vector ? this.shownRings : []
+  }
+
+  /** Tijd van de getekende snede: vector loopt de worker achter de scrubber aan. */
+  get sliceTime(): number {
+    return this.style.vector && this.geometryVersion ? this.shownTime : this.time
   }
 
   frameKey(index: number): string | undefined {
@@ -496,6 +513,8 @@ export class IsolineLayer implements CustomLayerInterface {
       gl.bindBuffer(gl.ARRAY_BUFFER, this.segments!)
       gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW)
       this.segmentCount = data.length / SEGMENT_FLOATS
+      this.shownRings = this.pendingTrace.rings
+      this.shownTime = this.pendingTrace.request.time
       this.pendingTrace = undefined
       this.geometryVersion++
     }
@@ -560,7 +579,7 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.uniform2f(uniform('u_viewport'), width, height)
     gl.uniform1f(uniform('u_extent'), halfWidth + 1)
     gl.uniform1f(uniform('u_half_width'), halfWidth)
-    gl.uniform1f(uniform('u_dashed'), this.style.dashed ? 1 : 0)
+    this.oddUniforms(gl, uniform, widthCss * ratio)
     gl.uniform1f(uniform('u_dash_period'), DASH_PERIOD_PX * ratio)
     gl.uniform1f(uniform('u_dash_on'), DASH_ON_PX * ratio)
     gl.uniform1f(uniform('u_px_per_cell'), Math.abs(sx) * world)
@@ -594,6 +613,14 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.bindFramebuffer(gl.FRAMEBUFFER, previousFramebuffer)
     gl.viewport(previousViewport[0]!, previousViewport[1]!, previousViewport[2]!, previousViewport[3]!)
     this.stats.passes++
+  }
+
+  /** Oneven niveaus: halve breedte, stippel of gelijk; `width` is de volle breedte in (offscreen) pixels. */
+  private oddUniforms(gl: WebGL2RenderingContext, uniform: (name: string) => WebGLUniformLocation | null, width: number): void {
+    const { halfWidth, alpha } = oddLine(this.style.odd, width)
+    gl.uniform1f(uniform('u_odd_half_width'), halfWidth)
+    gl.uniform1f(uniform('u_odd_alpha'), alpha)
+    gl.uniform1f(uniform('u_dashed'), this.style.odd === 'dash' ? 1 : 0)
   }
 
   render(context: WebGLRenderingContext | WebGL2RenderingContext): void {
@@ -735,7 +762,7 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.uniform1f(uniform('u_bicubic'), this.style.bicubic ? 1 : 0)
     gl.uniform1f(uniform('u_step'), this.style.step)
     gl.uniform1f(uniform('u_half_width'), Math.max(0.5, widthCss * ratio / 2))
-    gl.uniform1f(uniform('u_dashed'), this.style.dashed ? 1 : 0)
+    this.oddUniforms(gl, uniform, widthCss * ratio)
     gl.uniform1f(uniform('u_dash_period'), DASH_PERIOD_PX * ratio)
     gl.uniform1f(uniform('u_dash_on'), DASH_ON_PX * ratio)
     gl.uniform3f(uniform('u_color'), ...this.style.color)
@@ -754,6 +781,18 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.viewport(previousViewport[0]!, previousViewport[1]!, previousViewport[2]!, previousViewport[3]!)
     this.stats.passes++
   }
+}
+
+/**
+ * Halve breedte met hetzelfde capsuleprofiel als de hoofdlijn. Onder 1 px verliest dat profiel
+ * zijn behoud van dekking over subpixelposities (bij 0,65 px: 0,83 op een pixelmidden, 0,65
+ * ertussen), dus bewegende lijnen flikkeren; daarom minimaal 1 px en de rest als lagere alpha.
+ */
+export function oddLine(odd: IsolineOdd, width: number): { halfWidth: number; alpha: number } {
+  const full = Math.max(0.5, width / 2)
+  if (odd !== 'half') return { halfWidth: full, alpha: 1 }
+  const half = width / 2
+  return half >= 1 ? { halfWidth: half / 2, alpha: 1 } : { halfWidth: 0.5, alpha: half }
 }
 
 /** 4×4 kolom-major a·b in float64 (de kaartmatrix is Float64Array). */

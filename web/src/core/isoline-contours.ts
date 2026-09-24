@@ -239,6 +239,57 @@ export function ringFade(contour: Pick<Contour, 'closed' | 'lengthKm'>, minKm: n
   return smoothstep(minKm * 0.5, minKm, contour.lengthKm)
 }
 
+/** Een ring die door het lengtecriterium (deels) vervaagt; lijnlabels erop vervagen mee. */
+export interface ShortRing {
+  level: number
+  fade: number
+  /** left, top, right, bottom in cellen. */
+  bounds: [number, number, number, number]
+  points: Float32Array
+  /** Koorde-tolerantie van de trace (cellen): zo ver mag een punt op de lijn van de polyline af liggen. */
+  slack: number
+}
+
+/** Alle gesloten lijnen korter dan `minKm`, ook de volledig vervaagde (fade 0). */
+export function shortRings(contours: readonly Contour[], minKm: number, slack = 0): ShortRing[] {
+  const rings: ShortRing[] = []
+  if (minKm <= 0) return rings
+  for (const contour of contours) {
+    if (!contour.closed || contour.lengthKm >= minKm) continue
+    const bounds: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity]
+    for (let index = 0; index < contour.points.length; index += 2) {
+      const x = contour.points[index]!, y = contour.points[index + 1]!
+      bounds[0] = Math.min(bounds[0], x); bounds[1] = Math.min(bounds[1], y)
+      bounds[2] = Math.max(bounds[2], x); bounds[3] = Math.max(bounds[3], y)
+    }
+    rings.push({ level: contour.level, fade: ringFade(contour, minKm), bounds, points: contour.points, slack })
+  }
+  return rings
+}
+
+/**
+ * Ringfade op een punt van niveau `level`: die van de korte ring waar het op ligt, anders 1
+ * (lange of open lijn). Ring-ids zijn over snedes niet stabiel, de ligging wel.
+ */
+export function ringFadeAt(rings: readonly ShortRing[], level: number, column: number, row: number, toleranceCells = 1): number {
+  for (const ring of rings) {
+    if (ring.level !== level) continue
+    const tolerance = Math.max(toleranceCells, 2 * ring.slack)
+    const [left, top, right, bottom] = ring.bounds
+    if (column < left - tolerance || column > right + tolerance || row < top - tolerance || row > bottom + tolerance) continue
+    const count = ring.points.length / 2
+    for (let index = 0; index < count; index++) {
+      const next = (index + 1) % count
+      const ax = ring.points[index * 2]!, ay = ring.points[index * 2 + 1]!
+      const bx = ring.points[next * 2]!, by = ring.points[next * 2 + 1]!
+      const dx = bx - ax, dy = by - ay
+      const t = Math.max(0, Math.min(1, ((column - ax) * dx + (row - ay) * dy) / Math.max(dx * dx + dy * dy, 1e-12)))
+      if (Math.hypot(column - ax - dx * t, row - ay - dy * t) < tolerance) return ring.fade
+    }
+  }
+  return 1
+}
+
 /** Per segment: ax, ay, bx, by (cellen), booglengte a/b (cellen), alpha a/b, oneven niveau. */
 export const SEGMENT_FLOATS = 9
 

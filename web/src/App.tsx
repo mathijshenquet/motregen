@@ -20,7 +20,7 @@ import { buildHourlyForecast, isPassiveRow, PASSIVE_FORECAST_HOURS } from './cor
 import { contextOpacity, DEFAULT_FOCUS_TUNING, FocusMode, type FocusTuning } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import type { RefreshState } from './core/freshness'
-import { blendFrames, blurField, DEFAULT_ISOLINE_TUNING, ISOLINE_EDGE_FADE_MS, ISOLINE_FADES, ISOLINE_LINE_OPACITY, ISOLINE_STEPS, ISOLINE_WINDOWS, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineFade, type IsolineStep, type IsolineTuning } from './core/isolines'
+import { blendFrames, blurField, DEFAULT_ISOLINE_TUNING, ISOLINE_EDGE_FADE_MS, ISOLINE_FADES, ISOLINE_LINE_OPACITY, ISOLINE_ODD_LABELS, ISOLINE_ODDS, ISOLINE_STEPS, ISOLINE_WINDOWS, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineFade, type IsolineOdd, type IsolineStep, type IsolineTuning } from './core/isolines'
 import { DEFAULT_LABEL_TUNING, IsolineLabels, type IsolineLabelTuning } from './core/isoline-labels'
 import { sliceWeights } from './core/isoline-spline'
 import { TraceCore } from './core/isoline-tracer'
@@ -789,9 +789,9 @@ export default function App() {
   }
 
   function isolineStyle(): IsolineStyle {
-    const { step, dashed, window, bicubic, fade, gradientLow, gradientHigh, speedLow, speedHigh, vector, ringKm, tolerancePx } = isolineTuning()
+    const { step, odd, window, bicubic, fade, gradientLow, gradientHigh, speedLow, speedHigh, vector, ringKm, tolerancePx } = isolineTuning()
     return {
-      step, dashed, window, bicubic, color: hexColor(isolineColor(mapTheme())),
+      step, odd, window, bicubic, color: hexColor(isolineColor(mapTheme())),
       fade: ISOLINE_FADES.indexOf(fade), gradient: [gradientLow, gradientHigh], speed: [speedLow, speedHigh],
       vector, ringKm, tolerancePx,
     }
@@ -901,10 +901,11 @@ export default function App() {
   function updateIsolineLabels(): void {
     const layer = isolineLayer
     if (!isolineLabels || !layer || !isolinesActive()) return
-    const weights = sliceWeights(isolineTime, layer.depth, isolineTuning().window)
+    // Op de getekende snede, niet de scrubbertijd: anders liggen labels (en hun ringfade) naast de lijn.
+    const weights = sliceWeights(layer.sliceTime, layer.depth, isolineTuning().window)
     const fields = weights.map(({ index }) => isolineFields[index])
     if (fields.some((field) => !field)) return
-    isolineLabels.update({ width: layer.grid.width, height: layer.grid.height, fields: fields as PreparedField[], weights: weights.map(({ weight }) => weight) })
+    isolineLabels.update({ width: layer.grid.width, height: layer.grid.height, fields: fields as PreparedField[], weights: weights.map(({ weight }) => weight) }, layer.rings)
   }
 
   function toggleFocusPin(): void {
@@ -1599,7 +1600,7 @@ export default function App() {
         <details class="wind-debug" open>
           <summary>Wind debug</summary>
           <label><span>Isolijnen</span><select value={isolineTuning().step} onChange={(event) => setIsolineTuning((current) => ({ ...current, step: Number(event.currentTarget.value) as IsolineStep }))}>{ISOLINE_STEPS.map((step) => <option value={step}>{step} °C</option>)}</select><output>{isolineTuning().step}°</output></label>
-          <label class="debug-toggle"><span>Stippel oneven</span><input type="checkbox" checked={isolineTuning().dashed} onChange={(event) => setIsolineTuning((current) => ({ ...current, dashed: event.currentTarget.checked }))} /><output>{isolineTuning().dashed ? 'Aan' : 'Uit'}</output></label>
+          <label><span>Oneven lijnen</span><select value={isolineTuning().odd} onChange={(event) => setIsolineTuning((current) => ({ ...current, odd: event.currentTarget.value as IsolineOdd }))}>{ISOLINE_ODDS.map((odd) => <option value={odd}>{ISOLINE_ODD_LABELS[odd]}</option>)}</select><output>{ISOLINE_ODD_LABELS[isolineTuning().odd]}</output></label>
           <label><span>Tijdvenster</span><select value={isolineTuning().window} onChange={(event) => setIsolineTuning((current) => ({ ...current, window: Number(event.currentTarget.value) }))}>{ISOLINE_WINDOWS.map((window) => <option value={window}>{window === 0 ? 'lineair' : 'B-spline'}</option>)}</select><output>{isolineTuning().window}</output></label>
           <label><span>Label-afstand</span><input type="range" min="30" max="240" step="10" value={labelTuning().minDistancePx} onInput={(event) => setLabelTuning((current) => ({ ...current, minDistancePx: event.currentTarget.valueAsNumber }))} /><output>{labelTuning().minDistancePx} px</output></label>
           <label><span>Label-spatiëring</span><input type="range" min="100" max="600" step="20" value={labelTuning().spacingPx} onInput={(event) => setLabelTuning((current) => ({ ...current, spacingPx: event.currentTarget.valueAsNumber }))} /><output>{labelTuning().spacingPx} px</output></label>
