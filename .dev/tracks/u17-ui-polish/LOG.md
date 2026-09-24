@@ -112,3 +112,18 @@ de warme reload blijft zo 0 requests extra.
 `tmp/probe-narrow.mjs`: pil naast elkaar is 163×46 px; bij 320 px viewport overlapt die het merk
 (rechterrand merk 173 px). < 360 px staan de segmenten weer onder elkaar (99×85 px, vrij).
 360/393 px: naast elkaar, vrij van het merk.
+
+## 2026-09-24 11:47Z — gates groen op 8f981e3 (synchroon, onder de hostlock, load 7,9)
+
+`cd web`, devenv actief:
+- `pnpm typecheck` → TYPECHECK-EXIT 0
+- `pnpm test` → TEST-EXIT 0 (38 files, 213 tests)
+- `pnpm build` → BUILD-EXIT 0
+- `MOTREGEN_E2E_PORT=4341 MOTREGEN_E2E_DATA_PORT=8341 pnpm e2e` → E2E-EXIT 0 (24 passed, 15 skipped
+  door profielfilters)
+Screenshots vóór/na: `screenshots/{voor,na}-{desktop,pixel5}-{kaart,zoeken,verwijderen,about,paneel}-{light,dark}.png`
+(pngquant; `voor` heeft geen paneel-shot). Preview na: `tmp/dist-after` op :4343 (/data → prod).
+
+Open MET PO: zoekbalk op mobiel alleen rustiger (44 px aanraakdoel) — kleiner met onzichtbare
+tikrand?; "bijgewerkt HH:MM" in de pil i.p.v. leeftijd?; ingest MQTT/10 s-venster (~50 s winst).
+Niet getest: iOS Safari (backdrop, focus-parkeren bij de prullenbak).
