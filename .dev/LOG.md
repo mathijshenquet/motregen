@@ -39,6 +39,15 @@
   kuststeden, kustlijnen ~10 km verschoven; branch op origin. Vervolg U18b gestart:
   DCT+gekwantiseerd residu / lossless predictief / wavelet, meten dan bouwen, één veld
   voor kaart én tabel. Backlog: zstd pledged content-size (decode 7,6→1,0 ms/frame).
+- **U18b gemerged** (vervangt U18): `feels_like_c` als verliesvrije predictieve mrf-frames
+  (header `pred`, eigen range-coder, voorspeller (2a+2b−c+d)/4, 28 contexten) — byte-identiek
+  aan de bitmap voor kaart én tabel, live 828 → 521 kB per volledige sessie (−308 kB),
+  passief −156 kB; decode sneller dan de bitmap (2,1 ms desktop / 8,7 ms mobiel) mede door
+  pledged content-size op de pred-members. DCT-veld van U18 teruggedraaid. Meting: DCT+residu
+  verloor; bijna-verliesvrij (39–45 %) mogelijk als de PO ≤ 0,3 °C fout accepteert. Andere
+  uurvelden zouden met dezelfde codec ~60 % worden (niet gebouwd). LET OP deploy: een open
+  tabblad met een oude bundle kan `feels_like_c` na de datawissel niet decoderen tot herladen
+  — client vóór of met de ingest deployen (auto-upgrade doet beide tegelijk).
 - Open MET PO: LICENSE; isolijnen boven plaatsnamen ok?; mobiel cold-TTFR-budget 4 s;
   versheidspil oogt zwaar op mobiel (70 px); UV-ghost op bewolkte uren gezien?
   VOOR AGENTS: SessionStart-hook wijst naar /home/mathijs (nix-config-pad);
