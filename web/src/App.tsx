@@ -9,6 +9,7 @@ import Freshness from './components/Freshness'
 import PerfHud from './components/PerfHud'
 import type { IsolineCounters } from './core/perf'
 import ForecastTable, { type SunForm } from './components/ForecastTable'
+import UvBar, { uvBarLabel, type UvBarVariant } from './components/UvBar'
 import { loadBasemapStyle, temperatureLayerBeforeId, type MapTheme } from './core/basemap'
 import { CloudEdgeLayer } from './core/cloud-edge-layer'
 import type { Grid, Manifest, ManifestChunk, MrfHeader, TimelineFrame } from './core/contract'
@@ -39,7 +40,7 @@ import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureColl
 import { solarElevationSin } from './core/solar'
 import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
 import { buildTimeline, frameBlend, seriesValueAt, timelineCoverage, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelinePlaybackRate } from './core/time-model'
-import { formatUv, uvChipLabel } from './core/uv'
+import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
 import { loadWindTuning, storeWindTuning, WindLayer, type WindTuning } from './core/wind-layer'
 
@@ -151,6 +152,7 @@ export default function App() {
   const timeline = createMemo(() => manifest() ? buildTimeline(manifest()!) : [])
   const radiationTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'radiation') : [])
   const uvTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'uv') : [])
+  const uvClearTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'uv_clear') : [])
   const tempTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'temp_c') : [])
   const feelsLikeTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'feels_like_c') : [])
   const humidityTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'rel_humidity') : [])
@@ -192,6 +194,7 @@ export default function App() {
   const [windUSeries, setWindUSeries] = createSignal<Array<number | null>>([])
   const [windVSeries, setWindVSeries] = createSignal<Array<number | null>>([])
   const [radiationSeries, setRadiationSeries] = createSignal<Array<number | null>>([])
+  const [uvClearSeries, setUvClearSeries] = createSignal<Array<number | null>>([])
   // History rows cost bytes the old table never loaded; they stay folded until asked for.
   const [historyRowsWanted, setHistoryRowsWanted] = createSignal(false)
   const [historyOpen, setHistoryOpen] = createSignal(false)
@@ -1451,6 +1454,7 @@ export default function App() {
   const forecast = createMemo(() => buildHourlyForecast({
     rain: timeline(),
     uv: uvTimeline(),
+    uvClear: uvClearTimeline(),
     radiation: radiationTimeline(),
     temperature: tempTimeline(),
     feelsLike: feelsLikeTimeline(),
@@ -1478,8 +1482,34 @@ export default function App() {
       if (request === radiationRequest) setRadiationSeries(values)
     }).catch(() => undefined)
   })
+  // Heldere-hemel-UV reist als eigen veld mee; net als de straling alleen de frames die de tabel toont
+  // (plus alles zodra de puntreeks compleet is, voor de chip onder de cursor).
+  let uvClearRequest = 0
+  createEffect(() => {
+    const point = location()
+    const frames = uvClearTimeline()
+    const all = pointLoadStage() === 'complete'
+    const history = historyRowsWanted()
+    const now = manifestNow()
+    const indexes = all ? frames.map((_, index) => index) : forecast().flatMap((row) =>
+      row.uvClearIndex == null || !isPassiveRow(row, now) || (row.kind === 'past' && !history) ||
+        solarElevationSin(row.epoch, point.lng, point.lat) <= 0 ? [] : [row.uvClearIndex])
+    const request = ++uvClearRequest
+    if (!indexes.length) return
+    void readPointSeries(frames, point, indexes, 'low', undefined, undefined, 'L0').then((values) => {
+      if (request === uvClearRequest) setUvClearSeries(values)
+    }).catch(() => undefined)
+  })
   const cursorUv = createMemo(() => seriesValueAt(uvTimeline(), uvSeries(), selectedEpoch(), 30 * 60_000))
+  const cursorUvReading = createMemo(() => {
+    const point = location()
+    const epoch = selectedEpoch()
+    return uvReading(epoch, cursorUv(), seriesValueAt(uvClearTimeline(), uvClearSeries(), epoch, 30 * 60_000), null, null,
+      (at) => solarElevationSin(at, point.lng, point.lat), false)
+  })
   const cursorUvChip = createMemo(() => uvChipLabel(cursorUv()))
+  // PO-smaaktest: ?uvbalk=stip toont onbewolkt als stip i.p.v. als tweede vulling.
+  const uvBarVariant: UvBarVariant = new URLSearchParams(window.location.search).get('uvbalk') === 'stip' ? 'dot' : 'double'
   const hasTemperature = createMemo(() => feelsLikeTimeline().length > 0)
   const hasWeatherIcons = createMemo(() => cloudTimeline().length > 0)
   const hasHumidity = createMemo(() => humidityTimeline().length > 0)
@@ -1544,7 +1574,7 @@ export default function App() {
     </section>
     <aside class="dashboard">
       <nav class="sidebar-nav" aria-label="Instellingen en locatie">
-        <Show when={cursorUvChip()}>{(label) => <span class="uv-chip sidebar-uv-chip" title="Insmeren aanbevolen"><Sun {...INLINE_ICON} /><span class="uv-long">{label()}</span><span class="uv-short">UV {formatUv(cursorUv())}</span></span>}</Show>
+        <Show when={cursorUvChip()}>{(label) => <span class="uv-chip sidebar-uv-chip" data-level={uvLevel(cursorUv()!).key} title={cursorUvReading() ? `Insmeren aanbevolen · ${uvBarLabel(cursorUvReading()!)}` : 'Insmeren aanbevolen'}><Sun {...INLINE_ICON} /><span class="uv-long">{label()}</span><span class="uv-short">UV {formatUv(cursorUv())}</span><UvBar reading={cursorUvReading()} variant={uvBarVariant} bare /></span>}</Show>
         <div class="sidebar-actions">
           <div class="segmented sidebar-theme" role="group" aria-label="Thema">
             <For each={themes}>{(choice) => <button type="button" classList={{ active: theme() === choice }} aria-pressed={theme() === choice} onClick={() => setTheme(choice)}>
@@ -1574,7 +1604,7 @@ export default function App() {
           <ForecastTable
             rows={forecast()}
             series={{
-              rain: rainSeries(), rainLoaded: rainLoaded(), uv: uvSeries(), radiation: radiationSeries(), temperature: temperatureSeries(),
+              rain: rainSeries(), rainLoaded: rainLoaded(), uv: uvSeries(), uvClear: uvClearSeries(), radiation: radiationSeries(), temperature: temperatureSeries(),
               feelsLike: feelsLikeSeries(), humidity: humiditySeries(), cloud: cloudSeries(), windU: windUSeries(), windV: windVSeries(),
             }}
             location={location()}
@@ -1588,6 +1618,7 @@ export default function App() {
               void loadHistoryRows()
             }}
             sunForm={sunForm}
+            uvBar={uvBarVariant}
             temperatureFocus={{ pinned: focusPinned(), onTogglePin: toggleFocusPin, onFocus: (source, active) => focusMode.set(source, active) }}
           />
         </div>

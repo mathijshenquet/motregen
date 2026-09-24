@@ -664,12 +664,12 @@ fn hourly_field_chunks(decoded: &DecodedArome, horizon_label: &str) -> Result<Ve
     .concat())
 }
 
-pub fn build_uv_chunk(
+pub fn build_uv_chunks(
     api: &ApiClient,
     cache_root: &Path,
     file: &RemoteFile,
     now: DateTime<Utc>,
-) -> Result<Option<ProducedChunk>> {
+) -> Result<Vec<ProducedChunk>> {
     let run = DateTime::parse_from_rfc3339(&file.last_modified)?.with_timezone(&Utc);
     let cache_version = run.format("%Y%m%dT%H%M%S").to_string();
     let path = api.cache_file(
@@ -679,31 +679,48 @@ pub fn build_uv_chunk(
         &cache_root.join("uv").join(cache_version),
     )?;
     let product = knmi_hdf5::decode_uv_index(path)?;
-    if !uv_window_active(&product.date, now)? || product.frames.is_empty() {
-        return Ok(None);
+    if !uv_window_active(&product.date, now)? {
+        return Ok(Vec::new());
     }
     let map = IndexMap::uv(&product.grid)?;
+    let run = run.to_rfc3339_opts(SecondsFormat::Secs, true);
+    let stamp = run_stamp(&run)?;
+    [
+        ("uv", "uv", product.frames),
+        ("uv_clear", "uv_clear", product.clear_frames),
+    ]
+    .into_iter()
+    .filter(|(_, _, frames)| !frames.is_empty())
+    .map(|(field, stem, frames)| {
+        uv_field_chunk(&map, field, &format!("{stem}-{stamp}"), &run, frames)
+    })
+    .collect()
+}
+
+fn uv_field_chunk(
+    map: &IndexMap,
+    field: &str,
+    stem: &str,
+    run: &str,
+    source: Vec<knmi_hdf5::UvFrame>,
+) -> Result<ProducedChunk> {
     let quant = uv_quantization_table();
-    let mut frames = Vec::with_capacity(product.frames.len());
-    let mut times = Vec::with_capacity(product.frames.len());
-    for frame in product.frames {
+    let mut frames = Vec::with_capacity(source.len());
+    let mut times = Vec::with_capacity(source.len());
+    for frame in source {
         times.push(frame.time);
         frames.push(quantize_values(&map.gather(&frame.values)?, &quant)?);
     }
-    let run = run.to_rfc3339_opts(SecondsFormat::Secs, true);
     let meta =
-        mrf::ChunkMeta::standard(UV_GRID.mrf_grid(), "uv", &run, times).with_field("uv", quant);
-    let filename = generated_chunk_filename(
-        &format!(
-            "uv-{}",
-            DateTime::parse_from_rfc3339(&run)?.format("%Y%m%dT%H%M%S")
-        ),
-        &meta,
-    );
-    Ok(Some(produced_chunk(
-        filename,
-        mrf::encode(&frames, &meta)?,
-    )?))
+        mrf::ChunkMeta::standard(UV_GRID.mrf_grid(), "uv", run, times).with_field(field, quant);
+    let filename = generated_chunk_filename(stem, &meta);
+    produced_chunk(filename, mrf::encode(&frames, &meta)?)
+}
+
+fn run_stamp(run: &str) -> Result<String> {
+    Ok(DateTime::parse_from_rfc3339(run)?
+        .format("%Y%m%dT%H%M%S")
+        .to_string())
 }
 
 fn uv_window_active(date: &str, now: DateTime<Utc>) -> Result<bool> {
