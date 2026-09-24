@@ -70,3 +70,30 @@ Append-only, nieuwste onderaan.
   Cargo.lock ongewijzigd t.o.v. main (0).
 - web: `pnpm typecheck` 0; `pnpm test` 0 (198); `pnpm build` 0.
 - e2e: wacht op load < 16 (was 21,08 om 09:30), dan `MOTREGEN_E2E_PORT=4333 MOTREGEN_E2E_DATA_PORT=8333 pnpm e2e` (flock).
+
+## 09:07–09:47 — e2e rood → twee oorzaken gevonden (allemaal onder flock, load < 16 gepolld)
+- Run 1 (start 09:07:28, load 12,29): E2E-EXIT 1 — poort 4333 bezet door U13's `vite preview` (spec-poortbotsing);
+  niets getest. Verder op eigen poorten 4335/8335.
+- Run 2 (start 09:12:33, load 9,86): E2E-EXIT 1 — perf.spec:129 op alle 3 profielen (tweede locatieklik
+  `{reset:true, stage:"window"}`); orchestrator zag hetzelfde op main+U14+U15.
+  Oorzaak: mijn uv_clear-effect laadde bij `complete` álle 65 kwartierframes → gedeelde `LruCache(512)`
+  van gedecodeerde frames liep over → `readCachedPointSeries` niet meer compleet → terug naar initial/window.
+  Fix (7eed9cc): alleen uurframes van tabelrijen (zoals straling); chip pakt onbewolkt van de dichtstbijzijnde rij.
+- Run 3 (start 09:22:44, load 14,71): E2E-EXIT 1 — :129 nu groen op alle profielen; nieuw: desktop warm
+  reload 1678 B chunkbytes (budget 0), mobiel binnen budget maar dezelfde 1678 B.
+- main (U14) gemerged (f8501ef); typecheck 0, test 0 (199), build 0.
+- perf.spec los (start 09:37:20, load 14,88): PERF-EXIT 1, deterministisch 1678 B = uv_clear-header-rest (818 B)
+  + frame (260 B). Trace: koud vuurt de uv_clear-frame-Range 7 ms na het einde van de header-Range op dezelfde
+  URL — Chromium schrijft die cache-entry dan nog (zie commentaar `fetchRangeChunks`): header afgekapt op 4096,
+  frame niet gecachet. Andere velden vragen frames pas in de direct-fase (≥ 450 ms later).
+  Fix: uv_clear-effect wacht tot `pointLoadStage` ≠ `initial`.
+- Volledige e2e (start 09:48:25, load 13,82): E2E-EXIT 1 — alleen desktop warm 1678 B; de stage-gate hielp niet
+  (trace: frame-Range nu 485 ms na de header, nog steeds niet gecachet). Hypothese "race" verworpen.
+  Wel consistent: bij alle andere chunks wordt de payload uiteindelijk aaneengesloten opgehaald; bij
+  uv_clear bleef één losse frame-Range met een gat na de header — die bytes cachet Chromium niet blijvend.
+- Fix: `MrfClient.fetchPayload(chunk)` haalt de hele (kleine) uv_clear-payload als één Range zonder te decoderen;
+  de rij-frames lezen daaruit (decodeerdruk blijft uurframes). Kosten: prod ~40 KB eenmalig i.p.v. ~10 KB.
+- perf.spec los (start 09:58:44, load 3,29): PERF-EXIT 0; warm chunk transfer 0 B desktop/4G/3G; passive 762 274 B.
+- **Volledige e2e (start 10:01:04, load 9,97; `MOTREGEN_E2E_PORT=4335 MOTREGEN_E2E_DATA_PORT=8335 pnpm e2e`): E2E-EXIT 0**
+  (20 passed, 13 skipped — zelfde skips als eerdere runs). Tree = main (incl. U14) + U15.
+- Slotgates na merge main: cargo test --workspace 0; clippy -D warnings 0; Cargo.lock = main (0); typecheck 0; pnpm test 0 (199); pnpm build 0.

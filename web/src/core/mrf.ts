@@ -206,6 +206,18 @@ export class MrfClient {
     }))
   }
 
+  /**
+   * The whole payload of a small chunk as one Range, without decoding. Later
+   * getFrames reads from it; a few scattered frame Ranges on a tiny chunk come
+   * back over the network on a warm reload, one covering Range does not.
+   */
+  async fetchPayload(chunk: ManifestChunk, priority: FetchPriority = 'low', layer: LoadLayer = 'L0'): Promise<void> {
+    const url = new URL(chunk.url, this.manifestUrl).href
+    const header = await this.getHeader(chunk)
+    const end = Math.max(...header.frames.flatMap((frame) => [frame.offset + frame.len, frame.motion ? frame.motion.offset + frame.motion.len : 0]))
+    await this.payload(url, chunk, 0, end, priority, layer, header.frames.map((_, index) => index)).bytes
+  }
+
   async getMotion(chunk: ManifestChunk, frameIndex: number): Promise<MotionField | undefined> {
     const url = new URL(chunk.url, this.manifestUrl).href
     const header = await this.getHeader(chunk)

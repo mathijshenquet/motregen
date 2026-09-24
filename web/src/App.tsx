@@ -1500,22 +1500,27 @@ export default function App() {
     }).catch(() => undefined)
   })
   // Heldere-hemel-UV reist als eigen veld mee; net als de straling alleen de uurframes van de tabelrijen
-  // (alle kwartieren zouden de gedeelde framecache van 512 uit de puntreeksen drukken).
+  // (alle kwartieren decoderen zou de gedeelde framecache van 512 uit de puntreeksen drukken). De bytes
+  // komen wel als één payload-Range binnen: losse frame-Ranges op dit kleine bestand kwamen warm opnieuw
+  // over (perf.spec warm = 0 B). Pas na de initial-fase, om de eerste puntreeks niet te vertragen.
   let uvClearRequest = 0
   createEffect(() => {
     const point = location()
     const frames = uvClearTimeline()
-    const all = pointLoadStage() === 'complete'
+    const stage = pointLoadStage()
+    const all = stage === 'complete'
     const history = historyRowsWanted()
     const now = manifestNow()
     const indexes = forecast().flatMap((row) =>
       row.uvClearIndex == null || (!all && !isPassiveRow(row, now)) || (row.kind === 'past' && !history) ||
         solarElevationSin(row.epoch, point.lng, point.lat) <= 0 ? [] : [row.uvClearIndex])
     const request = ++uvClearRequest
-    if (!indexes.length) return
-    void readPointSeries(frames, point, indexes, 'low', undefined, undefined, 'L0').then((values) => {
+    if (stage === 'initial' || !indexes.length) return
+    void (async () => {
+      await Promise.all([...new Set(indexes.map((index) => frames[index]!.chunk))].map((chunk) => client.fetchPayload(chunk)))
+      const values = await readPointSeries(frames, point, indexes, 'low', undefined, undefined, 'L0')
       if (request === uvClearRequest) setUvClearSeries(values)
-    }).catch(() => undefined)
+    })().catch(() => undefined)
   })
   const cursorUv = createMemo(() => seriesValueAt(uvTimeline(), uvSeries(), selectedEpoch(), 30 * 60_000))
   const cursorUvReading = createMemo(() => {
