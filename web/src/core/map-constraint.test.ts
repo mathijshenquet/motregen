@@ -69,6 +69,26 @@ describe('map constraint', () => {
     expect(constrainView(saved, bounds, rotated).zoom).toBeCloseTo(containZoom(bounds, rotated), 9)
     expect(containZoom(bounds, { width: 2560, height: 1440 })).toBeCloseTo(containZoom(bounds, desktop) + 1, 9)
   })
+
+  it('insets: contain and clamp use the area below the search bar', () => {
+    const landscapePhone: Viewport = { width: 393, height: 393, insets: { top: 60, right: 0, bottom: 0, left: 0 } }
+    const fit = screenBounds(containView(bounds, landscapePhone), landscapePhone)
+    expect(fit.top).toBeCloseTo(60, 6)
+    expect(fit.bottom).toBeCloseTo(393, 6)
+    expect(containZoom(bounds, landscapePhone)).toBeLessThan(containZoom(bounds, { width: 393, height: 393 }))
+
+    const zoom = containZoom(bounds, landscapePhone) + 2
+    const north = screenBounds(constrainView({ lng: 5, lat: 60, zoom }, bounds, landscapePhone), landscapePhone)
+    expect(north.top).toBeCloseTo(60, 6)
+    const south = screenBounds(constrainView({ lng: 5, lat: 45, zoom }, bounds, landscapePhone), landscapePhone)
+    expect(south.bottom).toBeCloseTo(393, 6)
+
+    // Portret: de vrije hoogte past ruim, dus alleen het midden schuift omlaag, de zoom blijft.
+    const tallPhone: Viewport = { width: 393, height: 491, insets: { top: 60, right: 0, bottom: 0, left: 0 } }
+    expect(containZoom(bounds, tallPhone)).toBeCloseTo(containZoom(bounds, { width: 393, height: 491 }), 9)
+    const tall = screenBounds(containView(bounds, tallPhone), tallPhone)
+    expect((tall.top + tall.bottom) / 2).toBeCloseTo(60 + (491 - 60) / 2, 6)
+  })
 })
 
 function screenBounds(view: MapView, viewport: Viewport) {

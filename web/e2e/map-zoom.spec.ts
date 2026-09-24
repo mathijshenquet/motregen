@@ -47,7 +47,12 @@ async function pointAtMap(page: Page, viewport: Viewport): Promise<{ x: number; 
 }
 
 async function mapViewport(page: Page): Promise<Viewport> {
-  return page.locator('.map').evaluate((element) => ({ width: element.clientWidth, height: element.clientHeight }))
+  // Op telefoonbreedte houdt de contain-fit Nederland onder de zoekbalk (data-inset-top).
+  return page.locator('.map').evaluate((element: HTMLElement) => ({
+    width: element.clientWidth,
+    height: element.clientHeight,
+    insets: { top: Number(element.dataset.insetTop ?? 0), right: 0, bottom: 0, left: 0 },
+  }))
 }
 
 async function dragMap(page: Page, viewport: Viewport, dx: number, dy: number): Promise<void> {
@@ -74,7 +79,7 @@ function expectBoundsInView(view: MapView, viewport: Viewport): void {
   const slack = 3
   expect(x(MAP_CONTAIN_BOUNDS.west)).toBeGreaterThanOrEqual(-slack)
   expect(x(MAP_CONTAIN_BOUNDS.east)).toBeLessThanOrEqual(viewport.width + slack)
-  expect(y(MAP_CONTAIN_BOUNDS.north)).toBeGreaterThanOrEqual(-slack)
+  expect(y(MAP_CONTAIN_BOUNDS.north)).toBeGreaterThanOrEqual((viewport.insets?.top ?? 0) - slack)
   expect(y(MAP_CONTAIN_BOUNDS.south)).toBeLessThanOrEqual(viewport.height + slack)
 }
 
