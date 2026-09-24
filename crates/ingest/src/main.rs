@@ -15,7 +15,7 @@ use motregen_ingest::{
         AROME_DATASET, AROME_VERSION, NOWCAST_DATASET, NOWCAST_VERSION, RTCOR_DATASET,
         RTCOR_VERSION, SEAMLESS_DATASET, SEAMLESS_VERSION, UV_DATASET, UV_VERSION,
         build_arome_chunks, build_arome_history_chunks, build_nowcast_chunk, build_rtcor_chunk,
-        build_seamless_chunk_for_file, build_uv_chunk, latest_files, prune_download_cache,
+        build_seamless_chunk_for_file, build_uv_chunks, latest_files, prune_download_cache,
     },
     publisher::{ProducedChunk, publish},
     wind_prior::WindTimeline,
@@ -203,7 +203,7 @@ struct Daemon {
     seamless: Option<ProducedChunk>,
     arome: Vec<ProducedChunk>,
     arome_history: Vec<ProducedChunk>,
-    uv: Option<ProducedChunk>,
+    uv: Vec<ProducedChunk>,
     wind: Option<WindTimeline>,
     rtcor_calibration: Option<motion::Calibration>,
     nowcast_calibration: Option<motion::Calibration>,
@@ -241,7 +241,7 @@ impl Daemon {
             seamless: None,
             arome: Vec::new(),
             arome_history: Vec::new(),
-            uv: None,
+            uv: Vec::new(),
             wind: None,
             rtcor_calibration: None,
             nowcast_calibration: None,
@@ -488,22 +488,33 @@ impl Daemon {
             "{}:{}:{}",
             latest.filename, latest.last_modified, latest.size
         );
-        let chunk = build_uv_chunk(&self.api, &self.cache_root, &latest, chrono::Utc::now())?;
-        let changed = self.uv_id.as_deref() != Some(&id)
-            || self.uv.as_ref().map(|chunk| &chunk.filename)
-                != chunk.as_ref().map(|chunk| &chunk.filename);
+        let chunks = build_uv_chunks(&self.api, &self.cache_root, &latest, chrono::Utc::now())?;
+        let filenames = |chunks: &[ProducedChunk]| {
+            chunks
+                .iter()
+                .map(|chunk| chunk.filename.clone())
+                .collect::<Vec<_>>()
+        };
+        let changed =
+            self.uv_id.as_deref() != Some(&id) || filenames(&self.uv) != filenames(&chunks);
         info!(
             file = latest.filename,
             last_modified = latest.last_modified,
-            frames = chunk
-                .as_ref()
+            frames = chunks
+                .iter()
+                .find(|chunk| chunk.manifest.field == "uv")
                 .map(|chunk| chunk.manifest.times.len())
                 .unwrap_or(0),
-            active = chunk.is_some(),
+            clear_frames = chunks
+                .iter()
+                .find(|chunk| chunk.manifest.field == "uv_clear")
+                .map(|chunk| chunk.manifest.times.len())
+                .unwrap_or(0),
+            active = !chunks.is_empty(),
             "uv quarter-hour batch decoded"
         );
         self.uv_id = Some(id);
-        self.uv = chunk;
+        self.uv = chunks;
         self.last_uv_check = Some(checked_at);
         Ok(changed)
     }
@@ -528,9 +539,7 @@ impl Daemon {
         }
         chunks.extend(self.arome.iter());
         chunks.extend(self.arome_history.iter());
-        if let Some(uv) = &self.uv {
-            chunks.push(uv);
-        }
+        chunks.extend(self.uv.iter());
         let manifest = publish(&self.config.data_dir, now, &chunks, self.config.prune_age)?;
         info!(
             chunks = manifest.chunks.len(),
@@ -757,7 +766,7 @@ mod tests {
             seamless: None,
             arome: Vec::new(),
             arome_history: Vec::new(),
-            uv: None,
+            uv: Vec::new(),
             wind: None,
             rtcor_calibration: None,
             nowcast_calibration: None,

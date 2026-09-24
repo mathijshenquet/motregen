@@ -7,6 +7,7 @@ export interface HourlyForecastRow {
   kind: HourlyRowKind
   rainIndex: number | null
   uvIndex: number | null
+  uvClearIndex: number | null
   radiationIndex: number | null
   radiationNextIndex: number | null
   temperatureIndex: number | null
@@ -20,6 +21,7 @@ export interface HourlyForecastRow {
 export interface HourlyTimelines {
   rain: TimelineFrame[]
   uv: TimelineFrame[]
+  uvClear: TimelineFrame[]
   radiation: TimelineFrame[]
   temperature: TimelineFrame[]
   feelsLike: TimelineFrame[]
@@ -58,6 +60,7 @@ export function buildHourlyForecast(
       kind: epoch < currentHour ? 'past' : epoch === currentHour ? 'now' : 'future',
       rainIndex: nearestFrame(timelines.rain, epoch),
       uvIndex: nearestFrame(timelines.uv, epoch),
+      uvClearIndex: nearestFrame(timelines.uvClear, epoch),
       radiationIndex: nearestFrame(timelines.radiation, epoch),
       radiationNextIndex: nearestFrame(timelines.radiation, epoch + hour),
       temperatureIndex: nearestFrame(timelines.temperature, epoch),

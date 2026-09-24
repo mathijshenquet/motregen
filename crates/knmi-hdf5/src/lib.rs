@@ -58,6 +58,9 @@ pub struct UvProduct {
     pub window_end: String,
     pub grid: UvGrid,
     pub frames: Vec<UvFrame>,
+    /// `uvi_clear` is filled for every scheduled time with the sun up, also where
+    /// the cloud-modified status is 0, so it reaches the end of the UTC day.
+    pub clear_frames: Vec<UvFrame>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -346,28 +349,46 @@ pub fn decode_uv_index(path: impl AsRef<Path>) -> Result<UvProduct> {
     );
     let latitude_increment = regular_increment(&latitude, "latitude")?;
     let longitude_increment = regular_increment(&longitude, "longitude")?;
+    let shape = [times.len(), latitude.len(), longitude.len()];
     let cloudy = product.dataset("uvi_cloudy")?;
     ensure!(
-        cloudy.shape() == [times.len(), latitude.len(), longitude.len()],
+        cloudy.shape() == shape,
         "uvi_cloudy shape does not match coordinates"
     );
+    let clear = product.dataset("uvi_clear")?;
+    ensure!(
+        clear.shape() == shape,
+        "uvi_clear shape does not match coordinates"
+    );
     let values = cloudy.read_raw::<f32>()?;
+    let clear_values = clear.read_raw::<f32>()?;
     let cells = latitude.len() * longitude.len();
     let timestamps = times
         .iter()
         .map(|hours| uv_timestamp(date, *hours))
         .collect::<Result<Vec<_>>>()?;
+    let uv_frame = |values: &[f32], index: usize| {
+        values[index * cells..(index + 1) * cells]
+            .iter()
+            .map(|value| if *value < 0.0 { f32::NAN } else { *value })
+            .collect::<Vec<_>>()
+    };
     let mut frames = Vec::new();
+    let mut clear_frames = Vec::new();
     for (index, status) in statuses.into_iter().enumerate() {
+        let clear = uv_frame(&clear_values, index);
+        if clear.iter().any(|value| value.is_finite()) {
+            clear_frames.push(UvFrame {
+                time: timestamps[index].clone(),
+                values: clear,
+            });
+        }
         match status {
             0 => continue,
             1 | 2 => {}
             value => bail!("unsupported UV status {value}"),
         }
-        let frame = values[index * cells..(index + 1) * cells]
-            .iter()
-            .map(|value| if *value < 0.0 { f32::NAN } else { *value })
-            .collect::<Vec<_>>();
+        let frame = uv_frame(&values, index);
         ensure!(
             frame.iter().any(|value| value.is_finite()),
             "available UV frame contains only no-data"
@@ -390,6 +411,7 @@ pub fn decode_uv_index(path: impl AsRef<Path>) -> Result<UvProduct> {
             height: latitude.len(),
         },
         frames,
+        clear_frames,
     })
 }
 

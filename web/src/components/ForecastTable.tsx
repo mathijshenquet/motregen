@@ -1,8 +1,9 @@
 import { createEffect, createMemo, For, onCleanup, Show } from 'solid-js'
 import type { HourlyForecastRow } from '../core/forecast'
 import { solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
-import { estimateUv, formatUv, uvAdvice } from '../core/uv'
+import { uvReading } from '../core/uv'
 import { deriveWeatherIcon, summarizeWind } from '../core/weather'
+import UvBar, { type UvBarVariant } from './UvBar'
 import WeatherIcon from './WeatherIcon'
 
 export type SunForm = 'row' | 'marker'
@@ -11,6 +12,7 @@ export interface ForecastSeries {
   rain: Array<number | null>
   rainLoaded: boolean[]
   uv: Array<number | null>
+  uvClear: Array<number | null>
   radiation: Array<number | null>
   temperature: Array<number | null>
   feelsLike: Array<number | null>
@@ -33,6 +35,7 @@ interface Props {
   onNeedRows: () => void
   onOpenHistory: () => void
   sunForm: SunForm
+  uvBar: UvBarVariant
   // Hover/toetsenbordfocus op de gevoelskolom zet de temperatuurfocus van de kaart aan.
   temperatureFocus: {
     pinned: boolean
@@ -78,7 +81,7 @@ export default function ForecastTable(props: Props) {
     <thead><tr>
       <th>Uur</th>
       <Show when={props.columns.weather}><th class="weather-heading">Weer</th></Show>
-      <Show when={props.columns.uv}><th class="uv-heading" title="UV-index; ≈ = schatting uit modelstraling en zonshoogte">UV</th></Show>
+      <Show when={props.columns.uv}><th class="uv-heading" title="UV-index met en zonder wolken; ≈ = schatting uit modelstraling en zonshoogte">UV</th></Show>
       <Show when={props.columns.temperature}><th class="temperature-heading">
         <button
           type="button"
@@ -118,20 +121,8 @@ export default function ForecastTable(props: Props) {
       const humidity = () => value(props.series.humidity, row.humidityIndex)
       const wind = () => summarizeWind(value(props.series.windU, row.windUIndex), value(props.series.windV, row.windVIndex))
       const icon = () => deriveWeatherIcon(rain(), cloud(), elevation(row.epoch) > 0)
-      const uv = createMemo(() => {
-        const measured = value(props.series.uv, row.uvIndex)
-        if (measured != null) return { value: measured, estimated: false }
-        if (row.kind === 'past') return null
-        const estimate = estimateUv(row.epoch, value(props.series.radiation, row.radiationIndex),
-          value(props.series.radiation, row.radiationNextIndex), elevation)
-        return estimate == null ? null : { value: estimate, estimated: true }
-      })
-      const uvText = () => {
-        const reading = uv()
-        if (!reading) return pending() ? '…' : ''
-        if (reading.value < 0.05 && elevation(row.epoch) <= 0) return ''
-        return `${reading.estimated ? '≈' : ''}${formatUv(reading.value)}`
-      }
+      const uv = createMemo(() => uvReading(row.epoch, value(props.series.uv, row.uvIndex), value(props.series.uvClear, row.uvClearIndex),
+        value(props.series.radiation, row.radiationIndex), value(props.series.radiation, row.radiationNextIndex), elevation, row.kind !== 'past'))
       const sunEvent = () => sun().get(row.epoch)
       const time = (epoch: number) => new Date(epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
       const sunLabel = (event: SunEvent) => `${event.kind === 'rise' ? 'Zon op' : 'Zon onder'} ${time(event.epoch)}`
@@ -153,9 +144,10 @@ export default function ForecastTable(props: Props) {
           </td>
           <Show when={props.columns.weather}><td class="weather-cell"><Show when={icon()}>{(model) => <WeatherIcon model={model()} />}</Show></td></Show>
           <Show when={props.columns.uv}>
-            <td class="uv-cell" classList={{ estimated: uv()?.estimated === true, strong: uvAdvice(uv()?.value) != null }}
-              title={uv()?.estimated ? 'Schatting uit modelstraling en zonshoogte' : uv() ? 'KNMI UV-analyse' : undefined}>
-              {uvText()}
+            <td class="uv-cell">
+              <Show when={uv() || elevation(row.epoch) <= 0} fallback={pending() ? '…' : ''}>
+                <UvBar reading={elevation(row.epoch) > 0 ? uv() : null} variant={props.uvBar} />
+              </Show>
             </td>
           </Show>
           <Show when={props.columns.temperature}><td class="temperature-cell" onPointerEnter={(event) => hover(event, true)} onPointerLeave={(event) => hover(event, false)}>{degrees(feelsLike())}<small class="air-temperature" title="Luchttemperatuur">{degrees(temperature())}</small></td></Show>

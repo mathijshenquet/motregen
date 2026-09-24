@@ -105,10 +105,18 @@ Onder `/PRODUCT` staan:
 - `time[72]`: kwartieren in UTC;
 - `status[time]`: 0 = niet beschikbaar, 1 = analyse, 2 = verwachting;
 - `uvi_cloudy[time, latitude, longitude]`: cloud-modified erythemale
-  UV-index, dimensieloos; `-1` is no-data. `uvi_clear` is aanwezig maar niet
-  het gekozen contractveld.
+  UV-index, dimensieloos; `-1` is no-data;
+- `uvi_clear[time, latitude, longitude]`: dezelfde index zonder wolken
+  ("`uvi_cloudy` = `uvi_clear` × cloud modification factor"). Anders dan
+  `uvi_cloudy` is dit veld voor álle tijden met de zon op gevuld, ook bij
+  status 0: op 23 en 24 september 2026 van 04:00/04:15 tot 19:00 UTC. Het is
+  dus een heldere-hemelverwachting voor de rest van de dag, met de ozon van
+  die dag.
 
-Alleen frames met status 1 of 2 worden gepubliceerd. Ze gaan met nearest
+Voor `uv` worden alleen frames met status 1 of 2 gepubliceerd; `uv_clear`
+(zelfde source, grid en kwantisatie) krijgt ieder tijdstip met minstens één
+eindige cel. Gemeten op de file van 23 september 13:43 UTC: `uv` 30 frames,
+107 380 B; `uv_clear` 61 frames, 42 145 B. Ze gaan met nearest
 neighbour naar dezelfde EPSG:3857-extent op een passend grof 5km-grid
 (130×140); de KNMI-Beneluxdekking laat de buitenste gedeelde kaartmarge als
 no-data. De daemon controleert iedere 15 minuten. Buiten het door de
@@ -131,34 +139,68 @@ verleden en nu toont de uurtabel die analyse (dichtstbijzijnde kwartier binnen
 straling en zonshoogte. De tabel toont zo'n waarde als "≈" met tooltip
 "Schatting uit modelstraling en zonshoogte".
 
-Afleiding voor rijtijd `t` op de gekozen locatie, met μ = sin(zonshoogte)
-uit `solar.ts`:
+Iedere rij toont twee waarden: bewolkt (wat de zon doet) en onbewolkt (wat
+ze zonder wolken zou doen). Voor rijtijd `t` op de gekozen locatie, met
+μ = sin(zonshoogte) uit `solar.ts`:
 
-1. Heldere-hemel-UV (Madronich, ozon ≈ 300 DU): `UV_c(t) = 12,5·μ(t)^2,42`.
+1. **Onbewolkt** = KNMI `uv_clear` (dichtstbijzijnde kwartier binnen 30 min).
+   Daarna, dus vanaf morgen, geldt de heldere-hemelfit
+   `UV_c(t) = 9,20·μ^2,584·(1 − 0,127·cos(2π(dag − 102)/365))`. De cosinusterm
+   is de ozonseizoensgang: het ozonmaximum in april dempt de UV.
 2. Heldere-hemel-straling (Haurwitz): `G_c(μ) = 1098·μ·exp(−0,057/μ)`,
    gemiddeld over het uur waarop een HARMONIE-stralingsframe betrekking
    heeft. Een frame op tijd `T` is het uurgemiddelde over [T−1 u, T].
 3. Bewolkingsfactor per aangrenzend uur `CMF = G/G_c` (alleen als G_c > 20
-   W/m², begrensd op 0…1,2). De tabel middelt de twee uren die aan `t`
-   grenzen (frames `t` en `t+1 u`).
-4. `UV(t) = k · UV_c(t) · CMF^p`.
+   W/m², begrensd op 0…1). De tabel middelt de twee uren die aan `t` grenzen.
+   In de KNMI-analyses is bewolkt nooit hoger dan onbewolkt (+0,1): 0 % van
+   de cellen over 26 dagen. Vandaar de bovengrens 1.
+4. **Bewolkt** = KNMI-analyse als die er is, anders `UV(t) = UV_c(t)·CMF^0,30`.
 
-UV wordt minder door wolken verzwakt dan globale straling. Daarom is `p < 1`.
-`k` vangt de systematische afwijking van de heldere-hemelformule en de
-ozonaanname. Kalibratie op 2026-09-23 tegen de KNMI-UV-analyse per 5km-cel
-over land en kust van Nederland (50,7–53,6° N, 3,3–7,3° O), 06:00–12:00
-UTC, n ≈ 62.000 cel-uren, straling uit HARMONIE-runs 05Z (historie) en 10Z:
+UV wordt minder door wolken verzwakt dan globale straling, daarom `p < 1`.
+
+### Kalibratie onbewolkt (U15, 2026-09-24)
+
+Gebruikt zijn 26 dagen KNMI-archief (iedere 7e dag van 1 april tot 23
+september 2026), 300 willekeurige cellen per kwartier in de NL-box
+(50,7–53,6° N, 3,3–7,3° O), n = 472.103, tegen `uvi_clear`:
+
+| model | RMSE | bias | RMSE bij UV ≥ 3 | bias bij UV ≥ 3 |
+| --- | ---: | ---: | ---: | ---: |
+| Madronich 12,5·μ^2,42 | 1,408 | +1,023 | 2,189 | +2,072 |
+| U4: 0,84 × Madronich | 0,768 | +0,513 | 1,173 | +1,012 |
+| a·μ^b (8,72; 2,514) | 0,347 | −0,019 | 0,551 | −0,040 |
+| **+ ozonseizoen (bovenstaand)** | **0,277** | **−0,023** | **0,445** | **−0,015** |
+
+De U4-basis was op één septemberdag gefit en overschatte daardoor in de zomer
+met ongeveer 1 UV-punt bij hoge zon. De restfout is vooral ozon van dag tot
+dag. `uvi_clear` in De Bilt om 12 u varieerde in juni en juli van 5,1 tot 7,7;
+de fit geeft 6,3. Zonder ozonverwachting is dat niet te verkleinen. Voor
+vandaag gebruikt de tabel daarom de KNMI-waarde zelf. Er is geen winterdata,
+dus oktober–maart is extrapolatie; de UV-index is dan wel < 3.
+Reproduceren: `uv run --with h5py --with numpy --with scipy python .dev/tracks/u15-uv-bar/clearfit.py <dir met uviec_bx_hr_*.nc>`.
+
+### Kalibratie bewolkt
+
+Gefit is de KNMI-UV-analyse tegen de onbewolkte basis × HARMONIE-CMF^p, op
+23 september (runs 06Z/10Z, 06–13 UTC, n ≈ 66.000 cel-uren):
 
 | model | RMSE | bias | p90 \|fout\| |
 | --- | ---: | ---: | ---: |
-| alleen heldere hemel | 0,888 | +0,661 | 1,526 |
-| lineair (p = 1, k = 1) | 0,481 | −0,120 | 0,835 |
-| **gefit p = 0,35, k = 0,84** | **0,269** | **+0,004** | **0,438** |
+| U4: 0,84·Madronich·CMF^0,35 | 0,376 | +0,041 | 0,659 |
+| **KNMI-`uv_clear`·CMF^0,30** | **0,363** | **+0,022** | **0,645** |
+| seizoensfit·CMF^0,30 | 0,409 | −0,142 | 0,616 |
 
-Een tweede run om 13:29Z, met historierun 06Z en het uur 13:00 erbij (n ≈
-71.000), gaf dezelfde optimale p en k met RMSE 0,295 (lineair 0,503). Dit is
-wel nog steeds één septemberdag met gebroken bewolking. De fit is
-bruikbaar voor een "≈"-kolom, maar niet algemeen gevalideerd: lage zon,
-zomerse hoge UV en zware bewolking zijn ondervertegenwoordigd. Herkalibreer
-zodra een paar weken analyses en historiestraling naast elkaar bewaard zijn.
-Reproduceren: `uv run --with numpy --with zstandard python .dev/tracks/u4-urenoverzicht/uvcal.py <data-dir>` op een datadir met UV- en historie-/huidige stralingschunks.
+De laatste regel erft de ozonfout van die dag (fit −0,185). De fit van de
+bewolkingsfactor rust nog steeds op één septemberdag. Herkalibreer zodra er
+een paar weken analyses en historiestraling naast elkaar bewaard zijn.
+Reproduceren: `uv run --with numpy --with zstandard --with h5py python .dev/tracks/u15-uv-bar/cmffit.py <datadir> <uviec_bx_hr_*.nc>`.
+De U4-kalibratie (Madronich-basis) staat in `.dev/tracks/u4-urenoverzicht/uvcal.py`.
+
+### Weergave
+
+De WHO-klassen zijn laag (< 3, groen), matig (3–6, geel), hoog (6–8, oranje),
+zeer hoog (8–11, rood) en extreem (≥ 11, paars). De bar loopt van 0 tot 12. De
+bewolkte waarde is een gevulde bar in de kleur van haar klasse; de onbewolkte
+waarde een gearceerde, omlijnde bar erachter. Een schatting is gestreept en
+krijgt ≈. Vanaf 3 staat het klassewoord erbij en toont de kaart de chip
+"Insmeren". Als de zon onder is, is de bar leeg.

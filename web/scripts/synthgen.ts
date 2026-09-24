@@ -42,6 +42,10 @@ plans.push({
   name: 'uv-20260828.mrf', source: 'uv', field: 'uv', run: Date.parse('2026-08-28T00:00:00Z'),
   times: Array.from({ length: 49 }, (_, i) => Date.parse('2026-08-28T03:00:00Z') + i * 15 * 60_000),
 })
+plans.push({
+  name: 'uv_clear-20260828.mrf', source: 'uv', field: 'uv_clear', run: Date.parse('2026-08-28T00:00:00Z'),
+  times: Array.from({ length: 65 }, (_, i) => Date.parse('2026-08-28T03:00:00Z') + i * 15 * 60_000),
+})
 for (const field of ['radiation', 'temp_c', 'feels_like_c', 'wind_u_ms', 'wind_v_ms', 'rel_humidity', 'cloud_frac'] as const) {
   plans.push({ name: `${field}-20260828T1200.mrf`, source: 'harmonie', field, run, times: runTimes.slice(0, 24) })
   plans.push({ name: `${field}-20260828T1200-l25-48.mrf`, source: 'harmonie', field, run, times: runTimes.slice(24) })
@@ -116,19 +120,19 @@ function makeRadiationFrame(epoch: number): Uint8Array {
   return values
 }
 
-function makeUvFrame(epoch: number): Uint8Array {
+function makeUvFrame(epoch: number, clearSky = false): Uint8Array {
   const values = new Uint8Array(grid.width * grid.height)
   const elevation = Math.max(0, solarElevationSin(epoch, 5.3, 52.15))
   if (elevation === 0) return values
   const clearUv = 7.5 * Math.pow(elevation, 0.8)
   for (let y = 0; y < grid.height; y++) for (let x = 0; x < grid.width; x++) {
-    const cloudFactor = 0.58 + 0.37 * (0.5 + 0.5 * Math.sin(x * 0.045 + y * 0.031 + epoch / 7_200_000))
+    const cloudFactor = clearSky ? 1 : 0.58 + 0.37 * (0.5 + 0.5 * Math.sin(x * 0.045 + y * 0.031 + epoch / 7_200_000))
     values[y * grid.width + x] = encodeLinear(clearUv * cloudFactor, uvQuant)
   }
   return values
 }
 
-function makeWeatherFrame(epoch: number, field: Exclude<Field, 'rain_rate' | 'radiation' | 'uv'>): Uint8Array {
+function makeWeatherFrame(epoch: number, field: Exclude<Field, 'rain_rate' | 'radiation' | 'uv' | 'uv_clear'>): Uint8Array {
   const values = new Uint8Array(grid.width * grid.height)
   const hour = (epoch - now) / 3_600_000
   for (let y = 0; y < grid.height; y++) for (let x = 0; x < grid.width; x++) {
@@ -182,7 +186,7 @@ function quantFor(field: Field): Array<number | null> {
   if (field === 'radiation') return radiationQuant
   if (field === 'temp_c') return temperatureQuant
   if (field === 'feels_like_c') return feelsLikeQuant
-  if (field === 'uv') return uvQuant
+  if (field === 'uv' || field === 'uv_clear') return uvQuant
   if (field === 'rel_humidity' || field === 'cloud_frac') return percentQuant
   return windQuant
 }
@@ -191,6 +195,7 @@ function frameFor(plan: ChunkPlan, time: number, index: number): Uint8Array {
   if (plan.field === 'rain_rate') return makeFrame(time, plan.source, index)
   if (plan.field === 'radiation') return makeRadiationFrame(time)
   if (plan.field === 'uv') return makeUvFrame(time)
+  if (plan.field === 'uv_clear') return makeUvFrame(time, true)
   return makeWeatherFrame(time, plan.field)
 }
 

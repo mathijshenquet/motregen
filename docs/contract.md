@@ -117,6 +117,7 @@ niet nodig, `version`-veld leidt.
 | `wind_u_ms` | m/s | 10m-wind, oostwaartse component |
 | `wind_v_ms` | m/s | 10m-wind, noordwaartse component |
 | `uv` | UV-index | zonkracht (cloud-modified) |
+| `uv_clear` | UV-index | zonkracht zonder wolken (KNMI `uvi_clear`, heel de dag; source `uv`) |
 | `rel_humidity` | % | 2m relatieve luchtvochtigheid |
 | `cloud_frac` | % | totale bewolkingsgraad (alleen voor pictogram-afleiding; nooit als kaartlaag — MIP-4 ronde 3) |
 
@@ -155,3 +156,6 @@ frame kan zippen tot vectoren.
   HARMONIE-uurvelden mogen over meerdere chunks per run verdeeld zijn
   (dagdelen) en een oudere run mag als historie-chunk meereizen; geen
   formaatwijziging.
+- 2026-09-24 (U15, ter review door orchestrator): veld `uv_clear` toegevoegd
+  (KNMI-heldere-hemel-UV uit dezelfde NetCDF, zelfde grid/quant als `uv`,
+  eigen chunk met source `uv`). Additief.
