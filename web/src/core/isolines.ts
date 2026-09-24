@@ -186,7 +186,7 @@ const SEGMENTS: ReadonlyArray<ReadonlyArray<readonly [number, number]>> = [
   [[3, 0]], [[0, 2]], [], [[0, 1]], [[3, 1]], [[2, 1]], [[3, 2]], [],
 ]
 
-interface Workspace {
+export interface Workspace {
   first: Int32Array
   second: Int32Array
   visited: Uint8Array
@@ -194,7 +194,7 @@ interface Workspace {
   ys: Float32Array
 }
 
-function workspace(field: ScalarField): Workspace {
+export function workspace(field: ScalarField): Workspace {
   const edges = field.width * field.height * 2
   return {
     first: new Int32Array(edges).fill(-1),
@@ -205,7 +205,8 @@ function workspace(field: ScalarField): Workspace {
   }
 }
 
-export function marchingSquares(field: ScalarField, level: number, minLength = 0, minRingLength = minLength, buffers = workspace(field)): Isoline[] {
+/** `cells` (index rij·breedte + kolom): alleen deze cellen bezoeken, bv. de cellen die het niveau kruisen. */
+export function marchingSquares(field: ScalarField, level: number, minLength = 0, minRingLength = minLength, buffers = workspace(field), cells?: ArrayLike<number>): Isoline[] {
   const { width, height, values } = field
   // Een kruising ligt op precies één rooster-edge (id = knoop·2 + richting) en elke edge
   // wordt door hooguit twee cellen gedeeld: graad ≤ 2, dus twee link-slots volstaan.
@@ -229,27 +230,30 @@ export function marchingSquares(field: ScalarField, level: number, minLength = 0
   const attach = (from: number, to: number) => {
     if (first[from] === -1) first[from] = to; else second[from] = to
   }
-  for (let row = 0; row < height - 1; row++) {
-    for (let column = 0; column < width - 1; column++) {
-      const tl = values[row * width + column]!
-      const tr = values[row * width + column + 1]!
-      const br = values[(row + 1) * width + column + 1]!
-      const bl = values[(row + 1) * width + column]!
-      if (Number.isNaN(tl) || Number.isNaN(tr) || Number.isNaN(br) || Number.isNaN(bl)) continue
-      const index = (tl >= level ? 8 : 0) | (tr >= level ? 4 : 0) | (br >= level ? 2 : 0) | (bl >= level ? 1 : 0)
-      if (index === 0 || index === 15) continue
-      let pairs = SEGMENTS[index]!
-      if (index === 5 || index === 10) {
-        const centerHigh = (tl + tr + br + bl) / 4 >= level
-        // 5 = tr+bl hoog, 10 = tl+br hoog. Hoog midden verbindt de hoge hoeken, dus de lage worden afgesneden.
-        const cutTopLeft = index === 5 ? centerHigh : !centerHigh
-        pairs = cutTopLeft ? [[3, 0], [2, 1]] : [[0, 1], [3, 2]]
-      }
-      for (const [from, to] of pairs) {
-        const a = crossing(row, column, from), b = crossing(row, column, to)
-        attach(a, b); attach(b, a)
-      }
+  const visit = (row: number, column: number) => {
+    const tl = values[row * width + column]!
+    const tr = values[row * width + column + 1]!
+    const br = values[(row + 1) * width + column + 1]!
+    const bl = values[(row + 1) * width + column]!
+    if (Number.isNaN(tl) || Number.isNaN(tr) || Number.isNaN(br) || Number.isNaN(bl)) return
+    const index = (tl >= level ? 8 : 0) | (tr >= level ? 4 : 0) | (br >= level ? 2 : 0) | (bl >= level ? 1 : 0)
+    if (index === 0 || index === 15) return
+    let pairs = SEGMENTS[index]!
+    if (index === 5 || index === 10) {
+      const centerHigh = (tl + tr + br + bl) / 4 >= level
+      // 5 = tr+bl hoog, 10 = tl+br hoog. Hoog midden verbindt de hoge hoeken, dus de lage worden afgesneden.
+      const cutTopLeft = index === 5 ? centerHigh : !centerHigh
+      pairs = cutTopLeft ? [[3, 0], [2, 1]] : [[0, 1], [3, 2]]
     }
+    for (const [from, to] of pairs) {
+      const a = crossing(row, column, from), b = crossing(row, column, to)
+      attach(a, b); attach(b, a)
+    }
+  }
+  if (cells) {
+    for (let index = 0; index < cells.length; index++) visit(Math.floor(cells[index]! / width), cells[index]! % width)
+  } else {
+    for (let row = 0; row < height - 1; row++) for (let column = 0; column < width - 1; column++) visit(row, column)
   }
   const lines: Isoline[] = []
   const walk = (start: number) => {

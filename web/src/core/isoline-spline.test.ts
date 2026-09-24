@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PreparedField } from './isoline-field'
-import { projectToLevel, sampleSlice, sliceWeights, type FieldSlice } from './isoline-labels'
+import { projectToLevel, sampleSlice, sliceWeights, type FieldSlice } from './isoline-spline'
 
 function ramp(width: number, height: number, offset: number): PreparedField {
   const values = new Float32Array(width * height)
