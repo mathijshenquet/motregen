@@ -539,10 +539,10 @@ td:first-child span.sun-mark { display: block; margin-top: 1px; color: #b07800; 
 :root[data-theme="dark"] td:first-child span.sun-mark { color: #ffd86b; }
 .sun-mark .sun-glyph { width: 14px; height: 9px; margin: 0 3px -1px 0; }
 .temperature-cell { font-size: 16px; font-weight: 720; letter-spacing: -.03em; }
-.temperature-focus { margin: -3px -5px; padding: 3px 5px; border: 0; border-radius: 5px; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
-.temperature-focus:hover, .temperature-focus[aria-pressed="true"] { color: var(--accent); }
-.temperature-focus[aria-pressed="true"] { background: var(--accent-soft); text-decoration: none; }
-.temperature-focus:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.column-focus { margin: -3px -5px; padding: 3px 5px; border: 0; border-radius: 5px; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
+.column-focus:hover, .column-focus[aria-pressed="true"] { color: var(--accent); }
+.column-focus[aria-pressed="true"] { background: var(--accent-soft); text-decoration: none; }
+.column-focus:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .air-temperature { display: block; color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: 0; }
 .wind-cell { color: var(--text); font-size: 11px; }
 
@@ -738,6 +738,6 @@ tr.history-toggle-row td { padding: 0; border-bottom: 1px solid var(--line); bac
   .map-clock .freshness-trigger { min-height: 44px; }
   .cursor-pill::after { position: absolute; inset: -8px -4px; content: ''; }
   .history-toggle { min-height: 44px; }
-  .temperature-focus { position: relative; }
-  .temperature-focus::after { position: absolute; inset: -12px -4px; content: ''; }
+  .column-focus { position: relative; }
+  .column-focus::after { position: absolute; inset: -12px -4px; content: ''; }
 }

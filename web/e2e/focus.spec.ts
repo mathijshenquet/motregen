@@ -3,12 +3,15 @@ import { applyEmulation, performanceProfile } from './profiles'
 
 const shell = (page: Page) => page.locator('.map-shell')
 const heading = (page: Page) => page.locator('.temperature-focus')
+const windHeading = (page: Page) => page.locator('.wind-focus')
+const windIntensity = async (page: Page) => Number(await shell(page).getAttribute('data-wind-intensity'))
 
 async function ready(page: Page): Promise<void> {
   await page.goto('/')
   await expect(page.locator('.map-splash.ready')).toBeAttached()
   await expect(page.locator('.temperature-cell').first()).toBeVisible()
   await expect(shell(page)).toHaveAttribute('data-focus', '0.00')
+  await expect(shell(page)).toHaveAttribute('data-wind-focus', '0.00')
 }
 
 async function fps(page: Page): Promise<number | null> {
@@ -52,8 +55,106 @@ test('keyboard focus on the column heading counts as hover; reduced motion jumps
   expect(await shell(page).getAttribute('data-focus')).toBe('1.00')
   await expect.poll(async () => Number(await shell(page).getAttribute('data-isolines'))).toBeGreaterThan(0)
   await page.screenshot({ path: testInfo.outputPath('focus-dark.png') })
+  // De volgende kop met focusmodus is Wind: toetsenbordfocus wisselt direct van modus.
   await page.keyboard.press('Tab')
+  await expect(windHeading(page)).toBeFocused()
   expect(await shell(page).getAttribute('data-focus')).toBe('0.00')
+  expect(await shell(page).getAttribute('data-wind-focus')).toBe('1.00')
+  await page.keyboard.press('Tab')
+  expect(await shell(page).getAttribute('data-wind-focus')).toBe('0.00')
+})
+
+test('hovering the city temperature labels on the map does not trigger focus', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'muishover is een desktopgedrag')
+  // Elke mousemove laat MapLibre de symbolen bevragen; op een drukke host kost de veeg ~40 s.
+  test.setTimeout(120_000)
+  await ready(page)
+  await expect.poll(async () => Number(await shell(page).getAttribute('data-focus'))).toBe(0)
+  // Veeg de muis in een fijn raster over al het zichtbare kaartcanvas, zodat hij over elk stadslabel komt.
+  // Per rij één move met tussenstappen: een roundtrip per punt kost bijna een minuut.
+  const runs = await page.evaluate(() => {
+    const shellElement = document.querySelector<HTMLElement>('.map-shell')!
+    const canvas = document.querySelector('.maplibregl-canvas')!
+    const box = canvas.getBoundingClientRect()
+    const found: Array<{ y: number; from: number; to: number; points: number }> = []
+    for (let y = box.top + 4; y < box.bottom; y += 14) {
+      let run: { y: number; from: number; to: number; points: number } | undefined
+      for (let x = box.left + 4; x < box.right; x += 22) {
+        if (document.elementFromPoint(x, y) !== canvas) { run = undefined; continue }
+        if (run) { run.to = x; run.points++ } else found.push(run = { y, from: x, to: x, points: 1 })
+      }
+    }
+    const state = window as typeof window & { __maxFocus: number }
+    state.__maxFocus = 0
+    new MutationObserver(() => { state.__maxFocus = Math.max(state.__maxFocus, Number(shellElement.dataset.focus)) })
+      .observe(shellElement, { attributes: true, attributeFilter: ['data-focus'] })
+    return found
+  })
+  expect(runs.reduce((sum, run) => sum + run.points, 0)).toBeGreaterThan(400)
+  for (const run of runs) {
+    await page.mouse.move(run.from, run.y)
+    if (run.points > 1) await page.mouse.move(run.to, run.y, { steps: run.points - 1 })
+  }
+  await page.waitForTimeout(500)
+  expect(await page.evaluate(() => (window as typeof window & { __maxFocus: number }).__maxFocus)).toBe(0)
+  await expect(shell(page)).toHaveAttribute('data-focus', '0.00')
+})
+
+test('hovering the wind column brings the damped wind to full strength and dims nothing', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'muishover is een desktopgedrag; touch heeft een eigen test')
+  await ready(page)
+  const damped = await windIntensity(page)
+  expect(damped).toBeCloseTo(1.27, 2)
+  await windHeading(page).hover()
+  await expect.poll(async () => Number(await shell(page).getAttribute('data-wind-focus'))).toBeGreaterThan(0)
+  await expect(shell(page)).toHaveAttribute('data-wind-focus', '1.00')
+  expect(await windIntensity(page)).toBeCloseTo(damped * 1.5, 1)
+  expect(await shell(page).getAttribute('data-focus')).toBe('0.00')
+  await page.screenshot({ path: testInfo.outputPath('wind-focus.png') })
+  await page.mouse.move(5, 5)
+  await expect(shell(page)).toHaveAttribute('data-wind-focus', '0.00')
+  expect(await windIntensity(page)).toBeCloseTo(damped, 2)
+
+  await page.locator('.wind-cell').nth(5).hover()
+  await expect(shell(page)).toHaveAttribute('data-wind-focus', '1.00')
+  await page.mouse.move(5, 5)
+  await expect(shell(page)).toHaveAttribute('data-wind-focus', '0.00')
+})
+
+test('the two focus modes exclude each other: the last one wins, a pin returns afterwards', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'één profiel volstaat voor de modusregel')
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await ready(page)
+  await heading(page).click()
+  await heading(page).blur()
+  await page.mouse.move(5, 5)
+  await expect(shell(page)).toHaveAttribute('data-focus', '1.00')
+  await page.locator('.wind-cell').nth(3).hover()
+  await expect(shell(page)).toHaveAttribute('data-wind-focus', '1.00')
+  await expect(shell(page)).toHaveAttribute('data-focus', '0.00')
+  await page.mouse.move(5, 5)
+  await expect(shell(page)).toHaveAttribute('data-wind-focus', '0.00')
+  await expect(shell(page)).toHaveAttribute('data-focus', '1.00')
+  // Wind vastzetten maakt de temperatuurpin los.
+  await windHeading(page).click()
+  await windHeading(page).blur()
+  await page.mouse.move(5, 5)
+  await expect(windHeading(page)).toHaveAttribute('aria-pressed', 'true')
+  await expect(heading(page)).toHaveAttribute('aria-pressed', 'false')
+  await expect(shell(page)).toHaveAttribute('data-wind-focus', '1.00')
+  await expect(shell(page)).toHaveAttribute('data-focus', '0.00')
+})
+
+test('tapping the wind heading pins wind focus on touch', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-4g', 'touchroute op het mobiele profiel')
+  await ready(page)
+  await windHeading(page).tap()
+  await expect(windHeading(page)).toHaveAttribute('aria-pressed', 'true')
+  await expect(shell(page)).toHaveAttribute('data-wind-focus', '1.00')
+  expect(await shell(page).getAttribute('data-focus')).toBe('0.00')
+  await windHeading(page).tap()
+  await expect(windHeading(page)).toHaveAttribute('aria-pressed', 'false')
+  await expect(shell(page)).toHaveAttribute('data-wind-focus', '0.00')
 })
 
 test('tapping the column heading pins focus on touch, and measures frame rate', async ({ page }, testInfo) => {

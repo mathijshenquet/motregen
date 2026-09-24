@@ -17,7 +17,7 @@ import { DayNightLayer } from './core/day-night-layer'
 
 const DAY_NIGHT_ENABLED = false
 import { buildHourlyForecast, isPassiveRow, PASSIVE_FORECAST_HOURS } from './core/forecast'
-import { contextOpacity, DEFAULT_FOCUS_TUNING, FocusMode, type FocusTuning } from './core/focus-mode'
+import { contextOpacity, DEFAULT_FOCUS_TUNING, FocusMode, type FocusKind, type FocusTuning, windFocusIntensity } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import { latestRadarEpoch, type RefreshState } from './core/freshness'
 import { blendFrames, blurField, DEFAULT_ISOLINE_TUNING, ISOLINE_EDGE_FADE_MS, ISOLINE_FADES, ISOLINE_LINE_OPACITY, ISOLINE_ODD_LABELS, ISOLINE_ODDS, ISOLINE_STEPS, ISOLINE_WINDOWS, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineFade, type IsolineOdd, type IsolineStep, type IsolineTuning } from './core/isolines'
@@ -148,7 +148,6 @@ export default function App() {
       return times.map((time) => Math.round(time * 10) / 10)
     },
   })
-  let lastMapPointer = 'mouse'
   let pointRequest = 0
   let styleRequest = 0
   let appliedMapTheme: MapTheme | undefined
@@ -221,13 +220,19 @@ export default function App() {
   const [focusTuning, setFocusTuning] = createSignal<FocusTuning>({ ...DEFAULT_FOCUS_TUNING })
   const [isolineTuning, setIsolineTuning] = createSignal<IsolineTuning>({ ...DEFAULT_ISOLINE_TUNING })
   const [focus, setFocus] = createSignal(0)
-  const [focusPinned, setFocusPinned] = createSignal(false)
+  const [windFocus, setWindFocus] = createSignal(0)
+  const [focusPinned, setFocusPinned] = createSignal<FocusKind>()
   const [isolineCount, setIsolineCount] = createSignal(0)
   const [labelTuning, setLabelTuning] = createSignal<IsolineLabelTuning>({ ...DEFAULT_LABEL_TUNING })
-  const focusMode = new FocusMode(setFocus, focusTuning, () => reducedMotion.matches)
+  const focusMode = new FocusMode<FocusKind>(['temperature', 'wind'], (mode, value) => (mode === 'wind' ? setWindFocus : setFocus)(value),
+    focusTuning, () => reducedMotion.matches)
   const isolineCoverage = createMemo(() => timelineCoverage(feelsLikeTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
   const isolinesActive = createMemo(() => focus() > 0)
-  const focusedWindTuning = createMemo<WindTuning>(() => ({ ...windTuning(), visibility: windTuning().visibility * contextOpacity(focus(), focusTuning().dim) }))
+  const focusedWindTuning = createMemo<WindTuning>(() => ({
+    ...windTuning(),
+    intensity: windFocusIntensity(windTuning().intensity, windFocus()),
+    visibility: windTuning().visibility * contextOpacity(focus(), focusTuning().dim),
+  }))
   const [mapReady, setMapReady] = createSignal(false)
   const [splashSlowdown, setSplashSlowdown] = createSignal(storedSplashSlowdown())
   const [temperatureSpacing, setTemperatureSpacing] = createSignal<number>()
@@ -292,11 +297,6 @@ export default function App() {
       map.on('zoomend', () => void showTemperature())
       map.on('moveend', () => { isolineLabels?.requestSpawn(); updateIsolineLabels() })
       map.on('click', (event) => pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name))
-      // Na een tap vuurt de browser compatibiliteits-muisevents; die mogen geen hover worden.
-      mapElement.addEventListener('pointermove', (event) => { lastMapPointer = event.pointerType }, { capture: true })
-      mapElement.addEventListener('pointerdown', (event) => { lastMapPointer = event.pointerType }, { capture: true })
-      map.on('mouseenter', 'motregen-temperature', () => { if (lastMapPointer !== 'touch') focusMode.set('map', true) })
-      map.on('mouseleave', 'motregen-temperature', () => focusMode.set('map', false))
       if (mapTheme() !== appliedMapTheme) void applyMapTheme(mapTheme())
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error))
@@ -760,7 +760,7 @@ export default function App() {
     applyIsolineOpacity(value)
     if (map.getLayer('motregen-temperature')) {
       // In focus dragen de lijnen de waarde; de stadslabels faden uit en geven hun plek vrij
-      // (ignore-placement), maar blijven hoverbaar zodat de focus niet wegvalt.
+      // (ignore-placement).
       map.setPaintProperty('motregen-temperature', 'text-opacity', 1 - value)
       map.setLayoutProperty('motregen-temperature', 'text-ignore-placement', value >= 0.5)
     }
@@ -903,10 +903,13 @@ export default function App() {
     isolineLabels.update({ width: layer.grid.width, height: layer.grid.height, fields: fields as PreparedField[], weights: weights.map(({ weight }) => weight) }, layer.rings)
   }
 
-  function toggleFocusPin(): void {
-    const pinned = !focusPinned()
+  /** Vastzetten sluit de andere modus uit; opnieuw tikken op dezelfde kop maakt los. */
+  function toggleFocusPin(mode: FocusKind): void {
+    const previous = focusPinned()
+    if (previous) focusMode.set(previous, 'pinned', false)
+    const pinned = previous === mode ? undefined : mode
     setFocusPinned(pinned)
-    focusMode.set('pinned', pinned)
+    if (pinned) focusMode.set(pinned, 'pinned', true)
   }
 
   function attachSunLayer(): void {
@@ -1562,7 +1565,7 @@ export default function App() {
   const themeMeta = createMemo(() => ({ ...themeChoices[theme()], next: themeChoices[themes[(themes.indexOf(theme()) + 1) % themes.length]!].label.toLowerCase() }))
 
   return <main class="app-shell">
-    <section class="map-shell" aria-label="Regenkaart van Nederland" data-focus={focus().toFixed(2)} data-isolines={isolineCount()}>
+    <section class="map-shell" aria-label="Regenkaart van Nederland" data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()}>
       <div ref={mapElement} class="map" />
       <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() }} style={splashStyle()} aria-hidden={mapReady()}>
         <div class="map-splash-veil" />
@@ -1667,7 +1670,7 @@ export default function App() {
             }}
             sunForm={sunForm}
             uvBar={uvBarVariant}
-            temperatureFocus={{ pinned: focusPinned(), onTogglePin: toggleFocusPin, onFocus: (source, active) => focusMode.set(source, active) }}
+            focus={{ pinned: focusPinned(), onTogglePin: toggleFocusPin, onFocus: (mode, source, active) => focusMode.set(mode, source, active) }}
           />
         </div>
       </section>
