@@ -85,6 +85,11 @@ const INSTANCE_BYTES = 20
 const ADVECTION_SCALE = 7_000
 const WORLD_TILE_SIZE = 512
 const INITIAL_STAGGER_SECONDS = 2
+// Zoom/pan/resize (U12): aanvullers komen direct midden in hun leven binnen en faden in de
+// tijd in; overtal (uitzoomen, kleiner budget) faded in de tijd uit. Nooit een lege kaart.
+const FILL_FADE_SECONDS = 0.25
+const RETIRE_SECONDS = 0.35
+const FILL_MAX_PHASE = 0.6
 const SPAWN_ATTEMPTS = 32
 // Boven deze windsnelheid (m/s) dimt speedDamping de kop.
 const DAMPING_REFERENCE_SPEED = 3
@@ -235,13 +240,19 @@ export class WindLayer implements CustomLayerInterface {
   private ages = new Float32Array(MAX_PARTICLES)
   private travelled = new Float32Array(MAX_PARTICLES)
   private distances = new Float32Array(MAX_PARTICLES)
+  /** Tijdsfade (0–1) bovenop de afstandsfades; `rampRates` > 0 = aanvuller, < 0 = overtal. */
+  private ramps = new Float32Array(MAX_PARTICLES).fill(1)
+  private rampRates = new Float32Array(MAX_PARTICLES)
+  private retiring = 0
   private instanceData = new ArrayBuffer(MAX_PARTICLES * INSTANCE_BYTES)
   private instanceFloats = new Float32Array(this.instanceData)
   private instanceBytes = new Uint8Array(this.instanceData)
   private life: ParticleLife = { age: 0, travelled: 0, distance: 0, remaining: 0 }
   private color = new Float32Array(3)
+  /** Gesimuleerde slots: `budget` levende particles plus het overtal dat nog uitfadet. */
   private active = MIN_PARTICLES
   private target = MIN_PARTICLES
+  private budget = MIN_PARTICLES
   private randomState = 0x6d2b79f5
   private cellCounts = new Uint16Array(MAX_PARTICLES * 2)
   private columns = 1
@@ -350,14 +361,9 @@ export class WindLayer implements CustomLayerInterface {
   }
 
   setTuning(tuning: WindTuning): void {
-    const previousActive = this.active
     this.tuning = { ...tuning }
     if (!this.map) return
-    this.ensureTrailTargets()
-    const canvas = this.map.getCanvas()
-    this.target = particleCountForViewport(canvas.clientWidth, canvas.clientHeight, tuning.particlesPerMegapixel)
-    this.active = this.target
-    for (let index = previousActive; index < this.active; index++) this.respawn(index, this.random() * INITIAL_STAGGER_SECONDS)
+    this.resetViewport()
     this.repaint()
   }
 
@@ -473,6 +479,16 @@ export class WindLayer implements CustomLayerInterface {
     const floats = this.instanceFloats
     this.countCells()
     for (let index = 0; index < this.active; index++) {
+      const rate = this.rampRates[index]!
+      if (rate !== 0) {
+        const ramp = this.ramps[index]! + rate * seconds
+        if (rate < 0 && ramp <= 0) {
+          if (this.retire(index)) index--
+          continue
+        }
+        this.ramps[index] = Math.min(1, ramp)
+        if (ramp >= 1) this.rampRates[index] = 0
+      }
       const oldX = this.x[index]!
       const oldY = this.y[index]!
       life.age = this.ages[index]!
@@ -492,9 +508,7 @@ export class WindLayer implements CustomLayerInterface {
         nextY < this.particleBounds.north || nextY > this.particleBounds.south
       const offset = index * INSTANCE_BYTES / 4
       if (outside || !advanceLife(life, stepPx, seconds, tuning)) {
-        this.leaveCell(oldX, oldY)
-        this.respawn(index, 0)
-        this.instanceBytes[index * INSTANCE_BYTES + 19] = 0
+        if (this.die(index, oldX, oldY)) index--
         continue
       }
       this.x[index] = nextX
@@ -510,7 +524,7 @@ export class WindLayer implements CustomLayerInterface {
       this.instanceBytes[byte] = Math.round(this.color[0]! * 255)
       this.instanceBytes[byte + 1] = Math.round(this.color[1]! * 255)
       this.instanceBytes[byte + 2] = Math.round(this.color[2]! * 255)
-      this.instanceBytes[byte + 3] = Math.round(headAlpha(life, tuning) * speedDamping(speed, tuning.speedDamping) * 255)
+      this.instanceBytes[byte + 3] = Math.round(headAlpha(life, tuning) * smooth(this.ramps[index]!) * speedDamping(speed, tuning.speedDamping) * 255)
     }
   }
 
@@ -521,11 +535,12 @@ export class WindLayer implements CustomLayerInterface {
     const average = this.frameTotal / this.frameCount
     // Tegen het eigen framebudget: een bewust lagere maxFps is geen trage GPU.
     const budget = Math.max(16.7, 1_000 / this.tuning.maxFps)
-    if (average > budget * 1.14 && this.active > MIN_PARTICLES) this.active = Math.max(MIN_PARTICLES, Math.floor(this.active * 0.78))
-    else if (average < budget * 1.03 && this.active < this.target) {
-      const previousActive = this.active
-      this.active = Math.min(this.target, this.active + Math.max(12, Math.floor(this.target * 0.06)))
-      for (let index = previousActive; index < this.active; index++) this.respawn(index, this.random() * INITIAL_STAGGER_SECONDS)
+    if (average > budget * 1.14 && this.budget > MIN_PARTICLES) {
+      this.budget = Math.max(MIN_PARTICLES, Math.floor(this.budget * 0.78))
+      this.balance()
+    } else if (average < budget * 1.03 && this.budget < this.target) {
+      this.budget = Math.min(this.target, this.budget + Math.max(12, Math.floor(this.target * 0.06)))
+      this.balance()
     }
     this.frameTotal = 0
     this.frameCount = 0
@@ -535,7 +550,7 @@ export class WindLayer implements CustomLayerInterface {
   // ~1 particle per cel, op een gejitterde positie: gelijkmatige koppendichtheid
   // zonder zichtbaar raster. Dat maakt de inkt ∝ windsnelheid; speedDamping
   // compenseert dat in de kopintensiteit.
-  private respawn(index: number, delaySeconds: number): void {
+  private respawn(index: number, delaySeconds: number, fill = false): void {
     const bounds = this.particleBounds
     let cell = 0
     const [x, y] = pickSpawn(SPAWN_ATTEMPTS, () => {
@@ -550,39 +565,125 @@ export class WindLayer implements CustomLayerInterface {
     this.travelled[index] = 0
     // ±20 %: anders sterft een homogeen zeeveld in synchrone golven.
     this.distances[index] = this.tuning.trailDistance * (0.8 + this.random() * 0.4)
+    this.ramps[index] = 1
+    this.rampRates[index] = 0
+    if (fill) {
+      // Een willekeurige levensfase, anders sterven alle aanvullers van één zoomstap tegelijk.
+      this.ages[index] = 1e-3
+      this.travelled[index] = this.random() * FILL_MAX_PHASE * this.distances[index]!
+      this.ramps[index] = 0
+      this.rampRates[index] = 1 / FILL_FADE_SECONDS
+    }
+    this.instanceBytes[index * INSTANCE_BYTES + 19] = 0
     const offset = index * INSTANCE_BYTES / 4
     this.instanceFloats[offset + 2] = 0.5 + (this.grid.x0 + this.grid.dx * this.grid.width * x) * MERCATOR_SCALE
     this.instanceFloats[offset + 3] = 0.5 - (this.grid.y0 + this.grid.dy * this.grid.height * y) * MERCATOR_SCALE
   }
 
+  /**
+   * Kaartbeweging en resize. Particles leven in gridfracties (Mercator) en blijven gewoon staan;
+   * alleen wie buiten beeld valt komt als aanvuller terug in de leegste cel, en bij uitzoomen
+   * gaat het overtal uit de volste cellen in een fade weg terwijl aanvullers de nieuwe rand vullen.
+   */
   private resetViewport(resetAll = false): void {
     if (!this.map) return
     this.ensureTrailTargets()
     const previousBounds = this.particleBounds
-    const nextBounds = particleBounds(this.map, this.grid)
-    const retention = viewportParticleRetention(previousBounds, nextBounds)
-    this.particleBounds = nextBounds
+    const previousBudget = this.budget
+    this.particleBounds = particleBounds(this.map, this.grid)
     const canvas = this.map.getCanvas()
-    const previousActive = this.active
-    this.target = particleCountForViewport(canvas.clientWidth, canvas.clientHeight, this.tuning.particlesPerMegapixel)
-    this.active = this.target
+    const target = particleCountForViewport(canvas.clientWidth, canvas.clientHeight, this.tuning.particlesPerMegapixel)
+    if (resetAll || target !== this.target) this.budget = target
+    const retention = viewportParticleRetention(previousBounds, this.particleBounds, previousBudget, this.budget)
+    this.target = target
     ;[this.columns, this.rows] = occupancyGrid(canvas.clientWidth, canvas.clientHeight, this.target)
+    if (resetAll) {
+      this.active = this.budget
+      this.retiring = 0
+      this.countCells()
+      for (let index = 0; index < this.active; index++) this.respawn(index, this.random() * INITIAL_STAGGER_SECONDS)
+      this.clearTrails()
+      return
+    }
     this.countCells()
+    let survivors = 0
     for (let index = 0; index < this.active; index++) {
-      const outside = this.x[index]! < this.particleBounds.west || this.x[index]! > this.particleBounds.east ||
-        this.y[index]! < this.particleBounds.north || this.y[index]! > this.particleBounds.south
-      if (resetAll || index >= previousActive || outside || (retention < 1 && this.random() > retention)) {
-        if (!resetAll && index < previousActive) this.leaveCell(this.x[index]!, this.y[index]!)
-        this.respawn(index, this.random() * INITIAL_STAGGER_SECONDS)
-        this.instanceBytes[index * INSTANCE_BYTES + 19] = 0
+      if (this.inside(this.x[index]!, this.y[index]!)) {
+        if (this.rampRates[index]! >= 0) survivors++
+      } else if (this.rampRates[index]! < 0) {
+        if (this.retire(index)) index--
+      } else {
+        this.respawn(index, 0, true)
       }
     }
-    if (resetAll) this.clearTrails()
+    this.retireSurplus(Math.round(survivors * (1 - retention)))
+    this.balance()
+  }
+
+  /** Brengt het aantal levende particles naar `budget`: aanvullen in extra slots, overtal uitfaden. */
+  private balance(): void {
+    const live = this.active - this.retiring
+    if (live > this.budget) this.retireSurplus(live - this.budget)
+    for (let count = live; count < this.budget && this.active < MAX_PARTICLES; count++) this.respawn(this.active++, 0, true)
+  }
+
+  /** Laat `count` levende particles uitfaden, bij voorkeur uit cellen met meer dan één. */
+  private retireSurplus(count: number): void {
+    if (count <= 0 || this.active === 0) return
+    const offset = Math.floor(this.random() * this.active)
+    for (const minimum of [2, 0]) {
+      for (let step = 0; step < this.active && count > 0; step++) {
+        const index = (offset + step) % this.active
+        if (this.rampRates[index]! < 0) continue
+        const cell = this.cellOf(this.x[index]!, this.y[index]!)
+        if (minimum > 0 && (cell < 0 || this.cellCounts[cell]! < minimum)) continue
+        if (cell >= 0 && this.cellCounts[cell]! > 0) this.cellCounts[cell]!--
+        this.rampRates[index] = -1 / RETIRE_SECONDS
+        this.retiring++
+        count--
+      }
+    }
+  }
+
+  /** Einde van een leven; true als het slot is opgeheven en `index` nu een ander particle bevat. */
+  private die(index: number, x: number, y: number): boolean {
+    if (this.rampRates[index]! < 0) return this.retire(index)
+    this.leaveCell(x, y)
+    if (this.active - this.retiring > this.budget) {
+      this.removeSlot(index)
+      return true
+    }
+    this.respawn(index, 0)
+    return false
+  }
+
+  /** Een uitgefade overtal-particle: weg, of als aanvuller terug als het budget tekortkomt. */
+  private retire(index: number): boolean {
+    this.retiring--
+    if (this.active - this.retiring > this.budget) {
+      this.removeSlot(index)
+      return true
+    }
+    this.respawn(index, 0, true)
+    return false
+  }
+
+  private removeSlot(index: number): void {
+    const last = --this.active
+    if (index === last) return
+    for (const values of [this.x, this.y, this.ages, this.travelled, this.distances, this.ramps, this.rampRates]) values[index] = values[last]!
+    this.instanceBytes.copyWithin(index * INSTANCE_BYTES, last * INSTANCE_BYTES, (last + 1) * INSTANCE_BYTES)
+  }
+
+  private inside(x: number, y: number): boolean {
+    const bounds = this.particleBounds
+    return x >= bounds.west && x <= bounds.east && y >= bounds.north && y <= bounds.south
   }
 
   private countCells(): void {
     this.cellCounts.fill(0, 0, this.columns * this.rows)
     for (let index = 0; index < this.active; index++) {
+      if (this.rampRates[index]! < 0) continue
       const cell = this.cellOf(this.x[index]!, this.y[index]!)
       if (cell >= 0) this.cellCounts[cell]!++
     }
@@ -618,12 +719,24 @@ export class WindLayer implements CustomLayerInterface {
     const scale = Math.min(1, this.tuning.bufferDpr / Math.max(1e-3, this.map.getPixelRatio()))
     const [width, height] = trailTargetSize(canvas.width, canvas.height, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number, scale)
     if (width === this.trailWidth && height === this.trailHeight && this.trails) return
+    const previous = this.trails?.[this.trailIndex]
+    const previousWidth = this.trailWidth
+    const previousHeight = this.trailHeight
+    const view = this.trailView
+    const trails: [TrailTarget, TrailTarget] = [createTrailTarget(this.gl, width, height), createTrailTarget(this.gl, width, height)]
+    this.trailIndex = 0
+    if (previous && view) {
+      // Resize: de buffer beschrijft het beeld in UV, dus oprekken houdt de staarten op hun plek;
+      // de volgende fadepass warpt hem naar de nieuwe verhouding.
+      this.clearTargets(trails, width, height)
+      blitTrail(this.gl, previous, trails[0], previousWidth, previousHeight, width, height)
+    }
     this.deleteTrailTargets()
     this.trailWidth = width
     this.trailHeight = height
-    this.trails = [createTrailTarget(this.gl, width, height), createTrailTarget(this.gl, width, height)]
-    this.trailIndex = 0
-    this.clearTrails()
+    this.trails = trails
+    if (previous && view) this.trailView = view
+    else this.clearTrails()
   }
 
   private deleteTrailTargets(): void {
@@ -637,16 +750,22 @@ export class WindLayer implements CustomLayerInterface {
   }
 
   private clearTrails(): void {
+    if (!this.trails || !this.map) return
+    this.clearTargets(this.trails, this.trailWidth, this.trailHeight)
+    this.trailView = this.currentTrailView()
+  }
+
+  private clearTargets(targets: readonly TrailTarget[], width: number, height: number): void {
     const gl = this.gl
-    if (!gl || !this.trails || !this.map) return
+    if (!gl) return
     const framebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
     const viewport = gl.getParameter(gl.VIEWPORT) as Int32Array
     const clearColor = gl.getParameter(gl.COLOR_CLEAR_VALUE) as Float32Array
     const scissorEnabled = gl.isEnabled(gl.SCISSOR_TEST)
     gl.disable(gl.SCISSOR_TEST)
-    gl.viewport(0, 0, this.trailWidth, this.trailHeight)
+    gl.viewport(0, 0, width, height)
     gl.clearColor(0, 0, 0, 0)
-    for (const trail of this.trails) {
+    for (const trail of targets) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, trail.framebuffer)
       gl.clear(gl.COLOR_BUFFER_BIT)
     }
@@ -654,7 +773,6 @@ export class WindLayer implements CustomLayerInterface {
     gl.viewport(viewport[0]!, viewport[1]!, viewport[2]!, viewport[3]!)
     gl.clearColor(clearColor[0]!, clearColor[1]!, clearColor[2]!, clearColor[3]!)
     if (scissorEnabled) gl.enable(gl.SCISSOR_TEST)
-    this.trailView = this.currentTrailView()
   }
 
   private sampleWind(x: number, y: number): boolean {
@@ -808,7 +926,8 @@ export function trailUvTransform(previous: TrailView, current: TrailView): { sca
     scaleY,
     offsetX: 0.5 * (1 - scaleX) + (current.centerX - previous.centerX) * previousWorldSize / previous.width,
     offsetY: 0.5 * (1 - scaleY) - (current.centerY - previous.centerY) * previousWorldSize / previous.height,
-    retention: Math.min(1, 1 / (zoomScale * zoomScale)),
+    // Uitzoomen perst een staart in lengte, niet in breedte: inkt per oppervlak ×schaal.
+    retention: Math.min(1, 1 / zoomScale),
   }
 }
 
@@ -863,10 +982,16 @@ export function windZoomCompensation(zoom: number): number {
   return 2 ** (WIND_REFERENCE_ZOOM - zoom)
 }
 
-export function viewportParticleRetention(previous: ParticleBounds, current: ParticleBounds): number {
+/**
+ * Deel van de overlevers dat mag blijven: nieuwe over oude dichtheid (particles per
+ * gridoppervlak), hooguit 1. Uitzoomen ×2 laat een kwart; een resize die het budget
+ * met het beeld laat meegroeien niets weg.
+ */
+export function viewportParticleRetention(previous: ParticleBounds, current: ParticleBounds, previousCount = 1, currentCount = 1): number {
   const previousArea = Math.max(0, previous.east - previous.west) * Math.max(0, previous.south - previous.north)
   const currentArea = Math.max(0, current.east - current.west) * Math.max(0, current.south - current.north)
-  return currentArea > previousArea && currentArea > 0 ? previousArea / currentArea : 1
+  if (previousArea <= 0 || currentArea <= 0 || previousCount <= 0) return 1
+  return Math.min(1, currentCount / currentArea / (previousCount / previousArea))
 }
 
 function smooth(value: number): number {
@@ -902,6 +1027,19 @@ function createTrailTarget(gl: WebGL2RenderingContext, width: number, height: nu
   if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('Wind-trail-framebuffer is onvolledig')
   gl.bindFramebuffer(gl.FRAMEBUFFER, previous)
   return { texture, framebuffer }
+}
+
+function blitTrail(gl: WebGL2RenderingContext, from: TrailTarget, to: TrailTarget, fromWidth: number, fromHeight: number, toWidth: number, toHeight: number): void {
+  const read = gl.getParameter(gl.READ_FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
+  const draw = gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
+  const scissorEnabled = gl.isEnabled(gl.SCISSOR_TEST)
+  gl.disable(gl.SCISSOR_TEST)
+  gl.bindFramebuffer(gl.READ_FRAMEBUFFER, from.framebuffer)
+  gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, to.framebuffer)
+  gl.blitFramebuffer(0, 0, fromWidth, fromHeight, 0, 0, toWidth, toHeight, gl.COLOR_BUFFER_BIT, gl.LINEAR)
+  gl.bindFramebuffer(gl.READ_FRAMEBUFFER, read)
+  gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, draw)
+  if (scissorEnabled) gl.enable(gl.SCISSOR_TEST)
 }
 
 function screenArray(gl: WebGL2RenderingContext, program: WebGLProgram, buffer: WebGLBuffer, upload: boolean): WebGLVertexArrayObject {

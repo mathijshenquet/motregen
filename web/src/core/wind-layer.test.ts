@@ -254,7 +254,7 @@ describe('wind trail buffer', () => {
     expect(trailUvTransform(view, view)).toEqual({ scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0, retention: 1 })
     const panned = trailUvTransform(view, { ...view, centerX: 0.5 + 80 / (512 * 2 ** 6) })
     expect(panned.offsetX).toBeCloseTo(0.1)
-    expect(trailUvTransform(view, { ...view, zoom: 5 }).retention).toBeCloseTo(0.25)
+    expect(trailUvTransform(view, { ...view, zoom: 5 }).retention).toBeCloseTo(0.5)
   })
 })
 
@@ -316,5 +316,8 @@ describe('wind presentation', () => {
     expect(viewportParticleRetention(focused, full)).toBe(0.25)
     expect(viewportParticleRetention(full, focused)).toBe(1)
     expect(viewportParticleRetention(full, full)).toBe(1)
+    // Resize: het budget groeit mee met het beeld, dus niemand hoeft weg.
+    expect(viewportParticleRetention(focused, { ...focused, east: focused.west + 2 * (focused.east - focused.west) }, 500, 1_000)).toBe(1)
+    expect(viewportParticleRetention(focused, full, 500, 1_000)).toBe(0.5)
   })
 })
