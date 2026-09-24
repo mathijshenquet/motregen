@@ -10,11 +10,11 @@
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
     "synthgen": "tsx scripts/synthgen.ts",
-    "e2e": "playwright test",
-    "e2e:live": "MOTREGEN_PERF_MODE=live playwright test --config playwright.live.config.ts",
-    "e2e:profile": "playwright test --config playwright.profile.config.ts --project desktop --project mobile-4g",
-    "e2e:profile:prod": "MOTREGEN_PROFILE_TARGET=prod playwright test --config playwright.profile.config.ts --project desktop --project mobile-4g",
-    "e2e:benchmark": "playwright test --config playwright.benchmark.config.ts"
+    "e2e": "flock /tmp/motregen-e2e.lock playwright test",
+    "e2e:live": "MOTREGEN_PERF_MODE=live flock /tmp/motregen-e2e.lock playwright test --config playwright.live.config.ts",
+    "e2e:profile": "flock /tmp/motregen-e2e.lock playwright test --config playwright.profile.config.ts --project desktop --project mobile-4g",
+    "e2e:profile:prod": "MOTREGEN_PROFILE_TARGET=prod flock /tmp/motregen-e2e.lock playwright test --config playwright.profile.config.ts --project desktop --project mobile-4g",
+    "e2e:benchmark": "flock /tmp/motregen-e2e.lock playwright test --config playwright.benchmark.config.ts"
   },
   "dependencies": {
     "fzstd": "^0.1.1",
