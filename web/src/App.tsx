@@ -1482,8 +1482,8 @@ export default function App() {
       if (request === radiationRequest) setRadiationSeries(values)
     }).catch(() => undefined)
   })
-  // Heldere-hemel-UV reist als eigen veld mee; net als de straling alleen de frames die de tabel toont
-  // (plus alles zodra de puntreeks compleet is, voor de chip onder de cursor).
+  // Heldere-hemel-UV reist als eigen veld mee; net als de straling alleen de uurframes van de tabelrijen
+  // (alle kwartieren zouden de gedeelde framecache van 512 uit de puntreeksen drukken).
   let uvClearRequest = 0
   createEffect(() => {
     const point = location()
@@ -1491,8 +1491,8 @@ export default function App() {
     const all = pointLoadStage() === 'complete'
     const history = historyRowsWanted()
     const now = manifestNow()
-    const indexes = all ? frames.map((_, index) => index) : forecast().flatMap((row) =>
-      row.uvClearIndex == null || !isPassiveRow(row, now) || (row.kind === 'past' && !history) ||
+    const indexes = forecast().flatMap((row) =>
+      row.uvClearIndex == null || (!all && !isPassiveRow(row, now)) || (row.kind === 'past' && !history) ||
         solarElevationSin(row.epoch, point.lng, point.lat) <= 0 ? [] : [row.uvClearIndex])
     const request = ++uvClearRequest
     if (!indexes.length) return
@@ -1504,8 +1504,9 @@ export default function App() {
   const cursorUvReading = createMemo(() => {
     const point = location()
     const epoch = selectedEpoch()
-    return uvReading(epoch, cursorUv(), seriesValueAt(uvClearTimeline(), uvClearSeries(), epoch, 30 * 60_000), null, null,
-      (at) => solarElevationSin(at, point.lng, point.lat), false)
+    const row = forecast().find((candidate) => Math.abs(candidate.epoch - epoch) <= 30 * 60_000)
+    const clear = row?.uvClearIndex == null ? null : uvClearSeries()[row.uvClearIndex] ?? null
+    return uvReading(epoch, cursorUv(), clear, null, null, (at) => solarElevationSin(at, point.lng, point.lat), false)
   })
   const cursorUvChip = createMemo(() => uvChipLabel(cursorUv()))
   // PO-smaaktest: ?uvbalk=stip toont onbewolkt als stip i.p.v. als tweede vulling.
