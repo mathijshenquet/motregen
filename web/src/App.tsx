@@ -863,7 +863,7 @@ export default function App() {
     const tuning = isolineTuning()
     const blend = frameBlend(frames, selectedEpoch())
     const frame = frames[blend.mix < 0.5 ? blend.left : blend.right]!
-    const key = `${frame.chunk.url}#${frame.frameIndex}|${tuning.step}|${tuning.smoothing}|${tuning.blur}`
+    const key = `${frame.chunk.url}#${frame.frameIndex}|${tuning.step}|${tuning.smoothing}|${tuning.blur}|${tuning.vector ? tuning.ringKm : 0}`
     if (key === isolineKey) return
     try {
       let labels = isolineLabelCache.get(key)

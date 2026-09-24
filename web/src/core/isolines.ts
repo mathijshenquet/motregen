@@ -315,12 +315,16 @@ export interface IsolineFeatureCollection {
   }>
 }
 
-export function isolineFeatures(field: ScalarField, grid: Grid, tuning: Pick<IsolineTuning, 'step' | 'smoothing'>): IsolineFeatureCollection {
+export function isolineFeatures(field: ScalarField, grid: Grid, tuning: Pick<IsolineTuning, 'step' | 'smoothing'> & Partial<Pick<IsolineTuning, 'vector' | 'ringKm'>>): IsolineFeatureCollection {
   const features: IsolineFeatureCollection['features'] = []
   const buffers = workspace(field)
   const toLngLat = gridProjection(grid)
+  // Vectorlijnen vervagen lusjes korter dan ringKm; een label op zo'n lusje zou los zweven.
+  const centerLat = 2 * Math.atan(Math.exp((grid.y0 + grid.dy * grid.height / 2) / 6378137)) - Math.PI / 2
+  const kmPerCell = Math.abs(grid.dx) * Math.cos(centerLat) / 1000
+  const minRingCells = tuning.vector && tuning.ringKm ? Math.max(MIN_RING_CELLS, tuning.ringKm / kmPerCell) : MIN_RING_CELLS
   for (const level of isolineLevels(field, tuning.step)) {
-    for (const line of marchingSquares(field, level, MIN_LENGTH_CELLS, MIN_RING_CELLS, buffers)) {
+    for (const line of marchingSquares(field, level, MIN_LENGTH_CELLS, minRingCells, buffers)) {
       const smoothed = tuning.smoothing ? chaikin(line.points, line.closed) : line.points
       const coordinates = smoothed.map(([column, row]) => toLngLat(column, row))
       if (line.closed) coordinates.push(coordinates[0]!)
