@@ -147,3 +147,17 @@ DCT K=64                135     68    102    115     30888    0.24   2.51
      (in-kaart, kost weer een kaartrender per pass). Onveranderd in U13; beslissing staat open.
 - Niet gedaan: z9- en donker-thema-shots, Firefox-vectorshots, video. Voorstellen niet gebouwd:
   DCT-coëfficiënten in de ingest, isolijnen vooruitrekenen in de Rust-backend (zie boven).
+
+## 2026-09-24 ~15:00 — PO-preview + grootte van geserialiseerde isolijnen
+- Preview van deze tip voor de PO: http://ageq-mthq:4313/?dev&perf=1 (tailnet-IPv4
+  100.108.127.86:4313, `/data` → prod). Stoppen na de review.
+- Grootte per snede (`web/tmp/sizes.ts`, 14 echte uurframes, 1 °C, lusjes < 60 km weggelaten,
+  medianen, bytes):
+  ```
+  tol   lijnen punten | f32 raw  zstd | u16 raw  zstd | Δint8 raw  zstd | veld u8 raw  zstd
+  0.25  112   8822    |  70576  61588 |  35288  30749 |  18342   15523 |  47025   12868
+  0.05  112   9975    |  79800  69773 |  39900  35165 |  20648   17528 |  47025   12868
+  ```
+  Ook de compactste codering (int8-delta's op 1/64 cel + zstd, ~15,5 kB) is groter dan het veld
+  dat de lijnen oplevert (u8 + zstd, ~12,9 kB; de echte MRF-quant kan afwijken). Geometrie per
+  sub-uurstap vermenigvuldigt dat nog.
