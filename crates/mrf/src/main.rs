@@ -107,6 +107,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 run: meta.run,
                 frame_times: meta.times,
                 dct: None,
+                pred: None,
             };
             fs::write(output, encode(&frames, &chunk_meta)?)?;
         }

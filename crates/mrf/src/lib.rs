@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub mod dct;
+pub mod pred;
 
 pub const MAGIC: [u8; 4] = *b"mrf0";
 pub const VERSION: u32 = 0;
@@ -71,6 +72,12 @@ pub struct Dct {
     pub k: u32,
 }
 
+/// Frames are lossless predictive encodings of the quantized cells (see [`pred`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Pred {
+    pub v: u32,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Header {
     pub version: u32,
@@ -85,6 +92,8 @@ pub struct Header {
     pub motion_grid: Option<MotionGrid>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dct: Option<Dct>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pred: Option<Pred>,
     pub dict: Option<Vec<u8>>,
 }
 
@@ -112,6 +121,7 @@ pub struct ChunkMeta {
     pub run: String,
     pub frame_times: Vec<String>,
     pub dct: Option<Dct>,
+    pub pred: Option<Pred>,
 }
 
 impl ChunkMeta {
@@ -129,6 +139,7 @@ impl ChunkMeta {
             run: run.into(),
             frame_times,
             dct: None,
+            pred: None,
         }
     }
 
@@ -141,6 +152,12 @@ impl ChunkMeta {
     /// Frames are [`dct::encode_frame`] outputs; `quant` stays the value table of the field.
     pub fn with_dct(mut self, k: u32) -> Self {
         self.dct = Some(Dct { k });
+        self
+    }
+
+    /// Frames stay quantized cells; the container stores them with [`pred::encode_frame`].
+    pub fn with_pred(mut self) -> Self {
+        self.pred = Some(Pred { v: pred::VERSION });
         self
     }
 }
@@ -184,6 +201,12 @@ pub enum Error {
     InvalidQuantizationTable,
     #[error("DCT order {k} does not fit a {width}×{height} grid")]
     InvalidDct { k: u32, width: u32, height: u32 },
+    #[error("unsupported predictive frame version {0}")]
+    UnsupportedPred(u32),
+    #[error("a chunk cannot combine dct and pred frames")]
+    DctWithPred,
+    #[error("predictive frame stream is invalid")]
+    InvalidPred,
     #[error("mrf v0 requires dict to be null")]
     UnsupportedDictionary,
     #[error("frame count ({times}) does not match supplied frame count ({frames})")]
@@ -343,8 +366,13 @@ fn encode_inner(
     if let Some((grid, motions)) = motion {
         validate_motions(grid, motions, frames.len())?;
     }
+    let width = meta.grid.width;
     let compress = |frame: &Vec<u8>| {
-        zstd::stream::encode_all(frame.as_slice(), COMPRESSION_LEVEL).map_err(Error::from)
+        let member = match meta.pred {
+            Some(_) => pred::encode_frame(frame, width),
+            None => frame.clone(),
+        };
+        zstd::stream::encode_all(member.as_slice(), COMPRESSION_LEVEL).map_err(Error::from)
     };
     let compressed = match compression {
         Compression::Serial => frames.iter().map(compress).collect::<Result<Vec<_>, _>>()?,
@@ -405,6 +433,7 @@ fn encode_inner(
         frames: entries,
         motion_grid: motion.map(|(grid, _)| grid),
         dct: meta.dct,
+        pred: meta.pred,
         dict: None,
     };
     let json = serde_json::to_vec(&header)?;
@@ -503,7 +532,11 @@ impl HeaderIndex {
         if usize::try_from(frame.len).ok() != Some(compressed.len()) {
             return Err(Error::TruncatedPayload { index });
         }
-        let decoded = zstd::stream::decode_all(compressed)?;
+        let mut decoded = zstd::stream::decode_all(compressed)?;
+        if self.header.pred.is_some() {
+            decoded =
+                pred::decode_frame(&decoded, self.header.grid.width, self.header.grid.height)?;
+        }
         let expected = self.header.frame_byte_count()?;
         if decoded.len() != expected {
             return Err(Error::DecodedWrongLength {
@@ -605,6 +638,7 @@ fn validate_meta(meta: &ChunkMeta, frames: &[Vec<u8>]) -> Result<(), Error> {
     if let Some(dct) = meta.dct {
         dct::validate_k(meta.grid.width, meta.grid.height, dct.k)?;
     }
+    validate_pred(meta.pred, meta.dct)?;
     let expected = frame_byte_count(&meta.grid, meta.dct)?;
     for (index, frame) in frames.iter().enumerate() {
         if frame.len() != expected {
@@ -618,6 +652,14 @@ fn validate_meta(meta: &ChunkMeta, frames: &[Vec<u8>]) -> Result<(), Error> {
     Ok(())
 }
 
+fn validate_pred(pred: Option<Pred>, dct: Option<Dct>) -> Result<(), Error> {
+    match (pred, dct) {
+        (Some(_), Some(_)) => Err(Error::DctWithPred),
+        (Some(pred), None) if pred.v != pred::VERSION => Err(Error::UnsupportedPred(pred.v)),
+        _ => Ok(()),
+    }
+}
+
 fn validate_header(header: &Header) -> Result<(), Error> {
     if header.version != VERSION {
         return Err(Error::UnsupportedVersion(header.version));
@@ -626,6 +668,7 @@ fn validate_header(header: &Header) -> Result<(), Error> {
     if let Some(dct) = header.dct {
         dct::validate_k(header.grid.width, header.grid.height, dct.k)?;
     }
+    validate_pred(header.pred, header.dct)?;
     validate_quantization_table_for_field(&header.quant, &header.field)?;
     if header.dict.is_some() {
         return Err(Error::UnsupportedDictionary);
