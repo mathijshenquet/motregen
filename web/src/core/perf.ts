@@ -12,6 +12,12 @@ export interface IsolineCounters {
   passMs?: number
   compositeMs?: number
   timing?: 'gpu' | 'cpu'
+  /** Vectorlijnen: tracer-rondes (worker), ms per ronde, segmenten, ringen en vervaagde lusjes. */
+  traces?: number
+  traceMs?: number
+  segments?: number
+  rings?: number
+  fadedRings?: number
   labelRounds: number
   labels: number
   /** Frame-index-coördinaat van de laatst gezette isolijnsnede. */
@@ -32,11 +38,13 @@ export interface IsolineRates {
   passPixels: number | null
   timing: 'gpu' | 'cpu'
   labels: number
+  /** null zonder vectorlijnen. */
+  vector: { tracesPerSecond: number; traceMs: number; segments: number; rings: number; fadedRings: number } | null
 }
 
 /** Tempo's tussen twee tellerstanden; een teruggelopen teller (nieuwe laag) telt vanaf nul. */
 export function isolineRates(previous: IsolineCounters, next: IsolineCounters, elapsedMs: number): IsolineRates {
-  const delta = (key: 'repaints' | 'passes' | 'passPixels' | 'rainDraws' | 'windDraws' | 'rainUploads') => {
+  const delta = (key: 'repaints' | 'passes' | 'passPixels' | 'rainDraws' | 'windDraws' | 'rainUploads' | 'traces') => {
     const before = previous[key] ?? 0, after = next[key] ?? 0
     return after >= before ? after - before : after
   }
@@ -53,6 +61,7 @@ export function isolineRates(previous: IsolineCounters, next: IsolineCounters, e
     passPixels: passes ? delta('passPixels') / passes : null,
     timing: next.timing ?? 'cpu',
     labels: next.labels,
+    vector: next.traces ? { tracesPerSecond: delta('traces') / seconds, traceMs: next.traceMs ?? 0, segments: next.segments ?? 0, rings: next.rings ?? 0, fadedRings: next.fadedRings ?? 0 } : null,
   }
 }
 

@@ -61,6 +61,7 @@ export default function PerfHud(props: Props) {
         <div><dt>Kaart</dt><dd data-testid="perf-repaints">{rate().repaintsPerSecond.toFixed(0)} repaints/s</dd></div>
         <div><dt>Regen · wind</dt><dd>{rate().rainDrawsPerSecond.toFixed(0)} · {rate().windDrawsPerSecond.toFixed(0)} frames/s · {rate().rainUploadsPerSecond.toFixed(1)} uploads/s</dd></div>
         <div><dt>Isolijnen</dt><dd data-testid="perf-isolines">{rate().passesPerSecond.toFixed(1)} passes/s · {passCost(rate())} · {rate().labels} labels</dd></div>
+        <Show when={rate().vector}>{(vector) => <div><dt>Isolijnen vector</dt><dd data-testid="perf-isoline-vector">{vector().tracesPerSecond.toFixed(1)} sneden/s · {vector().traceMs.toFixed(1)} ms worker · {vector().segments} seg · lusjes {vector().fadedRings}/{vector().rings}</dd></div>}</Show>
         <div><dt>Isolijnen blit</dt><dd>{rate().compositeMs === null ? '—' : `${rate().compositeMs!.toFixed(2)} ms${rate().timing === 'cpu' ? ' (cpu)' : ''}`} · {rate().passPixels === null ? '—' : `${(rate().passPixels! / 1e6).toFixed(2)} Mpx/pass`}</dd></div>
       </>}</Show>
     </dl>
