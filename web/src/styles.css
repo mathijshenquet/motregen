@@ -627,3 +627,64 @@ tr.history-toggle-row td { padding: 0; border-bottom: 1px solid var(--line); bac
 }
 .isoline-label-light span { text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff; }
 .isoline-label-dark span { text-shadow: 0 0 2px #102027, 0 0 2px #102027, 0 0 3px #102027; }
+
+/* Mobiel (U14): het eerste scherm is kaart + scrubber, de tabel begint onder de fold.
+   De scrubber heeft een vaste hoogte zodat de kaart de rest van het scherm krijgt, en blijft
+   bij scrollen boven de tabel plakken (CSS-only; de kaart wordt niet herschaald). */
+:root { --scrubber-mobile: 236px; }
+@media (max-width: 959px) {
+  .app-shell { display: block; }
+  .map-shell { height: max(60dvh, calc(100dvh - var(--scrubber-mobile) - env(safe-area-inset-bottom))); }
+  body::before { position: fixed; inset: 0 0 auto; z-index: 10; height: env(safe-area-inset-top); background: var(--surface); content: ''; }
+  .sidebar-nav { position: absolute; top: calc(env(safe-area-inset-top) + 62px); left: calc(env(safe-area-inset-left) + 12px); z-index: 4; min-height: 0; padding: 0; border: 0; background: none; }
+  .sidebar-uv-chip { box-shadow: var(--shadow); }
+  .sidebar-actions { display: none; }
+  .scrubber {
+    position: sticky;
+    top: env(safe-area-inset-top);
+    z-index: 4;
+    height: calc(var(--scrubber-mobile) + env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    padding: 12px max(16px, env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+  .scrubber-toolbar { margin-bottom: 4px; }
+  .scrub-surface { flex: 1 1 auto; height: auto; min-height: 0; }
+  .forecast-panel { padding: 0 max(12px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+  th, td { padding-right: 3px; padding-left: 3px; }
+  .search { top: calc(env(safe-area-inset-top) + 12px); left: calc(env(safe-area-inset-left) + 12px); right: calc(env(safe-area-inset-right) + 62px); }
+  .search-results { max-height: min(380px, calc(60dvh - 76px)); }
+  .mobile-map-theme { top: calc(env(safe-area-inset-top) + 12px); right: calc(env(safe-area-inset-right) + 12px); }
+  .map-brand { left: calc(env(safe-area-inset-left) + 10px); }
+  .map-clock { right: calc(env(safe-area-inset-right) + 10px); }
+}
+
+/* Telefoon liggend: kaart en paneel naast elkaar, zoals desktop; de scrubber schuift mee weg
+   zodat de tabel de volle hoogte krijgt (de kaart blijft links in beeld). */
+@media (max-width: 959px) and (orientation: landscape) and (max-height: 540px) {
+  body { overflow: hidden; }
+  body::before { display: none; }
+  .app-shell { height: 100dvh; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr) minmax(300px, 52%); }
+  .map-shell { height: auto; grid-column: 1; grid-row: 1; }
+  .dashboard { grid-column: 2; grid-row: 1; overflow-y: auto; border-left: 1px solid var(--line); overscroll-behavior: contain; }
+  .scrubber { position: static; height: min(var(--scrubber-mobile), 100dvh); padding-bottom: 8px; }
+  .search { right: 62px; max-width: none; }
+  .search-results { max-height: calc(100dvh - 76px); }
+  .forecast-panel { padding-right: max(10px, env(safe-area-inset-right)); padding-left: 10px; }
+  .map-clock { flex-direction: column; align-items: stretch; }
+  .map-clock > span, .freshness-trigger { gap: 4px; padding: 4px 8px; }
+  .map-clock-map { border-top: 1px solid var(--line); border-left: 0; }
+  .map-clock strong { font-size: 13px; }
+}
+
+@media (pointer: coarse) {
+  .search > input { height: 44px; }
+  .search-icon { top: 13px; }
+  .search-results > button, .saved-location-row > .saved-location { min-height: 44px; }
+  .save-place-editor input, .save-place-editor button { min-height: 44px; }
+  .map-clock .freshness-trigger { padding-top: 12px; padding-bottom: 12px; }
+  .cursor-pill::after { position: absolute; inset: -8px -4px; content: ''; }
+  .history-toggle { min-height: 44px; }
+  .temperature-focus { position: relative; }
+  .temperature-focus::after { position: absolute; inset: -12px -4px; content: ''; }
+}
