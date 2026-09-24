@@ -5,7 +5,9 @@ import type { Grid } from './contract'
 export const WIND_PARTICLES_PER_MEGAPIXEL = 620
 export const WIND_REFERENCE_ZOOM = 6.4
 // v2: U3-waarden (polylinemodel) betekenen in het buffermodel iets anders.
-export const WIND_TUNING_STORAGE_KEY = 'motregen-wind-tuning-v2'
+// v3 (U20): alleen afwijkingen van de default worden bewaard; v2 wordt eenmalig gemigreerd.
+export const WIND_TUNING_STORAGE_KEY = 'motregen-wind-tuning-v3'
+export const LEGACY_WIND_TUNING_STORAGE_KEY = 'motregen-wind-tuning-v2'
 
 // De staart ontstaat in een trailbuffer die per seconde vervaagt; de particle
 // zelf stempelt alleen zijn kop. Leven en fades zijn schermafstanden (CSS-px),
@@ -932,25 +934,54 @@ export function trailUvTransform(previous: TrailView, current: TrailView): { sca
   }
 }
 
-export function loadWindTuning(storage: Pick<Storage, 'getItem'> | undefined = globalThis.localStorage): WindTuning {
+type TuningStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
+
+export function loadWindTuning(storage: TuningStorage | undefined = globalThis.localStorage): WindTuning {
   try {
     const stored = storage?.getItem(WIND_TUNING_STORAGE_KEY)
-    return sanitizeWindTuning(stored ? JSON.parse(stored) as unknown : undefined)
+    if (stored) return sanitizeWindTuning(JSON.parse(stored) as unknown)
+    const legacy = storage?.getItem(LEGACY_WIND_TUNING_STORAGE_KEY)
+    if (!legacy) return { ...DEFAULT_WIND_TUNING }
+    const tuning = migrateWindTuningV2(JSON.parse(legacy) as unknown)
+    storage?.removeItem(LEGACY_WIND_TUNING_STORAGE_KEY)
+    storeWindTuning(tuning, storage)
+    return tuning
   } catch {
     return { ...DEFAULT_WIND_TUNING }
   }
 }
 
-// Defaults worden niet weggeschreven, zodat latere default-wijzigingen
-// gebruikers bereiken die nooit aan de knoppen zaten.
+// Alleen afwijkingen van de default worden weggeschreven, zodat latere default-wijzigingen
+// ook gebruikers bereiken die aan één andere knop zaten.
 export function storeWindTuning(tuning: WindTuning, storage: Pick<Storage, 'setItem' | 'removeItem'> | undefined = globalThis.localStorage): void {
   try {
-    const custom = WIND_TUNING_CONTROLS.some((control) => tuning[control.key] !== DEFAULT_WIND_TUNING[control.key])
-    if (custom) storage?.setItem(WIND_TUNING_STORAGE_KEY, JSON.stringify(tuning))
+    const custom: Partial<WindTuning> = {}
+    for (const control of WIND_TUNING_CONTROLS) if (tuning[control.key] !== DEFAULT_WIND_TUNING[control.key]) custom[control.key] = tuning[control.key]
+    if (Object.keys(custom).length) storage?.setItem(WIND_TUNING_STORAGE_KEY, JSON.stringify(custom))
     else storage?.removeItem(WIND_TUNING_STORAGE_KEY)
   } catch {
     // opslag vol of geblokkeerd: tuning blijft voor deze sessie gelden
   }
+}
+
+// Defaults uit de v2-periode (U3b–U12). v2 schreef de hele tuning weg zodra één knop afweek,
+// dus een waarde gelijk aan een toenmalige default is nooit gekozen en volgt de huidige default.
+const V2_DEFAULTS: Partial<Record<keyof WindTuning, readonly number[]>> = { intensity: [0.5, 1.4, 1.9], lineWidth: [1.5] }
+// U19 zette de basisintensiteit op ⅔ (windfocus tweent terug naar vol); een zelfgekozen
+// v2-intensiteit krijgt dezelfde ⅔, zodat windfocus weer precies de gekozen waarde geeft.
+const V2_INTENSITY_SCALE = 2 / 3
+
+export function migrateWindTuningV2(value: unknown): WindTuning {
+  const stored = sanitizeWindTuning(value)
+  const tuning = { ...DEFAULT_WIND_TUNING }
+  const raw = value && typeof value === 'object' ? value as Record<string, unknown> : {}
+  for (const control of WIND_TUNING_CONTROLS) {
+    if (typeof raw[control.key] !== 'number') continue
+    const candidate = stored[control.key]
+    if (V2_DEFAULTS[control.key]?.includes(candidate)) continue
+    tuning[control.key] = control.key === 'intensity' ? Math.round(candidate * V2_INTENSITY_SCALE * 100) / 100 : candidate
+  }
+  return tuning
 }
 
 export function sanitizeWindTuning(value: unknown): WindTuning {
