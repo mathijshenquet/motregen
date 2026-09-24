@@ -48,6 +48,17 @@
   uurvelden zouden met dezelfde codec ~60 % worden (niet gebouwd). LET OP deploy: een open
   tabblad met een oude bundle kan `feels_like_c` na de datawissel niet decoderen tot herladen
   — client vóór of met de ingest deployen (auto-upgrade doet beide tegelijk).
+- **U20 windregressies gemerged** (PO: zoom-fade, heftiger, artefacten boven land). Bisect
+  met stills over pre-U12 / U12 / U19: (1) het oude zoomgat bestond al vóór U12; wat na U12
+  als "fade/puls" leest is het synchrone aanvullerscohort van U12; (2) "heftiger": U19's
+  ⅔-default kwam nooit aan omdat tuning v2 (sinds U3b) de hele set wegschreef zodra één
+  knop afweek → opgeslagen intensiteit 1,9 bleef, windfocus maakte er 2,85 van; (3)
+  artefacten: aanvullers van één zoomstap verschenen in hetzelfde frame op leegste-cel-
+  punten (rooster van stompjes). Fixes: levensschaal 0,8–1,2 op afstand én maxAge met fase;
+  aanvullers volle celjitter, gespreid over 0,15 s; tuning v3 (alleen afwijkingen) met
+  eenmalige v2-migratie; setTuning herverdeelt alleen bij dichtheidswijziging (focus-tween
+  deed dat elk frame). `?dev` → "Reset alle instellingen" (favorieten/locatie/thema blijven).
+  e2e 29/29 op de gemergde tree.
 - Open MET PO: LICENSE; isolijnen boven plaatsnamen ok?; mobiel cold-TTFR-budget 4 s;
   versheidspil oogt zwaar op mobiel (70 px); UV-ghost op bewolkte uren gezien?
   VOOR AGENTS: SessionStart-hook wijst naar /home/mathijs (nix-config-pad);
