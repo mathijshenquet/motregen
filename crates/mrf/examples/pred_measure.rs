@@ -1,4 +1,4 @@
-//! U18b: re-encodes bitmap chunks with predictive frames and reports bytes and timings.
+//! U18b: encodes the frames of any chunk (bitmap or predictive) both ways and reports bytes and timings.
 //!
 //! `cargo run --release -p mrf --example pred_measure -- <chunk.mrf>...`
 
@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for path in env::args().skip(1) {
         let chunk = mrf::decode(&fs::read(&path)?)?;
         let header = &chunk.header;
-        for (frame, entry) in chunk.frames.iter().zip(&header.frames) {
+        for frame in &chunk.frames {
             let started = Instant::now();
             let payload = mrf::pred::encode_frame(frame, header.grid.width);
             let member = zstd::bulk::compress(&payload, mrf::COMPRESSION_LEVEL)?;
@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             )?;
             decode_s += started.elapsed().as_secs_f64();
             assert_eq!(&back, frame, "{path}: round trip differs");
-            bitmap += entry.len as usize;
+            bitmap += zstd::bulk::compress(frame, mrf::COMPRESSION_LEVEL)?.len();
             pred += member.len();
             frames += 1;
         }
