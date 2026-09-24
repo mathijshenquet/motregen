@@ -463,6 +463,15 @@ fn pred_chunks_are_transparent_and_smaller_than_bitmaps() {
         !String::from_utf8_lossy(&plain).contains("\"pred\""),
         "bitmap chunks keep their exact header bytes"
     );
+    let index = parse_header(&pred).unwrap();
+    let range = index.frame_range(0).unwrap();
+    let member = &pred[range.start as usize..range.end as usize];
+    assert!(
+        zstd::zstd_safe::get_frame_content_size(member)
+            .unwrap()
+            .is_some(),
+        "predictive members carry their content size"
+    );
 }
 
 #[test]

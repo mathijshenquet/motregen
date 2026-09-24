@@ -108,5 +108,12 @@ Encoding costs 1.3 ms per frame including zstd-19, decoding 1.0 ms in Rust.
 Reproduce with `cargo run --release -p mrf --example pred_measure --
 <chunk.mrf>...`.
 
+Predictive members carry their content size in the zstd frame header (the
+ingest pledges it). The web decoder (fzstd) then allocates the member instead
+of a level-19 window of 8 MiB per frame; decoders still check the decoded
+length. On these entropy-coded payloads the pledge costs 77 bytes over 109
+frames. On raw bitmaps zstd tunes itself to the pledged size and loses about
+1 %, which is why bitmap members don't carry it.
+
 The Rust encoder (`mrf::pred`) and the TypeScript encoder/decoder
 (`web/src/core/pred.ts`) share a byte-exact golden frame in their tests.

@@ -331,12 +331,12 @@ fn encode_inner(
         validate_motions(grid, motions, frames.len())?;
     }
     let width = meta.grid.width;
-    let compress = |frame: &Vec<u8>| {
-        let member = match meta.pred {
-            Some(_) => pred::encode_frame(frame, width),
-            None => frame.clone(),
-        };
-        zstd::stream::encode_all(member.as_slice(), COMPRESSION_LEVEL).map_err(Error::from)
+    let compress = |frame: &Vec<u8>| match meta.pred {
+        // A pledged size puts the content size in the zstd header, so the web decoder allocates
+        // the member instead of an 8 MiB window; on entropy-coded payloads it costs <1 B/frame.
+        Some(_) => zstd::bulk::compress(&pred::encode_frame(frame, width), COMPRESSION_LEVEL)
+            .map_err(Error::from),
+        None => zstd::stream::encode_all(frame.as_slice(), COMPRESSION_LEVEL).map_err(Error::from),
     };
     let compressed = match compression {
         Compression::Serial => frames.iter().map(compress).collect::<Result<Vec<_>, _>>()?,
