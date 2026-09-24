@@ -69,3 +69,15 @@ DCT K=64                135     68    102    115     30888    0.24   2.51
   **0,34 ms voor een z8-venster**. ~9k punten/snede; verdichting tot tol 0,05 cel +15 % punten.
 - PO-vraag (12:00): "isolijnen in rust berekenen, tijdcoherent?" → plan: tracer in een worker,
   met cache op gekwantiseerde tijd en vooruitrekenen in rust; main thread alleen upload.
+- PO-verduidelijking: "rust = backend" (isolijnen in de Rust-ingest vooruitrekenen). **Voorstel,
+  niet gebouwd** (spec: ingest alleen als voorstel): ingest publiceert per uur keyframe-geometrie
+  (polylines, int16-delta's op 1/16 cel ≈ 36 kB/uur bij ~9k punten), of een (x,y,t)-isosurface.
+  Client zou dan alleen snijden/meeglijden. Nadelen: bytes (sub-uurstappen × 48 u is te veel,
+  dus toch client-interpolatie), stap/blur/L_min vast in de ingest, en de client heeft het veld
+  toch nodig (labels, tween). Pas zinvol als de mobiele meting laat zien dat de client-worker
+  (~5 ms/snede desktop) afspelen niet bijhoudt.
+
+## 2026-09-24 ~12:30 — PO: hostregels (load ~30)
+- Elke Playwright/Chromium-run onder `flock /tmp/motregen-e2e.lock`, nooit twee tegelijk, vóór
+  zware runs pollen tot `cut -d" " -f1 /proc/loadavg` < 16 (genoteerd hier), lopende runs niet
+  killen. Main mergen vóór de gates (main heeft de flock in de pnpm-e2e-scripts).

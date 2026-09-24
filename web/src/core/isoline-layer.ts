@@ -2,6 +2,8 @@ import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap 
 import { MercatorCoordinate } from 'maplibre-gl'
 import type { Grid } from './contract'
 import type { PreparedField } from './isoline-field'
+import { SEGMENT_FLOATS } from './isoline-contours'
+import { ContourTracer, type TraceRequest, type TraceResult } from './isoline-tracer'
 
 // Hoekbakken voor de richting-onafhankelijke stippel; zie de shader. Stippel i.p.v. streep:
 // de basiskaart tekent provinciegrenzen al gestreept.
@@ -21,6 +23,12 @@ export interface IsolineStyle {
   fade: number
   gradient: [number, number]
   speed: [number, number]
+  /** Lijnen als vector (exacte B-spline-contouren, getekend op device-resolutie) i.p.v. per pixel. */
+  vector: boolean
+  /** Vector: gesloten lijnen korter dan dit (km) vervagen; 0 = uit. */
+  ringKm: number
+  /** Vector: maximale afwijking koorde ↔ lijn in CSS-px (verdichting). */
+  tolerancePx: number
 }
 
 export interface IsolinePassTuning {
@@ -180,6 +188,68 @@ void main() {
   color = texture(u_result, v_uv) * u_opacity;
 }`
 
+// Vector: één instanced quad per segment, in schermpixels verbreed; de fragmentshader rekent de
+// afstand tot het segment (capsule: ronde koppen), dus naden tussen segmenten zijn naadloos
+// onder MAX-blending. De stippel loopt over de echte booglengte.
+const lineVertex = `#version 300 es
+in vec2 a_corner;
+in vec4 a_segment;
+in vec2 a_arc;
+in vec2 a_alpha;
+in float a_odd;
+uniform mat4 u_matrix;
+uniform vec2 u_viewport;
+uniform float u_extent;
+flat out vec2 v_a;
+flat out vec2 v_b;
+flat out vec2 v_arc;
+flat out vec2 v_alpha;
+flat out float v_odd;
+out vec2 v_px;
+vec2 toPx(vec2 p) {
+  vec4 clip = u_matrix * vec4(p, 0.0, 1.0);
+  return (clip.xy / clip.w * 0.5 + 0.5) * u_viewport;
+}
+void main() {
+  vec2 a = toPx(a_segment.xy), b = toPx(a_segment.zw);
+  vec2 d = b - a;
+  float len = length(d);
+  vec2 dir = len > 1e-4 ? d / len : vec2(1.0, 0.0);
+  vec2 normal = vec2(-dir.y, dir.x);
+  vec2 p = mix(a - dir * u_extent, b + dir * u_extent, a_corner.x) + normal * u_extent * a_corner.y;
+  v_a = a; v_b = b; v_arc = a_arc; v_alpha = a_alpha; v_odd = a_odd; v_px = p;
+  gl_Position = vec4(p / u_viewport * 2.0 - 1.0, 0.0, 1.0);
+}`
+
+const lineFragment = `#version 300 es
+precision highp float;
+uniform float u_half_width;
+uniform float u_dashed;
+uniform float u_dash_period;
+uniform float u_dash_on;
+uniform float u_px_per_cell;
+uniform vec3 u_color;
+flat in vec2 v_a;
+flat in vec2 v_b;
+flat in vec2 v_arc;
+flat in vec2 v_alpha;
+flat in float v_odd;
+in vec2 v_px;
+out vec4 color;
+float dash(float u) {
+  float x = abs(fract(u / u_dash_period + 0.5) - 0.5) * u_dash_period;
+  return clamp(u_dash_on * 0.5 + 0.5 - x, 0.0, 1.0);
+}
+void main() {
+  vec2 ab = v_b - v_a;
+  float t = clamp(dot(v_px - v_a, ab) / max(dot(ab, ab), 1e-8), 0.0, 1.0);
+  float d = length(v_px - (v_a + ab * t));
+  float line = clamp(u_half_width + 0.5 - d, 0.0, 1.0) * mix(v_alpha.x, v_alpha.y, t);
+  if (v_odd * u_dashed > 0.5) line *= dash(mix(v_arc.x, v_arc.y, t) * u_px_per_cell);
+  if (line <= 0.0) discard;
+  color = vec4(u_color * line, line);
+}`
+
 export interface IsolinePassStats {
   passes: number
   composites: number
@@ -191,6 +261,12 @@ export interface IsolinePassStats {
   passMs: number
   compositeMs: number
   timing: 'gpu' | 'cpu'
+  /** Vector: tracer-tijd (worker) van de laatste snede, segmenten en lusjes. */
+  traceMs?: number
+  traces?: number
+  segments?: number
+  rings?: number
+  fadedRings?: number
 }
 
 /**
@@ -228,9 +304,19 @@ export class IsolineLayer implements CustomLayerInterface {
   private passedCamera = ''
   private lastPass = -Infinity
   private catchUp?: number
+  private line?: WebGLProgram
+  private corners?: WebGLBuffer
+  private segments?: WebGLBuffer
+  private segmentCount = 0
+  private readonly tracer: ContourTracer
+  private requestedTrace = ''
+  private pendingTrace?: TraceResult
+  /** Tracer-resultaten tot nu toe: nieuwe geometrie is ook een nieuwe snede. */
+  private geometryVersion = 0
 
   constructor(readonly grid: Grid, readonly depth: number, private style: IsolineStyle, private tuning: IsolinePassTuning = DEFAULT_PASS_TUNING) {
     this.loaded = new Uint8Array(depth)
+    this.tracer = new ContourTracer(grid, depth, (result) => this.traced(result))
   }
 
   onAdd(map: MapLibreMap, context: WebGLRenderingContext | WebGL2RenderingContext): void {
@@ -257,6 +343,13 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.texStorage3D(gl.TEXTURE_3D, 1, gl.RG16F, this.grid.width, this.grid.height, this.depth)
     for (const parameter of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_3D, parameter, gl.LINEAR)
     for (const parameter of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T, gl.TEXTURE_WRAP_R]) gl.texParameteri(gl.TEXTURE_3D, parameter, gl.CLAMP_TO_EDGE)
+    this.line = link(gl, lineVertex, lineFragment)
+    this.corners = gl.createBuffer()!
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.corners)
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, -1, 1, -1, 0, 1, 1, 1]), gl.STATIC_DRAW)
+    this.segments = gl.createBuffer()!
+    this.segmentCount = 0
+    this.requestedTrace = ''
     this.result = gl.createTexture()!
     this.framebuffer = gl.createFramebuffer()!
     this.resultSize = [0, 0]
@@ -275,9 +368,14 @@ export class IsolineLayer implements CustomLayerInterface {
     if (this.framebuffer) gl.deleteFramebuffer(this.framebuffer)
     this.timer?.dispose()
     this.timer = undefined
-    for (const buffer of [this.quad, this.screen]) if (buffer) gl.deleteBuffer(buffer)
+    for (const buffer of [this.quad, this.screen, this.corners, this.segments]) if (buffer) gl.deleteBuffer(buffer)
     this.map = undefined
     this.gl = undefined
+  }
+
+  /** De tracer-worker leeft met de laag mee (onRemove kan gevolgd worden door een nieuwe onAdd). */
+  dispose(): void {
+    this.tracer.dispose()
   }
 
   hasLayer(index: number): boolean {
@@ -298,6 +396,7 @@ export class IsolineLayer implements CustomLayerInterface {
     for (let index = 0; index < this.depth; index++) {
       if (keys[index] === this.frameKeys[index]) continue
       this.loaded[index] = 0
+      this.tracer.setLayer(index, undefined)
       changed.push(index)
     }
     this.frameKeys = keys.slice(0, this.depth)
@@ -318,6 +417,8 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.bindTexture(gl.TEXTURE_3D, this.volume)
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
     gl.texSubImage3D(gl.TEXTURE_3D, 0, 0, 0, index, this.grid.width, this.grid.height, 1, gl.RG, gl.FLOAT, interleaved)
+    this.tracer.setLayer(index, field)
+    this.requestedTrace = ''
     this.loaded[index] = 1
     this.stats.uploads++
     this.invalidate()
@@ -327,6 +428,11 @@ export class IsolineLayer implements CustomLayerInterface {
   setTime(time: number): void {
     if (time === this.time) return
     this.time = time
+    // Vector: de worker levert de nieuwe snede; pas die geometrie is een nieuwe pass waard.
+    if (this.style.vector) {
+      this.repaint()
+      return
+    }
     this.version++
     // Afspelen zet elke frame een nieuwe tijd; een kaartrender daarvoor zou tussen twee passes
     // alleen de oude snede blitten (plus volledige symboolplaatsing). Vraag hem pas aan als het
@@ -356,6 +462,10 @@ export class IsolineLayer implements CustomLayerInterface {
     const gl = context as WebGL2RenderingContext
     const map = this.map
     if (!map || !this.contour || this.opacity <= 0 || !this.ready()) return
+    if (this.style.vector) {
+      this.prerenderVector(gl, map, options.defaultProjectionData.mainMatrix)
+      return
+    }
     const [width, height] = this.targetSize(gl, this.tuning.resolution)
     const matrix = options.defaultProjectionData.mainMatrix
     const camera = `${width}x${height}:${Array.prototype.join.call(matrix, ',')}`
@@ -372,6 +482,118 @@ export class IsolineLayer implements CustomLayerInterface {
     this.passedVersion = this.version
     this.lastPass = now
     this.onPass?.()
+  }
+
+  private prerenderVector(gl: WebGL2RenderingContext, map: MapLibreMap, matrix: ArrayLike<number>): void {
+    const request = this.traceRequest(map.getZoom())
+    const key = JSON.stringify(request)
+    if (key !== this.requestedTrace) {
+      this.requestedTrace = key
+      this.tracer.request(request)
+    }
+    if (this.pendingTrace) {
+      const data = this.pendingTrace.data
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.segments!)
+      gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW)
+      this.segmentCount = data.length / SEGMENT_FLOATS
+      this.pendingTrace = undefined
+      this.geometryVersion++
+    }
+    if (!this.geometryVersion) return
+    const width = Math.max(1, gl.drawingBufferWidth), height = Math.max(1, gl.drawingBufferHeight)
+    const camera = `v${width}x${height}:${Array.prototype.join.call(matrix, ',')}:${this.geometryVersion}`
+    if (camera === this.passedCamera && this.version === this.passedVersion) return
+    this.vectorPass(gl, map, matrix, width, height)
+    this.passedCamera = camera
+    this.passedVersion = this.version
+    this.lastPass = performance.now()
+    this.onPass?.()
+  }
+
+  /** Wat de worker moet traceren; de tolerantie in cellen volgt de zoom in machten van 2. */
+  private traceRequest(zoom: number): TraceRequest {
+    const { step, window, ringKm, tolerancePx, fade, gradient } = this.style
+    const pxPerCell = Math.abs(this.grid.dx) / (2 * Math.PI * 6378137) * 512 * 2 ** zoom
+    const toleranceCells = 2 ** Math.round(Math.log2(Math.max(tolerancePx, 0.01) / pxPerCell))
+    return { time: this.time, window, step, toleranceCells, ringKm, gradient: fade > 0.5 && fade < 1.5 ? gradient : undefined }
+  }
+
+  private traced(result: TraceResult | undefined): void {
+    if (!result) return
+    this.pendingTrace = result
+    this.stats.traces = (this.stats.traces ?? 0) + 1
+    this.stats.traceMs = smooth(this.stats.traceMs ?? 0, result.stats.ms)
+    this.stats.segments = result.stats.segments
+    this.stats.rings = result.stats.rings
+    this.stats.fadedRings = result.stats.fadedRings
+    this.repaint()
+  }
+
+  private vectorPass(gl: WebGL2RenderingContext, map: MapLibreMap, matrix: ArrayLike<number>, width: number, height: number): void {
+    const previousFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
+    const previousViewport = gl.getParameter(gl.VIEWPORT) as Int32Array
+    this.bindResult(gl, width, height)
+    gl.enable(gl.BLEND)
+    // MAX: overlappende koppen en naden tellen niet op; de kleur is overal dezelfde.
+    gl.blendEquation(gl.MAX)
+    gl.disable(gl.DEPTH_TEST)
+    gl.disable(gl.STENCIL_TEST)
+    gl.clearColor(0, 0, 0, 0)
+    gl.clear(gl.COLOR_BUFFER_BIT)
+
+    const ratio = window.devicePixelRatio || 1
+    const zoom = map.getZoom()
+    const world = 512 * 2 ** zoom * ratio
+    const widthCss = zoom <= 5 ? 1.3 : zoom >= 9 ? 2 : 1.3 + (zoom - 5) * 0.175
+    const halfWidth = Math.max(0.5, widthCss * ratio / 2)
+    // Rooster (kolom, rij) → mercator is affien; in float64 met de kaartmatrix vermenigvuldigd
+    // houdt dat de vertexcoördinaten klein (0–225) en dus exact in float32.
+    const circumference = 2 * Math.PI * 6378137
+    const sx = this.grid.dx / circumference, sy = -this.grid.dy / circumference
+    const ox = (this.grid.x0 + 0.5 * this.grid.dx + circumference / 2) / circumference
+    const oy = (circumference / 2 - (this.grid.y0 + 0.5 * this.grid.dy)) / circumference
+    const affine = [sx, 0, 0, 0, 0, sy, 0, 0, 0, 0, 1, 0, ox, oy, 0, 1]
+    const program = this.line!
+    gl.useProgram(program)
+    const uniform = (name: string) => gl.getUniformLocation(program, name)
+    gl.uniformMatrix4fv(uniform('u_matrix'), false, multiply(matrix, affine))
+    gl.uniform2f(uniform('u_viewport'), width, height)
+    gl.uniform1f(uniform('u_extent'), halfWidth + 1)
+    gl.uniform1f(uniform('u_half_width'), halfWidth)
+    gl.uniform1f(uniform('u_dashed'), this.style.dashed ? 1 : 0)
+    gl.uniform1f(uniform('u_dash_period'), DASH_PERIOD_PX * ratio)
+    gl.uniform1f(uniform('u_dash_on'), DASH_ON_PX * ratio)
+    gl.uniform1f(uniform('u_px_per_cell'), Math.abs(sx) * world)
+    gl.uniform3f(uniform('u_color'), ...this.style.color)
+    const attributes: number[] = []
+    const bind = (name: string, buffer: WebGLBuffer, size: number, stride: number, offset: number, divisor: number) => {
+      const location = gl.getAttribLocation(program, name)
+      if (location < 0) return
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+      gl.enableVertexAttribArray(location)
+      gl.vertexAttribPointer(location, size, gl.FLOAT, false, stride, offset)
+      gl.vertexAttribDivisor(location, divisor)
+      attributes.push(location)
+    }
+    const stride = SEGMENT_FLOATS * 4
+    bind('a_corner', this.corners!, 2, 8, 0, 0)
+    bind('a_segment', this.segments!, 4, stride, 0, 1)
+    bind('a_arc', this.segments!, 2, stride, 16, 1)
+    bind('a_alpha', this.segments!, 2, stride, 24, 1)
+    bind('a_odd', this.segments!, 1, stride, 32, 1)
+    if (this.segmentCount) this.measure('passMs', () => gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, this.segmentCount))
+    // De context is gedeeld met de rasterpass en de blit: divisors terug op 0.
+    for (const location of attributes) {
+      gl.vertexAttribDivisor(location, 0)
+      gl.disableVertexAttribArray(location)
+    }
+    gl.blendEquation(gl.FUNC_ADD)
+    gl.disable(gl.BLEND)
+    this.stats.passPixels += width * height
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, previousFramebuffer)
+    gl.viewport(previousViewport[0]!, previousViewport[1]!, previousViewport[2]!, previousViewport[3]!)
+    this.stats.passes++
   }
 
   render(context: WebGLRenderingContext | WebGL2RenderingContext): void {
@@ -457,9 +679,8 @@ export class IsolineLayer implements CustomLayerInterface {
     this.repaint()
   }
 
-  private pass(gl: WebGL2RenderingContext, map: MapLibreMap, matrix: ArrayLike<number>, width: number, height: number): void {
-    const previousFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
-    const previousViewport = gl.getParameter(gl.VIEWPORT) as Int32Array
+  /** Offscreen resultaat van `width`×`height` als render target (her)aanmaken en binden. */
+  private bindResult(gl: WebGL2RenderingContext, width: number, height: number): void {
     gl.activeTexture(gl.TEXTURE1)
     gl.bindTexture(gl.TEXTURE_2D, this.result!)
     if (this.resultSize[0] !== width || this.resultSize[1] !== height) {
@@ -473,6 +694,12 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer!)
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.result!, 0)
     gl.viewport(0, 0, width, height)
+  }
+
+  private pass(gl: WebGL2RenderingContext, map: MapLibreMap, matrix: ArrayLike<number>, width: number, height: number): void {
+    const previousFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
+    const previousViewport = gl.getParameter(gl.VIEWPORT) as Int32Array
+    this.bindResult(gl, width, height)
     gl.disable(gl.BLEND)
     gl.disable(gl.DEPTH_TEST)
     gl.disable(gl.STENCIL_TEST)
@@ -527,6 +754,19 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.viewport(previousViewport[0]!, previousViewport[1]!, previousViewport[2]!, previousViewport[3]!)
     this.stats.passes++
   }
+}
+
+/** 4×4 kolom-major a·b in float64 (de kaartmatrix is Float64Array). */
+function multiply(a: ArrayLike<number>, b: ArrayLike<number>): Float32Array {
+  const out = new Float32Array(16)
+  for (let column = 0; column < 4; column++) {
+    for (let row = 0; row < 4; row++) {
+      let sum = 0
+      for (let k = 0; k < 4; k++) sum += a[k * 4 + row]! * b[column * 4 + k]!
+      out[column * 4 + row] = sum
+    }
+  }
+  return out
 }
 
 function smooth(previous: number, sample: number): number {

@@ -238,3 +238,52 @@ export function ringFade(contour: Pick<Contour, 'closed' | 'lengthKm'>, minKm: n
   if (!contour.closed || minKm <= 0) return 1
   return smoothstep(minKm * 0.5, minKm, contour.lengthKm)
 }
+
+/** Per segment: ax, ay, bx, by (cellen), booglengte a/b (cellen), alpha a/b, oneven niveau. */
+export const SEGMENT_FLOATS = 9
+
+export interface SegmentOptions {
+  /** Ringen korter dan dit (km) vervagen; 0 = uit. */
+  ringKm: number
+  /** smoothstep-grenzen op |∇T| (°C/km) per punt, of undefined. */
+  gradient?: [number, number]
+}
+
+export interface SegmentStats {
+  segments: number
+  rings: number
+  /** Ringen die door het lengtecriterium voor meer dan de helft vervaagd zijn. */
+  fadedRings: number
+}
+
+/** Instance-data voor de lijnshader; lijnen die volledig vervaagd zijn vallen weg. */
+export function buildSegments(contours: readonly Contour[], options: SegmentOptions): { data: Float32Array; stats: SegmentStats } {
+  let total = 0
+  for (const contour of contours) total += contour.closed ? contour.points.length / 2 : contour.points.length / 2 - 1
+  const data = new Float32Array(Math.max(0, total) * SEGMENT_FLOATS)
+  let offset = 0, rings = 0, fadedRings = 0
+  for (const contour of contours) {
+    const fade = ringFade(contour, options.ringKm)
+    if (contour.closed) {
+      rings++
+      if (fade < 0.5) fadedRings++
+    }
+    if (fade <= 0) continue
+    // Oneven graden gestippeld, zoals de rastershader.
+    const odd = Math.abs(Math.round(contour.level)) % 2
+    const count = contour.points.length / 2
+    const segments = contour.closed ? count : count - 1
+    const alpha = (index: number) => fade * (options.gradient ? smoothstep(options.gradient[0], options.gradient[1], contour.gradient[index]!) : 1)
+    let arc = 0
+    for (let index = 0; index < segments; index++) {
+      const next = (index + 1) % count
+      const ax = contour.points[index * 2]!, ay = contour.points[index * 2 + 1]!
+      const bx = contour.points[next * 2]!, by = contour.points[next * 2 + 1]!
+      const length = Math.hypot(bx - ax, by - ay)
+      data.set([ax, ay, bx, by, arc, arc + length, alpha(index), alpha(next), odd], offset)
+      offset += SEGMENT_FLOATS
+      arc += length
+    }
+  }
+  return { data: data.subarray(0, offset), stats: { segments: offset / SEGMENT_FLOATS, rings, fadedRings } }
+}
