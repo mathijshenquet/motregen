@@ -25,4 +25,21 @@ describe('odd isolines', () => {
     expect(oddLine('equal', 1.3)).toEqual({ halfWidth: 0.65, alpha: 1 })
     expect(oddLine('dash', 4)).toEqual({ halfWidth: 2, alpha: 1 })
   })
+
+  it('keeps the summed coverage constant as a line slides across pixel centres (no flicker)', () => {
+    // Dekking van de lijnshader per pixel: clamp(hw + 0,5 − d) · alpha, opgeteld over een kolom.
+    const ink = (halfWidth: number, alpha: number, shift: number) => {
+      let sum = 0
+      for (let pixel = -4; pixel <= 4; pixel++) sum += Math.max(0, Math.min(1, halfWidth + 0.5 - Math.abs(pixel - shift))) * alpha
+      return sum
+    }
+    const spread = (halfWidth: number, alpha: number) => {
+      const values = Array.from({ length: 11 }, (_, index) => ink(halfWidth, alpha, index / 10))
+      return (Math.max(...values) - Math.min(...values)) / Math.max(...values)
+    }
+    const { halfWidth, alpha } = oddLine('half', 1.3)
+    expect(spread(halfWidth, alpha)).toBeLessThan(1e-9)
+    // Naïef 0,65 px breed: > 20 % lichter tussen twee pixelmiddens.
+    expect(spread(0.325, 1)).toBeGreaterThan(0.2)
+  })
 })
