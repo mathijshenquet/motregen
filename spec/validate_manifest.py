@@ -68,6 +68,15 @@ def main():
             )
         ):
             raise ValueError(f"invalid quant table in {path}")
+        dct = header.get("dct")
+        if dct is not None and (
+            not isinstance(dct.get("k"), int)
+            or not 1 <= dct["k"] <= min(header["grid"]["width"], header["grid"]["height"])
+            or header.get("motion_grid") is not None
+        ):
+            raise ValueError(f"invalid dct header in {path}")
+        if (field == "feels_like_dct") != (dct is not None):
+            raise ValueError(f"dct header and feels_like_dct field disagree in {path}")
         offset = 0
         for frame in header["frames"]:
             if frame["offset"] != offset or frame["len"] <= 0:

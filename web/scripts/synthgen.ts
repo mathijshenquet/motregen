@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ZstdCodec } from 'zstd-codec'
 import type { Field, FrameIndex, Grid, Manifest, ManifestChunk, MotionGrid, MrfHeader, Source } from '../src/core/contract'
+import { encodeDctFrame } from '../src/core/dct'
 import { solarElevationSin } from '../src/core/solar'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -20,6 +21,8 @@ const feelsLikeQuant = linearQuant(-35, 45)
 const windQuant = linearQuant(-30, 30)
 const uvQuant = linearQuant(0, 12.7)
 const percentQuant = linearQuant(0, 100)
+// Zelfde orde als de ingest (FEELS_LIKE_DCT_K).
+const dctK = 64
 
 interface ChunkPlan { name: string; source: Source; field: Field; run: number; times: number[] }
 const plans: ChunkPlan[] = []
@@ -46,7 +49,7 @@ plans.push({
   name: 'uv_clear-20260828.mrf', source: 'uv', field: 'uv_clear', run: Date.parse('2026-08-28T00:00:00Z'),
   times: Array.from({ length: 65 }, (_, i) => Date.parse('2026-08-28T03:00:00Z') + i * 15 * 60_000),
 })
-for (const field of ['radiation', 'temp_c', 'feels_like_c', 'wind_u_ms', 'wind_v_ms', 'rel_humidity', 'cloud_frac'] as const) {
+for (const field of ['radiation', 'temp_c', 'feels_like_c', 'feels_like_dct', 'wind_u_ms', 'wind_v_ms', 'rel_humidity', 'cloud_frac'] as const) {
   plans.push({ name: `${field}-20260828T1200.mrf`, source: 'harmonie', field, run, times: runTimes.slice(0, 24) })
   plans.push({ name: `${field}-20260828T1200-l25-48.mrf`, source: 'harmonie', field, run, times: runTimes.slice(24) })
   plans.push({ name: `${field}-20260828T0800-hist4.mrf`, source: 'harmonie', field, run: historyRun, times: historyTimes })
@@ -132,8 +135,15 @@ function makeUvFrame(epoch: number, clearSky = false): Uint8Array {
   return values
 }
 
-function makeWeatherFrame(epoch: number, field: Exclude<Field, 'rain_rate' | 'radiation' | 'uv' | 'uv_clear'>): Uint8Array {
-  const values = new Uint8Array(grid.width * grid.height)
+type WeatherField = Exclude<Field, 'rain_rate' | 'radiation' | 'uv' | 'uv_clear' | 'feels_like_dct'>
+
+function makeWeatherFrame(epoch: number, field: WeatherField): Uint8Array {
+  const quant = quantFor(field)
+  return Uint8Array.from(weatherValues(epoch, field), (value) => encodeLinear(value, quant))
+}
+
+function weatherValues(epoch: number, field: WeatherField): Float64Array {
+  const values = new Float64Array(grid.width * grid.height)
   const hour = (epoch - now) / 3_600_000
   for (let y = 0; y < grid.height; y++) for (let x = 0; x < grid.width; x++) {
     const north = 1 - y / (grid.height - 1)
@@ -155,11 +165,7 @@ function makeWeatherFrame(epoch: number, field: Exclude<Field, 'rain_rate' | 'ra
           : field === 'feels_like_c' ? feelsLike
             : field === 'rel_humidity' ? humidity
               : cloud
-    const quant = field.startsWith('wind_') ? windQuant
-      : field === 'temp_c' ? temperatureQuant
-        : field === 'feels_like_c' ? feelsLikeQuant
-          : percentQuant
-    values[y * grid.width + x] = encodeLinear(value, quant)
+    values[y * grid.width + x] = value
   }
   return values
 }
@@ -185,7 +191,7 @@ function quantFor(field: Field): Array<number | null> {
   if (field === 'rain_rate') return rainQuant
   if (field === 'radiation') return radiationQuant
   if (field === 'temp_c') return temperatureQuant
-  if (field === 'feels_like_c') return feelsLikeQuant
+  if (field === 'feels_like_c' || field === 'feels_like_dct') return feelsLikeQuant
   if (field === 'uv' || field === 'uv_clear') return uvQuant
   if (field === 'rel_humidity' || field === 'cloud_frac') return percentQuant
   return windQuant
@@ -196,6 +202,7 @@ function frameFor(plan: ChunkPlan, time: number, index: number): Uint8Array {
   if (plan.field === 'radiation') return makeRadiationFrame(time)
   if (plan.field === 'uv') return makeUvFrame(time)
   if (plan.field === 'uv_clear') return makeUvFrame(time, true)
+  if (plan.field === 'feels_like_dct') return encodeDctFrame(weatherValues(time, 'feels_like_c'), grid.width, grid.height, dctK)
   return makeWeatherFrame(time, plan.field)
 }
 
@@ -235,6 +242,7 @@ async function main(): Promise<void> {
       dict: null,
       frames,
       ...(plan.field === 'rain_rate' ? { motion_grid: motionGrid } : {}),
+      ...(plan.field === 'feels_like_dct' ? { dct: { k: dctK } } : {}),
     }
     const json = new TextEncoder().encode(JSON.stringify(header))
     const prefix = new Uint8Array(8)

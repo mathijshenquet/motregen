@@ -1,5 +1,6 @@
 import { decompress } from 'fzstd'
 import { chunkField, type ManifestChunk, type MrfHeader } from './contract'
+import { dctFrameLength, dctFrameToBitmap, type DctFrameSpec } from './dct'
 import type { LoadLayer, LoadTrace } from './perf'
 
 const decoder = new TextDecoder()
@@ -21,13 +22,20 @@ function validateHeader(header: MrfHeader): void {
   if (header.dict !== null || header.grid.width < 1 || header.grid.height < 1) throw new Error('Ongeldige mrf-header')
   if (header.motion_grid && (!Number.isInteger(header.motion_grid.bw) || !Number.isInteger(header.motion_grid.bh) || header.motion_grid.bw < 1 || header.motion_grid.bh < 1)) throw new Error('Ongeldig motion-grid')
   if (!header.motion_grid && header.frames.some((frame) => frame.motion)) throw new Error('Motion-annex zonder motion-grid')
+  if (header.dct && (!Number.isInteger(header.dct.k) || header.dct.k < 1 || header.dct.k > Math.min(header.grid.width, header.grid.height))) throw new Error('Ongeldige DCT-orde')
   if (header.frames.some((frame) => frame.motion && (!Number.isInteger(frame.motion.offset) || !Number.isInteger(frame.motion.len) || frame.motion.offset < 0 || frame.motion.len < 1))) throw new Error('Ongeldige motion-verwijzing')
 }
 
-export function decodeFrame(bytes: Uint8Array, expectedLength: number): Uint8Array {
+export function decodeFrame(bytes: Uint8Array, expectedLength: number, dct?: DctFrameSpec): Uint8Array {
   const decoded = decompress(bytes)
-  if (decoded.length !== expectedLength) throw new Error(`Frame heeft ${decoded.length} bytes; verwacht ${expectedLength}`)
-  return decoded
+  const wanted = dct ? dctFrameLength(dct.width, dct.height, dct.k) : expectedLength
+  if (decoded.length !== wanted) throw new Error(`Frame heeft ${decoded.length} bytes; verwacht ${wanted}`)
+  return dct ? dctFrameToBitmap(decoded, dct) : decoded
+}
+
+/** Wat de worker nodig heeft om een DCT-frame terug te brengen tot een bitmapframe van het grid. */
+function dctSpec(header: MrfHeader): DctFrameSpec | undefined {
+  return header.dct ? { width: header.grid.width, height: header.grid.height, k: header.dct.k, quant: header.quant } : undefined
 }
 
 export class LruCache<K, V> {
@@ -255,7 +263,7 @@ export class MrfClient {
       ? await payload.read(frame.offset, frame.offset + frame.len)
       : await fetchRange(url, start, start + frame.len - 1, priority, this.rangeTrace(layer, [frameIndex]))
     this.trace?.frameBytesReady(url, frameIndex)
-    const decoded = await this.decodeInWorker(compressed, header.grid.width * header.grid.height)
+    const decoded = await this.decodeInWorker(compressed, header.grid.width * header.grid.height, dctSpec(header))
     this.trace?.frameDecoded(url, frameIndex)
     this.frames.set(key, decoded)
     this.onFrameDecoded?.(url, frameIndex, decoded)
@@ -286,7 +294,7 @@ export class MrfClient {
       const frame = header.frames[index]!
       const compressed = await payload.read(frame.offset, frame.offset + frame.len)
       this.trace?.frameBytesReady(url, index)
-      const decodedBytes = await this.decodeInWorker(compressed, header.grid.width * header.grid.height)
+      const decodedBytes = await this.decodeInWorker(compressed, header.grid.width * header.grid.height, dctSpec(header))
       this.trace?.frameDecoded(url, index)
       this.frames.set(frameKey(url, index), decodedBytes)
       this.onFrameDecoded?.(url, index, decodedBytes)
@@ -333,7 +341,7 @@ export class MrfClient {
     for (const index of indexes) void this.getMotion(chunk, index).catch(() => undefined)
   }
 
-  private decodeInWorker(compressed: Uint8Array, expectedLength: number): Promise<Uint8Array> {
+  private decodeInWorker(compressed: Uint8Array, expectedLength: number, dct?: DctFrameSpec): Promise<Uint8Array> {
     const id = ++this.requestId
     return new Promise((resolve, reject) => {
       const worker = this.workerLoad.indexOf(Math.min(...this.workerLoad))
@@ -342,7 +350,7 @@ export class MrfClient {
       const bytes = compressed.byteOffset === 0 && compressed.byteLength === compressed.buffer.byteLength
         ? compressed.buffer
         : compressed.slice().buffer
-      this.workers[worker]!.postMessage({ id, bytes, expectedLength }, [bytes])
+      this.workers[worker]!.postMessage({ id, bytes, expectedLength, dct }, [bytes])
     })
   }
 }

@@ -52,3 +52,37 @@ components are valid, because the wire value −128 is no-data and must not
 participate in bilinear interpolation. Rain textures likewise carry intensity
 and validity in RG8, so clamped warp samples cannot draw field-edge or no-data
 pixels inward.
+
+## DCT fields
+
+A header may carry `"dct": {"k": K}` (U18). Its frames are then not
+quantized cells but the K×K lowest-frequency coefficients of the field, and
+`quant` stays the field's value table: consumers turn the frame back into a
+grid and quantize it with that table, after which it behaves like any other
+frame. The field is a smooth low-pass version of the source, so it is meant
+for map rendering (isolines, labels), not for point values.
+
+Each frame member decompresses to `4 + ceil(W·H/8) + 2·K²` bytes,
+little-endian:
+
+| bytes | content |
+| --- | --- |
+| 4 | `f32` coefficient step `s` |
+| ceil(W·H/8) | no-data mask, row-major, bit 7 of byte 0 is cell 0, set = no-data |
+| K² | low bytes of the `i16` coefficients `c[ky][kx]`, row-major |
+| K² | high bytes of the same coefficients |
+
+Coefficients are those of the orthonormal 2D DCT-II, `C = A_H · X · A_Wᵀ`
+with `A_N[k][n] = α_k cos(π(2n+1)k / 2N)`, `α_0 = √(1/N)`, `α_k = √(2/N)`.
+The field is reconstructed as `X ≈ A_H[:K]ᵀ · (s·c) · A_W[:K]`. Before the
+transform, no-data cells get the value of their nearest valid cell
+(4-neighbour breadth-first fill in row-major order), so the no-data edge
+adds no step to the spectrum. The encoder chooses
+`s = max(0.2, max|C| / 32767)`: 0.2 gives about 0.02 °C rms in the field at
+K=64 on the 209×225 grid (`s/√12 · K/√(W·H)`), and the maximum keeps the DC
+coefficient of a warm field inside `i16`. Splitting the low and high byte
+planes compresses about 6% better than interleaved `i16` (K=64: 3,624 vs 3,842 B), and 1% better
+than a diagonal (zig-zag) order.
+
+The Rust encoder (`mrf::dct`) and the TypeScript encoder/decoder
+(`web/src/core/dct.ts`) share a byte-exact golden frame in their tests.

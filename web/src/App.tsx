@@ -77,6 +77,7 @@ const emptySunData: SunFeatureCollection = { type: 'FeatureCollection', features
 
 export default function App() {
   const devMode = new URLSearchParams(window.location.search).has('dev')
+  const feelsLikeFieldSource = new URLSearchParams(window.location.search).get('gevoelveld')
   // Een gewijzigde symbooltekst is voor MapLibre een nieuw symbool: met fade flitst 16°→17°
   // weg en weer in. Zonder fade wisselt het label in place; ?labelfade=300 voor de A/B.
   const labelFadeMs = Number(new URLSearchParams(window.location.search).get('labelfade') ?? 0)
@@ -171,6 +172,12 @@ export default function App() {
   const uvClearTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'uv_clear') : [])
   const tempTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'temp_c') : [])
   const feelsLikeTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'feels_like_c') : [])
+  // Kaart (isolijnen, labels, stadslabels) leest het DCT-veld als de ingest het publiceert; de tabel houdt
+  // de exacte bitmap (U18). ?gevoelveld=bitmap forceert de bitmap voor vergelijking.
+  const feelsLikeMapTimeline = createMemo(() => {
+    const dct = manifest() && feelsLikeFieldSource !== 'bitmap' ? buildTimeline(manifest()!, 'feels_like_dct') : []
+    return dct.length ? dct : feelsLikeTimeline()
+  })
   const humidityTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'rel_humidity') : [])
   const cloudTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'cloud_frac') : [])
   const windTimeline = createMemo(() => manifest() ? buildWindTimeline(manifest()!) : [])
@@ -225,7 +232,7 @@ export default function App() {
   const [isolineCount, setIsolineCount] = createSignal(0)
   const [labelTuning, setLabelTuning] = createSignal<IsolineLabelTuning>({ ...DEFAULT_LABEL_TUNING })
   const focusMode = new FocusMode(setFocus, focusTuning, () => reducedMotion.matches)
-  const isolineCoverage = createMemo(() => timelineCoverage(feelsLikeTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
+  const isolineCoverage = createMemo(() => timelineCoverage(feelsLikeMapTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
   const isolinesActive = createMemo(() => focus() > 0)
   const focusedWindTuning = createMemo<WindTuning>(() => ({ ...windTuning(), visibility: windTuning().visibility * contextOpacity(focus(), focusTuning().dim) }))
   const [mapReady, setMapReady] = createSignal(false)
@@ -809,7 +816,7 @@ export default function App() {
    * ontbrekende uurlagen (één keer per uurframe) uploaden. Geen werk zonder wijziging.
    */
   async function showIsolineField(): Promise<void> {
-    const frames = feelsLikeTimeline()
+    const frames = feelsLikeMapTimeline()
     const renderedMap = map
     if (!frames.length || !renderedMap?.getLayer('motregen-temperature')) return
     const { blur, window } = isolineTuning()
@@ -860,7 +867,7 @@ export default function App() {
    * het label volgt het dichtstbijzijnde uur. Afspelen kost zo één ronde per uur, rust nul.
    */
   async function showIsolines(): Promise<void> {
-    const frames = feelsLikeTimeline()
+    const frames = feelsLikeMapTimeline()
     if (!frames.length || !isolineLabels) return
     const request = ++shownIsolineRequest
     const tuning = isolineTuning()
@@ -935,7 +942,7 @@ export default function App() {
   }
 
   async function showTemperature(): Promise<void> {
-    const frames = feelsLikeTimeline()
+    const frames = feelsLikeMapTimeline()
     if (!frames.length || !map?.getSource('motregen-temperature')) return
     const request = ++shownTemperatureRequest
     const blend = frameBlend(frames, selectedEpoch())

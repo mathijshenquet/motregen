@@ -21,6 +21,38 @@ beforeAll(async () => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('mrf v0', () => {
+  it('decodeert een feels_like_dct-frame tot een bitmapframe dat de bitmap volgt', () => {
+    const read = (field: Field, index: number) => {
+      const chunk = manifest.chunks.find((candidate) => candidate.field === field)!
+      const bytes = files.get(chunk.url)!
+      const header = parseMrfHeader(bytes.subarray(0, chunk.header_len))
+      const frame = header.frames[index]!
+      const member = bytes.subarray(chunk.header_len + frame.offset, chunk.header_len + frame.offset + frame.len)
+      const spec = header.dct ? { width: header.grid.width, height: header.grid.height, k: header.dct.k, quant: header.quant } : undefined
+      return { header, frame: decodeFrame(member, header.grid.width * header.grid.height, spec) }
+    }
+    const dct = read('feels_like_dct', 5), bitmap = read('feels_like_c', 5)
+    expect(dct.header.dct).toEqual({ k: 64 })
+    expect(dct.header.grid).toEqual(bitmap.header.grid)
+    expect(dct.frame.length).toBe(bitmap.frame.length)
+    let worst = 0
+    for (let index = 0; index < dct.frame.length; index++) worst = Math.max(worst, Math.abs(dct.header.quant[dct.frame[index]!]! - bitmap.header.quant[bitmap.frame[index]!]!))
+    expect(worst).toBeLessThan(0.5)
+  })
+
+  it('weigert een DCT-orde die niet in het grid past', () => {
+    const chunk = manifest.chunks.find((candidate) => candidate.field === 'feels_like_dct')!
+    const header = JSON.parse(new TextDecoder().decode(files.get(chunk.url)!.subarray(8, chunk.header_len))) as MrfHeader
+    for (const k of [0, 1.5, header.grid.width + 1]) {
+      const json = new TextEncoder().encode(JSON.stringify({ ...header, dct: { k } }))
+      const bytes = new Uint8Array(8 + json.length)
+      bytes.set(new TextEncoder().encode('mrf0'))
+      new DataView(bytes.buffer).setUint32(4, json.length, true)
+      bytes.set(json, 8)
+      expect(() => parseMrfHeader(bytes)).toThrow('Ongeldige DCT-orde')
+    }
+  })
+
   it.each([
     ['rain_rate', 0, true],
     ['radiation', 0, true],

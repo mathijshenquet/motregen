@@ -1,5 +1,5 @@
 export type Source = 'rtcor' | 'nowcast' | 'seamless' | 'harmonie' | 'uv'
-export type Field = 'rain_rate' | 'radiation' | 'temp_c' | 'feels_like_c' | 'wind_u_ms' | 'wind_v_ms' | 'uv' | 'uv_clear' | 'rel_humidity' | 'cloud_frac'
+export type Field = 'rain_rate' | 'radiation' | 'temp_c' | 'feels_like_c' | 'wind_u_ms' | 'wind_v_ms' | 'uv' | 'uv_clear' | 'rel_humidity' | 'cloud_frac' | 'feels_like_dct'
 
 export interface Grid {
   crs: 'EPSG:3857'
@@ -53,6 +53,8 @@ export interface MrfHeader {
   run: string
   frames: FrameIndex[]
   motion_grid?: MotionGrid
+  /** Frames zijn K×K DCT-coëfficiënten i.p.v. cellen (docs/mrf.md §DCT fields). */
+  dct?: { k: number }
   dict: null
 }
 

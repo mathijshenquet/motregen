@@ -75,7 +75,7 @@ JSON-header:
 ```
 
 - Velden zijn row-major, rij 0 = noordrand, kolom 0 = westrand.
-- Elk frame decomprimeert naar exact `width × height` bytes.
+- Elk frame decomprimeert naar exact `width × height` bytes (uitzondering: chunks met `dct`, zie changelog U18).
 - `quant` is de byte→waarde-tabel in de eenheid van het veld: 256 entries;
   index 255 is altijd `null` (no-data-masker). Voor `rain_rate` en
   `radiation` is index 0 altijd `0.0` (droog resp. donker); voor velden met
@@ -120,6 +120,7 @@ niet nodig, `version`-veld leidt.
 | `uv_clear` | UV-index | zonkracht zonder wolken (KNMI `uvi_clear`, heel de dag; source `uv`) |
 | `rel_humidity` | % | 2m relatieve luchtvochtigheid |
 | `cloud_frac` | % | totale bewolkingsgraad (alleen voor pictogram-afleiding; nooit als kaartlaag — MIP-4 ronde 3) |
+| `feels_like_dct` | °C | gevoelstemperatuur als laagfrequente DCT (header `dct`, frames = coëfficiënten; alleen kaart) |
 
 `wind_u_ms`/`wind_v_ms` worden altijd als paar gepubliceerd met identiek
 grid, identieke tijden en gelijke frame-volgorde, zodat een client ze per
@@ -159,3 +160,10 @@ frame kan zippen tot vectoren.
 - 2026-09-24 (U15, ter review door orchestrator): veld `uv_clear` toegevoegd
   (KNMI-heldere-hemel-UV uit dezelfde NetCDF, zelfde grid/quant als `uv`,
   eigen chunk met source `uv`). Additief.
+- 2026-09-24 (U18, ter review door orchestrator): veld `feels_like_dct` en
+  optionele headersleutel `"dct": {"k": K}`. Bij `dct` is een frame geen
+  `width × height` bytes maar `4 + ceil(W·H/8) + 2K²` bytes met K×K
+  DCT-coëfficiënten plus no-data-masker (`docs/mrf.md` §DCT fields); `quant`
+  blijft de waardetabel voor terugkwantisering. Additief: de chunk heeft een
+  eigen veldnaam, dus clients zonder DCT-support filteren hem weg
+  (`buildTimeline` per veld). De bitmap `feels_like_c` blijft gepubliceerd.

@@ -6,6 +6,8 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+pub mod dct;
+
 pub const MAGIC: [u8; 4] = *b"mrf0";
 pub const VERSION: u32 = 0;
 pub const COMPRESSION_LEVEL: i32 = 19;
@@ -63,6 +65,12 @@ impl MotionGrid {
     }
 }
 
+/// Frames carry low-frequency DCT coefficients instead of quantized cells (see [`dct`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Dct {
+    pub k: u32,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Header {
     pub version: u32,
@@ -75,7 +83,24 @@ pub struct Header {
     pub frames: Vec<Frame>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub motion_grid: Option<MotionGrid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dct: Option<Dct>,
     pub dict: Option<Vec<u8>>,
+}
+
+impl Header {
+    /// Decoded byte count of every image frame member.
+    pub fn frame_byte_count(&self) -> Result<usize, Error> {
+        frame_byte_count(&self.grid, self.dct)
+    }
+}
+
+fn frame_byte_count(grid: &Grid, dct: Option<Dct>) -> Result<usize, Error> {
+    let cells = grid.cell_count()?;
+    Ok(match dct {
+        Some(dct) => dct::frame_len(cells, dct.k),
+        None => cells,
+    })
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -86,6 +111,7 @@ pub struct ChunkMeta {
     pub source: String,
     pub run: String,
     pub frame_times: Vec<String>,
+    pub dct: Option<Dct>,
 }
 
 impl ChunkMeta {
@@ -102,12 +128,19 @@ impl ChunkMeta {
             source: source.into(),
             run: run.into(),
             frame_times,
+            dct: None,
         }
     }
 
     pub fn with_field(mut self, field: impl Into<String>, quant: Vec<Option<f32>>) -> Self {
         self.field = field.into();
         self.quant = quant;
+        self
+    }
+
+    /// Frames are [`dct::encode_frame`] outputs; `quant` stays the value table of the field.
+    pub fn with_dct(mut self, k: u32) -> Self {
+        self.dct = Some(Dct { k });
         self
     }
 }
@@ -149,6 +182,8 @@ pub enum Error {
     InvalidQuantizationTableForField { field: String },
     #[error("quantization table must contain 255 finite increasing values and null at index 255")]
     InvalidQuantizationTable,
+    #[error("DCT order {k} does not fit a {width}×{height} grid")]
+    InvalidDct { k: u32, width: u32, height: u32 },
     #[error("mrf v0 requires dict to be null")]
     UnsupportedDictionary,
     #[error("frame count ({times}) does not match supplied frame count ({frames})")]
@@ -369,6 +404,7 @@ fn encode_inner(
         run: meta.run.clone(),
         frames: entries,
         motion_grid: motion.map(|(grid, _)| grid),
+        dct: meta.dct,
         dict: None,
     };
     let json = serde_json::to_vec(&header)?;
@@ -468,7 +504,7 @@ impl HeaderIndex {
             return Err(Error::TruncatedPayload { index });
         }
         let decoded = zstd::stream::decode_all(compressed)?;
-        let expected = self.header.grid.cell_count()?;
+        let expected = self.header.frame_byte_count()?;
         if decoded.len() != expected {
             return Err(Error::DecodedWrongLength {
                 index,
@@ -566,7 +602,10 @@ fn validate_meta(meta: &ChunkMeta, frames: &[Vec<u8>]) -> Result<(), Error> {
             frames: frames.len(),
         });
     }
-    let expected = meta.grid.cell_count()?;
+    if let Some(dct) = meta.dct {
+        dct::validate_k(meta.grid.width, meta.grid.height, dct.k)?;
+    }
+    let expected = frame_byte_count(&meta.grid, meta.dct)?;
     for (index, frame) in frames.iter().enumerate() {
         if frame.len() != expected {
             return Err(Error::WrongFrameLength {
@@ -584,6 +623,9 @@ fn validate_header(header: &Header) -> Result<(), Error> {
         return Err(Error::UnsupportedVersion(header.version));
     }
     header.grid.cell_count()?;
+    if let Some(dct) = header.dct {
+        dct::validate_k(header.grid.width, header.grid.height, dct.k)?;
+    }
     validate_quantization_table_for_field(&header.quant, &header.field)?;
     if header.dict.is_some() {
         return Err(Error::UnsupportedDictionary);
