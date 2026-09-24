@@ -1,7 +1,7 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from 'solid-js'
 import { lookupLocation, suggestLocations, type PdokSuggestion } from '../core/pdok'
 import { samePlace, type SavedPlace } from '../core/saved-places'
-import { BUTTON_ICON, INLINE_ICON, LocateFixed, Search, Star, X } from './icons'
+import { BUTTON_ICON, INLINE_ICON, LocateFixed, Search, Star, Trash2 } from './icons'
 
 interface Props {
   location: { lng: number; lat: number }
@@ -18,6 +18,8 @@ export default function LocationSearch(props: Props) {
   let timer: number | undefined
   let request: AbortController | undefined
   let nameInput: HTMLInputElement | undefined
+  let root!: HTMLDivElement
+  let results: HTMLDivElement | undefined
   const [query, setQuery] = createSignal('')
   const [selectedLabel, setSelectedLabel] = createSignal('')
   const [suggestions, setSuggestions] = createSignal<PdokSuggestion[]>([])
@@ -27,6 +29,7 @@ export default function LocationSearch(props: Props) {
   const [focused, setFocused] = createSignal(false)
   const [editingName, setEditingName] = createSignal(false)
   const [customName, setCustomName] = createSignal('')
+  const [confirmingRemove, setConfirmingRemove] = createSignal<string>()
   const savedCurrent = createMemo(() => props.savedPlaces.find((place) => samePlace(place, props.location)))
   const visibleSaved = createMemo(() => {
     const value = query().trim().toLocaleLowerCase('nl-NL')
@@ -56,6 +59,8 @@ export default function LocationSearch(props: Props) {
     setMessage('Zoeken…')
     timer = window.setTimeout(() => void search(value), 250)
   })
+
+  createEffect(() => { if (!open()) setConfirmingRemove() })
 
   onCleanup(() => { window.clearTimeout(timer); request?.abort() })
 
@@ -129,6 +134,28 @@ export default function LocationSearch(props: Props) {
     window.requestAnimationFrame(() => nameInput?.select())
   }
 
+  // Een gefocuste knop die verdwijnt geeft een focusout zonder doel, en dan klapt de lijst
+  // dicht. Parkeer de focus daarom eerst op de lijst zelf (geen invoerveld: geen toetsenbord op
+  // mobiel), wissel dan pas de knoppen en focus de nieuwe.
+  function swapRemoveControls(id: string | undefined, focus: () => HTMLElement | undefined): void {
+    results?.focus()
+    setConfirmingRemove(id)
+    focus()?.focus()
+  }
+
+  function askRemove(place: SavedPlace): void {
+    swapRemoveControls(place.id, () => root.querySelector<HTMLButtonElement>('.confirm-remove-no') ?? undefined)
+  }
+
+  function cancelRemove(place: SavedPlace): void {
+    swapRemoveControls(undefined, () => Array.from(root.querySelectorAll<HTMLButtonElement>('.remove-saved')).find((button) => button.dataset.place === place.id))
+  }
+
+  function remove(place: SavedPlace): void {
+    swapRemoveControls(undefined, () => undefined)
+    props.onRemove(place.id)
+  }
+
   function save(event: SubmitEvent): void {
     event.preventDefault()
     const name = customName().trim()
@@ -138,6 +165,7 @@ export default function LocationSearch(props: Props) {
   }
 
   return <div
+    ref={root}
     class="search"
     classList={{ 'saved-current': Boolean(savedCurrent()) }}
     onFocusIn={() => { window.clearTimeout(timer); setFocused(true) }}
@@ -147,7 +175,7 @@ export default function LocationSearch(props: Props) {
       timer = window.setTimeout(() => { setOpen(false); setEditingName(false) }, 100)
     }}
   >
-    <Search class="search-icon" {...BUTTON_ICON} />
+    <Search class="search-icon" {...INLINE_ICON} />
     <input
       type="text"
       inputMode="search"
@@ -171,7 +199,7 @@ export default function LocationSearch(props: Props) {
       title="Plaats opslaan"
     ><Star {...BUTTON_ICON} /></button></Show>
     <Show when={open()}>
-      <div class="search-results" id="location-results" role="listbox">
+      <div ref={results} class="search-results" id="location-results" role="listbox" tabIndex={-1}>
         <button class="quick-location" role="option" aria-selected="false" onClick={() => { setOpen(false); props.onLocate() }}>
           <span><LocateFixed {...INLINE_ICON} /> Mijn locatie</span><small>apparaat</small>
         </button>
@@ -179,10 +207,18 @@ export default function LocationSearch(props: Props) {
           <p class="search-section-label">Opgeslagen</p>
           <For each={visibleSaved()}>{(place) =>
             <div class="saved-location-row">
-              <button class="saved-location" role="option" aria-selected={samePlace(place, props.location)} onClick={() => commitSaved(place)}>
-                <span><Star {...INLINE_ICON} fill="currentColor" /> {place.name}</span><small>{place.sourceLabel === place.name ? 'opgeslagen' : place.sourceLabel}</small>
-              </button>
-              <button class="remove-saved" type="button" onClick={() => props.onRemove(place.id)} aria-label={`${place.name} verwijderen uit opgeslagen plaatsen`} title="Verwijderen"><X {...BUTTON_ICON} /></button>
+              <Show when={confirmingRemove() === place.id} fallback={<>
+                <button class="saved-location" role="option" aria-selected={samePlace(place, props.location)} onClick={() => commitSaved(place)}>
+                  <span><Star {...INLINE_ICON} fill="currentColor" /> {place.name}</span><small>{place.sourceLabel === place.name ? 'opgeslagen' : place.sourceLabel}</small>
+                </button>
+                <button class="remove-saved" type="button" data-place={place.id} onClick={() => askRemove(place)} aria-label={`${place.name} verwijderen uit opgeslagen plaatsen`} title="Verwijderen"><Trash2 {...BUTTON_ICON} /></button>
+              </>}>
+                <div class="confirm-remove" role="group" aria-label={`${place.name} verwijderen?`} onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); cancelRemove(place) } }}>
+                  <span><strong>{place.name}</strong> verwijderen?</span>
+                  <button type="button" class="confirm-remove-yes" onClick={() => remove(place)}>Ja</button>
+                  <button type="button" class="confirm-remove-no" onClick={() => cancelRemove(place)}>Nee</button>
+                </div>
+              </Show>
             </div>
           }</For>
         </Show>

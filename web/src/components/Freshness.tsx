@@ -1,7 +1,9 @@
 import { createMemo, createSignal, For, onCleanup, Show } from 'solid-js'
 import { Portal } from 'solid-js/web'
 import type { Manifest } from '../core/contract'
-import { ageMs, formatAge, formatAgeShort, formatClock, freshnessStatus, latestRadarEpoch, sourceFreshness, STATUS_LABELS, type RefreshState } from '../core/freshness'
+import { ageMs, expectedNextRadar, formatAge, formatAgeShort, formatClock, freshnessStatus, latestRadarEpoch, sourceFreshness, STATUS_LABELS, type RefreshState } from '../core/freshness'
+import { BUTTON_ICON, X } from './icons'
+import { backdropHandlers } from './modal'
 
 interface Props {
   // Epoch shown on the map (scrubber position) and the manifest's "now".
@@ -27,7 +29,7 @@ export default function Freshness(props: Props) {
   const time = (epoch: number) => new Date(epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
   const day = (epoch: number) => new Date(epoch).toLocaleDateString('nl-NL', { weekday: 'short' })
   const elsewhere = () => props.now > 0 && Math.abs(props.mapEpoch - props.now) > PRESENT_TOLERANCE_MS
-  const mapDay = () => day(props.mapEpoch) === day(clock()) ? '' : `${day(props.mapEpoch)} `
+  const mapDay = () => day(props.mapEpoch) === day(clock()) ? '' : ` · ${day(props.mapEpoch)}`
 
   const radar = createMemo(() => props.manifest ? latestRadarEpoch(props.manifest) : undefined)
   const status = createMemo(() => freshnessStatus(radar(), clock(), props.refresh))
@@ -61,15 +63,17 @@ export default function Freshness(props: Props) {
     >
       <i class="freshness-dot" aria-hidden="true" />
       <Show when={radarAge() !== undefined} fallback={<small>Geen radar</small>}>
-        <small>Radar</small><strong>{time(radar()!)}</strong>
-        <span class="freshness-age">{status() === 'offline' ? 'offline' : formatAgeShort(radarAge()!)}</span>
+        <span class="clock-stack">
+          <strong>{time(radar()!)}</strong>
+          <small>Radar · <span class="freshness-age">{status() === 'offline' ? 'offline' : formatAgeShort(radarAge()!)}</span></small>
+        </span>
       </Show>
     </button>
     {/* Alleen de statustekst is live: tikkende minuten worden niet voorgelezen. */}
     <span class="sr-only" aria-live="polite">{STATUS_LABELS[status()]}</span>
     <Show when={elsewhere()}>
       <span class="map-clock-map" classList={{ future: props.mapEpoch > props.now }} title="Tijd van het kaartbeeld">
-        <small>Kaart</small><strong>{mapDay()}{time(props.mapEpoch)}</strong>
+        <span class="clock-stack"><strong>{time(props.mapEpoch)}</strong><small>Kaart{mapDay()}</small></span>
       </span>
     </Show>
     {/* Buiten de kaartpil: die is pointer-events:none en stijlt small/strong. */}
@@ -79,13 +83,13 @@ export default function Freshness(props: Props) {
         class="about-dialog freshness-dialog"
         aria-labelledby="freshness-title"
         onClose={() => trigger.focus()}
-        onClick={(event) => { if (event.target === dialog) dialog.close() }}
+        {...backdropHandlers(() => dialog)}
       >
         <div class="about-body">
           <header>
             <i class="freshness-dot" data-status={status()} aria-hidden="true" />
             <h2 id="freshness-title">Hoe vers is de data?</h2>
-            <button type="button" class="about-close" aria-label="Sluiten" onClick={() => dialog.close()} autofocus>×</button>
+            <button type="button" class="about-close" aria-label="Sluiten" onClick={() => dialog.close()} autofocus><X {...BUTTON_ICON} /></button>
           </header>
           <p class="freshness-lead" data-status={status()}>
             <strong>{STATUS_LABELS[status()]}</strong>
@@ -94,6 +98,12 @@ export default function Freshness(props: Props) {
               verversen mislukt om {time(props.refresh!.failedAt!)}; je ziet de laatst opgehaalde data
             </Show>
           </p>
+          <Show when={status() === 'fresh' && radar() !== undefined}>
+            <p class="freshness-cadence">
+              Een radarbeeld komt elke 5 minuten, meestal 3 à 5 minuten na de meting.{' '}
+              {expectedNextRadar(radar()!) > clock() ? `Het volgende verwachten we rond ${time(expectedNextRadar(radar()!))}.` : 'Het volgende is onderweg.'}
+            </p>
+          </Show>
           <dl class="freshness-sources">
             <For each={rows()}>{(row) => <>
               <dt>{row.label}</dt>

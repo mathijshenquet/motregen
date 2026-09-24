@@ -32,6 +32,51 @@ test('start location remembers saved places and the last map view', async ({ pag
   await expect(scrubber).toHaveAttribute('aria-label', /voor De Bilt$/)
 })
 
+test('removing a favorite asks inline and keeps the list open', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'gedrag, geen performance: één profiel volstaat')
+  await page.goto('/')
+  await setStorage(page, { 'motregen-saved-places': JSON.stringify([home, work]) })
+  await page.reload()
+  await page.getByRole('textbox', { name: 'Zoek plaats' }).click()
+  const trash = page.getByRole('button', { name: 'Werk verwijderen uit opgeslagen plaatsen' })
+
+  // Echte klik: Chromium meldt de focus van de verdwijnende prullenbak pas laat af (U17).
+  await trash.click()
+  const confirm = page.getByRole('group', { name: 'Werk verwijderen?' })
+  await expect(confirm).toBeVisible()
+  await page.waitForTimeout(300)
+  await expect(confirm).toBeVisible()
+  await confirm.getByRole('button', { name: 'Nee' }).click()
+  await expect(trash).toBeFocused()
+  await expect(page.getByRole('option', { name: /Werk/ })).toBeVisible()
+
+  await trash.click()
+  await confirm.getByRole('button', { name: 'Ja' }).click()
+  await expect(page.getByRole('option', { name: /Werk/ })).toHaveCount(0)
+  await expect(page.getByRole('option', { name: /Thuis/ })).toBeVisible()
+  expect(JSON.parse(await page.evaluate(() => localStorage.getItem('motregen-saved-places') ?? '[]')).map((place: { id: string }) => place.id)).toEqual(['home'])
+})
+
+test('a click on the about backdrop closes it without touching the map', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'mobile-fast-3g', 'gedrag: desktop en één mobiel profiel')
+  const scrubber = page.locator('.scrubber')
+  await page.goto('/')
+  await expect(page.locator('.map-splash.ready')).toBeAttached()
+  await expect(scrubber).toHaveAttribute('aria-label', /voor De Bilt$/)
+  await page.getByRole('button', { name: 'Over motregen' }).press('Enter')
+  const dialog = page.getByRole('dialog', { name: 'Over motregen' })
+  await expect(dialog).toBeVisible()
+  const map = (await page.locator('.map').boundingBox())!
+  const body = (await dialog.boundingBox())!
+  const x = map.x + map.width * 0.3
+  const y = body.y > map.y + 60 ? (map.y + body.y) / 2 : body.y + body.height + 20
+  if (testInfo.project.use.hasTouch) await page.touchscreen.tap(x, y)
+  else await page.mouse.click(x, y)
+  await expect(dialog).toBeHidden()
+  await page.waitForTimeout(600)
+  await expect(scrubber).toHaveAttribute('aria-label', /voor De Bilt$/)
+})
+
 async function setStorage(page: Page, values: Record<string, string>): Promise<void> {
   await page.evaluate((entries) => {
     for (const [key, value] of Object.entries(entries)) localStorage.setItem(key, value)

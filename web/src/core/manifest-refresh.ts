@@ -2,10 +2,27 @@ import type { Manifest, TimelineFrame } from './contract'
 import { timelineCursorAtEpoch, timelineEpochAtCursor } from './time-model'
 
 export const manifestRefreshIntervalMs = 60_000
+export const manifestFastRefreshMs = 15_000
+
+// Een nieuw radarframe verschijnt elke 5 min, op prod 2026-09-24 164–178 s na zijn
+// scantijd (LOG u17; T2h mat ~100 s). Vanaf de vroegst verwachte publicatie pollt
+// de client een paar minuten elke 15 s (revalidatie via ETag, 304 zonder body),
+// daarbuiten volstaat de minuutpoll; zo verdwijnt tot 60 s pollvertraging.
+const RADAR_CADENCE_MS = 5 * 60_000
+const EARLIEST_PUBLICATION_MS = 90_000
+const PUBLICATION_WINDOW_MS = 4 * 60_000
+
+export function nextManifestRefreshDelay(now: number, radarEpoch: number | undefined): number {
+  if (radarEpoch === undefined) return manifestRefreshIntervalMs
+  const due = radarEpoch + RADAR_CADENCE_MS + EARLIEST_PUBLICATION_MS
+  if (now < due) return Math.max(1_000, Math.min(manifestRefreshIntervalMs, due - now))
+  if (now < due + PUBLICATION_WINDOW_MS) return manifestFastRefreshMs
+  return manifestRefreshIntervalMs
+}
 
 export interface ManifestRefreshHost {
-  setInterval: (callback: () => void, interval: number) => number
-  clearInterval: (handle: number) => void
+  setTimeout: (callback: () => void, delay: number) => number
+  clearTimeout: (handle: number | undefined) => void
   visibilityState: () => DocumentVisibilityState
   addVisibilityListener: (callback: () => void) => void
   removeVisibilityListener: (callback: () => void) => void
@@ -14,19 +31,27 @@ export interface ManifestRefreshHost {
 export function scheduleManifestRefresh(
   refresh: () => Promise<void>,
   host: ManifestRefreshHost,
-  interval = manifestRefreshIntervalMs,
+  delay: () => number = () => manifestRefreshIntervalMs,
 ): () => void {
   let pending: Promise<void> | undefined
+  let timer: number | undefined
+  let stopped = false
+  const arm = () => {
+    host.clearTimeout(timer)
+    if (!stopped) timer = host.setTimeout(run, delay())
+  }
   const run = () => {
     if (pending) return
-    pending = refresh().finally(() => { pending = undefined })
+    host.clearTimeout(timer)
+    pending = refresh().finally(() => { pending = undefined; arm() })
     void pending.catch(() => undefined)
   }
   const visibilityChanged = () => { if (host.visibilityState() === 'visible') run() }
-  const timer = host.setInterval(run, interval)
+  arm()
   host.addVisibilityListener(visibilityChanged)
   return () => {
-    host.clearInterval(timer)
+    stopped = true
+    host.clearTimeout(timer)
     host.removeVisibilityListener(visibilityChanged)
   }
 }

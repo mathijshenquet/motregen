@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Manifest, ManifestChunk, TimelineFrame } from './contract'
-import { cursorAfterTimelineRefresh, isNewerManifest, reconcileTimelineSeries, scheduleManifestRefresh, type ManifestRefreshHost } from './manifest-refresh'
+import { cursorAfterTimelineRefresh, isNewerManifest, nextManifestRefreshDelay, reconcileTimelineSeries, scheduleManifestRefresh, type ManifestRefreshHost } from './manifest-refresh'
 import { timelineEpochAtCursor } from './time-model'
 
 const chunk = (url: string): ManifestChunk => ({
@@ -21,36 +21,55 @@ const frame = (url: string, frameIndex: number, epoch: number): TimelineFrame =>
 })
 
 describe('manifest refresh', () => {
-  it('polls every minute, refreshes on visible return, and coalesces overlap', async () => {
-    let intervalCallback: () => void = () => undefined
+  it('re-arms after each refresh, refreshes on visible return, and coalesces overlap', async () => {
+    let timerCallback: () => void = () => undefined
     let visibilityCallback: () => void = () => undefined
     let visibility: DocumentVisibilityState = 'hidden'
     let resolveRefresh: () => void = () => undefined
+    const delays: number[] = []
     const refresh = vi.fn(() => new Promise<void>((resolve) => { resolveRefresh = resolve }))
     const host: ManifestRefreshHost = {
-      setInterval: (callback, interval) => { expect(interval).toBe(60_000); intervalCallback = callback; return 7 },
-      clearInterval: vi.fn(),
+      setTimeout: (callback, delay) => { delays.push(delay); timerCallback = callback; return delays.length },
+      clearTimeout: vi.fn(),
       visibilityState: () => visibility,
       addVisibilityListener: (callback) => { visibilityCallback = callback },
       removeVisibilityListener: vi.fn(),
     }
-    const stop = scheduleManifestRefresh(refresh, host)
+    let next = 60_000
+    const stop = scheduleManifestRefresh(refresh, host, () => next)
+    expect(delays).toEqual([60_000])
 
-    intervalCallback()
-    intervalCallback()
+    timerCallback()
+    timerCallback()
     visibilityCallback()
     expect(refresh).toHaveBeenCalledTimes(1)
+    next = 15_000
     resolveRefresh()
     await Promise.resolve()
     await Promise.resolve()
+    expect(delays).toEqual([60_000, 15_000])
     visibility = 'visible'
     visibilityCallback()
     expect(refresh).toHaveBeenCalledTimes(2)
     resolveRefresh()
     await Promise.resolve()
+    await Promise.resolve()
     stop()
-    expect(host.clearInterval).toHaveBeenCalledWith(7)
+    expect(host.clearTimeout).toHaveBeenLastCalledWith(3)
     expect(host.removeVisibilityListener).toHaveBeenCalledWith(visibilityCallback)
+  })
+
+  it('polls fast only around the expected publication of the next radar frame', () => {
+    const radar = Date.parse('2026-09-24T10:55:00Z')
+    const at = (clock: string) => nextManifestRefreshDelay(Date.parse(`2026-09-24T${clock}Z`), radar)
+    expect(nextManifestRefreshDelay(radar, undefined)).toBe(60_000)
+    expect(at('10:57:52')).toBe(60_000)
+    expect(at('11:01:00')).toBe(30_000)
+    expect(at('11:01:29')).toBe(1_000)
+    expect(at('11:01:30')).toBe(15_000)
+    expect(at('11:05:29')).toBe(15_000)
+    // Blijft het frame uit, dan terug naar de minuutpoll.
+    expect(at('11:05:30')).toBe(60_000)
   })
 
   it('keeps the selected epoch and reuses values for unchanged generation URLs', () => {

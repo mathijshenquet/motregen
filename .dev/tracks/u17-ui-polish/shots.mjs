@@ -27,6 +27,10 @@ for (const [device, options] of Object.entries(profiles)) for (const theme of ['
   await page.locator('.map-brand').click()
   await page.waitForTimeout(700)
   await page.screenshot({ path: name('about') })
+  await page.keyboard.press('Escape')
+  await page.locator('.freshness-trigger').click()
+  await page.waitForTimeout(500)
+  await page.screenshot({ path: name('paneel') })
   await context.close()
 }
 await browser.close()
