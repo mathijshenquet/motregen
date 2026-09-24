@@ -62,3 +62,18 @@
   - Repro na-shots (vanuit `web/`): `pnpm build`, `MOTREGEN_DATA_ORIGIN=https://motregen.nl/data pnpm
     preview --host 127.0.0.1 --port 4314 --strictPort`, `node ../.dev/tracks/u14-mobiel-layout/shots.mjs
     http://127.0.0.1:4314/ after` → exit 0.
+- 2026-09-24 13:25 CEST — Gates (vanuit `web/`, synchrone exit statussen):
+  - `pnpm typecheck` → TYPECHECK-EXIT: 0
+  - `pnpm test` → TEST-EXIT: 0 (36 files, 192 tests; +1 insets-test)
+  - `pnpm build` → BUILD-EXIT: 0
+  - `MOTREGEN_E2E_PORT=4332 MOTREGEN_E2E_DATA_PORT=8332 pnpm e2e` → FULL-GATE-EXIT: 0, 20 passed / 13 skipped
+    (skips per profiel, zoals main). Mobiel budgetten: 4G cold TTFR 2690 ms, warm 1494 ms / 0 B;
+    Fast 3G cold 4726 ms, warm 0 B; passief 755460 B. `map-zoom` mobile-4g groen met de inset.
+    LET OP: gedraaid bij load 29,6 (vóór de PO-hostregel, zonder flock); groen ondanks de drukte.
+- 2026-09-24 13:27 CEST — PO-hostregel ontvangen (flock `/tmp/motregen-e2e.lock`, load < 16, max één
+  Chromium, niet-gebruikte previews stoppen). Preview :4314 gestopt. Geen Chromium meer nodig: de
+  na-shots en gates waren al klaar vóór de regel. Een desktop-controleshot overgeslagen; alle nieuwe regels
+  vallen onder `max-width: 959px` / `pointer: coarse`, en de e2e op desktop is groen.
+- Open voor PO: (1) sticky scrubber vs. meekrimpende kaart, gekozen: sticky (motivatie boven); (2) versheidspil
+  op mobiel is 70 px hoog door het aanraakdoel van 44 px, oogt zwaarder; (3) liggend: naast elkaar i.p.v.
+  onder elkaar (wijkt af van "scrubber eronder", bewust).
