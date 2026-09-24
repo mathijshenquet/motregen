@@ -109,3 +109,41 @@ DCT K=64                135     68    102    115     30888    0.24   2.51
   geometrie als de raster; `v1-pair-lusjes.png` — Veluwe-ringetje weg, ring bij Keulen half,
   verder niets veranderd. HUD in die run: 62 ringen, 27 vervaagd bij 60 km, ~9,7k segmenten.
 - Open: worker-traceMs las ~50 ms in SwiftShader onder hostload (Node: 5 ms) → aparte meting.
+
+## 2026-09-24 ~14:30 — meting afspelen/rust + traceMs Node vs browser
+- `web/tmp/playback.mjs` (Chromium/SwiftShader, DPR 2, 1280×800, preview :4333 met prod-data,
+  onder flock, load 15,9 → 13,9): **afspelen** 5,2 passes/s = 5,2 sneden/s (plafond = SwiftShader:
+  123 ms/pass software-GPU voor ~4 Mpx clear + 10,9k segmenten), worker 8,0 ms/snede;
+  **rust 5 s: 0 passes, 0 traces, 0 isolijn-draws, 0 kaartrepaints** (U8c-meting blijft staan).
+- traceMs Node vs browser, zelfde code (`TraceCore`, B-spline-tijd over 4 uurlagen, tol 0,05 cel,
+  ringKm 60), zelfde hostload (~13):
+  - Node (`web/tmp/node-trace.ts`, 40 sneden): koud 52 → 17 → 13 → 8 ms, **warm mediaan 7,4 ms, p90 10,2**.
+  - Browser main thread (`traceBench(10)`): 54 → 31 → 21 → 8–11 ms, **warm ~9–10 ms**.
+  - Browser worker tijdens afspelen: **8,0 ms** (voortschrijdend gemiddelde).
+  - Conclusie: geen browserprobleem. De eerdere "~50 ms" waren de koude JIT-rondes in het
+    gemiddelde. De eerdere 4,9 ms (Node) was één uurlaag bij tol 0,1 op een rustiger host.
+- Preview :4333 daarna gestopt (exit 143 = SIGTERM, bedoeld).
+
+## 2026-09-24 ~14:35 — gates op 03ce8e0 (synchroon, web/, main 25e0380 gemerged)
+- `direnv exec .. pnpm typecheck` → TYPECHECK-EXIT: 0
+- `direnv exec .. pnpm test` → TEST-EXIT: 0 (37 files, 198 tests)
+- `direnv exec .. pnpm build` → BUILD-EXIT: 0
+- `MOTREGEN_E2E_PORT=4331 MOTREGEN_E2E_DATA_PORT=8331 direnv exec .. pnpm e2e` (flock in het
+  script; poorten vooraf vrij gecontroleerd; load vooraf 13,25, na 12,37) → **E2E-EXIT: 0**
+  (20 passed, 13 skipped, 4,7 min).
+
+## Defaults en keuzes voor de PO
+- Defaults (`DEFAULT_ISOLINE_TUNING`): **vector aan** (exacte B-spline-contouren op
+  device-resolutie; raster via knop "Vectorlijnen"), **lusjes < 60 km** vervagen (knop 0–150 km,
+  0 = uit), **gradiënt-fade uit** (knop Vervagen blijft; grenzen 0,02–0,06 °C/km ongewijzigd),
+  verdichting 0,25 CSS-px, blur 2, B-spline in de tijd.
+- Voor de PO, op zicht:
+  1. Vector als default: scherper, getekende stippel over de booglengte. Lijnen ogen dunner/lichter
+     dan de ½-res-raster, die door de upscale uitsmeerde. Breedte/opacity zijn te stellen als dat te
+     licht is.
+  2. L_min 60 km: haalt vandaag ~27 van de ~62 ringen weg; 40 of 80 km is een smaakkeuze.
+  3. Gradiënt-fade default uit (PO-correctie), de knop blijft voor vergelijking.
+  4. Isolijnen **boven** de plaatsnamen van de basiskaart (eigen canvas sinds U8c) of eronder
+     (in-kaart, kost weer een kaartrender per pass). Onveranderd in U13; beslissing staat open.
+- Niet gedaan: z9- en donker-thema-shots, Firefox-vectorshots, video. Voorstellen niet gebouwd:
+  DCT-coëfficiënten in de ingest, isolijnen vooruitrekenen in de Rust-backend (zie boven).
