@@ -1,5 +1,34 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-09-24 — U12/U13/U14 gemerged, U15 in fixronde; prod op nieuwe ingest; hostlock
+
+- **Prod-check ochtend**: auto-upgrade heeft de U4/U5-ingest live gezet — HARMONIE 48
+  leads in twee dagdeel-chunks (`-l1-24`/`-l25-48`), historierun `hist5`, nieuwe bundle;
+  gevoelstemp ≠ temp. UV `uv_clear` (U15) volgt vannacht.
+- **Gemerged (elk onafhankelijk hergroen: typecheck, unit, build, volledige e2e)**:
+  U14 mobiel (kaart ≥ 60 % eerste scherm + sticky scrubber, tabel onder de fold,
+  liggend naast elkaar, lege nav-band weg, contain-fit met overlay-insets, safe areas);
+  U12 wind-zoom (particles in wereldcoördinaten, aanvullers zonder stagger, overtal fadet
+  uit, buffer geblit bij resize: min-zichtbaarheid bij zoom 0,23 → 0,63–0,92, herstel 2–7 s
+  → 0,3–0,5 s); U13 vectorisolijnen (bicubische B-spline-tracer in worker, Newton +
+  kromming-adaptieve verdichting, capsulesegmenten op device-resolutie, stippel over
+  booglengte, lusjes < 60 km faden op ringlengte, gradiënt-fade default uit — PO: het
+  gradiëntcriterium wiste te veel; tracer ~7 ms, rust 0 passes).
+- **U15 UV** (uv_clear uit KNMI-NetCDF, WHO-bar met/zonder wolken, variant A): eerste
+  merge TERUGGEDRAAID na mijn e2e op de gemergde tree — uv_clear laadde alle 65
+  kwartierframes en drukte de 512-framecache leeg (tweede locatieklik viel terug naar
+  skeleton). Fix 1 in; fix 2 (uv_clear-fetch pas na pointLoadStage ≠ initial, tegen een
+  deterministisch warm-lek van 1678 B via de Chromium-cache-race) in e2e.
+- **Host**: vier parallelle workers met Chromium → load 30+. Alle `pnpm e2e*`-scripts
+  draaien nu onder `flock /tmp/motregen-e2e.lock`; agents wachten op load < 16 en draaien
+  max één Chromium. LES: de Playwright-webserver herbouwt `web/dist` met de basemap-URL
+  naar de e2e-dataserver — de integratie-preview serveert daarom nu `web/dist-preview`
+  (gitignored, na elke merge gekopieerd), anders CORS-fouten in de browser van de PO.
+- Open MET PO: LICENSE; isolijnen boven plaatsnamen ok?; mobiel cold-TTFR-budget 4 s;
+  versheidspil oogt zwaar op mobiel (70 px); UV-ghost op bewolkte uren gezien?
+  VOOR AGENTS: SessionStart-hook wijst naar /home/mathijs (nix-config-pad);
+  stadstemperatuurlabels weg na runtime-themawissel (bestaand).
+
 ## 2026-09-23 — PO-dag: dertien tracks gemerged (U1–U11, U3b, U8b), alles claude-opus
 
 - **Werkwijze**: uitsluitend claude/opus-agents via herdr-worktrees (PO-verzoek),

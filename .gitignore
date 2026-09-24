@@ -10,3 +10,4 @@ target/
 target/
 __pycache__/
 web/e2e/profiles/
+web/dist-preview/
