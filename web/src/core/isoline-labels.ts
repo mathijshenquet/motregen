@@ -3,6 +3,7 @@ import { Marker } from 'maplibre-gl'
 import type { Grid } from './contract'
 import type { MapTheme } from './basemap'
 import { isolineColor, type IsolineFeatureCollection } from './isolines'
+import { ringFadeAt, type ShortRing } from './isoline-contours'
 import { projectToLevel, smoothstep, type FieldSlice, type SliceSample } from './isoline-spline'
 
 const EARTH_RADIUS = 6378137
@@ -27,6 +28,8 @@ interface Anchor {
   born: number
   /** Vervaging op de lokale |∇T|, zoals de lijn eronder. */
   fade: number
+  /** Lengte-fade van de ring waar het anker op ligt (1 op lange en open lijnen). */
+  ringFade: number
   marker: Marker
   text: HTMLElement
   dying: boolean
@@ -46,6 +49,7 @@ export class IsolineLabels {
   private opacity = 0
   private step = 1
   private fade?: [number, number]
+  private rings: readonly ShortRing[] = []
 
   constructor(
     private readonly map: MapLibreMap,
@@ -79,7 +83,7 @@ export class IsolineLabels {
   setOpacity(opacity: number): void {
     if (opacity === this.opacity) return
     this.opacity = opacity
-    for (const anchor of this.anchors) anchor.marker.getElement().style.opacity = String(opacity * anchor.fade)
+    for (const anchor of this.anchors) this.applyOpacity(anchor)
   }
 
   /** smoothstep-grenzen in °C/km, of undefined voor geen vervaging. */
@@ -93,8 +97,12 @@ export class IsolineLabels {
     this.lines = undefined
   }
 
-  /** Eén snede: ankers meeschuiven, botsingen opruimen en zo nodig bijspawnen. */
-  update(slice: FieldSlice, now = performance.now()): void {
+  /**
+   * Eén snede: ankers meeschuiven, botsingen opruimen en zo nodig bijspawnen. `rings` zijn de
+   * korte ringen van dezelfde snede; een anker vervaagt met zijn ring en despawnt als die weg is.
+   */
+  update(slice: FieldSlice, rings: readonly ShortRing[] = [], now = performance.now()): void {
+    this.rings = rings
     const pxPerCell = this.pxPerCell()
     for (const anchor of this.anchors) {
       if (anchor.dying) continue
@@ -103,6 +111,7 @@ export class IsolineLabels {
       anchor.column = projected.column
       anchor.row = projected.row
       this.place(anchor, projected.sample)
+      if (anchor.ringFade <= 0) this.kill(anchor)
     }
     const minCells = this.tuning.minDistancePx / pxPerCell
     const living = this.anchors.filter((anchor) => !anchor.dying).sort((a, b) => a.born - b.born)
@@ -138,7 +147,7 @@ export class IsolineLabels {
           if (column < view.left || column > view.right || row < view.top || row > view.bottom) continue
           if (living().some((anchor) => Math.hypot(anchor.column - column, anchor.row - row) < minCells)) continue
           const projected = projectToLevel(slice, column, row, feature.properties.level, this.step)
-          if (!projected) continue
+          if (!projected || ringFadeAt(this.rings, feature.properties.level, projected.column, projected.row) <= 0) continue
           this.add(feature.properties.level, projected.column, projected.row, projected.sample, now)
         }
         until -= length
@@ -156,7 +165,7 @@ export class IsolineLabels {
     text.style.opacity = '0'
     if (!this.reducedMotion()) text.style.transition = `opacity ${FADE_MS}ms ease-out`
     element.append(text)
-    const anchor: Anchor = { level, column, row, born: now, text, dying: false, fade: 1, marker: new Marker({ element, rotationAlignment: 'map', pitchAlignment: 'map' }) }
+    const anchor: Anchor = { level, column, row, born: now, text, dying: false, fade: 1, ringFade: 1, marker: new Marker({ element, rotationAlignment: 'map', pitchAlignment: 'map' }) }
     this.place(anchor, sample)
     anchor.marker.addTo(this.map)
     this.anchors.push(anchor)
@@ -176,13 +185,18 @@ export class IsolineLabels {
     const lngLat = this.toLngLat(anchor.column, anchor.row)
     anchor.marker.setLngLat(lngLat)
     anchor.fade = this.fade ? smoothstep(this.fade[0], this.fade[1], Math.hypot(sample.gx, sample.gy) / this.kmPerCell(lngLat[1])) : 1
-    anchor.marker.getElement().style.opacity = String(this.opacity * anchor.fade)
+    anchor.ringFade = ringFadeAt(this.rings, anchor.level, anchor.column, anchor.row)
+    this.applyOpacity(anchor)
     // Het 3857-rooster is op schermschaal conform: rij omlaag = scherm omlaag. De tekst loopt
     // langs de raaklijn (loodrecht op de gradiënt) en blijft rechtop leesbaar.
     let angle = Math.atan2(sample.gy, sample.gx) * 180 / Math.PI + 90
     if (angle > 90) angle -= 180
     if (angle <= -90) angle += 180
     anchor.marker.setRotation(angle)
+  }
+
+  private applyOpacity(anchor: Anchor): void {
+    anchor.marker.getElement().style.opacity = String(this.opacity * anchor.fade * anchor.ringFade)
   }
 
   /** Het rooster is Web Mercator: een cel is op breedte φ dx·cos φ echte meters. */

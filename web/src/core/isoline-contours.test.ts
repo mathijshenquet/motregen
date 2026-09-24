@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Grid } from './contract'
-import { buildSegments, ringFade, SEGMENT_FLOATS, traceContours } from './isoline-contours'
-import { sampleSlice } from './isoline-spline'
+import { buildSegments, ringFade, ringFadeAt, SEGMENT_FLOATS, shortRings, traceContours } from './isoline-contours'
+import { sampleSlice, smoothstep } from './isoline-spline'
 import { TraceCore } from './isoline-tracer'
 
 // Evenaar: een cel is dan exact dx km (cos φ = 1), dus ringlengtes zijn na te rekenen.
@@ -80,5 +80,31 @@ describe('trace core (worker body)', () => {
     for (let offset = 0; offset < result.data.length; offset += SEGMENT_FLOATS) top = Math.min(top, Math.hypot(result.data[offset]! - 30, result.data[offset + 1]! - 30))
     expect(top).toBeGreaterThan(1.5)
     expect(top).toBeLessThan(2.5)
+  })
+})
+
+describe('short rings (label fade)', () => {
+  // Niveau 17 op r = 6 + 2·offset cellen; omtrek 40 km ⇔ r = 40/2π.
+  const offset = (40 / (2 * Math.PI) - 6) / 2
+  const contours = traceContours(cone(offset), grid, { step: 1, toleranceCells: 0.1 })
+
+  it('reports rings below L_min with their length fade, including fully faded ones', () => {
+    const rings = shortRings(contours, 60, 0.1)
+    const ring = rings.find((candidate) => candidate.level === 17)!
+    expect(ring.fade).toBeCloseTo(smoothstep(30, 60, 40), 1)
+    expect(rings.some((candidate) => candidate.fade === 0)).toBe(true)
+    expect(rings.every((candidate) => contours.find((contour) => contour.level === candidate.level)!.lengthKm < 60)).toBe(true)
+    expect(shortRings(contours, 0)).toEqual([])
+  })
+
+  it('finds the fade of the ring a point lies on, and 1 on long lines', () => {
+    const rings = shortRings(contours, 60, 0.1)
+    const r = 40 / (2 * Math.PI)
+    expect(ringFadeAt(rings, 17, 30 + r * Math.cos(1), 30 + r * Math.sin(1))).toBeCloseTo(smoothstep(30, 60, 40), 1)
+    // Zelfde plek, ander niveau; en het ringmidden ligt niet op de lijn.
+    expect(ringFadeAt(rings, 16, 30 + r * Math.cos(1), 30 + r * Math.sin(1))).toBe(1)
+    expect(ringFadeAt(rings, 17, 30, 30)).toBe(1)
+    // Niveau 10 (r ≈ 20 cellen, 126 km) is lang genoeg: geen korte ring.
+    expect(ringFadeAt(rings, 10, 30 + 2 * (10 + offset), 30)).toBe(1)
   })
 })
