@@ -7,6 +7,8 @@ import {
   expectedLifetime,
   jitteredCellPoint,
   leastOccupiedCell,
+  LEGACY_WIND_TUNING_STORAGE_KEY,
+  migrateWindTuningV2,
   occupancyGrid,
   headAlpha,
   loadWindTuning,
@@ -292,6 +294,39 @@ describe('wind tuning', () => {
     values.set(WIND_TUNING_STORAGE_KEY, '{kapot')
     expect(loadWindTuning(storage)).toEqual(DEFAULT_WIND_TUNING)
   })
+
+  it('stores only the changed knobs, so a later default change reaches a user who moved another knob', () => {
+    const values = new Map<string, string>()
+    const storage = memoryStorage(values)
+    storeWindTuning({ ...DEFAULT_WIND_TUNING, maxFps: 30 }, storage)
+    expect(JSON.parse(values.get(WIND_TUNING_STORAGE_KEY)!)).toEqual({ maxFps: 30 })
+  })
+
+  it('migrates a full v2 tuning once: old defaults follow the ⅔ default, own intensity scales by ⅔', () => {
+    // U3b/U12-defaults zoals v2 ze wegschreef zodra één knop (hier maxFps) afweek.
+    const v2 = { ...DEFAULT_WIND_TUNING, intensity: 1.9, maxFps: 30 }
+    const values = new Map([[LEGACY_WIND_TUNING_STORAGE_KEY, JSON.stringify(v2)]])
+    const storage = memoryStorage(values)
+    const loaded = loadWindTuning(storage)
+    expect(loaded).toEqual({ ...DEFAULT_WIND_TUNING, maxFps: 30 })
+    expect(loaded.intensity).toBe(1.27)
+    expect(values.has(LEGACY_WIND_TUNING_STORAGE_KEY)).toBe(false)
+    expect(JSON.parse(values.get(WIND_TUNING_STORAGE_KEY)!)).toEqual({ maxFps: 30 })
+    // Eenmalig: nogmaals laden schaalt niet opnieuw.
+    expect(loadWindTuning(storage)).toEqual(loaded)
+
+    for (const old of [0.5, 1.4, 1.9]) expect(migrateWindTuningV2({ ...v2, intensity: old }).intensity).toBe(DEFAULT_WIND_TUNING.intensity)
+    expect(migrateWindTuningV2({ ...v2, intensity: 1.5 }).intensity).toBe(1)
+    expect(migrateWindTuningV2({ ...v2, lineWidth: 1.5 }).lineWidth).toBe(DEFAULT_WIND_TUNING.lineWidth)
+    expect(migrateWindTuningV2({ lineWidth: 3 })).toEqual({ ...DEFAULT_WIND_TUNING, lineWidth: 3 })
+    expect(migrateWindTuningV2('{kapot')).toEqual(DEFAULT_WIND_TUNING)
+  })
+
+  it('leaves no v2 key behind when the migrated tuning equals the defaults', () => {
+    const values = new Map([[LEGACY_WIND_TUNING_STORAGE_KEY, JSON.stringify({ ...DEFAULT_WIND_TUNING, intensity: 1.9 })]])
+    expect(loadWindTuning(memoryStorage(values))).toEqual(DEFAULT_WIND_TUNING)
+    expect(values.size).toBe(0)
+  })
 })
 
 describe('wind presentation', () => {
@@ -321,3 +356,11 @@ describe('wind presentation', () => {
     expect(viewportParticleRetention(focused, full, 500, 1_000)).toBe(0.5)
   })
 })
+
+function memoryStorage(values: Map<string, string>) {
+  return {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => void values.set(key, value),
+    removeItem: (key: string) => void values.delete(key),
+  }
+}

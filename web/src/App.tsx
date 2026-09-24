@@ -44,7 +44,8 @@ import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLabels, 
 import { buildTimeline, frameBlend, seriesValueAt, timelineCoverage, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelinePlaybackRate } from './core/time-model'
 import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
-import { loadWindTuning, storeWindTuning, WindLayer, type WindTuning } from './core/wind-layer'
+import { DEFAULT_WIND_TUNING, loadWindTuning, storeWindTuning, WindLayer, type WindTuning } from './core/wind-layer'
+import { clearTuningStorage } from './core/dev-settings'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
 const perf = installPerfMonitor()
@@ -236,7 +237,9 @@ export default function App() {
   const [mapReady, setMapReady] = createSignal(false)
   const [splashSlowdown, setSplashSlowdown] = createSignal(storedSplashSlowdown())
   const [temperatureSpacing, setTemperatureSpacing] = createSignal<number>()
-  const [minimumMapWidthKm, setMinimumMapWidthKm] = createSignal(20)
+  const [minimumMapWidthKm, setMinimumMapWidthKm] = createSignal(DEFAULT_MINIMUM_MAP_WIDTH_KM)
+  const [resetNotice, setResetNotice] = createSignal(false)
+  let resetNoticeTimer: number | undefined
   const [devMaximumZoom, setDevMaximumZoom] = createSignal(0)
   const [perfVisible, setPerfVisible] = createSignal(new URLSearchParams(window.location.search).get('perf') === '1')
   const [systemDark, setSystemDark] = createSignal(media.matches)
@@ -305,6 +308,7 @@ export default function App() {
 
   onCleanup(() => {
     window.clearTimeout(splashReplayTimer)
+    window.clearTimeout(resetNoticeTimer)
     window.clearTimeout(mapViewTimer)
     stopManifestRefresh?.()
     focusMode.dispose()
@@ -396,7 +400,11 @@ export default function App() {
     if (map && effective !== appliedMapTheme) void applyMapTheme(effective)
   })
 
-  createEffect(() => localStorage.setItem('motregen-splash-slowdown', String(splashSlowdown())))
+  createEffect(() => {
+    // De default niet wegschrijven: na "Reset alle instellingen" blijft de key dan ook weg.
+    if (splashSlowdown() === DEFAULT_SPLASH_SLOWDOWN) localStorage.removeItem('motregen-splash-slowdown')
+    else localStorage.setItem('motregen-splash-slowdown', String(splashSlowdown()))
+  })
 
   createEffect(() => perf.loads.mark({ kind: 'stage', stage: pointLoadStage() }))
   createEffect(() => {
@@ -1477,6 +1485,28 @@ export default function App() {
     setDevMaximumZoom(maximumZoom)
   }
 
+  /** ?dev: alle tuning-/debugwaarden terug naar default, zonder reload; favorieten, locatie, kaartview en thema blijven. */
+  function resetAllSettings(): void {
+    clearTuningStorage()
+    batch(() => {
+      setWindTuning({ ...DEFAULT_WIND_TUNING })
+      setFocusTuning({ ...DEFAULT_FOCUS_TUNING })
+      setIsolineTuning({ ...DEFAULT_ISOLINE_TUNING })
+      setLabelTuning({ ...DEFAULT_LABEL_TUNING })
+      setProgressiveHistogram(true)
+      setSplashSlowdown(DEFAULT_SPLASH_SLOWDOWN)
+      setTemperatureSpacing(undefined)
+      const pinned = focusPinned()
+      if (pinned) toggleFocusPin(pinned)
+    })
+    toggleCloudEdges(false)
+    tuneMapDetail(DEFAULT_MINIMUM_MAP_WIDTH_KM)
+    void showTemperature()
+    window.clearTimeout(resetNoticeTimer)
+    setResetNotice(true)
+    resetNoticeTimer = window.setTimeout(() => setResetNotice(false), 2_500)
+  }
+
   function replaySplash(): void {
     window.clearTimeout(splashReplayTimer)
     setMapReady(false)
@@ -1619,6 +1649,8 @@ export default function App() {
           <label><span>Temp-afstand</span><input type="range" min="40" max="200" step="4" value={temperatureSpacing() ?? (map ? temperatureLabelSpacingPx(map.getContainer().clientWidth, map.getContainer().clientHeight) : 96)} onInput={(event) => { setTemperatureSpacing(event.currentTarget.valueAsNumber); void showTemperature() }} /><output>{temperatureSpacing() === undefined ? 'auto' : `${temperatureSpacing()} px`}</output></label>
           <label><span>Splash ×</span><input type="range" min="1" max="8" step="0.5" value={splashSlowdown()} onInput={(event) => setSplashSlowdown(event.currentTarget.valueAsNumber)} /><output>{splashSlowdown().toLocaleString('nl-NL', { maximumFractionDigits: 1 })}×</output></label>
           <button class="wind-debug-replay" onClick={replaySplash}>Herhaal splash</button>
+          <button type="button" class="wind-debug-replay" onClick={resetAllSettings}>Reset alle instellingen</button>
+          <p class="wind-debug-note wind-debug-reset" role="status">{resetNotice() ? 'Standaardwaarden hersteld' : ''}</p>
         </details>
       </Show>
       <Freshness mapEpoch={selectedEpoch()} now={manifestNow()} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} />
@@ -1727,11 +1759,14 @@ function cancelIdle(handle: number): void {
   else window.clearTimeout(handle)
 }
 
+const DEFAULT_SPLASH_SLOWDOWN = 1.5
+const DEFAULT_MINIMUM_MAP_WIDTH_KM = 20
+
 function storedSplashSlowdown(): number {
   const stored = localStorage.getItem('motregen-splash-slowdown')
-  if (stored === null) return 1.5
+  if (stored === null) return DEFAULT_SPLASH_SLOWDOWN
   const value = Number(stored)
-  return Number.isFinite(value) ? Math.max(1, Math.min(8, value)) : 1.5
+  return Number.isFinite(value) ? Math.max(1, Math.min(8, value)) : DEFAULT_SPLASH_SLOWDOWN
 }
 
 function project(lng: number, lat: number): [number, number] {

@@ -5,7 +5,9 @@ import type { Grid } from './contract'
 export const WIND_PARTICLES_PER_MEGAPIXEL = 620
 export const WIND_REFERENCE_ZOOM = 6.4
 // v2: U3-waarden (polylinemodel) betekenen in het buffermodel iets anders.
-export const WIND_TUNING_STORAGE_KEY = 'motregen-wind-tuning-v2'
+// v3 (U20): alleen afwijkingen van de default worden bewaard; v2 wordt eenmalig gemigreerd.
+export const WIND_TUNING_STORAGE_KEY = 'motregen-wind-tuning-v3'
+export const LEGACY_WIND_TUNING_STORAGE_KEY = 'motregen-wind-tuning-v2'
 
 // De staart ontstaat in een trailbuffer die per seconde vervaagt; de particle
 // zelf stempelt alleen zijn kop. Leven en fades zijn schermafstanden (CSS-px),
@@ -89,6 +91,9 @@ const INITIAL_STAGGER_SECONDS = 2
 // Zoom/pan/resize (U12): aanvullers komen direct midden in hun leven binnen en faden in de
 // tijd in; overtal (uitzoomen, kleiner budget) faded in de tijd uit. Nooit een lege kaart.
 const FILL_FADE_SECONDS = 0.25
+// U20: aanvullers van één zoomstap verschijnen gespreid over dit venster en met volle jitter in
+// hun cel; tegelijk en op celmiddens verschenen ze als rooster van gelijke streepjes.
+const FILL_SPREAD_SECONDS = 0.15
 const RETIRE_SECONDS = 0.35
 const FILL_MAX_PHASE = 0.6
 const SPAWN_ATTEMPTS = 32
@@ -241,6 +246,9 @@ export class WindLayer implements CustomLayerInterface {
   private ages = new Float32Array(MAX_PARTICLES)
   private travelled = new Float32Array(MAX_PARTICLES)
   private distances = new Float32Array(MAX_PARTICLES)
+  /** Levensschaal (0,8–1,2) op afstand én maxAge: waar maxAge de dood bepaalt (zwakke wind) blijft een cohort anders synchroon. */
+  private lifeScales = new Float32Array(MAX_PARTICLES).fill(1)
+  private lifeLimit = { maxAge: 0 }
   /** Tijdsfade (0–1) bovenop de afstandsfades; `rampRates` > 0 = aanvuller, < 0 = overtal. */
   private ramps = new Float32Array(MAX_PARTICLES).fill(1)
   private rampRates = new Float32Array(MAX_PARTICLES)
@@ -362,9 +370,11 @@ export class WindLayer implements CustomLayerInterface {
   }
 
   setTuning(tuning: WindTuning): void {
+    // De focus-tween (U19) zet elke frame een nieuwe intensiteit; alleen de dichtheid raakt de particles.
+    const densityChanged = tuning.particlesPerMegapixel !== this.tuning.particlesPerMegapixel
     this.tuning = { ...tuning }
     if (!this.map) return
-    this.resetViewport()
+    if (densityChanged) this.resetViewport()
     this.repaint()
   }
 
@@ -508,7 +518,8 @@ export class WindLayer implements CustomLayerInterface {
       const outside = nextX < this.particleBounds.west || nextX > this.particleBounds.east ||
         nextY < this.particleBounds.north || nextY > this.particleBounds.south
       const offset = index * INSTANCE_BYTES / 4
-      if (outside || !advanceLife(life, stepPx, seconds, tuning)) {
+      this.lifeLimit.maxAge = tuning.maxAge * this.lifeScales[index]!
+      if (outside || !advanceLife(life, stepPx, seconds, this.lifeLimit)) {
         if (this.die(index, oldX, oldY)) index--
         continue
       }
@@ -525,7 +536,7 @@ export class WindLayer implements CustomLayerInterface {
       this.instanceBytes[byte] = Math.round(this.color[0]! * 255)
       this.instanceBytes[byte + 1] = Math.round(this.color[1]! * 255)
       this.instanceBytes[byte + 2] = Math.round(this.color[2]! * 255)
-      this.instanceBytes[byte + 3] = Math.round(headAlpha(life, tuning) * smooth(this.ramps[index]!) * speedDamping(speed, tuning.speedDamping) * 255)
+      this.instanceBytes[byte + 3] = Math.round(headAlpha(life, tuning) * smooth(Math.max(0, this.ramps[index]!)) * speedDamping(speed, tuning.speedDamping) * 255)
     }
   }
 
@@ -556,7 +567,7 @@ export class WindLayer implements CustomLayerInterface {
     let cell = 0
     const [x, y] = pickSpawn(SPAWN_ATTEMPTS, () => {
       cell = leastOccupiedCell(this.cellCounts, this.columns * this.rows, this.random())
-      const [u, v] = jitteredCellPoint(cell, this.columns, this.rows, this.tuning.spawnJitter, () => this.random())
+      const [u, v] = jitteredCellPoint(cell, this.columns, this.rows, fill ? 1 : this.tuning.spawnJitter, () => this.random())
       return [bounds.west + u * (bounds.east - bounds.west), bounds.north + v * (bounds.south - bounds.north)]
     }, () => this.random(), (candidateX, candidateY) => !this.left || this.sampleWind(candidateX, candidateY) ? 1 : 0)
     this.cellCounts[cell]!++
@@ -565,14 +576,18 @@ export class WindLayer implements CustomLayerInterface {
     this.ages[index] = -delaySeconds
     this.travelled[index] = 0
     // ±20 %: anders sterft een homogeen zeeveld in synchrone golven.
-    this.distances[index] = this.tuning.trailDistance * (0.8 + this.random() * 0.4)
+    const lifeScale = 0.8 + this.random() * 0.4
+    this.lifeScales[index] = lifeScale
+    this.distances[index] = this.tuning.trailDistance * lifeScale
     this.ramps[index] = 1
     this.rampRates[index] = 0
     if (fill) {
-      // Een willekeurige levensfase, anders sterven alle aanvullers van één zoomstap tegelijk.
-      this.ages[index] = 1e-3
-      this.travelled[index] = this.random() * FILL_MAX_PHASE * this.distances[index]!
-      this.ramps[index] = 0
+      // Een willekeurige levensfase in afstand én leeftijd, anders sterven alle aanvullers van
+      // één zoomstap tegelijk: bij zwakke wind (land) is maxAge de doodsoorzaak (U20).
+      const phase = this.random() * FILL_MAX_PHASE
+      this.ages[index] = Math.max(1e-3, phase * this.tuning.maxAge * lifeScale)
+      this.travelled[index] = phase * this.distances[index]!
+      this.ramps[index] = -this.random() * FILL_SPREAD_SECONDS / FILL_FADE_SECONDS
       this.rampRates[index] = 1 / FILL_FADE_SECONDS
     }
     this.instanceBytes[index * INSTANCE_BYTES + 19] = 0
@@ -672,7 +687,7 @@ export class WindLayer implements CustomLayerInterface {
   private removeSlot(index: number): void {
     const last = --this.active
     if (index === last) return
-    for (const values of [this.x, this.y, this.ages, this.travelled, this.distances, this.ramps, this.rampRates]) values[index] = values[last]!
+    for (const values of [this.x, this.y, this.ages, this.travelled, this.distances, this.lifeScales, this.ramps, this.rampRates]) values[index] = values[last]!
     this.instanceBytes.copyWithin(index * INSTANCE_BYTES, last * INSTANCE_BYTES, (last + 1) * INSTANCE_BYTES)
   }
 
@@ -932,25 +947,54 @@ export function trailUvTransform(previous: TrailView, current: TrailView): { sca
   }
 }
 
-export function loadWindTuning(storage: Pick<Storage, 'getItem'> | undefined = globalThis.localStorage): WindTuning {
+type TuningStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
+
+export function loadWindTuning(storage: TuningStorage | undefined = globalThis.localStorage): WindTuning {
   try {
     const stored = storage?.getItem(WIND_TUNING_STORAGE_KEY)
-    return sanitizeWindTuning(stored ? JSON.parse(stored) as unknown : undefined)
+    if (stored) return sanitizeWindTuning(JSON.parse(stored) as unknown)
+    const legacy = storage?.getItem(LEGACY_WIND_TUNING_STORAGE_KEY)
+    if (!legacy) return { ...DEFAULT_WIND_TUNING }
+    const tuning = migrateWindTuningV2(JSON.parse(legacy) as unknown)
+    storage?.removeItem(LEGACY_WIND_TUNING_STORAGE_KEY)
+    storeWindTuning(tuning, storage)
+    return tuning
   } catch {
     return { ...DEFAULT_WIND_TUNING }
   }
 }
 
-// Defaults worden niet weggeschreven, zodat latere default-wijzigingen
-// gebruikers bereiken die nooit aan de knoppen zaten.
+// Alleen afwijkingen van de default worden weggeschreven, zodat latere default-wijzigingen
+// ook gebruikers bereiken die aan één andere knop zaten.
 export function storeWindTuning(tuning: WindTuning, storage: Pick<Storage, 'setItem' | 'removeItem'> | undefined = globalThis.localStorage): void {
   try {
-    const custom = WIND_TUNING_CONTROLS.some((control) => tuning[control.key] !== DEFAULT_WIND_TUNING[control.key])
-    if (custom) storage?.setItem(WIND_TUNING_STORAGE_KEY, JSON.stringify(tuning))
+    const custom: Partial<WindTuning> = {}
+    for (const control of WIND_TUNING_CONTROLS) if (tuning[control.key] !== DEFAULT_WIND_TUNING[control.key]) custom[control.key] = tuning[control.key]
+    if (Object.keys(custom).length) storage?.setItem(WIND_TUNING_STORAGE_KEY, JSON.stringify(custom))
     else storage?.removeItem(WIND_TUNING_STORAGE_KEY)
   } catch {
     // opslag vol of geblokkeerd: tuning blijft voor deze sessie gelden
   }
+}
+
+// Defaults uit de v2-periode (U3b–U12). v2 schreef de hele tuning weg zodra één knop afweek,
+// dus een waarde gelijk aan een toenmalige default is nooit gekozen en volgt de huidige default.
+const V2_DEFAULTS: Partial<Record<keyof WindTuning, readonly number[]>> = { intensity: [0.5, 1.4, 1.9], lineWidth: [1.5] }
+// U19 zette de basisintensiteit op ⅔ (windfocus tweent terug naar vol); een zelfgekozen
+// v2-intensiteit krijgt dezelfde ⅔, zodat windfocus weer precies de gekozen waarde geeft.
+const V2_INTENSITY_SCALE = 2 / 3
+
+export function migrateWindTuningV2(value: unknown): WindTuning {
+  const stored = sanitizeWindTuning(value)
+  const tuning = { ...DEFAULT_WIND_TUNING }
+  const raw = value && typeof value === 'object' ? value as Record<string, unknown> : {}
+  for (const control of WIND_TUNING_CONTROLS) {
+    if (typeof raw[control.key] !== 'number') continue
+    const candidate = stored[control.key]
+    if (V2_DEFAULTS[control.key]?.includes(candidate)) continue
+    tuning[control.key] = control.key === 'intensity' ? Math.round(candidate * V2_INTENSITY_SCALE * 100) / 100 : candidate
+  }
+  return tuning
 }
 
 export function sanitizeWindTuning(value: unknown): WindTuning {
