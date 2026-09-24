@@ -7,7 +7,7 @@ import { join } from 'node:path'
 // de windcanvas verborgen (wind-ink-methode), en de effectieve opacity/intensiteit van de laag.
 // WIND_TUNING = JSON voor `motregen-wind-tuning-v2` (leeg = geen opgeslagen tuning).
 const [origin, outDir, label = 'run'] = process.argv.slice(2)
-if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/wind-bisect.ts ORIGIN OUT_DIR [LABEL]  (VIDEO=1, THEMES=light,dark, WIND_TUNING=json, CYCLES=n)')
+if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/wind-bisect.ts ORIGIN OUT_DIR [LABEL]  (VIDEO=1, THEMES=light,dark, WIND_TUNING=json, CYCLES=n, NOSTILLS=1)')
 mkdirSync(outDir, { recursive: true })
 const video = process.env.VIDEO === '1'
 const themes = (process.env.THEMES ?? 'light,dark').split(',')
@@ -16,6 +16,8 @@ const size = { width: 1280, height: 800 }
 const view = { lng: 4.9, lat: 52.35, zoom: 6.5 }
 const zoomedIn = 8
 const cycles = Number(process.env.CYCLES ?? 1)
+// Video zonder stills: de verborgen-windbasis flitst anders mee in de opname.
+const noStills = process.env.NOSTILLS === '1'
 
 type MapHandle = { easeTo: (options: object) => void; getZoom: () => number }
 const browser = await chromium.launch({ headless: true, args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
@@ -56,7 +58,7 @@ for (const theme of themes) {
   const startZoom = await page.evaluate(() => (globalThis as unknown as { __motregenWind: { map: MapHandle } }).__motregenWind.map.getZoom())
   const box = (await page.locator('.map').boundingBox())!
   const clip = { x: box.x, y: box.y, width: Math.min(box.width, size.width - box.x), height: Math.min(box.height, size.height - box.y) }
-  const shots: Array<{ phase: string; afterMs: number; zoom: number; active: number; png: Buffer; base: Buffer }> = []
+  const shots: Array<{ phase: string; afterMs: number; zoom: number; active: number; retries: number; png: Buffer; base: Buffer }> = []
   // Basisbeeld direct na elke still met alleen de windcanvas verborgen (kaart staat stil): labels
   // en tegels laden na een zoom nog na en zouden anders als windinkt meetellen.
   const windVisible = (visible: boolean) => page.evaluate((value) => {
@@ -65,14 +67,23 @@ for (const theme of themes) {
     if (canvas) canvas.style.visibility = value ? '' : 'hidden'
   }, visible)
   const still = async (phase: string, since: number) => {
-    const afterMs = Date.now() - since
+    if (noStills) return
     const zoom = await page.evaluate(() => (globalThis as unknown as { __motregenWind: { map: MapHandle } }).__motregenWind.map.getZoom())
     const active = await page.evaluate(() => (globalThis as unknown as { __motregenWind: { active: number } }).__motregenWind.active)
-    const png = await page.screenshot({ clip })
-    await windVisible(false)
-    const base = await page.screenshot({ clip })
-    await windVisible(true)
-    shots.push({ phase, afterMs, zoom, active, png, base })
+    // Basis vóór en na de still moeten byte-gelijk zijn, anders veranderde de kaart zelf (tegels,
+    // labels) tussen de opnames en telt dat als windinkt; dan opnieuw (hooguit drie keer).
+    const hidden = async () => { await windVisible(false); const shot = await page.screenshot({ clip }); await windVisible(true); return shot }
+    let base = await hidden()
+    let afterMs = Date.now() - since
+    let png = await page.screenshot({ clip })
+    let retries = 0
+    for (let after = await hidden(); !after.equals(base) && retries < 3; after = await hidden()) {
+      base = after
+      afterMs = Date.now() - since
+      png = await page.screenshot({ clip })
+      retries++
+    }
+    shots.push({ phase, afterMs, zoom, active, retries, png, base })
   }
   // Zoom tot moveend; daarna stills op ~0,3/2/4 s (swiftshader-screenshots op DPR 2 kosten ~1 s,
   // de werkelijke tijd na moveend staat in afterMs).
@@ -84,6 +95,11 @@ for (const theme of themes) {
     }), zoom)
     return Date.now()
   }
+  // Opwarmronde zonder opnames: de eerste zoom naar z8 laadt tegels en labels na.
+  await zoomTo(zoomedIn)
+  await page.waitForTimeout(3_000)
+  await zoomTo(startZoom)
+  await page.waitForTimeout(4_000)
   await still('rust', Date.now())
   for (let cycle = 0; cycle < cycles; cycle++) for (const [phase, zoom] of [['in', zoomedIn], ['uit', startZoom]] as const) {
     const ended = await zoomTo(zoom)
@@ -99,7 +115,7 @@ for (const theme of themes) {
   const stills: unknown[] = []
   for (const [index, shot] of shots.entries()) {
     writeFileSync(join(outDir, `${label}-${theme}-${index}-${shot.phase}-${(shot.afterMs / 1_000).toFixed(1)}s.png`), shot.png)
-    stills.push({ phase: shot.phase, afterMs: shot.afterMs, zoom: +shot.zoom.toFixed(2), active: shot.active, ink: await analyse(page, shot.base, shot.png) })
+    stills.push({ phase: shot.phase, afterMs: shot.afterMs, zoom: +shot.zoom.toFixed(2), active: shot.active, retries: shot.retries, ink: await analyse(page, shot.base, shot.png) })
   }
   results[theme] = { layer: layerState, startZoom, stills }
   console.log(label, theme, JSON.stringify(results[theme]))

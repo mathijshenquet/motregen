@@ -192,4 +192,25 @@ describe('wind across map movement (U12)', () => {
     const zoomed = waves()
     expect(zoomed, 'na inzoomen').toBeLessThan(3)
   })
+
+  it('lets the fills of one zoom step appear spread out, not all in the same frame (U20)', () => {
+    const { wind, run, move, view } = harness()
+    run(10)
+    move({ zoom: view.zoom + 1 })
+    const fills: number[] = []
+    for (let index = 0; index < wind.active; index++) if (wind.rampRates[index]! > 0) fills.push(index)
+    expect(fills.length).toBeGreaterThan(wind.active / 2)
+    const alpha = (index: number) => wind.instanceBytes[index * 20 + 19]!
+    const shown = new Set<number>()
+    let most = 0
+    for (let frameIndex = 0; frameIndex < 30; frameIndex++) {
+      run(frame)
+      let appeared = 0
+      for (const index of fills) if (!shown.has(index) && alpha(index) > 0) { shown.add(index); appeared++ }
+      most = Math.max(most, appeared)
+    }
+    expect(shown.size).toBeGreaterThan(fills.length * 0.9)
+    expect(most).toBeLessThan(fills.length * 0.4)
+  })
 })
+

@@ -18,33 +18,54 @@ test('wind keeps its ink through a zoom step: no blank, no doubling', async ({ p
   })
   const pause = page.getByRole('button', { name: 'Pauzeren' })
   if (await pause.count()) await pause.first().click()
-  await page.waitForTimeout(4_000)
+  // Opwarmen: de eerste zoom laadt tegels en labels, die anders als windinkt meetellen.
+  await zoomBy(page, 1)
+  await zoomBy(page, -1)
+  await page.waitForTimeout(3_000)
 
   const before = await ink(page)
   expect(before).toBeGreaterThan(0.2)
-  for (const delta of [1, -1]) {
-    await page.evaluate((step) => new Promise<void>((resolve) => {
-      const map = (globalThis as unknown as { __motregenWind: { map: { once: (event: string, callback: () => void) => void; easeTo: (options: object) => void; getZoom: () => number } } }).__motregenWind.map
-      map.once('moveend', () => resolve())
-      map.easeTo({ zoom: map.getZoom() + step, duration: 600 })
-    }), delta)
-    await page.waitForTimeout(300)
-    const after = await ink(page)
-    await page.screenshot({ path: testInfo.outputPath(`wind-zoom-${delta > 0 ? 'in' : 'uit'}.png`) })
-    expect(after / before, `inkt ${delta > 0 ? 'in' : 'uit'}gezoomd ${after.toFixed(3)} tegen ${before.toFixed(3)} vóór`).toBeGreaterThan(0.8)
-    expect(after / before).toBeLessThan(1.2)
-  }
+  await zoomBy(page, 1)
+  const zoomedIn = await ink(page)
+  await page.screenshot({ path: testInfo.outputPath('wind-zoom-in.png') })
+  // Ingezoomd ligt er ander weer onder; hier alleen: niet leeg (vóór U12 ~0,3×) en niet verdubbeld.
+  expect(zoomedIn / before, `ingezoomd ${zoomedIn.toFixed(3)} tegen ${before.toFixed(3)} vóór`).toBeGreaterThan(0.5)
+  expect(zoomedIn / before).toBeLessThan(2)
+  await zoomBy(page, -1)
+  const back = await ink(page)
+  await page.screenshot({ path: testInfo.outputPath('wind-zoom-terug.png') })
+  // Terug op hetzelfde beeld: binnen ±20 % van vóór de zoom.
+  expect(back / before, `terug ${back.toFixed(3)} tegen ${before.toFixed(3)} vóór`).toBeGreaterThan(0.8)
+  expect(back / before).toBeLessThan(1.2)
 })
 
-/** Gemiddelde over drie paren (wind zichtbaar, wind verborgen), ~0,2 s uit elkaar. */
+async function zoomBy(page: Page, step: number): Promise<void> {
+  await page.evaluate((delta) => new Promise<void>((resolve) => {
+    const map = (globalThis as unknown as { __motregenWind: { map: { once: (event: string, callback: () => void) => void; easeTo: (options: object) => void; getZoom: () => number } } }).__motregenWind.map
+    map.once('moveend', () => resolve())
+    map.easeTo({ zoom: map.getZoom() + delta, duration: 600 })
+  }), step)
+  await page.waitForTimeout(300)
+}
+
+/** Gemiddelde over drie stills, elk tussen twee byte-gelijke basisbeelden (kaart zelf stond stil). */
 async function ink(page: Page): Promise<number> {
   const map = page.locator('.map')
+  const wind = page.locator('.map-overlay-motregen-wind')
+  const hidden = async () => {
+    await wind.evaluate((element: HTMLElement) => { element.style.visibility = 'hidden' })
+    const shot = await map.screenshot()
+    await wind.evaluate((element: HTMLElement) => { element.style.visibility = '' })
+    return shot
+  }
   let total = 0
   for (let sample = 0; sample < 3; sample++) {
-    const shot = await map.screenshot()
-    await page.locator('.map-overlay-motregen-wind').evaluate((element: HTMLElement) => { element.style.visibility = 'hidden' })
-    const base = await map.screenshot()
-    await page.locator('.map-overlay-motregen-wind').evaluate((element: HTMLElement) => { element.style.visibility = '' })
+    let base = await hidden()
+    let shot = await map.screenshot()
+    for (let after = await hidden(), retries = 0; !after.equals(base) && retries < 3; after = await hidden(), retries++) {
+      base = after
+      shot = await map.screenshot()
+    }
     total += await page.evaluate(async ([shotBase64, baseBase64]) => {
       const decode = async (base64: string) => {
         const image = new Image()

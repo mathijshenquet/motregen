@@ -91,6 +91,9 @@ const INITIAL_STAGGER_SECONDS = 2
 // Zoom/pan/resize (U12): aanvullers komen direct midden in hun leven binnen en faden in de
 // tijd in; overtal (uitzoomen, kleiner budget) faded in de tijd uit. Nooit een lege kaart.
 const FILL_FADE_SECONDS = 0.25
+// U20: aanvullers van één zoomstap verschijnen gespreid over dit venster en met volle jitter in
+// hun cel; tegelijk en op celmiddens verschenen ze als rooster van gelijke streepjes.
+const FILL_SPREAD_SECONDS = 0.15
 const RETIRE_SECONDS = 0.35
 const FILL_MAX_PHASE = 0.6
 const SPAWN_ATTEMPTS = 32
@@ -367,9 +370,11 @@ export class WindLayer implements CustomLayerInterface {
   }
 
   setTuning(tuning: WindTuning): void {
+    // De focus-tween (U19) zet elke frame een nieuwe intensiteit; alleen de dichtheid raakt de particles.
+    const densityChanged = tuning.particlesPerMegapixel !== this.tuning.particlesPerMegapixel
     this.tuning = { ...tuning }
     if (!this.map) return
-    this.resetViewport()
+    if (densityChanged) this.resetViewport()
     this.repaint()
   }
 
@@ -531,7 +536,7 @@ export class WindLayer implements CustomLayerInterface {
       this.instanceBytes[byte] = Math.round(this.color[0]! * 255)
       this.instanceBytes[byte + 1] = Math.round(this.color[1]! * 255)
       this.instanceBytes[byte + 2] = Math.round(this.color[2]! * 255)
-      this.instanceBytes[byte + 3] = Math.round(headAlpha(life, tuning) * smooth(this.ramps[index]!) * speedDamping(speed, tuning.speedDamping) * 255)
+      this.instanceBytes[byte + 3] = Math.round(headAlpha(life, tuning) * smooth(Math.max(0, this.ramps[index]!)) * speedDamping(speed, tuning.speedDamping) * 255)
     }
   }
 
@@ -562,7 +567,7 @@ export class WindLayer implements CustomLayerInterface {
     let cell = 0
     const [x, y] = pickSpawn(SPAWN_ATTEMPTS, () => {
       cell = leastOccupiedCell(this.cellCounts, this.columns * this.rows, this.random())
-      const [u, v] = jitteredCellPoint(cell, this.columns, this.rows, this.tuning.spawnJitter, () => this.random())
+      const [u, v] = jitteredCellPoint(cell, this.columns, this.rows, fill ? 1 : this.tuning.spawnJitter, () => this.random())
       return [bounds.west + u * (bounds.east - bounds.west), bounds.north + v * (bounds.south - bounds.north)]
     }, () => this.random(), (candidateX, candidateY) => !this.left || this.sampleWind(candidateX, candidateY) ? 1 : 0)
     this.cellCounts[cell]!++
@@ -582,7 +587,7 @@ export class WindLayer implements CustomLayerInterface {
       const phase = this.random() * FILL_MAX_PHASE
       this.ages[index] = Math.max(1e-3, phase * this.tuning.maxAge * lifeScale)
       this.travelled[index] = phase * this.distances[index]!
-      this.ramps[index] = 0
+      this.ramps[index] = -this.random() * FILL_SPREAD_SECONDS / FILL_FADE_SECONDS
       this.rampRates[index] = 1 / FILL_FADE_SECONDS
     }
     this.instanceBytes[index * INSTANCE_BYTES + 19] = 0
