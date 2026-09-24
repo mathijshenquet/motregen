@@ -89,6 +89,10 @@ test('radar that stopped arriving is marked aging, then stale', async ({ page },
   await page.locator('.scrub-surface').click({ position: { x: 30, y: 60 } })
   await expect(pill(page).locator('.map-clock-map')).toBeVisible()
   await expectClearOfBrand(page)
+  // U17: tijd groot, leeftijd eronder, segmenten naast elkaar — ook op mobiel één rij (was 70 px hoog).
+  const trigger = (await pill(page).locator('.freshness-trigger').boundingBox())!
+  if (testInfo.project.use.hasTouch) expect(trigger.height).toBeGreaterThanOrEqual(44)
+  expect((await pill(page).boundingBox())!.height).toBeLessThan(56)
   await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-weken-oud-kaart-light.png`) })
 })
 

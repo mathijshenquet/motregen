@@ -49,6 +49,13 @@ export function sourceFreshness(manifest: Manifest): SourceFreshness[] {
   })
 }
 
+// Scantijd + 5 min cadans + publicatievertraging (prod 2026-09-24: ~3 min, LOG u17).
+const RADAR_NEXT_MS = 8 * 60_000
+
+export function expectedNextRadar(radarEpoch: number): number {
+  return radarEpoch + RADAR_NEXT_MS
+}
+
 export function latestRadarEpoch(manifest: Manifest): number | undefined {
   return sourceFreshness(manifest).find((row) => row.source === 'rtcor')?.epoch
 }

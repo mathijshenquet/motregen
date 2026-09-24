@@ -8,6 +8,7 @@ export { default as Search } from 'lucide-solid/icons/search'
 export { default as Star } from 'lucide-solid/icons/star'
 export { default as Sun } from 'lucide-solid/icons/sun'
 export { default as SunMoon } from 'lucide-solid/icons/sun-moon'
+export { default as Trash2 } from 'lucide-solid/icons/trash-2'
 export { default as X } from 'lucide-solid/icons/x'
 
 export const BUTTON_ICON = { size: 18, strokeWidth: 2 } as const

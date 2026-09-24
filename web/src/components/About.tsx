@@ -1,5 +1,6 @@
 import { onCleanup } from 'solid-js'
 import { BUTTON_ICON, INLINE_ICON, Info, X } from './icons'
+import { backdropHandlers } from './modal'
 
 export const REPOSITORY_URL = 'https://github.com/mathijshenquet/motregen'
 
@@ -47,7 +48,7 @@ export default function About(props: { onTripleTap: () => void }) {
       class="about-dialog"
       aria-labelledby="about-title"
       onClose={() => trigger.focus()}
-      onClick={(event) => { if (event.target === dialog) close() }}
+      {...backdropHandlers(() => dialog)}
     >
       <div class="about-body">
         <header>

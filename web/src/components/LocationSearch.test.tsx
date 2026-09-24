@@ -44,7 +44,7 @@ describe('location search', () => {
     fireEvent.focus(screen.getByRole('textbox', { name: 'Zoek plaats' }))
     const icons = [...document.querySelectorAll('svg.lucide')]
     expect(icons.map((icon) => [...icon.classList].find((name) => name !== 'lucide' && name !== 'lucide-icon' && name.startsWith('lucide-')))).toEqual(
-      ['lucide-search', 'lucide-locate-fixed', 'lucide-star', 'lucide-x'],
+      ['lucide-search', 'lucide-locate-fixed', 'lucide-star', 'lucide-trash'],
     )
     for (const icon of icons) expect(icon.getAttribute('aria-hidden')).toBe('true')
     expect(screen.getByRole('button', { name: 'Thuis verwijderen uit opgeslagen plaatsen' }).querySelector('svg')?.getAttribute('width')).toBe('18')
@@ -75,6 +75,27 @@ describe('location search', () => {
     expect(screen.queryByRole('button', { name: 'Deze plaats opslaan' })).toBeNull()
     fireEvent.focus(screen.getByRole('textbox', { name: 'Zoek plaats' }))
     fireEvent.click(screen.getByRole('button', { name: 'Thuis verwijderen uit opgeslagen plaatsen' }))
+    expect(onRemove).not.toHaveBeenCalled()
+    const confirm = screen.getByRole('group', { name: 'Thuis verwijderen?' })
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Nee' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Ja' }))
     expect(onRemove).toHaveBeenCalledWith('home')
+    expect(confirm.isConnected).toBe(false)
+    expect(document.activeElement).toBe(screen.getByRole('listbox'))
+  })
+
+  it('cancels a removal with Nee or Escape and keeps the favorite', () => {
+    const { onRemove } = renderSearch([home])
+    fireEvent.focus(screen.getByRole('textbox', { name: 'Zoek plaats' }))
+    const remove = () => screen.getByRole('button', { name: 'Thuis verwijderen uit opgeslagen plaatsen' })
+    fireEvent.click(remove())
+    fireEvent.click(screen.getByRole('button', { name: 'Nee' }))
+    expect(screen.queryByRole('group', { name: 'Thuis verwijderen?' })).toBeNull()
+    expect(document.activeElement).toBe(remove())
+    fireEvent.click(remove())
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Nee' }), { key: 'Escape' })
+    expect(screen.queryByRole('group', { name: 'Thuis verwijderen?' })).toBeNull()
+    expect(screen.getByRole('option', { name: /Thuis/ })).toBeTruthy()
+    expect(onRemove).not.toHaveBeenCalled()
   })
 })

@@ -19,14 +19,14 @@ const DAY_NIGHT_ENABLED = false
 import { buildHourlyForecast, isPassiveRow, PASSIVE_FORECAST_HOURS } from './core/forecast'
 import { contextOpacity, DEFAULT_FOCUS_TUNING, FocusMode, type FocusTuning } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
-import type { RefreshState } from './core/freshness'
+import { latestRadarEpoch, type RefreshState } from './core/freshness'
 import { blendFrames, blurField, DEFAULT_ISOLINE_TUNING, ISOLINE_EDGE_FADE_MS, ISOLINE_FADES, ISOLINE_LINE_OPACITY, ISOLINE_ODD_LABELS, ISOLINE_ODDS, ISOLINE_STEPS, ISOLINE_WINDOWS, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineFade, type IsolineOdd, type IsolineStep, type IsolineTuning } from './core/isolines'
 import { DEFAULT_LABEL_TUNING, IsolineLabels, type IsolineLabelTuning } from './core/isoline-labels'
 import { sliceWeights } from './core/isoline-spline'
 import { TraceCore } from './core/isoline-tracer'
 import { prepareField, type PreparedField } from './core/isoline-field'
 import { hexColor, IsolineLayer, isolineLayerIndices, type IsolineStyle } from './core/isoline-layer'
-import { cursorAfterTimelineRefresh, isNewerManifest, reconcileTimelineSeries, scheduleManifestRefresh } from './core/manifest-refresh'
+import { cursorAfterTimelineRefresh, isNewerManifest, nextManifestRefreshDelay, reconcileTimelineSeries, scheduleManifestRefresh } from './core/manifest-refresh'
 import { constrainView, containView, containZoom, MAP_CONTAIN_BOUNDS, type Viewport } from './core/map-constraint'
 import { mapFrameFromGrid } from './core/map-frame'
 import { MrfClient, type MotionField } from './core/mrf'
@@ -254,11 +254,14 @@ export default function App() {
       setManifest(data)
       void Promise.all(data.chunks.map((chunk) => client.getHeader(chunk))).catch(() => undefined)
       stopManifestRefresh = scheduleManifestRefresh(refreshManifest, {
-        setInterval: (callback, interval) => window.setInterval(callback, interval),
-        clearInterval: (handle) => window.clearInterval(handle),
+        setTimeout: (callback, delay) => window.setTimeout(callback, delay),
+        clearTimeout: (handle) => window.clearTimeout(handle),
         visibilityState: () => document.visibilityState,
         addVisibilityListener: (callback) => document.addEventListener('visibilitychange', callback),
         removeVisibilityListener: (callback) => document.removeEventListener('visibilitychange', callback),
+      }, () => {
+        const current = manifest()
+        return nextManifestRefreshDelay(Date.now(), current && latestRadarEpoch(current))
       })
       let nowIndex = 0
       for (let index = 0; index < frames.length; index++) if (frames[index]!.epoch <= Date.parse(data.now)) nowIndex = index
