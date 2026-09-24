@@ -488,7 +488,7 @@ td small { color: var(--muted); font-size: 9px; }
 .weather-rain path { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-width: 1.8; }
 .heavy-rain .weather-rain path { stroke-width: 2.2; }
 .uv-heading { text-align: left; }
-.uv-cell { min-width: 112px; font-size: 12px; text-align: left; }
+.uv-cell { width: 74px; min-width: 64px; font-size: 12px; text-align: left; }
 [data-level="low"] { --uv-color: var(--uv-low); }
 [data-level="moderate"] { --uv-color: var(--uv-moderate); }
 [data-level="high"] { --uv-color: var(--uv-high); }
@@ -499,24 +499,24 @@ td small { color: var(--muted); font-size: 9px; }
 [data-clear-level="high"] { --uv-clear-color: var(--uv-high); }
 [data-clear-level="very-high"] { --uv-clear-color: var(--uv-very-high); }
 [data-clear-level="extreme"] { --uv-clear-color: var(--uv-extreme); }
-.uv-bar { display: flex; align-items: center; gap: 6px; }
+.uv-bar { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 4px; row-gap: 3px; }
 /* Schaal 0–12: de WHO-klassen als vage kleurband onder de vulling (3, 6, 8, 11 = 25/50/66,7/91,7 %). */
-.uv-bar-track { position: relative; flex: 1 1 60px; min-width: 52px; height: 9px; border-radius: 999px; background: var(--surface-soft); box-shadow: inset 0 0 0 1px var(--line); }
+.uv-bar-track { display: block; position: relative; flex: 1 0 100%; align-self: center; min-width: 52px; height: 9px; border-radius: 999px; background: var(--surface-soft); box-shadow: inset 0 0 0 1px var(--line); }
 .uv-bar-track::before {
-  position: absolute; inset: 0; border-radius: inherit; content: ''; opacity: .2;
+  position: absolute; inset: 0; border-radius: inherit; content: ''; opacity: .16;
   background: linear-gradient(to right, var(--uv-low) 0 25%, var(--uv-moderate) 25% 50%, var(--uv-high) 50% 66.667%, var(--uv-very-high) 66.667% 91.667%, var(--uv-extreme) 91.667%);
 }
 .uv-bar-dark .uv-bar-track::before { opacity: 0; }
 .uv-bar-fill, .uv-bar-clear { position: absolute; top: 0; bottom: 0; left: 0; min-width: 3px; border-radius: inherit; }
 .uv-bar-fill { background: var(--uv-color); }
-.uv-bar-clear { background: color-mix(in srgb, var(--uv-clear-color) 30%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--uv-clear-color) 80%, transparent); }
+.uv-bar-clear { background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--uv-clear-color) 55%, transparent) 0 2px, transparent 2px 4px); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--uv-clear-color) 75%, var(--text)); }
 .uv-bar-dot { position: absolute; top: 50%; width: 9px; height: 9px; border: 2px solid var(--surface); border-radius: 50%; background: var(--uv-clear-color); box-shadow: 0 0 0 1px color-mix(in srgb, var(--uv-clear-color) 70%, var(--text)); transform: translate(-50%, -50%); }
 .uv-bar.estimated .uv-bar-fill { background: repeating-linear-gradient(135deg, var(--uv-color) 0 3px, color-mix(in srgb, var(--uv-color) 65%, transparent) 3px 5px); }
-.uv-bar-value { min-width: 24px; font-variant-numeric: tabular-nums; font-weight: 650; }
+.uv-bar-value { font-variant-numeric: tabular-nums; font-weight: 650; line-height: 1; }
 .uv-bar.estimated .uv-bar-value { color: var(--muted); font-style: italic; }
-.uv-bar-level { min-width: 44px; color: color-mix(in srgb, var(--uv-color) 50%, var(--text)); font-size: 9px; font-weight: 760; letter-spacing: .02em; text-transform: uppercase; }
-.uv-bar-bare { gap: 0; }
-.uv-bar-bare .uv-bar-track { flex-basis: 100%; min-width: 0; height: 6px; }
+.uv-bar-level { line-height: 1; white-space: nowrap; color: color-mix(in srgb, var(--uv-color) 50%, var(--text)); font-size: 9.5px; font-weight: 700; letter-spacing: -.01em; }
+.uv-bar-bare { display: block; }
+.uv-bar-bare .uv-bar-track { min-width: 0; height: 6px; }
 .uv-bar-bare .uv-bar-dot { width: 7px; height: 7px; border-width: 1.5px; }
 tr.sun-row td { padding: 3px 0 3px; border-bottom: 1px dashed var(--line); color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .04em; text-align: left; }
 .sun-glyph { display: inline-block; width: 20px; height: 12px; margin: 0 6px -1px 44px; vertical-align: baseline; overflow: visible; }

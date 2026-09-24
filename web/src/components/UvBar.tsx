@@ -36,7 +36,7 @@ export default function UvBar(props: Props) {
       <Show when={reading() && !dark()}>
         <Show when={props.variant === 'double'}><span class="uv-bar-clear" style={{ width: percent(reading()!.clear) }} /></Show>
         <span class="uv-bar-fill" style={{ width: percent(reading()!.value) }} />
-        <Show when={props.variant === 'dot' && reading()!.clear - reading()!.value >= 0.1}>
+        <Show when={props.variant === 'dot' && reading()!.clear - reading()!.value >= 0.3}>
           <span class="uv-bar-dot" style={{ left: percent(reading()!.clear) }} />
         </Show>
       </Show>

@@ -46,3 +46,27 @@ Append-only, nieuwste onderaan.
   (`double`) of stip (`dot`, `?uvbalk=stip`); getal + klassewoord vanaf 3; nacht = lege gedempte bar.
 - `uv_clear` laadt via eigen effect (zoals straling): alleen rij-uren, alles bij complete puntreeks.
 - `pnpm typecheck` → 0; `pnpm test` → TEST-EXIT: 0 (198 tests).
+
+## 09:00–09:25 — schetsen en layout
+- Screenshots: preview (`vite preview`) tegen prod-data (motregen.nl) + lokale `uv_clear`-chunk van vandaag via caddy,
+  en tegen synth-data. Scripts: `shot.mjs` (tabel), `swatch.mjs` (staalkaart met dezelfde CSS/DOM, 7 gevallen × 2 varianten).
+- Eerste versie liet de tabel overlopen (490 px in 421 px zijbalk): UV-cel nu gestapeld (bar boven, getal + klasse
+  eronder, ~74 px), klassewoord zakt bij "≈8,4 zeer hoog" naar een eigen regel i.p.v. afkappen. Tabel = 421 px (gemeten).
+- Ghost eerst onzichtbaar tegen de kleurband: band 16 %, ghost gearceerd + omlijnd in de klassekleur van onbewolkt.
+- Chip-bar was onzichtbaar (inline span in blockcontext) → track `display: block`.
+- Vandaag (24 sep) op prod: bewolkt ≈ onbewolkt (0,8 vs 0,85; HARMONIE-CMF ~0,8 → ^0,3 ≈ 0,94) — geen bug, gewoon helder.
+- **Keuze: variant A (dubbele vulling)**, default; B via `?uvbalk=stip`. Motivatie: A leest als één glyph
+  "zoveel nu, tot hier zonder wolken" en de ghost-tint verraadt de klasse die je zónder wolken haalt (dik bewolkt:
+  groene vulling, oranje ghost). De stip botst bij kleine verschillen met het vullingseinde (drempel 0,3 nodig)
+  en is in de 46 px-chip bijna een losse knikker. PO beslist op zicht: `staalkaart-licht.png`, `staalkaart-donker.png`,
+  `synth-tabel-{dubbel,stip}.png`, `prod-tabel-dubbel.png`.
+
+## 09:25 — PO-queue: host-overbelasting
+- Preview-servers (4315/4316) en beide caddy's gestopt; geen Chromium meer buiten `flock /tmp/motregen-e2e.lock`.
+- main gemerged (20b24f2: flock in pnpm e2e-scripts).
+
+## 09:30 — gates (synchroon)
+- `cargo fmt --all --check` 0; `cargo test --workspace` 0 (54 passed); `cargo clippy --workspace -- -D warnings` 0;
+  Cargo.lock ongewijzigd t.o.v. main (0).
+- web: `pnpm typecheck` 0; `pnpm test` 0 (198); `pnpm build` 0.
+- e2e: wacht op load < 16 (was 21,08 om 09:30), dan `MOTREGEN_E2E_PORT=4333 MOTREGEN_E2E_DATA_PORT=8333 pnpm e2e` (flock).
