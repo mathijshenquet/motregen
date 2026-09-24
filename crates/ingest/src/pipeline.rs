@@ -584,6 +584,9 @@ fn decode_arome_run(
 /// passive table load at one day even when the horizon is longer.
 const HOURLY_CHUNK_LEADS: usize = 24;
 
+/// Fields whose frames are stored as lossless predictive members (docs/mrf.md §Predictive frames).
+const PREDICTIVE_FIELDS: [&str; 1] = ["feels_like_c"];
+
 fn hourly_field_chunks(decoded: &DecodedArome, horizon_label: &str) -> Result<Vec<ProducedChunk>> {
     let run = &decoded.run;
     let compact_run = compact_timestamp(run)?;
@@ -609,6 +612,11 @@ fn hourly_field_chunks(decoded: &DecodedArome, horizon_label: &str) -> Result<Ve
                     decoded.times[first..last].to_vec(),
                 )
                 .with_field(field, quant.clone());
+                let meta = if PREDICTIVE_FIELDS.contains(&field) {
+                    meta.with_pred()
+                } else {
+                    meta
+                };
                 produced_chunk(
                     generated_chunk_filename(
                         &format!("harmonie-{field}-{compact_run}-{label}"),
@@ -939,6 +947,10 @@ fn generated_chunk_filename(stem: &str, meta: &mrf::ChunkMeta) -> String {
     }
     update(&meta.grid.width.to_le_bytes());
     update(&meta.grid.height.to_le_bytes());
+    if let Some(pred) = meta.pred {
+        update(b"pred");
+        update(&pred.v.to_le_bytes());
+    }
     for value in &meta.quant {
         match value {
             Some(value) => {
@@ -1174,6 +1186,29 @@ mod tests {
                 .starts_with("harmonie-temp_c-20260923T0000-h30-l25-30-")
         );
         validate_wind_pair(&chunks).unwrap();
+        for chunk in &chunks {
+            let decoded = mrf::decode(&chunk.bytes).unwrap();
+            let predictive = chunk.manifest.field == "feels_like_c";
+            assert_eq!(
+                decoded.header.pred.is_some(),
+                predictive,
+                "{}",
+                chunk.filename
+            );
+            assert!(decoded.frames.iter().flatten().all(|cell| *cell == 0));
+        }
+        let plain = mrf::ChunkMeta::standard(
+            DETAIL_GRID.mrf_grid(),
+            "harmonie",
+            "2026-09-23T00:00:00Z",
+            times.clone(),
+        )
+        .with_field("feels_like_c", temperature_quantization_table());
+        assert_ne!(
+            generated_chunk_filename("x", &plain),
+            generated_chunk_filename("x", &plain.clone().with_pred()),
+            "a predictive chunk must never reuse a bitmap chunk's URL"
+        );
     }
 
     #[test]

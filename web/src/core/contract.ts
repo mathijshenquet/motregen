@@ -53,6 +53,8 @@ export interface MrfHeader {
   run: string
   frames: FrameIndex[]
   motion_grid?: MotionGrid
+  /** Frames zijn verliesvrij predictief gecodeerd (docs/mrf.md §Predictive frames). */
+  pred?: { v: number }
   dict: null
 }
 

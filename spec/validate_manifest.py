@@ -46,6 +46,8 @@ def main():
             raise ValueError(f"header_len mismatch in {path}")
         if header["version"] != 0 or header["dict"] is not None:
             raise ValueError(f"invalid mrf v0 header in {path}")
+        if header.get("pred", {"v": 1}) != {"v": 1}:
+            raise ValueError(f"unsupported pred frames in {path}")
         if header["source"] != chunk["source"] or header["run"] != chunk["run"]:
             raise ValueError(f"manifest/header provenance mismatch in {path}")
         field = chunk.get("field", "rain_rate")

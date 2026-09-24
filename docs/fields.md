@@ -8,6 +8,11 @@ stuksgewijs-logaritmische tabel. AROME-uurvelden worden eerst op een intern
 uitsluiting van no-data. Pas daarna volgt kwantisatie. De mrf-header beschrijft
 het resulterende veld; clients hoeven geen resolutie te kennen.
 
+`feels_like_c` is voor kaart én tabel één veld. Zijn frames staan als
+verliesvrije predictieve members in de chunk (`pred` in de header,
+docs/mrf.md §Predictive frames): dezelfde cellen als de bitmap, ~62 % van de
+bytes.
+
 | gebruik | velden | grid | afmetingen |
 | --- | --- | ---: | ---: |
 | stadslabels, tabel en particles | `temp_c`, `feels_like_c`, `wind_u_ms`, `wind_v_ms` | 6 km | 209×225 |

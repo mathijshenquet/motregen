@@ -1,9 +1,10 @@
 /// <reference lib="webworker" />
 import { decodeFrame } from './mrf'
+import type { PredFrameSpec } from './pred'
 
-self.onmessage = ({ data }: MessageEvent<{ id: number; bytes: ArrayBuffer; expectedLength: number }>) => {
+self.onmessage = ({ data }: MessageEvent<{ id: number; bytes: ArrayBuffer; expectedLength: number; pred?: PredFrameSpec }>) => {
   try {
-    const frame = decodeFrame(new Uint8Array(data.bytes), data.expectedLength)
+    const frame = decodeFrame(new Uint8Array(data.bytes), data.expectedLength, data.pred)
     const bytes = frame.byteOffset === 0 && frame.byteLength === frame.buffer.byteLength
       ? frame.buffer
       : frame.slice().buffer

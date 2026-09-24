@@ -42,6 +42,19 @@ proptest! {
             prop_assert_eq!(index.decode_frame(frame_index, member).unwrap(), frame.clone());
         }
     }
+
+    #[test]
+    fn pred_roundtrip_property(cells in prop::collection::vec(any::<u8>(), 1..400), width in 1_u32..30) {
+        let height = (cells.len() as u32).div_ceil(width);
+        let mut frame = cells.clone();
+        frame.resize((width * height) as usize, 255);
+        let frames = vec![frame.clone(), frame.iter().rev().copied().collect()];
+        let chunk = encode(&frames, &meta(width, height, 2).with_pred()).unwrap();
+        prop_assert_eq!(decode(&chunk).unwrap().frames, frames.clone());
+        let index = parse_header(&chunk).unwrap();
+        let range = index.frame_range(1).unwrap();
+        prop_assert_eq!(&index.decode_frame(1, &chunk[range.start as usize..range.end as usize]).unwrap(), &frames[1]);
+    }
 }
 
 #[test]
@@ -161,7 +174,8 @@ fn golden_chunk_decodes_byte_exactly() {
                     .frames
                     .into_iter()
                     .map(|frame| frame.time)
-                    .collect()
+                    .collect(),
+                pred: decoded.header.pred,
             }
         )
         .unwrap(),
@@ -413,4 +427,57 @@ fn sparse_advecting_fields(frame_count: usize) -> Vec<Vec<u8>> {
             field
         })
         .collect()
+}
+
+#[test]
+fn pred_chunks_are_transparent_and_smaller_than_bitmaps() {
+    let (width, height) = (60_u32, 40_u32);
+    let mut state = 1_u32;
+    let frames = (0..3)
+        .map(|_| {
+            (0..width * height)
+                .map(|index| {
+                    state = state.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+                    let (x, y) = (index % width, index / width);
+                    if y < 2 && x > 50 {
+                        255
+                    } else {
+                        (100 + x / 3 + y / 4 + (state >> 16) % 3) as u8
+                    }
+                })
+                .collect::<Vec<u8>>()
+        })
+        .collect::<Vec<_>>();
+    let plain = encode(&frames, &meta(width, height, 3)).unwrap();
+    let pred = encode(&frames, &meta(width, height, 3).with_pred()).unwrap();
+    let decoded = decode(&pred).unwrap();
+    assert_eq!(decoded.header.pred, Some(mrf::Pred { v: 1 }));
+    assert_eq!(decoded.frames, frames);
+    assert!(
+        pred.len() < plain.len(),
+        "{} vs {}",
+        pred.len(),
+        plain.len()
+    );
+    assert!(
+        !String::from_utf8_lossy(&plain).contains("\"pred\""),
+        "bitmap chunks keep their exact header bytes"
+    );
+    let index = parse_header(&pred).unwrap();
+    let range = index.frame_range(0).unwrap();
+    let member = &pred[range.start as usize..range.end as usize];
+    assert!(
+        zstd::zstd_safe::get_frame_content_size(member)
+            .unwrap()
+            .is_some(),
+        "predictive members carry their content size"
+    );
+}
+
+#[test]
+fn pred_headers_reject_unknown_versions() {
+    let frames = vec![vec![7_u8; 12]];
+    let chunk = encode(&frames, &meta(4, 3, 1).with_pred()).unwrap();
+    let text = String::from_utf8_lossy(&chunk).replace("\"pred\":{\"v\":1}", "\"pred\":{\"v\":2}");
+    assert!(parse_header(text.as_bytes()).is_err());
 }

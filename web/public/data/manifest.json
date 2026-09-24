@@ -463,7 +463,7 @@
       "source": "harmonie",
       "field": "feels_like_c",
       "run": "2026-08-28T12:00:00Z",
-      "header_len": 3662,
+      "header_len": 3642,
       "times": [
         "2026-08-28T13:00:00Z",
         "2026-08-28T14:00:00Z",
@@ -496,7 +496,7 @@
       "source": "harmonie",
       "field": "feels_like_c",
       "run": "2026-08-28T12:00:00Z",
-      "header_len": 3662,
+      "header_len": 3642,
       "times": [
         "2026-08-29T13:00:00Z",
         "2026-08-29T14:00:00Z",
@@ -529,7 +529,7 @@
       "source": "harmonie",
       "field": "feels_like_c",
       "run": "2026-08-28T08:00:00Z",
-      "header_len": 2504,
+      "header_len": 2514,
       "times": [
         "2026-08-28T09:00:00Z",
         "2026-08-28T10:00:00Z",

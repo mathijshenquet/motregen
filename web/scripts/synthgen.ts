@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ZstdCodec } from 'zstd-codec'
 import type { Field, FrameIndex, Grid, Manifest, ManifestChunk, MotionGrid, MrfHeader, Source } from '../src/core/contract'
+import { encodePredFrame, PRED_VERSION } from '../src/core/pred'
 import { solarElevationSin } from '../src/core/solar'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -209,7 +210,11 @@ async function main(): Promise<void> {
   const compressor = await zstdSimple()
   const chunks: ManifestChunk[] = []
   for (const plan of plans) {
-    const compressed = plan.times.map((time, index) => compressor.compress(frameFor(plan, time, index), 9))
+    const predictive = plan.field === 'feels_like_c'
+    const compressed = plan.times.map((time, index) => {
+      const cells = frameFor(plan, time, index)
+      return compressor.compress(predictive ? encodePredFrame(cells, grid.width) : cells, 9)
+    })
     const compressedMotion = plan.field === 'rain_rate'
       ? plan.times.map((time, index) => index === 0 ? undefined : compressor.compress(makeMotion(plan.times[index - 1]!, time), 9))
       : plan.times.map(() => undefined)
@@ -235,6 +240,7 @@ async function main(): Promise<void> {
       dict: null,
       frames,
       ...(plan.field === 'rain_rate' ? { motion_grid: motionGrid } : {}),
+      ...(predictive ? { pred: { v: PRED_VERSION } } : {}),
     }
     const json = new TextEncoder().encode(JSON.stringify(header))
     const prefix = new Uint8Array(8)

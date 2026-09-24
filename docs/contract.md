@@ -70,12 +70,15 @@ JSON-header:
       "motion": { "offset": 35336, "len": 812 } }   // optioneel (MIP-5)
   ],
   "motion_grid": { "bw": 21, "bh": 22 },  // optioneel; blokgrid van de motion-annexen
+  "pred": { "v": 1 },       // optioneel; frames zijn verliesvrij predictief gecodeerd (docs/mrf.md)
   "dict": null              // gereserveerd: per-chunk zstd-dictionary (MIP-2 §5); v0 altijd null
 }
 ```
 
 - Velden zijn row-major, rij 0 = noordrand, kolom 0 = westrand.
-- Elk frame decomprimeert naar exact `width × height` bytes.
+- Elk frame decomprimeert naar exact `width × height` bytes; met `pred`
+  decomprimeert het naar een predictieve stream die exact die cellen
+  oplevert (docs/mrf.md §Predictive frames).
 - `quant` is de byte→waarde-tabel in de eenheid van het veld: 256 entries;
   index 255 is altijd `null` (no-data-masker). Voor `rain_rate` en
   `radiation` is index 0 altijd `0.0` (droog resp. donker); voor velden met
@@ -159,3 +162,10 @@ frame kan zippen tot vectoren.
 - 2026-09-24 (U15, ter review door orchestrator): veld `uv_clear` toegevoegd
   (KNMI-heldere-hemel-UV uit dezelfde NetCDF, zelfde grid/quant als `uv`,
   eigen chunk met source `uv`). Additief.
+- 2026-09-24 (U18b, ter review door orchestrator): optionele header-sleutel
+  `pred` (`{"v": 1}`): frames zijn een verliesvrije predictieve codering van
+  dezelfde cellen. De ingest gebruikt hem voor `feels_like_c` (62 % van de
+  bitmapbytes). Niet additief voor clients zonder `pred`-decoder: die
+  krijgen een lengtefout op zulke frames. Chunk-URL's hashen `pred` mee,
+  dus geen cachebotsing met bitmapchunks. U18's `feels_like_dct` en de
+  `dct`-sleutel zijn vervallen voordat ze in main kwamen.

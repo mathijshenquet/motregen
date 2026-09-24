@@ -52,3 +52,68 @@ components are valid, because the wire value −128 is no-data and must not
 participate in bilinear interpolation. Rain textures likewise carry intensity
 and validity in RG8, so clamped warp samples cannot draw field-edge or no-data
 pixels inward.
+
+## Predictive frames
+
+A header may carry `"pred": {"v": 1}` (U18b). The frames still mean the
+quantized cells of the grid, but each zstd member holds a lossless
+predictive encoding of them instead of the raw bytes: `HeaderIndex::
+decode_frame` and the web client decode it transparently back to exactly
+`width × height` cells, byte-identical to the bitmap. The ingest uses it for
+`feels_like_c`; any u8 field could.
+
+A member decompresses to a mask followed by a range-coded stream:
+
+| bytes | content |
+| --- | --- |
+| ceil(W·H/8) | no-data mask, row-major, bit 7 of byte 0 is cell 0, set = index 255 |
+| rest | range-coded residuals of the valid cells, row-major |
+
+**Prediction.** Cells are visited in row-major order. `a`, `b`, `c`, `d` are
+the reconstructed left, up, up-left and up-right neighbours. In row 0 all
+four are the left neighbour (127 for cell 0); in column 0, `a` and `c` are
+`b`; in the last column, `d` is `b`. A masked cell takes its prediction as
+its reconstructed value, so it never needs a symbol. With `s = 2a + 2b − c +
+d + 2`, the prediction is `clamp(⌊s/4⌋, 0, 254)` and `s mod 4` (Euclidean)
+is the fraction the rounding threw away.
+
+**Context.** `activity = |a−c| + |b−c| + |d−b|` falls in one of seven buckets
+(0, 1, 2, 3–4, 5–7, 8–11, ≥12); the context is `bucket · 4 + (s mod 4)`,
+28 in total.
+
+**Residuals.** `r = cell − prediction` is zigzagged (`0, −1, 1, −2 … → 0, 1,
+2, 3 …`) to `z ∈ 0..=508`. Symbols 0–62 are `z` itself; symbol 63 is an
+escape followed by `z − 63` coded as one of 512 equiprobable values.
+
+**Model.** Each context has 64 frequencies starting at 1. After coding a
+symbol its frequency grows by 32; when a context's total exceeds 2^16 all its
+frequencies become `(f + 1) >> 1`.
+
+**Range coder.** 32-bit range, LZMA-style carry propagation. The encoder
+starts with `low = 0`, `range = 2^32 − 1`, one pending zero byte, and codes a
+symbol as `step = ⌊range / total⌋`, `low += step · cumulative`, `range = step
+· frequency`, shifting out a byte while `range < 2^24`. It flushes five
+bytes. The decoder reads five bytes into `code`, finds the symbol with
+`⌊code / step⌋` (clamped to `total − 1`) and must consume the stream exactly;
+a short, overlong or out-of-table stream is an error.
+
+**Why.** On 109 live hourly frames from five runs (U18b, `.dev/tracks/
+u18b-veld-compressie/LOG.md`) the 6-km `feels_like_c` bitmap takes 15.6 kB
+per frame after zstd-19 and this encoding 9.8 kB (62.7 %), exactly. zstd on
+a MED residual reaches 75 %; the context model's gain over that comes from
+the rounding fraction and local activity. Prediction from neighbours in the
+previous frame gains 2 points more but gives up per-frame random access; a
+low-frequency DCT (U18) reaches 24 % but moves coastal values by up to 3 °C.
+Encoding costs 1.3 ms per frame including zstd-19, decoding 1.0 ms in Rust.
+Reproduce with `cargo run --release -p mrf --example pred_measure --
+<chunk.mrf>...`.
+
+Predictive members carry their content size in the zstd frame header (the
+ingest pledges it). The web decoder (fzstd) then allocates the member instead
+of a level-19 window of 8 MiB per frame; decoders still check the decoded
+length. On these entropy-coded payloads the pledge costs 77 bytes over 109
+frames. On raw bitmaps zstd tunes itself to the pledged size and loses about
+1 %, which is why bitmap members don't carry it.
+
+The Rust encoder (`mrf::pred`) and the TypeScript encoder/decoder
+(`web/src/core/pred.ts`) share a byte-exact golden frame in their tests.
