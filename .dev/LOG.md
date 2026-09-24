@@ -28,6 +28,17 @@
   uv_clear-payload als één Range ná de initial-fase (warm reload weer 0 B, Chromium-cache-
   race). Onafhankelijk hergroen op main+U12+U13+U14: 204+ unit, e2e 20/20, cargo groen.
   Variant A (dubbele vulling) default, B via `?uvbalk=stip`; `uv_clear` in prod na vannacht.
+- **Middag**: U16 (lijnlabels faden mee met hun ring; oneven graden halve breedte i.p.v.
+  stippel), U17 (subtielere zoekbalk, About als modal met backdrop/×, favoriet verwijderen
+  met rode prullenbak + bevestiging, versheidspil groot/leeftijd eronder, manifestpoll 15 s
+  rond de verwachte radarpublicatie; versheidsketen gemeten: KNMI ~100–115 s, ingest
+  mediaan 57 s, client gem. 30→4 s, "7 min" is normaal bedrijf; ingest-aanbeveling MQTT
+  −45–50 s), U19 (isolijnfocus alleen nog via tabelkolom Gevoel; wind ⅔ met windfocus op
+  kolom Wind) gemerged, elk onafhankelijk hergroen. U18 DCT-veld (K=64, ingest+client,
+  groen) GEPARKEERD: kost bytes zolang de tabel de bitmap laadt, puntfout tot 3,2 °C in
+  kuststeden, kustlijnen ~10 km verschoven; branch op origin. Vervolg U18b gestart:
+  DCT+gekwantiseerd residu / lossless predictief / wavelet, meten dan bouwen, één veld
+  voor kaart én tabel. Backlog: zstd pledged content-size (decode 7,6→1,0 ms/frame).
 - Open MET PO: LICENSE; isolijnen boven plaatsnamen ok?; mobiel cold-TTFR-budget 4 s;
   versheidspil oogt zwaar op mobiel (70 px); UV-ghost op bewolkte uren gezien?
   VOOR AGENTS: SessionStart-hook wijst naar /home/mathijs (nix-config-pad);
