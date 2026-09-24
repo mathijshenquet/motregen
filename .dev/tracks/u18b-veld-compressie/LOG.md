@@ -55,7 +55,7 @@ wil houden.
 
 ## 2026-09-24 ~19:15 — gebouwd, gates, live, bewijs
 Commits: d13e988 (mrf `pred`: codec + container + tests + `examples/pred_measure.rs`), b938e96 (ingest/client/
-synthgen/validator/docs; U18's DCT teruggedraaid = revert 4f4d7bc + 73084f9), 9b… (pred_measure t.o.v. opnieuw
+synthgen/validator/docs; U18's DCT teruggedraaid = revert 4f4d7bc + 73084f9), 17ecfdb (pred_measure t.o.v. opnieuw
 gecodeerde bitmap), 3913c78 (bijvangst: content-size op pred-members).
 - **Codec** (`crates/mrf/src/pred.rs`, `web/src/core/pred.ts`, spec in docs/mrf.md §Predictive frames): member =
   zstd(masker bitpacked ‖ range-gecodeerde residuen). Voorspeller ⌊(2a+2b−c+d+2)/4⌋, context = activiteit (7) × rest
