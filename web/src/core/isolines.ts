@@ -28,14 +28,22 @@ export interface IsolineTuning {
   /** Grenzen voor de lijnsnelheid |∂T/∂t|/|∇T| in km/u (modus snelheid): daarboven weg. */
   speedLow: number
   speedHigh: number
+  /** Vector: exacte B-spline-contouren als lijnen op device-resolutie (anders per pixel). */
+  vector: boolean
+  /** Vector: gesloten lijnen korter dan dit (km) vervagen (lusjes-criterium); 0 = uit. */
+  ringKm: number
+  /** Vector: verdichting, maximale afwijking koorde ↔ lijn in CSS-px. */
+  tolerancePx: number
 }
 
 export const ISOLINE_FADES = ['uit', 'gradiënt', 'snelheid'] as const
 export type IsolineFade = typeof ISOLINE_FADES[number]
 
 export const DEFAULT_ISOLINE_TUNING: IsolineTuning = { step: 1, dashed: true, smoothing: true, blur: 2, window: 1, bicubic: true, resolution: 0.5, maxHz: 60,
-  // Gekalibreerd op prod 2026-09-23 avond: |∇T| op lijnpixels p10/p25/p50/p90 = 0,02/0,044/0,08/0,17 °C/km.
-  fade: 'gradiënt', gradientLow: 0.02, gradientHigh: 0.06, speedLow: 80, speedHigh: 250 }
+  // Gradiënt-fade uit (PO 2026-09-24: in vlak gebied verdwijnen hele lijnen); de lusjes gaan via ringKm.
+  // Grenzen blijven op de U8c-kalibratie (lijnpixels p10/p50/p90 = 0,02/0,08/0,17 °C/km).
+  fade: 'uit', gradientLow: 0.02, gradientHigh: 0.06, speedLow: 80, speedHigh: 250,
+  vector: true, ringKm: 60, tolerancePx: 0.25 }
 
 export const ISOLINE_WINDOWS = [0, 1] as const
 
@@ -186,7 +194,7 @@ const SEGMENTS: ReadonlyArray<ReadonlyArray<readonly [number, number]>> = [
   [[3, 0]], [[0, 2]], [], [[0, 1]], [[3, 1]], [[2, 1]], [[3, 2]], [],
 ]
 
-interface Workspace {
+export interface Workspace {
   first: Int32Array
   second: Int32Array
   visited: Uint8Array
@@ -194,7 +202,7 @@ interface Workspace {
   ys: Float32Array
 }
 
-function workspace(field: ScalarField): Workspace {
+export function workspace(field: ScalarField): Workspace {
   const edges = field.width * field.height * 2
   return {
     first: new Int32Array(edges).fill(-1),
@@ -205,7 +213,8 @@ function workspace(field: ScalarField): Workspace {
   }
 }
 
-export function marchingSquares(field: ScalarField, level: number, minLength = 0, minRingLength = minLength, buffers = workspace(field)): Isoline[] {
+/** `cells` (index rij·breedte + kolom): alleen deze cellen bezoeken, bv. de cellen die het niveau kruisen. */
+export function marchingSquares(field: ScalarField, level: number, minLength = 0, minRingLength = minLength, buffers = workspace(field), cells?: ArrayLike<number>): Isoline[] {
   const { width, height, values } = field
   // Een kruising ligt op precies één rooster-edge (id = knoop·2 + richting) en elke edge
   // wordt door hooguit twee cellen gedeeld: graad ≤ 2, dus twee link-slots volstaan.
@@ -229,27 +238,30 @@ export function marchingSquares(field: ScalarField, level: number, minLength = 0
   const attach = (from: number, to: number) => {
     if (first[from] === -1) first[from] = to; else second[from] = to
   }
-  for (let row = 0; row < height - 1; row++) {
-    for (let column = 0; column < width - 1; column++) {
-      const tl = values[row * width + column]!
-      const tr = values[row * width + column + 1]!
-      const br = values[(row + 1) * width + column + 1]!
-      const bl = values[(row + 1) * width + column]!
-      if (Number.isNaN(tl) || Number.isNaN(tr) || Number.isNaN(br) || Number.isNaN(bl)) continue
-      const index = (tl >= level ? 8 : 0) | (tr >= level ? 4 : 0) | (br >= level ? 2 : 0) | (bl >= level ? 1 : 0)
-      if (index === 0 || index === 15) continue
-      let pairs = SEGMENTS[index]!
-      if (index === 5 || index === 10) {
-        const centerHigh = (tl + tr + br + bl) / 4 >= level
-        // 5 = tr+bl hoog, 10 = tl+br hoog. Hoog midden verbindt de hoge hoeken, dus de lage worden afgesneden.
-        const cutTopLeft = index === 5 ? centerHigh : !centerHigh
-        pairs = cutTopLeft ? [[3, 0], [2, 1]] : [[0, 1], [3, 2]]
-      }
-      for (const [from, to] of pairs) {
-        const a = crossing(row, column, from), b = crossing(row, column, to)
-        attach(a, b); attach(b, a)
-      }
+  const visit = (row: number, column: number) => {
+    const tl = values[row * width + column]!
+    const tr = values[row * width + column + 1]!
+    const br = values[(row + 1) * width + column + 1]!
+    const bl = values[(row + 1) * width + column]!
+    if (Number.isNaN(tl) || Number.isNaN(tr) || Number.isNaN(br) || Number.isNaN(bl)) return
+    const index = (tl >= level ? 8 : 0) | (tr >= level ? 4 : 0) | (br >= level ? 2 : 0) | (bl >= level ? 1 : 0)
+    if (index === 0 || index === 15) return
+    let pairs = SEGMENTS[index]!
+    if (index === 5 || index === 10) {
+      const centerHigh = (tl + tr + br + bl) / 4 >= level
+      // 5 = tr+bl hoog, 10 = tl+br hoog. Hoog midden verbindt de hoge hoeken, dus de lage worden afgesneden.
+      const cutTopLeft = index === 5 ? centerHigh : !centerHigh
+      pairs = cutTopLeft ? [[3, 0], [2, 1]] : [[0, 1], [3, 2]]
     }
+    for (const [from, to] of pairs) {
+      const a = crossing(row, column, from), b = crossing(row, column, to)
+      attach(a, b); attach(b, a)
+    }
+  }
+  if (cells) {
+    for (let index = 0; index < cells.length; index++) visit(Math.floor(cells[index]! / width), cells[index]! % width)
+  } else {
+    for (let row = 0; row < height - 1; row++) for (let column = 0; column < width - 1; column++) visit(row, column)
   }
   const lines: Isoline[] = []
   const walk = (start: number) => {
@@ -303,12 +315,16 @@ export interface IsolineFeatureCollection {
   }>
 }
 
-export function isolineFeatures(field: ScalarField, grid: Grid, tuning: Pick<IsolineTuning, 'step' | 'smoothing'>): IsolineFeatureCollection {
+export function isolineFeatures(field: ScalarField, grid: Grid, tuning: Pick<IsolineTuning, 'step' | 'smoothing'> & Partial<Pick<IsolineTuning, 'vector' | 'ringKm'>>): IsolineFeatureCollection {
   const features: IsolineFeatureCollection['features'] = []
   const buffers = workspace(field)
   const toLngLat = gridProjection(grid)
+  // Vectorlijnen vervagen lusjes korter dan ringKm; een label op zo'n lusje zou los zweven.
+  const centerLat = 2 * Math.atan(Math.exp((grid.y0 + grid.dy * grid.height / 2) / 6378137)) - Math.PI / 2
+  const kmPerCell = Math.abs(grid.dx) * Math.cos(centerLat) / 1000
+  const minRingCells = tuning.vector && tuning.ringKm ? Math.max(MIN_RING_CELLS, tuning.ringKm / kmPerCell) : MIN_RING_CELLS
   for (const level of isolineLevels(field, tuning.step)) {
-    for (const line of marchingSquares(field, level, MIN_LENGTH_CELLS, MIN_RING_CELLS, buffers)) {
+    for (const line of marchingSquares(field, level, MIN_LENGTH_CELLS, minRingCells, buffers)) {
       const smoothed = tuning.smoothing ? chaikin(line.points, line.closed) : line.points
       const coordinates = smoothed.map(([column, row]) => toLngLat(column, row))
       if (line.closed) coordinates.push(coordinates[0]!)

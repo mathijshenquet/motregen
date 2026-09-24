@@ -20,7 +20,9 @@ import { contextOpacity, DEFAULT_FOCUS_TUNING, FocusMode, type FocusTuning } fro
 import { FrameBatcher } from './core/frame-batcher'
 import type { RefreshState } from './core/freshness'
 import { blendFrames, blurField, DEFAULT_ISOLINE_TUNING, ISOLINE_EDGE_FADE_MS, ISOLINE_FADES, ISOLINE_LINE_OPACITY, ISOLINE_STEPS, ISOLINE_WINDOWS, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineFade, type IsolineStep, type IsolineTuning } from './core/isolines'
-import { DEFAULT_LABEL_TUNING, IsolineLabels, sliceWeights, type IsolineLabelTuning } from './core/isoline-labels'
+import { DEFAULT_LABEL_TUNING, IsolineLabels, type IsolineLabelTuning } from './core/isoline-labels'
+import { sliceWeights } from './core/isoline-spline'
+import { TraceCore } from './core/isoline-tracer'
 import { prepareField, type PreparedField } from './core/isoline-field'
 import { hexColor, IsolineLayer, isolineLayerIndices, type IsolineStyle } from './core/isoline-layer'
 import { cursorAfterTimelineRefresh, isNewerManifest, reconcileTimelineSeries, scheduleManifestRefresh } from './core/manifest-refresh'
@@ -130,6 +132,20 @@ export default function App() {
     ...isolineCounters(),
     bench: (passes: number, resolution?: number) => isolineLayer?.bench(passes, resolution),
     field: (index: number) => isolineLayer && isolineFields[index] ? { grid: isolineLayer.grid, field: isolineFields[index] } : undefined,
+    // Tracer-kosten zonder worker-overhead: dezelfde code als de worker, op de main thread.
+    traceBench: (runs: number) => {
+      if (!isolineLayer) return undefined
+      const core = new TraceCore(isolineLayer.grid, isolineLayer.depth)
+      isolineFields.forEach((field, index) => core.setLayer(index, field))
+      const { step, window } = isolineTuning()
+      const times: number[] = []
+      for (let run = 0; run < runs; run++) {
+        const started = performance.now()
+        core.trace({ time: isolineTime, window, step, toleranceCells: 0.05, ringKm: 60 })
+        times.push(performance.now() - started)
+      }
+      return times.map((time) => Math.round(time * 10) / 10)
+    },
   })
   let lastMapPointer = 'mouse'
   let pointRequest = 0
@@ -672,6 +688,7 @@ export default function App() {
   function unmountIsolines(): void {
     if (isolineOverlay) isolineOverlay.remove()
     else if (isolineLayer && map?.getLayer(isolineLayer.id)) map.removeLayer(isolineLayer.id)
+    isolineLayer?.dispose()
     isolineOverlay = undefined
     isolineLayer = undefined
   }
@@ -761,10 +778,11 @@ export default function App() {
   }
 
   function isolineStyle(): IsolineStyle {
-    const { step, dashed, window, bicubic, fade, gradientLow, gradientHigh, speedLow, speedHigh } = isolineTuning()
+    const { step, dashed, window, bicubic, fade, gradientLow, gradientHigh, speedLow, speedHigh, vector, ringKm, tolerancePx } = isolineTuning()
     return {
       step, dashed, window, bicubic, color: hexColor(isolineColor(mapTheme())),
       fade: ISOLINE_FADES.indexOf(fade), gradient: [gradientLow, gradientHigh], speed: [speedLow, speedHigh],
+      vector, ringKm, tolerancePx,
     }
   }
 
@@ -845,7 +863,7 @@ export default function App() {
     const tuning = isolineTuning()
     const blend = frameBlend(frames, selectedEpoch())
     const frame = frames[blend.mix < 0.5 ? blend.left : blend.right]!
-    const key = `${frame.chunk.url}#${frame.frameIndex}|${tuning.step}|${tuning.smoothing}|${tuning.blur}`
+    const key = `${frame.chunk.url}#${frame.frameIndex}|${tuning.step}|${tuning.smoothing}|${tuning.blur}|${tuning.vector ? tuning.ringKm : 0}`
     if (key === isolineKey) return
     try {
       let labels = isolineLabelCache.get(key)
@@ -1535,6 +1553,9 @@ export default function App() {
           <label><span>Tijdvenster</span><select value={isolineTuning().window} onChange={(event) => setIsolineTuning((current) => ({ ...current, window: Number(event.currentTarget.value) }))}>{ISOLINE_WINDOWS.map((window) => <option value={window}>{window === 0 ? 'lineair' : 'B-spline'}</option>)}</select><output>{isolineTuning().window}</output></label>
           <label><span>Label-afstand</span><input type="range" min="30" max="240" step="10" value={labelTuning().minDistancePx} onInput={(event) => setLabelTuning((current) => ({ ...current, minDistancePx: event.currentTarget.valueAsNumber }))} /><output>{labelTuning().minDistancePx} px</output></label>
           <label><span>Label-spatiëring</span><input type="range" min="100" max="600" step="20" value={labelTuning().spacingPx} onInput={(event) => setLabelTuning((current) => ({ ...current, spacingPx: event.currentTarget.valueAsNumber }))} /><output>{labelTuning().spacingPx} px</output></label>
+          <label class="debug-toggle"><span>Vectorlijnen</span><input type="checkbox" checked={isolineTuning().vector} onChange={(event) => setIsolineTuning((current) => ({ ...current, vector: event.currentTarget.checked }))} /><output>{isolineTuning().vector ? 'Vector' : 'Raster'}</output></label>
+          <label><span>Lusjes &lt;</span><input type="range" min="0" max="150" step="5" value={isolineTuning().ringKm} onInput={(event) => setIsolineTuning((current) => ({ ...current, ringKm: event.currentTarget.valueAsNumber }))} /><output>{isolineTuning().ringKm ? `${isolineTuning().ringKm} km` : 'uit'}</output></label>
+          <label><span>Verdichting</span><input type="range" min="0.05" max="2" step="0.05" value={isolineTuning().tolerancePx} onInput={(event) => setIsolineTuning((current) => ({ ...current, tolerancePx: event.currentTarget.valueAsNumber }))} /><output>{isolineTuning().tolerancePx.toFixed(2)} px</output></label>
           <label class="debug-toggle"><span>Bicubisch</span><input type="checkbox" checked={isolineTuning().bicubic} onChange={(event) => setIsolineTuning((current) => ({ ...current, bicubic: event.currentTarget.checked }))} /><output>{isolineTuning().bicubic ? 'Aan' : 'Uit'}</output></label>
           <label><span>Contour px/CSS-px</span><input type="range" min="0.25" max="1" step="0.25" value={isolineTuning().resolution} onInput={(event) => setIsolineTuning((current) => ({ ...current, resolution: event.currentTarget.valueAsNumber }))} /><output>{isolineTuning().resolution}×</output></label>
           <label><span>Contour max</span><input type="range" min="5" max="60" step="5" value={isolineTuning().maxHz} onInput={(event) => setIsolineTuning((current) => ({ ...current, maxHz: event.currentTarget.valueAsNumber }))} /><output>{isolineTuning().maxHz} Hz</output></label>
