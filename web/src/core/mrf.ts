@@ -1,7 +1,7 @@
 import { decompress } from 'fzstd'
 import { chunkField, type ManifestChunk, type MrfHeader } from './contract'
-import { dctFrameLength, dctFrameToBitmap, type DctFrameSpec } from './dct'
 import type { LoadLayer, LoadTrace } from './perf'
+import { decodePredFrame, PRED_VERSION, type PredFrameSpec } from './pred'
 
 const decoder = new TextDecoder()
 
@@ -22,20 +22,18 @@ function validateHeader(header: MrfHeader): void {
   if (header.dict !== null || header.grid.width < 1 || header.grid.height < 1) throw new Error('Ongeldige mrf-header')
   if (header.motion_grid && (!Number.isInteger(header.motion_grid.bw) || !Number.isInteger(header.motion_grid.bh) || header.motion_grid.bw < 1 || header.motion_grid.bh < 1)) throw new Error('Ongeldig motion-grid')
   if (!header.motion_grid && header.frames.some((frame) => frame.motion)) throw new Error('Motion-annex zonder motion-grid')
-  if (header.dct && (!Number.isInteger(header.dct.k) || header.dct.k < 1 || header.dct.k > Math.min(header.grid.width, header.grid.height))) throw new Error('Ongeldige DCT-orde')
+  if (header.pred && header.pred.v !== PRED_VERSION) throw new Error(`Niet-ondersteunde predictieve frames v${header.pred.v}`)
   if (header.frames.some((frame) => frame.motion && (!Number.isInteger(frame.motion.offset) || !Number.isInteger(frame.motion.len) || frame.motion.offset < 0 || frame.motion.len < 1))) throw new Error('Ongeldige motion-verwijzing')
 }
 
-export function decodeFrame(bytes: Uint8Array, expectedLength: number, dct?: DctFrameSpec): Uint8Array {
-  const decoded = decompress(bytes)
-  const wanted = dct ? dctFrameLength(dct.width, dct.height, dct.k) : expectedLength
-  if (decoded.length !== wanted) throw new Error(`Frame heeft ${decoded.length} bytes; verwacht ${wanted}`)
-  return dct ? dctFrameToBitmap(decoded, dct) : decoded
+export function decodeFrame(bytes: Uint8Array, expectedLength: number, pred?: PredFrameSpec): Uint8Array {
+  const decoded = pred ? decodePredFrame(decompress(bytes), pred) : decompress(bytes)
+  if (decoded.length !== expectedLength) throw new Error(`Frame heeft ${decoded.length} bytes; verwacht ${expectedLength}`)
+  return decoded
 }
 
-/** Wat de worker nodig heeft om een DCT-frame terug te brengen tot een bitmapframe van het grid. */
-function dctSpec(header: MrfHeader): DctFrameSpec | undefined {
-  return header.dct ? { width: header.grid.width, height: header.grid.height, k: header.dct.k, quant: header.quant } : undefined
+function predSpec(header: MrfHeader): PredFrameSpec | undefined {
+  return header.pred ? { width: header.grid.width, height: header.grid.height } : undefined
 }
 
 export class LruCache<K, V> {
@@ -126,9 +124,6 @@ export class MrfClient {
   private readonly headers = new Map<string, Promise<MrfHeader>>()
   private readonly resolvedHeaders = new Map<string, MrfHeader>()
   private readonly frames = new LruCache<string, Uint8Array>(512)
-  // DCT-kaartvelden in een eigen cache: de gedeelde 512 is op maat van de puntreeksen, en 52 extra
-  // uurframes drukten tabelframes eruit (tweede locatieklik viel terug naar skeleton, U15-les).
-  private readonly fieldFrames = new LruCache<string, Uint8Array>(64)
   private readonly framePromises = new Map<string, Promise<Uint8Array>>()
   private readonly motions = new LruCache<string, MotionField>(256)
   private readonly motionPromises = new Map<string, Promise<MotionField>>()
@@ -175,8 +170,7 @@ export class MrfClient {
   }
 
   getCachedFrame(chunk: ManifestChunk, frameIndex: number): Uint8Array | undefined {
-    const url = new URL(chunk.url, this.manifestUrl).href
-    return this.cacheFor(this.resolvedHeaders.get(url)).get(frameKey(url, frameIndex))
+    return this.frames.get(frameKey(new URL(chunk.url, this.manifestUrl).href, frameIndex))
   }
 
   async getFrame(chunk: ManifestChunk, frameIndex: number, priority: FetchPriority = 'high'): Promise<Uint8Array> {
@@ -196,7 +190,7 @@ export class MrfClient {
     for (const index of uniqueIndexes) if (!header.frames[index]) throw new Error('Frame-index buiten bereik')
     const missing = uniqueIndexes.filter((index) => {
       const key = frameKey(url, index)
-      return !this.cacheFor(header).get(key) && !this.framePromises.has(key)
+      return !this.frames.get(key) && !this.framePromises.has(key)
     })
 
     if (missing.length >= 2) {
@@ -211,7 +205,7 @@ export class MrfClient {
 
     return Promise.all(frameIndexes.map(async (index) => {
       const key = frameKey(url, index)
-      const cached = this.cacheFor(header).get(key)
+      const cached = this.frames.get(key)
       const frame = cached ?? await this.framePromises.get(key)!
       progress?.(index, frame)
       return frame
@@ -267,9 +261,9 @@ export class MrfClient {
       ? await payload.read(frame.offset, frame.offset + frame.len)
       : await fetchRange(url, start, start + frame.len - 1, priority, this.rangeTrace(layer, [frameIndex]))
     this.trace?.frameBytesReady(url, frameIndex)
-    const decoded = await this.decodeInWorker(compressed, header.grid.width * header.grid.height, dctSpec(header))
+    const decoded = await this.decodeInWorker(compressed, header.grid.width * header.grid.height, predSpec(header))
     this.trace?.frameDecoded(url, frameIndex)
-    this.cacheFor(header).set(key, decoded)
+    this.frames.set(key, decoded)
     this.onFrameDecoded?.(url, frameIndex, decoded)
     return decoded
   }
@@ -298,9 +292,9 @@ export class MrfClient {
       const frame = header.frames[index]!
       const compressed = await payload.read(frame.offset, frame.offset + frame.len)
       this.trace?.frameBytesReady(url, index)
-      const decodedBytes = await this.decodeInWorker(compressed, header.grid.width * header.grid.height, dctSpec(header))
+      const decodedBytes = await this.decodeInWorker(compressed, header.grid.width * header.grid.height, predSpec(header))
       this.trace?.frameDecoded(url, index)
-      this.cacheFor(header).set(frameKey(url, index), decodedBytes)
+      this.frames.set(frameKey(url, index), decodedBytes)
       this.onFrameDecoded?.(url, index, decodedBytes)
       return decodedBytes
     })()]))
@@ -336,10 +330,6 @@ export class MrfClient {
     void this.getFrames(chunk, indexes, priority, undefined, 'prefetch').catch(() => undefined)
   }
 
-  private cacheFor(header: MrfHeader | undefined): LruCache<string, Uint8Array> {
-    return header?.dct ? this.fieldFrames : this.frames
-  }
-
   private rangeTrace(layer: LoadLayer, frames: number[]): RangeTrace | undefined {
     const trace = this.trace
     return trace ? { trace, layer, frames } : undefined
@@ -349,7 +339,7 @@ export class MrfClient {
     for (const index of indexes) void this.getMotion(chunk, index).catch(() => undefined)
   }
 
-  private decodeInWorker(compressed: Uint8Array, expectedLength: number, dct?: DctFrameSpec): Promise<Uint8Array> {
+  private decodeInWorker(compressed: Uint8Array, expectedLength: number, pred?: PredFrameSpec): Promise<Uint8Array> {
     const id = ++this.requestId
     return new Promise((resolve, reject) => {
       const worker = this.workerLoad.indexOf(Math.min(...this.workerLoad))
@@ -358,7 +348,7 @@ export class MrfClient {
       const bytes = compressed.byteOffset === 0 && compressed.byteLength === compressed.buffer.byteLength
         ? compressed.buffer
         : compressed.slice().buffer
-      this.workers[worker]!.postMessage({ id, bytes, expectedLength, dct }, [bytes])
+      this.workers[worker]!.postMessage({ id, bytes, expectedLength, pred }, [bytes])
     })
   }
 }

@@ -46,6 +46,8 @@ def main():
             raise ValueError(f"header_len mismatch in {path}")
         if header["version"] != 0 or header["dict"] is not None:
             raise ValueError(f"invalid mrf v0 header in {path}")
+        if header.get("pred", {"v": 1}) != {"v": 1}:
+            raise ValueError(f"unsupported pred frames in {path}")
         if header["source"] != chunk["source"] or header["run"] != chunk["run"]:
             raise ValueError(f"manifest/header provenance mismatch in {path}")
         field = chunk.get("field", "rain_rate")
@@ -68,15 +70,6 @@ def main():
             )
         ):
             raise ValueError(f"invalid quant table in {path}")
-        dct = header.get("dct")
-        if dct is not None and (
-            not isinstance(dct.get("k"), int)
-            or not 1 <= dct["k"] <= min(header["grid"]["width"], header["grid"]["height"])
-            or header.get("motion_grid") is not None
-        ):
-            raise ValueError(f"invalid dct header in {path}")
-        if (field == "feels_like_dct") != (dct is not None):
-            raise ValueError(f"dct header and feels_like_dct field disagree in {path}")
         offset = 0
         for frame in header["frames"]:
             if frame["offset"] != offset or frame["len"] <= 0:

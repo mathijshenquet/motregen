@@ -409,7 +409,6 @@ struct DecodedArome {
     motion_wind_frames: Vec<Vec<Option<(f32, f32)>>>,
     temperature: Vec<Vec<u8>>,
     feels_like: Vec<Vec<u8>>,
-    feels_like_dct: Vec<Vec<u8>>,
     wind_u: Vec<Vec<u8>>,
     wind_v: Vec<Vec<u8>>,
     radiation: Vec<Vec<u8>>,
@@ -472,7 +471,6 @@ fn decode_arome_run(
         motion_wind_frames,
         temperature: Vec::with_capacity(capacity),
         feels_like: Vec::with_capacity(capacity),
-        feels_like_dct: Vec::with_capacity(capacity),
         wind_u: Vec::with_capacity(capacity),
         wind_v: Vec::with_capacity(capacity),
         radiation: Vec::with_capacity(capacity),
@@ -538,14 +536,9 @@ fn decode_arome_run(
             &integrate_values(&temperature, 3)?,
             &temperature_quant,
         )?);
-        let feels_like = integrate_values(&feels_like, 3)?;
-        out.feels_like
-            .push(quantize_values(&feels_like, &temperature_quant)?);
-        out.feels_like_dct.push(mrf::dct::encode_frame(
-            &feels_like,
-            DETAIL_GRID.width,
-            DETAIL_GRID.height,
-            FEELS_LIKE_DCT_K,
+        out.feels_like.push(quantize_values(
+            &integrate_values(&feels_like, 3)?,
+            &temperature_quant,
         )?);
         out.wind_u.push(quantize_values(
             &integrate_values(&wind_u, 3)?,
@@ -591,8 +584,8 @@ fn decode_arome_run(
 /// passive table load at one day even when the horizon is longer.
 const HOURLY_CHUNK_LEADS: usize = 24;
 
-/// DCT order of the `feels_like_dct` map field; measurement in docs/fields.md §DCT-veld.
-const FEELS_LIKE_DCT_K: u32 = 64;
+/// Fields whose frames are stored as lossless predictive members (docs/mrf.md §Predictive frames).
+const PREDICTIVE_FIELDS: [&str; 1] = ["feels_like_c"];
 
 fn hourly_field_chunks(decoded: &DecodedArome, horizon_label: &str) -> Result<Vec<ProducedChunk>> {
     let run = &decoded.run;
@@ -601,8 +594,7 @@ fn hourly_field_chunks(decoded: &DecodedArome, horizon_label: &str) -> Result<Ve
     let field_chunk = |field: &str,
                        grid: crate::grid::GridSpec,
                        frames: &[Vec<u8>],
-                       quant: Vec<Option<f32>>,
-                       dct: Option<u32>|
+                       quant: Vec<Option<f32>>|
      -> Result<Vec<ProducedChunk>> {
         (0..parts)
             .map(|part| {
@@ -620,9 +612,10 @@ fn hourly_field_chunks(decoded: &DecodedArome, horizon_label: &str) -> Result<Ve
                     decoded.times[first..last].to_vec(),
                 )
                 .with_field(field, quant.clone());
-                let meta = match dct {
-                    Some(k) => meta.with_dct(k),
-                    None => meta,
+                let meta = if PREDICTIVE_FIELDS.contains(&field) {
+                    meta.with_pred()
+                } else {
+                    meta
                 };
                 produced_chunk(
                     generated_chunk_filename(
@@ -643,50 +636,37 @@ fn hourly_field_chunks(decoded: &DecodedArome, horizon_label: &str) -> Result<Ve
             DETAIL_GRID,
             &decoded.temperature,
             temperature_quant.clone(),
-            None,
         )?,
         field_chunk(
             "feels_like_c",
             DETAIL_GRID,
             &decoded.feels_like,
-            temperature_quant.clone(),
-            None,
-        )?,
-        field_chunk(
-            "feels_like_dct",
-            DETAIL_GRID,
-            &decoded.feels_like_dct,
             temperature_quant,
-            Some(FEELS_LIKE_DCT_K),
         )?,
         field_chunk(
             "wind_u_ms",
             DETAIL_GRID,
             &decoded.wind_u,
             wind_quant.clone(),
-            None,
         )?,
-        field_chunk("wind_v_ms", DETAIL_GRID, &decoded.wind_v, wind_quant, None)?,
+        field_chunk("wind_v_ms", DETAIL_GRID, &decoded.wind_v, wind_quant)?,
         field_chunk(
             "radiation",
             RADIATION_GRID,
             &decoded.radiation,
             radiation_quantization_table(),
-            None,
         )?,
         field_chunk(
             "rel_humidity",
             SUMMARY_GRID,
             &decoded.relative_humidity,
             percent_quant.clone(),
-            None,
         )?,
         field_chunk(
             "cloud_frac",
             SUMMARY_GRID,
             &decoded.cloud_fraction,
             percent_quant,
-            None,
         )?,
     ]
     .concat())
@@ -967,9 +947,9 @@ fn generated_chunk_filename(stem: &str, meta: &mrf::ChunkMeta) -> String {
     }
     update(&meta.grid.width.to_le_bytes());
     update(&meta.grid.height.to_le_bytes());
-    if let Some(dct) = meta.dct {
-        update(b"dct");
-        update(&dct.k.to_le_bytes());
+    if let Some(pred) = meta.pred {
+        update(b"pred");
+        update(&pred.v.to_le_bytes());
     }
     for value in &meta.quant {
         match value {
@@ -1181,16 +1161,6 @@ mod tests {
             motion_wind_frames: Vec::new(),
             temperature: frames(DETAIL_GRID),
             feels_like: frames(DETAIL_GRID),
-            feels_like_dct: vec![
-                mrf::dct::encode_frame(
-                    &vec![12.0; DETAIL_GRID.cell_count()],
-                    DETAIL_GRID.width,
-                    DETAIL_GRID.height,
-                    FEELS_LIKE_DCT_K,
-                )
-                .unwrap();
-                times.len()
-            ],
             wind_u: frames(DETAIL_GRID),
             wind_v: frames(DETAIL_GRID),
             radiation: frames(RADIATION_GRID),
@@ -1198,21 +1168,7 @@ mod tests {
             cloud_fraction: frames(SUMMARY_GRID),
         };
         let chunks = hourly_field_chunks(&decoded, "h30").unwrap();
-        assert_eq!(chunks.len(), 16);
-        let dct = chunks
-            .iter()
-            .filter(|chunk| chunk.manifest.field == "feels_like_dct")
-            .collect::<Vec<_>>();
-        assert_eq!(dct.len(), 2);
-        assert_eq!(dct[1].manifest.times, times[24..]);
-        let header = mrf::parse_header(&dct[0].bytes).unwrap().header;
-        assert_eq!(
-            header.dct,
-            Some(mrf::Dct {
-                k: FEELS_LIKE_DCT_K
-            })
-        );
-        assert_eq!(header.grid, DETAIL_GRID.mrf_grid());
+        assert_eq!(chunks.len(), 14);
         let temperature = chunks
             .iter()
             .filter(|chunk| chunk.manifest.field == "temp_c")
@@ -1230,6 +1186,29 @@ mod tests {
                 .starts_with("harmonie-temp_c-20260923T0000-h30-l25-30-")
         );
         validate_wind_pair(&chunks).unwrap();
+        for chunk in &chunks {
+            let decoded = mrf::decode(&chunk.bytes).unwrap();
+            let predictive = chunk.manifest.field == "feels_like_c";
+            assert_eq!(
+                decoded.header.pred.is_some(),
+                predictive,
+                "{}",
+                chunk.filename
+            );
+            assert!(decoded.frames.iter().flatten().all(|cell| *cell == 0));
+        }
+        let plain = mrf::ChunkMeta::standard(
+            DETAIL_GRID.mrf_grid(),
+            "harmonie",
+            "2026-09-23T00:00:00Z",
+            times.clone(),
+        )
+        .with_field("feels_like_c", temperature_quantization_table());
+        assert_ne!(
+            generated_chunk_filename("x", &plain),
+            generated_chunk_filename("x", &plain.clone().with_pred()),
+            "a predictive chunk must never reuse a bitmap chunk's URL"
+        );
     }
 
     #[test]

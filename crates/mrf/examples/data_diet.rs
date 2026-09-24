@@ -295,7 +295,6 @@ fn subsampling_report(
             .iter()
             .map(|frame| frame.time.clone())
             .collect(),
-        dct: None,
         pred: None,
     };
     let encoded_bytes = mrf::encode(&coarse_frames, &meta)?.len();

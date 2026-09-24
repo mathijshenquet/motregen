@@ -175,7 +175,6 @@ fn golden_chunk_decodes_byte_exactly() {
                     .into_iter()
                     .map(|frame| frame.time)
                     .collect(),
-                dct: decoded.header.dct,
                 pred: decoded.header.pred,
             }
         )
@@ -431,36 +430,6 @@ fn sparse_advecting_fields(frame_count: usize) -> Vec<Vec<u8>> {
 }
 
 #[test]
-fn dct_chunks_round_trip_through_the_container() {
-    let (width, height, k) = (40_u32, 30_u32, 12_u32);
-    let mut field = (0..width * height)
-        .map(|index| 8.0 + (index % width) as f32 * 0.1 - (index / width) as f32 * 0.05)
-        .collect::<Vec<_>>();
-    field[0] = f32::NAN;
-    let frames = vec![
-        mrf::dct::encode_frame(&field, width, height, k).unwrap(),
-        mrf::dct::encode_frame(&field, width, height, k).unwrap(),
-    ];
-    let quant = (0..255)
-        .map(|index| Some(-31.2 + index as f32 * 0.3))
-        .chain(std::iter::once(None))
-        .collect();
-    let dct_meta = meta(width, height, 2)
-        .with_field("feels_like_dct", quant)
-        .with_dct(k);
-    let bytes = encode(&frames, &dct_meta).unwrap();
-    let decoded = decode(&bytes).unwrap();
-    assert_eq!(decoded.header.dct, Some(mrf::Dct { k }));
-    assert_eq!(decoded.frames, frames);
-    let back = mrf::dct::decode_frame(&decoded.frames[1], width, height, k).unwrap();
-    assert!(back[0].is_nan());
-    assert!((back[width as usize + 5] - field[width as usize + 5]).abs() < 0.05);
-    // A cell-sized frame is not a DCT frame.
-    let wrong = vec![vec![0_u8; (width * height) as usize]];
-    assert!(encode(&wrong, &meta(width, height, 1).with_dct(k)).is_err());
-}
-
-#[test]
 fn pred_chunks_are_transparent_and_smaller_than_bitmaps() {
     let (width, height) = (60_u32, 40_u32);
     let mut state = 1_u32;
@@ -497,12 +466,9 @@ fn pred_chunks_are_transparent_and_smaller_than_bitmaps() {
 }
 
 #[test]
-fn pred_headers_reject_unknown_versions_and_dct() {
+fn pred_headers_reject_unknown_versions() {
     let frames = vec![vec![7_u8; 12]];
     let chunk = encode(&frames, &meta(4, 3, 1).with_pred()).unwrap();
     let text = String::from_utf8_lossy(&chunk).replace("\"pred\":{\"v\":1}", "\"pred\":{\"v\":2}");
     assert!(parse_header(text.as_bytes()).is_err());
-    let mut both = meta(4, 3, 1).with_pred();
-    both.dct = Some(mrf::Dct { k: 2 });
-    assert!(encode(&frames, &both).is_err());
 }

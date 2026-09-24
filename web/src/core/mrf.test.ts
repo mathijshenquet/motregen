@@ -2,8 +2,10 @@ import { readFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { resolve } from 'node:path'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { ZstdCodec } from 'zstd-codec'
 import type { Field, Manifest, MrfHeader } from './contract'
 import { decodeFrame, LruCache, MrfClient, parseMrfHeader } from './mrf'
+import { encodePredFrame, type PredFrameSpec } from './pred'
 import { buildTimeline } from './time-model'
 
 let file: Uint8Array
@@ -21,38 +23,6 @@ beforeAll(async () => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('mrf v0', () => {
-  it('decodeert een feels_like_dct-frame tot een bitmapframe dat de bitmap volgt', () => {
-    const read = (field: Field, index: number) => {
-      const chunk = manifest.chunks.find((candidate) => candidate.field === field)!
-      const bytes = files.get(chunk.url)!
-      const header = parseMrfHeader(bytes.subarray(0, chunk.header_len))
-      const frame = header.frames[index]!
-      const member = bytes.subarray(chunk.header_len + frame.offset, chunk.header_len + frame.offset + frame.len)
-      const spec = header.dct ? { width: header.grid.width, height: header.grid.height, k: header.dct.k, quant: header.quant } : undefined
-      return { header, frame: decodeFrame(member, header.grid.width * header.grid.height, spec) }
-    }
-    const dct = read('feels_like_dct', 5), bitmap = read('feels_like_c', 5)
-    expect(dct.header.dct).toEqual({ k: 64 })
-    expect(dct.header.grid).toEqual(bitmap.header.grid)
-    expect(dct.frame.length).toBe(bitmap.frame.length)
-    let worst = 0
-    for (let index = 0; index < dct.frame.length; index++) worst = Math.max(worst, Math.abs(dct.header.quant[dct.frame[index]!]! - bitmap.header.quant[bitmap.frame[index]!]!))
-    expect(worst).toBeLessThan(0.5)
-  })
-
-  it('weigert een DCT-orde die niet in het grid past', () => {
-    const chunk = manifest.chunks.find((candidate) => candidate.field === 'feels_like_dct')!
-    const header = JSON.parse(new TextDecoder().decode(files.get(chunk.url)!.subarray(8, chunk.header_len))) as MrfHeader
-    for (const k of [0, 1.5, header.grid.width + 1]) {
-      const json = new TextEncoder().encode(JSON.stringify({ ...header, dct: { k } }))
-      const bytes = new Uint8Array(8 + json.length)
-      bytes.set(new TextEncoder().encode('mrf0'))
-      new DataView(bytes.buffer).setUint32(4, json.length, true)
-      bytes.set(json, 8)
-      expect(() => parseMrfHeader(bytes)).toThrow('Ongeldige DCT-orde')
-    }
-  })
-
   it.each([
     ['rain_rate', 0, true],
     ['radiation', 0, true],
@@ -118,8 +88,8 @@ describe('mrf v0', () => {
   it('decodes a synthgen motion annex byte-exact through the existing worker path', async () => {
     class DecodeWorker {
       onmessage?: (event: MessageEvent) => void
-      postMessage(message: { id: number; bytes: ArrayBuffer; expectedLength: number }): void {
-        const frame = decodeFrame(new Uint8Array(message.bytes), message.expectedLength)
+      postMessage(message: { id: number; bytes: ArrayBuffer; expectedLength: number; pred?: PredFrameSpec }): void {
+        const frame = decodeFrame(new Uint8Array(message.bytes), message.expectedLength, message.pred)
         queueMicrotask(() => this.onmessage?.({ data: { id: message.id, frame: frame.slice().buffer } } as MessageEvent))
       }
     }
@@ -199,8 +169,8 @@ describe('mrf v0', () => {
   it('coalesces a full location sample per chunk and serves the next location entirely from cache', async () => {
     class DecodeWorker {
       onmessage?: (event: MessageEvent) => void
-      postMessage(message: { id: number; bytes: ArrayBuffer; expectedLength: number }): void {
-        const frame = decodeFrame(new Uint8Array(message.bytes), message.expectedLength)
+      postMessage(message: { id: number; bytes: ArrayBuffer; expectedLength: number; pred?: PredFrameSpec }): void {
+        const frame = decodeFrame(new Uint8Array(message.bytes), message.expectedLength, message.pred)
         queueMicrotask(() => this.onmessage?.({ data: { id: message.id, frame: frame.slice().buffer } } as MessageEvent))
       }
     }
@@ -251,8 +221,8 @@ describe('mrf v0', () => {
   it('reuses decoded frames when a refreshed manifest recreates an unchanged chunk', async () => {
     class DecodeWorker {
       onmessage?: (event: MessageEvent) => void
-      postMessage(message: { id: number; bytes: ArrayBuffer; expectedLength: number }): void {
-        const frame = decodeFrame(new Uint8Array(message.bytes), message.expectedLength)
+      postMessage(message: { id: number; bytes: ArrayBuffer; expectedLength: number; pred?: PredFrameSpec }): void {
+        const frame = decodeFrame(new Uint8Array(message.bytes), message.expectedLength, message.pred)
         queueMicrotask(() => this.onmessage?.({ data: { id: message.id, frame: frame.slice().buffer } } as MessageEvent))
       }
     }
@@ -278,8 +248,8 @@ describe('mrf v0', () => {
   it('fills a series in many incremental steps while one coalesced range is still streaming', async () => {
     class DecodeWorker {
       onmessage?: (event: MessageEvent) => void
-      postMessage(message: { id: number; bytes: ArrayBuffer; expectedLength: number }): void {
-        const frame = decodeFrame(new Uint8Array(message.bytes), message.expectedLength)
+      postMessage(message: { id: number; bytes: ArrayBuffer; expectedLength: number; pred?: PredFrameSpec }): void {
+        const frame = decodeFrame(new Uint8Array(message.bytes), message.expectedLength, message.pred)
         queueMicrotask(() => this.onmessage?.({ data: { id: message.id, frame: frame.slice().buffer } } as MessageEvent))
       }
     }
@@ -330,8 +300,8 @@ describe('mrf v0', () => {
   it('reports every decoded frame, whichever consumer requested it', async () => {
     class DecodeWorker {
       onmessage?: (event: MessageEvent) => void
-      postMessage(message: { id: number; bytes: ArrayBuffer; expectedLength: number }): void {
-        const frame = decodeFrame(new Uint8Array(message.bytes), message.expectedLength)
+      postMessage(message: { id: number; bytes: ArrayBuffer; expectedLength: number; pred?: PredFrameSpec }): void {
+        const frame = decodeFrame(new Uint8Array(message.bytes), message.expectedLength, message.pred)
         queueMicrotask(() => this.onmessage?.({ data: { id: message.id, frame: frame.slice().buffer } } as MessageEvent))
       }
     }
@@ -351,5 +321,64 @@ describe('mrf v0', () => {
     await client.getFrame(chunk, 0)
 
     expect(decoded).toEqual([`${chunk.url.split('/').at(-1)}#0`, `${chunk.url.split('/').at(-1)}#1`, `${chunk.url.split('/').at(-1)}#2`])
+  })
+
+  it('serves predictive feels_like_c frames byte-identical to the bitmap for every point (tabel en kaart)', async () => {
+    class DecodeWorker {
+      onmessage?: (event: MessageEvent) => void
+      postMessage(message: { id: number; bytes: ArrayBuffer; expectedLength: number; pred?: PredFrameSpec }): void {
+        const frame = decodeFrame(new Uint8Array(message.bytes), message.expectedLength, message.pred)
+        queueMicrotask(() => this.onmessage?.({ data: { id: message.id, frame: frame.slice().buffer } } as MessageEvent))
+      }
+    }
+    vi.stubGlobal('Worker', DecodeWorker)
+    const zstd = await new Promise<{ compress(data: Uint8Array, level?: number): Uint8Array }>((done) => ZstdCodec.run((codec) => done(new codec.Simple())))
+    // Bitmapbron: het synthetische temp_c-dagdeel (zelfde grid en tabel als gevoel); dezelfde cellen als pred-chunk.
+    const bitmapChunk = manifest.chunks.find((chunk) => chunk.field === 'temp_c')!
+    const bitmapFile = files.get(bitmapChunk.url)!
+    const bitmapHeader = parseMrfHeader(bitmapFile.subarray(0, bitmapChunk.header_len))
+    const cells = bitmapHeader.frames.map((frame) => decodeFrame(
+      bitmapFile.subarray(bitmapChunk.header_len + frame.offset, bitmapChunk.header_len + frame.offset + frame.len),
+      bitmapHeader.grid.width * bitmapHeader.grid.height,
+    ))
+    cells[0]!.fill(255, 0, bitmapHeader.grid.width * 2)
+    cells[1]![777] = 0
+    cells[1]![778] = 254
+    const members = cells.map((frame) => zstd.compress(encodePredFrame(frame, bitmapHeader.grid.width), 3))
+    let offset = 0
+    const predHeader: MrfHeader = {
+      ...bitmapHeader,
+      field: 'feels_like_c',
+      pred: { v: 1 },
+      frames: bitmapHeader.frames.map((frame, index) => {
+        const entry = { time: frame.time, offset, len: members[index]!.length }
+        offset += entry.len
+        return entry
+      }),
+    }
+    const json = new TextEncoder().encode(JSON.stringify(predHeader))
+    const predFile = new Uint8Array(8 + json.length + offset)
+    predFile.set(new TextEncoder().encode('mrf0'))
+    new DataView(predFile.buffer).setUint32(4, json.length, true)
+    predFile.set(json, 8)
+    members.reduce((at, member) => { predFile.set(member, at); return at + member.length }, 8 + json.length)
+    const predChunk = { ...bitmapChunk, url: 'chunks/feels-pred.mrf', field: 'feels_like_c' as const, header_len: 8 + json.length }
+    const served = new Map([[predChunk.url, predFile]])
+    vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
+      const bytes = served.get(new URL(String(input)).pathname.replace('/data/', ''))!
+      const match = /^bytes=(\d+)-(\d+)$/.exec(new Headers(init?.headers).get('Range') ?? '')
+      return match
+        ? new Response(Uint8Array.from(bytes.subarray(Number(match[1]), Number(match[2]) + 1)).buffer, { status: 206 })
+        : new Response(Uint8Array.from(bytes).buffer, { status: 200 })
+    })
+    const client = new MrfClient(new URL('https://example.test/data/manifest.json'))
+    const indexes = predHeader.frames.map((_, index) => index)
+    const frames = await Promise.all(indexes.map((index) => client.getFrame(predChunk, index)))
+
+    expect(predFile.length).toBeLessThan(bitmapFile.length)
+    frames.forEach((frame, index) => expect(frame).toEqual(cells[index]))
+    for (const cell of [0, 777, 778, 12_345, cells[0]!.length - 1]) {
+      expect(frames.map((frame) => frame[cell])).toEqual(cells.map((frame) => frame[cell]))
+    }
   })
 })

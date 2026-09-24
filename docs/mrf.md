@@ -53,36 +53,60 @@ participate in bilinear interpolation. Rain textures likewise carry intensity
 and validity in RG8, so clamped warp samples cannot draw field-edge or no-data
 pixels inward.
 
-## DCT fields
+## Predictive frames
 
-A header may carry `"dct": {"k": K}` (U18). Its frames are then not
-quantized cells but the K×K lowest-frequency coefficients of the field, and
-`quant` stays the field's value table: consumers turn the frame back into a
-grid and quantize it with that table, after which it behaves like any other
-frame. The field is a smooth low-pass version of the source, so it is meant
-for map rendering (isolines, labels), not for point values.
+A header may carry `"pred": {"v": 1}` (U18b). The frames still mean the
+quantized cells of the grid, but each zstd member holds a lossless
+predictive encoding of them instead of the raw bytes: `HeaderIndex::
+decode_frame` and the web client decode it transparently back to exactly
+`width × height` cells, byte-identical to the bitmap. The ingest uses it for
+`feels_like_c`; any u8 field could.
 
-Each frame member decompresses to `4 + ceil(W·H/8) + 2·K²` bytes,
-little-endian:
+A member decompresses to a mask followed by a range-coded stream:
 
 | bytes | content |
 | --- | --- |
-| 4 | `f32` coefficient step `s` |
-| ceil(W·H/8) | no-data mask, row-major, bit 7 of byte 0 is cell 0, set = no-data |
-| K² | low bytes of the `i16` coefficients `c[ky][kx]`, row-major |
-| K² | high bytes of the same coefficients |
+| ceil(W·H/8) | no-data mask, row-major, bit 7 of byte 0 is cell 0, set = index 255 |
+| rest | range-coded residuals of the valid cells, row-major |
 
-Coefficients are those of the orthonormal 2D DCT-II, `C = A_H · X · A_Wᵀ`
-with `A_N[k][n] = α_k cos(π(2n+1)k / 2N)`, `α_0 = √(1/N)`, `α_k = √(2/N)`.
-The field is reconstructed as `X ≈ A_H[:K]ᵀ · (s·c) · A_W[:K]`. Before the
-transform, no-data cells get the value of their nearest valid cell
-(4-neighbour breadth-first fill in row-major order), so the no-data edge
-adds no step to the spectrum. The encoder chooses
-`s = max(0.2, max|C| / 32767)`: 0.2 gives about 0.02 °C rms in the field at
-K=64 on the 209×225 grid (`s/√12 · K/√(W·H)`), and the maximum keeps the DC
-coefficient of a warm field inside `i16`. Splitting the low and high byte
-planes compresses about 6% better than interleaved `i16` (K=64: 3,624 vs 3,842 B), and 1% better
-than a diagonal (zig-zag) order.
+**Prediction.** Cells are visited in row-major order. `a`, `b`, `c`, `d` are
+the reconstructed left, up, up-left and up-right neighbours. In row 0 all
+four are the left neighbour (127 for cell 0); in column 0, `a` and `c` are
+`b`; in the last column, `d` is `b`. A masked cell takes its prediction as
+its reconstructed value, so it never needs a symbol. With `s = 2a + 2b − c +
+d + 2`, the prediction is `clamp(⌊s/4⌋, 0, 254)` and `s mod 4` (Euclidean)
+is the fraction the rounding threw away.
 
-The Rust encoder (`mrf::dct`) and the TypeScript encoder/decoder
-(`web/src/core/dct.ts`) share a byte-exact golden frame in their tests.
+**Context.** `activity = |a−c| + |b−c| + |d−b|` falls in one of seven buckets
+(0, 1, 2, 3–4, 5–7, 8–11, ≥12); the context is `bucket · 4 + (s mod 4)`,
+28 in total.
+
+**Residuals.** `r = cell − prediction` is zigzagged (`0, −1, 1, −2 … → 0, 1,
+2, 3 …`) to `z ∈ 0..=508`. Symbols 0–62 are `z` itself; symbol 63 is an
+escape followed by `z − 63` coded as one of 512 equiprobable values.
+
+**Model.** Each context has 64 frequencies starting at 1. After coding a
+symbol its frequency grows by 32; when a context's total exceeds 2^16 all its
+frequencies become `(f + 1) >> 1`.
+
+**Range coder.** 32-bit range, LZMA-style carry propagation. The encoder
+starts with `low = 0`, `range = 2^32 − 1`, one pending zero byte, and codes a
+symbol as `step = ⌊range / total⌋`, `low += step · cumulative`, `range = step
+· frequency`, shifting out a byte while `range < 2^24`. It flushes five
+bytes. The decoder reads five bytes into `code`, finds the symbol with
+`⌊code / step⌋` (clamped to `total − 1`) and must consume the stream exactly;
+a short, overlong or out-of-table stream is an error.
+
+**Why.** On 109 live hourly frames from five runs (U18b, `.dev/tracks/
+u18b-veld-compressie/LOG.md`) the 6-km `feels_like_c` bitmap takes 15.6 kB
+per frame after zstd-19 and this encoding 9.8 kB (62.7 %), exactly. zstd on
+a MED residual reaches 75 %; the context model's gain over that comes from
+the rounding fraction and local activity. Prediction from neighbours in the
+previous frame gains 2 points more but gives up per-frame random access; a
+low-frequency DCT (U18) reaches 24 % but moves coastal values by up to 3 °C.
+Encoding costs 1.3 ms per frame including zstd-19, decoding 1.0 ms in Rust.
+Reproduce with `cargo run --release -p mrf --example pred_measure --
+<chunk.mrf>...`.
+
+The Rust encoder (`mrf::pred`) and the TypeScript encoder/decoder
+(`web/src/core/pred.ts`) share a byte-exact golden frame in their tests.
