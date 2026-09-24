@@ -1,5 +1,5 @@
 export interface FocusTuning {
-  /** Zichtbaarheid van regen, wind, wolkrand en zon tijdens volle focus (0–1). */
+  /** Zichtbaarheid van regen, wind, wolkrand en zon tijdens volle temperatuurfocus (0–1). */
   dim: number
   inMs: number
   outMs: number
@@ -40,36 +40,68 @@ export function contextOpacity(focus: number, dim: number): number {
   return 1 - focus * (1 - dim)
 }
 
+/** Windfocus tweent de gedempte windlaag terug naar vol: ×3/2 op de (×2/3) gedempte intensiteit. */
+export const WIND_FOCUS_GAIN = 3 / 2
+
+export function windFocusIntensity(intensity: number, focus: number): number {
+  return intensity * (1 + focus * (WIND_FOCUS_GAIN - 1))
+}
+
+export type FocusKind = 'temperature' | 'wind'
+
 type FrameScheduler = (callback: (now: number) => void) => number
 
 /**
- * Houdt bij welke bronnen (kaartlabel, tabel, toetsenbord, vastgezet) focus vragen en
- * tweent één waarde 0→1 in een rAF-loop die alleen loopt zolang er iets beweegt.
+ * Houdt per modus bij welke bronnen (tabel, toetsenbord, vastgezet) focus vragen. Modi sluiten
+ * elkaar uit: de modus van de laatst geactiveerde, nog actieve bron wint. Elke modus tweent zijn
+ * eigen waarde 0→1 in één rAF-loop die alleen loopt zolang er iets beweegt.
  */
-export class FocusMode {
-  private readonly sources = new Set<string>()
-  private tween: FocusTween = { from: 0, to: 0, start: 0, duration: 0 }
+export class FocusMode<Mode extends string = FocusKind> {
+  // Map-volgorde is activeringsvolgorde: heractiveren zet een bron achteraan.
+  private readonly sources = new Map<string, Mode>()
+  private readonly tweens = new Map<Mode, FocusTween>()
+  private readonly emitted = new Map<Mode, number>()
   private frame: number | undefined
 
   constructor(
-    private readonly onValue: (value: number) => void,
+    modes: readonly Mode[],
+    private readonly onValue: (mode: Mode, value: number) => void,
     private tuning: () => FocusTuning,
     private readonly reducedMotion: () => boolean,
     private readonly now: () => number = () => performance.now(),
     private readonly requestFrame: FrameScheduler = (callback) => requestAnimationFrame(callback),
     private readonly cancelFrame: (handle: number) => void = (handle) => cancelAnimationFrame(handle),
-  ) {}
-
-  set(source: string, active: boolean): void {
-    if (active) this.sources.add(source); else this.sources.delete(source)
-    const target = this.sources.size ? 1 : 0
-    if (target === this.tween.to) return
-    this.tween = retargetFocus(this.tween, this.now(), target, this.tuning(), this.reducedMotion())
-    this.tick()
+  ) {
+    for (const mode of modes) {
+      this.tweens.set(mode, { from: 0, to: 0, start: 0, duration: 0 })
+      this.emitted.set(mode, 0)
+    }
   }
 
-  has(source: string): boolean {
-    return this.sources.has(source)
+  set(mode: Mode, source: string, active: boolean): void {
+    const key = `${mode}:${source}`
+    if (active) {
+      if (this.sources.get(key) === mode && [...this.sources.keys()].at(-1) === key) return
+      this.sources.delete(key)
+      this.sources.set(key, mode)
+    } else if (!this.sources.delete(key)) return
+    const winner = this.active()
+    let changed = false
+    for (const [tweenMode, tween] of this.tweens) {
+      const target = tweenMode === winner ? 1 : 0
+      if (target === tween.to) continue
+      this.tweens.set(tweenMode, retargetFocus(tween, this.now(), target, this.tuning(), this.reducedMotion()))
+      changed = true
+    }
+    if (changed) this.tick()
+  }
+
+  has(mode: Mode, source: string): boolean {
+    return this.sources.has(`${mode}:${source}`)
+  }
+
+  active(): Mode | undefined {
+    return [...this.sources.values()].at(-1)
   }
 
   dispose(): void {
@@ -82,8 +114,16 @@ export class FocusMode {
     const step = () => {
       this.frame = undefined
       const now = this.now()
-      this.onValue(focusValue(this.tween, now))
-      if (now < this.tween.start + this.tween.duration) this.frame = this.requestFrame(step)
+      let moving = false
+      for (const [mode, tween] of this.tweens) {
+        const value = focusValue(tween, now)
+        if (value !== this.emitted.get(mode)) {
+          this.emitted.set(mode, value)
+          this.onValue(mode, value)
+        }
+        if (now < tween.start + tween.duration) moving = true
+      }
+      if (moving) this.frame = this.requestFrame(step)
     }
     step()
   }

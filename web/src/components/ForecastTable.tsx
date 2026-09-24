@@ -1,4 +1,5 @@
 import { createEffect, createMemo, For, onCleanup, Show } from 'solid-js'
+import type { FocusKind } from '../core/focus-mode'
 import type { HourlyForecastRow } from '../core/forecast'
 import { solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
 import { uvReading } from '../core/uv'
@@ -36,11 +37,11 @@ interface Props {
   onOpenHistory: () => void
   sunForm: SunForm
   uvBar: UvBarVariant
-  // Hover/toetsenbordfocus op de gevoelskolom zet de temperatuurfocus van de kaart aan.
-  temperatureFocus: {
-    pinned: boolean
-    onTogglePin: () => void
-    onFocus: (source: 'table' | 'keyboard', active: boolean) => void
+  // Hover/toetsenbordfocus op de kolom Gevoel of Wind zet die focusmodus van de kaart aan.
+  focus: {
+    pinned: FocusKind | undefined
+    onTogglePin: (mode: FocusKind) => void
+    onFocus: (mode: FocusKind, source: 'table' | 'keyboard', active: boolean) => void
   }
 }
 
@@ -48,9 +49,20 @@ const hour = 3_600_000
 
 export default function ForecastTable(props: Props) {
   // Touch vuurt ook pointerenter; dat mag geen blijvende hover worden (tap op de kop toggelt).
-  const hover = (event: PointerEvent, active: boolean) => {
-    if (event.pointerType !== 'touch') props.temperatureFocus.onFocus('table', active)
+  const hover = (mode: FocusKind, event: PointerEvent, active: boolean) => {
+    if (event.pointerType !== 'touch') props.focus.onFocus(mode, 'table', active)
   }
+  const FocusHeading = (heading: { mode: FocusKind; label: string; title: string }) => <button
+    type="button"
+    class={`column-focus ${heading.mode}-focus`}
+    aria-pressed={props.focus.pinned === heading.mode}
+    title={heading.title}
+    onClick={() => props.focus.onTogglePin(heading.mode)}
+    onFocus={(event) => { if (event.currentTarget.matches(':focus-visible')) props.focus.onFocus(heading.mode, 'keyboard', true) }}
+    onBlur={() => props.focus.onFocus(heading.mode, 'keyboard', false)}
+    onPointerEnter={(event) => hover(heading.mode, event, true)}
+    onPointerLeave={(event) => hover(heading.mode, event, false)}
+  >{heading.label}</button>
   const sun = createMemo(() => {
     const first = props.rows[0]
     const last = props.rows.at(-1)
@@ -83,20 +95,12 @@ export default function ForecastTable(props: Props) {
       <Show when={props.columns.weather}><th class="weather-heading">Weer</th></Show>
       <Show when={props.columns.uv}><th class="uv-heading" title="UV-index met en zonder wolken; ≈ = schatting uit modelstraling en zonshoogte">UV</th></Show>
       <Show when={props.columns.temperature}><th class="temperature-heading">
-        <button
-          type="button"
-          class="temperature-focus"
-          aria-pressed={props.temperatureFocus.pinned}
-          title="Toon temperatuurlijnen op de kaart"
-          onClick={() => props.temperatureFocus.onTogglePin()}
-          onFocus={(event) => { if (event.currentTarget.matches(':focus-visible')) props.temperatureFocus.onFocus('keyboard', true) }}
-          onBlur={() => props.temperatureFocus.onFocus('keyboard', false)}
-          onPointerEnter={(event) => hover(event, true)}
-          onPointerLeave={(event) => hover(event, false)}
-        >Gevoel</button>
+        <FocusHeading mode="temperature" label="Gevoel" title="Toon temperatuurlijnen op de kaart" />
       </th></Show>
       <Show when={props.columns.humidity}><th>RV</th></Show>
-      <Show when={props.columns.wind}><th>Wind</th></Show>
+      <Show when={props.columns.wind}><th class="wind-heading">
+        <FocusHeading mode="wind" label="Wind" title="Toon de wind op de kaart op volle sterkte" />
+      </th></Show>
       <th>Regen</th>
     </tr></thead>
     <tbody>
@@ -150,9 +154,9 @@ export default function ForecastTable(props: Props) {
               </Show>
             </td>
           </Show>
-          <Show when={props.columns.temperature}><td class="temperature-cell" onPointerEnter={(event) => hover(event, true)} onPointerLeave={(event) => hover(event, false)}>{degrees(feelsLike())}<small class="air-temperature" title="Luchttemperatuur">{degrees(temperature())}</small></td></Show>
+          <Show when={props.columns.temperature}><td class="temperature-cell" onPointerEnter={(event) => hover('temperature', event, true)} onPointerLeave={(event) => hover('temperature', event, false)}>{degrees(feelsLike())}<small class="air-temperature" title="Luchttemperatuur">{degrees(temperature())}</small></td></Show>
           <Show when={props.columns.humidity}><td>{humidity() == null ? placeholder() : `${Math.round(humidity()!)}%`}</td></Show>
-          <Show when={props.columns.wind}><td class="wind-cell"><Show when={wind()} fallback={placeholder()}>{(summary) =>
+          <Show when={props.columns.wind}><td class="wind-cell" onPointerEnter={(event) => hover('wind', event, true)} onPointerLeave={(event) => hover('wind', event, false)}><Show when={wind()} fallback={placeholder()}>{(summary) =>
             <span title={`${summary().speed.toLocaleString('nl-NL', { maximumFractionDigits: 1 })} m/s`}>{summary().direction} · {summary().beaufort} Bft</span>
           }</Show></td></Show>
           <td>{rain() == null ? (row.rainIndex != null && !props.series.rainLoaded[row.rainIndex] ? '…' : placeholder()) : rain()!.toLocaleString('nl-NL', { maximumFractionDigits: rain()! < 1 ? 2 : 1 })}<small> mm/u</small></td>

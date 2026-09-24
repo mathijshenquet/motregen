@@ -47,7 +47,8 @@ export const DEFAULT_WIND_TUNING: WindTuning = {
   headIntensity: 0.95,
   lineWidth: 2.5,
   speed: 1,
-  intensity: 1.9,
+  // PO 2026-09-24: ⅔ van de vroegere 1,9; windfocus (U19) tweent terug naar vol.
+  intensity: 1.27,
   visibility: 1,
   maxFps: 60,
 }

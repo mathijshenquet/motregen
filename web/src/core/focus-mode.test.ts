@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { contextOpacity, DEFAULT_FOCUS_TUNING, easeOutCubic, FocusMode, focusValue, retargetFocus } from './focus-mode'
+import { contextOpacity, DEFAULT_FOCUS_TUNING, easeOutCubic, FocusMode, focusValue, retargetFocus, windFocusIntensity, type FocusKind } from './focus-mode'
 
 describe('focus tween math', () => {
   it('eases out and clamps', () => {
@@ -39,15 +39,21 @@ describe('focus tween math', () => {
     expect(contextOpacity(1, 0.25)).toBe(0.25)
     expect(contextOpacity(0.5, 0.25)).toBeCloseTo(0.625)
   })
+
+  it('brings the damped wind back to full at full wind focus', () => {
+    expect(windFocusIntensity(1.27, 0)).toBe(1.27)
+    expect(windFocusIntensity(1.27, 1)).toBeCloseTo(1.905)
+    expect(windFocusIntensity(2 / 3, 1)).toBeCloseTo(1)
+  })
 })
 
 describe('focus mode sources', () => {
   function harness(reducedMotion = false) {
     let now = 0
     const frames: Array<(time: number) => void> = []
-    const values: number[] = []
-    const focus = new FocusMode((value) => values.push(value), () => DEFAULT_FOCUS_TUNING, () => reducedMotion, () => now,
-      (callback) => frames.push(callback), () => undefined)
+    const values: Record<FocusKind, number[]> = { temperature: [], wind: [] }
+    const focus = new FocusMode<FocusKind>(['temperature', 'wind'], (mode, value) => values[mode].push(value), () => DEFAULT_FOCUS_TUNING,
+      () => reducedMotion, () => now, (callback) => frames.push(callback), () => undefined)
     const advance = (ms: number) => {
       now += ms
       const pending = frames.splice(0)
@@ -56,28 +62,78 @@ describe('focus mode sources', () => {
     return { focus, values, frames, advance }
   }
 
-  it('stays focused while any source is active and animates back out', () => {
+  it('stays focused while any source of the mode is active and animates back out', () => {
     const { focus, values, frames, advance } = harness()
-    focus.set('map', true)
-    focus.set('table', true)
+    focus.set('temperature', 'keyboard', true)
+    focus.set('temperature', 'table', true)
     advance(300)
-    expect(values.at(-1)).toBe(1)
+    expect(values.temperature.at(-1)).toBe(1)
     expect(frames).toHaveLength(0)
-    focus.set('map', false)
+    focus.set('temperature', 'keyboard', false)
     expect(frames).toHaveLength(0)
-    focus.set('table', false)
+    focus.set('temperature', 'table', false)
     advance(200)
-    expect(values.at(-1)).toBeGreaterThan(0)
-    expect(values.at(-1)).toBeLessThan(0.2)
+    expect(values.temperature.at(-1)).toBeGreaterThan(0)
+    expect(values.temperature.at(-1)).toBeLessThan(0.2)
     advance(200)
-    expect(values.at(-1)).toBe(0)
+    expect(values.temperature.at(-1)).toBe(0)
     expect(frames).toHaveLength(0)
+    expect(values.wind).toEqual([])
+  })
+
+  it('lets the last activated mode win and hands back when it leaves', () => {
+    const { focus, values, advance } = harness()
+    focus.set('temperature', 'pinned', true)
+    advance(300)
+    expect(focus.active()).toBe('temperature')
+    focus.set('wind', 'table', true)
+    expect(focus.active()).toBe('wind')
+    advance(500)
+    expect(values.wind.at(-1)).toBe(1)
+    expect(values.temperature.at(-1)).toBe(0)
+    // De vastgezette temperatuurfocus komt terug zodra de windhover eindigt.
+    focus.set('wind', 'table', false)
+    advance(500)
+    expect(focus.active()).toBe('temperature')
+    expect(values.wind.at(-1)).toBe(0)
+    expect(values.temperature.at(-1)).toBe(1)
+  })
+
+  it('crossfades both modes in one frame loop', () => {
+    const { focus, values, frames, advance } = harness()
+    focus.set('wind', 'table', true)
+    advance(300)
+    focus.set('temperature', 'table', true)
+    expect(frames).toHaveLength(1)
+    advance(100)
+    expect(values.temperature.at(-1)).toBeGreaterThan(0)
+    expect(values.temperature.at(-1)).toBeLessThan(1)
+    expect(values.wind.at(-1)).toBeGreaterThan(0)
+    expect(values.wind.at(-1)).toBeLessThan(1)
+    advance(400)
+    expect(values.temperature.at(-1)).toBe(1)
+    expect(values.wind.at(-1)).toBe(0)
+    expect(frames).toHaveLength(0)
+  })
+
+  it('re-activating an older source makes its mode win again', () => {
+    const { focus } = harness(true)
+    focus.set('temperature', 'keyboard', true)
+    focus.set('wind', 'table', true)
+    expect(focus.active()).toBe('wind')
+    focus.set('temperature', 'keyboard', true)
+    expect(focus.active()).toBe('temperature')
+    expect(focus.has('wind', 'table')).toBe(true)
   })
 
   it('applies the end value synchronously under reduced motion', () => {
     const { focus, values, frames } = harness(true)
-    focus.set('keyboard', true)
-    expect(values).toEqual([1])
+    focus.set('wind', 'keyboard', true)
+    expect(values.wind).toEqual([1])
+    expect(values.temperature).toEqual([])
     expect(frames).toHaveLength(0)
+    focus.set('temperature', 'keyboard', true)
+    expect(values.wind).toEqual([1, 0])
+    expect(values.temperature).toEqual([1])
   })
 })
