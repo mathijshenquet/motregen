@@ -24,7 +24,7 @@ import { DEFAULT_LABEL_TUNING, IsolineLabels, sliceWeights, type IsolineLabelTun
 import { prepareField, type PreparedField } from './core/isoline-field'
 import { hexColor, IsolineLayer, isolineLayerIndices, type IsolineStyle } from './core/isoline-layer'
 import { cursorAfterTimelineRefresh, isNewerManifest, reconcileTimelineSeries, scheduleManifestRefresh } from './core/manifest-refresh'
-import { constrainView, containView, containZoom, MAP_CONTAIN_BOUNDS } from './core/map-constraint'
+import { constrainView, containView, containZoom, MAP_CONTAIN_BOUNDS, type Viewport } from './core/map-constraint'
 import { mapFrameFromGrid } from './core/map-frame'
 import { MrfClient, type MotionField } from './core/mrf'
 import { selectPairMotion } from './core/motion-selection'
@@ -1407,8 +1407,25 @@ export default function App() {
     void attachCloudEdgeLayer()
   }
 
-  function mapViewport(): { width: number; height: number } {
-    return { width: mapElement.clientWidth, height: mapElement.clientHeight }
+  let searchInset: { size: string; top: number } | undefined
+  function mapViewport(): Viewport {
+    const width = mapElement.clientWidth
+    const height = mapElement.clientHeight
+    const size = `${width}x${height}`
+    if (searchInset?.size !== size) {
+      searchInset = { size, top: searchBarInset() }
+      mapElement.dataset.insetTop = String(searchInset.top)
+    }
+    return { width, height, insets: { top: searchInset.top, right: 0, bottom: 0, left: 0 } }
+  }
+
+  // Op telefoonbreedte ligt de zoekbalk over de volle kaartbreedte (anders valt de Waddenkust eronder);
+  // op desktop ligt hij in de Noordzee-hoek. Merk en versheidspil onderin dekken alleen de hoeken.
+  function searchBarInset(): number {
+    const search = mapElement.parentElement?.querySelector('.search > input')?.getBoundingClientRect()
+    const shell = mapElement.getBoundingClientRect()
+    if (!search || search.width < shell.width / 2) return 0
+    return Math.max(0, Math.round(search.bottom - shell.top + 4))
   }
 
   // Vervangt maxBounds (dat altijd cover afdwingt): per as contain of cover, zie map-constraint.
