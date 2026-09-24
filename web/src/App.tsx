@@ -22,6 +22,7 @@ import type { RefreshState } from './core/freshness'
 import { blendFrames, blurField, DEFAULT_ISOLINE_TUNING, ISOLINE_EDGE_FADE_MS, ISOLINE_FADES, ISOLINE_LINE_OPACITY, ISOLINE_STEPS, ISOLINE_WINDOWS, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineFade, type IsolineStep, type IsolineTuning } from './core/isolines'
 import { DEFAULT_LABEL_TUNING, IsolineLabels, type IsolineLabelTuning } from './core/isoline-labels'
 import { sliceWeights } from './core/isoline-spline'
+import { TraceCore } from './core/isoline-tracer'
 import { prepareField, type PreparedField } from './core/isoline-field'
 import { hexColor, IsolineLayer, isolineLayerIndices, type IsolineStyle } from './core/isoline-layer'
 import { cursorAfterTimelineRefresh, isNewerManifest, reconcileTimelineSeries, scheduleManifestRefresh } from './core/manifest-refresh'
@@ -131,6 +132,20 @@ export default function App() {
     ...isolineCounters(),
     bench: (passes: number, resolution?: number) => isolineLayer?.bench(passes, resolution),
     field: (index: number) => isolineLayer && isolineFields[index] ? { grid: isolineLayer.grid, field: isolineFields[index] } : undefined,
+    // Tracer-kosten zonder worker-overhead: dezelfde code als de worker, op de main thread.
+    traceBench: (runs: number) => {
+      if (!isolineLayer) return undefined
+      const core = new TraceCore(isolineLayer.grid, isolineLayer.depth)
+      isolineFields.forEach((field, index) => core.setLayer(index, field))
+      const { step, window } = isolineTuning()
+      const times: number[] = []
+      for (let run = 0; run < runs; run++) {
+        const started = performance.now()
+        core.trace({ time: isolineTime, window, step, toleranceCells: 0.05, ringKm: 60 })
+        times.push(performance.now() - started)
+      }
+      return times.map((time) => Math.round(time * 10) / 10)
+    },
   })
   let lastMapPointer = 'mouse'
   let pointRequest = 0
