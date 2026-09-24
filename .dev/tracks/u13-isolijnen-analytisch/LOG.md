@@ -81,3 +81,31 @@ DCT K=64                135     68    102    115     30888    0.24   2.51
 - Elke Playwright/Chromium-run onder `flock /tmp/motregen-e2e.lock`, nooit twee tegelijk, vóór
   zware runs pollen tot `cut -d" " -f1 /proc/loadavg` < 16 (genoteerd hier), lopende runs niet
   killen. Main mergen vóór de gates (main heeft de flock in de pnpm-e2e-scripts).
+
+## 2026-09-24 ~13:30 — gebouwd: vectorisolijnen (C op A) + lusjes-criterium (a)
+- `isoline-contours.ts`: snede = tijdgewogen controlepunten (`blendSlice`), knoopwaarden van de
+  bicubische B-spline ([1 4 1]/6), cellen per niveau in één pass gebucket (CSR), marching
+  squares alleen op die cellen, elk grof punt met één Newton-stap exact op T = L, koorden
+  recursief gesplitst tot de afwijking < tolerantie (kromming-adaptief), ringlengte in km en
+  |∇T| per punt. `ringFade`: smoothstep(½·L_min, L_min, lengte) voor gesloten ringen, open
+  lijnen nooit. `buildSegments`: instance-data, volledig vervaagde ringen vallen weg.
+- `isoline-tracer.ts` + worker: worker houdt kopieën van de uurvelden, krijgt per snede alleen de
+  tijd (latest-wins, hooguit 1 onderweg + 1 wachtend); synchrone fallback zonder Worker (tests).
+- `isoline-layer.ts` vectorpad: instanced quad per segment in schermpixels, capsule-afstand in
+  de fragmentshader (ronde koppen, naadloos onder `blendEquation(MAX)`), stippel over de echte
+  booglengte (i.p.v. de 16-hoekbakken-truc), rooster→mercator affien in float64 in de matrix
+  (vertexcoördinaten 0–225 → exact in float32). Offscreen op device-resolutie (was ½ CSS-px),
+  daarna dezelfde blit. Rust: geen setTime → geen request → 0 passes. Tolerantie in cellen volgt
+  de zoom in machten van 2 (hertrace alleen bij een bucketgrens).
+- Defaults: `vector: true`, `ringKm: 60`, `tolerancePx: 0.25`, `fade: 'uit'`. Knoppen:
+  Vectorlijnen (vector/raster), Lusjes < (0–150 km), Verdichting (px), bestaande Bicubisch,
+  Vervagen (gradiënt blijft, nu per punt ook in vector). HUD-rij "Isolijnen vector":
+  sneden/s · ms worker · segmenten · lusjes vervaagd/totaal.
+- Labels spawnen niet meer op ringen < ringKm (labelgeometrie in de worker filtert ermee).
+- Spline-wiskunde (`sampleSlice`, `projectToLevel`, `sliceWeights`, `smoothstep`) verhuisd naar
+  `isoline-spline.ts` (geen maplibre-import, bruikbaar in worker/Node).
+- Eerste shots (Chromium/SwiftShader, DPR 2, preview :4333 met prod-data, load 14,9 onder
+  flock): `web/tmp/shots/v1-pair-raster-vector.png` — vector is scherp (device-px), zelfde
+  geometrie als de raster; `v1-pair-lusjes.png` — Veluwe-ringetje weg, ring bij Keulen half,
+  verder niets veranderd. HUD in die run: 62 ringen, 27 vervaagd bij 60 km, ~9,7k segmenten.
+- Open: worker-traceMs las ~50 ms in SwiftShader onder hostload (Node: 5 ms) → aparte meting.
