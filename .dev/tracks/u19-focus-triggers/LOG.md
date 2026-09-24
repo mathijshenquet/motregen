@@ -29,3 +29,19 @@
 - Negatieve controle: kaart-handler tijdelijk teruggezet → kaartveeg-test faalt (max focus 0,87
   resp. 0,76 op grover raster). Test vangt de regressie dus echt. Handler weer weg (git checkout).
 - Veeg versneld: per rij één `mouse.move` met `steps`.
+- Veeg met `steps` per rij: 39,6 s (winst klein: kosten zitten in MapLibre's symboolquery per
+  mousemove, niet in de roundtrip). Rijstap terug naar 14 px (negatieve controle ving het daar ook,
+  0,87) en `test.setTimeout(120_000)` voor die ene test; volle run: 33,3 s.
+- Positieve run nieuwe code, kaartveeg: E2E-POS-EXIT 0.
+
+## 2026-09-24 12:40 gates (commit 77edecf + deze LOG)
+- load ~11–12, poorten 4351/8351 vooraf vrij, flock-hostlock (wachtte op een run uit de hoofdcheckout).
+- `MOTREGEN_E2E_PORT=4351 MOTREGEN_E2E_DATA_PORT=8351 direnv exec . bash -c 'cd web && pnpm e2e'`
+  (buiten sandbox) → E2E-FULL-EXIT 0: 24 passed, 21 skipped (5,7 min); alle 9 focus-tests groen.
+- TYPECHECK-EXIT 0, TEST-EXIT 0, BUILD-EXIT 0 (zie 12:05).
+- Screenshot `web/tmp/playwright-results/focus-hovering-the-wind-co-*/wind-focus.png`: kop Wind in
+  accent, regen/zon ongedimd.
+- Open voor PM/PO: (1) de windfocus ×3/2 werkt op de actuele knopwaarde — wie in de perf-HUD
+  intensiteit opslaat, krijgt ×3/2 daarvan (bij max 2,0 → 3,0 composite-opaciteit; niet geclampt,
+  zoals de knop ook al >1 toelaat). (2) Wie een opgeslagen v2-tuning heeft met 1,9, houdt 1,9
+  als gedempte basis — spec: "opgeslagen tuning respecteren"; Reset in de HUD geeft 1,27.
