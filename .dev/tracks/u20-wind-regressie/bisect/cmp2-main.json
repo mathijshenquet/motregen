@@ -1,0 +1,410 @@
+{
+  "light": {
+    "layer": {
+      "intensity": 1.27,
+      "visibility": 1
+    },
+    "startZoom": 6.789335411084867,
+    "stills": [
+      {
+        "phase": "rust",
+        "afterMs": 915,
+        "zoom": 6.79,
+        "active": 402,
+        "retries": 0,
+        "ink": {
+          "seaInk": 1.037,
+          "landInk": 2.427,
+          "seaStrong": 0.0086,
+          "landStrong": 0.0169,
+          "seaPixels": 979063,
+          "landPixels": 957321
+        }
+      },
+      {
+        "phase": "in",
+        "afterMs": 1861,
+        "zoom": 8,
+        "active": 402,
+        "retries": 0,
+        "ink": {
+          "seaInk": 1.688,
+          "landInk": 2.132,
+          "seaStrong": 0.014,
+          "landStrong": 0.014,
+          "seaPixels": 775275,
+          "landPixels": 1038599
+        }
+      },
+      {
+        "phase": "in",
+        "afterMs": 6084,
+        "zoom": 8,
+        "active": 402,
+        "retries": 1,
+        "ink": {
+          "seaInk": 1.979,
+          "landInk": 2.448,
+          "seaStrong": 0.0156,
+          "landStrong": 0.016,
+          "seaPixels": 775275,
+          "landPixels": 1038600
+        }
+      },
+      {
+        "phase": "in",
+        "afterMs": 7788,
+        "zoom": 8,
+        "active": 402,
+        "retries": 0,
+        "ink": {
+          "seaInk": 1.71,
+          "landInk": 2.104,
+          "seaStrong": 0.0141,
+          "landStrong": 0.0141,
+          "seaPixels": 775275,
+          "landPixels": 1038600
+        }
+      },
+      {
+        "phase": "uit",
+        "afterMs": 1942,
+        "zoom": 6.79,
+        "active": 488,
+        "retries": 0,
+        "ink": {
+          "seaInk": 1.201,
+          "landInk": 2.255,
+          "seaStrong": 0.0095,
+          "landStrong": 0.0163,
+          "seaPixels": 979063,
+          "landPixels": 957322
+        }
+      },
+      {
+        "phase": "uit",
+        "afterMs": 4659,
+        "zoom": 6.79,
+        "active": 402,
+        "retries": 0,
+        "ink": {
+          "seaInk": 1.15,
+          "landInk": 2.094,
+          "seaStrong": 0.0096,
+          "landStrong": 0.0142,
+          "seaPixels": 979063,
+          "landPixels": 957322
+        }
+      },
+      {
+        "phase": "uit",
+        "afterMs": 6729,
+        "zoom": 6.79,
+        "active": 402,
+        "retries": 0,
+        "ink": {
+          "seaInk": 1.222,
+          "landInk": 2.053,
+          "seaStrong": 0.0101,
+          "landStrong": 0.0142,
+          "seaPixels": 979063,
+          "landPixels": 957322
+        }
+      },
+      {
+        "phase": "in",
+        "afterMs": 2004,
+        "zoom": 8,
+        "active": 402,
+        "retries": 0,
+        "ink": {
+          "seaInk": 1.584,
+          "landInk": 2.312,
+          "seaStrong": 0.0131,
+          "landStrong": 0.0156,
+          "seaPixels": 775275,
+          "landPixels": 1038600
+        }
+      },
+      {
+        "phase": "in",
+        "afterMs": 5280,
+        "zoom": 8,
+        "active": 402,
+        "retries": 0,
+        "ink": {
+          "seaInk": 1.845,
+          "landInk": 2.679,
+          "seaStrong": 0.0146,
+          "landStrong": 0.0169,
+          "seaPixels": 775275,
+          "landPixels": 1038600
+        }
+      },
+      {
+        "phase": "in",
+        "afterMs": 7788,
+        "zoom": 8,
+        "active": 402,
+        "retries": 0,
+        "ink": {
+          "seaInk": 1.625,
+          "landInk": 2.227,
+          "seaStrong": 0.0131,
+          "landStrong": 0.0146,
+          "seaPixels": 775275,
+          "landPixels": 1038600
+        }
+      },
+      {
+        "phase": "uit",
+        "afterMs": 1999,
+        "zoom": 6.79,
+        "active": 449,
+        "retries": 0,
+        "ink": {
+          "seaInk": 1.231,
+          "landInk": 2.09,
+          "seaStrong": 0.0101,
+          "landStrong": 0.0152,
+          "seaPixels": 979063,
+          "landPixels": 957322
+        }
+      },
+      {
+        "phase": "uit",
+        "afterMs": 4927,
+        "zoom": 6.79,
+        "active": 402,
+        "retries": 0,
+        "ink": {
+          "seaInk": 1.265,
+          "landInk": 2.274,
+          "seaStrong": 0.0104,
+          "landStrong": 0.0157,
+          "seaPixels": 979063,
+          "landPixels": 957322
+        }
+      },
+      {
+        "phase": "uit",
+        "afterMs": 7223,
+        "zoom": 6.79,
+        "active": 402,
+        "retries": 0,
+        "ink": {
+          "seaInk": 1.532,
+          "landInk": 2.082,
+          "seaStrong": 0.0123,
+          "landStrong": 0.0143,
+          "seaPixels": 979063,
+          "landPixels": 957322
+        }
+      }
+    ]
+  },
+  "dark": {
+    "layer": {
+      "intensity": 1.27,
+      "visibility": 1
+    },
+    "startZoom": 6.789335411084867,
+    "stills": [
+      {
+        "phase": "rust",
+        "afterMs": 882,
+        "zoom": 6.79,
+        "active": 402,
+        "retries": 0,
+        "ink": {
+          "seaInk": 1.46,
+          "landInk": 2.378,
+          "seaStrong": 0.0101,
+          "landStrong": 0.014,
+          "seaPixels": 983316,
+          "landPixels": 1076909
+        }
+      },
+      {
+        "phase": "in",
+        "afterMs": 1917,
+        "zoom": 8,
+        "active": 402,
+        "retries": 0,
+        "ink": {
+          "seaInk": 2.115,
+          "landInk": 2.31,
+          "seaStrong": 0.0135,
+          "landStrong": 0.0137,
+          "seaPixels": 784471,
+          "landPixels": 1124636
+        }
+      },
+      {
+        "phase": "in",
+        "afterMs": 6574,
+        "zoom": 8,
+        "active": 402,
+        "retries": 1,
+        "ink": {
+          "seaInk": 2.003,
+          "landInk": 2.463,
+          "seaStrong": 0.0126,
+          "landStrong": 0.014,
+          "seaPixels": 784490,
+          "landPixels": 1124604
+        }
+      },
+      {
+        "phase": "in",
+        "afterMs": 8594,
+        "zoom": 8,
+        "active": 402,
+        "retries": 0,
+        "ink": {
+          "seaInk": 2.362,
+          "landInk": 2.548,
+          "seaStrong": 0.0148,
+          "landStrong": 0.0141,
+          "seaPixels": 784490,
+          "landPixels": 1124604
+        }
+      },
+      {
+        "phase": "uit",
+        "afterMs": 1855,
+        "zoom": 6.79,
+        "active": 478,
+        "retries": 0,
+        "ink": {
+          "seaInk": 1.501,
+          "landInk": 2.155,
+          "seaStrong": 0.0101,
+          "landStrong": 0.0138,
+          "seaPixels": 983359,
+          "landPixels": 1077053
+        }
+      },
+      {
+        "phase": "uit",
+        "afterMs": 4786,
+        "zoom": 6.79,
+        "active": 402,
+        "retries": 0,
+        "ink": {
+          "seaInk": 1.409,
+          "landInk": 2.242,
+          "seaStrong": 0.0094,
+          "landStrong": 0.0136,
+          "seaPixels": 983359,
+          "landPixels": 1077053
+        }
+      },
+      {
+        "phase": "uit",
+        "afterMs": 6961,
+        "zoom": 6.79,
+        "active": 402,
+        "retries": 0,
+        "ink": {
+          "seaInk": 1.659,
+          "landInk": 2.204,
+          "seaStrong": 0.0108,
+          "landStrong": 0.0131,
+          "seaPixels": 983359,
+          "landPixels": 1077053
+        }
+      },
+      {
+        "phase": "in",
+        "afterMs": 1984,
+        "zoom": 8,
+        "active": 402,
+        "retries": 0,
+        "ink": {
+          "seaInk": 1.852,
+          "landInk": 2.661,
+          "seaStrong": 0.0123,
+          "landStrong": 0.0151,
+          "seaPixels": 784490,
+          "landPixels": 1124604
+        }
+      },
+      {
+        "phase": "in",
+        "afterMs": 4819,
+        "zoom": 8,
+        "active": 402,
+        "retries": 0,
+        "ink": {
+          "seaInk": 2.414,
+          "landInk": 2.752,
+          "seaStrong": 0.0146,
+          "landStrong": 0.0147,
+          "seaPixels": 784490,
+          "landPixels": 1124604
+        }
+      },
+      {
+        "phase": "in",
+        "afterMs": 6573,
+        "zoom": 8,
+        "active": 402,
+        "retries": 0,
+        "ink": {
+          "seaInk": 2.061,
+          "landInk": 2.397,
+          "seaStrong": 0.0127,
+          "landStrong": 0.0135,
+          "seaPixels": 784490,
+          "landPixels": 1124604
+        }
+      },
+      {
+        "phase": "uit",
+        "afterMs": 2054,
+        "zoom": 6.79,
+        "active": 534,
+        "retries": 0,
+        "ink": {
+          "seaInk": 1.319,
+          "landInk": 2.092,
+          "seaStrong": 0.009,
+          "landStrong": 0.0132,
+          "seaPixels": 983359,
+          "landPixels": 1077053
+        }
+      },
+      {
+        "phase": "uit",
+        "afterMs": 5311,
+        "zoom": 6.79,
+        "active": 402,
+        "retries": 0,
+        "ink": {
+          "seaInk": 1.606,
+          "landInk": 2.151,
+          "seaStrong": 0.0106,
+          "landStrong": 0.013,
+          "seaPixels": 983359,
+          "landPixels": 1077053
+        }
+      },
+      {
+        "phase": "uit",
+        "afterMs": 8440,
+        "zoom": 6.79,
+        "active": 402,
+        "retries": 0,
+        "ink": {
+          "seaInk": 1.972,
+          "landInk": 2.319,
+          "seaStrong": 0.0128,
+          "landStrong": 0.0136,
+          "seaPixels": 983359,
+          "landPixels": 1077053
+        }
+      }
+    ]
+  }
+}
