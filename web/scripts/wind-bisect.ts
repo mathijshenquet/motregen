@@ -7,7 +7,7 @@ import { join } from 'node:path'
 // de windcanvas verborgen (wind-ink-methode), en de effectieve opacity/intensiteit van de laag.
 // WIND_TUNING = JSON voor `motregen-wind-tuning-v2` (leeg = geen opgeslagen tuning).
 const [origin, outDir, label = 'run'] = process.argv.slice(2)
-if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/wind-bisect.ts ORIGIN OUT_DIR [LABEL]  (VIDEO=1, THEMES=light,dark, WIND_TUNING=json)')
+if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/wind-bisect.ts ORIGIN OUT_DIR [LABEL]  (VIDEO=1, THEMES=light,dark, WIND_TUNING=json, CYCLES=n)')
 mkdirSync(outDir, { recursive: true })
 const video = process.env.VIDEO === '1'
 const themes = (process.env.THEMES ?? 'light,dark').split(',')
@@ -15,6 +15,7 @@ const tuning = process.env.WIND_TUNING ?? ''
 const size = { width: 1280, height: 800 }
 const view = { lng: 4.9, lat: 52.35, zoom: 6.5 }
 const zoomedIn = 8
+const cycles = Number(process.env.CYCLES ?? 1)
 
 type MapHandle = { easeTo: (options: object) => void; getZoom: () => number }
 const browser = await chromium.launch({ headless: true, args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
@@ -84,7 +85,7 @@ for (const theme of themes) {
     return Date.now()
   }
   await still('rust', Date.now())
-  for (const [phase, zoom] of [['in', zoomedIn], ['uit', startZoom]] as const) {
+  for (let cycle = 0; cycle < cycles; cycle++) for (const [phase, zoom] of [['in', zoomedIn], ['uit', startZoom]] as const) {
     const ended = await zoomTo(zoom)
     await page.waitForTimeout(300)
     await still(phase, ended)

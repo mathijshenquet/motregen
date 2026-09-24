@@ -26,7 +26,7 @@ interface Internals {
   balance(): void
 }
 
-function harness(width = 1_280, height = 720) {
+function harness(width = 1_280, height = 720, speed = 5) {
   // Midden van het raster als wereldfractie.
   const view: View = { x: 0.5 + 500_000 / (2 * Math.PI * R), y: 0.5 - 6_500_000 / (2 * Math.PI * R), zoom: 8, width, height }
   const lng = (fraction: number) => fraction * 360 - 180
@@ -47,7 +47,7 @@ function harness(width = 1_280, height = 720) {
   }
   const layer = new WindLayer(grid, 'dark')
   const field = new Float32Array(grid.width * grid.height * 2)
-  for (let index = 0; index < field.length; index += 2) field[index] = 5
+  for (let index = 0; index < field.length; index += 2) field[index] = speed
   layer.setFrames(field, field, 0)
   const wind = layer as unknown as Internals
   wind.map = map
@@ -168,5 +168,28 @@ describe('wind across map movement (U12)', () => {
     move({ width: view.width * 2 })
     expect(wind.retiring).toBe(0)
     expect(wind.active - wind.retiring).toBe(previous)
+  })
+
+  it('does not let a zoom cohort die and respawn in one wave where maxAge rules (slow wind over land, U20)', () => {
+    // 1 m/s ≈ 7,5 CSS-px/s: 90 px afstand duurt 12 s, dus maxAge (6 s) bepaalt de dood. Zonder
+    // spreiding in leeftijd sterven alle aanvullers van één zoomstap in hetzelfde kwart seconde.
+    const { wind, run, move, view } = harness(1_280, 720, 1)
+    run(20)
+    const waves = () => {
+      const buckets = new Array<number>(40).fill(0)
+      let previous = Float32Array.from(wind.ages.subarray(0, wind.active))
+      for (let frameIndex = 0; frameIndex < 600; frameIndex++) {
+        run(frame)
+        for (let index = 0; index < Math.min(previous.length, wind.active); index++) if (wind.ages[index]! < previous[index]!) buckets[Math.floor(frameIndex / 15)]!++
+        previous = Float32Array.from(wind.ages.subarray(0, wind.active))
+      }
+      const mean = buckets.reduce((sum, value) => sum + value, 0) / buckets.length
+      return Math.max(...buckets) / mean
+    }
+    const rest = waves()
+    expect(rest, 'rust').toBeLessThan(3)
+    move({ zoom: view.zoom + 1 })
+    const zoomed = waves()
+    expect(zoomed, 'na inzoomen').toBeLessThan(3)
   })
 })

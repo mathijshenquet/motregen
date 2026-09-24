@@ -243,6 +243,9 @@ export class WindLayer implements CustomLayerInterface {
   private ages = new Float32Array(MAX_PARTICLES)
   private travelled = new Float32Array(MAX_PARTICLES)
   private distances = new Float32Array(MAX_PARTICLES)
+  /** Levensschaal (0,8–1,2) op afstand én maxAge: waar maxAge de dood bepaalt (zwakke wind) blijft een cohort anders synchroon. */
+  private lifeScales = new Float32Array(MAX_PARTICLES).fill(1)
+  private lifeLimit = { maxAge: 0 }
   /** Tijdsfade (0–1) bovenop de afstandsfades; `rampRates` > 0 = aanvuller, < 0 = overtal. */
   private ramps = new Float32Array(MAX_PARTICLES).fill(1)
   private rampRates = new Float32Array(MAX_PARTICLES)
@@ -510,7 +513,8 @@ export class WindLayer implements CustomLayerInterface {
       const outside = nextX < this.particleBounds.west || nextX > this.particleBounds.east ||
         nextY < this.particleBounds.north || nextY > this.particleBounds.south
       const offset = index * INSTANCE_BYTES / 4
-      if (outside || !advanceLife(life, stepPx, seconds, tuning)) {
+      this.lifeLimit.maxAge = tuning.maxAge * this.lifeScales[index]!
+      if (outside || !advanceLife(life, stepPx, seconds, this.lifeLimit)) {
         if (this.die(index, oldX, oldY)) index--
         continue
       }
@@ -567,13 +571,17 @@ export class WindLayer implements CustomLayerInterface {
     this.ages[index] = -delaySeconds
     this.travelled[index] = 0
     // ±20 %: anders sterft een homogeen zeeveld in synchrone golven.
-    this.distances[index] = this.tuning.trailDistance * (0.8 + this.random() * 0.4)
+    const lifeScale = 0.8 + this.random() * 0.4
+    this.lifeScales[index] = lifeScale
+    this.distances[index] = this.tuning.trailDistance * lifeScale
     this.ramps[index] = 1
     this.rampRates[index] = 0
     if (fill) {
-      // Een willekeurige levensfase, anders sterven alle aanvullers van één zoomstap tegelijk.
-      this.ages[index] = 1e-3
-      this.travelled[index] = this.random() * FILL_MAX_PHASE * this.distances[index]!
+      // Een willekeurige levensfase in afstand én leeftijd, anders sterven alle aanvullers van
+      // één zoomstap tegelijk: bij zwakke wind (land) is maxAge de doodsoorzaak (U20).
+      const phase = this.random() * FILL_MAX_PHASE
+      this.ages[index] = Math.max(1e-3, phase * this.tuning.maxAge * lifeScale)
+      this.travelled[index] = phase * this.distances[index]!
       this.ramps[index] = 0
       this.rampRates[index] = 1 / FILL_FADE_SECONDS
     }
@@ -674,7 +682,7 @@ export class WindLayer implements CustomLayerInterface {
   private removeSlot(index: number): void {
     const last = --this.active
     if (index === last) return
-    for (const values of [this.x, this.y, this.ages, this.travelled, this.distances, this.ramps, this.rampRates]) values[index] = values[last]!
+    for (const values of [this.x, this.y, this.ages, this.travelled, this.distances, this.lifeScales, this.ramps, this.rampRates]) values[index] = values[last]!
     this.instanceBytes.copyWithin(index * INSTANCE_BYTES, last * INSTANCE_BYTES, (last + 1) * INSTANCE_BYTES)
   }
 
