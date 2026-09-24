@@ -104,7 +104,7 @@ test('pinned isolines re-render after a manifest refresh with a new run and afte
     if (newRun) {
       // Een nieuwe run bij gelijke tijdlijnlengte: andere chunk-URL's, dezelfde frames.
       manifest.generated = new Date(Date.parse(manifest.generated) + 60_000).toISOString()
-      for (const chunk of manifest.chunks) if (chunk.field === 'feels_like_c') chunk.url += '?run=2'
+      for (const chunk of manifest.chunks) if (chunk.field === 'feels_like_c' || chunk.field === 'feels_like_dct') chunk.url += '?run=2'
     }
     await route.fulfill({ response, json: manifest })
   })

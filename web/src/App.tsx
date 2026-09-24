@@ -12,7 +12,7 @@ import ForecastTable, { type SunForm } from './components/ForecastTable'
 import UvBar, { uvBarLabel, type UvBarVariant } from './components/UvBar'
 import { loadBasemapStyle, temperatureLayerBeforeId, type MapTheme } from './core/basemap'
 import { CloudEdgeLayer } from './core/cloud-edge-layer'
-import type { Grid, Manifest, ManifestChunk, MrfHeader, TimelineFrame } from './core/contract'
+import { chunkField, type Grid, type Manifest, type ManifestChunk, type MrfHeader, type TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
 
 const DAY_NIGHT_ENABLED = false
@@ -178,6 +178,7 @@ export default function App() {
     const dct = manifest() && feelsLikeFieldSource !== 'bitmap' ? buildTimeline(manifest()!, 'feels_like_dct') : []
     return dct.length ? dct : feelsLikeTimeline()
   })
+  const mapFieldChunks = () => [...new Set(feelsLikeMapTimeline().filter((frame) => chunkField(frame.chunk) === 'feels_like_dct').map((frame) => frame.chunk))]
   const humidityTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'rel_humidity') : [])
   const cloudTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'cloud_frac') : [])
   const windTimeline = createMemo(() => manifest() ? buildWindTimeline(manifest()!) : [])
@@ -1040,7 +1041,10 @@ export default function App() {
     return timelineEpochAtCursor(frames, cursor())
   }
 
-  function load(frame: TimelineFrame): Promise<Uint8Array> {
+  async function load(frame: TimelineFrame): Promise<Uint8Array> {
+    // DCT-chunks zijn klein: altijd als één payload-Range. Losse frame-Ranges erop kwamen bij een warme
+    // reload opnieuw over (Chromium-sparse-cache, zie uv_clear; perf.spec warm = 0 B).
+    if (chunkField(frame.chunk) === 'feels_like_dct') await client.fetchPayload(frame.chunk, 'high', 'map')
     return client.getFrame(frame.chunk, frame.frameIndex)
   }
 
@@ -1317,6 +1321,9 @@ export default function App() {
         readPointSeries(windUFrames(), state.point, undefined, priority, undefined, undefined, layer),
         readPointSeries(windVFrames(), state.point, undefined, priority, undefined, undefined, layer),
         enqueueRain(state, timeline().map((_, index) => index), priority, layer, reason),
+        // Het DCT-kaartveld is klein (~4 kB/frame): bij volledig laden in één Range per chunk, anders
+        // haalt scrubben elk uurframe apart op (perf.spec: scrub-requests).
+        ...mapFieldChunks().map((chunk) => client.fetchPayload(chunk, priority, layer)),
       ])
       if (state.request !== pointRequest) return
       setUvSeries(uv)

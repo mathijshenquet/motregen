@@ -126,6 +126,9 @@ export class MrfClient {
   private readonly headers = new Map<string, Promise<MrfHeader>>()
   private readonly resolvedHeaders = new Map<string, MrfHeader>()
   private readonly frames = new LruCache<string, Uint8Array>(512)
+  // DCT-kaartvelden in een eigen cache: de gedeelde 512 is op maat van de puntreeksen, en 52 extra
+  // uurframes drukten tabelframes eruit (tweede locatieklik viel terug naar skeleton, U15-les).
+  private readonly fieldFrames = new LruCache<string, Uint8Array>(64)
   private readonly framePromises = new Map<string, Promise<Uint8Array>>()
   private readonly motions = new LruCache<string, MotionField>(256)
   private readonly motionPromises = new Map<string, Promise<MotionField>>()
@@ -172,7 +175,8 @@ export class MrfClient {
   }
 
   getCachedFrame(chunk: ManifestChunk, frameIndex: number): Uint8Array | undefined {
-    return this.frames.get(frameKey(new URL(chunk.url, this.manifestUrl).href, frameIndex))
+    const url = new URL(chunk.url, this.manifestUrl).href
+    return this.cacheFor(this.resolvedHeaders.get(url)).get(frameKey(url, frameIndex))
   }
 
   async getFrame(chunk: ManifestChunk, frameIndex: number, priority: FetchPriority = 'high'): Promise<Uint8Array> {
@@ -192,7 +196,7 @@ export class MrfClient {
     for (const index of uniqueIndexes) if (!header.frames[index]) throw new Error('Frame-index buiten bereik')
     const missing = uniqueIndexes.filter((index) => {
       const key = frameKey(url, index)
-      return !this.frames.get(key) && !this.framePromises.has(key)
+      return !this.cacheFor(header).get(key) && !this.framePromises.has(key)
     })
 
     if (missing.length >= 2) {
@@ -207,7 +211,7 @@ export class MrfClient {
 
     return Promise.all(frameIndexes.map(async (index) => {
       const key = frameKey(url, index)
-      const cached = this.frames.get(key)
+      const cached = this.cacheFor(header).get(key)
       const frame = cached ?? await this.framePromises.get(key)!
       progress?.(index, frame)
       return frame
@@ -265,7 +269,7 @@ export class MrfClient {
     this.trace?.frameBytesReady(url, frameIndex)
     const decoded = await this.decodeInWorker(compressed, header.grid.width * header.grid.height, dctSpec(header))
     this.trace?.frameDecoded(url, frameIndex)
-    this.frames.set(key, decoded)
+    this.cacheFor(header).set(key, decoded)
     this.onFrameDecoded?.(url, frameIndex, decoded)
     return decoded
   }
@@ -296,7 +300,7 @@ export class MrfClient {
       this.trace?.frameBytesReady(url, index)
       const decodedBytes = await this.decodeInWorker(compressed, header.grid.width * header.grid.height, dctSpec(header))
       this.trace?.frameDecoded(url, index)
-      this.frames.set(frameKey(url, index), decodedBytes)
+      this.cacheFor(header).set(frameKey(url, index), decodedBytes)
       this.onFrameDecoded?.(url, index, decodedBytes)
       return decodedBytes
     })()]))
@@ -330,6 +334,10 @@ export class MrfClient {
 
   prefetch(chunk: ManifestChunk, indexes: number[], priority: FetchPriority = 'low'): void {
     void this.getFrames(chunk, indexes, priority, undefined, 'prefetch').catch(() => undefined)
+  }
+
+  private cacheFor(header: MrfHeader | undefined): LruCache<string, Uint8Array> {
+    return header?.dct ? this.fieldFrames : this.frames
   }
 
   private rangeTrace(layer: LoadLayer, frames: number[]): RangeTrace | undefined {
