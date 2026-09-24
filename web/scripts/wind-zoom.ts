@@ -1,4 +1,4 @@
-import { chromium, devices, type BrowserContextOptions, type Page } from '@playwright/test'
+import { chromium, devices, type BrowserContextOptions, type CDPSession, type Page } from '@playwright/test'
 import { mkdirSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -113,7 +113,10 @@ async function installProbe(page: Page): Promise<void> {
     ;(globalThis as unknown as { __u12: typeof probe }).__u12 = probe
     // Adaptief budget uit en volle dichtheid, voor beide builds gelijk.
     wind.frameCount = -1e12
-    wind.active = wind.target
+    if ('budget' in wind) {
+      wind.budget = wind.target
+      ;(wind.balance as () => void).call(wind)
+    } else wind.active = wind.target
     const render = wind.render.bind(wind)
     wind.render = (...args: unknown[]) => { probe.frames.push(performance.now()); render(...args) }
   })
@@ -150,7 +153,7 @@ async function ease(page: Page, step: { zoom?: number; panX?: number }): Promise
   }, step)
 }
 
-async function pinch(cdp: { send: (method: 'Input.dispatchTouchEvent', params: object) => Promise<unknown> }, center: { x: number; y: number }, from: number, to: number, durationMs: number): Promise<void> {
+async function pinch(cdp: CDPSession, center: { x: number; y: number }, from: number, to: number, durationMs: number): Promise<void> {
   const points = (spread: number) => [
     { x: center.x - spread / 2, y: center.y, id: 1 },
     { x: center.x + spread / 2, y: center.y, id: 2 },
