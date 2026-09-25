@@ -425,6 +425,7 @@ button { color: inherit; cursor: pointer; }
 :root:not([data-theme="dark"]) .scrubber { --muted: #58707a; }
 .scrubber-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .scrubber-source { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; color: var(--muted); font-size: 12px; font-weight: 650; white-space: nowrap; }
+.scrubber-source > span { overflow: hidden; text-overflow: ellipsis; }
 .scrubber-source::before { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--history); content: ''; }
 .scrubber-source.forecast::before { background: var(--forecast); }
 .time-horizon { margin-left: auto; }

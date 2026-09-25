@@ -193,7 +193,7 @@ export default function HistogramScrubber(props: Props) {
 
   return <section class="scrubber" aria-label={`Regenverwachting en tijd voor ${props.locationLabel}`}>
     <div class="scrubber-toolbar">
-      <Show when={cursorZone()}>{(zone) => <span class={`scrubber-source ${zone().kind}`} title="Bron op het gekozen tijdstip">{zone().label}</span>}</Show>
+      <Show when={cursorZone()}>{(zone) => <span class={`scrubber-source ${zone().kind}`} title="Bron op het gekozen tijdstip"><span>{zone().label}</span></span>}</Show>
       <div class="segmented time-horizon" role="group" aria-label="Tijdsbereik">
         <For each={[3, 8, 24] as const}>{(hours) => <button type="button" classList={{ active: props.horizonHours === hours }} aria-pressed={props.horizonHours === hours} onClick={() => { props.onIntent?.(); props.onHorizonHours(hours) }}>+{hours}u</button>}</For>
         <button type="button" classList={{ active: props.horizonHours === null }} aria-pressed={props.horizonHours === null} onClick={() => { props.onIntent?.(); props.onHorizonHours(null) }}>Alles</button>
