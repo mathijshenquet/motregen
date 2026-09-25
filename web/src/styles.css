@@ -453,12 +453,12 @@ button { color: inherit; cursor: pointer; }
 }
 .scrub-surface:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .scrub-surface.hover-scrubbing { cursor: crosshair; }
-.chart-plot { position: absolute; top: 34px; right: 0; bottom: 26px; left: 0; border-radius: 8px; background: color-mix(in srgb, var(--surface-soft) 45%, transparent); }
+.chart-plot { position: absolute; top: 34px; right: 0; bottom: 26px; left: 0; border-radius: 8px 8px 0 0; background: color-mix(in srgb, var(--surface-soft) 45%, transparent); }
 /* Vast kader (PO 2026-09-25): ook zichtbaar zolang de grafiek laadt of leeg is; als pseudo-element zodat de
    pil en het Nu-label buiten het vlak niet worden afgekapt. */
-.chart-plot::after { position: absolute; inset: 0; z-index: 1; border: 1px solid var(--line-strong); border-radius: 8px; content: ''; pointer-events: none; }
+.chart-plot::after { position: absolute; inset: 0; z-index: 1; border: 1px solid var(--line-strong); border-radius: 8px 8px 0 0; content: ''; pointer-events: none; }
 .chart-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; }
-.past-shade { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 8px 0 0 8px; background: color-mix(in srgb, var(--text) 4%, transparent); pointer-events: none; }
+.past-shade { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 8px 0 0 0; background: color-mix(in srgb, var(--text) 4%, transparent); pointer-events: none; }
 .rain-guide { stroke: color-mix(in srgb, var(--line-strong) 70%, transparent); stroke-dasharray: 2 4; stroke-width: 1; }
 .rain-baseline { stroke: var(--line-strong); stroke-width: 1; }
 :root:not([data-theme="dark"]) .rain-bars { filter: brightness(.86) saturate(1.35); }
@@ -473,7 +473,7 @@ button { color: inherit; cursor: pointer; }
 .day-grid > div.boundary { border-left: 1px dashed color-mix(in srgb, var(--text) 30%, transparent); }
 .day-grid span { position: absolute; top: 4px; left: 4px; z-index: 1; padding: 1px 3px; border-radius: 4px; color: var(--muted); background: color-mix(in srgb, var(--surface) 80%, transparent); font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
 .empty-graph { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 12px; pointer-events: none; }
-.scrubber-placeholder { position: absolute; inset: 0; z-index: 3; border-radius: 8px; display: grid; place-items: center; color: var(--muted); background: var(--surface); font-size: 12px; font-weight: 600; pointer-events: none; }
+.scrubber-placeholder { position: absolute; inset: 0; z-index: 3; border-radius: 8px 8px 0 0; display: grid; place-items: center; color: var(--muted); background: var(--surface); font-size: 12px; font-weight: 600; pointer-events: none; }
 .scrubber-placeholder-bars { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 55%, transparent), transparent) 0 0 / 40% 100% no-repeat, var(--line); animation: scrubber-sweep 1.6s ease-in-out infinite; }
 @keyframes scrubber-sweep { from { background-position: -60% 0, 0 0; } to { background-position: 160% 0, 0 0; } }
 @keyframes scrubber-pulse { from { opacity: .35; } to { opacity: 1; } }
