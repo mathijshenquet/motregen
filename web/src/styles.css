@@ -703,6 +703,9 @@ tr.history-toggle-row td { padding: 0; border-bottom: 1px solid var(--line); bac
 .history-toggle { display: flex; width: 100%; align-items: center; gap: 7px; padding: 7px 0; border: 0; color: var(--muted); background: none; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-align: left; }
 .history-toggle:hover, .history-toggle:focus-visible { color: var(--text); }
 
+/* Temperatuurfocus: alleen MapLibre's eigen canvas; de overlays zijn eigen canvassen. */
+.map-desaturated .maplibregl-canvas { filter: saturate(var(--map-saturation, 1)); }
+
 .map-overlay {
   position: absolute;
   top: 0;

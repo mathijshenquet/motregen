@@ -1,11 +1,13 @@
 export interface FocusTuning {
   /** Zichtbaarheid van regen, wind, wolkrand en zon tijdens volle temperatuurfocus (0–1). */
   dim: number
+  /** Verzadiging van de basiskaart tijdens volle temperatuurfocus (1 = ongewijzigd). */
+  saturation: number
   inMs: number
   outMs: number
 }
 
-export const DEFAULT_FOCUS_TUNING: FocusTuning = { dim: 0.25, inMs: 250, outMs: 400 }
+export const DEFAULT_FOCUS_TUNING: FocusTuning = { dim: 0.25, saturation: 0.55, inMs: 250, outMs: 400 }
 
 export interface FocusTween {
   from: number
@@ -38,6 +40,11 @@ export function retargetFocus(tween: FocusTween, now: number, target: number, tu
 /** Dekking van de gedimde context (regen, wind, wolkrand, zon) bij focuswaarde `focus`. */
 export function contextOpacity(focus: number, dim: number): number {
   return 1 - focus * (1 - dim)
+}
+
+/** Verzadiging van de basiskaart bij temperatuurfocus `focus`. */
+export function mapSaturation(focus: number, saturation: number): number {
+  return 1 - focus * (1 - saturation)
 }
 
 /** Windfocus tweent de gedempte windlaag terug naar vol: ×3/2 op de (×2/3) gedempte intensiteit. */

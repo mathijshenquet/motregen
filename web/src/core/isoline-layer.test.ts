@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { Grid } from './contract'
-import { IsolineLayer, oddLine } from './isoline-layer'
+import { isolineWidthCss, IsolineLayer, lineProfile } from './isoline-layer'
 
 const grid = { width: 2, height: 2, x0: 0, y0: 0, dx: 1, dy: -1 } as unknown as Grid
-const style = { step: 1, odd: 'half' as const, color: [0, 0, 0] as [number, number, number], window: 1, bicubic: true, fade: 1, gradient: [0.02, 0.06] as [number, number], speed: [80, 250] as [number, number], vector: false, ringKm: 0, tolerancePx: 0.25 }
+const style = { step: 1, fill: 0.12, fillFalloff: 0.7, color: [0, 0, 0] as [number, number, number], window: 1, bicubic: true, fade: 1, gradient: [0.02, 0.06] as [number, number], speed: [80, 250] as [number, number], vector: false, ringKm: 0, tolerancePx: 0.25 }
 
 describe('IsolineLayer frame identity', () => {
   it('reports only the hour layers whose run or frame changed after a manifest refresh', () => {
@@ -16,14 +16,17 @@ describe('IsolineLayer frame identity', () => {
   })
 })
 
-describe('odd isolines', () => {
-  it('draws half width, but never thinner than 1 px: the rest goes into alpha', () => {
-    // DPR 1, z5 (1,3 px) resp. z9 (2 px); DPR 2, z9 (4 px).
-    expect(oddLine('half', 1.3)).toEqual({ halfWidth: 0.5, alpha: 0.65 })
-    expect(oddLine('half', 2)).toEqual({ halfWidth: 0.5, alpha: 1 })
-    expect(oddLine('half', 4)).toEqual({ halfWidth: 1, alpha: 1 })
-    expect(oddLine('equal', 1.3)).toEqual({ halfWidth: 0.65, alpha: 1 })
-    expect(oddLine('dash', 4)).toEqual({ halfWidth: 2, alpha: 1 })
+describe('isoline width', () => {
+  it('is one weight, 0.7× the old 1.3–2.0 CSS px', () => {
+    expect(isolineWidthCss(4)).toBeCloseTo(0.9, 9)
+    expect(isolineWidthCss(7)).toBeCloseTo(1.15, 9)
+    expect(isolineWidthCss(10)).toBeCloseTo(1.4, 9)
+  })
+
+  it('never draws thinner than 1 px: the rest goes into alpha', () => {
+    expect(lineProfile(0.9)).toEqual({ halfWidth: 0.5, alpha: 0.9 })
+    expect(lineProfile(1)).toEqual({ halfWidth: 0.5, alpha: 1 })
+    expect(lineProfile(2.8)).toEqual({ halfWidth: 1.4, alpha: 1 })
   })
 
   it('keeps the summed coverage constant as a line slides across pixel centres (no flicker)', () => {
@@ -37,9 +40,9 @@ describe('odd isolines', () => {
       const values = Array.from({ length: 11 }, (_, index) => ink(halfWidth, alpha, index / 10))
       return (Math.max(...values) - Math.min(...values)) / Math.max(...values)
     }
-    const { halfWidth, alpha } = oddLine('half', 1.3)
+    const { halfWidth, alpha } = lineProfile(0.9)
     expect(spread(halfWidth, alpha)).toBeLessThan(1e-9)
-    // Naïef 0,65 px breed: > 20 % lichter tussen twee pixelmiddens.
-    expect(spread(0.325, 1)).toBeGreaterThan(0.2)
+    // Naïef 0,9 px breed: lichter tussen twee pixelmiddens.
+    expect(spread(0.45, 1)).toBeGreaterThan(0.05)
   })
 })

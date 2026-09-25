@@ -290,8 +290,50 @@ export function ringFadeAt(rings: readonly ShortRing[], level: number, column: n
   return 1
 }
 
-/** Per segment: ax, ay, bx, by (cellen), booglengte a/b (cellen), alpha a/b, oneven niveau. */
-export const SEGMENT_FLOATS = 9
+/** Geen ring in de buurt: de vulling gebruikt de lijnfade uit het veld. */
+export const NO_RING_LEVEL = -1000
+// Tot hier (cellen, afstand tot de ring; 0 binnenin) volle ringfade, daarna naar 1. Ruim meer dan
+// de halve diagonaal van een cel, zodat bilineair filteren op de lijn zelf nooit een rand mengt.
+const RING_RASTER_INNER = 1
+const RING_RASTER_OUTER = 2.5
+
+/**
+ * Ringfade als raster op roosterresolutie, (niveau, fade) per cel: de vulling mengt de
+ * bandkleuren rond een weggevaagd lusje met dezelfde factor als de lijn (die alleen de tracer
+ * kent). Undefined als geen enkele ring vervaagt.
+ */
+export function ringFadeRaster(rings: readonly ShortRing[], width: number, height: number): Float32Array | undefined {
+  let raster: Float32Array | undefined
+  for (const ring of rings) {
+    if (ring.fade >= 1) continue
+    if (!raster) {
+      raster = new Float32Array(width * height * 2)
+      for (let cell = 0; cell < width * height; cell++) { raster[cell * 2] = NO_RING_LEVEL; raster[cell * 2 + 1] = 1 }
+    }
+    const [left, top, right, bottom] = ring.bounds
+    const count = ring.points.length / 2
+    for (let row = Math.max(0, Math.floor(top - RING_RASTER_OUTER)); row <= Math.min(height - 1, Math.ceil(bottom + RING_RASTER_OUTER)); row++) {
+      for (let column = Math.max(0, Math.floor(left - RING_RASTER_OUTER)); column <= Math.min(width - 1, Math.ceil(right + RING_RASTER_OUTER)); column++) {
+        let distance = Infinity, inside = false
+        for (let index = 0, previous = count - 1; index < count; previous = index++) {
+          const ax = ring.points[previous * 2]!, ay = ring.points[previous * 2 + 1]!
+          const bx = ring.points[index * 2]!, by = ring.points[index * 2 + 1]!
+          if ((ay > row) !== (by > row) && column < ax + (row - ay) * (bx - ax) / (by - ay)) inside = !inside
+          const dx = bx - ax, dy = by - ay
+          const t = Math.max(0, Math.min(1, ((column - ax) * dx + (row - ay) * dy) / Math.max(dx * dx + dy * dy, 1e-12)))
+          distance = Math.min(distance, Math.hypot(column - ax - dx * t, row - ay - dy * t))
+        }
+        const fade = ring.fade + (1 - ring.fade) * smoothstep(RING_RASTER_INNER, RING_RASTER_OUTER, inside ? 0 : distance)
+        const cell = row * width + column
+        if (fade < raster[cell * 2 + 1]!) { raster[cell * 2] = ring.level; raster[cell * 2 + 1] = fade }
+      }
+    }
+  }
+  return raster
+}
+
+/** Per segment: ax, ay, bx, by (cellen), alpha a/b. */
+export const SEGMENT_FLOATS = 6
 
 export interface SegmentOptions {
   /** Ringen korter dan dit (km) vervagen; 0 = uit. */
@@ -320,20 +362,13 @@ export function buildSegments(contours: readonly Contour[], options: SegmentOpti
       if (fade < 0.5) fadedRings++
     }
     if (fade <= 0) continue
-    // Oneven graden gestippeld, zoals de rastershader.
-    const odd = Math.abs(Math.round(contour.level)) % 2
     const count = contour.points.length / 2
     const segments = contour.closed ? count : count - 1
     const alpha = (index: number) => fade * (options.gradient ? smoothstep(options.gradient[0], options.gradient[1], contour.gradient[index]!) : 1)
-    let arc = 0
     for (let index = 0; index < segments; index++) {
       const next = (index + 1) % count
-      const ax = contour.points[index * 2]!, ay = contour.points[index * 2 + 1]!
-      const bx = contour.points[next * 2]!, by = contour.points[next * 2 + 1]!
-      const length = Math.hypot(bx - ax, by - ay)
-      data.set([ax, ay, bx, by, arc, arc + length, alpha(index), alpha(next), odd], offset)
+      data.set([contour.points[index * 2]!, contour.points[index * 2 + 1]!, contour.points[next * 2]!, contour.points[next * 2 + 1]!, alpha(index), alpha(next)], offset)
       offset += SEGMENT_FLOATS
-      arc += length
     }
   }
   return { data: data.subarray(0, offset), stats: { segments: offset / SEGMENT_FLOATS, rings, fadedRings } }
