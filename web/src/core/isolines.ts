@@ -40,6 +40,56 @@ export function adaptiveIsobarStep(min: number, max: number, current?: number): 
   return ISOBAR_STEPS_HPA.find((step) => step > current && isobarLineCount(min, max, step) >= ISOBAR_MIN_LINES + 2) ?? current
 }
 
+// H en L bij de isobaren (PO 2026-09-25, MIP-14): strikt extreem binnen ~150 km en minstens 2 hPa
+// boven/onder die omgeving, zodat er geen letters over de kaart strooien.
+export const PRESSURE_EXTREMUM_KM = 150
+export const PRESSURE_EXTREMUM_HPA = 2
+
+export interface PressureExtremum { kind: 'H' | 'L'; column: number; row: number; value: number }
+
+/**
+ * Lokale maxima (H) en minima (L) van een (gladgestreken) drukveld: strikt extreem in een venster van
+ * ±`radius` cellen dat helemaal geldig is (een venster tegen de datarand maakt elk randpunt "extreem"),
+ * met minstens `prominence` hPa verschil met het venster. Eerst een 3×3-toets, zodat het brede venster
+ * alleen voor de paar kandidaten geteld wordt.
+ */
+export function pressureExtrema(values: ArrayLike<number>, valid: ArrayLike<number>, width: number, height: number, radius: number, prominence = PRESSURE_EXTREMUM_HPA): PressureExtremum[] {
+  const found: PressureExtremum[] = []
+  const ok = (index: number) => valid[index]! > 0.5
+  for (let row = radius; row < height - radius; row++) {
+    for (let column = radius; column < width - radius; column++) {
+      const center = row * width + column
+      if (!ok(center)) continue
+      const value = values[center]!
+      let high = true, low = true
+      for (let dy = -1; dy <= 1 && (high || low); dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue
+          const other = values[center + dy * width + dx]!
+          if (other >= value) high = false
+          if (other <= value) low = false
+        }
+      }
+      if (!high && !low) continue
+      let min = Infinity, max = -Infinity, complete = true
+      for (let dy = -radius; dy <= radius && complete; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const index = center + dy * width + dx
+          if (!ok(index)) { complete = false; break }
+          if (index === center) continue
+          const other = values[index]!
+          if (other < min) min = other
+          if (other > max) max = other
+        }
+      }
+      if (!complete) continue
+      if (high && value > max && value - min >= prominence) found.push({ kind: 'H', column, row, value })
+      if (low && value < min && max - value >= prominence) found.push({ kind: 'L', column, row, value })
+    }
+  }
+  return found
+}
+
 /** Min en max van de geldige veldwaarden binnen een lng/lat-kader (EPSG:3857-grid). */
 export function fieldRangeInView(values: ArrayLike<number>, valid: ArrayLike<number>, grid: Grid, view: { west: number; south: number; east: number; north: number }): [number, number] | undefined {
   const radius = 6_378_137

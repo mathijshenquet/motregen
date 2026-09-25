@@ -19,7 +19,7 @@ import { buildHourlyForecast, isPassiveRow, PASSIVE_FORECAST_HOURS } from './cor
 import { contextOpacity, FOCUS_DIM, FocusMode, mapSaturation, type FocusKind, windFocusIntensity } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import { latestRadarEpoch, type RefreshState } from './core/freshness'
-import { adaptiveIsobarStep, blendFrames, blurField, DEFAULT_ISOLINE_TUNING, fieldRangeInView, ISOBAR_STEP_HPA, isolineBlurPasses, isolineFrameWeights, type WeightedFrame, ISOLINE_EDGE_FADE_MS, ISOLINE_FILL_OPACITY, ISOLINE_GRADIENT, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineKind, type IsolineTuning } from './core/isolines'
+import { adaptiveIsobarStep, PRESSURE_EXTREMUM_KM, pressureExtrema, blendFrames, blurField, DEFAULT_ISOLINE_TUNING, fieldRangeInView, ISOBAR_STEP_HPA, isolineBlurPasses, isolineFrameWeights, type WeightedFrame, ISOLINE_EDGE_FADE_MS, ISOLINE_FILL_OPACITY, ISOLINE_GRADIENT, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineKind, type IsolineTuning } from './core/isolines'
 import { IsolineLabels } from './core/isoline-labels'
 import { sliceWeights } from './core/isoline-spline'
 import { TraceCore } from './core/isoline-tracer'
@@ -132,6 +132,8 @@ const PLAYBACK_REWIND_MS = 700
 const PLAYBACK_END_HOLD_MS = 2_000
 const PLAYBACK_TEMPO_HOURS = 8
 const TABLE_JUMP_RESUME_MS = 4_000
+// H/L van twee opeenvolgende uren horen bij elkaar als ze binnen deze afstand liggen.
+const PRESSURE_MATCH_KM = 300
 // Afspelen tikt op 30 Hz: regen-tween, isolijnsnede en klok zijn traag genoeg; alleen de
 // windpartikels animeren op WIND_MAX_FPS in hun eigen lus (U41).
 const PLAYBACK_MAX_FPS = 30
@@ -617,6 +619,7 @@ export default function App() {
       applyIsolineOpacity(set)
       if (set.active()) { void showIsolineField(set); void showIsolines(set) }
     }
+    if (pressureIsolines.active()) updatePressureMarks()
   }
   createEffect(() => {
     const loadStage = pointLoadStage()
@@ -1043,9 +1046,63 @@ export default function App() {
     const field = set.fields[nearest] ?? set.fields.find((candidate) => candidate)
     if (!field) return
     const bounds = map.getBounds()
-    const range = fieldRangeInView(field.values, field.valid, set.layer.grid, { west: bounds.getWest(), south: bounds.getSouth(), east: bounds.getEast(), north: bounds.getNorth() })
+    const view = { west: bounds.getWest(), south: bounds.getSouth(), east: bounds.getEast(), north: bounds.getNorth() }
+    const range = fieldRangeInView(field.values, field.valid, set.layer.grid, view)
     if (range) setIsobarStep((current) => adaptiveIsobarStep(range[0], range[1], current))
   }
+
+  // H en L bij de isobaren (MIP-14), vloeiend in de tijd (PO 2026-09-25 live): per uurframe de centra
+  // (gecachet), tussen twee uren per soort gekoppeld aan het dichtstbijzijnde centrum en verschoven;
+  // wat verschijnt of verdwijnt vloeit in/uit. Vanuit drawLayers; getekend door de windlaag zelf.
+  interface PressureMark { kind: 'H' | 'L'; lng: number; lat: number; value: number }
+  const pressureMarkCache = new WeakMap<PreparedField, PressureMark[]>()
+  function pressureMarksOf(field: PreparedField, grid: Grid): PressureMark[] {
+    let marks = pressureMarkCache.get(field)
+    if (marks) return marks
+    const radius = 6_378_137
+    const cellKm = Math.abs(grid.dx) * Math.cos(52 * Math.PI / 180) / 1_000
+    marks = pressureExtrema(field.values, field.valid, grid.width, grid.height, Math.max(2, Math.round(PRESSURE_EXTREMUM_KM / cellKm))).map((extremum) => {
+      const x = grid.x0 + (extremum.column + 0.5) * grid.dx
+      const y = grid.y0 + (extremum.row + 0.5) * grid.dy
+      return { kind: extremum.kind, value: extremum.value, lng: x / radius * 180 / Math.PI, lat: (2 * Math.atan(Math.exp(y / radius)) - Math.PI / 2) * 180 / Math.PI }
+    })
+    pressureMarkCache.set(field, marks)
+    return marks
+  }
+  function updatePressureMarks(): void {
+    const set = pressureIsolines
+    const focusValue = windFocus()
+    const shown: Array<PressureMark & { opacity: number }> = []
+    const frames = set.timeline()
+    if (map && set.layer && focusValue > 0 && frames.length) {
+      const blend = frameBlend(frames, selectedEpoch())
+      const leftField = set.fields[blend.left], rightField = set.fields[blend.right]
+      if (leftField) {
+        const left = pressureMarksOf(leftField, set.layer.grid)
+        const right = rightField && rightField !== leftField ? pressureMarksOf(rightField, set.layer.grid) : left
+        const mix = right === left ? 0 : blend.mix
+        const km = (a: PressureMark, b: PressureMark) => Math.hypot((a.lat - b.lat) * 111, (a.lng - b.lng) * 111 * Math.cos(52 * Math.PI / 180))
+        const used = new Set<PressureMark>()
+        for (const from of left) {
+          const to = right.filter((candidate) => candidate.kind === from.kind && !used.has(candidate) && km(from, candidate) < PRESSURE_MATCH_KM)
+            .sort((a, b) => km(from, a) - km(from, b))[0]
+          if (to) {
+            used.add(to)
+            shown.push({ kind: from.kind, lng: from.lng + (to.lng - from.lng) * mix, lat: from.lat + (to.lat - from.lat) * mix, value: from.value + (to.value - from.value) * mix, opacity: 1 })
+          } else shown.push({ ...from, opacity: 1 - mix })
+        }
+        for (const to of right) if (!used.has(to) && right !== left) shown.push({ ...to, opacity: mix })
+      }
+    }
+    // Naar Mercator-wereldcoördinaten (0–1), zoals de windsegmenten.
+    windLayer?.setPressureMarks(shown.filter((mark) => mark.opacity > 0.01).map((mark) => ({
+      kind: mark.kind,
+      x: (mark.lng + 180) / 360,
+      y: (1 - Math.log(Math.tan(Math.PI / 4 + mark.lat * Math.PI / 360)) / Math.PI) / 2,
+      opacity: focusValue * mark.opacity,
+    })))
+  }
+  createEffect(() => { windFocus(); untrack(updatePressureMarks) })
 
   function isobarStyle(): IsolineStyle {
     return { step: isobarStep(), fill: 0, color: hexColor(isolineColor(mapTheme(), 'pressure')), gradientFade: false, lineOpacity: ISOBAR_LINE_OPACITY }
