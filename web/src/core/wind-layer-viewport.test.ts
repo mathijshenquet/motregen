@@ -21,7 +21,7 @@ interface Internals {
   instanceBytes: Uint8Array
   rampRates: Float32Array
   dying: Uint8Array
-  particleBounds: { west: number; east: number; north: number; south: number }
+  viewBounds: { west: number; east: number; north: number; south: number }
   lifeScales: Float32Array
   resetViewport(resetAll?: boolean): void
   advance(seconds: number, worldPx: number): void
@@ -89,7 +89,7 @@ describe('wind across map movement (U12)', () => {
     const before = visible()
     const positions = Array.from({ length: wind.active }, (_, index) => [wind.x[index]!, wind.y[index]!, wind.ages[index]!] as const)
     move({ zoom: view.zoom + 1 })
-    const bounds = wind.particleBounds
+    const bounds = wind.viewBounds
     let kept = 0
     for (const [index, [x, y, age]] of positions.entries()) {
       if (x < bounds.west || x > bounds.east || y < bounds.north || y > bounds.south) continue
@@ -107,7 +107,7 @@ describe('wind across map movement (U12)', () => {
     const { wind, run, visible, move, view, settled, surplus } = harness()
     run(10)
     const before = visible()
-    const old = { ...wind.particleBounds }
+    const old = { ...wind.viewBounds }
     move({ zoom: view.zoom - 1 })
     expect(wind.retiring / wind.budget).toBeGreaterThan(0.6)
     expect(wind.active - wind.retiring).toBe(wind.budget)
@@ -249,7 +249,7 @@ describe('wind across map movement (U12)', () => {
           x: wind.x[index]!, y: wind.y[index]!, scale: wind.lifeScales[index]!, alpha: wind.instanceBytes[index * 20 + 19]!,
         }))
         run(frame)
-        const bounds = wind.particleBounds
+        const bounds = wind.viewBounds
         for (const head of before) {
           if (head.alpha < 64 || head.x < bounds.west || head.x > bounds.east || head.y < bounds.north || head.y > bounds.south) continue
           // Hetzelfde particle: zelfde levensschaal en (bijna) dezelfde plek, ook na een slotverhuizing.
@@ -262,6 +262,34 @@ describe('wind across map movement (U12)', () => {
       }
       expect(vanished, name).toBe(0)
     }
+  })
+
+  it('fills a freshly panned-in strip right away, also on the windward side (U24b)', () => {
+    // Zuidenwind (3 m/s), pan 0,3 beeldbreedte naar het zuiden in 1 s: de nieuwe strook onderin is
+    // loef. Vóór U24b kwam daar ~45 % van de koppen die er horen (aanvullers in willekeurige lege cellen).
+    const { wind, run, move, view } = harness(1_280, 720, () => [1, 3])
+    run(15)
+    const world = 512 * 2 ** view.zoom
+    const depth = 0.3 * view.width
+    const share = () => {
+      const bounds = wind.viewBounds
+      let strip = 0
+      let all = 0
+      for (let index = 0; index < wind.active; index++) {
+        if (!wind.instanceBytes[index * 20 + 19]) continue
+        const v = (wind.y[index]! - bounds.north) / (bounds.south - bounds.north)
+        if (v < 0 || v > 1) continue
+        all++
+        if (v > 1 - depth / view.height) strip++
+      }
+      return strip / all / (depth / view.height)
+    }
+    for (let frameIndex = 0; frameIndex < 60; frameIndex++) {
+      move({ y: view.y + depth / 60 / world })
+      run(frame)
+    }
+    run(0.25)
+    expect(share()).toBeGreaterThan(0.8)
   })
 })
 

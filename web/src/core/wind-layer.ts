@@ -116,6 +116,7 @@ const REBASE_ZOOM = 0.5
 const REBASE_MARGIN = 0.05
 const FILL_MAX_PHASE = 0.6
 const SPAWN_ATTEMPTS = 32
+const EMPTIEST_SAMPLES = 48
 // Boven deze windsnelheid (m/s) dimt speedDamping de kop.
 const DAMPING_REFERENCE_SPEED = 3
 const MERCATOR_SCALE = 1 / (2 * Math.PI * 6_378_137)
@@ -315,7 +316,8 @@ export class WindLayer implements CustomLayerInterface {
   requestRepaint?: () => void
   private frameTotal = 0
   private frameCount = 0
-  private particleBounds: ParticleBounds = { west: 0, north: 0, east: 1, south: 1 }
+  /** Het zichtbare beeld in gridfracties: hierbuiten sterft een particle. */
+  private viewBounds: ParticleBounds = { west: 0, north: 0, east: 1, south: 1 }
   private tuning: WindParameters
   private readonly viewportChanged = () => this.resetViewport()
 
@@ -389,7 +391,7 @@ export class WindLayer implements CustomLayerInterface {
 
   /** Meethaak (U3b): spreidingsindex van de zichtbare koppen over een celraster van het beeld. */
   dispersion(columns = 12, rows = 12): { particles: number; dispersion: number } {
-    const bounds = this.particleBounds
+    const bounds = this.viewBounds
     const xs: number[] = []
     const ys: number[] = []
     for (let index = 0; index < this.active; index++) {
@@ -405,7 +407,7 @@ export class WindLayer implements CustomLayerInterface {
    * naar lij in banden van gelijk oppervlak; `ratio` = loef/lij (buitenste 20 % aan elke kant).
    */
   windProfile(bins = 10): WindProfile & { particles: number } {
-    const bounds = this.particleBounds
+    const bounds = this.viewBounds
     const xs: number[] = []
     const ys: number[] = []
     const weights: number[] = []
@@ -629,8 +631,7 @@ export class WindLayer implements CustomLayerInterface {
         stepPx = Math.hypot((nextX - oldX) * unitX, (nextY - oldY) * unitY) * worldPx
         speed = Math.hypot(this.east, this.north)
       }
-      const outside = nextX < this.particleBounds.west || nextX > this.particleBounds.east ||
-        nextY < this.particleBounds.north || nextY > this.particleBounds.south
+      const outside = !this.inView(nextX, nextY)
       const offset = index * INSTANCE_BYTES / 4
       this.lifeLimit.maxAge = tuning.maxAge * this.lifeScales[index]!
       if (!dying && (outside || !advanceLife(life, stepPx, seconds, this.lifeLimit))) {
@@ -686,10 +687,15 @@ export class WindLayer implements CustomLayerInterface {
   // zonder zichtbaar raster. Dat maakt de inkt ∝ windsnelheid; speedDamping
   // compenseert dat in de kopintensiteit.
   private respawn(index: number, delaySeconds: number, fill = false): void {
-    const bounds = this.particleBounds
+    const bounds = this.viewBounds
     let cell = 0
     const [x, y] = pickSpawn(SPAWN_ATTEMPTS, () => {
-      cell = leastOccupiedCell(this.cellCounts, this.columns * this.rows, this.random())
+      // Aanvullers (pan/zoom) in de leegste omgeving, zodat een binnengeschoven strook meteen vol is;
+      // gewone respawns in een willekeurige lege cel: de omgevingskeuze stuurde alle pasgeborenen
+      // (nog in fade-in, zonder staart) naar loef, en maakte de inkt daar juist dunner (U24b).
+      cell = fill
+        ? emptiestCell(this.cellCounts, this.columns, this.rows, () => this.random())
+        : leastOccupiedCell(this.cellCounts, this.columns * this.rows, this.random())
       const [u, v] = jitteredCellPoint(cell, this.columns, this.rows, fill ? 1 : this.tuning.spawnJitter, () => this.random())
       return [bounds.west + u * (bounds.east - bounds.west), bounds.north + v * (bounds.south - bounds.north)]
     }, () => this.random(), (candidateX, candidateY) => !this.left || this.sampleWind(candidateX, candidateY) ? 1 : 0)
@@ -729,13 +735,13 @@ export class WindLayer implements CustomLayerInterface {
   private resetViewport(resetAll = false): void {
     if (!this.map) return
     this.ensureTrailTargets()
-    const previousBounds = this.particleBounds
+    const previousBounds = this.viewBounds
     const previousBudget = this.budget
-    this.particleBounds = particleBounds(this.map, this.grid)
+    this.viewBounds = viewBounds(this.map, this.grid)
     const canvas = this.map.getCanvas()
     const target = particleCountForViewport(canvas.clientWidth, canvas.clientHeight, this.tuning.particlesPerMegapixel)
     if (resetAll || target !== this.target) this.budget = target
-    const retention = viewportParticleRetention(previousBounds, this.particleBounds, previousBudget, this.budget)
+    const retention = viewportParticleRetention(previousBounds, this.viewBounds, previousBudget, this.budget)
     this.target = target
     ;[this.columns, this.rows] = occupancyGrid(canvas.clientWidth, canvas.clientHeight, this.target)
     if (resetAll) {
@@ -749,7 +755,7 @@ export class WindLayer implements CustomLayerInterface {
     this.countCells()
     let survivors = 0
     for (let index = 0; index < this.active; index++) {
-      if (this.inside(this.x[index]!, this.y[index]!)) {
+      if (this.inView(this.x[index]!, this.y[index]!)) {
         if (!this.fading(index)) survivors++
       } else if (this.fading(index)) {
         if (this.retire(index)) index--
@@ -832,8 +838,8 @@ export class WindLayer implements CustomLayerInterface {
     return this.rampRates[index]! < 0 || this.dying[index] === 1
   }
 
-  private inside(x: number, y: number): boolean {
-    const bounds = this.particleBounds
+  private inView(x: number, y: number): boolean {
+    const bounds = this.viewBounds
     return x >= bounds.west && x <= bounds.east && y >= bounds.north && y <= bounds.south
   }
 
@@ -852,7 +858,7 @@ export class WindLayer implements CustomLayerInterface {
   }
 
   private cellOf(x: number, y: number): number {
-    const bounds = this.particleBounds
+    const bounds = this.viewBounds
     const u = (x - bounds.west) / (bounds.east - bounds.west)
     const v = (y - bounds.north) / (bounds.south - bounds.north)
     return u >= 0 && u < 1 && v >= 0 && v < 1 ? Math.floor(v * this.rows) * this.columns + Math.floor(u * this.columns) : -1
@@ -1020,6 +1026,39 @@ export function leastOccupiedCell(counts: ArrayLike<number>, cells: number, star
   for (let step = 1; step < cells && counts[best]! > 0; step++) {
     const cell = (offset + step) % cells
     if (counts[cell]! < counts[best]!) best = cell
+  }
+  return best
+}
+
+/**
+ * Cel met de leegste omgeving: eigen bezetting plus het gemiddelde van de buren binnen het raster,
+ * onder `samples` willekeurige cellen. Bij ~1 particle per cel is een derde van alle cellen leeg;
+ * "de eerste lege cel" strooide aanvullers daardoor over het hele beeld en liet een net
+ * binnengepande strook seconden half leeg (U24b). Een lege cel tussen bezette buren scoort slecht.
+ */
+export function emptiestCell(counts: ArrayLike<number>, columns: number, rows: number, random: () => number, samples = EMPTIEST_SAMPLES): number {
+  const cells = columns * rows
+  let best = 0
+  let bestScore = Infinity
+  for (let sample = 0; sample < samples; sample++) {
+    const cell = Math.min(cells - 1, Math.floor(random() * cells))
+    const column = cell % columns
+    const row = Math.floor(cell / columns)
+    let neighbours = 0
+    let sum = 0
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if ((dx === 0 && dy === 0) || column + dx < 0 || column + dx >= columns || row + dy < 0 || row + dy >= rows) continue
+        sum += counts[cell + dy * columns + dx]!
+        neighbours++
+      }
+    }
+    const score = counts[cell]! + (neighbours ? sum / neighbours : 0)
+    if (score < bestScore) {
+      best = cell
+      bestScore = score
+      if (score === 0) break
+    }
   }
   return best
 }
@@ -1289,7 +1328,7 @@ function uniforms<Name extends string>(gl: WebGL2RenderingContext, program: WebG
   return locations
 }
 
-function particleBounds(map: MapLibreMap, grid: Grid): ParticleBounds {
+function viewBounds(map: MapLibreMap, grid: Grid): ParticleBounds {
   const bounds = map.getBounds()
   const west = gridFractionX(grid, projectX(bounds.getWest()))
   const east = gridFractionX(grid, projectX(bounds.getEast()))

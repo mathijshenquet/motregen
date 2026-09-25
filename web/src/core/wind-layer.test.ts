@@ -8,6 +8,7 @@ import {
   downwindProfile,
   expectedLifetime,
   jitteredCellPoint,
+  emptiestCell,
   leastOccupiedCell,
   LEGACY_WIND_TUNING_STORAGE_KEY,
   occupancyGrid,
@@ -189,10 +190,16 @@ describe('wind spawn', () => {
     }
   })
 
-  it('picks the emptiest cell with a random tie-break start and sizes square-ish cells', () => {
+  it('picks the emptiest cell, or for fills the emptiest neighbourhood, and sizes square-ish cells', () => {
     expect(leastOccupiedCell([3, 0, 2, 5], 4, 0.9)).toBe(1)
     expect(leastOccupiedCell([1, 0, 1, 0], 4, 0.6)).toBe(3)
     expect(leastOccupiedCell([1, 0, 1, 0], 4, 0)).toBe(1)
+    const random = lcg(7)
+    expect(emptiestCell([3, 0, 2, 5], 4, 1, random)).toBe(1)
+    // Een lege cel naast een bezette verliest van een lege cel in een lege omgeving (U24b).
+    expect(emptiestCell([0, 1, 0, 0], 4, 1, random)).toBe(3)
+    // Randcellen hebben geen voordeel: buren buiten het raster tellen niet als leeg.
+    expect(emptiestCell([0, 1, 1, 1, 1, 0], 6, 1, random)).not.toBe(3)
     expect(occupancyGrid(1_280, 720, 570)).toEqual([32, 18])
     expect(occupancyGrid(393, 727, 177)).toEqual([10, 18])
   })
