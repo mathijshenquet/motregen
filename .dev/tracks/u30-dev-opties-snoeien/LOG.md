@@ -118,3 +118,36 @@ Receipts (vanuit `web/`, synchroon, head = deze commit):
   Vóór = `origin/main` `99d9525` in een tijdelijke worktree gebouwd (BUILD-MAIN-EXIT 0):
   JS 1 306,27 kB (gzip 370,92); CSS 122,78 (21,24) → −18,9 kB JS (−5,0 kB gzip), −0,5 kB CSS.
 - e2e: volgt (drempel load < 28).
+
+## 2026-09-25 13:25 — rebase op `2c58da9`, eindstand, slot
+
+- Rebase op `2c58da9` (U24 `a9d71fa` + `5fcd35b` erin). `5fcd35b` bracht Vulling 0,35 en de knop
+  Vulling-stijl (banden/verloop): Vulling → `ISOLINE_FILL_OPACITY = 0.35` (daarmee is de
+  0,7/0,35-afwijking uit de vorige entry opgelost), Vulling-stijl blijft instelbaar
+  (`ISOLINE_FILL_STYLES`, groep Temperatuur). Geen nieuwe URL-parameters of opslagsleutels op main.
+- Windknoppen v4 (`ebf142b` → na rebase `0361368`): `WindTuning` = Dichtheid, Intensiteit,
+  Lijnbreedte, Tempo; de andere elf zijn constanten in `WIND_PARAMETERS` met herkomst per regel;
+  opslag `motregen-wind-tuning-v4` (alleen afwijkingen), v3 eenmalig gemigreerd (onbekende
+  sleutels vallen weg, v3-sleutel weg), v2-migratie geschrapt (reset wist die). JSON-export
+  "Kopieer wind als JSON" in de groep Wind; PerfHud alleen nog meting (+ U24-perf-JSON).
+- Eindpaneel: **Temperatuur** (open) Isolijnen, Vulling-stijl, Vervagen · **Wind** Dichtheid,
+  Intensiteit, Lijnbreedte, Tempo + JSON · **Diagnose** Perf-HUD, Herhaal splash, Reset.
+  Knoppen vóór (main `4c06c49d`, MIP-12): 8 URL-parameters, 28 paneelknoppen, 15 windknoppen →
+  na: 1 URL-parameter (`?dev`), 10 instelknoppen + 4 acties/toggles.
+
+Receipts op head `9f70b22` (vanuit `web/`, synchroon):
+- TYPECHECK-EXIT 0; TEST-EXIT 0 (44 bestanden, 282 tests); BUILD-EXIT 0.
+- Eindmeting bundle vs `origin/main` `2c58da9` (tijdelijke worktree, BUILD-MAIN-EXIT 0):
+  JS 1 290,82 kB (gzip 367,16) vs 1 311,03 (372,71) → −20,2 kB (−5,6 kB gzip);
+  CSS 121,94 (21,11) vs 123,13 (21,29).
+- Gerichte e2e op `9f70b22` gestart 13:19:08 (startload 26,38) en op verzoek van de orkestrator
+  **afgebroken** (test een oude tip): géén e2e-receipt op de eindtip. De laatste gerichte groene
+  run is ronde 1 (`68550e2`, E2E-EXIT 0). De dev-panel-still is daardoor niet gemaakt; de
+  test `e2e/dev-panel.spec.ts` schrijft hem (`tmp/playwright-results/.../dev-panel.png`) bij de
+  volledige suite op main.
+
+Slot: gemerged op main als `8322cfe` door de orkestrator, met conflictoplossing (U31-instrumentatie
+behouden; regel "Gebruiksbaken" in de groep Diagnose via prop `usageBody` op `DevPanel`). De
+volledige e2e-suite draait de orkestrator op main. Open voor de PO: de "vervalt bij"-kolom in
+`docs/dev-opties.md` voor Isolijnen/Vervagen/Wind is een U30-voorstel; Focus dim en Min. breedte
+zijn op eigen oordeel constant gemaakt (één knop terug als de PO ze wil).
