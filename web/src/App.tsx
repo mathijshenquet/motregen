@@ -121,6 +121,9 @@ const CLOUD_VEIL_RANGE = [15, 95] as const
 const CLOUD_VEIL_STEP = 25
 // Terugglijden aan het eind van een afspeelrondje (PO 2026-09-25 live, U34).
 const PLAYBACK_REWIND_MS = 700
+// Afspelen tikt op 30 Hz: regen-tween, isolijn-overvloeiing en klok zijn traag genoeg; alleen de
+// windpartikels animeren op WIND_MAX_FPS in hun eigen lus (U41).
+const PLAYBACK_MAX_FPS = 30
 
 export default function App() {
   const devMode = new URLSearchParams(window.location.search).has('dev')
@@ -576,8 +579,8 @@ export default function App() {
     let rewind: { from: number; startedAt: number } | undefined
     const stop = startFrameLoop((now) => {
       const elapsed = now - previous
-      // Zelfde grens als de windcanvas: op 120 Hz-schermen elke tweede vsync overslaan.
-      if (elapsed < 1_000 / WIND_MAX_FPS - 4) return
+      // Vier ms speling voor de vsync-fase: op 60 Hz precies elke tweede vsync.
+      if (elapsed < 1_000 / PLAYBACK_MAX_FPS - 4) return
       previous = now
       if (rewind) {
         const progress = Math.min(1, (now - rewind.startedAt) / PLAYBACK_REWIND_MS)
@@ -1166,6 +1169,10 @@ export default function App() {
     if (!frames.length || !map?.getSource('motregen-temperature')) return
     const request = ++shownTemperatureRequest
     const blend = frameBlend(frames, selectedEpoch())
+    // Elke gewijzigde stadswaarde is een setData en dus een volledige kaartrender (tiles, symbolen,
+    // placement). Tijdens afspelen daarom de waarden van het dichtstbijzijnde uur: één wissel per
+    // uurframe i.p.v. ~1,5 per seconde (U41). Stil staat de geïnterpoleerde waarde.
+    const mix = playing() ? Math.round(blend.mix) : blend.mix
     try {
       const leftFrame = frames[blend.left]!, rightFrame = frames[blend.right]!
       const [left, right, leftHeader, rightHeader] = await Promise.all([
@@ -1173,7 +1180,7 @@ export default function App() {
       ])
       if (request !== shownTemperatureRequest || !map) return
       const source = map.getSource('motregen-temperature') as GeoJSONSource | undefined
-      const labels = temperatureLabels(left, right, leftHeader, rightHeader, blend.mix, selectTemperaturePlaces(map.getZoom(), temperatureLabelSpacingPx(map.getContainer().clientWidth, map.getContainer().clientHeight)))
+      const labels = temperatureLabels(left, right, leftHeader, rightHeader, mix, selectTemperaturePlaces(map.getZoom(), temperatureLabelSpacingPx(map.getContainer().clientWidth, map.getContainer().clientHeight)))
       const key = labels.features.map((feature) => `${feature.properties.name}:${feature.properties.label}`).join('|')
       if (key !== temperatureLabelKey) {
         temperatureLabelKey = key

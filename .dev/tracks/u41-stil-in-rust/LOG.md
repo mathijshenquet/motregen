@@ -57,3 +57,36 @@ Nulmeting (`voor`, main `4007903`):
 - Observatie (buiten de vier ingrepen): ook in de weermodus 87 zstd-decodes per 30 s afspelen —
   de frame-LRU (512) is kleiner dan het manifest (896 frames) zodra de L2-lading alles heeft
   gedecodeerd, dus elk rondje decodeert regen + motion opnieuw. Melden, niet aanpakken.
+
+## 2026-09-25 22:05 — ingreep 2 (repaint alleen bij een echt nieuw beeld)
+- Inventaris `triggerRepaint`: wind, regen en isolijnen tekenen al op eigen overlay-canvassen (U8c);
+  hun animatie trekt MapLibre niet mee. `map.triggerRepaint` resteert in `applyFocus` (alleen bij
+  focuswissel), de terugval zonder overlay, en day-night (uit). Diagnose met een tijdelijke build
+  (niet gecommit) die `map` blootlegde: in 15 s weermodus 23× `setData` op `motregen-temperature`
+  → 138 data-events → 60 kaartrenders. **Alle** MapLibre-renders tijdens afspelen kwamen van de
+  stadstemperaturen: de geïnterpoleerde waarde van een van de ~20 steden slaat ~1,5×/s een graad om.
+- Ingreep: (a) stadstemperaturen tijdens afspelen op het dichtstbijzijnde uurframe (één wissel per
+  uur); stil/scrubben geïnterpoleerd zoals voorheen (stills gelijk). Zichtbaar verschil alleen
+  tijdens afspelen: een stadswaarde springt op het halve uur i.p.v. ergens binnen het uur — PO
+  beoordeelt op de preview. (b) de afspeel-frame-loop tikt op ≤ 30 Hz (was WIND_MAX_FPS = 60):
+  regen-crossfade/flow, isolijn-overvloeiing en klok volgen die tik; de windpartikels houden hun eigen
+  60 Hz-lus. Eerste poging legde de 30 Hz-grens in de `LayerOverlay` van regen/isolijnen (timer-pad);
+  teruggedraaid ten gunste van de grens aan de bron (minder scheduling-paden).
+- Gates: typecheck 0, test 0 (318), build 0.
+- e2e (drie specs, desktop): EXIT 1 — 9 passed, 2 skipped, 2 failed: `perf.spec` (862 506 B, bestaand,
+  zie ingreep 1) en `wind-zoom` "continuous zoom 7→9" (0,63 < 0,7). **Die laatste is wisselvallig op
+  main**: `--repeat-each 3` op een schone `4007903`-worktree: 1 passed, 2 failed (0,675 en 0,650);
+  op deze branch met identieke code wisselend 1× geslaagd / 1× gefaald. Niet van deze track; drempel
+  of meetopzet (swiftshader-timing) is voor de orkestrator.
+
+| scenario | build | taak s | script s | hoofddraad-CPU s | worker-CPU s | gpu-CPU s | map-renders/s | regen/s | wind/s | isolijn/s | traces | worker-berichten |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| weer | voor | 11,77 | 2,98 | 10,21 | 2,07 | 338,9 | 2,8 | 29,8 | 30,8 | 0 | 0 | zstd 87, maplibre 297 |
+| weer | na-2 | 7,29 | 1,95 | 6,48 | 4,32 | 263,5 | 0,5 | 29,3 | 31,6 | 0 | 0 | zstd 162, maplibre 45 |
+| temperatuur | na-1 | 10,63 | 2,90 | 8,54 | 5,15 | 368,8 | 2,6 | 19,9 | 28,3 | 25,4 | 5 | tracer 5, zstd 180, maplibre 297 |
+| temperatuur | na-2 | 7,86 | 2,01 | 6,32 | 0,58 | 352,2 | 0,5 | 28,2 | 31,4 | 28,4 | 5 | tracer 5, zstd 27, maplibre 45 |
+
+- Lezing: kaartrenders 2,8 → 0,5/s (resterend: uurwissels + MapLibre's eigen natekenen na setData);
+  MapLibre-worker 297 → 45 berichten. Regen-draws blijven ~29/s omdat swiftshader hier toch al op
+  ~30 fps zat; op een 60 Hz-Mac halveert dit ze. De worker-CPU schommelt met de zstd-decodes
+  (27–180 per venster, LRU-churn, zie observatie ingreep 1), niet met de isolijnworkers.
