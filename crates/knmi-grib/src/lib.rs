@@ -15,6 +15,10 @@ const TOTAL_CLOUD_COVER_PARAMETER: i64 = 71;
 const PRESSURE_PARAMETER: i64 = 1;
 const U_GUST_PARAMETER: i64 = 162;
 const V_GUST_PARAMETER: i64 = 163;
+/// Low/medium/high cloud cover (fraction 0–1), checked with grib_ls on a real +1 member.
+const LOW_CLOUD_COVER_PARAMETER: i64 = 73;
+const MEDIUM_CLOUD_COVER_PARAMETER: i64 = 74;
+const HIGH_CLOUD_COVER_PARAMETER: i64 = 75;
 const HEIGHT_ABOVE_GROUND: &str = "sfc";
 /// GRIB1 level type 103 (KNMI table 253 has no name for it, so eccodes reports the number):
 /// parameter 1 there is mean-sea-level pressure; parameter 1 on `sfc` is surface pressure.
@@ -56,6 +60,9 @@ pub struct AromeFields {
     pub mean_sea_level_pressure_pa: PrecipitationField,
     pub gust_u_ms: PrecipitationField,
     pub gust_v_ms: PrecipitationField,
+    pub low_cloud_cover: PrecipitationField,
+    pub medium_cloud_cover: PrecipitationField,
+    pub high_cloud_cover: PrecipitationField,
 }
 
 #[derive(Clone, Copy)]
@@ -72,6 +79,9 @@ enum FieldKind {
     MeanSeaLevelPressure,
     GustU,
     GustV,
+    LowCloudCover,
+    MediumCloudCover,
+    HighCloudCover,
 }
 
 pub fn decode_arome_fields(path: impl AsRef<Path>) -> Result<AromeFields> {
@@ -90,6 +100,9 @@ pub fn decode_arome_fields(path: impl AsRef<Path>) -> Result<AromeFields> {
     let mut mean_sea_level_pressure = None;
     let mut gust_u = None;
     let mut gust_v = None;
+    let mut low_cloud_cover = None;
+    let mut medium_cloud_cover = None;
+    let mut high_cloud_cover = None;
 
     while let Some(message) = file.ref_message_iter().next()? {
         let parameter: i64 = message.read_key("indicatorOfParameter")?;
@@ -121,6 +134,15 @@ pub fn decode_arome_fields(path: impl AsRef<Path>) -> Result<AromeFields> {
                 }
                 (HEIGHT_ABOVE_GROUND, U_GUST_PARAMETER, 10) => (FieldKind::GustU, 10, 2),
                 (HEIGHT_ABOVE_GROUND, V_GUST_PARAMETER, 10) => (FieldKind::GustV, 10, 2),
+                (HEIGHT_ABOVE_GROUND, LOW_CLOUD_COVER_PARAMETER, 0) => {
+                    (FieldKind::LowCloudCover, 0, 0)
+                }
+                (HEIGHT_ABOVE_GROUND, MEDIUM_CLOUD_COVER_PARAMETER, 0) => {
+                    (FieldKind::MediumCloudCover, 0, 0)
+                }
+                (HEIGHT_ABOVE_GROUND, HIGH_CLOUD_COVER_PARAMETER, 0) => {
+                    (FieldKind::HighCloudCover, 0, 0)
+                }
                 _ => continue,
             };
         let table_version: i64 = message.read_key("table2Version")?;
@@ -172,6 +194,9 @@ pub fn decode_arome_fields(path: impl AsRef<Path>) -> Result<AromeFields> {
             FieldKind::MeanSeaLevelPressure => &mut mean_sea_level_pressure,
             FieldKind::GustU => &mut gust_u,
             FieldKind::GustV => &mut gust_v,
+            FieldKind::LowCloudCover => &mut low_cloud_cover,
+            FieldKind::MediumCloudCover => &mut medium_cloud_cover,
+            FieldKind::HighCloudCover => &mut high_cloud_cover,
         };
         if slot.replace(field).is_some() {
             bail!("duplicate selected AROME field in {}", path.display());
@@ -193,6 +218,9 @@ pub fn decode_arome_fields(path: impl AsRef<Path>) -> Result<AromeFields> {
             .ok_or_else(|| missing("mean-sea-level pressure"))?,
         gust_u_ms: gust_u.ok_or_else(|| missing("10 m U-gust"))?,
         gust_v_ms: gust_v.ok_or_else(|| missing("10 m V-gust"))?,
+        low_cloud_cover: low_cloud_cover.ok_or_else(|| missing("low cloud cover"))?,
+        medium_cloud_cover: medium_cloud_cover.ok_or_else(|| missing("medium cloud cover"))?,
+        high_cloud_cover: high_cloud_cover.ok_or_else(|| missing("high cloud cover"))?,
     })
 }
 

@@ -125,6 +125,7 @@ niet nodig, `version`-veld leidt.
 | `rel_humidity` | % | 2m relatieve luchtvochtigheid |
 | `cloud_frac` | % | totale bewolkingsgraad (alleen voor pictogram-afleiding; nooit als kaartlaag — MIP-4 ronde 3) |
 | `pressure_hpa` | hPa | luchtdruk op zeeniveau (isobaren in windmodus) |
+| `cloud_low`, `cloud_mid`, `cloud_high` | % | bewolking laag/midden/hoog (AROME 73/74/75), in stappen van 5 %; voor de wolkendoorsnede in de weermodus-scrubber (U37) |
 
 `wind_u_ms`/`wind_v_ms` worden altijd als paar gepubliceerd met identiek
 grid, identieke tijden en gelijke frame-volgorde, zodat een client ze per
@@ -152,6 +153,9 @@ frame kan zippen tot vectoren.
   live UV-file eindigt om 20:45 UTC waar de catalogus 21:45 zegt.
 - 2026-09-25: veld `gust_ms` toegevoegd (MIP-14, U36: windstoten in de
   kolom Wind). Additief.
+- 2026-09-25: velden `cloud_low`, `cloud_mid`, `cloud_high` toegevoegd (U37,
+  MIP-14 PO-richting: wolkendoorsnede). Additief; de client laadt ze in de
+  weermodus, na de eerste regenreeks.
 - 2026-08-28: veldenlijst uitgebreid (PO: wind-particles, temp op kaart, UV):
   `temp_c`, `feels_like_c`, `wind_u_ms`/`wind_v_ms` (paar-regel), `uv`.
   Quant-regel versoepeld: alleen index 255 = null is universeel; `quant[0]

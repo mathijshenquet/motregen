@@ -45,7 +45,7 @@ van 48 frames.
 
 Voor de uren vóór de huidige run R kiest de ingest een tweede, oudere run:
 de nieuwste run met start ≤ min(vloer(nu) − (historie + 1) u, R − 1 u).
-Daarvan publiceert hij alleen de negen uurvelden voor leads +1…+(R − R_h)
+Daarvan publiceert hij alleen de uurvelden voor leads +1…+(R − R_h)
 (`…-hist<n>`), nooit regen, want in het verleden toont de client alleen
 waarnemingen. KNMI publiceert P1 uurlijks met ≈ 3 u vertraging. Bij een
 3-uurscadans is de historierun daardoor meestal niet de vorige opgehaalde

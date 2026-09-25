@@ -25,6 +25,7 @@ const uvQuant = linearQuant(0, 12.7)
 const percentQuant = linearQuant(0, 100)
 const pressureQuant = linearQuant(940, 1067)
 const gustQuant = linearQuant(0, 127)
+const cloudLayerQuant = linearQuant(0, 1270)
 
 interface ChunkPlan { name: string; source: Source; field: Field; run: number; times: number[] }
 const plans: ChunkPlan[] = []
@@ -51,7 +52,7 @@ plans.push({
   name: 'uv_clear-20260828.mrf', source: 'uv', field: 'uv_clear', run: Date.parse('2026-08-28T00:00:00Z'),
   times: Array.from({ length: 65 }, (_, i) => Date.parse('2026-08-28T03:00:00Z') + i * 15 * 60_000),
 })
-for (const field of ['radiation', 'temp_c', 'feels_like_c', 'wind_u_ms', 'wind_v_ms', 'gust_ms', 'rel_humidity', 'cloud_frac', 'pressure_hpa'] as const) {
+for (const field of ['radiation', 'temp_c', 'feels_like_c', 'wind_u_ms', 'wind_v_ms', 'gust_ms', 'rel_humidity', 'cloud_frac', 'pressure_hpa', 'cloud_low', 'cloud_mid', 'cloud_high'] as const) {
   plans.push({ name: `${field}-20260828T1200.mrf`, source: 'harmonie', field, run, times: runTimes.slice(0, 24) })
   plans.push({ name: `${field}-20260828T1200-l25-48.mrf`, source: 'harmonie', field, run, times: runTimes.slice(24) })
   plans.push({ name: `${field}-20260828T0800-hist4.mrf`, source: 'harmonie', field, run: historyRun, times: historyTimes })
@@ -163,16 +164,31 @@ function makeWeatherFrame(epoch: number, field: Exclude<Field, 'rain_rate' | 'ra
             : field === 'rel_humidity' ? humidity
               : field === 'pressure_hpa' ? pressure
                 : field === 'gust_ms' ? speed * (1.6 + 0.3 * Math.sin(x * 0.05 + hour * 0.4))
-                  : cloud
+                  : field === 'cloud_frac' ? cloud
+                    : cloudLayer(field, x, y, hour)
     const quant = field.startsWith('wind_') ? windQuant
       : field === 'gust_ms' ? gustQuant
         : field === 'temp_c' ? temperatureQuant
           : field === 'feels_like_c' ? feelsLikeQuant
             : field === 'pressure_hpa' ? pressureQuant
-              : percentQuant
+              : field === 'cloud_frac' || field === 'rel_humidity' ? percentQuant
+                : cloudLayerQuant
     values[y * grid.width + x] = encodeLinear(value, quant)
   }
   return values
+}
+
+// Een warmtefront van west naar oost (U37-stills): eerst cirrus, dan middelbewolking, dan lage
+// bewolking boven de synthetische regen bij De Bilt (+4…+7 u); daarna opklaringen en de volgende
+// middag stapelwolken.
+function cloudLayer(field: 'cloud_low' | 'cloud_mid' | 'cloud_high', x: number, y: number, hour: number): number {
+  const phase = hour - (x - 85) * 0.06 - (y - 118) * 0.02
+  const ramp = (from: number, to: number) => Math.max(0, Math.min(1, (phase - from) / (to - from)))
+  const wobble = 0.72 + 0.28 * Math.sin(x * 0.07 + y * 0.05 + hour * 1.3)
+  const cover = field === 'cloud_high' ? (0.45 * ramp(-5, -2) + 0.55 * ramp(0, 2)) * (1 - ramp(9, 12))
+    : field === 'cloud_mid' ? ramp(1, 3) * (1 - ramp(8, 10))
+      : Math.max(ramp(2.5, 4) * (1 - ramp(7.5, 9.5)), 0.55 * ramp(19, 22) * (1 - ramp(26, 29)))
+  return Math.round(cover * wobble * 20) * 5
 }
 
 function encodeRain(value: number): number {
@@ -201,6 +217,7 @@ function quantFor(field: Field): Array<number | null> {
   if (field === 'rel_humidity' || field === 'cloud_frac') return percentQuant
   if (field === 'pressure_hpa') return pressureQuant
   if (field === 'gust_ms') return gustQuant
+  if (field === 'cloud_low' || field === 'cloud_mid' || field === 'cloud_high') return cloudLayerQuant
   return windQuant
 }
 

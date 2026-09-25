@@ -27,6 +27,10 @@
   --uv-high: #ee7a12;
   --uv-very-high: #d8323f;
   --uv-extreme: #8d4fc0;
+  /* Wolkendoorsnede (U37): lage wolken het zwaarst, cirrus het lichtst. */
+  --cloud-high: #9fb2ba;
+  --cloud-mid: #7f949d;
+  --cloud-low: #5d717a;
 }
 
 :root[data-theme="dark"] {
@@ -54,6 +58,9 @@
   --uv-high: #ff9236;
   --uv-very-high: #f25563;
   --uv-extreme: #b27ce6;
+  --cloud-high: #6d8792;
+  --cloud-mid: #9cb2bb;
+  --cloud-low: #d0dde2;
 }
 
 * { box-sizing: border-box; }
@@ -474,6 +481,12 @@ button { color: inherit; cursor: pointer; }
 .past-shade { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 8px 0 0 0; background: color-mix(in srgb, var(--text) 4%, transparent); pointer-events: none; }
 .rain-guide { stroke: color-mix(in srgb, var(--line-strong) 70%, transparent); stroke-dasharray: 2 4; stroke-width: 1; }
 .rain-baseline { stroke: var(--line-strong); stroke-width: 1; }
+.cloud-high stop { stop-color: var(--cloud-high); }
+.cloud-mid stop { stop-color: var(--cloud-mid); }
+.cloud-low stop { stop-color: var(--cloud-low); }
+.cloud-divider { stroke: color-mix(in srgb, var(--line-strong) 55%, transparent); stroke-dasharray: 1 3; stroke-width: 1; }
+.cloud-labels { position: absolute; inset: 0; pointer-events: none; }
+.cloud-labels span { position: absolute; left: 6px; transform: translateY(-50%); color: color-mix(in srgb, var(--muted) 80%, transparent); font-size: 9px; font-weight: 700; letter-spacing: .04em; }
 :root:not([data-theme="dark"]) .rain-bars { filter: brightness(.86) saturate(1.35); }
 .rain-bar { animation: rain-bar-in .45s ease-out both; }
 .rain-bar.past { opacity: .72; }

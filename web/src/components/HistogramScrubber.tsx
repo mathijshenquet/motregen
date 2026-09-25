@@ -1,4 +1,5 @@
-import { createMemo, createSignal, For, Index, onCleanup, onMount, Show } from 'solid-js'
+import { createMemo, createSignal, createUniqueId, For, Index, onCleanup, onMount, Show } from 'solid-js'
+import { CLOUD_LAYERS, cloudBand, type CloudSeries } from '../core/cloud-section'
 import type { TimelineFrame } from '../core/contract'
 import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColor } from '../core/rain-chart'
 import { timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
@@ -21,7 +22,11 @@ interface Props {
   onPlaying: (playing: boolean) => void
   /** Alleen een expliciete afspeelkeuze, niet het hervatten na hover-scrubben. */
   onPlayPressed?: () => void
+  /** Wolkendoorsnede in de weermodus (U37, PO-keuze variant A): vervangt het regenhistogram. */
+  clouds?: CloudSeries
 }
+
+const CLOUD_LAYER_LABELS = { high: 'hoog', mid: 'midden', low: 'laag' } as const
 
 const hourLabelSteps = [1, 2, 3, 6, 12, 24]
 // Wide enough for "23u" at the axis font size plus breathing room.
@@ -64,12 +69,17 @@ export default function HistogramScrubber(props: Props) {
   })
   const timelineSpan = createMemo(() => Math.max(1, timelineEnd() - timelineStart()))
   const maximum = createMemo(() => rainChartMaximum(props.values))
-  const y = (value: number) => plotHeight() * (1 - rainChartPosition(value, maximum()))
+  const cloudHeight = createMemo(() => props.clouds ? plotHeight() * 0.62 : 0)
+  // Regen valt onder de wolken: de regenschaal begint onder de doorsnede.
+  const rainTop = createMemo(() => cloudHeight() && cloudHeight() + 4)
+  const y = (value: number) => rainTop() + (plotHeight() - rainTop()) * (1 - rainChartPosition(value, maximum()))
   const barTop = (value: number | null | undefined) => value == null || value <= 0 ? plotHeight() : Math.min(plotHeight() - 2, y(value))
   const bars = createMemo(() => {
     const width = plotWidth()
     const pitch = width / Math.max(1, props.timeline.length)
     const gap = pitch > 6 ? 1.5 : pitch > 3.5 ? 1 : 0.5
+    // Onder de wolken smallere regen, zodat de wolkenvormen de hoofdrol houden.
+    const slim = props.clouds ? 0.5 : 1
     if (props.timeline.length === 1) return [{ x: 0, width, top: barTop(props.values[0]), value: props.values[0] ?? 0, pending: props.loaded ? !props.loaded[0] : false, past: false }]
     return props.timeline.flatMap((frame, index) => {
       const value = props.values[index]
@@ -79,10 +89,25 @@ export default function HistogramScrubber(props: Props) {
       const x = positionAtEpoch(Math.max(timelineStart(), leftEpoch)) / 100 * width
       const right = positionAtEpoch(Math.min(timelineEnd(), rightEpoch)) / 100 * width
       const pending = props.loaded ? !props.loaded[index] : false
-      return [{ x: x + gap / 2, width: Math.max(1.2, right - x - gap), top: barTop(value), value: value ?? 0, pending, past: frame.epoch < props.now }]
+      const barWidth = Math.max(1.2, (right - x - gap) * slim)
+      return [{ x: (x + right - barWidth) / 2, width: barWidth, top: barTop(value), value: value ?? 0, pending, past: frame.epoch < props.now }]
     })
   })
-  const guides = createMemo(() => RAIN_BANDS.slice(1).map((band) => y(band.minimum)))
+  const guides = createMemo(() => props.clouds ? [] : RAIN_BANDS.slice(1).map((band) => y(band.minimum)))
+  const cloudId = createUniqueId()
+  const cloudBands = createMemo(() => {
+    const clouds = props.clouds
+    if (!clouds) return []
+    const bandHeight = cloudHeight() / CLOUD_LAYERS.length
+    return CLOUD_LAYERS.map((layer, index) => ({
+      layer,
+      top: index * bandHeight,
+      height: bandHeight,
+      ...cloudBand(clouds.timeline[layer], clouds.values[layer], layer, {
+        width: plotWidth(), top: index * bandHeight, height: bandHeight, start: timelineStart(), end: timelineEnd(),
+      }),
+    }))
+  })
   const hourStep = createMemo(() => hourLabelStep(timelineSpan() / 3_600_000, plotWidth()))
   const xTicks = createMemo(() => {
     if (!props.timeline.length) return []
@@ -213,6 +238,7 @@ export default function HistogramScrubber(props: Props) {
       aria-disabled={props.loading}
       aria-busy={props.loadStage !== undefined && props.loadStage !== 'complete'}
       data-load-stage={props.loadStage}
+      data-scrubber-view={props.clouds ? 'clouds' : 'rain'}
       aria-valuetext={props.timeline.length ? valueText() : undefined}
       title={hoverScrubbing() ? 'Hover-scrubben · klik om hier te blijven' : 'Vast · klik voor hover of sleep om te scrubben'}
       onKeyDown={keyDown}
@@ -271,6 +297,20 @@ export default function HistogramScrubber(props: Props) {
         <div class="day-grid" aria-hidden="true"><For each={dayMarkers()}>{(marker, index) => <div classList={{ boundary: marker.boundary }} style={{ left: `${positionAtEpoch(marker.epoch)}%` }}><Show when={marker.label && (positionAtEpoch(dayMarkers()[index() + 1]?.epoch ?? timelineEnd()) - positionAtEpoch(marker.epoch)) / 100 * plotWidth() > marker.label.length * 7 + 16}><span>{marker.label}</span></Show></div>}</For></div>
         <svg viewBox={`0 0 ${plotWidth()} ${plotHeight()}`} aria-hidden="true">
           <For each={guides()}>{(top) => <line class="rain-guide" x1="0" x2={plotWidth()} y1={top} y2={top} />}</For>
+          <Show when={props.clouds}>
+            <defs>
+              <filter id={`${cloudId}-soft`} x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="0.9" /></filter>
+              <For each={cloudBands()}>{(band) => <linearGradient id={`${cloudId}-${band.layer}`} class={`cloud-${band.layer}`} gradientUnits="userSpaceOnUse" x1="0" x2={plotWidth()} y1="0" y2="0">
+                <For each={band.stops}>{(stop) => <stop offset={stop.offset} stop-opacity={stop.opacity} />}</For>
+              </linearGradient>}</For>
+            </defs>
+            <g class="cloud-section" data-testid="cloud-section" filter={`url(#${cloudId}-soft)`}>
+              <For each={cloudBands()}>{(band) => <g class="cloud-band" data-layer={band.layer}>
+                <For each={band.paths}>{(path) => <path d={path} fill={`url(#${cloudId}-${band.layer})`} />}</For>
+              </g>}</For>
+            </g>
+            <line class="cloud-divider" x1="0" x2={plotWidth()} y1={cloudHeight() + 1.5} y2={cloudHeight() + 1.5} />
+          </Show>
           {/* Index keeps each slot's rect alive, so only frames that arrive (pending → loaded) fade in. */}
           <g class="rain-bars"><Index each={bars()}>{(bar) => <Show
             when={!bar().pending}
@@ -278,6 +318,9 @@ export default function HistogramScrubber(props: Props) {
           ><rect class="rain-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={rainColor(bar().value)} /></Show>}</Index></g>
           <line class="rain-baseline" x1="0" x2={plotWidth()} y1={plotHeight() - 0.5} y2={plotHeight() - 0.5} />
         </svg>
+        <Show when={props.clouds}>
+          <div class="cloud-labels" aria-hidden="true"><For each={cloudBands()}>{(band) => <span style={{ top: `${band.top + band.height / 2}px` }}>{CLOUD_LAYER_LABELS[band.layer]}</span>}</For></div>
+        </Show>
         <Show when={props.loading}>
           <div class="scrubber-placeholder" role="status">
             <div class="scrubber-placeholder-bars" aria-hidden="true" />
