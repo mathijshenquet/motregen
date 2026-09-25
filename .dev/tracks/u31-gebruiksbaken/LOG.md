@@ -96,3 +96,17 @@
   Geen schemaversieveld (`v`) — toevoegen als U32 dat wil.
 - `pin` = pin verplaatst via kaarttik (er bestaat geen sleepbare pin).
 - `web/.mcp.json` (untracked, door devenv aangemaakt) niet meegecommit.
+
+## 2026-09-25 — afronding (orkestrator): pin via U26, v: 1, About-rij
+- `pin` markeert nu ook bij pin loslaten na slepen (`onDrop`) en bij dubbeltik-centreren (nieuwe optionele
+  `onDoubleTap` in `core/pin-navigation.ts`), naast tik op de kaart. e2e: nieuwe desktop-test in usage.spec.
+- `v: 1` (`USAGE_SCHEMA_VERSION`) altijd in de body en in `USAGE_FIELDS`; unit + e2e eisen hem.
+- About-rij Privacy: "Geen tracking, geen advertenties. Anoniem geteld: sessies en gebruikte functies, zonder IP of
+  identificatie; locatie en favorieten blijven in je browser".
+- Receipts op afb9e42 (basis origin/main a1a905a):
+  - `direnv exec . bash -c 'cd web && pnpm typecheck'` → 0
+  - `direnv exec . bash -c 'cd web && pnpm test'` → 0 (46 files, 282 tests)
+  - `cd web && MOTREGEN_E2E_PORT=4231 MOTREGEN_E2E_DATA_PORT=8231 direnv exec .. pnpm e2e e2e/usage.spec.ts e2e/perf.spec.ts
+    e2e/pin-navigation.spec.ts` → **0** (14 passed, 10 skipped = profiel-skips; startload 25.34, eindload 22.01);
+    perf warm chunks 0 B, second click 0 requests op alle drie profielen.
+- `pnpm build` niet opnieuw gedraaid in deze ronde (de e2e-webserver bouwt wel: `pnpm build` in playwright.config → groen).
