@@ -33,3 +33,17 @@ worktree.
 `pnpm typecheck`, `pnpm test`, `pnpm build`, `MOTREGEN_E2E_PORT=4376
 MOTREGEN_E2E_DATA_PORT=8376 pnpm e2e` groen, synchrone exit statussen in de
 LOG. Draft-PR vroeg. Geen codex.
+
+## Aanvulling PO (2026-09-25, 11:10)
+
+"Er zijn nog steeds veel te veel opties in ?dev, ik weet van de meeste niet wat ze
+betekenen. Wolkrand mag sowieso weg. Misschien opties groeperen en info geven wat het zou
+doen."
+
+- **Wolkrand** (cloud-edge-layer + knop) gaat er helemaal uit, inclusief de laag en de
+  opslag-sleutel (`motregen-cloud-edges`), niet alleen de knop.
+- Het dev-paneel wordt **gegroepeerd** (Kaart / Temperatuur / Wind / Focus / Diagnose) met
+  per knop een **korte uitleg** (één zin: wat verandert er zichtbaar) als `title` én als
+  grijze regel eronder; de groep is een `<details>` die dicht start behalve de eerste.
+- Start nu (niet wachten op U24): rebase op main zodra U24 gemerged is voor de windknoppen;
+  de rest van de snoei kan al.

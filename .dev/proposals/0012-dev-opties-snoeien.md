@@ -28,8 +28,9 @@ Focus (3): Focus dim, Tween in, Tween uit. Overig (9): Wolkrand, Grafiek
 vult, Min. breedte, Temp-afstand, Splash ×, Herhaal splash, Reset alle
 instellingen, maximale-zoomnotitie.
 
-Voorstel — **houden (8)**: Isolijnen-stap, Vervagen, Label-afstand, Focus dim,
-Wolkrand, Min. breedte, Herhaal splash, Reset alle instellingen. Plus wat
+Voorstel — **houden (7)**: Isolijnen-stap, Vervagen, Label-afstand, Focus dim,
+Min. breedte, Herhaal splash, Reset alle instellingen (PO 2026-09-25: Wolkrand weg,
+inclusief de laag). Gegroepeerd per onderwerp met één regel uitleg per knop. Plus wat
 U25 en U29 tijdelijk toevoegen (vulling-opacity/afval, tijdas, smoothing),
 elk met vervaldatum (zie regel hieronder).
 **Weg (20)**: alles wat een genomen besluit herhaalt (Vectorlijnen — U13;
