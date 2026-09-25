@@ -1,6 +1,7 @@
-import { createEffect, createMemo, createSignal, For, onCleanup, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, createUniqueId, For, onCleanup, Show } from 'solid-js'
 import type { FocusKind } from '../core/focus-mode'
 import type { HourlyForecastRow } from '../core/forecast'
+import { moonLitPath, moonPhase } from '../core/moon'
 import { solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
 import { dailyClearSkyUvMax, uvReading } from '../core/uv'
 import { deriveWeatherIcon, summarizeWind, WIND_UNIT_LABELS, type WindSummary, type WindUnit } from '../core/weather'
@@ -240,8 +241,8 @@ export default function ForecastTable(props: Props) {
           </td>
           <Show when={props.columns.uv}>
             <td class="uv-cell">
-              {/* 's Nachts is UV niet informatief (U34). */}
-              <Show when={elevation(row.epoch) > 0}>
+              {/* Overdag de zon (UV), 's nachts de maan (PO 2026-09-25 live, U34). */}
+              <Show when={elevation(row.epoch) > 0} fallback={<MoonReading epoch={row.epoch} />}>
                 <Show when={uv()} fallback={pending() ? '…' : ''}>
                   <UvBar reading={uv()} scale={dailyClearSkyUvMax(row.epoch, props.location.lat)} />
                 </Show>
@@ -274,8 +275,49 @@ function WindReading(props: { summary: WindSummary }) {
   return <span class="wind-reading" role="img" aria-label={label()} title={label()}>
     <ArrowUp class="wind-arrow" size={15} strokeWidth={2.25} style={{ transform: `rotate(${(props.summary.fromDegrees + 180) % 360}deg)` }} aria-hidden="true" />
     <span class="wind-main"><b>{props.summary.value}</b><small class="wind-unit">{unit()}</small></span>
-    <Show when={props.summary.gust}>{(gust) => <small class="wind-gust"><Wind size={11} strokeWidth={2.25} aria-hidden="true" />{gust()} {unit()}</small>}</Show>
+    <Show when={props.summary.gust}>{(gust) => <>
+      <Wind class="wind-gust-icon" size={12} strokeWidth={2.25} aria-hidden="true" />
+      <small class="wind-gust">{gust()} {unit()}</small>
+    </>}</Show>
   </span>
+}
+
+function MoonReading(props: { epoch: number }) {
+  const moon = () => moonPhase(props.epoch)
+  const text = () => `${moon().label}, ${Math.round(moon().illumination * 100)} % verlicht`
+  return <span class="moon-reading" role="img" aria-label={text()} title={text()}>
+    <MoonGlyph phase={moon().phase} illumination={moon().illumination} />
+    <small>{Math.round(moon().illumination * 100)}%</small>
+  </span>
+}
+
+/** Maantje met verloop, zachte schemergrens, vage maria, aardschijn en een gloed die met de fase meegroeit. */
+function MoonGlyph(props: { phase: number; illumination: number }) {
+  const id = createUniqueId()
+  const lit = () => moonLitPath(props.phase, 8, 8, 6.2)
+  return <svg class="moon-glyph" viewBox="0 0 16 16" aria-hidden="true">
+    <defs>
+      <radialGradient id={`${id}-lit`} cx="42%" cy="38%" r="68%">
+        <stop offset="0" stop-color="#fffbea" /><stop offset=".65" stop-color="#efe3b8" /><stop offset="1" stop-color="#cdbf92" />
+      </radialGradient>
+      <radialGradient id={`${id}-night`} cx="45%" cy="40%" r="70%">
+        <stop offset="0" class="moon-night-core" /><stop offset="1" class="moon-night-edge" />
+      </radialGradient>
+      <clipPath id={`${id}-disc`}><circle cx="8" cy="8" r="6.2" /></clipPath>
+      <clipPath id={`${id}-litclip`}><path d={lit()} /></clipPath>
+      <filter id={`${id}-soft`} x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation=".4" /></filter>
+      <filter id={`${id}-glow`} x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="1.3" /></filter>
+    </defs>
+    <circle class="moon-glow" cx="8" cy="8" r="6.2" filter={`url(#${id}-glow)`} opacity={(0.15 + 0.45 * props.illumination).toFixed(2)} />
+    <circle cx="8" cy="8" r="6.2" fill={`url(#${id}-night)`} />
+    <g clip-path={`url(#${id}-disc)`}>
+      <path d={lit()} fill={`url(#${id}-lit)`} filter={`url(#${id}-soft)`} />
+      <g class="moon-maria" clip-path={`url(#${id}-litclip)`}>
+        <ellipse cx="6.2" cy="6.4" rx="2" ry="1.4" /><ellipse cx="9.8" cy="5.6" rx="1.3" ry="1" />
+        <ellipse cx="9.2" cy="9.6" rx="1.8" ry="1.2" /><ellipse cx="5.9" cy="10.1" rx="1" ry=".8" />
+      </g>
+    </g>
+  </svg>
 }
 
 function SunGlyph() {

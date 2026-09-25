@@ -263,7 +263,8 @@ describe('histogram scrubber', () => {
       onPlaying={() => undefined}
     />)
 
-    expect([...container.querySelectorAll('.day-grid span')].map((label) => label.textContent)).toEqual(['Morgen'])
+    // Daglabels plakken links in het plot (U34): vandaag vanaf het begin, morgen vanaf middernacht.
+    expect([...container.querySelectorAll('.day-labels span')].map((label) => label.textContent)).toEqual(['Vandaag', 'Morgen'])
     expect(container.querySelectorAll('.day-grid .boundary')).toHaveLength(1)
     // De hele tijdlijn staat in de schuivende baan, ook buiten de 8 uur in beeld.
     expect(container.querySelectorAll('.rain-bar')).toHaveLength(5)

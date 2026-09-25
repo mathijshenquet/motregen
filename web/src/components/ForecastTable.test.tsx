@@ -144,7 +144,7 @@ describe('forecast table cells', () => {
     // U34: "2 ⌇ 5 Bft" — vlaag in dezelfde eenheid, met vlaagteken.
     // U34: pijl + hoofdwaarde, daaronder het windicoon met de vlaag in dezelfde eenheid.
     expect(text()).toEqual(['2', 'Bft', '5 Bft'])
-    expect(reading().querySelector('.wind-gust svg')).not.toBeNull()
+    expect(reading().querySelector('.wind-gust-icon')).not.toBeNull()
     expect(reading().getAttribute('aria-label')).toBe('Wind uit W, 2 Bft, windstoten tot 5 Bft')
     setUnit('kn')
     expect(text()).toEqual(['6', 'kn', '16 kn'])

@@ -105,3 +105,11 @@
 - Receipts: typecheck 0; `pnpm test` 0. Geen e2e.
 - 2026-09-25 PO live: Lucht-glyph = WeatherIcon (zon/zon+wolk/wolk/dicht = donkere wolk) op cloud_frac, 's nachts maan; vlaagteken ⌇ 1,6× in eigen span. typecheck 0, pnpm test 0 (46/315).
 - 2026-09-25 PO live: bewolking alleen in het Weer-icoon (4 stappen, dense = donkere wolk, partly-grens 70→50); UV weer gewone kolom; kop Weer = wolkenmodus (tweede klik = standaard); vlaag op tweede regel met lucide-wind, kleiner/lichter, eenheid. typecheck 0, pnpm test 0 (46/313); e2e-specs bijgewerkt (focus, cloud-section, table), niet gedraaid.
+- 2026-09-25 PO live: maanfase 's nachts in de UV-kolom (core/moon.ts, glyph + % verlicht); windcel als raster (iconen gecentreerd links, tekst links); mobiel: eerste scherm in svh incl. koprij (--map-mobile), scrubber niet meer sticky, koprij plakt (table-scroll overflow-x: clip), scrubber-bovenpadding 12→2 px. typecheck 0, pnpm test 0 (47/316).
+- 2026-09-25 PO live: maantje realistischer (verloop, zachte terminator, maria, aardschijn, gloed ∝ fase); temperatuurlijnen lineOpacity 0,4 (was 0,8; isobaren ongewijzigd). typecheck 0.
+- 2026-09-25 PO live: daglabels in de scrubber sticky (links vast zolang de dag in beeld is, volgende duwt weg), incl. 'Vandaag'. typecheck 0, pnpm test 0.
+- 2026-09-25 PO live: scrubber buiten de tijdlijn gestreept (.timeline-void, 135°, 7/16 px). typecheck 0.
+- 2026-09-25 PO live: experiment zoekbalk in rust als zwevende plaatsknop (contrastrand + halo, vet, accenticoon); alleen CSS.
+- 2026-09-25 PO live: temperatuurlegenda als eigen pil linksonder op de kaart (.map-legend; mobiel boven de UV-chip), niet meer in de bronvermelding; oude zoekbalk-hoverregel verwijderd (overschreef de nieuwe). typecheck 0, pnpm test 0 (47/316).
+- 2026-09-25 PO live: zoekbalk in rust = ronde zoekknop 44×44 zoals de merkdruppel (veld eronder zonder tekst); experiment plaatsknop teruggedraaid; ≤360px-regel voor de gesloten pil weg.
+- 2026-09-25 PO live: legenda plat in hoek linksonder (gespiegeld aan .source), mobiele UV-chip 14 px hoger.

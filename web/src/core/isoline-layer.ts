@@ -21,6 +21,8 @@ export interface IsolineStyle {
   gradientFade: boolean
   /** false: alleen de vulling (bewolkingssluier, U34). */
   lines?: boolean
+  /** Dekking van de lijnen; standaard ISOLINE_LINE_OPACITY. */
+  lineOpacity?: number
   /** Vuldekking schaalt van 0 naar `fill` tussen deze veldwaarden (bewolkingssluier: helder = doorzichtig). */
   fillByValue?: readonly [number, number]
 }
@@ -611,7 +613,7 @@ export class IsolineLayer implements CustomLayerInterface {
     })
     gl.uniform1f(gl.getUniformLocation(program, 'u_has_fill'), filled ? 1 : 0)
     gl.uniform1f(gl.getUniformLocation(program, 'u_weight_b'), b?.weight ?? 0)
-    gl.uniform1f(gl.getUniformLocation(program, 'u_line_opacity'), this.style.lines === false ? 0 : ISOLINE_LINE_OPACITY)
+    gl.uniform1f(gl.getUniformLocation(program, 'u_line_opacity'), this.style.lines === false ? 0 : this.style.lineOpacity ?? ISOLINE_LINE_OPACITY)
     gl.uniform1f(gl.getUniformLocation(program, 'u_opacity'), this.opacity)
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)

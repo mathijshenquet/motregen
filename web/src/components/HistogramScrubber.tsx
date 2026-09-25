@@ -41,6 +41,10 @@ const hourLabelSteps = [1, 2, 3, 6, 12, 24]
 const minimumHourLabelSpacingPx = 34
 const TAP_SLOP_PX = 4
 const WHEEL_RESUME_MS = 800
+// Breedteschatting van een daglabel (10 px hoofdletters met spatiëring) en de marge tot de plotrand.
+const DAY_LABEL_CHAR_PX = 7.2
+const DAY_LABEL_PAD_PX = 8
+const DAY_LABEL_INSET_PX = 4
 // Uitloop na een veeg: snelheid (px/ms) halveert per ~110 ms.
 const FLING_DECAY_PER_MS = 0.9937
 const FLING_MIN_SPEED = 0.02
@@ -210,6 +214,26 @@ export default function HistogramScrubber(props: Props) {
     }
     return markers
   })
+  // Daglabels plakken links in het plot zolang hun dag in beeld is; het volgende label duwt ze weg
+  // (PO 2026-09-25 live, U34). Schermposities, dus per schuifstap herberekend (hooguit een paar labels).
+  // Tijdens afspelen schuift de baan als Web Animation (U41); dan staan de labels gewoon in de baan en
+  // schuiven ze mee, want per tik herpositioneren kost de Layerize die U41 wegnam.
+  const stickyDayLabels = createMemo(() => {
+    if (!props.timeline.length || sliding()) return []
+    const today = new Date(props.now)
+    today.setHours(0, 0, 0, 0)
+    const first = { epoch: timelineStart(), label: dayLabel(timelineStart(), today.getTime()) || 'Vandaag' }
+    const segments = [first, ...dayMarkers()]
+    const shift = offset()
+    return segments.flatMap((segment, index) => {
+      const width = segment.label.length * DAY_LABEL_CHAR_PX + DAY_LABEL_PAD_PX
+      const start = xAt(segment.epoch) + shift
+      const next = segments[index + 1]
+      const end = next ? xAt(next.epoch) + shift : xAt(timelineEnd()) + shift
+      const left = Math.min(Math.max(start, DAY_LABEL_INSET_PX), end - width - DAY_LABEL_INSET_PX)
+      return left + width < 0 || left > plotWidth() || end <= 0 ? [] : [{ label: segment.label, left }]
+    })
+  })
   const lastCursor = () => Math.max(0, props.timeline.length - 1)
 
   function scrollToEpoch(epoch: number): void {
@@ -333,9 +357,12 @@ export default function HistogramScrubber(props: Props) {
     >
       <div class="chart-plot" ref={plotElement}>
         <div ref={trackElement} class="chart-track" classList={{ tween: tween() }} style={{ width: `${trackWidth()}px`, transform: `translateX(${shownOffset()}px)` }} aria-hidden="true">
+          {/* Buiten de tijdlijn: gestreept "geen data" (PO 2026-09-25 live, U34), schuift mee met de baan. */}
+          <div class="timeline-void" style={{ left: `${-plotWidth()}px`, width: `${plotWidth()}px` }} />
+          <div class="timeline-void" style={{ left: `${xAt(timelineEnd())}px`, width: `${plotWidth()}px` }} />
           <div class="past-shade" style={{ width: `${nowX()}px` }} />
           <div class="hour-grid"><For each={xTicks()}>{(tick) => <i style={{ left: `${tick.x}px` }} />}</For></div>
-          <div class="day-grid"><For each={dayMarkers()}>{(marker) => <div class="boundary" style={{ left: `${xAt(marker.epoch)}px` }}><span>{marker.label}</span></div>}</For></div>
+          <div class="day-grid"><For each={dayMarkers()}>{(marker) => <div class="boundary" style={{ left: `${xAt(marker.epoch)}px` }}><Show when={sliding()}><span>{marker.label}</span></Show></div>}</For></div>
           <svg width={trackWidth()} height={plotHeight()} viewBox={`0 0 ${trackWidth()} ${plotHeight()}`}>
             <For each={guides()}>{(top) => <line class="rain-guide" x1="0" x2={trackWidth()} y1={top} y2={top} />}</For>
             <Show when={cloudBands().length}>
@@ -362,6 +389,7 @@ export default function HistogramScrubber(props: Props) {
           <div class="now-line" style={{ left: `${nowX()}px` }}><span>Nu</span></div>
           <div class="x-axis"><For each={xTicks()}>{(tick) => <span classList={{ midnight: new Date(tick.epoch).getHours() === 0 }} style={{ left: `${tick.x}px` }}>{hourLabel(tick.epoch)}</span>}</For></div>
         </div>
+        <div class="day-labels" aria-hidden="true"><For each={stickyDayLabels()}>{(label) => <span style={{ transform: `translateX(${label.left}px)` }}>{label.label}</span>}</For></div>
         <Show when={props.clouds}>
           <div class="cloud-labels" aria-hidden="true"><For each={cloudBands()}>{(band) => <span style={{ top: `${band.top + band.height / 2}px` }}>{band.label}</span>}</For></div>
         </Show>

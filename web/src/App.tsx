@@ -122,6 +122,8 @@ const emptySunData: SunFeatureCollection = { type: 'FeatureCollection', features
 const CLOUD_VEIL_OPACITY = 0.55
 const CLOUD_VEIL_RANGE = [15, 95] as const
 const CLOUD_VEIL_STEP = 25
+// Temperatuurlijnen half zo zichtbaar als ISOLINE_LINE_OPACITY (0,8) (PO 2026-09-25 live, U34).
+const TEMPERATURE_LINE_OPACITY = 0.4
 // Terugglijden aan het eind van een afspeelrondje (PO 2026-09-25 live, U34).
 const PLAYBACK_REWIND_MS = 700
 // Afspelen tikt op 30 Hz: regen-tween, isolijn-overvloeiing en klok zijn traag genoeg; alleen de
@@ -985,7 +987,7 @@ export default function App() {
   function isolineStyle(): IsolineStyle {
     const { step, fillStyle, fade } = isolineTuning()
     const range = temperatureRange()
-    return { step, fill: ISOLINE_FILL_OPACITY, fillSmooth: fillStyle === 'verloop', palette: range && paletteStops(range), color: hexColor(isolineColor(mapTheme())), gradientFade: fade === 'gradiënt' }
+    return { step, fill: ISOLINE_FILL_OPACITY, fillSmooth: fillStyle === 'verloop', palette: range && paletteStops(range), color: hexColor(isolineColor(mapTheme())), gradientFade: fade === 'gradiënt', lineOpacity: TEMPERATURE_LINE_OPACITY }
   }
 
   /** Isobaren: één egale lijnkleur, geen vulling en geen vervaging, zoals op een weerkaart (PO U35). */
@@ -1882,15 +1884,15 @@ export default function App() {
         </div>
       </div>
       <About theme={theme()} onTheme={(choice) => { usage.setTheme(choice); setTheme(choice) }}
-        windUnit={windUnit()} onWindUnit={(unit) => { usage.setUnit(unit); setWindUnit(unit); localStorage.setItem('motregen-wind-unit', unit) }} onOpen={() => usage.mark('about')} onTripleTap={() => setPerfVisible((visible) => !visible)} sourcePrefix={
-        <Show when={focus() > 0 && temperatureLegend()}>
-          {(legend) => <span class="temperature-legend" style={{ opacity: focus() }} role="img" aria-label={`Kleurschaal gevoelstemperatuur ${legend().low} tot ${legend().high} graden`}>
-            <span>{legend().low}°</span>
-            <span class="temperature-legend-bar">{legend().bands.map((color) => <i style={{ background: color }} />)}</span>
-            <span>{legend().high}°</span>
-          </span>}
-        </Show>
-      } />
+        windUnit={windUnit()} onWindUnit={(unit) => { usage.setUnit(unit); setWindUnit(unit); localStorage.setItem('motregen-wind-unit', unit) }} onOpen={() => usage.mark('about')} onTripleTap={() => setPerfVisible((visible) => !visible)} />
+      {/* Kaartlegenda als eigen pil linksonder, los van de bronvermelding (PO 2026-09-25 live, U34). */}
+      <Show when={focus() > 0 && temperatureLegend()}>
+        {(legend) => <div class="map-legend temperature-legend" style={{ opacity: focus() }} role="img" aria-label={`Kleurschaal gevoelstemperatuur ${legend().low} tot ${legend().high} graden`}>
+          <span>{legend().low}°</span>
+          <span class="temperature-legend-bar">{legend().bands.map((color) => <i style={{ background: color }} />)}</span>
+          <span>{legend().high}°</span>
+        </div>}
+      </Show>
       <LocationSearch
         location={location()}
         mapCenter={() => map?.getCenter() ?? location()}
