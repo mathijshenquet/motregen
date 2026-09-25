@@ -110,6 +110,7 @@ const REBASE_ZOOM = 0.5
 const REBASE_MARGIN = 0.05
 const FILL_MAX_PHASE = 0.6
 const SPAWN_ATTEMPTS = 32
+const EMPTIEST_SAMPLES = 48
 // PO 2026-09-25 (U24b): dit deel van de gewone respawns landt in een rand van één cel buiten het
 // beeld, rondom, zodat trails van buiten binnenkomen (loefzijde en pannen).
 const RIM_SHARE = 0.08
@@ -689,7 +690,7 @@ export class WindLayer implements CustomLayerInterface {
     let cell = -1
     const rim = !fill && this.random() < RIM_SHARE ? this.rimPoint() : undefined
     const [x, y] = rim ?? pickSpawn(SPAWN_ATTEMPTS, () => {
-      cell = leastOccupiedCell(this.cellCounts, this.columns * this.rows, this.random())
+      cell = emptiestCell(this.cellCounts, this.columns, this.rows, () => this.random())
       const [u, v] = jitteredCellPoint(cell, this.columns, this.rows, fill ? 1 : this.tuning.spawnJitter, () => this.random())
       return [bounds.west + u * (bounds.east - bounds.west), bounds.north + v * (bounds.south - bounds.north)]
     }, () => this.random(), (candidateX, candidateY) => !this.left || this.sampleWind(candidateX, candidateY) ? 1 : 0)
@@ -1034,13 +1035,35 @@ export function occupancyGrid(width: number, height: number, target: number): [n
   return [columns, Math.max(1, Math.round(target / columns))]
 }
 
-/** De leegste cel; bij gelijkspel de eerste vanaf een willekeurig startpunt (`start` in [0, 1)). */
-export function leastOccupiedCell(counts: ArrayLike<number>, cells: number, start: number): number {
-  const offset = Math.floor(start * cells)
-  let best = offset
-  for (let step = 1; step < cells && counts[best]! > 0; step++) {
-    const cell = (offset + step) % cells
-    if (counts[cell]! < counts[best]!) best = cell
+/**
+ * Cel met de leegste omgeving: eigen bezetting plus het gemiddelde van de buren binnen het raster,
+ * onder `samples` willekeurige cellen. Bij ~1 particle per cel is een derde van alle cellen leeg;
+ * "de eerste lege cel" (U3b) strooide aanvullers daardoor over het hele beeld en liet een net
+ * binnengepande strook seconden half leeg (U24b). Een lege cel tussen bezette buren scoort nu slecht.
+ */
+export function emptiestCell(counts: ArrayLike<number>, columns: number, rows: number, random: () => number, samples = EMPTIEST_SAMPLES): number {
+  const cells = columns * rows
+  let best = 0
+  let bestScore = Infinity
+  for (let sample = 0; sample < samples; sample++) {
+    const cell = Math.min(cells - 1, Math.floor(random() * cells))
+    const column = cell % columns
+    const row = Math.floor(cell / columns)
+    let neighbours = 0
+    let sum = 0
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if ((dx === 0 && dy === 0) || column + dx < 0 || column + dx >= columns || row + dy < 0 || row + dy >= rows) continue
+        sum += counts[cell + dy * columns + dx]!
+        neighbours++
+      }
+    }
+    const score = counts[cell]! + (neighbours ? sum / neighbours : 0)
+    if (score < bestScore) {
+      best = cell
+      bestScore = score
+      if (score === 0) break
+    }
   }
   return best
 }

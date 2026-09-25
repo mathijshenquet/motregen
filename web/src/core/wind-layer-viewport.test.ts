@@ -273,18 +273,52 @@ describe('wind across map movement (U12)', () => {
     expect(outer.west).toBeLessThan(view.west)
     expect(outer.east).toBeGreaterThan(view.east)
     let rim = 0
+    let live = 0
     let windward = 0
-    for (let index = 0; index < wind.active; index++) {
-      const x = wind.x[index]!
-      const y = wind.y[index]!
-      if (x >= view.west && x <= view.east && y >= view.north && y <= view.south) continue
-      rim++
-      // Westenwind: de loefrand is west.
-      if (x < view.west) windward++
+    // Tien momentopnames over 5 s: aan loef zitten er maar een paar tegelijk in de rand.
+    for (let snapshot = 0; snapshot < 10; snapshot++) {
+      run(0.5)
+      for (let index = 0; index < wind.active; index++) {
+        const x = wind.x[index]!
+        const y = wind.y[index]!
+        live++
+        if (x >= view.west && x <= view.east && y >= view.north && y <= view.south) continue
+        rim++
+        // Westenwind: de loefrand is west.
+        if (x < view.west) windward++
+      }
     }
-    expect(rim / wind.active).toBeGreaterThan(0.02)
-    expect(rim / wind.active).toBeLessThan(0.2)
+    expect(rim / live).toBeGreaterThan(0.02)
+    expect(rim / live).toBeLessThan(0.2)
     expect(windward).toBeGreaterThan(0)
+  })
+
+  it('fills a freshly panned-in strip right away, also on the windward side (U24b)', () => {
+    // Zuidenwind (3 m/s), pan 0,3 beeldbreedte naar het zuiden in 1 s: de nieuwe strook onderin is
+    // loef. Vóór U24b kwam daar ~45 % van de koppen die er horen (aanvullers in willekeurige lege cellen).
+    const { wind, run, move, view } = harness(1_280, 720, () => [1, 3])
+    run(15)
+    const world = 512 * 2 ** view.zoom
+    const depth = 0.3 * view.width
+    const share = () => {
+      const bounds = wind.viewBounds
+      let strip = 0
+      let all = 0
+      for (let index = 0; index < wind.active; index++) {
+        if (!wind.instanceBytes[index * 20 + 19]) continue
+        const v = (wind.y[index]! - bounds.north) / (bounds.south - bounds.north)
+        if (v < 0 || v > 1) continue
+        all++
+        if (v > 1 - depth / view.height) strip++
+      }
+      return strip / all / (depth / view.height)
+    }
+    for (let frameIndex = 0; frameIndex < 60; frameIndex++) {
+      move({ y: view.y + depth / 60 / world })
+      run(frame)
+    }
+    run(0.25)
+    expect(share()).toBeGreaterThan(0.8)
   })
 })
 
