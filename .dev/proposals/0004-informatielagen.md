@@ -145,3 +145,13 @@ synthetische straling.
   particles mét fading trails (fade-framebuffer), duidelijk zichtbaar in
   beide thema's, verder binnen de ronde-2-kaders (onder regen, ~60%,
   bft-kleur, minder dicht dan Windy, 60 fps mobiel) — in T3d gestoken.
+
+## Amendement 2026-09-25 (PO, live U34-sessie)
+
+Ronde 3 stelde "cloud_frac alléén voor pictogram-afleiding, nooit als kaartlaag". Dat is herroepen:
+de tabelkolom **Lucht** (bewolkingsglyph op cloud_frac + overdag de UV-balk; vervangt de losse
+kolommen UV en Wolken) pint een modus met de drie wolkenlagen (laag/midden/hoog, U37) in de grafiek
+én `cloud_frac` als zachte grijswitte **sluier op de kaart**, via de raster-vulpas van de isolijnlaag
+zonder lijnen. Het principe "één kaartveld tegelijk" blijft: de sluier vervangt de regenlaag in die
+modus, hij stapelt niet. Reden: de wolkendoorsnede bleek op echte data waardevol ("redelijk gaaf"),
+UV en bewolking overlappen (UV = basis-UV × bewolking) en 's nachts is UV niet-informatief.

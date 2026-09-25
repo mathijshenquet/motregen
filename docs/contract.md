@@ -128,7 +128,7 @@ niet nodig, `version`-veld leidt.
 | `uv` | UV-index | zonkracht (cloud-modified) |
 | `uv_clear` | UV-index | zonkracht zonder wolken (KNMI `uvi_clear`, heel de dag; source `uv`) |
 | `rel_humidity` | % | 2m relatieve luchtvochtigheid |
-| `cloud_frac` | % | totale bewolkingsgraad (alleen voor pictogram-afleiding; nooit als kaartlaag — MIP-4 ronde 3) |
+| `cloud_frac` | % | totale bewolkingsgraad; pictogram-afleiding, bewolkingsband in de weermodus-grafiek en sinds 2026-09-25 (MIP-4 amendement, PO) ook als grijswitte sluier in de kaartmodus Lucht |
 | `pressure_hpa` | hPa | luchtdruk op zeeniveau (isobaren in windmodus) |
 | `cloud_low`, `cloud_mid`, `cloud_high` | % | bewolking laag/midden/hoog (AROME 73/74/75), in stappen van 5 %; voor de wolkendoorsnede in de weermodus-scrubber (U37) |
 | `pollen_alder`, `pollen_birch`, `pollen_grass`, `pollen_mugwort` | korrels/m³ | CAMS-pollenverwachting (source `cams`); alleen in het seizoen van de soort gepubliceerd (docs/pollen.md) |
