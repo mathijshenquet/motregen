@@ -90,3 +90,38 @@ Nulmeting (`voor`, main `4007903`):
   MapLibre-worker 297 → 45 berichten. Regen-draws blijven ~29/s omdat swiftshader hier toch al op
   ~30 fps zat; op een 60 Hz-Mac halveert dit ze. De worker-CPU schommelt met de zstd-decodes
   (27–180 per venster, LRU-churn, zie observatie ingreep 1), niet met de isolijnworkers.
+
+## 2026-09-25 22:40 — ingreep 3 (Solid-cascade per frame dempen)
+- Profiel eerst (`profile.mjs`: CDP Profiler + sourcemaps, en `trace.mjs`: devtools.timeline per
+  eventnaam). JS per tik was na ingreep 2 al klein (frame-loop inclusief ~1,25 ms, grootste post
+  `Freshness` met Intl-formattering per tik); `readPointSeries` kwam tijdens afspelen niet voor (in het
+  PO-profiel waarschijnlijk de laadfase). De hoofddraad zat voor **41 % in `Layerize`**: de
+  scrubber-baan kreeg per tik een nieuwe `translateX` (ondanks `will-change`), met de baan via CSS
+  vastgezet: Layerize 480 → 0 ms per 5 s.
+- Ingreep:
+  - Tekenlagen niet-reactief: `drawLayers()` (regen, wind, stadslabels, day-night, isolijnen +
+    dekking) wordt per tik direct vanuit de frame-loop aangeroepen. Eén effect tekent alleen als de
+    loop niet loopt (scrubben, toetsen, pauze, focus-/stapwissel, nieuwe tijdlijn). Dekkingsmemo's
+    zijn niet-reactieve functies; het opacity-effect volgt alleen de focus.
+  - Reactief op minuut/frame-index: klok (`Freshness` krijgt `cursorMinute`/`cursorFrame`), UV-chip,
+    scrubber-`aria-valuetext` (memo op minuut; tekst identiek, hh:mm).
+  - Scrubber-baan tijdens gelijkmatig afspelen als één Web-Animations-animatie op de compositor
+    (`glideRate` = epoch-ms/ms uit de loop; 0 tijdens terugglijden). Inline transform staat dan stil;
+    bij pauze/slepen/terugglijden/afwijking > 2 px valt hij terug op de gewone transform. Controle
+    tijdens afspelen: uurtik t.o.v. de cursor wijkt < 1 px af van klok × 0,98 px/min (4 samples).
+  - `showTemperature` stopt vroeg bij dezelfde invoer (frames, afgeronde mix, zoom, maat);
+    frame-keys van de isolijntijdlijn één keer per tijdlijn i.p.v. per tik.
+- Gates: typecheck 0, test 0 (318), build 0.
+- e2e (drie specs, desktop): EXIT 1 — 10 passed, 2 skipped, 1 failed: alleen het bestaande
+  `perf.spec`-budget (861 273 B, zie ingreep 1); `wind-zoom` continu slaagde deze keer.
+
+| scenario | build | taak s | script s | hoofddraad-CPU s | worker-CPU s | gpu-CPU s | map-renders/s | regen/s | wind/s | isolijn/s | traces | worker-berichten |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| weer | voor | 11,77 | 2,98 | 10,21 | 2,07 | 338,9 | 2,8 | 29,8 | 30,8 | 0 | 0 | zstd 87, maplibre 297 |
+| weer | na-2 | 7,29 | 1,95 | 6,48 | 4,32 | 263,5 | 0,5 | 29,3 | 31,6 | 0 | 0 | zstd 162, maplibre 45 |
+| weer | na-3 | 4,01 | 1,59 | 3,67 | 3,72 | 314,2 | 0,5 | 29,3 | 31,6 | 0 | 0 | zstd 146, maplibre 45 |
+| temperatuur | na-2 | 7,86 | 2,01 | 6,32 | 0,58 | 352,2 | 0,5 | 28,2 | 31,4 | 28,4 | 5 | tracer 5, zstd 27, maplibre 45 |
+| temperatuur | na-3 | 3,53 | 1,45 | 3,02 | 0,43 | 371,8 | 0,4 | 21,2 | 30,7 | 23,9 | 4 | tracer 4, zstd 14, maplibre 45 |
+
+- Tussenstand weermodus t.o.v. de nulmeting: taaktijd −66 %, hoofddraad-CPU −64 %.
+  Tussenversie van ingreep 3 zonder de compositor-baan: weer 5,97 s / temperatuur 7,03 s taaktijd.

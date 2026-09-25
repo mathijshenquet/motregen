@@ -1,4 +1,4 @@
-import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show } from 'solid-js'
+import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show, untrack } from 'solid-js'
 import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
 import About, { type ThemeChoice } from './components/About'
 import HistogramScrubber from './components/HistogramScrubber'
@@ -87,11 +87,13 @@ interface IsolineSet extends IsolineSetConfig {
   key: string
   shownRequest: number
   prepared: Map<string, Promise<{ grid: Grid; field: PreparedField }>>
+  /** Frame-identiteiten van de tijdlijn, één keer per tijdlijn opgebouwd i.p.v. per afspeeltik. */
+  frameKeys: { frames: TimelineFrame[]; keys: string[] }
   labelCache: Map<string, Promise<IsolineFeatureCollection | undefined>>
 }
 
 function isolineSet(config: IsolineSetConfig): IsolineSet {
-  return { ...config, layerKey: '', labelRounds: 0, fields: [], time: 0, key: '', shownRequest: 0, prepared: new Map(), labelCache: new Map() }
+  return { ...config, layerKey: '', labelRounds: 0, fields: [], time: 0, key: '', shownRequest: 0, prepared: new Map(), frameKeys: { frames: [], keys: [] }, labelCache: new Map() }
 }
 
 /** Luchtdruk laadt pas bij de eerste windfocus (U35): ook zijn headers horen niet in de cold start. */
@@ -149,6 +151,7 @@ export default function App() {
   let shownWindRequest = 0
   let shownTemperatureRequest = 0
   let shownSunRequest = 0
+  let frameLoopDrives = false
   let mapRepaints = 0
   const isolineCounters = (): IsolineCounters => ({
     ...temperatureIsolines.layer?.stats,
@@ -194,6 +197,7 @@ export default function App() {
   let styleRequest = 0
   let appliedMapTheme: MapTheme | undefined
   let temperatureLabelKey = ''
+  let temperatureInput = ''
   let sunFeatureKey = ''
   let sunEpochBucket = Number.NaN
   let rainReadyPending = false
@@ -232,6 +236,8 @@ export default function App() {
   }
   const [cursor, setCursor] = createSignal(0)
   const [playing, setPlaying] = createSignal(true)
+  // Tempo van gelijkmatig afspelen (epoch-ms per ms) voor de scrubberbaan; 0 tijdens terugglijden.
+  const [glideRate, setGlideRate] = createSignal(0)
   // Afspeelhorizon; de tijdsbereikknoppen zijn weg (U34), de scrubber scrolt door de hele tijdlijn.
   const [timeHorizonHours] = createSignal<number | null>(8)
   const initialSavedPlaces = loadSavedPlaces()
@@ -302,9 +308,10 @@ export default function App() {
   const focusMode = new FocusMode<FocusKind>(['temperature', 'wind', 'clouds'], (mode, value) => (mode === 'wind' ? setWindFocus : mode === 'clouds' ? setCloudFocus : setFocus)(value),
     () => reducedMotion.matches)
   const [isobarCount, setIsobarCount] = createSignal(0)
-  const isolineCoverage = createMemo(() => timelineCoverage(feelsLikeTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
+  // Niet-reactief op de cursor: de frame-loop zet de dekking per tik (U41).
+  const isolineCoverage = () => untrack(() => timelineCoverage(feelsLikeTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
   const pressureTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'pressure_hpa') : [])
-  const isobarCoverage = createMemo(() => timelineCoverage(pressureTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
+  const isobarCoverage = () => untrack(() => timelineCoverage(pressureTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
   const temperatureIsolines = isolineSet({
     kind: 'temperature', layerId: 'motregen-isolines', timeline: feelsLikeTimeline, focus, active: createMemo(() => focus() > 0),
     step: () => isolineTuning().step, style: isolineStyle, labelFade, coverage: isolineCoverage, setCount: setIsolineCount,
@@ -318,7 +325,7 @@ export default function App() {
   // labels, alleen in de modus Lucht en pas dan geladen. Wijkt af van MIP-4 ronde 3 ("nooit als kaartlaag").
   const cloudIsolines = isolineSet({
     kind: 'cloud', layerId: 'motregen-cloud-veil', timeline: cloudTimeline, focus: cloudFocus, active: createMemo(() => cloudFocus() > 0),
-    step: () => CLOUD_VEIL_STEP, style: cloudVeilStyle, labelFade: () => undefined, coverage: createMemo(() => timelineCoverage(cloudTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS)), setCount: () => undefined,
+    step: () => CLOUD_VEIL_STEP, style: cloudVeilStyle, labelFade: () => undefined, coverage: () => untrack(() => timelineCoverage(cloudTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS)), setCount: () => undefined,
   })
   const isolineSets = [temperatureIsolines, pressureIsolines, cloudIsolines]
   const focusedWindTuning = createMemo(() => ({
@@ -529,10 +536,9 @@ export default function App() {
     createEffect(() => applyIsolineOpacity(set))
 
     createEffect(() => {
-      selectedEpoch()
-      set.step()
-      if (set.active() && mapReady()) { void showIsolineField(set); void showIsolines(set); return }
-      // Pas na de uitfade leegmaken, zodat een volgende hover geen verouderde labels laat invaden.
+      // Tekenen doet drawLayers; pas na de uitfade leegmaken, zodat een volgende hover geen verouderde
+      // labels laat invaden.
+      if (set.active() && mapReady()) return
       if (set.key) {
         set.key = ''
         set.shownRequest++
@@ -550,7 +556,12 @@ export default function App() {
     })
   }
 
-  createEffect(() => {
+  /**
+   * Alle kaartlagen op de huidige cursor. Tijdens afspelen roept de frame-loop dit per tik direct aan,
+   * buiten Solid om (U41): anders liep elke tik door ~25 effecten en memo's. Reactief op de cursor
+   * blijven alleen scrubber, klok en tabel (op frame-index/minuut).
+   */
+  function drawLayers(): void {
     const epoch = selectedEpoch()
     const ready = mapReady()
     dayNightLayer?.setEpoch(epoch)
@@ -563,7 +574,11 @@ export default function App() {
       sunEpochBucket = nextSunBucket
       void showSun(epoch)
     }
-  })
+    for (const set of isolineSets) {
+      applyIsolineOpacity(set)
+      if (set.active()) { void showIsolineField(set); void showIsolines(set) }
+    }
+  }
   createEffect(() => {
     const loadStage = pointLoadStage()
     if (!playing() || !mapReady() || (initialPickStarted && (loadStage === 'initial' || loadStage === 'direct'))) return
@@ -577,15 +592,18 @@ export default function App() {
     // Aan het eind van een rondje glijdt de tijdlijn terug naar het begin i.p.v. in één frame te springen:
     // in de schuivende scrubber (U34) oogde die sprong als "de tijdlijn springt telkens terug".
     let rewind: { from: number; startedAt: number } | undefined
+    frameLoopDrives = true
     const stop = startFrameLoop((now) => {
       const elapsed = now - previous
       // Vier ms speling voor de vsync-fase: op 60 Hz precies elke tweede vsync.
       if (elapsed < 1_000 / PLAYBACK_MAX_FPS - 4) return
       previous = now
       if (rewind) {
+        setGlideRate(0)
         const progress = Math.min(1, (now - rewind.startedAt) / PLAYBACK_REWIND_MS)
         const eased = progress < 0.5 ? 2 * progress ** 2 : 1 - (2 - 2 * progress) ** 2 / 2
         setCursor(timelineCursorAtEpoch(frames, rewind.from + (frames[0]!.epoch - rewind.from) * eased))
+        drawLayers()
         if (progress >= 1) rewind = undefined
         return
       }
@@ -594,10 +612,26 @@ export default function App() {
       if (!(epoch < lastEpoch)) { setPlaying(false); return }
       const nextEpoch = epoch + elapsed * playbackRate
       if (!Number.isFinite(nextEpoch) || nextEpoch >= lastEpoch) { rewind = { from: epoch, startedAt: now }; return }
-      setCursor(timelineCursorAtEpoch(frames, nextEpoch))
+      batch(() => {
+        setCursor(timelineCursorAtEpoch(frames, nextEpoch))
+        setGlideRate(playbackRate)
+      })
+      drawLayers()
     }, requestAnimationFrame, cancelAnimationFrame)
-    onCleanup(stop)
+    onCleanup(() => { stop(); frameLoopDrives = false; setGlideRate(0) })
   })
+  // Buiten het afspelen (scrubben, toetsen, pauze, focuswissel, nieuwe tijdlijn) tekent dit effect.
+  createEffect(() => {
+    cursor()
+    timeline()
+    mapReady()
+    for (const set of isolineSets) { set.active(); set.step() }
+    if (playing() && frameLoopDrives) return
+    untrack(drawLayers)
+  })
+  const cursorFrame = createMemo(() => Math.round(cursor()))
+  // Klok en UV-chip tonen minuten: per afspeeltik hoeven ze niet opnieuw.
+  const cursorMinute = createMemo(() => Math.floor(selectedEpoch() / 60_000) * 60_000)
 
   // Zolang het versheidspaneel open is staat de klok stil (PO 2026-09-25 live).
   let playingBeforeFreshness = false
@@ -865,7 +899,7 @@ export default function App() {
 
   function attachTemperatureLayer(): void {
     if (!map || map.getLayer('motregen-temperature')) return
-    temperatureLabelKey = ''
+    temperatureLabelKey = temperatureInput = ''
     map.addSource('motregen-temperature', { type: 'geojson', data: emptyTemperatureData })
     const beforeId = temperatureLayerBeforeId(map.getStyle().layers)
     for (const set of isolineSets) {
@@ -1063,7 +1097,8 @@ export default function App() {
         void showIsolines(set)
       }
       const layer = set.layer
-      const frameKeys = frames.map((frame) => `${frame.chunk.url}#${frame.frameIndex}`)
+      if (set.frameKeys.frames !== frames) set.frameKeys = { frames, keys: frames.map((frame) => `${frame.chunk.url}#${frame.frameIndex}`) }
+      const frameKeys = set.frameKeys.keys
       for (const index of layer.setFrameKeys(frameKeys)) set.fields[index] = undefined
       layer.setTime(time, playing())
       await Promise.all(wanted.filter((index) => !layer.hasLayer(index)).map(async (index) => {
@@ -1173,22 +1208,27 @@ export default function App() {
     // placement). Tijdens afspelen daarom de waarden van het dichtstbijzijnde uur: één wissel per
     // uurframe i.p.v. ~1,5 per seconde (U41). Stil staat de geïnterpoleerde waarde.
     const mix = playing() ? Math.round(blend.mix) : blend.mix
+    const leftFrame = frames[blend.left]!, rightFrame = frames[blend.right]!
+    const { clientWidth, clientHeight } = map.getContainer()
+    // Zelfde invoer als de getoonde labels: niets te doen (per afspeeltik het gewone geval).
+    const input = `${leftFrame.chunk.url}#${leftFrame.frameIndex}|${rightFrame.chunk.url}#${rightFrame.frameIndex}|${mix}|${map.getZoom()}|${clientWidth}x${clientHeight}`
+    if (input === temperatureInput) return
     try {
-      const leftFrame = frames[blend.left]!, rightFrame = frames[blend.right]!
       const [left, right, leftHeader, rightHeader] = await Promise.all([
         load(leftFrame), load(rightFrame), client.getHeader(leftFrame.chunk), client.getHeader(rightFrame.chunk),
       ])
       if (request !== shownTemperatureRequest || !map) return
       const source = map.getSource('motregen-temperature') as GeoJSONSource | undefined
-      const labels = temperatureLabels(left, right, leftHeader, rightHeader, mix, selectTemperaturePlaces(map.getZoom(), temperatureLabelSpacingPx(map.getContainer().clientWidth, map.getContainer().clientHeight)))
+      const labels = temperatureLabels(left, right, leftHeader, rightHeader, mix, selectTemperaturePlaces(map.getZoom(), temperatureLabelSpacingPx(clientWidth, clientHeight)))
       const key = labels.features.map((feature) => `${feature.properties.name}:${feature.properties.label}`).join('|')
+      temperatureInput = input
       if (key !== temperatureLabelKey) {
         temperatureLabelKey = key
         source?.setData(labels)
       }
     } catch {
       const source = map?.getSource('motregen-temperature') as GeoJSONSource | undefined
-      temperatureLabelKey = ''
+      temperatureLabelKey = temperatureInput = ''
       source?.setData(emptyTemperatureData)
     }
   }
@@ -1789,10 +1829,10 @@ export default function App() {
       if (request === cloudRequest) setCloudValues(Object.fromEntries(layers) as Record<CloudLayer, Array<number | null>>)
     }).catch(() => undefined)
   })
-  const cursorUv = createMemo(() => seriesValueAt(uvTimeline(), uvSeries(), selectedEpoch(), 30 * 60_000))
+  const cursorUv = createMemo(() => seriesValueAt(uvTimeline(), uvSeries(), cursorMinute(), 30 * 60_000))
   const cursorUvReading = createMemo(() => {
     const point = location()
-    const epoch = selectedEpoch()
+    const epoch = cursorMinute()
     const row = forecast().find((candidate) => Math.abs(candidate.epoch - epoch) <= 30 * 60_000)
     const clear = row?.uvClearIndex == null ? null : uvClearSeries()[row.uvClearIndex] ?? null
     return uvReading(epoch, cursorUv(), clear, null, null, (at) => solarElevationSin(at, point.lng, point.lat), false)
@@ -1848,7 +1888,7 @@ export default function App() {
           usageBody={usageBody()}
         />
       </Show>
-      <Freshness mapEpoch={selectedEpoch()} mapFrame={timeline()[Math.round(cursor())]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness} />
+      <Freshness mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness} />
     </section>
     <aside class="dashboard">
       <Show when={cursorUvChip()}>{(label) => <div class="sidebar-nav">
@@ -1867,6 +1907,7 @@ export default function App() {
         onCursor={scrub}
         onIntent={() => { void completePointSeries(pointLoad, 'high') }}
         onPlaying={setPlaying}
+        glideRate={glideRate()}
         onPlayPressed={() => usage.mark('play')}
         clouds={focusPinned() === 'clouds' ? { timeline: cloudTimelines(), values: cloudValues() } : undefined}
         cloudCover={focusPinned() ? undefined : { timeline: cloudTimeline(), values: cloudSeries() }}
