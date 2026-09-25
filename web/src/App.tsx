@@ -48,6 +48,7 @@ import { WIND_UNITS, type WindUnit } from './core/weather'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
 import { DEFAULT_WIND_TUNING, loadWindTuning, storeWindTuning, WIND_MAX_FPS, WIND_PARAMETERS, WindLayer, type WindTuning } from './core/wind-layer'
 import { clearTuningStorage } from './core/dev-settings'
+import { watchIdle } from './core/activity'
 import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
 import { browserUsageEnvironment, createUsageTracker, installUsageBeacon, sessionManifestUrls } from './core/usage'
 
@@ -126,6 +127,9 @@ const PLAYBACK_REWIND_MS = 700
 // Afspelen tikt op 30 Hz: regen-tween, isolijn-overvloeiing en klok zijn traag genoeg; alleen de
 // windpartikels animeren op WIND_MAX_FPS in hun eigen lus (U41).
 const PLAYBACK_MAX_FPS = 30
+// Stil op de achtergrond (U41): na een minuut zonder invoer tekent de wind op halve snelheid.
+const IDLE_AFTER_MS = 60_000
+const WIND_IDLE_FPS = 30
 
 export default function App() {
   const devMode = new URLSearchParams(window.location.search).has('dev')
@@ -328,10 +332,14 @@ export default function App() {
     step: () => CLOUD_VEIL_STEP, style: cloudVeilStyle, labelFade: () => undefined, coverage: () => untrack(() => timelineCoverage(cloudTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS)), setCount: () => undefined,
   })
   const isolineSets = [temperatureIsolines, pressureIsolines, cloudIsolines]
+  // Verborgen tab: afspelen en wind staan stil (zichtbaarheid 0 stopt de windlus; de trails blijven).
+  const [pageVisible, setPageVisible] = createSignal(document.visibilityState !== 'hidden')
+  const [userIdle, setUserIdle] = createSignal(false)
   const focusedWindTuning = createMemo(() => ({
     ...windTuning(),
     intensity: windFocusIntensity(windTuning().intensity, windFocus()),
-    visibility: WIND_PARAMETERS.visibility * contextOpacity(focus(), FOCUS_DIM),
+    visibility: pageVisible() ? WIND_PARAMETERS.visibility * contextOpacity(focus(), FOCUS_DIM) : 0,
+    maxFps: userIdle() ? WIND_IDLE_FPS : WIND_MAX_FPS,
   }))
   const [mapReady, setMapReady] = createSignal(false)
   const [resetNotice, setResetNotice] = createSignal(false)
@@ -339,6 +347,26 @@ export default function App() {
   const [perfVisible, setPerfVisible] = createSignal(false)
   const [systemDark, setSystemDark] = createSignal(media.matches)
   const mapTheme = createMemo<MapTheme>(() => theme() === 'system' ? systemDark() ? 'dark' : 'light' : theme() as MapTheme)
+
+  onMount(() => {
+    const idle = watchIdle(IDLE_AFTER_MS, {
+      now: () => performance.now(),
+      setTimeout: (callback, delay) => window.setTimeout(callback, delay),
+      clearTimeout: (handle) => window.clearTimeout(handle),
+    }, setUserIdle)
+    const inputEvents = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart'] as const
+    for (const type of inputEvents) window.addEventListener(type, idle.input, { capture: true, passive: true })
+    const visibilityChanged = () => {
+      setPageVisible(document.visibilityState !== 'hidden')
+      if (document.visibilityState !== 'hidden') idle.input()
+    }
+    document.addEventListener('visibilitychange', visibilityChanged)
+    onCleanup(() => {
+      idle.dispose()
+      for (const type of inputEvents) window.removeEventListener(type, idle.input, { capture: true })
+      document.removeEventListener('visibilitychange', visibilityChanged)
+    })
+  })
 
   onMount(async () => {
     const mediaChanged = (event: MediaQueryListEvent) => setSystemDark(event.matches)
@@ -581,7 +609,7 @@ export default function App() {
   }
   createEffect(() => {
     const loadStage = pointLoadStage()
-    if (!playing() || !mapReady() || (initialPickStarted && (loadStage === 'initial' || loadStage === 'direct'))) return
+    if (!playing() || !pageVisible() || !mapReady() || (initialPickStarted && (loadStage === 'initial' || loadStage === 'direct'))) return
     const horizonHours = timeHorizonHours()
     const frames = timeline()
     if (frames.length < 2) return

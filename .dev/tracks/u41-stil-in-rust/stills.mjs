@@ -19,6 +19,8 @@ for (const scheme of ['light', 'dark']) {
   if (await slider.getAttribute('data-playing') !== null) await slider.press(' ')
   await slider.press('End')
   for (let i = 0; i < 3; i++) await slider.press('PageDown')
+  // Scrubben laadt de volledige puntreeks; pas daarna liggen tabel en wolkband vast.
+  await page.locator('[role="slider"][data-load-stage="complete"]').waitFor({ timeout: 60_000 })
   const shoot = async (name) => { await page.waitForTimeout(3_000); await page.screenshot({ path: `${out}${prefix}-${scheme}-${name}.png` }) }
   await shoot('weer')
   await page.locator('.temperature-focus').first().click()

@@ -85,7 +85,7 @@ async function measure(name, prepare) {
   await page.waitForTimeout(Number(process.env.WARMUP ?? 40_000))
   // Elke meting vanaf het begin van de afspeellus: 5-minuutradar en uurframes wisselen elkaar af.
   const slider = page.getByRole('slider', { name: 'Tijd' })
-  await slider.press('Home')
+  if (name !== 'rust') await slider.press('Home')
   await page.waitForTimeout(1_000)
   const playing = await slider.getAttribute('data-playing')
   const [m0, c0, p0] = [await metrics(), await counters(), procCpu(rootPid)]
@@ -123,6 +123,10 @@ if (only.includes('verborgen')) await measure('verborgen', async () => {
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => true })
     document.dispatchEvent(new Event('visibilitychange'))
   })
+})
+if (only.includes('rust')) await measure('rust', async () => {
+  // Geen invoer meer na de Home-toets van de vorige meting: na 60 s gaat de wind naar 30 fps.
+  await page.waitForTimeout(61_000)
 })
 if (errors.length) console.log(JSON.stringify({ errors }))
 await browser.close()

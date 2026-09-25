@@ -125,3 +125,54 @@ Nulmeting (`voor`, main `4007903`):
 
 - Tussenstand weermodus t.o.v. de nulmeting: taaktijd −66 %, hoofddraad-CPU −64 %.
   Tussenversie van ingreep 3 zonder de compositor-baan: weer 5,97 s / temperatuur 7,03 s taaktijd.
+
+## 2026-09-25 23:10 — ingreep 4 (stil op de achtergrond); stills; eindstand
+- Ingreep: `pageVisible` (visibilitychange) stopt de afspeel-frame-loop (afspelen blijft "aan" en
+  gaat verder waar hij was) en zet de wind op zichtbaarheid 0 (zijn eigen lus vraagt dan geen frame
+  meer; trails blijven staan, bij terugkeer wekt `setTuning` hem). `watchIdle` (nieuw,
+  `core/activity.ts` + unit-test): na 60 s zonder invoer (pointer, toets, wiel, touch; zichtbaar
+  worden telt als invoer) wind-`maxFps` 60 → 30, afspelen loopt door; eerste invoer zet hem direct
+  terug. Eén timer die de resttijd herzet: een pointermove kost alleen een tijdstempel.
+  Controle op de windlaag (`__motregenWind.tuning.maxFps`): na laden 60, na 62 s stilte 30, direct na
+  een muisbeweging 60.
+- Gates: typecheck 0, test 0 (48 files, 320 tests), build 0.
+- e2e (drie specs, desktop): EXIT 1 — 10 passed, 2 skipped, 1 failed: alleen het bestaande
+  `perf.spec`-budget (861 273 B).
+- Scenario `verborgen` in de meting: `visibilityState` via een property-override op `hidden` gezet
+  (headless kent geen echte achtergrondtab; de browser zelf zou rAF daar ook al smoren, dit meet de
+  app-kant). `rust`: 61 s geen invoer vóór het venster; op swiftshader haalt de wind toch al ~30 fps,
+  dus daar geen verschil in draws/s zichtbaar — vandaar de directe controle hierboven.
+- Stills (`stills.mjs`, gepauzeerd op End − 3×PageDown, gewacht op `data-load-stage="complete"`, dan
+  weer → temperatuur → wind), vóór = main `4007903`, ná = deze branch, direct na elkaar geschoten:
+  zijpaneel in alle vijf 0,00 % pixels met verschil > 24; temperatuur licht en donker (isolijnen,
+  vulling, labels) 0,00 %; weer/wind 0,3 % op de kaart = willekeurige windpartikels. Eerdere opnames
+  zonder de wacht op `complete` verschilden door laadtiming (wolkband/rijhoogte), niet door de code.
+
+### Eindtabel (30 s afspelen, prod-build, 1280×800, swiftshader; vóór = main `4007903`)
+
+| scenario | build | taak s | script s | hoofddraad-CPU s | worker-CPU s | gpu-CPU s | map-renders/s | regen/s | wind/s | isolijn/s | traces | worker-berichten |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| weer | voor | 11,77 | 2,98 | 10,21 | 2,07 | 338,9 | 2,8 | 29,8 | 30,8 | 0 | 0 | zstd 87, maplibre 297 |
+| weer | na-4 | 3,17 | 1,28 | 2,94 | 1,70 | 319,6 | 0,5 | 30,0 | 31,7 | 0 | 0 | zstd 85, maplibre 45 |
+| temperatuur | voor | 2,45* | 1,22 | 1,99 | 1,81 | 320,9 | 1,7 | 1,9* | 3,8* | 3,8* | 114 | tracer 114, labels 3, maplibre 261 |
+| temperatuur | na-4 | 3,45 | 1,47 | 2,88 | 0,25 | 376,4 | 0,4 | 24,6 | 32,0 | 25,9 | 4 | tracer 4, labels 4, maplibre 45 |
+| verborgen (temp.) | na-4 | 0,37 | 0,03 | 0,40 | 0 | 0,2 | 0 | 0 | 0 | 0 | 0 | geen |
+| rust (> 60 s) | na-4 | 3,35 | 1,48 | 2,92 | 0,09 | 258,6 | 1,1 | 29,3 | 27,6 | 0 | 0 | maplibre 135 |
+
+\* vóór verhongerde de temperatuurmodus op deze GPU-loze host: 1,9 frames/s (elke trace gaf een
+vector- + vulpass), dus lage absolute hoofddraadtijd. Per getekend frame: 43 ms vóór → 4,7 ms ná.
+
+- Tegen de doelen: hoofddraad-taaktijd weermodus −73 % (11,77 → 3,17 s; doel −60 %), hoofddraad-CPU
+  −71 %. Isolijnworkers tijdens afspelen: tracer 114 → 4 berichten per 30 s (alleen uurstappen),
+  worker-CPU temperatuurmodus 1,81 → 0,25 s. MapLibre-renders 2,8 → 0,5/s (resterend = uurwissels
+  van de stadslabels + MapLibre's eigen natekenen); frame-wissels in dit venster ~1,5/s radar, dus
+  onder "frame-wissels + windlaag" (wind rendert niet via MapLibre).
+- Voor de PO op de preview (zichtbaar tijdens afspelen, niet op stills): isolijnen vloeien tussen
+  twee uursnedes over i.p.v. continu te schuiven; stadstemperaturen en isolijnlabels wisselen per uur
+  (op het halve uur) i.p.v. binnen het uur; klok/scrubber/regen tikken op 30 Hz (wind 60 Hz).
+- Open voor de orkestrator: (1) `perf.spec` passief chunkbudget faalt al op main (861–862 KB > 800 KB);
+  (2) `wind-zoom` "continuous zoom" is wisselvallig op main (1/3 geslaagd); (3) frame-LRU (512) <
+  manifest (896 frames) → na de L2-lading decodeert elk afspeelrondje regen + motion opnieuw (zstd
+  85–180 decodes per 30 s); niet in deze vier ingrepen.
+- Geen dev-knoppen of tellers toegevoegd (bestaande meetpunten `__motregenIsolines`/`__motregenWind`
+  volstonden); de diagnose-build die `map` blootlegde is nooit gecommit.
