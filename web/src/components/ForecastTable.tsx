@@ -4,7 +4,7 @@ import type { HourlyForecastRow } from '../core/forecast'
 import { solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
 import { dailyClearSkyUvMax, uvReading } from '../core/uv'
 import { deriveWeatherIcon, summarizeWind, WIND_UNIT_LABELS, type WindSummary, type WindUnit } from '../core/weather'
-import { ArrowUp, BUTTON_ICON, Clock, CloudSun, Droplets, Sun, Thermometer, Wind } from './icons'
+import { ArrowUp, BUTTON_ICON, Clock, Cloud, CloudSun, Droplets, Sun, Thermometer, Wind } from './icons'
 import UvBar from './UvBar'
 import WeatherIcon from './WeatherIcon'
 
@@ -26,7 +26,9 @@ interface Props {
   rows: HourlyForecastRow[]
   series: ForecastSeries
   location: { lng: number; lat: number }
-  columns: { weather: boolean; uv: boolean; temperature: boolean; humidity: boolean; wind: boolean }
+  columns: { weather: boolean; uv: boolean; temperature: boolean; humidity: boolean; clouds: boolean; wind: boolean }
+  /** Bewolking per laag (0–100 %) rond een uur, voor de kolom Wolken (U34). */
+  cloudLayers?: (epoch: number) => { high: number | null; mid: number | null; low: number | null }
   windUnit: WindUnit
   // Rows after this epoch have not been fetched yet; scrolling near them asks for them.
   loadedUntil: number
@@ -140,7 +142,7 @@ export default function ForecastTable(props: Props) {
   })
 
   const columnCount = () => 2 + Number(props.columns.uv) + Number(props.columns.temperature) +
-    Number(props.columns.humidity) + Number(props.columns.wind)
+    Number(props.columns.humidity) + Number(props.columns.clouds) + Number(props.columns.wind)
 
   return <table class="forecast-table" data-mode={props.focus.pinned}>
     <thead><tr>
@@ -159,6 +161,9 @@ export default function ForecastTable(props: Props) {
         <FocusHeading mode="temperature" icon={Thermometer} label="Gevoel" title="Toon temperatuurlijnen op de kaart" />
       </th></Show>
       <Show when={props.columns.humidity}><th title="Relatieve luchtvochtigheid"><span class="column-mode"><ColumnLabel icon={Droplets} text="RV" /></span></th></Show>
+      <Show when={props.columns.clouds}><th class="clouds-heading">
+        <FocusHeading mode="clouds" icon={Cloud} label="Wolken" title="Toon de wolkenlagen (hoog, midden, laag) in de grafiek" />
+      </th></Show>
       <Show when={props.columns.wind}><th class="wind-heading">
         <FocusHeading mode="wind" icon={Wind} label="Wind" title="Toon de wind op de kaart op volle sterkte" />
       </th></Show>
@@ -226,6 +231,15 @@ export default function ForecastTable(props: Props) {
           </Show>
           <Show when={props.columns.temperature}><td class="temperature-cell" onPointerEnter={(event) => hover('temperature', event, true)} onPointerLeave={(event) => hover('temperature', event, false)}>{degrees(feelsLike())}<small class="air-temperature" title="Luchttemperatuur">{degrees(temperature())}</small></td></Show>
           <Show when={props.columns.humidity}><td>{humidity() == null ? placeholder() : `${Math.round(humidity()!)}%`}</td></Show>
+          <Show when={props.columns.clouds}><td class="clouds-cell">{(() => {
+            const layers = props.cloudLayers?.(row.epoch)
+            const percent = (value: number | null | undefined) => value == null ? '–' : `${Math.round(value)}`
+            return layers && (layers.high != null || layers.mid != null || layers.low != null)
+              ? <span class="cloud-stack" title={`Bewolking hoog ${percent(layers.high)} %, midden ${percent(layers.mid)} %, laag ${percent(layers.low)} %`}>
+                <span>{percent(layers.high)}</span><span>{percent(layers.mid)}</span><span>{percent(layers.low)}</span>
+              </span>
+              : placeholder()
+          })()}</td></Show>
           <Show when={props.columns.wind}><td class="wind-cell" onPointerEnter={(event) => hover('wind', event, true)} onPointerLeave={(event) => hover('wind', event, false)}><Show when={wind()} fallback={placeholder()}>{(summary) =>
             <WindReading summary={summary()} />
           }</Show></td></Show>

@@ -1092,7 +1092,7 @@ export default function App() {
     const pinned = previous === mode ? undefined : mode
     setFocusPinned(pinned)
     if (pinned) focusMode.set(pinned, 'pinned', true)
-    if (pinned) usage.mark(pinned === 'wind' ? 'pinWind' : 'pinFeel')
+    if (pinned === 'wind' || pinned === 'temperature') usage.mark(pinned === 'wind' ? 'pinWind' : 'pinFeel')
   }
 
   function attachSunLayer(): void {
@@ -1725,9 +1725,8 @@ export default function App() {
       if (request === uvClearRequest) setUvClearSeries(values)
     })().catch(() => undefined)
   })
-  // Wolkendoorsnede in de weermodus (U37, PO-keuze A): de drie lagen pas na de initial-fase laden
+  // Wolkenlagen (U37; sinds U34 de eigen modus Wolken en de tabelkolom): pas na de initial-fase laden
   // (de eerste regenreeks gaat voor), als hele payload per chunk (16 km-raster, klein), lage prioriteit.
-  const cloudView = createMemo(() => !focusPinned())
   const cloudsMayLoad = createMemo(() => pointLoadStage() !== 'initial')
   const cloudTimelines = createMemo(() => Object.fromEntries(CLOUD_LAYERS.map((layer) =>
     [layer, manifest() ? buildTimeline(manifest()!, `cloud_${layer}`) : []])) as Record<CloudLayer, TimelineFrame[]>)
@@ -1737,7 +1736,7 @@ export default function App() {
     const point = location()
     const timelines = cloudTimelines()
     const request = ++cloudRequest
-    if (!cloudView() || !cloudsMayLoad()) return
+    if (!cloudsMayLoad()) return
     void Promise.all(CLOUD_LAYERS.map(async (layer) => {
       const frames = timelines[layer]
       await Promise.all([...new Set(frames.map((frame) => frame.chunk))].map((chunk) => client.fetchPayload(chunk)))
@@ -1825,7 +1824,8 @@ export default function App() {
         onIntent={() => { void completePointSeries(pointLoad, 'high') }}
         onPlaying={setPlaying}
         onPlayPressed={() => usage.mark('play')}
-        clouds={cloudView() ? { timeline: cloudTimelines(), values: cloudValues() } : undefined}
+        clouds={focusPinned() === 'clouds' ? { timeline: cloudTimelines(), values: cloudValues() } : undefined}
+        cloudCover={focusPinned() ? undefined : { timeline: cloudTimeline(), values: cloudSeries() }}
       />
       <section class="forecast-panel">
         <div class="table-scroll">
@@ -1837,7 +1837,13 @@ export default function App() {
             }}
             location={location()}
             windUnit={windUnit()}
-            columns={{ weather: hasWeatherIcons(), uv: uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), humidity: hasHumidity(), wind: hasWind() }}
+            columns={{ weather: hasWeatherIcons(), uv: uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), humidity: hasHumidity(), clouds: cloudTimelines().low.length > 0, wind: hasWind() }}
+            cloudLayers={(epoch) => {
+              const values = cloudValues()
+              const timelines = cloudTimelines()
+              const at = (layer: CloudLayer) => seriesValueAt(timelines[layer], values[layer], epoch, 30 * 60_000)
+              return { high: at('high'), mid: at('mid'), low: at('low') }
+            }}
             loadedUntil={pointLoadStage() === 'complete' ? Number.POSITIVE_INFINITY : manifestNow() + PASSIVE_FORECAST_HOURS * 3_600_000}
             historyInline={historyInline()}
             historyOpen={historyOpen()}

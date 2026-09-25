@@ -81,3 +81,8 @@
 ## 2026-09-25 — A: windlijn in CSS-px (retina)
 - lineWidth was device-px (U3): op DPR 2 half zo dik als op 1× (PO: MacBook te dun). Nu CSS-px, omgerekend naar bufferpixels via clientWidth; default 2,5 blijft → 1×-beeld ongewijzigd, retina 2× zo dik. Smalle schermen (≤ 430 CSS-px, mobiele layout) × WIND_NARROW_LINE_FACTOR 0,6 = 1,5 CSS-px, om mobiel fijn te houden (oude U3-reden); op een telefoon met DPR 2,75 is dat ~4 dpx i.p.v. 2,5 — PO moet oordelen. Dev-knop eenheid dpx → px.
 - Receipts: `pnpm typecheck` exit 0; `pnpm test` exit 0. Geen e2e.
+## 2026-09-25 — B: wolken (PO-besluit)
+- Weermodus: één band totale bewolking (cloud_frac, stijl 'mid', 30 % van de plothoogte) boven het regenhistogram; regen weer op volle breedte (geen halvering). data-scrubber-view 'cover'.
+- Nieuwe modus Wolken (FocusKind 'clouds', kaart ongemoeid — alleen temperatuur/wind hebben een tween): tabelkolom "Wolken" met modeknop en per uur een mini-stapel hoog/midden/laag in %; in die modus alleen de drie lagen over de hele plothoogte, met labels, geen regen ('clouds'). Gevoel/Wind: alleen regen ('rain'). Lagen laden nu altijd na de initial-fase (kolom). Pinnen van Wolken markeert geen usage-feature (privacycontract ongewijzigd).
+- Tests: scrubber (3 weergaven), tabel (Wolken-kolom), cloud-section.spec herschreven.
+- Receipts: `pnpm typecheck` exit 0; `pnpm test` exit 0 (46 bestanden, 309 tests); `… pnpm e2e e2e/cloud-section.spec.ts --project desktop` → E2E-EXIT 0 (1 passed, één run).
