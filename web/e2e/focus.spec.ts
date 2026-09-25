@@ -177,6 +177,36 @@ test('tapping the column heading pins focus on touch, and measures frame rate', 
   await expect(shell(page)).toHaveAttribute('data-focus', '0.00')
 })
 
+const saturation = (page: Page) => page.evaluate(() => Number(getComputedStyle(document.querySelector('.map-shell')!).getPropertyValue('--map-saturation') || 1))
+const fillCoverage = (page: Page) => page.evaluate(() => (window as typeof window & { __motregenIsolines: () => { fillCoverage: () => number } }).__motregenIsolines().fillCoverage())
+
+test('temperature focus desaturates only the basemap canvas and fills the bands, and both go away again', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'één profiel volstaat')
+  await ready(page)
+  expect(await saturation(page)).toBe(1)
+  expect(await page.locator('.maplibregl-canvas').evaluate((canvas) => getComputedStyle(canvas).filter)).toBe('none')
+  await page.getByRole('button', { name: 'Pauzeren' }).first().click({ force: true })
+  await heading(page).click()
+  await heading(page).blur()
+  await page.mouse.move(5, 5)
+  await expect(shell(page)).toHaveAttribute('data-focus', '1.00')
+  await expect.poll(() => saturation(page)).toBeCloseTo(0.55, 2)
+  expect(await page.locator('.maplibregl-canvas').evaluate((canvas) => getComputedStyle(canvas).filter)).toMatch(/^saturate\(0\.\d+\)$/)
+  // De overlays (regen, wind, isolijnen) zijn eigen canvassen en blijven verzadigd.
+  for (const filter of await page.locator('.map-overlay').evaluateAll((canvases) => canvases.map((canvas) => getComputedStyle(canvas).filter))) expect(filter).toBe('none')
+  await expect.poll(() => fillCoverage(page)).toBeGreaterThan(0.005)
+  await page.screenshot({ path: testInfo.outputPath('focus-fill.png') })
+
+  await heading(page).click()
+  await heading(page).blur()
+  await page.mouse.move(5, 5)
+  await expect(shell(page)).toHaveAttribute('data-focus', '0.00')
+  // data-focus rondt af; de tween loopt nog een paar frames door.
+  await expect.poll(() => saturation(page)).toBe(1)
+  expect(await page.locator('.maplibregl-canvas').evaluate((canvas) => getComputedStyle(canvas).filter)).toBe('none')
+  await expect.poll(() => fillCoverage(page)).toBe(0)
+})
+
 test('pinned focus at rest does no contour or worker work', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'structurele teller, één profiel volstaat')
   await ready(page)
@@ -185,11 +215,13 @@ test('pinned focus at rest does no contour or worker work', async ({ page }, tes
   await expect(shell(page)).toHaveAttribute('data-focus', '1.00')
   await expect.poll(() => page.locator('.isoline-label').count()).toBeGreaterThan(0)
   await page.waitForTimeout(1_000)
-  const counters = () => page.evaluate(() => (window as typeof window & { __motregenIsolines: () => { passes: number; labelRounds: number } }).__motregenIsolines())
+  const counters = () => page.evaluate(() => (window as typeof window & { __motregenIsolines: () => { passes: number; fillPasses: number; labelRounds: number } }).__motregenIsolines())
   const before = await counters()
+  expect(before.fillPasses).toBeGreaterThan(0)
   await page.waitForTimeout(2_000)
   const after = await counters()
   expect(after.passes).toBe(before.passes)
+  expect(after.fillPasses).toBe(before.fillPasses)
   expect(after.labelRounds).toBe(before.labelRounds)
 })
 

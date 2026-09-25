@@ -14,6 +14,6 @@ self.onmessage = ({ data }: MessageEvent<TracerMessage>) => {
       result = undefined
     }
     const reply: TracerReply = { id: data.id, result }
-    self.postMessage(reply, result ? [result.data.buffer] : [])
+    self.postMessage(reply, result ? [result.data.buffer, ...result.ringFade ? [result.ringFade.buffer] : []] : [])
   }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Grid } from './contract'
-import { buildSegments, ringFade, ringFadeAt, SEGMENT_FLOATS, shortRings, traceContours } from './isoline-contours'
+import { buildSegments, NO_RING_LEVEL, ringFade, ringFadeAt, ringFadeRaster, SEGMENT_FLOATS, shortRings, traceContours } from './isoline-contours'
 import { sampleSlice, smoothstep } from './isoline-spline'
 import { TraceCore } from './isoline-tracer'
 
@@ -61,9 +61,20 @@ describe('ring fade (lusjes-criterium)', () => {
     expect(filtered.stats.fadedRings).toBe(contours.filter((contour) => contour.closed && contour.lengthKm < 45).length)
     expect(filtered.stats.fadedRings).toBeGreaterThan(0)
     expect(filtered.stats.segments).toBeLessThan(all.stats.segments)
-    const odd = new Set<number>()
-    for (let offset = 0; offset < filtered.data.length; offset += SEGMENT_FLOATS) odd.add(filtered.data[offset + 8]!)
-    expect([...odd].sort()).toEqual([0, 1])
+    expect(filtered.data.length % SEGMENT_FLOATS).toBe(0)
+  })
+
+  it('rasterizes the fade of short rings for the fill: full ring fade on and inside the ring, 1 away from it', () => {
+    const contours = traceContours(cone(), grid, { step: 1, toleranceCells: 0.1 })
+    const rings = shortRings(contours, 60)
+    const raster = ringFadeRaster(rings, grid.width, grid.height)!
+    const at = (column: number, row: number) => ({ level: raster[(row * grid.width + column) * 2]!, fade: raster[(row * grid.width + column) * 2 + 1]! })
+    const top = rings.reduce((best, ring) => ring.level > best.level ? ring : best)
+    // Midden van de kegel: binnen de kleinste (hoogste) ring.
+    const center = at(Math.round((top.bounds[0] + top.bounds[2]) / 2), Math.round((top.bounds[1] + top.bounds[3]) / 2))
+    expect(center.fade).toBeLessThan(1)
+    expect(at(0, 0)).toEqual({ level: NO_RING_LEVEL, fade: 1 })
+    expect(ringFadeRaster(rings.filter((ring) => ring.fade >= 1), grid.width, grid.height)).toBeUndefined()
   })
 })
 
