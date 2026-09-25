@@ -176,3 +176,7 @@ vector- + vulpass), dus lage absolute hoofddraadtijd. Per getekend frame: 43 ms 
   85–180 decodes per 30 s); niet in deze vier ingrepen.
 - Geen dev-knoppen of tellers toegevoegd (bestaande meetpunten `__motregenIsolines`/`__motregenWind`
   volstonden); de diagnose-build die `map` blootlegde is nooit gecommit.
+
+## 2026-09-25 23:20 — rebase op main `267fad5`
+- Rebase schoon (main raakte in web/ alleen `public/robots.txt`). Op de gerebasede kop: typecheck 0,
+  test 0 (320), build 0. e2e niet opnieuw (één keer per ingreep gedaan; rebase raakt geen app-code).
