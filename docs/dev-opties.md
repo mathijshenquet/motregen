@@ -14,6 +14,7 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | groep | knop | doel | eigenaar | vervalt bij |
 | --- | --- | --- | --- | --- |
 | Temperatuur | Isolijnen | graden tussen twee isolijnen (1/2/5) | U8 | promotie tot productinstelling (MIP) of weg na PO-keuze |
+| Temperatuur | Vulling-stijl | kleur tussen de lijnen als vlakke banden of doorlopend verloop | U25b / PO (main `5fcd35b`) | na PO-keuze banden/verloop |
 | Temperatuur | Vervagen | lijnen en kleur vervagen op vlak veld (uit/gradiënt) | U8c | weg zodra de PO "uit" bevestigt (default sinds U13) |
 | Wind | Dichtheid | windstreepjes per beeldoppervlak | U3b / U24 | promotie of weg na PO-keuze windbeeld |
 | Wind | Intensiteit | felheid van de streepjes (windfocus zet ze voller) | U3 / U24 | idem |
@@ -24,7 +25,7 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Diagnose | Herhaal splash | openingslogo opnieuw afspelen | T3 | blijft (diagnose) |
 | Diagnose | Reset alle instellingen | alle knoppen en tuningsleutels terug; gebruikersstaat blijft | U20 | blijft (vluchtweg, MIP-12 regel 4) |
 
-Weggesnoeid in U30 (nu constanten met herkomstregel): Vulling (0,7, U25b), Label-afstand
+Weggesnoeid in U30 (nu constanten met herkomstregel): Vulling (0,35, PO-keuze na U25b), Label-afstand
 (90 px, U8b), Focus dim (0,25, U8), Min. breedte (20 km, T3g), plus de 19 knoppen uit MIP-12.
 
 De overige elf windparameters (Afstand per leven, Fade-in/-out, Max. leeftijd, Spawn-jitter,
