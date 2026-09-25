@@ -49,3 +49,14 @@ het KNMI" — één regel erbij.
 2. Kolomconfiguratie + baken-veld (de UI-fundering; nodig vóór meer kolommen).
 3. Neerslagsoort in het weericoon (winter).
 4. Pollen + luchtkwaliteit via CAMS/Open-Meteo (nieuwe bron, eigen ingest, About-regel).
+
+## PO-richting (2026-09-25, 22:10)
+
+- **Neerslagsoort** komt in de bestaande regenlaag, niet als kolom: alleen niet-regen (sneeuw,
+  korrels/hagel, ijzel) en onweer worden niet-triviaal gemarkeerd; regen blijft zoals hij is.
+- **Bewolking onder het kopje Weer**: experimenteren met een **dwarsdoorsnede van de wolken**
+  (laag/midden/hoog als "getekende" lagen) die in de weermodus de regengrafiek kan vervangen.
+- **Windstoten** in de kolom Wind. Er komt sowieso een **eenheidsinstelling** (Bft / knopen /
+  km/u / m/s) in de instellingen.
+- Tracks: U36 windstoten + eenheidsinstelling; U37 wolkendoorsnede (experiment); U38 neerslagsoort
+  in de regenlaag (ingest 181/184/201 + onweer-signaal; wacht op winter/onweersdata om te testen).
