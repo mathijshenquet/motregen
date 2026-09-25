@@ -1,5 +1,23 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-09-25 — U21 bovenrand (klok, zoekpil, popover); prod op U18b/UV live
+
+- **Prod-check ochtend**: auto-upgrade heeft alles van 24-09 live gezet — `uv_clear` (U15),
+  predictieve `feels_like_c`-frames (U18b), bundle `index-9shBqHM7` = integratie.
+- **U21 gemerged** (na PO-correcties op U17: punt 2 ging over de ZOEK-popover, niet About;
+  zoekbalk was "even groot"; klok moest midden boven): klok top-center op desktop én mobiel
+  met de kaarttijd als hoofdelement, bronaccent in scrubberkleuren (linkerrand default,
+  `?klok=stip`), datatijd + leeftijd klein eronder; zoekbalk in rust een compacte pil
+  (≤ 240 px, ghost) die openvouwt tot een aangesloten paneel (default; `?zoekpaneel=omsluit`),
+  klik buiten sluit zonder door te lekken naar de kaart, × wist/sluit, Escape; About-
+  backdrop terug naar .42. Overlay-insets voor de contain-fit bijgewerkt. Onafhankelijk
+  hergroen: 234 unit, e2e 31/31.
+- Open MET PO: variantkeuze klok (rand/stip) en zoekpaneel (openvouwen/omsluiten) op zicht;
+  LICENSE; isolijnen boven plaatsnamen; mobiel cold-TTFR-budget; UV-ghost op bewolkte uren
+  (nu ook op prod); windtuning-JSON voor de U20-migratiecheck.
+  VOOR AGENTS (met gemeten opbrengst): MQTT-ingest (−45–50 s radarversheid); pred-codec op
+  de overige uurvelden (~40 % bytes); SessionStart-hookpad /home/mathijs (nix-config).
+
 ## 2026-09-24 — U12/U13/U14 gemerged, U15 in fixronde; prod op nieuwe ingest; hostlock
 
 - **Prod-check ochtend**: auto-upgrade heeft de U4/U5-ingest live gezet — HARMONIE 48
