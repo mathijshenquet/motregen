@@ -99,31 +99,45 @@ export default function ForecastTable(props: Props) {
     historyObserver?.disconnect()
     props.onNeedHistory()
   })
-  let scrolledToNow = false
-  // Eenmalig per tabel. De ref vuurt vóór de rij in de DOM hangt en de eerste rijen passen nog in de
-  // scroller: daarom een frame later zoeken en scrollen zodra tabel of scroller zo groeit dat het kan.
-  const scrollToNow = (element: HTMLTableRowElement) => {
-    let sized: ResizeObserver | undefined
-    onCleanup(() => sized?.disconnect())
+  // Desktop opent op de nu-rij. Rijen komen in delen binnen (historie later bóven nu), dus de nu-rij blijft
+  // bij elke groei vastgepind tot de gebruiker zelf de tabel aanraakt; pas dan gaat de historie-observer aan,
+  // zodat historiedata alleen laadt als iemand echt omhoog scrolt.
+  let nowElement: HTMLTableRowElement | undefined
+  let pinning = false
+  // Opruimen op tabelniveau: de nu-rij zelf wordt bij elke herberekening van de rijen vervangen.
+  let release = () => {}
+  onCleanup(() => release())
+  const pinNow = (element: HTMLTableRowElement) => {
+    nowElement = element
+    if (pinning || !props.historyInline || typeof ResizeObserver === 'undefined') return
+    pinning = true
+    // De ref vuurt vóór de rij in de DOM hangt: een frame later bestaat de scroller.
     requestAnimationFrame(() => {
       const scroller = element.closest<HTMLElement>('.table-scroll')
       const table = element.closest('table')
-      if (!props.historyInline || scrolledToNow || !scroller || !table || typeof ResizeObserver === 'undefined') return
-      sized = new ResizeObserver(() => {
-        if (scrolledToNow || !element.isConnected || scroller.scrollHeight <= scroller.clientHeight) return
-        scrolledToNow = true
-        sized?.disconnect()
+      if (!scroller || !table) return
+      const pin = () => {
+        if (!nowElement?.isConnected) return
         const head = table.tHead?.getBoundingClientRect().height ?? 0
-        scroller.scrollTop += element.getBoundingClientRect().top - scroller.getBoundingClientRect().top - head
-        // Pas na het scrollen waarnemen: daarvoor staan de historierijen nog in beeld.
+        scroller.scrollTop += nowElement.getBoundingClientRect().top - scroller.getBoundingClientRect().top - head
+      }
+      const sized = new ResizeObserver(pin)
+      sized.observe(scroller)
+      sized.observe(table)
+      const inputs = ['wheel', 'pointerdown', 'touchstart', 'keydown'] as const
+      const letGo = () => {
+        release()
         if (props.historyLoaded) return
         for (const row of props.rows) {
           const past = row.kind === 'past' ? rowElements.get(row.epoch) : undefined
           if (past) historyObserver?.observe(past)
         }
-      })
-      sized.observe(scroller)
-      sized.observe(table)
+      }
+      for (const input of inputs) scroller.addEventListener(input, letGo, { passive: true })
+      release = () => {
+        sized.disconnect()
+        for (const input of inputs) scroller.removeEventListener(input, letGo)
+      }
     })
   }
   onCleanup(() => {
@@ -193,7 +207,7 @@ export default function ForecastTable(props: Props) {
           ref={(element) => {
             rowElements.set(row.epoch, element)
             onCleanup(() => rowElements.delete(row.epoch))
-            if (row.kind === 'now') scrollToNow(element)
+            if (row.kind === 'now') pinNow(element)
           }}
           classList={{ 'current-hour': row.kind === 'now', 'past-hour': row.kind === 'past', 'pending-hour': pending() }}
         >
