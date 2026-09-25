@@ -73,3 +73,6 @@ het KNMI" — één regel erbij.
   zoals Gevoel/Wind): in die modus alleen de lagen, geen regenhistogram. Uitvoering als live-stap in
   U34; de kolom valt straks onder de kolomset van U38.
 - Wind op retina te dun: lijnbreedte stond in device-px; wordt CSS-px (U34 live-stap).
+- 23:15 Isobaren: PO vindt ze flikkerig en op NL-schaal weinig informatief (te ver ingezoomd);
+  voor nu: sterker laagdoorlaten, 33 % van de dekking, H/L (rood/blauw) alleen in windmodus. Open
+  vraag voor later: isobaren pas tonen bij uitzoomen / groter drukveld ophalen (Europa-uitsnede).
