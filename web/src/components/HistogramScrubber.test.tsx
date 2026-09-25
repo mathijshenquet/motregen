@@ -173,6 +173,38 @@ describe('histogram scrubber', () => {
     expect(slider.hasAttribute('data-playing')).toBe(true)
   })
 
+  it('pauses autoplay while the wheel scrolls and resumes shortly after the last wheel step', () => {
+    vi.useFakeTimers()
+    try {
+      const timeline = ['14', '15', '16', '17', '18'].map((hour) => frame(`2026-08-28T${hour}:00:00Z`, 'harmonie'))
+      const onCursor = vi.fn()
+      const onPlaying = vi.fn()
+      render(() => <HistogramScrubber
+        timeline={timeline}
+        values={[0, 0, 0, 0, 0]}
+        cursor={0}
+        now={timeline[0]!.epoch}
+        playing
+        loading={false}
+        locationLabel="Utrecht"
+        onCursor={onCursor}
+        onPlaying={onPlaying}
+      />)
+      const slider = screen.getByRole('slider', { name: 'Tijd' })
+      fireEvent.wheel(slider, { deltaY: PX_PER_HOUR })
+      expect(onCursor).toHaveBeenLastCalledWith(1)
+      expect(onPlaying.mock.calls).toEqual([[false]])
+      vi.advanceTimersByTime(500)
+      fireEvent.wheel(slider, { deltaY: PX_PER_HOUR })
+      vi.advanceTimersByTime(500)
+      expect(onPlaying.mock.calls).toEqual([[false]])
+      vi.advanceTimersByTime(400)
+      expect(onPlaying.mock.calls).toEqual([[false], [true]])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('marks local day transitions', () => {
     const timeline = [
       frame('2026-08-31T20:00:00Z', 'rtcor'),

@@ -34,6 +34,7 @@ const hourLabelSteps = [1, 2, 3, 6, 12, 24]
 // Wide enough for "23u" at the axis font size plus breathing room.
 const minimumHourLabelSpacingPx = 34
 const TAP_SLOP_PX = 4
+const WHEEL_RESUME_MS = 800
 // Uitloop na een veeg: snelheid (px/ms) halveert per ~110 ms.
 const FLING_DECAY_PER_MS = 0.9937
 const FLING_MIN_SPEED = 0.02
@@ -52,16 +53,22 @@ export default function HistogramScrubber(props: Props) {
   const [plotWidth, setPlotWidth] = createSignal(320)
   const [plotHeight, setPlotHeight] = createSignal(160)
   onMount(() => {
+    // Scrollen pauzeert het afspelen zoals slepen en hervat WHEEL_RESUME_MS na de laatste beweging;
+    // anders liep het afspelen tijdens het scrollen door en sprong het bij de horizon terug (U34).
+    let wheelResume: number | undefined
     const wheel = (event: WheelEvent) => {
       const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
       if (!delta || !props.timeline.length) return
       event.preventDefault()
       stopFling()
       props.onIntent?.()
+      pauseForPointerInteraction()
+      window.clearTimeout(wheelResume)
+      wheelResume = window.setTimeout(resumeAfterPointerInteraction, WHEEL_RESUME_MS)
       scrollToEpoch(cursorEpoch() + delta * (event.deltaMode === 1 ? 16 : 1) / pxPerMs())
     }
     surfaceElement.addEventListener('wheel', wheel, { passive: false })
-    onCleanup(() => surfaceElement.removeEventListener('wheel', wheel))
+    onCleanup(() => { surfaceElement.removeEventListener('wheel', wheel); window.clearTimeout(wheelResume) })
     onCleanup(stopFling)
     if (typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(([entry]) => {

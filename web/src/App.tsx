@@ -557,12 +557,12 @@ export default function App() {
       // Zelfde grens als de windcanvas: op 120 Hz-schermen elke tweede vsync overslaan.
       if (elapsed < 1_000 / WIND_MAX_FPS - 4) return
       previous = now
-      setCursor((value) => {
-        const epoch = timelineEpochAtCursor(frames, value)
-        const nextEpoch = epoch + elapsed * playbackRate
-        if (!Number.isFinite(nextEpoch) || nextEpoch >= lastEpoch) return 0
-        return timelineCursorAtEpoch(frames, nextEpoch)
-      })
+      const epoch = timelineEpochAtCursor(frames, cursor())
+      // Door de gebruiker voorbij de afspeelhorizon gescrold (U34-scrubber): stoppen, niet terugspringen
+      // naar het begin. Alleen een rondje dat de horizon zelf haalt, begint opnieuw.
+      if (!(epoch < lastEpoch)) { setPlaying(false); return }
+      const nextEpoch = epoch + elapsed * playbackRate
+      setCursor(!Number.isFinite(nextEpoch) || nextEpoch >= lastEpoch ? 0 : timelineCursorAtEpoch(frames, nextEpoch))
     }, requestAnimationFrame, cancelAnimationFrame)
     onCleanup(stop)
   })
