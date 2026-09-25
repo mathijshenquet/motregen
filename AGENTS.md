@@ -43,3 +43,5 @@ product manager (proposals, specs, verification), codex agents
 - Decisions live in `.dev/proposals/` only; don't fork design prose into other files.
 - Comment only load-bearing whys; the frame format and quantization tables get a spec
   doc, not comment archaeology.
+- Dev-knoppen: alleen via `?dev`, met eigenaar en vervaldatum in de spec (MIP-12). De
+  levende lijst staat in `docs/dev-opties.md`.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_WIND_TUNING } from './wind-layer'
-import { contextOpacity, DEFAULT_FOCUS_TUNING, easeOutCubic, FocusMode, focusValue, retargetFocus, windFocusIntensity, type FocusKind } from './focus-mode'
+import { contextOpacity, easeOutCubic, FocusMode, focusValue, retargetFocus, windFocusIntensity, type FocusKind } from './focus-mode'
 
 describe('focus tween math', () => {
   it('eases out and clamps', () => {
@@ -20,17 +20,17 @@ describe('focus tween math', () => {
   })
 
   it('retargets from the current value with a distance-scaled duration', () => {
-    const fadeIn = retargetFocus({ from: 0, to: 0, start: 0, duration: 0 }, 0, 1, DEFAULT_FOCUS_TUNING, false)
+    const fadeIn = retargetFocus({ from: 0, to: 0, start: 0, duration: 0 }, 0, 1, false)
     expect(fadeIn).toEqual({ from: 0, to: 1, start: 0, duration: 250 })
     const midway = focusValue(fadeIn, 125)
-    const fadeOut = retargetFocus(fadeIn, 125, 0, DEFAULT_FOCUS_TUNING, false)
+    const fadeOut = retargetFocus(fadeIn, 125, 0, false)
     expect(fadeOut.from).toBeCloseTo(midway)
     expect(fadeOut.duration).toBeCloseTo(400 * midway)
     expect(focusValue(fadeOut, 125)).toBeCloseTo(midway)
   })
 
   it('jumps immediately under reduced motion', () => {
-    const tween = retargetFocus({ from: 0, to: 0, start: 0, duration: 0 }, 50, 1, DEFAULT_FOCUS_TUNING, true)
+    const tween = retargetFocus({ from: 0, to: 0, start: 0, duration: 0 }, 50, 1, true)
     expect(tween.duration).toBe(0)
     expect(focusValue(tween, 50)).toBe(1)
   })
@@ -54,7 +54,7 @@ describe('focus mode sources', () => {
     let now = 0
     const frames: Array<(time: number) => void> = []
     const values: Record<FocusKind, number[]> = { temperature: [], wind: [] }
-    const focus = new FocusMode<FocusKind>(['temperature', 'wind'], (mode, value) => values[mode].push(value), () => DEFAULT_FOCUS_TUNING,
+    const focus = new FocusMode<FocusKind>(['temperature', 'wind'], (mode, value) => values[mode].push(value),
       () => reducedMotion, () => now, (callback) => frames.push(callback), () => undefined)
     const advance = (ms: number) => {
       now += ms

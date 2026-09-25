@@ -23,7 +23,8 @@ naar een server verstuurd.
   zodat een lang openstaande tab niet de leeftijd van zijn mountmoment blijft
   rapporteren.
 
-De HUD opent met `?perf=1` of drie tikken binnen 700 ms op het logo. De knop
+De HUD opent met drie tikken binnen 700 ms op het logo, of met de knop *Perf-HUD* in
+het `?dev`-paneel (`?perf=1` verviel in U30, MIP-12). De knop
 `Kopieer JSON` kopieert de volledige actuele snapshot.
 
 De inklapbare sectie *Wind* in dezelfde HUD maakt alle windparameters
@@ -201,9 +202,8 @@ Het synthetische passiefbudget is na desktop, 4G en Fast 3G gekalibreerd op
 **800.000 chunkbytes**. De hoogste waarneming tijdens ontwikkeling was 698.659
 B onder Fast 3G; de twee definitieve gateruns bleven op maximaal 631.607 B. Deze grens is ruim
 strenger dan MIP-8's maximum van 3 MB, maar houdt marge voor de bekende
-throttling-herhalingen. De smaaktest is beschikbaar als progressief skeleton
-(standaard) of wacht-overlay via `?histogram=wait`; in `?dev` staat dezelfde
-keuze als live toggle.
+throttling-herhalingen. De smaaktest koos het progressieve skeleton; de
+wacht-overlay (`?histogram=wait` en de `?dev`-toggle) verviel in U30 (MIP-12).
 
 | Run / profiel | Cold TTFR | Passieve chunks | L2 tijd-tot-compleet | L2/scrubtransfers | Warm chunks | Sessie | Tweede klik |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |

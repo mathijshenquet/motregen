@@ -27,14 +27,16 @@ for (const profile of profiles) {
     }, [theme, tuning])
     const page = await context.newPage()
     page.setDefaultTimeout(120_000)
-    await page.goto(new URL(mode === 'before' ? '/?dev' : '/?perf=1', origin).href)
+    await page.goto(new URL(mode === 'before' ? '/?dev' : '/', origin).href)
     await page.waitForFunction(() => (globalThis as unknown as { __motregenPerf?: { snapshot: () => { ttfrMs: number | null } } }).__motregenPerf?.snapshot().ttfrMs != null)
+    // PerfHud (met de windknoppen) opent met drie tikken op het logo; ?perf bestaat niet meer (U30).
+    if (mode !== 'before') await page.locator('.map-brand').click({ clickCount: 3, delay: 20 })
     await page.waitForTimeout(6_000)
     // Autoplay pauzeren: bewegende regen zou anders als windinkt meetellen.
     const pause = page.getByRole('button', { name: 'Pauzeren' })
     if (await pause.count()) await pause.first().evaluate((element) => (element as unknown as { click: () => void }).click())
     await page.waitForTimeout(1_000)
-    await page.addStyleTag({ content: '.wind-debug,.perf-hud{visibility:hidden!important}' })
+    await page.addStyleTag({ content: '.dev-panel,.perf-hud{visibility:hidden!important}' })
     const shots: Buffer[] = []
     for (let index = 0; index < samples; index++) {
       shots.push(await page.locator('.map').first().screenshot())

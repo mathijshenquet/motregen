@@ -23,3 +23,49 @@ CSS 121,65 kB (gzip 21,07 kB), workers 4,17 / 8,91 / 9,16 kB.
 Plan: (1) URL-params + weg-knoppen + Wolkrand-laag weg, constanten met herkomst; (2) paneel
 groeperen met uitleg; (3) PerfHud-knop in paneel; (4) docs/dev-opties.md + AGENTS-regel;
 (5) na U24-merge: wind v4.
+
+## 2026-09-25 11:25 — snoeironde 1 (alles behalve wind)
+
+Gedaan:
+- URL-parameters weg: `?perf` (HUD start dicht; triple-tap + knop Perf-HUD in `?dev`),
+  `?labelfade` (constante `fadeDuration: 0`, U8b), `?histogram=wait` (+ toggle "Grafiek vult";
+  skeleton, U1), `?zon=markering` (zon-op/onder alleen nog als rij; `.sun-mark` CSS weg),
+  `?uvbalk=stip` (variant A; `UvBarVariant`, `.uv-bar-dot` weg). Over: alleen `?dev`.
+- Wolkrand helemaal weg: `cloud-edge-layer.ts` + test, laag `motregen-cloud-edges`, signaal,
+  attach/show/toggle, reset-regel. Er bestond geen opslagsleutel `motregen-cloud-edges` (het was
+  de laag-id; de instelling was nooit persistent) — niets te migreren.
+- Isolijnknoppen weg → constanten in `isolines.ts` met herkomstregel: `ISOLINE_BLUR` (Veldblur),
+  `ISOLINE_WINDOW` (Tijdvenster), `ISOLINE_FILL_RESOLUTION` (Contour px), `ISOLINE_RING_KM`
+  (Lusjes), `ISOLINE_TOLERANCE_PX` (Verdichting), `ISOLINE_GRADIENT` (|∇T| laag/hoog).
+  Dode code van verliezende varianten weg: het hele rasterlijnenpad in `isoline-layer.ts`
+  (contour-shader, `pass()`, `bench()`, maxHz-catch-up; Vectorlijnen/Contour max), de
+  shaderbranches lineair-in-tijd en bilineair (Tijdvenster/Bicubisch), label-Chaikin-schakelaar
+  (Glad), en de vervaagmodus "snelheid" (bestond alleen in het rasterpad — in vectormodus
+  deed hij niets; Snelheid laag/hoog). `IsolineTuning` houdt alleen step/fade + de twee
+  U25-vulknoppen; `IsolinePassTuning` is weg. De algemene wiskunde (`temporalWeights`,
+  `sliceWeights`, `isolineLayerIndices` met window-parameter) blijft geparametriseerd: de tests
+  daarvan documenteren waarom B-spline won.
+- Label-spatiëring → `LABEL_SPACING_PX` (isoline-labels). Tween in/uit → `FOCUS_IN_MS`/
+  `FOCUS_OUT_MS`; `FocusMode` neemt geen tuning-getter meer. Temp-afstand weg (altijd auto).
+  Splash × weg: 1,5× als CSS-variabelen op `.map-splash`, `motregen-splash-slowdown` wordt niet
+  meer geschreven (reset wist oude waarden via de prefix-scan).
+- Dev-paneel is nu `components/DevPanel.tsx`: `<details class="dev-panel">` met groepen Kaart
+  (open) / Temperatuur / Focus / Diagnose (dicht); elke knop heeft zijn uitleg als `title` én
+  grijze `.dev-hint`-regel. Toont nu op `?dev` alleen (vroeger ook alleen als er wind was).
+  Wind-groep volgt met de v4-knoppen na de U24-merge. De U25-knoppen Vulling/Vulling afval/
+  Kaartverzadiging blijven tot U25b (die haalt ze zelf weg, zie `origin/track/u25b-palet-lokaal`).
+- `docs/dev-opties.md` (levende lijst), AGENTS-conventie, `docs/perf.md` bijgewerkt;
+  `e2e/perf.spec.ts` (`/` i.p.v. `/?perf=1`, HUD start dicht), nieuw `e2e/dev-panel.spec.ts`;
+  scripts `measure-session`/`wind-ink`/`wind-bisect` bijgewerkt.
+
+Knoppen: dev-paneel 30 → 11 (8 instelknoppen + Perf-HUD + 2 acties), waarvan 3 U25-knoppen die
+U25b weghaalt → 8. URL-parameters 6 → 1.
+
+Receipts (vanuit `web/`, synchroon):
+- `pnpm synthgen` SYNTH-EXIT 0 (buiten sandbox: tsx-IPC-pipe EPERM erin). NB: vooraf bestaand —
+  `public/data/chunks/uv_clear-20260828.mrf` valt onder `.gitignore` (`data/`), dus een verse
+  worktree faalt `mrf.test.ts` tot synthgen draait; fixtures verder byte-identiek.
+- `pnpm typecheck` TYPECHECK-EXIT 0; `pnpm test` TEST-EXIT 0 (42 bestanden, 254 tests).
+- `pnpm build` BUILD-EXIT 0: JS 1 281,42 kB (gzip 363,42) vs 1 298,10 (367,49) → −16,7 kB
+  (−4,1 kB gzip); CSS 121,33 (21,03) vs 121,65 (21,07); isolines.worker 4,11 vs 4,17 kB.
+- e2e: nog niet (load 32 > 22).

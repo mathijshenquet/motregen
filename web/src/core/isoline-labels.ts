@@ -11,11 +11,11 @@ const EARTH_RADIUS = 6378137
 export interface IsolineLabelTuning {
   /** Minimale afstand tussen twee labels, in CSS-pixels. */
   minDistancePx: number
-  /** Afstand langs een lijn tussen kandidaat-ankers bij het spawnen. */
-  spacingPx: number
 }
 
-export const DEFAULT_LABEL_TUNING: IsolineLabelTuning = { minDistancePx: 90, spacingPx: 260 }
+export const DEFAULT_LABEL_TUNING: IsolineLabelTuning = { minDistancePx: 90 }
+/** Afstand langs een lijn tussen kandidaat-ankers bij het spawnen (Label-spatiëring, U7/U30). */
+const LABEL_SPACING_PX = 260
 
 const FADE_MS = 300
 const MAX_ANCHORS = 60
@@ -130,7 +130,7 @@ export class IsolineLabels {
     this.lastSpawn = now
     this.linesChanged = false
     const view = this.viewInCells()
-    const spacing = this.tuning.spacingPx / pxPerCell
+    const spacing = LABEL_SPACING_PX / pxPerCell
     const minCells = this.tuning.minDistancePx / pxPerCell
     const living = () => this.anchors.filter((anchor) => !anchor.dying)
     for (const feature of this.lines!.features) {

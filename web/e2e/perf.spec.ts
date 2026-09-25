@@ -61,10 +61,11 @@ test('user journey measures performance and cache behaviour', async ({ page, con
 
   await test.step('cold load renders rain without browser errors', async () => {
     network.startJourney()
-    await page.goto('/?perf=1')
+    await page.goto('/')
     cold = await waitForTtfr(page)
     if (!live) expect(cold.ttfrMs).toBeLessThan(profile.coldTtfrBudgetMs)
-    await expect(page.getByTestId('perf-hud')).toBeVisible()
+    // Geen URL-parameter meer (MIP-12): de HUD start dicht.
+    await expect(page.getByTestId('perf-hud')).toBeHidden()
     await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor De Bilt$/, { timeout: live ? 180_000 : 10_000 })
     await expect(page.getByRole('slider', { name: 'Tijd' })).toHaveAttribute('data-load-stage', 'window', { timeout: live ? 180_000 : 20_000 })
     await page.waitForLoadState('networkidle')
@@ -75,6 +76,8 @@ test('user journey measures performance and cache behaviour', async ({ page, con
   })
 
   await test.step('logo triple-tap toggles the HUD and JSON is copyable', async () => {
+    await page.locator('.map-brand').click({ clickCount: 3, delay: 20 })
+    await expect(page.getByTestId('perf-hud')).toBeVisible()
     await page.locator('.map-brand').click({ clickCount: 3, delay: 20 })
     await expect(page.getByTestId('perf-hud')).toBeHidden()
     await page.locator('.map-brand').click({ clickCount: 3, delay: 20 })
@@ -164,7 +167,7 @@ test('user journey measures performance and cache behaviour', async ({ page, con
   })
 
   await test.step('warm reload measures cache reuse', async () => {
-    await page.goto('/?perf=1')
+    await page.goto('/')
     await waitForTtfr(page)
     const warmScrubber = page.getByRole('slider', { name: 'Tijd' })
     await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor De Bilt$/)

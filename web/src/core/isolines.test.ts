@@ -132,7 +132,7 @@ describe('isoline features', () => {
   it('emits labelled lng/lat lines for the 6 km grid within a main-thread budget', () => {
     const blended = blendFrames([{ data: frame(0), quant, weight: 0.6 }, { data: frame(6), quant, weight: 0.4 }], 209, 225)
     const started = performance.now()
-    const data = isolineFeatures(blended, header.grid, { step: 1, smoothing: true })
+    const data = isolineFeatures(blended, header.grid, 1)
     const elapsed = performance.now() - started
     expect(data.features.length).toBeGreaterThan(10)
     const first = data.features[0]!

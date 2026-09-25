@@ -48,7 +48,7 @@ for (const theme of themes) {
   await page.waitForTimeout(6_000)
   const pause = page.getByRole('button', { name: 'Pauzeren' })
   if (await pause.count()) await pause.first().evaluate((element) => (element as unknown as { click: () => void }).click())
-  await page.addStyleTag({ content: '.wind-debug,.perf-hud{visibility:hidden!important}' })
+  await page.addStyleTag({ content: '.dev-panel,.perf-hud{visibility:hidden!important}' })
   await page.waitForTimeout(4_000)
   const layerState = await page.evaluate(() => {
     const wind = (globalThis as unknown as { __motregenWind: { tuning: { intensity: number; visibility: number } } }).__motregenWind

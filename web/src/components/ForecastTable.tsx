@@ -5,10 +5,8 @@ import { solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
 import { dailyClearSkyUvMax, uvReading } from '../core/uv'
 import { deriveWeatherIcon, summarizeWind, type WindSummary } from '../core/weather'
 import { ArrowUp, BUTTON_ICON, Clock, CloudSun, Droplets, Sun, Thermometer, Wind } from './icons'
-import UvBar, { type UvBarVariant } from './UvBar'
+import UvBar from './UvBar'
 import WeatherIcon from './WeatherIcon'
-
-export type SunForm = 'row' | 'marker'
 
 export interface ForecastSeries {
   rain: Array<number | null>
@@ -38,8 +36,6 @@ interface Props {
   onNeedRows: () => void
   onNeedHistory: () => void
   onOpenHistory: () => void
-  sunForm: SunForm
-  uvBar: UvBarVariant
   // De koppenrij is de modebalk: Gevoel en Wind zijn kaartmodes (hover/toetsenbordfocus tijdelijk,
   // klik pint), Weer is de standaard en zet een pin uit.
   focus: {
@@ -211,9 +207,6 @@ export default function ForecastTable(props: Props) {
               <div class="time-label">
                 <strong>{time(row.epoch)}</strong>
                 <span classList={{ 'now-label': row.kind === 'now' }}>{row.kind === 'now' ? 'Nu' : new Date(row.epoch).toLocaleDateString('nl-NL', { weekday: 'short' })}</span>
-                <Show when={props.sunForm === 'marker' && sunEvent()}>{(event) =>
-                  <span class="sun-mark" title={sunLabel(event())}><SunGlyph />{time(event().epoch)}</span>
-                }</Show>
               </div>
               <div class="weather-glyph">
                 <Show when={props.columns.weather && icon()}>{(model) => <WeatherIcon model={model()} />}</Show>
@@ -224,7 +217,7 @@ export default function ForecastTable(props: Props) {
           <Show when={props.columns.uv}>
             <td class="uv-cell">
               <Show when={uv() || elevation(row.epoch) <= 0} fallback={pending() ? '…' : ''}>
-                <UvBar reading={elevation(row.epoch) > 0 ? uv() : null} variant={props.uvBar} scale={dailyClearSkyUvMax(row.epoch, props.location.lat)} />
+                <UvBar reading={elevation(row.epoch) > 0 ? uv() : null} scale={dailyClearSkyUvMax(row.epoch, props.location.lat)} />
               </Show>
             </td>
           </Show>
@@ -234,7 +227,7 @@ export default function ForecastTable(props: Props) {
             <WindReading summary={summary()} />
           }</Show></td></Show>
         </tr>
-        <Show when={props.sunForm === 'row' && sunEvent()}>{(event) =>
+        <Show when={sunEvent()}>{(event) =>
           <tr class="sun-row" classList={{ 'past-hour': row.kind === 'past' }}>
             <td colSpan={columnCount()}><SunGlyph />{sunLabel(event())}</td>
           </tr>
