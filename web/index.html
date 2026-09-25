@@ -3,9 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#07121c" />
+    <title>motregen.nl — regenradar en verwachting voor Nederland en Vlaanderen</title>
+    <meta name="description" content="Regenradar, buienverwachting, temperatuur en wind voor Nederland en Vlaanderen op één tijdlijn, rechtstreeks uit de open data van het KNMI." />
+    <link rel="canonical" href="https://motregen.nl/" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#eaf1f3" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#07131a" />
     <link rel="icon" href="/droplet.svg" />
-    <title>Motregen</title>
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="motregen.nl" />
+    <meta property="og:locale" content="nl_NL" />
+    <meta property="og:url" content="https://motregen.nl/" />
+    <meta property="og:title" content="motregen.nl — regenradar en verwachting voor Nederland en Vlaanderen" />
+    <meta property="og:description" content="Regenradar, buienverwachting, temperatuur en wind voor Nederland en Vlaanderen op één tijdlijn, rechtstreeks uit de open data van het KNMI." />
+    <meta property="og:image" content="https://motregen.nl/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Kaart van Nederland en Vlaanderen met de motregen-druppel" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="motregen.nl — regenradar en verwachting voor Nederland en Vlaanderen" />
+    <meta name="twitter:description" content="Regenradar, buienverwachting, temperatuur en wind voor Nederland en Vlaanderen op één tijdlijn, rechtstreeks uit de open data van het KNMI." />
+    <meta name="twitter:image" content="https://motregen.nl/og-image.png" />
   </head>
-  <body><div id="root"></div><script type="module" src="/src/index.tsx"></script></body>
+  <body>
+    <noscript>
+      <p>motregen.nl toont de regenradar van de afgelopen uren, de buienverwachting voor de komende uren en de weersverwachting voor de komende twee dagen voor Nederland en Vlaanderen, op één kaart met één tijdlijn. Alle gegevens komen uit de open data van het KNMI (radar, nowcast en HARMONIE-AROME). Deze kaart heeft JavaScript nodig.</p>
+    </noscript>
+    <div id="root"></div><script type="module" src="/src/index.tsx"></script>
+  </body>
 </html>

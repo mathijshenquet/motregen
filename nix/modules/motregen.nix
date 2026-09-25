@@ -123,6 +123,9 @@ in
       virtualHosts.${cfg.domain} = {
         hostName = if cfg.enableTls then cfg.domain else ":80";
         extraConfig = ''
+          @noindex path /data/* /stats/*
+          header @noindex X-Robots-Tag "noindex"
+
           @manifest path /data/manifest.json
           handle @manifest {
             root * ${caddyDataDir}

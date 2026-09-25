@@ -81,6 +81,26 @@ De origin zet het MIP-3-contract: het manifest is 15 seconden cachebaar met 60
 seconden stale-while-revalidate; chunks zijn één jaar immutable, ondersteunen
 Range en krijgen geen extra content-encoding.
 
+## Google Search Console
+
+Het eigendom van `motregen.nl` wordt bij Google via DNS aangetoond, niet met een
+HTML-tag, een verificatiebestand of een Google-script op de site (MIP-13):
+
+1. Voeg in [Search Console](https://search.google.com/search-console) een
+   property van het type **Domein** toe voor `motregen.nl`. Google toont een
+   TXT-waarde van de vorm `google-site-verification=…`.
+2. Maak in Cloudflare onder **DNS → Records** een record met type `TXT`, naam
+   `@` (`motregen.nl`), als inhoud de volledige waarde uit stap 1 en TTL
+   **Auto**. TXT-records worden niet geproxied.
+3. Klik in Search Console op **Verifiëren**. Faalt dat, controleer dan eerst of
+   het record publiek zichtbaar is:
+   `dig +short TXT motregen.nl @1.1.1.1`; DNS-propagatie kan enkele minuten
+   duren.
+
+Laat het TXT-record staan: Google controleert het eigendom periodiek opnieuw.
+Een sitemap is niet nodig (één pagina); `robots.txt` sluit `/data/` en `/stats/`
+uit, en Caddy zet daar ook `X-Robots-Tag: noindex`.
+
 ## Update en controle
 
 Een update forceren en de host daarna controleren kost elk één commando:
