@@ -416,6 +416,8 @@ struct DecodedArome {
     relative_humidity: Vec<Vec<u8>>,
     cloud_fraction: Vec<Vec<u8>>,
     pressure: Vec<Vec<u8>>,
+    /// Frames per `CLOUD_LAYER_FIELDS` entry.
+    cloud_layers: [Vec<Vec<u8>>; 3],
 }
 
 /// Decodes leads +1..=`leads` of one AROME run; +0 is only the
@@ -480,6 +482,7 @@ fn decode_arome_run(
         relative_humidity: Vec::with_capacity(capacity),
         cloud_fraction: Vec::with_capacity(capacity),
         pressure: Vec::with_capacity(capacity),
+        cloud_layers: std::array::from_fn(|_| Vec::with_capacity(capacity)),
     };
     let temperature_quant = temperature_quantization_table();
     let wind_quant = wind_quantization_table();
@@ -487,6 +490,7 @@ fn decode_arome_run(
     let radiation_quant = radiation_quantization_table();
     let percent_quant = percent_quantization_table();
     let pressure_quant = pressure_quantization_table();
+    let cloud_layer_quant = cloud_layer_quantization_table();
     let mut previous_precipitation = first.precipitation_mm;
     let mut previous_radiation = first.global_radiation_j_m2;
 
@@ -581,6 +585,22 @@ fn decode_arome_run(
             &integrate_values(&pressure, 3)?,
             &pressure_quant,
         )?);
+        let layers = [
+            &current.low_cloud_cover,
+            &current.medium_cloud_cover,
+            &current.high_cloud_cover,
+        ];
+        for (frames, layer) in out.cloud_layers.iter_mut().zip(layers) {
+            let percent = hourly_map
+                .gather(&layer.values)?
+                .into_iter()
+                .map(|value| value * 100.0)
+                .collect::<Vec<_>>();
+            frames.push(quantize_values(
+                &integrate_values(&percent, 8)?,
+                &cloud_layer_quant,
+            )?);
+        }
 
         let radiation =
             knmi_grib::hourly_precipitation(&previous_radiation, &current.global_radiation_j_m2)?
@@ -611,6 +631,9 @@ const HOURLY_CHUNK_LEADS: usize = 24;
 
 /// Fields whose frames are stored as lossless predictive members (docs/mrf.md §Predictive frames).
 const PREDICTIVE_FIELDS: [&str; 2] = ["feels_like_c", "pressure_hpa"];
+
+/// Low/mid/high cloud cover for the scrubber's cloud cross-section (U37).
+const CLOUD_LAYER_FIELDS: [&str; 3] = ["cloud_low", "cloud_mid", "cloud_high"];
 
 fn hourly_field_chunks(decoded: &DecodedArome, horizon_label: &str) -> Result<Vec<ProducedChunk>> {
     let run = &decoded.run;
@@ -655,7 +678,7 @@ fn hourly_field_chunks(decoded: &DecodedArome, horizon_label: &str) -> Result<Ve
     let temperature_quant = temperature_quantization_table();
     let wind_quant = wind_quantization_table();
     let percent_quant = percent_quantization_table();
-    Ok([
+    let mut chunks = [
         field_chunk(
             "temp_c",
             DETAIL_GRID,
@@ -706,7 +729,16 @@ fn hourly_field_chunks(decoded: &DecodedArome, horizon_label: &str) -> Result<Ve
             pressure_quantization_table(),
         )?,
     ]
-    .concat())
+    .concat();
+    for (field, frames) in CLOUD_LAYER_FIELDS.into_iter().zip(&decoded.cloud_layers) {
+        chunks.extend(field_chunk(
+            field,
+            SUMMARY_GRID,
+            frames,
+            cloud_layer_quantization_table(),
+        )?);
+    }
+    Ok(chunks)
 }
 
 pub fn build_uv_chunks(
@@ -1033,6 +1065,11 @@ pub fn pressure_quantization_table() -> Vec<Option<f32>> {
     linear_quantization_table(940.0, 0.5)
 }
 
+/// 5 % steps (index 0–20): the cross-section draws a shape, not a readout.
+pub fn cloud_layer_quantization_table() -> Vec<Option<f32>> {
+    linear_quantization_table(0.0, 5.0)
+}
+
 pub fn percent_quantization_table() -> Vec<Option<f32>> {
     linear_quantization_table(0.0, 100.0 / 254.0)
 }
@@ -1105,6 +1142,9 @@ fn validate_arome_fields(
         &fields.mean_sea_level_pressure_pa,
         &fields.gust_u_ms,
         &fields.gust_v_ms,
+        &fields.low_cloud_cover,
+        &fields.medium_cloud_cover,
+        &fields.high_cloud_cover,
     ];
     ensure!(
         selected.iter().all(|field| &field.grid == grid),
@@ -1217,9 +1257,19 @@ mod tests {
             relative_humidity: frames(SUMMARY_GRID),
             cloud_fraction: frames(SUMMARY_GRID),
             pressure: frames(DETAIL_GRID),
+            cloud_layers: std::array::from_fn(|_| frames(SUMMARY_GRID)),
         };
         let chunks = hourly_field_chunks(&decoded, "h30").unwrap();
-        assert_eq!(chunks.len(), 18);
+        assert_eq!(chunks.len(), 24);
+        for field in CLOUD_LAYER_FIELDS {
+            assert_eq!(
+                chunks
+                    .iter()
+                    .filter(|chunk| chunk.manifest.field == field)
+                    .count(),
+                2
+            );
+        }
         let temperature = chunks
             .iter()
             .filter(|chunk| chunk.manifest.field == "temp_c")
@@ -1379,6 +1429,12 @@ mod tests {
         assert_eq!(
             quantize_values(&[1_012.1, 930.0, 1_100.0, f32::NAN], &pressure).unwrap(),
             [144, 0, 254, 255]
+        );
+        let cloud_layer = cloud_layer_quantization_table();
+        assert_eq!(cloud_layer[20], Some(100.0));
+        assert_eq!(
+            quantize_values(&[0.0, 2.4, 2.6, 67.0, 100.0, f32::NAN], &cloud_layer).unwrap(),
+            [0, 0, 1, 13, 20, 255]
         );
     }
 

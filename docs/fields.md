@@ -19,6 +19,7 @@ bytes. `pressure_hpa` gebruikt dezelfde codering.
 | isobaren (windmodus) | `pressure_hpa` | 6 km | 209×225 |
 | zon/pictogram | `radiation` | 8 km | 157×169 |
 | geïntegreerde tabel/pictogram-input | `rel_humidity`, `cloud_frac` | 16 km | 79×85 |
+| wolkendoorsnede (U37) | `cloud_low`, `cloud_mid`, `cloud_high` | 16 km | 79×85 |
 
 De laatste randblokken zijn partieel omdat 625 niet door alle factoren
 deelbaar is; daardoor dekken de nieuwe grids het volledige oude extent met
@@ -40,6 +41,7 @@ lagere index.
 | `rel_humidity` | 0 % | 100/254 ≈ 0,3937 % | 100 % | AROME 2m-RH is fractie 0–1 en wordt vóór kwantisatie ×100 |
 | `cloud_frac` | 0 % | 100/254 ≈ 0,3937 % | 100 % | AROME totale bewolking is fractie 0–1 en wordt vóór kwantisatie ×100; uitsluitend pictogram-input |
 | `pressure_hpa` | 940 hPa | 0,5 hPa | 1067 hPa | luchtdruk op zeeniveau (Pa ÷ 100); zie §Luchtdruk |
+| `cloud_low`, `cloud_mid`, `cloud_high` | 0 % | 5 % | (1270 %) | AROME 73/74/75 (fractie 0–1) ×100; alleen index 0–20 komt voor — de doorsnede tekent een vorm, geen afleeswaarde |
 
 U en V worden uit dezelfde decoded lead time, dezelfde indexmap en dezelfde
 tijdenlijst opgebouwd. De publisher weigert een AROME-publicatie wanneer de
