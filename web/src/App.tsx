@@ -19,7 +19,7 @@ import { buildHourlyForecast, isPassiveRow, PASSIVE_FORECAST_HOURS } from './cor
 import { contextOpacity, FOCUS_DIM, FocusMode, mapSaturation, type FocusKind, windFocusIntensity } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import { latestRadarEpoch, type RefreshState } from './core/freshness'
-import { blendFrames, blurField, DEFAULT_ISOLINE_TUNING, ISOBAR_STEP_HPA, ISOLINE_BLUR, ISOLINE_EDGE_FADE_MS, ISOLINE_FILL_OPACITY, ISOLINE_GRADIENT, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineKind, type IsolineTuning } from './core/isolines'
+import { adaptiveIsobarStep, blendFrames, blurField, DEFAULT_ISOLINE_TUNING, fieldRangeInView, ISOBAR_STEP_HPA, ISOLINE_BLUR, ISOLINE_EDGE_FADE_MS, ISOLINE_FILL_OPACITY, ISOLINE_GRADIENT, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineKind, type IsolineTuning } from './core/isolines'
 import { IsolineLabels } from './core/isoline-labels'
 import { sliceWeights } from './core/isoline-spline'
 import { TraceCore } from './core/isoline-tracer'
@@ -293,6 +293,7 @@ export default function App() {
   const [focus, setFocus] = createSignal(0)
   const [windFocus, setWindFocus] = createSignal(0)
   const [cloudFocus, setCloudFocus] = createSignal(0)
+  const [isobarStep, setIsobarStep] = createSignal(ISOBAR_STEP_HPA)
   const [focusPinned, setFocusPinned] = createSignal<FocusKind>()
   const [isolineCount, setIsolineCount] = createSignal(0)
   const focusMode = new FocusMode<FocusKind>(['temperature', 'wind', 'clouds'], (mode, value) => (mode === 'wind' ? setWindFocus : mode === 'clouds' ? setCloudFocus : setFocus)(value),
@@ -308,7 +309,7 @@ export default function App() {
   // Isobaren (U35): pas bij de eerste windfocus opgehaald, dus de cold start blijft gelijk.
   const pressureIsolines = isolineSet({
     kind: 'pressure', layerId: 'motregen-isobars', timeline: pressureTimeline, focus: windFocus, active: createMemo(() => windFocus() > 0),
-    step: () => ISOBAR_STEP_HPA, style: isobarStyle, labelFade: () => undefined, coverage: isobarCoverage, setCount: setIsobarCount,
+    step: isobarStep, style: isobarStyle, labelFade: () => undefined, coverage: isobarCoverage, setCount: setIsobarCount,
   })
   // Bewolkingssluier (PO 2026-09-25 live, U34): cloud_frac als zachte grijswitte vulling, zonder lijnen of
   // labels, alleen in de modus Lucht en pas dan geladen. Wijkt af van MIP-4 ronde 3 ("nooit als kaartlaag").
@@ -384,7 +385,10 @@ export default function App() {
       map.on('render', () => { mapRepaints++ })
       map.on('moveend', rememberMapView)
       map.on('zoomend', () => void showTemperature())
-      map.on('moveend', () => { for (const set of isolineSets) { set.labels?.requestSpawn(); updateIsolineLabels(set) } })
+      map.on('moveend', () => {
+        updateIsobarStep()
+        for (const set of isolineSets) { set.labels?.requestSpawn(); updateIsolineLabels(set) }
+      })
       map.on('click', (event) => {
         usage.mark('pin')
         pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name)
@@ -925,8 +929,20 @@ export default function App() {
     return { step: CLOUD_VEIL_STEP, fill: CLOUD_VEIL_OPACITY, fillSmooth: true, palette: [[0, veil], [100, veil]], color: veil, gradientFade: false, lines: false, fillByValue: CLOUD_VEIL_RANGE }
   }
 
+  /** Isobaarstap op het drukbereik in beeld (U34), op het dichtstbijzijnde geladen uurframe. */
+  function updateIsobarStep(): void {
+    const set = pressureIsolines
+    if (!map || !set.layer || !set.active()) return
+    const nearest = Math.round(set.time)
+    const field = set.fields[nearest] ?? set.fields.find((candidate) => candidate)
+    if (!field) return
+    const bounds = map.getBounds()
+    const range = fieldRangeInView(field.values, field.valid, set.layer.grid, { west: bounds.getWest(), south: bounds.getSouth(), east: bounds.getEast(), north: bounds.getNorth() })
+    if (range) setIsobarStep((current) => adaptiveIsobarStep(range[0], range[1], current))
+  }
+
   function isobarStyle(): IsolineStyle {
-    return { step: ISOBAR_STEP_HPA, fill: 0, color: hexColor(isolineColor(mapTheme(), 'pressure')), gradientFade: false }
+    return { step: isobarStep(), fill: 0, color: hexColor(isolineColor(mapTheme(), 'pressure')), gradientFade: false }
   }
 
   function preparedIsolineField(set: IsolineSet, frame: TimelineFrame): Promise<{ grid: Grid; field: PreparedField }> {
@@ -1053,6 +1069,7 @@ export default function App() {
         set.fields[index] = prepared.field
         layer.setLayer(index, prepared.field)
       }))
+      if (set.kind === 'pressure') updateIsobarStep()
     } catch {
       // Een ontbrekend uurframe laat de vorige snede staan; de volgende tijdstap probeert opnieuw.
     }

@@ -23,6 +23,46 @@ export type IsolineFade = typeof ISOLINE_FADES[number]
 // 'cloud' (U34): bewolkingssluier, alleen vulling; geen lijnen of labels.
 export type IsolineKind = 'temperature' | 'pressure' | 'cloud'
 export const ISOBAR_STEP_HPA = 4
+// Adaptieve isobaarstap (PO 2026-09-25 live, U34): bij vlakke hogedruk gaf 4 hPa bijna geen lijnen. De
+// grootste stap die in beeld minstens ISOBAR_MIN_LINES lijnen geeft; hysterese tegen flipperen.
+export const ISOBAR_STEPS_HPA = [4, 2, 1] as const
+const ISOBAR_MIN_LINES = 4
+
+export function isobarLineCount(min: number, max: number, step: number): number {
+  return max < min ? 0 : Math.floor(max / step) - Math.ceil(min / step) + 1
+}
+
+/** Fijner pas als de huidige stap minder dan MIN−1 lijnen geeft, grover pas als die ruim MIN+2 lijnen geeft. */
+export function adaptiveIsobarStep(min: number, max: number, current?: number): number {
+  const ideal = ISOBAR_STEPS_HPA.find((step) => isobarLineCount(min, max, step) >= ISOBAR_MIN_LINES) ?? ISOBAR_STEPS_HPA.at(-1)!
+  if (current === undefined || ideal === current) return ideal
+  if (ideal < current) return isobarLineCount(min, max, current) >= ISOBAR_MIN_LINES - 1 ? current : ideal
+  return ISOBAR_STEPS_HPA.find((step) => step > current && isobarLineCount(min, max, step) >= ISOBAR_MIN_LINES + 2) ?? current
+}
+
+/** Min en max van de geldige veldwaarden binnen een lng/lat-kader (EPSG:3857-grid). */
+export function fieldRangeInView(values: ArrayLike<number>, valid: ArrayLike<number>, grid: Grid, view: { west: number; south: number; east: number; north: number }): [number, number] | undefined {
+  const radius = 6_378_137
+  const x = (lng: number) => lng * Math.PI / 180 * radius
+  const y = (lat: number) => Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) * radius
+  const column = (value: number) => (value - grid.x0) / grid.dx
+  const row = (value: number) => (value - grid.y0) / grid.dy
+  const [c0, c1] = [column(x(view.west)), column(x(view.east))].sort((a, b) => a - b) as [number, number]
+  const [r0, r1] = [row(y(view.north)), row(y(view.south))].sort((a, b) => a - b) as [number, number]
+  let min = Infinity
+  let max = -Infinity
+  // x0/y0 zijn celranden: cel i dekt [i, i+1) in rastercoördinaten.
+  for (let r = Math.max(0, Math.floor(r0)); r <= Math.min(grid.height - 1, Math.floor(r1)); r++) {
+    for (let c = Math.max(0, Math.floor(c0)); c <= Math.min(grid.width - 1, Math.floor(c1)); c++) {
+      const index = r * grid.width + c
+      if (!(valid[index]! > 0.5)) continue
+      const value = values[index]!
+      if (value < min) min = value
+      if (value > max) max = value
+    }
+  }
+  return min <= max ? [min, max] : undefined
+}
 
 export const DEFAULT_ISOLINE_TUNING: IsolineTuning = { step: 1, fillStyle: 'banden', fade: 'uit' }
 
