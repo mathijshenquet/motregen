@@ -49,7 +49,7 @@ function ringLines(km: number): IsolineFeatureCollection {
 describe('isoline labels follow the length fade of their ring', () => {
   it('fades a label on a shrinking ring and despawns it below ½·L_min', () => {
     vi.useFakeTimers()
-    const labels = new IsolineLabels(map, grid, { minDistancePx: 90, spacingPx: 260 }, 'light', () => true)
+    const labels = new IsolineLabels(map, grid, 'light', () => true)
     labels.setOpacity(1)
     // Gespawnd op een ring boven L_min (het spawnfilter), daarna krimpt de ring.
     labels.setLines(ringLines(70), 1)

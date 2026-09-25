@@ -1,11 +1,8 @@
 import { Show } from 'solid-js'
 import { formatUv, UV_SCALE_MAX, uvLevel, type UvReading } from '../core/uv'
 
-export type UvBarVariant = 'double' | 'dot'
-
 interface Props {
   reading: UvReading | null
-  variant: UvBarVariant
   // Chip: alleen de balk, getal en klasse staan al in de chiptekst.
   bare?: boolean
   // Volle balk: de tabel geeft de heldere-hemel-UV van die dag op het middaguur mee, zodat de lengte
@@ -32,7 +29,6 @@ export default function UvBar(props: Props) {
   return <span
     class="uv-bar"
     classList={{ 'uv-bar-dark': dark(), 'uv-bar-bare': props.bare === true, estimated: reading()?.estimated === true }}
-    data-variant={props.variant}
     data-level={reading() && !dark() ? uvLevel(reading()!.value).key : undefined}
     data-clear-level={reading() && !dark() ? uvLevel(reading()!.clear).key : undefined}
     role="img"
@@ -41,11 +37,8 @@ export default function UvBar(props: Props) {
   >
     <span class="uv-bar-track" aria-hidden="true" style={bandStops()}>
       <Show when={reading() && !dark()}>
-        <Show when={props.variant === 'double'}><span class="uv-bar-clear" style={{ width: percent(reading()!.clear) }} /></Show>
+        <span class="uv-bar-clear" style={{ width: percent(reading()!.clear) }} />
         <span class="uv-bar-fill" style={{ width: percent(reading()!.value) }} />
-        <Show when={props.variant === 'dot' && reading()!.clear - reading()!.value >= 0.3}>
-          <span class="uv-bar-dot" style={{ left: percent(reading()!.clear) }} />
-        </Show>
       </Show>
     </span>
     <Show when={!props.bare && reading() && !dark()}>

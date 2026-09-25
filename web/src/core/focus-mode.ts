@@ -1,13 +1,10 @@
 import { DEFAULT_WIND_TUNING, WIND_FOCUS_INTENSITY } from './wind-layer'
 
-export interface FocusTuning {
-  /** Zichtbaarheid van regen, wind, wolkrand en zon tijdens volle temperatuurfocus (0–1). */
-  dim: number
-  inMs: number
-  outMs: number
-}
-
-export const DEFAULT_FOCUS_TUNING: FocusTuning = { dim: 0.25, inMs: 250, outMs: 400 }
+/** Zichtbaarheid van regen, wind en zon tijdens volle temperatuurfocus (Focus dim, U8; knop weg in U30). */
+export const FOCUS_DIM = 0.25
+/** Volle tweenduur in en uit (Tween in/uit, U19 vastgezet; knop weg in U30). */
+export const FOCUS_IN_MS = 250
+export const FOCUS_OUT_MS = 400
 
 export interface FocusTween {
   from: number
@@ -30,14 +27,14 @@ export function focusValue(tween: FocusTween, now: number): number {
  * Nieuw doel vanaf de huidige waarde. De duur schaalt met de resterende afstand, zodat
  * een halverwege omgekeerde hover niet de volle duur voor een half traject neemt.
  */
-export function retargetFocus(tween: FocusTween, now: number, target: number, tuning: FocusTuning, reducedMotion: boolean): FocusTween {
+export function retargetFocus(tween: FocusTween, now: number, target: number, reducedMotion: boolean): FocusTween {
   const from = focusValue(tween, now)
-  const full = target > from ? tuning.inMs : tuning.outMs
+  const full = target > from ? FOCUS_IN_MS : FOCUS_OUT_MS
   const duration = reducedMotion ? 0 : full * Math.abs(target - from)
   return { from, to: target, start: now, duration }
 }
 
-/** Dekking van de gedimde context (regen, wind, wolkrand, zon) bij focuswaarde `focus`. */
+/** Dekking van de gedimde context (regen, wind, zon) bij focuswaarde `focus`. */
 export function contextOpacity(focus: number, dim: number): number {
   return 1 - focus * (1 - dim)
 }
@@ -76,7 +73,6 @@ export class FocusMode<Mode extends string = FocusKind> {
   constructor(
     modes: readonly Mode[],
     private readonly onValue: (mode: Mode, value: number) => void,
-    private tuning: () => FocusTuning,
     private readonly reducedMotion: () => boolean,
     private readonly now: () => number = () => performance.now(),
     private readonly requestFrame: FrameScheduler = (callback) => requestAnimationFrame(callback),
@@ -100,7 +96,7 @@ export class FocusMode<Mode extends string = FocusKind> {
     for (const [tweenMode, tween] of this.tweens) {
       const target = tweenMode === winner ? 1 : 0
       if (target === tween.to) continue
-      this.tweens.set(tweenMode, retargetFocus(tween, this.now(), target, this.tuning(), this.reducedMotion()))
+      this.tweens.set(tweenMode, retargetFocus(tween, this.now(), target, this.reducedMotion()))
       changed = true
     }
     if (changed) this.tick()

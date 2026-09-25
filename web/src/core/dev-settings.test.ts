@@ -25,6 +25,7 @@ describe('reset alle instellingen', () => {
     storeMapView({ lng: 5.1, lat: 52.1, zoom: 9 }, storage)
     storage.setItem('motregen-theme', 'dark')
     storeWindTuning({ ...DEFAULT_WIND_TUNING, intensity: 0.4 }, storage)
+    storage.setItem('motregen-wind-tuning-v3', '{"maxFps":30}')
     storage.setItem('motregen-wind-tuning-v2', '{"intensity":1.9}')
     storage.setItem('motregen-wind-tuning', '{"intensity":0.8}')
     storage.setItem('motregen-splash-slowdown', '4')
@@ -32,7 +33,7 @@ describe('reset alle instellingen', () => {
 
     const removed = clearTuningStorage(storage)
 
-    expect(removed.sort()).toEqual(['motregen-splash-slowdown', 'motregen-wind-tuning', 'motregen-wind-tuning-v2', 'motregen-wind-tuning-v3'])
+    expect(removed.sort()).toEqual(['motregen-splash-slowdown', 'motregen-wind-tuning', 'motregen-wind-tuning-v2', 'motregen-wind-tuning-v3', 'motregen-wind-tuning-v4'])
     expect([...storage.values.keys()].filter((key) => key.startsWith('motregen-')).sort())
       .toEqual(['motregen-last-saved-place', 'motregen-map-view', 'motregen-saved-places', 'motregen-theme'])
     expect(loadSavedPlaces(storage)).toEqual([place])

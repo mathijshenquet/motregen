@@ -23,14 +23,16 @@ naar een server verstuurd.
   zodat een lang openstaande tab niet de leeftijd van zijn mountmoment blijft
   rapporteren.
 
-De HUD opent met `?perf=1` of drie tikken binnen 700 ms op het logo. De knop
+De HUD opent met drie tikken binnen 700 ms op het logo, of met de knop *Perf-HUD* in
+het `?dev`-paneel (`?perf=1` verviel in U30, MIP-12). De knop
 `Kopieer JSON` kopieert de volledige actuele snapshot.
 
-De inklapbare sectie *Wind* in dezelfde HUD maakt alle windparameters
-(`WIND_TUNING_CONTROLS` in `web/src/core/wind-layer.ts`) live instelbaar. Alleen
-waarden die van de defaults afwijken worden per apparaat bewaard in
-`localStorage['motregen-wind-tuning-v2']`; *Kopieer als JSON* levert de actuele
-set om terug te sturen.
+De windknoppen staan sinds U30 (MIP-12) in de groep *Wind* van het `?dev`-paneel: alleen
+Dichtheid, Intensiteit, Lijnbreedte en Tempo (`WIND_TUNING_CONTROLS` in
+`web/src/core/wind-layer.ts`); de overige parameters zijn constanten in `WIND_PARAMETERS`.
+Alleen afwijkingen van de defaults worden per apparaat bewaard in
+`localStorage['motregen-wind-tuning-v4']` (v3 wordt eenmalig gemigreerd);
+*Kopieer wind als JSON* levert de actuele set om terug te sturen.
 
 ## Windlaag
 
@@ -61,7 +63,7 @@ Vier meetscripts horen erbij, alle tegen een draaiende preview
 - `pnpm exec tsx scripts/wind-ink.ts ORIGIN before|after` — gemiddelde
   RGB-bijdrage van de trails per land- en zeepixel (autoplay gepauzeerd,
   referentie = dezelfde pagina met wind onzichtbaar). `before` stuurt de
-  `?dev`-slider van builds vóór U3 aan, `after` het HUD-veld *Intensiteit*.
+  `?dev`-slider van builds vóór U3 aan, `after` de `?dev`-knop *Intensiteit* (sinds U30).
 - `pnpm exec tsx scripts/wind-density.ts ORIGIN OUT [JITTERS]` —
   spreidingsindex (variantie/gemiddelde per cel) van de zichtbare koppen via
   de meethaak `__motregenWind.dispersion()`, per spawn-jitter, met screenshots.
@@ -201,9 +203,8 @@ Het synthetische passiefbudget is na desktop, 4G en Fast 3G gekalibreerd op
 **800.000 chunkbytes**. De hoogste waarneming tijdens ontwikkeling was 698.659
 B onder Fast 3G; de twee definitieve gateruns bleven op maximaal 631.607 B. Deze grens is ruim
 strenger dan MIP-8's maximum van 3 MB, maar houdt marge voor de bekende
-throttling-herhalingen. De smaaktest is beschikbaar als progressief skeleton
-(standaard) of wacht-overlay via `?histogram=wait`; in `?dev` staat dezelfde
-keuze als live toggle.
+throttling-herhalingen. De smaaktest koos het progressieve skeleton; de
+wacht-overlay (`?histogram=wait` en de `?dev`-toggle) verviel in U30 (MIP-12).
 
 | Run / profiel | Cold TTFR | Passieve chunks | L2 tijd-tot-compleet | L2/scrubtransfers | Warm chunks | Sessie | Tweede klik |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |

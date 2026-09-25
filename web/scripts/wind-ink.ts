@@ -3,7 +3,7 @@ import { chromium, devices, type BrowserContextOptions, type Page } from '@playw
 // Meet de "inkt" van de windlaag (track U3): gemiddelde absolute RGB-afwijking
 // die de trails veroorzaken, apart voor land- en zeepixels. Referentiebeeld is
 // dezelfde pagina met de windlaag onzichtbaar gezet. `mode` = before (oude
-// ?dev-slider "Zichtbaar") of after (PerfHud-veld "Intensiteit").
+// ?dev-slider "Zichtbaar") of after (?dev-paneel, groep Wind, "Intensiteit"; sinds U30).
 const [origin, mode] = process.argv.slice(2)
 if (!origin || (mode !== 'before' && mode !== 'after')) throw new Error('usage: pnpm exec tsx scripts/wind-ink.ts ORIGIN before|after')
 
@@ -27,14 +27,14 @@ for (const profile of profiles) {
     }, [theme, tuning])
     const page = await context.newPage()
     page.setDefaultTimeout(120_000)
-    await page.goto(new URL(mode === 'before' ? '/?dev' : '/?perf=1', origin).href)
+    await page.goto(new URL('/?dev', origin).href)
     await page.waitForFunction(() => (globalThis as unknown as { __motregenPerf?: { snapshot: () => { ttfrMs: number | null } } }).__motregenPerf?.snapshot().ttfrMs != null)
     await page.waitForTimeout(6_000)
     // Autoplay pauzeren: bewegende regen zou anders als windinkt meetellen.
     const pause = page.getByRole('button', { name: 'Pauzeren' })
     if (await pause.count()) await pause.first().evaluate((element) => (element as unknown as { click: () => void }).click())
     await page.waitForTimeout(1_000)
-    await page.addStyleTag({ content: '.wind-debug,.perf-hud{visibility:hidden!important}' })
+    await page.addStyleTag({ content: '.dev-panel,.perf-hud{visibility:hidden!important}' })
     const shots: Buffer[] = []
     for (let index = 0; index < samples; index++) {
       shots.push(await page.locator('.map').first().screenshot())
@@ -51,7 +51,7 @@ for (const profile of profiles) {
 await browser.close()
 
 async function hideWind(page: Page): Promise<void> {
-  const selector = mode === 'before' ? '.wind-debug label:has-text("Zichtbaar") input[type=range]' : 'input[type=number][aria-label="Intensiteit"]'
+  const selector = mode === 'before' ? '.wind-debug label:has-text("Zichtbaar") input[type=range]' : '.dev-panel input[type=range][aria-label="Intensiteit"]'
   await page.locator(selector).evaluate((element) => {
     const input = element as unknown as { value: string; dispatchEvent: (event: Event) => boolean }
     input.value = '0'

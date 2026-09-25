@@ -6,48 +6,36 @@ export type IsolineStep = typeof ISOLINE_STEPS[number]
 
 export interface IsolineTuning {
   step: IsolineStep
-  /** Dekking van de bandvulling tussen de lijnen (Buienradar-referentie, PO U25b); 0 = uit. */
-  fillOpacity: number
   /** Vulling als vlakke banden (default) of continu verloop; PO-optie, eigenaar U25b/U30. */
-  fillStyle: 'banden' | 'verloop'
-  /** Chaikin op de labelgeometrie. */
-  smoothing: boolean
-  /** Aantal 3×3-boxblur-passes op elk uurframe (2 ≈ Gauss σ 1,2 cel). */
-  blur: number
-  /** 0 = lineair tussen twee uurframes; 1 = kubische B-spline over vier (C2 in de tijd). */
-  window: number
-  /** Ruimtelijk bicubisch samplen i.p.v. bilineair. */
-  bicubic: boolean
-  /** Resolutie van de offscreen contour-snede t.o.v. het canvas. */
-  resolution: number
-  /** Maximale contour-herberekening per seconde bij tijdwijzigingen. */
-  maxHz: number
-  /** Lijnen vervagen waar ze weinig zeggen: vlak veld (|∇T| klein) of snel bewegend. */
+  fillStyle: IsolineFillStyle
+  /** Lijnen en vulling vervagen waar het veld vlak is (|∇T| klein). */
   fade: IsolineFade
-  /** smoothstep-grenzen voor |∇T| in °C/km (modus gradiënt). */
-  gradientLow: number
-  gradientHigh: number
-  /** Grenzen voor de lijnsnelheid |∂T/∂t|/|∇T| in km/u (modus snelheid): daarboven weg. */
-  speedLow: number
-  speedHigh: number
-  /** Vector: exacte B-spline-contouren als lijnen op device-resolutie (anders per pixel). */
-  vector: boolean
-  /** Vector: gesloten lijnen korter dan dit (km) vervagen (lusjes-criterium); 0 = uit. */
-  ringKm: number
-  /** Vector: verdichting, maximale afwijking koorde ↔ lijn in CSS-px. */
-  tolerancePx: number
 }
 
-export const ISOLINE_FADES = ['uit', 'gradiënt', 'snelheid'] as const
+export const ISOLINE_FILL_STYLES = ['banden', 'verloop'] as const
+export type IsolineFillStyle = typeof ISOLINE_FILL_STYLES[number]
+
+export const ISOLINE_FADES = ['uit', 'gradiënt'] as const
 export type IsolineFade = typeof ISOLINE_FADES[number]
 
-export const DEFAULT_ISOLINE_TUNING: IsolineTuning = { step: 1, fillOpacity: 0.35, fillStyle: 'banden', smoothing: true, blur: 2, window: 1, bicubic: true, resolution: 0.5, maxHz: 60,
-  // Gradiënt-fade uit (PO 2026-09-24: in vlak gebied verdwijnen hele lijnen); de lusjes gaan via ringKm.
-  // Grenzen blijven op de U8c-kalibratie (lijnpixels p10/p50/p90 = 0,02/0,08/0,17 °C/km).
-  fade: 'uit', gradientLow: 0.02, gradientHigh: 0.06, speedLow: 80, speedHigh: 250,
-  vector: true, ringKm: 60, tolerancePx: 0.25 }
+// Gradiënt-fade uit (PO 2026-09-24: in vlak gebied verdwijnen hele lijnen); de lusjes gaan via ISOLINE_RING_KM.
+export const DEFAULT_ISOLINE_TUNING: IsolineTuning = { step: 1, fillStyle: 'banden', fade: 'uit' }
 
-export const ISOLINE_WINDOWS = [0, 1] as const
+// Vaste waarden van weggesnoeide dev-knoppen (U30/MIP-12); herkomst per regel.
+/** Dekking van de vulling tussen de lijnen (Vulling; PO-keuze 2026-09-25 na U25b, main `5fcd35b`). */
+export const ISOLINE_FILL_OPACITY = 0.35
+/** Veldblur: 3×3-boxblur-passes per uurframe, 2 ≈ Gauss σ 1,2 cel (U8). */
+export const ISOLINE_BLUR = 2
+/** Tijdvenster: kubische B-spline over vier uurframes, C2 in de tijd (U8b; lineair = 0 verloor). */
+export const ISOLINE_WINDOW = 1
+/** Resolutie van de vulsnede t.o.v. het canvas (U8c). */
+export const ISOLINE_FILL_RESOLUTION = 0.5
+/** Lusjes: gesloten lijnen korter dan dit (km) vervagen, ook hun label (U13). */
+export const ISOLINE_RING_KM = 60
+/** Verdichting: maximale afwijking koorde ↔ lijn in CSS-px (U13). */
+export const ISOLINE_TOLERANCE_PX = 0.25
+/** smoothstep-grenzen voor |∇T| in °C/km bij Vervagen = gradiënt; U8c-kalibratie (lijnpixels p10/p50/p90 = 0,02/0,08/0,17). */
+export const ISOLINE_GRADIENT: [number, number] = [0.02, 0.06]
 
 /** Punten in roosterindex-coördinaten: (kolom, rij) van de celcentra. */
 export interface Isoline {
@@ -317,18 +305,18 @@ export interface IsolineFeatureCollection {
   }>
 }
 
-export function isolineFeatures(field: ScalarField, grid: Grid, tuning: Pick<IsolineTuning, 'step' | 'smoothing'> & Partial<Pick<IsolineTuning, 'vector' | 'ringKm'>>): IsolineFeatureCollection {
+/** Labelgeometrie (Chaikin-geglad, U13); lusjes korter dan `ringKm` krijgen geen label. */
+export function isolineFeatures(field: ScalarField, grid: Grid, step: number, ringKm = 0): IsolineFeatureCollection {
   const features: IsolineFeatureCollection['features'] = []
   const buffers = workspace(field)
   const toLngLat = gridProjection(grid)
-  // Vectorlijnen vervagen lusjes korter dan ringKm; een label op zo'n lusje zou los zweven.
+  // De lijnen vervagen lusjes korter dan ringKm; een label op zo'n lusje zou los zweven.
   const centerLat = 2 * Math.atan(Math.exp((grid.y0 + grid.dy * grid.height / 2) / 6378137)) - Math.PI / 2
   const kmPerCell = Math.abs(grid.dx) * Math.cos(centerLat) / 1000
-  const minRingCells = tuning.vector && tuning.ringKm ? Math.max(MIN_RING_CELLS, tuning.ringKm / kmPerCell) : MIN_RING_CELLS
-  for (const level of isolineLevels(field, tuning.step)) {
+  const minRingCells = ringKm ? Math.max(MIN_RING_CELLS, ringKm / kmPerCell) : MIN_RING_CELLS
+  for (const level of isolineLevels(field, step)) {
     for (const line of marchingSquares(field, level, MIN_LENGTH_CELLS, minRingCells, buffers)) {
-      const smoothed = tuning.smoothing ? chaikin(line.points, line.closed) : line.points
-      const coordinates = smoothed.map(([column, row]) => toLngLat(column, row))
+      const coordinates = chaikin(line.points, line.closed).map(([column, row]) => toLngLat(column, row))
       if (line.closed) coordinates.push(coordinates[0]!)
       features.push({
         type: 'Feature',
@@ -343,12 +331,12 @@ export function isolineFeatures(field: ScalarField, grid: Grid, tuning: Pick<Iso
 export interface IsolineRequest {
   frames: WeightedFrame[]
   grid: Grid
-  tuning: IsolineTuning
+  step: number
 }
 
 export function computeIsolines(request: IsolineRequest): IsolineFeatureCollection {
   const field = blendFrames(request.frames, request.grid.width, request.grid.height)
-  return isolineFeatures(blurField(field, request.tuning.blur), request.grid, request.tuning)
+  return isolineFeatures(blurField(field, ISOLINE_BLUR), request.grid, request.step, ISOLINE_RING_KM)
 }
 
 /**

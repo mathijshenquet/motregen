@@ -26,7 +26,7 @@ let encodedBytes = 0
 cdp.on('Network.loadingFinished', (event) => { encodedBytes += event.encodedDataLength })
 await cdp.send('Network.enable')
 
-await page.goto(new URL('/?perf=1', origin).href)
+await page.goto(new URL('/', origin).href)
 await page.waitForFunction(() => (globalThis as unknown as { __motregenPerf: { snapshot: () => { ttfrMs: number | null } } }).__motregenPerf.snapshot().ttfrMs !== null)
 await page.locator('.location-label').filter({ hasText: /^De Bilt$/ }).waitFor()
 await page.locator('tbody tr').first().locator('td').last().filter({ hasNotText: '—' }).waitFor()

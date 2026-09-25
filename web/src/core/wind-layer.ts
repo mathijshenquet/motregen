@@ -4,17 +4,17 @@ import type { Grid } from './contract'
 
 export const WIND_PARTICLES_PER_MEGAPIXEL = 620
 export const WIND_REFERENCE_ZOOM = 6.4
-// v2: U3-waarden (polylinemodel) betekenen in het buffermodel iets anders.
-// v3 (U20): alleen afwijkingen van de default worden bewaard; v2 wordt eenmalig gemigreerd.
-export const WIND_TUNING_STORAGE_KEY = 'motregen-wind-tuning-v3'
-export const LEGACY_WIND_TUNING_STORAGE_KEY = 'motregen-wind-tuning-v2'
+// v3 (U20): alleen afwijkingen van de default worden bewaard. v4 (U30/MIP-12): alleen de vier
+// knoppen van WindTuning; v3 wordt eenmalig gemigreerd, de rest van v3 (nu constanten) valt weg.
+export const WIND_TUNING_STORAGE_KEY = 'motregen-wind-tuning-v4'
+export const LEGACY_WIND_TUNING_STORAGE_KEY = 'motregen-wind-tuning-v3'
 
 // De staart ontstaat in een trailbuffer die per seconde vervaagt; de particle
 // zelf stempelt alleen zijn kop. Leven en fades zijn schermafstanden (CSS-px),
 // zodat snelheid tempo wordt en niet de hoeveelheid inkt per particle.
 // lineWidth is in device-px, zoals vóór U3: dat hield mobiel fijn en desktop
 // voller, en de PO wil die look terug.
-export interface WindTuning {
+export interface WindParameters {
   particlesPerMegapixel: number
   trailDistance: number
   fadeInPx: number
@@ -33,29 +33,46 @@ export interface WindTuning {
   maxFps: number
 }
 
-export const DEFAULT_WIND_TUNING: WindTuning = {
+/**
+ * Alle windparameters. Instelbaar (?dev, JSON-export) zijn alleen Dichtheid, Intensiteit,
+ * Lijnbreedte en Tempo; de rest is sinds U30 constant op de waarde van U3–U24.
+ * `visibility` zet App per frame voor de focusdemping (vroeger ook de knop Contrast).
+ */
+export const WIND_PARAMETERS: WindParameters = {
   particlesPerMegapixel: WIND_PARTICLES_PER_MEGAPIXEL,
-  trailDistance: 90,
-  fadeInPx: 15,
-  fadeOutPx: 30,
-  maxAge: 6,
-  spawnJitter: 0.6,
-  speedDamping: 0.7,
+  trailDistance: 90, // Afstand per leven (U3/U3b)
+  fadeInPx: 15, // Fade-in (U3b)
+  fadeOutPx: 30, // Fade-out (U3b)
+  maxAge: 6, // Max. leeftijd (U3)
+  spawnJitter: 0.6, // Spawn-jitter (U3b)
+  speedDamping: 0.7, // Snelheidsdemping (U3b)
   // 0,955 per frame bij 60 Hz, de fade van vóór U3.
   bufferFade: 0.063,
   // Buffer nooit fijner dan 2 device-px per CSS-px: op een Pixel 5 (DPR 2,75) kostten fade +
   // composite op volle resolutie ~1 s warme TTFR in de 4G-gate. 1,5 (U3b) gaf een 2×-Mac een
   // 0,75×-buffer die LINEAR opgeschaald korrelig/zacht oogt (U24).
   bufferDpr: 2,
-  headIntensity: 0.95,
+  headIntensity: 0.95, // Kopintensiteit (U3b)
   lineWidth: 2.5,
   speed: 1,
   // PO 2026-09-25 (U24): default een stuk subtieler, ~60 % van de inkt bij 1,27; windfocus (U19)
   // tweent naar WIND_FOCUS_INTENSITY, zoals vóór U24.
   intensity: 0.75,
-  visibility: 1,
-  maxFps: 60,
+  visibility: 1, // Contrast (U3); App vermenigvuldigt met de focusdemping
+  maxFps: 60, // Max. fps (U8c)
 }
+
+export type WindTuning = Pick<WindParameters, 'particlesPerMegapixel' | 'intensity' | 'lineWidth' | 'speed'>
+
+export const DEFAULT_WIND_TUNING: WindTuning = {
+  particlesPerMegapixel: WIND_PARAMETERS.particlesPerMegapixel,
+  intensity: WIND_PARAMETERS.intensity,
+  lineWidth: WIND_PARAMETERS.lineWidth,
+  speed: WIND_PARAMETERS.speed,
+}
+
+/** Bovengrens voor wind-, regen-, isolijn- en afspeelframes (Max. fps; knop weg in U30). */
+export const WIND_MAX_FPS = WIND_PARAMETERS.maxFps
 
 /** Intensiteit bij volle windfocus met de default-tuning (U19: ×1,5 op de toenmalige 1,27). */
 export const WIND_FOCUS_INTENSITY = 1.905
@@ -71,20 +88,9 @@ export interface WindTuningControl {
 
 export const WIND_TUNING_CONTROLS: readonly WindTuningControl[] = [
   { key: 'particlesPerMegapixel', label: 'Dichtheid', min: 50, max: 2_000, step: 10, unit: '/MP' },
-  { key: 'trailDistance', label: 'Afstand per leven', min: 10, max: 400, step: 5, unit: 'px' },
-  { key: 'fadeInPx', label: 'Fade-in', min: 0, max: 150, step: 1, unit: 'px' },
-  { key: 'fadeOutPx', label: 'Fade-out', min: 0, max: 150, step: 1, unit: 'px' },
-  { key: 'maxAge', label: 'Max. leeftijd', min: 0.5, max: 20, step: 0.1, unit: 's' },
-  { key: 'spawnJitter', label: 'Spawn-jitter', min: 0, max: 1, step: 0.05 },
-  { key: 'speedDamping', label: 'Snelheidsdemping', min: 0, max: 2, step: 0.05 },
-  { key: 'bufferFade', label: 'Buffer-rest', min: 0.001, max: 0.6, step: 0.001, unit: '/s' },
-  { key: 'bufferDpr', label: 'Buffer-DPR max', min: 0.5, max: 4, step: 0.25, unit: '×' },
-  { key: 'headIntensity', label: 'Kopintensiteit', min: 0, max: 1, step: 0.01 },
+  { key: 'intensity', label: 'Intensiteit', min: 0, max: 2, step: 0.01, unit: '×' },
   { key: 'lineWidth', label: 'Lijnbreedte', min: 0.5, max: 8, step: 0.05, unit: 'dpx' },
   { key: 'speed', label: 'Tempo', min: 0.2, max: 3, step: 0.05, unit: '×' },
-  { key: 'intensity', label: 'Intensiteit', min: 0, max: 2, step: 0.01, unit: '×' },
-  { key: 'visibility', label: 'Contrast', min: 0, max: 3, step: 0.1 },
-  { key: 'maxFps', label: 'Max. fps', min: 10, max: 120, step: 5, unit: 'Hz' },
 ]
 
 const MIN_PARTICLES = 96
@@ -310,11 +316,11 @@ export class WindLayer implements CustomLayerInterface {
   private frameTotal = 0
   private frameCount = 0
   private particleBounds: ParticleBounds = { west: 0, north: 0, east: 1, south: 1 }
-  private tuning: WindTuning
+  private tuning: WindParameters
   private readonly viewportChanged = () => this.resetViewport()
 
-  constructor(private readonly grid: Grid, private theme: MapTheme, tuning: WindTuning = DEFAULT_WIND_TUNING) {
-    this.tuning = { ...tuning }
+  constructor(private readonly grid: Grid, private theme: MapTheme, tuning: Partial<WindParameters> = {}) {
+    this.tuning = { ...WIND_PARAMETERS, ...tuning }
     for (let index = 0; index < MAX_PARTICLES; index++) this.respawn(index, this.random() * INITIAL_STAGGER_SECONDS)
   }
 
@@ -437,10 +443,11 @@ export class WindLayer implements CustomLayerInterface {
     this.repaint()
   }
 
-  setTuning(tuning: WindTuning): void {
+  setTuning(tuning: Partial<WindParameters>): void {
     // De focus-tween (U19) zet elke frame een nieuwe intensiteit; alleen de dichtheid raakt de particles.
-    const densityChanged = tuning.particlesPerMegapixel !== this.tuning.particlesPerMegapixel
-    this.tuning = { ...tuning }
+    const next = { ...WIND_PARAMETERS, ...tuning }
+    const densityChanged = next.particlesPerMegapixel !== this.tuning.particlesPerMegapixel
+    this.tuning = next
     if (!this.map) return
     if (densityChanged) this.resetViewport()
     this.repaint()
@@ -952,7 +959,7 @@ export class WindLayer implements CustomLayerInterface {
  * afgelegd of `maxAge` bereikt; `remaining` is de afstand die hem nog rest,
  * voor maxAge geschat met de huidige snelheid. Geeft false als hij dood is.
  */
-export function advanceLife(life: ParticleLife, stepPx: number, seconds: number, tuning: Pick<WindTuning, 'maxAge'>): boolean {
+export function advanceLife(life: ParticleLife, stepPx: number, seconds: number, tuning: Pick<WindParameters, 'maxAge'>): boolean {
   life.age += seconds
   if (life.age <= 0) {
     life.remaining = life.distance
@@ -965,14 +972,14 @@ export function advanceLife(life: ParticleLife, stepPx: number, seconds: number,
 }
 
 /** Kopintensiteit: loopt op over de eerste fadeInPx en af over de laatste fadeOutPx; de buffer doet de rest. */
-export function headAlpha(life: ParticleLife, tuning: Pick<WindTuning, 'fadeInPx' | 'fadeOutPx'>): number {
+export function headAlpha(life: ParticleLife, tuning: Pick<WindParameters, 'fadeInPx' | 'fadeOutPx'>): number {
   if (life.age <= 0 || life.remaining <= 0) return 0
   const fadeIn = tuning.fadeInPx > 0 ? Math.min(1, life.travelled / tuning.fadeInPx) : 1
   const fadeOut = tuning.fadeOutPx > 0 ? Math.min(1, life.remaining / tuning.fadeOutPx) : 1
   return smooth(fadeIn) * smooth(fadeOut)
 }
 
-export function expectedLifetime(speedPx: number, tuning: Pick<WindTuning, 'trailDistance' | 'maxAge'>): number {
+export function expectedLifetime(speedPx: number, tuning: Pick<WindParameters, 'trailDistance' | 'maxAge'>): number {
   return speedPx > 0 ? Math.min(tuning.maxAge, tuning.trailDistance / speedPx) : tuning.maxAge
 }
 
@@ -1152,7 +1159,8 @@ export function loadWindTuning(storage: TuningStorage | undefined = globalThis.l
     if (stored) return sanitizeWindTuning(JSON.parse(stored) as unknown)
     const legacy = storage?.getItem(LEGACY_WIND_TUNING_STORAGE_KEY)
     if (!legacy) return { ...DEFAULT_WIND_TUNING }
-    const tuning = migrateWindTuningV2(JSON.parse(legacy) as unknown)
+    // v3 → v4: sanitize houdt alleen de vier knoppen; onbekende sleutels vallen weg.
+    const tuning = sanitizeWindTuning(JSON.parse(legacy) as unknown)
     storage?.removeItem(LEGACY_WIND_TUNING_STORAGE_KEY)
     storeWindTuning(tuning, storage)
     return tuning
@@ -1172,26 +1180,6 @@ export function storeWindTuning(tuning: WindTuning, storage: Pick<Storage, 'setI
   } catch {
     // opslag vol of geblokkeerd: tuning blijft voor deze sessie gelden
   }
-}
-
-// Defaults uit de v2-periode (U3b–U12). v2 schreef de hele tuning weg zodra één knop afweek,
-// dus een waarde gelijk aan een toenmalige default is nooit gekozen en volgt de huidige default.
-const V2_DEFAULTS: Partial<Record<keyof WindTuning, readonly number[]>> = { intensity: [0.5, 1.4, 1.9, 1.27], lineWidth: [1.5] }
-// Een zelfgekozen v2-intensiteit (van vóór de windfocus) wordt de focuswaarde; de rust schaalt
-// met dezelfde verhouding als de default.
-const V2_INTENSITY_SCALE = DEFAULT_WIND_TUNING.intensity / WIND_FOCUS_INTENSITY
-
-export function migrateWindTuningV2(value: unknown): WindTuning {
-  const stored = sanitizeWindTuning(value)
-  const tuning = { ...DEFAULT_WIND_TUNING }
-  const raw = value && typeof value === 'object' ? value as Record<string, unknown> : {}
-  for (const control of WIND_TUNING_CONTROLS) {
-    if (typeof raw[control.key] !== 'number') continue
-    const candidate = stored[control.key]
-    if (V2_DEFAULTS[control.key]?.includes(candidate)) continue
-    tuning[control.key] = control.key === 'intensity' ? Math.round(candidate * V2_INTENSITY_SCALE * 100) / 100 : candidate
-  }
-  return tuning
 }
 
 export function sanitizeWindTuning(value: unknown): WindTuning {

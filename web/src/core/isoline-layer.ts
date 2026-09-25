@@ -4,7 +4,7 @@ import type { Grid } from './contract'
 import type { PreparedField } from './isoline-field'
 import { SEGMENT_FLOATS, type ShortRing } from './isoline-contours'
 import { ContourTracer, type TraceRequest, type TraceResult } from './isoline-tracer'
-import { ISOLINE_LINE_OPACITY } from './isolines'
+import { ISOLINE_FILL_RESOLUTION, ISOLINE_GRADIENT, ISOLINE_LINE_OPACITY, ISOLINE_RING_KM, ISOLINE_TOLERANCE_PX, ISOLINE_WINDOW } from './isolines'
 import { PALETTE_STOPS, paletteUniforms, type PaletteStops } from './temperature-palette'
 
 export interface IsolineStyle {
@@ -16,30 +16,9 @@ export interface IsolineStyle {
   fillSmooth?: boolean
   /** Bandkleuren over het actuele bereik; zonder palet geen vulling. */
   palette?: PaletteStops
-  /** 0 = lineair tussen twee uurframes, 1 = kubische B-spline over vier. */
-  window: number
-  /** Ruimtelijk bicubisch (8 fetches) i.p.v. bilineair (2). */
-  bicubic: boolean
-  /** 0 = geen vervaging, 1 = op |∇T| (°C/km), 2 = op lijnsnelheid (km/u; kost 8 extra fetches). */
-  fade: number
-  gradient: [number, number]
-  speed: [number, number]
-  /** Lijnen als vector (exacte B-spline-contouren, getekend op device-resolutie) i.p.v. per pixel. */
-  vector: boolean
-  /** Vector: gesloten lijnen korter dan dit (km) vervagen; 0 = uit. */
-  ringKm: number
-  /** Vector: maximale afwijking koorde ↔ lijn in CSS-px (verdichting). */
-  tolerancePx: number
+  /** Lijnen en vulling vervagen op |∇T| (ISOLINE_GRADIENT). */
+  gradientFade: boolean
 }
-
-export interface IsolinePassTuning {
-  /** Offscreen pixels per CSS-pixel van de snede (device-DPR telt niet mee: hooguit 1). */
-  resolution: number
-  /** Maximale herberekeningsfrequentie bij tijdwijzigingen; kaartbewegingen gaan altijd direct. */
-  maxHz: number
-}
-
-export const DEFAULT_PASS_TUNING: IsolinePassTuning = { resolution: 0.5, maxHz: 60 }
 
 const EQUATOR_KM = 40_075.017
 
@@ -53,16 +32,14 @@ void main() {
   gl_Position = u_matrix * vec4(a_pos, 0.0, 1.0);
 }`
 
-// De tijd is de derde texture-as: de snede t = scrubber kost één (lineair) of twee (B-spline)
-// trilineaire fetches per tap.
+// De tijd is de derde texture-as: de snede t = scrubber kost twee trilineaire fetches per tap
+// (B-spline), ruimtelijk bicubisch met vier taps.
 const fieldSampling = `precision highp float;
 precision highp sampler3D;
 uniform sampler3D u_field;
 uniform vec2 u_grid_size;
 uniform float u_depth;
 uniform float u_time;
-uniform float u_window;
-uniform float u_bicubic;
 uniform float u_step;
 uniform float u_fade;
 uniform vec2 u_fade_gradient;
@@ -78,7 +55,6 @@ vec2 fetchAt(vec2 uv, float index) {
 // Kubische B-spline in de tijd met twee lineaire fetches (GPU Gems 2, hfst. 20): C2, dus de
 // lijnen veranderen niet op elk heel uur van richting.
 vec2 sampleTime(vec2 uv, float time) {
-  if (u_window < 0.5) return fetchAt(uv, time);
   float i = floor(time);
   float f = time - i;
   float f2 = f * f, f3 = f2 * f;
@@ -91,7 +67,6 @@ vec2 sampleTime(vec2 uv, float time) {
 }
 
 vec2 sampleField(vec2 uv, float time) {
-  if (u_bicubic < 0.5) return sampleTime(uv, time);
   vec2 coord = uv * u_grid_size - 0.5;
   vec2 cell = floor(coord);
   vec2 f = coord - cell;
@@ -108,43 +83,10 @@ vec2 sampleField(vec2 uv, float time) {
 }
 
 // Waar |∇T| klein is dragen de lijnen weinig informatie en bewegen ze het snelst: daar vervagen
-// ze (modus gradiënt). ds = ∇(T/stap) per pixel.
+// ze (Vervagen = gradiënt). ds = ∇(T/stap) per pixel.
 float gradientFade(vec2 ds) {
-  if (u_fade < 0.5 || u_fade > 1.5) return 1.0;
+  if (u_fade < 0.5) return 1.0;
   return smoothstep(u_fade_gradient.x, u_fade_gradient.y, length(ds) * u_step / u_km_per_px);
-}`
-
-// Het veld is een impliciete afstandsfunctie: voor niveau L is (T − L)/|∇T| de afstand in
-// pixels, dus uniforme lijnbreedte en AA zonder geometrie, alle niveaus tegelijk via
-// fract(T/stap).
-const contourFragment = `#version 300 es
-${fieldSampling}
-uniform float u_half_width;
-uniform float u_line_alpha;
-uniform vec3 u_color;
-uniform vec2 u_fade_speed;
-
-void main() {
-  vec2 field = sampleField(v_uv, u_time);
-  float s = field.r / u_step;
-  vec2 ds = vec2(dFdx(s), dFdy(s));
-  float level = floor(s + 0.5);
-  float distance = abs(s - level) / max(length(ds), 1e-6);
-  float line = clamp(u_half_width + 0.5 - distance, 0.0, 1.0) * u_line_alpha * step(0.5, field.g);
-  // Na de afgeleiden (die uniforme controleflow vragen): het gros van de pixels ligt niet op
-  // een lijn en heeft geen vervaging nodig.
-  if (line <= 0.0) {
-    color = vec4(0.0);
-    return;
-  }
-  line *= gradientFade(ds);
-  // Lijnsnelheid = |∂T/∂t| / |∇T|.
-  if (u_fade > 1.5) {
-    float gradient = length(ds) * u_step / u_km_per_px;
-    float change = abs(sampleField(v_uv, u_time + 0.25).r - field.r) * 4.0;
-    line *= 1.0 - smoothstep(u_fade_speed.x, u_fade_speed.y, change / max(gradient, 1e-4));
-  }
-  color = vec4(u_color * line, line);
 }`
 
 // Vulling per band (bandmidden → palet), zie fillSample in temperature-palette.ts: dezelfde
@@ -285,10 +227,10 @@ export interface IsolinePassStats {
 }
 
 /**
- * Isolijnen als snede door het (x, y, t)-volume van uurframes. De contour-pass rendert alleen
- * het zichtbare kaartextent naar een offscreen texture (lagere resolutie), en alleen als de
- * snede verandert: tijd (hooguit `maxHz`), kaartbeeld, stijl of nieuwe uurframes. Elke andere
- * repaint (bv. windpartikels) kost één texture-blit; zonder focus niets.
+ * Isolijnen als snede door het (x, y, t)-volume van uurframes. De tracer-worker levert de
+ * lijnen als segmenten; die en de vulling gaan naar offscreen textures, alleen als de snede
+ * verandert: nieuwe geometrie, kaartbeeld, stijl of nieuwe uurframes. Elke andere repaint
+ * (bv. windpartikels) kost één texture-blit; zonder focus niets.
  */
 export class IsolineLayer implements CustomLayerInterface {
   readonly id = 'motregen-isolines'
@@ -302,12 +244,11 @@ export class IsolineLayer implements CustomLayerInterface {
   requestRepaint?: () => void
   private map?: MapLibreMap
   private gl?: WebGL2RenderingContext
-  private contour?: WebGLProgram
   private composite?: WebGLProgram
   private quad?: WebGLBuffer
   private screen?: WebGLBuffer
   private volume?: WebGLTexture
-  /** Lijnen (vector: device-resolutie) en vulling (altijd `tuning.resolution`). */
+  /** Lijnen (device-resolutie) en vulling (ISOLINE_FILL_RESOLUTION). */
   private result?: RenderTarget
   private fillTarget?: RenderTarget
   private fill?: WebGLProgram
@@ -321,8 +262,6 @@ export class IsolineLayer implements CustomLayerInterface {
   private version = 1
   private passedVersion = 0
   private passedCamera = ''
-  private lastPass = -Infinity
-  private catchUp?: number
   private line?: WebGLProgram
   private corners?: WebGLBuffer
   private segments?: WebGLBuffer
@@ -335,7 +274,7 @@ export class IsolineLayer implements CustomLayerInterface {
   private shownRings: ShortRing[] = []
   private shownTime = 0
 
-  constructor(readonly grid: Grid, readonly depth: number, private style: IsolineStyle, private tuning: IsolinePassTuning = DEFAULT_PASS_TUNING) {
+  constructor(readonly grid: Grid, readonly depth: number, private style: IsolineStyle) {
     this.loaded = new Uint8Array(depth)
     this.tracer = new ContourTracer(grid, depth, (result) => this.traced(result))
   }
@@ -344,7 +283,6 @@ export class IsolineLayer implements CustomLayerInterface {
     const gl = context as WebGL2RenderingContext
     this.map = map
     this.gl = gl
-    this.contour = link(gl, quadVertex, contourFragment)
     this.fill = link(gl, quadVertex, fillFragment)
     this.composite = link(gl, compositeVertex, compositeFragment)
     const west = this.grid.x0
@@ -389,8 +327,6 @@ export class IsolineLayer implements CustomLayerInterface {
 
   onRemove(_map: MapLibreMap, context: WebGLRenderingContext | WebGL2RenderingContext): void {
     const gl = context as WebGL2RenderingContext
-    window.clearTimeout(this.catchUp)
-    this.catchUp = undefined
     for (const texture of [this.volume, this.ringTexture, this.result?.texture, this.fillTarget?.texture]) if (texture) gl.deleteTexture(texture)
     for (const target of [this.result, this.fillTarget]) if (target) gl.deleteFramebuffer(target.framebuffer)
     this.result = this.fillTarget = undefined
@@ -410,14 +346,14 @@ export class IsolineLayer implements CustomLayerInterface {
     return this.loaded[index] === 1
   }
 
-  /** Korte ringen van de getekende vectorsnede (lijnlabels vervagen mee); raster: geen. */
+  /** Korte ringen van de getekende snede (lijnlabels vervagen mee). */
   get rings(): readonly ShortRing[] {
-    return this.style.vector ? this.shownRings : []
+    return this.shownRings
   }
 
-  /** Tijd van de getekende snede: vector loopt de worker achter de scrubber aan. */
+  /** Tijd van de getekende snede: de worker loopt achter de scrubber aan. */
   get sliceTime(): number {
-    return this.style.vector && this.geometryVersion ? this.shownTime : this.time
+    return this.geometryVersion ? this.shownTime : this.time
   }
 
   frameKey(index: number): string | undefined {
@@ -425,7 +361,7 @@ export class IsolineLayer implements CustomLayerInterface {
   }
 
   /**
-   * Identiteit per uurlaag (chunk, frame, blur). Een manifest-refresh met een nieuwe run
+   * Identiteit per uurlaag (chunk, frame). Een manifest-refresh met een nieuwe run
    * vervangt frames midden in de tijdlijn bij gelijke diepte; die lagen moeten opnieuw geüpload
    * worden, anders tekent de snede de oude run. Geeft de gewijzigde indices terug.
    */
@@ -466,18 +402,8 @@ export class IsolineLayer implements CustomLayerInterface {
   setTime(time: number): void {
     if (time === this.time) return
     this.time = time
-    // Vector: de worker levert de nieuwe snede; pas die geometrie is een nieuwe pass waard.
-    if (this.style.vector) {
-      this.repaint()
-      return
-    }
-    this.version++
-    // Afspelen zet elke frame een nieuwe tijd; een kaartrender daarvoor zou tussen twee passes
-    // alleen de oude snede blitten (plus volledige symboolplaatsing). Vraag hem pas aan als het
-    // maxHz-venster een pass toelaat (PO-heropname U8c: 120 kaartrenders/s bij afspelen+focus).
-    const wait = this.lastPass + 1000 / this.tuning.maxHz - performance.now()
-    if (wait <= 0 || !this.passedVersion) this.repaint()
-    else this.scheduleCatchUp(wait)
+    // De worker levert de nieuwe snede; pas die geometrie is een nieuwe pass waard.
+    this.repaint()
   }
 
   setOpacity(opacity: number): void {
@@ -491,36 +417,11 @@ export class IsolineLayer implements CustomLayerInterface {
     this.invalidate()
   }
 
-  setTuning(tuning: IsolinePassTuning): void {
-    this.tuning = tuning
-    this.invalidate()
-  }
-
   prerender(context: WebGLRenderingContext | WebGL2RenderingContext, options: CustomRenderMethodInput): void {
     const gl = context as WebGL2RenderingContext
     const map = this.map
-    if (!map || !this.contour || this.opacity <= 0 || !this.ready()) return
-    if (this.style.vector) {
-      this.prerenderVector(gl, map, options.defaultProjectionData.mainMatrix)
-      return
-    }
-    const [width, height] = this.targetSize(gl, this.tuning.resolution)
-    const matrix = options.defaultProjectionData.mainMatrix
-    const camera = `${width}x${height}:${Array.prototype.join.call(matrix, ',')}`
-    if (camera === this.passedCamera && this.version === this.passedVersion) return
-    const now = performance.now()
-    const wait = this.lastPass + 1000 / this.tuning.maxHz - now
-    // Alleen tijd/stijl gewijzigd: begrens de cadans en hergebruik tot dan het vorige resultaat.
-    if (camera === this.passedCamera && this.passedVersion && wait > 0) {
-      this.scheduleCatchUp(wait)
-      return
-    }
-    this.pass(gl, map, matrix, width, height)
-    this.fillPass(gl, map, matrix, this.time)
-    this.passedCamera = camera
-    this.passedVersion = this.version
-    this.lastPass = now
-    this.onPass?.()
+    if (!map || !this.line || this.opacity <= 0 || !this.ready()) return
+    this.prerenderVector(gl, map, options.defaultProjectionData.mainMatrix)
   }
 
   private prerenderVector(gl: WebGL2RenderingContext, map: MapLibreMap, matrix: ArrayLike<number>): void {
@@ -550,16 +451,14 @@ export class IsolineLayer implements CustomLayerInterface {
     this.fillPass(gl, map, matrix, this.shownTime)
     this.passedCamera = camera
     this.passedVersion = this.version
-    this.lastPass = performance.now()
     this.onPass?.()
   }
 
   /** Wat de worker moet traceren; de tolerantie in cellen volgt de zoom in machten van 2. */
   private traceRequest(zoom: number): TraceRequest {
-    const { step, window, ringKm, tolerancePx, fade, gradient } = this.style
     const pxPerCell = Math.abs(this.grid.dx) / (2 * Math.PI * 6378137) * 512 * 2 ** zoom
-    const toleranceCells = 2 ** Math.round(Math.log2(Math.max(tolerancePx, 0.01) / pxPerCell))
-    return { time: this.time, window, step, toleranceCells, ringKm, gradient: fade > 0.5 && fade < 1.5 ? gradient : undefined }
+    const toleranceCells = 2 ** Math.round(Math.log2(ISOLINE_TOLERANCE_PX / pxPerCell))
+    return { time: this.time, window: ISOLINE_WINDOW, step: this.style.step, toleranceCells, ringKm: ISOLINE_RING_KM, gradient: this.style.gradientFade ? ISOLINE_GRADIENT : undefined }
   }
 
   private traced(result: TraceResult | undefined): void {
@@ -617,7 +516,7 @@ export class IsolineLayer implements CustomLayerInterface {
     bind('a_segment', this.segments!, 4, stride, 0, 1)
     bind('a_alpha', this.segments!, 2, stride, 16, 1)
     if (this.segmentCount) this.measure('passMs', () => gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, this.segmentCount))
-    // De context is gedeeld met de rasterpass en de blit: divisors terug op 0.
+    // De context is gedeeld met de vulpass en de blit: divisors terug op 0.
     for (const location of attributes) {
       gl.vertexAttribDivisor(location, 0)
       gl.disableVertexAttribArray(location)
@@ -667,33 +566,6 @@ export class IsolineLayer implements CustomLayerInterface {
     this.stats[key] = smooth(this.stats[key], performance.now() - started)
   }
 
-  /**
-   * Meet de contour-pass (ms per pass; readPixels dwingt de GPU-sync af, gl.finish doet dat in
-   * Chrome niet) op de huidige snede, bv. vanuit
-   * de console op een echte telefoon. Laat het zichtbare resultaat ongemoeid.
-   */
-  bench(passes: number, resolution = this.tuning.resolution): number | undefined {
-    const gl = this.gl, map = this.map
-    if (!gl || !map || !this.contour || !this.ready()) return undefined
-    const matrix = map.transform.getProjectionDataForCustomLayer(false).mainMatrix
-    const [width, height] = this.targetSize(gl, resolution)
-    const sync = () => {
-      const previous = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.result!.framebuffer)
-      gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4))
-      gl.bindFramebuffer(gl.FRAMEBUFFER, previous)
-    }
-    this.pass(gl, map, matrix, width, height)
-    sync()
-    const started = performance.now()
-    for (let index = 0; index < passes; index++) this.pass(gl, map, matrix, width, height)
-    sync()
-    const elapsed = (performance.now() - started) / passes
-    this.passedCamera = ''
-    this.repaint()
-    return elapsed
-  }
-
   /** Gemiddelde zichtbare dekking van de vulling (pixelsample van de vultexture × laagdekking), voor e2e. */
   fillCoverage(): number {
     const gl = this.gl, target = this.fillTarget
@@ -720,12 +592,8 @@ export class IsolineLayer implements CustomLayerInterface {
     else this.map?.triggerRepaint()
   }
 
-  private scheduleCatchUp(wait: number): void {
-    if (this.catchUp === undefined) this.catchUp = window.setTimeout(() => { this.catchUp = undefined; this.repaint() }, wait)
-  }
-
   private ready(): boolean {
-    return isolineLayerIndices(this.time, this.depth, this.style.window).every((index) => this.loaded[index])
+    return isolineLayerIndices(this.time, this.depth, ISOLINE_WINDOW).every((index) => this.loaded[index])
   }
 
   private invalidate(): void {
@@ -733,28 +601,11 @@ export class IsolineLayer implements CustomLayerInterface {
     this.repaint()
   }
 
-  private pass(gl: WebGL2RenderingContext, map: MapLibreMap, matrix: ArrayLike<number>, width: number, height: number): void {
-    const restore = saveTarget(gl)
-    bindTarget(gl, this.result!, width, height)
-    const ratio = (window.devicePixelRatio || 1) * (gl.drawingBufferWidth ? width / gl.drawingBufferWidth : 1)
-    const program = this.contour!
-    const uniform = this.useField(gl, program, map, matrix, ratio, this.time)
-    const { halfWidth, alpha } = lineProfile(isolineWidthCss(map.getZoom()) * ratio)
-    gl.uniform1f(uniform('u_half_width'), halfWidth)
-    gl.uniform1f(uniform('u_line_alpha'), alpha)
-    gl.uniform3f(uniform('u_color'), ...this.style.color)
-    gl.uniform2f(uniform('u_fade_speed'), ...this.style.speed)
-    this.measure('passMs', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4))
-    this.stats.passPixels += width * height
-    restore()
-    this.stats.passes++
-  }
-
-  /** Bandkleuren onder de lijnen, op de snede `time`; altijd op `tuning.resolution` (het is glad). */
+  /** Bandkleuren onder de lijnen, op de snede `time`; op ISOLINE_FILL_RESOLUTION (het is glad). */
   private fillPass(gl: WebGL2RenderingContext, map: MapLibreMap, matrix: ArrayLike<number>, time: number): void {
     this.filled = false
     if (this.style.fill <= 0 || !this.style.palette) return
-    const [width, height] = this.targetSize(gl, this.tuning.resolution)
+    const [width, height] = this.targetSize(gl, ISOLINE_FILL_RESOLUTION)
     const restore = saveTarget(gl)
     bindTarget(gl, this.fillTarget!, width, height)
     const program = this.fill!
@@ -767,7 +618,7 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.activeTexture(gl.TEXTURE2)
     gl.bindTexture(gl.TEXTURE_2D, this.ringTexture!)
     gl.uniform1i(uniform('u_ring'), 2)
-    gl.uniform1f(uniform('u_has_ring'), this.hasRing && this.style.vector ? 1 : 0)
+    gl.uniform1f(uniform('u_has_ring'), this.hasRing ? 1 : 0)
     this.measure('fillMs', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4))
     this.stats.passPixels += width * height
     restore()
@@ -796,11 +647,9 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.uniform2f(uniform('u_grid_size'), this.grid.width, this.grid.height)
     gl.uniform1f(uniform('u_depth'), this.depth)
     gl.uniform1f(uniform('u_time'), time)
-    gl.uniform1f(uniform('u_window'), this.style.window)
-    gl.uniform1f(uniform('u_bicubic'), this.style.bicubic ? 1 : 0)
     gl.uniform1f(uniform('u_step'), this.style.step)
-    gl.uniform1f(uniform('u_fade'), this.style.fade)
-    gl.uniform2f(uniform('u_fade_gradient'), ...this.style.gradient)
+    gl.uniform1f(uniform('u_fade'), this.style.gradientFade ? 1 : 0)
+    gl.uniform2f(uniform('u_fade_gradient'), ...ISOLINE_GRADIENT)
     gl.uniform1f(uniform('u_km_per_px'), EQUATOR_KM * Math.cos(map.getCenter().lat * Math.PI / 180) / world)
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_3D, this.volume!)

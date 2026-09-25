@@ -10,7 +10,6 @@ import {
   jitteredCellPoint,
   leastOccupiedCell,
   LEGACY_WIND_TUNING_STORAGE_KEY,
-  migrateWindTuningV2,
   occupancyGrid,
   headAlpha,
   loadWindTuning,
@@ -23,18 +22,19 @@ import {
   trailTargetSize,
   trailUvTransform,
   viewportParticleRetention,
+  WIND_PARAMETERS,
   WIND_TUNING_CONTROLS,
   WIND_TUNING_STORAGE_KEY,
   windColor,
   windScreenSpeed,
   windZoomCompensation,
   type ParticleLife,
-  type WindTuning,
+  type WindParameters,
 } from './wind-layer'
 
 const frame = 1 / 60
 
-function simulate(speedPx: number, tuning: WindTuning = DEFAULT_WIND_TUNING, distance = tuning.trailDistance) {
+function simulate(speedPx: number, tuning: WindParameters = WIND_PARAMETERS, distance = tuning.trailDistance) {
   const life: ParticleLife = { age: 0, travelled: 0, distance, remaining: distance }
   const alphas: number[] = []
   // Inkt die de kop in de buffer stempelt: alpha × afgelegde lengte.
@@ -50,7 +50,7 @@ function simulate(speedPx: number, tuning: WindTuning = DEFAULT_WIND_TUNING, dis
 
 describe('wind particle life', () => {
   it('travels the same screen distance per life regardless of wind speed', () => {
-    const tuning = DEFAULT_WIND_TUNING
+    const tuning = WIND_PARAMETERS
     for (const windSpeed of [3, 6, 9, 12, 15]) {
       const speedPx = windScreenSpeed(windSpeed)
       expect(tuning.trailDistance / speedPx, `${windSpeed} m/s blijft onder maxAge`).toBeLessThan(tuning.maxAge)
@@ -66,7 +66,7 @@ describe('wind particle life', () => {
   })
 
   it('ramps the head in over fadeInPx and out over fadeOutPx without abrupt steps', () => {
-    const tuning = DEFAULT_WIND_TUNING
+    const tuning = WIND_PARAMETERS
     for (const speedPx of [20, 60, 150]) {
       const { alphas } = simulate(speedPx)
       // Smoothstep stijgt hooguit 1,5× zo snel als lineair: grens per frame = 1,5 × stap / kortste fade.
@@ -85,7 +85,7 @@ describe('wind particle life', () => {
   })
 
   it('fades out and dies at maxAge in calm air instead of stamping a dot forever', () => {
-    const tuning = DEFAULT_WIND_TUNING
+    const tuning = WIND_PARAMETERS
     const slow = simulate(10)
     expect(slow.age).toBeCloseTo(tuning.maxAge, 1)
     expect(slow.alphas.at(-1)).toBeLessThan(0.05)
@@ -95,8 +95,8 @@ describe('wind particle life', () => {
 
   it('stays invisible and stationary while its staggered birth is pending', () => {
     const life: ParticleLife = { age: -0.5, travelled: 0, distance: 80, remaining: 80 }
-    expect(advanceLife(life, 0, frame, DEFAULT_WIND_TUNING)).toBe(true)
-    expect(headAlpha(life, DEFAULT_WIND_TUNING)).toBe(0)
+    expect(advanceLife(life, 0, frame, WIND_PARAMETERS)).toBe(true)
+    expect(headAlpha(life, WIND_PARAMETERS)).toBe(0)
     expect(life.travelled).toBe(0)
   })
 })
@@ -110,7 +110,7 @@ describe('wind spawn', () => {
   // Stilstaande particles op een 10×10-raster (100 slots); west harde wind (korte levens),
   // oost zwakke wind. Tijdgemiddelde koppen en inkt per helft plus spreiding over de cellen.
   function spawnWorld(jitter: number, gamma = 1) {
-    const tuning = { ...DEFAULT_WIND_TUNING, spawnJitter: jitter }
+    const tuning = { ...WIND_PARAMETERS, spawnJitter: jitter }
     const random = lcg(4242)
     const [columns, rows] = [10, 10]
     const slots = columns * rows
@@ -158,7 +158,7 @@ describe('wind spawn', () => {
   }
 
   it('respawns into the emptiest cell: even head density in fast and slow wind for any jitter', () => {
-    for (const jitter of [0, DEFAULT_WIND_TUNING.spawnJitter, 1]) {
+    for (const jitter of [0, WIND_PARAMETERS.spawnJitter, 1]) {
       const { heads, dispersion } = spawnWorld(jitter)
       expect(heads, `jitter ${jitter}`).toBeGreaterThan(0.9)
       expect(heads, `jitter ${jitter}`).toBeLessThan(1.1)
@@ -168,8 +168,8 @@ describe('wind spawn', () => {
   })
 
   it('damps heads in hard wind so ink per area stays speed-independent at gamma 1', () => {
-    const undamped = spawnWorld(DEFAULT_WIND_TUNING.spawnJitter, 0)
-    const damped = spawnWorld(DEFAULT_WIND_TUNING.spawnJitter, 1)
+    const undamped = spawnWorld(WIND_PARAMETERS.spawnJitter, 0)
+    const damped = spawnWorld(WIND_PARAMETERS.spawnJitter, 1)
     expect(undamped.ink).toBeGreaterThan(3)
     expect(damped.ink).toBeGreaterThan(0.8)
     expect(damped.ink).toBeLessThan(1.25)
@@ -234,7 +234,7 @@ describe('wind trail buffer', () => {
   it('never lets an 8-bit trail pixel stall at a non-zero value (t3i ghosts)', () => {
     for (const hz of [30, 60, 120, 144]) {
       const seconds = 1 / hz
-      const decay = bufferDecay(DEFAULT_WIND_TUNING.bufferFade, seconds)
+      const decay = bufferDecay(WIND_PARAMETERS.bufferFade, seconds)
       let value = 255
       let frames = 0
       while (value > 0) {
@@ -292,33 +292,28 @@ describe('wind profile (U24)', () => {
 })
 
 describe('wind tuning', () => {
-  it('exposes every tuning key as a control with its default in range', () => {
+  it('exposes exactly the four MIP-12 knobs, each default in range', () => {
     for (const control of WIND_TUNING_CONTROLS) {
       expect(DEFAULT_WIND_TUNING[control.key], control.key).toBeGreaterThanOrEqual(control.min)
       expect(DEFAULT_WIND_TUNING[control.key], control.key).toBeLessThanOrEqual(control.max)
+      expect(DEFAULT_WIND_TUNING[control.key], control.key).toBe(WIND_PARAMETERS[control.key])
     }
+    expect(WIND_TUNING_CONTROLS.map((control) => control.label)).toEqual(['Dichtheid', 'Intensiteit', 'Lijnbreedte', 'Tempo'])
     expect(WIND_TUNING_CONTROLS.map((control) => control.key).sort()).toEqual(Object.keys(DEFAULT_WIND_TUNING).sort())
   })
 
-  it('sanitizes stored tuning: clamps ranges, ignores junk and U3 leftovers, fills defaults', () => {
+  it('sanitizes stored tuning: clamps ranges, ignores junk and keys that are constants now', () => {
     expect(sanitizeWindTuning(undefined)).toEqual(DEFAULT_WIND_TUNING)
     expect(sanitizeWindTuning('nee')).toEqual(DEFAULT_WIND_TUNING)
-    const tuned = sanitizeWindTuning({ trailDistance: 10_000, intensity: 'veel', fadeInPx: 20, trailOpacity: 0.3, minAge: 1 })
-    expect(tuned.trailDistance).toBe(400)
-    expect(tuned.intensity).toBe(DEFAULT_WIND_TUNING.intensity)
-    expect(tuned.fadeInPx).toBe(20)
-    expect('trailOpacity' in tuned).toBe(false)
-    expect('minAge' in tuned).toBe(false)
+    const tuned = sanitizeWindTuning({ lineWidth: 100, intensity: 'veel', speed: 1.5, trailDistance: 20, maxFps: 30 })
+    expect(tuned).toEqual({ ...DEFAULT_WIND_TUNING, lineWidth: 8, speed: 1.5 })
   })
 
-  it('persists only non-default tuning so later default changes still reach users', () => {
+  it('persists only non-default knobs so later default changes still reach users', () => {
     const values = new Map<string, string>()
-    const storage = {
-      getItem: (key: string) => values.get(key) ?? null,
-      setItem: (key: string, value: string) => void values.set(key, value),
-      removeItem: (key: string) => void values.delete(key),
-    }
+    const storage = memoryStorage(values)
     storeWindTuning({ ...DEFAULT_WIND_TUNING, intensity: 0.3 }, storage)
+    expect(JSON.parse(values.get(WIND_TUNING_STORAGE_KEY)!)).toEqual({ intensity: 0.3 })
     expect(loadWindTuning(storage).intensity).toBe(0.3)
     storeWindTuning({ ...DEFAULT_WIND_TUNING }, storage)
     expect(values.has(WIND_TUNING_STORAGE_KEY)).toBe(false)
@@ -326,36 +321,20 @@ describe('wind tuning', () => {
     expect(loadWindTuning(storage)).toEqual(DEFAULT_WIND_TUNING)
   })
 
-  it('stores only the changed knobs, so a later default change reaches a user who moved another knob', () => {
-    const values = new Map<string, string>()
-    const storage = memoryStorage(values)
-    storeWindTuning({ ...DEFAULT_WIND_TUNING, maxFps: 30 }, storage)
-    expect(JSON.parse(values.get(WIND_TUNING_STORAGE_KEY)!)).toEqual({ maxFps: 30 })
-  })
-
-  it('migrates a full v2 tuning once: old defaults follow the current default, own intensity becomes the focus strength', () => {
-    // U3b/U12-defaults zoals v2 ze wegschreef zodra één knop (hier maxFps) afweek.
-    const v2 = { ...DEFAULT_WIND_TUNING, intensity: 1.9, maxFps: 30 }
-    const values = new Map([[LEGACY_WIND_TUNING_STORAGE_KEY, JSON.stringify(v2)]])
+  it('migrates v3 once to v4: the four knobs survive, keys that became constants are dropped', () => {
+    expect(WIND_TUNING_STORAGE_KEY).toBe('motregen-wind-tuning-v4')
+    expect(LEGACY_WIND_TUNING_STORAGE_KEY).toBe('motregen-wind-tuning-v3')
+    const values = new Map([[LEGACY_WIND_TUNING_STORAGE_KEY, JSON.stringify({ intensity: 0.5, particlesPerMegapixel: 900, maxFps: 30, trailDistance: 120 })]])
     const storage = memoryStorage(values)
     const loaded = loadWindTuning(storage)
-    expect(loaded).toEqual({ ...DEFAULT_WIND_TUNING, maxFps: 30 })
-    expect(loaded.intensity).toBe(0.75)
+    expect(loaded).toEqual({ ...DEFAULT_WIND_TUNING, intensity: 0.5, particlesPerMegapixel: 900 })
     expect(values.has(LEGACY_WIND_TUNING_STORAGE_KEY)).toBe(false)
-    expect(JSON.parse(values.get(WIND_TUNING_STORAGE_KEY)!)).toEqual({ maxFps: 30 })
-    // Eenmalig: nogmaals laden schaalt niet opnieuw.
+    expect(JSON.parse(values.get(WIND_TUNING_STORAGE_KEY)!)).toEqual({ intensity: 0.5, particlesPerMegapixel: 900 })
     expect(loadWindTuning(storage)).toEqual(loaded)
-
-    for (const old of [0.5, 1.4, 1.9, 1.27]) expect(migrateWindTuningV2({ ...v2, intensity: old }).intensity).toBe(DEFAULT_WIND_TUNING.intensity)
-    // 1,5 × 0,75 / 1,905: windfocus (× WIND_FOCUS_GAIN) geeft weer ~1,5.
-    expect(migrateWindTuningV2({ ...v2, intensity: 1.5 }).intensity).toBe(0.59)
-    expect(migrateWindTuningV2({ ...v2, lineWidth: 1.5 }).lineWidth).toBe(DEFAULT_WIND_TUNING.lineWidth)
-    expect(migrateWindTuningV2({ lineWidth: 3 })).toEqual({ ...DEFAULT_WIND_TUNING, lineWidth: 3 })
-    expect(migrateWindTuningV2('{kapot')).toEqual(DEFAULT_WIND_TUNING)
   })
 
-  it('leaves no v2 key behind when the migrated tuning equals the defaults', () => {
-    const values = new Map([[LEGACY_WIND_TUNING_STORAGE_KEY, JSON.stringify({ ...DEFAULT_WIND_TUNING, intensity: 1.9 })]])
+  it('leaves no key behind when the v3 tuning only touched knobs that are constants now', () => {
+    const values = new Map([[LEGACY_WIND_TUNING_STORAGE_KEY, JSON.stringify({ maxFps: 30, bufferDpr: 1 })]])
     expect(loadWindTuning(memoryStorage(values))).toEqual(DEFAULT_WIND_TUNING)
     expect(values.size).toBe(0)
   })
