@@ -22,15 +22,27 @@ export interface SourceFreshness {
   kind: 'measured' | 'run'
   epoch: number
   cadence: string
+  provider: string
+  explanation: string
+  cadenceMs: number
+  // Gebruikelijke tijd tussen meting/run en publicatie; schatting uit één prod-steekproef
+  // (2026-09-25 13:43, U34), behalve de radar (LOG u17).
+  delayMs: number
 }
 
+const MINUTE = 60_000
 const SOURCE_ROWS: Array<Omit<SourceFreshness, 'epoch'>> = [
-  { source: 'rtcor', label: 'Radar', kind: 'measured', cadence: 'elke 5 min' },
-  { source: 'nowcast', label: 'Nowcast', kind: 'run', cadence: 'elke 5 min' },
-  { source: 'seamless', label: 'Blend', kind: 'run', cadence: 'elk kwartier' },
-  { source: 'harmonie', label: 'HARMONIE', kind: 'run', cadence: 'elke 3 uur' },
-  { source: 'uv', label: 'UV', kind: 'run', cadence: 'elk kwartier' },
+  { source: 'rtcor', label: 'Radar', kind: 'measured', cadence: 'elke 5 min', provider: 'KNMI-radar', explanation: 'Gemeten neerslag, bijgesteld met regenmeters', cadenceMs: 5 * MINUTE, delayMs: 3 * MINUTE },
+  { source: 'nowcast', label: 'Nowcast', kind: 'run', cadence: 'elke 5 min', provider: 'KNMI-nowcast', explanation: 'Radarbeeld doorgetrokken, 2 uur vooruit', cadenceMs: 5 * MINUTE, delayMs: 3 * MINUTE },
+  { source: 'seamless', label: 'Blend', kind: 'run', cadence: 'elk kwartier', provider: 'KNMI seamless', explanation: 'Nowcast die overloopt in het weermodel, 6 uur vooruit', cadenceMs: 15 * MINUTE, delayMs: 15 * MINUTE },
+  { source: 'harmonie', label: 'HARMONIE', kind: 'run', cadence: 'elke 3 uur', provider: 'KNMI HARMONIE-AROME', explanation: 'Weermodel voor regen, wind en temperatuur, 60 uur vooruit', cadenceMs: 180 * MINUTE, delayMs: 120 * MINUTE },
+  { source: 'uv', label: 'UV', kind: 'run', cadence: 'elk kwartier', provider: 'KNMI UV-index', explanation: 'Zonkracht met en zonder wolken', cadenceMs: 15 * MINUTE, delayMs: 0 },
 ]
+
+/** Wanneer de volgende meting/run ongeveer binnenkomt. */
+export function expectedNext(row: SourceFreshness): number {
+  return row.epoch + row.cadenceMs + row.delayMs
+}
 
 // Per bron het recentste tijdstip: voor de radar de laatste meting (niet de
 // chunk-run, want een rtcor-chunk groeit binnen zijn uur), elders de nieuwste run.

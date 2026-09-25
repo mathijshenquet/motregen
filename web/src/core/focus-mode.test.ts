@@ -42,10 +42,10 @@ describe('focus tween math', () => {
   })
 
   it('brings the damped wind back to full at full wind focus', () => {
-    // U24: default subtieler, focus-inkt ongewijzigd (1,27 × 1,5 van U19).
-    expect(windFocusIntensity(DEFAULT_WIND_TUNING.intensity, 0)).toBe(0.75)
-    expect(windFocusIntensity(DEFAULT_WIND_TUNING.intensity, 1)).toBeCloseTo(1.905)
-    expect(windFocusIntensity(DEFAULT_WIND_TUNING.intensity / 2, 1)).toBeCloseTo(1.905 / 2)
+    // PO 2026-09-25 live (U34): default 0,5, windfocus 0,8.
+    expect(windFocusIntensity(DEFAULT_WIND_TUNING.intensity, 0)).toBe(0.5)
+    expect(windFocusIntensity(DEFAULT_WIND_TUNING.intensity, 1)).toBeCloseTo(0.8)
+    expect(windFocusIntensity(DEFAULT_WIND_TUNING.intensity / 2, 1)).toBeCloseTo(0.8 / 2)
   })
 })
 

@@ -45,7 +45,7 @@ export const WIND_PARAMETERS: WindParameters = {
   fadeOutPx: 30, // Fade-out (U3b)
   maxAge: 6, // Max. leeftijd (U3)
   spawnJitter: 0.6, // Spawn-jitter (U3b)
-  speedDamping: 0.7, // Snelheidsdemping (U3b)
+  speedDamping: 1, // Snelheidsdemping; PO 2026-09-25 live (U34): zee rustiger, was 0,7 (U3b)
   // 0,955 per frame bij 60 Hz, de fade van vóór U3.
   bufferFade: 0.063,
   // Buffer nooit fijner dan 2 device-px per CSS-px: op een Pixel 5 (DPR 2,75) kostten fade +
@@ -55,9 +55,9 @@ export const WIND_PARAMETERS: WindParameters = {
   headIntensity: 0.95, // Kopintensiteit (U3b)
   lineWidth: 2.5,
   speed: 1,
-  // PO 2026-09-25 (U24): default een stuk subtieler, ~60 % van de inkt bij 1,27; windfocus (U19)
-  // tweent naar WIND_FOCUS_INTENSITY, zoals vóór U24.
-  intensity: 0.75,
+  // PO 2026-09-25 live (U34): default subtieler dan U24 (0,75); windfocus (U19) tweent naar
+  // WIND_FOCUS_INTENSITY.
+  intensity: 0.5,
   visibility: 1, // Contrast (U3); App vermenigvuldigt met de focusdemping
   maxFps: 60, // Max. fps (U8c)
 }
@@ -74,8 +74,8 @@ export const DEFAULT_WIND_TUNING: WindTuning = {
 /** Bovengrens voor wind-, regen-, isolijn- en afspeelframes (Max. fps; knop weg in U30). */
 export const WIND_MAX_FPS = WIND_PARAMETERS.maxFps
 
-/** Intensiteit bij volle windfocus met de default-tuning (U19: ×1,5 op de toenmalige 1,27). */
-export const WIND_FOCUS_INTENSITY = 1.905
+/** Intensiteit bij volle windfocus met de default-tuning (PO 2026-09-25 live, U34; was 1,905). */
+export const WIND_FOCUS_INTENSITY = 0.8
 
 export interface WindTuningControl {
   key: keyof WindTuning
@@ -115,10 +115,34 @@ const MIN_TRAIL_STEP_MS = 4
 const REBASE_ZOOM = 0.5
 const REBASE_MARGIN = 0.05
 const FILL_MAX_PHASE = 0.6
+// PO 2026-09-25 live (U34): een respawn kiest het midden van zijn leven in de leegste cel en wordt
+// langs de wind teruggespoeld naar zijn geboorte; aan loef ligt die tot OVERDRAW_PX buiten beeld,
+// zodat de kop al ingefade binnendrijft. Ruim boven de halve trailDistance (45 px × 1,2).
+const OVERDRAW_PX = 60
+const REWIND_STEP_SECONDS = 0.1
+// PO 2026-09-25 live (U34): een particle heeft een beetje momentum met veel drag; zijn snelheid
+// volgt de wind met deze tijdconstante (s). Rondt ook de sprongen op gridcelgrenzen af.
+const DRAG_SECONDS = 0.5
+const REWIND_MAX_STEPS = 40
+// Best-candidate (Mitchell): van zoveel teruggespoelde kandidaten wint het geboortepunt in de leegste cel.
+const SPAWN_CANDIDATES = 6
+// PO 2026-09-25 live (U34): koppen die dichter dan dit (CSS-px) bij elkaar komen, klonteren; de oudste
+// van het paar dooft uit en wordt elders geboren.
+const DECLUMP_PX = 10
+// PO 2026-09-25 live (U34): koppen boven water (de `water`-laag van de basemap) een derde zachter.
+const SEA_PENALTY = 0.33
+// Maskercel in CSS-px; het masker wordt na elke beweging uit de geladen tegels opnieuw getekend.
+const WATER_MASK_PX = 4
+const WATER_REBUILD_MS = 200
+const DECLUMP_NEIGHBOURS = [[0, 0], [1, 0], [-1, 1], [0, 1], [1, 1]] as const
 const SPAWN_ATTEMPTS = 32
 const EMPTIEST_SAMPLES = 48
 // Boven deze windsnelheid (m/s) dimt speedDamping de kop.
 const DAMPING_REFERENCE_SPEED = 3
+// PO 2026-09-25 live (U34): onder deze windsnelheid (m/s) krijgt de beweging extra tempo, tot
+// WEAK_WIND_MAX_BOOST×; de staart is ~snelheid × fadetijd en was bij zwakke wind een stip.
+const WEAK_WIND_SPEED = 6
+const WEAK_WIND_MAX_BOOST = 2.5
 const MERCATOR_SCALE = 1 / (2 * Math.PI * 6_378_137)
 const BEAUFORT_STOPS = [0, 3.4, 8, 13.9, 20.8, 32.7] as const
 const LIGHT_RAMP = [
@@ -142,6 +166,8 @@ uniform vec2 u_uv_scale;
 uniform vec2 u_uv_offset;
 out vec4 v_color;
 out float v_across;
+out float v_along;
+out float v_length;
 // Van het huidige beeld naar het beeld waarin de trailbuffer verankerd is, in pixels van de buffer.
 vec2 anchorPx(vec4 clip) {
   vec2 uv = (clip.xy / clip.w * 0.5 + 0.5) * u_uv_scale + u_uv_offset;
@@ -154,9 +180,13 @@ void main() {
   float len = length(delta);
   vec2 direction = len > 1e-4 ? delta / len : vec2(1.0, 0.0);
   float side = (gl_VertexID & 1) == 0 ? 1.0 : -1.0;
-  vec2 px = (gl_VertexID >= 2 ? toPx : fromPx) + vec2(-direction.y, direction.x) * side * u_extent;
+  // Eén pixel langer aan beide kanten voor de dekking in de lengte.
+  float along = gl_VertexID >= 2 ? len + 1.0 : -1.0;
+  vec2 px = fromPx + direction * along + vec2(-direction.y, direction.x) * side * u_extent;
   gl_Position = vec4(px / (0.5 * u_target), 0.0, 1.0);
   v_across = side * u_extent;
+  v_along = along;
+  v_length = len;
   v_color = len > 1e-4 ? a_color : vec4(0.0);
 }`
 
@@ -164,13 +194,20 @@ const segmentFragmentSource = `#version 300 es
 precision mediump float;
 in vec4 v_color;
 in float v_across;
+in float v_along;
+in float v_length;
 uniform float u_half_width;
 uniform float u_head;
 uniform float u_visibility;
 uniform vec3 u_contrast;
 out vec4 color;
 void main() {
-  float coverage = clamp(u_half_width + 0.5 - abs(v_across), 0.0, 1.0);
+  // Box-gefilterde dekking in beide richtingen. In de lengte (U34): een segment korter dan een pixel
+  // raakte een pixelmidden of niet, zodat trage staarten als kralen (aliasing) werden gestempeld;
+  // zo zetten opeenvolgende segmenten samen precies gelijkmatig inkt af.
+  float across = clamp(u_half_width + 0.5 - abs(v_across), 0.0, 1.0);
+  float along = clamp(min(v_along + 0.5, v_length) - max(v_along - 0.5, 0.0), 0.0, 1.0);
+  float coverage = across * along;
   float alpha = v_color.a * coverage * u_head;
   vec3 rgb = mix(v_color.rgb, u_contrast, clamp((u_visibility - 1.0) * 0.5, 0.0, 1.0));
   color = vec4(rgb * alpha, alpha);
@@ -275,6 +312,8 @@ export class WindLayer implements CustomLayerInterface {
   private trailWidth = 0
   private trailHeight = 0
   private trailView?: TrailView
+  /** RGBA16F-trailbuffer (U34): geen 8-bit-restgrijs en een veel lichtere vloer; anders RGBA8. */
+  private halfFloat = false
   private renderedView?: TrailView
   private left?: Float32Array
   private right?: Float32Array
@@ -289,12 +328,21 @@ export class WindLayer implements CustomLayerInterface {
   /** Levensschaal (0,8–1,2) op afstand én maxAge: waar maxAge de dood bepaalt (zwakke wind) blijft een cohort anders synchroon. */
   private lifeScales = new Float32Array(MAX_PARTICLES).fill(1)
   private lifeLimit = { maxAge: 0 }
+  /** Eigen snelheid (m/s oost/noord); NaN = nog niet gezet, neemt bij de eerste sample de wind over. */
+  private velocityEast = new Float32Array(MAX_PARTICLES).fill(Number.NaN)
+  private velocityNorth = new Float32Array(MAX_PARTICLES).fill(Number.NaN)
+  private rewound: [number, number] = [0, 0]
+  private cellFirst = new Int32Array(MAX_PARTICLES * 2)
+  private cellNext = new Int32Array(MAX_PARTICLES)
+  private clumped = new Uint8Array(MAX_PARTICLES)
   /** Tijdsfade (0–1) bovenop de afstandsfades; `rampRates` > 0 = aanvuller, < 0 = overtal. */
   private ramps = new Float32Array(MAX_PARTICLES).fill(1)
   private rampRates = new Float32Array(MAX_PARTICLES)
   private retiring = 0
   /** Getoonde kop-alpha (0–1), die hooguit met 1/DEATH_SECONDS per seconde daalt. */
   private shown = new Float32Array(MAX_PARTICLES)
+  /** 1 = is al in beeld geweest; 0 = teruggespoelde pasgeborene die nog aan loef in de marge drijft. */
+  private entered = new Uint8Array(MAX_PARTICLES)
   /** 1 = leven voorbij, de kop dooft uit (telt mee in `retiring`). */
   private dying = new Uint8Array(MAX_PARTICLES)
   private instanceData = new ArrayBuffer(MAX_PARTICLES * INSTANCE_BYTES)
@@ -318,8 +366,18 @@ export class WindLayer implements CustomLayerInterface {
   private frameCount = 0
   /** Het zichtbare beeld in gridfracties: hierbuiten sterft een particle. */
   private viewBounds: ParticleBounds = { west: 0, north: 0, east: 1, south: 1 }
+  /** Het beeld plus OVERDRAW_PX rondom: hier leven teruggespoelde pasgeborenen tot ze het beeld in drijven (U34). */
+  private simBounds: ParticleBounds = { west: 0, north: 0, east: 1, south: 1 }
   private tuning: WindParameters
-  private readonly viewportChanged = () => this.resetViewport()
+  private readonly viewportChanged = () => { this.resetViewport(); this.scheduleWaterMask() }
+  private readonly tilesChanged = () => this.scheduleWaterMask()
+  /** Waterfractie (0–255) per maskercel over `waterBounds`; undefined = alles land. */
+  private waterMask?: Uint8Array
+  private waterColumns = 0
+  private waterRows = 0
+  private waterBounds: ParticleBounds = { west: 0, north: 0, east: 1, south: 1 }
+  private waterCanvas?: HTMLCanvasElement
+  private waterTimer?: ReturnType<typeof setTimeout>
 
   constructor(private readonly grid: Grid, private theme: MapTheme, tuning: Partial<WindParameters> = {}) {
     this.tuning = { ...WIND_PARAMETERS, ...tuning }
@@ -358,10 +416,13 @@ export class WindLayer implements CustomLayerInterface {
     this.fadeArray = screenArray(gl, fade, this.screenBuffer, true)
     this.compositeArray = screenArray(gl, composite, this.screenBuffer, false)
     gl.bindVertexArray(null)
+    this.halfFloat = !!(gl.getExtension('EXT_color_buffer_float') ?? gl.getExtension('EXT_color_buffer_half_float'))
     this.ensureTrailTargets()
     map.on('move', this.viewportChanged)
+    map.on('sourcedata', this.tilesChanged)
     map.on('resize', this.viewportChanged)
     this.resetViewport(true)
+    this.scheduleWaterMask()
     ;(globalThis as { __motregenWind?: WindLayer }).__motregenWind = this
   }
 
@@ -372,6 +433,9 @@ export class WindLayer implements CustomLayerInterface {
     this.repaintFrame = undefined
     this.map?.off('move', this.viewportChanged)
     this.map?.off('resize', this.viewportChanged)
+    this.map?.off('sourcedata', this.tilesChanged)
+    if (this.waterTimer !== undefined) clearTimeout(this.waterTimer)
+    this.waterTimer = undefined
     for (const buffer of [this.instanceBuffer, this.screenBuffer]) if (buffer) gl.deleteBuffer(buffer)
     for (const array of [this.segmentArray, this.fadeArray, this.compositeArray]) if (array) gl.deleteVertexArray(array)
     for (const program of [this.segmentProgram, this.fadeProgram, this.compositeProgram]) if (program) gl.deleteProgram(program)
@@ -396,8 +460,11 @@ export class WindLayer implements CustomLayerInterface {
     const ys: number[] = []
     for (let index = 0; index < this.active; index++) {
       if (this.ages[index]! <= 0 || this.instanceBytes[index * INSTANCE_BYTES + 19] === 0) continue
-      xs.push((this.x[index]! - bounds.west) / (bounds.east - bounds.west))
-      ys.push((this.y[index]! - bounds.north) / (bounds.south - bounds.north))
+      const u = (this.x[index]! - bounds.west) / (bounds.east - bounds.west)
+      const v = (this.y[index]! - bounds.north) / (bounds.south - bounds.north)
+      if (!(u >= 0 && u <= 1 && v >= 0 && v <= 1)) continue
+      xs.push(u)
+      ys.push(v)
     }
     return { particles: xs.length, dispersion: cellDispersion(xs, ys, xs.length, columns, rows) }
   }
@@ -479,7 +546,9 @@ export class WindLayer implements CustomLayerInterface {
     if (stepping) {
       this.previousTime = now
       this.adjustBudget(elapsed)
-      this.advance(seconds, WORLD_TILE_SIZE * 2 ** this.map.getZoom())
+      const worldPx = WORLD_TILE_SIZE * 2 ** this.map.getZoom()
+      this.advance(seconds, worldPx)
+      this.declump(worldPx)
     }
 
     const viewport = gl.getParameter(gl.VIEWPORT) as Int32Array
@@ -513,7 +582,7 @@ export class WindLayer implements CustomLayerInterface {
       gl.bindTexture(gl.TEXTURE_2D, previous.texture)
       gl.uniform1i(this.fadeUniforms!.trail, 0)
       gl.uniform1f(this.fadeUniforms!.fade, bufferDecay(this.tuning.bufferFade, seconds) * (rebase ? drift.retention : 1))
-      gl.uniform1f(this.fadeUniforms!.floor, stepping ? trailFloor(seconds) : 0)
+      gl.uniform1f(this.fadeUniforms!.floor, stepping ? (this.halfFloat ? halfFloatTrailFloor(seconds) : trailFloor(seconds)) : 0)
       gl.uniform1f(this.fadeUniforms!.warp, rebase ? 1 : 0)
       gl.uniform2f(this.fadeUniforms!.uvScale, drift.scaleX, drift.scaleY)
       gl.uniform2f(this.fadeUniforms!.uvOffset, drift.offsetX, drift.offsetY)
@@ -590,11 +659,12 @@ export class WindLayer implements CustomLayerInterface {
     const tuning = this.tuning
     const gridWidth = this.grid.dx * this.grid.width
     const gridHeight = this.grid.dy * this.grid.height
-    const advectionScale = ADVECTION_SCALE * tuning.speed * windZoomCompensation(this.map?.getZoom() ?? WIND_REFERENCE_ZOOM)
+    const advectionScale = this.advectionScale()
     const unitX = gridWidth * MERCATOR_SCALE
     const unitY = -gridHeight * MERCATOR_SCALE
     const life = this.life
     const floats = this.instanceFloats
+    const follow = 1 - Math.exp(-seconds / DRAG_SECONDS)
     this.countCells()
     for (let index = 0; index < this.active; index++) {
       const rate = this.rampRates[index]!
@@ -626,12 +696,27 @@ export class WindLayer implements CustomLayerInterface {
       let stepPx = 0
       let speed = 0
       if (life.age + seconds > 0 && this.sampleWind(oldX, oldY)) {
-        nextX += this.east * seconds * advectionScale / Math.abs(gridWidth)
-        nextY -= this.north * seconds * advectionScale / Math.abs(gridHeight)
-        stepPx = Math.hypot((nextX - oldX) * unitX, (nextY - oldY) * unitY) * worldPx
         speed = Math.hypot(this.east, this.north)
+        let east = this.velocityEast[index]!
+        let north = this.velocityNorth[index]!
+        if (Number.isNaN(east)) {
+          east = this.east
+          north = this.north
+        } else {
+          east += (this.east - east) * follow
+          north += (this.north - north) * follow
+        }
+        this.velocityEast[index] = east
+        this.velocityNorth[index] = north
+        const step = seconds * advectionScale * weakWindTempo(Math.hypot(east, north))
+        nextX += east * step / Math.abs(gridWidth)
+        nextY -= north * step / Math.abs(gridHeight)
+        stepPx = Math.hypot((nextX - oldX) * unitX, (nextY - oldY) * unitY) * worldPx
       }
-      const outside = !this.inView(nextX, nextY)
+      // Buiten het domein, of net het beeld uit: weg. Wie nog buiten beeld aan loef drijft, leeft door.
+      const inView = this.inView(nextX, nextY)
+      const outside = !this.inDomain(nextX, nextY) || (this.entered[index] === 1 && !inView)
+      if (inView) this.entered[index] = 1
       const offset = index * INSTANCE_BYTES / 4
       this.lifeLimit.maxAge = tuning.maxAge * this.lifeScales[index]!
       if (!dying && (outside || !advanceLife(life, stepPx, seconds, this.lifeLimit))) {
@@ -658,9 +743,58 @@ export class WindLayer implements CustomLayerInterface {
       this.instanceBytes[byte + 2] = Math.round(this.color[2]! * 255)
       // Omhoog direct, omlaag hooguit 1/DEATH_SECONDS per seconde: een snelheidssprong naar (bijna)
       // windstil of een gat in het veld liet de kop anders in één frame verdwijnen (U24).
-      const target = headAlpha(life, tuning) * smooth(Math.max(0, this.ramps[index]!)) * speedDamping(speed, tuning.speedDamping)
+      const target = headAlpha(life, tuning) * smooth(Math.max(0, this.ramps[index]!)) * speedDamping(speed, tuning.speedDamping) * this.waterFactor(nextX, nextY)
       this.shown[index] = Math.max(target, this.shown[index]! - seconds / DEATH_SECONDS)
       this.instanceBytes[byte + 3] = Math.round(this.shown[index]! * 255)
+    }
+  }
+
+  /**
+   * Van elk paar levende koppen binnen DECLUMP_PX sterft de verste in zijn leven (uitdoven + vervanger
+   * elders); buren via het bezettingsraster, alleen de eigen en de vier "latere" buurcellen.
+   */
+  private declump(worldPx: number): void {
+    const cells = this.columns * this.rows
+    const first = this.cellFirst
+    const next = this.cellNext
+    first.fill(-1, 0, cells)
+    for (let index = 0; index < this.active; index++) {
+      this.clumped[index] = 0
+      if (this.fading(index) || this.ages[index]! <= 0) continue
+      const cell = this.cellOf(this.x[index]!, this.y[index]!)
+      if (cell < 0) continue
+      next[index] = first[cell]!
+      first[cell] = index
+    }
+    const scaleX = this.grid.dx * this.grid.width * MERCATOR_SCALE * worldPx
+    const scaleY = this.grid.dy * this.grid.height * MERCATOR_SCALE * worldPx
+    const limit = DECLUMP_PX * DECLUMP_PX
+    for (let row = 0; row < this.rows; row++) {
+      for (let column = 0; column < this.columns; column++) {
+        for (let a = first[row * this.columns + column]!; a >= 0; a = next[a]!) {
+          if (this.clumped[a]) continue
+          for (const [dc, dr] of DECLUMP_NEIGHBOURS) {
+            const c = column + dc
+            const r = row + dr
+            if (c < 0 || c >= this.columns || r >= this.rows) continue
+            for (let b = dc === 0 && dr === 0 ? next[a]! : first[r * this.columns + c]!; b >= 0; b = next[b]!) {
+              if (this.clumped[b]) continue
+              const dx = (this.x[a]! - this.x[b]!) * scaleX
+              const dy = (this.y[a]! - this.y[b]!) * scaleY
+              if (dx * dx + dy * dy >= limit) continue
+              const older = this.travelled[a]! / this.distances[a]! + this.ages[a]! / (this.tuning.maxAge * this.lifeScales[a]!) >=
+                this.travelled[b]! / this.distances[b]! + this.ages[b]! / (this.tuning.maxAge * this.lifeScales[b]!) ? a : b
+              this.clumped[older] = 1
+              if (older === a) break
+            }
+            if (this.clumped[a]) break
+          }
+        }
+      }
+    }
+    // Aflopend: die() kan een slot opheffen en het laatste particle naar `index` verplaatsen.
+    for (let index = this.active - 1; index >= 0; index--) {
+      if (this.clumped[index] && !this.fading(index)) this.die(index, this.x[index]!, this.y[index]!)
     }
   }
 
@@ -687,31 +821,64 @@ export class WindLayer implements CustomLayerInterface {
   // zonder zichtbaar raster. Dat maakt de inkt ∝ windsnelheid; speedDamping
   // compenseert dat in de kopintensiteit.
   private respawn(index: number, delaySeconds: number, fill = false): void {
-    const bounds = this.viewBounds
-    let cell = 0
-    const [x, y] = pickSpawn(SPAWN_ATTEMPTS, () => {
-      // Aanvullers (pan/zoom) in de leegste omgeving, zodat een binnengeschoven strook meteen vol is;
-      // gewone respawns in een willekeurige lege cel: de omgevingskeuze stuurde alle pasgeborenen
-      // (nog in fade-in, zonder staart) naar loef, en maakte de inkt daar juist dunner (U24b).
-      cell = fill
-        ? emptiestCell(this.cellCounts, this.columns, this.rows, () => this.random())
-        : leastOccupiedCell(this.cellCounts, this.columns * this.rows, this.random())
-      const [u, v] = jitteredCellPoint(cell, this.columns, this.rows, fill ? 1 : this.tuning.spawnJitter, () => this.random())
-      return [bounds.west + u * (bounds.east - bounds.west), bounds.north + v * (bounds.south - bounds.north)]
-    }, () => this.random(), (candidateX, candidateY) => !this.left || this.sampleWind(candidateX, candidateY) ? 1 : 0)
-    this.cellCounts[cell]!++
-    this.x[index] = x
-    this.y[index] = y
-    this.ages[index] = -delaySeconds
-    this.travelled[index] = 0
     // ±20 %: anders sterft een homogeen zeeveld in synchrone golven.
     const lifeScale = 0.8 + this.random() * 0.4
     this.lifeScales[index] = lifeScale
     this.distances[index] = this.tuning.trailDistance * lifeScale
+    if (fill) {
+      // Aanvullers (pan/zoom) midden in hun leven in de leegste omgeving binnen beeld, zodat een
+      // binnengeschoven strook meteen vol is (U24b).
+      const bounds = this.simBounds
+      let cell = 0
+      const [x, y] = pickSpawn(SPAWN_ATTEMPTS, () => {
+        // Alleen cellen in beeld: de marge is vrijwel leeg en won anders altijd, waarna de aanvuller na
+        // SPAWN_ATTEMPTS afwijzingen onzichtbaar in de marge belandde (U34, e2e wind-zoom continu).
+        cell = emptiestCell(this.cellCounts, this.columns, this.rows, () => this.random(), undefined, (candidate) => this.cellInView(candidate))
+        const [u, v] = jitteredCellPoint(cell, this.columns, this.rows, 1, () => this.random())
+        return [bounds.west + u * (bounds.east - bounds.west), bounds.north + v * (bounds.south - bounds.north)]
+      }, () => this.random(), (candidateX, candidateY) => this.inView(candidateX, candidateY) && (!this.left || this.sampleWind(candidateX, candidateY)) ? 1 : 0)
+      this.cellCounts[cell]!++
+      this.x[index] = x
+      this.y[index] = y
+    } else {
+      // Levensmidden uniform in beeld, teruggespoeld naar de geboorte; het geboortepunt in de leegste
+      // cel (beeld + marge, huidige posities) wint. Alles drijft met dezelfde wind mee, dus blue noise
+      // bij de geboorte blijft blue noise als ze binnendrijven.
+      const view = this.viewBounds
+      let bestScore = Infinity
+      let bestX = 0
+      let bestY = 0
+      for (let attempt = 0; attempt < SPAWN_CANDIDATES; attempt++) {
+        const midX = view.west + this.random() * (view.east - view.west)
+        const midY = view.north + this.random() * (view.south - view.north)
+        if (this.left && !this.sampleWind(midX, midY)) continue
+        this.rewind(midX, midY, this.distances[index]! / 2, this.tuning.maxAge * lifeScale / 2)
+        const cell = this.cellOf(this.rewound[0], this.rewound[1])
+        const score = (cell < 0 ? SPAWN_CANDIDATES : this.cellCounts[cell]!) + this.random() * 0.5
+        if (score < bestScore) {
+          bestScore = score
+          bestX = this.rewound[0]
+          bestY = this.rewound[1]
+        }
+      }
+      if (bestScore === Infinity) {
+        bestX = view.west + this.random() * (view.east - view.west)
+        bestY = view.north + this.random() * (view.south - view.north)
+      }
+      const cell = this.cellOf(bestX, bestY)
+      if (cell >= 0) this.cellCounts[cell]!++
+      this.x[index] = bestX
+      this.y[index] = bestY
+    }
+    this.velocityEast[index] = Number.NaN
+    this.velocityNorth[index] = Number.NaN
+    this.ages[index] = -delaySeconds
+    this.travelled[index] = 0
     this.ramps[index] = 1
     this.rampRates[index] = 0
     this.shown[index] = 0
     this.dying[index] = 0
+    this.entered[index] = this.inView(this.x[index]!, this.y[index]!) ? 1 : 0
     if (fill) {
       // Een willekeurige levensfase in afstand én leeftijd, anders sterven alle aanvullers van
       // één zoomstap tegelijk: bij zwakke wind (land) is maxAge de doodsoorzaak (U20).
@@ -723,8 +890,101 @@ export class WindLayer implements CustomLayerInterface {
     }
     this.instanceBytes[index * INSTANCE_BYTES + 19] = 0
     const offset = index * INSTANCE_BYTES / 4
-    this.instanceFloats[offset + 2] = 0.5 + (this.grid.x0 + this.grid.dx * this.grid.width * x) * MERCATOR_SCALE
-    this.instanceFloats[offset + 3] = 0.5 - (this.grid.y0 + this.grid.dy * this.grid.height * y) * MERCATOR_SCALE
+    this.instanceFloats[offset + 2] = 0.5 + (this.grid.x0 + this.grid.dx * this.grid.width * this.x[index]!) * MERCATOR_SCALE
+    this.instanceFloats[offset + 3] = 0.5 - (this.grid.y0 + this.grid.dy * this.grid.height * this.y[index]!) * MERCATOR_SCALE
+  }
+
+  private waterFactor(x: number, y: number): number {
+    const mask = this.waterMask
+    if (!mask) return 1
+    const bounds = this.waterBounds
+    const column = Math.floor((x - bounds.west) / (bounds.east - bounds.west) * this.waterColumns)
+    const row = Math.floor((y - bounds.north) / (bounds.south - bounds.north) * this.waterRows)
+    if (column < 0 || row < 0 || column >= this.waterColumns || row >= this.waterRows) return 1
+    return 1 - SEA_PENALTY * mask[row * this.waterColumns + column]! / 255
+  }
+
+  private scheduleWaterMask(): void {
+    if (this.waterTimer !== undefined) return
+    this.waterTimer = setTimeout(() => {
+      this.waterTimer = undefined
+      this.buildWaterMask()
+    }, WATER_REBUILD_MS)
+  }
+
+  /** Tekent de water-polygonen van de geladen basemaptegels over beeld + marge in een klein masker. */
+  private buildWaterMask(): void {
+    const map = this.map
+    if (!map || typeof map.querySourceFeatures !== 'function' || typeof document === 'undefined') return
+    const layer = map.getStyle()?.layers?.find((candidate) => 'source-layer' in candidate && candidate['source-layer'] === 'water')
+    if (!layer || !('source' in layer) || typeof layer.source !== 'string') return
+    const features = map.querySourceFeatures(layer.source, { sourceLayer: 'water' })
+    const bounds = { ...this.simBounds }
+    const canvas = map.getCanvas()
+    const columns = Math.max(1, Math.ceil((canvas.clientWidth + 2 * OVERDRAW_PX) / WATER_MASK_PX))
+    const rows = Math.max(1, Math.ceil((canvas.clientHeight + 2 * OVERDRAW_PX) / WATER_MASK_PX))
+    const target = this.waterCanvas ??= document.createElement('canvas')
+    target.width = columns
+    target.height = rows
+    const context = target.getContext('2d', { willReadFrequently: true })
+    if (!context) return
+    context.clearRect(0, 0, columns, rows)
+    context.fillStyle = '#fff'
+    const scaleX = columns / (bounds.east - bounds.west)
+    const scaleY = rows / (bounds.south - bounds.north)
+    const drawPolygon = (rings: number[][][]) => {
+      context.beginPath()
+      for (const ring of rings) {
+        ring.forEach(([lng, lat], index) => {
+          const px = (gridFractionX(this.grid, projectX(lng!)) - bounds.west) * scaleX
+          const py = (gridFractionY(this.grid, projectY(lat!)) - bounds.north) * scaleY
+          if (index === 0) context.moveTo(px, py)
+          else context.lineTo(px, py)
+        })
+        context.closePath()
+      }
+      context.fill('evenodd')
+    }
+    for (const feature of features) {
+      const geometry = feature.geometry
+      if (geometry.type === 'Polygon') drawPolygon(geometry.coordinates)
+      else if (geometry.type === 'MultiPolygon') for (const polygon of geometry.coordinates) drawPolygon(polygon)
+    }
+    const pixels = context.getImageData(0, 0, columns, rows).data
+    const mask = new Uint8Array(columns * rows)
+    for (let index = 0; index < mask.length; index++) mask[index] = pixels[index * 4 + 3]!
+    this.waterMask = mask
+    this.waterColumns = columns
+    this.waterRows = rows
+    this.waterBounds = bounds
+  }
+
+  private advectionScale(): number {
+    return ADVECTION_SCALE * this.tuning.speed * windZoomCompensation(this.map?.getZoom() ?? WIND_REFERENCE_ZOOM)
+  }
+
+  /** Volgt de wind terug vanaf (x, y) tot `distancePx` of `seconds` op is, of tot de domeinrand; zet `rewound`. */
+  private rewind(x: number, y: number, distancePx: number, seconds: number): void {
+    this.rewound[0] = x
+    this.rewound[1] = y
+    if (!this.map || !this.left) return
+    const gridWidth = this.grid.dx * this.grid.width
+    const gridHeight = this.grid.dy * this.grid.height
+    const worldPx = WORLD_TILE_SIZE * 2 ** this.map.getZoom()
+    const advectionScale = this.advectionScale()
+    let travelled = 0
+    for (let step = 0; step < REWIND_MAX_STEPS && travelled < distancePx && step * REWIND_STEP_SECONDS < seconds; step++) {
+      if (!this.sampleWind(x, y)) break
+      const scale = REWIND_STEP_SECONDS * advectionScale * weakWindTempo(Math.hypot(this.east, this.north))
+      const previousX = x
+      const previousY = y
+      x -= this.east * scale / Math.abs(gridWidth)
+      y += this.north * scale / Math.abs(gridHeight)
+      if (!this.inDomain(x, y)) break
+      travelled += Math.hypot((x - previousX) * gridWidth, (y - previousY) * gridHeight) * MERCATOR_SCALE * worldPx
+      this.rewound[0] = x
+      this.rewound[1] = y
+    }
   }
 
   /**
@@ -738,12 +998,17 @@ export class WindLayer implements CustomLayerInterface {
     const previousBounds = this.viewBounds
     const previousBudget = this.budget
     this.viewBounds = viewBounds(this.map, this.grid)
+    this.simBounds = viewBounds(this.map, this.grid, OVERDRAW_PX)
     const canvas = this.map.getCanvas()
     const target = particleCountForViewport(canvas.clientWidth, canvas.clientHeight, this.tuning.particlesPerMegapixel)
     if (resetAll || target !== this.target) this.budget = target
     const retention = viewportParticleRetention(previousBounds, this.viewBounds, previousBudget, this.budget)
     this.target = target
-    ;[this.columns, this.rows] = occupancyGrid(canvas.clientWidth, canvas.clientHeight, this.target)
+    // Het bezettingsraster dekt beeld + marge met dezelfde celmaat: pasgeborenen aan loef tellen mee.
+    const simWidth = canvas.clientWidth + 2 * OVERDRAW_PX
+    const simHeight = canvas.clientHeight + 2 * OVERDRAW_PX
+    const cells = Math.min(this.cellCounts.length, Math.round(this.target * simWidth * simHeight / Math.max(1, canvas.clientWidth * canvas.clientHeight)))
+    ;[this.columns, this.rows] = occupancyGrid(simWidth, simHeight, cells)
     if (resetAll) {
       this.active = this.budget
       this.retiring = 0
@@ -755,7 +1020,12 @@ export class WindLayer implements CustomLayerInterface {
     this.countCells()
     let survivors = 0
     for (let index = 0; index < this.active; index++) {
-      if (this.inView(this.x[index]!, this.y[index]!)) {
+      // Bij kaartbeweging is het zichtbare beeld de grens voor wie al binnen was: anders houdt een
+      // continue inzoom een ring onzichtbare ex-beeldbewoners in het budget vast (U24b, e2e wind-zoom).
+      // Pasgeborenen aan loef blijven in de marge, anders komen ze bij continu bewegen nooit binnen.
+      const x = this.x[index]!
+      const y = this.y[index]!
+      if (this.inView(x, y) || (this.entered[index] === 0 && this.inDomain(x, y))) {
         if (!this.fading(index)) survivors++
       } else if (this.fading(index)) {
         if (this.retire(index)) index--
@@ -829,13 +1099,25 @@ export class WindLayer implements CustomLayerInterface {
   private removeSlot(index: number): void {
     const last = --this.active
     if (index === last) return
-    for (const values of [this.x, this.y, this.ages, this.travelled, this.distances, this.lifeScales, this.ramps, this.rampRates, this.shown, this.dying]) values[index] = values[last]!
+    for (const values of [this.x, this.y, this.velocityEast, this.velocityNorth, this.ages, this.travelled, this.distances, this.lifeScales, this.ramps, this.rampRates, this.shown, this.dying, this.entered]) values[index] = values[last]!
     this.instanceBytes.copyWithin(index * INSTANCE_BYTES, last * INSTANCE_BYTES, (last + 1) * INSTANCE_BYTES)
   }
 
   /** Telt niet meer mee: overtal dat uitfadet of een uitlopende dode kop. */
   private fading(index: number): boolean {
     return this.rampRates[index]! < 0 || this.dying[index] === 1
+  }
+
+  private inDomain(x: number, y: number): boolean {
+    const bounds = this.simBounds
+    return x >= bounds.west && x <= bounds.east && y >= bounds.north && y <= bounds.south
+  }
+
+  private cellInView(cell: number): boolean {
+    const bounds = this.simBounds
+    const x = bounds.west + ((cell % this.columns) + 0.5) / this.columns * (bounds.east - bounds.west)
+    const y = bounds.north + (Math.floor(cell / this.columns) + 0.5) / this.rows * (bounds.south - bounds.north)
+    return this.inView(x, y)
   }
 
   private inView(x: number, y: number): boolean {
@@ -858,7 +1140,7 @@ export class WindLayer implements CustomLayerInterface {
   }
 
   private cellOf(x: number, y: number): number {
-    const bounds = this.viewBounds
+    const bounds = this.simBounds
     const u = (x - bounds.west) / (bounds.east - bounds.west)
     const v = (y - bounds.north) / (bounds.south - bounds.north)
     return u >= 0 && u < 1 && v >= 0 && v < 1 ? Math.floor(v * this.rows) * this.columns + Math.floor(u * this.columns) : -1
@@ -886,7 +1168,14 @@ export class WindLayer implements CustomLayerInterface {
     const previousWidth = this.trailWidth
     const previousHeight = this.trailHeight
     const view = this.trailView
-    const trails: [TrailTarget, TrailTarget] = [createTrailTarget(this.gl, width, height), createTrailTarget(this.gl, width, height)]
+    let trails: [TrailTarget, TrailTarget]
+    try {
+      trails = [createTrailTarget(this.gl, width, height, this.halfFloat), createTrailTarget(this.gl, width, height, this.halfFloat)]
+    } catch (error) {
+      if (!this.halfFloat) throw error
+      this.halfFloat = false
+      trails = [createTrailTarget(this.gl, width, height, false), createTrailTarget(this.gl, width, height, false)]
+    }
     this.trailIndex = 0
     if (previous && view) {
       // Resize: de buffer beschrijft het beeld in UV, dus oprekken houdt de staarten op hun plek;
@@ -995,6 +1284,11 @@ export function expectedLifetime(speedPx: number, tuning: Pick<WindParameters, '
  * inkt per oppervlak ∝ snelheid. Demping (v_ref/v)^γ boven v_ref heft dat bij
  * γ = 1 op; zeestrepen worden zachter in plaats van schaarser.
  */
+/** Tempofactor voor zwakke wind: (v₀/v)^½ onder WEAK_WIND_SPEED, begrensd; kleur en demping houden de echte snelheid. */
+export function weakWindTempo(windSpeed: number): number {
+  return windSpeed >= WEAK_WIND_SPEED ? 1 : Math.min(WEAK_WIND_MAX_BOOST, Math.sqrt(WEAK_WIND_SPEED / Math.max(1e-3, windSpeed)))
+}
+
 export function speedDamping(windSpeed: number, gamma: number): number {
   return windSpeed > DAMPING_REFERENCE_SPEED ? (DAMPING_REFERENCE_SPEED / windSpeed) ** gamma : 1
 }
@@ -1036,12 +1330,13 @@ export function leastOccupiedCell(counts: ArrayLike<number>, cells: number, star
  * "de eerste lege cel" strooide aanvullers daardoor over het hele beeld en liet een net
  * binnengepande strook seconden half leeg (U24b). Een lege cel tussen bezette buren scoort slecht.
  */
-export function emptiestCell(counts: ArrayLike<number>, columns: number, rows: number, random: () => number, samples = EMPTIEST_SAMPLES): number {
+export function emptiestCell(counts: ArrayLike<number>, columns: number, rows: number, random: () => number, samples = EMPTIEST_SAMPLES, allowed?: (cell: number) => boolean): number {
   const cells = columns * rows
   let best = 0
   let bestScore = Infinity
   for (let sample = 0; sample < samples; sample++) {
     const cell = Math.min(cells - 1, Math.floor(random() * cells))
+    if (allowed && !allowed(cell)) continue
     const column = cell % columns
     const row = Math.floor(cell / columns)
     let neighbours = 0
@@ -1152,6 +1447,11 @@ export function bufferDecay(restPerSecond: number, seconds: number): number {
 // uitkomt en afronding een pixel nooit op zijn waarde laat hangen.
 export function trailFloor(seconds: number): number {
   return Math.max(0.6, seconds * 60) / 255
+}
+
+/** Vloer voor de RGBA16F-buffer: geen afrondingsghosts, alleen onzichtbare rest opruimen. */
+export function halfFloatTrailFloor(seconds: number): number {
+  return seconds * 2 / 255
 }
 
 export function trailTargetSize(canvasWidth: number, canvasHeight: number, maxTextureSize: number, scale = 1): [number, number] {
@@ -1281,20 +1581,26 @@ function setWindColor(speed: number, theme: MapTheme, color: Float32Array): void
   color[2] = (left[2] + (right[2] - left[2]) * mix) / 255
 }
 
-function createTrailTarget(gl: WebGL2RenderingContext, width: number, height: number): TrailTarget {
+function createTrailTarget(gl: WebGL2RenderingContext, width: number, height: number, halfFloat: boolean): TrailTarget {
   const texture = gl.createTexture()!
   gl.bindTexture(gl.TEXTURE_2D, texture)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+  if (halfFloat) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, width, height, 0, gl.RGBA, gl.HALF_FLOAT, null)
+  else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
   const previous = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
   const framebuffer = gl.createFramebuffer()!
   gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
-  if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('Wind-trail-framebuffer is onvolledig')
+  const complete = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE
   gl.bindFramebuffer(gl.FRAMEBUFFER, previous)
+  if (!complete) {
+    gl.deleteFramebuffer(framebuffer)
+    gl.deleteTexture(texture)
+    throw new Error('Wind-trail-framebuffer is onvolledig')
+  }
   return { texture, framebuffer }
 }
 
@@ -1328,12 +1634,18 @@ function uniforms<Name extends string>(gl: WebGL2RenderingContext, program: WebG
   return locations
 }
 
-function viewBounds(map: MapLibreMap, grid: Grid): ParticleBounds {
+/** Het zichtbare beeld in gridfracties, optioneel met `marginPx` CSS-px rondom; geklemd aan het grid. */
+function viewBounds(map: MapLibreMap, grid: Grid, marginPx = 0): ParticleBounds {
   const bounds = map.getBounds()
-  const west = gridFractionX(grid, projectX(bounds.getWest()))
-  const east = gridFractionX(grid, projectX(bounds.getEast()))
-  const north = gridFractionY(grid, projectY(bounds.getNorth()))
-  const south = gridFractionY(grid, projectY(bounds.getSouth()))
+  const canvas = map.getCanvas()
+  let west = gridFractionX(grid, projectX(bounds.getWest()))
+  let east = gridFractionX(grid, projectX(bounds.getEast()))
+  let north = gridFractionY(grid, projectY(bounds.getNorth()))
+  let south = gridFractionY(grid, projectY(bounds.getSouth()))
+  const marginX = marginPx * Math.abs(east - west) / Math.max(1, canvas.clientWidth)
+  const marginY = marginPx * Math.abs(south - north) / Math.max(1, canvas.clientHeight)
+  ;[west, east] = [Math.min(west, east) - marginX, Math.max(west, east) + marginX]
+  ;[north, south] = [Math.min(north, south) - marginY, Math.max(north, south) + marginY]
   const clipped = {
     west: Math.max(0, Math.min(1, Math.min(west, east))),
     east: Math.max(0, Math.min(1, Math.max(west, east))),

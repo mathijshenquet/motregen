@@ -3,7 +3,6 @@ import { CLOUD_LAYERS, cloudBand, type CloudSeries } from '../core/cloud-section
 import type { TimelineFrame } from '../core/contract'
 import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColor } from '../core/rain-chart'
 import { timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
-import { INLINE_ICON, Pause, Play } from './icons'
 
 interface Props {
   timeline: TimelineFrame[]
@@ -12,15 +11,13 @@ interface Props {
   cursor: number
   now: number
   playing: boolean
-  horizonHours: number | null
   loading: boolean
   loadStage?: 'initial' | 'direct' | 'window' | 'complete'
   locationLabel: string
   onCursor: (cursor: number) => void
-  onHorizonHours: (hours: number | null) => void
   onIntent?: () => void
   onPlaying: (playing: boolean) => void
-  /** Alleen een expliciete afspeelkeuze, niet het hervatten na hover-scrubben. */
+  /** Alleen een expliciete afspeelkeuze, niet het hervatten na slepen. */
   onPlayPressed?: () => void
   /** Wolkendoorsnede in de weermodus (U37, PO-keuze variant A): vervangt het regenhistogram. */
   clouds?: CloudSeries
@@ -28,11 +25,18 @@ interface Props {
 
 const CLOUD_LAYER_LABELS = { high: 'hoog', mid: 'midden', low: 'laag' } as const
 
+const HOUR = 3_600_000
+// PO 2026-09-25 live (U34), naar WarnWetter: de cursor staat vast op CURSOR_FRACTION van de breedte en
+// de tijdlijn schuift eronder; zoveel uur past in de breedte. Vervangt de tijdsbereikknoppen.
+const VIEW_HOURS = 8
+const CURSOR_FRACTION = 1 / 3
 const hourLabelSteps = [1, 2, 3, 6, 12, 24]
 // Wide enough for "23u" at the axis font size plus breathing room.
 const minimumHourLabelSpacingPx = 34
-const fineScrubOffsetPx = 48
-const fineScrubFactor = 0.25
+const TAP_SLOP_PX = 4
+// Uitloop na een veeg: snelheid (px/ms) halveert per ~110 ms.
+const FLING_DECAY_PER_MS = 0.9937
+const FLING_MIN_SPEED = 0.02
 
 export function hourLabelStep(spanHours: number, plotWidthPx: number): number {
   const fit = Math.max(1, plotWidthPx / minimumHourLabelSpacingPx)
@@ -41,18 +45,24 @@ export function hourLabelStep(spanHours: number, plotWidthPx: number): number {
 
 export default function HistogramScrubber(props: Props) {
   let plotElement!: HTMLDivElement
-  let pressedX: number | undefined
-  let pressedY = 0
-  // Touch drags are relative to an anchor so the fine (damped) mode can switch in without a jump.
-  let touchAnchor: { x: number; epoch: number; fine: boolean } | undefined
-  let dragged = false
-  let pointerInside = false
-  const [hoverScrubbing, setHoverScrubbing] = createSignal(true)
-  const [fineScrub, setFineScrub] = createSignal(false)
+  let surfaceElement!: HTMLDivElement
+  let drag: { x: number; epoch: number; moved: boolean; lastX: number; lastTime: number; velocity: number } | undefined
+  let fling: number | undefined
   const [resumePlayback, setResumePlayback] = createSignal(false)
   const [plotWidth, setPlotWidth] = createSignal(320)
   const [plotHeight, setPlotHeight] = createSignal(160)
   onMount(() => {
+    const wheel = (event: WheelEvent) => {
+      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
+      if (!delta || !props.timeline.length) return
+      event.preventDefault()
+      stopFling()
+      props.onIntent?.()
+      scrollToEpoch(cursorEpoch() + delta * (event.deltaMode === 1 ? 16 : 1) / pxPerMs())
+    }
+    surfaceElement.addEventListener('wheel', wheel, { passive: false })
+    onCleanup(() => surfaceElement.removeEventListener('wheel', wheel))
+    onCleanup(stopFling)
     if (typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(([entry]) => {
       if (!entry) return
@@ -63,11 +73,10 @@ export default function HistogramScrubber(props: Props) {
     onCleanup(() => observer.disconnect())
   })
   const timelineStart = createMemo(() => props.timeline[0]?.epoch ?? 0)
-  const timelineEnd = createMemo(() => {
-    const last = props.timeline.at(-1)?.epoch ?? timelineStart()
-    return props.horizonHours === null ? last : Math.min(last, props.now + props.horizonHours * 3_600_000)
-  })
-  const timelineSpan = createMemo(() => Math.max(1, timelineEnd() - timelineStart()))
+  const timelineEnd = createMemo(() => props.timeline.at(-1)?.epoch ?? timelineStart())
+  const pxPerMs = createMemo(() => Math.max(1, plotWidth()) / (VIEW_HOURS * HOUR))
+  const xAt = (epoch: number) => (epoch - timelineStart()) * pxPerMs()
+  const trackWidth = createMemo(() => Math.max(plotWidth(), xAt(timelineEnd()) + plotWidth()))
   const maximum = createMemo(() => rainChartMaximum(props.values))
   const cloudHeight = createMemo(() => props.clouds ? plotHeight() * 0.62 : 0)
   // Regen valt onder de wolken: de regenschaal begint onder de doorsnede.
@@ -75,26 +84,28 @@ export default function HistogramScrubber(props: Props) {
   const y = (value: number) => rainTop() + (plotHeight() - rainTop()) * (1 - rainChartPosition(value, maximum()))
   const barTop = (value: number | null | undefined) => value == null || value <= 0 ? plotHeight() : Math.min(plotHeight() - 2, y(value))
   const bars = createMemo(() => {
-    const width = plotWidth()
-    const pitch = width / Math.max(1, props.timeline.length)
+    const frames = props.timeline
+    if (!frames.length) return []
+    const pitch = frames.length > 1 ? xAt(frames[1]!.epoch) - xAt(frames[0]!.epoch) : plotWidth()
     const gap = pitch > 6 ? 1.5 : pitch > 3.5 ? 1 : 0.5
     // Onder de wolken smallere regen, zodat de wolkenvormen de hoofdrol houden.
     const slim = props.clouds ? 0.5 : 1
-    if (props.timeline.length === 1) return [{ x: 0, width, top: barTop(props.values[0]), value: props.values[0] ?? 0, pending: props.loaded ? !props.loaded[0] : false, past: false }]
-    return props.timeline.flatMap((frame, index) => {
+    return frames.map((frame, index) => {
       const value = props.values[index]
-      const leftEpoch = index === 0 ? timelineStart() : (props.timeline[index - 1]!.epoch + frame.epoch) / 2
-      const rightEpoch = index === props.timeline.length - 1 ? timelineEnd() : (frame.epoch + props.timeline[index + 1]!.epoch) / 2
-      if (leftEpoch >= timelineEnd() || rightEpoch <= timelineStart()) return []
-      const x = positionAtEpoch(Math.max(timelineStart(), leftEpoch)) / 100 * width
-      const right = positionAtEpoch(Math.min(timelineEnd(), rightEpoch)) / 100 * width
+      const leftEpoch = index === 0 ? frame.epoch - (frames[1] ? (frames[1].epoch - frame.epoch) / 2 : HOUR / 2) : (frames[index - 1]!.epoch + frame.epoch) / 2
+      const rightEpoch = index === frames.length - 1 ? frame.epoch + (index > 0 ? (frame.epoch - frames[index - 1]!.epoch) / 2 : HOUR / 2) : (frame.epoch + frames[index + 1]!.epoch) / 2
+      const x = xAt(leftEpoch)
       const pending = props.loaded ? !props.loaded[index] : false
+      const right = xAt(rightEpoch)
       const barWidth = Math.max(1.2, (right - x - gap) * slim)
-      return [{ x: (x + right - barWidth) / 2, width: barWidth, top: barTop(value), value: value ?? 0, pending, past: frame.epoch < props.now }]
+      return { x: (x + right - barWidth) / 2, width: barWidth, top: barTop(value), value: value ?? 0, pending, past: frame.epoch < props.now }
     })
   })
   const guides = createMemo(() => props.clouds ? [] : RAIN_BANDS.slice(1).map((band) => y(band.minimum)))
   const cloudId = createUniqueId()
+  // Eén keer over de hele tijdlijn in baancoördinaten (U34): de baan schuift met een transform, dus de
+  // wolken schuiven gratis mee en worden niet per afspeelframe opnieuw getekend.
+  const cloudWidth = createMemo(() => Math.max(1, xAt(timelineEnd())))
   const cloudBands = createMemo(() => {
     const clouds = props.clouds
     if (!clouds) return []
@@ -104,28 +115,24 @@ export default function HistogramScrubber(props: Props) {
       top: index * bandHeight,
       height: bandHeight,
       ...cloudBand(clouds.timeline[layer], clouds.values[layer], layer, {
-        width: plotWidth(), top: index * bandHeight, height: bandHeight, start: timelineStart(), end: timelineEnd(),
+        width: cloudWidth(), top: index * bandHeight, height: bandHeight, start: timelineStart(), end: timelineEnd(),
       }),
     }))
   })
-  const hourStep = createMemo(() => hourLabelStep(timelineSpan() / 3_600_000, plotWidth()))
+  const hourStep = createMemo(() => hourLabelStep(VIEW_HOURS, plotWidth()))
   const xTicks = createMemo(() => {
     if (!props.timeline.length) return []
-    const hour = 3_600_000
-    const firstHour = Math.ceil(timelineStart() / hour) * hour
+    const firstHour = Math.ceil(timelineStart() / HOUR) * HOUR
     const ticks = []
     const step = hourStep()
-    for (let epoch = firstHour; epoch <= timelineEnd(); epoch += hour) {
-      const labelled = new Date(epoch).getHours() % step === 0
-      ticks.push({ epoch, left: positionAtEpoch(epoch), labelled })
+    for (let epoch = firstHour; epoch <= timelineEnd(); epoch += HOUR) {
+      if (new Date(epoch).getHours() % step === 0) ticks.push({ epoch, x: xAt(epoch) })
     }
     return ticks
   })
-  const nowPosition = createMemo(() => {
-    return positionAtEpoch(Math.max(timelineStart(), Math.min(timelineEnd(), props.now)))
-  })
+  const nowX = createMemo(() => xAt(Math.max(timelineStart(), Math.min(timelineEnd(), props.now))))
   const cursorEpoch = createMemo(() => timelineEpochAtCursor(props.timeline, props.cursor))
-  const cursorPosition = createMemo(() => Math.max(0, Math.min(100, positionAtEpoch(cursorEpoch()))))
+  const offset = () => plotWidth() * CURSOR_FRACTION - xAt(cursorEpoch())
   const cursorValue = createMemo(() => props.values[Math.round(props.cursor)])
   const cursorZone = createMemo(() => {
     const frame = props.timeline[Math.round(props.cursor)] ?? props.timeline[0]
@@ -139,57 +146,71 @@ export default function HistogramScrubber(props: Props) {
     const source = cursorZone()?.label.toLowerCase()
     return `${(dayLabel(epoch, props.now) || 'vandaag').toLowerCase()} ${time}, ${rain}, ${source}`
   }
-  // Playback already advances the cursor every animation frame; only discrete
-  // keyboard steps get a short glide, pointer scrubbing stays immediate.
-  const [keyStepping, setKeyStepping] = createSignal(false)
-  const tween = () => keyStepping() && !props.playing
+  // Alleen toetsstappen en tikken krijgen een korte glijbeweging; slepen en afspelen volgen direct.
+  const [gliding, setGliding] = createSignal(false)
+  const tween = () => gliding() && !props.playing
   const dayMarkers = createMemo(() => {
     if (!props.timeline.length) return []
     const today = new Date(props.now)
     today.setHours(0, 0, 0, 0)
     const day = new Date(timelineStart())
     day.setHours(0, 0, 0, 0)
-    const markers: Array<{ epoch: number; label: string; boundary: boolean }> = []
+    day.setDate(day.getDate() + 1)
+    const markers: Array<{ epoch: number; label: string }> = []
     while (day.getTime() <= timelineEnd()) {
-      const dayStart = day.getTime()
-      markers.push({
-        epoch: Math.max(timelineStart(), dayStart),
-        label: dayLabel(dayStart, today.getTime()),
-        boundary: dayStart > timelineStart(),
-      })
+      markers.push({ epoch: day.getTime(), label: dayLabel(day.getTime(), today.getTime()) || 'Vandaag' })
       day.setDate(day.getDate() + 1)
     }
     return markers
   })
-  function epochAtClientX(clientX: number): number {
-    const bounds = plotElement.getBoundingClientRect()
-    const fraction = bounds.width ? Math.max(0, Math.min(1, (clientX - bounds.left) / bounds.width)) : 0
-    return timelineStart() + fraction * timelineSpan()
+  const lastCursor = () => Math.max(0, props.timeline.length - 1)
+
+  function scrollToEpoch(epoch: number): void {
+    const clamped = Math.max(timelineStart(), Math.min(timelineEnd(), epoch))
+    props.onCursor(Math.max(0, Math.min(lastCursor(), timelineCursorAtEpoch(props.timeline, clamped))))
   }
 
-  function pointerPosition(event: PointerEvent): number {
-    if (event.pointerType === 'mouse' || !touchAnchor) return timelineCursorAtEpoch(props.timeline, epochAtClientX(event.clientX))
-    // Moving the finger well above or below the plot slows the scrub to a quarter.
-    const fine = Math.abs(event.clientY - pressedY) > fineScrubOffsetPx
-    if (fine !== touchAnchor.fine) touchAnchor = { x: event.clientX, epoch: timelineEpochAtCursor(props.timeline, props.cursor), fine }
-    const width = plotElement.getBoundingClientRect().width || 1
-    const epoch = touchAnchor.epoch + (event.clientX - touchAnchor.x) / width * timelineSpan() * (fine ? fineScrubFactor : 1)
-    setFineScrub(fine)
-    return timelineCursorAtEpoch(props.timeline, Math.max(timelineStart(), Math.min(timelineEnd(), epoch)))
+  function stopFling(): void {
+    if (fling !== undefined) cancelAnimationFrame(fling)
+    fling = undefined
   }
 
-  function positionAtEpoch(epoch: number): number {
-    return (epoch - timelineStart()) / timelineSpan() * 100
+  function startFling(velocity: number): void {
+    let speed = velocity
+    let previous = performance.now()
+    const step = (time: number) => {
+      const elapsed = Math.min(40, time - previous)
+      previous = time
+      speed *= FLING_DECAY_PER_MS ** elapsed
+      const epoch = cursorEpoch() - speed * elapsed / pxPerMs()
+      scrollToEpoch(epoch)
+      if (Math.abs(speed) < FLING_MIN_SPEED || epoch <= timelineStart() || epoch >= timelineEnd()) {
+        fling = undefined
+        resumeAfterPointerInteraction()
+        return
+      }
+      fling = requestAnimationFrame(step)
+    }
+    fling = requestAnimationFrame(step)
   }
 
   function keyDown(event: KeyboardEvent): void {
-    setKeyStepping(true)
-    const last = timelineCursorAtEpoch(props.timeline, timelineEnd())
+    if (event.key === ' ') {
+      // Spatie: afspelen/pauzeren; sinds U34 is er geen afspeelknop meer.
+      event.preventDefault()
+      props.onIntent?.()
+      stopFling()
+      setResumePlayback(false)
+      if (!props.playing) props.onPlayPressed?.()
+      props.onPlaying(!props.playing)
+      return
+    }
+    setGliding(true)
     const steps: Record<string, number> = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1, PageDown: -6, PageUp: 6 }
     if (event.key === 'Home') { event.preventDefault(); props.onCursor(0); return }
-    if (event.key === 'End') { event.preventDefault(); props.onCursor(last); return }
+    if (event.key === 'End') { event.preventDefault(); props.onCursor(lastCursor()); return }
     const step = steps[event.key]
-    if (step) { event.preventDefault(); props.onCursor(Math.max(0, Math.min(last, props.cursor + step))) }
+    if (step) { event.preventDefault(); props.onCursor(Math.max(0, Math.min(lastCursor(), props.cursor + step))) }
   }
 
   function pauseForPointerInteraction(): void {
@@ -204,120 +225,96 @@ export default function HistogramScrubber(props: Props) {
     props.onPlaying(true)
   }
 
-  function togglePlaybackFromCursor(event: MouseEvent): void {
-    event.stopPropagation()
-    props.onIntent?.()
-    if (resumePlayback()) {
-      setResumePlayback(false)
-      props.onPlaying(false)
-    } else if (pointerInside && hoverScrubbing() && !props.playing) {
-      setResumePlayback(true)
-      props.onPlayPressed?.()
-    } else {
-      if (!props.playing) props.onPlayPressed?.()
-      props.onPlaying(!props.playing)
-    }
-  }
-
   return <section class="scrubber" aria-label={`Regenverwachting en tijd voor ${props.locationLabel}`}>
-    <div class="scrubber-toolbar">
-      <div class="segmented time-horizon" role="group" aria-label="Tijdsbereik">
-        <For each={[3, 8, 24] as const}>{(hours) => <button type="button" classList={{ active: props.horizonHours === hours }} aria-pressed={props.horizonHours === hours} onClick={() => { props.onIntent?.(); props.onHorizonHours(hours) }}>+{hours}u</button>}</For>
-        <button type="button" classList={{ active: props.horizonHours === null }} aria-pressed={props.horizonHours === null} onClick={() => { props.onIntent?.(); props.onHorizonHours(null) }}>Alles</button>
-      </div>
-    </div>
     <div
+      ref={surfaceElement}
       class="scrub-surface"
-      classList={{ 'hover-scrubbing': hoverScrubbing() }}
       role="slider"
       tabIndex={0}
       aria-label="Tijd"
       aria-valuemin={0}
-      aria-valuemax={timelineCursorAtEpoch(props.timeline, timelineEnd())}
+      aria-valuemax={lastCursor()}
       aria-valuenow={Math.round(props.cursor)}
       aria-disabled={props.loading}
       aria-busy={props.loadStage !== undefined && props.loadStage !== 'complete'}
       data-load-stage={props.loadStage}
+      data-playing={props.playing ? '' : undefined}
       data-scrubber-view={props.clouds ? 'clouds' : 'rain'}
       aria-valuetext={props.timeline.length ? valueText() : undefined}
-      title={hoverScrubbing() ? 'Hover-scrubben · klik om hier te blijven' : 'Vast · klik voor hover of sleep om te scrubben'}
+      title="Sleep of scroll door de tijd · tik om naar dat moment te gaan"
       onKeyDown={keyDown}
-      onMouseEnter={() => {
-        pointerInside = true
-        setKeyStepping(false)
-        if (hoverScrubbing()) { props.onIntent?.(); pauseForPointerInteraction() }
-      }}
-      onMouseLeave={() => {
-        pointerInside = false
-        if (pressedX === undefined) {
-          if (hoverScrubbing()) resumeAfterPointerInteraction()
-        }
-      }}
       onPointerDown={(event) => {
-        setKeyStepping(false)
+        if (!props.timeline.length) return
+        stopFling()
+        setGliding(false)
         props.onIntent?.()
-        pressedX = event.clientX
-        pressedY = event.clientY
-        touchAnchor = event.pointerType === 'mouse' ? undefined : { x: event.clientX, epoch: epochAtClientX(event.clientX), fine: false }
-        dragged = false
+        drag = { x: event.clientX, epoch: cursorEpoch(), moved: false, lastX: event.clientX, lastTime: event.timeStamp, velocity: 0 }
         pauseForPointerInteraction()
         event.currentTarget.setPointerCapture(event.pointerId)
       }}
       onPointerMove={(event) => {
-        const cursor = pointerPosition(event)
-        const captured = event.currentTarget.hasPointerCapture(event.pointerId)
-        if (captured && pressedX !== undefined && Math.abs(event.clientX - pressedX) > 3) dragged = true
-        if ((hoverScrubbing() && event.pointerType === 'mouse' && !captured) || (captured && dragged)) props.onCursor(cursor)
+        if (!drag) return
+        if (Math.abs(event.clientX - drag.x) > TAP_SLOP_PX) drag.moved = true
+        if (!drag.moved) return
+        const elapsed = event.timeStamp - drag.lastTime
+        if (elapsed > 0) drag.velocity = 0.6 * drag.velocity + 0.4 * (event.clientX - drag.lastX) / elapsed
+        drag.lastX = event.clientX
+        drag.lastTime = event.timeStamp
+        scrollToEpoch(drag.epoch - (event.clientX - drag.x) / pxPerMs())
       }}
       onPointerUp={(event) => {
-        const cursor = pointerPosition(event)
-        props.onCursor(cursor)
-        const nextHoverScrubbing = dragged
-          ? false
-          : event.pointerType === 'mouse' ? !hoverScrubbing() : hoverScrubbing()
-        setHoverScrubbing(nextHoverScrubbing)
-        if (!(nextHoverScrubbing && pointerInside && event.pointerType === 'mouse')) resumeAfterPointerInteraction()
+        if (!drag) return
+        const released = drag
+        drag = undefined
         if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
-        pressedX = undefined
-        touchAnchor = undefined
-        setFineScrub(false)
-        dragged = false
+        if (!released.moved) {
+          // Tik: naar het aangetikte moment glijden.
+          const bounds = plotElement.getBoundingClientRect()
+          setGliding(true)
+          scrollToEpoch(cursorEpoch() + (event.clientX - bounds.left - bounds.width * CURSOR_FRACTION) / pxPerMs())
+          resumeAfterPointerInteraction()
+          return
+        }
+        const velocity = event.timeStamp - released.lastTime > 80 ? 0 : released.velocity
+        if (Math.abs(velocity) >= FLING_MIN_SPEED) startFling(velocity)
+        else resumeAfterPointerInteraction()
       }}
-      onPointerCancel={(event) => {
-        pressedX = undefined
-        touchAnchor = undefined
-        setFineScrub(false)
-        dragged = false
-        if (!(hoverScrubbing() && pointerInside && event.pointerType === 'mouse')) resumeAfterPointerInteraction()
+      onPointerCancel={() => {
+        drag = undefined
+        resumeAfterPointerInteraction()
       }}
     >
       <div class="chart-plot" ref={plotElement}>
-        <div class="past-shade" style={{ width: `${nowPosition()}%` }} aria-hidden="true" />
-        <div class="hour-grid" aria-hidden="true"><For each={xTicks().filter((tick) => tick.labelled)}>{(tick) => <i style={{ left: `${tick.left}%` }} />}</For></div>
-        <div class="day-grid" aria-hidden="true"><For each={dayMarkers()}>{(marker, index) => <div classList={{ boundary: marker.boundary }} style={{ left: `${positionAtEpoch(marker.epoch)}%` }}><Show when={marker.label && (positionAtEpoch(dayMarkers()[index() + 1]?.epoch ?? timelineEnd()) - positionAtEpoch(marker.epoch)) / 100 * plotWidth() > marker.label.length * 7 + 16}><span>{marker.label}</span></Show></div>}</For></div>
-        <svg viewBox={`0 0 ${plotWidth()} ${plotHeight()}`} aria-hidden="true">
-          <For each={guides()}>{(top) => <line class="rain-guide" x1="0" x2={plotWidth()} y1={top} y2={top} />}</For>
-          <Show when={props.clouds}>
-            <defs>
-              <filter id={`${cloudId}-soft`} x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="0.9" /></filter>
-              <For each={cloudBands()}>{(band) => <linearGradient id={`${cloudId}-${band.layer}`} class={`cloud-${band.layer}`} gradientUnits="userSpaceOnUse" x1="0" x2={plotWidth()} y1="0" y2="0">
-                <For each={band.stops}>{(stop) => <stop offset={stop.offset} stop-opacity={stop.opacity} />}</For>
-              </linearGradient>}</For>
-            </defs>
-            <g class="cloud-section" data-testid="cloud-section" filter={`url(#${cloudId}-soft)`}>
-              <For each={cloudBands()}>{(band) => <g class="cloud-band" data-layer={band.layer}>
-                <For each={band.paths}>{(path) => <path d={path} fill={`url(#${cloudId}-${band.layer})`} />}</For>
-              </g>}</For>
-            </g>
-            <line class="cloud-divider" x1="0" x2={plotWidth()} y1={cloudHeight() + 1.5} y2={cloudHeight() + 1.5} />
-          </Show>
-          {/* Index keeps each slot's rect alive, so only frames that arrive (pending → loaded) fade in. */}
-          <g class="rain-bars"><Index each={bars()}>{(bar) => <Show
-            when={!bar().pending}
-            fallback={<rect class="rain-bar pending" x={bar().x} y={plotHeight() - 2} width={bar().width} height="2" rx="1" />}
-          ><rect class="rain-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={rainColor(bar().value)} /></Show>}</Index></g>
-          <line class="rain-baseline" x1="0" x2={plotWidth()} y1={plotHeight() - 0.5} y2={plotHeight() - 0.5} />
-        </svg>
+        <div class="chart-track" classList={{ tween: tween() }} style={{ width: `${trackWidth()}px`, transform: `translateX(${offset()}px)` }} aria-hidden="true">
+          <div class="past-shade" style={{ width: `${nowX()}px` }} />
+          <div class="hour-grid"><For each={xTicks()}>{(tick) => <i style={{ left: `${tick.x}px` }} />}</For></div>
+          <div class="day-grid"><For each={dayMarkers()}>{(marker) => <div class="boundary" style={{ left: `${xAt(marker.epoch)}px` }}><span>{marker.label}</span></div>}</For></div>
+          <svg width={trackWidth()} height={plotHeight()} viewBox={`0 0 ${trackWidth()} ${plotHeight()}`}>
+            <For each={guides()}>{(top) => <line class="rain-guide" x1="0" x2={trackWidth()} y1={top} y2={top} />}</For>
+            <Show when={props.clouds}>
+              <defs>
+                <filter id={`${cloudId}-soft`} x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="0.9" /></filter>
+                <For each={cloudBands()}>{(band) => <linearGradient id={`${cloudId}-${band.layer}`} class={`cloud-${band.layer}`} gradientUnits="userSpaceOnUse" x1="0" x2={cloudWidth()} y1="0" y2="0">
+                  <For each={band.stops}>{(stop) => <stop offset={stop.offset} stop-opacity={stop.opacity} />}</For>
+                </linearGradient>}</For>
+              </defs>
+              <g class="cloud-section" data-testid="cloud-section" filter={`url(#${cloudId}-soft)`}>
+                <For each={cloudBands()}>{(band) => <g class="cloud-band" data-layer={band.layer}>
+                  <For each={band.paths}>{(path) => <path d={path} fill={`url(#${cloudId}-${band.layer})`} />}</For>
+                </g>}</For>
+              </g>
+              <line class="cloud-divider" x1="0" x2={trackWidth()} y1={cloudHeight() + 1.5} y2={cloudHeight() + 1.5} />
+            </Show>
+            {/* Index keeps each slot's rect alive, so only frames that arrive (pending → loaded) fade in. */}
+            <g class="rain-bars"><Index each={bars()}>{(bar) => <Show
+              when={!bar().pending}
+              fallback={<rect class="rain-bar pending" x={bar().x} y={plotHeight() - 2} width={bar().width} height="2" rx="1" />}
+            ><rect class="rain-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={rainColor(bar().value)} /></Show>}</Index></g>
+            <line class="rain-baseline" x1="0" x2={trackWidth()} y1={plotHeight() - 0.5} y2={plotHeight() - 0.5} />
+          </svg>
+          <div class="now-line" style={{ left: `${nowX()}px` }}><span>Nu</span></div>
+          <div class="x-axis"><For each={xTicks()}>{(tick) => <span classList={{ midnight: new Date(tick.epoch).getHours() === 0 }} style={{ left: `${tick.x}px` }}>{hourLabel(tick.epoch)}</span>}</For></div>
+        </div>
         <Show when={props.clouds}>
           <div class="cloud-labels" aria-hidden="true"><For each={cloudBands()}>{(band) => <span style={{ top: `${band.top + band.height / 2}px` }}>{CLOUD_LAYER_LABELS[band.layer]}</span>}</For></div>
         </Show>
@@ -328,27 +325,12 @@ export default function HistogramScrubber(props: Props) {
           </div>
         </Show>
         <Show when={!props.loading && !props.values.length}><span class="empty-graph">Kies een locatie voor de regengrafiek</span></Show>
-        <div class="now-line" style={{ left: `${nowPosition()}%` }}><span>Nu</span></div>
-        <div class="cursor-marker" classList={{ tween: tween() }} style={{ left: `${cursorPosition()}%` }} />
+        <div class="cursor-marker" />
         <Show when={!props.loading && (cursorValue() ?? 0) >= 0.05}>
-          <div class="cursor-readout" classList={{ tween: tween(), flip: cursorPosition() > 70 }} style={{ left: `${cursorPosition()}%`, top: `${barTop(cursorValue())}px` }} aria-hidden="true">
+          <div class="cursor-readout" classList={{ tween: tween() }} style={{ top: `${barTop(cursorValue())}px` }} aria-hidden="true">
             <span>{formatRate(cursorValue()!)}</span>
           </div>
         </Show>
-        <button
-          type="button"
-          class="cursor-pill"
-          classList={{ tween: tween(), fine: fineScrub() }}
-          style={{ left: `clamp(29px, ${cursorPosition()}%, calc(100% - 29px))` }}
-          aria-label={(resumePlayback() || props.playing) ? 'Pauzeren' : 'Afspelen'}
-          onPointerDown={(event) => event.stopPropagation()}
-          onPointerUp={(event) => event.stopPropagation()}
-          onClick={togglePlaybackFromCursor}
-        >
-          <span class="cursor-time">{props.timeline.length ? new Date(cursorEpoch()).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : '--:--'}</span>
-          <span class="cursor-playback" aria-hidden="true">{(resumePlayback() || props.playing) ? <Pause {...INLINE_ICON} fill="currentColor" /> : <Play {...INLINE_ICON} fill="currentColor" />}</span>
-        </button>
-        <div class="x-axis" aria-hidden="true"><For each={xTicks().filter((tick) => tick.labelled && tick.left > 2 && tick.left < 98 && Math.abs(tick.left - nowPosition()) / 100 * plotWidth() > 30)}>{(tick) => <span classList={{ midnight: new Date(tick.epoch).getHours() === 0 }} style={{ left: `${tick.left}%` }}>{hourLabel(tick.epoch)}</span>}</For></div>
       </div>
     </div>
   </section>

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { pausePlayback } from './playback'
 import { applyEmulation, performanceProfile } from './profiles'
 
 const shell = (page: Page) => page.locator('.map-shell')
@@ -105,11 +106,12 @@ test('hovering the wind column brings the damped wind to full strength and dims 
   test.skip(testInfo.project.name !== 'desktop', 'muishover is een desktopgedrag; touch heeft een eigen test')
   await ready(page)
   const damped = await windIntensity(page)
-  expect(damped).toBeCloseTo(0.75, 2)
+  // PO 2026-09-25 live (U34): default 0,5, windfocus 0,8.
+  expect(damped).toBeCloseTo(0.5, 2)
   await windHeading(page).hover()
   await expect.poll(async () => Number(await shell(page).getAttribute('data-wind-focus'))).toBeGreaterThan(0)
   await expect(shell(page)).toHaveAttribute('data-wind-focus', '1.00')
-  expect(await windIntensity(page)).toBeCloseTo(1.905, 1)
+  expect(await windIntensity(page)).toBeCloseTo(0.8, 1)
   expect(await shell(page).getAttribute('data-focus')).toBe('0.00')
   await page.screenshot({ path: testInfo.outputPath('wind-focus.png') })
   await page.mouse.move(5, 5)
@@ -197,7 +199,7 @@ test('temperature focus desaturates only the basemap canvas and fills the bands,
   await ready(page)
   expect(await saturation(page)).toBe(1)
   expect(await page.locator('.maplibregl-canvas').evaluate((canvas) => getComputedStyle(canvas).filter)).toBe('none')
-  await page.getByRole('button', { name: 'Pauzeren' }).first().click({ force: true })
+  await pausePlayback(page)
   await heading(page).click()
   await heading(page).blur()
   await page.mouse.move(5, 5)
@@ -230,7 +232,7 @@ test('temperature focus desaturates only the basemap canvas and fills the bands,
 test('pinned focus at rest does no contour or worker work', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'structurele teller, één profiel volstaat')
   await ready(page)
-  await page.getByRole('button', { name: 'Pauzeren' }).first().click({ force: true })
+  await pausePlayback(page)
   await heading(page).click()
   await expect(shell(page)).toHaveAttribute('data-focus', '1.00')
   await expect.poll(() => page.locator('.isoline-label').count()).toBeGreaterThan(0)
@@ -262,7 +264,7 @@ test('pinned isolines re-render after a manifest refresh with a new run and afte
     await route.fulfill({ response, json: manifest })
   })
   await ready(page)
-  await page.getByRole('button', { name: 'Pauzeren' }).first().click({ force: true })
+  await pausePlayback(page)
   await heading(page).click()
   await heading(page).blur()
   await page.mouse.move(5, 5)

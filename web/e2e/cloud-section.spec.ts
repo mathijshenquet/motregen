@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { pausePlayback } from './playback'
 
 // U37 (PO-keuze variant A): in de weermodus vervangt de wolkendoorsnede het regenhistogram;
 // een gepinde modus toont de regen weer.
@@ -15,7 +16,7 @@ test('weather mode shows the cloud cross-section; a pinned mode shows the rain h
 
   // Stilstaand beeld: pauzeren en de cursor op een vast punt.
   await surface.focus()
-  if (await page.locator('.cursor-pill[aria-label=Pauzeren]').count()) await page.locator('.cursor-pill').click()
+  await pausePlayback(page)
   await surface.press('Home')
   for (let step = 0; step < 40; step++) await surface.press('ArrowRight')
   await surface.blur()

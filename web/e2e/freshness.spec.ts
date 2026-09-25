@@ -82,7 +82,7 @@ async function shoot(page: Page, testInfo: TestInfo, name: string, withPanel = f
   for (const theme of ['light', 'dark'] as const) {
     await useTheme(page, theme)
     if (withPanel) await details(page).click()
-    const dialog = page.getByRole('dialog', { name: 'Hoe vers is de data?' })
+    const dialog = page.getByRole('dialog', { name: 'Hoe actueel is de data?' })
     if (withPanel) await expect(dialog).toBeVisible()
     await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-${name}-${theme}.png`) })
     if (withPanel) {
@@ -104,7 +104,7 @@ test('fresh radar reads as current, with the scan time and its age', async ({ pa
   await shoot(page, testInfo, 'vers')
 
   await details(page).click()
-  const dialog = page.getByRole('dialog', { name: 'Hoe vers is de data?' })
+  const dialog = page.getByRole('dialog', { name: 'Hoe actueel is de data?' })
   await expect(dialog).toBeVisible()
   for (const source of ['Radar', 'Nowcast', 'Blend', 'HARMONIE', 'UV']) await expect(dialog.getByText(source, { exact: true })).toBeVisible()
   await page.keyboard.press('Escape')
@@ -113,12 +113,14 @@ test('fresh radar reads as current, with the scan time and its age', async ({ pa
   await shoot(page, testInfo, 'paneel', true)
   await expectTopCenter(page)
 
-  // Het paneel opent gecentreerd onder de pil.
+  // U34 (PO 2026-09-25 live): de pil rolt uit tot het paneel; het paneel sluit bovenaan aan op de pil,
+  // gecentreerd, met de klok bovenin op de plek van de pil.
   await details(page).click()
   const pillBox = (await pill(page).boundingBox())!
   const panel = (await dialog.boundingBox())!
-  expect(panel.y).toBeGreaterThanOrEqual(pillBox.y + pillBox.height)
-  expect(panel.y - (pillBox.y + pillBox.height)).toBeLessThan(24)
+  expect(Math.abs(panel.y - pillBox.y)).toBeLessThanOrEqual(1)
+  const panelClock = (await dialog.locator('.freshness-clock .clock-main').boundingBox())!
+  expect(Math.abs(panelClock.x + panelClock.width / 2 - (pillBox.x + pillBox.width / 2))).toBeLessThanOrEqual(2)
   const viewport = page.viewportSize()!
   const centred = Math.min(Math.max(pillBox.x + pillBox.width / 2, 16 + panel.width / 2), viewport.width - 16 - panel.width / 2)
   expect(Math.abs(panel.x + panel.width / 2 - centred)).toBeLessThanOrEqual(8)
@@ -152,15 +154,16 @@ test('radar that stopped arriving is marked aging, then stale', async ({ page },
   // Weken stil (zoals het synth-manifest zonder vaste klok).
   await openAt(page, LATEST_RADAR + minutes(60 * 24 * 26))
   await expect(details(page)).toHaveAttribute('aria-label', /Verouderd: Radar /)
-  // Het regime volgt de scrubber (alleen voor de schermlezer). Klik laag in het vlak: bovenin
-  // staat de cursorpil (afspeelknop).
+  // Het regime volgt de scrubber (alleen voor de schermlezer). Een tik links van de cursor (op ⅓)
+  // gaat naar het verleden, helemaal rechts naar de verwachting (U34).
   const surface = (await page.locator('.scrub-surface').boundingBox())!
   await page.locator('.scrub-surface').click({ position: { x: 30, y: surface.height * 0.75 } })
   await expect(details(page)).toHaveAttribute('aria-label', /, observatie\. /)
   // Zelfde moment uitlezen: op trage profielen glijdt de cursor nog na.
   await expect.poll(() => page.evaluate(() => {
     const clock = document.querySelector('.map-clock .clock-map-time')?.textContent?.trim()
-    return clock !== undefined && clock === document.querySelector('.cursor-time')?.textContent?.trim()
+    const cursor = /\d\d:\d\d/.exec(document.querySelector('[role="slider"]')?.getAttribute('aria-valuetext') ?? '')?.[0]
+    return clock !== undefined && clock === cursor
   })).toBe(true)
   await expectTopCenter(page)
   const trigger = (await pill(page).locator('.freshness-trigger').boundingBox())!
