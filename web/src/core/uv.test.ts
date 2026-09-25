@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { solarElevationSin } from './solar'
-import { clearSkyRadiation, clearSkyUv, estimateUv, uvAdvice, uvLevel, uvReading } from './uv'
+import { clearSkyRadiation, clearSkyUv, dailyClearSkyUvMax, estimateUv, uvAdvice, uvLevel, uvReading } from './uv'
 
 describe('UV relevance gating', () => {
   it('does not create an insmeer-chip below zonkracht 3', () => {
@@ -81,5 +81,16 @@ describe('UV row reading', () => {
     expect(reading.estimated).toBe(true)
     expect(reading.value).toBeLessThan(reading.clear)
     expect(uvReading(noon, null, 6.1, 300, 300, deBilt, false)).toBeNull()
+  })
+})
+
+describe('daily UV ceiling', () => {
+  it('is the clear-sky UV at the highest sun of that day', () => {
+    const day = Date.parse('2026-08-28T00:00:00Z')
+    const hours = Array.from({ length: 24 * 6 }, (_, step) => day + step * 600_000)
+    const highest = Math.max(...hours.map((epoch) => clearSkyUv(solarElevationSin(epoch, 5.18, 52.1), epoch)))
+    expect(dailyClearSkyUvMax(day + 12 * 3_600_000, 52.1)).toBeCloseTo(highest, 1)
+    expect(dailyClearSkyUvMax(Date.parse('2026-06-21T12:00:00Z'), 52.1)).toBeGreaterThan(6)
+    expect(dailyClearSkyUvMax(Date.parse('2026-12-21T12:00:00Z'), 52.1)).toBeLessThan(1)
   })
 })

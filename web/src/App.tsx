@@ -209,6 +209,10 @@ export default function App() {
   // History rows cost bytes the old table never loaded; they stay folded until asked for.
   const [historyRowsWanted, setHistoryRowsWanted] = createSignal(false)
   const [historyOpen, setHistoryOpen] = createSignal(false)
+  // Desktop: historie staat in de tabel boven de nu-rij; touch houdt de uitklaprij (scrollen in een
+  // eigen tabelscroller onder de sticky scrubber werkt daar niet prettig).
+  const inlineHistoryMedia = matchMedia('(min-width: 960px) and (pointer: fine)')
+  const [historyInline, setHistoryInline] = createSignal(inlineHistoryMedia.matches)
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
   const [windTuning, setWindTuning] = createSignal<WindTuning>(loadWindTuning())
@@ -248,6 +252,9 @@ export default function App() {
     const mediaChanged = (event: MediaQueryListEvent) => setSystemDark(event.matches)
     media.addEventListener('change', mediaChanged)
     onCleanup(() => media.removeEventListener('change', mediaChanged))
+    const inlineHistoryChanged = (event: MediaQueryListEvent) => setHistoryInline(event.matches)
+    inlineHistoryMedia.addEventListener('change', inlineHistoryChanged)
+    onCleanup(() => inlineHistoryMedia.removeEventListener('change', inlineHistoryChanged))
     try {
       const data = await fetchManifest()
       perf.setManifestGenerated(data.generated)
@@ -1686,15 +1693,17 @@ export default function App() {
           <ForecastTable
             rows={forecast()}
             series={{
-              rain: rainSeries(), rainLoaded: rainLoaded(), uv: uvSeries(), uvClear: uvClearSeries(), radiation: radiationSeries(), temperature: temperatureSeries(),
+              rain: rainSeries(), uv: uvSeries(), uvClear: uvClearSeries(), radiation: radiationSeries(), temperature: temperatureSeries(),
               feelsLike: feelsLikeSeries(), humidity: humiditySeries(), cloud: cloudSeries(), windU: windUSeries(), windV: windVSeries(),
             }}
             location={location()}
             columns={{ weather: hasWeatherIcons(), uv: uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), humidity: hasHumidity(), wind: hasWind() }}
             loadedUntil={pointLoadStage() === 'complete' ? Number.POSITIVE_INFINITY : manifestNow() + PASSIVE_FORECAST_HOURS * 3_600_000}
+            historyInline={historyInline()}
             historyOpen={historyOpen()}
             historyLoaded={historyRowsWanted() || pointLoadStage() === 'complete'}
             onNeedRows={() => { void completePointSeries(pointLoad, 'high') }}
+            onNeedHistory={() => { void loadHistoryRows() }}
             onOpenHistory={() => {
               setHistoryOpen((open) => !open)
               void loadHistoryRows()

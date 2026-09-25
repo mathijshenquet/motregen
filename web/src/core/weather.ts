@@ -24,6 +24,8 @@ export interface WindSummary {
   speed: number
   beaufort: number
   direction: typeof directions[number]
+  /** Meteorologische richting: waar de wind vandaan komt, in graden vanaf noord. */
+  fromDegrees: number
 }
 
 export function summarizeWind(u: number | null, v: number | null): WindSummary | null {
@@ -35,5 +37,6 @@ export function summarizeWind(u: number | null, v: number | null): WindSummary |
     speed,
     beaufort: beaufort < 0 ? 12 : beaufort,
     direction: directions[Math.round(fromDegrees / 45) % directions.length]!,
+    fromDegrees,
   }
 }
