@@ -3,7 +3,7 @@ import type { FocusKind } from '../core/focus-mode'
 import type { HourlyForecastRow } from '../core/forecast'
 import { solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
 import { dailyClearSkyUvMax, uvReading } from '../core/uv'
-import { deriveWeatherIcon, summarizeWind, type WindSummary } from '../core/weather'
+import { deriveWeatherIcon, summarizeWind, WIND_UNIT_LABELS, type WindSummary, type WindUnit } from '../core/weather'
 import { ArrowUp, BUTTON_ICON, Clock, CloudSun, Droplets, Sun, Thermometer, Wind } from './icons'
 import UvBar from './UvBar'
 import WeatherIcon from './WeatherIcon'
@@ -19,6 +19,7 @@ export interface ForecastSeries {
   cloud: Array<number | null>
   windU: Array<number | null>
   windV: Array<number | null>
+  gust: Array<number | null>
 }
 
 interface Props {
@@ -26,6 +27,7 @@ interface Props {
   series: ForecastSeries
   location: { lng: number; lat: number }
   columns: { weather: boolean; uv: boolean; temperature: boolean; humidity: boolean; wind: boolean }
+  windUnit: WindUnit
   // Rows after this epoch have not been fetched yet; scrolling near them asks for them.
   loadedUntil: number
   // Touch: history rows stay folded (and unfetched) until the toggle row is tapped. Desktop (inline):
@@ -180,7 +182,8 @@ export default function ForecastTable(props: Props) {
       const temperature = () => value(props.series.temperature, row.temperatureIndex)
       const degrees = (reading: number | null) => reading == null ? placeholder() : `${Math.round(reading)}°`
       const humidity = () => value(props.series.humidity, row.humidityIndex)
-      const wind = () => summarizeWind(value(props.series.windU, row.windUIndex), value(props.series.windV, row.windVIndex))
+      const wind = () => summarizeWind(value(props.series.windU, row.windUIndex), value(props.series.windV, row.windVIndex),
+        value(props.series.gust, row.gustIndex), props.windUnit)
       const icon = () => deriveWeatherIcon(rain(), cloud(), elevation(row.epoch) > 0)
       const uv = createMemo(() => uvReading(row.epoch, value(props.series.uv, row.uvIndex), value(props.series.uvClear, row.uvClearIndex),
         value(props.series.radiation, row.radiationIndex), value(props.series.radiation, row.radiationNextIndex), elevation, row.kind !== 'past'))
@@ -240,10 +243,14 @@ export default function ForecastTable(props: Props) {
 
 // De pijl wijst waar de wind heen waait, zoals de deeltjes op de kaart; de letters blijven in de titel.
 function WindReading(props: { summary: WindSummary }) {
-  const label = () => `Wind uit ${props.summary.direction}, ${props.summary.beaufort} Bft, ${props.summary.speed.toLocaleString('nl-NL', { maximumFractionDigits: 1 })} m/s`
+  const unit = () => WIND_UNIT_LABELS[props.summary.unit]
+  const gustUnit = () => WIND_UNIT_LABELS[props.summary.gustUnit]
+  const label = () => `Wind uit ${props.summary.direction}, ${props.summary.value} ${unit()}` +
+    (props.summary.gust == null ? '' : `, stoten tot ${props.summary.gust} ${gustUnit()}`)
   return <span class="wind-reading" role="img" aria-label={label()} title={label()}>
     <ArrowUp class="wind-arrow" size={15} strokeWidth={2.25} style={{ transform: `rotate(${(props.summary.fromDegrees + 180) % 360}deg)` }} aria-hidden="true" />
-    <b>{props.summary.beaufort}</b><small>Bft</small>
+    <b>{props.summary.value}</b><small class="wind-unit">{unit()}</small>
+    <Show when={props.summary.gust}>{(gust) => <small class="wind-gust">· {gust()}</small>}</Show>
   </span>
 }
 

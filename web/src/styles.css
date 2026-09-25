@@ -220,6 +220,7 @@ button { color: inherit; cursor: pointer; }
 .about-settings h3 { margin: 0 0 7px; color: var(--muted); font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
 .about-theme { display: flex; }
 .about-theme button { flex: 1; }
+.about-wind-unit { margin-top: 8px; }
 .about-lead { font-size: 14px; font-weight: 650; line-height: 1.45; }
 .about-body dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--surface-soft); font-size: 12px; }
 .about-body dt { color: var(--muted); font-weight: 750; }
@@ -601,6 +602,7 @@ td small { color: var(--muted); font-size: 9px; }
 .wind-reading { display: inline-flex; align-items: center; gap: 2px; }
 .wind-reading b { font-size: 13px; font-weight: 700; }
 .wind-reading small { margin-left: 1px; }
+.wind-reading .wind-gust { margin-left: 4px; color: var(--muted); white-space: nowrap; }
 .wind-arrow { flex: none; margin-right: 2px; color: var(--accent); }
 
 /* Aanraakdoel ≥ 44 px: kleine knoppen krijgen een onzichtbare rand i.p.v. een groter uiterlijk. */
@@ -622,9 +624,11 @@ td small { color: var(--muted); font-size: 9px; }
   .column-mode { min-width: 0; padding-right: 3px; padding-left: 3px; font-size: 10px; }
 }
 
-/* Op 320 px scheelt de eenheid net de horizontale scroll; het label van de cel noemt Bft nog. */
+/* Op 320 px scheelt de eenheid net de horizontale scroll; het label van de cel noemt de eenheid nog. */
 @media (max-width: 360px) {
-  .wind-reading small { display: none; }
+  .wind-reading .wind-unit { display: none; }
+  .wind-reading { flex-wrap: wrap; justify-content: center; }
+  .wind-reading .wind-gust { flex-basis: 100%; margin-left: 0; text-align: center; }
 }
 
 @media (prefers-reduced-motion: reduce) {

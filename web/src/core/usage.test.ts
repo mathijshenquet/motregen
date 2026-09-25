@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   createUsageTracker, durationBucket, installUsageBeacon, sessionManifestUrls, USAGE_DURATIONS, USAGE_ENDPOINT, USAGE_FEATURES, USAGE_FIELDS,
-  USAGE_RANGES, USAGE_THEMES, USAGE_WIDTHS, widthClass, type UsageEnvironment,
+  USAGE_RANGES, USAGE_THEMES, USAGE_UNITS, USAGE_WIDTHS, widthClass, type UsageEnvironment,
 } from './usage'
 
 function environment(overrides: Partial<UsageEnvironment> = {}) {
@@ -39,11 +39,12 @@ const allowedValues: Record<string, ReadonlyArray<unknown>> = {
   v: [1],
   range: [null, ...USAGE_RANGES],
   theme: USAGE_THEMES,
+  unit: USAGE_UNITS,
   width: USAGE_WIDTHS,
   dur: USAGE_DURATIONS,
 }
 
-const REQUIRED_FIELDS = ['v', 'range', 'theme', 'coarse', 'width', 'dur']
+const REQUIRED_FIELDS = ['v', 'range', 'theme', 'unit', 'coarse', 'width', 'dur']
 
 function expectWhitelisted(body: Record<string, unknown>): void {
   for (const key of Object.keys(body)) expect(USAGE_FIELDS).toContain(key)
@@ -65,13 +66,15 @@ describe('usage beacon body', () => {
     for (const feature of USAGE_FEATURES) tracker.mark(feature)
     tracker.setRange(24)
     tracker.setTheme('dark')
+    tracker.setUnit('kmh')
     const body = tracker.sessionBody()
     expectWhitelisted(body)
     expect(Object.keys(body).sort()).toEqual([...USAGE_FIELDS].sort())
-    expect(JSON.stringify(body).length).toBeLessThan(240)
+    expect(JSON.stringify(body).length).toBeLessThan(260)
     for (const feature of USAGE_FEATURES) expect(body[feature]).toBe(true)
     expect(body.range).toBe('24')
     expect(body.theme).toBe('dark')
+    expect(body.unit).toBe('kmh')
   })
 
   it('never carries numbers, timestamps or free text, whatever the environment reports', () => {
@@ -84,7 +87,7 @@ describe('usage beacon body', () => {
     tracker.sendUsage()
     const sent = JSON.parse(beacons[0]!.body) as Record<string, unknown>
     expectWhitelisted(sent)
-    expect(sent).toMatchObject({ geo: true, search: true, range: 'all', coarse: true, width: '<430', dur: '5-30', theme: 'system' })
+    expect(sent).toMatchObject({ geo: true, search: true, range: 'all', coarse: true, width: '<430', dur: '5-30', theme: 'system', unit: 'bft' })
     expect(beacons[0]!.body).not.toMatch(/\d{4,}|\d\.\d/)
     expect(beacons[0]!.body.length).toBeLessThan(200)
   })

@@ -6,6 +6,7 @@ def usage_features:
 def usage_dimensions: {
   range: ["3", "8", "24", "all", "none"],
   theme: ["light", "system", "dark"],
+  unit: ["bft", "kn", "kmh", "ms"],
   coarse: ["true", "false"],
   width: ["<430", "<960", ">=960"],
   dur: ["<1", "1-5", "5-30", ">30"]

@@ -77,3 +77,35 @@ fn matches_cfgrib_reference_elementwise() -> Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn gusts_are_the_hourly_maximum_and_exceed_the_mean_wind() -> Result<()> {
+    let source = repository_root().join("data/HA43_N20_202608281200_00100_GB");
+    if !source.exists() {
+        eprintln!("SKIP: missing KNMI GRIB sample {}", source.display());
+        return Ok(());
+    }
+    let fields = knmi_grib::decode_arome_fields(&source)?;
+    assert_eq!(
+        (fields.gust_u_ms.start_step, fields.gust_u_ms.end_step),
+        (0, 1)
+    );
+    assert_eq!(fields.gust_v_ms.grid, fields.wind_u_ms.grid);
+    let magnitude =
+        |u: &[f32], v: &[f32]| -> Vec<f32> { u.iter().zip(v).map(|(u, v)| u.hypot(*v)).collect() };
+    let gust = magnitude(&fields.gust_u_ms.values, &fields.gust_v_ms.values);
+    let wind = magnitude(&fields.wind_u_ms.values, &fields.wind_v_ms.values);
+    let above = gust
+        .iter()
+        .zip(&wind)
+        .filter(|(gust, wind)| gust >= wind)
+        .count();
+    ensure!(
+        above as f64 >= 0.99 * gust.len() as f64,
+        "gust below mean wind in {} of {} cells",
+        gust.len() - above,
+        gust.len()
+    );
+    ensure!(gust.iter().all(|gust| (0.0..60.0).contains(gust)));
+    Ok(())
+}

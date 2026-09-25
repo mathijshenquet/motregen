@@ -36,3 +36,22 @@ test('touch keeps the history behind a small toggle', async ({ page }, testInfo)
   await expect(toggle).toHaveText('Afgelopen uren verbergen')
   await expect(page.locator('tr.past-hour').first()).toBeVisible()
 })
+
+test('wind column shows the gust and follows the unit setting across reloads', async ({ page }) => {
+  await page.goto('/')
+  const reading = page.locator('tr.current-hour .wind-reading')
+  await expect(reading.locator('.wind-unit')).toHaveText('Bft', { timeout: 20_000 })
+  await expect(reading.locator('.wind-gust')).toHaveText(/^· \d+$/)
+  await expect(reading).toHaveAttribute('aria-label', /, stoten tot \d+ km\/u$/)
+
+  await page.getByRole('button', { name: 'Over motregen en instellingen' }).click()
+  const units = page.getByRole('group', { name: 'Eenheid van de wind' })
+  await units.getByRole('button', { name: 'km/u' }).click()
+  await expect(units.getByRole('button', { name: 'km/u' })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: 'Sluiten' }).click()
+  await expect(reading.locator('.wind-unit')).toHaveText('km/u')
+  await expect(reading).toHaveAttribute('aria-label', /^Wind uit \S+, \d+ km\/u, stoten tot \d+ km\/u$/)
+
+  await page.reload()
+  await expect(page.locator('tr.current-hour .wind-reading .wind-unit')).toHaveText('km/u', { timeout: 20_000 })
+})

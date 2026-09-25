@@ -1,5 +1,6 @@
 import { For, onCleanup, type JSX } from 'solid-js'
 import { Dynamic } from 'solid-js/web'
+import { WIND_UNITS, type WindUnit } from '../core/weather'
 import { BUTTON_ICON, INLINE_ICON, Moon, Sun, SunMoon, X } from './icons'
 import { backdropHandlers } from './modal'
 
@@ -16,10 +17,13 @@ const THEME_CHOICES: Record<ThemeChoice, { icon: typeof Sun; label: string }> = 
   system: { icon: SunMoon, label: 'Systeem' },
   dark: { icon: Moon, label: 'Donker' },
 }
+const WIND_UNIT_CHOICES: Record<WindUnit, string> = { bft: 'Bft', kn: 'knopen', kmh: 'km/u', ms: 'm/s' }
 
 interface Props {
   theme: ThemeChoice
   onTheme: (theme: ThemeChoice) => void
+  windUnit: WindUnit
+  onWindUnit: (unit: WindUnit) => void
   onOpen?: () => void
   onTripleTap: () => void
   /** Links in de bron-regel, bv. de temperatuurlegenda. */
@@ -76,6 +80,11 @@ export default function About(props: Props) {
           <div class="segmented about-theme" role="group" aria-labelledby="about-theme-title">
             <For each={THEMES}>{(choice) => <button type="button" classList={{ active: props.theme === choice }} aria-pressed={props.theme === choice} onClick={() => props.onTheme(choice)}>
               <Dynamic component={THEME_CHOICES[choice].icon} {...INLINE_ICON} />{THEME_CHOICES[choice].label}
+            </button>}</For>
+          </div>
+          <div class="segmented about-theme about-wind-unit" role="group" aria-label="Eenheid van de wind">
+            <For each={WIND_UNITS}>{(unit) => <button type="button" classList={{ active: props.windUnit === unit }} aria-pressed={props.windUnit === unit} onClick={() => props.onWindUnit(unit)}>
+              {WIND_UNIT_CHOICES[unit]}
             </button>}</For>
           </div>
         </section>

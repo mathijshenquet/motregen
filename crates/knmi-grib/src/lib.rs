@@ -13,6 +13,8 @@ const V_WIND_PARAMETER: i64 = 34;
 const GLOBAL_RADIATION_PARAMETER: i64 = 117;
 const TOTAL_CLOUD_COVER_PARAMETER: i64 = 71;
 const PRESSURE_PARAMETER: i64 = 1;
+const U_GUST_PARAMETER: i64 = 162;
+const V_GUST_PARAMETER: i64 = 163;
 const HEIGHT_ABOVE_GROUND: &str = "sfc";
 /// GRIB1 level type 103 (KNMI table 253 has no name for it, so eccodes reports the number):
 /// parameter 1 there is mean-sea-level pressure; parameter 1 on `sfc` is surface pressure.
@@ -52,6 +54,8 @@ pub struct AromeFields {
     pub global_radiation_j_m2: PrecipitationField,
     pub total_cloud_cover: PrecipitationField,
     pub mean_sea_level_pressure_pa: PrecipitationField,
+    pub gust_u_ms: PrecipitationField,
+    pub gust_v_ms: PrecipitationField,
 }
 
 #[derive(Clone, Copy)]
@@ -66,6 +70,8 @@ enum FieldKind {
     GlobalRadiation,
     TotalCloudCover,
     MeanSeaLevelPressure,
+    GustU,
+    GustV,
 }
 
 pub fn decode_arome_fields(path: impl AsRef<Path>) -> Result<AromeFields> {
@@ -82,6 +88,8 @@ pub fn decode_arome_fields(path: impl AsRef<Path>) -> Result<AromeFields> {
     let mut global_radiation = None;
     let mut total_cloud_cover = None;
     let mut mean_sea_level_pressure = None;
+    let mut gust_u = None;
+    let mut gust_v = None;
 
     while let Some(message) = file.ref_message_iter().next()? {
         let parameter: i64 = message.read_key("indicatorOfParameter")?;
@@ -111,6 +119,8 @@ pub fn decode_arome_fields(path: impl AsRef<Path>) -> Result<AromeFields> {
                 (HEIGHT_ABOVE_GROUND, TOTAL_CLOUD_COVER_PARAMETER, 0) => {
                     (FieldKind::TotalCloudCover, 0, 0)
                 }
+                (HEIGHT_ABOVE_GROUND, U_GUST_PARAMETER, 10) => (FieldKind::GustU, 10, 2),
+                (HEIGHT_ABOVE_GROUND, V_GUST_PARAMETER, 10) => (FieldKind::GustV, 10, 2),
                 _ => continue,
             };
         let table_version: i64 = message.read_key("table2Version")?;
@@ -160,6 +170,8 @@ pub fn decode_arome_fields(path: impl AsRef<Path>) -> Result<AromeFields> {
             FieldKind::GlobalRadiation => &mut global_radiation,
             FieldKind::TotalCloudCover => &mut total_cloud_cover,
             FieldKind::MeanSeaLevelPressure => &mut mean_sea_level_pressure,
+            FieldKind::GustU => &mut gust_u,
+            FieldKind::GustV => &mut gust_v,
         };
         if slot.replace(field).is_some() {
             bail!("duplicate selected AROME field in {}", path.display());
@@ -179,6 +191,8 @@ pub fn decode_arome_fields(path: impl AsRef<Path>) -> Result<AromeFields> {
         total_cloud_cover: total_cloud_cover.ok_or_else(|| missing("total cloud cover"))?,
         mean_sea_level_pressure_pa: mean_sea_level_pressure
             .ok_or_else(|| missing("mean-sea-level pressure"))?,
+        gust_u_ms: gust_u.ok_or_else(|| missing("10 m U-gust"))?,
+        gust_v_ms: gust_v.ok_or_else(|| missing("10 m V-gust"))?,
     })
 }
 

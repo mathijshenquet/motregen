@@ -411,6 +411,7 @@ struct DecodedArome {
     feels_like: Vec<Vec<u8>>,
     wind_u: Vec<Vec<u8>>,
     wind_v: Vec<Vec<u8>>,
+    gust: Vec<Vec<u8>>,
     radiation: Vec<Vec<u8>>,
     relative_humidity: Vec<Vec<u8>>,
     cloud_fraction: Vec<Vec<u8>>,
@@ -474,6 +475,7 @@ fn decode_arome_run(
         feels_like: Vec::with_capacity(capacity),
         wind_u: Vec::with_capacity(capacity),
         wind_v: Vec::with_capacity(capacity),
+        gust: Vec::with_capacity(capacity),
         radiation: Vec::with_capacity(capacity),
         relative_humidity: Vec::with_capacity(capacity),
         cloud_fraction: Vec::with_capacity(capacity),
@@ -481,6 +483,7 @@ fn decode_arome_run(
     };
     let temperature_quant = temperature_quantization_table();
     let wind_quant = wind_quantization_table();
+    let gust_quant = gust_quantization_table();
     let radiation_quant = radiation_quantization_table();
     let percent_quant = percent_quantization_table();
     let pressure_quant = pressure_quantization_table();
@@ -527,6 +530,14 @@ fn decode_arome_run(
             .collect::<Vec<_>>();
         let wind_u = hourly_map.gather(&current.wind_u_ms.values)?;
         let wind_v = hourly_map.gather(&current.wind_v_ms.values)?;
+        let gust = current
+            .gust_u_ms
+            .values
+            .iter()
+            .zip(&current.gust_v_ms.values)
+            .map(|(u, v)| u.hypot(*v))
+            .collect::<Vec<_>>();
+        let gust = hourly_map.gather(&gust)?;
         let feels_like = temperature
             .iter()
             .zip(&relative_humidity)
@@ -551,6 +562,8 @@ fn decode_arome_run(
             &integrate_values(&wind_v, 3)?,
             &wind_quant,
         )?);
+        out.gust
+            .push(quantize_values(&integrate_values(&gust, 3)?, &gust_quant)?);
         out.relative_humidity.push(quantize_values(
             &integrate_values(&relative_humidity_percent, 8)?,
             &percent_quant,
@@ -662,6 +675,12 @@ fn hourly_field_chunks(decoded: &DecodedArome, horizon_label: &str) -> Result<Ve
             wind_quant.clone(),
         )?,
         field_chunk("wind_v_ms", DETAIL_GRID, &decoded.wind_v, wind_quant)?,
+        field_chunk(
+            "gust_ms",
+            DETAIL_GRID,
+            &decoded.gust,
+            gust_quantization_table(),
+        )?,
         field_chunk(
             "radiation",
             RADIATION_GRID,
@@ -997,6 +1016,10 @@ pub fn wind_quantization_table() -> Vec<Option<f32>> {
     linear_quantization_table(-31.75, 0.25)
 }
 
+pub fn gust_quantization_table() -> Vec<Option<f32>> {
+    linear_quantization_table(0.0, 0.5)
+}
+
 pub fn radiation_quantization_table() -> Vec<Option<f32>> {
     linear_quantization_table(0.0, 5.0)
 }
@@ -1080,6 +1103,8 @@ fn validate_arome_fields(
         &fields.global_radiation_j_m2,
         &fields.total_cloud_cover,
         &fields.mean_sea_level_pressure_pa,
+        &fields.gust_u_ms,
+        &fields.gust_v_ms,
     ];
     ensure!(
         selected.iter().all(|field| &field.grid == grid),
@@ -1187,13 +1212,14 @@ mod tests {
             feels_like: frames(DETAIL_GRID),
             wind_u: frames(DETAIL_GRID),
             wind_v: frames(DETAIL_GRID),
+            gust: frames(DETAIL_GRID),
             radiation: frames(RADIATION_GRID),
             relative_humidity: frames(SUMMARY_GRID),
             cloud_fraction: frames(SUMMARY_GRID),
             pressure: frames(DETAIL_GRID),
         };
         let chunks = hourly_field_chunks(&decoded, "h30").unwrap();
-        assert_eq!(chunks.len(), 16);
+        assert_eq!(chunks.len(), 18);
         let temperature = chunks
             .iter()
             .filter(|chunk| chunk.manifest.field == "temp_c")
@@ -1339,6 +1365,9 @@ mod tests {
         assert!((temperature[254].unwrap() - 45.0).abs() < 0.0001);
         let wind = wind_quantization_table();
         assert_eq!(wind[127], Some(0.0));
+        let gust = gust_quantization_table();
+        assert_eq!(gust[0], Some(0.0));
+        assert_eq!(gust[120], Some(60.0));
         assert_eq!(radiation_quantization_table()[254], Some(1_270.0));
         assert!((uv_quantization_table()[254].unwrap() - 12.0).abs() < 0.0001);
         assert_eq!(percent_quantization_table()[0], Some(0.0));

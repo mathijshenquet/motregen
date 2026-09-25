@@ -3,7 +3,7 @@
 {"level":"info","ts":"2026-09-01T08:02+02:00","logger":"http.log.access.usage","msg":"handled request","uri":"/data/manifest.json"}
 {"level":"info","ts":"2026-09-01T08:03+02:00","logger":"http.log.access.usage","msg":"handled request","uri":"/data/manifest.json"}
 {"level":"info","ts":"2026-09-01T08:04+02:00","logger":"http.log.access.usage","msg":"handled request","uri":"/data/manifest.json"}
-{"level":"info","ts":"2026-09-01T08:10+02:00","logger":"http.log.access.usage","msg":"handled request","hit":"{\"v\":1,\"search\":true,\"geo\":true,\"range\":\"8\",\"theme\":\"dark\",\"coarse\":true,\"width\":\"<430\",\"dur\":\"1-5\"}","uri":"/hit"}
+{"level":"info","ts":"2026-09-01T08:10+02:00","logger":"http.log.access.usage","msg":"handled request","hit":"{\"v\":1,\"search\":true,\"geo\":true,\"range\":\"8\",\"theme\":\"dark\",\"unit\":\"kmh\",\"coarse\":true,\"width\":\"<430\",\"dur\":\"1-5\"}","uri":"/hit"}
 {"level":"info","ts":"2026-09-01T08:11+02:00","logger":"http.log.access.usage","msg":"handled request","hit":"{\"v\":1,\"search\":true,\"range\":null,\"theme\":\"system\",\"coarse\":false,\"width\":\">=960\",\"dur\":\"<1\"}","uri":"/hit"}
 {"level":"info","ts":"2026-09-01T08:12+02:00","logger":"http.log.access.usage","msg":"handled request","hit":"{\"v\":1,\"play\":true,\"range\":null,\"theme\":\"system\",\"coarse\":true,\"width\":\"<430\",\"dur\":\"5-30\"}","uri":"/hit"}
 {"level":"info","ts":"2026-09-01T08:12+02:00","logger":"http.log.access.usage","msg":"handled request","hit":"{\"v\":1,\"fav\":true,\"search\":false,\"range\":\"all\",\"theme\":\"light\",\"coarse\":false,\"width\":\"<960\",\"dur\":\">30\"}","uri":"/hit"}

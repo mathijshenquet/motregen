@@ -32,6 +32,7 @@ beschrijft wat er precies wordt opgeslagen, hoe lang, en waar het rapport staat.
 | `about` | `true` of afwezig | About geopend |
 | `range` | `"3"`, `"8"`, `"24"`, `"all"`, `null` | laatst gekozen bereik; `null` = knop niet gebruikt |
 | `theme` | `"light"`, `"system"`, `"dark"` | thema |
+| `unit` | `"bft"`, `"kn"`, `"kmh"`, `"ms"` | windeenheid (U36; ontbreekt in bakens van vóór 2026-09-25) |
 | `coarse` | `true`, `false` | aanwijsapparaat is grof (touch) |
 | `width` | `"<430"`, `"<960"`, `">=960"` | breedteklasse in CSS-pixels |
 | `dur` | `"<1"`, `"1-5"`, `"5-30"`, `">30"` | sessieduur in minuten, gebakken |
@@ -51,7 +52,7 @@ worden niet gelogd. Alle overige verzoeken, inclusief manifestverzoeken zonder
 Een logregel bevat uitsluitend deze velden:
 
 ```json
-{"level":"info","ts":"2026-09-25T14:28+02:00","logger":"http.log.access.usage","msg":"handled request","uri":"/hit","hit":"{\"v\":1,\"search\":true,\"range\":null,\"theme\":\"dark\",\"coarse\":false,\"width\":\">=960\",\"dur\":\"1-5\"}"}
+{"level":"info","ts":"2026-09-25T14:28+02:00","logger":"http.log.access.usage","msg":"handled request","uri":"/hit","hit":"{\"v\":1,\"search\":true,\"range\":null,\"theme\":\"dark\",\"unit\":\"bft\",\"coarse\":false,\"width\":\">=960\",\"dur\":\"1-5\"}"}
 {"level":"info","ts":"2026-09-25T14:31+02:00","logger":"http.log.access.usage","msg":"handled request","uri":"/data/manifest.json"}
 ```
 
@@ -104,7 +105,7 @@ Het aggregaat heeft deze vorm (`nix/usage/day.jq`):
 ```json
 {"day":"2026-09-24","sessions":5,"beacons":4,"rejected":3,
  "features":{"search":{"n":2,"pct":50}, "…": "…"},
- "dimensions":{"range":{"3":{"n":0,"pct":0},"none":{"n":2,"pct":50}, "…": "…"}, "theme":{}, "coarse":{}, "width":{}, "dur":{}}}
+ "dimensions":{"range":{"3":{"n":0,"pct":0},"none":{"n":2,"pct":50}, "…": "…"}, "theme":{}, "unit":{}, "coarse":{}, "width":{}, "dur":{}}}
 ```
 
 Handmatig opnieuw draaien: `ssh root@57.129.47.17 'systemctl start motregen-usage-report'`.
