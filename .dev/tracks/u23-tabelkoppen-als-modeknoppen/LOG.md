@@ -153,3 +153,23 @@ Vóór-screenshots van main staan in `web/tmp/shots/voor/` (main apart gebouwd i
    was vóór U23 onzichtbaar omdat de historie ingeklapt stond.
 6. Prefetch-marge van 320 px voor toekomstige rijen werkt op desktop niet meer (observer-root = viewport, rijen worden
    door de tabelscroller geclipt): rijen laden nu pas als ze in beeld scrollen. Klein; kan met root = scroller.
+
+## 2026-09-25 10:40 afronding (MIP-12: geen losse ?-URL-parameters)
+- Variantcode weg: `?wind=kompas` (WindReading-dial, `Navigation2`, `.wind-dial*`) en `?rv=dauwpunt` (`dewPoint`,
+  `Droplet`, `.dew-point*`), incl. props `windForm`/`humidityForm`. Keuze blijft: pijl + Bft, gewoon RV-percentage.
+  Stills van beide varianten blijven als PO-referentie in `shots/variant-kompas-dauwpunt/`; dauwpunt komt zo nodig
+  terug als eigen track. Open punten 2 en 3 (10:32) zijn daarmee vervallen.
+- Gerebased op origin/main 314fe3e (bevat U22-shell). Conflicten, alle opgelost als "main + alleen mijn wijziging":
+  `icons.ts` (U22 haalde `Info` weg), `styles.css` 4 blokken (U22 verwijderde het 959-mobiel-themablok en het
+  map-clock-containerblok, wijzigde `.search`- en `.sidebar-nav`-posities). Eerste rebasepoging commitde door een
+  gemist vierde blok conflictmarkers → lokaal teruggezet naar de pre-rebase-head (233c117, niet gepusht) en opnieuw
+  gedaan met rerere uit; daarna per commit gecontroleerd: 0 markers in alle 6 commits.
+- Visuele controle na rebase (probe `na-rebase`, niet gecommit): desktop opent op de nu-rij onder de U22-shell,
+  breedtes ongewijzigd (desktop 437/437, Pixel 5 377/377, 320: 304/304).
+- Receipts op head c078030 (main 314fe3e): TYPECHECK-EXIT: 0 · TEST-EXIT: 0 (43 files, 257 tests) · BUILD-EXIT: 0.
+- Gericht, onder slot: `MOTREGEN_E2E_PORT=4362 MOTREGEN_E2E_DATA_PORT=8362 pnpm e2e e2e/table.spec.ts e2e/focus.spec.ts`
+  (startload 14,5, poorten vrij, head c078030) → **E2E-TARGET-EXIT: 0** — 11 passed, 22 skipped (één-profiel-tests), 1,8 min.
+  (Een eerste poging werd na 10 min slotwachten door de tool-timeout afgebroken vóór Playwright startte — geen receipt.)
+- Procesnoot orkestrator (ontvangen na deze run): load-wachtdrempel voor gerichte e2e voortaan < 22, starten zodra
+  een slot vrij is, max één Chromium; startload blijft in de LOG.
+- Stand: klaar. Volledige suite op de merge-kandidaat: orkestrator. Resterende open punten: 1, 4, 5, 6 van 10:32.
