@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SavedPlace } from '../core/saved-places'
 import LocationSearch from './LocationSearch'
 
-afterEach(cleanup)
+afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
 const home: SavedPlace = { id: 'home', name: 'Thuis', sourceLabel: 'De Bilt', lng: 5.18, lat: 52.1 }
 
@@ -16,6 +16,7 @@ function renderSearch(savedPlaces: SavedPlace[] = []) {
   const onSelectSaved = vi.fn()
   render(() => <LocationSearch
     location={{ lng: 5.18, lat: 52.1 }}
+    mapCenter={() => ({ lng: 5.18, lat: 52.1 })}
     locationLabel="De Bilt"
     savedPlaces={savedPlaces}
     onLocate={onLocate}
@@ -123,5 +124,27 @@ describe('location search', () => {
     fireEvent.click(scrim)
     expect(screen.queryByRole('listbox')).toBeNull()
     expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('shows a Flemish municipality as "· BE" and selects it without a PDOK lookup', async () => {
+    const fetch = vi.fn(async (input: URL | string) => {
+      const url = String(input)
+      if (url.includes('geo.api.vlaanderen.be')) return Response.json({ LocationResult: [
+        { ID: 188, FormattedAddress: 'Gent', LocationType: 'basisregisters_gemeente', Location: { Lat_WGS84: 51.074, Lon_WGS84: 3.725 } },
+      ] })
+      return Response.json({ response: { docs: [{ id: 'wpl-sas', weergavenaam: 'Sas van Gent, Terneuzen, Zeeland', type: 'woonplaats' }] } })
+    })
+    vi.stubGlobal('fetch', fetch)
+    const { onSelect } = renderSearch()
+    const input = screen.getByRole<HTMLInputElement>('textbox', { name: 'Zoek plaats' })
+    fireEvent.focus(input)
+    fireEvent.input(input, { target: { value: 'Gent' } })
+
+    const gent = await screen.findByRole('option', { name: /^Gent/ })
+    expect(gent.querySelector('small')!.textContent).toBe('BE')
+    expect(screen.getByRole('option', { name: /Sas van Gent/ }).querySelector('small')!.textContent).toBe('Terneuzen · Zeeland')
+    fireEvent.click(gent)
+    await vi.waitFor(() => expect(onSelect).toHaveBeenCalledWith({ lng: 3.725, lat: 51.074 }, 'Gent'))
+    expect(fetch).toHaveBeenCalledTimes(2)
   })
 })

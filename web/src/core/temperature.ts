@@ -37,8 +37,9 @@ export function temperatureLayer(theme: MapTheme): SymbolLayerSpecification {
 
 // Priority order: the greedy selection below keeps an earlier place over any
 // later one within the spacing, so the head of the list decides the overview.
-// The head covers every province (Zeeland via Middelburg); the tail fills gaps
-// when zoomed in, coast and islands included.
+// The head covers every province (Zeeland via Middelburg) and the Flemish
+// provinces plus Brussel; the tail fills gaps when zoomed in, coast and
+// islands included.
 export const temperaturePlaces: readonly TemperaturePlace[] = [
   { name: 'Amsterdam', lng: 4.9, lat: 52.37 },
   { name: 'Rotterdam', lng: 4.48, lat: 51.92 },
@@ -52,6 +53,11 @@ export const temperaturePlaces: readonly TemperaturePlace[] = [
   { name: 'Arnhem', lng: 5.91, lat: 51.98 },
   { name: 'Lelystad', lng: 5.47, lat: 52.52 },
   { name: 'Assen', lng: 6.56, lat: 52.99 },
+  { name: 'Antwerpen', lng: 4.4, lat: 51.22 },
+  { name: 'Gent', lng: 3.72, lat: 51.05 },
+  { name: 'Brussel', lng: 4.35, lat: 50.85 },
+  { name: 'Hasselt', lng: 5.34, lat: 50.93 },
+  { name: 'Brugge', lng: 3.22, lat: 51.21 },
   { name: 'Den Helder', lng: 4.76, lat: 52.96 },
   { name: 'Enschede', lng: 6.9, lat: 52.22 },
   { name: 'Breda', lng: 4.78, lat: 51.59 },
@@ -65,6 +71,10 @@ export const temperaturePlaces: readonly TemperaturePlace[] = [
   { name: 'Vlissingen', lng: 3.57, lat: 51.45 },
   { name: 'Den Bosch', lng: 5.3, lat: 51.69 },
   { name: 'Tilburg', lng: 5.09, lat: 51.56 },
+  { name: 'Leuven', lng: 4.7, lat: 50.88 },
+  { name: 'Kortrijk', lng: 3.26, lat: 50.83 },
+  { name: 'Oostende', lng: 2.92, lat: 51.23 },
+  { name: 'Turnhout', lng: 4.95, lat: 51.32 },
   { name: 'Amersfoort', lng: 5.39, lat: 52.16 },
   { name: 'Haarlem', lng: 4.64, lat: 52.38 },
   { name: 'Leiden', lng: 4.49, lat: 52.16 },
@@ -106,6 +116,11 @@ export const temperaturePlaces: readonly TemperaturePlace[] = [
   { name: 'Delfzijl', lng: 6.93, lat: 53.33 },
   { name: 'Winschoten', lng: 7.03, lat: 53.14 },
   { name: 'Stadskanaal', lng: 6.95, lat: 52.99 },
+  { name: 'Mechelen', lng: 4.48, lat: 51.03 },
+  { name: 'Aalst', lng: 4.04, lat: 50.94 },
+  { name: 'Genk', lng: 5.5, lat: 50.97 },
+  { name: 'Sint-Niklaas', lng: 4.14, lat: 51.17 },
+  { name: 'Roeselare', lng: 3.12, lat: 50.95 },
 ]
 
 export interface TemperaturePlace {

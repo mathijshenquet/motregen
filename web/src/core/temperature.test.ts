@@ -52,7 +52,15 @@ const provinces: Record<string, string[]> = {
   Zeeland: ['Middelburg', 'Vlissingen', 'Goes', 'Zierikzee', 'Terneuzen'],
   'Noord-Brabant': ['Eindhoven', 'Breda', 'Den Bosch', 'Tilburg', 'Bergen op Zoom', 'Helmond', 'Oss'],
   Limburg: ['Maastricht', 'Venlo', 'Roermond', 'Heerlen', 'Weert'],
+  'Antwerpen (BE)': ['Antwerpen', 'Mechelen', 'Turnhout'],
+  'Oost-Vlaanderen': ['Gent', 'Aalst', 'Sint-Niklaas'],
+  'West-Vlaanderen': ['Brugge', 'Kortrijk', 'Oostende', 'Roeselare'],
+  // Brussel ligt als enclave in Vlaams-Brabant; samen één gebied.
+  'Vlaams-Brabant en Brussel': ['Brussel', 'Leuven'],
+  'Limburg (BE)': ['Hasselt', 'Genk'],
 }
+
+const flemishProvinces = ['Antwerpen (BE)', 'Oost-Vlaanderen', 'West-Vlaanderen', 'Vlaams-Brabant en Brussel', 'Limburg (BE)']
 
 function metersPerPixel(zoom: number): number {
   return 2 * Math.PI * 6378137 / (512 * 2 ** (Math.floor(zoom * 2) / 2))
@@ -93,7 +101,8 @@ describe('temperature place selection', () => {
     expect(selectTemperaturePlaces(5.6, phone).length).toBeGreaterThanOrEqual(9)
     expect(selectTemperaturePlaces(5.6, phone).length).toBeLessThanOrEqual(16)
     expect(selectTemperaturePlaces(7, desktop).length).toBeGreaterThanOrEqual(10)
-    expect(selectTemperaturePlaces(7, desktop).length).toBeLessThanOrEqual(20)
+    // Vlaanderen (U27) voegt op zoom 7 vier tot vijf labels toe.
+    expect(selectTemperaturePlaces(7, desktop).length).toBeLessThanOrEqual(24)
     expect(selectTemperaturePlaces(7, phone).length).toBeGreaterThanOrEqual(20)
     expect(selectTemperaturePlaces(7.5, desktop).length).toBeGreaterThanOrEqual(20)
   })
@@ -104,7 +113,21 @@ describe('temperature place selection', () => {
 
   it('covers every province once zoomed in', () => {
     const chosen = new Set(selectTemperaturePlaces(7, 72).map((place) => place.name))
-    for (const [province, names] of Object.entries(provinces)) expect(names.some((name) => chosen.has(name)), province).toBe(true)
+    for (const [province, names] of Object.entries(provinces)) {
+      if (!flemishProvinces.includes(province)) expect(names.some((name) => chosen.has(name)), province).toBe(true)
+    }
+    // Belgisch Limburg ligt binnen 30 km van Maastricht: de dichtheidsregel laat het pas een zoomstap later toe.
+    const closer = new Set(selectTemperaturePlaces(8, 72).map((place) => place.name))
+    for (const province of flemishProvinces) expect(provinces[province]!.some((name) => closer.has(name)), province).toBe(true)
+  })
+
+  it('keeps Flanders as sparse as the Netherlands around Antwerpen–Mechelen–Brussel', () => {
+    const phone = temperatureLabelSpacingPx(393, 408)
+    const overview = new Set(selectTemperaturePlaces(5.6, phone).map((place) => place.name))
+    expect(['Antwerpen', 'Mechelen', 'Brussel'].filter((name) => overview.has(name))).toEqual(['Antwerpen'])
+    const desktop = new Set(selectTemperaturePlaces(7, temperatureLabelSpacingPx(970, 900)).map((place) => place.name))
+    expect(desktop.has('Mechelen')).toBe(false)
+    expect(['Antwerpen', 'Gent', 'Brussel', 'Brugge'].every((name) => desktop.has(name))).toBe(true)
   })
 
   it('grows monotonically denser with zoom and with a smaller spacing', () => {

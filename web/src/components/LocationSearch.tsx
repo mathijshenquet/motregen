@@ -1,10 +1,12 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from 'solid-js'
-import { lookupLocation, suggestLocations, type PdokSuggestion } from '../core/pdok'
+import { resolveLocation, suggestionContext, suggestLocations, type LocationSuggestion } from '../core/geocoder'
 import { samePlace, type SavedPlace } from '../core/saved-places'
 import { BUTTON_ICON, INLINE_ICON, LocateFixed, Search, Star, Trash2, X } from './icons'
 
 interface Props {
   location: { lng: number; lat: number }
+  // Kaartcentrum bij het zoeken: bepaalt of Nederlandse of Vlaamse treffers eerst komen.
+  mapCenter: () => { lng: number; lat: number }
   locationLabel: string
   savedPlaces: SavedPlace[]
   onLocate: () => void
@@ -25,7 +27,7 @@ export default function LocationSearch(props: Props) {
   let results: HTMLDivElement | undefined
   const [query, setQuery] = createSignal('')
   const [selectedLabel, setSelectedLabel] = createSignal('')
-  const [suggestions, setSuggestions] = createSignal<PdokSuggestion[]>([])
+  const [suggestions, setSuggestions] = createSignal<LocationSuggestion[]>([])
   const [active, setActive] = createSignal(-1)
   const [message, setMessage] = createSignal('')
   const [open, setOpen] = createSignal(false)
@@ -70,7 +72,7 @@ export default function LocationSearch(props: Props) {
   async function search(value: string): Promise<void> {
     request = new AbortController()
     try {
-      const results = await suggestLocations(value, request.signal)
+      const results = await suggestLocations(value, props.mapCenter(), request.signal)
       if (query().trim() !== value) return
       setSuggestions(results)
       setActive(results.length ? 0 : -1)
@@ -84,12 +86,12 @@ export default function LocationSearch(props: Props) {
     }
   }
 
-  async function choose(suggestion: PdokSuggestion): Promise<void> {
+  async function choose(suggestion: LocationSuggestion): Promise<void> {
     request?.abort()
     request = new AbortController()
     setMessage('Locatie ophalen…')
     try {
-      const location = await lookupLocation(suggestion.id, request.signal)
+      const location = await resolveLocation(suggestion, request.signal)
       commitSelection(location, suggestion.label)
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return
@@ -276,7 +278,7 @@ export default function LocationSearch(props: Props) {
               classList={{ active: index() === active() }}
               onClick={() => void choose(suggestion)}
             >
-              <span>{suggestion.label}</span><small>{suggestion.detail ?? suggestion.type}</small>
+              <span>{suggestion.label}</span><small>{suggestionContext(suggestion)}</small>
             </button>
           }</For>
           <Show when={message()}><p class="search-message" aria-live="polite">{message()}</p></Show>

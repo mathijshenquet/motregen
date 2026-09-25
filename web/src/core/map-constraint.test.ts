@@ -25,6 +25,14 @@ describe('map constraint', () => {
     expect(bounds.east - bounds.west).toBeCloseTo((NETHERLANDS_FLANDERS_BOUNDS.east - NETHERLANDS_FLANDERS_BOUNDS.west) * 1.08, 6)
   })
 
+  it('frames all of Flanders with margin: Brussel, Leuven, Hasselt and the Voerstreek', () => {
+    for (const [lng, lat] of [[4.35, 50.85], [4.7, 50.88], [5.34, 50.93], [5.78, 50.75], [4.23, 50.73], [2.54, 51.09]] as const) {
+      expect(lng).toBeGreaterThan(bounds.west)
+      expect(lng).toBeLessThan(bounds.east)
+      expect(lat).toBeGreaterThan(bounds.south + 0.2)
+    }
+  })
+
   it('never zooms out beyond contain and never beyond the detail limit inward', () => {
     const minZoom = containZoom(bounds, desktop)
     expect(constrainView({ lng: 5, lat: 52, zoom: 2 }, bounds, desktop).zoom).toBeCloseTo(minZoom, 9)
@@ -64,9 +72,10 @@ describe('map constraint', () => {
 
   it('recomputes the minimum zoom when the viewport rotates or resizes', () => {
     const rotated: Viewport = { width: portrait.height, height: portrait.width }
-    expect(containZoom(bounds, rotated)).toBeGreaterThan(containZoom(bounds, portrait))
-    const saved = { lng: 5.3, lat: 52.2, zoom: containZoom(bounds, portrait) }
-    expect(constrainView(saved, bounds, rotated).zoom).toBeCloseTo(containZoom(bounds, rotated), 9)
+    // Sinds U27 is het kader hoger dan breed: liggend past het pas verder uitgezoomd.
+    expect(containZoom(bounds, rotated)).toBeLessThan(containZoom(bounds, portrait))
+    const saved = { lng: 5.3, lat: 52.2, zoom: containZoom(bounds, rotated) }
+    expect(constrainView(saved, bounds, portrait).zoom).toBeCloseTo(containZoom(bounds, portrait), 9)
     expect(containZoom(bounds, { width: 2560, height: 1440 })).toBeCloseTo(containZoom(bounds, desktop) + 1, 9)
   })
 
