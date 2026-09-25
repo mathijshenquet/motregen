@@ -1950,7 +1950,7 @@ export default function App() {
             }}
             location={location()}
             windUnit={windUnit()}
-            columns={{ weather: hasWeatherIcons(), sky: hasWeatherIcons() || uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), humidity: hasHumidity(), wind: hasWind() }}
+            columns={{ weather: hasWeatherIcons(), uv: uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), humidity: hasHumidity(), wind: hasWind() }}
             loadedUntil={pointLoadStage() === 'complete' ? Number.POSITIVE_INFINITY : manifestNow() + PASSIVE_FORECAST_HOURS * 3_600_000}
             historyInline={historyInline()}
             historyOpen={historyOpen()}

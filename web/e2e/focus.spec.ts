@@ -147,13 +147,17 @@ test('the two focus modes exclude each other: the last one wins, a pin returns a
   await expect(heading(page)).toHaveAttribute('aria-pressed', 'false')
   await expect(shell(page)).toHaveAttribute('data-wind-focus', '1.00')
   await expect(shell(page)).toHaveAttribute('data-focus', '0.00')
-  // Weer is de standaardmodus: geen toestand om aan te zetten, een klik haalt de pin weg.
-  await expect(weatherHeading(page)).not.toHaveAttribute('aria-pressed')
+  // Weer is sinds U34 de wolkenmodus: vastzetten maakt de windpin los; nog eens klikken geeft de standaard.
+  await expect(weatherHeading(page)).toHaveAttribute('aria-pressed', 'false')
   await weatherHeading(page).click()
   await page.mouse.move(5, 5)
+  await expect(weatherHeading(page)).toHaveAttribute('aria-pressed', 'true')
   await expect(windHeading(page)).toHaveAttribute('aria-pressed', 'false')
   await expect(shell(page)).toHaveAttribute('data-wind-focus', '0.00')
   await expect(shell(page)).toHaveAttribute('data-focus', '0.00')
+  await weatherHeading(page).click()
+  await page.mouse.move(5, 5)
+  await expect(weatherHeading(page)).toHaveAttribute('aria-pressed', 'false')
 })
 
 test('tapping the wind heading pins wind focus on touch', async ({ page }, testInfo) => {
@@ -167,6 +171,7 @@ test('tapping the wind heading pins wind focus on touch', async ({ page }, testI
   await expect(windHeading(page)).toHaveAttribute('aria-pressed', 'false')
   await expect(shell(page)).toHaveAttribute('data-wind-focus', '0.00')
   await windHeading(page).tap()
+  // Weer (wolkenmodus, U34) vastzetten maakt de windpin los.
   await weatherHeading(page).tap()
   await expect(windHeading(page)).toHaveAttribute('aria-pressed', 'false')
   await expect(shell(page)).toHaveAttribute('data-wind-focus', '0.00')

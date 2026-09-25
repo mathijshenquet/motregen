@@ -41,7 +41,7 @@ test('wind column shows the gust and follows the unit setting across reloads', a
   await page.goto('/')
   const reading = page.locator('tr.current-hour .wind-reading')
   await expect(reading.locator('.wind-unit')).toHaveText('Bft', { timeout: 20_000 })
-  await expect(reading.locator('.wind-gust')).toHaveText(/^⌇ \d+$/)
+  await expect(reading.locator('.wind-gust')).toHaveText(/^\d+ Bft$/)
   await expect(reading).toHaveAttribute('aria-label', /, windstoten tot \d+ Bft$/)
 
   await page.getByRole('button', { name: 'Over motregen en instellingen' }).click()

@@ -103,3 +103,5 @@
 ## 2026-09-25 — F: adaptieve isobaarstap
 - ISOBAR_STEPS_HPA [4, 2, 1]: grootste stap met ≥ 4 lijnen over het drukbereik in beeld (fieldRangeInView op het geladen uurframe, geldige cellen binnen map.getBounds()); hysterese: fijner pas bij < 3 lijnen, grover pas als de grovere ≥ 6 lijnen geeft. Bijgewerkt na elke drukveldlading en bij moveend; step/style zijn reactief, dus laag en labels volgen. Labels blijven hele hPa (veelvouden van 1/2/4).
 - Receipts: typecheck 0; `pnpm test` 0. Geen e2e.
+- 2026-09-25 PO live: Lucht-glyph = WeatherIcon (zon/zon+wolk/wolk/dicht = donkere wolk) op cloud_frac, 's nachts maan; vlaagteken ⌇ 1,6× in eigen span. typecheck 0, pnpm test 0 (46/315).
+- 2026-09-25 PO live: bewolking alleen in het Weer-icoon (4 stappen, dense = donkere wolk, partly-grens 70→50); UV weer gewone kolom; kop Weer = wolkenmodus (tweede klik = standaard); vlaag op tweede regel met lucide-wind, kleiner/lichter, eenheid. typecheck 0, pnpm test 0 (46/313); e2e-specs bijgewerkt (focus, cloud-section, table), niet gedraaid.

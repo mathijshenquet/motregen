@@ -5,6 +5,8 @@ export interface WeatherIconModel {
   condition: WeatherCondition
   period: DayPeriod
   label: string
+  /** Dicht bewolkt: dezelfde wolk, donkerder (U34). */
+  dense?: boolean
 }
 
 export function deriveWeatherIcon(rainRate: number | null, cloudFraction: number | null, daylight: boolean): WeatherIconModel | null {
@@ -12,9 +14,11 @@ export function deriveWeatherIcon(rainRate: number | null, cloudFraction: number
   const period = daylight ? 'day' : 'night'
   if (rainRate >= 7.5) return { condition: 'heavy-rain', period, label: daylight ? 'Zware regen overdag' : 'Zware regen in de nacht' }
   if (rainRate >= 0.1) return { condition: 'rain', period, label: daylight ? 'Regen overdag' : 'Regen in de nacht' }
+  // Vier bewolkingsstappen (PO 2026-09-25 live, U34; was drie met de grens op 70 %).
   if (cloudFraction < 20) return { condition: 'clear', period, label: daylight ? 'Helder' : 'Heldere nacht' }
-  if (cloudFraction < 70) return { condition: 'partly-cloudy', period, label: daylight ? 'Half bewolkt' : 'Licht bewolkt in de nacht' }
-  return { condition: 'overcast', period, label: 'Bewolkt' }
+  if (cloudFraction < 50) return { condition: 'partly-cloudy', period, label: daylight ? 'Licht bewolkt' : 'Licht bewolkt in de nacht' }
+  if (cloudFraction < 80) return { condition: 'overcast', period, label: 'Bewolkt' }
+  return { condition: 'overcast', period, label: 'Zwaar bewolkt', dense: true }
 }
 
 const beaufortLimits = [0.3, 1.6, 3.4, 5.5, 8, 10.8, 13.9, 17.2, 20.8, 24.5, 28.5, 32.7]

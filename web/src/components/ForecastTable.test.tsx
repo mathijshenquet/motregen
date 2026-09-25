@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { FocusKind } from '../core/focus-mode'
 import type { HourlyForecastRow } from '../core/forecast'
 import type { WindUnit } from '../core/weather'
-import ForecastTable, { cloudCoverStep, type ForecastSeries } from './ForecastTable'
+import ForecastTable, { type ForecastSeries } from './ForecastTable'
 
 const start = Date.parse('2026-08-28T00:00:00Z')
 const rows: HourlyForecastRow[] = Array.from({ length: 24 }, (_, index) => ({
@@ -19,7 +19,7 @@ const series: ForecastSeries = {
   rain: rows.map((_, index) => [0, 0.004, 0.35, 1.26][index % 4]!), uv: [], uvClear: [], radiation: [], temperature: filled(15),
   feelsLike: filled(14), humidity: filled(70), cloud: filled(0.5), windU: filled(3), windV: filled(1), gust: filled(8),
 }
-const allColumns = { weather: true, sky: true, temperature: true, humidity: true, wind: true }
+const allColumns = { weather: true, uv: true, temperature: true, humidity: true, wind: true }
 
 function renderTable(options: { pinned?: FocusKind; weather?: boolean; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
   const [pinned, setPinned] = createSignal<FocusKind | undefined>(options.pinned)
@@ -49,7 +49,7 @@ describe('forecast table headings', () => {
   it('render every column heading with an icon and a word, time and weather in one column', () => {
     renderTable()
     const headings = [...document.querySelectorAll('thead th')]
-    expect(headings.map((heading) => heading.textContent)).toEqual(['Weer', 'Lucht', 'Gevoel', 'RV', 'Wind'])
+    expect(headings.map((heading) => heading.textContent)).toEqual(['Weer', 'UV', 'Gevoel', 'RV', 'Wind'])
     for (const heading of headings) expect(heading.querySelector('svg.lucide')).not.toBeNull()
     const first = document.querySelector('tbody tr:not(.history-toggle-row) td')!
     expect(first.textContent).toContain('Nu')
@@ -62,13 +62,24 @@ describe('forecast table headings', () => {
     expect(document.querySelector('.weather-icon')).toBeNull()
   })
 
-  it('only make map modes into toggle buttons; the default weather mode is not marked', () => {
+  it('make Weer, Gevoel and Wind mode toggles; UV and RV are plain headings', () => {
     renderTable()
-    const weather = screen.getByRole('button', { name: 'Weer' })
-    expect(weather.hasAttribute('aria-pressed')).toBe(false)
+    expect(screen.getByRole('button', { name: 'Weer' }).getAttribute('aria-pressed')).toBe('false')
+    expect(screen.queryByRole('button', { name: 'UV' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Gevoel' }).getAttribute('aria-pressed')).toBe('false')
     expect(screen.getByRole('button', { name: 'Wind' }).getAttribute('aria-pressed')).toBe('false')
     expect(screen.queryByRole('button', { name: 'RV' })).toBeNull()
+  })
+
+  it('pin the cloud mode on Weer (U34), and unpin on a second click', () => {
+    const { pinned, onTogglePin } = renderTable({ pinned: 'wind' })
+    fireEvent.click(screen.getByRole('button', { name: 'Weer' }))
+    expect(onTogglePin).toHaveBeenCalledWith('clouds')
+    expect(pinned()).toBe('clouds')
+    expect(document.querySelector('table')!.dataset.mode).toBe('clouds')
+    fireEvent.click(screen.getByRole('button', { name: 'Weer' }))
+    expect(pinned()).toBeUndefined()
+    expect(document.querySelector('table')!.dataset.mode).toBeUndefined()
   })
 
   it('pin a mode on click, marking the heading and tinting its column', () => {
@@ -80,21 +91,6 @@ describe('forecast table headings', () => {
     expect(document.querySelector('table')!.dataset.mode).toBe('temperature')
   })
 
-  it('show one Lucht column: a cloud cover glyph, and a mode button for the cloud mode (U34)', () => {
-    const { pinned, onTogglePin } = renderTable()
-    expect(screen.queryByRole('button', { name: 'Wolken' })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Lucht' }))
-    expect(onTogglePin).toHaveBeenCalledWith('clouds')
-    expect(pinned()).toBe('clouds')
-    expect(document.querySelector('table')!.dataset.mode).toBe('clouds')
-    expect(document.querySelector('.sky-cell .cloud-cover-glyph')!.getAttribute('aria-label')).toMatch(/^Bewolking \d+ %, helder$/)
-  })
-
-  it('step the cloud cover glyph in four steps', () => {
-    expect([0, 19, 20, 49, 50, 79, 80, 100].map((percent) => cloudCoverStep(percent).label)).toEqual(
-      ['helder', 'helder', 'licht bewolkt', 'licht bewolkt', 'half bewolkt', 'half bewolkt', 'bewolkt', 'bewolkt'])
-    expect([10, 30, 60, 90].map((percent) => cloudCoverStep(percent).fill)).toEqual([0, 0.25, 0.5, 1])
-  })
 
   it('treat the whole column as hover target and tint it, without dropping focus between cells (U34)', () => {
     vi.useFakeTimers()
@@ -121,15 +117,6 @@ describe('forecast table headings', () => {
     }
   })
 
-  it('unpin on a click on Weer, and do nothing when nothing is pinned', () => {
-    const { pinned, onTogglePin } = renderTable({ pinned: 'wind' })
-    fireEvent.click(screen.getByRole('button', { name: 'Weer' }))
-    expect(onTogglePin).toHaveBeenCalledWith('wind')
-    expect(pinned()).toBeUndefined()
-    expect(document.querySelector('table')!.dataset.mode).toBeUndefined()
-    fireEvent.click(screen.getByRole('button', { name: 'Weer' }))
-    expect(onTogglePin).toHaveBeenCalledTimes(1)
-  })
 })
 
 describe('forecast table cells', () => {
@@ -155,13 +142,15 @@ describe('forecast table cells', () => {
     const reading = () => document.querySelector('.wind-reading')!
     const text = () => [...reading().querySelectorAll('b, small')].map((part) => part.textContent)
     // U34: "2 ⌇ 5 Bft" — vlaag in dezelfde eenheid, met vlaagteken.
-    expect(text()).toEqual(['2', '⌇ 5', 'Bft'])
+    // U34: pijl + hoofdwaarde, daaronder het windicoon met de vlaag in dezelfde eenheid.
+    expect(text()).toEqual(['2', 'Bft', '5 Bft'])
+    expect(reading().querySelector('.wind-gust svg')).not.toBeNull()
     expect(reading().getAttribute('aria-label')).toBe('Wind uit W, 2 Bft, windstoten tot 5 Bft')
     setUnit('kn')
-    expect(text()).toEqual(['6', '⌇ 16', 'kn'])
+    expect(text()).toEqual(['6', 'kn', '16 kn'])
     expect(reading().getAttribute('title')).toBe('Wind uit W, 6 kn, windstoten tot 16 kn')
     setUnit('ms')
-    expect(text()).toEqual(['3', '⌇ 8', 'm/s'])
+    expect(text()).toEqual(['3', 'm/s', '8 m/s'])
   })
 })
 
