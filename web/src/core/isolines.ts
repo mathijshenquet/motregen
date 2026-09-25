@@ -19,6 +19,10 @@ export const ISOLINE_FADES = ['uit', 'gradiënt'] as const
 export type IsolineFade = typeof ISOLINE_FADES[number]
 
 // Gradiënt-fade uit (PO 2026-09-24: in vlak gebied verdwijnen hele lijnen); de lusjes gaan via ISOLINE_RING_KM.
+/** Temperatuur (gevoelstemperatuur, temperatuurfocus) of luchtdruk (isobaren, windfocus; U35). */
+export type IsolineKind = 'temperature' | 'pressure'
+export const ISOBAR_STEP_HPA = 4
+
 export const DEFAULT_ISOLINE_TUNING: IsolineTuning = { step: 1, fillStyle: 'banden', fade: 'uit' }
 
 // Vaste waarden van weggesnoeide dev-knoppen (U30/MIP-12); herkomst per regel.
@@ -306,7 +310,7 @@ export interface IsolineFeatureCollection {
 }
 
 /** Labelgeometrie (Chaikin-geglad, U13); lusjes korter dan `ringKm` krijgen geen label. */
-export function isolineFeatures(field: ScalarField, grid: Grid, step: number, ringKm = 0): IsolineFeatureCollection {
+export function isolineFeatures(field: ScalarField, grid: Grid, step: number, ringKm = 0, kind: IsolineKind = 'temperature'): IsolineFeatureCollection {
   const features: IsolineFeatureCollection['features'] = []
   const buffers = workspace(field)
   const toLngLat = gridProjection(grid)
@@ -321,7 +325,7 @@ export function isolineFeatures(field: ScalarField, grid: Grid, step: number, ri
       features.push({
         type: 'Feature',
         geometry: { type: 'LineString', coordinates },
-        properties: { level, label: `${level}°` },
+        properties: { level, label: isolineLabelText(kind, level) },
       })
     }
   }
@@ -332,11 +336,12 @@ export interface IsolineRequest {
   frames: WeightedFrame[]
   grid: Grid
   step: number
+  kind?: IsolineKind
 }
 
 export function computeIsolines(request: IsolineRequest): IsolineFeatureCollection {
   const field = blendFrames(request.frames, request.grid.width, request.grid.height)
-  return isolineFeatures(blurField(field, ISOLINE_BLUR), request.grid, request.step, ISOLINE_RING_KM)
+  return isolineFeatures(blurField(field, ISOLINE_BLUR), request.grid, request.step, ISOLINE_RING_KM, request.kind)
 }
 
 /**
@@ -389,9 +394,18 @@ export class IsolineWorker {
   }
 }
 
-/** Neutraal en gedempt: warm/koud niet inkleuren, de labels dragen de waarde. */
-export function isolineColor(theme: MapTheme): string {
+/**
+ * Neutraal en gedempt: warm/koud niet inkleuren, de labels dragen de waarde. Isobaren zijn één
+ * egale, iets donkerdere kleur, zoals op een weerkaart (PO U35).
+ */
+export function isolineColor(theme: MapTheme, kind: IsolineKind = 'temperature'): string {
+  if (kind === 'pressure') return theme === 'dark' ? '#b3c3c9' : '#1e2d33'
   return theme === 'dark' ? '#d5e2e6' : '#33474f'
+}
+
+/** Isobaren liggen op veelvouden van 4 hPa en dragen hun waarde zonder eenheid ("1012"). */
+export function isolineLabelText(kind: IsolineKind, level: number): string {
+  return kind === 'pressure' ? String(level) : `${level}°`
 }
 
 export const ISOLINE_LINE_OPACITY = 0.8

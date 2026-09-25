@@ -14,8 +14,8 @@ vi.mock('maplibre-gl', () => ({
     getElement() { return this.element }
     setLngLat() { return this }
     setRotation() { return this }
-    addTo() { return this }
-    remove() {}
+    addTo() { document.body.append(this.element); return this }
+    remove() { this.element.remove() }
   },
 }))
 
@@ -32,18 +32,18 @@ const map = {
 } as unknown as MapLibreMap
 
 /** Kegel rond (30, 30) met niveau 17 op een ring van `km` km omtrek (zie de contourtests). */
-function slice(km: number) {
-  const offset = (km / (2 * Math.PI) - 6) / 2
+function slice(km: number, base = 0) {
+  const offset = base + (km / (2 * Math.PI) - 6) / 2
   const values = new Float32Array(grid.width * grid.height)
   for (let row = 0; row < grid.height; row++) for (let column = 0; column < grid.width; column++) values[row * grid.width + column] = 20 + offset - Math.hypot(column - 30, row - 30) / 2
   const field = { values, valid: new Float32Array(values.length).fill(1) }
   return { slice: { width: grid.width, height: grid.height, fields: [field], weights: [1] }, rings: shortRings(traceContours(field, grid, { step: 1, toleranceCells: 0.1 }), 60, 0.1) }
 }
 
-function ringLines(km: number): IsolineFeatureCollection {
+function ringLines(km: number, level = 17): IsolineFeatureCollection {
   const r = km / (2 * Math.PI)
   const coordinates = Array.from({ length: 65 }, (_, index) => toLngLat(30 + r * Math.cos(index / 64 * 2 * Math.PI), 30 + r * Math.sin(index / 64 * 2 * Math.PI)))
-  return { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'LineString', coordinates }, properties: { level: 17, label: '17°' } }] }
+  return { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'LineString', coordinates }, properties: { level, label: String(level) } }] }
 }
 
 describe('isoline labels follow the length fade of their ring', () => {
@@ -56,7 +56,8 @@ describe('isoline labels follow the length fade of their ring', () => {
     const big = slice(70)
     labels.update(big.slice, big.rings, 0)
     expect(labels.count).toBeGreaterThan(0)
-    const opacities = () => [...document.querySelectorAll<HTMLElement>('.isoline-label')].map((element) => Number(element.style.opacity))
+    // Eerst de despawn-timers: gestorven ankers houden tot hun verwijdering hun laatste dekking.
+    const opacities = () => { vi.runOnlyPendingTimers(); return [...document.querySelectorAll<HTMLElement>('.isoline-label')].map((element) => Number(element.style.opacity)) }
     expect(opacities().every((opacity) => opacity === 1)).toBe(true)
 
     // Continu krimpen zoals tijdens de tween: het anker glijdt mee (hooguit 2 cellen per snede).
@@ -75,5 +76,21 @@ describe('isoline labels follow the length fade of their ring', () => {
     expect(labels.count).toBe(0)
     vi.runAllTimers()
     vi.useRealTimers()
+  })
+})
+
+describe('isobar labels', () => {
+  it('carry the pressure without a unit, in the isobar colour', () => {
+    const labels = new IsolineLabels(map, grid, 'light', () => true, 'pressure')
+    labels.setOpacity(1)
+    // Niveau 1012 = de kegel van `slice` 995 hPa hoger.
+    labels.setLines(ringLines(70, 1_012), 4)
+    const ring = slice(70, 995)
+    labels.update(ring.slice, ring.rings, 0)
+    const elements = [...document.querySelectorAll<HTMLElement>('.isobar-label')]
+    expect(elements.length).toBeGreaterThan(0)
+    expect(elements.every((element) => element.textContent === '1012')).toBe(true)
+    expect(elements[0]!.style.color).toBe('rgb(30, 45, 51)')
+    labels.clear()
   })
 })

@@ -233,7 +233,6 @@ export interface IsolinePassStats {
  * (bv. windpartikels) kost één texture-blit; zonder focus niets.
  */
 export class IsolineLayer implements CustomLayerInterface {
-  readonly id = 'motregen-isolines'
   readonly type = 'custom' as const
   readonly renderingMode = '2d' as const
   readonly stats: IsolinePassStats = { passes: 0, composites: 0, uploads: 0, passPixels: 0, compositePixels: 0, passMs: 0, compositeMs: 0, fillPasses: 0, fillMs: 0, timing: 'cpu' }
@@ -274,7 +273,7 @@ export class IsolineLayer implements CustomLayerInterface {
   private shownRings: ShortRing[] = []
   private shownTime = 0
 
-  constructor(readonly grid: Grid, readonly depth: number, private style: IsolineStyle) {
+  constructor(readonly grid: Grid, readonly depth: number, private style: IsolineStyle, readonly id = 'motregen-isolines') {
     this.loaded = new Uint8Array(depth)
     this.tracer = new ContourTracer(grid, depth, (result) => this.traced(result))
   }
