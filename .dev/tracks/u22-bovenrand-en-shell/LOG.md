@@ -118,3 +118,36 @@ Buiten scope gezien: SunMoon-icoon bij "Systeem" oogt klein/vaag in het segmente
   vers = `--fresh` (rustig groen), aging = `--aging` amber, stale/offline = `--stale`; regimeregel en
   aparte amber knop weg. (2) regimekleuren weg: zijranden → gewone rand, scrubber-chip en `.regimes`-
   balk weg, `--history`/`--forecast`/`--amber` weg; `timelineZones` blijft voor aria en paneel.
+
+## 10:55 — implementatie U22b + procesnoot
+- Klok: één knop (`.freshness-trigger` = de tab zelf): kaarttijd 20 px, direct rechts een stip van 7 px
+  (baseline − 3 px ≈ midden x-hoogte), dag klein erachter als kaartdag ≠ vandaag. Kleur: vers
+  `--fresh` (rustig groen), achter `--aging` (amber), verouderd/offline `--stale`; zelfde stip in de
+  paneelkop. Geen regimewoord, geen aparte knop, geen pulse. aria-label houdt kaarttijd, regime
+  ("observatie"/"voorspelling", alleen voor de schermlezer), status en radarleeftijd in woorden.
+  Tab: gewone 1 px rand (geen bovenrand), breedte 100 px (≤ 360 px: 92); insetTop 53 → 49.
+- Regimemarkering weg: zijranden, `data-source`, scrubber-bronchip, `.regimes`-balk, tokens `--history`,
+  `--forecast`, `--amber` en hun CSS. `timelineZones`/`sourceZone` blijven voor de aria-tekst.
+- About (PO-aanvulling, spec 8a81d85): volgorde Weergave → druppel + "motregen.nl" → "Rechtstreeks van
+  het KNMI" / "Gratis en zonder reclame" → één tabel: Observatie (incl. "NL en Vlaanderen"),
+  Voorspelling, UV, Kaart, Zoeken, Privacy, Broncode (GitHub-link). Losse alinea's en repo-knop weg;
+  × rechtsboven absoluut. Desktop: alle rijen op één regel behalve Privacy (PO-tekst letterlijk);
+  telefoon (361 px modal): de meeste rijen lopen over twee regels — korter kan alleen met minder info.
+- Branch 10:48 vooruitgespoeld naar origin/main 8a81d85 (spec-aanvulling + U25) vóór de eerste commit.
+- Stills `shots-u22b/voor` (main db2e178) en `shots-u22b/na`: desktop + Pixel 5, licht/donker, rust /
+  observatie / versheidspaneel / modal.
+- Procesnoot orkestrator (10:55): load-drempel gerichte e2e nu < 22, begrenzer is het slot
+  (`scripts/e2e-slot.sh`, max één Chromium per slot). Mijn e2e-run startte 10:48 bij load 19,2
+  (onder de nieuwe drempel) en wacht op een vrij slot.
+
+## 11:00 — U22b gates groen, klaar
+Receipts (synchroon, boom 1ec194d schoon; start load 19,8; e2e-start 10:48 load 19,2, via
+`scripts/e2e-slot.sh` — wachtte op een vrij slot, één Chromium; poorten 4360/8360 vooraf vrij):
+- `pnpm typecheck` → TYPECHECK-EXIT: 0
+- `pnpm test` → TEST-EXIT: 0 (43 files, 255 tests)
+- `pnpm build` → BUILD-EXIT: 0
+- `MOTREGEN_E2E_PORT=4360 MOTREGEN_E2E_DATA_PORT=8360 pnpm e2e e2e/freshness.spec.ts e2e/location.spec.ts
+  e2e/perf.spec.ts` → E2E-EXIT: 0 (19 passed, 5 skipped)
+Na 1ec194d alleen LOG en stills gecommit (geen code).
+Open voor PO (op zicht): vers-stip groen (spec-optie; alternatief tekstkleur 40 %); About-rijen op de
+telefoon over twee regels.
