@@ -277,6 +277,7 @@ export class IsolineLayer implements CustomLayerInterface {
   private corners?: WebGLBuffer
   private readonly tracer: ContourTracer
   private requestedTrace = ''
+  private lastTraceAt = -Infinity
   private readonly pendingTraces = new Map<string, TraceResult>()
   /** Getraceerde snedes: twee omliggende uren plus één voor de volgende. */
   private slices: TracedSlice[] = []
@@ -449,8 +450,10 @@ export class IsolineLayer implements CustomLayerInterface {
     for (const [key, result] of this.pendingTraces) this.store(gl, key, result, wanted.map((entry) => entry.key))
     this.pendingTraces.clear()
     const missing = wanted.find((entry) => !this.slices.some((slice) => slice.key === entry.key))
-    if (missing && missing.key !== this.requestedTrace) {
+    const now = performance.now()
+    if (missing && missing.key !== this.requestedTrace && traceDue(now, this.lastTraceAt, this.moving)) {
       this.requestedTrace = missing.key
+      this.lastTraceAt = now
       this.tracer.request(missing.request)
     }
     this.shown = this.selectShown(wanted.map((entry) => entry.key))
@@ -474,21 +477,16 @@ export class IsolineLayer implements CustomLayerInterface {
   }
 
   private wantedTimes(): number[] {
-    return traceTimes(this.time, this.depth, this.moving)
+    return traceTimes(this.time, this.depth)
   }
 
-  /** Welke snedes nu getekend worden, met hun overvloei-gewicht. */
+  /**
+   * De getekende snede: de exacte als die er is, anders de laatst binnengekomen — nooit een
+   * overvloeiing (PO 2026-09-25: de U41-crossfade oogde slecht); een nieuwe trace vervangt direct.
+   */
   private selectShown(wanted: string[]): Array<{ slice: TracedSlice; weight: number }> {
-    const find = (key: string | undefined) => key === undefined ? undefined : this.slices.find((slice) => slice.key === key)
-    if (this.moving) {
-      const a = find(wanted[0]), b = find(wanted[1])
-      const mix = this.time - Math.floor(this.time)
-      if (a && b && mix > 0) return [{ slice: a, weight: 1 - mix }, { slice: b, weight: mix }]
-      if (a ?? b) return [{ slice: (a ?? b)!, weight: 1 }]
-    } else {
-      const exact = find(wanted[0])
-      if (exact) return [{ slice: exact, weight: 1 }]
-    }
+    const exact = this.slices.find((slice) => slice.key === wanted[0])
+    if (exact) return [{ slice: exact, weight: 1 }]
     // Nog niets passends getraceerd: de laatst binnengekomen snede blijft staan.
     const latest = this.slices.reduce<TracedSlice | undefined>((best, slice) => slice.geometry && (!best || slice.geometry > best.geometry) ? slice : best, undefined)
     return latest ? [{ slice: latest, weight: 1 }] : []
@@ -880,13 +878,20 @@ class GpuTimer {
 }
 
 /**
- * Snedes die de worker moet traceren: stil de exacte tijd, tijdens afspelen alleen de twee hele
- * uren eromheen (U41) — de tussenstand is een overvloeiing, geen nieuwe trace.
+ * De snede die de worker moet traceren: altijd de exacte (getweende) tijd, ook tijdens afspelen
+ * (U34, PO 2026-09-25: U41 ingreep 1 teruggedraaid), zodat lijnen en labels continu bewegen.
  */
-export function traceTimes(time: number, depth: number, moving: boolean): number[] {
-  if (!moving) return [time]
-  const base = Math.max(0, Math.min(depth - 1, Math.floor(time)))
-  return base + 1 < depth ? [base, base + 1] : [base]
+export function traceTimes(time: number, depth: number): number[] {
+  return [Math.max(0, Math.min(depth - 1, time))]
+}
+
+// Tijdens afspelen hooguit zoveel nieuwe trace-verzoeken per seconde per veld; stil direct. 60 = in de
+// praktijk geen grens, zoals vóór U41 (PO 2026-09-25: "iso-lijnen terug naar vóór deze optimalisatie").
+// De latest-wins-tracer (één onderweg, één wachtend) begrenst op de snelheid van de worker.
+export const ISOLINE_TRACE_HZ = 60
+
+export function traceDue(now: number, lastTraceAt: number, moving: boolean, hz = ISOLINE_TRACE_HZ): boolean {
+  return !moving || now - lastTraceAt >= 1_000 / hz
 }
 
 /** Uurlagen die de snede op frame-index `time` raakt (lineair twee, B-spline vier). */

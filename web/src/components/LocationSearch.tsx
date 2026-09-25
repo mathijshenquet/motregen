@@ -216,7 +216,9 @@ export default function LocationSearch(props: Props) {
         inputMode="search"
         value={query()}
         onInput={(event) => { setSelectedLabel(''); setQuery(event.currentTarget.value); setOpen(true) }}
-        onFocus={() => setOpen(true)}
+        // Openen begint met een leeg veld om meteen te typen (PO 2026-09-25 live, U34); de huidige plaats
+        // blijft geselecteerd (ster) en komt terug bij sluiten zonder keuze.
+        onFocus={() => { if (!open()) setQuery(''); setOpen(true) }}
         onKeyDown={keyDown}
         placeholder="Zoek plaats"
         aria-label="Zoek plaats"

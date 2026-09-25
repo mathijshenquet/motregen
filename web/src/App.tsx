@@ -19,7 +19,7 @@ import { buildHourlyForecast, isPassiveRow, PASSIVE_FORECAST_HOURS } from './cor
 import { contextOpacity, FOCUS_DIM, FocusMode, mapSaturation, type FocusKind, windFocusIntensity } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import { latestRadarEpoch, type RefreshState } from './core/freshness'
-import { adaptiveIsobarStep, blendFrames, blurField, DEFAULT_ISOLINE_TUNING, fieldRangeInView, ISOBAR_STEP_HPA, ISOLINE_BLUR, ISOLINE_EDGE_FADE_MS, ISOLINE_FILL_OPACITY, ISOLINE_GRADIENT, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineKind, type IsolineTuning } from './core/isolines'
+import { adaptiveIsobarStep, blendFrames, blurField, DEFAULT_ISOLINE_TUNING, fieldRangeInView, ISOBAR_STEP_HPA, isolineBlurPasses, isolineFrameWeights, type WeightedFrame, ISOLINE_EDGE_FADE_MS, ISOLINE_FILL_OPACITY, ISOLINE_GRADIENT, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineKind, type IsolineTuning } from './core/isolines'
 import { IsolineLabels } from './core/isoline-labels'
 import { sliceWeights } from './core/isoline-spline'
 import { TraceCore } from './core/isoline-tracer'
@@ -122,11 +122,14 @@ const emptySunData: SunFeatureCollection = { type: 'FeatureCollection', features
 const CLOUD_VEIL_OPACITY = 0.55
 const CLOUD_VEIL_RANGE = [15, 95] as const
 const CLOUD_VEIL_STEP = 25
+const CITY_TEMPERATURE_STEP_MS = 10 * 60_000
+// Isobaren op een derde van ISOLINE_LINE_OPACITY (0,8) (PO 2026-09-25, MIP-14).
+const ISOBAR_LINE_OPACITY = 0.27
 // Temperatuurlijnen half zo zichtbaar als ISOLINE_LINE_OPACITY (0,8) (PO 2026-09-25 live, U34).
 const TEMPERATURE_LINE_OPACITY = 0.4
 // Terugglijden aan het eind van een afspeelrondje (PO 2026-09-25 live, U34).
 const PLAYBACK_REWIND_MS = 700
-// Afspelen tikt op 30 Hz: regen-tween, isolijn-overvloeiing en klok zijn traag genoeg; alleen de
+// Afspelen tikt op 30 Hz: regen-tween, isolijnsnede en klok zijn traag genoeg; alleen de
 // windpartikels animeren op WIND_MAX_FPS in hun eigen lus (U41).
 const PLAYBACK_MAX_FPS = 30
 // Stil op de achtergrond (U41): na een minuut zonder invoer tekent de wind op halve snelheid.
@@ -996,6 +999,7 @@ export default function App() {
     return { step: CLOUD_VEIL_STEP, fill: CLOUD_VEIL_OPACITY, fillSmooth: true, palette: [[0, veil], [100, veil]], color: veil, gradientFade: false, lines: false, fillByValue: CLOUD_VEIL_RANGE }
   }
 
+  let isobarStepHour = Number.NaN
   /** Isobaarstap op het drukbereik in beeld (U34), op het dichtstbijzijnde geladen uurframe. */
   function updateIsobarStep(): void {
     const set = pressureIsolines
@@ -1009,7 +1013,20 @@ export default function App() {
   }
 
   function isobarStyle(): IsolineStyle {
-    return { step: isobarStep(), fill: 0, color: hexColor(isolineColor(mapTheme(), 'pressure')), gradientFade: false }
+    return { step: isobarStep(), fill: 0, color: hexColor(isolineColor(mapTheme(), 'pressure')), gradientFade: false, lineOpacity: ISOBAR_LINE_OPACITY }
+  }
+
+  /** De gewogen uurframes achter het veld van `frame` (druk: met zijn buren, zie isolineFrameWeights). */
+  async function isolineFieldFrames(set: IsolineSet, frame: TimelineFrame): Promise<{ grid: Grid; frames: WeightedFrame[] }> {
+    const timeline = set.timeline()
+    const index = timeline.findIndex((candidate) => candidate.chunk.url === frame.chunk.url && candidate.frameIndex === frame.frameIndex)
+    const weights = index < 0 ? [{ index: -1, weight: 1 }] : isolineFrameWeights(index, timeline.length, set.kind)
+    const parts = await Promise.all(weights.map(async ({ index: at, weight }) => {
+      const source = at < 0 ? frame : timeline[at]!
+      const [data, header] = await Promise.all([load(source), client.getHeader(source.chunk)])
+      return { grid: header.grid, frame: { data, quant: header.quant, weight } }
+    }))
+    return { grid: parts[0]!.grid, frames: parts.map((part) => part.frame) }
   }
 
   function preparedIsolineField(set: IsolineSet, frame: TimelineFrame): Promise<{ grid: Grid; field: PreparedField }> {
@@ -1017,9 +1034,8 @@ export default function App() {
     const key = `${frame.chunk.url}#${frame.frameIndex}`
     let prepared = preparedIsolineFields.get(key)
     if (!prepared) {
-      prepared = Promise.all([load(frame), client.getHeader(frame.chunk)]).then(([data, header]) => {
-        const { grid } = header
-        return { grid, field: prepareField(blurField(blendFrames([{ data, quant: header.quant, weight: 1 }], grid.width, grid.height), ISOLINE_BLUR)) }
+      prepared = isolineFieldFrames(set, frame).then(({ grid, frames }) => {
+        return { grid, field: prepareField(blurField(blendFrames(frames, grid.width, grid.height), isolineBlurPasses(set.kind))) }
       })
       prepared.catch(() => preparedIsolineFields.delete(key))
       preparedIsolineFields.set(key, prepared)
@@ -1137,7 +1153,11 @@ export default function App() {
         set.fields[index] = prepared.field
         layer.setLayer(index, prepared.field)
       }))
-      if (set.kind === 'pressure') updateIsobarStep()
+      // Stap alleen op een nieuwe uurstap (en bij moveend), nooit midden in een tween (MIP-14).
+      if (set.kind === 'pressure' && Math.round(time) !== isobarStepHour) {
+        isobarStepHour = Math.round(time)
+        updateIsobarStep()
+      }
     } catch {
       // Een ontbrekend uurframe laat de vorige snede staan; de volgende tijdstap probeert opnieuw.
     }
@@ -1161,10 +1181,10 @@ export default function App() {
     try {
       let labels = isolineLabelCache.get(key)
       if (!labels) {
-        const [data, header] = await Promise.all([load(frame), client.getHeader(frame.chunk)])
+        const { grid, frames: weighted } = await isolineFieldFrames(set, frame)
         set.worker ??= new IsolineWorker()
         set.labelRounds++
-        labels = set.worker.compute({ frames: [{ data, quant: header.quant, weight: 1 }], grid: header.grid, step, kind: set.kind })
+        labels = set.worker.compute({ frames: weighted, grid, step, kind: set.kind })
         isolineLabelCache.set(key, labels)
         if (isolineLabelCache.size > 24) isolineLabelCache.delete(isolineLabelCache.keys().next().value!)
       }
@@ -1233,11 +1253,10 @@ export default function App() {
     const frames = feelsLikeTimeline()
     if (!frames.length || !map?.getSource('motregen-temperature')) return
     const request = ++shownTemperatureRequest
-    const blend = frameBlend(frames, selectedEpoch())
-    // Elke gewijzigde stadswaarde is een setData en dus een volledige kaartrender (tiles, symbolen,
-    // placement). Tijdens afspelen daarom de waarden van het dichtstbijzijnde uur: één wissel per
-    // uurframe i.p.v. ~1,5 per seconde (U41). Stil staat de geïnterpoleerde waarde.
-    const mix = playing() ? Math.round(blend.mix) : blend.mix
+    // In stappen van 10 minuten tijdlijntijd (PO 2026-09-25: stadstemperaturen zijn minder belangrijk):
+    // elke gewijzigde stadswaarde is een setData en dus een volledige kaartrender.
+    const blend = frameBlend(frames, Math.round(selectedEpoch() / CITY_TEMPERATURE_STEP_MS) * CITY_TEMPERATURE_STEP_MS)
+    const mix = blend.mix
     const leftFrame = frames[blend.left]!, rightFrame = frames[blend.right]!
     const { clientWidth, clientHeight } = map.getContainer()
     // Zelfde invoer als de getoonde labels: niets te doen (per afspeeltik het gewone geval).
