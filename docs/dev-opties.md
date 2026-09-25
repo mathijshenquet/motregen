@@ -21,6 +21,7 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Wind | Lijnbreedte | dikte van de streepjes | U3 | idem |
 | Wind | Tempo | snelheid van de streepjes | U3b | idem |
 | Wind | Kopieer wind als JSON | de vier waarden naar het klembord (PO-terugkoppelweg) | U20 | blijft zolang de windknoppen er zijn |
+| Kaart | Scrubber | weermodus: regenhistogram of wolkendoorsnede (A vervangt / B strook); laadt `cloud_low/mid/high` pas als hij aanstaat. Opslag `scrubber-view` | U37 | na PO-keuze A/B/geen |
 | Diagnose | Perf-HUD | meetpaneel aan/uit (ook: drie tikken op het logo) | T5 / U30 | blijft (diagnose) |
 | Diagnose | Herhaal splash | openingslogo opnieuw afspelen | T3 | blijft (diagnose) |
 | Diagnose | Reset alle instellingen | alle knoppen en tuningsleutels terug; gebruikersstaat blijft | U20 | blijft (vluchtweg, MIP-12 regel 4) |
@@ -36,5 +37,5 @@ is alleen nog meting (plus de perf-JSON met het loef/lij-profiel van U24).
 ## Opslag (`localStorage`, prefix `motregen-`)
 
 Gebruikersstaat (blijft bij reset): `theme`, `saved-places`, `last-saved-place`, `map-view`.
-Tuning: `wind-tuning-v4` (v3 wordt bij het laden gemigreerd). Oude sleutels (`wind-tuning`, `-v2`, `-v3`, `splash-slowdown`) wist
+Tuning: `wind-tuning-v4`, `scrubber-view` (U37) (v3 wordt bij het laden gemigreerd). Oude sleutels (`wind-tuning`, `-v2`, `-v3`, `splash-slowdown`) wist
 "Reset alle instellingen".

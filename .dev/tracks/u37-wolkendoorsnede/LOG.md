@@ -18,3 +18,25 @@
   de totale bewolking.
 - Receipt: `RUSTC_WRAPPER= cargo test -p knmi-grib -p motregen-ingest` → CARGO-EXIT: 0
   (knmi-grib 1+1+1, ingest 23+3). `cargo fmt --check` → 0.
+
+## 2026-09-25 — client + stills
+- `web/src/core/cloud-section.ts`: `cloudDrawParams` (fractie → opacity 0,9·f, dikte 0,18+0,82·√f,
+  rafeligheid 4f(1−f): gebroken bewolking rafelt het meest) en `cloudBand` (gesloten SVG-paden per
+  bewolkt stuk, rand = deterministische value-noise op epoch, horizontaal opacity-verloop per uur).
+  Karakter per laag: laag = stapelwolken (bolle toppen, vlakke basis), midden = deken, hoog = dunne
+  cirrussliert. Zachte rand via feGaussianBlur 0,9. Grijstinten als thematokens `--cloud-*`.
+- Scrubber: prop `clouds` (alleen in de weermodus = geen gepinde focus). A (`clouds-replace`):
+  doorsnede 62 % van de plot, regen eronder op halve breedte, zonder regengidsen, met laaglabels.
+  B (`clouds-strip`): strook van 34 px, histogram eronder op de rest van de hoogte.
+- App: `?dev` → Kaart → Scrubber (regen / A / B), opslag `motregen-scrubber-view` (reset wist hem).
+  De drie lagen laden alleen als de weergave aanstaat: `fetchPayload` per chunk + puntreeks, lage
+  prioriteit. `docs/dev-opties.md` bijgewerkt (eigenaar U37, vervalt bij PO-keuze).
+- synthgen: warmtefront bij De Bilt (cirrus → midden → laag boven de synthetische regen +4…+7 u);
+  bestaande chunks byte-identiek, nieuwe `cloud_*`-chunks met `git add -f` (zoals de andere).
+- Stills (desktop, licht/donker): `.dev/tracks/u37-wolkendoorsnede/stills/u37-clouds-{replace,strip}-{light,dark}.png`.
+- Receipts (synchroon):
+  - `pnpm typecheck` → TYPECHECK-EXIT: 0; `pnpm test` → TEST-EXIT: 0 (46 bestanden, 298 tests);
+    `pnpm build` → BUILD-EXIT: 0.
+  - `RUSTC_WRAPPER= cargo test --workspace` → CARGO-EXIT: 0.
+  - `MOTREGEN_E2E_PORT=4377 MOTREGEN_E2E_DATA_PORT=8377 pnpm e2e e2e/cloud-section.spec.ts
+    e2e/dev-panel.spec.ts --project desktop` → E2E-EXIT: 0 (2 passed); load 2,6.
