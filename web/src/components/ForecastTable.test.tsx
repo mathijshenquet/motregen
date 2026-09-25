@@ -92,6 +92,31 @@ describe('forecast table headings', () => {
     expect(stack.getAttribute('title')).toBe('Bewolking hoog 80 %, midden 50 %, laag – %')
   })
 
+  it('treat the whole column as hover target and tint it, without dropping focus between cells (U34)', () => {
+    vi.useFakeTimers()
+    try {
+      const { onFocus } = renderTable()
+      const table = document.querySelector('table')!
+      const heading = document.querySelector('.temperature-heading')!
+      const cell = document.querySelector('.temperature-cell')!
+      fireEvent.pointerEnter(heading, { pointerType: 'mouse' })
+      expect(onFocus).toHaveBeenLastCalledWith('temperature', 'table', true)
+      expect(table.dataset.hover).toBe('temperature')
+      fireEvent.pointerLeave(heading, { pointerType: 'mouse' })
+      fireEvent.pointerEnter(cell, { pointerType: 'mouse' })
+      vi.advanceTimersByTime(200)
+      expect(onFocus.mock.calls.filter(([, , active]) => !active)).toHaveLength(0)
+      fireEvent.pointerLeave(cell, { pointerType: 'mouse' })
+      vi.advanceTimersByTime(200)
+      expect(onFocus).toHaveBeenLastCalledWith('temperature', 'table', false)
+      expect(table.dataset.hover).toBeUndefined()
+      fireEvent.pointerEnter(cell, { pointerType: 'touch' })
+      expect(table.dataset.hover).toBeUndefined()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('unpin on a click on Weer, and do nothing when nothing is pinned', () => {
     const { pinned, onTogglePin } = renderTable({ pinned: 'wind' })
     fireEvent.click(screen.getByRole('button', { name: 'Weer' }))
