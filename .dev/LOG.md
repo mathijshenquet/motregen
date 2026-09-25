@@ -1,5 +1,53 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-09-25 (avond) — PO-feedbackdag: U22–U33 + U22b/U24b/U25b gemerged; e2e-regime omgegooid; MIP-11/12/13
+
+- **Gemerged op main (in volgorde)**: U27 Vlaanderen (kader zuid 50,45, Vlaamse plaatsen, BE-geocoder
+  Digitaal Vlaanderen naast PDOK), U22 bovenrand (klok als tab, druppelknop rechtsboven met thema
+  in de modal, zoomknoppen weg, smalle zoekpil, scrubber zonder band-/vandaag-labels, twee regimes),
+  U25 temperatuurkaart (dunne uniforme lijnen, desaturatie als compositor-filter, KNMI-palet),
+  U33 vindbaarheid (title/OG/robots/noindex, Search Console via DNS-TXT — PO plakt de waarde),
+  U23 tabelkoppen als modeknoppen (uur+weer in één cel, regen bij het icoon, windpijl, relatieve
+  UV-balk, historie inline op desktop), U26 pin-navigatie (start op huidige locatie bij verleende
+  toestemming, sleepbare pin met randscroll, één-vinger-pan uit op touch, rotatie/tilt uit),
+  U22b klok kaal (alleen tijd + statusstip, regimemarkering weg, About strakker, zoekpil op U17-maat),
+  U25b vulling (dekkende vlakke banden per graad met lokaal gerekt palet, Buienradar-referentie),
+  U24 wind (default-intensiteit 0,75, buffer-DPR 2, kopramp tegen wegvallers, trailbuffer vast bij
+  continu zoomen), U31 gebruiksbaken + U32 serverkant (MIP-13), U30 dev-opties gesnoeid (gegroepeerd
+  paneel met uitleg, 20 knoppen → constanten, wind v4), U24b (aanvullers naar leegste 3×3-omgeving;
+  rand op PO-besluit weer verwijderd). Orkestrator-microfixes: tabel zonder zijpadding + celtekst op
+  scrubber-inzet, grafiek volle breedte met kader (onder recht), klok zonder groene stip (stip links +
+  leeftijd eronder bij achterlopen), vulling 0,35 + stijl banden/verloop, Vlaanderen-pintest op echte
+  kaartprojectie (`window.__motregenProject`).
+- **Proposals**: MIP-11 draft (niet-lineaire tijdas + lead-smoothing; U29 als ?dev-experiment na U25/
+  U28), MIP-12 draft (inventaris + snoei dev-opties; regel: één poort `?dev`, eigenaar + vervaldatum
+  per knop), MIP-13 accepted (anonieme gebruiksmeting; opslag `/var/lib/motregen-usage`, Cloudflare als
+  tweede meter, geen Google-koppeling). Specs geschreven maar nog niet gestart: U28 (scrubber per
+  modus, na U23 — kan nu), U29 (na U25b/U28).
+- **Proces (PO-besluiten)**: e2e-lock → twee slots (`web/scripts/e2e-slot.sh`, `flock -o` na een
+  verweesde vite-preview die slot 1 een uur vasthield); workers alleen gerichte specs; sinds 20:30
+  alleen `--project desktop` per merge en de volledige drie-profielen-suite max één keer per dag
+  (PO: "e2e duurt veel te lang" — ik had dat eerder moeten forceren: mijn volledige suites per
+  merge-kandidaat waren de bottleneck). Live-tuning-pane U34 (wind) waar de PO direct met de agent
+  itereert op http://ageq-mthq:4310/ (build per stap, geen e2e tot "klaar").
+- **Lessen**: (1) jj: `jj new` na een push laat een lege commit achter; nooit een lege commit abandonen
+  waar een worker-branch op staat (U32-branch-ref verdween, hersteld); (2) merge-kandidaten in een
+  geïsoleerde git-worktree (`/tmp/int-<track>`), nooit in de jj-werkkopie (U22 werd per ongeluk mee-
+  gepusht met een spec-commit); (3) perf-budgetten op mobile-fast-3g zijn ruis onder load > 20;
+  (4) opus 5.5 op meetopdrachten: begrens "één meting, geen varianten" in de spec (U24b liep 4 u);
+  (5) `uv_clear-20260828.mrf` valt onder .gitignore → `pnpm synthgen` in elke verse worktree.
+- **Gebruik (uit het oude access-log, geteld op de box)**: 587 unieke IP's sinds 31-08, 475 zonder
+  bots, 63 unieke IP's op het manifest; per dag 4–13 manifest-IP's waarvan de dev-host en de PO de
+  grootste. Het oude access-log (met IP) staat nog op prod; wissen is PO-call (`docs/deploy.md`).
+- **Open MET PO**: wachtwoord `/stats/` plaatsen na de deploy; oud access-log wissen; Search Console
+  DNS-TXT; MIP-11/MIP-12 adoptie; pin-clipping op eigen scherm checken; muiswiel+Ctrl op touch-
+  laptops (U26); U34 live-sessie afronden ("klaar" zeggen); OpenFreeMap self-host (MIP-14?) — advies:
+  ja, PMTiles NL+Vlaanderen ~1–2 GB, eerst meten.
+  **VOOR AGENTS**: U28 scrubber per modus (start), U29 tijdas-experiment, U30 restant (perf-HUD-knop
+  weg? zie docs/dev-opties.md), U24-vraag: korrel op echte Mac beoordelen (nu in U34).
+- **Prod-check morgen**: auto-upgrade neemt alles van vandaag mee; controleer bundle-hash, `/hit` 204,
+  usage-log zonder IP, `motregen-usage-report.timer`, oude access-log uit, About-modal, tabel op mobiel.
+
 ## 2026-09-25 — U21 bovenrand (klok, zoekpil, popover); prod op U18b/UV live
 
 - **Prod-check ochtend**: auto-upgrade heeft alles van 24-09 live gezet — `uv_clear` (U15),
