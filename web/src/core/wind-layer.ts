@@ -267,6 +267,47 @@ void main() {
   color = texture(u_trail, clamp(uv, vec2(0.0), vec2(1.0))) * u_opacity * inside;
 }`
 
+// H/L van de isobaren (PO 2026-09-25 live): in de windlaag i.p.v. als MapLibre-markers. Eén quad per
+// letter op zijn Mercator-positie, vaste grootte in device-px, uit een atlas met H (links) en L (rechts).
+const markVertexSource = `#version 300 es
+in vec2 a_position;
+in float a_kind;
+in float a_opacity;
+uniform mat4 u_matrix;
+uniform vec2 u_viewport;
+uniform float u_size;
+out vec2 v_uv;
+out float v_opacity;
+void main() {
+  vec2 corner = vec2(float(gl_VertexID & 1), float(gl_VertexID >> 1));
+  vec4 clip = u_matrix * vec4(a_position, 0.0, 1.0);
+  vec2 offset = (corner - 0.5) * u_size / u_viewport * 2.0;
+  gl_Position = clip + vec4(offset.x, -offset.y, 0.0, 0.0) * clip.w;
+  v_uv = vec2((a_kind + corner.x) * 0.5, corner.y);
+  v_opacity = a_opacity;
+}`
+
+const markFragmentSource = `#version 300 es
+precision mediump float;
+uniform sampler2D u_atlas;
+in vec2 v_uv;
+in float v_opacity;
+out vec4 color;
+void main() {
+  color = texture(u_atlas, v_uv) * v_opacity;
+}`
+
+const MARK_CSS_PX = 30
+const MARK_ATLAS_PX = 64
+
+export interface PressureMarkDraw {
+  kind: 'H' | 'L'
+  /** Mercator-wereldcoördinaten (0–1), zoals de segmenten. */
+  x: number
+  y: number
+  opacity: number
+}
+
 interface TrailTarget {
   texture: WebGLTexture
   framebuffer: WebGLFramebuffer
@@ -312,6 +353,11 @@ export class WindLayer implements CustomLayerInterface {
   private segmentArray?: WebGLVertexArrayObject
   private fadeArray?: WebGLVertexArrayObject
   private compositeArray?: WebGLVertexArrayObject
+  private markProgram?: WebGLProgram
+  private markArray?: WebGLVertexArrayObject
+  private markBuffer?: WebGLBuffer
+  private markAtlas?: WebGLTexture
+  private marks: PressureMarkDraw[] = []
   private instanceBuffer?: WebGLBuffer
   private screenBuffer?: WebGLBuffer
   private trails?: [TrailTarget, TrailTarget]
@@ -424,6 +470,19 @@ export class WindLayer implements CustomLayerInterface {
     this.screenBuffer = gl.createBuffer()!
     this.fadeArray = screenArray(gl, fade, this.screenBuffer, true)
     this.compositeArray = screenArray(gl, composite, this.screenBuffer, false)
+    this.markProgram = link(gl, markVertexSource, markFragmentSource)
+    this.markArray = gl.createVertexArray()!
+    gl.bindVertexArray(this.markArray)
+    this.markBuffer = gl.createBuffer()!
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.markBuffer)
+    for (const [name, size, offset] of [['a_position', 2, 0], ['a_kind', 1, 8], ['a_opacity', 1, 12]] as const) {
+      const location = gl.getAttribLocation(this.markProgram, name)
+      gl.enableVertexAttribArray(location)
+      gl.vertexAttribPointer(location, size, gl.FLOAT, false, 16, offset)
+      gl.vertexAttribDivisor(location, 1)
+    }
+    gl.bindVertexArray(null)
+    this.markAtlas = markAtlas(gl, this.theme)
     gl.bindVertexArray(null)
     this.halfFloat = !!(gl.getExtension('EXT_color_buffer_float') ?? gl.getExtension('EXT_color_buffer_half_float'))
     this.ensureTrailTargets()
@@ -447,7 +506,14 @@ export class WindLayer implements CustomLayerInterface {
     this.waterTimer = undefined
     for (const buffer of [this.instanceBuffer, this.screenBuffer]) if (buffer) gl.deleteBuffer(buffer)
     for (const array of [this.segmentArray, this.fadeArray, this.compositeArray]) if (array) gl.deleteVertexArray(array)
-    for (const program of [this.segmentProgram, this.fadeProgram, this.compositeProgram]) if (program) gl.deleteProgram(program)
+    for (const program of [this.segmentProgram, this.fadeProgram, this.compositeProgram, this.markProgram]) if (program) gl.deleteProgram(program)
+    if (this.markArray) gl.deleteVertexArray(this.markArray)
+    if (this.markBuffer) gl.deleteBuffer(this.markBuffer)
+    if (this.markAtlas) gl.deleteTexture(this.markAtlas)
+    this.markProgram = undefined
+    this.markArray = undefined
+    this.markBuffer = undefined
+    this.markAtlas = undefined
     this.deleteTrailTargets()
     this.instanceBuffer = undefined
     this.screenBuffer = undefined
@@ -514,9 +580,20 @@ export class WindLayer implements CustomLayerInterface {
     this.mix = mix
   }
 
+  /** H/L om bovenop de wind te tekenen; App geeft ze per tik (positie en dekking) door. */
+  setPressureMarks(marks: PressureMarkDraw[]): void {
+    if (!marks.length && !this.marks.length) return
+    this.marks = marks
+    this.repaint()
+  }
+
   setTheme(theme: MapTheme): void {
     if (theme === this.theme) return
     this.theme = theme
+    if (this.gl && this.markAtlas) {
+      this.gl.deleteTexture(this.markAtlas)
+      this.markAtlas = markAtlas(this.gl, theme)
+    }
     this.clearTrails()
     this.repaint()
   }
@@ -616,11 +693,33 @@ export class WindLayer implements CustomLayerInterface {
     gl.uniform2f(this.compositeUniforms!.uvScale, bufferTransform.scaleX, bufferTransform.scaleY)
     gl.uniform2f(this.compositeUniforms!.uvOffset, bufferTransform.offsetX, bufferTransform.offsetY)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+    this.drawMarks(gl, options, viewport)
     gl.bindVertexArray(null)
     if (depthEnabled) gl.enable(gl.DEPTH_TEST)
     if (scissorEnabled) gl.enable(gl.SCISSOR_TEST)
     if (this.requestRepaint) this.requestRepaint()
     else this.requestNextFrame(now)
+  }
+
+  /** H/L bovenop de gecomposite wind, in het doelframebuffer (niet in de trailbuffer). */
+  private drawMarks(gl: WebGL2RenderingContext, options: CustomRenderMethodInput, viewport: Int32Array): void {
+    const marks = this.marks.filter((mark) => mark.opacity > 0.01)
+    if (!marks.length || !this.markProgram || !this.markArray || !this.markAtlas) return
+    const data = new Float32Array(marks.length * 4)
+    marks.forEach((mark, index) => data.set([mark.x, mark.y, mark.kind === 'H' ? 0 : 1, mark.opacity], index * 4))
+    gl.useProgram(this.markProgram)
+    gl.bindVertexArray(this.markArray)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.markBuffer!)
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, this.markAtlas)
+    gl.uniform1i(gl.getUniformLocation(this.markProgram, 'u_atlas'), 0)
+    gl.uniformMatrix4fv(gl.getUniformLocation(this.markProgram, 'u_matrix'), false, options.defaultProjectionData.mainMatrix)
+    gl.uniform2f(gl.getUniformLocation(this.markProgram, 'u_viewport'), viewport[2]!, viewport[3]!)
+    gl.uniform1f(gl.getUniformLocation(this.markProgram, 'u_size'), MARK_CSS_PX * (this.map?.getPixelRatio() ?? 1))
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, marks.length)
   }
 
   /** De koppen van deze tijdstap als segmenten in de (verankerde) trailbuffer. */
@@ -1690,6 +1789,39 @@ function projectX(longitude: number): number {
 
 function projectY(latitude: number): number {
   return Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360)) * 6_378_137
+}
+
+/** Atlas met een vette H (links, rood) en L (rechts, blauw), met halo, voorvermenigvuldigd. */
+function markAtlas(gl: WebGL2RenderingContext, theme: MapTheme): WebGLTexture | undefined {
+  if (typeof document === 'undefined') return undefined
+  const canvas = document.createElement('canvas')
+  canvas.width = MARK_ATLAS_PX * 2
+  canvas.height = MARK_ATLAS_PX
+  const context = canvas.getContext('2d')
+  if (!context) return undefined
+  context.font = `800 ${Math.round(MARK_ATLAS_PX * 0.78)}px system-ui, sans-serif`
+  context.textAlign = 'center'
+  context.textBaseline = 'middle'
+  context.lineJoin = 'round'
+  const dark = theme === 'dark'
+  for (const [index, letter, color] of [[0, 'H', dark ? '#ff6b5e' : '#d4352c'], [1, 'L', dark ? '#6ea3ff' : '#2462c7']] as const) {
+    const x = MARK_ATLAS_PX * (index + 0.5), y = MARK_ATLAS_PX * 0.54
+    context.lineWidth = MARK_ATLAS_PX * 0.12
+    context.strokeStyle = dark ? 'rgba(8, 21, 28, 0.85)' : 'rgba(255, 255, 255, 0.9)'
+    context.strokeText(letter, x, y)
+    context.fillStyle = color
+    context.fillText(letter, x, y)
+  }
+  const texture = gl.createTexture()!
+  gl.bindTexture(gl.TEXTURE_2D, texture)
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true)
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas)
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+  return texture
 }
 
 function link(gl: WebGL2RenderingContext, vertex: string, fragment: string): WebGLProgram {

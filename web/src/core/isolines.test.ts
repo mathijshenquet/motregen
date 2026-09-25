@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MrfHeader } from './contract'
-import { blendFrames, blurField, chaikin, ISOBAR_STEP_HPA, isolineColor, isolineFeatures, isolineLabelText, isolineLevels, marchingSquares, temporalWeights, type ScalarField, adaptiveIsobarStep, fieldRangeInView, isobarLineCount } from './isolines'
+import { blendFrames, blurField, chaikin, ISOBAR_STEP_HPA, isolineColor, isolineFeatures, isolineLabelText, isolineLevels, marchingSquares, temporalWeights, type ScalarField, adaptiveIsobarStep, fieldRangeInView, isobarLineCount, pressureExtrema } from './isolines'
 
 function field(rows: number[][]): ScalarField {
   return { width: rows[0]!.length, height: rows.length, values: Float32Array.from(rows.flat()) }
@@ -241,5 +241,27 @@ describe('adaptive isobar step (U34)', () => {
     // Kader over kolom 0–1 en rij 0–1: cel 0 is ongeldig.
     expect(fieldRangeInView(values, valid, grid, { west: lng(10_000), east: lng(190_000), north: lat(4_990_000), south: lat(4_810_000) })).toEqual([1, 11])
     expect(fieldRangeInView(values, valid, grid, { west: lng(-900_000), east: lng(-800_000), north: lat(4_990_000), south: lat(4_810_000) })).toBeUndefined()
+  })
+})
+
+describe('pressure extrema (H/L, U34)', () => {
+  // 40×40-veld: een hoog op (10, 10), een laag op (30, 28), verder een zachte helling.
+  const width = 40, height = 40
+  const field = (fn: (column: number, row: number) => number) => Float32Array.from({ length: width * height }, (_, index) => fn(index % width, Math.floor(index / width)))
+  const bump = (column: number, row: number, cx: number, cy: number, amplitude: number) => amplitude * Math.exp(-((column - cx) ** 2 + (row - cy) ** 2) / 30)
+  const pressure = field((column, row) => 1015 + column * 0.02 + bump(column, row, 10, 10, 6) + bump(column, row, 30, 28, -5))
+  const valid = new Float32Array(width * height).fill(1)
+
+  it('finds one H and one L with enough prominence', () => {
+    const extrema = pressureExtrema(pressure, valid, width, height, 6)
+    expect(extrema.map(({ kind, column, row }) => [kind, column, row])).toEqual([['H', 10, 10], ['L', 30, 28]])
+  })
+
+  it('ignores flat bumps below the prominence and windows that touch missing data', () => {
+    const flat = field((column, row) => 1015 + bump(column, row, 20, 20, 1))
+    expect(pressureExtrema(flat, valid, width, height, 6)).toEqual([])
+    const holed = Float32Array.from(valid)
+    holed[12 * width + 12] = 0
+    expect(pressureExtrema(pressure, holed, width, height, 6).map(({ kind }) => kind)).toEqual(['L'])
   })
 })
