@@ -24,6 +24,8 @@ export interface IsolineCounters {
   sliceTime?: number
   /** 0–1: dekking van de gevoelstemperatuur op de gekozen tijd (buiten de uurframes: uitfade). */
   coverage?: number
+  /** Bereik van het temperatuurpalet (U25b). */
+  paletteRange?: { low: number; high: number }
 }
 
 export interface IsolineRates {

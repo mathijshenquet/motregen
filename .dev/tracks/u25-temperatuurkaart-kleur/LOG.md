@@ -93,3 +93,27 @@ Geen nieuwe ?-URL-parameters.
   9–16 °C van vandaag leest 0,12 bijna als niets.
 - Open: telefoon-meting van de filterkosten (alleen SwiftShader gemeten); `uv_clear-20260828.mrf` valt onder
   `.gitignore` (verse worktrees missen hem → mrf.test faalt daar; bestaand, niet U25).
+
+# U25b — palet lokaal gerekt (branch track/u25b-palet-lokaal vanaf 61078b0)
+
+## 2026-09-25 ~10:45 — ontwerp + implementatie
+- **Bereik** (`paletteRange`): floor(min)…ceil(max), minstens 8 °C, symmetrisch aangevuld (oneven tekort: 1 graad
+  meer boven). **Welke frames**: niet alle 52 uurframes (~535 kB extra op prod, gemeten via content-length van de
+  drie feels_like-chunks), maar precies de set die de tabel altijd laadt: toekomstige rijen t/m +18 u
+  (`PASSIVE_FORECAST_HOURS`), dus 0 extra bytes. Eén keer per run (sleutel = chunk-URL's), scrubben verschuift niets.
+  Afwijking van de spec-letter "alle tijdstappen": bewust, voor het databudget; scrub je voorbij +18 u buiten
+  het bereik, dan klemt de band op de eindkleur.
+- **Palet**: ramp van 8 KNMI-tinten blauw → rood (`TEMPERATURE_RAMP`) gerekt over het bereik via een monotone,
+  stuksgewijs lineaire afbeelding °C → ramppositie. Ankers als knopen: 0 °C → lichtblauw (positie 1/7) als het
+  lineair roder zou worden; 25 °C → begin rood (13/14) als het lineair minder rood zou zijn; bereik geheel ≤ 0 →
+  alleen blauw, geheel ≥ 25 → alleen rood. `paletteStops` zet dat om in ≤ 10 stops in °C, zodat de shader
+  (`palette()` ongewijzigd, nu met opgevulde uniform-arrays) exact hetzelfde doet.
+- **Vastgezet** (MIP-12, PO-keuze via deze spec): vulling 0,18, afval 70 %, verzadiging 55 % als constanten
+  (`ISOLINE_FILL_OPACITY`, `ISOLINE_FILL_FALLOFF`, `MAP_FOCUS_SATURATION`); de drie U25-dev-knoppen zijn weg.
+  Geen nieuwe knoppen of ?-parameters. Wel: `synthgen` kent twee env-variabelen (`MOTREGEN_SYNTH_DIR`,
+  `MOTREGEN_SYNTH_TEMP_SHIFT`) voor de koude still — scripttooling, geen app-oppervlak.
+- **Legenda**: in de bron-pil (`About` krijgt `sourcePrefix`), links van "Bron: …", alleen bij focus > 0, opacity =
+  focus; een blok per band + min/max-graden; `role="img"` met aria-label.
+- Unit: bereik (afronding, min-span, geen waarden), palet op drie bereiken (mild 9–17: volle ramp, buurbanden
+  onderscheidbaar; koud −3…6: knoop op 0 °C, sub-zero blauw; heet 18–31: knoop op 25 °C, ≥ 25 rood), puur
+  vorst/hitte, continuïteit + ≤ 10 stops, per-bandkleur. e2e focus: legenda zichtbaar met bereik en blokken, weg na focus uit.

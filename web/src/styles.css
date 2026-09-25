@@ -194,6 +194,9 @@ button { color: inherit; cursor: pointer; }
   line-height: 1.2;
   backdrop-filter: blur(4px);
 }
+.temperature-legend { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
+.temperature-legend-bar { display: inline-flex; height: 7px; border-radius: 2px; overflow: hidden; box-shadow: 0 0 0 1px rgba(237, 248, 252, .35); }
+.temperature-legend-bar i { width: 7px; }
 .about-dialog {
   inset: 0;
   width: min(420px, calc(100vw - 32px));

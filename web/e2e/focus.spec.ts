@@ -195,6 +195,13 @@ test('temperature focus desaturates only the basemap canvas and fills the bands,
   // De overlays (regen, wind, isolijnen) zijn eigen canvassen en blijven verzadigd.
   for (const filter of await page.locator('.map-overlay').evaluateAll((canvases) => canvases.map((canvas) => getComputedStyle(canvas).filter))) expect(filter).toBe('none')
   await expect.poll(() => fillCoverage(page)).toBeGreaterThan(0.005)
+  // Legenda: het gerekte bereik (hele graden, ≥ 8 °C breed), een blok per band.
+  const legend = page.locator('.temperature-legend')
+  await expect(legend).toBeVisible()
+  const range = await page.evaluate(() => (window as typeof window & { __motregenIsolines: () => { paletteRange?: { low: number; high: number } } }).__motregenIsolines().paletteRange)
+  expect(range!.high - range!.low).toBeGreaterThanOrEqual(8)
+  await expect(legend).toHaveAttribute('aria-label', `Kleurschaal gevoelstemperatuur ${range!.low} tot ${range!.high} graden`)
+  await expect(legend.locator('.temperature-legend-bar i')).toHaveCount(range!.high - range!.low)
   await page.screenshot({ path: testInfo.outputPath('focus-fill.png') })
 
   await heading(page).click()
@@ -205,6 +212,7 @@ test('temperature focus desaturates only the basemap canvas and fills the bands,
   await expect.poll(() => saturation(page)).toBe(1)
   expect(await page.locator('.maplibregl-canvas').evaluate((canvas) => getComputedStyle(canvas).filter)).toBe('none')
   await expect.poll(() => fillCoverage(page)).toBe(0)
+  await expect(page.locator('.temperature-legend')).toHaveCount(0)
 })
 
 test('pinned focus at rest does no contour or worker work', async ({ page }, testInfo) => {
