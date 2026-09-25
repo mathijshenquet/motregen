@@ -104,3 +104,17 @@ Open voor PO (op zicht):
 4. Voorspellingskleur = de oude nowcast-blauw; HARMONIE-paars is weg.
 5. Mobiele UV-chip linksonder op de kaart (oude merkplek).
 Buiten scope gezien: SunMoon-icoon bij "Systeem" oogt klein/vaag in het segmented (was al zo).
+
+# U22b — klok kaal: tijd + kleine statusstip; regimemarkering weg
+
+## 2026-09-25 10:45 — start (spec `.dev/specs/track-u22b-klok-kaal.md`, main db2e178)
+- Worktree schoongezet: index bevatte main-bestanden van een half-gelukte checkout. Vooraf geverifieerd
+  dat werkboom + ongetrackte bestanden byte-gelijk waren aan origin/main (alleen kopieën), toen
+  `git checkout -f --no-track -B track/u22b-klok-kaal origin/main`. De bestaande branch
+  `track/u22b-klok-kaal` stond op 314fe3e (voorouder van main, geen eigen commits) → veilig herzet.
+  `/home/mthq/motregen/.git/config.lock` (leeg, r--r--r--) staat nog — niet van mij, niet aangeraakt;
+  daarom `--no-track` en pushen zonder upstream-config.
+- Plan: (1) klok = één knop: kaarttijd + kleine statusstip rechts op x-hoogte (+ dag klein erachter);
+  vers = `--fresh` (rustig groen), aging = `--aging` amber, stale/offline = `--stale`; regimeregel en
+  aparte amber knop weg. (2) regimekleuren weg: zijranden → gewone rand, scrubber-chip en `.regimes`-
+  balk weg, `--history`/`--forecast`/`--amber` weg; `timelineZones` blijft voor aria en paneel.

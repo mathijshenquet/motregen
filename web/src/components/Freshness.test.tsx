@@ -36,19 +36,21 @@ afterEach(() => {
 })
 
 describe('freshness indicator', () => {
-  it('carries the radar age on the amber badge, ticks it and announces only status changes', () => {
+  it('shows the map time with a status dot beside it, ticks the status and announces only its changes', () => {
     render(() => <Freshness mapEpoch={radar} mapFrame={{ source: 'rtcor', run: '2026-09-23T14:00:00Z' }} manifest={manifest} refresh={{ checkedAt: radar }} onRefresh={async () => undefined} />)
     const pill = document.querySelector('.map-clock')!
     const live = document.querySelector('[aria-live="polite"]')!
+    const trigger = screen.getByRole('button', { name: /Details over dataversheid/ })
+    // Eén knop: tijd, direct erna de stip; geen regimewoord of regimekleur.
+    expect([...trigger.children].map((child) => child.className)).toEqual(['clock-map-time', 'freshness-dot'])
+    expect(trigger.textContent).toBe(clock(radar))
+    expect(pill.hasAttribute('data-source')).toBe(false)
     expect(pill.getAttribute('data-freshness')).toBe('fresh')
-    expect(pill.getAttribute('data-source')).toBe('observations')
-    expect(document.querySelector('.clock-source')!.textContent).toBe('observatie')
-    const badge = screen.getByRole('button', { name: /^Dataversheid:/ })
-    expect(badge.getAttribute('aria-label')).toBe(`Dataversheid: actueel, radar ${clock(radar)}, 3 min oud`)
+    expect(trigger.getAttribute('aria-label')).toBe(`Kaart ${clock(radar)}, observatie. Actueel: Radar ${clock(radar)}, 3 min geleden. Details over dataversheid`)
     expect(live.textContent).toBe('Actueel')
 
     vi.advanceTimersByTime(15_000 * 20)
-    expect(badge.getAttribute('aria-label')).toMatch(/, 8 min oud$/)
+    expect(trigger.getAttribute('aria-label')).toMatch(/8 min geleden\. Details/)
     expect(live.textContent).toBe('Actueel')
     vi.advanceTimersByTime(15_000 * 12)
     expect(pill.getAttribute('data-freshness')).toBe('aging')
@@ -60,39 +62,32 @@ describe('freshness indicator', () => {
     const onRefresh = vi.fn(async () => { setRefresh({ checkedAt: radar, failedAt: Date.now() }) })
     render(() => <Freshness mapEpoch={radar - 3_600_000} mapFrame={{ source: 'rtcor', run: '2026-09-23T13:00:00Z' }} manifest={manifest} refresh={refresh()} onRefresh={onRefresh} />)
 
-    // De amber knop opent hetzelfde paneel als de klok zelf.
-    fireEvent.click(screen.getByRole('button', { name: /^Dataversheid:/ }))
+    const trigger = screen.getByRole('button', { name: /Details over dataversheid/ })
+    fireEvent.click(trigger)
     const dialog = document.querySelector('dialog')!
     expect(dialog.open).toBe(true)
-    dialog.close()
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: /^Dataversheid:/ }))
-    fireEvent.click(screen.getByRole('button', { name: /^Dataversheid:/ }))
     for (const label of ['Radar', 'HARMONIE']) expect(within(dialog).getByText(label)).toBeTruthy()
     expect(within(dialog).getByText('3 u 28 min geleden')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Nu verversen' }))
     await vi.waitFor(() => expect(onRefresh).toHaveBeenCalledOnce())
     await vi.waitFor(() => expect(document.querySelector('.map-clock')!.getAttribute('data-freshness')).toBe('offline'))
-    expect(screen.getByRole('button', { name: /^Dataversheid:/ }).getAttribute('aria-label')).toBe(`Dataversheid: offline, radar ${clock(radar)}, verversen mislukt`)
+    expect(trigger.getAttribute('aria-label')).toMatch(/\. Offline: Radar /)
     expect(screen.getByText(/verversen mislukt om/)).toBeTruthy()
+    dialog.close()
+    expect(document.activeElement).toBe(trigger)
   })
 
-  it('shows only the map time and the regime word; nowcast and model are one regime', () => {
+  it('names the regime only for the screen reader; nowcast and model are one regime', () => {
     const [frame, setFrame] = createSignal<{ source: 'nowcast' | 'harmonie'; run: string }>({ source: 'nowcast', run: '2026-09-23T14:25:00Z' })
     render(() => <Freshness mapEpoch={radar + 7_200_000} mapFrame={frame()} manifest={manifest} refresh={{ checkedAt: radar }} onRefresh={async () => undefined} />)
-    const pill = document.querySelector('.map-clock')!
+    const trigger = screen.getByRole('button', { name: /Details over dataversheid/ })
     expect(document.querySelector('.clock-map-time')!.textContent).toBe(clock(radar + 7_200_000))
     expect(document.querySelector('.clock-day')).toBeNull()
-    expect(pill.getAttribute('data-source')).toBe('forecast')
-    expect(document.querySelector('.clock-source')!.textContent).toBe('voorspelling')
-    // Geen radartijd of leeftijd meer als tekst in de klok: die zit in de knop en het paneel.
-    expect(document.querySelector('.clock-data')!.textContent).toBe('voorspelling')
-
-    // Nowcast en HARMONIE zijn voor de gebruiker één regime.
+    expect(trigger.getAttribute('aria-label')).toMatch(/, voorspelling\. /)
     setFrame({ source: 'harmonie', run: '2026-09-23T11:00:00Z' })
-    expect(pill.getAttribute('data-source')).toBe('forecast')
-    expect(document.querySelector('.clock-source')!.textContent).toBe('voorspelling')
-    expect(pill.getAttribute('data-freshness')).toBe('fresh')
+    expect(trigger.getAttribute('aria-label')).toMatch(/, voorspelling\. /)
+    expect(trigger.textContent).toBe(clock(radar + 7_200_000))
   })
 
   it('names the day only when the map shows another day', () => {

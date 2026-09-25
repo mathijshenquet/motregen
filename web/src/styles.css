@@ -16,13 +16,10 @@
   --accent: #1688ad;
   --accent-bright: #24a9d2;
   --accent-soft: #d9f1f8;
-  --history: #78909a;
-  --forecast: #159bc8;
   --shadow: 0 8px 30px rgba(23, 55, 67, .16);
   --fresh: #23855a;
   --aging: #a86f00;
   --stale: #bf4530;
-  --amber: #c98000;
   --danger: #c93a2e;
   --danger-soft: #fbe6e3;
   --uv-low: #45a33a;
@@ -46,13 +43,10 @@
   --accent: #48c4e9;
   --accent-bright: #62d4f4;
   --accent-soft: #123b49;
-  --history: #78919c;
-  --forecast: #3bbde7;
   --shadow: 0 8px 32px rgba(0, 0, 0, .4);
   --fresh: #4cc48b;
   --aging: #eab13b;
   --stale: #ef7a64;
-  --amber: #f5b43a;
   --danger: #f06b5c;
   --danger-soft: #3a1c1b;
   --uv-low: #5cc451;
@@ -207,25 +201,23 @@ button { color: inherit; cursor: pointer; }
   box-shadow: 0 18px 60px rgba(4, 14, 20, .35);
 }
 .about-dialog::backdrop { background: rgba(7, 19, 26, .42); }
-.about-body { padding: 18px 20px 20px; font-size: 13px; line-height: 1.5; }
-.about-body header { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+.about-body { position: relative; padding: 16px 20px 18px; font-size: 13px; line-height: 1.5; }
+.about-body header { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; }
 .about-body header img { width: 22px; height: 26px; }
 .about-body h2 { margin: 0; flex: 1; font-family: "Avenir Next", Avenir, "Trebuchet MS", ui-sans-serif, sans-serif; font-size: 19px; font-weight: 600; }
-.about-close { width: 34px; height: 34px; flex: none; display: grid; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 50%; color: var(--text); background: var(--surface-soft); cursor: pointer; }
+.about-close { position: absolute; top: 12px; right: 12px; width: 34px; height: 34px; flex: none; display: grid; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 50%; color: var(--text); background: var(--surface-soft); cursor: pointer; }
 .about-close:hover, .about-close:focus-visible { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); outline: none; }
 .about-body p { margin: 0 0 10px; }
-.about-settings { margin: 0 0 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.about-settings { margin: 0 0 14px; padding: 0 44px 14px 0; border-bottom: 1px solid var(--line); }
 .about-settings h3 { margin: 0 0 7px; color: var(--muted); font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
 .about-theme { display: flex; }
 .about-theme button { flex: 1; }
-.about-lead { font-size: 15px; font-weight: 650; }
-.about-body dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: var(--surface-soft); font-size: 12px; }
+.about-lead { font-size: 14px; font-weight: 650; line-height: 1.45; }
+.about-body dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--surface-soft); font-size: 12px; }
 .about-body dt { color: var(--muted); font-weight: 750; }
+.about-body dd a { font-weight: 650; }
 .about-body dd { margin: 0; }
 .about-body a { color: var(--accent); }
-.about-privacy { color: var(--muted); font-size: 12px; }
-.about-repo { display: inline-flex; margin-top: 2px; padding: 7px 12px; border: 1px solid var(--line-strong); border-radius: 999px; font-size: 12px; font-weight: 700; text-decoration: none; }
-.about-repo:hover { background: var(--accent-soft); }
 
 /* Zoeken (U21/U22): in rust een smalle pil met alleen icoon en plaatsnaam, zo breed als de naam
    (een verborgen kopie van de tekst bepaalt de breedte); bij focus groeit hij uit tot één paneel
@@ -424,10 +416,6 @@ button { color: inherit; cursor: pointer; }
 .scrubber { padding: 16px 16px 10px; border-bottom: 1px solid var(--line); background: var(--surface); font-variant-numeric: tabular-nums; }
 :root:not([data-theme="dark"]) .scrubber { --muted: #58707a; }
 .scrubber-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-.scrubber-source { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; color: var(--muted); font-size: 12px; font-weight: 650; white-space: nowrap; }
-.scrubber-source > span { overflow: hidden; text-overflow: ellipsis; }
-.scrubber-source::before { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--history); content: ''; }
-.scrubber-source.forecast::before { background: var(--forecast); }
 .time-horizon { margin-left: auto; }
 .segmented { display: inline-flex; flex: none; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-soft); }
 .segmented button, .cursor-pill { height: 28px; padding: 0 11px; border-radius: 999px; font-size: 12px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
@@ -490,9 +478,6 @@ button { color: inherit; cursor: pointer; }
 .x-axis { position: absolute; top: calc(100% + 7px); right: 0; left: 0; color: var(--muted); font-size: 11px; pointer-events: none; }
 .x-axis span { position: absolute; transform: translateX(-50%); }
 .x-axis span.midnight { color: var(--text); font-weight: 700; }
-.regimes { position: relative; height: 3px; margin: 6px 2px 4px; }
-.regimes span { position: absolute; top: 0; bottom: 0; border-right: 2px solid var(--surface); border-radius: 3px; background: color-mix(in srgb, var(--history) 55%, transparent); }
-.regimes .forecast { background: color-mix(in srgb, var(--forecast) 60%, transparent); }
 
 .forecast-panel { padding: 0 8px 24px; background: var(--surface); }
 .table-scroll { overflow-x: auto; }
@@ -653,70 +638,54 @@ td small { color: var(--muted); font-size: 9px; }
   .app-shell { grid-template-columns: minmax(0, 1fr) 520px; }
 }
 
-/* Klok (U22): een tab die midden aan de bovenrand van de kaart hangt. Zijranden in de bronkleur
-   (zelfde als de balk onder de scrubber); onder de kaarttijd het regimewoord en de amber
-   versheidsknop. Vaste breedte (gemeten: "voorspelling" + knop + marges) zodat de tab niet
-   verspringt bij scrubben; de zoekpil rekent met --clock-half om er nooit onder te schuiven. */
-.map-shell { --clock-half: 56px; }
+/* Klok (U22/U22b): een kale tab die midden aan de bovenrand van de kaart hangt: kaarttijd met
+   rechts een kleine statusstip (en de dag als die niet vandaag is). De hele tab is de knop naar
+   het versheidspaneel. --clock-half is de halve breedte zonder dag; de zoekpil rekent ermee om
+   er nooit onder te schuiven. */
+.map-shell { --clock-half: 50px; }
 .map-clock {
   position: absolute;
   top: 0;
   left: 50%;
   z-index: 3;
-  --regime: var(--history);
-  width: calc(2 * var(--clock-half));
-  min-height: 48px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1px;
-  padding: calc(env(safe-area-inset-top) + 4px) 8px 6px;
+  min-width: calc(2 * var(--clock-half));
   border: 1px solid color-mix(in srgb, var(--line-strong) 75%, transparent);
   border-top: 0;
-  border-inline: 3px solid var(--regime);
   border-radius: 0 0 12px 12px;
   color: var(--text);
   background: var(--surface-raised);
   box-shadow: 0 5px 14px -3px rgba(10, 32, 41, .2);
   transform: translateX(-50%);
   font-variant-numeric: tabular-nums;
-  line-height: 1.15;
   white-space: nowrap;
-  pointer-events: none;
 }
-.map-clock[data-source="forecast"] { --regime: var(--forecast); }
-.freshness-trigger { position: absolute; inset: 0; padding: 0; border: 0; border-radius: 0 0 9px 9px; background: none; pointer-events: auto; cursor: pointer; }
-.clock-main, .clock-data { position: relative; display: flex; align-items: center; }
-.clock-main { gap: 4px; }
-.clock-day { color: var(--muted); font-size: 11px; font-weight: 700; }
-.clock-map-time { font-size: 20px; font-weight: 720; letter-spacing: -.01em; }
-.clock-data { gap: 6px; font-size: 12px; font-weight: 650; }
-.freshness-badge {
-  --badge: var(--amber);
-  position: relative;
-  width: 10px;
-  height: 10px;
-  flex: none;
-  padding: 0;
+.freshness-trigger {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 5px;
+  padding: calc(env(safe-area-inset-top) + 7px) 14px 8px;
   border: 0;
-  border-radius: 50%;
-  background: var(--badge);
-  pointer-events: auto;
+  border-radius: 0 0 11px 11px;
+  color: inherit;
+  background: none;
+  font: inherit;
+  line-height: 1.1;
   cursor: pointer;
 }
-/* Aanraakdoel ≥ 44 px zonder groter uiterlijk; overlapt alleen de klokknop, die hetzelfde doet. */
-.freshness-badge::after { position: absolute; inset: -17px; border-radius: 50%; content: ''; }
-.freshness-badge:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-[data-freshness="aging"] .freshness-badge { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--badge); animation: badge-pulse 1.8s ease-in-out infinite; }
-[data-freshness="stale"] .freshness-badge, [data-freshness="offline"] .freshness-badge { --badge: var(--stale); }
-@keyframes badge-pulse { 50% { box-shadow: 0 0 0 2px var(--surface), 0 0 0 5px color-mix(in srgb, var(--badge) 35%, transparent); } }
-@media (prefers-reduced-motion: reduce) { .freshness-badge { animation: none !important; } }
 .freshness-trigger:hover, .freshness-trigger:focus-visible { background: color-mix(in srgb, var(--accent-soft) 60%, transparent); outline: none; }
-/* Paneelkop: zelfde teken als de amber versheidsknop in de klok. */
-.freshness-dot { --dot: var(--amber); width: 7px; height: 7px; flex: none; align-self: center; border-radius: 50%; background: var(--dot); }
-.freshness-dot[data-status="aging"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--dot); }
-.freshness-dot[data-status="stale"], .freshness-dot[data-status="offline"] { --dot: var(--stale); }
+.freshness-trigger:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+.clock-map-time { font-size: 20px; font-weight: 720; letter-spacing: -.01em; }
+.clock-day { color: var(--muted); font-size: 11px; font-weight: 700; }
+/* Statusstip: vers is rustig groen, achterlopen amber, verouderd/offline rood. In de klok op de
+   x-hoogte naast de tijd (baseline-uitgelijnd, dan half een x-hoogte omhoog). */
+.freshness-dot { --dot: var(--fresh); width: 7px; height: 7px; flex: none; align-self: center; border-radius: 50%; background: var(--dot); }
+.map-clock .freshness-dot { align-self: baseline; transform: translateY(-3px); }
+[data-freshness="aging"] .freshness-dot, .freshness-dot[data-status="aging"] { --dot: var(--aging); }
+[data-freshness="stale"] .freshness-dot, .freshness-dot[data-status="stale"],
+[data-freshness="offline"] .freshness-dot, .freshness-dot[data-status="offline"] { --dot: var(--stale); }
 .freshness-dialog { inset: auto; top: var(--panel-top); left: var(--panel-left); margin: 0; max-height: calc(100dvh - var(--panel-top) - 16px); font-variant-numeric: tabular-nums; }
 .freshness-dialog .freshness-dot { width: 10px; height: 10px; }
 .freshness-lead { font-size: 14px; }
@@ -816,9 +785,8 @@ td small { color: var(--muted); font-size: 9px; }
 /* Smalste telefoons: klok en zoekpil iets krapper, zodat een korte plaatsnaam ("De Bilt", 16 px)
    nog heel naast de klok past; langere namen krijgen een ellips. */
 @media (max-width: 360px) {
-  .map-shell { --clock-half: 50px; }
-  .map-clock { padding-inline: 5px; }
-  .clock-data { font-size: 11px; }
+  .map-shell { --clock-half: 46px; }
+  .freshness-trigger { padding-inline: 10px; }
   .search { max-width: calc(50% - var(--clock-half) - 16px - env(safe-area-inset-left)); }
   .search:not(.open) .search-sizer, .search:not(.open) .search-field { padding-right: 8px; padding-left: 30px; }
   .search:not(.open) .search-icon { left: 9px; }

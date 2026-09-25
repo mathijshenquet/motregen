@@ -66,11 +66,7 @@ export default function About(props: Props) {
       {...backdropHandlers(() => dialog)}
     >
       <div class="about-body">
-        <header>
-          <img src="/droplet.svg" alt="" />
-          <h2 id="about-title">motregen.nl</h2>
-          <button type="button" class="about-close" aria-label="Sluiten" onClick={close} autofocus><X {...BUTTON_ICON} /></button>
-        </header>
+        <button type="button" class="about-close" aria-label="Sluiten" onClick={close} autofocus><X {...BUTTON_ICON} /></button>
         <section class="about-settings" aria-labelledby="about-theme-title">
           <h3 id="about-theme-title">Weergave</h3>
           <div class="segmented about-theme" role="group" aria-labelledby="about-theme-title">
@@ -79,18 +75,20 @@ export default function About(props: Props) {
             </button>}</For>
           </div>
         </section>
-        <p class="about-lead">Data rechtstreeks van het KNMI. Gratis, zonder reclame, open source.</p>
-        <p>Eén tijdlijn, van de regen die viel tot de verwachting voor morgen:</p>
+        <header>
+          <img src="/droplet.svg" alt="" />
+          <h2 id="about-title">motregen.nl</h2>
+        </header>
+        <p class="about-lead">Rechtstreeks van het KNMI<br />Gratis en zonder reclame</p>
         <dl>
-          <dt>Observatie</dt><dd>gemeten neerslag van de KNMI-radar, elke 5 minuten</dd>
-          <dt>Voorspelling</dt><dd>eerste 2 uur de KNMI-nowcast (radar vooruitgerekend), daarna HARMONIE-AROME van het KNMI: regen, temperatuur, wind en bewolking</dd>
-          <dt>UV</dt><dd>UV-index van het KNMI, inclusief bewolking</dd>
-          <dt>Kaart</dt><dd><a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a>, kaartdata © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>-bijdragers</dd>
-          <dt>Zoeken</dt><dd>PDOK Locatieserver (Nederland) en de geolocatiedienst van Digitaal Vlaanderen (België)</dd>
+          <dt>Observatie</dt><dd>KNMI-radar, elke 5 min · NL en Vlaanderen</dd>
+          <dt>Voorspelling</dt><dd>KNMI-nowcast (2 uur), dan HARMONIE-AROME</dd>
+          <dt>UV</dt><dd>UV-index van het KNMI, met bewolking</dd>
+          <dt>Kaart</dt><dd><a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></dd>
+          <dt>Zoeken</dt><dd>PDOK (NL) · Digitaal Vlaanderen (BE)</dd>
+          <dt>Privacy</dt><dd>geen tracking, geen advertenties; locatie en favorieten blijven in je browser</dd>
+          <dt>Broncode</dt><dd><a href={REPOSITORY_URL} target="_blank" rel="noopener">GitHub ↗</a></dd>
         </dl>
-        <p>De kaart dekt Nederland en Vlaanderen: de KNMI-radar en HARMONIE reiken tot ver over de grens.</p>
-        <p class="about-privacy">Geen tracking en geen advertenties. Je locatie en favorieten blijven in je eigen browser.</p>
-        <a class="about-repo" href={REPOSITORY_URL} target="_blank" rel="noopener">Broncode op GitHub ↗</a>
       </div>
     </dialog>
   </>

@@ -100,7 +100,6 @@ export default function HistogramScrubber(props: Props) {
   const cursorEpoch = createMemo(() => timelineEpochAtCursor(props.timeline, props.cursor))
   const cursorPosition = createMemo(() => Math.max(0, Math.min(100, positionAtEpoch(cursorEpoch()))))
   const cursorValue = createMemo(() => props.values[Math.round(props.cursor)])
-  const zones = createMemo(() => timelineZones(props.timeline, timelineStart(), timelineEnd()))
   const cursorZone = createMemo(() => {
     const frame = props.timeline[Math.round(props.cursor)] ?? props.timeline[0]
     return frame ? timelineZones([frame])[0] : undefined
@@ -193,7 +192,6 @@ export default function HistogramScrubber(props: Props) {
 
   return <section class="scrubber" aria-label={`Regenverwachting en tijd voor ${props.locationLabel}`}>
     <div class="scrubber-toolbar">
-      <Show when={cursorZone()}>{(zone) => <span class={`scrubber-source ${zone().kind}`} title="Bron op het gekozen tijdstip"><span>{zone().label}</span></span>}</Show>
       <div class="segmented time-horizon" role="group" aria-label="Tijdsbereik">
         <For each={[3, 8, 24] as const}>{(hours) => <button type="button" classList={{ active: props.horizonHours === hours }} aria-pressed={props.horizonHours === hours} onClick={() => { props.onIntent?.(); props.onHorizonHours(hours) }}>+{hours}u</button>}</For>
         <button type="button" classList={{ active: props.horizonHours === null }} aria-pressed={props.horizonHours === null} onClick={() => { props.onIntent?.(); props.onHorizonHours(null) }}>Alles</button>
@@ -305,9 +303,6 @@ export default function HistogramScrubber(props: Props) {
         </button>
         <div class="x-axis" aria-hidden="true"><For each={xTicks().filter((tick) => tick.labelled && tick.left > 2 && tick.left < 98 && Math.abs(tick.left - nowPosition()) / 100 * plotWidth() > 30)}>{(tick) => <span classList={{ midnight: new Date(tick.epoch).getHours() === 0 }} style={{ left: `${tick.left}%` }}>{hourLabel(tick.epoch)}</span>}</For></div>
       </div>
-    </div>
-    <div class="regimes" role="img" aria-label={`Databronnen: ${zones().map((zone) => zone.label).join(', ')}`}>
-      <For each={zones()}>{(zone) => <span class={zone.kind} title={zone.label} style={{ left: `${zone.start}%`, width: `${zone.end - zone.start}%` }} />}</For>
     </div>
   </section>
 }
