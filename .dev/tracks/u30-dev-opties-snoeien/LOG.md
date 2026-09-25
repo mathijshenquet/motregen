@@ -69,3 +69,13 @@ Receipts (vanuit `web/`, synchroon):
 - `pnpm build` BUILD-EXIT 0: JS 1 281,42 kB (gzip 363,42) vs 1 298,10 (367,49) → −16,7 kB
   (−4,1 kB gzip); CSS 121,33 (21,03) vs 121,65 (21,07); isolines.worker 4,11 vs 4,17 kB.
 - e2e: nog niet (load 32 > 22).
+
+## 2026-09-25 11:34 — e2e-proces
+
+- Eerste e2e-poging (11:18, load 21,92) faalde vóór de tests: `caddy: command not found` — de
+  worktree-`.envrc` (ongewijzigd t.o.v. main) was nog niet `direnv allow`ed. Toegestaan; e2e
+  loopt nu via `direnv exec .. pnpm e2e …`.
+- Herstart 11:26:10, startload 20,71, head `68550e2`, specs: dev-panel, perf, focus, location,
+  map-zoom, freshness (geraakt door deze track).
+- Orkestrator-procesnoot: wachtdrempel voortaan load < 28, de slotlock (`e2e-slot.sh`) regelt de
+  rest; max. één Chromium; startload per run in deze LOG.
