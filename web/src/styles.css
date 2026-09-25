@@ -627,6 +627,8 @@ td small { color: var(--muted); font-size: 9px; }
 /* Op 320 px scheelt de eenheid net de horizontale scroll; het label van de cel noemt de eenheid nog. */
 @media (max-width: 360px) {
   .wind-reading .wind-unit { display: none; }
+  .wind-reading { flex-wrap: wrap; justify-content: center; }
+  .wind-reading .wind-gust { flex-basis: 100%; margin-left: 0; text-align: center; }
 }
 
 @media (prefers-reduced-motion: reduce) {
