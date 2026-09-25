@@ -56,3 +56,10 @@ Volgorde en inhoud van de modal:
    verdwijnen; de dekking (Nederland en Vlaanderen) mag als korte toevoeging in de rij
    Observatie of Kaart.
 Minder tekst in het algemeen: elke tabelrij één regel waar het kan.
+
+## Aanvulling PO (2026-09-25, 11:25): zoekpil te klein
+
+"Die zoekbalk is nog steeds te klein gemaakt; eergisteren (U17-versie) was een stuk beter;
+smaller is wel goed." Dus: de pil houdt de smalle breedte (icoon + plaatsnaam), maar krijgt
+de hoogte en tekstgrootte van vóór U22 terug (U17: hoogte ~36–40 px, tekst 14–15 px, ruimere
+padding), op desktop én mobiel; het icoon schaalt mee. Stills vóór/na.
