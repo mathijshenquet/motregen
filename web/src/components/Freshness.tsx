@@ -20,6 +20,7 @@ const TICK_MS = 15_000
 export default function Freshness(props: Props) {
   let dialog!: HTMLDialogElement
   let trigger!: HTMLButtonElement
+  let opener: HTMLButtonElement | undefined
   const [clock, setClock] = createSignal(Date.now())
   const [refreshing, setRefreshing] = createSignal(false)
   const timer = window.setInterval(() => setClock(Date.now()), TICK_MS)
@@ -50,7 +51,8 @@ export default function Freshness(props: Props) {
   }
 
   // Het paneel opent gecentreerd onder de klok, binnen het venster gehouden.
-  function openPanel(): void {
+  function openPanel(event: MouseEvent & { currentTarget: HTMLButtonElement }): void {
+    opener = event.currentTarget
     const pill = trigger.parentElement!.getBoundingClientRect()
     const margin = 16
     const width = Math.min(420, window.innerWidth - 2 * margin)
@@ -102,7 +104,7 @@ export default function Freshness(props: Props) {
         ref={dialog}
         class="about-dialog freshness-dialog"
         aria-labelledby="freshness-title"
-        onClose={() => trigger.focus()}
+        onClose={() => (opener ?? trigger).focus()}
         {...backdropHandlers(() => dialog)}
       >
         <div class="about-body">

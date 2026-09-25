@@ -64,6 +64,9 @@ describe('freshness indicator', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Dataversheid:/ }))
     const dialog = document.querySelector('dialog')!
     expect(dialog.open).toBe(true)
+    dialog.close()
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: /^Dataversheid:/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Dataversheid:/ }))
     for (const label of ['Radar', 'HARMONIE']) expect(within(dialog).getByText(label)).toBeTruthy()
     expect(within(dialog).getByText('3 u 28 min geleden')).toBeTruthy()
 
