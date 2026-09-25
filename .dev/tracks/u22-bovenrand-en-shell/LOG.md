@@ -81,3 +81,26 @@ volledige e2e-gate wacht op load < 16.
   voor de PerfHud-triple-tap; die class viel weg met de druppelknop. Fix: selector `.map-brand`.
   Geen productfout (triple-tap zelf ongewijzigd, unit-test groen). Ook: focus keert na het paneel terug
   naar de knop waarmee het opende (4ea1595). Volledige gates opnieuw op de eindcommit.
+
+## 10:45 — gates groen op de eindcommit, klaar
+Receipts (synchroon, exit-status gelezen, boom 571f2c3 schoon; start load 14,6, e2e-start 14,3; poorten
+4360/8360 vooraf vrij; één Chromium; hostlock via `pnpm e2e`):
+- `pnpm typecheck` → TYPECHECK-EXIT: 0
+- `pnpm test` → TEST-EXIT: 0 (41 files, 236 tests)
+- `pnpm build` → BUILD-EXIT: 0
+- `MOTREGEN_E2E_PORT=4360 MOTREGEN_E2E_DATA_PORT=8360 pnpm e2e` → E2E-EXIT: 0 (31 passed, 26 skipped)
+Repro vanuit `web/` in de devenv-shell (servers/tsx-IPC buiten de claude-sandbox): exact bovenstaande commando's.
+
+Screenshots `shots/voor/` (main) en `shots/na/` (eindstand, van 8e3dca3 — alleen de paneelstip-kleur en
+focus-terugkeer kwamen daarna): desktop 1280, Pixel 5, 320 px × licht/donker × rust / zoek open /
+observatie / versheidspaneel / modal. Maken: `probe.mjs` naar `web/tmp/`, synthgen-data op een eigen
+caddy-poort + `vite preview`, `PROBE_BASE=… node tmp/probe.mjs <label>`.
+
+Open voor PO (op zicht):
+1. Amber knop: fresh verzadigd amber, aging amber + ring met pulse, stale/offline rood — spec-voorstel
+   gevolgd; de paneelkop-stip volgt nu hetzelfde teken (was groen).
+2. Aria/statuswoord "actueel" i.p.v. "vers" (consistent met het paneel).
+3. Touch-zoektekst 16 px (iOS-focuszoom), desktop 14 px.
+4. Voorspellingskleur = de oude nowcast-blauw; HARMONIE-paars is weg.
+5. Mobiele UV-chip linksonder op de kaart (oude merkplek).
+Buiten scope gezien: SunMoon-icoon bij "Systeem" oogt klein/vaag in het segmented (was al zo).
