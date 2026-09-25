@@ -62,3 +62,20 @@
   Beide fouten in mijn testaannames: (1) svg-onderkant ≠ anker (6,5 px) → centreer-check nu tegen
   de gekalibreerde startpositie van de pin; (2) startlabel bij geseede view is "Utrecht", niet
   "De Bilt" → vergelijken met het label van vóór het gebaar. Herhaalrun staat in de hostlock-rij.
+
+## 2026-09-25 10:05 UTC — diagnose touch-test, rebase, nieuwe e2e-slotregel
+- Tweede gerichte run (`e2e/pin-navigation.spec.ts`): FULL-GATE-EXIT: 1 (2 failed). Diagnose-spec
+  (tijdelijk, niet gecommit) op Pixel 5: één-vinger-swipe op de kaart verandert níets (camera,
+  location, scrollY, pin identiek vóór/tijdens/na) → app correct. De camerasprong kwam uit de
+  test zelf: na pinch+pan sleepte hij de pin 40 px omhoog de 48 px-randmarge onder klok/zoekpil in
+  → edge-scroll, zoals ontworpen. Desktop-fout (6 px op y) = sleep-lift (translateY(-6px), 120 ms)
+  nog niet teruggezakt. Fix in de spec: pin-sleep eerst (vanaf midden, omlaag), `settledPinTip`,
+  en "locatie verplaatst" via `location` in de camera-hook i.p.v. het grove plaatslabel.
+- Gates op cffb3bf (vanuit `web/`, synchroon): TYPECHECK-EXIT: 0; TEST-EXIT: 0 (42 files, 242
+  tests); BUILD-EXIT: 0.
+- PO-procesregel (main 211b57f): twee e2e-slots via `web/scripts/e2e-slot.sh`; workers draaien
+  alleen eigen/geraakte specs. Mijn volledige suite stond nog in de rij voor de oude lock (draaide
+  niet) → gestopt en vervangen. Rebased op 211b57f → HEAD 6f17a19 (force-with-lease gepusht).
+- Gericht te draaien (eigen + geraakt): `e2e/pin-navigation.spec.ts` (nieuw), `e2e/map-zoom.spec.ts`
+  (ctrl-wiel op touch), `e2e/location.spec.ts` (pin-marker wordt nu hergebruikt i.p.v. vervangen;
+  tik-op-kaart-gedrag). Daarna pin-crops onder een slot.
