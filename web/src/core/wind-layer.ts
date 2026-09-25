@@ -57,7 +57,7 @@ export const WIND_PARAMETERS: WindParameters = {
   speed: 1,
   // PO 2026-09-25 live (U34): default subtieler dan U24 (0,75); windfocus (U19) tweent naar
   // WIND_FOCUS_INTENSITY.
-  intensity: 0.48,
+  intensity: 0.5,
   visibility: 1, // Contrast (U3); App vermenigvuldigt met de focusdemping
   maxFps: 60, // Max. fps (U8c)
 }
@@ -75,7 +75,7 @@ export const DEFAULT_WIND_TUNING: WindTuning = {
 export const WIND_MAX_FPS = WIND_PARAMETERS.maxFps
 
 /** Intensiteit bij volle windfocus met de default-tuning (PO 2026-09-25 live, U34; was 1,905). */
-export const WIND_FOCUS_INTENSITY = 1.38
+export const WIND_FOCUS_INTENSITY = 0.8
 
 export interface WindTuningControl {
   key: keyof WindTuning
