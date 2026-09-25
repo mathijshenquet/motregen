@@ -1,6 +1,25 @@
 # motregen — orchestrator log (newest first)
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
+- **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
+  (afspeelrondje glijdt terug; horizon +8 u blijft, PO: "afspelen ziet er goed uit"), windlijnbreedte in
+  CSS-px (retina), kolom Lucht (wolkje uit de weericonen + UV overdag; vervangt UV en Wolken), modus
+  Lucht = drie wolkenlagen in de grafiek + cloud_frac-sluier als kaartmodus (MIP-4 geamendeerd),
+  hele kolom als hoverdoel, vlaag "3 ⌇ 6 Bft", adaptieve isobaarstap 4/2/1 + smoothing σ 3,5 en
+  temporeel [1,2,3,2,1] op ⅓ dekking + H/L (alleen windmodus), scrubbergrafieken per modus, sticky
+  daglabels, afspelen tot het eind + hervatten. **U41 stil-in-rust** gemerged (hoofddraad −73 %) maar
+  ingreep 1 (tracen per uurstap + crossfade) door de PO afgekeurd ("ziet er echt heel slecht uit") en
+  door U34 teruggedraaid; open: U41b = contouren tussen twee uur-tracés op de GPU interpoleren.
+  **/stats/** van het publieke internet (PO): route + basic auth weg, rapport via rsync. **Pollen**: ADS-
+  sleutel door PO geplaatst (dev .env én prod secrets.env), eerste echte ADS-run (20 chunks), fixture
+  vervangen door echte download (leads 0–24), flake check groen. Lokale live ingest op deze host
+  (`~/motregen-devdata`, caddy :8080) achter preview 4300; PO-profiel van de warme MacBook in
+  `~/tmp/motregen-idle-profile-2026-09-25.json.gz` + `~/tmp/ffprof-threads.py`.
+- **Deploy**: PO wil niet op de timer wachten → handmatige `nixos-upgrade` na flake check op `ea23512`.
+- **Open MET PO**: U38 kolomset starten (pollen + luchtkwaliteit als één kolom; RV eruit; paging) —
+  PO nog niet geantwoord; isobaren op NL-schaal weinig informatief (MIP-14 notitie); perf-budget
+  800 → 900 KB (bundel 861 KB); Search Console alleen als hij Google wil; windlijn op telefoon.
+  **VOOR AGENTS**: U38, U41b, U28, U29, U40; wind-zoom continue-zoom-test flaky onder swiftshader.
 
 - **Gemerged op main (in volgorde, main nu `b3bff3b`)**: U35 isobaren (pressure_hpa, laag in wind-
   modus), U36 windstoten + eenheidsinstelling Bft/knopen/km/u/m/s (baken-veld `unit`), U37 wolken-
