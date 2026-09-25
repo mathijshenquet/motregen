@@ -1,4 +1,4 @@
-import { For, onCleanup } from 'solid-js'
+import { For, onCleanup, type JSX } from 'solid-js'
 import { Dynamic } from 'solid-js/web'
 import { BUTTON_ICON, INLINE_ICON, Moon, Sun, SunMoon, X } from './icons'
 import { backdropHandlers } from './modal'
@@ -21,6 +21,8 @@ interface Props {
   theme: ThemeChoice
   onTheme: (theme: ThemeChoice) => void
   onTripleTap: () => void
+  /** Links in de bron-regel, bv. de temperatuurlegenda. */
+  sourcePrefix?: JSX.Element
 }
 
 export default function About(props: Props) {
@@ -57,7 +59,7 @@ export default function About(props: Props) {
     <button ref={trigger} type="button" class="map-brand round-action" aria-haspopup="dialog" aria-label="Over motregen en instellingen" title="Over motregen en instellingen" onClick={tapBrand}>
       <img src="/droplet.svg" alt="" />
     </button>
-    <div class="source"><span>Bron: KNMI · Kaart: OpenFreeMap</span></div>
+    <div class="source">{props.sourcePrefix}<span>Bron: KNMI · Kaart: OpenFreeMap</span></div>
     <dialog
       ref={dialog}
       class="about-dialog"

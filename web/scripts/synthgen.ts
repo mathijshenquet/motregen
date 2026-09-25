@@ -7,7 +7,9 @@ import { encodePredFrame, PRED_VERSION } from '../src/core/pred'
 import { solarElevationSin } from '../src/core/solar'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const dataDir = resolve(root, 'public/data')
+// Stills met een ander klimaat (U25b: koud bereik) zonder de e2e-data te raken.
+const dataDir = resolve(root, process.env.MOTREGEN_SYNTH_DIR ?? 'public/data')
+const temperatureShift = Number(process.env.MOTREGEN_SYNTH_TEMP_SHIFT ?? 0)
 const grid: Grid = { crs: 'EPSG:3857', x0: 320_000, y0: 7_170_000, dx: 3_000, dy: -3_000, width: 190, height: 230 }
 const motionGrid: MotionGrid = { bw: 19, bh: 23 }
 const now = Date.parse('2026-08-28T15:00:00Z')
@@ -145,7 +147,7 @@ function makeWeatherFrame(epoch: number, field: Exclude<Field, 'rain_rate' | 'ra
     const vortexScale = 7 * Math.exp(-(vortexX * vortexX + vortexY * vortexY) / 8_500)
     const u = 4.5 + 3 * north - vortexY / 65 * vortexScale + 0.7 * Math.sin(y * 0.035 + angle)
     const v = 1.2 + 2.2 * Math.sin(east * Math.PI + angle) + vortexX / 65 * vortexScale
-    const temperature = 16.5 + 4.2 * Math.sin((hour - 3) * Math.PI / 12) - 2.6 * north + 0.9 * Math.sin(x * 0.025 - y * 0.018)
+    const temperature = temperatureShift + 16.5 + 4.2 * Math.sin((hour - 3) * Math.PI / 12) - 2.6 * north + 0.9 * Math.sin(x * 0.025 - y * 0.018)
     const speed = Math.hypot(u, v)
     const feelsLike = temperature - Math.max(0, 0.22 * speed - 0.7) + Math.max(0, temperature - 24) * 0.12
     const cloud = Math.max(0, Math.min(100, 48 + 42 * Math.sin(x * 0.035 + y * 0.018 + hour * 0.35)))

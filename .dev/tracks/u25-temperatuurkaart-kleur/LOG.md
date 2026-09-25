@@ -93,3 +93,78 @@ Geen nieuwe ?-URL-parameters.
   9–16 °C van vandaag leest 0,12 bijna als niets.
 - Open: telefoon-meting van de filterkosten (alleen SwiftShader gemeten); `uv_clear-20260828.mrf` valt onder
   `.gitignore` (verse worktrees missen hem → mrf.test faalt daar; bestaand, niet U25).
+
+# U25b — palet lokaal gerekt (branch track/u25b-palet-lokaal vanaf 61078b0)
+
+## 2026-09-25 ~10:45 — ontwerp + implementatie
+- **Bereik** (`paletteRange`): floor(min)…ceil(max), minstens 8 °C, symmetrisch aangevuld (oneven tekort: 1 graad
+  meer boven). **Welke frames**: niet alle 52 uurframes (~535 kB extra op prod, gemeten via content-length van de
+  drie feels_like-chunks), maar precies de set die de tabel altijd laadt: toekomstige rijen t/m +18 u
+  (`PASSIVE_FORECAST_HOURS`), dus 0 extra bytes. Eén keer per run (sleutel = chunk-URL's), scrubben verschuift niets.
+  Afwijking van de spec-letter "alle tijdstappen": bewust, voor het databudget; scrub je voorbij +18 u buiten
+  het bereik, dan klemt de band op de eindkleur.
+- **Palet**: ramp van 8 KNMI-tinten blauw → rood (`TEMPERATURE_RAMP`) gerekt over het bereik via een monotone,
+  stuksgewijs lineaire afbeelding °C → ramppositie. Ankers als knopen: 0 °C → lichtblauw (positie 1/7) als het
+  lineair roder zou worden; 25 °C → begin rood (13/14) als het lineair minder rood zou zijn; bereik geheel ≤ 0 →
+  alleen blauw, geheel ≥ 25 → alleen rood. `paletteStops` zet dat om in ≤ 10 stops in °C, zodat de shader
+  (`palette()` ongewijzigd, nu met opgevulde uniform-arrays) exact hetzelfde doet.
+- **Vastgezet** (MIP-12, PO-keuze via deze spec): vulling 0,18, afval 70 %, verzadiging 55 % als constanten
+  (`ISOLINE_FILL_OPACITY`, `ISOLINE_FILL_FALLOFF`, `MAP_FOCUS_SATURATION`); de drie U25-dev-knoppen zijn weg.
+  Geen nieuwe knoppen of ?-parameters. Wel: `synthgen` kent twee env-variabelen (`MOTREGEN_SYNTH_DIR`,
+  `MOTREGEN_SYNTH_TEMP_SHIFT`) voor de koude still — scripttooling, geen app-oppervlak.
+- **Legenda**: in de bron-pil (`About` krijgt `sourcePrefix`), links van "Bron: …", alleen bij focus > 0, opacity =
+  focus; een blok per band + min/max-graden; `role="img"` met aria-label.
+- Unit: bereik (afronding, min-span, geen waarden), palet op drie bereiken (mild 9–17: volle ramp, buurbanden
+  onderscheidbaar; koud −3…6: knoop op 0 °C, sub-zero blauw; heet 18–31: knoop op 25 °C, ≥ 25 rood), puur
+  vorst/hitte, continuïteit + ≤ 10 stops, per-bandkleur. e2e focus: legenda zichtbaar met bereik en blokken, weg na focus uit.
+
+## 2026-09-25 ~11:10 — Buienradar-correctie (spec-aanvulling 11:05 op ab3fb05; sessie hervat na stop)
+- Tussenaanvulling "continu per pixel, 0,5" NIET gebouwd: vervangen door de 11:05-aanvulling (referentie
+  `/tmp/claude-1000/buienradar-feel.png`: volledig dekkende vlakke banden per ~1 °C, scherpe randen).
+- Rebase op origin/main ab3fb05 (conflictvrij).
+- **Afstandsafval verwijderd** (`fillFalloff`, `u_fill_falloff`, falloff-parameter van `fillSample`/`fillColor`):
+  vlakke bandkleur, dekking overal gelijk. De lijnfade-menging blijft (alleen waar een lijn vervaagt:
+  lusjes/gradiëntfade), zodat er geen kleurgrens zonder lijn overblijft; onder een volle lijn een harde grens.
+- **Dekking** 0,7 default (`IsolineTuning.fillOpacity`); de vaste 0,18 is weg.
+- Dev-knop (MIP-12) | eigenaar | vervalt:
+  | Vulling (0–1, default 0,7) | U25b / PO | verdwijnt bij PO-keuze 0,5 / 0,7 / 0,9 in deze merge |
+  Afval- en verzadigingsknop blijven weg (afval bestaat niet meer; verzadiging 55 % constant).
+- Synthetisch koud bereik: `MOTREGEN_SYNTH_TEMP_SHIFT=-12` geeft **−4…10 °C** (synthgen heeft ~14 °C spreiding over
+  de passieve 18 u; −3…6 lukt niet met alleen een verschuiving). Toont het 0 °C-anker: −4…0 blauw → lichtblauw.
+
+## 2026-09-25 ~11:55 — twee fouten op prod-data gevonden via de stills, gefixt (e780b26)
+- **Vulling tekende niet** (`fillPasses: 0` op prod, wel op de koude synthdata): `isolineLayer?.setStyle(isolineStyle())`
+  evalueert het argument niet zolang de laag nog niet bestaat → het effect volgde `temperatureRange` niet, een
+  later binnenkomend bereik kwam nooit in de laag. Fix: stijl buiten de optional chain berekenen.
+- **Bereik 1…30 °C op 25-09** terwijl NL 9–17 is: het rooster (209×225) reikt ver in Duitsland (zon: gevoeld tot
+  27 °C) en de 18 u lopen door de nacht. Gemeten op de geladen snedes: p01/p99 over het hele rooster 9,8–21,3 (één
+  uur) tot 10,1–25,7. Fix: alleen cellen binnen `NETHERLANDS_FLANDERS_BOUNDS` (het kaartkader). Resultaat vandaag
+  **5…26 °C** (nacht t/m middag, echt), synth-koud **−3…9 °C**. Afwijking van de spec-letter ("over de geladen
+  velden"): bewust, anders verdeelt het palet 29 banden over 8 tinten.
+
+## 2026-09-25 ~12:00 — stills (`shots/u25b-*`, script `u25b-shots.sh` + `probe.mjs`, onder één slot, startload 15,6)
+- vóór = main 61078b0 (U25: 0,12 + afval, vast palet), na = e780b26 (0,7, vlakke banden, gerekt), prod-data 25-09 ~11:40;
+  desktop + Pixel 5, licht/donker; dekking 0,5 / 0,7 / 0,9 (desktop licht/donker); koud (synthgen −12 °C) desktop
+  licht/donker + Pixel 5; plaatsnamen-uitsnede (DPR 2) bij 0,7 en 0,9.
+- Oordeel: buurbanden zijn nu onderscheidbaar (zee groenblauw, NL geelgroen, België oranje). Bij **0,7** blijven
+  plaatsnamen en kust leesbaar; bij **0,9** worden plaatsnamen erg vaag (de vulling ligt boven het hele kaartcanvas,
+  labels incl.). Voor 0,9 zouden de kaartlabels boven de vulling moeten (symboollagen naar een eigen canvas) —
+  niet gebouwd, PO-keuze. Desaturatie 55 % hoeft bij 0,7 niet verder omlaag.
+- Legenda: bandblokken (niet continu — de vulling is nu discreet, de legenda volgt), in de bron-pil. **Mobiel
+  blijft hij staan**: de pil loopt op Pixel 5 over de volle breedte onderin en er zit links niets meer
+  (brand-knop staat nu boven), dus hij vervuilt het kaartvlak niet.
+
+## 2026-09-25 ~12:15 — gates op e780b26 (synchroon, web/)
+- `direnv exec .. pnpm typecheck` → TYPECHECK-EXIT: 0
+- `direnv exec .. pnpm test` → TEST-EXIT: 0 (43 files, 262 tests)
+- `direnv exec .. pnpm build` → BUILD-EXIT: 0
+- Gericht onder slot, startload 21,6: `MOTREGEN_E2E_PORT=4366 MOTREGEN_E2E_DATA_PORT=8366 direnv exec .. pnpm e2e
+  e2e/focus.spec.ts e2e/perf.spec.ts` → **E2E-EXIT: 0** (13 passed, 20 skipped, 4,2 min). Volledige suite = orkestrator.
+
+## Samenvatting U25b voor orkestrator / PO
+- Klaar: palet lokaal gerekt (bereik per run over de passieve 18 u binnen NL+Vlaanderen, ≥ 8 °C, hele graden,
+  ankers 0 °C blauw / 25 °C rood); dekkende vlakke banden per stap met scherpe grens op de lijn (Buienradar),
+  geen afstandsafval; isolijnen dun erop; legenda (bandblokken + min/max) in de bron-pil, ook op mobiel.
+- **PO-keuze**: dekking 0,5 / **0,7 (default)** / 0,9 → knop "Vulling" vervalt daarna. 0,9 vraagt labels boven de vulling.
+- Afwijkingen van de spec-letter, gemotiveerd hierboven: bereik over de tabel-frames t/m +18 u (niet alle 52: ~535 kB)
+  en binnen het kaartkader (niet het hele rooster); koude still −3…9 i.p.v. −3…6 (synthgen-spreiding).

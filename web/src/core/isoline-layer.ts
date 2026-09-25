@@ -5,15 +5,15 @@ import type { PreparedField } from './isoline-field'
 import { SEGMENT_FLOATS, type ShortRing } from './isoline-contours'
 import { ContourTracer, type TraceRequest, type TraceResult } from './isoline-tracer'
 import { ISOLINE_LINE_OPACITY } from './isolines'
-import { PALETTE_STOPS, paletteUniforms } from './temperature-palette'
+import { PALETTE_STOPS, paletteUniforms, type PaletteStops } from './temperature-palette'
 
 export interface IsolineStyle {
   step: number
   color: [number, number, number]
-  /** Vlakvulling tussen de lijnen: dekking bij de lijn (0 = geen vulling). */
+  /** Dekking van de bandvulling tussen de lijnen (0 = geen vulling). */
   fill: number
-  /** Deel van de vuldekking dat naar het bandmidden wegvalt (0 = egaal, 1 = alleen bij de lijn). */
-  fillFalloff: number
+  /** Bandkleuren over het actuele bereik; zonder palet geen vulling. */
+  palette?: PaletteStops
   /** 0 = lineair tussen twee uurframes, 1 = kubische B-spline over vier. */
   window: number
   /** Ruimtelijk bicubisch (8 fetches) i.p.v. bilineair (2). */
@@ -151,7 +151,6 @@ void main() {
 const fillFragment = `#version 300 es
 ${fieldSampling}
 uniform float u_fill_base;
-uniform float u_fill_falloff;
 uniform float u_palette_t[${PALETTE_STOPS}];
 uniform vec3 u_palette_c[${PALETTE_STOPS}];
 uniform sampler2D u_ring;
@@ -182,8 +181,7 @@ void main() {
   }
   float width = 1.0 - clamp(fade, 0.0, 1.0);
   float upper = width <= 0.0 ? step(0.0, offset) : clamp(0.5 + offset / width, 0.0, 1.0);
-  float opacity = u_fill_base * (1.0 - u_fill_falloff + u_fill_falloff * fade * (1.0 - smoothstep(0.0, 0.5, abs(offset))));
-  opacity *= smoothstep(0.3, 0.7, field.g);
+  float opacity = u_fill_base * smoothstep(0.3, 0.7, field.g);
   color = vec4(mix(band(level - 1.0), band(level), upper) * opacity, opacity);
 }`
 
@@ -638,7 +636,7 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, this.result.texture)
     gl.uniform1i(gl.getUniformLocation(program, 'u_result'), 0)
-    const filled = this.filled && this.style.fill > 0
+    const filled = this.filled && this.style.fill > 0 && !!this.style.palette
     gl.activeTexture(gl.TEXTURE1)
     gl.bindTexture(gl.TEXTURE_2D, filled ? this.fillTarget!.texture : null)
     gl.uniform1i(gl.getUniformLocation(program, 'u_fill'), 1)
@@ -694,7 +692,7 @@ export class IsolineLayer implements CustomLayerInterface {
   /** Gemiddelde zichtbare dekking van de vulling (pixelsample van de vultexture × laagdekking), voor e2e. */
   fillCoverage(): number {
     const gl = this.gl, target = this.fillTarget
-    if (!gl || !target || !this.filled || this.style.fill <= 0 || this.opacity <= 0) return 0
+    if (!gl || !target || !this.filled || this.style.fill <= 0 || !this.style.palette || this.opacity <= 0) return 0
     const [width, height] = target.size
     const pixels = new Uint8Array(width * height * 4)
     const restore = saveTarget(gl)
@@ -750,15 +748,14 @@ export class IsolineLayer implements CustomLayerInterface {
   /** Bandkleuren onder de lijnen, op de snede `time`; altijd op `tuning.resolution` (het is glad). */
   private fillPass(gl: WebGL2RenderingContext, map: MapLibreMap, matrix: ArrayLike<number>, time: number): void {
     this.filled = false
-    if (this.style.fill <= 0) return
+    if (this.style.fill <= 0 || !this.style.palette) return
     const [width, height] = this.targetSize(gl, this.tuning.resolution)
     const restore = saveTarget(gl)
     bindTarget(gl, this.fillTarget!, width, height)
     const program = this.fill!
     const uniform = this.useField(gl, program, map, matrix, (window.devicePixelRatio || 1) * width / Math.max(1, gl.drawingBufferWidth), time)
     gl.uniform1f(uniform('u_fill_base'), this.style.fill)
-    gl.uniform1f(uniform('u_fill_falloff'), this.style.fillFalloff)
-    const palette = paletteUniforms()
+    const palette = paletteUniforms(this.style.palette)
     gl.uniform1fv(uniform('u_palette_t[0]'), palette.temperatures)
     gl.uniform3fv(uniform('u_palette_c[0]'), palette.colors)
     gl.activeTexture(gl.TEXTURE2)
