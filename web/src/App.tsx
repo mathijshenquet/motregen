@@ -114,6 +114,11 @@ interface PointLoadState {
 const emptyTemperatureData: TemperatureFeatureCollection = { type: 'FeatureCollection', features: [] }
 const emptySunData: SunFeatureCollection = { type: 'FeatureCollection', features: [] }
 
+// Bewolkingssluier (PO 2026-09-25 live, U34): dekking loopt op van 15 % naar 95 % bewolking; de stap
+// voedt alleen de (onzichtbare) contourpas.
+const CLOUD_VEIL_OPACITY = 0.55
+const CLOUD_VEIL_RANGE = [15, 95] as const
+const CLOUD_VEIL_STEP = 25
 // Terugglijden aan het eind van een afspeelrondje (PO 2026-09-25 live, U34).
 const PLAYBACK_REWIND_MS = 700
 
@@ -287,9 +292,10 @@ export default function App() {
   let temperatureRangeKey = ''
   const [focus, setFocus] = createSignal(0)
   const [windFocus, setWindFocus] = createSignal(0)
+  const [cloudFocus, setCloudFocus] = createSignal(0)
   const [focusPinned, setFocusPinned] = createSignal<FocusKind>()
   const [isolineCount, setIsolineCount] = createSignal(0)
-  const focusMode = new FocusMode<FocusKind>(['temperature', 'wind'], (mode, value) => (mode === 'wind' ? setWindFocus : setFocus)(value),
+  const focusMode = new FocusMode<FocusKind>(['temperature', 'wind', 'clouds'], (mode, value) => (mode === 'wind' ? setWindFocus : mode === 'clouds' ? setCloudFocus : setFocus)(value),
     () => reducedMotion.matches)
   const [isobarCount, setIsobarCount] = createSignal(0)
   const isolineCoverage = createMemo(() => timelineCoverage(feelsLikeTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
@@ -304,7 +310,13 @@ export default function App() {
     kind: 'pressure', layerId: 'motregen-isobars', timeline: pressureTimeline, focus: windFocus, active: createMemo(() => windFocus() > 0),
     step: () => ISOBAR_STEP_HPA, style: isobarStyle, labelFade: () => undefined, coverage: isobarCoverage, setCount: setIsobarCount,
   })
-  const isolineSets = [temperatureIsolines, pressureIsolines]
+  // Bewolkingssluier (PO 2026-09-25 live, U34): cloud_frac als zachte grijswitte vulling, zonder lijnen of
+  // labels, alleen in de modus Lucht en pas dan geladen. Wijkt af van MIP-4 ronde 3 ("nooit als kaartlaag").
+  const cloudIsolines = isolineSet({
+    kind: 'cloud', layerId: 'motregen-cloud-veil', timeline: cloudTimeline, focus: cloudFocus, active: createMemo(() => cloudFocus() > 0),
+    step: () => CLOUD_VEIL_STEP, style: cloudVeilStyle, labelFade: () => undefined, coverage: createMemo(() => timelineCoverage(cloudTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS)), setCount: () => undefined,
+  })
+  const isolineSets = [temperatureIsolines, pressureIsolines, cloudIsolines]
   const focusedWindTuning = createMemo(() => ({
     ...windTuning(),
     intensity: windFocusIntensity(windTuning().intensity, windFocus()),
@@ -908,6 +920,11 @@ export default function App() {
   }
 
   /** Isobaren: één egale lijnkleur, geen vulling en geen vervaging, zoals op een weerkaart (PO U35). */
+  function cloudVeilStyle(): IsolineStyle {
+    const veil: [number, number, number] = mapTheme() === 'dark' ? [0.72, 0.77, 0.8] : [0.96, 0.97, 0.98]
+    return { step: CLOUD_VEIL_STEP, fill: CLOUD_VEIL_OPACITY, fillSmooth: true, palette: [[0, veil], [100, veil]], color: veil, gradientFade: false, lines: false, fillByValue: CLOUD_VEIL_RANGE }
+  }
+
   function isobarStyle(): IsolineStyle {
     return { step: ISOBAR_STEP_HPA, fill: 0, color: hexColor(isolineColor(mapTheme(), 'pressure')), gradientFade: false }
   }
@@ -1015,8 +1032,10 @@ export default function App() {
         set.layerKey = key
         set.fields = []
         set.labels?.clear()
-        set.labels = new IsolineLabels(renderedMap, grid, mapTheme(), () => reducedMotion.matches, set.kind)
-        set.labels.setFade(set.labelFade())
+        if (set.kind !== 'cloud') {
+          set.labels = new IsolineLabels(renderedMap, grid, mapTheme(), () => reducedMotion.matches, set.kind)
+          set.labels.setFade(set.labelFade())
+        }
         set.key = ''
         // Labels schuiven mee op exact de snede die de lijnen net kregen (zelfde cadans).
         created.onPass = () => updateIsolineLabels(set)
@@ -1044,6 +1063,7 @@ export default function App() {
    * het label volgt het dichtstbijzijnde uur. Afspelen kost zo één ronde per uur, rust nul.
    */
   async function showIsolines(set: IsolineSet): Promise<void> {
+    if (set.kind === 'cloud') return
     const frames = set.timeline()
     if (!frames.length || !set.labels) return
     const request = ++set.shownRequest
@@ -1725,7 +1745,7 @@ export default function App() {
       if (request === uvClearRequest) setUvClearSeries(values)
     })().catch(() => undefined)
   })
-  // Wolkenlagen (U37; sinds U34 de eigen modus Wolken en de tabelkolom): pas na de initial-fase laden
+  // Wolkenlagen (U37; sinds U34 alleen in de modus Lucht): pas als die gepind is en na de initial-fase laden
   // (de eerste regenreeks gaat voor), als hele payload per chunk (16 km-raster, klein), lage prioriteit.
   const cloudsMayLoad = createMemo(() => pointLoadStage() !== 'initial')
   const cloudTimelines = createMemo(() => Object.fromEntries(CLOUD_LAYERS.map((layer) =>
@@ -1736,7 +1756,7 @@ export default function App() {
     const point = location()
     const timelines = cloudTimelines()
     const request = ++cloudRequest
-    if (!cloudsMayLoad()) return
+    if (!cloudsMayLoad() || focusPinned() !== 'clouds') return
     void Promise.all(CLOUD_LAYERS.map(async (layer) => {
       const frames = timelines[layer]
       await Promise.all([...new Set(frames.map((frame) => frame.chunk))].map((chunk) => client.fetchPayload(chunk)))
@@ -1837,13 +1857,7 @@ export default function App() {
             }}
             location={location()}
             windUnit={windUnit()}
-            columns={{ weather: hasWeatherIcons(), uv: uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), humidity: hasHumidity(), clouds: cloudTimelines().low.length > 0, wind: hasWind() }}
-            cloudLayers={(epoch) => {
-              const values = cloudValues()
-              const timelines = cloudTimelines()
-              const at = (layer: CloudLayer) => seriesValueAt(timelines[layer], values[layer], epoch, 30 * 60_000)
-              return { high: at('high'), mid: at('mid'), low: at('low') }
-            }}
+            columns={{ weather: hasWeatherIcons(), sky: hasWeatherIcons() || uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), humidity: hasHumidity(), wind: hasWind() }}
             loadedUntil={pointLoadStage() === 'complete' ? Number.POSITIVE_INFINITY : manifestNow() + PASSIVE_FORECAST_HOURS * 3_600_000}
             historyInline={historyInline()}
             historyOpen={historyOpen()}

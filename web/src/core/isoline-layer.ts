@@ -18,6 +18,10 @@ export interface IsolineStyle {
   palette?: PaletteStops
   /** Lijnen en vulling vervagen op |∇T| (ISOLINE_GRADIENT). */
   gradientFade: boolean
+  /** false: alleen de vulling (bewolkingssluier, U34). */
+  lines?: boolean
+  /** Vuldekking schaalt van 0 naar `fill` tussen deze veldwaarden (bewolkingssluier: helder = doorzichtig). */
+  fillByValue?: readonly [number, number]
 }
 
 const EQUATOR_KM = 40_075.017
@@ -96,6 +100,7 @@ const fillFragment = `#version 300 es
 ${fieldSampling}
 uniform float u_fill_base;
 uniform float u_fill_smooth;
+uniform vec2 u_fill_value;
 uniform float u_palette_t[${PALETTE_STOPS}];
 uniform vec3 u_palette_c[${PALETTE_STOPS}];
 uniform sampler2D u_ring;
@@ -127,6 +132,7 @@ void main() {
   float width = 1.0 - clamp(fade, 0.0, 1.0);
   float upper = width <= 0.0 ? step(0.0, offset) : clamp(0.5 + offset / width, 0.0, 1.0);
   float opacity = u_fill_base * smoothstep(0.3, 0.7, field.g);
+  if (u_fill_value.y > u_fill_value.x) opacity *= smoothstep(u_fill_value.x, u_fill_value.y, field.r);
   // Verloop (PO-optie): kleur op de veldwaarde zelf i.p.v. per band.
   vec3 rgb = u_fill_smooth > 0.5 ? palette(field.r) : mix(band(level - 1.0), band(level), upper);
   color = vec4(rgb * opacity, opacity);
@@ -544,7 +550,7 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.bindTexture(gl.TEXTURE_2D, filled ? this.fillTarget!.texture : null)
     gl.uniform1i(gl.getUniformLocation(program, 'u_fill'), 1)
     gl.uniform1f(gl.getUniformLocation(program, 'u_has_fill'), filled ? 1 : 0)
-    gl.uniform1f(gl.getUniformLocation(program, 'u_line_opacity'), ISOLINE_LINE_OPACITY)
+    gl.uniform1f(gl.getUniformLocation(program, 'u_line_opacity'), this.style.lines === false ? 0 : ISOLINE_LINE_OPACITY)
     gl.uniform1f(gl.getUniformLocation(program, 'u_opacity'), this.opacity)
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
@@ -611,6 +617,7 @@ export class IsolineLayer implements CustomLayerInterface {
     const uniform = this.useField(gl, program, map, matrix, (window.devicePixelRatio || 1) * width / Math.max(1, gl.drawingBufferWidth), time)
     gl.uniform1f(uniform('u_fill_base'), this.style.fill)
     gl.uniform1f(uniform('u_fill_smooth'), this.style.fillSmooth ? 1 : 0)
+    gl.uniform2f(uniform('u_fill_value'), this.style.fillByValue?.[0] ?? 0, this.style.fillByValue?.[1] ?? 0)
     const palette = paletteUniforms(this.style.palette)
     gl.uniform1fv(uniform('u_palette_t[0]'), palette.temperatures)
     gl.uniform3fv(uniform('u_palette_c[0]'), palette.colors)

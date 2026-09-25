@@ -13,14 +13,16 @@ test('weather mode shows total cloud cover above the rain; the Wolken mode shows
   await expect(section.locator('[data-layer=total] path').first()).toBeAttached()
   await expect(page.locator('.rain-bar:not(.pending)').first()).toBeAttached()
 
-  // Modus Wolken: de drie lagen (de synthetische dag heeft een front), geen regen.
-  const clouds = page.getByRole('button', { name: 'Wolken' })
+  // Modus Lucht (U34): de drie lagen (de synthetische dag heeft een front), geen regen, en de
+  // bewolkingssluier op de kaart.
+  const clouds = page.getByRole('button', { name: 'Lucht' })
   await clouds.click()
   await clouds.blur()
   await page.mouse.move(5, 5)
   await expect(surface).toHaveAttribute('data-scrubber-view', 'clouds')
   for (const layer of ['high', 'mid', 'low']) await expect(section.locator(`[data-layer=${layer}] path`).first()).toBeAttached()
   await expect(page.locator('.rain-bar')).toHaveCount(0)
+  await expect(page.locator('.map-overlay-motregen-cloud-veil')).toBeAttached()
 
   // Stilstaand beeld: pauzeren en de cursor op een vast punt.
   await surface.focus()
