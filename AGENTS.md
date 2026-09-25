@@ -35,8 +35,11 @@ product manager (proposals, specs, verification), codex agents
   keep it current (append-only, timestamped).
 - e2e op de dev-host: `pnpm e2e*` loopt via `web/scripts/e2e-slot.sh` (twee slots, één
   Chromium per slot). Workers draaien onder een slot alleen hun EIGEN en geraakte spec-
-  bestanden (`pnpm e2e e2e/<naam>.spec.ts …`); de volledige suite draait de orkestrator op
-  de rebased merge-kandidaat vóór elke merge (PO 2026-09-25).
+  bestanden, **alleen `--project desktop`** (`pnpm e2e e2e/<naam>.spec.ts --project desktop`).
+  De orkestrator gate per merge met typecheck/unit/build + dezelfde gerichte desktop-specs;
+  de VOLLEDIGE suite in drie profielen draait maximaal één keer per dag op main (nachtelijk of
+  bij sessieafsluiting), niet per merge (PO 2026-09-25: "e2e duurt veel te lang"). Perf-
+  budgetten (`perf.spec`) tellen alleen in die dagelijkse run mee; onder load zijn ze ruis.
 - A receipt is a SYNCHRONOUS exit status you observed; detached or quiet output is not
   a receipt. Agent "green" claims get independently re-verified before merge — leave
   exact repro commands in your LOG.
