@@ -269,7 +269,6 @@ export default function LocationSearch(props: Props) {
               <div><input ref={nameInput} id="saved-place-name" value={customName()} maxlength="80" onInput={(event) => setCustomName(event.currentTarget.value)} /><button type="submit">Opslaan</button></div>
             </form>
           </Show>
-          <Show when={suggestions().length}><p class="search-section-label">Plaatsen</p></Show>
           <For each={suggestions()}>{(suggestion, index) =>
             <button
               id={`location-${index()}`}

@@ -68,7 +68,8 @@ describe('freshness indicator', () => {
     const dialog = document.querySelector('dialog')!
     expect(dialog.open).toBe(true)
     for (const label of ['Radar', 'HARMONIE']) expect(within(dialog).getByText(label)).toBeTruthy()
-    expect(within(dialog).getByText('3 u 28 min geleden')).toBeTruthy()
+    // U34: leeftijden per bron als tikkend label in korte vorm.
+    expect(within(dialog).getAllByText('3 u').length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByRole('button', { name: 'Nu verversen' }))
     await vi.waitFor(() => expect(onRefresh).toHaveBeenCalledOnce())

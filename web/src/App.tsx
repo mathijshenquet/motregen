@@ -221,7 +221,8 @@ export default function App() {
   }
   const [cursor, setCursor] = createSignal(0)
   const [playing, setPlaying] = createSignal(true)
-  const [timeHorizonHours, setTimeHorizonHours] = createSignal<number | null>(8)
+  // Afspeelhorizon; de tijdsbereikknoppen zijn weg (U34), de scrubber scrolt door de hele tijdlijn.
+  const [timeHorizonHours] = createSignal<number | null>(8)
   const initialSavedPlaces = loadSavedPlaces()
   const initialMapView = loadMapView()
   let startLocation = resolveStartLocation(initialSavedPlaces, loadLastSavedPlaceId(), initialMapView, defaultLocation)
@@ -566,13 +567,16 @@ export default function App() {
     onCleanup(stop)
   })
 
-  function chooseTimeHorizon(hours: number | null): void {
-    usage.setRange(hours)
-    setTimeHorizonHours(hours)
-    const frames = timeline()
-    if (!frames.length) return
-    const end = timelineHorizonEnd(frames, manifest() ? Date.parse(manifest()!.now) : frames[0]!.epoch, hours)
-    setCursor((value) => timelineEpochAtCursor(frames, value) > end ? timelineCursorAtEpoch(frames, end) : value)
+  // Zolang het versheidspaneel open is staat de klok stil (PO 2026-09-25 live).
+  let playingBeforeFreshness = false
+  function pauseForFreshness(): void {
+    usage.mark('fresh')
+    playingBeforeFreshness = playing()
+    setPlaying(false)
+  }
+  function resumeAfterFreshness(): void {
+    if (playingBeforeFreshness) setPlaying(true)
+    playingBeforeFreshness = false
   }
 
   async function applyMapTheme(nextTheme: MapTheme): Promise<void> {
@@ -1788,7 +1792,7 @@ export default function App() {
           usageBody={usageBody()}
         />
       </Show>
-      <Freshness mapEpoch={selectedEpoch()} mapFrame={timeline()[Math.round(cursor())]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={() => usage.mark('fresh')} />
+      <Freshness mapEpoch={selectedEpoch()} mapFrame={timeline()[Math.round(cursor())]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness} />
     </section>
     <aside class="dashboard">
       <Show when={cursorUvChip()}>{(label) => <div class="sidebar-nav">
@@ -1801,12 +1805,10 @@ export default function App() {
         cursor={cursor()}
         now={manifest() ? Date.parse(manifest()!.now) : 0}
         playing={playing()}
-        horizonHours={timeHorizonHours()}
         loading={pointSeriesLoading()}
         loadStage={pointLoadStage()}
         locationLabel={status()}
         onCursor={scrub}
-        onHorizonHours={chooseTimeHorizon}
         onIntent={() => { void completePointSeries(pointLoad, 'high') }}
         onPlaying={setPlaying}
         onPlayPressed={() => usage.mark('play')}

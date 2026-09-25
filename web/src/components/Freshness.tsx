@@ -14,6 +14,7 @@ interface Props {
   refresh: RefreshState | undefined
   onRefresh: () => Promise<void>
   onOpen?: () => void
+  onClose?: () => void
 }
 
 const TICK_MS = 15_000
@@ -30,6 +31,15 @@ export default function Freshness(props: Props) {
   const [refreshing, setRefreshing] = createSignal(false)
   const timer = window.setInterval(() => setClock(Date.now()), TICK_MS)
   onCleanup(() => window.clearInterval(timer))
+  // Secondeklok alleen zolang het paneel open is, voor "n seconden geleden" bij de laatste check.
+  const [second, setSecond] = createSignal(Date.now())
+  let secondTimer: number | undefined
+  const stopSeconds = () => { if (secondTimer !== undefined) window.clearInterval(secondTimer); secondTimer = undefined }
+  onCleanup(stopSeconds)
+  const checkedAgo = (epoch: number) => {
+    const seconds = Math.max(0, Math.floor((second() - epoch) / 1_000))
+    return seconds < 60 ? `${seconds} ${seconds === 1 ? 'seconde' : 'seconden'} geleden` : formatAge(seconds * 1_000)
+  }
 
   const time = (epoch: number) => new Date(epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
   const day = (epoch: number) => new Date(epoch).toLocaleDateString('nl-NL', { weekday: 'short' })
@@ -47,19 +57,36 @@ export default function Freshness(props: Props) {
     return age === undefined ? 'Geen radar' : `Radar ${formatClock(radar()!, clock())}, ${formatAge(age)}`
   }
 
-  // Het paneel opent gecentreerd onder de klok, binnen het venster gehouden.
+  // PO 2026-09-25 live (U34): het paneel is de klokpil die als een vel papier naar beneden uitrolt. Het
+  // begint op de plek en in de vorm van de pil (clip-path) en houdt de klok bovenin op dezelfde plek.
   function openPanel(): void {
     const pill = trigger.parentElement!.getBoundingClientRect()
     const margin = 16
-    const width = Math.min(420, window.innerWidth - 2 * margin)
+    const width = Math.min(760, window.innerWidth - 2 * margin)
     const center = Math.min(Math.max(pill.left + pill.width / 2, margin + width / 2), window.innerWidth - margin - width / 2)
-    // Pil (bijna) uit beeld gescrold: dan bovenaan het venster.
-    const below = Math.round(pill.bottom + 8)
-    const top = below < margin || below > window.innerHeight * 0.6 ? margin : below
-    dialog.style.setProperty('--panel-left', `${Math.round(center - width / 2)}px`)
-    dialog.style.setProperty('--panel-top', `${top}px`)
+    const left = Math.round(center - width / 2)
+    dialog.style.setProperty('--panel-left', `${left}px`)
+    dialog.style.setProperty('--panel-top', `${Math.max(0, Math.round(pill.top))}px`)
+    dialog.style.setProperty('--clock-left', `${Math.max(0, Math.round(pill.left - left))}px`)
+    dialog.style.setProperty('--clock-right', `${Math.max(0, Math.round(left + width - pill.right))}px`)
+    dialog.style.setProperty('--clock-height', `${Math.round(pill.height)}px`)
+    dialog.style.setProperty('--clock-center', `${Math.round(pill.left + pill.width / 2 - left)}px`)
+    setSecond(Date.now())
+    stopSeconds()
+    secondTimer = window.setInterval(() => setSecond(Date.now()), 1_000)
     dialog.showModal()
     props.onOpen?.()
+  }
+
+  // Sluiten rolt het papier terug op naar de pil (dezelfde animatie achterstevoren) en sluit daarna pas.
+  function closePanel(): void {
+    if (!dialog.open || dialog.classList.contains('closing')) return
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { dialog.close(); return }
+    dialog.classList.add('closing')
+    dialog.addEventListener('animationend', () => {
+      dialog.classList.remove('closing')
+      dialog.close()
+    }, { once: true })
   }
 
   async function refreshNow(): Promise<void> {
@@ -80,7 +107,7 @@ export default function Freshness(props: Props) {
       class="freshness-trigger"
       aria-haspopup="dialog"
       aria-label={`Kaart ${mapTime()}${mapDay() ? ` ${mapDay()}` : ''}, ${regime()}. ${STATUS_LABELS[status()]}: ${summary()}. Details over dataversheid`}
-      title="Hoe vers is de data?"
+      title="Hoe actueel is de data?"
       onClick={openPanel}
     >
       {/* PO 2026-09-25: geen groene stip; alleen bij achterlopen/verouderd een stip links van de tijd en de leeftijd eronder. */}
@@ -101,14 +128,22 @@ export default function Freshness(props: Props) {
         ref={dialog}
         class="about-dialog freshness-dialog"
         aria-labelledby="freshness-title"
-        onClose={() => trigger.focus()}
-        {...backdropHandlers(() => dialog)}
+        onClose={() => { stopSeconds(); props.onClose?.(); trigger.focus() }}
+        onCancel={(event) => { event.preventDefault(); closePanel() }}
+        {...backdropHandlers(() => dialog, closePanel)}
       >
+        {/* Nog eens op de klok klikken rolt het papier weer op; grijs = de tijd staat stil. */}
+        <div class="freshness-clock">
+          <button type="button" class="clock-main" aria-label="Sluiten" title="Sluiten" onClick={closePanel}>
+            <strong class="clock-map-time">{mapTime()}</strong>
+            <Show when={mapDay()}><small class="clock-day">{mapDay()}</small></Show>
+          </button>
+        </div>
         <div class="about-body">
           <header>
             <i class="freshness-dot" data-status={status()} aria-hidden="true" />
-            <h2 id="freshness-title">Hoe vers is de data?</h2>
-            <button type="button" class="about-close" aria-label="Sluiten" onClick={() => dialog.close()} autofocus><X {...BUTTON_ICON} /></button>
+            <h2 id="freshness-title">Hoe actueel is de data?</h2>
+            <button type="button" class="about-close" aria-label="Sluiten" onClick={closePanel} autofocus><X {...BUTTON_ICON} /></button>
           </header>
           <p class="freshness-lead" data-status={status()}>
             <strong>{STATUS_LABELS[status()]}</strong>
@@ -132,7 +167,7 @@ export default function Freshness(props: Props) {
             </table>
           </div>
           <footer class="freshness-footer">
-            <span class="freshness-meta"><Show when={props.refresh}>Laatste check {time(props.refresh!.checkedAt)}</Show></span>
+            <span class="freshness-meta"><Show when={props.refresh}>Laatste check {time(props.refresh!.checkedAt)} · {checkedAgo(props.refresh!.checkedAt)}</Show></span>
             <button type="button" class="freshness-refresh" disabled={refreshing()} onClick={() => void refreshNow()}>
               {refreshing() ? 'Bezig met verversen…' : 'Nu verversen'}
             </button>

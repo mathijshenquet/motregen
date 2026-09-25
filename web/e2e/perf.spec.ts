@@ -1,5 +1,6 @@
 import { expect, test, type CDPSession, type Locator, type Page } from '@playwright/test'
 import type { Manifest } from '../src/core/contract'
+import { pausePlayback } from './playback'
 import { applyEmulation, performanceProfile } from './profiles'
 
 interface PerfSnapshot {
@@ -155,10 +156,8 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     }
     await page.route('**/data/manifest.json', (route) => route.fulfill({ json: advanced }))
     const scrubber = page.getByRole('slider', { name: 'Tijd' })
-    const pause = page.getByRole('button', { name: 'Pauzeren' })
-    if (await pause.isVisible()) await pause.evaluate((button: HTMLButtonElement) => button.click())
-    await expect(page.getByRole('button', { name: 'Afspelen' })).toBeVisible()
-    const cursorTime = await page.locator('.cursor-time').textContent()
+    await pausePlayback(page)
+    const cursorTime = await scrubber.getAttribute('aria-valuetext')
     const nowStyle = await page.locator('.now-line').getAttribute('style')
     const chunkRequestStart = await transferredDataRequests(page, '/data/chunks/')
     const refreshStartedAt = performance.now()
@@ -166,7 +165,7 @@ test('user journey measures performance and cache behaviour', async ({ page, con
 
     await expect.poll(() => page.locator('.now-line').getAttribute('style')).not.toBe(nowStyle)
     const refreshMs = performance.now() - refreshStartedAt
-    expect(await page.locator('.cursor-time').textContent()).toBe(cursorTime)
+    expect(await scrubber.getAttribute('aria-valuetext')).toBe(cursorTime)
     await expect(scrubber).toHaveAttribute('data-load-stage', 'complete')
     await expect(page.locator('rect.rain-bar.pending')).toHaveCount(0)
     await page.waitForTimeout(100)

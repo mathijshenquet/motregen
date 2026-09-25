@@ -152,7 +152,7 @@ export default function ForecastTable(props: Props) {
           <Show when={props.columns.weather} fallback={<ColumnLabel icon={Clock} text="Uur" />}><ColumnLabel icon={CloudSun} text="Weer" /></Show>
         </button>
       </th>
-      <Show when={props.columns.uv}><th class="uv-heading" title="UV-index met en zonder wolken; ≈ = schatting uit modelstraling en zonshoogte">
+      <Show when={props.columns.uv}><th class="uv-heading" title="UV-index met en zonder wolken">
         <span class="column-mode"><ColumnLabel icon={Sun} text="UV" /></span>
       </th></Show>
       <Show when={props.columns.temperature}><th class="temperature-heading">

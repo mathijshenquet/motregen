@@ -28,7 +28,7 @@ export default function UvBar(props: Props) {
   const dark = () => !reading() || reading()!.clear < 0.05
   return <span
     class="uv-bar"
-    classList={{ 'uv-bar-dark': dark(), 'uv-bar-bare': props.bare === true, estimated: reading()?.estimated === true }}
+    classList={{ 'uv-bar-dark': dark(), 'uv-bar-bare': props.bare === true }}
     data-level={reading() && !dark() ? uvLevel(reading()!.value).key : undefined}
     data-clear-level={reading() && !dark() ? uvLevel(reading()!.clear).key : undefined}
     role="img"
@@ -42,7 +42,7 @@ export default function UvBar(props: Props) {
       </Show>
     </span>
     <Show when={!props.bare && reading() && !dark()}>
-      <span class="uv-bar-value" aria-hidden="true">{reading()!.estimated ? '≈' : ''}{formatUv(reading()!.value)}</span>
+      <span class="uv-bar-value" aria-hidden="true">{formatUv(reading()!.value)}</span>
       <span class="uv-bar-level" aria-hidden="true">{uvLevel(reading()!.value).level}</span>
     </Show>
   </span>

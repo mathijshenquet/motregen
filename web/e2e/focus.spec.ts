@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { pausePlayback } from './playback'
 import { applyEmulation, performanceProfile } from './profiles'
 
 const shell = (page: Page) => page.locator('.map-shell')
@@ -197,7 +198,7 @@ test('temperature focus desaturates only the basemap canvas and fills the bands,
   await ready(page)
   expect(await saturation(page)).toBe(1)
   expect(await page.locator('.maplibregl-canvas').evaluate((canvas) => getComputedStyle(canvas).filter)).toBe('none')
-  await page.getByRole('button', { name: 'Pauzeren' }).first().click({ force: true })
+  await pausePlayback(page)
   await heading(page).click()
   await heading(page).blur()
   await page.mouse.move(5, 5)
@@ -230,7 +231,7 @@ test('temperature focus desaturates only the basemap canvas and fills the bands,
 test('pinned focus at rest does no contour or worker work', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'structurele teller, één profiel volstaat')
   await ready(page)
-  await page.getByRole('button', { name: 'Pauzeren' }).first().click({ force: true })
+  await pausePlayback(page)
   await heading(page).click()
   await expect(shell(page)).toHaveAttribute('data-focus', '1.00')
   await expect.poll(() => page.locator('.isoline-label').count()).toBeGreaterThan(0)
@@ -262,7 +263,7 @@ test('pinned isolines re-render after a manifest refresh with a new run and afte
     await route.fulfill({ response, json: manifest })
   })
   await ready(page)
-  await page.getByRole('button', { name: 'Pauzeren' }).first().click({ force: true })
+  await pausePlayback(page)
   await heading(page).click()
   await heading(page).blur()
   await page.mouse.move(5, 5)

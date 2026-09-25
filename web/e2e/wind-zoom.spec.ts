@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { pausePlayback } from './playback'
 
 // U20: na een zoomstap blijft de wind staan — geen leeg beeld en geen dubbele inkt. Inkt is de
 // gemiddelde RGB-afwijking van de kaart door de windcanvas (wind-ink-methode), gemeten tegen
@@ -16,8 +17,7 @@ test('wind keeps its ink through a zoom step: no blank, no doubling', async ({ p
     wind.budget = wind.target
     ;(wind.balance as () => void).call(wind)
   })
-  const pause = page.getByRole('button', { name: 'Pauzeren' })
-  if (await pause.count()) await pause.first().click()
+  await pausePlayback(page)
   // Opwarmen: de eerste zoom laadt tegels en labels, die anders als windinkt meetellen.
   await zoomBy(page, 1)
   await zoomBy(page, -1)
@@ -47,8 +47,7 @@ test('wind keeps its trails through a continuous zoom 7→9, like a single jump 
   await page.goto('/')
   await expect(page.locator('.map-splash.ready')).toBeAttached()
   await page.waitForFunction(() => (globalThis as { __motregenWind?: { map?: unknown } }).__motregenWind?.map !== undefined)
-  const pause = page.getByRole('button', { name: 'Pauzeren' })
-  if (await pause.count()) await pause.first().click()
+  await pausePlayback(page)
   const run = (continuous: boolean) => page.evaluate(async (stepwise) => {
     type Map = { jumpTo: (options: object) => void; getZoom: () => number }
     const wind = (globalThis as unknown as { __motregenWind: Record<string, unknown> & { map: Map; render: (...args: unknown[]) => void } }).__motregenWind

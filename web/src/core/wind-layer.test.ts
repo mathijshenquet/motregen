@@ -331,12 +331,12 @@ describe('wind tuning', () => {
   it('migrates v3 once to v4: the four knobs survive, keys that became constants are dropped', () => {
     expect(WIND_TUNING_STORAGE_KEY).toBe('motregen-wind-tuning-v4')
     expect(LEGACY_WIND_TUNING_STORAGE_KEY).toBe('motregen-wind-tuning-v3')
-    const values = new Map([[LEGACY_WIND_TUNING_STORAGE_KEY, JSON.stringify({ intensity: 0.5, particlesPerMegapixel: 900, maxFps: 30, trailDistance: 120 })]])
+    const values = new Map([[LEGACY_WIND_TUNING_STORAGE_KEY, JSON.stringify({ intensity: 0.3, particlesPerMegapixel: 900, maxFps: 30, trailDistance: 120 })]])
     const storage = memoryStorage(values)
     const loaded = loadWindTuning(storage)
-    expect(loaded).toEqual({ ...DEFAULT_WIND_TUNING, intensity: 0.5, particlesPerMegapixel: 900 })
+    expect(loaded).toEqual({ ...DEFAULT_WIND_TUNING, intensity: 0.3, particlesPerMegapixel: 900 })
     expect(values.has(LEGACY_WIND_TUNING_STORAGE_KEY)).toBe(false)
-    expect(JSON.parse(values.get(WIND_TUNING_STORAGE_KEY)!)).toEqual({ intensity: 0.5, particlesPerMegapixel: 900 })
+    expect(JSON.parse(values.get(WIND_TUNING_STORAGE_KEY)!)).toEqual({ intensity: 0.3, particlesPerMegapixel: 900 })
     expect(loadWindTuning(storage)).toEqual(loaded)
   })
 
