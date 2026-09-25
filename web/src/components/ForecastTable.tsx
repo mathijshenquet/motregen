@@ -4,6 +4,7 @@ import type { HourlyForecastRow } from '../core/forecast'
 import { solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
 import { uvReading } from '../core/uv'
 import { deriveWeatherIcon, summarizeWind } from '../core/weather'
+import { BUTTON_ICON, Clock, CloudRain, CloudSun, Droplets, Sun, Thermometer, Wind } from './icons'
 import UvBar, { type UvBarVariant } from './UvBar'
 import WeatherIcon from './WeatherIcon'
 
@@ -37,7 +38,8 @@ interface Props {
   onOpenHistory: () => void
   sunForm: SunForm
   uvBar: UvBarVariant
-  // Hover/toetsenbordfocus op de kolom Gevoel of Wind zet die focusmodus van de kaart aan.
+  // De koppenrij is de modebalk: Gevoel en Wind zijn kaartmodes (hover/toetsenbordfocus tijdelijk,
+  // klik pint), Weer is de standaard en zet een pin uit.
   focus: {
     pinned: FocusKind | undefined
     onTogglePin: (mode: FocusKind) => void
@@ -52,9 +54,11 @@ export default function ForecastTable(props: Props) {
   const hover = (mode: FocusKind, event: PointerEvent, active: boolean) => {
     if (event.pointerType !== 'touch') props.focus.onFocus(mode, 'table', active)
   }
-  const FocusHeading = (heading: { mode: FocusKind; label: string; title: string }) => <button
+  const ColumnLabel = (label: { icon: typeof CloudSun; text: string }) =>
+    <><label.icon {...BUTTON_ICON} aria-hidden="true" /><span class="column-word">{label.text}</span></>
+  const FocusHeading = (heading: { mode: FocusKind; icon: typeof CloudSun; label: string; title: string }) => <button
     type="button"
-    class={`column-focus ${heading.mode}-focus`}
+    class={`column-mode column-focus ${heading.mode}-focus`}
     aria-pressed={props.focus.pinned === heading.mode}
     title={heading.title}
     onClick={() => props.focus.onTogglePin(heading.mode)}
@@ -62,7 +66,7 @@ export default function ForecastTable(props: Props) {
     onBlur={() => props.focus.onFocus(heading.mode, 'keyboard', false)}
     onPointerEnter={(event) => hover(heading.mode, event, true)}
     onPointerLeave={(event) => hover(heading.mode, event, false)}
-  >{heading.label}</button>
+  ><ColumnLabel icon={heading.icon} text={heading.label} /></button>
   const sun = createMemo(() => {
     const first = props.rows[0]
     const last = props.rows.at(-1)
@@ -86,22 +90,30 @@ export default function ForecastTable(props: Props) {
   const visibleRows = () => props.historyOpen ? props.rows : props.rows.filter((row) => row.kind !== 'past')
   onCleanup(() => observer?.disconnect())
 
-  const columnCount = () => 2 + Number(props.columns.weather) + Number(props.columns.uv) + Number(props.columns.temperature) +
+  const columnCount = () => 2 + Number(props.columns.uv) + Number(props.columns.temperature) +
     Number(props.columns.humidity) + Number(props.columns.wind)
 
-  return <table>
+  return <table class="forecast-table" data-mode={props.focus.pinned}>
     <thead><tr>
-      <th>Uur</th>
-      <Show when={props.columns.weather}><th class="weather-heading">Weer</th></Show>
-      <Show when={props.columns.uv}><th class="uv-heading" title="UV-index met en zonder wolken; ≈ = schatting uit modelstraling en zonshoogte">UV</th></Show>
+      <th class="weather-heading">
+        <button type="button" class="column-mode default-mode" title="Standaardkaart: regen, wolken en zon" onClick={() => {
+          const pinned = props.focus.pinned
+          if (pinned) props.focus.onTogglePin(pinned)
+        }}>
+          <Show when={props.columns.weather} fallback={<ColumnLabel icon={Clock} text="Uur" />}><ColumnLabel icon={CloudSun} text="Weer" /></Show>
+        </button>
+      </th>
+      <Show when={props.columns.uv}><th class="uv-heading" title="UV-index met en zonder wolken; ≈ = schatting uit modelstraling en zonshoogte">
+        <span class="column-mode"><ColumnLabel icon={Sun} text="UV" /></span>
+      </th></Show>
       <Show when={props.columns.temperature}><th class="temperature-heading">
-        <FocusHeading mode="temperature" label="Gevoel" title="Toon temperatuurlijnen op de kaart" />
+        <FocusHeading mode="temperature" icon={Thermometer} label="Gevoel" title="Toon temperatuurlijnen op de kaart" />
       </th></Show>
-      <Show when={props.columns.humidity}><th>RV</th></Show>
+      <Show when={props.columns.humidity}><th title="Relatieve luchtvochtigheid"><span class="column-mode"><ColumnLabel icon={Droplets} text="RV" /></span></th></Show>
       <Show when={props.columns.wind}><th class="wind-heading">
-        <FocusHeading mode="wind" label="Wind" title="Toon de wind op de kaart op volle sterkte" />
+        <FocusHeading mode="wind" icon={Wind} label="Wind" title="Toon de wind op de kaart op volle sterkte" />
       </th></Show>
-      <th>Regen</th>
+      <th><span class="column-mode"><ColumnLabel icon={CloudRain} text="Regen" /></span></th>
     </tr></thead>
     <tbody>
     <Show when={pastCount() > 0}>
@@ -139,14 +151,18 @@ export default function ForecastTable(props: Props) {
           }}
           classList={{ 'current-hour': row.kind === 'now', 'past-hour': row.kind === 'past', 'pending-hour': pending() }}
         >
-          <td>
-            <strong>{time(row.epoch)}</strong>
-            <span classList={{ 'now-label': row.kind === 'now' }}>{row.kind === 'now' ? 'Nu' : new Date(row.epoch).toLocaleDateString('nl-NL', { weekday: 'short' })}</span>
-            <Show when={props.sunForm === 'marker' && sunEvent()}>{(event) =>
-              <span class="sun-mark" title={sunLabel(event())}><SunGlyph kind={event().kind} />{time(event().epoch)}</span>
-            }</Show>
+          <td class="weather-cell">
+            <div class="time-weather">
+              <div class="time-label">
+                <strong>{time(row.epoch)}</strong>
+                <span classList={{ 'now-label': row.kind === 'now' }}>{row.kind === 'now' ? 'Nu' : new Date(row.epoch).toLocaleDateString('nl-NL', { weekday: 'short' })}</span>
+                <Show when={props.sunForm === 'marker' && sunEvent()}>{(event) =>
+                  <span class="sun-mark" title={sunLabel(event())}><SunGlyph />{time(event().epoch)}</span>
+                }</Show>
+              </div>
+              <Show when={props.columns.weather && icon()}>{(model) => <WeatherIcon model={model()} />}</Show>
+            </div>
           </td>
-          <Show when={props.columns.weather}><td class="weather-cell"><Show when={icon()}>{(model) => <WeatherIcon model={model()} />}</Show></td></Show>
           <Show when={props.columns.uv}>
             <td class="uv-cell">
               <Show when={uv() || elevation(row.epoch) <= 0} fallback={pending() ? '…' : ''}>
@@ -163,7 +179,7 @@ export default function ForecastTable(props: Props) {
         </tr>
         <Show when={props.sunForm === 'row' && sunEvent()}>{(event) =>
           <tr class="sun-row" classList={{ 'past-hour': row.kind === 'past' }}>
-            <td colSpan={columnCount()}><SunGlyph kind={event().kind} />{sunLabel(event())}</td>
+            <td colSpan={columnCount()}><SunGlyph />{sunLabel(event())}</td>
           </tr>
         }</Show>
       </>
@@ -172,10 +188,9 @@ export default function ForecastTable(props: Props) {
   </table>
 }
 
-function SunGlyph(props: { kind: SunEvent['kind'] }) {
-  return <svg class="sun-glyph" viewBox="0 0 20 12" aria-hidden="true">
+function SunGlyph() {
+  return <svg class="sun-glyph" viewBox="0 4 20 8" aria-hidden="true">
     <path class="sun-glyph-horizon" d="M1 10.5h18" />
     <path class="sun-glyph-disc" d="M5 10.5a5 5 0 0 1 10 0Z" />
-    <path class="sun-glyph-arrow" d={props.kind === 'rise' ? 'M10 5V1M8 3l2-2 2 2' : 'M10 1v4M8 3l2 2 2-2'} />
   </svg>
 }

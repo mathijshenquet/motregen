@@ -502,6 +502,23 @@ th:first-child { padding-left: 0; text-align: left; }
 td { padding: 10px 6px; border-bottom: 1px solid var(--line); font-size: 13px; text-align: right; white-space: nowrap; }
 td:first-child { padding-left: 0; text-align: left; }
 td:first-child strong { display: inline-block; min-width: 44px; font-size: 13px; }
+.forecast-table th { padding: 6px 2px 5px; vertical-align: bottom; letter-spacing: 0; text-align: center; text-transform: none; }
+.forecast-table th:first-child { padding-left: 0; text-align: left; }
+.column-mode { display: inline-flex; min-width: 44px; flex-direction: column; align-items: center; gap: 3px; padding: 6px 6px 5px; border: 0; border-radius: 10px; background: none; color: var(--muted); font: inherit; font-size: 12px; font-weight: 700; line-height: 1; }
+.column-mode svg { flex: none; }
+button.column-mode { width: 100%; cursor: pointer; }
+.default-mode { align-items: flex-start; }
+/* Weer is de standaardmodus: zonder pin geen aanwijsstijl, het is geen toestand die aan staat. */
+.forecast-table:not([data-mode]) .default-mode { cursor: default; }
+.column-focus:hover, .forecast-table[data-mode] .default-mode:hover { color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 45%, transparent); }
+.column-focus[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); }
+.column-mode:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* De kolom van de gepinde modus krijgt een lichte tint over de rijachtergrond, zodat kop en cellen één geheel lezen. */
+.forecast-table { --mode-tint: linear-gradient(color-mix(in srgb, var(--accent-soft) 40%, transparent), color-mix(in srgb, var(--accent-soft) 40%, transparent)); }
+.forecast-table[data-mode="temperature"] :is(.temperature-heading, .temperature-cell),
+.forecast-table[data-mode="wind"] :is(.wind-heading, .wind-cell) { background-image: var(--mode-tint); }
+.time-weather { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.time-label { min-width: 0; }
 td:first-child span { color: var(--muted); font-size: 10px; text-transform: capitalize; }
 tr.past-hour td { color: color-mix(in srgb, var(--text) 68%, var(--muted)); background: color-mix(in srgb, var(--surface-soft) 70%, var(--surface)); }
 tr.pending-hour td { color: var(--muted); }
@@ -509,9 +526,7 @@ tr.current-hour td { border-bottom-color: color-mix(in srgb, var(--accent) 38%, 
 tr.current-hour td:first-child { padding-left: 9px; box-shadow: inset 3px 0 var(--accent); }
 td:first-child span.now-label { color: var(--accent); font-weight: 820; letter-spacing: .06em; text-transform: uppercase; }
 td small { color: var(--muted); font-size: 9px; }
-.weather-heading, .weather-cell { text-align: center; }
-.weather-cell { min-width: 48px; }
-.weather-icon { width: 38px; height: 31px; display: block; margin: 0 auto; overflow: visible; }
+.weather-icon { width: 38px; height: 31px; display: block; flex: none; overflow: visible; }
 .weather-sun circle { fill: #f3b918; stroke: #d69b00; stroke-width: 1; }
 .weather-sun path { fill: none; stroke: #e6a400; stroke-linecap: round; stroke-width: 1.5; }
 .weather-moon { fill: #768da2; }
@@ -551,19 +566,14 @@ td small { color: var(--muted); font-size: 9px; }
 .uv-bar-bare { display: block; }
 .uv-bar-bare .uv-bar-track { min-width: 0; height: 6px; }
 .uv-bar-bare .uv-bar-dot { width: 7px; height: 7px; border-width: 1.5px; }
-tr.sun-row td { padding: 3px 0 3px; border-bottom: 1px dashed var(--line); color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .04em; text-align: left; }
-.sun-glyph { display: inline-block; width: 20px; height: 12px; margin: 0 6px -1px 44px; vertical-align: baseline; overflow: visible; }
+tr.sun-row td { padding: 3px 0 3px; border-bottom: 1px dashed var(--line); color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .04em; text-align: center; }
+.sun-glyph { display: inline-block; width: 20px; height: 8px; margin: 0 6px 0 0; vertical-align: baseline; overflow: visible; }
 .sun-glyph-horizon { fill: none; stroke: var(--muted); stroke-linecap: round; stroke-width: 1.2; }
 .sun-glyph-disc { fill: #f3b918; stroke: #d69b00; stroke-width: .8; }
-.sun-glyph-arrow { fill: none; stroke: #e6a400; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.4; }
 td:first-child span.sun-mark { display: block; margin-top: 1px; color: #b07800; font-size: 9px; font-weight: 700; text-transform: none; }
 :root[data-theme="dark"] td:first-child span.sun-mark { color: #ffd86b; }
-.sun-mark .sun-glyph { width: 14px; height: 9px; margin: 0 3px -1px 0; }
+.sun-mark .sun-glyph { width: 14px; height: 5.6px; margin: 0 3px 0 0; }
 .temperature-cell { font-size: 16px; font-weight: 720; letter-spacing: -.03em; }
-.column-focus { margin: -3px -5px; padding: 3px 5px; border: 0; border-radius: 5px; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
-.column-focus:hover, .column-focus[aria-pressed="true"] { color: var(--accent); }
-.column-focus[aria-pressed="true"] { background: var(--accent-soft); text-decoration: none; }
-.column-focus:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .air-temperature { display: block; color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: 0; }
 .wind-cell { color: var(--text); font-size: 11px; }
 
@@ -583,6 +593,7 @@ td:first-child span.sun-mark { display: block; margin-top: 1px; color: #b07800; 
   .sidebar-uv-chip { padding: 0 8px; }
   .uv-long { display: none; }
   .uv-short { display: inline; }
+  .column-mode { min-width: 0; padding-right: 3px; padding-left: 3px; font-size: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -769,8 +780,7 @@ tr.history-toggle-row td { padding: 0; border-bottom: 1px solid var(--line); bac
   .save-place-editor input, .save-place-editor button { min-height: 44px; }
   .cursor-pill::after { position: absolute; inset: -8px -4px; content: ''; }
   .history-toggle { min-height: 44px; }
-  .column-focus { position: relative; }
-  .column-focus::after { position: absolute; inset: -12px -4px; content: ''; }
+  .column-mode { min-height: 44px; justify-content: flex-end; }
 }
 
 /* Smalste telefoons: klok en zoekpil iets krapper, zodat een korte plaatsnaam ("De Bilt", 16 px)
