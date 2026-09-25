@@ -450,9 +450,12 @@ button { color: inherit; cursor: pointer; }
 }
 .scrub-surface:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .scrub-surface.hover-scrubbing { cursor: crosshair; }
-.chart-plot { position: absolute; top: 34px; right: 2px; bottom: 26px; left: 2px; }
+.chart-plot { position: absolute; top: 34px; right: 0; bottom: 26px; left: 0; border-radius: 8px; background: color-mix(in srgb, var(--surface-soft) 45%, transparent); }
+/* Vast kader (PO 2026-09-25): ook zichtbaar zolang de grafiek laadt of leeg is; als pseudo-element zodat de
+   pil en het Nu-label buiten het vlak niet worden afgekapt. */
+.chart-plot::after { position: absolute; inset: 0; z-index: 1; border: 1px solid var(--line-strong); border-radius: 8px; content: ''; pointer-events: none; }
 .chart-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; }
-.past-shade { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 6px 0 0 0; background: color-mix(in srgb, var(--text) 4%, transparent); pointer-events: none; }
+.past-shade { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 8px 0 0 8px; background: color-mix(in srgb, var(--text) 4%, transparent); pointer-events: none; }
 .rain-guide { stroke: color-mix(in srgb, var(--line-strong) 70%, transparent); stroke-dasharray: 2 4; stroke-width: 1; }
 .rain-baseline { stroke: var(--line-strong); stroke-width: 1; }
 :root:not([data-theme="dark"]) .rain-bars { filter: brightness(.86) saturate(1.35); }
@@ -467,7 +470,7 @@ button { color: inherit; cursor: pointer; }
 .day-grid > div.boundary { border-left: 1px dashed color-mix(in srgb, var(--text) 30%, transparent); }
 .day-grid span { position: absolute; top: 4px; left: 4px; z-index: 1; padding: 1px 3px; border-radius: 4px; color: var(--muted); background: color-mix(in srgb, var(--surface) 80%, transparent); font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
 .empty-graph { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 12px; pointer-events: none; }
-.scrubber-placeholder { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; color: var(--muted); background: var(--surface); font-size: 12px; font-weight: 600; pointer-events: none; }
+.scrubber-placeholder { position: absolute; inset: 0; z-index: 3; border-radius: 8px; display: grid; place-items: center; color: var(--muted); background: var(--surface); font-size: 12px; font-weight: 600; pointer-events: none; }
 .scrubber-placeholder-bars { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 55%, transparent), transparent) 0 0 / 40% 100% no-repeat, var(--line); animation: scrubber-sweep 1.6s ease-in-out infinite; }
 @keyframes scrubber-sweep { from { background-position: -60% 0, 0 0; } to { background-position: 160% 0, 0 0; } }
 @keyframes scrubber-pulse { from { opacity: .35; } to { opacity: 1; } }
@@ -493,7 +496,8 @@ button { color: inherit; cursor: pointer; }
 .x-axis span { position: absolute; transform: translateX(-50%); }
 .x-axis span.midnight { color: var(--text); font-weight: 700; }
 
-.forecast-panel { padding: 0 8px 24px; background: var(--surface); }
+.forecast-panel { padding: 0 0 24px; background: var(--surface); }
+/* Rijtinten lopen tot de paneelrand; de tekst lijnt met de scrubber (16 px, desktop 24 px). */
 .table-scroll { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 th { padding: 8px 6px; border-bottom: 1px solid var(--line-strong); color: var(--muted); font-size: 9px; letter-spacing: .08em; text-align: right; text-transform: uppercase; }
@@ -517,8 +521,8 @@ button.column-mode { width: 100%; cursor: pointer; }
 .forecast-table[data-mode="temperature"] :is(.temperature-heading, .temperature-cell),
 .forecast-table[data-mode="wind"] :is(.wind-heading, .wind-cell) { background-image: var(--mode-tint); }
 .forecast-table td { text-align: center; }
-.forecast-table :is(th, td):first-child { padding-left: 8px; text-align: left; }
-.forecast-table :is(th, td):last-child { padding-right: 8px; }
+.forecast-table :is(th, td):first-child { padding-left: var(--panel-inset, 16px); text-align: left; }
+.forecast-table :is(th, td):last-child { padding-right: var(--panel-inset, 16px); }
 /* Uur + weer krimpt tot zijn inhoud; de rest van de breedte verdeelt zich over de gecentreerde kolommen. */
 .forecast-table .weather-cell { width: 1%; }
 .time-weather { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
@@ -630,8 +634,9 @@ td small { color: var(--muted); font-size: 9px; }
   .current-weather { min-height: 113px; padding: 22px 24px; }
   .reading strong { font-size: 49px; }
   .scrubber { padding: 18px 24px 12px; }
+  .forecast-table { --panel-inset: 24px; }
   .scrub-surface { height: 232px; }
-  .forecast-panel { padding: 0 16px 36px; }
+  .forecast-panel { padding: 0 0 36px; }
   .search { top: 18px; left: 18px; max-width: min(200px, calc(50% - var(--clock-half) - 26px)); }
   .search.open { width: min(380px, calc(100% - 90px)); }
   .map-brand { top: 18px; right: 18px; }
@@ -759,7 +764,9 @@ td small { color: var(--muted); font-size: 9px; }
   }
   .scrubber-toolbar { margin-bottom: 4px; }
   .scrub-surface { flex: 1 1 auto; height: auto; min-height: 0; }
-  .forecast-panel { padding: 0 max(8px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+  .forecast-panel { padding: 0 0 calc(24px + env(safe-area-inset-bottom)); }
+  .forecast-table :is(th, td):first-child { padding-left: max(16px, env(safe-area-inset-left)); }
+  .forecast-table :is(th, td):last-child { padding-right: max(16px, env(safe-area-inset-right)); }
   th, td { padding-right: 3px; padding-left: 3px; }
   .search { top: calc(env(safe-area-inset-top) + 12px); left: calc(env(safe-area-inset-left) + 12px); max-width: min(200px, calc(50% - var(--clock-half) - 20px - env(safe-area-inset-left))); }
   .search.open { width: calc(100% - 74px - env(safe-area-inset-left) - env(safe-area-inset-right)); }
@@ -780,7 +787,7 @@ td small { color: var(--muted); font-size: 9px; }
   .scrubber { position: static; height: min(var(--scrubber-mobile), 100dvh); padding-bottom: 8px; }
   .search-results { max-height: calc(100dvh - 76px); }
   .sidebar-nav { top: calc(100dvh - 50px); }
-  .forecast-panel { padding-right: max(8px, env(safe-area-inset-right)); padding-left: 8px; }
+  .forecast-table :is(th, td):last-child { padding-right: max(16px, env(safe-area-inset-right)); }
 }
 
 @media (pointer: coarse) {
