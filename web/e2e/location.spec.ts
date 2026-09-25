@@ -64,8 +64,8 @@ test('a click on the about backdrop closes it without touching the map', async (
   await page.goto('/')
   await expect(page.locator('.map-splash.ready')).toBeAttached()
   await expect(scrubber).toHaveAttribute('aria-label', /voor De Bilt$/)
-  await page.getByRole('button', { name: 'Over motregen' }).press('Enter')
-  const dialog = page.getByRole('dialog', { name: 'Over motregen' })
+  await page.getByRole('button', { name: 'Over motregen en instellingen' }).press('Enter')
+  const dialog = page.getByRole('dialog', { name: 'motregen.nl' })
   await expect(dialog).toBeVisible()
   const map = (await page.locator('.map').boundingBox())!
   const body = (await dialog.boundingBox())!
@@ -88,10 +88,12 @@ test('the search panel is one element; a tap outside closes it without touching 
   const viewBefore = await page.evaluate(() => localStorage.getItem('motregen-map-view'))
   const markerBefore = await page.locator('.maplibregl-marker').first().boundingBox()
 
-  // In rust een compacte pil (U21).
+  // In rust alleen icoon + plaatsnaam, zo breed als de naam (U22), 14 px (16 px op touch: iOS-zoom).
   const box = page.locator('.search-box')
   const rest = (await box.boundingBox())!
-  expect(rest.width).toBeLessThanOrEqual(240)
+  expect(rest.width).toBeLessThanOrEqual(120)
+  await expect(page.locator('.search-field')).toHaveCSS('font-size', testInfo.project.use.hasTouch ? '16px' : '14px')
+  await expect(page.getByRole('button', { name: 'Deze plaats opslaan' })).toHaveCount(0)
   expect(rest.height).toBeLessThanOrEqual(testInfo.project.use.hasTouch ? 46 : 34)
   if (testInfo.project.use.hasTouch) expect(rest.height).toBeGreaterThanOrEqual(44)
 
@@ -100,6 +102,8 @@ test('the search panel is one element; a tap outside closes it without touching 
   else await input.click()
   const list = page.getByRole('listbox')
   await expect(list).toBeVisible()
+  // De ster staat in het open paneel, naast het veld.
+  await expect(page.getByRole('button', { name: 'Deze plaats opslaan' })).toBeVisible()
   // Veld en lijst in één paneel: de lijst sluit zonder gat aan op het veld.
   const field = (await input.boundingBox())!
   const listBox = (await list.boundingBox())!

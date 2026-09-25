@@ -210,6 +210,7 @@ export default function LocationSearch(props: Props) {
         ref={input}
         class="search-field"
         type="text"
+        size={1}
         inputMode="search"
         value={query()}
         onInput={(event) => { setSelectedLabel(''); setQuery(event.currentTarget.value); setOpen(true) }}

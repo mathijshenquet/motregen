@@ -4,28 +4,27 @@ import { containZoom, MAP_CONTAIN_BOUNDS, type Viewport } from '../src/core/map-
 
 test('the map zooms out to contain the Netherlands and keeps it in view', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === 'mobile-fast-3g', 'gedrag, geen performance: desktop en één mobiel profiel volstaan')
-  // Op telefoonbreedte is de zoomknop verborgen, maar zijn disabled-staat volgt minZoom nog steeds.
-  const zoomOut = page.locator('.maplibregl-ctrl-zoom-out')
-
+  // U22: geen zoomknoppen meer; minZoom lezen we af aan de opgeslagen view na een sleep of scroll.
   await page.goto('/')
   await expect(page.locator('.map-splash.ready')).toBeAttached()
+  await expect(page.locator('.maplibregl-ctrl-zoom-out')).toHaveCount(0)
   const viewport = await mapViewport(page)
-  await expect(zoomOut).toBeDisabled()
+  const minimumZoom = containZoom(MAP_CONTAIN_BOUNDS, viewport)
 
   await dragMap(page, viewport, -viewport.width, -viewport.height)
   const dragged = await storedView(page)
-  expect(dragged.zoom).toBeCloseTo(containZoom(MAP_CONTAIN_BOUNDS, viewport), 1)
+  expect(dragged.zoom).toBeCloseTo(minimumZoom, 1)
   expectBoundsInView(dragged, viewport)
 
   await page.evaluate(() => localStorage.setItem('motregen-map-view', JSON.stringify({ lng: -20, lat: 40, zoom: 3 })))
   await page.reload()
-  await expect(zoomOut).toBeDisabled()
   await dragMap(page, viewport, 5, 5)
-  expectBoundsInView(await storedView(page), viewport)
+  const clamped = await storedView(page)
+  expect(clamped.zoom).toBeCloseTo(minimumZoom, 1)
+  expectBoundsInView(clamped, viewport)
 
   await page.evaluate(() => localStorage.setItem('motregen-map-view', JSON.stringify({ lng: 5.12, lat: 52.09, zoom: 10 })))
   await page.reload()
-  await expect(zoomOut).toBeEnabled()
   await page.evaluate(() => localStorage.removeItem('motregen-map-view'))
   await pointAtMap(page, viewport)
   for (let step = 0; step < 20; step++) {
@@ -33,9 +32,8 @@ test('the map zooms out to contain the Netherlands and keeps it in view', async 
     await page.waitForTimeout(50)
   }
   // Tussenliggende moveends (gethrottelde CPU) mogen eerst landen; het eindpunt is minZoom.
-  await expect.poll(async () => (await storedView(page)).zoom).toBeCloseTo(containZoom(MAP_CONTAIN_BOUNDS, viewport), 1)
+  await expect.poll(async () => (await storedView(page)).zoom).toBeCloseTo(minimumZoom, 1)
   expectBoundsInView(await storedView(page), viewport)
-  await expect(zoomOut).toBeDisabled()
 })
 
 // Links boven het midden: het midden is de locatiemarker (De Bilt), en daarop start geen pan.

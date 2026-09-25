@@ -266,7 +266,6 @@ button { color: inherit; cursor: pointer; }
   background: transparent;
   text-overflow: ellipsis;
   appearance: none;
-  contain: inline-size;
 }
 .save-place, .search-clear {
   position: absolute;
@@ -617,8 +616,9 @@ td:first-child span.sun-mark { display: block; margin-top: 1px; color: #b07800; 
 
 /* Klok (U22): een tab die midden aan de bovenrand van de kaart hangt. Zijranden in de bronkleur
    (zelfde als de balk onder de scrubber); onder de kaarttijd het regimewoord en de amber
-   versheidsknop. Vaste breedte (past "voorspelling") zodat de tab niet verspringt bij scrubben. */
-.map-shell { --clock-half: 62px; }
+   versheidsknop. Vaste breedte (gemeten: "voorspelling" + knop + marges) zodat de tab niet
+   verspringt bij scrubben; de zoekpil rekent met --clock-half om er nooit onder te schuiven. */
+.map-shell { --clock-half: 56px; }
 .map-clock {
   position: absolute;
   top: 0;
@@ -674,8 +674,9 @@ td:first-child span.sun-mark { display: block; margin-top: 1px; color: #b07800; 
 @keyframes badge-pulse { 50% { box-shadow: 0 0 0 2px var(--surface), 0 0 0 5px color-mix(in srgb, var(--badge) 35%, transparent); } }
 @media (prefers-reduced-motion: reduce) { .freshness-badge { animation: none !important; } }
 .freshness-trigger:hover, .freshness-trigger:focus-visible { background: color-mix(in srgb, var(--accent-soft) 60%, transparent); outline: none; }
-.freshness-dot { --dot: var(--fresh); width: 7px; height: 7px; flex: none; align-self: center; border-radius: 50%; background: var(--dot); box-shadow: 0 0 0 2px color-mix(in srgb, var(--dot) 22%, transparent); }
-.freshness-dot[data-status="aging"] { --dot: var(--aging); }
+/* Paneelkop: zelfde teken als de amber versheidsknop in de klok. */
+.freshness-dot { --dot: var(--amber); width: 7px; height: 7px; flex: none; align-self: center; border-radius: 50%; background: var(--dot); }
+.freshness-dot[data-status="aging"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--dot); }
 .freshness-dot[data-status="stale"], .freshness-dot[data-status="offline"] { --dot: var(--stale); }
 .freshness-dialog { inset: auto; top: var(--panel-top); left: var(--panel-left); margin: 0; max-height: calc(100dvh - var(--panel-top) - 16px); font-variant-numeric: tabular-nums; }
 .freshness-dialog .freshness-dot { width: 10px; height: 10px; }
@@ -769,4 +770,15 @@ tr.history-toggle-row td { padding: 0; border-bottom: 1px solid var(--line); bac
   .history-toggle { min-height: 44px; }
   .column-focus { position: relative; }
   .column-focus::after { position: absolute; inset: -12px -4px; content: ''; }
+}
+
+/* Smalste telefoons: klok en zoekpil iets krapper, zodat een korte plaatsnaam ("De Bilt", 16 px)
+   nog heel naast de klok past; langere namen krijgen een ellips. */
+@media (max-width: 360px) {
+  .map-shell { --clock-half: 50px; }
+  .map-clock { padding-inline: 5px; }
+  .clock-data { font-size: 11px; }
+  .search { max-width: calc(50% - var(--clock-half) - 16px - env(safe-area-inset-left)); }
+  .search:not(.open) .search-sizer, .search:not(.open) .search-field { padding-right: 8px; padding-left: 30px; }
+  .search:not(.open) .search-icon { left: 9px; }
 }
