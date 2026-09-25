@@ -55,3 +55,44 @@
 - Fix perf.spec: alleen `/hit` + ERR_ABORTED negeren in requestfailed; nieuwe asserts: 0 bakens tijdens de koude
   sessie ("geen extra verzoek tijdens de sessie") en precies 1 na de warme reload. typecheck EXIT 0.
 - Run 4 gestart (`/tmp/u31-e2e4.txt`), drempel < 28 (orkestrator).
+- Run 4 (`/tmp/u31-e2e4.txt`, startload 22.66, eindload 25.24): **E2E-EXIT 0**, usage+perf 9/9 groen (desktop warm TTFR
+  594 ms, warm chunks 0 B, second click 0 requests; mobiel idem 0 B / 0).
+- Na commit 1530983: gate-herhaling typecheck 0 / unit 0 (254) / build 0.
+- Run 5 geraakte specs (`/tmp/u31-e2e5.txt`, startload 26.44): EXIT 1, 22 groen / 3 rood (desktop): location:61 (About-
+  backdrop), freshness:152 (themaknop), focus:180 (isolijnlabels). location: screenshot toonde dat mijn langere privacyzin
+  de About-dialog op 1280×720 tot y=704 liet lopen → de testklik `onder de dialog` viel buiten beeld. Fix gemaakt, maar
+  weggegooid na de rebase (zie hieronder); run 6 (herhaling van de 3) gestopt voor de rebase.
+
+## 2026-09-25 — rebase op origin/main a1a905a (U22b)
+- Orkestrator: rebase + privacyzin als tabelrij. Conflict About.tsx opgelost: U22b-structuur behouden, rij `Privacy` =
+  "Anoniem geteld: sessies en gebruikte functies, zonder IP of identificatie; locatie en favorieten blijven in je browser"
+  (letterlijk de orkestratortekst; "geen tracking, geen advertenties" staat dus niet meer in de rij — PO/orkestrator
+  let op als dat wel moet blijven). About.test bijgewerkt (klik-binnen-target, nieuwe tekst). `onOpen` intact; alle 12
+  instrumentatiepunten nagelopen.
+- Receipts op 50416bd: SYNTH 0, TYPECHECK 0, UNIT 0 (46 files, 282 tests), BUILD 0. Force-push with lease → origin 50416bd.
+- Run 7 gestart: `pnpm e2e e2e/usage.spec.ts e2e/perf.spec.ts e2e/location.spec.ts e2e/focus.spec.ts e2e/freshness.spec.ts`
+  (poorten 4231/8231) → `/tmp/u31-e2e7.txt`; beslist of de location-fix nog nodig is.
+- Run 7 (`/tmp/u31-e2e7.txt`, startload 26.62): EXIT 1 zonder test — `ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL: Command "e2e" not
+  found`, direct na de rebase (devenv-bestanden gewijzigd → direnv herevaluatie vermoedelijk). Reproductie `pnpm e2e --list
+  e2e/usage.spec.ts` daarna EXIT 0 (6 tests). Geen testresultaat; run 8 identiek herstart → `/tmp/u31-e2e8.txt`.
+- Run 8 op 50416bd (`/tmp/u31-e2e8.txt`, startload 23.69, eindload 22.28): **E2E-EXIT 0** — 35 passed, 0 failed,
+  25 skipped (profiel-skips in de specs). Specs: usage, perf, location, focus, freshness × desktop/mobile-4g/mobile-fast-3g.
+  perf: warm TTFR 605 / 2471 / 2078 ms, warm chunks 0 B, second click 0 requests; asserts "0 bakens tijdens sessie" en
+  "precies 1 na reload" groen. location:61 groen ZONDER mijn testfix (U22b-modal is korter) → fix blijft weg.
+  focus:180 en freshness:152 groen → de run-5-fails waren load-flakes (load 26).
+
+## Afsluiting — receipts (synchroon, op 50416bd = origin/main a1a905a + 2 U31-commits)
+- `cd web && direnv exec .. pnpm synthgen` → 0
+- `cd web && direnv exec .. pnpm typecheck` → 0
+- `cd web && direnv exec .. pnpm test` → 0 (46 files, 282 tests)
+- `cd web && direnv exec .. pnpm build` → 0
+- `cd web && MOTREGEN_E2E_PORT=4231 MOTREGEN_E2E_DATA_PORT=8231 direnv exec .. pnpm e2e e2e/usage.spec.ts e2e/perf.spec.ts
+  e2e/location.spec.ts e2e/focus.spec.ts e2e/freshness.spec.ts` → 0 (35 passed)
+
+## Open punten
+- Voor orkestrator/PO: de About-rij heeft nu de orkestratortekst; "geen tracking, geen advertenties" is daaruit verdwenen.
+- Voor U32/docs/analytics.md: veldenlijst = `USAGE_FIELDS` in `web/src/core/usage.ts`; body bevat alleen gebruikte
+  features (als true) + altijd range/theme/coarse/width/dur; Content-Type text/plain (sendBeacon met string).
+  Geen schemaversieveld (`v`) — toevoegen als U32 dat wil.
+- `pin` = pin verplaatst via kaarttik (er bestaat geen sleepbare pin).
+- `web/.mcp.json` (untracked, door devenv aangemaakt) niet meegecommit.
