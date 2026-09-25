@@ -9,6 +9,7 @@ import {
   expectedLifetime,
   jitteredCellPoint,
   emptiestCell,
+  leastOccupiedCell,
   LEGACY_WIND_TUNING_STORAGE_KEY,
   migrateWindTuningV2,
   occupancyGrid,
@@ -124,7 +125,7 @@ describe('wind spawn', () => {
     let dispersionSum = 0
     let samples = 0
     const place = (slot: number, now: number) => {
-      const cell = emptiestCell(counts, columns, rows, random)
+      const cell = leastOccupiedCell(counts, slots, random())
       const [x, y] = jitteredCellPoint(cell, columns, rows, tuning.spawnJitter, random)
       xs[slot] = x
       ys[slot] = y
@@ -189,7 +190,10 @@ describe('wind spawn', () => {
     }
   })
 
-  it('picks the cell in the emptiest neighbourhood and sizes square-ish cells', () => {
+  it('picks the emptiest cell, or for fills the emptiest neighbourhood, and sizes square-ish cells', () => {
+    expect(leastOccupiedCell([3, 0, 2, 5], 4, 0.9)).toBe(1)
+    expect(leastOccupiedCell([1, 0, 1, 0], 4, 0.6)).toBe(3)
+    expect(leastOccupiedCell([1, 0, 1, 0], 4, 0)).toBe(1)
     const random = lcg(7)
     expect(emptiestCell([3, 0, 2, 5], 4, 1, random)).toBe(1)
     // Een lege cel naast een bezette verliest van een lege cel in een lege omgeving (U24b).

@@ -690,7 +690,12 @@ export class WindLayer implements CustomLayerInterface {
     let cell = -1
     const rim = !fill && this.random() < RIM_SHARE ? this.rimPoint() : undefined
     const [x, y] = rim ?? pickSpawn(SPAWN_ATTEMPTS, () => {
-      cell = emptiestCell(this.cellCounts, this.columns, this.rows, () => this.random())
+      // Aanvullers (pan/zoom) in de leegste omgeving, zodat een binnengeschoven strook meteen vol is;
+      // gewone respawns in een willekeurige lege cel: de omgevingskeuze stuurde alle pasgeborenen
+      // (nog in fade-in, zonder staart) naar loef, en maakte de inkt daar juist dunner (U24b).
+      cell = fill
+        ? emptiestCell(this.cellCounts, this.columns, this.rows, () => this.random())
+        : leastOccupiedCell(this.cellCounts, this.columns * this.rows, this.random())
       const [u, v] = jitteredCellPoint(cell, this.columns, this.rows, fill ? 1 : this.tuning.spawnJitter, () => this.random())
       return [bounds.west + u * (bounds.east - bounds.west), bounds.north + v * (bounds.south - bounds.north)]
     }, () => this.random(), (candidateX, candidateY) => !this.left || this.sampleWind(candidateX, candidateY) ? 1 : 0)
@@ -1035,11 +1040,22 @@ export function occupancyGrid(width: number, height: number, target: number): [n
   return [columns, Math.max(1, Math.round(target / columns))]
 }
 
+/** De leegste cel; bij gelijkspel de eerste vanaf een willekeurig startpunt (`start` in [0, 1)). */
+export function leastOccupiedCell(counts: ArrayLike<number>, cells: number, start: number): number {
+  const offset = Math.floor(start * cells)
+  let best = offset
+  for (let step = 1; step < cells && counts[best]! > 0; step++) {
+    const cell = (offset + step) % cells
+    if (counts[cell]! < counts[best]!) best = cell
+  }
+  return best
+}
+
 /**
  * Cel met de leegste omgeving: eigen bezetting plus het gemiddelde van de buren binnen het raster,
  * onder `samples` willekeurige cellen. Bij ~1 particle per cel is een derde van alle cellen leeg;
- * "de eerste lege cel" (U3b) strooide aanvullers daardoor over het hele beeld en liet een net
- * binnengepande strook seconden half leeg (U24b). Een lege cel tussen bezette buren scoort nu slecht.
+ * "de eerste lege cel" strooide aanvullers daardoor over het hele beeld en liet een net
+ * binnengepande strook seconden half leeg (U24b). Een lege cel tussen bezette buren scoort slecht.
  */
 export function emptiestCell(counts: ArrayLike<number>, columns: number, rows: number, random: () => number, samples = EMPTIEST_SAMPLES): number {
   const cells = columns * rows
