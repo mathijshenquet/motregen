@@ -10,13 +10,13 @@ use clap::Parser;
 use motregen_ingest::{
     api::{ApiClient, RemoteFile},
     cams,
+    env_file::read_env_file_key,
     pipeline::{
         AROME_DATASET, AROME_VERSION, NOWCAST_DATASET, NOWCAST_VERSION, RTCOR_DATASET,
         RTCOR_VERSION, SEAMLESS_DATASET, SEAMLESS_VERSION, UV_DATASET, UV_VERSION,
         build_arome_chunks, build_arome_history_chunks, build_nowcast_chunk, build_rtcor_chunk,
         build_seamless_chunk_for_file, build_uv_chunks, latest_files, prune_download_cache,
     },
-    env_file::read_env_file_key,
     publisher::{ProducedChunk, publish_with_cams},
     wind_prior::WindTimeline,
 };
@@ -524,10 +524,16 @@ impl Daemon {
     }
 
     fn refresh_cams(&mut self) -> Result<bool> {
-        let changed = self.cams.refresh(&self.config.data_dir, chrono::Utc::now())?;
+        let changed = self
+            .cams
+            .refresh(&self.config.data_dir, chrono::Utc::now())?;
         if changed {
             info!(
-                run = self.cams.section.as_ref().map(|section| section.run.as_str()),
+                run = self
+                    .cams
+                    .section
+                    .as_ref()
+                    .map(|section| section.run.as_str()),
                 chunks = self.cams.chunks.len(),
                 "cams sidecar picked up"
             );
@@ -811,6 +817,50 @@ mod tests {
                 .map(|chunk| chunk.source.as_str())
                 .collect::<Vec<_>>(),
             ["rtcor", "harmonie"]
+        );
+    }
+
+    #[test]
+    fn cams_sidecar_joins_the_manifest_with_its_attribution() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut daemon = test_daemon(directory.path().into(), idle_test_worker());
+        daemon.rtcor = Some(test_chunk("rtcor", "2026-09-25T10:00:00Z", "rtcor-now.mrf"));
+        daemon.arome.push(test_chunk(
+            "harmonie",
+            "2026-09-25T06:00:00Z",
+            "harmonie-now.mrf",
+        ));
+        // The feed drops runs older than three days, so the run follows the real clock.
+        let run = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+        let cams_chunk = test_chunk("cams", &run, "cams-o3-test.mrf");
+        motregen_ingest::publisher::write_chunks(directory.path(), &[&cams_chunk]).unwrap();
+        fs::write(
+            directory.path().join(cams::SIDECAR),
+            serde_json::to_vec(&cams::Sidecar {
+                section: cams::CamsSection {
+                    run,
+                    provider: "ads".into(),
+                    license: cams::LICENSE.into(),
+                },
+                chunks: vec![cams_chunk.manifest.clone()],
+            })
+            .unwrap(),
+        )
+        .unwrap();
+
+        let changed = daemon.refresh_cams().unwrap();
+        daemon.publish_after(changed).unwrap();
+
+        let manifest: motregen_ingest::publisher::Manifest =
+            serde_json::from_slice(&fs::read(directory.path().join("manifest.json")).unwrap())
+                .unwrap();
+        assert!(changed);
+        assert_eq!(manifest.cams.unwrap().license, cams::LICENSE);
+        assert!(
+            manifest
+                .chunks
+                .iter()
+                .any(|chunk| chunk.url == "chunks/cams-o3-test.mrf" && chunk.source == "cams")
         );
     }
 

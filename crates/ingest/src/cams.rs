@@ -1,13 +1,7 @@
 //! CAMS European air-quality forecast: pollen and air quality on a 6 km NL+Flanders grid.
 //! Source, calendar and quantization are documented in docs/pollen.md.
 
-use std::{
-    collections::BTreeMap,
-    fs,
-    io::ErrorKind,
-    path::Path,
-    time::SystemTime,
-};
+use std::{collections::BTreeMap, fs, io::ErrorKind, path::Path, time::SystemTime};
 
 use anyhow::{Context, Result, bail, ensure};
 use chrono::{DateTime, Datelike, Duration, SecondsFormat, Utc};
@@ -223,8 +217,14 @@ pub struct BilinearMap {
 
 impl BilinearMap {
     pub fn new(source: &LatLonRaster, target: GridSpec) -> Result<Self> {
-        ensure!(source.ni >= 2 && source.nj >= 2, "CAMS raster needs 2×2 points");
-        ensure!(source.dlat != 0.0 && source.dlon != 0.0, "zero CAMS spacing");
+        ensure!(
+            source.ni >= 2 && source.nj >= 2,
+            "CAMS raster needs 2×2 points"
+        );
+        ensure!(
+            source.dlat != 0.0 && source.dlon != 0.0,
+            "zero CAMS spacing"
+        );
         let mut taps = Vec::with_capacity(target.cell_count());
         for row in 0..target.height {
             for column in 0..target.width {
@@ -297,7 +297,11 @@ pub struct CamsRun {
 
 impl CamsRun {
     pub fn validate(&self) -> Result<()> {
-        ensure!(!self.fields.is_empty(), "CAMS run {} has no fields", self.run);
+        ensure!(
+            !self.fields.is_empty(),
+            "CAMS run {} has no fields",
+            self.run
+        );
         for (field, leads) in &self.fields {
             for (lead, values) in leads {
                 ensure!(
@@ -312,7 +316,11 @@ impl CamsRun {
                 .values()
                 .next()
                 .with_context(|| format!("{} has no leads", field.name()))?;
-            let mut sorted = first.iter().copied().filter(|v| v.is_finite()).collect::<Vec<_>>();
+            let mut sorted = first
+                .iter()
+                .copied()
+                .filter(|v| v.is_finite())
+                .collect::<Vec<_>>();
             ensure!(!sorted.is_empty(), "{} has no finite values", field.name());
             sorted.sort_by(f32::total_cmp);
             let median = sorted[sorted.len() / 2];
@@ -515,7 +523,9 @@ mod tests {
     }
 
     fn utc(text: &str) -> DateTime<Utc> {
-        DateTime::parse_from_rfc3339(text).unwrap().with_timezone(&Utc)
+        DateTime::parse_from_rfc3339(text)
+            .unwrap()
+            .with_timezone(&Utc)
     }
 
     fn synthetic_run(run: &str, fields: &[Field], leads: std::ops::RangeInclusive<u32>) -> CamsRun {
@@ -588,7 +598,10 @@ mod tests {
             lat0: 60.0,
             ..raster
         };
-        let masked = BilinearMap::new(&far, CAMS_GRID).unwrap().apply(&values).unwrap();
+        let masked = BilinearMap::new(&far, CAMS_GRID)
+            .unwrap()
+            .apply(&values)
+            .unwrap();
         assert!(masked.iter().all(|value| value.is_nan()));
     }
 
@@ -613,7 +626,10 @@ mod tests {
         assert_eq!(mrf::quantize_with_table(0.06, &pollen).unwrap(), 1);
         assert_eq!(mrf::quantize_with_table(1e6, &pollen).unwrap(), 254);
         assert_eq!(mrf::quantize_with_table(12.3, &concentration).unwrap(), 25);
-        assert_eq!(mrf::quantize_with_table(500.0, &concentration).unwrap(), 254);
+        assert_eq!(
+            mrf::quantize_with_table(500.0, &concentration).unwrap(),
+            254
+        );
     }
 
     #[test]
@@ -632,7 +648,11 @@ mod tests {
         assert_eq!(species(7), ["pollen_grass", "pollen_mugwort"]);
         assert_eq!(species(9), ["pollen_mugwort"]);
         assert!(species(11).is_empty());
-        assert!(Field::ALL.iter().all(|f| f.is_pollen() || f.in_season(at(11))));
+        assert!(
+            Field::ALL
+                .iter()
+                .all(|f| f.is_pollen() || f.in_season(at(11)))
+        );
         // A run on 31 March still fetches birch: its leads reach into April.
         let names = |run: &str| {
             fields_for_run(utc(run))

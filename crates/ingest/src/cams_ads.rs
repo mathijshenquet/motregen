@@ -86,7 +86,10 @@ impl AdsClient {
     /// Submits the request, waits for the job and downloads the GRIB to `target`.
     pub fn retrieve(&self, inputs: &Value, target: &Path) -> Result<PathBuf> {
         let started = Instant::now();
-        let url = format!("{}/retrieve/v1/processes/{ADS_DATASET}/execution", self.base);
+        let url = format!(
+            "{}/retrieve/v1/processes/{ADS_DATASET}/execution",
+            self.base
+        );
         let mut job: Job = checked(
             self.client
                 .post(&url)
@@ -136,9 +139,8 @@ impl AdsClient {
         if let Some(parent) = target.parent() {
             fs::create_dir_all(parent)?;
         }
-        let mut temporary = tempfile::NamedTempFile::new_in(
-            target.parent().context("ADS target has no parent")?,
-        )?;
+        let mut temporary =
+            tempfile::NamedTempFile::new_in(target.parent().context("ADS target has no parent")?)?;
         temporary.write_all(&bytes)?;
         temporary.persist(target).map_err(|error| error.error)?;
         info!(
@@ -195,7 +197,9 @@ pub fn decode_grib(path: &Path) -> Result<CamsRun> {
             "unexpected GRIB parameter category {category}"
         );
         let field = Field::from_grib_id(number, constituent).with_context(|| {
-            format!("unmapped CAMS GRIB field parameterNumber={number} constituentType={constituent}")
+            format!(
+                "unmapped CAMS GRIB field parameterNumber={number} constituentType={constituent}"
+            )
         })?;
         let date: i64 = message.read_key("dataDate")?;
         let time: i64 = message.read_key("dataTime")?;
@@ -237,7 +241,11 @@ pub fn decode_grib(path: &Path) -> Result<CamsRun> {
             .map(|value| value as f32 * scale)
             .collect::<Vec<_>>();
         ensure!(
-            fields.entry(field).or_default().insert(lead, values).is_none(),
+            fields
+                .entry(field)
+                .or_default()
+                .insert(lead, values)
+                .is_none(),
             "duplicate {} lead {lead}",
             field.name()
         );
@@ -254,12 +262,16 @@ fn long(message: &impl KeyRead<i64>, key: &str) -> Result<i64> {
     Ok(message.read_key(key)?)
 }
 
-fn read_raster<M: KeyRead<i64> + KeyRead<f64> + KeyRead<String>>(message: &M) -> Result<LatLonRaster> {
+fn read_raster<M: KeyRead<i64> + KeyRead<f64> + KeyRead<String>>(
+    message: &M,
+) -> Result<LatLonRaster> {
     let grid_type: String = message.read_key("gridType")?;
-    ensure!(grid_type == "regular_ll", "CAMS grid is {grid_type}, not regular_ll");
     ensure!(
-        long(message, "iScansNegatively")? == 0
-            && long(message, "jPointsAreConsecutive")? == 0,
+        grid_type == "regular_ll",
+        "CAMS grid is {grid_type}, not regular_ll"
+    );
+    ensure!(
+        long(message, "iScansNegatively")? == 0 && long(message, "jPointsAreConsecutive")? == 0,
         "unsupported CAMS GRIB scanning mode"
     );
     let dlat: f64 = message.read_key("jDirectionIncrementInDegrees")?;
@@ -305,7 +317,13 @@ mod tests {
         );
         assert_eq!(
             run.fields.keys().copied().collect::<Vec<_>>(),
-            [Field::PollenMugwort, Field::Pm25, Field::Pm10, Field::No2, Field::O3]
+            [
+                Field::PollenMugwort,
+                Field::Pm25,
+                Field::Pm10,
+                Field::No2,
+                Field::O3
+            ]
         );
         assert!(run.fields.values().all(|leads| leads.len() == 25));
         run.validate().unwrap();
@@ -317,8 +335,16 @@ mod tests {
                 .copied()
                 .fold(0.0_f32, f32::max)
         };
-        assert!((5.0..200.0).contains(&max(Field::Pm25)), "{}", max(Field::Pm25));
-        assert!((20.0..300.0).contains(&max(Field::O3)), "{}", max(Field::O3));
+        assert!(
+            (5.0..200.0).contains(&max(Field::Pm25)),
+            "{}",
+            max(Field::Pm25)
+        );
+        assert!(
+            (20.0..300.0).contains(&max(Field::O3)),
+            "{}",
+            max(Field::O3)
+        );
     }
 
     #[test]

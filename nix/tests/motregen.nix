@@ -26,8 +26,13 @@
         enable = true;
         enableTls = false;
         ingestPackage = fakeIngest;
+        camsPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-ingest;
         frontendPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-web;
       };
+
+      # Geen netwerk in de VM: de CAMS-job decodeert de opgenomen ADS-fixture.
+      systemd.services.motregen-cams.environment.MOTREGEN_CAMS_GRIB =
+        "${../../crates/ingest/tests/fixtures/cams-ads-20260925T00-l0-24.grib2}";
 
       system.autoUpgrade.enable = lib.mkForce false;
       nix.gc.automatic = lib.mkForce false;
@@ -86,6 +91,32 @@
     ).lower()
     assert "404" in missing_headers, missing_headers
     assert "x-robots-tag: noindex" in missing_headers, missing_headers
+
+    # U39: dagelijkse CAMS-job met de ADS-fixture; zelfde dynamische user als de ingest.
+    machine.succeed("systemctl list-timers --all | grep -F motregen-cams.timer")
+    machine.succeed("systemctl cat motregen-cams.timer | grep -F 'OnCalendar=*-*-* 09:00:00 UTC'")
+    machine.succeed("systemctl start motregen-cams.service")
+    import json
+    sidecar = json.loads(machine.succeed("cat /var/lib/motregen/cams.json"))
+    assert sidecar["license"] == "Contains modified Copernicus Atmosphere Monitoring Service information", sidecar
+    assert sidecar["run"] == "2026-09-25T00:00:00Z" and sidecar["provider"] == "ads", sidecar
+    fields = sorted(chunk["field"] for chunk in sidecar["chunks"])
+    assert fields == ["no2", "o3", "pm10", "pm25", "pollen_mugwort"], fields
+    ingest_uid = machine.succeed(
+      "ps -o uid= -p \"$(systemctl show -p MainPID --value motregen-ingest.service)\""
+    ).strip()
+    for chunk in sidecar["chunks"]:
+      assert chunk["source"] == "cams" and len(chunk["times"]) == 24, chunk
+      owner = machine.succeed(f"stat -L -c %u /var/lib/motregen/{chunk['url']}").strip()
+      assert owner == ingest_uid, (owner, ingest_uid, chunk["url"])
+      status = machine.succeed(
+        f"curl --silent --output /dev/null --write-out '%{{http_code}}' http://localhost/data/{chunk['url']}"
+      )
+      assert status == "200", (chunk["url"], status)
+    sidecar_status = machine.succeed(
+      "curl --silent --output /dev/null --write-out '%{http_code}' http://localhost/data/cams.json"
+    )
+    assert sidecar_status == "404", sidecar_status
 
     robots = machine.succeed("curl --silent --show-error --fail http://localhost/robots.txt")
     assert "Disallow: /data/" in robots, robots

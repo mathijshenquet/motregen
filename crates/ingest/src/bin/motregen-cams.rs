@@ -27,7 +27,12 @@ struct Config {
     ads_api_key: Option<String>,
     #[arg(long, env = "MOTREGEN_DATA_DIR", default_value = "data")]
     data_dir: PathBuf,
-    #[arg(long, env = "MOTREGEN_CAMS_PROVIDER", value_enum, default_value = "auto")]
+    #[arg(
+        long,
+        env = "MOTREGEN_CAMS_PROVIDER",
+        value_enum,
+        default_value = "auto"
+    )]
     provider: Provider,
     /// Run date (00 UTC); defaults to today. Open-Meteo always serves its latest run.
     #[arg(long)]

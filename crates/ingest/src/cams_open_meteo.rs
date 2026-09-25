@@ -114,20 +114,39 @@ impl OpenMeteoClient {
         })
     }
 
-    fn request(&self, run: DateTime<Utc>, fields: &[Field], batch: &[(f64, f64)]) -> Result<String> {
+    fn request(
+        &self,
+        run: DateTime<Utc>,
+        fields: &[Field],
+        batch: &[(f64, f64)],
+    ) -> Result<String> {
         let join = |values: Vec<String>| values.join(",");
         let hour = |time: DateTime<Utc>| time.format("%Y-%m-%dT%H:%M").to_string();
         let query = [
-            ("latitude", join(batch.iter().map(|p| format!("{:.1}", p.0)).collect())),
-            ("longitude", join(batch.iter().map(|p| format!("{:.1}", p.1)).collect())),
+            (
+                "latitude",
+                join(batch.iter().map(|p| format!("{:.1}", p.0)).collect()),
+            ),
+            (
+                "longitude",
+                join(batch.iter().map(|p| format!("{:.1}", p.1)).collect()),
+            ),
             (
                 "hourly",
-                join(fields.iter().map(|f| f.open_meteo_variable().to_owned()).collect()),
+                join(
+                    fields
+                        .iter()
+                        .map(|f| f.open_meteo_variable().to_owned())
+                        .collect(),
+                ),
             ),
             ("domains", "cams_europe".to_owned()),
             ("timezone", "GMT".to_owned()),
             ("start_hour", hour(run)),
-            ("end_hour", hour(run + chrono::Duration::hours(i64::from(LEADS)))),
+            (
+                "end_hour",
+                hour(run + chrono::Duration::hours(i64::from(LEADS))),
+            ),
         ];
         for attempt in 1..=ATTEMPTS {
             let response = self
@@ -212,7 +231,13 @@ mod tests {
     fn batch_parser_orders_values_by_lead_and_rejects_snapping() {
         let hours = |base: f32| {
             (0..=LEADS)
-                .map(|lead| if lead == 3 { "null".to_owned() } else { (base + lead as f32).to_string() })
+                .map(|lead| {
+                    if lead == 3 {
+                        "null".to_owned()
+                    } else {
+                        (base + lead as f32).to_string()
+                    }
+                })
                 .collect::<Vec<_>>()
                 .join(",")
         };
