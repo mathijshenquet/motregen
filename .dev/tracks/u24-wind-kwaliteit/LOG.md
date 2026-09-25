@@ -41,3 +41,29 @@
 
 Gedaan: rand van één cel rond het beeld, 8 % van de gewone respawns erin (budget gecompenseerd), aanvullers in de leegste 3×3-omgeving. **Eerlijk**: de rand zelf helpt weinig — rustprofiel loef/lij ongeveer gelijk (1,1–1,2 vóór en na) en bij pannen deed hij niets (0,54/0,49); de binnengepande loefstrook is nu na 1 s vol (1,13/1,06 i.p.v. 0,55/0,63) dankzij de omgevingskeuze, een wijziging buiten de letterlijke spec die de PO-wens ("ziet er beter uit met pannen") wél haalt. **Open met PO**: rand behouden (kost 8 % extra particles) of eruit en alleen de omgevingskeuze houden? Beoordeel de stills `shots/u24b-{voor,na}-pan-zuid-1s.png`. Alle pan-metingen zijn bij één weersituatie (zuid ~3 m/s). **Open voor agents**: volledige suite op de merge-kandidaat (orkestrator).
 - 2026-09-25 13:40 UTC — **PO-besluit U24b: rand eruit.** Verwijderd: `RIM_SHARE`, `rimPoint`, `withRim`, het aparte `particleBounds` en de budgetcompensatie ÷ (1 − 0,08), plus de randtest. Behouden: aanvullers (pan/zoom) naar de cel met de leegste 3×3-omgeving (`emptiestCell`) + de pan-regressietest; gewone respawns blijven "eerste lege cel". De beeldgrens-fix blijft vanzelf: zonder rand is het zichtbare beeld (`viewBounds`) weer de enige grens voor leven, sterven en kaartbeweging (`inView`); de "geen uitloop buiten beeld"-uitzondering in `die` is weg (daar was hij alleen voor de rand). Receipts: `pnpm typecheck` exit 0; `pnpm test` exit 0 (45 bestanden, 285 tests); `pnpm build` exit 0. e2e: eerste run `pnpm e2e e2e/wind-zoom.spec.ts e2e/focus.spec.ts e2e/perf.spec.ts` (load 25) → exit 1, alleen `perf.spec.ts` op mobile-fast-3g (perf-budget) rood, 14 passed; daarna volgens de nieuwe PO-regel (gericht, alleen desktop, geen perf-budgetten) `MOTREGEN_E2E_PORT=4365 MOTREGEN_E2E_DATA_PORT=8365 pnpm e2e e2e/wind-zoom.spec.ts e2e/focus.spec.ts --project desktop` → FULL-GATE-EXIT 0 (10 passed, 2 skipped). Eén na-still (geen nieuwe meting): `shots/u24b-na-zonderrand-pan-zuid-1s.png` (pan 0,3 beeldbreedte naar het zuiden in 1 s, opname 1 s later; wegwerpscript `web/tmp/u24b-still.mjs`, niet gecommit) — de binnengepande strook onderin is gevuld.
+
+## Slot U24 + U24b (13:47 UTC)
+
+Gemerged: U24 (`a9d71fa`) en U24b (`036257a`, orkestrator, conflictoplossing met U30's `WindParameters`/`viewBounds`). In main:
+- **U24.1** default windintensiteit 1,27 → 0,75 (landinkt ~0,6×); windfocus blijft 1,905 (`WIND_FOCUS_INTENSITY`).
+- **U24.2** buffer-DPR 2, fade/composite `highp`, exacte texelkopie in rust (korrel/onscherpte op 2×-schermen).
+- **U24.3** geen wegvallers: kop-alpha daalt hooguit 1/0,35 s, dode koppen lopen uit (abrupt 15–144/s → 0/s).
+- **U24.4** loef/lij-profiel als meting in de perf-JSON (`wind`); geen loef-fix, want in simulatie en app niet te reproduceren.
+- **U24.5** trailbuffer verankerd tijdens continu zoomen (min 0,42 → 0,75× rust; eind/sprong 0,65 → ≥ 1).
+- **U24b** aanvullers na pan/zoom naar de cel met de leegste 3×3-omgeving: een binnengepande loefstrook is na 1 s vol (0,55/0,63 → 1,13/1,06, gemeten met rand; zonder rand bevestigd met een still). De rand (8 %) is gemeten en op PO-besluit verwijderd.
+
+Receipts: zie de entries hierboven. Laatste op `b0f8a9a`: typecheck/test (285)/build exit 0; gerichte e2e `wind-zoom` + `focus` `--project desktop` exit 0.
+
+**Open met de PO**
+- (a) Korrel op echte Mac-hardware beoordelen: het fp16-effect is alleen geëmuleerd.
+- (b) Een eigen opgeslagen intensiteit krijgt ×2,54 in windfocus (was ×1,5).
+- (c) Lege loefzijde in rust: bij welk weer? Graag een "Kopieer JSON" (`?perf=1`) op dat moment.
+- (d) De pan-metingen zijn gedaan bij één weersituatie (zuid ~3 m/s).
+
+**Open voor agents**
+- Tijdens continu inzoomen blijft een dip van ~0,75× rust, van de 0,25 s-fade-in van aanvullers (U12/U20-keuze).
+- De min-drempel (0,5) van de continue-zoom-e2e is krap: de oude code haalde 0,499. Het eind-criterium is het echte onderscheid.
+
+Dev-knoppen (MIP-12): geen toegevoegd. `web/scripts/wind-quality.ts` blijft als meetscript. Previews (:4371–:4381) zijn gestopt.
+
+Afsluit-incident: bij het aanmaken van deze branch faalde `git switch -c` half (config-lock van een andere worker). De werkboom stond daardoor op main terwijl HEAD op `track/u24b-randspawn` bleef, en een eerste LOG-commit (`75d7a1a`) legde main's boom over U24b. Die commit staat alleen lokaal en is nooit gepusht. `track/u24b-randspawn` staat lokaal en remote weer op `b0f8a9a`, main is niet geraakt. De remote-branch `track/u24-slot-log` bestond even op `036257a` en krijgt nu alleen deze LOG-commit.
