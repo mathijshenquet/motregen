@@ -24,7 +24,7 @@ const start = { lng: 5.2, lat: 52.2, zoom: 7 }
 
 type Wind = Record<string, unknown> & { map: MapHandle; render: (...args: unknown[]) => void; gl: WebGL2RenderingContext }
 type MapHandle = { jumpTo: (options: object) => void; getZoom: () => number; once: (event: string, callback: () => void) => void }
-interface Probe { capture: boolean; mask?: Uint8Array; frames: Array<Record<string, number>> }
+interface Probe { capture: boolean; mask?: Uint8Array; strip?: [number, number]; frames: Array<Record<string, number>> }
 
 const browser = await chromium.launch({ headless: true, args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
 const results: Record<string, unknown> = {}
@@ -186,6 +186,64 @@ for (const theme of themes) {
     themeResults.zoom = runs
   }
 
+  // Pan van 0,3 beeldbreedte in 1 s (60 frames, virtuele klok); inkt in de nieuw binnengekomen
+  // strook tegen de rest, na 1 en 2 s, gedeeld door dezelfde verhouding na 6 s (dan is de strook
+  // "gezet" en telt alleen nog het weer ter plekke).
+  if (scenarios.includes('pan')) {
+    const runs: Record<string, unknown> = {}
+    for (const direction of [1, -1]) {
+      await jump(page, start.zoom)
+      await page.waitForTimeout(4_000)
+      const series = await page.evaluate(async (sign) => {
+        const wind = (globalThis as unknown as { __motregenWind: Wind & { map: { panBy: (offset: [number, number], options: object) => void; getCanvas: () => { clientWidth: number } } } }).__motregenWind
+        const probe = (globalThis as unknown as { __u24: Probe }).__u24
+        const realNow = performance.now.bind(performance)
+        let virtual = realNow()
+        performance.now = () => virtual
+        const frame = async () => {
+          await new Promise((resolve) => requestAnimationFrame(resolve))
+          virtual += 1_000 / 60
+        }
+        for (let index = 0; index < 240; index++) await frame()
+        probe.mask = undefined
+        probe.strip = sign > 0 ? [0.7, 1] : [0, 0.3]
+        probe.frames = []
+        probe.capture = true
+        const step = sign * 0.3 * wind.map.getCanvas().clientWidth / 60
+        for (let index = 0; index < 60; index++) {
+          wind.map.panBy([step, 0], { duration: 0 })
+          await frame()
+        }
+        const end = virtual
+        for (let index = 0; index < 360; index++) await frame()
+        probe.capture = false
+        probe.strip = undefined
+        performance.now = realNow
+        return { end, frames: probe.frames.slice() }
+      }, direction)
+      const ratioAt = (ms: number) => {
+        const window = series.frames.filter((entry) => entry.t > series.end + ms - 100 && entry.t <= series.end + ms + 100)
+        return mean(window.map((entry) => entry.alphaStrip!)) / mean(window.map((entry) => entry.alphaRest!))
+      }
+      const settled = ratioAt(5_900)
+      const summary = { settled: round(settled), after0s: round(ratioAt(100) / settled), after1s: round(ratioAt(1_000) / settled), after2s: round(ratioAt(2_000) / settled) }
+      const name = direction > 0 ? 'oost' : 'west'
+      console.log(`${label} ${theme} pan-${name} ${JSON.stringify(summary)}`)
+      runs[name] = { summary, series }
+      // Still in echte tijd: pan in 1 s, opname 1 s na het eind.
+      await jump(page, start.zoom)
+      await page.waitForTimeout(4_000)
+      await page.evaluate((sign) => new Promise<void>((resolve) => {
+        const map = (globalThis as unknown as { __motregenWind: { map: { panBy: (offset: [number, number], options: object) => void; once: (event: string, callback: () => void) => void; getCanvas: () => { clientWidth: number } } } }).__motregenWind.map
+        map.once('moveend', () => resolve())
+        map.panBy([sign * 0.3 * map.getCanvas().clientWidth, 0], { duration: 1_000 })
+      }), direction)
+      await page.waitForTimeout(1_000)
+      await page.locator('.map').screenshot({ path: join(outDir, `${label}-${theme}-pan-${name}-1s.png`) })
+    }
+    themeResults.pan = runs
+  }
+
   if (scenarios.includes('profile')) {
     await jump(page, start.zoom)
     await page.waitForTimeout(8_000)
@@ -277,9 +335,14 @@ async function installProbe(page: Page): Promise<void> {
       const sums = { all: 0, land: 0, sea: 0 }
       const counts = { all: 0, land: 0, sea: 0 }
       const covered = { all: 0, land: 0, sea: 0 }
+      const stripFrom = probe.strip ? probe.strip[0] * width : -1
+      const stripTo = probe.strip ? probe.strip[1] * width : -1
+      let stripSum = 0
+      let stripCount = 0
       for (let row = 0; row < height; row++) {
         for (let column = 0; column < width; column++) {
           const alpha = pixels[(row * width + column) * 4 + 3]!
+          if (column >= stripFrom && column < stripTo) { stripSum += alpha; stripCount++ }
           // readPixels is ondersteboven; het masker staat in schermvolgorde.
           const kind = probe.mask ? probe.mask[(height - 1 - row) * width + column]! : 0
           const bucket = kind === 1 ? 'land' : kind === 2 ? 'sea' : null
@@ -296,6 +359,8 @@ async function installProbe(page: Page): Promise<void> {
         t: performance.now(),
         zoom: wind.map.getZoom(),
         alphaAll: sums.all / Math.max(1, counts.all) / 255,
+        alphaStrip: stripSum / Math.max(1, stripCount) / 255,
+        alphaRest: (sums.all - stripSum) / Math.max(1, counts.all - stripCount) / 255,
         alphaLand: sums.land / Math.max(1, counts.land) / 255,
         alphaSea: sums.sea / Math.max(1, counts.sea) / 255,
         coverageAll: covered.all / Math.max(1, counts.all),
