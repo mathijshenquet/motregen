@@ -52,3 +52,18 @@ over een lichte kaart, zonder contourlijnen. Wij houden de isolijnen wél, dun e
   zodat de PO kiest. Basiskaart-desaturatie blijft; meet of 55 % nog klopt bij 0,5 vulling
   (labels en kustlijn moeten leesbaar blijven — still met plaatsnamen).
 - Legenda (punt 3) wordt hiermee belangrijker: continu kleurbalkje met min/max.
+
+## Aanvulling PO (2026-09-25, 11:05): de Buienradar-referentie zelf
+
+Referentiebeeld: `/tmp/claude-1000/buienradar-feel.png` (Buienradar gevoelstemperatuur
+2026-09-25 11:20). Wat je daar ziet: **volledig dekkende** vlakken (geen kaart eronder,
+alleen grenzen), **discrete banden** per ~1 °C met scherpe randen, en zelfs bij een spreiding
+van 15,4–17,6 °C één geelgroene familie — Buienradar lost "weinig verloop" dus niet op met
+meer tinten maar met dekking en scherpte. Daarom, in plaats van het "continu per pixel"
+uit de vorige aanvulling:
+- **Banden per stap** (vlakke kleur per 1 °C-band, scherpe overgang op de isolijn) met het
+  lokaal gerekte palet uit punt 1, zodat aangrenzende banden zichtbaar verschillen.
+- **Dekking hoog**: default 0,7; stills op 0,5 / 0,7 / 0,9. Bij 0,9 mag de basiskaart
+  onder het veld tot lijnwerk vervagen (desaturatie + extra opheldering), mits plaatsnamen
+  en kustlijn leesbaar blijven.
+- Geen afstandsafval. Isolijnen dun erop; labels (graden) blijven.
