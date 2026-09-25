@@ -5,7 +5,9 @@
 set -u
 while true; do
   for slot in 1 2; do
-    flock -n -E 75 "/tmp/motregen-e2e-slot$slot.lock" "$@"
+    # -o: de lock-fd niet doorgeven aan het kind, anders houdt een verweesde Playwright-webserver
+    # (vite preview) het slot vast nadat de suite klaar is (gezien 2026-09-25, 1 uur blokkade).
+    flock -n -o -E 75 "/tmp/motregen-e2e-slot$slot.lock" "$@"
     status=$?
     [ "$status" -ne 75 ] && exit "$status"
   done
