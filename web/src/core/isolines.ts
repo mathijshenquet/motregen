@@ -20,7 +20,8 @@ export type IsolineFade = typeof ISOLINE_FADES[number]
 
 // Gradiënt-fade uit (PO 2026-09-24: in vlak gebied verdwijnen hele lijnen); de lusjes gaan via ISOLINE_RING_KM.
 /** Temperatuur (gevoelstemperatuur, temperatuurfocus) of luchtdruk (isobaren, windfocus; U35). */
-export type IsolineKind = 'temperature' | 'pressure'
+// 'cloud' (U34): bewolkingssluier, alleen vulling; geen lijnen of labels.
+export type IsolineKind = 'temperature' | 'pressure' | 'cloud'
 export const ISOBAR_STEP_HPA = 4
 
 export const DEFAULT_ISOLINE_TUNING: IsolineTuning = { step: 1, fillStyle: 'banden', fade: 'uit' }

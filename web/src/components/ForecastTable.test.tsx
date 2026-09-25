@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { FocusKind } from '../core/focus-mode'
 import type { HourlyForecastRow } from '../core/forecast'
 import type { WindUnit } from '../core/weather'
-import ForecastTable, { type ForecastSeries } from './ForecastTable'
+import ForecastTable, { cloudCoverStep, type ForecastSeries } from './ForecastTable'
 
 const start = Date.parse('2026-08-28T00:00:00Z')
 const rows: HourlyForecastRow[] = Array.from({ length: 24 }, (_, index) => ({
@@ -19,9 +19,9 @@ const series: ForecastSeries = {
   rain: rows.map((_, index) => [0, 0.004, 0.35, 1.26][index % 4]!), uv: [], uvClear: [], radiation: [], temperature: filled(15),
   feelsLike: filled(14), humidity: filled(70), cloud: filled(0.5), windU: filled(3), windV: filled(1), gust: filled(8),
 }
-const allColumns = { weather: true, uv: true, temperature: true, humidity: true, clouds: false, wind: true }
+const allColumns = { weather: true, sky: true, temperature: true, humidity: true, wind: true }
 
-function renderTable(options: { pinned?: FocusKind; weather?: boolean; clouds?: boolean; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
+function renderTable(options: { pinned?: FocusKind; weather?: boolean; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
   const [pinned, setPinned] = createSignal<FocusKind | undefined>(options.pinned)
   const onTogglePin = vi.fn((mode: FocusKind) => setPinned((current) => current === mode ? undefined : mode))
   const onFocus = vi.fn()
@@ -29,8 +29,7 @@ function renderTable(options: { pinned?: FocusKind; weather?: boolean; clouds?: 
     rows={options.rows ?? rows}
     series={series}
     location={{ lng: 5.18, lat: 52.1 }}
-    columns={{ ...allColumns, weather: options.weather ?? true, clouds: options.clouds ?? false }}
-    cloudLayers={() => ({ high: 80, mid: 50.4, low: null })}
+    columns={{ ...allColumns, weather: options.weather ?? true }}
     windUnit={options.windUnit?.() ?? 'bft'}
     loadedUntil={Number.POSITIVE_INFINITY}
     historyInline={options.historyInline ?? false}
@@ -50,7 +49,7 @@ describe('forecast table headings', () => {
   it('render every column heading with an icon and a word, time and weather in one column', () => {
     renderTable()
     const headings = [...document.querySelectorAll('thead th')]
-    expect(headings.map((heading) => heading.textContent)).toEqual(['Weer', 'UV', 'Gevoel', 'RV', 'Wind'])
+    expect(headings.map((heading) => heading.textContent)).toEqual(['Weer', 'Lucht', 'Gevoel', 'RV', 'Wind'])
     for (const heading of headings) expect(heading.querySelector('svg.lucide')).not.toBeNull()
     const first = document.querySelector('tbody tr:not(.history-toggle-row) td')!
     expect(first.textContent).toContain('Nu')
@@ -69,7 +68,6 @@ describe('forecast table headings', () => {
     expect(weather.hasAttribute('aria-pressed')).toBe(false)
     expect(screen.getByRole('button', { name: 'Gevoel' }).getAttribute('aria-pressed')).toBe('false')
     expect(screen.getByRole('button', { name: 'Wind' }).getAttribute('aria-pressed')).toBe('false')
-    expect(screen.queryByRole('button', { name: 'UV' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'RV' })).toBeNull()
   })
 
@@ -82,14 +80,20 @@ describe('forecast table headings', () => {
     expect(document.querySelector('table')!.dataset.mode).toBe('temperature')
   })
 
-  it('show a Wolken mode with the three cloud layers per hour (U34)', () => {
-    const { pinned, onTogglePin } = renderTable({ clouds: true })
-    fireEvent.click(screen.getByRole('button', { name: 'Wolken' }))
+  it('show one Lucht column: a cloud cover glyph, and a mode button for the cloud mode (U34)', () => {
+    const { pinned, onTogglePin } = renderTable()
+    expect(screen.queryByRole('button', { name: 'Wolken' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Lucht' }))
     expect(onTogglePin).toHaveBeenCalledWith('clouds')
     expect(pinned()).toBe('clouds')
-    const stack = document.querySelector('.clouds-cell .cloud-stack')!
-    expect([...stack.children].map((part) => part.textContent)).toEqual(['80', '50', '–'])
-    expect(stack.getAttribute('title')).toBe('Bewolking hoog 80 %, midden 50 %, laag – %')
+    expect(document.querySelector('table')!.dataset.mode).toBe('clouds')
+    expect(document.querySelector('.sky-cell .cloud-cover-glyph')!.getAttribute('aria-label')).toMatch(/^Bewolking \d+ %, helder$/)
+  })
+
+  it('step the cloud cover glyph in four steps', () => {
+    expect([0, 19, 20, 49, 50, 79, 80, 100].map((percent) => cloudCoverStep(percent).label)).toEqual(
+      ['helder', 'helder', 'licht bewolkt', 'licht bewolkt', 'half bewolkt', 'half bewolkt', 'bewolkt', 'bewolkt'])
+    expect([10, 30, 60, 90].map((percent) => cloudCoverStep(percent).fill)).toEqual([0, 0.25, 0.5, 1])
   })
 
   it('treat the whole column as hover target and tint it, without dropping focus between cells (U34)', () => {

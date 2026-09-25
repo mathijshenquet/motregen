@@ -94,3 +94,9 @@
 - Vlaag altijd in de ingestelde eenheid (Bft-modus: Bft i.p.v. km/u; `gustUnit` weg), weergave "3 ⌇ 6 Bft" / "18 ⌇ 26 kn" (één eenheid achteraan), alleen bij ≥ 1 stap boven de hoofdwaarde (ongewijzigd); aria-label/title "…, windstoten tot 6 Bft".
 - Tests: weather.test, ForecastTable.test; e2e/table.spec regexen bijgewerkt (niet gedraaid).
 - Receipts: typecheck 0; `pnpm test` 0 (46, 310). Geen e2e.
+## 2026-09-25 — D: kolom Lucht + bewolkingssluier
+- Tabel: UV- en Wolken-kolom → één kolom "Lucht" (modeknop 'clouds'): bewolkingsglyph op cloud_frac in 4 stappen (helder <20, licht <50, half <80, bewolkt; bedekkingsrondje leeg/kwart/half/vol) + overdag de UV-balk (relatief dagmax), 's nachts alleen het glyph. Wolkenlagen-reeksen laden weer alleen als Lucht gepind is.
+- Kaartmodus: derde isolijnset kind 'cloud' op cloud_frac (alleen bij cloudFocus > 0 geladen), hergebruik van de vulpas met grijswit palet (licht/donker), `lines: false`, nieuwe stijl `fillByValue` [15, 95] % → dekking 0…0,55 via één extra uniform in de bestaande vulshader; geen labels. FocusMode heeft nu een tween voor 'clouds'.
+- LET OP: docs/contract.md en MIP-4 ronde 3 zeggen "cloud_frac nooit als kaartlaag" — dit PO-besluit wijkt daarvan af; MIP-4 heeft een amendement nodig (PM).
+- Tests: tabel (Lucht-kolom, glyphstappen), cloud-section.spec (knop Lucht + sluier-canvas).
+- Receipts: typecheck 0; `pnpm test` 0 (46, 311); `… pnpm e2e e2e/cloud-section.spec.ts e2e/focus.spec.ts --project desktop` → E2E-EXIT 0 (9 passed, 2 skipped), één run.

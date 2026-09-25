@@ -4,7 +4,7 @@ import type { HourlyForecastRow } from '../core/forecast'
 import { solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
 import { dailyClearSkyUvMax, uvReading } from '../core/uv'
 import { deriveWeatherIcon, summarizeWind, WIND_UNIT_LABELS, type WindSummary, type WindUnit } from '../core/weather'
-import { ArrowUp, BUTTON_ICON, Clock, Cloud, CloudSun, Droplets, Sun, Thermometer, Wind } from './icons'
+import { ArrowUp, BUTTON_ICON, Clock, Cloud, CloudSun, Droplets, Thermometer, Wind } from './icons'
 import UvBar from './UvBar'
 import WeatherIcon from './WeatherIcon'
 
@@ -26,9 +26,8 @@ interface Props {
   rows: HourlyForecastRow[]
   series: ForecastSeries
   location: { lng: number; lat: number }
-  columns: { weather: boolean; uv: boolean; temperature: boolean; humidity: boolean; clouds: boolean; wind: boolean }
-  /** Bewolking per laag (0–100 %) rond een uur, voor de kolom Wolken (U34). */
-  cloudLayers?: (epoch: number) => { high: number | null; mid: number | null; low: number | null }
+  /** `sky`: de kolom Lucht (U34) — bewolkingsglyph plus overdag de UV-balk; vervangt UV en Wolken. */
+  columns: { weather: boolean; sky: boolean; temperature: boolean; humidity: boolean; wind: boolean }
   windUnit: WindUnit
   // Rows after this epoch have not been fetched yet; scrolling near them asks for them.
   loadedUntil: number
@@ -163,8 +162,8 @@ export default function ForecastTable(props: Props) {
     historyObserver?.disconnect()
   })
 
-  const columnCount = () => 2 + Number(props.columns.uv) + Number(props.columns.temperature) +
-    Number(props.columns.humidity) + Number(props.columns.clouds) + Number(props.columns.wind)
+  const columnCount = () => 2 + Number(props.columns.sky) + Number(props.columns.temperature) +
+    Number(props.columns.humidity) + Number(props.columns.wind)
 
   return <table class="forecast-table" data-mode={props.focus.pinned} data-hover={hovered()}>
     <thead><tr>
@@ -176,16 +175,13 @@ export default function ForecastTable(props: Props) {
           <Show when={props.columns.weather} fallback={<ColumnLabel icon={Clock} text="Uur" />}><ColumnLabel icon={CloudSun} text="Weer" /></Show>
         </button>
       </th>
-      <Show when={props.columns.uv}><th class="uv-heading" title="UV-index met en zonder wolken">
-        <span class="column-mode"><ColumnLabel icon={Sun} text="UV" /></span>
+      <Show when={props.columns.sky}><th class="sky-heading" {...columnHover('clouds')}>
+        <FocusHeading mode="clouds" icon={Cloud} label="Lucht" title="Bewolking en UV; toon de wolken op de kaart en de wolkenlagen in de grafiek" />
       </th></Show>
       <Show when={props.columns.temperature}><th class="temperature-heading" {...columnHover('temperature')}>
         <FocusHeading mode="temperature" icon={Thermometer} label="Gevoel" title="Toon temperatuurlijnen op de kaart" />
       </th></Show>
       <Show when={props.columns.humidity}><th title="Relatieve luchtvochtigheid"><span class="column-mode"><ColumnLabel icon={Droplets} text="RV" /></span></th></Show>
-      <Show when={props.columns.clouds}><th class="clouds-heading" {...columnHover('clouds')}>
-        <FocusHeading mode="clouds" icon={Cloud} label="Wolken" title="Toon de wolkenlagen (hoog, midden, laag) in de grafiek" />
-      </th></Show>
       <Show when={props.columns.wind}><th class="wind-heading" {...columnHover('wind')}>
         <FocusHeading mode="wind" icon={Wind} label="Wind" title="Toon de wind op de kaart op volle sterkte" />
       </th></Show>
@@ -244,24 +240,21 @@ export default function ForecastTable(props: Props) {
               </div>
             </div>
           </td>
-          <Show when={props.columns.uv}>
-            <td class="uv-cell">
-              <Show when={uv() || elevation(row.epoch) <= 0} fallback={pending() ? '…' : ''}>
-                <UvBar reading={elevation(row.epoch) > 0 ? uv() : null} scale={dailyClearSkyUvMax(row.epoch, props.location.lat)} />
-              </Show>
+          <Show when={props.columns.sky}>
+            <td class="sky-cell" {...columnHover('clouds')}>
+              <span class="sky-reading">
+                <CloudCoverGlyph percent={cloud()} />
+                {/* 's Nachts is UV niet informatief: dan alleen de bewolking. */}
+                <Show when={elevation(row.epoch) > 0}>
+                  <Show when={uv()} fallback={pending() ? '…' : ''}>
+                    <UvBar reading={uv()} scale={dailyClearSkyUvMax(row.epoch, props.location.lat)} />
+                  </Show>
+                </Show>
+              </span>
             </td>
           </Show>
           <Show when={props.columns.temperature}><td class="temperature-cell" {...columnHover('temperature')}>{degrees(feelsLike())}<small class="air-temperature" title="Luchttemperatuur">{degrees(temperature())}</small></td></Show>
           <Show when={props.columns.humidity}><td>{humidity() == null ? placeholder() : `${Math.round(humidity()!)}%`}</td></Show>
-          <Show when={props.columns.clouds}><td class="clouds-cell" {...columnHover('clouds')}>{(() => {
-            const layers = props.cloudLayers?.(row.epoch)
-            const percent = (value: number | null | undefined) => value == null ? '–' : `${Math.round(value)}`
-            return layers && (layers.high != null || layers.mid != null || layers.low != null)
-              ? <span class="cloud-stack" title={`Bewolking hoog ${percent(layers.high)} %, midden ${percent(layers.mid)} %, laag ${percent(layers.low)} %`}>
-                <span>{percent(layers.high)}</span><span>{percent(layers.mid)}</span><span>{percent(layers.low)}</span>
-              </span>
-              : placeholder()
-          })()}</td></Show>
           <Show when={props.columns.wind}><td class="wind-cell" {...columnHover('wind')}><Show when={wind()} fallback={placeholder()}>{(summary) =>
             <WindReading summary={summary()} />
           }</Show></td></Show>
@@ -289,6 +282,34 @@ function WindReading(props: { summary: WindSummary }) {
     <Show when={props.summary.gust}>{(gust) => <small class="wind-gust">⌇ {gust()}</small>}</Show>
     <small class="wind-unit">{unit()}</small>
   </span>
+}
+
+/** Totale bewolking in vier stappen, als klassiek bedekkingsrondje: leeg, kwart, half, vol. */
+export function cloudCoverStep(percent: number): { fill: number; label: string } {
+  if (percent < 20) return { fill: 0, label: 'helder' }
+  if (percent < 50) return { fill: 0.25, label: 'licht bewolkt' }
+  if (percent < 80) return { fill: 0.5, label: 'half bewolkt' }
+  return { fill: 1, label: 'bewolkt' }
+}
+
+function CloudCoverGlyph(props: { percent: number | null }) {
+  const step = () => props.percent == null ? undefined : cloudCoverStep(props.percent)
+  // Taartpunt vanaf 12 uur met de klok mee; vol is een hele cirkel.
+  const wedge = (fill: number) => {
+    const angle = fill * 2 * Math.PI
+    const x = 7 + 5.5 * Math.sin(angle)
+    const y = 7 - 5.5 * Math.cos(angle)
+    return `M7 7V1.5A5.5 5.5 0 ${fill > 0.5 ? 1 : 0} 1 ${x.toFixed(2)} ${y.toFixed(2)}Z`
+  }
+  return <Show when={step()}>{(current) =>
+    <svg class="cloud-cover-glyph" viewBox="0 0 14 14" role="img" aria-label={`Bewolking ${Math.round(props.percent!)} %, ${current().label}`}>
+      <title>{`Bewolking ${Math.round(props.percent!)} % · ${current().label}`}</title>
+      <Show when={current().fill >= 1} fallback={<Show when={current().fill > 0}><path class="cloud-cover-fill" d={wedge(current().fill)} /></Show>}>
+        <circle class="cloud-cover-fill" cx="7" cy="7" r="5.5" />
+      </Show>
+      <circle class="cloud-cover-ring" cx="7" cy="7" r="5.5" />
+    </svg>
+  }</Show>
 }
 
 function SunGlyph() {
