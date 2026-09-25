@@ -21,6 +21,7 @@ interface Internals {
   instanceBytes: Uint8Array
   rampRates: Float32Array
   dying: Uint8Array
+  viewBounds: { west: number; east: number; north: number; south: number }
   particleBounds: { west: number; east: number; north: number; south: number }
   lifeScales: Float32Array
   resetViewport(resetAll?: boolean): void
@@ -89,7 +90,7 @@ describe('wind across map movement (U12)', () => {
     const before = visible()
     const positions = Array.from({ length: wind.active }, (_, index) => [wind.x[index]!, wind.y[index]!, wind.ages[index]!] as const)
     move({ zoom: view.zoom + 1 })
-    const bounds = wind.particleBounds
+    const bounds = wind.viewBounds
     let kept = 0
     for (const [index, [x, y, age]] of positions.entries()) {
       if (x < bounds.west || x > bounds.east || y < bounds.north || y > bounds.south) continue
@@ -107,7 +108,7 @@ describe('wind across map movement (U12)', () => {
     const { wind, run, visible, move, view, settled, surplus } = harness()
     run(10)
     const before = visible()
-    const old = { ...wind.particleBounds }
+    const old = { ...wind.viewBounds }
     move({ zoom: view.zoom - 1 })
     expect(wind.retiring / wind.budget).toBeGreaterThan(0.6)
     expect(wind.active - wind.retiring).toBe(wind.budget)
@@ -249,7 +250,7 @@ describe('wind across map movement (U12)', () => {
           x: wind.x[index]!, y: wind.y[index]!, scale: wind.lifeScales[index]!, alpha: wind.instanceBytes[index * 20 + 19]!,
         }))
         run(frame)
-        const bounds = wind.particleBounds
+        const bounds = wind.viewBounds
         for (const head of before) {
           if (head.alpha < 64 || head.x < bounds.west || head.x > bounds.east || head.y < bounds.north || head.y > bounds.south) continue
           // Hetzelfde particle: zelfde levensschaal en (bijna) dezelfde plek, ook na een slotverhuizing.
@@ -262,6 +263,28 @@ describe('wind across map movement (U12)', () => {
       }
       expect(vanished, name).toBe(0)
     }
+  })
+
+  it('keeps a rim of particles just outside the view that drifts in on the windward side (U24b)', () => {
+    const { wind, run } = harness()
+    run(10)
+    const view = wind.viewBounds
+    const outer = wind.particleBounds
+    expect(outer.west).toBeLessThan(view.west)
+    expect(outer.east).toBeGreaterThan(view.east)
+    let rim = 0
+    let windward = 0
+    for (let index = 0; index < wind.active; index++) {
+      const x = wind.x[index]!
+      const y = wind.y[index]!
+      if (x >= view.west && x <= view.east && y >= view.north && y <= view.south) continue
+      rim++
+      // Westenwind: de loefrand is west.
+      if (x < view.west) windward++
+    }
+    expect(rim / wind.active).toBeGreaterThan(0.02)
+    expect(rim / wind.active).toBeLessThan(0.2)
+    expect(windward).toBeGreaterThan(0)
   })
 })
 
