@@ -1,4 +1,4 @@
-import { createMemo, createSignal, createUniqueId, For, Index, onCleanup, onMount, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, createUniqueId, For, Index, onCleanup, onMount, Show, untrack } from 'solid-js'
 import { CLOUD_LAYERS, cloudBand, type CloudSeries } from '../core/cloud-section'
 import type { TimelineFrame } from '../core/contract'
 import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColor } from '../core/rain-chart'
@@ -23,6 +23,8 @@ interface Props {
   clouds?: CloudSeries
   /** Totale bewolking als één band boven het regenhistogram, in de weermodus (PO 2026-09-25 live, U34). */
   cloudCover?: { timeline: TimelineFrame[]; values: Array<number | null> }
+  /** Tijdens gelijkmatig afspelen: epoch-ms per ms; de baan schuift dan op de compositor (U41). */
+  glideRate?: number
 }
 
 const CLOUD_LAYER_LABELS = { high: 'hoog', mid: 'midden', low: 'laag' } as const
@@ -42,6 +44,9 @@ const WHEEL_RESUME_MS = 800
 // Uitloop na een veeg: snelheid (px/ms) halveert per ~110 ms.
 const FLING_DECAY_PER_MS = 0.9937
 const FLING_MIN_SPEED = 0.02
+// Afspelen schuift de baan met één compositor-animatie; wijkt de cursor meer af, dan opnieuw ingezet.
+const SLIDE_TOLERANCE_PX = 2
+const SLIDE_DURATION_MS = 120_000
 
 export function hourLabelStep(spanHours: number, plotWidthPx: number): number {
   const fit = Math.max(1, plotWidthPx / minimumHourLabelSpacingPx)
@@ -51,6 +56,7 @@ export function hourLabelStep(spanHours: number, plotWidthPx: number): number {
 export default function HistogramScrubber(props: Props) {
   let plotElement!: HTMLDivElement
   let surfaceElement!: HTMLDivElement
+  let trackElement!: HTMLDivElement
   let drag: { x: number; epoch: number; moved: boolean; lastX: number; lastTime: number; velocity: number } | undefined
   let fling: number | undefined
   const [resumePlayback, setResumePlayback] = createSignal(false)
@@ -153,17 +159,43 @@ export default function HistogramScrubber(props: Props) {
     const frame = props.timeline[Math.round(props.cursor)] ?? props.timeline[0]
     return frame ? timelineZones([frame])[0] : undefined
   })
-  const valueText = () => {
-    const epoch = cursorEpoch()
+  // Voorleestekst op minuten: niet per afspeeltik opnieuw formatteren (U41).
+  const cursorMinute = createMemo(() => Math.floor(cursorEpoch() / 60_000) * 60_000)
+  const valueText = createMemo(() => {
+    const epoch = cursorMinute()
     const time = new Date(epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
     const value = cursorValue()
     const rain = value == null ? 'geen data' : value < 0.05 ? 'droog' : `${formatRate(value)}, ${RAIN_BANDS.find((band) => band.key === classifyRain(value))!.label.toLowerCase()}`
     const source = cursorZone()?.label.toLowerCase()
     return `${(dayLabel(epoch, props.now) || 'vandaag').toLowerCase()} ${time}, ${rain}, ${source}`
-  }
+  })
   // Alleen toetsstappen en tikken krijgen een korte glijbeweging; slepen en afspelen volgen direct.
   const [gliding, setGliding] = createSignal(false)
   const tween = () => gliding() && !props.playing
+  // Een transform per afspeeltik kostte Chromium per tik een Layerize van de hele pagina (U41, ~40 %
+  // van de hoofddraad). Afspelen loopt lineair in de tijd, dus de compositor kan de baan schuiven;
+  // de inline transform staat dan stil en volgt pas weer bij pauze, slepen of terugglijden.
+  let slide: { animation: Animation; offset: number; startedAt: number; speed: number } | undefined
+  const [sliding, setSliding] = createSignal(false)
+  const shownOffset = createMemo(() => sliding() ? untrack(offset) : offset())
+  createEffect(() => {
+    const speed = props.playing && !tween() ? (props.glideRate ?? 0) * pxPerMs() : 0
+    const current = offset()
+    const now = Number(document.timeline?.currentTime ?? performance.now())
+    if (slide && speed > 0 && slide.speed === speed && Math.abs(slide.offset - speed * (now - slide.startedAt) - current) < SLIDE_TOLERANCE_PX) return
+    slide?.animation.cancel()
+    slide = undefined
+    if (speed <= 0 || typeof trackElement.animate !== 'function') { setSliding(false); return }
+    const animation = trackElement.animate(
+      [{ transform: `translateX(${current}px)` }, { transform: `translateX(${current - speed * SLIDE_DURATION_MS}px)` }],
+      { duration: SLIDE_DURATION_MS, easing: 'linear', fill: 'forwards' },
+    )
+    // Vanaf de frametijd waarop de cursor berekend is, niet pas vanaf de volgende commit.
+    animation.startTime = now
+    slide = { animation, offset: current, startedAt: now, speed }
+    setSliding(true)
+  })
+  onCleanup(() => slide?.animation.cancel())
   const dayMarkers = createMemo(() => {
     if (!props.timeline.length) return []
     const today = new Date(props.now)
@@ -300,7 +332,7 @@ export default function HistogramScrubber(props: Props) {
       }}
     >
       <div class="chart-plot" ref={plotElement}>
-        <div class="chart-track" classList={{ tween: tween() }} style={{ width: `${trackWidth()}px`, transform: `translateX(${offset()}px)` }} aria-hidden="true">
+        <div ref={trackElement} class="chart-track" classList={{ tween: tween() }} style={{ width: `${trackWidth()}px`, transform: `translateX(${shownOffset()}px)` }} aria-hidden="true">
           <div class="past-shade" style={{ width: `${nowX()}px` }} />
           <div class="hour-grid"><For each={xTicks()}>{(tick) => <i style={{ left: `${tick.x}px` }} />}</For></div>
           <div class="day-grid"><For each={dayMarkers()}>{(marker) => <div class="boundary" style={{ left: `${xAt(marker.epoch)}px` }}><span>{marker.label}</span></div>}</For></div>

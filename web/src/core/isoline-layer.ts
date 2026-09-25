@@ -4,6 +4,7 @@ import type { Grid } from './contract'
 import type { PreparedField } from './isoline-field'
 import { SEGMENT_FLOATS, type ShortRing } from './isoline-contours'
 import { ContourTracer, type TraceRequest, type TraceResult } from './isoline-tracer'
+import { sliceWeights } from './isoline-spline'
 import { ISOLINE_FILL_RESOLUTION, ISOLINE_GRADIENT, ISOLINE_LINE_OPACITY, ISOLINE_RING_KM, ISOLINE_TOLERANCE_PX, ISOLINE_WINDOW } from './isolines'
 import { PALETTE_STOPS, paletteUniforms, type PaletteStops } from './temperature-palette'
 
@@ -147,19 +148,27 @@ void main() {
 }`
 
 // Lijnen over de vulling (beide voorvermenigvuldigd); de vulling heeft een eigen, lagere resolutie.
+// Tijdens afspelen vloeien twee getraceerde uursnedes over (U41): per frame alleen deze blit.
 const compositeFragment = `#version 300 es
 precision mediump float;
 uniform sampler2D u_result;
 uniform sampler2D u_fill;
+uniform sampler2D u_result_b;
+uniform sampler2D u_fill_b;
 uniform float u_has_fill;
+uniform float u_weight_b;
 uniform float u_line_opacity;
 uniform float u_opacity;
 in vec2 v_uv;
 out vec4 color;
+vec4 slice(sampler2D result, sampler2D fillTexture) {
+  vec4 line = texture(result, v_uv) * u_line_opacity;
+  vec4 fill = u_has_fill > 0.5 ? texture(fillTexture, v_uv) : vec4(0.0);
+  return line + fill * (1.0 - line.a);
+}
 void main() {
-  vec4 line = texture(u_result, v_uv) * u_line_opacity;
-  vec4 fill = u_has_fill > 0.5 ? texture(u_fill, v_uv) : vec4(0.0);
-  color = (line + fill * (1.0 - line.a)) * u_opacity;
+  vec4 a = slice(u_result, u_fill);
+  color = (u_weight_b > 0.0 ? mix(a, slice(u_result_b, u_fill_b), u_weight_b) : a) * u_opacity;
 }`
 
 // Vector: één instanced quad per segment, in schermpixels verbreed; de fragmentshader rekent de
@@ -236,7 +245,8 @@ export interface IsolinePassStats {
  * Isolijnen als snede door het (x, y, t)-volume van uurframes. De tracer-worker levert de
  * lijnen als segmenten; die en de vulling gaan naar offscreen textures, alleen als de snede
  * verandert: nieuwe geometrie, kaartbeeld, stijl of nieuwe uurframes. Elke andere repaint
- * (bv. windpartikels) kost één texture-blit; zonder focus niets.
+ * (bv. windpartikels, of de overvloeiing tussen twee uursnedes tijdens afspelen) kost één
+ * texture-blit; zonder focus niets.
  */
 export class IsolineLayer implements CustomLayerInterface {
   readonly type = 'custom' as const
@@ -253,31 +263,25 @@ export class IsolineLayer implements CustomLayerInterface {
   private quad?: WebGLBuffer
   private screen?: WebGLBuffer
   private volume?: WebGLTexture
-  /** Lijnen (device-resolutie) en vulling (ISOLINE_FILL_RESOLUTION). */
-  private result?: RenderTarget
-  private fillTarget?: RenderTarget
   private fill?: WebGLProgram
-  private ringTexture?: WebGLTexture
-  private hasRing = false
-  private filled = false
   private readonly loaded: Uint8Array
   private frameKeys: string[] = []
   private time = 0
+  /** Afspelen: tracen alleen op hele uren en daartussen overvloeien (U41); stil: exact op `time`. */
+  private moving = false
   private opacity = 0
   private version = 1
-  private passedVersion = 0
-  private passedCamera = ''
   private line?: WebGLProgram
   private corners?: WebGLBuffer
-  private segments?: WebGLBuffer
-  private segmentCount = 0
   private readonly tracer: ContourTracer
   private requestedTrace = ''
-  private pendingTrace?: TraceResult
-  /** Tracer-resultaten tot nu toe: nieuwe geometrie is ook een nieuwe snede. */
+  private readonly pendingTraces = new Map<string, TraceResult>()
+  /** Getraceerde snedes: twee omliggende uren plus één voor de volgende. */
+  private slices: TracedSlice[] = []
+  /** Tracer-resultaten tot nu toe; ook de volgorde waarin snedes binnenkwamen. */
   private geometryVersion = 0
-  private shownRings: ShortRing[] = []
-  private shownTime = 0
+  private shown: Array<{ slice: TracedSlice; weight: number }> = []
+  private shownDominant?: TracedSlice
 
   constructor(readonly grid: Grid, readonly depth: number, private style: IsolineStyle, readonly id = 'motregen-isolines') {
     this.loaded = new Uint8Array(depth)
@@ -312,32 +316,30 @@ export class IsolineLayer implements CustomLayerInterface {
     this.corners = gl.createBuffer()!
     gl.bindBuffer(gl.ARRAY_BUFFER, this.corners)
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, -1, 1, -1, 0, 1, 1, 1]), gl.STATIC_DRAW)
-    this.segments = gl.createBuffer()!
-    this.segmentCount = 0
     this.requestedTrace = ''
-    this.result = renderTarget(gl)
-    this.fillTarget = renderTarget(gl)
-    this.filled = false
-    this.ringTexture = gl.createTexture()!
-    gl.bindTexture(gl.TEXTURE_2D, this.ringTexture)
-    for (const parameter of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, parameter, gl.LINEAR)
-    for (const parameter of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T]) gl.texParameteri(gl.TEXTURE_2D, parameter, gl.CLAMP_TO_EDGE)
-    this.hasRing = false
+    this.pendingTraces.clear()
+    this.slices = Array.from({ length: 3 }, () => tracedSlice(gl))
+    this.shown = []
+    this.shownDominant = undefined
     this.timer = GpuTimer.create(gl)
     this.stats.timing = this.timer ? 'gpu' : 'cpu'
     this.loaded.fill(0)
-    this.passedVersion = 0
     this.version++
   }
 
   onRemove(_map: MapLibreMap, context: WebGLRenderingContext | WebGL2RenderingContext): void {
     const gl = context as WebGL2RenderingContext
-    for (const texture of [this.volume, this.ringTexture, this.result?.texture, this.fillTarget?.texture]) if (texture) gl.deleteTexture(texture)
-    for (const target of [this.result, this.fillTarget]) if (target) gl.deleteFramebuffer(target.framebuffer)
-    this.result = this.fillTarget = undefined
+    if (this.volume) gl.deleteTexture(this.volume)
+    for (const slice of this.slices) {
+      for (const texture of [slice.ringTexture, slice.lines.texture, slice.fill.texture]) gl.deleteTexture(texture)
+      for (const target of [slice.lines, slice.fill]) gl.deleteFramebuffer(target.framebuffer)
+      gl.deleteBuffer(slice.segments)
+    }
+    this.slices = []
+    this.shown = []
     this.timer?.dispose()
     this.timer = undefined
-    for (const buffer of [this.quad, this.screen, this.corners, this.segments]) if (buffer) gl.deleteBuffer(buffer)
+    for (const buffer of [this.quad, this.screen, this.corners]) if (buffer) gl.deleteBuffer(buffer)
     this.map = undefined
     this.gl = undefined
   }
@@ -351,14 +353,14 @@ export class IsolineLayer implements CustomLayerInterface {
     return this.loaded[index] === 1
   }
 
-  /** Korte ringen van de getekende snede (lijnlabels vervagen mee). */
+  /** Korte ringen van de getekende (dominante) snede: lijnlabels vervagen mee. */
   get rings(): readonly ShortRing[] {
-    return this.shownRings
+    return this.shownDominant?.rings ?? []
   }
 
-  /** Tijd van de getekende snede: de worker loopt achter de scrubber aan. */
+  /** Tijd van de getekende (dominante) snede: de worker loopt achter de scrubber aan. */
   get sliceTime(): number {
-    return this.geometryVersion ? this.shownTime : this.time
+    return this.shownDominant?.time ?? this.time
   }
 
   frameKey(index: number): string | undefined {
@@ -376,6 +378,7 @@ export class IsolineLayer implements CustomLayerInterface {
       if (keys[index] === this.frameKeys[index]) continue
       this.loaded[index] = 0
       this.tracer.setLayer(index, undefined)
+      this.staleSlices(index)
       changed.push(index)
     }
     this.frameKeys = keys.slice(0, this.depth)
@@ -397,17 +400,23 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
     gl.texSubImage3D(gl.TEXTURE_3D, 0, 0, 0, index, this.grid.width, this.grid.height, 1, gl.RG, gl.FLOAT, interleaved)
     this.tracer.setLayer(index, field)
+    // Een eerder mislukte trace (laag ontbrak) mag opnieuw; alleen een vervangen laag maakt
+    // bestaande snedes ongeldig, een nieuwe laag hoort bij geen enkele getraceerde snede.
     this.requestedTrace = ''
+    if (this.loaded[index]) this.staleSlices(index)
     this.loaded[index] = 1
     this.stats.uploads++
     this.invalidate()
   }
 
-  /** Frame-index-coördinaat van de snede (links + mix). */
-  setTime(time: number): void {
-    if (time === this.time) return
+  /**
+   * Frame-index-coördinaat van de snede (links + mix). `moving` (afspelen): de worker traceert
+   * alleen de hele uren eromheen en de laag vloeit ertussen over; stil staat de exacte snede.
+   */
+  setTime(time: number, moving = false): void {
+    if (time === this.time && moving === this.moving) return
     this.time = time
-    // De worker levert de nieuwe snede; pas die geometrie is een nieuwe pass waard.
+    this.moving = moving
     this.repaint()
   }
 
@@ -430,45 +439,92 @@ export class IsolineLayer implements CustomLayerInterface {
   }
 
   private prerenderVector(gl: WebGL2RenderingContext, map: MapLibreMap, matrix: ArrayLike<number>): void {
-    const request = this.traceRequest(map.getZoom())
-    const key = JSON.stringify(request)
-    if (key !== this.requestedTrace) {
-      this.requestedTrace = key
-      this.tracer.request(request)
+    const zoom = map.getZoom()
+    const wanted = this.wantedTimes().map((time) => {
+      const request = this.traceRequest(zoom, time)
+      return { time, request, key: JSON.stringify(request) }
+    })
+    for (const [key, result] of this.pendingTraces) this.store(gl, key, result, wanted.map((entry) => entry.key))
+    this.pendingTraces.clear()
+    const missing = wanted.find((entry) => !this.slices.some((slice) => slice.key === entry.key))
+    if (missing && missing.key !== this.requestedTrace) {
+      this.requestedTrace = missing.key
+      this.tracer.request(missing.request)
     }
-    if (this.pendingTrace) {
-      const data = this.pendingTrace.data
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.segments!)
-      gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW)
-      this.segmentCount = data.length / SEGMENT_FLOATS
-      this.shownRings = this.pendingTrace.rings
-      this.shownTime = this.pendingTrace.request.time
-      this.uploadRingFade(gl, this.pendingTrace.ringFade)
-      this.pendingTrace = undefined
-      this.geometryVersion++
-    }
-    if (!this.geometryVersion) return
+    this.shown = this.selectShown(wanted.map((entry) => entry.key))
+    if (!this.shown.length) return
+    const dominant = this.shown.reduce((best, entry) => entry.weight > best.weight ? entry : best).slice
     const width = Math.max(1, gl.drawingBufferWidth), height = Math.max(1, gl.drawingBufferHeight)
-    const camera = `v${width}x${height}:${Array.prototype.join.call(matrix, ',')}:${this.geometryVersion}`
-    if (camera === this.passedCamera && this.version === this.passedVersion) return
-    this.vectorPass(gl, map, matrix, width, height)
-    // Op de tijd van de getekende geometrie, niet de scrubber: de bandgrenzen vallen onder de lijnen.
-    this.fillPass(gl, map, matrix, this.shownTime)
-    this.passedCamera = camera
-    this.passedVersion = this.version
-    this.onPass?.()
+    const camera = `v${width}x${height}:${Array.prototype.join.call(matrix, ',')}:${this.version}`
+    let passed = false
+    for (const { slice } of this.shown) {
+      if (slice.passed === camera) continue
+      this.vectorPass(gl, map, matrix, width, height, slice)
+      // Op de tijd van de getekende geometrie, niet de scrubber: de bandgrenzen vallen onder de lijnen.
+      this.fillPass(gl, map, matrix, slice)
+      slice.passed = camera
+      passed = true
+    }
+    if (passed || dominant !== this.shownDominant) {
+      this.shownDominant = dominant
+      this.onPass?.()
+    }
+  }
+
+  private wantedTimes(): number[] {
+    return traceTimes(this.time, this.depth, this.moving)
+  }
+
+  /** Welke snedes nu getekend worden, met hun overvloei-gewicht. */
+  private selectShown(wanted: string[]): Array<{ slice: TracedSlice; weight: number }> {
+    const find = (key: string | undefined) => key === undefined ? undefined : this.slices.find((slice) => slice.key === key)
+    if (this.moving) {
+      const a = find(wanted[0]), b = find(wanted[1])
+      const mix = this.time - Math.floor(this.time)
+      if (a && b && mix > 0) return [{ slice: a, weight: 1 - mix }, { slice: b, weight: mix }]
+      if (a ?? b) return [{ slice: (a ?? b)!, weight: 1 }]
+    } else {
+      const exact = find(wanted[0])
+      if (exact) return [{ slice: exact, weight: 1 }]
+    }
+    // Nog niets passends getraceerd: de laatst binnengekomen snede blijft staan.
+    const latest = this.slices.reduce<TracedSlice | undefined>((best, slice) => slice.geometry && (!best || slice.geometry > best.geometry) ? slice : best, undefined)
+    return latest ? [{ slice: latest, weight: 1 }] : []
+  }
+
+  /** Tracer-resultaat naar de GPU, in de snede die nu het minst nodig is. */
+  private store(gl: WebGL2RenderingContext, key: string, result: TraceResult, wanted: string[]): void {
+    if (key === this.requestedTrace) this.requestedTrace = ''
+    const shown = new Set(this.shown.map((entry) => entry.slice))
+    const rank = (slice: TracedSlice) => (wanted.includes(slice.key) ? 2 : 0) + (shown.has(slice) ? 1 : 0)
+    const target = this.slices.reduce((best, slice) => rank(slice) < rank(best) || (rank(slice) === rank(best) && slice.geometry < best.geometry) ? slice : best)
+    gl.bindBuffer(gl.ARRAY_BUFFER, target.segments)
+    gl.bufferData(gl.ARRAY_BUFFER, result.data, gl.DYNAMIC_DRAW)
+    target.segmentCount = result.data.length / SEGMENT_FLOATS
+    target.rings = result.rings
+    target.time = result.request.time
+    target.key = key
+    target.layers = sliceWeights(result.request.time, this.depth, result.request.window).filter(({ weight }) => weight > 0).map(({ index }) => index)
+    target.geometry = ++this.geometryVersion
+    target.passed = ''
+    this.uploadRingFade(gl, target, result.ringFade)
+  }
+
+  /** Snedes die uurlaag `index` gebruikten opnieuw laten traceren (ze blijven staan tot dan). */
+  private staleSlices(index: number): void {
+    for (const slice of this.slices) if (slice.layers.includes(index)) slice.key = ''
   }
 
   /** Wat de worker moet traceren; de tolerantie in cellen volgt de zoom in machten van 2. */
-  private traceRequest(zoom: number): TraceRequest {
+  private traceRequest(zoom: number, time: number): TraceRequest {
     const pxPerCell = Math.abs(this.grid.dx) / (2 * Math.PI * 6378137) * 512 * 2 ** zoom
     const toleranceCells = 2 ** Math.round(Math.log2(ISOLINE_TOLERANCE_PX / pxPerCell))
-    return { time: this.time, window: ISOLINE_WINDOW, step: this.style.step, toleranceCells, ringKm: ISOLINE_RING_KM, gradient: this.style.gradientFade ? ISOLINE_GRADIENT : undefined }
+    return { time, window: ISOLINE_WINDOW, step: this.style.step, toleranceCells, ringKm: ISOLINE_RING_KM, gradient: this.style.gradientFade ? ISOLINE_GRADIENT : undefined }
   }
 
   private traced(result: TraceResult | undefined): void {
     if (!result) return
-    this.pendingTrace = result
+    this.pendingTraces.set(JSON.stringify(result.request), result)
     this.stats.traces = (this.stats.traces ?? 0) + 1
     this.stats.traceMs = smooth(this.stats.traceMs ?? 0, result.stats.ms)
     this.stats.segments = result.stats.segments
@@ -477,9 +533,9 @@ export class IsolineLayer implements CustomLayerInterface {
     this.repaint()
   }
 
-  private vectorPass(gl: WebGL2RenderingContext, map: MapLibreMap, matrix: ArrayLike<number>, width: number, height: number): void {
+  private vectorPass(gl: WebGL2RenderingContext, map: MapLibreMap, matrix: ArrayLike<number>, width: number, height: number, slice: TracedSlice): void {
     const restore = saveTarget(gl)
-    bindTarget(gl, this.result!, width, height)
+    bindTarget(gl, slice.lines, width, height)
     gl.enable(gl.BLEND)
     // MAX: overlappende koppen en naden tellen niet op; de kleur is overal dezelfde.
     gl.blendEquation(gl.MAX)
@@ -518,9 +574,9 @@ export class IsolineLayer implements CustomLayerInterface {
     }
     const stride = SEGMENT_FLOATS * 4
     bind('a_corner', this.corners!, 2, 8, 0, 0)
-    bind('a_segment', this.segments!, 4, stride, 0, 1)
-    bind('a_alpha', this.segments!, 2, stride, 16, 1)
-    if (this.segmentCount) this.measure('passMs', () => gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, this.segmentCount))
+    bind('a_segment', slice.segments, 4, stride, 0, 1)
+    bind('a_alpha', slice.segments, 2, stride, 16, 1)
+    if (slice.segmentCount) this.measure('passMs', () => gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, slice.segmentCount))
     // De context is gedeeld met de vulpass en de blit: divisors terug op 0.
     for (const location of attributes) {
       gl.vertexAttribDivisor(location, 0)
@@ -535,21 +591,26 @@ export class IsolineLayer implements CustomLayerInterface {
 
   render(context: WebGLRenderingContext | WebGL2RenderingContext): void {
     const gl = context as WebGL2RenderingContext
-    if (!this.composite || !this.result || this.opacity <= 0 || !this.passedVersion) return
+    const [a, b] = this.shown
+    if (!this.composite || !a || this.opacity <= 0 || !a.slice.passed || (b && !b.slice.passed)) return
     const program = this.composite
     gl.useProgram(program)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.screen!)
     const clip = gl.getAttribLocation(program, 'a_clip')
     gl.enableVertexAttribArray(clip)
     gl.vertexAttribPointer(clip, 2, gl.FLOAT, false, 8, 0)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, this.result.texture)
-    gl.uniform1i(gl.getUniformLocation(program, 'u_result'), 0)
-    const filled = this.filled && this.style.fill > 0 && !!this.style.palette
-    gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, filled ? this.fillTarget!.texture : null)
-    gl.uniform1i(gl.getUniformLocation(program, 'u_fill'), 1)
+    const filled = a.slice.filled && (!b || b.slice.filled) && this.style.fill > 0 && !!this.style.palette
+    const textures: Array<[string, WebGLTexture | null]> = [
+      ['u_result', a.slice.lines.texture], ['u_fill', filled ? a.slice.fill.texture : null],
+      ['u_result_b', (b ?? a).slice.lines.texture], ['u_fill_b', filled ? (b ?? a).slice.fill.texture : null],
+    ]
+    textures.forEach(([name, texture], unit) => {
+      gl.activeTexture(gl.TEXTURE0 + unit)
+      gl.bindTexture(gl.TEXTURE_2D, texture)
+      gl.uniform1i(gl.getUniformLocation(program, name), unit)
+    })
     gl.uniform1f(gl.getUniformLocation(program, 'u_has_fill'), filled ? 1 : 0)
+    gl.uniform1f(gl.getUniformLocation(program, 'u_weight_b'), b?.weight ?? 0)
     gl.uniform1f(gl.getUniformLocation(program, 'u_line_opacity'), this.style.lines === false ? 0 : ISOLINE_LINE_OPACITY)
     gl.uniform1f(gl.getUniformLocation(program, 'u_opacity'), this.opacity)
     gl.enable(gl.BLEND)
@@ -573,8 +634,8 @@ export class IsolineLayer implements CustomLayerInterface {
 
   /** Gemiddelde zichtbare dekking van de vulling (pixelsample van de vultexture × laagdekking), voor e2e. */
   fillCoverage(): number {
-    const gl = this.gl, target = this.fillTarget
-    if (!gl || !target || !this.filled || this.style.fill <= 0 || !this.style.palette || this.opacity <= 0) return 0
+    const gl = this.gl, slice = this.shownDominant, target = slice?.fill
+    if (!gl || !target || !slice.filled || this.style.fill <= 0 || !this.style.palette || this.opacity <= 0) return 0
     const [width, height] = target.size
     const pixels = new Uint8Array(width * height * 4)
     const restore = saveTarget(gl)
@@ -607,14 +668,14 @@ export class IsolineLayer implements CustomLayerInterface {
   }
 
   /** Bandkleuren onder de lijnen, op de snede `time`; op ISOLINE_FILL_RESOLUTION (het is glad). */
-  private fillPass(gl: WebGL2RenderingContext, map: MapLibreMap, matrix: ArrayLike<number>, time: number): void {
-    this.filled = false
+  private fillPass(gl: WebGL2RenderingContext, map: MapLibreMap, matrix: ArrayLike<number>, slice: TracedSlice): void {
+    slice.filled = false
     if (this.style.fill <= 0 || !this.style.palette) return
     const [width, height] = this.targetSize(gl, ISOLINE_FILL_RESOLUTION)
     const restore = saveTarget(gl)
-    bindTarget(gl, this.fillTarget!, width, height)
+    bindTarget(gl, slice.fill, width, height)
     const program = this.fill!
-    const uniform = this.useField(gl, program, map, matrix, (window.devicePixelRatio || 1) * width / Math.max(1, gl.drawingBufferWidth), time)
+    const uniform = this.useField(gl, program, map, matrix, (window.devicePixelRatio || 1) * width / Math.max(1, gl.drawingBufferWidth), slice.time)
     gl.uniform1f(uniform('u_fill_base'), this.style.fill)
     gl.uniform1f(uniform('u_fill_smooth'), this.style.fillSmooth ? 1 : 0)
     gl.uniform2f(uniform('u_fill_value'), this.style.fillByValue?.[0] ?? 0, this.style.fillByValue?.[1] ?? 0)
@@ -622,13 +683,13 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.uniform1fv(uniform('u_palette_t[0]'), palette.temperatures)
     gl.uniform3fv(uniform('u_palette_c[0]'), palette.colors)
     gl.activeTexture(gl.TEXTURE2)
-    gl.bindTexture(gl.TEXTURE_2D, this.ringTexture!)
+    gl.bindTexture(gl.TEXTURE_2D, slice.ringTexture)
     gl.uniform1i(uniform('u_ring'), 2)
-    gl.uniform1f(uniform('u_has_ring'), this.hasRing ? 1 : 0)
+    gl.uniform1f(uniform('u_has_ring'), slice.hasRing ? 1 : 0)
     this.measure('fillMs', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4))
     this.stats.passPixels += width * height
     restore()
-    this.filled = true
+    slice.filled = true
     this.stats.fillPasses++
   }
 
@@ -663,11 +724,11 @@ export class IsolineLayer implements CustomLayerInterface {
     return uniform
   }
 
-  private uploadRingFade(gl: WebGL2RenderingContext, raster: Float32Array | undefined): void {
-    this.hasRing = !!raster
+  private uploadRingFade(gl: WebGL2RenderingContext, slice: TracedSlice, raster: Float32Array | undefined): void {
+    slice.hasRing = !!raster
     if (!raster) return
     gl.activeTexture(gl.TEXTURE2)
-    gl.bindTexture(gl.TEXTURE_2D, this.ringTexture!)
+    gl.bindTexture(gl.TEXTURE_2D, slice.ringTexture)
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG16F, this.grid.width, this.grid.height, 0, gl.RG, gl.FLOAT, raster)
   }
@@ -691,6 +752,38 @@ interface RenderTarget {
   texture: WebGLTexture
   framebuffer: WebGLFramebuffer
   size: [number, number]
+}
+
+/** Eén getraceerde snede met zijn offscreen lijnen en vulling. */
+interface TracedSlice {
+  /** Trace-verzoek (JSON) waar de geometrie bij hoort; '' = verouderd, maar nog tekenbaar. */
+  key: string
+  time: number
+  /** Uurlagen waar de trace op rust. */
+  layers: number[]
+  /** Volgnummer van de trace (0 = leeg). */
+  geometry: number
+  segments: WebGLBuffer
+  segmentCount: number
+  rings: ShortRing[]
+  ringTexture: WebGLTexture
+  hasRing: boolean
+  lines: RenderTarget
+  fill: RenderTarget
+  filled: boolean
+  /** Kaartbeeld + versie van de laatste pass. */
+  passed: string
+}
+
+function tracedSlice(gl: WebGL2RenderingContext): TracedSlice {
+  const ringTexture = gl.createTexture()!
+  gl.bindTexture(gl.TEXTURE_2D, ringTexture)
+  for (const parameter of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, parameter, gl.LINEAR)
+  for (const parameter of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T]) gl.texParameteri(gl.TEXTURE_2D, parameter, gl.CLAMP_TO_EDGE)
+  return {
+    key: '', time: 0, layers: [], geometry: 0, segments: gl.createBuffer()!, segmentCount: 0, rings: [], ringTexture, hasRing: false,
+    lines: renderTarget(gl), fill: renderTarget(gl), filled: false, passed: '',
+  }
 }
 
 function renderTarget(gl: WebGL2RenderingContext): RenderTarget {
@@ -782,6 +875,16 @@ class GpuTimer {
     for (const { query } of this.pending) this.gl.deleteQuery(query)
     this.pending.length = 0
   }
+}
+
+/**
+ * Snedes die de worker moet traceren: stil de exacte tijd, tijdens afspelen alleen de twee hele
+ * uren eromheen (U41) — de tussenstand is een overvloeiing, geen nieuwe trace.
+ */
+export function traceTimes(time: number, depth: number, moving: boolean): number[] {
+  if (!moving) return [time]
+  const base = Math.max(0, Math.min(depth - 1, Math.floor(time)))
+  return base + 1 < depth ? [base, base + 1] : [base]
 }
 
 /** Uurlagen die de snede op frame-index `time` raakt (lineair twee, B-spline vier). */
