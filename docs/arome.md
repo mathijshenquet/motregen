@@ -59,6 +59,8 @@ leden van run `2026082812` zijn:
 | 10m V-wind | 253 | 34 | type 105, 10 m | instant, `timeRangeIndicator=0` | m/s | geen |
 | globale stralingsenergie | 253 | 117 | type 105, 0 m | accumulatie vanaf runstart, `timeRangeIndicator=4` | J/m² | opeenvolgend verschil ÷ 3600 → W/m² |
 | totale bewolkingsgraad | 253 | 71 | type 105, 0 m | instant, `timeRangeIndicator=0` | fractie 0–1 | ×100 → % |
+| 10m U-windstoot | 253 | 162 | type 105, 10 m | maximum over het uur (`startStep`=lead−1), `timeRangeIndicator=2` | m/s | met V → `gust_ms` = \|(U, V)\| |
+| 10m V-windstoot | 253 | 163 | type 105, 10 m | idem | m/s | idem |
 
 ### Wind voor de motion-prior
 

@@ -119,6 +119,7 @@ niet nodig, `version`-veld leidt.
 | `feels_like_c` | °C | gevoelstemperatuur (serverside afgeleid) |
 | `wind_u_ms` | m/s | 10m-wind, oostwaartse component |
 | `wind_v_ms` | m/s | 10m-wind, noordwaartse component |
+| `gust_ms` | m/s | 10m-windstoot: maximale stoot in het uur tot de geldigheidstijd (scalair) |
 | `uv` | UV-index | zonkracht (cloud-modified) |
 | `uv_clear` | UV-index | zonkracht zonder wolken (KNMI `uvi_clear`, heel de dag; source `uv`) |
 | `rel_humidity` | % | 2m relatieve luchtvochtigheid |
@@ -149,6 +150,8 @@ frame kan zippen tot vectoren.
   index-dataset) — lost de T2b-WALL "contract mist UV-source" op; de door
   T2b gebruikte waarde is hiermee gelegitimeerd. NB (T2b-observatie): de
   live UV-file eindigt om 20:45 UTC waar de catalogus 21:45 zegt.
+- 2026-09-25: veld `gust_ms` toegevoegd (MIP-14, U36: windstoten in de
+  kolom Wind). Additief.
 - 2026-08-28: veldenlijst uitgebreid (PO: wind-particles, temp op kaart, UV):
   `temp_c`, `feels_like_c`, `wind_u_ms`/`wind_v_ms` (paar-regel), `uv`.
   Quant-regel versoepeld: alleen index 255 = null is universeel; `quant[0]

@@ -15,7 +15,7 @@ bytes. `pressure_hpa` gebruikt dezelfde codering.
 
 | gebruik | velden | grid | afmetingen |
 | --- | --- | ---: | ---: |
-| stadslabels, tabel en particles | `temp_c`, `feels_like_c`, `wind_u_ms`, `wind_v_ms` | 6 km | 209×225 |
+| stadslabels, tabel en particles | `temp_c`, `feels_like_c`, `wind_u_ms`, `wind_v_ms`, `gust_ms` | 6 km | 209×225 |
 | isobaren (windmodus) | `pressure_hpa` | 6 km | 209×225 |
 | zon/pictogram | `radiation` | 8 km | 157×169 |
 | geïntegreerde tabel/pictogram-input | `rel_humidity`, `cloud_frac` | 16 km | 79×85 |
@@ -34,6 +34,7 @@ lagere index.
 | `temp_c` | −31,2 °C | 0,3 °C | 45,0 °C | ruim Nederlands bereik, resolutie onder de waarneembare kaartprecisie |
 | `feels_like_c` | −31,2 °C | 0,3 °C | 45,0 °C | gelijk aan temperatuur voor directe vergelijking |
 | `wind_u_ms`, `wind_v_ms` | −31,75 m/s | 0,25 m/s | +31,75 m/s | exact symmetrisch met 0 op index 127 |
+| `gust_ms` | 0 m/s | 0,5 m/s | 127 m/s | stoot = \|(162, 163)\| per AROME-cel, daarna 6 km-blokgemiddelde zoals de wind; de bovenkant is ongebruikt (NL-record ≈ 40 m/s) |
 | `radiation` | 0 W/m² | 5 W/m² | 1270 W/m² | bestaande radiation-tabel blijft gelijk |
 | `uv` | 0 | 12/254 ≈ 0,0472 | 12 | volledige gebruikelijke UV-indexrange |
 | `rel_humidity` | 0 % | 100/254 ≈ 0,3937 % | 100 % | AROME 2m-RH is fractie 0–1 en wordt vóór kwantisatie ×100 |
