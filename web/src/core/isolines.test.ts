@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MrfHeader } from './contract'
-import { blendFrames, blurField, chaikin, ISOBAR_STEP_HPA, isolineColor, isolineFeatures, isolineLabelText, isolineLevels, marchingSquares, temporalWeights, type ScalarField } from './isolines'
+import { blendFrames, blurField, chaikin, ISOBAR_STEP_HPA, isolineColor, isolineFeatures, isolineLabelText, isolineLevels, marchingSquares, temporalWeights, type ScalarField, adaptiveIsobarStep, fieldRangeInView, isobarLineCount } from './isolines'
 
 function field(rows: number[][]): ScalarField {
   return { width: rows[0]!.length, height: rows.length, values: Float32Array.from(rows.flat()) }
@@ -199,5 +199,47 @@ describe('isobars (U35)', () => {
     for (const theme of ['light', 'dark'] as const) {
       expect(luminance(isolineColor(theme, 'pressure'))).toBeLessThan(luminance(isolineColor(theme)))
     }
+  })
+})
+
+describe('adaptive isobar step (U34)', () => {
+  it('counts the isobars a pressure range crosses', () => {
+    expect(isobarLineCount(1018.2, 1021.9, 4)).toBe(1)
+    expect(isobarLineCount(1018.2, 1021.9, 2)).toBe(1)
+    expect(isobarLineCount(1018.2, 1021.9, 1)).toBe(3)
+    expect(isobarLineCount(1000, 1016, 4)).toBe(5)
+    expect(isobarLineCount(1010, 1009, 1)).toBe(0)
+  })
+
+  it('picks the coarsest step that gives at least four lines', () => {
+    expect(adaptiveIsobarStep(996, 1020)).toBe(4)
+    expect(adaptiveIsobarStep(1015.5, 1022.5)).toBe(2)
+    expect(adaptiveIsobarStep(1018.2, 1021.9)).toBe(1)
+    // Nog vlakker dan 1 hPa per lijn: de fijnste stap is de ondergrens.
+    expect(adaptiveIsobarStep(1020.1, 1020.4)).toBe(1)
+  })
+
+  it('does not flip on small range changes (hysteresis)', () => {
+    // Bij 4 hPa zakt het bereik naar 3 lijnen: blijft 4 (fijner pas onder 3).
+    expect(adaptiveIsobarStep(1000.5, 1012.5, 4)).toBe(4)
+    // Onder 3 lijnen meteen naar de stap die er weer ≥ 4 geeft (hier pas 1 hPa).
+    expect(adaptiveIsobarStep(1001, 1007, 4)).toBe(1)
+    expect(adaptiveIsobarStep(1001, 1009, 4)).toBe(2)
+    // Bij 1 hPa geeft 2 hPa net 4 lijnen: blijft 1 (grover pas vanaf 6 lijnen).
+    expect(adaptiveIsobarStep(1014, 1020.5, 1)).toBe(1)
+    expect(adaptiveIsobarStep(1010, 1021, 1)).toBe(2)
+    expect(adaptiveIsobarStep(990, 1016, 1)).toBe(4)
+  })
+
+  it('takes min and max of the valid values inside the view', () => {
+    // 4×3-grid van 100 km-cellen vanaf (0 m, 5 000 km noord); waarde = kolom + 10 × rij, één ongeldige cel.
+    const grid = { x0: 0, y0: 5_000_000, dx: 100_000, dy: -100_000, width: 4, height: 3 } as Parameters<typeof fieldRangeInView>[2]
+    const values = Array.from({ length: 12 }, (_, index) => (index % 4) + 10 * Math.floor(index / 4))
+    const valid = values.map((_, index) => index === 0 ? 0 : 1)
+    const lng = (x: number) => x / 6_378_137 * 180 / Math.PI
+    const lat = (y: number) => (2 * Math.atan(Math.exp(y / 6_378_137)) - Math.PI / 2) * 180 / Math.PI
+    // Kader over kolom 0–1 en rij 0–1: cel 0 is ongeldig.
+    expect(fieldRangeInView(values, valid, grid, { west: lng(10_000), east: lng(190_000), north: lat(4_990_000), south: lat(4_810_000) })).toEqual([1, 11])
+    expect(fieldRangeInView(values, valid, grid, { west: lng(-900_000), east: lng(-800_000), north: lat(4_990_000), south: lat(4_810_000) })).toBeUndefined()
   })
 })

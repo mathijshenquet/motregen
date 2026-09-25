@@ -100,3 +100,6 @@
 - LET OP: docs/contract.md en MIP-4 ronde 3 zeggen "cloud_frac nooit als kaartlaag" — dit PO-besluit wijkt daarvan af; MIP-4 heeft een amendement nodig (PM).
 - Tests: tabel (Lucht-kolom, glyphstappen), cloud-section.spec (knop Lucht + sluier-canvas).
 - Receipts: typecheck 0; `pnpm test` 0 (46, 311); `… pnpm e2e e2e/cloud-section.spec.ts e2e/focus.spec.ts --project desktop` → E2E-EXIT 0 (9 passed, 2 skipped), één run.
+## 2026-09-25 — F: adaptieve isobaarstap
+- ISOBAR_STEPS_HPA [4, 2, 1]: grootste stap met ≥ 4 lijnen over het drukbereik in beeld (fieldRangeInView op het geladen uurframe, geldige cellen binnen map.getBounds()); hysterese: fijner pas bij < 3 lijnen, grover pas als de grovere ≥ 6 lijnen geeft. Bijgewerkt na elke drukveldlading en bij moveend; step/style zijn reactief, dus laag en labels volgen. Labels blijven hele hPa (veelvouden van 1/2/4).
+- Receipts: typecheck 0; `pnpm test` 0. Geen e2e.
