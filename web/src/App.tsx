@@ -818,13 +818,13 @@ export default function App() {
     return { step, fill: fillOpacity, fillSmooth: fillStyle === 'verloop', palette: range && paletteStops(range), color: hexColor(isolineColor(mapTheme())), gradientFade: fade === 'gradiënt' }
   }
 
-  function preparedIsolineField(frame: TimelineFrame, blur: number): Promise<{ grid: Grid; field: PreparedField }> {
-    const key = `${frame.chunk.url}#${frame.frameIndex}|${blur}`
+  function preparedIsolineField(frame: TimelineFrame): Promise<{ grid: Grid; field: PreparedField }> {
+    const key = `${frame.chunk.url}#${frame.frameIndex}`
     let prepared = preparedIsolineFields.get(key)
     if (!prepared) {
       prepared = Promise.all([load(frame), client.getHeader(frame.chunk)]).then(([data, header]) => {
         const { grid } = header
-        return { grid, field: prepareField(blurField(blendFrames([{ data, quant: header.quant, weight: 1 }], grid.width, grid.height), blur)) }
+        return { grid, field: prepareField(blurField(blendFrames([{ data, quant: header.quant, weight: 1 }], grid.width, grid.height), ISOLINE_BLUR)) }
       })
       prepared.catch(() => preparedIsolineFields.delete(key))
       preparedIsolineFields.set(key, prepared)
@@ -901,12 +901,11 @@ export default function App() {
     const frames = feelsLikeTimeline()
     const renderedMap = map
     if (!frames.length || !renderedMap?.getLayer('motregen-temperature')) return
-    const blur = ISOLINE_BLUR
     const blend = frameBlend(frames, selectedEpoch())
     const time = blend.left + blend.mix
     isolineTime = time
     // De diepte van het volume ligt vast per laag; welke run in welke uurlaag zit regelt
-    // setFrameKeys per index (manifest-refresh, blur).
+    // setFrameKeys per index (manifest-refresh).
     const key = String(frames.length)
     if (isolineLayer && isolineLayerKey !== key) unmountIsolines()
     const required = isolineLayerIndices(time, frames.length, ISOLINE_WINDOW)
@@ -914,7 +913,7 @@ export default function App() {
     const wanted = playing() ? [...required, Math.min(frames.length - 1, Math.floor(time) + 3)] : required
     try {
       if (!isolineLayer) {
-        const { grid } = await preparedIsolineField(frames[required[0]!]!, blur)
+        const { grid } = await preparedIsolineField(frames[required[0]!]!)
         if (map !== renderedMap || isolineLayer || !renderedMap.getLayer('motregen-temperature')) return
         isolineLayer = new IsolineLayer(grid, frames.length, isolineStyle())
         isolineLayerKey = key
@@ -930,11 +929,11 @@ export default function App() {
         void showIsolines()
       }
       const layer = isolineLayer
-      const frameKeys = frames.map((frame) => `${frame.chunk.url}#${frame.frameIndex}|${blur}`)
+      const frameKeys = frames.map((frame) => `${frame.chunk.url}#${frame.frameIndex}`)
       for (const index of layer.setFrameKeys(frameKeys)) isolineFields[index] = undefined
       layer.setTime(time)
       await Promise.all(wanted.filter((index) => !layer.hasLayer(index)).map(async (index) => {
-        const prepared = await preparedIsolineField(frames[index]!, blur)
+        const prepared = await preparedIsolineField(frames[index]!)
         if (layer !== isolineLayer || layer.frameKey(index) !== frameKeys[index] || !sameGrid(prepared, { grid: layer.grid })) return
         isolineFields[index] = prepared.field
         layer.setLayer(index, prepared.field)

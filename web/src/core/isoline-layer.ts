@@ -361,7 +361,7 @@ export class IsolineLayer implements CustomLayerInterface {
   }
 
   /**
-   * Identiteit per uurlaag (chunk, frame, blur). Een manifest-refresh met een nieuwe run
+   * Identiteit per uurlaag (chunk, frame). Een manifest-refresh met een nieuwe run
    * vervangt frames midden in de tijdlijn bij gelijke diepte; die lagen moeten opnieuw geüpload
    * worden, anders tekent de snede de oude run. Geeft de gewijzigde indices terug.
    */

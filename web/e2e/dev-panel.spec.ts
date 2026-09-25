@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 // MIP-12: ?dev is de enige poort; het paneel is gegroepeerd en elke knop legt zichzelf uit.
-test('dev panel only behind ?dev, grouped, every control explained', async ({ page }) => {
+test('dev panel only behind ?dev, grouped, every control explained', async ({ page }, testInfo) => {
   await page.goto('/?perf=1&histogram=wait&zon=markering&uvbalk=stip')
   await expect(page.locator('.map-splash.ready')).toBeAttached()
   await expect(page.getByTestId('dev-panel')).toHaveCount(0)
@@ -33,4 +33,9 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   await expect(page.getByTestId('perf-hud')).toBeVisible()
   await perfToggle.uncheck()
   await expect(page.getByTestId('perf-hud')).toBeHidden()
+
+  for (const summary of await groups.locator('> summary').all()) {
+    if (!await summary.evaluate((element) => (element.parentElement as HTMLDetailsElement).open)) await summary.click()
+  }
+  await panel.screenshot({ path: testInfo.outputPath('dev-panel.png') })
 })
