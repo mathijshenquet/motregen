@@ -33,6 +33,10 @@ product manager (proposals, specs, verification), codex agents
 ## Conventions
 - One spec file per track in `.dev/specs/`; tell the agent where its LOG.md lives and to
   keep it current (append-only, timestamped).
+- e2e op de dev-host: `pnpm e2e*` loopt via `web/scripts/e2e-slot.sh` (twee slots, één
+  Chromium per slot). Workers draaien onder een slot alleen hun EIGEN en geraakte spec-
+  bestanden (`pnpm e2e e2e/<naam>.spec.ts …`); de volledige suite draait de orkestrator op
+  de rebased merge-kandidaat vóór elke merge (PO 2026-09-25).
 - A receipt is a SYNCHRONOUS exit status you observed; detached or quiet output is not
   a receipt. Agent "green" claims get independently re-verified before merge — leave
   exact repro commands in your LOG.

@@ -89,3 +89,9 @@ blijft werken. Haal alle andere transformaties weg (tilt en rotatie)."
 MOTREGEN_E2E_DATA_PORT=8368 pnpm e2e` (hostlock, load < 16, één Chromium,
 poorten vooraf vrij) groen, synchrone exit statussen in de LOG. Draft-PR
 vroeg. Geen codex.
+
+## Aanvulling PO (2026-09-25; als queued prompt gestuurd)
+
+- De pin (maplibregl-marker) krijgt meer ruimte: op sommige zoomniveaus wordt de rand
+  boven/links/rechts subtiel afgekapt. Fix zonder de anchor te verschuiven; 200 %-crops
+  op twee zoomniveaus in de LOG.
