@@ -1,18 +1,23 @@
-import { expect, test, type BrowserContext, type Page } from '@playwright/test'
+import { readFileSync } from 'node:fs'
+import { expect, test, type Page, type TestInfo } from '@playwright/test'
 
 // MIP-13: exact deze velden mogen in het baken staan (docs/analytics.md, core/usage.ts).
 const FEATURES = ['pinFeel', 'pinWind', 'hover', 'search', 'geo', 'fav', 'pin', 'play', 'scrub', 'history', 'fresh', 'about']
 const REQUIRED = ['range', 'theme', 'coarse', 'width', 'dur']
 
-function captureBeacons(context: BrowserContext): Array<Record<string, unknown>> {
-  const beacons: Array<Record<string, unknown>> = []
-  void context.route('**/hit', async (route) => {
-    const request = route.request()
-    expect(request.method()).toBe('POST')
-    beacons.push(JSON.parse(request.postData() ?? 'null') as Record<string, unknown>)
-    await route.fulfill({ status: 204 })
-  })
-  return beacons
+// De preview-server schrijft elke ontvangen /hit-body als regel weg (vite.config.ts, playwright.config.ts).
+// Serverkant tellen, want een baken van een sluitende tab ziet Playwrights routering niet meer.
+function receivedBeacons(testInfo: TestInfo): () => Array<Record<string, unknown>> {
+  const log = `tmp/hits-${new URL(testInfo.project.use.baseURL!).port}.jsonl`
+  const read = () => {
+    try {
+      return readFileSync(log, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>)
+    } catch {
+      return []
+    }
+  }
+  const before = read().length
+  return () => read().slice(before)
 }
 
 function manifestRequests(page: Page): string[] {
@@ -32,8 +37,8 @@ async function openApp(page: Page): Promise<void> {
   await expect(page.locator('.map-splash.ready')).toBeAttached()
 }
 
-test('the beacon waits for hidden visibility, is sent once and carries only whitelisted fields', async ({ page, context }, testInfo) => {
-  const beacons = captureBeacons(context)
+test('the beacon waits for hidden visibility, is sent once and carries only whitelisted fields', async ({ page }, testInfo) => {
+  const beacons = receivedBeacons(testInfo)
   const manifests = manifestRequests(page)
   await openApp(page)
 
@@ -46,7 +51,7 @@ test('the beacon waits for hidden visibility, is sent once and carries only whit
 
   // Tijdens de sessie: geen baken, en alleen het eerste manifest draagt de sessievlag.
   await page.waitForTimeout(300)
-  expect(beacons).toEqual([])
+  expect(beacons()).toEqual([])
   expect(manifests.length).toBeGreaterThanOrEqual(1)
   expect(new URL(manifests[0]!).search).toBe('?s=1')
   for (const url of manifests.slice(1)) expect(new URL(url).search).toBe('')
@@ -56,27 +61,27 @@ test('the beacon waits for hidden visibility, is sent once and carries only whit
     document.dispatchEvent(new Event('visibilitychange'))
   }, state)
   await setVisibility('hidden')
-  await expect.poll(() => beacons.length).toBe(1)
-  const body = beacons[0]!
+  await expect.poll(() => beacons().length).toBe(1)
+  const body = beacons()[0]!
   expectWhitelisted(body)
   expect(body).toMatchObject({ about: true, range: '24', theme: 'light', dur: '<1' })
   const mobile = testInfo.project.name !== 'desktop'
   expect(body.coarse).toBe(mobile)
   expect(body.width).toBe(mobile ? '<430' : '>=960')
 
-  // Terug naar zichtbaar en weer weg: geen tweede sessie, ook niet bij pagehide.
+  // Terug naar zichtbaar en weer weg, daarna sluiten: geen tweede sessie.
   await setVisibility('visible')
   await setVisibility('hidden')
   await page.close({ runBeforeUnload: true })
-  await page.waitForTimeout(300)
-  expect(beacons).toHaveLength(1)
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  expect(beacons()).toHaveLength(1)
 })
 
-test('closing the tab sends the beacon', async ({ page, context }) => {
-  const beacons = captureBeacons(context)
+test('closing the tab sends the beacon', async ({ page }, testInfo) => {
+  const beacons = receivedBeacons(testInfo)
   await openApp(page)
-  expect(beacons).toEqual([])
+  expect(beacons()).toEqual([])
   await page.close({ runBeforeUnload: true })
-  await expect.poll(() => beacons.length).toBe(1)
-  expectWhitelisted(beacons[0]!)
+  await expect.poll(() => beacons().length).toBe(1)
+  expectWhitelisted(beacons()[0]!)
 })

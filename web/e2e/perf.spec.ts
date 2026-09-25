@@ -45,7 +45,15 @@ test('user journey measures performance and cache behaviour', async ({ page, con
   const errors: string[] = []
   page.on('console', (message) => { if (message.type() === 'error') errors.push(`console: ${message.text()}`) })
   page.on('pageerror', (error) => errors.push(`page: ${error.message}`))
-  page.on('requestfailed', (request) => errors.push(`request: ${request.url()} (${request.failure()?.errorText ?? 'failed'})`))
+  // Het gebruiksbaken (MIP-13) vertrekt pas als de pagina verdwijnt (hier: de warme reload); de keepalive-POST
+  // komt wel aan (e2e/usage.spec.ts telt serverkant), maar Playwright meldt hem voor het oude document als
+  // ERR_ABORTED. Tijdens een sessie mag er géén baken gaan: dat telt beaconRequests.
+  const beaconRequests: string[] = []
+  page.on('request', (request) => { if (new URL(request.url()).pathname === '/hit') beaconRequests.push(request.url()) })
+  page.on('requestfailed', (request) => {
+    if (new URL(request.url()).pathname === '/hit' && request.failure()?.errorText === 'net::ERR_ABORTED') return
+    errors.push(`request: ${request.url()} (${request.failure()?.errorText ?? 'failed'})`)
+  })
 
   const cdp = await context.newCDPSession(page)
   const network = await observeNetwork(cdp)
@@ -70,6 +78,7 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     await page.waitForLoadState('networkidle')
     passive = await perfSnapshot(page)
     if (!live) expect(passive.network.chunks.bytes).toBeLessThanOrEqual(passiveChunkByteBudget)
+    expect(beaconRequests, 'geen gebruiksbaken tijdens de sessie').toEqual([])
     expect(errors).toEqual([])
     console.log(`${profile.label}: cold TTFR ${cold.ttfrMs} ms; passive chunks ${passive.network.chunks.bytes} B`)
   })
@@ -176,6 +185,7 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     if (!live) {
       expect(warm.ttfrMs).toBeLessThan(profile.warmTtfrBudgetMs)
       expect(warm.network.manifest.requests).toBe(1)
+      expect(beaconRequests, 'precies één baken: dat van de koude pagina bij de reload').toHaveLength(1)
       expect(warm.network.chunks.bytes).toBeLessThanOrEqual(profile.warmChunkByteBudget)
     }
     expect(errors).toEqual([])
