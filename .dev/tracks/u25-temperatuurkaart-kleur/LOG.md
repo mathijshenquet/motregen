@@ -68,3 +68,28 @@ Geen nieuwe ?-URL-parameters.
   U25 200/212 ms, 25/23 passes + evenveel fillPasses. Binnen ruis.
 - Randzaak: `web/public/data/chunks/uv_clear-20260828.mrf` valt onder `.gitignore` (`data/`) en ontbreekt dus in
   verse worktrees → `mrf.test.ts` faalt daar (bestaand, niet door U25). Lokaal gekopieerd uit de hoofdcheckout.
+
+## 2026-09-25 ~10:10 — e2e-fix, volledige suite, rebase
+- Eerste volledige e2e (HEAD ccd50a0, oude lock) → E2E-EXIT: 1: mijn nieuwe focus-test las `--map-saturation`
+  direct na `data-focus="0.00"` (afgerond; tween stond nog op 0,998). Fix 7d1dc10: `expect.poll` op
+  verzadiging en vuldekking. Geen productfout.
+- Volledige e2e op 7d1dc10 (oude lock, liep al vóór de slot-regel; load 12,6 bij start) → **E2E-EXIT: 0** (32 passed, 28 skipped, 8,8 min).
+- Rebase op origin/main 2cee6eb (incl. 211b57f e2e-slots) zonder conflicten → HEAD 7f564bf.
+
+## 2026-09-25 ~10:20 — gates op 7f564bf (synchroon, web/)
+- `direnv exec .. pnpm typecheck` → TYPECHECK-EXIT: 0
+- `direnv exec .. pnpm test` → TEST-EXIT: 0 (43 files, 253 tests)
+- `direnv exec .. pnpm build` → BUILD-EXIT: 0
+- Gericht onder slot (nieuwe regel): `MOTREGEN_E2E_PORT=4366 MOTREGEN_E2E_DATA_PORT=8366 direnv exec .. pnpm e2e
+  e2e/focus.spec.ts e2e/perf.spec.ts` (focus = eigen spec; perf = raakt de kaart-/isolijnpasses) → **E2E-EXIT: 0**
+  (13 passed, 20 skipped, 3,6 min). Volledige suite op de merge-kandidaat is aan de orkestrator.
+
+## Samenvatting voor de orkestrator / PO
+- Klaar: dunne uniforme isolijnen (0,9–1,4 CSS-px, was 1,3–2,0 en oneven de helft; `odd` + stippelcode
+  weg); basiskaart geanimeerd gedesatureerd via compositorfilter (0 renders/passes in rust, gemeten);
+  KNMI-bandvulling onder de lijnen met afstandsafval en lijnfade-menging (gradiënt + ringraster uit de tracer).
+- **PO-keuzes** (daarna vervallen de knoppen, zie tabel MIP-12): vulling 0,08 / **0,12 (default)** / 0,18
+  (`shots/fill-*`, `after-*`); afval 70 %; verzadiging 55 %. Mijn advies: 0,18 in licht, bij de
+  9–16 °C van vandaag leest 0,12 bijna als niets.
+- Open: telefoon-meting van de filterkosten (alleen SwiftShader gemeten); `uv_clear-20260828.mrf` valt onder
+  `.gitignore` (verse worktrees missen hem → mrf.test faalt daar; bestaand, niet U25).
