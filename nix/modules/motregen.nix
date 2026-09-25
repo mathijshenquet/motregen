@@ -152,6 +152,16 @@ in
       description = "Package providing motregen-cams (daily CAMS pollen/air-quality job).";
     };
 
+    camsInManifest = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Let the ingest daemon add the daily CAMS pollen/air-quality chunks (cams.json) to
+        manifest.json. Off until the client uses them: they add ~18 KB to every manifest poll
+        and ~63 KB of header prefetch per session (docs/pollen.md).
+      '';
+    };
+
     frontendPackage = lib.mkOption {
       type = lib.types.package;
       default = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-web;
@@ -236,6 +246,7 @@ in
 
       environment = {
         MOTREGEN_DATA_DIR = cfg.dataDir;
+        MOTREGEN_CAMS_IN_MANIFEST = lib.boolToString cfg.camsInManifest;
         RUST_LOG = "info";
       };
 

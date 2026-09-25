@@ -17,13 +17,18 @@ Het enige bestand dat de client pollt. JSON:
   "chunks": [
     {
       "url": "chunks/rtcor-20260828T1200.mrf",  // relatief aan het manifest
-      "source": "rtcor",                  // "rtcor" | "nowcast" | "seamless" | "harmonie" | "uv"
+      "source": "rtcor",                  // "rtcor" | "nowcast" | "seamless" | "harmonie" | "uv" | "cams"
       "field": "rain_rate",               // optioneel; ontbreekt ⇒ "rain_rate". Zie veldenlijst onderaan
       "run": "2026-08-28T12:00:00Z",      // run-/referentietijd van de bron
       "header_len": 1342,                 // totale headerlengte in bytes (magic t/m JSON)
       "times": ["2026-08-28T12:00:00Z", "2026-08-28T12:05:00Z"]  // geldigheidstijden, volgorde = frame-volgorde in de chunk
     }
-  ]
+  ],
+  "cams": {                              // optioneel: aanwezig zodra er CAMS-chunks zijn
+    "run": "2026-09-25T00:00:00Z",
+    "provider": "ads",                   // "ads" | "open-meteo"
+    "license": "Contains modified Copernicus Atmosphere Monitoring Service information"
+  }
 }
 ```
 
@@ -125,6 +130,8 @@ niet nodig, `version`-veld leidt.
 | `rel_humidity` | % | 2m relatieve luchtvochtigheid |
 | `cloud_frac` | % | totale bewolkingsgraad (alleen voor pictogram-afleiding; nooit als kaartlaag — MIP-4 ronde 3) |
 | `pressure_hpa` | hPa | luchtdruk op zeeniveau (isobaren in windmodus) |
+| `pollen_alder`, `pollen_birch`, `pollen_grass`, `pollen_mugwort` | korrels/m³ | CAMS-pollenverwachting (source `cams`); alleen in het seizoen van de soort gepubliceerd (docs/pollen.md) |
+| `pm25`, `pm10`, `no2`, `o3` | µg/m³ | CAMS-luchtkwaliteitsverwachting (source `cams`) |
 
 `wind_u_ms`/`wind_v_ms` worden altijd als paar gepubliceerd met identiek
 grid, identieke tijden en gelijke frame-volgorde, zodat een client ze per
@@ -177,3 +184,8 @@ frame kan zippen tot vectoren.
   luchtdruk op zeeniveau, hPa; zelfde 6km-grid, chunking en leads als `temp_c`,
   predictieve frames). Additief: bestaande clients selecteren chunks op
   `field` en slaan een onbekend veld over.
+- 2026-09-25 (U39, ter review door orchestrator): source `"cams"` met velden
+  `pollen_alder`/`pollen_birch`/`pollen_grass`/`pollen_mugwort` (korrels/m³, log-kwantisatie)
+  en `pm25`/`pm10`/`no2`/`o3` (µg/m³), eigen 6 km-grid NL+Vlaanderen, `pred`-frames; optionele
+  manifest-sectie `cams` met `run`, `provider` en de verplichte attributie `license`.
+  Additief voor clients die `cams` negeren (behalve de bekende `pred`-eis). Zie docs/pollen.md.

@@ -80,6 +80,10 @@ struct Config {
         value_parser = parse_duration
     )]
     cache_age: Duration,
+    /// Add the daily CAMS publication (cams.json) to the manifest. Off until a client
+    /// uses it: every manifest poll and header prefetch would carry it (docs/pollen.md).
+    #[arg(long, env = "MOTREGEN_CAMS_IN_MANIFEST")]
+    cams_in_manifest: bool,
     #[arg(long)]
     once: bool,
     #[arg(long, value_parser = parse_duration)]
@@ -524,6 +528,9 @@ impl Daemon {
     }
 
     fn refresh_cams(&mut self) -> Result<bool> {
+        if !self.config.cams_in_manifest {
+            return Ok(false);
+        }
         let changed = self
             .cams
             .refresh(&self.config.data_dir, chrono::Utc::now())?;
@@ -749,6 +756,7 @@ mod tests {
                 arome_history_hours: 0,
                 prune_age: Duration::from_secs(21_600),
                 cache_age: Duration::from_secs(43_200),
+                cams_in_manifest: false,
                 once: false,
                 run_for: None,
                 api_base: Some("http://127.0.0.1".into()),
@@ -824,6 +832,7 @@ mod tests {
     fn cams_sidecar_joins_the_manifest_with_its_attribution() {
         let directory = tempfile::tempdir().unwrap();
         let mut daemon = test_daemon(directory.path().into(), idle_test_worker());
+        daemon.config.cams_in_manifest = true;
         daemon.rtcor = Some(test_chunk("rtcor", "2026-09-25T10:00:00Z", "rtcor-now.mrf"));
         daemon.arome.push(test_chunk(
             "harmonie",

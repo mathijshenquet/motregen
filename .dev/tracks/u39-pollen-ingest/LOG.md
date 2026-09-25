@@ -35,3 +35,20 @@
   parserbug (`time`-array strings); test aangescherpt en gefixt.
 - Inhoudscheck De Bilt (52,10 N 5,18 E) gedecodeerd vs Open-Meteo-punt: O₃ 12Z 74,0/74,0,
   NO₂ 00Z 19,5/19,3, PM2,5 8,0/8,1 — tijdas en oriëntatie kloppen.
+
+## 2026-09-25 15:05 UTC — Nix, docs, manifest-vlag
+- Nix: `motregen-cams.service` (oneshot, DynamicUser met `User=motregen-ingest`, zelfde
+  StateDirectory/EnvironmentFile, Restart=on-failure na 30 min) + `motregen-cams.timer`
+  09:00 UTC Persistent; pakket wrapt beide binaries; VM-test draait de job op de ADS-fixture.
+- Eerste `nix flake check`: FLAKE-CHECK-EXIT 1 — terecht gevangen: vanaf de host is de CAMS-chunk
+  eigendom van uid 65534 terwijl de ingest als 63278 draait (idmapped StateDirectory?). Test
+  herschreven naar wat telt: eigenaar + schrijf/lees-recht gezien vanuit de mount-namespace van
+  de draaiende ingest (nsenter met diens uid/gid); host-view wordt geprint voor de LOG.
+- Meting: prod-manifest nu 27 chunks, 103 263 B headers, 26 318 B JSON. CAMS in het manifest:
+  +20 chunks, +63 262 B header-prefetch per sessie (client haalt alle headers, App.tsx:284),
+  +18 513 B per manifest-poll. Besluit (ter review orkestrator/PO): daemon-vlag
+  `MOTREGEN_CAMS_IN_MANIFEST` / NixOS `services.motregen.camsInManifest`, standaard UIT;
+  U38 zet hem aan samen met een client die alleen getoonde velden prefetcht, of serveert
+  cams.json als op-aanvraag-manifest (MIP-14 data-op-aanvraag).
+- Docs: `docs/pollen.md` (sleutel-stappen PO, exact ADS-request, GRIB-mapping, fixture-herkomst,
+  kalender, kwantisatie, licentie), contract.md-amendement, ingest.md-verwijzing.

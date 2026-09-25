@@ -102,13 +102,22 @@
     assert sidecar["run"] == "2026-09-25T00:00:00Z" and sidecar["provider"] == "ads", sidecar
     fields = sorted(chunk["field"] for chunk in sidecar["chunks"])
     assert fields == ["no2", "o3", "pm10", "pm25", "pollen_mugwort"], fields
-    ingest_uid = machine.succeed(
-      "ps -o uid= -p \"$(systemctl show -p MainPID --value motregen-ingest.service)\""
-    ).strip()
+    # Eigenaarschap zoals de draaiende ingest het ziet (StateDirectory kan idmapped zijn):
+    # de daemon moet cams.json lezen en verlopen CAMS-chunks kunnen prunen.
+    ingest_pid = machine.succeed("systemctl show -p MainPID --value motregen-ingest.service").strip()
+    ingest_uid = machine.succeed(f"ps -o uid= -p {ingest_pid}").strip()
+    ingest_gid = machine.succeed(f"ps -o gid= -p {ingest_pid}").strip()
+    print("host-view owner:", machine.succeed(f"stat -L -c '%u %g' /var/lib/motregen/{sidecar['chunks'][0]['url']}"))
+    in_ingest = f"nsenter -t {ingest_pid} -m -S {ingest_uid} -G {ingest_gid} --"
     for chunk in sidecar["chunks"]:
       assert chunk["source"] == "cams" and len(chunk["times"]) == 24, chunk
-      owner = machine.succeed(f"stat -L -c %u /var/lib/motregen/{chunk['url']}").strip()
+      owner = machine.succeed(f"{in_ingest} stat -L -c %u /var/lib/motregen/{chunk['url']}").strip()
       assert owner == ingest_uid, (owner, ingest_uid, chunk["url"])
+    machine.succeed(
+      f"{in_ingest} sh -c 'cp /var/lib/motregen/{sidecar['chunks'][0]['url']} /var/lib/motregen/chunks/probe"
+      " && rm /var/lib/motregen/chunks/probe && test -r /var/lib/motregen/cams.json'"
+    )
+    for chunk in sidecar["chunks"]:
       status = machine.succeed(
         f"curl --silent --output /dev/null --write-out '%{{http_code}}' http://localhost/data/{chunk['url']}"
       )
