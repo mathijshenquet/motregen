@@ -121,6 +121,8 @@ export default function App() {
     sliceTime: isolineLayer ? isolineTime : undefined,
     coverage: isolineCoverage(),
   })
+  // e2e-meetpunt: exacte schermprojectie van de kaart (marker-positiechecks zonder herberekening).
+  ;(window as unknown as { __motregenProject: (lng: number, lat: number) => { x: number; y: number } | undefined }).__motregenProject = (lng, lat) => map?.project([lng, lat])
   // Meetpunt voor de kostenmeting (track-LOGs U8b/U8c): repaints, contour-passes, blits, label-rondes.
   ;(window as unknown as { __motregenIsolines: () => object }).__motregenIsolines = () => ({
     ...isolineCounters(),

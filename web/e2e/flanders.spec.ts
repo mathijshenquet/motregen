@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test'
-import type { MapView } from '../src/core/location-memory'
 
 const gent = { lng: 3.7254525688821025, lat: 51.07443065791977 }
 
@@ -28,23 +27,12 @@ test('searching "Gent" offers the Belgian city and puts the pin there', async ({
 
   await expect(scrubber).toHaveAttribute('aria-label', /voor Gent$/)
   await expect(input).toHaveValue('Gent')
-  // De pin staat op Gent: marker-punt (onderkant midden) tegen de projectie van de opgeslagen kaartview.
+  // De pin staat op Gent: marker-punt (onderkant midden) tegen de projectie van de kaart zelf.
   await page.waitForTimeout(800)
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-map-view'))).not.toBeNull()
-  const view = await page.evaluate(() => JSON.parse(localStorage.getItem('motregen-map-view')!) as MapView)
   const map = (await page.locator('.map').boundingBox())!
   const marker = (await page.locator('.maplibregl-marker').first().boundingBox())!
-  const worldSize = 512 * 2 ** view.zoom
-  const expected = {
-    x: map.x + map.width / 2 + (gent.lng - view.lng) / 360 * worldSize,
-    y: map.y + map.height / 2 + (mercatorY(gent.lat) - mercatorY(view.lat)) * worldSize,
-  }
-  // Opgeslagen views zijn afgerond (5 decimalen, zoom 2): een paar pixels speling.
-  expect(Math.abs(marker.x + marker.width / 2 - expected.x)).toBeLessThan(6)
-  expect(Math.abs(marker.y + marker.height - expected.y)).toBeLessThan(6)
+  const projected = (await page.evaluate(([lng, lat]) => (window as unknown as { __motregenProject: (lng: number, lat: number) => { x: number; y: number } }).__motregenProject(lng, lat), [gent.lng, gent.lat]))!
+  expect(Math.abs(marker.x + marker.width / 2 - (map.x + projected.x))).toBeLessThan(3)
+  // De standaard MapLibre-pin heeft ~7 px lege ruimte onder de punt in zijn SVG-box; de punt zelf zit op het punt.
+  expect(Math.abs(marker.y + marker.height - (map.y + projected.y))).toBeLessThan(10)
 })
-
-function mercatorY(lat: number): number {
-  const phi = lat * Math.PI / 180
-  return (1 - Math.log(Math.tan(Math.PI / 4 + phi / 2)) / Math.PI) / 2
-}
