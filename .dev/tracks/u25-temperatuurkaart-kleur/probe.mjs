@@ -31,8 +31,9 @@ const info = await page.evaluate(() => ({
   saturation: getComputedStyle(document.querySelector('.map-shell')).getPropertyValue('--map-saturation'),
   filter: getComputedStyle(document.querySelector('.maplibregl-canvas')).filter,
   stats: window.__motregenIsolines?.(),
+  legend: document.querySelector(".temperature-legend")?.getAttribute("aria-label"),
 }))
-console.log(label, JSON.stringify({ saturation: info.saturation, filter: info.filter, passes: info.stats?.passes, fillPasses: info.stats?.fillPasses, fillMs: info.stats?.fillMs, passMs: info.stats?.passMs }))
+console.log(label, JSON.stringify({ saturation: info.saturation, filter: info.filter, passes: info.stats?.passes, fillPasses: info.stats?.fillPasses, range: info.stats?.paletteRange, legend: info.legend }))
 if (process.env.PERF) {
   await page.waitForTimeout(1500)
   const result = await page.evaluate(async () => {

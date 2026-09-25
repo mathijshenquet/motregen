@@ -131,3 +131,40 @@ Geen nieuwe ?-URL-parameters.
   Afval- en verzadigingsknop blijven weg (afval bestaat niet meer; verzadiging 55 % constant).
 - Synthetisch koud bereik: `MOTREGEN_SYNTH_TEMP_SHIFT=-12` geeft **−4…10 °C** (synthgen heeft ~14 °C spreiding over
   de passieve 18 u; −3…6 lukt niet met alleen een verschuiving). Toont het 0 °C-anker: −4…0 blauw → lichtblauw.
+
+## 2026-09-25 ~11:55 — twee fouten op prod-data gevonden via de stills, gefixt (e780b26)
+- **Vulling tekende niet** (`fillPasses: 0` op prod, wel op de koude synthdata): `isolineLayer?.setStyle(isolineStyle())`
+  evalueert het argument niet zolang de laag nog niet bestaat → het effect volgde `temperatureRange` niet, een
+  later binnenkomend bereik kwam nooit in de laag. Fix: stijl buiten de optional chain berekenen.
+- **Bereik 1…30 °C op 25-09** terwijl NL 9–17 is: het rooster (209×225) reikt ver in Duitsland (zon: gevoeld tot
+  27 °C) en de 18 u lopen door de nacht. Gemeten op de geladen snedes: p01/p99 over het hele rooster 9,8–21,3 (één
+  uur) tot 10,1–25,7. Fix: alleen cellen binnen `NETHERLANDS_FLANDERS_BOUNDS` (het kaartkader). Resultaat vandaag
+  **5…26 °C** (nacht t/m middag, echt), synth-koud **−3…9 °C**. Afwijking van de spec-letter ("over de geladen
+  velden"): bewust, anders verdeelt het palet 29 banden over 8 tinten.
+
+## 2026-09-25 ~12:00 — stills (`shots/u25b-*`, script `u25b-shots.sh` + `probe.mjs`, onder één slot, startload 15,6)
+- vóór = main 61078b0 (U25: 0,12 + afval, vast palet), na = e780b26 (0,7, vlakke banden, gerekt), prod-data 25-09 ~11:40;
+  desktop + Pixel 5, licht/donker; dekking 0,5 / 0,7 / 0,9 (desktop licht/donker); koud (synthgen −12 °C) desktop
+  licht/donker + Pixel 5; plaatsnamen-uitsnede (DPR 2) bij 0,7 en 0,9.
+- Oordeel: buurbanden zijn nu onderscheidbaar (zee groenblauw, NL geelgroen, België oranje). Bij **0,7** blijven
+  plaatsnamen en kust leesbaar; bij **0,9** worden plaatsnamen erg vaag (de vulling ligt boven het hele kaartcanvas,
+  labels incl.). Voor 0,9 zouden de kaartlabels boven de vulling moeten (symboollagen naar een eigen canvas) —
+  niet gebouwd, PO-keuze. Desaturatie 55 % hoeft bij 0,7 niet verder omlaag.
+- Legenda: bandblokken (niet continu — de vulling is nu discreet, de legenda volgt), in de bron-pil. **Mobiel
+  blijft hij staan**: de pil loopt op Pixel 5 over de volle breedte onderin en er zit links niets meer
+  (brand-knop staat nu boven), dus hij vervuilt het kaartvlak niet.
+
+## 2026-09-25 ~12:15 — gates op e780b26 (synchroon, web/)
+- `direnv exec .. pnpm typecheck` → TYPECHECK-EXIT: 0
+- `direnv exec .. pnpm test` → TEST-EXIT: 0 (43 files, 262 tests)
+- `direnv exec .. pnpm build` → BUILD-EXIT: 0
+- Gericht onder slot, startload 21,6: `MOTREGEN_E2E_PORT=4366 MOTREGEN_E2E_DATA_PORT=8366 direnv exec .. pnpm e2e
+  e2e/focus.spec.ts e2e/perf.spec.ts` → **E2E-EXIT: 0** (13 passed, 20 skipped, 4,2 min). Volledige suite = orkestrator.
+
+## Samenvatting U25b voor orkestrator / PO
+- Klaar: palet lokaal gerekt (bereik per run over de passieve 18 u binnen NL+Vlaanderen, ≥ 8 °C, hele graden,
+  ankers 0 °C blauw / 25 °C rood); dekkende vlakke banden per stap met scherpe grens op de lijn (Buienradar),
+  geen afstandsafval; isolijnen dun erop; legenda (bandblokken + min/max) in de bron-pil, ook op mobiel.
+- **PO-keuze**: dekking 0,5 / **0,7 (default)** / 0,9 → knop "Vulling" vervalt daarna. 0,9 vraagt labels boven de vulling.
+- Afwijkingen van de spec-letter, gemotiveerd hierboven: bereik over de tabel-frames t/m +18 u (niet alle 52: ~535 kB)
+  en binnen het kaartkader (niet het hele rooster); koude still −3…9 i.p.v. −3…6 (synthgen-spreiding).
