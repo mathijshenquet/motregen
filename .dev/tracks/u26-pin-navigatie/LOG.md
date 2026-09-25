@@ -79,3 +79,78 @@
 - Gericht te draaien (eigen + geraakt): `e2e/pin-navigation.spec.ts` (nieuw), `e2e/map-zoom.spec.ts`
   (ctrl-wiel op touch), `e2e/location.spec.ts` (pin-marker wordt nu hergebruikt i.p.v. vervangen;
   tik-op-kaart-gedrag). Daarna pin-crops onder een slot.
+
+## 2026-09-25 10:40 UTC — pin-ruimte geverifieerd (crops), gerichte e2e groen
+- Gerichte e2e op 6f17a19 (rebased op 211b57f), via `scripts/e2e-slot.sh`:
+  `MOTREGEN_E2E_PORT=4368 MOTREGEN_E2E_DATA_PORT=8368 pnpm e2e e2e/pin-navigation.spec.ts
+  e2e/map-zoom.spec.ts e2e/location.spec.ts` → FULL-GATE-EXIT: 0 (13 passed, 14 skipped: de
+  profielfilters van de specs; mobile-fast-3g draait deze gedragsspecs niet).
+- Crops, eerste poging (padding `2px 2px 0`): de meting liet zien dat de standaardmarker op zijn
+  **midden** ankert (`translate(-50%,-50%)` + offset −14), niet onderaan. Padding alleen boven
+  schoof de pin 1 px omlaag (tip y 406,5 → 407,5). Gecorrigeerd naar `padding: 2px` rondom.
+- Crops, eind (`pin-crops.mjs`, vast kader 381,356 48×58 CSS px, 1280×800, De Bilt; "voor" = fix
+  uitgeschakeld met een geïnjecteerde style in dezelfde pagina):
+
+  | DPR | zoom | tip voor | tip na | box voor→na | pinvlak-px met verschil>8 (max) |
+  |---|---|---|---|---|---|
+  | 1    | 7,3 | 405 / 406,5 | 405 / 406,5 | 27×41 → 31×45 | 0 (1) |
+  | 1    | 8,7 | 405 / 406,5 | 405 / 406,5 | 27×41 → 31×45 | 12 (29): windstreep, niet de pin |
+  | 1,5  | 7,3 | 405 / 406,5 | 405 / 406,5 | 27×41 → 31×45 | 38 (211): windstreep |
+  | 1,5  | 8,7 | 405 / 406,5 | 405 / 406,5 | 27×41 → 31×45 | 9 (42): windstreep |
+  | 2,75 | 7,3 | 405 / 406,5 | 405 / 406,5 | 27×41 → 31×45 | 592 (71): hele contour + stip |
+  | 2,75 | 8,7 | 405 / 406,5 | 405 / 406,5 | 27×41 → 31×45 | 611 (78): hele contour + stip |
+
+  Beeld: `shots/pin-z7.3-200pct.png`, `shots/pin-z8.7-200pct.png` (DPR 1, 200 %), en
+  `shots/pin-sheet.png` (alle zes, voor | na | verschil ×4, vergroot).
+- Duiding, eerlijk: **anker exact gelijk** (CSS px) op alle zes. De **afkapping zelf reproduceer ik
+  headless niet**: op DPR 1/1,5 zijn de pinranden pixel-identiek (verschillen = bewegende wind), op
+  DPR 2,75 verschilt de hele contour incl. de witte stip gelijkmatig: een subpixel-fase van de
+  herrasterde laag (box 31 i.p.v. 27 breed), geen weggenomen afkapping (die zou alleen boven/links/
+  rechts zitten). Swiftshader rastert anders dan een echte GPU; de fix is onschadelijk en logisch
+  (ruimte voor de antialiasing buiten de viewBox) maar **nog te bevestigen op het PO-toestel**.
+- Repro (vanuit `web/`, onder een slot): `pnpm build`,
+  `MOTREGEN_DATA_ORIGIN=https://motregen.nl/data pnpm preview --host 127.0.0.1 --port 4369 --strictPort`,
+  `devenv shell -- node ../.dev/tracks/u26-pin-navigatie/pin-crops.mjs http://127.0.0.1:4369/` →
+  CROPS-EXIT: 0; dan `uv run --with pillow python ../.dev/tracks/u26-pin-navigatie/pindiff.py` en
+  `pinsheet.py`.
+- Gates op a4bf61c (vanuit `web/`, synchroon): TYPECHECK-EXIT: 0; TEST-EXIT: 0 (42 files, 242
+  tests); BUILD-EXIT: 0.
+- Gerichte e2e op a4bf61c (zelfde drie specs, via e2e-slot.sh, start 10:29 UTC bij load 15,85)
+  → FULL-GATE-EXIT: 0 (13 passed, 14 skipped).
+
+## 2026-09-25 10:45 UTC — slot-samenvatting U26
+**Geleverd** (branch `track/u26-pin-navigatie`, draft-PR #56, rebased op main 211b57f):
+1. Startlocatie: Permissions API `granted` → één fix (≤ 10 s), label "Mijn locatie", pin verhuist;
+   kaart alleen mee als de pin anders buiten/in de rand van het vrije kaartvlak valt. Prompt/denied/
+   geen Permissions API (Safari < 16)/fout/fix buiten de kaartgrenzen → huidig gedrag, nooit een prompt.
+   Geen watchPosition, geen extra opslag. Een keuze van de gebruiker vóór de fix wint.
+2. Pin-navigatie (`core/pin-navigation.ts`): pin sleepbaar met muis en vinger (lift + schaduw), pick
+   pas bij loslaten; edge-scroll in 48 px-randmarge (sleepsnelheid richting de rand, anders dwell
+   ∝ diepte), contain-constraint blijft; dubbeltik/-klik centreert (easeTo 450 ms); tik op kaart
+   zet de pin nog steeds. Mobiel (pointer: coarse): één vinger pant niet (pagina scrolt), pinch +
+   twee-vinger-pan blijven (MapLibre `cooperativeGestures`, hint verborgen). Desktop: muis-pan blijft.
+3. Alleen pan/zoom: dragRotate, touchPitch, pitchWithRotate uit, maxPitch 0, keyboard- en
+   touch-rotatie uit. (`transformConstrain` kan bearing/pitch niet zetten, dus het gebeurt via de
+   opties; de e2e borgt 0/0.)
+4. PO-aanvulling pin-ruimte: `padding: 2px` rondom + `svg { overflow: visible }`; anker exact gelijk
+   gemeten; afkapping niet headless reproduceerbaar (zie boven).
+
+**Receipts op a4bf61c** (vanuit `web/`, synchroon): TYPECHECK-EXIT: 0 · TEST-EXIT: 0 (242 tests)
+· BUILD-EXIT: 0 · gerichte e2e (`e2e/pin-navigation.spec.ts e2e/map-zoom.spec.ts
+e2e/location.spec.ts`, poorten 4368/8368, e2e-slot) FULL-GATE-EXIT: 0 (13 passed, 14 skipped)
+· pin-crops CROPS-EXIT: 0. De volledige suite heb ik volgens de nieuwe regel niet gedraaid; die is
+voor de orkestrator op de merge-kandidaat.
+
+**Open voor PO (Mathijs):**
+- Muiswiel op een touch-primair apparaat zoomt alleen met ctrl (bijwerking van cooperativeGestures;
+  trackpad-pinch werkt wel). Acceptabel? Anders is een eigen touch-pan-splitsing nodig.
+- Pin-afkapping: bevestigen op het eigen toestel. Headless zie ik geen verschil aan de randen.
+- Lange-druk-om-pin-te-verplaatsen niet gebouwd (optioneel; vecht met pagina-scroll).
+- Knop "mijn locatie" (`locate`) centreert nog altijd (ongewijzigd); alleen de startfix centreert
+  voorwaardelijk. Gelijk trekken?
+
+**Voor de orkestrator:** volledige suite op de rebased merge-kandidaat; `map-zoom.spec.ts` is
+aangepast (ctrl-wiel op touch-profielen); nieuwe testhook `window.__motregenCamera` (camera +
+location). Let op de merge met U22 (App.tsx): mijn diff raakt kaartinit (`...PAN_ZOOM_ONLY`,
+`restrictMapGestures`), `pick` (marker één keer maken), `revealPoint`, startfix bij de signals,
+en de `__motregenCamera`-hook.
