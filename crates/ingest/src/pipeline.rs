@@ -1219,7 +1219,7 @@ mod tests {
             pressure: frames(DETAIL_GRID),
         };
         let chunks = hourly_field_chunks(&decoded, "h30").unwrap();
-        assert_eq!(chunks.len(), 16);
+        assert_eq!(chunks.len(), 18);
         let temperature = chunks
             .iter()
             .filter(|chunk| chunk.manifest.field == "temp_c")
