@@ -29,3 +29,14 @@
 - rsync aan prod toegevoegd (pull vanaf ageq-mthq; route prod→mthq bestaat niet).
 - docs/analytics.md + verwijzing in docs/deploy.md (incl. eenmalig oude IP-access-logs weg:
   PO/orkestrator-actie, NIET door mij uitgevoerd).
+
+## 2026-09-25 15:10 — receipts op dc84f28 (klaar voor review)
+- `nix flake check -L; echo "FULL-GATE-EXIT: $?"` → FULL-GATE-EXIT: 0 (VM-test vers gedraaid, 138 s script).
+- `nix build --no-link .#nixosConfigurations.motregen.config.system.build.toplevel; echo $?` → 0.
+- Draft-PR: https://github.com/mathijshenquet/motregen/pull/63
+- Repro: bovenstaande twee commando's vanuit de worktree (sandbox uit; geen KVM → TCG, ~6 min).
+- Open voor PO/orkestrator: (1) oude IP-access-logs op prod verwijderen (docs/deploy.md);
+  (2) stats-wachtwoord plaatsen (docs/analytics.md); (3) pull-timer in ~/nix-config op ageq-mthq;
+  (4) pad /var/lib/motregen-usage wijkt af van de MIP-13-tekst (gedwongen door DynamicUser-chown) —
+  eventueel Decision-sectie bijwerken. U31 moet `v: 1` in de body zetten, anders telt het
+  rapport alle bakens als afgewezen.
