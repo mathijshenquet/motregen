@@ -78,6 +78,60 @@ test('a click on the about backdrop closes it without touching the map', async (
   await expect(scrubber).toHaveAttribute('aria-label', /voor De Bilt$/)
 })
 
+test('the search panel is one element; a tap outside closes it without touching the map', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'mobile-fast-3g', 'gedrag: desktop en één mobiel profiel')
+  const scrubber = page.locator('.scrubber')
+  await page.goto('/')
+  await expect(page.locator('.map-splash.ready')).toBeAttached()
+  await expect(scrubber).toHaveAttribute('aria-label', /voor De Bilt$/)
+  await page.waitForTimeout(600)
+  const viewBefore = await page.evaluate(() => localStorage.getItem('motregen-map-view'))
+  const markerBefore = await page.locator('.maplibregl-marker').first().boundingBox()
+
+  // In rust een compacte pil (U21).
+  const box = page.locator('.search-box')
+  const rest = (await box.boundingBox())!
+  expect(rest.width).toBeLessThanOrEqual(240)
+  expect(rest.height).toBeLessThanOrEqual(testInfo.project.use.hasTouch ? 46 : 34)
+  if (testInfo.project.use.hasTouch) expect(rest.height).toBeGreaterThanOrEqual(44)
+
+  const input = page.getByRole('textbox', { name: 'Zoek plaats' })
+  if (testInfo.project.use.hasTouch) await input.tap()
+  else await input.click()
+  const list = page.getByRole('listbox')
+  await expect(list).toBeVisible()
+  // Veld en lijst in één paneel: de lijst sluit zonder gat aan op het veld.
+  const field = (await input.boundingBox())!
+  const listBox = (await list.boundingBox())!
+  expect(Math.abs(listBox.y - (field.y + field.height))).toBeLessThanOrEqual(2)
+  await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-zoekpaneel.png`) })
+
+  // Tik/klik midden op de kaart: sluit het paneel, geen locatiekeuze, geen pan.
+  const map = (await page.locator('.map').boundingBox())!
+  const x = map.x + map.width * 0.6
+  const y = map.y + map.height * 0.6
+  if (testInfo.project.use.hasTouch) await page.touchscreen.tap(x, y)
+  else await page.mouse.click(x, y)
+  await expect(list).toBeHidden()
+  await page.waitForTimeout(600)
+  await expect(scrubber).toHaveAttribute('aria-label', /voor De Bilt$/)
+  expect(await page.evaluate(() => localStorage.getItem('motregen-map-view'))).toBe(viewBefore)
+  expect(await page.locator('.maplibregl-marker').first().boundingBox()).toEqual(markerBefore)
+
+  // Escape sluit ook; × wist eerst de tekst, daarna sluit hij.
+  await input.focus()
+  await expect(list).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(list).toBeHidden()
+  await input.focus()
+  await page.getByRole('button', { name: 'Zoektekst wissen' }).click()
+  await expect(input).toHaveValue('')
+  await page.getByRole('button', { name: 'Zoeken sluiten' }).click()
+  await expect(list).toBeHidden()
+  await expect(input).toHaveValue('De Bilt')
+  await expect(page.locator('.search-clear')).toHaveCount(0)
+})
+
 async function setStorage(page: Page, values: Record<string, string>): Promise<void> {
   await page.evaluate((entries) => {
     for (const [key, value] of Object.entries(entries)) localStorage.setItem(key, value)

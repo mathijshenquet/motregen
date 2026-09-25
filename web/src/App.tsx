@@ -1443,25 +1443,29 @@ export default function App() {
     void attachCloudEdgeLayer()
   }
 
-  let searchInset: { size: string; top: number } | undefined
+  let topInset: { size: string; top: number } | undefined
   function mapViewport(): Viewport {
     const width = mapElement.clientWidth
     const height = mapElement.clientHeight
     const size = `${width}x${height}`
-    if (searchInset?.size !== size) {
-      searchInset = { size, top: searchBarInset() }
-      mapElement.dataset.insetTop = String(searchInset.top)
+    if (topInset?.size !== size) {
+      topInset = { size, top: topOverlayInset() }
+      mapElement.dataset.insetTop = String(topInset.top)
     }
-    return { width, height, insets: { top: searchInset.top, right: 0, bottom: 0, left: 0 } }
+    return { width, height, insets: { top: topInset.top, right: 0, bottom: 0, left: 0 } }
   }
 
-  // Op telefoonbreedte ligt de zoekbalk over de volle kaartbreedte (anders valt de Waddenkust eronder);
-  // op desktop ligt hij in de Noordzee-hoek. Merk en versheidspil onderin dekken alleen de hoeken.
-  function searchBarInset(): number {
-    const search = mapElement.parentElement?.querySelector('.search > input')?.getBoundingClientRect()
+  // De versheidspil staat midden boven (U21), dus de Waddenkust moet eronder vandaan; de zoekpil
+  // telt alleen mee als hij over de halve breedte ligt. Merk onderin dekt alleen een hoek.
+  function topOverlayInset(): number {
     const shell = mapElement.getBoundingClientRect()
-    if (!search || search.width < shell.width / 2) return 0
-    return Math.max(0, Math.round(search.bottom - shell.top + 4))
+    const overlays = [mapElement.parentElement?.querySelector('.map-clock'), mapElement.parentElement?.querySelector('.search-field')]
+    let bottom = shell.top
+    for (const overlay of overlays) {
+      const box = overlay?.getBoundingClientRect()
+      if (box && (overlay!.matches('.map-clock') || box.width >= shell.width / 2)) bottom = Math.max(bottom, box.bottom)
+    }
+    return Math.max(0, Math.round(bottom - shell.top + 4))
   }
 
   // Vervangt maxBounds (dat altijd cover afdwingt): per as contain of cover, zie map-constraint.
@@ -1588,6 +1592,10 @@ export default function App() {
   const cursorUvChip = createMemo(() => uvChipLabel(cursorUv()))
   // PO-smaaktest: ?uvbalk=stip toont onbewolkt als stip i.p.v. als tweede vulling.
   const uvBarVariant: UvBarVariant = new URLSearchParams(window.location.search).get('uvbalk') === 'stip' ? 'dot' : 'double'
+  // PO-smaaktest U21: ?zoekpaneel=omsluit toont het zoekpaneel dat de pil omsluit i.p.v. openvouwt.
+  // PO-smaaktest U21: ?klok=stip toont het bronaccent van de klok als stip i.p.v. linkerrand.
+  const clockAccent = new URLSearchParams(window.location.search).get('klok') === 'stip' ? 'dot' : 'edge'
+  const searchVariant = new URLSearchParams(window.location.search).get('zoekpaneel') === 'omsluit' ? 'wrap' : 'fold'
   const hasTemperature = createMemo(() => feelsLikeTimeline().length > 0)
   const hasWeatherIcons = createMemo(() => cloudTimeline().length > 0)
   const hasHumidity = createMemo(() => humidityTimeline().length > 0)
@@ -1617,6 +1625,7 @@ export default function App() {
         onSave={saveCurrentPlace}
         onSelect={chooseSearch}
         onSelectSaved={chooseSaved}
+        variant={searchVariant}
       />
       <Show when={devMode && windTimeline().length}>
         <details class="wind-debug" open>
@@ -1653,7 +1662,7 @@ export default function App() {
           <p class="wind-debug-note wind-debug-reset" role="status">{resetNotice() ? 'Standaardwaarden hersteld' : ''}</p>
         </details>
       </Show>
-      <Freshness mapEpoch={selectedEpoch()} now={manifestNow()} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} />
+      <Freshness mapEpoch={selectedEpoch()} mapFrame={timeline()[Math.round(cursor())]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} accent={clockAccent} />
     </section>
     <aside class="dashboard">
       <nav class="sidebar-nav" aria-label="Instellingen en locatie">

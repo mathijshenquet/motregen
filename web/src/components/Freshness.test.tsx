@@ -36,13 +36,14 @@ afterEach(() => {
 
 describe('freshness indicator', () => {
   it('shows the latest radar measurement, ticks its age and announces only status changes', () => {
-    render(() => <Freshness mapEpoch={radar} now={radar} manifest={manifest} refresh={{ checkedAt: radar }} onRefresh={async () => undefined} />)
+    render(() => <Freshness mapEpoch={radar} mapFrame={{ source: 'rtcor', run: '2026-09-23T14:00:00Z' }} manifest={manifest} refresh={{ checkedAt: radar }} onRefresh={async () => undefined} />)
     const pill = document.querySelector('.map-clock')!
     const live = document.querySelector('[aria-live="polite"]')!
     expect(pill.getAttribute('data-freshness')).toBe('fresh')
+    expect(pill.getAttribute('data-source')).toBe('observations')
+    expect(document.querySelector('.clock-source')!.textContent).toBe('radar')
     expect(document.querySelector('.freshness-age')!.textContent).toBe('3 min')
     expect(live.textContent).toBe('Actueel')
-    expect(document.querySelector('.map-clock-map')).toBeNull()
 
     vi.advanceTimersByTime(15_000 * 20)
     expect(document.querySelector('.freshness-age')!.textContent).toBe('8 min')
@@ -55,8 +56,7 @@ describe('freshness indicator', () => {
   it('turns a failed refresh into a visible offline status and refreshes on demand', async () => {
     const [refresh, setRefresh] = createSignal<RefreshState>({ checkedAt: radar })
     const onRefresh = vi.fn(async () => { setRefresh({ checkedAt: radar, failedAt: Date.now() }) })
-    render(() => <Freshness mapEpoch={radar - 3_600_000} now={radar} manifest={manifest} refresh={refresh()} onRefresh={onRefresh} />)
-    expect(document.querySelector('.map-clock-map')).not.toBeNull()
+    render(() => <Freshness mapEpoch={radar - 3_600_000} mapFrame={{ source: 'rtcor', run: '2026-09-23T13:00:00Z' }} manifest={manifest} refresh={refresh()} onRefresh={onRefresh} />)
 
     fireEvent.click(screen.getByRole('button', { name: /Details over dataversheid/ }))
     const dialog = document.querySelector('dialog')!
@@ -69,5 +69,22 @@ describe('freshness indicator', () => {
     await vi.waitFor(() => expect(document.querySelector('.map-clock')!.getAttribute('data-freshness')).toBe('offline'))
     expect(document.querySelector('.freshness-age')!.textContent).toBe('offline')
     expect(screen.getByText(/verversen mislukt om/)).toBeTruthy()
+  })
+
+  it('shows the map time with its source; model frames show their run instead of the radar', () => {
+    const [frame, setFrame] = createSignal<{ source: 'nowcast' | 'harmonie'; run: string }>({ source: 'nowcast', run: '2026-09-23T14:25:00Z' })
+    const run = Date.parse('2026-09-23T11:00:00Z')
+    render(() => <Freshness mapEpoch={radar + 7_200_000} mapFrame={frame()} manifest={manifest} refresh={{ checkedAt: radar }} onRefresh={async () => undefined} />)
+    const pill = document.querySelector('.map-clock')!
+    const clock = (epoch: number) => new Date(epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+    expect(document.querySelector('.clock-map-time')!.textContent).toBe(clock(radar + 7_200_000))
+    expect(pill.getAttribute('data-source')).toBe('nowcast')
+    expect(document.querySelector('.freshness-scan')!.textContent).toBe(`radar ${clock(radar)}`)
+
+    setFrame({ source: 'harmonie', run: '2026-09-23T11:00:00Z' })
+    expect(pill.getAttribute('data-source')).toBe('model')
+    expect(document.querySelector('.clock-source')!.textContent).toBe('model')
+    expect(document.querySelector('.freshness-run')!.textContent).toBe(`run ${clock(run)}`)
+    expect(pill.getAttribute('data-freshness')).toBe('fresh')
   })
 })
