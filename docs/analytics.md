@@ -110,21 +110,16 @@ Het aggregaat heeft deze vorm (`nix/usage/day.jq`):
 
 Handmatig opnieuw draaien: `ssh root@57.129.47.17 'systemctl start motregen-usage-report'`.
 
-## `/stats/` openen
+## Het rapport bekijken
 
-`https://motregen.nl/stats/` staat achter basic auth. Zonder wachtwoordbestand
-blijft de pagina dicht: de standaardhash hoort bij een weggegooid willekeurig
-wachtwoord. Plaats de inloggegevens eenmalig buiten Git en de Nix store met deze
-expliciete Bash-opdracht. De hash wordt lokaal gemaakt; alleen de hash gaat naar
-de host, en het wachtwoord verschijnt niet in terminal of shellgeschiedenis:
+`stats.html` staat bewust **niet op internet** (PO 2026-09-25: ook niet achter een
+wachtwoord). Het rapport en de dagaggregaten blijven op de productiehost onder
+`/var/lib/motregen-usage/stats/` en komen elke nacht per rsync op ageq-mthq in
+`~/motregen-stats/` (zie hieronder); open daar `stats.html` in de browser of ad hoc:
 
 ```sh
-bash -c 'read -rsp "Wachtwoord voor /stats/: " pw; echo; hash=$(printf "%s\n" "$pw" | nix run nixpkgs#caddy -- hash-password | tr -d "\n" | base64 | tr -d "\n"); printf "MOTREGEN_STATS_USER=stats\nMOTREGEN_STATS_HASH=%s\n" "$hash" | ssh root@57.129.47.17 "install -m 0600 /dev/stdin /var/lib/motregen-usage/stats-auth.env && systemctl restart caddy"'
+ssh root@57.129.47.17 cat /var/lib/motregen-usage/stats/stats.html > /tmp/stats.html
 ```
-
-Het bestand is een systemd-EnvironmentFile voor Caddy; de hash staat base64-
-gecodeerd omdat een bcrypt-hash `$`-tekens bevat. Na elke wijziging is een
-herstart van Caddy nodig (een reload leest het bestand niet opnieuw).
 
 ## Kopie naar ageq-mthq
 

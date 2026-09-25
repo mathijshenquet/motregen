@@ -128,15 +128,6 @@ in
       description = "Root-managed environment file kept outside the Nix store.";
     };
 
-    statsAuthFile = lib.mkOption {
-      type = lib.types.str;
-      default = "/var/lib/motregen-usage/stats-auth.env";
-      description = ''
-        Root-managed Caddy environment file outside the Nix store with
-        MOTREGEN_STATS_USER and MOTREGEN_STATS_HASH (base64 bcrypt) for /stats/.
-        Without it /stats/ stays locked behind an unknown password.
-      '';
-    };
 
     ingestPackage = lib.mkOption {
       type = lib.types.package;
@@ -359,7 +350,7 @@ in
         # MIP-13: geen access-log met IP of headers; alleen het usage-log hieronder.
         logFormat = null;
         extraConfig = ''
-          @noindex path /data/* /stats/*
+          @noindex path /data/*
           header @noindex X-Robots-Tag "noindex"
 
           # MIP-13 privacycontract: het hele request-object (IP, headers, UA) gaat eruit;
@@ -431,17 +422,6 @@ in
             file_server
           }
 
-          redir /stats /stats/
-          handle_path /stats/* {
-            basic_auth {
-              {$MOTREGEN_STATS_USER:stats} {$MOTREGEN_STATS_HASH:JDJhJDE0JHEvT0x0bElxNjlHYUdqb2twa1BKaE8veTM0bFNUMGZVNG9SRmFHdk9jQ3IvanY4MFNZTjF1}
-            }
-            root * ${statsDir}
-            header Cache-Control "no-store"
-            file_server {
-              index stats.html
-            }
-          }
 
           @chunks path /data/chunks/*
           handle @chunks {
@@ -474,7 +454,6 @@ in
       wants = [ "motregen-usage.socket" ];
       serviceConfig = {
         BindReadOnlyPaths = [ "${cfg.dataDir}:${caddyDataDir}" ];
-        EnvironmentFile = [ "-${cfg.statsAuthFile}" ];
       };
     };
   };

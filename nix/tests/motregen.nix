@@ -48,7 +48,6 @@
         "d /var/lib/motregen/chunks 0755 root root -"
         "C /var/lib/motregen/chunks/test-g0000000000000000.mrf 0644 root root - ${../fixtures/test.mrf}"
         "C /var/lib/motregen/secrets.env 0600 root root - ${../fixtures/secrets.env}"
-        "C /var/lib/motregen-usage/stats-auth.env 0600 root root - ${../fixtures/stats-auth.env}"
       ];
     };
 
@@ -207,20 +206,11 @@
     assert day["dimensions"]["coarse"]["true"]["n"] == 2, day
     assert day["dimensions"]["unit"]["kmh"] == {"n": 1, "pct": 25}, day
 
-    stats_unauth = machine.succeed(
-      "curl --silent --show-error --dump-header - --output /dev/null http://localhost/stats/"
-    ).lower()
-    assert "401" in stats_unauth.splitlines()[0], stats_unauth
-    assert "x-robots-tag: noindex" in stats_unauth, stats_unauth
-    wrong = machine.succeed(
-      "curl --silent --output /dev/null --write-out '%{http_code}' --user stats:fout http://localhost/stats/"
-    )
-    assert wrong == "401", wrong
-    html = machine.succeed("curl --silent --show-error --fail --user stats:test-stats-password http://localhost/stats/")
+    # /stats/ staat niet op internet (PO 2026-09-25): het rapport blijft op de box en gaat per rsync naar ageq-mthq.
+    # De SPA-fallback beantwoordt /stats/ met de app, nooit met het rapport.
+    stats_public = machine.succeed("curl --silent --show-error http://localhost/stats/")
+    assert "Laatste 30 dagen" not in stats_public, stats_public
+    html = machine.succeed("cat /var/lib/motregen-usage/stats/stats.html")
     assert "Laatste 30 dagen" in html and "<td>search</td><td>2</td><td>50 %</td>" in html, html
-    machine.succeed(
-      "curl --silent --show-error --fail --user stats:test-stats-password "
-      "--output /dev/null http://localhost/stats/$(date -d yesterday +%F).json"
-    )
   '';
 }

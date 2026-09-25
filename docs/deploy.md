@@ -98,13 +98,13 @@ HTML-tag, een verificatiebestand of een Google-script op de site (MIP-13):
    duren.
 
 Laat het TXT-record staan: Google controleert het eigendom periodiek opnieuw.
-Een sitemap is niet nodig (één pagina); `robots.txt` sluit `/data/` en `/stats/`
-uit, en Caddy zet daar ook `X-Robots-Tag: noindex`.
+Een sitemap is niet nodig (één pagina); `robots.txt` sluit `/data/` uit, en Caddy
+zet daar ook `X-Robots-Tag: noindex`.
 
 ## Gebruiksmeting
 
-De anonieme gebruiksmeting (MIP-13), het wachtwoord voor `/stats/` en de
-nachtelijke kopie naar ageq-mthq staan in [`analytics.md`](analytics.md).
+De anonieme gebruiksmeting (MIP-13) en de nachtelijke kopie van het rapport
+naar ageq-mthq staan in [`analytics.md`](analytics.md).
 
 Tot en met de U32-deploy schreef Caddy het standaard-access-log van nixpkgs,
 mét IP-adressen en headers. Verwijder die bestanden eenmalig na de eerste

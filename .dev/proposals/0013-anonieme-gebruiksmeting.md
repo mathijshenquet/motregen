@@ -80,3 +80,9 @@ Aangenomen zoals hierboven. Aanvullende besluiten op PO-vragen:
 - **U32-bevindingen (2026-09-25)**: prod schreef al een vhost-access-log mét IP (nixpkgs-default);
   U32 zet dat uit, oude bestanden wist de PO zelf (commando in `docs/deploy.md`). Cloudflare cachet
   `/data/*` 15 s, dus het sessiemanifest (`?s=1`) krijgt `Cache-Control: no-store`. Body bevat `v: 1`.
+
+### Aanvulling PO (2026-09-25, avond)
+
+`/stats/` komt **niet** op het publieke internet, ook niet achter basic auth. De publieke route
+en het wachtwoordbestand zijn verwijderd; het rapport leeft op de box en via de nachtelijke rsync
+op ageq-mthq (`docs/analytics.md`, "Het rapport bekijken").
