@@ -1,5 +1,33 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
+
+- **Gemerged op main (in volgorde, main nu `b3bff3b`)**: U35 isobaren (pressure_hpa, laag in wind-
+  modus), U36 windstoten + eenheidsinstelling Bft/knopen/km/u/m/s (baken-veld `unit`), U37 wolken-
+  doorsnede variant A (PO-keuze) vast in de weermodus-scrubber, ingest cloud_low/mid/high (AROME
+  73/74/75, 5 %-stappen), U34 live-windtuning + WarnWetter-scrubber (vaste cursor op ⅓, schuivende
+  tijdlijn, bereikknoppen weg, spatie = afspelen, versheidspaneel als uitrollende klokpil, wind
+  default 0,5 / windmodus 0,8), U39 CAMS-ingest (`motregen-cams`: pollen + luchtkwaliteit, pred-codec,
+  dagelijkse timer, manifest-opname achter `services.motregen.camsInManifest` = false).
+- **Gates**: U37 typecheck/unit/build/cargo + 2 desktop-specs; U34 alleen typecheck/unit/build bij mij
+  op het receipt van de worker (PO: "niet weer eindeloos e2e"); U39 cargo test/clippy/fmt/typecheck/
+  build + één `nix flake check` op de merge met U37 (alles 0). Conflicten door mij opgelost: U37-rebase
+  (synthgen/contract: gust_ms + cloud_*), usage.spec (range null + unit bft), contract.md (beide rijen);
+  de U34×U37-scrubbermerge (wolkbanden op de schuivende as) door de U34-worker zelf.
+- **Incident**: alle drie de opus-workers vielen weg op de Claude-usage-limiet (reset 18:00 UTC), U37
+  midden in een rebase. `--continue` in dezelfde pane werkt; agents opnieuw starten met
+  `herdr agent start <naam> --kind claude --pane <pane> -- --model claude-opus-5-5 --continue`.
+  Watchers vuren ook op idle-tussen-turns terwijl een achtergrondgate loopt — pane lezen vóór actie.
+- **Preview** 4300 = main `b3bff3b` (bundle `index-WHXYcSV9`; met U39 verandert de bundel niet).
+  Twee verweesde vite-previews (4323 uit u8c, 4343) gekilld.
+- **Open MET PO**: ADS-sleutel aanvragen (docs/pollen.md §"Wat de PO moet regelen"; zonder sleutel
+  Open-Meteo, niet-commercieel); camsInManifest aanzetten pas met U38 (client prefetcht dan alleen
+  getoonde velden); U34-pane blijft open voor live-iteratie (niet gesloten); MIP-11/12/14/15 adoptie;
+  isobaren/stoten/wolken op prod pas na de ingest-deploy van vannacht controleren.
+  **VOOR AGENTS**: U38 kolomset (spec klaar, U36 is binnen — kan starten), U28, U29, U40 (MIP-15).
+- **Prod-check morgen**: bundle-hash, `pressure_hpa`/`gust_ms`/`cloud_*` in het manifest, `/hit` 204,
+  `motregen-cams.timer` aanwezig maar zonder sleutel op Open-Meteo, cams-chunks niet in manifest.
+
 ## 2026-09-25 (avond) — PO-feedbackdag: U22–U33 + U22b/U24b/U25b gemerged; e2e-regime omgegooid; MIP-11/12/13
 
 - **Gemerged op main (in volgorde)**: U27 Vlaanderen (kader zuid 50,45, Vlaamse plaatsen, BE-geocoder
