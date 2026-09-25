@@ -79,3 +79,11 @@ Receipts (vanuit `web/`, synchroon):
   map-zoom, freshness (geraakt door deze track).
 - Orkestrator-procesnoot: wachtdrempel voortaan load < 28, de slotlock (`e2e-slot.sh`) regelt de
   rest; max. één Chromium; startload per run in deze LOG.
+
+## 2026-09-25 11:45 — gerichte e2e ronde 1 groen
+
+`MOTREGEN_E2E_PORT=4376 MOTREGEN_E2E_DATA_PORT=8376 direnv exec .. pnpm e2e e2e/dev-panel.spec.ts
+e2e/perf.spec.ts e2e/focus.spec.ts e2e/location.spec.ts e2e/map-zoom.spec.ts e2e/freshness.spec.ts`
+(vanuit `web/`), head `68550e2`, startload 20,71: **E2E-EXIT 0**, 34 passed, 26 skipped
+(projectgebonden skips), 7,6 min. Perf-journey met HUD dicht bij start + triple-tap open/dicht/open
+groen op alle profielen. U24 nog niet op main (`origin/main` = `d140ed8`); windknoppen wachten.
