@@ -177,7 +177,7 @@ void main() {
   float offset = s - level;
   float fade = gradientFade(ds);
   if (u_has_ring > 0.5) {
-    float ringLevel = texelFetch(u_ring, ivec2(v_uv * u_grid_size), 0).r;
+    float ringLevel = texelFetch(u_ring, min(ivec2(v_uv * u_grid_size), ivec2(u_grid_size) - 1), 0).r;
     if (abs(ringLevel - level * u_step) < 0.01) fade *= texture(u_ring, v_uv).g;
   }
   float width = 1.0 - clamp(fade, 0.0, 1.0);
