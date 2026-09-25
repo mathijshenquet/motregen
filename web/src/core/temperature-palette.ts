@@ -1,5 +1,3 @@
-import { smoothstep } from './isoline-spline'
-
 // Tintvolgorde van de KNMI-temperatuurkaarten (knmi.nl, actuele temperatuur): blauw → groen → geel → oranje → rood; geen exacte kopie.
 export const TEMPERATURE_RAMP: readonly string[] = ['#2f7fd6', '#4fb0e8', '#4fc6bd', '#62bf62', '#b7d747', '#f4d53a', '#f5a02e', '#e5512b']
 
@@ -99,28 +97,25 @@ export interface FillSample {
   upper: number
   /** Aandeel van de bovenste band in de kleur. */
   mix: number
-  opacity: number
 }
 
 /**
  * Vulling op veldwaarde `s` (in stappen) naast een lijn met zichtbaarheid `fade` (1 = volle
- * lijn). De bandgrens is een overgang over (1 − fade) stap rond de lijn: bij een volle lijn een
- * harde grens eronder, bij een weggevaagde lijn geen grens (op de bandmiddens altijd zuiver).
- * |s − L| / 0,5 is precies afstand / halve bandbreedte in px, dus de afval is in s-eenheden.
- * De verhoging bij de lijn vaagt mee, anders bleef een spookring van dekking over.
+ * lijn): vlakke bandkleur met een scherpe grens onder een volle lijn. Waar de lijn vervaagt
+ * (lusjes, gradiëntfade) wordt de grens een overgang over (1 − fade) stap, zodat er geen
+ * kleurgrens zonder lijn overblijft; op de bandmiddens altijd de zuivere bandkleur.
  */
-export function fillSample(s: number, fade: number, base: number, falloff: number): FillSample {
+export function fillSample(s: number, fade: number): FillSample {
   const level = Math.floor(s + 0.5)
   const offset = s - level
   const width = 1 - Math.max(0, Math.min(1, fade))
   const mix = width <= 0 ? (offset >= 0 ? 1 : 0) : Math.max(0, Math.min(1, 0.5 + offset / width))
-  const opacity = base * (1 - falloff + falloff * fade * (1 - smoothstep(0, 0.5, Math.abs(offset))))
-  return { lower: level - 1, upper: level, mix, opacity }
+  return { lower: level - 1, upper: level, mix }
 }
 
-/** Voorvermenigvuldigde RGBA van de vulling, zoals de shader hem schrijft. */
-export function fillColor(s: number, fade: number, step: number, stops: PaletteStops, base: number, falloff: number): [number, number, number, number] {
-  const { lower, upper, mix, opacity } = fillSample(s, fade, base, falloff)
+/** Voorvermenigvuldigde RGBA van de vulling met dekking `opacity`, zoals de shader hem schrijft. */
+export function fillColor(s: number, fade: number, step: number, stops: PaletteStops, opacity: number): [number, number, number, number] {
+  const { lower, upper, mix } = fillSample(s, fade)
   const a = bandColor(lower, step, stops), b = bandColor(upper, step, stops)
   return [0, 1, 2].map((channel) => (a[channel]! + (b[channel]! - a[channel]!) * mix) * opacity).concat(opacity) as [number, number, number, number]
 }

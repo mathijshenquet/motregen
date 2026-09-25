@@ -19,7 +19,7 @@ import { buildHourlyForecast, isPassiveRow, PASSIVE_FORECAST_HOURS } from './cor
 import { contextOpacity, DEFAULT_FOCUS_TUNING, FocusMode, mapSaturation, type FocusKind, type FocusTuning, windFocusIntensity } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import { latestRadarEpoch, type RefreshState } from './core/freshness'
-import { blendFrames, blurField, DEFAULT_ISOLINE_TUNING, ISOLINE_EDGE_FADE_MS, ISOLINE_FADES, ISOLINE_FILL_FALLOFF, ISOLINE_FILL_OPACITY, ISOLINE_STEPS, ISOLINE_WINDOWS, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineFade, type IsolineStep, type IsolineTuning } from './core/isolines'
+import { blendFrames, blurField, DEFAULT_ISOLINE_TUNING, ISOLINE_EDGE_FADE_MS, ISOLINE_FADES, ISOLINE_STEPS, ISOLINE_WINDOWS, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineFade, type IsolineStep, type IsolineTuning } from './core/isolines'
 import { DEFAULT_LABEL_TUNING, IsolineLabels, type IsolineLabelTuning } from './core/isoline-labels'
 import { sliceWeights } from './core/isoline-spline'
 import { TraceCore } from './core/isoline-tracer'
@@ -27,7 +27,7 @@ import { prepareField, type PreparedField } from './core/isoline-field'
 import { hexColor, IsolineLayer, isolineLayerIndices, type IsolineStyle } from './core/isoline-layer'
 import { cursorAfterTimelineRefresh, isNewerManifest, nextManifestRefreshDelay, reconcileTimelineSeries, scheduleManifestRefresh } from './core/manifest-refresh'
 import { constrainView, containView, containZoom, MAP_CONTAIN_BOUNDS, type Viewport } from './core/map-constraint'
-import { mapFrameFromGrid } from './core/map-frame'
+import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS } from './core/map-frame'
 import { MrfClient, type MotionField } from './core/mrf'
 import { selectPairMotion } from './core/motion-selection'
 import { nearestPlace } from './core/places'
@@ -450,7 +450,9 @@ export default function App() {
 
   createEffect(() => {
     const { resolution, maxHz } = isolineTuning()
-    isolineLayer?.setStyle(isolineStyle())
+    // Buiten de optional chain: ook zonder laag moet het effect het paletbereik volgen.
+    const style = isolineStyle()
+    isolineLayer?.setStyle(style)
     isolineLayer?.setTuning({ resolution, maxHz })
   })
 
@@ -803,10 +805,10 @@ export default function App() {
   }
 
   function isolineStyle(): IsolineStyle {
-    const { step, window, bicubic, fade, gradientLow, gradientHigh, speedLow, speedHigh, vector, ringKm, tolerancePx } = isolineTuning()
+    const { step, fillOpacity, window, bicubic, fade, gradientLow, gradientHigh, speedLow, speedHigh, vector, ringKm, tolerancePx } = isolineTuning()
     const range = temperatureRange()
     return {
-      step, fill: ISOLINE_FILL_OPACITY, fillFalloff: ISOLINE_FILL_FALLOFF, palette: range && paletteStops(range),
+      step, fill: fillOpacity, palette: range && paletteStops(range),
       window, bicubic, color: hexColor(isolineColor(mapTheme())),
       fade: ISOLINE_FADES.indexOf(fade), gradient: [gradientLow, gradientHigh], speed: [speedLow, speedHigh],
       vector, ringKm, tolerancePx,
@@ -835,6 +837,8 @@ export default function App() {
   /**
    * Paletbereik: min/max van de gevoelstemperatuur over de uurframes die de tabel sowieso laadt
    * (t/m +18 u), dus geen extra bytes. Eén keer per run: scrubben verschuift de kleuren niet.
+   * Alleen cellen binnen het kaartkader (NL + Vlaanderen): het rooster reikt tot ver in Duitsland,
+   * waar zon en nacht het bereik op 25-09 van 9–17 °C naar 1–30 °C rekten.
    */
   async function updateTemperatureRange(): Promise<void> {
     const frames = feelsLikeTimeline()
@@ -851,8 +855,17 @@ export default function App() {
     try {
       await Promise.all([...chunks].map(async ([chunk, frameIndexes]) => {
         const header = await client.getHeader(chunk)
+        const { grid } = header
+        const { west, south, east, north } = NETHERLANDS_FLANDERS_BOUNDS
+        const [x0, y0] = project(west, north), [x1, y1] = project(east, south)
+        const clampColumn = (x: number) => Math.max(0, Math.min(grid.width - 1, Math.floor((x - grid.x0) / grid.dx)))
+        const clampRow = (y: number) => Math.max(0, Math.min(grid.height - 1, Math.floor((y - grid.y0) / grid.dy)))
+        const [left, right] = [clampColumn(x0), clampColumn(x1)].sort((a, b) => a - b)
+        const [top, bottom] = [clampRow(y0), clampRow(y1)].sort((a, b) => a - b)
         const seen = new Uint8Array(256)
-        for (const decoded of await client.getFrames(chunk, frameIndexes, 'low', undefined, 'L2')) for (const code of decoded) seen[code] = 1
+        for (const decoded of await client.getFrames(chunk, frameIndexes, 'low', undefined, 'L2')) {
+          for (let row = top!; row <= bottom!; row++) for (let column = left!; column <= right!; column++) seen[decoded[row * grid.width + column]!] = 1
+        }
         for (let code = 0; code < 256; code++) {
           const value = seen[code] ? header.quant[code] : null
           if (value == null) continue
@@ -1689,6 +1702,7 @@ export default function App() {
         <details class="wind-debug" open>
           <summary>Wind debug</summary>
           <label><span>Isolijnen</span><select value={isolineTuning().step} onChange={(event) => setIsolineTuning((current) => ({ ...current, step: Number(event.currentTarget.value) as IsolineStep }))}>{ISOLINE_STEPS.map((step) => <option value={step}>{step} °C</option>)}</select><output>{isolineTuning().step}°</output></label>
+          <label><span>Vulling</span><input type="range" min="0" max="1" step="0.05" value={isolineTuning().fillOpacity} onInput={(event) => setIsolineTuning((current) => ({ ...current, fillOpacity: event.currentTarget.valueAsNumber }))} /><output>{isolineTuning().fillOpacity.toFixed(2)}</output></label>
           <label><span>Tijdvenster</span><select value={isolineTuning().window} onChange={(event) => setIsolineTuning((current) => ({ ...current, window: Number(event.currentTarget.value) }))}>{ISOLINE_WINDOWS.map((window) => <option value={window}>{window === 0 ? 'lineair' : 'B-spline'}</option>)}</select><output>{isolineTuning().window}</output></label>
           <label><span>Label-afstand</span><input type="range" min="30" max="240" step="10" value={labelTuning().minDistancePx} onInput={(event) => setLabelTuning((current) => ({ ...current, minDistancePx: event.currentTarget.valueAsNumber }))} /><output>{labelTuning().minDistancePx} px</output></label>
           <label><span>Label-spatiëring</span><input type="range" min="100" max="600" step="20" value={labelTuning().spacingPx} onInput={(event) => setLabelTuning((current) => ({ ...current, spacingPx: event.currentTarget.valueAsNumber }))} /><output>{labelTuning().spacingPx} px</output></label>

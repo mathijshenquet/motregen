@@ -6,6 +6,8 @@ export type IsolineStep = typeof ISOLINE_STEPS[number]
 
 export interface IsolineTuning {
   step: IsolineStep
+  /** Dekking van de bandvulling tussen de lijnen (Buienradar-referentie, PO U25b); 0 = uit. */
+  fillOpacity: number
   /** Chaikin op de labelgeometrie. */
   smoothing: boolean
   /** Aantal 3×3-boxblur-passes op elk uurframe (2 ≈ Gauss σ 1,2 cel). */
@@ -37,15 +39,11 @@ export interface IsolineTuning {
 export const ISOLINE_FADES = ['uit', 'gradiënt', 'snelheid'] as const
 export type IsolineFade = typeof ISOLINE_FADES[number]
 
-export const DEFAULT_ISOLINE_TUNING: IsolineTuning = { step: 1, smoothing: true, blur: 2, window: 1, bicubic: true, resolution: 0.5, maxHz: 60,
+export const DEFAULT_ISOLINE_TUNING: IsolineTuning = { step: 1, fillOpacity: 0.7, smoothing: true, blur: 2, window: 1, bicubic: true, resolution: 0.5, maxHz: 60,
   // Gradiënt-fade uit (PO 2026-09-24: in vlak gebied verdwijnen hele lijnen); de lusjes gaan via ringKm.
   // Grenzen blijven op de U8c-kalibratie (lijnpixels p10/p50/p90 = 0,02/0,08/0,17 °C/km).
   fade: 'uit', gradientLow: 0.02, gradientHigh: 0.06, speedLow: 80, speedHigh: 250,
   vector: true, ringKm: 60, tolerancePx: 0.25 }
-
-/** Vlakvulling tussen de lijnen: dekking bij de lijn en het deel dat naar het bandmidden wegvalt (PO U25b). */
-export const ISOLINE_FILL_OPACITY = 0.18
-export const ISOLINE_FILL_FALLOFF = 0.7
 
 export const ISOLINE_WINDOWS = [0, 1] as const
 

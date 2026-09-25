@@ -82,29 +82,29 @@ describe('stretched palette', () => {
     // Stap 2: band 6 = 12–14 °C, midden 13 °C.
     expect(bandColor(6, 2, stops)).toEqual(paletteColor(13, stops))
     for (const s of [6.01, 6.3, 6.49, 6.51, 6.99]) {
-      const sample = fillSample(s, 1, 0.18, 0.7)
+      const sample = fillSample(s, 1)
       expect(sample.mix === 0 || sample.mix === 1).toBe(true)
       expect(sample.mix === 1 ? sample.upper : sample.lower).toBe(6)
     }
   })
 })
 
-describe('fill opacity', () => {
-  it('is strongest at the line and falls off to (1 − falloff) at the band centre', () => {
-    expect(fillSample(5, 1, 0.12, 0.7).opacity).toBeCloseTo(0.12, 9)
-    expect(fillSample(5.5, 1, 0.12, 0.7).opacity).toBeCloseTo(0.12 * 0.3, 9)
-    expect(fillSample(4.5, 1, 0.12, 0.7).opacity).toBeCloseTo(0.12 * 0.3, 9)
-    expect(fillSample(5.25, 1, 0.12, 0.7).opacity).toBeCloseTo(0.12 * (0.3 + 0.7 * 0.5), 9)
-    // Geen afval: egaal.
-    expect(fillSample(5.37, 1, 0.1, 0).opacity).toBeCloseTo(0.1, 9)
+describe('flat band fill', () => {
+  it('is one opaque colour per band with a hard edge under a visible line (Buienradar)', () => {
+    const stops = paletteStops({ low: 9, high: 17 })
+    const below = fillColor(13 - 1e-6, 1, 1, stops, 0.7)
+    const above = fillColor(13 + 1e-6, 1, 1, stops, 0.7)
+    expect(below.slice(0, 3)).toEqual(bandColor(12, 1, stops).map((channel) => channel * 0.7))
+    expect(above.slice(0, 3)).toEqual(bandColor(13, 1, stops).map((channel) => channel * 0.7))
+    // Geen afval meer: bij de lijn en op het bandmidden dezelfde dekking.
+    for (const s of [12.01, 12.5, 12.99]) expect(fillColor(s, 1, 1, stops, 0.7)[3]).toBe(0.7)
   })
 
-  it('is continuous across the band centre, where the nearest line switches', () => {
+  it('switches bands without a jump at the band centre, where the nearest line changes', () => {
     for (const [below, above] of [[1, 0.2], [0, 1], [0.4, 0.9]] as const) {
       // Links van 5,5 is lijn 5 het dichtst (fade `below`), rechts lijn 6 (fade `above`).
-      const left = fillSample(5.5 - 1e-7, below, 0.12, 0.7)
-      const right = fillSample(5.5 + 1e-7, above, 0.12, 0.7)
-      expect(Math.abs(left.opacity - right.opacity)).toBeLessThan(1e-6)
+      const left = fillSample(5.5 - 1e-7, below)
+      const right = fillSample(5.5 + 1e-7, above)
       expect(left.mix).toBeCloseTo(1, 5)
       expect(right.mix).toBeCloseTo(0, 5)
       expect(left.upper).toBe(right.lower)
@@ -118,8 +118,8 @@ describe('fading line: the two band colours mix with the same factor', () => {
   const base = 0.12
   const stops = paletteStops({ low: 14, high: 24 })
   const jumpAtLine = (fade: number) => {
-    const left = fillColor(4 - 1e-6, fade, 5, stops, base, 0.7)
-    const right = fillColor(4 + 1e-6, fade, 5, stops, base, 0.7)
+    const left = fillColor(4 - 1e-6, fade, 5, stops, base)
+    const right = fillColor(4 + 1e-6, fade, 5, stops, base)
     return Math.max(...left.map((channel, index) => Math.abs(channel - right[index]!)))
   }
 
@@ -133,7 +133,7 @@ describe('fading line: the two band colours mix with the same factor', () => {
     expect(full).toBeGreaterThan(10 * base / 255)
     // Tussenin: de grens is een overgang over (1 − f) stap; hoe zichtbaarder de lijn, hoe steiler.
     const slope = (fade: number) => {
-      const a = fillColor(4 - 0.01, fade, 5, stops, base, 0.7), b = fillColor(4 + 0.01, fade, 5, stops, base, 0.7)
+      const a = fillColor(4 - 0.01, fade, 5, stops, base), b = fillColor(4 + 0.01, fade, 5, stops, base)
       return Math.max(...a.map((channel, index) => Math.abs(channel - b[index]!)))
     }
     expect(slope(0.5)).toBeLessThan(slope(0.9))
@@ -142,9 +142,9 @@ describe('fading line: the two band colours mix with the same factor', () => {
 
   it('is continuous along the whole synthetic row for every fade', () => {
     for (const fade of [0, 0.25, 0.5, 0.75]) {
-      let previous = fillColor(3.6, fade, 5, stops, base, 0.7)
+      let previous = fillColor(3.6, fade, 5, stops, base)
       for (let x = 1; x <= 80; x++) {
-        const current = fillColor(3.6 + x / 100, fade, 5, stops, base, 0.7)
+        const current = fillColor(3.6 + x / 100, fade, 5, stops, base)
         const jump = Math.max(...current.map((channel, index) => Math.abs(channel - previous[index]!)))
         // Per 0,01 stap: de steilste overgang (f = 0,75: breedte 0,25 stap) verloopt over 25 pixels.
         expect(jump).toBeLessThan(0.1 * base)

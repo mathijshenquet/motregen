@@ -117,3 +117,17 @@ Geen nieuwe ?-URL-parameters.
 - Unit: bereik (afronding, min-span, geen waarden), palet op drie bereiken (mild 9–17: volle ramp, buurbanden
   onderscheidbaar; koud −3…6: knoop op 0 °C, sub-zero blauw; heet 18–31: knoop op 25 °C, ≥ 25 rood), puur
   vorst/hitte, continuïteit + ≤ 10 stops, per-bandkleur. e2e focus: legenda zichtbaar met bereik en blokken, weg na focus uit.
+
+## 2026-09-25 ~11:10 — Buienradar-correctie (spec-aanvulling 11:05 op ab3fb05; sessie hervat na stop)
+- Tussenaanvulling "continu per pixel, 0,5" NIET gebouwd: vervangen door de 11:05-aanvulling (referentie
+  `/tmp/claude-1000/buienradar-feel.png`: volledig dekkende vlakke banden per ~1 °C, scherpe randen).
+- Rebase op origin/main ab3fb05 (conflictvrij).
+- **Afstandsafval verwijderd** (`fillFalloff`, `u_fill_falloff`, falloff-parameter van `fillSample`/`fillColor`):
+  vlakke bandkleur, dekking overal gelijk. De lijnfade-menging blijft (alleen waar een lijn vervaagt:
+  lusjes/gradiëntfade), zodat er geen kleurgrens zonder lijn overblijft; onder een volle lijn een harde grens.
+- **Dekking** 0,7 default (`IsolineTuning.fillOpacity`); de vaste 0,18 is weg.
+- Dev-knop (MIP-12) | eigenaar | vervalt:
+  | Vulling (0–1, default 0,7) | U25b / PO | verdwijnt bij PO-keuze 0,5 / 0,7 / 0,9 in deze merge |
+  Afval- en verzadigingsknop blijven weg (afval bestaat niet meer; verzadiging 55 % constant).
+- Synthetisch koud bereik: `MOTREGEN_SYNTH_TEMP_SHIFT=-12` geeft **−4…10 °C** (synthgen heeft ~14 °C spreiding over
+  de passieve 18 u; −3…6 lukt niet met alleen een verschuiving). Toont het 0 °C-anker: −4…0 blauw → lichtblauw.
