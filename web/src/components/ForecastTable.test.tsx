@@ -140,7 +140,7 @@ describe('forecast table cells', () => {
     renderTable()
     const reading = document.querySelector('.wind-reading')!
     // u = 3, v = 1: wind uit het westzuidwesten, dus de pijl wijst naar het oostnoordoosten.
-    expect(reading.getAttribute('aria-label')).toBe('Wind uit W, 2 Bft, stoten tot 29 km/u')
+    expect(reading.getAttribute('aria-label')).toBe('Wind uit W, 2 Bft, windstoten tot 5 Bft')
     const angle = Number(/rotate\(([\d.]+)deg\)/.exec(reading.querySelector<SVGElement>('.wind-arrow')!.style.transform)![1])
     expect(angle).toBeCloseTo(71.6, 1)
   })
@@ -150,12 +150,14 @@ describe('forecast table cells', () => {
     renderTable({ windUnit: unit })
     const reading = () => document.querySelector('.wind-reading')!
     const text = () => [...reading().querySelectorAll('b, small')].map((part) => part.textContent)
-    expect(text()).toEqual(['2', 'Bft', '· 29'])
+    // U34: "2 ⌇ 5 Bft" — vlaag in dezelfde eenheid, met vlaagteken.
+    expect(text()).toEqual(['2', '⌇ 5', 'Bft'])
+    expect(reading().getAttribute('aria-label')).toBe('Wind uit W, 2 Bft, windstoten tot 5 Bft')
     setUnit('kn')
-    expect(text()).toEqual(['6', 'kn', '· 16'])
-    expect(reading().getAttribute('aria-label')).toBe('Wind uit W, 6 kn, stoten tot 16 kn')
+    expect(text()).toEqual(['6', '⌇ 16', 'kn'])
+    expect(reading().getAttribute('title')).toBe('Wind uit W, 6 kn, windstoten tot 16 kn')
     setUnit('ms')
-    expect(text()).toEqual(['3', 'm/s', '· 8'])
+    expect(text()).toEqual(['3', '⌇ 8', 'm/s'])
   })
 })
 

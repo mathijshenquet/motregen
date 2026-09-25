@@ -23,11 +23,11 @@ describe('hourly weather derivation', () => {
     expect(summarizeWind(5, 0, null, 'ms')).toMatchObject({ value: 5, unit: 'ms' })
   })
 
-  it('shows a gust one unit step above the mean, in km/u next to Bft', () => {
-    expect(summarizeWind(5, 0, 12.5, 'bft')).toMatchObject({ value: 3, gust: 45, gustUnit: 'kmh' })
-    expect(summarizeWind(5, 0, 12.5, 'kn')).toMatchObject({ value: 10, gust: 24, gustUnit: 'kn' })
-    expect(summarizeWind(5, 0, 12.5, 'kmh')).toMatchObject({ value: 18, gust: 45, gustUnit: 'kmh' })
-    expect(summarizeWind(5, 0, 12.5, 'ms')).toMatchObject({ value: 5, gust: 13, gustUnit: 'ms' })
+  it('shows a gust one unit step above the mean, in the same unit (U34)', () => {
+    expect(summarizeWind(5, 0, 12.5, 'bft')).toMatchObject({ value: 3, gust: 6 })
+    expect(summarizeWind(5, 0, 12.5, 'kn')).toMatchObject({ value: 10, gust: 24 })
+    expect(summarizeWind(5, 0, 12.5, 'kmh')).toMatchObject({ value: 18, gust: 45 })
+    expect(summarizeWind(5, 0, 12.5, 'ms')).toMatchObject({ value: 5, gust: 13 })
   })
 
   it('hides a gust that is within one unit step of the mean', () => {

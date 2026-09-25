@@ -90,3 +90,7 @@
 - Hele kolom (th + alle td van Gevoel/Wind/Wolken) is hoverdoel; verlaten wacht 80 ms zodat cel→cel/zonrij de focus niet onderbreekt; data-hover op de tabel tint de hele kolom (lichter dan pin); pin-tint nu ook voor Wolken; toetsenbordfocus op de kopknop ongewijzigd.
 - focus.spec: de toetsenbordtest tabde van Gevoel exact één stap naar Wind; sinds B staat Wolken ertussen → tabt nu door tot de Wind-kop (robuust voor kolomvolgorde).
 - Receipts: typecheck 0; `pnpm test` 0 (46, 310); `pnpm e2e e2e/focus.spec.ts --project desktop` → E2E-EXIT 1 (alleen die toetsenbordtest, oorzaak B-kolomvolgorde); na fix `… -g "keyboard focus on the column heading"` → E2E-EXIT 0.
+## 2026-09-25 — E: vlaag-opmaak
+- Vlaag altijd in de ingestelde eenheid (Bft-modus: Bft i.p.v. km/u; `gustUnit` weg), weergave "3 ⌇ 6 Bft" / "18 ⌇ 26 kn" (één eenheid achteraan), alleen bij ≥ 1 stap boven de hoofdwaarde (ongewijzigd); aria-label/title "…, windstoten tot 6 Bft".
+- Tests: weather.test, ForecastTable.test; e2e/table.spec regexen bijgewerkt (niet gedraaid).
+- Receipts: typecheck 0; `pnpm test` 0 (46, 310). Geen e2e.

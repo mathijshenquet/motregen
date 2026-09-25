@@ -35,11 +35,10 @@ export interface WindSummary {
   /** Hoofdwaarde, afgerond in `unit`. */
   value: number
   /**
-   * Stoot, afgerond in `gustUnit`; alleen als hij minstens één eenheidsstap boven de hoofdwaarde ligt (anders ruis).
-   * Bft is gedefinieerd op de gemiddelde wind, dus bij Bft staat de stoot in km/u, zoals het KNMI stoten meldt.
+   * Stoot in dezelfde eenheid als de hoofdwaarde (PO 2026-09-25 live, U34: "3 Bft · 22" zonder eenheid was
+   * verwarrend); alleen als hij minstens één eenheidsstap boven de hoofdwaarde ligt (anders ruis).
    */
   gust: number | null
-  gustUnit: Exclude<WindUnit, 'bft'>
 }
 
 export function summarizeWind(u: number | null, v: number | null, gust: number | null = null, unit: WindUnit = 'bft'): WindSummary | null {
@@ -48,7 +47,6 @@ export function summarizeWind(u: number | null, v: number | null, gust: number |
   const beaufort = beaufortOf(speed)
   const fromDegrees = (Math.atan2(-u, -v) * 180 / Math.PI + 360) % 360
   const value = unit === 'bft' ? beaufort : Math.round(speed / MS_PER_UNIT[unit])
-  const gustUnit = unit === 'bft' ? 'kmh' : unit
   const gustStep = gust == null ? null : unit === 'bft' ? beaufortOf(gust) : Math.round(gust / MS_PER_UNIT[unit])
   return {
     speed,
@@ -57,8 +55,7 @@ export function summarizeWind(u: number | null, v: number | null, gust: number |
     fromDegrees,
     unit,
     value,
-    gust: gust != null && gustStep! >= value + 1 ? Math.round(gust / MS_PER_UNIT[gustUnit]) : null,
-    gustUnit,
+    gust: gustStep != null && gustStep >= value + 1 ? gustStep : null,
   }
 }
 
