@@ -64,7 +64,9 @@ export default function About(props: { onTripleTap: () => void }) {
           <dt>Model</dt><dd>HARMONIE-AROME van het KNMI: regen, temperatuur, wind en bewolking</dd>
           <dt>UV</dt><dd>UV-index van het KNMI, inclusief bewolking</dd>
           <dt>Kaart</dt><dd><a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a>, kaartdata © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>-bijdragers</dd>
+          <dt>Zoeken</dt><dd>PDOK Locatieserver (Nederland) en de geolocatiedienst van Digitaal Vlaanderen (België)</dd>
         </dl>
+        <p>De kaart dekt Nederland en Vlaanderen: de KNMI-radar en HARMONIE reiken tot ver over de grens.</p>
         <p class="about-privacy">Geen tracking en geen advertenties. Je locatie en favorieten blijven in je eigen browser.</p>
         <a class="about-repo" href={REPOSITORY_URL} target="_blank" rel="noopener">Broncode op GitHub ↗</a>
       </div>

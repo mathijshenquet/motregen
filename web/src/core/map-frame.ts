@@ -26,7 +26,7 @@ export interface MapFrame {
 
 export const NETHERLANDS_FLANDERS_BOUNDS: GeographicBounds = {
   west: 2.5,
-  south: 50.67,
+  south: 50.45,
   east: 7.23,
   north: 53.56,
 }

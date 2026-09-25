@@ -1618,6 +1618,7 @@ export default function App() {
       </button>
       <LocationSearch
         location={location()}
+        mapCenter={() => map?.getCenter() ?? location()}
         locationLabel={locationLabel()}
         savedPlaces={savedPlaces()}
         onLocate={locate}

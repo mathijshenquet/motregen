@@ -17,8 +17,8 @@ describe('map frame', () => {
     const bounds = paddedGeographicBounds(NETHERLANDS_FLANDERS_BOUNDS, { west: 0.05, south: 0.1, east: 0.15, north: 0.1 })
 
     expect(bounds[0][0]).toBeCloseTo(2.2635)
-    expect(bounds[0][1]).toBeCloseTo(50.381)
+    expect(bounds[0][1]).toBeCloseTo(50.139)
     expect(bounds[1][0]).toBeCloseTo(7.9395)
-    expect(bounds[1][1]).toBeCloseTo(53.849)
+    expect(bounds[1][1]).toBeCloseTo(53.871)
   })
 })
