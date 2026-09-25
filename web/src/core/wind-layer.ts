@@ -769,8 +769,10 @@ export class WindLayer implements CustomLayerInterface {
     }
     this.countCells()
     let survivors = 0
+    // Bij kaartbeweging telt het zichtbare beeld, niet de rand: anders blijft bij inzoomen een hele
+    // ring voormalige beeldbewoners onzichtbaar in de rand hangen en wordt het beeld dunner (U24b).
     for (let index = 0; index < this.active; index++) {
-      if (this.inside(this.x[index]!, this.y[index]!)) {
+      if (this.inView(this.x[index]!, this.y[index]!)) {
         if (!this.fading(index)) survivors++
       } else if (this.fading(index)) {
         if (this.retire(index)) index--
@@ -852,11 +854,6 @@ export class WindLayer implements CustomLayerInterface {
   /** Telt niet meer mee: overtal dat uitfadet of een uitlopende dode kop. */
   private fading(index: number): boolean {
     return this.rampRates[index]! < 0 || this.dying[index] === 1
-  }
-
-  private inside(x: number, y: number): boolean {
-    const bounds = this.particleBounds
-    return x >= bounds.west && x <= bounds.east && y >= bounds.north && y <= bounds.south
   }
 
   private inView(x: number, y: number): boolean {
