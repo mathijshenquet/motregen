@@ -76,6 +76,51 @@ for (const theme of themes) {
       const clip = { x: box.x + box.width * fx, y: box.y + box.height * fy, width: 240, height: 150 }
       await page.screenshot({ clip, path: join(outDir, `${label}-${theme}-crop-${name}.png`) })
     }
+    // Alleen de windcanvas (over zwart), het drukste venster van 240×150 device-px, ×3 zonder filtering.
+    const windOnly = await page.evaluate(async () => {
+      const probe = (globalThis as unknown as { __u24: Probe & { keep?: boolean; pixels?: Uint8Array; size?: [number, number] } }).__u24
+      probe.keep = true
+      probe.pixels = undefined
+      probe.capture = true
+      while (!probe.pixels) await new Promise((resolve) => requestAnimationFrame(resolve))
+      probe.capture = false
+      probe.keep = false
+      const [width, height] = probe.size!
+      const pixels = probe.pixels
+      const cropWidth = 240
+      const cropHeight = 150
+      let best = [0, 0, -1]
+      for (let top = 0; top + cropHeight <= height; top += 25) {
+        for (let left = 0; left + cropWidth <= width; left += 40) {
+          let sum = 0
+          for (let row = top; row < top + cropHeight; row += 3) for (let column = left; column < left + cropWidth; column += 3) sum += pixels[(row * width + column) * 4 + 3]!
+          if (sum > best[2]!) best = [left, top, sum]
+        }
+      }
+      const source = document.createElement('canvas')
+      source.width = cropWidth
+      source.height = cropHeight
+      const image = source.getContext('2d')!.createImageData(cropWidth, cropHeight)
+      for (let row = 0; row < cropHeight; row++) {
+        for (let column = 0; column < cropWidth; column++) {
+          const from = ((height - 1 - (best[1]! + row)) * width + best[0]! + column) * 4
+          const to = (row * cropWidth + column) * 4
+          image.data[to] = pixels[from]!
+          image.data[to + 1] = pixels[from + 1]!
+          image.data[to + 2] = pixels[from + 2]!
+          image.data[to + 3] = 255
+        }
+      }
+      source.getContext('2d')!.putImageData(image, 0, 0)
+      const scaled = document.createElement('canvas')
+      scaled.width = cropWidth * 3
+      scaled.height = cropHeight * 3
+      const context = scaled.getContext('2d')!
+      context.imageSmoothingEnabled = false
+      context.drawImage(source, 0, 0, scaled.width, scaled.height)
+      return scaled.toDataURL('image/png').slice('data:image/png;base64,'.length)
+    })
+    writeFileSync(join(outDir, `${label}-${theme}-wind-x3.png`), Buffer.from(windOnly, 'base64'))
   }
 
   if (scenarios.includes('zoom')) {
@@ -144,16 +189,58 @@ for (const theme of themes) {
   if (scenarios.includes('profile')) {
     await jump(page, start.zoom)
     await page.waitForTimeout(8_000)
-    const profiles = []
+    const samples: Array<{ inkRatio: number; ink: number[]; heads: unknown }> = []
     for (let sample = 0; sample < 8; sample++) {
-      profiles.push(await page.evaluate(() => {
-        const wind = (globalThis as unknown as { __motregenWind: { windProfile?: () => unknown } }).__motregenWind
-        return wind.windProfile?.() ?? null
+      samples.push(await page.evaluate(async () => {
+        const wind = (globalThis as unknown as { __motregenWind: Wind & { active: number; x: Float32Array; y: Float32Array; east: number; north: number; sampleWind: (x: number, y: number) => boolean; windProfile?: () => unknown } }).__motregenWind
+        const probe = (globalThis as unknown as { __u24: Probe & { keep?: boolean; pixels?: Uint8Array; size?: [number, number] } }).__u24
+        probe.keep = true
+        probe.pixels = undefined
+        probe.capture = true
+        while (!probe.pixels) await new Promise((resolve) => requestAnimationFrame(resolve))
+        probe.capture = false
+        probe.keep = false
+        let east = 0
+        let north = 0
+        for (let index = 0; index < wind.active; index++) {
+          if (!wind.sampleWind(wind.x[index]!, wind.y[index]!)) continue
+          east += wind.east
+          north += wind.north
+        }
+        // Inkt (alpha van de windcanvas) per band van gelijk oppervlak langs de windrichting, loef → lij.
+        const [width, height] = probe.size!
+        const pixels = probe.pixels
+        const length = Math.hypot(east, north)
+        const ux = east / length
+        const uy = -north / length
+        const project = (column: number, row: number) => column * ux + row * uy
+        const values: number[] = []
+        for (let row = 0; row < height; row += 16) for (let column = 0; column < width; column += 16) values.push(project(column, row))
+        values.sort((left, right) => left - right)
+        const bins = 10
+        const edges = Array.from({ length: bins - 1 }, (_, band) => values[Math.floor((band + 1) * values.length / bins)]!)
+        const sums = new Array<number>(bins).fill(0)
+        for (let row = 0; row < height; row += 2) {
+          for (let column = 0; column < width; column += 2) {
+            const alpha = pixels[((height - 1 - row) * width + column) * 4 + 3]!
+            if (!alpha) continue
+            const t = project(column, row)
+            let band = 0
+            while (band < edges.length && t > edges[band]!) band++
+            sums[band] += alpha
+          }
+        }
+        const total = sums.reduce((sum, value) => sum + value, 0)
+        const ink = sums.map((value) => value / total * bins)
+        return { inkRatio: (ink[0]! + ink[1]!) / (ink[bins - 2]! + ink[bins - 1]!), ink, heads: wind.windProfile?.() ?? null, wind: [east / wind.active, north / wind.active] }
       }))
       await page.waitForTimeout(500)
     }
-    console.log(`${label} ${theme} profile ${JSON.stringify(profiles.map((entry) => (entry as { ratio?: number } | null)?.ratio))}`)
-    themeResults.profile = profiles
+    const meanOf = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length
+    const profile = samples[0]!.ink.map((_, band) => round(meanOf(samples.map((entry) => entry.ink[band]!)), 2))
+    const headRatios = samples.map((entry) => (entry.heads as { ratio?: number } | null)?.ratio).filter((value): value is number => value !== undefined)
+    console.log(`${label} ${theme} profile ${JSON.stringify({ inkRatio: round(meanOf(samples.map((entry) => entry.inkRatio)), 2), profile, headRatio: headRatios.length ? round(meanOf(headRatios), 2) : null, wind: (samples[0] as unknown as { wind: number[] }).wind.map((value) => round(value, 1)) })}`)
+    themeResults.profile = samples
   }
   results[theme] = themeResults
   await context.close()
@@ -185,6 +272,8 @@ async function installProbe(page: Page): Promise<void> {
       const height = gl.drawingBufferHeight
       if (pixels.length !== width * height * 4) pixels = new Uint8Array(width * height * 4)
       gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+      const keeper = probe as Probe & { keep?: boolean; pixels?: Uint8Array; size?: [number, number] }
+      if (keeper.keep) { keeper.pixels = pixels.slice(); keeper.size = [width, height] }
       const sums = { all: 0, land: 0, sea: 0 }
       const counts = { all: 0, land: 0, sea: 0 }
       const covered = { all: 0, land: 0, sea: 0 }

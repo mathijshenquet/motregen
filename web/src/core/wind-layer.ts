@@ -99,6 +99,14 @@ const FILL_FADE_SECONDS = 0.25
 // hun cel; tegelijk en op celmiddens verschenen ze als rooster van gelijke streepjes.
 const FILL_SPREAD_SECONDS = 0.15
 const RETIRE_SECONDS = 0.35
+// Elke dood met een zichtbare kop dooft minstens zo lang uit (U24: geen wegvallers).
+const DEATH_SECONDS = 0.35
+// Tekeningen korter na de vorige gelden als dezelfde frame (U24).
+const MIN_TRAIL_STEP_MS = 4
+// Het anker van de trailbuffer volgt een beweging pas bij dit zoomverschil of als het beeld meer
+// dan deze UV-marge buiten het anker valt; bij stilstand altijd.
+const REBASE_ZOOM = 0.5
+const REBASE_MARGIN = 0.05
 const FILL_MAX_PHASE = 0.6
 const SPAWN_ATTEMPTS = 32
 // Boven deze windsnelheid (m/s) dimt speedDamping de kop.
@@ -122,13 +130,18 @@ in vec4 a_color;
 uniform mat4 u_matrix;
 uniform vec2 u_target;
 uniform float u_extent;
+uniform vec2 u_uv_scale;
+uniform vec2 u_uv_offset;
 out vec4 v_color;
 out float v_across;
+// Van het huidige beeld naar het beeld waarin de trailbuffer verankerd is, in pixels van de buffer.
+vec2 anchorPx(vec4 clip) {
+  vec2 uv = (clip.xy / clip.w * 0.5 + 0.5) * u_uv_scale + u_uv_offset;
+  return (uv - 0.5) * u_target;
+}
 void main() {
-  vec4 from = u_matrix * vec4(a_from, 0.0, 1.0);
-  vec4 to = u_matrix * vec4(a_to, 0.0, 1.0);
-  vec2 fromPx = from.xy / from.w * 0.5 * u_target;
-  vec2 toPx = to.xy / to.w * 0.5 * u_target;
+  vec2 fromPx = anchorPx(u_matrix * vec4(a_from, 0.0, 1.0));
+  vec2 toPx = anchorPx(u_matrix * vec4(a_to, 0.0, 1.0));
   vec2 delta = toPx - fromPx;
   float len = length(delta);
   vec2 direction = len > 1e-4 ? delta / len : vec2(1.0, 0.0);
@@ -163,30 +176,44 @@ void main() {
   gl_Position = vec4(a_pos, 0.0, 1.0);
 }`
 
-// De vloer haalt 8-bit-waarden die door afronding nooit meer dalen (t3i-ghosts) weg.
+// De vloer haalt 8-bit-waarden die door afronding nooit meer dalen (t3i-ghosts) weg. Zonder
+// herankering (u_warp = 0) een exacte texelkopie: elke bilineaire hersampling vervaagt de staarten
+// (U24). highp: in mediump (fp16 op Apple-GPU's) is een UV-coördinaat op een buffer van > 2048 px
+// breed tot een halve texel onnauwkeurig.
 const fadeFragmentSource = `#version 300 es
-precision mediump float;
+precision highp float;
 uniform sampler2D u_trail;
 uniform float u_fade;
 uniform float u_floor;
+uniform float u_warp;
 uniform vec2 u_uv_scale;
 uniform vec2 u_uv_offset;
 in vec2 v_uv;
 out vec4 color;
 void main() {
-  vec2 previousUv = v_uv * u_uv_scale + u_uv_offset;
-  float inside = step(0.0, previousUv.x) * step(previousUv.x, 1.0) * step(0.0, previousUv.y) * step(previousUv.y, 1.0);
-  vec4 previous = texture(u_trail, clamp(previousUv, vec2(0.0), vec2(1.0)));
+  vec4 previous = texelFetch(u_trail, ivec2(gl_FragCoord.xy), 0);
+  float inside = 1.0;
+  if (u_warp > 0.5) {
+    vec2 previousUv = v_uv * u_uv_scale + u_uv_offset;
+    inside = step(0.0, previousUv.x) * step(previousUv.x, 1.0) * step(0.0, previousUv.y) * step(previousUv.y, 1.0);
+    previous = texture(u_trail, clamp(previousUv, vec2(0.0), vec2(1.0)));
+  }
   color = max(vec4(0.0), previous * u_fade - vec4(u_floor)) * inside;
 }`
 
 const compositeFragmentSource = `#version 300 es
-precision mediump float;
+precision highp float;
 uniform sampler2D u_trail;
 uniform float u_opacity;
+uniform vec2 u_uv_scale;
+uniform vec2 u_uv_offset;
 in vec2 v_uv;
 out vec4 color;
-void main() { color = texture(u_trail, v_uv) * u_opacity; }`
+void main() {
+  vec2 uv = v_uv * u_uv_scale + u_uv_offset;
+  float inside = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
+  color = texture(u_trail, clamp(uv, vec2(0.0), vec2(1.0))) * u_opacity * inside;
+}`
 
 interface TrailTarget {
   texture: WebGLTexture
@@ -226,9 +253,9 @@ export class WindLayer implements CustomLayerInterface {
   private segmentProgram?: WebGLProgram
   private fadeProgram?: WebGLProgram
   private compositeProgram?: WebGLProgram
-  private segmentUniforms?: UniformMap<'matrix' | 'target' | 'extent' | 'halfWidth' | 'head' | 'visibility' | 'contrast'>
-  private fadeUniforms?: UniformMap<'trail' | 'fade' | 'floor' | 'uvScale' | 'uvOffset'>
-  private compositeUniforms?: UniformMap<'trail' | 'opacity'>
+  private segmentUniforms?: UniformMap<'matrix' | 'target' | 'extent' | 'halfWidth' | 'head' | 'visibility' | 'contrast' | 'uvScale' | 'uvOffset'>
+  private fadeUniforms?: UniformMap<'trail' | 'fade' | 'floor' | 'warp' | 'uvScale' | 'uvOffset'>
+  private compositeUniforms?: UniformMap<'trail' | 'opacity' | 'uvScale' | 'uvOffset'>
   // Eigen VAO's: instance-divisors en attribuutbindings zijn VAO-state en mogen die van MapLibre niet raken.
   private segmentArray?: WebGLVertexArrayObject
   private fadeArray?: WebGLVertexArrayObject
@@ -240,6 +267,7 @@ export class WindLayer implements CustomLayerInterface {
   private trailWidth = 0
   private trailHeight = 0
   private trailView?: TrailView
+  private renderedView?: TrailView
   private left?: Float32Array
   private right?: Float32Array
   private mix = 0
@@ -257,6 +285,10 @@ export class WindLayer implements CustomLayerInterface {
   private ramps = new Float32Array(MAX_PARTICLES).fill(1)
   private rampRates = new Float32Array(MAX_PARTICLES)
   private retiring = 0
+  /** Getoonde kop-alpha (0–1), die hooguit met 1/DEATH_SECONDS per seconde daalt. */
+  private shown = new Float32Array(MAX_PARTICLES)
+  /** 1 = leven voorbij, de kop dooft uit (telt mee in `retiring`). */
+  private dying = new Uint8Array(MAX_PARTICLES)
   private instanceData = new ArrayBuffer(MAX_PARTICLES * INSTANCE_BYTES)
   private instanceFloats = new Float32Array(this.instanceData)
   private instanceBytes = new Uint8Array(this.instanceData)
@@ -293,9 +325,10 @@ export class WindLayer implements CustomLayerInterface {
     const composite = this.compositeProgram = link(gl, screenVertexSource, compositeFragmentSource)
     this.segmentUniforms = uniforms(gl, segment, {
       matrix: 'u_matrix', target: 'u_target', extent: 'u_extent', halfWidth: 'u_half_width', head: 'u_head', visibility: 'u_visibility', contrast: 'u_contrast',
+      uvScale: 'u_uv_scale', uvOffset: 'u_uv_offset',
     })
-    this.fadeUniforms = uniforms(gl, fade, { trail: 'u_trail', fade: 'u_fade', floor: 'u_floor', uvScale: 'u_uv_scale', uvOffset: 'u_uv_offset' })
-    this.compositeUniforms = uniforms(gl, composite, { trail: 'u_trail', opacity: 'u_opacity' })
+    this.fadeUniforms = uniforms(gl, fade, { trail: 'u_trail', fade: 'u_fade', floor: 'u_floor', warp: 'u_warp', uvScale: 'u_uv_scale', uvOffset: 'u_uv_offset' })
+    this.compositeUniforms = uniforms(gl, composite, { trail: 'u_trail', opacity: 'u_opacity', uvScale: 'u_uv_scale', uvOffset: 'u_uv_offset' })
 
     this.segmentArray = gl.createVertexArray()!
     gl.bindVertexArray(this.segmentArray)
@@ -360,6 +393,36 @@ export class WindLayer implements CustomLayerInterface {
     return { particles: xs.length, dispersion: cellDispersion(xs, ys, xs.length, columns, rows) }
   }
 
+  /**
+   * Meethaak (U24): dichtheid van de zichtbare koppen langs de gemiddelde windrichting, van loef
+   * naar lij in banden van gelijk oppervlak; `ratio` = loef/lij (buitenste 20 % aan elke kant).
+   */
+  windProfile(bins = 10): WindProfile & { particles: number } {
+    const bounds = this.particleBounds
+    const xs: number[] = []
+    const ys: number[] = []
+    const weights: number[] = []
+    let east = 0
+    let north = 0
+    for (let index = 0; index < this.active; index++) {
+      const alpha = this.instanceBytes[index * INSTANCE_BYTES + 19]!
+      if (this.ages[index]! <= 0 || alpha === 0) continue
+      const u = (this.x[index]! - bounds.west) / (bounds.east - bounds.west)
+      const v = (this.y[index]! - bounds.north) / (bounds.south - bounds.north)
+      if (!(u >= 0 && u <= 1 && v >= 0 && v <= 1)) continue
+      xs.push(u)
+      ys.push(v)
+      weights.push(alpha / 255)
+      if (this.sampleWind(this.x[index]!, this.y[index]!)) {
+        east += this.east
+        north += this.north
+      }
+    }
+    const canvas = this.map?.getCanvas()
+    const aspect = canvas ? Math.max(1, canvas.clientWidth) / Math.max(1, canvas.clientHeight) : 1
+    return { particles: xs.length, ...downwindProfile(xs, ys, weights, east, -north, aspect, bins) }
+  }
+
   setFrames(left: Float32Array, right: Float32Array, mix: number): void {
     this.left = left
     this.right = right
@@ -399,11 +462,15 @@ export class WindLayer implements CustomLayerInterface {
     if (!this.map || !this.trails || !this.segmentArray || !this.fadeArray || !this.compositeArray || !this.left || !this.right) return
     const now = performance.now()
     const elapsed = this.previousTime ? Math.min(40, now - this.previousTime) : 16
-    this.previousTime = now
-    const seconds = elapsed / 1_000
-    this.adjustBudget(elapsed)
-    const worldPx = WORLD_TILE_SIZE * 2 ** this.map.getZoom()
-    this.advance(seconds, worldPx)
+    // Een tweede tekening in dezelfde frame (kaartrender én eigen frame) laat de tijd niet lopen:
+    // anders trekt de vloer er per frame dubbel af en stempelt een kop een segment van niets.
+    const stepping = elapsed >= MIN_TRAIL_STEP_MS
+    const seconds = stepping ? elapsed / 1_000 : 0
+    if (stepping) {
+      this.previousTime = now
+      this.adjustBudget(elapsed)
+      this.advance(seconds, WORLD_TILE_SIZE * 2 ** this.map.getZoom())
+    }
 
     const viewport = gl.getParameter(gl.VIEWPORT) as Int32Array
     const framebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
@@ -412,30 +479,70 @@ export class WindLayer implements CustomLayerInterface {
     gl.disable(gl.DEPTH_TEST)
     gl.disable(gl.SCISSOR_TEST)
 
-    const previous = this.trails[this.trailIndex]
-    const nextIndex = 1 - this.trailIndex
-    const next = this.trails[nextIndex]!
+    // De buffer blijft verankerd in `trailView` zolang de kaart beweegt en wordt pas geherprojecteerd
+    // (één bilineaire hersampling) bij stilstand of als het anker te ver afwijkt. Per frame
+    // mee-warpen vervaagde de staarten bij een doorlopende zoom tot minder dan de helft (U24).
     const currentView = this.currentTrailView()
-    const transform = trailUvTransform(this.trailView ?? currentView, currentView)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, next.framebuffer)
-    gl.viewport(0, 0, this.trailWidth, this.trailHeight)
-    gl.disable(gl.BLEND)
-    gl.useProgram(this.fadeProgram!)
-    gl.bindVertexArray(this.fadeArray)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, previous.texture)
-    gl.uniform1i(this.fadeUniforms!.trail, 0)
-    gl.uniform1f(this.fadeUniforms!.fade, bufferDecay(this.tuning.bufferFade, seconds) * transform.retention)
-    gl.uniform1f(this.fadeUniforms!.floor, trailFloor(seconds))
-    gl.uniform2f(this.fadeUniforms!.uvScale, transform.scaleX, transform.scaleY)
-    gl.uniform2f(this.fadeUniforms!.uvOffset, transform.offsetX, transform.offsetY)
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+    const moving = !sameTrailView(currentView, this.renderedView)
+    this.renderedView = currentView
+    const anchor = this.trailView ?? currentView
+    const drift = trailUvTransform(anchor, currentView)
+    const rebase = !sameTrailView(anchor, currentView) && (!moving || anchorExhausted(anchor, currentView, drift))
+    const bufferTransform = rebase ? trailUvTransform(currentView, currentView) : drift
+    let shown = this.trails[this.trailIndex]
+    if (stepping || rebase) {
+      const previous = shown
+      const nextIndex = 1 - this.trailIndex
+      const next = this.trails[nextIndex]!
+      gl.bindFramebuffer(gl.FRAMEBUFFER, next.framebuffer)
+      gl.viewport(0, 0, this.trailWidth, this.trailHeight)
+      gl.disable(gl.BLEND)
+      gl.useProgram(this.fadeProgram!)
+      gl.bindVertexArray(this.fadeArray)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, previous.texture)
+      gl.uniform1i(this.fadeUniforms!.trail, 0)
+      gl.uniform1f(this.fadeUniforms!.fade, bufferDecay(this.tuning.bufferFade, seconds) * (rebase ? drift.retention : 1))
+      gl.uniform1f(this.fadeUniforms!.floor, stepping ? trailFloor(seconds) : 0)
+      gl.uniform1f(this.fadeUniforms!.warp, rebase ? 1 : 0)
+      gl.uniform2f(this.fadeUniforms!.uvScale, drift.scaleX, drift.scaleY)
+      gl.uniform2f(this.fadeUniforms!.uvOffset, drift.offsetX, drift.offsetY)
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
 
+      if (stepping) this.drawHeads(gl, options, bufferTransform)
+      this.trailIndex = nextIndex
+      if (rebase) this.trailView = currentView
+      shown = next
+    }
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
+    gl.viewport(viewport[0]!, viewport[1]!, viewport[2]!, viewport[3]!)
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-    const halfWidth = this.tuning.lineWidth / 2 * this.trailWidth / Math.max(1, this.map.getCanvas().width)
+    gl.useProgram(this.compositeProgram!)
+    gl.bindVertexArray(this.compositeArray)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, shown.texture)
+    gl.uniform1i(this.compositeUniforms!.trail, 0)
+    gl.uniform1f(this.compositeUniforms!.opacity, this.tuning.intensity * Math.min(this.tuning.visibility, 1))
+    gl.uniform2f(this.compositeUniforms!.uvScale, bufferTransform.scaleX, bufferTransform.scaleY)
+    gl.uniform2f(this.compositeUniforms!.uvOffset, bufferTransform.offsetX, bufferTransform.offsetY)
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+    gl.bindVertexArray(null)
+    if (depthEnabled) gl.enable(gl.DEPTH_TEST)
+    if (scissorEnabled) gl.enable(gl.SCISSOR_TEST)
+    if (this.requestRepaint) this.requestRepaint()
+    else this.requestNextFrame(now)
+  }
+
+  /** De koppen van deze tijdstap als segmenten in de (verankerde) trailbuffer. */
+  private drawHeads(gl: WebGL2RenderingContext, options: CustomRenderMethodInput, bufferTransform: UvTransform): void {
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+    // lineWidth in device-px van het huidige beeld, omgerekend naar pixels van de verankerde buffer.
+    const halfWidth = this.tuning.lineWidth / 2 * bufferTransform.scaleX * this.trailWidth / Math.max(1, this.map!.getCanvas().width)
     gl.useProgram(this.segmentProgram!)
-    gl.bindVertexArray(this.segmentArray)
+    gl.bindVertexArray(this.segmentArray!)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer!)
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.instanceBytes, 0, this.active * INSTANCE_BYTES)
     const segmentUniforms = this.segmentUniforms!
@@ -445,25 +552,11 @@ export class WindLayer implements CustomLayerInterface {
     gl.uniform1f(segmentUniforms.halfWidth, halfWidth)
     gl.uniform1f(segmentUniforms.head, this.tuning.headIntensity)
     gl.uniform1f(segmentUniforms.visibility, this.tuning.visibility)
+    gl.uniform2f(segmentUniforms.uvScale, bufferTransform.scaleX, bufferTransform.scaleY)
+    gl.uniform2f(segmentUniforms.uvOffset, bufferTransform.offsetX, bufferTransform.offsetY)
     const contrast = this.theme === 'dark' ? 1 : 0
     gl.uniform3f(segmentUniforms.contrast, contrast, contrast, contrast)
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, this.active)
-    this.trailIndex = nextIndex
-    this.trailView = currentView
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
-    gl.viewport(viewport[0]!, viewport[1]!, viewport[2]!, viewport[3]!)
-    gl.useProgram(this.compositeProgram!)
-    gl.bindVertexArray(this.compositeArray)
-    gl.bindTexture(gl.TEXTURE_2D, next.texture)
-    gl.uniform1i(this.compositeUniforms!.trail, 0)
-    gl.uniform1f(this.compositeUniforms!.opacity, this.tuning.intensity * Math.min(this.tuning.visibility, 1))
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
-    gl.bindVertexArray(null)
-    if (depthEnabled) gl.enable(gl.DEPTH_TEST)
-    if (scissorEnabled) gl.enable(gl.SCISSOR_TEST)
-    if (this.requestRepaint) this.requestRepaint()
-    else this.requestNextFrame(now)
   }
 
   /**
@@ -495,10 +588,19 @@ export class WindLayer implements CustomLayerInterface {
     this.countCells()
     for (let index = 0; index < this.active; index++) {
       const rate = this.rampRates[index]!
-      if (rate !== 0) {
+      const dying = this.dying[index] === 1
+      if (dying) {
+        this.shown[index] = this.shown[index]! - seconds / DEATH_SECONDS
+        if (this.shown[index]! <= 0) {
+          if (this.retire(index)) index--
+          continue
+        }
+      } else if (rate !== 0) {
         const ramp = this.ramps[index]! + rate * seconds
         if (rate < 0 && ramp <= 0) {
-          if (this.retire(index)) index--
+          // De begrensde kop-alpha loopt achter op de ramp: eerst uitdoven, dan pas weg.
+          if (this.shown[index]! * 255 >= 1) this.dying[index] = 1
+          else if (this.retire(index)) index--
           continue
         }
         this.ramps[index] = Math.min(1, ramp)
@@ -523,24 +625,33 @@ export class WindLayer implements CustomLayerInterface {
         nextY < this.particleBounds.north || nextY > this.particleBounds.south
       const offset = index * INSTANCE_BYTES / 4
       this.lifeLimit.maxAge = tuning.maxAge * this.lifeScales[index]!
-      if (outside || !advanceLife(life, stepPx, seconds, this.lifeLimit)) {
+      if (!dying && (outside || !advanceLife(life, stepPx, seconds, this.lifeLimit))) {
         if (this.die(index, oldX, oldY)) index--
         continue
       }
       this.x[index] = nextX
       this.y[index] = nextY
-      this.ages[index] = life.age
-      this.travelled[index] = life.travelled
       floats[offset] = floats[offset + 2]!
       floats[offset + 1] = floats[offset + 3]!
       floats[offset + 2] = 0.5 + (this.grid.x0 + gridWidth * nextX) * MERCATOR_SCALE
       floats[offset + 3] = 0.5 - (this.grid.y0 + gridHeight * nextY) * MERCATOR_SCALE
-      setWindColor(speed, this.theme, this.color)
       const byte = index * INSTANCE_BYTES + 16
+      if (dying) {
+        // Uitlopend: de kop drijft door en dooft in de tijd; kleur blijft die van zijn laatste leven.
+        this.instanceBytes[byte + 3] = Math.round(this.shown[index]! * 255)
+        continue
+      }
+      this.ages[index] = life.age
+      this.travelled[index] = life.travelled
+      setWindColor(speed, this.theme, this.color)
       this.instanceBytes[byte] = Math.round(this.color[0]! * 255)
       this.instanceBytes[byte + 1] = Math.round(this.color[1]! * 255)
       this.instanceBytes[byte + 2] = Math.round(this.color[2]! * 255)
-      this.instanceBytes[byte + 3] = Math.round(headAlpha(life, tuning) * smooth(Math.max(0, this.ramps[index]!)) * speedDamping(speed, tuning.speedDamping) * 255)
+      // Omhoog direct, omlaag hooguit 1/DEATH_SECONDS per seconde: een snelheidssprong naar (bijna)
+      // windstil of een gat in het veld liet de kop anders in één frame verdwijnen (U24).
+      const target = headAlpha(life, tuning) * smooth(Math.max(0, this.ramps[index]!)) * speedDamping(speed, tuning.speedDamping)
+      this.shown[index] = Math.max(target, this.shown[index]! - seconds / DEATH_SECONDS)
+      this.instanceBytes[byte + 3] = Math.round(this.shown[index]! * 255)
     }
   }
 
@@ -585,6 +696,8 @@ export class WindLayer implements CustomLayerInterface {
     this.distances[index] = this.tuning.trailDistance * lifeScale
     this.ramps[index] = 1
     this.rampRates[index] = 0
+    this.shown[index] = 0
+    this.dying[index] = 0
     if (fill) {
       // Een willekeurige levensfase in afstand én leeftijd, anders sterven alle aanvullers van
       // één zoomstap tegelijk: bij zwakke wind (land) is maxAge de doodsoorzaak (U20).
@@ -629,8 +742,8 @@ export class WindLayer implements CustomLayerInterface {
     let survivors = 0
     for (let index = 0; index < this.active; index++) {
       if (this.inside(this.x[index]!, this.y[index]!)) {
-        if (this.rampRates[index]! >= 0) survivors++
-      } else if (this.rampRates[index]! < 0) {
+        if (!this.fading(index)) survivors++
+      } else if (this.fading(index)) {
         if (this.retire(index)) index--
       } else {
         this.respawn(index, 0, true)
@@ -654,7 +767,7 @@ export class WindLayer implements CustomLayerInterface {
     for (const minimum of [2, 0]) {
       for (let step = 0; step < this.active && count > 0; step++) {
         const index = (offset + step) % this.active
-        if (this.rampRates[index]! < 0) continue
+        if (this.fading(index)) continue
         const cell = this.cellOf(this.x[index]!, this.y[index]!)
         if (minimum > 0 && (cell < 0 || this.cellCounts[cell]! < minimum)) continue
         if (cell >= 0 && this.cellCounts[cell]! > 0) this.cellCounts[cell]!--
@@ -667,7 +780,18 @@ export class WindLayer implements CustomLayerInterface {
 
   /** Einde van een leven; true als het slot is opgeheven en `index` nu een ander particle bevat. */
   private die(index: number, x: number, y: number): boolean {
-    if (this.rampRates[index]! < 0) return this.retire(index)
+    const surplus = this.rampRates[index]! < 0
+    if (this.shown[index]! * 255 >= 1) {
+      // Zichtbare kop: het slot dooft als uitloper uit (telt als overtal) en een vervanger wordt
+      // meteen geboren, zodat de dichtheid niet zakt.
+      this.dying[index] = 1
+      if (surplus) return false
+      this.leaveCell(x, y)
+      this.retiring++
+      if (this.active < MAX_PARTICLES) this.respawn(this.active++, 0)
+      return false
+    }
+    if (surplus) return this.retire(index)
     this.leaveCell(x, y)
     if (this.active - this.retiring > this.budget) {
       this.removeSlot(index)
@@ -691,8 +815,13 @@ export class WindLayer implements CustomLayerInterface {
   private removeSlot(index: number): void {
     const last = --this.active
     if (index === last) return
-    for (const values of [this.x, this.y, this.ages, this.travelled, this.distances, this.lifeScales, this.ramps, this.rampRates]) values[index] = values[last]!
+    for (const values of [this.x, this.y, this.ages, this.travelled, this.distances, this.lifeScales, this.ramps, this.rampRates, this.shown, this.dying]) values[index] = values[last]!
     this.instanceBytes.copyWithin(index * INSTANCE_BYTES, last * INSTANCE_BYTES, (last + 1) * INSTANCE_BYTES)
+  }
+
+  /** Telt niet meer mee: overtal dat uitfadet of een uitlopende dode kop. */
+  private fading(index: number): boolean {
+    return this.rampRates[index]! < 0 || this.dying[index] === 1
   }
 
   private inside(x: number, y: number): boolean {
@@ -703,7 +832,7 @@ export class WindLayer implements CustomLayerInterface {
   private countCells(): void {
     this.cellCounts.fill(0, 0, this.columns * this.rows)
     for (let index = 0; index < this.active; index++) {
-      if (this.rampRates[index]! < 0) continue
+      if (this.fading(index)) continue
       const cell = this.cellOf(this.x[index]!, this.y[index]!)
       if (cell >= 0) this.cellCounts[cell]!++
     }
@@ -900,6 +1029,55 @@ export function jitteredCellPoint(cell: number, columns: number, rows: number, j
   ]
 }
 
+export interface WindProfile {
+  /** Relatieve koppendichtheid per band van loef naar lij (gemiddelde 1). */
+  density: number[]
+  /** Idem, gewogen met kop-alpha: wat je ziet. */
+  ink: number[]
+  ratio: number
+  inkRatio: number
+}
+
+/**
+ * Profiel van punten (u, v in het eenheidsvierkant, v omlaag) langs richting (dx, dy) in
+ * schermruimte, in `bins` banden van gelijk beeldoppervlak. `aspect` = breedte/hoogte.
+ */
+export function downwindProfile(us: ArrayLike<number>, vs: ArrayLike<number>, weights: ArrayLike<number>, dx: number, dy: number, aspect: number, bins = 10): WindProfile {
+  const length = Math.hypot(dx * aspect, dy)
+  const empty = { density: new Array<number>(bins).fill(0), ink: new Array<number>(bins).fill(0), ratio: Number.NaN, inkRatio: Number.NaN }
+  if (!(length > 0) || us.length === 0) return empty
+  const ux = dx * aspect / length
+  const uy = dy / length
+  const project = (u: number, v: number) => u * aspect * ux + v * uy
+  // Bandgrenzen als kwantielen van een uniform raster over het beeld: gelijk oppervlak per band.
+  const samples: number[] = []
+  for (let row = 0; row < 64; row++) for (let column = 0; column < 64; column++) samples.push(project((column + 0.5) / 64, (row + 0.5) / 64))
+  samples.sort((left, right) => left - right)
+  const edges = Array.from({ length: bins - 1 }, (_, band) => samples[Math.floor((band + 1) * samples.length / bins)]!)
+  const counts = new Array<number>(bins).fill(0)
+  const inks = new Array<number>(bins).fill(0)
+  let total = 0
+  let totalInk = 0
+  for (let index = 0; index < us.length; index++) {
+    const t = project(us[index]!, vs[index]!)
+    let band = 0
+    while (band < edges.length && t > edges[band]!) band++
+    counts[band]!++
+    inks[band]! += weights[index]!
+    total++
+    totalInk += weights[index]!
+  }
+  const density = counts.map((count) => count / total * bins)
+  const ink = inks.map((value) => totalInk > 0 ? value / totalInk * bins : 0)
+  const edge = Math.max(1, Math.round(bins / 5))
+  const ratioOf = (values: number[]) => mean(values.slice(0, edge)) / mean(values.slice(bins - edge))
+  return { density, ink, ratio: ratioOf(density), inkRatio: ratioOf(ink) }
+}
+
+function mean(values: number[]): number {
+  return values.reduce((sum, value) => sum + value, 0) / Math.max(1, values.length)
+}
+
 /** Spreidingsindex (variantie/gemiddelde) van aantallen per cel; ~1 bij uniform random, lager is gelijkmatiger. */
 export function cellDispersion(xs: ArrayLike<number>, ys: ArrayLike<number>, count: number, columns: number, rows: number): number {
   const cells = new Float64Array(columns * rows)
@@ -936,7 +1114,21 @@ export function trailTargetSize(canvasWidth: number, canvasHeight: number, maxTe
   return [Math.max(1, Math.round(width * clamp)), Math.max(1, Math.round(height * clamp))]
 }
 
-export function trailUvTransform(previous: TrailView, current: TrailView): { scaleX: number; scaleY: number; offsetX: number; offsetY: number; retention: number } {
+export interface UvTransform { scaleX: number; scaleY: number; offsetX: number; offsetY: number; retention: number }
+
+export function sameTrailView(left: TrailView, right: TrailView | undefined): boolean {
+  return !!right && left.centerX === right.centerX && left.centerY === right.centerY && left.zoom === right.zoom &&
+    left.width === right.width && left.height === right.height
+}
+
+/** Moet de verankerde buffer tijdens een beweging al herprojecteren? Zoomverschil of beeld buiten het anker. */
+export function anchorExhausted(anchor: TrailView, current: TrailView, drift: UvTransform): boolean {
+  return Math.abs(anchor.zoom - current.zoom) > REBASE_ZOOM ||
+    drift.offsetX < -REBASE_MARGIN || drift.offsetX + drift.scaleX > 1 + REBASE_MARGIN ||
+    drift.offsetY < -REBASE_MARGIN || drift.offsetY + drift.scaleY > 1 + REBASE_MARGIN
+}
+
+export function trailUvTransform(previous: TrailView, current: TrailView): UvTransform {
   const zoomScale = 2 ** (previous.zoom - current.zoom)
   const scaleX = zoomScale * current.width / previous.width
   const scaleY = zoomScale * current.height / previous.height

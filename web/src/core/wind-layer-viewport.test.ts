@@ -20,13 +20,17 @@ interface Internals {
   ages: Float32Array
   instanceBytes: Uint8Array
   rampRates: Float32Array
+  dying: Uint8Array
   particleBounds: { west: number; east: number; north: number; south: number }
+  lifeScales: Float32Array
   resetViewport(resetAll?: boolean): void
   advance(seconds: number, worldPx: number): void
   balance(): void
 }
 
-function harness(width = 1_280, height = 720, speed = 5) {
+type Field = (column: number, row: number) => [number, number]
+
+function harness(width = 1_280, height = 720, speed: number | Field = 5) {
   // Midden van het raster als wereldfractie.
   const view: View = { x: 0.5 + 500_000 / (2 * Math.PI * R), y: 0.5 - 6_500_000 / (2 * Math.PI * R), zoom: 8, width, height }
   const lng = (fraction: number) => fraction * 360 - 180
@@ -47,7 +51,14 @@ function harness(width = 1_280, height = 720, speed = 5) {
   }
   const layer = new WindLayer(grid, 'dark')
   const field = new Float32Array(grid.width * grid.height * 2)
-  for (let index = 0; index < field.length; index += 2) field[index] = speed
+  const windAt = typeof speed === 'number' ? (): [number, number] => [speed, 0] : speed
+  for (let row = 0; row < grid.height; row++) {
+    for (let column = 0; column < grid.width; column++) {
+      const [east, north] = windAt(column, row)
+      field[(row * grid.width + column) * 2] = east
+      field[(row * grid.width + column) * 2 + 1] = north
+    }
+  }
   layer.setFrames(field, field, 0)
   const wind = layer as unknown as Internals
   wind.map = map
@@ -64,7 +75,11 @@ function harness(width = 1_280, height = 720, speed = 5) {
     Object.assign(view, change)
     wind.resetViewport()
   }
-  return { view, wind, run, visible, move }
+  // Uitlopers (U24): dode koppen die nog 0,35 s uitdoven tellen als overtal maar zijn geen budget.
+  const dyingCount = () => wind.dying.subarray(0, wind.active).reduce((sum, value) => sum + value, 0)
+  const settled = () => wind.active - dyingCount()
+  const surplus = () => wind.retiring - dyingCount()
+  return { view, wind, run, visible, move, settled, surplus }
 }
 
 describe('wind across map movement (U12)', () => {
@@ -82,14 +97,14 @@ describe('wind across map movement (U12)', () => {
       kept++
     }
     expect(kept).toBeGreaterThan(0.15 * before)
-    for (let index = 0; index < wind.active; index++) expect(wind.ages[index]).toBeGreaterThan(0)
+    for (let index = 0; index < wind.active; index++) expect(wind.ages[index]).toBeGreaterThanOrEqual(0)
     expect(wind.active - wind.retiring).toBe(wind.budget)
     run(0.3)
     expect(visible()).toBeGreaterThan(0.85 * before)
   })
 
   it('fades the surplus out of the old view and fills the new rim straight away on zoom-out', () => {
-    const { wind, run, visible, move, view } = harness()
+    const { wind, run, visible, move, view, settled, surplus } = harness()
     run(10)
     const before = visible()
     const old = { ...wind.particleBounds }
@@ -99,8 +114,8 @@ describe('wind across map movement (U12)', () => {
     run(0.3)
     expect(visible()).toBeGreaterThan(0.85 * before)
     run(0.3)
-    expect(wind.retiring).toBe(0)
-    expect(wind.active).toBe(wind.budget)
+    expect(surplus()).toBe(0)
+    expect(settled()).toBe(wind.budget)
     let rim = 0
     for (let index = 0; index < wind.active; index++) {
       const x = wind.x[index]!
@@ -112,14 +127,14 @@ describe('wind across map movement (U12)', () => {
   })
 
   it('refills a pan strip immediately and never lets a steady drag thin the field', () => {
-    const { wind, run, visible, move, view } = harness()
+    const { run, visible, move, view, surplus } = harness()
     run(10)
     const before = visible()
     const world = 512 * 2 ** view.zoom
     for (let step = 0; step < 60; step++) {
       move({ x: view.x + 10 / world })
       run(frame)
-      expect(wind.retiring).toBe(0)
+      expect(surplus()).toBe(0)
     }
     expect(visible()).toBeGreaterThan(0.85 * before)
     move({ x: view.x + view.width / 2 / world })
@@ -128,7 +143,7 @@ describe('wind across map movement (U12)', () => {
   })
 
   it('keeps the field populated through a continuous pinch in both directions', () => {
-    const { wind, run, visible, move, view } = harness()
+    const { wind, run, visible, move, view, settled } = harness()
     run(10)
     const before = visible()
     let lowest = Infinity
@@ -141,11 +156,11 @@ describe('wind across map movement (U12)', () => {
     }
     expect(lowest).toBeGreaterThan(0.8 * before)
     run(1)
-    expect(wind.active).toBe(wind.budget)
+    expect(settled()).toBe(wind.budget)
   })
 
   it('shrinks the particle budget by fading out instead of cutting slots off', () => {
-    const { wind, run } = harness()
+    const { wind, run, settled, surplus } = harness()
     run(10)
     const previous = wind.active
     wind.budget = Math.floor(previous * 0.78)
@@ -153,20 +168,20 @@ describe('wind across map movement (U12)', () => {
     expect(wind.active).toBe(previous)
     expect(wind.retiring).toBe(previous - wind.budget)
     run(0.5)
-    expect(wind.active).toBe(wind.budget)
-    expect(wind.retiring).toBe(0)
+    expect(settled()).toBe(wind.budget)
+    expect(surplus()).toBe(0)
   })
 
   it('follows a resize to the new screen-area target', () => {
-    const { wind, run, move, view } = harness()
+    const { wind, run, move, view, settled, surplus } = harness()
     run(10)
     const previous = wind.budget
     move({ width: view.width / 2 })
     expect(wind.budget).toBeLessThan(previous)
     run(0.5)
-    expect(wind.active).toBe(wind.budget)
+    expect(settled()).toBe(wind.budget)
     move({ width: view.width * 2 })
-    expect(wind.retiring).toBe(0)
+    expect(surplus()).toBe(0)
     expect(wind.active - wind.retiring).toBe(previous)
   })
 
@@ -211,6 +226,42 @@ describe('wind across map movement (U12)', () => {
     }
     expect(shown.size).toBeGreaterThan(fills.length * 0.9)
     expect(most).toBeLessThan(fills.length * 0.4)
+  })
+
+  it('never lets a visible head vanish from one frame to the next, also where the wind jumps or has gaps (U24)', () => {
+    // Blokken van 20×20 cellen met wisselende sterkte (0–8 m/s; nearest-neighbour: sprongen op de
+    // celranden) en windstille NaN-stroken. Vóór U24 verdwenen hier 70–144 zichtbare koppen per seconde.
+    const fields: Record<string, Field> = {
+      blokken: (column, row) => {
+        const strength = ((Math.floor(column / 20) * 7 + Math.floor(row / 20) * 3) % 5) * 2
+        return [strength, strength / 2]
+      },
+      gaten: (column) => (Math.floor(column / 50) % 4 === 3 ? [Number.NaN, Number.NaN] : [6, 1]),
+    }
+    for (const [name, field] of Object.entries(fields)) {
+      const { wind, run, move, view } = harness(1_280, 720, field)
+      run(10)
+      let vanished = 0
+      for (let frameIndex = 0; frameIndex < 1_200; frameIndex++) {
+        if (frameIndex % 120 === 60) move({ zoom: view.zoom + (frameIndex % 240 === 60 ? 0.5 : -0.5) })
+        const count = wind.active
+        const before = Array.from({ length: count }, (_, index) => ({
+          x: wind.x[index]!, y: wind.y[index]!, scale: wind.lifeScales[index]!, alpha: wind.instanceBytes[index * 20 + 19]!,
+        }))
+        run(frame)
+        const bounds = wind.particleBounds
+        for (const head of before) {
+          if (head.alpha < 64 || head.x < bounds.west || head.x > bounds.east || head.y < bounds.north || head.y > bounds.south) continue
+          // Hetzelfde particle: zelfde levensschaal en (bijna) dezelfde plek, ook na een slotverhuizing.
+          let alpha = -1
+          for (let index = 0; index < wind.active && alpha < 0; index++) {
+            if (wind.lifeScales[index] === head.scale && Math.abs(wind.x[index]! - head.x) < 1e-3 && Math.abs(wind.y[index]! - head.y) < 1e-3) alpha = wind.instanceBytes[index * 20 + 19]!
+          }
+          if (alpha <= 0) vanished++
+        }
+      }
+      expect(vanished, name).toBe(0)
+    }
   })
 })
 
