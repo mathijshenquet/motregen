@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@solidjs/testing-library'
 import { createSignal } from 'solid-js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { TimelineFrame } from '../core/contract'
-import HistogramScrubber, { hourLabelStep } from './HistogramScrubber'
+import HistogramScrubber, { hourLabelStep, stickyKeyframes, wallClamp } from './HistogramScrubber'
 
 afterEach(cleanup)
 
@@ -33,6 +33,8 @@ describe('hour label step', () => {
 
 // jsdom kent geen ResizeObserver: het plot blijft 320 px breed, dus 8 uur = 40 px per uur.
 const PX_PER_HOUR = 40
+// Langer dan het plot (23 u = 920 px), zodat de baan tussen de muren kan schuiven.
+const day24 = () => Array.from({ length: 24 }, (_, hour) => frame(`2026-08-28T${String(hour).padStart(2, '0')}:00:00Z`, 'harmonie'))
 
 function plotBounds(container: HTMLElement, left = 0): void {
   Object.defineProperty(container.querySelector('.chart-plot')!, 'getBoundingClientRect', {
@@ -48,6 +50,35 @@ function capturable(slider: HTMLElement): void {
     releasePointerCapture: vi.fn(() => { captured = false }),
   })
 }
+
+describe('wall clamp (U34)', () => {
+  it('is exact away from the walls and stops at them, smoothly', () => {
+    expect(wallClamp(-100, -500, 0, 40)).toBe(-100)
+    expect(wallClamp(200, -500, 0, 40)).toBe(0)
+    expect(wallClamp(-900, -500, 0, 40)).toBe(-500)
+    // In de knie: tussen vrij en muur, en monotoon.
+    const inKnee = [-60, -40, -20, 0, 20, 40, 60].map((value) => wallClamp(value, -500, 0, 40))
+    expect(inKnee[0]).toBe(-60)
+    expect(inKnee.at(-1)).toBe(0)
+    for (let index = 1; index < inKnee.length; index++) expect(inKnee[index]!).toBeGreaterThanOrEqual(inKnee[index - 1]!)
+    expect(wallClamp(0, -500, 0, 40)).toBeCloseTo(-10)
+    // Past de tijdlijn in het plot: links uitgelijnd.
+    expect(wallClamp(80, 0, 0, 40)).toBe(0)
+  })
+})
+
+describe('sticky day label keyframes (U34)', () => {
+  it('moves with the track, sticks at the inset, then is pushed out by the next day', () => {
+    // Dag van baan-x 100 tot (label past tot) b = 300; verschuiving van 0 naar −400.
+    const frames = stickyKeyframes({ label: 'MORGEN', a: 100, b: 300 }, 0, -400)
+    expect(frames.map((frame) => [+frame.offset!.toFixed(3), frame.transform])).toEqual([
+      [0, 'translateX(100px)'],
+      [0.24, 'translateX(4px)'],
+      [0.74, 'translateX(4px)'],
+      [1, 'translateX(-100px)'],
+    ])
+  })
+})
 
 describe('histogram scrubber', () => {
   afterEach(() => vi.unstubAllGlobals())
@@ -91,11 +122,11 @@ describe('histogram scrubber', () => {
   })
 
   it('keeps the cursor fixed at a third of the width and slides the timeline under it', () => {
-    const timeline = ['14', '15', '16', '17', '18'].map((hour) => frame(`2026-08-28T${hour}:00:00Z`, 'harmonie'))
-    const [cursor, setCursor] = createSignal(1)
+    const timeline = day24()
+    const [cursor, setCursor] = createSignal(4)
     const { container } = render(() => <HistogramScrubber
       timeline={timeline}
-      values={[0, 0, 0, 0, 0]}
+      values={timeline.map(() => 0)}
       cursor={cursor()}
       now={timeline[0]!.epoch}
       playing={false}
@@ -106,9 +137,19 @@ describe('histogram scrubber', () => {
     />)
     const track = container.querySelector<HTMLElement>('.chart-track')!
     const offset = () => Number(/translateX\((-?[\d.]+)px\)/.exec(track.style.transform)![1])
-    expect(offset()).toBeCloseTo(320 / 3 - PX_PER_HOUR)
-    setCursor(3)
-    expect(offset()).toBeCloseTo(320 / 3 - 3 * PX_PER_HOUR)
+    const marker = container.querySelector<HTMLElement>('.cursor-marker')!
+    expect(offset()).toBeCloseTo(320 / 3 - 4 * PX_PER_HOUR)
+    expect(Number.parseFloat(marker.style.left)).toBeCloseTo(320 / 3)
+    setCursor(10)
+    expect(offset()).toBeCloseTo(320 / 3 - 10 * PX_PER_HOUR)
+    // Aan het begin loopt de baan tegen de muur en beweegt de cursor naar links (U34).
+    setCursor(0)
+    expect(offset()).toBe(0)
+    expect(Number.parseFloat(marker.style.left)).toBe(0)
+    // Aan het eind idem naar rechts: de baan staat stil met zijn einde op de rechterrand.
+    setCursor(23)
+    expect(offset()).toBeCloseTo(320 - 23 * PX_PER_HOUR)
+    expect(Number.parseFloat(marker.style.left)).toBeCloseTo(320)
   })
 
   it('scrolls the timeline by dragging: dragging left moves the cursor into the future', () => {
@@ -143,14 +184,15 @@ describe('histogram scrubber', () => {
     fireEvent.pointerUp(slider, { clientX: -200, pointerId: 1, pointerType: 'touch' })
   })
 
-  it('glides to the tapped moment and pauses autoplay only while interacting', () => {
-    const timeline = ['14', '15', '16', '17', '18'].map((hour) => frame(`2026-08-28T${hour}:00:00Z`, 'harmonie'))
+  it('glides to the tapped moment and pauses autoplay until 4 s after interacting', () => {
+    vi.useFakeTimers()
+    const timeline = day24()
     const onCursor = vi.fn()
     const onPlaying = vi.fn()
     const { container } = render(() => <HistogramScrubber
       timeline={timeline}
-      values={[0, 0, 0, 0, 0]}
-      cursor={0}
+      values={timeline.map(() => 0)}
+      cursor={4}
       now={timeline[0]!.epoch}
       playing
       loading={false}
@@ -165,15 +207,18 @@ describe('histogram scrubber', () => {
     const tapX = 100 + 320 / 3 + 2 * PX_PER_HOUR
     fireEvent.pointerDown(slider, { clientX: tapX, pointerId: 1, pointerType: 'mouse' })
     fireEvent.pointerUp(slider, { clientX: tapX, pointerId: 1, pointerType: 'mouse' })
-    expect(onCursor).toHaveBeenLastCalledWith(2)
+    expect(onCursor).toHaveBeenLastCalledWith(6)
+    expect(onPlaying.mock.calls).toEqual([[false]])
+    vi.advanceTimersByTime(4_000)
     expect(onPlaying.mock.calls).toEqual([[false], [true]])
+    vi.useRealTimers()
     // Spatie schakelt afspelen/pauzeren (er is geen afspeelknop meer).
     fireEvent.keyDown(slider, { key: ' ' })
     expect(onPlaying).toHaveBeenLastCalledWith(false)
     expect(slider.hasAttribute('data-playing')).toBe(true)
   })
 
-  it('pauses autoplay while the wheel scrolls and resumes shortly after the last wheel step', () => {
+  it('pauses autoplay while the wheel scrolls and resumes 4 s after the last wheel step', () => {
     vi.useFakeTimers()
     try {
       const timeline = ['14', '15', '16', '17', '18'].map((hour) => frame(`2026-08-28T${hour}:00:00Z`, 'harmonie'))
@@ -194,22 +239,21 @@ describe('histogram scrubber', () => {
       fireEvent.wheel(slider, { deltaY: PX_PER_HOUR })
       expect(onCursor).toHaveBeenLastCalledWith(1)
       expect(onPlaying.mock.calls).toEqual([[false]])
-      vi.advanceTimersByTime(500)
+      vi.advanceTimersByTime(3_000)
       fireEvent.wheel(slider, { deltaY: PX_PER_HOUR })
-      vi.advanceTimersByTime(500)
+      vi.advanceTimersByTime(3_900)
       expect(onPlaying.mock.calls).toEqual([[false]])
-      vi.advanceTimersByTime(400)
+      vi.advanceTimersByTime(200)
       expect(onPlaying.mock.calls).toEqual([[false], [true]])
     } finally {
       vi.useRealTimers()
     }
   })
 
-  it('shows total cloud cover above full-width rain by default, and only the layers in the cloud mode (U34)', () => {
+  it('always shows the three cloud layers with the rain histogram on top; the cloud mode adds the layer values (U34)', () => {
     const timeline = ['14', '15', '16', '17', '18'].map((hour) => frame(`2026-08-28T${hour}:00:00Z`, 'harmonie'))
-    const cover = { timeline, values: [90, 90, 90, 90, 90] }
-    const layers = { timeline: { high: timeline, mid: timeline, low: timeline }, values: { high: [80, 80, 80, 80, 80], mid: [60, 60, 60, 60, 60], low: [90, 90, 90, 90, 90] } }
-    const [mode, setMode] = createSignal<'cover' | 'clouds' | 'rain'>('cover')
+    const layers = { timeline: { high: timeline, mid: timeline, low: timeline }, values: { high: [80, 80, 80, 80, 80], mid: [60, 60, 60, 60, 60], low: [0, 0, 0, 0, 0] } }
+    const [mix, setMix] = createSignal({ wind: 0, clouds: 0, temperature: 0 })
     const { container } = render(() => <HistogramScrubber
       timeline={timeline}
       values={[0, 2, 2, 2, 0]}
@@ -220,27 +264,85 @@ describe('histogram scrubber', () => {
       locationLabel="Utrecht"
       onCursor={() => undefined}
       onPlaying={() => undefined}
-      cloudCover={mode() === 'cover' ? cover : undefined}
-      clouds={mode() === 'clouds' ? layers : undefined}
+      clouds={layers}
+      mix={mix()}
+    />)
+    const slider = screen.getByRole('slider', { name: 'Tijd' })
+    expect(slider.getAttribute('data-scrubber-view')).toBe('rain')
+    expect([...container.querySelectorAll('.cloud-band')].map((band) => band.getAttribute('data-layer'))).toEqual(['high', 'mid', 'low'])
+    // Regen op volle breedte over de lagen heen.
+    const bar = container.querySelector<SVGRectElement>('.rain-bar')!
+    expect(Number(bar.getAttribute('width'))).toBeGreaterThan(PX_PER_HOUR * 0.9)
+    expect(container.querySelector('.cursor-tags')).toBeNull()
+
+    setMix({ wind: 0, clouds: 1, temperature: 0 })
+    expect(slider.getAttribute('data-scrubber-view')).toBe('clouds')
+    expect(container.querySelectorAll('.rain-bar').length).toBeGreaterThan(0)
+    // Waarden per laag bij de cursor; een lege laag (0 %) krijgt geen label.
+    expect([...container.querySelectorAll('.cursor-tags span')].map((label) => label.textContent)).toEqual(['hoogwolken 80%', 'middenwolken 60%'])
+  })
+
+  it('cross-fades to the wind chart on the wind focus, with the reading in the chosen unit (U34)', () => {
+    const timeline = day24()
+    const [mix, setMix] = createSignal({ wind: 0, clouds: 0, temperature: 0 })
+    const { container } = render(() => <HistogramScrubber
+      timeline={timeline}
+      values={timeline.map(() => 1)}
+      cursor={4}
+      now={timeline[0]!.epoch}
+      playing={false}
+      loading={false}
+      locationLabel="Utrecht"
+      onCursor={() => undefined}
+      onPlaying={() => undefined}
+      wind={{ timeline, speed: timeline.map(() => 5), gustTimeline: timeline, gust: timeline.map(() => 12.5), unit: 'bft' }}
+      mix={mix()}
+    />)
+    const slider = screen.getByRole('slider', { name: 'Tijd' })
+    expect(slider.getAttribute('data-scrubber-view')).toBe('rain')
+    expect(container.querySelector('[data-testid="wind-chart"]')).toBeNull()
+    setMix({ wind: 0.3, clouds: 0, temperature: 0 })
+    const chart = container.querySelector<SVGGElement>('[data-testid="wind-chart"]')!
+    expect(Number(chart.style.opacity)).toBeCloseTo(0.3)
+    expect(Number((container.querySelector<SVGGElement>('.rain-bars')!).style.opacity)).toBeCloseTo(0.7)
+    setMix({ wind: 1, clouds: 0, temperature: 0 })
+    expect(slider.getAttribute('data-scrubber-view')).toBe('wind')
+    expect(container.querySelector('.wind-area')!.getAttribute('d')).toMatch(/^M/)
+    // 5 m/s = 3 Bft, vlaag 12,5 m/s = 6 Bft.
+    // Twee puntjes (U34): gemiddelde wind en de vlaag, die als band op de gemiddelde wind ligt.
+    expect([...container.querySelectorAll('.cursor-readout span')].map((span) => span.textContent)).toEqual(['3 Bft', '6 Bft'])
+    expect(container.querySelector('.wind-gust-band')!.getAttribute('d')).toMatch(/Z$/)
+    expect(container.querySelector('.wind-guide, .wind-labels')).toBeNull()
+  })
+
+  it('renders with every series the app passes and shows the temperature chart on the temperature focus (U34)', () => {
+    const timeline = day24()
+    const [mix, setMix] = createSignal({ wind: 0, clouds: 0, temperature: 0 })
+    const { container } = render(() => <HistogramScrubber
+      timeline={timeline}
+      values={timeline.map(() => 0)}
+      cursor={4}
+      now={timeline[0]!.epoch}
+      playing={false}
+      loading={false}
+      locationLabel="Utrecht"
+      onCursor={() => undefined}
+      onPlaying={() => undefined}
+      clouds={{ timeline: { high: timeline, mid: timeline, low: timeline }, values: { high: timeline.map(() => 50), mid: timeline.map(() => 50), low: timeline.map(() => 50) } }}
+      cloudCover={{ timeline, values: timeline.map(() => 60) }}
+      wind={{ timeline, speed: timeline.map(() => 5), gustTimeline: timeline, gust: timeline.map(() => 9), unit: 'kmh' }}
+      temperature={{ timeline, values: timeline.map((_, hour) => 10 + hour / 4), airTimeline: timeline, air: timeline.map((_, hour) => 12 + hour / 4) }}
+      mix={mix()}
     />)
     const slider = screen.getByRole('slider', { name: 'Tijd' })
     expect(slider.getAttribute('data-scrubber-view')).toBe('cover')
-    expect([...container.querySelectorAll('.cloud-band')].map((band) => band.getAttribute('data-layer'))).toEqual(['total'])
-    expect(container.querySelector('.cloud-band path')).toBeTruthy()
-    // Regen weer op volle breedte (niet meer gehalveerd onder de wolken).
-    const bar = container.querySelector<SVGRectElement>('.rain-bar')!
-    expect(Number(bar.getAttribute('width'))).toBeGreaterThan(PX_PER_HOUR * 0.9)
-    expect(container.querySelector('.cloud-labels')).toBeNull()
-
-    setMode('clouds')
-    expect(slider.getAttribute('data-scrubber-view')).toBe('clouds')
-    expect([...container.querySelectorAll('.cloud-band')].map((band) => band.getAttribute('data-layer'))).toEqual(['high', 'mid', 'low'])
-    expect(container.querySelectorAll('.rain-bar')).toHaveLength(0)
-    expect([...container.querySelectorAll('.cloud-labels span')].map((label) => label.textContent)).toEqual(['hoog', 'midden', 'laag'])
-
-    setMode('rain')
-    expect(slider.getAttribute('data-scrubber-view')).toBe('rain')
-    expect(container.querySelectorAll('.cloud-band')).toHaveLength(0)
+    setMix({ wind: 0, clouds: 0, temperature: 1 })
+    expect(slider.getAttribute('data-scrubber-view')).toBe('temperature')
+    expect(container.querySelector('[data-testid="temperature-chart"] .temperature-area')).not.toBeNull()
+    // Gevoel en lucht als twee puntjes (U34).
+    expect([...container.querySelectorAll('.cursor-readout span')].map((span) => span.textContent)).toEqual(['11° gevoel', '13° lucht'])
+    expect(container.querySelector('.temperature-air-line')).not.toBeNull()
+    expect(container.querySelector('.temperature-ribbon')!.getAttribute('d')).toMatch(/Z$/)
   })
 
   it('marks local day transitions', () => {
@@ -263,7 +365,8 @@ describe('histogram scrubber', () => {
       onPlaying={() => undefined}
     />)
 
-    expect([...container.querySelectorAll('.day-grid span')].map((label) => label.textContent)).toEqual(['Morgen'])
+    // Daglabels plakken links in het plot (U34): vandaag vanaf het begin, morgen vanaf middernacht.
+    expect([...container.querySelectorAll('.day-labels span')].map((label) => label.textContent)).toEqual(['Vandaag', 'Morgen'])
     expect(container.querySelectorAll('.day-grid .boundary')).toHaveLength(1)
     // De hele tijdlijn staat in de schuivende baan, ook buiten de 8 uur in beeld.
     expect(container.querySelectorAll('.rain-bar')).toHaveLength(5)

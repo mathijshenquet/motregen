@@ -109,7 +109,10 @@ describe('location search', () => {
   it('clears the text with × first, then closes, and closes on Escape or a tap outside', () => {
     const { onSelect } = renderSearch()
     const input = screen.getByRole<HTMLInputElement>('textbox', { name: 'Zoek plaats' })
+    // U34: openen begint met een leeg veld; getypte tekst wist × eerst, daarna sluit ×.
     fireEvent.focus(input)
+    expect(input.value).toBe('')
+    fireEvent.input(input, { target: { value: 'Ut' } })
     fireEvent.click(screen.getByRole('button', { name: 'Zoektekst wissen' }))
     expect(input.value).toBe('')
     expect(screen.getByRole('listbox')).toBeTruthy()

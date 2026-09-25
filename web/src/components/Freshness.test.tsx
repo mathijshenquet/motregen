@@ -92,6 +92,17 @@ describe('freshness indicator', () => {
     expect(trigger.textContent).toBe(clock(radar + 7_200_000))
   })
 
+  it('shows a play button in the clock only while deliberately paused (U34)', () => {
+    const [paused, setPaused] = createSignal(false)
+    const onPlay = vi.fn(() => setPaused(false))
+    render(() => <Freshness mapEpoch={radar} mapFrame={{ source: 'rtcor', run: '2026-09-23T13:00:00Z' }} manifest={manifest} refresh={{ checkedAt: radar }} onRefresh={async () => undefined} paused={paused()} onPlay={onPlay} />)
+    expect(screen.queryByRole('button', { name: 'Afspelen' })).toBeNull()
+    setPaused(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Afspelen' }))
+    expect(onPlay).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('button', { name: 'Afspelen' })).toBeNull()
+  })
+
   it('names the day only when the map shows another day', () => {
     render(() => <Freshness mapEpoch={radar + 24 * 3_600_000} mapFrame={{ source: 'harmonie', run: '2026-09-23T11:00:00Z' }} manifest={manifest} refresh={{ checkedAt: radar }} onRefresh={async () => undefined} />)
     const day = new Date(radar + 24 * 3_600_000).toLocaleDateString('nl-NL', { weekday: 'short' })

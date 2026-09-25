@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Grid } from './contract'
-import { isolineWidthCss, IsolineLayer, lineProfile, traceTimes } from './isoline-layer'
+import { isolineWidthCss, IsolineLayer, lineProfile, traceDue, traceTimes } from './isoline-layer'
 
 const grid = { width: 2, height: 2, x0: 0, y0: 0, dx: 1, dy: -1 } as unknown as Grid
 const style = { step: 1, fill: 0.7, color: [0, 0, 0] as [number, number, number], gradientFade: true }
@@ -47,19 +47,25 @@ describe('isoline width', () => {
   })
 })
 
-describe('trace times (U41)', () => {
-  it('traces the exact slice at rest', () => {
-    expect(traceTimes(3.4, 10, false)).toEqual([3.4])
-  })
-
-  it('traces only the two whole hours around the cursor while playing', () => {
-    const traced = new Set<number>()
-    for (let time = 2; time < 5; time += 1 / 60) for (const at of traceTimes(time, 10, true)) traced.add(at)
-    expect([...traced].sort()).toEqual([2, 3, 4, 5])
+describe('trace times (U34: continu, begrensde cadans)', () => {
+  it('traces the exact tweened slice, at rest and while playing', () => {
+    expect(traceTimes(3.4, 10)).toEqual([3.4])
+    expect(traceTimes(3.41, 10)).toEqual([3.41])
   })
 
   it('stays inside the volume at its end', () => {
-    expect(traceTimes(9, 10, true)).toEqual([9])
-    expect(traceTimes(12, 10, true)).toEqual([9])
+    expect(traceTimes(9, 10)).toEqual([9])
+    expect(traceTimes(12, 10)).toEqual([9])
+  })
+
+  it('limits new traces to a given rate while playing, and traces at once at rest', () => {
+    expect(traceDue(1_000, 950, true, 15)).toBe(false)
+    expect(traceDue(1_000, 930, true, 15)).toBe(true)
+    expect(traceDue(1_000, 999, false, 15)).toBe(true)
+    let last = -Infinity
+    let traces = 0
+    for (let now = 0; now < 1_000; now += 1_000 / 60) if (traceDue(now, last, true, 15)) { traces++; last = now }
+    expect(traces).toBeLessThanOrEqual(15)
+    expect(traces).toBeGreaterThanOrEqual(12)
   })
 })

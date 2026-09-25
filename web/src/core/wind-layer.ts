@@ -98,6 +98,9 @@ export const WIND_TUNING_CONTROLS: readonly WindTuningControl[] = [
 const NARROW_VIEWPORT_PX = 430
 const WIND_NARROW_LINE_FACTOR = 0.6
 const MIN_PARTICLES = 96
+// Herstel van het budget al onder 1,10× de frametijd (was 1,03×): met af en toe een gemist frame bleef
+// het gemiddelde net boven 1,03× hangen en kwam de dichtheid na één dip nooit meer terug (U34).
+const BUDGET_RECOVER_FACTOR = 1.1
 const MAX_PARTICLES = 2_400
 const INSTANCE_BYTES = 20
 const ADVECTION_SCALE = 7_000
@@ -148,7 +151,7 @@ const DAMPING_REFERENCE_SPEED = 3
 const WEAK_WIND_SPEED = 6
 const WEAK_WIND_MAX_BOOST = 2.5
 const MERCATOR_SCALE = 1 / (2 * Math.PI * 6_378_137)
-const BEAUFORT_STOPS = [0, 3.4, 8, 13.9, 20.8, 32.7] as const
+export const BEAUFORT_STOPS = [0, 3.4, 8, 13.9, 20.8, 32.7] as const
 const LIGHT_RAMP = [
   [3, 48, 102], [0, 76, 108], [9, 91, 44], [119, 73, 0], [162, 39, 8], [108, 15, 73],
 ] as const
@@ -367,6 +370,7 @@ export class WindLayer implements CustomLayerInterface {
   /** Gezet door een `LayerOverlay`: die tekent de windcanvas zelf (met de fps-grens). */
   requestRepaint?: () => void
   private frameTotal = 0
+  private budgetFps = 0
   private frameCount = 0
   /** Het zichtbare beeld in gridfracties: hierbuiten sterft een particle. */
   private viewBounds: ParticleBounds = { west: 0, north: 0, east: 1, south: 1 }
@@ -385,6 +389,7 @@ export class WindLayer implements CustomLayerInterface {
 
   constructor(private readonly grid: Grid, private theme: MapTheme, tuning: Partial<WindParameters> = {}) {
     this.tuning = { ...WIND_PARAMETERS, ...tuning }
+    this.budgetFps = this.tuning.maxFps
     for (let index = 0; index < MAX_PARTICLES; index++) this.respawn(index, this.random() * INITIAL_STAGGER_SECONDS)
   }
 
@@ -805,6 +810,14 @@ export class WindLayer implements CustomLayerInterface {
   }
 
   private adjustBudget(elapsed: number): void {
+    // Een gewijzigde maxFps (U41: 30 fps na 60 s stilte) begint een nieuwe meting; anders las de
+    // terugkeer naar 60 fps de oude 33 ms-frames als "te traag" en zakte de dichtheid 22 % (U34).
+    if (this.tuning.maxFps !== this.budgetFps) {
+      this.budgetFps = this.tuning.maxFps
+      this.frameTotal = 0
+      this.frameCount = 0
+      return
+    }
     this.frameTotal += elapsed
     this.frameCount++
     if (this.frameCount < 45) return
@@ -814,7 +827,7 @@ export class WindLayer implements CustomLayerInterface {
     if (average > budget * 1.14 && this.budget > MIN_PARTICLES) {
       this.budget = Math.max(MIN_PARTICLES, Math.floor(this.budget * 0.78))
       this.balance()
-    } else if (average < budget * 1.03 && this.budget < this.target) {
+    } else if (average < budget * BUDGET_RECOVER_FACTOR && this.budget < this.target) {
       this.budget = Math.min(this.target, this.budget + Math.max(12, Math.floor(this.target * 0.06)))
       this.balance()
     }

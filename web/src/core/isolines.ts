@@ -71,6 +71,22 @@ export const DEFAULT_ISOLINE_TUNING: IsolineTuning = { step: 1, fillStyle: 'band
 export const ISOLINE_FILL_OPACITY = 0.35
 /** Veldblur: 3×3-boxblur-passes per uurframe, 2 ≈ Gauss σ 1,2 cel (U8). */
 export const ISOLINE_BLUR = 2
+// Luchtdruk is een synoptisch veld (PO 2026-09-25, MIP-14): veel sterker laagdoorlaten dan temperatuur.
+// 18 passes 3×3-box ≈ Gauss σ 3,5 cel; in de tijd elk uurframe gewogen met zijn buren [1,2,3,2,1] vóór
+// de B-spline, samen een effectief venster van ~5–8 uur, zodat lijnen en H/L rustig drijven.
+export const ISOBAR_BLUR = 18
+export const ISOBAR_TIME_WEIGHTS = [1, 2, 3, 2, 1] as const
+
+export function isolineBlurPasses(kind: IsolineKind = 'temperature'): number {
+  return kind === 'pressure' ? ISOBAR_BLUR : ISOLINE_BLUR
+}
+
+/** Uurframes (index, gewicht) die samen het veld van frame `index` vormen; druk middelt over zijn buren. */
+export function isolineFrameWeights(index: number, count: number, kind: IsolineKind = 'temperature'): Array<{ index: number; weight: number }> {
+  if (kind !== 'pressure') return [{ index, weight: 1 }]
+  const half = (ISOBAR_TIME_WEIGHTS.length - 1) / 2
+  return ISOBAR_TIME_WEIGHTS.map((weight, offset) => ({ index: Math.max(0, Math.min(count - 1, index + offset - half)), weight }))
+}
 /** Tijdvenster: kubische B-spline over vier uurframes, C2 in de tijd (U8b; lineair = 0 verloor). */
 export const ISOLINE_WINDOW = 1
 /** Resolutie van de vulsnede t.o.v. het canvas (U8c). */
@@ -382,7 +398,7 @@ export interface IsolineRequest {
 
 export function computeIsolines(request: IsolineRequest): IsolineFeatureCollection {
   const field = blendFrames(request.frames, request.grid.width, request.grid.height)
-  return isolineFeatures(blurField(field, ISOLINE_BLUR), request.grid, request.step, ISOLINE_RING_KM, request.kind)
+  return isolineFeatures(blurField(field, isolineBlurPasses(request.kind)), request.grid, request.step, ISOLINE_RING_KM, request.kind)
 }
 
 /**

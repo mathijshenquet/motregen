@@ -8,6 +8,9 @@ describe('hourly weather derivation', () => {
     expect(deriveWeatherIcon(1.2, 90, false)).toMatchObject({ condition: 'rain', period: 'night' })
     expect(deriveWeatherIcon(8, 40, true)).toMatchObject({ condition: 'heavy-rain', period: 'day' })
     expect(deriveWeatherIcon(0, null, true)).toBeNull()
+    // U34: vier bewolkingsstappen, dicht bewolkt is een donkere wolk.
+    expect([10, 30, 60, 90].map((cloud) => [deriveWeatherIcon(0, cloud, true)!.condition, deriveWeatherIcon(0, cloud, true)!.dense === true])).toEqual(
+      [['clear', false], ['partly-cloudy', false], ['overcast', false], ['overcast', true]])
   })
 
   it('reports meteorological origin and Beaufort from vector components', () => {

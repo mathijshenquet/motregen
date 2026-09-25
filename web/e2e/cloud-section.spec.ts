@@ -1,27 +1,27 @@
 import { expect, test } from '@playwright/test'
 import { pausePlayback } from './playback'
 
-// U37 → U34 (PO 2026-09-25 live): in de weermodus één band totale bewolking boven het regenhistogram;
-// de drie lagen alleen in de modus Wolken (zonder regen); Gevoel/Wind tonen alleen regen.
-test('weather mode shows total cloud cover above the rain; the Wolken mode shows the layers', async ({ page }, testInfo) => {
+// U37 → U34 (PO 2026-09-25 live): altijd de drie wolkenlagen met het regenhistogram eroverheen; de
+// wolkenmodus (kop Weer) voegt de laagwaarden bij de cursor en de sluier op de kaart toe; Gevoel en
+// Wind hebben een eigen grafiek.
+test('the scrubber always shows the cloud layers under the rain; the cloud mode adds the map veil', async ({ page }, testInfo) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/')
   await expect(page.locator('.map-splash.ready')).toBeAttached()
   const surface = page.locator('.scrub-surface')
-  await expect(surface).toHaveAttribute('data-scrubber-view', 'cover')
+  await expect(surface).toHaveAttribute('data-scrubber-view', 'rain')
   const section = page.getByTestId('cloud-section')
-  await expect(section.locator('[data-layer=total] path').first()).toBeAttached()
+  // De synthetische dag heeft een front: alle drie lagen tekenen iets.
+  for (const layer of ['high', 'mid', 'low']) await expect(section.locator(`[data-layer=${layer}] path`).first()).toBeAttached()
   await expect(page.locator('.rain-bar:not(.pending)').first()).toBeAttached()
 
-  // Modus Lucht (U34): de drie lagen (de synthetische dag heeft een front), geen regen, en de
-  // bewolkingssluier op de kaart.
-  const clouds = page.getByRole('button', { name: 'Lucht' })
+  // Wolkenmodus via de kop Weer: de regen blijft, de sluier komt op de kaart.
+  const clouds = page.getByRole('button', { name: 'Weer' })
   await clouds.click()
   await clouds.blur()
   await page.mouse.move(5, 5)
   await expect(surface).toHaveAttribute('data-scrubber-view', 'clouds')
-  for (const layer of ['high', 'mid', 'low']) await expect(section.locator(`[data-layer=${layer}] path`).first()).toBeAttached()
-  await expect(page.locator('.rain-bar')).toHaveCount(0)
+  await expect(page.locator('.rain-bar:not(.pending)').first()).toBeAttached()
   await expect(page.locator('.map-overlay-motregen-cloud-veil')).toBeAttached()
 
   // Stilstaand beeld: pauzeren en de cursor op een vast punt.
@@ -42,11 +42,12 @@ test('weather mode shows total cloud cover above the rain; the Wolken mode shows
   await temperature.blur()
   await page.mouse.move(5, 5)
   await expect(temperature).toHaveAttribute('aria-pressed', 'true')
-  await expect(surface).toHaveAttribute('data-scrubber-view', 'rain')
-  await expect(section).toHaveCount(0)
+  // Gevoel heeft sinds U34 een eigen temperatuurgrafiek.
+  await expect(surface).toHaveAttribute('data-scrubber-view', 'temperature')
 
-  await page.getByRole('button', { name: 'Weer' }).click()
+  // Nog eens op de gepinde kop: terug naar de standaard (bewolkingsband boven de regen).
+  await temperature.click()
   await page.mouse.move(5, 5)
-  await expect(surface).toHaveAttribute('data-scrubber-view', 'cover')
+  await expect(surface).toHaveAttribute('data-scrubber-view', 'rain')
   await expect(section).toBeAttached()
 })
