@@ -101,6 +101,19 @@ Laat het TXT-record staan: Google controleert het eigendom periodiek opnieuw.
 Een sitemap is niet nodig (één pagina); `robots.txt` sluit `/data/` en `/stats/`
 uit, en Caddy zet daar ook `X-Robots-Tag: noindex`.
 
+## Gebruiksmeting
+
+De anonieme gebruiksmeting (MIP-13), het wachtwoord voor `/stats/` en de
+nachtelijke kopie naar ageq-mthq staan in [`analytics.md`](analytics.md).
+
+Tot en met de U32-deploy schreef Caddy het standaard-access-log van nixpkgs,
+mét IP-adressen en headers. Verwijder die bestanden eenmalig na de eerste
+deploy met U32:
+
+```sh
+ssh root@57.129.47.17 'rm -f /var/log/caddy/access-motregen.nl.log*'
+```
+
 ## Update en controle
 
 Een update forceren en de host daarna controleren kost elk één commando:

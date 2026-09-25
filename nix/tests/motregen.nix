@@ -32,13 +32,18 @@
       system.autoUpgrade.enable = lib.mkForce false;
       nix.gc.automatic = lib.mkForce false;
       users.users.root.openssh.authorizedKeys.keys = lib.mkForce [ ];
-      environment.systemPackages = [ pkgs.curl ];
+      environment.etc."motregen-test/usage-day.jsonl".source = ../fixtures/usage-day.jsonl;
+      environment.systemPackages = [
+        pkgs.curl
+        pkgs.jq
+      ];
 
       systemd.tmpfiles.rules = [
         "C /var/lib/motregen/manifest.json 0644 root root - ${../fixtures/manifest.json}"
         "d /var/lib/motregen/chunks 0755 root root -"
         "C /var/lib/motregen/chunks/test-g0000000000000000.mrf 0644 root root - ${../fixtures/test.mrf}"
         "C /var/lib/motregen/secrets.env 0600 root root - ${../fixtures/secrets.env}"
+        "C /var/lib/motregen-usage/stats-auth.env 0600 root root - ${../fixtures/stats-auth.env}"
       ];
     };
 
@@ -82,12 +87,99 @@
     assert "404" in missing_headers, missing_headers
     assert "x-robots-tag: noindex" in missing_headers, missing_headers
 
-    stats_headers = machine.succeed(
-      "curl --silent --show-error --dump-header - --output /dev/null http://localhost/stats/"
-    ).lower()
-    assert "x-robots-tag: noindex" in stats_headers, stats_headers
-
     robots = machine.succeed("curl --silent --show-error --fail http://localhost/robots.txt")
     assert "Disallow: /data/" in robots, robots
+
+    # MIP-13: gebruiksmeting. Tot hier mag er niets in het usage-log staan.
+    import json
+    usage_today = "/var/lib/motregen-usage/usage/$(date +%F).jsonl"
+    machine.succeed(f"test ! -s {usage_today}")
+    machine.succeed("test -z \"$(ls -A /var/log/caddy 2>/dev/null | grep access)\"")
+
+    body = '{"v":1,"search":true,"range":null,"theme":"dark","coarse":false,"width":">=960","dur":"1-5"}'
+    hit_status = machine.succeed(
+      "curl --silent --show-error --output /dev/null --write-out '%{http_code}' "
+      "--header 'X-Forwarded-For: 198.51.100.7' --header 'CF-Connecting-IP: 198.51.100.7' "
+      "--user-agent 'U32-secret-agent' --header 'Content-Type: text/plain' "
+      f"--data '{body}' http://localhost/hit"
+    )
+    assert hit_status == "204", hit_status
+    machine.wait_until_succeeds(f"test \"$(wc -l < {usage_today})\" = 1", timeout=30)
+    raw = machine.succeed(f"cat {usage_today}")
+    print(raw)
+    for forbidden in ["remote_ip", "client_ip", "198.51.100.7", "U32-secret-agent", "headers", "User-Agent"]:
+      assert forbidden not in raw, (forbidden, raw)
+    line = json.loads(raw)
+    assert set(line) <= {"level", "ts", "logger", "msg", "uri", "hit"}, line
+    assert line["uri"] == "/hit", line
+    assert json.loads(line["hit"]) == json.loads(body), line
+    assert len(line["ts"]) == len("2026-09-25T12:34+02:00") and line["ts"][16] != ":", line
+
+    session_headers = machine.succeed(
+      "curl --silent --show-error --dump-header - --output /dev/null 'http://localhost/data/manifest.json?s=1'"
+    ).lower()
+    assert "200 ok" in session_headers, session_headers
+    assert "cache-control: no-store" in session_headers, session_headers
+    assert "max-age" not in session_headers, session_headers
+    machine.wait_until_succeeds(f"test \"$(wc -l < {usage_today})\" = 2", timeout=30)
+    session_line = json.loads(machine.succeed(f"tail -n 1 {usage_today}"))
+    assert session_line["uri"] == "/data/manifest.json" and "hit" not in session_line, session_line
+
+    machine.succeed("head -c 1500 /dev/zero | tr '\\0' a > /tmp/big")
+    for method_and_url, expected in [
+      ("--request GET http://localhost/hit", "405"),
+      ("--data @/tmp/big http://localhost/hit", "413"),
+      ("'http://localhost/data/manifest.json?s=2'", "200"),
+      ("http://localhost/", "200"),
+    ]:
+      status = machine.succeed(
+        f"curl --silent --output /dev/null --write-out '%{{http_code}}' {method_and_url}"
+      )
+      assert status == expected, (method_and_url, status)
+    machine.succeed("sleep 2")
+    machine.succeed(f"test \"$(wc -l < {usage_today})\" = 2")
+
+    # Een herstart van de ingest (DynamicUser, StateDirectory) mag usage/ niet overnemen.
+    machine.succeed("systemctl restart motregen-ingest.service caddy.service")
+    machine.wait_for_unit("caddy.service")
+    machine.succeed("test \"$(stat -c %U /var/lib/motregen-usage/usage /var/lib/motregen-usage/stats | sort -u)\" = motregen-usage")
+    machine.succeed(f"curl --silent --fail --data '{body}' http://localhost/hit")
+    machine.wait_until_succeeds(f"test \"$(wc -l < {usage_today})\" = 3", timeout=30)
+
+    # Rapport: een complete fixture-dag, een verlopen dag, en vandaag (nog niet rapporteren).
+    machine.succeed(
+      "install -o motregen-usage -g motregen-usage -m 0640 /etc/motregen-test/usage-day.jsonl /var/lib/motregen-usage/usage/2000-01-01.jsonl",
+      "install -o motregen-usage -g motregen-usage -m 0640 /etc/motregen-test/usage-day.jsonl \"/var/lib/motregen-usage/usage/$(date -d yesterday +%F).jsonl\"",
+    )
+    machine.succeed("systemctl list-timers --all | grep -F motregen-usage-report.timer")
+    machine.succeed("systemctl start motregen-usage-report.service")
+    machine.succeed("test ! -e /var/lib/motregen-usage/usage/2000-01-01.jsonl")
+    machine.succeed("test ! -e /var/lib/motregen-usage/stats/2000-01-01.json")
+    machine.succeed("test ! -e /var/lib/motregen-usage/stats/$(date +%F).json")
+    machine.succeed(f"test -e {usage_today}")
+    day = json.loads(machine.succeed("cat /var/lib/motregen-usage/stats/$(date -d yesterday +%F).json"))
+    print(day)
+    assert (day["sessions"], day["beacons"], day["rejected"]) == (5, 4, 3), day
+    features = {name: value["pct"] for name, value in day["features"].items()}
+    assert features["search"] == 50 and features["geo"] == 25 and features["fav"] == 25, features
+    assert features["play"] == 25 and features["about"] == 0, features
+    assert day["dimensions"]["range"]["none"] == {"n": 2, "pct": 50}, day
+    assert day["dimensions"]["coarse"]["true"]["n"] == 2, day
+
+    stats_unauth = machine.succeed(
+      "curl --silent --show-error --dump-header - --output /dev/null http://localhost/stats/"
+    ).lower()
+    assert "401" in stats_unauth.splitlines()[0], stats_unauth
+    assert "x-robots-tag: noindex" in stats_unauth, stats_unauth
+    wrong = machine.succeed(
+      "curl --silent --output /dev/null --write-out '%{http_code}' --user stats:fout http://localhost/stats/"
+    )
+    assert wrong == "401", wrong
+    html = machine.succeed("curl --silent --show-error --fail --user stats:test-stats-password http://localhost/stats/")
+    assert "Laatste 30 dagen" in html and "<td>search</td><td>2</td><td>50 %</td>" in html, html
+    machine.succeed(
+      "curl --silent --show-error --fail --user stats:test-stats-password "
+      "--output /dev/null http://localhost/stats/$(date -d yesterday +%F).json"
+    )
   '';
 }
