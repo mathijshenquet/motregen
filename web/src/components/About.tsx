@@ -20,6 +20,7 @@ const THEME_CHOICES: Record<ThemeChoice, { icon: typeof Sun; label: string }> = 
 interface Props {
   theme: ThemeChoice
   onTheme: (theme: ThemeChoice) => void
+  onOpen?: () => void
   onTripleTap: () => void
   /** Links in de bron-regel, bv. de temperatuurlegenda. */
   sourcePrefix?: JSX.Element
@@ -35,6 +36,7 @@ export default function About(props: Props) {
 
   function open(): void {
     dialog.showModal()
+    props.onOpen?.()
   }
 
   function close(): void {
@@ -88,7 +90,7 @@ export default function About(props: Props) {
           <dt>UV</dt><dd>UV-index van het KNMI, met bewolking</dd>
           <dt>Kaart</dt><dd><a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></dd>
           <dt>Zoeken</dt><dd>PDOK (NL) · Digitaal Vlaanderen (BE)</dd>
-          <dt>Privacy</dt><dd>geen tracking, geen advertenties; locatie en favorieten blijven in je browser</dd>
+          <dt>Privacy</dt><dd>Geen tracking, geen advertenties. Anoniem geteld: sessies en gebruikte functies, zonder IP of identificatie; locatie en favorieten blijven in je browser</dd>
           <dt>Broncode</dt><dd><a href={REPOSITORY_URL} target="_blank" rel="noopener">GitHub ↗</a></dd>
         </dl>
       </div>
