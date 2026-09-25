@@ -127,7 +127,7 @@ export default function App() {
   ;(window as unknown as { __motregenProject: (lng: number, lat: number) => { x: number; y: number } | undefined }).__motregenProject = (lng, lat) => map?.project([lng, lat])
   // Camera voor de e2e van pin-navigatie en pan/zoom-only (U26).
   ;(window as unknown as { __motregenCamera: () => object | undefined }).__motregenCamera = () => map && {
-    ...map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch(),
+    ...map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch(), location: location(),
   }
   // Meetpunt voor de kostenmeting (track-LOGs U8b/U8c): repaints, contour-passes, blits, label-rondes.
   ;(window as unknown as { __motregenIsolines: () => object }).__motregenIsolines = () => ({
