@@ -87,3 +87,34 @@ e2e/perf.spec.ts e2e/focus.spec.ts e2e/location.spec.ts e2e/map-zoom.spec.ts e2e
 (vanuit `web/`), head `68550e2`, startload 20,71: **E2E-EXIT 0**, 34 passed, 26 skipped
 (projectgebonden skips), 7,6 min. Perf-journey met HUD dicht bij start + triple-tap open/dicht/open
 groen op alle profielen. U24 nog niet op main (`origin/main` = `d140ed8`); windknoppen wachten.
+
+## 2026-09-25 12:55 — rebase op main `99d9525` + snoeironde 2 (PO 16:30: "nog steeds veel te veel")
+
+Rebase op `99d9525` (U22b, U23, U25b, U26 erin). Conflicten opgelost in App/ForecastTable (U23:
+`sunForm`/`uvBar` weg ook in de nieuwe tijd+weer-cel en de relatieve UV-schaal), isolines/
+isoline-layer (U25b-palet behouden, `fillFalloff` bestond niet meer), focus-mode (U25b zette
+verzadiging al vast), styles (U26-pin-CSS behouden). Tussenstap typecheck 0 vóór `--continue`.
+
+Snoeironde 2 (orkestrator: max. 3–4 per groep, rest constante):
+- Vulling → `ISOLINE_FILL_OPACITY = 0.7`. **Afwijking van de queue-noot**: die noemt default 0,35
+  en een knop Vulling-stijl (banden/verloop) "nieuw op main", maar `origin/main` (`99d9525`) heeft
+  0,7 (U25b-merge: "dekkende vlakke banden per graad (0,7)") en géén stijlknop; 0,35 staat nergens
+  in main/LOG/proposals. Ik zet dus de gemergde 0,7 vast; komt Vulling-stijl (met 0,35) later op
+  main, dan neemt de volgende rebase die over (stijlknop houden, zoals gevraagd).
+- Label-afstand → `LABEL_MIN_DISTANCE_PX = 90` (isoline-labels; `IsolineLabelTuning`/`setTuning` weg).
+- Eigen oordeel, strenger dan de queue letterlijk vroeg: Focus dim → `FOCUS_DIM = 0.25`
+  (`FocusTuning` weg) en Min. breedte → `MINIMUM_MAP_WIDTH_KM = 20` (+ de max-zoom-notitie). Dan
+  blijven er geen eenknopsgroepen Kaart/Focus over. Terugzetten is één knop; zeg het als de PO ze
+  wil houden.
+- Paneel nu: **Temperatuur** (open): Isolijnen, Vervagen · **Diagnose**: Perf-HUD, Herhaal splash,
+  Reset · **Wind** volgt (4 knoppen) na U24.
+
+Knoppen: dev-paneel op main `99d9525` 26 → 5 (2 instelknoppen + Perf-HUD + 2 acties); met Wind
+straks 9. URL-parameters op main 6 → 1 (`?dev`).
+
+Receipts (vanuit `web/`, synchroon, head = deze commit):
+- `pnpm typecheck` TYPECHECK-EXIT 0; `pnpm test` TEST-EXIT 0 (44 bestanden, 280 tests).
+- `pnpm build` BUILD-EXIT 0: JS 1 287,37 kB (gzip 365,96); CSS 122,25 (21,17).
+  Vóór = `origin/main` `99d9525` in een tijdelijke worktree gebouwd (BUILD-MAIN-EXIT 0):
+  JS 1 306,27 kB (gzip 370,92); CSS 122,78 (21,24) → −18,9 kB JS (−5,0 kB gzip), −0,5 kB CSS.
+- e2e: volgt (drempel load < 28).

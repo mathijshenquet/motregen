@@ -6,21 +6,24 @@ export type IsolineStep = typeof ISOLINE_STEPS[number]
 
 export interface IsolineTuning {
   step: IsolineStep
-  /** Dekking van de bandvulling tussen de lijnen (Buienradar-referentie, PO U25b); 0 = uit. */
-  fillOpacity: number
   /** Vulling als vlakke banden (default) of continu verloop; PO-optie, eigenaar U25b/U30. */
-  fillStyle: 'banden' | 'verloop'
+  fillStyle: IsolineFillStyle
   /** Lijnen en vulling vervagen waar het veld vlak is (|∇T| klein). */
   fade: IsolineFade
 }
+
+export const ISOLINE_FILL_STYLES = ['banden', 'verloop'] as const
+export type IsolineFillStyle = typeof ISOLINE_FILL_STYLES[number]
 
 export const ISOLINE_FADES = ['uit', 'gradiënt'] as const
 export type IsolineFade = typeof ISOLINE_FADES[number]
 
 // Gradiënt-fade uit (PO 2026-09-24: in vlak gebied verdwijnen hele lijnen); de lusjes gaan via ISOLINE_RING_KM.
-export const DEFAULT_ISOLINE_TUNING: IsolineTuning = { step: 1, fillOpacity: 0.35, fillStyle: 'banden', fade: 'uit' }
+export const DEFAULT_ISOLINE_TUNING: IsolineTuning = { step: 1, fillStyle: 'banden', fade: 'uit' }
 
 // Vaste waarden van weggesnoeide dev-knoppen (U30/MIP-12); herkomst per regel.
+/** Dekking van de vulling tussen de lijnen (Vulling; PO-keuze 2026-09-25 na U25b, main `5fcd35b`). */
+export const ISOLINE_FILL_OPACITY = 0.35
 /** Veldblur: 3×3-boxblur-passes per uurframe, 2 ≈ Gauss σ 1,2 cel (U8). */
 export const ISOLINE_BLUR = 2
 /** Tijdvenster: kubische B-spline over vier uurframes, C2 in de tijd (U8b; lineair = 0 verloor). */

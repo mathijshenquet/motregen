@@ -1,19 +1,11 @@
 import type { JSX } from 'solid-js'
-import type { FocusTuning } from '../core/focus-mode'
-import type { IsolineLabelTuning } from '../core/isoline-labels'
-import { ISOLINE_FADES, ISOLINE_STEPS, type IsolineFade, type IsolineStep, type IsolineTuning } from '../core/isolines'
+import { ISOLINE_FADES, ISOLINE_FILL_STYLES, ISOLINE_STEPS, type IsolineFade, type IsolineFillStyle, type IsolineStep, type IsolineTuning } from '../core/isolines'
 
-// Alleen via ?dev. Elke knop hier staat in docs/dev-opties.md met eigenaar en vervaldatum (MIP-12).
+// Alleen via ?dev; hooguit 3–4 knoppen per groep (PO 2026-09-25). Elke knop staat in
+// docs/dev-opties.md met eigenaar en vervaldatum (MIP-12).
 interface Props {
   isolineTuning: IsolineTuning
   onIsolineTuning: (patch: Partial<IsolineTuning>) => void
-  labelTuning: IsolineLabelTuning
-  onLabelTuning: (patch: Partial<IsolineLabelTuning>) => void
-  focusTuning: FocusTuning
-  onFocusTuning: <Key extends keyof FocusTuning>(key: Key, value: FocusTuning[Key]) => void
-  minimumMapWidthKm: number
-  maximumZoom: number
-  onMinimumMapWidthKm: (km: number) => void
   perfVisible: boolean
   onPerfVisible: (visible: boolean) => void
   onReplaySplash: () => void
@@ -24,33 +16,21 @@ interface Props {
 export default function DevPanel(props: Props) {
   return <details class="dev-panel" open data-testid="dev-panel">
     <summary>Dev-opties</summary>
-    <Group title="Kaart" open>
-      <Control label="Min. breedte" output={`${props.minimumMapWidthKm} km`}
-        hint={`Hoe ver je kunt inzoomen: nooit minder dan deze breedte in beeld (nu max. zoom ${props.maximumZoom.toFixed(1)}).`}>
-        <input type="range" min="5" max="100" step="5" value={props.minimumMapWidthKm} onInput={(event) => props.onMinimumMapWidthKm(event.currentTarget.valueAsNumber)} />
-      </Control>
-    </Group>
-    <Group title="Temperatuur">
+    <Group title="Temperatuur" open>
       <Control label="Isolijnen" output={`${props.isolineTuning.step}°`} hint="Aantal graden tussen twee temperatuurlijnen.">
         <select value={props.isolineTuning.step} onChange={(event) => props.onIsolineTuning({ step: Number(event.currentTarget.value) as IsolineStep })}>
           {ISOLINE_STEPS.map((step) => <option value={step}>{step} °C</option>)}
+        </select>
+      </Control>
+      <Control label="Vulling-stijl" output={props.isolineTuning.fillStyle} hint="Kleur tussen de lijnen als vlakke banden per stap of als doorlopend verloop.">
+        <select value={props.isolineTuning.fillStyle} onChange={(event) => props.onIsolineTuning({ fillStyle: event.currentTarget.value as IsolineFillStyle })}>
+          {ISOLINE_FILL_STYLES.map((style) => <option value={style}>{style}</option>)}
         </select>
       </Control>
       <Control label="Vervagen" output={props.isolineTuning.fade} hint="Gradiënt: lijnen en kleur vervagen waar de temperatuur nauwelijks verandert.">
         <select value={props.isolineTuning.fade} onChange={(event) => props.onIsolineTuning({ fade: event.currentTarget.value as IsolineFade })}>
           {ISOLINE_FADES.map((fade) => <option value={fade}>{fade}</option>)}
         </select>
-      </Control>
-      <Control label="Label-afstand" output={`${props.labelTuning.minDistancePx} px`} hint="Minimale afstand tussen twee lijnlabels; groter geeft minder labels.">
-        <input type="range" min="30" max="240" step="10" value={props.labelTuning.minDistancePx} onInput={(event) => props.onLabelTuning({ minDistancePx: event.currentTarget.valueAsNumber })} />
-      </Control>
-      <Control label="Vulling" output={props.isolineTuning.fillOpacity.toFixed(2)} hint="Dekking van de kleurvlakken tussen de lijnen; 0 zet de kleur uit.">
-        <input type="range" min="0" max="1" step="0.05" value={props.isolineTuning.fillOpacity} onInput={(event) => props.onIsolineTuning({ fillOpacity: event.currentTarget.valueAsNumber })} />
-      </Control>
-    </Group>
-    <Group title="Focus">
-      <Control label="Focus dim" output={`${Math.round(props.focusTuning.dim * 100)}%`} hint="Hoe zichtbaar regen, wind en zon blijven als de temperatuurfocus aan staat.">
-        <input type="range" min="0" max="1" step="0.05" value={props.focusTuning.dim} onInput={(event) => props.onFocusTuning('dim', event.currentTarget.valueAsNumber)} />
       </Control>
     </Group>
     <Group title="Diagnose">

@@ -16,11 +16,11 @@ import { DayNightLayer } from './core/day-night-layer'
 
 const DAY_NIGHT_ENABLED = false
 import { buildHourlyForecast, isPassiveRow, PASSIVE_FORECAST_HOURS } from './core/forecast'
-import { contextOpacity, DEFAULT_FOCUS_TUNING, FocusMode, mapSaturation, type FocusKind, type FocusTuning, windFocusIntensity } from './core/focus-mode'
+import { contextOpacity, FOCUS_DIM, FocusMode, mapSaturation, type FocusKind, windFocusIntensity } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import { latestRadarEpoch, type RefreshState } from './core/freshness'
-import { blendFrames, blurField, DEFAULT_ISOLINE_TUNING, ISOLINE_BLUR, ISOLINE_EDGE_FADE_MS, ISOLINE_GRADIENT, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineTuning } from './core/isolines'
-import { DEFAULT_LABEL_TUNING, IsolineLabels, type IsolineLabelTuning } from './core/isoline-labels'
+import { blendFrames, blurField, DEFAULT_ISOLINE_TUNING, ISOLINE_BLUR, ISOLINE_EDGE_FADE_MS, ISOLINE_FILL_OPACITY, ISOLINE_GRADIENT, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineTuning } from './core/isolines'
+import { IsolineLabels } from './core/isoline-labels'
 import { sliceWeights } from './core/isoline-spline'
 import { TraceCore } from './core/isoline-tracer'
 import { prepareField, type PreparedField } from './core/isoline-field'
@@ -233,7 +233,6 @@ export default function App() {
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
   const [windTuning, setWindTuning] = createSignal<WindTuning>(loadWindTuning())
-  const [focusTuning, setFocusTuning] = createSignal<FocusTuning>({ ...DEFAULT_FOCUS_TUNING })
   const [isolineTuning, setIsolineTuning] = createSignal<IsolineTuning>({ ...DEFAULT_ISOLINE_TUNING })
   const [temperatureRange, setTemperatureRange] = createSignal<PaletteRange | undefined>()
   let temperatureRangeKey = ''
@@ -241,7 +240,6 @@ export default function App() {
   const [windFocus, setWindFocus] = createSignal(0)
   const [focusPinned, setFocusPinned] = createSignal<FocusKind>()
   const [isolineCount, setIsolineCount] = createSignal(0)
-  const [labelTuning, setLabelTuning] = createSignal<IsolineLabelTuning>({ ...DEFAULT_LABEL_TUNING })
   const focusMode = new FocusMode<FocusKind>(['temperature', 'wind'], (mode, value) => (mode === 'wind' ? setWindFocus : setFocus)(value),
     () => reducedMotion.matches)
   const isolineCoverage = createMemo(() => timelineCoverage(feelsLikeTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
@@ -249,13 +247,11 @@ export default function App() {
   const focusedWindTuning = createMemo<WindTuning>(() => ({
     ...windTuning(),
     intensity: windFocusIntensity(windTuning().intensity, windFocus()),
-    visibility: windTuning().visibility * contextOpacity(focus(), focusTuning().dim),
+    visibility: windTuning().visibility * contextOpacity(focus(), FOCUS_DIM),
   }))
   const [mapReady, setMapReady] = createSignal(false)
-  const [minimumMapWidthKm, setMinimumMapWidthKm] = createSignal(DEFAULT_MINIMUM_MAP_WIDTH_KM)
   const [resetNotice, setResetNotice] = createSignal(false)
   let resetNoticeTimer: number | undefined
-  const [devMaximumZoom, setDevMaximumZoom] = createSignal(0)
   const [perfVisible, setPerfVisible] = createSignal(false)
   const [systemDark, setSystemDark] = createSignal(media.matches)
   const mapTheme = createMemo<MapTheme>(() => theme() === 'system' ? systemDark() ? 'dark' : 'light' : theme() as MapTheme)
@@ -307,7 +303,7 @@ export default function App() {
         attributionControl: false,
       })
       restrictMapGestures(map, window.matchMedia('(pointer: coarse)').matches)
-      applyMapDetailLimit(minimumMapWidthKm())
+      applyMapDetailLimit()
       applyMapContainLimit()
       map.on('resize', applyMapContainLimit)
       syncSavedMarkers(savedPlaces())
@@ -442,7 +438,7 @@ export default function App() {
     windLayer?.setTuning(tuning)
   })
 
-  createEffect(() => applyFocus(focus(), focusTuning().dim))
+  createEffect(() => applyFocus(focus()))
   createEffect(() => applyMapSaturation(mapSaturation(focus())))
   createEffect(() => { isolineCoverage(); applyIsolineOpacity() })
 
@@ -459,7 +455,6 @@ export default function App() {
     }
   })
 
-  createEffect(() => isolineLabels?.setTuning(labelTuning()))
   createEffect(() => isolineLabels?.setFade(labelFade()))
 
   createEffect(() => {
@@ -544,7 +539,7 @@ export default function App() {
     if (SUN_ICONS_ENABLED && (radiationTimeline().length || uvTimeline().length)) attachSunLayer()
     if (hasTemperature()) attachTemperatureLayer()
     attachMapFrame(grid)
-    applyFocus(focus(), focusTuning().dim)
+    applyFocus(focus())
     // Na een stijlwissel met vastgezette focus loopt het isolijn-effect niet vanzelf opnieuw.
     if (isolinesActive() && mapReady()) { void showIsolineField(); void showIsolines() }
     void showFrame()
@@ -769,9 +764,9 @@ export default function App() {
     map.addLayer(temperatureLayer(mapTheme()), beforeId)
   }
 
-  function applyFocus(value: number, dim: number): void {
+  function applyFocus(value: number): void {
     if (!map) return
-    const context = contextOpacity(value, dim)
+    const context = contextOpacity(value, FOCUS_DIM)
     layer?.setOpacity(context)
     rainOverlay?.triggerRepaint()
     if (map.getLayer('motregen-sun')) map.setPaintProperty('motregen-sun', 'text-opacity', ['*', ['get', 'opacity'], context])
@@ -813,9 +808,9 @@ export default function App() {
   }
 
   function isolineStyle(): IsolineStyle {
-    const { step, fillOpacity, fillStyle, fade } = isolineTuning()
+    const { step, fillStyle, fade } = isolineTuning()
     const range = temperatureRange()
-    return { step, fill: fillOpacity, fillSmooth: fillStyle === 'verloop', palette: range && paletteStops(range), color: hexColor(isolineColor(mapTheme())), gradientFade: fade === 'gradiënt' }
+    return { step, fill: ISOLINE_FILL_OPACITY, fillSmooth: fillStyle === 'verloop', palette: range && paletteStops(range), color: hexColor(isolineColor(mapTheme())), gradientFade: fade === 'gradiënt' }
   }
 
   function preparedIsolineField(frame: TimelineFrame): Promise<{ grid: Grid; field: PreparedField }> {
@@ -919,7 +914,7 @@ export default function App() {
         isolineLayerKey = key
         isolineFields = []
         isolineLabels?.clear()
-        isolineLabels = new IsolineLabels(renderedMap, grid, labelTuning(), mapTheme(), () => reducedMotion.matches)
+        isolineLabels = new IsolineLabels(renderedMap, grid, mapTheme(), () => reducedMotion.matches)
         isolineLabels.setFade(labelFade())
         isolineKey = ''
         // Labels schuiven mee op exact de snede die de lijnen net kregen (zelfde cadans).
@@ -1017,7 +1012,7 @@ export default function App() {
       },
       paint: {
         'text-color': dark ? '#ffd978' : '#e7a900',
-        'text-opacity': ['*', ['get', 'opacity'], contextOpacity(focus(), focusTuning().dim)],
+        'text-opacity': ['*', ['get', 'opacity'], contextOpacity(focus(), FOCUS_DIM)],
         'text-opacity-transition': { duration: 0 },
         'text-halo-color': dark ? '#233139' : '#fffdf2',
         'text-halo-width': 1.6,
@@ -1481,15 +1476,6 @@ export default function App() {
     storeWindTuning(tuning)
   }
 
-  function tuneFocus<Key extends keyof FocusTuning>(key: Key, value: FocusTuning[Key]): void {
-    setFocusTuning((current) => ({ ...current, [key]: value }))
-  }
-
-  function tuneMapDetail(minimumWidthKm: number): void {
-    setMinimumMapWidthKm(minimumWidthKm)
-    applyMapDetailLimit(minimumWidthKm)
-  }
-
   let topInset: { size: string; top: number } | undefined
   function mapViewport(): Viewport {
     const width = mapElement.clientWidth
@@ -1527,13 +1513,11 @@ export default function App() {
     if (Number.isFinite(minimumZoom)) map.setMinZoom(Math.min(Math.max(minimumZoom, -2), map.getMaxZoom()))
   }
 
-  function applyMapDetailLimit(minimumWidthKm: number): void {
+  function applyMapDetailLimit(): void {
     if (!map) return
     const latitude = map.getCenter().lat
     const circumferenceKm = 40_075.017 * Math.cos(latitude * Math.PI / 180)
-    const maximumZoom = Math.log2(circumferenceKm * map.getContainer().clientWidth / (512 * minimumWidthKm))
-    map.setMaxZoom(maximumZoom)
-    setDevMaximumZoom(maximumZoom)
+    map.setMaxZoom(Math.log2(circumferenceKm * map.getContainer().clientWidth / (512 * MINIMUM_MAP_WIDTH_KM)))
   }
 
   /** ?dev: alle tuning-/debugwaarden terug naar default, zonder reload; favorieten, locatie, kaartview en thema blijven. */
@@ -1541,13 +1525,10 @@ export default function App() {
     clearTuningStorage()
     batch(() => {
       setWindTuning({ ...DEFAULT_WIND_TUNING })
-      setFocusTuning({ ...DEFAULT_FOCUS_TUNING })
       setIsolineTuning({ ...DEFAULT_ISOLINE_TUNING })
-      setLabelTuning({ ...DEFAULT_LABEL_TUNING })
       const pinned = focusPinned()
       if (pinned) toggleFocusPin(pinned)
     })
-    tuneMapDetail(DEFAULT_MINIMUM_MAP_WIDTH_KM)
     window.clearTimeout(resetNoticeTimer)
     setResetNotice(true)
     resetNoticeTimer = window.setTimeout(() => setResetNotice(false), 2_500)
@@ -1669,13 +1650,6 @@ export default function App() {
         <DevPanel
           isolineTuning={isolineTuning()}
           onIsolineTuning={(patch) => setIsolineTuning((current) => ({ ...current, ...patch }))}
-          labelTuning={labelTuning()}
-          onLabelTuning={(patch) => setLabelTuning((current) => ({ ...current, ...patch }))}
-          focusTuning={focusTuning()}
-          onFocusTuning={tuneFocus}
-          minimumMapWidthKm={minimumMapWidthKm()}
-          maximumZoom={devMaximumZoom()}
-          onMinimumMapWidthKm={tuneMapDetail}
           perfVisible={perfVisible()}
           onPerfVisible={setPerfVisible}
           onReplaySplash={replaySplash}
@@ -1782,7 +1756,8 @@ function cancelIdle(handle: number): void {
   else window.clearTimeout(handle)
 }
 
-const DEFAULT_MINIMUM_MAP_WIDTH_KM = 20
+// Zoomgrens: nooit minder dan deze breedte in beeld (Min. breedte, T3g; knop weg in U30).
+const MINIMUM_MAP_WIDTH_KM = 20
 
 function project(lng: number, lat: number): [number, number] {
   const radius = 6378137

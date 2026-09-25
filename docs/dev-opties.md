@@ -9,19 +9,18 @@ whitelist van wat blijft).
 
 ## `?dev`-paneel (`web/src/components/DevPanel.tsx`)
 
+Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
+
 | groep | knop | doel | eigenaar | vervalt bij |
 | --- | --- | --- | --- | --- |
-| Kaart | Min. breedte | zoomgrens: nooit minder dan deze breedte in beeld | T3g | promotie of weg na PO-keuze zoomgrens |
 | Temperatuur | Isolijnen | graden tussen twee isolijnen (1/2/5) | U8 | promotie tot productinstelling (MIP) of weg na PO-keuze |
 | Temperatuur | Vervagen | lijnen en kleur vervagen op vlak veld (uit/gradiënt) | U8c | weg zodra de PO "uit" bevestigt (default sinds U13) |
-| Temperatuur | Label-afstand | minimale afstand tussen lijnlabels | U8b | weg na PO-keuze labeldichtheid |
-| Temperatuur | Vulling | dekking van de kleurvlakken | U25 | U25b (PO-keuze vastgezet) |
-| Temperatuur | Vulling afval | afval van de kleur naar het bandmidden | U25 | U25b |
-| Focus | Focus dim | zichtbaarheid van regen/wind/zon in temperatuurfocus | U8 | weg na PO-keuze |
-| Focus | Kaartverzadiging | kleur van de basiskaart in temperatuurfocus | U25 | U25b |
 | Diagnose | Perf-HUD | meetpaneel aan/uit (ook: drie tikken op het logo) | T5 / U30 | blijft (diagnose) |
 | Diagnose | Herhaal splash | openingslogo opnieuw afspelen | T3 | blijft (diagnose) |
 | Diagnose | Reset alle instellingen | alle knoppen en tuningsleutels terug; gebruikersstaat blijft | U20 | blijft (vluchtweg, MIP-12 regel 4) |
+
+Weggesnoeid in U30 (nu constanten met herkomstregel): Vulling (0,7, U25b), Label-afstand
+(90 px, U8b), Focus dim (0,25, U8), Min. breedte (20 km, T3g), plus de 19 knoppen uit MIP-12.
 
 ## PerfHud, sectie Wind (`motregen-wind-tuning-v3`)
 

@@ -8,12 +8,8 @@ import { projectToLevel, smoothstep, type FieldSlice, type SliceSample } from '.
 
 const EARTH_RADIUS = 6378137
 
-export interface IsolineLabelTuning {
-  /** Minimale afstand tussen twee labels, in CSS-pixels. */
-  minDistancePx: number
-}
-
-export const DEFAULT_LABEL_TUNING: IsolineLabelTuning = { minDistancePx: 90 }
+/** Minimale afstand tussen twee labels in CSS-px (Label-afstand, U8b; knop weg in U30). */
+const LABEL_MIN_DISTANCE_PX = 90
 /** Afstand langs een lijn tussen kandidaat-ankers bij het spawnen (Label-spatiëring, U7/U30). */
 const LABEL_SPACING_PX = 260
 
@@ -54,7 +50,6 @@ export class IsolineLabels {
   constructor(
     private readonly map: MapLibreMap,
     private readonly grid: Grid,
-    private tuning: IsolineLabelTuning,
     private readonly theme: MapTheme,
     private readonly reducedMotion: () => boolean,
   ) {}
@@ -72,11 +67,6 @@ export class IsolineLabels {
 
   /** Na een pan/zoom: gaten in beeld mogen meteen gevuld worden. */
   requestSpawn(): void {
-    this.linesChanged = true
-  }
-
-  setTuning(tuning: IsolineLabelTuning): void {
-    this.tuning = tuning
     this.linesChanged = true
   }
 
@@ -113,7 +103,7 @@ export class IsolineLabels {
       this.place(anchor, projected.sample)
       if (anchor.ringFade <= 0) this.kill(anchor)
     }
-    const minCells = this.tuning.minDistancePx / pxPerCell
+    const minCells = LABEL_MIN_DISTANCE_PX / pxPerCell
     const living = this.anchors.filter((anchor) => !anchor.dying).sort((a, b) => a.born - b.born)
     for (let index = 0; index < living.length; index++) {
       const anchor = living[index]!
@@ -131,7 +121,7 @@ export class IsolineLabels {
     this.linesChanged = false
     const view = this.viewInCells()
     const spacing = LABEL_SPACING_PX / pxPerCell
-    const minCells = this.tuning.minDistancePx / pxPerCell
+    const minCells = LABEL_MIN_DISTANCE_PX / pxPerCell
     const living = () => this.anchors.filter((anchor) => !anchor.dying)
     for (const feature of this.lines!.features) {
       const points = feature.geometry.coordinates.map(([lng, lat]) => this.toCell(lng, lat))

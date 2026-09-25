@@ -1,11 +1,7 @@
 import { DEFAULT_WIND_TUNING, WIND_FOCUS_INTENSITY } from './wind-layer'
 
-export interface FocusTuning {
-  /** Zichtbaarheid van regen, wind en zon tijdens volle temperatuurfocus (0–1). */
-  dim: number
-}
-
-export const DEFAULT_FOCUS_TUNING: FocusTuning = { dim: 0.25 }
+/** Zichtbaarheid van regen, wind en zon tijdens volle temperatuurfocus (Focus dim, U8; knop weg in U30). */
+export const FOCUS_DIM = 0.25
 /** Volle tweenduur in en uit (Tween in/uit, U19 vastgezet; knop weg in U30). */
 export const FOCUS_IN_MS = 250
 export const FOCUS_OUT_MS = 400
