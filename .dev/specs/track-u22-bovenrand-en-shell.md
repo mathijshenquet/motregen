@@ -126,3 +126,11 @@ worden met kleuren, je kan ook 'vandaag' weghalen."
 MOTREGEN_E2E_DATA_PORT=8360 pnpm e2e` (hostlock, load < 16, één Chromium,
 poorten vooraf vrij) groen, synchrone exit statussen in de LOG. Draft-PR
 vroeg. Geen codex.
+
+## Aanvulling PO (2026-09-25, later; als queued prompt aan de worker gestuurd)
+
+- Sectiekop "Opgeslagen" in het zoekpaneel weg; favorieten staan er met hun ster.
+- Nowcast en model worden visueel niet meer onderscheiden. Twee regimes: **observatie**
+  (rtcor) en **voorspelling** (nowcast + HARMONIE), één kleur `--forecast` voor beide in
+  scrubberbalk en klokrand; `timelineZones` voegt nowcast en model samen. De bron-
+  informatie blijft in het versheidspaneel en About.

@@ -83,3 +83,12 @@ mode, die hoeft niet aangegeven."
 MOTREGEN_E2E_DATA_PORT=8362 pnpm e2e` (hostlock, load < 16, één Chromium,
 poorten vooraf vrij) groen, synchrone exit statussen in de LOG. Draft-PR
 vroeg. Geen codex.
+
+## Aanvulling PO (2026-09-25, later; als queued prompt aan de worker gestuurd)
+
+1. Kolom Regen weg; regen als klein mm/u-getal bij het weericoon, alleen als ≠ 0.
+2. Zonicoon mist een straal linksonder — weericonen-set herstellen (symmetrisch).
+3. UV-balk schalen naar het maximaal haalbare voor de tijd van het jaar (heldere hemel
+   op de zonnestand van die dag); kleuren blijven WHO-leidend, lengte wordt relatief.
+4. Windkolom: visuele richting (geroteerde pijl + Bft); twee varianten als stills.
+5. RV: één interessantere weergave proberen; anders tekst laten en dat zeggen.
