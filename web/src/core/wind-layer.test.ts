@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   advanceLife,
+  anchorExhausted,
   bufferDecay,
   cellDispersion,
   DEFAULT_WIND_TUNING,
+  downwindProfile,
   expectedLifetime,
   jitteredCellPoint,
   leastOccupiedCell,
@@ -258,6 +260,35 @@ describe('wind trail buffer', () => {
     expect(panned.offsetX).toBeCloseTo(0.1)
     expect(trailUvTransform(view, { ...view, zoom: 5 }).retention).toBeCloseTo(0.5)
   })
+
+  it('keeps the trail buffer anchored through small moves and reanchors on a large zoom or pan (U24)', () => {
+    const anchor = { centerX: 0.5, centerY: 0.5, zoom: 7, width: 800, height: 600 }
+    const exhausted = (current: typeof anchor) => anchorExhausted(anchor, current, trailUvTransform(anchor, current))
+    expect(exhausted({ ...anchor, zoom: 7.3 })).toBe(false)
+    expect(exhausted({ ...anchor, zoom: 7.6 })).toBe(true)
+    // Uitzoomen: het beeld valt meteen buiten het anker, na ~0,07 zoomniveau voorbij de marge.
+    expect(exhausted({ ...anchor, zoom: 6.97 })).toBe(false)
+    expect(exhausted({ ...anchor, zoom: 6.8 })).toBe(true)
+    const world = 512 * 2 ** 7
+    expect(exhausted({ ...anchor, centerX: 0.5 + 30 / world })).toBe(false)
+    expect(exhausted({ ...anchor, centerX: 0.5 + 60 / world })).toBe(true)
+  })
+})
+
+describe('wind profile (U24)', () => {
+  it('measures density from windward to leeward in equal-area bands', () => {
+    const us: number[] = []
+    const vs: number[] = []
+    for (let row = 0; row < 40; row++) for (let column = 0; column < 40; column++) { us.push((column + 0.5) / 40); vs.push((row + 0.5) / 40) }
+    const uniform = downwindProfile(us, vs, us.map(() => 1), 1, 0, 1.6)
+    expect(uniform.ratio).toBeCloseTo(1, 1)
+    for (const value of uniform.density) expect(value).toBeCloseTo(1, 0)
+    // Westenwind (dx > 0): lege westrand = lage loef/lij; bij oostenwind is dezelfde rand de lij.
+    const keep = us.map((u) => u > 0.2)
+    const pick = <T>(values: T[]) => values.filter((_, index) => keep[index])
+    expect(downwindProfile(pick(us), pick(vs), pick(us).map(() => 1), 1, 0, 1.6).ratio).toBeLessThan(0.1)
+    expect(downwindProfile(pick(us), pick(vs), pick(us).map(() => 1), -1, 0, 1.6).ratio).toBeGreaterThan(10)
+  })
 })
 
 describe('wind tuning', () => {
@@ -302,21 +333,22 @@ describe('wind tuning', () => {
     expect(JSON.parse(values.get(WIND_TUNING_STORAGE_KEY)!)).toEqual({ maxFps: 30 })
   })
 
-  it('migrates a full v2 tuning once: old defaults follow the ⅔ default, own intensity scales by ⅔', () => {
+  it('migrates a full v2 tuning once: old defaults follow the current default, own intensity becomes the focus strength', () => {
     // U3b/U12-defaults zoals v2 ze wegschreef zodra één knop (hier maxFps) afweek.
     const v2 = { ...DEFAULT_WIND_TUNING, intensity: 1.9, maxFps: 30 }
     const values = new Map([[LEGACY_WIND_TUNING_STORAGE_KEY, JSON.stringify(v2)]])
     const storage = memoryStorage(values)
     const loaded = loadWindTuning(storage)
     expect(loaded).toEqual({ ...DEFAULT_WIND_TUNING, maxFps: 30 })
-    expect(loaded.intensity).toBe(1.27)
+    expect(loaded.intensity).toBe(0.75)
     expect(values.has(LEGACY_WIND_TUNING_STORAGE_KEY)).toBe(false)
     expect(JSON.parse(values.get(WIND_TUNING_STORAGE_KEY)!)).toEqual({ maxFps: 30 })
     // Eenmalig: nogmaals laden schaalt niet opnieuw.
     expect(loadWindTuning(storage)).toEqual(loaded)
 
-    for (const old of [0.5, 1.4, 1.9]) expect(migrateWindTuningV2({ ...v2, intensity: old }).intensity).toBe(DEFAULT_WIND_TUNING.intensity)
-    expect(migrateWindTuningV2({ ...v2, intensity: 1.5 }).intensity).toBe(1)
+    for (const old of [0.5, 1.4, 1.9, 1.27]) expect(migrateWindTuningV2({ ...v2, intensity: old }).intensity).toBe(DEFAULT_WIND_TUNING.intensity)
+    // 1,5 × 0,75 / 1,905: windfocus (× WIND_FOCUS_GAIN) geeft weer ~1,5.
+    expect(migrateWindTuningV2({ ...v2, intensity: 1.5 }).intensity).toBe(0.59)
     expect(migrateWindTuningV2({ ...v2, lineWidth: 1.5 }).lineWidth).toBe(DEFAULT_WIND_TUNING.lineWidth)
     expect(migrateWindTuningV2({ lineWidth: 3 })).toEqual({ ...DEFAULT_WIND_TUNING, lineWidth: 3 })
     expect(migrateWindTuningV2('{kapot')).toEqual(DEFAULT_WIND_TUNING)

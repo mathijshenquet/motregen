@@ -39,6 +39,73 @@ test('wind keeps its ink through a zoom step: no blank, no doubling', async ({ p
   expect(back / before).toBeLessThan(1.2)
 })
 
+// U24: een doorlopende zoom (trackpad/pinch) warpte de trailbuffer elke frame opnieuw en liet
+// de staarten tot < ½ wegvagen; één sprong ging wel goed. 100 stappen van 0,02, één per frame.
+test('wind keeps its trails through a continuous zoom 7→9, like a single jump does', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'renderpad, geen performance: desktop volstaat')
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.goto('/')
+  await expect(page.locator('.map-splash.ready')).toBeAttached()
+  await page.waitForFunction(() => (globalThis as { __motregenWind?: { map?: unknown } }).__motregenWind?.map !== undefined)
+  const pause = page.getByRole('button', { name: 'Pauzeren' })
+  if (await pause.count()) await pause.first().click()
+  const run = (continuous: boolean) => page.evaluate(async (stepwise) => {
+    type Map = { jumpTo: (options: object) => void; getZoom: () => number }
+    const wind = (globalThis as unknown as { __motregenWind: Record<string, unknown> & { map: Map; render: (...args: unknown[]) => void } }).__motregenWind
+    wind.frameCount = -1e12
+    wind.budget = wind.target
+    ;(wind.balance as () => void).call(wind)
+    // Virtuele klok: elk animatieframe telt als 1/60 s, hoe traag swiftshader ook rendert.
+    const realNow = performance.now.bind(performance)
+    let virtual = realNow()
+    performance.now = () => virtual
+    const frame = async () => {
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+      virtual += 1_000 / 60
+    }
+    const inks: number[] = []
+    const render = wind.render
+    let pixels = new Uint8Array(0)
+    wind.render = (...args: unknown[]) => {
+      render.apply(wind, args)
+      const gl = args[0] as WebGL2RenderingContext
+      const size = gl.drawingBufferWidth * gl.drawingBufferHeight * 4
+      if (pixels.length !== size) pixels = new Uint8Array(size)
+      gl.readPixels(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+      let sum = 0
+      for (let index = 3; index < size; index += 4) sum += pixels[index]!
+      inks.push(sum / (size / 4))
+    }
+    wind.map.jumpTo({ zoom: 7 })
+    for (let index = 0; index < 240; index++) await frame()
+    const rest = inks.length
+    if (stepwise) {
+      for (let step = 1; step <= 100; step++) {
+        wind.map.jumpTo({ zoom: 7 + step * 0.02 })
+        await frame()
+      }
+    } else {
+      wind.map.jumpTo({ zoom: 9 })
+      await frame()
+    }
+    const end = inks.length
+    await frame()
+    wind.render = render
+    performance.now = realNow
+    const baseline = inks.slice(rest - 30, rest).reduce((sum, value) => sum + value, 0) / 30
+    return { baseline, lowest: Math.min(...inks.slice(rest, end)), end: inks[inks.length - 1]! }
+  }, continuous)
+  const jump = await run(false)
+  const continuous = await run(true)
+  const summary = `sprong ${JSON.stringify(jump)}, continu ${JSON.stringify(continuous)}`
+  await testInfo.attach('wind-continu-zoom.json', { body: summary, contentType: 'text/plain' })
+  expect(continuous.baseline, summary).toBeGreaterThan(0)
+  // Nooit een leeg beeld tijdens de gesture (vóór U24 zakte het naar ~0,4 van rust).
+  expect(continuous.lowest / continuous.baseline, summary).toBeGreaterThan(0.5)
+  // Aan het eind ≥ 70 % van de inkt na één sprong (vóór U24 ~0,65).
+  expect(continuous.end / (jump.end / jump.baseline * continuous.baseline), summary).toBeGreaterThan(0.7)
+})
+
 async function zoomBy(page: Page, step: number): Promise<void> {
   await page.evaluate((delta) => new Promise<void>((resolve) => {
     const map = (globalThis as unknown as { __motregenWind: { map: { once: (event: string, callback: () => void) => void; easeTo: (options: object) => void; getZoom: () => number } } }).__motregenWind.map

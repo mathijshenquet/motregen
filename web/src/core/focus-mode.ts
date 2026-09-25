@@ -1,3 +1,5 @@
+import { DEFAULT_WIND_TUNING, WIND_FOCUS_INTENSITY } from './wind-layer'
+
 export interface FocusTuning {
   /** Zichtbaarheid van regen, wind, wolkrand en zon tijdens volle temperatuurfocus (0–1). */
   dim: number
@@ -48,8 +50,8 @@ export function mapSaturation(focus: number): number {
   return 1 - focus * (1 - MAP_FOCUS_SATURATION)
 }
 
-/** Windfocus tweent de gedempte windlaag terug naar vol: ×3/2 op de (×2/3) gedempte intensiteit. */
-export const WIND_FOCUS_GAIN = 3 / 2
+/** Windfocus tweent de gedempte windlaag terug naar vol: de default komt precies op WIND_FOCUS_INTENSITY. */
+export const WIND_FOCUS_GAIN = WIND_FOCUS_INTENSITY / DEFAULT_WIND_TUNING.intensity
 
 export function windFocusIntensity(intensity: number, focus: number): number {
   return intensity * (1 + focus * (WIND_FOCUS_GAIN - 1))

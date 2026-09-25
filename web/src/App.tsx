@@ -1833,7 +1833,7 @@ export default function App() {
         </div>
       </section>
     </aside>
-    <Show when={perfVisible()}><PerfHud monitor={perf} isolines={isolineCounters} windTuning={windTuning()} onWindTuning={tuneWind} /></Show>
+    <Show when={perfVisible()}><PerfHud monitor={perf} isolines={isolineCounters} windTuning={windTuning()} onWindTuning={tuneWind} windStats={() => windLayer?.windProfile()} /></Show>
   </main>
 }
 
