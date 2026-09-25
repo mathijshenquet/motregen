@@ -88,14 +88,16 @@ test('the search panel is one element; a tap outside closes it without touching 
   const viewBefore = await page.evaluate(() => localStorage.getItem('motregen-map-view'))
   const markerBefore = await page.locator('.maplibregl-marker').first().boundingBox()
 
-  // In rust alleen icoon + plaatsnaam, zo breed als de naam (U22), 14 px (16 px op touch: iOS-zoom).
+  // In rust alleen icoon + plaatsnaam, zo breed als de naam (U22), maar op U17-maat (U22b):
+  // 40 px hoog en 15 px (touch 44 px en 16 px: iOS-zoom), icoon 18 px.
   const box = page.locator('.search-box')
   const rest = (await box.boundingBox())!
-  expect(rest.width).toBeLessThanOrEqual(120)
-  await expect(page.locator('.search-field')).toHaveCSS('font-size', testInfo.project.use.hasTouch ? '16px' : '14px')
+  expect(rest.width).toBeLessThanOrEqual(125)
+  await expect(page.locator('.search-field')).toHaveCSS('font-size', testInfo.project.use.hasTouch ? '16px' : '15px')
   await expect(page.getByRole('button', { name: 'Deze plaats opslaan' })).toHaveCount(0)
-  expect(rest.height).toBeLessThanOrEqual(testInfo.project.use.hasTouch ? 46 : 34)
-  if (testInfo.project.use.hasTouch) expect(rest.height).toBeGreaterThanOrEqual(44)
+  expect(rest.height).toBeGreaterThanOrEqual(testInfo.project.use.hasTouch ? 44 : 38)
+  expect(rest.height).toBeLessThanOrEqual(testInfo.project.use.hasTouch ? 46 : 40)
+  expect((await page.locator('.search-icon').boundingBox())!.width).toBe(18)
 
   const input = page.getByRole('textbox', { name: 'Zoek plaats' })
   if (testInfo.project.use.hasTouch) await input.tap()

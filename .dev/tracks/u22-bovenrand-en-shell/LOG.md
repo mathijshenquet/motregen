@@ -151,3 +151,15 @@ Receipts (synchroon, boom 1ec194d schoon; start load 19,8; e2e-start 10:48 load 
 Na 1ec194d alleen LOG en stills gecommit (geen code).
 Open voor PO (op zicht): vers-stip groen (spec-optie; alternatief tekstkleur 40 %); About-rijen op de
 telefoon over twee regels.
+
+## 11:40 — aanvulling U22b: zoekpil terug op U17-maat (spec 07e2be9)
+- Branch gerebased op origin/main 511c3d5 (U23 e.a. gemerged), zonder conflicten.
+- U17 (b5f5d3e) had: 36 px hoog, 14 px, icoon links 11, surface 86 %, rand 70 %, schaduw 0 2px 10px.
+  Nu in rust: 40 px hoog (touch 44), 15 px (touch 16 px, iOS-zoom), icoon 18 px (was 16),
+  padding 39/16 (touch 40/16, ≤ 360 px 33/8), en de U17-oppervlakte terug (86 % / rand 70 % /
+  schaduw 0 2px 10px, blur 8) i.p.v. de U21-ghost (70 % / 45 % / bijna geen schaduw). Pilvorm en
+  smalle breedte blijven. Open paneel: icoon 18 px, veld 44 px zoals was.
+- Gemeten "De Bilt": desktop 107×40, Pixel 5 111×44, 320 px 96×44 — overal heel, niet onder de klok.
+- Stills `shots-u22b-zoek/voor` (vóór deze wijziging) en `/na`: desktop, Pixel 5, 320 px, licht/donker,
+  rust + zoek open.
+- `location.spec`: rust 15 px / 16 px, hoogte 38–40 (touch 44–46), icoon 18 px.
