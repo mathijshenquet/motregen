@@ -154,3 +154,16 @@ aangepast (ctrl-wiel op touch-profielen); nieuwe testhook `window.__motregenCame
 location). Let op de merge met U22 (App.tsx): mijn diff raakt kaartinit (`...PAN_ZOOM_ONLY`,
 `restrictMapGestures`), `pick` (marker één keer maken), `revealPoint`, startfix bij de signals,
 en de `__motregenCamera`-hook.
+
+## 2026-09-25 10:50 UTC — rebase op main 314fe3e (U22 + U27 gemerged), eind-receipts
+- Rebase: één conflict in App.tsx (testhooks naast elkaar: U27's `__motregenProject` en mijn
+  `__motregenCamera`), beide behouden. U22 heeft NavigationControl al verwijderd; map-zoom-spec
+  van main + mijn ctrl-wiel-regel mergen schoon. HEAD 070cdef, force-with-lease gepusht.
+- Gericht geraakt erbij: `e2e/flanders.spec.ts` (meet de markerbox: midden ±3 px, onderkant
+  ±10 px; mijn padding laat het midden staan en schuift de boxonderkant 2 px).
+- **Eind-receipts op 070cdef** (vanuit `web/`, synchroon): INSTALL-EXIT: 0 · TYPECHECK-EXIT: 0 ·
+  TEST-EXIT: 0 (43 files, 254 tests) · BUILD-EXIT: 0 · `MOTREGEN_E2E_PORT=4368
+  MOTREGEN_E2E_DATA_PORT=8368 pnpm e2e e2e/pin-navigation.spec.ts e2e/map-zoom.spec.ts
+  e2e/location.spec.ts e2e/flanders.spec.ts` (e2e-slot, start 10:39 UTC, load 15,3) →
+  FULL-GATE-EXIT: 0 (14 passed, 16 skipped: profielfilters van de specs).
+- Open punten voor PO en orkestrator: zie de slot-samenvatting hierboven (ongewijzigd).
