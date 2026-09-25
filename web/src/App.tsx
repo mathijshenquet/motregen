@@ -35,7 +35,8 @@ import { startFrameLoop } from './core/playback'
 import { installPerfMonitor, type LoadLayer } from './core/perf'
 import { RainLayer } from './core/rain-layer'
 import { LayerOverlay } from './core/overlay-canvas'
-import { loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastSavedPlaceId, storeMapView } from './core/location-memory'
+import { grantedStartFix, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastSavedPlaceId, storeMapView } from './core/location-memory'
+import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGestures } from './core/pin-navigation'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
 import { solarElevationSin } from './core/solar'
@@ -77,6 +78,7 @@ export default function App() {
   let splashElement!: HTMLDivElement
   let map: maplibregl.Map | undefined
   let marker: Marker | undefined
+  let detachPinNavigation: (() => void) | undefined
   let savedMarkers: Marker[] = []
   const savedPlaceStar = <Star class="saved-place-star" size={28} strokeWidth={2} fill="currentColor" /> as SVGSVGElement
   let dayNightLayer: DayNightLayer | undefined
@@ -187,9 +189,25 @@ export default function App() {
   const [timeHorizonHours, setTimeHorizonHours] = createSignal<number | null>(8)
   const initialSavedPlaces = loadSavedPlaces()
   const initialMapView = loadMapView()
-  const startLocation = resolveStartLocation(initialSavedPlaces, loadLastSavedPlaceId(), initialMapView, defaultLocation)
+  let startLocation = resolveStartLocation(initialSavedPlaces, loadLastSavedPlaceId(), initialMapView, defaultLocation)
+  let startFromFix = false
   const [location, setLocation] = createSignal({ lng: startLocation.lng, lat: startLocation.lat })
   const [locationLabel, setLocationLabel] = createSignal(startLocation.label)
+  // Verleende locatietoestemming gaat vóór de onthouden plaats (U26); tot de fix er is staat die er.
+  void grantedStartFix({ permissions: navigator.permissions, geolocation: navigator.geolocation }, MAP_CONTAIN_BOUNDS).then((fix) => {
+    if (!fix) return
+    const current = location()
+    if (current.lng !== startLocation.lng || current.lat !== startLocation.lat) return
+    if (!initialPickStarted) {
+      startLocation = fix
+      startFromFix = true
+      setLocation({ lng: fix.lng, lat: fix.lat })
+      setLocationLabel(fix.label)
+      return
+    }
+    pick(fix.lng, fix.lat, fix.label)
+    revealPoint(fix.lng, fix.lat)
+  })
   const [savedPlaces, setSavedPlaces] = createSignal<SavedPlace[]>(initialSavedPlaces)
   const [rainSeries, setRainSeries] = createSignal<Array<number | null>>([])
   const [rainLoaded, setRainLoaded] = createSignal<boolean[]>([])
@@ -279,10 +297,12 @@ export default function App() {
         center: [initialView.lng, initialView.lat],
         zoom: initialView.zoom,
         transformConstrain: constrainMapView,
+        ...PAN_ZOOM_ONLY,
         fadeDuration: labelFadeMs,
         renderWorldCopies: false,
         attributionControl: false,
       })
+      restrictMapGestures(map, window.matchMedia('(pointer: coarse)').matches)
       applyMapDetailLimit(minimumMapWidthKm())
       applyMapContainLimit()
       map.on('resize', applyMapContainLimit)
@@ -305,6 +325,7 @@ export default function App() {
     window.clearTimeout(mapViewTimer)
     stopManifestRefresh?.()
     focusMode.dispose()
+    detachPinNavigation?.()
     isolineWorker?.dispose()
     isolineLabels?.clear()
     cancelPointLoad(pointLoad)
@@ -612,6 +633,7 @@ export default function App() {
         if (!initialPickStarted) {
           initialPickStarted = true
           pick(startLocation.lng, startLocation.lat, startLocation.label)
+          if (startFromFix) revealPoint(startLocation.lng, startLocation.lat)
         }
       })
     }
@@ -1049,9 +1071,27 @@ export default function App() {
     const point = { lng, lat }
     setLocation(point)
     setLocationLabel(label)
-    marker?.remove()
-    if (map) marker = new Marker({ color: '#1688ad' }).setLngLat([lng, lat]).addTo(map)
+    if (map && !marker) {
+      marker = new Marker({ color: '#1688ad' }).setLngLat([lng, lat]).addTo(map)
+      detachPinNavigation = attachPinNavigation({
+        map,
+        marker,
+        viewport: mapViewport,
+        onDrop: (dropped) => pick(dropped.lng, dropped.lat, nearestPlace(dropped.lng, dropped.lat).name),
+      })
+    }
+    marker?.setLngLat([lng, lat])
     void updatePointSeries(point, label)
+  }
+
+  /** Centreer alleen als het punt anders buiten (of in de rand van) het vrije kaartvlak valt. */
+  function revealPoint(lng: number, lat: number): void {
+    if (!map) return
+    const { width, height, insets } = mapViewport()
+    const { x, y } = map.project([lng, lat])
+    const margin = PIN_EDGE_MARGIN
+    if (x >= margin && x <= width - margin && y >= (insets?.top ?? 0) + margin && y <= height - margin) return
+    map.easeTo({ center: [lng, lat], duration: 450 })
   }
 
   async function updatePointSeries(point: { lng: number; lat: number }, label: string): Promise<void> {

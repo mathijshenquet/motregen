@@ -360,6 +360,15 @@ button { color: inherit; cursor: pointer; }
 .saved-place-star { stroke: rgba(255, 255, 255, .96); paint-order: stroke fill; }
 .saved-place-marker:hover, .saved-place-marker:focus-visible { color: #ffbd08; }
 
+.location-pin { z-index: 5; cursor: grab; touch-action: none; }
+/* Groter raakvlak dan de 27 px brede pin, zonder de pin zelf te vergroten. */
+.location-pin::before { content: ""; position: absolute; inset: -8px -9px -4px; }
+.location-pin svg { transition: transform .12s ease-out, filter .12s ease-out; transform-origin: 50% 100%; }
+.location-pin.dragging { cursor: grabbing; }
+.location-pin.dragging svg { transform: translateY(-6px) scale(1.06); filter: drop-shadow(0 7px 5px rgba(9, 32, 43, .35)); }
+/* Eén vinger op de kaart doet niets (U26): MapLibre's twee-vinger-hint blijft weg. */
+.maplibregl-cooperative-gesture-screen { display: none; }
+
 .wind-debug {
   position: absolute;
   top: 105px;

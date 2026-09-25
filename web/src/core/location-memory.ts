@@ -57,6 +57,38 @@ export function resolveStartLocation(
   return fallback
 }
 
+export interface StartFixSources {
+  permissions?: Pick<Permissions, 'query'>
+  geolocation?: Pick<Geolocation, 'getCurrentPosition'>
+}
+
+/**
+ * Met al verleende locatietoestemming is de huidige positie de startlocatie (één fix, geen
+ * prompt). Zonder Permissions API (oudere Safari), bij prompt/denied, een fout of een fix
+ * buiten `within`: undefined, en blijft de onthouden locatie staan.
+ */
+export async function grantedStartFix(
+  sources: StartFixSources,
+  within: { west: number; south: number; east: number; north: number },
+  timeoutMs = 10_000,
+): Promise<StartLocation | undefined> {
+  const { permissions, geolocation } = sources
+  if (!permissions || !geolocation) return undefined
+  try {
+    const status = await permissions.query({ name: 'geolocation' })
+    if (status.state !== 'granted') return undefined
+  } catch {
+    return undefined
+  }
+  const coords = await new Promise<GeolocationCoordinates | undefined>((resolve) => {
+    geolocation.getCurrentPosition(({ coords }) => resolve(coords), () => resolve(undefined), { timeout: timeoutMs, maximumAge: 60_000 })
+  })
+  if (!coords) return undefined
+  const { longitude: lng, latitude: lat } = coords
+  if (lng < within.west || lng > within.east || lat < within.south || lat > within.north) return undefined
+  return { lng, lat, label: 'Mijn locatie' }
+}
+
 function isFiniteIn(value: unknown, min: number, max: number): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max
 }
