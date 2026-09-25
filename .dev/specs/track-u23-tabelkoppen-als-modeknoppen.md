@@ -92,3 +92,11 @@ vroeg. Geen codex.
    op de zonnestand van die dag); kleuren blijven WHO-leidend, lengte wordt relatief.
 4. Windkolom: visuele richting (geroteerde pijl + Bft); twee varianten als stills.
 5. RV: één interessantere weergave proberen; anders tekst laten en dat zeggen.
+
+## Tweede aanvulling PO (2026-09-25; als queued prompt gestuurd)
+
+6. Tabel snug gecentreerd: onnodige links/rechts-padding weg.
+7. "Afgelopen N uur tonen": desktop weg — historie staat in de tabel, tabel opent
+   gescrold op de nu-rij; mobiel houdt een nettere toggle (touch-scrollprobleem).
+8. Current-hour-rij: geen left border die de tijd laat inspringen; tint of marker
+   buiten de tekstkolom.
