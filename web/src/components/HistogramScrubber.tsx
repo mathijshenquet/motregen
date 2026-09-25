@@ -81,10 +81,6 @@ export default function HistogramScrubber(props: Props) {
     })
   })
   const guides = createMemo(() => RAIN_BANDS.slice(1).map((band) => y(band.minimum)))
-  const bandLabels = createMemo(() => RAIN_BANDS.map((band) => {
-    const upper = Number.isFinite(band.maximum) ? band.maximum : maximum()
-    return { ...band, center: (y(upper) + y(band.minimum)) / 2 / plotHeight() * 100 }
-  }))
   const hourStep = createMemo(() => hourLabelStep(timelineSpan() / 3_600_000, plotWidth()))
   const xTicks = createMemo(() => {
     if (!props.timeline.length) return []
@@ -115,7 +111,7 @@ export default function HistogramScrubber(props: Props) {
     const value = cursorValue()
     const rain = value == null ? 'geen data' : value < 0.05 ? 'droog' : `${formatRate(value)}, ${RAIN_BANDS.find((band) => band.key === classifyRain(value))!.label.toLowerCase()}`
     const source = cursorZone()?.label.toLowerCase()
-    return `${dayLabel(epoch, props.now).toLowerCase()} ${time}, ${rain}, ${source}`
+    return `${(dayLabel(epoch, props.now) || 'vandaag').toLowerCase()} ${time}, ${rain}, ${source}`
   }
   // Playback already advances the cursor every animation frame; only discrete
   // keyboard steps get a short glide, pointer scrubbing stays immediate.
@@ -267,13 +263,10 @@ export default function HistogramScrubber(props: Props) {
         if (!(hoverScrubbing() && pointerInside && event.pointerType === 'mouse')) resumeAfterPointerInteraction()
       }}
     >
-      <div class="y-axis" aria-hidden="true">
-        <For each={bandLabels()}>{(band) => <span class={band.key} style={{ top: `${band.center}%` }}>{band.label}</span>}</For>
-      </div>
       <div class="chart-plot" ref={plotElement}>
         <div class="past-shade" style={{ width: `${nowPosition()}%` }} aria-hidden="true" />
         <div class="hour-grid" aria-hidden="true"><For each={xTicks().filter((tick) => tick.labelled)}>{(tick) => <i style={{ left: `${tick.left}%` }} />}</For></div>
-        <div class="day-grid" aria-hidden="true"><For each={dayMarkers()}>{(marker, index) => <div classList={{ boundary: marker.boundary }} style={{ left: `${positionAtEpoch(marker.epoch)}%` }}><Show when={(positionAtEpoch(dayMarkers()[index() + 1]?.epoch ?? timelineEnd()) - positionAtEpoch(marker.epoch)) / 100 * plotWidth() > marker.label.length * 7 + 16}><span>{marker.label}</span></Show></div>}</For></div>
+        <div class="day-grid" aria-hidden="true"><For each={dayMarkers()}>{(marker, index) => <div classList={{ boundary: marker.boundary }} style={{ left: `${positionAtEpoch(marker.epoch)}%` }}><Show when={marker.label && (positionAtEpoch(dayMarkers()[index() + 1]?.epoch ?? timelineEnd()) - positionAtEpoch(marker.epoch)) / 100 * plotWidth() > marker.label.length * 7 + 16}><span>{marker.label}</span></Show></div>}</For></div>
         <svg viewBox={`0 0 ${plotWidth()} ${plotHeight()}`} aria-hidden="true">
           <For each={guides()}>{(top) => <line class="rain-guide" x1="0" x2={plotWidth()} y1={top} y2={top} />}</For>
           {/* Index keeps each slot's rect alive, so only frames that arrive (pending → loaded) fade in. */}
@@ -331,7 +324,8 @@ function hourLabel(epoch: number): string {
 function dayLabel(epoch: number, todayEpoch: number): string {
   const date = new Date(epoch)
   const today = new Date(todayEpoch)
-  if (date.toDateString() === today.toDateString()) return 'Vandaag'
+  // Vandaag krijgt geen label: de nu-lijn zegt het al.
+  if (date.toDateString() === today.toDateString()) return ''
   today.setDate(today.getDate() + 1)
   if (date.toDateString() === today.toDateString()) return 'Morgen'
   today.setDate(today.getDate() - 2)

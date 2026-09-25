@@ -13,3 +13,12 @@
 - Structuurkeuze klok: een knop in een knop mag niet (HTML), dus de klok wordt een container met
   twee zusterknoppen: de hele tab (transparante overlay-knop, aria-label met kaarttijd/regime) en
   de amber versheidsknop erbovenop (eigen aria-label). Beide openen hetzelfde paneel.
+
+## 09:45 — spec-aanvulling U22 (PO 2026-09-25, later op de dag; via queue) — vult de spec aan
+(a) Zoekpaneel: sectiekop "Opgeslagen" weg; favorieten staan er gewoon met hun ster.
+(b) Nowcast en model worden visueel niet meer onderscheiden: twee regimes, **observatie** (rtcor) en
+**voorspelling** (nowcast + HARMONIE). Eén kleur `--forecast` voor beide in scrubberbalk en klokrand,
+regimewoord "voorspelling" voor beide, time-model-zones voegen nowcast en model samen. Bron-informatie
+(nowcast vs HARMONIE, runs) blijft in het versheidspaneel en in About.
+- Gevolg voor spec-punt 1: "trend" vervalt als regimewoord; de klok-breedte hoeft alleen nog
+  "voorspelling" te passen (was al de maat).

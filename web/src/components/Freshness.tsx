@@ -2,6 +2,7 @@ import { createMemo, createSignal, For, onCleanup, Show } from 'solid-js'
 import { Portal } from 'solid-js/web'
 import type { Manifest, Source } from '../core/contract'
 import { ageMs, expectedNextRadar, formatAge, formatAgeShort, formatClock, freshnessStatus, latestRadarEpoch, sourceFreshness, STATUS_LABELS, type RefreshState } from '../core/freshness'
+import { sourceZone } from '../core/time-model'
 import { BUTTON_ICON, X } from './icons'
 import { backdropHandlers } from './modal'
 
@@ -12,18 +13,9 @@ interface Props {
   manifest: Manifest | undefined
   refresh: RefreshState | undefined
   onRefresh: () => Promise<void>
-  // PO-smaaktest U21: bronaccent als gekleurde linkerrand (default) of als stip voor de tijd.
-  accent?: 'dot' | 'edge'
 }
 
 const TICK_MS = 15_000
-
-// Zelfde regimes en kleuren als de balk onder het histogram.
-function mapRegime(source: Source | undefined): { kind: 'observations' | 'nowcast' | 'model'; word: string } {
-  if (source === 'rtcor') return { kind: 'observations', word: 'radar' }
-  if (source === 'nowcast') return { kind: 'nowcast', word: 'nowcast' }
-  return { kind: 'model', word: 'model' }
-}
 
 export default function Freshness(props: Props) {
   let dialog!: HTMLDialogElement
@@ -35,9 +27,12 @@ export default function Freshness(props: Props) {
 
   const time = (epoch: number) => new Date(epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
   const day = (epoch: number) => new Date(epoch).toLocaleDateString('nl-NL', { weekday: 'short' })
-  const mapDay = () => day(props.mapEpoch) === day(clock()) ? '' : ` · ${day(props.mapEpoch)}`
+  const mapDay = () => day(props.mapEpoch) === day(clock()) ? '' : day(props.mapEpoch)
   const mapTime = () => props.mapFrame ? time(props.mapEpoch) : '––:––'
-  const regime = createMemo(() => mapRegime(props.mapFrame?.source))
+  const regime = createMemo(() => {
+    const zone = sourceZone(props.mapFrame?.source ?? 'harmonie')
+    return { kind: zone.kind, word: zone.label.toLowerCase() }
+  })
 
   const radar = createMemo(() => props.manifest ? latestRadarEpoch(props.manifest) : undefined)
   const status = createMemo(() => freshnessStatus(radar(), clock(), props.refresh))
@@ -47,8 +42,14 @@ export default function Freshness(props: Props) {
     const age = radarAge()
     return age === undefined ? 'Geen radar' : `Radar ${formatClock(radar()!, clock())}, ${formatAge(age)}`
   }
+  const badgeLabel = () => {
+    const age = radarAge()
+    const ago = age === undefined ? '' : formatAgeShort(age)
+    const detail = age === undefined ? 'geen radar' : `radar ${time(radar()!)}, ${status() === 'offline' ? 'verversen mislukt' : ago === 'zojuist' ? ago : `${ago} oud`}`
+    return `Dataversheid: ${STATUS_LABELS[status()].toLowerCase()}, ${detail}`
+  }
 
-  // Het paneel opent gecentreerd onder de pil, binnen het venster gehouden.
+  // Het paneel opent gecentreerd onder de klok, binnen het venster gehouden.
   function openPanel(): void {
     const pill = trigger.parentElement!.getBoundingClientRect()
     const margin = 16
@@ -73,32 +74,26 @@ export default function Freshness(props: Props) {
     }
   }
 
-  // Onder de kaarttijd: wanneer de getoonde data is. Radar en nowcast hangen aan de laatste
-  // radarscan (met leeftijd); modelbeelden aan hun run.
-  return <div class="map-clock" classList={{ 'accent-dot': props.accent === 'dot' }} data-freshness={status()} data-source={regime().kind}>
+  // Een knop in een knop mag niet: de hele klok is één transparante knop eronder, de amber
+  // versheidsknop ligt erbovenop. Beide openen het versheidspaneel.
+  return <div class="map-clock" data-freshness={status()} data-source={regime().kind}>
     <button
       ref={trigger}
       type="button"
       class="freshness-trigger"
       aria-haspopup="dialog"
-      aria-label={`Kaart ${mapTime()}${mapDay()}, ${regime().word}. ${STATUS_LABELS[status()]}: ${summary()}. Details over dataversheid`}
+      aria-label={`Kaart ${mapTime()}${mapDay() ? ` ${mapDay()}` : ''}, ${regime().word}. ${STATUS_LABELS[status()]}: ${summary()}. Details over dataversheid`}
       title="Hoe vers is de data?"
       onClick={openPanel}
-    >
-      <span class="clock-main">
-        <i class="clock-source-dot" aria-hidden="true" />
-        <strong class="clock-map-time">{mapTime()}</strong>
-        <small class="clock-source">{regime().word}{mapDay()}</small>
-      </span>
-      <span class="clock-data">
-        <i class="freshness-dot" aria-hidden="true" />
-        <Show when={regime().kind !== 'model' || !props.mapFrame} fallback={<span class="freshness-run">run {time(Date.parse(props.mapFrame!.run))}</span>}>
-          <Show when={radarAge() !== undefined} fallback={<span>geen radar</span>}>
-            <span class="freshness-scan">radar {time(radar()!)}</span>{' · '}<span class="freshness-age">{status() === 'offline' ? 'offline' : formatAgeShort(radarAge()!)}</span>
-          </Show>
-        </Show>
-      </span>
-    </button>
+    />
+    <span class="clock-main" aria-hidden="true">
+      <Show when={mapDay()}><small class="clock-day">{mapDay()}</small></Show>
+      <strong class="clock-map-time">{mapTime()}</strong>
+    </span>
+    <span class="clock-data">
+      <span class="clock-source" aria-hidden="true">{regime().word}</span>
+      <button type="button" class="freshness-badge" aria-haspopup="dialog" aria-label={badgeLabel()} title="Hoe vers is de data?" onClick={openPanel} />
+    </span>
     {/* Alleen de statustekst is live: tikkende minuten worden niet voorgelezen. */}
     <span class="sr-only" aria-live="polite">{STATUS_LABELS[status()]}</span>
     {/* Buiten de kaartpil: die is pointer-events:none en stijlt small/strong. */}

@@ -17,12 +17,12 @@
   --accent-bright: #24a9d2;
   --accent-soft: #d9f1f8;
   --history: #78909a;
-  --nowcast: #159bc8;
-  --model: #8054b8;
+  --forecast: #159bc8;
   --shadow: 0 8px 30px rgba(23, 55, 67, .16);
   --fresh: #23855a;
   --aging: #a86f00;
   --stale: #bf4530;
+  --amber: #c98000;
   --danger: #c93a2e;
   --danger-soft: #fbe6e3;
   --uv-low: #45a33a;
@@ -47,12 +47,12 @@
   --accent-bright: #62d4f4;
   --accent-soft: #123b49;
   --history: #78919c;
-  --nowcast: #3bbde7;
-  --model: #ae78df;
+  --forecast: #3bbde7;
   --shadow: 0 8px 32px rgba(0, 0, 0, .4);
   --fresh: #4cc48b;
   --aging: #eab13b;
   --stale: #ef7a64;
+  --amber: #f5b43a;
   --danger: #f06b5c;
   --danger-soft: #3a1c1b;
   --uv-low: #5cc451;
@@ -105,30 +105,22 @@ button { color: inherit; cursor: pointer; }
 .round-action:hover { border-color: var(--accent); background: var(--accent-soft); }
 .round-action > svg { flex: none; }
 .round-action small { font-size: 12px; font-weight: 650; }
-.mobile-map-theme { display: none; }
 
 .map-shell { position: relative; min-height: 0; overflow: hidden; background: #c6dbe2; }
 .map { position: absolute; inset: 0; }
+/* Merk (U22): ronde druppelknop rechtsboven; opent About + weergave-instelling. */
 .map-brand {
   position: absolute;
-  bottom: 10px;
-  left: 10px;
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 6px 9px 6px 7px;
-  border: 1px solid color-mix(in srgb, var(--line-strong) 75%, transparent);
-  border-radius: 10px;
-  color: var(--text);
-  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
-  box-shadow: 0 3px 14px rgba(10, 32, 41, .13);
-  backdrop-filter: blur(8px);
+  top: 12px;
+  right: 12px;
+  z-index: 5;
+  width: 38px;
+  padding: 0;
+  justify-content: center;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
 }
-.map-brand img { width: 21px; height: 25px; }
-.map-brand svg { flex: none; color: var(--muted); }
-.map-brand:hover svg, .map-brand:focus-visible svg { color: var(--accent); }
-.map-brand strong { font-family: "Avenir Next", Avenir, "Trebuchet MS", ui-sans-serif, sans-serif; font-size: 15px; font-weight: 600; letter-spacing: .015em; }
+.map-brand img { width: 17px; height: 20px; }
 .map-splash {
   position: absolute;
   inset: 0;
@@ -222,6 +214,10 @@ button { color: inherit; cursor: pointer; }
 .about-close { width: 34px; height: 34px; flex: none; display: grid; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 50%; color: var(--text); background: var(--surface-soft); cursor: pointer; }
 .about-close:hover, .about-close:focus-visible { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); outline: none; }
 .about-body p { margin: 0 0 10px; }
+.about-settings { margin: 0 0 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.about-settings h3 { margin: 0 0 7px; color: var(--muted); font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+.about-theme { display: flex; }
+.about-theme button { flex: 1; }
 .about-lead { font-size: 15px; font-weight: 650; }
 .about-body dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: var(--surface-soft); font-size: 12px; }
 .about-body dt { color: var(--muted); font-weight: 750; }
@@ -231,21 +227,23 @@ button { color: inherit; cursor: pointer; }
 .about-repo { display: inline-flex; margin-top: 2px; padding: 7px 12px; border: 1px solid var(--line-strong); border-radius: 999px; font-size: 12px; font-weight: 700; text-decoration: none; }
 .about-repo:hover { background: var(--accent-soft); }
 
-/* Zoeken (U21): in rust een ghost-pil met plaats en ster; bij focus groeit hij uit tot één
-   paneel met invoerveld en lijst (combobox), met een scrim die tikken van de kaart weghoudt. */
+/* Zoeken (U21/U22): in rust een smalle pil met alleen icoon en plaatsnaam, zo breed als de naam
+   (een verborgen kopie van de tekst bepaalt de breedte); bij focus groeit hij uit tot één paneel
+   met invoerveld, ster, × en lijst (combobox), met een scrim die tikken van de kaart weghoudt.
+   Rustbreedte: nooit tot onder de klok (halve kaart − halve klok − marges). */
 .search {
   position: absolute;
   top: 12px;
   left: 12px;
   z-index: 5;
-  width: min(240px, calc(100% - 74px));
+  max-width: min(200px, calc(50% - var(--clock-half) - 20px));
   color: var(--text);
-  transition: width 150ms ease;
 }
-.search.open { z-index: 8; width: min(420px, calc(100% - 74px)); }
+.search.open { z-index: 8; width: min(420px, calc(100% - 74px)); max-width: none; }
 .search-scrim { position: fixed; inset: 0; z-index: -1; background: rgba(7, 19, 26, .14); }
 .search-box {
   position: relative;
+  display: grid;
   border: 1px solid color-mix(in srgb, var(--line-strong) 45%, transparent);
   border-radius: 16px;
   background: color-mix(in srgb, var(--surface-raised) 70%, transparent);
@@ -254,41 +252,44 @@ button { color: inherit; cursor: pointer; }
   transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease, border-radius 150ms ease;
 }
 .search-icon { position: absolute; left: 10px; top: 8px; z-index: 1; color: var(--muted); pointer-events: none; }
+.search-sizer, .search-field { grid-area: 1 / 1; padding: 0 12px 0 32px; font-size: 14px; }
+.search-sizer { height: 0; overflow: hidden; visibility: hidden; white-space: pre; }
+.search.open .search-sizer { display: none; }
 .search-field {
   width: 100%;
+  min-width: 0;
   height: 30px;
-  padding: 0 32px 0 32px;
   border: 0;
   border-radius: 16px;
   outline: none;
   color: var(--text);
   background: transparent;
-  font-size: 13px;
   text-overflow: ellipsis;
   appearance: none;
+  contain: inline-size;
 }
-.search.saved-current:not(.open) .search-field { padding-right: 12px; }
 .save-place, .search-clear {
   position: absolute;
   top: 0;
-  right: 1px;
+  right: 0;
   z-index: 2;
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
   padding: 0;
   border: 0;
-  border-radius: 50%;
+  border-radius: 12px;
   color: var(--muted);
   background: transparent;
   cursor: pointer;
 }
+.save-place { right: 40px; }
 .save-place:hover { color: #d59b00; background: color-mix(in srgb, #ffd75e 20%, transparent); }
 .save-place:disabled { opacity: .35; cursor: default; }
 .search-clear:hover, .search-clear:focus-visible { color: var(--text); background: var(--accent-soft); outline: none; }
 
-/* Open, variant A (default): de pil vouwt open — veld en lijst delen één rand, achtergrond en schaduw. */
+/* Open: de pil vouwt open — veld en lijst delen één rand, achtergrond en schaduw. */
 .search.open .search-box {
   overflow: hidden;
   border-color: var(--line-strong);
@@ -298,17 +299,9 @@ button { color: inherit; cursor: pointer; }
   backdrop-filter: none;
 }
 .search.open .search-box:focus-within { border-color: color-mix(in srgb, var(--accent) 60%, var(--line-strong)); }
-.search.open .search-field { height: 44px; padding-right: 46px; padding-left: 36px; font-size: 14px; }
+.search.open .search-field { height: 44px; padding-right: 46px; padding-left: 36px; }
+.search.open:not(.saved-current) .search-field { padding-right: 86px; }
 .search.open .search-icon { top: 14px; left: 12px; }
-.search.open .search-clear { top: 0; right: 0; width: 44px; height: 44px; border-radius: 12px; }
-
-/* Open, variant B (?zoekpaneel=omsluit): een paneel omsluit het veld, dat als eigen vak blijft staan. */
-.search.open.search-wrap .search-box { padding: 6px; }
-.search.open.search-wrap .search-field { height: 40px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-soft); }
-.search.open.search-wrap .search-field:focus { border-color: var(--accent); }
-.search.open.search-wrap .search-icon { top: 18px; left: 18px; }
-.search.open.search-wrap .search-clear { top: 4px; right: 4px; }
-.search.open.search-wrap .search-results { margin-top: 6px; border-top: 0; }
 .search:not(.open) .search-box:hover { border-color: var(--line-strong); background: color-mix(in srgb, var(--surface-raised) 86%, transparent); }
 .search-results:focus { outline: none; }
 .search-results {
@@ -405,7 +398,6 @@ button { color: inherit; cursor: pointer; }
   background: var(--surface);
 }
 .sidebar-uv-chip { margin-right: auto; }
-.sidebar-actions { display: flex; gap: 7px; }
 .current-weather {
   display: flex;
   align-items: center;
@@ -435,8 +427,7 @@ button { color: inherit; cursor: pointer; }
 .scrubber-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .scrubber-source { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; color: var(--muted); font-size: 12px; font-weight: 650; white-space: nowrap; }
 .scrubber-source::before { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--history); content: ''; }
-.scrubber-source.nowcast::before { background: var(--nowcast); }
-.scrubber-source.model::before { background: var(--model); }
+.scrubber-source.forecast::before { background: var(--forecast); }
 .time-horizon { margin-left: auto; }
 .segmented { display: inline-flex; flex: none; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-soft); }
 .segmented button, .cursor-pill { height: 28px; padding: 0 11px; border-radius: 999px; font-size: 12px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
@@ -457,9 +448,7 @@ button { color: inherit; cursor: pointer; }
 }
 .scrub-surface:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .scrub-surface.hover-scrubbing { cursor: crosshair; }
-.y-axis { position: absolute; top: 34px; bottom: 26px; left: 0; width: 38px; color: var(--muted); font-size: 10px; font-weight: 650; pointer-events: none; }
-.y-axis span { position: absolute; left: 0; line-height: 1; transform: translateY(-50%); }
-.chart-plot { position: absolute; top: 34px; right: 2px; bottom: 26px; left: 42px; }
+.chart-plot { position: absolute; top: 34px; right: 2px; bottom: 26px; left: 2px; }
 .chart-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; }
 .past-shade { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 6px 0 0 0; background: color-mix(in srgb, var(--text) 4%, transparent); pointer-events: none; }
 .rain-guide { stroke: color-mix(in srgb, var(--line-strong) 70%, transparent); stroke-dasharray: 2 4; stroke-width: 1; }
@@ -501,10 +490,9 @@ button { color: inherit; cursor: pointer; }
 .x-axis { position: absolute; top: calc(100% + 7px); right: 0; left: 0; color: var(--muted); font-size: 11px; pointer-events: none; }
 .x-axis span { position: absolute; transform: translateX(-50%); }
 .x-axis span.midnight { color: var(--text); font-weight: 700; }
-.regimes { position: relative; height: 3px; margin: 6px 2px 4px 42px; }
+.regimes { position: relative; height: 3px; margin: 6px 2px 4px; }
 .regimes span { position: absolute; top: 0; bottom: 0; border-right: 2px solid var(--surface); border-radius: 3px; background: color-mix(in srgb, var(--history) 55%, transparent); }
-.regimes .nowcast { background: color-mix(in srgb, var(--nowcast) 60%, transparent); }
-.regimes .model { background: color-mix(in srgb, var(--model) 50%, transparent); }
+.regimes .forecast { background: color-mix(in srgb, var(--forecast) 60%, transparent); }
 
 .forecast-panel { padding: 0 16px 24px; background: var(--surface); }
 .table-scroll { overflow-x: auto; }
@@ -579,19 +567,13 @@ td:first-child span.sun-mark { display: block; margin-top: 1px; color: #b07800; 
 .air-temperature { display: block; color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: 0; }
 .wind-cell { color: var(--text); font-size: 11px; }
 
-.maplibregl-ctrl-top-right { top: 57px; right: 2px; }
-.maplibregl-ctrl-group { overflow: hidden; border: 1px solid var(--line) !important; background: var(--surface-raised) !important; box-shadow: var(--shadow) !important; }
-.maplibregl-ctrl-group button + button { border-top-color: var(--line) !important; }
-:root[data-theme="dark"] .maplibregl-ctrl-icon { filter: invert(1); }
-
 /* Aanraakdoel ≥ 44 px: kleine knoppen krijgen een onzichtbare rand i.p.v. een groter uiterlijk. */
 @media (pointer: coarse) {
   .round-action { height: 44px; min-width: 44px; }
   .about-close { width: 44px; height: 44px; }
   .remove-saved { width: 44px; }
   .confirm-remove button { height: 44px; }
-  .map-brand { min-height: 44px; }
-  .save-place::after { position: absolute; inset: -6px; content: ''; }
+  .map-brand { width: 44px; }
 }
 
 @media (max-width: 430px) {
@@ -601,12 +583,6 @@ td:first-child span.sun-mark { display: block; margin-top: 1px; color: #b07800; 
   .sidebar-uv-chip { padding: 0 8px; }
   .uv-long { display: none; }
   .uv-short { display: inline; }
-}
-
-@media (max-width: 959px) {
-  .maplibregl-ctrl-top-right { display: none; }
-  .mobile-map-theme { position: absolute; top: 12px; right: 12px; z-index: 6; display: inline-flex; width: 44px; height: 44px; padding: 0; justify-content: center; background: var(--surface-raised); box-shadow: var(--shadow); }
-  .sidebar-theme { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -628,10 +604,10 @@ td:first-child span.sun-mark { display: block; margin-top: 1px; color: #b07800; 
   .scrubber { padding: 18px 24px 12px; }
   .scrub-surface { height: 232px; }
   .forecast-panel { padding: 0 24px 36px; }
-  .search { top: 18px; left: 18px; }
+  .search { top: 18px; left: 18px; max-width: min(200px, calc(50% - var(--clock-half) - 26px)); }
   .search.open { width: min(380px, calc(100% - 90px)); }
+  .map-brand { top: 18px; right: 18px; }
   .wind-debug { top: 112px; left: 18px; }
-  .maplibregl-ctrl-top-right { top: 8px; right: 8px; }
   th { position: sticky; top: -1px; z-index: 1; background: var(--surface); }
 }
 
@@ -639,44 +615,68 @@ td:first-child span.sun-mark { display: block; margin-top: 1px; color: #b07800; 
   .app-shell { grid-template-columns: minmax(0, 1fr) 520px; }
 }
 
-/* Midden boven (U21). Telefoon: tweede rij onder zoekpil en themaknop; desktop: naast de
-   zoekpil, of eronder als de kaart te smal is voor beide. */
+/* Klok (U22): een tab die midden aan de bovenrand van de kaart hangt. Zijranden in de bronkleur
+   (zelfde als de balk onder de scrubber); onder de kaarttijd het regimewoord en de amber
+   versheidsknop. Vaste breedte (past "voorspelling") zodat de tab niet verspringt bij scrubben. */
+.map-shell { --clock-half: 62px; }
 .map-clock {
   position: absolute;
-  top: calc(env(safe-area-inset-top) + 64px);
+  top: 0;
   left: 50%;
-  transform: translateX(-50%);
   z-index: 3;
   --regime: var(--history);
-  overflow: hidden;
+  width: calc(2 * var(--clock-half));
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: calc(env(safe-area-inset-top) + 4px) 8px 6px;
   border: 1px solid color-mix(in srgb, var(--line-strong) 75%, transparent);
-  border-radius: 10px;
+  border-top: 0;
+  border-inline: 3px solid var(--regime);
+  border-radius: 0 0 12px 12px;
   color: var(--text);
-  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
-  box-shadow: 0 3px 14px rgba(10, 32, 41, .13);
-  backdrop-filter: blur(8px);
+  background: var(--surface-raised);
+  box-shadow: 0 5px 14px -3px rgba(10, 32, 41, .2);
+  transform: translateX(-50%);
   font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  white-space: nowrap;
   pointer-events: none;
 }
-.map-clock[data-source="nowcast"] { --regime: var(--nowcast); }
-.map-clock[data-source="model"] { --regime: var(--model); }
-.map-clock:not(.accent-dot) { border-left: 3px solid var(--regime); }
-.freshness-trigger { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 13px 6px; border: 0; border-radius: 0; color: inherit; background: none; font: inherit; line-height: 1.15; white-space: nowrap; pointer-events: auto; cursor: pointer; }
-.clock-main { display: flex; align-items: baseline; gap: 6px; }
-.clock-source-dot { width: 8px; height: 8px; flex: none; align-self: center; border-radius: 50%; background: var(--regime); }
-.map-clock:not(.accent-dot) .clock-source-dot { display: none; }
+.map-clock[data-source="forecast"] { --regime: var(--forecast); }
+.freshness-trigger { position: absolute; inset: 0; padding: 0; border: 0; border-radius: 0 0 9px 9px; background: none; pointer-events: auto; cursor: pointer; }
+.clock-main, .clock-data { position: relative; display: flex; align-items: center; }
+.clock-main { gap: 4px; }
+.clock-day { color: var(--muted); font-size: 11px; font-weight: 700; }
 .clock-map-time { font-size: 20px; font-weight: 720; letter-spacing: -.01em; }
-.clock-source { color: var(--regime); font-size: 11px; font-weight: 700; }
-.clock-data { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 11px; font-weight: 600; }
-.clock-data .freshness-dot { width: 6px; height: 6px; box-shadow: none; }
+.clock-data { gap: 6px; font-size: 12px; font-weight: 650; }
+.freshness-badge {
+  --badge: var(--amber);
+  position: relative;
+  width: 10px;
+  height: 10px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--badge);
+  pointer-events: auto;
+  cursor: pointer;
+}
+/* Aanraakdoel ≥ 44 px zonder groter uiterlijk; overlapt alleen de klokknop, die hetzelfde doet. */
+.freshness-badge::after { position: absolute; inset: -17px; border-radius: 50%; content: ''; }
+.freshness-badge:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+[data-freshness="aging"] .freshness-badge { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--badge); animation: badge-pulse 1.8s ease-in-out infinite; }
+[data-freshness="stale"] .freshness-badge, [data-freshness="offline"] .freshness-badge { --badge: var(--stale); }
+@keyframes badge-pulse { 50% { box-shadow: 0 0 0 2px var(--surface), 0 0 0 5px color-mix(in srgb, var(--badge) 35%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .freshness-badge { animation: none !important; } }
 .freshness-trigger:hover, .freshness-trigger:focus-visible { background: color-mix(in srgb, var(--accent-soft) 60%, transparent); outline: none; }
 .freshness-dot { --dot: var(--fresh); width: 7px; height: 7px; flex: none; align-self: center; border-radius: 50%; background: var(--dot); box-shadow: 0 0 0 2px color-mix(in srgb, var(--dot) 22%, transparent); }
-[data-freshness="aging"] .freshness-dot, .freshness-dot[data-status="aging"] { --dot: var(--aging); }
-[data-freshness="stale"] .freshness-dot, .freshness-dot[data-status="stale"],
-[data-freshness="offline"] .freshness-dot, .freshness-dot[data-status="offline"] { --dot: var(--stale); }
-.freshness-age { color: inherit; }
-[data-freshness="aging"] .freshness-age { color: var(--aging); }
-[data-freshness="stale"] .freshness-age, [data-freshness="offline"] .freshness-age { color: var(--stale); }
+.freshness-dot[data-status="aging"] { --dot: var(--aging); }
+.freshness-dot[data-status="stale"], .freshness-dot[data-status="offline"] { --dot: var(--stale); }
 .freshness-dialog { inset: auto; top: var(--panel-top); left: var(--panel-left); margin: 0; max-height: calc(100dvh - var(--panel-top) - 16px); font-variant-numeric: tabular-nums; }
 .freshness-dialog .freshness-dot { width: 10px; height: 10px; }
 .freshness-lead { font-size: 14px; }
@@ -691,14 +691,6 @@ td:first-child span.sun-mark { display: block; margin-top: 1px; color: #b07800; 
 .freshness-refresh:hover:not(:disabled), .freshness-refresh:focus-visible { background: var(--accent-soft); outline: none; }
 .freshness-refresh:disabled { color: var(--muted); cursor: progress; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-@media (min-width: 960px) {
-  .map-shell { container: map / inline-size; }
-  .map-clock { top: 12px; }
-  /* Zoekpil (18 + 240) + marge + halve pil (max ~ 90 met kaarttijd) past niet naast elkaar. */
-  @container map (max-width: 719px) {
-    .map-clock { top: 62px; }
-  }
-}
 tr.history-toggle-row td { padding: 0; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface-soft) 70%, var(--surface)); }
 .history-toggle { display: flex; width: 100%; align-items: center; gap: 7px; padding: 7px 0; border: 0; color: var(--muted); background: none; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-align: left; }
 .history-toggle:hover, .history-toggle:focus-visible { color: var(--text); }
@@ -730,7 +722,6 @@ tr.history-toggle-row td { padding: 0; border-bottom: 1px solid var(--line); bac
   body::before { position: fixed; inset: 0 0 auto; z-index: 10; height: env(safe-area-inset-top); background: var(--surface); content: ''; }
   .sidebar-nav { position: absolute; top: calc(env(safe-area-inset-top) + 62px); left: calc(env(safe-area-inset-left) + 12px); z-index: 4; min-height: 0; padding: 0; border: 0; background: none; }
   .sidebar-uv-chip { box-shadow: var(--shadow); }
-  .sidebar-actions { display: none; }
   .scrubber {
     position: sticky;
     top: env(safe-area-inset-top);
@@ -744,13 +735,12 @@ tr.history-toggle-row td { padding: 0; border-bottom: 1px solid var(--line); bac
   .scrub-surface { flex: 1 1 auto; height: auto; min-height: 0; }
   .forecast-panel { padding: 0 max(12px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
   th, td { padding-right: 3px; padding-left: 3px; }
-  .search { top: calc(env(safe-area-inset-top) + 12px); left: calc(env(safe-area-inset-left) + 12px); width: min(240px, calc(100% - 74px - env(safe-area-inset-left) - env(safe-area-inset-right))); }
+  .search { top: calc(env(safe-area-inset-top) + 12px); left: calc(env(safe-area-inset-left) + 12px); max-width: min(200px, calc(50% - var(--clock-half) - 20px - env(safe-area-inset-left))); }
   .search.open { width: calc(100% - 74px - env(safe-area-inset-left) - env(safe-area-inset-right)); }
   .search-results { max-height: min(380px, calc(60dvh - 76px)); }
-  .mobile-map-theme { top: calc(env(safe-area-inset-top) + 12px); right: calc(env(safe-area-inset-right) + 12px); }
-  .map-brand { left: calc(env(safe-area-inset-left) + 10px); }
-  /* De UV-chip gaat van de tweede rij (daar staat nu de versheidspil) naar boven het merk. */
-  .sidebar-nav { top: calc(max(60dvh, calc(100dvh - var(--scrubber-mobile) - env(safe-area-inset-bottom))) - 104px); }
+  .map-brand { top: calc(env(safe-area-inset-top) + 12px); right: calc(env(safe-area-inset-right) + 12px); }
+  /* De UV-chip staat linksonder op de kaart (U21: boven het merk; het merk is nu rechtsboven). */
+  .sidebar-nav { top: calc(max(60dvh, calc(100dvh - var(--scrubber-mobile) - env(safe-area-inset-bottom))) - 50px); }
 }
 
 /* Telefoon liggend: kaart en paneel naast elkaar, zoals desktop; de scrubber schuift mee weg
@@ -763,19 +753,18 @@ tr.history-toggle-row td { padding: 0; border-bottom: 1px solid var(--line); bac
   .dashboard { grid-column: 2; grid-row: 1; overflow-y: auto; border-left: 1px solid var(--line); overscroll-behavior: contain; }
   .scrubber { position: static; height: min(var(--scrubber-mobile), 100dvh); padding-bottom: 8px; }
   .search-results { max-height: calc(100dvh - 76px); }
-  .sidebar-nav { top: calc(100dvh - 104px); }
+  .sidebar-nav { top: calc(100dvh - 50px); }
   .forecast-panel { padding-right: max(10px, env(safe-area-inset-right)); padding-left: 10px; }
 }
 
 @media (pointer: coarse) {
   /* 16 px: iOS zoomt in op kleinere invoertekst bij focus. */
   .search-box { border-radius: 22px; }
-  .search-field, .search.open .search-field { height: 42px; padding-left: 36px; font-size: 16px; }
+  .search-sizer, .search-field, .search.open .search-field { padding-left: 36px; font-size: 16px; }
+  .search-field, .search.open .search-field { height: 42px; }
   .search-icon, .search.open .search-icon { top: 13px; left: 12px; }
-  .save-place { top: 0; right: 0; width: 42px; height: 42px; }
   .search-results > button, .saved-location-row > .saved-location { min-height: 44px; }
   .save-place-editor input, .save-place-editor button { min-height: 44px; }
-  .map-clock .freshness-trigger { min-height: 44px; }
   .cursor-pill::after { position: absolute; inset: -8px -4px; content: ''; }
   .history-toggle { min-height: 44px; }
   .column-focus { position: relative; }

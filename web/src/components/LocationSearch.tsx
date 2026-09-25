@@ -12,8 +12,6 @@ interface Props {
   onSave: (name: string) => void
   onSelect: (location: { lng: number; lat: number }, label: string) => void
   onSelectSaved: (place: SavedPlace) => void
-  // PO-smaaktest U21: 'fold' = de pil vouwt open tot paneel, 'wrap' = een paneel omsluit het veld.
-  variant?: 'fold' | 'wrap'
 }
 
 export default function LocationSearch(props: Props) {
@@ -152,7 +150,7 @@ export default function LocationSearch(props: Props) {
 
   function startSaving(): void {
     setCustomName(props.locationLabel)
-    // De ster verdwijnt zodra het paneel opent; zonder focus op het veld klapt het meteen dicht.
+    // Focus blijft in de zoekwidget, anders klapt het paneel met de naam-editor meteen dicht.
     input.focus()
     setEditingName(true)
     setOpen(true)
@@ -192,7 +190,7 @@ export default function LocationSearch(props: Props) {
   return <div
     ref={root}
     class="search"
-    classList={{ 'saved-current': Boolean(savedCurrent()), open: open(), 'search-wrap': props.variant === 'wrap' }}
+    classList={{ 'saved-current': Boolean(savedCurrent()), open: open() }}
     onFocusIn={() => { window.clearTimeout(timer); setFocused(true) }}
     onKeyDown={(event) => { if (event.key === 'Escape' && open()) dismiss() }}
     onFocusOut={(event) => {
@@ -206,6 +204,8 @@ export default function LocationSearch(props: Props) {
     </Show>
     <div class="search-box">
       <Search class="search-icon" {...INLINE_ICON} />
+      {/* In rust is de pil zo breed als de plaatsnaam: het veld zelf heeft geen intrinsieke breedte. */}
+      <span class="search-sizer" aria-hidden="true">{query() || 'Zoek plaats'}</span>
       <input
         ref={input}
         class="search-field"
@@ -222,14 +222,7 @@ export default function LocationSearch(props: Props) {
         aria-expanded={open()}
         aria-activedescendant={active() >= 0 ? `location-${active()}` : undefined}
       />
-      <Show when={open()}><button
-        class="search-clear"
-        type="button"
-        onClick={clearOrClose}
-        aria-label={query() ? 'Zoektekst wissen' : 'Zoeken sluiten'}
-        title={query() ? 'Wissen' : 'Sluiten'}
-      ><X {...BUTTON_ICON} /></button></Show>
-      <Show when={!savedCurrent() && !open()}><button
+      <Show when={open() && !savedCurrent()}><button
         class="save-place"
         type="button"
         onClick={startSaving}
@@ -237,13 +230,19 @@ export default function LocationSearch(props: Props) {
         aria-label="Deze plaats opslaan"
         title="Plaats opslaan"
       ><Star {...BUTTON_ICON} /></button></Show>
+      <Show when={open()}><button
+        class="search-clear"
+        type="button"
+        onClick={clearOrClose}
+        aria-label={query() ? 'Zoektekst wissen' : 'Zoeken sluiten'}
+        title={query() ? 'Wissen' : 'Sluiten'}
+      ><X {...BUTTON_ICON} /></button></Show>
       <Show when={open()}>
         <div ref={results} class="search-results" id="location-results" role="listbox" tabIndex={-1}>
           <button class="quick-location" role="option" aria-selected="false" onClick={() => { setOpen(false); props.onLocate() }}>
             <span><LocateFixed {...INLINE_ICON} /> Mijn locatie</span><small>apparaat</small>
           </button>
           <Show when={visibleSaved().length}>
-            <p class="search-section-label">Opgeslagen</p>
             <For each={visibleSaved()}>{(place) =>
               <div class="saved-location-row">
                 <Show when={confirmingRemove() === place.id} fallback={<>
