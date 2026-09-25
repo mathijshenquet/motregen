@@ -48,7 +48,7 @@ import { WIND_UNITS, type WindUnit } from './core/weather'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
 import { DEFAULT_WIND_TUNING, loadWindTuning, storeWindTuning, WIND_MAX_FPS, WIND_PARAMETERS, WindLayer, type WindTuning } from './core/wind-layer'
 import { clearTuningStorage } from './core/dev-settings'
-import { CLOUD_LAYERS, loadScrubberView, storeScrubberView, type CloudLayer, type ScrubberView } from './core/cloud-section'
+import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
 import { browserUsageEnvironment, createUsageTracker, installUsageBeacon, sessionManifestUrls } from './core/usage'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
@@ -1630,7 +1630,6 @@ export default function App() {
     batch(() => {
       setWindTuning({ ...DEFAULT_WIND_TUNING })
       setIsolineTuning({ ...DEFAULT_ISOLINE_TUNING })
-      setScrubberView('rain')
       const pinned = focusPinned()
       if (pinned) toggleFocusPin(pinned)
     })
@@ -1709,10 +1708,10 @@ export default function App() {
       if (request === uvClearRequest) setUvClearSeries(values)
     })().catch(() => undefined)
   })
-  // Wolkendoorsnede (U37, ?dev, alleen in de weermodus): de drie lagen pas laden als de weergave
-  // aanstaat, als hele payload per chunk (16 km-raster, klein) en met lage prioriteit.
-  const [scrubberView, setScrubberView] = createSignal<ScrubberView>(devMode ? loadScrubberView() : 'rain')
-  const cloudView = createMemo(() => { const view = scrubberView(); return view !== 'rain' && !focusPinned() ? view : undefined })
+  // Wolkendoorsnede in de weermodus (U37, PO-keuze A): de drie lagen pas na de initial-fase laden
+  // (de eerste regenreeks gaat voor), als hele payload per chunk (16 km-raster, klein), lage prioriteit.
+  const cloudView = createMemo(() => !focusPinned())
+  const cloudsMayLoad = createMemo(() => pointLoadStage() !== 'initial')
   const cloudTimelines = createMemo(() => Object.fromEntries(CLOUD_LAYERS.map((layer) =>
     [layer, manifest() ? buildTimeline(manifest()!, `cloud_${layer}`) : []])) as Record<CloudLayer, TimelineFrame[]>)
   const [cloudValues, setCloudValues] = createSignal<Record<CloudLayer, Array<number | null>>>({ high: [], mid: [], low: [] })
@@ -1721,7 +1720,7 @@ export default function App() {
     const point = location()
     const timelines = cloudTimelines()
     const request = ++cloudRequest
-    if (!cloudView()) return
+    if (!cloudView() || !cloudsMayLoad()) return
     void Promise.all(CLOUD_LAYERS.map(async (layer) => {
       const frames = timelines[layer]
       await Promise.all([...new Set(frames.map((frame) => frame.chunk))].map((chunk) => client.fetchPayload(chunk)))
@@ -1785,8 +1784,6 @@ export default function App() {
           onPerfVisible={setPerfVisible}
           onReplaySplash={replaySplash}
           onReset={resetAllSettings}
-          scrubberView={scrubberView()}
-          onScrubberView={(view) => { storeScrubberView(view); setScrubberView(view) }}
           resetNotice={resetNotice()}
           usageBody={usageBody()}
         />
@@ -1813,7 +1810,7 @@ export default function App() {
         onIntent={() => { void completePointSeries(pointLoad, 'high') }}
         onPlaying={setPlaying}
         onPlayPressed={() => usage.mark('play')}
-        clouds={cloudView() ? { view: cloudView()!, series: { timeline: cloudTimelines(), values: cloudValues() } } : undefined}
+        clouds={cloudView() ? { timeline: cloudTimelines(), values: cloudValues() } : undefined}
       />
       <section class="forecast-panel">
         <div class="table-scroll">

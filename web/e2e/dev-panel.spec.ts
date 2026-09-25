@@ -12,9 +12,9 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   const panel = page.getByTestId('dev-panel')
   await expect(panel).toBeVisible()
   const groups = panel.locator('.dev-group')
-  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wind', 'Kaart', 'Diagnose'])
+  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wind', 'Diagnose'])
   // Alleen de eerste groep start open.
-  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false])
+  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false])
   await expect(panel).not.toContainText('Wolkrand')
 
   const controls = panel.locator('.dev-control')

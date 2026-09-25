@@ -1,6 +1,5 @@
 import { createSignal, For, type JSX } from 'solid-js'
 import { copyText } from '../core/clipboard'
-import { SCRUBBER_VIEWS, type ScrubberView } from '../core/cloud-section'
 import { ISOLINE_FADES, ISOLINE_FILL_STYLES, ISOLINE_STEPS, type IsolineFade, type IsolineFillStyle, type IsolineStep, type IsolineTuning } from '../core/isolines'
 import { sanitizeWindTuning, WIND_TUNING_CONTROLS, type WindTuning } from '../core/wind-layer'
 
@@ -16,16 +15,8 @@ interface Props {
   onReplaySplash: () => void
   onReset: () => void
   resetNotice: boolean
-  scrubberView: ScrubberView
-  onScrubberView: (view: ScrubberView) => void
   /** Exacte body van het gebruiksbaken (MIP-13): het privacycontract zichtbaar gemaakt. */
   usageBody: string
-}
-
-const SCRUBBER_VIEW_LABELS: Record<ScrubberView, string> = {
-  'rain': 'regen',
-  'clouds-replace': 'wolken (A: vervangt)',
-  'clouds-strip': 'wolken (B: strook)',
 }
 
 const WIND_HINTS: Record<keyof WindTuning, string> = {
@@ -71,13 +62,6 @@ export default function DevPanel(props: Props) {
         </Control>
       }</For>
       <Action label={windCopied() ? 'Gekopieerd' : 'Kopieer wind als JSON'} hint="Zet de vier windwaarden op het klembord, om terug te sturen." onClick={() => void copyWind()} />
-    </Group>
-    <Group title="Kaart">
-      <Control label="Scrubber" output={SCRUBBER_VIEW_LABELS[props.scrubberView]} hint="Weermodus: regenhistogram of wolkendoorsnede (laag/midden/hoog); A vervangt het histogram, B zet een strook erboven.">
-        <select aria-label="Scrubber" value={props.scrubberView} onChange={(event) => props.onScrubberView(event.currentTarget.value as ScrubberView)}>
-          {SCRUBBER_VIEWS.map((view) => <option value={view}>{SCRUBBER_VIEW_LABELS[view]}</option>)}
-        </select>
-      </Control>
     </Group>
     <Group title="Diagnose">
       <Control label="Perf-HUD" output={props.perfVisible ? 'Aan' : 'Uit'} toggle hint="Meetpaneel met laadtijd, fps en netwerk; ook drie tikken op het logo.">

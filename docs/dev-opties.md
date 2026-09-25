@@ -21,13 +21,13 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Wind | Lijnbreedte | dikte van de streepjes | U3 | idem |
 | Wind | Tempo | snelheid van de streepjes | U3b | idem |
 | Wind | Kopieer wind als JSON | de vier waarden naar het klembord (PO-terugkoppelweg) | U20 | blijft zolang de windknoppen er zijn |
-| Kaart | Scrubber | weermodus: regenhistogram of wolkendoorsnede (A vervangt / B strook); laadt `cloud_low/mid/high` pas als hij aanstaat. Opslag `scrubber-view` | U37 | na PO-keuze A/B/geen |
 | Diagnose | Perf-HUD | meetpaneel aan/uit (ook: drie tikken op het logo) | T5 / U30 | blijft (diagnose) |
 | Diagnose | Herhaal splash | openingslogo opnieuw afspelen | T3 | blijft (diagnose) |
 | Diagnose | Reset alle instellingen | alle knoppen en tuningsleutels terug; gebruikersstaat blijft | U20 | blijft (vluchtweg, MIP-12 regel 4) |
 
 Weggesnoeid in U30 (nu constanten met herkomstregel): Vulling (0,35, PO-keuze na U25b), Label-afstand
-(90 px, U8b), Focus dim (0,25, U8), Min. breedte (20 km, T3g), plus de 19 knoppen uit MIP-12.
+(90 px, U8b), Focus dim (0,25, U8), Min. breedte (20 km, T3g), plus de 19 knoppen uit MIP-12. Sinds U37 (PO-keuze 2026-09-25): Scrubber regen/wolken → de
+wolkendoorsnede (variant A) is vast de weermodus-scrubber; variant B (strook) is weg.
 
 De overige elf windparameters (Afstand per leven, Fade-in/-out, Max. leeftijd, Spawn-jitter,
 Snelheidsdemping, Buffer-rest, Buffer-DPR max, Kopintensiteit, Contrast, Max. fps) zijn sinds
@@ -37,5 +37,5 @@ is alleen nog meting (plus de perf-JSON met het loef/lij-profiel van U24).
 ## Opslag (`localStorage`, prefix `motregen-`)
 
 Gebruikersstaat (blijft bij reset): `theme`, `saved-places`, `last-saved-place`, `map-view`.
-Tuning: `wind-tuning-v4`, `scrubber-view` (U37) (v3 wordt bij het laden gemigreerd). Oude sleutels (`wind-tuning`, `-v2`, `-v3`, `splash-slowdown`) wist
+Tuning: `wind-tuning-v4` (v3 wordt bij het laden gemigreerd). Oude sleutels (`wind-tuning`, `-v2`, `-v3`, `splash-slowdown`, `scrubber-view`) wist
 "Reset alle instellingen".

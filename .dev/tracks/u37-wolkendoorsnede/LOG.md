@@ -56,3 +56,17 @@
 - Open MET PO: keuze A (vervangt) / B (strook) / geen, op de stills in `stills/`. Na de keuze vervalt
   de dev-knop (eigenaar U37). Niet gedaan: mobiel (spec vraagt desktop-stills), aria-valuetext met
   bewolking, U28-structuur voor andere modi (U28 zelf).
+
+## 2026-09-25 — PO-keuze: variant A
+- PO: "variant A (de wolkendoorsnede vervangt het histogram in weermodus)". A is nu vast de
+  weermodus-scrubber (geen gepinde focus); pinnen van Gevoel/Wind toont weer het regenhistogram.
+  Dev-knop "Kaart → Scrubber" en variant B (strook) verwijderd (MIP-12: vervallen knop wordt
+  constante; herkomstregel in `docs/dev-opties.md`, oude sleutel `scrubber-view` wist reset).
+- Laden: de drie lagen pas na de initial-fase (`cloudsMayLoad`-memo, verandert één keer), zodat de
+  eerste regenreeks voorgaat; daarna payload per chunk, lage prioriteit.
+- Stills: `stills/u37-clouds-{light,dark}.png` (A); de B-stills zijn weg.
+- Receipts (synchroon): `pnpm typecheck` → 0; `pnpm test` → 0 (46 bestanden, 301 tests);
+  `MOTREGEN_E2E_PORT=4377 MOTREGEN_E2E_DATA_PORT=8377 pnpm e2e e2e/cloud-section.spec.ts
+  e2e/dev-panel.spec.ts --project desktop` → E2E-EXIT: 0 (2 passed), load 16,5.
+- Let op voor de orkestrator: de wolkenlagen laden nu voor iedere bezoeker (3 velden × 3 chunks
+  op 79×85); perf.spec (dagelijkse run) en mobiel zijn niet door mij gedraaid.

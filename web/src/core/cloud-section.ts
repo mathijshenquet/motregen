@@ -1,15 +1,11 @@
 import type { TimelineFrame } from './contract'
 import { seriesValueAt } from './time-model'
 
-// Wolkendoorsnede in de scrubber (U37, experiment achter ?dev): per laag een zachte, licht
+// Wolkendoorsnede in de scrubber (U37, weermodus; PO-keuze variant A): per laag een zachte, licht
 // gerafelde vorm waarvan dikte en dekking de bewolkingsfractie volgen.
 
 export type CloudLayer = 'high' | 'mid' | 'low'
 export const CLOUD_LAYERS: readonly CloudLayer[] = ['high', 'mid', 'low']
-
-/** A = doorsnede vervangt het histogram, B = dunne strook erboven. */
-export type ScrubberView = 'rain' | 'clouds-replace' | 'clouds-strip'
-export const SCRUBBER_VIEWS: readonly ScrubberView[] = ['rain', 'clouds-replace', 'clouds-strip']
 
 export interface CloudSeries {
   timeline: Record<CloudLayer, TimelineFrame[]>
@@ -140,24 +136,4 @@ function lattice(cell: number): number {
 function round(value: number, digits = 1): number {
   const factor = 10 ** digits
   return Math.round(value * factor) / factor
-}
-
-const SCRUBBER_VIEW_KEY = 'motregen-scrubber-view'
-
-export function loadScrubberView(storage: Pick<Storage, 'getItem'> = localStorage): ScrubberView {
-  try {
-    const stored = storage.getItem(SCRUBBER_VIEW_KEY)
-    return SCRUBBER_VIEWS.find((view) => view === stored) ?? 'rain'
-  } catch {
-    return 'rain'
-  }
-}
-
-export function storeScrubberView(view: ScrubberView, storage: Pick<Storage, 'setItem' | 'removeItem'> = localStorage): void {
-  try {
-    if (view === 'rain') storage.removeItem(SCRUBBER_VIEW_KEY)
-    else storage.setItem(SCRUBBER_VIEW_KEY, view)
-  } catch {
-    // Privémodus: de keuze geldt dan alleen voor deze sessie.
-  }
 }
