@@ -280,13 +280,14 @@ export default function ForecastTable(props: Props) {
 // De pijl wijst waar de wind heen waait, zoals de deeltjes op de kaart; de letters blijven in de titel.
 function WindReading(props: { summary: WindSummary }) {
   const unit = () => WIND_UNIT_LABELS[props.summary.unit]
-  const gustUnit = () => WIND_UNIT_LABELS[props.summary.gustUnit]
   const label = () => `Wind uit ${props.summary.direction}, ${props.summary.value} ${unit()}` +
-    (props.summary.gust == null ? '' : `, stoten tot ${props.summary.gust} ${gustUnit()}`)
+    (props.summary.gust == null ? '' : `, windstoten tot ${props.summary.gust} ${unit()}`)
+  // "3 ⌇ 6 Bft": hoofdwaarde, vlaag met vlaagteken, één eenheid voor beide.
   return <span class="wind-reading" role="img" aria-label={label()} title={label()}>
     <ArrowUp class="wind-arrow" size={15} strokeWidth={2.25} style={{ transform: `rotate(${(props.summary.fromDegrees + 180) % 360}deg)` }} aria-hidden="true" />
-    <b>{props.summary.value}</b><small class="wind-unit">{unit()}</small>
-    <Show when={props.summary.gust}>{(gust) => <small class="wind-gust">· {gust()}</small>}</Show>
+    <b>{props.summary.value}</b>
+    <Show when={props.summary.gust}>{(gust) => <small class="wind-gust">⌇ {gust()}</small>}</Show>
+    <small class="wind-unit">{unit()}</small>
   </span>
 }
 
