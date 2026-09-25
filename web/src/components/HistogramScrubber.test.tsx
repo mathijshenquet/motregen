@@ -61,9 +61,9 @@ describe('histogram scrubber', () => {
     expect(onCursor).toHaveBeenCalledWith(2)
     expect(container.querySelector('input[type="range"]')).toBeNull()
     expect(screen.getByText('Nu')).toBeTruthy()
-    // the source strip is textless (titles only); the toolbar names the source under the cursor
-    expect([...container.querySelectorAll('.regimes span')].map((zone) => zone.getAttribute('title'))).toEqual(['Observatie', 'Voorspelling'])
-    expect(container.querySelector('.scrubber-source')!.textContent).toBe('Voorspelling')
+    // U22b: geen regimebalk of bronchip meer (de nu-lijn scheidt ze); het regime staat alleen in de aria-tekst.
+    expect(container.querySelector('.regimes')).toBeNull()
+    expect(container.querySelector('.scrubber-source')).toBeNull()
     expect(screen.queryByRole('group', { name: 'Grafiektype' })).toBeNull()
     expect(container.querySelectorAll('.rain-bar')).toHaveLength(4)
     expect(container.querySelectorAll('.rain-bar.pending')).toHaveLength(1)

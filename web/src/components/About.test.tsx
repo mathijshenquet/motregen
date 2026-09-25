@@ -28,10 +28,13 @@ describe('about dialog', () => {
 
     fireEvent.click(trigger)
     expect(dialog.open).toBe(true)
-    expect(screen.getByText('Data rechtstreeks van het KNMI. Gratis, zonder reclame, open source.')).toBeTruthy()
-    for (const source of ['Observatie', 'Voorspelling', 'UV', 'Kaart']) expect(screen.getByText(source)).toBeTruthy()
+    expect(document.querySelector('.about-lead')!.textContent).toBe('Rechtstreeks van het KNMIGratis en zonder reclame')
+    // Alles in één tabel, ook privacy en broncode; geen losse alinea's of knop meer.
+    expect([...dialog.querySelectorAll('dt')].map((term) => term.textContent)).toEqual(['Observatie', 'Voorspelling', 'UV', 'Kaart', 'Zoeken', 'Privacy', 'Broncode'])
+    expect(dialog.querySelectorAll('.about-body > p')).toHaveLength(1)
     expect(screen.getByText(/HARMONIE-AROME/)).toBeTruthy()
-    expect(screen.getByRole('link', { name: /Broncode op GitHub/ }).getAttribute('href')).toBe(REPOSITORY_URL)
+    expect(screen.getByText(/NL en Vlaanderen/)).toBeTruthy()
+    expect(screen.getByRole('link', { name: /GitHub/ }).getAttribute('href')).toBe(REPOSITORY_URL)
 
     fireEvent.click(screen.getByRole('button', { name: 'Sluiten' }))
     expect(dialog.open).toBe(false)
@@ -42,7 +45,7 @@ describe('about dialog', () => {
     render(() => <About theme="light" onTheme={() => undefined} onTripleTap={() => undefined} />)
     const dialog = document.querySelector('dialog')!
     fireEvent.click(screen.getByRole('button', { name: 'Over motregen en instellingen' }))
-    fireEvent.click(screen.getByText(/Geen tracking/))
+    fireEvent.click(screen.getByText(/geen tracking/))
     expect(dialog.open).toBe(true)
     fireEvent.click(dialog)
     expect(dialog.open).toBe(false)
@@ -74,7 +77,7 @@ describe('about dialog', () => {
     expect(dialog.open).toBe(false)
   })
 
-  it('holds the theme setting above the explanation, under the wordmark', () => {
+  it('puts the theme setting first, above the wordmark and the explanation', () => {
     const [theme, setTheme] = createSignal<ThemeChoice>('light')
     const onTheme = vi.fn(setTheme)
     render(() => <About theme={theme()} onTheme={onTheme} onTripleTap={() => undefined} />)
@@ -82,7 +85,7 @@ describe('about dialog', () => {
     const dialog = screen.getByRole('dialog', { name: 'motregen.nl' })
     const group = screen.getByRole('group', { name: 'Weergave' })
     expect(dialog.contains(group)).toBe(true)
-    expect(group.compareDocumentPosition(screen.getByText(/Data rechtstreeks van het KNMI/)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    for (const later of [screen.getByRole('heading', { name: 'motregen.nl' }), screen.getByText(/Rechtstreeks van het KNMI/)]) expect(group.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     const pressed = () => screen.getAllByRole('button', { pressed: true }).map((button) => button.textContent)
     expect(pressed()).toEqual(['Licht'])
     fireEvent.click(screen.getByRole('button', { name: 'Donker' }))

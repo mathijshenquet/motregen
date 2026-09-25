@@ -6,7 +6,27 @@ const minutes = (n: number) => n * 60_000
 
 const pill = (page: Page) => page.locator('.map-clock')
 const details = (page: Page) => page.getByRole('button', { name: /Details over dataversheid/ })
-const badge = (page: Page) => page.getByRole('button', { name: /^Dataversheid:/ })
+
+// U22b: de klok is alleen de kaarttijd met rechts een kleine statusstip in de statuskleur.
+async function expectDot(page: Page, token: '--fresh' | '--aging' | '--stale'): Promise<void> {
+  const dot = pill(page).locator('.freshness-dot')
+  await expect.poll(() => dot.evaluate((element, name) => {
+    const probe = document.createElement('i')
+    probe.style.background = `var(${name})`
+    document.body.append(probe)
+    const expected = getComputedStyle(probe).backgroundColor
+    probe.remove()
+    return getComputedStyle(element).backgroundColor === expected
+  }, token)).toBe(true)
+  const time = (await pill(page).locator('.clock-map-time').boundingBox())!
+  const box = (await dot.boundingBox())!
+  expect(box.width).toBeLessThanOrEqual(7)
+  expect(box.x, 'stip rechts van de tijd').toBeGreaterThanOrEqual(time.x + time.width)
+  expect(box.x - (time.x + time.width)).toBeLessThan(10)
+  expect(box.y, 'stip binnen de tijdregel').toBeGreaterThan(time.y)
+  expect(box.y + box.height).toBeLessThan(time.y + time.height)
+  await expect(pill(page)).not.toHaveAttribute('data-source')
+}
 
 async function openAt(page: Page, epoch: number): Promise<void> {
   // Alleen Date staat vast; timers en rAF lopen door zodat de kaart gewoon rendert.
@@ -69,9 +89,10 @@ async function shoot(page: Page, testInfo: TestInfo, name: string, withPanel = f
 test('fresh radar reads as current, with the scan time and its age', async ({ page }, testInfo) => {
   await openAt(page, LATEST_RADAR + minutes(3))
   await expect(pill(page)).toHaveAttribute('data-freshness', 'fresh')
-  await expect(badge(page)).toHaveAttribute('aria-label', 'Dataversheid: actueel, radar 14:55, 3 min oud')
-  // Alleen kaarttijd en regimewoord als tekst; de radartijd zit in de knop en het paneel.
-  await expect(pill(page).locator('.clock-data')).toHaveText(/^(observatie|voorspelling)$/)
+  await expectDot(page, '--fresh')
+  // Alleen de kaarttijd als tekst; status, radartijd en leeftijd in de aria-label en het paneel.
+  await expect(details(page)).toHaveText(/^\d\d:\d\d$/)
+  await expect(details(page)).toHaveAttribute('aria-label', /\. Actueel: Radar 14:55, 3 min geleden\. Details over dataversheid$/)
   await expect(page.locator('.map-clock [aria-live="polite"]')).toHaveText('Actueel')
   await shoot(page, testInfo, 'vers')
 
@@ -84,12 +105,6 @@ test('fresh radar reads as current, with the scan time and its age', async ({ pa
   await expect(details(page)).toBeFocused()
   await shoot(page, testInfo, 'paneel', true)
   await expectTopCenter(page)
-
-  // De amber knop opent hetzelfde paneel.
-  await badge(page).click()
-  await expect(dialog).toBeVisible()
-  await page.keyboard.press('Escape')
-  await expect(dialog).toBeHidden()
 
   // Het paneel opent gecentreerd onder de pil.
   await details(page).click()
@@ -116,23 +131,25 @@ test('fresh radar reads as current, with the scan time and its age', async ({ pa
 test('radar that stopped arriving is marked aging, then stale', async ({ page }, testInfo) => {
   await openAt(page, LATEST_RADAR + minutes(14))
   await expect(pill(page)).toHaveAttribute('data-freshness', 'aging')
-  await expect(badge(page)).toHaveAttribute('aria-label', /, 14 min oud$/)
+  await expectDot(page, '--aging')
+  await expect(details(page)).toHaveAttribute('aria-label', /Loopt achter: Radar 14:55, 14 min geleden/)
   await shoot(page, testInfo, 'verouderend')
 
   await openAt(page, LATEST_RADAR + minutes(95))
   await expect(pill(page)).toHaveAttribute('data-freshness', 'stale')
-  await expect(badge(page)).toHaveAttribute('aria-label', /, 1 u oud$/)
+  await expectDot(page, '--stale')
+  await expect(details(page)).toHaveAttribute('aria-label', /Verouderd: Radar 14:55, 1 u 35 min geleden/)
   await expectTopCenter(page)
   await shoot(page, testInfo, 'verouderd')
 
   // Weken stil (zoals het synth-manifest zonder vaste klok).
   await openAt(page, LATEST_RADAR + minutes(60 * 24 * 26))
-  await expect(badge(page)).toHaveAttribute('aria-label', 'Dataversheid: verouderd, radar 14:55, 26 d oud')
-  // Het regimewoord volgt de scrubber. Klik laag in het vlak: bovenin staat de cursorpil (afspeelknop).
+  await expect(details(page)).toHaveAttribute('aria-label', /Verouderd: Radar /)
+  // Het regime volgt de scrubber (alleen voor de schermlezer). Klik laag in het vlak: bovenin
+  // staat de cursorpil (afspeelknop).
   const surface = (await page.locator('.scrub-surface').boundingBox())!
   await page.locator('.scrub-surface').click({ position: { x: 30, y: surface.height * 0.75 } })
-  await expect(pill(page)).toHaveAttribute('data-source', 'observations')
-  await expect(pill(page).locator('.clock-source')).toHaveText('observatie')
+  await expect(details(page)).toHaveAttribute('aria-label', /, observatie\. /)
   // Zelfde moment uitlezen: op trage profielen glijdt de cursor nog na.
   await expect.poll(() => page.evaluate(() => {
     const clock = document.querySelector('.map-clock .clock-map-time')?.textContent?.trim()
@@ -144,8 +161,9 @@ test('radar that stopped arriving is marked aging, then stale', async ({ page },
   expect((await pill(page).boundingBox())!.height).toBeLessThan(56)
   await page.locator('.scrub-surface').click({ position: { x: surface.width - 12, y: surface.height * 0.75 } })
   // Nowcast en HARMONIE: één regime (PO-aanvulling U22).
-  await expect(pill(page)).toHaveAttribute('data-source', 'forecast')
-  await expect(pill(page).locator('.clock-source')).toHaveText('voorspelling')
+  await expect(details(page)).toHaveAttribute('aria-label', /, voorspelling\. /)
+  // Geen regimemarkering meer onder het histogram (PO U22b): de nu-lijn scheidt ze.
+  await expect(page.locator('.regimes, .scrubber-source')).toHaveCount(0)
   await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-weken-oud-kaart-light.png`) })
 })
 
@@ -160,7 +178,8 @@ test('a failed manifest refresh shows offline instead of silently stale data', a
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).toBeHidden()
   await shoot(page, testInfo, 'offline-paneel', true)
-  await expect(badge(page)).toHaveAttribute('aria-label', 'Dataversheid: offline, radar 14:55, verversen mislukt')
+  await expectDot(page, '--stale')
+  await expect(details(page)).toHaveAttribute('aria-label', /\. Offline: Radar 14:55/)
   await expect(page.locator('.map-clock [aria-live="polite"]')).toHaveText('Offline')
   await shoot(page, testInfo, 'offline')
 

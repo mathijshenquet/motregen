@@ -104,3 +104,73 @@ Open voor PO (op zicht):
 4. Voorspellingskleur = de oude nowcast-blauw; HARMONIE-paars is weg.
 5. Mobiele UV-chip linksonder op de kaart (oude merkplek).
 Buiten scope gezien: SunMoon-icoon bij "Systeem" oogt klein/vaag in het segmented (was al zo).
+
+# U22b — klok kaal: tijd + kleine statusstip; regimemarkering weg
+
+## 2026-09-25 10:45 — start (spec `.dev/specs/track-u22b-klok-kaal.md`, main db2e178)
+- Worktree schoongezet: index bevatte main-bestanden van een half-gelukte checkout. Vooraf geverifieerd
+  dat werkboom + ongetrackte bestanden byte-gelijk waren aan origin/main (alleen kopieën), toen
+  `git checkout -f --no-track -B track/u22b-klok-kaal origin/main`. De bestaande branch
+  `track/u22b-klok-kaal` stond op 314fe3e (voorouder van main, geen eigen commits) → veilig herzet.
+  `/home/mthq/motregen/.git/config.lock` (leeg, r--r--r--) staat nog — niet van mij, niet aangeraakt;
+  daarom `--no-track` en pushen zonder upstream-config.
+- Plan: (1) klok = één knop: kaarttijd + kleine statusstip rechts op x-hoogte (+ dag klein erachter);
+  vers = `--fresh` (rustig groen), aging = `--aging` amber, stale/offline = `--stale`; regimeregel en
+  aparte amber knop weg. (2) regimekleuren weg: zijranden → gewone rand, scrubber-chip en `.regimes`-
+  balk weg, `--history`/`--forecast`/`--amber` weg; `timelineZones` blijft voor aria en paneel.
+
+## 10:55 — implementatie U22b + procesnoot
+- Klok: één knop (`.freshness-trigger` = de tab zelf): kaarttijd 20 px, direct rechts een stip van 7 px
+  (baseline − 3 px ≈ midden x-hoogte), dag klein erachter als kaartdag ≠ vandaag. Kleur: vers
+  `--fresh` (rustig groen), achter `--aging` (amber), verouderd/offline `--stale`; zelfde stip in de
+  paneelkop. Geen regimewoord, geen aparte knop, geen pulse. aria-label houdt kaarttijd, regime
+  ("observatie"/"voorspelling", alleen voor de schermlezer), status en radarleeftijd in woorden.
+  Tab: gewone 1 px rand (geen bovenrand), breedte 100 px (≤ 360 px: 92); insetTop 53 → 49.
+- Regimemarkering weg: zijranden, `data-source`, scrubber-bronchip, `.regimes`-balk, tokens `--history`,
+  `--forecast`, `--amber` en hun CSS. `timelineZones`/`sourceZone` blijven voor de aria-tekst.
+- About (PO-aanvulling, spec 8a81d85): volgorde Weergave → druppel + "motregen.nl" → "Rechtstreeks van
+  het KNMI" / "Gratis en zonder reclame" → één tabel: Observatie (incl. "NL en Vlaanderen"),
+  Voorspelling, UV, Kaart, Zoeken, Privacy, Broncode (GitHub-link). Losse alinea's en repo-knop weg;
+  × rechtsboven absoluut. Desktop: alle rijen op één regel behalve Privacy (PO-tekst letterlijk);
+  telefoon (361 px modal): de meeste rijen lopen over twee regels — korter kan alleen met minder info.
+- Branch 10:48 vooruitgespoeld naar origin/main 8a81d85 (spec-aanvulling + U25) vóór de eerste commit.
+- Stills `shots-u22b/voor` (main db2e178) en `shots-u22b/na`: desktop + Pixel 5, licht/donker, rust /
+  observatie / versheidspaneel / modal.
+- Procesnoot orkestrator (10:55): load-drempel gerichte e2e nu < 22, begrenzer is het slot
+  (`scripts/e2e-slot.sh`, max één Chromium per slot). Mijn e2e-run startte 10:48 bij load 19,2
+  (onder de nieuwe drempel) en wacht op een vrij slot.
+
+## 11:00 — U22b gates groen, klaar
+Receipts (synchroon, boom 1ec194d schoon; start load 19,8; e2e-start 10:48 load 19,2, via
+`scripts/e2e-slot.sh` — wachtte op een vrij slot, één Chromium; poorten 4360/8360 vooraf vrij):
+- `pnpm typecheck` → TYPECHECK-EXIT: 0
+- `pnpm test` → TEST-EXIT: 0 (43 files, 255 tests)
+- `pnpm build` → BUILD-EXIT: 0
+- `MOTREGEN_E2E_PORT=4360 MOTREGEN_E2E_DATA_PORT=8360 pnpm e2e e2e/freshness.spec.ts e2e/location.spec.ts
+  e2e/perf.spec.ts` → E2E-EXIT: 0 (19 passed, 5 skipped)
+Na 1ec194d alleen LOG en stills gecommit (geen code).
+Open voor PO (op zicht): vers-stip groen (spec-optie; alternatief tekstkleur 40 %); About-rijen op de
+telefoon over twee regels.
+
+## 11:40 — aanvulling U22b: zoekpil terug op U17-maat (spec 07e2be9)
+- Branch gerebased op origin/main 511c3d5 (U23 e.a. gemerged), zonder conflicten.
+- U17 (b5f5d3e) had: 36 px hoog, 14 px, icoon links 11, surface 86 %, rand 70 %, schaduw 0 2px 10px.
+  Nu in rust: 40 px hoog (touch 44), 15 px (touch 16 px, iOS-zoom), icoon 18 px (was 16),
+  padding 39/16 (touch 40/16, ≤ 360 px 33/8), en de U17-oppervlakte terug (86 % / rand 70 % /
+  schaduw 0 2px 10px, blur 8) i.p.v. de U21-ghost (70 % / 45 % / bijna geen schaduw). Pilvorm en
+  smalle breedte blijven. Open paneel: icoon 18 px, veld 44 px zoals was.
+- Gemeten "De Bilt": desktop 107×40, Pixel 5 111×44, 320 px 96×44 — overal heel, niet onder de klok.
+- Stills `shots-u22b-zoek/voor` (vóór deze wijziging) en `/na`: desktop, Pixel 5, 320 px, licht/donker,
+  rust + zoek open.
+- `location.spec`: rust 15 px / 16 px, hoogte 38–40 (touch 44–46), icoon 18 px.
+
+## 11:30 — U22b + zoekpil-aanvulling: gates groen, klaar
+Receipts (synchroon, boom d143d75 schoon, gerebased op origin/main 511c3d5; start load 30,9;
+e2e-start 11:18 load 21,8 (< 22, procesnoot) via `scripts/e2e-slot.sh`, één Chromium; poorten
+4360/8360 vooraf vrij):
+- `pnpm typecheck` → TYPECHECK-EXIT: 0
+- `pnpm test` → TEST-EXIT: 0 (44 files, 266 tests)
+- `pnpm build` → BUILD-EXIT: 0
+- `MOTREGEN_E2E_PORT=4360 MOTREGEN_E2E_DATA_PORT=8360 pnpm e2e e2e/freshness.spec.ts e2e/location.spec.ts
+  e2e/perf.spec.ts` → E2E-EXIT: 0 (19 passed, 5 skipped)
+De receipts van 11:00 (1ec194d) zijn hiermee vervangen (rebase + zoekpil). Na d143d75 alleen deze LOG-entry.
