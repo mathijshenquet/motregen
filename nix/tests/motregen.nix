@@ -165,6 +165,7 @@
     assert features["play"] == 25 and features["about"] == 0, features
     assert day["dimensions"]["range"]["none"] == {"n": 2, "pct": 50}, day
     assert day["dimensions"]["coarse"]["true"]["n"] == 2, day
+    assert day["dimensions"]["unit"]["kmh"] == {"n": 1, "pct": 25}, day
 
     stats_unauth = machine.succeed(
       "curl --silent --show-error --dump-header - --output /dev/null http://localhost/stats/"

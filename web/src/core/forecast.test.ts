@@ -53,5 +53,5 @@ describe('hourly forecast', () => {
 })
 
 function timelines(overrides: Partial<Parameters<typeof buildHourlyForecast>[0]>): Parameters<typeof buildHourlyForecast>[0] {
-  return { rain: [], uv: [], uvClear: [], radiation: [], temperature: [], feelsLike: [], humidity: [], cloud: [], windU: [], windV: [], ...overrides }
+  return { rain: [], uv: [], uvClear: [], radiation: [], temperature: [], feelsLike: [], humidity: [], cloud: [], windU: [], windV: [], gust: [], ...overrides }
 }

@@ -24,6 +24,7 @@ const windQuant = linearQuant(-30, 30)
 const uvQuant = linearQuant(0, 12.7)
 const percentQuant = linearQuant(0, 100)
 const pressureQuant = linearQuant(940, 1067)
+const gustQuant = linearQuant(0, 127)
 
 interface ChunkPlan { name: string; source: Source; field: Field; run: number; times: number[] }
 const plans: ChunkPlan[] = []
@@ -50,7 +51,7 @@ plans.push({
   name: 'uv_clear-20260828.mrf', source: 'uv', field: 'uv_clear', run: Date.parse('2026-08-28T00:00:00Z'),
   times: Array.from({ length: 65 }, (_, i) => Date.parse('2026-08-28T03:00:00Z') + i * 15 * 60_000),
 })
-for (const field of ['radiation', 'temp_c', 'feels_like_c', 'wind_u_ms', 'wind_v_ms', 'rel_humidity', 'cloud_frac', 'pressure_hpa'] as const) {
+for (const field of ['radiation', 'temp_c', 'feels_like_c', 'wind_u_ms', 'wind_v_ms', 'gust_ms', 'rel_humidity', 'cloud_frac', 'pressure_hpa'] as const) {
   plans.push({ name: `${field}-20260828T1200.mrf`, source: 'harmonie', field, run, times: runTimes.slice(0, 24) })
   plans.push({ name: `${field}-20260828T1200-l25-48.mrf`, source: 'harmonie', field, run, times: runTimes.slice(24) })
   plans.push({ name: `${field}-20260828T0800-hist4.mrf`, source: 'harmonie', field, run: historyRun, times: historyTimes })
@@ -161,12 +162,14 @@ function makeWeatherFrame(epoch: number, field: Exclude<Field, 'rain_rate' | 'ra
           : field === 'feels_like_c' ? feelsLike
             : field === 'rel_humidity' ? humidity
               : field === 'pressure_hpa' ? pressure
-                : cloud
+                : field === 'gust_ms' ? speed * (1.6 + 0.3 * Math.sin(x * 0.05 + hour * 0.4))
+                  : cloud
     const quant = field.startsWith('wind_') ? windQuant
-      : field === 'temp_c' ? temperatureQuant
-        : field === 'feels_like_c' ? feelsLikeQuant
-          : field === 'pressure_hpa' ? pressureQuant
-            : percentQuant
+      : field === 'gust_ms' ? gustQuant
+        : field === 'temp_c' ? temperatureQuant
+          : field === 'feels_like_c' ? feelsLikeQuant
+            : field === 'pressure_hpa' ? pressureQuant
+              : percentQuant
     values[y * grid.width + x] = encodeLinear(value, quant)
   }
   return values
@@ -197,6 +200,7 @@ function quantFor(field: Field): Array<number | null> {
   if (field === 'uv' || field === 'uv_clear') return uvQuant
   if (field === 'rel_humidity' || field === 'cloud_frac') return percentQuant
   if (field === 'pressure_hpa') return pressureQuant
+  if (field === 'gust_ms') return gustQuant
   return windQuant
 }
 

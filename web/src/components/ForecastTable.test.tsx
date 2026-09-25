@@ -4,6 +4,7 @@ import { createSignal } from 'solid-js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { FocusKind } from '../core/focus-mode'
 import type { HourlyForecastRow } from '../core/forecast'
+import type { WindUnit } from '../core/weather'
 import ForecastTable, { type ForecastSeries } from './ForecastTable'
 
 const start = Date.parse('2026-08-28T00:00:00Z')
@@ -11,16 +12,16 @@ const rows: HourlyForecastRow[] = Array.from({ length: 24 }, (_, index) => ({
   epoch: start + index * 3_600_000,
   kind: index === 0 ? 'now' : 'future',
   rainIndex: index, uvIndex: null, uvClearIndex: null, radiationIndex: null, radiationNextIndex: null,
-  temperatureIndex: index, feelsLikeIndex: index, humidityIndex: index, cloudIndex: index, windUIndex: index, windVIndex: index,
+  temperatureIndex: index, feelsLikeIndex: index, humidityIndex: index, cloudIndex: index, windUIndex: index, windVIndex: index, gustIndex: index,
 }))
 const filled = (value: number) => rows.map(() => value)
 const series: ForecastSeries = {
   rain: rows.map((_, index) => [0, 0.004, 0.35, 1.26][index % 4]!), uv: [], uvClear: [], radiation: [], temperature: filled(15),
-  feelsLike: filled(14), humidity: filled(70), cloud: filled(0.5), windU: filled(3), windV: filled(1),
+  feelsLike: filled(14), humidity: filled(70), cloud: filled(0.5), windU: filled(3), windV: filled(1), gust: filled(8),
 }
 const allColumns = { weather: true, uv: true, temperature: true, humidity: true, wind: true }
 
-function renderTable(options: { pinned?: FocusKind; weather?: boolean; rows?: HourlyForecastRow[]; historyInline?: boolean } = {}) {
+function renderTable(options: { pinned?: FocusKind; weather?: boolean; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
   const [pinned, setPinned] = createSignal<FocusKind | undefined>(options.pinned)
   const onTogglePin = vi.fn((mode: FocusKind) => setPinned((current) => current === mode ? undefined : mode))
   const onFocus = vi.fn()
@@ -29,6 +30,7 @@ function renderTable(options: { pinned?: FocusKind; weather?: boolean; rows?: Ho
     series={series}
     location={{ lng: 5.18, lat: 52.1 }}
     columns={{ ...allColumns, weather: options.weather ?? true }}
+    windUnit={options.windUnit?.() ?? 'bft'}
     loadedUntil={Number.POSITIVE_INFINITY}
     historyInline={options.historyInline ?? false}
     historyOpen={false}
@@ -102,9 +104,22 @@ describe('forecast table cells', () => {
     renderTable()
     const reading = document.querySelector('.wind-reading')!
     // u = 3, v = 1: wind uit het westzuidwesten, dus de pijl wijst naar het oostnoordoosten.
-    expect(reading.getAttribute('aria-label')).toMatch(/^Wind uit W, 2 Bft, 3,2 m\/s$/)
+    expect(reading.getAttribute('aria-label')).toBe('Wind uit W, 2 Bft, stoten tot 29 km/u')
     const angle = Number(/rotate\(([\d.]+)deg\)/.exec(reading.querySelector<SVGElement>('.wind-arrow')!.style.transform)![1])
     expect(angle).toBeCloseTo(71.6, 1)
+  })
+
+  it('show the gust small behind the mean wind, in the chosen unit', () => {
+    const [unit, setUnit] = createSignal<WindUnit>('bft')
+    renderTable({ windUnit: unit })
+    const reading = () => document.querySelector('.wind-reading')!
+    const text = () => [...reading().querySelectorAll('b, small')].map((part) => part.textContent)
+    expect(text()).toEqual(['2', 'Bft', '· 29'])
+    setUnit('kn')
+    expect(text()).toEqual(['6', 'kn', '· 16'])
+    expect(reading().getAttribute('aria-label')).toBe('Wind uit W, 6 kn, stoten tot 16 kn')
+    setUnit('ms')
+    expect(text()).toEqual(['3', 'm/s', '· 8'])
   })
 })
 

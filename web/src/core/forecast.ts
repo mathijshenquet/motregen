@@ -16,6 +16,7 @@ export interface HourlyForecastRow {
   cloudIndex: number | null
   windUIndex: number | null
   windVIndex: number | null
+  gustIndex: number | null
 }
 
 export interface HourlyTimelines {
@@ -29,6 +30,7 @@ export interface HourlyTimelines {
   cloud: TimelineFrame[]
   windU: TimelineFrame[]
   windV: TimelineFrame[]
+  gust: TimelineFrame[]
 }
 
 const hour = 3_600_000
@@ -69,6 +71,7 @@ export function buildHourlyForecast(
       cloudIndex: nearestFrame(timelines.cloud, epoch),
       windUIndex: nearestFrame(timelines.windU, epoch),
       windVIndex: nearestFrame(timelines.windV, epoch),
+      gustIndex: nearestFrame(timelines.gust, epoch),
     })
   }
   const first = rows.findIndex((row) => row.kind === 'now' || hasData(row))

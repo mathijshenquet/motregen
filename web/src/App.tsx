@@ -44,6 +44,7 @@ import { bandColor, paletteRange, paletteStops, type PaletteRange } from './core
 import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
 import { buildTimeline, frameBlend, seriesValueAt, timelineCoverage, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelinePlaybackRate } from './core/time-model'
 import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
+import { WIND_UNITS, type WindUnit } from './core/weather'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
 import { DEFAULT_WIND_TUNING, loadWindTuning, storeWindTuning, WIND_MAX_FPS, WIND_PARAMETERS, WindLayer, type WindTuning } from './core/wind-layer'
 import { clearTuningStorage } from './core/dev-settings'
@@ -55,7 +56,7 @@ const perf = installPerfMonitor()
 const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
 type PointLoadStage = 'initial' | 'direct' | 'window' | 'complete'
 type FetchPriority = 'high' | 'low'
-type ForecastIndex = 'radiationIndex' | 'uvIndex' | 'temperatureIndex' | 'feelsLikeIndex' | 'humidityIndex' | 'cloudIndex' | 'windUIndex' | 'windVIndex'
+type ForecastIndex = 'radiationIndex' | 'uvIndex' | 'temperatureIndex' | 'feelsLikeIndex' | 'humidityIndex' | 'cloudIndex' | 'windUIndex' | 'windVIndex' | 'gustIndex'
 
 interface IsolineSetConfig {
   kind: IsolineKind
@@ -201,6 +202,7 @@ export default function App() {
   const feelsLikeTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'feels_like_c') : [])
   const humidityTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'rel_humidity') : [])
   const cloudTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'cloud_frac') : [])
+  const gustTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'gust_ms') : [])
   const windTimeline = createMemo(() => manifest() ? buildWindTimeline(manifest()!) : [])
   const windUFrames = createMemo(() => windTimeline().map((frame) => frame.u))
   const windVFrames = createMemo(() => windTimeline().map((frame) => frame.v))
@@ -252,6 +254,7 @@ export default function App() {
   const [cloudSeries, setCloudSeries] = createSignal<Array<number | null>>([])
   const [windUSeries, setWindUSeries] = createSignal<Array<number | null>>([])
   const [windVSeries, setWindVSeries] = createSignal<Array<number | null>>([])
+  const [gustSeries, setGustSeries] = createSignal<Array<number | null>>([])
   const [radiationSeries, setRadiationSeries] = createSignal<Array<number | null>>([])
   const [uvClearSeries, setUvClearSeries] = createSignal<Array<number | null>>([])
   // History rows cost bytes the old table never loaded; they stay folded until asked for.
@@ -263,7 +266,8 @@ export default function App() {
   const [historyInline, setHistoryInline] = createSignal(inlineHistoryMedia.matches)
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
-  const usage = createUsageTracker(browserUsageEnvironment(), theme())
+  const [windUnit, setWindUnit] = createSignal<WindUnit>(storedWindUnit())
+  const usage = createUsageTracker(browserUsageEnvironment(), theme(), windUnit())
   onCleanup(installUsageBeacon(usage, document, window))
   const [usageBody, setUsageBody] = createSignal(JSON.stringify(usage.sessionBody()))
   if (devMode) {
@@ -423,6 +427,7 @@ export default function App() {
     const nextWind = buildWindTimeline(nextManifest)
     const nextWindU = nextWind.map((frame) => frame.u)
     const nextWindV = nextWind.map((frame) => frame.v)
+    const nextGust = buildTimeline(nextManifest, 'gust_ms')
     const previousState = pointLoad
     const previousStage = pointLoadStage()
     const previousRainValues = previousState?.rainValues ?? rainSeries()
@@ -435,6 +440,7 @@ export default function App() {
     const cloud = reconcileTimelineSeries(cloudTimeline(), nextCloud, cloudSeries())
     const windU = reconcileTimelineSeries(windUFrames(), nextWindU, windUSeries())
     const windV = reconcileTimelineSeries(windVFrames(), nextWindV, windVSeries())
+    const gust = reconcileTimelineSeries(gustTimeline(), nextGust, gustSeries())
     const nextCursor = cursorAfterTimelineRefresh(previousRain, nextRain, cursor())
 
     cancelPointLoad(previousState)
@@ -452,6 +458,7 @@ export default function App() {
       setCloudSeries(cloud.values)
       setWindUSeries(windU.values)
       setWindVSeries(windV.values)
+      setGustSeries(gust.values)
     })
     perf.setManifestGenerated(nextManifest.generated)
     void Promise.all(nextManifest.chunks.filter(eagerHeader).map((chunk) => client.getHeader(chunk))).catch(() => undefined)
@@ -1210,6 +1217,7 @@ export default function App() {
       readCachedPointSeries(client, cloudTimeline(), point),
       readCachedPointSeries(client, windUFrames(), point),
       readCachedPointSeries(client, windVFrames(), point),
+      readCachedPointSeries(client, gustTimeline(), point),
     ]
     const state = newPointLoadState(point, cachedRain.values, cachedRain.loaded)
     const request = state.request
@@ -1225,6 +1233,7 @@ export default function App() {
       setCloudSeries(cachedForecast[4]!.values)
       setWindUSeries(cachedForecast[5]!.values)
       setWindVSeries(cachedForecast[6]!.values)
+      setGustSeries(cachedForecast[7]!.values)
       setStatus(label)
       setPointSeriesLoading(false)
       setPointLoadStage('complete')
@@ -1242,8 +1251,9 @@ export default function App() {
     setCloudSeries([])
     setWindUSeries([])
     setWindVSeries([])
+    setGustSeries([])
     state.direct = (async () => {
-      const [uv, temperature, feelsLike, humidity, cloud, windU, windV] = await Promise.all([
+      const [uv, temperature, feelsLike, humidity, cloud, windU, windV, gust] = await Promise.all([
         readForecastPointSeries(uvTimeline(), point, 'uvIndex', 'L0'),
         readForecastPointSeries(tempTimeline(), point, 'temperatureIndex', 'L0'),
         readForecastPointSeries(feelsLikeTimeline(), point, 'feelsLikeIndex', 'L0'),
@@ -1251,6 +1261,7 @@ export default function App() {
         readForecastPointSeries(cloudTimeline(), point, 'cloudIndex', 'L0'),
         readForecastPointSeries(windUFrames(), point, 'windUIndex', 'L0'),
         readForecastPointSeries(windVFrames(), point, 'windVIndex', 'L0'),
+        readForecastPointSeries(gustTimeline(), point, 'gustIndex', 'L0'),
         enqueueRain(state, directRainIndexes(timeline(), manifest() ? Date.parse(manifest()!.now) : 0), 'high', 'L0', 'locatie'),
       ])
       if (request !== pointRequest) return
@@ -1261,6 +1272,7 @@ export default function App() {
       setCloudSeries(cloud)
       setWindUSeries(windU)
       setWindVSeries(windV)
+      setGustSeries(gust)
       setStatus(label)
       setPointSeriesLoading(false)
       setPointLoadStage('direct')
@@ -1295,7 +1307,7 @@ export default function App() {
 
   function resumePointLoadAfterRefresh(state: PointLoadState, previousStage: PointLoadStage): void {
     state.direct = (async () => {
-      const [uv, temperature, feelsLike, humidity, cloud, windU, windV] = await Promise.all([
+      const [uv, temperature, feelsLike, humidity, cloud, windU, windV, gust] = await Promise.all([
         readForecastPointSeries(uvTimeline(), state.point, 'uvIndex', 'refresh'),
         readForecastPointSeries(tempTimeline(), state.point, 'temperatureIndex', 'refresh'),
         readForecastPointSeries(feelsLikeTimeline(), state.point, 'feelsLikeIndex', 'refresh'),
@@ -1303,6 +1315,7 @@ export default function App() {
         readForecastPointSeries(cloudTimeline(), state.point, 'cloudIndex', 'refresh'),
         readForecastPointSeries(windUFrames(), state.point, 'windUIndex', 'refresh'),
         readForecastPointSeries(windVFrames(), state.point, 'windVIndex', 'refresh'),
+        readForecastPointSeries(gustTimeline(), state.point, 'gustIndex', 'refresh'),
         enqueueRain(state, directRainIndexes(timeline(), manifest() ? Date.parse(manifest()!.now) : 0), 'low', 'refresh', 'manifest'),
       ])
       if (state.request !== pointRequest) return
@@ -1314,6 +1327,7 @@ export default function App() {
         setCloudSeries(cloud)
         setWindUSeries(windU)
         setWindVSeries(windV)
+        setGustSeries(gust)
       }
     })()
     if (previousStage === 'complete') {
@@ -1338,7 +1352,7 @@ export default function App() {
     if (!state) return
     await state.direct.catch(() => undefined)
     if (state.request !== pointRequest) return
-    const [uv, temperature, feelsLike, humidity, cloud, windU, windV] = await Promise.all([
+    const [uv, temperature, feelsLike, humidity, cloud, windU, windV, gust] = await Promise.all([
       readForecastPointSeries(uvTimeline(), state.point, 'uvIndex', 'L2'),
       readForecastPointSeries(tempTimeline(), state.point, 'temperatureIndex', 'L2'),
       readForecastPointSeries(feelsLikeTimeline(), state.point, 'feelsLikeIndex', 'L2'),
@@ -1346,6 +1360,7 @@ export default function App() {
       readForecastPointSeries(cloudTimeline(), state.point, 'cloudIndex', 'L2'),
       readForecastPointSeries(windUFrames(), state.point, 'windUIndex', 'L2'),
       readForecastPointSeries(windVFrames(), state.point, 'windVIndex', 'L2'),
+      readForecastPointSeries(gustTimeline(), state.point, 'gustIndex', 'L2'),
     ])
     if (state.request !== pointRequest) return
     const merge = (next: Array<number | null>) => (previous: Array<number | null>) =>
@@ -1358,6 +1373,7 @@ export default function App() {
       setCloudSeries(merge(cloud))
       setWindUSeries(merge(windU))
       setWindVSeries(merge(windV))
+      setGustSeries(merge(gust))
     })
   }
 
@@ -1454,7 +1470,7 @@ export default function App() {
     window.clearTimeout(state.deepIdle)
     state.full = (async () => {
       await state.direct
-      const [uv, temperature, feelsLike, humidity, cloud, windU, windV] = await Promise.all([
+      const [uv, temperature, feelsLike, humidity, cloud, windU, windV, gust] = await Promise.all([
         readPointSeries(uvTimeline(), state.point, undefined, priority, undefined, undefined, layer),
         readPointSeries(tempTimeline(), state.point, undefined, priority, undefined, undefined, layer),
         readPointSeries(feelsLikeTimeline(), state.point, undefined, priority, undefined, undefined, layer),
@@ -1462,6 +1478,7 @@ export default function App() {
         readPointSeries(cloudTimeline(), state.point, undefined, priority, undefined, undefined, layer),
         readPointSeries(windUFrames(), state.point, undefined, priority, undefined, undefined, layer),
         readPointSeries(windVFrames(), state.point, undefined, priority, undefined, undefined, layer),
+        readPointSeries(gustTimeline(), state.point, undefined, priority, undefined, undefined, layer),
         enqueueRain(state, timeline().map((_, index) => index), priority, layer, reason),
       ])
       if (state.request !== pointRequest) return
@@ -1472,6 +1489,7 @@ export default function App() {
       setCloudSeries(cloud)
       setWindUSeries(windU)
       setWindVSeries(windV)
+      setGustSeries(gust)
       setPointLoadStage('complete')
     })().catch(() => {
       if (state.request === pointRequest) setStatus(`${locationLabel()} · volledige reeks kon niet worden geladen`)
@@ -1647,6 +1665,7 @@ export default function App() {
     cloud: cloudTimeline(),
     windU: windUFrames(),
     windV: windVFrames(),
+    gust: gustTimeline(),
   }, manifest() ? Date.parse(manifest()!.now) : 0))
   let radiationRequest = 0
   createEffect(() => {
@@ -1712,7 +1731,8 @@ export default function App() {
           <strong>motregen.nl</strong>
         </div>
       </div>
-      <About theme={theme()} onTheme={(choice) => { usage.setTheme(choice); setTheme(choice) }} onOpen={() => usage.mark('about')} onTripleTap={() => setPerfVisible((visible) => !visible)} sourcePrefix={
+      <About theme={theme()} onTheme={(choice) => { usage.setTheme(choice); setTheme(choice) }}
+        windUnit={windUnit()} onWindUnit={(unit) => { usage.setUnit(unit); setWindUnit(unit); localStorage.setItem('motregen-wind-unit', unit) }} onOpen={() => usage.mark('about')} onTripleTap={() => setPerfVisible((visible) => !visible)} sourcePrefix={
         <Show when={focus() > 0 && temperatureLegend()}>
           {(legend) => <span class="temperature-legend" style={{ opacity: focus() }} role="img" aria-label={`Kleurschaal gevoelstemperatuur ${legend().low} tot ${legend().high} graden`}>
             <span>{legend().low}°</span>
@@ -1775,9 +1795,10 @@ export default function App() {
             rows={forecast()}
             series={{
               rain: rainSeries(), uv: uvSeries(), uvClear: uvClearSeries(), radiation: radiationSeries(), temperature: temperatureSeries(),
-              feelsLike: feelsLikeSeries(), humidity: humiditySeries(), cloud: cloudSeries(), windU: windUSeries(), windV: windVSeries(),
+              feelsLike: feelsLikeSeries(), humidity: humiditySeries(), cloud: cloudSeries(), windU: windUSeries(), windV: windVSeries(), gust: gustSeries(),
             }}
             location={location()}
+            windUnit={windUnit()}
             columns={{ weather: hasWeatherIcons(), uv: uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), humidity: hasHumidity(), wind: hasWind() }}
             loadedUntil={pointLoadStage() === 'complete' ? Number.POSITIVE_INFINITY : manifestNow() + PASSIVE_FORECAST_HOURS * 3_600_000}
             historyInline={historyInline()}
@@ -1800,6 +1821,11 @@ export default function App() {
     </aside>
     <Show when={perfVisible()}><PerfHud monitor={perf} isolines={isolineCounters} windStats={() => windLayer?.windProfile()} /></Show>
   </main>
+}
+
+function storedWindUnit(): WindUnit {
+  const stored = localStorage.getItem('motregen-wind-unit')
+  return WIND_UNITS.find((unit) => unit === stored) ?? 'bft'
 }
 
 function storedTheme(): ThemeChoice {

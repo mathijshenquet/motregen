@@ -4,6 +4,8 @@
  * toevoegt, past ook `USAGE_FIELDS`, `USAGE_SCHEMA_VERSION`, `docs/analytics.md` en zo nodig de About-tekst aan.
  */
 
+import { WIND_UNITS, type WindUnit } from './weather'
+
 export const USAGE_FEATURES = [
   'pinFeel', // modus gevoel vastgezet
   'pinWind', // modus wind vastgezet
@@ -24,6 +26,8 @@ export const USAGE_RANGES = ['3', '8', '24', 'all'] as const
 export const USAGE_THEMES = ['light', 'system', 'dark'] as const
 export const USAGE_WIDTHS = ['<430', '<960', '>=960'] as const
 export const USAGE_DURATIONS = ['<1', '1-5', '5-30', '>30'] as const
+/** Windeenheid (U36): `bft`, `kn`, `kmh`, `ms`. */
+export const USAGE_UNITS = WIND_UNITS
 
 export type UsageRange = typeof USAGE_RANGES[number]
 export type UsageTheme = typeof USAGE_THEMES[number]
@@ -39,13 +43,14 @@ export type UsageBody = Partial<Record<UsageFeature, true>> & {
   /** Laatst gekozen bereik via de bereikknop; null als die knop niet gebruikt is. */
   range: UsageRange | null
   theme: UsageTheme
+  unit: WindUnit
   coarse: boolean
   width: UsageWidth
   /** Sessieduur in minuten, gebakken. */
   dur: UsageDuration
 }
 
-export const USAGE_FIELDS = ['v', ...USAGE_FEATURES, 'range', 'theme', 'coarse', 'width', 'dur'] as const
+export const USAGE_FIELDS = ['v', ...USAGE_FEATURES, 'range', 'theme', 'unit', 'coarse', 'width', 'dur'] as const
 
 export interface UsageEnvironment {
   /** Milliseconden sinds het begin van het pagina-leven (performance.now). */
@@ -59,6 +64,7 @@ export interface UsageTracker {
   mark: (feature: UsageFeature) => void
   setRange: (hours: number | null) => void
   setTheme: (theme: UsageTheme) => void
+  setUnit: (unit: WindUnit) => void
   sessionBody: () => UsageBody
   /** Verstuurt het baken hooguit één keer per pagina-leven; true als het nu verstuurd is. */
   sendUsage: () => boolean
@@ -68,10 +74,11 @@ export interface UsageTracker {
 
 export const USAGE_ENDPOINT = '/hit'
 
-export function createUsageTracker(environment: UsageEnvironment, theme: UsageTheme): UsageTracker {
+export function createUsageTracker(environment: UsageEnvironment, theme: UsageTheme, unit: WindUnit = 'bft'): UsageTracker {
   const features = new Set<UsageFeature>()
   let range: UsageRange | null = null
   let currentTheme = theme
+  let currentUnit = unit
   let sent = false
   const tracker: UsageTracker = {
     mark(feature) {
@@ -87,6 +94,10 @@ export function createUsageTracker(environment: UsageEnvironment, theme: UsageTh
       currentTheme = next
       tracker.onChange?.()
     },
+    setUnit(next) {
+      currentUnit = next
+      tracker.onChange?.()
+    },
     sessionBody() {
       const body = Object.fromEntries(USAGE_FEATURES.filter((feature) => features.has(feature)).map((feature) => [feature, true]))
       return {
@@ -94,6 +105,7 @@ export function createUsageTracker(environment: UsageEnvironment, theme: UsageTh
         ...body,
         range,
         theme: currentTheme,
+        unit: currentUnit,
         coarse: environment.coarsePointer(),
         width: widthClass(environment.viewportWidth()),
         dur: durationBucket(environment.now()),
