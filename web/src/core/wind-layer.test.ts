@@ -302,21 +302,22 @@ describe('wind tuning', () => {
     expect(JSON.parse(values.get(WIND_TUNING_STORAGE_KEY)!)).toEqual({ maxFps: 30 })
   })
 
-  it('migrates a full v2 tuning once: old defaults follow the ⅔ default, own intensity scales by ⅔', () => {
+  it('migrates a full v2 tuning once: old defaults follow the current default, own intensity becomes the focus strength', () => {
     // U3b/U12-defaults zoals v2 ze wegschreef zodra één knop (hier maxFps) afweek.
     const v2 = { ...DEFAULT_WIND_TUNING, intensity: 1.9, maxFps: 30 }
     const values = new Map([[LEGACY_WIND_TUNING_STORAGE_KEY, JSON.stringify(v2)]])
     const storage = memoryStorage(values)
     const loaded = loadWindTuning(storage)
     expect(loaded).toEqual({ ...DEFAULT_WIND_TUNING, maxFps: 30 })
-    expect(loaded.intensity).toBe(1.27)
+    expect(loaded.intensity).toBe(0.75)
     expect(values.has(LEGACY_WIND_TUNING_STORAGE_KEY)).toBe(false)
     expect(JSON.parse(values.get(WIND_TUNING_STORAGE_KEY)!)).toEqual({ maxFps: 30 })
     // Eenmalig: nogmaals laden schaalt niet opnieuw.
     expect(loadWindTuning(storage)).toEqual(loaded)
 
-    for (const old of [0.5, 1.4, 1.9]) expect(migrateWindTuningV2({ ...v2, intensity: old }).intensity).toBe(DEFAULT_WIND_TUNING.intensity)
-    expect(migrateWindTuningV2({ ...v2, intensity: 1.5 }).intensity).toBe(1)
+    for (const old of [0.5, 1.4, 1.9, 1.27]) expect(migrateWindTuningV2({ ...v2, intensity: old }).intensity).toBe(DEFAULT_WIND_TUNING.intensity)
+    // 1,5 × 0,75 / 1,905: windfocus (× WIND_FOCUS_GAIN) geeft weer ~1,5.
+    expect(migrateWindTuningV2({ ...v2, intensity: 1.5 }).intensity).toBe(0.59)
     expect(migrateWindTuningV2({ ...v2, lineWidth: 1.5 }).lineWidth).toBe(DEFAULT_WIND_TUNING.lineWidth)
     expect(migrateWindTuningV2({ lineWidth: 3 })).toEqual({ ...DEFAULT_WIND_TUNING, lineWidth: 3 })
     expect(migrateWindTuningV2('{kapot')).toEqual(DEFAULT_WIND_TUNING)

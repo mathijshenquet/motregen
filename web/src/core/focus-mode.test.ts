@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { DEFAULT_WIND_TUNING } from './wind-layer'
 import { contextOpacity, DEFAULT_FOCUS_TUNING, easeOutCubic, FocusMode, focusValue, retargetFocus, windFocusIntensity, type FocusKind } from './focus-mode'
 
 describe('focus tween math', () => {
@@ -41,9 +42,10 @@ describe('focus tween math', () => {
   })
 
   it('brings the damped wind back to full at full wind focus', () => {
-    expect(windFocusIntensity(1.27, 0)).toBe(1.27)
-    expect(windFocusIntensity(1.27, 1)).toBeCloseTo(1.905)
-    expect(windFocusIntensity(2 / 3, 1)).toBeCloseTo(1)
+    // U24: default subtieler, focus-inkt ongewijzigd (1,27 × 1,5 van U19).
+    expect(windFocusIntensity(DEFAULT_WIND_TUNING.intensity, 0)).toBe(0.75)
+    expect(windFocusIntensity(DEFAULT_WIND_TUNING.intensity, 1)).toBeCloseTo(1.905)
+    expect(windFocusIntensity(DEFAULT_WIND_TUNING.intensity / 2, 1)).toBeCloseTo(1.905 / 2)
   })
 })
 

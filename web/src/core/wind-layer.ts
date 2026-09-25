@@ -49,11 +49,15 @@ export const DEFAULT_WIND_TUNING: WindTuning = {
   headIntensity: 0.95,
   lineWidth: 2.5,
   speed: 1,
-  // PO 2026-09-24: ⅔ van de vroegere 1,9; windfocus (U19) tweent terug naar vol.
-  intensity: 1.27,
+  // PO 2026-09-25 (U24): default een stuk subtieler, ~60 % van de inkt bij 1,27; windfocus (U19)
+  // tweent naar WIND_FOCUS_INTENSITY, zoals vóór U24.
+  intensity: 0.75,
   visibility: 1,
   maxFps: 60,
 }
+
+/** Intensiteit bij volle windfocus met de default-tuning (U19: ×1,5 op de toenmalige 1,27). */
+export const WIND_FOCUS_INTENSITY = 1.905
 
 export interface WindTuningControl {
   key: keyof WindTuning
@@ -979,10 +983,10 @@ export function storeWindTuning(tuning: WindTuning, storage: Pick<Storage, 'setI
 
 // Defaults uit de v2-periode (U3b–U12). v2 schreef de hele tuning weg zodra één knop afweek,
 // dus een waarde gelijk aan een toenmalige default is nooit gekozen en volgt de huidige default.
-const V2_DEFAULTS: Partial<Record<keyof WindTuning, readonly number[]>> = { intensity: [0.5, 1.4, 1.9], lineWidth: [1.5] }
-// U19 zette de basisintensiteit op ⅔ (windfocus tweent terug naar vol); een zelfgekozen
-// v2-intensiteit krijgt dezelfde ⅔, zodat windfocus weer precies de gekozen waarde geeft.
-const V2_INTENSITY_SCALE = 2 / 3
+const V2_DEFAULTS: Partial<Record<keyof WindTuning, readonly number[]>> = { intensity: [0.5, 1.4, 1.9, 1.27], lineWidth: [1.5] }
+// Een zelfgekozen v2-intensiteit (van vóór de windfocus) wordt de focuswaarde; de rust schaalt
+// met dezelfde verhouding als de default.
+const V2_INTENSITY_SCALE = DEFAULT_WIND_TUNING.intensity / WIND_FOCUS_INTENSITY
 
 export function migrateWindTuningV2(value: unknown): WindTuning {
   const stored = sanitizeWindTuning(value)
