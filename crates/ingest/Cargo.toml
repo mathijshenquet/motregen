@@ -8,6 +8,7 @@ rust-version.workspace = true
 [dependencies]
 anyhow.workspace = true
 chrono.workspace = true
+eccodes.workspace = true
 clap = { version = "4.5", features = ["derive", "env"] }
 humantime = "2.3"
 knmi-grib = { path = "../knmi-grib" }

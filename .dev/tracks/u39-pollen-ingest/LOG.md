@@ -1,6 +1,6 @@
 # U39 pollen-ingest (CAMS) — worker LOG (append-only, newest last)
 
-## 2026-09-25 23:10 — start, ontwerp
+## 2026-09-25 14:05 UTC — start, ontwerp
 - Gelezen: spec, MIP-14, ingest main/publisher/pipeline/grid, docs ingest/contract/fields, nix module + VM-test.
 - Referentie voor ADS: Open-Meteo's eigen CAMS-downloader (github open-meteo/open-meteo,
   `Sources/App/Cams/CamsDownload.swift`, `Helper/Download/Curl+CDS.swift`): ADS retrieve v1
@@ -18,3 +18,20 @@
 - Grid: 6 km-uitsnede uitgelijnd op DETAIL_GRID, NL+Vlaanderen+marge; bilineair uit 0,1°.
 - Geen ADS-sleutel: ADS-fixture wordt een GRIB2 met exact de ADS-codering (PDT 40,
   constituentType) gevuld met echte CAMS-waarden via Open-Meteo; generatorscript in deze map.
+
+## 2026-09-25 14:45 UTC — Rust-kern groen
+- Nieuw: `cams.rs` (velden, KNMI/LUMC-kalender, kwantisatie, bilineair 0,1° → 6 km CAMS_GRID
+  96×105 uitgelijnd op DETAIL_GRID, chunks in dagdelen l1-24…l73-96, sidecar `cams.json`, daemon-
+  `Feed`), `cams_ads.rs` (ADS retrieve v1 + GRIB2-decoder op parameterNumber/constituentType,
+  kg m-3 ×1e9), `cams_open_meteo.rs` (terugval, 100 locaties per 12 s, 429-retry),
+  `bin/motregen-cams.rs`, `env_file.rs` (uit main.rs gehaald, gedeeld). Gedeelde bestanden
+  minimaal: publisher (`cams`-sectie + `write_chunks`), main.rs (Feed), 2× `pub(crate)`.
+- ADS-fixture `crates/ingest/tests/fixtures/cams-ads-20260925T00-l0-24.grib2` (397 KB, 125
+  berichten, leads 0–24, bijvoet + 4 luchtkwaliteit) via `make_ads_fixture.py`.
+- Besluit: `pred`-codec op alle CAMS-velden: fixture 443 483 B → 239 131 B (−46 %), verliesvrij.
+- Receipts: `cargo test -p motregen-ingest` TEST-EXIT 0 (35 lib-tests, 12 nieuw); clippy schoon.
+  Fixture-run `motregen-cams --grib <fixture>` FIXTURE-EXIT 0 → 5 chunks. Live Open-Meteo-run
+  OM-EXIT 0 → 20 chunks, 911 390 B/dag (run 2026-09-25T00Z). Eerste live-run faalde op een
+  parserbug (`time`-array strings); test aangescherpt en gefixt.
+- Inhoudscheck De Bilt (52,10 N 5,18 E) gedecodeerd vs Open-Meteo-punt: O₃ 12Z 74,0/74,0,
+  NO₂ 00Z 19,5/19,3, PM2,5 8,0/8,1 — tijdas en oriëntatie kloppen.

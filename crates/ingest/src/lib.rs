@@ -1,5 +1,9 @@
 pub mod api;
 pub mod arome_tar;
+pub mod cams;
+pub mod cams_ads;
+pub mod cams_open_meteo;
+pub mod env_file;
 pub mod grid;
 pub mod pipeline;
 pub mod publisher;

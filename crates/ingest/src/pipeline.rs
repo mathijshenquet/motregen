@@ -968,7 +968,7 @@ fn dequantize_rain_frame(frame: &[u8], quant: &[Option<f32>]) -> Vec<f32> {
         .collect()
 }
 
-fn generated_chunk_filename(stem: &str, meta: &mrf::ChunkMeta) -> String {
+pub(crate) fn generated_chunk_filename(stem: &str, meta: &mrf::ChunkMeta) -> String {
     let mut hash = 0xcbf2_9ce4_8422_2325_u64;
     let mut update = |bytes: &[u8]| {
         for byte in bytes {
