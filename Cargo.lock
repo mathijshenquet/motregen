@@ -1032,6 +1032,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
+ "eccodes",
  "humantime",
  "knmi-grib",
  "knmi-hdf5",

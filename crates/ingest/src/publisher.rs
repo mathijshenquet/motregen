@@ -10,12 +10,16 @@ use anyhow::{Context, Result, ensure};
 use chrono::{SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::cams::CamsSection;
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Manifest {
     pub version: u32,
     pub generated: String,
     pub now: String,
     pub chunks: Vec<ManifestChunk>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cams: Option<CamsSection>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -70,7 +74,33 @@ pub fn publish(
     chunks: &[&ProducedChunk],
     prune_age: Duration,
 ) -> Result<Manifest> {
+    publish_with_cams(data_dir, now, chunks, prune_age, None)
+}
+
+pub fn publish_with_cams(
+    data_dir: &Path,
+    now: String,
+    chunks: &[&ProducedChunk],
+    prune_age: Duration,
+    cams: Option<CamsSection>,
+) -> Result<Manifest> {
     ensure!(!chunks.is_empty(), "cannot publish an empty manifest");
+    let chunks_dir = write_chunks(data_dir, chunks)?;
+    let manifest = Manifest {
+        version: 0,
+        generated: Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true),
+        now,
+        chunks: chunks.iter().map(|chunk| chunk.manifest.clone()).collect(),
+        cams,
+    };
+    let json = serde_json::to_vec_pretty(&manifest)?;
+    atomic_write(&data_dir.join("manifest.json"), &json)?;
+    prune_chunks(&chunks_dir, chunks, prune_age)?;
+    Ok(manifest)
+}
+
+/// Writes immutable chunks below `<data>/chunks`; an existing file must be byte-identical.
+pub fn write_chunks(data_dir: &Path, chunks: &[&ProducedChunk]) -> Result<PathBuf> {
     let chunks_dir = data_dir.join("chunks");
     fs::create_dir_all(&chunks_dir)?;
     for chunk in chunks {
@@ -86,19 +116,10 @@ pub fn publish(
             atomic_write(&path, &chunk.bytes)?;
         }
     }
-    let manifest = Manifest {
-        version: 0,
-        generated: Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true),
-        now,
-        chunks: chunks.iter().map(|chunk| chunk.manifest.clone()).collect(),
-    };
-    let json = serde_json::to_vec_pretty(&manifest)?;
-    atomic_write(&data_dir.join("manifest.json"), &json)?;
-    prune_chunks(&chunks_dir, chunks, prune_age)?;
-    Ok(manifest)
+    Ok(chunks_dir)
 }
 
-fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
+pub(crate) fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
     let parent = path.parent().context("atomic output path has no parent")?;
     fs::create_dir_all(parent)?;
     let mut temporary = tempfile::NamedTempFile::new_in(parent)?;

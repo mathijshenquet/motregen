@@ -296,7 +296,7 @@ fn grid_index(column: isize, row: isize, width: usize, height: usize) -> Option<
     }
 }
 
-fn web_mercator_to_lon_lat(x: f64, y: f64) -> (f64, f64) {
+pub(crate) fn web_mercator_to_lon_lat(x: f64, y: f64) -> (f64, f64) {
     let longitude = (x / WEB_MERCATOR_RADIUS_M).to_degrees();
     let latitude =
         (2.0 * (y / WEB_MERCATOR_RADIUS_M).exp().atan() - std::f64::consts::FRAC_PI_2).to_degrees();

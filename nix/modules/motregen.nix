@@ -145,6 +145,23 @@ in
       description = "Ingest daemon package.";
     };
 
+    camsPackage = lib.mkOption {
+      type = lib.types.package;
+      default = cfg.ingestPackage;
+      defaultText = lib.literalExpression "config.services.motregen.ingestPackage";
+      description = "Package providing motregen-cams (daily CAMS pollen/air-quality job).";
+    };
+
+    camsInManifest = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Let the ingest daemon add the daily CAMS pollen/air-quality chunks (cams.json) to
+        manifest.json. Off until the client uses them: they add ~18 KB to every manifest poll
+        and ~63 KB of header prefetch per session (docs/pollen.md).
+      '';
+    };
+
     frontendPackage = lib.mkOption {
       type = lib.types.package;
       default = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-web;
@@ -229,6 +246,7 @@ in
 
       environment = {
         MOTREGEN_DATA_DIR = cfg.dataDir;
+        MOTREGEN_CAMS_IN_MANIFEST = lib.boolToString cfg.camsInManifest;
         RUST_LOG = "info";
       };
 
@@ -271,6 +289,65 @@ in
         CapabilityBoundingSet = "";
         AmbientCapabilities = "";
         SystemCallArchitectures = "native";
+      };
+    };
+
+    # U39: dagelijkse CAMS-run. Schrijft chunks + cams.json in dataDir; de ingest-daemon neemt
+    # ze op in het manifest. Zelfde dynamische user als de ingest, dus dezelfde eigenaar.
+    systemd.services.motregen-cams = {
+      description = "CAMS pollen and air-quality forecast for motregen.nl";
+      wants = [ "network-online.target" ];
+      after = [ "network-online.target" ];
+
+      environment = {
+        MOTREGEN_DATA_DIR = cfg.dataDir;
+        RUST_LOG = "info";
+      };
+
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = lib.getExe' cfg.camsPackage "motregen-cams";
+        EnvironmentFile = cfg.secretsFile;
+        DynamicUser = true;
+        User = "motregen-ingest";
+        StateDirectory = "motregen";
+        StateDirectoryMode = "0755";
+        UMask = "0022";
+        # ADS publiceert de 00Z-run rond 08–10 UTC; een te vroege poging probeert later opnieuw.
+        Restart = "on-failure";
+        RestartSec = "30min";
+
+        PrivateDevices = true;
+        PrivateTmp = true;
+        ProtectClock = true;
+        ProtectControlGroups = true;
+        ProtectHome = true;
+        ProtectHostname = true;
+        ProtectKernelLogs = true;
+        ProtectKernelModules = true;
+        ProtectKernelTunables = true;
+        ProtectProc = "invisible";
+        ProtectSystem = "strict";
+        ProcSubset = "pid";
+        RestrictAddressFamilies = [
+          "AF_INET"
+          "AF_INET6"
+          "AF_UNIX"
+        ];
+        RestrictNamespaces = true;
+        RestrictRealtime = true;
+        LockPersonality = true;
+        CapabilityBoundingSet = "";
+        AmbientCapabilities = "";
+        SystemCallArchitectures = "native";
+      };
+    };
+
+    systemd.timers.motregen-cams = {
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnCalendar = "*-*-* 09:00:00 UTC";
+        Persistent = true;
       };
     };
 

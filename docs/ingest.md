@@ -28,6 +28,9 @@ Belangrijkste instellingen:
 | `--prune-age` | `MOTREGEN_PRUNE_AGE` | `6h` |
 | `--cache-age` | `MOTREGEN_CACHE_AGE` | `12h` |
 
+Pollen en luchtkwaliteit komen niet uit deze daemon maar uit de dagelijkse oneshot
+`motregen-cams` (docs/pollen.md); de daemon neemt diens `cams.json` op in het manifest.
+
 Duraties accepteren onder meer `60s`, `20m` en `3h`. `--once` publiceert één
 snapshot en stopt. `--run-for 20m` blijft na de startup-backfill twintig
 minuten pollen en stopt daarna met exit 0; dit is bedoeld voor operationele
