@@ -44,7 +44,7 @@ describe('location search', () => {
     fireEvent.focus(screen.getByRole('textbox', { name: 'Zoek plaats' }))
     const icons = [...document.querySelectorAll('svg.lucide')]
     expect(icons.map((icon) => [...icon.classList].find((name) => name !== 'lucide' && name !== 'lucide-icon' && name.startsWith('lucide-')))).toEqual(
-      ['lucide-search', 'lucide-locate-fixed', 'lucide-star', 'lucide-trash'],
+      ['lucide-search', 'lucide-x', 'lucide-locate-fixed', 'lucide-star', 'lucide-trash'],
     )
     for (const icon of icons) expect(icon.getAttribute('aria-hidden')).toBe('true')
     expect(screen.getByRole('button', { name: 'Thuis verwijderen uit opgeslagen plaatsen' }).querySelector('svg')?.getAttribute('width')).toBe('18')
@@ -97,5 +97,31 @@ describe('location search', () => {
     expect(screen.queryByRole('group', { name: 'Thuis verwijderen?' })).toBeNull()
     expect(screen.getByRole('option', { name: /Thuis/ })).toBeTruthy()
     expect(onRemove).not.toHaveBeenCalled()
+  })
+
+  it('clears the text with × first, then closes, and closes on Escape or a tap outside', () => {
+    const { onSelect } = renderSearch()
+    const input = screen.getByRole<HTMLInputElement>('textbox', { name: 'Zoek plaats' })
+    fireEvent.focus(input)
+    expect(screen.queryByRole('button', { name: 'Deze plaats opslaan' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Zoektekst wissen' }))
+    expect(input.value).toBe('')
+    expect(screen.getByRole('listbox')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Zoeken sluiten' }))
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect(input.value).toBe('De Bilt')
+
+    fireEvent.focus(input)
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(screen.queryByRole('listbox')).toBeNull()
+
+    fireEvent.focus(input)
+    const scrim = document.querySelector('.search-scrim')!
+    const outside = new MouseEvent('pointerdown', { bubbles: true, cancelable: true })
+    scrim.dispatchEvent(outside)
+    expect(outside.defaultPrevented).toBe(true)
+    fireEvent.click(scrim)
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect(onSelect).not.toHaveBeenCalled()
   })
 })

@@ -27,12 +27,24 @@ async function useTheme(page: Page, theme: 'light' | 'dark'): Promise<void> {
   await page.waitForTimeout(800)
 }
 
-// Op een smalle telefoon mag de pil het merk links niet raken (anders vangt hij diens tikken).
-async function expectClearOfBrand(page: Page): Promise<void> {
+// U21: de pil staat midden boven op de kaart en raakt geen andere bediening (anders vangt hij
+// hun tikken of verdwijnt hij eronder).
+const NEIGHBOURS = ['.search-box', '.mobile-map-theme', '.maplibregl-ctrl-top-right', '.map-brand', '.sidebar-uv-chip']
+
+async function expectTopCenter(page: Page): Promise<void> {
   const pillBox = (await pill(page).boundingBox())!
-  const brandBox = (await page.locator('.map-brand').boundingBox())!
-  const apart = pillBox.x >= brandBox.x + brandBox.width || pillBox.y + pillBox.height <= brandBox.y
-  expect(apart, `pil ${JSON.stringify(pillBox)} overlapt merk ${JSON.stringify(brandBox)}`).toBe(true)
+  const map = (await page.locator('.map-shell').boundingBox())!
+  expect(Math.abs(pillBox.x + pillBox.width / 2 - (map.x + map.width / 2)), 'pil horizontaal gecentreerd op de kaart').toBeLessThanOrEqual(8)
+  expect(pillBox.y - map.y, 'pil aan de bovenrand').toBeLessThan(80)
+  for (const selector of NEIGHBOURS) {
+    const other = page.locator(selector).first()
+    if (!await other.count() || !await other.isVisible()) continue
+    const box = (await other.boundingBox())!
+    const apart = pillBox.x >= box.x + box.width || box.x >= pillBox.x + pillBox.width || pillBox.y >= box.y + box.height || box.y >= pillBox.y + pillBox.height
+    expect(apart, `pil ${JSON.stringify(pillBox)} overlapt ${selector} ${JSON.stringify(box)}`).toBe(true)
+  }
+  // Contain-fit (U14): het vrije kaartdeel begint onder de pil.
+  expect(Number(await page.locator('.map').getAttribute('data-inset-top'))).toBeGreaterThanOrEqual(Math.round(pillBox.y + pillBox.height - map.y))
 }
 
 // Per thema: optioneel het paneel openen, vastleggen en weer sluiten.
@@ -54,7 +66,7 @@ async function shoot(page: Page, testInfo: TestInfo, name: string, withPanel = f
 test('fresh radar reads as current, with the scan time and its age', async ({ page }, testInfo) => {
   await openAt(page, LATEST_RADAR + minutes(3))
   await expect(pill(page)).toHaveAttribute('data-freshness', 'fresh')
-  await expect(pill(page).locator('.freshness-trigger')).toContainText('Radar')
+  await expect(pill(page).locator('.freshness-scan')).toHaveText('radar 14:55')
   await expect(pill(page).locator('.freshness-age')).toHaveText('3 min')
   await expect(page.locator('.map-clock [aria-live="polite"]')).toHaveText('Actueel')
   await shoot(page, testInfo, 'vers')
@@ -67,7 +79,27 @@ test('fresh radar reads as current, with the scan time and its age', async ({ pa
   await expect(dialog).toBeHidden()
   await expect(details(page)).toBeFocused()
   await shoot(page, testInfo, 'paneel', true)
-  await expectClearOfBrand(page)
+  await expectTopCenter(page)
+
+  // Het paneel opent gecentreerd onder de pil.
+  await details(page).click()
+  const pillBox = (await pill(page).boundingBox())!
+  const panel = (await dialog.boundingBox())!
+  expect(panel.y).toBeGreaterThanOrEqual(pillBox.y + pillBox.height)
+  expect(panel.y - (pillBox.y + pillBox.height)).toBeLessThan(24)
+  const viewport = page.viewportSize()!
+  const centred = Math.min(Math.max(pillBox.x + pillBox.width / 2, 16 + panel.width / 2), viewport.width - 16 - panel.width / 2)
+  expect(Math.abs(panel.x + panel.width / 2 - centred)).toBeLessThanOrEqual(8)
+  await page.keyboard.press('Escape')
+
+  // Kleinste telefoon: nog steeds midden boven en vrij van zoekpil/themaknop/merk.
+  if (testInfo.project.use.hasTouch) {
+    await page.setViewportSize({ width: 320, height: 640 })
+    await page.reload()
+    await expect(page.locator('.map-splash.ready')).toBeAttached()
+    await expectTopCenter(page)
+    await shoot(page, testInfo, '320')
+  }
 })
 
 test('radar that stopped arriving is marked aging, then stale', async ({ page }, testInfo) => {
@@ -79,20 +111,31 @@ test('radar that stopped arriving is marked aging, then stale', async ({ page },
   await openAt(page, LATEST_RADAR + minutes(95))
   await expect(pill(page)).toHaveAttribute('data-freshness', 'stale')
   await expect(pill(page).locator('.freshness-age')).toHaveText('1 u')
-  await expectClearOfBrand(page)
+  await expectTopCenter(page)
   await shoot(page, testInfo, 'verouderd')
 
   // Weken stil (zoals het synth-manifest zonder vaste klok): geen datum in de pil, die blijft smal.
   await openAt(page, LATEST_RADAR + minutes(60 * 24 * 26))
   await expect(pill(page).locator('.freshness-age')).toHaveText('26 d')
-  await expect(pill(page).locator('.freshness-trigger strong')).toHaveText('14:55')
-  await page.locator('.scrub-surface').click({ position: { x: 30, y: 60 } })
-  await expect(pill(page).locator('.map-clock-map')).toBeVisible()
-  await expectClearOfBrand(page)
-  // U17: tijd groot, leeftijd eronder, segmenten naast elkaar — ook op mobiel één rij (was 70 px hoog).
+  await expect(pill(page).locator('.freshness-scan')).toHaveText('radar 14:55')
+  // U21: de kaarttijd is het hoofdelement, met de bron in de regimekleur. Klik laag in het vlak:
+  // bovenin staat de cursorpil (afspeelknop).
+  const surface = (await page.locator('.scrub-surface').boundingBox())!
+  await page.locator('.scrub-surface').click({ position: { x: 30, y: surface.height * 0.75 } })
+  await expect(pill(page)).toHaveAttribute('data-source', 'observations')
+  await expect(pill(page).locator('.clock-source')).toHaveText(/^radar/)
+  // Zelfde moment uitlezen: op trage profielen glijdt de cursor nog na.
+  await expect.poll(() => page.evaluate(() => {
+    const clock = document.querySelector('.map-clock .clock-map-time')?.textContent?.trim()
+    return clock !== undefined && clock === document.querySelector('.cursor-time')?.textContent?.trim()
+  })).toBe(true)
+  await expectTopCenter(page)
   const trigger = (await pill(page).locator('.freshness-trigger').boundingBox())!
   if (testInfo.project.use.hasTouch) expect(trigger.height).toBeGreaterThanOrEqual(44)
   expect((await pill(page).boundingBox())!.height).toBeLessThan(56)
+  await page.locator('.scrub-surface').click({ position: { x: surface.width - 12, y: surface.height * 0.75 } })
+  await expect(pill(page)).toHaveAttribute('data-source', 'model')
+  await expect(pill(page).locator('.freshness-run')).toHaveText(/^run \d\d:\d\d$/)
   await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-weken-oud-kaart-light.png`) })
 })
 

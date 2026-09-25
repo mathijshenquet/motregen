@@ -1,7 +1,7 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from 'solid-js'
 import { lookupLocation, suggestLocations, type PdokSuggestion } from '../core/pdok'
 import { samePlace, type SavedPlace } from '../core/saved-places'
-import { BUTTON_ICON, INLINE_ICON, LocateFixed, Search, Star, Trash2 } from './icons'
+import { BUTTON_ICON, INLINE_ICON, LocateFixed, Search, Star, Trash2, X } from './icons'
 
 interface Props {
   location: { lng: number; lat: number }
@@ -12,6 +12,8 @@ interface Props {
   onSave: (name: string) => void
   onSelect: (location: { lng: number; lat: number }, label: string) => void
   onSelectSaved: (place: SavedPlace) => void
+  // PO-smaaktest U21: 'fold' = de pil vouwt open tot paneel, 'wrap' = een paneel omsluit het veld.
+  variant?: 'fold' | 'wrap'
 }
 
 export default function LocationSearch(props: Props) {
@@ -19,6 +21,7 @@ export default function LocationSearch(props: Props) {
   let request: AbortController | undefined
   let nameInput: HTMLInputElement | undefined
   let root!: HTMLDivElement
+  let input!: HTMLInputElement
   let results: HTMLDivElement | undefined
   const [query, setQuery] = createSignal('')
   const [selectedLabel, setSelectedLabel] = createSignal('')
@@ -121,14 +124,36 @@ export default function LocationSearch(props: Props) {
       event.preventDefault(); setActive((value) => (value - 1 + results.length) % results.length); setOpen(true)
     } else if (event.key === 'Enter' && results.length) {
       event.preventDefault(); void choose(results[Math.max(0, active())]!)
-    } else if (event.key === 'Escape') {
-      setEditingName(false)
-      setOpen(false)
     }
+  }
+
+  function clearOrClose(): void {
+    if (query()) {
+      setSelectedLabel('')
+      setQuery('')
+      input.focus()
+      return
+    }
+    dismiss()
+  }
+
+  // Sluiten zonder keuze: het veld toont weer de huidige plaats.
+  function dismiss(): void {
+    closeWith(props.locationLabel)
+    setEditingName(false)
+    input.blur()
+  }
+
+  // Een tik buiten het open paneel sluit het en bereikt de kaart niet (geen pan, geen locatiekeuze).
+  function swallowOutside(event: Event): void {
+    event.preventDefault()
+    event.stopPropagation()
   }
 
   function startSaving(): void {
     setCustomName(props.locationLabel)
+    // De ster verdwijnt zodra het paneel opent; zonder focus op het veld klapt het meteen dicht.
+    input.focus()
     setEditingName(true)
     setOpen(true)
     window.requestAnimationFrame(() => nameInput?.select())
@@ -167,81 +192,96 @@ export default function LocationSearch(props: Props) {
   return <div
     ref={root}
     class="search"
-    classList={{ 'saved-current': Boolean(savedCurrent()) }}
+    classList={{ 'saved-current': Boolean(savedCurrent()), open: open(), 'search-wrap': props.variant === 'wrap' }}
     onFocusIn={() => { window.clearTimeout(timer); setFocused(true) }}
+    onKeyDown={(event) => { if (event.key === 'Escape' && open()) dismiss() }}
     onFocusOut={(event) => {
       if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return
       setFocused(false)
       timer = window.setTimeout(() => { setOpen(false); setEditingName(false) }, 100)
     }}
   >
-    <Search class="search-icon" {...INLINE_ICON} />
-    <input
-      type="text"
-      inputMode="search"
-      value={query()}
-      onInput={(event) => { setSelectedLabel(''); setQuery(event.currentTarget.value); setOpen(true) }}
-      onFocus={() => setOpen(true)}
-      onKeyDown={keyDown}
-      placeholder="Zoek plaats"
-      aria-label="Zoek plaats"
-      aria-autocomplete="list"
-      aria-controls="location-results"
-      aria-expanded={open()}
-      aria-activedescendant={active() >= 0 ? `location-${active()}` : undefined}
-    />
-    <Show when={!savedCurrent()}><button
-      class="save-place"
-      type="button"
-      onClick={startSaving}
-      disabled={!selectedLabel()}
-      aria-label="Deze plaats opslaan"
-      title="Plaats opslaan"
-    ><Star {...BUTTON_ICON} /></button></Show>
     <Show when={open()}>
-      <div ref={results} class="search-results" id="location-results" role="listbox" tabIndex={-1}>
-        <button class="quick-location" role="option" aria-selected="false" onClick={() => { setOpen(false); props.onLocate() }}>
-          <span><LocateFixed {...INLINE_ICON} /> Mijn locatie</span><small>apparaat</small>
-        </button>
-        <Show when={visibleSaved().length}>
-          <p class="search-section-label">Opgeslagen</p>
-          <For each={visibleSaved()}>{(place) =>
-            <div class="saved-location-row">
-              <Show when={confirmingRemove() === place.id} fallback={<>
-                <button class="saved-location" role="option" aria-selected={samePlace(place, props.location)} onClick={() => commitSaved(place)}>
-                  <span><Star {...INLINE_ICON} fill="currentColor" /> {place.name}</span><small>{place.sourceLabel === place.name ? 'opgeslagen' : place.sourceLabel}</small>
-                </button>
-                <button class="remove-saved" type="button" data-place={place.id} onClick={() => askRemove(place)} aria-label={`${place.name} verwijderen uit opgeslagen plaatsen`} title="Verwijderen"><Trash2 {...BUTTON_ICON} /></button>
-              </>}>
-                <div class="confirm-remove" role="group" aria-label={`${place.name} verwijderen?`} onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); cancelRemove(place) } }}>
-                  <span><strong>{place.name}</strong> verwijderen?</span>
-                  <button type="button" class="confirm-remove-yes" onClick={() => remove(place)}>Ja</button>
-                  <button type="button" class="confirm-remove-no" onClick={() => cancelRemove(place)}>Nee</button>
-                </div>
-              </Show>
-            </div>
-          }</For>
-        </Show>
-        <Show when={editingName()}>
-          <form class="save-place-editor" onSubmit={save}>
-            <label for="saved-place-name">Naam voor deze plaats</label>
-            <div><input ref={nameInput} id="saved-place-name" value={customName()} maxlength="80" onInput={(event) => setCustomName(event.currentTarget.value)} /><button type="submit">Opslaan</button></div>
-          </form>
-        </Show>
-        <Show when={suggestions().length}><p class="search-section-label">Plaatsen</p></Show>
-        <For each={suggestions()}>{(suggestion, index) =>
-          <button
-            id={`location-${index()}`}
-            role="option"
-            aria-selected={index() === active()}
-            classList={{ active: index() === active() }}
-            onClick={() => void choose(suggestion)}
-          >
-            <span>{suggestion.label}</span><small>{suggestion.detail ?? suggestion.type}</small>
-          </button>
-        }</For>
-        <Show when={message()}><p class="search-message" aria-live="polite">{message()}</p></Show>
-      </div>
+      <div class="search-scrim" aria-hidden="true" onPointerDown={swallowOutside} onClick={(event) => { swallowOutside(event); dismiss() }} />
     </Show>
+    <div class="search-box">
+      <Search class="search-icon" {...INLINE_ICON} />
+      <input
+        ref={input}
+        class="search-field"
+        type="text"
+        inputMode="search"
+        value={query()}
+        onInput={(event) => { setSelectedLabel(''); setQuery(event.currentTarget.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={keyDown}
+        placeholder="Zoek plaats"
+        aria-label="Zoek plaats"
+        aria-autocomplete="list"
+        aria-controls="location-results"
+        aria-expanded={open()}
+        aria-activedescendant={active() >= 0 ? `location-${active()}` : undefined}
+      />
+      <Show when={open()}><button
+        class="search-clear"
+        type="button"
+        onClick={clearOrClose}
+        aria-label={query() ? 'Zoektekst wissen' : 'Zoeken sluiten'}
+        title={query() ? 'Wissen' : 'Sluiten'}
+      ><X {...BUTTON_ICON} /></button></Show>
+      <Show when={!savedCurrent() && !open()}><button
+        class="save-place"
+        type="button"
+        onClick={startSaving}
+        disabled={!selectedLabel()}
+        aria-label="Deze plaats opslaan"
+        title="Plaats opslaan"
+      ><Star {...BUTTON_ICON} /></button></Show>
+      <Show when={open()}>
+        <div ref={results} class="search-results" id="location-results" role="listbox" tabIndex={-1}>
+          <button class="quick-location" role="option" aria-selected="false" onClick={() => { setOpen(false); props.onLocate() }}>
+            <span><LocateFixed {...INLINE_ICON} /> Mijn locatie</span><small>apparaat</small>
+          </button>
+          <Show when={visibleSaved().length}>
+            <p class="search-section-label">Opgeslagen</p>
+            <For each={visibleSaved()}>{(place) =>
+              <div class="saved-location-row">
+                <Show when={confirmingRemove() === place.id} fallback={<>
+                  <button class="saved-location" role="option" aria-selected={samePlace(place, props.location)} onClick={() => commitSaved(place)}>
+                    <span><Star {...INLINE_ICON} fill="currentColor" /> {place.name}</span><small>{place.sourceLabel === place.name ? 'opgeslagen' : place.sourceLabel}</small>
+                  </button>
+                  <button class="remove-saved" type="button" data-place={place.id} onClick={() => askRemove(place)} aria-label={`${place.name} verwijderen uit opgeslagen plaatsen`} title="Verwijderen"><Trash2 {...BUTTON_ICON} /></button>
+                </>}>
+                  <div class="confirm-remove" role="group" aria-label={`${place.name} verwijderen?`} onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); cancelRemove(place) } }}>
+                    <span><strong>{place.name}</strong> verwijderen?</span>
+                    <button type="button" class="confirm-remove-yes" onClick={() => remove(place)}>Ja</button>
+                    <button type="button" class="confirm-remove-no" onClick={() => cancelRemove(place)}>Nee</button>
+                  </div>
+                </Show>
+              </div>
+            }</For>
+          </Show>
+          <Show when={editingName()}>
+            <form class="save-place-editor" onSubmit={save}>
+              <label for="saved-place-name">Naam voor deze plaats</label>
+              <div><input ref={nameInput} id="saved-place-name" value={customName()} maxlength="80" onInput={(event) => setCustomName(event.currentTarget.value)} /><button type="submit">Opslaan</button></div>
+            </form>
+          </Show>
+          <Show when={suggestions().length}><p class="search-section-label">Plaatsen</p></Show>
+          <For each={suggestions()}>{(suggestion, index) =>
+            <button
+              id={`location-${index()}`}
+              role="option"
+              aria-selected={index() === active()}
+              classList={{ active: index() === active() }}
+              onClick={() => void choose(suggestion)}
+            >
+              <span>{suggestion.label}</span><small>{suggestion.detail ?? suggestion.type}</small>
+            </button>
+          }</For>
+          <Show when={message()}><p class="search-message" aria-live="polite">{message()}</p></Show>
+        </div>
+      </Show>
+    </div>
   </div>
 }
