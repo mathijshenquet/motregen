@@ -109,6 +109,13 @@ const REBASE_ZOOM = 0.5
 const REBASE_MARGIN = 0.05
 const FILL_MAX_PHASE = 0.6
 const SPAWN_ATTEMPTS = 32
+// Loefzijde (U24): kies de respawncel onder UPWIND_CANDIDATES lege cellen, met voorkeur voor loef.
+const UPWIND_CANDIDATES = 1
+const UPWIND_WEIGHT = 1
+// Loefzijde (U24): dit deel van de natuurlijke respawns komt volwassen net buiten de loefrand binnen.
+const RIM_SHARE = 0
+const RIM_DEPTH_PX = 3
+const RIM_MAX_WAIT_SECONDS = 1
 // Boven deze windsnelheid (m/s) dimt speedDamping de kop.
 const DAMPING_REFERENCE_SPEED = 3
 const MERCATOR_SCALE = 1 / (2 * Math.PI * 6_378_137)
@@ -289,6 +296,8 @@ export class WindLayer implements CustomLayerInterface {
   private shown = new Float32Array(MAX_PARTICLES)
   /** 1 = leven voorbij, de kop dooft uit (telt mee in `retiring`). */
   private dying = new Uint8Array(MAX_PARTICLES)
+  /** 1 = geboren buiten de loefrand en nog niet binnen: mag buiten beeld leven tot hij binnenkomt. */
+  private entering = new Uint8Array(MAX_PARTICLES)
   private instanceData = new ArrayBuffer(MAX_PARTICLES * INSTANCE_BYTES)
   private instanceFloats = new Float32Array(this.instanceData)
   private instanceBytes = new Uint8Array(this.instanceData)
@@ -621,8 +630,12 @@ export class WindLayer implements CustomLayerInterface {
         stepPx = Math.hypot((nextX - oldX) * unitX, (nextY - oldY) * unitY) * worldPx
         speed = Math.hypot(this.east, this.north)
       }
-      const outside = nextX < this.particleBounds.west || nextX > this.particleBounds.east ||
+      let outside = nextX < this.particleBounds.west || nextX > this.particleBounds.east ||
         nextY < this.particleBounds.north || nextY > this.particleBounds.south
+      if (this.entering[index] === 1) {
+        if (!outside) this.entering[index] = 0
+        else if (life.age < RIM_MAX_WAIT_SECONDS) outside = false
+      }
       const offset = index * INSTANCE_BYTES / 4
       this.lifeLimit.maxAge = tuning.maxAge * this.lifeScales[index]!
       if (!dying && (outside || !advanceLife(life, stepPx, seconds, this.lifeLimit))) {
@@ -679,13 +692,15 @@ export class WindLayer implements CustomLayerInterface {
   // compenseert dat in de kopintensiteit.
   private respawn(index: number, delaySeconds: number, fill = false): void {
     const bounds = this.particleBounds
-    let cell = 0
-    const [x, y] = pickSpawn(SPAWN_ATTEMPTS, () => {
-      cell = leastOccupiedCell(this.cellCounts, this.columns * this.rows, this.random())
+    this.entering[index] = 0
+    const rim = !fill && delaySeconds === 0 && RIM_SHARE > 0 && this.random() < RIM_SHARE ? this.rimSpawn() : undefined
+    let cell = -1
+    const [x, y] = rim ?? pickSpawn(SPAWN_ATTEMPTS, () => {
+      cell = fill ? leastOccupiedCell(this.cellCounts, this.columns * this.rows, this.random()) : this.upwindCell()
       const [u, v] = jitteredCellPoint(cell, this.columns, this.rows, fill ? 1 : this.tuning.spawnJitter, () => this.random())
       return [bounds.west + u * (bounds.east - bounds.west), bounds.north + v * (bounds.south - bounds.north)]
     }, () => this.random(), (candidateX, candidateY) => !this.left || this.sampleWind(candidateX, candidateY) ? 1 : 0)
-    this.cellCounts[cell]!++
+    if (cell >= 0) this.cellCounts[cell]!++
     this.x[index] = x
     this.y[index] = y
     this.ages[index] = -delaySeconds
@@ -698,6 +713,12 @@ export class WindLayer implements CustomLayerInterface {
     this.rampRates[index] = 0
     this.shown[index] = 0
     this.dying[index] = 0
+    if (rim) {
+      // Volwassen binnenkomer: de fade-in is buiten beeld al voorbij.
+      this.entering[index] = 1
+      this.travelled[index] = this.tuning.fadeInPx
+      this.distances[index]! += this.tuning.fadeInPx
+    }
     if (fill) {
       // Een willekeurige levensfase in afstand én leeftijd, anders sterven alle aanvullers van
       // één zoomstap tegelijk: bij zwakke wind (land) is maxAge de doodsoorzaak (U20).
@@ -711,6 +732,62 @@ export class WindLayer implements CustomLayerInterface {
     const offset = index * INSTANCE_BYTES / 4
     this.instanceFloats[offset + 2] = 0.5 + (this.grid.x0 + this.grid.dx * this.grid.width * x) * MERCATOR_SCALE
     this.instanceFloats[offset + 3] = 0.5 - (this.grid.y0 + this.grid.dy * this.grid.height * y) * MERCATOR_SCALE
+  }
+
+  /** Leegste cel; met UPWIND_CANDIDATES > 1 de meest loefwaartse onder even lege kandidaten. */
+  private upwindCell(): number {
+    const cells = this.columns * this.rows
+    let best = leastOccupiedCell(this.cellCounts, cells, this.random())
+    if (UPWIND_CANDIDATES <= 1) return best
+    let bestScore = this.cellScore(best)
+    for (let attempt = 1; attempt < UPWIND_CANDIDATES; attempt++) {
+      const cell = leastOccupiedCell(this.cellCounts, cells, this.random())
+      const score = this.cellScore(cell)
+      if (score > bestScore) [best, bestScore] = [cell, score]
+    }
+    return best
+  }
+
+  /** −bezetting + λ · loefwaartsheid (−1 lij … 1 loef, t.o.v. de lokale wind in schermruimte). */
+  private cellScore(cell: number): number {
+    const bounds = this.particleBounds
+    const u = (cell % this.columns + 0.5) / this.columns
+    const v = (Math.floor(cell / this.columns) + 0.5) / this.rows
+    let upstream = 0
+    if (this.sampleWind(bounds.west + u * (bounds.east - bounds.west), bounds.north + v * (bounds.south - bounds.north))) {
+      const aspect = this.columns / this.rows
+      const speed = Math.hypot(this.east, this.north)
+      if (speed > 0) upstream = -((u - 0.5) * aspect * this.east - (v - 0.5) * this.north) / speed / (0.5 * Math.hypot(aspect, 1))
+    }
+    return -this.cellCounts[cell]! + UPWIND_WEIGHT * upstream
+  }
+
+  /** Punt net buiten de rand waar de wind het beeld in waait, of undefined als dat niet lukt (windstil). */
+  private rimSpawn(): [number, number] | undefined {
+    const bounds = this.particleBounds
+    const width = bounds.east - bounds.west
+    const height = bounds.south - bounds.north
+    const canvas = this.map?.getCanvas()
+    const cssWidth = Math.max(1, canvas?.clientWidth ?? 1)
+    const cssHeight = Math.max(1, canvas?.clientHeight ?? 1)
+    for (let attempt = 0; attempt < SPAWN_ATTEMPTS; attempt++) {
+      // Rand naar lengte (in px) gewogen; `inX/inY` = binnenwaartse normaal in gridfracties (y omlaag).
+      const along = this.random() * 2 * (cssWidth + cssHeight)
+      const depth = RIM_DEPTH_PX * (0.5 + this.random())
+      let x: number
+      let y: number
+      let inX = 0
+      let inY = 0
+      if (along < cssWidth) [x, y, inY] = [bounds.west + along / cssWidth * width, bounds.north - depth / cssHeight * height, 1]
+      else if (along < 2 * cssWidth) [x, y, inY] = [bounds.west + (along - cssWidth) / cssWidth * width, bounds.south + depth / cssHeight * height, -1]
+      else if (along < 2 * cssWidth + cssHeight) [x, y, inX] = [bounds.west - depth / cssWidth * width, bounds.north + (along - 2 * cssWidth) / cssHeight * height, 1]
+      else [x, y, inX] = [bounds.east + depth / cssWidth * width, bounds.north + (along - 2 * cssWidth - cssHeight) / cssHeight * height, -1]
+      if (!this.sampleWind(x, y)) continue
+      const speed = Math.hypot(this.east, this.north)
+      // Instroom ∝ component van de wind loodrecht de rand in (noord is −y).
+      if (speed > 0 && this.random() < (this.east * inX - this.north * inY) / speed) return [x, y]
+    }
+    return undefined
   }
 
   /**
@@ -815,7 +892,7 @@ export class WindLayer implements CustomLayerInterface {
   private removeSlot(index: number): void {
     const last = --this.active
     if (index === last) return
-    for (const values of [this.x, this.y, this.ages, this.travelled, this.distances, this.lifeScales, this.ramps, this.rampRates, this.shown, this.dying]) values[index] = values[last]!
+    for (const values of [this.x, this.y, this.ages, this.travelled, this.distances, this.lifeScales, this.ramps, this.rampRates, this.shown, this.dying, this.entering]) values[index] = values[last]!
     this.instanceBytes.copyWithin(index * INSTANCE_BYTES, last * INSTANCE_BYTES, (last + 1) * INSTANCE_BYTES)
   }
 

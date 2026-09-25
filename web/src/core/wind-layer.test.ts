@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   advanceLife,
+  anchorExhausted,
   bufferDecay,
   cellDispersion,
   DEFAULT_WIND_TUNING,
+  downwindProfile,
   expectedLifetime,
   jitteredCellPoint,
   leastOccupiedCell,
@@ -257,6 +259,35 @@ describe('wind trail buffer', () => {
     const panned = trailUvTransform(view, { ...view, centerX: 0.5 + 80 / (512 * 2 ** 6) })
     expect(panned.offsetX).toBeCloseTo(0.1)
     expect(trailUvTransform(view, { ...view, zoom: 5 }).retention).toBeCloseTo(0.5)
+  })
+
+  it('keeps the trail buffer anchored through small moves and reanchors on a large zoom or pan (U24)', () => {
+    const anchor = { centerX: 0.5, centerY: 0.5, zoom: 7, width: 800, height: 600 }
+    const exhausted = (current: typeof anchor) => anchorExhausted(anchor, current, trailUvTransform(anchor, current))
+    expect(exhausted({ ...anchor, zoom: 7.3 })).toBe(false)
+    expect(exhausted({ ...anchor, zoom: 7.6 })).toBe(true)
+    // Uitzoomen: het beeld valt meteen buiten het anker, na ~0,07 zoomniveau voorbij de marge.
+    expect(exhausted({ ...anchor, zoom: 6.97 })).toBe(false)
+    expect(exhausted({ ...anchor, zoom: 6.8 })).toBe(true)
+    const world = 512 * 2 ** 7
+    expect(exhausted({ ...anchor, centerX: 0.5 + 30 / world })).toBe(false)
+    expect(exhausted({ ...anchor, centerX: 0.5 + 60 / world })).toBe(true)
+  })
+})
+
+describe('wind profile (U24)', () => {
+  it('measures density from windward to leeward in equal-area bands', () => {
+    const us: number[] = []
+    const vs: number[] = []
+    for (let row = 0; row < 40; row++) for (let column = 0; column < 40; column++) { us.push((column + 0.5) / 40); vs.push((row + 0.5) / 40) }
+    const uniform = downwindProfile(us, vs, us.map(() => 1), 1, 0, 1.6)
+    expect(uniform.ratio).toBeCloseTo(1, 1)
+    for (const value of uniform.density) expect(value).toBeCloseTo(1, 0)
+    // Westenwind (dx > 0): lege westrand = lage loef/lij; bij oostenwind is dezelfde rand de lij.
+    const keep = us.map((u) => u > 0.2)
+    const pick = <T>(values: T[]) => values.filter((_, index) => keep[index])
+    expect(downwindProfile(pick(us), pick(vs), pick(us).map(() => 1), 1, 0, 1.6).ratio).toBeLessThan(0.1)
+    expect(downwindProfile(pick(us), pick(vs), pick(us).map(() => 1), -1, 0, 1.6).ratio).toBeGreaterThan(10)
   })
 })
 

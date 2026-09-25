@@ -8,6 +8,8 @@ interface Props {
   isolines?: () => IsolineCounters
   windTuning?: WindTuning
   onWindTuning?: (tuning: WindTuning) => void
+  /** Windmeting (U24: loef/lij-profiel) voor de JSON-export. */
+  windStats?: () => unknown
 }
 
 export default function PerfHud(props: Props) {
@@ -33,7 +35,7 @@ export default function PerfHud(props: Props) {
   const [windCopied, setWindCopied] = createSignal(false)
 
   async function copyDump(): Promise<void> {
-    await copyText(JSON.stringify(props.monitor.snapshot(), null, 2))
+    await copyText(JSON.stringify({ ...props.monitor.snapshot(), wind: props.windStats?.() }, null, 2))
     setCopied(true)
     window.setTimeout(() => setCopied(false), 1_500)
   }
