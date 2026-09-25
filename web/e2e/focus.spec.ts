@@ -190,7 +190,7 @@ test('temperature focus desaturates only the basemap canvas and fills the bands,
   await heading(page).blur()
   await page.mouse.move(5, 5)
   await expect(shell(page)).toHaveAttribute('data-focus', '1.00')
-  expect(await saturation(page)).toBeLessThan(1)
+  await expect.poll(() => saturation(page)).toBeCloseTo(0.55, 2)
   expect(await page.locator('.maplibregl-canvas').evaluate((canvas) => getComputedStyle(canvas).filter)).toMatch(/^saturate\(0\.\d+\)$/)
   // De overlays (regen, wind, isolijnen) zijn eigen canvassen en blijven verzadigd.
   for (const filter of await page.locator('.map-overlay').evaluateAll((canvases) => canvases.map((canvas) => getComputedStyle(canvas).filter))) expect(filter).toBe('none')
@@ -201,9 +201,10 @@ test('temperature focus desaturates only the basemap canvas and fills the bands,
   await heading(page).blur()
   await page.mouse.move(5, 5)
   await expect(shell(page)).toHaveAttribute('data-focus', '0.00')
-  expect(await saturation(page)).toBe(1)
+  // data-focus rondt af; de tween loopt nog een paar frames door.
+  await expect.poll(() => saturation(page)).toBe(1)
   expect(await page.locator('.maplibregl-canvas').evaluate((canvas) => getComputedStyle(canvas).filter)).toBe('none')
-  expect(await fillCoverage(page)).toBe(0)
+  await expect.poll(() => fillCoverage(page)).toBe(0)
 })
 
 test('pinned focus at rest does no contour or worker work', async ({ page }, testInfo) => {
