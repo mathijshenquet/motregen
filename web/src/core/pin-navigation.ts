@@ -40,10 +40,11 @@ export interface PinNavigationOptions {
   marker: Marker
   viewport: () => Viewport
   onDrop: (lngLat: LngLat) => void
+  onDoubleTap?: () => void
 }
 
 /** Pin slepen (met edge-scroll) en dubbeltik-centreren; MapLibre's eigen handlers zien de pin niet. */
-export function attachPinNavigation({ map, marker, viewport, onDrop }: PinNavigationOptions): () => void {
+export function attachPinNavigation({ map, marker, viewport, onDrop, onDoubleTap }: PinNavigationOptions): () => void {
   const element = marker.getElement()
   element.classList.add('location-pin')
   let drag: {
@@ -97,6 +98,7 @@ export function attachPinNavigation({ map, marker, viewport, onDrop }: PinNaviga
     if (lastTap && now - lastTap.time < doubleTapMs && distance(point, lastTap.point) < doubleTapDistance) {
       lastTap = undefined
       map.easeTo({ center: marker.getLngLat(), duration: 450 })
+      onDoubleTap?.()
     } else {
       lastTap = { time: now, point }
     }

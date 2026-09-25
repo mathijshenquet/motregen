@@ -1186,7 +1186,11 @@ export default function App() {
         map,
         marker,
         viewport: mapViewport,
-        onDrop: (dropped) => pick(dropped.lng, dropped.lat, nearestPlace(dropped.lng, dropped.lat).name),
+        onDrop: (dropped) => {
+          usage.mark('pin')
+          pick(dropped.lng, dropped.lat, nearestPlace(dropped.lng, dropped.lat).name)
+        },
+        onDoubleTap: () => usage.mark('pin'),
       })
     }
     marker?.setLngLat([lng, lat])

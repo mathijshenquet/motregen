@@ -1,7 +1,7 @@
 /**
  * Anoniem gebruiksbaken (MIP-13). De velden van `UsageBody` zijn het privacycontract: alleen
  * booleans en kleine enums, geen tijdstempels, coördinaten, plaatsnamen, IDs of UA. Wie een veld
- * toevoegt, past ook `USAGE_FIELDS`, `docs/analytics.md` en zo nodig de About-tekst aan.
+ * toevoegt, past ook `USAGE_FIELDS`, `USAGE_SCHEMA_VERSION`, `docs/analytics.md` en zo nodig de About-tekst aan.
  */
 
 export const USAGE_FEATURES = [
@@ -11,7 +11,7 @@ export const USAGE_FEATURES = [
   'search', // zoekresultaat gekozen
   'geo', // geolocatie gelukt
   'fav', // favoriet opgeslagen
-  'pin', // pin verplaatst door op de kaart te tikken
+  'pin', // pin gebruikt: tik op de kaart, pin gesleept (loslaten) of dubbeltik-centreren
   'play', // afspelen gestart
   'scrub', // tijd gescrubd
   'history', // historie in de tabel geopend
@@ -31,7 +31,11 @@ export type UsageWidth = typeof USAGE_WIDTHS[number]
 export type UsageDuration = typeof USAGE_DURATIONS[number]
 
 /** Alleen gebruikte features staan erin (als true): een ontbrekend veld is "niet gebruikt", zo blijft het baken < 200 B. */
+export const USAGE_SCHEMA_VERSION = 1
+
 export type UsageBody = Partial<Record<UsageFeature, true>> & {
+  /** Schemaversie: ophogen bij elke wijziging van deze velden, zodat het aggregaat oude en nieuwe regels onderscheidt. */
+  v: typeof USAGE_SCHEMA_VERSION
   /** Laatst gekozen bereik via de bereikknop; null als die knop niet gebruikt is. */
   range: UsageRange | null
   theme: UsageTheme
@@ -41,7 +45,7 @@ export type UsageBody = Partial<Record<UsageFeature, true>> & {
   dur: UsageDuration
 }
 
-export const USAGE_FIELDS = [...USAGE_FEATURES, 'range', 'theme', 'coarse', 'width', 'dur'] as const
+export const USAGE_FIELDS = ['v', ...USAGE_FEATURES, 'range', 'theme', 'coarse', 'width', 'dur'] as const
 
 export interface UsageEnvironment {
   /** Milliseconden sinds het begin van het pagina-leven (performance.now). */
@@ -86,6 +90,7 @@ export function createUsageTracker(environment: UsageEnvironment, theme: UsageTh
     sessionBody() {
       const body = Object.fromEntries(USAGE_FEATURES.filter((feature) => features.has(feature)).map((feature) => [feature, true]))
       return {
+        v: USAGE_SCHEMA_VERSION,
         ...body,
         range,
         theme: currentTheme,

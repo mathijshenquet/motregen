@@ -36,13 +36,14 @@ function install(tracker: ReturnType<typeof createUsageTracker>) {
 }
 
 const allowedValues: Record<string, ReadonlyArray<unknown>> = {
+  v: [1],
   range: [null, ...USAGE_RANGES],
   theme: USAGE_THEMES,
   width: USAGE_WIDTHS,
   dur: USAGE_DURATIONS,
 }
 
-const REQUIRED_FIELDS = ['range', 'theme', 'coarse', 'width', 'dur']
+const REQUIRED_FIELDS = ['v', 'range', 'theme', 'coarse', 'width', 'dur']
 
 function expectWhitelisted(body: Record<string, unknown>): void {
   for (const key of Object.keys(body)) expect(USAGE_FIELDS).toContain(key)

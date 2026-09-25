@@ -46,7 +46,7 @@ describe('about dialog', () => {
     render(() => <About theme="light" onTheme={() => undefined} onOpen={onOpen} onTripleTap={() => undefined} />)
     fireEvent.click(screen.getByRole('button', { name: 'Over motregen en instellingen' }), { detail: 0 })
     expect(onOpen).toHaveBeenCalledTimes(1)
-    expect(screen.getByText('Anoniem geteld: sessies en gebruikte functies, zonder IP of identificatie; locatie en favorieten blijven in je browser')).toBeTruthy()
+    expect(screen.getByText('Geen tracking, geen advertenties. Anoniem geteld: sessies en gebruikte functies, zonder IP of identificatie; locatie en favorieten blijven in je browser')).toBeTruthy()
   })
 
   it('closes on a backdrop click but not on a click inside', () => {
