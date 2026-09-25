@@ -74,3 +74,8 @@
      (productie; EnvironmentFile van ingest én motregen-cams).
   Daarna: `motregen-cams --provider ads --record <pad>` en de fixture vervangen door die echte download.
 - Zonder sleutel gebruikt productie Open-Meteo (alleen niet-commercieel); `MOTREGEN_CAMS_PROVIDER=ads` maakt het hard.
+
+## 2026-09-25 — gates op gerebasete head (op c719a82)
+- Head 0b1495b: CARGO-TEST-EXIT 0, CLIPPY-EXIT 0, FMT-EXIT 0, FLAKE-CHECK-EXIT 0.
+  Repro: `cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings;
+  cargo fmt --all --check; nix flake check -L` (elk met `; echo "<GATE>-EXIT: $?"`).
