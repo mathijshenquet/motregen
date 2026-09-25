@@ -1,10 +1,13 @@
 // Per-icoon deep imports: de barrel zou in de dev-server alle ~1700 iconen als losse modules laden.
+export { default as ArrowUp } from 'lucide-solid/icons/arrow-up'
 export { default as Clock } from 'lucide-solid/icons/clock'
 export { default as CloudRain } from 'lucide-solid/icons/cloud-rain'
 export { default as CloudSun } from 'lucide-solid/icons/cloud-sun'
+export { default as Droplet } from 'lucide-solid/icons/droplet'
 export { default as Droplets } from 'lucide-solid/icons/droplets'
 export { default as LocateFixed } from 'lucide-solid/icons/locate-fixed'
 export { default as Moon } from 'lucide-solid/icons/moon'
+export { default as Navigation2 } from 'lucide-solid/icons/navigation-2'
 export { default as Pause } from 'lucide-solid/icons/pause'
 export { default as Play } from 'lucide-solid/icons/play'
 export { default as Search } from 'lucide-solid/icons/search'

@@ -1,3 +1,5 @@
+import { solarPosition } from './solar'
+
 export type UvLevel = 'laag' | 'matig' | 'hoog' | 'zeer hoog' | 'extreem'
 
 // WHO/KNMI-klassen van de UV-index; `key` is de CSS-kleurnaam.
@@ -54,6 +56,14 @@ export function clearSkyUv(mu: number, epoch: number): number {
   const dayOfYear = (epoch - Date.UTC(year, 0, 1)) / day + 1
   const ozone = 1 - CLEAR_SKY_OZONE_AMPLITUDE * Math.cos(2 * Math.PI * (dayOfYear - CLEAR_SKY_OZONE_PEAK_DAY) / 365)
   return CLEAR_SKY_UV_SCALE * Math.pow(mu, CLEAR_SKY_UV_EXPONENT) * ozone
+}
+
+/**
+ * The day's ceiling for the UV bar: clear-sky UV with the sun at its highest that day,
+ * where sin(noon elevation) = cos(latitude − declination).
+ */
+export function dailyClearSkyUvMax(epoch: number, latitude: number): number {
+  return clearSkyUv(Math.cos(latitude * Math.PI / 180 - solarPosition(epoch).declination), epoch)
 }
 
 /** Haurwitz clear-sky global horizontal irradiance in W/m². */

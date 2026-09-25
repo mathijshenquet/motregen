@@ -494,14 +494,14 @@ button { color: inherit; cursor: pointer; }
 .regimes span { position: absolute; top: 0; bottom: 0; border-right: 2px solid var(--surface); border-radius: 3px; background: color-mix(in srgb, var(--history) 55%, transparent); }
 .regimes .forecast { background: color-mix(in srgb, var(--forecast) 60%, transparent); }
 
-.forecast-panel { padding: 0 16px 24px; background: var(--surface); }
+.forecast-panel { padding: 0 8px 24px; background: var(--surface); }
 .table-scroll { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 th { padding: 8px 6px; border-bottom: 1px solid var(--line-strong); color: var(--muted); font-size: 9px; letter-spacing: .08em; text-align: right; text-transform: uppercase; }
 th:first-child { padding-left: 0; text-align: left; }
 td { padding: 10px 6px; border-bottom: 1px solid var(--line); font-size: 13px; text-align: right; white-space: nowrap; }
 td:first-child { padding-left: 0; text-align: left; }
-td:first-child strong { display: inline-block; min-width: 44px; font-size: 13px; }
+.time-label strong { display: inline-block; min-width: 44px; font-size: 13px; }
 .forecast-table th { padding: 6px 2px 5px; vertical-align: bottom; letter-spacing: 0; text-align: center; text-transform: none; }
 .forecast-table th:first-child { padding-left: 0; text-align: left; }
 .column-mode { display: inline-flex; min-width: 44px; flex-direction: column; align-items: center; gap: 3px; padding: 6px 6px 5px; border: 0; border-radius: 10px; background: none; color: var(--muted); font: inherit; font-size: 12px; font-weight: 700; line-height: 1; }
@@ -517,14 +517,23 @@ button.column-mode { width: 100%; cursor: pointer; }
 .forecast-table { --mode-tint: linear-gradient(color-mix(in srgb, var(--accent-soft) 40%, transparent), color-mix(in srgb, var(--accent-soft) 40%, transparent)); }
 .forecast-table[data-mode="temperature"] :is(.temperature-heading, .temperature-cell),
 .forecast-table[data-mode="wind"] :is(.wind-heading, .wind-cell) { background-image: var(--mode-tint); }
+.forecast-table td { text-align: center; }
+.forecast-table :is(th, td):first-child { padding-left: 8px; text-align: left; }
+.forecast-table :is(th, td):last-child { padding-right: 8px; }
+/* Uur + weer krimpt tot zijn inhoud; de rest van de breedte verdeelt zich over de gecentreerde kolommen. */
+.forecast-table .weather-cell { width: 1%; }
 .time-weather { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
 .time-label { min-width: 0; }
-td:first-child span { color: var(--muted); font-size: 10px; text-transform: capitalize; }
+.weather-glyph { display: flex; min-width: 38px; flex-direction: column; align-items: center; }
+.rain-amount { color: var(--accent); font-size: 11px; font-weight: 720; line-height: 1.1; }
+.rain-amount small { font-size: 8.5px; font-weight: 600; }
+.time-label span { color: var(--muted); font-size: 10px; text-transform: capitalize; }
 tr.past-hour td { color: color-mix(in srgb, var(--text) 68%, var(--muted)); background: color-mix(in srgb, var(--surface-soft) 70%, var(--surface)); }
 tr.pending-hour td { color: var(--muted); }
 tr.current-hour td { border-bottom-color: color-mix(in srgb, var(--accent) 38%, var(--line)); background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface)); }
-tr.current-hour td:first-child { padding-left: 9px; box-shadow: inset 3px 0 var(--accent); }
-td:first-child span.now-label { color: var(--accent); font-weight: 820; letter-spacing: .06em; text-transform: uppercase; }
+/* De nu-markering staat in de 8 px-goot van de eerste kolom: de tijd springt niet in. */
+tr.current-hour td:first-child { box-shadow: inset 3px 0 var(--accent); }
+.time-label span.now-label { color: var(--accent); font-weight: 820; letter-spacing: .06em; text-transform: uppercase; }
 td small { color: var(--muted); font-size: 9px; }
 .weather-icon { width: 38px; height: 31px; display: block; flex: none; overflow: visible; }
 .weather-sun circle { fill: #f3b918; stroke: #d69b00; stroke-width: 1; }
@@ -548,11 +557,11 @@ td small { color: var(--muted); font-size: 9px; }
 [data-clear-level="very-high"] { --uv-clear-color: var(--uv-very-high); }
 [data-clear-level="extreme"] { --uv-clear-color: var(--uv-extreme); }
 .uv-bar { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 4px; row-gap: 3px; }
-/* Schaal 0–12: de WHO-klassen als vage kleurband onder de vulling (3, 6, 8, 11 = 25/50/66,7/91,7 %). */
+/* De WHO-klassen als vage kleurband onder de vulling; de grenzen 3, 6, 8, 11 schuiven mee met de schaal van de balk. */
 .uv-bar-track { display: block; position: relative; flex: 1 0 100%; align-self: center; min-width: 52px; height: 9px; border-radius: 999px; background: var(--surface-soft); box-shadow: inset 0 0 0 1px var(--line); }
 .uv-bar-track::before {
   position: absolute; inset: 0; border-radius: inherit; content: ''; opacity: .16;
-  background: linear-gradient(to right, var(--uv-low) 0 25%, var(--uv-moderate) 25% 50%, var(--uv-high) 50% 66.667%, var(--uv-very-high) 66.667% 91.667%, var(--uv-extreme) 91.667%);
+  background: linear-gradient(to right, var(--uv-low) 0 var(--uv-band-1), var(--uv-moderate) var(--uv-band-1) var(--uv-band-2), var(--uv-high) var(--uv-band-2) var(--uv-band-3), var(--uv-very-high) var(--uv-band-3) var(--uv-band-4), var(--uv-extreme) var(--uv-band-4));
 }
 .uv-bar-dark .uv-bar-track::before { opacity: 0; }
 .uv-bar-fill, .uv-bar-clear { position: absolute; top: 0; bottom: 0; left: 0; min-width: 3px; border-radius: inherit; }
@@ -566,16 +575,27 @@ td small { color: var(--muted); font-size: 9px; }
 .uv-bar-bare { display: block; }
 .uv-bar-bare .uv-bar-track { min-width: 0; height: 6px; }
 .uv-bar-bare .uv-bar-dot { width: 7px; height: 7px; border-width: 1.5px; }
-tr.sun-row td { padding: 3px 0 3px; border-bottom: 1px dashed var(--line); color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .04em; text-align: center; }
+.forecast-table tr.sun-row td { padding: 3px 0 3px; border-bottom: 1px dashed var(--line); color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .04em; text-align: center; }
 .sun-glyph { display: inline-block; width: 20px; height: 8px; margin: 0 6px 0 0; vertical-align: baseline; overflow: visible; }
 .sun-glyph-horizon { fill: none; stroke: var(--muted); stroke-linecap: round; stroke-width: 1.2; }
 .sun-glyph-disc { fill: #f3b918; stroke: #d69b00; stroke-width: .8; }
-td:first-child span.sun-mark { display: block; margin-top: 1px; color: #b07800; font-size: 9px; font-weight: 700; text-transform: none; }
-:root[data-theme="dark"] td:first-child span.sun-mark { color: #ffd86b; }
+.time-label span.sun-mark { display: block; margin-top: 1px; color: #b07800; font-size: 9px; font-weight: 700; text-transform: none; }
+:root[data-theme="dark"] .time-label span.sun-mark { color: #ffd86b; }
 .sun-mark .sun-glyph { width: 14px; height: 5.6px; margin: 0 3px 0 0; }
 .temperature-cell { font-size: 16px; font-weight: 720; letter-spacing: -.03em; }
 .air-temperature { display: block; color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: 0; }
 .wind-cell { color: var(--text); font-size: 11px; }
+.wind-reading { display: inline-flex; align-items: center; gap: 2px; }
+.wind-reading b { font-size: 13px; font-weight: 700; }
+.wind-reading small { margin-left: 1px; }
+.wind-arrow { flex: none; margin-right: 2px; color: var(--accent); }
+.wind-dial { display: inline-grid; width: 20px; height: 20px; flex: none; place-items: center; margin-right: 3px; border: 1.5px solid var(--line-strong); border-radius: 50%; color: var(--accent); }
+.wind-dial-text { display: inline-flex; flex-direction: column; align-items: flex-start; line-height: 1; }
+.wind-dial-text small { margin: 1px 0 0; }
+.dew-point { display: flex; align-items: center; justify-content: center; gap: 1px; }
+.dew-point svg { color: var(--accent); }
+.dew-point.muggy { color: #b85c00; font-weight: 700; }
+:root[data-theme="dark"] .dew-point.muggy { color: #ffb366; }
 
 /* Aanraakdoel ≥ 44 px: kleine knoppen krijgen een onzichtbare rand i.p.v. een groter uiterlijk. */
 @media (pointer: coarse) {
@@ -596,6 +616,11 @@ td:first-child span.sun-mark { display: block; margin-top: 1px; color: #b07800; 
   .column-mode { min-width: 0; padding-right: 3px; padding-left: 3px; font-size: 10px; }
 }
 
+/* Op 320 px scheelt de eenheid net de horizontale scroll; het label van de cel noemt Bft nog. */
+@media (max-width: 360px) {
+  .wind-reading:not(.wind-dial-reading) small { display: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .map-splash, .map-splash-veil, .map-splash-mark { transition-duration: 1ms; transition-delay: 0s; }
   .map-splash-mark img { animation: splash-breathe 2.4s ease-in-out infinite; }
@@ -614,12 +639,21 @@ td:first-child span.sun-mark { display: block; margin-top: 1px; color: #b07800; 
   .reading strong { font-size: 49px; }
   .scrubber { padding: 18px 24px 12px; }
   .scrub-surface { height: 232px; }
-  .forecast-panel { padding: 0 24px 36px; }
+  .forecast-panel { padding: 0 16px 36px; }
   .search { top: 18px; left: 18px; max-width: min(200px, calc(50% - var(--clock-half) - 26px)); }
   .search.open { width: min(380px, calc(100% - 90px)); }
   .map-brand { top: 18px; right: 18px; }
   .wind-debug { top: 112px; left: 18px; }
   th { position: sticky; top: -1px; z-index: 1; background: var(--surface); }
+}
+
+/* Desktop met muis: de scrubber blijft staan en alleen de tabel scrolt, zodat hij op de nu-rij kan openen
+   met de historie erboven. Touch houdt de doorlopende pagina (sticky scrubber) en de uitklaprij. */
+@media (min-width: 960px) and (pointer: fine) {
+  .dashboard { display: flex; flex-direction: column; overflow: hidden; }
+  .dashboard > * { flex: none; }
+  .forecast-panel { display: flex; min-height: 0; flex: 1 1 0; flex-direction: column; padding-bottom: 0; }
+  .table-scroll { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 36px; }
 }
 
 @media (min-width: 1450px) {
@@ -704,9 +738,9 @@ td:first-child span.sun-mark { display: block; margin-top: 1px; color: #b07800; 
 .freshness-refresh:hover:not(:disabled), .freshness-refresh:focus-visible { background: var(--accent-soft); outline: none; }
 .freshness-refresh:disabled { color: var(--muted); cursor: progress; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-tr.history-toggle-row td { padding: 0; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface-soft) 70%, var(--surface)); }
-.history-toggle { display: flex; width: 100%; align-items: center; gap: 7px; padding: 7px 0; border: 0; color: var(--muted); background: none; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-align: left; }
-.history-toggle:hover, .history-toggle:focus-visible { color: var(--text); }
+.forecast-table tr.history-toggle-row td { padding: 4px 0; border-bottom: 1px solid var(--line); text-align: center; }
+.history-toggle { display: inline-flex; align-items: center; padding: 5px 12px; border: 0; border-radius: 999px; color: var(--accent); background: none; font-size: 12px; font-weight: 650; cursor: pointer; }
+.history-toggle:hover, .history-toggle:focus-visible { background: var(--accent-soft); outline: none; }
 
 .map-overlay {
   position: absolute;
@@ -746,7 +780,7 @@ tr.history-toggle-row td { padding: 0; border-bottom: 1px solid var(--line); bac
   }
   .scrubber-toolbar { margin-bottom: 4px; }
   .scrub-surface { flex: 1 1 auto; height: auto; min-height: 0; }
-  .forecast-panel { padding: 0 max(12px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+  .forecast-panel { padding: 0 max(8px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
   th, td { padding-right: 3px; padding-left: 3px; }
   .search { top: calc(env(safe-area-inset-top) + 12px); left: calc(env(safe-area-inset-left) + 12px); max-width: min(200px, calc(50% - var(--clock-half) - 20px - env(safe-area-inset-left))); }
   .search.open { width: calc(100% - 74px - env(safe-area-inset-left) - env(safe-area-inset-right)); }
@@ -767,7 +801,7 @@ tr.history-toggle-row td { padding: 0; border-bottom: 1px solid var(--line); bac
   .scrubber { position: static; height: min(var(--scrubber-mobile), 100dvh); padding-bottom: 8px; }
   .search-results { max-height: calc(100dvh - 76px); }
   .sidebar-nav { top: calc(100dvh - 50px); }
-  .forecast-panel { padding-right: max(10px, env(safe-area-inset-right)); padding-left: 10px; }
+  .forecast-panel { padding-right: max(8px, env(safe-area-inset-right)); padding-left: 8px; }
 }
 
 @media (pointer: coarse) {

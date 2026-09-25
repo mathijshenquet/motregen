@@ -2,17 +2,18 @@ import { createEffect, createMemo, For, onCleanup, Show } from 'solid-js'
 import type { FocusKind } from '../core/focus-mode'
 import type { HourlyForecastRow } from '../core/forecast'
 import { solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
-import { uvReading } from '../core/uv'
-import { deriveWeatherIcon, summarizeWind } from '../core/weather'
-import { BUTTON_ICON, Clock, CloudRain, CloudSun, Droplets, Sun, Thermometer, Wind } from './icons'
+import { dailyClearSkyUvMax, uvReading } from '../core/uv'
+import { deriveWeatherIcon, dewPoint, summarizeWind, type WindSummary } from '../core/weather'
+import { ArrowUp, BUTTON_ICON, Clock, CloudSun, Droplet, Droplets, Navigation2, Sun, Thermometer, Wind } from './icons'
 import UvBar, { type UvBarVariant } from './UvBar'
 import WeatherIcon from './WeatherIcon'
 
 export type SunForm = 'row' | 'marker'
+export type WindForm = 'arrow' | 'dial'
+export type HumidityForm = 'text' | 'dew-point'
 
 export interface ForecastSeries {
   rain: Array<number | null>
-  rainLoaded: boolean[]
   uv: Array<number | null>
   uvClear: Array<number | null>
   radiation: Array<number | null>
@@ -31,13 +32,18 @@ interface Props {
   columns: { weather: boolean; uv: boolean; temperature: boolean; humidity: boolean; wind: boolean }
   // Rows after this epoch have not been fetched yet; scrolling near them asks for them.
   loadedUntil: number
-  // History rows stay folded (and unfetched) until the header row is tapped.
+  // Touch: history rows stay folded (and unfetched) until the toggle row is tapped. Desktop (inline):
+  // they sit above the now-row, the table opens scrolled to now and fetches them once one scrolls into view.
+  historyInline: boolean
   historyOpen: boolean
   historyLoaded: boolean
   onNeedRows: () => void
+  onNeedHistory: () => void
   onOpenHistory: () => void
   sunForm: SunForm
   uvBar: UvBarVariant
+  windForm: WindForm
+  humidityForm: HumidityForm
   // De koppenrij is de modebalk: Gevoel en Wind zijn kaartmodes (hover/toetsenbordfocus tijdelijk,
   // klik pint), Weer is de standaard en zet een pin uit.
   focus: {
@@ -87,8 +93,43 @@ export default function ForecastTable(props: Props) {
     for (const [epoch, element] of rowElements) if (epoch > until) observer?.observe(element)
   })
   const pastCount = () => props.rows.filter((row) => row.kind === 'past').length
-  const visibleRows = () => props.historyOpen ? props.rows : props.rows.filter((row) => row.kind !== 'past')
-  onCleanup(() => observer?.disconnect())
+  const visibleRows = () => props.historyInline || props.historyOpen ? props.rows : props.rows.filter((row) => row.kind !== 'past')
+  const historyObserver = typeof IntersectionObserver === 'undefined' ? undefined : new IntersectionObserver((entries) => {
+    if (!entries.some((entry) => entry.isIntersecting)) return
+    historyObserver?.disconnect()
+    props.onNeedHistory()
+  })
+  let scrolledToNow = false
+  // Eenmalig per tabel. De ref vuurt vóór de rij in de DOM hangt en de eerste rijen passen nog in de
+  // scroller: daarom een frame later zoeken en scrollen zodra tabel of scroller zo groeit dat het kan.
+  const scrollToNow = (element: HTMLTableRowElement) => {
+    let sized: ResizeObserver | undefined
+    onCleanup(() => sized?.disconnect())
+    requestAnimationFrame(() => {
+      const scroller = element.closest<HTMLElement>('.table-scroll')
+      const table = element.closest('table')
+      if (!props.historyInline || scrolledToNow || !scroller || !table || typeof ResizeObserver === 'undefined') return
+      sized = new ResizeObserver(() => {
+        if (scrolledToNow || !element.isConnected || scroller.scrollHeight <= scroller.clientHeight) return
+        scrolledToNow = true
+        sized?.disconnect()
+        const head = table.tHead?.getBoundingClientRect().height ?? 0
+        scroller.scrollTop += element.getBoundingClientRect().top - scroller.getBoundingClientRect().top - head
+        // Pas na het scrollen waarnemen: daarvoor staan de historierijen nog in beeld.
+        if (props.historyLoaded) return
+        for (const row of props.rows) {
+          const past = row.kind === 'past' ? rowElements.get(row.epoch) : undefined
+          if (past) historyObserver?.observe(past)
+        }
+      })
+      sized.observe(scroller)
+      sized.observe(table)
+    })
+  }
+  onCleanup(() => {
+    observer?.disconnect()
+    historyObserver?.disconnect()
+  })
 
   const columnCount = () => 2 + Number(props.columns.uv) + Number(props.columns.temperature) +
     Number(props.columns.humidity) + Number(props.columns.wind)
@@ -113,14 +154,12 @@ export default function ForecastTable(props: Props) {
       <Show when={props.columns.wind}><th class="wind-heading">
         <FocusHeading mode="wind" icon={Wind} label="Wind" title="Toon de wind op de kaart op volle sterkte" />
       </th></Show>
-      <th><span class="column-mode"><ColumnLabel icon={CloudRain} text="Regen" /></span></th>
     </tr></thead>
     <tbody>
-    <Show when={pastCount() > 0}>
+    <Show when={!props.historyInline && pastCount() > 0}>
       <tr class="history-toggle-row">
         <td colSpan={columnCount()}>
           <button type="button" class="history-toggle" aria-expanded={props.historyOpen} onClick={() => props.onOpenHistory()}>
-            <span aria-hidden="true">{props.historyOpen ? '▾' : '▸'}</span>
             {props.historyOpen ? 'Afgelopen uren verbergen' : `Afgelopen ${pastCount()} uur tonen`}
           </button>
         </td>
@@ -143,11 +182,18 @@ export default function ForecastTable(props: Props) {
       const time = (epoch: number) => new Date(epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
       const sunLabel = (event: SunEvent) => `${event.kind === 'rise' ? 'Zon op' : 'Zon onder'} ${time(event.epoch)}`
       const placeholder = () => pending() ? '…' : '—'
+      const rainAmount = () => {
+        const reading = rain()
+        const text = reading?.toLocaleString('nl-NL', { maximumFractionDigits: reading < 1 ? 2 : 1 })
+        return text === undefined || text === '0' ? undefined : text
+      }
+      const dew = () => temperature() == null || humidity() == null ? null : dewPoint(temperature()!, humidity()!)
       return <>
         <tr
           ref={(element) => {
             rowElements.set(row.epoch, element)
             onCleanup(() => rowElements.delete(row.epoch))
+            if (row.kind === 'now') scrollToNow(element)
           }}
           classList={{ 'current-hour': row.kind === 'now', 'past-hour': row.kind === 'past', 'pending-hour': pending() }}
         >
@@ -160,22 +206,26 @@ export default function ForecastTable(props: Props) {
                   <span class="sun-mark" title={sunLabel(event())}><SunGlyph />{time(event().epoch)}</span>
                 }</Show>
               </div>
-              <Show when={props.columns.weather && icon()}>{(model) => <WeatherIcon model={model()} />}</Show>
+              <div class="weather-glyph">
+                <Show when={props.columns.weather && icon()}>{(model) => <WeatherIcon model={model()} />}</Show>
+                <Show when={rainAmount()}>{(amount) => <span class="rain-amount">{amount()}<small> mm/u</small></span>}</Show>
+              </div>
             </div>
           </td>
           <Show when={props.columns.uv}>
             <td class="uv-cell">
               <Show when={uv() || elevation(row.epoch) <= 0} fallback={pending() ? '…' : ''}>
-                <UvBar reading={elevation(row.epoch) > 0 ? uv() : null} variant={props.uvBar} />
+                <UvBar reading={elevation(row.epoch) > 0 ? uv() : null} variant={props.uvBar} scale={dailyClearSkyUvMax(row.epoch, props.location.lat)} />
               </Show>
             </td>
           </Show>
           <Show when={props.columns.temperature}><td class="temperature-cell" onPointerEnter={(event) => hover('temperature', event, true)} onPointerLeave={(event) => hover('temperature', event, false)}>{degrees(feelsLike())}<small class="air-temperature" title="Luchttemperatuur">{degrees(temperature())}</small></td></Show>
-          <Show when={props.columns.humidity}><td>{humidity() == null ? placeholder() : `${Math.round(humidity()!)}%`}</td></Show>
+          <Show when={props.columns.humidity}><td class="humidity-cell">{humidity() == null ? placeholder() : `${Math.round(humidity()!)}%`}<Show when={props.humidityForm === 'dew-point' && dew() != null}>
+            <small class="dew-point" classList={{ muggy: dew()! >= 16 }} title="Dauwpunt; vanaf 16° voelt het benauwd"><Droplet size={9} strokeWidth={2.5} aria-hidden="true" />{Math.round(dew()!)}°</small>
+          </Show></td></Show>
           <Show when={props.columns.wind}><td class="wind-cell" onPointerEnter={(event) => hover('wind', event, true)} onPointerLeave={(event) => hover('wind', event, false)}><Show when={wind()} fallback={placeholder()}>{(summary) =>
-            <span title={`${summary().speed.toLocaleString('nl-NL', { maximumFractionDigits: 1 })} m/s`}>{summary().direction} · {summary().beaufort} Bft</span>
+            <WindReading summary={summary()} form={props.windForm} />
           }</Show></td></Show>
-          <td>{rain() == null ? (row.rainIndex != null && !props.series.rainLoaded[row.rainIndex] ? '…' : placeholder()) : rain()!.toLocaleString('nl-NL', { maximumFractionDigits: rain()! < 1 ? 2 : 1 })}<small> mm/u</small></td>
         </tr>
         <Show when={props.sunForm === 'row' && sunEvent()}>{(event) =>
           <tr class="sun-row" classList={{ 'past-hour': row.kind === 'past' }}>
@@ -186,6 +236,23 @@ export default function ForecastTable(props: Props) {
     }}</For>
     </tbody>
   </table>
+}
+
+// De pijl wijst waar de wind heen waait, zoals de deeltjes op de kaart; de letters blijven in de titel.
+function WindReading(props: { summary: WindSummary; form: WindForm }) {
+  const label = () => `Wind uit ${props.summary.direction}, ${props.summary.beaufort} Bft, ${props.summary.speed.toLocaleString('nl-NL', { maximumFractionDigits: 1 })} m/s`
+  const turn = () => ({ transform: `rotate(${(props.summary.fromDegrees + 180) % 360}deg)` })
+  return <Show when={props.form === 'dial'} fallback={
+    <span class="wind-reading" role="img" aria-label={label()} title={label()}>
+      <ArrowUp class="wind-arrow" size={15} strokeWidth={2.25} style={turn()} aria-hidden="true" />
+      <b>{props.summary.beaufort}</b><small>Bft</small>
+    </span>
+  }>
+    <span class="wind-reading wind-dial-reading" role="img" aria-label={label()} title={label()}>
+      <span class="wind-dial" aria-hidden="true"><Navigation2 size={11} strokeWidth={0} fill="currentColor" style={turn()} /></span>
+      <span class="wind-dial-text"><b>{props.summary.beaufort}</b><small>{props.summary.direction}</small></span>
+    </span>
+  </Show>
 }
 
 function SunGlyph() {

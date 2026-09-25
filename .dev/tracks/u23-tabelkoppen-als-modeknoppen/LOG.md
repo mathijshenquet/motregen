@@ -26,3 +26,21 @@
   `::after`-hitbox (−12/−4 px) botste met volle-breedte knoppen → `min-height: 44px` op `.column-mode`.
 - Na-breedtes op 320: Weer 114 (≤ 120 ✓). Pixel 5: tabel past nu zonder horizontale scroll (369/369, was
   375/369). 320: nog steeds 367/296 horizontale scroll (vóór 375/296) — buiten scope, zie open punten.
+
+## 2026-09-25 08:50 spec-aanvulling (PO 2026-09-25, later op de dag) — vult de spec aan
+Via de orchestrator/PO in de worker-sessie ontvangen; letterlijk samengevat:
+1. Kolom Regen weg; regen bij het weericoon als klein mm/u-getal, alleen als ≠ 0 (afronding zoals nu).
+2. Zonicoon mist een straal linksonder — weericonenset (`WeatherIcon.tsx`) nalopen en symmetrisch maken.
+3. UV: UvBar schalen naar het maximaal haalbare voor die dag (heldere-hemel-UV op de zonnestand van die dag,
+   uv_clear of uit zonshoogte), zodat een volle balk "maximaal voor nu" betekent; kleuren (WHO) blijven leidend,
+   lengte relatief. Keuze motiveren.
+4. Wind: visuele richtingsaanduiding proberen (pijl in windrichting + Bft); 2 varianten als stills, één kiezen.
+5. RV: één interessantere weergave proberen (druppelbalk / dauwpunt-tint), still; zo niet beter, tekst laten.
+Vóór-screenshots van main staan in `web/tmp/shots/voor/` (main apart gebouwd in een tijdelijke worktree).
+
+## 2026-09-25 09:20 tweede spec-aanvulling (PO 2026-09-25) — vult de spec aan
+6. Tabel niet snug gecentreerd: onnodige linker/rechter padding weg, tabel vult de paneelbreedte, kolommen gecentreerd.
+7. Rij "Afgelopen N uur tonen": op desktop weg — historie staat in de tabel, tabel opent gescrold op de nu-rij met
+   de historie erboven; op mobiel (pointer: coarse) blijft de toggle (touch-scrollprobleem), maar netter: kleine
+   gecentreerde tekstknop zonder driehoekje.
+8. Nu-rij: de linkerrand laat de tijd inspringen → achtergrondtint of marker buiten de tekstkolom, niets springt in.

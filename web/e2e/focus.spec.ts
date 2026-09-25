@@ -4,6 +4,7 @@ import { applyEmulation, performanceProfile } from './profiles'
 const shell = (page: Page) => page.locator('.map-shell')
 const heading = (page: Page) => page.locator('.temperature-focus')
 const windHeading = (page: Page) => page.locator('.wind-focus')
+const weatherHeading = (page: Page) => page.getByRole('button', { name: 'Weer' })
 const windIntensity = async (page: Page) => Number(await shell(page).getAttribute('data-wind-intensity'))
 
 async function ready(page: Page): Promise<void> {
@@ -143,6 +144,13 @@ test('the two focus modes exclude each other: the last one wins, a pin returns a
   await expect(heading(page)).toHaveAttribute('aria-pressed', 'false')
   await expect(shell(page)).toHaveAttribute('data-wind-focus', '1.00')
   await expect(shell(page)).toHaveAttribute('data-focus', '0.00')
+  // Weer is de standaardmodus: geen toestand om aan te zetten, een klik haalt de pin weg.
+  await expect(weatherHeading(page)).not.toHaveAttribute('aria-pressed')
+  await weatherHeading(page).click()
+  await page.mouse.move(5, 5)
+  await expect(windHeading(page)).toHaveAttribute('aria-pressed', 'false')
+  await expect(shell(page)).toHaveAttribute('data-wind-focus', '0.00')
+  await expect(shell(page)).toHaveAttribute('data-focus', '0.00')
 })
 
 test('tapping the wind heading pins wind focus on touch', async ({ page }, testInfo) => {
@@ -153,6 +161,10 @@ test('tapping the wind heading pins wind focus on touch', async ({ page }, testI
   await expect(shell(page)).toHaveAttribute('data-wind-focus', '1.00')
   expect(await shell(page).getAttribute('data-focus')).toBe('0.00')
   await windHeading(page).tap()
+  await expect(windHeading(page)).toHaveAttribute('aria-pressed', 'false')
+  await expect(shell(page)).toHaveAttribute('data-wind-focus', '0.00')
+  await windHeading(page).tap()
+  await weatherHeading(page).tap()
   await expect(windHeading(page)).toHaveAttribute('aria-pressed', 'false')
   await expect(shell(page)).toHaveAttribute('data-wind-focus', '0.00')
 })

@@ -7,7 +7,7 @@ import LocationSearch from './components/LocationSearch'
 import Freshness from './components/Freshness'
 import PerfHud from './components/PerfHud'
 import type { IsolineCounters } from './core/perf'
-import ForecastTable, { type SunForm } from './components/ForecastTable'
+import ForecastTable, { type HumidityForm, type SunForm, type WindForm } from './components/ForecastTable'
 import UvBar, { uvBarLabel, type UvBarVariant } from './components/UvBar'
 import { loadBasemapStyle, temperatureLayerBeforeId, type MapTheme } from './core/basemap'
 import { CloudEdgeLayer } from './core/cloud-edge-layer'
@@ -208,6 +208,10 @@ export default function App() {
   // History rows cost bytes the old table never loaded; they stay folded until asked for.
   const [historyRowsWanted, setHistoryRowsWanted] = createSignal(false)
   const [historyOpen, setHistoryOpen] = createSignal(false)
+  // Desktop: historie staat in de tabel boven de nu-rij; touch houdt de uitklaprij (scrollen in een
+  // eigen tabelscroller onder de sticky scrubber werkt daar niet prettig).
+  const inlineHistoryMedia = matchMedia('(min-width: 960px) and (pointer: fine)')
+  const [historyInline, setHistoryInline] = createSignal(inlineHistoryMedia.matches)
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
   const [windTuning, setWindTuning] = createSignal<WindTuning>(loadWindTuning())
@@ -247,6 +251,9 @@ export default function App() {
     const mediaChanged = (event: MediaQueryListEvent) => setSystemDark(event.matches)
     media.addEventListener('change', mediaChanged)
     onCleanup(() => media.removeEventListener('change', mediaChanged))
+    const inlineHistoryChanged = (event: MediaQueryListEvent) => setHistoryInline(event.matches)
+    inlineHistoryMedia.addEventListener('change', inlineHistoryChanged)
+    onCleanup(() => inlineHistoryMedia.removeEventListener('change', inlineHistoryChanged))
     try {
       const data = await fetchManifest()
       perf.setManifestGenerated(data.generated)
@@ -1530,6 +1537,9 @@ export default function App() {
   }, manifest() ? Date.parse(manifest()!.now) : 0))
   // PO-smaaktest: ?zon=markering zet zon op/onder in de uurcel i.p.v. als tussenrij.
   const sunForm: SunForm = new URLSearchParams(window.location.search).get('zon') === 'markering' ? 'marker' : 'row'
+  // PO-smaaktest U23: ?wind=kompas en ?rv=dauwpunt tonen de alternatieve cellen.
+  const windForm: WindForm = new URLSearchParams(window.location.search).get('wind') === 'kompas' ? 'dial' : 'arrow'
+  const humidityForm: HumidityForm = new URLSearchParams(window.location.search).get('rv') === 'dauwpunt' ? 'dew-point' : 'text'
   let radiationRequest = 0
   createEffect(() => {
     const point = location()
@@ -1670,21 +1680,25 @@ export default function App() {
           <ForecastTable
             rows={forecast()}
             series={{
-              rain: rainSeries(), rainLoaded: rainLoaded(), uv: uvSeries(), uvClear: uvClearSeries(), radiation: radiationSeries(), temperature: temperatureSeries(),
+              rain: rainSeries(), uv: uvSeries(), uvClear: uvClearSeries(), radiation: radiationSeries(), temperature: temperatureSeries(),
               feelsLike: feelsLikeSeries(), humidity: humiditySeries(), cloud: cloudSeries(), windU: windUSeries(), windV: windVSeries(),
             }}
             location={location()}
             columns={{ weather: hasWeatherIcons(), uv: uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), humidity: hasHumidity(), wind: hasWind() }}
             loadedUntil={pointLoadStage() === 'complete' ? Number.POSITIVE_INFINITY : manifestNow() + PASSIVE_FORECAST_HOURS * 3_600_000}
+            historyInline={historyInline()}
             historyOpen={historyOpen()}
             historyLoaded={historyRowsWanted() || pointLoadStage() === 'complete'}
             onNeedRows={() => { void completePointSeries(pointLoad, 'high') }}
+            onNeedHistory={() => { void loadHistoryRows() }}
             onOpenHistory={() => {
               setHistoryOpen((open) => !open)
               void loadHistoryRows()
             }}
             sunForm={sunForm}
             uvBar={uvBarVariant}
+            windForm={windForm}
+            humidityForm={humidityForm}
             focus={{ pinned: focusPinned(), onTogglePin: toggleFocusPin, onFocus: (mode, source, active) => focusMode.set(mode, source, active) }}
           />
         </div>
