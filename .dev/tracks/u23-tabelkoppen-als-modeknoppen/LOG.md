@@ -113,3 +113,43 @@ Vóór-screenshots van main staan in `web/tmp/shots/voor/` (main apart gebouwd i
   mobile-4g perf ✓; **mobile-fast-3g perf ✘ op de logo-triple-tap** (2e triple-tap opende About i.p.v. de HUD).
   Dezelfde stap was groen in run 1; U23 raakt merk/About/tap-telling niet; T5b-LOG kent dezelfde flake onder
   CPU 4× (700 ms-venster), host-load stond op 12–13 met andere tracks op de lock. Volledige gate opnieuw → zie hieronder.
+
+## 2026-09-25 10:32 procesaanpassing + eindstand (klaar voor review)
+- PO-procesaanpassing ontvangen: e2e via twee slots (`web/scripts/e2e-slot.sh`), workers draaien alleen eigen/geraakte
+  specs; de volledige suite draait de orkestrator op de rebased merge-kandidaat. Mijn tweede volledige run stond nog
+  op de oude lock te wachten (niet gestart) → gestopt en vervangen door een gerichte run. (De andere wachtende
+  `flock /tmp/motregen-e2e.lock` op de host hoorde bij U25 — niet aangeraakt.)
+- Gerebased op origin/main 2cee6eb (bevat 211b57f), conflictvrij; `pnpm install --frozen-lockfile`.
+  Head 2314cf7 → force-with-lease gepusht.
+
+### Receipts (synchroon, head 2314cf7 op main 2cee6eb)
+- `pnpm typecheck` → TYPECHECK-EXIT: 0
+- `pnpm test` → TEST-EXIT: 0 (43 files, 255 tests)
+- `pnpm build` → BUILD-EXIT: 0
+- Gericht, onder slot: `MOTREGEN_E2E_PORT=4362 MOTREGEN_E2E_DATA_PORT=8362 pnpm e2e e2e/focus.spec.ts e2e/table.spec.ts e2e/perf.spec.ts`
+  (load 15,2 bij start, poorten vrij) → **E2E-TARGET-EXIT: 0** — 14 passed, 22 skipped (één-profiel-tests), 3,8 min.
+  Specs: `focus.spec` (gewijzigd: Weer ontpint, geen aria-pressed), `table.spec` (nieuw: desktop opent op nu en
+  laadt historie pas na scrollen; touch-toggle), `perf.spec` (geraakt door zijbalklayout/laadgedrag; groen op
+  desktop, mobile-4g én mobile-fast-3g — de triple-tap-flake van de vorige gerichte run kwam niet terug).
+- Eerdere volledige run (vóór de pin-fix, head 9d30fde): E2E-EXIT 1, alleen desktop perf passieve bytes — zie 09:26.
+
+### Samenvatting
+- Koppenrij = modebalk (Lucide-icoon + woord; Weer default zonder aria-pressed, klik ontpint; Gevoel/Wind pinnen;
+  UV/RV gewone koppen), actieve modus accent + kolomtint. Uur+Weer één cel; regen (≠ 0) onder het icoon; zonglyph
+  zonder pijl, zonrij gecentreerd; ontbrekende zonstraal hersteld; UV-balk relatief aan de heldere-hemel-dagmax;
+  windpijl (kompas-variant `?wind=kompas`), dauwpunt geprobeerd (`?rv=dauwpunt`, niet standaard).
+- Tabel snug + symmetrische goot, nu-markering in de goot. Desktop: alleen de tabel scrolt, opent op nu, historie
+  inline en lazy. Touch: kleine gecentreerde toggle. Tabel past nu op 320 px en Pixel 5 zonder horizontale scroll.
+- Stills: `shots/voor/` (main), `shots/na/` (incl. `desktop-light-historie.png` na omhoog scrollen),
+  `shots/variant-kompas-dauwpunt/`; probe: `probe.mjs` in deze map.
+
+### Open voor PO/PM
+1. Mobiel: de koppenrij scrolt onder de sticky scrubber weg (vóór U23 ook). "Altijd zichtbaar" als sticky koppen
+   onder de scrubber vraagt een eigen tabelscroller op touch — bewust niet gedaan (touch-scrollprobleem, zie punt 7).
+2. Dauwpunt: laten vallen, of benauwdheid anders tonen (label / tint op Gevoel)? Varianten-code kan weg na keuze.
+3. Wind-kompasvariant: na akkoord op de pijl kan `?wind=kompas` weg.
+4. Desktop < 960 px met muis houdt de uitklaprij (pagina is daar de scroller) — PO akkoord?
+5. Synthetische data: historie-uren 09–11 tonen geen weericoon (geen wolkdata in hist4 voor die uren) — geen U23-regressie,
+   was vóór U23 onzichtbaar omdat de historie ingeklapt stond.
+6. Prefetch-marge van 320 px voor toekomstige rijen werkt op desktop niet meer (observer-root = viewport, rijen worden
+   door de tabelscroller geclipt): rijen laden nu pas als ze in beeld scrollen. Klein; kan met root = scroller.
