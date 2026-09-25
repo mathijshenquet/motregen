@@ -496,7 +496,6 @@ button { color: inherit; cursor: pointer; }
    pil en het Nu-label buiten het vlak niet worden afgekapt. */
 .chart-plot::after { position: absolute; inset: 0; z-index: 1; border-block: 1px solid var(--line-strong); content: ''; pointer-events: none; }
 .chart-plot svg { position: absolute; top: 0; left: 0; overflow: visible; }
-.timeline-void { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--muted) 18%, transparent) 0 7px, transparent 7px 16px); pointer-events: none; }
 .past-shade { position: absolute; top: 0; bottom: 0; left: 0; background: color-mix(in srgb, var(--text) 4%, transparent); pointer-events: none; }
 .rain-guide { stroke: color-mix(in srgb, var(--line-strong) 70%, transparent); stroke-dasharray: 2 4; stroke-width: 1; }
 .rain-baseline { stroke: var(--line-strong); stroke-width: 1; }
@@ -521,6 +520,19 @@ button { color: inherit; cursor: pointer; }
 :root[data-theme="dark"] .weather-icon.dense .weather-cloud { fill: #45575f; stroke: #8fa4ad; }
 .cloud-divider { stroke: color-mix(in srgb, var(--line-strong) 55%, transparent); stroke-dasharray: 1 3; stroke-width: 1; }
 .cloud-labels { position: absolute; inset: 0; pointer-events: none; }
+/* Windgrafiek in de scrubber (U34): vlakte in de Beaufort-kleuren van de windlaag, vlagen gestippeld. */
+.wind-area { opacity: .55; }
+.temperature-area { opacity: .12; }
+.temperature-ribbon { opacity: .38; }
+.temperature-line { fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.temperature-air-line { fill: none; stroke-width: 1.2; stroke-linecap: round; opacity: .85; }
+.wind-line { fill: none; stroke: color-mix(in srgb, var(--text) 55%, transparent); stroke-width: 1.4; }
+.wind-gust-band { opacity: .25; }
+.cursor-readout.gust-readout::before { background: color-mix(in srgb, var(--text) 45%, var(--surface)); }
+.cursor-readout.gust-readout span { color: var(--muted); }
+.cursor-readout.below span { top: 5px; bottom: auto; }
+.cursor-tags { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.cursor-tags span { position: absolute; padding: 1px 5px; border-radius: 6px; color: var(--text); background: color-mix(in srgb, var(--surface) 85%, transparent); font-size: 10px; font-weight: 700; white-space: nowrap; transform: translate(6px, -50%); }
 .cloud-labels span { position: absolute; left: 6px; transform: translateY(-50%); color: color-mix(in srgb, var(--muted) 80%, transparent); font-size: 9px; font-weight: 700; letter-spacing: .04em; }
 :root:not([data-theme="dark"]) .rain-bars { filter: brightness(.86) saturate(1.35); }
 .rain-bar { animation: rain-bar-in .45s ease-out both; }
@@ -532,17 +544,18 @@ button { color: inherit; cursor: pointer; }
 .day-grid { position: absolute; inset: 0; pointer-events: none; }
 .day-grid > div { position: absolute; top: 0; bottom: 0; }
 .day-grid > div.boundary { border-left: 1px dashed color-mix(in srgb, var(--text) 30%, transparent); }
-.day-labels { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; }
-.day-grid span { position: absolute; top: 4px; left: 4px; padding: 1px 3px; border-radius: 4px; color: var(--muted); background: color-mix(in srgb, var(--surface) 80%, transparent); font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
-.day-labels span { position: absolute; top: 4px; left: 0; padding: 1px 3px; border-radius: 4px; color: var(--muted); background: color-mix(in srgb, var(--surface) 80%, transparent); font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+/* Daglabels in de urenbalk boven de grafiek (PO 2026-09-25 live), sticky via transform (zie scrubber). */
+.day-labels { position: absolute; top: -26px; right: 0; left: 0; z-index: 3; height: 26px; overflow: hidden; pointer-events: none; }
+/* Zacht uitlopende achtergrond: uurlabels die onder het sticky daglabel schuiven vervagen i.p.v. afgehakt te worden. */
+.day-labels span { position: absolute; bottom: 4px; left: 0; padding: 1px 16px 1px 8px; margin-left: -6px; color: var(--text); background: linear-gradient(to right, transparent, var(--surface) 7px, var(--surface) calc(100% - 14px), transparent); font-size: 10px; font-weight: 750; letter-spacing: .05em; line-height: 1.3; text-transform: uppercase; white-space: nowrap; }
 .empty-graph { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 12px; pointer-events: none; }
 .scrubber-placeholder { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; color: var(--muted); background: var(--surface); font-size: 12px; font-weight: 600; pointer-events: none; }
 .scrubber-placeholder-bars { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 55%, transparent), transparent) 0 0 / 40% 100% no-repeat, var(--line); animation: scrubber-sweep 1.6s ease-in-out infinite; }
 @keyframes scrubber-sweep { from { background-position: -60% 0, 0 0; } to { background-position: 160% 0, 0 0; } }
 @keyframes scrubber-pulse { from { opacity: .35; } to { opacity: 1; } }
 .now-line { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px solid color-mix(in srgb, var(--text) 38%, transparent); pointer-events: none; }
-.now-line span { position: absolute; top: 5px; left: 0; z-index: 1; padding: 1px 6px; border: 1px solid color-mix(in srgb, var(--text) 38%, transparent); border-radius: 999px; color: var(--text); background: var(--surface); font-size: 10px; font-weight: 750; line-height: 1.3; transform: translateX(-50%); }
-.cursor-marker { position: absolute; top: 0; bottom: 0; left: 33.333%; z-index: 2; width: 0; border-left: 2px solid var(--text); transform: translateX(-1px); pointer-events: none; }
+.x-axis .now-tick { bottom: -2px; padding: 1px 6px; border: 1px solid color-mix(in srgb, var(--text) 38%, transparent); border-radius: 999px; color: var(--text); background: var(--surface); font-size: 10px; font-weight: 750; line-height: 1.3; }
+.cursor-marker { position: absolute; top: 0; bottom: 0; left: 33.333%; will-change: left; z-index: 2; width: 0; border-left: 2px solid var(--text); transform: translateX(-1px); pointer-events: none; }
 .cursor-pill { position: absolute; top: -34px; z-index: 3; left: 33.333%; display: inline-flex; align-items: center; justify-content: center; min-width: 58px; pointer-events: none; border: 0; color: var(--surface); background: var(--text); box-shadow: 0 2px 8px rgba(10, 32, 41, .18); transform: translateX(-50%); }
 .cursor-pill::after { position: absolute; inset: -8px -4px; content: ''; }
 .cursor-readout { position: absolute; left: 33.333%; z-index: 2; width: 0; height: 0; pointer-events: none; }
@@ -575,9 +588,7 @@ button.column-mode { width: 100%; cursor: pointer; }
 .column-mode:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 /* De kolom van de gepinde modus krijgt een lichte tint over de rijachtergrond, zodat kop en cellen één geheel lezen. */
 .forecast-table { --mode-tint: linear-gradient(color-mix(in srgb, var(--accent-soft) 40%, transparent), color-mix(in srgb, var(--accent-soft) 40%, transparent)); }
-.forecast-table[data-mode="temperature"] :is(.temperature-heading, .temperature-cell),
-.forecast-table[data-mode="wind"] :is(.wind-heading, .wind-cell),
-.forecast-table[data-mode="clouds"] :is(.weather-heading, .weather-cell) { background-image: var(--mode-tint); }
+/* Een gepinde modus kleurt de kolom niet meer, alleen de kopknop (PO 2026-09-25 live). */
 /* Hover kleurt de hele kolom, lichter dan een pin (U34). */
 .forecast-table { --hover-tint: linear-gradient(color-mix(in srgb, var(--accent-soft) 22%, transparent), color-mix(in srgb, var(--accent-soft) 22%, transparent)); }
 .forecast-table[data-hover="temperature"]:not([data-mode="temperature"]) :is(.temperature-heading, .temperature-cell),
@@ -589,8 +600,12 @@ button.column-mode { width: 100%; cursor: pointer; }
 .forecast-table :is(th, td):last-child { padding-right: var(--panel-inset, 16px); }
 /* Uur + weer krimpt tot zijn inhoud; de rest van de breedte verdeelt zich over de gecentreerde kolommen. */
 .forecast-table .weather-cell { width: 1%; }
-.time-weather { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
-.time-label { min-width: 0; }
+.forecast-table tbody tr:not(.sun-row):not(.history-toggle-row) { cursor: pointer; }
+/* Uur zo smal als de tijd, kop links gelijk met de tijden (PO 2026-09-25 live). */
+.forecast-table :is(.time-cell, .time-heading) { width: 1%; padding-right: 14px; text-align: left; white-space: nowrap; }
+.time-heading .column-mode { align-items: flex-start; padding-left: 0; }
+.time-label { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; padding: 0; border: 0; color: inherit; background: none; font: inherit; text-align: left; cursor: pointer; }
+.time-label:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 .weather-glyph { display: flex; min-width: 38px; flex-direction: column; align-items: center; }
 .rain-amount { color: var(--accent); font-size: 11px; font-weight: 720; line-height: 1.1; }
 .rain-amount small { font-size: 8.5px; font-weight: 600; }
@@ -639,7 +654,8 @@ td small { color: var(--muted); font-size: 9px; }
 .uv-bar-bare .uv-bar-track { min-width: 0; height: 6px; }
 .uv-bar-bare :is(.uv-bar-fill, .uv-bar-clear) { min-width: 6px; }
 .forecast-table tr.sun-row td { padding: 3px 0 3px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .04em; text-align: center; }
-.sun-glyph { display: inline-block; width: 20px; height: 8px; margin: 0 6px 0 0; vertical-align: baseline; overflow: visible; }
+.sun-glyph { display: inline-block; width: 22px; height: 11px; margin: 0 6px 0 0; vertical-align: -1px; overflow: visible; }
+.sun-glyph-rays { fill: none; stroke: #e0a400; stroke-linecap: round; stroke-width: 1.1; }
 .sun-glyph-horizon { fill: none; stroke: var(--muted); stroke-linecap: round; stroke-width: 1.2; }
 .sun-glyph-disc { fill: #f3b918; stroke: #d69b00; stroke-width: .8; }
 .temperature-cell { font-size: 16px; font-weight: 720; letter-spacing: -.03em; }
@@ -739,12 +755,19 @@ td small { color: var(--muted); font-size: 9px; }
   border-top: 0;
   border-radius: 0 0 12px 12px;
   color: var(--text);
-  background: var(--surface-raised);
+  /* In rust doorschijnend met blur, bij hover/focus vol (PO 2026-09-25 live). */
+  background: color-mix(in srgb, var(--surface-raised) 66%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 5px 14px -3px rgba(10, 32, 41, .2);
   transform: translateX(-50%);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+.map-clock:hover, .map-clock:focus-within { background: var(--surface-raised); }
+.map-clock { display: flex; align-items: stretch; }
+.clock-play { display: grid; place-items: center; width: 34px; padding: calc(env(safe-area-inset-top) + 4px) 0 4px 6px; border: 0; color: var(--accent); background: none; cursor: pointer; }
+.clock-play:hover, .clock-play:focus-visible { color: var(--text); outline: none; }
 .freshness-trigger {
   width: 100%;
   min-height: 44px;

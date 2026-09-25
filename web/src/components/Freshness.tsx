@@ -3,7 +3,7 @@ import { Portal } from 'solid-js/web'
 import type { Manifest, Source } from '../core/contract'
 import { ageMs, expectedNext, formatAge, formatAgeShort, formatClock, freshnessStatus, latestRadarEpoch, sourceFreshness, STATUS_LABELS, type RefreshState } from '../core/freshness'
 import { sourceZone } from '../core/time-model'
-import { BUTTON_ICON, X } from './icons'
+import { BUTTON_ICON, INLINE_ICON, Play, X } from './icons'
 import { backdropHandlers } from './modal'
 
 interface Props {
@@ -15,6 +15,9 @@ interface Props {
   onRefresh: () => Promise<void>
   onOpen?: () => void
   onClose?: () => void
+  /** Bewust gepauzeerd (spatie): de klok toont ▶ om verder te spelen (PO 2026-09-25 live). */
+  paused?: boolean
+  onPlay?: () => void
 }
 
 const TICK_MS = 15_000
@@ -108,6 +111,9 @@ export default function Freshness(props: Props) {
   }
 
   return <div class="map-clock" data-freshness={status()}>
+    <Show when={props.paused}>
+      <button type="button" class="clock-play" aria-label="Afspelen" title="Afspelen" onClick={() => props.onPlay?.()}><Play {...INLINE_ICON} fill="currentColor" /></button>
+    </Show>
     <button
       ref={trigger}
       type="button"

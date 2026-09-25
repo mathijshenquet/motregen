@@ -21,7 +21,7 @@ const series: ForecastSeries = {
 }
 const allColumns = { weather: true, uv: true, temperature: true, humidity: true, wind: true }
 
-function renderTable(options: { pinned?: FocusKind; weather?: boolean; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
+function renderTable(options: { pinned?: FocusKind; weather?: boolean; onSelectTime?: (epoch: number) => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
   const [pinned, setPinned] = createSignal<FocusKind | undefined>(options.pinned)
   const onTogglePin = vi.fn((mode: FocusKind) => setPinned((current) => current === mode ? undefined : mode))
   const onFocus = vi.fn()
@@ -38,6 +38,7 @@ function renderTable(options: { pinned?: FocusKind; weather?: boolean; rows?: Ho
     onNeedRows={() => undefined}
     onNeedHistory={() => undefined}
     onOpenHistory={() => undefined}
+    onSelectTime={options.onSelectTime}
     focus={{ pinned: pinned(), onTogglePin, onFocus }}
   />)
   return { pinned, onTogglePin, onFocus }
@@ -46,14 +47,25 @@ function renderTable(options: { pinned?: FocusKind; weather?: boolean; rows?: Ho
 afterEach(cleanup)
 
 describe('forecast table headings', () => {
-  it('render every column heading with an icon and a word, time and weather in one column', () => {
+  it('render every column heading with an icon and a word; time and weather in their own columns (U34)', () => {
     renderTable()
     const headings = [...document.querySelectorAll('thead th')]
-    expect(headings.map((heading) => heading.textContent)).toEqual(['Weer', 'UV', 'Gevoel', 'RV', 'Wind'])
+    expect(headings.map((heading) => heading.textContent)).toEqual(['Uur', 'Weer', 'UV', 'Gevoel', 'RV', 'Wind'])
     for (const heading of headings) expect(heading.querySelector('svg.lucide')).not.toBeNull()
-    const first = document.querySelector('tbody tr:not(.history-toggle-row) td')!
-    expect(first.textContent).toContain('Nu')
-    expect(first.querySelector('.weather-icon')).not.toBeNull()
+    const [time, weather] = document.querySelectorAll('tbody tr:not(.history-toggle-row) td')
+    expect(time!.textContent).toContain('Nu')
+    expect(weather!.querySelector('.weather-icon')).not.toBeNull()
+  })
+
+  it('jump the scrubber to an hour on a click on its row or time (U34)', () => {
+    const onSelectTime = vi.fn()
+    renderTable({ onSelectTime })
+    const second = document.querySelectorAll<HTMLTableRowElement>('tbody tr:not(.sun-row):not(.history-toggle-row)')[1]!
+    fireEvent.click(second.querySelector('.uv-cell') ?? second)
+    expect(onSelectTime).toHaveBeenLastCalledWith(rows[1]!.epoch)
+    fireEvent.click(document.querySelectorAll('.time-label')[2]!)
+    expect(onSelectTime).toHaveBeenLastCalledWith(rows[2]!.epoch)
+    expect(onSelectTime).toHaveBeenCalledTimes(2)
   })
 
   it('fall back to an hour heading when there is no cloud data', () => {
@@ -173,13 +185,15 @@ describe('history rows', () => {
 })
 
 describe('sun rows', () => {
-  it('draw the horizon glyph without an arrow; the text says rise or set', () => {
+  it('draw the horizon glyph with rays and without an arrow; the text says rise or set', () => {
     renderTable()
     const sunRows = [...document.querySelectorAll('.sun-row')]
     expect(sunRows.map((row) => row.textContent?.replace(/\d\d:\d\d/, 'hh:mm'))).toEqual(['Zon op hh:mm', 'Zon onder hh:mm'])
     for (const row of sunRows) {
       expect(row.querySelector('.sun-glyph-disc')).not.toBeNull()
-      expect(row.querySelectorAll('.sun-glyph path')).toHaveLength(2)
+      // Horizon, halve schijf en stralen (U34); geen pijl.
+      expect(row.querySelectorAll('.sun-glyph path')).toHaveLength(3)
+      expect(row.querySelector('.sun-glyph-rays')).not.toBeNull()
     }
   })
 })

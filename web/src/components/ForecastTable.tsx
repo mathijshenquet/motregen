@@ -39,6 +39,8 @@ interface Props {
   onNeedRows: () => void
   onNeedHistory: () => void
   onOpenHistory: () => void
+  /** Klik op een rij: de scrubber springt naar dat uur (U34). */
+  onSelectTime?: (epoch: number) => void
   // De koppenrij is de modebalk: Gevoel en Wind zijn kaartmodes (hover/toetsenbordfocus tijdelijk,
   // klik pint), Weer is de standaard en zet een pin uit.
   focus: {
@@ -162,18 +164,18 @@ export default function ForecastTable(props: Props) {
     historyObserver?.disconnect()
   })
 
-  const columnCount = () => 2 + Number(props.columns.uv) + Number(props.columns.temperature) +
+  const columnCount = () => 2 + Number(props.columns.weather) + Number(props.columns.uv) + Number(props.columns.temperature) +
     Number(props.columns.humidity) + Number(props.columns.wind)
 
   return <table class="forecast-table" data-mode={props.focus.pinned} data-hover={hovered()}>
     <thead><tr>
       {/* Weer is de wolkenmodus (PO 2026-09-25 live, U34): bewolkingssluier op de kaart en de wolkenlagen
           in de grafiek; nog eens klikken op de gepinde kop geeft de standaardweergave. */}
-      <th class="weather-heading" {...(props.columns.weather ? columnHover('clouds') : {})}>
-        <Show when={props.columns.weather} fallback={<span class="column-mode"><ColumnLabel icon={Clock} text="Uur" /></span>}>
-          <FocusHeading mode="clouds" icon={CloudSun} label="Weer" title="Toon de bewolking op de kaart en de wolkenlagen in de grafiek" />
-        </Show>
-      </th>
+      {/* Tijd weer als eigen kolom (PO 2026-09-25 live); een klik op een rij springt de scrubber erheen. */}
+      <th class="time-heading"><span class="column-mode"><ColumnLabel icon={Clock} text="Uur" /></span></th>
+      <Show when={props.columns.weather}><th class="weather-heading" {...columnHover('clouds')}>
+        <FocusHeading mode="clouds" icon={CloudSun} label="Weer" title="Toon de bewolking op de kaart en de wolkenlagen in de grafiek" />
+      </th></Show>
       <Show when={props.columns.uv}><th class="uv-heading" title="UV-index met en zonder wolken">
         <span class="column-mode"><ColumnLabel icon={Sun} text="UV" /></span>
       </th></Show>
@@ -226,19 +228,22 @@ export default function ForecastTable(props: Props) {
             if (row.kind === 'now') pinNow(element)
           }}
           classList={{ 'current-hour': row.kind === 'now', 'past-hour': row.kind === 'past', 'pending-hour': pending() }}
+          onClick={() => props.onSelectTime?.(row.epoch)}
         >
-          <td class="weather-cell" {...(props.columns.weather ? columnHover('clouds') : {})}>
-            <div class="time-weather">
-              <div class="time-label">
-                <strong>{time(row.epoch)}</strong>
-                <span classList={{ 'now-label': row.kind === 'now' }}>{row.kind === 'now' ? 'Nu' : new Date(row.epoch).toLocaleDateString('nl-NL', { weekday: 'short' })}</span>
-              </div>
+          <td class="time-cell">
+            <button type="button" class="time-label" title="Naar dit uur in de grafiek" onClick={(event) => { event.stopPropagation(); props.onSelectTime?.(row.epoch) }}>
+              <strong>{time(row.epoch)}</strong>
+              <span classList={{ 'now-label': row.kind === 'now' }}>{row.kind === 'now' ? 'Nu' : new Date(row.epoch).toLocaleDateString('nl-NL', { weekday: 'short' })}</span>
+            </button>
+          </td>
+          <Show when={props.columns.weather}>
+            <td class="weather-cell" {...columnHover('clouds')}>
               <div class="weather-glyph">
-                <Show when={props.columns.weather && icon()}>{(model) => <WeatherIcon model={model()} />}</Show>
+                <Show when={icon()}>{(model) => <WeatherIcon model={model()} />}</Show>
                 <Show when={rainAmount()}>{(amount) => <span class="rain-amount">{amount()}<small> mm/u</small></span>}</Show>
               </div>
-            </div>
-          </td>
+            </td>
+          </Show>
           <Show when={props.columns.uv}>
             <td class="uv-cell">
               {/* Overdag de zon (UV), 's nachts de maan (PO 2026-09-25 live, U34). */}
@@ -321,8 +326,10 @@ function MoonGlyph(props: { phase: number; illumination: number }) {
 }
 
 function SunGlyph() {
-  return <svg class="sun-glyph" viewBox="0 4 20 8" aria-hidden="true">
-    <path class="sun-glyph-horizon" d="M1 10.5h18" />
-    <path class="sun-glyph-disc" d="M5 10.5a5 5 0 0 1 10 0Z" />
+  // Halve zon op de horizon met stralen (PO 2026-09-25 live).
+  return <svg class="sun-glyph" viewBox="0 2 20 10" aria-hidden="true">
+    <path class="sun-glyph-rays" d="M4.74 9.08L2.86 8.40M6.79 6.41L5.64 4.77M10.00 5.40L10.00 3.40M13.21 6.41L14.36 4.77M15.26 9.08L17.14 8.40" />
+    <path class="sun-glyph-horizon" d="M1 11h18" />
+    <path class="sun-glyph-disc" d="M6 11a4 4 0 0 1 8 0Z" />
   </svg>
 }

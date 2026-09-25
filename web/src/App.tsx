@@ -129,6 +129,9 @@ const ISOBAR_LINE_OPACITY = 0.27
 const TEMPERATURE_LINE_OPACITY = 0.4
 // Terugglijden aan het eind van een afspeelrondje (PO 2026-09-25 live, U34).
 const PLAYBACK_REWIND_MS = 700
+const PLAYBACK_END_HOLD_MS = 2_000
+const PLAYBACK_TEMPO_HOURS = 8
+const TABLE_JUMP_RESUME_MS = 4_000
 // Afspelen tikt op 30 Hz: regen-tween, isolijnsnede en klok zijn traag genoeg; alleen de
 // windpartikels animeren op WIND_MAX_FPS in hun eigen lus (U41).
 const PLAYBACK_MAX_FPS = 30
@@ -245,10 +248,13 @@ export default function App() {
   }
   const [cursor, setCursor] = createSignal(0)
   const [playing, setPlaying] = createSignal(true)
+  // Bewust gepauzeerd met spatie: dan toont de klok ▶ (PO 2026-09-25 live; er is geen afspeelknop).
+  const [userPaused, setUserPaused] = createSignal(false)
+  createEffect(() => { if (playing()) setUserPaused(false) })
   // Tempo van gelijkmatig afspelen (epoch-ms per ms) voor de scrubberbaan; 0 tijdens terugglijden.
   const [glideRate, setGlideRate] = createSignal(0)
-  // Afspeelhorizon; de tijdsbereikknoppen zijn weg (U34), de scrubber scrolt door de hele tijdlijn.
-  const [timeHorizonHours] = createSignal<number | null>(8)
+  // Afspelen loopt door de hele tijdlijn (PO 2026-09-25 live; was +8 u, restant van de bereikknoppen).
+  const [timeHorizonHours] = createSignal<number | null>(null)
   const initialSavedPlaces = loadSavedPlaces()
   const initialMapView = loadMapView()
   let startLocation = resolveStartLocation(initialSavedPlaces, loadLastSavedPlaceId(), initialMapView, defaultLocation)
@@ -620,17 +626,25 @@ export default function App() {
     if (frames.length < 2) return
     const nowEpoch = manifest() ? Date.parse(manifest()!.now) : frames[0]!.epoch
     const lastEpoch = timelineHorizonEnd(frames, nowEpoch, horizonHours)
-    const playbackRate = timelinePlaybackRate(frames, nowEpoch, horizonHours)
+    // Tempo zoals toen afspelen tot +8 u liep (PO 2026-09-25 live); het loopt nu wel door tot het eind.
+    const playbackRate = timelinePlaybackRate(frames, nowEpoch, PLAYBACK_TEMPO_HOURS)
     let previous = performance.now()
     // Aan het eind van een rondje glijdt de tijdlijn terug naar het begin i.p.v. in één frame te springen:
     // in de schuivende scrubber (U34) oogde die sprong als "de tijdlijn springt telkens terug".
     let rewind: { from: number; startedAt: number } | undefined
+    // Aan het eind even stilstaan voordat het terugglijdt (PO 2026-09-25 live).
+    let holdUntil: number | undefined
     frameLoopDrives = true
     const stop = startFrameLoop((now) => {
       const elapsed = now - previous
       // Vier ms speling voor de vsync-fase: op 60 Hz precies elke tweede vsync.
       if (elapsed < 1_000 / PLAYBACK_MAX_FPS - 4) return
       previous = now
+      if (holdUntil !== undefined) {
+        if (now < holdUntil) return
+        holdUntil = undefined
+        rewind = { from: timelineEpochAtCursor(frames, cursor()), startedAt: now }
+      }
       if (rewind) {
         setGlideRate(0)
         const progress = Math.min(1, (now - rewind.startedAt) / PLAYBACK_REWIND_MS)
@@ -641,10 +655,15 @@ export default function App() {
         return
       }
       const epoch = timelineEpochAtCursor(frames, cursor())
-      // Door de gebruiker voorbij de afspeelhorizon gescrold: stoppen, niet terugspringen naar het begin.
-      if (!(epoch < lastEpoch)) { setPlaying(false); return }
+      // Voorbij de afspeelhorizon (daar neergezet en daarna hervat): terugglijden naar het begin en
+      // verder spelen, nooit voorgoed stilstaan — er is geen afspeelknop (PO 2026-09-25 live).
+      if (!(epoch < lastEpoch)) { rewind = { from: epoch, startedAt: now }; return }
       const nextEpoch = epoch + elapsed * playbackRate
-      if (!Number.isFinite(nextEpoch) || nextEpoch >= lastEpoch) { rewind = { from: epoch, startedAt: now }; return }
+      if (!Number.isFinite(nextEpoch) || nextEpoch >= lastEpoch) {
+        setCursor(timelineCursorAtEpoch(frames, lastEpoch))
+        holdUntil = now + PLAYBACK_END_HOLD_MS
+        return
+      }
       batch(() => {
         setCursor(timelineCursorAtEpoch(frames, nextEpoch))
         setGlideRate(playbackRate)
@@ -665,6 +684,21 @@ export default function App() {
   const cursorFrame = createMemo(() => Math.round(cursor()))
   // Klok en UV-chip tonen minuten: per afspeeltik hoeven ze niet opnieuw.
   const cursorMinute = createMemo(() => Math.floor(selectedEpoch() / 60_000) * 60_000)
+
+  // Klik op een tabelrij: de scrubber springt naar dat uur (PO 2026-09-25 live). Liep het afspelen, dan
+  // pauzeert het en hervat het na dezelfde rust als na slepen in de scrubber.
+  let jumpResume: number | undefined
+  onCleanup(() => window.clearTimeout(jumpResume))
+  function jumpToTime(epoch: number): void {
+    const frames = timeline()
+    if (!frames.length) return
+    window.clearTimeout(jumpResume)
+    if (playing() || jumpResume !== undefined) {
+      setPlaying(false)
+      jumpResume = window.setTimeout(() => { jumpResume = undefined; setPlaying(true) }, TABLE_JUMP_RESUME_MS)
+    }
+    scrub(timelineCursorAtEpoch(frames, epoch))
+  }
 
   // Zolang het versheidspaneel open is staat de klok stil (PO 2026-09-25 live).
   let playingBeforeFreshness = false
@@ -947,7 +981,8 @@ export default function App() {
   function applyFocus(value: number): void {
     if (!map) return
     const context = contextOpacity(value, FOCUS_DIM)
-    layer?.setOpacity(context)
+    // In de temperatuurmodus verdwijnt de regenlaag helemaal (PO 2026-09-25 live; was gedimd tot FOCUS_DIM).
+    layer?.setOpacity(1 - value)
     rainOverlay?.triggerRepaint()
     if (map.getLayer('motregen-sun')) map.setPaintProperty('motregen-sun', 'text-opacity', ['*', ['get', 'opacity'], context])
     applyIsolineOpacity(temperatureIsolines)
@@ -1858,9 +1893,13 @@ export default function App() {
       if (request === uvClearRequest) setUvClearSeries(values)
     })().catch(() => undefined)
   })
-  // Wolkenlagen (U37; sinds U34 alleen in de modus Lucht): pas als die gepind is en na de initial-fase laden
+  // Wolkenlagen (U37; sinds U34 altijd de achtergrond van de scrubber): na de initial-fase laden
   // (de eerste regenreeks gaat voor), als hele payload per chunk (16 km-raster, klein), lage prioriteit.
   const cloudsMayLoad = createMemo(() => pointLoadStage() !== 'initial')
+  const windSpeedSeries = createMemo(() => windUSeries().map((u, index) => {
+    const v = windVSeries()[index]
+    return u == null || v == null ? null : Math.hypot(u, v)
+  }))
   const cloudTimelines = createMemo(() => Object.fromEntries(CLOUD_LAYERS.map((layer) =>
     [layer, manifest() ? buildTimeline(manifest()!, `cloud_${layer}`) : []])) as Record<CloudLayer, TimelineFrame[]>)
   const [cloudValues, setCloudValues] = createSignal<Record<CloudLayer, Array<number | null>>>({ high: [], mid: [], low: [] })
@@ -1869,7 +1908,7 @@ export default function App() {
     const point = location()
     const timelines = cloudTimelines()
     const request = ++cloudRequest
-    if (!cloudsMayLoad() || focusPinned() !== 'clouds') return
+    if (!cloudsMayLoad()) return
     void Promise.all(CLOUD_LAYERS.map(async (layer) => {
       const frames = timelines[layer]
       await Promise.all([...new Set(frames.map((frame) => frame.chunk))].map((chunk) => client.fetchPayload(chunk)))
@@ -1937,7 +1976,8 @@ export default function App() {
           usageBody={usageBody()}
         />
       </Show>
-      <Freshness mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness} />
+      <Freshness mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness}
+        paused={userPaused() && !playing()} onPlay={() => { setUserPaused(false); setPlaying(true) }} />
     </section>
     <aside class="dashboard">
       <Show when={cursorUvChip()}>{(label) => <div class="sidebar-nav">
@@ -1958,8 +1998,11 @@ export default function App() {
         onPlaying={setPlaying}
         glideRate={glideRate()}
         onPlayPressed={() => usage.mark('play')}
-        clouds={focusPinned() === 'clouds' ? { timeline: cloudTimelines(), values: cloudValues() } : undefined}
-        cloudCover={focusPinned() ? undefined : { timeline: cloudTimeline(), values: cloudSeries() }}
+        onPauseToggle={(nextPlaying) => setUserPaused(!nextPlaying)}
+        clouds={{ timeline: cloudTimelines(), values: cloudValues() }}
+        wind={{ timeline: windUFrames(), speed: windSpeedSeries(), gustTimeline: gustTimeline(), gust: gustSeries(), unit: windUnit() }}
+        mix={{ wind: windFocus(), clouds: cloudFocus(), temperature: focus() }}
+        temperature={{ timeline: feelsLikeTimeline(), values: feelsLikeSeries(), airTimeline: tempTimeline(), air: temperatureSeries(), stops: temperatureRange() && paletteStops(temperatureRange()!) }}
       />
       <section class="forecast-panel">
         <div class="table-scroll">
@@ -1978,6 +2021,7 @@ export default function App() {
             historyLoaded={historyRowsWanted() || pointLoadStage() === 'complete'}
             onNeedRows={() => { void completePointSeries(pointLoad, 'high') }}
             onNeedHistory={() => { void loadHistoryRows() }}
+            onSelectTime={jumpToTime}
             onOpenHistory={() => {
               if (!historyOpen()) usage.mark('history')
               setHistoryOpen((open) => !open)
