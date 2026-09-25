@@ -1,7 +1,7 @@
 import { createMemo, createSignal, For, onCleanup, Show } from 'solid-js'
 import { Portal } from 'solid-js/web'
 import type { Manifest, Source } from '../core/contract'
-import { ageMs, expectedNextRadar, formatAge, formatAgeShort, formatClock, freshnessStatus, latestRadarEpoch, sourceFreshness, STATUS_LABELS, type RefreshState } from '../core/freshness'
+import { ageMs, expectedNext, formatAge, formatAgeShort, formatClock, freshnessStatus, latestRadarEpoch, sourceFreshness, STATUS_LABELS, type RefreshState } from '../core/freshness'
 import { sourceZone } from '../core/time-model'
 import { BUTTON_ICON, X } from './icons'
 import { backdropHandlers } from './modal'
@@ -17,6 +17,11 @@ interface Props {
 }
 
 const TICK_MS = 15_000
+
+// Leeftijd als tikkend label (PO 2026-09-25 live): zichtbaar dat hij meeloopt met de klok.
+function LiveAge(props: { ms: number; short?: boolean; title?: string }) {
+  return <span class="live-age" title={props.title}><i aria-hidden="true" />{props.short ? formatAgeShort(props.ms) : formatAge(props.ms)}</span>
+}
 
 export default function Freshness(props: Props) {
   let dialog!: HTMLDialogElement
@@ -108,33 +113,30 @@ export default function Freshness(props: Props) {
           <p class="freshness-lead" data-status={status()}>
             <strong>{STATUS_LABELS[status()]}</strong>
             {' · '}
-            <Show when={status() === 'offline'} fallback={radarAge() === undefined ? 'geen radarmeting in de data' : `laatste radarmeting ${formatAge(radarAge()!)}`}>
+            <Show when={status() === 'offline'} fallback={radarAge() === undefined ? 'geen radarmeting in de data' : <>laatste radarmeting <LiveAge ms={radarAge()!} /></>}>
               verversen mislukt om {time(props.refresh!.failedAt!)}; je ziet de laatst opgehaalde data
             </Show>
           </p>
-          <Show when={status() === 'fresh' && radar() !== undefined}>
-            <p class="freshness-cadence">
-              Een radarbeeld komt elke 5 minuten, meestal 3 à 5 minuten na de meting.{' '}
-              {expectedNextRadar(radar()!) > clock() ? `Het volgende verwachten we rond ${time(expectedNextRadar(radar()!))}.` : 'Het volgende is onderweg.'}
-            </p>
-          </Show>
-          <dl class="freshness-sources">
-            <For each={rows()}>{(row) => <>
-              <dt>{row.label}</dt>
-              <dd>
-                <span>{row.kind === 'measured' ? 'meting' : 'run'} {formatClock(row.epoch, clock())}</span>
-                <span class="freshness-row-age">{formatAge(ageMs(row.epoch, clock()))}</span>
-                <small>{row.cadence}</small>
-              </dd>
-            </>}</For>
-          </dl>
-          <p class="freshness-meta">
-            <Show when={props.manifest}>Gepubliceerd {formatClock(Date.parse(props.manifest!.generated), clock())}</Show>
-            <Show when={props.refresh}>{' · '}gecontroleerd {time(props.refresh!.checkedAt)}</Show>
-          </p>
-          <button type="button" class="freshness-refresh" disabled={refreshing()} onClick={() => void refreshNow()}>
-            {refreshing() ? 'Bezig met verversen…' : 'Nu verversen'}
-          </button>
+          <div class="freshness-table-scroll">
+            <table class="freshness-sources">
+              <thead><tr><th>Data</th><th>Bron</th><th>Uitleg</th><th>Frequentie</th><th>Volgende data</th></tr></thead>
+              <tbody>
+                <For each={rows()}>{(row) => <tr>
+                  <th scope="row">{row.label}<LiveAge ms={ageMs(row.epoch, clock())} short title={`${row.kind === 'measured' ? 'meting' : 'run'} ${formatClock(row.epoch, clock())}`} /></th>
+                  <td>{row.provider}</td>
+                  <td class="freshness-explanation">{row.explanation}</td>
+                  <td>{row.cadence}</td>
+                  <td>{expectedNext(row) > clock() ? `± ${time(expectedNext(row))}` : 'onderweg'}</td>
+                </tr>}</For>
+              </tbody>
+            </table>
+          </div>
+          <footer class="freshness-footer">
+            <span class="freshness-meta"><Show when={props.refresh}>Laatste check {time(props.refresh!.checkedAt)}</Show></span>
+            <button type="button" class="freshness-refresh" disabled={refreshing()} onClick={() => void refreshNow()}>
+              {refreshing() ? 'Bezig met verversen…' : 'Nu verversen'}
+            </button>
+          </footer>
         </div>
       </dialog>
     </Portal>

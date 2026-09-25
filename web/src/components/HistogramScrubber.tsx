@@ -28,6 +28,8 @@ interface Props {
 
 const CLOUD_LAYER_LABELS = { high: 'hoog', mid: 'midden', low: 'laag' } as const
 
+// PO 2026-09-25 live (U34): tijdsbereikknoppen voorlopig verborgen; de horizon blijft op de default.
+const SHOW_TIME_HORIZON = false
 const hourLabelSteps = [1, 2, 3, 6, 12, 24]
 // Wide enough for "23u" at the axis font size plus breathing room.
 const minimumHourLabelSpacingPx = 34
@@ -221,10 +223,10 @@ export default function HistogramScrubber(props: Props) {
 
   return <section class="scrubber" aria-label={`Regenverwachting en tijd voor ${props.locationLabel}`}>
     <div class="scrubber-toolbar">
-      <div class="segmented time-horizon" role="group" aria-label="Tijdsbereik">
+      <Show when={SHOW_TIME_HORIZON}><div class="segmented time-horizon" role="group" aria-label="Tijdsbereik">
         <For each={[3, 8, 24] as const}>{(hours) => <button type="button" classList={{ active: props.horizonHours === hours }} aria-pressed={props.horizonHours === hours} onClick={() => { props.onIntent?.(); props.onHorizonHours(hours) }}>+{hours}u</button>}</For>
         <button type="button" classList={{ active: props.horizonHours === null }} aria-pressed={props.horizonHours === null} onClick={() => { props.onIntent?.(); props.onHorizonHours(null) }}>Alles</button>
-      </div>
+      </div></Show>
     </div>
     <div
       class="scrub-surface"

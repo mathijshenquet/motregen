@@ -43,7 +43,7 @@ export default function UvBar(props: Props) {
     </span>
     <Show when={!props.bare && reading() && !dark()}>
       <span class="uv-bar-value" aria-hidden="true">{reading()!.estimated ? '≈' : ''}{formatUv(reading()!.value)}</span>
-      <span class="uv-bar-level" aria-hidden="true">{reading()!.value >= 3 ? uvLevel(reading()!.value).level : ''}</span>
+      <span class="uv-bar-level" aria-hidden="true">{uvLevel(reading()!.value).level}</span>
     </Show>
   </span>
 }

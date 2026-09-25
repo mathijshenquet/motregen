@@ -45,7 +45,7 @@ export const WIND_PARAMETERS: WindParameters = {
   fadeOutPx: 30, // Fade-out (U3b)
   maxAge: 6, // Max. leeftijd (U3)
   spawnJitter: 0.6, // Spawn-jitter (U3b)
-  speedDamping: 0.7, // Snelheidsdemping (U3b)
+  speedDamping: 1, // Snelheidsdemping; PO 2026-09-25 live (U34): zee rustiger, was 0,7 (U3b)
   // 0,955 per frame bij 60 Hz, de fade van vóór U3.
   bufferFade: 0.063,
   // Buffer nooit fijner dan 2 device-px per CSS-px: op een Pixel 5 (DPR 2,75) kostten fade +
@@ -55,9 +55,9 @@ export const WIND_PARAMETERS: WindParameters = {
   headIntensity: 0.95, // Kopintensiteit (U3b)
   lineWidth: 2.5,
   speed: 1,
-  // PO 2026-09-25 (U24): default een stuk subtieler, ~60 % van de inkt bij 1,27; windfocus (U19)
-  // tweent naar WIND_FOCUS_INTENSITY, zoals vóór U24.
-  intensity: 0.75,
+  // PO 2026-09-25 live (U34): default subtieler dan U24 (0,75); windfocus (U19) tweent naar
+  // WIND_FOCUS_INTENSITY.
+  intensity: 0.55,
   visibility: 1, // Contrast (U3); App vermenigvuldigt met de focusdemping
   maxFps: 60, // Max. fps (U8c)
 }
@@ -74,8 +74,8 @@ export const DEFAULT_WIND_TUNING: WindTuning = {
 /** Bovengrens voor wind-, regen-, isolijn- en afspeelframes (Max. fps; knop weg in U30). */
 export const WIND_MAX_FPS = WIND_PARAMETERS.maxFps
 
-/** Intensiteit bij volle windfocus met de default-tuning (U19: ×1,5 op de toenmalige 1,27). */
-export const WIND_FOCUS_INTENSITY = 1.905
+/** Intensiteit bij volle windfocus met de default-tuning (PO 2026-09-25 live, U34; was 1,905). */
+export const WIND_FOCUS_INTENSITY = 1.2
 
 export interface WindTuningControl {
   key: keyof WindTuning
@@ -119,6 +119,10 @@ const SPAWN_ATTEMPTS = 32
 const EMPTIEST_SAMPLES = 48
 // Boven deze windsnelheid (m/s) dimt speedDamping de kop.
 const DAMPING_REFERENCE_SPEED = 3
+// PO 2026-09-25 live (U34): onder deze windsnelheid (m/s) krijgt de beweging extra tempo, tot
+// WEAK_WIND_MAX_BOOST×; de staart is ~snelheid × fadetijd en was bij zwakke wind een stip.
+const WEAK_WIND_SPEED = 6
+const WEAK_WIND_MAX_BOOST = 2.5
 const MERCATOR_SCALE = 1 / (2 * Math.PI * 6_378_137)
 const BEAUFORT_STOPS = [0, 3.4, 8, 13.9, 20.8, 32.7] as const
 const LIGHT_RAMP = [
@@ -275,6 +279,8 @@ export class WindLayer implements CustomLayerInterface {
   private trailWidth = 0
   private trailHeight = 0
   private trailView?: TrailView
+  /** RGBA16F-trailbuffer (U34): geen 8-bit-restgrijs en een veel lichtere vloer; anders RGBA8. */
+  private halfFloat = false
   private renderedView?: TrailView
   private left?: Float32Array
   private right?: Float32Array
@@ -358,6 +364,7 @@ export class WindLayer implements CustomLayerInterface {
     this.fadeArray = screenArray(gl, fade, this.screenBuffer, true)
     this.compositeArray = screenArray(gl, composite, this.screenBuffer, false)
     gl.bindVertexArray(null)
+    this.halfFloat = !!(gl.getExtension('EXT_color_buffer_float') ?? gl.getExtension('EXT_color_buffer_half_float'))
     this.ensureTrailTargets()
     map.on('move', this.viewportChanged)
     map.on('resize', this.viewportChanged)
@@ -513,7 +520,7 @@ export class WindLayer implements CustomLayerInterface {
       gl.bindTexture(gl.TEXTURE_2D, previous.texture)
       gl.uniform1i(this.fadeUniforms!.trail, 0)
       gl.uniform1f(this.fadeUniforms!.fade, bufferDecay(this.tuning.bufferFade, seconds) * (rebase ? drift.retention : 1))
-      gl.uniform1f(this.fadeUniforms!.floor, stepping ? trailFloor(seconds) : 0)
+      gl.uniform1f(this.fadeUniforms!.floor, stepping ? (this.halfFloat ? halfFloatTrailFloor(seconds) : trailFloor(seconds)) : 0)
       gl.uniform1f(this.fadeUniforms!.warp, rebase ? 1 : 0)
       gl.uniform2f(this.fadeUniforms!.uvScale, drift.scaleX, drift.scaleY)
       gl.uniform2f(this.fadeUniforms!.uvOffset, drift.offsetX, drift.offsetY)
@@ -626,10 +633,11 @@ export class WindLayer implements CustomLayerInterface {
       let stepPx = 0
       let speed = 0
       if (life.age + seconds > 0 && this.sampleWind(oldX, oldY)) {
-        nextX += this.east * seconds * advectionScale / Math.abs(gridWidth)
-        nextY -= this.north * seconds * advectionScale / Math.abs(gridHeight)
-        stepPx = Math.hypot((nextX - oldX) * unitX, (nextY - oldY) * unitY) * worldPx
         speed = Math.hypot(this.east, this.north)
+        const step = seconds * advectionScale * weakWindTempo(speed)
+        nextX += this.east * step / Math.abs(gridWidth)
+        nextY -= this.north * step / Math.abs(gridHeight)
+        stepPx = Math.hypot((nextX - oldX) * unitX, (nextY - oldY) * unitY) * worldPx
       }
       const outside = !this.inView(nextX, nextY)
       const offset = index * INSTANCE_BYTES / 4
@@ -886,7 +894,14 @@ export class WindLayer implements CustomLayerInterface {
     const previousWidth = this.trailWidth
     const previousHeight = this.trailHeight
     const view = this.trailView
-    const trails: [TrailTarget, TrailTarget] = [createTrailTarget(this.gl, width, height), createTrailTarget(this.gl, width, height)]
+    let trails: [TrailTarget, TrailTarget]
+    try {
+      trails = [createTrailTarget(this.gl, width, height, this.halfFloat), createTrailTarget(this.gl, width, height, this.halfFloat)]
+    } catch (error) {
+      if (!this.halfFloat) throw error
+      this.halfFloat = false
+      trails = [createTrailTarget(this.gl, width, height, false), createTrailTarget(this.gl, width, height, false)]
+    }
     this.trailIndex = 0
     if (previous && view) {
       // Resize: de buffer beschrijft het beeld in UV, dus oprekken houdt de staarten op hun plek;
@@ -995,6 +1010,11 @@ export function expectedLifetime(speedPx: number, tuning: Pick<WindParameters, '
  * inkt per oppervlak ∝ snelheid. Demping (v_ref/v)^γ boven v_ref heft dat bij
  * γ = 1 op; zeestrepen worden zachter in plaats van schaarser.
  */
+/** Tempofactor voor zwakke wind: (v₀/v)^½ onder WEAK_WIND_SPEED, begrensd; kleur en demping houden de echte snelheid. */
+export function weakWindTempo(windSpeed: number): number {
+  return windSpeed >= WEAK_WIND_SPEED ? 1 : Math.min(WEAK_WIND_MAX_BOOST, Math.sqrt(WEAK_WIND_SPEED / Math.max(1e-3, windSpeed)))
+}
+
 export function speedDamping(windSpeed: number, gamma: number): number {
   return windSpeed > DAMPING_REFERENCE_SPEED ? (DAMPING_REFERENCE_SPEED / windSpeed) ** gamma : 1
 }
@@ -1154,6 +1174,11 @@ export function trailFloor(seconds: number): number {
   return Math.max(0.6, seconds * 60) / 255
 }
 
+/** Vloer voor de RGBA16F-buffer: geen afrondingsghosts, alleen onzichtbare rest opruimen. */
+export function halfFloatTrailFloor(seconds: number): number {
+  return seconds * 2 / 255
+}
+
 export function trailTargetSize(canvasWidth: number, canvasHeight: number, maxTextureSize: number, scale = 1): [number, number] {
   const width = Math.max(1, Math.round(canvasWidth * scale))
   const height = Math.max(1, Math.round(canvasHeight * scale))
@@ -1281,20 +1306,26 @@ function setWindColor(speed: number, theme: MapTheme, color: Float32Array): void
   color[2] = (left[2] + (right[2] - left[2]) * mix) / 255
 }
 
-function createTrailTarget(gl: WebGL2RenderingContext, width: number, height: number): TrailTarget {
+function createTrailTarget(gl: WebGL2RenderingContext, width: number, height: number, halfFloat: boolean): TrailTarget {
   const texture = gl.createTexture()!
   gl.bindTexture(gl.TEXTURE_2D, texture)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+  if (halfFloat) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, width, height, 0, gl.RGBA, gl.HALF_FLOAT, null)
+  else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
   const previous = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
   const framebuffer = gl.createFramebuffer()!
   gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
-  if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('Wind-trail-framebuffer is onvolledig')
+  const complete = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE
   gl.bindFramebuffer(gl.FRAMEBUFFER, previous)
+  if (!complete) {
+    gl.deleteFramebuffer(framebuffer)
+    gl.deleteTexture(texture)
+    throw new Error('Wind-trail-framebuffer is onvolledig')
+  }
   return { texture, framebuffer }
 }
 

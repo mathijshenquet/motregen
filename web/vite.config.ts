@@ -10,14 +10,12 @@ import { configDefaults } from 'vitest/config'
 // dev/preview draait op ageq-mthq en wordt via het tailnet bekeken (MIP-1 §5)
 const allowedHosts = ['ageq-mthq']
 
-// dev gebruikt de echte ingest-data via caddy (:8080, MIP-3-contract);
+// dev gebruikt de echte ingest-data via caddy (:8080, MIP-3-contract) of MOTREGEN_DATA_ORIGIN;
 // MOTREGEN_SYNTH=1 valt terug op de synthetische dataset in public/data
-const proxy = process.env.MOTREGEN_SYNTH
-  ? undefined
-  : { '/data': { target: 'http://localhost:8080', changeOrigin: true, rewrite: (path: string) => path.replace(/^\/data/, '') } }
-const previewProxy = process.env.MOTREGEN_DATA_ORIGIN
-  ? { '/data': { target: process.env.MOTREGEN_DATA_ORIGIN, changeOrigin: true, rewrite: (path: string) => path.replace(/^\/data/, '') } }
-  : undefined
+const dataOrigin = process.env.MOTREGEN_DATA_ORIGIN
+const dataProxy = (target: string) => ({ '/data': { target, changeOrigin: true, rewrite: (path: string) => path.replace(/^\/data/, '') } })
+const proxy = process.env.MOTREGEN_SYNTH ? undefined : dataProxy(dataOrigin ?? 'http://localhost:8080')
+const previewProxy = dataOrigin ? dataProxy(dataOrigin) : undefined
 
 // Het gebruiksbaken (MIP-13) gaat naar /hit; in prod beantwoordt Caddy dat (U32). dev/preview
 // antwoorden net zo met 204, en e2e leest de ontvangen bodies uit MOTREGEN_HIT_LOG.
