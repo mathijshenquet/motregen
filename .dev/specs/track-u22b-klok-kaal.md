@@ -42,3 +42,17 @@ marker weg in de scrubber."
 
 `pnpm typecheck`, `pnpm test`, `pnpm build`, gerichte e2e onder een slot
 (freshness, location, perf). Synchrone exit statussen in de LOG. Draft-PR.
+
+## Aanvulling PO (2026-09-25): About-modal strakker
+
+Volgorde en inhoud van de modal:
+1. Instellingen (Weergave: licht / systeem / donker) bovenaan, zoals nu.
+2. Kop: druppel + "motregen.nl".
+3. Twee korte regels (geen alinea's): "Rechtstreeks van het KNMI" en "Gratis en zonder
+   reclame".
+4. De detailtabel, met erin ook de regels **Privacy** ("geen tracking, geen advertenties;
+   locatie en favorieten blijven in je browser") en **Broncode** (link GitHub). De losse
+   alinea's "Eén tijdlijn…", "De kaart dekt…", de privacy-alinea en de losse broncode-knop
+   verdwijnen; de dekking (Nederland en Vlaanderen) mag als korte toevoeging in de rij
+   Observatie of Kaart.
+Minder tekst in het algemeen: elke tabelrij één regel waar het kan.
