@@ -548,7 +548,14 @@ button.column-mode { width: 100%; cursor: pointer; }
 /* De kolom van de gepinde modus krijgt een lichte tint over de rijachtergrond, zodat kop en cellen één geheel lezen. */
 .forecast-table { --mode-tint: linear-gradient(color-mix(in srgb, var(--accent-soft) 40%, transparent), color-mix(in srgb, var(--accent-soft) 40%, transparent)); }
 .forecast-table[data-mode="temperature"] :is(.temperature-heading, .temperature-cell),
-.forecast-table[data-mode="wind"] :is(.wind-heading, .wind-cell) { background-image: var(--mode-tint); }
+.forecast-table[data-mode="wind"] :is(.wind-heading, .wind-cell),
+.forecast-table[data-mode="clouds"] :is(.clouds-heading, .clouds-cell) { background-image: var(--mode-tint); }
+/* Hover kleurt de hele kolom, lichter dan een pin (U34). */
+.forecast-table { --hover-tint: linear-gradient(color-mix(in srgb, var(--accent-soft) 22%, transparent), color-mix(in srgb, var(--accent-soft) 22%, transparent)); }
+.forecast-table[data-hover="temperature"]:not([data-mode="temperature"]) :is(.temperature-heading, .temperature-cell),
+.forecast-table[data-hover="wind"]:not([data-mode="wind"]) :is(.wind-heading, .wind-cell),
+.forecast-table[data-hover="clouds"]:not([data-mode="clouds"]) :is(.clouds-heading, .clouds-cell) { background-image: var(--hover-tint); }
+.forecast-table[data-hover="temperature"] .temperature-focus, .forecast-table[data-hover="wind"] .wind-focus, .forecast-table[data-hover="clouds"] .clouds-focus { color: var(--accent); }
 .forecast-table td { text-align: center; }
 .forecast-table :is(th, td):first-child { padding-left: var(--panel-inset, 16px); text-align: left; }
 .forecast-table :is(th, td):last-child { padding-right: var(--panel-inset, 16px); }

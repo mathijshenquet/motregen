@@ -57,8 +57,9 @@ test('keyboard focus on the column heading counts as hover; reduced motion jumps
   expect(await shell(page).getAttribute('data-focus')).toBe('1.00')
   await expect.poll(async () => Number(await shell(page).getAttribute('data-isolines'))).toBeGreaterThan(0)
   await page.screenshot({ path: testInfo.outputPath('focus-dark.png') })
-  // De volgende kop met focusmodus is Wind: toetsenbordfocus wisselt direct van modus.
-  await page.keyboard.press('Tab')
+  // Verder tabben naar de Wind-kop (er kan een andere modekop tussen staan): toetsenbordfocus wisselt
+  // direct van modus.
+  for (let step = 0; step < 3 && !(await windHeading(page).evaluate((element) => element === document.activeElement)); step++) await page.keyboard.press('Tab')
   await expect(windHeading(page)).toBeFocused()
   expect(await shell(page).getAttribute('data-focus')).toBe('0.00')
   expect(await shell(page).getAttribute('data-wind-focus')).toBe('1.00')

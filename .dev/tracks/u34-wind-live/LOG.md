@@ -86,3 +86,7 @@
 - Nieuwe modus Wolken (FocusKind 'clouds', kaart ongemoeid — alleen temperatuur/wind hebben een tween): tabelkolom "Wolken" met modeknop en per uur een mini-stapel hoog/midden/laag in %; in die modus alleen de drie lagen over de hele plothoogte, met labels, geen regen ('clouds'). Gevoel/Wind: alleen regen ('rain'). Lagen laden nu altijd na de initial-fase (kolom). Pinnen van Wolken markeert geen usage-feature (privacycontract ongewijzigd).
 - Tests: scrubber (3 weergaven), tabel (Wolken-kolom), cloud-section.spec herschreven.
 - Receipts: `pnpm typecheck` exit 0; `pnpm test` exit 0 (46 bestanden, 309 tests); `… pnpm e2e e2e/cloud-section.spec.ts --project desktop` → E2E-EXIT 0 (1 passed, één run).
+## 2026-09-25 — C: kolomhighlight
+- Hele kolom (th + alle td van Gevoel/Wind/Wolken) is hoverdoel; verlaten wacht 80 ms zodat cel→cel/zonrij de focus niet onderbreekt; data-hover op de tabel tint de hele kolom (lichter dan pin); pin-tint nu ook voor Wolken; toetsenbordfocus op de kopknop ongewijzigd.
+- focus.spec: de toetsenbordtest tabde van Gevoel exact één stap naar Wind; sinds B staat Wolken ertussen → tabt nu door tot de Wind-kop (robuust voor kolomvolgorde).
+- Receipts: typecheck 0; `pnpm test` 0 (46, 310); `pnpm e2e e2e/focus.spec.ts --project desktop` → E2E-EXIT 1 (alleen die toetsenbordtest, oorzaak B-kolomvolgorde); na fix `… -g "keyboard focus on the column heading"` → E2E-EXIT 0.
