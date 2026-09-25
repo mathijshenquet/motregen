@@ -64,3 +64,12 @@ het KNMI" — één regel erbij.
   Pollen-ingest start nu (U39, CAMS/ADS met gratis sleutel die de PO aanvraagt); kolomset in
   U38 na U36. **Zicht**: als kolom in de extra set én als mist/nevel-variant van het weericoon
   bij < 1 km / < 5 km, zodat het alleen opvalt als het ertoe doet.
+
+## PO-richting (2026-09-25, 20:30, na U37 op echte data)
+
+- Wolkendoorsnede bevalt ("redelijk gaaf"). Definitief: **default weermodus = één band totale
+  bewolking** (`cloud_frac`) boven het regenhistogram, histogram op volle balkbreedte (de versmalling
+  uit U37-A is te dun); de **drie lagen** krijgen een eigen modus via een **kolom Wolken** (modeknop
+  zoals Gevoel/Wind): in die modus alleen de lagen, geen regenhistogram. Uitvoering als live-stap in
+  U34; de kolom valt straks onder de kolomset van U38.
+- Wind op retina te dun: lijnbreedte stond in device-px; wordt CSS-px (U34 live-stap).
