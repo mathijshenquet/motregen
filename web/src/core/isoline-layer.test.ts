@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Grid } from './contract'
-import { isolineWidthCss, IsolineLayer, lineProfile } from './isoline-layer'
+import { isolineWidthCss, IsolineLayer, lineProfile, traceTimes } from './isoline-layer'
 
 const grid = { width: 2, height: 2, x0: 0, y0: 0, dx: 1, dy: -1 } as unknown as Grid
 const style = { step: 1, fill: 0.7, color: [0, 0, 0] as [number, number, number], gradientFade: true }
@@ -44,5 +44,22 @@ describe('isoline width', () => {
     expect(spread(halfWidth, alpha)).toBeLessThan(1e-9)
     // Naïef 0,9 px breed: lichter tussen twee pixelmiddens.
     expect(spread(0.45, 1)).toBeGreaterThan(0.05)
+  })
+})
+
+describe('trace times (U41)', () => {
+  it('traces the exact slice at rest', () => {
+    expect(traceTimes(3.4, 10, false)).toEqual([3.4])
+  })
+
+  it('traces only the two whole hours around the cursor while playing', () => {
+    const traced = new Set<number>()
+    for (let time = 2; time < 5; time += 1 / 60) for (const at of traceTimes(time, 10, true)) traced.add(at)
+    expect([...traced].sort()).toEqual([2, 3, 4, 5])
+  })
+
+  it('stays inside the volume at its end', () => {
+    expect(traceTimes(9, 10, true)).toEqual([9])
+    expect(traceTimes(12, 10, true)).toEqual([9])
   })
 })

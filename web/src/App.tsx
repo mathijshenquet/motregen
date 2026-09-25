@@ -1062,7 +1062,7 @@ export default function App() {
       const layer = set.layer
       const frameKeys = frames.map((frame) => `${frame.chunk.url}#${frame.frameIndex}`)
       for (const index of layer.setFrameKeys(frameKeys)) set.fields[index] = undefined
-      layer.setTime(time)
+      layer.setTime(time, playing())
       await Promise.all(wanted.filter((index) => !layer.hasLayer(index)).map(async (index) => {
         const prepared = await preparedIsolineField(set, frames[index]!)
         if (layer !== set.layer || layer.frameKey(index) !== frameKeys[index] || !sameGrid(prepared, { grid: layer.grid })) return
