@@ -414,6 +414,7 @@ struct DecodedArome {
     radiation: Vec<Vec<u8>>,
     relative_humidity: Vec<Vec<u8>>,
     cloud_fraction: Vec<Vec<u8>>,
+    pressure: Vec<Vec<u8>>,
 }
 
 /// Decodes leads +1..=`leads` of one AROME run; +0 is only the
@@ -476,11 +477,13 @@ fn decode_arome_run(
         radiation: Vec::with_capacity(capacity),
         relative_humidity: Vec::with_capacity(capacity),
         cloud_fraction: Vec::with_capacity(capacity),
+        pressure: Vec::with_capacity(capacity),
     };
     let temperature_quant = temperature_quantization_table();
     let wind_quant = wind_quantization_table();
     let radiation_quant = radiation_quantization_table();
     let percent_quant = percent_quantization_table();
+    let pressure_quant = pressure_quantization_table();
     let mut previous_precipitation = first.precipitation_mm;
     let mut previous_radiation = first.global_radiation_j_m2;
 
@@ -556,6 +559,15 @@ fn decode_arome_run(
             &integrate_values(&cloud_fraction, 8)?,
             &percent_quant,
         )?);
+        let pressure = hourly_map
+            .gather(&current.mean_sea_level_pressure_pa.values)?
+            .into_iter()
+            .map(|pascal| pascal / 100.0)
+            .collect::<Vec<_>>();
+        out.pressure.push(quantize_values(
+            &integrate_values(&pressure, 3)?,
+            &pressure_quant,
+        )?);
 
         let radiation =
             knmi_grib::hourly_precipitation(&previous_radiation, &current.global_radiation_j_m2)?
@@ -585,7 +597,7 @@ fn decode_arome_run(
 const HOURLY_CHUNK_LEADS: usize = 24;
 
 /// Fields whose frames are stored as lossless predictive members (docs/mrf.md §Predictive frames).
-const PREDICTIVE_FIELDS: [&str; 1] = ["feels_like_c"];
+const PREDICTIVE_FIELDS: [&str; 2] = ["feels_like_c", "pressure_hpa"];
 
 fn hourly_field_chunks(decoded: &DecodedArome, horizon_label: &str) -> Result<Vec<ProducedChunk>> {
     let run = &decoded.run;
@@ -667,6 +679,12 @@ fn hourly_field_chunks(decoded: &DecodedArome, horizon_label: &str) -> Result<Ve
             SUMMARY_GRID,
             &decoded.cloud_fraction,
             percent_quant,
+        )?,
+        field_chunk(
+            "pressure_hpa",
+            DETAIL_GRID,
+            &decoded.pressure,
+            pressure_quantization_table(),
         )?,
     ]
     .concat())
@@ -987,6 +1005,11 @@ pub fn uv_quantization_table() -> Vec<Option<f32>> {
     linear_quantization_table(0.0, 12.0 / 254.0)
 }
 
+/// 0.5 hPa: 0.1 hPa over 940–1060 would need 1201 levels, a cell has 255 (docs/fields.md).
+pub fn pressure_quantization_table() -> Vec<Option<f32>> {
+    linear_quantization_table(940.0, 0.5)
+}
+
 pub fn percent_quantization_table() -> Vec<Option<f32>> {
     linear_quantization_table(0.0, 100.0 / 254.0)
 }
@@ -1056,6 +1079,7 @@ fn validate_arome_fields(
         &fields.motion_wind_v_ms,
         &fields.global_radiation_j_m2,
         &fields.total_cloud_cover,
+        &fields.mean_sea_level_pressure_pa,
     ];
     ensure!(
         selected.iter().all(|field| &field.grid == grid),
@@ -1166,9 +1190,10 @@ mod tests {
             radiation: frames(RADIATION_GRID),
             relative_humidity: frames(SUMMARY_GRID),
             cloud_fraction: frames(SUMMARY_GRID),
+            pressure: frames(DETAIL_GRID),
         };
         let chunks = hourly_field_chunks(&decoded, "h30").unwrap();
-        assert_eq!(chunks.len(), 14);
+        assert_eq!(chunks.len(), 16);
         let temperature = chunks
             .iter()
             .filter(|chunk| chunk.manifest.field == "temp_c")
@@ -1188,7 +1213,7 @@ mod tests {
         validate_wind_pair(&chunks).unwrap();
         for chunk in &chunks {
             let decoded = mrf::decode(&chunk.bytes).unwrap();
-            let predictive = chunk.manifest.field == "feels_like_c";
+            let predictive = PREDICTIVE_FIELDS.contains(&chunk.manifest.field.as_str());
             assert_eq!(
                 decoded.header.pred.is_some(),
                 predictive,
@@ -1318,6 +1343,14 @@ mod tests {
         assert!((uv_quantization_table()[254].unwrap() - 12.0).abs() < 0.0001);
         assert_eq!(percent_quantization_table()[0], Some(0.0));
         assert!((percent_quantization_table()[254].unwrap() - 100.0).abs() < 0.0001);
+        let pressure = pressure_quantization_table();
+        assert_eq!(pressure[0], Some(940.0));
+        assert_eq!(pressure[144], Some(1_012.0));
+        assert_eq!(pressure[254], Some(1_067.0));
+        assert_eq!(
+            quantize_values(&[1_012.1, 930.0, 1_100.0, f32::NAN], &pressure).unwrap(),
+            [144, 0, 254, 255]
+        );
     }
 
     #[test]

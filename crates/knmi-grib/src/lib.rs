@@ -12,7 +12,11 @@ const U_WIND_PARAMETER: i64 = 33;
 const V_WIND_PARAMETER: i64 = 34;
 const GLOBAL_RADIATION_PARAMETER: i64 = 117;
 const TOTAL_CLOUD_COVER_PARAMETER: i64 = 71;
+const PRESSURE_PARAMETER: i64 = 1;
 const HEIGHT_ABOVE_GROUND: &str = "sfc";
+/// GRIB1 level type 103 (KNMI table 253 has no name for it, so eccodes reports the number):
+/// parameter 1 there is mean-sea-level pressure; parameter 1 on `sfc` is surface pressure.
+const MEAN_SEA_LEVEL: &str = "103";
 const MOTION_WIND_HEIGHT_M: i64 = 300;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -47,6 +51,7 @@ pub struct AromeFields {
     pub motion_wind_v_ms: PrecipitationField,
     pub global_radiation_j_m2: PrecipitationField,
     pub total_cloud_cover: PrecipitationField,
+    pub mean_sea_level_pressure_pa: PrecipitationField,
 }
 
 #[derive(Clone, Copy)]
@@ -60,6 +65,7 @@ enum FieldKind {
     MotionWindV,
     GlobalRadiation,
     TotalCloudCover,
+    MeanSeaLevelPressure,
 }
 
 pub fn decode_arome_fields(path: impl AsRef<Path>) -> Result<AromeFields> {
@@ -75,30 +81,38 @@ pub fn decode_arome_fields(path: impl AsRef<Path>) -> Result<AromeFields> {
     let mut motion_wind_v = None;
     let mut global_radiation = None;
     let mut total_cloud_cover = None;
+    let mut mean_sea_level_pressure = None;
 
     while let Some(message) = file.ref_message_iter().next()? {
         let parameter: i64 = message.read_key("indicatorOfParameter")?;
         let level_type: String = message.read_key("indicatorOfTypeOfLevel")?;
-        if level_type != HEIGHT_ABOVE_GROUND {
-            continue;
-        }
         let level: i64 = message.read_key("level")?;
-        let (kind, expected_level, expected_time_range) = match (parameter, level) {
-            (TOTAL_PRECIPITATION_PARAMETER, 0) => (FieldKind::Precipitation, 0, 4),
-            (TEMPERATURE_PARAMETER, 2) => (FieldKind::Temperature, 2, 0),
-            (RELATIVE_HUMIDITY_PARAMETER, 2) => (FieldKind::RelativeHumidity, 2, 0),
-            (U_WIND_PARAMETER, 10) => (FieldKind::WindU, 10, 0),
-            (V_WIND_PARAMETER, 10) => (FieldKind::WindV, 10, 0),
-            (U_WIND_PARAMETER, MOTION_WIND_HEIGHT_M) => {
-                (FieldKind::MotionWindU, MOTION_WIND_HEIGHT_M, 0)
-            }
-            (V_WIND_PARAMETER, MOTION_WIND_HEIGHT_M) => {
-                (FieldKind::MotionWindV, MOTION_WIND_HEIGHT_M, 0)
-            }
-            (GLOBAL_RADIATION_PARAMETER, 0) => (FieldKind::GlobalRadiation, 0, 4),
-            (TOTAL_CLOUD_COVER_PARAMETER, 0) => (FieldKind::TotalCloudCover, 0, 0),
-            _ => continue,
-        };
+        let (kind, expected_level, expected_time_range) =
+            match (level_type.as_str(), parameter, level) {
+                (MEAN_SEA_LEVEL, PRESSURE_PARAMETER, 0) => (FieldKind::MeanSeaLevelPressure, 0, 0),
+                (HEIGHT_ABOVE_GROUND, TOTAL_PRECIPITATION_PARAMETER, 0) => {
+                    (FieldKind::Precipitation, 0, 4)
+                }
+                (HEIGHT_ABOVE_GROUND, TEMPERATURE_PARAMETER, 2) => (FieldKind::Temperature, 2, 0),
+                (HEIGHT_ABOVE_GROUND, RELATIVE_HUMIDITY_PARAMETER, 2) => {
+                    (FieldKind::RelativeHumidity, 2, 0)
+                }
+                (HEIGHT_ABOVE_GROUND, U_WIND_PARAMETER, 10) => (FieldKind::WindU, 10, 0),
+                (HEIGHT_ABOVE_GROUND, V_WIND_PARAMETER, 10) => (FieldKind::WindV, 10, 0),
+                (HEIGHT_ABOVE_GROUND, U_WIND_PARAMETER, MOTION_WIND_HEIGHT_M) => {
+                    (FieldKind::MotionWindU, MOTION_WIND_HEIGHT_M, 0)
+                }
+                (HEIGHT_ABOVE_GROUND, V_WIND_PARAMETER, MOTION_WIND_HEIGHT_M) => {
+                    (FieldKind::MotionWindV, MOTION_WIND_HEIGHT_M, 0)
+                }
+                (HEIGHT_ABOVE_GROUND, GLOBAL_RADIATION_PARAMETER, 0) => {
+                    (FieldKind::GlobalRadiation, 0, 4)
+                }
+                (HEIGHT_ABOVE_GROUND, TOTAL_CLOUD_COVER_PARAMETER, 0) => {
+                    (FieldKind::TotalCloudCover, 0, 0)
+                }
+                _ => continue,
+            };
         let table_version: i64 = message.read_key("table2Version")?;
         if table_version != TABLE_VERSION {
             continue;
@@ -145,6 +159,7 @@ pub fn decode_arome_fields(path: impl AsRef<Path>) -> Result<AromeFields> {
             FieldKind::MotionWindV => &mut motion_wind_v,
             FieldKind::GlobalRadiation => &mut global_radiation,
             FieldKind::TotalCloudCover => &mut total_cloud_cover,
+            FieldKind::MeanSeaLevelPressure => &mut mean_sea_level_pressure,
         };
         if slot.replace(field).is_some() {
             bail!("duplicate selected AROME field in {}", path.display());
@@ -162,6 +177,8 @@ pub fn decode_arome_fields(path: impl AsRef<Path>) -> Result<AromeFields> {
         motion_wind_v_ms: motion_wind_v.ok_or_else(|| missing("300 m V-wind"))?,
         global_radiation_j_m2: global_radiation.ok_or_else(|| missing("global-radiation"))?,
         total_cloud_cover: total_cloud_cover.ok_or_else(|| missing("total cloud cover"))?,
+        mean_sea_level_pressure_pa: mean_sea_level_pressure
+            .ok_or_else(|| missing("mean-sea-level pressure"))?,
     })
 }
 
