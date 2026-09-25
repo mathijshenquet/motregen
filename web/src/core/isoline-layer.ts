@@ -12,6 +12,8 @@ export interface IsolineStyle {
   color: [number, number, number]
   /** Dekking van de bandvulling tussen de lijnen (0 = geen vulling). */
   fill: number
+  /** Continu verloop op de veldwaarde i.p.v. vlakke banden (PO-optie 2026-09-25). */
+  fillSmooth?: boolean
   /** Bandkleuren over het actuele bereik; zonder palet geen vulling. */
   palette?: PaletteStops
   /** 0 = lineair tussen twee uurframes, 1 = kubische B-spline over vier. */
@@ -151,6 +153,7 @@ void main() {
 const fillFragment = `#version 300 es
 ${fieldSampling}
 uniform float u_fill_base;
+uniform float u_fill_smooth;
 uniform float u_palette_t[${PALETTE_STOPS}];
 uniform vec3 u_palette_c[${PALETTE_STOPS}];
 uniform sampler2D u_ring;
@@ -182,7 +185,9 @@ void main() {
   float width = 1.0 - clamp(fade, 0.0, 1.0);
   float upper = width <= 0.0 ? step(0.0, offset) : clamp(0.5 + offset / width, 0.0, 1.0);
   float opacity = u_fill_base * smoothstep(0.3, 0.7, field.g);
-  color = vec4(mix(band(level - 1.0), band(level), upper) * opacity, opacity);
+  // Verloop (PO-optie): kleur op de veldwaarde zelf i.p.v. per band.
+  vec3 rgb = u_fill_smooth > 0.5 ? palette(field.r) : mix(band(level - 1.0), band(level), upper);
+  color = vec4(rgb * opacity, opacity);
 }`
 
 const compositeVertex = `#version 300 es
@@ -755,6 +760,7 @@ export class IsolineLayer implements CustomLayerInterface {
     const program = this.fill!
     const uniform = this.useField(gl, program, map, matrix, (window.devicePixelRatio || 1) * width / Math.max(1, gl.drawingBufferWidth), time)
     gl.uniform1f(uniform('u_fill_base'), this.style.fill)
+    gl.uniform1f(uniform('u_fill_smooth'), this.style.fillSmooth ? 1 : 0)
     const palette = paletteUniforms(this.style.palette)
     gl.uniform1fv(uniform('u_palette_t[0]'), palette.temperatures)
     gl.uniform3fv(uniform('u_palette_c[0]'), palette.colors)

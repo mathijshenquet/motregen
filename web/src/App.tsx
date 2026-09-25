@@ -838,10 +838,10 @@ export default function App() {
   }
 
   function isolineStyle(): IsolineStyle {
-    const { step, fillOpacity, window, bicubic, fade, gradientLow, gradientHigh, speedLow, speedHigh, vector, ringKm, tolerancePx } = isolineTuning()
+    const { step, fillOpacity, fillStyle, window, bicubic, fade, gradientLow, gradientHigh, speedLow, speedHigh, vector, ringKm, tolerancePx } = isolineTuning()
     const range = temperatureRange()
     return {
-      step, fill: fillOpacity, palette: range && paletteStops(range),
+      step, fill: fillOpacity, fillSmooth: fillStyle === 'verloop', palette: range && paletteStops(range),
       window, bicubic, color: hexColor(isolineColor(mapTheme())),
       fade: ISOLINE_FADES.indexOf(fade), gradient: [gradientLow, gradientHigh], speed: [speedLow, speedHigh],
       vector, ringKm, tolerancePx,
@@ -1754,6 +1754,7 @@ export default function App() {
           <summary>Wind debug</summary>
           <label><span>Isolijnen</span><select value={isolineTuning().step} onChange={(event) => setIsolineTuning((current) => ({ ...current, step: Number(event.currentTarget.value) as IsolineStep }))}>{ISOLINE_STEPS.map((step) => <option value={step}>{step} °C</option>)}</select><output>{isolineTuning().step}°</output></label>
           <label><span>Vulling</span><input type="range" min="0" max="1" step="0.05" value={isolineTuning().fillOpacity} onInput={(event) => setIsolineTuning((current) => ({ ...current, fillOpacity: event.currentTarget.valueAsNumber }))} /><output>{isolineTuning().fillOpacity.toFixed(2)}</output></label>
+          <label><span>Vulling-stijl</span><select value={isolineTuning().fillStyle} onChange={(event) => setIsolineTuning((current) => ({ ...current, fillStyle: event.currentTarget.value as 'banden' | 'verloop' }))}><option value="banden">banden</option><option value="verloop">verloop</option></select><output>{isolineTuning().fillStyle}</output></label>
           <label><span>Tijdvenster</span><select value={isolineTuning().window} onChange={(event) => setIsolineTuning((current) => ({ ...current, window: Number(event.currentTarget.value) }))}>{ISOLINE_WINDOWS.map((window) => <option value={window}>{window === 0 ? 'lineair' : 'B-spline'}</option>)}</select><output>{isolineTuning().window}</output></label>
           <label><span>Label-afstand</span><input type="range" min="30" max="240" step="10" value={labelTuning().minDistancePx} onInput={(event) => setLabelTuning((current) => ({ ...current, minDistancePx: event.currentTarget.valueAsNumber }))} /><output>{labelTuning().minDistancePx} px</output></label>
           <label><span>Label-spatiëring</span><input type="range" min="100" max="600" step="20" value={labelTuning().spacingPx} onInput={(event) => setLabelTuning((current) => ({ ...current, spacingPx: event.currentTarget.valueAsNumber }))} /><output>{labelTuning().spacingPx} px</output></label>

@@ -7,9 +7,15 @@ const minutes = (n: number) => n * 60_000
 const pill = (page: Page) => page.locator('.map-clock')
 const details = (page: Page) => page.getByRole('button', { name: /Details over dataversheid/ })
 
-// U22b: de klok is alleen de kaarttijd met rechts een kleine statusstip in de statuskleur.
+// PO 2026-09-25: actueel = alleen de tijd; achterlopend/verouderd = stip links van de tijd + leeftijd eronder.
 async function expectDot(page: Page, token: '--fresh' | '--aging' | '--stale'): Promise<void> {
   const dot = pill(page).locator('.freshness-dot')
+  if (token === '--fresh') {
+    await expect(dot).toHaveCount(0)
+    await expect(pill(page).locator('.clock-age')).toHaveCount(0)
+    await expect(pill(page)).not.toHaveAttribute('data-source')
+    return
+  }
   await expect.poll(() => dot.evaluate((element, name) => {
     const probe = document.createElement('i')
     probe.style.background = `var(${name})`
@@ -21,8 +27,9 @@ async function expectDot(page: Page, token: '--fresh' | '--aging' | '--stale'): 
   const time = (await pill(page).locator('.clock-map-time').boundingBox())!
   const box = (await dot.boundingBox())!
   expect(box.width).toBeLessThanOrEqual(7)
-  expect(box.x, 'stip rechts van de tijd').toBeGreaterThanOrEqual(time.x + time.width)
-  expect(box.x - (time.x + time.width)).toBeLessThan(10)
+  expect(box.x + box.width, 'stip links van de tijd').toBeLessThanOrEqual(time.x)
+  expect(time.x - (box.x + box.width)).toBeLessThan(10)
+  await expect(pill(page).locator('.clock-age')).toHaveText(/oud|offline|geen radar/)
   expect(box.y, 'stip binnen de tijdregel').toBeGreaterThan(time.y)
   expect(box.y + box.height).toBeLessThan(time.y + time.height)
   await expect(pill(page)).not.toHaveAttribute('data-source')

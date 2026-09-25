@@ -41,8 +41,9 @@ describe('freshness indicator', () => {
     const pill = document.querySelector('.map-clock')!
     const live = document.querySelector('[aria-live="polite"]')!
     const trigger = screen.getByRole('button', { name: /Details over dataversheid/ })
-    // Eén knop: tijd, direct erna de stip; geen regimewoord of regimekleur.
-    expect([...trigger.children].map((child) => child.className)).toEqual(['clock-map-time', 'freshness-dot'])
+    // Eén knop: alleen de tijd; geen stip zolang de data actueel is, geen regimewoord of regimekleur.
+    expect([...trigger.children].map((child) => child.className)).toEqual(['clock-main'])
+    expect(trigger.querySelector('.freshness-dot')).toBeNull()
     expect(trigger.textContent).toBe(clock(radar))
     expect(pill.hasAttribute('data-source')).toBe(false)
     expect(pill.getAttribute('data-freshness')).toBe('fresh')

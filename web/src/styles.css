@@ -685,9 +685,10 @@ td small { color: var(--muted); font-size: 9px; }
   width: 100%;
   min-height: 44px;
   display: flex;
-  align-items: baseline;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 0;
   padding: calc(env(safe-area-inset-top) + 7px) 14px 8px;
   border: 0;
   border-radius: 0 0 11px 11px;
@@ -700,7 +701,11 @@ td small { color: var(--muted); font-size: 9px; }
 .freshness-trigger:hover, .freshness-trigger:focus-visible { background: color-mix(in srgb, var(--accent-soft) 60%, transparent); outline: none; }
 .freshness-trigger:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
 .clock-map-time { font-size: 20px; font-weight: 720; letter-spacing: -.01em; }
+.clock-main { display: inline-flex; align-items: baseline; gap: 6px; }
 .clock-day { color: var(--muted); font-size: 11px; font-weight: 700; }
+.clock-age { display: block; margin-top: 0; line-height: 1; color: var(--dot, var(--aging)); font-size: 11px; font-weight: 700; }
+[data-freshness="aging"] .clock-age { color: var(--aging); }
+[data-freshness="stale"] .clock-age, [data-freshness="offline"] .clock-age { color: var(--stale); }
 /* Statusstip: vers is rustig groen, achterlopen amber, verouderd/offline rood. In de klok op de
    x-hoogte naast de tijd (baseline-uitgelijnd, dan half een x-hoogte omhoog). */
 .freshness-dot { --dot: var(--fresh); width: 7px; height: 7px; flex: none; align-self: center; border-radius: 50%; background: var(--dot); }

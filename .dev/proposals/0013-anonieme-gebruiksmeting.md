@@ -61,10 +61,11 @@ met de exacte veldenlijst (de veldenlijst is het privacy-contract).
 
 Aangenomen zoals hierboven. Aanvullende besluiten op PO-vragen:
 
-- **Opslag**: JSONL, één bestand per dag (`/var/lib/motregen/usage/YYYY-MM-DD.jsonl`,
+- **Opslag**: JSONL, één bestand per dag (`/var/lib/motregen-usage/usage/YYYY-MM-DD.jsonl` —
+  eigen map, want de ingest chownt `/var/lib/motregen` recursief bij elke start (U32-bevinding),
   Caddy-log met alleen het bakenveld en het manifest-sessievlag, zonder IP), 30 dagen
   bewaard en daarna verwijderd door de timer. Het dagelijkse **aggregaat** is een klein
-  JSON-bestand per dag (`stats/YYYY-MM-DD.json`, honderden bytes) dat blijft en nachtelijks
+  JSON-bestand per dag (`/var/lib/motregen-usage/stats/YYYY-MM-DD.json`, honderden bytes) dat blijft en nachtelijks
   naar de dev-host (ageq-mthq) wordt gekopieerd via de bestaande SSH-route — dat is de
   durable kopie; de ruwe regels zijn bewust vergankelijk.
 - **Cloudflare**: de site staat al achter Cloudflare-proxy, dus de zone-analytics in het
@@ -75,3 +76,7 @@ Aangenomen zoals hierboven. Aanvullende besluiten op PO-vragen:
   metadata in `index.html`, `robots.txt`, en Search Console via een DNS-TXT-verificatie zodat
   zoekvertoningen/klikken zichtbaar zijn zonder iets op de site te laden.
 - Tracks: U31 (client-baken), U32 (deploy: log, `/hit`, aggregaat, docs), U33 (vindbaarheid).
+
+- **U32-bevindingen (2026-09-25)**: prod schreef al een vhost-access-log mét IP (nixpkgs-default);
+  U32 zet dat uit, oude bestanden wist de PO zelf (commando in `docs/deploy.md`). Cloudflare cachet
+  `/data/*` 15 s, dus het sessiemanifest (`?s=1`) krijgt `Cache-Control: no-store`. Body bevat `v: 1`.

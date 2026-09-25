@@ -1,7 +1,7 @@
 import { createMemo, createSignal, For, onCleanup, Show } from 'solid-js'
 import { Portal } from 'solid-js/web'
 import type { Manifest, Source } from '../core/contract'
-import { ageMs, expectedNextRadar, formatAge, formatClock, freshnessStatus, latestRadarEpoch, sourceFreshness, STATUS_LABELS, type RefreshState } from '../core/freshness'
+import { ageMs, expectedNextRadar, formatAge, formatAgeShort, formatClock, freshnessStatus, latestRadarEpoch, sourceFreshness, STATUS_LABELS, type RefreshState } from '../core/freshness'
 import { sourceZone } from '../core/time-model'
 import { BUTTON_ICON, X } from './icons'
 import { backdropHandlers } from './modal'
@@ -76,9 +76,15 @@ export default function Freshness(props: Props) {
       title="Hoe vers is de data?"
       onClick={openPanel}
     >
-      <strong class="clock-map-time">{mapTime()}</strong>
-      <i class="freshness-dot" aria-hidden="true" />
-      <Show when={mapDay()}><small class="clock-day">{mapDay()}</small></Show>
+      {/* PO 2026-09-25: geen groene stip; alleen bij achterlopen/verouderd een stip links van de tijd en de leeftijd eronder. */}
+      <span class="clock-main">
+        <Show when={status() !== 'fresh'}><i class="freshness-dot" aria-hidden="true" /></Show>
+        <strong class="clock-map-time">{mapTime()}</strong>
+        <Show when={mapDay()}><small class="clock-day">{mapDay()}</small></Show>
+      </span>
+      <Show when={status() !== 'fresh'}>
+        <small class="clock-age">{status() === 'offline' ? 'offline' : radarAge() === undefined ? 'geen radar' : `${formatAgeShort(radarAge()!)} oud`}</small>
+      </Show>
     </button>
     {/* Alleen de statustekst is live: tikkende minuten worden niet voorgelezen. */}
     <span class="sr-only" aria-live="polite">{STATUS_LABELS[status()]}</span>
