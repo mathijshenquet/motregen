@@ -45,7 +45,7 @@ import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLabels, 
 import { buildTimeline, frameBlend, seriesValueAt, timelineCoverage, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelinePlaybackRate } from './core/time-model'
 import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
-import { DEFAULT_WIND_TUNING, loadWindTuning, storeWindTuning, WindLayer, type WindTuning } from './core/wind-layer'
+import { DEFAULT_WIND_TUNING, loadWindTuning, storeWindTuning, WIND_MAX_FPS, WIND_PARAMETERS, WindLayer, type WindTuning } from './core/wind-layer'
 import { clearTuningStorage } from './core/dev-settings'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
@@ -244,10 +244,10 @@ export default function App() {
     () => reducedMotion.matches)
   const isolineCoverage = createMemo(() => timelineCoverage(feelsLikeTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
   const isolinesActive = createMemo(() => focus() > 0)
-  const focusedWindTuning = createMemo<WindTuning>(() => ({
+  const focusedWindTuning = createMemo(() => ({
     ...windTuning(),
     intensity: windFocusIntensity(windTuning().intensity, windFocus()),
-    visibility: windTuning().visibility * contextOpacity(focus(), FOCUS_DIM),
+    visibility: WIND_PARAMETERS.visibility * contextOpacity(focus(), FOCUS_DIM),
   }))
   const [mapReady, setMapReady] = createSignal(false)
   const [resetNotice, setResetNotice] = createSignal(false)
@@ -490,7 +490,7 @@ export default function App() {
     const stop = startFrameLoop((now) => {
       const elapsed = now - previous
       // Zelfde grens als de windcanvas: op 120 Hz-schermen elke tweede vsync overslaan.
-      if (elapsed < 1_000 / windTuning().maxFps - 4) return
+      if (elapsed < 1_000 / WIND_MAX_FPS - 4) return
       previous = now
       setCursor((value) => {
         const epoch = timelineEpochAtCursor(frames, value)
@@ -672,7 +672,7 @@ export default function App() {
     if (!map) return
     layer = new RainLayer(grid)
     try {
-      rainOverlay = new LayerOverlay(map, layer, windOverlay?.canvas ?? map.getCanvas(), () => windTuning().maxFps)
+      rainOverlay = new LayerOverlay(map, layer, windOverlay?.canvas ?? map.getCanvas(), () => WIND_MAX_FPS)
     } catch {
       rainOverlay = undefined
       map.addLayer(layer)
@@ -698,7 +698,7 @@ export default function App() {
    */
   function mountIsolines(target: maplibregl.Map, isolines: IsolineLayer): void {
     try {
-      isolineOverlay = new LayerOverlay(target, isolines, target.getCanvas(), () => windTuning().maxFps)
+      isolineOverlay = new LayerOverlay(target, isolines, target.getCanvas(), () => WIND_MAX_FPS)
     } catch {
       isolineOverlay = undefined
       target.addLayer(isolines, 'motregen-temperature')
@@ -1650,6 +1650,8 @@ export default function App() {
         <DevPanel
           isolineTuning={isolineTuning()}
           onIsolineTuning={(patch) => setIsolineTuning((current) => ({ ...current, ...patch }))}
+          windTuning={windTuning()}
+          onWindTuning={tuneWind}
           perfVisible={perfVisible()}
           onPerfVisible={setPerfVisible}
           onReplaySplash={replaySplash}
@@ -1704,7 +1706,7 @@ export default function App() {
         </div>
       </section>
     </aside>
-    <Show when={perfVisible()}><PerfHud monitor={perf} isolines={isolineCounters} windTuning={windTuning()} onWindTuning={tuneWind} windStats={() => windLayer?.windProfile()} /></Show>
+    <Show when={perfVisible()}><PerfHud monitor={perf} isolines={isolineCounters} windStats={() => windLayer?.windProfile()} /></Show>
   </main>
 }
 

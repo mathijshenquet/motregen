@@ -1,11 +1,15 @@
-import type { JSX } from 'solid-js'
+import { createSignal, For, type JSX } from 'solid-js'
+import { copyText } from '../core/clipboard'
 import { ISOLINE_FADES, ISOLINE_FILL_STYLES, ISOLINE_STEPS, type IsolineFade, type IsolineFillStyle, type IsolineStep, type IsolineTuning } from '../core/isolines'
+import { sanitizeWindTuning, WIND_TUNING_CONTROLS, type WindTuning } from '../core/wind-layer'
 
 // Alleen via ?dev; hooguit 3–4 knoppen per groep (PO 2026-09-25). Elke knop staat in
 // docs/dev-opties.md met eigenaar en vervaldatum (MIP-12).
 interface Props {
   isolineTuning: IsolineTuning
   onIsolineTuning: (patch: Partial<IsolineTuning>) => void
+  windTuning: WindTuning
+  onWindTuning: (tuning: WindTuning) => void
   perfVisible: boolean
   onPerfVisible: (visible: boolean) => void
   onReplaySplash: () => void
@@ -13,7 +17,22 @@ interface Props {
   resetNotice: boolean
 }
 
+const WIND_HINTS: Record<keyof WindTuning, string> = {
+  particlesPerMegapixel: 'Aantal windstreepjes per beeldoppervlak.',
+  intensity: 'Hoe fel de windstreepjes zijn; windfocus zet ze voller.',
+  lineWidth: 'Dikte van de windstreepjes.',
+  speed: 'Hoe snel de windstreepjes bewegen.',
+}
+
 export default function DevPanel(props: Props) {
+  const [windCopied, setWindCopied] = createSignal(false)
+
+  async function copyWind(): Promise<void> {
+    await copyText(JSON.stringify(props.windTuning, null, 2))
+    setWindCopied(true)
+    window.setTimeout(() => setWindCopied(false), 1_500)
+  }
+
   return <details class="dev-panel" open data-testid="dev-panel">
     <summary>Dev-opties</summary>
     <Group title="Temperatuur" open>
@@ -32,6 +51,15 @@ export default function DevPanel(props: Props) {
           {ISOLINE_FADES.map((fade) => <option value={fade}>{fade}</option>)}
         </select>
       </Control>
+    </Group>
+    <Group title="Wind">
+      <For each={WIND_TUNING_CONTROLS}>{(control) =>
+        <Control label={control.label} output={`${props.windTuning[control.key]}${control.unit ? ` ${control.unit}` : ''}`} hint={WIND_HINTS[control.key]}>
+          <input type="range" aria-label={control.label} min={control.min} max={control.max} step={control.step} value={props.windTuning[control.key]}
+            onInput={(event) => props.onWindTuning(sanitizeWindTuning({ ...props.windTuning, [control.key]: event.currentTarget.valueAsNumber }))} />
+        </Control>
+      }</For>
+      <Action label={windCopied() ? 'Gekopieerd' : 'Kopieer wind als JSON'} hint="Zet de vier windwaarden op het klembord, om terug te sturen." onClick={() => void copyWind()} />
     </Group>
     <Group title="Diagnose">
       <Control label="Perf-HUD" output={props.perfVisible ? 'Aan' : 'Uit'} toggle hint="Meetpaneel met laadtijd, fps en netwerk; ook drie tikken op het logo.">

@@ -11,7 +11,7 @@ import { join } from 'node:path'
 //   zoom  — continue zoom 7→9 (100 stappen van 0,02, één per animatieframe) tegen één sprong 7→9,
 //           inkt per windframe
 //   profile — dichtheidsprofiel langs de wind (loef/lij), als de build `windProfile` heeft
-// WIND_TUNING = JSON met afwijkingen voor `motregen-wind-tuning-v3`; SCENARIOS=ink,crop,zoom; THEMES; DPR.
+// WIND_TUNING = JSON met afwijkingen voor `motregen-wind-tuning-v4`; SCENARIOS=ink,crop,zoom; THEMES; DPR.
 const [origin, outDir, label = 'run'] = process.argv.slice(2)
 if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/wind-quality.ts ORIGIN OUT_DIR [LABEL]')
 mkdirSync(outDir, { recursive: true })
@@ -35,9 +35,9 @@ for (const theme of themes) {
   await context.addInitScript(([value, custom, view]) => {
     localStorage.setItem('motregen-theme', value!)
     localStorage.setItem('motregen-map-view', view!)
-    localStorage.removeItem('motregen-wind-tuning-v2')
-    if (custom) localStorage.setItem('motregen-wind-tuning-v3', custom)
-    else localStorage.removeItem('motregen-wind-tuning-v3')
+    localStorage.removeItem('motregen-wind-tuning-v3')
+    if (custom) localStorage.setItem('motregen-wind-tuning-v4', custom)
+    else localStorage.removeItem('motregen-wind-tuning-v4')
   }, [theme, tuning, JSON.stringify(start)])
   const page = await context.newPage()
   page.setDefaultTimeout(120_000)
