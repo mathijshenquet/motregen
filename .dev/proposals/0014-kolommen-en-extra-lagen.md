@@ -60,3 +60,7 @@ het KNMI" — één regel erbij.
   km/u / m/s) in de instellingen.
 - Tracks: U36 windstoten + eenheidsinstelling; U37 wolkendoorsnede (experiment); U38 neerslagsoort
   in de regenlaag (ingest 181/184/201 + onweer-signaal; wacht op winter/onweersdata om te testen).
+- 22:30: **RV uit het standaardlijstje**; de tabel krijgt paging/scroll voor de extra kolommen.
+  Pollen-ingest start nu (U39, CAMS/ADS met gratis sleutel die de PO aanvraagt); kolomset in
+  U38 na U36. **Zicht**: als kolom in de extra set én als mist/nevel-variant van het weericoon
+  bij < 1 km / < 5 km, zodat het alleen opvalt als het ertoe doet.
