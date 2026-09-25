@@ -90,15 +90,11 @@ valt daardoor op in plaats van als onzin gepubliceerd te worden.
 
 ### De ADS-fixture
 
-`crates/ingest/tests/fixtures/cams-ads-20260925T00-l0-24.grib2` (397 KB) heeft precies
-de codering hierboven voor het verzoek van 25 september 2026 (bijvoet + vier
-luchtkwaliteitsvelden, leads 0–24, cellen 50,25–53,85 N × 2,25–7,55 E). **Het is geen echte
-ADS-download**: er was nog geen sleutel. De waarden zijn echte CAMS-waarden van die run,
-via Open-Meteo per cel opgehaald (Open-Meteo rondt naar zijn eigen 0,1°-rooster op x,0,
-dus plaatsen wijken tot 0,05° af). Generator:
-`uv run --with eccodes --with requests python .dev/tracks/u39-pollen-ingest/make_ads_fixture.py 2026-09-25 24 <uit.grib2>`.
-Zodra de sleutel er is: `motregen-cams --provider ads --record <pad>` bewaart de echte
-GRIB; vervang daarmee de fixture en draai `cargo test -p motregen-ingest cams`.
+`crates/ingest/tests/fixtures/cams-ads-20260925T00-l0-24.grib2` (772 KB) is sinds 2026-09-25 22:10 UTC
+een **echte ADS-download** (run 2026-09-25 00Z, gebied 53,9 N–50,2 N / 2,2 O–7,6 O, 54×37, grid_simple),
+opgenomen met `motregen-cams --provider ads --record …` en met eccodes teruggesneden tot de leads
+0–24 (125 berichten; de volledige download had 0–96 en 3 MB). De eerdere synthetische fixture
+(Open-Meteo-waarden in ADS-codering) is daarmee vervangen; `cargo test -p motregen-ingest cams` → 12/12.
 
 ## Terugval zonder sleutel: Open-Meteo
 
