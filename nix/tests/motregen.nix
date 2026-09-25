@@ -56,6 +56,7 @@
     assert "cache-control: public, max-age=15, stale-while-revalidate=60" in manifest_headers, manifest_headers
     assert "access-control-allow-origin: *" in manifest_headers, manifest_headers
     assert "accept-ranges: bytes" in manifest_headers, manifest_headers
+    assert "x-robots-tag: noindex" in manifest_headers, manifest_headers
     machine.succeed("grep -F '\"version\": 0' /tmp/manifest")
 
     chunk_headers = machine.succeed(
@@ -72,6 +73,21 @@
     ).lower()
     print(frontend_headers)
     assert "200 ok" in frontend_headers, frontend_headers
+    assert "x-robots-tag" not in frontend_headers, frontend_headers
     machine.succeed("grep -F '<div id=\"root\"></div>' /tmp/index")
+
+    missing_headers = machine.succeed(
+      "curl --silent --show-error --dump-header - --output /dev/null http://localhost/data/missing"
+    ).lower()
+    assert "404" in missing_headers, missing_headers
+    assert "x-robots-tag: noindex" in missing_headers, missing_headers
+
+    stats_headers = machine.succeed(
+      "curl --silent --show-error --dump-header - --output /dev/null http://localhost/stats/"
+    ).lower()
+    assert "x-robots-tag: noindex" in stats_headers, stats_headers
+
+    robots = machine.succeed("curl --silent --show-error --fail http://localhost/robots.txt")
+    assert "Disallow: /data/" in robots, robots
   '';
 }
