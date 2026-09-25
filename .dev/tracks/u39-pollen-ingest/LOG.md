@@ -52,3 +52,25 @@
   cams.json als op-aanvraag-manifest (MIP-14 data-op-aanvraag).
 - Docs: `docs/pollen.md` (sleutel-stappen PO, exact ADS-request, GRIB-mapping, fixture-herkomst,
   kalender, kwantisatie, licentie), contract.md-amendement, ingest.md-verwijzing.
+
+## 2026-09-25 — gates op 379b895, rebase op c719a82
+- Receipts op 379b895 (na nsenter-herschrijving): CARGO-TEST-EXIT 0 (`cargo test --workspace`),
+  CLIPPY-EXIT 0 (`--workspace --all-targets -D warnings`), FMT-EXIT 0, FLAKE-CHECK-EXIT 0
+  (`nix flake check -L`). VM: host-view owner van de CAMS-chunk `65534 65534`, vanuit de
+  ingest-namespace gelijk aan de ingest-uid → StateDirectory is idmapped; delen werkt.
+- Gerebased op origin/main c719a82 (conflictvrij); gates opnieuw gedraaid, zie volgende entry.
+
+### Staat voor de PO / orkestrator (expliciet)
+- **Manifest-vlag staat standaard UIT**: `services.motregen.camsInManifest = false`
+  (`MOTREGEN_CAMS_IN_MANIFEST`). De dagelijkse job schrijft chunks + `cams.json`, maar het
+  manifest krijgt ze pas als de vlag aan staat (U38, samen met een client die alleen getoonde
+  velden prefetcht). Met de vlag uit ruimt de daemon de CAMS-chunks na de prune-leeftijd op.
+- **ADS-sleutel, wat de PO moet doen** (docs/pollen.md §"Wat de PO moet regelen"):
+  1. ECMWF-account aanmaken/inloggen op https://ads.atmosphere.copernicus.eu;
+  2. op https://ads.atmosphere.copernicus.eu/datasets/cams-europe-air-quality-forecasts?tab=download
+     de licentie "Licence to use Copernicus Products" accepteren (anders HTTP 403);
+  3. API Token kopiëren van https://ads.atmosphere.copernicus.eu/profile;
+  4. `ADS_API_KEY=<token>` toevoegen aan `.env` (dev-host) en `/var/lib/motregen/secrets.env`
+     (productie; EnvironmentFile van ingest én motregen-cams).
+  Daarna: `motregen-cams --provider ads --record <pad>` en de fixture vervangen door die echte download.
+- Zonder sleutel gebruikt productie Open-Meteo (alleen niet-commercieel); `MOTREGEN_CAMS_PROVIDER=ads` maakt het hard.
