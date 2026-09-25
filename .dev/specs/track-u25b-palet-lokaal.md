@@ -36,3 +36,19 @@ van −20…40 °C geeft binnen de 6–8 °C die op één dag in beeld zijn maar
 
 `pnpm typecheck`, `pnpm test`, `pnpm build`, gerichte e2e onder een slot.
 Synchrone exit statussen in de LOG. Draft-PR.
+
+## Aanvulling PO (2026-09-25, later): "nog steeds te subtiel; kijk naar Buienradar"
+
+Referentie: https://www.buienradar.nl/nederland/weerkaarten-radars/gevoelstemperatuur —
+een vlakdekkend, verzadigd kleurveld (continu verloop, blauw → groen → geel → oranje → rood)
+over een lichte kaart, zonder contourlijnen. Wij houden de isolijnen wél, dun erbovenop.
+
+- **Afstandsafval eruit** (`fillFalloff` → 0 / verwijderen): de vulling die naar het band-
+  midden wegvalt is de reden dat er niets te zien is. Vlakdekkend.
+- **Continu per pixel** (`paletteColor(veldwaarde)` in de raster-pass) i.p.v. één vlakke
+  kleur per band; met het lokaal gerekte palet uit punt 1. De "meebladen met de lijnfade"-
+  eis vervalt daarmee vanzelf (er is geen kleurgrens meer op de lijn).
+- **Opacity fors omhoog**: default 0,5; stills op 0,35 / 0,5 / 0,65 (licht/donker, desktop)
+  zodat de PO kiest. Basiskaart-desaturatie blijft; meet of 55 % nog klopt bij 0,5 vulling
+  (labels en kustlijn moeten leesbaar blijven — still met plaatsnamen).
+- Legenda (punt 3) wordt hiermee belangrijker: continu kleurbalkje met min/max.
