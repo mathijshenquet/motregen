@@ -74,3 +74,10 @@ Tussenreceipts: `pnpm typecheck` TYPECHECK-EXIT 0; `pnpm test` TEST-EXIT 0 (41 f
 `pnpm build` BUILD-EXIT 0; gerichte e2e (freshness/location/map-zoom) E2E-SUBSET-EXIT 0 (18 passed,
 6 skipped) — **let op: die run startte bij load 23,8 (andere tracks), boven de afgesproken 16**; de
 volledige e2e-gate wacht op load < 16.
+
+## 10:20 — proefrun volledige gates (boom vóór 4ea1595) + fix
+- Proefrun (start load 14,4; e2e-start 16,8): TYPECHECK-EXIT 0, TEST-EXIT 0, BUILD-EXIT 0, E2E-EXIT 1 —
+  28 passed, 26 skipped, 3 failed: `perf.spec.ts` user journey (alle drie profielen) klikte `.brand`
+  voor de PerfHud-triple-tap; die class viel weg met de druppelknop. Fix: selector `.map-brand`.
+  Geen productfout (triple-tap zelf ongewijzigd, unit-test groen). Ook: focus keert na het paneel terug
+  naar de knop waarmee het opende (4ea1595). Volledige gates opnieuw op de eindcommit.
