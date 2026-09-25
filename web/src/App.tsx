@@ -1,9 +1,8 @@
-import { batch, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
-import { Dynamic } from 'solid-js/web'
+import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show } from 'solid-js'
 import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
-import About from './components/About'
+import About, { type ThemeChoice } from './components/About'
 import HistogramScrubber from './components/HistogramScrubber'
-import { BUTTON_ICON, INLINE_ICON, Moon, Star, Sun, SunMoon } from './components/icons'
+import { INLINE_ICON, Star, Sun } from './components/icons'
 import LocationSearch from './components/LocationSearch'
 import Freshness from './components/Freshness'
 import PerfHud from './components/PerfHud'
@@ -50,13 +49,6 @@ import { clearTuningStorage } from './core/dev-settings'
 const manifestUrl = new URL('/data/manifest.json', location.href)
 const perf = installPerfMonitor()
 const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
-const themes = ['light', 'system', 'dark'] as const
-type ThemeChoice = typeof themes[number]
-const themeChoices: Record<ThemeChoice, { icon: typeof Sun; label: string }> = {
-  light: { icon: Sun, label: 'Licht' },
-  system: { icon: SunMoon, label: 'Systeem' },
-  dark: { icon: Moon, label: 'Donker' },
-}
 type PointLoadStage = 'initial' | 'direct' | 'window' | 'complete'
 type FetchPriority = 'high' | 'low'
 type ForecastIndex = 'radiationIndex' | 'uvIndex' | 'temperatureIndex' | 'feelsLikeIndex' | 'humidityIndex' | 'cloudIndex' | 'windUIndex' | 'windVIndex'
@@ -291,7 +283,6 @@ export default function App() {
       })
       applyMapDetailLimit(minimumMapWidthKm())
       applyMapContainLimit()
-      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
       map.on('resize', applyMapContainLimit)
       syncSavedMarkers(savedPlaces())
       map.on('style.load', () => attachMapLayers(header.grid))
@@ -1415,10 +1406,6 @@ export default function App() {
     }
   }
 
-  function cycleTheme(): void {
-    setTheme((current) => themes[(themes.indexOf(current) + 1) % themes.length]!)
-  }
-
   function tuneWind(tuning: WindTuning): void {
     setWindTuning(tuning)
     storeWindTuning(tuning)
@@ -1455,8 +1442,8 @@ export default function App() {
     return { width, height, insets: { top: topInset.top, right: 0, bottom: 0, left: 0 } }
   }
 
-  // De versheidspil staat midden boven (U21), dus de Waddenkust moet eronder vandaan; de zoekpil
-  // telt alleen mee als hij over de halve breedte ligt. Merk onderin dekt alleen een hoek.
+  // De klok hangt midden aan de bovenrand (U21/U22), dus de Waddenkust moet eronder vandaan; de
+  // zoekpil telt alleen mee als hij over de halve breedte ligt. Het merk rechtsboven dekt een hoek.
   function topOverlayInset(): number {
     const shell = mapElement.getBoundingClientRect()
     const overlays = [mapElement.parentElement?.querySelector('.map-clock'), mapElement.parentElement?.querySelector('.search-field')]
@@ -1592,15 +1579,10 @@ export default function App() {
   const cursorUvChip = createMemo(() => uvChipLabel(cursorUv()))
   // PO-smaaktest: ?uvbalk=stip toont onbewolkt als stip i.p.v. als tweede vulling.
   const uvBarVariant: UvBarVariant = new URLSearchParams(window.location.search).get('uvbalk') === 'stip' ? 'dot' : 'double'
-  // PO-smaaktest U21: ?zoekpaneel=omsluit toont het zoekpaneel dat de pil omsluit i.p.v. openvouwt.
-  // PO-smaaktest U21: ?klok=stip toont het bronaccent van de klok als stip i.p.v. linkerrand.
-  const clockAccent = new URLSearchParams(window.location.search).get('klok') === 'stip' ? 'dot' : 'edge'
-  const searchVariant = new URLSearchParams(window.location.search).get('zoekpaneel') === 'omsluit' ? 'wrap' : 'fold'
   const hasTemperature = createMemo(() => feelsLikeTimeline().length > 0)
   const hasWeatherIcons = createMemo(() => cloudTimeline().length > 0)
   const hasHumidity = createMemo(() => humidityTimeline().length > 0)
   const hasWind = createMemo(() => windUFrames().length > 0 && windVFrames().length > 0)
-  const themeMeta = createMemo(() => ({ ...themeChoices[theme()], next: themeChoices[themes[(themes.indexOf(theme()) + 1) % themes.length]!].label.toLowerCase() }))
 
   return <main class="app-shell">
     <section class="map-shell" aria-label="Regenkaart van Nederland" data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()}>
@@ -1612,10 +1594,7 @@ export default function App() {
           <strong>motregen.nl</strong>
         </div>
       </div>
-      <About onTripleTap={() => setPerfVisible((visible) => !visible)} />
-      <button class="round-action theme-button mobile-map-theme" onClick={cycleTheme} aria-label={`Thema: ${themeMeta().label}. Klik voor ${themeMeta().next}`} title={`Thema: ${themeMeta().label}`}>
-        <Dynamic component={themeMeta().icon} {...BUTTON_ICON} />
-      </button>
+      <About theme={theme()} onTheme={setTheme} onTripleTap={() => setPerfVisible((visible) => !visible)} />
       <LocationSearch
         location={location()}
         mapCenter={() => map?.getCenter() ?? location()}
@@ -1626,7 +1605,6 @@ export default function App() {
         onSave={saveCurrentPlace}
         onSelect={chooseSearch}
         onSelectSaved={chooseSaved}
-        variant={searchVariant}
       />
       <Show when={devMode && windTimeline().length}>
         <details class="wind-debug" open>
@@ -1663,19 +1641,12 @@ export default function App() {
           <p class="wind-debug-note wind-debug-reset" role="status">{resetNotice() ? 'Standaardwaarden hersteld' : ''}</p>
         </details>
       </Show>
-      <Freshness mapEpoch={selectedEpoch()} mapFrame={timeline()[Math.round(cursor())]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} accent={clockAccent} />
+      <Freshness mapEpoch={selectedEpoch()} mapFrame={timeline()[Math.round(cursor())]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} />
     </section>
     <aside class="dashboard">
-      <nav class="sidebar-nav" aria-label="Instellingen en locatie">
-        <Show when={cursorUvChip()}>{(label) => <span class="uv-chip sidebar-uv-chip" data-level={uvLevel(cursorUv()!).key} title={cursorUvReading() ? `Insmeren aanbevolen · ${uvBarLabel(cursorUvReading()!)}` : 'Insmeren aanbevolen'}><Sun {...INLINE_ICON} /><span class="uv-long">{label()}</span><span class="uv-short">UV {formatUv(cursorUv())}</span><UvBar reading={cursorUvReading()} variant={uvBarVariant} bare /></span>}</Show>
-        <div class="sidebar-actions">
-          <div class="segmented sidebar-theme" role="group" aria-label="Thema">
-            <For each={themes}>{(choice) => <button type="button" classList={{ active: theme() === choice }} aria-pressed={theme() === choice} onClick={() => setTheme(choice)}>
-              <Dynamic component={themeChoices[choice].icon} {...INLINE_ICON} />{themeChoices[choice].label}
-            </button>}</For>
-          </div>
-        </div>
-      </nav>
+      <Show when={cursorUvChip()}>{(label) => <div class="sidebar-nav">
+        <span class="uv-chip sidebar-uv-chip" data-level={uvLevel(cursorUv()!).key} title={cursorUvReading() ? `Insmeren aanbevolen · ${uvBarLabel(cursorUvReading()!)}` : 'Insmeren aanbevolen'}><Sun {...INLINE_ICON} /><span class="uv-long">{label()}</span><span class="uv-short">UV {formatUv(cursorUv())}</span><UvBar reading={cursorUvReading()} variant={uvBarVariant} bare /></span>
+      </div>}</Show>
       <HistogramScrubber
         timeline={timeline()}
         values={rainSeries()}

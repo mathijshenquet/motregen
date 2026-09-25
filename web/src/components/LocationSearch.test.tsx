@@ -36,6 +36,9 @@ describe('location search', () => {
     const options = screen.getAllByRole('option')
     expect(options[0]!.textContent).toContain('Mijn locatie')
     expect(options[1]!.textContent).toContain('Thuis')
+    // Geen sectiekop: favorieten herken je aan hun ster.
+    expect(screen.queryByText('Opgeslagen')).toBeNull()
+    expect(options[1]!.querySelector('svg.lucide-star')).toBeTruthy()
     fireEvent.click(options[0]!)
     expect(onLocate).toHaveBeenCalledOnce()
   })
@@ -61,8 +64,11 @@ describe('location search', () => {
     expect(onSelect).not.toHaveBeenCalled()
   })
 
-  it('saves the current place under a custom name', () => {
+  it('shows only the place in rest; the star to save it lives in the open panel', () => {
     const { onSave } = renderSearch()
+    expect(screen.queryByRole('button', { name: 'Deze plaats opslaan' })).toBeNull()
+    expect(document.querySelector('.search-sizer')!.textContent).toBe('De Bilt')
+    fireEvent.focus(screen.getByRole('textbox', { name: 'Zoek plaats' }))
     fireEvent.click(screen.getByRole('button', { name: 'Deze plaats opslaan' }))
     const name = screen.getByLabelText('Naam voor deze plaats')
     fireEvent.input(name, { target: { value: 'Werk' } })
@@ -71,10 +77,10 @@ describe('location search', () => {
     expect(onSave).toHaveBeenCalledWith('Werk')
   })
 
-  it('hides the input star for the current favorite and offers removal in the saved list', () => {
+  it('hides the star for the current favorite and offers removal in the saved list', () => {
     const { onRemove } = renderSearch([home])
-    expect(screen.queryByRole('button', { name: 'Deze plaats opslaan' })).toBeNull()
     fireEvent.focus(screen.getByRole('textbox', { name: 'Zoek plaats' }))
+    expect(screen.queryByRole('button', { name: 'Deze plaats opslaan' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Thuis verwijderen uit opgeslagen plaatsen' }))
     expect(onRemove).not.toHaveBeenCalled()
     const confirm = screen.getByRole('group', { name: 'Thuis verwijderen?' })
@@ -104,7 +110,6 @@ describe('location search', () => {
     const { onSelect } = renderSearch()
     const input = screen.getByRole<HTMLInputElement>('textbox', { name: 'Zoek plaats' })
     fireEvent.focus(input)
-    expect(screen.queryByRole('button', { name: 'Deze plaats opslaan' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Zoektekst wissen' }))
     expect(input.value).toBe('')
     expect(screen.getByRole('listbox')).toBeTruthy()

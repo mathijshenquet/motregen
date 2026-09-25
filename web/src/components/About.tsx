@@ -1,5 +1,6 @@
-import { onCleanup } from 'solid-js'
-import { BUTTON_ICON, INLINE_ICON, Info, X } from './icons'
+import { For, onCleanup } from 'solid-js'
+import { Dynamic } from 'solid-js/web'
+import { BUTTON_ICON, INLINE_ICON, Moon, Sun, SunMoon, X } from './icons'
 import { backdropHandlers } from './modal'
 
 export const REPOSITORY_URL = 'https://github.com/mathijshenquet/motregen'
@@ -8,7 +9,21 @@ export const REPOSITORY_URL = 'https://github.com/mathijshenquet/motregen'
 const SINGLE_TAP_DELAY_MS = 350
 const TAP_WINDOW_MS = 700
 
-export default function About(props: { onTripleTap: () => void }) {
+const THEMES = ['light', 'system', 'dark'] as const
+export type ThemeChoice = typeof THEMES[number]
+const THEME_CHOICES: Record<ThemeChoice, { icon: typeof Sun; label: string }> = {
+  light: { icon: Sun, label: 'Licht' },
+  system: { icon: SunMoon, label: 'Systeem' },
+  dark: { icon: Moon, label: 'Donker' },
+}
+
+interface Props {
+  theme: ThemeChoice
+  onTheme: (theme: ThemeChoice) => void
+  onTripleTap: () => void
+}
+
+export default function About(props: Props) {
   let dialog!: HTMLDialogElement
   let trigger!: HTMLButtonElement
   let tapCount = 0
@@ -39,8 +54,8 @@ export default function About(props: { onTripleTap: () => void }) {
   }
 
   return <>
-    <button ref={trigger} type="button" class="map-brand brand" aria-haspopup="dialog" aria-label="Over motregen" title="Over motregen" onClick={tapBrand}>
-      <img src="/droplet.svg" alt="" /><strong>motregen.nl</strong><Info {...INLINE_ICON} />
+    <button ref={trigger} type="button" class="map-brand round-action" aria-haspopup="dialog" aria-label="Over motregen en instellingen" title="Over motregen en instellingen" onClick={tapBrand}>
+      <img src="/droplet.svg" alt="" />
     </button>
     <div class="source"><span>Bron: KNMI · Kaart: OpenFreeMap</span></div>
     <dialog
@@ -53,15 +68,22 @@ export default function About(props: { onTripleTap: () => void }) {
       <div class="about-body">
         <header>
           <img src="/droplet.svg" alt="" />
-          <h2 id="about-title">Over motregen</h2>
+          <h2 id="about-title">motregen.nl</h2>
           <button type="button" class="about-close" aria-label="Sluiten" onClick={close} autofocus><X {...BUTTON_ICON} /></button>
         </header>
+        <section class="about-settings" aria-labelledby="about-theme-title">
+          <h3 id="about-theme-title">Weergave</h3>
+          <div class="segmented about-theme" role="group" aria-labelledby="about-theme-title">
+            <For each={THEMES}>{(choice) => <button type="button" classList={{ active: props.theme === choice }} aria-pressed={props.theme === choice} onClick={() => props.onTheme(choice)}>
+              <Dynamic component={THEME_CHOICES[choice].icon} {...INLINE_ICON} />{THEME_CHOICES[choice].label}
+            </button>}</For>
+          </div>
+        </section>
         <p class="about-lead">Data rechtstreeks van het KNMI. Gratis, zonder reclame, open source.</p>
         <p>Eén tijdlijn, van de regen die viel tot de verwachting voor morgen:</p>
         <dl>
-          <dt>Radar</dt><dd>gemeten neerslag van de KNMI-radar, elke 5 minuten</dd>
-          <dt>Nowcast</dt><dd>KNMI-neerslagverwachting voor de komende 2 uur</dd>
-          <dt>Model</dt><dd>HARMONIE-AROME van het KNMI: regen, temperatuur, wind en bewolking</dd>
+          <dt>Observatie</dt><dd>gemeten neerslag van de KNMI-radar, elke 5 minuten</dd>
+          <dt>Voorspelling</dt><dd>eerste 2 uur de KNMI-nowcast (radar vooruitgerekend), daarna HARMONIE-AROME van het KNMI: regen, temperatuur, wind en bewolking</dd>
           <dt>UV</dt><dd>UV-index van het KNMI, inclusief bewolking</dd>
           <dt>Kaart</dt><dd><a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a>, kaartdata © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>-bijdragers</dd>
           <dt>Zoeken</dt><dd>PDOK Locatieserver (Nederland) en de geolocatiedienst van Digitaal Vlaanderen (België)</dd>

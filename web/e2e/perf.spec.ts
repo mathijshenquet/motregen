@@ -75,9 +75,9 @@ test('user journey measures performance and cache behaviour', async ({ page, con
   })
 
   await test.step('logo triple-tap toggles the HUD and JSON is copyable', async () => {
-    await page.locator('.brand').click({ clickCount: 3, delay: 20 })
+    await page.locator('.map-brand').click({ clickCount: 3, delay: 20 })
     await expect(page.getByTestId('perf-hud')).toBeHidden()
-    await page.locator('.brand').click({ clickCount: 3, delay: 20 })
+    await page.locator('.map-brand').click({ clickCount: 3, delay: 20 })
     await expect(page.getByTestId('perf-hud')).toBeVisible()
     await page.getByRole('button', { name: 'Kopieer JSON' }).click()
     await expect(page.getByRole('button', { name: 'Gekopieerd' })).toBeVisible()

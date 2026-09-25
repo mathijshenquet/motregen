@@ -84,10 +84,10 @@ export function seriesValueAt(
 }
 
 export interface TimelineZone {
-  label: 'Observaties' | 'Nowcast' | 'Model'
+  label: 'Observatie' | 'Voorspelling'
   start: number
   end: number
-  kind: 'observations' | 'nowcast' | 'model'
+  kind: 'observations' | 'forecast'
 }
 
 export function timelineZones(timeline: TimelineFrame[], rangeStart?: number, rangeEnd?: number): TimelineZone[] {
@@ -116,8 +116,8 @@ export function timelineZones(timeline: TimelineFrame[], rangeStart?: number, ra
   return result
 }
 
-function sourceZone(source: Source): Pick<TimelineZone, 'label' | 'kind'> {
-  if (source === 'rtcor') return { label: 'Observaties', kind: 'observations' }
-  if (source === 'nowcast') return { label: 'Nowcast', kind: 'nowcast' }
-  return { label: 'Model', kind: 'model' }
+// Twee regimes voor de gebruiker (PO U22): gemeten (radar) en voorspeld (nowcast én HARMONIE; welke
+// bron het is staat in het versheidspaneel). Scrubber en kaartklok gebruiken dezelfde woorden.
+export function sourceZone(source: Source): Pick<TimelineZone, 'label' | 'kind'> {
+  return source === 'rtcor' ? { label: 'Observatie', kind: 'observations' } : { label: 'Voorspelling', kind: 'forecast' }
 }

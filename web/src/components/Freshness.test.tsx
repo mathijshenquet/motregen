@@ -7,6 +7,7 @@ import type { RefreshState } from '../core/freshness'
 import Freshness from './Freshness'
 
 const radar = Date.parse('2026-09-23T14:25:00Z')
+const clock = (epoch: number) => new Date(epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
 const manifest: Manifest = {
   version: 0,
   generated: '2026-09-23T14:27:52Z',
@@ -35,18 +36,19 @@ afterEach(() => {
 })
 
 describe('freshness indicator', () => {
-  it('shows the latest radar measurement, ticks its age and announces only status changes', () => {
+  it('carries the radar age on the amber badge, ticks it and announces only status changes', () => {
     render(() => <Freshness mapEpoch={radar} mapFrame={{ source: 'rtcor', run: '2026-09-23T14:00:00Z' }} manifest={manifest} refresh={{ checkedAt: radar }} onRefresh={async () => undefined} />)
     const pill = document.querySelector('.map-clock')!
     const live = document.querySelector('[aria-live="polite"]')!
     expect(pill.getAttribute('data-freshness')).toBe('fresh')
     expect(pill.getAttribute('data-source')).toBe('observations')
-    expect(document.querySelector('.clock-source')!.textContent).toBe('radar')
-    expect(document.querySelector('.freshness-age')!.textContent).toBe('3 min')
+    expect(document.querySelector('.clock-source')!.textContent).toBe('observatie')
+    const badge = screen.getByRole('button', { name: /^Dataversheid:/ })
+    expect(badge.getAttribute('aria-label')).toBe(`Dataversheid: actueel, radar ${clock(radar)}, 3 min oud`)
     expect(live.textContent).toBe('Actueel')
 
     vi.advanceTimersByTime(15_000 * 20)
-    expect(document.querySelector('.freshness-age')!.textContent).toBe('8 min')
+    expect(badge.getAttribute('aria-label')).toMatch(/, 8 min oud$/)
     expect(live.textContent).toBe('Actueel')
     vi.advanceTimersByTime(15_000 * 12)
     expect(pill.getAttribute('data-freshness')).toBe('aging')
@@ -58,33 +60,45 @@ describe('freshness indicator', () => {
     const onRefresh = vi.fn(async () => { setRefresh({ checkedAt: radar, failedAt: Date.now() }) })
     render(() => <Freshness mapEpoch={radar - 3_600_000} mapFrame={{ source: 'rtcor', run: '2026-09-23T13:00:00Z' }} manifest={manifest} refresh={refresh()} onRefresh={onRefresh} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /Details over dataversheid/ }))
+    // De amber knop opent hetzelfde paneel als de klok zelf.
+    fireEvent.click(screen.getByRole('button', { name: /^Dataversheid:/ }))
     const dialog = document.querySelector('dialog')!
     expect(dialog.open).toBe(true)
+    dialog.close()
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: /^Dataversheid:/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Dataversheid:/ }))
     for (const label of ['Radar', 'HARMONIE']) expect(within(dialog).getByText(label)).toBeTruthy()
     expect(within(dialog).getByText('3 u 28 min geleden')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Nu verversen' }))
     await vi.waitFor(() => expect(onRefresh).toHaveBeenCalledOnce())
     await vi.waitFor(() => expect(document.querySelector('.map-clock')!.getAttribute('data-freshness')).toBe('offline'))
-    expect(document.querySelector('.freshness-age')!.textContent).toBe('offline')
+    expect(screen.getByRole('button', { name: /^Dataversheid:/ }).getAttribute('aria-label')).toBe(`Dataversheid: offline, radar ${clock(radar)}, verversen mislukt`)
     expect(screen.getByText(/verversen mislukt om/)).toBeTruthy()
   })
 
-  it('shows the map time with its source; model frames show their run instead of the radar', () => {
+  it('shows only the map time and the regime word; nowcast and model are one regime', () => {
     const [frame, setFrame] = createSignal<{ source: 'nowcast' | 'harmonie'; run: string }>({ source: 'nowcast', run: '2026-09-23T14:25:00Z' })
-    const run = Date.parse('2026-09-23T11:00:00Z')
     render(() => <Freshness mapEpoch={radar + 7_200_000} mapFrame={frame()} manifest={manifest} refresh={{ checkedAt: radar }} onRefresh={async () => undefined} />)
     const pill = document.querySelector('.map-clock')!
-    const clock = (epoch: number) => new Date(epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
     expect(document.querySelector('.clock-map-time')!.textContent).toBe(clock(radar + 7_200_000))
-    expect(pill.getAttribute('data-source')).toBe('nowcast')
-    expect(document.querySelector('.freshness-scan')!.textContent).toBe(`radar ${clock(radar)}`)
+    expect(document.querySelector('.clock-day')).toBeNull()
+    expect(pill.getAttribute('data-source')).toBe('forecast')
+    expect(document.querySelector('.clock-source')!.textContent).toBe('voorspelling')
+    // Geen radartijd of leeftijd meer als tekst in de klok: die zit in de knop en het paneel.
+    expect(document.querySelector('.clock-data')!.textContent).toBe('voorspelling')
 
+    // Nowcast en HARMONIE zijn voor de gebruiker één regime.
     setFrame({ source: 'harmonie', run: '2026-09-23T11:00:00Z' })
-    expect(pill.getAttribute('data-source')).toBe('model')
-    expect(document.querySelector('.clock-source')!.textContent).toBe('model')
-    expect(document.querySelector('.freshness-run')!.textContent).toBe(`run ${clock(run)}`)
+    expect(pill.getAttribute('data-source')).toBe('forecast')
+    expect(document.querySelector('.clock-source')!.textContent).toBe('voorspelling')
     expect(pill.getAttribute('data-freshness')).toBe('fresh')
+  })
+
+  it('names the day only when the map shows another day', () => {
+    render(() => <Freshness mapEpoch={radar + 24 * 3_600_000} mapFrame={{ source: 'harmonie', run: '2026-09-23T11:00:00Z' }} manifest={manifest} refresh={{ checkedAt: radar }} onRefresh={async () => undefined} />)
+    const day = new Date(radar + 24 * 3_600_000).toLocaleDateString('nl-NL', { weekday: 'short' })
+    expect(document.querySelector('.clock-day')!.textContent).toBe(day)
+    expect(screen.getByRole('button', { name: /Details over dataversheid/ }).getAttribute('aria-label')).toMatch(new RegExp(`^Kaart ${clock(radar + 24 * 3_600_000)} ${day}, voorspelling\\.`))
   })
 })

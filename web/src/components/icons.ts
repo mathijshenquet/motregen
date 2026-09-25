@@ -1,5 +1,4 @@
 // Per-icoon deep imports: de barrel zou in de dev-server alle ~1700 iconen als losse modules laden.
-export { default as Info } from 'lucide-solid/icons/info'
 export { default as LocateFixed } from 'lucide-solid/icons/locate-fixed'
 export { default as Moon } from 'lucide-solid/icons/moon'
 export { default as Pause } from 'lucide-solid/icons/pause'

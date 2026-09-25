@@ -87,7 +87,7 @@ describe('time model', () => {
     const timeline = buildTimeline(manifest)
 
     expect(timeline[1]?.source).toBe('seamless')
-    expect(timelineZones(timeline).map(({ label }) => label)).toEqual(['Nowcast', 'Model'])
+    expect(timelineZones(timeline).map(({ label }) => label)).toEqual(['Voorspelling'])
   })
 
   it('recomputes playback speed when switching horizon in both directions', () => {
