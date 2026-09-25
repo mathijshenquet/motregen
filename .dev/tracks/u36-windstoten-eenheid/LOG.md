@@ -40,3 +40,14 @@
     15 passed, 1 failed = focus.spec:195 "temperature focus desaturates…" (filter 'saturate(1)' vs 'none', tween-race,
     raakt wind niet); los `-g desaturates --repeat-each 3` → E2E-FOCUS-EXIT: 0 (3/3) → flake.
   `nix flake check -L` → NIX-EXIT: 0 (VM-test print dimensie unit).
+
+## 2026-09-25 — slot
+- Gemerged op main als 9cf6241 (merge van 562434d; `git merge-base --is-ancestor 562434d origin/main` → ja).
+- Geleverd: uurveld `gust_ms` (ingest + contract/docs), stoot in de kolom Wind, eenheidsinstelling Bft/knopen/km/u/m/s
+  (About › Weergave, `motregen-wind-unit`), baken-veld `unit` (v 1), stoot onder de waarde op ≤ 360 px.
+- Open voor de PO: (1) stoot in km/u bij Bft-modus; (2) in km/u-modus is de "+1 stap"-drempel zo klein dat de stoot
+  er vrijwel altijd staat — eventueel een grovere drempel (bv. +1 Bft in elke eenheid, dan verschijnt/verdwijnt de
+  stoot niet bij het wisselen van eenheid).
+- Open voor agents: U28 (scrubber-readout windmodus) kan `summarizeWind(u, v, gust, unit)` en `WindUnit` hergebruiken;
+  focus.spec:195 (temperatuurfocus, filter 'saturate(1)' vs 'none') is flaky onder load; `web/.mcp.json` (niet van
+  deze track) stond ongetrackt in de worktree.
