@@ -50,3 +50,13 @@
 - Stills: `web/tmp/shots/u35-isobars-{light,dark}.png` (synth, desktop 1280×720).
 - **Vervolg (niet in deze track)**: H/L-markers bij drukcentra; eventueel dikkere lijn per 20 hPa
   (PO wilde uniforme dikte); stadslabels (°) blijven in windmodus staan — PO-oordeel.
+
+## 2026-09-25 14:15 — gates op 50c81f2 (synchroon, load 2,3)
+- `cargo fmt --all --check` FMT-EXIT 0; `cargo clippy --workspace --all-targets -- -D warnings` CLIPPY-EXIT 0 (op 6818d5f, Rust daarna ongewijzigd)
+- `cargo test --workspace` CARGO-TEST-EXIT 0 (16 testbinaries ok; knmi-grib-selectietest draait op het echte lid via `data/`-symlink)
+- `nix flake check` FLAKE-CHECK-EXIT 0 (incl. VM-test motregen-deployment)
+- `pnpm typecheck` TYPECHECK-EXIT 0; `pnpm test` TEST-EXIT 0 (294 tests); `pnpm build` BUILD-EXIT 0
+- `MOTREGEN_E2E_PORT=4355 MOTREGEN_E2E_DATA_PORT=8355 direnv exec .. pnpm e2e e2e/isobars.spec.ts e2e/focus.spec.ts --project desktop`
+  E2E-EXIT 0 (11 passed, 2 skipped = mobiel-only tests)
+- Repro-noot: verse worktree → eerst `pnpm synthgen` (uv_clear-chunk is ignored), en `ln -s ~/motregen/data data`
+  voor de GRIB-fixturetest (anders SKIP).
