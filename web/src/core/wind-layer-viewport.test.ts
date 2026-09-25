@@ -22,7 +22,6 @@ interface Internals {
   rampRates: Float32Array
   dying: Uint8Array
   viewBounds: { west: number; east: number; north: number; south: number }
-  particleBounds: { west: number; east: number; north: number; south: number }
   lifeScales: Float32Array
   resetViewport(resetAll?: boolean): void
   advance(seconds: number, worldPx: number): void
@@ -263,34 +262,6 @@ describe('wind across map movement (U12)', () => {
       }
       expect(vanished, name).toBe(0)
     }
-  })
-
-  it('keeps a rim of particles just outside the view that drifts in on the windward side (U24b)', () => {
-    const { wind, run } = harness()
-    run(10)
-    const view = wind.viewBounds
-    const outer = wind.particleBounds
-    expect(outer.west).toBeLessThan(view.west)
-    expect(outer.east).toBeGreaterThan(view.east)
-    let rim = 0
-    let live = 0
-    let windward = 0
-    // Tien momentopnames over 5 s: aan loef zitten er maar een paar tegelijk in de rand.
-    for (let snapshot = 0; snapshot < 10; snapshot++) {
-      run(0.5)
-      for (let index = 0; index < wind.active; index++) {
-        const x = wind.x[index]!
-        const y = wind.y[index]!
-        live++
-        if (x >= view.west && x <= view.east && y >= view.north && y <= view.south) continue
-        rim++
-        // Westenwind: de loefrand is west.
-        if (x < view.west) windward++
-      }
-    }
-    expect(rim / live).toBeGreaterThan(0.02)
-    expect(rim / live).toBeLessThan(0.2)
-    expect(windward).toBeGreaterThan(0)
   })
 
   it('fills a freshly panned-in strip right away, also on the windward side (U24b)', () => {

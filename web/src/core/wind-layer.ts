@@ -111,9 +111,6 @@ const REBASE_MARGIN = 0.05
 const FILL_MAX_PHASE = 0.6
 const SPAWN_ATTEMPTS = 32
 const EMPTIEST_SAMPLES = 48
-// PO 2026-09-25 (U24b): dit deel van de gewone respawns landt in een rand van één cel buiten het
-// beeld, rondom, zodat trails van buiten binnenkomen (loefzijde en pannen).
-const RIM_SHARE = 0.08
 // Boven deze windsnelheid (m/s) dimt speedDamping de kop.
 const DAMPING_REFERENCE_SPEED = 3
 const MERCATOR_SCALE = 1 / (2 * Math.PI * 6_378_137)
@@ -313,10 +310,8 @@ export class WindLayer implements CustomLayerInterface {
   requestRepaint?: () => void
   private frameTotal = 0
   private frameCount = 0
-  /** Het zichtbare beeld in gridfracties: bezettingsraster, leegste-cel-respawn en metingen. */
+  /** Het zichtbare beeld in gridfracties: hierbuiten sterft een particle. */
   private viewBounds: ParticleBounds = { west: 0, north: 0, east: 1, south: 1 }
-  /** Beeld plus een rand van één cel (U24b): hierbuiten sterft een particle. */
-  private particleBounds: ParticleBounds = { west: 0, north: 0, east: 1, south: 1 }
   private tuning: WindTuning
   private readonly viewportChanged = () => this.resetViewport()
 
@@ -629,8 +624,7 @@ export class WindLayer implements CustomLayerInterface {
         stepPx = Math.hypot((nextX - oldX) * unitX, (nextY - oldY) * unitY) * worldPx
         speed = Math.hypot(this.east, this.north)
       }
-      const outside = nextX < this.particleBounds.west || nextX > this.particleBounds.east ||
-        nextY < this.particleBounds.north || nextY > this.particleBounds.south
+      const outside = !this.inView(nextX, nextY)
       const offset = index * INSTANCE_BYTES / 4
       this.lifeLimit.maxAge = tuning.maxAge * this.lifeScales[index]!
       if (!dying && (outside || !advanceLife(life, stepPx, seconds, this.lifeLimit))) {
@@ -687,9 +681,8 @@ export class WindLayer implements CustomLayerInterface {
   // compenseert dat in de kopintensiteit.
   private respawn(index: number, delaySeconds: number, fill = false): void {
     const bounds = this.viewBounds
-    let cell = -1
-    const rim = !fill && this.random() < RIM_SHARE ? this.rimPoint() : undefined
-    const [x, y] = rim ?? pickSpawn(SPAWN_ATTEMPTS, () => {
+    let cell = 0
+    const [x, y] = pickSpawn(SPAWN_ATTEMPTS, () => {
       // Aanvullers (pan/zoom) in de leegste omgeving, zodat een binnengeschoven strook meteen vol is;
       // gewone respawns in een willekeurige lege cel: de omgevingskeuze stuurde alle pasgeborenen
       // (nog in fade-in, zonder staart) naar loef, en maakte de inkt daar juist dunner (U24b).
@@ -699,7 +692,7 @@ export class WindLayer implements CustomLayerInterface {
       const [u, v] = jitteredCellPoint(cell, this.columns, this.rows, fill ? 1 : this.tuning.spawnJitter, () => this.random())
       return [bounds.west + u * (bounds.east - bounds.west), bounds.north + v * (bounds.south - bounds.north)]
     }, () => this.random(), (candidateX, candidateY) => !this.left || this.sampleWind(candidateX, candidateY) ? 1 : 0)
-    if (cell >= 0) this.cellCounts[cell]!++
+    this.cellCounts[cell]!++
     this.x[index] = x
     this.y[index] = y
     this.ages[index] = -delaySeconds
@@ -727,17 +720,6 @@ export class WindLayer implements CustomLayerInterface {
     this.instanceFloats[offset + 3] = 0.5 - (this.grid.y0 + this.grid.dy * this.grid.height * y) * MERCATOR_SCALE
   }
 
-  /** Uniform punt in de rand rond het beeld (buiten het bezettingsraster), of undefined. */
-  private rimPoint(): [number, number] | undefined {
-    const outer = this.particleBounds
-    for (let attempt = 0; attempt < SPAWN_ATTEMPTS; attempt++) {
-      const x = outer.west + this.random() * (outer.east - outer.west)
-      const y = outer.north + this.random() * (outer.south - outer.north)
-      if (!this.inView(x, y) && (!this.left || this.sampleWind(x, y))) return [x, y]
-    }
-    return undefined
-  }
-
   /**
    * Kaartbeweging en resize. Particles leven in gridfracties (Mercator) en blijven gewoon staan;
    * alleen wie buiten beeld valt komt als aanvuller terug in de leegste cel, en bij uitzoomen
@@ -750,15 +732,11 @@ export class WindLayer implements CustomLayerInterface {
     const previousBudget = this.budget
     this.viewBounds = viewBounds(this.map, this.grid)
     const canvas = this.map.getCanvas()
-    const inView = particleCountForViewport(canvas.clientWidth, canvas.clientHeight, this.tuning.particlesPerMegapixel)
-    // ~RIM_SHARE van de levende particles zit in de rand (gemeten 7,7–8,1 % bij 1–12 m/s): het
-    // budget groeit mee, zodat de dichtheid in beeld blijft wat hij was.
-    const target = Math.min(MAX_PARTICLES, Math.round(inView / (1 - RIM_SHARE)))
+    const target = particleCountForViewport(canvas.clientWidth, canvas.clientHeight, this.tuning.particlesPerMegapixel)
     if (resetAll || target !== this.target) this.budget = target
     const retention = viewportParticleRetention(previousBounds, this.viewBounds, previousBudget, this.budget)
     this.target = target
-    ;[this.columns, this.rows] = occupancyGrid(canvas.clientWidth, canvas.clientHeight, inView)
-    this.particleBounds = withRim(this.viewBounds, this.columns, this.rows)
+    ;[this.columns, this.rows] = occupancyGrid(canvas.clientWidth, canvas.clientHeight, this.target)
     if (resetAll) {
       this.active = this.budget
       this.retiring = 0
@@ -769,8 +747,6 @@ export class WindLayer implements CustomLayerInterface {
     }
     this.countCells()
     let survivors = 0
-    // Bij kaartbeweging telt het zichtbare beeld, niet de rand: anders blijft bij inzoomen een hele
-    // ring voormalige beeldbewoners onzichtbaar in de rand hangen en wordt het beeld dunner (U24b).
     for (let index = 0; index < this.active; index++) {
       if (this.inView(this.x[index]!, this.y[index]!)) {
         if (!this.fading(index)) survivors++
@@ -812,8 +788,7 @@ export class WindLayer implements CustomLayerInterface {
   /** Einde van een leven; true als het slot is opgeheven en `index` nu een ander particle bevat. */
   private die(index: number, x: number, y: number): boolean {
     const surplus = this.rampRates[index]! < 0
-    // Buiten beeld (in de rand) is een kop onzichtbaar: geen uitloop nodig.
-    if (this.shown[index]! * 255 >= 1 && this.inView(x, y)) {
+    if (this.shown[index]! * 255 >= 1) {
       // Zichtbare kop: het slot dooft als uitloper uit (telt als overtal) en een vervanger wordt
       // meteen geboren, zodat de dichtheid niet zakt.
       this.dying[index] = 1
@@ -1363,18 +1338,6 @@ function uniforms<Name extends string>(gl: WebGL2RenderingContext, program: WebG
   const locations = {} as UniformMap<Name>
   for (const key of Object.keys(names) as Name[]) locations[key] = gl.getUniformLocation(program, names[key])
   return locations
-}
-
-/** `bounds` plus één cel van een `columns`×`rows`-raster rondom, binnen het grid. */
-export function withRim(bounds: ParticleBounds, columns: number, rows: number): ParticleBounds {
-  const width = (bounds.east - bounds.west) / columns
-  const height = (bounds.south - bounds.north) / rows
-  return {
-    west: Math.max(0, bounds.west - width),
-    east: Math.min(1, bounds.east + width),
-    north: Math.max(0, bounds.north - height),
-    south: Math.min(1, bounds.south + height),
-  }
 }
 
 function viewBounds(map: MapLibreMap, grid: Grid): ParticleBounds {
