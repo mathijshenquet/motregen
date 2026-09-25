@@ -18,6 +18,7 @@ interface Props {
 }
 
 const TICK_MS = 15_000
+const CLOSE_FALLBACK_MS = 600
 
 // Leeftijd als tikkend label (PO 2026-09-25 live): zichtbaar dat hij meeloopt met de klok.
 function LiveAge(props: { ms: number; short?: boolean; title?: string }) {
@@ -83,10 +84,16 @@ export default function Freshness(props: Props) {
     if (!dialog.open || dialog.classList.contains('closing')) return
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) { dialog.close(); return }
     dialog.classList.add('closing')
-    dialog.addEventListener('animationend', () => {
+    let done = false
+    const finish = () => {
+      if (done) return
+      done = true
       dialog.classList.remove('closing')
       dialog.close()
-    }, { once: true })
+    }
+    dialog.addEventListener('animationend', finish, { once: true })
+    // Vangnet als er geen animationend komt (bijv. animaties uit in de browser).
+    window.setTimeout(finish, CLOSE_FALLBACK_MS)
   }
 
   async function refreshNow(): Promise<void> {
@@ -157,7 +164,7 @@ export default function Freshness(props: Props) {
               <thead><tr><th>Data</th><th>Bron</th><th>Uitleg</th><th>Frequentie</th><th>Volgende data</th></tr></thead>
               <tbody>
                 <For each={rows()}>{(row) => <tr>
-                  <th scope="row">{row.label}<LiveAge ms={ageMs(row.epoch, clock())} short title={`${row.kind === 'measured' ? 'meting' : 'run'} ${formatClock(row.epoch, clock())}`} /></th>
+                  <th scope="row"><span>{row.label}</span><LiveAge ms={ageMs(row.epoch, clock())} short title={`${row.kind === 'measured' ? 'meting' : 'run'} ${formatClock(row.epoch, clock())}`} /></th>
                   <td>{row.provider}</td>
                   <td class="freshness-explanation">{row.explanation}</td>
                   <td>{row.cadence}</td>

@@ -750,13 +750,19 @@ td small { color: var(--muted); font-size: 9px; }
 .freshness-dialog { border-top: 0; border-radius: 0 0 16px 16px; }
 .freshness-dialog[open] { animation: freshness-pull .42s cubic-bezier(.3, .7, .2, 1); }
 .freshness-dialog[open]::backdrop { animation: freshness-backdrop .42s ease-out; }
-.freshness-dialog.closing { animation: freshness-pull .34s cubic-bezier(.5, 0, .7, .3) reverse forwards; }
-.freshness-dialog.closing::backdrop { animation: freshness-backdrop .34s ease-in reverse forwards; }
+/* Eigen keyframes: dezelfde animatienaam achterstevoren herstart niet en gaf nooit animationend. */
+.freshness-dialog.closing { animation: freshness-roll-up .34s cubic-bezier(.5, 0, .7, .3) forwards; }
+.freshness-dialog.closing::backdrop { animation: freshness-backdrop-out .34s ease-in forwards; }
 @keyframes freshness-pull {
   from { clip-path: inset(0 var(--clock-right, 40%) calc(100% - var(--clock-height, 44px)) var(--clock-left, 40%) round 0 0 12px 12px); }
   to { clip-path: inset(0 0 0 0 round 0 0 16px 16px); }
 }
 @keyframes freshness-backdrop { from { opacity: 0; } }
+@keyframes freshness-roll-up {
+  from { clip-path: inset(0 0 0 0 round 0 0 16px 16px); }
+  to { clip-path: inset(0 var(--clock-right, 40%) calc(100% - var(--clock-height, 44px)) var(--clock-left, 40%) round 0 0 12px 12px); }
+}
+@keyframes freshness-backdrop-out { to { opacity: 0; } }
 .freshness-clock { position: relative; height: var(--clock-height, 44px); border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .freshness-clock .clock-main { position: absolute; top: 0; bottom: 0; left: var(--clock-center, 50%); align-items: center; padding: 0 14px; border: 0; border-radius: 0 0 11px 11px; color: var(--muted); background: none; font: inherit; line-height: 1.1; transform: translateX(-50%); cursor: pointer; }
 .freshness-clock .clock-main:hover, .freshness-clock .clock-main:focus-visible { background: color-mix(in srgb, var(--accent-soft) 60%, transparent); outline: none; }

@@ -341,6 +341,8 @@ export class WindLayer implements CustomLayerInterface {
   private retiring = 0
   /** Getoonde kop-alpha (0–1), die hooguit met 1/DEATH_SECONDS per seconde daalt. */
   private shown = new Float32Array(MAX_PARTICLES)
+  /** 1 = is al in beeld geweest; 0 = teruggespoelde pasgeborene die nog aan loef in de marge drijft. */
+  private entered = new Uint8Array(MAX_PARTICLES)
   /** 1 = leven voorbij, de kop dooft uit (telt mee in `retiring`). */
   private dying = new Uint8Array(MAX_PARTICLES)
   private instanceData = new ArrayBuffer(MAX_PARTICLES * INSTANCE_BYTES)
@@ -712,7 +714,9 @@ export class WindLayer implements CustomLayerInterface {
         stepPx = Math.hypot((nextX - oldX) * unitX, (nextY - oldY) * unitY) * worldPx
       }
       // Buiten het domein, of net het beeld uit: weg. Wie nog buiten beeld aan loef drijft, leeft door.
-      const outside = !this.inDomain(nextX, nextY) || (this.inView(oldX, oldY) && !this.inView(nextX, nextY))
+      const inView = this.inView(nextX, nextY)
+      const outside = !this.inDomain(nextX, nextY) || (this.entered[index] === 1 && !inView)
+      if (inView) this.entered[index] = 1
       const offset = index * INSTANCE_BYTES / 4
       this.lifeLimit.maxAge = tuning.maxAge * this.lifeScales[index]!
       if (!dying && (outside || !advanceLife(life, stepPx, seconds, this.lifeLimit))) {
@@ -827,7 +831,9 @@ export class WindLayer implements CustomLayerInterface {
       const bounds = this.simBounds
       let cell = 0
       const [x, y] = pickSpawn(SPAWN_ATTEMPTS, () => {
-        cell = emptiestCell(this.cellCounts, this.columns, this.rows, () => this.random())
+        // Alleen cellen in beeld: de marge is vrijwel leeg en won anders altijd, waarna de aanvuller na
+        // SPAWN_ATTEMPTS afwijzingen onzichtbaar in de marge belandde (U34, e2e wind-zoom continu).
+        cell = emptiestCell(this.cellCounts, this.columns, this.rows, () => this.random(), undefined, (candidate) => this.cellInView(candidate))
         const [u, v] = jitteredCellPoint(cell, this.columns, this.rows, 1, () => this.random())
         return [bounds.west + u * (bounds.east - bounds.west), bounds.north + v * (bounds.south - bounds.north)]
       }, () => this.random(), (candidateX, candidateY) => this.inView(candidateX, candidateY) && (!this.left || this.sampleWind(candidateX, candidateY)) ? 1 : 0)
@@ -872,6 +878,7 @@ export class WindLayer implements CustomLayerInterface {
     this.rampRates[index] = 0
     this.shown[index] = 0
     this.dying[index] = 0
+    this.entered[index] = this.inView(this.x[index]!, this.y[index]!) ? 1 : 0
     if (fill) {
       // Een willekeurige levensfase in afstand én leeftijd, anders sterven alle aanvullers van
       // één zoomstap tegelijk: bij zwakke wind (land) is maxAge de doodsoorzaak (U20).
@@ -1013,7 +1020,12 @@ export class WindLayer implements CustomLayerInterface {
     this.countCells()
     let survivors = 0
     for (let index = 0; index < this.active; index++) {
-      if (this.inDomain(this.x[index]!, this.y[index]!)) {
+      // Bij kaartbeweging is het zichtbare beeld de grens voor wie al binnen was: anders houdt een
+      // continue inzoom een ring onzichtbare ex-beeldbewoners in het budget vast (U24b, e2e wind-zoom).
+      // Pasgeborenen aan loef blijven in de marge, anders komen ze bij continu bewegen nooit binnen.
+      const x = this.x[index]!
+      const y = this.y[index]!
+      if (this.inView(x, y) || (this.entered[index] === 0 && this.inDomain(x, y))) {
         if (!this.fading(index)) survivors++
       } else if (this.fading(index)) {
         if (this.retire(index)) index--
@@ -1087,7 +1099,7 @@ export class WindLayer implements CustomLayerInterface {
   private removeSlot(index: number): void {
     const last = --this.active
     if (index === last) return
-    for (const values of [this.x, this.y, this.velocityEast, this.velocityNorth, this.ages, this.travelled, this.distances, this.lifeScales, this.ramps, this.rampRates, this.shown, this.dying]) values[index] = values[last]!
+    for (const values of [this.x, this.y, this.velocityEast, this.velocityNorth, this.ages, this.travelled, this.distances, this.lifeScales, this.ramps, this.rampRates, this.shown, this.dying, this.entered]) values[index] = values[last]!
     this.instanceBytes.copyWithin(index * INSTANCE_BYTES, last * INSTANCE_BYTES, (last + 1) * INSTANCE_BYTES)
   }
 
@@ -1099,6 +1111,13 @@ export class WindLayer implements CustomLayerInterface {
   private inDomain(x: number, y: number): boolean {
     const bounds = this.simBounds
     return x >= bounds.west && x <= bounds.east && y >= bounds.north && y <= bounds.south
+  }
+
+  private cellInView(cell: number): boolean {
+    const bounds = this.simBounds
+    const x = bounds.west + ((cell % this.columns) + 0.5) / this.columns * (bounds.east - bounds.west)
+    const y = bounds.north + (Math.floor(cell / this.columns) + 0.5) / this.rows * (bounds.south - bounds.north)
+    return this.inView(x, y)
   }
 
   private inView(x: number, y: number): boolean {
@@ -1311,12 +1330,13 @@ export function leastOccupiedCell(counts: ArrayLike<number>, cells: number, star
  * "de eerste lege cel" strooide aanvullers daardoor over het hele beeld en liet een net
  * binnengepande strook seconden half leeg (U24b). Een lege cel tussen bezette buren scoort slecht.
  */
-export function emptiestCell(counts: ArrayLike<number>, columns: number, rows: number, random: () => number, samples = EMPTIEST_SAMPLES): number {
+export function emptiestCell(counts: ArrayLike<number>, columns: number, rows: number, random: () => number, samples = EMPTIEST_SAMPLES, allowed?: (cell: number) => boolean): number {
   const cells = columns * rows
   let best = 0
   let bestScore = Infinity
   for (let sample = 0; sample < samples; sample++) {
     const cell = Math.min(cells - 1, Math.floor(random() * cells))
+    if (allowed && !allowed(cell)) continue
     const column = cell % columns
     const row = Math.floor(cell / columns)
     let neighbours = 0
