@@ -27,10 +27,13 @@ test('the map zooms out to contain the Netherlands and keeps it in view', async 
   await page.reload()
   await page.evaluate(() => localStorage.removeItem('motregen-map-view'))
   await pointAtMap(page, viewport)
+  // Op touch-apparaten staan MapLibre's cooperativeGestures aan (U26): een muiswiel zoomt daar met ctrl.
+  if (testInfo.project.use.hasTouch) await page.keyboard.down('Control')
   for (let step = 0; step < 20; step++) {
     await page.mouse.wheel(0, 600)
     await page.waitForTimeout(50)
   }
+  if (testInfo.project.use.hasTouch) await page.keyboard.up('Control')
   // Tussenliggende moveends (gethrottelde CPU) mogen eerst landen; het eindpunt is minZoom.
   await expect.poll(async () => (await storedView(page)).zoom).toBeCloseTo(minimumZoom, 1)
   expectBoundsInView(await storedView(page), viewport)
