@@ -25,3 +25,28 @@
 - Oude clients: `buildTimeline` selecteert op `field`, onbekend veld wordt overgeslagen; `validateHeader`
   accepteert elk veld met 256-tabel + pred v1. Wel: App prefetcht bij start de header van ÁLLE chunks
   (high priority) → client sluit pressure_hpa daar uit (lazy); oude clients halen 3 extra headers (~3 KB).
+
+## 2026-09-25 — client
+- App.tsx: de isolijnstaat (laag, overlay, labels, velden, caches, worker) zit nu in een `IsolineSet`
+  per veld; twee sets: `temperature` (feels_like_c, temperatuurfocus, stap uit tuning, vulling/palet)
+  en `pressure` (pressure_hpa, windfocus, `ISOBAR_STEP_HPA` = 4, `fill: 0`, geen gradiëntfade,
+  kleur `isolineColor(theme, 'pressure')` = #1e2d33 licht / #b3c3c9 donker, iets donkerder dan
+  #33474f / #d5e2e6). Zelfde tracer, temporele B-spline, ringfade en ankerlabels. Labels "1012"
+  (`isolineLabelText`), class `isobar-label`; `data-isobars` op de map-shell. Laag-id
+  `motregen-isobars`; wind-overlay komt boven de bovenste isolijncanvas (`topIsolineCanvas`).
+- Lazy: pressure_hpa-headers uit de cold-start-headerprefetch (`eagerHeader`); frames pas bij
+  windfocus. wind-layer.ts niet aangeraakt.
+- isoline-labels.test: de Marker-mock hing elementen nooit in de DOM, dus de dekkingscheck van de
+  bestaande ringfade-test was vacuüm; mock hangt ze nu in, en de check flusht eerst de despawn-timers
+  (een stervend anker hield anders zijn laatste dekking 0,64). Test was daarna groen zonder codewijziging.
+- synthgen: pressure_hpa (laag in de windvortex, 994–1014 hPa), pred-frames; de drie chunks met
+  `git add -f` (data/ in .gitignore; anders dezelfde valkuil als uv_clear).
+- e2e `isobars.spec` (desktop): windfocus → isobaarlabels, veelvoud van 4, geen pressure-request vóór
+  windfocus, isobarencanvas vóór windcanvas in de DOM, geen kaartfilter; temperatuurfocus → 0 isobaren,
+  wel isotherm-labels; donker thema (NB: app start licht tenzij `motregen-theme` gezet — ook de
+  bestaande `focus-dark.png` in focus.spec is dus licht); warm reload na windfocus 0 B.
+  **Bytes e2e (synth)**: eerste windfocus 6 requests / 14 926 B pressure; warm 0 requests / 0 B.
+  Passieve sessie: 0 pressure-requests (gecontroleerd in de test).
+- Stills: `web/tmp/shots/u35-isobars-{light,dark}.png` (synth, desktop 1280×720).
+- **Vervolg (niet in deze track)**: H/L-markers bij drukcentra; eventueel dikkere lijn per 20 hPa
+  (PO wilde uniforme dikte); stadslabels (°) blijven in windmodus staan — PO-oordeel.
