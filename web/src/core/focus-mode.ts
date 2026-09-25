@@ -54,7 +54,8 @@ export function windFocusIntensity(intensity: number, focus: number): number {
   return intensity * (1 + focus * (WIND_FOCUS_GAIN - 1))
 }
 
-export type FocusKind = 'temperature' | 'wind'
+// 'clouds' (U34) is alleen een scrubbermodus (de drie wolkenlagen); de kaart kent er geen tween voor.
+export type FocusKind = 'temperature' | 'wind' | 'clouds'
 
 type FrameScheduler = (callback: (now: number) => void) => number
 

@@ -19,9 +19,9 @@ const series: ForecastSeries = {
   rain: rows.map((_, index) => [0, 0.004, 0.35, 1.26][index % 4]!), uv: [], uvClear: [], radiation: [], temperature: filled(15),
   feelsLike: filled(14), humidity: filled(70), cloud: filled(0.5), windU: filled(3), windV: filled(1), gust: filled(8),
 }
-const allColumns = { weather: true, uv: true, temperature: true, humidity: true, wind: true }
+const allColumns = { weather: true, uv: true, temperature: true, humidity: true, clouds: false, wind: true }
 
-function renderTable(options: { pinned?: FocusKind; weather?: boolean; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
+function renderTable(options: { pinned?: FocusKind; weather?: boolean; clouds?: boolean; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
   const [pinned, setPinned] = createSignal<FocusKind | undefined>(options.pinned)
   const onTogglePin = vi.fn((mode: FocusKind) => setPinned((current) => current === mode ? undefined : mode))
   const onFocus = vi.fn()
@@ -29,7 +29,8 @@ function renderTable(options: { pinned?: FocusKind; weather?: boolean; rows?: Ho
     rows={options.rows ?? rows}
     series={series}
     location={{ lng: 5.18, lat: 52.1 }}
-    columns={{ ...allColumns, weather: options.weather ?? true }}
+    columns={{ ...allColumns, weather: options.weather ?? true, clouds: options.clouds ?? false }}
+    cloudLayers={() => ({ high: 80, mid: 50.4, low: null })}
     windUnit={options.windUnit?.() ?? 'bft'}
     loadedUntil={Number.POSITIVE_INFINITY}
     historyInline={options.historyInline ?? false}
@@ -79,6 +80,16 @@ describe('forecast table headings', () => {
     expect(pinned()).toBe('temperature')
     expect(screen.getByRole('button', { name: 'Gevoel' }).getAttribute('aria-pressed')).toBe('true')
     expect(document.querySelector('table')!.dataset.mode).toBe('temperature')
+  })
+
+  it('show a Wolken mode with the three cloud layers per hour (U34)', () => {
+    const { pinned, onTogglePin } = renderTable({ clouds: true })
+    fireEvent.click(screen.getByRole('button', { name: 'Wolken' }))
+    expect(onTogglePin).toHaveBeenCalledWith('clouds')
+    expect(pinned()).toBe('clouds')
+    const stack = document.querySelector('.clouds-cell .cloud-stack')!
+    expect([...stack.children].map((part) => part.textContent)).toEqual(['80', '50', '–'])
+    expect(stack.getAttribute('title')).toBe('Bewolking hoog 80 %, midden 50 %, laag – %')
   })
 
   it('unpin on a click on Weer, and do nothing when nothing is pinned', () => {

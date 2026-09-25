@@ -1,18 +1,26 @@
 import { expect, test } from '@playwright/test'
 import { pausePlayback } from './playback'
 
-// U37 (PO-keuze variant A): in de weermodus vervangt de wolkendoorsnede het regenhistogram;
-// een gepinde modus toont de regen weer.
-test('weather mode shows the cloud cross-section; a pinned mode shows the rain histogram', async ({ page }, testInfo) => {
+// U37 → U34 (PO 2026-09-25 live): in de weermodus één band totale bewolking boven het regenhistogram;
+// de drie lagen alleen in de modus Wolken (zonder regen); Gevoel/Wind tonen alleen regen.
+test('weather mode shows total cloud cover above the rain; the Wolken mode shows the layers', async ({ page }, testInfo) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/')
   await expect(page.locator('.map-splash.ready')).toBeAttached()
   const surface = page.locator('.scrub-surface')
-  await expect(surface).toHaveAttribute('data-scrubber-view', 'clouds')
+  await expect(surface).toHaveAttribute('data-scrubber-view', 'cover')
   const section = page.getByTestId('cloud-section')
-  // De synthetische dag heeft een front: alle drie lagen tekenen iets binnen +8 u.
-  for (const layer of ['high', 'mid', 'low']) await expect(section.locator(`[data-layer=${layer}] path`).first()).toBeAttached()
+  await expect(section.locator('[data-layer=total] path').first()).toBeAttached()
   await expect(page.locator('.rain-bar:not(.pending)').first()).toBeAttached()
+
+  // Modus Wolken: de drie lagen (de synthetische dag heeft een front), geen regen.
+  const clouds = page.getByRole('button', { name: 'Wolken' })
+  await clouds.click()
+  await clouds.blur()
+  await page.mouse.move(5, 5)
+  await expect(surface).toHaveAttribute('data-scrubber-view', 'clouds')
+  for (const layer of ['high', 'mid', 'low']) await expect(section.locator(`[data-layer=${layer}] path`).first()).toBeAttached()
+  await expect(page.locator('.rain-bar')).toHaveCount(0)
 
   // Stilstaand beeld: pauzeren en de cursor op een vast punt.
   await surface.focus()
@@ -37,6 +45,6 @@ test('weather mode shows the cloud cross-section; a pinned mode shows the rain h
 
   await page.getByRole('button', { name: 'Weer' }).click()
   await page.mouse.move(5, 5)
-  await expect(surface).toHaveAttribute('data-scrubber-view', 'clouds')
+  await expect(surface).toHaveAttribute('data-scrubber-view', 'cover')
   await expect(section).toBeAttached()
 })

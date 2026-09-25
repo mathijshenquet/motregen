@@ -205,6 +205,44 @@ describe('histogram scrubber', () => {
     }
   })
 
+  it('shows total cloud cover above full-width rain by default, and only the layers in the cloud mode (U34)', () => {
+    const timeline = ['14', '15', '16', '17', '18'].map((hour) => frame(`2026-08-28T${hour}:00:00Z`, 'harmonie'))
+    const cover = { timeline, values: [90, 90, 90, 90, 90] }
+    const layers = { timeline: { high: timeline, mid: timeline, low: timeline }, values: { high: [80, 80, 80, 80, 80], mid: [60, 60, 60, 60, 60], low: [90, 90, 90, 90, 90] } }
+    const [mode, setMode] = createSignal<'cover' | 'clouds' | 'rain'>('cover')
+    const { container } = render(() => <HistogramScrubber
+      timeline={timeline}
+      values={[0, 2, 2, 2, 0]}
+      cursor={0}
+      now={timeline[0]!.epoch}
+      playing={false}
+      loading={false}
+      locationLabel="Utrecht"
+      onCursor={() => undefined}
+      onPlaying={() => undefined}
+      cloudCover={mode() === 'cover' ? cover : undefined}
+      clouds={mode() === 'clouds' ? layers : undefined}
+    />)
+    const slider = screen.getByRole('slider', { name: 'Tijd' })
+    expect(slider.getAttribute('data-scrubber-view')).toBe('cover')
+    expect([...container.querySelectorAll('.cloud-band')].map((band) => band.getAttribute('data-layer'))).toEqual(['total'])
+    expect(container.querySelector('.cloud-band path')).toBeTruthy()
+    // Regen weer op volle breedte (niet meer gehalveerd onder de wolken).
+    const bar = container.querySelector<SVGRectElement>('.rain-bar')!
+    expect(Number(bar.getAttribute('width'))).toBeGreaterThan(PX_PER_HOUR * 0.9)
+    expect(container.querySelector('.cloud-labels')).toBeNull()
+
+    setMode('clouds')
+    expect(slider.getAttribute('data-scrubber-view')).toBe('clouds')
+    expect([...container.querySelectorAll('.cloud-band')].map((band) => band.getAttribute('data-layer'))).toEqual(['high', 'mid', 'low'])
+    expect(container.querySelectorAll('.rain-bar')).toHaveLength(0)
+    expect([...container.querySelectorAll('.cloud-labels span')].map((label) => label.textContent)).toEqual(['hoog', 'midden', 'laag'])
+
+    setMode('rain')
+    expect(slider.getAttribute('data-scrubber-view')).toBe('rain')
+    expect(container.querySelectorAll('.cloud-band')).toHaveLength(0)
+  })
+
   it('marks local day transitions', () => {
     const timeline = [
       frame('2026-08-31T20:00:00Z', 'rtcor'),

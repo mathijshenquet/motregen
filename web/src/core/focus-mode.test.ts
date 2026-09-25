@@ -53,7 +53,7 @@ describe('focus mode sources', () => {
   function harness(reducedMotion = false) {
     let now = 0
     const frames: Array<(time: number) => void> = []
-    const values: Record<FocusKind, number[]> = { temperature: [], wind: [] }
+    const values: Record<FocusKind, number[]> = { temperature: [], wind: [], clouds: [] }
     const focus = new FocusMode<FocusKind>(['temperature', 'wind'], (mode, value) => values[mode].push(value),
       () => reducedMotion, () => now, (callback) => frames.push(callback), () => undefined)
     const advance = (ms: number) => {
