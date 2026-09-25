@@ -13,6 +13,7 @@ interface Props {
   manifest: Manifest | undefined
   refresh: RefreshState | undefined
   onRefresh: () => Promise<void>
+  onOpen?: () => void
 }
 
 const TICK_MS = 15_000
@@ -53,6 +54,7 @@ export default function Freshness(props: Props) {
     dialog.style.setProperty('--panel-left', `${Math.round(center - width / 2)}px`)
     dialog.style.setProperty('--panel-top', `${top}px`)
     dialog.showModal()
+    props.onOpen?.()
   }
 
   async function refreshNow(): Promise<void> {

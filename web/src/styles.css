@@ -391,6 +391,7 @@ button { color: inherit; cursor: pointer; }
 .wind-debug label.debug-toggle input { width: auto; justify-self: start; }
 .wind-debug output { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
 .wind-debug-note { margin: 1px 0 5px 70px; color: var(--muted); font-size: 8px; }
+.wind-debug-usage { margin-left: 0; overflow-wrap: anywhere; }
 .wind-debug-reset { min-height: 1em; margin-left: 0; font-weight: 700; }
 .wind-debug-replay { width: 100%; margin-top: 6px; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-soft); font-size: 9px; font-weight: 700; }
 

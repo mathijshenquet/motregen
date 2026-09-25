@@ -47,8 +47,10 @@ import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
 import { DEFAULT_WIND_TUNING, loadWindTuning, storeWindTuning, WindLayer, type WindTuning } from './core/wind-layer'
 import { clearTuningStorage } from './core/dev-settings'
+import { browserUsageEnvironment, createUsageTracker, installUsageBeacon, sessionManifestUrls } from './core/usage'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
+const manifestRequestUrl = sessionManifestUrls(manifestUrl)
 const perf = installPerfMonitor()
 const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
 type PointLoadStage = 'initial' | 'direct' | 'window' | 'complete'
@@ -239,6 +241,15 @@ export default function App() {
   const [historyInline, setHistoryInline] = createSignal(inlineHistoryMedia.matches)
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
+  const usage = createUsageTracker(browserUsageEnvironment(), theme())
+  onCleanup(installUsageBeacon(usage, document, window))
+  const [usageBody, setUsageBody] = createSignal(JSON.stringify(usage.sessionBody()))
+  if (devMode) {
+    usage.onChange = () => setUsageBody(JSON.stringify(usage.sessionBody()))
+    // De duurbak loopt vanzelf door; alleen onder ?dev.
+    const usageTicker = window.setInterval(usage.onChange, 5_000)
+    onCleanup(() => window.clearInterval(usageTicker))
+  }
   const [windTuning, setWindTuning] = createSignal<WindTuning>(loadWindTuning())
   const [cloudEdgesEnabled, setCloudEdgesEnabled] = createSignal(false)
   const [focusTuning, setFocusTuning] = createSignal<FocusTuning>({ ...DEFAULT_FOCUS_TUNING })
@@ -328,7 +339,10 @@ export default function App() {
       map.on('moveend', rememberMapView)
       map.on('zoomend', () => void showTemperature())
       map.on('moveend', () => { isolineLabels?.requestSpawn(); updateIsolineLabels() })
-      map.on('click', (event) => pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name))
+      map.on('click', (event) => {
+        usage.mark('pin')
+        pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name)
+      })
       if (mapTheme() !== appliedMapTheme) void applyMapTheme(mapTheme())
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error))
@@ -353,7 +367,7 @@ export default function App() {
   })
 
   async function fetchManifest(cache: RequestCache = 'default'): Promise<Manifest> {
-    const response = await fetch(manifestUrl, { cache })
+    const response = await fetch(manifestRequestUrl(), { cache })
     if (!response.ok) throw new Error(`Manifest laden mislukt (${response.status})`)
     return response.json() as Promise<Manifest>
   }
@@ -529,6 +543,7 @@ export default function App() {
   })
 
   function chooseTimeHorizon(hours: number | null): void {
+    usage.setRange(hours)
     setTimeHorizonHours(hours)
     const frames = timeline()
     if (!frames.length) return
@@ -1026,6 +1041,7 @@ export default function App() {
     const pinned = previous === mode ? undefined : mode
     setFocusPinned(pinned)
     if (pinned) focusMode.set(pinned, 'pinned', true)
+    if (pinned) usage.mark(pinned === 'wind' ? 'pinWind' : 'pinFeel')
   }
 
   function attachSunLayer(): void {
@@ -1485,12 +1501,14 @@ export default function App() {
     if (!navigator.geolocation) { setStatus('Locatie is niet beschikbaar in deze browser'); return }
     setStatus('Locatie bepalen…')
     navigator.geolocation.getCurrentPosition(({ coords }) => {
+      usage.mark('geo')
       map?.easeTo({ center: [coords.longitude, coords.latitude], duration: 450 })
       pick(coords.longitude, coords.latitude, 'Mijn locatie')
     }, () => setStatus('Locatietoegang geweigerd — tik op de kaart'), { timeout: 10_000 })
   }
 
   function chooseSearch(point: { lng: number; lat: number }, label: string): void {
+    usage.mark('search')
     map?.easeTo({ center: [point.lng, point.lat], duration: 450 })
     pick(point.lng, point.lat, label)
   }
@@ -1513,6 +1531,7 @@ export default function App() {
     const point = location()
     const sourceLabel = locationLabel()
     const saved: SavedPlace = { id: savedPlaceId(point.lng, point.lat), name, sourceLabel, ...point }
+    usage.mark('fav')
     setSavedPlaces((places) => [saved, ...places.filter((place) => !samePlace(place, point))].slice(0, 20))
     setLocationLabel(name)
   }
@@ -1642,6 +1661,7 @@ export default function App() {
   }
 
   function scrub(cursor: number): void {
+    usage.mark('scrub')
     perf.markScrubInput()
     scrubPrefetch = true
     void completePointSeries(pointLoad, 'high')
@@ -1729,7 +1749,7 @@ export default function App() {
           <strong>motregen.nl</strong>
         </div>
       </div>
-      <About theme={theme()} onTheme={setTheme} onTripleTap={() => setPerfVisible((visible) => !visible)} sourcePrefix={
+      <About theme={theme()} onTheme={(choice) => { usage.setTheme(choice); setTheme(choice) }} onOpen={() => usage.mark('about')} onTripleTap={() => setPerfVisible((visible) => !visible)} sourcePrefix={
         <Show when={focus() > 0 && temperatureLegend()}>
           {(legend) => <span class="temperature-legend" style={{ opacity: focus() }} role="img" aria-label={`Kleurschaal gevoelstemperatuur ${legend().low} tot ${legend().high} graden`}>
             <span>{legend().low}°</span>
@@ -1781,10 +1801,11 @@ export default function App() {
           <label><span>Splash ×</span><input type="range" min="1" max="8" step="0.5" value={splashSlowdown()} onInput={(event) => setSplashSlowdown(event.currentTarget.valueAsNumber)} /><output>{splashSlowdown().toLocaleString('nl-NL', { maximumFractionDigits: 1 })}×</output></label>
           <button class="wind-debug-replay" onClick={replaySplash}>Herhaal splash</button>
           <button type="button" class="wind-debug-replay" onClick={resetAllSettings}>Reset alle instellingen</button>
+          <p class="wind-debug-note wind-debug-usage">Gebruiksbaken: <code>{usageBody()}</code></p>
           <p class="wind-debug-note wind-debug-reset" role="status">{resetNotice() ? 'Standaardwaarden hersteld' : ''}</p>
         </details>
       </Show>
-      <Freshness mapEpoch={selectedEpoch()} mapFrame={timeline()[Math.round(cursor())]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} />
+      <Freshness mapEpoch={selectedEpoch()} mapFrame={timeline()[Math.round(cursor())]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={() => usage.mark('fresh')} />
     </section>
     <aside class="dashboard">
       <Show when={cursorUvChip()}>{(label) => <div class="sidebar-nav">
@@ -1805,6 +1826,7 @@ export default function App() {
         onHorizonHours={chooseTimeHorizon}
         onIntent={() => { void completePointSeries(pointLoad, 'high') }}
         onPlaying={setPlaying}
+        onPlayPressed={() => usage.mark('play')}
       />
       <section class="forecast-panel">
         <div class="table-scroll">
@@ -1823,12 +1845,16 @@ export default function App() {
             onNeedRows={() => { void completePointSeries(pointLoad, 'high') }}
             onNeedHistory={() => { void loadHistoryRows() }}
             onOpenHistory={() => {
+              if (!historyOpen()) usage.mark('history')
               setHistoryOpen((open) => !open)
               void loadHistoryRows()
             }}
             sunForm={sunForm}
             uvBar={uvBarVariant}
-            focus={{ pinned: focusPinned(), onTogglePin: toggleFocusPin, onFocus: (mode, source, active) => focusMode.set(mode, source, active) }}
+            focus={{ pinned: focusPinned(), onTogglePin: toggleFocusPin, onFocus: (mode, source, active) => {
+              if (mode === 'temperature' && source === 'table' && active) usage.mark('hover')
+              focusMode.set(mode, source, active)
+            } }}
           />
         </div>
       </section>

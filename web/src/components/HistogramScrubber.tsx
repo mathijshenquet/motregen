@@ -19,6 +19,8 @@ interface Props {
   onHorizonHours: (hours: number | null) => void
   onIntent?: () => void
   onPlaying: (playing: boolean) => void
+  /** Alleen een expliciete afspeelkeuze, niet het hervatten na hover-scrubben. */
+  onPlayPressed?: () => void
 }
 
 const hourLabelSteps = [1, 2, 3, 6, 12, 24]
@@ -185,7 +187,9 @@ export default function HistogramScrubber(props: Props) {
       props.onPlaying(false)
     } else if (pointerInside && hoverScrubbing() && !props.playing) {
       setResumePlayback(true)
+      props.onPlayPressed?.()
     } else {
+      if (!props.playing) props.onPlayPressed?.()
       props.onPlaying(!props.playing)
     }
   }
