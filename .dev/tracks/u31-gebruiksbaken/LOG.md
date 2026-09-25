@@ -110,3 +110,15 @@
     e2e/pin-navigation.spec.ts` → **0** (14 passed, 10 skipped = profiel-skips; startload 25.34, eindload 22.01);
     perf warm chunks 0 B, second click 0 requests op alle drie profielen.
 - `pnpm build` niet opnieuw gedraaid in deze ronde (de e2e-webserver bouwt wel: `pnpm build` in playwright.config → groen).
+
+## 2026-09-25 — rebase op origin/main 99d9525 (U25b)
+- Eén conflict: `<About …>` in App.tsx. Opgelost als main (`sourcePrefix` met de temperatuurlegenda) + alleen mijn
+  `onTheme`/`onOpen`. `git diff origin/main HEAD -- web/src/App.tsx` bevat alleen U31-instrumentatie.
+- Receipts op ca0d582:
+  - `direnv exec . bash -c 'cd web && pnpm synthgen'` → 0
+  - `… pnpm typecheck` → 0
+  - `… pnpm test` → 0 (46 files, 289 tests)
+  - `… pnpm build` → 0
+  - `cd web && MOTREGEN_E2E_PORT=4231 MOTREGEN_E2E_DATA_PORT=8231 direnv exec .. pnpm e2e e2e/usage.spec.ts e2e/perf.spec.ts
+    e2e/pin-navigation.spec.ts` → **0** (14 passed, 10 skipped = profiel-skips; startload 27.93, eindload 27.41);
+    perf warm chunks 0 B en second click 0 requests op alle drie profielen.
