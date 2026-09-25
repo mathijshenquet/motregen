@@ -74,3 +74,10 @@
 - Repro (`web/tmp/u34-jump-repro.mjs`, niet gecommit, tegen 4310 synth): tijdens afspelen met het wiel naar voren scrollen → bij het passeren van de +8u-horizon (23:00) sprong de cursor van 22:36 naar 12:00 (tijdlijnbegin). Oorzaak: de afspeellus in App wrapt naar frame 0 zodra de volgende stap ≥ horizon is, ook als de gebruiker de cursor daar neerzette; het wiel pauzeerde het afspelen niet.
 - Fix: afspeellus stopt (setPlaying(false)) als de cursor al ≥ horizon staat; alleen een rondje dat de horizon zelf haalt begint opnieuw. Wiel pauzeert zoals slepen en hervat 800 ms na de laatste wielstap. Na fix dezelfde repro: scrollt door tot 02:45 en blijft staan.
 - Receipts: `pnpm typecheck` exit 0; `pnpm test` exit 0 (46 bestanden, 307 tests, incl. nieuwe wiel-test). Geen e2e (orkestrator).
+## 2026-09-25 — snap-back, tweede oorzaak (live ingest :8080)
+- 4310 op MOTREGEN_DATA_ORIGIN=http://localhost:8080. Repro `web/tmp/u34-refresh-repro.mjs` (niet gecommit): gepauzeerd over 2,5 min met verversingen → cursor blijft 21:04 (index 48→47 bij een vooraan weggevallen frame; epoch-mapping werkt). Afspelend → 20:36…03:56 (horizon) en dan in één frame naar 17:10 (tijdlijnbegin), elke ~50 s: dát is de "snap back"; verversingen (60 s, 121 s) hadden geen effect.
+- Fix: aan het eind van een rondje glijdt de cursor in PLAYBACK_REWIND_MS 700 (ease-in-out) terug naar het begin i.p.v. `return 0`. Repro na fix (100 ms samples): 04:04 → 04:01 → 03:28 → 00:30 → 20:20 → 17:36 → 17:10, dan verder spelen.
+- Receipts: `pnpm typecheck` exit 0; `pnpm test` exit 0. Geen e2e.
+## 2026-09-25 — A: windlijn in CSS-px (retina)
+- lineWidth was device-px (U3): op DPR 2 half zo dik als op 1× (PO: MacBook te dun). Nu CSS-px, omgerekend naar bufferpixels via clientWidth; default 2,5 blijft → 1×-beeld ongewijzigd, retina 2× zo dik. Smalle schermen (≤ 430 CSS-px, mobiele layout) × WIND_NARROW_LINE_FACTOR 0,6 = 1,5 CSS-px, om mobiel fijn te houden (oude U3-reden); op een telefoon met DPR 2,75 is dat ~4 dpx i.p.v. 2,5 — PO moet oordelen. Dev-knop eenheid dpx → px.
+- Receipts: `pnpm typecheck` exit 0; `pnpm test` exit 0. Geen e2e.

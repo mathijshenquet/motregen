@@ -114,6 +114,9 @@ interface PointLoadState {
 const emptyTemperatureData: TemperatureFeatureCollection = { type: 'FeatureCollection', features: [] }
 const emptySunData: SunFeatureCollection = { type: 'FeatureCollection', features: [] }
 
+// Terugglijden aan het eind van een afspeelrondje (PO 2026-09-25 live, U34).
+const PLAYBACK_REWIND_MS = 700
+
 export default function App() {
   const devMode = new URLSearchParams(window.location.search).has('dev')
   let mapElement!: HTMLDivElement
@@ -552,17 +555,27 @@ export default function App() {
     const lastEpoch = timelineHorizonEnd(frames, nowEpoch, horizonHours)
     const playbackRate = timelinePlaybackRate(frames, nowEpoch, horizonHours)
     let previous = performance.now()
+    // Aan het eind van een rondje glijdt de tijdlijn terug naar het begin i.p.v. in één frame te springen:
+    // in de schuivende scrubber (U34) oogde die sprong als "de tijdlijn springt telkens terug".
+    let rewind: { from: number; startedAt: number } | undefined
     const stop = startFrameLoop((now) => {
       const elapsed = now - previous
       // Zelfde grens als de windcanvas: op 120 Hz-schermen elke tweede vsync overslaan.
       if (elapsed < 1_000 / WIND_MAX_FPS - 4) return
       previous = now
+      if (rewind) {
+        const progress = Math.min(1, (now - rewind.startedAt) / PLAYBACK_REWIND_MS)
+        const eased = progress < 0.5 ? 2 * progress ** 2 : 1 - (2 - 2 * progress) ** 2 / 2
+        setCursor(timelineCursorAtEpoch(frames, rewind.from + (frames[0]!.epoch - rewind.from) * eased))
+        if (progress >= 1) rewind = undefined
+        return
+      }
       const epoch = timelineEpochAtCursor(frames, cursor())
-      // Door de gebruiker voorbij de afspeelhorizon gescrold (U34-scrubber): stoppen, niet terugspringen
-      // naar het begin. Alleen een rondje dat de horizon zelf haalt, begint opnieuw.
+      // Door de gebruiker voorbij de afspeelhorizon gescrold: stoppen, niet terugspringen naar het begin.
       if (!(epoch < lastEpoch)) { setPlaying(false); return }
       const nextEpoch = epoch + elapsed * playbackRate
-      setCursor(!Number.isFinite(nextEpoch) || nextEpoch >= lastEpoch ? 0 : timelineCursorAtEpoch(frames, nextEpoch))
+      if (!Number.isFinite(nextEpoch) || nextEpoch >= lastEpoch) { rewind = { from: epoch, startedAt: now }; return }
+      setCursor(timelineCursorAtEpoch(frames, nextEpoch))
     }, requestAnimationFrame, cancelAnimationFrame)
     onCleanup(stop)
   })
