@@ -60,3 +60,16 @@
   E2E-EXIT 0 (11 passed, 2 skipped = mobiel-only tests)
 - Repro-noot: verse worktree → eerst `pnpm synthgen` (uv_clear-chunk is ignored), en `ln -s ~/motregen/data data`
   voor de GRIB-fixturetest (anders SKIP).
+
+## 2026-09-25 — slot
+- Gemerged op main als 92762e5 (bevat bb85232). Track klaar.
+- **Correctie op de mergeboodschap**: die zegt "0,1 hPa"; op main staat 0,5 hPa over 940–1067
+  (`pressure_quantization_table`, docs/fields.md §Luchtdruk). 0,1 hPa past niet in u8-cellen.
+- Geleverd: `pressure_hpa`-ingest (parameter 1 @ niveautype 103, pred-codec, live 70 778 B per sessie),
+  isolijnstaat per veld in App.tsx, isobaren per 4 hPa in windfocus (labels zonder eenheid, egale kleur,
+  geen vulling/fade, onder de particles), lazy (cold 0 pressure-requests, warm 0 B), `isobars.spec`.
+- Open MET PO: H/L-markers; stadslabels (°) in windmodus; eventueel dikkere lijn per 20 hPa; kleur isobaren
+  op zicht (#1e2d33 / #b3c3c9).
+- VOOR AGENTS: `focus.spec`'s `focus-dark.png` is feitelijk licht (app start licht tenzij `motregen-theme`
+  gezet) — zet de localStorage-sleutel zoals `isobars.spec` doet.
+- Opruimen worktree: `data` is een ongecommitte symlink naar ~/motregen/data (geen blob-check nodig).
