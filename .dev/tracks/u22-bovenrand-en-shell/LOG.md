@@ -163,3 +163,14 @@ telefoon over twee regels.
 - Stills `shots-u22b-zoek/voor` (vóór deze wijziging) en `/na`: desktop, Pixel 5, 320 px, licht/donker,
   rust + zoek open.
 - `location.spec`: rust 15 px / 16 px, hoogte 38–40 (touch 44–46), icoon 18 px.
+
+## 11:30 — U22b + zoekpil-aanvulling: gates groen, klaar
+Receipts (synchroon, boom d143d75 schoon, gerebased op origin/main 511c3d5; start load 30,9;
+e2e-start 11:18 load 21,8 (< 22, procesnoot) via `scripts/e2e-slot.sh`, één Chromium; poorten
+4360/8360 vooraf vrij):
+- `pnpm typecheck` → TYPECHECK-EXIT: 0
+- `pnpm test` → TEST-EXIT: 0 (44 files, 266 tests)
+- `pnpm build` → BUILD-EXIT: 0
+- `MOTREGEN_E2E_PORT=4360 MOTREGEN_E2E_DATA_PORT=8360 pnpm e2e e2e/freshness.spec.ts e2e/location.spec.ts
+  e2e/perf.spec.ts` → E2E-EXIT: 0 (19 passed, 5 skipped)
+De receipts van 11:00 (1ec194d) zijn hiermee vervangen (rebase + zoekpil). Na d143d75 alleen deze LOG-entry.
