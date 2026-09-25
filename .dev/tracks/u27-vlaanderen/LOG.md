@@ -71,3 +71,41 @@ PO-bevinding nodig.
   klik → scrubber "voor Gent" en de marker op de projectie van Gent (±6 px).
 - Receipts tot nu: `pnpm typecheck` exit 0; `pnpm test` exit 0 (43 files, 245 tests; `pnpm
   synthgen` eerst nodig voor mrf.test).
+
+## 2026-09-25T09:40 — Stills, gates, samenvatting (HEAD na rebase op main 1fc2c72)
+
+**Contain-fit gemeten** (`stills.mjs`, main-build vs deze branch, echte OpenFreeMap-basiskaart +
+prod-data via preview-proxy; stills in `shots/before-*.png` / `shots/after-*.png`):
+
+| profiel | kaart (vrij deel) | zoom vóór → na | halve stap temp-labels |
+| --- | --- | --- | --- |
+| desktop 1440×900 | 970×900, inset 66 | 6,849 → 6,747 | 6,5 → 6,5 |
+| Pixel 5 portret | 393×491, inset 118 (vrij 393×373) | 5,689 → 5,586 | 5,5 → 5,5 |
+| Pixel 5 liggend | 349×393, inset 118 | 5,249 → 5,146 | 5 → 5 |
+
+Overal −0,10 zoom (kaart lineair ~7 % kleiner); de labelselectie verandert nergens van stap.
+(Correctie op mijn eerdere analyse: Pixel 5 is door de zoekpil-inset hoogte-begrensd, dus óók −0,10.)
+Op zicht: Brussel staat nu op telefoon én desktop in beeld, Kortrijk 18°, Maastricht/Hasselt-hoek
+17°; desktop toont nu ook Namen/Charleroi (Wallonië, basiskaartlabels) onderaan — zie bevinding.
+Antwerpens eigen temperatuur wijkt op telefoon voor de stadsnaam (bestaande t3j-dodge).
+
+**Receipts (synchroon, op de gerebasede tree)**: `pnpm synthgen` exit 0; `pnpm typecheck` exit 0;
+`pnpm test` exit 0 (43 files, 245 tests); `pnpm build` exit 0; `MOTREGEN_E2E_PORT=4370
+MOTREGEN_E2E_DATA_PORT=8370 direnv exec .. pnpm e2e` exit 0 — 32 passed, 28 skipped (7,0 min),
+incl. `flanders.spec.ts` [desktop] ✓; gestart bij load 14,84. Stills: beide runs exit 0 (after-run
+gestart bij load 17,0 — net boven de drempel, één Chromium).
+Repro: `cd web && pnpm synthgen && pnpm typecheck && pnpm test && pnpm build && MOTREGEN_E2E_PORT=4370
+MOTREGEN_E2E_DATA_PORT=8370 pnpm e2e` (in devenv; `.envrc` van deze worktree was nog niet
+`direnv allow`ed — gedaan). Stills: `pnpm build && MOTREGEN_DATA_ORIGIN=https://motregen.nl/data pnpm
+preview --port <vrij>` en `node ../.dev/tracks/u27-vlaanderen/stills.mjs http://127.0.0.1:<poort>/ after`.
+
+**Open voor PO/orkestrator**
+1. Spec-premisse punt 3 klopte niet: de basiskaart toonde al plaatsnamen van alle landen (Keulen,
+   Düsseldorf, Brussel …). Nu met meer zuidruimte komen ook Namen/Charleroi in beeld. Wallonië/DE/FR
+   verbergen kan alleen met een `within`-polygoon op de place-lagen (OpenMapTiles heeft geen
+   landattribuut) — nieuwe beperking, niet gedaan zonder PO-besluit. Idem Vlaamse provinciegrenzen
+   (OSM admin_level 6; toevoegen zou ook Duitse Kreise/Franse départements tekenen).
+2. Labeldichtheid Vlaanderen op overzicht: telefoon/desktop tonen Antwerpen + Kortrijk; Gent wijkt
+   voor Middelburg/Antwerpen, Brussel voor Antwerpen (U7-regel, ≤ 50 km). Wil de PO Gent/Brussel op
+   het overzicht, dan moet de prioriteit boven Middelburg (kost Zeeland) of de spacing omlaag.
+3. Zoekbron Vlaanderen heeft geen gepubliceerde rate-limit; terugval Nominatim beschreven in docs.
