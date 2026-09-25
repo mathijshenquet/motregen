@@ -123,6 +123,7 @@ niet nodig, `version`-veld leidt.
 | `uv_clear` | UV-index | zonkracht zonder wolken (KNMI `uvi_clear`, heel de dag; source `uv`) |
 | `rel_humidity` | % | 2m relatieve luchtvochtigheid |
 | `cloud_frac` | % | totale bewolkingsgraad (alleen voor pictogram-afleiding; nooit als kaartlaag — MIP-4 ronde 3) |
+| `pressure_hpa` | hPa | luchtdruk op zeeniveau (isobaren in windmodus) |
 
 `wind_u_ms`/`wind_v_ms` worden altijd als paar gepubliceerd met identiek
 grid, identieke tijden en gelijke frame-volgorde, zodat een client ze per
@@ -169,3 +170,7 @@ frame kan zippen tot vectoren.
   krijgen een lengtefout op zulke frames. Chunk-URL's hashen `pred` mee,
   dus geen cachebotsing met bitmapchunks. U18's `feels_like_dct` en de
   `dct`-sleutel zijn vervallen voordat ze in main kwamen.
+- 2026-09-25 (U35, ter review door orchestrator): veld `pressure_hpa` (HARMONIE-
+  luchtdruk op zeeniveau, hPa; zelfde 6km-grid, chunking en leads als `temp_c`,
+  predictieve frames). Additief: bestaande clients selecteren chunks op
+  `field` en slaan een onbekend veld over.

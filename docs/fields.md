@@ -11,11 +11,12 @@ het resulterende veld; clients hoeven geen resolutie te kennen.
 `feels_like_c` is voor kaart én tabel één veld. Zijn frames staan als
 verliesvrije predictieve members in de chunk (`pred` in de header,
 docs/mrf.md §Predictive frames): dezelfde cellen als de bitmap, ~62 % van de
-bytes.
+bytes. `pressure_hpa` gebruikt dezelfde codering.
 
 | gebruik | velden | grid | afmetingen |
 | --- | --- | ---: | ---: |
 | stadslabels, tabel en particles | `temp_c`, `feels_like_c`, `wind_u_ms`, `wind_v_ms` | 6 km | 209×225 |
+| isobaren (windmodus) | `pressure_hpa` | 6 km | 209×225 |
 | zon/pictogram | `radiation` | 8 km | 157×169 |
 | geïntegreerde tabel/pictogram-input | `rel_humidity`, `cloud_frac` | 16 km | 79×85 |
 
@@ -37,6 +38,7 @@ lagere index.
 | `uv` | 0 | 12/254 ≈ 0,0472 | 12 | volledige gebruikelijke UV-indexrange |
 | `rel_humidity` | 0 % | 100/254 ≈ 0,3937 % | 100 % | AROME 2m-RH is fractie 0–1 en wordt vóór kwantisatie ×100 |
 | `cloud_frac` | 0 % | 100/254 ≈ 0,3937 % | 100 % | AROME totale bewolking is fractie 0–1 en wordt vóór kwantisatie ×100; uitsluitend pictogram-input |
+| `pressure_hpa` | 940 hPa | 0,5 hPa | 1067 hPa | luchtdruk op zeeniveau (Pa ÷ 100); zie §Luchtdruk |
 
 U en V worden uit dezelfde decoded lead time, dezelfde indexmap en dezelfde
 tijdenlijst opgebouwd. De publisher weigert een AROME-publicatie wanneer de
@@ -45,6 +47,19 @@ hebben.
 
 `cloud_frac` heeft geen kaartsemantiek: het is alleen invoer voor de
 frontend-pictogramafleiding, conform MIP-4 ronde 4.
+
+## Luchtdruk
+
+`pressure_hpa` is de HARMONIE-luchtdruk herleid tot zeeniveau: parameter 1 op
+niveautype 103 (tabel 253, `timeRangeIndicator` 0). Parameter 1 staat ook op
+`sfc`; dat is de oppervlaktedruk, die boven de Ardennen tot ~906 hPa zakt en
+dus geen isobaren geeft. De client tekent er in windmodus isobaren van (4 hPa).
+
+Kwantisatie 0,5 hPa over 940–1067 hPa. Een fijnere stap past niet: 0,1 hPa over
+940–1060 hPa vraagt 1201 niveaus, een cel heeft er 255. Nederlandse records
+liggen rond 954 en 1049 hPa. Een isobaarafstand van 4 hPa is 8 stappen; de
+isolijnlaag blurt en interpoleert met een B-spline, dus de kwantisatietrap is
+in de lijnen niet te zien.
 
 ## Gevoelstemperatuur
 

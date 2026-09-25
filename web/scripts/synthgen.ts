@@ -23,6 +23,7 @@ const feelsLikeQuant = linearQuant(-35, 45)
 const windQuant = linearQuant(-30, 30)
 const uvQuant = linearQuant(0, 12.7)
 const percentQuant = linearQuant(0, 100)
+const pressureQuant = linearQuant(940, 1067)
 
 interface ChunkPlan { name: string; source: Source; field: Field; run: number; times: number[] }
 const plans: ChunkPlan[] = []
@@ -49,7 +50,7 @@ plans.push({
   name: 'uv_clear-20260828.mrf', source: 'uv', field: 'uv_clear', run: Date.parse('2026-08-28T00:00:00Z'),
   times: Array.from({ length: 65 }, (_, i) => Date.parse('2026-08-28T03:00:00Z') + i * 15 * 60_000),
 })
-for (const field of ['radiation', 'temp_c', 'feels_like_c', 'wind_u_ms', 'wind_v_ms', 'rel_humidity', 'cloud_frac'] as const) {
+for (const field of ['radiation', 'temp_c', 'feels_like_c', 'wind_u_ms', 'wind_v_ms', 'rel_humidity', 'cloud_frac', 'pressure_hpa'] as const) {
   plans.push({ name: `${field}-20260828T1200.mrf`, source: 'harmonie', field, run, times: runTimes.slice(0, 24) })
   plans.push({ name: `${field}-20260828T1200-l25-48.mrf`, source: 'harmonie', field, run, times: runTimes.slice(24) })
   plans.push({ name: `${field}-20260828T0800-hist4.mrf`, source: 'harmonie', field, run: historyRun, times: historyTimes })
@@ -152,16 +153,20 @@ function makeWeatherFrame(epoch: number, field: Exclude<Field, 'rain_rate' | 'ra
     const feelsLike = temperature - Math.max(0, 0.22 * speed - 0.7) + Math.max(0, temperature - 24) * 0.12
     const cloud = Math.max(0, Math.min(100, 48 + 42 * Math.sin(x * 0.035 + y * 0.018 + hour * 0.35)))
     const humidity = Math.max(25, Math.min(100, 58 + cloud * 0.28 - temperature * 0.35 + 8 * Math.sin(y * 0.04 - hour * 0.2)))
+    // Lagedrukgebied in het windvortex, hogere druk naar het zuiden.
+    const pressure = 1_014 - 6 * north - 16 * Math.exp(-(vortexX * vortexX + vortexY * vortexY) / 8_500)
     const value = field === 'wind_u_ms' ? u
       : field === 'wind_v_ms' ? v
         : field === 'temp_c' ? temperature
           : field === 'feels_like_c' ? feelsLike
             : field === 'rel_humidity' ? humidity
-              : cloud
+              : field === 'pressure_hpa' ? pressure
+                : cloud
     const quant = field.startsWith('wind_') ? windQuant
       : field === 'temp_c' ? temperatureQuant
         : field === 'feels_like_c' ? feelsLikeQuant
-          : percentQuant
+          : field === 'pressure_hpa' ? pressureQuant
+            : percentQuant
     values[y * grid.width + x] = encodeLinear(value, quant)
   }
   return values
@@ -191,6 +196,7 @@ function quantFor(field: Field): Array<number | null> {
   if (field === 'feels_like_c') return feelsLikeQuant
   if (field === 'uv' || field === 'uv_clear') return uvQuant
   if (field === 'rel_humidity' || field === 'cloud_frac') return percentQuant
+  if (field === 'pressure_hpa') return pressureQuant
   return windQuant
 }
 
@@ -212,7 +218,7 @@ async function main(): Promise<void> {
   const compressor = await zstdSimple()
   const chunks: ManifestChunk[] = []
   for (const plan of plans) {
-    const predictive = plan.field === 'feels_like_c'
+    const predictive = plan.field === 'feels_like_c' || plan.field === 'pressure_hpa'
     const compressed = plan.times.map((time, index) => {
       const cells = frameFor(plan, time, index)
       return compressor.compress(predictive ? encodePredFrame(cells, grid.width) : cells, 9)

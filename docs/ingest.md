@@ -36,7 +36,7 @@ receipts.
 ## Uurvelden: horizon en historie
 
 HARMONIE-AROME P1 levert +0…+60 u. De ingest publiceert +1…+48 u, zodat het
-urenoverzicht ook bij een 7 u oude run de hele volgende dag toont. De zeven
+urenoverzicht ook bij een 7 u oude run de hele volgende dag toont. De acht
 uurvelden gaan in chunks van 24 leads (`…-h48-l1-24`, `…-h48-l25-48`); de
 client haalt een chunk in zijn geheel op zodra een locatie meer dan de helft
 van de frames vraagt. Met dagdelen blijft de passieve tabel daardoor één
@@ -45,7 +45,7 @@ van 48 frames.
 
 Voor de uren vóór de huidige run R kiest de ingest een tweede, oudere run:
 de nieuwste run met start ≤ min(vloer(nu) − (historie + 1) u, R − 1 u).
-Daarvan publiceert hij alleen de zeven uurvelden voor leads +1…+(R − R_h)
+Daarvan publiceert hij alleen de acht uurvelden voor leads +1…+(R − R_h)
 (`…-hist<n>`), nooit regen, want in het verleden toont de client alleen
 waarnemingen. KNMI publiceert P1 uurlijks met ≈ 3 u vertraging. Bij een
 3-uurscadans is de historierun daardoor meestal niet de vorige opgehaalde

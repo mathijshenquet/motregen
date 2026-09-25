@@ -11,7 +11,7 @@ import ForecastTable from './components/ForecastTable'
 import UvBar, { uvBarLabel } from './components/UvBar'
 import DevPanel from './components/DevPanel'
 import { loadBasemapStyle, temperatureLayerBeforeId, type MapTheme } from './core/basemap'
-import type { Grid, Manifest, ManifestChunk, MrfHeader, TimelineFrame } from './core/contract'
+import { chunkField, type Grid, type Manifest, type ManifestChunk, type MrfHeader, type TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
 
 const DAY_NIGHT_ENABLED = false
@@ -19,7 +19,7 @@ import { buildHourlyForecast, isPassiveRow, PASSIVE_FORECAST_HOURS } from './cor
 import { contextOpacity, FOCUS_DIM, FocusMode, mapSaturation, type FocusKind, windFocusIntensity } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import { latestRadarEpoch, type RefreshState } from './core/freshness'
-import { blendFrames, blurField, DEFAULT_ISOLINE_TUNING, ISOLINE_BLUR, ISOLINE_EDGE_FADE_MS, ISOLINE_FILL_OPACITY, ISOLINE_GRADIENT, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineTuning } from './core/isolines'
+import { blendFrames, blurField, DEFAULT_ISOLINE_TUNING, ISOBAR_STEP_HPA, ISOLINE_BLUR, ISOLINE_EDGE_FADE_MS, ISOLINE_FILL_OPACITY, ISOLINE_GRADIENT, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineKind, type IsolineTuning } from './core/isolines'
 import { IsolineLabels } from './core/isoline-labels'
 import { sliceWeights } from './core/isoline-spline'
 import { TraceCore } from './core/isoline-tracer'
@@ -56,6 +56,46 @@ const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
 type PointLoadStage = 'initial' | 'direct' | 'window' | 'complete'
 type FetchPriority = 'high' | 'low'
 type ForecastIndex = 'radiationIndex' | 'uvIndex' | 'temperatureIndex' | 'feelsLikeIndex' | 'humidityIndex' | 'cloudIndex' | 'windUIndex' | 'windVIndex'
+
+interface IsolineSetConfig {
+  kind: IsolineKind
+  layerId: string
+  timeline: () => TimelineFrame[]
+  /** Focuswaarde 0–1 van de bijbehorende modus; `active` is focus > 0. */
+  focus: () => number
+  active: () => boolean
+  step: () => number
+  style: () => IsolineStyle
+  labelFade: () => [number, number] | undefined
+  coverage: () => number
+  setCount: (count: number) => void
+}
+
+/** Isolijnlaag, labels en caches van één veld: gevoelstemperatuur of luchtdruk (U35). */
+interface IsolineSet extends IsolineSetConfig {
+  worker?: IsolineWorker
+  layer?: IsolineLayer
+  overlay?: LayerOverlay
+  layerKey: string
+  labels?: IsolineLabels
+  labelRounds: number
+  fields: Array<PreparedField | undefined>
+  time: number
+  /** Frame+stap van de getoonde labelgeometrie. */
+  key: string
+  shownRequest: number
+  prepared: Map<string, Promise<{ grid: Grid; field: PreparedField }>>
+  labelCache: Map<string, Promise<IsolineFeatureCollection | undefined>>
+}
+
+function isolineSet(config: IsolineSetConfig): IsolineSet {
+  return { ...config, layerKey: '', labelRounds: 0, fields: [], time: 0, key: '', shownRequest: 0, prepared: new Map(), labelCache: new Map() }
+}
+
+/** Luchtdruk laadt pas bij de eerste windfocus (U35): ook zijn headers horen niet in de cold start. */
+function eagerHeader(chunk: ManifestChunk): boolean {
+  return chunkField(chunk) !== 'pressure_hpa'
+}
 
 interface PointLoadState {
   request: number
@@ -96,29 +136,17 @@ export default function App() {
   let shownWindRequest = 0
   let shownTemperatureRequest = 0
   let shownSunRequest = 0
-  let shownIsolineRequest = 0
-  let isolineKey = ''
-  let isolineWorker: IsolineWorker | undefined
-  let isolineLayer: IsolineLayer | undefined
-  let isolineOverlay: LayerOverlay | undefined
-  let isolineLayerKey = ''
-  let isolineLabelRounds = 0
-  let isolineLabels: IsolineLabels | undefined
-  let isolineFields: Array<PreparedField | undefined> = []
-  let isolineTime = 0
-  const preparedIsolineFields = new Map<string, Promise<{ grid: Grid; field: PreparedField }>>()
-  const isolineLabelCache = new Map<string, Promise<IsolineFeatureCollection | undefined>>()
   let mapRepaints = 0
   const isolineCounters = (): IsolineCounters => ({
-    ...isolineLayer?.stats,
+    ...temperatureIsolines.layer?.stats,
     repaints: mapRepaints,
     rainUploads: layer?.uploads ?? 0,
     rainDraws: rainOverlay?.draws ?? 0,
-    isolineDraws: isolineOverlay?.draws ?? 0,
+    isolineDraws: temperatureIsolines.overlay?.draws ?? 0,
     windDraws: windOverlay?.draws ?? 0,
-    labelRounds: isolineLabelRounds,
-    labels: isolineLabels?.count ?? 0,
-    sliceTime: isolineLayer ? isolineTime : undefined,
+    labelRounds: temperatureIsolines.labelRounds,
+    labels: temperatureIsolines.labels?.count ?? 0,
+    sliceTime: temperatureIsolines.layer ? temperatureIsolines.time : undefined,
     coverage: isolineCoverage(),
     paletteRange: temperatureRange(),
   })
@@ -131,18 +159,19 @@ export default function App() {
   // Meetpunt voor de kostenmeting (track-LOGs U8b/U8c): repaints, contour-passes, blits, label-rondes.
   ;(window as unknown as { __motregenIsolines: () => object }).__motregenIsolines = () => ({
     ...isolineCounters(),
-    fillCoverage: () => isolineLayer?.fillCoverage() ?? 0,
-    field: (index: number) => isolineLayer && isolineFields[index] ? { grid: isolineLayer.grid, field: isolineFields[index] } : undefined,
+    fillCoverage: () => temperatureIsolines.layer?.fillCoverage() ?? 0,
+    field: (index: number) => temperatureIsolines.layer && temperatureIsolines.fields[index] ? { grid: temperatureIsolines.layer.grid, field: temperatureIsolines.fields[index] } : undefined,
     // Tracer-kosten zonder worker-overhead: dezelfde code als de worker, op de main thread.
     traceBench: (runs: number) => {
+      const { layer: isolineLayer, fields, time } = temperatureIsolines
       if (!isolineLayer) return undefined
       const core = new TraceCore(isolineLayer.grid, isolineLayer.depth)
-      isolineFields.forEach((field, index) => core.setLayer(index, field))
+      fields.forEach((field, index) => core.setLayer(index, field))
       const { step } = isolineTuning()
       const times: number[] = []
       for (let run = 0; run < runs; run++) {
         const started = performance.now()
-        core.trace({ time: isolineTime, window: ISOLINE_WINDOW, step, toleranceCells: 0.05, ringKm: ISOLINE_RING_KM })
+        core.trace({ time, window: ISOLINE_WINDOW, step, toleranceCells: 0.05, ringKm: ISOLINE_RING_KM })
         times.push(performance.now() - started)
       }
       return times.map((time) => Math.round(time * 10) / 10)
@@ -253,8 +282,20 @@ export default function App() {
   const [isolineCount, setIsolineCount] = createSignal(0)
   const focusMode = new FocusMode<FocusKind>(['temperature', 'wind'], (mode, value) => (mode === 'wind' ? setWindFocus : setFocus)(value),
     () => reducedMotion.matches)
+  const [isobarCount, setIsobarCount] = createSignal(0)
   const isolineCoverage = createMemo(() => timelineCoverage(feelsLikeTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
-  const isolinesActive = createMemo(() => focus() > 0)
+  const pressureTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'pressure_hpa') : [])
+  const isobarCoverage = createMemo(() => timelineCoverage(pressureTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
+  const temperatureIsolines = isolineSet({
+    kind: 'temperature', layerId: 'motregen-isolines', timeline: feelsLikeTimeline, focus, active: createMemo(() => focus() > 0),
+    step: () => isolineTuning().step, style: isolineStyle, labelFade, coverage: isolineCoverage, setCount: setIsolineCount,
+  })
+  // Isobaren (U35): pas bij de eerste windfocus opgehaald, dus de cold start blijft gelijk.
+  const pressureIsolines = isolineSet({
+    kind: 'pressure', layerId: 'motregen-isobars', timeline: pressureTimeline, focus: windFocus, active: createMemo(() => windFocus() > 0),
+    step: () => ISOBAR_STEP_HPA, style: isobarStyle, labelFade: () => undefined, coverage: isobarCoverage, setCount: setIsobarCount,
+  })
+  const isolineSets = [temperatureIsolines, pressureIsolines]
   const focusedWindTuning = createMemo(() => ({
     ...windTuning(),
     intensity: windFocusIntensity(windTuning().intensity, windFocus()),
@@ -281,7 +322,7 @@ export default function App() {
       const frames = buildTimeline(data)
       if (!frames.length) throw new Error('De tijdlijn is leeg')
       setManifest(data)
-      void Promise.all(data.chunks.map((chunk) => client.getHeader(chunk))).catch(() => undefined)
+      void Promise.all(data.chunks.filter(eagerHeader).map((chunk) => client.getHeader(chunk))).catch(() => undefined)
       stopManifestRefresh = scheduleManifestRefresh(refreshManifest, {
         setTimeout: (callback, delay) => window.setTimeout(callback, delay),
         clearTimeout: (handle) => window.clearTimeout(handle),
@@ -322,7 +363,7 @@ export default function App() {
       map.on('render', () => { mapRepaints++ })
       map.on('moveend', rememberMapView)
       map.on('zoomend', () => void showTemperature())
-      map.on('moveend', () => { isolineLabels?.requestSpawn(); updateIsolineLabels() })
+      map.on('moveend', () => { for (const set of isolineSets) { set.labels?.requestSpawn(); updateIsolineLabels(set) } })
       map.on('click', (event) => {
         usage.mark('pin')
         pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name)
@@ -340,13 +381,12 @@ export default function App() {
     stopManifestRefresh?.()
     focusMode.dispose()
     detachPinNavigation?.()
-    isolineWorker?.dispose()
-    isolineLabels?.clear()
+    for (const set of isolineSets) { set.worker?.dispose(); set.labels?.clear() }
     cancelPointLoad(pointLoad)
     for (const savedMarker of savedMarkers) savedMarker.remove()
     rainOverlay?.remove()
     windOverlay?.remove()
-    isolineOverlay?.remove()
+    for (const set of isolineSets) set.overlay?.remove()
     map?.remove()
   })
 
@@ -414,7 +454,7 @@ export default function App() {
       setWindVSeries(windV.values)
     })
     perf.setManifestGenerated(nextManifest.generated)
-    void Promise.all(nextManifest.chunks.map((chunk) => client.getHeader(chunk))).catch(() => undefined)
+    void Promise.all(nextManifest.chunks.filter(eagerHeader).map((chunk) => client.getHeader(chunk))).catch(() => undefined)
     if (state) resumePointLoadAfterRefresh(state, previousStage)
   }
 
@@ -454,28 +494,30 @@ export default function App() {
 
   createEffect(() => applyFocus(focus()))
   createEffect(() => applyMapSaturation(mapSaturation(focus())))
-  createEffect(() => { isolineCoverage(); applyIsolineOpacity() })
+  for (const set of isolineSets) {
+    createEffect(() => applyIsolineOpacity(set))
 
-  createEffect(() => {
-    selectedEpoch()
-    isolineTuning()
-    if (isolinesActive() && mapReady()) { void showIsolineField(); void showIsolines(); return }
-    // Pas na de uitfade leegmaken, zodat een volgende hover geen verouderde labels laat invaden.
-    if (isolineKey) {
-      isolineKey = ''
-      shownIsolineRequest++
-      isolineLabels?.clear()
-      setIsolineCount(0)
-    }
-  })
+    createEffect(() => {
+      selectedEpoch()
+      set.step()
+      if (set.active() && mapReady()) { void showIsolineField(set); void showIsolines(set); return }
+      // Pas na de uitfade leegmaken, zodat een volgende hover geen verouderde labels laat invaden.
+      if (set.key) {
+        set.key = ''
+        set.shownRequest++
+        set.labels?.clear()
+        set.setCount(0)
+      }
+    })
 
-  createEffect(() => isolineLabels?.setFade(labelFade()))
+    createEffect(() => set.labels?.setFade(set.labelFade()))
 
-  createEffect(() => {
-    // Buiten de optional chain: ook zonder laag moet het effect het paletbereik volgen.
-    const style = isolineStyle()
-    isolineLayer?.setStyle(style)
-  })
+    createEffect(() => {
+      // Buiten de optional chain: ook zonder laag moet het effect het paletbereik volgen.
+      const style = set.style()
+      set.layer?.setStyle(style)
+    })
+  }
 
   createEffect(() => {
     const epoch = selectedEpoch()
@@ -556,7 +598,7 @@ export default function App() {
     attachMapFrame(grid)
     applyFocus(focus())
     // Na een stijlwissel met vastgezette focus loopt het isolijn-effect niet vanzelf opnieuw.
-    if (isolinesActive() && mapReady()) { void showIsolineField(); void showIsolines() }
+    for (const set of isolineSets) if (set.active() && mapReady()) { void showIsolineField(set); void showIsolines(set) }
     void showFrame()
     if (mapReady()) {
       void showWind()
@@ -700,7 +742,7 @@ export default function App() {
     windLayer = wind
     try {
       // Boven kaart en isolijnen, onder de regen, zoals vroeger in de lagenstapel.
-      windOverlay = new LayerOverlay(map, wind, isolineOverlay?.canvas ?? map.getCanvas(), () => wind.maxFps)
+      windOverlay = new LayerOverlay(map, wind, topIsolineCanvas() ?? map.getCanvas(), () => wind.maxFps)
     } catch {
       windOverlay = undefined
       map.addLayer(wind, map.getLayer('motregen-rain') ? 'motregen-rain' : undefined)
@@ -711,21 +753,31 @@ export default function App() {
    * Eigen canvas direct boven de kaart (onder wind en regen): een tijdstap tekent dan alleen de
    * contour-snede, zonder MapLibre-render en symboolplaatsing, dus vloeiend op de fps-grens.
    */
-  function mountIsolines(target: maplibregl.Map, isolines: IsolineLayer): void {
+  function mountIsolines(set: IsolineSet, target: maplibregl.Map, isolines: IsolineLayer): void {
     try {
-      isolineOverlay = new LayerOverlay(target, isolines, target.getCanvas(), () => WIND_MAX_FPS)
+      set.overlay = new LayerOverlay(target, isolines, target.getCanvas(), () => WIND_MAX_FPS)
     } catch {
-      isolineOverlay = undefined
+      set.overlay = undefined
       target.addLayer(isolines, 'motregen-temperature')
     }
   }
 
-  function unmountIsolines(): void {
-    if (isolineOverlay) isolineOverlay.remove()
-    else if (isolineLayer && map?.getLayer(isolineLayer.id)) map.removeLayer(isolineLayer.id)
-    isolineLayer?.dispose()
-    isolineOverlay = undefined
-    isolineLayer = undefined
+  /** De bovenste isolijncanvas: de wind moet boven beide isolijnlagen liggen. */
+  function topIsolineCanvas(): HTMLCanvasElement | undefined {
+    let top: HTMLCanvasElement | undefined
+    for (const set of isolineSets) {
+      const canvas = set.overlay?.canvas
+      if (canvas && (!top || top.compareDocumentPosition(canvas) & Node.DOCUMENT_POSITION_FOLLOWING)) top = canvas
+    }
+    return top
+  }
+
+  function unmountIsolines(set: IsolineSet): void {
+    if (set.overlay) set.overlay.remove()
+    else if (set.layer && map?.getLayer(set.layer.id)) map.removeLayer(set.layer.id)
+    set.layer?.dispose()
+    set.overlay = undefined
+    set.layer = undefined
   }
 
   function unmountWind(): void {
@@ -772,10 +824,12 @@ export default function App() {
     temperatureLabelKey = ''
     map.addSource('motregen-temperature', { type: 'geojson', data: emptyTemperatureData })
     const beforeId = temperatureLayerBeforeId(map.getStyle().layers)
-    isolineKey = ''
-    unmountIsolines()
-    isolineLabels?.clear()
-    isolineLabels = undefined
+    for (const set of isolineSets) {
+      set.key = ''
+      unmountIsolines(set)
+      set.labels?.clear()
+      set.labels = undefined
+    }
     map.addLayer(temperatureLayer(mapTheme()), beforeId)
   }
 
@@ -785,7 +839,7 @@ export default function App() {
     layer?.setOpacity(context)
     rainOverlay?.triggerRepaint()
     if (map.getLayer('motregen-sun')) map.setPaintProperty('motregen-sun', 'text-opacity', ['*', ['get', 'opacity'], context])
-    applyIsolineOpacity(value)
+    applyIsolineOpacity(temperatureIsolines)
     if (map.getLayer('motregen-temperature')) {
       // In focus dragen de lijnen de waarde; de stadslabels faden uit en geven hun plek vrij
       // (ignore-placement).
@@ -811,10 +865,10 @@ export default function App() {
    * Buiten de uurframes van de gevoelstemperatuur (historie vóór de run, na de horizon) zou de
    * snede op het randframe bevriezen terwijl regen en wind doorlopen; daar faden de lijnen weg.
    */
-  function applyIsolineOpacity(value = focus()): void {
-    const visible = value * isolineCoverage()
-    isolineLayer?.setOpacity(visible)
-    isolineLabels?.setOpacity(visible)
+  function applyIsolineOpacity(set: IsolineSet): void {
+    const visible = set.focus() * set.coverage()
+    set.layer?.setOpacity(visible)
+    set.labels?.setOpacity(visible)
   }
 
   /** Labels vervagen mee met hun lijn. */
@@ -828,7 +882,13 @@ export default function App() {
     return { step, fill: ISOLINE_FILL_OPACITY, fillSmooth: fillStyle === 'verloop', palette: range && paletteStops(range), color: hexColor(isolineColor(mapTheme())), gradientFade: fade === 'gradiënt' }
   }
 
-  function preparedIsolineField(frame: TimelineFrame): Promise<{ grid: Grid; field: PreparedField }> {
+  /** Isobaren: één egale lijnkleur, geen vulling en geen vervaging, zoals op een weerkaart (PO U35). */
+  function isobarStyle(): IsolineStyle {
+    return { step: ISOBAR_STEP_HPA, fill: 0, color: hexColor(isolineColor(mapTheme(), 'pressure')), gradientFade: false }
+  }
+
+  function preparedIsolineField(set: IsolineSet, frame: TimelineFrame): Promise<{ grid: Grid; field: PreparedField }> {
+    const preparedIsolineFields = set.prepared
     const key = `${frame.chunk.url}#${frame.frameIndex}`
     let prepared = preparedIsolineFields.get(key)
     if (!prepared) {
@@ -906,46 +966,47 @@ export default function App() {
     return { ...range, bands }
   })
 
-  async function showIsolineField(): Promise<void> {
-    void updateTemperatureRange()
-    const frames = feelsLikeTimeline()
+  async function showIsolineField(set: IsolineSet): Promise<void> {
+    if (set.kind === 'temperature') void updateTemperatureRange()
+    const frames = set.timeline()
     const renderedMap = map
     if (!frames.length || !renderedMap?.getLayer('motregen-temperature')) return
     const blend = frameBlend(frames, selectedEpoch())
     const time = blend.left + blend.mix
-    isolineTime = time
+    set.time = time
     // De diepte van het volume ligt vast per laag; welke run in welke uurlaag zit regelt
     // setFrameKeys per index (manifest-refresh).
     const key = String(frames.length)
-    if (isolineLayer && isolineLayerKey !== key) unmountIsolines()
+    if (set.layer && set.layerKey !== key) unmountIsolines(set)
     const required = isolineLayerIndices(time, frames.length, ISOLINE_WINDOW)
     // Tijdens afspelen alvast de volgende uurlaag, zodat de snede nooit op een upload wacht.
     const wanted = playing() ? [...required, Math.min(frames.length - 1, Math.floor(time) + 3)] : required
     try {
-      if (!isolineLayer) {
-        const { grid } = await preparedIsolineField(frames[required[0]!]!)
-        if (map !== renderedMap || isolineLayer || !renderedMap.getLayer('motregen-temperature')) return
-        isolineLayer = new IsolineLayer(grid, frames.length, isolineStyle())
-        isolineLayerKey = key
-        isolineFields = []
-        isolineLabels?.clear()
-        isolineLabels = new IsolineLabels(renderedMap, grid, mapTheme(), () => reducedMotion.matches)
-        isolineLabels.setFade(labelFade())
-        isolineKey = ''
+      if (!set.layer) {
+        const { grid } = await preparedIsolineField(set, frames[required[0]!]!)
+        if (map !== renderedMap || set.layer || !renderedMap.getLayer('motregen-temperature')) return
+        const created = new IsolineLayer(grid, frames.length, set.style(), set.layerId)
+        set.layer = created
+        set.layerKey = key
+        set.fields = []
+        set.labels?.clear()
+        set.labels = new IsolineLabels(renderedMap, grid, mapTheme(), () => reducedMotion.matches, set.kind)
+        set.labels.setFade(set.labelFade())
+        set.key = ''
         // Labels schuiven mee op exact de snede die de lijnen net kregen (zelfde cadans).
-        isolineLayer.onPass = updateIsolineLabels
-        mountIsolines(renderedMap, isolineLayer)
-        applyIsolineOpacity()
-        void showIsolines()
+        created.onPass = () => updateIsolineLabels(set)
+        mountIsolines(set, renderedMap, created)
+        applyIsolineOpacity(set)
+        void showIsolines(set)
       }
-      const layer = isolineLayer
+      const layer = set.layer
       const frameKeys = frames.map((frame) => `${frame.chunk.url}#${frame.frameIndex}`)
-      for (const index of layer.setFrameKeys(frameKeys)) isolineFields[index] = undefined
+      for (const index of layer.setFrameKeys(frameKeys)) set.fields[index] = undefined
       layer.setTime(time)
       await Promise.all(wanted.filter((index) => !layer.hasLayer(index)).map(async (index) => {
-        const prepared = await preparedIsolineField(frames[index]!)
-        if (layer !== isolineLayer || layer.frameKey(index) !== frameKeys[index] || !sameGrid(prepared, { grid: layer.grid })) return
-        isolineFields[index] = prepared.field
+        const prepared = await preparedIsolineField(set, frames[index]!)
+        if (layer !== set.layer || layer.frameKey(index) !== frameKeys[index] || !sameGrid(prepared, { grid: layer.grid })) return
+        set.fields[index] = prepared.field
         layer.setLayer(index, prepared.field)
       }))
     } catch {
@@ -957,45 +1018,46 @@ export default function App() {
    * Labels: contourgeometrie per uurframe éénmalig in de worker (gecachet per frame+stap), en
    * het label volgt het dichtstbijzijnde uur. Afspelen kost zo één ronde per uur, rust nul.
    */
-  async function showIsolines(): Promise<void> {
-    const frames = feelsLikeTimeline()
-    if (!frames.length || !isolineLabels) return
-    const request = ++shownIsolineRequest
-    const { step } = isolineTuning()
+  async function showIsolines(set: IsolineSet): Promise<void> {
+    const frames = set.timeline()
+    if (!frames.length || !set.labels) return
+    const request = ++set.shownRequest
+    const step = set.step()
     const blend = frameBlend(frames, selectedEpoch())
     const frame = frames[blend.mix < 0.5 ? blend.left : blend.right]!
     const key = `${frame.chunk.url}#${frame.frameIndex}|${step}`
-    if (key === isolineKey) return
+    if (key === set.key) return
+    const isolineLabelCache = set.labelCache
     try {
       let labels = isolineLabelCache.get(key)
       if (!labels) {
         const [data, header] = await Promise.all([load(frame), client.getHeader(frame.chunk)])
-        isolineWorker ??= new IsolineWorker()
-        isolineLabelRounds++
-        labels = isolineWorker.compute({ frames: [{ data, quant: header.quant, weight: 1 }], grid: header.grid, step })
+        set.worker ??= new IsolineWorker()
+        set.labelRounds++
+        labels = set.worker.compute({ frames: [{ data, quant: header.quant, weight: 1 }], grid: header.grid, step, kind: set.kind })
         isolineLabelCache.set(key, labels)
         if (isolineLabelCache.size > 24) isolineLabelCache.delete(isolineLabelCache.keys().next().value!)
       }
       const data = await labels
       if (!data) isolineLabelCache.delete(key)
-      if (!data || request !== shownIsolineRequest || !isolineLabels) return
-      isolineKey = key
-      isolineLabels.setLines(data, step)
-      setIsolineCount(data.features.length)
-      updateIsolineLabels()
+      if (!data || request !== set.shownRequest || !set.labels) return
+      set.key = key
+      set.labels.setLines(data, step)
+      set.setCount(data.features.length)
+      updateIsolineLabels(set)
     } catch {
-      if (request === shownIsolineRequest) isolineKey = ''
+      if (request === set.shownRequest) set.key = ''
     }
   }
 
-  function updateIsolineLabels(): void {
-    const layer = isolineLayer
-    if (!isolineLabels || !layer || !isolinesActive()) return
+  function updateIsolineLabels(set: IsolineSet): void {
+    const { layer, labels } = set
+    if (!labels || !layer || !set.active()) return
     // Op de getekende snede, niet de scrubbertijd: anders liggen labels (en hun ringfade) naast de lijn.
     const weights = sliceWeights(layer.sliceTime, layer.depth, ISOLINE_WINDOW)
-    const fields = weights.map(({ index }) => isolineFields[index])
+    const fields = weights.map(({ index }) => set.fields[index])
     if (fields.some((field) => !field)) return
-    isolineLabels.update({ width: layer.grid.width, height: layer.grid.height, fields: fields as PreparedField[], weights: weights.map(({ weight }) => weight) }, layer.rings)
+    labels.update({ width: layer.grid.width, height: layer.grid.height, fields: fields as PreparedField[], weights: weights.map(({ weight }) => weight) }, layer.rings)
   }
 
   /** Vastzetten sluit de andere modus uit; opnieuw tikken op dezelfde kop maakt los. */
@@ -1641,7 +1703,7 @@ export default function App() {
   const hasWind = createMemo(() => windUFrames().length > 0 && windVFrames().length > 0)
 
   return <main class="app-shell">
-    <section class="map-shell" aria-label="Regenkaart van Nederland" data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()}>
+    <section class="map-shell" aria-label="Regenkaart van Nederland" data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
       <div ref={mapElement} class="map" />
       <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() }} aria-hidden={mapReady()}>
         <div class="map-splash-veil" />

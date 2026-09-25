@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MrfHeader } from './contract'
-import { blendFrames, blurField, chaikin, isolineFeatures, isolineLevels, marchingSquares, temporalWeights, type ScalarField } from './isolines'
+import { blendFrames, blurField, chaikin, ISOBAR_STEP_HPA, isolineColor, isolineFeatures, isolineLabelText, isolineLevels, marchingSquares, temporalWeights, type ScalarField } from './isolines'
 
 function field(rows: number[][]): ScalarField {
   return { width: rows[0]!.length, height: rows.length, values: Float32Array.from(rows.flat()) }
@@ -180,5 +180,24 @@ describe('temporal weights', () => {
     const kink = (window: number) => Math.abs(slope(window, 5, 1) - slope(window, 5, -1))
     expect(kink(0)).toBeCloseTo(2, 3)
     expect(kink(1)).toBeLessThan(1e-2)
+  })
+})
+
+describe('isobars (U35)', () => {
+  const grid = { crs: 'EPSG:3857', x0: 400_000, y0: 7_200_000, dx: 6_000, dy: -6_000, width: 40, height: 40 } as MrfHeader['grid']
+
+  it('draws every 4 hPa on multiples of 4 and labels them without a unit', () => {
+    const pressure = generated(40, 40, (column) => 1_003 + column * 0.5)
+    expect(isolineLevels(pressure, ISOBAR_STEP_HPA)).toEqual([1_004, 1_008, 1_012, 1_016, 1_020])
+    const labels = new Set(isolineFeatures(pressure, grid, ISOBAR_STEP_HPA, 0, 'pressure').features.map((feature) => feature.properties.label))
+    expect([...labels].sort()).toEqual(['1004', '1008', '1012', '1016', '1020'])
+    expect(isolineLabelText('temperature', 12)).toBe('12°')
+  })
+
+  it('uses one flat line colour, a little darker than the temperature lines in both themes', () => {
+    const luminance = (hex: string) => [1, 3, 5].reduce((sum, offset) => sum + Number.parseInt(hex.slice(offset, offset + 2), 16), 0)
+    for (const theme of ['light', 'dark'] as const) {
+      expect(luminance(isolineColor(theme, 'pressure'))).toBeLessThan(luminance(isolineColor(theme)))
+    }
   })
 })

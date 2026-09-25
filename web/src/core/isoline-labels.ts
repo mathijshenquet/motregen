@@ -2,7 +2,7 @@ import type { Map as MapLibreMap } from 'maplibre-gl'
 import { Marker } from 'maplibre-gl'
 import type { Grid } from './contract'
 import type { MapTheme } from './basemap'
-import { isolineColor, type IsolineFeatureCollection } from './isolines'
+import { isolineColor, isolineLabelText, type IsolineFeatureCollection, type IsolineKind } from './isolines'
 import { ringFadeAt, type ShortRing } from './isoline-contours'
 import { projectToLevel, smoothstep, type FieldSlice, type SliceSample } from './isoline-spline'
 
@@ -52,6 +52,7 @@ export class IsolineLabels {
     private readonly grid: Grid,
     private readonly theme: MapTheme,
     private readonly reducedMotion: () => boolean,
+    private readonly kind: IsolineKind = 'temperature',
   ) {}
 
   get count(): number {
@@ -147,11 +148,11 @@ export class IsolineLabels {
 
   private add(level: number, column: number, row: number, sample: SliceSample, now: number): void {
     const element = document.createElement('div')
-    element.className = `isoline-label isoline-label-${this.theme}`
-    element.style.color = isolineColor(this.theme)
+    element.className = `isoline-label isoline-label-${this.theme}${this.kind === 'pressure' ? ' isobar-label' : ''}`
+    element.style.color = isolineColor(this.theme, this.kind)
     element.style.opacity = '0'
     const text = document.createElement('span')
-    text.textContent = `${level}°`
+    text.textContent = isolineLabelText(this.kind, level)
     text.style.opacity = '0'
     if (!this.reducedMotion()) text.style.transition = `opacity ${FADE_MS}ms ease-out`
     element.append(text)
