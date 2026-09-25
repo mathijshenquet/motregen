@@ -744,11 +744,14 @@ export class WindLayer implements CustomLayerInterface {
     const previousBudget = this.budget
     this.viewBounds = viewBounds(this.map, this.grid)
     const canvas = this.map.getCanvas()
-    const target = particleCountForViewport(canvas.clientWidth, canvas.clientHeight, this.tuning.particlesPerMegapixel)
+    const inView = particleCountForViewport(canvas.clientWidth, canvas.clientHeight, this.tuning.particlesPerMegapixel)
+    // ~RIM_SHARE van de levende particles zit in de rand (gemeten 7,7–8,1 % bij 1–12 m/s): het
+    // budget groeit mee, zodat de dichtheid in beeld blijft wat hij was.
+    const target = Math.min(MAX_PARTICLES, Math.round(inView / (1 - RIM_SHARE)))
     if (resetAll || target !== this.target) this.budget = target
     const retention = viewportParticleRetention(previousBounds, this.viewBounds, previousBudget, this.budget)
     this.target = target
-    ;[this.columns, this.rows] = occupancyGrid(canvas.clientWidth, canvas.clientHeight, this.target)
+    ;[this.columns, this.rows] = occupancyGrid(canvas.clientWidth, canvas.clientHeight, inView)
     this.particleBounds = withRim(this.viewBounds, this.columns, this.rows)
     if (resetAll) {
       this.active = this.budget
