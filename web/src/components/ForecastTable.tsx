@@ -3,14 +3,12 @@ import type { FocusKind } from '../core/focus-mode'
 import type { HourlyForecastRow } from '../core/forecast'
 import { solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
 import { dailyClearSkyUvMax, uvReading } from '../core/uv'
-import { deriveWeatherIcon, dewPoint, summarizeWind, type WindSummary } from '../core/weather'
-import { ArrowUp, BUTTON_ICON, Clock, CloudSun, Droplet, Droplets, Navigation2, Sun, Thermometer, Wind } from './icons'
+import { deriveWeatherIcon, summarizeWind, type WindSummary } from '../core/weather'
+import { ArrowUp, BUTTON_ICON, Clock, CloudSun, Droplets, Sun, Thermometer, Wind } from './icons'
 import UvBar, { type UvBarVariant } from './UvBar'
 import WeatherIcon from './WeatherIcon'
 
 export type SunForm = 'row' | 'marker'
-export type WindForm = 'arrow' | 'dial'
-export type HumidityForm = 'text' | 'dew-point'
 
 export interface ForecastSeries {
   rain: Array<number | null>
@@ -42,8 +40,6 @@ interface Props {
   onOpenHistory: () => void
   sunForm: SunForm
   uvBar: UvBarVariant
-  windForm: WindForm
-  humidityForm: HumidityForm
   // De koppenrij is de modebalk: Gevoel en Wind zijn kaartmodes (hover/toetsenbordfocus tijdelijk,
   // klik pint), Weer is de standaard en zet een pin uit.
   focus: {
@@ -201,7 +197,6 @@ export default function ForecastTable(props: Props) {
         const text = reading?.toLocaleString('nl-NL', { maximumFractionDigits: reading < 1 ? 2 : 1 })
         return text === undefined || text === '0' ? undefined : text
       }
-      const dew = () => temperature() == null || humidity() == null ? null : dewPoint(temperature()!, humidity()!)
       return <>
         <tr
           ref={(element) => {
@@ -234,11 +229,9 @@ export default function ForecastTable(props: Props) {
             </td>
           </Show>
           <Show when={props.columns.temperature}><td class="temperature-cell" onPointerEnter={(event) => hover('temperature', event, true)} onPointerLeave={(event) => hover('temperature', event, false)}>{degrees(feelsLike())}<small class="air-temperature" title="Luchttemperatuur">{degrees(temperature())}</small></td></Show>
-          <Show when={props.columns.humidity}><td class="humidity-cell">{humidity() == null ? placeholder() : `${Math.round(humidity()!)}%`}<Show when={props.humidityForm === 'dew-point' && dew() != null}>
-            <small class="dew-point" classList={{ muggy: dew()! >= 16 }} title="Dauwpunt; vanaf 16° voelt het benauwd"><Droplet size={9} strokeWidth={2.5} aria-hidden="true" />{Math.round(dew()!)}°</small>
-          </Show></td></Show>
+          <Show when={props.columns.humidity}><td>{humidity() == null ? placeholder() : `${Math.round(humidity()!)}%`}</td></Show>
           <Show when={props.columns.wind}><td class="wind-cell" onPointerEnter={(event) => hover('wind', event, true)} onPointerLeave={(event) => hover('wind', event, false)}><Show when={wind()} fallback={placeholder()}>{(summary) =>
-            <WindReading summary={summary()} form={props.windForm} />
+            <WindReading summary={summary()} />
           }</Show></td></Show>
         </tr>
         <Show when={props.sunForm === 'row' && sunEvent()}>{(event) =>
@@ -253,20 +246,12 @@ export default function ForecastTable(props: Props) {
 }
 
 // De pijl wijst waar de wind heen waait, zoals de deeltjes op de kaart; de letters blijven in de titel.
-function WindReading(props: { summary: WindSummary; form: WindForm }) {
+function WindReading(props: { summary: WindSummary }) {
   const label = () => `Wind uit ${props.summary.direction}, ${props.summary.beaufort} Bft, ${props.summary.speed.toLocaleString('nl-NL', { maximumFractionDigits: 1 })} m/s`
-  const turn = () => ({ transform: `rotate(${(props.summary.fromDegrees + 180) % 360}deg)` })
-  return <Show when={props.form === 'dial'} fallback={
-    <span class="wind-reading" role="img" aria-label={label()} title={label()}>
-      <ArrowUp class="wind-arrow" size={15} strokeWidth={2.25} style={turn()} aria-hidden="true" />
-      <b>{props.summary.beaufort}</b><small>Bft</small>
-    </span>
-  }>
-    <span class="wind-reading wind-dial-reading" role="img" aria-label={label()} title={label()}>
-      <span class="wind-dial" aria-hidden="true"><Navigation2 size={11} strokeWidth={0} fill="currentColor" style={turn()} /></span>
-      <span class="wind-dial-text"><b>{props.summary.beaufort}</b><small>{props.summary.direction}</small></span>
-    </span>
-  </Show>
+  return <span class="wind-reading" role="img" aria-label={label()} title={label()}>
+    <ArrowUp class="wind-arrow" size={15} strokeWidth={2.25} style={{ transform: `rotate(${(props.summary.fromDegrees + 180) % 360}deg)` }} aria-hidden="true" />
+    <b>{props.summary.beaufort}</b><small>Bft</small>
+  </span>
 }
 
 function SunGlyph() {

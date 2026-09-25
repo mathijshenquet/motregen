@@ -589,13 +589,6 @@ td small { color: var(--muted); font-size: 9px; }
 .wind-reading b { font-size: 13px; font-weight: 700; }
 .wind-reading small { margin-left: 1px; }
 .wind-arrow { flex: none; margin-right: 2px; color: var(--accent); }
-.wind-dial { display: inline-grid; width: 20px; height: 20px; flex: none; place-items: center; margin-right: 3px; border: 1.5px solid var(--line-strong); border-radius: 50%; color: var(--accent); }
-.wind-dial-text { display: inline-flex; flex-direction: column; align-items: flex-start; line-height: 1; }
-.wind-dial-text small { margin: 1px 0 0; }
-.dew-point { display: flex; align-items: center; justify-content: center; gap: 1px; }
-.dew-point svg { color: var(--accent); }
-.dew-point.muggy { color: #b85c00; font-weight: 700; }
-:root[data-theme="dark"] .dew-point.muggy { color: #ffb366; }
 
 /* Aanraakdoel ≥ 44 px: kleine knoppen krijgen een onzichtbare rand i.p.v. een groter uiterlijk. */
 @media (pointer: coarse) {
@@ -618,7 +611,7 @@ td small { color: var(--muted); font-size: 9px; }
 
 /* Op 320 px scheelt de eenheid net de horizontale scroll; het label van de cel noemt Bft nog. */
 @media (max-width: 360px) {
-  .wind-reading:not(.wind-dial-reading) small { display: none; }
+  .wind-reading small { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

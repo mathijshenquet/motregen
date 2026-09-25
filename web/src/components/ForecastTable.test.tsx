@@ -38,8 +38,6 @@ function renderTable(options: { pinned?: FocusKind; weather?: boolean; rows?: Ho
     onOpenHistory={() => undefined}
     sunForm="row"
     uvBar="double"
-    windForm="arrow"
-    humidityForm="text"
     focus={{ pinned: pinned(), onTogglePin, onFocus }}
   />)
   return { pinned, onTogglePin, onFocus }

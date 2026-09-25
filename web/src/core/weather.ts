@@ -40,9 +40,3 @@ export function summarizeWind(u: number | null, v: number | null): WindSummary |
     fromDegrees,
   }
 }
-
-/** Dauwpunt (°C) via Magnus met de coëfficiënten van Alduchov & Eskridge (1996). */
-export function dewPoint(temperature: number, humidity: number): number {
-  const gamma = Math.log(Math.max(humidity, 1) / 100) + 17.625 * temperature / (243.04 + temperature)
-  return 243.04 * gamma / (17.625 - gamma)
-}
