@@ -12,8 +12,9 @@ export const LEGACY_WIND_TUNING_STORAGE_KEY = 'motregen-wind-tuning-v3'
 // De staart ontstaat in een trailbuffer die per seconde vervaagt; de particle
 // zelf stempelt alleen zijn kop. Leven en fades zijn schermafstanden (CSS-px),
 // zodat snelheid tempo wordt en niet de hoeveelheid inkt per particle.
-// lineWidth is in device-px, zoals vóór U3: dat hield mobiel fijn en desktop
-// voller, en de PO wil die look terug.
+// lineWidth is sinds U34 in CSS-px, net als de rest: in device-px (U3) was hij op een retina-scherm
+// half zo dik als op een 1×-monitor (PO 2026-09-25 live). Smalle schermen (telefoon) krijgen
+// WIND_NARROW_LINE_FACTOR, zodat mobiel fijn blijft zoals de PO het in U3 wilde.
 export interface WindParameters {
   particlesPerMegapixel: number
   trailDistance: number
@@ -89,10 +90,13 @@ export interface WindTuningControl {
 export const WIND_TUNING_CONTROLS: readonly WindTuningControl[] = [
   { key: 'particlesPerMegapixel', label: 'Dichtheid', min: 50, max: 2_000, step: 10, unit: '/MP' },
   { key: 'intensity', label: 'Intensiteit', min: 0, max: 2, step: 0.01, unit: '×' },
-  { key: 'lineWidth', label: 'Lijnbreedte', min: 0.5, max: 8, step: 0.05, unit: 'dpx' },
+  { key: 'lineWidth', label: 'Lijnbreedte', min: 0.5, max: 8, step: 0.05, unit: 'px' },
   { key: 'speed', label: 'Tempo', min: 0.2, max: 3, step: 0.05, unit: '×' },
 ]
 
+// Onder deze CSS-breedte (de mobiele layout) is de lijn dunner; 0,6 × 2,5 = 1,5 CSS-px.
+const NARROW_VIEWPORT_PX = 430
+const WIND_NARROW_LINE_FACTOR = 0.6
 const MIN_PARTICLES = 96
 const MAX_PARTICLES = 2_400
 const INSTANCE_BYTES = 20
@@ -618,8 +622,10 @@ export class WindLayer implements CustomLayerInterface {
   private drawHeads(gl: WebGL2RenderingContext, options: CustomRenderMethodInput, bufferTransform: UvTransform): void {
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-    // lineWidth in device-px van het huidige beeld, omgerekend naar pixels van de verankerde buffer.
-    const halfWidth = this.tuning.lineWidth / 2 * bufferTransform.scaleX * this.trailWidth / Math.max(1, this.map!.getCanvas().width)
+    // lineWidth in CSS-px van het huidige beeld, omgerekend naar pixels van de verankerde buffer.
+    const cssWidth = Math.max(1, this.map!.getCanvas().clientWidth)
+    const lineWidth = this.tuning.lineWidth * (cssWidth <= NARROW_VIEWPORT_PX ? WIND_NARROW_LINE_FACTOR : 1)
+    const halfWidth = lineWidth / 2 * bufferTransform.scaleX * this.trailWidth / cssWidth
     gl.useProgram(this.segmentProgram!)
     gl.bindVertexArray(this.segmentArray!)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer!)
