@@ -67,3 +67,27 @@ schaduw 0 1px 3px. Open: groeit naar 380 (desktop) / volle rij (mobiel) in 150 m
 - About-backdrop terug naar .42 zonder blur (PO-punt 3).
 
 Gates tot nu: typecheck 0, component-unit 20/20, e2e freshness+location 16 passed / 5 skipped (EXIT 0).
+
+## 07:05 — gates groen, screenshots voor de PO
+- Eerste volledige e2e: 1 fail (mobile-fast-3g, "weken oud"): mijn nieuwe check las kaartklok en
+  cursorpil los na elkaar terwijl de cursor liep. Oorzaak: de scrubklik op y=60 raakte bij een cursor
+  aan de linkerrand de cursorpil (= afspeelknop) → playback. Fix: klik laag in het vlak (75 %) en lees
+  beide tijden in één evaluate (expect.poll). Geen productfout.
+- Receipts (eindstand, synchroon, exit-status gelezen):
+  - `pnpm typecheck` → TYPECHECK-EXIT: 0
+  - `pnpm test` → TEST-EXIT: 0 (41 files, 234 tests)
+  - `pnpm build` → BUILD-EXIT: 0
+  - `MOTREGEN_E2E_PORT=4358 MOTREGEN_E2E_DATA_PORT=8358 pnpm e2e` → E2E-EXIT: 0 (31 passed, 26 skipped;
+    load 4,5 bij start, poorten vooraf vrij, één Chromium)
+- Screenshots (`shots/`, gemaakt met `probe.mjs` — kopieer naar `web/tmp/` en draai vanuit `web/` tegen
+  synthgen-data op 8358 + preview op 4358; vaste klok 14:58Z):
+  - `voor/` — main vóór U21: desktop, Pixel 5, 320 px; rust + zoek open; licht/donker.
+  - `na/` — eindstand (klok met linkerrand, zoekpaneel A): rust, zoek open, model-tijdstip, versheidspaneel;
+    desktop, Pixel 5, 320 px; licht/donker.
+  - `variant-klok-stip/` — klokvariant stip (`?klok=stip`): rust + model.
+  - `variant-zoek-omsluit/` — zoekpaneel B (`?zoekpaneel=omsluit`): open.
+- Open voor PO (op zicht): (1) klokaccent rand (gekozen) vs stip; (2) zoekpaneel A (gekozen) vs B;
+  (3) UV-chip mobiel verhuisd naar linksonder boven het merk (moest wijken voor de pil); (4) touch-
+  zoektekst 16 px i.p.v. 13 px (iOS-focuszoom); (5) contain-fit op telefoon ~12 % kleiner door de pil.
+- Niet gedaan / buiten scope: de desktop-UV-chip in de zijbalkkop wordt links afgekapt (774 px, vóór U21
+  al zo, zie `voor/desktop-*-rust.png`) — apart oppakken.

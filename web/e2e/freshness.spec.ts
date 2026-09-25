@@ -118,17 +118,22 @@ test('radar that stopped arriving is marked aging, then stale', async ({ page },
   await openAt(page, LATEST_RADAR + minutes(60 * 24 * 26))
   await expect(pill(page).locator('.freshness-age')).toHaveText('26 d')
   await expect(pill(page).locator('.freshness-scan')).toHaveText('radar 14:55')
-  // U21: de kaarttijd is het hoofdelement, met de bron in de regimekleur.
-  await page.locator('.scrub-surface').click({ position: { x: 30, y: 60 } })
+  // U21: de kaarttijd is het hoofdelement, met de bron in de regimekleur. Klik laag in het vlak:
+  // bovenin staat de cursorpil (afspeelknop).
+  const surface = (await page.locator('.scrub-surface').boundingBox())!
+  await page.locator('.scrub-surface').click({ position: { x: 30, y: surface.height * 0.75 } })
   await expect(pill(page)).toHaveAttribute('data-source', 'observations')
   await expect(pill(page).locator('.clock-source')).toHaveText(/^radar/)
-  await expect(pill(page).locator('.clock-map-time')).toHaveText(await page.locator('.cursor-pill').innerText())
+  // Zelfde moment uitlezen: op trage profielen glijdt de cursor nog na.
+  await expect.poll(() => page.evaluate(() => {
+    const clock = document.querySelector('.map-clock .clock-map-time')?.textContent?.trim()
+    return clock !== undefined && clock === document.querySelector('.cursor-time')?.textContent?.trim()
+  })).toBe(true)
   await expectTopCenter(page)
   const trigger = (await pill(page).locator('.freshness-trigger').boundingBox())!
   if (testInfo.project.use.hasTouch) expect(trigger.height).toBeGreaterThanOrEqual(44)
   expect((await pill(page).boundingBox())!.height).toBeLessThan(56)
-  const surface = (await page.locator('.scrub-surface').boundingBox())!
-  await page.locator('.scrub-surface').click({ position: { x: surface.width - 12, y: 60 } })
+  await page.locator('.scrub-surface').click({ position: { x: surface.width - 12, y: surface.height * 0.75 } })
   await expect(pill(page)).toHaveAttribute('data-source', 'model')
   await expect(pill(page).locator('.freshness-run')).toHaveText(/^run \d\d:\d\d$/)
   await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-weken-oud-kaart-light.png`) })
