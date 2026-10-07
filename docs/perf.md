@@ -86,9 +86,9 @@ echte opname. Metingen van 2026-10-07 (prod-data, eerste 30 s):
 
 | profiel | vóór | ná |
 | --- | ---: | ---: |
-| mobile-4g, alleen kijken | 493 decodes / 4,4 s | 221 / 2,5 s |
-| mobile-4g, journey (wind, gevoel, zoom, scrub) | 802 / 7,8 s; scrub-p95 736 ms | 310 / 2,6 s; scrub-p95 98 ms |
-| desktop, journey | 831 / 8,7 s | 822 / 9,0 s (ongewijzigd, `eager`) |
+| mobile-4g, alleen kijken | 492 decodes / 4,2 s | 223 / 1,9 s |
+| mobile-4g, journey (wind, gevoel, zoom, scrub) | 801 / 6,7 s; scrub-p95 1.439 ms (2 samples) | 309 / 2,5 s; scrub-p95 73 ms (20 samples) |
+| desktop, journey | 833 / 9,2 s | 830 / 8,8 s (ongewijzigd, `eager`) |
 
 Wat er op een krap apparaat overblijft is het zichtbare werk zelf: ~110 regenframes (het
 histogram toont 8 uur op 5-minutenresolutie en het afspelen loopt erdoorheen), ~45–60
