@@ -331,3 +331,19 @@ Drie verouderde asserties, geen productbug:
 Receipt (synchroon): `pnpm e2e e2e/dev-panel.spec.ts --project desktop` exit 0 (1 passed). Paneel-screenshot
 van de test zelf bekeken: vijf groepen, Klok › Jog-schaal met de nieuwe uitleg. Gezien, niet aangepakt: in
 "Lucht nu" loopt het waardelabel "mooie wolkenlucht" rechts over de rand van het paneel.
+
+## 2026-10-07 23:00 — e2e bouwt niet meer over web/dist heen
+
+Orkestrator: 4320 serveerde een dist met de test-basemap (splash bleef bij de PO hangen). Mijn fout: na de
+laatste `dev-panel.spec`-run had ik `web/dist` niet opnieuw normaal gebouwd.
+- `playwright.config.ts`: de e2e-webserver bouwt en serveert nu `tmp/e2e-dist` (`tsc -b` + `vite build --outDir`,
+  `vite preview --outDir`). Nagekeken: na `pnpm e2e e2e/dev-panel.spec.ts e2e/freshness.spec.ts --project
+  desktop` (exit 0, 5 passed) is `dist/assets/index-*.js` ongewijzigd en staat de test-basemap-URL alleen in
+  `tmp/e2e-dist`.
+- De rig (`playwright.mobile.config.ts`) heb ik NIET aangepast: U54 heeft dat al gedaan (`cc779b6`,
+  `tmp/rig-dist`) en dezelfde regels hier wijzigen geeft een merge-conflict. Tot dat via main binnen is: na
+  elke rig-run `pnpm build` en 4320 controleren. Gezien in U54's commando: `VITE_BASEMAP_STYLE_URL=… pnpm exec
+  tsc -b && pnpm exec vite build …` — de variabele staat daar vóór `tsc`, niet vóór `vite build`; of de
+  rig-dist daardoor de echte basemap krijgt heb ik niet nagegaan (niet mijn branch).
+- Daarna `pnpm build` (exit 0) en 4320 gecontroleerd met `expressive-shot.ts` (wacht op `.map-splash.ready`):
+  laadt, echte basiskaart, 390-px-beeld bekeken.

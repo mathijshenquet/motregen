@@ -33,7 +33,9 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: `VITE_BASEMAP_STYLE_URL=http://127.0.0.1:${dataPort}/style.json pnpm build && MOTREGEN_DATA_ORIGIN=http://127.0.0.1:${dataPort} MOTREGEN_HIT_LOG=${hitLogPath} pnpm preview --host 127.0.0.1 --port ${port}`,
+      // Naar een eigen map: web/dist blijft de normale build waar de track-preview uit serveert (een e2e-run
+      // overschreef die met de test-basemap en liet de splash bij de PO hangen, 2026-10-07).
+      command: `pnpm exec tsc -b && VITE_BASEMAP_STYLE_URL=http://127.0.0.1:${dataPort}/style.json pnpm exec vite build --outDir tmp/e2e-dist --emptyOutDir && MOTREGEN_DATA_ORIGIN=http://127.0.0.1:${dataPort} MOTREGEN_HIT_LOG=${hitLogPath} pnpm preview --outDir tmp/e2e-dist --host 127.0.0.1 --port ${port}`,
       url: `http://127.0.0.1:${port}`,
       reuseExistingServer: false,
       timeout: 120_000,
