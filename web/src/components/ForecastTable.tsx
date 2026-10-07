@@ -146,7 +146,7 @@ export default function ForecastTable(props: Props) {
   onCleanup(() => release())
   const pinNow = (element: HTMLTableRowElement) => {
     nowElement = element
-    if (pinning || (!props.historyInline && !props.onOpenMobileTable) || typeof ResizeObserver === 'undefined') return
+    if (pinning || !props.historyInline || typeof ResizeObserver === 'undefined') return
     pinning = true
     // De ref vuurt vóór de rij in de DOM hangt: een frame later bestaat de scroller.
     requestAnimationFrame(() => {
@@ -193,7 +193,11 @@ export default function ForecastTable(props: Props) {
           class="column-mode column-focus table-focus"
           title="Toon de tabel"
           aria-pressed={Boolean(props.mobileTableOpen)}
-          onClick={(event) => { event.stopPropagation(); props.onOpenMobileTable?.() }}
+          onClick={(event) => {
+            event.stopPropagation()
+            if (props.mobileTableOpen) props.onSelectMobileMode?.()
+            else props.onOpenMobileTable?.()
+          }}
         >
           <ColumnLabel icon={Table2} text="Tabel" />
         </button>
@@ -236,6 +240,7 @@ export default function ForecastTable(props: Props) {
       }
       return <>
         <tr
+          data-epoch={row.epoch}
           ref={(element) => {
             rowElements.set(row.epoch, element)
             onCleanup(() => rowElements.delete(row.epoch))

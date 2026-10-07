@@ -301,3 +301,28 @@
   16/16 groen; volledige `pnpm test` 59 bestanden / 384 tests groen; `pnpm build` exit 0 (107 modules,
   `index-B6zFC3Sq.js`, `index-DGcLPeT7.css`, PWA + workers). De preview op
   `http://ageq-dev2:4320/` serveert de nieuwe assets. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+
+## 2026-10-07 11:24 UTC
+
+- De touchend-lock uit de vorige tussenstand was nog te vroeg: een teruggesture kon de 24px-drempel
+  passeren en daarna naar Tabel terugsnappen, terwijl de rij al naar Nu werd gezet. Viewacceptatie is
+  nu los van de per-frame kaarthysterese. Tijdens scrollen stuurt de paneelpositie alleen de dure
+  kaartpauze; pas `scrollend` (met 160ms idle-fallback) commit Kaart/Tabel, en alleen wanneer kaart-top
+  of paneel-top daadwerkelijk binnen 2px van zijn snap-punt staat. Een afgebroken Tabel→Tabel-gesture
+  wijzigt daardoor geen view-, overflow- of rijstate.
+- De vergrendelde tabelpreview in kaartview volgt nu de scrubbertijd. De doelrow is het dichtstbijzijnde
+  hele uur (`Math.round`, dus omslag op het halve uur); alleen bij een nieuw doeluur scrollt de verborgen
+  tabel smooth. In de open tabel blijft gebruikersscroll onaangeraakt. Bij geaccepteerde terugkeer naar
+  Kaart wordt dezelfde previewrow het doel in plaats van altijd de Nu-row.
+- Een tweede tik op de actieve Tabel-modus gaat terug naar Kaart zonder label- of stijlwissel. De
+  temperatuurlegenda linksonder is geheel verwijderd; palet, kaartvulling en het intern gemeten bereik
+  blijven bestaan. De gerichte e2e-verwachtingen zijn aangepast en bevatten een regressiescenario voor
+  een niet-geaccepteerde terugscroll, maar zijn volgens afspraak niet uitgevoerd.
+- Synchrone receipts: `git diff --check` exit 0; `pnpm typecheck` exit 0; gerichte tests 30/30 groen;
+  volledige `pnpm test` 59 bestanden / 384 tests groen; `pnpm build` exit 0 (107 modules,
+  `index-CB2eqJec.js`, `index-gdG2HYvp.css`, PWA + workers). Preview
+  `http://ageq-dev2:4320/` serveert de nieuwe assets.
+- Nacontrole: aan de uiterste scrubberrand valt de preview terug op de dichtstbijzijnde bestaande
+  uurrow wanneer de afgeronde row buiten de tabel valt. Daarna opnieuw `pnpm typecheck` exit 0,
+  ForecastTable 16/16 en `pnpm build` exit 0; de definitieve previewasset is
+  `index-Be7X1Zve.js` met ongewijzigd `index-gdG2HYvp.css`.

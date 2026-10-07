@@ -43,7 +43,7 @@ import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGesture
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
 import { solarElevationSin } from './core/solar'
-import { bandColor, paletteRange, paletteStops, type PaletteRange } from './core/temperature-palette'
+import { paletteRange, paletteStops, type PaletteRange } from './core/temperature-palette'
 import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
 import { buildTimeline, epochInWindow, frameBlend, scrubberViewWindow, seriesValueAt, timelineCoverage, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelineIndexesInWindow, timelinePlaybackRate, type EpochWindow } from './core/time-model'
 import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
@@ -347,59 +347,67 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [historyInline, setHistoryInline] = createSignal(inlineHistoryMedia.matches)
   const tableViewMedia = matchMedia('(max-width: 959px) and (orientation: portrait)')
   const [tableViewAvailable, setTableViewAvailable] = createSignal(tableViewMedia.matches)
+  // De view is pas open na een afgeronde snap; de live dekking stuurt tijdens de gesture alleen
+  // de dure kaartlussen, met de afgesproken 0/24px-hysterese.
   const [tableOpen, setTableOpen] = createSignal(false)
   const [tableScrollOpen, setTableScrollOpen] = createSignal(false)
+  const [tableCoversViewport, setTableCoversViewport] = createSignal(false)
   const [tableViewTarget, setTableViewTarget] = createSignal<'map' | 'table'>()
   const tableViewOpen = createMemo(() => tableViewAvailable() && tableOpen())
   const tableModeSelected = createMemo(() => tableViewAvailable() && (tableViewTarget() === 'table' || (tableViewTarget() === undefined && tableOpen())))
   let tableViewFrame: number | undefined
   let tableViewResizeTimer: number | undefined
+  let tableViewSettleTimer: number | undefined
   let tableTouchActive = false
-  let pendingTableScrollOpen: boolean | undefined
-  let tablePinFrame: number | undefined
   function applyTableScrollOpen(open: boolean): void {
-    pendingTableScrollOpen = undefined
     if (tableScrollOpen() === open) return
     setTableScrollOpen(open)
-    if (!open) {
-      if (tablePinFrame !== undefined) cancelAnimationFrame(tablePinFrame)
-      tablePinFrame = requestAnimationFrame(() => {
-        tablePinFrame = undefined
-        if (!tableScrollOpen()) pinTableToNow(reducedMotion.matches ? 'auto' : 'smooth')
-      })
-    }
-  }
-  function settleTableScroll(open: boolean): void {
-    if (tableTouchActive) pendingTableScrollOpen = open
-    else applyTableScrollOpen(open)
   }
   function syncTableViewPosition(): void {
     tableViewFrame = undefined
     if (!tableViewAvailable() || !forecastPanelElement) {
-      setTableOpen(false)
-      applyTableScrollOpen(false)
-      setTableViewTarget(undefined)
+      setTableCoversViewport(false)
       return
     }
     const panelTop = forecastPanelElement.getBoundingClientRect().top
-    if (!tableOpen() && panelTop <= 0) {
-      setTableOpen(true)
-      settleTableScroll(true)
-    }
-    else if (tableOpen() && panelTop > 24) {
-      setTableOpen(false)
-      settleTableScroll(false)
-    }
-    const target = tableViewTarget()
-    if ((target === 'table' && panelTop <= 0) || (target === 'map' && panelTop > 24)) setTableViewTarget(undefined)
+    if (!tableCoversViewport() && panelTop <= 0) setTableCoversViewport(true)
+    else if (tableCoversViewport() && panelTop > 24) setTableCoversViewport(false)
   }
   function queueTableViewSync(): void {
     if (tableViewFrame === undefined) tableViewFrame = requestAnimationFrame(syncTableViewPosition)
   }
+  function settleTableView(): void {
+    if (tableTouchActive || !tableViewAvailable() || !forecastPanelElement) return
+    if (tableViewFrame !== undefined) cancelAnimationFrame(tableViewFrame)
+    syncTableViewPosition()
+    const panelTop = forecastPanelElement.getBoundingClientRect().top
+    const atTable = Math.abs(panelTop) <= 2
+    const atMap = window.scrollY <= 2
+    if (!atTable && !atMap) return
+    const open = atTable
+    setTableCoversViewport(open)
+    setTableOpen(open)
+    applyTableScrollOpen(open)
+    setTableViewTarget(undefined)
+  }
+  function scheduleTableViewSettlement(delay = 160): void {
+    window.clearTimeout(tableViewSettleTimer)
+    tableViewSettleTimer = window.setTimeout(() => {
+      tableViewSettleTimer = undefined
+      settleTableView()
+    }, delay)
+  }
+  function pageScrolled(): void {
+    queueTableViewSync()
+    scheduleTableViewSettlement()
+  }
   function settleTableViewAfterResize(): void {
     // Mobiele browserbalken sturen tijdens hun animatie iedere frame een resize-event.
     window.clearTimeout(tableViewResizeTimer)
-    tableViewResizeTimer = window.setTimeout(queueTableViewSync, 120)
+    tableViewResizeTimer = window.setTimeout(() => {
+      queueTableViewSync()
+      scheduleTableViewSettlement()
+    }, 120)
   }
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(stillMode ? 'light' : props.telegram?.colorScheme ?? storedTheme())
@@ -469,7 +477,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const isolineSets = [temperatureIsolines, pressureIsolines, cloudIsolines]
   // Verborgen tab: afspelen en wind staan stil (zichtbaarheid 0 stopt de windlus; de trails blijven).
   const [pageVisible, setPageVisible] = createSignal(document.visibilityState !== 'hidden')
-  const mapRendering = createMemo(() => pageVisible() && !tableViewOpen())
+  const mapRendering = createMemo(() => pageVisible() && !(tableViewAvailable() && tableCoversViewport()))
   const [userIdle, setUserIdle] = createSignal(false)
   const focusedWindTuning = createMemo(() => ({
     ...windTuning(),
@@ -567,28 +575,34 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   })
 
   onMount(() => {
-    const touchStart = (event: TouchEvent) => { tableTouchActive = event.touches.length > 0 }
+    const touchStart = (event: TouchEvent) => {
+      tableTouchActive = event.touches.length > 0
+      window.clearTimeout(tableViewSettleTimer)
+    }
     const touchEnd = (event: TouchEvent) => {
       tableTouchActive = event.touches.length > 0
-      if (!tableTouchActive && pendingTableScrollOpen !== undefined) applyTableScrollOpen(pendingTableScrollOpen)
+      if (!tableTouchActive) scheduleTableViewSettlement()
     }
-    window.addEventListener('scroll', queueTableViewSync, { passive: true })
+    window.addEventListener('scroll', pageScrolled, { passive: true })
+    window.addEventListener('scrollend', settleTableView, { passive: true })
     window.addEventListener('resize', settleTableViewAfterResize, { passive: true })
     window.addEventListener('touchstart', touchStart, { passive: true })
     window.addEventListener('touchend', touchEnd, { passive: true })
     window.addEventListener('touchcancel', touchEnd, { passive: true })
     window.visualViewport?.addEventListener('resize', settleTableViewAfterResize, { passive: true })
     syncTableViewPosition()
+    scheduleTableViewSettlement(0)
     onCleanup(() => {
-      window.removeEventListener('scroll', queueTableViewSync)
+      window.removeEventListener('scroll', pageScrolled)
+      window.removeEventListener('scrollend', settleTableView)
       window.removeEventListener('resize', settleTableViewAfterResize)
       window.removeEventListener('touchstart', touchStart)
       window.removeEventListener('touchend', touchEnd)
       window.removeEventListener('touchcancel', touchEnd)
       window.visualViewport?.removeEventListener('resize', settleTableViewAfterResize)
       if (tableViewFrame !== undefined) cancelAnimationFrame(tableViewFrame)
-      if (tablePinFrame !== undefined) cancelAnimationFrame(tablePinFrame)
       window.clearTimeout(tableViewResizeTimer)
+      window.clearTimeout(tableViewSettleTimer)
     })
   })
 
@@ -618,11 +632,15 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const tableViewChanged = (event: MediaQueryListEvent) => {
       setTableViewAvailable(event.matches)
       if (!event.matches) {
+        setTableCoversViewport(false)
         setTableOpen(false)
         applyTableScrollOpen(false)
         setTableViewTarget(undefined)
       }
-      else queueTableViewSync()
+      else {
+        queueTableViewSync()
+        scheduleTableViewSettlement()
+      }
     }
     tableViewMedia.addEventListener('change', tableViewChanged)
     onCleanup(() => tableViewMedia.removeEventListener('change', tableViewChanged))
@@ -967,6 +985,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const cursorFrame = createMemo(() => Math.round(cursor()))
   // Klok en UV-chip tonen minuten: per afspeeltik hoeven ze niet opnieuw.
   const cursorMinute = createMemo(() => Math.floor(selectedEpoch() / 60_000) * 60_000)
+  const tablePreviewEpoch = createMemo(() => Math.round(cursorMinute() / 3_600_000) * 3_600_000)
 
   // Klik op een tabelrij: de scrubber springt naar dat uur (PO 2026-09-25 live). Liep het afspelen, dan
   // pauzeert het en hervat het na dezelfde rust als na slepen in de scrubber.
@@ -1492,19 +1511,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
     if (key === temperatureRangeKey) setTemperatureRange(paletteRange(min, max))
   }
-
-  /** Kleurbalk van de vulling: één blok per band van het bereik. */
-  const temperatureLegend = createMemo(() => {
-    const range = temperatureRange()
-    if (!range) return undefined
-    const { step } = isolineTuning()
-    const stops = paletteStops(range)
-    const bands: string[] = []
-    for (let band = Math.floor(range.low / step); band < Math.ceil(range.high / step); band++) {
-      bands.push(`rgb(${bandColor(band, step, stops).map((channel) => Math.round(channel * 255)).join(' ')})`)
-    }
-    return { ...range, bands }
-  })
 
   async function showIsolineField(set: IsolineSet): Promise<void> {
     if (!mapRendering()) return
@@ -2410,14 +2416,30 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const hasTemperature = createMemo(() => feelsLikeTimeline().length > 0)
   const hasWeatherIcons = createMemo(() => cloudTimeline().length > 0)
   const hasWind = createMemo(() => windUFrames().length > 0 && windVFrames().length > 0)
-  function pinTableToNow(behavior: ScrollBehavior = 'auto'): void {
+  function scrollTableToEpoch(epoch: number, behavior: ScrollBehavior): boolean {
     const scroller = forecastPanelElement.querySelector<HTMLElement>('.table-scroll')
-    const current = forecastPanelElement.querySelector<HTMLElement>('tr.current-hour')
+    const rows = [...forecastPanelElement.querySelectorAll<HTMLElement>('tr[data-epoch]')]
+    const current = rows.find((row) => Number(row.dataset.epoch) === epoch) ?? rows.reduce<HTMLElement | undefined>((nearest, row) =>
+      !nearest || Math.abs(Number(row.dataset.epoch) - epoch) < Math.abs(Number(nearest.dataset.epoch) - epoch) ? row : nearest, undefined)
     const heading = forecastPanelElement.querySelector<HTMLElement>('thead')
-    if (!scroller || !current || !heading) return
+    if (!scroller || !current || !heading) return false
     const top = scroller.scrollTop + current.getBoundingClientRect().top - scroller.getBoundingClientRect().top - heading.getBoundingClientRect().height
     scroller.scrollTo({ top, behavior })
+    return true
   }
+  let tablePreviewFrame: number | undefined
+  let tablePreviewPositioned = false
+  createEffect(() => {
+    const epoch = tablePreviewEpoch()
+    if (!tableViewAvailable() || tableScrollOpen()) return
+    if (tablePreviewFrame !== undefined) cancelAnimationFrame(tablePreviewFrame)
+    tablePreviewFrame = requestAnimationFrame(() => {
+      tablePreviewFrame = undefined
+      const positioned = scrollTableToEpoch(epoch, tablePreviewPositioned && !reducedMotion.matches ? 'smooth' : 'auto')
+      if (positioned) tablePreviewPositioned = true
+    })
+  })
+  onCleanup(() => { if (tablePreviewFrame !== undefined) cancelAnimationFrame(tablePreviewFrame) })
 
   function scrollToTable(): void {
     setTableViewTarget('table')
@@ -2449,14 +2471,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         <About theme={theme()} onTheme={(choice) => { usage.setTheme(choice); setTheme(choice) }}
           windUnit={windUnit()} onWindUnit={(unit) => { usage.setUnit(unit); setWindUnit(unit); localStorage.setItem('motregen-wind-unit', unit) }} onOpen={() => usage.mark('about')} onShare={shareCurrentState} shareNotice={shareNotice()} onTripleTap={() => setPerfVisible((visible) => !visible)} />
         <Show when={updateReady()}><aside class="update-toast" role="status">Nieuwe versie — <button type="button" onClick={() => void updateServiceWorker?.()}>herlaad</button></aside></Show>
-        {/* Kaartlegenda als eigen pil linksonder, los van de bronvermelding (PO 2026-09-25 live, U34). */}
-        <Show when={focus() > 0 && temperatureLegend()}>
-          {(legend) => <div class="map-legend temperature-legend" style={{ opacity: focus() }} role="img" aria-label={`Kleurschaal gevoelstemperatuur ${legend().low} tot ${legend().high} graden`}>
-            <span>{legend().low}°</span>
-            <span class="temperature-legend-bar">{legend().bands.map((color) => <i style={{ background: color }} />)}</span>
-            <span>{legend().high}°</span>
-          </div>}
-        </Show>
         <LocationSearch
           location={location()}
           mapCenter={() => map?.getCenter() ?? location()}
