@@ -29,7 +29,7 @@ describe('about dialog', () => {
 
     fireEvent.click(trigger)
     expect(dialog.open).toBe(true)
-    expect(document.querySelector('.about-lead')!.textContent).toBe('Rechtstreeks van het KNMIGratis en zonder reclame')
+    expect(document.querySelector('.about-lead')!.textContent).toBe('Regenradar en weersverwachting')
     // Alles in één tabel, ook privacy en broncode; geen losse alinea's of knop meer.
     expect([...dialog.querySelectorAll('dt')].map((term) => term.textContent)).toEqual(['Observatie', 'Voorspelling', 'UV', 'Kaart', 'Zoeken', 'Privacy', 'Broncode'])
     expect(dialog.querySelectorAll('.about-body > p')).toHaveLength(1)
@@ -96,7 +96,7 @@ describe('about dialog', () => {
     const dialog = screen.getByRole('dialog', { name: 'motregen.nl' })
     const group = screen.getByRole('group', { name: 'Weergave' })
     expect(dialog.contains(group)).toBe(true)
-    for (const later of [screen.getByRole('heading', { name: 'motregen.nl' }), screen.getByText(/Rechtstreeks van het KNMI/)]) expect(group.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    for (const later of [screen.getByRole('heading', { name: 'motregen.nl' }), screen.getByText('Regenradar en weersverwachting')]) expect(group.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     const pressed = () => screen.getAllByRole('button', { pressed: true }).map((button) => button.textContent)
     expect(pressed()).toEqual(['Licht', 'Bft'])
     fireEvent.click(screen.getByRole('button', { name: 'Donker' }))
@@ -108,5 +108,13 @@ describe('about dialog', () => {
     expect(onWindUnit).toHaveBeenCalledWith('kmh')
     expect(pressed()).toEqual(['Donker', 'km/u'])
     expect(dialog.hasAttribute('open')).toBe(true)
+  })
+
+  it('shares the current state from About', () => {
+    const onShare = vi.fn()
+    render(() => <About windUnit="bft" onWindUnit={() => undefined} theme="light" onTheme={() => undefined} onShare={onShare} onTripleTap={() => undefined} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Over motregen en instellingen' }), { detail: 0 })
+    fireEvent.click(screen.getByRole('button', { name: 'Deel deze stand' }))
+    expect(onShare).toHaveBeenCalledOnce()
   })
 })

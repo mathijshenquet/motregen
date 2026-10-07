@@ -352,6 +352,8 @@ in
         extraConfig = ''
           @noindex path /data/*
           header @noindex X-Robots-Tag "noindex"
+          @pwa path /sw.js /manifest.webmanifest
+          header @pwa Cache-Control "no-cache"
 
           # MIP-13 privacycontract: het hele request-object (IP, headers, UA) gaat eruit;
           # over blijven ts (op de minuut), uri-pad en de /hit-body.

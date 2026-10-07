@@ -36,7 +36,7 @@ function install(tracker: ReturnType<typeof createUsageTracker>) {
 }
 
 const allowedValues: Record<string, ReadonlyArray<unknown>> = {
-  v: [1],
+  v: [2],
   range: [null, ...USAGE_RANGES],
   theme: USAGE_THEMES,
   unit: USAGE_UNITS,

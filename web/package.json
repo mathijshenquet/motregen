@@ -27,13 +27,18 @@
     "@solidjs/testing-library": "^0.8.10",
     "@tailwindcss/vite": "^4.1.13",
     "@types/node": "^24.5.2",
+    "@vite-pwa/assets-generator": "^2.0.0",
     "jsdom": "^27.0.0",
+    "sharp": "^0.35.5",
+    "sharp-ico": "^0.1.5",
     "tailwindcss": "^4.1.13",
     "tsx": "^4.20.5",
     "typescript": "~5.9.2",
     "vite": "^7.1.7",
+    "vite-plugin-pwa": "^2.0.0",
     "vite-plugin-solid": "^2.11.8",
     "vitest": "^3.2.4",
+    "workbox-window": "^7.4.1",
     "zstd-codec": "^0.1.5"
   },
   "packageManager": "pnpm@11.21.0"

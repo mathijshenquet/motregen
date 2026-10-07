@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { expect, test, type Page, type TestInfo } from '@playwright/test'
 
 // MIP-13: exact deze velden mogen in het baken staan (docs/analytics.md, core/usage.ts).
-const FEATURES = ['pinFeel', 'pinWind', 'hover', 'search', 'geo', 'fav', 'pin', 'play', 'scrub', 'history', 'fresh', 'about']
+const FEATURES = ['pinFeel', 'pinWind', 'hover', 'search', 'geo', 'fav', 'pin', 'play', 'scrub', 'history', 'fresh', 'about', 'share']
 const REQUIRED = ['v', 'range', 'theme', 'unit', 'coarse', 'width', 'dur']
 
 // De preview-server schrijft elke ontvangen /hit-body als regel weg (vite.config.ts, playwright.config.ts).
@@ -63,7 +63,7 @@ test('the beacon waits for hidden visibility, is sent once and carries only whit
   await expect.poll(() => beacons().length).toBe(1)
   const body = beacons()[0]!
   expectWhitelisted(body)
-  expect(body).toMatchObject({ v: 1, about: true, range: null, theme: 'light', unit: 'bft', dur: '<1' })
+  expect(body).toMatchObject({ v: 2, about: true, range: null, theme: 'light', unit: 'bft', dur: '<1' })
   const mobile = testInfo.project.name !== 'desktop'
   expect(body.coarse).toBe(mobile)
   expect(body.width).toBe(mobile ? '<430' : '>=960')

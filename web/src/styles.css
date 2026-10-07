@@ -234,11 +234,17 @@ button { color: inherit; cursor: pointer; }
 .about-theme button { flex: 1; }
 .about-wind-unit { margin-top: 8px; }
 .about-lead { font-size: 14px; font-weight: 650; line-height: 1.45; }
+.about-share { display: flex; align-items: center; gap: 10px; min-height: 34px; margin: 0 0 10px; }
+.about-share button { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 9px; color: var(--text); background: var(--surface-raised); cursor: pointer; font: inherit; font-weight: 650; }
+.about-share button:hover, .about-share button:focus-visible { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); outline: none; }
+.about-share span { color: var(--muted); font-size: 12px; }
 .about-body dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--surface-soft); font-size: 12px; }
 .about-body dt { color: var(--muted); font-weight: 750; }
 .about-body dd a { font-weight: 650; }
 .about-body dd { margin: 0; }
 .about-body a { color: var(--accent); }
+.update-toast { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 20; padding: 9px 12px; border: 1px solid var(--line-strong); border-radius: 10px; color: var(--text); background: var(--surface-raised); box-shadow: var(--shadow); font-size: 13px; }
+.update-toast button { padding: 0; border: 0; color: var(--accent); background: transparent; cursor: pointer; font: inherit; font-weight: 750; text-decoration: underline; }
 
 /* Zoeken (U21/U22): in rust een smalle pil met alleen icoon en plaatsnaam, zo breed als de naam
    (een verborgen kopie van de tekst bepaalt de breedte); bij focus groeit hij uit tot één paneel

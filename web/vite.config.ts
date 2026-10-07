@@ -4,6 +4,7 @@ import { dirname } from 'node:path'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, type Plugin } from 'vite'
+import { VitePWA } from 'vite-plugin-pwa'
 import solid from 'vite-plugin-solid'
 import { configDefaults } from 'vitest/config'
 
@@ -42,7 +43,31 @@ function usageBeaconEndpoint(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [solid(), tailwindcss(), usageBeaconEndpoint()],
+  plugins: [solid(), tailwindcss(), usageBeaconEndpoint(), VitePWA({
+    injectRegister: false,
+    registerType: 'prompt',
+    includeAssets: ['droplet.svg'],
+    pwaAssets: { image: 'public/droplet.svg', preset: 'minimal-2023', overrideManifestIcons: true },
+    manifest: {
+      name: 'motregen.nl',
+      short_name: 'motregen.nl',
+      description: 'Regenradar en weersverwachting',
+      lang: 'nl',
+      start_url: '/',
+      scope: '/',
+      display: 'standalone',
+      theme_color: '#eaf1f3',
+      background_color: '#eaf1f3',
+    },
+    workbox: {
+      globIgnores: ['**/data/**'],
+      navigateFallback: '/index.html',
+      runtimeCaching: [
+        { urlPattern: /\/data\/|\/hit(?:\?|$)/, handler: 'NetworkOnly' },
+        { urlPattern: /^https:\/\/[^/]*openfreemap\.org\//, handler: 'NetworkOnly' },
+      ],
+    },
+  })],
   build: { sourcemap: true },
   server: { allowedHosts, proxy },
   preview: { allowedHosts, proxy: previewProxy },
