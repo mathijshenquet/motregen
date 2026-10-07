@@ -628,7 +628,9 @@ decodes meer dan de baselinegrens (10 %) stijgen. Een ander meetcontract is een
 fout: fixture, scenario, CPU/netwerk en meetcode mogen niet stil veranderen.
 De opgeslagen SHA is de gemeten client plus rig; de productbasis voor deze
 track is main `234c8ad` (U50/U51, 2026-10-07). De bestaande U51-profielen en
-budgetten worden door U53 niet veranderd.
+budgetten worden door U53 niet veranderd. U51's absolute bytebudgetten horen
+bij zijn eigen journey met HTTP-cache aan; deze rig toetst het hierboven
+vastgelegde contract relatief tegen zijn eigen baseline.
 
 De scenario's staan als data in `web/perf/scenarios.json`. `koud` opent op nu
 en blijft gepauzeerd. `journey` schuift na 8 s twee uur vooruit, speelt van
@@ -652,7 +654,7 @@ De rapportmaten betekenen:
 
 - TTFR is de eerste regen-draw uit de bestaande perf-monitor. Splash-weg is
   de werkelijk verborgen splash na de CSS-reveal, bemonsterd per DOM-mutatie
-  en uiterlijk iedere 100 ms.
+  en met een timerinterval van 100 ms.
 - Ttfh is het eerste complete regenhistogram voor nu ±1 u. De rig gebruikt
   U52's native `windowReadyMs.rain_rate` zodra die aanwezig is; op deze main
   wordt het uit geladen tijdlijnindices in de loadtrace afgeleid. Alle native
@@ -696,6 +698,63 @@ een toegevoegde kunstmatige decodepauze zou de decoderfase niet eerlijk
 kalibreren. Baselines zijn geschikt voor wire weight en aantallen op deze
 fixture; telefoontijden vereisen een nieuwe echte opname met dezelfde code,
 data en netwerklog.
+
+De gemeten CPU/netwerkvarianten staan in `web/perf/calibration.json`, inclusief
+alle fase-p50's, secondehistogrammen en delta's ten opzichte van de historische
+Chrome-opname. De eerste gecontroleerde varianten op rigcommit `d035d74`:
+
+| profiel | page-CPU | decode p50 / p95 | tabel-render p50 | bodybytes |
+| --- | ---: | ---: | ---: | ---: |
+| 4G | 1× | 0,2 / 2,4 ms | 0,2 ms | 1.141.260 |
+| 4G | 4× | 0,3 / 2,0 ms | 0,8 ms | 1.141.260 |
+| 4G | 8× | 0,2 / 1,6 ms | 1,6 ms | 1.141.260 |
+| Fast 3G | 1× | 0,2 / 1,6 ms | 0,2 ms | 1.141.260 |
+| Fast 3G | 4× | 0,3 / 1,2 ms | 0,7 ms | 1.141.260 |
+| Fast 3G | 8× | 0,2 / 1,6 ms | 2,3 ms | 1.141.260 |
+
+Het ±30 %-getrouwheidsdoel is **niet gehaald**. De decoder-p50 wijkt in deze
+fixture circa −99 % af van de oude Chrome-opname (19,1 ms); de hoofddraad
+reageert wel op de throttle. Dit is een kleinere synthgrid (190×230), een
+andere client/codec en een gepauzeerd scenario. De netwerkprofielen blijven
+de gekalibreerde U51-referentie; de oude PO-export biedt geen bytebron om
+een telefoonspecifieke netwerkcalibratie uit af te leiden. De rigclaim is
+reproduceerbare aantallen/bytes en waargenomen fasen op de host, met deze
+expliciete grens voor uitspraken over telefoontijden.
+
+Baseline op 2026-10-07, product-main `234c8ad` plus rig `d035d74`. Alle zes
+combinaties liepen driemaal achter elkaar onder één e2e-slot (18 opnames,
+synchrone exit 0). In **alle** combinaties was de spreiding op decodes én
+bytes 0 %. De tabel gebruikt de opgeslagen run met mediane bodybytes (bij
+gelijke bodies de tweede run); tijden zijn informatief en afgerond op ms.
+JSON bewaart de precieze waarden, faseverdelingen per veld, secondehistogram,
+gemiddelde requestgrootte, bytecategorieën uit beide bronnen en bronnen-top-3.
+
+| profiel | scenario | TTFR | splash weg | ttfh | decodes | bodybytes | requests / Range |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 4G | koud | 1.581 ms | 3.486 ms | 2.522 ms | 113 | 1.141.260 | 79 / 67 |
+| 4G | journey | 1.625 ms | 3.581 ms | 2.553 ms | 207 | 1.280.402 | 111 / 97 |
+| 4G | storm | 1.585 ms | 3.486 ms | 2.587 ms | 280 | 1.741.732 | 107 / 90 |
+| Fast 3G | koud | 4.924 ms | 6.811 ms | 6.659 ms | 113 | 1.141.260 | 79 / 67 |
+| Fast 3G | journey | 4.787 ms | 6.688 ms | 6.524 ms | 207 | 1.280.402 | 111 / 97 |
+| Fast 3G | storm | 4.947 ms | 6.861 ms | 6.718 ms | 280 | 1.741.732 | 107 / 90 |
+
+| profiel / scenario | LoAF | blocking | hoofddraad bezet | late focusrequests |
+| --- | ---: | ---: | ---: | ---: |
+| 4G / koud | 8 | 375 ms | 11,7 % | 0 |
+| 4G / journey | 21 | 472 ms | 20,1 % | 0 |
+| 4G / storm | 13 | 556 ms | 20,2 % | 0 |
+| Fast 3G / koud | 7 | 411 ms | 11,7 % | 0 |
+| Fast 3G / journey | 22 | 445 ms | 21,0 % | 0 |
+| Fast 3G / storm | 15 | 785 ms | 19,3 % | 4 |
+
+De Fast-3G-storm liet vier focusrequests (97.493 B) pas na de volgende
+modusintentie eindigen: twee temperatuur-Ranges, één cloud-frac-Range en
+één druk-Range. Dat is controleerbare transportoverlap; gedeeld gebruik door
+de zichtbare tabel voorkomt een harde claim dat al deze bytes nutteloos zijn.
+De storm kost in deze fixture 600.472 B extra ten opzichte van koud; de
+journey 139.142 B. De RT- en Playwright-totalen waren per soort en per response
+exact gelijk. De ontbrekende U52-meetpunten en Lucht-adapter blijven als
+bevinding in de baselines staan.
 
 ## Live-smoke
 

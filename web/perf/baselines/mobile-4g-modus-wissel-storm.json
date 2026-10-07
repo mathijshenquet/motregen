@@ -1,0 +1,357 @@
+{
+  "schema": 1,
+  "profile": "mobile-4g",
+  "scenario": "modus-wissel-storm",
+  "sourceSha": "d035d7449dd4ce84d0f5d18d34839bea4d63f93b",
+  "capturedAt": "2026-10-07T11:18:54.953Z",
+  "contractHash": "fde7efb61df944e020945467d4d890cde80fa3be77c7d4e11d380e7e91db0b1c",
+  "regressionLimitPercent": 10,
+  "wireBytes": 1741732,
+  "decodes": 280,
+  "metrics": {
+    "milestones": {
+      "ttfrMs": 1585.3,
+      "splashGoneMs": 3486,
+      "ttfhMs": 2586.899999976158,
+      "windowReadyMs": {},
+      "histogramSource": "loadtrace, bemonsterd op DOM-mutatie/100 ms"
+    },
+    "decode": {
+      "phases": {
+        "table-render": {
+          "count": 7,
+          "totalMs": 8.3,
+          "p50Ms": 0.8000000715255737,
+          "p95Ms": 3.899999976158142
+        },
+        "scrubber-paint": {
+          "count": 101,
+          "totalMs": 65.8,
+          "p50Ms": 0.5,
+          "p95Ms": 1.7999999523162842
+        },
+        "basemap-tile": {
+          "count": 1,
+          "totalMs": 148,
+          "p50Ms": 148,
+          "p95Ms": 148
+        },
+        "frame-decode": {
+          "count": 280,
+          "totalMs": 123.4,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 1.600000023841858
+        },
+        "texture-upload": {
+          "count": 13,
+          "totalMs": 16.7,
+          "p50Ms": 1.5,
+          "p95Ms": 4
+        },
+        "wind-step": {
+          "count": 1091,
+          "totalMs": 1661.6,
+          "p50Ms": 1.399999976158142,
+          "p95Ms": 3.100000023841858
+        },
+        "isoline-trace": {
+          "count": 3,
+          "totalMs": 47.5,
+          "p50Ms": 15.600000023841858,
+          "p95Ms": 16.5
+        },
+        "isoline-blit": {
+          "count": 28,
+          "totalMs": 2.9,
+          "p50Ms": 0,
+          "p95Ms": 0.5
+        }
+      },
+      "fields": {
+        "rain_rate": {
+          "count": 66,
+          "totalMs": 25.4,
+          "p50Ms": 0.2999999523162842,
+          "p95Ms": 1
+        },
+        "motion": {
+          "count": 1,
+          "totalMs": 0.1,
+          "p50Ms": 0.10000002384185791,
+          "p95Ms": 0.10000002384185791
+        },
+        "feels_like_c": {
+          "count": 23,
+          "totalMs": 46.2,
+          "p50Ms": 1.5,
+          "p95Ms": 3.799999952316284
+        },
+        "wind_u_ms": {
+          "count": 23,
+          "totalMs": 6.2,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.30000007152557373
+        },
+        "wind_v_ms": {
+          "count": 23,
+          "totalMs": 5.1,
+          "p50Ms": 0.19999992847442627,
+          "p95Ms": 0.30000007152557373
+        },
+        "uv": {
+          "count": 5,
+          "totalMs": 1.8,
+          "p50Ms": 0.3999999761581421,
+          "p95Ms": 0.40000009536743164
+        },
+        "cloud_high": {
+          "count": 9,
+          "totalMs": 3.7,
+          "p50Ms": 0.3999999761581421,
+          "p95Ms": 1
+        },
+        "cloud_mid": {
+          "count": 9,
+          "totalMs": 2.4,
+          "p50Ms": 0.2999999523162842,
+          "p95Ms": 0.3999999761581421
+        },
+        "uv_clear": {
+          "count": 8,
+          "totalMs": 1,
+          "p50Ms": 0.10000002384185791,
+          "p95Ms": 0.20000004768371582
+        },
+        "cloud_low": {
+          "count": 9,
+          "totalMs": 1.3,
+          "p50Ms": 0.10000002384185791,
+          "p95Ms": 0.20000004768371582
+        },
+        "radiation": {
+          "count": 11,
+          "totalMs": 1.4,
+          "p50Ms": 0.10000002384185791,
+          "p95Ms": 0.20000004768371582
+        },
+        "temp_c": {
+          "count": 23,
+          "totalMs": 4.4,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.2999999523162842
+        },
+        "cloud_frac": {
+          "count": 20,
+          "totalMs": 2.5,
+          "p50Ms": 0.10000002384185791,
+          "p95Ms": 0.20000004768371582
+        },
+        "rel_humidity": {
+          "count": 19,
+          "totalMs": 5.2,
+          "p50Ms": 0.2999999523162842,
+          "p95Ms": 0.3999999761581421
+        },
+        "gust_ms": {
+          "count": 23,
+          "totalMs": 4.1,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.30000007152557373
+        },
+        "pressure_hpa": {
+          "count": 8,
+          "totalMs": 12.6,
+          "p50Ms": 1.600000023841858,
+          "p95Ms": 1.7000000476837158
+        }
+      },
+      "decodesPerSecond": [
+        0,
+        16,
+        68,
+        29,
+        0,
+        0,
+        0,
+        0,
+        0,
+        142,
+        7,
+        18,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "wire": {
+      "playwright": {
+        "manifest": {
+          "requests": 1,
+          "bytes": 36513,
+          "meanRequestBytes": 36513
+        },
+        "chunks": {
+          "requests": 90,
+          "bytes": 1252138,
+          "meanRequestBytes": 13912.644444444444
+        },
+        "tiles": {
+          "requests": 1,
+          "bytes": 73,
+          "meanRequestBytes": 73
+        },
+        "other": {
+          "requests": 15,
+          "bytes": 453008,
+          "meanRequestBytes": 30200.533333333333
+        },
+        "total": {
+          "requests": 107,
+          "bytes": 1741732,
+          "meanRequestBytes": 16277.869158878504
+        }
+      },
+      "resourceTiming": {
+        "manifest": {
+          "requests": 1,
+          "bytes": 36513,
+          "meanRequestBytes": 36513
+        },
+        "chunks": {
+          "requests": 90,
+          "bytes": 1252138,
+          "meanRequestBytes": 13912.644444444444
+        },
+        "tiles": {
+          "requests": 1,
+          "bytes": 73,
+          "meanRequestBytes": 73
+        },
+        "other": {
+          "requests": 15,
+          "bytes": 453008,
+          "meanRequestBytes": 30200.533333333333
+        },
+        "total": {
+          "requests": 107,
+          "bytes": 1741732,
+          "meanRequestBytes": 16277.869158878504
+        }
+      },
+      "differences": [
+        {
+          "kind": "manifest",
+          "differencePercent": 0,
+          "requestDifference": 0
+        },
+        {
+          "kind": "chunks",
+          "differencePercent": 0,
+          "requestDifference": 0
+        },
+        {
+          "kind": "tiles",
+          "differencePercent": 0,
+          "requestDifference": 0
+        },
+        {
+          "kind": "other",
+          "differencePercent": 0,
+          "requestDifference": 0
+        },
+        {
+          "kind": "total",
+          "differencePercent": 0,
+          "requestDifference": 0
+        }
+      ],
+      "completeBodyAborts": 18,
+      "contentLengthFallbacks": 8,
+      "findings": [],
+      "rangeRequests": 90,
+      "beforeTtfrBytes": 601359,
+      "beforeTtfhBytes": 1141260
+    },
+    "longFrames": {
+      "count": 13,
+      "totalMs": 1367.8999998569489,
+      "blockingMs": 555.8,
+      "topSources": [
+        {
+          "source": "http://127.0.0.1:4392/assets/index-FfN-FQgA.js FrameRequestCallback",
+          "durationMs": 309.0000001192093
+        },
+        {
+          "source": "http://127.0.0.1:4392/assets/index-FfN-FQgA.js Worker.onmessage",
+          "durationMs": 227.79999995231628
+        },
+        {
+          "source": "http://127.0.0.1:4392/assets/index-FfN-FQgA.js http://127.0.0.1:4392/assets/index-FfN-FQgA.js",
+          "durationMs": 163
+        }
+      ]
+    },
+    "mainThread": {
+      "samples": 3225,
+      "busySamples": 651,
+      "busyPercent": 20.186046511627907,
+      "topSources": [
+        {
+          "functionName": "currentTrailView",
+          "url": "src/core/wind-layer.ts",
+          "selfSamples": 84
+        },
+        {
+          "functionName": "measurePerfPhase",
+          "url": "src/core/perf.ts",
+          "selfSamples": 15
+        },
+        {
+          "functionName": "draw",
+          "url": "src/core/overlay-canvas.ts",
+          "selfSamples": 9
+        }
+      ]
+    },
+    "intent": {
+      "fieldBytes": {
+        "rain_rate": 365437,
+        "uv": 28747,
+        "uv_clear": 6214,
+        "radiation": 22978,
+        "temp_c": 60044,
+        "feels_like_c": 27335,
+        "wind_u_ms": 99212,
+        "wind_v_ms": 91900,
+        "gust_ms": 109109,
+        "rel_humidity": 183591,
+        "cloud_frac": 54775,
+        "cloud_low": 72071,
+        "cloud_mid": 48080,
+        "cloud_high": 61593,
+        "pressure_hpa": 21052
+      },
+      "lateOutsideIntentCount": 0
+    },
+    "findings": [
+      "2 sampleposities zonder sourcemap-positie; oorspronkelijke bundelpositie bewaard",
+      "U52 window-ready-meetpunten ontbreken op deze main; ttfh komt uit de loadtrace",
+      "Deze main heeft nog geen Lucht-knop: bestaande Weer-wolkenfocus gebruikt en expliciet geregistreerd"
+    ]
+  }
+}
