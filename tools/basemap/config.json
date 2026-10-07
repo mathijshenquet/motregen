@@ -1,5 +1,14 @@
 {
   "layers": {
+    "landcover": {
+      "minzoom": 10,
+      "maxzoom": 10,
+      "source": "landcover-10.geojson",
+      "source_columns": [
+        "class",
+        "detail_minzoom"
+      ]
+    },
     "water": {
       "minzoom": 4,
       "maxzoom": 10,
@@ -83,15 +92,6 @@
       "maxzoom": 9,
       "write_to": "landcover",
       "source": "landcover-9.geojson",
-      "source_columns": [
-        "class",
-        "detail_minzoom"
-      ]
-    },
-    "landcover": {
-      "minzoom": 10,
-      "maxzoom": 10,
-      "source": "landcover-10.geojson",
       "source_columns": [
         "class",
         "detail_minzoom"

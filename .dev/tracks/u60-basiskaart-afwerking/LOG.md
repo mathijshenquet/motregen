@@ -222,3 +222,20 @@ Gecomprimeerde bytes; publisher valideert totaal én grootste tegel tegen dezelf
 
 - Bronprofielen z4–9 afgerond; z10/detail-z12 in verwerking. Publisher en nieuwe A/B/perf nog te observeren. Reproduceerbare bronselectie/generalisatie, Natuurlijke Earth-provenance en expliciete U59-bytegate gaan mee in checkpoint; geen claim van geslaagde einddekking.
 - Native landcover vormt de bestemming; de zes lagere profielen schrijven daarin met eigen zoomrange. Lua bewaart class en detail_minzoom voor alle profielbronnen.
+
+## 2026-10-07T21:56:29Z — Native-laagregistratie gecorrigeerd
+
+- Bouw 5: exit 1 bij tilemaker-config, omdat de write_to-bestemming vóór haar lagere profielen geregistreerd moet worden. Alle zeven GIS-bronnen zijn afgerond en hun cachehash is geldig. Bestemming landcover nu eerst in config.json; bouw 6 gestart met ongewijzigde broncache (tmp/basemap/u60/build-revision-6.txt).
+
+## 2026-10-07T21:58:16Z — Native profiel-kandidaat in scratch
+
+- Bouw 6 native + PMTiles verify geslaagd, publisher exit 1: 32.103.846 B tegen absolute productiecap 25 MB. Broncache hergebruikt; tilemaker-bestemming moet eerder in JSON staan dan write_to-profielen, nu gecorrigeerd.
+- Scratch-publicatie revision-profile gestart om alle tegels/schema te valideren en de beeldgate eerst op 390 licht te meten; nog geen A/B-receipt. Koude kaartbytes blijven de expliciete U59 +25  0ate.
+
+## 2026-10-07T22:03:33Z — WIP-checkpoint op queue-instructie
+
+- Kandidatenmetingen blijven afgekeurd: profiel390 licht exit 1. Groen Utrecht z9 19,14→19,14 %, kust 2,02→2,01 %, IJsselmeer 3,35→3,76 %, z7 13,86→13,94 %, z10 18,46→18,41 %, z12 7,13→7,97 %; start 7,90→6,02 % mist dekking. Grijs start15,71→15,39 % goed; kust2,58→3,54 %, z7 9,16→11,20 %, z10 23,50→27,16 % nog buiten gate.
+- Geometrisch verschil met Liberty benoemt ontbrekende Naturpark Hohes Venn-Eifel, Vulkaneifel en Rhein-Ahr-Eifel. Rheinland-Pfalz-extract wordt toegevoegd om volledige beschermde gebieden te herstellen. Geen willekeurige vergroting van groen.
+- Urban wordt bij bronselectie gesplitst: residential en overige bebouwing; overige verschijnt grof vanaf z10. Vervolg: Liberty-min-area/min-hole-area na urban-union en sterkere z10-simplificatie. Z12-green-detail blijft behouden.
+- Herstel bij vorig kopje: de printf-uitvoer vervormde de tekst; bedoelde gate blijft koude kaartbytes U59 +25 %. Profiel-kandidaat z5最大tegel 36.331 B, overige archiefgroei zit grotendeels in hogere zooms; nog geen mobiel rig-receipt.
+- Volledige WIP nu gecommit/gepusht op expliciete queue-instructie. Eindparen/rig/docs/ready nog open; werk gaat door.

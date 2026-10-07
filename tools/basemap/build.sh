@@ -4,7 +4,7 @@ cd "$(dirname "$0")/../.."
 scratch="${MOTREGEN_BASEMAP_SCRATCH:-tmp/basemap}"
 mkdir -p "$scratch/sources" "$scratch/build"
 
-for region in netherlands belgium germany/nordrhein-westfalen germany/niedersachsen; do
+for region in netherlands belgium germany/nordrhein-westfalen germany/niedersachsen germany/rheinland-pfalz; do
   name="${region##*/}"
   source="$scratch/sources/$name.osm.pbf"
   if [ ! -f "$source" ]; then
@@ -31,7 +31,7 @@ if [ ! -f "$scratch/build/region.osm.pbf" ] || [ "$filter_hash" != "$previous_fi
   osmium extract --bbox 2.3108,50.3256,7.4192,53.6844 --strategy smart "$scratch/build/filtered.osm.pbf" -o "$scratch/build/region.osm.pbf" --overwrite
   printf '%s\n' "$filter_hash" > "$scratch/build/filter.sha256"
 fi
-parts_hash="$(sha256sum tools/basemap/landcover.mts tools/basemap/sources.sha256 "$scratch/build/filter.sha256" | sha256sum | cut -d ' ' -f 1)"
+parts_hash="$(sha256sum tools/basemap/landcover.mts tools/basemap/geometry.mts tools/basemap/sources.sha256 "$scratch/build/filter.sha256" | sha256sum | cut -d ' ' -f 1)"
 previous_parts_hash="$(cat "$scratch/build/landcover-parts.sha256" 2>/dev/null || true)"
 if [ ! -f "$scratch/build/landcover-parts.gpkg" ] || [ "$parts_hash" != "$previous_parts_hash" ]; then
   osmium export "$scratch/build/filtered.osm.pbf" --geometry-types polygon -f geojsonseq \
