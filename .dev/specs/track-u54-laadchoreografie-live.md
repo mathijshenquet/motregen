@@ -51,3 +51,27 @@ dat je zelf niet kijkt (les U47 2026-10-07: een band die op y=0 begon viel de wo
 ## Afbakening
 
 Geen tijdsneden/contract (MIP-20 p2). Leesbaarheidsbar: geen één-letternamen.
+
+## Aanvulling (PO 2026-10-07, 18:50): rig als PO-telefoon, autonome lus naast Buienradar
+
+Mandaat van de PO: "maak een rig die mijn mobiel nabootst, itereer daarop en houd hem naast
+Buienradar. Alles zonder waarneembaar effect voor de gebruiker mag meteen door." Dus:
+
+A. **Profiel `po-android`** in de rig (`web/e2e/profiles.ts` + `perf/scenarios.json`): kalibreer
+   CPU-rem, netwerk en viewport zó dat de rig de PO-opnames in `~/motregen-profiles/*.json`
+   reproduceert (Android Chrome, UA "Linux; Android 10; K", 390 px): decode p50 ≈ 21 ms,
+   basemap-tile p50 ≈ 0,7–1,0 s, LoAF-profiel van de koude run 16:27:59. Leg de kalibratie vast
+   (welke knop, welke afwijking per meetpunt) in `docs/perf.md`; de rig hoeft niet exact te zijn,
+   wel in dezelfde rangorde van kosten. Let op: CDP-throttle remt workers niet — compenseer met
+   de gemeten decode-tijd uit de opnames als weegfactor in het rapport, niet door te faken.
+B. **Lus**: meet `ttfp`, `ttfp-ref` (Buienradar), LoAF eerste 12 s, decodes, wire; verbeter één
+   ding; meet opnieuw; commit met vóór/ná in de boodschap; LOG-regel per iteratie. Zonder
+   PO-akkoord mag alles wat **geen waarneembare verandering** geeft (laadvolgorde, planner, worker-
+   verdeling, caching, bundel, textuurformaten, tile-strategie samen met U59). Alles wat de
+   gebruiker wél ziet (splash, kader, fog, speelregel-gedrag, kaartuiterlijk) blijft een stap
+   met PO-akkoord in de pane, zoals de spec al zegt. Twijfel = PO-stap.
+C. **Volgorde**: nu stap 0/1 (meten) + A (kalibratie) + B op alles buiten `HistogramScrubber.tsx`
+   en de tabel (U58 werkt daar en wordt eerst gemerged; merge daarna main en ga door). Stop niet
+   na één iteratie: de lus loopt tot `ttfp ≤ ttfp-ref` of tot je eerlijk kunt zeggen waarom niet.
+D. **Rapport per iteratie** in de LOG als tabel: ttfp, ttfp-ref, LoAF 12 s, decodes, wire, en
+   het verschil met de vorige regel; plus de PO-opname-vergelijking als die er is.
