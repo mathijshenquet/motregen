@@ -209,6 +209,7 @@
     features = {name: value["pct"] for name, value in day["features"].items()}
     assert features["search"] == 50 and features["geo"] == 25 and features["fav"] == 25, features
     assert features["play"] == 25 and features["about"] == 0, features
+    assert features["pinAir"] == 25 and features["share"] == 25, features
     assert day["dimensions"]["range"]["none"] == {"n": 2, "pct": 50}, day
     assert day["dimensions"]["coarse"]["true"]["n"] == 2, day
     assert day["dimensions"]["unit"]["kmh"] == {"n": 1, "pct": 25}, day

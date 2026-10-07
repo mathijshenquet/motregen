@@ -17,7 +17,7 @@ import { DayNightLayer } from './core/day-night-layer'
 
 const DAY_NIGHT_ENABLED = false
 import { buildHourlyForecast, isPassiveRow, PASSIVE_FORECAST_HOURS } from './core/forecast'
-import { contextOpacity, FOCUS_DIM, FocusMode, mapSaturation, type FocusKind, windFocusIntensity } from './core/focus-mode'
+import { contextOpacity, DEFAULT_FOCUS_MODE, FOCUS_DIM, FocusMode, mapSaturation, rainFocusOpacity, type FocusKind, windFocusIntensity } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import { latestRadarEpoch, type RefreshState } from './core/freshness'
 import { adaptiveIsobarStep, PRESSURE_EXTREMUM_KM, pressureExtrema, blendFrames, blurField, DEFAULT_ISOLINE_TUNING, fieldRangeInView, ISOBAR_STEP_HPA, isolineBlurPasses, isolineFrameWeights, type WeightedFrame, ISOLINE_EDGE_FADE_MS, ISOLINE_FILL_OPACITY, ISOLINE_GRADIENT, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineKind, type IsolineTuning } from './core/isolines'
@@ -305,6 +305,10 @@ export default function App() {
   // eigen tabelscroller onder de sticky scrubber werkt daar niet prettig).
   const inlineHistoryMedia = matchMedia('(min-width: 960px) and (pointer: fine)')
   const [historyInline, setHistoryInline] = createSignal(inlineHistoryMedia.matches)
+  const tableViewMedia = matchMedia('(max-width: 959px) and (orientation: portrait)')
+  const [tableViewAvailable, setTableViewAvailable] = createSignal(tableViewMedia.matches)
+  const [tableOpen, setTableOpen] = createSignal(false)
+  const tableViewOpen = createMemo(() => tableViewAvailable() && tableOpen())
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
   const [windUnit, setWindUnit] = createSignal<WindUnit>(storedWindUnit())
@@ -323,12 +327,16 @@ export default function App() {
   let temperatureRangeKey = ''
   const [focus, setFocus] = createSignal(0)
   const [windFocus, setWindFocus] = createSignal(0)
-  const [cloudFocus, setCloudFocus] = createSignal(0)
+  const [airFocus, setAirFocus] = createSignal(0)
   const [isobarStep, setIsobarStep] = createSignal(ISOBAR_STEP_HPA)
-  const [focusPinned, setFocusPinned] = createSignal<FocusKind>()
   const [isolineCount, setIsolineCount] = createSignal(0)
-  const focusMode = new FocusMode<FocusKind>(['temperature', 'wind', 'clouds'], (mode, value) => (mode === 'wind' ? setWindFocus : mode === 'clouds' ? setCloudFocus : setFocus)(value),
+  const focusMode = new FocusMode<FocusKind>(['weather', 'air', 'temperature', 'wind'], DEFAULT_FOCUS_MODE, (mode, value) => {
+    if (mode === 'air') setAirFocus(value)
+    else if (mode === 'wind') setWindFocus(value)
+    else if (mode === 'temperature') setFocus(value)
+  },
     () => reducedMotion.matches)
+  const [focusPinned, setFocusPinned] = createSignal<FocusKind>(focusMode.pinned())
   const [isobarCount, setIsobarCount] = createSignal(0)
   // Niet-reactief op de cursor: de frame-loop zet de dekking per tik (U41).
   const isolineCoverage = () => untrack(() => timelineCoverage(feelsLikeTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
@@ -346,17 +354,18 @@ export default function App() {
   // Bewolkingssluier (PO 2026-09-25 live, U34): cloud_frac als zachte grijswitte vulling, zonder lijnen of
   // labels, alleen in de modus Lucht en pas dan geladen. Wijkt af van MIP-4 ronde 3 ("nooit als kaartlaag").
   const cloudIsolines = isolineSet({
-    kind: 'cloud', layerId: 'motregen-cloud-veil', timeline: cloudTimeline, focus: cloudFocus, active: createMemo(() => cloudFocus() > 0),
+    kind: 'cloud', layerId: 'motregen-cloud-veil', timeline: cloudTimeline, focus: airFocus, active: createMemo(() => airFocus() > 0),
     step: () => CLOUD_VEIL_STEP, style: cloudVeilStyle, labelFade: () => undefined, coverage: () => untrack(() => timelineCoverage(cloudTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS)), setCount: () => undefined,
   })
   const isolineSets = [temperatureIsolines, pressureIsolines, cloudIsolines]
   // Verborgen tab: afspelen en wind staan stil (zichtbaarheid 0 stopt de windlus; de trails blijven).
   const [pageVisible, setPageVisible] = createSignal(document.visibilityState !== 'hidden')
+  const mapRendering = createMemo(() => pageVisible() && !tableViewOpen())
   const [userIdle, setUserIdle] = createSignal(false)
   const focusedWindTuning = createMemo(() => ({
     ...windTuning(),
     intensity: windFocusIntensity(windTuning().intensity, windFocus()),
-    visibility: pageVisible() ? WIND_PARAMETERS.visibility * contextOpacity(focus(), FOCUS_DIM) : 0,
+    visibility: mapRendering() ? WIND_PARAMETERS.visibility * contextOpacity(focus(), FOCUS_DIM) : 0,
     maxFps: userIdle() ? WIND_IDLE_FPS : WIND_MAX_FPS,
   }))
   const [mapReady, setMapReady] = createSignal(false)
@@ -404,6 +413,12 @@ export default function App() {
     const inlineHistoryChanged = (event: MediaQueryListEvent) => setHistoryInline(event.matches)
     inlineHistoryMedia.addEventListener('change', inlineHistoryChanged)
     onCleanup(() => inlineHistoryMedia.removeEventListener('change', inlineHistoryChanged))
+    const tableViewChanged = (event: MediaQueryListEvent) => {
+      setTableViewAvailable(event.matches)
+      if (!event.matches) setTableOpen(false)
+    }
+    tableViewMedia.addEventListener('change', tableViewChanged)
+    onCleanup(() => tableViewMedia.removeEventListener('change', tableViewChanged))
     try {
       const data = await fetchManifest()
       perf.setManifestGenerated(data.generated)
@@ -595,7 +610,7 @@ export default function App() {
     windLayer?.setTuning(tuning)
   })
 
-  createEffect(() => applyFocus(focus()))
+  createEffect(() => applyFocus(focus(), windFocus()))
   createEffect(() => applyMapSaturation(mapSaturation(focus())))
   for (const set of isolineSets) {
     createEffect(() => applyIsolineOpacity(set))
@@ -627,6 +642,7 @@ export default function App() {
    * blijven alleen scrubber, klok en tabel (op frame-index/minuut).
    */
   function drawLayers(): void {
+    if (!mapRendering()) return
     const epoch = selectedEpoch()
     const ready = mapReady()
     dayNightLayer?.setEpoch(epoch)
@@ -647,7 +663,7 @@ export default function App() {
   }
   createEffect(() => {
     const loadStage = pointLoadStage()
-    if (!playing() || !pageVisible() || !mapReady() || (initialPickStarted && (loadStage === 'initial' || loadStage === 'direct'))) return
+    if (!playing() || !mapRendering() || !mapReady() || (initialPickStarted && (loadStage === 'initial' || loadStage === 'direct'))) return
     const horizonHours = timeHorizonHours()
     const frames = timeline()
     if (frames.length < 2) return
@@ -704,9 +720,19 @@ export default function App() {
     cursor()
     timeline()
     mapReady()
+    mapRendering()
     for (const set of isolineSets) { set.active(); set.step() }
+    if (!mapRendering()) return
     if (playing() && frameLoopDrives) return
     untrack(drawLayers)
+  })
+
+  createEffect(() => {
+    if (tableViewOpen()) return
+    requestAnimationFrame(() => {
+      map?.resize()
+      if (mapReady()) drawLayers()
+    })
   })
   const cursorFrame = createMemo(() => Math.round(cursor()))
   // Klok en UV-chip tonen minuten: per afspeeltik hoeven ze niet opnieuw.
@@ -768,7 +794,7 @@ export default function App() {
     if (SUN_ICONS_ENABLED && (radiationTimeline().length || uvTimeline().length)) attachSunLayer()
     if (hasTemperature()) attachTemperatureLayer()
     attachMapFrame(grid)
-    applyFocus(focus())
+    applyFocus(focus(), windFocus())
     // Na een stijlwissel met vastgezette focus loopt het isolijn-effect niet vanzelf opnieuw.
     for (const set of isolineSets) if (set.active() && mapReady()) { void showIsolineField(set); void showIsolines(set) }
     void showFrame()
@@ -1005,11 +1031,10 @@ export default function App() {
     map.addLayer(temperatureLayer(mapTheme()), beforeId)
   }
 
-  function applyFocus(value: number): void {
+  function applyFocus(value: number, windValue: number): void {
     if (!map) return
     const context = contextOpacity(value, FOCUS_DIM)
-    // In de temperatuurmodus verdwijnt de regenlaag helemaal (PO 2026-09-25 live; was gedimd tot FOCUS_DIM).
-    layer?.setOpacity(1 - value)
+    layer?.setOpacity(rainFocusOpacity(value, windValue))
     rainOverlay?.triggerRepaint()
     if (map.getLayer('motregen-sun')) map.setPaintProperty('motregen-sun', 'text-opacity', ['*', ['get', 'opacity'], context])
     applyIsolineOpacity(temperatureIsolines)
@@ -1326,22 +1351,18 @@ export default function App() {
     labels.update({ width: layer.grid.width, height: layer.grid.height, fields: fields as PreparedField[], weights: weights.map(({ weight }) => weight) }, layer.rings)
   }
 
-  /** Vastzetten sluit de andere modus uit; opnieuw tikken op dezelfde kop maakt los. */
-  function toggleFocusPin(mode: FocusKind): void {
-    const previous = focusPinned()
-    if (previous) focusMode.set(previous, 'pinned', false)
-    const pinned = previous === mode ? undefined : mode
-    setFocusPinned(pinned)
-    if (pinned) focusMode.set(pinned, 'pinned', true)
-    if (pinned === 'wind' || pinned === 'temperature') usage.mark(pinned === 'wind' ? 'pinWind' : 'pinFeel')
+  function pinFocusMode(mode: FocusKind): void {
+    if (!focusMode.pin(mode)) return
+    setFocusPinned(mode)
+    if (mode === 'air') usage.mark('pinAir')
+    else if (mode === 'wind') usage.mark('pinWind')
+    else if (mode === 'temperature') usage.mark('pinFeel')
   }
 
   function applyPresetMode(mode: Parameters<typeof modeForFocus>[0]): void {
-    const previous = focusPinned()
-    if (previous) focusMode.set(previous, 'pinned', false)
     const next = modeForFocus(mode)
+    focusMode.pin(next)
     setFocusPinned(next)
-    if (next) focusMode.set(next, 'pinned', true)
   }
 
   function attachSunLayer(): void {
@@ -1916,8 +1937,8 @@ export default function App() {
     batch(() => {
       setWindTuning({ ...DEFAULT_WIND_TUNING })
       setIsolineTuning({ ...DEFAULT_ISOLINE_TUNING })
-      const pinned = focusPinned()
-      if (pinned) toggleFocusPin(pinned)
+      focusMode.pin(DEFAULT_FOCUS_MODE)
+      setFocusPinned(DEFAULT_FOCUS_MODE)
     })
     window.clearTimeout(resetNoticeTimer)
     setResetNotice(true)
@@ -2057,11 +2078,31 @@ export default function App() {
   const cursorUvChip = createMemo(() => uvChipLabel(cursorUv()))
   const hasTemperature = createMemo(() => feelsLikeTimeline().length > 0)
   const hasWeatherIcons = createMemo(() => cloudTimeline().length > 0)
-  const hasHumidity = createMemo(() => humidityTimeline().length > 0)
   const hasWind = createMemo(() => windUFrames().length > 0 && windVFrames().length > 0)
+  let tablePeekStart: { pointerId: number; y: number } | undefined
 
-  return <main class="app-shell">
-    <section class="map-shell" aria-label="Regenkaart van Nederland" data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
+  function startTablePeekGesture(event: PointerEvent): void {
+    if (tableViewOpen() || !tableViewAvailable()) return
+    tablePeekStart = { pointerId: event.pointerId, y: event.clientY }
+  }
+
+  function moveTablePeekGesture(event: PointerEvent): void {
+    if (tablePeekStart?.pointerId !== event.pointerId || tablePeekStart.y - event.clientY < 14) return
+    tablePeekStart = undefined
+    setTableOpen(true)
+  }
+
+  function finishTablePeekGesture(event: PointerEvent): void {
+    if (tablePeekStart?.pointerId === event.pointerId) tablePeekStart = undefined
+  }
+
+  function openTableFromPeek(): void {
+    if (tableViewOpen() || !tableViewAvailable()) return
+    setTableOpen(true)
+  }
+
+  return <main class="app-shell" classList={{ 'table-view-open': tableViewOpen() }}>
+    <section class="map-shell" aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainFocusOpacity(focus(), windFocus()).toFixed(2)} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
       <div ref={mapElement} class="map" />
       <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() }} aria-hidden={mapReady()}>
         <div class="map-splash-veil" />
@@ -2130,10 +2171,26 @@ export default function App() {
         onPlayPressed={() => usage.mark('play')}
         clouds={{ timeline: cloudTimelines(), values: cloudValues() }}
         wind={{ timeline: windUFrames(), speed: windSpeedSeries(), gustTimeline: gustTimeline(), gust: gustSeries(), unit: windUnit() }}
-        mix={{ wind: windFocus(), clouds: cloudFocus(), temperature: focus() }}
+        mix={{ wind: windFocus(), air: airFocus(), temperature: focus() }}
         temperature={{ timeline: feelsLikeTimeline(), values: feelsLikeSeries(), airTimeline: tempTimeline(), air: temperatureSeries(), stops: temperatureRange() && paletteStops(temperatureRange()!) }}
       />
-      <section class="forecast-panel">
+      <section
+        id="forecast-table-view"
+        class="forecast-panel"
+        onClick={openTableFromPeek}
+        onPointerDown={startTablePeekGesture}
+        onPointerMove={moveTablePeekGesture}
+        onPointerUp={finishTablePeekGesture}
+        onPointerCancel={finishTablePeekGesture}
+      >
+        <button
+          type="button"
+          class="table-view-handle"
+          aria-expanded={tableViewOpen()}
+          aria-controls="forecast-table-view"
+          aria-label={tableViewOpen() ? 'Tabel sluiten en kaart tonen' : 'Tabel openen'}
+          onClick={(event) => { event.stopPropagation(); setTableOpen((open) => !open) }}
+        ><span aria-hidden="true" /></button>
         <div class="table-scroll">
           <ForecastTable
             rows={forecast()}
@@ -2143,7 +2200,7 @@ export default function App() {
             }}
             location={location()}
             windUnit={windUnit()}
-            columns={{ weather: hasWeatherIcons(), uv: uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), humidity: hasHumidity(), wind: hasWind() }}
+            columns={{ weather: hasWeatherIcons(), air: hasWeatherIcons() || uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), wind: hasWind() }}
             loadedUntil={pointLoadStage() === 'complete' ? Number.POSITIVE_INFINITY : manifestNow() + PASSIVE_FORECAST_HOURS * 3_600_000}
             historyInline={historyInline()}
             historyOpen={historyOpen()}
@@ -2156,7 +2213,7 @@ export default function App() {
               setHistoryOpen((open) => !open)
               void loadHistoryRows()
             }}
-            focus={{ pinned: focusPinned(), onTogglePin: toggleFocusPin, onFocus: (mode, source, active) => {
+            focus={{ pinned: focusPinned(), onPin: pinFocusMode, onFocus: (mode, source, active) => {
               if (mode === 'temperature' && source === 'table' && active) usage.mark('hover')
               focusMode.set(mode, source, active)
             } }}

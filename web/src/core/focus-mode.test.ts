@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_WIND_TUNING } from './wind-layer'
-import { contextOpacity, easeOutCubic, FocusMode, focusValue, retargetFocus, windFocusIntensity, type FocusKind } from './focus-mode'
+import { contextOpacity, DEFAULT_FOCUS_MODE, easeOutCubic, FocusMode, focusValue, rainFocusOpacity, retargetFocus, windFocusIntensity, type FocusKind } from './focus-mode'
 
 describe('focus tween math', () => {
   it('eases out and clamps', () => {
@@ -41,6 +41,12 @@ describe('focus tween math', () => {
     expect(contextOpacity(0.5, 0.25)).toBeCloseTo(0.625)
   })
 
+  it('keeps rain in weather, halves it in wind and hides it in temperature', () => {
+    expect(rainFocusOpacity(0, 0)).toBe(1)
+    expect(rainFocusOpacity(0, 1)).toBe(0.5)
+    expect(rainFocusOpacity(1, 0)).toBe(0)
+  })
+
   it('brings the damped wind back to full at full wind focus', () => {
     // PO 2026-09-25 live (U34): default 0,5, windfocus 0,8.
     expect(windFocusIntensity(DEFAULT_WIND_TUNING.intensity, 0)).toBe(0.5)
@@ -53,8 +59,8 @@ describe('focus mode sources', () => {
   function harness(reducedMotion = false) {
     let now = 0
     const frames: Array<(time: number) => void> = []
-    const values: Record<FocusKind, number[]> = { temperature: [], wind: [], clouds: [] }
-    const focus = new FocusMode<FocusKind>(['temperature', 'wind'], (mode, value) => values[mode].push(value),
+    const values: Record<FocusKind, number[]> = { weather: [], air: [], temperature: [], wind: [] }
+    const focus = new FocusMode<FocusKind>(['weather', 'air', 'temperature', 'wind'], DEFAULT_FOCUS_MODE, (mode, value) => values[mode].push(value),
       () => reducedMotion, () => now, (callback) => frames.push(callback), () => undefined)
     const advance = (ms: number) => {
       now += ms
@@ -64,11 +70,22 @@ describe('focus mode sources', () => {
     return { focus, values, frames, advance }
   }
 
+  it('starts with weather pinned and never removes the active pin', () => {
+    const { focus } = harness(true)
+    expect(focus.pinned()).toBe('weather')
+    expect(focus.active()).toBe('weather')
+    expect(focus.pin('weather')).toBe(false)
+    expect(focus.pinned()).toBe('weather')
+    expect(focus.pin('wind')).toBe(true)
+    expect(focus.pinned()).toBe('wind')
+    expect(focus.active()).toBe('wind')
+  })
+
   it('stays focused while any source of the mode is active and animates back out', () => {
     const { focus, values, frames, advance } = harness()
     focus.set('temperature', 'keyboard', true)
     focus.set('temperature', 'table', true)
-    advance(300)
+    advance(500)
     expect(values.temperature.at(-1)).toBe(1)
     expect(frames).toHaveLength(0)
     focus.set('temperature', 'keyboard', false)
@@ -85,7 +102,7 @@ describe('focus mode sources', () => {
 
   it('lets the last activated mode win and hands back when it leaves', () => {
     const { focus, values, advance } = harness()
-    focus.set('temperature', 'pinned', true)
+    focus.pin('temperature')
     advance(300)
     expect(focus.active()).toBe('temperature')
     focus.set('wind', 'table', true)

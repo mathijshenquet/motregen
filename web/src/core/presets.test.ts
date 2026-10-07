@@ -23,8 +23,8 @@ describe('URL presets', () => {
   })
 
   it('maps stable URL modes to the current focus implementation', () => {
-    expect(modeForFocus('weather')).toBeUndefined()
-    expect(modeForFocus('air')).toBe('clouds')
+    expect(modeForFocus('weather')).toBe('weather')
+    expect(modeForFocus('air')).toBe('air')
     expect(modeForFocus('feels')).toBe('temperature')
     expect(modeForActiveFocus('wind')).toBe('wind')
     expect(modeForActiveFocus(undefined)).toBe('weather')

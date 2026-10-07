@@ -9,6 +9,7 @@ import { WIND_UNITS, type WindUnit } from './weather'
 export const USAGE_FEATURES = [
   'pinFeel', // modus gevoel vastgezet
   'pinWind', // modus wind vastgezet
+  'pinAir', // modus lucht vastgezet
   'hover', // isolijnfocus via hover op de kolom Gevoel
   'search', // zoekresultaat gekozen
   'geo', // geolocatie gelukt
@@ -35,7 +36,7 @@ export type UsageTheme = typeof USAGE_THEMES[number]
 export type UsageWidth = typeof USAGE_WIDTHS[number]
 export type UsageDuration = typeof USAGE_DURATIONS[number]
 
-/** Alleen gebruikte features staan erin (als true): een ontbrekend veld is "niet gebruikt", zo blijft het baken < 200 B. */
+/** Alleen gebruikte features staan erin (als true): een ontbrekend veld is "niet gebruikt"; ook de worst case blijft < 300 B. */
 export const USAGE_SCHEMA_VERSION = 2
 
 export type UsageBody = Partial<Record<UsageFeature, true>> & {

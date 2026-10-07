@@ -20,6 +20,7 @@ beschrijft wat er precies wordt opgeslagen, hoe lang, en waar het rapport staat.
 | `v` | `2` | contractversie; het rapport telt alleen `v: 2` |
 | `pinFeel` | `true` of afwezig | modus gevoel vastgezet |
 | `pinWind` | `true` of afwezig | modus wind vastgezet |
+| `pinAir` | `true` of afwezig | modus lucht vastgezet |
 | `hover` | `true` of afwezig | isolijnfocus via hover op de kolom Gevoel |
 | `search` | `true` of afwezig | zoekresultaat gekozen |
 | `geo` | `true` of afwezig | geolocatie gelukt (nooit de plaats) |

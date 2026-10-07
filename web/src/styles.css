@@ -509,18 +509,22 @@ button { color: inherit; cursor: pointer; }
 .cloud-mid stop { stop-color: var(--cloud-mid); }
 .cloud-low stop { stop-color: var(--cloud-low); }
 .cloud-total stop { stop-color: var(--cloud-mid); }
-.uv-heading { text-align: left; }
-.uv-cell { width: 74px; min-width: 64px; font-size: 12px; text-align: left; }
+.air-cell { font-size: 12px; text-align: left; }
+.air-cell .uv-bar { min-width: 0; }
+.air-cell .uv-bar-track { min-width: 0; }
+.air-uv-placeholder { color: var(--muted); text-align: center; }
 .moon-reading { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .moon-reading small { font-size: 10px; font-weight: 650; }
 .moon-glyph { flex: none; width: 18px; height: 18px; overflow: visible; }
 .moon-glow { fill: #f6e9b8; }
-.moon-maria ellipse { fill: #9d916c; opacity: .22; }
+.moon-texture { filter: sepia(.12) saturate(.72) brightness(1.08); }
+.moon-earthshine { opacity: .16; filter: grayscale(1) brightness(.62) contrast(1.08); }
 /* Aardschijn: de donkere kant net zichtbaar, op licht en donker thema. */
 .moon-night-core { stop-color: #53626a; }
 .moon-night-edge { stop-color: #37444b; }
 :root[data-theme="dark"] .moon-night-core { stop-color: #2c3a41; }
 :root[data-theme="dark"] .moon-night-edge { stop-color: #1b262c; }
+:root[data-theme="dark"] .moon-earthshine { opacity: .2; }
 :root:not([data-theme="dark"]) .moon-glow { fill: #e8d98f; }
 .weather-icon.dense .weather-cloud { fill: #b9c7cd; stroke: #6d828c; }
 :root[data-theme="dark"] .weather-icon.dense .weather-cloud { fill: #45575f; stroke: #8fa4ad; }
@@ -573,6 +577,7 @@ button { color: inherit; cursor: pointer; }
 .x-axis span.midnight { color: var(--text); font-weight: 700; }
 
 .forecast-panel { padding: 0 0 24px; background: var(--surface); }
+.table-view-handle { display: none; }
 /* Rijtinten lopen tot de paneelrand; de tekst lijnt met de scrubber (16 px, desktop 24 px). */
 .table-scroll { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
@@ -581,6 +586,7 @@ th:first-child { padding-left: 0; text-align: left; }
 td { padding: 10px 6px; border-bottom: 1px solid var(--line); font-size: 13px; text-align: right; white-space: nowrap; }
 td:first-child { padding-left: 0; text-align: left; }
 .time-label strong { display: inline-block; min-width: 44px; font-size: 13px; }
+.forecast-table { table-layout: fixed; }
 .forecast-table th { padding: 6px 2px 5px; vertical-align: bottom; letter-spacing: 0; text-align: center; text-transform: none; }
 .forecast-table th:first-child { padding-left: 0; text-align: left; }
 .column-mode { display: inline-flex; min-width: 44px; flex-direction: column; align-items: center; gap: 3px; padding: 6px 6px 5px; border: 0; border-radius: 10px; background: none; color: var(--muted); font: inherit; font-size: 12px; font-weight: 700; line-height: 1; }
@@ -599,17 +605,16 @@ button.column-mode { width: 100%; cursor: pointer; }
 .forecast-table { --hover-tint: linear-gradient(color-mix(in srgb, var(--accent-soft) 22%, transparent), color-mix(in srgb, var(--accent-soft) 22%, transparent)); }
 .forecast-table[data-hover="temperature"]:not([data-mode="temperature"]) :is(.temperature-heading, .temperature-cell),
 .forecast-table[data-hover="wind"]:not([data-mode="wind"]) :is(.wind-heading, .wind-cell),
-.forecast-table[data-hover="clouds"]:not([data-mode="clouds"]) :is(.weather-heading, .weather-cell) { background-image: var(--hover-tint); }
-.forecast-table[data-hover="temperature"] .temperature-focus, .forecast-table[data-hover="wind"] .wind-focus, .forecast-table[data-hover="clouds"] .clouds-focus { color: var(--accent); }
+.forecast-table[data-hover="air"]:not([data-mode="air"]) :is(.air-heading, .air-cell),
+.forecast-table[data-hover="weather"]:not([data-mode="weather"]) :is(.weather-heading, .weather-cell) { background-image: var(--hover-tint); }
+.forecast-table[data-hover="temperature"] .temperature-focus, .forecast-table[data-hover="wind"] .wind-focus, .forecast-table[data-hover="air"] .air-focus, .forecast-table[data-hover="weather"] .weather-focus { color: var(--accent); }
 .forecast-table td { text-align: center; }
 .forecast-table :is(th, td):first-child { padding-left: var(--panel-inset, 16px); text-align: left; }
-.forecast-table :is(th, td):last-child { padding-right: var(--panel-inset, 16px); }
-/* Uur + weer krimpt tot zijn inhoud; de rest van de breedte verdeelt zich over de gecentreerde kolommen. */
-.forecast-table .weather-cell { width: 1%; }
+.forecast-table :is(th, td):last-child { padding-right: 2px; }
 .forecast-table tbody tr:not(.sun-row):not(.history-toggle-row) { cursor: pointer; }
-/* Uur zo smal als de tijd, kop links gelijk met de tijden (PO 2026-09-25 live). */
-.forecast-table :is(.time-cell, .time-heading) { width: 1%; padding-right: 14px; text-align: left; white-space: nowrap; }
-.time-heading .column-mode { align-items: flex-start; padding-left: 0; }
+/* Tijd op inhoudsbreedte; de vier overige kolommen delen door table-layout: fixed de rest gelijk. */
+.forecast-table :is(.time-cell, .time-heading) { width: calc(var(--panel-inset, 16px) + 58px); padding-right: 14px; text-align: left; white-space: nowrap; }
+.time-heading-label { height: 46px; display: flex; align-items: flex-end; padding-bottom: 5px; color: var(--muted); font-size: 10px; font-weight: 700; line-height: 1; }
 .time-label { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; padding: 0; border: 0; color: inherit; background: none; font: inherit; text-align: left; cursor: pointer; }
 .time-label:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 .weather-glyph { display: flex; min-width: 38px; flex-direction: column; align-items: center; }
@@ -659,7 +664,8 @@ td small { color: var(--muted); font-size: 9px; }
 .uv-bar-bare { display: block; }
 .uv-bar-bare .uv-bar-track { min-width: 0; height: 6px; }
 .uv-bar-bare :is(.uv-bar-fill, .uv-bar-clear) { min-width: 6px; }
-.forecast-table tr.sun-row td { padding: 3px 0 3px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .04em; text-align: center; }
+.forecast-table tr.sun-row td { padding: 6px 0; border-bottom: 0; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .04em; text-align: center; }
+.forecast-table tr.before-sun-row td { border-bottom: 0; }
 .sun-glyph { display: inline-block; width: 22px; height: 11px; margin: 0 6px 0 0; vertical-align: -1px; overflow: visible; }
 .sun-glyph-rays { fill: none; stroke: #e0a400; stroke-linecap: round; stroke-width: 1.1; }
 .sun-glyph-horizon { fill: none; stroke: var(--muted); stroke-linecap: round; stroke-width: 1.2; }
@@ -882,8 +888,8 @@ td small { color: var(--muted); font-size: 9px; }
    op Firefox onder de onderste URL-balk. Bij scrollen plakt de koprij, niet meer de scrubber. */
 :root {
   --scrubber-mobile: 236px;
-  --table-head-mobile: 58px;
-  --map-mobile: max(52svh, calc(100svh - var(--scrubber-mobile) - var(--table-head-mobile) - env(safe-area-inset-bottom)));
+  --table-peek-mobile: 146px;
+  --map-mobile: max(42svh, calc(100svh - var(--scrubber-mobile) - var(--table-peek-mobile) - env(safe-area-inset-bottom)));
 }
 @media (max-width: 959px) {
   .app-shell { display: block; }
@@ -903,7 +909,7 @@ td small { color: var(--muted); font-size: 9px; }
   .scrub-surface { flex: 1 1 auto; height: auto; min-height: 0; }
   .forecast-panel { padding: 0 0 calc(24px + env(safe-area-inset-bottom)); }
   .forecast-table :is(th, td):first-child { padding-left: max(16px, env(safe-area-inset-left)); }
-  .forecast-table :is(th, td):last-child { padding-right: max(16px, env(safe-area-inset-right)); }
+  .forecast-table :is(th, td):last-child { padding-right: 2px; }
   th, td { padding-right: 3px; padding-left: 3px; }
   .search { top: calc(env(safe-area-inset-top) + 12px); left: calc(env(safe-area-inset-left) + 12px); max-width: min(200px, calc(50% - var(--clock-half) - 20px - env(safe-area-inset-left))); }
   .search.open { width: calc(100% - 74px - env(safe-area-inset-left) - env(safe-area-inset-right)); }
@@ -912,6 +918,24 @@ td small { color: var(--muted); font-size: 9px; }
   /* De UV-chip staat linksonder op de kaart (U21: boven het merk; het merk is nu rechtsboven). */
   /* Iets hoger dan voorheen: het hoekje linksonder is voor de legenda. */
   .sidebar-nav { top: calc(var(--map-mobile) - 64px); }
+}
+
+@media (max-width: 959px) and (orientation: portrait) {
+  body { overflow: hidden; }
+  .app-shell { height: 100svh; min-height: 0; overflow: hidden; }
+  .forecast-panel { position: relative; height: var(--table-peek-mobile); padding: 0; overflow: hidden; touch-action: pan-x; }
+  .forecast-panel::after { position: absolute; right: 0; bottom: 0; left: 0; z-index: 3; height: 25px; background: linear-gradient(transparent, color-mix(in srgb, var(--surface) 92%, transparent)); box-shadow: inset 0 -1px var(--line-strong); content: ''; pointer-events: none; }
+  .table-view-handle { position: sticky; top: 0; z-index: 5; width: 100%; height: 24px; display: grid; place-items: center; padding: 0; border: 0; background: var(--surface); }
+  .table-view-handle span { width: 42px; height: 4px; border-radius: 999px; background: var(--line-strong); box-shadow: 0 1px 0 color-mix(in srgb, var(--surface) 60%, transparent); }
+  .table-view-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+  .app-shell:not(.table-view-open) .history-toggle-row { display: none; }
+  .table-view-open .map-shell, .table-view-open .scrubber, .table-view-open .sidebar-nav { display: none; }
+  .table-view-open .dashboard { height: 100dvh; overflow: hidden; }
+  .table-view-open .forecast-panel { height: 100%; display: flex; flex-direction: column; overflow: hidden; padding-bottom: env(safe-area-inset-bottom); touch-action: auto; }
+  .table-view-open .forecast-panel::after { display: none; }
+  .table-view-open .table-view-handle { height: calc(24px + env(safe-area-inset-top)); flex: none; padding-top: env(safe-area-inset-top); }
+  .table-view-open .table-scroll { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; }
+  .table-view-open th { top: 0; }
 }
 
 /* Telefoon liggend: kaart en paneel naast elkaar, zoals desktop; de scrubber schuift mee weg
@@ -925,7 +949,7 @@ td small { color: var(--muted); font-size: 9px; }
   .scrubber { position: static; height: min(var(--scrubber-mobile), 100dvh); padding-bottom: 8px; }
   .search-results { max-height: calc(100dvh - 76px); }
   .sidebar-nav { top: calc(100dvh - 50px); }
-  .forecast-table :is(th, td):last-child { padding-right: max(16px, env(safe-area-inset-right)); }
+  .forecast-table :is(th, td):last-child { padding-right: 2px; }
 }
 
 @media (pointer: coarse) {

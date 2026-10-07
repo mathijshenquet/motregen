@@ -29,12 +29,37 @@ test('desktop opens the table on the now-row and fetches history only when scrol
 test('touch keeps the history behind a small toggle', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile-4g', 'touchroute op het mobiele profiel')
   await page.goto('/')
+  await page.getByRole('button', { name: 'Tabel openen' }).tap()
+  await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rendering', 'false')
   const toggle = page.locator('.history-toggle')
   await expect(toggle).toHaveText(/^Afgelopen \d+ uur tonen$/)
   await expect(page.locator('tr.past-hour')).toHaveCount(0)
   await toggle.tap()
   await expect(toggle).toHaveText('Afgelopen uren verbergen')
   await expect(page.locator('tr.past-hour').first()).toBeVisible()
+})
+
+test('mobile previews the heading and current row, then switches fully between table and map', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-4g', 'mobiele view-switch')
+  await page.goto('/')
+  const panel = page.locator('.forecast-panel')
+  const current = page.locator('tr.current-hour')
+  await expect(page.getByRole('button', { name: 'Tabel openen' })).toBeVisible()
+  await expect(current).toBeVisible()
+  const panelBox = (await panel.boundingBox())!
+  const rowBox = (await current.boundingBox())!
+  expect(rowBox.top).toBeLessThan(panelBox.y + panelBox.height)
+  expect(rowBox.bottom).toBeGreaterThan(panelBox.y + panelBox.height)
+
+  await page.getByRole('button', { name: 'Tabel openen' }).tap()
+  await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
+  await expect(page.locator('.map-shell')).toBeHidden()
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rendering', 'false')
+  await page.getByRole('button', { name: 'Tabel sluiten en kaart tonen' }).tap()
+  await expect(page.locator('.app-shell')).not.toHaveClass(/table-view-open/)
+  await expect(page.locator('.map-shell')).toBeVisible()
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rendering', 'true')
 })
 
 test('wind column shows the gust and follows the unit setting across reloads', async ({ page }) => {

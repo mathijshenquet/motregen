@@ -31,10 +31,11 @@ describe('about dialog', () => {
     expect(dialog.open).toBe(true)
     expect(document.querySelector('.about-lead')!.textContent).toBe('Regenradar en weersverwachting')
     // Alles in één tabel, ook privacy en broncode; geen losse alinea's of knop meer.
-    expect([...dialog.querySelectorAll('dt')].map((term) => term.textContent)).toEqual(['Observatie', 'Voorspelling', 'UV', 'Kaart', 'Zoeken', 'Privacy', 'Broncode'])
+    expect([...dialog.querySelectorAll('dt')].map((term) => term.textContent)).toEqual(['Observatie', 'Voorspelling', 'UV', 'Maan', 'Kaart', 'Zoeken', 'Privacy', 'Broncode'])
     expect(dialog.querySelectorAll('.about-body > p')).toHaveLength(1)
     expect(screen.getByText(/HARMONIE-AROME/)).toBeTruthy()
     expect(screen.getByText(/NL en Vlaanderen/)).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'NASA Scientific Visualization Studio' })).toBeTruthy()
     expect(screen.getByRole('link', { name: /GitHub/ }).getAttribute('href')).toBe(REPOSITORY_URL)
 
     fireEvent.click(screen.getByRole('button', { name: 'Sluiten' }))

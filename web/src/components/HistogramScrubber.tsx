@@ -35,7 +35,7 @@ interface Props {
    * Focus-tweens (0–1) van de modi: de grafiek vloeit mee over zoals de kaart, bij hover én pin (U34).
    * Zonder `mix` telt een meegegeven `clouds`/`wind` als volledig actief.
    */
-  mix?: { wind: number; clouds: number; temperature: number }
+  mix?: { wind: number; air: number; temperature: number }
   /** Gevoelstemperatuur (vlakte, kaartpalet) en luchttemperatuur (lijn) in de Gevoel-modus (U34). */
   temperature?: { timeline: TimelineFrame[]; values: Array<number | null>; airTimeline?: TimelineFrame[]; air?: Array<number | null>; stops?: PaletteStops }
 }
@@ -43,9 +43,8 @@ interface Props {
 const CLOUD_LAYER_LABELS = { high: 'hoge wolken', mid: 'midden wolken', low: 'lage wolken' } as const
 // Deel van de plothoogte voor de bewolkingsband boven de regen.
 const CLOUD_COVER_SHARE = 0.3
-// Wolkenlagen buiten de wolkenmodus iets subtieler (PO 2026-09-25 live); de wolkenmodus tweent naar vol.
+// In Weer blijven de wolkenlagen als rustige achtergrond staan; Lucht brengt ze naar volle dekking.
 const CLOUD_LAYERS_DEFAULT_OPACITY = 0.5
-
 const HOUR = 3_600_000
 // PO 2026-09-25 live (U34), naar WarnWetter: de cursor staat vast op CURSOR_FRACTION van de breedte en
 // de tijdlijn schuift eronder; zoveel uur past in de breedte. Vervangt de tijdsbereikknoppen.
@@ -124,16 +123,15 @@ export default function HistogramScrubber(props: Props) {
   const xAt = (epoch: number) => (epoch - timelineStart()) * pxPerMs()
   const trackWidth = createMemo(() => Math.max(plotWidth(), xAt(timelineEnd()) + plotWidth()))
   const maximum = createMemo(() => rainChartMaximum(props.values))
-  // Overvloeien tussen de weergaven op de focus-tweens (U34): regen+bewolking, wolkenlagen, wind.
-  const cloudsMix = () => props.clouds ? props.mix ? props.mix.clouds : 1 : 0
+  // Overvloeien tussen de weergaven op de focus-tweens (U34): regen, wolkenlagen, wind.
+  const airMix = () => props.clouds ? props.mix ? props.mix.air : 1 : 0
   const windMix = () => props.wind ? props.mix ? props.mix.wind : 1 : 0
   const temperatureMix = () => props.temperature ? props.mix ? props.mix.temperature : 1 : 0
-  // Wolkenlagen + regen zijn de basis (PO 2026-09-25 live: altijd de drie lagen, regen eroverheen);
-  // alleen wind en temperatuur hebben een eigen grafiek waar de basis naar wegvloeit.
   const baseOpacity = () => 1 - Math.max(windMix(), temperatureMix())
+  const rainOpacity = () => baseOpacity() * (1 - 0.65 * airMix())
   const coverOpacity = () => props.cloudCover ? Math.min(baseOpacity(), 1 - (props.mix?.temperature ?? 0)) : 0
   const baseVisible = createMemo(() => baseOpacity() > 0)
-  const view = () => cloudsMix() >= 0.5 ? 'clouds' : windMix() >= 0.5 ? 'wind' : temperatureMix() >= 0.5 ? 'temperature' : coverOpacity() >= 0.5 ? 'cover' : 'rain'
+  const view = () => airMix() >= 0.5 ? 'air' : windMix() >= 0.5 ? 'wind' : temperatureMix() >= 0.5 ? 'temperature' : coverOpacity() >= 0.5 ? 'cover' : 'rain'
   // Binnenkomende weergave schuift een paar px omhoog terwijl hij invloeit.
   const layerStyle = (opacity: number) => ({ opacity, transform: `translateY(${((1 - opacity) * VIEW_SHIFT_PX).toFixed(2)}px)` })
   const cloudHeight = createMemo(() => props.cloudCover ? plotHeight() * CLOUD_COVER_SHARE : 0)
@@ -537,6 +535,11 @@ export default function HistogramScrubber(props: Props) {
           <div class="hour-grid"><For each={xTicks()}>{(tick) => <i style={{ left: `${tick.x}px` }} />}</For></div>
           <div class="day-grid"><For each={dayMarkers()}>{(marker) => <div class="boundary" style={{ left: `${xAt(marker.epoch)}px` }} />}</For></div>
           <svg width={trackWidth()} height={plotHeight()} viewBox={`0 0 ${trackWidth()} ${plotHeight()}`}>
+            {/* In Lucht blijft regen context: achter de wolkenlagen en getweend naar 35% dekking. */}
+            <g class="rain-bars scrub-view" style={layerStyle(rainOpacity())}><Index each={bars()}>{(bar) => <Show
+              when={!bar().pending}
+              fallback={<rect class="rain-bar pending" x={bar().x} y={plotHeight() - 2} width={bar().width} height="2" rx="1" />}
+            ><rect class="rain-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={rainColor(bar().value)} /></Show>}</Index></g>
             <Show when={cloudBands().length}>
               <defs>
                 <filter id={`${cloudId}-soft`} x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="0.9" /></filter>
@@ -550,7 +553,7 @@ export default function HistogramScrubber(props: Props) {
                     <For each={band.paths}>{(path) => <path d={path} fill={`url(#${cloudId}-${band.key})`} />}</For>
                   </g>}</For>
                 </g>
-                <g class="scrub-view" style={{ opacity: baseOpacity() * (CLOUD_LAYERS_DEFAULT_OPACITY + (1 - CLOUD_LAYERS_DEFAULT_OPACITY) * cloudsMix()) }}>
+                <g class="scrub-view" style={{ opacity: baseOpacity() * (CLOUD_LAYERS_DEFAULT_OPACITY + (1 - CLOUD_LAYERS_DEFAULT_OPACITY) * airMix()) }}>
                   <For each={layerBands()}>{(band) => <g class="cloud-band" data-layer={band.key}>
                     <For each={band.paths}>{(path) => <path d={path} fill={`url(#${cloudId}-${band.key})`} />}</For>
                   </g>}</For>
@@ -579,13 +582,7 @@ export default function HistogramScrubber(props: Props) {
               <For each={chart().gust}>{(path) => <path class="wind-gust-band" d={path} fill={`url(#${windId}-fill)`} />}</For>
               <For each={chart().area}>{(path) => <path class="wind-area" d={path} fill={`url(#${windId}-fill)`} />}</For>
               <For each={chart().line}>{(path) => <path class="wind-line" d={path} />}</For>
-
             </g>}</Show>
-            {/* Index keeps each slot's rect alive, so only frames that arrive (pending → loaded) fade in. */}
-            <g class="rain-bars scrub-view" style={layerStyle(baseOpacity())}><Index each={bars()}>{(bar) => <Show
-              when={!bar().pending}
-              fallback={<rect class="rain-bar pending" x={bar().x} y={plotHeight() - 2} width={bar().width} height="2" rx="1" />}
-            ><rect class="rain-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={rainColor(bar().value)} /></Show>}</Index></g>
             <line class="rain-baseline" x1="0" x2={trackWidth()} y1={plotHeight() - 0.5} y2={plotHeight() - 0.5} />
           </svg>
           <div class="now-line" style={{ left: `${nowX()}px` }} />
@@ -600,8 +597,8 @@ export default function HistogramScrubber(props: Props) {
           <span ref={(element) => { dayLabelElements[index()] = element }} style={{ transform: `translateX(${stickyLeft(segment, shownOffset())}px)` }}>{segment.label}</span>
         }</For></div>
         {/* Waarden bij de cursor i.p.v. een y-as (PO 2026-09-25 live). */}
-        <Show when={!props.loading && cloudsMix() > 0 && baseOpacity() > 0}>
-          <div class="cursor-tags" style={{ opacity: Math.min(cloudsMix(), baseOpacity()) }} aria-hidden="true"><For each={cursorLayers()}>{(tag) =>
+        <Show when={!props.loading && airMix() > 0 && baseOpacity() > 0}>
+          <div class="cursor-tags" style={{ opacity: Math.min(airMix(), baseOpacity()) }} aria-hidden="true"><For each={cursorLayers()}>{(tag) =>
             <span style={{ left: `${cursorX()}px`, top: `${tag.y}px` }}>{tag.text}</span>
           }</For></div>
         </Show>
@@ -616,7 +613,7 @@ export default function HistogramScrubber(props: Props) {
         </Show>
         <Show when={!props.loading && !props.values.length}><span class="empty-graph">Kies een locatie voor de regengrafiek</span></Show>
         <div class="cursor-marker" style={{ left: `${cursorX()}px` }} />
-        <Show when={!props.loading && (view() === 'rain' || view() === 'cover' || view() === 'clouds') && (cursorValue() ?? 0) >= 0.05}>
+        <Show when={!props.loading && (view() === 'rain' || view() === 'cover') && (cursorValue() ?? 0) >= 0.05}>
           <div class="cursor-readout" classList={{ tween: tween() }} style={{ left: `${cursorX()}px`, top: `${barTop(cursorValue())}px` }} aria-hidden="true">
             <span>{formatRate(cursorValue()!)}</span>
           </div>

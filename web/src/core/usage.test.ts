@@ -70,7 +70,7 @@ describe('usage beacon body', () => {
     const body = tracker.sessionBody()
     expectWhitelisted(body)
     expect(Object.keys(body).sort()).toEqual([...USAGE_FIELDS].sort())
-    expect(JSON.stringify(body).length).toBeLessThan(260)
+    expect(JSON.stringify(body).length).toBeLessThan(300)
     for (const feature of USAGE_FEATURES) expect(body[feature]).toBe(true)
     expect(body.range).toBe('24')
     expect(body.theme).toBe('dark')
