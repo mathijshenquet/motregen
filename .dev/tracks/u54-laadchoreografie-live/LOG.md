@@ -249,3 +249,107 @@ kopie van de orkestrator. Herhaalbaar met `web/scripts/track-preview.sh 4355`: b
 naar `web/dist-preview` (met `.commit`) en herstart. De rig bouwt voortaan naar
 `web/tmp/rig-dist` en raakt `dist` en `dist-preview` niet meer. 069b48d bevat de speelregel
 (iteratie 2) en iteratie 1.
+
+## 2026-10-07 23:45 — ttfp-ref op po-android; PO-opnames 18:05 (koud) en 18:06 (warm) op :4355 (069b48d)
+
+**ttfp-ref Buienradar op po-android** (renderer-quota 30 %, loadavg 3,7–6,5, ×3):
+3239 / 2975 / 3246 ms, mediaan **3239 ms**; eerste radarbeeld mediaan 2066 ms. Kanttekening:
+advertentie- en tracker-iframes draaien bij Buienradar in eigen rendererprocessen en krijgen
+elk hun eigen quota; dat valt gunstig uit voor Buienradar.
+
+| stand op po-android | ttfp (mediaan ×3) | t.o.v. ttfp-ref 3239 ms |
+| --- | ---: | ---: |
+| oude speelregel (venster) | 3934 ms | +695 ms, lat niet gehaald |
+| nieuwe speelregel (cursorframe + volgend) | 2619 ms | −620 ms, 0,81 × ttfp-ref |
+
+Op de rig is de lat daarmee gehaald (ambitie 0,8 × net niet). Op de telefoon nog niet
+aangetoond: daar ontbreekt Buienradar als referentie (zie vraag 4).
+
+**De twee PO-opnames** (`po-chrome-1805-koud.json`, `po-chrome-1806-warm.json`, in deze map):
+
+| meetpunt | koud 18:05 | warm 18:06 | rig po-android (nieuw, mediaan) |
+| --- | ---: | ---: | ---: |
+| basemap-ready | 1542 ms | 1991 ms | — |
+| eerste regenframe (`milestone:first-rain`) | 2540 ms | 1314 ms | 1749 ms |
+| **ttfp** (`milestone:ttfp`) | **3647 ms** | **1797 ms** | 2619 ms |
+| ttfh (`window-ready:rain_rate`) | 5552 ms | 2836 ms | 6419 ms |
+| blank-visible | 7559 ms (2,52 → 10,08 s) | 2844 ms (1,28 → 4,13 s) | 5575 ms |
+| lange frames (hele opname) | 7 / 596 ms | 5 / 420 ms | 5,1 s in 12 s |
+| regen-decode p50 | 36 ms | 28 ms | 9,5 ms |
+
+De rig zit tussen koud en warm in voor ttfp en eerste regenframe, is te pessimistisch voor
+lange frames (de fix van iteratie 1 + U58 heeft ze op de telefoon vrijwel weggehaald: 0,6 s
+tegen 4,3 s vanochtend) en te optimistisch voor decodetijd.
+
+Antwoorden op de vier vragen van de orkestrator:
+
+1. **Wat meet blank-visible, en wat stond er in die 7,5 s op het scherm?** Het telt de tijd na
+   de splash waarin minstens één regenslot in het *hele zichtbare scrubbervenster* (≈ 8 uur,
+   ≈ 110 frames) nog geen waarde heeft. Het is dus "tot de laatste zichtbare balk binnen is",
+   niet "niets zinnigs op het scherm". In de koude run was in dat interval wél zichtbaar: de
+   kaart met regen vanaf 2,54 s, een spelende tijdlijn vanaf 3,65 s, de wolkenlagen vanaf
+   3,15 s en het histogram rond nu ± 1 u vanaf 5,55 s. Wat ontbrak waren balken verder naar
+   buiten; main tekent daar een 2 px-streepje. Aantal regenframes binnen (van ≈ 110):
+   2 op 2,5 s · 9 op 3,6 s · 42 op 5,6 s · 66 op 7,0 s · 86 op 8,0 s · 98 op 9,0 s · 110 op
+   10,1 s — een gelijkmatige vulling van ≈ 13 balken per seconde.
+   Het getal is te grof: één ontbrekende randbalk telt even zwaar als een leeg histogram.
+   Voorstel (nog niet gebouwd): er een oppervlak van maken, `∫ lege slots / zichtbare slots dt`,
+   en het huidige getal ernaast houden als "laatste balk binnen".
+   Waarom zo traag koud: de decodewachtrij stond leeg (`waitMs` p50 = 0) en de decodes
+   druppelden binnen; de workers wachtten op bytes, niet andersom. Koud is hier
+   netwerk-begrensd (de preview op :4355 proxyt elke Range via de dev-host naar
+   motregen.nl/data). Warm, met de chunks in de HTTP-cache, kwamen ≈ 100 regenframes in 2 s en
+   was het CPU-begrensd (2 workers, 28 ms per decode). Het histogram decodeert per balk een
+   volledig regenframe (108 × 39 ms = 4,8 s workertijd koud); dat is het echte werk achter
+   ttfh en blank-visible.
+2. **Waarom ontbreekt ttfp in de warme run?** Hij ontbreekt niet: `milestone:ttfp` staat in
+   de trace met duur 1797 ms (start 0, dus het tijdstip is de duur). Vermoedelijk gemist
+   doordat alle mijlpalen `ts` = navigatiestart hebben en op duur gesorteerd moeten worden.
+   Warm speelt de tijdlijn dus 0,48 s na het eerste regenframe.
+3. **Koud eerste upload 2,5 s tegen 1,2 s eerder vandaag?** Niet de basemap en niet de nieuwe
+   volgorde. De basemap-tiles begonnen in beide runs op ≈ 1,07 s en de app zelf tekende al op
+   0,41 s. Het verschil zit in het eerste regenframe: de decode begon koud op 1916 ms, warm op
+   1090 ms. De opname van 16:27:59 (eerste decode 1023 ms) past bij de warme run. Mijn lezing:
+   de "koude start"-knop herlaadt de pagina maar leegt de HTTP-cache niet, dus de runs van
+   vanmiddag hadden de chunk-bytes al; 18:05 was het eerste bezoek aan deze origin en moest
+   de eerste regen-Range echt ophalen. Dat is een afleiding uit de tijden — de opname bevat
+   geen netwerklog. Volgorde binnen de run pleit ook tegen "nieuwe volgorde": spelen begon
+   pas 1,1 s ná het eerste regenframe.
+4. **Buienradar op de telefoon — meetrecept.** Zie hieronder; twee varianten.
+
+### Meetrecept ttfp op de telefoon (voor beide sites hetzelfde)
+
+Definitie: van **het loslaten van de vinger op "Ga"/Enter in de adresbalk** tot **het eerste
+moment dat het radarbeeld zichtbaar een ander beeld is dan het eerste** (de bui verspringt, of
+bij Buienradar het tijdlabel linksboven op de kaart springt 5 minuten). Bij Buienradar is dat
+≈ 1 s na het eerste radarbeeld; bij ons zodra de regen begint te schuiven.
+
+A. Schermopname (aanbevolen, ±0,05 s):
+1. Android-schermopname aan (snelmenu → Schermopname), met "tikken tonen" aan zodat de tik op
+   Enter in beeld staat.
+2. Chrome, gewoon tabblad. Eerst eenmalig buienradar.nl openen en de toestemming geven, zodat
+   de muur niet meetelt. Dan Instellingen → Privacy → Browsegegevens wissen → alleen
+   "Gecachte afbeeldingen en bestanden" (cookies laten staan): dat is "koud".
+3. Adres typen, Enter. Wachten tot de radar een paar beelden heeft gelopen. Stoppen.
+4. Drie keer voor buienradar.nl en drie keer voor de 4355-preview, om en om, zelfde wifi/4G,
+   telkens met stap 2 ertussen. Voor "warm": dezelfde reeks zonder de cache te wissen.
+5. In de opname beeld voor beeld (Google Foto's: slepen op de tijdbalk; of de video naar de
+   dev-host en `ffprobe`/`ffmpeg`): tijd van de tik-stip en tijd van het eerste gewijzigde
+   radarbeeld. Verschil = ttfp. Mediaan van drie.
+
+B. Stopwatch (grof, ±0,3 s): tweede toestel als stopwatch, starten op Enter, stoppen op "de
+   bui beweegt". Alleen bruikbaar als het verschil tussen de sites groter is dan ≈ 0,5 s.
+
+Nauwkeuriger alternatief dat ik kan bouwen als de telefoon via USB aan de dev-host kan
+(`adb`): dezelfde referentie-probe als in de rig over CDP op de echte Chrome van de telefoon
+laten lopen, voor beide sites. Dan meet precies dezelfde code op het echte toestel.
+
+Valkuil bij vergelijken: de 4355-preview haalt data via de dev-host (tailnet + proxy naar
+motregen.nl); Buienradar komt rechtstreeks van zijn CDN. Koud is de preview daardoor in het
+nadeel t.o.v. productie. Eerlijkst is koud tegen motregen.nl zelf zodra deze branch daar staat.
+
+Volgende lus-kandidaten uit deze opnames:
+- Het histogram decodeert per balk een heel regenframe (laag `L1`, 39 ms). Een puntreeks uit
+  een goedkoper niveau zou ttfh en blank-visible direct verkorten.
+- Koud is netwerk-begrensd: volgorde en grootte van de eerste regen-Ranges (de vraag
+  "regen rond nu eerst, dan de uurvelden") is daar de hefboom, niet de CPU.
