@@ -21,6 +21,7 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Wind | Lijnbreedte | dikte van de streepjes | U3 | idem |
 | Wind | Tempo | snelheid van de streepjes | U3b | idem |
 | Wind | Kopieer wind als JSON | de vier waarden naar het klembord (PO-terugkoppelweg) | U20 | blijft zolang de windknoppen er zijn |
+| Klok | Jog-schaal | slepen op de klokpil: vast 2 min/px of de schaal van de scrubber (8 u over de plotbreedte) | U56 | na PO-keuze van de schaal (dan een constante) |
 | Lucht nu | strakblauw · mooie wolkenlucht · melkachtig · grijs · Mordor | tijd, klasse en gekozen locatie op 0,1° als menselijk anker voor de wolkenanalyse | U46 | na de analyse |
 | Lucht nu | Kopieer dagboek | alle lokale luchtmetingen als JSON naar het klembord | U46 | na de analyse |
 | Diagnose | Perf-HUD | meetpaneel aan/uit (ook: drie tikken op het logo) | T5 / U30 | blijft (diagnose) |
@@ -45,6 +46,6 @@ still voor de grading-pijplijn; geen knop, vervalt na de analyse.
 
 Gebruikersstaat (blijft bij reset): `theme`, `saved-places`, `last-saved-place`, `map-view`,
 `sky-diary` (tijd, vijfklassenlabel en gekozen locatie afgerond op 0,1°; U46).
-Tuning/debug: `wind-tuning-v4` (v3 wordt bij het laden gemigreerd), `perf` en de eenmalige
+Tuning/debug: `wind-tuning-v4` (v3 wordt bij het laden gemigreerd), `clock-jog` (U56), `perf` en de eenmalige
 `perf-cold`. Oude sleutels (`wind-tuning`, `-v2`, `-v3`, `splash-slowdown`, `scrubber-view`) wist
 "Reset alle instellingen".

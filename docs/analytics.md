@@ -17,7 +17,7 @@ beschrijft wat er precies wordt opgeslagen, hoe lang, en waar het rapport staat.
 
 | veld | waarden | betekenis |
 | --- | --- | --- |
-| `v` | `2` | contractversie; het rapport telt alleen `v: 2` |
+| `v` | `3` | contractversie; het rapport telt alleen `v: 3` (U56: `clockScrub` erbij) |
 | `pinFeel` | `true` of afwezig | modus gevoel vastgezet |
 | `pinWind` | `true` of afwezig | modus wind vastgezet |
 | `hover` | `true` of afwezig | isolijnfocus via hover op de kolom Gevoel |
@@ -27,6 +27,7 @@ beschrijft wat er precies wordt opgeslagen, hoe lang, en waar het rapport staat.
 | `pin` | `true` of afwezig | pin verplaatst |
 | `play` | `true` of afwezig | afspelen gestart |
 | `scrub` | `true` of afwezig | tijd gescrubd |
+| `clockScrub` | `true` of afwezig | tijd verzet via de klok: pil gesleept, toetsen op de pil of tik in de bronstrook (zet ook `scrub`) |
 | `history` | `true` of afwezig | historie in de tabel geopend |
 | `fresh` | `true` of afwezig | versheidspaneel geopend |
 | `about` | `true` of afwezig | About geopend |
@@ -53,7 +54,7 @@ worden niet gelogd. Alle overige verzoeken, inclusief manifestverzoeken zonder
 Een logregel bevat uitsluitend deze velden:
 
 ```json
-{"level":"info","ts":"2026-09-25T14:28+02:00","logger":"http.log.access.usage","msg":"handled request","uri":"/hit","hit":"{\"v\":2,\"search\":true,\"range\":null,\"theme\":\"dark\",\"unit\":\"bft\",\"coarse\":false,\"width\":\">=960\",\"dur\":\"1-5\"}"}
+{"level":"info","ts":"2026-09-25T14:28+02:00","logger":"http.log.access.usage","msg":"handled request","uri":"/hit","hit":"{\"v\":3,\"search\":true,\"range\":null,\"theme\":\"dark\",\"unit\":\"bft\",\"coarse\":false,\"width\":\">=960\",\"dur\":\"1-5\"}"}
 {"level":"info","ts":"2026-09-25T14:31+02:00","logger":"http.log.access.usage","msg":"handled request","uri":"/data/manifest.json"}
 ```
 
@@ -99,7 +100,7 @@ en bouwt het `stats.html`: een overzicht over de laatste 30 dagen en een tabel
 per dag.
 
 - **sessies** is het aantal manifestverzoeken met `?s=1`;
-- **bakens** is het aantal geldige `v: 2`-bodies; **afgewezen** telt `/hit`-regels
+- **bakens** is het aantal geldige `v: 3`-bodies; **afgewezen** telt `/hit`-regels
   die geen geldige JSON waren of een andere versie hadden;
 - elk percentage is een aandeel van de **bakens**, omdat alleen een baken iets
   over featuregebruik zegt. `sendBeacon` gaat vooral op mobiel niet altijd weg;

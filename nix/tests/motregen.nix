@@ -180,7 +180,7 @@
     machine.succeed(f"test ! -s {usage_today}")
     machine.succeed("test -z \"$(ls -A /var/log/caddy 2>/dev/null | grep access)\"")
 
-    body = '{"v":2,"search":true,"range":null,"theme":"dark","coarse":false,"width":">=960","dur":"1-5"}'
+    body = '{"v":3,"search":true,"range":null,"theme":"dark","coarse":false,"width":">=960","dur":"1-5"}'
     hit_status = machine.succeed(
       "curl --silent --show-error --output /dev/null --write-out '%{http_code}' "
       "--header 'X-Forwarded-For: 198.51.100.7' --header 'CF-Connecting-IP: 198.51.100.7' "

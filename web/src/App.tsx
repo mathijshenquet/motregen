@@ -6,6 +6,7 @@ import HistogramScrubber from './components/HistogramScrubber'
 import { INLINE_ICON, Star, Sun } from './components/icons'
 import LocationSearch from './components/LocationSearch'
 import Freshness from './components/Freshness'
+import { CLOCK_JOG_STORAGE_KEY, parseClockJogScale, type ClockJogScale } from './core/clock-timeline'
 import PerfHud from './components/PerfHud'
 import type { IsolineCounters } from './core/perf'
 import ForecastTable from './components/ForecastTable'
@@ -381,6 +382,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
   const [windTuning, setWindTuning] = createSignal<WindTuning>(loadWindTuning())
   const [isolineTuning, setIsolineTuning] = createSignal<IsolineTuning>({ ...DEFAULT_ISOLINE_TUNING })
+  const [clockJogScale, setClockJogScale] = createSignal<ClockJogScale>(devMode ? parseClockJogScale(localStorage.getItem(CLOCK_JOG_STORAGE_KEY)) : 'vast')
   const [temperatureRange, setTemperatureRange] = createSignal<PaletteRange | undefined>()
   let temperatureRangeKey = ''
   const [focus, setFocus] = createSignal(0)
@@ -2185,6 +2187,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     batch(() => {
       setWindTuning({ ...DEFAULT_WIND_TUNING })
       setIsolineTuning({ ...DEFAULT_ISOLINE_TUNING })
+      setClockJogScale('vast')
       const pinned = focusPinned()
       if (pinned) toggleFocusPin(pinned)
     })
@@ -2208,6 +2211,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     completeOnIntent()
     setCursor(cursor)
     trackScrubVelocity()
+  }
+
+  function clockScrub(cursor: number): void {
+    usage.mark('clockScrub')
+    scrub(cursor)
   }
 
   function trackScrubVelocity(): void {
@@ -2436,6 +2444,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           <DevPanel
             isolineTuning={isolineTuning()}
             onIsolineTuning={(patch) => setIsolineTuning((current) => ({ ...current, ...patch }))}
+            clockJogScale={clockJogScale()}
+            onClockJogScale={(scale) => { setClockJogScale(scale); localStorage.setItem(CLOCK_JOG_STORAGE_KEY, scale) }}
             windTuning={windTuning()}
             onWindTuning={tuneWind}
             perfVisible={perfVisible()}
@@ -2450,7 +2460,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           />
         </Show>
         <Freshness mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness}
-          paused={!playing()} onPlay={() => setPlaying(true)} />
+          paused={!playing()} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
+          timeline={timeline()} cursor={cursor()} onCursor={clockScrub} jogScale={clockJogScale()} />
       </Show>
     </section>
     <Show when={!stillMode}>
