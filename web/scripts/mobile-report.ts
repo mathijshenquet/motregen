@@ -32,7 +32,7 @@ export function resourceKind(url: string): ResourceKind {
   const path = new URL(url, 'http://localhost').pathname
   if (path.endsWith('/manifest.json')) return 'manifest'
   if (path.endsWith('.mrf') || path.includes('/chunks/')) return 'chunks'
-  if (path.includes('/tiles/') || /\.(pbf|png|jpe?g|webp)$/i.test(path)) return 'tiles'
+  if (path.includes('/tiles/') || /\.(pmtiles|pbf|png|jpe?g|webp)$/i.test(path)) return 'tiles'
   return 'other'
 }
 
@@ -162,6 +162,7 @@ export function renderMobileReport(report: MobileReport): string {
     `| ttfh (nu ±1 u) | ${report.milestones.ttfhMs ?? 'onbekend'} ms |`,
     `| decodes | ${decode?.count ?? 0} |`,
     `| decode totaal / p50 / p95 | ${decode?.totalMs ?? 0} / ${decode?.p50Ms ?? '—'} / ${decode?.p95Ms ?? '—'} ms |`,
+    `| basemap-tegels aantal / totaal / p50 / p95 | ${report.decode.phases['basemap-tile']?.count ?? 0} / ${report.decode.phases['basemap-tile']?.totalMs ?? 0} / ${report.decode.phases['basemap-tile']?.p50Ms ?? '—'} / ${report.decode.phases['basemap-tile']?.p95Ms ?? '—'} ms |`,
     `| encoded body bytes na 30 s | ${report.wire.playwright.total.bytes} B |`,
     `| bytes voltooid vóór TTFR / ttfh | ${report.wire.beforeTtfrBytes ?? 'onbekend'} / ${report.wire.beforeTtfhBytes ?? 'onbekend'} B |`,
     `| Range-requests | ${report.wire.rangeRequests} |`,
@@ -193,6 +194,7 @@ export interface MobileReport {
   meta: {
     profile: string; scenario: string; sourceSha: string; capturedAt: string
     cpuThrottleRate: number; contractHash: string; fixtureHash: string
+    basemapContractHash?: string
     network: unknown; hardwareConcurrency: number
   }
   milestones: { ttfrMs: number | null; splashGoneMs: number | null; ttfhMs: number | null; windowReadyMs: Record<string, number>; histogramSource: string }
@@ -216,6 +218,6 @@ export function compactBaseline(report: MobileReport): MobileBaseline {
     regressionLimitPercent: 10,
     wireBytes: report.wire.playwright.total.bytes,
     decodes: report.decode.phases['frame-decode']?.count ?? 0,
-    metrics: { milestones: report.milestones, decode: report.decode, wire: report.wire, longFrames: report.longFrames, mainThread: report.mainThread, intent: { fieldBytes: report.intent.fieldBytes, lateOutsideIntentCount: report.intent.lateOutsideIntent.length }, findings: report.findings },
+    metrics: { basemapContractHash: report.meta.basemapContractHash, milestones: report.milestones, decode: report.decode, wire: report.wire, longFrames: report.longFrames, mainThread: report.mainThread, intent: { fieldBytes: report.intent.fieldBytes, lateOutsideIntentCount: report.intent.lateOutsideIntent.length }, findings: report.findings },
   }
 }

@@ -136,6 +136,13 @@ in
       description = "Ingest daemon package.";
     };
 
+    basemapPackage = lib.mkOption {
+      type = lib.types.package;
+      default = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-basemap;
+      defaultText = lib.literalExpression "self.packages.\${pkgs.stdenv.hostPlatform.system}.motregen-basemap";
+      description = "Versioned PMTiles archives served below /data/basemap/.";
+    };
+
     camsPackage = lib.mkOption {
       type = lib.types.package;
       default = cfg.ingestPackage;
@@ -172,6 +179,7 @@ in
 
   config = lib.mkIf cfg.enable {
     systemd.tmpfiles.rules = [
+      "d ${cfg.dataDir}/basemap 0755 root root -"
       "d ${cfg.dataDir} 0755 root root -"
       "d ${usageRoot} 0755 root root -"
       "d ${usageDir} 0750 ${usageUser} ${usageUser} -"
@@ -488,6 +496,17 @@ in
             file_server
           }
 
+          @basemap path_regexp basemap ^/data/basemap/nl-[0-9a-f]{16}\.pmtiles$
+          handle @basemap {
+            root * ${caddyDataDir}
+            uri strip_prefix /data
+            ${dataHeaders}
+            header Cache-Control "public, max-age=31536000, immutable"
+            header Content-Type "application/vnd.pmtiles"
+            header -Content-Encoding
+            file_server
+          }
+
           handle /data/* {
             respond 404
           }
@@ -522,8 +541,12 @@ in
       ];
       wants = [ "motregen-usage.socket" ];
       serviceConfig = {
-        BindReadOnlyPaths = [ "${cfg.dataDir}:${caddyDataDir}" ];
+        BindReadOnlyPaths = [
+          "${cfg.dataDir}:${caddyDataDir}"
+          "${cfg.basemapPackage}:${caddyDataDir}/basemap"
+        ];
       };
     };
+
   };
 }

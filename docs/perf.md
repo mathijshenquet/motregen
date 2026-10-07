@@ -832,6 +832,108 @@ journey 139.142 B. De RT- en Playwright-totalen waren per soort en per response
 exact gelijk. De ontbrekende U52-meetpunten en Lucht-adapter blijven als
 bevinding in de baselines staan.
 
+## Eigen basiskaart (U59)
+
+De eigen z4–10-PMTiles-kaart wordt vergeleken met een vastgelegde echte
+OpenFreeMap/Liberty-kaart. De kleine synthetische kaart uit de gewone rig is
+geen geldig nulpunt voor deze vergelijking. Beide bronnen gebruiken dezelfde
+weerfixture, viewport, CPU-/netwerkrem en meetcode, zonder live-netwerk,
+serviceworker of HTTP-cache. De bronarchieven en de wijze van herbouw staan
+in [basemap.md](basemap.md).
+
+Het orkestratorbesluit van 2026-10-07 maakt **totaal ≤1 s op mobile-4g**
+doorslaggevend voor de bijdrage van de basiskaart aan het eerste beeld
+(TTFP). De p50-doelstelling verschuift van 150 naar **300 ms als
+vervolgstreefwaarde**, zonder harde mobiele gate. De motivatie bij die
+bijstelling was dat twee overgezoomde z10-tegels onder 4× CPU-rem de individuele
+tegelduren kunnen bepalen, terwijl de hele kaart binnen het totale budget
+blijft. Dat is de motivatie voor de streefwaarde, niet de configuratie van
+de onderstaande koude startmeting: die laadt op mobiel één tegel op
+contain-zoom, met p50 gelijk aan totaal. De eerder genoemde p50 ≈295 ms
+is de **desktopmediaan**. Desktop-tijden blijven informatief; de bestaande
+wire-/decode-regressiecontrole blijft voor beide profielen een harde check.
+
+De basemap-fase loopt van MapLibre `sourcedataloading` tot `sourcedata` per
+tegel. Het totaal is de som van overlappende tegelduur, inclusief netwerk,
+worker en afhandeling. Het is geen exclusieve hoofddraad-CPU-tijd en ook
+geen directe TTFP-meting. CDP's 4× CPU-rem remt uitsluitend paginawerk;
+MapLibre-workers blijven op hostsnelheid. De warme parserproef zonder HTTP
+bevestigt geen grote CPU-winst en vervangt de koude meting daarom niet.
+
+De gekoppelde meting van 2026-10-07 gebruikt drie runs per bron en profiel:
+OpenFreeMap op `673ac3c`, de definitieve eigen kaart op `6f0519a`. De
+mediaan wordt per maat apart berekend; de overige desktop/Android-kenmerken
+van de rig blijven behouden. De mobiele totaalgate slaagt in alle drie runs.
+
+| Profiel / bron | Basemap totaal (3 runs) | p50 (3 runs) | Tegels + fonts | Bodybytes | Weerdecodes |
+| --- | --- | --- | ---: | ---: | ---: |
+| 4G / OpenFreeMap | 5.641 / 5.806 / 5.760 ms | 749 / 946 / 870 ms | 1.306.253 B | 2.987.829 B | 297 |
+| 4G / eigen | 438 / 500 / 503 ms | 438 / 500 / 503 ms | 133.345 B | 1.771.489 B | 297 |
+| Desktop / OpenFreeMap | 2.651 / 1.080 / 1.230 ms | 254 / 44 / 45 ms | 1.886.538 B | 3.433.687 B | 250 |
+| Desktop / eigen | 1.475 / 1.231 / 824 ms | 369 / 295 / 206 ms | 173.458 B | 1.677.175–1.682.198 B | 250 |
+
+Op mobiel daalt het basemap-totaal van mediaan 5.759,5 naar 499,5 ms
+(−91,3%). Alle bodybytes dalen **40,71%**; tegels en fonts dalen 89,79%.
+Desktop-bodybytes dalen 51,01–51,16%, tegels en fonts 90,81%. Het aantal
+weerdecodes verandert niet. Playwright en Resource Timing meten dezelfde
+bytes per categorie en response. De byte-/decode-spreiding is 0% op mobiel
+en 0,30% / 0% op desktop. Mobiele TTFR-mediaan is 1.738→1.686 ms;
+desktop 292→290 ms. De kaartwinst betekent dus geen even grote winst in
+de tijd tot de eerste regenlaag.
+
+Een onafhankelijke hercontrole op `18fe5f3` geeft op mobile-4g totaal én
+p50 **604,8 / 255,1 / 222,7 ms** (mediaan 255,1 ms). De drie totaalgates
+slagen; twee runs halen ook de p50-streefwaarde. Bodybytes zijn
+1.776.512 / 1.771.489 / 1.771.489 B (−40,54…−40,71%), met steeds
+297 weerdecodes en gelijke Playwright-/Resource-Timing-bytes. De byte-
+spreiding is 0,28%, decodespreiding 0%. De eerste run bevat een extra
+5.023-byte profilerasset; die blijft meetellen. Dit is geen nieuwe baseline
+en de tijdvariatie wordt niet als telefoonbenchmark gepresenteerd.
+
+De desktophercontrole op dezelfde head geeft totaal 926,7 / 1.421,4 /
+1.330 ms en p50 231,6 / 355,1 / 332 ms. Bodybytes blijven
+1.677.175–1.682.198 B, 250 weerdecodes, met gelijke bytebronnen en
+0,30% / 0% byte-/decodespreiding. Deze tijden tonen de gevoeligheid voor
+hostbelasting; desktop krijgt daarom geen mobiele tijdgate opgelegd.
+
+Reproduceren op de eigen trackpoorten:
+
+```sh
+MOTREGEN_E2E_PORT=4393 MOTREGEN_E2E_DATA_PORT=8393 \
+  pnpm --filter motregen-web perf:mobile --profile mobile-4g --scenario koud \
+  --basemap own --repeat 3 --compare
+```
+
+Het nulpunt staat in `web/perf/baselines/*-koud-openfreemap.json`. Dezelfde
+opdracht met `--basemap openfreemap --baseline` maakt het nulpunt opnieuw,
+nadat `pnpm basemap:snapshot` de echte kaartbestanden heeft vastgelegd.
+Herhaal met `--profile desktop` voor de informatieve desktop-tijden.
+
+De afzonderlijke SW-cacheproef gebruikt een productiebuild met de normale
+stijl-URL, een actieve serviceworker en gewiste browser-HTTP-cache. Dezelfde
+bekeken kaart doet op het warme bezoek **nul kaartnetwerkrequests**. Iedere
+PMTiles-range komt als 206 uit de serviceworker; offline blijven de stijl en
+een headerbereik beschikbaar. Een 256-bytebereik op een andere data-origin
+blijft offline byte-identiek. Alleen bekeken bereiken worden opgeslagen,
+niet het hele archief. Deze cachewinst is een netwerkclaim; MapLibre moet de
+tegels op iedere navigatie opnieuw verwerken, dus warme fasetijden hoeven
+niet lager te zijn. Het repro-commando staat in [basemap.md](basemap.md#meten).
+
+De gemeten warme bezoeken op 2026-10-07, steeds Desktop Chrome met de
+aangegeven viewport; 390 px krijgt het 4G-netwerk en 4× page-CPU, 1280 px
+geen rem. Dat is een afzonderlijke cacheproef, geen identieke Pixel-5-context
+van de koude rig:
+
+| Viewport | Kaartnetwerk | Gecachte ranges / bytes | Warm totaal / p50 | Eerste bezoek totaal / p50 |
+| --- | ---: | ---: | ---: | ---: |
+| 390 px | 0 requests | 2 / 43.611 B | 834,3 / 834,3 ms | 490,6 / 490,6 ms |
+| 1280 px | 0 requests | 5 / 83.724 B | 917,3 / 221,3 ms | 1.169,3 / 290,5 ms |
+
+De bron-SHA's, contracthashes, afzonderlijke runs van beide koude metingen
+en warme cache-uitkomsten staan in
+[`web/perf/basemap-comparison.json`](../web/perf/basemap-comparison.json).
+Volledige netwerklogs, traces, screenshots en synchrone commandoreceipts
+blijven lokaal in het genegeerde werklog `tmp/basemap/u59/LOG.md`.
 ### Baseline na de U42/U47-laadregressie (U58, 2026-10-07)
 
 U42 liet op een telefoon tabelrijen onder de kaart uitsteken; de planner laadde daardoor de hele

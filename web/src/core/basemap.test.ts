@@ -1,98 +1,81 @@
-import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { describe, expect, it, vi } from 'vitest'
+import { addProtocol } from 'maplibre-gl'
 import type { StyleSpecification } from 'maplibre-gl'
-import { firstBasemapTextLayerId, prepareBasemapStyle, temperatureLayerBeforeId } from './basemap'
+import { firstBasemapTextLayerId, loadBasemapStyle, prepareBasemapStyle, temperatureLayerBeforeId } from './basemap'
 
-describe('road-free basemap', () => {
-  it('removes transport geometry and names while retaining map context', () => {
-    const style = {
-      version: 8,
-      sources: { map: { type: 'vector', url: 'https://example.test' } },
-      layers: [
-        { id: 'water', type: 'fill', source: 'map', 'source-layer': 'water' },
-        { id: 'road', type: 'line', source: 'map', 'source-layer': 'transportation' },
-        { id: 'road-name', type: 'symbol', source: 'map', 'source-layer': 'transportation_name', layout: {} },
-        { id: 'places', type: 'symbol', source: 'map', 'source-layer': 'place', layout: {} },
-        { id: 'borders', type: 'line', source: 'map', 'source-layer': 'boundary' },
-      ],
-    } as StyleSpecification
+vi.mock('maplibre-gl', () => ({ addProtocol: vi.fn() }))
 
-    const prepared = prepareBasemapStyle(style, 'light')
-    expect(prepared.layers.map((layer) => layer.id)).toEqual(['water', 'places', 'borders', 'motregen-province-boundaries'])
-    expect('filter' in prepared.layers[2]! ? prepared.layers[2]!.filter : undefined).toEqual(['!=', ['get', 'maritime'], 1])
-    expect('filter' in prepared.layers[3]! ? prepared.layers[3]!.filter : undefined).toEqual([
-      'all', ['==', ['get', 'admin_level'], 4], ['!=', ['get', 'maritime'], 1],
-    ])
-  })
+const styles = ['licht', 'donker'].map((name) => JSON.parse(readFileSync(`public/basemap/${name}.json`, 'utf8')) as StyleSpecification)
 
-  it('builds dark mode from Liberty context layers instead of dropping terrain tinting', () => {
-    const style = {
-      version: 8,
-      sources: { map: { type: 'vector', url: 'https://example.test' } },
-      layers: [
-        { id: 'background', type: 'background', paint: { 'background-color': '#fff' } },
-        { id: 'landcover_wood', type: 'fill', source: 'map', 'source-layer': 'landcover', paint: { 'fill-color': '#bada55' } },
-        { id: 'water', type: 'fill', source: 'map', 'source-layer': 'water', paint: { 'fill-color': '#aaf' } },
-        { id: 'boundary', type: 'line', source: 'map', 'source-layer': 'boundary', paint: { 'line-color': '#333' } },
-      ],
-    } as StyleSpecification
-
-    const dark = prepareBasemapStyle(style, 'dark')
-    expect(dark.layers.map((layer) => layer.id)).toEqual(['background', 'landcover_wood', 'water', 'boundary', 'motregen-province-boundaries'])
-    expect(dark.layers[1]!.paint).toMatchObject({ 'fill-color': '#203a2d' })
-    expect(dark.layers[2]!.paint).toMatchObject({ 'fill-color': '#183746' })
-    expect(dark.layers[4]!.paint).toMatchObject({ 'line-color': '#80969c', 'line-opacity': 0.72 })
-  })
-
-  it('labels places in Dutch without a country label or enlarged capital', () => {
-    const libertyName = ['case', ['has', 'name:nonlatin'],
-      ['concat', ['get', 'name:latin'], '\n', ['get', 'name:nonlatin']],
-      ['coalesce', ['get', 'name_en'], ['get', 'name']]]
-    const place = (id: string, filter: unknown) => ({
-      id, type: 'symbol', source: 'map', 'source-layer': 'place', filter, layout: { 'text-field': libertyName },
+describe('eigen basiskaart', () => {
+  for (const [index, name] of ['licht', 'donker'].entries()) {
+    it(`${name} gebruikt alleen ons schema met leesbare plaatsnamen en provinciegrenzen`, () => {
+      const style = styles[index]!
+      const schema = new Set(['water', 'landcover', 'boundary', 'place'])
+      expect(Object.keys(style.sources)).toEqual(['basemap'])
+      for (const layer of style.layers) {
+        if ('source-layer' in layer) expect(schema.has(layer['source-layer']!)).toBe(true)
+        if (layer.type === 'symbol') {
+          expect(layer.layout?.['text-field']).toEqual(['get', 'name'])
+          expect(layer.layout?.['text-size']).toBeDefined()
+        }
+      }
+      expect(style.layers.find((layer) => layer.id === 'motregen-province-boundaries')).toMatchObject({
+        type: 'line', 'source-layer': 'boundary',
+        filter: ['all', ['==', ['get', 'admin_level'], 4], ['!=', ['get', 'maritime'], 1]],
+      })
+      expect(firstBasemapTextLayerId(style.layers)).toBe('label_village')
+      expect(temperatureLayerBeforeId(style.layers)).toBe('label_town')
     })
-    const style = {
-      version: 8,
-      sources: { map: { type: 'vector', url: 'https://example.test' } },
-      layers: [
-        { id: 'water_name', type: 'symbol', source: 'map', 'source-layer': 'water_name', layout: { 'text-field': libertyName } },
-        place('label_town', ['==', ['get', 'class'], 'town']),
-        place('label_city', ['all', ['==', ['get', 'class'], 'city'], ['!=', ['get', 'capital'], 2]]),
-        place('label_city_capital', ['all', ['==', ['get', 'class'], 'city'], ['==', ['get', 'capital'], 2]]),
-        place('label_country_3', ['all', ['==', ['get', 'class'], 'country'], ['>=', ['get', 'rank'], 3]]),
-        { id: 'poi_ref', type: 'symbol', source: 'map', 'source-layer': 'poi', layout: { 'text-field': ['to-string', ['get', 'ref']] } },
-      ],
-    } as unknown as StyleSpecification
+  }
 
-    for (const theme of ['light', 'dark'] as const) {
-      const prepared = prepareBasemapStyle(style, theme)
-      expect(prepared.layers.map((layer) => layer.id)).toEqual(['water_name', 'label_town', 'label_city', 'poi_ref'])
-      const dutch = ['coalesce', ['get', 'name:nl'], ['get', 'name']]
-      for (const layer of prepared.layers.slice(0, 3)) expect(layer.layout?.['text-field' as never]).toEqual(dutch)
-      expect(prepared.layers[3]!.layout?.['text-field' as never]).toEqual(['to-string', ['get', 'ref']])
-      expect('filter' in prepared.layers[2]! ? prepared.layers[2]!.filter : undefined).toEqual(['==', ['get', 'class'], 'city'])
-    }
+  it('lost de gehashte PMTiles-bron op de data-origin op en fonts op de frontend', () => {
+    const style = styles[0]!
+    const prepared = prepareBasemapStyle(style, 'https://data.example.test', 'https://app.example.test/basemap/licht.json')
+    expect(prepared.sources.basemap).toMatchObject({ url: expect.stringMatching(/^pmtiles:\/\/https:\/\/data\.example\.test\/data\/basemap\/nl-[0-9a-f]{16}\.pmtiles$/) })
+    expect(prepared.glyphs).toBe('https://app.example.test/basemap/fonts/{fontstack}/{range}.pbf')
+    expect(prepared.layers).toBe(style.layers)
+    expect(style.sources.basemap).toMatchObject({ url: expect.stringMatching(/^pmtiles:\/\/\/data\//) })
   })
 
-  it('finds the first basemap text layer below which weather labels belong', () => {
-    const layers = [
+  it('gebruikt hetzelfde kaartbestand en dezelfde laagvolgorde in beide thema’s', () => {
+    expect(styles[0]!.sources).toEqual(styles[1]!.sources)
+    expect(styles[0]!.layers.map((layer) => layer.id)).toEqual(styles[1]!.layers.map((layer) => layer.id))
+    expect(styles[0]!.layers[0]!.paint).not.toEqual(styles[1]!.layers[0]!.paint)
+  })
+
+  it('behoudt de lokale e2e-bron en valt terug op het eerste basiskaartlabel', () => {
+    const style = { version: 8, sources: { fixture: { type: 'vector', tiles: ['http://localhost/tiles/{z}/{x}/{y}.pbf'] } }, layers: [
       { id: 'background', type: 'background' },
       { id: 'motregen-sun', type: 'symbol', source: 'sun', layout: { 'text-field': '☀' } },
-      { id: 'icons', type: 'symbol', source: 'map', layout: { 'icon-image': 'marker' } },
-      { id: 'water-labels', type: 'symbol', source: 'map', layout: { 'text-field': ['get', 'name'] } },
-      { id: 'places', type: 'symbol', source: 'map', layout: { 'text-field': ['get', 'name'] } },
-    ] as StyleSpecification['layers']
-    expect(firstBasemapTextLayerId(layers)).toBe('water-labels')
+      { id: 'places', type: 'symbol', source: 'fixture', layout: { 'text-field': ['get', 'name'] } },
+    ] } as StyleSpecification
+    expect(prepareBasemapStyle(style, 'http://localhost').sources).toEqual(style.sources)
+    expect(firstBasemapTextLayerId(style.layers)).toBe('places')
+    expect(temperatureLayerBeforeId(style.layers)).toBe('places')
   })
 
-  it('ranks temperatures above villages and water names but below towns and cities', () => {
-    const layers = [
-      { id: 'water-labels', type: 'symbol', source: 'map', 'source-layer': 'water_name', layout: { 'text-field': ['get', 'name'] } },
-      { id: 'label_other', type: 'symbol', source: 'map', 'source-layer': 'place', filter: ['match', ['get', 'class'], ['city', 'town', 'village'], false, true], layout: { 'text-field': ['get', 'name'] } },
-      { id: 'label_village', type: 'symbol', source: 'map', 'source-layer': 'place', filter: ['==', ['get', 'class'], 'village'], layout: { 'text-field': ['get', 'name'] } },
-      { id: 'label_town', type: 'symbol', source: 'map', 'source-layer': 'place', filter: ['==', ['get', 'class'], 'town'], layout: { 'text-field': ['get', 'name'] } },
-      { id: 'label_city', type: 'symbol', source: 'map', 'source-layer': 'place', filter: ['all', ['==', ['get', 'class'], 'city']], layout: { 'text-field': ['get', 'name'] } },
-    ] as StyleSpecification['layers']
-    expect(temperatureLayerBeforeId(layers)).toBe('label_town')
-    expect(temperatureLayerBeforeId(layers.slice(0, 3))).toBe('water-labels')
+  it('haalt glyphs vroeg en eenmaal op en houdt ze intact na overdracht aan een worker', async () => {
+    const bytes = new Uint8Array([0, 255, 17, 42])
+    const fetchMock = vi.fn(async (url: string) => url.endsWith('.json')
+      ? new Response(JSON.stringify(styles[0]))
+      : new Response(bytes))
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('location', { origin: 'https://app.example.test', href: 'https://app.example.test/' })
+    try {
+      const style = await loadBasemapStyle('light')
+      expect(style.glyphs).toBe('motregen-glyphs://https://app.example.test/basemap/fonts/{fontstack}/{range}.pbf')
+      const protocol = vi.mocked(addProtocol).mock.calls.find(([name]) => name === 'motregen-glyphs')![1]
+      const request = { url: style.glyphs!.replace('{fontstack}', 'Noto%20Sans%20Regular').replace('{range}', '0-255') }
+      const first = await protocol(request, new AbortController())
+      expect(new Uint8Array(first.data as ArrayBuffer)).toEqual(bytes)
+      structuredClone(first.data, { transfer: [first.data as ArrayBuffer] })
+      const second = await protocol({ url: request.url.replaceAll('%20', ' ') }, new AbortController())
+      expect(new Uint8Array(second.data as ArrayBuffer)).toEqual(bytes)
+      expect(fetchMock.mock.calls.filter(([url]) => url.endsWith('.pbf'))).toHaveLength(1)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

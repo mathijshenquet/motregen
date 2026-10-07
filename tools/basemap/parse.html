@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="nl">
+<meta charset="utf-8">
+<title>MapLibre-parsermeting</title>
+<style>html,body{margin:0}#map{position:relative}</style>
+<div id="map"></div>
+<script src="maplibre.js"></script>
+<script>
+window.measureBasemap = async function(camera, viewport) {
+  const fixture = await fetch('fixture.json').then(response => response.json())
+  const data = Object.fromEntries(Object.entries(fixture.data).map(([key, base64]) => [key, Uint8Array.from(atob(base64), character => character.charCodeAt(0)).buffer]))
+  maplibregl.addProtocol('memory', async request => {
+    const bytes = (data[decodeURI(request.url.slice('memory://'.length))] ?? new ArrayBuffer(0)).slice(0)
+    return { data: request.url.endsWith('.json') ? JSON.parse(new TextDecoder().decode(bytes)) : bytes }
+  })
+  maplibregl.prewarm()
+  const container = document.getElementById('map')
+  container.style.width = viewport.width + 'px'
+  container.style.height = viewport.height + 'px'
+  const runs = []
+  for (let repetition = 0; repetition < 6; repetition++) {
+    const starts = new Map()
+    const durations = []
+    const errors = []
+    const map = new maplibregl.Map({ container, style: null, center: [camera.lng, camera.lat], zoom: camera.zoom, attributionControl: false, renderWorldCopies: false })
+    map.on('error', event => errors.push(String(event.error)))
+    map.on('sourcedataloading', event => {
+      const key = event.tile?.tileID?.key
+      if (event.sourceId === fixture.sourceId && key !== undefined) starts.set(key, performance.now())
+    })
+    map.on('sourcedata', event => {
+      const key = event.tile?.tileID?.key
+      if (event.sourceId !== fixture.sourceId || key === undefined) return
+      const started = starts.get(key)
+      if (started === undefined) return
+      starts.delete(key)
+      durations.push(performance.now() - started)
+    })
+    await new Promise(resolve => { map.once('idle', resolve); map.setStyle(fixture.style) })
+    if (errors.length) throw new Error(errors.join('\n'))
+    if (repetition > 0) runs.push(durations)
+    map.remove()
+  }
+  maplibregl.clearPrewarmedResources()
+  return { maxzoom: fixture.manifest.maxzoom, camera, viewport, runs }
+}
+</script>
+</html>

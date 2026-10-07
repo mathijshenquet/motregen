@@ -2,6 +2,8 @@
   "name": "motregen",
   "private": true,
   "scripts": {
+    "basemap:build": "bash tools/basemap/build.sh",
+    "basemap:snapshot": "pnpm --filter motregen-web exec tsx ../tools/basemap/snapshot.mts",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "build": "pnpm -r build"
