@@ -1,0 +1,22 @@
+# Data-origin voor een track-preview (U58): de echte weerdata van motregen.nl, maar de basiskaart
+# (PMTiles, U59) uit de checkout zolang productie die nog niet serveert.
+# Start vanuit web/: caddy run --config scripts/track-data-origin.Caddyfile --adapter caddyfile
+# en geef de preview MOTREGEN_DATA_ORIGIN=http://127.0.0.1:{$TRACK_DATA_PORT:4321}.
+{
+	auto_https off
+	admin off
+}
+
+:{$TRACK_DATA_PORT:4321} {
+	handle_path /basemap/* {
+		root * ../tools/basemap/tiles
+		header Access-Control-Allow-Origin "*"
+		file_server
+	}
+	handle {
+		rewrite * /data{uri}
+		reverse_proxy https://motregen.nl {
+			header_up Host motregen.nl
+		}
+	}
+}

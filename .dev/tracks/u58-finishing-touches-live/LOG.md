@@ -420,3 +420,41 @@ Volgende: stap 5 (landscape-loop).
 - Receipts: `bot` typecheck 0, tests 0 (59); `web` typecheck 0, build 0. Geen echte Telegram-test.
 - Nog niet gedaan voor stap 5: label-overloop, docs/telegram.md, tests voor config/frame, loop encoderen en
   op een echt bericht bekijken (orkestrator herstart de bot met `MOTREGEN_BOT_FRAME=landscape`).
+
+## 2026-10-08 01:55 — zoekpil-morph (live-item), main met U59 gemerged, 4320 via lokale data-origin
+
+**Zoekpil (PO: "radius springt aan het eind"; aanvulling: "niet nice in de niet-zo-brede modus, full width is
+beter").** Oorzaken in de oude CSS: de hoogte sprong direct (lijst gemount, `height: auto`), de inhoud stond
+meteen in de nog smalle pil, en `:focus-within` wisselde de randkleur na afloop.
+- Eén morph in `--search-morph` (180 ms, ease): breedte (`.search`), hoogte via de tweede rasterrij
+  (`grid-template-rows: auto 0fr → auto 1fr`; naar `height: auto` valt niet te tweenen), radius 22 → 14,
+  rand, achtergrond en schaduw. Veldhoogte 42 → 44 tweent mee; de scheidslijn boven de lijst is een
+  inset-schaduw (een rand hield de rij 1 px open).
+- Inhoud (lijst, ster, ×) komt ná de morph: `search-content-in` 120 ms met 180 ms vertraging, en is tot dan
+  `visibility: hidden` (niet aanklikbaar terwijl de rijen nog schuiven).
+- Eén randkleur voor open; de aparte `:focus-within`-regel is weg.
+- Open over de volle kaartbreedte tot aan de merkdruppel, begrensd op 560 px (was 420/380 px).
+- Meting per animatieframe (`web/scripts/search-tween.ts`, nieuw), 390 px: dicht 44×44 r22 →
+  t=33 ms 67×48 r21,3 → 83 ms 217×73 r16,9 → 133 ms 293×86 r14,7 → 183 ms 316×90 r14,0; lijst/× 0 tot 200 ms,
+  0,52 op 233 ms, 1,00 op 317 ms; randkleur loopt vloeiend mee. Eindmaten: 390 px → 316 breed; 800×600 →
+  726; 1280 px → 560.
+- Tussenbeelden (transities gepauzeerd op 0/45/90/135/180/240/300 ms — een screenshot duurt langer dan de
+  morph) bekeken voor 390 px, 800×600 en 1280: de pil groeit als één vorm, inhoud verschijnt daarna.
+  Gezien: rond 90 ms schuift de placeholder nog onder het zoekicoon vandaan (padding-tween).
+- `location.spec`: de test "the search panel is one element…" was al rood vóór deze wijziging op verouderde
+  maten (15 px/40 px/icoon 18; sinds U34 16/44/20). Die drie asserties bijgewerkt en de aansluit-meting laten
+  wachten op het einde van de morph. Daarna faalt hij verderop (regel 137: knop "Zoektekst wissen" na
+  Escape + focus, terwijl het veld dan leeg opent) — niet uitgezocht, niet door de morph. Ook gezien, wisselend
+  rood/groen in drie runs: "start location remembers saved places" krijgt "Werkhoven" i.p.v. de opgeslagen
+  plaats "Werk"/"De Bilt". Vermoeden (niet bewezen): de nieuwe permalink `?plaats=Werk` wordt na herladen via
+  de geocoder opgelost. Mogelijk een echte bug voor opgeslagen plaatsen met een eigen naam → orkestrator.
+
+**Main met U59 (eigen basiskaart) gemerged.** Daarna was de kaart op 4320 leeg: de stijl verwijst naar
+`/data/basemap/nl-0aa536ff364f7cce.pmtiles` en dat bestand geeft 404 op motregen.nl (en op de main-preview
+4330). Oplossing voor deze preview: `web/scripts/track-data-origin.Caddyfile` (poort 4321) serveert
+`/basemap/*` uit `tools/basemap/tiles` en proxyt de rest naar `https://motregen.nl/data`; 4320 herstart met
+`MOTREGEN_DATA_ORIGIN=http://127.0.0.1:4321`. Gecontroleerd: pmtiles via 4320 → 206, manifest → 200,
+390-px-beeld bekeken (kust, grenzen, plaatsnamen staan er).
+
+Receipts (synchroon): `pnpm typecheck` 0; `pnpm test` 0 (70 bestanden, 460 tests na de merge); `pnpm build`
+0. `pnpm e2e e2e/location.spec.ts --project desktop`: 2 passed, 2 failed (zie hierboven).
