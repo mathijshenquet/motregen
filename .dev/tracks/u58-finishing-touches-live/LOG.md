@@ -292,3 +292,11 @@ deze stand: gerichte e2e en rig `--compare` (de host is nu te druk voor een zinn
 Wachtrij (orkestrator): bot-item voor stap 4–6 — Playwright-renderer van de bot houdt een GPU-proces op
 300+ % CPU (page.close in finally, context per generatie sluiten, afspelen uit in de render-URL, CPU 60 s na
 een generatie meten, docs/telegram.md).
+
+## 2026-10-07 22:05 — bot-item "renderer blijft heet" vervalt
+
+Correctie orkestrator: de Chromium-boom van de bot staat tussen twee generaties op 0 % CPU (via /proc, 20 s);
+geen lek, het gemiddelde komt van het rendervolume (13 media per generatie, software-GL). Nagekeken:
+`bot/render.ts` sluit de pagina al in een `finally`, dus er is geen één-regel-fix te doen. Alleen
+`docs/telegram.md` §Rendering en cache aangevuld (≈ 4 cores × 60 s per generatie, cadans is de knop, metingen
+tijdens een generatie zijn onbetrouwbaar). De cijfers in die alinea zijn van de orkestrator, niet door mij gemeten.
