@@ -1,0 +1,538 @@
+{
+  "meta": {
+    "profile": "po-android",
+    "scenario": "soepel",
+    "sourceSha": "99893f56767f49923203a3f0c47e5bbbb2bc9267",
+    "capturedAt": "2026-10-07T20:38:12.839Z",
+    "cpuThrottleRate": 1,
+    "contractHash": "05591bac0abdbf5a027d05820f1519d21583b6c1e143cc6c9cc8e2ea07005213",
+    "fixtureHash": "20322001d19e96131c3fb7dea1e65dcfc2ca7e702fedf0e86577c3a68e4d7f69",
+    "basemapContractHash": "13953f2a94e33059eaacdb97cc045f6c36426c0e350f247b05daa0db81211f0a",
+    "network": {
+      "label": "wifi via dev-host (30 Mbps, 20 ms RTT)",
+      "downloadThroughput": 3750000,
+      "uploadThroughput": 1250000,
+      "latency": 20,
+      "connectionType": "cellular4g"
+    },
+    "hardwareConcurrency": 4,
+    "loadAverage": 7.47,
+    "synthGridScale": 6,
+    "rendererCpuQuotaPercent": 40
+  },
+  "milestones": {
+    "ttfrMs": 1303.3,
+    "firstRainMs": 1303.3,
+    "basemapReadyMs": 963.9,
+    "ttfpMs": 1633.7,
+    "blankVisibleMs": 3770,
+    "blankSlotSeconds": 157.7,
+    "blankShareSeconds": 2.45,
+    "firstBarMs": 1264.9,
+    "splashGoneMs": 3458.100000023842,
+    "ttfhMs": 4133,
+    "windowReadyMs": {
+      "cloud_high": 2163,
+      "cloud_mid": 2763,
+      "cloud_low": 2763,
+      "uv": 3758,
+      "feels_like_c": 3829,
+      "wind_u": 3829,
+      "wind_v": 3829,
+      "rain_rate": 4133,
+      "temp_c": 4889,
+      "cloud_frac": 4889,
+      "gust_ms": 4889
+    },
+    "histogramSource": "U52 window-ready:rain_rate"
+  },
+  "decode": {
+    "phases": {
+      "table-render": {
+        "count": 7,
+        "totalMs": 9.4,
+        "p50Ms": 0.10000002384185791,
+        "p95Ms": 8.399999976158142
+      },
+      "scrubber-paint": {
+        "count": 367,
+        "totalMs": 290.1,
+        "p50Ms": 0.10000002384185791,
+        "p95Ms": 4
+      },
+      "basemap-tile": {
+        "count": 1,
+        "totalMs": 175.5,
+        "p50Ms": 175.5,
+        "p95Ms": 175.5
+      },
+      "milestone:basemap-ready": {
+        "count": 1,
+        "totalMs": 963.9,
+        "p50Ms": 963.8999999761581,
+        "p95Ms": 963.8999999761581
+      },
+      "frame-decode": {
+        "count": 700,
+        "totalMs": 4637.1,
+        "p50Ms": 0.20000004768371582,
+        "p95Ms": 39.09999990463257
+      },
+      "texture-upload": {
+        "count": 71,
+        "totalMs": 60.1,
+        "p50Ms": 0.19999992847442627,
+        "p95Ms": 5
+      },
+      "milestone:first-bar": {
+        "count": 1,
+        "totalMs": 1264.9,
+        "p50Ms": 1264.8999999761581,
+        "p95Ms": 1264.8999999761581
+      },
+      "milestone:first-rain": {
+        "count": 1,
+        "totalMs": 1303.3,
+        "p50Ms": 1303.2999999523163,
+        "p95Ms": 1303.2999999523163
+      },
+      "milestone:ttfr": {
+        "count": 1,
+        "totalMs": 1303.3,
+        "p50Ms": 1303.2999999523163,
+        "p95Ms": 1303.2999999523163
+      },
+      "wind-step": {
+        "count": 1195,
+        "totalMs": 374.4,
+        "p50Ms": 0.19999992847442627,
+        "p95Ms": 0.30000007152557373
+      },
+      "milestone:ttfp": {
+        "count": 1,
+        "totalMs": 1633.7,
+        "p50Ms": 1633.7000000476837,
+        "p95Ms": 1633.7000000476837
+      },
+      "window-ready:cloud_high": {
+        "count": 1,
+        "totalMs": 2163.3,
+        "p50Ms": 2163.2999999523163,
+        "p95Ms": 2163.2999999523163
+      },
+      "window-ready:cloud_mid": {
+        "count": 1,
+        "totalMs": 2763.2,
+        "p50Ms": 2763.2000000476837,
+        "p95Ms": 2763.2000000476837
+      },
+      "window-ready:cloud_low": {
+        "count": 1,
+        "totalMs": 2763.2,
+        "p50Ms": 2763.2000000476837,
+        "p95Ms": 2763.2000000476837
+      },
+      "window-ready:uv": {
+        "count": 1,
+        "totalMs": 3758.3,
+        "p50Ms": 3758.2999999523163,
+        "p95Ms": 3758.2999999523163
+      },
+      "window-ready:feels_like_c": {
+        "count": 1,
+        "totalMs": 3828.5,
+        "p50Ms": 3828.5,
+        "p95Ms": 3828.5
+      },
+      "window-ready:wind_u": {
+        "count": 1,
+        "totalMs": 3828.5,
+        "p50Ms": 3828.5,
+        "p95Ms": 3828.5
+      },
+      "window-ready:wind_v": {
+        "count": 1,
+        "totalMs": 3828.5,
+        "p50Ms": 3828.5,
+        "p95Ms": 3828.5
+      },
+      "window-ready:rain_rate": {
+        "count": 1,
+        "totalMs": 4133.2,
+        "p50Ms": 4133.200000047684,
+        "p95Ms": 4133.200000047684
+      },
+      "window-ready:temp_c": {
+        "count": 1,
+        "totalMs": 4888.5,
+        "p50Ms": 4888.5,
+        "p95Ms": 4888.5
+      },
+      "window-ready:cloud_frac": {
+        "count": 1,
+        "totalMs": 4888.6,
+        "p50Ms": 4888.600000023842,
+        "p95Ms": 4888.600000023842
+      },
+      "window-ready:gust_ms": {
+        "count": 1,
+        "totalMs": 4888.6,
+        "p50Ms": 4888.600000023842,
+        "p95Ms": 4888.600000023842
+      },
+      "blank-visible": {
+        "count": 1,
+        "totalMs": 3770,
+        "p50Ms": 3770,
+        "p95Ms": 3770
+      }
+    },
+    "fields": {
+      "rain_rate": {
+        "count": 106,
+        "totalMs": 3564.1,
+        "p50Ms": 22,
+        "p95Ms": 95
+      },
+      "radiation": {
+        "count": 13,
+        "totalMs": 17.9,
+        "p50Ms": 0.20000004768371582,
+        "p95Ms": 9.200000047683716
+      },
+      "motion": {
+        "count": 68,
+        "totalMs": 21.9,
+        "p50Ms": 0,
+        "p95Ms": 0.10000002384185791
+      },
+      "cloud_high": {
+        "count": 48,
+        "totalMs": 33.1,
+        "p50Ms": 0.19999992847442627,
+        "p95Ms": 3.899999976158142
+      },
+      "uv_clear": {
+        "count": 8,
+        "totalMs": 8.1,
+        "p50Ms": 0.10000002384185791,
+        "p95Ms": 5
+      },
+      "cloud_low": {
+        "count": 48,
+        "totalMs": 14.4,
+        "p50Ms": 0.10000002384185791,
+        "p95Ms": 0.3999999761581421
+      },
+      "cloud_mid": {
+        "count": 48,
+        "totalMs": 19.3,
+        "p50Ms": 0.10000002384185791,
+        "p95Ms": 3.200000047683716
+      },
+      "feels_like_c": {
+        "count": 52,
+        "totalMs": 650.1,
+        "p50Ms": 5.299999952316284,
+        "p95Ms": 45.700000047683716
+      },
+      "temp_c": {
+        "count": 52,
+        "totalMs": 99.8,
+        "p50Ms": 0.19999992847442627,
+        "p95Ms": 10.200000047683716
+      },
+      "cloud_frac": {
+        "count": 52,
+        "totalMs": 29.9,
+        "p50Ms": 0.10000002384185791,
+        "p95Ms": 5.100000023841858
+      },
+      "wind_u_ms": {
+        "count": 52,
+        "totalMs": 53,
+        "p50Ms": 0.20000004768371582,
+        "p95Ms": 5.200000047683716
+      },
+      "wind_v_ms": {
+        "count": 52,
+        "totalMs": 38.2,
+        "p50Ms": 0.19999992847442627,
+        "p95Ms": 0.2999999523162842
+      },
+      "uv": {
+        "count": 49,
+        "totalMs": 31.5,
+        "p50Ms": 0.10000002384185791,
+        "p95Ms": 0.2999999523162842
+      },
+      "gust_ms": {
+        "count": 52,
+        "totalMs": 55.8,
+        "p50Ms": 0.20000004768371582,
+        "p95Ms": 10.200000047683716
+      }
+    },
+    "decodesPerSecond": [
+      3,
+      15,
+      40,
+      37,
+      52,
+      22,
+      23,
+      15,
+      2,
+      3,
+      4,
+      0,
+      0,
+      4,
+      3,
+      9,
+      0,
+      1,
+      3,
+      0,
+      0,
+      4,
+      3,
+      9,
+      0,
+      1,
+      20,
+      68,
+      203,
+      91,
+      24,
+      20,
+      21,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "wire": {
+    "playwright": {
+      "manifest": {
+        "requests": 1,
+        "bytes": 36513,
+        "meanRequestBytes": 36513
+      },
+      "chunks": {
+        "requests": 245,
+        "bytes": 5402132,
+        "meanRequestBytes": 22049.51836734694
+      },
+      "tiles": {
+        "requests": 2,
+        "bytes": 13227,
+        "meanRequestBytes": 6613.5
+      },
+      "other": {
+        "requests": 10,
+        "bytes": 462234,
+        "meanRequestBytes": 46223.4
+      },
+      "total": {
+        "requests": 258,
+        "bytes": 5914106,
+        "meanRequestBytes": 22922.891472868218
+      }
+    },
+    "resourceTiming": {
+      "manifest": {
+        "requests": 1,
+        "bytes": 36513,
+        "meanRequestBytes": 36513
+      },
+      "chunks": {
+        "requests": 245,
+        "bytes": 5402132,
+        "meanRequestBytes": 22049.51836734694
+      },
+      "tiles": {
+        "requests": 2,
+        "bytes": 13227,
+        "meanRequestBytes": 6613.5
+      },
+      "other": {
+        "requests": 10,
+        "bytes": 462234,
+        "meanRequestBytes": 46223.4
+      },
+      "total": {
+        "requests": 258,
+        "bytes": 5914106,
+        "meanRequestBytes": 22922.891472868218
+      }
+    },
+    "differences": [
+      {
+        "kind": "manifest",
+        "differencePercent": 0,
+        "requestDifference": 0
+      },
+      {
+        "kind": "chunks",
+        "differencePercent": 0,
+        "requestDifference": 0
+      },
+      {
+        "kind": "tiles",
+        "differencePercent": 0,
+        "requestDifference": 0
+      },
+      {
+        "kind": "other",
+        "differencePercent": 0,
+        "requestDifference": 0
+      },
+      {
+        "kind": "total",
+        "differencePercent": 0,
+        "requestDifference": 0
+      }
+    ],
+    "completeBodyAborts": 42,
+    "contentLengthFallbacks": 3,
+    "findings": [],
+    "rangeRequests": 245,
+    "beforeTtfrBytes": 805421,
+    "beforeTtfhBytes": 4451723
+  },
+  "longFrames": {
+    "first12s": {
+      "count": 25,
+      "totalMs": 2670.0000002384186,
+      "blockingMs": 922.1
+    },
+    "count": 31,
+    "totalMs": 3189.7000004053116,
+    "blockingMs": 979.9000000000001,
+    "topSources": [
+      {
+        "source": "http://127.0.0.1:4455/assets/index-4sq-QxD0.js FrameRequestCallback",
+        "durationMs": 572
+      },
+      {
+        "source": "http://127.0.0.1:4455/assets/index-4sq-QxD0.js a",
+        "durationMs": 532
+      },
+      {
+        "source": "http://127.0.0.1:4455/assets/index-4sq-QxD0.js Worker.onmessage",
+        "durationMs": 347.10000014305115
+      }
+    ]
+  },
+  "mainThread": {
+    "samples": 3837,
+    "busySamples": 503,
+    "busyPercent": 13.109199895751889,
+    "topSources": [
+      {
+        "functionName": "renderStep",
+        "url": "src/core/wind-layer.ts",
+        "selfSamples": 13
+      },
+      {
+        "functionName": "resourceKind",
+        "url": "src/core/perf.ts",
+        "selfSamples": 11
+      },
+      {
+        "functionName": "xs",
+        "url": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
+        "selfSamples": 12
+      }
+    ]
+  },
+  "intent": {
+    "fieldBytes": {
+      "rain_rate": 4120475,
+      "uv": 61584,
+      "uv_clear": 6214,
+      "radiation": 25425,
+      "temp_c": 133616,
+      "feels_like_c": 51990,
+      "wind_u_ms": 223129,
+      "wind_v_ms": 207937,
+      "gust_ms": 248125,
+      "rel_humidity": 9636,
+      "cloud_frac": 132257,
+      "cloud_low": 72071,
+      "cloud_mid": 48080,
+      "cloud_high": 61593
+    },
+    "lateOutsideIntent": []
+  },
+  "actions": [
+    {
+      "action": "play",
+      "plannedMs": 25500,
+      "actualMs": 25504,
+      "detail": "pauzeren"
+    },
+    {
+      "action": "seek",
+      "plannedMs": 26500,
+      "actualMs": 26502.899999976158,
+      "detail": "seek 69 stappen in 10000 ms"
+    }
+  ],
+  "smoothness": [
+    {
+      "name": "afspelen tijdens laden",
+      "frames": 470,
+      "p50Ms": 16.7,
+      "p95Ms": 50,
+      "maxMs": 216.7,
+      "over50Ms": 21,
+      "over100Ms": 4,
+      "longFrames": {
+        "count": 15,
+        "totalMs": 1399,
+        "blockingMs": 291
+      }
+    },
+    {
+      "name": "afspelen na laden",
+      "frames": 598,
+      "p50Ms": 16.7,
+      "p95Ms": 16.7,
+      "maxMs": 33.3,
+      "over50Ms": 0,
+      "over100Ms": 0,
+      "longFrames": {
+        "count": 0,
+        "totalMs": 0,
+        "blockingMs": 0
+      }
+    },
+    {
+      "name": "seeken na laden",
+      "frames": 517,
+      "p50Ms": 16.7,
+      "p95Ms": 33.4,
+      "maxMs": 100,
+      "over50Ms": 8,
+      "over100Ms": 0,
+      "longFrames": {
+        "count": 5,
+        "totalMs": 396,
+        "blockingMs": 58
+      }
+    }
+  ],
+  "scrub": {
+    "samples": 39,
+    "p50Ms": 10.6,
+    "p95Ms": 24.5
+  },
+  "findings": [
+    "1 sampleposities zonder sourcemap-positie; oorspronkelijke bundelpositie bewaard",
+    "blank-visible-ms 3770: na de splash stond er een leeg slot in beeld (doel 0, MIP-19)"
+  ]
+}

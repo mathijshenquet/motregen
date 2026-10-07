@@ -1,0 +1,538 @@
+{
+  "meta": {
+    "profile": "po-android",
+    "scenario": "soepel",
+    "sourceSha": "99893f56767f49923203a3f0c47e5bbbb2bc9267",
+    "capturedAt": "2026-10-07T20:37:13.918Z",
+    "cpuThrottleRate": 1,
+    "contractHash": "05591bac0abdbf5a027d05820f1519d21583b6c1e143cc6c9cc8e2ea07005213",
+    "fixtureHash": "20322001d19e96131c3fb7dea1e65dcfc2ca7e702fedf0e86577c3a68e4d7f69",
+    "basemapContractHash": "13953f2a94e33059eaacdb97cc045f6c36426c0e350f247b05daa0db81211f0a",
+    "network": {
+      "label": "wifi via dev-host (30 Mbps, 20 ms RTT)",
+      "downloadThroughput": 3750000,
+      "uploadThroughput": 1250000,
+      "latency": 20,
+      "connectionType": "cellular4g"
+    },
+    "hardwareConcurrency": 4,
+    "loadAverage": 6.44,
+    "synthGridScale": 6,
+    "rendererCpuQuotaPercent": 40
+  },
+  "milestones": {
+    "ttfrMs": 1467.4,
+    "firstRainMs": 1467.4,
+    "basemapReadyMs": 922.8,
+    "ttfpMs": 1792.5,
+    "blankVisibleMs": 3880,
+    "blankSlotSeconds": 168.9,
+    "blankShareSeconds": 2.62,
+    "firstBarMs": 1377.3,
+    "splashGoneMs": 3492.7000000476837,
+    "ttfhMs": 4413,
+    "windowReadyMs": {
+      "cloud_low": 1938,
+      "cloud_mid": 3007,
+      "cloud_high": 3007,
+      "uv": 4193,
+      "feels_like_c": 4238,
+      "wind_u": 4238,
+      "wind_v": 4239,
+      "rain_rate": 4413,
+      "temp_c": 5035,
+      "cloud_frac": 5037,
+      "gust_ms": 5037
+    },
+    "histogramSource": "U52 window-ready:rain_rate"
+  },
+  "decode": {
+    "phases": {
+      "table-render": {
+        "count": 7,
+        "totalMs": 1.4,
+        "p50Ms": 0.10000002384185791,
+        "p95Ms": 0.6999999284744263
+      },
+      "scrubber-paint": {
+        "count": 347,
+        "totalMs": 223.1,
+        "p50Ms": 0.10000002384185791,
+        "p95Ms": 4.700000047683716
+      },
+      "basemap-tile": {
+        "count": 1,
+        "totalMs": 149.2,
+        "p50Ms": 149.19999992847443,
+        "p95Ms": 149.19999992847443
+      },
+      "milestone:basemap-ready": {
+        "count": 1,
+        "totalMs": 922.8,
+        "p50Ms": 922.7999999523163,
+        "p95Ms": 922.7999999523163
+      },
+      "frame-decode": {
+        "count": 692,
+        "totalMs": 4541.6,
+        "p50Ms": 0.19999992847442627,
+        "p95Ms": 33.700000047683716
+      },
+      "texture-upload": {
+        "count": 71,
+        "totalMs": 85.6,
+        "p50Ms": 0.19999992847442627,
+        "p95Ms": 4.800000071525574
+      },
+      "milestone:first-bar": {
+        "count": 1,
+        "totalMs": 1377.3,
+        "p50Ms": 1377.2999999523163,
+        "p95Ms": 1377.2999999523163
+      },
+      "milestone:first-rain": {
+        "count": 1,
+        "totalMs": 1467.4,
+        "p50Ms": 1467.3999999761581,
+        "p95Ms": 1467.3999999761581
+      },
+      "milestone:ttfr": {
+        "count": 1,
+        "totalMs": 1467.4,
+        "p50Ms": 1467.3999999761581,
+        "p95Ms": 1467.3999999761581
+      },
+      "wind-step": {
+        "count": 1195,
+        "totalMs": 459,
+        "p50Ms": 0.19999992847442627,
+        "p95Ms": 0.8000000715255737
+      },
+      "milestone:ttfp": {
+        "count": 1,
+        "totalMs": 1792.5,
+        "p50Ms": 1792.5,
+        "p95Ms": 1792.5
+      },
+      "window-ready:cloud_low": {
+        "count": 1,
+        "totalMs": 1937.8,
+        "p50Ms": 1937.7999999523163,
+        "p95Ms": 1937.7999999523163
+      },
+      "window-ready:cloud_mid": {
+        "count": 1,
+        "totalMs": 3007.3,
+        "p50Ms": 3007.2999999523163,
+        "p95Ms": 3007.2999999523163
+      },
+      "window-ready:cloud_high": {
+        "count": 1,
+        "totalMs": 3007.3,
+        "p50Ms": 3007.2999999523163,
+        "p95Ms": 3007.2999999523163
+      },
+      "window-ready:uv": {
+        "count": 1,
+        "totalMs": 4193.2,
+        "p50Ms": 4193.200000047684,
+        "p95Ms": 4193.200000047684
+      },
+      "window-ready:feels_like_c": {
+        "count": 1,
+        "totalMs": 4238.4,
+        "p50Ms": 4238.399999976158,
+        "p95Ms": 4238.399999976158
+      },
+      "window-ready:wind_u": {
+        "count": 1,
+        "totalMs": 4238.4,
+        "p50Ms": 4238.399999976158,
+        "p95Ms": 4238.399999976158
+      },
+      "window-ready:wind_v": {
+        "count": 1,
+        "totalMs": 4238.5,
+        "p50Ms": 4238.5,
+        "p95Ms": 4238.5
+      },
+      "window-ready:rain_rate": {
+        "count": 1,
+        "totalMs": 4412.5,
+        "p50Ms": 4412.5,
+        "p95Ms": 4412.5
+      },
+      "window-ready:temp_c": {
+        "count": 1,
+        "totalMs": 5034.5,
+        "p50Ms": 5034.5,
+        "p95Ms": 5034.5
+      },
+      "window-ready:cloud_frac": {
+        "count": 1,
+        "totalMs": 5037.2,
+        "p50Ms": 5037.200000047684,
+        "p95Ms": 5037.200000047684
+      },
+      "window-ready:gust_ms": {
+        "count": 1,
+        "totalMs": 5037.2,
+        "p50Ms": 5037.200000047684,
+        "p95Ms": 5037.200000047684
+      },
+      "blank-visible": {
+        "count": 1,
+        "totalMs": 3880.4,
+        "p50Ms": 3880.4000000953674,
+        "p95Ms": 3880.4000000953674
+      }
+    },
+    "fields": {
+      "rain_rate": {
+        "count": 106,
+        "totalMs": 3574.9,
+        "p50Ms": 24.300000071525574,
+        "p95Ms": 90.79999995231628
+      },
+      "radiation": {
+        "count": 5,
+        "totalMs": 31.1,
+        "p50Ms": 5.700000047683716,
+        "p95Ms": 14.899999976158142
+      },
+      "motion": {
+        "count": 68,
+        "totalMs": 5.5,
+        "p50Ms": 0,
+        "p95Ms": 0.10000002384185791
+      },
+      "cloud_low": {
+        "count": 48,
+        "totalMs": 48.1,
+        "p50Ms": 0.19999992847442627,
+        "p95Ms": 4.299999952316284
+      },
+      "uv_clear": {
+        "count": 8,
+        "totalMs": 14.8,
+        "p50Ms": 0.10000002384185791,
+        "p95Ms": 13.700000047683716
+      },
+      "cloud_high": {
+        "count": 48,
+        "totalMs": 41.3,
+        "p50Ms": 0.19999992847442627,
+        "p95Ms": 4.5
+      },
+      "cloud_mid": {
+        "count": 48,
+        "totalMs": 49.4,
+        "p50Ms": 0.19999992847442627,
+        "p95Ms": 4.799999952316284
+      },
+      "temp_c": {
+        "count": 52,
+        "totalMs": 22.6,
+        "p50Ms": 0.19999992847442627,
+        "p95Ms": 0.30000007152557373
+      },
+      "feels_like_c": {
+        "count": 52,
+        "totalMs": 624.2,
+        "p50Ms": 9.600000023841858,
+        "p95Ms": 33.700000047683716
+      },
+      "uv": {
+        "count": 49,
+        "totalMs": 24,
+        "p50Ms": 0.10000002384185791,
+        "p95Ms": 4.300000071525574
+      },
+      "cloud_frac": {
+        "count": 52,
+        "totalMs": 26,
+        "p50Ms": 0.10000002384185791,
+        "p95Ms": 4.700000047683716
+      },
+      "wind_u_ms": {
+        "count": 52,
+        "totalMs": 32.2,
+        "p50Ms": 0.20000004768371582,
+        "p95Ms": 4.200000047683716
+      },
+      "wind_v_ms": {
+        "count": 52,
+        "totalMs": 24.8,
+        "p50Ms": 0.19999992847442627,
+        "p95Ms": 3.700000047683716
+      },
+      "gust_ms": {
+        "count": 52,
+        "totalMs": 22.7,
+        "p50Ms": 0.19999992847442627,
+        "p95Ms": 3.899999976158142
+      }
+    },
+    "decodesPerSecond": [
+      2,
+      14,
+      25,
+      34,
+      63,
+      24,
+      22,
+      15,
+      9,
+      3,
+      5,
+      0,
+      0,
+      3,
+      4,
+      0,
+      9,
+      1,
+      3,
+      0,
+      0,
+      3,
+      4,
+      0,
+      9,
+      0,
+      18,
+      91,
+      189,
+      80,
+      24,
+      20,
+      18,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "wire": {
+    "playwright": {
+      "manifest": {
+        "requests": 1,
+        "bytes": 36513,
+        "meanRequestBytes": 36513
+      },
+      "chunks": {
+        "requests": 237,
+        "bytes": 5362331,
+        "meanRequestBytes": 22625.869198312237
+      },
+      "tiles": {
+        "requests": 2,
+        "bytes": 13227,
+        "meanRequestBytes": 6613.5
+      },
+      "other": {
+        "requests": 10,
+        "bytes": 462234,
+        "meanRequestBytes": 46223.4
+      },
+      "total": {
+        "requests": 250,
+        "bytes": 5874305,
+        "meanRequestBytes": 23497.22
+      }
+    },
+    "resourceTiming": {
+      "manifest": {
+        "requests": 1,
+        "bytes": 36513,
+        "meanRequestBytes": 36513
+      },
+      "chunks": {
+        "requests": 237,
+        "bytes": 5362331,
+        "meanRequestBytes": 22625.869198312237
+      },
+      "tiles": {
+        "requests": 2,
+        "bytes": 13227,
+        "meanRequestBytes": 6613.5
+      },
+      "other": {
+        "requests": 10,
+        "bytes": 462234,
+        "meanRequestBytes": 46223.4
+      },
+      "total": {
+        "requests": 250,
+        "bytes": 5874305,
+        "meanRequestBytes": 23497.22
+      }
+    },
+    "differences": [
+      {
+        "kind": "manifest",
+        "differencePercent": 0,
+        "requestDifference": 0
+      },
+      {
+        "kind": "chunks",
+        "differencePercent": 0,
+        "requestDifference": 0
+      },
+      {
+        "kind": "tiles",
+        "differencePercent": 0,
+        "requestDifference": 0
+      },
+      {
+        "kind": "other",
+        "differencePercent": 0,
+        "requestDifference": 0
+      },
+      {
+        "kind": "total",
+        "differencePercent": 0,
+        "requestDifference": 0
+      }
+    ],
+    "completeBodyAborts": 39,
+    "contentLengthFallbacks": 3,
+    "findings": [],
+    "rangeRequests": 237,
+    "beforeTtfrBytes": 805421,
+    "beforeTtfhBytes": 4435065
+  },
+  "longFrames": {
+    "first12s": {
+      "count": 33,
+      "totalMs": 2989.399999976158,
+      "blockingMs": 943.1999999999999
+    },
+    "count": 36,
+    "totalMs": 3200.0999999046326,
+    "blockingMs": 964.1999999999999,
+    "topSources": [
+      {
+        "source": "http://127.0.0.1:4455/assets/index-4sq-QxD0.js FrameRequestCallback",
+        "durationMs": 681.3000005483627
+      },
+      {
+        "source": "http://127.0.0.1:4455/assets/index-4sq-QxD0.js a",
+        "durationMs": 493.599999666214
+      },
+      {
+        "source": "http://127.0.0.1:4455/assets/index-4sq-QxD0.js Worker.onmessage",
+        "durationMs": 294.7999999523163
+      }
+    ]
+  },
+  "mainThread": {
+    "samples": 3831,
+    "busySamples": 557,
+    "busyPercent": 14.539284782041243,
+    "topSources": [
+      {
+        "functionName": "draw",
+        "url": "src/core/overlay-canvas.ts",
+        "selfSamples": 3
+      },
+      {
+        "functionName": "showTemperature",
+        "url": "src/App.tsx",
+        "selfSamples": 14
+      },
+      {
+        "functionName": "fetchRangeBody",
+        "url": "src/core/mrf.ts",
+        "selfSamples": 27
+      }
+    ]
+  },
+  "intent": {
+    "fieldBytes": {
+      "rain_rate": 4120475,
+      "uv": 61584,
+      "uv_clear": 6214,
+      "radiation": 13530,
+      "temp_c": 127814,
+      "feels_like_c": 51990,
+      "wind_u_ms": 219918,
+      "wind_v_ms": 205141,
+      "gust_ms": 237581,
+      "rel_humidity": 9636,
+      "cloud_frac": 126704,
+      "cloud_low": 72071,
+      "cloud_mid": 48080,
+      "cloud_high": 61593
+    },
+    "lateOutsideIntent": []
+  },
+  "actions": [
+    {
+      "action": "play",
+      "plannedMs": 25500,
+      "actualMs": 25508.5,
+      "detail": "pauzeren"
+    },
+    {
+      "action": "seek",
+      "plannedMs": 26500,
+      "actualMs": 26502,
+      "detail": "seek 70 stappen in 10000 ms"
+    }
+  ],
+  "smoothness": [
+    {
+      "name": "afspelen tijdens laden",
+      "frames": 461,
+      "p50Ms": 16.7,
+      "p95Ms": 50,
+      "maxMs": 183.3,
+      "over50Ms": 23,
+      "over100Ms": 4,
+      "longFrames": {
+        "count": 21,
+        "totalMs": 1639,
+        "blockingMs": 350
+      }
+    },
+    {
+      "name": "afspelen na laden",
+      "frames": 599,
+      "p50Ms": 16.7,
+      "p95Ms": 16.8,
+      "maxMs": 33.2,
+      "over50Ms": 0,
+      "over100Ms": 0,
+      "longFrames": {
+        "count": 0,
+        "totalMs": 0,
+        "blockingMs": 0
+      }
+    },
+    {
+      "name": "seeken na laden",
+      "frames": 549,
+      "p50Ms": 16.7,
+      "p95Ms": 33.3,
+      "maxMs": 83.4,
+      "over50Ms": 4,
+      "over100Ms": 0,
+      "longFrames": {
+        "count": 2,
+        "totalMs": 142,
+        "blockingMs": 21
+      }
+    }
+  ],
+  "scrub": {
+    "samples": 40,
+    "p50Ms": 10.2,
+    "p95Ms": 21.5
+  },
+  "findings": [
+    "1 sampleposities zonder sourcemap-positie; oorspronkelijke bundelpositie bewaard",
+    "blank-visible-ms 3880: na de splash stond er een leeg slot in beeld (doel 0, MIP-19)"
+  ]
+}

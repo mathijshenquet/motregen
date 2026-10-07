@@ -1,0 +1,241 @@
+{
+  "meta": {
+    "profile": "po-android",
+    "origin": "https://www.buienradar.nl",
+    "capturedAt": "2026-10-07T20:42:53.240Z",
+    "cpuThrottleRate": 1,
+    "network": {
+      "label": "wifi via dev-host (30 Mbps, 20 ms RTT)",
+      "downloadThroughput": 3750000,
+      "uploadThroughput": 1250000,
+      "latency": 20,
+      "connectionType": "cellular4g"
+    },
+    "observeAfterFirstFrameMs": 15000,
+    "loadAverage": 3.86,
+    "rendererCpuQuotaPercent": 40
+  },
+  "milestones": {
+    "firstRadarMs": 1422,
+    "ttfpRefMs": 2461,
+    "ttfpRefUncoveredMs": 2461,
+    "consentDoneMs": 2462,
+    "frameChanges": 16,
+    "timeLabelChanges": 17
+  },
+  "actions": [
+    {
+      "name": "toestemming: persoonlijke advertenties",
+      "wallMs": 2326
+    },
+    {
+      "name": "toestemming: doorgaan",
+      "wallMs": 2462
+    }
+  ],
+  "events": [
+    {
+      "kind": "document",
+      "wallMs": 107,
+      "value": "https://www.buienradar.nl/"
+    },
+    {
+      "kind": "time-label",
+      "wallMs": 1237,
+      "value": "22:25"
+    },
+    {
+      "kind": "time-label",
+      "wallMs": 1357,
+      "value": "22:30"
+    },
+    {
+      "kind": "radar-frame",
+      "wallMs": 1422,
+      "value": "https://processing-cdn.buienradar.nl/processing/nl/rain/current/webm/202610072030.png",
+      "covered": false
+    },
+    {
+      "kind": "radar-frame",
+      "wallMs": 2007,
+      "value": "https://processing-cdn.buienradar.nl/processing/nl/rain/current/webm/202610072030.png",
+      "covered": true
+    },
+    {
+      "kind": "time-label",
+      "wallMs": 2367,
+      "value": "22:35"
+    },
+    {
+      "kind": "radar-frame",
+      "wallMs": 2461,
+      "value": "https://processing-cdn.buienradar.nl/processing/nl/rain/current/webm/202610072035.png",
+      "covered": false
+    },
+    {
+      "kind": "time-label",
+      "wallMs": 3382,
+      "value": "22:40"
+    },
+    {
+      "kind": "radar-frame",
+      "wallMs": 3501,
+      "value": "https://processing-cdn.buienradar.nl/processing/nl/rain/forecast/runs/webm/202610072035/202610072040.png",
+      "covered": false
+    },
+    {
+      "kind": "time-label",
+      "wallMs": 4386,
+      "value": "22:45"
+    },
+    {
+      "kind": "radar-frame",
+      "wallMs": 4461,
+      "value": "https://processing-cdn.buienradar.nl/processing/nl/rain/forecast/runs/webm/202610072035/202610072045.png",
+      "covered": false
+    },
+    {
+      "kind": "time-label",
+      "wallMs": 5366,
+      "value": "22:50"
+    },
+    {
+      "kind": "radar-frame",
+      "wallMs": 5461,
+      "value": "https://processing-cdn.buienradar.nl/processing/nl/rain/forecast/runs/webm/202610072035/202610072050.png",
+      "covered": false
+    },
+    {
+      "kind": "time-label",
+      "wallMs": 6367,
+      "value": "22:55"
+    },
+    {
+      "kind": "radar-frame",
+      "wallMs": 6461,
+      "value": "https://processing-cdn.buienradar.nl/processing/nl/rain/forecast/runs/webm/202610072035/202610072055.png",
+      "covered": false
+    },
+    {
+      "kind": "time-label",
+      "wallMs": 7398,
+      "value": "23:00"
+    },
+    {
+      "kind": "radar-frame",
+      "wallMs": 7511,
+      "value": "https://processing-cdn.buienradar.nl/processing/nl/rain/forecast/runs/webm/202610072035/202610072100.png",
+      "covered": false
+    },
+    {
+      "kind": "time-label",
+      "wallMs": 8362,
+      "value": "23:05"
+    },
+    {
+      "kind": "radar-frame",
+      "wallMs": 8461,
+      "value": "https://processing-cdn.buienradar.nl/processing/nl/rain/forecast/runs/webm/202610072035/202610072105.png",
+      "covered": false
+    },
+    {
+      "kind": "time-label",
+      "wallMs": 9363,
+      "value": "23:10"
+    },
+    {
+      "kind": "radar-frame",
+      "wallMs": 9461,
+      "value": "https://processing-cdn.buienradar.nl/processing/nl/rain/forecast/runs/webm/202610072035/202610072110.png",
+      "covered": false
+    },
+    {
+      "kind": "time-label",
+      "wallMs": 10371,
+      "value": "23:15"
+    },
+    {
+      "kind": "radar-frame",
+      "wallMs": 10461,
+      "value": "https://processing-cdn.buienradar.nl/processing/nl/rain/forecast/runs/webm/202610072035/202610072115.png",
+      "covered": false
+    },
+    {
+      "kind": "time-label",
+      "wallMs": 11361,
+      "value": "23:20"
+    },
+    {
+      "kind": "radar-frame",
+      "wallMs": 11461,
+      "value": "https://processing-cdn.buienradar.nl/processing/nl/rain/forecast/runs/webm/202610072035/202610072120.png",
+      "covered": false
+    },
+    {
+      "kind": "time-label",
+      "wallMs": 12362,
+      "value": "23:25"
+    },
+    {
+      "kind": "radar-frame",
+      "wallMs": 12461,
+      "value": "https://processing-cdn.buienradar.nl/processing/nl/rain/forecast/runs/webm/202610072035/202610072125.png",
+      "covered": false
+    },
+    {
+      "kind": "time-label",
+      "wallMs": 13363,
+      "value": "23:30"
+    },
+    {
+      "kind": "radar-frame",
+      "wallMs": 13461,
+      "value": "https://processing-cdn.buienradar.nl/processing/nl/rain/forecast/runs/webm/202610072035/202610072130.png",
+      "covered": false
+    },
+    {
+      "kind": "time-label",
+      "wallMs": 14363,
+      "value": "23:35"
+    },
+    {
+      "kind": "radar-frame",
+      "wallMs": 14461,
+      "value": "https://processing-cdn.buienradar.nl/processing/nl/rain/forecast/runs/webm/202610072035/202610072135.png",
+      "covered": false
+    },
+    {
+      "kind": "time-label",
+      "wallMs": 15366,
+      "value": "23:40"
+    },
+    {
+      "kind": "radar-frame",
+      "wallMs": 15461,
+      "value": "https://processing-cdn.buienradar.nl/processing/nl/rain/forecast/runs/webm/202610072035/202610072140.png",
+      "covered": false
+    },
+    {
+      "kind": "time-label",
+      "wallMs": 16362,
+      "value": "23:45"
+    },
+    {
+      "kind": "radar-frame",
+      "wallMs": 16461,
+      "value": "https://processing-cdn.buienradar.nl/processing/nl/rain/forecast/runs/webm/202610072035/202610072145.png",
+      "covered": false
+    },
+    {
+      "kind": "time-label",
+      "wallMs": 17362,
+      "value": "23:50"
+    },
+    {
+      "kind": "radar-frame",
+      "wallMs": 17461,
+      "value": "https://processing-cdn.buienradar.nl/processing/nl/rain/forecast/runs/webm/202610072035/202610072150.png",
+      "covered": false
+    }
+  ]
+}
