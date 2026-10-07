@@ -58,6 +58,7 @@ import { copyText } from './core/clipboard'
 import { resolveLocation, suggestLocations } from './core/geocoder'
 import { cursorForPresetEpoch, modeForActiveFocus, modeForFocus, parsePresets, shareUrl } from './core/presets'
 import { applyTelegramColors, type TelegramWebApp } from './core/telegram'
+import { windowReady } from './core/window-ready'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
 const manifestRequestUrl = sessionManifestUrls(manifestUrl)
@@ -2259,6 +2260,35 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     })).then((layers) => {
       if (request === cloudRequest) setCloudValues(Object.fromEntries(layers) as Record<CloudLayer, Array<number | null>>)
     }).catch(() => undefined)
+  })
+  // Meetpunt "window-ready:<veld>" (U52): wanneer heeft elk getoond veld zijn waarden voor nu ± 1 u.
+  const reportWindowReady = (field: string, epochs: number[], present: (index: number) => boolean) => {
+    createEffect(() => {
+      if (!manifest()) return
+      if (windowReady(epochs.map((epoch, index) => ({ epoch, present: present(index) })), manifestNow())) perf.markWindowReady(field)
+    })
+  }
+  createEffect(() => {
+    const rain = timeline()
+    reportWindowReady('rain_rate', rain.map((frame) => frame.epoch), (index) => rainLoaded()[index] === true)
+    for (const layer of CLOUD_LAYERS) {
+      reportWindowReady(`cloud_${layer}`, cloudTimelines()[layer].map((frame) => frame.epoch), (index) => cloudValues()[layer][index] != null)
+    }
+    const rows = forecast()
+    const tableFields: Array<[string, ForecastIndex, () => Array<number | null>]> = [
+      ['uv', 'uvIndex', uvSeries],
+      ['temp_c', 'temperatureIndex', temperatureSeries],
+      ['feels_like_c', 'feelsLikeIndex', feelsLikeSeries],
+      ['rel_humidity', 'humidityIndex', humiditySeries],
+      ['cloud_frac', 'cloudIndex', cloudSeries],
+      ['wind_u', 'windUIndex', windUSeries],
+      ['wind_v', 'windVIndex', windVSeries],
+      ['gust_ms', 'gustIndex', gustSeries],
+    ]
+    for (const [field, key, series] of tableFields) {
+      const withFrame = rows.filter((row) => row[key] != null)
+      reportWindowReady(field, withFrame.map((row) => row.epoch), (index) => series()[withFrame[index]![key]!] != null)
+    }
   })
   createEffect(() => {
     if (!inViewOnly) return
