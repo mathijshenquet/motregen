@@ -44,6 +44,7 @@ interface Props {
   onSelectTime?: (epoch: number) => void
   /** Portrait-mobiel gebruikt de eerste kop als wissel tussen kaart en tabel. */
   mobileTableOpen?: boolean
+  mobileViewProgress?: number
   onToggleMobileView?: () => void
   // De koppenrij is de modebalk: hover/toetsenbordfocus is tijdelijk, klikken pint één modus.
   focus: {
@@ -178,6 +179,10 @@ export default function ForecastTable(props: Props) {
   })
 
   const columnCount = () => 1 + Number(props.columns.weather) + Number(props.columns.air) + Number(props.columns.temperature) + Number(props.columns.wind)
+  const mobileViewStyle = () => {
+    const mix = Math.max(0, Math.min(1, props.mobileViewProgress ?? Number(Boolean(props.mobileTableOpen))))
+    return `--table-opacity:${(1 - mix).toFixed(3)};--map-opacity:${mix.toFixed(3)};--table-shift:${(-4 * mix).toFixed(2)}px;--map-shift:${(4 * (1 - mix)).toFixed(2)}px`
+  }
 
   return <table class="forecast-table" data-mode={props.focus.pinned} data-hover={hovered()}>
     <thead><tr>
@@ -186,14 +191,13 @@ export default function ForecastTable(props: Props) {
         <button
           type="button"
           class="column-mode mobile-view-toggle"
-          classList={{ 'show-map': props.mobileTableOpen }}
+          style={mobileViewStyle()}
           title={props.mobileTableOpen ? 'Terug naar de kaart' : 'Open de tabel'}
           aria-label={props.mobileTableOpen ? 'Kaart tonen' : 'Tabel tonen'}
           onClick={(event) => { event.stopPropagation(); props.onToggleMobileView?.() }}
         >
-          <Show when={props.mobileTableOpen} fallback={<ColumnLabel icon={Table2} text="Tabel" />}>
-            <ColumnLabel icon={MapIcon} text="Kaart" />
-          </Show>
+          <span class="mobile-view-label table-target"><ColumnLabel icon={Table2} text="Tabel" /></span>
+          <span class="mobile-view-label map-target"><ColumnLabel icon={MapIcon} text="Kaart" /></span>
         </button>
       </Show></th>
       <Show when={props.columns.weather}><th class="weather-heading" {...columnHover('weather')}>

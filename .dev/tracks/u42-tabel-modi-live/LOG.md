@@ -185,3 +185,14 @@
 - Eerste typecheck wees terecht op de lokale `location`-signal die `window.location` overschaduwde;
   na expliciet `window.location.hostname`: `pnpm typecheck` exit 0 en `pnpm build` exit 0
   (100 modules, `index-DUwaPu0w.js`, `index-DdT8jbfZ.css`), preview HTTP 200.
+
+## 2026-10-07 09:36 UTC
+
+- Mobiele `Tabel`/`Kaart`-wissel gebruikt nu in beide eindstanden dezelfde accentkleur. Beide
+  labels en iconen staan in dezelfde knop en crossfaden/verschuiven op basis van de werkelijke
+  pagina-scrollvoortgang; de zichtbare toestand verandert dus gedurende de tween in plaats van
+  pas bij de open-drempel. De aria-actie blijft met de bestaande pauzehysterese wisselen.
+- Synchrone receipts: `pnpm typecheck` exit 0; gerichte ForecastTable-test 16/16 groen; volledige
+  `pnpm test` 51 bestanden / 349 tests groen; `pnpm build` exit 0 (100 modules,
+  `index-BV6VLjcd.js`, `index-DTUvfvBt.css`, PWA). Preview `http://ageq-dev2:4320/` antwoordt
+  HTTP 200. Geen e2e uitgevoerd vóór PO-signaal “klaar”.

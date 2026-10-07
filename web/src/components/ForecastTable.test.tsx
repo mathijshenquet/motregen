@@ -21,7 +21,7 @@ const series: ForecastSeries = {
 }
 const allColumns = { weather: true, air: true, temperature: true, wind: true }
 
-function renderTable(options: { pinned?: FocusKind; weather?: boolean; onSelectTime?: (epoch: number) => void; mobileTableOpen?: boolean; onToggleMobileView?: () => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
+function renderTable(options: { pinned?: FocusKind; weather?: boolean; onSelectTime?: (epoch: number) => void; mobileTableOpen?: boolean; mobileViewProgress?: number; onToggleMobileView?: () => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
   const [pinned, setPinned] = createSignal<FocusKind>(options.pinned ?? 'weather')
   const onPin = vi.fn((mode: FocusKind) => setPinned(mode))
   const onFocus = vi.fn()
@@ -40,6 +40,7 @@ function renderTable(options: { pinned?: FocusKind; weather?: boolean; onSelectT
     onOpenHistory={() => undefined}
     onSelectTime={options.onSelectTime}
     mobileTableOpen={options.mobileTableOpen}
+    mobileViewProgress={options.mobileViewProgress}
     onToggleMobileView={options.onToggleMobileView}
     focus={{ pinned: pinned(), onPin, onFocus }}
   />)
@@ -79,15 +80,20 @@ describe('forecast table headings', () => {
 
   it('uses the first heading as a distinct table/map switch on portrait mobile', () => {
     const onToggleMobileView = vi.fn()
-    renderTable({ onToggleMobileView })
+    renderTable({ mobileViewProgress: 0.4, onToggleMobileView })
     expect(screen.queryByRole('columnheader', { name: 'Uur' })).toBeNull()
     const toggle = screen.getByRole('button', { name: 'Tabel tonen' })
     expect(toggle.classList.contains('mobile-view-toggle')).toBe(true)
+    expect(toggle.style.getPropertyValue('--table-opacity')).toBe('0.600')
+    expect(toggle.style.getPropertyValue('--map-opacity')).toBe('0.400')
     fireEvent.click(toggle)
     expect(onToggleMobileView).toHaveBeenCalledOnce()
     cleanup()
-    renderTable({ mobileTableOpen: true, onToggleMobileView })
-    fireEvent.click(screen.getByRole('button', { name: 'Kaart tonen' }))
+    renderTable({ mobileTableOpen: true, mobileViewProgress: 1, onToggleMobileView })
+    const mapToggle = screen.getByRole('button', { name: 'Kaart tonen' })
+    expect(mapToggle.style.getPropertyValue('--table-opacity')).toBe('0.000')
+    expect(mapToggle.style.getPropertyValue('--map-opacity')).toBe('1.000')
+    fireEvent.click(mapToggle)
     expect(onToggleMobileView).toHaveBeenCalledTimes(2)
   })
 

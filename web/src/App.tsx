@@ -322,15 +322,19 @@ export default function App() {
   const tableViewMedia = matchMedia('(max-width: 959px) and (orientation: portrait)')
   const [tableViewAvailable, setTableViewAvailable] = createSignal(tableViewMedia.matches)
   const [tableOpen, setTableOpen] = createSignal(false)
+  const [tableViewProgress, setTableViewProgress] = createSignal(0)
   const tableViewOpen = createMemo(() => tableViewAvailable() && tableOpen())
   let tableViewFrame: number | undefined
   function syncTableViewPosition(): void {
     tableViewFrame = undefined
     if (!tableViewAvailable() || !forecastPanelElement) {
       setTableOpen(false)
+      setTableViewProgress(0)
       return
     }
     const panelTop = forecastPanelElement.getBoundingClientRect().top
+    const panelRestTop = Math.max(1, panelTop + window.scrollY)
+    setTableViewProgress(Math.max(0, Math.min(1, window.scrollY / panelRestTop)))
     if (!tableOpen() && panelTop <= 0) setTableOpen(true)
     else if (tableOpen() && panelTop > 24) setTableOpen(false)
   }
@@ -2315,6 +2319,7 @@ export default function App() {
             historyOpen={historyOpen()}
             historyLoaded={historyRowsWanted() || pointLoadStage() === 'complete'}
             mobileTableOpen={tableViewOpen()}
+            mobileViewProgress={tableViewProgress()}
             onToggleMobileView={tableViewAvailable() ? () => { tableViewOpen() ? scrollToMap() : scrollToTable() } : undefined}
             onNeedRows={() => { void completePointSeries(pointLoad, 'high') }}
             onNeedHistory={() => { void loadHistoryRows() }}
