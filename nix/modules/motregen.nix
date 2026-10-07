@@ -159,6 +159,15 @@ in
       defaultText = lib.literalExpression "self.packages.\${pkgs.stdenv.hostPlatform.system}.motregen-web";
       description = "Vite dist tree served by Caddy.";
     };
+
+    bot = {
+      enable = lib.mkEnableOption "Telegram long polling and still renderer";
+      package = lib.mkOption {
+        type = lib.types.package;
+        default = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-bot;
+        description = "Package providing the Telegram bot and renderer.";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -342,6 +351,41 @@ in
       };
     };
 
+    users.users.motregen-bot = lib.mkIf cfg.bot.enable {
+      isSystemUser = true;
+      group = "motregen-bot";
+    };
+    users.groups.motregen-bot = lib.mkIf cfg.bot.enable { };
+
+    systemd.services.motregen-bot = lib.mkIf cfg.bot.enable {
+      description = "Telegram bot and national still renderer for motregen.nl";
+      wantedBy = [ "multi-user.target" ];
+      wants = [ "network-online.target" ];
+      after = [ "network-online.target" "caddy.service" ];
+      environment = {
+        MOTREGEN_ORIGIN = "https://${cfg.domain}";
+        MOTREGEN_RENDER_CACHE = "/var/cache/motregen-bot/stills";
+        MOTREGEN_BOT_PORT = "8090";
+        PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
+        PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
+      };
+      serviceConfig = hardening // {
+        ExecStart = lib.getExe cfg.bot.package;
+        EnvironmentFile = cfg.secretsFile;
+        User = "motregen-bot";
+        Group = "motregen-bot";
+        CacheDirectory = "motregen-bot";
+        CacheDirectoryMode = "0755";
+        UMask = "0022";
+        Restart = "on-failure";
+        RestartSec = "15s";
+        TimeoutStopSec = "90s";
+        LimitCORE = 0;
+        PrivateNetwork = false;
+        RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" "AF_NETLINK" ];
+      };
+    };
+
     services.caddy = {
       enable = true;
       globalConfig = lib.optionalString (!cfg.enableTls) "auto_https off";
@@ -438,6 +482,19 @@ in
           handle /data/* {
             respond 404
           }
+
+          ${lib.optionalString cfg.bot.enable ''
+            handle /telegram/validate {
+              header Cache-Control "no-store"
+              reverse_proxy 127.0.0.1:8090
+            }
+            handle_path /telegram/stills/* {
+              root * /var/cache/motregen-bot/stills
+              header Cache-Control "public, max-age=7200, immutable"
+              header X-Robots-Tag "noindex"
+              file_server
+            }
+          ''}
 
           handle {
             root * ${cfg.frontendPackage}

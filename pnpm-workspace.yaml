@@ -1,3 +1,6 @@
+packages:
+  - web
+  - bot
 allowBuilds:
   esbuild: true
 onlyBuiltDependencies:
