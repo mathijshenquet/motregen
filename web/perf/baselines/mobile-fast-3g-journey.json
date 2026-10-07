@@ -2,23 +2,37 @@
   "schema": 1,
   "profile": "mobile-fast-3g",
   "scenario": "journey",
-  "sourceSha": "2aa3589c38332a55ae509b459bcfdfd31f501565",
-  "capturedAt": "2026-10-07T11:52:42.210Z",
-  "contractHash": "1ffce91b42161cb4a27f90131f2e6b1e5e930612c437fd0ea03732caa77c5992",
+  "sourceSha": "2afe2ec57a4aa6f1dbdbf150f9167e9c8822639f",
+  "capturedAt": "2026-10-07T19:40:24.948Z",
+  "contractHash": "22736a4cada74421952af9c9f1c3f8b833d0c00fdf53c4f95d5aed6ee6d36260",
   "regressionLimitPercent": 10,
-  "wireBytes": 1225342,
-  "decodes": 207,
+  "wireBytes": 1330346,
+  "decodes": 263,
   "metrics": {
+    "basemapContractHash": "69fd39b07977b9d69704095cca4cbf9183274da7ae94bfc6af7e815447cc7db7",
     "milestones": {
-      "ttfrMs": 4727.1,
-      "splashGoneMs": 6611.100000023842,
-      "ttfhMs": 7192,
+      "ttfrMs": 5199,
+      "firstRainMs": 5199,
+      "basemapReadyMs": 3794.5,
+      "ttfpMs": 9094.2,
+      "blankVisibleMs": 3552,
+      "blankSlotSeconds": 151.1,
+      "blankShareSeconds": 2.29,
+      "firstBarMs": 5162.7,
+      "splashGoneMs": 7091.299999952316,
+      "ttfhMs": 7980,
       "windowReadyMs": {
-        "uv": 5842,
-        "cloud_mid": 6056,
-        "cloud_low": 6104,
-        "cloud_high": 6152,
-        "rain_rate": 7192
+        "cloud_mid": 6365,
+        "uv": 6463,
+        "cloud_low": 6614,
+        "cloud_high": 6614,
+        "feels_like_c": 6715,
+        "wind_u": 6715,
+        "wind_v": 6715,
+        "temp_c": 7262,
+        "cloud_frac": 7529,
+        "gust_ms": 7571,
+        "rain_rate": 7980
       },
       "histogramSource": "U52 window-ready:rain_rate"
     },
@@ -26,155 +40,245 @@
       "phases": {
         "table-render": {
           "count": 7,
-          "totalMs": 6.7,
-          "p50Ms": 0.7999999523162842,
-          "p95Ms": 2.899999976158142
+          "totalMs": 5.1,
+          "p50Ms": 0.3999999761581421,
+          "p95Ms": 2.799999952316284
         },
         "scrubber-paint": {
-          "count": 176,
-          "totalMs": 100.7,
-          "p50Ms": 0.3999999761581421,
+          "count": 236,
+          "totalMs": 125.7,
+          "p50Ms": 0.20000004768371582,
           "p95Ms": 1.899999976158142
         },
         "basemap-tile": {
           "count": 1,
-          "totalMs": 210.2,
-          "p50Ms": 210.20000004768372,
-          "p95Ms": 210.20000004768372
+          "totalMs": 193.2,
+          "p50Ms": 193.20000004768372,
+          "p95Ms": 193.20000004768372
+        },
+        "milestone:basemap-ready": {
+          "count": 1,
+          "totalMs": 3794.5,
+          "p50Ms": 3794.5,
+          "p95Ms": 3794.5
         },
         "frame-decode": {
-          "count": 207,
-          "totalMs": 102.3,
+          "count": 263,
+          "totalMs": 114.6,
           "p50Ms": 0.20000004768371582,
-          "p95Ms": 2.299999952316284
+          "p95Ms": 1.7000000476837158
         },
         "texture-upload": {
-          "count": 14,
-          "totalMs": 19.1,
-          "p50Ms": 1,
-          "p95Ms": 4.5
+          "count": 11,
+          "totalMs": 7.5,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 3.5
+        },
+        "milestone:first-bar": {
+          "count": 1,
+          "totalMs": 5162.7,
+          "p50Ms": 5162.700000047684,
+          "p95Ms": 5162.700000047684
+        },
+        "milestone:first-rain": {
+          "count": 1,
+          "totalMs": 5199,
+          "p50Ms": 5199,
+          "p95Ms": 5199
+        },
+        "milestone:ttfr": {
+          "count": 1,
+          "totalMs": 5199,
+          "p50Ms": 5199,
+          "p95Ms": 5199
         },
         "wind-step": {
-          "count": 872,
-          "totalMs": 1098.2,
-          "p50Ms": 1.100000023841858,
-          "p95Ms": 2.5
-        },
-        "window-ready:uv": {
-          "count": 1,
-          "totalMs": 5842.4,
-          "p50Ms": 5842.400000095367,
-          "p95Ms": 5842.400000095367
+          "count": 876,
+          "totalMs": 512.4,
+          "p50Ms": 0.5999999046325684,
+          "p95Ms": 1.2000000476837158
         },
         "window-ready:cloud_mid": {
           "count": 1,
-          "totalMs": 6055.7,
-          "p50Ms": 6055.700000047684,
-          "p95Ms": 6055.700000047684
+          "totalMs": 6364.7,
+          "p50Ms": 6364.700000047684,
+          "p95Ms": 6364.700000047684
+        },
+        "window-ready:uv": {
+          "count": 1,
+          "totalMs": 6463.2,
+          "p50Ms": 6463.200000047684,
+          "p95Ms": 6463.200000047684
         },
         "window-ready:cloud_low": {
           "count": 1,
-          "totalMs": 6104.3,
-          "p50Ms": 6104.300000071526,
-          "p95Ms": 6104.300000071526
+          "totalMs": 6613.6,
+          "p50Ms": 6613.600000023842,
+          "p95Ms": 6613.600000023842
         },
         "window-ready:cloud_high": {
           "count": 1,
-          "totalMs": 6151.9,
-          "p50Ms": 6151.900000095367,
-          "p95Ms": 6151.900000095367
+          "totalMs": 6613.6,
+          "p50Ms": 6613.600000023842,
+          "p95Ms": 6613.600000023842
+        },
+        "window-ready:feels_like_c": {
+          "count": 1,
+          "totalMs": 6715.3,
+          "p50Ms": 6715.299999952316,
+          "p95Ms": 6715.299999952316
+        },
+        "window-ready:wind_u": {
+          "count": 1,
+          "totalMs": 6715.4,
+          "p50Ms": 6715.399999976158,
+          "p95Ms": 6715.399999976158
+        },
+        "window-ready:wind_v": {
+          "count": 1,
+          "totalMs": 6715.4,
+          "p50Ms": 6715.399999976158,
+          "p95Ms": 6715.399999976158
+        },
+        "window-ready:temp_c": {
+          "count": 1,
+          "totalMs": 7262.1,
+          "p50Ms": 7262.100000023842,
+          "p95Ms": 7262.100000023842
+        },
+        "window-ready:cloud_frac": {
+          "count": 1,
+          "totalMs": 7528.9,
+          "p50Ms": 7528.899999976158,
+          "p95Ms": 7528.899999976158
+        },
+        "window-ready:gust_ms": {
+          "count": 1,
+          "totalMs": 7571.4,
+          "p50Ms": 7571.399999976158,
+          "p95Ms": 7571.399999976158
         },
         "window-ready:rain_rate": {
           "count": 1,
-          "totalMs": 7192.4,
-          "p50Ms": 7192.400000095367,
-          "p95Ms": 7192.400000095367
+          "totalMs": 7979.7,
+          "p50Ms": 7979.700000047684,
+          "p95Ms": 7979.700000047684
+        },
+        "blank-visible": {
+          "count": 1,
+          "totalMs": 3551.6,
+          "p50Ms": 3551.600000023842,
+          "p95Ms": 3551.600000023842
+        },
+        "milestone:ttfp": {
+          "count": 1,
+          "totalMs": 9094.2,
+          "p50Ms": 9094.200000047684,
+          "p95Ms": 9094.200000047684
         },
         "isoline-trace": {
           "count": 1,
-          "totalMs": 15.5,
-          "p50Ms": 15.5,
-          "p95Ms": 15.5
+          "totalMs": 13.4,
+          "p50Ms": 13.399999976158142,
+          "p95Ms": 13.399999976158142
         },
         "isoline-blit": {
-          "count": 14,
-          "totalMs": 1.4,
-          "p50Ms": 0.10000002384185791,
-          "p95Ms": 0.3999999761581421
+          "count": 11,
+          "totalMs": 0,
+          "p50Ms": 0,
+          "p95Ms": 0
         }
       },
       "fields": {
         "rain_rate": {
-          "count": 71,
-          "totalMs": 26,
-          "p50Ms": 0.2999999523162842,
-          "p95Ms": 1.399999976158142
+          "count": 106,
+          "totalMs": 25.1,
+          "p50Ms": 0.19999992847442627,
+          "p95Ms": 0.3999999761581421
+        },
+        "radiation": {
+          "count": 5,
+          "totalMs": 4.7,
+          "p50Ms": 0.3999999761581421,
+          "p95Ms": 2.600000023841858
         },
         "motion": {
           "count": 29,
-          "totalMs": 1.5,
+          "totalMs": 1,
           "p50Ms": 0,
           "p95Ms": 0.10000002384185791
         },
         "feels_like_c": {
           "count": 7,
-          "totalMs": 16.8,
+          "totalMs": 22.3,
           "p50Ms": 2.299999952316284,
-          "p95Ms": 3.5999999046325684
+          "p95Ms": 8.300000071525574
         },
         "uv_clear": {
           "count": 8,
-          "totalMs": 4.6,
-          "p50Ms": 0.5,
-          "p95Ms": 1.100000023841858
+          "totalMs": 5.5,
+          "p50Ms": 0.8999999761581421,
+          "p95Ms": 1
         },
         "cloud_high": {
           "count": 14,
-          "totalMs": 13.2,
+          "totalMs": 10,
           "p50Ms": 0.20000004768371582,
-          "p95Ms": 9
+          "p95Ms": 7.199999928474426
         },
         "uv": {
           "count": 5,
-          "totalMs": 7.3,
-          "p50Ms": 0.30000007152557373,
-          "p95Ms": 6.100000023841858
+          "totalMs": 11,
+          "p50Ms": 0.2999999523162842,
+          "p95Ms": 5.300000071525574
+        },
+        "temp_c": {
+          "count": 7,
+          "totalMs": 2.2,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.6000000238418579
+        },
+        "cloud_frac": {
+          "count": 7,
+          "totalMs": 6.3,
+          "p50Ms": 0.19999992847442627,
+          "p95Ms": 5.399999976158142
         },
         "wind_u_ms": {
           "count": 13,
-          "totalMs": 3.2,
+          "totalMs": 2.5,
           "p50Ms": 0.20000004768371582,
           "p95Ms": 0.5
         },
         "wind_v_ms": {
           "count": 13,
-          "totalMs": 2.7,
+          "totalMs": 2.6,
           "p50Ms": 0.20000004768371582,
-          "p95Ms": 0.30000007152557373
+          "p95Ms": 0.3999999761581421
         },
         "cloud_mid": {
           "count": 14,
-          "totalMs": 2.9,
+          "totalMs": 2.7,
           "p50Ms": 0.20000004768371582,
-          "p95Ms": 0.40000009536743164
+          "p95Ms": 0.2999999523162842
+        },
+        "gust_ms": {
+          "count": 13,
+          "totalMs": 2.9,
+          "p50Ms": 0.19999992847442627,
+          "p95Ms": 0.5
         },
         "cloud_low": {
           "count": 14,
-          "totalMs": 5,
+          "totalMs": 2.6,
           "p50Ms": 0.19999992847442627,
-          "p95Ms": 2.600000023841858
-        },
-        "gust_ms": {
-          "count": 11,
-          "totalMs": 2.9,
-          "p50Ms": 0.20000004768371582,
-          "p95Ms": 0.5
+          "p95Ms": 0.40000009536743164
         },
         "pressure_hpa": {
           "count": 8,
-          "totalMs": 16.2,
-          "p50Ms": 1.7000000476837158,
-          "p95Ms": 3.5
+          "totalMs": 13.2,
+          "p50Ms": 1.399999976158142,
+          "p95Ms": 2.799999952316284
         }
       },
       "decodesPerSecond": [
@@ -182,23 +286,23 @@
         0,
         0,
         0,
-        4,
-        24,
-        65,
-        20,
-        37,
         6,
-        4,
+        17,
+        49,
+        50,
+        49,
+        8,
+        8,
+        5,
+        6,
+        8,
+        8,
+        13,
+        5,
+        2,
+        3,
         0,
-        0,
-        4,
-        4,
-        0,
-        0,
-        4,
-        4,
-        0,
-        26,
+        21,
         5,
         0,
         0,
@@ -218,24 +322,24 @@
           "meanRequestBytes": 36513
         },
         "chunks": {
-          "requests": 105,
-          "bytes": 743025,
-          "meanRequestBytes": 7076.428571428572
+          "requests": 153,
+          "bytes": 812238,
+          "meanRequestBytes": 5308.745098039216
         },
         "tiles": {
-          "requests": 1,
-          "bytes": 73,
-          "meanRequestBytes": 73
+          "requests": 2,
+          "bytes": 13227,
+          "meanRequestBytes": 6613.5
         },
         "other": {
-          "requests": 12,
-          "bytes": 445731,
-          "meanRequestBytes": 37144.25
+          "requests": 13,
+          "bytes": 468368,
+          "meanRequestBytes": 36028.307692307695
         },
         "total": {
-          "requests": 119,
-          "bytes": 1225342,
-          "meanRequestBytes": 10296.991596638656
+          "requests": 169,
+          "bytes": 1330346,
+          "meanRequestBytes": 7871.869822485207
         }
       },
       "resourceTiming": {
@@ -245,24 +349,24 @@
           "meanRequestBytes": 36513
         },
         "chunks": {
-          "requests": 105,
-          "bytes": 743025,
-          "meanRequestBytes": 7076.428571428572
+          "requests": 153,
+          "bytes": 812238,
+          "meanRequestBytes": 5308.745098039216
         },
         "tiles": {
-          "requests": 1,
-          "bytes": 73,
-          "meanRequestBytes": 73
+          "requests": 2,
+          "bytes": 13227,
+          "meanRequestBytes": 6613.5
         },
         "other": {
-          "requests": 12,
-          "bytes": 445731,
-          "meanRequestBytes": 37144.25
+          "requests": 13,
+          "bytes": 468368,
+          "meanRequestBytes": 36028.307692307695
         },
         "total": {
-          "requests": 119,
-          "bytes": 1225342,
-          "meanRequestBytes": 10296.991596638656
+          "requests": 169,
+          "bytes": 1330346,
+          "meanRequestBytes": 7871.869822485207
         }
       },
       "differences": [
@@ -292,67 +396,72 @@
           "requestDifference": 0
         }
       ],
-      "completeBodyAborts": 81,
-      "contentLengthFallbacks": 5,
+      "completeBodyAborts": 103,
+      "contentLengthFallbacks": 6,
       "findings": [],
-      "rangeRequests": 105,
-      "beforeTtfrBytes": 604216,
-      "beforeTtfhBytes": 856663
+      "rangeRequests": 153,
+      "beforeTtfrBytes": 631395,
+      "beforeTtfhBytes": 1031244
     },
     "longFrames": {
-      "count": 13,
-      "totalMs": 1475.0000001192093,
-      "blockingMs": 355.8,
+      "first12s": {
+        "count": 6,
+        "totalMs": 1130.9999998807907,
+        "blockingMs": 381.90000000000003
+      },
+      "count": 8,
+      "totalMs": 1279.1999999284744,
+      "blockingMs": 413.90000000000003,
       "topSources": [
         {
-          "source": "http://127.0.0.1:4386/assets/index-BP-cTloi.js Worker.onmessage",
-          "durationMs": 223.700000166893
+          "source": "http://127.0.0.1:4455/assets/index-BVmPfauq.js FrameRequestCallback",
+          "durationMs": 218.60000002384186
         },
         {
-          "source": "http://127.0.0.1:4386/assets/index-BP-cTloi.js FrameRequestCallback",
-          "durationMs": 174.80000007152557
+          "source": "http://127.0.0.1:4455/assets/index-BVmPfauq.js http://127.0.0.1:4455/assets/index-BVmPfauq.js",
+          "durationMs": 189.29999995231628
         },
         {
-          "source": "http://127.0.0.1:4386/assets/index-BP-cTloi.js http://127.0.0.1:4386/assets/index-BP-cTloi.js",
-          "durationMs": 141.89999997615814
+          "source": "http://127.0.0.1:4455/assets/index-BVmPfauq.js Worker.onmessage",
+          "durationMs": 123.79999995231628
         }
       ]
     },
     "mainThread": {
-      "samples": 3385,
-      "busySamples": 820,
-      "busyPercent": 24.224519940915805,
+      "samples": 3164,
+      "busySamples": 563,
+      "busyPercent": 17.79393173198483,
       "topSources": [
         {
-          "functionName": "showTemperature",
-          "url": "src/App.tsx",
-          "selfSamples": 28
+          "functionName": "(anonymous)",
+          "url": "http://127.0.0.1:4455/assets/index-BVmPfauq.js",
+          "selfSamples": 6
         },
         {
-          "functionName": "(anonymous)",
-          "url": "http://127.0.0.1:4386/assets/index-BP-cTloi.js",
+          "functionName": "advance",
+          "url": "src/core/wind-layer.ts",
           "selfSamples": 4
         },
         {
-          "functionName": "currentTrailView",
-          "url": "src/core/wind-layer.ts",
-          "selfSamples": 34
+          "functionName": "fetchRangeBody",
+          "url": "src/core/mrf.ts",
+          "selfSamples": 26
         }
       ]
     },
     "intent": {
       "fieldBytes": {
-        "rain_rate": 329429,
+        "rain_rate": 356168,
         "uv": 28747,
         "uv_clear": 6214,
-        "radiation": 6792,
-        "temp_c": 9729,
+        "radiation": 13530,
+        "temp_c": 23297,
         "feels_like_c": 14269,
         "wind_u_ms": 51630,
         "wind_v_ms": 48227,
-        "gust_ms": 49616,
+        "gust_ms": 58553,
         "rel_humidity": 9636,
-        "cloud_frac": 9600,
+        "cloud_frac": 22831,
         "cloud_low": 51299,
         "cloud_mid": 47600,
         "cloud_high": 61113,
@@ -361,7 +470,8 @@
       "lateOutsideIntentCount": 0
     },
     "findings": [
-      "1 sampleposities zonder sourcemap-positie; oorspronkelijke bundelpositie bewaard"
+      "1 sampleposities zonder sourcemap-positie; oorspronkelijke bundelpositie bewaard",
+      "blank-visible-ms 3552: na de splash stond er een leeg slot in beeld (doel 0, MIP-19)"
     ]
   }
 }

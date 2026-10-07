@@ -889,6 +889,29 @@ De koude start van main is bimodaal: een snelle tak (run 1) en een trage (run 2 
 de puntreeks pas na 25 s laadfase `direct` haalt. De oorzaak en het vervolg staan in de
 track-LOG (`.dev/tracks/u54-laadchoreografie-live/LOG.md`).
 
+### Baselines na U54 + U59 (2026-10-08, rig 2afe2ec)
+
+`pnpm perf:mobile --profile all --scenario all --repeat 3 --baseline`, exit 0, loadavg
+5,5–7,9, spreiding op decodes en bytes 0 % in alle zes combinaties. Ten opzichte van de
+baselines van U59 (ac9961a):
+
+| profiel / scenario | wire (B) was → nu | decodes was → nu |
+| --- | ---: | ---: |
+| 4G en Fast 3G / koud | 1127388 → 1137555 (+0,9 %) | 128 → 128 |
+| 4G en Fast 3G / journey | 1293377 → 1330346 (+2,9 %) | 228 → 263 (+15 %) |
+| 4G / storm | 1318557 → 1328724 (+0,8 %) | 189 → 189 |
+| Fast 3G / storm | 1572568 → 1328724 (−15,5 %) | 280 → 189 (−33 %) |
+
+De stijging in `journey` is **bedoeld** (orkestrator/PO 2026-10-07): met de speelregel van
+MIP-19 §De lat begint afspelen zodra het cursorframe en het volgende er zijn, dus loopt de
+tijdlijn binnen de vaste meetduur eerder en verder en toont hij meer frames. Het is geen extra
+werk per getoond frame. De ≈ 10 kB bij `koud` en `storm` is de grotere bundel (meetpunten,
+speelregel, kader). De daling in de Fast-3G-storm is niet onderzocht; vermoedelijk dezelfde
+oorzaak als het verdwijnen van de trage tak (iteratie 1), maar dat is een vermoeden.
+
+Tijden uit dezelfde runs (mediaan ×3): 4G koud ttfr 1653 ms, ttfh 2337 ms; Fast 3G koud ttfr
+5098 ms, ttfh 7963 ms; ttfp in `journey` 9,1 s (dat scenario start het afspelen zelf op 9 s).
+
 ### Referentie: desktop-MacBook, Firefox Profiler (PO, 2026-10-07 20:32/20:33)
 
 Twee opnames met de Firefox Profiler op de MacBook van de PO: één met Buienradar, één met
