@@ -88,10 +88,9 @@
         "detail_minzoom"
       ]
     },
-    "landcover_10": {
+    "landcover": {
       "minzoom": 10,
       "maxzoom": 10,
-      "write_to": "landcover",
       "source": "landcover-10.geojson",
       "source_columns": [
         "class",

@@ -206,3 +206,19 @@ Gecomprimeerde bytes; publisher valideert totaal én grootste tegel tegen dezelf
 - Nieuwe pipeline geselecteerde bronpolygonen op geprojecteerd pixeloppervlak, union per klasse/detailzoom/5 km-cel, zoomafhankelijke topology-preserving simplify en closing van stedelijke vlakken. Beschermde gebieden zelfstandig park naast bos/gras. Native z10 bevat detail tot z12, stijlfilter detail_minzoom bewaakt overzoom.
 - Natural Earth 50m urban areas uitgesneden [0,49,10,55] als gecomprimeerde reproduceerbare bron voor grijs z4–5. Bouw 5 en echte MapLibre-stijlvalidatie gestart (exec-session 14177, tmp/basemap/u60/build-revision-5.txt).
 - Opdracht bevestigd: vannacht afronden met groen/grijs elk paar ±15 %, eindparen, mobiele rig-gate, docs en PR #87 ready; PO slaapt. Geen mergeopdracht.
+
+## 2026-10-07T21:41:05Z — Tijdcorrectie en bouwstatus
+
+- Het vorige WIP-kopje noemt 21:43Z; de feitelijke commit/push was 21:38:31Z (f19c64a), dus dat kopje liep vooruit. Voortaan timestamp rechtstreeks uit de klok.
+- MapLibre-stijlvalidatie 6/6 exit 0; strikte tooling/spec-TypeScriptcheck exit 0. Gepinde PBF-controle, merge, tags-filter en complete extract voltooid; nieuwe polygonexport loopt. Docs-bron/generalisatie bijgewerkt.
+
+## 2026-10-07T21:47:31Z — Bronprofielen en controles
+
+- Zeven per-zoom bronnen vervangen de te fijne wide-pipeline; geselecteerd vóór union: wood 74.599, grass 222.061, park 9.848, urban 432.832, wetland 6.441, sand 557 oorspronkelijke polygonen (detail t/m z12). Profielen z4–8 klaar; z9/10 volgen.
+- pnpm typecheck exit 0 (web+bot); pnpm test exit 0 (web 461, bot 58); stijlvalidator 6/6 exit 0; strikte toolingcheck inclusief report-mobile exit 0. Nieuwe archief/A-B/performance nog niet gemeten.
+- report-mobile.mts bewaakt het identieke U59-meetcontract en +25 % op kaartbytes én totaalbytes, ≤1 s per run, gelijke decodes en nul bevindingen; registreert daarna beknopte receipts en tabel.
+
+## 2026-10-07T21:54:06Z — Tweede checkpoint voor eindmeting
+
+- Bronprofielen z4–9 afgerond; z10/detail-z12 in verwerking. Publisher en nieuwe A/B/perf nog te observeren. Reproduceerbare bronselectie/generalisatie, Natuurlijke Earth-provenance en expliciete U59-bytegate gaan mee in checkpoint; geen claim van geslaagde einddekking.
+- Native landcover vormt de bestemming; de zes lagere profielen schrijven daarin met eigen zoomrange. Lua bewaart class en detail_minzoom voor alle profielbronnen.

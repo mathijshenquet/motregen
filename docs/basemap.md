@@ -28,6 +28,19 @@ ogr2ogr -f GeoJSON -spat -5 48 13 57 -clipsrc -5 48 13 57 \
 gzip -n -9 -c ocean.geojson > tools/basemap/ocean.geojson.gz
 ```
 
+Laagzoom-bebouwing komt, net als bij Liberty, uit Natural Earth 50m urban areas
+([publiek domein](https://www.naturalearthdata.com/about/terms-of-use/)). De
+[bronzip](https://naciscdn.org/naturalearth/50m/cultural/ne_50m_urban_areas.zip)
+heeft SHA256 `69e916a46e663eefe8469cf4154bd34ff9486fb91e4a54762dbe85c1bbfb912b`.
+`natural-earth-urban.geojson.gz` bevat de uitsnede [0,49,10,55], klasse `urban`
+en `detail_minzoom` 4 voor scalerank ≤2, anders 5. Herbouw van deze uitsnede:
+
+```bash
+ogr2ogr -f GeoJSON urban.geojson ne_50m_urban_areas.shp -clipsrc 0 49 10 55 \
+  -dialect SQLite -sql "SELECT geometry, 'urban' AS class, CASE WHEN scalerank <= 2 THEN 4 ELSE 5 END AS detail_minzoom FROM ne_50m_urban_areas"
+gzip -n -c urban.geojson > tools/basemap/natural-earth-urban.geojson.gz
+```
+
 De meegeleverde Noto Sans Regular-glyphs (Latin 0–511) komen uit de
 OpenFreeMap-fontservice. Noto gebruikt de SIL Open Font License; deze staat
 naast de glyphs. `tilemaker` 3.1.0 en npm `pmtiles` 4.5.0 gebruiken BSD-licenties.
@@ -52,9 +65,24 @@ Devenv bevat tilemaker, de PMTiles-CLI, osmium, GDAL en unzip. De ingang downloa
 vastgepinde PBF’s, controleert SHA256, voegt ze samen, filtert tags en maakt
 met osmium een complete-way/multipolygon-extract. Landcover wordt met osmium
 naar GeoJSON geëxporteerd en door `landcover.mts` in bos, gras, park, moeras,
-zand en bebouwing ingedeeld. GDAL/GEOS verenigt de vlakken per klasse en
-ruimtelijke groep van 0,05° vóór de tegelbouw; tilemaker past daarna simplificatie
-en minimumoppervlak per zoom toe. Tilemaker gebruikt
+zand en bebouwing ingedeeld. Beschermde gebieden krijgen zelfstandig `park`,
+ook als hetzelfde gebied bos/gras is. De selectie volgt de
+[OpenMapTiles-producer](https://github.com/openmaptiles/planetiler-openmaptiles/tree/main/src/main/java/org/openmaptiles/layers):
+minimumoppervlak van oorspronkelijke polygonen in geprojecteerde pixels,
+vóór union. Park begint op z4 (2 pixels); bos/gras/zand op z7 (2 pixels t/m z9,
+4 op z10, 8 op z11–12). OSM residential begint op z6 (0,1 pixel), overige
+bebouwing op z9 (4 pixels). Natural Earth-bebouwing geldt alleen voor z4–5.
+De pixelmaat wordt gekwadrateerd: minimumoppervlak =
+`(40.075.016,6856 m / (256 × 2^zoom) × pixelmaat)²` in EPSG:3857.
+
+GDAL/GEOS verenigt geselecteerde vlakken per klasse/detailzoom/5 km-groep in
+EPSG:3857. `generalize-landcover.sh` maakt afzonderlijke bronnen voor z4–10,
+met topology-preserving simplificatie op 0,25 pixel onder z10 en 0,1 op z10.
+Bebouwing krijgt een closing-buffer van 0,5 pixel op z6, 0,25 op z7, 0,125 op
+z8 en 0,1 daarna. Native z10 bevat ook de selectie voor z12; de stijlexpressie
+`detail_minzoom` verbergt die fijne vlakken totdat de kaart zover is ingezoomd.
+Zo blijft overzoom bruikbaar zonder water/grenzen/labels tot z12 te dupliceren.
+Tilemaker gebruikt
 `config.json` en `process.lua` en schrijft `tmp/basemap/build/nl.pmtiles`.
 De PMTiles-CLI clustert en verifieert het archief.
 `publish.mts` controleert iedere tegel op het toegestane schema, grenzen,
@@ -140,10 +168,9 @@ Naast bos zijn meadow/grass/grassland/heath/scrub, parken/natuurreservaten,
 wetland en sand/beach opgenomen. Farmland is in Liberty geen gekleurde laag
 en wordt daarom niet meegeleverd. Wetland wordt bij z12 zichtbaar, ook bij
 bron-overzoom; een vlakke kleur vervangt het spritepatroon zodat er geen
-extra sprite-aanvraag nodig is. Tilemaker generaliseert de landcover per zoom
-met `simplify_below`, `simplify_level`, `filter_below` en `filter_area`.
-GEOS-union komt eerst, daarna Visvalingam-simplificatie en minimumoppervlak.
-Beide zoomprofielen schrijven naar dezelfde landcover-laag. Bos/gras/parken
+extra sprite-aanvraag nodig is. Minimumoppervlak, GEOS-union en
+topology-preserving simplificatie maken de selectie en geometrie per zoom;
+alle zeven bronnen schrijven naar dezelfde landcover-laag. Bos/gras/parken
 hebben een gevulde Liberty-kleur zonder omtrek. Residential/commercial/
 industrial/retail vormen de lichtgrijze bebouwing, met Liberty’s residential-verf.
 

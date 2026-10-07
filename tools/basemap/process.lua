@@ -62,6 +62,8 @@ function way_function()
 end
 
 function attribute_function(attributes, layer)
-    if string.sub(layer, 1, 10) == "landcover_" then return { class = attributes.class, detail_minzoom = attributes.detail_minzoom } end
+    if layer == "landcover" or string.sub(layer, 1, 10) == "landcover_" then
+        return { class = attributes.class, detail_minzoom = attributes.detail_minzoom }
+    end
     return {}
 end
