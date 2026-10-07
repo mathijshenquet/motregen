@@ -18,6 +18,8 @@ Vite dev en preview zetten hiervoor `Document-Policy: js-profiling` en proxyen `
 `pnpm prof:sink` (standaard `127.0.0.1:4331`). De sink accepteert uitsluitend `POST /prof`,
 valideert het formaat en schrijft mode 0600 naar
 `~/motregen-profiles/<ISO>-<platform>.json`. `pnpm prof:check <bestand>` valideert een export los.
+`pnpm prof:import <bestand>` opent dezelfde export headless in Firefox Profiler en controleert de
+call-tree-import.
 De productie-Caddyconfiguratie heeft bewust géén profilingheader en géén `/prof`-route; daar blijven
 lokale kopie en download wel bruikbaar.
 
@@ -40,8 +42,8 @@ lokale kopie en download wel bruikbaar.
   zodat een lang openstaande tab niet de leeftijd van zijn mountmoment blijft
   rapporteren.
 
-De HUD opent met drie tikken binnen 700 ms op het logo, of met de knop *Perf-HUD* in
-het `?dev`-paneel (`?perf=1` verviel in U30, MIP-12). De knop
+De HUD opent met drie tikken binnen 700 ms op het logo, met `?perf`, of met de knop *Perf-HUD* in
+het `?dev`-paneel. De knop
 `Kopieer JSON` kopieert de volledige actuele snapshot.
 
 De windknoppen staan sinds U30 (MIP-12) in de groep *Wind* van het `?dev`-paneel: alleen

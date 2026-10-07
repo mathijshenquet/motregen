@@ -4,7 +4,7 @@ import { buildChromeTrace, type SelfProfilerTrace } from './profile-recorder'
 describe('Chrome trace export', () => {
   it('exports deterministic phase, long-frame and self-profile events', () => {
     const selfProfile: SelfProfilerTrace = {
-      resources: ['https://ageq-mthq/assets/app.js'],
+      resources: ['https://ageq-dev2/assets/app.js'],
       frames: [
         { name: 'tick', resourceId: 0, line: 12, column: 4 },
         { name: 'draw', resourceId: 0, line: 20, column: 2 },
@@ -28,7 +28,7 @@ describe('Chrome trace export', () => {
       profileStartTime: 100,
       selfProfile,
       capturedAt: '2026-10-07T08:00:00.000Z',
-      origin: 'http://ageq-mthq:4330',
+      origin: 'http://ageq-dev2:4330',
       platform: 'Linux',
       userAgent: 'test',
     })
@@ -41,8 +41,8 @@ describe('Chrome trace export', () => {
       cpuProfile: {
         nodes: [
           { id: 1, callFrame: { functionName: '(root)', scriptId: '0', url: '', lineNumber: -1, columnNumber: -1 }, children: [2] },
-          { id: 2, callFrame: { functionName: 'tick', scriptId: '1', url: 'https://ageq-mthq/assets/app.js', lineNumber: 11, columnNumber: 3 }, children: [3] },
-          { id: 3, callFrame: { functionName: 'draw', scriptId: '1', url: 'https://ageq-mthq/assets/app.js', lineNumber: 19, columnNumber: 1 }, children: [] },
+          { id: 2, callFrame: { functionName: 'tick', scriptId: '1', url: 'https://ageq-dev2/assets/app.js', lineNumber: 11, columnNumber: 3 }, children: [3] },
+          { id: 3, callFrame: { functionName: 'draw', scriptId: '1', url: 'https://ageq-dev2/assets/app.js', lineNumber: 19, columnNumber: 1 }, children: [] },
         ],
         samples: [3, 2],
       },

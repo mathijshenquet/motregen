@@ -165,14 +165,16 @@ export function measurePerfPhase<T>(phase: PerfPhase, operation: () => T, detail
   const suffix = ++measureSequence
   const start = `motregen:${phase}:start:${suffix}`
   const end = `motregen:${phase}:end:${suffix}`
+  const name = `motregen:${phase}`
   performance.mark(start)
   try {
     return operation()
   } finally {
     performance.mark(end)
-    performance.measure(`motregen:${phase}`, { start, end, detail })
+    performance.measure(name, { start, end, detail })
     performance.clearMarks(start)
     performance.clearMarks(end)
+    performance.clearMeasures(name)
     activeMonitor?.recordPhase({ phase, startTime, duration: performance.now() - startTime, detail })
   }
 }
@@ -181,7 +183,9 @@ export function measurePerfPhase<T>(phase: PerfPhase, operation: () => T, detail
 export function recordPerfPhase(phase: PerfPhase, duration: number, detail?: Record<string, unknown>, endTime = performance.now()): void {
   if (!detailedMeasurementsEnabled || !Number.isFinite(duration) || duration < 0) return
   const startTime = Math.max(0, endTime - duration)
-  performance.measure(`motregen:${phase}`, { start: startTime, duration, detail })
+  const name = `motregen:${phase}`
+  performance.measure(name, { start: startTime, duration, detail })
+  performance.clearMeasures(name)
   activeMonitor?.recordPhase({ phase, startTime, duration, detail })
 }
 

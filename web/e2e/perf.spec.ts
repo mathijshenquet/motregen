@@ -40,6 +40,7 @@ const passiveChunkByteBudget = 800_000
 const live = process.env.MOTREGEN_PERF_MODE === 'live'
 
 test('?perf persists the compact profiler controls and ?perf=0 clears them', async ({ page }) => {
+  await page.route('**/data/**', (route) => route.abort())
   await page.goto('/?perf')
   await expect(page.getByTestId('perf-hud')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Opname 30 s' })).toBeVisible()
@@ -54,9 +55,10 @@ test('?perf persists the compact profiler controls and ?perf=0 clears them', asy
   expect(await page.evaluate(() => localStorage.getItem('motregen-perf'))).toBeNull()
 
   await page.goto('/?dev')
-  const diagnose = page.getByTestId('dev-panel').getByText('Diagnose').locator('..')
-  await expect(diagnose.getByRole('button', { name: 'Opname 30 s' })).toBeVisible()
-  await expect(diagnose.getByRole('button', { name: 'Koude start' })).toBeVisible()
+  await page.getByTestId('dev-panel').locator('details.dev-group').filter({ hasText: 'Diagnose' })
+    .evaluate((element: HTMLDetailsElement) => { element.open = true })
+  await expect(page.getByTestId('dev-panel').getByRole('button', { name: 'Opname 30 s' })).toBeVisible()
+  await expect(page.getByTestId('dev-panel').getByRole('button', { name: 'Koude start' })).toBeVisible()
 })
 
 test('user journey measures performance and cache behaviour', async ({ page, context }, testInfo) => {
