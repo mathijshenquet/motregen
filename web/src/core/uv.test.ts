@@ -45,6 +45,14 @@ describe('UV estimate from radiation', () => {
     return clear
   }
 
+  it('exposes the cloud modification factor: share of clear-sky light, null at night or without data', () => {
+    expect(cloudModification(noon, clearRadiation(), null, deBilt)).toBeCloseTo(1)
+    expect(cloudModification(noon, clearRadiation() * 0.25, null, deBilt)).toBeCloseTo(0.25)
+    expect(cloudModification(noon, clearRadiation() * 3, null, deBilt)).toBe(1)
+    expect(cloudModification(noon, null, undefined, deBilt)).toBeNull()
+    expect(cloudModification(noon - 12 * 3_600_000, 0, 0, deBilt)).toBeNull()
+  })
+
   it('follows clear-sky UV under a clear sky and drops under cloud', () => {
     const sunny = estimateUv(noon, clearRadiation(), clearRadiation(), deBilt)!
     const overcast = estimateUv(noon, clearRadiation() * 0.1, clearRadiation() * 0.1, deBilt)!

@@ -288,6 +288,42 @@ describe('histogram scrubber', () => {
     expect([...container.querySelectorAll('.cursor-tags span')].map((label) => label.textContent)).toEqual(['hoge wolken 80%', 'midden wolken 60%'])
   })
 
+  it('draws the sky behind every view once the cloud layers are in, and drops it when not expressive (U47)', () => {
+    const timeline = ['14', '15', '16', '17', '18'].map((hour) => frame(`2026-08-28T${hour}:00:00Z`, 'harmonie'))
+    const empty = { timeline: { high: timeline, mid: timeline, low: timeline }, values: { high: [], mid: [], low: [] } }
+    const loaded = { ...empty, values: { high: [80, 80, 80, 80, 80], mid: [60, 60, 60, 60, 60], low: [0, 0, 0, 0, 0] } }
+    const [clouds, setClouds] = createSignal<typeof loaded>(empty)
+    const [expressive, setExpressive] = createSignal(true)
+    const { container } = render(() => <HistogramScrubber
+      timeline={timeline}
+      values={[0, 2, 2, 2, 0]}
+      cursor={1}
+      now={timeline[0]!.epoch}
+      playing={false}
+      loading={false}
+      locationLabel="Utrecht"
+      onCursor={() => undefined}
+      onPlaying={() => undefined}
+      clouds={clouds()}
+      sky={{ radiation: { timeline, values: [] }, sinElevation: () => 0.6 }}
+      expressive={expressive()}
+      mix={{ wind: 0, air: 0, temperature: 0 }}
+    />)
+    const skyStrength = () => container.querySelector<SVGSVGElement>('.chart-track svg')!.style.getPropertyValue('--sky')
+    // Zonder wolkenlagen zou de lucht als onbewolkt beginnen.
+    expect(container.querySelector('[data-testid=sky]')).toBeNull()
+    setClouds(loaded)
+    expect(container.querySelector('[data-testid=sky]')).not.toBeNull()
+    expect(container.querySelector('.sky-grain')).not.toBeNull()
+    expect(skyStrength()).toBe('1')
+    // In Weer staan de lagen zelf niet in beeld.
+    expect(container.querySelector<SVGGElement>('.cloud-section .scrub-view:last-child')!.style.opacity).toBe('0')
+    setExpressive(false)
+    expect(container.querySelector('[data-testid=sky]')).toBeNull()
+    expect(container.querySelector('.sky-grain')).toBeNull()
+    expect(skyStrength()).toBe('0')
+  })
+
   it('cross-fades to the wind chart on the wind focus, with the reading in the chosen unit (U34)', () => {
     const timeline = day24()
     const [mix, setMix] = createSignal({ wind: 0, air: 0, temperature: 0 })

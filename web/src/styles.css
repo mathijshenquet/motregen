@@ -28,11 +28,24 @@
   --uv-very-high: #d8323f;
   --uv-extreme: #8d4fc0;
   /* Wolkendoorsnede (U37): lage wolken het zwaarst, cirrus het lichtst. */
-  --cloud-high: #9fb2ba;
-  --cloud-mid: #7f949d;
-  --cloud-low: #5d717a;
-  --sky-bright: #8cc8f4;
-  --sky-dull: #68767e;
+  --cloud-high: #b4c3ca;
+  --cloud-mid: #9aacb4;
+  --cloud-low: #8fa2ab;
+  --cloud-storm-plain: #33424a;
+  /* Met hemelachtergrond: wit tegen blauw (Hobbiton) tot antraciet tegen lood (Mordor). */
+  --cloud-bright: #ffffff;
+  --cloud-storm: #262f35;
+  --cloud-night: #4a5964;
+  --sky-bright: #4fb0f7;
+  --sky-dull: #5c7084;
+  --sky-haze: #fff1cf;
+  --dusk-amber: #ffb85c;
+  --dusk-rose: #ef4269;
+  --dusk-purple: #7b3989;
+  --sky-zenith: #1563d6;
+  --cloud-shadow: #1c262d;
+  --sky-night: #1b2a3b;
+  --sky-night-dull: #10161b;
   --table-day-bright: #64c6f2;
   --table-day-dull: #8ba4a8;
 }
@@ -62,11 +75,23 @@
   --uv-high: #ff9236;
   --uv-very-high: #f25563;
   --uv-extreme: #b27ce6;
-  --cloud-high: #6d8792;
-  --cloud-mid: #9cb2bb;
+  --cloud-high: #7e97a1;
+  --cloud-mid: #a9bcc4;
   --cloud-low: #d0dde2;
-  --sky-bright: #2f78b3;
-  --sky-dull: #3d4a51;
+  --cloud-storm-plain: #586870;
+  --cloud-bright: #f1f6f8;
+  --cloud-storm: #141a1e;
+  --cloud-night: #2b3a44;
+  --sky-bright: #2489e0;
+  --sky-dull: #36485a;
+  --sky-haze: #ffe3a8;
+  --dusk-amber: #ffab52;
+  --dusk-rose: #e24069;
+  --dusk-purple: #6e2b80;
+  --sky-zenith: #0a2f7a;
+  --cloud-shadow: #04080b;
+  --sky-night: #0c1a27;
+  --sky-night-dull: #05080a;
 }
 
 * { box-sizing: border-box; }
@@ -542,10 +567,51 @@ button { color: inherit; cursor: pointer; }
 .past-shade { position: absolute; top: 0; bottom: 0; left: 0; background: color-mix(in srgb, var(--text) 4%, transparent); pointer-events: none; }
 .rain-guide { stroke: color-mix(in srgb, var(--line-strong) 70%, transparent); stroke-dasharray: 2 4; stroke-width: 1; }
 .rain-baseline { stroke: var(--line-strong); stroke-width: 1; }
-.cloud-high stop { stop-color: var(--cloud-high); }
-.cloud-mid stop { stop-color: var(--cloud-mid); }
-.cloud-low stop { stop-color: var(--cloud-low); }
-.cloud-total stop { stop-color: var(--cloud-mid); }
+/* Bedekking zit in de gaten tussen de wolken (U47), dus de vulling zelf is vast en bijna dekkend. */
+.cloud-band path { fill-opacity: .94; }
+.cloud-band[data-layer="high"] path { fill-opacity: .8; }
+.cloud-band path.cloud-shadow { fill-opacity: 1; }
+.cloud-band[data-layer="high"] path.cloud-shadow { display: none; }
+.cloud-shadow-gradient stop { stop-color: var(--cloud-shadow); }
+.cloud-shadow-gradient stop:first-child { stop-opacity: 0; }
+.cloud-shadow-gradient stop:last-child { stop-opacity: .42; }
+/* Zonsop- en -ondergang in het palet van de dag/nacht-tabel (U42): amber kern, roze en paars ernaast. */
+.dusk-gradient stop:last-child { stop-opacity: 0; }
+.dusk-amber stop { stop-color: var(--dusk-amber); }
+.dusk-amber stop:first-child { stop-opacity: .95; }
+.dusk-rose stop { stop-color: var(--dusk-rose); }
+.dusk-rose stop:first-child { stop-opacity: .6; }
+.dusk-purple stop { stop-color: var(--dusk-purple); }
+.dusk-purple stop:first-child { stop-opacity: .5; }
+/* Penseelstreken: nauwelijks zichtbaar, anders lopen ze visueel over in de wolken (PO 2026-10-07 live). */
+.sky-stroke { fill: #04121c; fill-opacity: calc(var(--strength) * .07); }
+.sky-stroke.light { fill: #fff; fill-opacity: calc(var(--strength) * .05); }
+.sky-star { fill: #fff8e0; }
+.sky, .sky-grain { animation: sky-in .6s ease-out both; }
+@keyframes sky-in { from { opacity: 0; } }
+.sky-grain { position: absolute; top: 0; bottom: 0; left: 0; pointer-events: none; mix-blend-mode: overlay; background-size: 220px 220px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 1.1 -.15'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.sky-depth-gradient stop:nth-child(1) { stop-color: var(--sky-zenith); stop-opacity: .3; }
+.sky-depth-gradient stop:nth-child(2) { stop-color: var(--sky-zenith); stop-opacity: 0; }
+.sky-depth-gradient stop:nth-child(3) { stop-color: var(--sky-zenith); stop-opacity: 0; }
+.sky-haze-gradient stop { stop-color: var(--sky-haze); }
+/* Lucht en wolken kleuren per uur mee met het licht (U47, MIP-18). --dark en --day staan per stop,
+   --sky (0–1) op de svg: zonder hemel houden de wolken hun rustige grijzen, met hemel worden ze wit
+   tegen blauw of zwaar tegen lood. --weight: hoe sterk een laag meedonkert (cirrus blijft licht). */
+.sky-gradient stop {
+  stop-color: color-mix(in oklab,
+    color-mix(in oklab, var(--sky-dull) calc(var(--dark) * 100%), var(--sky-bright)) calc(var(--day) * 100%),
+    color-mix(in oklab, var(--sky-night-dull) calc(var(--dark) * 100%), var(--sky-night)));
+}
+.cloud-tone stop {
+  --plain: color-mix(in oklab, var(--cloud-storm-plain) calc(var(--dark) * var(--weight) * 100%), var(--cloud-base));
+  --lit: color-mix(in oklab, var(--cloud-storm) calc(var(--dark) * var(--weight) * 100%), var(--cloud-bright));
+  --moonlit: color-mix(in oklab, var(--cloud-night) calc((1 - var(--day)) * 55%), var(--lit));
+  stop-color: color-mix(in oklab, var(--moonlit) calc(var(--sky) * 100%), var(--plain));
+}
+.cloud-high { --cloud-base: var(--cloud-high); --weight: .35; }
+.cloud-mid, .cloud-total { --cloud-base: var(--cloud-mid); --weight: .85; }
+.cloud-low { --cloud-base: var(--cloud-low); --weight: 1; }
 .air-cell { font-size: 12px; text-align: left; }
 .air-cell .uv-bar { min-width: 0; }
 .air-cell .uv-bar-track { min-width: 0; }
@@ -572,13 +638,15 @@ button { color: inherit; cursor: pointer; }
 .cloud-divider { stroke: color-mix(in srgb, var(--line-strong) 55%, transparent); stroke-dasharray: 1 3; stroke-width: 1; }
 .cloud-labels { position: absolute; inset: 0; pointer-events: none; }
 /* Windgrafiek in de scrubber (U34): vlakte in de Beaufort-kleuren van de windlaag, vlagen gestippeld. */
-.wind-area { opacity: .55; }
-.temperature-area { opacity: .12; }
-.temperature-ribbon { opacity: .38; }
+/* De grafieken staan vóór een volle hemel (U47): dekkender, met een lichte rand die ze ervan losmaakt. */
+.wind-area { opacity: .8; }
+.temperature-area { opacity: .3; }
+.temperature-ribbon { opacity: .55; }
+.rain-bar:not(.pending) { stroke: rgba(255, 255, 255, .6); stroke-width: 1; paint-order: stroke; }
 .temperature-line { fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .temperature-air-line { fill: none; stroke-width: 1.2; stroke-linecap: round; opacity: .85; }
-.wind-line { fill: none; stroke: color-mix(in srgb, var(--text) 55%, transparent); stroke-width: 1.4; }
-.wind-gust-band { opacity: .25; }
+.wind-line { fill: none; stroke: rgba(255, 255, 255, .9); stroke-width: 1.8; }
+.wind-gust-band { opacity: .45; }
 .cursor-readout.gust-readout::before { background: color-mix(in srgb, var(--text) 45%, var(--surface)); }
 .cursor-readout.gust-readout span { color: var(--muted); }
 .cursor-readout.below span { top: 5px; bottom: auto; }
