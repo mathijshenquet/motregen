@@ -354,6 +354,12 @@ export interface SkyStroke {
   strength: number
 }
 
+// Een streek hangt af van haar eigen plek en van de lucht daar. Een aanvulling van de reeksen verandert de
+// lucht in een paar uren; de overige streken komen uit deze cache (PO-opname Android 2026-10-07: 18 keer
+// alle streken opnieuw bemonsteren kostte ~0,3 s in tien seconden).
+const STROKE_PATH_CACHE_LIMIT = 4_000
+const strokePathCache = new Map<string, string>()
+
 export function skyStrokes(width: number, height: number, pxPerHour: number, stops: SkyStop[]): SkyStroke[] {
   if (!stops.length || width <= 0 || height <= 0) return []
   const rows = Math.max(3, Math.round(height / STROKE_ROW_PX))
@@ -371,21 +377,29 @@ export function skyStrokes(width: number, height: number, pxPerHour: number, sto
       const wave = rowHeight * (0.05 + 0.22 * turbulence)
       const waves = length / (rowHeight * STROKE_WAVELENGTH_ROWS) * (0.7 + 0.6 * unitHash(key + 0.65))
       const phase = 2 * Math.PI * unitHash(key + 0.87)
-      const steps = Math.max(4, Math.ceil(length / STROKE_SAMPLE_PX))
-      const upper: string[] = []
-      const lower: string[] = []
-      for (let step = 0; step <= steps; step++) {
-        const along = step / steps
-        const middle = centreY + wave * Math.sin(2 * Math.PI * waves * along + phase)
-        const thickness = half * Math.max(0, Math.sin(Math.PI * along)) ** 0.7
-        upper.push(`${round(from + length * along)} ${round(middle - thickness)}`)
-        lower.push(`${round(from + length * along)} ${round(middle + thickness)}`)
-      }
-      const tone = unitHash(key + 0.99) * 2 - 1
+      const start = from
       from += length * 0.6
       // Alleen overdag (PO 2026-10-07 live): de nacht is van de sterren.
       if (here.daylight < 0.05) continue
-      strokes.push({ path: `M${upper.join('L')}L${lower.reverse().join('L')}Z`, light: tone > 0, strength: round(Math.abs(tone) * here.daylight, 3) })
+      const cacheKey = `${row}|${index}|${start}|${rowHeight}|${pxPerHour}|${turbulence}`
+      let path = strokePathCache.get(cacheKey)
+      if (path === undefined) {
+        const steps = Math.max(4, Math.ceil(length / STROKE_SAMPLE_PX))
+        const upper: string[] = []
+        const lower: string[] = []
+        for (let step = 0; step <= steps; step++) {
+          const along = step / steps
+          const middle = centreY + wave * Math.sin(2 * Math.PI * waves * along + phase)
+          const thickness = half * Math.max(0, Math.sin(Math.PI * along)) ** 0.7
+          upper.push(`${round(start + length * along)} ${round(middle - thickness)}`)
+          lower.push(`${round(start + length * along)} ${round(middle + thickness)}`)
+        }
+        path = `M${upper.join('L')}L${lower.reverse().join('L')}Z`
+        if (strokePathCache.size >= STROKE_PATH_CACHE_LIMIT) strokePathCache.clear()
+        strokePathCache.set(cacheKey, path)
+      }
+      const tone = unitHash(key + 0.99) * 2 - 1
+      strokes.push({ path, light: tone > 0, strength: round(Math.abs(tone) * here.daylight, 3) })
     }
   }
   return strokes

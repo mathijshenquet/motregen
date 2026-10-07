@@ -270,6 +270,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let temperatureLabelKey = ''
   let temperatureInput = ''
   let temperaturePending = ''
+  let temperatureTick: { frames: TimelineFrame[]; stepEpoch: number; zoom: number; width: number; height: number } | undefined
   let sunFeatureKey = ''
   let sunEpochBucket = Number.NaN
   let rainReadyPending = false
@@ -1407,6 +1408,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function attachTemperatureLayer(): void {
     if (!map || map.getLayer('motregen-temperature')) return
     temperatureLabelKey = temperatureInput = temperaturePending = ''
+    temperatureTick = undefined
     map.addSource('motregen-temperature', { type: 'geojson', data: emptyTemperatureData })
     const beforeId = temperatureLayerBeforeId(map.getStyle().layers)
     for (const set of isolineSets) {
@@ -1774,12 +1776,18 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (!frames.length || !map?.getSource('motregen-temperature')) return
     // In stappen van 10 minuten tijdlijntijd (PO 2026-09-25: stadstemperaturen zijn minder belangrijk):
     // elke gewijzigde stadswaarde is een setData en dus een volledige kaartrender.
-    const blend = frameBlend(frames, Math.round(selectedEpoch() / CITY_TEMPERATURE_STEP_MS) * CITY_TEMPERATURE_STEP_MS)
-    const mix = blend.mix
-    const leftFrame = frames[blend.left]!, rightFrame = frames[blend.right]!
+    const stepEpoch = Math.round(selectedEpoch() / CITY_TEMPERATURE_STEP_MS) * CITY_TEMPERATURE_STEP_MS
     // De backing store van het canvas staat voor de kaartmaat: clientWidth zou hier per afspeeltik een
     // layout afdwingen (PO-opname 2026-10-07: 1,8 s in de eerste tien seconden).
     const canvas = map.getCanvas()
+    // Per afspeeltik is er bijna altijd niets veranderd: dat vaststellen op getallen, zonder de frames op te
+    // zoeken of een sleutel met twee chunk-URL's op te bouwen.
+    const tick = temperatureTick
+    if (tick && tick.frames === frames && tick.stepEpoch === stepEpoch && tick.zoom === map.getZoom() && tick.width === canvas.width && tick.height === canvas.height) return
+    temperatureTick = { frames, stepEpoch, zoom: map.getZoom(), width: canvas.width, height: canvas.height }
+    const blend = frameBlend(frames, stepEpoch)
+    const mix = blend.mix
+    const leftFrame = frames[blend.left]!, rightFrame = frames[blend.right]!
     // Zelfde invoer als de getoonde labels: niets te doen (per afspeeltik het gewone geval). Ook niet
     // zolang dezelfde invoer nog laadt: anders begint elke tik opnieuw en haalt de vorige lading in.
     const input = `${leftFrame.chunk.url}#${leftFrame.frameIndex}|${rightFrame.chunk.url}#${rightFrame.frameIndex}|${mix}|${map.getZoom()}|${canvas.width}x${canvas.height}`
@@ -1804,6 +1812,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     } catch {
       const source = map?.getSource('motregen-temperature') as GeoJSONSource | undefined
       temperatureLabelKey = temperatureInput = temperaturePending = ''
+      temperatureTick = undefined
       source?.setData(emptyTemperatureData)
     }
   }
