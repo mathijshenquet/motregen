@@ -164,6 +164,9 @@ const TABLE_JUMP_RESUME_MS = 4_000
 // Zoveel px van de tabelrijen moet in beeld zijn voordat hun reeksen laden (U49): in het mobiele
 // startbeeld steekt de eerste rij 2 px boven de onderrand uit, en dat is nog geen lezen.
 const TABLE_PEEK_PX = 24
+// Hoger dan een ingeklapte adresbalk (Android Chrome ~56 px, iOS Safari ~100 px): staat de pagina aan haar
+// einde en steekt er hooguit zoveel boven het tabelpaneel uit, dan is dat de tabelview — verder komt hij niet.
+const TABLE_SNAP_SLACK_PX = 120
 // H/L van twee opeenvolgende uren horen bij elkaar als ze binnen deze afstand liggen.
 const PRESSURE_MATCH_KM = 300
 // Afspelen tikt op 30 Hz: regen-tween, isolijnsnede en klok zijn traag genoeg; alleen de
@@ -412,8 +415,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       return
     }
     const panelTop = forecastPanelElement.getBoundingClientRect().top
-    if (!tableCoversViewport() && panelTop <= 0) setTableCoversViewport(true)
+    if (!tableCoversViewport() && (panelTop <= 0 || tableSnappedAtPageEnd(panelTop))) setTableCoversViewport(true)
     else if (tableCoversViewport() && panelTop > 24) setTableCoversViewport(false)
+  }
+  function tableSnappedAtPageEnd(panelTop: number): boolean {
+    const atPageEnd = window.scrollY >= document.documentElement.scrollHeight - window.innerHeight - 2
+    return atPageEnd && panelTop > 0 && panelTop <= TABLE_SNAP_SLACK_PX
   }
   function queueTableViewSync(): void {
     if (tableViewFrame === undefined) tableViewFrame = requestAnimationFrame(syncTableViewPosition)
@@ -423,7 +430,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (tableViewFrame !== undefined) cancelAnimationFrame(tableViewFrame)
     syncTableViewPosition()
     const panelTop = forecastPanelElement.getBoundingClientRect().top
-    const atTable = Math.abs(panelTop) <= 2
+    const atTable = Math.abs(panelTop) <= 2 || tableSnappedAtPageEnd(panelTop)
     const atMap = window.scrollY <= 2
     if (!atTable && !atMap) return
     const open = atTable
