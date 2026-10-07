@@ -269,3 +269,87 @@ Gecomprimeerde bytes; publisher valideert totaal én grootste tegel tegen dezelf
 - MOTREGEN_E2E_PORT=4397 MOTREGEN_E2E_DATA_PORT=8397 MOTREGEN_MOBILE_BASEMAP=own MOTREGEN_BASEMAP_COMPARISON=1 pnpm --filter motregen-web e2e e2e/basemap-comparison.spec.ts e2e/basemap.spec.ts --config playwright.basemap.config.ts --project desktop: exit 0, 11 tests. Alle 28 groen-/grijsparen binnen ±15 %; labels en nachtcontrast groen. Receipt tmp/basemap/u60/ab-final-revision.txt.
 - pnpm typecheck, stijlvalidator 6/6 en pnpm build: exit 0 (samen exec-session 71805). Volledige unitrun eerder 519/519 exit 0; frontendcode gelijk. nix build .#motregen-basemap --no-link exit 0 op definitieve hash (exec-session 7017, nix-final-revision.txt).
 - Beeldmetingen/archief/docs nu coherent gecommit/gepusht vóór de mobiele eindrig; koude rig en cache nog open.
+
+## 2026-10-07T22:30:09.328Z — Contrastieve A/B (nl-91e2043db5c73799.pmtiles, head 92e772e)
+
+Oud = offline OpenFreeMap/Liberty met U59’s filtering en darkenLibertyLayer; nieuw = eigen archief. De camera en het kaartvlak zijn per paar gelijk. Groen is het onbedekte wood/grass/park-oppervlak, grijs het onbedekte landuse_residential-oppervlak (eigen: residential/commercial/industrial/retail), via afzonderlijke zwart/wit-maskers zonder omtrek. Beide zijn percentages van het hele kaartvlak (incl. water); gebouwen tellen niet als landuse. Plaatslabels zijn unieke geplaatste city/town/village-namen; provincies tellen niet mee.
+
+ΔL* gebruikt sRGB→CIE L*. Kale landkleur = dominante screenshotkleur nabij de stijlachtergrond; water-/labelverf zijn de dekkende stijlkleuren, grenzen worden met hun werkelijke dekking over land gemengd. Dit meet kleurcontrast vóór tekst-antialiasing; lijndikte, halo en groenoppervlak blijven in de PNG-paren zichtbaar. Liberty’s rasterachtergrond beïnvloedt alleen de lage startzoom. Wetland-textuur en fijne POI-/gebouwdetails zijn geen onderdeel van de eigen kaart.
+
+| Paar (oud naast nieuw) | Groen % oud / nieuw | Groei groen | Grijs % oud / nieuw | Groei grijs | Plaatslabels oud / nieuw | ΔL* water–land | ΔL* label–land | ΔL* landgrens–land | ΔL* provinciegrens–land |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| [390 licht start](ab-390-light-start.png) | 7.90 / 7.69 | -2.64 % | 15.71 / 15.38 | -2.05 % | 6 / 6 | 17.27 / 19.78 | 93.88 / 96.39 | 49.81 / 44.14 | 30.14 / 31.90 |
+| [390 licht utrecht](ab-390-light-utrecht.png) | 19.14 / 19.18 | 0.20 % | 13.95 / 14.00 | 0.34 % | 25 / 28 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [390 licht kust](ab-390-light-kust.png) | 2.02 / 2.01 | -0.58 % | 2.58 / 2.69 | 4.25 % | 5 / 3 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [390 licht ijsselmeer](ab-390-light-ijsselmeer.png) | 3.35 / 3.77 | 12.68 % | 1.86 / 1.90 | 1.94 % | 15 / 14 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [390 licht utrecht-z7](ab-390-light-utrecht-z7.png) | 13.86 / 13.99 | 0.93 % | 9.16 / 9.83 | 7.36 % | 16 / 15 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [390 licht utrecht-z10](ab-390-light-utrecht-z10.png) | 18.46 / 18.38 | -0.47 % | 23.50 / 25.62 | 9.05 % | 29 / 27 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [390 licht utrecht-z12](ab-390-light-utrecht-z12.png) | 7.13 / 7.91 | 11.01 % | 0.00 / 0.00 | n.v.t. (beide 0) | 1 / 1 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [390 donker start](ab-390-dark-start.png) | 7.90 / 7.69 | -2.64 % | 15.71 / 15.38 | -2.05 % | 6 / 6 | 8.37 / 11.68 | 71.23 / 74.53 | 38.89 / 36.40 | 35.20 / 37.75 |
+| [390 donker utrecht](ab-390-dark-utrecht.png) | 19.14 / 19.18 | 0.20 % | 13.95 / 14.00 | 0.34 % | 25 / 28 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [390 donker kust](ab-390-dark-kust.png) | 2.02 / 2.01 | -0.58 % | 2.58 / 2.69 | 4.25 % | 5 / 3 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [390 donker ijsselmeer](ab-390-dark-ijsselmeer.png) | 3.35 / 3.77 | 12.68 % | 1.86 / 1.90 | 1.94 % | 15 / 14 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [390 donker utrecht-z7](ab-390-dark-utrecht-z7.png) | 13.86 / 13.99 | 0.93 % | 9.16 / 9.83 | 7.36 % | 16 / 15 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [390 donker utrecht-z10](ab-390-dark-utrecht-z10.png) | 18.46 / 18.38 | -0.47 % | 23.50 / 25.62 | 9.05 % | 29 / 27 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [390 donker utrecht-z12](ab-390-dark-utrecht-z12.png) | 7.13 / 7.91 | 11.01 % | 0.00 / 0.00 | n.v.t. (beide 0) | 1 / 1 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [1280 licht start](ab-1280-light-start.png) | 10.52 / 9.93 | -5.67 % | 8.87 / 8.11 | -8.52 % | 19 / 18 | 18.16 / 19.78 | 94.77 / 96.39 | 50.71 / 44.14 | 30.77 / 31.90 |
+| [1280 licht utrecht](ab-1280-light-utrecht.png) | 16.87 / 16.82 | -0.29 % | 13.52 / 13.58 | 0.44 % | 70 / 77 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [1280 licht kust](ab-1280-light-kust.png) | 5.57 / 5.44 | -2.32 % | 6.10 / 6.08 | -0.21 % | 32 / 25 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [1280 licht ijsselmeer](ab-1280-light-ijsselmeer.png) | 7.63 / 7.72 | 1.15 % | 3.47 / 3.48 | 0.42 % | 55 / 61 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [1280 licht utrecht-z7](ab-1280-light-utrecht-z7.png) | 11.44 / 11.58 | 1.22 % | 7.55 / 8.23 | 8.96 % | 40 / 44 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [1280 licht utrecht-z10](ab-1280-light-utrecht-z10.png) | 20.33 / 20.12 | -1.04 % | 14.42 / 15.67 | 8.64 % | 85 / 79 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [1280 licht utrecht-z12](ab-1280-light-utrecht-z12.png) | 17.80 / 18.00 | 1.13 % | 0.00 / 0.00 | n.v.t. (beide 0) | 5 / 5 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [1280 donker start](ab-1280-dark-start.png) | 10.52 / 9.93 | -5.67 % | 8.87 / 8.11 | -8.52 % | 19 / 18 | 8.37 / 11.68 | 71.23 / 74.53 | 38.89 / 36.40 | 35.20 / 37.75 |
+| [1280 donker utrecht](ab-1280-dark-utrecht.png) | 16.87 / 16.82 | -0.29 % | 13.52 / 13.58 | 0.44 % | 70 / 77 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [1280 donker kust](ab-1280-dark-kust.png) | 5.57 / 5.44 | -2.32 % | 6.10 / 6.08 | -0.21 % | 32 / 25 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [1280 donker ijsselmeer](ab-1280-dark-ijsselmeer.png) | 7.63 / 7.72 | 1.15 % | 3.47 / 3.48 | 0.42 % | 55 / 61 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [1280 donker utrecht-z7](ab-1280-dark-utrecht-z7.png) | 11.44 / 11.58 | 1.22 % | 7.55 / 8.23 | 8.96 % | 40 / 44 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [1280 donker utrecht-z10](ab-1280-dark-utrecht-z10.png) | 20.33 / 20.12 | -1.04 % | 14.42 / 15.67 | 8.64 % | 85 / 79 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [1280 donker utrecht-z12](ab-1280-dark-utrecht-z12.png) | 17.80 / 18.00 | 1.13 % | 0.00 / 0.00 | n.v.t. (beide 0) | 5 / 5 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+
+Bijbehorende volledige app-paren: `app-<390|1280>-<light|dark>-<start|utrecht>.png`. Het eindbeeld ligt ter PO-review; een technische gate is geen smaakakkoord.
+
+
+## 2026-10-07T22:30:09Z — Eindbeelden bekeken
+
+- Alle acht volledige app-paren bekeken: 390/1280, licht/donker, start/Utrecht. De eigen kaart toont nu zachte gevulde bos-/grasvlakken zonder parkomtrekken en bebouwingsgrijs als textuur; het herstelde nachtcontrast en de leesbare labels blijven zichtbaar.
+- Preview-productiebuild ververst door pnpm build, definitieve hash 91e2043db5c73799; live Range/manifest wordt nog opnieuw gecontroleerd.
+
+## 2026-10-07T22:35:25Z — Volledig rig-receipt, profileringsdiagnostiek behouden
+
+- Eindrig exit 0 (exec-session 72263), 3 runs/128 decodes per run, kaartfase 550,4 / 504,0 / 556,8 ms. Alle netwerkmetingen volledig, geen netwerkbevindingen; bodybytes/decodes-spreiding 0 %.
+- Eerste report-mobile-oproep exit 1 door zijn te brede eis dat ook alle profileringsdiagnostiek leeg moest zijn. Het enige bericht per run betreft 1 / 1 / 2 CPU-samples zonder sourcemap-positie; de rig bewaart daarvoor expliciet de oorspronkelijke bundelpositie (mobile-load.rig.ts). Dat raakt de bytes-, decode- en kaartfasemetingen niet. Rapport valideert nu deze bekende informatieve fallback afzonderlijk; elk ander bericht en elke netwerkbevinding blijven een fout. De diagnostiek wordt onverkort in de receipts bewaard.
+
+## 2026-10-07T22:35:25.726Z — Mobiele eindgate (nl-91e2043db5c73799.pmtiles)
+
+| Run | Kaartfase U59 / U60 ms | Kaartbytes U59 / U60 | Groei kaartbytes | Totaalbytes U59 / U60 | Groei totaalbytes |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1 | 678.8 / 550.4 | 133345 / 151290 | 13.46 % | 1253787 / 1274227 | 1.63 % |
+| 2 | 244.9 / 504.0 | 133345 / 151290 | 13.46 % | 1253787 / 1274227 | 1.63 % |
+| 3 | 458.2 / 556.8 | 133345 / 151290 | 13.46 % | 1253787 / 1274227 | 1.63 % |
+
+Alle drie runs: kaartfase ≤1 s, kaart-/totaalbytes ≤U59 +25 %, gelijk aantal decodes, geen netwerkbevindingen; identiek meetcontract. Diagnostiek over CPU-samples zonder sourcemap-positie blijft in de receipts staan; de oorspronkelijke bundelposities zijn bewaard. Synchrone rig-exit staat in de vervolgentree.
+
+
+## 2026-10-07T22:37:39Z — Laatste synchrone receipts en preview
+
+- Eindrig-repro: MOTREGEN_E2E_PORT=4397 MOTREGEN_E2E_DATA_PORT=8397 pnpm --filter motregen-web perf:mobile --profile mobile-4g --scenario koud --basemap own --repeat 3 --compare. Exit 0, tmp/basemap/u60/perf-final-revision.txt. U59-budgetrapport: pnpm --filter motregen-web exec tsx ../tools/basemap/report-mobile.mts, exit 0.
+- Cache-repro: MOTREGEN_E2E_PORT=4397 MOTREGEN_E2E_DATA_PORT=8397 MOTREGEN_MOBILE_BASEMAP=own pnpm --filter motregen-web e2e e2e/basemap-cache.spec.ts --config playwright.basemap-cache.config.ts --project desktop. Exit 0, 2 tests (exec-session 17681); beide warme reloads 0 kaartnetwerkrequests, offline ranges en afwijzing ongeldige/cross-origin ranges groen. Receipts cache-{390,1280}.json meegecommit.
+- Preview 4340 levert definitieve stijl met hash 91e2043db5c73799; PMTiles Range 0–126 geeft HTTP 206 en 127 B, Content-Range /24301762. Live weermanifest HTTP 200. Preview: http://ageq-dev2:4340/.
+- GitHub meldt geen checks op deze branch; alle gevraagde lokale gates hebben waargenomen exit 0. PR #87 wordt ready na finale commit/push; geen mergeopdracht.
+
+## 2026-10-07T22:41:45.458Z — Mobiele eindgate (nl-91e2043db5c73799.pmtiles)
+
+| Run | Kaartfase U59 / U60 ms | Kaartbytes U59 / U60 | Groei kaartbytes | Totaalbytes U59 / U60 | Groei totaalbytes |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1 | 678.8 / 550.4 | 133345 / 151290 | 13.46 % | 1253787 / 1274227 | 1.63 % |
+| 2 | 244.9 / 504.0 | 133345 / 151290 | 13.46 % | 1253787 / 1274227 | 1.63 % |
+| 3 | 458.2 / 556.8 | 133345 / 151290 | 13.46 % | 1253787 / 1274227 | 1.63 % |
+
+Alle drie runs: kaartfase ≤1 s, kaart-/totaalbytes ≤U59 +25 %, gelijk aantal decodes, geen netwerkbevindingen; identiek meetcontract. Diagnostiek over CPU-samples zonder sourcemap-positie blijft in de receipts staan; de oorspronkelijke bundelposities zijn bewaard. Synchrone rig-exit staat in de vervolgentree.
+
+
+## 2026-10-07T22:41:46Z — Eindreceipts veiliggesteld
+
+- Strikte tooling/spec-typecheck en git diff --check exit 0. Mobiel rapport opnieuw gegenereerd: afgeleide JSON-groeivelden rekenen nu met dezelfde definitieve bytes als de tabel; report-mobile en zijn typecheck exit 0. Netwerk-/kaartgates blijven gelijk.
+- A/B-eindbeelden, rig- en cache-receipts veiliggesteld in commit/push; volgende stap einduitslag in docs en PR #87 ready.

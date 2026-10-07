@@ -1,6 +1,7 @@
 {
   "profile": "mobile-4g",
   "scenario": "koud",
+  "filename": "nl-91e2043db5c73799.pmtiles",
   "rounds": [
     {
       "run": 1,
@@ -63,11 +64,11 @@
         "meta": {
           "profile": "mobile-4g",
           "scenario": "koud",
-          "sourceSha": "d3b24bf759708ba7d4160331b6e3c4634063a040",
-          "capturedAt": "2026-10-07T20:32:16.594Z",
+          "sourceSha": "92e772ef1273dfc6681111fa114a01ba3f102643",
+          "capturedAt": "2026-10-07T22:29:48.222Z",
           "cpuThrottleRate": 4,
-          "contractHash": "70132c73de570dc74cea9b42ac7fea8553dcd40163df1583f12bc3478d41a7eb",
-          "fixtureHash": "907273eeb9cb9b80f6f8cd2bded69a51651821eee0b9d69df1d68b5efe812a75",
+          "contractHash": "3501381844df9da8dff3656cd463a822248aef63b1bbd42504e93b5df9d7b9a4",
+          "fixtureHash": "eeec78360fa999928f34cca8d4d90f2dee88ccc9e6c350dd77bfd5e690b32e0a",
           "basemapContractHash": "ce9d61030167808c03020fc470e4a41318fa28ba888b30ecd57fc3361816a7ff",
           "network": {
             "label": "4G (9 Mbps, 60 ms RTT)",
@@ -80,9 +81,9 @@
         },
         "basemap": {
           "count": 1,
-          "totalMs": 387.4,
-          "p50Ms": 387.40000009536743,
-          "p95Ms": 387.40000009536743
+          "totalMs": 550.4,
+          "p50Ms": 550.3999999761581,
+          "p95Ms": 550.3999999761581
         },
         "wire": {
           "manifest": {
@@ -97,25 +98,27 @@
           },
           "tiles": {
             "requests": 4,
-            "bytes": 138043,
-            "meanRequestBytes": 34510.75
+            "bytes": 151290,
+            "meanRequestBytes": 37822.5
           },
           "other": {
             "requests": 10,
-            "bytes": 460383,
-            "meanRequestBytes": 46038.3
+            "bytes": 460837,
+            "meanRequestBytes": 46083.7
           },
           "total": {
             "requests": 93,
-            "bytes": 1260526,
-            "meanRequestBytes": 13554.043010752688
+            "bytes": 1274227,
+            "meanRequestBytes": 13701.36559139785
           }
         },
-        "findings": [],
+        "findings": [
+          "1 sampleposities zonder sourcemap-positie; oorspronkelijke bundelpositie bewaard"
+        ],
         "decodes": 128
       },
-      "tileGrowthPercent": 3.523191720724439,
-      "totalGrowthPercent": 0.5374916154019749
+      "tileGrowthPercent": 13.457572462409528,
+      "totalGrowthPercent": 1.630260961391361
     },
     {
       "run": 2,
@@ -178,11 +181,11 @@
         "meta": {
           "profile": "mobile-4g",
           "scenario": "koud",
-          "sourceSha": "d3b24bf759708ba7d4160331b6e3c4634063a040",
-          "capturedAt": "2026-10-07T20:32:47.402Z",
+          "sourceSha": "92e772ef1273dfc6681111fa114a01ba3f102643",
+          "capturedAt": "2026-10-07T22:30:19.088Z",
           "cpuThrottleRate": 4,
-          "contractHash": "70132c73de570dc74cea9b42ac7fea8553dcd40163df1583f12bc3478d41a7eb",
-          "fixtureHash": "907273eeb9cb9b80f6f8cd2bded69a51651821eee0b9d69df1d68b5efe812a75",
+          "contractHash": "3501381844df9da8dff3656cd463a822248aef63b1bbd42504e93b5df9d7b9a4",
+          "fixtureHash": "eeec78360fa999928f34cca8d4d90f2dee88ccc9e6c350dd77bfd5e690b32e0a",
           "basemapContractHash": "ce9d61030167808c03020fc470e4a41318fa28ba888b30ecd57fc3361816a7ff",
           "network": {
             "label": "4G (9 Mbps, 60 ms RTT)",
@@ -195,9 +198,9 @@
         },
         "basemap": {
           "count": 1,
-          "totalMs": 261.4,
-          "p50Ms": 261.39999997615814,
-          "p95Ms": 261.39999997615814
+          "totalMs": 504,
+          "p50Ms": 504,
+          "p95Ms": 504
         },
         "wire": {
           "manifest": {
@@ -212,25 +215,27 @@
           },
           "tiles": {
             "requests": 4,
-            "bytes": 138043,
-            "meanRequestBytes": 34510.75
+            "bytes": 151290,
+            "meanRequestBytes": 37822.5
           },
           "other": {
             "requests": 10,
-            "bytes": 460383,
-            "meanRequestBytes": 46038.3
+            "bytes": 460837,
+            "meanRequestBytes": 46083.7
           },
           "total": {
             "requests": 93,
-            "bytes": 1260526,
-            "meanRequestBytes": 13554.043010752688
+            "bytes": 1274227,
+            "meanRequestBytes": 13701.36559139785
           }
         },
-        "findings": [],
+        "findings": [
+          "1 sampleposities zonder sourcemap-positie; oorspronkelijke bundelpositie bewaard"
+        ],
         "decodes": 128
       },
-      "tileGrowthPercent": 3.523191720724439,
-      "totalGrowthPercent": 0.5374916154019749
+      "tileGrowthPercent": 13.457572462409528,
+      "totalGrowthPercent": 1.630260961391361
     },
     {
       "run": 3,
@@ -293,11 +298,11 @@
         "meta": {
           "profile": "mobile-4g",
           "scenario": "koud",
-          "sourceSha": "d3b24bf759708ba7d4160331b6e3c4634063a040",
-          "capturedAt": "2026-10-07T20:33:18.111Z",
+          "sourceSha": "92e772ef1273dfc6681111fa114a01ba3f102643",
+          "capturedAt": "2026-10-07T22:30:50.166Z",
           "cpuThrottleRate": 4,
-          "contractHash": "70132c73de570dc74cea9b42ac7fea8553dcd40163df1583f12bc3478d41a7eb",
-          "fixtureHash": "907273eeb9cb9b80f6f8cd2bded69a51651821eee0b9d69df1d68b5efe812a75",
+          "contractHash": "3501381844df9da8dff3656cd463a822248aef63b1bbd42504e93b5df9d7b9a4",
+          "fixtureHash": "eeec78360fa999928f34cca8d4d90f2dee88ccc9e6c350dd77bfd5e690b32e0a",
           "basemapContractHash": "ce9d61030167808c03020fc470e4a41318fa28ba888b30ecd57fc3361816a7ff",
           "network": {
             "label": "4G (9 Mbps, 60 ms RTT)",
@@ -310,9 +315,9 @@
         },
         "basemap": {
           "count": 1,
-          "totalMs": 244.5,
-          "p50Ms": 244.5,
-          "p95Ms": 244.5
+          "totalMs": 556.8,
+          "p50Ms": 556.7999999523163,
+          "p95Ms": 556.7999999523163
         },
         "wire": {
           "manifest": {
@@ -327,25 +332,27 @@
           },
           "tiles": {
             "requests": 4,
-            "bytes": 138043,
-            "meanRequestBytes": 34510.75
+            "bytes": 151290,
+            "meanRequestBytes": 37822.5
           },
           "other": {
             "requests": 10,
-            "bytes": 460383,
-            "meanRequestBytes": 46038.3
+            "bytes": 460837,
+            "meanRequestBytes": 46083.7
           },
           "total": {
             "requests": 93,
-            "bytes": 1260526,
-            "meanRequestBytes": 13554.043010752688
+            "bytes": 1274227,
+            "meanRequestBytes": 13701.36559139785
           }
         },
-        "findings": [],
+        "findings": [
+          "2 sampleposities zonder sourcemap-positie; oorspronkelijke bundelpositie bewaard"
+        ],
         "decodes": 128
       },
-      "tileGrowthPercent": 3.523191720724439,
-      "totalGrowthPercent": 0.5374916154019749
+      "tileGrowthPercent": 13.457572462409528,
+      "totalGrowthPercent": 1.630260961391361
     }
   ]
 }
