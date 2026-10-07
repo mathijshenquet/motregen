@@ -793,3 +793,24 @@ Gevolg voor eerdere uitspraken in deze LOG — **die moeten herzien worden**:
 
 Receipts: `pnpm typecheck` exit 0; `pnpm test` exit 0;
 `pnpm e2e e2e/decode-budget.spec.ts e2e/freshness.spec.ts --project desktop` exit 0 (5 geslaagd).
+
+## 2026-10-08 slot — U54 gemerged op main (486e23d)
+
+Merge-commit op main: **486e23d** (onafhankelijke gate van de orkestrator: typecheck 0, 478
+unit, build 0, bot 0, 24 gerichte desktop-e2e groen; conflicten met U58 in `App.tsx`,
+`DevPanel` en `docs/dev-opties.md` door de orkestrator opgelost, dev-paneel boven de Perf-HUD).
+Laatste commit van deze track vóór de merge: f2065c0.
+
+Preview **:4355 gestopt**; de PO kijkt op :4330 (main), waar de vier PO-punten staan:
+speelregel, scrubber-kader, temperatuurlaag met voorlopig palet, `?dev`-knoppen Kaderhemel en
+Eerste regen. Er draait geen rig of hulpserver meer van deze track.
+
+Wat de volgende lezer moet weten (details in de entries hierboven):
+- Metingen sinds iteratie 2 zijn gedaan mét de vooruitlaad-fout in de afspeellus (hersteld in
+  f2065c0) en niet opnieuw gemeten; de reden bij "+15 % decodes in journey" in docs/perf.md
+  klopt daardoor niet zonder meer. Baselines opnieuw zetten (`--baseline` ×3).
+- Rig-check `modus-wissel-koud` is rood (3 lege temperatuurbeelden vóór de eerste trace).
+- Niet gebouwd: isoline-trace bij de Wind-wissel, wissel-decodes pacen voor Wind/Lucht, de
+  overige rendering-kandidaten, stap 4 (fog/skeleton) en de laadmelding op het wachtende slot.
+- De soepelheidsrapporten van de herijkte meting staan in deze track-map (12ad64b), nog niet
+  uitgelezen.
