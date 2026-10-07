@@ -459,3 +459,64 @@ nog en liep tegelijk met de soepelheids-nulmeting; bovendien bouwde en fotografe
 tijdens die meting. Beide rigs deelden `tmp/rig-dist`. De oude run is gestopt. Regel vanaf nu:
 één rig tegelijk, geen build/test/screenshots terwijl een rig-run meet. De lopende nulmeting
 beoordeel ik op de loadavg per run en draai ik zo nodig opnieuw.
+
+## 2026-10-08 02:40 — main (U59) gemerged; :4355 serveert 526b987; nulmeting soepelheid; iteratie 3 niet aangetoond
+
+**Merges:** 10b7ed6 (U59 eigen basiskaart) en 526b987 (vite-plugin die het PMTiles-archief
+lokaal serveert). U59 had de rig zelf per poortpaar een eigen build- en fixturemap gegeven;
+dat schema is overgenomen (`rigBuild` in `scripts/rig-host.ts`), met daarop de voorbouw vóór
+het wachten, de renderer-quota en de soepelheidsvensters van U54. Typecheck exit 0, unit
+exit 0 (479 tests).
+**Preview :4355 = 526b987**, preview-server herstart (vite.config gewijzigd). Zelf bekeken op
+390 px: eigen basiskaart zichtbaar, niet grijs; `/data/basemap/nl-0aa536ff364f7cce.pmtiles`
+geeft 206 op een Range.
+
+**Rig-fout van mij, hersteld:** sinds de rig naar een eigen outDir bouwde stond de stijl-URL
+als prefix vóór `tsc -b` en bereikte hij `vite build` niet. De rig bouwde dus met de echte
+basemap, blokkeerde die als extern verkeer en liep vast (runs die na 16 minuten strandden —
+niet alleen de load). Geraakt: de afgebroken productierun en de eerste soepel-poging; de A/B
+van de speelregel en de kalibratie zijn van vóór die wijziging. `perf:mobile` bouwt nu eerst
+en wacht daarna op een rustige host.
+
+Alles hieronder is **vóór U59** gemeten (build van b29ed52, po-android, loadavg 5,1–7,9, ×3).
+
+**Iteratie 3 — regen rond nu als eerste verzoek: op de rig NIET aangetoond.**
+
+| maat | laat (oud) run 1 / 2 / 3 | mediaan | vroeg (nieuw) run 1 / 2 / 3 | mediaan |
+| --- | ---: | ---: | ---: | ---: |
+| ttfp | 3016 / 2745 / 2627 | 2745 ms | 2279 / 2433 / 2608 | 2433 ms |
+| eerste regenframe | 1882 / 1770 / 1722 | 1770 ms | 1780 / 1917 / 2096 | 1917 ms |
+| ttfh | 6322 / 7584 / 7718 | 7584 ms | 6545 / 6778 / 7352 | 6778 ms |
+| decodes / wire | 253 / 253 / 250 · 3783170 B | | 253 / 252 / 252 · 3781390–3783107 B | |
+
+De mediaan van ttfp is 312 ms beter, maar de reeksen raken elkaar (2608 tegen 2627) en het
+eerste regenframe komt juist niet eerder. Dat klopt met de rig: daar wacht het eerste
+kaartbeeld op de kaart-opzet, niet op bytes (lokale server, 20 ms). De winst die de echte
+opnames voorspellen zit in een volle lijn (39–41 headers tegelijk), en die bootst de rig niet
+na. Conclusie: geen claim. De wijziging blijft staan (geen zichtbaar effect, logisch gevolg van
+de traces) met de schakelaar `motregen-dev-eerste-regen=laat` voor een echte A/B op de
+telefoon met `?perf=1`.
+
+**Nulmeting soepelheid** (scenario's `soepel`, `soepel-seek-laden`; run 1 / 2 / 3):
+
+| venster (10 s) | frame-tijd p95 | beelden > 50 ms | beelden > 100 ms | LoAF totaal | scrub p50 / p95 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| afspelen tijdens laden | 100 / 100 / 100 ms | 47 / 40 / 39 | 17 / 15 / 16 | 3679 / 3321 / 3119 ms | — |
+| afspelen na laden | 16,8 / 16,8 / 16,8 ms | 3 / 3 / 4 | 0 / 0 / 0 | 298 / 137 / 301 ms | — |
+| seeken na laden | 133 / 83 / 83 ms | 67 / 43 / 32 | 16 / 5 / 7 | 4638 / 2350 / 2490 ms | 105 / 75 / 74 · 175 / 120 / 175 ms |
+| seeken tijdens laden | 133 / 117 / 133 ms | 55 / 56 / 49 | 20 / 17 / 19 | 3941 / 4031 / 3970 ms | 60 / 70 / 60 · 164 / 160 / 135 ms |
+
+Texture-upload: p50 0,1 ms, p95 4,7–9,4 ms (53–61 uploads per run). Eerste balk 1,67–1,91 s;
+blank-visible als oppervlak 228–231 slot-s (3,6 s volledig-leeg-equivalent) bij afspelen,
+249–260 slot-s (4,0–4,2 s) bij seeken tijdens laden.
+
+Lezing: afspelen na het laden is glad. Het haperen zit in (1) seeken, ook ná het laden — elke
+stap kost een lang beeld, 2,4–4,6 s LoAF per 10 s — en (2) alles tijdens het laden. Seeken na
+laden is de eerste kandidaat: daar is geen netwerk of decode-achterstand meer als excuus.
+Kanttekening bij texture-upload: onder de renderer-quota meet de rig 0,1 ms per upload
+(telefoon 5,8 ms); de winst van een kleinere regentextuur (R8) is op deze rig dus niet te
+zien en moet uit een telefoonopname komen.
+
+Loopt nu (na U59): nieuwe baselines `--baseline` ×3 voor de zes klassieke combinaties, daarna
+po-android `koud-spelend` / `soepel` / `soepel-seek-laden` ×3 en ttfp-ref ×3 voor de
+"na U59"-regel.
