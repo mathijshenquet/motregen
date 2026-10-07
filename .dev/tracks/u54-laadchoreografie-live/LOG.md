@@ -181,3 +181,30 @@ Iteratie 2 (orkestrator: niet-waarneembaar in de zin dat spelen alleen eerder be
 
 Nog niet gemeten: de host staat op loadavg 30–36. De A/B-run (po-android, ×3 per variant)
 staat klaar en wacht per run op loadavg ≤ 8.
+
+## 2026-10-07 22:40 — A herzien: renderer-quota via cgroup (orkestrator), profiel opnieuw gekalibreerd
+
+`taskset` op de hele browser was verworpen omdat SwiftShader de kernen opat (eerste regenframe
+2,5–7,1 s) terwijl een decode op 1–4 ms bleef. Nieuwe knop: alleen het renderer-proces in een
+cgroup (`--renderer-cmd-prefix=systemd-run --user --scope -p CPUQuota=N% -p
+CPUQuotaPeriodSec=5ms`). Proef met een rekenlus: zonder quota 117 / 116 ms (hoofddraad /
+worker), renderer 50 % → 250 / 243 ms, renderer 10 % → 1240 / 1220 ms; hele boom 50 % →
+696 / 671 ms. De quota remt hoofddraad en workers dus gelijk; page-CPU (CDP) staat daarom op 1×.
+
+Sweep op `koud-spelend-vensterregel`, loadavg 5,1–7,8 (tabel in docs/perf.md §Profiel
+po-android). Gekozen 30 %:
+
+| meetpunt | PO 16:27:59 | po-android 30 % (run 1 / run 2) | afwijking |
+| --- | ---: | ---: | ---: |
+| decode p50 | 22 ms | 9,8 / 10,3 ms | −55 % (was −95 %) |
+| basemap-tile p50 | 0,7–1,0 s | 0,33 / 0,64 s | te laag |
+| eerste regenframe | 1151 ms | 1719 / 1648 ms | +45 % |
+| ttfh | 4026 ms | 5880 / 6113 ms | +50 % |
+| ttfp | 4,0–4,6 s | 4050 / 4053 ms | binnen de band |
+| LoAF 12 s totaal | 4261 ms | 5412 / 5158 ms | +24 % |
+
+Niet gehaald: decode p50 ≈ 22 ms samen met de vroege mijlpalen. Eén quota laat alle draden uit
+één budget putten; 25 % geeft decode 14 ms maar ttfh +91 %, 12 % geeft 33 ms en ttfp 16 s. De
+rig is een ruwe telefoon: goed voor verschillen tussen varianten uit één build.
+
+Volgende: A/B van de speelregel op dit profiel (loopt).

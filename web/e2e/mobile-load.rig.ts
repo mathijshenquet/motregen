@@ -25,6 +25,7 @@ const options = JSON.parse(process.env.MOTREGEN_MOBILE_OPTIONS ?? '{"profiles":[
 const scenarios = JSON.parse(readFileSync('perf/scenarios.json', 'utf8')) as Record<string, Scenario>
 const QUIET_HOST_WAIT_MS = 15 * 60_000
 const synthGridScale = Number(process.env.MOTREGEN_SYNTH_GRID_SCALE ?? 1)
+const rendererCpuQuotaPercent = Number(process.env.MOTREGEN_RIG_RENDERER_QUOTA ?? 0) || null
 const sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
 
 for (const profileId of options.profiles) {
@@ -153,7 +154,7 @@ for (const profileId of options.profiles) {
           selfProfile: self ?? undefined,
           capturedAt,
           origin: baseURL!,
-          platform: 'Pixel 5-emulatie, worker-CPU ongeremd',
+          platform: `Pixel 5-emulatie, renderer-quota ${rendererCpuQuotaPercent ?? 'geen'}`,
           userAgent: await page.evaluate(() => navigator.userAgent),
         })
         const resolveFrame = createSourceMapResolver('dist')
@@ -188,7 +189,7 @@ for (const profileId of options.profiles) {
         if (!Object.keys(captured.milestones.windowReadyMs).length) findings.push('U52 window-ready-meetpunten ontbreken op deze main; ttfh komt uit de loadtrace')
         if (scenario.steps.some((step) => step.mode === 'Lucht') && !actions.some((action) => action.detail === 'modus Lucht')) findings.push('Deze main heeft nog geen Lucht-knop: bestaande Weer-wolkenfocus gebruikt en expliciet geregistreerd')
         const report: MobileReport = {
-          meta: { profile: profileId, scenario: scenarioId, sourceSha, capturedAt, cpuThrottleRate: profile.cpuThrottleRate, contractHash, fixtureHash, network: profile.network, hardwareConcurrency: captured.hardwareConcurrency, loadAverage, synthGridScale },
+          meta: { profile: profileId, scenario: scenarioId, sourceSha, capturedAt, cpuThrottleRate: profile.cpuThrottleRate, contractHash, fixtureHash, network: profile.network, hardwareConcurrency: captured.hardwareConcurrency, loadAverage, synthGridScale, rendererCpuQuotaPercent },
           milestones: captured.milestones,
           decode,
           wire: { ...wire, rangeRequests: requests.filter((request) => request.range !== null).length, beforeTtfrBytes: completedBytesBefore(requests, captured.milestones.ttfrMs), beforeTtfhBytes: completedBytesBefore(requests, captured.milestones.ttfhMs) },

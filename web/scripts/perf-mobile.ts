@@ -10,13 +10,13 @@ const REFERENCE_SCENARIO = 'referentie-buienradar'
 
 const args = process.argv.slice(2)
 // Zonder --cpu-rate geldt de page-throttle van het profiel zelf.
-const options: { profiles: string[]; scenarios: string[]; repeat: number; baseline: boolean; compare: boolean; cpuRate?: number; gridScale?: number; loadWaitMinutes: number } = { profiles: ['mobile-4g'], scenarios: ['koud'], repeat: 1, baseline: false, compare: false, loadWaitMinutes: 20 }
+const options: { profiles: string[]; scenarios: string[]; repeat: number; baseline: boolean; compare: boolean; cpuRate?: number; gridScale?: number; rendererQuota?: number; loadWaitMinutes: number } = { profiles: ['mobile-4g'], scenarios: ['koud'], repeat: 1, baseline: false, compare: false, loadWaitMinutes: 20 }
 for (let index = 0; index < args.length; index++) {
   const argument = args[index]!
   const [flag, inline] = argument.split('=')
   if (flag === '--baseline') options.baseline = true
   else if (flag === '--compare') options.compare = true
-  else if (['--profile', '--scenario', '--repeat', '--cpu-rate', '--grid-scale', '--load-wait'].includes(flag!)) {
+  else if (['--profile', '--scenario', '--repeat', '--cpu-rate', '--grid-scale', '--renderer-quota', '--load-wait'].includes(flag!)) {
     const value = inline ?? args[++index]
     if (!value || value.startsWith('--')) throw new Error(`${flag} vereist een waarde`)
     if (flag === '--profile') options.profiles = value === 'all' ? ['mobile-4g', 'mobile-fast-3g'] : [value]
@@ -25,6 +25,7 @@ for (let index = 0; index < args.length; index++) {
     if (flag === '--cpu-rate') options.cpuRate = Number(value)
     if (flag === '--load-wait') options.loadWaitMinutes = Number(value)
     if (flag === '--grid-scale') options.gridScale = Number(value)
+    if (flag === '--renderer-quota') options.rendererQuota = Number(value)
   } else throw new Error(`Onbekende optie: ${argument}`)
 }
 if (options.baseline && options.compare) throw new Error('--baseline en --compare sluiten elkaar uit')
@@ -45,7 +46,9 @@ const ports = process.env.MOTREGEN_E2E_PORT && process.env.MOTREGEN_E2E_DATA_POR
 // Het synthraster wordt één keer per aanroep gebouwd, dus alle profielen moeten dezelfde schaal vragen.
 const gridScales = new Set(options.profiles.map((profile) => options.gridScale ?? performanceProfile(profile).synthGridScale ?? 1))
 if (gridScales.size > 1) throw new Error('Profielen met een verschillende rasterschaal kunnen niet in één aanroep')
-const rigEnvironment = { ...process.env, MOTREGEN_SYNTH_GRID_SCALE: String([...gridScales][0]), MOTREGEN_E2E_PORT: String(ports.port), MOTREGEN_E2E_DATA_PORT: String(ports.dataPort), MOTREGEN_MOBILE_OPTIONS: JSON.stringify(options) }
+const rendererQuotas = new Set(options.profiles.map((profile) => options.rendererQuota ?? performanceProfile(profile).rendererCpuQuotaPercent ?? 0))
+if (rendererQuotas.size > 1) throw new Error('Profielen met een verschillende renderer-quota kunnen niet in één aanroep')
+const rigEnvironment = { ...process.env, MOTREGEN_RIG_RENDERER_QUOTA: String([...rendererQuotas][0]), MOTREGEN_SYNTH_GRID_SCALE: String([...gridScales][0]), MOTREGEN_E2E_PORT: String(ports.port), MOTREGEN_E2E_DATA_PORT: String(ports.dataPort), MOTREGEN_MOBILE_OPTIONS: JSON.stringify(options) }
 console.log(`Rig: loadavg ${hostLoadAverage()}, poorten ${ports.port}/${ports.dataPort}`)
 
 if (options.scenarios.includes(REFERENCE_SCENARIO)) {

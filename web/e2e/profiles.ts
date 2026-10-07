@@ -19,6 +19,12 @@ export interface PerformanceProfile {
   sessionByteBudget: number
   /** Wijkt het toestel af van de Pixel 5 van het Playwright-project, dan zet de rig dit per run. */
   device?: { viewport: { width: number; height: number }; userAgent: string }
+  /**
+   * CPU-quota (procent van één kern) voor het renderer-proces: hoofddraad en workers samen, via
+   * een cgroup (`systemd-run --user --scope`). CDP's page-throttle raakt workers niet; dit wel.
+   * Het GPU-proces valt erbuiten: SwiftShader is geen telefoon-GPU en zou de quota opeten.
+   */
+  rendererCpuQuotaPercent?: number
   /** Schaal van het synthraster in de laadrig; 3 geeft 570 × 690 cellen, in de orde van het KNMI-raster. */
   synthGridScale?: number
 }
@@ -80,7 +86,10 @@ export const performanceProfiles: readonly PerformanceProfile[] = [
     // draait alleen in de mobiele laadrig, niet in perf.spec.
     id: 'po-android',
     label: 'PO-telefoon (Android Chrome)',
-    cpuThrottleRate: 4,
+    // De rem zit in de renderer-quota (hoofddraad én workers); CDP's page-throttle erbovenop zou de
+    // hoofddraad dubbel remmen.
+    cpuThrottleRate: 1,
+    rendererCpuQuotaPercent: 30,
     synthGridScale: 3,
     network: {
       label: 'wifi via dev-host (30 Mbps, 20 ms RTT)',

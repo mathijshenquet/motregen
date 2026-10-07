@@ -153,7 +153,7 @@ export function renderMobileReport(report: MobileReport): string {
   const lines = [
     `# Mobiele laadrig: ${report.meta.profile} / ${report.meta.scenario}`,
     '',
-    `Commit ${report.meta.sourceSha}, ${report.meta.capturedAt}. CPU ${report.meta.cpuThrottleRate}×; worker-CPU ongeremd; synthraster ×${report.meta.synthGridScale}. Loadavg host bij start ${report.meta.loadAverage}.`,
+    `Commit ${report.meta.sourceSha}, ${report.meta.capturedAt}. CPU ${report.meta.cpuThrottleRate}×; renderer-quota ${report.meta.rendererCpuQuotaPercent === null ? 'geen (workers op hostsnelheid)' : `${report.meta.rendererCpuQuotaPercent} % van één kern`}; synthraster ×${report.meta.synthGridScale}. Loadavg host bij start ${report.meta.loadAverage}.`,
     '',
     '| maat | waarde |',
     '| --- | ---: |',
@@ -201,6 +201,8 @@ export interface MobileReport {
     /** 1-minuut-loadavg van de host bij de start van de run; boven MAX_LOAD_AVERAGE telt de run niet mee. */
     loadAverage: number
     synthGridScale: number
+    /** null: geen quota, workers op hostsnelheid. */
+    rendererCpuQuotaPercent: number | null
   }
   milestones: { ttfrMs: number | null; firstRainMs: number | null; basemapReadyMs: number | null; ttfpMs: number | null; blankVisibleMs: number; splashGoneMs: number | null; ttfhMs: number | null; windowReadyMs: Record<string, number>; histogramSource: string }
   decode: ReturnType<typeof summarizePhases>

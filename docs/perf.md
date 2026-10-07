@@ -899,35 +899,49 @@ De ruwe opnames blijven lokaal in `~/motregen-profiles`. Het profiel `po-android
 | knop | waarde | waarom |
 | --- | --- | --- |
 | viewport / UA | 390 × 844, "Linux; Android 10; K" | uit de opname |
-| page-CPU (CDP) | 4× | lange frames en ttfh in dezelfde orde als de opname |
-| netwerk | 30 Mbps, 20 ms RTT | de opnames liepen over wifi naar de dev-host; eerste regenframe op ≈ 1,1 s |
+| renderer-quota | 30 % van één kern (`--renderer-quota`) | remt hoofddraad én workers; zie hieronder |
+| page-CPU (CDP) | 1× | de quota remt de hoofddraad al; CDP erbovenop zou dubbel remmen |
+| netwerk | 30 Mbps, 20 ms RTT | de opnames liepen over wifi naar de dev-host |
 | synthraster | ×3 (570 × 690 cellen, `MOTREGEN_SYNTH_GRID_SCALE`) | in de orde van het KNMI-raster (700 × 765); wire 5,5 MB i.p.v. 1,7 MB |
-| worker-CPU | ongeremd | zie hieronder |
 
-Gekalibreerd op **dezelfde code als de opname** (main vóór U54-iteratie 1), 2026-10-07,
-loadavg 6,0–6,9, `koud-spelend`. Die code is bimodaal; de opname van 16:27:59 past bij beide
-takken, afhankelijk van welk meetpunt je neemt:
+**De quota.** CDP's `Emulation.setCPUThrottlingRate` geldt alleen voor de hoofddraad; op een
+workerdoel antwoordt Chrome "Operation is only supported for pages, not workers". Decodes
+liepen in de rig daardoor op hostsnelheid (p50 1,1 ms tegen 22 ms op de telefoon). De rig start
+het renderer-proces nu in een eigen cgroup:
+`--renderer-cmd-prefix=systemd-run --user --scope -p CPUQuota=30% -p CPUQuotaPeriodSec=5ms`.
+Dat raakt hoofddraad, decodeworkers en de MapLibre-workers samen. De periode van 5 ms maakt er
+een gelijkmatige rem van; met de standaard 100 ms valt de renderer in blokken stil. Het
+GPU-proces valt er bewust buiten: SwiftShader is geen telefoon-GPU. Met de hele browser op 1–2
+kernen (`taskset`) at SwiftShader de ruimte op (eerste regenframe 2,5–7,1 s tegen 1,15 s)
+terwijl een decode op 1–4 ms bleef.
 
-| meetpunt | PO-opname | rig snelle tak | afwijking | rig trage tak | afwijking |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| eerste regenframe | 1151 ms | 1042 ms | −9 % | 1801 ms | +56 % |
-| ttfh (regen nu ± 1 u) | 4026 ms | 4229 ms | +5 % | niet binnen 30 s | — |
-| ttfp | 4,0–4,6 s (orkestrator) / uploads op afspeelcadans vanaf 7481 ms | 4003 ms | binnen de band | 7293 ms | −3 % t.o.v. 7481 |
-| lange frames eerste 12 s, aantal | 22 | 24 | +9 % | 28 | +27 % |
-| lange frames eerste 12 s, totaal | 4261 ms | 6249 ms | +47 % | 11663 ms | +174 % |
-| texture-upload p50 | 5,8 ms | 3,5 ms | −40 % | 5,2 ms | −10 % |
-| frame-decode p50 | 22 ms | 1,1 ms | −95 % | 1,2 ms | −95 % |
+Kalibratie 2026-10-07, loadavg 5,1–7,8, `koud-spelend-vensterregel` (de speelregel van de
+opname), één of twee runs per stand:
 
-Wat klopt: de volgorde en grootte van de mijlpalen (eerste regen, ttfh, ttfp) en het aantal
-lange frames. Wat niet klopt en niet te kalibreren is: **decodetijd**. CDP weigert de CPU-rem
-voor workers (`Emulation.setCPUThrottlingRate` op een workerdoel: "Operation is only supported
-for pages, not workers"). De hele browser via `taskset` op 1–2 kernen zetten remt vooral
-SwiftShader (eerste regenframe 2,5–7,1 s tegen 1,15 s) en laat een decode op 1–4 ms; dat is
-dus ook geen model van de telefoon. Een kunstmatige decodepauze zou faken zijn. Gevolg voor
-uitspraken: de rig onderschat alles wat op de telefoon achter de decodewachtrij wacht. Reken
-een decode vóór een mijlpaal als ≈ 22 ms workertijd op de telefoon (opname: 75 decodes vóór het
-regenvenster ≈ 1,7 s workertijd) en lees `decodes vóór ttfp` in het rapport als kostenpost,
-niet alleen de klok.
+| meetpunt | PO-opname | quota 50 % | 35 % (×2) | **30 % (×2)** | 25 % | 12 % |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| frame-decode p50 | 22 ms | 3,0 | 8,8 / 8,9 | **9,8 / 10,3** | 14,1 | 32,8 |
+| frame-decode p95 | 53 ms | 59 | 123 / 101 | **101 / 120** | 140 | 367 |
+| basemap-tile p50 | 0,7–1,0 s (trage helft; alle acht: 86 ms) | 0,23 s | 0,43 / 0,45 s | **0,33 / 0,64 s** | 0,48 s | 1,62 s |
+| eerste regenframe | 1151 ms | 937 | 1421 / 1459 | **1719 / 1648** | 2032 | 5088 |
+| ttfh | 4026 ms | 3286 | 5135 / 5767 | **5880 / 6113** | 7692 | 25529 |
+| ttfp | 4,0–4,6 s (orkestrator) | 1606 | 3461 / 3498 | **4050 / 4053** | 5297 | 16263 |
+| lange frames 12 s, totaal | 4261 ms | 1795 | 3720 / 4618 | **5412 / 5158** | 6651 | 10047 |
+| lange frames 12 s, aantal | 22 | 18 | 35 / 48 | **53 / 50** | 56 | 41 |
+
+Gekozen: **30 %**. ttfp valt in de band van de telefoon, de decode is van −95 % naar −55 %
+gegaan en de lange frames kloppen in totale duur (+21 à +27 %). Wat afwijkt: de eerste
+mijlpalen zijn te laat (eerste regenframe +45 %, ttfh +50 %), de decode-p95 is twee keer te
+hoog en er zijn twee keer zoveel lange frames, elk korter. De oorzaak is dat één quota alle
+draden van de renderer uit één budget laat putten, terwijl een telefoon meerdere echte kernen
+heeft: decode-p50 en eerste-regenframe zijn met deze ene knop niet tegelijk goed te krijgen
+(25 % brengt de decode dichterbij maar zet ttfh op +91 %). De rig is hiermee een ruwe
+telefoon, geschikt voor rangorde en voor verschillen tussen varianten uit dezelfde build; een
+uitspraak in milliseconden over de echte telefoon blijft een PO-opname.
+
+Een eerdere stand zonder quota (page-CPU 4×, workers ongeremd) gaf op de code van de opname
+ttfp 4003 ms en ttfh 4229 ms in de snelle tak, maar met decodes van 1,1 ms; die stand
+onderschat alles wat achter de decodewachtrij wacht en is vervangen.
 
 ### Baseline na de U42/U47-laadregressie (U58, 2026-10-07)
 
