@@ -46,3 +46,9 @@
 - JPEG-metadata onafhankelijk gecontroleerd: 1800×2400. `.env` blijft gitignored; token en eigen testchat-id niet in diff of LOG.
 - Preview http://ageq-dev2:4360/ draait uit dist-preview met productiedata; productieunit wordt actief na integratie/deploy. Geen productie-update of merge uitgevoerd op deze worker-track.
 - Volgende stap: laatste commit/push, PR-status en remote-head controleren; overdracht naar orkestrator voor onafhankelijke merge-gate en PO-beoordeling van de nationale kaartdefaults.
+
+## 2026-10-07T09:19:52Z — Overdracht
+- Finale implementatiecommit `b381ec8` gemaakt en gepusht: beide synchrone exit 0. `git ls-remote origin refs/heads/track/u45-telegram` en PR-head gecontroleerd: beide exact `b381ec8d54f6d18f2479226c0699fecfb31251f5`; werkboom schoon.
+- `gh pr edit 72 --body-file tmp/u45-pr.md`: synchrone exit 0. Beschrijving bevat alle groene receipts en integratiestatus; https://github.com/mathijshenquet/motregen/pull/72 blijft draft voor onafhankelijke review/merge-gate. Publieke inlinefoto's worden pas na deploy beschikbaar.
+- `git diff --cached --check`: synchrone exit 0; preview HTTP 200 op 4360. Eigen rooktestchat staat op expliciet PO-verzoek in genegeerde `.env`; geen waarde in Git of LOG.
+- Trackwerk afgerond; deze overdrachtsentry wordt afzonderlijk committed. Preview blijft beschikbaar voor PO-beoordeling; merge en productiedeploy zijn aan de orkestrator.
