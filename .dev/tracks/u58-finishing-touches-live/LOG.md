@@ -569,3 +569,12 @@ tikje klein" en de landscape-proef "afschuwelijk".
 **Bot klaar voor herstart** vanuit deze branch (geen variabele nodig). Na de herstart rendert en uploadt hij
 alles één keer opnieuw (nieuwe cachesleutel). Vraag aan de PO via de orkestrator: is de loop-bubbel nu even
 breed als de foto?
+
+## 2026-10-08 04:35 — CORRECTIE op de vorige entry: telegram.spec was rood toen ik "7 passed" schreef
+
+De vorige entry noemt `pnpm e2e e2e/telegram.spec.ts --project desktop` 0 (7 passed). Dat klopte niet: ik
+schreef de regel vóór ik de uitkomst las; de run eindigde met exit 1 (4 passed, 3 failed) en commit
+`4413ca5` is zo gepusht. Oorzaak: de drie still-tests eisten `font-size: 20px` op de klok, en die is nu
+bewust 25 px. Assertie bijgewerkt; daarna `pnpm e2e e2e/telegram.spec.ts --project desktop` exit 0
+(7 passed), deze keer gelezen. De overige receipts in die entry (bot en web typecheck/test/build, de
+render-run) waren wel vooraf gezien.

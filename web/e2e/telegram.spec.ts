@@ -75,7 +75,8 @@ for (const mode of ['weer', 'lucht', 'gevoel']) {
     await expect(page.locator('.dashboard')).toHaveCount(0)
     await expect(page.locator('.search-field')).toHaveCount(0)
     await expect(page.locator('.map-clock.still-clock')).toHaveCount(1)
-    await expect(page.locator('.clock-map-time')).toHaveCSS('font-size', '20px')
+    // Een maat groter dan in de app (PO 2026-10-08).
+    await expect(page.locator('.clock-map-time')).toHaveCSS('font-size', '25px')
     await expect(page.locator('.map-clock button')).toHaveCount(0)
     await expect(page.locator('.still-attribution')).toHaveText('KNMI · © OpenStreetMap')
     await expect(page.locator('.maplibregl-marker:not(.isoline-label)')).toHaveCount(0)
