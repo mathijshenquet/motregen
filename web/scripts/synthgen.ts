@@ -12,11 +12,13 @@ const dataDir = resolve(root, process.env.MOTREGEN_SYNTH_DIR ?? 'public/data')
 const temperatureShift = Number(process.env.MOTREGEN_SYNTH_TEMP_SHIFT ?? 0)
 const grid: Grid = { crs: 'EPSG:3857', x0: 320_000, y0: 7_170_000, dx: 3_000, dy: -3_000, width: 190, height: 230 }
 const motionGrid: MotionGrid = { bw: 19, bh: 23 }
-// De patronen staan op het 3 km-raster; een schaal van 3 schrijft ze bilineair opgerekt op 1 km
-// (570 × 690, in de orde van het KNMI-raster van 700 × 765), zodat een decode in de laadrig echt
-// werk is. De motionvectoren blijven in cellen van het basisraster: alleen voor laadmetingen.
+// De patronen staan op het 3 km-raster. In productie is alleen regen fijn (1250 × 1350 cellen op
+// 1 km); de uurvelden zijn 209 × 225 of kleiner, ongeveer dit basisraster. Een schaal van 6
+// schrijft daarom alleen de regenframes bilineair opgerekt weg (1140 × 1380), zodat een
+// regen-decode in de laadrig even zwaar is als echt. De motionvectoren blijven in cellen van het
+// basisraster: alleen voor laadmetingen.
 const gridScale = Number(process.env.MOTREGEN_SYNTH_GRID_SCALE ?? 1)
-if (!Number.isInteger(gridScale) || gridScale < 1 || gridScale > 4) throw new Error('MOTREGEN_SYNTH_GRID_SCALE moet 1…4 zijn')
+if (!Number.isInteger(gridScale) || gridScale < 1 || gridScale > 6) throw new Error('MOTREGEN_SYNTH_GRID_SCALE moet 1…6 zijn')
 const outputGrid: Grid = { ...grid, dx: grid.dx / gridScale, dy: grid.dy / gridScale, width: grid.width * gridScale, height: grid.height * gridScale }
 
 function upscale(cells: Uint8Array): Uint8Array {
@@ -266,8 +268,9 @@ async function main(): Promise<void> {
   for (const plan of plans) {
     const predictive = plan.field === 'feels_like_c' || plan.field === 'pressure_hpa'
     const compressed = plan.times.map((time, index) => {
-      const cells = upscale(frameFor(plan, time, index))
-      return compressor.compress(predictive ? encodePredFrame(cells, outputGrid.width) : cells, 9)
+      const fine = plan.field === 'rain_rate'
+      const cells = fine ? upscale(frameFor(plan, time, index)) : frameFor(plan, time, index)
+      return compressor.compress(predictive ? encodePredFrame(cells, (fine ? outputGrid : grid).width) : cells, 9)
     })
     const compressedMotion = plan.field === 'rain_rate'
       ? plan.times.map((time, index) => index === 0 ? undefined : compressor.compress(makeMotion(plan.times[index - 1]!, time), 9))
@@ -287,7 +290,7 @@ async function main(): Promise<void> {
     const header: MrfHeader = {
       version: 0,
       field: plan.field,
-      grid: outputGrid,
+      grid: plan.field === 'rain_rate' ? outputGrid : grid,
       quant: quantFor(plan.field),
       source: plan.source,
       run: iso(plan.run),

@@ -961,6 +961,38 @@ Wat er **niet** uit te halen is:
 
 ### Profiel po-android
 
+**Herijkt op 2026-10-08 (geldt nu):** renderer-quota **40 %**, synthraster **alleen voor regen
+×6** (1140 × 1380 cellen). Aanleiding: de productie-headers. Regen is daar 1250 × 1350 cellen;
+de uurvelden zijn 209 × 225 (temperatuur, gevoel, wind, vlagen), 157 × 169 (straling),
+250 × 270 (uv) en 79 × 85 (wolken) — ongeveer het basisraster van de synthdata (190 × 230). De
+eerdere stand rekte álle velden ×3 op: uurveld-decodes en windwerk waren daardoor veel te
+zwaar (`feels_like_c` 110 ms per decode) en regen juist te licht (393k i.p.v. 1,69 M cellen).
+
+Sweep met het nieuwe raster, `koud-spelend` op de huidige code, één run per stand, loadavg
+5,8–6,6, naast de PO-opnames van 18:05 (koud) en 18:06 (warm) op dezelfde speelregel:
+
+| meetpunt | telefoon warm | telefoon koud | quota 100 % | 60 % | **40 %** |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| regen-decode p50 | 27,8 ms | 36,1 ms | 3,9 | 10,2 | **19,8 ms** |
+| eerste regenframe | 1314 ms | 2540 ms | 742 | 981 | **1347 ms** |
+| ttfp | 1797 ms | 3647 ms | 861 | 1197 | **1745 ms** |
+| ttfh | 2836 ms | 5552 ms | 1880 | 2057 | **3951 ms** |
+| blank-visible (laatste balk) | 2844 ms | 7559 ms | 1468 | 1832 | **3555 ms** |
+| lange frames eerste 12 s | 0,4 s (hele opname) | 0,6 s (hele opname) | 1,8 s | 2,0 s | **3,1 s** |
+| uurveld-decode p50 (temp_c) | 31 ms | 15 ms | 0,2 | 0,2 | **0,2 ms** |
+
+De rig haalt zijn data lokaal en lijkt daarin op de **warme** telefoonrun; daartegen zit 40 %
+op eerste regenframe (+3 %) en ttfp (−3 %) vrijwel goed, op regen-decode −29 % en op ttfh
++39 %. Wat afwijkt: de rig heeft meer lange frames dan de telefoon met de huidige build, en
+uurveld-decodes kosten in de rig vrijwel niets terwijl de telefoon er 15–30 ms per stuk over
+doet. Uitspraken over uurvelden (tabel, wind, wolken) blijven dus telefoonwerk.
+Getallen van vóór deze herijking (kalibratie op 30 %, alle velden ×3) zijn onderling
+vergelijkbaar maar niet met de getallen erna.
+
+De rest van deze paragraaf beschrijft de eerdere stand (quota 30 %, alle velden ×3) en hoe de
+quota werkt.
+
+
 `web/perf/po-android-reference.json` is de samenvatting van de koude PO-opname van 16:27:59
 (Android Chrome, UA "Linux; Android 10; K"), gemaakt met `scripts/po-reference.ts summarize`.
 De ruwe opnames blijven lokaal in `~/motregen-profiles`. Het profiel `po-android` in

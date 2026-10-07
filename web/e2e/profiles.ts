@@ -25,7 +25,7 @@ export interface PerformanceProfile {
    * Het GPU-proces valt erbuiten: SwiftShader is geen telefoon-GPU en zou de quota opeten.
    */
   rendererCpuQuotaPercent?: number
-  /** Schaal van het synthraster in de laadrig; 3 geeft 570 × 690 cellen, in de orde van het KNMI-raster. */
+  /** Schaal van het regenraster in de laadrig; 6 geeft 1140 × 1380 cellen (productie: 1250 × 1350). */
   synthGridScale?: number
 }
 
@@ -89,8 +89,8 @@ export const performanceProfiles: readonly PerformanceProfile[] = [
     // De rem zit in de renderer-quota (hoofddraad én workers); CDP's page-throttle erbovenop zou de
     // hoofddraad dubbel remmen.
     cpuThrottleRate: 1,
-    rendererCpuQuotaPercent: 30,
-    synthGridScale: 3,
+    rendererCpuQuotaPercent: 40,
+    synthGridScale: 6,
     network: {
       label: 'wifi via dev-host (30 Mbps, 20 ms RTT)',
       downloadThroughput: 30 * megabit,
