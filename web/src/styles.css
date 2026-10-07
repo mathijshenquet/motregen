@@ -892,6 +892,7 @@ td small { color: var(--muted); font-size: 9px; }
 .freshness-sources tbody th { font-weight: 750; white-space: nowrap; }
 .freshness-sources tbody th .live-age { display: flex; width: fit-content; margin: 3px 0 0; font-size: 11px; }
 .freshness-sources td { white-space: nowrap; }
+.freshness-sources td.freshness-explanation { min-width: 160px; color: var(--muted); white-space: normal; }
 .freshness-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .freshness-meta { color: var(--muted); font-size: 12px; }
 .freshness-refresh { padding: 4px 8px; border: 0; border-radius: 6px; color: var(--muted); background: transparent; font-size: 12px; font-weight: 600; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; cursor: pointer; }

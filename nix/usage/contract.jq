@@ -1,6 +1,6 @@
 # Het MIP-13-privacycontract zoals de server het leest; moet gelijk lopen met
 # USAGE_FIELDS in web/src/core/usage.ts en de veldenlijst in docs/analytics.md.
-def usage_version: 3;
+def usage_version: 2;
 def usage_features:
   ["pinFeel", "pinWind", "hover", "search", "geo", "fav", "pin", "play", "scrub", "clockScrub", "history", "fresh", "about", "share"];
 def usage_dimensions: {

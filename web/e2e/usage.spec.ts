@@ -63,7 +63,7 @@ test('the beacon waits for hidden visibility, is sent once and carries only whit
   await expect.poll(() => beacons().length).toBe(1)
   const body = beacons()[0]!
   expectWhitelisted(body)
-  expect(body).toMatchObject({ v: 3, about: true, range: null, theme: 'light', unit: 'bft', dur: '<1' })
+  expect(body).toMatchObject({ v: 2, about: true, range: null, theme: 'light', unit: 'bft', dur: '<1' })
   const mobile = testInfo.project.name !== 'desktop'
   expect(body.coarse).toBe(mobile)
   expect(body.width).toBe(mobile ? '<430' : '>=960')

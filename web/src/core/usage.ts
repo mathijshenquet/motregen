@@ -37,7 +37,7 @@ export type UsageWidth = typeof USAGE_WIDTHS[number]
 export type UsageDuration = typeof USAGE_DURATIONS[number]
 
 /** Alleen gebruikte features staan erin (als true): een ontbrekend veld is "niet gebruikt", zo blijft het baken < 200 B. */
-export const USAGE_SCHEMA_VERSION = 3
+export const USAGE_SCHEMA_VERSION = 2
 
 export type UsageBody = Partial<Record<UsageFeature, true>> & {
   /** Schemaversie: ophogen bij elke wijziging van deze velden, zodat het aggregaat oude en nieuwe regels onderscheidt. */

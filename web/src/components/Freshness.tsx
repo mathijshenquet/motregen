@@ -314,11 +314,12 @@ export default function Freshness(props: Props) {
           </Show>
           <div class="freshness-table-scroll">
             <table class="freshness-sources">
-              <thead><tr><th>Data</th><th>Bron</th><th>Frequentie</th><th>Volgende data</th></tr></thead>
+              <thead><tr><th>Data</th><th>Bron</th><th>Uitleg</th><th>Frequentie</th><th>Volgende data</th></tr></thead>
               <tbody>
-                <For each={rows()}>{(row) => <tr title={row.explanation}>
+                <For each={rows()}>{(row) => <tr>
                   <th scope="row"><span>{row.label}</span><LiveAge ms={ageMs(row.epoch, clock())} short title={`${row.kind === 'measured' ? 'meting' : 'run'} ${formatClock(row.epoch, clock())}`} /></th>
                   <td>{row.provider}</td>
+                  <td class="freshness-explanation">{row.explanation}</td>
                   <td>{row.cadence}</td>
                   <td>{expectedNext(row) > clock() ? `± ${time(expectedNext(row))}` : 'onderweg'}</td>
                 </tr>}</For>
