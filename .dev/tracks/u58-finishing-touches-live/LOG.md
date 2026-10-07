@@ -637,3 +637,41 @@ main's versie genomen; mijn wacht-op-de-morph-poll bleef staan).
   "start location remembers saved places" was in deze run groen; die was eerder wisselend rood met
   "Werkhoven" — de verdenking rond `?plaats=` staat nog open, niet onderzocht.
 - `pnpm typecheck` 0, `pnpm test` 0, `pnpm build` 0; 4320 serveert de nieuwe build, basiskaartarchief 206.
+
+## 2026-10-08 06:00 — slot: U58 deel 2 op main, preview gestopt
+
+- Orkestrator: branch t/m `5c2544e` op main gemerged als `29d30a6` (deel 2; deel 1 was `e7466e4`). Gate van
+  de orkestrator: typecheck 0, unit 460 groen bij herhaling, build 0, bot typecheck + tests 0, 21 gerichte
+  desktop-e2e groen. `HEAD` van deze branch is een voorouder van main (gecontroleerd).
+- Preview op 4320 gestopt (eigen proces, geen luisteraars meer op 4320/4321). De PO kijkt verder op 4330.
+
+**Wat U58 heeft opgeleverd**
+1. Globale schakelaar Expressief (hemel/streken + dag/nacht in de tabel), met migratie.
+2. Klokpil-jog: `vast` (2 min/px, rechts = later) als constante, `?dev`-knop weg; strook in het klokpaneel
+   sleepbaar.
+3. `dev-panel.spec` eerlijk bijgewerkt (`?perf` is de profielmodus).
+4. Bot: /temperatuur (alias /hitte, /gevoel stil), loop als standaardantwoord, /loop weg, modusknop
+   Temperatuur, tijdknoppen per modus instelbaar, temperatuurloop op tienminutenframes en 10 fps.
+5. Telegram-beeld: staand blijft (landscape-proef afgewezen en verwijderd), klok groter, loop-upload met
+   width/height/duration en vierkante pixels.
+6. Buiten de spec, op verzoek: laadregressie U42/U47 (297 → 128 decodes, zichtbare rijen, RV weg), DOM-churn
+   en haperend afspelen (layout-reads per frame, incrementele wolkendoorsnede, regenframes op een worker),
+   tabel-scroll met ingeklapte adresbalk, zoekpil-morph, nieuwe mobile-4g-baselines, meetscripts
+   (`dom-churn`, `search-tween`, `search-trace`, `devtools-trace`, `still-shot`, `prof:capture --scrub/--mode`).
+
+**Open bij de PO**
+- Is de loop-bubbel in Telegram nu even breed als de foto? Niet aangetoond; zo niet: `sendVideo` of zo laten.
+- Klok in het Telegram-beeld groot genoeg; temperatuurloop vloeiend en niet te snel (7,3 s voor 12 uur)?
+- Zoekpil-morph akkoord, inclusief 560 px als bovengrens op een brede kaart?
+- Mag `/gevoel` als stille alias blijven?
+
+**Open voor agents**
+- "Werk → Werkhoven": `location.spec` "start location remembers saved places" was wisselend rood; verdenking
+  dat de permalink `?plaats=<naam>` een opgeslagen plaats met eigen naam via de geocoder oplost. Niet onderzocht.
+- `table.spec` onder `mobile-4g`: "mobile previews the heading…" zoekt een knop "Tabel openen" die niet bestaat.
+- Fast-3G-rigbaselines hebben nog het oude meetcontract; storm-run gaf twee keer een flake op het
+  isoline-worker-script; twee rigs tegelijk op de host storen elkaar (gedeelde poorten).
+- Niet aangepakt, wel gezien: kolom "Uitleg" valt in het klokpaneel op 390 px buiten beeld; label "mooie
+  wolkenlucht" loopt in het dev-paneel over de rand; placeholder schuift rond 90 ms van de zoekpil-morph nog
+  onder het icoon vandaan; `scrollTableToEpoch` leest per stap layout.
+- Niet gedaan uit stap 6: de volledige e2e-suite in drie profielen (hoort bij de dagelijkse run op main).
