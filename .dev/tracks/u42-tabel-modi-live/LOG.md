@@ -417,3 +417,14 @@
   17/17 groen. Build: 107 modules, `index-6goW5VOX.js`, `index-DcYrN3Ca.css`, PWA + workers.
   Preview `http://ageq-dev2:4320/` serveert de nieuwe assets. Geen e2e uitgevoerd vóór PO-signaal
   “klaar”.
+
+## 2026-10-07 13:04 UTC
+
+- De scheidingslijnen rond zon-opkomst en zonsondergang zijn op verzoek van de PO terug. De
+  zonregel heeft nu zowel boven als onder een subtiele `var(--line)`-divider en 9px verticale
+  padding (was 6px), zodat het moment duidelijker losstaat van de uurrijen.
+- Synchrone receipts: `git diff --check`, `pnpm typecheck`, `pnpm test -- --run
+  src/components/ForecastTable.test.tsx` en `pnpm build` exit 0. Vitest draaide door de huidige
+  scriptconfiguratie de volledige set: 59 bestanden/385 tests groen. Build: 107 modules,
+  `index-D4A7_Xer.js`, `index-jbCfyrsS.css`, PWA + workers. Preview
+  `http://ageq-dev2:4320/` serveert de nieuwe assets. Geen e2e uitgevoerd vóór PO-signaal “klaar”.

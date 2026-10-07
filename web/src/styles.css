@@ -690,7 +690,7 @@ td small { color: var(--muted); font-size: 9px; }
 .uv-bar-bare { display: block; }
 .uv-bar-bare .uv-bar-track { min-width: 0; height: 6px; }
 .uv-bar-bare :is(.uv-bar-fill, .uv-bar-clear) { min-width: 6px; }
-.forecast-table tr.sun-row td { padding: 6px 0; border-bottom: 0; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .04em; text-align: center; }
+.forecast-table tr.sun-row td { padding: 9px 0; border-block: 1px solid var(--line); color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .04em; text-align: center; }
 .forecast-table tr.before-sun-row td { border-bottom: 0; }
 .sun-glyph { display: inline-block; width: 22px; height: 11px; margin: 0 6px 0 0; vertical-align: -1px; overflow: visible; }
 .sun-glyph-rays { fill: none; stroke: #e0a400; stroke-linecap: round; stroke-width: 1.1; }
