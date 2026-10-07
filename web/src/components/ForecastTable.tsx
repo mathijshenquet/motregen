@@ -5,7 +5,7 @@ import { moonEvents, moonLitPath, moonPhase } from '../core/moon'
 import { solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
 import { dailyClearSkyUvMax, uvReading } from '../core/uv'
 import { deriveWeatherIcon, summarizeWind, WIND_UNIT_LABELS, type WindSummary, type WindUnit } from '../core/weather'
-import { ArrowUp, BUTTON_ICON, Clock, CloudRain, CloudSun, MapIcon, Thermometer, Wind } from './icons'
+import { ArrowUp, BUTTON_ICON, Clock, CloudRain, CloudSun, MapIcon, Table2, Thermometer, Wind } from './icons'
 import UvBar from './UvBar'
 import WeatherIcon from './WeatherIcon'
 import { measurePerfPhase } from '../core/perf'
@@ -42,8 +42,9 @@ interface Props {
   onOpenHistory: () => void
   /** Klik op een rij: de scrubber springt naar dat uur (U34). */
   onSelectTime?: (epoch: number) => void
-  /** Portrait-mobiel gebruikt de eerste kop als terugweg naar de kaart. */
-  onShowMap?: () => void
+  /** Portrait-mobiel gebruikt de eerste kop als wissel tussen kaart en tabel. */
+  mobileTableOpen?: boolean
+  onToggleMobileView?: () => void
   // De koppenrij is de modebalk: hover/toetsenbordfocus is tijdelijk, klikken pint één modus.
   focus: {
     pinned: FocusKind
@@ -181,9 +182,18 @@ export default function ForecastTable(props: Props) {
   return <table class="forecast-table" data-mode={props.focus.pinned} data-hover={hovered()}>
     <thead><tr>
       {/* Weer is de vaste standaardmodus: regen op de kaart en in de grafiek. */}
-      <th class="time-heading"><Show when={props.onShowMap} fallback={<span class="column-mode"><ColumnLabel icon={Clock} text="Uur" /></span>}>
-        <button type="button" class="column-mode map-heading-action" title="Terug naar de kaart" onClick={(event) => { event.stopPropagation(); props.onShowMap?.() }}>
-          <ColumnLabel icon={MapIcon} text="Kaart" />
+      <th class="time-heading"><Show when={props.onToggleMobileView} fallback={<span class="column-mode"><ColumnLabel icon={Clock} text="Uur" /></span>}>
+        <button
+          type="button"
+          class="column-mode mobile-view-toggle"
+          classList={{ 'show-map': props.mobileTableOpen }}
+          title={props.mobileTableOpen ? 'Terug naar de kaart' : 'Open de tabel'}
+          aria-label={props.mobileTableOpen ? 'Kaart tonen' : 'Tabel tonen'}
+          onClick={(event) => { event.stopPropagation(); props.onToggleMobileView?.() }}
+        >
+          <Show when={props.mobileTableOpen} fallback={<ColumnLabel icon={Table2} text="Tabel" />}>
+            <ColumnLabel icon={MapIcon} text="Kaart" />
+          </Show>
         </button>
       </Show></th>
       <Show when={props.columns.weather}><th class="weather-heading" {...columnHover('weather')}>

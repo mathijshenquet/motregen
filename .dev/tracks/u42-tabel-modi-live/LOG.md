@@ -158,3 +158,17 @@
   `http://ageq-dev2:4320/` antwoordt HTTP 200. Nog steeds geen e2e vóór PO-signaal “klaar”.
 - Na het opruimen van de uitgestelde `pageshow`-callback nogmaals `pnpm build` synchroon exit 0;
   definitieve JS-bundel voor deze staat is `index-CW_uLU3J.js`.
+
+## 2026-10-07 09:31 UTC
+
+- Mobiele eerste tabelkop is nu een echte, visueel afwijkende view-wissel: boven de kaart staat
+  `Tabel` met tabelicoon en accentpil; na de scrolltween wordt dat `Kaart` met kaarticoon en een
+  neutralere pil. Beide richtingen sturen dezelfde native scroll/snap-overgang; desktop en
+  mobiel-landscape houden klok + `Uur`. Unit- en gerichte e2e-verwachtingen zijn mee aangepast.
+- PO meldde dat de kale preview-URL op zijn telefoon de perf-HUD opende. Oorzaak was de door U43
+  blijvend opgeslagen `motregen-perf`-vlag. `?perf` blijft expliciet werken en een koude start
+  neemt de vlag één herlaadbeurt mee, maar een kale URL wist voortaan oude profielstaat. Documentatie
+  en perf-tests volgen dit nieuwe PO-contract.
+- Synchrone receipts: `pnpm typecheck` exit 0; volledige `pnpm test` 51 bestanden / 349 tests
+  groen; `pnpm build` exit 0 (100 modules, `index-CM2YAs9w.js`, `index-DxiPmx6k.css`). Preview
+  `http://ageq-dev2:4320/` antwoordt HTTP 200. Geen e2e uitgevoerd vóór PO-signaal “klaar”.

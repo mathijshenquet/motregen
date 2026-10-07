@@ -21,7 +21,7 @@ const series: ForecastSeries = {
 }
 const allColumns = { weather: true, air: true, temperature: true, wind: true }
 
-function renderTable(options: { pinned?: FocusKind; weather?: boolean; onSelectTime?: (epoch: number) => void; onShowMap?: () => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
+function renderTable(options: { pinned?: FocusKind; weather?: boolean; onSelectTime?: (epoch: number) => void; mobileTableOpen?: boolean; onToggleMobileView?: () => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
   const [pinned, setPinned] = createSignal<FocusKind>(options.pinned ?? 'weather')
   const onPin = vi.fn((mode: FocusKind) => setPinned(mode))
   const onFocus = vi.fn()
@@ -39,7 +39,8 @@ function renderTable(options: { pinned?: FocusKind; weather?: boolean; onSelectT
     onNeedHistory={() => undefined}
     onOpenHistory={() => undefined}
     onSelectTime={options.onSelectTime}
-    onShowMap={options.onShowMap}
+    mobileTableOpen={options.mobileTableOpen}
+    onToggleMobileView={options.onToggleMobileView}
     focus={{ pinned: pinned(), onPin, onFocus }}
   />)
   return { pinned, onPin, onFocus }
@@ -76,12 +77,18 @@ describe('forecast table headings', () => {
     expect(document.querySelector('.weather-icon')).toBeNull()
   })
 
-  it('uses the first heading as the map return on portrait mobile', () => {
-    const onShowMap = vi.fn()
-    renderTable({ onShowMap })
+  it('uses the first heading as a distinct table/map switch on portrait mobile', () => {
+    const onToggleMobileView = vi.fn()
+    renderTable({ onToggleMobileView })
     expect(screen.queryByRole('columnheader', { name: 'Uur' })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Kaart' }))
-    expect(onShowMap).toHaveBeenCalledOnce()
+    const toggle = screen.getByRole('button', { name: 'Tabel tonen' })
+    expect(toggle.classList.contains('mobile-view-toggle')).toBe(true)
+    fireEvent.click(toggle)
+    expect(onToggleMobileView).toHaveBeenCalledOnce()
+    cleanup()
+    renderTable({ mobileTableOpen: true, onToggleMobileView })
+    fireEvent.click(screen.getByRole('button', { name: 'Kaart tonen' }))
+    expect(onToggleMobileView).toHaveBeenCalledTimes(2)
   })
 
   it('makes Weer, Lucht, Gevoel and Wind mode buttons while RV stays out of view', () => {

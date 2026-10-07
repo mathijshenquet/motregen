@@ -197,13 +197,19 @@ export function configurePerfMode(url: URL, storage: Pick<Storage, 'getItem' | '
     } else {
       storage.setItem(PERF_STORAGE_KEY, '1')
     }
+    return url.searchParams.get('perf') !== '0'
   }
-  return storage.getItem(PERF_STORAGE_KEY) === '1'
+  const coldStart = storage.getItem(PERF_STORAGE_KEY) === '1' && storage.getItem(PERF_COLD_STORAGE_KEY) === '1'
+  if (!coldStart) storage.removeItem(PERF_STORAGE_KEY)
+  return coldStart
 }
 
 export function consumeColdProfile(storage: Pick<Storage, 'getItem' | 'removeItem'>): boolean {
   const requested = storage.getItem(PERF_COLD_STORAGE_KEY) === '1'
-  if (requested) storage.removeItem(PERF_COLD_STORAGE_KEY)
+  if (requested) {
+    storage.removeItem(PERF_COLD_STORAGE_KEY)
+    storage.removeItem(PERF_STORAGE_KEY)
+  }
   return requested
 }
 
