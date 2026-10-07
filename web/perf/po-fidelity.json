@@ -1,0 +1,308 @@
+{
+  "chrome": {
+    "source": "2026-10-07T10:01:39.411Z-linux-armv81.json",
+    "sha256": "f3efcf1a96aa566d38403d8120b62710a63fd1424dc011a550396ae9c8268db6",
+    "anchor": "first-observed-event",
+    "phases": {
+      "table-render": {
+        "count": 7,
+        "totalMs": 4.1,
+        "p50Ms": 0.6,
+        "p95Ms": 2
+      },
+      "scrubber-paint": {
+        "count": 170,
+        "totalMs": 93.4,
+        "p50Ms": 0.2,
+        "p95Ms": 1.9
+      },
+      "basemap-tile": {
+        "count": 18,
+        "totalMs": 6051.6,
+        "p50Ms": 295.2,
+        "p95Ms": 593.5
+      },
+      "frame-decode": {
+        "count": 801,
+        "totalMs": 21808.3,
+        "p50Ms": 19.1,
+        "p95Ms": 74.6
+      },
+      "texture-upload": {
+        "count": 107,
+        "totalMs": 465.8,
+        "p50Ms": 4,
+        "p95Ms": 15.1
+      },
+      "wind-step": {
+        "count": 968,
+        "totalMs": 1062.6,
+        "p50Ms": 0.8,
+        "p95Ms": 2.9
+      },
+      "isoline-trace": {
+        "count": 313,
+        "totalMs": 6278.6,
+        "p50Ms": 19.5,
+        "p95Ms": 41.7
+      },
+      "isoline-blit": {
+        "count": 444,
+        "totalMs": 29.6,
+        "p50Ms": 0.1,
+        "p95Ms": 0.2
+      }
+    },
+    "decodesPerSecond": [
+      0,
+      10,
+      46,
+      81,
+      97,
+      119,
+      84,
+      24,
+      2,
+      185,
+      103,
+      4,
+      8,
+      3,
+      2,
+      2,
+      2,
+      2,
+      1,
+      2,
+      3,
+      2,
+      2,
+      2,
+      2,
+      2,
+      1,
+      2,
+      4,
+      4
+    ],
+    "encodedBodyBytes": null
+  },
+  "firefox": {
+    "source": "2026-10-07T10:02:26.729Z-linux-armv81.json",
+    "sha256": "50534c42767bcdd6a7f3bebb43688d8145c540638654e4418441e95ed9e720fa",
+    "anchor": "first-observed-event",
+    "phases": {
+      "table-render": {
+        "count": 7,
+        "totalMs": 3,
+        "p50Ms": 0,
+        "p95Ms": 1
+      },
+      "scrubber-paint": {
+        "count": 129,
+        "totalMs": 81,
+        "p50Ms": 0,
+        "p95Ms": 3
+      },
+      "basemap-tile": {
+        "count": 8,
+        "totalMs": 2369,
+        "p50Ms": 85,
+        "p95Ms": 520
+      },
+      "frame-decode": {
+        "count": 903,
+        "totalMs": 28148,
+        "p50Ms": 21,
+        "p95Ms": 93
+      },
+      "texture-upload": {
+        "count": 140,
+        "totalMs": 1112,
+        "p50Ms": 5,
+        "p95Ms": 23
+      },
+      "wind-step": {
+        "count": 490,
+        "totalMs": 642,
+        "p50Ms": 1,
+        "p95Ms": 5
+      },
+      "isoline-trace": {
+        "count": 214,
+        "totalMs": 3697,
+        "p50Ms": 14,
+        "p95Ms": 42
+      },
+      "isoline-blit": {
+        "count": 221,
+        "totalMs": 19,
+        "p50Ms": 0,
+        "p95Ms": 0
+      }
+    },
+    "decodesPerSecond": [
+      0,
+      29,
+      111,
+      38,
+      57,
+      76,
+      135,
+      179,
+      163,
+      47,
+      27,
+      30,
+      0,
+      0,
+      0,
+      0,
+      5,
+      5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "encodedBodyBytes": null
+  },
+  "pixel": {
+    "source": "2026-10-07T09:22:05.812Z-android.json",
+    "sha256": "7c04d673e148ffb2b65971cc42943229a32ec1fbc4b204abb03b91bc64e2c034",
+    "anchor": "first-observed-event",
+    "phases": {
+      "table-render": {
+        "count": 7,
+        "totalMs": 6,
+        "p50Ms": 1,
+        "p95Ms": 2
+      },
+      "scrubber-paint": {
+        "count": 31,
+        "totalMs": 39.9,
+        "p50Ms": 0.9,
+        "p95Ms": 7.2
+      },
+      "basemap-tile": {
+        "count": 5,
+        "totalMs": 4382.5,
+        "p50Ms": 1039,
+        "p95Ms": 1377.4
+      },
+      "frame-decode": {
+        "count": 804,
+        "totalMs": 7784.6,
+        "p50Ms": 9.2,
+        "p95Ms": 17.3
+      },
+      "texture-upload": {
+        "count": 45,
+        "totalMs": 646.2,
+        "p50Ms": 13.3,
+        "p95Ms": 30.9
+      },
+      "wind-step": {
+        "count": 451,
+        "totalMs": 727.8,
+        "p50Ms": 1.3,
+        "p95Ms": 4.6
+      },
+      "isoline-trace": {
+        "count": 172,
+        "totalMs": 1803.6,
+        "p50Ms": 9.6,
+        "p95Ms": 17.8
+      },
+      "isoline-blit": {
+        "count": 203,
+        "totalMs": 16.7,
+        "p50Ms": 0,
+        "p95Ms": 0.5
+      }
+    },
+    "decodesPerSecond": [
+      0,
+      12,
+      53,
+      63,
+      36,
+      71,
+      134,
+      74,
+      88,
+      64,
+      67,
+      29,
+      10,
+      10,
+      17,
+      10,
+      28,
+      4,
+      2,
+      2,
+      2,
+      3,
+      1,
+      2,
+      2,
+      3,
+      4,
+      4,
+      4,
+      5
+    ],
+    "encodedBodyBytes": null
+  },
+  "pixelVersusChrome": {
+    "table-render": {
+      "countDeltaPercent": 0,
+      "p50DeltaPercent": 66.66666666666667,
+      "p95DeltaPercent": 0
+    },
+    "scrubber-paint": {
+      "countDeltaPercent": -81.76470588235294,
+      "p50DeltaPercent": 350,
+      "p95DeltaPercent": 278.9473684210527
+    },
+    "basemap-tile": {
+      "countDeltaPercent": -72.22222222222223,
+      "p50DeltaPercent": 251.9647696476965,
+      "p95DeltaPercent": 132.0808761583825
+    },
+    "frame-decode": {
+      "countDeltaPercent": 0.37453183520599254,
+      "p50DeltaPercent": -51.8324607329843,
+      "p95DeltaPercent": -76.80965147453084
+    },
+    "texture-upload": {
+      "countDeltaPercent": -57.94392523364486,
+      "p50DeltaPercent": 232.50000000000003,
+      "p95DeltaPercent": 104.63576158940397
+    },
+    "wind-step": {
+      "countDeltaPercent": -53.40909090909091,
+      "p50DeltaPercent": 62.5,
+      "p95DeltaPercent": 58.620689655172406
+    },
+    "isoline-trace": {
+      "countDeltaPercent": -45.04792332268371,
+      "p50DeltaPercent": -50.76923076923077,
+      "p95DeltaPercent": -57.31414868105515
+    },
+    "isoline-blit": {
+      "countDeltaPercent": -54.27927927927928,
+      "p50DeltaPercent": -100,
+      "p95DeltaPercent": 150
+    }
+  }
+}

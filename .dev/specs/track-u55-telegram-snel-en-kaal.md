@@ -90,3 +90,8 @@ one-liners, commentaar alleen voor een niet-triviaal waarom.
     group/supergroup: uitsluitend chat.id melden. Nu groep geconfigureerd;
     prewarm na ontvangen id en .env-update herstarten, prime-tijden en posts
     per generatie loggen, live-logpad en PR-receipts melden.
+15. Vooraf primen beperken tot nu/−10m/+10m/−1u/+1u per niet-Wind-modus
+    plus vier loops: 19 media. Overige JPEGs bij aanvraag uit opgeslagen PNG,
+    eenmaal uploaden en daarna file_id. Doel render+prime <90 seconden; meten.
+    Volledige PNG-reeksen en loop-tijdbereiken blijven beschikbaar. U56/main
+    vóór de volgende gate mergen; gedeelde klok en usage-v2 behouden.

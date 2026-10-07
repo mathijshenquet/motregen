@@ -1,0 +1,752 @@
+{
+  "reference": {
+    "source": "2026-10-07T10:01:39.411Z-linux-armv81.json",
+    "sha256": "f3efcf1a96aa566d38403d8120b62710a63fd1424dc011a550396ae9c8268db6"
+  },
+  "limitations": [
+    "Verschillende clientversie, codec, dataset en scenario",
+    "Referentiehistogram vanaf eerste event, rig vanaf navigatie",
+    "Geen netwerkbytes in de PO-opname",
+    "CDP CPU-throttle geldt niet voor workers; GPU/thermiek niet geëemuleerd"
+  ],
+  "observations": [
+    {
+      "profile": "mobile-4g",
+      "scenario": "koud",
+      "cpuThrottleRate": 1,
+      "sourceSha": "d035d7449dd4ce84d0f5d18d34839bea4d63f93b",
+      "capturedAt": "2026-10-07T11:12:28.776Z",
+      "fixtureHash": "800d195e2f9168bf545ef52d67dc1fb0e754fb8c7952185528d885e64cd6b12b",
+      "contractHash": "80e488de0a4e3da80ce604d2012cd328b86bda594f4d7226c4ae333c1042c259",
+      "bodyBytes": 1141260,
+      "phases": {
+        "table-render": {
+          "count": 7,
+          "totalMs": 1.8,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.7999999523162842
+        },
+        "scrubber-paint": {
+          "count": 64,
+          "totalMs": 10.7,
+          "p50Ms": 0.10000002384185791,
+          "p95Ms": 0.30000007152557373
+        },
+        "basemap-tile": {
+          "count": 1,
+          "totalMs": 87.9,
+          "p50Ms": 87.89999997615814,
+          "p95Ms": 87.89999997615814
+        },
+        "frame-decode": {
+          "count": 113,
+          "totalMs": 57.3,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 2.4000000953674316
+        },
+        "texture-upload": {
+          "count": 1,
+          "totalMs": 1.5,
+          "p50Ms": 1.5,
+          "p95Ms": 1.5
+        },
+        "wind-step": {
+          "count": 1157,
+          "totalMs": 548,
+          "p50Ms": 0.40000009536743164,
+          "p95Ms": 0.8000000715255737
+        }
+      },
+      "decodesPerSecond": [
+        0,
+        104,
+        9,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "versusHistoricalChrome": {
+        "table-render": {
+          "countDeltaPercent": 0,
+          "p50DeltaPercent": -66.6666587193807,
+          "p95DeltaPercent": -60.00000238418579
+        },
+        "scrubber-paint": {
+          "countDeltaPercent": -62.35294117647059,
+          "p50DeltaPercent": -49.99998807907105,
+          "p95DeltaPercent": -84.21052255128559
+        },
+        "basemap-tile": {
+          "countDeltaPercent": -94.44444444444444,
+          "p50DeltaPercent": -70.22357724384887,
+          "p95DeltaPercent": -85.1895535002261
+        },
+        "frame-decode": {
+          "countDeltaPercent": -85.89263420724095,
+          "p50DeltaPercent": -98.95287933149888,
+          "p95DeltaPercent": -96.78284169521791
+        },
+        "texture-upload": {
+          "countDeltaPercent": -99.06542056074767,
+          "p50DeltaPercent": -62.5,
+          "p95DeltaPercent": -90.06622516556291
+        },
+        "wind-step": {
+          "countDeltaPercent": 19.524793388429753,
+          "p50DeltaPercent": -49.99998807907105,
+          "p95DeltaPercent": -72.41379063704919
+        },
+        "isoline-trace": {
+          "countDeltaPercent": null,
+          "p50DeltaPercent": null,
+          "p95DeltaPercent": null
+        },
+        "isoline-blit": {
+          "countDeltaPercent": null,
+          "p50DeltaPercent": null,
+          "p95DeltaPercent": null
+        }
+      },
+      "decodeDistributionWithinThirtyPercent": false
+    },
+    {
+      "profile": "mobile-4g",
+      "scenario": "koud",
+      "cpuThrottleRate": 4,
+      "sourceSha": "d035d7449dd4ce84d0f5d18d34839bea4d63f93b",
+      "capturedAt": "2026-10-07T11:15:50.188Z",
+      "fixtureHash": "800d195e2f9168bf545ef52d67dc1fb0e754fb8c7952185528d885e64cd6b12b",
+      "contractHash": "3fdcbba60855d11a0964ef869f39d063c5a0057398944f3505c507b14e413168",
+      "bodyBytes": 1141260,
+      "phases": {
+        "table-render": {
+          "count": 7,
+          "totalMs": 8.3,
+          "p50Ms": 0.8000000715255737,
+          "p95Ms": 3.600000023841858
+        },
+        "scrubber-paint": {
+          "count": 88,
+          "totalMs": 43.7,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 1.1999999284744263
+        },
+        "basemap-tile": {
+          "count": 1,
+          "totalMs": 137.4,
+          "p50Ms": 137.39999997615814,
+          "p95Ms": 137.39999997615814
+        },
+        "frame-decode": {
+          "count": 113,
+          "totalMs": 48.6,
+          "p50Ms": 0.2999999523162842,
+          "p95Ms": 2
+        },
+        "texture-upload": {
+          "count": 1,
+          "totalMs": 5.1,
+          "p50Ms": 5.100000023841858,
+          "p95Ms": 5.100000023841858
+        },
+        "wind-step": {
+          "count": 1152,
+          "totalMs": 1826.8,
+          "p50Ms": 1.5,
+          "p95Ms": 2.5
+        }
+      },
+      "decodesPerSecond": [
+        0,
+        17,
+        96,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "versusHistoricalChrome": {
+        "table-render": {
+          "countDeltaPercent": 0,
+          "p50DeltaPercent": 33.3333452542623,
+          "p95DeltaPercent": 80.0000011920929
+        },
+        "scrubber-paint": {
+          "countDeltaPercent": -48.23529411764706,
+          "p50DeltaPercent": 0.000023841857904605135,
+          "p95DeltaPercent": -36.84210902766177
+        },
+        "basemap-tile": {
+          "countDeltaPercent": -94.44444444444444,
+          "p50DeltaPercent": -53.45528456092203,
+          "p95DeltaPercent": -76.84919966703318
+        },
+        "frame-decode": {
+          "countDeltaPercent": -85.89263420724095,
+          "p50DeltaPercent": -98.42931962138071,
+          "p95DeltaPercent": -97.3190348525469
+        },
+        "texture-upload": {
+          "countDeltaPercent": -99.06542056074767,
+          "p50DeltaPercent": 27.500000596046448,
+          "p95DeltaPercent": -66.2251654050208
+        },
+        "wind-step": {
+          "countDeltaPercent": 19.00826446280992,
+          "p50DeltaPercent": 87.5,
+          "p95DeltaPercent": -13.79310344827586
+        },
+        "isoline-trace": {
+          "countDeltaPercent": null,
+          "p50DeltaPercent": null,
+          "p95DeltaPercent": null
+        },
+        "isoline-blit": {
+          "countDeltaPercent": null,
+          "p50DeltaPercent": null,
+          "p95DeltaPercent": null
+        }
+      },
+      "decodeDistributionWithinThirtyPercent": false
+    },
+    {
+      "profile": "mobile-4g",
+      "scenario": "koud",
+      "cpuThrottleRate": 8,
+      "sourceSha": "d035d7449dd4ce84d0f5d18d34839bea4d63f93b",
+      "capturedAt": "2026-10-07T11:13:48.967Z",
+      "fixtureHash": "800d195e2f9168bf545ef52d67dc1fb0e754fb8c7952185528d885e64cd6b12b",
+      "contractHash": "72f9e5b9e0cfa071aca71921e2b0e44282f20ec05b5099a5ede840a6b5704a05",
+      "bodyBytes": 1141260,
+      "phases": {
+        "table-render": {
+          "count": 7,
+          "totalMs": 16.1,
+          "p50Ms": 1.600000023841858,
+          "p95Ms": 6.799999952316284
+        },
+        "scrubber-paint": {
+          "count": 86,
+          "totalMs": 93.7,
+          "p50Ms": 0.19999992847442627,
+          "p95Ms": 3.0999999046325684
+        },
+        "frame-decode": {
+          "count": 113,
+          "totalMs": 47.4,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 1.600000023841858
+        },
+        "basemap-tile": {
+          "count": 1,
+          "totalMs": 242.6,
+          "p50Ms": 242.60000002384186,
+          "p95Ms": 242.60000002384186
+        },
+        "texture-upload": {
+          "count": 1,
+          "totalMs": 16.1,
+          "p50Ms": 16.100000023841858,
+          "p95Ms": 16.100000023841858
+        },
+        "wind-step": {
+          "count": 1096,
+          "totalMs": 3604,
+          "p50Ms": 3.1999999284744263,
+          "p95Ms": 5.299999952316284
+        }
+      },
+      "decodesPerSecond": [
+        0,
+        0,
+        11,
+        31,
+        71,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "versusHistoricalChrome": {
+        "table-render": {
+          "countDeltaPercent": 0,
+          "p50DeltaPercent": 166.66667064030963,
+          "p95DeltaPercent": 239.9999976158142
+        },
+        "scrubber-paint": {
+          "countDeltaPercent": -49.411764705882355,
+          "p50DeltaPercent": -0.00003576278687078549,
+          "p95DeltaPercent": 63.15788971750361
+        },
+        "basemap-tile": {
+          "countDeltaPercent": -94.44444444444444,
+          "p50DeltaPercent": -17.81842817620533,
+          "p95DeltaPercent": -59.123841613506
+        },
+        "frame-decode": {
+          "countDeltaPercent": -85.89263420724095,
+          "p50DeltaPercent": -98.95287933149888,
+          "p95DeltaPercent": -97.85522785007794
+        },
+        "texture-upload": {
+          "countDeltaPercent": -99.06542056074767,
+          "p50DeltaPercent": 302.50000059604645,
+          "p95DeltaPercent": 6.622516714184491
+        },
+        "wind-step": {
+          "countDeltaPercent": 13.223140495867769,
+          "p50DeltaPercent": 299.9999910593033,
+          "p95DeltaPercent": 82.75861904538911
+        },
+        "isoline-trace": {
+          "countDeltaPercent": null,
+          "p50DeltaPercent": null,
+          "p95DeltaPercent": null
+        },
+        "isoline-blit": {
+          "countDeltaPercent": null,
+          "p50DeltaPercent": null,
+          "p95DeltaPercent": null
+        }
+      },
+      "decodeDistributionWithinThirtyPercent": false
+    },
+    {
+      "profile": "mobile-fast-3g",
+      "scenario": "koud",
+      "cpuThrottleRate": 1,
+      "sourceSha": "d035d7449dd4ce84d0f5d18d34839bea4d63f93b",
+      "capturedAt": "2026-10-07T11:12:59.581Z",
+      "fixtureHash": "800d195e2f9168bf545ef52d67dc1fb0e754fb8c7952185528d885e64cd6b12b",
+      "contractHash": "c348db3e4c1714237d2d5661e65d28db1eb22156f9c59d69a734f0b4cdd4247a",
+      "bodyBytes": 1141260,
+      "phases": {
+        "table-render": {
+          "count": 7,
+          "totalMs": 1.9,
+          "p50Ms": 0.19999992847442627,
+          "p95Ms": 0.6999999284744263
+        },
+        "scrubber-paint": {
+          "count": 130,
+          "totalMs": 18.9,
+          "p50Ms": 0.10000002384185791,
+          "p95Ms": 0.20000004768371582
+        },
+        "basemap-tile": {
+          "count": 1,
+          "totalMs": 182.5,
+          "p50Ms": 182.5,
+          "p95Ms": 182.5
+        },
+        "frame-decode": {
+          "count": 113,
+          "totalMs": 48.1,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 1.600000023841858
+        },
+        "texture-upload": {
+          "count": 1,
+          "totalMs": 1.5,
+          "p50Ms": 1.5,
+          "p95Ms": 1.5
+        },
+        "wind-step": {
+          "count": 1058,
+          "totalMs": 446.9,
+          "p50Ms": 0.3999999761581421,
+          "p95Ms": 0.7000000476837158
+        }
+      },
+      "decodesPerSecond": [
+        0,
+        0,
+        0,
+        0,
+        10,
+        44,
+        19,
+        40,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "versusHistoricalChrome": {
+        "table-render": {
+          "countDeltaPercent": 0,
+          "p50DeltaPercent": -66.66667858759563,
+          "p95DeltaPercent": -65.00000357627869
+        },
+        "scrubber-paint": {
+          "countDeltaPercent": -23.529411764705884,
+          "p50DeltaPercent": -49.99998807907105,
+          "p95DeltaPercent": -89.47368170085707
+        },
+        "basemap-tile": {
+          "countDeltaPercent": -94.44444444444444,
+          "p50DeltaPercent": -38.17750677506775,
+          "p95DeltaPercent": -69.2502106149958
+        },
+        "frame-decode": {
+          "countDeltaPercent": -85.89263420724095,
+          "p50DeltaPercent": -98.95287933149888,
+          "p95DeltaPercent": -97.85522785007794
+        },
+        "texture-upload": {
+          "countDeltaPercent": -99.06542056074767,
+          "p50DeltaPercent": -62.5,
+          "p95DeltaPercent": -90.06622516556291
+        },
+        "wind-step": {
+          "countDeltaPercent": 9.297520661157025,
+          "p50DeltaPercent": -50.000002980232246,
+          "p95DeltaPercent": -75.86206732125117
+        },
+        "isoline-trace": {
+          "countDeltaPercent": null,
+          "p50DeltaPercent": null,
+          "p95DeltaPercent": null
+        },
+        "isoline-blit": {
+          "countDeltaPercent": null,
+          "p50DeltaPercent": null,
+          "p95DeltaPercent": null
+        }
+      },
+      "decodeDistributionWithinThirtyPercent": false
+    },
+    {
+      "profile": "mobile-fast-3g",
+      "scenario": "koud",
+      "cpuThrottleRate": 4,
+      "sourceSha": "d035d7449dd4ce84d0f5d18d34839bea4d63f93b",
+      "capturedAt": "2026-10-07T11:20:27.133Z",
+      "fixtureHash": "800d195e2f9168bf545ef52d67dc1fb0e754fb8c7952185528d885e64cd6b12b",
+      "contractHash": "1fdb5857887a4ba22696e97889351a2acdaf724d0928bb0ca1e015af9137b8f9",
+      "bodyBytes": 1141260,
+      "phases": {
+        "table-render": {
+          "count": 7,
+          "totalMs": 5.6,
+          "p50Ms": 0.6999999284744263,
+          "p95Ms": 2.100000023841858
+        },
+        "scrubber-paint": {
+          "count": 126,
+          "totalMs": 55.9,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 1
+        },
+        "basemap-tile": {
+          "count": 1,
+          "totalMs": 234.5,
+          "p50Ms": 234.5,
+          "p95Ms": 234.5
+        },
+        "frame-decode": {
+          "count": 113,
+          "totalMs": 44,
+          "p50Ms": 0.2999999523162842,
+          "p95Ms": 1.1999999284744263
+        },
+        "texture-upload": {
+          "count": 1,
+          "totalMs": 7.7,
+          "p50Ms": 7.699999928474426,
+          "p95Ms": 7.699999928474426
+        },
+        "wind-step": {
+          "count": 979,
+          "totalMs": 1351.6,
+          "p50Ms": 1.2000000476837158,
+          "p95Ms": 2.600000023841858
+        }
+      },
+      "decodesPerSecond": [
+        0,
+        0,
+        0,
+        0,
+        3,
+        33,
+        33,
+        44,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "versusHistoricalChrome": {
+        "table-render": {
+          "countDeltaPercent": 0,
+          "p50DeltaPercent": 16.666654745737716,
+          "p95DeltaPercent": 5.0000011920928955
+        },
+        "scrubber-paint": {
+          "countDeltaPercent": -25.88235294117647,
+          "p50DeltaPercent": 0.000023841857904605135,
+          "p95DeltaPercent": -47.368421052631575
+        },
+        "basemap-tile": {
+          "countDeltaPercent": -94.44444444444444,
+          "p50DeltaPercent": -20.56233062330623,
+          "p95DeltaPercent": -60.488626790227464
+        },
+        "frame-decode": {
+          "countDeltaPercent": -85.89263420724095,
+          "p50DeltaPercent": -98.42931962138071,
+          "p95DeltaPercent": -98.39142100740693
+        },
+        "texture-upload": {
+          "countDeltaPercent": -99.06542056074767,
+          "p50DeltaPercent": 92.49999821186066,
+          "p95DeltaPercent": -49.00662299023559
+        },
+        "wind-step": {
+          "countDeltaPercent": 1.1363636363636365,
+          "p50DeltaPercent": 50.00000596046446,
+          "p95DeltaPercent": -10.344826764073863
+        },
+        "isoline-trace": {
+          "countDeltaPercent": null,
+          "p50DeltaPercent": null,
+          "p95DeltaPercent": null
+        },
+        "isoline-blit": {
+          "countDeltaPercent": null,
+          "p50DeltaPercent": null,
+          "p95DeltaPercent": null
+        }
+      },
+      "decodeDistributionWithinThirtyPercent": false
+    },
+    {
+      "profile": "mobile-fast-3g",
+      "scenario": "koud",
+      "cpuThrottleRate": 8,
+      "sourceSha": "d035d7449dd4ce84d0f5d18d34839bea4d63f93b",
+      "capturedAt": "2026-10-07T11:14:20.169Z",
+      "fixtureHash": "800d195e2f9168bf545ef52d67dc1fb0e754fb8c7952185528d885e64cd6b12b",
+      "contractHash": "c412e245f2398282e674dc5134dea20057bda38b878e952182d62366b79ff291",
+      "bodyBytes": 1141260,
+      "phases": {
+        "table-render": {
+          "count": 7,
+          "totalMs": 17.7,
+          "p50Ms": 2.299999952316284,
+          "p95Ms": 5.899999976158142
+        },
+        "scrubber-paint": {
+          "count": 100,
+          "totalMs": 121.4,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 3.100000023841858
+        },
+        "basemap-tile": {
+          "count": 1,
+          "totalMs": 321.3,
+          "p50Ms": 321.2999999523163,
+          "p95Ms": 321.2999999523163
+        },
+        "frame-decode": {
+          "count": 113,
+          "totalMs": 44.5,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 1.5999999046325684
+        },
+        "texture-upload": {
+          "count": 1,
+          "totalMs": 10,
+          "p50Ms": 10,
+          "p95Ms": 10
+        },
+        "wind-step": {
+          "count": 940,
+          "totalMs": 3013.1,
+          "p50Ms": 3,
+          "p95Ms": 5.399999976158142
+        }
+      },
+      "decodesPerSecond": [
+        0,
+        0,
+        0,
+        0,
+        2,
+        15,
+        26,
+        31,
+        39,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "versusHistoricalChrome": {
+        "table-render": {
+          "countDeltaPercent": 0,
+          "p50DeltaPercent": 283.33332538604736,
+          "p95DeltaPercent": 194.9999988079071
+        },
+        "scrubber-paint": {
+          "countDeltaPercent": -41.1764705882353,
+          "p50DeltaPercent": 0.000023841857904605135,
+          "p95DeltaPercent": 63.157895991676746
+        },
+        "basemap-tile": {
+          "countDeltaPercent": -94.44444444444444,
+          "p50DeltaPercent": 8.84146339848113,
+          "p95DeltaPercent": -45.863521490763894
+        },
+        "frame-decode": {
+          "countDeltaPercent": -85.89263420724095,
+          "p50DeltaPercent": -98.95287933149888,
+          "p95DeltaPercent": -97.85522800987592
+        },
+        "texture-upload": {
+          "countDeltaPercent": -99.06542056074767,
+          "p50DeltaPercent": 150,
+          "p95DeltaPercent": -33.77483443708609
+        },
+        "wind-step": {
+          "countDeltaPercent": -2.8925619834710745,
+          "p50DeltaPercent": 275,
+          "p95DeltaPercent": 86.20689572959111
+        },
+        "isoline-trace": {
+          "countDeltaPercent": null,
+          "p50DeltaPercent": null,
+          "p95DeltaPercent": null
+        },
+        "isoline-blit": {
+          "countDeltaPercent": null,
+          "p50DeltaPercent": null,
+          "p95DeltaPercent": null
+        }
+      },
+      "decodeDistributionWithinThirtyPercent": false
+    }
+  ]
+}

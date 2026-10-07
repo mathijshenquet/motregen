@@ -30,6 +30,22 @@
   view-switch als native scroll + kaartpauze), U47 wolkentekening live-pane (4350, opus 5.5,
   wacht op PO-review stap 1), U50 ingest zstd content size (terra), U51 perf-journey e2e (terra;
   de journey klikte op de verdwenen bereikknop "Alles" — pre-existing rood sinds U34).
+- **Middag (vervolg)**: gemerged U50 ingest zstd content size (fzstd 2,3×/4,4×/17,6× sneller;
+  bijvangst: spec/ Python <3.14 gepind, cross-check-tests weer 3/3 groen), U51 perf-journey
+  herschreven + budgetten gekalibreerd (continue-zoom `test.fixme` met tien metingen), U53 mobiele
+  laadrig `pnpm perf:mobile` (wire weight uit twee bronnen byte-gelijk, baselines 0 % spreiding,
+  --compare; getrouwheid eerlijk begrensd: CDP-throttle remt workers niet), U52 tijd-majeur
+  decoderen + intent-planner (MIP-19 p4/MIP-20 p1: wolkenlagen nu±1u mobile-4g +1,3→+0,3 s,
+  journey +2,9→+0,6 s; scrub p95 202→75 ms; rig wire −4…−10 %; mobiel passief RT-budget 587→686 kB
+  met reden). Telegram poke-test met de PO (bot lokaal op deze host vanaf main/preview 4330, dev-
+  only `MOTREGEN_DEBUG_CHAT_ID`-log, web_app-knoppen alleen bij https-origin): stills/edits werken;
+  PO-feedback → U55 (file_id-cache, kaal, zonder Wind-still, minder knoppen, video-loops via
+  sendAnimation uit dezelfde framereeks, Wind alleen als loop, 400 op oude-generatie-knoppen
+  afvangen, optionele vooraf-upload via `MOTREGEN_CACHE_CHAT_ID`). U55 loopt (gpt-6.1-sol); de PO
+  stuurt daar live bij (tijdstappen-keuze open). MIP-20 intent-gedreven laden (draft).
+- **Open (nieuw)**: autoplay loskoppelen van fase "venster compleet" (U52-prijs op desktop
+  2,9→3,7 s) → laadchoreografie-track (U54); PO-kanaal voor vooraf-upload van de bot-matrix;
+  tijdsneden als transport (MIP-20 p2) pas na meting op 4G.
 - **Modeltabel (nix-config)**: opus-5.5 + gpt-6.1-sol voorkeurswerkers; gpt-6 code-golf-tic als
   bekend risico; gpt-6-luna = Decisions-grader; codex-default is gpt-6-sol, model altijd expliciet.
   Datapoints vandaag: 5.6-sol (U42/U43/U46) en 6.1-sol (U45/U48) zonder false greens; U48 en U49

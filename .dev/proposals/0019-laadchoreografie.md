@@ -31,12 +31,14 @@ even op een kale kaart.
    langer laten staan tot alles er is.
 2. **Histogram van binnen naar buiten, per balk**: eerst het venster rond nu, dan naar beide
    kanten, elke balk zodra zijn waarde er is (L0-puntreeks, geen framedecode).
-3. **Fog of war**: het nog niet geladen deel van de tijdas krijgt een zichtbare "onbekend"-
+3. **Kader eerst**: de scrubber toont vanaf de eerste render zijn tijdas, nu-lijn en cursor met
+   een gedempte laadmelding in het plotvlak; nooit een leeg blok (PO 2026-10-07).
+4. **Fog of war**: het nog niet geladen deel van de tijdas krijgt een zichtbare "onbekend"-
    staat (gedempte arcering of wazige band die wegtrekt als data landt), zodat leeg nooit op
    droog lijkt. Idem wolkenlagen en tabelrijen (skeleton). Kaartlagen van een modus faden in.
    Fog toont alleen "nog niet binnen" binnen het venster dat we wél laden; "niet nodig"
    (U49) is geen fog.
-4. **Tijd-majeur decoderen** (PO 2026-10-07: "we moeten eigenlijk time-major decoden"): de
+5. **Tijd-majeur decoderen** (PO 2026-10-07: "we moeten eigenlijk time-major decoden"): de
    decode-wachtrij ordent op afstand tot de cursor in tijd, over álle velden tegelijk (regen,
    motion, wolkenlagen, puntreeksen van de getoonde kolommen), met een lichte voorkeur in de
    afspeelrichting en bij gelijke afstand round-robin over de velden met regen eerst. Niet
@@ -44,8 +46,19 @@ even op een kale kaart.
    groeit het geladen venster als één front naar beide kanten — het fog-front van punt 3.
    Meting uit de PO-opname (Firefox-Android, 10:02): alle ~900 decodes in de eerste 12 s met
    de piek rond 6–8 s; de wolkenlagen van het histogram kwamen daardoor pas rond 6 s.
-5. **Gereedheidsniveaus meten**: `ttfr` (splash weg), `ttfh` (histogram-venster rond nu),
+6. **Gereedheidsniveaus meten**: `ttfr` (splash weg), `ttfh` (histogram-venster rond nu),
    `ttfc` (alles) in HUD en perf-gate; het gat ttfr→ttfh is het "jarring"-getal.
+
+## Meetkant (PO 2026-10-07: "goede observability dat er altijd zinnige dingen op het scherm staan")
+
+- **Schermwaarheid per frame**: voor het zichtbare venster van scrubber en tabel telt de client
+  elk slot als *geladen*, *fog* (bekend nog-niet-beschikbaar, zichtbaar als zodanig) of *leeg*
+  (niets getekend terwijl de data nog komt). `blank-visible-ms` = tijd na de splash waarin een
+  zichtbaar slot leeg is. Doel 0 ms; assertie in de mobiele rig (U53) en regel in de HUD.
+- **Splash eerlijk**: `ttfr` telt pas als de basemap-tiles van het eerste beeld én het eerste
+  regenframe getekend zijn (plafond 1,5 s); de rig logt wat er onder de splash gebeurde.
+- **`ttfh`** (histogram nu ± 1 u compleet): het gat `ttfr → ttfh` mag bestaan, maar is nooit leeg.
+- Tijd-majeur zelf is al meetbaar via `window-ready:<veld>` (U52) in HUD, trace en rig.
 
 ## Open vragen
 

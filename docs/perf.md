@@ -70,13 +70,12 @@ modus (UV altijd, wind in windmodus, temperatuur in gevoelsmodus). De rest van d
 als de rijen in beeld komen, en verder dan +18 u zoals voorheen op `onNeedRows`.
 
 Los daarvan, voor ieder apparaat: `MrfClient` geeft werk via een wachtrij aan de workers
-(`decode-queue.ts`), één decode per worker tegelijk, in drie banen: het frame onder de cursor
-(kaart, afspelen) vóór een puntreeks waar de gebruiker op wacht, en die vóór vooruitladen. Een al
-wachtend frame schuift op als de cursor het nodig heeft. `getFrames` neemt een `AbortSignal`:
-een wachtende decode waar geen enkele vrager meer op wacht (het venster is verder geschoven)
-vervalt met `DecodeCancelled`; de gedownloade bytes blijven staan.
+(`decode-queue.ts`), één decode per worker tegelijk. De volgorde is sinds U52 tijd-majeur; zie
+de volgende sectie. `getFrames` neemt een `AbortSignal`: een wachtende request of decode waar
+geen enkele vrager meer op wacht (het venster is verder geschoven) vervalt met
+`DecodeCancelled`; al gedownloade bytes blijven staan.
 
-Meten: `pnpm prof:capture [origin] [uitvoer.json] [--profile=desktop|mobile-4g|mobile-fast-3g] [--passive] [--no-send]`
+Meten: `pnpm prof:capture [origin] [uitvoer.json] [--profile=desktop|mobile-4g|mobile-fast-3g] [--passive] [--decode-cost=<ms>] [--no-send]`
 neemt een koude start op (`?perf=start`, 30 s) onder het e2e-profiel en print aantal decodes,
 totale decodetijd, p50/p95, scrub-latency en de verdeling per laag en per veld (elke
 `frame-decode`-fase draagt `field` en `layer`). CDP kan workers niet remmen
@@ -102,7 +101,76 @@ node 2,2–2,5× (regen), 4,5–5× (temperatuur, wind) tot 20× (wolkenlagen) s
 frame. Dat is een ingest-wijziging (`crates/mrf/src/lib.rs`: `zstd::bulk::compress`) en staat
 als vervolg open.
 
+## Intent-gedreven laden (U52, MIP-19 punt 4, MIP-20 stap 1)
+
+Eén `Intent` (`web/src/core/intent.ts`) beschrijft wat de gebruiker nu wil zien: de cursor, het
+zichtbare venster van de scrubber, afspelen met richting, de scrubsnelheid en de velden die
+getoond worden. `App.tsx` zet hem bij elke wijziging (`client.setIntent`); hij stuurt twee
+wachtrijen met dezelfde rangorde (`IntentRanker`):
+
+1. **Idle of niet.** Een frame meer dan een uur buiten het venster, of van een veld dat nu
+   nergens getekend wordt, is idle-werk: het komt pas aan de beurt als er binnen het venster
+   niets meer loopt of wacht.
+2. **Afstand tot het doel**, in stappen van 5 minuten. Het doel is de cursor, tijdens scrubben
+   400 ms verder in de scrubrichting (binnen het venster). De afstand telt vanaf het interval
+   waarin het frame getekend wordt (frametijd ± de stap van zijn veld): de twee frames waartussen
+   de cursor staat liggen op afstand 0, ook van een uurveld. In de afspeel- of scrubrichting
+   telt de afstand ×0,8.
+3. **Bij gelijke afstand** regen eerst, daarna het veld dat het langst niet aan de beurt was
+   (round-robin), daarna volgorde van aankomst.
+
+De **decodewachtrij** (`decode-queue.ts`) bepaalt de volgorde bij elke vrije worker opnieuw, dus
+een cursorsprong herordent wat nog wacht. De **fetch-planner** (`fetch-planner.ts`) doet
+hetzelfde voor elke Range (ook headers: een header telt als de frames van zijn chunk):
+
+- hooguit `requests` grote overdrachten (≥ 64 kB) tegelijk — 3 op een krap apparaat (2 bij
+  ≤ 2 kernen), 6 op een ruim; kleine requests (een header, één uurframe, een wolkenpayload) zijn
+  vertraging en geen bandbreedte en lopen ernaast, tot zes requests in totaal;
+- één Range tegelijk per chunk-URL (Chromium cachet een tweede gelijktijdige Range op dezelfde
+  cache-entry niet);
+- een nieuwe intent laat wensen vervallen waar niemand meer op wacht en herordent de rest.
+
+Op een krap apparaat (`rangeBytes` = 256 kB in `decode-budget.ts`) wordt een reeks frames niet
+meer als één omvattende Range per chunk gehaald maar in stukken: 256 kB binnen een uur van de
+cursor, 1 MB daarbuiten, de motion-annexen van de chunk als één klein blok. Zo komen de frames
+rond "nu" eerst, ook als ze achteraan in het bestand staan (rtcor), en deelt een verre chunk
+(seamless, 4–6 MB) de lijn niet met wat in beeld is. Een ruim apparaat houdt de omvattende
+Range (bulk-prefetch; de warme-cache-eigenschappen uit U1 blijven daar ongewijzigd).
+
+In `App.tsx` vervalt daarmee het veld-voor-veld-wachten: wolkenlagen en `uv_clear` worden
+gevraagd bij de eerste locatiekeuze (niet pas na de fase `direct`), wolken per chunk, en
+tabelreeksen en wolkenbanden verschijnen per frame (één publicatie per animatieframe) in
+plaats van als blok per veld. De fase `direct` wacht alleen nog op de rijen binnen nu ± 1 u.
+
+Meting van 2026-10-07 (prod-data, vóór = main `234c8ad` + alleen het meetpunt, om en om
+gemeten; ms na de eerste regen-draw tot nu ± 1 u compleet):
+
+| scenario | wolkenlagen vóór → ná | regen-histogram vóór → ná | tabel/modus vóór → ná |
+| --- | ---: | ---: | ---: |
+| mobile-4g, alleen kijken | +1.300…1.450 → +250…470 | +4.420…4.450 → +2.340…2.430 | uv +280…450 → +410…750 |
+| mobile-4g, journey | +2.900…2.980 → +470…820 | +5.280…5.410 → +3.500…3.790 | wind +1.840…2.060 → +650…760 |
+| desktop, alleen kijken | +2.390 → +770 | +1.560 → +1.360 | temp +1.170 → +780 |
+| desktop, 26 ms per decode (`--decode-cost=26`) | +5.160 → +1.510…1.710 | +3.260 → +2.490 | temp +1.610 → +1.710 |
+
+Decodes en decodetijd zijn gelijk gebleven; de chunkbytes volgens de laadtrace dalen op mobiel
+(9,58 → 8,99 MB passief) bij meer Range-requests (35 → 45). Twee dingen zijn trager: uv (het
+jongste frame is 35–70 min oud en staat dus zover van de cursor) en op desktop de fase `window`
+(start van automatisch afspelen: 2,9 → 3,7 s), omdat de regenreeks de workers nu deelt.
+
+**Valkuil bij wire weight.** Resource Timing telt een Range die een al gecachet stuk van dezelfde
+chunk overlapt niet volledig: op de synth-fixture stond de omvattende nowcast-Range van 113 kB
+voor ~0 B, in totaal 549 kB waar de laadtrace 689 kB telt. Bytebudgetten die op Resource Timing
+zijn gekalibreerd terwijl de client omvattende Ranges gebruikte, onderschatten die stand.
+
 ## Meetpunten
+
+- **Window-ready per veld** (U52): het eerste moment waarop een veld al zijn waarden binnen
+  nu ± 1 u heeft (`core/window-ready.ts`; regen = geladen histogrambalken, wolkenlagen = hun
+  frames, tabelvelden = de uurrijen in dat venster). In de snapshot als `windowReadyMs`, als
+  user-timing `motregen:window-ready:<veld>` en in de `?perf`-trace als balk
+  `window-ready:<veld>` van 0 tot gereed. Het verschil met TTFR is het "jarring"-getal uit
+  MIP-19. Elke `frame-decode`-fase draagt daarnaast `waitMs`: hoe lang het frame op een vrije
+  worker wachtte.
 
 - **TTFR** (time to first rain) loopt vanaf `navigationStart`
   (`performance.timeOrigin`) tot de eerste MapLibre-`render` nadat het eerste
@@ -219,8 +287,15 @@ moderne combinatie `Network.emulateNetworkConditionsByRule` en
 | Profiel | CPU | Download / upload | RTT | Cold | Warm | Passief | Scrub | Sessie |
 | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Desktop | 1× | geen emulatie | — | < 1.210 ms | < 890 ms | ≤ 1.155.000 B | ≤ 19 | ≤ 2.640.000 B |
-| Mobiel 4G | 4× | 9 / 1,5 Mbps | 60 ms | < 4.915 ms | < 1.545 ms | ≤ 587.000 B | ≤ 11 | ≤ 1.345.000 B |
-| Mobiel Fast 3G | 4× | 1,6 / 0,75 Mbps | 150 ms | < 5.360 ms | < 1.690 ms | ≤ 587.000 B | ≤ 14 | ≤ 1.355.000 B |
+| Mobiel 4G | 4× | 9 / 1,5 Mbps | 60 ms | < 4.915 ms | < 1.545 ms | ≤ 686.000 B | ≤ 11 | ≤ 1.345.000 B |
+| Mobiel Fast 3G | 4× | 1,6 / 0,75 Mbps | 150 ms | < 5.360 ms | < 1.690 ms | ≤ 686.000 B | ≤ 14 | ≤ 1.355.000 B |
+
+Het mobiele passieve budget is bij de U52-merge (2026-10-07) van 587.000 op 686.000 B gezet:
+gemeten 623.200 B op beide mobiele profielen + 10 %. De stijging in Resource Timing is geen
+extra draadverkeer (de U53-rig meet 4–10 % mínder bytes): Resource Timing telt een Range die
+een al gecachet stuk overlapt niet volledig, en U52 haalt rond de cursor kleinere, niet-
+overlappende stukken. Voor wire weight is de rig de maat, dit budget bewaakt alleen regressies
+in dezelfde meetwijze.
 
 `warm chunks` blijft op ieder profiel exact 0 B. Een niet-nul resultaat is een
 cache-regressie, geen meetruis die een 10%-marge rechtvaardigt.
@@ -582,6 +657,179 @@ doet per event alleen een push; er wordt niets verstuurd.
 `MOTREGEN_E2E_PORT`/`MOTREGEN_E2E_DATA_PORT` verschuiven de preview- en
 Caddy-poorten van `pnpm e2e` en het profiel, zodat parallelle tracks op één
 host elkaar niet blokkeren.
+
+## Mobiele laadrig
+
+U53 begint met de echte PO-opnames van 2026-10-07. De kleine, gehashte
+samenvatting staat in `web/perf/po-fidelity.json`; ruwe opnames blijven lokaal.
+De secondehistogrammen beginnen bij het eerste waargenomen event: de export
+bevat absolute timestamps maar geen navigatie-timeOrigin.
+
+| Maat | Android Chrome 10:01 | Android Firefox 10:02 | Pixel-emulatie 09:22 | Pixel versus Chrome |
+| --- | ---: | ---: | ---: | ---: |
+| Decodes | 801 | 903 | 804 | +0,4 % |
+| Decode totaal | 21.808 ms | 28.148 ms | 7.785 ms | −64,3 % |
+| Decode p50 | 19,1 ms | 21 ms | 9,2 ms | −51,8 % |
+| Decode p95 | 74,6 ms | 93 ms | 17,3 ms | −76,8 % |
+| Encoded body bytes | onbekend | onbekend | onbekend | niet meetbaar |
+
+De oude Pixel-emulatie reproduceert het aantal, maar mist de gevraagde ±30 %
+op decodetijden. CDP's CPU-throttle remt uitsluitend paginawerk; workers
+blijven op hostsnelheid. Een hogere throttle is daarom geen kalibratie van
+de decoder. De opnames bevatten geen Resource Timing/netwerklog; bytes zijn
+dus ontbrekende brondata, geen nul. GPU, thermiek, browserimplementatie en
+de inmiddels gewijzigde client/codec beperken de vergelijking verder.
+CPU/netwerkvarianten van de nieuwe offline rig worden apart gerapporteerd.
+
+De rig draait vanuit `web` in devenv. Eén commando genereert zijn eigen
+synthdata, bouwt deze client, start twee lokale Caddy-servers, neemt de eerste
+30 seconden op en schrijft JSON, Markdown, een Chrome-trace en de ruwe bronnen
+naar `web/tmp/perf-mobile/`. De standaardpoorten zijn 4392/8392; het bestaande
+e2e-slotscript houdt één Chromium per slot. Het Playwrightproject heet
+`desktop` voor het worker-regime, maar de context is expliciet Pixel 5.
+
+```sh
+pnpm perf:mobile --profile mobile-4g --scenario koud
+pnpm perf:mobile --profile mobile-fast-3g --scenario journey
+pnpm perf:mobile --profile all --scenario all --repeat 3 --baseline
+pnpm perf:mobile --profile all --scenario all --compare
+```
+
+`--baseline` vereist minstens drie runs per combinatie. De spreiding is
+`100 × (maximum − minimum) / gemiddelde` en moet voor decodes én bodybytes
+strikt kleiner dan 5 % zijn. `--compare` vergelijkt iedere run met
+`web/perf/baselines/<profiel>-<scenario>.json` en geeft exit 1 zodra bytes of
+decodes meer dan de baselinegrens (10 %) stijgen. Een ander meetcontract is een
+fout: fixture, scenario, CPU/netwerk en meetcode mogen niet stil veranderen.
+De opgeslagen SHA is de gemeten client plus rig; de productbasis voor deze
+track is main `234c8ad` (U50/U51, 2026-10-07). De bestaande U51-profielen en
+budgetten worden door U53 niet veranderd. U51's absolute bytebudgetten horen
+bij zijn eigen journey met HTTP-cache aan; deze rig toetst het hierboven
+vastgelegde contract relatief tegen zijn eigen baseline.
+
+De scenario's staan als data in `web/perf/scenarios.json`. `koud` opent op nu
+en blijft gepauzeerd. `journey` schuift na 8 s twee uur vooruit, speelt van
+9–19 s, kiest Wind en keert naar Weer terug. De storm wisselt binnen 3 s
+Weer→Lucht→Gevoel→Wind en keert na 5 s terug naar Weer. Deze main heeft vóór
+U42 nog geen zelfstandige Lucht-knop: de adapter gebruikt de bestaande
+Weer-wolkenfocus, schrijft dat in de acties/bevindingen, en kiest automatisch
+de native Lucht-knop zodra die bestaat. Modeklikken scrollen de tabel in beeld
+zoals een normale browserinteractie; eventuele extra tabeldata telt mee.
+
+Alleen `Date` staat vast op het tijdstip van de synthmanifestkopie.
+Performance, timers, animaties, profiler en netwerk blijven native.
+Vier kernen/4 GB en de coarse pointer kiezen het mobiele `in-view`-budget.
+Een verse context, geblokkeerde serviceworker en uitgeschakelde HTTP-cache
+maken herhalingen vergelijkbaar. Externe HTTP(S)-requests worden vóór verzending
+geblokkeerd en maken de test rood. Er is geen profielsink of live data-origin.
+De lokale vectortile heeft water en land en oefent de echte MapLibre-worker,
+maar zijn ene kleine body representeert geen OpenFreeMap-kaart.
+
+De rapportmaten betekenen:
+
+- TTFR is de eerste regen-draw uit de bestaande perf-monitor. Splash-weg is
+  de werkelijk verborgen splash na de CSS-reveal, bemonsterd per DOM-mutatie
+  en met een timerinterval van 100 ms.
+- Ttfh is het eerste complete regenhistogram voor nu ±1 u. De rig gebruikt
+  U52's native `windowReadyMs.rain_rate` zodra die aanwezig is; op deze main
+  wordt het uit geladen tijdlijnindices in de loadtrace afgeleid. Alle native
+  window-ready-velden blijven in JSON staan; ontbrekende meetpunten blijven
+  expliciet onbekend. Decodes, totale tijd en nearest-rank-p50/p95 zijn per
+  veld beschikbaar; de histogrammen tellen startmomenten per navigatieseconde.
+- Wire weight telt encoded **bodybytes**, exclusief headers/TLS. De twee
+  bronnen zijn Playwright request/response-sizes plus Range-headers, en native
+  Resource Timing van pagina én workers, met hun timeOrigins genormaliseerd.
+  De raw-JSON bewaart pagina/worker-RT apart. Navigatie telt bij overig mee.
+  Een worker-script dat Playwright als 0 bodybytes rapporteert krijgt uitsluitend
+  bij een voltooide response de encoded Content-Length; de oorspronkelijke
+  sizes, header en fallbackbron blijven in het requestlog en rapport staan.
+- Chromium kan onder interceptie/throttling `ERR_ABORTED` melden nadat een
+  body compleet is. De rig leest ook requestfailed-sizes. Alleen wanneer de
+  gemeten body gelijk is aan Content-Length én RT dezelfde body bevestigt,
+  telt deze response als gemeten; het transportlabel en aantal blijven bewaard.
+  Echte onvolledige/onbekende bodies zijn een bevinding. Een verschil >2 %,
+  ook per soort of individuele response, wordt nooit weggeafrond en verhindert
+  hier baselinevorming.
+- Bytes vóór TTFR/ttfh tellen bodies waarvan het response-einde vóór die
+  mijlpaal ligt. Een nog lopende body kan Resource Timing niet tussentijds
+  meten; dit is een expliciete ondergrens op verkeer tot die mijlpaal.
+  De 30-s-totalen bevatten uitsluitend in die periode beëindigde responses;
+  nog lopende requests blijven als onbekend in raw/rapport.
+- LoAF telt lange frames, totale duur, blokkeertijd en de drie grootste
+  scriptbronnen. Hoofddraadbezetting is het aandeel Self-Profiling-samples met
+  een stack, inclusief idle samples in de noemer. De top-3 gebruikt dezelfde
+  `prof:top`-analyse met passende sourcemaps. Ontbrekende sampleposities houden
+  hun bundelpositie; een verkeerde buildhash faalt. Zonder profiler is het
+  percentage onbekend.
+- De storm rapporteert bodybytes per veld en focusrequests die pas na een
+  volgende modusintentie eindigen. Dat zijn kandidaten voor verspild werk:
+  tabel/ambient lagen kunnen dezelfde data alsnog nodig hebben. De raw-trace
+  bewaart tijdstip, Range, laag en prioriteit voor controle op de latere U52-run.
+
+Voor CPU-kalibratie kan `--cpu-rate 1` of `--cpu-rate 8` worden toegevoegd.
+Dat verandert uitsluitend de page-throttle en wordt onderdeel van het
+meetcontract. Het is geen vervanging voor een echte worker-CPU-budgettering;
+een toegevoegde kunstmatige decodepauze zou de decoderfase niet eerlijk
+kalibreren. Baselines zijn geschikt voor wire weight en aantallen op deze
+fixture; telefoontijden vereisen een nieuwe echte opname met dezelfde code,
+data en netwerklog.
+
+De gemeten CPU/netwerkvarianten staan in `web/perf/calibration.json`, inclusief
+alle fase-p50's, secondehistogrammen en delta's ten opzichte van de historische
+Chrome-opname. De eerste gecontroleerde varianten op rigcommit `d035d74`:
+
+| profiel | page-CPU | decode p50 / p95 | tabel-render p50 | bodybytes |
+| --- | ---: | ---: | ---: | ---: |
+| 4G | 1× | 0,2 / 2,4 ms | 0,2 ms | 1.141.260 |
+| 4G | 4× | 0,3 / 2,0 ms | 0,8 ms | 1.141.260 |
+| 4G | 8× | 0,2 / 1,6 ms | 1,6 ms | 1.141.260 |
+| Fast 3G | 1× | 0,2 / 1,6 ms | 0,2 ms | 1.141.260 |
+| Fast 3G | 4× | 0,3 / 1,2 ms | 0,7 ms | 1.141.260 |
+| Fast 3G | 8× | 0,2 / 1,6 ms | 2,3 ms | 1.141.260 |
+
+Het ±30 %-getrouwheidsdoel is **niet gehaald**. De decoder-p50 wijkt in deze
+fixture circa −99 % af van de oude Chrome-opname (19,1 ms); de hoofddraad
+reageert wel op de throttle. Dit is een kleinere synthgrid (190×230), een
+andere client/codec en een gepauzeerd scenario. De netwerkprofielen blijven
+de gekalibreerde U51-referentie; de oude PO-export biedt geen bytebron om
+een telefoonspecifieke netwerkcalibratie uit af te leiden. De rigclaim is
+reproduceerbare aantallen/bytes en waargenomen fasen op de host, met deze
+expliciete grens voor uitspraken over telefoontijden.
+
+Baseline op 2026-10-07, product-main `234c8ad` plus rig `d035d74`. Alle zes
+combinaties liepen driemaal achter elkaar onder één e2e-slot (18 opnames,
+synchrone exit 0). In **alle** combinaties was de spreiding op decodes én
+bytes 0 %. De tabel gebruikt de opgeslagen run met mediane bodybytes (bij
+gelijke bodies de tweede run); tijden zijn informatief en afgerond op ms.
+JSON bewaart de precieze waarden, faseverdelingen per veld, secondehistogram,
+gemiddelde requestgrootte, bytecategorieën uit beide bronnen en bronnen-top-3.
+
+| profiel | scenario | TTFR | splash weg | ttfh | decodes | bodybytes | requests / Range |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 4G | koud | 1.581 ms | 3.486 ms | 2.522 ms | 113 | 1.141.260 | 79 / 67 |
+| 4G | journey | 1.625 ms | 3.581 ms | 2.553 ms | 207 | 1.280.402 | 111 / 97 |
+| 4G | storm | 1.585 ms | 3.486 ms | 2.587 ms | 280 | 1.741.732 | 107 / 90 |
+| Fast 3G | koud | 4.924 ms | 6.811 ms | 6.659 ms | 113 | 1.141.260 | 79 / 67 |
+| Fast 3G | journey | 4.787 ms | 6.688 ms | 6.524 ms | 207 | 1.280.402 | 111 / 97 |
+| Fast 3G | storm | 4.947 ms | 6.861 ms | 6.718 ms | 280 | 1.741.732 | 107 / 90 |
+
+| profiel / scenario | LoAF | blocking | hoofddraad bezet | late focusrequests |
+| --- | ---: | ---: | ---: | ---: |
+| 4G / koud | 8 | 375 ms | 11,7 % | 0 |
+| 4G / journey | 21 | 472 ms | 20,1 % | 0 |
+| 4G / storm | 13 | 556 ms | 20,2 % | 0 |
+| Fast 3G / koud | 7 | 411 ms | 11,7 % | 0 |
+| Fast 3G / journey | 22 | 445 ms | 21,0 % | 0 |
+| Fast 3G / storm | 15 | 785 ms | 19,3 % | 4 |
+
+De Fast-3G-storm liet vier focusrequests (97.493 B) pas na de volgende
+modusintentie eindigen: twee temperatuur-Ranges, één cloud-frac-Range en
+één druk-Range. Dat is controleerbare transportoverlap; gedeeld gebruik door
+de zichtbare tabel voorkomt een harde claim dat al deze bytes nutteloos zijn.
+De storm kost in deze fixture 600.472 B extra ten opzichte van koud; de
+journey 139.142 B. De RT- en Playwright-totalen waren per soort en per response
+exact gelijk. De ontbrekende U52-meetpunten en Lucht-adapter blijven als
+bevinding in de baselines staan.
 
 ## Live-smoke
 
