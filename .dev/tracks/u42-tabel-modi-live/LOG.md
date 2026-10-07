@@ -635,3 +635,12 @@
   bekeken en vloeit gespiegeld van nacht via rood/amber naar dag. De uit-stand is op 390px één
   neutraal vlak en de Weergave-optie toont/onthoudt Aan→Uit correct. Geen e2e uitgevoerd vóór
   PO-signaal “klaar”.
+
+## 2026-10-07 14:42 UTC — slot
+
+- U42 is door de orkestrator op `main` gemerged als `ff2b1f3`.
+- Onafhankelijke mergegate: typecheck exit 0, 439 unit-tests groen, build exit 0,
+  `table`/`focus`/`usage`/`presets`-e2e groen en nix-VM groen.
+- Twee seams zijn bij de merge meegenomen: `presets.ts` importeert niet uit `focus-mode`, zodat de
+  bot-typecheck slaagt; service-workerregistratie geldt ook op loopback voor de PWA-e2e.
+- Preview op poort 4320 is gestopt; de track is afgesloten.
