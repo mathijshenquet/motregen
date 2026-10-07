@@ -7,7 +7,7 @@ import type { LoadFrameTrace, LoadTraceSnapshot, PerfMeasure, PerfSnapshot, Perf
 import { READY_WINDOW_MS } from '../src/core/window-ready'
 
 // Gebruik: pnpm prof:capture [origin] [uitvoer.json] [--profile=desktop|mobile-4g|mobile-fast-3g]
-//                            [--passive | --water-mask] [--decode-cost=<ms>] [--no-send]
+//                            [--passive | --water-mask] [--decode-cost=<ms>] [--no-send] [--mode=lucht|wind|gevoel]
 // Koude-startopname (`?perf=start`, de eerste 30 s na timeOrigin) onder een e2e-profiel. Scenario:
 // de vaste journey (wind, gevoel, zoom, scrub), met --passive alleen kijken (de app speelt zelf
 // af), of met --water-mask pannen en zoomen (U48). Print het decode-budget (U49). Met een
@@ -21,6 +21,8 @@ const output = positional[1]
 const profile = performanceProfile(flags.find((flag) => flag.startsWith('--profile='))?.slice('--profile='.length) ?? 'desktop')
 const waterMask = flags.includes('--water-mask')
 const passive = flags.includes('--passive')
+// Start in een modus (permalink-parameter `modus`), bijvoorbeeld Lucht om de wolkendoorsnede tijdens het laden te meten.
+const startMode = flags.find((flag) => flag.startsWith('--mode='))?.slice('--mode='.length)
 const send = !flags.includes('--no-send')
 const decodeCostMs = Number(flags.find((flag) => flag.startsWith('--decode-cost='))?.slice('--decode-cost='.length) ?? 0)
 const windowMs = 30_000
@@ -44,7 +46,7 @@ try {
 
   if (decodeCostMs > 0) await slowDecodeWorkers(decodeCostMs)
 
-  await page.goto(`${origin}/?perf=start`, { waitUntil: 'domcontentloaded', timeout: 120_000 })
+  await page.goto(`${origin}/?perf=start${startMode ? `&modus=${startMode}` : ''}`, { waitUntil: 'domcontentloaded', timeout: 120_000 })
   await page.waitForFunction(() => (window as unknown as PerfWindow).__motregenPerf?.snapshot().ttfrMs != null, undefined, { timeout: 120_000 })
   const profilerAvailable = await page.evaluate(() => 'Profiler' in globalThis)
 

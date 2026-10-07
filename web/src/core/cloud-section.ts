@@ -188,6 +188,12 @@ export function cloudExtents(frames: TimelineFrame[], values: Array<number | nul
 /** Omtrek van één vorm: hoogte boven en diepte onder de eigen middellijn op elk monsterpunt, in px. */
 interface Outline { xs: number[]; up: number[]; down: number[]; centre: number[] }
 
+// De omtrek van een wolk hangt alleen af van haar eigen vak en de maten van de strook. Een aanvulling van
+// de reeks raakt een paar uren; de overige wolken komen uit deze cache in plaats van opnieuw bemonsterd te
+// worden (PO-opname 2026-10-07: puffOutline + cirrusStrands ~0,9 s tijdens het laden).
+const SHAPE_PATH_CACHE_LIMIT = 2_000
+const shapePathCache = new Map<string, string[]>()
+
 /** Tekent één laag als losse wolkvormen; de fractie per uur wordt lineair geïnterpoleerd naar de tijdas. */
 export function cloudBand(frames: TimelineFrame[], values: Array<number | null>, layer: CloudLayer, geometry: CloudBandGeometry): CloudBand {
   const { width, top, height, start, end } = geometry
@@ -205,13 +211,21 @@ export function cloudBand(frames: TimelineFrame[], values: Array<number | null>,
     const largest = height * style.looseBody
     const thickness = cloud.closed ? height * style.closedBody : largest * Math.max(MIN_LOOSE_THICKNESS, Math.min(1, (toX - fromX) / (largest * style.aspect)))
     const shape = { fromX, toX, thickness, closed: cloud.closed, key: cloud.from / HOUR + LAYER_SEEDS[layer] }
-    const outlines = style.puffs ? [puffOutline(shape, width, style.puffs)] : cirrusStrands(shape, width, height * CIRRUS_SPREAD)
-    for (const outline of outlines) {
-      if (outline.xs.length < 2) continue
-      const upper = outline.xs.map((x, index) => `${round(x)} ${round(Math.max(top, baseline + outline.centre[index]! - outline.up[index]!))}`)
-      const lower = outline.xs.map((x, index) => `${round(x)} ${round(Math.min(bottom, baseline + outline.centre[index]! + outline.down[index]!))}`)
-      paths.push(`M${upper.join('L')}L${lower.reverse().join('L')}Z`)
+    const cacheKey = `${layer}|${fromX}|${toX}|${thickness}|${cloud.closed}|${shape.key}|${width}|${top}|${height}`
+    let shapePaths = shapePathCache.get(cacheKey)
+    if (!shapePaths) {
+      shapePaths = []
+      const outlines = style.puffs ? [puffOutline(shape, width, style.puffs)] : cirrusStrands(shape, width, height * CIRRUS_SPREAD)
+      for (const outline of outlines) {
+        if (outline.xs.length < 2) continue
+        const upper = outline.xs.map((x, index) => `${round(x)} ${round(Math.max(top, baseline + outline.centre[index]! - outline.up[index]!))}`)
+        const lower = outline.xs.map((x, index) => `${round(x)} ${round(Math.min(bottom, baseline + outline.centre[index]! + outline.down[index]!))}`)
+        shapePaths.push(`M${upper.join('L')}L${lower.reverse().join('L')}Z`)
+      }
+      if (shapePathCache.size >= SHAPE_PATH_CACHE_LIMIT) shapePathCache.clear()
+      shapePathCache.set(cacheKey, shapePaths)
     }
+    paths.push(...shapePaths)
   }
   return { paths }
 }

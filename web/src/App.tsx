@@ -39,7 +39,7 @@ import { nearestPlace } from './core/places'
 import { startFrameLoop } from './core/playback'
 import { configurePerfMode, consumeColdProfile, installPerfMonitor, measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer } from './core/perf'
 import type { ProfileRecording } from './core/profile-recorder'
-import { RainLayer } from './core/rain-layer'
+import { prepareRainTexture, RainLayer } from './core/rain-layer'
 import { LayerOverlay } from './core/overlay-canvas'
 import { grantedStartFix, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastSavedPlaceId, storeMapView } from './core/location-memory'
 import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGestures } from './core/pin-navigation'
@@ -79,8 +79,8 @@ const TABLE_ONLY_FIELDS = ['radiation']
 const SCRUB_REST_MS = 250
 // Puntreeksen komen per frame binnen; elke publicatie loopt door scrubber, tabel en hemel. Per animatieframe
 // publiceren gaf tijdens het laden lange frames van ~0,8 s per seconde (prof:capture mobile-4g 2026-10-07);
-// vijf keer per seconde vult de grafiek nog zichtbaar aan.
-const SERIES_PUBLISH_INTERVAL_MS = 200
+// vier keer per seconde vult de grafiek nog zichtbaar aan.
+const SERIES_PUBLISH_INTERVAL_MS = 250
 type PointLoadStage = 'initial' | 'direct' | 'window' | 'complete'
 type FetchPriority = 'high' | 'low'
 type ForecastIndex = 'radiationIndex' | 'uvIndex' | 'temperatureIndex' | 'feelsLikeIndex' | 'cloudIndex' | 'windUIndex' | 'windVIndex' | 'gustIndex'
@@ -1190,6 +1190,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       load(rightFrame),
       loadPairMotion(leftFrame, rightFrame).catch(() => undefined),
     ])
+    if (request !== shownFrameRequest || !layer || !map) return
+    await Promise.all([prepareRainTexture(left), prepareRainTexture(right)])
     if (request !== shownFrameRequest || !layer || !map) return
     layer.setFrames(left, right, blend.mix, motion, (rightFrame.epoch - leftFrame.epoch) / 60_000)
     const afterRainDraw = (callback: () => void) => rainOverlay ? rainOverlay.once(callback) : map!.once('render', callback)
@@ -2517,12 +2519,33 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const v = windVSeries()[index]
     return u == null || v == null ? null : Math.hypot(u, v)
   }))
+  // Zonnestand per tijdstip voor de gekozen plek: hemel, schemering en streken vragen bij elke aanvulling
+  // dezelfde uren opnieuw (PO-opname 2026-10-07: solarPosition ~0,3 s tijdens het laden).
+  const sunElevationAt = createMemo(() => {
+    const point = location()
+    const known = new Map<number, number>()
+    return (epoch: number) => {
+      let elevation = known.get(epoch)
+      if (elevation === undefined) {
+        elevation = solarElevationSin(epoch, point.lng, point.lat)
+        known.set(epoch, elevation)
+      }
+      return elevation
+    }
+  })
   const cloudTimelines = createMemo(() => Object.fromEntries(CLOUD_LAYERS.map((layer) =>
     [layer, manifest() ? buildTimeline(manifest()!, `cloud_${layer}`) : []])) as Record<CloudLayer, TimelineFrame[]>)
   const [cloudValues, setCloudValues] = createSignal<Record<CloudLayer, Array<number | null>>>({ high: [], mid: [], low: [] })
   // De banden groeien per frame aan (krap apparaat: venster voor venster); de al gelezen waarden
   // blijven staan zolang locatie en tijdlijn dezelfde zijn.
   let cloudsRead: { point: object; timelines: object; values: Record<CloudLayer, Array<number | null>> } | undefined
+  // Eén publicatiekanaal voor alle lezingen: per venster een eigen batcher gaf tijdens afspelen ~15
+  // publicaties per seconde, elk een volledige herbouw van de wolkendoorsnede (prof:capture Lucht, 2026-10-07).
+  const cloudPublisher = new FrameBatcher(() => {
+    const read = cloudsRead
+    if (read) setCloudValues({ high: [...read.values.high], mid: [...read.values.mid], low: [...read.values.low] })
+  }, undefined, undefined, SERIES_PUBLISH_INTERVAL_MS)
+  onCleanup(() => cloudPublisher.cancel())
   createEffect(() => {
     const point = location()
     const timelines = cloudTimelines()
@@ -2533,10 +2556,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (otherPlaceOrTimeline) cloudsRead = { point, timelines, values: { high: [], mid: [], low: [] } }
     const read = cloudsRead!
     // Ook een lezing die bij een vorig venster begon publiceert nog: de waarden zijn gedeeld.
-    const publisher = new FrameBatcher(() => {
-      if (read === cloudsRead) setCloudValues({ high: [...read.values.high], mid: [...read.values.mid], low: [...read.values.low] })
-    }, undefined, undefined, SERIES_PUBLISH_INTERVAL_MS)
-    if (otherPlaceOrTimeline) publisher.schedule()
+    const publish = () => { if (read === cloudsRead) cloudPublisher.schedule() }
+    if (otherPlaceOrTimeline) publish()
     for (const layer of CLOUD_LAYERS) {
       const frames = timelines[layer]
       if (read.values[layer].length !== frames.length) read.values[layer] = new Array<number | null>(frames.length).fill(null)
@@ -2547,7 +2568,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       for (const chunk of new Set(missing.map((index) => frames[index]!.chunk))) {
         const indexes = missing.filter((index) => frames[index]!.chunk === chunk)
         void client.fetchPayload(chunk)
-          .then(() => readPointSeries(frames, point, indexes, 'low', values, () => publisher.schedule(), window ? 'L1' : 'L0', signal))
+          .then(() => readPointSeries(frames, point, indexes, 'low', values, publish, window ? 'L1' : 'L0', signal))
           .catch(() => undefined)
       }
     }
@@ -2741,7 +2762,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           glideRate={glideRate()}
           onPlayPressed={() => usage.mark('play')}
           clouds={{ timeline: cloudTimelines(), values: cloudValues() }}
-          sky={{ radiation: { timeline: radiationTimeline(), values: radiationSeries() }, sinElevation: (epoch) => solarElevationSin(epoch, location().lng, location().lat) }}
+          sky={{ radiation: { timeline: radiationTimeline(), values: radiationSeries() }, sinElevation: sunElevationAt() }}
           wind={{ timeline: windUFrames(), speed: windSpeedSeries(), gustTimeline: gustTimeline(), gust: gustSeries(), unit: windUnit() }}
           expressive={expressive()}
           mix={{ wind: windFocus(), air: airFocus(), temperature: focus() }}

@@ -11,6 +11,7 @@ import UvBar from './UvBar'
 import WeatherIcon from './WeatherIcon'
 import { measurePerfPhase } from '../core/perf'
 import { formatTime, formatWeekdayShort } from '../core/locale'
+import { sameFields } from '../core/stable'
 
 export interface ForecastSeries {
   rain: Array<number | null>
@@ -59,15 +60,6 @@ interface Props {
 }
 
 const hour = 3_600_000
-// De reeksen komen per frame binnen en elke aanvulling is een nieuwe array. Een cel mag alleen
-// opnieuw tekenen als zijn eigen waarde verandert; anders herbouwt elke aanvulling alle rijen
-// (telefoonopname 2026-10-07: ~1,5 s Solid-DOM-werk in 30 s).
-function sameFields<Value extends object>(left: Value | null | undefined, right: Value | null | undefined): boolean {
-  if (left === right) return true
-  if (!left || !right) return false
-  const keys = Object.keys(left) as Array<keyof Value>
-  return keys.length === Object.keys(right).length && keys.every((key) => left[key] === right[key])
-}
 const HOVER_LEAVE_MS = 80
 // De piep volgt de cursor met een vloeiende scroll; rijen die daarbij alleen langsschuiven tellen niet als
 // zichtbaar en worden dus niet gedecodeerd.
@@ -248,6 +240,8 @@ export default function ForecastTable(props: Props) {
     <For each={visibleRows()}>{(row, rowIndex) => {
       const pending = () => row.epoch > props.loadedUntil || (row.kind === 'past' && !props.historyLoaded)
       const value = (series: Array<number | null>, index: number | null) => index == null ? null : series[index] ?? null
+      // De reeksen komen in delen binnen en elke aanvulling is een nieuwe array. Een cel mag alleen opnieuw
+      // tekenen als zijn eigen waarde verandert (telefoonopname 2026-10-07: ~1,5 s Solid-DOM-werk in 30 s).
       const rain = createMemo(() => value(props.series.rain, row.rainIndex))
       const cloud = createMemo(() => value(props.series.cloud, row.cloudIndex))
       const feelsLike = createMemo(() => value(props.series.feelsLike, row.feelsLikeIndex))

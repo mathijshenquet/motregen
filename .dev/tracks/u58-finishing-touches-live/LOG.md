@@ -172,3 +172,44 @@ hemel 33 / 9 knopen, tabel 35 / 12 (eerste 12 s / afspelen). Zelf bekeken: 390 p
 temperaturen op de kaart, regen, hemel en gevulde piep-rijen staan er.
 
 Volgende: PO-opname in Chrome op 4320 als echte ná-meting; PO-akkoord stap 1; stap 2 (klokpil-jog).
+
+## 2026-10-07 20:35 — urgent punt 2b: wolkendoorsnede werd tijdens laden ~15×/s herbouwd (PO-opname run 3)
+
+PO: stap 1 AKKOORD (via orkestrator). PO-opnames op de vorige build: koud 4,3 s lange frames (beter), warm
+0,3 s, run 3 slechter (9,3 s) met Solid/hemel/wolken in de top.
+
+Gereproduceerd met `prof:capture --profile=mobile-4g --passive --mode=lucht` (nieuwe vlag; start via de
+permalink-parameter `modus`). Tellers per scrubber-memo in de eerste 12 s (fasen `scrubber-paint:<memo>`,
+hemel/hemeldetail waren nog niet geteld en zijn nu `scrubMemo`'s):
+
+| meting (Lucht, mobile-4g passief, eerste 12 s) | vóór (`d19827b`) | ná |
+| --- | ---: | ---: |
+| lange frames (aantal / totaal) | 29 / 5 976 ms | 16 / 2 301 ms |
+| laatste seconde met > 300 ms lange frames | t = 7 | t = 3 |
+| hemeldetail (streken + sterren + schemering) | 175× / 3 279 ms | streken 11× / 242 ms, sterren 6× / 5 ms |
+| wolkenlagen | 175× / 247 ms | 14× / 26 ms |
+| texture-upload (hele opname, incl. inpakken) | ~13 ms per upload | 49× / 72 ms (~1,5 ms) |
+| `packRainTexture` op de hoofddraad (prof:top, 400 regels) | aanwezig | 0 treffers |
+
+**Oorzaak:** de 200 ms-begrenzing van de vorige ronde werkte niet voor de wolken: het effect maakte per
+venster een nieuwe `FrameBatcher`, elk met een eigen klok, dus tijdens afspelen ~15 publicaties per seconde.
+Elke publicatie herbouwde hemelstops, alle streken, sterren, schemering en alle wolkvormen.
+
+**Fix:**
+- één gedeeld publicatiekanaal voor de wolkenlagen; interval 250 ms (`SERIES_PUBLISH_INTERVAL_MS`);
+- `core/stable.ts` (`sameFields`, `stableByIndex`): hemelstops, streken en schemering geven het vorige object
+  terug als de inhoud gelijk is, en de vorige lijst als niets verschilt — dan loopt er niets door;
+- `hemeldetail` gesplitst: zonsop/-ondergangen hangen niet meer aan de bewolking;
+- `cloudBand` cachet de paden per wolk (laag, vak, maten): een nieuwe chunk tekent alleen haar eigen uren;
+- zonnestand per tijdstip gecachet per plek (`sunElevationAt` in App);
+- (3) regenframes worden op een eigen worker ingepakt vóór ze getoond worden (`prepareRainTexture`,
+  `rain-pack.worker.ts`); mislukt dat, dan pakt de upload zelf in zoals voorheen. Bewust op aanvraag en niet
+  in de decode-worker: ~9 van de 10 gedecodeerde regenframes dienen alleen de puntreeks, en elk ingepakt
+  frame kost twee keer het frame aan geheugen.
+
+**Receipts (synchroon):** `pnpm typecheck` 0; `pnpm test` 0 (69 bestanden, 455 tests; nieuw: stable.test);
+`pnpm build` 0 (aparte bundel `rain-pack.worker`). Zelf bekeken: Lucht-scrubber 390 px (wolkvormen, streken,
+schemergloed, sterren) en de hele pagina desktop (regen op de kaart, tabel) — geen zichtbaar verschil.
+Nog niet opnieuw gedraaid op deze stand: rig `--compare` en de gerichte e2e (volgt na de scroll-bug).
+
+Volgende: PO-bug "naar de tabel scrollen laat een strook histogram staan" (Android Chrome), dan stap 2.

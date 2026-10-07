@@ -1,5 +1,6 @@
 import { createEffect, createMemo, createSignal, createUniqueId, For, Index, onCleanup, onMount, Show, untrack } from 'solid-js'
-import { CLOUD_LAYERS, cloudBand, skyAt, skyStars, skyStops, skyStrokes, sunCrossings, type CloudSeries, type SkyStar } from '../core/cloud-section'
+import { CLOUD_LAYERS, cloudBand, skyAt, skyStars, skyStops, skyStrokes, sunCrossings, type CloudSeries, type SkyStar, type SkyStop, type SkyStroke } from '../core/cloud-section'
+import { sameFields, stableByIndex } from '../core/stable'
 import type { TimelineFrame } from '../core/contract'
 import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColor } from '../core/rain-chart'
 import { SCRUBBER_CURSOR_FRACTION, SCRUBBER_VIEW_HOURS, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
@@ -198,7 +199,7 @@ export default function HistogramScrubber(props: Props) {
     }))
   })
   const cloudBands = () => [...coverBands(), ...layerBands()]
-  const sky = createMemo(() => {
+  const skyStopsNow = scrubMemo('hemel', () => {
     const clouds = props.clouds
     const inputs = props.sky
     if (!clouds || !inputs || !props.timeline.length) return []
@@ -215,35 +216,36 @@ export default function HistogramScrubber(props: Props) {
       sinElevation: inputs.sinElevation,
     })
   })
+  // Elke aanvulling van de wolkenreeksen rekent de stops opnieuw uit; alleen wat inhoudelijk verandert mag
+  // door naar verlopen, streken en sterren (PO-opname 2026-10-07: de hele hemel werd tijdens het laden
+  // 175× in 12 s opnieuw opgebouwd).
+  const sky = createMemo<SkyStop[]>((previous) => stableByIndex(previous, skyStopsNow()), [])
   // De hemel staat onaangepast achter elke weergave (PO 2026-10-07 live): doorzichtig maken over het lichte
   // vlak maakte de kleuren flets; de grafieken staan er in plaats daarvan duidelijk vóór (zie styles.css).
   const skyStrength = () => sky().length && props.expressive !== false ? 1 : 0
   const skyVisible = createMemo(() => skyStrength() > 0)
-  const skyDetail = createMemo(() => {
-    if (!skyVisible()) return undefined
-    const pxPerHour = HOUR * pxPerMs()
-    return {
-      strokes: skyStrokes(cloudWidth(), plotHeight(), pxPerHour, sky()),
-      stars: skyStars(cloudWidth(), plotHeight(), pxPerHour, sky()),
-      dusks: sunCrossings(timelineStart(), timelineEnd(), props.sky!.sinElevation).map((crossing) => {
-        const x = xAt(crossing.epoch)
-        // Ronde gloed rond de zon op de horizon (PO 2026-10-07 live: rond, mag kleiner); roze hangt naar
-        // de dagkant, paars naar de nachtkant.
-        const side = crossing.rising ? 1 : -1
-        const radius = Math.min(plotHeight() * DUSK_RADIUS_SHARE, pxPerHour)
-        return { x, side, radius, strength: 1 - 0.75 * skyAt(sky(), x / cloudWidth()).darkness }
-      }),
-    }
-  })
+  const skyPxPerHour = () => HOUR * pxPerMs()
+  const strokes = createMemo<SkyStroke[]>((previous) => measurePerfPhase('scrubber-paint', () =>
+    stableByIndex(previous, skyVisible() ? skyStrokes(cloudWidth(), plotHeight(), skyPxPerHour(), sky()) : []), { memo: 'hemelstreken' }), [])
   // Een ster die dooft of opkomt verschuift alle posities erna; met dezelfde objecten voor ongewijzigde
   // sterren houdt <For> hun knopen vast en raakt een aanvulling van de reeksen alleen de sterren die veranderen.
-  const stars = createMemo<SkyStar[]>((previous) => {
+  const stars = createMemo<SkyStar[]>((previous) => measurePerfPhase('scrubber-paint', () => {
     const known = new Map(previous.map((star) => [star.x, star]))
-    return (skyDetail()?.stars ?? []).map((star) => {
+    return (skyVisible() ? skyStars(cloudWidth(), plotHeight(), skyPxPerHour(), sky()) : []).map((star) => {
       const same = known.get(star.x)
-      return same && same.y === star.y && same.radius === star.radius && same.brightness === star.brightness ? same : star
+      return same && sameFields(same, star) ? same : star
     })
-  }, [])
+  }, { memo: 'hemelsterren' }), [])
+  // Zonsop- en ondergangen hangen alleen aan de tijdlijn en de plek, niet aan de bewolking.
+  const sunTurns = createMemo(() => skyVisible() ? sunCrossings(timelineStart(), timelineEnd(), props.sky!.sinElevation) : [])
+  const dusks = createMemo<Array<{ x: number; side: number; radius: number; strength: number }>>((previous) => stableByIndex(previous, sunTurns().map((crossing) => {
+    const x = xAt(crossing.epoch)
+    // Ronde gloed rond de zon op de horizon (PO 2026-10-07 live: rond, mag kleiner); roze hangt naar
+    // de dagkant, paars naar de nachtkant.
+    const side = crossing.rising ? 1 : -1
+    const radius = Math.min(plotHeight() * DUSK_RADIUS_SHARE, skyPxPerHour())
+    return { x, side, radius, strength: 1 - 0.75 * skyAt(sky(), x / cloudWidth()).darkness }
+  })), [])
   // Windgrafiek in baancoördinaten (één keer per data/afmeting, schuift met de baan mee).
   const windChart = scrubMemo('windgrafiek', () => {
     const wind = props.wind
@@ -600,21 +602,21 @@ export default function HistogramScrubber(props: Props) {
           <div class="day-grid"><For each={dayMarkers()}>{(marker) => <div class="boundary" style={{ left: `${xAt(marker.epoch)}px` }} />}</For></div>
           <svg width={trackWidth()} height={plotHeight()} viewBox={`0 0 ${trackWidth()} ${plotHeight()}`} style={{ '--sky': skyStrength() }}>
             {/* De hemel ligt achter alles, ook achter de regen (de verlopen staan verderop in defs). */}
-            <Show when={skyDetail()}>{(detail) => <g class="sky" data-testid="sky" clip-path={`url(#${cloudId}-plot)`} style={{ opacity: skyStrength() }}>
+            <Show when={skyVisible()}><g class="sky" data-testid="sky" clip-path={`url(#${cloudId}-plot)`} style={{ opacity: skyStrength() }}>
               <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-sky)`} />
               <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-depth)`} />
               {/* Oplopend naar de horizon in stroken: een SVG-masker over de hele baan bleek hier niet te werken. */}
               <For each={HAZE_BANDS}>{(band) => <rect y={plotHeight() * band.from} width={cloudWidth()} height={plotHeight() * (1 - band.from)} fill={`url(#${cloudId}-haze)`} opacity={band.opacity} />}</For>
               {/* Index, niet For: bij elke aanvulling van de reeksen zijn dit nieuwe objecten; per positie bijwerken
                   zet alleen gewijzigde attributen, For bouwde alle knopen opnieuw (72 000 knopen in 12 s, U58). */}
-              <Index each={detail().dusks}>{(dusk) => <g class="dusk" style={{ opacity: dusk().strength }}>
+              <Index each={dusks()}>{(dusk) => <g class="dusk" style={{ opacity: dusk().strength }}>
                 <circle cx={dusk().x - dusk().side * dusk().radius * 0.55} cy={plotHeight()} r={dusk().radius * 1.5} fill={`url(#${cloudId}-dusk-purple)`} />
                 <circle cx={dusk().x + dusk().side * dusk().radius * 0.35} cy={plotHeight()} r={dusk().radius * 1.25} fill={`url(#${cloudId}-dusk-rose)`} />
                 <circle cx={dusk().x} cy={plotHeight()} r={dusk().radius} fill={`url(#${cloudId}-dusk-amber)`} />
               </g>}</Index>
-              <Index each={detail().strokes}>{(stroke) => <path class="sky-stroke" classList={{ light: stroke().light }} d={stroke().path} style={{ '--strength': stroke().strength }} />}</Index>
+              <Index each={strokes()}>{(stroke) => <path class="sky-stroke" classList={{ light: stroke().light }} d={stroke().path} style={{ '--strength': stroke().strength }} />}</Index>
               <For each={stars()}>{(star) => <circle class="sky-star" cx={star.x} cy={star.y} r={star.radius} opacity={star.brightness} />}</For>
-            </g>}</Show>
+            </g></Show>
             {/* In Lucht blijft regen context: achter de wolkenlagen en getweend naar 35% dekking. */}
             <g class="rain-bars scrub-view" style={layerStyle(rainOpacity())}><Index each={bars()}>{(bar) => <Show
               when={!bar().pending}
