@@ -65,3 +65,8 @@
 - `nix build .#checks.x86_64-linux.nixos-vm -L --no-link`: eerste run SYNCHRONE EXIT 1 wegens dubbele, nu ongebruikte json-import in aangepaste VM-test; import verwijderd. Dezelfde opdracht opnieuw: SYNCHRONE EXIT 0, VM-script 24,19 s. Geen pipe gebruikt; dit is de exitstatus van nix zelf. VM controleert productie-Chromium onder hardening, afwezige botlistener/HTTP-validatie (POST 405), publieke still-cache en bestaande deployment-/privacygates.
 - Preview-artifacts op 4360 bijgewerkt met de nieuwe productiebundel vóór de e2e-build; HTTP 200. Geen volledige/perf-suite gedraaid. De historische initData-validatie hierboven is door deze reviewfix vervallen: de draaiende app en bot gebruiken de HMAC-module niet.
 - Volgende stap: mergecommit voor main `21717fc` plus privacyfix maken, pushen, PR #72 beschrijving bijwerken en remote-head controleren.
+
+## 2026-10-07T09:38:28Z — Review afgerond en gepusht
+- Mergecommit `3e46d9f` bevat main `21717fc` als tweede ouder en de privacyfix; commit en `git push origin HEAD:track/u45-telegram` beide SYNCHRONE EXIT 0. Ancestry gecontroleerd, werkboom schoon; remote-tip en PR-head exact `3e46d9f48baa348ee14f3d86ed4b7e335a0830ea`.
+- `gh pr edit 72 --body-file tmp/u45-pr.md`: SYNCHRONE EXIT 0. PR #72 beschrijft de gecombineerde routes, verwijderde identifieroverdracht en alle nieuwe groene gates; historische render-/Telegramreceipts duidelijk onderscheiden van de hercontrole.
+- Beide reviewpunten klaar. Deze append-only overdracht wordt committed en gepusht; preview blijft op http://ageq-dev2:4360/.
