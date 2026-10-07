@@ -121,7 +121,9 @@ U60 gebruikt de relevante lagen uit de vastgelegde Liberty-stijl in
 komen uit deze referentie. Voor donker gebruikt de generator dezelfde
 `darkenLibertyLayer`-transformatie als de U59-referentie: achtergrond `#101d21`,
 water `#183746`, plaatsnamen `#c7d5d8` met een donkere halo. De provinciegrens
-houdt zijn eigen patroon en verf; provincienamen volgen Liberty’s z5–8.
+houdt zijn eigen patroon en verf; provincienamen houden U59’s minimumzoom 6,
+grootte en kleur. Steden staan net als in Liberty na de provincienamen, zodat
+een provincie de belangrijkste stadsnaam niet verdringt.
 
 Naast bos zijn meadow/grass/grassland/heath/scrub, parken/natuurreservaten,
 wetland en sand/beach opgenomen. Farmland is in Liberty geen gekleurde laag

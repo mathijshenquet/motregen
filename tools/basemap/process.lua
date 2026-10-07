@@ -35,6 +35,15 @@ end
 function relation_scan_function()
     local level = tonumber(Find("admin_level"))
     if Find("boundary") == "administrative" and (level == 2 or level == 4) and Find("maritime") ~= "yes" then Accept() end
+    if Find("type") == "boundary" and (Find("boundary") == "national_park" or Find("leisure") == "nature_reserve") then Accept() end
+end
+
+function relation_function()
+    -- Boundary-relaties worden niet automatisch als vlakken naar way_function gestuurd.
+    if Find("type") == "boundary" and (Find("boundary") == "national_park" or Find("leisure") == "nature_reserve") then
+        Layer("landcover", true)
+        Attribute("class", "park")
+    end
 end
 
 function way_function()
@@ -74,13 +83,6 @@ function way_function()
     if cover then
         Layer("landcover", true)
         Attribute("class", cover)
-        -- Unions per ~7 × 11 km behouden kleine aaneengesloten groenvlakken zonder een landelijke union.
-        local centroid = Centroid("centroid")
-        if centroid then
-            local row = math.floor((centroid[1] - 50) / 0.1)
-            local column = math.floor((centroid[2] - 2) / 0.1)
-            ZOrder(row * 64 + column)
-        end
     end
 end
 

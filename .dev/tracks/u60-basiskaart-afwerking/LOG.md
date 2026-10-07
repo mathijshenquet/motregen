@@ -54,3 +54,9 @@
 - Nieuwe poging: unions per circa 7×11 km via ZOrder-groepen, met oorspronkelijke zoomsimplificatie en area-filter. Dat behoudt aaneengesloten groen zonder één landelijke union. Herbouw loopt.
 - Steden staan nu net als Liberty na provincie-labels, zodat grote steden niet door provincietekst verdwijnen; provincie-minzoom/grootte/kleur blijven U59. Tuning startset: 390 7 versus 6, 1280 18 versus 19. Detail-padding wordt bij z10 weer klein.
 - Checkpoint commit bevat code en gevalideerde rankstijl op het bestaande U59-archief; vernieuwde tegels/beeldparen volgen pas na budget- en A/B-gates. Zo blijft de gepushte stijlbron beschikbaar.
+## 2026-10-07T20:03:29Z — Kandidaten-A/B en parks
+
+- Unions bleven ook met precieze lokale sleutels te traag; gewone zoomgeneralisatie zonder union levert een reproduceerbare kandidaat binnen het archiefbudget: 4.224.699 B (+19,47 %). Niet-geselecteerde archieven blijven alleen in scratch.
+- Kandidaten-A/B en basemap-spec: 11 browsertests passed; tooling-uitgang apart geobserveerd. Startlabels nu 390 6→7 (+16,7 %), 1280 19→18 (−5,3 %). Utrecht z9 25→23; z10 29→27; geen externe requests.
+- Groen bij de kandidaat: start390 8,20→3,67 %, Utrecht z9 19,77→15,53 %, z10 18,72→17,27 %. Detail is veel beter; lage zoom vraagt nog parkvlakken.
+- Oorzaak extra lage-zoomverlies: tilemaker stuurt multipolygonen automatisch naar way_function, maar boundary-relaties van nationale parken/natuurreservaten alleen via relation_function. Die vlakroute ontbreekt; toegevoegd op hetzelfde landcover-schema. Herbouw met definitief profiel loopt; daarna A/B en perf opnieuw.
