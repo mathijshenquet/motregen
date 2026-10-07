@@ -570,6 +570,29 @@ doet per event alleen een push; er wordt niets verstuurd.
 Caddy-poorten van `pnpm e2e` en het profiel, zodat parallelle tracks op één
 host elkaar niet blokkeren.
 
+## Mobiele laadrig
+
+U53 begint met de echte PO-opnames van 2026-10-07. De kleine, gehashte
+samenvatting staat in `web/perf/po-fidelity.json`; ruwe opnames blijven lokaal.
+De secondehistogrammen beginnen bij het eerste waargenomen event: de export
+bevat absolute timestamps maar geen navigatie-timeOrigin.
+
+| Maat | Android Chrome 10:01 | Android Firefox 10:02 | Pixel-emulatie 09:22 | Pixel versus Chrome |
+| --- | ---: | ---: | ---: | ---: |
+| Decodes | 801 | 903 | 804 | +0,4 % |
+| Decode totaal | 21.808 ms | 28.148 ms | 7.785 ms | −64,3 % |
+| Decode p50 | 19,1 ms | 21 ms | 9,2 ms | −51,8 % |
+| Decode p95 | 74,6 ms | 93 ms | 17,3 ms | −76,8 % |
+| Encoded body bytes | onbekend | onbekend | onbekend | niet meetbaar |
+
+De oude Pixel-emulatie reproduceert het aantal, maar mist de gevraagde ±30 %
+op decodetijden. CDP's CPU-throttle remt uitsluitend paginawerk; workers
+blijven op hostsnelheid. Een hogere throttle is daarom geen kalibratie van
+de decoder. De opnames bevatten geen Resource Timing/netwerklog; bytes zijn
+dus ontbrekende brondata, geen nul. GPU, thermiek, browserimplementatie en
+de inmiddels gewijzigde client/codec beperken de vergelijking verder.
+CPU/netwerkvarianten van de nieuwe offline rig worden apart gerapporteerd.
+
 ## Live-smoke
 
 `cd web && pnpm e2e:live` draait de volledige journey voor desktop, 4G en Fast
