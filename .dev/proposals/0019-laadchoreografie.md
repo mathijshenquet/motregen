@@ -52,7 +52,8 @@ even op een kale kaart.
 1. Vorm van de fog: arcering, blur of alleen een lagere dekking — PO kiest op stills/live.
 2. Wacht de splash óók op de basemap-tiles (kost op 4G ~0,5–1 s extra)? Voorstel: ja, met een
    plafond van 1,5 s waarna hij toch weggaat.
-3. Track: tijd-majeur decoderen = U52 (op U49's DecodeQueue, nu); de zichtbare laadchoreografie
-   (splash, fog, histogram per balk) = U53, live-pane na U42 (zelfde scrubber-/tabelcode).
+3. Track: tijd-majeur decoderen + intent-planner = U52 (nu); mobiele laadrig met wire weight =
+   U53 (PO 2026-10-07: "concrete test harness … overhead van deze ombouw tracken, wire weight
+   vooral"); de zichtbare laadchoreografie (splash, fog, histogram per balk) = U54, live-pane na U42.
 4. Later, als tijd-majeur op de client niet genoeg is: chunk-indeling per tijdsnede over alle
    velden (contractwijziging, MIP-2), zodat ook het netwerk tijd-majeur gaat.
