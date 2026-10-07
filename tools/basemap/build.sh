@@ -17,7 +17,12 @@ if [ -f tools/basemap/sources.sha256 ]; then
 fi
 if [ ! -f "$scratch/build/region.osm.pbf" ]; then
   osmium merge "$scratch"/sources/*.osm.pbf -o "$scratch/build/merged.osm.pbf" --overwrite
-  osmium tags-filter "$scratch/build/merged.osm.pbf" n/place w/natural=water,wood w/landuse=forest,residential,commercial,industrial,retail,reservoir w/waterway=riverbank r/natural=water,wood r/landuse=forest,residential,commercial,industrial,retail,reservoir r/waterway=riverbank r/boundary=administrative w/boundary=administrative -o "$scratch/build/filtered.osm.pbf" --overwrite
+  osmium tags-filter "$scratch/build/merged.osm.pbf" n/place \
+    wr/natural=water,wood,grassland,heath,scrub,wetland,sand,beach \
+    wr/landuse=forest,residential,commercial,industrial,retail,reservoir,grass,meadow,allotments,village_green,recreation_ground \
+    wr/leisure=park,garden,golf_course,nature_reserve \
+    wr/waterway=riverbank wr/boundary=administrative,national_park \
+    -o "$scratch/build/filtered.osm.pbf" --overwrite
   osmium extract --bbox 2.3108,50.3256,7.4192,53.6844 --strategy smart "$scratch/build/filtered.osm.pbf" -o "$scratch/build/region.osm.pbf" --overwrite
 fi
 cp tools/basemap/config.json tools/basemap/process.lua "$scratch/build/"

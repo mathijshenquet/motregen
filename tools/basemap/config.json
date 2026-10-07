@@ -21,9 +21,10 @@
       "minzoom": 5,
       "maxzoom": 10,
       "simplify_below": 14,
-      "simplify_level": 0.00015,
+      "simplify_level": 0.00022,
+      "combine_polygons_below": 11,
       "filter_below": 14,
-      "filter_area": 0.3
+      "filter_area": 0.6
     },
     "boundary": {
       "minzoom": 4,
@@ -44,7 +45,7 @@
     "include_ids": false,
     "name": "motregen — Nederland en Vlaanderen",
     "version": "1",
-    "description": "Water, bos, stedelijk gebied, lands- en provinciegrenzen en Nederlandse plaatsnamen",
+    "description": "Water, bos, gras, parken, moeras, zand, stedelijk gebied, grenzen en Nederlandse plaatsnamen",
     "compress": "gzip",
     "bounding_box": [
       -5,

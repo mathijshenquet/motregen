@@ -2,31 +2,30 @@
   "schema": 1,
   "profile": "mobile-4g",
   "scenario": "koud",
-  "sourceSha": "673ac3ca630d5021b0f19061dc2458bce9d73906",
-  "capturedAt": "2026-10-07T17:32:16.691Z",
-  "contractHash": "61e88666bc218e4834d8ab261e1f9831627d73b90c68902c6a9b5d0a6c2cc964",
+  "sourceSha": "88f193f66cc450a68d70742688d7067b177c062e",
+  "capturedAt": "2026-10-07T19:20:35.192Z",
+  "contractHash": "f597c5f5148ffc56c0a6dbc149c84fa38d5cc2a889cab462c499d8724813f832",
   "regressionLimitPercent": 10,
-  "wireBytes": 2987829,
-  "decodes": 297,
+  "wireBytes": 2470372,
+  "decodes": 128,
   "metrics": {
-    "basemapContractHash": "b091de9df36b98beb9fda086b8c8cac3aa4a4ebf2c0bc6c25bad68420f7a9ec4",
+    "basemapContractHash": "ce9d61030167808c03020fc470e4a41318fa28ba888b30ecd57fc3361816a7ff",
     "milestones": {
-      "ttfrMs": 1738.3,
-      "splashGoneMs": 3673.5,
-      "ttfhMs": 3611,
+      "ttfrMs": 2023.8,
+      "splashGoneMs": 3991.5,
+      "ttfhMs": 3275,
       "windowReadyMs": {
-        "cloud_mid": 2651,
-        "cloud_high": 2725,
-        "cloud_low": 2725,
-        "uv": 3430,
-        "feels_like_c": 3511,
-        "wind_u": 3511,
-        "wind_v": 3511,
-        "rain_rate": 3611,
-        "temp_c": 3798,
-        "rel_humidity": 3798,
-        "cloud_frac": 3869,
-        "gust_ms": 3869
+        "cloud_low": 3046,
+        "cloud_mid": 3047,
+        "cloud_high": 3047,
+        "uv": 3133,
+        "feels_like_c": 3197,
+        "wind_u": 3197,
+        "wind_v": 3198,
+        "rain_rate": 3275,
+        "temp_c": 3474,
+        "cloud_frac": 3474,
+        "gust_ms": 3474
       },
       "histogramSource": "U52 window-ready:rain_rate"
     },
@@ -34,214 +33,202 @@
       "phases": {
         "table-render": {
           "count": 7,
-          "totalMs": 6.5,
-          "p50Ms": 0.8999999761581421,
-          "p95Ms": 2.399999976158142
+          "totalMs": 7.7,
+          "p50Ms": 0.19999992847442627,
+          "p95Ms": 4.400000095367432
         },
         "scrubber-paint": {
-          "count": 225,
-          "totalMs": 107.4,
-          "p50Ms": 0.3999999761581421,
-          "p95Ms": 1.2000000476837158
+          "count": 71,
+          "totalMs": 99.5,
+          "p50Ms": 0.5999999046325684,
+          "p95Ms": 4.599999904632568
         },
         "frame-decode": {
-          "count": 297,
-          "totalMs": 115.4,
-          "p50Ms": 0.20000004768371582,
-          "p95Ms": 1.5
+          "count": 128,
+          "totalMs": 94.9,
+          "p50Ms": 0.2999999523162842,
+          "p95Ms": 4
         },
         "basemap-tile": {
           "count": 5,
-          "totalMs": 5805.6,
-          "p50Ms": 945.5,
-          "p95Ms": 2455.5
+          "totalMs": 5548.7,
+          "p50Ms": 1123.1999999284744,
+          "p95Ms": 1988
         },
         "texture-upload": {
           "count": 1,
-          "totalMs": 4.4,
-          "p50Ms": 4.399999976158142,
-          "p95Ms": 4.399999976158142
+          "totalMs": 3.6,
+          "p50Ms": 3.600000023841858,
+          "p95Ms": 3.600000023841858
         },
         "wind-step": {
-          "count": 966,
-          "totalMs": 1133.7,
-          "p50Ms": 1,
-          "p95Ms": 2.200000047683716
-        },
-        "window-ready:cloud_mid": {
-          "count": 1,
-          "totalMs": 2650.5,
-          "p50Ms": 2650.5,
-          "p95Ms": 2650.5
-        },
-        "window-ready:cloud_high": {
-          "count": 1,
-          "totalMs": 2725.3,
-          "p50Ms": 2725.3000000715256,
-          "p95Ms": 2725.3000000715256
+          "count": 1087,
+          "totalMs": 905,
+          "p50Ms": 0.8000000715255737,
+          "p95Ms": 1.399999976158142
         },
         "window-ready:cloud_low": {
           "count": 1,
-          "totalMs": 2725.4,
-          "p50Ms": 2725.399999976158,
-          "p95Ms": 2725.399999976158
+          "totalMs": 3046.2,
+          "p50Ms": 3046.1999999284744,
+          "p95Ms": 3046.1999999284744
+        },
+        "window-ready:cloud_mid": {
+          "count": 1,
+          "totalMs": 3046.7,
+          "p50Ms": 3046.6999999284744,
+          "p95Ms": 3046.6999999284744
+        },
+        "window-ready:cloud_high": {
+          "count": 1,
+          "totalMs": 3046.8,
+          "p50Ms": 3046.7999999523163,
+          "p95Ms": 3046.7999999523163
         },
         "window-ready:uv": {
           "count": 1,
-          "totalMs": 3429.6,
-          "p50Ms": 3429.600000023842,
-          "p95Ms": 3429.600000023842
+          "totalMs": 3133,
+          "p50Ms": 3133,
+          "p95Ms": 3133
         },
         "window-ready:feels_like_c": {
           "count": 1,
-          "totalMs": 3510.5,
-          "p50Ms": 3510.5,
-          "p95Ms": 3510.5
+          "totalMs": 3197,
+          "p50Ms": 3197,
+          "p95Ms": 3197
         },
         "window-ready:wind_u": {
           "count": 1,
-          "totalMs": 3510.6,
-          "p50Ms": 3510.600000023842,
-          "p95Ms": 3510.600000023842
+          "totalMs": 3197,
+          "p50Ms": 3197,
+          "p95Ms": 3197
         },
         "window-ready:wind_v": {
           "count": 1,
-          "totalMs": 3510.6,
-          "p50Ms": 3510.600000023842,
-          "p95Ms": 3510.600000023842
+          "totalMs": 3197.5,
+          "p50Ms": 3197.5,
+          "p95Ms": 3197.5
         },
         "window-ready:rain_rate": {
           "count": 1,
-          "totalMs": 3611.3,
-          "p50Ms": 3611.3000000715256,
-          "p95Ms": 3611.3000000715256
+          "totalMs": 3275.4,
+          "p50Ms": 3275.399999976158,
+          "p95Ms": 3275.399999976158
         },
         "window-ready:temp_c": {
           "count": 1,
-          "totalMs": 3798.2,
-          "p50Ms": 3798.2000000476837,
-          "p95Ms": 3798.2000000476837
-        },
-        "window-ready:rel_humidity": {
-          "count": 1,
-          "totalMs": 3798.2,
-          "p50Ms": 3798.2000000476837,
-          "p95Ms": 3798.2000000476837
+          "totalMs": 3474.2,
+          "p50Ms": 3474.1999999284744,
+          "p95Ms": 3474.1999999284744
         },
         "window-ready:cloud_frac": {
           "count": 1,
-          "totalMs": 3869,
-          "p50Ms": 3869,
-          "p95Ms": 3869
+          "totalMs": 3474.3,
+          "p50Ms": 3474.2999999523163,
+          "p95Ms": 3474.2999999523163
         },
         "window-ready:gust_ms": {
           "count": 1,
-          "totalMs": 3869,
-          "p50Ms": 3869,
-          "p95Ms": 3869
+          "totalMs": 3474.3,
+          "p50Ms": 3474.2999999523163,
+          "p95Ms": 3474.2999999523163
         }
       },
       "fields": {
         "rain_rate": {
           "count": 66,
-          "totalMs": 18.1,
+          "totalMs": 27.5,
           "p50Ms": 0.20000004768371582,
-          "p95Ms": 0.6999999284744263
+          "p95Ms": 1.600000023841858
         },
         "radiation": {
-          "count": 11,
-          "totalMs": 8.1,
-          "p50Ms": 0.40000009536743164,
-          "p95Ms": 2.5999999046325684
+          "count": 3,
+          "totalMs": 3.7,
+          "p50Ms": 0.5,
+          "p95Ms": 2.6999999284744263
         },
         "motion": {
           "count": 1,
-          "totalMs": 0.1,
-          "p50Ms": 0.10000002384185791,
-          "p95Ms": 0.10000002384185791
-        },
-        "uv_clear": {
-          "count": 10,
-          "totalMs": 1.7,
-          "p50Ms": 0.10000002384185791,
-          "p95Ms": 0.5
+          "totalMs": 0.3,
+          "p50Ms": 0.2999999523162842,
+          "p95Ms": 0.2999999523162842
         },
         "feels_like_c": {
-          "count": 25,
-          "totalMs": 48.7,
-          "p50Ms": 1.5,
-          "p95Ms": 4.100000023841858
-        },
-        "cloud_mid": {
-          "count": 9,
-          "totalMs": 1.8,
-          "p50Ms": 0.19999992847442627,
-          "p95Ms": 0.3999999761581421
+          "count": 3,
+          "totalMs": 10.9,
+          "p50Ms": 4.399999976158142,
+          "p95Ms": 4.700000047683716
         },
         "cloud_high": {
           "count": 9,
-          "totalMs": 2,
-          "p50Ms": 0.20000004768371582,
-          "p95Ms": 0.30000007152557373
+          "totalMs": 6,
+          "p50Ms": 0.2999999523162842,
+          "p95Ms": 4
+        },
+        "uv_clear": {
+          "count": 8,
+          "totalMs": 4.2,
+          "p50Ms": 0.10000002384185791,
+          "p95Ms": 2.100000023841858
         },
         "cloud_low": {
           "count": 9,
-          "totalMs": 2,
-          "p50Ms": 0.20000004768371582,
-          "p95Ms": 0.3999999761581421
+          "totalMs": 12.3,
+          "p50Ms": 0.2999999523162842,
+          "p95Ms": 4.399999976158142
+        },
+        "cloud_mid": {
+          "count": 9,
+          "totalMs": 11.1,
+          "p50Ms": 0.30000007152557373,
+          "p95Ms": 6.899999976158142
         },
         "uv": {
-          "count": 7,
-          "totalMs": 1.6,
-          "p50Ms": 0.20000004768371582,
-          "p95Ms": 0.30000007152557373
-        },
-        "temp_c": {
-          "count": 25,
-          "totalMs": 4.2,
-          "p50Ms": 0.19999992847442627,
-          "p95Ms": 0.30000007152557373
-        },
-        "rel_humidity": {
-          "count": 25,
-          "totalMs": 6.2,
-          "p50Ms": 0.20000004768371582,
-          "p95Ms": 0.3999999761581421
-        },
-        "wind_u_ms": {
-          "count": 25,
-          "totalMs": 5.4,
+          "count": 5,
+          "totalMs": 1,
           "p50Ms": 0.20000004768371582,
           "p95Ms": 0.30000007152557373
         },
         "cloud_frac": {
-          "count": 25,
-          "totalMs": 5,
-          "p50Ms": 0.19999992847442627,
-          "p95Ms": 0.20000004768371582
+          "count": 3,
+          "totalMs": 1.8,
+          "p50Ms": 0.6000000238418579,
+          "p95Ms": 0.8999999761581421
+        },
+        "temp_c": {
+          "count": 3,
+          "totalMs": 8.2,
+          "p50Ms": 0.40000009536743164,
+          "p95Ms": 7.5
         },
         "wind_v_ms": {
-          "count": 25,
-          "totalMs": 4.7,
-          "p50Ms": 0.20000004768371582,
-          "p95Ms": 0.2999999523162842
+          "count": 3,
+          "totalMs": 5.8,
+          "p50Ms": 0.3999999761581421,
+          "p95Ms": 5.100000023841858
+        },
+        "wind_u_ms": {
+          "count": 3,
+          "totalMs": 1,
+          "p50Ms": 0.2999999523162842,
+          "p95Ms": 0.3999999761581421
         },
         "gust_ms": {
-          "count": 25,
-          "totalMs": 5.8,
-          "p50Ms": 0.20000004768371582,
-          "p95Ms": 0.3999999761581421
+          "count": 3,
+          "totalMs": 1.1,
+          "p50Ms": 0.30000007152557373,
+          "p95Ms": 0.5
         }
       },
       "decodesPerSecond": [
         0,
-        14,
-        30,
-        36,
-        54,
-        50,
-        55,
-        58,
+        6,
+        28,
+        94,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
         0,
@@ -274,9 +261,9 @@
           "meanRequestBytes": 36513
         },
         "chunks": {
-          "requests": 91,
-          "bytes": 1144921,
-          "meanRequestBytes": 12581.54945054945
+          "requests": 78,
+          "bytes": 625587,
+          "meanRequestBytes": 8020.346153846154
         },
         "tiles": {
           "requests": 10,
@@ -284,14 +271,14 @@
           "meanRequestBytes": 130625.3
         },
         "other": {
-          "requests": 11,
-          "bytes": 500142,
-          "meanRequestBytes": 45467.454545454544
+          "requests": 12,
+          "bytes": 502019,
+          "meanRequestBytes": 41834.916666666664
         },
         "total": {
-          "requests": 113,
-          "bytes": 2987829,
-          "meanRequestBytes": 26440.964601769912
+          "requests": 101,
+          "bytes": 2470372,
+          "meanRequestBytes": 24459.128712871287
         }
       },
       "resourceTiming": {
@@ -301,9 +288,9 @@
           "meanRequestBytes": 36513
         },
         "chunks": {
-          "requests": 91,
-          "bytes": 1144921,
-          "meanRequestBytes": 12581.54945054945
+          "requests": 78,
+          "bytes": 625587,
+          "meanRequestBytes": 8020.346153846154
         },
         "tiles": {
           "requests": 10,
@@ -311,14 +298,14 @@
           "meanRequestBytes": 130625.3
         },
         "other": {
-          "requests": 11,
-          "bytes": 500142,
-          "meanRequestBytes": 45467.454545454544
+          "requests": 12,
+          "bytes": 502019,
+          "meanRequestBytes": 41834.916666666664
         },
         "total": {
-          "requests": 113,
-          "bytes": 2987829,
-          "meanRequestBytes": 26440.964601769912
+          "requests": 101,
+          "bytes": 2470372,
+          "meanRequestBytes": 24459.128712871287
         }
       },
       "differences": [
@@ -348,67 +335,67 @@
           "requestDifference": 0
         }
       ],
-      "completeBodyAborts": 13,
-      "contentLengthFallbacks": 3,
+      "completeBodyAborts": 2,
+      "contentLengthFallbacks": 4,
       "findings": [],
-      "rangeRequests": 91,
-      "beforeTtfrBytes": 683024,
-      "beforeTtfhBytes": 2726183
+      "rangeRequests": 78,
+      "beforeTtfrBytes": 867461,
+      "beforeTtfhBytes": 2343153
     },
     "longFrames": {
-      "count": 30,
-      "totalMs": 2634.300000309944,
-      "blockingMs": 903.5,
+      "count": 16,
+      "totalMs": 1806.6999998092651,
+      "blockingMs": 755.8,
       "topSources": [
         {
-          "source": "http://127.0.0.1:4393/assets/index-C1kwVEUK.js FrameRequestCallback",
-          "durationMs": 1438.9000000953674
+          "source": "http://127.0.0.1:4397/assets/index-N6JcMSMi.js FrameRequestCallback",
+          "durationMs": 570.2000000476837
         },
         {
-          "source": "http://127.0.0.1:4393/assets/index-C1kwVEUK.js http://127.0.0.1:4393/assets/index-C1kwVEUK.js",
-          "durationMs": 209.59999990463257
+          "source": "http://127.0.0.1:4397/assets/index-N6JcMSMi.js http://127.0.0.1:4397/assets/index-N6JcMSMi.js",
+          "durationMs": 261
         },
         {
-          "source": "http://127.0.0.1:4393/assets/index-C1kwVEUK.js Worker.onmessage",
-          "durationMs": 204.30000007152557
+          "source": "http://127.0.0.1:4397/assets/index-N6JcMSMi.js a",
+          "durationMs": 182
         }
       ]
     },
     "mainThread": {
-      "samples": 3078,
-      "busySamples": 508,
-      "busyPercent": 16.504223521767383,
+      "samples": 3011,
+      "busySamples": 372,
+      "busyPercent": 12.35469943540352,
       "topSources": [
         {
-          "functionName": "currentTrailView",
-          "url": "src/core/wind-layer.ts",
-          "selfSamples": 50
+          "functionName": "draw",
+          "url": "src/core/overlay-canvas.ts",
+          "selfSamples": 13
         },
         {
-          "functionName": "sampleWind",
-          "url": "src/core/wind-layer.ts",
-          "selfSamples": 10
+          "functionName": "measurePerfPhase",
+          "url": "src/core/perf.ts",
+          "selfSamples": 14
         },
         {
           "functionName": "drawHeads",
           "url": "src/core/wind-layer.ts",
-          "selfSamples": 7
+          "selfSamples": 12
         }
       ]
     },
     "intent": {
       "fieldBytes": {
-        "radiation": 22978,
         "rain_rate": 308937,
-        "uv": 35544,
+        "uv": 28747,
         "uv_clear": 6214,
-        "temp_c": 58099,
-        "feels_like_c": 25523,
-        "wind_u_ms": 90017,
-        "wind_v_ms": 84347,
-        "gust_ms": 105789,
-        "rel_humidity": 190607,
-        "cloud_frac": 56854,
+        "radiation": 10670,
+        "temp_c": 15584,
+        "feels_like_c": 11759,
+        "wind_u_ms": 19630,
+        "wind_v_ms": 18829,
+        "gust_ms": 20260,
+        "rel_humidity": 9636,
+        "cloud_frac": 15309,
         "cloud_low": 51299,
         "cloud_mid": 47600,
         "cloud_high": 61113
@@ -416,7 +403,7 @@
       "lateOutsideIntentCount": 0
     },
     "findings": [
-      "2 sampleposities zonder sourcemap-positie; oorspronkelijke bundelpositie bewaard"
+      "1 sampleposities zonder sourcemap-positie; oorspronkelijke bundelpositie bewaard"
     ]
   }
 }

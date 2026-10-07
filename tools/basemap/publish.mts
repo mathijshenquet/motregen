@@ -43,7 +43,7 @@ for (let zoom = header.minZoom; zoom <= header.maxZoom; zoom++) {
         for (let index = 0; index < layer.length; index++) {
           const feature = layer.feature(index)
           if (name === 'boundary' && (![2, 4].includes(feature.properties.admin_level) || feature.properties.maritime === 1)) throw new Error('Onverwachte grens')
-          if (name === 'landcover' && !['wood', 'urban'].includes(feature.properties.class)) throw new Error('Onverwachte landklasse')
+          if (name === 'landcover' && !['wood', 'grass', 'park', 'wetland', 'sand', 'urban'].includes(feature.properties.class)) throw new Error('Onverwachte landklasse')
           if (name === 'place' && [...feature.properties.name].length < 2) throw new Error('Onleesbaar plaatslabel')
         }
       }

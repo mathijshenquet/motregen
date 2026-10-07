@@ -1,14 +1,7 @@
 {
-  "version": 8,
-  "name": "motregen — licht",
-  "glyphs": "/basemap/fonts/{fontstack}/{range}.pbf",
-  "sources": {
-    "basemap": {
-      "type": "vector",
-      "url": "pmtiles:///data/basemap/nl-0aa536ff364f7cce.pmtiles",
-      "attribution": "© <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>"
-    }
-  },
+  "source": "https://tiles.openfreemap.org/styles/liberty",
+  "capturedAt": "2026-10-07T19:17:32.546Z",
+  "tileset": "https://tiles.openfreemap.org/planet/20261004_113936_pt/{z}/{x}/{y}.pbf",
   "layers": [
     {
       "id": "background",
@@ -20,27 +13,19 @@
     {
       "id": "park",
       "type": "fill",
-      "source": "basemap",
-      "source-layer": "landcover",
+      "source": "openmaptiles",
+      "source-layer": "park",
       "paint": {
         "fill-color": "#d8e8c8",
         "fill-opacity": 0.7,
         "fill-outline-color": "rgba(95, 208, 100, 1)"
-      },
-      "filter": [
-        "==",
-        [
-          "get",
-          "class"
-        ],
-        "park"
-      ]
+      }
     },
     {
       "id": "landuse_residential",
       "type": "fill",
-      "source": "basemap",
-      "source-layer": "landcover",
+      "source": "openmaptiles",
+      "source-layer": "landuse",
       "maxzoom": 12,
       "filter": [
         "==",
@@ -48,7 +33,7 @@
           "get",
           "class"
         ],
-        "urban"
+        "residential"
       ],
       "paint": {
         "fill-color": [
@@ -69,7 +54,7 @@
     {
       "id": "landcover_wood",
       "type": "fill",
-      "source": "basemap",
+      "source": "openmaptiles",
       "source-layer": "landcover",
       "filter": [
         "==",
@@ -88,7 +73,7 @@
     {
       "id": "landcover_grass",
       "type": "fill",
-      "source": "basemap",
+      "source": "openmaptiles",
       "source-layer": "landcover",
       "filter": [
         "==",
@@ -107,7 +92,7 @@
     {
       "id": "landcover_wetland",
       "type": "fill",
-      "source": "basemap",
+      "source": "openmaptiles",
       "source-layer": "landcover",
       "minzoom": 12,
       "filter": [
@@ -119,16 +104,25 @@
         "wetland"
       ],
       "paint": {
-        "fill-color": "#d8e8c8",
+        "fill-antialias": true,
         "fill-opacity": 0.8,
-        "fill-antialias": false
+        "fill-pattern": "wetland_bg_11",
+        "fill-translate-anchor": "map"
       }
     },
     {
       "id": "water",
       "type": "fill",
-      "source": "basemap",
+      "source": "openmaptiles",
       "source-layer": "water",
+      "filter": [
+        "!=",
+        [
+          "get",
+          "brunnel"
+        ],
+        "tunnel"
+      ],
       "paint": {
         "fill-color": "rgb(158,189,255)"
       }
@@ -136,7 +130,7 @@
     {
       "id": "landcover_sand",
       "type": "fill",
-      "source": "basemap",
+      "source": "openmaptiles",
       "source-layer": "landcover",
       "filter": [
         "==",
@@ -153,43 +147,8 @@
     {
       "id": "boundary_2",
       "type": "line",
-      "source": "basemap",
+      "source": "openmaptiles",
       "source-layer": "boundary",
-      "filter": [
-        "==",
-        [
-          "get",
-          "admin_level"
-        ],
-        2
-      ],
-      "layout": {
-        "line-join": "round"
-      },
-      "paint": {
-        "line-color": "#68676a",
-        "line-opacity": 0.85,
-        "line-width": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          4,
-          0.8,
-          11,
-          1.6
-        ]
-      }
-    },
-    {
-      "id": "motregen-province-boundaries",
-      "type": "line",
-      "source": "basemap",
-      "source-layer": "boundary",
-      "minzoom": 4,
       "filter": [
         "all",
         [
@@ -198,7 +157,7 @@
             "get",
             "admin_level"
           ],
-          4
+          2
         ],
         [
           "!=",
@@ -207,11 +166,42 @@
             "maritime"
           ],
           1
+        ],
+        [
+          "!=",
+          [
+            "get",
+            "disputed"
+          ],
+          1
+        ],
+        [
+          "!",
+          [
+            "has",
+            "claimed_by"
+          ]
         ]
       ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
       "paint": {
-        "line-color": "#687e85",
-        "line-opacity": 0.72,
+        "line-color": "hsl(248,1%,41%)",
+        "line-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          0,
+          0.4,
+          4,
+          1
+        ],
         "line-width": [
           "interpolate",
           [
@@ -220,21 +210,19 @@
           [
             "zoom"
           ],
-          4,
-          0.55,
-          8,
-          1.15
-        ],
-        "line-dasharray": [
-          2,
-          1.5
+          3,
+          1,
+          5,
+          1.2,
+          12,
+          3
         ]
       }
     },
     {
       "id": "label_village",
       "type": "symbol",
-      "source": "basemap",
+      "source": "openmaptiles",
       "source-layer": "place",
       "minzoom": 9,
       "filter": [
@@ -246,43 +234,53 @@
         "village"
       ],
       "layout": {
+        "icon-allow-overlap": true,
+        "icon-image": [
+          "step",
+          [
+            "zoom"
+          ],
+          "circle_11_black",
+          10,
+          ""
+        ],
+        "icon-optional": false,
+        "icon-size": 0.2,
+        "text-anchor": "bottom",
         "text-field": [
           "case",
           [
-            "<=",
+            "has",
+            "name:nonlatin"
+          ],
+          [
+            "concat",
             [
               "get",
-              "rank"
+              "name:latin"
             ],
+            "\n",
             [
-              "step",
-              [
-                "zoom"
-              ],
-              0,
-              4,
-              3,
-              5,
-              5,
-              6,
-              7,
-              7,
-              8,
-              8,
-              9,
-              9,
-              10
+              "get",
+              "name:nonlatin"
             ]
           ],
           [
-            "get",
-            "name"
-          ],
-          ""
+            "coalesce",
+            [
+              "get",
+              "name_en"
+            ],
+            [
+              "get",
+              "name"
+            ]
+          ]
         ],
         "text-font": [
           "Noto Sans Regular"
         ],
+        "text-max-width": 8,
         "text-size": [
           "interpolate",
           [
@@ -296,23 +294,6 @@
           10,
           11,
           12
-        ],
-        "text-max-width": 8,
-        "text-padding": 8,
-        "symbol-sort-key": [
-          "-",
-          [
-            "*",
-            [
-              "get",
-              "rank"
-            ],
-            10000000
-          ],
-          [
-            "get",
-            "population"
-          ]
         ]
       },
       "paint": {
@@ -325,7 +306,7 @@
     {
       "id": "label_town",
       "type": "symbol",
-      "source": "basemap",
+      "source": "openmaptiles",
       "source-layer": "place",
       "minzoom": 6,
       "filter": [
@@ -337,43 +318,53 @@
         "town"
       ],
       "layout": {
+        "icon-allow-overlap": true,
+        "icon-image": [
+          "step",
+          [
+            "zoom"
+          ],
+          "circle_11_black",
+          10,
+          ""
+        ],
+        "icon-optional": false,
+        "icon-size": 0.2,
+        "text-anchor": "bottom",
         "text-field": [
           "case",
           [
-            "<=",
+            "has",
+            "name:nonlatin"
+          ],
+          [
+            "concat",
             [
               "get",
-              "rank"
+              "name:latin"
             ],
+            "\n",
             [
-              "step",
-              [
-                "zoom"
-              ],
-              0,
-              4,
-              3,
-              5,
-              5,
-              6,
-              7,
-              7,
-              8,
-              8,
-              9,
-              9,
-              10
+              "get",
+              "name:nonlatin"
             ]
           ],
           [
-            "get",
-            "name"
-          ],
-          ""
+            "coalesce",
+            [
+              "get",
+              "name_en"
+            ],
+            [
+              "get",
+              "name"
+            ]
+          ]
         ],
         "text-font": [
           "Noto Sans Regular"
         ],
+        "text-max-width": 8,
         "text-size": [
           "interpolate",
           [
@@ -387,23 +378,6 @@
           12,
           11,
           14
-        ],
-        "text-max-width": 8,
-        "text-padding": 8,
-        "symbol-sort-key": [
-          "-",
-          [
-            "*",
-            [
-              "get",
-              "rank"
-            ],
-            10000000
-          ],
-          [
-            "get",
-            "population"
-          ]
         ]
       },
       "paint": {
@@ -414,56 +388,154 @@
       }
     },
     {
-      "id": "label_city",
+      "id": "label_state",
       "type": "symbol",
-      "source": "basemap",
+      "source": "openmaptiles",
       "source-layer": "place",
-      "minzoom": 3,
+      "minzoom": 5,
+      "maxzoom": 8,
       "filter": [
         "==",
         [
           "get",
           "class"
         ],
-        "city"
+        "state"
       ],
       "layout": {
         "text-field": [
           "case",
           [
-            "<=",
+            "has",
+            "name:nonlatin"
+          ],
+          [
+            "concat",
             [
               "get",
-              "rank"
+              "name:latin"
             ],
+            "\n",
             [
-              "step",
-              [
-                "zoom"
-              ],
-              0,
-              4,
-              3,
-              5,
-              5,
-              6,
-              7,
-              7,
-              8,
-              8,
-              9,
-              9,
-              10
+              "get",
+              "name:nonlatin"
             ]
           ],
           [
-            "get",
-            "name"
+            "coalesce",
+            [
+              "get",
+              "name_en"
+            ],
+            [
+              "get",
+              "name"
+            ]
+          ]
+        ],
+        "text-font": [
+          "Noto Sans Italic"
+        ],
+        "text-letter-spacing": 0.2,
+        "text-max-width": 9,
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
           ],
+          [
+            "zoom"
+          ],
+          5,
+          10,
+          8,
+          14
+        ],
+        "text-transform": "uppercase"
+      },
+      "paint": {
+        "text-color": "#333",
+        "text-halo-blur": 1,
+        "text-halo-color": "#fff",
+        "text-halo-width": 1
+      }
+    },
+    {
+      "id": "label_city",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "place",
+      "minzoom": 3,
+      "filter": [
+        "all",
+        [
+          "==",
+          [
+            "get",
+            "class"
+          ],
+          "city"
+        ],
+        [
+          "!=",
+          [
+            "get",
+            "capital"
+          ],
+          2
+        ]
+      ],
+      "layout": {
+        "icon-allow-overlap": true,
+        "icon-image": [
+          "step",
+          [
+            "zoom"
+          ],
+          "circle_11_black",
+          9,
           ""
+        ],
+        "icon-optional": false,
+        "icon-size": 0.4,
+        "text-anchor": "bottom",
+        "text-field": [
+          "case",
+          [
+            "has",
+            "name:nonlatin"
+          ],
+          [
+            "concat",
+            [
+              "get",
+              "name:latin"
+            ],
+            "\n",
+            [
+              "get",
+              "name:nonlatin"
+            ]
+          ],
+          [
+            "coalesce",
+            [
+              "get",
+              "name_en"
+            ],
+            [
+              "get",
+              "name"
+            ]
+          ]
         ],
         "text-font": [
           "Noto Sans Regular"
+        ],
+        "text-max-width": 8,
+        "text-offset": [
+          0,
+          -0.1
         ],
         "text-size": [
           "interpolate",
@@ -480,88 +552,10 @@
           13,
           11,
           18
-        ],
-        "text-max-width": 8,
-        "text-padding": 8,
-        "symbol-sort-key": [
-          "-",
-          [
-            "*",
-            [
-              "get",
-              "rank"
-            ],
-            10000000
-          ],
-          [
-            "get",
-            "population"
-          ]
         ]
       },
       "paint": {
         "text-color": "#000",
-        "text-halo-blur": 1,
-        "text-halo-color": "#fff",
-        "text-halo-width": 1
-      }
-    },
-    {
-      "id": "label_state",
-      "type": "symbol",
-      "source": "basemap",
-      "source-layer": "place",
-      "minzoom": 5,
-      "maxzoom": 8,
-      "filter": [
-        "==",
-        [
-          "get",
-          "class"
-        ],
-        "state"
-      ],
-      "layout": {
-        "text-field": [
-          "get",
-          "name"
-        ],
-        "text-font": [
-          "Noto Sans Regular"
-        ],
-        "text-size": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          5,
-          10,
-          8,
-          14
-        ],
-        "text-max-width": 9,
-        "text-padding": 4,
-        "symbol-sort-key": [
-          "-",
-          [
-            "*",
-            [
-              "get",
-              "rank"
-            ],
-            10000000
-          ],
-          [
-            "get",
-            "population"
-          ]
-        ]
-      },
-      "paint": {
-        "text-color": "#333",
         "text-halo-blur": 1,
         "text-halo-color": "#fff",
         "text-halo-width": 1

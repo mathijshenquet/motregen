@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="nl">
+<meta charset="utf-8">
+<title>Basiskaart A/B</title>
+<style>html,body{margin:0}#map{position:relative}</style>
+<div id="map"></div>
+<script src="maplibre.js"></script>
+<script src="pmtiles.js"></script>
+<script>
+maplibregl.addProtocol('pmtiles', new pmtiles.Protocol().tile)
+let map
+window.renderComparison = async function(styleUrl, camera, viewport) {
+  if (map) map.remove()
+  const style = await fetch(styleUrl).then(response => response.json())
+  const container = document.getElementById('map')
+  container.style.width = viewport.width + 'px'
+  container.style.height = viewport.height + 'px'
+  const errors = []
+  map = new maplibregl.Map({ container, style: null, center: [camera.lng, camera.lat], zoom: camera.zoom, fadeDuration: 0, renderWorldCopies: false, attributionControl: false })
+  map.on('error', event => errors.push(String(event.error)))
+  await new Promise(resolve => { map.once('idle', resolve); map.setStyle(style) })
+  if (errors.length) throw new Error(errors.join('\n'))
+  const labels = map.queryRenderedFeatures({ layers: style.layers.filter(layer => layer.type === 'symbol' && layer['source-layer'] === 'place' && ['label_city', 'label_town', 'label_village'].includes(layer.id)).map(layer => layer.id) })
+  const places = [...new Set(labels.map(feature => feature.properties.name))].sort()
+  return { places, camera: { lng: map.getCenter().lng, lat: map.getCenter().lat, zoom: map.getZoom() }, viewport, paints: Object.fromEntries(['background', 'water', 'label_city', 'boundary_2', 'motregen-province-boundaries'].map(id => [id, style.layers.find(layer => layer.id === id)?.paint])) }
+}
+window.renderGreenMask = async function() {
+  for (const layer of map.getStyle().layers) {
+    const green = layer.id === 'park' || layer.id === 'landcover_wood' || layer.id === 'landcover_grass'
+    if (layer.type === 'background') map.setPaintProperty(layer.id, 'background-color', '#000000')
+    else if (layer.type === 'fill') {
+      map.setPaintProperty(layer.id, 'fill-pattern', undefined)
+      map.setPaintProperty(layer.id, 'fill-color', green ? '#ffffff' : '#000000')
+      map.setPaintProperty(layer.id, 'fill-outline-color', green ? '#ffffff' : '#000000')
+      map.setPaintProperty(layer.id, 'fill-opacity', 1)
+    } else map.setLayoutProperty(layer.id, 'visibility', 'none')
+  }
+  await new Promise(resolve => { map.once('idle', resolve); map.triggerRepaint() })
+}
+</script>
