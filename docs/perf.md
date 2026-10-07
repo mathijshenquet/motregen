@@ -685,7 +685,7 @@ CPU/netwerkvarianten van de nieuwe offline rig worden apart gerapporteerd.
 De rig draait vanuit `web` in devenv. Eén commando genereert zijn eigen
 synthdata, bouwt deze client, start twee lokale Caddy-servers, neemt de eerste
 30 seconden op en schrijft JSON, Markdown, een Chrome-trace en de ruwe bronnen
-naar `web/tmp/perf-mobile/`. De standaardpoorten zijn 4392/8392; het bestaande
+naar `web/tmp/perf-mobile/`. De poorten zijn per worktree eigen (zie §Laadlat); het bestaande
 e2e-slotscript houdt één Chromium per slot. Het Playwrightproject heet
 `desktop` voor het worker-regime, maar de context is expliciet Pixel 5.
 
@@ -831,6 +831,73 @@ De storm kost in deze fixture 600.472 B extra ten opzichte van koud; de
 journey 139.142 B. De RT- en Playwright-totalen waren per soort en per response
 exact gelijk. De ontbrekende U52-meetpunten en Lucht-adapter blijven als
 bevinding in de baselines staan.
+
+## Laadlat: ttfp naast Buienradar (U54, MIP-19 §De lat)
+
+De maat is `ttfp` (time to first play): van navigatiestart tot de kaart een regenframe toont
+én de tijdlijn op het scherm loopt. De client telt de eerste wissel van het linker regenframe
+in een getekend beeld terwijl `playing` aan staat (`PerfMonitor.markRainFrameCommitted`); een
+bewegende cursor boven een stilstaande kaart telt dus niet. Doel: `ttfp ≤ ttfp-ref`.
+
+```sh
+pnpm perf:mobile --scenario koud-spelend --repeat 3            # ttfp, ttfr, ttfh, blank-visible, LoAF 12 s
+pnpm perf:mobile --scenario referentie-buienradar --repeat 3   # ttfp-ref
+pnpm exec tsx scripts/po-reference.ts compare perf/po-android-reference.json tmp/perf-mobile/<rapport>.json
+```
+
+- `koud-spelend` opent zonder `?t`, zodat de app vanzelf afspeelt. `koud` heeft een tijdpreset
+  en staat daardoor stil; dat scenario kan geen ttfp meten.
+- `referentie-buienradar` meet https://www.buienradar.nl met dezelfde Pixel 5-emulatie en
+  hetzelfde CDP-profiel, koud (verse context, cache uit), over het echte netwerk. Het
+  radarbeeld is een `img.leaflet-image-layer`; een wissel van zijn `src` is een frame-wissel en
+  het tijdlabel dient als tweede getuige. De rig klikt de toestemmingsmuur weg zodra de knop er
+  staat. Dat is sneller dan een mens, dus de referentie valt eerder gunstig uit voor Buienradar.
+  `ttfp-ref zonder iets over de kaart` telt pas vanaf het eerste beeld waar niets overheen ligt.
+- De overige meetpunten: `ttfr` is het eerste regenframe én de basemap-tiles van het eerste
+  beeld (`map.areTilesLoaded()` na een render); `ttfh` is `window-ready:rain_rate`;
+  `blank-visible-ms` is de tijd na de splash waarin een zichtbaar regenslot van de scrubber geen
+  waarde had en ook niet als "komt nog" getekend was (`core/screen-truth.ts`). Main tekent nog
+  geen fog, dus daar telt elk ontbrekend slot als leeg. Tabelrijen tellen nog niet mee.
+
+### Wanneer een rig-meting telt
+
+- **Loadavg ≤ 8** (1 minuut, `scripts/rig-host.ts`). `perf:mobile` wacht vóór de run tot de host
+  zo rustig is (`--load-wait <minuten>`, standaard 20) en schrijft de loadavg bij de start van
+  elke run in het rapport. Runs boven de drempel doen niet mee in de mediaan en staan als
+  weggegooid in de samenvatting. Op 2026-10-07 draaiden drie tracks tegelijk rigs (loadavg
+  13–18): dezelfde code gaf toen een time-out, 2,9 s en 4,5 s.
+- **×3, mediaan.** Eén run is geen meting.
+- **Eigen poorten per worktree** (4400–4899 / 8400–8899, afgeleid van het pad). Op de oude vaste
+  4392/8392 raakten rigs van verschillende tracks elkaars webserver. `MOTREGEN_E2E_PORT` en
+  `MOTREGEN_E2E_DATA_PORT` gaan nog steeds voor.
+- De rig en `synthgen` draaien via `tsx`, dat een IPC-socket opent; binnen een sandbox zonder
+  socketrechten faalt dat met `listen EPERM`.
+
+### Vóór-meting main, 2026-10-07 (mobile-4g, CPU 4×, rig 621576e, loadavg 5,9–7,5)
+
+| maat | run 1 | run 2 | run 3 | mediaan |
+| --- | ---: | ---: | ---: | ---: |
+| ttfp | 2558 | 4342 | 4446 | 4342 ms |
+| ttfr | 1600 | 1620 | 1588 | 1600 ms |
+| ttfh | 2887 | 25532 | 29487 | 25532 ms |
+| blank-visible-ms | 3977 | 22215 | 26015 | 22215 ms |
+| LoAF eerste 12 s, totaal | 2672 | 10239 | 10686 | 10239 ms |
+| decodes in 30 s | 356 | 341 | 276 | |
+| ttfp-ref Buienradar | 3728 | 3586 | weggegooid (loadavg 8,71) | ≈ 3,6–3,7 s |
+
+De koude start van main is bimodaal: een snelle tak (run 1) en een trage (run 2 en 3) waarin
+de puntreeks pas na 25 s laadfase `direct` haalt. De oorzaak en het vervolg staan in de
+track-LOG (`.dev/tracks/u54-laadchoreografie-live/LOG.md`).
+
+### Profiel po-android
+
+`web/perf/po-android-reference.json` is de samenvatting van de koude PO-opname van 16:27:59
+(Android Chrome, UA "Linux; Android 10; K"), gemaakt met `scripts/po-reference.ts summarize`.
+De ruwe opnames blijven lokaal in `~/motregen-profiles`. Het profiel `po-android` in
+`e2e/profiles.ts` is een eerste aanzet (390 px, die UA, CPU 4×, 30 Mbps / 20 ms) en is **nog
+niet gekalibreerd**: de tabel met afwijking per meetpunt volgt zodra er een meting op een
+rustige host is. Bekend gat: een decode kost in de rig 0,3 ms (synthraster 190 × 230, workers
+niet geremd door CDP) tegen 22 ms op de telefoon.
 
 ## Live-smoke
 
