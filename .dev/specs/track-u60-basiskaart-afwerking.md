@@ -44,3 +44,14 @@ elementen)." En: "het voelt wel zeer snappy" — dat moet zo blijven.
 
 Geen schema-uitbreiding buiten landcover/landuse/place; geen wegen. Leesbaarheid: geen één-letter-
 namen, geen slimme one-liners, commentaar alleen voor het niet-voor-de-hand-liggende waarom.
+
+## Aanvulling PO (21:20): contrastieve A/B oud–nieuw, óók nachtmodus
+
+Doe de vergelijking als expliciete A/B: dezelfde views (start 390 px en 1280 px, Utrecht ingezoomd,
+kust/IJsselmeer) als paren oud (OpenFreeMap-snapshot via `--basemap openfreemap`) naast nieuw
+(eigen kaart), in licht én donker. Leg per paar vast wat verschilt (groenoppervlak in %, aantal
+plaatslabels, contrast van water/land/grenzen/labels als luminantie-verschil) in een tabel in de LOG
+en zet de beeldparen in de track-map. **Nachtmodus**: de PO vindt het nieuwe donkere beeld lager in
+contrast; meet het (L*-verschil water–land, label–achtergrond) tegen liberty-donker uit U59's
+`darkenLibertyLayer`-logica en breng het terug op hetzelfde niveau. Alles wat je verandert gaat
+door de A/B opnieuw; het eindpaar gaat naar de PO voor akkoord.
