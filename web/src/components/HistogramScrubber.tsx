@@ -1,5 +1,5 @@
 import { createEffect, createMemo, createSignal, createUniqueId, For, Index, onCleanup, onMount, Show, untrack } from 'solid-js'
-import { CLOUD_LAYERS, cloudBand, skyAt, skyStars, skyStops, skyStrokes, sunCrossings, type CloudSeries } from '../core/cloud-section'
+import { CLOUD_LAYERS, cloudBand, skyAt, skyStars, skyStops, skyStrokes, sunCrossings, type CloudSeries, type SkyStar } from '../core/cloud-section'
 import type { TimelineFrame } from '../core/contract'
 import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColor } from '../core/rain-chart'
 import { SCRUBBER_CURSOR_FRACTION, SCRUBBER_VIEW_HOURS, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
@@ -235,6 +235,15 @@ export default function HistogramScrubber(props: Props) {
       }),
     }
   })
+  // Een ster die dooft of opkomt verschuift alle posities erna; met dezelfde objecten voor ongewijzigde
+  // sterren houdt <For> hun knopen vast en raakt een aanvulling van de reeksen alleen de sterren die veranderen.
+  const stars = createMemo<SkyStar[]>((previous) => {
+    const known = new Map(previous.map((star) => [star.x, star]))
+    return (skyDetail()?.stars ?? []).map((star) => {
+      const same = known.get(star.x)
+      return same && same.y === star.y && same.radius === star.radius && same.brightness === star.brightness ? same : star
+    })
+  }, [])
   // Windgrafiek in baancoördinaten (één keer per data/afmeting, schuift met de baan mee).
   const windChart = scrubMemo('windgrafiek', () => {
     const wind = props.wind
@@ -596,13 +605,15 @@ export default function HistogramScrubber(props: Props) {
               <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-depth)`} />
               {/* Oplopend naar de horizon in stroken: een SVG-masker over de hele baan bleek hier niet te werken. */}
               <For each={HAZE_BANDS}>{(band) => <rect y={plotHeight() * band.from} width={cloudWidth()} height={plotHeight() * (1 - band.from)} fill={`url(#${cloudId}-haze)`} opacity={band.opacity} />}</For>
-              <For each={detail().dusks}>{(dusk) => <g class="dusk" style={{ opacity: dusk.strength }}>
-                <circle cx={dusk.x - dusk.side * dusk.radius * 0.55} cy={plotHeight()} r={dusk.radius * 1.5} fill={`url(#${cloudId}-dusk-purple)`} />
-                <circle cx={dusk.x + dusk.side * dusk.radius * 0.35} cy={plotHeight()} r={dusk.radius * 1.25} fill={`url(#${cloudId}-dusk-rose)`} />
-                <circle cx={dusk.x} cy={plotHeight()} r={dusk.radius} fill={`url(#${cloudId}-dusk-amber)`} />
-              </g>}</For>
-              <For each={detail().strokes}>{(stroke) => <path class="sky-stroke" classList={{ light: stroke.light }} d={stroke.path} style={{ '--strength': stroke.strength }} />}</For>
-              <For each={detail().stars}>{(star) => <circle class="sky-star" cx={star.x} cy={star.y} r={star.radius} opacity={star.brightness} />}</For>
+              {/* Index, niet For: bij elke aanvulling van de reeksen zijn dit nieuwe objecten; per positie bijwerken
+                  zet alleen gewijzigde attributen, For bouwde alle knopen opnieuw (72 000 knopen in 12 s, U58). */}
+              <Index each={detail().dusks}>{(dusk) => <g class="dusk" style={{ opacity: dusk().strength }}>
+                <circle cx={dusk().x - dusk().side * dusk().radius * 0.55} cy={plotHeight()} r={dusk().radius * 1.5} fill={`url(#${cloudId}-dusk-purple)`} />
+                <circle cx={dusk().x + dusk().side * dusk().radius * 0.35} cy={plotHeight()} r={dusk().radius * 1.25} fill={`url(#${cloudId}-dusk-rose)`} />
+                <circle cx={dusk().x} cy={plotHeight()} r={dusk().radius} fill={`url(#${cloudId}-dusk-amber)`} />
+              </g>}</Index>
+              <Index each={detail().strokes}>{(stroke) => <path class="sky-stroke" classList={{ light: stroke().light }} d={stroke().path} style={{ '--strength': stroke().strength }} />}</Index>
+              <For each={stars()}>{(star) => <circle class="sky-star" cx={star.x} cy={star.y} r={star.radius} opacity={star.brightness} />}</For>
             </g>}</Show>
             {/* In Lucht blijft regen context: achter de wolkenlagen en getweend naar 35% dekking. */}
             <g class="rain-bars scrub-view" style={layerStyle(rainOpacity())}><Index each={bars()}>{(bar) => <Show
@@ -613,13 +624,13 @@ export default function HistogramScrubber(props: Props) {
               <defs>
                 <filter id={`${cloudId}-soft`} x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="0.9" /></filter>
                 <For each={['sky', ...cloudBands().map((band) => band.key)]}>{(key) => <linearGradient id={`${cloudId}-${key}`} class={key === 'sky' ? 'sky-gradient' : `cloud-tone cloud-${key}`} gradientUnits="userSpaceOnUse" x1="0" x2={cloudWidth()} y1="0" y2="0">
-                  <For each={sky().length ? sky() : [{ offset: 0, darkness: 0, daylight: 1, glow: 0 }]}>{(stop) => <stop offset={stop.offset} style={{ '--dark': stop.darkness, '--day': stop.daylight }} />}</For>
+                  <Index each={sky().length ? sky() : [{ offset: 0, darkness: 0, daylight: 1, glow: 0 }]}>{(stop) => <stop offset={stop().offset} style={{ '--dark': stop().darkness, '--day': stop().daylight }} />}</Index>
                 </linearGradient>}</For>
                 {/* Verticale lagen over de lucht: donkerder zenit, lichtere horizon. */}
                 <linearGradient id={`${cloudId}-depth`} class="sky-depth-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0" /><stop offset="0.55" /><stop offset="1" /></linearGradient>
                 {/* Warme nevel aan de horizon, alleen bij daglicht en een lichte lucht (anders een zandbodem in de nacht). */}
                 <linearGradient id={`${cloudId}-haze`} class="sky-haze-gradient" gradientUnits="userSpaceOnUse" x1="0" x2={cloudWidth()} y1="0" y2="0">
-                  <For each={sky()}>{(stop) => <stop offset={stop.offset} stop-opacity={(HAZE_OPACITY * stop.daylight * (1 - stop.darkness)).toFixed(3)} />}</For>
+                  <Index each={sky()}>{(stop) => <stop offset={stop().offset} stop-opacity={(HAZE_OPACITY * stop().daylight * (1 - stop().darkness)).toFixed(3)} />}</Index>
                 </linearGradient>
                 <clipPath id={`${cloudId}-plot`}><rect width={cloudWidth()} height={plotHeight()} /></clipPath>
                 <For each={['amber', 'rose', 'purple']}>{(tint) => <radialGradient id={`${cloudId}-dusk-${tint}`} class={`dusk-gradient dusk-${tint}`}><stop offset="0" /><stop offset="1" /></radialGradient>}</For>
@@ -627,14 +638,15 @@ export default function HistogramScrubber(props: Props) {
                 <linearGradient id={`${cloudId}-shadow`} class="cloud-shadow-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0.25" /><stop offset="1" /></linearGradient>
               </defs>
               <g class="cloud-section" data-testid="cloud-section" filter={`url(#${cloudId}-soft)`}>
+                {/* Per laagnaam (vaste sleutel), zodat een aanvulling van de reeksen alleen gewijzigde wolkvormen vervangt. */}
                 <g class="scrub-view" style={layerStyle(coverOpacity())}>
-                  <For each={coverBands()}>{(band) => <g class="cloud-band" data-layer={band.key}>
-                    <For each={band.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${band.key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /></>}</For>
+                  <For each={coverBands().map((band) => band.key)}>{(key) => <g class="cloud-band" data-layer={key}>
+                    <For each={coverBands().find((band) => band.key === key)?.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /></>}</For>
                   </g>}</For>
                 </g>
                 <g class="scrub-view" style={{ opacity: baseOpacity() * airMix() }}>
-                  <For each={layerBands()}>{(band) => <g class="cloud-band" data-layer={band.key}>
-                    <For each={band.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${band.key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /></>}</For>
+                  <For each={layerBands().map((band) => band.key)}>{(key) => <g class="cloud-band" data-layer={key}>
+                    <For each={layerBands().find((band) => band.key === key)?.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /></>}</For>
                   </g>}</For>
                 </g>
               </g>

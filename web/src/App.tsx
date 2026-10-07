@@ -75,11 +75,11 @@ const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
 // Intent (MIP-20): velden die de kaart of de scrubber in een van de modi tekent, en velden die
 // alleen de tabel voedt. Na deze rust geldt de scrubber als stilstaand.
 const ALWAYS_SHOWN_FIELDS = ['rain_rate', 'motion', 'uv', 'uv_clear', 'cloud_low', 'cloud_mid', 'cloud_high', 'cloud_frac', 'wind_u_ms', 'wind_v_ms', 'gust_ms', 'pressure_hpa', 'feels_like_c', 'temp_c']
-const TABLE_ONLY_FIELDS = ['rel_humidity', 'radiation']
+const TABLE_ONLY_FIELDS = ['radiation']
 const SCRUB_REST_MS = 250
 type PointLoadStage = 'initial' | 'direct' | 'window' | 'complete'
 type FetchPriority = 'high' | 'low'
-type ForecastIndex = 'radiationIndex' | 'uvIndex' | 'temperatureIndex' | 'feelsLikeIndex' | 'humidityIndex' | 'cloudIndex' | 'windUIndex' | 'windVIndex' | 'gustIndex'
+type ForecastIndex = 'radiationIndex' | 'uvIndex' | 'temperatureIndex' | 'feelsLikeIndex' | 'cloudIndex' | 'windUIndex' | 'windVIndex' | 'gustIndex'
 type TableSeriesKey = Exclude<ForecastIndex, 'radiationIndex'>
 
 interface IsolineSetConfig {
@@ -283,7 +283,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const uvClearTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'uv_clear') : [])
   const tempTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'temp_c') : [])
   const feelsLikeTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'feels_like_c') : [])
-  const humidityTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'rel_humidity') : [])
   const cloudTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'cloud_frac') : [])
   const gustTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'gust_ms') : [])
   const windTimeline = createMemo(() => manifest() ? buildWindTimeline(manifest()!) : [])
@@ -340,7 +339,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [uvSeries, setUvSeries] = createSignal<Array<number | null>>([])
   const [temperatureSeries, setTemperatureSeries] = createSignal<Array<number | null>>([])
   const [feelsLikeSeries, setFeelsLikeSeries] = createSignal<Array<number | null>>([])
-  const [humiditySeries, setHumiditySeries] = createSignal<Array<number | null>>([])
   const [cloudSeries, setCloudSeries] = createSignal<Array<number | null>>([])
   const [windUSeries, setWindUSeries] = createSignal<Array<number | null>>([])
   const [windVSeries, setWindVSeries] = createSignal<Array<number | null>>([])
@@ -352,7 +350,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     { key: 'uvIndex', field: 'uv', frames: uvTimeline, values: uvSeries, set: setUvSeries },
     { key: 'temperatureIndex', field: 'temp_c', frames: tempTimeline, values: temperatureSeries, set: setTemperatureSeries },
     { key: 'feelsLikeIndex', field: 'feels_like_c', frames: feelsLikeTimeline, values: feelsLikeSeries, set: setFeelsLikeSeries },
-    { key: 'humidityIndex', field: 'rel_humidity', frames: humidityTimeline, values: humiditySeries, set: setHumiditySeries },
     { key: 'cloudIndex', field: 'cloud_frac', frames: cloudTimeline, values: cloudSeries, set: setCloudSeries },
     { key: 'windUIndex', field: 'wind_u', frames: windUFrames, values: windUSeries, set: setWindUSeries },
     { key: 'windVIndex', field: 'wind_v', frames: windVFrames, values: windVSeries, set: setWindVSeries },
@@ -389,6 +386,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [tableViewTarget, setTableViewTarget] = createSignal<'map' | 'table'>()
   const tableViewOpen = createMemo(() => tableViewAvailable() && tableOpen())
   const tableModeSelected = createMemo(() => tableViewAvailable() && (tableViewTarget() === 'table' || (tableViewTarget() === undefined && tableOpen())))
+  // Op een telefoon steken er een paar tabelrijen onder de kaart uit. Dat is "in beeld", maar geen
+  // vraag om de hele tabel: zolang de tabel dicht is laden alleen de rijen die echt te zien zijn
+  // (rig mobile-4g koud, 2026-10-07: 297 → 128 decodes).
+  const [peekRows, setPeekRows] = createSignal<ReadonlySet<number>>(new Set(), { equals: (left, right) => left.size === right.size && [...left].every((epoch) => right.has(epoch)) })
+  const tablePeeking = createMemo(() => inViewOnly && tableViewAvailable() && !tableModeSelected() && !tableCoversViewport())
+  const tableRowShown = (row: { epoch: number }) => tableInView() && (!tablePeeking() || peekRows().has(row.epoch))
   let tableViewFrame: number | undefined
   let tableViewResizeTimer: number | undefined
   let tableViewSettleTimer: number | undefined
@@ -822,7 +825,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const nextUv = buildTimeline(nextManifest, 'uv')
     const nextTemperature = buildTimeline(nextManifest, 'temp_c')
     const nextFeelsLike = buildTimeline(nextManifest, 'feels_like_c')
-    const nextHumidity = buildTimeline(nextManifest, 'rel_humidity')
     const nextCloud = buildTimeline(nextManifest, 'cloud_frac')
     const nextWind = buildWindTimeline(nextManifest)
     const nextWindU = nextWind.map((frame) => frame.u)
@@ -836,7 +838,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const uv = reconcileTimelineSeries(uvTimeline(), nextUv, uvSeries())
     const temperature = reconcileTimelineSeries(tempTimeline(), nextTemperature, temperatureSeries())
     const feelsLike = reconcileTimelineSeries(feelsLikeTimeline(), nextFeelsLike, feelsLikeSeries())
-    const humidity = reconcileTimelineSeries(humidityTimeline(), nextHumidity, humiditySeries())
     const cloud = reconcileTimelineSeries(cloudTimeline(), nextCloud, cloudSeries())
     const windU = reconcileTimelineSeries(windUFrames(), nextWindU, windUSeries())
     const windV = reconcileTimelineSeries(windVFrames(), nextWindV, windVSeries())
@@ -854,7 +855,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setUvSeries(uv.values)
       setTemperatureSeries(temperature.values)
       setFeelsLikeSeries(feelsLike.values)
-      setHumiditySeries(humidity.values)
       setCloudSeries(cloud.values)
       setWindUSeries(windU.values)
       setWindVSeries(windV.values)
@@ -1870,7 +1870,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       readCachedPointSeries(client, uvTimeline(), point),
       readCachedPointSeries(client, tempTimeline(), point),
       readCachedPointSeries(client, feelsLikeTimeline(), point),
-      readCachedPointSeries(client, humidityTimeline(), point),
       readCachedPointSeries(client, cloudTimeline(), point),
       readCachedPointSeries(client, windUFrames(), point),
       readCachedPointSeries(client, windVFrames(), point),
@@ -1886,11 +1885,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setUvSeries(cachedForecast[0]!.values)
       setTemperatureSeries(cachedForecast[1]!.values)
       setFeelsLikeSeries(cachedForecast[2]!.values)
-      setHumiditySeries(cachedForecast[3]!.values)
-      setCloudSeries(cachedForecast[4]!.values)
-      setWindUSeries(cachedForecast[5]!.values)
-      setWindVSeries(cachedForecast[6]!.values)
-      setGustSeries(cachedForecast[7]!.values)
+      setCloudSeries(cachedForecast[3]!.values)
+      setWindUSeries(cachedForecast[4]!.values)
+      setWindVSeries(cachedForecast[5]!.values)
+      setGustSeries(cachedForecast[6]!.values)
       setStatus(label)
       setPointSeriesLoading(false)
       setPointLoadStage('complete')
@@ -1904,7 +1902,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     setUvSeries([])
     setTemperatureSeries([])
     setFeelsLikeSeries([])
-    setHumiditySeries([])
     setCloudSeries([])
     setWindUSeries([])
     setWindVSeries([])
@@ -1913,11 +1910,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       // De fase "direct" wacht alleen op de rijen rond nu; de rest van de tabel en het venster is
       // tegelijk gevraagd en groeit per frame aan (publishLoadedSeries), het verst van de cursor het laatst.
       for (const series of tableSeries) void readForecastPointSeries(series.frames(), point, series.key, 'L0', state)
-      const [uv, temperature, feelsLike, humidity, cloud, windU, windV, gust] = await Promise.all([
+      const [uv, temperature, feelsLike, cloud, windU, windV, gust] = await Promise.all([
         readForecastPointSeries(uvTimeline(), point, 'uvIndex', 'L0', state, 'near-now'),
         readForecastPointSeries(tempTimeline(), point, 'temperatureIndex', 'L0', state, 'near-now'),
         readForecastPointSeries(feelsLikeTimeline(), point, 'feelsLikeIndex', 'L0', state, 'near-now'),
-        readForecastPointSeries(humidityTimeline(), point, 'humidityIndex', 'L0', state, 'near-now'),
         readForecastPointSeries(cloudTimeline(), point, 'cloudIndex', 'L0', state, 'near-now'),
         readForecastPointSeries(windUFrames(), point, 'windUIndex', 'L0', state, 'near-now'),
         readForecastPointSeries(windVFrames(), point, 'windVIndex', 'L0', state, 'near-now'),
@@ -1930,7 +1926,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         setUvSeries(mergeLoaded(uv))
         setTemperatureSeries(mergeLoaded(temperature))
         setFeelsLikeSeries(mergeLoaded(feelsLike))
-        setHumiditySeries(mergeLoaded(humidity))
         setCloudSeries(mergeLoaded(cloud))
         setWindUSeries(mergeLoaded(windU))
         setWindVSeries(mergeLoaded(windV))
@@ -1972,11 +1967,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
   function resumePointLoadAfterRefresh(state: PointLoadState, previousStage: PointLoadStage): void {
     state.direct = (async () => {
-      const [uv, temperature, feelsLike, humidity, cloud, windU, windV, gust] = await Promise.all([
+      const [uv, temperature, feelsLike, cloud, windU, windV, gust] = await Promise.all([
         readForecastPointSeries(uvTimeline(), state.point, 'uvIndex', 'refresh'),
         readForecastPointSeries(tempTimeline(), state.point, 'temperatureIndex', 'refresh'),
         readForecastPointSeries(feelsLikeTimeline(), state.point, 'feelsLikeIndex', 'refresh'),
-        readForecastPointSeries(humidityTimeline(), state.point, 'humidityIndex', 'refresh'),
         readForecastPointSeries(cloudTimeline(), state.point, 'cloudIndex', 'refresh'),
         readForecastPointSeries(windUFrames(), state.point, 'windUIndex', 'refresh'),
         readForecastPointSeries(windVFrames(), state.point, 'windVIndex', 'refresh'),
@@ -1988,7 +1982,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         setUvSeries(uv)
         setTemperatureSeries(temperature)
         setFeelsLikeSeries(feelsLike)
-        setHumiditySeries(humidity)
         setCloudSeries(cloud)
         setWindUSeries(windU)
         setWindVSeries(windV)
@@ -2032,7 +2025,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       if (row[key] == null || (rows === 'near-now' && Math.abs(row.epoch - now) > READY_WINDOW_MS)) return []
       const tableRow = isPassiveRow(row, now) && (row.kind !== 'past' || history)
       if (!inViewOnly) return tableRow ? [row[key]] : []
-      const wanted = (tableInView() && tableRow) || (scrubberSeries().has(key) && rowInView(row, window))
+      const wanted = (tableRow && tableRowShown(row)) || (scrubberSeries().has(key) && rowInView(row, window))
       return wanted ? [row[key]] : []
     })
     if (!frames.length) return Promise.resolve([])
@@ -2062,11 +2055,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   async function mergeForecastSeries(state: PointLoadState, layer: LoadLayer): Promise<void> {
-    const [uv, temperature, feelsLike, humidity, cloud, windU, windV, gust] = await Promise.all([
+    const [uv, temperature, feelsLike, cloud, windU, windV, gust] = await Promise.all([
       readForecastPointSeries(uvTimeline(), state.point, 'uvIndex', layer, state),
       readForecastPointSeries(tempTimeline(), state.point, 'temperatureIndex', layer, state),
       readForecastPointSeries(feelsLikeTimeline(), state.point, 'feelsLikeIndex', layer, state),
-      readForecastPointSeries(humidityTimeline(), state.point, 'humidityIndex', layer, state),
       readForecastPointSeries(cloudTimeline(), state.point, 'cloudIndex', layer, state),
       readForecastPointSeries(windUFrames(), state.point, 'windUIndex', layer, state),
       readForecastPointSeries(windVFrames(), state.point, 'windVIndex', layer, state),
@@ -2077,7 +2069,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setUvSeries(mergeLoaded(uv))
       setTemperatureSeries(mergeLoaded(temperature))
       setFeelsLikeSeries(mergeLoaded(feelsLike))
-      setHumiditySeries(mergeLoaded(humidity))
       setCloudSeries(mergeLoaded(cloud))
       setWindUSeries(mergeLoaded(windU))
       setWindVSeries(mergeLoaded(windV))
@@ -2194,11 +2185,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     window.clearTimeout(state.deepIdle)
     state.full = (async () => {
       await state.direct
-      const [uv, temperature, feelsLike, humidity, cloud, windU, windV, gust] = await Promise.all([
+      const [uv, temperature, feelsLike, cloud, windU, windV, gust] = await Promise.all([
         readPointSeries(uvTimeline(), state.point, undefined, priority, undefined, undefined, layer),
         readPointSeries(tempTimeline(), state.point, undefined, priority, undefined, undefined, layer),
         readPointSeries(feelsLikeTimeline(), state.point, undefined, priority, undefined, undefined, layer),
-        readPointSeries(humidityTimeline(), state.point, undefined, priority, undefined, undefined, layer),
         readPointSeries(cloudTimeline(), state.point, undefined, priority, undefined, undefined, layer),
         readPointSeries(windUFrames(), state.point, undefined, priority, undefined, undefined, layer),
         readPointSeries(windVFrames(), state.point, undefined, priority, undefined, undefined, layer),
@@ -2209,7 +2199,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setUvSeries(uv)
       setTemperatureSeries(temperature)
       setFeelsLikeSeries(feelsLike)
-      setHumiditySeries(humidity)
       setCloudSeries(cloud)
       setWindUSeries(windU)
       setWindVSeries(windV)
@@ -2457,7 +2446,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     radiation: radiationTimeline(),
     temperature: tempTimeline(),
     feelsLike: feelsLikeTimeline(),
-    humidity: humidityTimeline(),
     cloud: cloudTimeline(),
     windU: windUFrames(),
     windV: windVFrames(),
@@ -2470,13 +2458,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const all = pointLoadStage() === 'complete'
     const now = manifestNow()
     const indexes = forecast().flatMap((row) => {
-      if (row.kind === 'past' || (!all && !isPassiveRow(row, now))) return []
+      if (row.kind === 'past' || (!all && !isPassiveRow(row, now)) || !tableRowShown(row)) return []
       if (solarElevationSin(row.epoch, point.lng, point.lat) <= 0) return []
       return [row.radiationIndex, row.radiationNextIndex].filter((index): index is number => index != null)
     })
     const request = ++radiationRequest
     // De straling voedt alleen de tabel (weericoon, UV-schatting).
-    if (!indexes.length || !tableInView()) return
+    if (!indexes.length) return
     void readPointSeries(frames, point, indexes, 'low', undefined, undefined, 'L0').then((values) => {
       if (request === radiationRequest) setRadiationSeries(values)
     }).catch(() => undefined)
@@ -2493,13 +2481,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const all = stage === 'complete'
     const history = historyRowsWanted()
     const now = manifestNow()
-    const tableOpen = tableInView()
     const window = inViewOnly ? viewWindow() : undefined
     const indexes = forecast().flatMap((row) => {
       if (row.uvClearIndex == null || solarElevationSin(row.epoch, point.lng, point.lat) <= 0) return []
       const tableRow = (all || isPassiveRow(row, now)) && (row.kind !== 'past' || history)
       // Zonder tabel in beeld leest alleen de UV-chip bij de cursor deze reeks.
-      const wanted = tableOpen ? tableRow : window !== undefined && rowInView(row, window)
+      const wanted = tableRowShown(row) ? tableRow : window !== undefined && rowInView(row, window)
       return wanted ? [row.uvClearIndex] : []
     })
     const request = ++uvClearRequest
@@ -2576,6 +2563,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     viewWindow()
     scrubberSeries()
     tableInView()
+    tablePeeking()
+    peekRows()
     // Niet wachten op een laadfase: wat de intent nu vraagt gaat meteen de planner in (MIP-20).
     if (pointLoadStage() === 'complete') return
     const state = untrack(() => pointLoad)
@@ -2756,11 +2745,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
               rows={forecast()}
               series={{
                 rain: rainSeries(), uv: uvSeries(), uvClear: uvClearSeries(), radiation: radiationSeries(), temperature: temperatureSeries(),
-                feelsLike: feelsLikeSeries(), humidity: humiditySeries(), cloud: cloudSeries(), windU: windUSeries(), windV: windVSeries(), gust: gustSeries(),
+                feelsLike: feelsLikeSeries(), cloud: cloudSeries(), windU: windUSeries(), windV: windVSeries(), gust: gustSeries(),
               }}
               location={location()}
               windUnit={windUnit()}
               dayNight={expressive()}
+              onVisibleRows={inViewOnly ? (epochs) => setPeekRows(new Set(epochs)) : undefined}
               columns={{ weather: hasWeatherIcons(), air: hasWeatherIcons() || uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), wind: hasWind() }}
               loadedUntil={pointLoadStage() === 'complete' ? Number.POSITIVE_INFINITY : manifestNow() + PASSIVE_FORECAST_HOURS * 3_600_000}
               historyInline={historyInline()}

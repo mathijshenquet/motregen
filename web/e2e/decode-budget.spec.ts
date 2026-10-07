@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import type { LoadTraceSnapshot } from '../src/core/perf'
 
 // Een krap apparaat (U49) zonder UA-sniffing: vier kernen volstaat voor de budgetregel, en in het
-// smalle venster liggen de tabelrijen onder de vouw, zoals op een telefoon.
+// smalle venster steken alleen de bovenste tabelrijen onder de kaart uit, zoals op een telefoon.
 test.use({ viewport: { width: 393, height: 727 } })
 
 interface PerfWindow {
@@ -26,10 +26,11 @@ test('a constrained device decodes only what the scrubber and the table show', a
   await page.waitForTimeout(3_000)
 
   const passive = await decodedFrames(page)
-  // Tabelvelden: niets zolang de rijen onder de vouw liggen.
+  // Tabelvelden: sinds U42 steken er een paar rijen onder de kaart uit (en ze volgen de cursor); alleen
+  // die laden, niet de 25 rijen van de hele tabel (U58).
+  expect(ofField(passive, 'cloud_frac').length).toBeLessThan(8)
+  expect(ofField(passive, 'radiation').length).toBeLessThan(8)
   expect(ofField(passive, 'rel_humidity')).toHaveLength(0)
-  expect(ofField(passive, 'cloud_frac')).toHaveLength(0)
-  expect(ofField(passive, 'radiation')).toHaveLength(0)
   // Wolkenlagen: het scrubbervenster (8 u + speling), niet alle 52 uurframes.
   expect(ofField(passive, 'cloud_low').length).toBeLessThan(20)
   // Vóór U49 decodeerde dezelfde passieve start hier ruim 400 frames.
@@ -39,10 +40,15 @@ test('a constrained device decodes only what the scrubber and the table show', a
   await expect.poll(async () => Object.keys(await page.evaluate(() => (window as unknown as PerfWindow).__motregenPerf!.snapshot().windowReadyMs)), { timeout: 20_000 })
     .toEqual(expect.arrayContaining(['rain_rate', 'cloud_low', 'cloud_mid', 'cloud_high']))
 
-  // De tabel in beeld: nu pas laden de rijen, en ze vullen zich.
+  // De tabel in beeld: nu pas laden de rijen die te zien zijn (U58: niet de hele tabel), en ze vullen zich.
   await page.locator('.forecast-table tbody tr.current-hour').scrollIntoViewIfNeeded()
-  await expect.poll(async () => ofField(await decodedFrames(page), 'rel_humidity').length, { timeout: 20_000 }).toBeGreaterThan(0)
+  await expect.poll(async () => ofField(await decodedFrames(page), 'cloud_frac').length, { timeout: 20_000 }).toBeGreaterThan(0)
   await expect(page.locator('.forecast-table tbody tr.current-hour')).not.toHaveClass(/pending-hour/, { timeout: 20_000 })
+  await page.waitForTimeout(2_000)
+  const peeking = await decodedFrames(page)
+  // Een handvol zichtbare rijen, niet alle 25; de RV-kolom bestaat niet meer en laadt dus nooit.
+  expect(ofField(peeking, 'cloud_frac').length).toBeLessThan(12)
+  expect(ofField(peeking, 'rel_humidity')).toHaveLength(0)
 
   // Ver weg scrubben: het venster volgt de cursor en het laatste regenframe komt alsnog.
   const before = await decodedFrames(page)

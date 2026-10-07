@@ -19,7 +19,6 @@ export interface ForecastSeries {
   radiation: Array<number | null>
   temperature: Array<number | null>
   feelsLike: Array<number | null>
-  humidity: Array<number | null>
   cloud: Array<number | null>
   windU: Array<number | null>
   windV: Array<number | null>
@@ -41,6 +40,8 @@ interface Props {
   historyOpen: boolean
   historyLoaded: boolean
   onNeedRows: () => void
+  /** Uren van de rijen die nu in de viewport staan; alleen gezet op apparaten die per zichtbare rij laden. */
+  onVisibleRows?: (epochs: number[]) => void
   onNeedHistory: () => void
   onOpenHistory: () => void
   /** Klik op een rij: de scrubber springt naar dat uur (U34). */
@@ -58,6 +59,15 @@ interface Props {
 }
 
 const hour = 3_600_000
+// De reeksen komen per frame binnen en elke aanvulling is een nieuwe array. Een cel mag alleen
+// opnieuw tekenen als zijn eigen waarde verandert; anders herbouwt elke aanvulling alle rijen
+// (telefoonopname 2026-10-07: ~1,5 s Solid-DOM-werk in 30 s).
+function sameFields<Value extends object>(left: Value | null | undefined, right: Value | null | undefined): boolean {
+  if (left === right) return true
+  if (!left || !right) return false
+  const keys = Object.keys(left) as Array<keyof Value>
+  return keys.length === Object.keys(right).length && keys.every((key) => left[key] === right[key])
+}
 const HOVER_LEAVE_MS = 80
 
 export default function ForecastTable(props: Props) {
@@ -128,6 +138,19 @@ export default function ForecastTable(props: Props) {
     observer?.disconnect()
     for (const [epoch, element] of rowElements) if (epoch > until) observer?.observe(element)
   })
+  const rowEpochs = new WeakMap<Element, number>()
+  const shownEpochs = new Set<number>()
+  const reportShown = props.onVisibleRows
+  const shownObserver = !reportShown || typeof IntersectionObserver === 'undefined' ? undefined : new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      const epoch = rowEpochs.get(entry.target)
+      if (epoch === undefined) continue
+      if (entry.intersectionRatio >= 0.5) shownEpochs.add(epoch)
+      else shownEpochs.delete(epoch)
+    }
+    reportShown([...shownEpochs])
+  // Half in beeld telt; een randje van de volgende rij is geen reden om zes velden te decoderen.
+  }, { threshold: 0.5 })
   const pastCount = () => props.rows.filter((row) => row.kind === 'past').length
   const visibleRows = tableMemo('zichtbare-rijen', () => props.historyInline || props.historyOpen || props.onOpenMobileTable ? props.rows : props.rows.filter((row) => row.kind !== 'past'))
   const historyObserver = typeof IntersectionObserver === 'undefined' ? undefined : new IntersectionObserver((entries) => {
@@ -179,6 +202,7 @@ export default function ForecastTable(props: Props) {
   onCleanup(() => {
     observer?.disconnect()
     historyObserver?.disconnect()
+    shownObserver?.disconnect()
   })
 
   const columnCount = () => 1 + Number(props.columns.weather) + Number(props.columns.air) + Number(props.columns.temperature) + Number(props.columns.wind)
@@ -218,17 +242,17 @@ export default function ForecastTable(props: Props) {
     <For each={visibleRows()}>{(row, rowIndex) => {
       const pending = () => row.epoch > props.loadedUntil || (row.kind === 'past' && !props.historyLoaded)
       const value = (series: Array<number | null>, index: number | null) => index == null ? null : series[index] ?? null
-      const rain = () => value(props.series.rain, row.rainIndex)
-      const cloud = () => value(props.series.cloud, row.cloudIndex)
-      const feelsLike = () => value(props.series.feelsLike, row.feelsLikeIndex)
-      const temperature = () => value(props.series.temperature, row.temperatureIndex)
+      const rain = createMemo(() => value(props.series.rain, row.rainIndex))
+      const cloud = createMemo(() => value(props.series.cloud, row.cloudIndex))
+      const feelsLike = createMemo(() => value(props.series.feelsLike, row.feelsLikeIndex))
+      const temperature = createMemo(() => value(props.series.temperature, row.temperatureIndex))
       const degrees = (reading: number | null) => reading == null ? placeholder() : `${Math.round(reading)}°`
-      const wind = () => summarizeWind(value(props.series.windU, row.windUIndex), value(props.series.windV, row.windVIndex),
-        value(props.series.gust, row.gustIndex), props.windUnit)
+      const wind = createMemo(() => summarizeWind(value(props.series.windU, row.windUIndex), value(props.series.windV, row.windVIndex),
+        value(props.series.gust, row.gustIndex), props.windUnit), undefined, { equals: sameFields })
       const sunEvent = () => sun().get(row.epoch)
-      const daylight = () => sunEvent()?.kind === 'set' || (sunEvent() === undefined && isSunUp(row.epoch, props.location.lng, props.location.lat))
-      const radiationBefore = () => value(props.series.radiation, row.radiationIndex)
-      const radiationAfter = () => value(props.series.radiation, row.radiationNextIndex)
+      const daylight = createMemo(() => sunEvent()?.kind === 'set' || (sunEvent() === undefined && isSunUp(row.epoch, props.location.lng, props.location.lat)))
+      const radiationBefore = createMemo(() => value(props.series.radiation, row.radiationIndex))
+      const radiationAfter = createMemo(() => value(props.series.radiation, row.radiationNextIndex))
       const darknessFor = (target: HourlyForecastRow) => {
         const cover = value(props.series.cloud, target.cloudIndex)
         // U47 gebruikt CMF op een perceptuele schaal; zonder straling volgt 100% bewolking 25% licht.
@@ -243,17 +267,17 @@ export default function ForecastTable(props: Props) {
         if (!next || !isSunUp(next.epoch, props.location.lng, props.location.lat)) return dayDarkness()
         return darknessFor(next)
       })
-      const icon = () => deriveWeatherIcon(rain(), cloud(), daylight())
+      const icon = createMemo(() => deriveWeatherIcon(rain(), cloud(), daylight()), undefined, { equals: sameFields })
       const uv = createMemo(() => uvReading(row.epoch, value(props.series.uv, row.uvIndex), value(props.series.uvClear, row.uvClearIndex),
-        radiationBefore(), radiationAfter(), elevation, row.kind !== 'past'))
+        radiationBefore(), radiationAfter(), elevation, row.kind !== 'past'), undefined, { equals: sameFields })
       const time = formatTime
       const sunLabel = (event: SunEvent) => `${event.kind === 'rise' ? 'Zon op' : 'Zon onder'} ${time(event.epoch)}`
       const placeholder = () => pending() ? '…' : '—'
-      const rainAmount = () => {
+      const rainAmount = createMemo(() => {
         const reading = rain()
         const text = reading?.toLocaleString('nl-NL', { maximumFractionDigits: reading < 1 ? 2 : 1 })
         return text === undefined || text === '0' ? undefined : text
-      }
+      })
       return <>
         <tr
           data-epoch={row.epoch}
@@ -264,7 +288,13 @@ export default function ForecastTable(props: Props) {
           }}
           ref={(element) => {
             rowElements.set(row.epoch, element)
-            onCleanup(() => rowElements.delete(row.epoch))
+            rowEpochs.set(element, row.epoch)
+            shownObserver?.observe(element)
+            onCleanup(() => {
+              rowElements.delete(row.epoch)
+              shownObserver?.unobserve(element)
+              shownEpochs.delete(row.epoch)
+            })
             if (row.kind === 'now') pinNow(element)
           }}
           classList={{

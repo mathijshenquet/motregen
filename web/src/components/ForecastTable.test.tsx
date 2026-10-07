@@ -12,12 +12,12 @@ const rows: HourlyForecastRow[] = Array.from({ length: 24 }, (_, index) => ({
   epoch: start + index * 3_600_000,
   kind: index === 0 ? 'now' : 'future',
   rainIndex: index, uvIndex: null, uvClearIndex: null, radiationIndex: null, radiationNextIndex: null,
-  temperatureIndex: index, feelsLikeIndex: index, humidityIndex: index, cloudIndex: index, windUIndex: index, windVIndex: index, gustIndex: index,
+  temperatureIndex: index, feelsLikeIndex: index, cloudIndex: index, windUIndex: index, windVIndex: index, gustIndex: index,
 }))
 const filled = (value: number) => rows.map(() => value)
 const series: ForecastSeries = {
   rain: rows.map((_, index) => [0, 0.004, 0.35, 1.26][index % 4]!), uv: [], uvClear: [], radiation: [], temperature: filled(15),
-  feelsLike: filled(14), humidity: filled(70), cloud: filled(0.5), windU: filled(3), windV: filled(1), gust: filled(8),
+  feelsLike: filled(14), cloud: filled(0.5), windU: filled(3), windV: filled(1), gust: filled(8),
 }
 const allColumns = { weather: true, air: true, temperature: true, wind: true }
 
