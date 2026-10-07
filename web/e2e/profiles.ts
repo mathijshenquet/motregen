@@ -59,7 +59,8 @@ export const performanceProfiles: readonly PerformanceProfile[] = [
     warmTtfrBudgetMs: 1_545,
     warmChunkByteBudget: 0,
     passiveChunkByteBudget: 686_000,
-    scrubTransferBudget: 11,
+    // U61: inclusief de zes bedoelde U42/U58-previewrij-ranges (24.320 B).
+    scrubTransferBudget: 16,
     sessionByteBudget: 1_345_000,
   },
   {
@@ -77,7 +78,8 @@ export const performanceProfiles: readonly PerformanceProfile[] = [
     warmTtfrBudgetMs: 1_690,
     warmChunkByteBudget: 0,
     passiveChunkByteBudget: 686_000,
-    scrubTransferBudget: 14,
+    // U61: inclusief de zes bedoelde U42/U58-previewrij-ranges (24.320 B).
+    scrubTransferBudget: 16,
     sessionByteBudget: 1_355_000,
   },
   {

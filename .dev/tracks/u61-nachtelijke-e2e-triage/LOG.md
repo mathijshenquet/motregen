@@ -227,3 +227,16 @@
 | 30 | perf.spec.ts: user journey measures performance and cache behaviour | mobile-fast-3g | Open budgetpunt: 16 transfers tegen 14; zes legitieme U42/U58-previewrij-ranges (24.320 B). Opdracht: budget behouden. | Rood: 16 transfers |
 
 - **Klaar met U61-triage binnen de opdracht:** alle 28 functionele gevallen hersteld; zelfstandige kaartomgeving op actuele main/U60 groen; de twee expliciet behouden performance-budgetpunten zijn open. Draft-PR #88 blijft draft en de gate wordt niet groen genoemd. Geen merge uitgevoerd.
+
+## 2026-10-08 01:11 CEST — orkestratorbesluit: mobiele scrubbudgetten herijken
+
+- Nieuwe expliciete instructie vervangt het eerdere budgetbehoud: mobile-4g 11 → 16 en mobile-fast-3g 14 → 16. Zes extra transfers zijn de bedoelde U42/U58-previewrij-ranges (24.320 B); reden bij beide budgetten en één regel in docs/perf.md, met de actuele tabelwaarden.
+- Gerichte controle van uitsluitend perf.spec op beide mobiele profielen via het e2e-slot en eigen poorten 4396/8396; starten bij 1-minuut-load <8. Deze run bereikt nu ook de eerder niet uitgevoerde warme navigatie en sessiebudgetten. Nog geen receipt; onafhankelijke gate/merge blijven bij de orkestrator.
+
+## 2026-10-08 01:18 CEST — performancecontrole wacht op rustige host
+
+- Budgetten/codecommentaren en documentatie gereed; diff-check schoon. De gerichte run wacht buiten het e2e-slot sinds 01:11 CEST op load <8. Andere Chromiumprocessen hielden de 1-minuut-load op circa 14–20; geen test gestart en geen receipt geclaimd. Quiet-wachtlog: `web/tmp/u61-perf-recalibrated-quiet.txt`.
+
+## 2026-10-08 01:19 CEST — budgetherijking als WIP publiceren
+
+- De rustige-hostwacht loopt nog (load circa 12). Coherente budgetwijziging nu commit/push met verificatie expliciet pending, zodat de 15–20-minutencadans en GitHub-zichtbaarheid behouden blijven. Twee mobiele budgetten =16; reden in de code en docs. De test-run blijft klaarstaan; daarna volgt een aparte receiptcommit.
