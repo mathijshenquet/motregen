@@ -373,7 +373,7 @@ button { color: inherit; cursor: pointer; }
 /* In rust een ronde zoekknop zoals de merkdruppel rechtsboven (PO 2026-09-25 live, U34); het veld zit
    eronder (voor focus en toetsenbord) maar toont geen tekst. Openen klapt hem uit tot het zoekveld. */
 .search:not(.open) { width: 44px; max-width: none; }
-.search:not(.open) .search-box { width: 44px; height: 44px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface-raised); box-shadow: var(--shadow); backdrop-filter: none; }
+.search:not(.open) .search-box { width: 44px; height: 44px; border: 1px solid var(--line-strong); border-radius: 22px; background: var(--surface-raised); box-shadow: var(--shadow); backdrop-filter: none; }
 .search:not(.open) .search-box:hover { border-color: var(--accent); background: var(--accent-soft); }
 .search:not(.open) .search-sizer { display: none; }
 .search:not(.open) .search-field { width: 42px; height: 42px; padding: 0; color: transparent; caret-color: transparent; cursor: pointer; }
