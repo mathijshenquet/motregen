@@ -26,4 +26,26 @@ describe('FrameBatcher', () => {
     expect(queued.size).toBe(0)
     expect(publish).toHaveBeenCalledTimes(2)
   })
+
+  it('publishes at once, then at most once per interval', () => {
+    const queued: FrameRequestCallback[] = []
+    let clock = 1_000
+    const publish = vi.fn()
+    const batcher = new FrameBatcher(publish, (callback) => queued.push(callback), () => undefined, 200, () => clock)
+    const nextFrame = (elapsedMs: number) => { clock += elapsedMs; queued.shift()!(clock) }
+
+    batcher.schedule()
+    nextFrame(16)
+    expect(publish).toHaveBeenCalledTimes(1)
+
+    batcher.schedule()
+    nextFrame(16)
+    nextFrame(100)
+    expect(publish).toHaveBeenCalledTimes(1)
+    batcher.schedule()
+    expect(queued).toHaveLength(1)
+    nextFrame(100)
+    expect(publish).toHaveBeenCalledTimes(2)
+    expect(queued).toHaveLength(0)
+  })
 })

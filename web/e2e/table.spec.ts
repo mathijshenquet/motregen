@@ -114,3 +114,27 @@ test('wind column shows the gust and follows the unit setting across reloads', a
   await page.reload()
   await expect(page.locator('tr.current-hour .wind-reading .wind-unit')).toHaveText('km/u', { timeout: 20_000 })
 })
+
+test.describe('telefoon met ingeklapte adresbalk', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+  test('scrolling (not tapping) to the table opens the table view even when the panel cannot reach the top', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.locator('tr.current-hour')).toBeAttached()
+    // Android Chrome met ingeklapte adresbalk: het scherm is hoger dan het paneel, dus de pagina eindigt
+    // voordat het paneel bovenaan staat (PO 2026-10-07: een strook histogram bleef in beeld, kaart bleef actief).
+    await page.addStyleTag({ content: '.forecast-panel { height: calc(100vh - 56px) !important; min-height: 0 !important; }' })
+    await page.mouse.move(195, 400)
+    await page.mouse.wheel(0, 2_000)
+    await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
+    await expect(page.locator('.app-shell')).toHaveClass(/table-scroll-open/)
+    await expect(page.getByRole('button', { name: 'Tabel' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('.map-shell')).toHaveAttribute('data-rendering', 'false')
+    expect(await page.locator('.forecast-panel').evaluate((element) => Math.round(element.getBoundingClientRect().top))).toBeGreaterThan(2)
+
+    // Terug via de pagina zelf: het wiel boven de open tabel scrolt de rijen.
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await expect(page.locator('.app-shell')).not.toHaveClass(/table-view-open/)
+    await expect(page.locator('.map-shell')).toHaveAttribute('data-rendering', 'true')
+  })
+})

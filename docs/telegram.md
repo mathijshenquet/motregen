@@ -101,6 +101,11 @@ worden vooraf naar Telegram geüpload. De overige tienminutenposities blijven
 beschikbaar als PNG in dezelfde reeks; JPEG en eenmalige upload volgen bij aanvraag.
 Daarna gebruikt ook die selectie file_id. Doel voor render+prime is <90 seconden;
 de gemeten tijden staan in het track-LOG.
+Rekenlast: een generatie kost op de dev-host ongeveer 4 cores × 60 seconden (13 media in software-GL).
+Tussen twee generaties staat de Chromium-boom van de bot op 0 % CPU (gemeten via /proc over 20 s,
+orkestrator 2026-10-07); de pagina sluit ook bij een fout (`finally` in `bot/render.ts`). Een hoog
+gemiddelde komt dus van het rendervolume zelf: de cadans van de generaties is de knop, niet een lek.
+Metingen op dezelfde host (rig, prof:capture) zijn tijdens een generatie onbetrouwbaar.
 Een tijdelijke netwerkfout of HTTP 5xx bij een weerchunk krijgt tijdens rendering
 één herpoging met dezelfde Range. Een blijvende fout publiceert geen nieuwe matrix.
 De open-fase heeft maximaal twee pogingen met hetzelfde manifest, met vijf seconden

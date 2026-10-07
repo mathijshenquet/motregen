@@ -170,7 +170,6 @@ const phaseWindowMs = 30_000
 const detailedEntryCapacity = 10_000
 let detailedMeasurementsEnabled = false
 let activeMonitor: PerfMonitor | undefined
-let measureSequence = 0
 
 export function perfPhasesEnabled(): boolean {
   return detailedMeasurementsEnabled
@@ -179,20 +178,16 @@ export function perfPhasesEnabled(): boolean {
 export function measurePerfPhase<T>(phase: PerfPhase, operation: () => T, detail?: Record<string, unknown>): T {
   if (!detailedMeasurementsEnabled) return operation()
   const startTime = performance.now()
-  const suffix = ++measureSequence
-  const start = `motregen:${phase}:start:${suffix}`
-  const end = `motregen:${phase}:end:${suffix}`
   const name = `motregen:${phase}`
-  performance.mark(start)
   try {
     return operation()
   } finally {
-    performance.mark(end)
-    performance.measure(name, { start, end, detail })
-    performance.clearMarks(start)
-    performance.clearMarks(end)
+    const duration = performance.now() - startTime
+    // Eén measure op tijdstempels, zonder benoemde marks: twee marks plus drie keer opruimen per fase
+    // kostte in de PO-opname van 2026-10-07 zelf 1,3 s hoofddraad.
+    performance.measure(name, { start: startTime, duration, detail })
     performance.clearMeasures(name)
-    activeMonitor?.recordPhase({ phase, startTime, duration: performance.now() - startTime, detail })
+    activeMonitor?.recordPhase({ phase, startTime, duration, detail })
   }
 }
 
