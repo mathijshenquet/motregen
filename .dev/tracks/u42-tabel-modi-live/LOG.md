@@ -207,3 +207,13 @@
 - Synchrone receipts: `pnpm typecheck` exit 0; volledige `pnpm test` 51 bestanden / 349 tests groen;
   `pnpm build` exit 0 (100 modules, `index-1Ptx711O.js`, `index-BVR2SLtD.css`, PWA). Preview
   `http://ageq-dev2:4320/` antwoordt HTTP 200. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+
+## 2026-10-07 09:40 UTC
+
+- Nieuwe telefoonscreenshot maakte de resterende zwevende schaduw lokaliseerbaar: niet het paneel
+  zelf, maar de absoluut gepositioneerde mobiele `forecast-panel::after`-previewlaag liep op vaste
+  hoogte door de eerste tabelrij. De laag (verloop én schaduw) is volledig verwijderd; echte
+  tabelranden en de handgreep blijven intact.
+- Synchrone receipts: `pnpm typecheck` exit 0; volledige `pnpm test` 51 bestanden / 349 tests groen;
+  `pnpm build` exit 0 (100 modules, `index-8LDUgNQq.js`, `index-4tM_1Y73.css`, PWA). Preview
+  `http://ageq-dev2:4320/` antwoordt HTTP 200. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
