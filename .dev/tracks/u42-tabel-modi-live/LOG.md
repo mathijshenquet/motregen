@@ -350,3 +350,14 @@
   17/17 en volledige `pnpm test` 59 bestanden / 385 tests groen. Build: 107 modules,
   `index-CacRwcjW.js`, `index-DwZCoSeX.css`, PWA + workers. Preview
   `http://ageq-dev2:4320/` serveert de nieuwe assets. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+
+## 2026-10-07 11:41 UTC
+
+- De offset naar een aangeklikt tabeluur wacht niet langer op de afgeronde Kaart-commit. De klik zet
+  eerst de scrubber, start direct een smooth interne scroll waarmee de gekozen uurrow onder de kop
+  komt, en start daarna in dezelfde eventafhandeling de buitenste Kaart-transitie. De callbackvolgorde
+  is in de componenttest vastgelegd; de uiteindelijke snap hoeft alleen nog overflow te vergrendelen.
+- Synchrone receipts: `git diff --check`, `pnpm typecheck` en `pnpm build` exit 0; volledige
+  `pnpm test` 59 bestanden / 385 tests groen. Build: 107 modules, `index-BrX4MYMK.js`,
+  `index-DwZCoSeX.css`, PWA + workers. Preview `http://ageq-dev2:4320/` serveert de nieuwe assets.
+  Geen e2e uitgevoerd vóór PO-signaal “klaar”.

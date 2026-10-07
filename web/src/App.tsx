@@ -2441,6 +2441,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   })
   onCleanup(() => { if (tablePreviewFrame !== undefined) cancelAnimationFrame(tablePreviewFrame) })
 
+  function selectTableTime(epoch: number): void {
+    jumpToTime(epoch)
+    if (tableViewOpen() && scrollTableToEpoch(epoch, reducedMotion.matches ? 'auto' : 'smooth')) tablePreviewPositioned = true
+  }
+
   function scrollToTable(): void {
     setTableViewTarget('table')
     forecastPanelElement.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' })
@@ -2561,7 +2566,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
               onSelectMobileMode={tableViewAvailable() ? scrollToMap : undefined}
               onNeedRows={() => { void completePointSeries(pointLoad, 'high') }}
               onNeedHistory={() => { void loadHistoryRows() }}
-              onSelectTime={jumpToTime}
+              onSelectTime={selectTableTime}
               onOpenHistory={() => {
                 if (!historyOpen()) usage.mark('history')
                 setHistoryOpen((open) => !open)

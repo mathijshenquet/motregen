@@ -112,6 +112,7 @@ describe('forecast table headings', () => {
     expect(onSelectTime).toHaveBeenCalledOnce()
     expect(onSelectTime).toHaveBeenLastCalledWith(rows[2]!.epoch)
     expect(onSelectMobileMode).toHaveBeenCalledOnce()
+    expect(onSelectTime.mock.invocationCallOrder[0]).toBeLessThan(onSelectMobileMode.mock.invocationCallOrder[0]!)
   })
 
   it('makes Weer, Lucht, Gevoel and Wind mode buttons while RV stays out of view', () => {
