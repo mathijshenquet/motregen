@@ -9,17 +9,19 @@ import { buildChromeTrace, type SelfProfilerTrace } from '../src/core/profile-re
 import { createSourceMapResolver } from '../scripts/prof-source-map'
 import { profileTop } from '../scripts/prof-top'
 import { RIG_DIST, hostLoadAverage, waitForQuietHost } from '../scripts/rig-host'
-import { completedBytesBefore, reconcileWire, renderMobileReport, summarizePhases, type MobileReport, type WireRequest } from '../scripts/mobile-report'
+import { completedBytesBefore, reconcileWire, renderMobileReport, smoothness, summarizePhases, type MobileReport, type SmoothnessWindow, type WireRequest } from '../scripts/mobile-report'
 import type { PerfMonitor } from '../src/core/perf'
 
 interface ScenarioStep {
   atMs: number
-  action: 'scrub' | 'play' | 'mode'
+  action: 'scrub' | 'play' | 'mode' | 'seek'
+  /** seek: zo lang elke 100 ms één stap vooruit op de tijdslider. */
+  seekMs?: number
   minutes?: number
   playing?: boolean
   mode?: 'Weer' | 'Lucht' | 'Gevoel' | 'Wind'
 }
-interface Scenario { durationMs: number; description: string; steps: ScenarioStep[]; autoplay?: boolean; devStorage?: Record<string, string> }
+interface Scenario { durationMs: number; description: string; steps: ScenarioStep[]; autoplay?: boolean; devStorage?: Record<string, string>; windows?: SmoothnessWindow[] }
 interface RigOptions { profiles: string[]; scenarios: string[]; repeat: number; cpuRate?: number }
 const options = JSON.parse(process.env.MOTREGEN_MOBILE_OPTIONS ?? '{"profiles":["mobile-4g"],"scenarios":["koud"],"repeat":1,"cpuRate":4}') as RigOptions
 const scenarios = JSON.parse(readFileSync('perf/scenarios.json', 'utf8')) as Record<string, Scenario>
@@ -87,7 +89,7 @@ for (const profileId of options.profiles) {
           const actualMs = await page.evaluate(() => performance.now())
           const detail = await performStep(page, step)
           actions.push({ action: step.action, plannedMs: step.atMs, actualMs, detail })
-          if (actualMs - step.atMs > 250) findings.push(`Scenarioactie ${step.action} ${Math.round(actualMs - step.atMs)} ms later dan gepland`)
+          if (step.action !== 'seek' && actualMs - step.atMs > 250) findings.push(`Scenarioactie ${step.action} ${Math.round(actualMs - step.atMs)} ms later dan gepland`)
         }
         await waitUntil(page, scenario.durationMs)
         const captured = await page.evaluate(async (durationMs) => {
@@ -118,6 +120,7 @@ for (const profileId of options.profiles) {
               url: entry.name, startMs: entry.startTime, endMs: entry.responseEnd,
               encodedBodyBytes: entry.transferSize === 0 ? 0 : entry.encodedBodySize,
             })),
+            frameTimes: window.__mobileProbe.frameTimes,
             timeOrigin: performance.timeOrigin,
             hardwareConcurrency: navigator.hardwareConcurrency,
           }
@@ -200,6 +203,8 @@ for (const profileId of options.profiles) {
           mainThread: { samples: self?.samples.length ?? 0, busySamples: self?.samples.filter((sample) => sample.stackId !== undefined).length ?? 0, busyPercent: self?.samples.length ? 100 * self.samples.filter((sample) => sample.stackId !== undefined).length / self.samples.length : null, topSources: top.functions.filter((entry) => entry.url).slice(0, 3).map(({ functionName, url, selfSamples }) => ({ functionName, url, selfSamples })) },
           intent: { fieldBytes, lateOutsideIntent },
           actions,
+          smoothness: (scenario.windows ?? []).map((window) => smoothness(captured.frameTimes, window)),
+          scrub: captured.snapshot.scrub,
           findings: [...wire.findings, ...findings, ...errors, ...externalRequests.map((url) => `Extern netwerk geblokkeerd: ${url}`)],
         }
         mkdirSync('tmp/perf-mobile', { recursive: true })
@@ -209,6 +214,7 @@ for (const profileId of options.profiles) {
         writeFileSync(`${output}.trace.json`, JSON.stringify(trace))
         writeFileSync(`${output}.raw.json`, JSON.stringify({ requests, pageResourceTiming: captured.resources, workerResourceTiming: workerResources, actions, loads: captured.loads, selfProfile: self, entries: captured.entries }))
         console.log(`${profileId}/${scenarioId}: ${decode.phases['frame-decode']?.count} decodes, ${wire.playwright.total.bytes} bodybytes, ${wire.findings.length} netwerkbevindingen → ${output}.md`)
+        for (const window of report.smoothness) console.log(`  ${window.name}: frame-tijd p95 ${window.p95Ms} ms, ${window.over50Ms} beelden > 50 ms, ${window.frames} beelden`)
         expect(externalRequests, 'geen live-netwerk').toEqual([])
         expect(errors, 'geen pagina-/consolefouten').toEqual([])
         expect(captured.milestones.ttfrMs).not.toBeNull()
@@ -234,6 +240,16 @@ async function performStep(page: Page, step: ScenarioStep): Promise<string> {
     const playing = await slider.getAttribute('data-playing') !== null
     if (playing !== step.playing) await slider.press(' ')
     return step.playing ? 'afspelen' : 'pauzeren'
+  }
+  if (step.action === 'seek') {
+    const until = Date.now() + step.seekMs!
+    let presses = 0
+    while (Date.now() < until) {
+      await slider.press('ArrowRight')
+      presses++
+      await page.waitForTimeout(100)
+    }
+    return `seek ${presses} stappen in ${step.seekMs} ms`
   }
   if (step.action === 'scrub') {
     const before = Number(await page.locator('.app-shell').getAttribute('data-epoch'))

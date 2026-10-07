@@ -24,6 +24,26 @@
     "devStorage": {},
     "steps": []
   },
+  "soepel": {
+    "durationMs": 38000,
+    "description": "Soepelheid: koude start die vanzelf speelt (afspelen tijdens laden), daarna afspelen en seeken na het laden",
+    "autoplay": true,
+    "windows": [
+      { "name": "afspelen tijdens laden", "fromMs": 2000, "toMs": 12000 },
+      { "name": "afspelen na laden", "fromMs": 15000, "toMs": 25000 },
+      { "name": "seeken na laden", "fromMs": 26500, "toMs": 36500 }
+    ],
+    "steps": [
+      { "atMs": 25500, "action": "play", "playing": false },
+      { "atMs": 26500, "action": "seek", "seekMs": 10000 }
+    ]
+  },
+  "soepel-seek-laden": {
+    "durationMs": 14000,
+    "description": "Soepelheid: koude start gepauzeerd, vanaf 2 s tien seconden seeken terwijl de data nog komt",
+    "windows": [{ "name": "seeken tijdens laden", "fromMs": 2000, "toMs": 12000 }],
+    "steps": [{ "atMs": 2000, "action": "seek", "seekMs": 10000 }]
+  },
   "journey": {
     "durationMs": 30000,
     "description": "Koude start, twee uur vooruit, tien seconden afspelen, wind, terug naar Weer",
