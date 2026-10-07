@@ -59,7 +59,7 @@ import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
 import { browserUsageEnvironment, createUsageTracker, installUsageBeacon, sessionManifestUrls } from './core/usage'
 import { copyText } from './core/clipboard'
 import { resolveLocation, suggestLocations } from './core/geocoder'
-import { cursorForPresetEpoch, modeForActiveFocus, modeForFocus, parsePresets, shareUrl } from './core/presets'
+import { applyPresetParams, cursorForPresetEpoch, modeForActiveFocus, modeForFocus, parsePresets, shareUrl } from './core/presets'
 import { applyTelegramColors, type TelegramWebApp } from './core/telegram'
 import { loadTableDayNight, storeTableDayNight } from './core/table-appearance'
 import { READY_WINDOW_MS, windowReady } from './core/window-ready'
@@ -2414,6 +2414,15 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return modeForActiveFocus(focusPinned() ?? focusMode.active())
   }
 
+  // De adresbalk is de permalink (PO 2026-10-07): modus en plek volgen live; het tijdstip alleen bij pauze/scrub,
+  // anders zou een herlaad tijdens afspelen op dat moment blijven staan (preset-semantiek).
+  createEffect(() => {
+    if (stillMode) return
+    const url = new URL(window.location.href)
+    applyPresetParams(url.searchParams, { mode: currentShareMode(), epoch: selectedEpoch(), point: location() }, !playing())
+    if (url.href !== window.location.href) history.replaceState(history.state, '', url)
+  })
+
   async function shareCurrentState(): Promise<void> {
     const url = shareUrl({ mode: currentShareMode(), epoch: selectedEpoch(), point: location() })
     const touch = matchMedia('(pointer: coarse)').matches
@@ -2702,7 +2711,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             usageBody={usageBody()}
           />
         </Show>
-        <Freshness mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness}
+        <Freshness mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness} onShare={shareCurrentState} shareNotice={shareNotice()}
           paused={!playing()} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
           timeline={timeline()} cursor={cursor()} onCursor={clockScrub} jogScale={clockJogScale()} />
       </Show>

@@ -63,6 +63,17 @@ export function modeForActiveFocus(focus: string | undefined): PresetMode {
   return (Object.entries(focusModes).find(([, value]) => value === focus)?.[0] as PresetMode | undefined) ?? 'weather'
 }
 
+/** Schrijft modus, plek en (optioneel) tijdstip in bestaande zoekparameters; andere parameters (dev, perf, tg) blijven. */
+export function applyPresetParams(params: URLSearchParams, state: { mode: PresetMode; epoch: number; point: PresetPoint }, includeTime: boolean): URLSearchParams {
+  params.set('modus', queryModes[state.mode])
+  if (includeTime) params.set('t', new Date(Math.round(state.epoch / 60_000) * 60_000).toISOString().replace('.000Z', 'Z'))
+  else params.delete('t')
+  params.set('lat', state.point.lat.toFixed(3))
+  params.set('lon', state.point.lng.toFixed(3))
+  params.delete('plaats')
+  return params
+}
+
 /** Maakt altijd een productie-link: gedeelde previews horen naar de publieke app te wijzen. */
 export function shareUrl({ mode, epoch, point }: ShareState): string {
   const url = new URL('https://motregen.nl/')

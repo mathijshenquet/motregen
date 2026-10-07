@@ -18,6 +18,9 @@ interface Props {
   onRefresh: () => Promise<void>
   onOpen?: () => void
   onClose?: () => void
+  /** Kopieert of deelt de permalink van dit moment (modus, tijdstip, plek), U44/U56 (feedback Maarten). */
+  onShare?: () => Promise<void>
+  shareNotice?: string
   /** Bewust gepauzeerd (spatie): de klok toont ▶ om verder te spelen (PO 2026-09-25 live). */
   paused?: boolean
   onPlay?: () => void
@@ -326,9 +329,14 @@ export default function Freshness(props: Props) {
           </div>
           <footer class="freshness-footer">
             <span class="freshness-meta"><Show when={props.refresh}>Laatste check {time(props.refresh!.checkedAt)} · {checkedAgo(props.refresh!.checkedAt)}</Show></span>
-            <button type="button" class="freshness-refresh" disabled={refreshing()} onClick={() => void refreshNow()}>
-              {refreshing() ? 'Bezig met verversen…' : 'Nu verversen'}
-            </button>
+            <span class="freshness-actions">
+              <Show when={props.onShare}><button type="button" class="freshness-refresh" onClick={() => void props.onShare!()}>
+                {props.shareNotice || 'Deel dit moment'}
+              </button></Show>
+              <button type="button" class="freshness-refresh" disabled={refreshing()} onClick={() => void refreshNow()}>
+                {refreshing() ? 'Bezig met verversen…' : 'Nu verversen'}
+              </button>
+            </span>
           </footer>
         </div>
       </dialog>
