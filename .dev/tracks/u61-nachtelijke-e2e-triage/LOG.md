@@ -147,3 +147,23 @@
 | 30 | perf.spec.ts: user journey measures performance and cache behaviour | mobile-fast-3g | Open budgetpunt: 16 transfers tegen 14; zes legitieme U42/U58-previewrij-ranges (24.320 B). Opdracht: budget behouden. | Rood: 16 transfers |
 
 - **Eindstand:** functionele reparaties volledig geverifieerd, gate blijft rood op twee expliciet behouden performance-budgetten. Draft-PR #88 blijft draft; geen merge. De orkestrator heeft hiermee de concrete oorzaak en meetdata voor een aparte budgetbeslissing, zonder dat U61 die productkeuze maakt.
+
+## 2026-10-08 00:55 CEST — nieuwe instructie: mainfix integreren
+
+- Orkestrator meldt `5ba8c171`: lokale PMTiles-plugin alleen actief bij https-data-origin; unit-pretest genereert voortaan synthfixtures. Main zonder conflicten gemerged. De vorige eindstand wordt hiermee aangevuld; nog geen nieuwe groene claim.
+- Voor onafhankelijke herhaling de twee basiskaartspecs en Vite-config exact teruggezet naar de mainversie; U61-versies veilig in ignored `tmp/u61/pre-main-fix/`. Zo beïnvloeden de eigen stijl-fixture en CORS-headerwijziging de nulmeting niet. Eerst main-specs op alle drie profielen herhalen, daarna alleen bewezen resterende aanpassingen behouden.
+- De pluginoorzaak wordt in de aanvullende triagetabel expliciet als "orkestrator-plugin, gefixt op main" vastgelegd. De achtergrondstijl in gewone e2e-config blijft een tweede mogelijke oorzaak; die wordt opnieuw gemeten vóór verdere aanpassing.
+
+## 2026-10-08 00:57 CEST — onafhankelijke main-herhaling: tweede oorzaak bevestigd
+
+- Trace van eerste main-cachefailure: GET `http://127.0.0.1:8396/style.json` geeft 200 met `sources: {}` en alleen de achtergrondlaag; **0 PMTiles-requests**. Screenshot bevestigt ontbreken van basiskaartlabels/wegen. Dit is onafhankelijk van de inmiddels inactieve lokale archiefplugin: die krijgt geen tegelrequests om te onderscheppen.
+- Dus naast "oorzaak: orkestrator-plugin, gefixt op main" blijft de gewone e2e-achtergrondfixture aantoonbaar een integratieprobleem voor deze U59-tests. De eerdere U61-stijl-fixture was daarvoor nodig; pas na de volledige main-nulmeting terugzetten. Main neemt de CORS-proxyroute over, dus de eigen Vite-headerfix voorlopig verwijderen en zonder die fix opnieuw verifiëren.
+- Cloud-section en dev-panel waren in de volledige run groen in alle drie profielen; isobars was desktop 3/3 groen, mobiele profielen hebben al bestaande skips. Op verzoek ook die specs in de gerichte vervolgcontrole meenemen; geen skips veranderen.
+
+## 2026-10-08 01:00 CEST — main-nulmeting compleet en zelfstandige fixture
+
+- Orkestrator corrigeert zijn oorzaak: "basemap: testomgeving niet zelfvoorzienend; oorzaak U59-spec, gefixt door U61". Dit vervangt de eerdere attributie aan alleen de plugin; de LOG blijft append-only.
+- Main-nulmeting met beide originele main-specs en originele Vite-config: `cd web && MOTREGEN_E2E_PORT=4396 MOTREGEN_E2E_DATA_PORT=8396 pnpm e2e e2e/basemap.spec.ts e2e/basemap-cache.spec.ts --project desktop --project mobile-4g --project mobile-fast-3g --output tmp/u61-main-basemap`, **exit 1, 18 failed**. Stijl zonder PMTiles-bron; daarnaast ontbreekt `public/data/basemap` ook na synthgen. Ruwe uitvoer/traces: `web/tmp/u61-main-basemap*`.
+- Zelfvoorzienende reparatie: standaard e2e-webserver voert na synthgen `scripts/e2e-basemap.ts` uit, kopieert de meegecommitteerde archieven naar de eigen Caddy-data-origin. Basiskaartspecs krijgen de bestaande U61-stijl-fixture terug (licht/donker + fonts uit meegecommitteerde public/basemap). Geen handmatig publiceren/snapshot en geen skips nodig.
+- U61-Vite-headerfix verwijderd: main's pluginvoorwaarde voorkomt onderscheppen van de e2e-data-origin, waar Caddy de juiste CORS/Range-headers al levert. Daarmee resteert geen U61-productwijziging in Vite.
+- Gerichte nieuwe run: basiskaart, cache, cloud-section, dev-panel, isobars op alle drie profielen. Synthgen verwijdert eerst de datadir en de webserver bereidt hem daarna zelf opnieuw voor: dit controleert de verse werkboom zonder voorbereid basemaparchief. Nog geen receipt.
