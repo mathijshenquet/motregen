@@ -42,3 +42,10 @@
 - 12-stillmatrix tegen lokale preview SYNCHRONE EXIT 0; alle 12 JPEGs gemaakt, 1258–2059 ms per still. Gerichte desktopcontrole: direnv exec . env MOTREGEN_E2E_PORT=4366 MOTREGEN_E2E_DATA_PORT=8366 pnpm --dir web e2e e2e/telegram.spec.ts --project desktop: SYNCHRONE EXIT 0, 6/6. Definitieve Nix-VM SYNCHRONE EXIT 0. Build/typecheck exit 0 op fase-1-code.
 - Fase-1-bot start nu voor PO-poke tegen 4365; eigen immutable dist-kopie onder tmp/u55-phase1-bot voorkomt dat vervolgbuilds deze botcode veranderen. Debug-chat-id komt uitsluitend uit .env in geheugen. Orkestratorpoller blijft uit; deze instantie is de enige poller. Start/stop van deze instantie worden gelogd.
 - Vervolgens punten 6–9 bouwen. PO heeft matrix gepreciseerd naar drie modi × (loop+4 stills) plus Wind-loop. Bestaande stills blijven zelfstandige artifacts voor knoppen en later gebruik.
+
+## 2026-10-07T11:24:45.732Z — Klok gelijk aan motregen.nl; tijdelijke botwissel
+- PO vraagt de tijd exact als op de website. ClockFace deelt nu de markup en kloktypografie met Freshness; still-route gebruikt dezelfde map-clock/freshness-trigger-CSS (zonder knop/bediening), modus klein eronder. De dag staat alleen bij een andere dag, net als op de site. Renderer injecteert geen aparte klok meer; cacheversie 5.
+- Fase-1-poller gestopt voor immutable bot-/preview-update; geen tweede poller gestart. Nieuwe fase-1-build SYNCHRONE EXIT 0; Freshness-unit en gerichte Telegram/Freshness-desktopcontrole lopen. Daarna herstart en PO-poke mogelijk.
+
+## 2026-10-07T11:25:05.934Z — Start fase-1-poke met websiteklok
+- Vorige botexec SYNCHRONE EXIT 130 na SIGINT; instantie beëindigd. Nieuwe immutable build met gedeelde websiteklok start nu tegen preview 4365, cache tmp/u55-smoke; alleen deze poller.

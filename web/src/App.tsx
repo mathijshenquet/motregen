@@ -6,6 +6,8 @@ import HistogramScrubber from './components/HistogramScrubber'
 import { INLINE_ICON, Star, Sun } from './components/icons'
 import LocationSearch from './components/LocationSearch'
 import Freshness from './components/Freshness'
+import ClockFace from './components/ClockFace'
+import { formatTime, formatWeekdayShort } from './core/locale'
 import PerfHud from './components/PerfHud'
 import type { IsolineCounters } from './core/perf'
 import ForecastTable from './components/ForecastTable'
@@ -2294,6 +2296,15 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           <strong>motregen.nl</strong>
         </div>
       </div>
+      <Show when={stillMode}>
+        <div class="map-clock still-clock">
+          <div class="freshness-trigger">
+            <ClockFace time={formatTime(cursorMinute())} day={formatWeekdayShort(cursorMinute()) === formatWeekdayShort(Date.now()) ? '' : formatWeekdayShort(cursorMinute())} />
+            <small class="clock-day">{{ weather: 'Regen', air: 'Lucht', feels: 'Gevoelstemperatuur', wind: 'Wind' }[initialPresets.mode ?? 'weather']}</small>
+          </div>
+        </div>
+        <footer class="still-attribution">KNMI · OpenFreeMap</footer>
+      </Show>
       <Show when={!stillMode}>
         <About theme={theme()} onTheme={(choice) => { usage.setTheme(choice); setTheme(choice) }}
           windUnit={windUnit()} onWindUnit={(unit) => { usage.setUnit(unit); setWindUnit(unit); localStorage.setItem('motregen-wind-unit', unit) }} onOpen={() => usage.mark('about')} onShare={shareCurrentState} shareNotice={shareNotice()} onTripleTap={() => setPerfVisible((visible) => !visible)} />

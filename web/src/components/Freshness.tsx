@@ -6,6 +6,7 @@ import { sourceZone } from '../core/time-model'
 import { BUTTON_ICON, INLINE_ICON, Play, X } from './icons'
 import { backdropHandlers } from './modal'
 import { formatTime, formatWeekdayShort } from '../core/locale'
+import ClockFace from './ClockFace'
 
 interface Props {
   // Epoch shown on the map (scrubber position) and the frame's source and run.
@@ -125,11 +126,9 @@ export default function Freshness(props: Props) {
       onClick={openPanel}
     >
       {/* PO 2026-09-25: geen groene stip; alleen bij achterlopen/verouderd een stip links van de tijd en de leeftijd eronder. */}
-      <span class="clock-main">
+      <ClockFace time={mapTime()} day={mapDay()}>
         <Show when={status() !== 'fresh'}><i class="freshness-dot" aria-hidden="true" /></Show>
-        <strong class="clock-map-time">{mapTime()}</strong>
-        <Show when={mapDay()}><small class="clock-day">{mapDay()}</small></Show>
-      </span>
+      </ClockFace>
       <Show when={status() !== 'fresh'}>
         <small class="clock-age">{status() === 'offline' ? 'offline' : radarAge() === undefined ? 'geen radar' : `${formatAgeShort(radarAge()!)} oud`}</small>
       </Show>
@@ -149,8 +148,7 @@ export default function Freshness(props: Props) {
         {/* Nog eens op de klok klikken rolt het papier weer op; grijs = de tijd staat stil. */}
         <div class="freshness-clock">
           <button type="button" class="clock-main" aria-label="Sluiten" title="Sluiten" onClick={closePanel}>
-            <strong class="clock-map-time">{mapTime()}</strong>
-            <Show when={mapDay()}><small class="clock-day">{mapDay()}</small></Show>
+            <ClockFace time={mapTime()} day={mapDay()} />
           </button>
         </div>
         <div class="about-body">

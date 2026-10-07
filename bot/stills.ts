@@ -41,7 +41,7 @@ export function caption(mode: StillMode, epoch: number): string {
 }
 
 export function cacheKey(selection: StillSelection, manifest: StillManifest): string {
-  const identity = JSON.stringify({ renderer: 4, ...selection, epoch: stillEpoch(manifest, selection.hour), generated: manifest.generated })
+  const identity = JSON.stringify({ renderer: 5, ...selection, epoch: stillEpoch(manifest, selection.hour), generated: manifest.generated })
   const digest = createHash('sha256').update(identity).digest('hex').slice(0, 24)
   return `${selection.mode}-${selection.hour}-${digest}`
 }

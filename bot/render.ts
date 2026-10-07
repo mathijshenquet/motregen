@@ -3,7 +3,7 @@ import { access, mkdir, readdir, rename, stat, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { STILL_CACHE_TTL } from './file-ids.js'
-import { cacheKey, caption, presetUrl, stillEpoch, stillTime, STILL_MODES, validateManifest, type StillManifest, type StillSelection } from './stills.js'
+import { cacheKey, caption, presetUrl, stillEpoch, validateManifest, type StillManifest, type StillSelection } from './stills.js'
 
 export interface RenderedStill {
   key: string
@@ -119,20 +119,7 @@ export class StillRenderer {
         throw new Error('Still wijkt af van de gevraagde manifestversie of tijd')
       }
       await page.waitForFunction(() => (window as unknown as { __motregenStillMapLoaded?: () => boolean }).__motregenStillMapLoaded?.())
-      await page.evaluate(async ({ time, mode }) => {
-        const header = document.createElement('header')
-        header.className = 'still-time'
-        const timestamp = document.createElement('strong')
-        timestamp.textContent = time
-        const label = document.createElement('small')
-        label.textContent = mode
-        header.append(timestamp, label)
-        const footer = document.createElement('footer')
-        footer.className = 'still-attribution'
-        footer.textContent = 'KNMI · OpenFreeMap'
-        document.querySelector('.map-shell')!.append(header, footer)
-        await document.fonts.ready
-      }, { time: stillTime(epoch), mode: STILL_MODES.find((entry) => entry.mode === selection.mode)!.label })
+      await page.evaluate(async () => { await document.fonts.ready })
       await page.screenshot({ path: `${path}.tmp`, type: 'jpeg', quality: 85 })
       await rename(`${path}.tmp`, path)
       const milliseconds = Math.round(performance.now() - started)
