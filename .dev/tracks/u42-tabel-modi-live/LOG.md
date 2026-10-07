@@ -540,6 +540,21 @@
   tint de complete Luchtkolom aaneengesloten door 19:00, de zonregel, 20:00 en 21:00; UV blijft
   licht, maan donker. Mobiel heeft zoals bedoeld geen hoverlaag en behoudt de dag/nachtgradient.
 
+## 2026-10-07 14:05 UTC
+
+- Geselecteerde modi zijn niet langer uitgesloten van kolomhover. De overlay gebruikt nu een eigen
+  inset-schaduwlaag in plaats van `background-image`; daardoor blijft hij boven elke dag-, nacht- en
+  schemergradient zichtbaar, onafhankelijk van CSS-specificiteit.
+- De afwijkende witte UV-pil rond zon op/onder kwam van `UvBar` in de toestand “Geen zon”: inhoud en
+  label waren al onderdrukt, maar het lege spoor bleef staan. Bij heldere-hemel-UV < 0,05 rendert nu
+  ook het spoor niet; echte lage UV met voldoende zon blijft wel zichtbaar.
+- Synchrone receipts: `git diff --check`, `pnpm typecheck`, volledige Vitest-run 68 bestanden/439
+  tests en `pnpm build` exit 0. Build: 113 modules, `index-D8Km3TU_.js`, `index-D5XyfAm7.css`, PWA +
+  workers. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+- Eigen visuele controle op desktop 1280×900 en mobiel 390×844: met Lucht geselecteerd én gehoverd
+  zijn alle 51 Luchtcellen getint, inclusief de eerste nachtregel; bij 19:00 is de lege UV-pil op
+  beide formaten weg en blijft de zonsonderganggradient ononderbroken.
+
 ## 2026-10-07 13:26 UTC
 
 - De tabelcyclus is nu een gebruikersoptie “Dag en nacht in tabel” onder Weergave, standaard aan en
