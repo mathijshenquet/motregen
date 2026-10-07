@@ -1,0 +1,1 @@
+"""Motregen sky measurement rig."""
