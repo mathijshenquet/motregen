@@ -121,23 +121,26 @@ interface LayerStyle {
 }
 
 const LAYER_STYLES: Record<CloudLayer, LayerStyle> = {
-  high: { slotHours: 1, closedBody: 0.14, looseBody: 0.14, aspect: 9, baseline: 0.5 },
-  mid: { slotHours: 1.5, closedBody: 0.5, looseBody: 0.4, aspect: 3, baseline: 0.62, puffs: { puffAspect: 0.85, underside: 0.3 } },
+  // Maten naar de PO (2026-10-07 live): fysiek groot, zoals de doorsnede van vóór U47.
+  high: { slotHours: 1.25, closedBody: 0.24, looseBody: 0.24, aspect: 7, baseline: 0.5 },
+  mid: { slotHours: 1.75, closedBody: 0.74, looseBody: 0.6, aspect: 2.6, baseline: 0.64, puffs: { puffAspect: 0.8, underside: 0.3 } },
   // De basis ligt ruim boven de onderrand van het plot (PO 2026-10-07 live): onder de wolk blijft lucht,
   // anders valt de vlakke onderkant, het kenmerk van een stapelwolk, tegen de rand weg.
-  low: { slotHours: 0.75, closedBody: 0.5, looseBody: 0.5, aspect: 1.9, baseline: 0.72, puffs: { puffAspect: 0.62, underside: 0 } },
+  low: { slotHours: 1, closedBody: 0.66, looseBody: 0.66, aspect: 1.7, baseline: 0.78, puffs: { puffAspect: 0.6, underside: 0 } },
 }
 const LAYER_SEEDS: Record<CloudLayer, number> = { high: 11.3, mid: 47.9, low: 83.1 }
-const MIN_SLOT_PX = 34
+const MIN_SLOT_PX = 44
 const SAMPLE_PX = 1.5
 const MIN_PUFF_RADIUS_PX = 4
 // Afstand tussen bolcentra als veelvoud van de straal: groter geeft diepere dalen tussen de bollen.
 const PUFF_SPACING = 1.35
+// Laagste punt van een gesloten dek als deel van zijn dikte.
+const CLOSED_BODY_FLOOR = 0.55
 // Ook het kleinste wolkje houdt deze dikte (deel van de grootste), anders wordt het een streepje.
 const MIN_LOOSE_THICKNESS = 0.35
 // Cirrus: een wolk is een bundel dunne vegen die allemaal dezelfde kant op hellen (één wind).
-const CIRRUS_STRAND_PITCH_PX = 22
-const CIRRUS_STRAND_LENGTH_PX = 52
+const CIRRUS_STRAND_PITCH_PX = 30
+const CIRRUS_STRAND_LENGTH_PX = 76
 const CIRRUS_SLANT = 0.16
 // Verticale spreiding van de vegen als deel van de strook.
 const CIRRUS_SPREAD = 0.42
@@ -243,7 +246,21 @@ function puffOutline(shape: CloudShape, width: number, puffs: { puffAspect: numb
       down[sample] = Math.max(down[sample]!, puffHeight * puffs.underside * arc)
     })
   }
+  if (shape.closed) {
+    // Een gesloten dek heeft een doorlopend lijf: tussen kleine bollen mag geen gat tot op de basis vallen.
+    xs.forEach((x, sample) => {
+      const body = reach * CLOSED_BODY_FLOOR * roundedEnd(Math.min(x - shape.fromX, shape.toX - x) / reach)
+      up[sample] = Math.max(up[sample]!, body)
+      down[sample] = Math.max(down[sample]!, body * puffs.underside)
+    })
+  }
   return { xs, up, down, centre: xs.map(() => 0) }
+}
+
+/** Kwartcirkel van 0 naar 1 over het uiteinde van een vorm. */
+function roundedEnd(t: number): number {
+  if (t >= 1) return 1
+  return Math.sqrt(Math.max(0, 1 - (1 - t) ** 2))
 }
 
 /** Cirrus: een bundel dunne, spitse vegen op wisselende hoogte; gesloten overlappen ze tot een sluier. */

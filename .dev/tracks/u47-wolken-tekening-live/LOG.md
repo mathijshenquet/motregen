@@ -148,3 +148,20 @@
   `voor-{weer,wind,gevoel}` → SHOT-EXIT 0 (weer na één herhaling).
 - De wisselvallige opnamen (time-out op splash of wolkenpad) vallen samen met een load average van 27
   op de dev-host; waarschijnlijk load, niet de app. Niet verder onderzocht.
+
+## 2026-10-07 16:11 — PO: wolken uit Weer, grotere wolken in Lucht
+- PO: "haal anders wolken weg uit de weer view"; "wolken in Lucht fysiek wat groter, dat vond ik beter aan
+  de oude view". Wolkenlagen alleen nog zichtbaar naar rato van `mix.air` (constante
+  `CLOUD_LAYERS_DEFAULT_OPACITY` weg); in Weer vertelt de hemel de bewolking. Maten: hoog dikte .24 /
+  veeg 76 px, midden .74/.6, laag .66 met basislijn .78; vakken 1,25 / 1,75 / 1 u, minstens 44 px.
+- Zelf gevonden op de stills en opgelost:
+  1. Gesloten dek had gaten tot op de basis tussen kleine bollen terwijl het label 100 % zei → doorlopend
+     lijf (`CLOSED_BODY_FLOOR = 0.55`).
+  2. Vóór de wolkenlagen geladen zijn schatte de hemel "onbewolkt": sterrenhemel boven regen. Nu geen
+     hemel tot de lagen er zijn, daarna infaden.
+  3. Warme horizonnevel stond ook 's nachts (zandkleurige bodem) → sterkte × daglicht × (1 − donkerte).
+  4. Het SVG-masker voor "alleen onderin" werkte niet (ook de eerdere gloedkolom was daardoor
+     plothoog); vervangen door 16 gestapelde stroken. Oorzaak van het falende masker niet uitgezocht.
+- `scrubber-shot.ts`: wacht op de hemel en op het einde van de laadmelding, time-out 150 s.
+- Receipts (synchroon): `pnpm typecheck` → 0; `pnpm test` → 0 (391 tests); `pnpm build` → 0; stills
+  `nevel-nacht` (weer), `strook`, `glad` (lucht) → SHOT-EXIT 0.

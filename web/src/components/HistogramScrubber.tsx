@@ -51,9 +51,11 @@ interface Props {
 const CLOUD_LAYER_LABELS = { high: 'hoge wolken', mid: 'midden wolken', low: 'lage wolken' } as const
 // Deel van de plothoogte voor de bewolkingsband boven de regen.
 const CLOUD_COVER_SHARE = 0.3
-// In Weer blijven de wolkenlagen als rustige achtergrond staan; Lucht brengt ze naar volle dekking.
-const CLOUD_LAYERS_DEFAULT_OPACITY = 0.8
 const HOUR = 3_600_000
+const HAZE_OPACITY = 0.5
+// Elke strook begint lager en telt op bij de vorige: zo neemt de nevel naar de horizon toe.
+const HAZE_BAND_COUNT = 16
+const HAZE_BANDS = Array.from({ length: HAZE_BAND_COUNT }, (_, index) => ({ from: 0.45 + 0.55 * index / HAZE_BAND_COUNT, opacity: 0.075 }))
 // Straal van de schemergloed als deel van de plothoogte (hoogstens één uur breed).
 const DUSK_RADIUS_SHARE = 0.62
 // Gedeeld met het laadvenster in App (U49), dat alleen laadt wat hier in beeld is.
@@ -194,6 +196,8 @@ export default function HistogramScrubber(props: Props) {
     const clouds = props.clouds
     const inputs = props.sky
     if (!clouds || !inputs || !props.timeline.length) return []
+    // Zonder wolkenlagen zou de lucht als strakblauw of sterrenhemel beginnen en bij het laden omslaan.
+    if (!CLOUD_LAYERS.some((layer) => clouds.values[layer].length)) return []
     const radiationAt = (epoch: number) => seriesValueAt(inputs.radiation.timeline, inputs.radiation.values, epoch, 5 * 60_000)
     return skyStops(timelineStart(), timelineEnd(), {
       lightAt: (epoch) => cloudModification(epoch, radiationAt(epoch), radiationAt(epoch + HOUR), inputs.sinElevation),
@@ -584,6 +588,8 @@ export default function HistogramScrubber(props: Props) {
             <Show when={skyDetail()}>{(detail) => <g class="sky" data-testid="sky" clip-path={`url(#${cloudId}-plot)`} style={{ opacity: skyStrength() }}>
               <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-sky)`} />
               <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-depth)`} />
+              {/* Oplopend naar de horizon in stroken: een SVG-masker over de hele baan bleek hier niet te werken. */}
+              <For each={HAZE_BANDS}>{(band) => <rect y={plotHeight() * band.from} width={cloudWidth()} height={plotHeight() * (1 - band.from)} fill={`url(#${cloudId}-haze)`} opacity={band.opacity} />}</For>
               <For each={detail().dusks}>{(dusk) => <g class="dusk" style={{ opacity: dusk.strength }}>
                 <circle cx={dusk.x - dusk.side * dusk.radius * 0.55} cy={plotHeight()} r={dusk.radius * 1.5} fill={`url(#${cloudId}-dusk-purple)`} />
                 <circle cx={dusk.x + dusk.side * dusk.radius * 0.35} cy={plotHeight()} r={dusk.radius * 1.25} fill={`url(#${cloudId}-dusk-rose)`} />
@@ -605,6 +611,10 @@ export default function HistogramScrubber(props: Props) {
                 </linearGradient>}</For>
                 {/* Verticale lagen over de lucht: donkerder zenit, lichtere horizon. */}
                 <linearGradient id={`${cloudId}-depth`} class="sky-depth-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0" /><stop offset="0.55" /><stop offset="1" /></linearGradient>
+                {/* Warme nevel aan de horizon, alleen bij daglicht en een lichte lucht (anders een zandbodem in de nacht). */}
+                <linearGradient id={`${cloudId}-haze`} class="sky-haze-gradient" gradientUnits="userSpaceOnUse" x1="0" x2={cloudWidth()} y1="0" y2="0">
+                  <For each={sky()}>{(stop) => <stop offset={stop.offset} stop-opacity={(HAZE_OPACITY * stop.daylight * (1 - stop.darkness)).toFixed(3)} />}</For>
+                </linearGradient>
                 <clipPath id={`${cloudId}-plot`}><rect width={cloudWidth()} height={plotHeight()} /></clipPath>
                 <For each={['amber', 'rose', 'purple']}>{(tint) => <radialGradient id={`${cloudId}-dusk-${tint}`} class={`dusk-gradient dusk-${tint}`}><stop offset="0" /><stop offset="1" /></radialGradient>}</For>
                 {/* Schaduw aan de basis van elke wolk: volume in plaats van een vlak silhouet. */}
@@ -616,7 +626,7 @@ export default function HistogramScrubber(props: Props) {
                     <For each={band.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${band.key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /></>}</For>
                   </g>}</For>
                 </g>
-                <g class="scrub-view" style={{ opacity: baseOpacity() * (CLOUD_LAYERS_DEFAULT_OPACITY + (1 - CLOUD_LAYERS_DEFAULT_OPACITY) * airMix()) }}>
+                <g class="scrub-view" style={{ opacity: baseOpacity() * airMix() }}>
                   <For each={layerBands()}>{(band) => <g class="cloud-band" data-layer={band.key}>
                     <For each={band.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${band.key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /></>}</For>
                   </g>}</For>

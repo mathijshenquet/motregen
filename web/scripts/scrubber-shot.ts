@@ -13,11 +13,12 @@ const viewports = { desktop: { width: 1280, height: 800 }, mobile: { width: 390,
 for (const [name, viewport] of Object.entries(viewports)) {
   const context = await browser.newContext({ viewport, deviceScaleFactor: 2, reducedMotion: 'reduce' })
   const page = await context.newPage()
-  page.setDefaultTimeout(60_000)
+  // Ruim: onder load op de dev-host komen de wolkenlagen soms pas na een minuut binnen.
+  page.setDefaultTimeout(150_000)
   await page.goto(new URL('/', origin).href)
   await page.locator('.map-splash.ready').waitFor({ state: 'attached' })
   const surface = page.locator('.scrub-surface')
-  await page.locator('[data-testid=cloud-section] .cloud-band path').first().waitFor({ state: 'attached' })
+  await page.locator('[data-testid=sky] rect').first().waitFor({ state: 'attached' })
   // SHOT_MODE: lucht (standaard), weer (niets gepind), wind of gevoel.
   const mode = process.env.SHOT_MODE ?? 'lucht'
   const pin = { lucht: ['air', page.getByRole('button', { name: 'Lucht' })], wind: ['wind', page.locator('.wind-focus')], gevoel: ['temperature', page.locator('.temperature-focus')] } as const
@@ -26,11 +27,13 @@ for (const [name, viewport] of Object.entries(viewports)) {
     await heading.first().click()
     await page.mouse.move(5, 5)
     await page.locator(`.scrub-surface[data-scrubber-view=${view}]`).waitFor()
+    if (mode === 'lucht') await page.locator('[data-testid=cloud-section] .cloud-band path').first().waitFor({ state: 'attached' })
   }
   await surface.focus()
   if (await surface.getAttribute('data-playing') !== null) await surface.press(' ')
   for (const key of keys.split(',').filter(Boolean)) await surface.press(key)
   await surface.blur()
+  await page.locator('.scrubber-placeholder').waitFor({ state: 'detached' })
   for (const theme of ['light', 'dark']) {
     await page.evaluate((choice) => document.documentElement.setAttribute('data-theme', choice), theme)
     await page.waitForTimeout(300)

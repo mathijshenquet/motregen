@@ -583,11 +583,14 @@ button { color: inherit; cursor: pointer; }
 .sky-stroke { fill: #04121c; fill-opacity: calc(var(--strength) * .07); }
 .sky-stroke.light { fill: #fff; fill-opacity: calc(var(--strength) * .05); }
 .sky-star { fill: #fff8e0; }
+.sky, .sky-grain { animation: sky-in .6s ease-out both; }
+@keyframes sky-in { from { opacity: 0; } }
 .sky-grain { position: absolute; top: 0; bottom: 0; left: 0; pointer-events: none; mix-blend-mode: overlay; background-size: 220px 220px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 1.1 -.15'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E"); }
 .sky-depth-gradient stop:nth-child(1) { stop-color: var(--sky-zenith); stop-opacity: .3; }
 .sky-depth-gradient stop:nth-child(2) { stop-color: var(--sky-zenith); stop-opacity: 0; }
-.sky-depth-gradient stop:nth-child(3) { stop-color: var(--sky-haze); stop-opacity: .3; }
+.sky-depth-gradient stop:nth-child(3) { stop-color: var(--sky-zenith); stop-opacity: 0; }
+.sky-haze-gradient stop { stop-color: var(--sky-haze); }
 /* Lucht en wolken kleuren per uur mee met het licht (U47, MIP-18). --dark en --day staan per stop,
    --sky (0–1) op de svg: zonder hemel houden de wolken hun rustige grijzen, met hemel worden ze wit
    tegen blauw of zwaar tegen lood. --weight: hoe sterk een laag meedonkert (cirrus blijft licht). */
