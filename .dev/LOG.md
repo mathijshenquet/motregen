@@ -152,6 +152,12 @@
   rood omdat e2e/style.json een teststub is en public/data/basemap niet bestaat (gitignored) — U59/U60
   kregen ze alleen groen met een voorbereide omgeving; U61 maakt ze zelfvoorzienend. U61 loopt verder
   op de overige nachtelijke reds. Workers nog open: alleen U61.
+- **U61 gemerged** (25d500e4, 01:55): basemap-e2e zelfvoorzienend (webServer bereidt stijl en archief
+  voor), 28 tests eerlijk bijgewerkt op de bewuste wijzigingen van vandaag (U34/U42/U44/U56/U58, elk met
+  reden), mobiele scrub-transferbudgetten 11/14 → 16 (zes previewrij-ranges van U42/U58, 24 kB; besluit
+  orkestrator, U52-precedent). Onafhankelijke gate: volledige suite op branch+main 112 groen / 2 rood
+  (de budgetten vóór herijking) / 75 skips, daarna perf.spec mobiel 4 groen → **main is vannacht
+  volledig groen**. Alle workers gesloten; 4330 draait main; bot vanaf main tegen 4330 (staand).
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
