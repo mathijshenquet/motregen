@@ -4,7 +4,7 @@
 radar-, AROME- en UV-producten pollen. Vanuit de repository:
 
 ```sh
-cargo run --release -p motregen-ingest
+cargo run --release -p motregen-ingest --bin motregen-ingest
 ```
 
 De binary leest `.env` in de huidige map en verwacht

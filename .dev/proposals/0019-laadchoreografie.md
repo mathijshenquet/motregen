@@ -31,17 +31,42 @@ even op een kale kaart.
    langer laten staan tot alles er is.
 2. **Histogram van binnen naar buiten, per balk**: eerst het venster rond nu, dan naar beide
    kanten, elke balk zodra zijn waarde er is (L0-puntreeks, geen framedecode).
-3. **Fog of war**: het nog niet geladen deel van de tijdas krijgt een zichtbare "onbekend"-
+3. **Kader eerst**: de scrubber toont vanaf de eerste render zijn tijdas, nu-lijn en cursor met
+   een gedempte laadmelding in het plotvlak; nooit een leeg blok (PO 2026-10-07).
+4. **Fog of war**: het nog niet geladen deel van de tijdas krijgt een zichtbare "onbekend"-
    staat (gedempte arcering of wazige band die wegtrekt als data landt), zodat leeg nooit op
    droog lijkt. Idem wolkenlagen en tabelrijen (skeleton). Kaartlagen van een modus faden in.
    Fog toont alleen "nog niet binnen" binnen het venster dat we wél laden; "niet nodig"
    (U49) is geen fog.
-4. **Gereedheidsniveaus meten**: `ttfr` (splash weg), `ttfh` (histogram-venster rond nu),
+5. **Tijd-majeur decoderen** (PO 2026-10-07: "we moeten eigenlijk time-major decoden"): de
+   decode-wachtrij ordent op afstand tot de cursor in tijd, over álle velden tegelijk (regen,
+   motion, wolkenlagen, puntreeksen van de getoonde kolommen), met een lichte voorkeur in de
+   afspeelrichting en bij gelijke afstand round-robin over de velden met regen eerst. Niet
+   veld-voor-veld. Zo heeft elk zichtbaar tijdstip meteen kaart én histogram én tabelwaarde en
+   groeit het geladen venster als één front naar beide kanten — het fog-front van punt 3.
+   Meting uit de PO-opname (Firefox-Android, 10:02): alle ~900 decodes in de eerste 12 s met
+   de piek rond 6–8 s; de wolkenlagen van het histogram kwamen daardoor pas rond 6 s.
+6. **Gereedheidsniveaus meten**: `ttfr` (splash weg), `ttfh` (histogram-venster rond nu),
    `ttfc` (alles) in HUD en perf-gate; het gat ttfr→ttfh is het "jarring"-getal.
+
+## Meetkant (PO 2026-10-07: "goede observability dat er altijd zinnige dingen op het scherm staan")
+
+- **Schermwaarheid per frame**: voor het zichtbare venster van scrubber en tabel telt de client
+  elk slot als *geladen*, *fog* (bekend nog-niet-beschikbaar, zichtbaar als zodanig) of *leeg*
+  (niets getekend terwijl de data nog komt). `blank-visible-ms` = tijd na de splash waarin een
+  zichtbaar slot leeg is. Doel 0 ms; assertie in de mobiele rig (U53) en regel in de HUD.
+- **Splash eerlijk**: `ttfr` telt pas als de basemap-tiles van het eerste beeld én het eerste
+  regenframe getekend zijn (plafond 1,5 s); de rig logt wat er onder de splash gebeurde.
+- **`ttfh`** (histogram nu ± 1 u compleet): het gat `ttfr → ttfh` mag bestaan, maar is nooit leeg.
+- Tijd-majeur zelf is al meetbaar via `window-ready:<veld>` (U52) in HUD, trace en rig.
 
 ## Open vragen
 
 1. Vorm van de fog: arcering, blur of alleen een lagere dekking — PO kiest op stills/live.
 2. Wacht de splash óók op de basemap-tiles (kost op 4G ~0,5–1 s extra)? Voorstel: ja, met een
    plafond van 1,5 s waarna hij toch weggaat.
-3. Track: U50, live-pane na U42 (zelfde scrubber-/tabelcode).
+3. Track: tijd-majeur decoderen + intent-planner = U52 (nu); mobiele laadrig met wire weight =
+   U53 (PO 2026-10-07: "concrete test harness … overhead van deze ombouw tracken, wire weight
+   vooral"); de zichtbare laadchoreografie (splash, fog, histogram per balk) = U54, live-pane na U42.
+4. Later, als tijd-majeur op de client niet genoeg is: chunk-indeling per tijdsnede over alle
+   velden (contractwijziging, MIP-2), zodat ook het netwerk tijd-majeur gaat.

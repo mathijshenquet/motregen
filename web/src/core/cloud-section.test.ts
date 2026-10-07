@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cloudBand, cloudDrawParams, valueNoise } from './cloud-section'
+import { cloudBand, cloudDrawParams, lightDarkness, valueNoise } from './cloud-section'
 import type { ManifestChunk, TimelineFrame } from './contract'
 
 const hour = 3_600_000
@@ -34,6 +34,15 @@ describe('cloudDrawParams', () => {
     expect(cloudDrawParams(50).ragged).toBe(1)
     expect(cloudDrawParams(20).ragged).toBeLessThan(cloudDrawParams(50).ragged)
     expect(cloudDrawParams(90).ragged).toBeLessThan(cloudDrawParams(50).ragged)
+  })
+})
+
+describe('perceptuele lichtschaal', () => {
+  it('telt iedere lichthalvering even zwaar', () => {
+    expect(lightDarkness(1)).toBe(0)
+    expect(lightDarkness(0.5)).toBeCloseTo(1 / 3)
+    expect(lightDarkness(0.25)).toBeCloseTo(2 / 3)
+    expect(lightDarkness(0.125)).toBe(1)
   })
 })
 

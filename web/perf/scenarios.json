@@ -1,0 +1,29 @@
+{
+  "koud": {
+    "durationMs": 30000,
+    "description": "Koude start op nu, gepauzeerd, 30 seconden zonder interactie",
+    "steps": []
+  },
+  "journey": {
+    "durationMs": 30000,
+    "description": "Koude start, twee uur vooruit, tien seconden afspelen, wind, terug naar Weer",
+    "steps": [
+      { "atMs": 8000, "action": "scrub", "minutes": 120 },
+      { "atMs": 9000, "action": "play", "playing": true },
+      { "atMs": 19000, "action": "play", "playing": false },
+      { "atMs": 20000, "action": "mode", "mode": "Wind" },
+      { "atMs": 23000, "action": "mode", "mode": "Weer" }
+    ]
+  },
+  "modus-wissel-storm": {
+    "durationMs": 30000,
+    "description": "Weer, Lucht, Gevoel, Wind binnen vijf seconden, daarna Weer",
+    "steps": [
+      { "atMs": 8000, "action": "mode", "mode": "Weer" },
+      { "atMs": 9000, "action": "mode", "mode": "Lucht" },
+      { "atMs": 10000, "action": "mode", "mode": "Gevoel" },
+      { "atMs": 11000, "action": "mode", "mode": "Wind" },
+      { "atMs": 13000, "action": "mode", "mode": "Weer" }
+    ]
+  }
+}

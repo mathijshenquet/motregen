@@ -12,6 +12,14 @@ export interface CloudSeries {
   values: Record<CloudLayer, Array<number | null>>
 }
 
+const DARKEST_HALVINGS = 3
+
+/** Lichtfactor (CMF, 0–1) → donkerte 0–1 op dezelfde perceptuele schaal als U47. */
+export function lightDarkness(light: number): number {
+  if (!(light > 0)) return 1
+  return Math.max(0, Math.min(1, -Math.log2(Math.min(1, light)) / DARKEST_HALVINGS))
+}
+
 export interface CloudDrawParams {
   /** Dekking van de vulling, 0–1. */
   opacity: number

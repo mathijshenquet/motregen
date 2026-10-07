@@ -17,8 +17,8 @@ export interface TelegramMessage {
 export interface TelegramUpdate {
   update_id: number
   message?: TelegramMessage
-  inline_query?: { id: string; query: string }
-  callback_query?: { id: string; data?: string; message?: TelegramMessage; inline_message_id?: string }
+  inline_query?: { id: string; query: string; from?: { id: number } }
+  callback_query?: { id: string; data?: string; message?: TelegramMessage; inline_message_id?: string; from?: { id: number } }
 }
 
 export class TelegramApiError extends Error {

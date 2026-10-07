@@ -2,7 +2,7 @@
 # USAGE_FIELDS in web/src/core/usage.ts en de veldenlijst in docs/analytics.md.
 def usage_version: 2;
 def usage_features:
-  ["pinFeel", "pinWind", "pinAir", "hover", "search", "geo", "fav", "pin", "play", "scrub", "history", "fresh", "about", "share"];
+  ["pinFeel", "pinWind", "pinAir", "hover", "search", "geo", "fav", "pin", "play", "scrub", "clockScrub", "history", "fresh", "about", "share"];
 def usage_dimensions: {
   range: ["3", "8", "24", "all", "none"],
   theme: ["light", "system", "dark"],

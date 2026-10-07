@@ -1,0 +1,23 @@
+{
+	auto_https off
+	admin off
+}
+
+:{$MOTREGEN_E2E_DATA_PORT:8392} {
+	root * public/perf-mobile
+	header {
+		Access-Control-Allow-Origin "*"
+		Timing-Allow-Origin "*"
+		Access-Control-Expose-Headers "Accept-Ranges, Content-Length, Content-Range, ETag"
+		Accept-Ranges "bytes"
+	}
+	header /manifest.json Cache-Control "public, max-age=0, must-revalidate"
+	header /chunks/* Cache-Control "public, max-age=31536000, immutable"
+	handle /tiles/* {
+		rewrite * /tile.pbf
+		file_server
+	}
+	handle {
+		file_server
+	}
+}

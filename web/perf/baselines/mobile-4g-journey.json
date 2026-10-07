@@ -1,0 +1,367 @@
+{
+  "schema": 1,
+  "profile": "mobile-4g",
+  "scenario": "journey",
+  "sourceSha": "2aa3589c38332a55ae509b459bcfdfd31f501565",
+  "capturedAt": "2026-10-07T11:48:05.741Z",
+  "contractHash": "8927aef833280c367b8e76076d76a96c70de5333a4e99a4962780237c5e8e574",
+  "regressionLimitPercent": 10,
+  "wireBytes": 1225342,
+  "decodes": 207,
+  "metrics": {
+    "milestones": {
+      "ttfrMs": 1521.3,
+      "splashGoneMs": 3478.3000000715256,
+      "ttfhMs": 2296,
+      "windowReadyMs": {
+        "cloud_low": 1926,
+        "cloud_mid": 1926,
+        "cloud_high": 1964,
+        "uv": 2251,
+        "rain_rate": 2296
+      },
+      "histogramSource": "U52 window-ready:rain_rate"
+    },
+    "decode": {
+      "phases": {
+        "table-render": {
+          "count": 7,
+          "totalMs": 5.5,
+          "p50Ms": 0.6000000238418579,
+          "p95Ms": 2.399999976158142
+        },
+        "scrubber-paint": {
+          "count": 163,
+          "totalMs": 95.5,
+          "p50Ms": 0.3999999761581421,
+          "p95Ms": 1.899999976158142
+        },
+        "basemap-tile": {
+          "count": 1,
+          "totalMs": 128.7,
+          "p50Ms": 128.69999992847443,
+          "p95Ms": 128.69999992847443
+        },
+        "frame-decode": {
+          "count": 207,
+          "totalMs": 88.7,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 1.9000000953674316
+        },
+        "texture-upload": {
+          "count": 14,
+          "totalMs": 27.3,
+          "p50Ms": 1,
+          "p95Ms": 9.800000071525574
+        },
+        "wind-step": {
+          "count": 1012,
+          "totalMs": 1424.7,
+          "p50Ms": 1.2999999523162842,
+          "p95Ms": 2.899999976158142
+        },
+        "window-ready:cloud_low": {
+          "count": 1,
+          "totalMs": 1926.1,
+          "p50Ms": 1926.1000000238419,
+          "p95Ms": 1926.1000000238419
+        },
+        "window-ready:cloud_mid": {
+          "count": 1,
+          "totalMs": 1926.1,
+          "p50Ms": 1926.1000000238419,
+          "p95Ms": 1926.1000000238419
+        },
+        "window-ready:cloud_high": {
+          "count": 1,
+          "totalMs": 1964.1,
+          "p50Ms": 1964.1000000238419,
+          "p95Ms": 1964.1000000238419
+        },
+        "window-ready:uv": {
+          "count": 1,
+          "totalMs": 2251.2,
+          "p50Ms": 2251.2000000476837,
+          "p95Ms": 2251.2000000476837
+        },
+        "window-ready:rain_rate": {
+          "count": 1,
+          "totalMs": 2295.5,
+          "p50Ms": 2295.5,
+          "p95Ms": 2295.5
+        },
+        "isoline-trace": {
+          "count": 1,
+          "totalMs": 17.5,
+          "p50Ms": 17.5,
+          "p95Ms": 17.5
+        },
+        "isoline-blit": {
+          "count": 15,
+          "totalMs": 2.2,
+          "p50Ms": 0,
+          "p95Ms": 0.6999999284744263
+        }
+      },
+      "fields": {
+        "rain_rate": {
+          "count": 71,
+          "totalMs": 22.2,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.8999999761581421
+        },
+        "motion": {
+          "count": 29,
+          "totalMs": 1.1,
+          "p50Ms": 0,
+          "p95Ms": 0.10000002384185791
+        },
+        "feels_like_c": {
+          "count": 7,
+          "totalMs": 19,
+          "p50Ms": 2.799999952316284,
+          "p95Ms": 4.600000023841858
+        },
+        "uv_clear": {
+          "count": 8,
+          "totalMs": 4.8,
+          "p50Ms": 0.5,
+          "p95Ms": 1.100000023841858
+        },
+        "cloud_high": {
+          "count": 14,
+          "totalMs": 6.2,
+          "p50Ms": 0.19999992847442627,
+          "p95Ms": 2.4000000953674316
+        },
+        "uv": {
+          "count": 5,
+          "totalMs": 5.8,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 4.799999952316284
+        },
+        "wind_u_ms": {
+          "count": 13,
+          "totalMs": 3.5,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.5
+        },
+        "cloud_mid": {
+          "count": 14,
+          "totalMs": 4.1,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 1.600000023841858
+        },
+        "cloud_low": {
+          "count": 14,
+          "totalMs": 2.8,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.30000007152557373
+        },
+        "wind_v_ms": {
+          "count": 13,
+          "totalMs": 2.8,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.30000007152557373
+        },
+        "gust_ms": {
+          "count": 11,
+          "totalMs": 2.7,
+          "p50Ms": 0.2999999523162842,
+          "p95Ms": 0.30000007152557373
+        },
+        "pressure_hpa": {
+          "count": 8,
+          "totalMs": 13.7,
+          "p50Ms": 1.7000000476837158,
+          "p95Ms": 2.3000000715255737
+        }
+      },
+      "decodesPerSecond": [
+        0,
+        33,
+        80,
+        0,
+        0,
+        0,
+        0,
+        0,
+        37,
+        6,
+        4,
+        0,
+        0,
+        4,
+        4,
+        0,
+        0,
+        4,
+        4,
+        0,
+        28,
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "wire": {
+      "playwright": {
+        "manifest": {
+          "requests": 1,
+          "bytes": 36513,
+          "meanRequestBytes": 36513
+        },
+        "chunks": {
+          "requests": 105,
+          "bytes": 743025,
+          "meanRequestBytes": 7076.428571428572
+        },
+        "tiles": {
+          "requests": 1,
+          "bytes": 73,
+          "meanRequestBytes": 73
+        },
+        "other": {
+          "requests": 12,
+          "bytes": 445731,
+          "meanRequestBytes": 37144.25
+        },
+        "total": {
+          "requests": 119,
+          "bytes": 1225342,
+          "meanRequestBytes": 10296.991596638656
+        }
+      },
+      "resourceTiming": {
+        "manifest": {
+          "requests": 1,
+          "bytes": 36513,
+          "meanRequestBytes": 36513
+        },
+        "chunks": {
+          "requests": 105,
+          "bytes": 743025,
+          "meanRequestBytes": 7076.428571428572
+        },
+        "tiles": {
+          "requests": 1,
+          "bytes": 73,
+          "meanRequestBytes": 73
+        },
+        "other": {
+          "requests": 12,
+          "bytes": 445731,
+          "meanRequestBytes": 37144.25
+        },
+        "total": {
+          "requests": 119,
+          "bytes": 1225342,
+          "meanRequestBytes": 10296.991596638656
+        }
+      },
+      "differences": [
+        {
+          "kind": "manifest",
+          "differencePercent": 0,
+          "requestDifference": 0
+        },
+        {
+          "kind": "chunks",
+          "differencePercent": 0,
+          "requestDifference": 0
+        },
+        {
+          "kind": "tiles",
+          "differencePercent": 0,
+          "requestDifference": 0
+        },
+        {
+          "kind": "other",
+          "differencePercent": 0,
+          "requestDifference": 0
+        },
+        {
+          "kind": "total",
+          "differencePercent": 0,
+          "requestDifference": 0
+        }
+      ],
+      "completeBodyAborts": 20,
+      "contentLengthFallbacks": 5,
+      "findings": [],
+      "rangeRequests": 105,
+      "beforeTtfrBytes": 604216,
+      "beforeTtfhBytes": 1065885
+    },
+    "longFrames": {
+      "count": 19,
+      "totalMs": 1649.7999997138977,
+      "blockingMs": 410.7,
+      "topSources": [
+        {
+          "source": "http://127.0.0.1:4386/assets/index-BP-cTloi.js Worker.onmessage",
+          "durationMs": 308.89999997615814
+        },
+        {
+          "source": "http://127.0.0.1:4386/assets/index-BP-cTloi.js FrameRequestCallback",
+          "durationMs": 240.10000002384186
+        },
+        {
+          "source": "http://127.0.0.1:4386/assets/index-BP-cTloi.js http://127.0.0.1:4386/assets/index-BP-cTloi.js",
+          "durationMs": 143.70000004768372
+        }
+      ]
+    },
+    "mainThread": {
+      "samples": 3115,
+      "busySamples": 653,
+      "busyPercent": 20.963081861958266,
+      "topSources": [
+        {
+          "functionName": "currentTrailView",
+          "url": "src/core/wind-layer.ts",
+          "selfSamples": 62
+        },
+        {
+          "functionName": "showTemperature",
+          "url": "src/App.tsx",
+          "selfSamples": 39
+        },
+        {
+          "functionName": "sampleWind",
+          "url": "src/core/wind-layer.ts",
+          "selfSamples": 11
+        }
+      ]
+    },
+    "intent": {
+      "fieldBytes": {
+        "rain_rate": 329429,
+        "uv": 28747,
+        "uv_clear": 6214,
+        "radiation": 6792,
+        "temp_c": 9729,
+        "feels_like_c": 14269,
+        "wind_u_ms": 51630,
+        "wind_v_ms": 48227,
+        "gust_ms": 49616,
+        "rel_humidity": 9636,
+        "cloud_frac": 9600,
+        "cloud_low": 51299,
+        "cloud_mid": 47600,
+        "cloud_high": 61113,
+        "pressure_hpa": 19124
+      },
+      "lateOutsideIntentCount": 0
+    },
+    "findings": [
+      "1 sampleposities zonder sourcemap-positie; oorspronkelijke bundelpositie bewaard"
+    ]
+  }
+}

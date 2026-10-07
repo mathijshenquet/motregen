@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { solarElevationSin } from './solar'
-import { clearSkyRadiation, clearSkyUv, dailyClearSkyUvMax, estimateUv, uvAdvice, uvLevel, uvReading } from './uv'
+import { clearSkyRadiation, clearSkyUv, cloudModification, dailyClearSkyUvMax, estimateUv, uvAdvice, uvLevel, uvReading } from './uv'
 
 describe('UV relevance gating', () => {
   it('does not create an insmeer-chip below zonkracht 3', () => {
@@ -51,6 +51,11 @@ describe('UV estimate from radiation', () => {
     expect(sunny).toBeCloseTo(clearSkyUv(deBilt(noon), noon), 1)
     expect(sunny).toBeGreaterThan(6)
     expect(overcast).toBeLessThan(sunny * 0.6)
+  })
+
+  it('exposes the same cloud modification factor to other sky treatments', () => {
+    expect(cloudModification(noon, clearRadiation(), clearRadiation(), deBilt)).toBeCloseTo(1, 1)
+    expect(cloudModification(noon, clearRadiation() * 0.25, clearRadiation() * 0.25, deBilt)).toBeCloseTo(0.25, 1)
   })
 
   it('is zero at night and unknown without radiation', () => {

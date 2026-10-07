@@ -12,7 +12,22 @@ export interface BotRuntime {
   availableStill(selection: StillSelection): RenderedStill | undefined
 }
 
+/** Alleen voor een poke-test door de PO: logt wat één opgegeven chat doet. Nooit in productie gezet. */
+const debugChatId = process.env.MOTREGEN_DEBUG_CHAT_ID?.trim()
+
+function logDebugChat(update: TelegramUpdate): void {
+  if (!debugChatId) return
+  const chatId = update.message?.chat.id ?? update.callback_query?.message?.chat.id ?? update.callback_query?.from?.id ?? update.inline_query?.from?.id
+  if (String(chatId) !== debugChatId) return
+  const action = update.message?.text !== undefined ? { kind: 'message', text: update.message.text }
+    : update.callback_query ? { kind: 'callback', data: update.callback_query.data }
+    : update.inline_query ? { kind: 'inline', query: update.inline_query.query }
+    : { kind: 'other' }
+  console.info(JSON.stringify({ event: 'debug-chat', ...action }))
+}
+
 export async function handleUpdate(update: TelegramUpdate, runtime: BotRuntime): Promise<void> {
+  logDebugChat(update)
   if (update.callback_query) {
     await handleCallback(update.callback_query, runtime)
     return
@@ -32,10 +47,12 @@ async function handleCommand(message: TelegramMessage, runtime: BotRuntime): Pro
   if (command === 'start') {
     const launch = { text: 'Open motregen.nl', web_app: { url: `${runtime.config.origin}/?tg=1` } }
     const link = { text: 'Open motregen.nl', url: `https://t.me/${runtime.username}?startapp` }
+    // Telegram accepteert web_app-URL's alleen over https; bij een http-dev-origin blijft de t.me-link over.
+    const useLaunch = message.chat.type === 'private' && runtime.config.origin.startsWith('https:')
     await runtime.api.call('sendMessage', {
       chat_id: message.chat.id,
       text: 'Regen en weer voor Nederland en Vlaanderen. Open de app voor jouw plek, of gebruik /regen, /lucht, /gevoel en /wind voor een weerkaart. Inline: @' + runtime.username + ' wind.',
-      reply_markup: { inline_keyboard: [[message.chat.type === 'private' ? launch : link]] },
+      reply_markup: { inline_keyboard: [[useLaunch ? launch : link]] },
     })
     return
   }
@@ -97,7 +114,10 @@ async function handleCallback(query: NonNullable<TelegramUpdate['callback_query'
 }
 
 export async function configureBot(runtime: BotRuntime): Promise<void> {
-  await runtime.api.call('setChatMenuButton', { menu_button: { type: 'web_app', text: 'motregen.nl', web_app: { url: `${runtime.config.origin}/?tg=1` } } })
+  // De Mini App-menuknop vereist een https-origin; een http-dev-origin laat de bestaande knop staan.
+  if (runtime.config.origin.startsWith('https:')) {
+    await runtime.api.call('setChatMenuButton', { menu_button: { type: 'web_app', text: 'motregen.nl', web_app: { url: `${runtime.config.origin}/?tg=1` } } })
+  }
   await runtime.api.call('setMyCommands', {
     commands: [
       { command: 'start', description: 'Open de motregen Mini App' },

@@ -448,6 +448,38 @@
   ongevuld met een bovenlijn en mobiel begint direct bij de sticky moduskoppen zonder zwevende
   handle. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
 
+## 2026-10-07 13:37 UTC
+
+- Main met U56 is gemerged met behoud van beide delen van analytics-v2 (`pinAir` en `clockScrub`),
+  U42's modi/tabelstructuur en U56's intent-/decodewachtrij. De klokpil is daarmee ook in deze
+  preview aanwezig.
+- Op directe PO-steer is U47's wolkafhankelijke dagmood in de tabel toegepast: dezelfde CMF uit de
+  HARMONIE-straling en dezelfde perceptuele lichtschaal kleuren daguren van helder hemelblauw naar
+  gedempt grijsblauw. Bij ontbrekende straling valt de tint terug op totale bewolking. U42's
+  gelaagde zonsondergang/-opkomst blijft de dominante overgang en wordt niet door de dagmood
+  afgevlakt.
+- Synchrone receipts: `git diff --check`, `pnpm typecheck`, `pnpm test -- --run
+  src/components/ForecastTable.test.tsx src/core/cloud-section.test.ts src/core/uv.test.ts` en
+  `pnpm build` exit 0. Door de scriptconfiguratie draaide Vitest volledig: 67 bestanden/437 tests
+  groen. Build: 113 modules, `index-CNYvJPXy.js`, `index-CYWtY571.css`, PWA + workers. Geen e2e
+  uitgevoerd vóór PO-signaal “klaar”.
+- Eigen visuele controle op desktop 1280×900 en mobiel 390×844, beide in licht en donker: dagrijen
+  variëren zichtbaar maar rustig met de bewolking, de warme horizoncompositie blijft erbovenuit
+  springen, de nacht is één donker vlak en U56's klokpil/paneel botst niet met tabel of moduskoppen.
+
+### Antwoord aan U47
+
+1. Ja: één gedeeld `--dusk-*`-palet is gewenst. U47 mag de tokens als bron van waarheid invoeren;
+   U42 vervangt de losse rgba-kleuren bij hereniging van de branches.
+2. Nee: `tableDayNight` blijft bewust alleen de tabelinstelling. De Lucht-hemel in de scrubber hoort
+   bij die modus en blijft daarvan onafhankelijk.
+3. De tabel centreert de zonregel op de exacte horizonpassage (`solarElevationSin = 0`) en laat de
+   compositie over de aangrenzende rijen doorlopen. U47's bereik −0,1…+0,1 is dus compatibel; lijn
+   alleen het midden van de gloed uit met de nuldoorgang, niet de buitenrand.
+4. Main/U56 is hier nu met U42 samengebracht, inclusief beide analytics-v2-features. U47 kan na dit
+   checkpoint via de U42-branch binnenhalen in plaats van de vijf U42×U56-conflicten zelf op te
+   lossen.
+
 ## 2026-10-07 13:26 UTC
 
 - De tabelcyclus is nu een gebruikersoptie “Dag en nacht in tabel” onder Weergave, standaard aan en
