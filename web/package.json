@@ -14,6 +14,7 @@
     "prof:import": "tsx scripts/prof-import.ts",
     "prof:sink": "tsx scripts/prof-sink.ts",
     "prof:capture": "tsx scripts/record-profile.ts",
+    "perf:mobile": "scripts/e2e-slot.sh tsx scripts/perf-mobile.ts",
     "synthgen": "tsx scripts/synthgen.ts",
     "e2e": "scripts/e2e-slot.sh playwright test",
     "e2e:live": "MOTREGEN_PERF_MODE=live scripts/e2e-slot.sh playwright test --config playwright.live.config.ts",
