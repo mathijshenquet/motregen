@@ -27,7 +27,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `pnpm synthgen && MOTREGEN_E2E_DATA_PORT=${dataPort} caddy run --config e2e/Caddyfile`,
+      command: `pnpm synthgen && pnpm exec tsx scripts/e2e-basemap.ts && MOTREGEN_E2E_DATA_PORT=${dataPort} caddy run --config e2e/Caddyfile`,
       url: `http://127.0.0.1:${dataPort}/manifest.json`,
       reuseExistingServer: false,
       timeout: 120_000,

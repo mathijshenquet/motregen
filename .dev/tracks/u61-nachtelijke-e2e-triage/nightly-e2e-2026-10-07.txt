@@ -1,0 +1,41 @@
+  ✓  142 [mobile-fast-3g] › e2e/freshness.spec.ts:265:1 › a failed manifest refresh shows offline instead of silently stale data (16.5s)
+  ✘  152 [mobile-fast-3g] › e2e/perf.spec.ts:63:1 › user journey measures performance and cache behaviour (14.9s)
+    tmp/playwright-results/basemap-cache-warme-basiskaart-zonder-netwerk-390px-desktop/test-failed-1.png
+    tmp/playwright-results/basemap-cache-warme-basiskaart-zonder-netwerk-1280px-desktop/test-failed-1.png
+    tmp/playwright-results/basemap-basiskaart-1280px-light-desktop/test-failed-1.png
+    tmp/playwright-results/basemap-basiskaart-1280px-dark-desktop/test-failed-1.png
+    tmp/playwright-results/basemap-basiskaart-390px-light-desktop/test-failed-1.png
+    tmp/playwright-results/basemap-basiskaart-390px-dark-desktop/test-failed-1.png
+    tmp/playwright-results/pin-navigation-desktop-dra-30892-edge-a-double-click-centres-desktop/test-failed-1.png
+    Error: expect(locator).toHaveAttribute(expected) failed
+    tmp/playwright-results/pin-navigation-with-geoloc-af7b9-t-location-without-a-prompt-desktop/test-failed-1.png
+    tmp/playwright-results/basemap-cache-warme-basiskaart-zonder-netwerk-390px-mobile-4g/test-failed-1.png
+    tmp/playwright-results/basemap-cache-warme-basiskaart-zonder-netwerk-1280px-mobile-4g/test-failed-1.png
+    tmp/playwright-results/basemap-basiskaart-1280px-light-mobile-4g/test-failed-1.png
+    tmp/playwright-results/basemap-basiskaart-1280px-dark-mobile-4g/test-failed-1.png
+    tmp/playwright-results/basemap-basiskaart-390px-light-mobile-4g/test-failed-1.png
+    tmp/playwright-results/basemap-basiskaart-390px-dark-mobile-4g/test-failed-1.png
+    tmp/playwright-results/focus-tapping-the-wind-heading-pins-wind-focus-on-touch-mobile-4g/test-failed-1.png
+    tmp/playwright-results/focus-tapping-the-column-h-44c51-uch-and-measures-frame-rate-mobile-4g/test-failed-1.png
+    tmp/playwright-results/freshness-fresh-radar-read-cc8ff-h-the-scan-time-and-its-age-mobile-4g/test-failed-1.png
+    Error: expect(locator).toHaveAttribute(expected) failed
+    tmp/playwright-results/freshness-dragging-the-clo-4ee29-anel-shows-the-source-strip-mobile-4g/test-failed-1.png
+    tmp/playwright-results/perf-user-journey-measures-performance-and-cache-behaviour-mobile-4g/test-failed-1.png
+    tmp/playwright-results/pin-navigation-touch-one-f-02986-pinch-and-pan-the-pin-drags-mobile-4g/test-failed-1.png
+    Error: expect(locator).toBeVisible() failed
+    tmp/playwright-results/table-mobile-previews-the--37ceb-othly-between-table-and-map-mobile-4g/test-failed-1.png
+    tmp/playwright-results/basemap-cache-warme-basiskaart-zonder-netwerk-390px-mobile-fast-3g/test-failed-1.png
+    tmp/playwright-results/basemap-cache-warme-basiskaart-zonder-netwerk-1280px-mobile-fast-3g/test-failed-1.png
+    tmp/playwright-results/basemap-basiskaart-1280px-light-mobile-fast-3g/test-failed-1.png
+    tmp/playwright-results/basemap-basiskaart-1280px-dark-mobile-fast-3g/test-failed-1.png
+    tmp/playwright-results/basemap-basiskaart-390px-light-mobile-fast-3g/test-failed-1.png
+    tmp/playwright-results/basemap-basiskaart-390px-dark-mobile-fast-3g/test-failed-1.png
+    tmp/playwright-results/freshness-fresh-radar-read-cc8ff-h-the-scan-time-and-its-age-mobile-fast-3g/test-failed-1.png
+    Error: expect(locator).toHaveAttribute(expected) failed
+    tmp/playwright-results/freshness-dragging-the-clo-4ee29-anel-shows-the-source-strip-mobile-fast-3g/test-failed-1.png
+    tmp/playwright-results/perf-user-journey-measures-performance-and-cache-behaviour-mobile-fast-3g/test-failed-1.png
+  30 failed
+  63 skipped
+  84 passed (15.6m)
+[ELIFECYCLE] Command failed with exit code 1.
+FULL-E2E-EXIT: 1

@@ -251,6 +251,12 @@ dichtheid is dat budget in een wegwerpbuild uitgezet. Metingen van U3
 een preview plus een Caddy-dataserver. De lokale basemap bevat alleen een
 achtergrondlaag; daardoor zijn OpenFreeMap en externe tilelatency geen bron van
 flakiness, terwijl de echte Range- en cachepaden wel worden gebruikt. Een
+uitzondering zijn `basemap.spec.ts` en `basemap-cache.spec.ts`: die laden via
+`e2e/basemap-fixture.ts` de eigen PMTiles-stijl, zodat dezelfde suite ook de
+kaartbereiken, CORS-headers en offline serviceworker-cache toetst. De
+e2e-webserver kopieert daarvoor na synthgen het meegecommitteerde archief uit
+`tools/basemap/tiles` naar zijn eigen data-origin; vooraf publiceren is niet nodig. De
+performance-journey behoudt de achtergrondstijl en zijn bestaande budgetten. Een
 warmmeting is een normale tweede navigatie in dezelfde browsercontext. Een
 geforceerde browser-reload wordt niet gebruikt, omdat die cachevalidatie
 expliciet kan forceren en daarmee een ander scenario meet.
@@ -288,8 +294,8 @@ moderne combinatie `Network.emulateNetworkConditionsByRule` en
 | Profiel | CPU | Download / upload | RTT | Cold | Warm | Passief | Scrub | Sessie |
 | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Desktop | 1× | geen emulatie | — | < 1.210 ms | < 890 ms | ≤ 1.155.000 B | ≤ 19 | ≤ 2.640.000 B |
-| Mobiel 4G | 4× | 9 / 1,5 Mbps | 60 ms | < 4.915 ms | < 1.545 ms | ≤ 686.000 B | ≤ 11 | ≤ 1.345.000 B |
-| Mobiel Fast 3G | 4× | 1,6 / 0,75 Mbps | 150 ms | < 5.360 ms | < 1.690 ms | ≤ 686.000 B | ≤ 14 | ≤ 1.355.000 B |
+| Mobiel 4G | 4× | 9 / 1,5 Mbps | 60 ms | < 4.915 ms | < 1.545 ms | ≤ 686.000 B | ≤ 16 | ≤ 1.345.000 B |
+| Mobiel Fast 3G | 4× | 1,6 / 0,75 Mbps | 150 ms | < 5.360 ms | < 1.690 ms | ≤ 686.000 B | ≤ 16 | ≤ 1.355.000 B |
 
 Het mobiele passieve budget is bij de U52-merge (2026-10-07) van 587.000 op 686.000 B gezet:
 gemeten 623.200 B op beide mobiele profielen + 10 %. De stijging in Resource Timing is geen
@@ -297,6 +303,8 @@ extra draadverkeer (de U53-rig meet 4–10 % mínder bytes): Resource Timing tel
 een al gecachet stuk overlapt niet volledig, en U52 haalt rond de cursor kleinere, niet-
 overlappende stukken. Voor wire weight is de rig de maat, dit budget bewaakt alleen regressies
 in dezelfde meetwijze.
+
+U61 herijkt op orkestratorbesluit (2026-10-08) de mobiele scrub-transferbudgetten van 11 (4G) en 14 (Fast 3G) naar 16: de zes extra ranges laden de bedoelde U42/U58-previewrij (24.320 B).
 
 `warm chunks` blijft op ieder profiel exact 0 B. Een niet-nul resultaat is een
 cache-regressie, geen meetruis die een 10%-marge rechtvaardigt.

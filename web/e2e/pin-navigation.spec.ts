@@ -139,21 +139,19 @@ test('with geolocation already granted the current position is the start locatio
   test.skip(testInfo.project.name !== 'desktop', 'gedrag: één profiel volstaat')
   await context.grantPermissions(['geolocation'])
   await context.setGeolocation({ longitude: 6.5665, latitude: 53.2194 })
+  // U44: reload opent de gesynchroniseerde plaats-permalink; deze test start zonder gedeelde plaats.
+  await page.addInitScript(() => localStorage.setItem('motregen-map-view', JSON.stringify({ lng: 5.18, lat: 52.1, zoom: 10 })))
   await page.goto('/')
-  await page.evaluate(() => localStorage.setItem('motregen-map-view', JSON.stringify({ lng: 5.18, lat: 52.1, zoom: 10 })))
-  await page.reload()
   await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor Mijn locatie$/)
   // Groningen valt buiten de ingezoomde view rond De Bilt: de kaart gaat mee naar de pin.
   const map = (await page.locator('.map').boundingBox())!
   await expect.poll(async () => Math.abs((await pinTip(page)).x - (map.x + map.width / 2))).toBeLessThan(3)
 })
 
-// Start op een ingezoomde view: de pin staat dan op het kaartmidden. Geeft dat midden terug in
-// pin-svg-coördinaten (de svg-onderkant ligt niet exact op het anker), voor centreer-checks.
+// U44: begin zonder plaats-permalink, zodat de onthouden kaartpositie ook de startlocatie blijft.
 async function openZoomed(page: Page): Promise<{ x: number; y: number }> {
+  await page.addInitScript((view) => localStorage.setItem('motregen-map-view', JSON.stringify(view)), zoomedView)
   await page.goto('/')
-  await page.evaluate((view) => localStorage.setItem('motregen-map-view', JSON.stringify(view)), zoomedView)
-  await page.reload()
   await expect(page.locator('.map-splash.ready')).toBeAttached()
   await expect(page.locator('.location-pin')).toHaveCount(1)
   await page.waitForTimeout(300)
@@ -178,10 +176,10 @@ async function camera(page: Page): Promise<Camera> {
   return page.evaluate(() => (window as unknown as { __motregenCamera: () => Camera }).__motregenCamera())
 }
 
-// Punt van de pin (anker onderaan midden), in paginacoördinaten.
+// MapLibre's standaardmarker ankert op het elementmidden met offset [0, -14]; de SVG bevat ook schaduw.
 async function pinTip(page: Page): Promise<{ x: number; y: number }> {
-  const box = (await page.locator('.location-pin svg').boundingBox())!
-  return { x: box.x + box.width / 2, y: box.y + box.height }
+  const box = (await page.locator('.location-pin').boundingBox())!
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 + 14 }
 }
 
 async function expectLocationMoved(page: Page, from: { lng: number; lat: number }): Promise<void> {

@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test'
+import { useOwnBasemap } from './basemap-fixture'
 
 const label = process.env.MOTREGEN_BASEMAP_VARIANT?.split('/').at(-1) ?? (process.env.MOTREGEN_MOBILE_BASEMAP ?? 'own')
 
 for (const width of [1280, 390]) {
-  for (const theme of ['light', 'dark']) {
+  for (const theme of ['light', 'dark'] as const) {
     test(`basiskaart ${width}px ${theme}`, async ({ page }, testInfo) => {
       const basemap = process.env.MOTREGEN_MOBILE_BASEMAP ?? 'own'
       const errors: string[] = []
@@ -15,6 +16,7 @@ for (const width of [1280, 390]) {
       })
       await page.setViewportSize({ width, height: width === 390 ? 844 : 800 })
       await page.addInitScript((theme) => localStorage.setItem('motregen-theme', theme), theme)
+      if (basemap === 'own') await useOwnBasemap(page, theme)
       await page.goto('/?t=%2B0u&modus=weer')
       await expect(page.locator('.map-splash.ready')).toBeAttached()
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
