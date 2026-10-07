@@ -576,3 +576,5 @@ van iteratie 3 op de telefoon kan met `?perf=1&dev`.
 
 Nog niet gedaan: rendering-kandidaten (R8-regentextuur, uploads spreiden, wind-trail per tik,
 tabel zonder layout-reads) — niet begonnen; gerichte e2e desktop — niet gedraaid.
+
+**Preview :4355 = cb36c9e** (na deze entry herbouwd en herstart: U59-basiskaart, stap 3, speelregel, knoppen Kaderhemel en Eerste regen).
