@@ -447,3 +447,25 @@
   “Zon onder 19:03” over in één donker nachtvlak; de zonregel blijft compact maar herkenbaar, NU is
   ongevuld met een bovenlijn en mobiel begint direct bij de sticky moduskoppen zonder zwevende
   handle. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+
+## 2026-10-07 13:26 UTC
+
+- De tabelcyclus is nu een gebruikersoptie “Dag en nacht in tabel” onder Weergave, standaard aan en
+  persistent via `motregen-table-day-night`; de voorkeur blijft behouden bij “Reset alle
+  instellingen”. Uit schakelt alle dag/nachtpaletten en zontransities uit en laat de neutrale tabel
+  staan.
+- De cyclus is symmetrisch per app-thema: in licht thema wordt de nacht een donkerblauw vlak; in
+  donker thema wordt de dag juist een licht vlak. Zonsondergang en zonsopkomst kregen elk een
+  gelaagde overgang over het aangrenzende uur vóór, de 9px-zonregel en het uur erna: asymmetrische
+  amber-, rood-, magenta- en paarse radiale gloed in plaats van één lineair verloop.
+- De kort daarvoor geïntroduceerde accent-overline van NU is op vervolgsteer weer volledig
+  verwijderd. De achtergrond blijft leeg; alleen de linker accentmarkering en het NU-label blijven.
+- Synchrone receipts: `git diff --check`, `pnpm typecheck`, gerichte `pnpm test -- --run ...` en
+  `pnpm build` exit 0. Door de scriptconfiguratie draaide Vitest volledig: 60 bestanden/388 tests
+  groen. Build: 108 modules, `index-CKEpyAeb.js`, `index-5tCLdv_N.css`, PWA + workers. Preview
+  `http://ageq-dev2:4320/` serveert deze assets.
+- Eigen visuele controle: desktop 1280×900 en mobiel 390×844 in licht én donker tonen dezelfde
+  warme horizoncompositie tussen tegengestelde dag/nachtvlakken; zonsopkomst is apart op 390px
+  bekeken en vloeit gespiegeld van nacht via rood/amber naar dag. De uit-stand is op 390px één
+  neutraal vlak en de Weergave-optie toont/onthoudt Aan→Uit correct. Geen e2e uitgevoerd vóór
+  PO-signaal “klaar”.

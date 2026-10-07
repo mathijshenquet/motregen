@@ -21,7 +21,7 @@ const series: ForecastSeries = {
 }
 const allColumns = { weather: true, air: true, temperature: true, wind: true }
 
-function renderTable(options: { pinned?: FocusKind; weather?: boolean; onSelectTime?: (epoch: number) => void; mobileTableOpen?: boolean; onOpenMobileTable?: () => void; onSelectMobileMode?: () => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
+function renderTable(options: { pinned?: FocusKind; weather?: boolean; dayNight?: boolean; onSelectTime?: (epoch: number) => void; mobileTableOpen?: boolean; onOpenMobileTable?: () => void; onSelectMobileMode?: () => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
   const [pinned, setPinned] = createSignal<FocusKind>(options.pinned ?? 'weather')
   const onPin = vi.fn((mode: FocusKind) => setPinned(mode))
   const onFocus = vi.fn()
@@ -31,6 +31,7 @@ function renderTable(options: { pinned?: FocusKind; weather?: boolean; onSelectT
     location={{ lng: 5.18, lat: 52.1 }}
     columns={{ ...allColumns, weather: options.weather ?? true }}
     windUnit={options.windUnit?.() ?? 'bft'}
+    dayNight={options.dayNight}
     loadedUntil={Number.POSITIVE_INFINITY}
     historyInline={options.historyInline ?? false}
     historyOpen={false}
@@ -188,14 +189,25 @@ describe('forecast table headings', () => {
 describe('forecast table cells', () => {
   it('groups night hours with a distinct row treatment around the sun boundaries', () => {
     renderTable()
+    expect(document.querySelector('.forecast-table')?.classList.contains('day-night-table')).toBe(true)
     const rowAt = (hour: number) => document.querySelector<HTMLTableRowElement>(`tr[data-epoch="${start + hour * 3_600_000}"]`)!
     expect(rowAt(2).classList.contains('night-hour')).toBe(true)
     expect(rowAt(14).classList.contains('night-hour')).toBe(false)
     expect(rowAt(22).classList.contains('night-hour')).toBe(true)
     const sunrise = [...document.querySelectorAll<HTMLTableRowElement>('.sun-row')].find((row) => row.textContent?.includes('Zon op'))!
     const sunset = [...document.querySelectorAll<HTMLTableRowElement>('.sun-row')].find((row) => row.textContent?.includes('Zon onder'))!
+    expect(sunrise.classList.contains('sunrise-row')).toBe(true)
+    expect(sunset.classList.contains('sunset-row')).toBe(true)
+    expect(sunrise.previousElementSibling?.classList.contains('before-sunrise')).toBe(true)
+    expect(sunset.previousElementSibling?.classList.contains('before-sunset')).toBe(true)
     expect(sunrise.previousElementSibling?.classList.contains('night-hour')).toBe(true)
     expect(sunset.previousElementSibling?.classList.contains('night-hour')).toBe(false)
+  })
+
+  it('can turn the complete table day/night treatment off', () => {
+    renderTable({ dayNight: false })
+    expect(document.querySelector('.forecast-table')?.classList.contains('day-night-table')).toBe(false)
+    expect(document.querySelector('tr.night-hour')).not.toBeNull()
   })
 
   it('masks the NASA moon texture with the calculated terminator at night', () => {

@@ -31,6 +31,7 @@ interface Props {
   location: { lng: number; lat: number }
   columns: { weather: boolean; air: boolean; temperature: boolean; wind: boolean }
   windUnit: WindUnit
+  dayNight?: boolean
   // Rows after this epoch have not been fetched yet; scrolling near them asks for them.
   loadedUntil: number
   // Desktop (inline) keeps history above now; portrait mobile reveals it when table mode opens.
@@ -181,7 +182,7 @@ export default function ForecastTable(props: Props) {
 
   const columnCount = () => 1 + Number(props.columns.weather) + Number(props.columns.air) + Number(props.columns.temperature) + Number(props.columns.wind)
 
-  return <table class="forecast-table" data-mode={props.focus.pinned} data-hover={hovered()}>
+  return <table class="forecast-table" classList={{ 'day-night-table': props.dayNight !== false }} data-mode={props.focus.pinned} data-hover={hovered()}>
     <thead><tr>
       {/* Weer is de vaste standaardmodus: regen op de kaart en in de grafiek. */}
       <th class="time-heading"><Show when={props.onOpenMobileTable} fallback={<span class="column-mode"><ColumnLabel icon={Clock} text="Uur" /></span>}>
@@ -244,7 +245,16 @@ export default function ForecastTable(props: Props) {
             onCleanup(() => rowElements.delete(row.epoch))
             if (row.kind === 'now') pinNow(element)
           }}
-          classList={{ 'night-hour': !daylight(), 'current-hour': row.kind === 'now', 'past-hour': row.kind === 'past', 'pending-hour': pending(), 'before-sun-row': !!sunEvent() }}
+          classList={{
+            'day-hour': daylight(),
+            'night-hour': !daylight(),
+            'current-hour': row.kind === 'now',
+            'past-hour': row.kind === 'past',
+            'pending-hour': pending(),
+            'before-sun-row': !!sunEvent(),
+            'before-sunrise': sunEvent()?.kind === 'rise',
+            'before-sunset': sunEvent()?.kind === 'set',
+          }}
           onClick={() => props.onSelectTime?.(row.epoch)}
         >
           <td class="time-cell">
@@ -294,7 +304,7 @@ export default function ForecastTable(props: Props) {
           </tr>
         </Show>
         <Show when={sunEvent()}>{(event) =>
-          <tr class="sun-row" classList={{ 'past-hour': row.kind === 'past' }}>
+          <tr class="sun-row" classList={{ 'past-hour': row.kind === 'past', 'sunrise-row': event().kind === 'rise', 'sunset-row': event().kind === 'set' }}>
             <td colSpan={columnCount()}><SunGlyph />{sunLabel(event())}</td>
           </tr>
         }</Show>

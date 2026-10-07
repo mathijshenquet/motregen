@@ -58,6 +58,7 @@ import { copyText } from './core/clipboard'
 import { resolveLocation, suggestLocations } from './core/geocoder'
 import { cursorForPresetEpoch, modeForActiveFocus, modeForFocus, parsePresets, shareUrl } from './core/presets'
 import { applyTelegramColors, type TelegramWebApp } from './core/telegram'
+import { loadTableDayNight, storeTableDayNight } from './core/table-appearance'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
 const manifestRequestUrl = sessionManifestUrls(manifestUrl)
@@ -412,6 +413,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(stillMode ? 'light' : props.telegram?.colorScheme ?? storedTheme())
   const [windUnit, setWindUnit] = createSignal<WindUnit>(storedWindUnit())
+  const [tableDayNight, setTableDayNight] = createSignal(loadTableDayNight())
   const usage = createUsageTracker(browserUsageEnvironment(), theme(), windUnit())
   if (!stillMode) onCleanup(installUsageBeacon(usage, document, window))
   const [usageBody, setUsageBody] = createSignal(JSON.stringify(usage.sessionBody()))
@@ -2494,7 +2496,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         </div>
       </div>
       <Show when={!stillMode}>
-        <About theme={theme()} onTheme={(choice) => { usage.setTheme(choice); setTheme(choice) }}
+        <About theme={theme()} onTheme={(choice) => { usage.setTheme(choice); setTheme(choice) }} tableDayNight={tableDayNight()} onTableDayNight={(enabled) => { setTableDayNight(enabled); storeTableDayNight(enabled) }}
           windUnit={windUnit()} onWindUnit={(unit) => { usage.setUnit(unit); setWindUnit(unit); localStorage.setItem('motregen-wind-unit', unit) }} onOpen={() => usage.mark('about')} onShare={shareCurrentState} shareNotice={shareNotice()} onTripleTap={() => setPerfVisible((visible) => !visible)} />
         <Show when={updateReady()}><aside class="update-toast" role="status">Nieuwe versie — <button type="button" onClick={() => void updateServiceWorker?.()}>herlaad</button></aside></Show>
         <LocationSearch
@@ -2569,6 +2571,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
               }}
               location={location()}
               windUnit={windUnit()}
+              dayNight={tableDayNight()}
               columns={{ weather: hasWeatherIcons(), air: hasWeatherIcons() || uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), wind: hasWind() }}
               loadedUntil={pointLoadStage() === 'complete' ? Number.POSITIVE_INFINITY : manifestNow() + PASSIVE_FORECAST_HOURS * 3_600_000}
               historyInline={historyInline()}

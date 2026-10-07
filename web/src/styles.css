@@ -253,6 +253,15 @@ button { color: inherit; cursor: pointer; }
 .about-theme { display: flex; }
 .about-theme button { flex: 1; }
 .about-wind-unit { margin-top: 8px; }
+.about-table-cycle { width: 100%; min-height: 44px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; margin-top: 8px; padding: 7px 9px; border: 1px solid var(--line-strong); border-radius: 9px; color: var(--text); background: var(--surface); text-align: left; }
+.about-table-cycle > svg { color: var(--muted); }
+.about-table-cycle > span { display: grid; line-height: 1.25; }
+.about-table-cycle b { font-size: 12px; }
+.about-table-cycle small { color: var(--muted); font-size: 10px; }
+.about-table-cycle i { min-width: 34px; padding: 3px 6px; border-radius: 999px; color: var(--muted); background: var(--surface-soft); font-size: 10px; font-style: normal; font-weight: 750; text-align: center; }
+.about-table-cycle[aria-pressed="true"] { border-color: color-mix(in srgb, var(--accent) 58%, var(--line)); background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface)); }
+.about-table-cycle[aria-pressed="true"] > svg, .about-table-cycle[aria-pressed="true"] i { color: var(--accent); }
+.about-table-cycle:hover, .about-table-cycle:focus-visible { border-color: var(--accent); outline: none; }
 .about-lead { font-size: 14px; font-weight: 650; line-height: 1.45; }
 .about-share { display: flex; align-items: center; gap: 10px; min-height: 34px; margin: 0 0 10px; }
 .about-share button { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 9px; color: var(--text); background: var(--surface-raised); cursor: pointer; font: inherit; font-weight: 650; }
@@ -646,16 +655,18 @@ button.column-mode { width: 100%; cursor: pointer; }
 .rain-amount { color: var(--accent); font-size: 11px; font-weight: 720; line-height: 1.1; }
 .rain-amount small { font-size: 8.5px; font-weight: 600; }
 .time-label span { color: var(--muted); font-size: 10px; text-transform: capitalize; }
-.forecast-table tr.night-hour { --surface: #0a1820; --surface-soft: #112832; --text: #edf8fc; --muted: #91aab5; --line: #25404b; --line-strong: #3b5a66; --accent: #48c4e9; --accent-soft: #123b49; color: var(--text); }
-.forecast-table tr.night-hour td { background: var(--surface); }
-.forecast-table tr.night-hour .weather-icon .weather-cloud { fill: #607780; stroke: #adc2ca; }
-.forecast-table tr.night-hour .weather-moon { fill: #cbddeb; }
-.forecast-table tr.night-hour .moon-night-core { stop-color: #2c3a41; }
-.forecast-table tr.night-hour .moon-night-edge { stop-color: #1b262c; }
-.forecast-table tr.night-hour .moon-earthshine { opacity: .25; }
+.forecast-table.day-night-table tr.night-hour { --surface: #0a1820; --surface-soft: #112832; --text: #edf8fc; --muted: #91aab5; --line: #25404b; --line-strong: #3b5a66; --accent: #48c4e9; --accent-soft: #123b49; color: var(--text); }
+.forecast-table.day-night-table tr.night-hour td { background: var(--surface); }
+.forecast-table.day-night-table tr.night-hour .weather-icon .weather-cloud { fill: #607780; stroke: #adc2ca; }
+.forecast-table.day-night-table tr.night-hour .weather-moon { fill: #cbddeb; }
+.forecast-table.day-night-table tr.night-hour .moon-night-core { stop-color: #2c3a41; }
+.forecast-table.day-night-table tr.night-hour .moon-night-edge { stop-color: #1b262c; }
+.forecast-table.day-night-table tr.night-hour .moon-earthshine { opacity: .25; }
+:root[data-theme="dark"] .forecast-table.day-night-table tr.day-hour { --surface: #fff; --surface-soft: #f2f7f8; --text: #102630; --muted: #637b85; --line: #d5e1e5; --line-strong: #b7cbd2; --accent: #1688ad; --accent-soft: #d9f1f8; color: var(--text); }
+:root[data-theme="dark"] .forecast-table.day-night-table tr.day-hour td { background: var(--surface); }
+:root[data-theme="dark"] .forecast-table.day-night-table tr.day-hour .weather-icon .weather-cloud { fill: #e7eef1; stroke: #8399a3; }
 tr.past-hour td { color: color-mix(in srgb, var(--text) 68%, var(--muted)); }
 tr.pending-hour td { color: var(--muted); }
-tr.current-hour td { border-top: 2px solid var(--accent); }
 /* De nu-markering staat in de 8 px-goot van de eerste kolom: de tijd springt niet in. */
 tr.current-hour td:first-child { box-shadow: inset 3px 0 var(--accent); }
 .time-label span.now-label { color: var(--accent); font-weight: 820; letter-spacing: .06em; text-transform: uppercase; }
@@ -698,6 +709,52 @@ td small { color: var(--muted); font-size: 9px; }
 .uv-bar-bare :is(.uv-bar-fill, .uv-bar-clear) { min-width: 6px; }
 .forecast-table tr.sun-row td { padding: 9px 0; border-block: 1px solid var(--line); color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .04em; text-align: center; }
 .forecast-table tr.before-sun-row td { border-bottom: 0; }
+.forecast-table.day-night-table tr.before-sunset {
+  background:
+    radial-gradient(ellipse 48% 95% at 52% 118%, rgba(255, 184, 92, .7), transparent 66%),
+    radial-gradient(ellipse 72% 78% at 7% 116%, rgba(239, 66, 105, .28), transparent 70%),
+    radial-gradient(ellipse 58% 72% at 96% 112%, rgba(123, 57, 137, .2), transparent 72%),
+    linear-gradient(180deg, var(--surface) 24%, color-mix(in srgb, #ef7a64 24%, var(--surface)) 100%);
+}
+.forecast-table.day-night-table tr.before-sunrise {
+  background:
+    radial-gradient(ellipse 48% 95% at 48% 118%, rgba(255, 171, 82, .58), transparent 66%),
+    radial-gradient(ellipse 72% 78% at 94% 116%, rgba(226, 64, 105, .38), transparent 70%),
+    linear-gradient(180deg, var(--surface) 18%, #31182c 100%);
+}
+.forecast-table.day-night-table tr:is(.before-sunset, .before-sunrise) td { background: transparent; }
+.forecast-table.day-night-table tr.sun-row:is(.sunset-row, .sunrise-row) td { position: relative; border-block-color: rgba(255, 221, 193, .48); color: #fff3e8; background: transparent; text-shadow: 0 1px 4px rgba(49, 12, 37, .52); }
+.forecast-table.day-night-table tr.sunset-row {
+  background:
+    radial-gradient(ellipse 22% 180% at 48% 118%, rgba(255, 228, 151, .98) 0 8%, rgba(255, 145, 72, .82) 30%, transparent 70%),
+    radial-gradient(ellipse 60% 150% at 6% 84%, rgba(247, 71, 111, .66), transparent 64%),
+    radial-gradient(ellipse 52% 145% at 94% 76%, rgba(110, 43, 128, .58), transparent 66%),
+    linear-gradient(104deg, #8b285d 0%, #d84262 36%, #ee6554 60%, #552657 100%);
+}
+.forecast-table.day-night-table tr.sunrise-row {
+  background:
+    radial-gradient(ellipse 24% 180% at 52% 118%, rgba(255, 233, 159, .98) 0 9%, rgba(255, 157, 79, .84) 31%, transparent 70%),
+    radial-gradient(ellipse 58% 145% at 4% 78%, rgba(91, 42, 112, .62), transparent 66%),
+    radial-gradient(ellipse 60% 145% at 96% 84%, rgba(247, 81, 111, .62), transparent 65%),
+    linear-gradient(104deg, #462450 0%, #a83267 35%, #eb675d 66%, #bc4d68 100%);
+}
+.forecast-table.day-night-table tr.sunset-row + tr.night-hour {
+  background:
+    radial-gradient(ellipse 54% 105% at 48% -15%, rgba(237, 91, 83, .56), rgba(119, 43, 92, .28) 40%, transparent 74%),
+    radial-gradient(ellipse 72% 95% at 96% -18%, rgba(91, 47, 120, .32), transparent 67%),
+    linear-gradient(180deg, #1c1725 0%, var(--surface) 82%);
+}
+.forecast-table.day-night-table tr.sunrise-row + tr.day-hour {
+  background:
+    radial-gradient(ellipse 54% 105% at 52% -15%, rgba(255, 164, 92, .54), rgba(238, 95, 107, .22) 40%, transparent 74%),
+    radial-gradient(ellipse 72% 90% at 3% -15%, rgba(126, 62, 142, .18), transparent 67%),
+    linear-gradient(180deg, color-mix(in srgb, #f7ad7b 24%, var(--surface)) 0%, var(--surface) 82%);
+}
+.forecast-table.day-night-table tr.sunset-row + tr.night-hour td,
+.forecast-table.day-night-table tr.sunrise-row + tr.day-hour td { background: transparent; }
+.forecast-table.day-night-table tr.sun-row:is(.sunset-row, .sunrise-row) .sun-glyph-horizon { stroke: rgba(255, 247, 235, .86); }
+.forecast-table.day-night-table tr.sun-row:is(.sunset-row, .sunrise-row) .sun-glyph-rays { stroke: #ffe29a; }
+.forecast-table.day-night-table tr.sun-row:is(.sunset-row, .sunrise-row) .sun-glyph-disc { fill: #ffd76e; stroke: #fff0b6; }
 .sun-glyph { display: inline-block; width: 22px; height: 11px; margin: 0 6px 0 0; vertical-align: -1px; overflow: visible; }
 .sun-glyph-rays { fill: none; stroke: #e0a400; stroke-linecap: round; stroke-width: 1.1; }
 .sun-glyph-horizon { fill: none; stroke: var(--muted); stroke-linecap: round; stroke-width: 1.2; }

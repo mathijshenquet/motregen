@@ -44,7 +44,8 @@ still voor de grading-pijplijn; geen knop, vervalt na de analyse.
 ## Opslag (`localStorage`, prefix `motregen-`)
 
 Gebruikersstaat (blijft bij reset): `theme`, `saved-places`, `last-saved-place`, `map-view`,
-`sky-diary` (tijd, vijfklassenlabel en gekozen locatie afgerond op 0,1°; U46).
+`table-day-night` (standaard aan) en `sky-diary` (tijd, vijfklassenlabel en gekozen locatie
+afgerond op 0,1°; U46).
 Tuning/debug: `wind-tuning-v4` (v3 wordt bij het laden gemigreerd), `perf` en de eenmalige
 `perf-cold`. Oude sleutels (`wind-tuning`, `-v2`, `-v3`, `splash-slowdown`, `scrubber-view`) wist
 "Reset alle instellingen".
