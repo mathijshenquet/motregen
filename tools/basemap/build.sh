@@ -22,7 +22,7 @@ filter_tags=(
   wr/leisure=park,garden,golf_course,nature_reserve
   wr/waterway=riverbank wr/boundary=administrative,national_park,protected_area,aboriginal_lands
 )
-filter_hash="$(printf '%s\n' "${filter_tags[@]}" | sha256sum | cut -d ' ' -f 1)"
+filter_hash="$( { printf '%s\n' "${filter_tags[@]}"; cat tools/basemap/sources.sha256; } | sha256sum | cut -d ' ' -f 1)"
 previous_filter_hash="$(cat "$scratch/build/filter.sha256" 2>/dev/null || true)"
 if [ ! -f "$scratch/build/region.osm.pbf" ] || [ "$filter_hash" != "$previous_filter_hash" ]; then
   osmium merge "$scratch"/sources/*.osm.pbf -o "$scratch/build/merged.osm.pbf" --overwrite

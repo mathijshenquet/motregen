@@ -7,7 +7,7 @@ niet in de tegels terecht. De licht/donkerstijl komt uit
 
 ## Bronnen en licenties
 
-Geofabrik-extracten Nederland, België, Nordrhein-Westfalen en Niedersachsen,
+Geofabrik-extracten Nederland, België, Nordrhein-Westfalen, Niedersachsen en Rheinland-Pfalz,
 stand 2026-10-06, dekken de app-bounds inclusief de rand. URL’s staan in
 `tools/basemap/build.sh`, SHA256’s in `tools/basemap/sources.sha256`.
 [Geofabrik](https://download.geofabrik.de/europe/netherlands.html) levert
@@ -61,7 +61,7 @@ Vanaf de root:
 pnpm basemap:build
 ```
 
-Devenv bevat tilemaker, de PMTiles-CLI, osmium, GDAL en unzip. De ingang downloadt de vier
+Devenv bevat tilemaker, de PMTiles-CLI, osmium, GDAL en unzip. De ingang downloadt de vijf
 vastgepinde PBF’s, controleert SHA256, voegt ze samen, filtert tags en maakt
 met osmium een complete-way/multipolygon-extract. Landcover wordt met osmium
 naar GeoJSON geëxporteerd en door `landcover.mts` in bos, gras, park, moeras,
@@ -71,15 +71,19 @@ ook als hetzelfde gebied bos/gras is. De selectie volgt de
 minimumoppervlak van oorspronkelijke polygonen in geprojecteerde pixels,
 vóór union. Park begint op z4 (2 pixels); bos/gras/zand op z7 (2 pixels t/m z9,
 4 op z10, 8 op z11–12). OSM residential begint op z6 (0,1 pixel), overige
-bebouwing op z9 (4 pixels). Natural Earth-bebouwing geldt alleen voor z4–5.
+bebouwing op z10 (8 pixels). Natural Earth-bebouwing geldt alleen voor z4–5.
 De pixelmaat wordt gekwadrateerd: minimumoppervlak =
 `(40.075.016,6856 m / (256 × 2^zoom) × pixelmaat)²` in EPSG:3857.
 
 GDAL/GEOS verenigt geselecteerde vlakken per klasse/detailzoom/5 km-groep in
 EPSG:3857. `generalize-landcover.sh` maakt afzonderlijke bronnen voor z4–10,
-met topology-preserving simplificatie op 0,25 pixel onder z10 en 0,1 op z10.
+met topology-preserving simplificatie op 0,25 pixel; park onder z10 op 0,1 pixel.
 Bebouwing krijgt een closing-buffer van 0,5 pixel op z6, 0,25 op z7, 0,125 op
-z8 en 0,1 daarna. Native z10 bevat ook de selectie voor z12; de stijlexpressie
+z8 en 0,1 daarna. Na union verdwijnen stedelijke componenten kleiner dan
+1 pixel² en gaten kleiner dan 1 pixel², net als bij Liberty's residential-laag.
+De overige bebouwing verschijnt grof vanaf z10 om het totale grijsoppervlak
+in verhouding tot Liberty te houden. Native z10 bevat ook de bos-/gras-/parkselectie
+voor z12; de stijlexpressie
 `detail_minzoom` verbergt die fijne vlakken totdat de kaart zover is ingezoomd.
 Zo blijft overzoom bruikbaar zonder water/grenzen/labels tot z12 te dupliceren.
 Tilemaker gebruikt

@@ -239,3 +239,20 @@ Gecomprimeerde bytes; publisher valideert totaal én grootste tegel tegen dezelf
 - Urban wordt bij bronselectie gesplitst: residential en overige bebouwing; overige verschijnt grof vanaf z10. Vervolg: Liberty-min-area/min-hole-area na urban-union en sterkere z10-simplificatie. Z12-green-detail blijft behouden.
 - Herstel bij vorig kopje: de printf-uitvoer vervormde de tekst; bedoelde gate blijft koude kaartbytes U59 +25 %. Profiel-kandidaat z5最大tegel 36.331 B, overige archiefgroei zit grotendeels in hogere zooms; nog geen mobiel rig-receipt.
 - Volledige WIP nu gecommit/gepusht op expliciete queue-instructie. Eindparen/rig/docs/ready nog open; werk gaat door.
+
+## 2026-10-07T22:05:41Z — Reproduceerbare bronaanvulling en urban-gaten
+
+- Rheinland-Pfalz 261006 gedownload; SHA toegevoegd aan sources.sha256. Filtercache bewaakt nu ook bronfingerprints zodat een extra extract echt in de merge komt.
+- Per-zoom GIS-cache en maximaal vier onafhankelijke GDAL-workers versnellen gerichte iteraties. Uitvoer blijft atomair; actieve helper wordt gekopieerd en niet gewijzigd.
+- Residential-union krijgt na generalisatie minimumcomponent- en gatoppervlak 1 pixel², zoals Liberty. Grof commercial/industrial/retail verschijnt vanaf z10 (bronminimum 8 pixels); z10 wordt op 0,25 pixel gesimplificeerd en behoudt bos/gras/park-detail tot z12.
+- bash -n en strikte tooling-TypeScriptcheck exit 0. Bouw 7 gestart; eindbeeldgate/perf nog open.
+
+## 2026-10-07T22:14:12Z — Ontbrekende natuurgebieden geometrisch hersteld
+
+- Vergelijking van Liberty-parkpolygonen met de eigen z5-union (geprojecteerd verschil, niet screenshotpercentage): Hohes Venn-Eifel ontbrekend 4.638,34→12,46 km²; Vulkaneifel 2.388,32→7,11; Rhein-Ahr-Eifel 2.275,29→6,87. Resterend verschil betreft randgeneralisatie; volledige bronaanvulling herstelt de grote vlakken. Script en diff-GPKG in tmp/basemap/u60/.
+- GIS-profielen z4–7 afgerond; z8–10 lopen parallel. Eind-A/B en rig blijven nog open. Grijs bij z12 wordt nu strikt op nul begrensd wanneer oud nul is, zonder 0,05 % tolerantie.
+
+## 2026-10-07T22:19:28Z — Bouw 7 geslaagd, eind-A/B gestart
+
+- pnpm basemap:build exit 0, inclusief gepinde vijf bronnen, complete GIS-profielen, tilemaker, cluster, verify en publisher/schema-validatie. Receipt tmp/basemap/u60/build-revision-7.txt (exec-session 47718). Nieuwe hash/archiefcijfers in tools/basemap/tiles/manifest.json; absolute 25 MB-cap gehaald.
+- Volledige vaste A/B licht/donker 390/1280 gestart, tmp/basemap/u60/ab-revision-7.txt. Groen/grijs en mobiele eindgate nog niet geclaimd. Nieuw archief en reproduceerbare source/docs gaan nu mee in vijftienminutencheckpoint.

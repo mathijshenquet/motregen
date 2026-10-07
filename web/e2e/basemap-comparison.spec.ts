@@ -155,7 +155,7 @@ for (const width of [390, 1280]) {
           const old = view.captures[0]![kind]
           const current = view.captures[1]![kind]
           expect.soft(current, `${view.view} ${kind}`).toBeGreaterThanOrEqual(old * 0.85)
-          expect.soft(current, `${view.view} ${kind}`).toBeLessThanOrEqual(Math.max(0.05, old * 1.15))
+          expect.soft(current, `${view.view} ${kind}`).toBeLessThanOrEqual(old * 1.15)
         }
       }
       const start = results[0]!.captures
