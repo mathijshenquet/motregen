@@ -2,31 +2,31 @@
   "schema": 1,
   "profile": "mobile-4g",
   "scenario": "koud",
-  "sourceSha": "2aeb95e8da34aed541a9d59d7cb1e5ee1484a56b",
-  "capturedAt": "2026-10-07T17:03:41.764Z",
-  "contractHash": "f5fd2a2a3e189997b951a01a321be990cb81cd5168c9306b5cb0b6c7a4f466f9",
+  "sourceSha": "673ac3ca630d5021b0f19061dc2458bce9d73906",
+  "capturedAt": "2026-10-07T17:32:16.691Z",
+  "contractHash": "61e88666bc218e4834d8ab261e1f9831627d73b90c68902c6a9b5d0a6c2cc964",
   "regressionLimitPercent": 10,
   "wireBytes": 2987829,
   "decodes": 297,
   "metrics": {
-    "basemapContractHash": "16a2e6a2b67569fb57c7462d1f197efb7a56a0147d5b032d15f7fe44081508d3",
+    "basemapContractHash": "b091de9df36b98beb9fda086b8c8cac3aa4a4ebf2c0bc6c25bad68420f7a9ec4",
     "milestones": {
-      "ttfrMs": 1656.1,
-      "splashGoneMs": 3585.5,
-      "ttfhMs": 3545,
+      "ttfrMs": 1738.3,
+      "splashGoneMs": 3673.5,
+      "ttfhMs": 3611,
       "windowReadyMs": {
-        "cloud_mid": 2447,
-        "cloud_low": 2893,
-        "cloud_high": 2964,
-        "uv": 3380,
-        "feels_like_c": 3467,
-        "wind_u": 3467,
-        "wind_v": 3467,
-        "rain_rate": 3545,
-        "rel_humidity": 3729,
-        "cloud_frac": 3729,
-        "temp_c": 3771,
-        "gust_ms": 3771
+        "cloud_mid": 2651,
+        "cloud_high": 2725,
+        "cloud_low": 2725,
+        "uv": 3430,
+        "feels_like_c": 3511,
+        "wind_u": 3511,
+        "wind_v": 3511,
+        "rain_rate": 3611,
+        "temp_c": 3798,
+        "rel_humidity": 3798,
+        "cloud_frac": 3869,
+        "gust_ms": 3869
       },
       "histogramSource": "U52 window-ready:rain_rate"
     },
@@ -34,214 +34,214 @@
       "phases": {
         "table-render": {
           "count": 7,
-          "totalMs": 4.4,
-          "p50Ms": 0.5,
-          "p95Ms": 2
+          "totalMs": 6.5,
+          "p50Ms": 0.8999999761581421,
+          "p95Ms": 2.399999976158142
         },
         "scrubber-paint": {
-          "count": 187,
-          "totalMs": 79.4,
+          "count": 225,
+          "totalMs": 107.4,
           "p50Ms": 0.3999999761581421,
-          "p95Ms": 0.8999999761581421
+          "p95Ms": 1.2000000476837158
         },
         "frame-decode": {
           "count": 297,
-          "totalMs": 119.7,
+          "totalMs": 115.4,
           "p50Ms": 0.20000004768371582,
-          "p95Ms": 1.899999976158142
+          "p95Ms": 1.5
         },
         "basemap-tile": {
           "count": 5,
-          "totalMs": 5812,
-          "p50Ms": 949,
-          "p95Ms": 2345.100000023842
+          "totalMs": 5805.6,
+          "p50Ms": 945.5,
+          "p95Ms": 2455.5
         },
         "texture-upload": {
           "count": 1,
-          "totalMs": 5.3,
-          "p50Ms": 5.299999952316284,
-          "p95Ms": 5.299999952316284
+          "totalMs": 4.4,
+          "p50Ms": 4.399999976158142,
+          "p95Ms": 4.399999976158142
         },
         "wind-step": {
-          "count": 1027,
-          "totalMs": 1840.3,
-          "p50Ms": 1.6999999284744263,
-          "p95Ms": 2.9000000953674316
+          "count": 966,
+          "totalMs": 1133.7,
+          "p50Ms": 1,
+          "p95Ms": 2.200000047683716
         },
         "window-ready:cloud_mid": {
           "count": 1,
-          "totalMs": 2446.7,
-          "p50Ms": 2446.7000000476837,
-          "p95Ms": 2446.7000000476837
-        },
-        "window-ready:cloud_low": {
-          "count": 1,
-          "totalMs": 2892.7,
-          "p50Ms": 2892.7000000476837,
-          "p95Ms": 2892.7000000476837
+          "totalMs": 2650.5,
+          "p50Ms": 2650.5,
+          "p95Ms": 2650.5
         },
         "window-ready:cloud_high": {
           "count": 1,
-          "totalMs": 2964,
-          "p50Ms": 2964,
-          "p95Ms": 2964
+          "totalMs": 2725.3,
+          "p50Ms": 2725.3000000715256,
+          "p95Ms": 2725.3000000715256
+        },
+        "window-ready:cloud_low": {
+          "count": 1,
+          "totalMs": 2725.4,
+          "p50Ms": 2725.399999976158,
+          "p95Ms": 2725.399999976158
         },
         "window-ready:uv": {
           "count": 1,
-          "totalMs": 3380.2,
-          "p50Ms": 3380.2000000476837,
-          "p95Ms": 3380.2000000476837
+          "totalMs": 3429.6,
+          "p50Ms": 3429.600000023842,
+          "p95Ms": 3429.600000023842
         },
         "window-ready:feels_like_c": {
           "count": 1,
-          "totalMs": 3467.4,
-          "p50Ms": 3467.4000000953674,
-          "p95Ms": 3467.4000000953674
+          "totalMs": 3510.5,
+          "p50Ms": 3510.5,
+          "p95Ms": 3510.5
         },
         "window-ready:wind_u": {
           "count": 1,
-          "totalMs": 3467.4,
-          "p50Ms": 3467.4000000953674,
-          "p95Ms": 3467.4000000953674
+          "totalMs": 3510.6,
+          "p50Ms": 3510.600000023842,
+          "p95Ms": 3510.600000023842
         },
         "window-ready:wind_v": {
           "count": 1,
-          "totalMs": 3467.4,
-          "p50Ms": 3467.4000000953674,
-          "p95Ms": 3467.4000000953674
+          "totalMs": 3510.6,
+          "p50Ms": 3510.600000023842,
+          "p95Ms": 3510.600000023842
         },
         "window-ready:rain_rate": {
           "count": 1,
-          "totalMs": 3544.9,
-          "p50Ms": 3544.9000000953674,
-          "p95Ms": 3544.9000000953674
-        },
-        "window-ready:rel_humidity": {
-          "count": 1,
-          "totalMs": 3728.5,
-          "p50Ms": 3728.5,
-          "p95Ms": 3728.5
-        },
-        "window-ready:cloud_frac": {
-          "count": 1,
-          "totalMs": 3728.5,
-          "p50Ms": 3728.5,
-          "p95Ms": 3728.5
+          "totalMs": 3611.3,
+          "p50Ms": 3611.3000000715256,
+          "p95Ms": 3611.3000000715256
         },
         "window-ready:temp_c": {
           "count": 1,
-          "totalMs": 3771.1,
-          "p50Ms": 3771.100000023842,
-          "p95Ms": 3771.100000023842
+          "totalMs": 3798.2,
+          "p50Ms": 3798.2000000476837,
+          "p95Ms": 3798.2000000476837
+        },
+        "window-ready:rel_humidity": {
+          "count": 1,
+          "totalMs": 3798.2,
+          "p50Ms": 3798.2000000476837,
+          "p95Ms": 3798.2000000476837
+        },
+        "window-ready:cloud_frac": {
+          "count": 1,
+          "totalMs": 3869,
+          "p50Ms": 3869,
+          "p95Ms": 3869
         },
         "window-ready:gust_ms": {
           "count": 1,
-          "totalMs": 3771.1,
-          "p50Ms": 3771.100000023842,
-          "p95Ms": 3771.100000023842
+          "totalMs": 3869,
+          "p50Ms": 3869,
+          "p95Ms": 3869
         }
       },
       "fields": {
         "rain_rate": {
           "count": 66,
-          "totalMs": 19.3,
+          "totalMs": 18.1,
           "p50Ms": 0.20000004768371582,
-          "p95Ms": 0.8999999761581421
+          "p95Ms": 0.6999999284744263
         },
         "radiation": {
           "count": 11,
-          "totalMs": 7.7,
-          "p50Ms": 0.3999999761581421,
-          "p95Ms": 2.600000023841858
+          "totalMs": 8.1,
+          "p50Ms": 0.40000009536743164,
+          "p95Ms": 2.5999999046325684
         },
         "motion": {
           "count": 1,
-          "totalMs": 0,
-          "p50Ms": 0,
-          "p95Ms": 0
-        },
-        "feels_like_c": {
-          "count": 25,
-          "totalMs": 53.6,
-          "p50Ms": 1.899999976158142,
-          "p95Ms": 3.799999952316284
+          "totalMs": 0.1,
+          "p50Ms": 0.10000002384185791,
+          "p95Ms": 0.10000002384185791
         },
         "uv_clear": {
           "count": 10,
-          "totalMs": 2,
+          "totalMs": 1.7,
           "p50Ms": 0.10000002384185791,
-          "p95Ms": 0.5999999046325684
+          "p95Ms": 0.5
+        },
+        "feels_like_c": {
+          "count": 25,
+          "totalMs": 48.7,
+          "p50Ms": 1.5,
+          "p95Ms": 4.100000023841858
         },
         "cloud_mid": {
           "count": 9,
-          "totalMs": 1.4,
-          "p50Ms": 0.10000002384185791,
-          "p95Ms": 0.30000007152557373
-        },
-        "temp_c": {
-          "count": 25,
-          "totalMs": 4.5,
+          "totalMs": 1.8,
           "p50Ms": 0.19999992847442627,
-          "p95Ms": 0.2999999523162842
-        },
-        "cloud_low": {
-          "count": 9,
-          "totalMs": 1.7,
-          "p50Ms": 0.20000004768371582,
-          "p95Ms": 0.2999999523162842
+          "p95Ms": 0.3999999761581421
         },
         "cloud_high": {
           "count": 9,
-          "totalMs": 1.9,
-          "p50Ms": 0.19999992847442627,
+          "totalMs": 2,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.30000007152557373
+        },
+        "cloud_low": {
+          "count": 9,
+          "totalMs": 2,
+          "p50Ms": 0.20000004768371582,
           "p95Ms": 0.3999999761581421
         },
         "uv": {
           "count": 7,
-          "totalMs": 1.7,
-          "p50Ms": 0.20000004768371582,
-          "p95Ms": 0.7000000476837158
-        },
-        "rel_humidity": {
-          "count": 25,
-          "totalMs": 6.8,
-          "p50Ms": 0.2999999523162842,
-          "p95Ms": 0.40000009536743164
-        },
-        "cloud_frac": {
-          "count": 25,
-          "totalMs": 3.6,
-          "p50Ms": 0.10000002384185791,
-          "p95Ms": 0.20000004768371582
-        },
-        "wind_u_ms": {
-          "count": 25,
-          "totalMs": 5.3,
+          "totalMs": 1.6,
           "p50Ms": 0.20000004768371582,
           "p95Ms": 0.30000007152557373
         },
+        "temp_c": {
+          "count": 25,
+          "totalMs": 4.2,
+          "p50Ms": 0.19999992847442627,
+          "p95Ms": 0.30000007152557373
+        },
+        "rel_humidity": {
+          "count": 25,
+          "totalMs": 6.2,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.3999999761581421
+        },
+        "wind_u_ms": {
+          "count": 25,
+          "totalMs": 5.4,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.30000007152557373
+        },
+        "cloud_frac": {
+          "count": 25,
+          "totalMs": 5,
+          "p50Ms": 0.19999992847442627,
+          "p95Ms": 0.20000004768371582
+        },
         "wind_v_ms": {
           "count": 25,
-          "totalMs": 4.9,
+          "totalMs": 4.7,
           "p50Ms": 0.20000004768371582,
           "p95Ms": 0.2999999523162842
         },
         "gust_ms": {
           "count": 25,
-          "totalMs": 5.3,
+          "totalMs": 5.8,
           "p50Ms": 0.20000004768371582,
-          "p95Ms": 0.30000007152557373
+          "p95Ms": 0.3999999761581421
         }
       },
       "decodesPerSecond": [
         0,
         14,
-        31,
-        39,
-        104,
-        66,
-        43,
-        0,
+        30,
+        36,
+        54,
+        50,
+        55,
+        58,
         0,
         0,
         0,
@@ -348,51 +348,51 @@
           "requestDifference": 0
         }
       ],
-      "completeBodyAborts": 21,
+      "completeBodyAborts": 13,
       "contentLengthFallbacks": 3,
       "findings": [],
       "rangeRequests": 91,
       "beforeTtfrBytes": 683024,
-      "beforeTtfhBytes": 2853402
+      "beforeTtfhBytes": 2726183
     },
     "longFrames": {
-      "count": 27,
-      "totalMs": 2465.800000190735,
-      "blockingMs": 880,
+      "count": 30,
+      "totalMs": 2634.300000309944,
+      "blockingMs": 903.5,
       "topSources": [
         {
           "source": "http://127.0.0.1:4393/assets/index-C1kwVEUK.js FrameRequestCallback",
-          "durationMs": 1323.3999999761581
-        },
-        {
-          "source": "http://127.0.0.1:4393/assets/index-C1kwVEUK.js Worker.onmessage",
-          "durationMs": 213.9999998807907
+          "durationMs": 1438.9000000953674
         },
         {
           "source": "http://127.0.0.1:4393/assets/index-C1kwVEUK.js http://127.0.0.1:4393/assets/index-C1kwVEUK.js",
-          "durationMs": 187.29999995231628
+          "durationMs": 209.59999990463257
+        },
+        {
+          "source": "http://127.0.0.1:4393/assets/index-C1kwVEUK.js Worker.onmessage",
+          "durationMs": 204.30000007152557
         }
       ]
     },
     "mainThread": {
-      "samples": 3067,
-      "busySamples": 566,
-      "busyPercent": 18.45451581349853,
+      "samples": 3078,
+      "busySamples": 508,
+      "busyPercent": 16.504223521767383,
       "topSources": [
         {
           "functionName": "currentTrailView",
           "url": "src/core/wind-layer.ts",
-          "selfSamples": 105
+          "selfSamples": 50
+        },
+        {
+          "functionName": "sampleWind",
+          "url": "src/core/wind-layer.ts",
+          "selfSamples": 10
         },
         {
           "functionName": "drawHeads",
           "url": "src/core/wind-layer.ts",
-          "selfSamples": 20
-        },
-        {
-          "functionName": "renderStep",
-          "url": "src/core/wind-layer.ts",
-          "selfSamples": 21
+          "selfSamples": 7
         }
       ]
     },

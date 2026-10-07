@@ -2,7 +2,7 @@
   "layers": {
     "water": {
       "minzoom": 4,
-      "maxzoom": 13,
+      "maxzoom": 10,
       "simplify_below": 14,
       "simplify_level": 0.00015,
       "filter_below": 14,
@@ -10,7 +10,7 @@
     },
     "ocean": {
       "minzoom": 4,
-      "maxzoom": 13,
+      "maxzoom": 10,
       "source": "ocean.geojson",
       "source_columns": [],
       "simplify_below": 14,
@@ -19,7 +19,7 @@
     },
     "landcover": {
       "minzoom": 5,
-      "maxzoom": 13,
+      "maxzoom": 10,
       "simplify_below": 14,
       "simplify_level": 0.00015,
       "filter_below": 14,
@@ -27,30 +27,30 @@
     },
     "boundary": {
       "minzoom": 4,
-      "maxzoom": 13,
+      "maxzoom": 10,
       "simplify_below": 14,
       "simplify_level": 0.00003,
       "combine_lines_below": 14
     },
     "place": {
       "minzoom": 4,
-      "maxzoom": 13
+      "maxzoom": 10
     }
   },
   "settings": {
     "minzoom": 4,
-    "maxzoom": 13,
-    "basezoom": 13,
+    "maxzoom": 10,
+    "basezoom": 10,
     "include_ids": false,
     "name": "motregen — Nederland en Vlaanderen",
     "version": "1",
     "description": "Water, bos, stedelijk gebied, lands- en provinciegrenzen en Nederlandse plaatsnamen",
     "compress": "gzip",
     "bounding_box": [
-      2.3108,
-      50.3256,
-      7.4192,
-      53.6844
+      -5,
+      48,
+      13,
+      57
     ],
     "metadata": {
       "attribution": "© OpenStreetMap contributors",

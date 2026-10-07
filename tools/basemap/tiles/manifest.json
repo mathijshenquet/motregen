@@ -1,115 +1,85 @@
 {
-  "filename": "nl-fa8f5a3ea65f155e.pmtiles",
-  "sha256": "fa8f5a3ea65f155edf75eda2eb7f6941554041f5be1854c7a4c734dbcb57132f",
-  "bytes": 24330926,
+  "filename": "nl-0aa536ff364f7cce.pmtiles",
+  "sha256": "0aa536ff364f7cce58a813bf9a190b5267baafcb4cc27a3949699d662f1456a2",
+  "bytes": 3536092,
   "minzoom": 4,
-  "maxzoom": 13,
+  "maxzoom": 10,
   "bounds": [
-    2.3108,
-    50.3256,
-    7.4192,
-    53.6843999
+    -5,
+    48,
+    13,
+    57
   ],
   "zooms": [
     {
       "zoom": 4,
-      "tiles": 1,
-      "compressedBytes": 5651,
-      "p50CompressedBytes": 5651,
-      "maxCompressedBytes": 5651,
-      "decodedBytes": 11405,
-      "p50Bytes": 11405,
-      "maxBytes": 11405
+      "tiles": 4,
+      "compressedBytes": 16388,
+      "p50CompressedBytes": 1591,
+      "maxCompressedBytes": 10469,
+      "decodedBytes": 29063,
+      "p50Bytes": 2462,
+      "maxBytes": 19781
     },
     {
       "zoom": 5,
-      "tiles": 1,
-      "compressedBytes": 20874,
-      "p50CompressedBytes": 20874,
-      "maxCompressedBytes": 20874,
-      "decodedBytes": 41909,
-      "p50Bytes": 41909,
-      "maxBytes": 41909
+      "tiles": 7,
+      "compressedBytes": 40273,
+      "p50CompressedBytes": 2076,
+      "maxCompressedBytes": 27227,
+      "decodedBytes": 71807,
+      "p50Bytes": 3152,
+      "maxBytes": 51975
     },
     {
       "zoom": 6,
-      "tiles": 4,
-      "compressedBytes": 55329,
-      "p50CompressedBytes": 5973,
-      "maxCompressedBytes": 24981,
-      "decodedBytes": 100668,
-      "p50Bytes": 9766,
-      "maxBytes": 47344
+      "tiles": 12,
+      "compressedBytes": 91148,
+      "p50CompressedBytes": 3824,
+      "maxCompressedBytes": 28459,
+      "decodedBytes": 153377,
+      "p50Bytes": 5405,
+      "maxBytes": 52882
     },
     {
       "zoom": 7,
-      "tiles": 9,
-      "compressedBytes": 139707,
-      "p50CompressedBytes": 13889,
-      "maxCompressedBytes": 50055,
-      "decodedBytes": 233830,
-      "p50Bytes": 21827,
-      "maxBytes": 85946
+      "tiles": 33,
+      "compressedBytes": 207680,
+      "p50CompressedBytes": 2278,
+      "maxCompressedBytes": 50129,
+      "decodedBytes": 328607,
+      "p50Bytes": 3189,
+      "maxBytes": 85947
     },
     {
       "zoom": 8,
-      "tiles": 25,
-      "compressedBytes": 377282,
-      "p50CompressedBytes": 8179,
-      "maxCompressedBytes": 47914,
-      "decodedBytes": 640541,
-      "p50Bytes": 12973,
+      "tiles": 118,
+      "compressedBytes": 505563,
+      "p50CompressedBytes": 813,
+      "maxCompressedBytes": 47865,
+      "decodedBytes": 808088,
+      "p50Bytes": 944,
       "maxBytes": 83470
     },
     {
       "zoom": 9,
-      "tiles": 64,
-      "compressedBytes": 670086,
-      "p50CompressedBytes": 9014,
-      "maxCompressedBytes": 32717,
-      "decodedBytes": 987374,
-      "p50Bytes": 12618,
+      "tiles": 405,
+      "compressedBytes": 909240,
+      "p50CompressedBytes": 266,
+      "maxCompressedBytes": 32688,
+      "decodedBytes": 1280503,
+      "p50Bytes": 244,
       "maxBytes": 49388
     },
     {
       "zoom": 10,
-      "tiles": 249,
-      "compressedBytes": 1315164,
-      "p50CompressedBytes": 5030,
-      "maxCompressedBytes": 21185,
-      "decodedBytes": 1722428,
-      "p50Bytes": 6670,
-      "maxBytes": 28307
-    },
-    {
-      "zoom": 11,
-      "tiles": 931,
-      "compressedBytes": 2795474,
-      "p50CompressedBytes": 2632,
-      "maxCompressedBytes": 13073,
-      "decodedBytes": 3387802,
-      "p50Bytes": 3185,
-      "maxBytes": 15576
-    },
-    {
-      "zoom": 12,
-      "tiles": 3578,
-      "compressedBytes": 6056874,
-      "p50CompressedBytes": 1391,
-      "maxCompressedBytes": 10015,
-      "decodedBytes": 7012972,
-      "p50Bytes": 1565,
-      "maxBytes": 11323
-    },
-    {
-      "zoom": 13,
-      "tiles": 14088,
-      "compressedBytes": 13227490,
-      "p50CompressedBytes": 696,
-      "maxCompressedBytes": 6079,
-      "decodedBytes": 14835680,
-      "p50Bytes": 739,
-      "maxBytes": 6820
+      "tiles": 1372,
+      "compressedBytes": 1799077,
+      "p50CompressedBytes": 75,
+      "maxCompressedBytes": 21270,
+      "decodedBytes": 2273443,
+      "p50Bytes": 57,
+      "maxBytes": 28409
     }
   ]
 }

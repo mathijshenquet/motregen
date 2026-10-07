@@ -68,7 +68,7 @@ export default defineConfig({
       navigateFallback: '/index.html',
       runtimeCaching: [
         {
-          urlPattern: /\/data\/basemap\/nl-[0-9a-f]{16}\.pmtiles$/,
+          urlPattern: ({ url }) => /^\/data\/basemap\/nl-[0-9a-f]{16}\.pmtiles$/.test(url.pathname),
           handler: 'CacheFirst',
           options: {
             cacheName: 'motregen-basemap-ranges-v1',

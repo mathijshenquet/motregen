@@ -43,10 +43,11 @@ Vanaf de root:
 pnpm basemap:build
 ```
 
-Devenv bevat tilemaker, osmium, GDAL en unzip. De ingang downloadt de vier
+Devenv bevat tilemaker, de PMTiles-CLI, osmium, GDAL en unzip. De ingang downloadt de vier
 vastgepinde PBF’s, controleert SHA256, voegt ze samen, filtert tags en maakt
 met osmium een complete-way/multipolygon-extract. Tilemaker gebruikt
 `config.json` en `process.lua` en schrijft `tmp/basemap/build/nl.pmtiles`.
+De PMTiles-CLI clustert en verifieert het archief.
 `publish.mts` controleert iedere tegel op het toegestane schema, grenzen,
 landklassen en labels, meet tegelgroottes per zoom en weigert meer dan 25 MB.
 Daarna schrijft het `tools/basemap/tiles/nl-<16 hex SHA256>.pmtiles`, een
@@ -63,14 +64,19 @@ gehashte archieven gedurende een frontend-cacheovergang in het package staan.
 ## Zoombereik en schema
 
 De kaartbounds volgen `MAP_CONTAIN_BOUNDS`: west 2,3108, zuid 50,3256,
-oost 7,4192, noord 53,6844. Bronzoom z4–13. Bij z4/z5 past het venster in één
-tegel; bij desktop-start z6 in vier. MapLibre kan voor de viewport ook
-buurtegels buiten deze bounds aanvragen; ontbrekende tiles zijn leeg.
+oost 7,4192, noord 53,6844. Bronzoom z4–10. Bij z4/z5 past dit venster in één
+tegel; bij desktop-start z6 in vier. Het OSM-landextract volgt deze bounds.
+Het archief bevat kustwater tot [-5,48,13,57], omdat contain-zoom ook ruimte
+buiten de app-bounds toont. Zo krijgt de Noordzee geen rechte, lege rand.
 
 De app gebruikt contain-zoom en een maximale detailzoom waarbij de kaart
 minimaal 20 km breed blijft. MaxZoom hangt van de viewport af: ongeveer 9,84
 bij 390 px, 11,55 bij 1280 px en 13,14 bij 3840 px op Nederlandse breedte.
-Boven z13 gebruikt MapLibre bron-overzoom; de bestaande zoomregel blijft gelden.
+Boven z10 gebruikt MapLibre bron-overzoom; de bestaande zoomregel blijft gelden.
+Z9, z10 en z11 zijn vergeleken bij start en maximale appzoom op 390, 1280 en
+3840 px. Z10 behoudt het Brielse Meer en bruikbare watervormen bij overzoom;
+z9 maakt die te grof. Z11 voegt vooral kleine vlakken toe. Het definitieve
+z10-archief met de ruimere kustdekking is 3.536.092 B.
 
 | Laag | Geometrie | Attributen |
 | --- | --- | --- |
@@ -95,6 +101,15 @@ handmatige upload naar ingest-state nodig en herbouw draait niet op de box.
 Caddy serveert uitsluitend `/data/basemap/nl-<hash>.pmtiles` met range-requests,
 CORS, geen Content-Encoding en `public, max-age=31536000, immutable`.
 Niet-gehashte bestanden, het buildmanifest en onbekende archieven geven 404.
+De serviceworker gebruikt CacheFirst voor deze gehashte kaartbestanden,
+ook bij een andere DATA_ORIGIN. Ieder gevraagd bytebereik krijgt een eigen
+cachekey; een andere archiefhash krijgt een nieuwe key. De Cache API weigert
+206-responses, daarom bewaren de Workbox-hooks het bereik als 200 en herstellen
+ze status 206 met dezelfde Content-Range, ETag en bytes bij uitlezen.
+Er worden maximaal 384 bereiken gedurende een jaar bewaard, met opruimen bij
+opslagtekort. De kaartstijlen en glyphs zitten in de frontend-precache.
+Offline is de eerder bekeken kaartdekking beschikbaar; het hele archief wordt
+niet vooraf gedownload. Zie de [Workbox-pluginhooks](https://developer.chrome.com/docs/workbox/using-plugins).
 
 De bron-URL is `pmtiles://${DATA_ORIGIN}/data/basemap/nl-<hash>.pmtiles`.
 DATA_ORIGIN is standaard de frontend-origin; een optionele `VITE_DATA_ORIGIN`
@@ -109,10 +124,12 @@ het nulpunt echte OpenFreeMap-tegels, fonts, sprites en rasterachtergrond vast:
 
 ```bash
 pnpm basemap:snapshot
-pnpm --filter motregen-web perf:mobile --profile mobile-4g --scenario koud \
+MOTREGEN_E2E_PORT=4393 MOTREGEN_E2E_DATA_PORT=8393 \
+  pnpm --filter motregen-web perf:mobile --profile mobile-4g --scenario koud \
   --basemap openfreemap --repeat 3 --baseline
-pnpm --filter motregen-web perf:mobile --profile mobile-4g --scenario koud \
-  --basemap own --compare
+MOTREGEN_E2E_PORT=4393 MOTREGEN_E2E_DATA_PORT=8393 \
+  pnpm --filter motregen-web perf:mobile --profile mobile-4g --scenario koud \
+  --basemap own --repeat 3 --compare
 ```
 
 Herhaal met `--profile desktop`. Beide bronnen draaien daarna offline onder
@@ -128,10 +145,18 @@ hoofddraad-CPU-meting. CDP’s 4× page-throttle remt MapLibre-workers niet.
 Visuele controle van desktop en 390 px, licht/donker:
 
 ```bash
-MOTREGEN_MOBILE_BASEMAP=own pnpm --filter motregen-web e2e \
+MOTREGEN_E2E_PORT=4393 MOTREGEN_E2E_DATA_PORT=8393 \
+  MOTREGEN_MOBILE_BASEMAP=own pnpm --filter motregen-web e2e \
   e2e/basemap.spec.ts --config playwright.basemap.config.ts --project desktop
 ```
 
 Met `MOTREGEN_MOBILE_BASEMAP=openfreemap` ontstaan dezelfde referentiebeelden.
 De screenshots staan in `web/tmp/basemap/`. Exacte meetresultaten en synchrone
 receipts staan in de track-LOG.
+
+`basemap-parse.rig.ts` met dezelfde config laadt gedecomprimeerde tegels en
+glyphs uit geheugen en meet vijf runs na één opwarmrun. Dit onderscheidt
+MapLibre-worker/overdracht van HTTP, maar is nog geen exclusieve hoofddraad-CPU.
+`basemap-cache.spec.ts` met `playwright.basemap-cache.config.ts` controleert
+een warme herlaad zonder kaartnetwerk met uitgeschakelde browser-HTTP-cache,
+plus offline ranges op dezelfde en een andere origin.

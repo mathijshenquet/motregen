@@ -54,5 +54,25 @@ for (const width of [390, 1280]) {
     expect(cachedRange.bytes).toBe(16_384)
     expect(cachedRange.range).toMatch(/^bytes 0-16383\//)
     await context.setOffline(false)
+    const crossOrigin = await page.evaluate(async () => {
+      const style = await fetch('/basemap/licht.json').then(response => response.json())
+      const url = new URL(style.sources.basemap.url.slice('pmtiles://'.length), location.origin)
+      url.hostname = 'localhost'
+      const response = await fetch(url, { headers: { Range: 'bytes=256-511' } })
+      return { url: url.href, status: response.status, bytes: [...new Uint8Array(await response.arrayBuffer())] }
+    })
+    expect(crossOrigin.status).toBe(206)
+    expect(crossOrigin.bytes.length).toBe(256)
+    await expect.poll(() => page.evaluate(async (url) => {
+      const cache = await caches.open('motregen-basemap-ranges-v1')
+      return (await cache.keys()).some(request => request.url.startsWith(url))
+    }, crossOrigin.url)).toBe(true)
+    await context.setOffline(true)
+    const offlineCrossOrigin = await page.evaluate(async (url) => {
+      const response = await fetch(url, { headers: { Range: 'bytes=256-511' } })
+      return { status: response.status, bytes: [...new Uint8Array(await response.arrayBuffer())] }
+    }, crossOrigin.url)
+    expect(offlineCrossOrigin).toEqual({ status: 206, bytes: crossOrigin.bytes })
+    await context.setOffline(false)
   })
 }
