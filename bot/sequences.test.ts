@@ -20,8 +20,8 @@ describe('one frame sequence per mode', () => {
     expect(plan.stillFrames.find((frame) => frame.hour === 12)?.index).toBe(108)
   })
 
-  it('keeps hourly still frames inside the air and feels loops and never renders wind stills', () => {
-    for (const mode of ['air', 'feels'] as const) {
+  it('keeps hourly still frames inside the feels loop and never renders wind stills', () => {
+    for (const mode of ['feels'] as const) {
       const plan = sequencePlan(mode, manifest)
       expect(plan).toMatchObject({ fps: 4, loopFrames: 13 })
       expect(plan.epochs).toHaveLength(85)
@@ -34,7 +34,7 @@ describe('one frame sequence per mode', () => {
     expect(wind.epochs[1] - wind.epochs[0]).toBe(15 * 60_000)
   })
 
-  it('isolates loop ids from still ids and all 259 artifacts from a new generation', () => {
+  it('isolates loop ids from still ids and all 173 artifacts from a new generation', () => {
     const keys = new Set<string>()
     for (const definition of LOOP_MODES) {
       const plan = sequencePlan(definition.mode, manifest)
@@ -48,10 +48,10 @@ describe('one frame sequence per mode', () => {
         expect(cacheKey(selection, { ...manifest, generated: '2026-10-07T12:05:00Z' })).not.toBe(key)
       }
     }
-    expect(keys.size).toBe(259)
+    expect(keys.size).toBe(173)
   })
 
-  it('prewarms 19 media while retaining all delta frames for lazy stills', () => {
+  it('prewarms 13 media while retaining all delta frames for lazy stills', () => {
     const keys = new Set<string>()
     for (const definition of LOOP_MODES) {
       keys.add(cacheKey({ mode: definition.mode, hour: 'loop' }, manifest))
@@ -63,6 +63,6 @@ describe('one frame sequence per mode', () => {
       }
       expect(plan.stillFrames).toHaveLength(85)
     }
-    expect(keys.size).toBe(19)
+    expect(keys.size).toBe(13)
   })
 })

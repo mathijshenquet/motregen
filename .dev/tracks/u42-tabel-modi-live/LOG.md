@@ -448,6 +448,172 @@
   ongevuld met een bovenlijn en mobiel begint direct bij de sticky moduskoppen zonder zwevende
   handle. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
 
+## 2026-10-07 13:37 UTC
+
+- Main met U56 is gemerged met behoud van beide delen van analytics-v2 (`pinAir` en `clockScrub`),
+  U42's modi/tabelstructuur en U56's intent-/decodewachtrij. De klokpil is daarmee ook in deze
+  preview aanwezig.
+- Op directe PO-steer is U47's wolkafhankelijke dagmood in de tabel toegepast: dezelfde CMF uit de
+  HARMONIE-straling en dezelfde perceptuele lichtschaal kleuren daguren van helder hemelblauw naar
+  gedempt grijsblauw. Bij ontbrekende straling valt de tint terug op totale bewolking. U42's
+  gelaagde zonsondergang/-opkomst blijft de dominante overgang en wordt niet door de dagmood
+  afgevlakt.
+- Synchrone receipts: `git diff --check`, `pnpm typecheck`, `pnpm test -- --run
+  src/components/ForecastTable.test.tsx src/core/cloud-section.test.ts src/core/uv.test.ts` en
+  `pnpm build` exit 0. Door de scriptconfiguratie draaide Vitest volledig: 67 bestanden/437 tests
+  groen. Build: 113 modules, `index-CNYvJPXy.js`, `index-CYWtY571.css`, PWA + workers. Geen e2e
+  uitgevoerd vóór PO-signaal “klaar”.
+- Eigen visuele controle op desktop 1280×900 en mobiel 390×844, beide in licht en donker: dagrijen
+  variëren zichtbaar maar rustig met de bewolking, de warme horizoncompositie blijft erbovenuit
+  springen, de nacht is één donker vlak en U56's klokpil/paneel botst niet met tabel of moduskoppen.
+
+### Antwoord aan U47
+
+1. Ja: één gedeeld `--dusk-*`-palet is gewenst. U47 mag de tokens als bron van waarheid invoeren;
+   U42 vervangt de losse rgba-kleuren bij hereniging van de branches.
+2. Nee: `tableDayNight` blijft bewust alleen de tabelinstelling. De Lucht-hemel in de scrubber hoort
+   bij die modus en blijft daarvan onafhankelijk.
+3. De tabel centreert de zonregel op de exacte horizonpassage (`solarElevationSin = 0`) en laat de
+   compositie over de aangrenzende rijen doorlopen. U47's bereik −0,1…+0,1 is dus compatibel; lijn
+   alleen het midden van de gloed uit met de nuldoorgang, niet de buitenrand.
+4. Main/U56 is hier nu met U42 samengebracht, inclusief beide analytics-v2-features. U47 kan na dit
+   checkpoint via de U42-branch binnenhalen in plaats van de vijf U42×U56-conflicten zelf op te
+   lossen.
+
+## 2026-10-07 13:46 UTC
+
+- Correctie na PO-screenshot: de U47-dagmood is geen effen kleurband meer. Elk daguur verloopt nu
+  verticaal van zijn eigen CMF-/bewolkingskleur naar die van het volgende uur, zoals U47's
+  tijdsgradient tussen uurstops. Daardoor delen aangrenzende rijen exact dezelfde kleur op hun
+  grens.
+- De laatste dagrij vóór zonsondergang begon ten onrechte opnieuw op `--surface`. De dusk-compositie
+  vertrekt nu vanaf precies de geïnterpoleerde dagluchtkleur; ook de eerste rij na zonsopkomst eindigt
+  in zijn eigen volgende-uurkleur. De bestaande radiale amber/roze/paarse lagen zijn behouden.
+- Synchrone receipts: `git diff --check`, `pnpm typecheck`, volledige Vitest-run 67 bestanden/437
+  tests en `pnpm build` exit 0. Build: 113 modules, `index-Q0CUmeJA.js`, `index-Dc9du3-w.css`, PWA +
+  workers. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+- Eigen visuele controle op desktop 1280×900 en mobiel 390×844: 18:00 vloeit nu zonder kleursprong
+  door naar de bovenkant van 19:00, waarna de warme gloed binnen die rij opbouwt naar de zonregel;
+  de losse daguren tonen subtiele gradients in plaats van effen banden en de nacht blijft rustig.
+
+## 2026-10-07 13:49 UTC
+
+- Op PO-steer is de tabeldag losgetrokken van U47's vrij sobere volle-hemelkleuren: de meetlogica en
+  tijdsinterpolatie blijven gelijk, maar de tabel gebruikt nu een eigen zonniger cyaanblauw palet.
+  Middelmatige bewolking weegt minder snel loodgrijs; alleen echt dichte lucht blijft duidelijk
+  gedempt. Een heel lichte warme gloed voorkomt dat helder weer klinisch blauw wordt.
+- Synchrone receipts: `git diff --check` en `pnpm build` exit 0; de build omvatte ook `tsc -b` en
+  leverde 113 modules, `index-CCwk2N3g.js`, `index-BABwamOn.css`, PWA + workers. De voorafgaande
+  codeversie had 67 bestanden/437 tests groen; deze wijziging raakt alleen CSS.
+- Eigen visuele controle op desktop 1280×900 en mobiel 390×844: de dagsectie leest nu helder
+  cyaanblauw en levendig in plaats van blauwgrijs, met nog steeds zichtbare verschillen per uur;
+  de warme zonsondergang en donkere nacht houden hun contrast.
+
+## 2026-10-07 13:53 UTC
+
+- PO-screenshot toonde een chronologiefout: “Zon op 07:54” stond vóór een 08:00-rij die nog het
+  nachtpalet gebruikte. Oorzaak was dat `sunEvents` de zichtbare bovenrand van de zon gebruikt
+  (−0,833° door straal + refractie), terwijl de tabel dag pas bij een zonnecentrum boven 0° liet
+  beginnen.
+- `isSunUp` is nu de gedeelde horizonbeslissing voor zonmomenten en tabelclassificatie. De uurregel
+  waarin de opkomst valt blijft nacht tot de zonregel; de eerstvolgende hele uurregel is direct dag.
+  Bij zonsondergang blijft dezelfde volgorde gespiegeld intact.
+- Synchrone receipts: `git diff --check`, `pnpm typecheck`, volledige Vitest-run 67 bestanden/437
+  tests en `pnpm build` exit 0. Build: 113 modules, `index-D_7TYRXg.js`, `index-BABwamOn.css`, PWA +
+  workers. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+- Eigen visuele controle op desktop 1280×900 en mobiel 390×844 rond de volgende opkomst: 07:00 is
+  nacht, daarna staat “Zon op 07:53”, en 08:00 begint meteen met de lichte daggradient; DOM-controle
+  bevestigt `night-hour → sunrise-row → day-hour` in beide formaten.
+
+## 2026-10-07 13:58 UTC
+
+- PO-screenshot vond de hovervariant van dezelfde grensfout: precies de eerste rij na zon op/onder
+  verwijderde met `background: transparent` ook de kolomhoverlaag. Bovendien erfde de hovergradient
+  zijn lichte tabelkleur, waardoor nachtelijke maan-/Luchtcellen te grijs werden.
+- De kolomhover wordt nu na alle rijcomposities gelegd en berekent `--accent-soft` per cel: UV houdt
+  overdag de lichte tint, maan gebruikt 's nachts de donkerblauwe tint. De overgangscellen maken
+  alleen hun achtergrondkleur transparant en wissen de overlay niet meer.
+- Synchrone receipts: `git diff --check` en `pnpm build` exit 0; de build omvatte `tsc -b` en leverde
+  113 modules, `index-B_hHCUCi.js`, `index-Bt0O-VBB.css`, PWA + workers. Geen e2e uitgevoerd vóór
+  PO-signaal “klaar”.
+- Eigen visuele controle op desktop 1280×900 met Lucht-hover en mobiel 390×844 zonder hover: desktop
+  tint de complete Luchtkolom aaneengesloten door 19:00, de zonregel, 20:00 en 21:00; UV blijft
+  licht, maan donker. Mobiel heeft zoals bedoeld geen hoverlaag en behoudt de dag/nachtgradient.
+
+## 2026-10-07 14:05 UTC
+
+- Geselecteerde modi zijn niet langer uitgesloten van kolomhover. De overlay gebruikt nu een eigen
+  inset-schaduwlaag in plaats van `background-image`; daardoor blijft hij boven elke dag-, nacht- en
+  schemergradient zichtbaar, onafhankelijk van CSS-specificiteit.
+- De afwijkende witte UV-pil rond zon op/onder kwam van `UvBar` in de toestand “Geen zon”: inhoud en
+  label waren al onderdrukt, maar het lege spoor bleef staan. Bij heldere-hemel-UV < 0,05 rendert nu
+  ook het spoor niet; echte lage UV met voldoende zon blijft wel zichtbaar.
+- Synchrone receipts: `git diff --check`, `pnpm typecheck`, volledige Vitest-run 68 bestanden/439
+  tests en `pnpm build` exit 0. Build: 113 modules, `index-D8Km3TU_.js`, `index-D5XyfAm7.css`, PWA +
+  workers. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+- Eigen visuele controle op desktop 1280×900 en mobiel 390×844: met Lucht geselecteerd én gehoverd
+  zijn alle 51 Luchtcellen getint, inclusief de eerste nachtregel; bij 19:00 is de lege UV-pil op
+  beide formaten weg en blijft de zonsonderganggradient ononderbroken.
+
+## 2026-10-07 14:11 UTC
+
+- De volledige tabelweergave prefixeert de UV-waarde nu expliciet: bijvoorbeeld `UV 1,8 laag` in
+  plaats van `1,8 laag`. De compacte `bare`-variant in de kaartchip is niet gewijzigd.
+- Synchrone receipts: `git diff --check`, volledige Vitest-run 68 bestanden/439 tests en `pnpm
+  build` exit 0; de build omvatte `tsc -b` en leverde 113 modules, `index-CqnPgWg4.js`,
+  `index-D5XyfAm7.css`, PWA + workers. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+- Eigen visuele controle op desktop 1280×900 en mobiel 390×844: `UV 1`, `UV 0,4` en `UV 0,1 laag`
+  passen zonder afbreken in de Luchtkolom; de lege schemerpil blijft weg.
+
+## 2026-10-07 14:19 UTC
+
+- Alle gewone tabelrijen hebben nu een vaste separator waarin 38% wit bij de lokale lijnkleur wordt
+  gemengd. Daardoor blijft de grens zichtbaar op heldere daglucht, grijze cellen, kolomhover en de
+  donkere nacht; de zonregels behouden hun eigen sterkere begrenzing.
+- Het prefix `UV` is binnen de meetwaarde kleiner, lichter en minder vet gemaakt. Voor de numerieke
+  waarde staan font-kerning expliciet uit en letterafstand op nul, zodat Nederlandse kommagetallen
+  zoals `1,3` niet langer als `1, 3` ogen.
+- Synchrone receipts: `git diff --check`, volledige Vitest-run 68 bestanden/439 tests en `pnpm
+  build` exit 0; na de CSS-kerningcorrectie is nogmaals gebouwd. Eindbuild: 113 modules,
+  `index-CRJqbydo.js`, `index-D-UwFtTA.css`, PWA + workers. Geen e2e uitgevoerd vóór PO-signaal
+  “klaar”.
+- Eigen visuele controle op desktop 1280×900 en mobiel 390×844: de rijscheidingen blijven overal
+  even leesbaar zonder de gradients op te knippen; `UV` is ondergeschikt aan de waarde en de komma
+  sluit visueel aan op beide cijfers. Computed style bevestigt `font-kerning: none`.
+
+## 2026-10-07 14:21 UTC
+
+- De universele separator was in het nachtvlak te hard. Dagranden behouden 38% wit voor contrast op
+  wisselende luchtkleuren; nachtranden gebruiken nu 16% wit in dezelfde lokale lijnkleur, zodat de
+  sectie weer als één rustig donker vlak leest zonder dat rijen in elkaar verdwijnen.
+- Synchrone receipts: `git diff --check` en `pnpm build` exit 0; de build omvatte `tsc -b` en leverde
+  113 modules, `index-CeC2HYwd.js`, `index-CchBVGyN.css`, PWA + workers. De voorafgaande codeversie
+  had 68 bestanden/439 tests groen; deze correctie raakt alleen CSS.
+- Eigen visuele controle op desktop 1280×900 en mobiel 390×844: de dagseparator blijft helder, de
+  nachtranden zijn teruggebracht tot zachte blauwgrijze haarlijnen en de zonregel houdt zijn eigen
+  duidelijke begrenzing.
+
+## 2026-10-07 14:31 UTC — afrondingsgate na PO “klaar”
+
+- `origin/main` t/m `5e1ff58` is zonder conflict gemerged als `5ef14be`; daarmee zijn U43–U56,
+  inclusief U52's decodeplanner en U56's klokpil, in de eindstand opgenomen. Analytics-contract v2
+  bevat zowel U42's `pinAir` als U56's `clockScrub`.
+- Synchrone receipts op de merge-head: `pnpm typecheck` exit 0; `pnpm test` exit 0 met 68
+  bestanden/439 tests; gerichte gate `pnpm e2e e2e/table.spec.ts e2e/focus.spec.ts
+  e2e/usage.spec.ts --project desktop` via `e2e-slot.sh` exit 0 met 13 passed/4
+  project-afhankelijke mobile skips in 1,6 min.
+- Na de e2e-gate is `pnpm build` bewust opnieuw uitgevoerd, omdat Playwrights tijdelijke webserver
+  `dist` met zijn lokale kaartstijl had overschreven. De normale eindbuild exit 0: 114 modules,
+  `index-DTkXHJNC.js`, `index-U5PXwMR4.css`, PWA + workers. Preview is herstart met
+  `MOTREGEN_DATA_ORIGIN=https://motregen.nl/data` op `http://ageq-dev2:4320/`.
+- De eerste twee still-pogingen exit 1 door respectievelijk een verouderde splash-wachtconditie en
+  het tijdelijke e2e-kaartartifact; beide oorzaken zijn vastgesteld en hersteld. De definitieve
+  Playwright-stillrun exit 0 en schreef `screenshots/desktop-final.png` (1440×900) en
+  `screenshots/pixel5-final.png` (Pixel 5-deviceprofiel, 1081×1999 fysieke pixels).
+- Eigen visuele eindcontrole: desktop toont de kaart, tijdlijn en compacte tabel zonder overlap;
+  Pixel 5 toont de volledige tabel met zonnige daggradients, zachte nachtranden, grote maan,
+  expliciete UV-labels en de gelaagde zonsondergang zonder sprong of lege UV-pil.
+
 ## 2026-10-07 13:26 UTC
 
 - De tabelcyclus is nu een gebruikersoptie “Dag en nacht in tabel” onder Weergave, standaard aan en

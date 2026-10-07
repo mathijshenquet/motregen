@@ -1,9 +1,10 @@
 import { createEffect, createMemo, createSignal, createUniqueId, For, onCleanup, Show } from 'solid-js'
+import { lightDarkness } from '../core/cloud-section'
 import type { FocusKind } from '../core/focus-mode'
 import type { HourlyForecastRow } from '../core/forecast'
 import { moonHorizonAngle, moonLitPath, moonPhase } from '../core/moon'
-import { solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
-import { dailyClearSkyUvMax, uvReading } from '../core/uv'
+import { isSunUp, solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
+import { cloudModification, dailyClearSkyUvMax, uvReading } from '../core/uv'
 import { deriveWeatherIcon, summarizeWind, WIND_UNIT_LABELS, type WindSummary, type WindUnit } from '../core/weather'
 import { ArrowUp, BUTTON_ICON, Clock, CloudRain, CloudSun, Table2, Thermometer, Wind } from './icons'
 import UvBar from './UvBar'
@@ -214,7 +215,7 @@ export default function ForecastTable(props: Props) {
       </th></Show>
     </tr></thead>
     <tbody>
-    <For each={visibleRows()}>{(row) => {
+    <For each={visibleRows()}>{(row, rowIndex) => {
       const pending = () => row.epoch > props.loadedUntil || (row.kind === 'past' && !props.historyLoaded)
       const value = (series: Array<number | null>, index: number | null) => index == null ? null : series[index] ?? null
       const rain = () => value(props.series.rain, row.rainIndex)
@@ -225,10 +226,26 @@ export default function ForecastTable(props: Props) {
       const wind = () => summarizeWind(value(props.series.windU, row.windUIndex), value(props.series.windV, row.windVIndex),
         value(props.series.gust, row.gustIndex), props.windUnit)
       const sunEvent = () => sun().get(row.epoch)
-      const daylight = () => sunEvent()?.kind === 'set' || (sunEvent() === undefined && elevation(row.epoch) > 0)
+      const daylight = () => sunEvent()?.kind === 'set' || (sunEvent() === undefined && isSunUp(row.epoch, props.location.lng, props.location.lat))
+      const radiationBefore = () => value(props.series.radiation, row.radiationIndex)
+      const radiationAfter = () => value(props.series.radiation, row.radiationNextIndex)
+      const darknessFor = (target: HourlyForecastRow) => {
+        const cover = value(props.series.cloud, target.cloudIndex)
+        // U47 gebruikt CMF op een perceptuele schaal; zonder straling volgt 100% bewolking 25% licht.
+        const fallbackLight = cover == null ? 1 : 1 - 0.75 * Math.max(0, Math.min(1, cover / 100))
+        return lightDarkness(cloudModification(target.epoch,
+          value(props.series.radiation, target.radiationIndex),
+          value(props.series.radiation, target.radiationNextIndex), elevation) ?? fallbackLight)
+      }
+      const dayDarkness = createMemo(() => darknessFor(row))
+      const nextDayDarkness = createMemo(() => {
+        const next = visibleRows()[rowIndex() + 1]
+        if (!next || !isSunUp(next.epoch, props.location.lng, props.location.lat)) return dayDarkness()
+        return darknessFor(next)
+      })
       const icon = () => deriveWeatherIcon(rain(), cloud(), daylight())
       const uv = createMemo(() => uvReading(row.epoch, value(props.series.uv, row.uvIndex), value(props.series.uvClear, row.uvClearIndex),
-        value(props.series.radiation, row.radiationIndex), value(props.series.radiation, row.radiationNextIndex), elevation, row.kind !== 'past'))
+        radiationBefore(), radiationAfter(), elevation, row.kind !== 'past'))
       const time = formatTime
       const sunLabel = (event: SunEvent) => `${event.kind === 'rise' ? 'Zon op' : 'Zon onder'} ${time(event.epoch)}`
       const placeholder = () => pending() ? '…' : '—'
@@ -240,6 +257,11 @@ export default function ForecastTable(props: Props) {
       return <>
         <tr
           data-epoch={row.epoch}
+          data-day-overcast={daylight() ? dayDarkness().toFixed(3) : undefined}
+          style={{
+            '--day-overcast': dayDarkness().toFixed(3),
+            '--day-overcast-next': nextDayDarkness().toFixed(3),
+          }}
           ref={(element) => {
             rowElements.set(row.epoch, element)
             onCleanup(() => rowElements.delete(row.epoch))

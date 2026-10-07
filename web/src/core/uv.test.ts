@@ -61,6 +61,11 @@ describe('UV estimate from radiation', () => {
     expect(overcast).toBeLessThan(sunny * 0.6)
   })
 
+  it('exposes the same cloud modification factor to other sky treatments', () => {
+    expect(cloudModification(noon, clearRadiation(), clearRadiation(), deBilt)).toBeCloseTo(1, 1)
+    expect(cloudModification(noon, clearRadiation() * 0.25, clearRadiation() * 0.25, deBilt)).toBeCloseTo(0.25, 1)
+  })
+
   it('is zero at night and unknown without radiation', () => {
     const midnight = Date.parse('2026-06-21T23:00:00Z')
     expect(estimateUv(midnight, 0, 0, deBilt)).toBe(0)

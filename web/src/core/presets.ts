@@ -1,5 +1,3 @@
-import type { FocusKind } from './focus-mode'
-
 export type PresetMode = 'weather' | 'air' | 'feels' | 'wind'
 
 export interface PresetPoint {
@@ -20,7 +18,10 @@ export interface ShareState {
   point: PresetPoint
 }
 
-/** URL-termen blijven los van de interne focusnamen, zodat U42 die namen plaatselijk kan wijzigen. */
+/** URL-termen blijven los van de interne focusnamen; de focusnamen staan hier als losse literals zodat de
+ * bot (nodenext) presets.ts kan typechecken zonder focus-mode/wind-layer mee te trekken. */
+type FocusName = 'weather' | 'air' | 'temperature' | 'wind'
+
 const modeNames = {
   weer: 'weather',
   lucht: 'air',
@@ -40,7 +41,7 @@ const focusModes = {
   air: 'air',
   feels: 'temperature',
   wind: 'wind',
-} as const satisfies Record<PresetMode, FocusKind>
+} as const satisfies Record<PresetMode, FocusName>
 
 const relativeTime = /^([+-])(\d+)([um])$/
 const isoTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:?\d{2})$/
@@ -54,11 +55,11 @@ export function parsePresets(search: string | URLSearchParams, now = Date.now())
   return { ...(mode && { mode }), ...(epoch !== undefined && { epoch }), ...(place && { place }), ...(point && { point }) }
 }
 
-export function modeForFocus(mode: PresetMode): FocusKind {
+export function modeForFocus(mode: PresetMode): FocusName {
   return focusModes[mode]
 }
 
-export function modeForActiveFocus(focus: FocusKind | undefined): PresetMode {
+export function modeForActiveFocus(focus: string | undefined): PresetMode {
   return (Object.entries(focusModes).find(([, value]) => value === focus)?.[0] as PresetMode | undefined) ?? 'weather'
 }
 

@@ -76,17 +76,17 @@ describe('still delivery and callbacks', () => {
 
   it('uploads the first edit, reuses its file id, and skips repeated chat and inline selections', async () => {
     const { runtime, calls, render } = await setup()
-    await handleUpdate(callback('air:3'), runtime)
+    await handleUpdate(callback('feels:3'), runtime)
     await handleUpdate(callback('weather:0'), runtime)
-    await handleUpdate(callback('air:3'), runtime)
+    await handleUpdate(callback('feels:3'), runtime)
     const edits = calls.filter((call) => call.method === 'editMessageMedia')
     expect(edits.map((call) => call.multipart)).toEqual([true, true, false])
     expect(edits[2].fields.media).toMatchObject({ media: 'uploaded-1' })
     const previousRenders = render.mock.calls.length
-    await handleUpdate(callback('air:3'), runtime)
+    await handleUpdate(callback('feels:3'), runtime)
     expect(calls.at(-1)).toMatchObject({ method: 'answerCallbackQuery', fields: { text: 'Al in beeld' } })
     expect(render.mock.calls).toHaveLength(previousRenders)
-    const inline = { update_id: 3, callback_query: { id: 'inline-callback', data: 'air:3', inline_message_id: 'inline-message' } }
+    const inline = { update_id: 3, callback_query: { id: 'inline-callback', data: 'feels:3', inline_message_id: 'inline-message' } }
     await handleUpdate(inline, runtime)
     expect(calls.findLast((call) => call.method === 'editMessageMedia')).toMatchObject({ multipart: false, fields: { inline_message_id: 'inline-message', media: { media: 'uploaded-1' } } })
     await handleUpdate(inline, runtime)
@@ -95,10 +95,10 @@ describe('still delivery and callbacks', () => {
 
   it('isolates messages and refreshes the same selection after a new manifest', async () => {
     const { runtime, calls, renew } = await setup()
-    await handleUpdate(callback('air:3'), runtime)
-    await handleUpdate(callback('air:3', 100), runtime)
+    await handleUpdate(callback('feels:3'), runtime)
+    await handleUpdate(callback('feels:3', 100), runtime)
     renew()
-    await handleUpdate(callback('air:3'), runtime)
+    await handleUpdate(callback('feels:3'), runtime)
     expect(calls.filter((call) => call.method === 'editMessageMedia').map((call) => call.multipart)).toEqual([true, false, true])
   })
 
@@ -106,7 +106,7 @@ describe('still delivery and callbacks', () => {
     const { runtime, calls, render } = await setup()
     const still = await render({ mode: 'weather', hour: 0 })
     await runtime.photos.send(still, { chat_id: 99 })
-    await render({ mode: 'air', hour: 0 })
+    await render({ mode: 'feels', hour: 0 })
     await handleUpdate({ update_id: 3, inline_query: { id: 'inline', query: '' } }, runtime)
     const results = calls.at(-1)!.fields.results as Array<Record<string, unknown>>
     expect(results).toHaveLength(1)
@@ -143,7 +143,10 @@ describe('still delivery and callbacks', () => {
     render.mockClear()
     await handleUpdate(callback('wind:0'), runtime)
     await handleUpdate(callback('weather:24'), runtime)
-    expect(calls.map((call) => call.method)).toEqual(['answerCallbackQuery', 'answerCallbackQuery'])
+    await handleUpdate(callback('air:loop'), runtime)
+    await handleUpdate({ update_id: 3, message: { message_id: 1, chat: { id: 99, type: 'private' }, text: '/lucht' } }, runtime)
+    expect(calls.map((call) => call.method)).toEqual(['answerCallbackQuery', 'answerCallbackQuery', 'answerCallbackQuery'])
+    expect(calls.at(-1)?.fields.text).toBe('Verlopen, stuur /regen opnieuw')
     expect(render).not.toHaveBeenCalled()
   })
 
@@ -152,7 +155,7 @@ describe('still delivery and callbacks', () => {
     fail(description)
     await handleUpdate(callback('weather:0'), runtime)
     expect(calls.at(-1)).toMatchObject({ method: 'answerCallbackQuery', fields: { text: 'Verlopen, stuur /regen opnieuw' } })
-    await handleUpdate(callback('air:3'), runtime)
+    await handleUpdate(callback('feels:3'), runtime)
     expect(calls.filter((call) => call.method === 'editMessageMedia')).toHaveLength(1)
     expect(calls.at(-1)?.fields.text).toBe('Verlopen, stuur /regen opnieuw')
   })
@@ -170,7 +173,7 @@ describe('still delivery and callbacks', () => {
     const { runtime, calls, fail } = await setup()
     await handleUpdate(callback('weather:0'), runtime)
     fail('Bad Request: file not found')
-    await handleUpdate(callback('air:3'), runtime)
+    await handleUpdate(callback('feels:3'), runtime)
     expect(calls.at(-1)).toMatchObject({ method: 'answerCallbackQuery', fields: { text: 'Beeld kon niet laden, probeer opnieuw' } })
     fail('Bad Request: wrong file identifier/HTTP URL specified', 'sendPhoto')
     await handleUpdate({ update_id: 1, message: { message_id: 1, chat: { id: 99, type: 'private' }, text: '/regen' } }, runtime)
@@ -194,13 +197,13 @@ describe('still delivery and callbacks', () => {
   it('primes an album once, persists every id, and uses an id on the first user edit', async () => {
     const { runtime, calls, render } = await setup()
     runtime.photos = new StillPhotos(runtime.api, new FileIdCache('motregen_bot'), 'cache-chat')
-    const media = await Promise.all([render({ mode: 'weather', hour: 0 }), render({ mode: 'air', hour: 1 / 6 }), render({ mode: 'feels', hour: 1 })])
+    const media = await Promise.all([render({ mode: 'weather', hour: 0 }), render({ mode: 'feels', hour: 1 / 6 }), render({ mode: 'feels', hour: 1 })])
     await runtime.photos.prime(media)
     expect(calls.filter((call) => call.method === 'sendMediaGroup')).toMatchObject([{ multipart: true, fields: { chat_id: 'cache-chat', disable_notification: 'true' } }])
     expect(calls.some((call) => call.method === 'deleteMessages')).toBe(false)
     runtime.photos = new StillPhotos(runtime.api, new FileIdCache('motregen_bot'), 'cache-chat')
     await runtime.photos.prime(media)
-    await handleUpdate(callback(`air:at:${media[1].epoch}:${Date.parse(media[1].generated)}`), runtime)
+    await handleUpdate(callback(`feels:at:${media[1].epoch}:${Date.parse(media[1].generated)}`), runtime)
     expect(calls.filter((call) => call.method === 'sendMediaGroup')).toHaveLength(1)
     expect(calls.findLast((call) => call.method === 'editMessageMedia')).toMatchObject({ multipart: false, fields: { media: { type: 'photo', media: 'album-1-1', parse_mode: 'HTML' } } })
   })

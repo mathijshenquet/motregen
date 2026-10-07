@@ -35,15 +35,15 @@ export default function UvBar(props: Props) {
     aria-label={reading() && !dark() ? uvBarLabel(reading()!) : 'Geen zon'}
     title={reading() && !dark() ? uvBarLabel(reading()!) : undefined}
   >
-    <span class="uv-bar-track" aria-hidden="true" style={bandStops()}>
-      <Show when={reading() && !dark()}>
+    <Show when={!dark()}>
+      <span class="uv-bar-track" aria-hidden="true" style={bandStops()}>
         <span class="uv-bar-clear" style={{ width: percent(reading()!.clear) }} />
         <span class="uv-bar-fill" style={{ width: percent(reading()!.value) }} />
+      </span>
+      <Show when={!props.bare}>
+        <span class="uv-bar-value" aria-hidden="true"><span class="uv-prefix">UV</span> {formatUv(reading()!.value)}</span>
+        <span class="uv-bar-level" aria-hidden="true">{uvLevel(reading()!.value).level}</span>
       </Show>
-    </span>
-    <Show when={!props.bare && reading() && !dark()}>
-      <span class="uv-bar-value" aria-hidden="true">{formatUv(reading()!.value)}</span>
-      <span class="uv-bar-level" aria-hidden="true">{uvLevel(reading()!.value).level}</span>
     </Show>
   </span>
 }

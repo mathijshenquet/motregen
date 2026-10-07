@@ -655,7 +655,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   onMount(() => {
     if (stillMode) return
     if (!('serviceWorker' in navigator)) return
-    const productionPwa = window.location.hostname === 'motregen.nl' || window.location.hostname === 'www.motregen.nl'
+    // SW alleen op prod en op loopback (e2e/PWA-checks): op dev-previews gaf een hangende SW verouderde builds (U42 live).
+    const hostname = window.location.hostname
+    const productionPwa = hostname === 'motregen.nl' || hostname === 'www.motregen.nl' || hostname === 'localhost' || hostname === '127.0.0.1'
     if (!productionPwa) {
       void navigator.serviceWorker.getRegistrations().then(async (registrations) => {
         await Promise.all(registrations.map((registration) => registration.unregister()))

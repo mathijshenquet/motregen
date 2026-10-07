@@ -21,13 +21,13 @@ const series: ForecastSeries = {
 }
 const allColumns = { weather: true, air: true, temperature: true, wind: true }
 
-function renderTable(options: { pinned?: FocusKind; weather?: boolean; dayNight?: boolean; onSelectTime?: (epoch: number) => void; mobileTableOpen?: boolean; onOpenMobileTable?: () => void; onSelectMobileMode?: () => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
+function renderTable(options: { pinned?: FocusKind; weather?: boolean; dayNight?: boolean; forecastSeries?: ForecastSeries; onSelectTime?: (epoch: number) => void; mobileTableOpen?: boolean; onOpenMobileTable?: () => void; onSelectMobileMode?: () => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
   const [pinned, setPinned] = createSignal<FocusKind>(options.pinned ?? 'weather')
   const onPin = vi.fn((mode: FocusKind) => setPinned(mode))
   const onFocus = vi.fn()
   render(() => <ForecastTable
     rows={options.rows ?? rows}
-    series={series}
+    series={options.forecastSeries ?? series}
     location={{ lng: 5.18, lat: 52.1 }}
     columns={{ ...allColumns, weather: options.weather ?? true }}
     windUnit={options.windUnit?.() ?? 'bft'}
@@ -202,12 +202,23 @@ describe('forecast table cells', () => {
     expect(sunset.previousElementSibling?.classList.contains('before-sunset')).toBe(true)
     expect(sunrise.previousElementSibling?.classList.contains('night-hour')).toBe(true)
     expect(sunset.previousElementSibling?.classList.contains('night-hour')).toBe(false)
+    expect(sunrise.nextElementSibling?.classList.contains('day-hour')).toBe(true)
+    expect(sunset.nextElementSibling?.classList.contains('night-hour')).toBe(true)
   })
 
   it('can turn the complete table day/night treatment off', () => {
     renderTable({ dayNight: false })
     expect(document.querySelector('.forecast-table')?.classList.contains('day-night-table')).toBe(false)
     expect(document.querySelector('tr.night-hour')).not.toBeNull()
+  })
+
+  it('carries U47 its perceptual daytime overcast mood per hour', () => {
+    renderTable({ forecastSeries: { ...series, cloud: rows.map((_, index) => index === 14 ? 100 : 0) } })
+    const rowAt = (hour: number) => document.querySelector<HTMLTableRowElement>(`tr[data-epoch="${start + hour * 3_600_000}"]`)!
+    expect(Number(rowAt(13).dataset.dayOvercast)).toBe(0)
+    expect(Number(rowAt(14).dataset.dayOvercast)).toBeCloseTo(2 / 3, 2)
+    expect(Number(rowAt(13).style.getPropertyValue('--day-overcast-next'))).toBeCloseTo(2 / 3, 2)
+    expect(rowAt(2).dataset.dayOvercast).toBeUndefined()
   })
 
   it('masks the NASA moon texture with the calculated terminator at night', () => {

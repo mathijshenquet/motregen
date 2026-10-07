@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CLOSED_FRACTION, cloudBand, cloudExtents, cloudSpanInSlot, layerTransmission, lightDarkness, skyAt, skyStars, skyStops, skyStrokes, sunCrossings, valueNoise } from './cloud-section'
+import { CLOSED_FRACTION, cloudBand, cloudExtents, cloudSpanInSlot, layerTransmission, lightDarkness, skyAt, skyDarkness, skyStars, skyStops, skyStrokes, sunCrossings, valueNoise } from './cloud-section'
 import type { ManifestChunk, TimelineFrame } from './contract'
 
 const hour = 3_600_000
@@ -123,18 +123,23 @@ describe('light and sky', () => {
   })
 
   it('maps light to darkness on a logarithmic scale and keeps fair weather bright', () => {
-    expect(lightDarkness(1)).toBe(0)
-    expect(lightDarkness(0.8)).toBe(0)
-    expect(lightDarkness(0)).toBe(1)
-    expect(lightDarkness(0.05)).toBe(1)
+    expect(skyDarkness(1)).toBe(0)
+    expect(skyDarkness(0.8)).toBe(0)
+    expect(skyDarkness(0)).toBe(1)
+    expect(skyDarkness(0.05)).toBe(1)
     let previous = 0
     for (const light of [0.7, 0.5, 0.35, 0.25, 0.15]) {
-      const darkness = lightDarkness(light)
+      const darkness = skyDarkness(light)
       expect(darkness).toBeGreaterThan(previous)
       previous = darkness
     }
     // Elke halvering van het licht telt even zwaar.
-    expect(lightDarkness(0.25) - lightDarkness(0.5)).toBeCloseTo(lightDarkness(0.125) - lightDarkness(0.25))
+    expect(skyDarkness(0.25) - skyDarkness(0.5)).toBeCloseTo(skyDarkness(0.125) - skyDarkness(0.25))
+    // De tabel (U42) gebruikt de schaal zonder mooi-weermarge.
+    expect(lightDarkness(1)).toBe(0)
+    expect(lightDarkness(0.5)).toBeCloseTo(1 / 3)
+    expect(lightDarkness(0.25)).toBeCloseTo(2 / 3)
+    expect(lightDarkness(0.125)).toBe(1)
   })
 
   it('builds hourly stops from radiation by day and from the layers at night', () => {

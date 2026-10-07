@@ -57,8 +57,14 @@ export function layerTransmission(cover: Record<CloudLayer, number>): number {
   return CLOUD_LAYERS.reduce((light, layer) => light * (1 - LAYER_BLOCKING[layer] * Math.max(0, Math.min(1, cover[layer]))), 1)
 }
 
-/** Lichtfactor (CMF, 0–1) → donkerte 0–1 op een perceptuele (logaritmische) schaal. */
+/** Lichtfactor (CMF, 0–1) → donkerte 0–1 op een perceptuele (logaritmische) schaal; ook de dagtint van de tabel (U42). */
 export function lightDarkness(light: number): number {
+  if (!(light > 0)) return 1
+  return Math.max(0, Math.min(1, -Math.log2(Math.min(1, light)) / DARKEST_HALVINGS))
+}
+
+/** Donkerte van de hemel en de wolken: dezelfde schaal, maar mooi weer blijft helder. */
+export function skyDarkness(light: number): number {
   if (!(light > 0)) return 1
   return Math.max(0, Math.min(1, (-Math.log2(Math.min(1, light)) - FAIR_HALVINGS) / (DARKEST_HALVINGS - FAIR_HALVINGS)))
 }
@@ -92,7 +98,7 @@ export function skyStops(start: number, end: number, inputs: SkyInputs): SkyStop
     const elevation = inputs.sinElevation(epoch)
     const twilight = Math.max(0, Math.min(1, (elevation + 0.1) / 0.2))
     const daylight = twilight * twilight * (3 - 2 * twilight)
-    const darkness = lightDarkness(inputs.lightAt(epoch) ?? layerTransmission(inputs.coverAt(epoch)))
+    const darkness = skyDarkness(inputs.lightAt(epoch) ?? layerTransmission(inputs.coverAt(epoch)))
     return {
       offset: round((epoch - start) / span, 4),
       darkness: round(darkness, 3),

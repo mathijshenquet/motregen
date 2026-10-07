@@ -31,7 +31,7 @@ describe('Telegram file ids', () => {
     const record = JSON.parse(await readFile(`${still.path}.file-id.json`, 'utf8'))
     expect(record).toEqual({ bot: 'motregen_bot', key: still.key, fileId: 'largest' })
     for (const other of [
-      await fixture({ mode: 'air', hour: 0 }),
+      await fixture({ mode: 'feels', hour: 0 }),
       await fixture({ mode: 'weather', hour: 3 }),
       await fixture({ mode: 'weather', hour: 0 }, { ...manifest, generated: '2026-10-07T12:05:00Z' }),
       await fixture({ mode: 'weather', hour: 0 }, { ...manifest, now: '2026-10-07T12:05:00Z' }),
