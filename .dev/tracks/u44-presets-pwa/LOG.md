@@ -19,3 +19,8 @@
 - Orkestratorbesluit verwerkt: `origin/main` gemerged als `82c5f3e` (ageq-dev2). De PWA-config bleef conflictvrij behouden. Preview opnieuw gebouwd en herstart op poort 4340; receipt `curl -H 'Host: ageq-dev2:4340' http://127.0.0.1:4340/` → HTTP 200. Werkende URL: `http://ageq-dev2:4340/`.
 - Nieuwe npm-dependencies maakten de Nix pnpm-depshash ongeldig; `nix/packages/web.nix` bijgewerkt naar de door Nix gemelde hash. Receipts: `nix build .#motregen-web --no-link` → exit 0; `nix build .#checks.x86_64-linux.nixos-vm --no-link` → exit 0 (inclusief nieuwe Caddy-headerasserties).
 - Volgende stap: log/docs/Nix-hash committen, PR pushen en verificatiestatus in de draft bijwerken.
+
+## 2026-10-07T08:33:34Z
+- Vervolgwerk vastgelegd als `b201674` (`Verify PWA deployment integration`) en branch gepubliceerd. Receipts: `git push origin HEAD:track/u44-presets-pwa` → exit 0; `git ls-remote --heads origin track/u44-presets-pwa` bevestigt `b201674123a57ce26756d92722aca71c6654571f`.
+- Draft-PR #70 bijgewerkt met alle afgeronde receipts, inclusief de Lighthouse-13.5-beperking. Receipt: `gh pr edit 70 ...` → exit 0; `gh pr view 70 ...` → draft=true op `track/u44-presets-pwa`.
+- Preview blijft actief op `http://ageq-dev2:4340/`; synchrone receipt: `curl -H 'Host: ageq-dev2:4340' http://127.0.0.1:4340/` → HTTP 200.
