@@ -21,7 +21,7 @@ const series: ForecastSeries = {
 }
 const allColumns = { weather: true, air: true, temperature: true, wind: true }
 
-function renderTable(options: { pinned?: FocusKind; weather?: boolean; onSelectTime?: (epoch: number) => void; mobileTableOpen?: boolean; mobileViewProgress?: number; onToggleMobileView?: () => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
+function renderTable(options: { pinned?: FocusKind; weather?: boolean; onSelectTime?: (epoch: number) => void; mobileTableOpen?: boolean; onOpenMobileTable?: () => void; onSelectMobileMode?: () => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
   const [pinned, setPinned] = createSignal<FocusKind>(options.pinned ?? 'weather')
   const onPin = vi.fn((mode: FocusKind) => setPinned(mode))
   const onFocus = vi.fn()
@@ -40,8 +40,8 @@ function renderTable(options: { pinned?: FocusKind; weather?: boolean; onSelectT
     onOpenHistory={() => undefined}
     onSelectTime={options.onSelectTime}
     mobileTableOpen={options.mobileTableOpen}
-    mobileViewProgress={options.mobileViewProgress}
-    onToggleMobileView={options.onToggleMobileView}
+    onOpenMobileTable={options.onOpenMobileTable}
+    onSelectMobileMode={options.onSelectMobileMode}
     focus={{ pinned: pinned(), onPin, onFocus }}
   />)
   return { pinned, onPin, onFocus }
@@ -78,23 +78,23 @@ describe('forecast table headings', () => {
     expect(document.querySelector('.weather-icon')).toBeNull()
   })
 
-  it('uses the first heading as a distinct table/map switch on portrait mobile', () => {
-    const onToggleMobileView = vi.fn()
-    renderTable({ mobileViewProgress: 0.4, onToggleMobileView })
+  it('uses the first heading as a regular table mode on portrait mobile', () => {
+    const onOpenMobileTable = vi.fn()
+    const onSelectMobileMode = vi.fn()
+    renderTable({ onOpenMobileTable, onSelectMobileMode })
     expect(screen.queryByRole('columnheader', { name: 'Uur' })).toBeNull()
-    const toggle = screen.getByRole('button', { name: 'Tabel tonen' })
-    expect(toggle.classList.contains('mobile-view-toggle')).toBe(true)
-    expect(toggle.style.getPropertyValue('--table-opacity')).toBe('0.600')
-    expect(toggle.style.getPropertyValue('--map-opacity')).toBe('0.400')
-    fireEvent.click(toggle)
-    expect(onToggleMobileView).toHaveBeenCalledOnce()
+    const table = screen.getByRole('button', { name: 'Tabel' })
+    expect(table.classList.contains('column-focus')).toBe(true)
+    expect(table.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(table)
+    expect(onOpenMobileTable).toHaveBeenCalledOnce()
     cleanup()
-    renderTable({ mobileTableOpen: true, mobileViewProgress: 1, onToggleMobileView })
-    const mapToggle = screen.getByRole('button', { name: 'Kaart tonen' })
-    expect(mapToggle.style.getPropertyValue('--table-opacity')).toBe('0.000')
-    expect(mapToggle.style.getPropertyValue('--map-opacity')).toBe('1.000')
-    fireEvent.click(mapToggle)
-    expect(onToggleMobileView).toHaveBeenCalledTimes(2)
+    renderTable({ mobileTableOpen: true, onOpenMobileTable, onSelectMobileMode })
+    expect(screen.getByRole('button', { name: 'Tabel' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Weer' }).getAttribute('aria-pressed')).toBe('false')
+    expect(screen.queryByRole('button', { name: 'Kaart' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Lucht' }))
+    expect(onSelectMobileMode).toHaveBeenCalledOnce()
   })
 
   it('makes Weer, Lucht, Gevoel and Wind mode buttons while RV stays out of view', () => {

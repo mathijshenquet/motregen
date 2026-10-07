@@ -5,7 +5,7 @@ import { moonEvents, moonLitPath, moonPhase } from '../core/moon'
 import { solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
 import { dailyClearSkyUvMax, uvReading } from '../core/uv'
 import { deriveWeatherIcon, summarizeWind, WIND_UNIT_LABELS, type WindSummary, type WindUnit } from '../core/weather'
-import { ArrowUp, BUTTON_ICON, Clock, CloudRain, CloudSun, MapIcon, Table2, Thermometer, Wind } from './icons'
+import { ArrowUp, BUTTON_ICON, Clock, CloudRain, CloudSun, Table2, Thermometer, Wind } from './icons'
 import UvBar from './UvBar'
 import WeatherIcon from './WeatherIcon'
 import { measurePerfPhase } from '../core/perf'
@@ -44,8 +44,8 @@ interface Props {
   onSelectTime?: (epoch: number) => void
   /** Portrait-mobiel gebruikt de eerste kop als wissel tussen kaart en tabel. */
   mobileTableOpen?: boolean
-  mobileViewProgress?: number
-  onToggleMobileView?: () => void
+  onOpenMobileTable?: () => void
+  onSelectMobileMode?: () => void
   // De koppenrij is de modebalk: hover/toetsenbordfocus is tijdelijk, klikken pint één modus.
   focus: {
     pinned: FocusKind
@@ -91,9 +91,12 @@ export default function ForecastTable(props: Props) {
   const FocusHeading = (heading: { mode: FocusKind; icon: typeof CloudSun; label: string; title: string }) => <button
     type="button"
     class={`column-mode column-focus ${heading.mode}-focus`}
-    aria-pressed={props.focus.pinned === heading.mode}
+    aria-pressed={!props.mobileTableOpen && props.focus.pinned === heading.mode}
     title={heading.title}
-    onClick={() => props.focus.onPin(heading.mode)}
+    onClick={() => {
+      props.focus.onPin(heading.mode)
+      props.onSelectMobileMode?.()
+    }}
     onFocus={(event) => { if (event.currentTarget.matches(':focus-visible')) props.focus.onFocus(heading.mode, 'keyboard', true) }}
     onBlur={() => props.focus.onFocus(heading.mode, 'keyboard', false)}
   ><ColumnLabel icon={heading.icon} text={heading.label} /></button>
@@ -179,25 +182,19 @@ export default function ForecastTable(props: Props) {
   })
 
   const columnCount = () => 1 + Number(props.columns.weather) + Number(props.columns.air) + Number(props.columns.temperature) + Number(props.columns.wind)
-  const mobileViewStyle = () => {
-    const mix = Math.max(0, Math.min(1, props.mobileViewProgress ?? Number(Boolean(props.mobileTableOpen))))
-    return `--table-opacity:${(1 - mix).toFixed(3)};--map-opacity:${mix.toFixed(3)};--table-shift:${(-4 * mix).toFixed(2)}px;--map-shift:${(4 * (1 - mix)).toFixed(2)}px`
-  }
 
   return <table class="forecast-table" data-mode={props.focus.pinned} data-hover={hovered()}>
     <thead><tr>
       {/* Weer is de vaste standaardmodus: regen op de kaart en in de grafiek. */}
-      <th class="time-heading"><Show when={props.onToggleMobileView} fallback={<span class="column-mode"><ColumnLabel icon={Clock} text="Uur" /></span>}>
+      <th class="time-heading"><Show when={props.onOpenMobileTable} fallback={<span class="column-mode"><ColumnLabel icon={Clock} text="Uur" /></span>}>
         <button
           type="button"
-          class="column-mode mobile-view-toggle"
-          style={mobileViewStyle()}
-          title={props.mobileTableOpen ? 'Terug naar de kaart' : 'Open de tabel'}
-          aria-label={props.mobileTableOpen ? 'Kaart tonen' : 'Tabel tonen'}
-          onClick={(event) => { event.stopPropagation(); props.onToggleMobileView?.() }}
+          class="column-mode column-focus table-focus"
+          title="Toon de tabel"
+          aria-pressed={Boolean(props.mobileTableOpen)}
+          onClick={(event) => { event.stopPropagation(); props.onOpenMobileTable?.() }}
         >
-          <span class="mobile-view-label table-target"><ColumnLabel icon={Table2} text="Tabel" /></span>
-          <span class="mobile-view-label map-target"><ColumnLabel icon={MapIcon} text="Kaart" /></span>
+          <ColumnLabel icon={Table2} text="Tabel" />
         </button>
       </Show></th>
       <Show when={props.columns.weather}><th class="weather-heading" {...columnHover('weather')}>

@@ -217,3 +217,16 @@
 - Synchrone receipts: `pnpm typecheck` exit 0; volledige `pnpm test` 51 bestanden / 349 tests groen;
   `pnpm build` exit 0 (100 modules, `index-8LDUgNQq.js`, `index-4tM_1Y73.css`, PWA). Preview
   `http://ageq-dev2:4320/` antwoordt HTTP 200. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+
+## 2026-10-07 09:46 UTC
+
+- Mobiele eerste kop is nu een gewone vijfde modusknop: altijd `Tabel`, met dezelfde vorm,
+  hover/focus en actieve tint als Weer/Lucht/Gevoel/Wind. In de geopende tabel is alleen Tabel
+  `aria-pressed`; de onderliggende kaartpin blijft bewaard. Een tik op een van de vier kaartmodi
+  pint die modus en scrolt terug naar de kaart. De eerdere Kaart-labelwissel, afwijkende knopstijl
+  en scrollgebonden labeltween zijn verwijderd, wat ook scrollwerk scheelt.
+- Component- en gerichte e2e-verwachtingen volgen de nieuwe bediening. Synchrone receipts:
+  `pnpm typecheck` exit 0; gerichte ForecastTable-test 16/16 groen; volledige `pnpm test`
+  51 bestanden / 349 tests groen; `pnpm build` exit 0 (100 modules, `index-BUennRHE.js`,
+  `index-yfRRTRYH.css`, PWA). Preview `http://ageq-dev2:4320/` antwoordt HTTP 200. Geen e2e
+  uitgevoerd vóór PO-signaal “klaar”.

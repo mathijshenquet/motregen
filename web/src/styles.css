@@ -618,11 +618,6 @@ button.column-mode { width: 100%; cursor: pointer; }
 /* Tijd op inhoudsbreedte; de vier overige kolommen delen door table-layout: fixed de rest gelijk. */
 .forecast-table :is(.time-cell, .time-heading) { width: calc(var(--panel-inset, 16px) + 58px); padding-right: 14px; text-align: left; white-space: nowrap; }
 .time-heading .column-mode { padding-right: 0; padding-left: 0; }
-.mobile-view-toggle { display: inline-grid; place-items: center; border: 1px solid color-mix(in srgb, var(--accent) 58%, var(--line)); color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface)); box-shadow: 0 2px 8px rgba(21, 51, 63, .12); }
-.mobile-view-toggle:hover, .mobile-view-toggle:focus-visible { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
-.mobile-view-label { display: inline-flex; grid-area: 1 / 1; flex-direction: column; align-items: center; gap: 3px; pointer-events: none; will-change: opacity, transform; }
-.mobile-view-label.table-target { opacity: var(--table-opacity); transform: translateY(var(--table-shift)); }
-.mobile-view-label.map-target { opacity: var(--map-opacity); transform: translateY(var(--map-shift)); }
 .time-label { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; padding: 0; border: 0; color: inherit; background: none; font: inherit; text-align: left; cursor: pointer; }
 .time-label:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 .weather-glyph { display: flex; min-width: 38px; flex-direction: column; align-items: center; }
