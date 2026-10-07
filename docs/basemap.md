@@ -137,6 +137,11 @@ kan een andere publieke origin kiezen. Dev gebruikt de bestaande `/data`-proxy:
 kopieer `tools/basemap/tiles/*.pmtiles` naar `basemap/` onder de lokale
 Caddy-data-root. Glyphs komen van de frontend en blijven lokaal.
 
+Tot het archief op de data-origin staat (eerste deploy), serveren dev en preview het zelf: de
+Vite-plugin `localBasemapArchive` in `web/vite.config.ts` beantwoordt `/data/basemap/nl-<hash>.pmtiles`
+met Range-ondersteuning uit `tools/basemap/tiles/` (orkestrator 2026-10-07: 4330 toonde een grijze
+kaart omdat de proxy naar motregen.nl een 404 kreeg).
+
 ## Meten
 
 De gewone rigfixture is klein en representeert geen huidige kaart. Leg voor
