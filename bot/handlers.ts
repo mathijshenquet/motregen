@@ -3,7 +3,7 @@ import type { BotConfig } from './config.js'
 import type { RenderedMedia, StillRenderer } from './render.js'
 import type { StillPhotos } from './photos.js'
 import type { MessageSelections } from './selections.js'
-import { cacheKey, keyboard, matchingModes, parseCallback, LOOP_MODES, STILL_MODES, STILL_MINUTES, type MediaSelection, type StillManifest } from './stills.js'
+import { cacheKey, keyboard, matchingModes, modeForCommand, parseCallback, LOOP_MODES, STILL_MINUTES, type MediaSelection, type StillManifest } from './stills.js'
 
 export interface BotRuntime {
   api: TelegramApi
@@ -52,6 +52,10 @@ export async function handleUpdate(update: TelegramUpdate, runtime: BotRuntime):
   }
 }
 
+export function startText(username: string): string {
+  return 'motregen.nl -- Regenradar en Weersverwachting\n/regen, /temperatuur (of /hitte) en /wind geven een bewegende kaart; met de knoppen eronder kies je een stilstaand moment. Open de app voor jouw plek. Inline: @' + username + ' regen.'
+}
+
 async function handleCommand(message: TelegramMessage, runtime: BotRuntime): Promise<void> {
   const commandMatch = /^\/(\w+)(?:@([\w]+))?(?:\s|$)/.exec(message.text ?? '')
   if (!commandMatch) return
@@ -64,17 +68,17 @@ async function handleCommand(message: TelegramMessage, runtime: BotRuntime): Pro
     const useLaunch = message.chat.type === 'private' && runtime.config.origin.startsWith('https:')
     await runtime.api.call('sendMessage', {
       chat_id: message.chat.id,
-      text: 'motregen.nl -- Regenradar en Weersverwachting\n/regen en /gevoel geven een kaart. /loop regen, /loop gevoel en /wind geven een bewegende kaart. Open de app voor jouw plek. Inline: @' + runtime.username + ' regen.',
+      text: startText(runtime.username),
       reply_markup: { inline_keyboard: [[useLaunch ? launch : link]] },
     })
     return
   }
-  const argument = (message.text ?? '').trim().split(/\s+/).slice(1).join(' ')
-  const mode = command === 'loop' ? matchingModes(argument)[0] : LOOP_MODES.find((entry) => entry.command === command)?.mode
-  const definition = LOOP_MODES.find((entry) => entry.mode === mode)
-  if (!definition) return
+  const mode = modeForCommand(command!)
+  if (!mode) return
   const manifest = await runtime.currentManifest()
-  const selection: MediaSelection = command === 'loop' || definition.mode === 'wind' ? { mode: definition.mode, hour: 'loop' } : { mode: definition.mode, hour: 0 }
+  // Elk commando antwoordt met de bewegende kaart (PO 2026-10-07, U58); de tijdknoppen eronder geven een
+  // stilstaand beeld van dat moment.
+  const selection: MediaSelection = { mode, hour: 'loop' }
   const still = await runtime.renderer.render(selection, manifest)
   const reply = await runtime.photos.send(still, {
     chat_id: message.chat.id,
@@ -203,9 +207,10 @@ export async function configureBot(runtime: BotRuntime): Promise<void> {
   await runtime.api.call('setMyCommands', {
     commands: [
       { command: 'start', description: 'Open de motregen Mini App' },
-      ...STILL_MODES.map((entry) => ({ command: entry.command, description: entry.label })),
-      { command: 'wind', description: 'Wind als bewegende kaart' },
-      { command: 'loop', description: 'Bewegende kaart: regen, gevoel of wind' },
+      ...LOOP_MODES.flatMap((entry) => [
+        { command: entry.command, description: `${entry.label} als bewegende kaart` },
+        ...entry.listed.map((alias) => ({ command: alias, description: `Zelfde als /${entry.command}` })),
+      ]),
     ],
   })
 }

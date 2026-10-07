@@ -1,25 +1,27 @@
 # Telegram
 
 De bot `@motregen_bot` opent “motregen.nl -- Regenradar en Weersverwachting”
-als Mini App en deelt nationale kaarten. `/regen` en `/gevoel` plaatsen
-een foto; `/loop regen`, `/loop gevoel` en `/wind` plaatsen een
-video die automatisch afspeelt en herhaalt. `/loop` kiest standaard Regen.
-Wind bestaat uitsluitend als loop, nooit als still.
+als Mini App en deelt nationale kaarten. `/regen`, `/temperatuur` (alias `/hitte`) en `/wind`
+plaatsen een video die automatisch afspeelt en herhaalt: de loop is het standaardantwoord van elk
+commando (PO 2026-10-07, U58). Een stilstaand beeld komt via de tijdknoppen onder het bericht.
+Het commando `/loop` is vervallen. `/gevoel`, de naam van `/temperatuur` tot U58, blijft werken maar
+staat niet meer in het commandomenu of de starttekst. Wind bestaat uitsluitend als loop, nooit als still.
 
 De modusrij bevat Regen, Gevoel en Wind. De tijdrij bevat −1u, −10m, nu,
-+10m, +1u en Loop; bij Wind staat alleen Loop. Deltaknoppen stappen vanaf de
++10m, +1u en Loop; bij Wind staat alleen Loop. Vanuit de loop geven de deltaknoppen een still
+ten opzichte van nu; vanuit een still stappen ze vanaf de
 getoonde tijd, nu kiest de nieuwste generatie. Aan de rand van −2…+12 uur
 verdwijnen stappen buiten het bereik. De knoppen verversen hetzelfde bericht,
 ook bij wisselen tussen foto en video. Opnieuw dezelfde selectie aantikken geeft
 de toast “Al in beeld” zonder nieuwe render of edit. Niet meer bewerkbare of
 verlopen berichten geven “Verlopen, stuur /regen opnieuw”. Onder het beeld staat
 alleen een klikbare `motregen.nl`-link; er is geen aparte app-knop. Inline: typ `@motregen_bot `
-in een chat, filter met `regen` of kies alleen video's met `loop regen`.
+in een chat, filter met `regen`, `temperatuur`, `hitte` of `wind`, of kies alleen video's met `loop regen`.
 
 ## BotFather (PO)
 
-1. Kies `@motregen_bot` bij `/setinline` en geef bijvoorbeeld `Regen
-   of gevoel; loop of wind` als placeholder. Locatietoegang voor inline blijft uit.
+1. Kies `@motregen_bot` bij `/setinline` en geef bijvoorbeeld `Regen,
+   temperatuur of wind` als placeholder. Locatietoegang voor inline blijft uit.
 2. Open **Bot Settings → Configure Mini App** en zet de Main Mini App aan met
    URL `https://motregen.nl/?tg=1`. Hierdoor werkt ook de `startapp`-deeplink
    vanuit inlineberichten en groepen.

@@ -2,14 +2,23 @@ import { createHash } from 'node:crypto'
 import type { PresetMode } from '../web/src/core/presets.js'
 import { telegramStartParameter } from '../web/src/core/telegram-presets.js'
 
+// `command` staat in het commandomenu; `aliases` werken ook maar staan er alleen in als `listed`.
+// `button` is de tekst op de modusknop onder het beeld.
 export const STILL_MODES = [
-  { mode: 'weather', command: 'regen', query: 'weer', label: 'Regen' },
-  { mode: 'feels', command: 'gevoel', query: 'gevoel', label: 'Gevoelstemperatuur' },
+  { mode: 'weather', command: 'regen', aliases: [], listed: [], query: 'weer', label: 'Regen', button: 'Regen' },
+  // PO 2026-10-07: /temperatuur met alias /hitte. /gevoel (de naam tot U58) blijft werken zonder vermelding.
+  { mode: 'feels', command: 'temperatuur', aliases: ['hitte', 'gevoel'], listed: ['hitte'], query: 'gevoel', label: 'Gevoelstemperatuur', button: 'Gevoel' },
 ] as const
 
 export const LOOP_MODES = [...STILL_MODES,
-  { mode: 'wind', command: 'wind', query: 'wind', label: 'Wind' },
+  { mode: 'wind', command: 'wind', aliases: [], listed: [], query: 'wind', label: 'Wind', button: 'Wind' },
 ] as const
+
+/** De modus van een commando of alias, zonder schuine streep. */
+export function modeForCommand(command: string): LoopMode | undefined {
+  const name = command.toLowerCase()
+  return LOOP_MODES.find((entry) => entry.command === name || (entry.aliases as readonly string[]).includes(name))?.mode
+}
 
 export const STILL_MINUTES = Array.from({ length: 85 }, (_, index) => -120 + index * 10)
 export const STILL_HOURS = STILL_MINUTES.map((minute) => minute / 60)
@@ -100,7 +109,7 @@ export function parseCallback(data: string | undefined): CallbackSelection | und
 export function matchingModes(query: string): LoopMode[] {
   const normalized = query.trim().toLocaleLowerCase('nl-NL')
   return LOOP_MODES.filter((entry) => {
-    return !normalized || entry.command.includes(normalized) || entry.label.toLocaleLowerCase('nl-NL').includes(normalized)
+    return !normalized || [entry.command, ...entry.aliases, entry.label.toLocaleLowerCase('nl-NL')].some((name) => name.includes(normalized))
   }).map((entry) => entry.mode)
 }
 
@@ -113,7 +122,7 @@ export interface InlineButton {
 
 export function keyboard(selection: MediaSelection, epoch: number, generated?: string): { inline_keyboard: InlineButton[][] } {
   const modeButtons = LOOP_MODES.map((entry) => ({
-    text: `${selection.mode === entry.mode ? '✓ ' : ''}${entry.command === 'gevoel' ? 'Gevoel' : entry.label}`,
+    text: `${selection.mode === entry.mode ? '✓ ' : ''}${entry.button}`,
     callback_data: callbackData(entry.mode === 'wind' || selection.hour === 'loop' ? { mode: entry.mode, hour: 'loop' } : { mode: entry.mode, hour: selection.hour }, epoch, generated),
   }))
   const timeButtons: InlineButton[] = []

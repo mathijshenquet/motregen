@@ -3,6 +3,7 @@ import { readConfig, validateCacheChat } from './config.js'
 import { setTimeout as delay } from 'node:timers/promises'
 import { FileIdCache } from './file-ids.js'
 import { StillPhotos } from './photos.js'
+import { startText } from './handlers.js'
 import { StillRenderer, StillRenderError, type RenderedMedia } from './render.js'
 import { keyboard, PREWARM_HOURS, STILL_HOURS, LOOP_MODES } from './stills.js'
 
@@ -51,7 +52,7 @@ async function smoke(): Promise<void> {
     const buttonOrigin = config.origin.startsWith('https://') ? config.origin : 'https://motregen.nl'
     await api.call('sendMessage', {
       chat_id: chatId,
-      text: 'motregen.nl -- Regenradar en Weersverwachting\nOpen de app voor jouw plek; /regen en /gevoel geven een weerkaart. /loop regen, /loop gevoel en /wind geven een bewegende kaart.',
+      text: startText(identity.username),
       reply_markup: { inline_keyboard: [[{ text: 'Open motregen.nl', web_app: { url: `${buttonOrigin}/?tg=1` } }]] },
     })
     const first = await renderer.render({ mode: 'weather', hour: 0 }, manifest)
