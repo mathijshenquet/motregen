@@ -58,6 +58,33 @@
   pull naar ageq-dev2; A1 nog een Android-Chrome-opname op de nieuwe main (4330).
   **VOOR AGENTS**: U38 kolomset (na U42), U50 (MIP-19) na U42, skywatch-rooktest na ~10 beelden,
   U41b, U29, U40, E8 PMTiles-meting.
+- **Avond (16:00–18:00)**: gemerged op main t/m `15365cc1`: U55 Telegram-loops (video via
+  sendAnimation uit dezelfde framereeks, Wind alleen loop, Lucht uit Telegram, delta-knoppen
+  −1u·−10m·nu·+10m·+1u, file_id-cache + vooraf-upload naar privégroep `MOTREGEN_CACHE_CHAT_ID`,
+  auto-verwijderen na een week), U56 klokpil (sleepbaar, tijdlijn bij uitklappen, afspeelknop na
+  slepen; jog 120 s/px), U42 tabel/modi (Weer standaard, Lucht als kaartmodus, RV uit beeld, mobiele
+  view-switch met animatie), U47 wolkendoorsnede met licht en vibe (MIP-18 deel 1, één ingang
+  `expressive`), micro-fixes: zoekpil-animatie, scrubber-hervatten wacht op gesloten klokpaneel,
+  permalink "Deel dit moment" (`?plaats=` i.p.v. lat/lon, `t` alleen bij open klokpaneel, als
+  compacte Amsterdamse tijd `2026-10-08T0757` zonder dubbele punten; ISO/Z blijft leesbaar;
+  MIP-17 aangevuld). Spec U57 pad-URI's (`/weer/utrecht`) geschreven, nog niet gestart.
+- **Regressie gemeten en gefixt**: PO-opnames (Android-Chrome, 4330-builds 14:58 en 15:07) toonden
+  na U42/U47 28 lange frames / 8,4 s blocking per 30 s en 374 decodes; rig mobile-4g koud
+  113 → 297 decodes (vóór/na U42), 1,07 → 1,65 MB. Drie daders: U42 laadde alle 25 uurrijen per veld
+  (ook RV), de tabel herrenderde per afspeeltik, U47 herbouwde de hemel-SVG per tik (cloneNode +
+  insertBefore 1,66 s). U58 (opus 5.5, live-pane 4320) fixte alle drie: 128 decodes / 1,13 MB,
+  hemel-knopen per 12 s afspelen 4 843 → 9, tabel 775 → 35, DOM-werk ~8 ms; nieuwe baseline +
+  `scripts/dom-churn.ts`. Bijvangst: de rig vanuit de main-checkout bouwt `dist` met de test-
+  basemap en brak de 4330-preview (splash hing) — rig alleen in een eigen worktree draaien.
+- **Fleet**: alle workers gesloten behalve U58 finishing touches (opus 5.5, 4320): globale
+  schakelaar Expressief (stap 1, wacht PO-akkoord), jog-default, dev-panel.spec, bot /temperatuur
+  +/hitte en loop als standaardantwoord, landscape-loop. Les: herdr-prompts komen bij een Claude-pane
+  als "geplakte tekst" binnen; de worker wachtte drie rondes op een menselijk "ja" — zeg in de
+  eerste prompt dat herdr-berichten orkestrator-instructies zijn.
+- **Open MET PO (avond)**: `TG_BOT_KEY` + `MOTREGEN_CACHE_CHAT_ID=-1003976938683` in prod
+  `secrets.env`; deploy van main (alles van vandaag); MIP-19/MIP-20 adoptie; nog één Android-
+  Chrome-opname op 4320 na de regressiefix. **VOOR AGENTS**: U57 pad-URI's, U54 laadchoreografie
+  (na U58), U38 kolomset, skywatch-rooktest, U41b, U29, U40, E8.
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
