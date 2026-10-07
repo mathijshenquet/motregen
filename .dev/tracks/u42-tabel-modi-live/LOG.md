@@ -509,6 +509,22 @@
   cyaanblauw en levendig in plaats van blauwgrijs, met nog steeds zichtbare verschillen per uur;
   de warme zonsondergang en donkere nacht houden hun contrast.
 
+## 2026-10-07 13:53 UTC
+
+- PO-screenshot toonde een chronologiefout: “Zon op 07:54” stond vóór een 08:00-rij die nog het
+  nachtpalet gebruikte. Oorzaak was dat `sunEvents` de zichtbare bovenrand van de zon gebruikt
+  (−0,833° door straal + refractie), terwijl de tabel dag pas bij een zonnecentrum boven 0° liet
+  beginnen.
+- `isSunUp` is nu de gedeelde horizonbeslissing voor zonmomenten en tabelclassificatie. De uurregel
+  waarin de opkomst valt blijft nacht tot de zonregel; de eerstvolgende hele uurregel is direct dag.
+  Bij zonsondergang blijft dezelfde volgorde gespiegeld intact.
+- Synchrone receipts: `git diff --check`, `pnpm typecheck`, volledige Vitest-run 67 bestanden/437
+  tests en `pnpm build` exit 0. Build: 113 modules, `index-D_7TYRXg.js`, `index-BABwamOn.css`, PWA +
+  workers. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+- Eigen visuele controle op desktop 1280×900 en mobiel 390×844 rond de volgende opkomst: 07:00 is
+  nacht, daarna staat “Zon op 07:53”, en 08:00 begint meteen met de lichte daggradient; DOM-controle
+  bevestigt `night-hour → sunrise-row → day-hour` in beide formaten.
+
 ## 2026-10-07 13:26 UTC
 
 - De tabelcyclus is nu een gebruikersoptie “Dag en nacht in tabel” onder Weergave, standaard aan en

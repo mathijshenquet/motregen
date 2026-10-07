@@ -3,7 +3,7 @@ import { lightDarkness } from '../core/cloud-section'
 import type { FocusKind } from '../core/focus-mode'
 import type { HourlyForecastRow } from '../core/forecast'
 import { moonHorizonAngle, moonLitPath, moonPhase } from '../core/moon'
-import { solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
+import { isSunUp, solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
 import { cloudModification, dailyClearSkyUvMax, uvReading } from '../core/uv'
 import { deriveWeatherIcon, summarizeWind, WIND_UNIT_LABELS, type WindSummary, type WindUnit } from '../core/weather'
 import { ArrowUp, BUTTON_ICON, Clock, CloudRain, CloudSun, Table2, Thermometer, Wind } from './icons'
@@ -226,7 +226,7 @@ export default function ForecastTable(props: Props) {
       const wind = () => summarizeWind(value(props.series.windU, row.windUIndex), value(props.series.windV, row.windVIndex),
         value(props.series.gust, row.gustIndex), props.windUnit)
       const sunEvent = () => sun().get(row.epoch)
-      const daylight = () => sunEvent()?.kind === 'set' || (sunEvent() === undefined && elevation(row.epoch) > 0)
+      const daylight = () => sunEvent()?.kind === 'set' || (sunEvent() === undefined && isSunUp(row.epoch, props.location.lng, props.location.lat))
       const radiationBefore = () => value(props.series.radiation, row.radiationIndex)
       const radiationAfter = () => value(props.series.radiation, row.radiationNextIndex)
       const darknessFor = (target: HourlyForecastRow) => {
@@ -240,7 +240,7 @@ export default function ForecastTable(props: Props) {
       const dayDarkness = createMemo(() => darknessFor(row))
       const nextDayDarkness = createMemo(() => {
         const next = visibleRows()[rowIndex() + 1]
-        if (!next || elevation(next.epoch) <= 0) return dayDarkness()
+        if (!next || !isSunUp(next.epoch, props.location.lng, props.location.lat)) return dayDarkness()
         return darknessFor(next)
       })
       const icon = () => deriveWeatherIcon(rain(), cloud(), daylight())

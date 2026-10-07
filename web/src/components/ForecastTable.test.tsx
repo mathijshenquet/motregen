@@ -202,6 +202,8 @@ describe('forecast table cells', () => {
     expect(sunset.previousElementSibling?.classList.contains('before-sunset')).toBe(true)
     expect(sunrise.previousElementSibling?.classList.contains('night-hour')).toBe(true)
     expect(sunset.previousElementSibling?.classList.contains('night-hour')).toBe(false)
+    expect(sunrise.nextElementSibling?.classList.contains('day-hour')).toBe(true)
+    expect(sunset.nextElementSibling?.classList.contains('night-hour')).toBe(true)
   })
 
   it('can turn the complete table day/night treatment off', () => {
