@@ -1,6 +1,13 @@
 node_keys = { "place" }
 way_keys = { "natural", "landuse", "leisure", "waterway", "boundary" }
 
+local function write_landcover(cover)
+    for _, layer in ipairs({ "landcover", "landcover_low" }) do
+        Layer(layer, true)
+        Attribute("class", cover)
+    end
+end
+
 function node_function()
     local kind = Find("place")
     if kind ~= "country" and kind ~= "state" and kind ~= "city" and kind ~= "town" and kind ~= "village" then return end
@@ -21,6 +28,7 @@ function node_function()
     elseif population >= 25000 then rank = 8
     elseif population >= 10000 then rank = 9
     elseif kind == "city" and population == 0 then rank = 7 end
+    if kind == "city" and (Find("capital") == "yes" or Find("capital") == "2") then rank = 2 end
     if kind == "city" then minimum_zoom = 4
     elseif kind == "village" then minimum_zoom = 9 end
     Layer("place", false)
@@ -41,8 +49,7 @@ end
 function relation_function()
     -- Boundary-relaties worden niet automatisch als vlakken naar way_function gestuurd.
     if Find("type") == "boundary" and (Find("boundary") == "national_park" or Find("leisure") == "nature_reserve") then
-        Layer("landcover", true)
-        Attribute("class", "park")
+        write_landcover("park")
     end
 end
 
@@ -81,8 +88,7 @@ function way_function()
         cover = "urban"
     end
     if cover then
-        Layer("landcover", true)
-        Attribute("class", cover)
+        write_landcover(cover)
     end
 end
 

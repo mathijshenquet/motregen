@@ -18,12 +18,21 @@
       "write_to": "water"
     },
     "landcover": {
-      "minzoom": 5,
+      "minzoom": 8,
       "maxzoom": 10,
       "simplify_below": 14,
-      "simplify_level": 0.00022,
+      "simplify_level": 0.00024,
       "filter_below": 14,
       "filter_area": 0.3
+    },
+    "landcover_low": {
+      "minzoom": 5,
+      "maxzoom": 7,
+      "write_to": "landcover",
+      "simplify_below": 14,
+      "simplify_level": 0.00023,
+      "filter_below": 14,
+      "filter_area": 0.56
     },
     "boundary": {
       "minzoom": 4,

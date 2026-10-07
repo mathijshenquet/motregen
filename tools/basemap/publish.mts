@@ -12,6 +12,8 @@ const Pbf = require('pbf').default
 const input = resolve(root, process.argv[2] ?? 'tmp/basemap/build/nl.pmtiles')
 const bytes = readFileSync(input)
 if (bytes.length > 25_000_000) throw new Error(`Basiskaart overschrijdt 25 MB: ${bytes.length}`)
+const budget = JSON.parse(readFileSync(resolve(root, 'tools/basemap/budget.json'), 'utf8'))
+if (bytes.length > budget.bytes * 1.25) throw new Error(`Basiskaart overschrijdt U59 +25 %: ${bytes.length}`)
 const sha256 = createHash('sha256').update(bytes).digest('hex')
 const filename = `nl-${sha256.slice(0, 16)}.pmtiles`
 const source = new FileSource(new File([bytes], filename))
@@ -54,6 +56,13 @@ for (let zoom = header.minZoom; zoom <= header.maxZoom; zoom++) {
   zooms.push({ zoom, tiles: sizes.length, compressedBytes: compressedSizes.reduce((sum, size) => sum + size, 0), p50CompressedBytes: compressedSizes[Math.ceil(compressedSizes.length / 2) - 1], maxCompressedBytes: compressedSizes.at(-1), decodedBytes: sizes.reduce((sum, size) => sum + size, 0), p50Bytes: sizes[Math.ceil(sizes.length / 2) - 1], maxBytes: sizes.at(-1) })
 }
 if (layers.size !== 4) throw new Error(`Ontbrekende lagen: ${[...layers]}`)
+for (const measured of zooms) {
+  const reference = budget.zooms.find((entry: { zoom: number }) => entry.zoom === measured.zoom)
+  if (!reference) throw new Error(`Geen tegelbudget voor zoom ${measured.zoom}`)
+  if (measured.compressedBytes > reference.compressedBytes * 1.25 || measured.maxCompressedBytes! > reference.maxCompressedBytes * 1.25) {
+    throw new Error(`Tegelbudget U59 +25 % overschreden op zoom ${measured.zoom}: totaal ${measured.compressedBytes}, grootste ${measured.maxCompressedBytes}`)
+  }
+}
 const metadata = { filename, sha256, bytes: bytes.length, minzoom: header.minZoom, maxzoom: header.maxZoom, bounds: [header.minLon, header.minLat, header.maxLon, header.maxLat], zooms }
 const output = resolve(root, process.env.MOTREGEN_BASEMAP_OUTPUT ?? 'tools/basemap/tiles')
 mkdirSync(output, { recursive: true })

@@ -60,3 +60,16 @@
 - Kandidaten-A/B en basemap-spec: 11 browsertests passed; tooling-uitgang apart geobserveerd. Startlabels nu 390 6→7 (+16,7 %), 1280 19→18 (−5,3 %). Utrecht z9 25→23; z10 29→27; geen externe requests.
 - Groen bij de kandidaat: start390 8,20→3,67 %, Utrecht z9 19,77→15,53 %, z10 18,72→17,27 %. Detail is veel beter; lage zoom vraagt nog parkvlakken.
 - Oorzaak extra lage-zoomverlies: tilemaker stuurt multipolygonen automatisch naar way_function, maar boundary-relaties van nationale parken/natuurreservaten alleen via relation_function. Die vlakroute ontbreekt; toegevoegd op hetzelfde landcover-schema. Herbouw met definitief profiel loopt; daarna A/B en perf opnieuw.
+## 2026-10-07T20:08:41Z — Budget ook per zoom
+
+- Park-route herbouw exit 0: 4.330.752 B (+22,47 % archief), maar z5–7 bevatten nog te grote piektegels (z6 +54 %). Daarom wordt het +25 %-budget ook per zoom en voor de grootste tegel gecontroleerd, niet alleen op het archief.
+- Landcover heeft nu een grover lage-zoomprofiel z5–7 (`filter_area` 0,45) dat naar dezelfde landcover-schema-laag schrijft. Detail z8–10 gebruikt 0,3 en iets extra simplificatie (0,00023). Geen tweede bron of extra clientwerk.
+- Nationale hoofdsteden krijgen rang 2, zoals de belangrijke steden in Liberty; zo wordt Brussel bij de lage-zoomselectie niet achter Charleroi verborgen. Geen nieuw place-attribuut nodig.
+- Definitieve herbouw loopt; alle A/B-paren en de mobiele rig worden daarop opnieuw gemeten.
+## 2026-10-07T20:14:55Z — Publisher-gate en hervatpunt
+
+- Publisher weigert nu archief én per-zoom totaal/grootste tegel boven U59 +25 %, met vaste referentie in `tools/basemap/budget.json`.
+- Herbouw 9: exit 1, gate vond z6-grootste 36.106 B tegen maximaal 35.573,75 B. Profiel z5–7 aangescherpt naar filter_area 0,56; detail z8–10 simplify_level 0,00024 en filter_area 0,3.
+- Herbouw 10 loopt, output `tmp/basemap/u60/build-10.txt`; actieve exec-session 42285 was poging 9 (afgerond rood). Daglicht-/nacht-A/B-kandidaat was 11/11 groen; eind-A/B op nieuwe hash moet nog.
+- Volgende stappen: herbouw 10 receipt/budget bekijken; alleen U59-archief + gekozen nieuwe hash in tools/basemap/tiles houden (tussenversies naar tmp); commit data/stijlen; `MOTREGEN_E2E_PORT=4397 MOTREGEN_E2E_DATA_PORT=8397 MOTREGEN_MOBILE_BASEMAP=own MOTREGEN_BASEMAP_COMPARISON=1 pnpm --filter motregen-web e2e e2e/basemap-comparison.spec.ts e2e/basemap.spec.ts --config playwright.basemap.config.ts --project desktop`; daarna `MOTREGEN_E2E_PORT=4397 MOTREGEN_E2E_DATA_PORT=8397 pnpm --filter motregen-web perf:mobile --profile mobile-4g --scenario koud --basemap own --repeat 3 --compare`.
+- Daarna eindmetingen naar LOG via `pnpm --filter motregen-web exec tsx ../tools/basemap/report-comparison.mts`; screenshots alle 8 app-paren bekijken; docs nieuwe archief/statistiek; typecheck/test/build (web/dist voor preview 4340; rig uitsluitend tmp/perf-mobile/dist-4397), cache-spec, Nix-basemap-package, finale PR-status/PO-review. Nog geen eind-groen claim.
