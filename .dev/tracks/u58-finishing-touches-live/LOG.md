@@ -595,3 +595,30 @@ render-run) waren wel vooraf gezien.
 - `docs/telegram.md`: modusrij, tabelrij en rooktestbeschrijving zeggen Temperatuur; zin over `deltaMinutes`.
 - Receipts (synchroon, gelezen): `bot`: `pnpm typecheck` 0, `pnpm test` 0 (12 bestanden, 60 tests), `pnpm
   build` 0. Geen webwijziging. **Bot klaar voor herstart.**
+
+## 2026-10-08 05:20 — temperatuurloop vloeiend: tienminutenstap op 10 fps
+
+PO-besluit (via orkestrator): het ging om de video — de temperatuurloop stapte per uur en oogde schokkerig.
+- `sequencePlan`: temperatuur loopt nu op de tienminutenframes nu…+12 u (73 frames) op 10 fps; was 13
+  uurframes op 4 fps. Die frames werden al gerenderd voor de stills (85 per generatie, ongewijzigd), dus er
+  komt geen render bij — alleen meer frames in de mp4. `cacheKey` renderer 11 → 12.
+- Wind niet aangepast: die stapte al per kwartier (49 frames op 4 fps), niet per uur, en beweegt op de
+  simulatieklok. Tijdknoppen: regen en temperatuur hadden al dezelfde set; wind heeft geen stills.
+- Gemeten met de bot-renderer zonder Telegram (`TG_BOT_KEY=<nepwaarde> MOTREGEN_ORIGIN=http://localhost:4320
+  pnpm render --mode=…`, elk exit 0), 960×1272:
+
+  | loop | frames / fps / duur | render | encode | grootte |
+  | --- | --- | ---: | ---: | ---: |
+  | temperatuur vóór | 13 / 4 / 3,25 s + 1 s stil | 35,6 s | 0,25 s | 627 kB |
+  | temperatuur ná | 73 / 10 / 7,3 s + 1 s stil | 28,7 s | 0,50 s | 1 606 kB |
+  | regen (ongewijzigd) | 49 / 10 / 4,9 s + 1 s | 24,2 s | 0,58 s | 1 571 kB |
+  | wind (ongewijzigd) | 49 / 4 / 12,25 s + 1 s | 20,4 s | 0,54 s | 2 024 kB |
+
+  De rendertijd vóór/ná verschilt door hostbelasting, niet door de wijziging (zelfde 85 frames). Per
+  generatie komt er ~0,25 s encode en ~1,0 MB upload bij. **Uploadtijd niet gemeten** (geen Telegram-
+  toegang); de limiet van 3 MB per loop wordt niet geraakt.
+- Zelf bekeken: opeenvolgende frames verschillen (PSNR ~28 dB tussen buren), en twee frames een half uur uit
+  elkaar tonen het veld en de isolijnen een stukje verschoven — de app interpoleert dus tussen de uurvelden.
+  De loop zelf heb ik niet als bewegend beeld gezien.
+- Receipts (synchroon, gelezen): `bot`: `pnpm typecheck` 0, `pnpm test` 0 (12 bestanden, 60 tests;
+  sequences.test volgt de nieuwe stap), `pnpm build` 0. **Bot klaar voor herstart.**

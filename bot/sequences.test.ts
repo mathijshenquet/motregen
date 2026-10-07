@@ -20,10 +20,13 @@ describe('one frame sequence per mode', () => {
     expect(plan.stillFrames.find((frame) => frame.hour === 12)?.index).toBe(108)
   })
 
-  it('keeps hourly still frames inside the feels loop and never renders wind stills', () => {
+  it('runs the feels loop on the ten-minute frames the stills already need, and never renders wind stills', () => {
     for (const mode of ['feels'] as const) {
       const plan = sequencePlan(mode, manifest)
-      expect(plan).toMatchObject({ fps: 4, loopFrames: 13 })
+      expect(plan).toMatchObject({ fps: 10, loopFrames: 73 })
+      expect(plan.epochs[1] - plan.epochs[0]).toBe(10 * 60_000)
+      expect(plan.epochs[plan.loopFrames - 1]).toBe(now + 12 * 3_600_000)
+      // Geen frame extra ten opzichte van de uurloop: de stills vroegen deze tijdstippen al.
       expect(plan.epochs).toHaveLength(85)
       expect(plan.stillFrames).toHaveLength(85)
       for (const frame of plan.stillFrames) expect(plan.epochs[frame.index]).toBe(now + Math.round(frame.hour * 3_600_000))

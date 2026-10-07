@@ -73,7 +73,7 @@ gecachete lege kaart. De nationale uitsnede is 640×848 CSS-pixels met
 | modus | framereeks | loop | stills uit dezelfde reeks |
 | --- | --- | --- | --- |
 | Regen | −2…+2 u, elke 5 minuten; extra tienminutenframes tot +12 u | 49 frames op 10 fps; extra toekomstframes buiten de video | 85 frames, −2…+12 u elke 10 minuten |
-| Temperatuur | uurframes nu…+12 u; aanvullende tienminutenframes −2…+12 u | 13 frames op 4 fps | 85 frames, −2…+12 u elke 10 minuten |
+| Temperatuur | tienminutenframes −2…+12 u (interpolatie tussen de uurvelden) | 73 frames nu…+12 u op 10 fps (sinds U58; was 13 uurframes op 4 fps) | 85 frames, −2…+12 u elke 10 minuten |
 | Wind | nu…+12 u, elke 15 minuten | 49 frames op 4 fps | geen |
 
 Windparticles krijgen een vaste simulatieklok, met tussenstappen op 30 Hz en
