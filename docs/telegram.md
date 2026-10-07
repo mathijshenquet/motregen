@@ -110,9 +110,14 @@ nieuwe matrix mislukt.
 Met `MOTREGEN_CACHE_CHAT_ID` uploadt de bot vóór publicatie ontbrekende JPEGs in albums van maximaal tien
 via `sendMediaGroup` en MP4s via `sendAnimation` naar `MOTREGEN_CACHE_CHAT_ID`.
 Uploads zijn stil, serieel met tussenruimte, en volgen Telegram `retry_after`.
-Gelijke aanvragen delen de upload. Na het opslaan van de ids verwijdert de bot
-met `deleteMessages` uitsluitend deze eigen nieuwe cacheposts; de ids blijven
-bruikbaar. Ook een aanvraag tijdens opwarming krijgt eerst een cache-upload,
+Gelijke aanvragen delen de upload. De huidige generatie blijft in het aparte
+privékanaal of de privégroep. Pas als de nieuwe generatie volledig geprimed is,
+verwijdert de bot met `deleteMessages` de eigen posts van oudere generaties.
+Bij een mislukte prime blijft de vorige matrix staan. Een atomair lokaal
+`.cache-posts-*.json`-register bewaart bot, cachechat, generatie en bericht-ids
+voor opruimen na een herstart; Caddy serveert dit register niet. Automatisch
+verwijderen in Telegram is een vangnet, geen vervanging voor dit opruimen.
+Ook een aanvraag tijdens opwarming krijgt eerst een cache-upload,
 zodat een gebruikersbericht en zijn eerste tik alleen file_id sturen.
 Zonder deze optionele variabele uploadt de bot lui bij de eerste verzending of
 edit naar de betreffende gebruikerschat en bewaart daarna het file_id. Er is
@@ -124,6 +129,13 @@ en blijft ook in geheugen. Vervolgverzendingen en edits sturen alleen dat id.
 De sidecar bevat renderkey en botnaam: een nieuwe manifestgeneratie, andere
 selectie of andere bot kan geen oud id hergebruiken. Ids vervallen met de
 twee-uurs-mediacache; sidecars worden ook opgeruimd.
+Een specifiek `wrong file identifier`, `wrong remote file identifier` of
+`file not found` op een bestaand id wist dat id en doet één her-upload. De
+verzending/edit wordt eenmaal herhaald met het nieuwe id; geheugen en sidecar
+worden vervangen. Bij een cachechat gaat de her-upload daarheen, ook voor inline.
+In luie modus gaat een chat-her-upload rechtstreeks naar de gebruiker; inline
+kan bij een ontbrekend id de publieke URL gebruiken. Als het herstel ook faalt,
+krijgt de gebruiker “Beeld kon niet laden, probeer opnieuw”, geen API-fouttekst.
 
 Inline gebruikt `InlineQueryResultCachedPhoto` of
 `InlineQueryResultCachedMpeg4Gif` zodra het file_id bekend is, ook lokaal;
@@ -150,8 +162,10 @@ TG_BOT_KEY=<bot-token>
 ```
 
 Optioneel kan `MOTREGEN_CACHE_CHAT_ID=<cache-chat-id of @kanaal>` worden toegevoegd
-voor vooraf uploaden. Dit is uitsluitend een expliciet ingericht productiekanaal
-of cachechat met schrijf- en verwijderrechten. Zonder deze variabele werkt de
+voor vooraf uploaden. Dit is uitsluitend een expliciet ingericht privékanaal
+of -groep; de bot is beheerder met schrijf- en verwijderrechten. Het opstarten
+controleert chattype en beheerder/verwijderrechten en weigert een privéchat.
+Zonder deze variabele werkt de
 service met luie uploads. `MOTREGEN_SMOKE_CHAT_ID` en `MOTREGEN_DEBUG_CHAT_ID` horen
 niet in de productieconfiguratie en bepalen nooit het cache-uploaddoel.
 
@@ -160,7 +174,7 @@ Het token gaat nooit in Git of de Nix-store. Configuratie via environment:
 | variabele | standaard | betekenis |
 | --- | --- | --- |
 | `TG_BOT_KEY` | verplicht | token uit BotFather |
-| `MOTREGEN_CACHE_CHAT_ID` | niet ingesteld | optionele cachechat voor vooraf uploaden; anders luie uploads |
+| `MOTREGEN_CACHE_CHAT_ID` | niet ingesteld | optioneel privékanaal of -groep voor vooraf uploaden; anders luie uploads |
 | `MOTREGEN_ORIGIN` | `https://motregen.nl` | app en publieke still-URLs |
 | `MOTREGEN_RENDER_CACHE` | `tmp/telegram-stills` | lokale cachemap |
 | `MOTREGEN_CHROMIUM_PATH` | Playwright-selectie | expliciete nixpkgs-Chromium-binary |
@@ -221,10 +235,11 @@ te starten” aan de orkestrator en in het track-LOG; laat de orkestrator zijn
 poller stoppen en log zelf de start en stop van de rooktest. Gebruik één
 poller per token:
 
-Alleen voor een expliciet toegestane lokale proef mag `MOTREGEN_CACHE_CHAT_ID`
-in het testproces gelijk worden gezet aan `MOTREGEN_SMOKE_CHAT_ID`, omdat de
-bot zijn eigen tijdelijke uploadposts na het bewaren van de ids verwijdert.
-Dit is geen productieconfiguratie; de rooktest vereist een expliciet cache-uploaddoel.
+De rooktestchat mag nooit het cache-uploaddoel zijn, ook niet lokaal: send+delete
+is zichtbaar. Vooraf uploaden mag uitsluitend naar een apart privékanaal via
+`MOTREGEN_CACHE_CHAT_ID`, met de bot als beheerder. Een privégroep of supergroep
+werkt ook, met dezelfde uploads en verwijderrechten. Zonder cache-id draait de
+poke-bot in luie modus; de matrixrooktest vereist het aparte cache-id.
 
 ```sh
 MOTREGEN_ORIGIN=http://localhost:4365 MOTREGEN_RENDER_CACHE=tmp/telegram-smoke \

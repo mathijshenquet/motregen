@@ -41,7 +41,15 @@ export async function handleUpdate(update: TelegramUpdate, runtime: BotRuntime):
     await handleInline(update.inline_query, runtime)
     return
   }
-  if (update.message?.text) await handleCommand(update.message, runtime)
+  if (update.message?.text) {
+    try {
+      await handleCommand(update.message, runtime)
+    } catch (error) {
+      if (!(error instanceof TelegramApiError) || !error.invalidFile) throw error
+      await runtime.api.call('sendMessage', { chat_id: update.message.chat.id, text: 'Beeld kon niet laden, probeer opnieuw' })
+      console.info(JSON.stringify({ event: 'media-unavailable', description: error.description }))
+    }
+  }
 }
 
 async function handleCommand(message: TelegramMessage, runtime: BotRuntime): Promise<void> {
@@ -168,6 +176,9 @@ async function handleCallback(query: NonNullable<TelegramUpdate['callback_query'
       runtime.selections.remember(message, key)
       await answerCallback(runtime, query.id, 'Al in beeld')
       console.info(JSON.stringify({ event: 'still-no-op', mode: selection.mode, hour: selection.hour }))
+    } else if (error instanceof TelegramApiError && error.invalidFile) {
+      await answerCallback(runtime, query.id, 'Beeld kon niet laden, probeer opnieuw')
+      console.info(JSON.stringify({ event: 'media-unavailable', mode: selection.mode, description: error.description }))
     } else {
       await answerCallback(runtime, query.id)
       throw error

@@ -3,17 +3,31 @@ import type { FileIdCache } from './file-ids.js'
 import type { RenderedMedia } from './render.js'
 import { TelegramApiError } from './api.js'
 import { setTimeout as delay } from 'node:timers/promises'
+import { CachePosts } from './cache-posts.js'
 
 export class StillPhotos {
   private queue: Promise<void> = Promise.resolve()
   private priming = new Map<string, Promise<void>>()
   private lastUpload = 0
+  private readonly posts?: CachePosts
 
-  constructor(private readonly api: TelegramApi, readonly fileIds: FileIdCache, private readonly cacheChatId?: string) {}
+  constructor(private readonly api: TelegramApi, readonly fileIds: FileIdCache, private readonly cacheChatId?: string, cacheDirectory?: string) {
+    if (cacheChatId) this.posts = new CachePosts(api, cacheChatId, fileIds.bot, cacheDirectory)
+  }
+
+  async primeGeneration(media: RenderedMedia[]): Promise<void> {
+    if (!media.length || !this.posts) return
+    const generated = media[0]!.generated
+    if (media.some((item) => item.generated !== generated)) throw new Error('Cachematrix bevat meerdere generaties')
+    const started = performance.now()
+    await this.prime(media)
+    const counts = await this.posts.retain(generated)
+    console.info(JSON.stringify({ event: 'media-generation-primed', generated, count: media.length, ...counts, primeMs: Math.round(performance.now() - started) }))
+  }
 
   async prime(media: RenderedMedia[]): Promise<void> {
     if (!this.cacheChatId) return
-    const missing = []
+    const missing: RenderedMedia[] = []
     for (const item of media) if (!await this.fileIds.get(item)) missing.push(item)
     const photos = missing.filter((item) => item.kind === 'photo')
     const tasks: Promise<void>[] = []
@@ -29,18 +43,20 @@ export class StillPhotos {
     const pending = media.filter((item) => !this.priming.has(item.key))
     if (!pending.length) return Promise.all(existing).then(() => undefined)
     const operation = this.queue.then(async () => {
-      const missing = []
+      const missing: RenderedMedia[] = []
       for (const item of pending) if (!await this.fileIds.get(item)) missing.push(item)
       if (!missing.length) return
       await delay(Math.max(0, this.lastUpload + 1100 - Date.now()))
       const started = performance.now()
       const messages = await this.uploadCached(missing)
       const uploadMs = Math.round(performance.now() - started)
+      for (const generated of new Set(missing.map((item) => item.generated))) {
+        await this.posts!.remember(generated, messages.filter((_message, index) => missing[index]!.generated === generated).map((message) => message.message_id))
+      }
       for (const [index, item] of missing.entries()) {
         await this.fileIds.remember(item, messages[index]!)
         if (!await this.fileIds.get(item)) throw new Error('Telegram geeft geen file_id voor de cache-upload')
       }
-      await this.api.call('deleteMessages', { chat_id: this.cacheChatId, message_ids: messages.map((message) => message.message_id) })
       this.lastUpload = Date.now()
       console.info(JSON.stringify({ event: 'media-cache-primed', kind: missing[0]!.kind, key: missing.length === 1 ? missing[0]!.key : undefined, count: missing.length, uploadMs }))
     })
@@ -71,34 +87,53 @@ export class StillPhotos {
   }
 
   async send(still: RenderedMedia, fields: Record<string, unknown>): Promise<TelegramMessage> {
-    await this.prime([still])
-    const fileId = await this.fileIds.get(still)
-    const animation = still.kind === 'animation'
-    const method = animation ? 'sendAnimation' : 'sendPhoto'
-    const name = animation ? 'animation' : 'photo'
-    if (fileId) return this.api.call<TelegramMessage>(method, { ...fields, parse_mode: 'HTML', [name]: fileId })
-    const started = performance.now()
-    const message = await this.upload(still, fields)
-    console.info(JSON.stringify({ event: 'media-upload', kind: still.kind, key: still.key, uploadMs: Math.round(performance.now() - started) }))
-    await this.fileIds.remember(still, message)
-    return message
+    for (let attempt = 0; ; attempt++) {
+      await this.prime([still])
+      const fileId = await this.fileIds.get(still)
+      const animation = still.kind === 'animation'
+      const method = animation ? 'sendAnimation' : 'sendPhoto'
+      const name = animation ? 'animation' : 'photo'
+      try {
+        if (fileId) return await this.api.call<TelegramMessage>(method, { ...fields, parse_mode: 'HTML', [name]: fileId })
+        const started = performance.now()
+        const message = await this.upload(still, fields)
+        console.info(JSON.stringify({ event: 'media-upload', kind: still.kind, key: still.key, uploadMs: Math.round(performance.now() - started) }))
+        await this.fileIds.remember(still, message)
+        return message
+      } catch (error) {
+        if (!await this.recoverFileId(still, fileId, attempt, error)) throw error
+      }
+    }
   }
 
   async edit(still: RenderedMedia, fields: Record<string, unknown>): Promise<{ fileIdCached: boolean }> {
-    await this.prime([still])
-    const fileId = await this.fileIds.get(still)
-    const inline = Boolean(fields.inline_message_id)
-    const name = still.kind === 'animation' ? 'animation' : 'photo'
-    const media = { type: still.kind, media: fileId ?? (inline ? still.url : `attach://${name}`), caption: still.caption, parse_mode: 'HTML' }
-    const request = { ...fields, media }
-    if (fileId || inline) {
-      const message = await this.api.call<TelegramMessage | true>('editMessageMedia', request)
-      if (!fileId) await this.fileIds.remember(still, message)
-    } else {
-      const attachment = still.kind === 'animation' ? { name, mime: 'video/mp4', filename: 'motregen.mp4' } : undefined
-      const message = await this.api.upload<TelegramMessage>('editMessageMedia', request, still.path, attachment)
-      await this.fileIds.remember(still, message)
+    for (let attempt = 0; ; attempt++) {
+      await this.prime([still])
+      const fileId = await this.fileIds.get(still)
+      const inline = Boolean(fields.inline_message_id)
+      const name = still.kind === 'animation' ? 'animation' : 'photo'
+      const media = { type: still.kind, media: fileId ?? (inline ? still.url : `attach://${name}`), caption: still.caption, parse_mode: 'HTML' }
+      const request = { ...fields, media }
+      try {
+        if (fileId || inline) {
+          const message = await this.api.call<TelegramMessage | true>('editMessageMedia', request)
+          if (!fileId) await this.fileIds.remember(still, message)
+        } else {
+          const attachment = still.kind === 'animation' ? { name, mime: 'video/mp4', filename: 'motregen.mp4' } : undefined
+          const message = await this.api.upload<TelegramMessage>('editMessageMedia', request, still.path, attachment)
+          await this.fileIds.remember(still, message)
+        }
+        return { fileIdCached: Boolean(fileId) }
+      } catch (error) {
+        if (!await this.recoverFileId(still, fileId, attempt, error)) throw error
+      }
     }
-    return { fileIdCached: Boolean(fileId) }
+  }
+
+  private async recoverFileId(still: RenderedMedia, fileId: string | undefined, attempt: number, error: unknown): Promise<boolean> {
+    if (attempt || !fileId || !(error instanceof TelegramApiError) || !error.invalidFile) return false
+    await this.fileIds.forget(still, fileId)
+    console.info(JSON.stringify({ event: 'file-id-invalidated', key: still.key, description: error.description }))
+    return true
   }
 }

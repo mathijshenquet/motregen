@@ -19,12 +19,14 @@ export interface TelegramMessage {
 export interface TelegramUpdate {
   update_id: number
   message?: TelegramMessage
+  channel_post?: { chat: { id: number; type: string } }
+  my_chat_member?: { chat: { id: number; type: string }; new_chat_member: { status: string } }
   inline_query?: { id: string; query: string; from?: { id: number } }
   callback_query?: { id: string; data?: string; message?: TelegramMessage; inline_message_id?: string; from?: { id: number } }
 }
 
-type FailureReason = 'not-modified' | 'message-unavailable' | 'callback-expired'
-type KnownDescription = 'Bad Request: message is not modified' | "Bad Request: message can't be edited" | 'Bad Request: message to edit not found' | 'Bad Request: query is too old and response timeout expired or query ID is invalid'
+type FailureReason = 'not-modified' | 'message-unavailable' | 'callback-expired' | 'invalid-file'
+type KnownDescription = 'Bad Request: message is not modified' | "Bad Request: message can't be edited" | 'Bad Request: message to edit not found' | 'Bad Request: query is too old and response timeout expired or query ID is invalid' | 'Bad Request: wrong file identifier' | 'Bad Request: file not found'
 
 export class TelegramApiError extends Error {
   constructor(readonly method: string, readonly code: number, readonly retryAfter?: number, readonly reason?: FailureReason, readonly description?: KnownDescription) {
@@ -34,6 +36,7 @@ export class TelegramApiError extends Error {
   get notModified(): boolean { return this.reason === 'not-modified' }
   get messageUnavailable(): boolean { return this.reason === 'message-unavailable' }
   get callbackExpired(): boolean { return this.reason === 'callback-expired' }
+  get invalidFile(): boolean { return this.reason === 'invalid-file' }
 }
 
 export class TelegramApi {
@@ -101,6 +104,15 @@ export class TelegramApi {
       } else if (code === 400 && method === 'answerCallbackQuery' && (description.includes('query is too old') || description.includes('query id is invalid'))) {
         reason = 'callback-expired'
         knownDescription = 'Bad Request: query is too old and response timeout expired or query ID is invalid'
+      }
+      if (code === 400 && ['sendPhoto', 'sendAnimation', 'editMessageMedia'].includes(method)) {
+        if (description.includes('wrong file identifier') || description.includes('wrong remote file identifier')) {
+          reason = 'invalid-file'
+          knownDescription = 'Bad Request: wrong file identifier'
+        } else if (description.includes('file not found')) {
+          reason = 'invalid-file'
+          knownDescription = 'Bad Request: file not found'
+        }
       }
       throw new TelegramApiError(method, code, reply.parameters?.retry_after, reason, knownDescription)
     }

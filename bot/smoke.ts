@@ -1,5 +1,5 @@
 import { TelegramApi, type TelegramUpdate } from './api.js'
-import { readConfig } from './config.js'
+import { readConfig, validateCacheChat } from './config.js'
 import { setTimeout as delay } from 'node:timers/promises'
 import { FileIdCache } from './file-ids.js'
 import { StillPhotos } from './photos.js'
@@ -27,8 +27,9 @@ async function smoke(): Promise<void> {
       return
     }
     const api = new TelegramApi(config.token)
-    const identity = await api.call<{ username: string }>('getMe')
-    const photos = new StillPhotos(api, new FileIdCache(identity.username), config.cacheChatId)
+    const identity = await api.call<{ id: number; username: string }>('getMe')
+    await validateCacheChat(api, config.cacheChatId, identity.id)
+    const photos = new StillPhotos(api, new FileIdCache(identity.username), config.cacheChatId, config.cacheDirectory)
     const webhook = await api.call<{ url: string }>('getWebhookInfo')
     if (webhook.url) throw new Error('Webhook geconfigureerd')
     const updates = process.env.MOTREGEN_SMOKE_CHAT_ID ? [] : await api.call<TelegramUpdate[]>('getUpdates', { timeout: 0, allowed_updates: ['message'] })
@@ -41,7 +42,7 @@ async function smoke(): Promise<void> {
       matrix.push(await renderer.render({ mode: definition.mode, hour: 'loop' }, manifest))
       if (definition.mode !== 'wind') for (const hour of STILL_HOURS) matrix.push(await renderer.render({ mode: definition.mode, hour }, manifest))
     }
-    await photos.prime(matrix)
+    await photos.primeGeneration(matrix)
     console.info(JSON.stringify({ event: 'matrix-primed', count: matrix.length, generated: manifest.generated }))
     // De renderer mag localhost gebruiken; Telegram-knoppen vereisen een publieke HTTPS-URL.
     const buttonOrigin = config.origin.startsWith('https://') ? config.origin : 'https://motregen.nl'

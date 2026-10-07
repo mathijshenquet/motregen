@@ -1,6 +1,6 @@
 import { setTimeout as delay } from 'node:timers/promises'
 import { TelegramApi, TelegramApiError, type TelegramUpdate } from './api.js'
-import { readConfig } from './config.js'
+import { readConfig, validateCacheChat } from './config.js'
 import { configureBot, handleUpdate, type BotRuntime } from './handlers.js'
 import { StillRenderer, type RenderedMedia } from './render.js'
 import { FileIdCache } from './file-ids.js'
@@ -11,7 +11,8 @@ import { STILL_HOURS, LOOP_MODES, type StillManifest, type MediaSelection } from
 async function runBot(): Promise<void> {
   const config = readConfig()
   const api = new TelegramApi(config.token)
-  const identity = await api.call<{ username: string }>('getMe')
+  const identity = await api.call<{ id: number; username: string }>('getMe')
+  await validateCacheChat(api, config.cacheChatId, identity.id)
   const webhook = await api.call<{ url: string }>('getWebhookInfo')
   if (webhook.url) throw new Error('Webhook staat aan; schakel die uit voordat long polling start')
   const renderer = new StillRenderer(config.origin, config.cacheDirectory)
@@ -26,7 +27,7 @@ async function runBot(): Promise<void> {
   }
   const runtime: BotRuntime = {
     api, config, renderer, username: identity.username,
-    photos: new StillPhotos(api, new FileIdCache(identity.username), config.cacheChatId),
+    photos: new StillPhotos(api, new FileIdCache(identity.username), config.cacheChatId, config.cacheDirectory),
     selections: new MessageSelections(),
     currentManifest: async () => {
       const current = manifest ?? await renderer.manifest()
@@ -57,13 +58,19 @@ async function runBot(): Promise<void> {
 
 async function pollUpdates(runtime: BotRuntime, signal: AbortSignal): Promise<void> {
   let offset = 0
+  const discoveredChannels = new Set<number>()
   while (!signal.aborted) {
     try {
       const updates = await runtime.api.call<TelegramUpdate[]>('getUpdates', {
-        offset, timeout: 25, allowed_updates: ['message', 'inline_query', 'callback_query'],
+        offset, timeout: 25, allowed_updates: ['message', 'inline_query', 'callback_query', 'channel_post', 'my_chat_member'],
       }, signal)
       for (const update of updates) {
         if (signal.aborted) return
+        const chat = update.channel_post?.chat ?? update.my_chat_member?.chat ?? update.message?.chat
+        if (chat && ['channel', 'group', 'supergroup'].includes(chat.type) && !discoveredChannels.has(chat.id)) {
+          discoveredChannels.add(chat.id)
+          console.info(JSON.stringify({ event: 'cache-chat-discovered', id: chat.id }))
+        }
         try {
           await handleUpdate(update, runtime)
         } catch (error) {
@@ -83,14 +90,19 @@ async function pollUpdates(runtime: BotRuntime, signal: AbortSignal): Promise<vo
 async function refreshStills(runtime: BotRuntime, available: Map<string, RenderedMedia>, publish: (manifest: StillManifest) => void, signal: AbortSignal): Promise<void> {
   let renderedGeneration = ''
   while (!signal.aborted) {
+    let step = 'prune'
+    let mode: string | undefined
     try {
       await runtime.renderer.prune()
+      step = 'manifest'
       const manifest = await runtime.renderer.manifest()
       if (manifest.generated !== renderedGeneration) {
         const started = performance.now()
         const next = new Map<string, RenderedMedia>()
         for (const definition of LOOP_MODES) {
           if (signal.aborted) return
+          step = 'render'
+          mode = definition.mode
           const loopSelection = { mode: definition.mode, hour: 'loop' } as const
           next.set(selectionKey(loopSelection), await runtime.renderer.render(loopSelection, manifest))
           if (definition.mode === 'wind') continue
@@ -101,7 +113,10 @@ async function refreshStills(runtime: BotRuntime, available: Map<string, Rendere
             next.set(selectionKey(selection), still)
           }
         }
-        await runtime.photos.prime([...next.values()])
+        if (signal.aborted) return
+        step = 'prime'
+        mode = undefined
+        await runtime.photos.primeGeneration([...next.values()])
         available.clear()
         for (const [key, media] of next) available.set(key, media)
         publish(manifest)
@@ -109,7 +124,8 @@ async function refreshStills(runtime: BotRuntime, available: Map<string, Rendere
         console.info(JSON.stringify({ event: 'stills-refresh', generated: manifest.generated, count: available.size, milliseconds: Math.round(performance.now() - started) }))
       }
     } catch (error) {
-      reportFailure('refresh', error)
+      if (signal.aborted) console.info(JSON.stringify({ event: 'refresh-interrupted', step, mode }))
+      else reportFailure('refresh', error, { step, mode })
     }
     await delay(15_000, undefined, { signal }).catch(() => undefined)
   }
@@ -124,9 +140,9 @@ function retryDelay(error: unknown): number {
   return 5000
 }
 
-function reportFailure(event: string, error: unknown): void {
+function reportFailure(event: string, error: unknown, context: { step?: string; mode?: string } = {}): void {
   // Geen exceptiontekst: fetch/Playwright kan URL's, bot-token of verzoekinhoud opnemen.
-  console.error(JSON.stringify({ event: `${event}-failed`, method: error instanceof TelegramApiError ? error.method : undefined, code: error instanceof TelegramApiError ? error.code : undefined }))
+  console.error(JSON.stringify({ event: `${event}-failed`, ...context, method: error instanceof TelegramApiError ? error.method : undefined, code: error instanceof TelegramApiError ? error.code : undefined, reason: error instanceof Error && ['TimeoutError', 'AbortError'].includes(error.name) ? error.name : undefined }))
 }
 
 void runBot().catch(() => {

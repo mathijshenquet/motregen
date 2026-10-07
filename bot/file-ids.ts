@@ -1,4 +1,4 @@
-import { readFile, rename, stat, writeFile } from 'node:fs/promises'
+import { readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import type { TelegramMessage } from './api.js'
 import type { RenderedMedia } from './render.js'
 
@@ -7,7 +7,13 @@ export const STILL_CACHE_TTL = 2 * 3_600_000
 export class FileIdCache {
   private readonly entries = new Map<string, { fileId: string; expires: number }>()
 
-  constructor(private readonly bot: string) {}
+  constructor(readonly bot: string) {}
+
+  async forget(still: RenderedMedia, rejectedId: string): Promise<void> {
+    if (await this.get(still) !== rejectedId) return
+    this.entries.delete(still.key)
+    await rm(`${still.path}.file-id.json`, { force: true })
+  }
 
   async get(still: RenderedMedia): Promise<string | undefined> {
     const now = Date.now()

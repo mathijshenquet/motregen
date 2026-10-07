@@ -137,7 +137,7 @@ describe('still delivery and callbacks', () => {
 
   it('preserves other edit failures and rejects removed buttons and commands', async () => {
     const { runtime, calls, render, fail } = await setup()
-    fail('Bad Request: wrong file identifier/HTTP URL specified')
+    fail('Bad Request: wrong HTTP URL specified')
     await expect(handleUpdate(callback('weather:0'), runtime)).rejects.toBeInstanceOf(TelegramApiError)
     calls.length = 0
     render.mockClear()
@@ -166,6 +166,17 @@ describe('still delivery and callbacks', () => {
     await expect(handleUpdate(callback('weather:0'), runtime)).rejects.toBeInstanceOf(TelegramApiError)
   })
 
+  it('answers a failed bounded file recovery with friendly text for callbacks and commands', async () => {
+    const { runtime, calls, fail } = await setup()
+    await handleUpdate(callback('weather:0'), runtime)
+    fail('Bad Request: file not found')
+    await handleUpdate(callback('air:3'), runtime)
+    expect(calls.at(-1)).toMatchObject({ method: 'answerCallbackQuery', fields: { text: 'Beeld kon niet laden, probeer opnieuw' } })
+    fail('Bad Request: wrong file identifier/HTTP URL specified', 'sendPhoto')
+    await handleUpdate({ update_id: 1, message: { message_id: 1, chat: { id: 99, type: 'private' }, text: '/regen' } }, runtime)
+    expect(calls.at(-1)).toMatchObject({ method: 'sendMessage', fields: { text: 'Beeld kon niet laden, probeer opnieuw' } })
+  })
+
   it('rejects an expired generation and keeps a delta anchored to its original absolute time', async () => {
     const { runtime, calls, render, renew } = await setup()
     const firstManifest = await runtime.currentManifest()
@@ -186,7 +197,7 @@ describe('still delivery and callbacks', () => {
     const media = await Promise.all([render({ mode: 'weather', hour: 0 }), render({ mode: 'air', hour: 1 / 6 }), render({ mode: 'feels', hour: 1 })])
     await runtime.photos.prime(media)
     expect(calls.filter((call) => call.method === 'sendMediaGroup')).toMatchObject([{ multipart: true, fields: { chat_id: 'cache-chat', disable_notification: 'true' } }])
-    expect(calls.find((call) => call.method === 'deleteMessages')?.fields.message_ids).toEqual([100, 101, 102])
+    expect(calls.some((call) => call.method === 'deleteMessages')).toBe(false)
     runtime.photos = new StillPhotos(runtime.api, new FileIdCache('motregen_bot'), 'cache-chat')
     await runtime.photos.prime(media)
     await handleUpdate(callback(`air:at:${media[1].epoch}:${Date.parse(media[1].generated)}`), runtime)

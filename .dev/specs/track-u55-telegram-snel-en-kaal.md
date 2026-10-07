@@ -78,8 +78,15 @@ one-liners, commentaar alleen voor een niet-triviaal waarom.
     melden zodra de lokale bot deze contracten serveert.
 13. Productie gebruikt uitsluitend een expliciete, optionele
     `MOTREGEN_CACHE_CHAT_ID` voor vooraf uploaden; zonder cachechat lui uploaden
-    bij eerste verzending/edit. Geen fallback naar PO-/rooktestchat. Alleen
-    deze geautoriseerde lokale proef mag de rooktestchat als cache-uploaddoel
-    gebruiken, met verwijdering van de eigen tijdelijke uploadposts. Vastleggen
+    bij eerste verzending/edit. De PO-/rooktestchat mag nooit cache-uploaddoel
+    zijn, ook niet lokaal; alleen een apart privékanaal of -groep met de bot als beheerder. Vastleggen
     in Telegram- en Nix-service-documentatie; herstel na getUpdates-netwerkfout
     controleren en loggen.
+14. Na succesvol primen van een nieuwe generatie de kanaalposts van de vorige
+    generatie verwijderen; kanaal bevat hoogstens één matrix. Specifieke
+    wrong-file-identifier/file-not-found-respons: één her-upload, cache-id
+    vervangen en verzending/edit herhalen. Beide unit-testen. Eerste
+    channel_post/my_chat_member voor kanaal of message-update uit een
+    group/supergroup: uitsluitend chat.id melden. Nu groep geconfigureerd;
+    prewarm na ontvangen id en .env-update herstarten, prime-tijden en posts
+    per generatie loggen, live-logpad en PR-receipts melden.
