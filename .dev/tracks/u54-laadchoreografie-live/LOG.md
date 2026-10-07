@@ -414,3 +414,48 @@ Wachtrij, in deze volgorde:
 4. Nieuwe rig-baselines (`--baseline` ×3) zodra het meetcontract stilstaat; reden van de
    +14 % decodes / +2 % wire in docs/perf.md.
 5. Gerichte e2e desktop na speelregel en stap 3 (nog niet gedraaid).
+
+## 2026-10-08 01:45 — MacBook-referentie uit de Firefox Profiler; kaderhemel achter ?dev; C2-diagnose
+
+**:4355 serveert nu 0eda33a** (stap 3 + `?dev`-knop "Kaderhemel" in het dev-paneel, groep
+Laden; standaard uit, herladen om te zien). Still: `stills/kaderhemel-390.png`.
+
+**Firefox-profielen (PO, MacBook, 20:32 Buienradar / 20:33 motregen op :4355).** Nieuw:
+`pnpm prof:firefox <opname.json.gz>…` (`web/scripts/firefox-profile.ts`). Uitkomst, ms sinds
+`Navigation::Start`:
+
+| meetpunt | Buienradar | motregen |
+| --- | ---: | ---: |
+| FirstContentfulPaint / LCP | 443 / 817 | 402 / 468 |
+| eerste radarbeeld / regen-Range: begin → eind | 697 → 795 | 734 → 1579 |
+| tweede radarbeeld / regen-Range: begin → eind | 1704 → 1816 | 1580 → 1859 |
+| ttfp-ref / ondergrens ttfp | 1816 | 1859 |
+
+Gelijk op "tweede beeld binnen"; voor ons is dat een ondergrens (decode + textuur + tekenen
+komen erna). Niet uit het profiel te halen: onze UserTiming-mijlpalen (opname zonder `?perf`),
+het moment van tekenen (geen WebGL-marker), of Buienradar blijft lopen (opname stopt na twee
+beelden), de cachetoestand, spreiding (één lading per site). Volledig in docs/perf.md
+§Referentie: desktop-MacBook. De ruwe profielen staan in `.gitignore` (ze bevatten de andere
+tabbladen van de PO).
+Verzoek aan de PO voor een volgende opname: motregen op `…:4355/?perf=1`, dan staan ttfp,
+regenvenster, blank-visible en de eerste texture-upload er wél in.
+
+**C2 — waarom het eerste regenframe koud laat is.** Drie bronnen wijzen hetzelfde aan:
+- Rig (po-android): manifest binnen op 466 ms; 41 header-Ranges 563 → 953 ms; het eerste
+  regenframe wordt pas op 838 ms gevraagd (na stijl + kaart-opzet), binnen op 993 ms.
+- MacBook-profiel: 39 headers 590 → 1512 ms; eerste regen-Range 734 → 1579 ms (845 ms voor
+  100 kB).
+- Koude telefoonopname 18:05: kaart-tiles vanaf 1,07 s, eerste regen-decode pas op 1,92 s.
+Het eerste regenframe wacht dus (a) op de kaart-opzet voordat het gevraagd wordt en (b)
+daarna achter ≈ 40 gelijktijdige headers op hoge prioriteit.
+Iteratie 3 (geschreven, nog niet gebouwd of gemeten): direct na het manifest worden het
+regenframe op de cursor en het volgende gevraagd, vóór de headers van de andere velden.
+A/B-schakelaar `motregen-dev-eerste-regen=laat` + scenario `koud-spelend-regen-laat`.
+Volgende stap daarna, als het helpt: de overige headers op lage prioriteit of pas na het
+eerste regenframe.
+
+**Hygiëne (eigen fout):** een oude rig-run van mij (koud-spelend, uit de vorige keten) leefde
+nog en liep tegelijk met de soepelheids-nulmeting; bovendien bouwde en fotografeerde ik
+tijdens die meting. Beide rigs deelden `tmp/rig-dist`. De oude run is gestopt. Regel vanaf nu:
+één rig tegelijk, geen build/test/screenshots terwijl een rig-run meet. De lopende nulmeting
+beoordeel ik op de loadavg per run en draai ik zo nodig opnieuw.

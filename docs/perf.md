@@ -889,6 +889,53 @@ De koude start van main is bimodaal: een snelle tak (run 1) en een trage (run 2 
 de puntreeks pas na 25 s laadfase `direct` haalt. De oorzaak en het vervolg staan in de
 track-LOG (`.dev/tracks/u54-laadchoreografie-live/LOG.md`).
 
+### Referentie: desktop-MacBook, Firefox Profiler (PO, 2026-10-07 20:32/20:33)
+
+Twee opnames met de Firefox Profiler op de MacBook van de PO: één met Buienradar, één met
+motregen op de preview (:4355, commit d315561 of 0eda33a — de opname zegt niet welke). Lezen met:
+
+```sh
+pnpm prof:firefox "<opname>.json.gz" [meer opnames…]
+```
+
+`web/scripts/firefox-profile.ts` zoekt per contentproces de paginaladingen van Buienradar en
+motregen, neemt `Navigation::Start` als nulpunt en leest de `Network`-markers (begin van de
+START-marker, eind van de STOP-marker), de paint-markers en — als ze er zijn — onze
+UserTiming-mijlpalen. De ruwe opnames worden niet gecommit: ze bevatten ook de andere tabbladen
+van de PO.
+
+| meetpunt (ms sinds navigatiestart) | Buienradar | motregen (:4355) |
+| --- | ---: | ---: |
+| document binnen | 222 | 101 |
+| FirstContentfulPaint | 443 | 402 |
+| LargestContentfulPaint | 817 | 468 |
+| DocumentLoad | 908 | 507 |
+| eerste radarbeeld / eerste regen-Range: begin → eind | 697 → 795 | 734 → 1579 |
+| tweede radarbeeld / tweede regen-Range: begin → eind | 1704 → 1816 | 1580 → 1859 |
+| **ttfp-ref / ondergrens ttfp (tweede beeld binnen)** | **1816** | **1859** |
+
+Motregen-specifiek: manifest 396 → 581 ms; daarna 39 chunk-headers tegelijk, 590 → 1512 ms
+(172 kB); basemap-stijl 692 → 702 ms (0 B, uit de cache).
+
+Wat dit zegt: op deze desktop liggen de twee gelijk op het moment dat het tweede beeld binnen
+is (1,82 s tegen 1,86 s). Bij motregen is dat een **ondergrens** voor ttfp: na de bytes komen
+nog decode, textuur en tekenen; bij Buienradar is een png tonen vrijwel direct. Het eerste
+regenframe (100 kB) deed er 845 ms over terwijl de 39 headers de lijn bezetten — hetzelfde
+patroon als in de koude telefoonopname.
+
+Wat er **niet** uit te halen is:
+- Onze eigen mijlpalen (`milestone:ttfp`, `window-ready:rain_rate`, `blank-visible`,
+  texture-upload): de app schrijft die alleen met `?perf` en de opname is zonder gemaakt. Een
+  nieuwe opname op `…:4355/?perf=1` geeft ze wel; het script leest ze dan vanzelf.
+- Het moment waarop een beeld op het scherm staat. WebGL-uploads en -draws hebben geen eigen
+  marker; voor Buienradar is "png binnen" een goede benadering, voor ons niet.
+- Of Buienradars animatie doorloopt: de opname stopt ≈ 2,5 s na de navigatie, met precies twee
+  radarbeelden. De cadans van 1 beeld/s komt uit de rig, niet uit dit profiel.
+- De cachetoestand vooraf (koud of warm) en dus of dit een eerste bezoek was. De radar-png's
+  kwamen met body over de lijn (≈ 137 kB); bij motregen kwam de basemap-stijl uit de cache.
+- De eerste basemap-tile: geen tile-verzoek in het venster van de opname.
+- Eén lading per site: geen spreiding, dus geen mediaan.
+
 ### Profiel po-android
 
 `web/perf/po-android-reference.json` is de samenvatting van de koude PO-opname van 16:27:59
