@@ -36,7 +36,15 @@ even op een kale kaart.
    droog lijkt. Idem wolkenlagen en tabelrijen (skeleton). Kaartlagen van een modus faden in.
    Fog toont alleen "nog niet binnen" binnen het venster dat we wél laden; "niet nodig"
    (U49) is geen fog.
-4. **Gereedheidsniveaus meten**: `ttfr` (splash weg), `ttfh` (histogram-venster rond nu),
+4. **Tijd-majeur decoderen** (PO 2026-10-07: "we moeten eigenlijk time-major decoden"): de
+   decode-wachtrij ordent op afstand tot de cursor in tijd, over álle velden tegelijk (regen,
+   motion, wolkenlagen, puntreeksen van de getoonde kolommen), met een lichte voorkeur in de
+   afspeelrichting en bij gelijke afstand round-robin over de velden met regen eerst. Niet
+   veld-voor-veld. Zo heeft elk zichtbaar tijdstip meteen kaart én histogram én tabelwaarde en
+   groeit het geladen venster als één front naar beide kanten — het fog-front van punt 3.
+   Meting uit de PO-opname (Firefox-Android, 10:02): alle ~900 decodes in de eerste 12 s met
+   de piek rond 6–8 s; de wolkenlagen van het histogram kwamen daardoor pas rond 6 s.
+5. **Gereedheidsniveaus meten**: `ttfr` (splash weg), `ttfh` (histogram-venster rond nu),
    `ttfc` (alles) in HUD en perf-gate; het gat ttfr→ttfh is het "jarring"-getal.
 
 ## Open vragen
@@ -44,4 +52,7 @@ even op een kale kaart.
 1. Vorm van de fog: arcering, blur of alleen een lagere dekking — PO kiest op stills/live.
 2. Wacht de splash óók op de basemap-tiles (kost op 4G ~0,5–1 s extra)? Voorstel: ja, met een
    plafond van 1,5 s waarna hij toch weggaat.
-3. Track: U50, live-pane na U42 (zelfde scrubber-/tabelcode).
+3. Track: tijd-majeur decoderen = U52 (op U49's DecodeQueue, nu); de zichtbare laadchoreografie
+   (splash, fog, histogram per balk) = U53, live-pane na U42 (zelfde scrubber-/tabelcode).
+4. Later, als tijd-majeur op de client niet genoeg is: chunk-indeling per tijdsnede over alle
+   velden (contractwijziging, MIP-2), zodat ook het netwerk tijd-majeur gaat.
