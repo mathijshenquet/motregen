@@ -70,7 +70,7 @@ optionele ingestvariabelen zijn `MOTREGEN_RADAR_CADENCE`,
 De Nix-unit `motregen-bot.service` leest `TG_BOT_KEY` uit hetzelfde `secrets.env`.
 Optioneel stelt `MOTREGEN_CACHE_CHAT_ID` een eigen privékanaal of -groep
 in, met de bot als beheerder met schrijf- en verwijderrechten. De bot uploadt
-daar vooraf 19 media (15 directe tijdselecties en vier loops), bewaart de huidige
+daar vooraf 13 media (10 directe tijdselecties en drie loops), bewaart de huidige
 matrix en verwijdert de eigen posts van oudere
 generaties pas na een geslaagde nieuwe prime. Bericht-ids blijven in een atomair
 register in de servicecache bewaard voor opruimen na herstart. Telegram

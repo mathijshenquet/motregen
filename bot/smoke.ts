@@ -51,7 +51,7 @@ async function smoke(): Promise<void> {
     const buttonOrigin = config.origin.startsWith('https://') ? config.origin : 'https://motregen.nl'
     await api.call('sendMessage', {
       chat_id: chatId,
-      text: 'motregen.nl -- Regenradar en Weersverwachting\nOpen de app voor jouw plek; /regen, /lucht en /gevoel geven een weerkaart. /loop regen, /loop lucht, /loop gevoel en /wind geven een bewegende kaart.',
+      text: 'motregen.nl -- Regenradar en Weersverwachting\nOpen de app voor jouw plek; /regen en /gevoel geven een weerkaart. /loop regen, /loop gevoel en /wind geven een bewegende kaart.',
       reply_markup: { inline_keyboard: [[{ text: 'Open motregen.nl', web_app: { url: `${buttonOrigin}/?tg=1` } }]] },
     })
     const first = await renderer.render({ mode: 'weather', hour: 0 }, manifest)
@@ -60,13 +60,13 @@ async function smoke(): Promise<void> {
       caption: first.caption,
       reply_markup: keyboard({ mode: 'weather', hour: 0 }, first.epoch, first.generated),
     })
-    const next = await renderer.render({ mode: 'air', hour: 1 / 6 }, manifest)
+    const next = await renderer.render({ mode: 'feels', hour: 1 / 6 }, manifest)
     if (!await photos.fileIds.get(next)) throw new Error('Eerste selectie is niet vooraf geprimed')
     const firstEditStarted = performance.now()
     const edited = await photos.edit(next, {
       chat_id: chatId,
       message_id: message.message_id,
-      reply_markup: keyboard({ mode: 'air', hour: 1 / 6 }, next.epoch, next.generated),
+      reply_markup: keyboard({ mode: 'feels', hour: 1 / 6 }, next.epoch, next.generated),
     })
     const firstEditMs = Math.round(performance.now() - firstEditStarted)
     if (!edited.fileIdCached) throw new Error('Eerste edit gebruikt geen matrix-file_id')
@@ -74,15 +74,15 @@ async function smoke(): Promise<void> {
     await photos.edit(first, { chat_id: chatId, message_id: message.message_id, reply_markup: keyboard({ mode: 'weather', hour: 0 }, first.epoch, first.generated) })
     await delay(1100)
     const cachedStarted = performance.now()
-    const cachedEdit = await photos.edit(next, { chat_id: chatId, message_id: message.message_id, reply_markup: keyboard({ mode: 'air', hour: 1 / 6 }, next.epoch, next.generated) })
+    const cachedEdit = await photos.edit(next, { chat_id: chatId, message_id: message.message_id, reply_markup: keyboard({ mode: 'feels', hour: 1 / 6 }, next.epoch, next.generated) })
     const cachedMs = Math.round(performance.now() - cachedStarted)
     if (!cachedEdit.fileIdCached) throw new Error('file_id niet hergebruikt')
     await api.call('setChatMenuButton', { menu_button: { type: 'web_app', text: 'motregen.nl', web_app: { url: `${buttonOrigin}/?tg=1` } } })
     console.info(JSON.stringify({ event: 'telegram-smoke', messageId: message.message_id, firstEditMs, cachedMs, firstEditFileIdCached: edited.fileIdCached, fileIdCached: cachedEdit.fileIdCached, generated: manifest.generated }))
-    const lazy = await renderer.render({ mode: 'air', hour: 1 / 3 }, manifest)
+    const lazy = await renderer.render({ mode: 'feels', hour: 1 / 3 }, manifest)
     if (await photos.fileIds.get(lazy)) throw new Error('Luie selectie is onverwacht vooraf geüpload')
     const lazyStarted = performance.now()
-    await photos.edit(lazy, { chat_id: chatId, message_id: message.message_id, reply_markup: keyboard({ mode: 'air', hour: 1 / 3 }, lazy.epoch, lazy.generated) })
+    await photos.edit(lazy, { chat_id: chatId, message_id: message.message_id, reply_markup: keyboard({ mode: 'feels', hour: 1 / 3 }, lazy.epoch, lazy.generated) })
     const lazyMs = Math.round(performance.now() - lazyStarted)
     const lazyId = await photos.fileIds.get(lazy)
     if (!lazyId) throw new Error('Luie selectie heeft geen file_id gekregen')
@@ -90,7 +90,7 @@ async function smoke(): Promise<void> {
     await photos.edit(first, { chat_id: chatId, message_id: message.message_id })
     await delay(1100)
     const repeatStarted = performance.now()
-    await photos.edit(lazy, { chat_id: chatId, message_id: message.message_id, reply_markup: keyboard({ mode: 'air', hour: 1 / 3 }, lazy.epoch, lazy.generated) })
+    await photos.edit(lazy, { chat_id: chatId, message_id: message.message_id, reply_markup: keyboard({ mode: 'feels', hour: 1 / 3 }, lazy.epoch, lazy.generated) })
     if (await photos.fileIds.get(lazy) !== lazyId) throw new Error('Luie selectie is opnieuw geüpload')
     console.info(JSON.stringify({ event: 'lazy-still-smoke', hour: 1 / 3, encodeMs: lazy.milliseconds, firstEditMs: lazyMs, cachedMs: Math.round(performance.now() - repeatStarted) }))
     for (const definition of LOOP_MODES) {

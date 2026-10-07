@@ -99,3 +99,6 @@ one-liners, commentaar alleen voor een niet-triviaal waarom.
     navigatie-time-out; dezelfde manifestgeneratie vasthouden. Poging/stap en
     werkelijke open-tijd loggen. Herhaalde Weather-open-time-outs eerst afzonderlijk
     reproduceren met request-/gereedheidsdiagnostiek, vóór nieuwe prewarm-metingen.
+17. PO na rooktest: Lucht uit Telegram verwijderen (knoppen, commando’s, inline,
+    render-/prewarm-matrix). Overblijvend: Regen en Gevoel elk vijf prewarm-stills
+    plus loop, Wind alleen loop: 13 media, 170 mogelijke stills, drie loops.
