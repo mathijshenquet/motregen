@@ -69,6 +69,9 @@ function sameFields<Value extends object>(left: Value | null | undefined, right:
   return keys.length === Object.keys(right).length && keys.every((key) => left[key] === right[key])
 }
 const HOVER_LEAVE_MS = 80
+// De piep volgt de cursor met een vloeiende scroll; rijen die daarbij alleen langsschuiven tellen niet als
+// zichtbaar en worden dus niet gedecodeerd.
+const SHOWN_ROWS_REST_MS = 200
 
 export default function ForecastTable(props: Props) {
   const tableMemo = <T,>(name: string, compute: () => T) => createMemo(() => measurePerfPhase('table-render', compute, { memo: name }))
@@ -141,6 +144,7 @@ export default function ForecastTable(props: Props) {
   const rowEpochs = new WeakMap<Element, number>()
   const shownEpochs = new Set<number>()
   const reportShown = props.onVisibleRows
+  let shownTimer: number | undefined
   const shownObserver = !reportShown || typeof IntersectionObserver === 'undefined' ? undefined : new IntersectionObserver((entries) => {
     for (const entry of entries) {
       const epoch = rowEpochs.get(entry.target)
@@ -148,7 +152,8 @@ export default function ForecastTable(props: Props) {
       if (entry.intersectionRatio >= 0.5) shownEpochs.add(epoch)
       else shownEpochs.delete(epoch)
     }
-    reportShown([...shownEpochs])
+    window.clearTimeout(shownTimer)
+    shownTimer = window.setTimeout(() => reportShown([...shownEpochs]), SHOWN_ROWS_REST_MS)
   // Half in beeld telt; een randje van de volgende rij is geen reden om zes velden te decoderen.
   }, { threshold: 0.5 })
   const pastCount = () => props.rows.filter((row) => row.kind === 'past').length
@@ -203,6 +208,7 @@ export default function ForecastTable(props: Props) {
     observer?.disconnect()
     historyObserver?.disconnect()
     shownObserver?.disconnect()
+    window.clearTimeout(shownTimer)
   })
 
   const columnCount = () => 1 + Number(props.columns.weather) + Number(props.columns.air) + Number(props.columns.temperature) + Number(props.columns.wind)

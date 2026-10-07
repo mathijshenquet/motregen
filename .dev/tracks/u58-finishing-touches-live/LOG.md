@@ -88,3 +88,27 @@ Zelf bekeken: Lucht-scrubber desktop en hele pagina 390 px na de fix (hemel, wol
   dan `pnpm prof:top <uit.json> 400`
 
 Volgende: besluit orkestrator/PO over doel en baseline; dan PO-akkoord stap 1 en stap 2 (klokpil-jog).
+
+## 2026-10-07 18:55 — nieuwe rig-baselines, rig-klik gecorrigeerd, 4320 op de normale build
+
+- Besluit orkestrator: 128 decodes / 1,13 MB is het nieuwe doel voor koud; baselines opnieuw zetten.
+- Eerste twee baseline-runs niet gecommit: journey gaf 328 decodes omdat de Playwright-klik op "Weer" de
+  pagina naar de tabelkop scrolde (klik op y=28 i.p.v. y=609); op een telefoon is dat de tabel openen en dan
+  laadt de hele tabel (bedoeld gedrag). `elementFromPoint` op drie punten van de kop gaf in Wind-modus steeds
+  de kop zelf: niets bedekt hem, dus geen aanwijzing voor een tikfout bij gebruikers; waarom Playwrights
+  hit-test faalt is niet verder uitgezocht. Rig: moduswissel is nu een DOM-klik (akkoord orkestrator).
+- Storm werd twee keer geweigerd ("Onvolledige response" voor het isoline-worker-script in één van de drie
+  runs); in de derde run kwam dat niet voor. Flake, oorzaak niet uitgezocht.
+- `SHOWN_ROWS_REST_MS` (200 ms rust voordat een rij als zichtbaar telt) toegevoegd op een hypothese die níet
+  de oorzaak van de journey bleek; laten staan omdat langsschuivende rijen zo niet laden, maar het effect is
+  niet apart gemeten.
+- Baselines (3 runs, spreiding 0 %): koud 128 / 1 127 388 B; journey 228 / 1 293 377 B (was 207 / 1 225 342);
+  storm 189 / 1 318 557 B (was 280 / 1 572 568). Fast-3G-baselines niet vernieuwd (oud meetcontract).
+- Receipts (synchroon): `pnpm perf:mobile --profile mobile-4g --scenario all --baseline --repeat 3` exit 0;
+  `pnpm perf:mobile --profile mobile-4g --scenario all --compare` exit 0 (drie keer "groen", 0,000 %);
+  `pnpm typecheck` 0; `pnpm test` 0 (452); `pnpm e2e e2e/decode-budget.spec.ts e2e/table.spec.ts --project
+  desktop` 0 (3 passed, 2 skipped); `pnpm build` 0. 4320 serveert `index-DmUYN7y1.js` = de dist van deze build.
+- `docs/perf.md` §Mobiele laadrig: nieuwe baseline, reden voor 1,13 MB, DOM-klik en `dom-churn.ts`.
+- Stap 1 opnieuw bekeken op deze build (desktop 1280 + 390 px): aan = hemel + gekleurde tabel met
+  zonsondergang-rij; uit = kale scrubber met regenbalken en vlakke tabel; paneel toont de schakelaar.
+- Volgende: PO-akkoord stap 1, dan stap 2 (klokpil-jog).
