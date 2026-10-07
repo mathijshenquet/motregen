@@ -95,3 +95,7 @@ one-liners, commentaar alleen voor een niet-triviaal waarom.
     eenmaal uploaden en daarna file_id. Doel render+prime <90 seconden; meten.
     Volledige PNG-reeksen en loop-tijdbereiken blijven beschikbaar. U56/main
     vóór de volgende gate mergen; gedeelde klok en usage-v2 behouden.
+16. Open-fase robuust onder load: één retry met vijf seconden backoff en ruimere
+    navigatie-time-out; dezelfde manifestgeneratie vasthouden. Poging/stap en
+    werkelijke open-tijd loggen. Herhaalde Weather-open-time-outs eerst afzonderlijk
+    reproduceren met request-/gereedheidsdiagnostiek, vóór nieuwe prewarm-metingen.

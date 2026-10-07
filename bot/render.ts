@@ -5,8 +5,8 @@ import { performance } from 'node:perf_hooks'
 import { STILL_CACHE_TTL } from './file-ids.js'
 import { encodeLoop, encodeStill, framePath } from './encode.js'
 import { sequencePlan } from './sequences.js'
-import { installRenderFetch } from './render-fetch.js'
-import { cacheKey, caption, presetUrl, stillEpoch, STILL_HOURS, validateManifest, type LoopMode, type LoopSelection, type MediaSelection, type StillManifest, type StillSelection } from './stills.js'
+import { openRenderPage } from './render-open.js'
+import { cacheKey, caption, stillEpoch, STILL_HOURS, validateManifest, type LoopMode, type LoopSelection, type MediaSelection, type StillManifest, type StillSelection } from './stills.js'
 
 interface RenderedBase {
   key: string
@@ -27,10 +27,11 @@ export interface RenderedLoop extends RenderedBase {
   bytes: number
   renderMs: number
   encodeMs: number
+  openMs?: number
 }
 export type RenderedMedia = RenderedStill | RenderedLoop
 interface RenderedSequence { loop: RenderedLoop; stills: RenderedStill[] }
-interface SequenceMetrics { key: string; frames: number; fps: number; bytes: number; renderMs: number; encodeMs: number }
+interface SequenceMetrics { key: string; frames: number; fps: number; bytes: number; renderMs: number; encodeMs: number; openMs?: number }
 
 export class StillRenderError extends Error {
   readonly timeout: boolean
@@ -192,17 +193,6 @@ export class StillRenderer {
     }
   }
 
-  private async openSequence(page: Page, mode: LoopMode, manifest: StillManifest, epoch: number): Promise<void> {
-    // Playwright-routing schakelt de HTTP-cache uit; alleen fetch vervangen houdt tiles/chunks warm.
-    await page.addInitScript(installRenderFetch, manifest)
-    await page.goto(presetUrl(this.origin, mode, epoch, true), { waitUntil: 'domcontentloaded', timeout: 60_000 })
-    await page.waitForFunction(() => {
-      const map = document.querySelector<HTMLElement>('.map')
-      return map?.dataset.stillReady === 'true' || Boolean(map?.dataset.stillError)
-    }, undefined, { timeout: 60_000 })
-    await page.waitForFunction(() => (window as unknown as { __motregenStillMapLoaded?: () => boolean }).__motregenStillMapLoaded?.())
-  }
-
   private async renderSequence(mode: LoopMode, manifest: StillManifest, key: string): Promise<RenderedSequence> {
     const started = performance.now()
     await mkdir(this.cacheDirectory, { recursive: true })
@@ -215,7 +205,7 @@ export class StillRenderer {
       const context = await this.browserContext()
       page = await context.newPage()
       const capture = await context.newCDPSession(page)
-      await this.openSequence(page, mode, manifest, plan.epochs[0]!)
+      const openMs = await openRenderPage(page, this.origin, mode, manifest, plan.epochs[0]!)
       for (const [index, epoch] of plan.epochs.entries()) {
         phase = 'frame'
         frameIndex = index
@@ -245,7 +235,7 @@ export class StillRenderer {
       const publishedFrames = this.frameDirectory(key)
       await rm(publishedFrames, { recursive: true, force: true })
       await rename(directory, publishedFrames)
-      const metrics = { key, frames: plan.loopFrames, fps: plan.fps, bytes: encoded.bytes, renderMs, encodeMs: encoded.milliseconds }
+      const metrics = { key, frames: plan.loopFrames, fps: plan.fps, bytes: encoded.bytes, renderMs, encodeMs: encoded.milliseconds, openMs }
       const receipt = join(this.cacheDirectory, `${key}.sequence.json`)
       // Alleen complete, atomair gepubliceerde reeksen tellen als cache-hit.
       await writeFile(`${receipt}.tmp`, JSON.stringify(metrics))

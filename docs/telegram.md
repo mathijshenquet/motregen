@@ -104,6 +104,10 @@ Daarna gebruikt ook die selectie file_id. Doel voor render+prime is <90 seconden
 de gemeten tijden staan in het track-LOG.
 Een tijdelijke netwerkfout of HTTP 5xx bij een weerchunk krijgt tijdens rendering
 één herpoging met dezelfde Range. Een blijvende fout publiceert geen nieuwe matrix.
+De open-fase heeft maximaal twee pogingen met hetzelfde manifest, met vijf seconden
+backoff. Navigatie, still-ready en map-loaded delen per poging een budget van
+90 seconden. Logs bevatten de poging, stap en gemeten open-/pogingstijd; de
+open-tijd inclusief eventuele backoff staat ook in de renderreceipt.
 De bot publiceert de nieuwe matrix pas als alle modi gerenderd zijn en, bij een
 geconfigureerde cachechat, hun Telegram-ids bekend zijn; de oude
 generatie blijft beschikbaar tijdens verversing. Cache-hits en inline
