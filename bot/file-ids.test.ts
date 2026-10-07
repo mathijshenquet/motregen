@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -42,6 +42,9 @@ describe('Telegram file ids', () => {
     const still = await fixture({ mode: 'weather', hour: 0 })
     const cache = new FileIdCache('motregen_bot')
     await cache.remember(still, { message_id: 1, chat: { id: 99, type: 'private' }, photo: [{ file_id: 'photo' }] })
+    const frames = await mkdtemp(join(directory, `.frames-${cacheKey({ mode: 'wind', hour: 'loop' }, manifest)}-`))
+    await writeFile(join(frames, 'frame-000.png'), 'png')
+    await mkdir(join(directory, 'unrelated'))
     const future = Date.now() + STILL_CACHE_TTL + 1000
     vi.spyOn(Date, 'now').mockReturnValue(future)
     expect(await cache.get(still)).toBeUndefined()
@@ -49,6 +52,8 @@ describe('Telegram file ids', () => {
     await new StillRenderer('https://motregen.nl', directory).prune(future)
     await expect(readFile(still.path)).rejects.toThrow()
     await expect(readFile(`${still.path}.file-id.json`)).rejects.toThrow()
+    await expect(stat(frames)).rejects.toThrow()
+    expect((await stat(join(directory, 'unrelated'))).isDirectory()).toBe(true)
   })
 
   it('treats a missing, mismatched or corrupt sidecar and an inline true response as cache misses', async () => {

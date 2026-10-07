@@ -83,11 +83,15 @@ export class StillRenderer {
   async prune(now = Date.now()): Promise<void> {
     await mkdir(this.cacheDirectory, { recursive: true })
     for (const name of await readdir(this.cacheDirectory)) {
-      if (!/^(weather|air|feels|wind)-(?:\d+|loop)-[a-f0-9]{24}\.(?:jpg|mp4|sequence\.json)(?:\.file-id\.json)?(?:\.tmp)?$/.test(name)) continue
+      const temporaryFrames = /^\.frames-(weather|air|feels|wind)-loop-[a-f0-9]{24}-[a-zA-Z0-9]+$/.test(name)
+      if (!temporaryFrames && !/^(weather|air|feels|wind)-(?:\d+|loop)-[a-f0-9]{24}\.(?:jpg|mp4|sequence\.json)(?:\.file-id\.json)?(?:\.tmp)?$/.test(name)) continue
       const path = join(this.cacheDirectory, name)
       try {
         const metadata = await stat(path)
-        if (now - metadata.mtimeMs > STILL_CACHE_TTL) await unlink(path)
+        if (now - metadata.mtimeMs > STILL_CACHE_TTL) {
+          if (temporaryFrames) await rm(path, { recursive: true, force: true })
+          else await unlink(path)
+        }
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
       }
@@ -168,10 +172,11 @@ export class StillRenderer {
     const started = performance.now()
     await mkdir(this.cacheDirectory, { recursive: true })
     const directory = await mkdtemp(join(this.cacheDirectory, `.frames-${key}-`))
-    const context = await this.browserContext()
-    const page = await context.newPage()
+    let page: Page | undefined
     const plan = sequencePlan(mode, manifest)
     try {
+      const context = await this.browserContext()
+      page = await context.newPage()
       await this.openSequence(page, mode, manifest, plan.epochs[0]!)
       for (const [index, epoch] of plan.epochs.entries()) {
         await page.evaluate(async ({ epoch, simulationMs, regime }) => {
@@ -208,8 +213,11 @@ export class StillRenderer {
       console.info(JSON.stringify({ event: 'sequence-render', mode, generated: manifest.generated, renderedFrames: plan.epochs.length, ...metrics }))
       return this.results(mode, manifest, metrics, false)
     } finally {
-      await page.close()
-      await rm(directory, { recursive: true, force: true })
+      try {
+        await page?.close()
+      } finally {
+        await rm(directory, { recursive: true, force: true })
+      }
     }
   }
 }

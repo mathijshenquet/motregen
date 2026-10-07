@@ -54,7 +54,7 @@ export function caption(mode: LoopMode, epoch: number): string {
 
 export function cacheKey(selection: MediaSelection, manifest: StillManifest): string {
   const epoch = selection.hour === 'loop' ? Date.parse(manifest.now) : stillEpoch(manifest, selection.hour)
-  const identity = JSON.stringify({ renderer: 6, ...selection, epoch, generated: manifest.generated })
+  const identity = JSON.stringify({ renderer: 7, ...selection, epoch, generated: manifest.generated })
   const digest = createHash('sha256').update(identity).digest('hex').slice(0, 24)
   return `${selection.mode}-${selection.hour}-${digest}`
 }

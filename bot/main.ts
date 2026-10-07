@@ -73,10 +73,13 @@ async function refreshStills(runtime: BotRuntime, available: Map<string, Rendere
         const started = performance.now()
         const next = new Map<string, RenderedMedia>()
         for (const definition of LOOP_MODES) {
-          const hours = definition.mode === 'wind' ? ['loop'] as const : ['loop', ...STILL_HOURS] as const
-          for (const hour of hours) {
+          if (signal.aborted) return
+          const loopSelection = { mode: definition.mode, hour: 'loop' } as const
+          next.set(selectionKey(loopSelection), await runtime.renderer.render(loopSelection, manifest))
+          if (definition.mode === 'wind') continue
+          for (const hour of STILL_HOURS) {
             if (signal.aborted) return
-            const selection: MediaSelection = hour === 'loop' ? { mode: definition.mode, hour } : { mode: definition.mode as Exclude<typeof definition.mode, 'wind'>, hour }
+            const selection = { mode: definition.mode, hour }
             const still = await runtime.renderer.render(selection, manifest)
             next.set(selectionKey(selection), still)
           }
@@ -105,7 +108,7 @@ function retryDelay(error: unknown): number {
 
 function reportFailure(event: string, error: unknown): void {
   // Geen exceptiontekst: fetch/Playwright kan URL's, bot-token of verzoekinhoud opnemen.
-  console.error(JSON.stringify({ event: `${event}-failed`, code: error instanceof TelegramApiError ? error.code : undefined }))
+  console.error(JSON.stringify({ event: `${event}-failed`, method: error instanceof TelegramApiError ? error.method : undefined, code: error instanceof TelegramApiError ? error.code : undefined }))
 }
 
 void runBot().catch(() => {

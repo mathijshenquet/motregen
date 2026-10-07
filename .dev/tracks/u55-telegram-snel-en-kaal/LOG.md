@@ -65,3 +65,38 @@
 - Bot-units inclusief echte FFmpeg-encoder: SYNCHRONE EXIT 0, 25/25. Eerste loopbuild SYNCHRONE EXIT 0. Desktop Telegram/Freshness: SYNCHRONE EXIT 1, 9/10 groen, waaronder vaste Wind-simulatieklok. Laatste fout: gedeelde ClockFace gaf een dubbele .clock-main in het versheidsdialoog; sluitknop krijgt eigen class, CSS behoudt positie. Hertest volgt.
 - Caddy beperkt publicatie tot JPEG/MP4; cache-sidecars blijven privé. Nix-VM test nu ook FFmpeg onder hardening, MP4-headers en sidecar-404.
 - PO-tagline letterlijk toegepast in bot/rooktest/docs: “motregen.nl -- Regenradar en Weersverwachting”. Spec op branch bevat de aanvulling en de latere matrixprecisering. Volgende stap: docs afmaken, finale gates, Telegram-loops versturen en livebot vervangen.
+
+## 2026-10-07T11:48:01.782Z — Finale gerichte gates en documentatie
+- Commit 6d35b22 gepusht: SYNCHRONE EXIT 0. Gerichte desktop Telegram/Freshness-herhaling: SYNCHRONE EXIT 0, 10/10 (inclusief vaste Wind-klok). Web-units Freshness/Wind/Wind-viewport: SYNCHRONE EXIT 0, 41/41. Nix-deployment-VM met ffmpeg, MP4-cache en sidecar-404: SYNCHRONE EXIT 0.
+- docs/telegram.md beschrijft nu het definitieve contract: 4 loops + 12 stills, tijdknoppen/Loop, gedeelde websiteklok, frameplannen, JPEG uit PNG via ffmpeg q:v 3, H.264 en gecachte inline-mpeg4. Previewport 4365.
+- Renderercache versie 7 maakt de gecorrigeerde klokstripe apart. Temp-PNG-mappen worden ook bij browserlaunch-fouten verwijderd; oude crashmappen worden na 2 uur opgeruimd. Refreshcode expliciet gesplitst in loop en daarna 4 stills, zonder Wind-typecast. Finale codegates/herbouw volgen; daarna echte Telegram-loopsmoke.
+
+## 2026-10-07T11:48:37.539Z — Botwissel en rooktest klaar om te starten
+- Finale typecheck en bot-units: SYNCHRONE EXIT 0, 25/25. Rootbuild wordt na voltooiing gebruikt voor preview en loopsmoke; buildreceipt volgt.
+- rooktest klaar om te starten. Ook aan PO gemeld; toestemming blijft de eerdere bevestiging dat de orkestratorpoller gestopt is. Eigen fase-1-poller wordt nu beëindigd voordat de finale Telegram-test begint. Start/stop krijgen aparte receipts; geen tweede poller.
+
+## 2026-10-07T11:48:53.538Z — Stop fase-1-bot; start loopsmoke
+- Fase-1-poke-poller gestopt met SIGINT: SYNCHRONE EXIT 130. Geen actieve lokale botpoller. Root pnpm build: SYNCHRONE EXIT 0; dist naar dist-preview gekopieerd: SYNCHRONE EXIT 0. Preview 4365 blijft draaien met publieke data als proxy.
+- Telegram-loopsmoke start nu uitsluitend naar MOTREGEN_SMOKE_CHAT_ID, met cache tmp/u55-final-smoke, vaste debugchat in geheugen en nixpkgs-productie-Chromium. Geen getUpdates bij expliciete testchat; rooktest laat geen poller achter.
+- Repro: direnv exec . env MOTREGEN_CHROMIUM_PATH=<productie-Chromium> MOTREGEN_ORIGIN=http://localhost:4365 MOTREGEN_RENDER_CACHE=tmp/u55-final-smoke web/scripts/e2e-slot.sh node --env-file=.env --input-type=module -e 'process.env.MOTREGEN_DEBUG_CHAT_ID = process.env.MOTREGEN_SMOKE_CHAT_ID; await import("./bot/dist/bot/smoke.js")'.
+
+## 2026-10-07T11:51:03.321Z — Stop loopsmoke; echte Telegram-receipts
+- Finale Telegram-rooktest beëindigd: SYNCHRONE EXIT 0. Manifest 2026-10-07T11:47:41Z. 4 MP4 + 12 JPEG op schijf; 0 Wind-stills. Foto-edit behoudt bericht-id 14; multipart 490 ms versus cached file_id 244 ms voor dezelfde Lucht +3u-JPEG.
+- Regen: 49 loopframes (+3 extra stillframes), render 17381 ms, encode+JPEG 526 ms, 243357 B, eerste sendAnimation 593 ms, cached edit 75 ms.
+- Lucht: 13 frames, render 6241 ms, encode+JPEG 519 ms, 566437 B, upload 497 ms, cached edit 97 ms.
+- Gevoel: 13 frames, render 6265 ms, encode+JPEG 524 ms, 813243 B, upload 629 ms, cached edit 80 ms.
+- Wind: 49 frames, render 22282 ms, encode 514 ms, 2028503 B, upload 995 ms, cached edit 130 ms. Alle loop-edits gebruiken animation-file_id; wissel animation→photo→animation werkt via Telegram. Dit zijn werkelijke API-request-responstijden; echte callback-ontvangstmetingen vereisen PO-tikken en staan apart in livebotlogs als callbackMs. Tot nu toe geen PO-callbacks ontvangen.
+- Exacte tagline gezet via setMyDescription en setMyShortDescription, daarna teruggelezen en vergeleken: SYNCHRONE EXIT 0, beide “motregen.nl -- Regenradar en Weersverwachting”. Profile photo was eerder succesvol gezet uit droplet.svg. Geen tokens/chat-id naar LOG of Git.
+- Presets/Telegram-presets-units aanvullend gecontroleerd: SYNCHRONE EXIT 0, 9/9. Finale Nix-VM loopt nog op laatste code; receipt volgt.
+
+## 2026-10-07T11:51:37.495Z — Visuele controle; start definitieve poke-bot
+- Definitieve Regen-loopframe en Gevoel +3u-JPEG bekeken: websiteklok leesbaar, Regen-forecaststripe zichtbaar, bron klein linksonder, geen pin/bediening/legenda. Onafhankelijke ffprobe op alle 16 artifacts: SYNCHRONE EXIT 0; allemaal 960×1272, MP4 H.264 en slechts één videostream, JPEG mjpeg.
+- Definitieve eigen bot start nu tegen localhost:4365 met dezelfde tmp/u55-final-smoke-cache. Alleen deze poller; orkestratorpoller blijft gestopt. Debugchat opt-in uitsluitend uit SMOKE_CHAT_ID in geheugen. Bot blijft beschikbaar voor PO; inline-loops verschijnen zodra deze generatie een chat-upload/file_id heeft.
+
+## 2026-10-07T11:53:38.782Z — Finale bytevergelijking en callbackcontrole
+- Finale Nix-deployment-VM na tempcleanup/refresh-verduidelijking: SYNCHRONE EXIT 0.
+- JPEG-vergelijking opnieuw uitgevoerd omdat de eindpipeline nu PNG→ffmpeg-JPEG gebruikt. Zelfde vastgepinde manifest 2026-10-07T11:08:58Z als baseline; renderer alleen, geen Telegram-verzoeken. SYNCHRONE EXIT 0. Regen 431504→237314 B (−45,0 %), Lucht 403011→193327 B (−52,0 %), Gevoel 446219→209365 B (−53,1 %). Dit vervangt voor de eindimplementatie de fase-1-claim van 59–62 %.
+- Bij herstart stonden tien PO-callbacks in de wachtrij; alle tien gaven 400 vóór de media-edit (waarschijnlijk te oude callback-ack na rooktestpauze; methode was nog niet gelogd). Geen echte callbacklatencies ontvangen. Opnieuw verse tikken gevraagd via async-vraag, terwijl documentatie/PR verder worden afgewerkt. Sanitized foutlog uitgebreid met API-methode, zonder upstreamomschrijving/token. Bot-herbouw SYNCHRONE EXIT 0; korte herstart volgt voor deze observatie.
+
+## 2026-10-07T11:53:38.895Z — Stop/start definitieve poke-bot voor foutmethode
+- Eigen poller gestopt met SIGINT: SYNCHRONE EXIT 130. Nieuwe instantie start nu tegen 4365, dezelfde warme cache, nu met API-methode in het foutlog. Eén poller; geen orkestratorinstantie.
