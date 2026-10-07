@@ -10,6 +10,12 @@ publicatie van reeksen), `web/src/App.tsx` (`setMapReady`, `PointLoadStage`, aut
 LOG: `.dev/tracks/u54-laadchoreografie-live/LOG.md` (committed, append-only). Branch
 `track/u54-laadchoreografie-live` vanaf main. Eigen worktree. Preview op 4355.
 
+## Werkwijze
+
+Per stap: bouw, **maak zelf een screenshot van het resultaat (desktop én 390 px breed) en bekijk
+hem** vóór je "klaar, herlaad" meldt — "geen stills" betekent geen stills-gate voor de PO, niet
+dat je zelf niet kijkt (les U47 2026-10-07: een band die op y=0 begon viel de worker niet op).
+
 ## Opdracht
 
 1. **Meetpunten eerst**: `blank-visible-ms`, `ttfh`, en `ttfr` dat op tiles + eerste regen wacht
