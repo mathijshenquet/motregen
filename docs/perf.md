@@ -27,6 +27,57 @@ call-tree-import.
 De productie-Caddyconfiguratie heeft bewust géén profilingheader en géén `/prof`-route; daar blijven
 lokale kopie en download wel bruikbaar.
 
+## Decode-budget (U49)
+
+Bijna alle frame-decodes zijn *puntreeksen*: histogram, tabel en wolkenbanden pakken een heel
+rooster uit om één pixel (de gekozen locatie) te lezen. De kaart zelf vraagt er per koude start
+een stuk of twintig. `decodeBudget` (`web/src/core/decode-budget.ts`) kiest daarom per apparaat:
+
+| | ruim (desktop) | krap |
+| --- | --- | --- |
+| wanneer | al het andere | ≤ 4 kernen, ≤ 4 GB `deviceMemory` of `(pointer: coarse)` |
+| decode-workers | min(4, kernen − 1) | 2 (1 bij ≤ 2 kernen) |
+| puntreeksen | `eager`: tabel t/m +18 u, hele regentijdlijn, alles bij de eerste aanraking van de scrubber | `in-view`: alleen het scrubbervenster (8 u rond de cursor + een halfuur lucht) en de tabelrijen zodra die in beeld zijn |
+
+De aanwijzerregel staat erin omdat kernen en geheugen de telefoons missen waar het om gaat: een
+recente Android meldt acht kernen en Firefox kent geen `deviceMemory`. In `in-view` volgt het
+laadvenster de cursor (afspelen, scrubben); tabelvelden die de scrubber zelf tekent laden per
+modus (UV altijd, wind in windmodus, temperatuur in gevoelsmodus). De rest van de tabel laadt
+als de rijen in beeld komen, en verder dan +18 u zoals voorheen op `onNeedRows`.
+
+Los daarvan, voor ieder apparaat: `MrfClient` geeft werk via een wachtrij aan de workers
+(`decode-queue.ts`), één decode per worker tegelijk, in drie banen: het frame onder de cursor
+(kaart, afspelen) vóór een puntreeks waar de gebruiker op wacht, en die vóór vooruitladen. Een al
+wachtend frame schuift op als de cursor het nodig heeft. `getFrames` neemt een `AbortSignal`:
+een wachtende decode waar geen enkele vrager meer op wacht (het venster is verder geschoven)
+vervalt met `DecodeCancelled`; de gedownloade bytes blijven staan.
+
+Meten: `pnpm prof:capture [origin] [desktop|mobile-4g|mobile-fast-3g] [--passive] [--no-send]`
+neemt een koude start op (`?perf=start`, 30 s) onder het e2e-profiel en print aantal decodes,
+totale decodetijd, p50/p95, scrub-latency en de verdeling per laag en per veld (elke
+`frame-decode`-fase draagt `field` en `layer`). CDP kan workers niet remmen
+(`Emulation.setCPUThrottlingRate`: "only supported for pages"), dus de decode*tijd* onder
+`mobile-4g` is die van de meethost; het *aantal* is de maat, en de telefoontijd volgt uit een
+echte opname. Metingen van 2026-10-07 (prod-data, eerste 30 s):
+
+| profiel | vóór | ná |
+| --- | ---: | ---: |
+| mobile-4g, alleen kijken | 493 decodes / 4,4 s | 221 / 2,5 s |
+| mobile-4g, journey (wind, gevoel, zoom, scrub) | 802 / 7,8 s; scrub-p95 736 ms | 310 / 2,6 s; scrub-p95 98 ms |
+| desktop, journey | 831 / 8,7 s | 822 / 9,0 s (ongewijzigd, `eager`) |
+
+Wat er op een krap apparaat overblijft is het zichtbare werk zelf: ~110 regenframes (het
+histogram toont 8 uur op 5-minutenresolutie en het afspelen loopt erdoorheen), ~45–60
+motion-annexen (één per afgespeeld framepaar) en 3 × 12 wolkenframes.
+
+**Kosten per decode.** De ingest schrijft niet-predictieve frames en motion-annexen met
+`zstd::stream::encode_all`: geen content size in de frameheader en een venster van 8 MB.
+`fzstd` alloceert en verschuift dat venster bij elke decode, ook voor een wolkenframe van
+6,7 kB. Dezelfde frames mét content size (zoals de predictieve frames al hebben) decoderen in
+node 2,2–2,5× (regen), 4,5–5× (temperatuur, wind) tot 20× (wolkenlagen) sneller, bij +3 B per
+frame. Dat is een ingest-wijziging (`crates/mrf/src/lib.rs`: `zstd::bulk::compress`) en staat
+als vervolg open.
+
 ## Meetpunten
 
 - **TTFR** (time to first rain) loopt vanaf `navigationStart`
@@ -116,7 +167,7 @@ expliciet kan forceren en daarmee een ander scenario meet.
 | cold TTFR | < 2.000 ms | gemeten 461–475 ms; ruime marge voor tragere hosts |
 | warm TTFR | profielafhankelijk, zie hieronder | desktop blijft sneller dan cold; mobiele CPU-/netwerkprofielen hebben eigen marge |
 | warm chunks | profielafhankelijk, zie hieronder | desktop blijft 0 B; CDP-netwerkthrottling draagt enkele actuele ranges opnieuw over |
-| passief geopende chunks | ≤ 800.000 B | progressieve L0+L1 (sinds U1: heel het zichtbare bereik) gemeten op 720 kB; ruim onder MIP-8's bovengrens van 3 MB |
+| passief geopende chunks | desktop ≤ 1.100.000 B, mobiel ≤ 600.000 B | desktop (`eager`) gemeten op 1.049.415 B sinds de velden van U35–U39; mobiel (`in-view`, U49) op 533.041 B; ruim onder MIP-8's bovengrens van 3 MB |
 | volledige scrub | < 1 chunktransfer per 3 frames | L2-intentie plus 85 frames kost 4–7 transfers; grens 28,3 |
 | warme locatiewissel | 0 data-transfers en 0 skeleton-reset | volledig gedecodeerde frames worden in dezelfde tick opnieuw bemonsterd |
 | volledige sessie | < 8.000.000 bytes | progressief gemeten 1,25–1,36 MB |

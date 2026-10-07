@@ -2,13 +2,15 @@ import { chromium } from '@playwright/test'
 import { applyEmulation, performanceProfile, performanceProjects } from '../e2e/profiles'
 import type { PerfMeasure, PerfSnapshot, PerfTraceSlice } from '../src/core/perf'
 
-// Gebruik: pnpm prof:capture [origin] [desktop|mobile-4g|mobile-fast-3g] [--no-send]
-// Koude-startopname (`?perf=start`, de eerste 30 s na timeOrigin) met een vaste journey; print
-// het decode-budget (U49) en stuurt de opname naar de profielsink tenzij --no-send.
+// Gebruik: pnpm prof:capture [origin] [desktop|mobile-4g|mobile-fast-3g] [--passive] [--no-send]
+// Koude-startopname (`?perf=start`, de eerste 30 s na timeOrigin) met een vaste journey (of met
+// --passive alleen kijken: de app speelt zelf af); print het decode-budget (U49) en stuurt de
+// opname naar de profielsink tenzij --no-send.
 const positional = process.argv.slice(2).filter((argument) => !argument.startsWith('--'))
 const origin = positional[0] ?? 'http://127.0.0.1:4330'
 const profile = performanceProfile(positional[1] ?? 'desktop')
 const send = !process.argv.includes('--no-send')
+const passive = process.argv.includes('--passive')
 const windowMs = 30_000
 
 interface PerfWindow {
@@ -30,21 +32,7 @@ try {
   await page.waitForFunction(() => (window as unknown as PerfWindow).__motregenPerf?.snapshot().ttfrMs != null, undefined, { timeout: 120_000 })
   const profilerAvailable = await page.evaluate(() => 'Profiler' in globalThis)
 
-  const wind = page.getByRole('button', { name: 'Wind' })
-  if (await wind.isVisible()) await wind.click({ force: true })
-  await page.waitForTimeout(2_000)
-  const feelsLike = page.getByRole('button', { name: 'Gevoel' })
-  if (await feelsLike.isVisible()) await feelsLike.click({ force: true })
-  await page.waitForTimeout(2_000)
-  const map = page.locator('.maplibregl-canvas')
-  if (await map.isVisible()) {
-    await map.hover({ position: { x: 320, y: 240 } })
-    await page.mouse.wheel(0, -400)
-  }
-  const scrubber = page.getByRole('slider', { name: 'Tijd' })
-  await scrubber.focus()
-  await scrubber.press('Home')
-  for (let step = 0; step < 20; step++) await scrubber.press('ArrowRight')
+  if (!passive) await journey()
 
   await page.locator('.perf-recording').getByText(/Opname gereed/).waitFor({ timeout: 120_000 })
   let sent: string | null = null
@@ -65,6 +53,7 @@ try {
   console.log(JSON.stringify({
     origin,
     profile: profile.id,
+    journey: passive ? 'passief' : 'wind, gevoel, zoom, scrub',
     cpuThrottleRate: profile.cpuThrottleRate,
     hardwareConcurrency: await page.evaluate(() => navigator.hardwareConcurrency),
     profilerAvailable,
@@ -82,6 +71,24 @@ try {
   }, null, 2))
 } finally {
   await browser.close()
+}
+
+async function journey(): Promise<void> {
+  const wind = page.getByRole('button', { name: 'Wind' })
+  if (await wind.isVisible()) await wind.click({ force: true })
+  await page.waitForTimeout(2_000)
+  const feelsLike = page.getByRole('button', { name: 'Gevoel' })
+  if (await feelsLike.isVisible()) await feelsLike.click({ force: true })
+  await page.waitForTimeout(2_000)
+  const map = page.locator('.maplibregl-canvas')
+  if (await map.isVisible()) {
+    await map.hover({ position: { x: 320, y: 240 } })
+    await page.mouse.wheel(0, -400)
+  }
+  const scrubber = page.getByRole('slider', { name: 'Tijd' })
+  await scrubber.focus()
+  await scrubber.press('Home')
+  for (let step = 0; step < 20; step++) await scrubber.press('ArrowRight')
 }
 
 function percentile(sorted: number[], fraction: number): number | null {
