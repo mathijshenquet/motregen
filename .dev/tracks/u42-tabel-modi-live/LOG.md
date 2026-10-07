@@ -385,3 +385,12 @@
   21/21 en volledige `pnpm test` 59 bestanden / 385 tests groen. Build: 107 modules,
   `index-BQ9Oq3CL.js`, `index-BuD3o0EU.css`, PWA + workers. Preview
   `http://ageq-dev2:4320/` serveert de nieuwe assets. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+
+## 2026-10-07 12:12 UTC
+
+- De maanhoek heeft nu het schuine Unicode-hoeksymbool `∠` als compact icoon vóór de gradenwaarde.
+  Het symbool is decoratief (`aria-hidden`); de bestaande aria-/titletekst blijft de hoek voluit als
+  boven/onder de horizon beschrijven. Synchrone receipts: `git diff --check`, `pnpm typecheck` en
+  `pnpm build` exit 0; ForecastTable 17/17 groen. Build: 107 modules, `index-DN0LFS2x.js`,
+  `index-dX-EyVoq.css`, PWA + workers. Preview `http://ageq-dev2:4320/` serveert de nieuwe assets.
+  Geen e2e uitgevoerd vóór PO-signaal “klaar”.

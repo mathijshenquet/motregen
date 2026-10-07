@@ -326,7 +326,7 @@ function MoonReading(props: { epoch: number; longitude: number; latitude: number
   const text = () => `${moon().label}, ${Math.round(moon().illumination * 100)} % verlicht, ${horizon()}`
   return <span class="moon-reading" role="img" aria-label={text()} title={text()}>
     <MoonGlyph phase={moon().phase} illumination={moon().illumination} />
-    <span class="moon-meta"><small>{Math.round(moon().illumination * 100)}%</small><small class="moon-angle">{angle()}°</small></span>
+    <span class="moon-meta"><small>{Math.round(moon().illumination * 100)}%</small><small class="moon-angle"><span aria-hidden="true">∠</span>{angle()}°</small></span>
   </span>
 }
 
