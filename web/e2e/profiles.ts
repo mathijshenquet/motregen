@@ -14,6 +14,11 @@ export interface PerformanceProfile {
   coldTtfrBudgetMs: number
   warmTtfrBudgetMs: number
   warmChunkByteBudget: number
+  /**
+   * Chunkbytes van een koude start zonder interactie. Desktop laadt vooruit (hele tabel en
+   * tijdlijn); de mobiele profielen laden alleen wat in beeld is (U49) en halen dus minder op.
+   */
+  passiveChunkByteBudget: number
 }
 
 const megabit = 1_000_000 / 8
@@ -27,6 +32,7 @@ export const performanceProfiles: readonly PerformanceProfile[] = [
     coldTtfrBudgetMs: 2_000,
     warmTtfrBudgetMs: 1_500,
     warmChunkByteBudget: 0,
+    passiveChunkByteBudget: 1_100_000,
   },
   {
     id: 'mobile-4g',
@@ -42,6 +48,7 @@ export const performanceProfiles: readonly PerformanceProfile[] = [
     coldTtfrBudgetMs: 4_000,
     warmTtfrBudgetMs: 3_500,
     warmChunkByteBudget: 12_000,
+    passiveChunkByteBudget: 600_000,
   },
   {
     id: 'mobile-fast-3g',
@@ -57,6 +64,7 @@ export const performanceProfiles: readonly PerformanceProfile[] = [
     coldTtfrBudgetMs: 8_000,
     warmTtfrBudgetMs: 4_000,
     warmChunkByteBudget: 12_000,
+    passiveChunkByteBudget: 600_000,
   },
 ]
 

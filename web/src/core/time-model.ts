@@ -2,6 +2,38 @@ import { chunkField, type Field, type Manifest, type Source, type TimelineFrame 
 
 const priority: Record<Source, number> = { harmonie: 0, uv: 0, seamless: 1, nowcast: 2, rtcor: 3 }
 const PLAYBACK_FRAME_DURATION_MS = 650
+// PO 2026-09-25 live (U34), naar WarnWetter: de cursor staat vast op dit deel van de scrubberbreedte
+// en de tijdlijn schuift eronder; zoveel uur past in de breedte.
+export const SCRUBBER_VIEW_HOURS = 8
+export const SCRUBBER_CURSOR_FRACTION = 1 / 3
+const VIEW_WINDOW_STEP_MS = 30 * 60_000
+
+export interface EpochWindow { start: number; end: number }
+
+/**
+ * Het tijdvak dat de scrubber rond deze cursor toont, plus een halfuur lucht aan beide kanten.
+ * Op halve uren afgerond, zodat het venster tijdens afspelen stapsgewijs verschuift in plaats
+ * van bij elk frame (U49: alleen laden wat in beeld is).
+ */
+export function scrubberViewWindow(cursorEpoch: number): EpochWindow {
+  const anchor = Math.round(cursorEpoch / VIEW_WINDOW_STEP_MS) * VIEW_WINDOW_STEP_MS
+  const viewMs = SCRUBBER_VIEW_HOURS * 3_600_000
+  return {
+    start: anchor - viewMs * SCRUBBER_CURSOR_FRACTION - VIEW_WINDOW_STEP_MS,
+    end: anchor + viewMs * (1 - SCRUBBER_CURSOR_FRACTION) + VIEW_WINDOW_STEP_MS,
+  }
+}
+
+export function epochInWindow(epoch: number, window: EpochWindow, slackMs = 0): boolean {
+  return epoch >= window.start - slackMs && epoch <= window.end + slackMs
+}
+
+/** Tijdlijnindexen binnen het venster, dichtst bij `nearEpoch` eerst. */
+export function timelineIndexesInWindow(timeline: TimelineFrame[], window: EpochWindow, nearEpoch: number): number[] {
+  return timeline
+    .flatMap((frame, index) => epochInWindow(frame.epoch, window) ? [index] : [])
+    .sort((left, right) => Math.abs(timeline[left]!.epoch - nearEpoch) - Math.abs(timeline[right]!.epoch - nearEpoch))
+}
 
 export function buildTimeline(manifest: Manifest, field: Field = 'rain_rate'): TimelineFrame[] {
   const byTime = new Map<number, TimelineFrame>()

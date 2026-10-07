@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Manifest } from './contract'
-import { buildTimeline, frameBlend, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineCoverage, timelinePlaybackRate, timelineZones } from './time-model'
+import { buildTimeline, epochInWindow, frameBlend, scrubberViewWindow, seriesValueAt, timelineIndexesInWindow, timelineCursorAtEpoch, timelineEpochAtCursor, timelineCoverage, timelinePlaybackRate, timelineZones } from './time-model'
 
 const chunk = (source: 'rtcor' | 'nowcast' | 'seamless' | 'harmonie', run: string, times: string[]) => ({ url: `${source}.mrf`, source, run, header_len: 42, times })
 
@@ -133,5 +133,35 @@ describe('timelineCoverage', () => {
     expect(timelineCoverage(frames, 12 * hour + hour / 6, hour / 3)).toBeCloseTo(0.5)
     expect(timelineCoverage(frames, 9 * hour, hour / 3)).toBe(0)
     expect(timelineCoverage([], 10 * hour, hour / 3)).toBe(0)
+  })
+  it('loads the scrubber view around the cursor: a third behind, two thirds ahead, half an hour of slack', () => {
+    const minute = 60_000
+    const cursor = Date.parse('2026-10-07T12:10:00Z')
+    const window = scrubberViewWindow(cursor)
+    const anchor = Date.parse('2026-10-07T12:00:00Z')
+    expect(window).toEqual({ start: anchor - 160 * minute - 30 * minute, end: anchor + 320 * minute + 30 * minute })
+    // Tijdens afspelen blijft het venster staan tot de cursor een halfuurgrens passeert.
+    expect(scrubberViewWindow(cursor + 4 * minute)).toEqual(window)
+    expect(scrubberViewWindow(cursor + 6 * minute)).toEqual({ start: window.start + 30 * minute, end: window.end + 30 * minute })
+    // De hele zichtbare breedte valt er altijd in.
+    for (const offset of [0, 14 * minute, -14 * minute]) {
+      const view = scrubberViewWindow(anchor + offset)
+      expect(view.start).toBeLessThanOrEqual(anchor + offset - 160 * minute)
+      expect(view.end).toBeGreaterThanOrEqual(anchor + offset + 320 * minute)
+    }
+  })
+
+  it('selects the timeline frames inside a window, nearest to the cursor first', () => {
+    const hour = 3_600_000
+    const base = Date.parse('2026-10-07T00:00:00Z')
+    const frames = Array.from({ length: 24 }, (_, index) => ({
+      time: new Date(base + index * hour).toISOString(), epoch: base + index * hour, source: 'harmonie' as const,
+      run: '2026-10-07T00:00:00Z', chunk: chunk('harmonie', '2026-10-07T00:00:00Z', []), frameIndex: index,
+    }))
+    const window = { start: base + 9.5 * hour, end: base + 13 * hour }
+    expect(timelineIndexesInWindow(frames, window, base + 12.2 * hour)).toEqual([12, 13, 11, 10])
+    expect(timelineIndexesInWindow(frames, { start: base + 30 * hour, end: base + 40 * hour }, base)).toEqual([])
+    expect(epochInWindow(base + 9 * hour, window)).toBe(false)
+    expect(epochInWindow(base + 9 * hour, window, hour)).toBe(true)
   })
 })

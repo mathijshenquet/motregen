@@ -36,7 +36,6 @@ interface JourneyResult {
 }
 
 const sessionByteBudget = 8_000_000
-const passiveChunkByteBudget = 800_000
 const live = process.env.MOTREGEN_PERF_MODE === 'live'
 
 test('?perf persists the compact profiler controls and ?perf=0 clears them', async ({ page }) => {
@@ -101,7 +100,7 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     await expect(page.getByRole('slider', { name: 'Tijd' })).toHaveAttribute('data-load-stage', 'window', { timeout: live ? 180_000 : 20_000 })
     await page.waitForLoadState('networkidle')
     passive = await perfSnapshot(page)
-    if (!live) expect(passive.network.chunks.bytes).toBeLessThanOrEqual(passiveChunkByteBudget)
+    if (!live) expect(passive.network.chunks.bytes).toBeLessThanOrEqual(profile.passiveChunkByteBudget)
     expect(beaconRequests, 'geen gebruiksbaken tijdens de sessie').toEqual([])
     expect(errors).toEqual([])
     console.log(`${profile.label}: cold TTFR ${cold.ttfrMs} ms; passive chunks ${passive.network.chunks.bytes} B`)
