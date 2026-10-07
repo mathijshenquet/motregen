@@ -136,6 +136,13 @@
   /temperatuur-loop en loop-bubbelbreedte, U60-kaart op 4340 zodra "klaar". Buienradar op de telefoon
   meten (recept docs/perf.md) of adb-server openzetten. Deploy + prod-secrets (TG_BOT_KEY, cache-chat).
   MIP-19/20/21 adoptie; MIP-22 push-notificaties als gewenst.
+- **Nachtelijke volledige e2e op main (00:01–00:17, loadavg 5,5 bij start)**: 30 rood / 84 groen / 63
+  overgeslagen (`~/motregen-profiles/nightly-e2e-2026-10-07.txt`). Rood vooral in de mobiele
+  profielen: basemap.spec (alle varianten + warme cache), focus (touch), freshness, perf-journey,
+  pin-navigation (touch), table (mobiele preview). Workers testten vandaag alleen desktop. **U61
+  nachtelijke e2e-triage** gestart (gpt-6.1-sol, spec 09d13646): oorzaak per test (productbug /
+  verouderde test / flake / nieuwe test nooit op mobiel gedraaid), productbugs fixen, tests alleen
+  met benoemde reden aanpassen, daarna de suite nog één keer op een rustige host.
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
