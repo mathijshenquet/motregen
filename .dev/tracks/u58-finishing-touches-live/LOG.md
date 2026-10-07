@@ -377,3 +377,30 @@ bestaande test erbij); `pnpm build` 0; `pnpm e2e e2e/freshness.spec.ts e2e/dev-p
 desktop` 0 (5 passed). `web/dist` na de e2e-run ongewijzigd, 4320 serveert `index-BWSMUScH.js`.
 
 Volgende: stap 4–5 (bot).
+
+## 2026-10-08 00:05 — stap 4: bot-commando's; main gemerged (zoekpil-fix 23895a3)
+
+PO (in de pane): de sleepbug ging inderdaad om het klokmenu, niet het dev-paneel — opgelost met de sleepbare
+strook (`b1fc405`).
+
+Stap 4 (`bot/`):
+- `/gevoel` → `/temperatuur`, alias `/hitte`. `STILL_MODES` heeft nu `aliases`, `listed` (wat in het
+  commandomenu komt) en `button`; `modeForCommand` zoekt op commando of alias. Eigen keuze, niet in de spec:
+  `/gevoel` blijft als stille alias werken (niet in menu of starttekst) voor wie het al kende.
+- Elk commando antwoordt met de loop (`sendAnimation`); `/loop` is vervallen en wordt genegeerd. Vanuit de
+  loop geven de tijdknoppen (−1u, −10m, nu, +10m, +1u) een still ten opzichte van nu; "✓ Loop" staat
+  aangevinkt. Wind blijft alleen loop.
+- Starttekst één functie (`startText`), ook gebruikt door de rooktest. Commandomenu: start, regen,
+  temperatuur, hitte, wind. Inline-filter matcht commando, aliassen en label; het voorvoegsel `loop …`
+  (alleen video's) in de inline-zoekbalk heb ik laten staan.
+- Niet veranderd, wel een vraag voor de PO: de modusknop onder het beeld heet nog "Gevoel" (zoals de kolom
+  in de app), het commando heet nu temperatuur.
+- `docs/telegram.md`: intro, knoppen, inline, BotFather-placeholder.
+
+Receipts (synchroon): `bot`: `pnpm typecheck` 0, `pnpm test` 0 (12 bestanden, 59 tests; +1 voor commando's,
+aliassen, toetsenbord onder de loop en het vervallen /loop; twee bestaande tests volgen het nieuwe standaard-
+antwoord), `pnpm build` 0. `web` na de merge van main: `pnpm typecheck` 0, `pnpm test` 0 (454), `pnpm build`
+0; 4320 serveert `index-DLpoHBni.js`. Niet gedaan: echte Telegram-rooktest — de bot draait bij de
+orkestrator vanaf main; **bot klaar voor herstart** vanuit deze branch.
+
+Volgende: stap 5 (landscape-loop).
