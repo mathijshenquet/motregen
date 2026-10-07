@@ -2642,7 +2642,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (mapReady()) perf.markSplashGone()
     const loaded = rainLoaded()
     const slots = timeline().map((frame, index) => ({ epoch: frame.epoch, loaded: loaded[index] === true, fogDrawn: false }))
-    perf.setBlankVisibleSlots(visibleSlotStates(slots, viewWindow()).blank)
+    const states = visibleSlotStates(slots, viewWindow())
+    perf.setBlankVisibleSlots(states.blank, states.blank + states.fog + states.loaded)
   })
   createEffect(() => {
     if (!inViewOnly) return

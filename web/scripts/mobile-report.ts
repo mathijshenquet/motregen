@@ -160,7 +160,9 @@ export function renderMobileReport(report: MobileReport): string {
     `| ttfp (eerste frame-wissel tijdens afspelen) | ${report.milestones.ttfpMs ?? 'niet bereikt'} ms |`,
     `| ttfr (eerste regen én basemap-tiles) | ${report.milestones.ttfrMs ?? 'onbekend'} ms |`,
     `| eerste regenframe / basemap-tiles | ${report.milestones.firstRainMs ?? 'onbekend'} / ${report.milestones.basemapReadyMs ?? 'onbekend'} ms |`,
-    `| blank-visible-ms | ${report.milestones.blankVisibleMs} ms |`,
+    `| eerste balk | ${report.milestones.firstBarMs ?? 'onbekend'} ms |`,
+    `| blank-visible: laatste zichtbare balk binnen na | ${report.milestones.blankVisibleMs} ms |`,
+    `| blank-visible als oppervlak | ${report.milestones.blankSlotSeconds} slot-s (${report.milestones.blankShareSeconds} s volledig-leeg-equivalent) |`,
     `| splash klaar (DOM) | ${report.milestones.splashGoneMs ?? 'onbekend'} ms |`,
     `| ttfh (nu ±1 u) | ${report.milestones.ttfhMs ?? 'onbekend'} ms |`,
     `| decodes | ${decode?.count ?? 0} |`,
@@ -204,7 +206,7 @@ export interface MobileReport {
     /** null: geen quota, workers op hostsnelheid. */
     rendererCpuQuotaPercent: number | null
   }
-  milestones: { ttfrMs: number | null; firstRainMs: number | null; basemapReadyMs: number | null; ttfpMs: number | null; blankVisibleMs: number; splashGoneMs: number | null; ttfhMs: number | null; windowReadyMs: Record<string, number>; histogramSource: string }
+  milestones: { ttfrMs: number | null; firstRainMs: number | null; basemapReadyMs: number | null; ttfpMs: number | null; blankVisibleMs: number; blankSlotSeconds: number; blankShareSeconds: number; firstBarMs: number | null; splashGoneMs: number | null; ttfhMs: number | null; windowReadyMs: Record<string, number>; histogramSource: string }
   decode: ReturnType<typeof summarizePhases>
   wire: ReturnType<typeof reconcileWire> & { rangeRequests: number; beforeTtfrBytes: number | null; beforeTtfhBytes: number | null }
   longFrames: { first12s: { count: number; totalMs: number; blockingMs: number }; count: number; totalMs: number; blockingMs: number; topSources: Array<{ source: string; durationMs: number }> }

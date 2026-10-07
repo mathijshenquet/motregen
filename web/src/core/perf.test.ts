@@ -91,6 +91,20 @@ describe('performance monitor', () => {
     expect(test.monitor.snapshot().blankVisibleMs).toBe(400)
   })
 
+  it('integrates blank slots over time as an area and marks the first bar', () => {
+    const test = harness()
+    test.monitor.setBlankVisibleSlots(10, 10)
+    test.advance(1_000)
+    test.monitor.markSplashGone()
+    test.advance(2_000)
+    test.monitor.setBlankVisibleSlots(4, 10)
+    test.advance(1_000)
+    test.monitor.setBlankVisibleSlots(0, 10)
+    test.advance(5_000)
+    // 10 slots × 2 s + 4 slots × 1 s = 24 slot-seconden; als aandeel 1,0 × 2 s + 0,4 × 1 s.
+    expect(test.monitor.snapshot()).toMatchObject({ blankSlotSeconds: 24, blankShareSeconds: 2.4, firstBarMs: 3_000, blankVisibleMs: 3_000 })
+  })
+
   it('counts transferred bytes by resource category', () => {
     const test = harness()
     test.resources.push(
