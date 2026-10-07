@@ -167,3 +167,14 @@
 - Zelfvoorzienende reparatie: standaard e2e-webserver voert na synthgen `scripts/e2e-basemap.ts` uit, kopieert de meegecommitteerde archieven naar de eigen Caddy-data-origin. Basiskaartspecs krijgen de bestaande U61-stijl-fixture terug (licht/donker + fonts uit meegecommitteerde public/basemap). Geen handmatig publiceren/snapshot en geen skips nodig.
 - U61-Vite-headerfix verwijderd: main's pluginvoorwaarde voorkomt onderscheppen van de e2e-data-origin, waar Caddy de juiste CORS/Range-headers al levert. Daarmee resteert geen U61-productwijziging in Vite.
 - Gerichte nieuwe run: basiskaart, cache, cloud-section, dev-panel, isobars op alle drie profielen. Synthgen verwijdert eerst de datadir en de webserver bereidt hem daarna zelf opnieuw voor: dit controleert de verse werkboom zonder voorbereid basemaparchief. Nog geen receipt.
+
+## 2026-10-08 01:03 CEST — zelfstandige e2e-omgeving groen
+
+- `cd web && MOTREGEN_E2E_PORT=4396 MOTREGEN_E2E_DATA_PORT=8396 pnpm e2e e2e/basemap.spec.ts e2e/basemap-cache.spec.ts e2e/cloud-section.spec.ts e2e/dev-panel.spec.ts e2e/isobars.spec.ts --project desktop --project mobile-4g --project mobile-fast-3g --output tmp/u61-self-contained`: **exit 0, 27 passed / 6 bestaande isobarenskips (2,9 min)**. Alle 18 basiskaart-/cachegevallen groen; cloud-section + dev-panel elk drie profielen groen; isobars desktop 3/3 groen.
+- Deze run begon zonder `public/data/basemap`; webserver genereert synthdata, kopieert daarna het gecommitteerde archief. De definitieve kopieerscriptversie kiest het archief via `tools/basemap/tiles/manifest.json` en gebruikt copyFileSync: ontbrekend archief geeft meteen een duidelijke bestandsfout bij opstarten, geen stille nulmeting in de browser. Die scriptversie afzonderlijk gestart: exit 0.
+- Push `10ac4f0` bevestigd met ls-remote; PR #88 heeft de gecorrigeerde titel/oorzaak, verificatie na main deels nog pending. Geen U61-Vite-diff meer ten opzichte van main. Volgende stap: unit-pretest + typecheck/build; vervolgens de twee kaartspecs opnieuw met verdwenen generated-basemapdir om exact de definitieve startup te toetsen.
+
+## 2026-10-08 01:04 CEST — web-gates na mainfix; nieuwere main/U60
+
+- `pnpm --dir web test`: **exit 0, 72 files / 478 tests**, inclusief automatisch gestarte pretest/synthgen. `public/data/basemap` is daarna aantoonbaar afwezig (test ! -d exit 0). `pnpm --dir web typecheck`: exit 0; `pnpm --dir web build`: exit 0. Uitvoer in ignored `tmp/u61/{unit,typecheck,build}-after-main.txt`.
+- Origin/main is intussen verdergegaan met U60 (`e37731b`) en logcommit `482660a`; manifest verwijst nu naar `nl-91e2043db5c73799.pmtiles` (24.301.762 B). Niet de eerdere basis gebruiken voor de laatste kaartreceipt: actuele main eerst mergen, daarna dezelfde standaard e2e-opstart met de actuele manifesthash controleren. De U61-diff blijft beperkt tot de trackfiles; geen U60-werk terugdraaien.
