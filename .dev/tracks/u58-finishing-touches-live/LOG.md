@@ -519,3 +519,24 @@ Een ná-trace op de MacBook zelf ontbreekt nog (de PO-trace is van de oude build
 
 Receipts (synchroon): `pnpm typecheck` 0 na het toevoegen van de twee scripts; `pnpm build` 0; 4320 serveert
 `index-SpEEwXLh.js` (200) na de herstart.
+
+## 2026-10-08 03:30 — stap 5 af voor de PO-keuze: landscape-loop (proef), stap 4 klaar — bot klaar voor herstart
+
+- Label-overloop opgelost: modusnaam in het paneel 20 px ("Gevoelstemperatuur" past).
+- Echte loops met de bot-renderer, zonder Telegram (`TG_BOT_KEY=<nepwaarde> MOTREGEN_ORIGIN=http://localhost:4320
+  MOTREGEN_BOT_FRAME=landscape pnpm render --mode=weather|wind`, exit 0): regen h264 1280×800, 10 fps, 59
+  frames, 959 kB, render 21,2 s; wind h264 1280×800, 4 fps, 53 frames, 1 292 kB, render 16,2 s. Een nu-still
+  als JPEG erbij (200 kB). Eén frame uit elke loop bekeken: kaart links (NL + Vlaanderen), paneel rechts met
+  klok 76 px, dag, modus en bron; bij regen de blauwe verwachtingsstreep langs het paneel; wind toont de
+  streepjes. De staande maat is ongewijzigd (zelf vergeleken).
+- Tests: `bot/config.test.ts` +3 (default portrait met de oude cachemap, landscape eigen map en 1280×800,
+  onbekende naam geweigerd). `docs/telegram.md`: variabele in de tabel en een sectie "Beeldmaat (proef)".
+- Receipts (synchroon): `bot`: `pnpm typecheck` 0, `pnpm test` 0 (12 bestanden, 62 tests), `pnpm build` 0.
+  `web`: `pnpm typecheck` 0, `pnpm test` 0 (460), `pnpm build` 0, `pnpm e2e e2e/telegram.spec.ts --project
+  desktop` 0 (7 passed). 4320 serveert de build met het landscape-still (`index-qfaoLkd6.js`).
+- Niet gedaan: een echt Telegram-bericht (daar gaat het de PO om); hoe breed de bubbel op desktop wordt kan
+  ik niet meten. Stills in landscape zijn niet apart beoordeeld (ze volgen de loop).
+
+**Bot klaar voor herstart** vanuit deze branch. Voor de proef: `MOTREGEN_BOT_FRAME=landscape` (zonder die
+variabele blijft alles staand). Commando's: /start, /regen, /temperatuur (alias /hitte; /gevoel werkt stil),
+/wind — elk antwoordt met de loop; /loop is vervallen.
