@@ -32,6 +32,12 @@ interface Props {
    * Hoe licht het wordt (U47, MIP-18): straling (uurgemiddelden, W/m²) en zonnestand op de locatie. Kleurt
    * de wolken en de hemelachtergrond, in elke weergave.
    */
+  /**
+   * Expressieve tekening aan/uit (standaard aan): de ene ingang voor de globale schakelaar "Expressief".
+   * Uit = subtiel: geen hemel, korrel, streken of gloed; de wolkenlagen in Lucht houden hun rustige grijzen
+   * (die nog wel meedonkeren met het licht).
+   */
+  expressive?: boolean
   sky?: { radiation: { timeline: TimelineFrame[]; values: Array<number | null> }; sinElevation: (epoch: number) => number }
   /** Totale bewolking als één band boven het regenhistogram, in de weermodus (PO 2026-09-25 live, U34). */
   cloudCover?: { timeline: TimelineFrame[]; values: Array<number | null> }
@@ -211,7 +217,7 @@ export default function HistogramScrubber(props: Props) {
   })
   // De hemel staat onaangepast achter elke weergave (PO 2026-10-07 live): doorzichtig maken over het lichte
   // vlak maakte de kleuren flets; de grafieken staan er in plaats daarvan duidelijk vóór (zie styles.css).
-  const skyStrength = () => sky().length ? 1 : 0
+  const skyStrength = () => sky().length && props.expressive !== false ? 1 : 0
   const skyVisible = createMemo(() => skyStrength() > 0)
   const skyDetail = createMemo(() => {
     if (!skyVisible()) return undefined

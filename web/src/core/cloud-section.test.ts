@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CLOSED_FRACTION, cloudBand, cloudExtents, cloudSpanInSlot, valueNoise } from './cloud-section'
+import { CLOSED_FRACTION, cloudBand, cloudExtents, cloudSpanInSlot, layerTransmission, lightDarkness, skyAt, skyStars, skyStops, skyStrokes, sunCrossings, valueNoise } from './cloud-section'
 import type { ManifestChunk, TimelineFrame } from './contract'
 
 const hour = 3_600_000
@@ -103,6 +103,82 @@ describe('low cloud base', () => {
       const ys = band.paths.join(' ').match(/-?\d+(\.\d+)?/g)!.map(Number).filter((_, index) => index % 2 === 1)
       expect(Math.max(...ys)).toBeLessThan(geometry.top + geometry.height * 0.8)
       expect(Math.min(...ys)).toBeGreaterThan(geometry.top)
+    }
+  })
+})
+
+describe('light and sky', () => {
+  const noon = Date.parse('2026-08-28T12:00:00Z')
+  const clear = { high: 0, mid: 0, low: 0 }
+  const overcast = { high: 1, mid: 1, low: 1 }
+  // Zon op om 06:00, onder om 18:00 UTC.
+  const sinElevation = (epoch: number) => Math.sin((epoch - noon) / (24 * hour) * 2 * Math.PI + Math.PI / 2)
+
+  it('lets a closed cirrus deck pass most light and a closed low deck about a quarter', () => {
+    expect(layerTransmission(clear)).toBe(1)
+    expect(layerTransmission({ ...clear, high: 1 })).toBeCloseTo(0.75)
+    expect(layerTransmission({ ...clear, low: 1 })).toBeCloseTo(0.25)
+    expect(layerTransmission(overcast)).toBeLessThan(0.1)
+    expect(layerTransmission({ high: 4, mid: -1, low: 0 })).toBeCloseTo(0.75)
+  })
+
+  it('maps light to darkness on a logarithmic scale and keeps fair weather bright', () => {
+    expect(lightDarkness(1)).toBe(0)
+    expect(lightDarkness(0.8)).toBe(0)
+    expect(lightDarkness(0)).toBe(1)
+    expect(lightDarkness(0.05)).toBe(1)
+    let previous = 0
+    for (const light of [0.7, 0.5, 0.35, 0.25, 0.15]) {
+      const darkness = lightDarkness(light)
+      expect(darkness).toBeGreaterThan(previous)
+      previous = darkness
+    }
+    // Elke halvering van het licht telt even zwaar.
+    expect(lightDarkness(0.25) - lightDarkness(0.5)).toBeCloseTo(lightDarkness(0.125) - lightDarkness(0.25))
+  })
+
+  it('builds hourly stops from radiation by day and from the layers at night', () => {
+    const stops = skyStops(noon - 12 * hour, noon + 12 * hour, {
+      lightAt: (epoch) => sinElevation(epoch) > 0.2 ? 0.2 : null,
+      coverAt: () => clear,
+      sinElevation,
+    })
+    expect(stops[0]!.offset).toBe(0)
+    expect(stops.at(-1)!.offset).toBe(1)
+    const midday = skyAt(stops, 0.5)
+    const midnight = skyAt(stops, 0)
+    expect(midday.daylight).toBe(1)
+    expect(midday.darkness).toBeGreaterThan(0.6)
+    expect(midnight.daylight).toBe(0)
+    expect(midnight.darkness).toBe(0)
+    // Gloed alleen rond de schemering.
+    expect(midday.glow).toBe(0)
+    expect(midnight.glow).toBe(0)
+    expect(Math.max(...stops.map((stop) => stop.glow))).toBeGreaterThan(0.5)
+  })
+
+  it('finds sunrise and sunset', () => {
+    const crossings = sunCrossings(noon - 12 * hour, noon + 12 * hour, sinElevation)
+    expect(crossings.map((crossing) => crossing.rising)).toEqual([true, false])
+    expect(Math.abs(crossings[0]!.epoch - (noon - 6 * hour))).toBeLessThan(60_000)
+    expect(Math.abs(crossings[1]!.epoch - (noon + 6 * hour))).toBeLessThan(60_000)
+  })
+
+  it('shows stars only in a clear night and strokes only by day', () => {
+    const sky = (cover: typeof clear) => skyStops(noon - 12 * hour, noon + 12 * hour, { lightAt: () => null, coverAt: () => cover, sinElevation })
+    const width = 2_400
+    const stars = skyStars(width, 160, 100, sky(clear))
+    expect(stars.length).toBeGreaterThan(10)
+    // Dag loopt van een kwart tot driekwart van de breedte.
+    for (const star of stars) expect(star.x < width * 0.3 || star.x > width * 0.7).toBe(true)
+    expect(skyStars(width, 160, 100, sky(overcast))).toEqual([])
+    const strokes = skyStrokes(width, 160, 100, sky(clear))
+    expect(strokes.length).toBeGreaterThan(10)
+    for (const stroke of strokes) {
+      expect(stroke.path).not.toContain('NaN')
+      const firstX = Number(stroke.path.slice(1).split(' ')[0])
+      expect(firstX).toBeGreaterThan(width * 0.1)
+      expect(firstX).toBeLessThan(width * 0.8)
     }
   })
 })

@@ -11,6 +11,10 @@ test('air shows the cloud layers under the rain and adds the map veil', async ({
   // De synthetische dag heeft een front: alle drie lagen tekenen iets.
   for (const layer of ['high', 'mid', 'low']) await expect(section.locator(`[data-layer=${layer}] path`).first()).toBeAttached()
   await expect(page.locator('.rain-bar:not(.pending)').first()).toBeAttached()
+  // De hemel (U47) staat achter elke weergave zodra de wolkenlagen er zijn; de lagen zelf alleen in Lucht.
+  await expect(page.getByTestId('sky')).toBeAttached()
+  const layers = section.locator('.scrub-view').last()
+  await expect(layers).toHaveCSS('opacity', '0')
 
   const clouds = page.getByRole('button', { name: 'Lucht' })
   await clouds.click()
@@ -19,6 +23,7 @@ test('air shows the cloud layers under the rain and adds the map veil', async ({
   await expect(surface).toHaveAttribute('data-scrubber-view', 'air')
   await expect(page.locator('.rain-bar:not(.pending)').first()).toBeAttached()
   await expect(page.locator('.map-overlay-motregen-cloud-veil')).toBeAttached()
+  await expect(layers).toHaveCSS('opacity', '1')
 
   // Stilstaand beeld: pauzeren en de cursor op een vast punt.
   await surface.focus()
@@ -40,6 +45,7 @@ test('air shows the cloud layers under the rain and adds the map veil', async ({
   await expect(temperature).toHaveAttribute('aria-pressed', 'true')
   // Gevoel heeft sinds U34 een eigen temperatuurgrafiek.
   await expect(surface).toHaveAttribute('data-scrubber-view', 'temperature')
+  await expect(page.getByTestId('sky')).toBeAttached()
 
   await page.getByRole('button', { name: 'Weer' }).click()
   await page.mouse.move(5, 5)
