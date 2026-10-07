@@ -72,13 +72,17 @@ test('mobile previews the heading and current row, then scrolls smoothly between
   // U42: Tabel staat in de koprij naast de kaartmodi; de losse openknop is vervallen.
   await expect(page.getByRole('button', { name: 'Tabel', exact: true })).toBeVisible()
   await expect.poll(() => previewOffset(page)).toBe(0)
-  const rowBox = await page.evaluate(() => {
+  const preview = await page.evaluate(() => {
     const cursor = Number(document.querySelector<HTMLElement>('.app-shell')!.dataset.epoch)
     const epoch = Math.round(cursor / 3_600_000) * 3_600_000
-    return document.querySelector<HTMLElement>(`tr[data-epoch="${epoch}"]`)!.getBoundingClientRect().toJSON()
+    const row = document.querySelector<HTMLElement>(`tr[data-epoch="${epoch}"]`)!
+    return { current: row.getBoundingClientRect().toJSON(), next: row.nextElementSibling!.getBoundingClientRect().toJSON() }
   })
-  expect(rowBox.top).toBeLessThan(page.viewportSize()!.height)
-  expect(rowBox.bottom).toBeGreaterThan(page.viewportSize()!.height)
+  // U42: de preview toont circa 1,2 rij, dus de huidige rij heel en de volgende gedeeltelijk.
+  expect(preview.current.top).toBeLessThan(page.viewportSize()!.height)
+  expect(preview.current.bottom).toBeLessThanOrEqual(page.viewportSize()!.height)
+  expect(preview.next.top).toBeLessThan(page.viewportSize()!.height)
+  expect(preview.next.bottom).toBeGreaterThan(page.viewportSize()!.height)
 
   await page.getByRole('button', { name: 'Wind' }).tap()
   await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(0)

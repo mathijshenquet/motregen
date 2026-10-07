@@ -81,9 +81,10 @@ for (const width of [390, 1280]) {
       const url = new URL(style.sources.basemap.url.slice('pmtiles://'.length), location.origin)
       url.hostname = 'localhost'
       const response = await fetch(url, { headers: { Range: 'bytes=256-511' } })
-      return { url: url.href, status: response.status, bytes: [...new Uint8Array(await response.arrayBuffer())] }
+      return { url: url.href, status: response.status, range: response.headers.get('Content-Range'), bytes: [...new Uint8Array(await response.arrayBuffer())] }
     })
     expect(crossOrigin.status).toBe(206)
+    expect(crossOrigin.range).toMatch(/^bytes 256-511\//)
     expect(crossOrigin.bytes.length).toBe(256)
     await expect.poll(() => page.evaluate(async (url) => {
       const cache = await caches.open('motregen-basemap-ranges-v1')

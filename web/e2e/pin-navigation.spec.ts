@@ -148,12 +148,10 @@ test('with geolocation already granted the current position is the start locatio
   await expect.poll(async () => Math.abs((await pinTip(page)).x - (map.x + map.width / 2))).toBeLessThan(3)
 })
 
-// Start op een ingezoomde view: de pin staat dan op het kaartmidden. Geeft dat midden terug in
-// pin-svg-coördinaten (de svg-onderkant ligt niet exact op het anker), voor centreer-checks.
+// U44: begin zonder plaats-permalink, zodat de onthouden kaartpositie ook de startlocatie blijft.
 async function openZoomed(page: Page): Promise<{ x: number; y: number }> {
+  await page.addInitScript((view) => localStorage.setItem('motregen-map-view', JSON.stringify(view)), zoomedView)
   await page.goto('/')
-  await page.evaluate((view) => localStorage.setItem('motregen-map-view', JSON.stringify(view)), zoomedView)
-  await page.reload()
   await expect(page.locator('.map-splash.ready')).toBeAttached()
   await expect(page.locator('.location-pin')).toHaveCount(1)
   await page.waitForTimeout(300)

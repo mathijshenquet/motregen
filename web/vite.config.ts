@@ -38,6 +38,8 @@ function localBasemapArchive(): Plugin {
     if (start > end || start >= size) { response.writeHead(416, { 'Content-Range': `bytes */${size}` }); response.end(); return }
     response.writeHead(range ? 206 : 200, {
       'Content-Type': 'application/octet-stream',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Expose-Headers': 'Accept-Ranges, Content-Length, Content-Range, ETag',
       'Accept-Ranges': 'bytes',
       'Content-Length': String(end - start + 1),
       'Cache-Control': 'public, max-age=31536000, immutable',
