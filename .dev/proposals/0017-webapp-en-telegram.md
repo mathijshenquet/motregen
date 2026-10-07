@@ -27,7 +27,8 @@ modus"; "ga maar aan de slag"; bot-token staat in `.env` als `TG_BOT_KEY`)
 
 Gestapeld, elk stuk zelfstandig bruikbaar:
 
-1. **URL-presets** (fundament): `?modus=weer|lucht|gevoel|wind`, `?t=<ISO>|+2u|-1u`,
+1. **URL-presets** (fundament): `?modus=weer|lucht|gevoel|wind`, `?t=<tijd>|+2u|-1u` (tijd sinds 2026-10-07 als compacte Amsterdamse
+   lokale tijd zonder dubbele punten, `2026-10-08T0757`; ISO/Z blijft leesbaar),
    `?plaats=<naam>` of `?lat=..&lon=..`. Presets winnen van `localStorage`, worden niet
    teruggeschreven (een gedeelde link verandert niemands favoriet), en de knop "Deel" (About
    of klok) maakt de huidige staat tot zo'n link.
