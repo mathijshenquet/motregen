@@ -359,3 +359,9 @@ Alle drie runs: kaartfase ≤1 s, kaart-/totaalbytes ≤U59 +25 %, gelijk aantal
 - docs/basemap.md §Stijl bevat nu de definitieve A/B-, label-, contrast-, mobiele byte-/fase- en cacheuitslagen. PR #87 bijgewerkt op de uiteindelijke implementatie en ready gezet; gh pr ready exit 0 en isDraft=false onafhankelijk teruggelezen. Geen merge uitgevoerd.
 - Preview-eindcontrole: root en live weermanifest HTTP 200, eerste radarframe Range 0–126 HTTP 206 / 127 B. De definitieve kaartbron is nl-91e2043db5c73799.pmtiles. Alle acht app-paren zijn bekeken; zachte bos-/grasvlakken zonder randen en lichtgrijze bebouwing geven de kaart de gevraagde textuur.
 - Eindgates: alle 28 paren groen/grijs binnen ±15 %, startlabels binnen ±20 %, nachtcontrast water–land 8,37 → 11,68; kaartbytes +13,46 %, totaalbytes +1,63 %, kaartfasen 550,4 / 504,0 / 556,8 ms. Typecheck, 519 units, stijlvalidator 6/6, build, Nix-package, 11 gerichte kaart/A/B-tests, 2 cachetests en 3 rigruns met waargenomen exit 0. Klaar; finale documentatie/log worden hieronder gecommit en gepusht.
+
+## 2026-10-07T22:58:05Z — Track afgesloten na merge
+
+- Orkestrator meldt U60 op main gemerged als e37731bf na onafhankelijke gate: typecheck exit 0, 478 unittests, build exit 0, bot exit 0, flake evalueert; presets/seo/cloud-section/location groen. GitHub-merge-status apart teruggelezen.
+- basemap.spec faalt in een verse checkout door ontbrekende PMTiles-stijl/archief in de e2e-testomgeving; deze opvolging is expliciet overgedragen aan U61. PO beoordeelt morgen live op 4330.
+- Eigen preview op 4340 gestopt via SIGTERM aan uitsluitend zijn procesgroep; ss bevestigt dat de poort vrij is. Afsluitentry wordt gecommit en gepusht. Klaar.
