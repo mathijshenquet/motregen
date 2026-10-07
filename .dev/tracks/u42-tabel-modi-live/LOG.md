@@ -593,6 +593,27 @@
   nachtranden zijn teruggebracht tot zachte blauwgrijze haarlijnen en de zonregel houdt zijn eigen
   duidelijke begrenzing.
 
+## 2026-10-07 14:31 UTC — afrondingsgate na PO “klaar”
+
+- `origin/main` t/m `5e1ff58` is zonder conflict gemerged als `5ef14be`; daarmee zijn U43–U56,
+  inclusief U52's decodeplanner en U56's klokpil, in de eindstand opgenomen. Analytics-contract v2
+  bevat zowel U42's `pinAir` als U56's `clockScrub`.
+- Synchrone receipts op de merge-head: `pnpm typecheck` exit 0; `pnpm test` exit 0 met 68
+  bestanden/439 tests; gerichte gate `pnpm e2e e2e/table.spec.ts e2e/focus.spec.ts
+  e2e/usage.spec.ts --project desktop` via `e2e-slot.sh` exit 0 met 13 passed/4
+  project-afhankelijke mobile skips in 1,6 min.
+- Na de e2e-gate is `pnpm build` bewust opnieuw uitgevoerd, omdat Playwrights tijdelijke webserver
+  `dist` met zijn lokale kaartstijl had overschreven. De normale eindbuild exit 0: 114 modules,
+  `index-DTkXHJNC.js`, `index-U5PXwMR4.css`, PWA + workers. Preview is herstart met
+  `MOTREGEN_DATA_ORIGIN=https://motregen.nl/data` op `http://ageq-dev2:4320/`.
+- De eerste twee still-pogingen exit 1 door respectievelijk een verouderde splash-wachtconditie en
+  het tijdelijke e2e-kaartartifact; beide oorzaken zijn vastgesteld en hersteld. De definitieve
+  Playwright-stillrun exit 0 en schreef `screenshots/desktop-final.png` (1440×900) en
+  `screenshots/pixel5-final.png` (Pixel 5-deviceprofiel, 1081×1999 fysieke pixels).
+- Eigen visuele eindcontrole: desktop toont de kaart, tijdlijn en compacte tabel zonder overlap;
+  Pixel 5 toont de volledige tabel met zonnige daggradients, zachte nachtranden, grote maan,
+  expliciete UV-labels en de gelaagde zonsondergang zonder sprong of lege UV-pil.
+
 ## 2026-10-07 13:26 UTC
 
 - De tabelcyclus is nu een gebruikersoptie “Dag en nacht in tabel” onder Weergave, standaard aan en
