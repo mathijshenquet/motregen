@@ -12,7 +12,6 @@ export interface HourlyForecastRow {
   radiationNextIndex: number | null
   temperatureIndex: number | null
   feelsLikeIndex: number | null
-  humidityIndex: number | null
   cloudIndex: number | null
   windUIndex: number | null
   windVIndex: number | null
@@ -26,7 +25,6 @@ export interface HourlyTimelines {
   radiation: TimelineFrame[]
   temperature: TimelineFrame[]
   feelsLike: TimelineFrame[]
-  humidity: TimelineFrame[]
   cloud: TimelineFrame[]
   windU: TimelineFrame[]
   windV: TimelineFrame[]
@@ -67,7 +65,6 @@ export function buildHourlyForecast(
       radiationNextIndex: nearestFrame(timelines.radiation, epoch + hour),
       temperatureIndex: nearestFrame(timelines.temperature, epoch),
       feelsLikeIndex: nearestFrame(timelines.feelsLike, epoch),
-      humidityIndex: nearestFrame(timelines.humidity, epoch),
       cloudIndex: nearestFrame(timelines.cloud, epoch),
       windUIndex: nearestFrame(timelines.windU, epoch),
       windVIndex: nearestFrame(timelines.windV, epoch),
@@ -86,7 +83,7 @@ export function isPassiveRow(row: HourlyForecastRow, now: number): boolean {
 
 function hasData(row: HourlyForecastRow): boolean {
   return row.rainIndex != null || row.uvIndex != null || row.temperatureIndex != null || row.feelsLikeIndex != null ||
-    row.humidityIndex != null || row.cloudIndex != null || row.windUIndex != null || row.windVIndex != null
+    row.cloudIndex != null || row.windUIndex != null || row.windVIndex != null
 }
 
 function nearestFrame(frames: TimelineFrame[], epoch: number, tolerance = hour / 2): number | null {

@@ -280,15 +280,15 @@ button { color: inherit; cursor: pointer; }
 .about-theme { display: flex; }
 .about-theme button { flex: 1; }
 .about-wind-unit { margin-top: 8px; }
-.about-table-cycle { width: 100%; min-height: 44px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; margin-top: 8px; padding: 7px 9px; border: 1px solid var(--line-strong); border-radius: 9px; color: var(--text); background: var(--surface); text-align: left; }
-.about-table-cycle > svg { color: var(--muted); }
-.about-table-cycle > span { display: grid; line-height: 1.25; }
-.about-table-cycle b { font-size: 12px; }
-.about-table-cycle small { color: var(--muted); font-size: 10px; }
-.about-table-cycle i { min-width: 34px; padding: 3px 6px; border-radius: 999px; color: var(--muted); background: var(--surface-soft); font-size: 10px; font-style: normal; font-weight: 750; text-align: center; }
-.about-table-cycle[aria-pressed="true"] { border-color: color-mix(in srgb, var(--accent) 58%, var(--line)); background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface)); }
-.about-table-cycle[aria-pressed="true"] > svg, .about-table-cycle[aria-pressed="true"] i { color: var(--accent); }
-.about-table-cycle:hover, .about-table-cycle:focus-visible { border-color: var(--accent); outline: none; }
+.about-expressive { width: 100%; min-height: 44px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; margin-top: 8px; padding: 7px 9px; border: 1px solid var(--line-strong); border-radius: 9px; color: var(--text); background: var(--surface); text-align: left; }
+.about-expressive > svg { color: var(--muted); }
+.about-expressive > span { display: grid; line-height: 1.25; }
+.about-expressive b { font-size: 12px; }
+.about-expressive small { color: var(--muted); font-size: 10px; }
+.about-expressive i { min-width: 34px; padding: 3px 6px; border-radius: 999px; color: var(--muted); background: var(--surface-soft); font-size: 10px; font-style: normal; font-weight: 750; text-align: center; }
+.about-expressive[aria-pressed="true"] { border-color: color-mix(in srgb, var(--accent) 58%, var(--line)); background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface)); }
+.about-expressive[aria-pressed="true"] > svg, .about-expressive[aria-pressed="true"] i { color: var(--accent); }
+.about-expressive:hover, .about-expressive:focus-visible { border-color: var(--accent); outline: none; }
 .about-lead { font-size: 14px; font-weight: 650; line-height: 1.45; }
 .about-share { display: flex; align-items: center; gap: 10px; min-height: 34px; margin: 0 0 10px; }
 .about-share button { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 9px; color: var(--text); background: var(--surface-raised); cursor: pointer; font: inherit; font-weight: 650; }
@@ -1125,7 +1125,9 @@ td small { color: var(--muted); font-size: 9px; }
   .app-shell { min-height: 100svh; overflow: visible; }
   .map-shell { scroll-snap-align: start; }
   .dashboard { overflow: visible; }
-  .forecast-panel { position: relative; height: 100svh; min-height: 100svh; display: flex; flex-direction: column; padding: 0 0 env(safe-area-inset-bottom); overflow: visible; scroll-snap-align: start; touch-action: pan-y; }
+  /* dvh, niet svh: klapt de adresbalk in (Android Chrome), dan is het scherm hoger dan 100svh en kan de pagina
+     niet ver genoeg scrollen om het paneel bovenaan te laten snappen (PO 2026-10-07: strook histogram bleef staan). */
+  .forecast-panel { position: relative; height: 100dvh; min-height: 100svh; display: flex; flex-direction: column; padding: 0 0 env(safe-area-inset-bottom); overflow: visible; scroll-snap-align: start; touch-action: pan-y; }
   .table-scroll { min-height: 0; flex: 1 1 auto; overflow-y: hidden; overscroll-behavior-y: auto; touch-action: pan-y; }
   .table-scroll th { top: 0; }
   .forecast-table :is(.time-cell, .time-heading) { width: 20%; padding-right: 3px; }

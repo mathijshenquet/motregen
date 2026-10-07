@@ -769,7 +769,7 @@ export class WindLayer implements CustomLayerInterface {
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     // lineWidth in CSS-px van het huidige beeld, omgerekend naar pixels van de verankerde buffer.
-    const cssWidth = Math.max(1, this.map!.getCanvas().clientWidth)
+    const cssWidth = Math.max(1, this.cssSize().width)
     const lineWidth = this.tuning.lineWidth * (cssWidth <= NARROW_VIEWPORT_PX ? WIND_NARROW_LINE_FACTOR : 1)
     const halfWidth = lineWidth / 2 * bufferTransform.scaleX * this.trailWidth / cssWidth
     gl.useProgram(this.segmentProgram!)
@@ -1381,14 +1381,26 @@ export class WindLayer implements CustomLayerInterface {
 
   private currentTrailView(): TrailView {
     const center = this.map!.getCenter()
-    const canvas = this.map!.getCanvas()
+    const size = this.cssSize()
     return {
       centerX: 0.5 + projectX(center.lng) * MERCATOR_SCALE,
       centerY: 0.5 - projectY(center.lat) * MERCATOR_SCALE,
       zoom: this.map!.getZoom(),
-      width: Math.max(1, canvas.clientWidth),
-      height: Math.max(1, canvas.clientHeight),
+      width: Math.max(1, size.width),
+      height: Math.max(1, size.height),
     }
+  }
+
+  // clientWidth/clientHeight dwingen een layout af zodra de DOM vuil is; per frame gelezen kostte dat
+  // tijdens het laden seconden hoofddraad (PO-opname 2026-10-07). De backing store (een attribuut, geen
+  // layout) verandert alleen bij een resize of andere DPR en bewaakt daarom de cache.
+  private cssSizeCache?: { backingWidth: number; backingHeight: number; width: number; height: number }
+  private cssSize(): { width: number; height: number } {
+    const canvas = this.map!.getCanvas()
+    const cached = this.cssSizeCache
+    if (cached && cached.backingWidth === canvas.width && cached.backingHeight === canvas.height) return cached
+    this.cssSizeCache = { backingWidth: canvas.width, backingHeight: canvas.height, width: canvas.clientWidth, height: canvas.clientHeight }
+    return this.cssSizeCache
   }
 
   private ensureTrailTargets(): void {

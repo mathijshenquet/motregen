@@ -218,10 +218,13 @@ async function performStep(page: Page, step: ScenarioStep): Promise<string> {
   const nativeAir = await page.getByRole('button', { name: 'Lucht', exact: true }).count() > 0
   if (label === 'Lucht' && !nativeAir) label = 'Weer'
   const button = page.getByRole('button', { name: label, exact: true })
+  // Een DOM-klik, geen Playwright-klik: die scrolt bij een mislukte hit-test de pagina naar de kop, en op
+  // een telefoon is dat de tabel openen — dan laadt de hele tabel en meet het scenario iets anders (U58).
+  const tap = (target: typeof button) => target.evaluate((element: HTMLElement) => element.click())
   if (step.mode === 'Weer' && !nativeAir) {
     const pinned = page.locator('.forecast-table button.column-mode[aria-pressed="true"]')
-    if (await pinned.count()) await pinned.first().click()
-  } else if (await button.getAttribute('aria-pressed') !== 'true') await button.click()
+    if (await pinned.count()) await tap(pinned.first())
+  } else if (await button.getAttribute('aria-pressed') !== 'true') await tap(button)
   await button.evaluate((element: HTMLElement) => element.blur())
   await page.mouse.move(1, 1)
   return label !== step.mode ? `modus Lucht via bestaande Weer-wolkenfocus` : `modus ${label}`

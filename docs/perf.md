@@ -832,6 +832,29 @@ journey 139.142 B. De RT- en Playwright-totalen waren per soort en per response
 exact gelijk. De ontbrekende U52-meetpunten en Lucht-adapter blijven als
 bevinding in de baselines staan.
 
+### Baseline na de U42/U47-laadregressie (U58, 2026-10-07)
+
+U42 liet op een telefoon tabelrijen onder de kaart uitsteken; de planner laadde daardoor de hele
+tabel (koud 297 decodes / 1.646.413 B tegen 113 / 1.065.885 B in de vorige baseline). Sinds U58
+laden alleen de rijen die echt in beeld staan en is de RV-reeks weg. Het budget voor
+`mobile-4g / koud` is nu **128 decodes / 1.127.388 B (1,13 MB)**: de 15 decodes boven de oude
+baseline zijn de zichtbare piep-rijen (temp, gevoel, bewolking, wind u/v, vlaag en straling), dus
+bewust geaccepteerd (PO/orkestrator 2026-10-07).
+
+| profiel | scenario | decodes | bodybytes | vorige baseline |
+| --- | --- | ---: | ---: | ---: |
+| 4G | koud | 128 | 1.127.388 | 113 / 1.065.885 |
+| 4G | journey | 228 | 1.293.377 | 207 / 1.225.342 |
+| 4G | storm | 189 | 1.318.557 | 280 / 1.572.568 |
+
+Drie runs per scenario, spreiding 0 % op decodes en bytes; `--compare` daarna groen (0,000 %).
+De moduswissel in de rig is een DOM-klik in plaats van een Playwright-klik: die scrolde bij een
+mislukte hit-test de pagina naar de tabelkop, wat op een telefoon de tabel opent en de hele tabel
+laadt (journey 328 in plaats van 228 decodes). De Fast-3G-baselines zijn niet vernieuwd en hebben
+nog het oude meetcontract. DOM-werk tijdens laden en afspelen meet
+`web/scripts/dom-churn.ts` (mutaties per paginadeel, met de zwaarste knooptypen): hemel-knopen in
+de eerste 12 s 72.494 → 18, tabel-knopen 1.196 → 16.
+
 ## Live-smoke
 
 `cd web && pnpm e2e:live` draait de volledige journey voor desktop, 4G en Fast

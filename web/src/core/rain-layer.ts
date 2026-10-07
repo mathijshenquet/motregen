@@ -4,8 +4,9 @@ import type { Grid } from './contract'
 import type { MotionField } from './mrf'
 import { measurePerfPhase } from './perf'
 import { rainColormap } from './rain-chart'
+import { packRainTexture } from './rain-pack'
 
-export { rainColormap }
+export { packRainTexture, rainColormap }
 
 export const WARP_CAP_CELLS = 15
 export const WARP_FADE_END_CELLS = 30
@@ -72,6 +73,52 @@ void main() {
 }`
 
 const packedFrames = new WeakMap<Uint8Array, Uint8Array>()
+const packing = new WeakMap<Uint8Array, Promise<void>>()
+let packWorker: Worker | undefined
+let packWorkerFailed = false
+let packSequence = 0
+const packReplies = new Map<number, (packed?: ArrayBuffer) => void>()
+
+/**
+ * Pakt een regenframe in op een worker vóór het getoond wordt, zodat de upload op de hoofddraad alleen nog
+ * een texImage2D is (PO-opnames 2026-10-07: het inpakken kostte daar ~8 ms per nieuw frame). Lukt dat niet,
+ * dan pakt uploadRain het frame zelf in zoals voorheen.
+ */
+export function prepareRainTexture(data: Uint8Array): Promise<void> {
+  if (packedFrames.has(data) || packWorkerFailed || typeof Worker === 'undefined') return Promise.resolve()
+  const running = packing.get(data)
+  if (running) return running
+  if (!packWorker) {
+    try {
+      packWorker = new Worker(new URL('./rain-pack.worker.ts', import.meta.url), { type: 'module' })
+    } catch {
+      packWorkerFailed = true
+      return Promise.resolve()
+    }
+    packWorker.onmessage = ({ data: reply }: MessageEvent<{ id: number; packed: ArrayBuffer }>) => {
+      packReplies.get(reply.id)?.(reply.packed)
+      packReplies.delete(reply.id)
+    }
+    packWorker.onerror = () => {
+      packWorkerFailed = true
+      for (const settle of packReplies.values()) settle()
+      packReplies.clear()
+    }
+  }
+  const id = ++packSequence
+  const prepared = new Promise<void>((resolve) => {
+    packReplies.set(id, (packed) => {
+      if (packed) packedFrames.set(data, new Uint8Array(packed))
+      packing.delete(data)
+      resolve()
+    })
+  })
+  packing.set(data, prepared)
+  // Een kopie: het frame zelf blijft in de framecache voor de puntreeksen.
+  const copy = data.slice()
+  packWorker.postMessage({ id, bytes: copy.buffer }, [copy.buffer])
+  return prepared
+}
 const encodedMotion = new WeakMap<Uint8Array, { vectors: Uint8Array; mask: Uint8Array }>()
 
 export class RainLayer implements CustomLayerInterface {
@@ -250,15 +297,6 @@ export function neutralizeNoData(data: Uint8Array): Uint8Array {
   return normalized
 }
 
-export function packRainTexture(data: Uint8Array): Uint8Array {
-  const packed = new Uint8Array(data.length * 2)
-  for (let index = 0; index < data.length; index++) {
-    const valid = data[index] !== 255
-    packed[index * 2] = valid ? data[index]! : 0
-    packed[index * 2 + 1] = valid ? 255 : 0
-  }
-  return packed
-}
 
 export function encodeMotionTexture(motion: MotionField): { vectors: Uint8Array; mask: Uint8Array } {
   if (motion.vectors.length !== motion.width * motion.height * 2) throw new Error('Ongeldige motion-annexlengte')
