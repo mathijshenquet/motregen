@@ -251,6 +251,10 @@ dichtheid is dat budget in een wegwerpbuild uitgezet. Metingen van U3
 een preview plus een Caddy-dataserver. De lokale basemap bevat alleen een
 achtergrondlaag; daardoor zijn OpenFreeMap en externe tilelatency geen bron van
 flakiness, terwijl de echte Range- en cachepaden wel worden gebruikt. Een
+uitzondering zijn `basemap.spec.ts` en `basemap-cache.spec.ts`: die laden via
+`e2e/basemap-fixture.ts` de eigen PMTiles-stijl, zodat dezelfde suite ook de
+kaartbereiken, CORS-headers en offline serviceworker-cache toetst. De
+performance-journey behoudt de achtergrondstijl en zijn bestaande budgetten. Een
 warmmeting is een normale tweede navigatie in dezelfde browsercontext. Een
 geforceerde browser-reload wordt niet gebruikt, omdat die cachevalidatie
 expliciet kan forceren en daarmee een ander scenario meet.

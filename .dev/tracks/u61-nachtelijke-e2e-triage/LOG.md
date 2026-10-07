@@ -88,3 +88,62 @@
 - Dit is dus geen bewezen timing-/load-flake: de 16 transfers herhalen de nachtelijke traces. De zes tabelrij-requests bevatten samen 24.320 B payload (temp_c, cloud_frac en gust_ms, historie + actuele run). U51 kalibreerde vóór de U42-preview; die preview vraagt nu bij Home ook haar zichtbare waarden. Geen overbodige dubbele Range gevonden in die zes requests.
 - Budgetten en `perf.spec.ts` blijven ongewijzigd volgens de expliciete opdracht. De volledige gate kan hierdoor nog rood blijven; dat zal als open budgetpunt worden gerapporteerd, zonder groene claim.
 - Tweede coherente commit/push: Vite-CORS-productfix plus vervolgcorrecties aan teststart en previewrij. Volgende stap: volledige suite één keer, start bij load <8, met loadlog en geobserveerde exitstatus.
+
+## 2026-10-08 00:39 CEST — volledige gate gestart
+
+- Volledige suite op codecommit `df1f8b8`, drie profielen, gestart bij 1-minuut-load **3,63**. Repro: `cd web && MOTREGEN_E2E_PORT=4396 MOTREGEN_E2E_DATA_PORT=8396 pnpm e2e --output tmp/u61-full`; runner bewaart status, print `FULL-E2E-EXIT` en verlaat met dezelfde status. Eén volledige run op deze branch.
+- Load elke 20 s naar `web/tmp/u61-full-load.txt` (UTC-tijdstempels); quiet-start naar `web/tmp/u61-full-quiet.txt`; suite-uitvoer naar `web/tmp/u61-full.txt`. Nog geen exitstatus ontvangen.
+- Rustige gerichte perf-coldmetingen: 4G 1.812,1 ms / 654.439 B passief; Fast 3G 5.080 ms / 672.265 B passief. Deze grenzen passeren; alleen het scrubtransferbudget faalt in beide profielen.
+- Tweede push `df1f8b8` bevestigd; draft-PR #88 bijgewerkt met de functionele receipts en expliciet rode budgetstatus. Geen merge uitgevoerd.
+
+## 2026-10-08 00:50 CEST — definitieve triage en volledige receipt
+
+- Volledige suite op codecommit `df1f8b8`: **112 passed / 2 failed / 63 bestaande skips (10,0 min), SYNCHROON waargenomen exit 1, FULL-E2E-EXIT: 1**. Geen nieuwe skips. Alle 30 oorspronkelijke gevallen hieronder expliciet tegen de volledige uitvoer gematcht: 28 groen, 2 budgetfailures.
+- Repro: `cd web && MOTREGEN_E2E_PORT=4396 MOTREGEN_E2E_DATA_PORT=8396 pnpm e2e --output tmp/u61-full`. Ruwe uitvoer `web/tmp/u61-full.txt`, failuretraces/screenshots/error-contexts in `web/tmp/u61-full/`; eenmalige volledige run.
+- Load: gestart bij 3.63, tijdens de run 3.63–21.39 (20 s samples). De host bleef gedurende de browserrun dus niet continu onder 8. De losse mobiele perf-herhaling startte wel bij 5,18 en eindigde bij 7,62; ook daar beide keren exact 16 transfers. Geen load-/timing-flakeclaim.
+- mobile-4g perf-navigatie 2026-10-07T22:45:47.854Z: dichtstbijzijnde loadsample 21.39 op 2026-10-07T22:45:44Z.
+- mobile-fast-3g perf-navigatie 2026-10-07T22:48:27.217Z: dichtstbijzijnde loadsample 15.38 op 2026-10-07T22:48:24Z.
+- Volledige cold/passief: desktop 362,6 ms / 880.002 B, 4G 1.789,4 ms / 654.439 B, Fast 3G 5.036 ms / 672.265 B. Desktop warm 332,5 ms / 0 B, scrub 15 (budget 19), sessie 2.065.711 B. Geen tijd- of bytebudgetfailure; de mobiele journeys stoppen bij scrubtransfers 16 >11/>14 en leveren daarom geen latere warm-/sessiemeting.
+- Web-gates: `pnpm --dir web typecheck` exit 0; `pnpm --dir web test` exit 0 (72 bestanden, 478 tests); `pnpm --dir web build` exit 0. Build bevat de uiteindelijke Vite-headerfix. Latere wijzigingen betreffen alleen testopzet/documentatie/LOG; alle uiteindelijke tests zijn door de volledige suite uitgevoerd.
+- `docs/perf.md` beschrijft de uitzondering voor eigen PMTiles-stijl in kaart-/cachespecs. Geen nieuwe feature, timeoutverruiming of budgetaanpassing.
+
+| Profiel | Groen | Rood | Bestaande skips |
+| --- | ---: | ---: | ---: |
+| desktop | 53 | 0 | 6 |
+| mobile-4g | 34 | 1 | 24 |
+| mobile-fast-3g | 25 | 1 | 33 |
+
+| Nr | Oorspronkelijke rode test | Profiel | Klasse / oorzaak | Volledige suite |
+| --- | --- | --- | --- | --- |
+| 1 | basemap-cache.spec.ts: warme basiskaart zonder netwerk 390px | desktop | d + a: verkeerde achtergrond-fixture (U59/MIP-21); vervolgens echte Vite-CORS-fout met verborgen Content-Range, nu hersteld. | Groen |
+| 2 | basemap-cache.spec.ts: warme basiskaart zonder netwerk 1280px | desktop | d + a: verkeerde achtergrond-fixture (U59/MIP-21); vervolgens echte Vite-CORS-fout met verborgen Content-Range, nu hersteld. | Groen |
+| 3 | basemap.spec.ts: basiskaart 1280px light | desktop | d: U59/MIP-21 verwacht PMTiles maar kreeg achtergrond-fixture; test laadt nu eigen stijl. Geen CDP- of cachenaamfout. | Groen |
+| 4 | basemap.spec.ts: basiskaart 1280px dark | desktop | d: U59/MIP-21 verwacht PMTiles maar kreeg achtergrond-fixture; test laadt nu eigen stijl. Geen CDP- of cachenaamfout. | Groen |
+| 5 | basemap.spec.ts: basiskaart 390px light | desktop | d: U59/MIP-21 verwacht PMTiles maar kreeg achtergrond-fixture; test laadt nu eigen stijl. Geen CDP- of cachenaamfout. | Groen |
+| 6 | basemap.spec.ts: basiskaart 390px dark | desktop | d: U59/MIP-21 verwacht PMTiles maar kreeg achtergrond-fixture; test laadt nu eigen stijl. Geen CDP- of cachenaamfout. | Groen |
+| 7 | pin-navigation.spec.ts: desktop: dragging the pin moves the location, the map only follows at the edge, a double click centres | desktop | b, U44: reload lost De Bilt opnieuw op naast opgeslagen kaartmidden; kale start behoudt exacte camera/startlocatie. Anker correct gemeten. | Groen |
+| 8 | pin-navigation.spec.ts: with geolocation already granted the current position is the start location, without a prompt | desktop | b, U44: reload heropent plaats-permalink; kale start met opgeslagen view toetst U26-geolocatievoorrang. | Groen |
+| 9 | basemap-cache.spec.ts: warme basiskaart zonder netwerk 390px | mobile-4g | d + a: verkeerde achtergrond-fixture (U59/MIP-21); vervolgens echte Vite-CORS-fout met verborgen Content-Range, nu hersteld. | Groen |
+| 10 | basemap-cache.spec.ts: warme basiskaart zonder netwerk 1280px | mobile-4g | d + a: verkeerde achtergrond-fixture (U59/MIP-21); vervolgens echte Vite-CORS-fout met verborgen Content-Range, nu hersteld. | Groen |
+| 11 | basemap.spec.ts: basiskaart 1280px light | mobile-4g | d: U59/MIP-21 verwacht PMTiles maar kreeg achtergrond-fixture; test laadt nu eigen stijl. Geen CDP- of cachenaamfout. | Groen |
+| 12 | basemap.spec.ts: basiskaart 1280px dark | mobile-4g | d: U59/MIP-21 verwacht PMTiles maar kreeg achtergrond-fixture; test laadt nu eigen stijl. Geen CDP- of cachenaamfout. | Groen |
+| 13 | basemap.spec.ts: basiskaart 390px light | mobile-4g | d: U59/MIP-21 verwacht PMTiles maar kreeg achtergrond-fixture; test laadt nu eigen stijl. Geen CDP- of cachenaamfout. | Groen |
+| 14 | basemap.spec.ts: basiskaart 390px dark | mobile-4g | d: U59/MIP-21 verwacht PMTiles maar kreeg achtergrond-fixture; test laadt nu eigen stijl. Geen CDP- of cachenaamfout. | Groen |
+| 15 | focus.spec.ts: tapping the wind heading pins wind focus on touch | mobile-4g | b, U42: Tabel-kop en moduskeuze vervangen losse open/sluitknoppen. | Groen |
+| 16 | focus.spec.ts: tapping the column heading pins focus on touch, and measures frame rate | mobile-4g | b, U42: Tabel-kop en moduskeuze vervangen losse open/sluitknoppen. | Groen |
+| 17 | freshness.spec.ts: fresh radar reads as current, with the scan time and its age | mobile-4g | b, U34/U58: zoekicoon in rust, leesbaar veld pas bij openen; open breedte op 320 px getoetst. | Groen |
+| 18 | freshness.spec.ts: dragging the clock scrubs the time and the unrolled panel shows the source strip | mobile-4g | b, U56/U58: continue tijdstrook; 1 px mobiel is voorbij halve radarstap. Exact begin op rand x=0. | Groen |
+| 19 | perf.spec.ts: user journey measures performance and cache behaviour | mobile-4g | Open budgetpunt: 16 transfers tegen 11; zes legitieme U42/U58-previewrij-ranges (24.320 B). Opdracht: budget behouden. | Rood: 16 transfers |
+| 20 | pin-navigation.spec.ts: touch: one finger scrolls past the map, two fingers pinch and pan, the pin drags | mobile-4g | b, U44: reload lost De Bilt opnieuw op naast opgeslagen kaartmidden; kale start behoudt exacte camera/startlocatie. Anker correct gemeten. | Groen |
+| 21 | table.spec.ts: mobile previews the heading and current row, then scrolls smoothly between table and map | mobile-4g | b, U42: Tabel-kop plus hele huidige rij en deels volgende rij (circa 1,2 rij), beide nu getoetst. | Groen |
+| 22 | basemap-cache.spec.ts: warme basiskaart zonder netwerk 390px | mobile-fast-3g | d + a: verkeerde achtergrond-fixture (U59/MIP-21); vervolgens echte Vite-CORS-fout met verborgen Content-Range, nu hersteld. | Groen |
+| 23 | basemap-cache.spec.ts: warme basiskaart zonder netwerk 1280px | mobile-fast-3g | d + a: verkeerde achtergrond-fixture (U59/MIP-21); vervolgens echte Vite-CORS-fout met verborgen Content-Range, nu hersteld. | Groen |
+| 24 | basemap.spec.ts: basiskaart 1280px light | mobile-fast-3g | d: U59/MIP-21 verwacht PMTiles maar kreeg achtergrond-fixture; test laadt nu eigen stijl. Geen CDP- of cachenaamfout. | Groen |
+| 25 | basemap.spec.ts: basiskaart 1280px dark | mobile-fast-3g | d: U59/MIP-21 verwacht PMTiles maar kreeg achtergrond-fixture; test laadt nu eigen stijl. Geen CDP- of cachenaamfout. | Groen |
+| 26 | basemap.spec.ts: basiskaart 390px light | mobile-fast-3g | d: U59/MIP-21 verwacht PMTiles maar kreeg achtergrond-fixture; test laadt nu eigen stijl. Geen CDP- of cachenaamfout. | Groen |
+| 27 | basemap.spec.ts: basiskaart 390px dark | mobile-fast-3g | d: U59/MIP-21 verwacht PMTiles maar kreeg achtergrond-fixture; test laadt nu eigen stijl. Geen CDP- of cachenaamfout. | Groen |
+| 28 | freshness.spec.ts: fresh radar reads as current, with the scan time and its age | mobile-fast-3g | b, U34/U58: zoekicoon in rust, leesbaar veld pas bij openen; open breedte op 320 px getoetst. | Groen |
+| 29 | freshness.spec.ts: dragging the clock scrubs the time and the unrolled panel shows the source strip | mobile-fast-3g | b, U56/U58: continue tijdstrook; 1 px mobiel is voorbij halve radarstap. Exact begin op rand x=0. | Groen |
+| 30 | perf.spec.ts: user journey measures performance and cache behaviour | mobile-fast-3g | Open budgetpunt: 16 transfers tegen 14; zes legitieme U42/U58-previewrij-ranges (24.320 B). Opdracht: budget behouden. | Rood: 16 transfers |
+
+- **Eindstand:** functionele reparaties volledig geverifieerd, gate blijft rood op twee expliciet behouden performance-budgetten. Draft-PR #88 blijft draft; geen merge. De orkestrator heeft hiermee de concrete oorzaak en meetdata voor een aparte budgetbeslissing, zonder dat U61 die productkeuze maakt.
