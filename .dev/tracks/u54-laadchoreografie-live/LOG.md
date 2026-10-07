@@ -388,3 +388,29 @@ Gezien en NIET opgelost (voor de PO):
 
 Receipts: `pnpm typecheck` exit 0, `pnpm test` exit 0 (470 tests; scrubber-test aangepast aan
 de nieuwe meldingstekst), `pnpm build` exit 0. Nog niet: gerichte e2e desktop.
+
+## 2026-10-08 00:55 — :4355 serveert d315561 (stap 3); meetpunten uitgebreid; soepelheid-nulmeting loopt
+
+- **Preview :4355 = commit d315561** (stap 3-voorstel, speelregel, iteratie 1), via
+  `web/scripts/track-preview.sh 4355`.
+- blank-visible (8a… zie commit "meetpunt"): naast "laatste zichtbare balk binnen" nu ook als
+  oppervlak — `blankSlotSeconds` (lege zichtbare slots × tijd) en `blankShareSeconds`
+  (hetzelfde als aandeel: seconden volledig-leeg-equivalent) — plus mijlpaal `first-bar`.
+  `ttfh` (`window-ready:rain_rate`) blijft de mijlpaal "nu ± 1 u compleet". In snapshot, HUD,
+  trace en rig-rapport; unit-test erbij.
+- Soepelheid (PO: "zo soepel mogelijk"): de rig-probe legt elk animatiebeeld vast; per venster
+  van een scenario rapporteert de rig frame-tijd p50/p95/max en het aantal beelden > 50 ms en
+  > 100 ms, plus texture-upload p50/p95 en scrub p50/p95 (invoer → regenbeeld, U49).
+  Scenario's: `soepel` (afspelen tijdens laden 2–12 s, afspelen na laden 15–25 s, seeken na
+  laden 26,5–36,5 s) en `soepel-seek-laden` (gepauzeerd, seeken 2–12 s). Seeken = elke 100 ms
+  één stap vooruit op de tijdslider.
+- Nulmeting soepelheid op po-android ×3 per scenario is gestart; wacht per run op loadavg ≤ 8.
+
+Wachtrij, in deze volgorde:
+1. Nulmeting soepelheid aflezen → tabel hier; PO-opnames (17:02, 18:05/18:06) ernaast.
+2. Kandidaten met eigen pixelvergelijking: regentextuur R8 i.p.v. RG8 (upload halveren),
+   uploads spreiden over beelden, wind-trail-werk per tik, tabel zonder layout-reads.
+3. Koud eerste regenframe (1,9 s): grootte en prioriteit van de eerste regen-Range.
+4. Nieuwe rig-baselines (`--baseline` ×3) zodra het meetcontract stilstaat; reden van de
+   +14 % decodes / +2 % wire in docs/perf.md.
+5. Gerichte e2e desktop na speelregel en stap 3 (nog niet gedraaid).
