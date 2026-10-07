@@ -137,6 +137,12 @@ test('the search panel is one element; a tap outside closes it without touching 
   await page.keyboard.press('Escape')
   await expect(list).toBeHidden()
   await input.focus()
+  // Openen begint met een leeg veld (U34, PO 2026-09-25): dan heet de × "Zoeken sluiten". Pas met tekst
+  // erin wordt hij "Zoektekst wissen".
+  await expect(input).toHaveValue('')
+  await expect(page.getByRole('button', { name: 'Zoeken sluiten' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Zoektekst wissen' })).toHaveCount(0)
+  await input.fill('Utr')
   await page.getByRole('button', { name: 'Zoektekst wissen' }).click()
   await expect(input).toHaveValue('')
   await page.getByRole('button', { name: 'Zoeken sluiten' }).click()

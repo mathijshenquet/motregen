@@ -622,3 +622,18 @@ PO-besluit (via orkestrator): het ging om de video — de temperatuurloop stapte
   De loop zelf heb ik niet als bewegend beeld gezien.
 - Receipts (synchroon, gelezen): `bot`: `pnpm typecheck` 0, `pnpm test` 0 (12 bestanden, 60 tests;
   sequences.test volgt de nieuwe stap), `pnpm build` 0. **Bot klaar voor herstart.**
+
+## 2026-10-08 05:45 — location.spec: de wisknop is terecht weg bij een leeg veld; test aangepast
+
+Main gemerged (conflict in `location.spec` op de drie maten die de orkestrator op main al had bijgewerkt:
+main's versie genomen; mijn wacht-op-de-morph-poll bleef staan).
+- Uitgezocht: de × heet "Zoektekst wissen" alleen als er tekst in het veld staat, anders "Zoeken sluiten"
+  (`clearOrClose` + het aria-label in `LocationSearch.tsx`). Sinds U34 (PO 2026-09-25) opent het veld leeg
+  (`onFocus`: `setQuery('')`), dus na Escape + focus is er terecht geen wisknop. Bedoeld gedrag; de test
+  stamde van vóór U34, toen het veld met de plaatsnaam opende.
+- Test: controleert nu eerst het lege veld met "Zoeken sluiten" en zonder "Zoektekst wissen", typt dan "Utr",
+  wist, en sluit. Geen productwijziging.
+- Receipt (synchroon, gelezen): `pnpm e2e e2e/location.spec.ts --project desktop` exit 0 (4 passed). Ook
+  "start location remembers saved places" was in deze run groen; die was eerder wisselend rood met
+  "Werkhoven" — de verdenking rond `?plaats=` staat nog open, niet onderzocht.
+- `pnpm typecheck` 0, `pnpm test` 0, `pnpm build` 0; 4320 serveert de nieuwe build, basiskaartarchief 206.
