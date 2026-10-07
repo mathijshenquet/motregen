@@ -17,6 +17,7 @@ export const USAGE_FEATURES = [
   'pin', // pin gebruikt: tik op de kaart, pin gesleept (loslaten) of dubbeltik-centreren
   'play', // afspelen gestart
   'scrub', // tijd gescrubd
+  'clockScrub', // tijd verzet via de klok: pil gesleept, toetsen op de pil of tik in de bronstrook (telt ook als scrub)
   'history', // historie in de tabel geopend
   'fresh', // versheidspaneel geopend
   'about', // About geopend

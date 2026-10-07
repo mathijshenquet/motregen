@@ -1,0 +1,18 @@
+{
+	auto_https off
+	admin off
+}
+
+:{$MOTREGEN_E2E_PORT:4392} {
+	header Document-Policy "js-profiling"
+	header Cache-Control "no-store"
+	handle_path /data/* {
+		reverse_proxy 127.0.0.1:{$MOTREGEN_E2E_DATA_PORT:8392}
+	}
+	handle {
+		root * dist
+		file_server {
+			precompressed gzip
+		}
+	}
+}

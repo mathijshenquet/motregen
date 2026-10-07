@@ -1,6 +1,6 @@
-import { expect, test, type CDPSession, type Locator, type Page } from '@playwright/test'
+import { expect, test, type CDPSession, type Page } from '@playwright/test'
 import type { Manifest } from '../src/core/contract'
-import { pausePlayback } from './playback'
+import { pausePlayback, startPlayback } from './playback'
 import { applyEmulation, performanceProfile } from './profiles'
 
 interface PerfSnapshot {
@@ -22,12 +22,12 @@ interface JourneyResult {
   coldTtfrMs: number | null
   warmTtfrMs: number | null
   passiveChunkBytes: number
-  timeToCompleteMs: number
+  timeToLoadStageMs: number
   scrubP50Ms: number | null
   scrubP95Ms: number | null
   scrubTransfers: number
   scrubFrames: number
-  secondClickRequests: number
+  locationTransfers: number
   sessionBytes: number
   resourceBytes: number
   sessionDownloadMs: number
@@ -35,7 +35,6 @@ interface JourneyResult {
   errors: string[]
 }
 
-const sessionByteBudget = 8_000_000
 const live = process.env.MOTREGEN_PERF_MODE === 'live'
 
 test('?perf opens the compact profiler controls while a plain URL closes stale state', async ({ page }) => {
@@ -81,14 +80,19 @@ test('user journey measures performance and cache behaviour', async ({ page, con
   const cdp = await context.newCDPSession(page)
   const network = await observeNetwork(cdp)
   await applyEmulation(cdp, profile)
+  await page.addInitScript(() => {
+    localStorage.setItem('motregen-saved-places', JSON.stringify([{
+      id: 'perf-utrecht', name: 'Utrecht', sourceLabel: 'Utrecht', lng: 5.1214, lat: 52.0907,
+    }]))
+  })
 
   let cold: PerfSnapshot | null = null
   let warm: PerfSnapshot | null = null
   let passive: PerfSnapshot | null = null
-  let timeToCompleteMs = 0
+  let timeToLoadStageMs = 0
   let scrubTransfers = 0
   let scrubFrames = 0
-  let secondClickRequests = 0
+  let locationTransfers = 0
 
   await test.step('cold load renders rain without browser errors', async () => {
     network.startJourney()
@@ -118,52 +122,51 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     await expect(page.getByRole('button', { name: 'Gekopieerd' })).toBeVisible()
   })
 
-  await test.step('full timeline scrub measures request coalescing', async () => {
+  await test.step('scrubbing and playback use the time slider, without removed range controls', async () => {
     await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor De Bilt$/)
     const requestStart = await transferredDataRequests(page, '/data/chunks/')
     const completeStartedAt = performance.now()
-    await page.getByRole('button', { name: 'Alles' }).click()
     const scrubber = page.getByRole('slider', { name: 'Tijd' })
-    scrubFrames = Number(await scrubber.getAttribute('aria-valuemax')) + 1
+    await pausePlayback(page)
     await scrubber.focus()
     await scrubber.press('Home')
-    await expect(scrubber).toHaveAttribute('data-load-stage', 'complete', { timeout: live ? 180_000 : 30_000 })
-    timeToCompleteMs = performance.now() - completeStartedAt
-    for (let index = 1; index < scrubFrames; index++) await scrubber.press('ArrowRight')
-    await page.waitForTimeout(1_000)
+    const scrubStart = Number(await scrubber.getAttribute('aria-valuenow'))
+    const scrubSteps = 12
+    for (let step = 0; step < scrubSteps; step++) await scrubber.press('ArrowRight')
+    scrubFrames = Number(await scrubber.getAttribute('aria-valuemax')) + 1
+    expect(Number(await scrubber.getAttribute('aria-valuenow'))).toBeGreaterThan(scrubStart)
+
+    const cursorBeforePlayback = await scrubber.getAttribute('aria-valuenow')
+    await startPlayback(page)
+    await expect.poll(() => scrubber.getAttribute('aria-valuenow')).not.toBe(cursorBeforePlayback)
+    await pausePlayback(page)
+    await expect(scrubber).toHaveAttribute('data-load-stage', expectedLoadStage(profile), { timeout: live ? 180_000 : 30_000 })
+    timeToLoadStageMs = performance.now() - completeStartedAt
+    await page.waitForTimeout(500)
     scrubTransfers = await transferredDataRequests(page, '/data/chunks/') - requestStart
-    if (!live) expect(scrubTransfers).toBeLessThan(scrubFrames / 3)
+    if (!live) expect(scrubTransfers).toBeLessThanOrEqual(profile.scrubTransferBudget)
     const measured = await perfSnapshot(page)
     expect(measured.scrub.samples).toBeGreaterThan(0)
     expect(errors).toEqual([])
-    console.log(`${profile.label}: complete in ${timeToCompleteMs.toFixed(1)} ms; scrub ${scrubTransfers} chunk requests / ${scrubFrames} frames; p50 ${measured.scrub.p50Ms} ms; p95 ${measured.scrub.p95Ms} ms; fps ${measured.fps ?? 'pending'}`)
+    console.log(`${profile.label}: ${expectedLoadStage(profile)} in ${timeToLoadStageMs.toFixed(1)} ms; scrub ${scrubTransfers} chunk requests / ${scrubFrames} frames; p50 ${measured.scrub.p50Ms} ms; p95 ${measured.scrub.p95Ms} ms; fps ${measured.fps ?? 'pending'}`)
   })
 
-  await test.step('fully decoded location change stays complete in the same tick', async () => {
+  await test.step('location changes through the search pill and reaches the appropriate load window', async () => {
     const scrubber = page.getByRole('slider', { name: 'Tijd' })
-    await expect(scrubber).toHaveAttribute('data-load-stage', 'complete')
-    await expect(page.locator('rect.rain-bar.pending')).toHaveCount(0)
-    await page.evaluate(() => {
-      const state = window as typeof window & { __skeletonReset?: boolean; __skeletonObserver?: MutationObserver }
-      const slider = document.querySelector('[role="slider"][aria-label="Tijd"]')!
-      state.__skeletonReset = false
-      state.__skeletonObserver = new MutationObserver(() => { state.__skeletonReset = true })
-      state.__skeletonObserver.observe(slider, { attributes: true, attributeFilter: ['data-load-stage'] })
-    })
     const requestStart = await transferredDataRequests(page, '/data/')
-    await clickCanvasAtRatio(page.locator('.map canvas').first(), 0.25, 0.4)
-    const state = await page.evaluate(() => {
-      const tracked = window as typeof window & { __skeletonReset?: boolean; __skeletonObserver?: MutationObserver }
-      tracked.__skeletonObserver?.disconnect()
-      return {
-        reset: tracked.__skeletonReset ?? false,
-        stage: document.querySelector('[role="slider"][aria-label="Tijd"]')?.getAttribute('data-load-stage'),
-        pending: document.querySelectorAll('rect.rain-bar.pending').length,
-      }
-    })
-    expect(state).toEqual({ reset: false, stage: 'complete', pending: 0 })
+    await page.getByRole('textbox', { name: 'Zoek plaats' }).click()
+    await page.getByRole('option', { name: /^Utrecht/ }).click()
+    await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor Utrecht$/)
+    // De slider-intentie is het productcontract voor L2 op desktop; op een krap apparaat
+    // vult dezelfde intentie uitsluitend het huidige zichtbare venster (U49).
+    await startPlayback(page)
+    await expect(scrubber).toHaveAttribute('data-load-stage', expectedLoadStage(profile), { timeout: live ? 180_000 : 30_000 })
+    await pausePlayback(page)
+    if (profile.id === 'desktop') await expect(page.locator('rect.rain-bar.pending')).toHaveCount(0)
     await page.waitForTimeout(100)
-    if (!live) expect(await transferredDataRequests(page, '/data/') - requestStart).toBe(0)
+    locationTransfers = await transferredDataRequests(page, '/data/') - requestStart
+    if (!live && profile.id === 'desktop') expect(locationTransfers).toBe(0)
+    expect(errors).toEqual([])
   })
 
   await test.step('manifest refresh preserves the cursor and decoded chunk cache', async () => {
@@ -188,8 +191,8 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     await expect.poll(() => page.locator('.now-line').getAttribute('style')).not.toBe(nowStyle)
     const refreshMs = performance.now() - refreshStartedAt
     expect(await scrubber.getAttribute('aria-valuetext')).toBe(cursorTime)
-    await expect(scrubber).toHaveAttribute('data-load-stage', 'complete')
-    await expect(page.locator('rect.rain-bar.pending')).toHaveCount(0)
+    await expect(scrubber).toHaveAttribute('data-load-stage', expectedLoadStage(profile))
+    if (profile.id === 'desktop') await expect(page.locator('rect.rain-bar.pending')).toHaveCount(0)
     await page.waitForTimeout(100)
     if (!live) expect(await transferredDataRequests(page, '/data/chunks/') - chunkRequestStart).toBe(0)
     await page.unroute('**/data/manifest.json')
@@ -200,7 +203,7 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     await page.goto('/')
     await waitForTtfr(page)
     const warmScrubber = page.getByRole('slider', { name: 'Tijd' })
-    await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor De Bilt$/)
+    await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor Utrecht$/)
     await expect(warmScrubber).toHaveAttribute('data-load-stage', 'window', { timeout: live ? 180_000 : 20_000 })
     await page.waitForLoadState('networkidle')
     warm = await perfSnapshot(page)
@@ -216,26 +219,9 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     console.log(`${profile.label}: warm TTFR ${warm.ttfrMs} ms; chunk transfer ${warm.network.chunks.bytes} B`)
   })
 
-  await test.step('two location clicks measure session-cache reuse', async () => {
-    const canvas = page.locator('.map canvas').first()
-    await clickCanvasAtRatio(canvas, 0.25, 0.4)
-    await expect(page.locator('.scrubber')).not.toHaveAttribute('aria-label', /laden/)
-    await expect(page.locator('tr.current-hour td').last()).not.toContainText('—')
-    await page.waitForTimeout(250)
-
-    const requestStart = await transferredDataRequests(page, '/data/')
-    await clickCanvasAtRatio(canvas, 0.75, 0.5)
-    await expect(page.locator('.scrubber')).not.toHaveAttribute('aria-label', /laden/)
-    await expect(page.locator('tr.current-hour td').last()).not.toContainText('—')
-    await page.waitForTimeout(250)
-    secondClickRequests = await transferredDataRequests(page, '/data/') - requestStart
-    if (!live) expect(secondClickRequests).toBe(0)
-    expect(errors).toEqual([])
-  })
-
   await test.step('the complete session reports transfer volume and duration', async () => {
     await page.waitForTimeout(500)
-    if (!live) expect(network.bytes()).toBeLessThan(sessionByteBudget)
+    if (!live) expect(network.bytes()).toBeLessThanOrEqual(profile.sessionByteBudget)
     const measured = await perfSnapshot(page)
     const result: JourneyResult = {
       profile: profile.id,
@@ -245,12 +231,12 @@ test('user journey measures performance and cache behaviour', async ({ page, con
       coldTtfrMs: cold?.ttfrMs ?? null,
       warmTtfrMs: warm?.ttfrMs ?? null,
       passiveChunkBytes: passive?.network.chunks.bytes ?? 0,
-      timeToCompleteMs,
+      timeToLoadStageMs,
       scrubP50Ms: measured.scrub.p50Ms,
       scrubP95Ms: measured.scrub.p95Ms,
       scrubTransfers,
       scrubFrames,
-      secondClickRequests,
+      locationTransfers,
       sessionBytes: network.bytes(),
       resourceBytes: measured.network.total.bytes,
       sessionDownloadMs: network.downloadDurationMs(),
@@ -258,7 +244,7 @@ test('user journey measures performance and cache behaviour', async ({ page, con
       errors,
     }
     await testInfo.attach('perf-result', { body: JSON.stringify(result), contentType: 'application/json' })
-    console.log(`${profile.label}: session ${result.sessionBytes} transferred bytes in ${result.sessionDownloadMs.toFixed(1)} ms; browser resource total ${result.resourceBytes} B; second click ${secondClickRequests} requests`)
+    console.log(`${profile.label}: session ${result.sessionBytes} transferred bytes in ${result.sessionDownloadMs.toFixed(1)} ms; browser resource total ${result.resourceBytes} B; location change ${locationTransfers} requests`)
   })
 })
 
@@ -285,10 +271,8 @@ async function observeNetwork(cdp: CDPSession): Promise<{
   }
 }
 
-async function clickCanvasAtRatio(canvas: Locator, xRatio: number, yRatio: number): Promise<void> {
-  const box = await canvas.boundingBox()
-  if (!box) throw new Error('Kaartcanvas heeft geen zichtbare bounding box')
-  await canvas.click({ position: { x: box.width * xRatio, y: box.height * yRatio } })
+function expectedLoadStage(profile: ReturnType<typeof performanceProfile>): 'complete' | 'window' {
+  return profile.id === 'desktop' ? 'complete' : 'window'
 }
 
 async function waitForTtfr(page: Page): Promise<PerfSnapshot> {

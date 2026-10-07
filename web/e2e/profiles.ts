@@ -14,11 +14,9 @@ export interface PerformanceProfile {
   coldTtfrBudgetMs: number
   warmTtfrBudgetMs: number
   warmChunkByteBudget: number
-  /**
-   * Chunkbytes van een koude start zonder interactie. Desktop laadt vooruit (hele tabel en
-   * tijdlijn); de mobiele profielen laden alleen wat in beeld is (U49) en halen dus minder op.
-   */
   passiveChunkByteBudget: number
+  scrubTransferBudget: number
+  sessionByteBudget: number
 }
 
 const megabit = 1_000_000 / 8
@@ -29,10 +27,12 @@ export const performanceProfiles: readonly PerformanceProfile[] = [
     label: 'Desktop',
     cpuThrottleRate: 1,
     network: null,
-    coldTtfrBudgetMs: 2_000,
-    warmTtfrBudgetMs: 1_500,
+    coldTtfrBudgetMs: 1_210,
+    warmTtfrBudgetMs: 890,
     warmChunkByteBudget: 0,
-    passiveChunkByteBudget: 1_100_000,
+    passiveChunkByteBudget: 1_155_000,
+    scrubTransferBudget: 19,
+    sessionByteBudget: 2_640_000,
   },
   {
     id: 'mobile-4g',
@@ -45,10 +45,12 @@ export const performanceProfiles: readonly PerformanceProfile[] = [
       latency: 60,
       connectionType: 'cellular4g',
     },
-    coldTtfrBudgetMs: 4_000,
-    warmTtfrBudgetMs: 3_500,
-    warmChunkByteBudget: 12_000,
-    passiveChunkByteBudget: 600_000,
+    coldTtfrBudgetMs: 4_915,
+    warmTtfrBudgetMs: 1_545,
+    warmChunkByteBudget: 0,
+    passiveChunkByteBudget: 686_000,
+    scrubTransferBudget: 11,
+    sessionByteBudget: 1_345_000,
   },
   {
     id: 'mobile-fast-3g',
@@ -61,10 +63,12 @@ export const performanceProfiles: readonly PerformanceProfile[] = [
       latency: 150,
       connectionType: 'cellular3g',
     },
-    coldTtfrBudgetMs: 8_000,
-    warmTtfrBudgetMs: 4_000,
-    warmChunkByteBudget: 12_000,
-    passiveChunkByteBudget: 600_000,
+    coldTtfrBudgetMs: 5_360,
+    warmTtfrBudgetMs: 1_690,
+    warmChunkByteBudget: 0,
+    passiveChunkByteBudget: 686_000,
+    scrubTransferBudget: 14,
+    sessionByteBudget: 1_355_000,
   },
 ]
 

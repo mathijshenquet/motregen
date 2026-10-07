@@ -1,11 +1,13 @@
 import { createMemo, createSignal, For, onCleanup, Show } from 'solid-js'
 import { Portal } from 'solid-js/web'
-import type { Manifest, Source } from '../core/contract'
+import { CLOCK_JOG_MS_PER_PX, clockKeyCursor, jogCursor, sourceStrip, STRIP_ZONES, stripEpochAtPosition, stripPositionAtEpoch, type ClockJogScale, type SourceStripZone } from '../core/clock-timeline'
+import type { Manifest, Source, TimelineFrame } from '../core/contract'
 import { ageMs, expectedNext, formatAge, formatAgeShort, formatClock, freshnessStatus, latestRadarEpoch, sourceFreshness, STATUS_LABELS, type RefreshState } from '../core/freshness'
-import { sourceZone } from '../core/time-model'
+import { SCRUBBER_VIEW_HOURS, sourceZone, timelineCursorAtEpoch, timelineEpochAtCursor } from '../core/time-model'
 import { BUTTON_ICON, INLINE_ICON, Play, X } from './icons'
 import { backdropHandlers } from './modal'
 import { formatTime, formatWeekdayShort } from '../core/locale'
+import ClockFace from './ClockFace'
 
 interface Props {
   // Epoch shown on the map (scrubber position) and the frame's source and run.
@@ -19,10 +21,20 @@ interface Props {
   /** Bewust gepauzeerd (spatie): de klok toont ▶ om verder te spelen (PO 2026-09-25 live). */
   paused?: boolean
   onPlay?: () => void
+  onPause?: () => void
+  /** Tijdlijn en cursor van de scrubber: slepen op de klok en tikken in de strook verzetten de tijd (U56). */
+  timeline?: TimelineFrame[]
+  cursor?: number
+  onCursor?: (cursor: number) => void
+  jogScale?: ClockJogScale
 }
 
 const TICK_MS = 15_000
 const CLOSE_FALLBACK_MS = 600
+// Gelijk aan de scrubber: tot zoveel px is het een tik, en na een sleep hervat afspelen na zoveel rust.
+const TAP_SLOP_PX = 4
+const RESUME_IDLE_MS = 1_000
+const HOUR_MS = 3_600_000
 
 // Leeftijd als tikkend label (PO 2026-09-25 live): zichtbaar dat hij meeloopt met de klok.
 function LiveAge(props: { ms: number; short?: boolean; title?: string }) {
@@ -57,6 +69,111 @@ export default function Freshness(props: Props) {
   const status = createMemo(() => freshnessStatus(radar(), clock(), props.refresh))
   const rows = createMemo(() => props.manifest ? sourceFreshness(props.manifest) : [])
   const radarAge = () => { const epoch = radar(); return epoch === undefined ? undefined : ageMs(epoch, clock()) }
+
+  const frames = () => props.timeline ?? []
+  const lastCursor = () => Math.max(0, frames().length - 1)
+  const sliderValue = createMemo(() => Math.round(props.cursor ?? 0))
+  let jog: { startX: number; startEpoch: number; msPerPx: number; moved: boolean } | undefined
+  let swallowClick = false
+  let resumeTimer: number | undefined
+  // Onze eigen korte pauze tijdens slepen; de ▶ blijft dan weg, anders verspringt de pil onder de vinger.
+  const [jogPaused, setJogPaused] = createSignal(false)
+  const [jogging, setJogging] = createSignal(false)
+  onCleanup(() => window.clearTimeout(resumeTimer))
+
+  function jogMsPerPx(): number {
+    if (props.jogScale !== 'scrubber') return CLOCK_JOG_MS_PER_PX
+    const plotWidth = document.querySelector('.scrub-surface .chart-plot')?.clientWidth
+    return plotWidth ? SCRUBBER_VIEW_HOURS * HOUR_MS / plotWidth : CLOCK_JOG_MS_PER_PX
+  }
+
+  function pauseForJog(): void {
+    window.clearTimeout(resumeTimer)
+    if (jogPaused() || props.paused) return
+    setJogPaused(true)
+    props.onPause?.()
+  }
+
+  function resumeAfterJog(): void {
+    window.clearTimeout(resumeTimer)
+    if (!jogPaused()) return
+    resumeTimer = window.setTimeout(endJogPause, RESUME_IDLE_MS)
+  }
+
+  function endJogPause(): void {
+    window.clearTimeout(resumeTimer)
+    if (!jogPaused()) return
+    setJogPaused(false)
+    props.onPlay?.()
+  }
+
+  function jogStart(event: PointerEvent & { currentTarget: HTMLButtonElement }): void {
+    if (event.button !== 0 || !frames().length || !props.onCursor) return
+    jog = { startX: event.clientX, startEpoch: timelineEpochAtCursor(frames(), props.cursor ?? 0), msPerPx: jogMsPerPx(), moved: false }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  function jogMove(event: PointerEvent): void {
+    if (!jog) return
+    const deltaPx = event.clientX - jog.startX
+    if (!jog.moved) {
+      if (Math.abs(deltaPx) <= TAP_SLOP_PX) return
+      jog.moved = true
+      setJogging(true)
+      pauseForJog()
+    }
+    props.onCursor?.(jogCursor(frames(), jog.startEpoch, deltaPx, jog.msPerPx))
+  }
+
+  function jogEnd(event: PointerEvent & { currentTarget: HTMLButtonElement }): void {
+    if (!jog) return
+    const dragged = jog.moved
+    jog = undefined
+    setJogging(false)
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    if (!dragged) return
+    resumeAfterJog()
+    if (event.type !== 'pointerup') return
+    // De klik die op het loslaten volgt mag het paneel niet openen; komt er geen (touch), dan vervalt dit.
+    swallowClick = true
+    window.setTimeout(() => { swallowClick = false }, 0)
+  }
+  function triggerClick(): void {
+    if (swallowClick) { swallowClick = false; return }
+    openPanel()
+  }
+
+  function triggerKeyDown(event: KeyboardEvent): void {
+    if (event.key === ' ') {
+      // Spatie is afspelen/pauzeren zoals op de scrubber; Enter opent het paneel.
+      event.preventDefault()
+      if (jogPaused()) endJogPause()
+      else if (props.paused) props.onPlay?.()
+      else props.onPause?.()
+      return
+    }
+    if (!frames().length || !props.onCursor) return
+    const next = clockKeyCursor(event.key, props.cursor ?? 0, lastCursor())
+    if (next === undefined) return
+    event.preventDefault()
+    props.onCursor(next)
+  }
+
+  const [panelOpen, setPanelOpen] = createSignal(false)
+  const strip = createMemo(() => panelOpen() ? sourceStrip(frames()) : [])
+  const zoneAge = (zone: SourceStripZone) => {
+    const sources = STRIP_ZONES.find((candidate) => candidate.key === zone.key)!.sources
+    const row = sources.map((source) => rows().find((candidate) => candidate.source === source)).find((candidate) => candidate !== undefined)
+    return row && { ms: ageMs(row.epoch, clock()), title: `${row.kind === 'measured' ? 'laatste meting' : 'laatste run'} ${formatClock(row.epoch, clock())}` }
+  }
+  const nowPosition = () => props.manifest ? stripPositionAtEpoch(strip(), Date.parse(props.manifest.now)) : undefined
+
+  function jumpInStrip(event: MouseEvent & { currentTarget: HTMLDivElement }): void {
+    const bounds = event.currentTarget.getBoundingClientRect()
+    if (!bounds.width || !strip().length) return
+    const epoch = stripEpochAtPosition(strip(), (event.clientX - bounds.left) / bounds.width * 100)
+    props.onCursor?.(timelineCursorAtEpoch(frames(), epoch))
+  }
   const summary = () => {
     const age = radarAge()
     return age === undefined ? 'Geen radar' : `Radar ${formatClock(radar()!, clock())}, ${formatAge(age)}`
@@ -76,6 +193,9 @@ export default function Freshness(props: Props) {
     dialog.style.setProperty('--clock-right', `${Math.max(0, Math.round(left + width - pill.right))}px`)
     dialog.style.setProperty('--clock-height', `${Math.round(pill.height)}px`)
     dialog.style.setProperty('--clock-center', `${Math.round(pill.left + pill.width / 2 - left)}px`)
+    // Loopt de korte sleeppauze nog, dan eerst hervatten: het paneel onthoudt zelf of er werd afgespeeld.
+    endJogPause()
+    setPanelOpen(true)
     setSecond(Date.now())
     stopSeconds()
     secondTimer = window.setInterval(() => setSecond(Date.now()), 1_000)
@@ -112,24 +232,35 @@ export default function Freshness(props: Props) {
   }
 
   return <div class="map-clock" data-freshness={status()}>
-    <Show when={props.paused}>
+    <Show when={props.paused && !jogPaused()}>
       <button type="button" class="clock-play" aria-label="Afspelen" title="Afspelen" onClick={() => props.onPlay?.()}><Play {...INLINE_ICON} fill="currentColor" /></button>
     </Show>
     <button
       ref={trigger}
       type="button"
       class="freshness-trigger"
+      classList={{ jogging: jogging() }}
+      role="slider"
       aria-haspopup="dialog"
       aria-label={`Kaart ${mapTime()}${mapDay() ? ` ${mapDay()}` : ''}, ${regime()}. ${STATUS_LABELS[status()]}: ${summary()}. Details over dataversheid`}
-      title="Hoe actueel is de data?"
-      onClick={openPanel}
+      aria-valuemin={0}
+      aria-valuemax={lastCursor()}
+      aria-valuenow={sliderValue()}
+      aria-valuetext={`${mapTime()}${mapDay() ? ` ${mapDay()}` : ''}`}
+      title="Sleep om de tijd te verzetten · tik voor de dataversheid"
+      onClick={triggerClick}
+      onKeyDown={triggerKeyDown}
+      // Een knop klikt op het loslaten van de spatie; die is hier afspelen/pauzeren.
+      onKeyUp={(event) => { if (event.key === ' ') event.preventDefault() }}
+      onPointerDown={jogStart}
+      onPointerMove={jogMove}
+      onPointerUp={jogEnd}
+      onPointerCancel={jogEnd}
     >
       {/* PO 2026-09-25: geen groene stip; alleen bij achterlopen/verouderd een stip links van de tijd en de leeftijd eronder. */}
-      <span class="clock-main">
+      <ClockFace time={mapTime()} day={mapDay()}>
         <Show when={status() !== 'fresh'}><i class="freshness-dot" aria-hidden="true" /></Show>
-        <strong class="clock-map-time">{mapTime()}</strong>
-        <Show when={mapDay()}><small class="clock-day">{mapDay()}</small></Show>
-      </span>
+      </ClockFace>
       <Show when={status() !== 'fresh'}>
         <small class="clock-age">{status() === 'offline' ? 'offline' : radarAge() === undefined ? 'geen radar' : `${formatAgeShort(radarAge()!)} oud`}</small>
       </Show>
@@ -142,15 +273,14 @@ export default function Freshness(props: Props) {
         ref={dialog}
         class="about-dialog freshness-dialog"
         aria-labelledby="freshness-title"
-        onClose={() => { stopSeconds(); props.onClose?.(); trigger.focus() }}
+        onClose={() => { stopSeconds(); setPanelOpen(false); props.onClose?.(); trigger.focus() }}
         onCancel={(event) => { event.preventDefault(); closePanel() }}
         {...backdropHandlers(() => dialog, closePanel)}
       >
         {/* Nog eens op de klok klikken rolt het papier weer op; grijs = de tijd staat stil. */}
         <div class="freshness-clock">
-          <button type="button" class="clock-main" aria-label="Sluiten" title="Sluiten" onClick={closePanel}>
-            <strong class="clock-map-time">{mapTime()}</strong>
-            <Show when={mapDay()}><small class="clock-day">{mapDay()}</small></Show>
+          <button type="button" class="freshness-close" aria-label="Sluiten" title="Sluiten" onClick={closePanel}>
+            <ClockFace time={mapTime()} day={mapDay()} />
           </button>
         </div>
         <div class="about-body">
@@ -166,6 +296,20 @@ export default function Freshness(props: Props) {
               verversen mislukt om {time(props.refresh!.failedAt!)}; je ziet de laatst opgehaalde data
             </Show>
           </p>
+          <Show when={strip().length}>
+            {/* Tik springt naar dat moment; met het toetsenbord verzet de klok zelf de tijd. */}
+            <div class="freshness-strip" data-testid="freshness-strip" title="Tik om naar dat moment te gaan" onClick={jumpInStrip}>
+              <div class="freshness-strip-zones">
+                <For each={strip()}>{(zone) => <div class="freshness-strip-zone" data-zone={zone.key} data-kind={zone.kind} style={{ width: `${zone.end - zone.start}%` }}>
+                  <i aria-hidden="true" />
+                  <span>{zone.label}</span>
+                  <Show when={zoneAge(zone)}>{(age) => <small title={age().title}>{formatAgeShort(age().ms)}</small>}</Show>
+                </div>}</For>
+              </div>
+              <Show when={nowPosition() !== undefined}><i class="freshness-strip-now" style={{ left: `${nowPosition()}%` }} aria-hidden="true"><b>Nu</b></i></Show>
+              <i class="freshness-strip-marker" style={{ left: `${stripPositionAtEpoch(strip(), props.mapEpoch)}%` }} aria-hidden="true" />
+            </div>
+          </Show>
           <div class="freshness-table-scroll">
             <table class="freshness-sources">
               <thead><tr><th>Data</th><th>Bron</th><th>Uitleg</th><th>Frequentie</th><th>Volgende data</th></tr></thead>

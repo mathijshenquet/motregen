@@ -358,6 +358,7 @@ in
     users.groups.motregen-bot = lib.mkIf cfg.bot.enable { };
 
     systemd.services.motregen-bot = lib.mkIf cfg.bot.enable {
+      path = [ pkgs.ffmpeg ];
       description = "Telegram bot and national still renderer for motregen.nl";
       wantedBy = [ "multi-user.target" ];
       wants = [ "network-online.target" ];
@@ -492,11 +493,16 @@ in
           }
 
           ${lib.optionalString cfg.bot.enable ''
-            handle_path /telegram/stills/* {
+            @telegramMedia path /telegram/stills/*.jpg /telegram/stills/*.mp4
+            handle @telegramMedia {
               root * /var/cache/motregen-bot/stills
+              uri strip_prefix /telegram/stills
               header Cache-Control "public, max-age=7200, immutable"
               header X-Robots-Tag "noindex"
               file_server
+            }
+            handle /telegram/stills/* {
+              respond 404
             }
           ''}
 

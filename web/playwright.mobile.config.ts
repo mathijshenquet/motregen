@@ -1,0 +1,35 @@
+import { defineConfig, devices } from '@playwright/test'
+
+const port = Number(process.env.MOTREGEN_E2E_PORT ?? 4392)
+const dataPort = Number(process.env.MOTREGEN_E2E_DATA_PORT ?? 8392)
+
+export default defineConfig({
+  testDir: './e2e',
+  testMatch: 'mobile-load.rig.ts',
+  outputDir: './tmp/perf-mobile/playwright',
+  fullyParallel: false,
+  workers: 1,
+  retries: 0,
+  timeout: 60_000,
+  reporter: [['list']],
+  projects: [{ name: 'desktop', use: { ...devices['Pixel 5'] } }],
+  use: {
+    baseURL: `http://127.0.0.1:${port}`,
+    serviceWorkers: 'block',
+    launchOptions: { args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] },
+  },
+  webServer: [
+    {
+      command: `MOTREGEN_SYNTH_DIR=public/perf-mobile pnpm synthgen && MOTREGEN_E2E_DATA_PORT=${dataPort} pnpm exec tsx scripts/mobile-fixture.ts && MOTREGEN_E2E_DATA_PORT=${dataPort} caddy run --config perf/Caddyfile`,
+      url: `http://127.0.0.1:${dataPort}/manifest.json`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+    {
+      command: `VITE_BASEMAP_STYLE_URL=http://127.0.0.1:${dataPort}/style.json pnpm build && pnpm exec tsx scripts/mobile-assets.ts && MOTREGEN_E2E_PORT=${port} MOTREGEN_E2E_DATA_PORT=${dataPort} caddy run --config perf/Preview.Caddyfile`,
+      url: `http://127.0.0.1:${port}`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+  ],
+})

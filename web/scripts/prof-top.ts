@@ -14,7 +14,7 @@ interface ProfileChunk {
   name: string
   pid: number
   tid: number
-  id: string | number
+  id?: string | number
   args?: { data?: { cpuProfile?: { nodes?: ProfileNode[]; samples?: number[] }; timeDeltas?: number[] } }
 }
 

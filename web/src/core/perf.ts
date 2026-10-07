@@ -83,6 +83,8 @@ export interface PerfSnapshot {
   manifestAgeMs: number | null
   phases: Partial<Record<PerfPhase, PerfPhaseSummary>>
   longFrames: LongFrameSummary[]
+  /** Per veld: ms sinds timeOrigin tot het venster nu ± 1 u voor het eerst compleet was. */
+  windowReadyMs: Record<string, number>
 }
 
 export const PERF_STORAGE_KEY = 'motregen-perf'
@@ -107,8 +109,11 @@ export interface PerfPhaseSummary {
   p95Ms: number
 }
 
+/** Mijlpaal op de tijdlijn: van timeOrigin tot het venster nu ± 1 u van dit veld compleet was (U52). */
+export type WindowReadyMeasure = `window-ready:${string}`
+
 export interface PerfMeasure {
-  phase: PerfPhase
+  phase: PerfPhase | WindowReadyMeasure
   startTime: number
   duration: number
   detail?: Record<string, unknown>
@@ -322,6 +327,7 @@ export class PerfMonitor {
   private fpsValue: number | null = null
   private readonly measures: PerfMeasure[] = []
   private readonly longFrames: LongFrameSummary[] = []
+  private readonly windowReady = new Map<string, number>()
   private longFrameObserver?: PerformanceObserver
   readonly loads: LoadTrace
 
@@ -378,6 +384,16 @@ export class PerfMonitor {
     this.manifestGeneratedAt = Number.isFinite(epoch) ? epoch : null
   }
 
+  /** Alleen het eerste moment per veld telt: de koude start, niet een latere locatiewissel. */
+  markWindowReady(field: string): void {
+    if (this.windowReady.has(field)) return
+    const now = this.environment.now()
+    this.windowReady.set(field, now)
+    if (!detailedMeasurementsEnabled) return
+    performance.measure(`motregen:window-ready:${field}`, { start: 0, end: now })
+    this.recordPhase({ phase: `window-ready:${field}`, startTime: 0, duration: now })
+  }
+
   markScrubInput(): void {
     this.pendingScrubAt = this.environment.now()
   }
@@ -414,6 +430,7 @@ export class PerfMonitor {
       network,
       manifestAgeMs: this.manifestGeneratedAt === null ? null : Math.max(0, this.environment.wallNow() - this.manifestGeneratedAt),
       phases,
+      windowReadyMs: Object.fromEntries([...this.windowReady].map(([field, readyMs]) => [field, Math.round(readyMs)])),
       longFrames: this.longFrames.filter((entry) => entry.startTime + entry.duration >= cutoff)
         .sort((left, right) => right.duration - left.duration).slice(0, 5)
         .map((entry) => ({ ...entry, scripts: entry.scripts.map((script) => ({ ...script })) })),

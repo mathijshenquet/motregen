@@ -1,11 +1,15 @@
-import { expect, test, type Page, type TestInfo } from '@playwright/test'
+import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test'
+import { pausePlayback, startPlayback } from './playback'
 
 // Laatste rtcor-frame in het synth-manifest (scripts/synthgen.ts: now − 5 min).
 const LATEST_RADAR = Date.parse('2026-08-28T14:55:00Z')
+const radarClock = (page: Page) => page.evaluate((epoch) => new Intl.DateTimeFormat('nl-NL', { hour: '2-digit', minute: '2-digit' }).format(epoch), LATEST_RADAR)
 const minutes = (n: number) => n * 60_000
 
 const pill = (page: Page) => page.locator('.map-clock')
-const details = (page: Page) => page.getByRole('button', { name: /Details over dataversheid/ })
+// Sinds U56 is de klokpil ook een tijdschuif (slepen = scrubben); een tik opent nog steeds het paneel.
+const details = (page: Page) => page.getByRole('slider', { name: /Details over dataversheid/ })
+const scrubber = (page: Page) => page.getByRole('slider', { name: 'Tijd', exact: true })
 
 // PO 2026-09-25: actueel = alleen de tijd; achterlopend/verouderd = stip links van de tijd + leeftijd eronder.
 async function expectDot(page: Page, token: '--fresh' | '--aging' | '--stale'): Promise<void> {
@@ -77,13 +81,21 @@ async function expectTopCenter(page: Page): Promise<void> {
   expect(Number(await page.locator('.map').getAttribute('data-inset-top'))).toBeGreaterThanOrEqual(Math.round(pillBox.y + pillBox.height - map.y))
 }
 
+// Het paneel rolt in 0,42 s uit; een still halverwege toont een afgesneden paneel.
+async function unrolled(dialog: Locator): Promise<void> {
+  await dialog.evaluate((element) => Promise.all(element.getAnimations().map((animation) => animation.finished)))
+}
+
 // Per thema: optioneel het paneel openen, vastleggen en weer sluiten.
 async function shoot(page: Page, testInfo: TestInfo, name: string, withPanel = false): Promise<void> {
   for (const theme of ['light', 'dark'] as const) {
     await useTheme(page, theme)
     if (withPanel) await details(page).click()
     const dialog = page.getByRole('dialog', { name: 'Hoe actueel is de data?' })
-    if (withPanel) await expect(dialog).toBeVisible()
+    if (withPanel) {
+      await expect(dialog).toBeVisible()
+      await unrolled(dialog)
+    }
     await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-${name}-${theme}.png`) })
     if (withPanel) {
       await page.keyboard.press('Escape')
@@ -99,14 +111,14 @@ test('fresh radar reads as current, with the scan time and its age', async ({ pa
   await expectDot(page, '--fresh')
   // Alleen de kaarttijd als tekst; status, radartijd en leeftijd in de aria-label en het paneel.
   await expect(details(page)).toHaveText(/^\d\d:\d\d$/)
-  await expect(details(page)).toHaveAttribute('aria-label', /\. Actueel: Radar 14:55, 3 min geleden\. Details over dataversheid$/)
+  await expect(details(page)).toHaveAttribute('aria-label', new RegExp(`\\. Actueel: Radar ${await radarClock(page)}, 3 min geleden\\. Details over dataversheid$`))
   await expect(page.locator('.map-clock [aria-live="polite"]')).toHaveText('Actueel')
   await shoot(page, testInfo, 'vers')
 
   await details(page).click()
   const dialog = page.getByRole('dialog', { name: 'Hoe actueel is de data?' })
   await expect(dialog).toBeVisible()
-  for (const source of ['Radar', 'Nowcast', 'Blend', 'HARMONIE', 'UV']) await expect(dialog.getByText(source, { exact: true })).toBeVisible()
+  for (const source of ['Radar', 'Nowcast', 'Blend', 'HARMONIE', 'UV']) await expect(dialog.locator('.freshness-sources').getByText(source, { exact: true })).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(dialog).toBeHidden()
   await expect(details(page)).toBeFocused()
@@ -141,13 +153,13 @@ test('radar that stopped arriving is marked aging, then stale', async ({ page },
   await openAt(page, LATEST_RADAR + minutes(14))
   await expect(pill(page)).toHaveAttribute('data-freshness', 'aging')
   await expectDot(page, '--aging')
-  await expect(details(page)).toHaveAttribute('aria-label', /Loopt achter: Radar 14:55, 14 min geleden/)
+  await expect(details(page)).toHaveAttribute('aria-label', new RegExp(`Loopt achter: Radar ${await radarClock(page)}, 14 min geleden`))
   await shoot(page, testInfo, 'verouderend')
 
   await openAt(page, LATEST_RADAR + minutes(95))
   await expect(pill(page)).toHaveAttribute('data-freshness', 'stale')
   await expectDot(page, '--stale')
-  await expect(details(page)).toHaveAttribute('aria-label', /Verouderd: Radar 14:55, 1 u 35 min geleden/)
+  await expect(details(page)).toHaveAttribute('aria-label', new RegExp(`Verouderd: Radar ${await radarClock(page)}, 1 u 35 min geleden`))
   await expectTopCenter(page)
   await shoot(page, testInfo, 'verouderd')
 
@@ -162,7 +174,7 @@ test('radar that stopped arriving is marked aging, then stale', async ({ page },
   // Zelfde moment uitlezen: op trage profielen glijdt de cursor nog na.
   await expect.poll(() => page.evaluate(() => {
     const clock = document.querySelector('.map-clock .clock-map-time')?.textContent?.trim()
-    const cursor = /\d\d:\d\d/.exec(document.querySelector('[role="slider"]')?.getAttribute('aria-valuetext') ?? '')?.[0]
+    const cursor = /\d\d:\d\d/.exec(document.querySelector('.scrub-surface')?.getAttribute('aria-valuetext') ?? '')?.[0]
     return clock !== undefined && clock === cursor
   })).toBe(true)
   await expectTopCenter(page)
@@ -177,6 +189,79 @@ test('radar that stopped arriving is marked aging, then stale', async ({ page },
   await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-weken-oud-kaart-light.png`) })
 })
 
+// U56 (feedback Maarten): slepen op de klokpil scrubt, en het uitgerolde paneel toont de tijdlijn per bron.
+test('dragging the clock scrubs the time and the unrolled panel shows the source strip', async ({ page }, testInfo) => {
+  await openAt(page, LATEST_RADAR + minutes(3))
+  await expect(scrubber(page)).toHaveAttribute('data-load-stage', /window|complete/, { timeout: 20_000 })
+  await pausePlayback(page)
+  const cursorOf = async (slider: ReturnType<typeof scrubber>) => Number(await slider.getAttribute('aria-valuenow'))
+  const dialog = page.getByRole('dialog', { name: 'Hoe actueel is de data?' })
+  const dragClock = async (deltaPx: number, release = true) => {
+    const box = (await details(page).boundingBox())!
+    const startX = box.x + box.width / 2
+    const y = box.y + box.height / 2
+    await page.mouse.move(startX, y)
+    await page.mouse.down()
+    await page.mouse.move(startX + deltaPx, y, { steps: 6 })
+    if (release) await page.mouse.up()
+  }
+
+  await expect(details(page)).toHaveCSS('cursor', 'ew-resize')
+  await expect(details(page)).toHaveCSS('touch-action', 'pan-y')
+  const before = await cursorOf(scrubber(page))
+  // 30 px naar rechts = een uur later: twaalf nowcast-frames van vijf minuten.
+  await dragClock(30)
+  await expect(scrubber(page)).toHaveAttribute('aria-valuenow', String(before + 12))
+  await expect(details(page)).toHaveAttribute('aria-valuenow', String(before + 12))
+  await expect(dialog).toBeHidden()
+  await dragClock(-45)
+  await expect(scrubber(page)).toHaveAttribute('aria-valuenow', String(before - 6))
+  await expect(dialog).toBeHidden()
+
+  // Toetsen op de pil: dezelfde stappen als de scrubber.
+  await details(page).press('ArrowRight')
+  await expect(scrubber(page)).toHaveAttribute('aria-valuenow', String(before - 5))
+  await details(page).press('PageUp')
+  await expect(scrubber(page)).toHaveAttribute('aria-valuenow', String(before + 1))
+
+  // Tijdens slepen pauzeert het afspelen, zonder ▶ in de pil, en het hervat na een seconde rust.
+  await startPlayback(page)
+  await dragClock(-20, false)
+  await expect(scrubber(page)).not.toHaveAttribute('data-playing', '')
+  await expect(pill(page).getByRole('button', { name: 'Afspelen' })).toHaveCount(0)
+  await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-klok-slepen-light.png`) })
+  await page.mouse.up()
+  await expect(dialog).toBeHidden()
+  await expect(scrubber(page)).toHaveAttribute('data-playing', '', { timeout: 3_000 })
+  await pausePlayback(page)
+
+  // Een tik opent het paneel met de strook: drie bronzones, elk met de leeftijd van de laatste run.
+  await details(page).click()
+  await expect(dialog).toBeVisible()
+  const strip = dialog.getByTestId('freshness-strip')
+  const zones = strip.locator('.freshness-strip-zone')
+  await expect(zones.locator('span')).toHaveText(['Radar', 'Nowcast', 'HARMONIE'])
+  await expect(zones.locator('small')).toHaveText(['3 min', 'zojuist', '2 u'])
+  await expect(strip.locator('.freshness-strip-now')).toHaveText('Nu')
+  const stripBox = (await strip.boundingBox())!
+  const zoneBoxes = await zones.evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().width))
+  for (const width of zoneBoxes) expect(width / stripBox.width, 'elke zone leesbaar breed').toBeGreaterThan(0.15)
+  const markerX = async () => (await strip.locator('.freshness-strip-marker').boundingBox())!.x
+  await unrolled(dialog)
+  await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-strook-light.png`) })
+
+  // Tik in de strook springt de cursor: links het begin van de radar, rechts het einde van HARMONIE.
+  await strip.click({ position: { x: 1, y: 22 } })
+  await expect(scrubber(page)).toHaveAttribute('aria-valuenow', '0')
+  const leftMarker = await markerX()
+  await strip.click({ position: { x: stripBox.width - 1, y: 22 } })
+  await expect(scrubber(page)).toHaveAttribute('aria-valuenow', await scrubber(page).getAttribute('aria-valuemax') ?? '')
+  expect(await markerX() - leftMarker).toBeGreaterThan(stripBox.width * 0.9)
+  await expect(dialog).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+})
+
 test('a failed manifest refresh shows offline instead of silently stale data', async ({ page }, testInfo) => {
   await openAt(page, LATEST_RADAR + minutes(3))
   await expect(pill(page)).toHaveAttribute('data-freshness', 'fresh')
@@ -189,7 +274,7 @@ test('a failed manifest refresh shows offline instead of silently stale data', a
   await expect(page.getByRole('dialog')).toBeHidden()
   await shoot(page, testInfo, 'offline-paneel', true)
   await expectDot(page, '--stale')
-  await expect(details(page)).toHaveAttribute('aria-label', /\. Offline: Radar 14:55/)
+  await expect(details(page)).toHaveAttribute('aria-label', new RegExp(`\\. Offline: Radar ${await radarClock(page)}`))
   await expect(page.locator('.map-clock [aria-live="polite"]')).toHaveText('Offline')
   await shoot(page, testInfo, 'offline')
 

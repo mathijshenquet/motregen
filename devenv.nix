@@ -16,6 +16,7 @@
 
   packages = [
     pkgs.caddy
+    pkgs.ffmpeg
     pkgs.eccodes
     pkgs.hdf5
     pkgs.pkg-config

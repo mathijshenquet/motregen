@@ -414,6 +414,7 @@ export class WindLayer implements CustomLayerInterface {
   private columns = 1
   private rows = 1
   private previousTime = 0
+  private simulationTime?: number
   private repaintFrame?: number
   /** Gezet door een `LayerOverlay`: die tekent de windcanvas zelf (met de fps-grens). */
   requestRepaint?: () => void
@@ -644,6 +645,11 @@ export class WindLayer implements CustomLayerInterface {
     return this.tuning.maxFps
   }
 
+  setSimulationTime(milliseconds: number): void {
+    if (this.simulationTime === undefined) this.previousTime = 0
+    this.simulationTime = milliseconds
+  }
+
   private repaint(): void {
     if (this.requestRepaint) this.requestRepaint()
     else this.map?.triggerRepaint()
@@ -659,7 +665,7 @@ export class WindLayer implements CustomLayerInterface {
     if (this.tuning.intensity * Math.min(this.tuning.visibility, 1) <= 0) { this.previousTime = 0; return }
     this.ensureTrailTargets()
     if (!this.map || !this.trails || !this.segmentArray || !this.fadeArray || !this.compositeArray || !this.left || !this.right) return
-    const now = performance.now()
+    const now = this.simulationTime ?? performance.now()
     const elapsed = this.previousTime ? Math.min(40, now - this.previousTime) : 16
     // Een tweede tekening in dezelfde frame (kaartrender én eigen frame) laat de tijd niet lopen:
     // anders trekt de vloer er per frame dubbel af en stempelt een kop een segment van niets.
