@@ -47,6 +47,37 @@ const focusModes = {
 
 const relativeTime = /^([+-])(\d+)([um])$/
 const isoTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:?\d{2})$/
+/** Compacte lokale vorm zonder dubbele punten (URL-vriendelijk), Europe/Amsterdam: `2026-10-08T0757` (PO 2026-10-07). */
+const localTime = /^(\d{4})-(\d{2})-(\d{2})T(\d{2})(\d{2})$/
+const LOCAL_ZONE = 'Europe/Amsterdam'
+const localParts = new Intl.DateTimeFormat('en-GB', { timeZone: LOCAL_ZONE, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+
+function localWallClock(epoch: number): { year: number; month: number; day: number; hour: number; minute: number } {
+  const part = Object.fromEntries(localParts.formatToParts(epoch).map((item) => [item.type, item.value]))
+  return { year: Number(part.year), month: Number(part.month), day: Number(part.day), hour: Number(part.hour), minute: Number(part.minute) }
+}
+
+/** `2026-10-08T0757` in Europe/Amsterdam; minuten-precisie. */
+export function formatLocalTime(epoch: number): string {
+  const wall = localWallClock(epoch)
+  const two = (value: number) => String(value).padStart(2, '0')
+  return `${wall.year}-${two(wall.month)}-${two(wall.day)}T${two(wall.hour)}${two(wall.minute)}`
+}
+
+/** Omgekeerde van formatLocalTime: zoek de UTC-epoch waarvan de Amsterdamse wandklok op de gevraagde minuut staat. */
+function parseLocalTime(value: string): number | undefined {
+  const match = localTime.exec(value)
+  if (!match) return undefined
+  const [, year, month, day, hour, minute] = match.map(Number)
+  const wanted = Date.UTC(year!, month! - 1, day!, hour!, minute!)
+  // Eerste gok: alsof het UTC was; de echte offset volgt uit de wandklok van die gok (één correctie volstaat,
+  // behalve in het DST-overgangsuur, waar de eerste geldige lezing wint).
+  for (const guess of [wanted, wanted - 3_600_000, wanted - 7_200_000]) {
+    const wall = localWallClock(guess)
+    if (Date.UTC(wall.year, wall.month - 1, wall.day, wall.hour, wall.minute) === wanted) return guess
+  }
+  return undefined
+}
 
 export function parsePresets(search: string | URLSearchParams, now = Date.now()): UrlPresets {
   const params = typeof search === 'string' ? new URLSearchParams(search) : search
@@ -75,7 +106,7 @@ export function shareablePlace(label: string | undefined): string | undefined {
 
 export function applyPresetParams(params: URLSearchParams, state: ShareState, includeTime: boolean): URLSearchParams {
   params.set('modus', queryModes[state.mode])
-  if (includeTime) params.set('t', new Date(Math.round(state.epoch / 60_000) * 60_000).toISOString().replace('.000Z', 'Z'))
+  if (includeTime) params.set('t', formatLocalTime(Math.round(state.epoch / 60_000) * 60_000))
   else params.delete('t')
   const place = shareablePlace(state.place)
   if (place) {
@@ -123,6 +154,8 @@ function parseEpoch(value: string | null, now: number): number | undefined {
     const unit = relative[3] === 'u' ? 3_600_000 : 60_000
     return now + (relative[1] === '+' ? amount : -amount) * unit
   }
+  const local = parseLocalTime(normalized)
+  if (local !== undefined) return local
   if (!isoTime.test(normalized)) return undefined
   const epoch = Date.parse(normalized)
   return Number.isFinite(epoch) ? epoch : undefined
