@@ -1,5 +1,5 @@
 import { createEffect, createMemo, createSignal, createUniqueId, For, Index, onCleanup, onMount, Show, untrack } from 'solid-js'
-import { CLOUD_LAYERS, cloudBand, skyAt, skyStars, skyStops, sunCrossings, type CloudSeries } from '../core/cloud-section'
+import { CLOUD_LAYERS, cloudBand, skyAt, skyStars, skyStops, skyStrokes, sunCrossings, type CloudSeries } from '../core/cloud-section'
 import type { TimelineFrame } from '../core/contract'
 import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColor } from '../core/rain-chart'
 import { SCRUBBER_CURSOR_FRACTION, SCRUBBER_VIEW_HOURS, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
@@ -213,6 +213,7 @@ export default function HistogramScrubber(props: Props) {
     if (!skyVisible()) return undefined
     const pxPerHour = HOUR * pxPerMs()
     return {
+      strokes: skyStrokes(cloudWidth(), plotHeight(), pxPerHour, sky()),
       stars: skyStars(cloudWidth(), plotHeight(), pxPerHour, sky()),
       dusks: sunCrossings(timelineStart(), timelineEnd(), props.sky!.sinElevation).map((crossing) => {
         const x = xAt(crossing.epoch)
@@ -588,6 +589,7 @@ export default function HistogramScrubber(props: Props) {
                 <circle cx={dusk.x + dusk.side * dusk.radius * 0.35} cy={plotHeight()} r={dusk.radius * 1.25} fill={`url(#${cloudId}-dusk-rose)`} />
                 <circle cx={dusk.x} cy={plotHeight()} r={dusk.radius} fill={`url(#${cloudId}-dusk-amber)`} />
               </g>}</For>
+              <For each={detail().strokes}>{(stroke) => <path class="sky-stroke" classList={{ light: stroke.light }} d={stroke.path} style={{ '--strength': stroke.strength }} />}</For>
               <For each={detail().stars}>{(star) => <circle class="sky-star" cx={star.x} cy={star.y} r={star.radius} opacity={star.brightness} />}</For>
             </g>}</Show>
             {/* In Lucht blijft regen context: achter de wolkenlagen en getweend naar 35% dekking. */}

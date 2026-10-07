@@ -577,6 +577,9 @@ button { color: inherit; cursor: pointer; }
 .dusk-rose stop:first-child { stop-opacity: .6; }
 .dusk-purple stop { stop-color: var(--dusk-purple); }
 .dusk-purple stop:first-child { stop-opacity: .5; }
+/* Penseelstreken: nauwelijks zichtbaar, anders lopen ze visueel over in de wolken (PO 2026-10-07 live). */
+.sky-stroke { fill: #04121c; fill-opacity: calc(var(--strength) * .07); }
+.sky-stroke.light { fill: #fff; fill-opacity: calc(var(--strength) * .05); }
 .sky-star { fill: #fff8e0; }
 .sky-grain { position: absolute; top: 0; bottom: 0; left: 0; pointer-events: none; mix-blend-mode: overlay; background-size: 220px 220px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 1.1 -.15'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E"); }

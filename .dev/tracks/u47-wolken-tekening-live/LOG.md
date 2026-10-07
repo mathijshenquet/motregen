@@ -110,3 +110,11 @@
 - U42-worker gevraagd (herdr-prompt naar pane wZ:p1) de vragen in `afstemming-u42.md` te beantwoorden.
 - Receipts (synchroon): `pnpm typecheck` → 0; `pnpm test` → 0; `pnpm build` → 0; stills
   `rond{2,20}`, `ster2` → SHOT-EXIT 0.
+
+## 2026-10-07 15:40 — PO: golven toch terug, doorzichtiger
+- PO: "die waves waren eigenlijk toch wel nice, maak ze transparanter; het probleem was dat ze visueel
+  overliepen in de wolken". Dunne streken terug (zelfde code als e3488c9), dekking 7 % donker / 5 % licht
+  (was 13 % / 10 %).
+- Receipts (synchroon): `pnpm typecheck` → 0; `pnpm test` → 0; `pnpm build` → 0; stills
+  `zacht{2,10}` → SHOT-EXIT 0. Gezien: overdag nauwelijks zichtbare textuur, in de donkere nacht nog
+  als lichte golflijnen te zien, duidelijk zwakker dan de wolken.
