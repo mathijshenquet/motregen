@@ -320,6 +320,11 @@ enum Compression {
     Parallel(usize),
 }
 
+fn compress_member(bytes: &[u8]) -> Result<Vec<u8>, Error> {
+    // U50: U49 measured 2.2–20× faster fzstd decode when the zstd member pledges its content size.
+    zstd::bulk::compress(bytes, COMPRESSION_LEVEL).map_err(Error::from)
+}
+
 fn encode_inner(
     frames: &[Vec<u8>],
     meta: &ChunkMeta,
@@ -332,11 +337,8 @@ fn encode_inner(
     }
     let width = meta.grid.width;
     let compress = |frame: &Vec<u8>| match meta.pred {
-        // A pledged size puts the content size in the zstd header, so the web decoder allocates
-        // the member instead of an 8 MiB window; on entropy-coded payloads it costs <1 B/frame.
-        Some(_) => zstd::bulk::compress(&pred::encode_frame(frame, width), COMPRESSION_LEVEL)
-            .map_err(Error::from),
-        None => zstd::stream::encode_all(frame.as_slice(), COMPRESSION_LEVEL).map_err(Error::from),
+        Some(_) => compress_member(&pred::encode_frame(frame, width)),
+        None => compress_member(frame),
     };
     let compressed = match compression {
         Compression::Serial => frames.iter().map(compress).collect::<Result<Vec<_>, _>>()?,
@@ -373,7 +375,7 @@ fn encode_inner(
         for (index, values) in motions.iter().enumerate() {
             let member = if let Some(values) = values {
                 let bytes = values.iter().map(|value| *value as u8).collect::<Vec<_>>();
-                let bytes = zstd::stream::encode_all(bytes.as_slice(), COMPRESSION_LEVEL)?;
+                let bytes = compress_member(&bytes)?;
                 let len = bytes.len() as u64;
                 entries[index].motion = Some(MotionMember { offset, len });
                 offset += len;
