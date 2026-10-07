@@ -1,5 +1,5 @@
 import { createEffect, createMemo, createSignal, createUniqueId, For, Index, onCleanup, onMount, Show, untrack } from 'solid-js'
-import { CLOUD_LAYERS, cloudBand, skyAt, skyStars, skyStops, skyStrokes, sunCrossings, type CloudSeries, type SkyStar, type SkyStop, type SkyStroke } from '../core/cloud-section'
+import { CLOUD_LAYERS, cloudBand, skyAt, skyStars, skyStops, skyStrokes, sunCrossings, type CloudLayer, type CloudSeries, type SkyStar, type SkyStop, type SkyStroke } from '../core/cloud-section'
 import { sameFields, stableByIndex } from '../core/stable'
 import type { TimelineFrame } from '../core/contract'
 import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColor } from '../core/rain-chart'
@@ -39,6 +39,8 @@ interface Props {
    * (die nog wel meedonkeren met het licht).
    */
   expressive?: boolean
+  /** Dev-schakelaar (U54): het lege kader krijgt al de hemelkleur van het uur, vóór de wolkenlagen er zijn. */
+  frameSky?: boolean
   sky?: { radiation: { timeline: TimelineFrame[]; values: Array<number | null> }; sinElevation: (epoch: number) => number }
   /** Totale bewolking als één band boven het regenhistogram, in de weermodus (PO 2026-09-25 live, U34). */
   cloudCover?: { timeline: TimelineFrame[]; values: Array<number | null> }
@@ -68,6 +70,7 @@ const DUSK_RADIUS_SHARE = 0.62
 // Gedeeld met het laadvenster in App (U49), dat alleen laadt wat hier in beeld is.
 const VIEW_HOURS = SCRUBBER_VIEW_HOURS
 const PROVISIONAL_STEP_MS = 5 * 60_000
+const FRAME_SKY_ASSUMED_COVER = 0.5
 const PROVISIONAL_PAST_HOURS = 3
 const PROVISIONAL_AHEAD_HOURS = 48
 const LOADING_LABELS = { rain: 'regen laden…', cover: 'regen laden…', air: 'wolken laden…', temperature: 'temperatuur laden…', wind: 'wind laden…' } as const
@@ -211,17 +214,18 @@ export default function HistogramScrubber(props: Props) {
   const skyStopsNow = scrubMemo('hemel', () => {
     const clouds = props.clouds
     const inputs = props.sky
-    if (!clouds || !inputs || !props.timeline.length) return []
+    if (!clouds || !inputs) return []
     // Zonder wolkenlagen zou de lucht als strakblauw of sterrenhemel beginnen en bij het laden omslaan.
-    if (!CLOUD_LAYERS.some((layer) => clouds.values[layer].length)) return []
+    // Met de kaderhemel begint hij wel, op een aangenomen halve bewolking, zodat die omslag klein blijft.
+    const cloudsKnown = CLOUD_LAYERS.some((layer) => clouds.values[layer].length)
+    if (!props.frameSky && (!props.timeline.length || !cloudsKnown)) return []
+    const coverOf = (layer: CloudLayer, epoch: number) => cloudsKnown
+      ? (seriesValueAt(clouds.timeline[layer], clouds.values[layer], epoch, 30 * 60_000) ?? 0) / 100
+      : FRAME_SKY_ASSUMED_COVER
     const radiationAt = (epoch: number) => seriesValueAt(inputs.radiation.timeline, inputs.radiation.values, epoch, 5 * 60_000)
     return skyStops(timelineStart(), timelineEnd(), {
       lightAt: (epoch) => cloudModification(epoch, radiationAt(epoch), radiationAt(epoch + HOUR), inputs.sinElevation),
-      coverAt: (epoch) => ({
-        high: (seriesValueAt(clouds.timeline.high, clouds.values.high, epoch, 30 * 60_000) ?? 0) / 100,
-        mid: (seriesValueAt(clouds.timeline.mid, clouds.values.mid, epoch, 30 * 60_000) ?? 0) / 100,
-        low: (seriesValueAt(clouds.timeline.low, clouds.values.low, epoch, 30 * 60_000) ?? 0) / 100,
-      }),
+      coverAt: (epoch) => ({ high: coverOf('high', epoch), mid: coverOf('mid', epoch), low: coverOf('low', epoch) }),
       sinElevation: inputs.sinElevation,
     })
   })
@@ -708,7 +712,7 @@ export default function HistogramScrubber(props: Props) {
         }</Show>
         <Show when={props.loading}>
           {/* Het kader (uurraster, nu-lijn, cursor) blijft zichtbaar; de melding staat er gedempt in (MIP-19 punt 3). */}
-          <div class="scrubber-placeholder" role="status"><span>{LOADING_LABELS[view()]}</span></div>
+          <div class="scrubber-placeholder" classList={{ "on-sky": skyVisible() }} role="status"><span>{LOADING_LABELS[view()]}</span></div>
         </Show>
         <Show when={!props.loading && !props.values.length}><span class="empty-graph">Kies een locatie voor de regengrafiek</span></Show>
         <div class="cursor-marker" style={{ left: `${cursorX()}px` }} />

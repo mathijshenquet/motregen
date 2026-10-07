@@ -22,7 +22,10 @@ for (const [name, viewport] of Object.entries(viewports)) {
   const manifestDelay = Number(process.env.MANIFEST_DELAY_MS ?? 0)
   if (manifestDelay > 0) await page.route('**/data/manifest.json*', async (route) => { await new Promise((resolve) => setTimeout(resolve, manifestDelay)); await route.continue() })
   const startedAt = Date.now()
-  await page.goto(new URL('/', origin).href, { waitUntil: 'commit' })
+  // SHOT_QUERY (bijv. 'dev') en SHOT_STORAGE (JSON met localStorage-sleutels) zetten dev-schakelaars vóór de eerste render.
+  const storage = JSON.parse(process.env.SHOT_STORAGE ?? '{}') as Record<string, string>
+  await page.addInitScript((entries) => { for (const [key, value] of Object.entries(entries)) localStorage.setItem(key, value) }, storage)
+  await page.goto(new URL(`/${process.env.SHOT_QUERY ? `?${process.env.SHOT_QUERY}` : ''}`, origin).href, { waitUntil: 'commit' })
   for (const moment of moments.split(',').map(Number)) {
     const wait = moment - (Date.now() - startedAt)
     if (wait > 0) await page.waitForTimeout(wait)

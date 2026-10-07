@@ -203,7 +203,7 @@ for (const profileId of options.profiles) {
           mainThread: { samples: self?.samples.length ?? 0, busySamples: self?.samples.filter((sample) => sample.stackId !== undefined).length ?? 0, busyPercent: self?.samples.length ? 100 * self.samples.filter((sample) => sample.stackId !== undefined).length / self.samples.length : null, topSources: top.functions.filter((entry) => entry.url).slice(0, 3).map(({ functionName, url, selfSamples }) => ({ functionName, url, selfSamples })) },
           intent: { fieldBytes, lateOutsideIntent },
           actions,
-          smoothness: (scenario.windows ?? []).map((window) => smoothness(captured.frameTimes, window)),
+          smoothness: (scenario.windows ?? []).map((window) => smoothness(captured.frameTimes, window, longFrames)),
           scrub: captured.snapshot.scrub,
           findings: [...wire.findings, ...findings, ...errors, ...externalRequests.map((url) => `Extern netwerk geblokkeerd: ${url}`)],
         }
@@ -214,7 +214,7 @@ for (const profileId of options.profiles) {
         writeFileSync(`${output}.trace.json`, JSON.stringify(trace))
         writeFileSync(`${output}.raw.json`, JSON.stringify({ requests, pageResourceTiming: captured.resources, workerResourceTiming: workerResources, actions, loads: captured.loads, selfProfile: self, entries: captured.entries }))
         console.log(`${profileId}/${scenarioId}: ${decode.phases['frame-decode']?.count} decodes, ${wire.playwright.total.bytes} bodybytes, ${wire.findings.length} netwerkbevindingen → ${output}.md`)
-        for (const window of report.smoothness) console.log(`  ${window.name}: frame-tijd p95 ${window.p95Ms} ms, ${window.over50Ms} beelden > 50 ms, ${window.frames} beelden`)
+        for (const window of report.smoothness) console.log(`  ${window.name}: frame-tijd p95 ${window.p95Ms} ms, ${window.over50Ms} beelden > 50 ms, ${window.frames} beelden, LoAF ${window.longFrames.totalMs} ms`)
         expect(externalRequests, 'geen live-netwerk').toEqual([])
         expect(errors, 'geen pagina-/consolefouten').toEqual([])
         expect(captured.milestones.ttfrMs).not.toBeNull()

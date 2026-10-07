@@ -179,6 +179,8 @@ const PLAYBACK_MAX_FPS = 30
 const PLAYBACK_FRAME_WAIT_MS = 3_000
 // Rig-schakelaar (?dev): 'venster' zet de oude regel terug (spelen pas na laadfase "window").
 const PLAY_RULE_STORAGE_KEY = 'motregen-dev-speelregel'
+// PO-vergelijking (?dev): het lege scrubber-kader neemt de hemelkleur van het uur aan.
+const FRAME_SKY_STORAGE_KEY = 'motregen-dev-kaderhemel'
 // Stil op de achtergrond (U41): na een minuut zonder invoer tekent de wind op halve snelheid.
 const IDLE_AFTER_MS = 60_000
 const WIND_IDLE_FPS = 30
@@ -482,6 +484,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
   const [windTuning, setWindTuning] = createSignal<WindTuning>(loadWindTuning())
   const [isolineTuning, setIsolineTuning] = createSignal<IsolineTuning>({ ...DEFAULT_ISOLINE_TUNING })
+  const [frameSky, setFrameSky] = createSignal(devMode && localStorage.getItem(FRAME_SKY_STORAGE_KEY) === 'aan')
   const [clockJogScale, setClockJogScale] = createSignal<ClockJogScale>(devMode ? parseClockJogScale(localStorage.getItem(CLOCK_JOG_STORAGE_KEY)) : 'vast')
   const [temperatureRange, setTemperatureRange] = createSignal<PaletteRange | undefined>()
   let temperatureRangeKey = ''
@@ -2411,6 +2414,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setWindTuning({ ...DEFAULT_WIND_TUNING })
       setIsolineTuning({ ...DEFAULT_ISOLINE_TUNING })
       setClockJogScale('vast')
+      setFrameSky(false)
       focusMode.pin(DEFAULT_FOCUS_MODE)
       setFocusPinned(DEFAULT_FOCUS_MODE)
     })
@@ -2776,6 +2780,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             onIsolineTuning={(patch) => setIsolineTuning((current) => ({ ...current, ...patch }))}
             clockJogScale={clockJogScale()}
             onClockJogScale={(scale) => { setClockJogScale(scale); localStorage.setItem(CLOCK_JOG_STORAGE_KEY, scale) }}
+            frameSky={frameSky()}
+            onFrameSky={(enabled) => { setFrameSky(enabled); localStorage.setItem(FRAME_SKY_STORAGE_KEY, enabled ? 'aan' : 'uit') }}
             windTuning={windTuning()}
             onWindTuning={tuneWind}
             perfVisible={perfVisible()}
@@ -2818,6 +2824,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           sky={{ radiation: { timeline: radiationTimeline(), values: radiationSeries() }, sinElevation: sunElevationAt() }}
           wind={{ timeline: windUFrames(), speed: windSpeedSeries(), gustTimeline: gustTimeline(), gust: gustSeries(), unit: windUnit() }}
           expressive={expressive()}
+          frameSky={frameSky()}
           mix={{ wind: windFocus(), air: airFocus(), temperature: focus() }}
           temperature={{ timeline: feelsLikeTimeline(), values: feelsLikeSeries(), airTimeline: tempTimeline(), air: temperatureSeries(), stops: temperatureRange() && paletteStops(temperatureRange()!) }}
         />

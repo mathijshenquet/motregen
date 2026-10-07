@@ -21,6 +21,7 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Wind | Lijnbreedte | dikte van de streepjes | U3 | idem |
 | Wind | Tempo | snelheid van de streepjes | U3b | idem |
 | Wind | Kopieer wind als JSON | de vier waarden naar het klembord (PO-terugkoppelweg) | U20 | blijft zolang de windknoppen er zijn |
+| Laden | Kaderhemel | het lege scrubber-kader krijgt tijdens het laden al de hemelkleur van het uur (uit/aan; herladen) | U54 | na PO-keuze (dan vast aan of weg) |
 | Klok | Jog-schaal | slepen op de klokpil: vast 2 min/px of de schaal van de scrubber (8 u over de plotbreedte) | U56 | na PO-keuze van de schaal (dan een constante) |
 | Lucht nu | strakblauw · mooie wolkenlucht · melkachtig · grijs · Mordor | tijd, klasse en gekozen locatie op 0,1° als menselijk anker voor de wolkenanalyse | U46 | na de analyse |
 | Lucht nu | Kopieer dagboek | alle lokale luchtmetingen als JSON naar het klembord | U46 | na de analyse |

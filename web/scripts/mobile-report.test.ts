@@ -71,10 +71,11 @@ describe('soepelheid per venster', () => {
   it('telt frame-tijden alleen binnen het venster en meldt de uitschieters', () => {
     // Vier nette beelden, één hapering van 120 ms, en beelden buiten het venster die niet meetellen.
     const frameTimes = [900, 1_000, 1_016, 1_032, 1_048, 1_168, 1_184, 2_500]
-    expect(smoothness(frameTimes, { name: 'test', fromMs: 1_000, toMs: 1_200 })).toEqual({ name: 'test', frames: 6, p50Ms: 16, p95Ms: 120, maxMs: 120, over50Ms: 1, over100Ms: 1 })
+    const longFrames = [{ startTime: 950, duration: 80, blockingDuration: 30 }, { startTime: 1_048, duration: 120, blockingDuration: 70 }, { startTime: 1_100, duration: 60, blockingDuration: 10 }]
+    expect(smoothness(frameTimes, { name: 'test', fromMs: 1_000, toMs: 1_200 }, longFrames)).toEqual({ name: 'test', frames: 6, p50Ms: 16, p95Ms: 120, maxMs: 120, over50Ms: 1, over100Ms: 1, longFrames: { count: 2, totalMs: 180, blockingMs: 80 } })
   })
 
   it('geeft lege waarden zonder beelden in het venster', () => {
-    expect(smoothness([10, 20], { name: 'leeg', fromMs: 100, toMs: 200 })).toEqual({ name: 'leeg', frames: 0, p50Ms: null, p95Ms: null, maxMs: null, over50Ms: 0, over100Ms: 0 })
+    expect(smoothness([10, 20], { name: 'leeg', fromMs: 100, toMs: 200 })).toEqual({ name: 'leeg', frames: 0, p50Ms: null, p95Ms: null, maxMs: null, over50Ms: 0, over100Ms: 0, longFrames: { count: 0, totalMs: 0, blockingMs: 0 } })
   })
 })

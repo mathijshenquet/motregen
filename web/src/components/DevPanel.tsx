@@ -12,6 +12,8 @@ interface Props {
   onIsolineTuning: (patch: Partial<IsolineTuning>) => void
   clockJogScale: ClockJogScale
   onClockJogScale: (scale: ClockJogScale) => void
+  frameSky: boolean
+  onFrameSky: (enabled: boolean) => void
   windTuning: WindTuning
   onWindTuning: (tuning: WindTuning) => void
   perfVisible: boolean
@@ -96,6 +98,14 @@ export default function DevPanel(props: Props) {
         </Control>
       }</For>
       <Action label={windCopied() ? 'Gekopieerd' : 'Kopieer wind als JSON'} hint="Zet de vier windwaarden op het klembord, om terug te sturen." onClick={() => void copyWind()} />
+    </Group>
+    <Group title="Laden">
+      <Control label="Kaderhemel" output={props.frameSky ? 'aan' : 'uit'} hint="Het lege scrubber-kader krijgt tijdens het laden al de hemelkleur van het uur (halve bewolking aangenomen). Herlaad om het te zien.">
+        <select value={props.frameSky ? 'aan' : 'uit'} onChange={(event) => props.onFrameSky(event.currentTarget.value === 'aan')}>
+          <option value="uit">uit</option>
+          <option value="aan">aan</option>
+        </select>
+      </Control>
     </Group>
     <Group title="Klok">
       <Control label="Jog-schaal" output={props.clockJogScale} hint="Slepen op de klokpil: vast 2 minuten per pixel, of dezelfde schaal als de scrubber (8 uur over de breedte).">

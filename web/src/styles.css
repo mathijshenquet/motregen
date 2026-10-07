@@ -671,6 +671,7 @@ button { color: inherit; cursor: pointer; }
 .scrubber-placeholder { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding-left: 38%; color: color-mix(in srgb, var(--muted) 78%, transparent); font-size: 12px; font-weight: 500; pointer-events: none; }
 /* Eigen ondergrond: uur- en dagstrepen lopen anders door de tekst. */
 .scrubber-placeholder span { padding: 2px 8px; border-radius: 999px; background: var(--surface); }
+.scrubber-placeholder.on-sky span { color: rgba(255, 255, 255, .82); background: rgba(8, 20, 28, .5); }
 @keyframes scrubber-pulse { from { opacity: .35; } to { opacity: 1; } }
 .now-line { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px solid color-mix(in srgb, var(--text) 38%, transparent); pointer-events: none; }
 .x-axis .now-tick { bottom: -2px; padding: 1px 6px; border: 1px solid color-mix(in srgb, var(--text) 38%, transparent); border-radius: 999px; color: var(--text); background: var(--surface); font-size: 10px; font-weight: 750; line-height: 1.3; }

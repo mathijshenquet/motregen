@@ -91,14 +91,21 @@ export function reconcileWire(requests: WireRequest[], timing: TimingRequest[]) 
 }
 
 export interface SmoothnessWindow { name: string; fromMs: number; toMs: number }
-export interface Smoothness { name: string; frames: number; p50Ms: number | null; p95Ms: number | null; maxMs: number | null; over50Ms: number; over100Ms: number }
+export interface Smoothness {
+  name: string; frames: number; p50Ms: number | null; p95Ms: number | null; maxMs: number | null; over50Ms: number; over100Ms: number
+  /** Lange animatiebeelden (LoAF) die in het venster beginnen. */
+  longFrames: { count: number; totalMs: number; blockingMs: number }
+}
+export interface LongFrameSpan { startTime: number; duration: number; blockingDuration: number }
 
 /** Frame-tijden (afstand tussen opeenvolgende animatiebeelden) binnen een venster van het scenario. */
-export function smoothness(frameTimes: number[], window: SmoothnessWindow): Smoothness {
+export function smoothness(frameTimes: number[], window: SmoothnessWindow, longFrames: LongFrameSpan[] = []): Smoothness {
+  const long = longFrames.filter((frame) => frame.startTime >= window.fromMs && frame.startTime <= window.toMs)
   const inside = frameTimes.filter((time) => time >= window.fromMs && time <= window.toMs)
   const gaps = inside.slice(1).map((time, index) => time - inside[index]!).sort((left, right) => left - right)
   const percentile = (fraction: number) => gaps.length ? Math.round(gaps[Math.ceil(gaps.length * fraction) - 1]! * 10) / 10 : null
-  return { name: window.name, frames: inside.length, p50Ms: percentile(0.5), p95Ms: percentile(0.95), maxMs: gaps.length ? Math.round(gaps.at(-1)! * 10) / 10 : null, over50Ms: gaps.filter((gap) => gap > 50).length, over100Ms: gaps.filter((gap) => gap > 100).length }
+  return { name: window.name, frames: inside.length, p50Ms: percentile(0.5), p95Ms: percentile(0.95), maxMs: gaps.length ? Math.round(gaps.at(-1)! * 10) / 10 : null, over50Ms: gaps.filter((gap) => gap > 50).length, over100Ms: gaps.filter((gap) => gap > 100).length,
+    longFrames: { count: long.length, totalMs: Math.round(long.reduce((total, frame) => total + frame.duration, 0)), blockingMs: Math.round(long.reduce((total, frame) => total + frame.blockingDuration, 0)) } }
 }
 
 export function completedBytesBefore(requests: WireRequest[], cutoffMs: number | null): number | null {
@@ -197,8 +204,8 @@ export function renderMobileReport(report: MobileReport): string {
     lines.push(`| ${kind} | ${playwright.requests} | ${playwright.bytes} | ${resource.requests} | ${resource.bytes} | ${playwright.meanRequestBytes.toFixed(1)} |`)
   }
   if (report.smoothness.length) {
-    lines.push('', '| venster | beelden | frame-tijd p50 / p95 / max | > 50 ms | > 100 ms |', '| --- | ---: | ---: | ---: | ---: |')
-    for (const window of report.smoothness) lines.push(`| ${window.name} | ${window.frames} | ${window.p50Ms ?? '—'} / ${window.p95Ms ?? '—'} / ${window.maxMs ?? '—'} ms | ${window.over50Ms} | ${window.over100Ms} |`)
+    lines.push('', '| venster | beelden | frame-tijd p50 / p95 / max | > 50 ms | > 100 ms | LoAF aantal / totaal / blocking |', '| --- | ---: | ---: | ---: | ---: | ---: |')
+    for (const window of report.smoothness) lines.push(`| ${window.name} | ${window.frames} | ${window.p50Ms ?? '—'} / ${window.p95Ms ?? '—'} / ${window.maxMs ?? '—'} ms | ${window.over50Ms} | ${window.over100Ms} | ${window.longFrames.count} / ${window.longFrames.totalMs} / ${window.longFrames.blockingMs} ms |`)
     const upload = report.decode.phases['texture-upload']
     lines.push('', `Texture-upload: ${upload?.count ?? 0} keer, p50 ${upload?.p50Ms ?? '—'} ms, p95 ${upload?.p95Ms ?? '—'} ms. Scrub (invoer → regenbeeld): p50 ${report.scrub.p50Ms ?? '—'} ms, p95 ${report.scrub.p95Ms ?? '—'} ms over ${report.scrub.samples} metingen.`)
   }
