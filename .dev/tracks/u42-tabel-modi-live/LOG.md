@@ -525,6 +525,21 @@
   nacht, daarna staat “Zon op 07:53”, en 08:00 begint meteen met de lichte daggradient; DOM-controle
   bevestigt `night-hour → sunrise-row → day-hour` in beide formaten.
 
+## 2026-10-07 13:58 UTC
+
+- PO-screenshot vond de hovervariant van dezelfde grensfout: precies de eerste rij na zon op/onder
+  verwijderde met `background: transparent` ook de kolomhoverlaag. Bovendien erfde de hovergradient
+  zijn lichte tabelkleur, waardoor nachtelijke maan-/Luchtcellen te grijs werden.
+- De kolomhover wordt nu na alle rijcomposities gelegd en berekent `--accent-soft` per cel: UV houdt
+  overdag de lichte tint, maan gebruikt 's nachts de donkerblauwe tint. De overgangscellen maken
+  alleen hun achtergrondkleur transparant en wissen de overlay niet meer.
+- Synchrone receipts: `git diff --check` en `pnpm build` exit 0; de build omvatte `tsc -b` en leverde
+  113 modules, `index-B_hHCUCi.js`, `index-Bt0O-VBB.css`, PWA + workers. Geen e2e uitgevoerd vóór
+  PO-signaal “klaar”.
+- Eigen visuele controle op desktop 1280×900 met Lucht-hover en mobiel 390×844 zonder hover: desktop
+  tint de complete Luchtkolom aaneengesloten door 19:00, de zonregel, 20:00 en 21:00; UV blijft
+  licht, maan donker. Mobiel heeft zoals bedoeld geen hoverlaag en behoudt de dag/nachtgradient.
+
 ## 2026-10-07 13:26 UTC
 
 - De tabelcyclus is nu een gebruikersoptie “Dag en nacht in tabel” onder Weergave, standaard aan en

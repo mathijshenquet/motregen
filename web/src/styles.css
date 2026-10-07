@@ -638,14 +638,8 @@ button.column-mode { width: 100%; cursor: pointer; }
 /* De kolom van de gepinde modus krijgt een lichte tint over de rijachtergrond, zodat kop en cellen één geheel lezen. */
 .forecast-table { --mode-tint: linear-gradient(color-mix(in srgb, var(--accent-soft) 40%, transparent), color-mix(in srgb, var(--accent-soft) 40%, transparent)); }
 /* Een gepinde modus kleurt de kolom niet meer, alleen de kopknop (PO 2026-09-25 live). */
-/* Hover kleurt de hele kolom, lichter dan een pin (U34). */
-.forecast-table { --hover-tint: linear-gradient(color-mix(in srgb, var(--accent-soft) 22%, transparent), color-mix(in srgb, var(--accent-soft) 22%, transparent)); }
 @media (hover: hover) and (pointer: fine) {
   .column-focus:hover, .forecast-table[data-mode] .default-mode:hover { color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 45%, transparent); }
-  .forecast-table[data-hover="temperature"]:not([data-mode="temperature"]) :is(.temperature-heading, .temperature-cell),
-  .forecast-table[data-hover="wind"]:not([data-mode="wind"]) :is(.wind-heading, .wind-cell),
-  .forecast-table[data-hover="air"]:not([data-mode="air"]) :is(.air-heading, .air-cell),
-  .forecast-table[data-hover="weather"]:not([data-mode="weather"]) :is(.weather-heading, .weather-cell) { background-image: var(--hover-tint); }
   .forecast-table[data-hover="temperature"] .temperature-focus, .forecast-table[data-hover="wind"] .wind-focus, .forecast-table[data-hover="air"] .air-focus, .forecast-table[data-hover="weather"] .weather-focus { color: var(--accent); }
 }
 .forecast-table td { text-align: center; }
@@ -764,7 +758,17 @@ td small { color: var(--muted); font-size: 9px; }
     linear-gradient(180deg, color-mix(in srgb, #f7ad7b 24%, var(--day-sky-start)) 0%, var(--day-sky-end) 82%);
 }
 .forecast-table.day-night-table tr.sunset-row + tr.night-hour td,
-.forecast-table.day-night-table tr.sunrise-row + tr.day-hour td { background: transparent; }
+.forecast-table.day-night-table tr.sunrise-row + tr.day-hour td { background-color: transparent; }
+/* De kolomhover ligt boven alle rijcomposities. De kleur wordt hier per cel berekend, zodat UV overdag
+   en maan 's nachts elk hun lokale palet houden en ook de eerste rij na een zonmoment meedoet. */
+@media (hover: hover) and (pointer: fine) {
+  .forecast-table[data-hover="temperature"]:not([data-mode="temperature"]) :is(.temperature-heading, .temperature-cell),
+  .forecast-table[data-hover="wind"]:not([data-mode="wind"]) :is(.wind-heading, .wind-cell),
+  .forecast-table[data-hover="air"]:not([data-mode="air"]) :is(.air-heading, .air-cell),
+  .forecast-table[data-hover="weather"]:not([data-mode="weather"]) :is(.weather-heading, .weather-cell) {
+    background-image: linear-gradient(color-mix(in srgb, var(--accent-soft) 22%, transparent), color-mix(in srgb, var(--accent-soft) 22%, transparent));
+  }
+}
 .forecast-table.day-night-table tr.sun-row:is(.sunset-row, .sunrise-row) .sun-glyph-horizon { stroke: rgba(255, 247, 235, .86); }
 .forecast-table.day-night-table tr.sun-row:is(.sunset-row, .sunrise-row) .sun-glyph-rays { stroke: #ffe29a; }
 .forecast-table.day-night-table tr.sun-row:is(.sunset-row, .sunrise-row) .sun-glyph-disc { fill: #ffd76e; stroke: #fff0b6; }
