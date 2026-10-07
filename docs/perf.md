@@ -70,13 +70,12 @@ modus (UV altijd, wind in windmodus, temperatuur in gevoelsmodus). De rest van d
 als de rijen in beeld komen, en verder dan +18 u zoals voorheen op `onNeedRows`.
 
 Los daarvan, voor ieder apparaat: `MrfClient` geeft werk via een wachtrij aan de workers
-(`decode-queue.ts`), één decode per worker tegelijk, in drie banen: het frame onder de cursor
-(kaart, afspelen) vóór een puntreeks waar de gebruiker op wacht, en die vóór vooruitladen. Een al
-wachtend frame schuift op als de cursor het nodig heeft. `getFrames` neemt een `AbortSignal`:
-een wachtende decode waar geen enkele vrager meer op wacht (het venster is verder geschoven)
-vervalt met `DecodeCancelled`; de gedownloade bytes blijven staan.
+(`decode-queue.ts`), één decode per worker tegelijk. De volgorde is sinds U52 tijd-majeur; zie
+de volgende sectie. `getFrames` neemt een `AbortSignal`: een wachtende request of decode waar
+geen enkele vrager meer op wacht (het venster is verder geschoven) vervalt met
+`DecodeCancelled`; al gedownloade bytes blijven staan.
 
-Meten: `pnpm prof:capture [origin] [uitvoer.json] [--profile=desktop|mobile-4g|mobile-fast-3g] [--passive] [--no-send]`
+Meten: `pnpm prof:capture [origin] [uitvoer.json] [--profile=desktop|mobile-4g|mobile-fast-3g] [--passive] [--decode-cost=<ms>] [--no-send]`
 neemt een koude start op (`?perf=start`, 30 s) onder het e2e-profiel en print aantal decodes,
 totale decodetijd, p50/p95, scrub-latency en de verdeling per laag en per veld (elke
 `frame-decode`-fase draagt `field` en `layer`). CDP kan workers niet remmen
@@ -102,7 +101,56 @@ node 2,2–2,5× (regen), 4,5–5× (temperatuur, wind) tot 20× (wolkenlagen) s
 frame. Dat is een ingest-wijziging (`crates/mrf/src/lib.rs`: `zstd::bulk::compress`) en staat
 als vervolg open.
 
+## Intent-gedreven laden (U52, MIP-19 punt 4, MIP-20 stap 1)
+
+Eén `Intent` (`web/src/core/intent.ts`) beschrijft wat de gebruiker nu wil zien: de cursor, het
+zichtbare venster van de scrubber, afspelen met richting, de scrubsnelheid en de velden die
+getoond worden. `App.tsx` zet hem bij elke wijziging (`client.setIntent`); hij stuurt twee
+wachtrijen met dezelfde rangorde (`IntentRanker`):
+
+1. **Idle of niet.** Een frame meer dan een uur buiten het venster, of van een veld dat nu
+   nergens getekend wordt, is idle-werk: het komt pas aan de beurt als er binnen het venster
+   niets meer loopt of wacht.
+2. **Afstand tot het doel**, in stappen van 5 minuten. Het doel is de cursor, tijdens scrubben
+   400 ms verder in de scrubrichting (binnen het venster). De afstand telt vanaf het interval
+   waarin het frame getekend wordt (frametijd ± de stap van zijn veld): de twee frames waartussen
+   de cursor staat liggen op afstand 0, ook van een uurveld. In de afspeel- of scrubrichting
+   telt de afstand ×0,8.
+3. **Bij gelijke afstand** regen eerst, daarna het veld dat het langst niet aan de beurt was
+   (round-robin), daarna volgorde van aankomst.
+
+De **decodewachtrij** (`decode-queue.ts`) bepaalt de volgorde bij elke vrije worker opnieuw, dus
+een cursorsprong herordent wat nog wacht. De **fetch-planner** (`fetch-planner.ts`) doet
+hetzelfde voor elke Range (ook headers: een header telt als de frames van zijn chunk):
+
+- hooguit `requests` grote overdrachten (≥ 64 kB) tegelijk — 3 op een krap apparaat (2 bij
+  ≤ 2 kernen), 6 op een ruim; kleine requests (een header, één uurframe, een wolkenpayload) zijn
+  vertraging en geen bandbreedte en lopen ernaast, tot zes requests in totaal;
+- één Range tegelijk per chunk-URL (Chromium cachet een tweede gelijktijdige Range op dezelfde
+  cache-entry niet);
+- een nieuwe intent laat wensen vervallen waar niemand meer op wacht en herordent de rest.
+
+Op een krap apparaat (`rangeBytes` = 256 kB in `decode-budget.ts`) wordt een reeks frames niet
+meer als één omvattende Range per chunk gehaald maar in stukken: 256 kB binnen een uur van de
+cursor, 1 MB daarbuiten, de motion-annexen van de chunk als één klein blok. Zo komen de frames
+rond "nu" eerst, ook als ze achteraan in het bestand staan (rtcor), en deelt een verre chunk
+(seamless, 4–6 MB) de lijn niet met wat in beeld is. Een ruim apparaat houdt de omvattende
+Range (bulk-prefetch; de warme-cache-eigenschappen uit U1 blijven daar ongewijzigd).
+
+In `App.tsx` vervalt daarmee het veld-voor-veld-wachten: wolkenlagen en `uv_clear` worden
+gevraagd bij de eerste locatiekeuze (niet pas na de fase `direct`), wolken per chunk, en
+tabelreeksen en wolkenbanden verschijnen per frame (één publicatie per animatieframe) in
+plaats van als blok per veld. De fase `direct` wacht alleen nog op de rijen binnen nu ± 1 u.
+
 ## Meetpunten
+
+- **Window-ready per veld** (U52): het eerste moment waarop een veld al zijn waarden binnen
+  nu ± 1 u heeft (`core/window-ready.ts`; regen = geladen histogrambalken, wolkenlagen = hun
+  frames, tabelvelden = de uurrijen in dat venster). In de snapshot als `windowReadyMs`, als
+  user-timing `motregen:window-ready:<veld>` en in de `?perf`-trace als balk
+  `window-ready:<veld>` van 0 tot gereed. Het verschil met TTFR is het "jarring"-getal uit
+  MIP-19. Elke `frame-decode`-fase draagt daarnaast `waitMs`: hoe lang het frame op een vrije
+  worker wachtte.
 
 - **TTFR** (time to first rain) loopt vanaf `navigationStart`
   (`performance.timeOrigin`) tot de eerste MapLibre-`render` nadat het eerste

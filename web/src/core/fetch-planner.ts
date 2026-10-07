@@ -12,7 +12,7 @@ const MAX_REQUESTS = 6
 export interface FetchWish {
   url: string
   bytes: number
-  /** De frames die deze Range dekt (voor een header: alle frames van de chunk). Zonder frames gaat de wens altijd voor. */
+  /** De frames die deze Range dekt. Zonder frames gaat de wens altijd voor. */
   frames: FrameTiming[]
   /** Wacht er nog iemand op? Een wens die niemand meer heeft vervalt voordat hij het netwerk op gaat. */
   wanted: () => boolean

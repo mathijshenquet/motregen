@@ -59,11 +59,12 @@ describe('scrubbing', () => {
 })
 
 describe('isIdleWork', () => {
-  it('counts a frame as shown when it is inside the window, its own step included', () => {
+  it('counts a frame as shown up to an hour outside the window, where the scrubber lines end', () => {
     expect(isIdleWork(hourly('temp_c', 5), intent())).toBe(false)
     expect(isIdleWork(hourly('temp_c', 6), intent())).toBe(false)
     expect(isIdleWork(hourly('temp_c', 7), intent())).toBe(true)
-    expect(isIdleWork(rain(-190), intent())).toBe(true)
+    expect(isIdleWork(rain(-240), intent())).toBe(false)
+    expect(isIdleWork(rain(-245), intent())).toBe(true)
   })
 
   it('counts a field the mode does not show as idle work, wherever it is', () => {

@@ -31,6 +31,8 @@ const SCRUB_LOOKAHEAD_MS = 400
 /** De stap van de regentijdlijn. Binnen één stap geldt afstand als gelijk en wisselen de velden elkaar af. */
 const DISTANCE_STEP_MS = 5 * 60_000
 const FIRST_FIELD = 'rain_rate'
+/** De scrubber tekent lijnen tot aan de rand van het venster en vraagt daarvoor uurrijen tot een uur erbuiten. */
+const WINDOW_SLACK_MS = 3_600_000
 
 export function intentDirection(intent: Intent): -1 | 0 | 1 {
   if (intent.playback !== 0) return intent.playback
@@ -60,7 +62,7 @@ export function intentDistance(timing: FrameTiming, intent: Intent): number {
 /** Buiten het zichtbare venster of van een veld dat de modus niet toont: pas als er verder niets te doen is. */
 export function isIdleWork(timing: FrameTiming, intent: Intent): boolean {
   if (!intent.fields.has(timing.field)) return true
-  return !(timing.epoch >= intent.window.start - timing.stepMs && timing.epoch <= intent.window.end + timing.stepMs)
+  return timing.epoch < intent.window.start - WINDOW_SLACK_MS || timing.epoch > intent.window.end + WINDOW_SLACK_MS
 }
 
 /**

@@ -3,7 +3,8 @@ import { chunkField, type ManifestChunk, type MrfHeader } from './contract'
 import { browserDeviceHints, decodeBudget, type DecodeBudget } from './decode-budget'
 import { DecodeCancelled, DecodeQueue } from './decode-queue'
 import { FetchPlanner } from './fetch-planner'
-import type { FrameTiming, Intent } from './intent'
+import { FrameCache } from './frame-cache'
+import { intentDistance, type FrameTiming, type Intent } from './intent'
 import { recordPerfPhase, type LoadLayer, type LoadTrace } from './perf'
 import { decodePredFrame, PRED_VERSION, type PredFrameSpec } from './pred'
 
@@ -145,7 +146,7 @@ class PayloadSpan {
 export class MrfClient {
   private readonly headers = new Map<string, Promise<MrfHeader>>()
   private readonly resolvedHeaders = new Map<string, MrfHeader>()
-  private readonly frames = new LruCache<string, Uint8Array>(512)
+  private readonly frames = new FrameCache(512)
   private readonly framePromises = new Map<string, Promise<Uint8Array>>()
   private readonly motions = new LruCache<string, MotionField>(256)
   private readonly motionPromises = new Map<string, Promise<MotionField>>()
@@ -153,6 +154,7 @@ export class MrfClient {
   private readonly pending = new Map<number, { worker: number; job: DecodeJob }>()
   private readonly queue = new DecodeQueue<DecodeJob>()
   private readonly planner: FetchPlanner
+  private intent?: Intent
   private readonly interest = new Map<string, FrameInterest>()
   private readonly chunkEpochs = new Map<string, number[]>()
   // Eén worker maakte zstd-decode de poort van het koude laden (U1-profiel:
@@ -185,6 +187,8 @@ export class MrfClient {
 
   /** Wat de gebruiker nu wil zien: requests en decodes werken van daaruit naar buiten (intent.ts). */
   setIntent(intent: Intent): void {
+    this.intent = intent
+    this.frames.intent = intent
     this.queue.setIntent(intent)
     this.planner.setIntent(intent)
   }
@@ -193,10 +197,10 @@ export class MrfClient {
     const url = new URL(chunk.url, this.manifestUrl).href
     let promise = this.headers.get(url)
     if (!promise) {
-      // Een header telt als al zijn frames: die van de chunk rond de cursor gaat voor, die van
-      // morgen wacht tot er niets dringenders loopt (vóór MIP-20 gingen alle ~40 tegelijk).
-      const frames = chunk.times.map((_, frameIndex) => this.frameTiming(url, chunk, frameIndex, chunkField(chunk)))
-      promise = this.fetchRange(url, 0, chunk.header_len - 1, 'high', this.rangeTrace('header', []), frames, alwaysWanted).then((bytes) => {
+      // Headers gaan buiten de planner om, allemaal tegelijk naar de browser: ze zijn klein (2–8 kB)
+      // en elke overdracht van wens naar wens kost een beurt op de hoofddraad, die bij een koude
+      // start juist bezet is (gemeten: via de planner kwam het eerste kaartframe ~0,3 s later).
+      promise = collectRange(0, chunk.header_len - 1, (receive) => fetchTracedRange(url, 0, chunk.header_len - 1, 'high', this.rangeTrace('header', []), receive)).then((bytes) => {
         const header = parseMrfHeader(bytes)
         this.resolvedHeaders.set(url, header)
         return header
@@ -309,9 +313,10 @@ export class MrfClient {
       ? await payload.read(frame.offset, frame.offset + frame.len)
       : await this.fetchRange(url, start, start + frame.len - 1, priority, this.rangeTrace(layer, [frameIndex]), [this.frameTiming(url, chunk, frameIndex, chunkField(chunk))], () => this.stillWanted(key))
     this.trace?.frameBytesReady(url, frameIndex)
-    const decoded = await this.decodeInWorker(key, this.frameTiming(url, chunk, frameIndex, chunkField(chunk)), compressed, header.grid.width * header.grid.height, { field: chunkField(chunk), layer }, predSpec(header))
+    const timing = this.frameTiming(url, chunk, frameIndex, chunkField(chunk))
+    const decoded = await this.decodeInWorker(key, timing, compressed, header.grid.width * header.grid.height, { field: chunkField(chunk), layer }, predSpec(header))
     this.trace?.frameDecoded(url, frameIndex)
-    this.frames.set(key, decoded)
+    this.frames.set(key, decoded, timing)
     this.onFrameDecoded?.(url, frameIndex, decoded)
     return decoded
   }
@@ -359,7 +364,12 @@ export class MrfClient {
       const frame = header.frames[index]!
       return !this.coveringPayload(url, frame.offset, frame.offset + frame.len)
     })
-    for (const piece of contiguousPieces(header, uncovered, this.budget.rangeBytes)) {
+    // Kleine stukken waar de volgorde telt, grotere verder weg: elk stuk kost een rondje vertraging.
+    const pieceBytes = (index: number) => {
+      const near = !this.intent || intentDistance(this.frameTiming(url, chunk, index, chunkField(chunk)), this.intent) <= NEAR_PIECE_MS
+      return near ? this.budget.rangeBytes : this.budget.rangeBytes * FAR_PIECE_FACTOR
+    }
+    for (const piece of contiguousPieces(header, uncovered, pieceBytes)) {
       const first = header.frames[piece[0]!]!, last = header.frames[piece.at(-1)!]!
       this.payload(url, chunk, first.offset, last.offset + last.len, priority, layer, piece, wanted)
     }
@@ -384,9 +394,10 @@ export class MrfClient {
     const frame = header.frames[index]!
     const compressed = await payload.read(frame.offset, frame.offset + frame.len)
     this.trace?.frameBytesReady(url, index)
-    const decodedBytes = await this.decodeInWorker(frameKey(url, index), this.frameTiming(url, chunk, index, chunkField(chunk)), compressed, header.grid.width * header.grid.height, { field: chunkField(chunk), layer }, predSpec(header))
+    const timing = this.frameTiming(url, chunk, index, chunkField(chunk))
+    const decodedBytes = await this.decodeInWorker(frameKey(url, index), timing, compressed, header.grid.width * header.grid.height, { field: chunkField(chunk), layer }, predSpec(header))
     this.trace?.frameDecoded(url, index)
-    this.frames.set(frameKey(url, index), decodedBytes)
+    this.frames.set(frameKey(url, index), decodedBytes, timing)
     this.onFrameDecoded?.(url, index, decodedBytes)
     return decodedBytes
   }
@@ -452,13 +463,8 @@ export class MrfClient {
     for (const index of indexes) void this.getMotion(chunk, index).catch(() => undefined)
   }
 
-  private async fetchRange(url: string, start: number, end: number, priority: FetchPriority, trace: RangeTrace | undefined, frames: FrameTiming[], wanted: () => boolean): Promise<Uint8Array> {
-    const chunks: Uint8Array[] = []
-    await this.fetchRangeChunks(url, start, end, priority, trace, (chunk) => chunks.push(chunk.slice()), frames, wanted)
-    const bytes = new Uint8Array(end - start + 1)
-    let offset = 0
-    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length }
-    return bytes
+  private fetchRange(url: string, start: number, end: number, priority: FetchPriority, trace: RangeTrace | undefined, frames: FrameTiming[], wanted: () => boolean): Promise<Uint8Array> {
+    return collectRange(start, end, (receive) => this.fetchRangeChunks(url, start, end, priority, trace, receive, frames, wanted))
   }
 
   /** Elke Range gaat via de planner: die bepaalt wanneer hij het netwerk op mag (fetch-planner.ts). */
@@ -532,18 +538,38 @@ function motionKey(frame: string): string {
 
 const alwaysWanted = () => true
 
+async function collectRange(start: number, end: number, fetchChunks: (receive: (chunk: Uint8Array) => void) => Promise<void>): Promise<Uint8Array> {
+  const chunks: Uint8Array[] = []
+  await fetchChunks((chunk) => chunks.push(chunk.slice()))
+  const bytes = new Uint8Array(end - start + 1)
+  let offset = 0
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length }
+  return bytes
+}
+// Binnen een uur van de cursor de kleine stukken van het budget; daarbuiten vier keer zo groot.
+const NEAR_PIECE_MS = 3_600_000
+const FAR_PIECE_FACTOR = 4
+
 /**
  * Frames in bestandsvolgorde gegroepeerd tot stukken waarvan de omvattende Range hooguit
- * `maxBytes` is; een stuk heeft minstens één frame. Niet-gevraagde frames ertussen gaan mee in
+ * de kleinste `maxBytes` van zijn frames is (een frame dicht bij de cursor belandt dus nooit in
+ * een groot stuk); een stuk heeft minstens één frame. Niet-gevraagde frames ertussen gaan mee in
  * dezelfde Range: uurrijen op een kwartierveld worden zo één request in plaats van één per rij.
  */
-function contiguousPieces(header: MrfHeader, sortedIndexes: number[], maxBytes: number): number[][] {
+function contiguousPieces(header: MrfHeader, sortedIndexes: number[], maxBytes: (index: number) => number): number[][] {
   const pieces: number[][] = []
+  let pieceLimit = 0
   for (const index of sortedIndexes) {
     const current = pieces.at(-1)
     const frame = header.frames[index]!
-    if (current && frame.offset + frame.len - header.frames[current[0]!]!.offset <= maxBytes) current.push(index)
-    else pieces.push([index])
+    const limit = Math.min(pieceLimit, maxBytes(index))
+    if (current && frame.offset + frame.len - header.frames[current[0]!]!.offset <= limit) {
+      current.push(index)
+      pieceLimit = limit
+    } else {
+      pieces.push([index])
+      pieceLimit = maxBytes(index)
+    }
   }
   return pieces
 }

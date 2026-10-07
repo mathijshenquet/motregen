@@ -58,7 +58,7 @@ import { copyText } from './core/clipboard'
 import { resolveLocation, suggestLocations } from './core/geocoder'
 import { cursorForPresetEpoch, modeForActiveFocus, modeForFocus, parsePresets, shareUrl } from './core/presets'
 import { applyTelegramColors, type TelegramWebApp } from './core/telegram'
-import { windowReady } from './core/window-ready'
+import { READY_WINDOW_MS, windowReady } from './core/window-ready'
 import type { Intent } from './core/intent'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
@@ -1734,26 +1734,32 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     setWindVSeries([])
     setGustSeries([])
     state.direct = (async () => {
+      // De fase "direct" wacht alleen op de rijen rond nu; de rest van de tabel en het venster is
+      // tegelijk gevraagd en groeit per frame aan (publishLoadedSeries), het verst van de cursor het laatst.
+      for (const series of tableSeries) void readForecastPointSeries(series.frames(), point, series.key, 'L0', state)
       const [uv, temperature, feelsLike, humidity, cloud, windU, windV, gust] = await Promise.all([
-        readForecastPointSeries(uvTimeline(), point, 'uvIndex', 'L0', state),
-        readForecastPointSeries(tempTimeline(), point, 'temperatureIndex', 'L0', state),
-        readForecastPointSeries(feelsLikeTimeline(), point, 'feelsLikeIndex', 'L0', state),
-        readForecastPointSeries(humidityTimeline(), point, 'humidityIndex', 'L0', state),
-        readForecastPointSeries(cloudTimeline(), point, 'cloudIndex', 'L0', state),
-        readForecastPointSeries(windUFrames(), point, 'windUIndex', 'L0', state),
-        readForecastPointSeries(windVFrames(), point, 'windVIndex', 'L0', state),
-        readForecastPointSeries(gustTimeline(), point, 'gustIndex', 'L0', state),
+        readForecastPointSeries(uvTimeline(), point, 'uvIndex', 'L0', state, 'near-now'),
+        readForecastPointSeries(tempTimeline(), point, 'temperatureIndex', 'L0', state, 'near-now'),
+        readForecastPointSeries(feelsLikeTimeline(), point, 'feelsLikeIndex', 'L0', state, 'near-now'),
+        readForecastPointSeries(humidityTimeline(), point, 'humidityIndex', 'L0', state, 'near-now'),
+        readForecastPointSeries(cloudTimeline(), point, 'cloudIndex', 'L0', state, 'near-now'),
+        readForecastPointSeries(windUFrames(), point, 'windUIndex', 'L0', state, 'near-now'),
+        readForecastPointSeries(windVFrames(), point, 'windVIndex', 'L0', state, 'near-now'),
+        readForecastPointSeries(gustTimeline(), point, 'gustIndex', 'L0', state, 'near-now'),
         enqueueRain(state, directRainIndexes(timeline(), manifest() ? Date.parse(manifest()!.now) : 0), 'high', 'L0', 'locatie'),
       ])
       if (request !== pointRequest) return
-      setUvSeries(uv)
-      setTemperatureSeries(temperature)
-      setFeelsLikeSeries(feelsLike)
-      setHumiditySeries(humidity)
-      setCloudSeries(cloud)
-      setWindUSeries(windU)
-      setWindVSeries(windV)
-      setGustSeries(gust)
+      // Samenvoegen, niet vervangen: een moduswissel kan intussen al meer rijen hebben geladen.
+      batch(() => {
+        setUvSeries(mergeLoaded(uv))
+        setTemperatureSeries(mergeLoaded(temperature))
+        setFeelsLikeSeries(mergeLoaded(feelsLike))
+        setHumiditySeries(mergeLoaded(humidity))
+        setCloudSeries(mergeLoaded(cloud))
+        setWindUSeries(mergeLoaded(windU))
+        setWindVSeries(mergeLoaded(windV))
+        setGustSeries(mergeLoaded(gust))
+      })
       setStatus(label)
       setPointSeriesLoading(false)
       setPointLoadStage('direct')
@@ -1833,18 +1839,16 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     setHistoryRowsWanted(true)
     const state = pointLoad
     if (!state) return
-    await state.direct.catch(() => undefined)
-    if (state.request !== pointRequest) return
     await mergeForecastSeries(state, 'L2')
   }
 
   /** Met een `state` verschijnen de waarden per frame (publishLoadedSeries), niet pas als de hele reeks er is. */
-  function readForecastPointSeries(frames: TimelineFrame[], point: { lng: number; lat: number }, key: TableSeriesKey, layer: LoadLayer, state?: PointLoadState): Promise<Array<number | null>> {
+  function readForecastPointSeries(frames: TimelineFrame[], point: { lng: number; lat: number }, key: TableSeriesKey, layer: LoadLayer, state?: PointLoadState, rows: 'all' | 'near-now' = 'all'): Promise<Array<number | null>> {
     const now = manifestNow()
     const history = historyRowsWanted()
     const window = viewWindow()
     const indexes = forecast().flatMap((row) => {
-      if (row[key] == null) return []
+      if (row[key] == null || (rows === 'near-now' && Math.abs(row.epoch - now) > READY_WINDOW_MS)) return []
       const tableRow = isPassiveRow(row, now) && (row.kind !== 'past' || history)
       if (!inViewOnly) return tableRow ? [row[key]] : []
       const wanted = (tableInView() && tableRow) || (scrubberSeries().has(key) && rowInView(row, window))
@@ -1873,8 +1877,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (state.request === pointRequest) state.rainPublisher?.schedule()
       }, 'L1', viewDemand().signal).catch(() => undefined)
     }
-    await state.direct.catch(() => undefined)
-    if (state.request !== pointRequest) return
     await mergeForecastSeries(state, 'L1')
   }
 
@@ -2378,8 +2380,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     viewWindow()
     scrubberSeries()
     tableInView()
-    const stage = pointLoadStage()
-    if (stage === 'initial' || stage === 'complete') return
+    // Niet wachten op een laadfase: wat de intent nu vraagt gaat meteen de planner in (MIP-20).
+    if (pointLoadStage() === 'complete') return
     const state = untrack(() => pointLoad)
     if (state) untrack(() => { void loadViewWindow(state) })
   })
