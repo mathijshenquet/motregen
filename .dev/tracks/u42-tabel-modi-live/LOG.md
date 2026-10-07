@@ -404,3 +404,16 @@
   17/17 groen. Build: 107 modules, `index-CovZL7Jy.js`, `index-Dm2XnRRk.css`, PWA + workers.
   Preview `http://ageq-dev2:4320/` serveert de nieuwe assets. Geen e2e uitgevoerd vóór PO-signaal
   “klaar”.
+
+## 2026-10-07 12:58 UTC
+
+- De kaartpreview kon na de eerste correcte positionering enkele pixels/een deel van een rij
+  verschuiven doordat later geladen celinhoud de tabelhoogte boven de doelrow nog veranderde. Een
+  mobiele previewcorrector observeert nu scroller en tabel met `ResizeObserver` en corrigeert ook op
+  element-`scrollend` na een smooth offsetwijziging. De correctie gebruikt een enkele RAF en is alleen
+  actief wanneer de interne tabel in kaartmodus vergrendeld is; in open Tabel raakt hij
+  gebruikersscroll niet.
+- Synchrone receipts: `git diff --check`, `pnpm typecheck` en `pnpm build` exit 0; ForecastTable
+  17/17 groen. Build: 107 modules, `index-6goW5VOX.js`, `index-DcYrN3Ca.css`, PWA + workers.
+  Preview `http://ageq-dev2:4320/` serveert de nieuwe assets. Geen e2e uitgevoerd vóór PO-signaal
+  “klaar”.

@@ -2429,14 +2429,35 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
   let tablePreviewFrame: number | undefined
   let tablePreviewPositioned = false
-  createEffect(() => {
-    const epoch = tablePreviewEpoch()
-    if (!tableViewAvailable() || tableScrollOpen()) return
+  function queueTablePreview(epoch: number, behavior: ScrollBehavior): void {
     if (tablePreviewFrame !== undefined) cancelAnimationFrame(tablePreviewFrame)
     tablePreviewFrame = requestAnimationFrame(() => {
       tablePreviewFrame = undefined
-      const positioned = scrollTableToEpoch(epoch, tablePreviewPositioned && !reducedMotion.matches ? 'smooth' : 'auto')
+      if (!tableViewAvailable() || tableScrollOpen()) return
+      const positioned = scrollTableToEpoch(epoch, behavior)
       if (positioned) tablePreviewPositioned = true
+    })
+  }
+  createEffect(() => {
+    const epoch = tablePreviewEpoch()
+    if (!tableViewAvailable() || tableScrollOpen()) return
+    queueTablePreview(epoch, tablePreviewPositioned && !reducedMotion.matches ? 'smooth' : 'auto')
+  })
+  onMount(() => {
+    const scroller = forecastPanelElement.querySelector<HTMLElement>('.table-scroll')
+    const table = forecastPanelElement.querySelector<HTMLElement>('.forecast-table')
+    if (!scroller || !table || typeof ResizeObserver === 'undefined') return
+    const correct = () => {
+      if (!tableViewAvailable() || tableScrollOpen()) return
+      queueTablePreview(untrack(tablePreviewEpoch), 'auto')
+    }
+    const observer = new ResizeObserver(correct)
+    observer.observe(scroller)
+    observer.observe(table)
+    scroller.addEventListener('scrollend', correct, { passive: true })
+    onCleanup(() => {
+      observer.disconnect()
+      scroller.removeEventListener('scrollend', correct)
     })
   })
   onCleanup(() => { if (tablePreviewFrame !== undefined) cancelAnimationFrame(tablePreviewFrame) })
