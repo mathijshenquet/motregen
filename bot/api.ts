@@ -4,6 +4,7 @@ interface ApiReply<Result> {
   ok: boolean
   result: Result
   error_code?: number
+  description?: string
   parameters?: { retry_after?: number }
 }
 
@@ -22,7 +23,7 @@ export interface TelegramUpdate {
 }
 
 export class TelegramApiError extends Error {
-  constructor(readonly method: string, readonly code: number, readonly retryAfter?: number) {
+  constructor(readonly method: string, readonly code: number, readonly retryAfter?: number, readonly notModified = false) {
     super(`Telegram ${method} mislukt (${code})`)
   }
 }
@@ -64,7 +65,10 @@ export class TelegramApi {
     } catch {
       throw new TelegramApiError(method, response.status)
     }
-    if (!reply.ok) throw new TelegramApiError(method, reply.error_code ?? response.status, reply.parameters?.retry_after)
+    if (!reply.ok) {
+      const notModified = method === 'editMessageMedia' && reply.error_code === 400 && Boolean(reply.description?.includes('message is not modified'))
+      throw new TelegramApiError(method, reply.error_code ?? response.status, reply.parameters?.retry_after, notModified)
+    }
     return reply.result
   }
 }

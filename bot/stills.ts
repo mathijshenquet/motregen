@@ -3,9 +3,9 @@ import type { PresetMode } from '../web/src/core/presets.js'
 import { telegramStartParameter } from '../web/src/core/telegram-presets.js'
 
 export const STILL_MODES = [
-  { mode: 'weather', command: 'regen', query: 'weer', label: 'Regen' },
-  { mode: 'air', command: 'lucht', query: 'lucht', label: 'Lucht' },
-  { mode: 'feels', command: 'gevoel', query: 'gevoel', label: 'Gevoelstemperatuur' },
+  { mode: 'weather', command: 'regen', query: 'weer', label: 'Regen', explanation: 'Regenintensiteit: blauw is lichte regen, geel/rood is zware regen.' },
+  { mode: 'air', command: 'lucht', query: 'lucht', label: 'Lucht', explanation: 'Bewolking: een grijze sluier betekent meer wolken; regen staat erachter.' },
+  { mode: 'feels', command: 'gevoel', query: 'gevoel', label: 'Gevoelstemperatuur', explanation: 'Gevoelstemperatuur in °C: blauw is kouder, rood is warmer; lijnen en getallen geven de temperatuur.' },
 ] as const
 
 export const STILL_HOURS = [0, 3, 6, 12] as const
@@ -28,16 +28,20 @@ export function stillEpoch(manifest: StillManifest, hour: StillHour): number {
   return Date.parse(manifest.now) + hour * 3_600_000
 }
 
-export function caption(mode: PresetMode, epoch: number): string {
+export function stillTime(epoch: number): string {
   const date = new Date(epoch)
   const weekday = new Intl.DateTimeFormat('nl-NL', { weekday: 'short', timeZone: 'Europe/Amsterdam' }).format(date)
   const time = new Intl.DateTimeFormat('nl-NL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Amsterdam' }).format(date)
-  const label = STILL_MODES.find((entry) => entry.mode === mode)!.label
-  return `${weekday} ${time} · ${label} · bron KNMI`
+  return `${weekday} ${time}`
+}
+
+export function caption(mode: StillMode, epoch: number): string {
+  const definition = STILL_MODES.find((entry) => entry.mode === mode)!
+  return `${stillTime(epoch)} · ${definition.label}\n${definition.explanation}\nKNMI · OpenFreeMap · © OpenStreetMap\n${presetUrl('https://motregen.nl', mode, epoch)}`
 }
 
 export function cacheKey(selection: StillSelection, manifest: StillManifest): string {
-  const identity = JSON.stringify({ renderer: 2, ...selection, epoch: stillEpoch(manifest, selection.hour), generated: manifest.generated })
+  const identity = JSON.stringify({ renderer: 4, ...selection, epoch: stillEpoch(manifest, selection.hour), generated: manifest.generated })
   const digest = createHash('sha256').update(identity).digest('hex').slice(0, 24)
   return `${selection.mode}-${selection.hour}-${digest}`
 }

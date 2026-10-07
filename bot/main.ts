@@ -3,6 +3,9 @@ import { TelegramApi, TelegramApiError, type TelegramUpdate } from './api.js'
 import { readConfig } from './config.js'
 import { configureBot, handleUpdate, type BotRuntime } from './handlers.js'
 import { StillRenderer, type RenderedStill } from './render.js'
+import { FileIdCache } from './file-ids.js'
+import { StillPhotos } from './photos.js'
+import { MessageSelections } from './selections.js'
 import { STILL_HOURS, STILL_MODES, type StillManifest, type StillSelection } from './stills.js'
 
 async function runBot(): Promise<void> {
@@ -17,6 +20,8 @@ async function runBot(): Promise<void> {
   let manifest: StillManifest | undefined
   const runtime: BotRuntime = {
     api, config, renderer, username: identity.username,
+    photos: new StillPhotos(api, new FileIdCache(identity.username)),
+    selections: new MessageSelections(),
     currentManifest: async () => manifest ?? renderer.manifest(),
     availableStill: (selection) => available.get(selectionKey(selection)),
   }

@@ -63,14 +63,14 @@ test('ordinary visits never load the Telegram SDK', async ({ page }) => {
   expect(telegramRequests).toEqual([])
 })
 
-for (const mode of ['weer', 'lucht', 'gevoel', 'wind']) {
+for (const mode of ['weer', 'lucht', 'gevoel']) {
   test(`national ${mode} still waits for its layers, has no controls and sends no usage beacon`, async ({ page }) => {
     await page.setViewportSize({ width: 900, height: 1200 })
     const usageRequests: string[] = []
     page.on('request', (request) => {
       if (request.url().includes('?s=1') || request.url().endsWith('/hit')) usageRequests.push(request.url())
     })
-    await page.goto(`/?modus=${mode}&t=+2u&still=1`)
+    await page.goto(`/?modus=${mode}&t=+3u&still=1`)
     await expect(page.locator('.map')).toHaveAttribute('data-still-ready', 'true', { timeout: 45_000 })
     await expect(page.locator('.dashboard')).toHaveCount(0)
     await expect(page.locator('.search-field')).toHaveCount(0)

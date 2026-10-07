@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { telegramPresets } from '../web/src/core/telegram-presets.js'
-import { cacheKey, caption, keyboard, matchingModes, miniAppLink, parseCallback, presetUrl, STILL_HOURS, STILL_MODES, stillEpoch, validateManifest, type StillManifest } from './stills.js'
+import { cacheKey, caption, keyboard, matchingModes, miniAppLink, parseCallback, presetUrl, STILL_HOURS, STILL_MODES, stillEpoch, stillTime, validateManifest, type StillManifest } from './stills.js'
 
 const manifest: StillManifest = {
   version: 0,
@@ -11,8 +11,15 @@ const manifest: StillManifest = {
 
 describe('stills and Telegram selections', () => {
   it('formats Dutch captions in Amsterdam time through the daylight-saving boundary', () => {
-    expect(caption('feels', Date.parse('2026-10-10T12:10:00Z'))).toBe('za 14:10 · Gevoelstemperatuur · bron KNMI')
-    expect(caption('weather', Date.parse('2026-10-25T01:10:00Z'))).toBe('zo 02:10 · Regen · bron KNMI')
+    expect(stillTime(Date.parse('2026-10-10T12:10:00Z'))).toBe('za 14:10')
+    expect(stillTime(Date.parse('2026-10-25T01:10:00Z'))).toBe('zo 02:10')
+    for (const definition of STILL_MODES) {
+      const text = caption(definition.mode, Date.parse(manifest.now))
+      expect(text).toContain(definition.explanation)
+      expect(text).toContain('KNMI · OpenFreeMap · © OpenStreetMap')
+      expect(text).toContain(`modus=${definition.query}`)
+      expect(text.length).toBeLessThanOrEqual(1024)
+    }
   })
 
   it('isolates modes, hours and manifest generations in stable cache keys', () => {

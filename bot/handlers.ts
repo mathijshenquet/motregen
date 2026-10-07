@@ -1,12 +1,16 @@
-import type { TelegramApi, TelegramMessage, TelegramUpdate } from './api.js'
+import { TelegramApiError, type TelegramApi, type TelegramMessage, type TelegramUpdate } from './api.js'
 import type { BotConfig } from './config.js'
 import type { RenderedStill, StillRenderer } from './render.js'
+import type { StillPhotos } from './photos.js'
+import type { MessageSelections } from './selections.js'
 import { cacheKey, keyboard, matchingModes, parseCallback, STILL_MODES, type StillManifest, type StillSelection } from './stills.js'
 
 export interface BotRuntime {
   api: TelegramApi
   config: BotConfig
   renderer: StillRenderer
+  photos: StillPhotos
+  selections: MessageSelections
   username: string
   currentManifest(): Promise<StillManifest>
   availableStill(selection: StillSelection): RenderedStill | undefined
@@ -61,11 +65,12 @@ async function handleCommand(message: TelegramMessage, runtime: BotRuntime): Pro
   const manifest = await runtime.currentManifest()
   const selection: StillSelection = { mode: definition.mode, hour: 0 }
   const still = await runtime.renderer.render(selection, manifest)
-  const reply = await runtime.api.uploadPhoto({
+  const reply = await runtime.photos.send(still, {
     chat_id: message.chat.id,
     caption: still.caption,
     reply_markup: keyboard(selection, still.epoch, runtime.config.origin, runtime.username, message.chat.type === 'private'),
-  }, still.path)
+  })
+  runtime.selections.remember(`chat:${message.chat.id}:${reply.message_id}`, still.key)
   console.info(JSON.stringify({ event: 'chat-still', messageId: reply.message_id, milliseconds: still.milliseconds, cached: still.cached }))
 }
 
@@ -75,14 +80,13 @@ async function handleInline(query: NonNullable<TelegramUpdate['inline_query']>, 
     const selection: StillSelection = { mode, hour: 0 }
     const still = runtime.availableStill(selection)
     if (!still) continue
+    const fileId = await runtime.photos.fileIds.get(still)
+    if (!fileId && !runtime.config.origin.startsWith('https:')) continue
     const definition = STILL_MODES.find((entry) => entry.mode === mode)!
     results.push({
       type: 'photo',
-      id: new URL(still.url).pathname.split('/').at(-1)!.replace('.jpg', ''),
-      photo_url: still.url,
-      thumbnail_url: still.url,
-      photo_width: 1800,
-      photo_height: 2400,
+      id: still.key,
+      ...(fileId ? { photo_file_id: fileId } : { photo_url: still.url, thumbnail_url: still.url, photo_width: 960, photo_height: 1272 }),
       title: definition.label,
       description: still.caption,
       caption: still.caption,
@@ -93,24 +97,40 @@ async function handleInline(query: NonNullable<TelegramUpdate['inline_query']>, 
 }
 
 async function handleCallback(query: NonNullable<TelegramUpdate['callback_query']>, runtime: BotRuntime): Promise<void> {
+  const started = performance.now()
   const selection = parseCallback(query.data)
-  await runtime.api.call('answerCallbackQuery', { callback_query_id: query.id, text: selection ? undefined : 'Deze knop is niet meer geldig.' })
-  if (!selection || (!query.inline_message_id && !query.message)) return
+  if (!selection || (!query.inline_message_id && !query.message)) {
+    await runtime.api.call('answerCallbackQuery', { callback_query_id: query.id, text: 'Deze knop is niet meer geldig.' })
+    return
+  }
   const manifest = await runtime.currentManifest()
+  const key = cacheKey(selection, manifest)
+  const message = query.inline_message_id ? `inline:${query.inline_message_id}` : `chat:${query.message!.chat.id}:${query.message!.message_id}`
+  if (runtime.selections.has(message, key)) {
+    await runtime.api.call('answerCallbackQuery', { callback_query_id: query.id, text: 'Al in beeld' })
+    console.info(JSON.stringify({ event: 'still-no-op', mode: selection.mode, hour: selection.hour }))
+    return
+  }
+  await runtime.api.call('answerCallbackQuery', { callback_query_id: query.id })
   const still = await runtime.renderer.render(selection, manifest)
   const markup = keyboard(selection, still.epoch, runtime.config.origin, runtime.username, !query.inline_message_id && query.message?.chat.type === 'private')
-  const media = { type: 'photo', media: query.inline_message_id ? still.url : 'attach://photo', caption: still.caption }
-  if (query.inline_message_id) {
-    await runtime.api.call('editMessageMedia', { inline_message_id: query.inline_message_id, media, reply_markup: markup })
-  } else {
-    await runtime.api.upload('editMessageMedia', {
-      chat_id: query.message!.chat.id,
-      message_id: query.message!.message_id,
-      media,
-      reply_markup: markup,
-    }, still.path)
+  const target = query.inline_message_id ? { inline_message_id: query.inline_message_id } : {
+    chat_id: query.message!.chat.id,
+    message_id: query.message!.message_id,
   }
-  console.info(JSON.stringify({ event: 'still-edit', mode: selection.mode, hour: selection.hour, milliseconds: still.milliseconds, cached: still.cached, key: cacheKey(selection, manifest) }))
+  try {
+    const result = await runtime.photos.edit(still, {
+      ...target,
+      reply_markup: markup,
+    })
+    runtime.selections.remember(message, key)
+    console.info(JSON.stringify({ event: 'still-edit', mode: selection.mode, hour: selection.hour, milliseconds: still.milliseconds, callbackMs: Math.round(performance.now() - started), cached: still.cached, fileIdCached: result.fileIdCached, key }))
+  } catch (error) {
+    if (!(error instanceof TelegramApiError) || !error.notModified) throw error
+    runtime.selections.remember(message, key)
+    await runtime.api.call('answerCallbackQuery', { callback_query_id: query.id, text: 'Al in beeld' })
+    console.info(JSON.stringify({ event: 'still-no-op', mode: selection.mode, hour: selection.hour }))
+  }
 }
 
 export async function configureBot(runtime: BotRuntime): Promise<void> {

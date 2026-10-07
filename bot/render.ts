@@ -2,9 +2,11 @@ import { chromium, type Browser, type BrowserContext } from 'playwright'
 import { access, mkdir, readdir, rename, stat, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
-import { cacheKey, caption, presetUrl, stillEpoch, validateManifest, type StillManifest, type StillSelection } from './stills.js'
+import { STILL_CACHE_TTL } from './file-ids.js'
+import { cacheKey, caption, presetUrl, stillEpoch, stillTime, STILL_MODES, validateManifest, type StillManifest, type StillSelection } from './stills.js'
 
 export interface RenderedStill {
+  key: string
   path: string
   url: string
   epoch: number
@@ -48,10 +50,10 @@ export class StillRenderer {
   async prune(now = Date.now()): Promise<void> {
     await mkdir(this.cacheDirectory, { recursive: true })
     for (const name of await readdir(this.cacheDirectory)) {
-      if (!/^(weather|air|feels|wind)-\d+-[a-f0-9]{24}\.jpg(?:\.tmp)?$/.test(name)) continue
+      if (!/^(weather|air|feels|wind)-\d+-[a-f0-9]{24}\.jpg(?:\.file-id\.json)?(?:\.tmp)?$/.test(name)) continue
       const path = join(this.cacheDirectory, name)
       const metadata = await stat(path)
-      if (now - metadata.mtimeMs > 2 * 3_600_000) await unlink(path)
+      if (now - metadata.mtimeMs > STILL_CACHE_TTL) await unlink(path)
     }
   }
 
@@ -62,8 +64,8 @@ export class StillRenderer {
         args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'],
       })
       this.context = await this.browser.newContext({
-        viewport: { width: 900, height: 1200 },
-        deviceScaleFactor: 2,
+        viewport: { width: 640, height: 848 },
+        deviceScaleFactor: 1.5,
         locale: 'nl-NL',
         timezoneId: 'Europe/Amsterdam',
         reducedMotion: 'reduce',
@@ -78,7 +80,7 @@ export class StillRenderer {
     const filename = `${key}.jpg`
     const path = join(this.cacheDirectory, filename)
     const description = caption(selection.mode, epoch)
-    const result = { path, url: new URL(`/telegram/stills/${filename}`, this.origin).href, epoch, caption: description }
+    const result = { key, path, url: new URL(`/telegram/stills/${filename}`, this.origin).href, epoch, caption: description }
     try {
       await access(path)
       return { ...result, milliseconds: 0, cached: true }
@@ -117,18 +119,21 @@ export class StillRenderer {
         throw new Error('Still wijkt af van de gevraagde manifestversie of tijd')
       }
       await page.waitForFunction(() => (window as unknown as { __motregenStillMapLoaded?: () => boolean }).__motregenStillMapLoaded?.())
-      await page.evaluate(async (text) => {
+      await page.evaluate(async ({ time, mode }) => {
+        const header = document.createElement('header')
+        header.className = 'still-time'
+        const timestamp = document.createElement('strong')
+        timestamp.textContent = time
+        const label = document.createElement('small')
+        label.textContent = mode
+        header.append(timestamp, label)
         const footer = document.createElement('footer')
-        footer.className = 'still-caption'
-        const brand = document.createElement('strong')
-        brand.textContent = 'motregen.nl'
-        const attribution = document.createElement('small')
-        attribution.textContent = 'Kaart © OpenStreetMap · OpenFreeMap'
-        footer.append(brand, document.createTextNode(text), attribution)
-        document.querySelector('.map-shell')!.append(footer)
+        footer.className = 'still-attribution'
+        footer.textContent = 'KNMI · OpenFreeMap'
+        document.querySelector('.map-shell')!.append(header, footer)
         await document.fonts.ready
-      }, description)
-      await page.screenshot({ path: `${path}.tmp`, type: 'jpeg', quality: 88 })
+      }, { time: stillTime(epoch), mode: STILL_MODES.find((entry) => entry.mode === selection.mode)!.label })
+      await page.screenshot({ path: `${path}.tmp`, type: 'jpeg', quality: 85 })
       await rename(`${path}.tmp`, path)
       const milliseconds = Math.round(performance.now() - started)
       console.info(JSON.stringify({ event: 'still-render', mode: selection.mode, hour: selection.hour, generated: manifest.generated, milliseconds }))
