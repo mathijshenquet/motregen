@@ -38,7 +38,9 @@
   --cloud-night: #4a5964;
   --sky-bright: #8cc8f4;
   --sky-dull: #68767e;
-  --sky-glow: #ff9a52;
+  --dusk-amber: #ffb85c;
+  --dusk-rose: #ef4269;
+  --dusk-purple: #7b3989;
   --sky-zenith: #1d3f78;
   --cloud-shadow: #1c262d;
   --sky-night: #1b2a3b;
@@ -79,7 +81,9 @@
   --cloud-night: #2b3a44;
   --sky-bright: #2f78b3;
   --sky-dull: #3d4a51;
-  --sky-glow: #f0733a;
+  --dusk-amber: #ffab52;
+  --dusk-rose: #e24069;
+  --dusk-purple: #6e2b80;
   --sky-zenith: #061426;
   --cloud-shadow: #04080b;
   --sky-night: #0c1a27;
@@ -565,7 +569,19 @@ button { color: inherit; cursor: pointer; }
 .cloud-shadow-gradient stop { stop-color: var(--cloud-shadow); }
 .cloud-shadow-gradient stop:first-child { stop-opacity: 0; }
 .cloud-shadow-gradient stop:last-child { stop-opacity: .42; }
-.sky-glow-gradient stop { stop-color: var(--sky-glow); }
+/* Zonsop- en -ondergang in het palet van de dag/nacht-tabel (U42): amber kern, roze en paars ernaast. */
+.dusk-gradient stop:last-child { stop-opacity: 0; }
+.dusk-amber stop { stop-color: var(--dusk-amber); }
+.dusk-amber stop:first-child { stop-opacity: .95; }
+.dusk-rose stop { stop-color: var(--dusk-rose); }
+.dusk-rose stop:first-child { stop-opacity: .6; }
+.dusk-purple stop { stop-color: var(--dusk-purple); }
+.dusk-purple stop:first-child { stop-opacity: .5; }
+.sky-stroke { fill: #04121c; fill-opacity: calc(var(--strength) * .13); }
+.sky-stroke.light { fill: #fff; fill-opacity: calc(var(--strength) * .1); }
+.sky-star { fill: #fff8e0; }
+.sky-grain { position: absolute; top: 0; bottom: 0; left: 0; pointer-events: none; mix-blend-mode: overlay; background-size: 220px 220px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 1.1 -.15'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E"); }
 .sky-depth-gradient stop:nth-child(1) { stop-color: var(--sky-zenith); stop-opacity: .38; }
 .sky-depth-gradient stop:nth-child(2) { stop-color: var(--sky-zenith); stop-opacity: 0; }
 .sky-depth-gradient stop:nth-child(3) { stop-color: #fff; stop-opacity: .16; }

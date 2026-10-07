@@ -68,3 +68,37 @@
   in het pad. Opgelost met een ondergrens van 0. Daarna synchroon: `pnpm typecheck` → 0;
   `pnpm vitest run src/core/cloud-section.test.ts src/components/HistogramScrubber.test.tsx` → 0
   (24 tests); `pnpm build` → 0; still `def12` → SHOT-EXIT 0.
+
+## 2026-10-07 15:31 — U42 gemerged (PO), main (U56) afgebroken
+- PO: "kan jij ff u42 hier in mergen". WIP-commit 4266547, daarna `git merge track/u42-tabel-modi-live`
+  → c82f493. Drie conflicten (App.tsx, HistogramScrubber.tsx, styles.css): U42's structuur genomen, mijn
+  `sky`-prop, hemelgroep (nu vóór de regenbalken, die U42 achter de wolken zette) en CSS erop;
+  `cloudsMix` → `airMix`. `SkywatchRender.tsx` (U46, via main) gebruikte de vervallen dekkingsstops:
+  nu vaste laagkleur per pad. Screenshotscript klikt op Lucht (`SHOT_MODE=weer` voor de rustige weergave).
+- Receipts (synchroon) op c82f493: `pnpm typecheck` → 0; `pnpm test` → 0 (60 bestanden, 391 tests);
+  `pnpm build` → 0; stills lucht{2,12,20} en weer12 → SHOT-EXIT 0.
+- Orkestrator: merge main (U56) vóór de volgende gate. Geprobeerd: 5 conflicterende bestanden, allemaal
+  U42 × U56 (usage v2: pinAir naast clockScrub in `nix/usage/contract.jq`, `usage.test.ts`,
+  `usage.spec.ts`, `App.tsx`, `docs/dev-opties.md`), geen ervan in mijn bestanden. `git merge --abort`:
+  die keuze (veldvolgorde, bodybudget) is van U42. Main komt hier binnen via U42 zodra U42 main heeft.
+- PO over de kleuren: "HEEL nice richting MAAR te 'gradient', meer oompf, meer grain, meer love en
+  detail"; eerder: "mordor vs hobbiton emotie, pathos", "expressionisme, kunstzinnige draai".
+
+## 2026-10-07 15:36 — hemel op licht, expressionistisch (stap 2 + 3 samen, op PO-sturing)
+- Licht: `cloudModification` geëxporteerd uit `uv.ts` (`estimateUv` gebruikt hem, gedrag gelijk). Zonder
+  straling (nacht, verleden) schatten de lagen het licht (`layerTransmission`: hoog 25 %, midden 60 %,
+  laag 75 % tegenhouden). Donkerte = halveringen van het licht / 3 (`lightDarkness`). AFWIJKING van
+  MIP-18 ("nacht: geen lichtfactor"): de PO wilde regen in de nacht donker zien.
+- `skyStops` per uur (donkerte, daglicht, gloed) voedt één verloop voor de hemel en één per laag; kleur
+  via thematokens en `color-mix` (`--sky-*`, `--cloud-bright/storm/night`, `--dusk-*`). `--sky` op de
+  svg = `mix.air`: Lucht krijgt hemel + witte/antraciete wolken, Weer houdt rustige grijzen die wel
+  meedonkeren. Dat is de vol/subtiel-parameter.
+- Detail: schaduw aan de wolkbasis, donkerder zenit, zonsop-/ondergang als amber/roze/paarse ellipsen
+  in het palet van U42's dag/nacht-tabel, sterren in heldere nacht, filmkorrel (`.sky-grain`, overlay),
+  dunne penseelstreken. Twee strekenversies zelf of door de PO afgekeurd (zigzag-bergen; bladvormen,
+  "te druk"); nu dun, lang, 10–13 % dekking.
+- Receipts (synchroon): `pnpm typecheck` → 0; `pnpm test` → 0 (391 tests); `pnpm build` → 0; stills
+  `rustig{2,10,20}` → SHOT-EXIT 0.
+- Open: contrast van regenbalken/cursor op de hemel is niet gemeten (spec stap 3); geen unit-tests voor
+  skyStops/skyStrokes/skyStars/sunCrossings; perf van ~500 strekenpaden + overlay-korrel niet gemeten;
+  SkywatchRender (U46-grader) tekent de nieuwe vormen zonder licht/hemel.

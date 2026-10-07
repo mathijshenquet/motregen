@@ -1,5 +1,5 @@
 import { createEffect, createMemo, createSignal, createUniqueId, For, Index, onCleanup, onMount, Show, untrack } from 'solid-js'
-import { CLOUD_LAYERS, cloudBand, skyStops, type CloudSeries } from '../core/cloud-section'
+import { CLOUD_LAYERS, cloudBand, skyAt, skyStars, skyStops, skyStrokes, sunCrossings, type CloudSeries } from '../core/cloud-section'
 import type { TimelineFrame } from '../core/contract'
 import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColor } from '../core/rain-chart'
 import { SCRUBBER_CURSOR_FRACTION, SCRUBBER_VIEW_HOURS, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
@@ -205,6 +205,22 @@ export default function HistogramScrubber(props: Props) {
     })
   })
   const skyStrength = () => sky().length ? airMix() : 0
+  // Alleen opbouwen als de hemel zichtbaar is: in de rustige weergave kost hij dan niets.
+  const skyVisible = createMemo(() => skyStrength() > 0)
+  const skyDetail = createMemo(() => {
+    if (!skyVisible()) return undefined
+    const pxPerHour = HOUR * pxPerMs()
+    return {
+      strokes: skyStrokes(cloudWidth(), plotHeight(), pxPerHour, sky()),
+      stars: skyStars(cloudWidth(), plotHeight(), pxPerHour, sky()),
+      dusks: sunCrossings(timelineStart(), timelineEnd(), props.sky!.sinElevation).map((crossing) => {
+        const x = xAt(crossing.epoch)
+        // De gloed staat aan de dagkant van de horizon; roze en paars waaieren naar weerszijden uit.
+        const side = crossing.rising ? 1 : -1
+        return { x, side, pxPerHour, strength: 1 - 0.75 * skyAt(sky(), x / cloudWidth()).darkness }
+      }),
+    }
+  })
   // Windgrafiek in baancoördinaten (één keer per data/afmeting, schuift met de baan mee).
   const windChart = scrubMemo('windgrafiek', () => {
     const wind = props.wind
@@ -561,11 +577,17 @@ export default function HistogramScrubber(props: Props) {
           <div class="day-grid"><For each={dayMarkers()}>{(marker) => <div class="boundary" style={{ left: `${xAt(marker.epoch)}px` }} />}</For></div>
           <svg width={trackWidth()} height={plotHeight()} viewBox={`0 0 ${trackWidth()} ${plotHeight()}`} style={{ '--sky': skyStrength() }}>
             {/* De hemel ligt achter alles, ook achter de regen (de verlopen staan verderop in defs). */}
-            <Show when={skyStrength() > 0}><g class="sky" data-testid="sky" style={{ opacity: baseOpacity() * skyStrength() }}>
+            <Show when={skyDetail()}>{(detail) => <g class="sky" data-testid="sky" clip-path={`url(#${cloudId}-plot)`} style={{ opacity: baseOpacity() * skyStrength() }}>
               <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-sky)`} />
               <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-depth)`} />
-              <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-glow)`} mask={`url(#${cloudId}-low)`} />
-            </g></Show>
+              <For each={detail().dusks}>{(dusk) => <g class="dusk" style={{ opacity: dusk.strength }}>
+                <ellipse cx={dusk.x - dusk.side * dusk.pxPerHour * 1.3} cy={plotHeight() * 0.95} rx={dusk.pxPerHour * 2.3} ry={plotHeight() * 0.95} fill={`url(#${cloudId}-dusk-purple)`} />
+                <ellipse cx={dusk.x + dusk.side * dusk.pxPerHour * 0.6} cy={plotHeight() * 1.05} rx={dusk.pxPerHour * 2} ry={plotHeight() * 0.85} fill={`url(#${cloudId}-dusk-rose)`} />
+                <ellipse cx={dusk.x} cy={plotHeight() * 1.12} rx={dusk.pxPerHour * 1.25} ry={plotHeight() * 0.8} fill={`url(#${cloudId}-dusk-amber)`} />
+              </g>}</For>
+              <For each={detail().strokes}>{(stroke) => <path class="sky-stroke" classList={{ light: stroke.light }} d={stroke.path} style={{ '--strength': stroke.strength }} />}</For>
+              <For each={detail().stars}>{(star) => <circle class="sky-star" cx={star.x} cy={star.y} r={star.radius} opacity={star.brightness} />}</For>
+            </g>}</Show>
             {/* In Lucht blijft regen context: achter de wolkenlagen en getweend naar 35% dekking. */}
             <g class="rain-bars scrub-view" style={layerStyle(rainOpacity())}><Index each={bars()}>{(bar) => <Show
               when={!bar().pending}
@@ -577,13 +599,10 @@ export default function HistogramScrubber(props: Props) {
                 <For each={['sky', ...cloudBands().map((band) => band.key)]}>{(key) => <linearGradient id={`${cloudId}-${key}`} class={key === 'sky' ? 'sky-gradient' : `cloud-tone cloud-${key}`} gradientUnits="userSpaceOnUse" x1="0" x2={cloudWidth()} y1="0" y2="0">
                   <For each={sky().length ? sky() : [{ offset: 0, darkness: 0, daylight: 1, glow: 0 }]}>{(stop) => <stop offset={stop.offset} style={{ '--dark': stop.darkness, '--day': stop.daylight }} />}</For>
                 </linearGradient>}</For>
-                <linearGradient id={`${cloudId}-glow`} class="sky-glow-gradient" gradientUnits="userSpaceOnUse" x1="0" x2={cloudWidth()} y1="0" y2="0">
-                  <For each={sky()}>{(stop) => <stop offset={stop.offset} stop-opacity={stop.glow} />}</For>
-                </linearGradient>
-                {/* Verticale lagen over de lucht: donkerder zenit, lichtere horizon; de gloed hangt laag. */}
+                {/* Verticale lagen over de lucht: donkerder zenit, lichtere horizon. */}
                 <linearGradient id={`${cloudId}-depth`} class="sky-depth-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0" /><stop offset="0.55" /><stop offset="1" /></linearGradient>
-                <linearGradient id={`${cloudId}-horizon`} x1="0" x2="0" y1="0" y2="1"><stop offset="0.15" stop-color="#000" /><stop offset="1" stop-color="#fff" /></linearGradient>
-                <mask id={`${cloudId}-low`} maskUnits="userSpaceOnUse" x="0" y="0" width={cloudWidth()} height={plotHeight()}><rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-horizon)`} /></mask>
+                <clipPath id={`${cloudId}-plot`}><rect width={cloudWidth()} height={plotHeight()} /></clipPath>
+                <For each={['amber', 'rose', 'purple']}>{(tint) => <radialGradient id={`${cloudId}-dusk-${tint}`} class={`dusk-gradient dusk-${tint}`}><stop offset="0" /><stop offset="1" /></radialGradient>}</For>
                 {/* Schaduw aan de basis van elke wolk: volume in plaats van een vlak silhouet. */}
                 <linearGradient id={`${cloudId}-shadow`} class="cloud-shadow-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0.25" /><stop offset="1" /></linearGradient>
               </defs>
@@ -625,6 +644,8 @@ export default function HistogramScrubber(props: Props) {
             </g>}</Show>
             <line class="rain-baseline" x1="0" x2={trackWidth()} y1={plotHeight() - 0.5} y2={plotHeight() - 0.5} />
           </svg>
+          {/* Korrel over lucht, wolken en regen: breekt de gladde verlopen (PO 2026-10-07 live). */}
+          <Show when={skyVisible()}><div class="sky-grain" style={{ width: `${cloudWidth()}px`, opacity: baseOpacity() * skyStrength() }} /></Show>
           <div class="now-line" style={{ left: `${nowX()}px` }} />
           {/* "Nu" staat in de urenbalk (PO 2026-09-25 live); het uurlabel eronder wijkt. */}
           <div class="x-axis">
