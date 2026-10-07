@@ -14,6 +14,7 @@ export const LOOP_MODES = [...STILL_MODES,
 
 export const STILL_MINUTES = Array.from({ length: 85 }, (_, index) => -120 + index * 10)
 export const STILL_HOURS = STILL_MINUTES.map((minute) => minute / 60)
+export const PREWARM_HOURS = [0, -1 / 6, 1 / 6, -1, 1] as const
 export type StillHour = number
 export type StillMode = typeof STILL_MODES[number]['mode']
 export type LoopMode = typeof LOOP_MODES[number]['mode']
@@ -55,7 +56,7 @@ export function caption(mode: LoopMode, epoch: number): string {
 
 export function cacheKey(selection: MediaSelection, manifest: StillManifest): string {
   const epoch = selection.hour === 'loop' ? Date.parse(manifest.now) : stillEpoch(manifest, selection.hour)
-  const identity = JSON.stringify({ renderer: 8, mode: selection.mode, kind: selection.hour === 'loop' ? 'loop' : 'photo', epoch, generated: Date.parse(manifest.generated) })
+  const identity = JSON.stringify({ renderer: 10, mode: selection.mode, kind: selection.hour === 'loop' ? 'loop' : 'photo', epoch, generated: Date.parse(manifest.generated) })
   const digest = createHash('sha256').update(identity).digest('hex').slice(0, 24)
   return `${selection.mode}-${selection.hour === 'loop' ? 'loop' : epoch}-${digest}`
 }

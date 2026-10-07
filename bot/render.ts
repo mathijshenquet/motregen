@@ -34,8 +34,11 @@ interface SequenceMetrics { key: string; frames: number; fps: number; bytes: num
 export class StillRenderer {
   private browser?: Browser
   private context?: BrowserContext
-  private queue: Promise<unknown> = Promise.resolve()
+  private queues: Promise<unknown>[] = [Promise.resolve(), Promise.resolve()]
+  private nextQueue = 0
+  private opening?: Promise<BrowserContext>
   private pending = new Map<string, Promise<RenderedSequence>>()
+  private pendingStills = new Map<string, Promise<RenderedStill>>()
 
   constructor(private readonly origin: string, private readonly cacheDirectory: string) {}
 
@@ -54,7 +57,10 @@ export class StillRenderer {
     const key = cacheKey(selection, manifest)
     const still = sequence.stills.find((candidate) => candidate.key === key)
     if (!still) throw new Error('Still ontbreekt in de framereeks')
-    return still
+    const frame = sequencePlan(selection.mode, manifest).stillFrames.find((candidate) => candidate.hour === selection.hour)
+    if (!frame) throw new Error('Stillframe ontbreekt in de framereeks')
+    const loopKey = cacheKey({ mode: selection.mode, hour: 'loop' }, manifest)
+    return this.convertStill(still, framePath(this.frameDirectory(loopKey), frame.index))
   }
 
   private sequence(mode: LoopMode, manifest: StillManifest): Promise<RenderedSequence> {
@@ -64,8 +70,9 @@ export class StillRenderer {
     // Cache-hits hoeven niet achter een nieuwe Chromium-render te wachten.
     const task = this.readCachedSequence(mode, manifest, key).then((cached) => {
       if (cached) return cached
-      const render = this.queue.then(() => this.renderSequence(mode, manifest, key))
-      this.queue = render.catch(() => undefined)
+      const index = this.nextQueue++ % this.queues.length
+      const render = this.queues[index]!.then(() => this.renderSequence(mode, manifest, key))
+      this.queues[index] = render.catch(() => undefined)
       return render
     })
     this.pending.set(key, task)
@@ -75,7 +82,8 @@ export class StillRenderer {
 
   async close(): Promise<void> {
     await Promise.allSettled(this.pending.values())
-    await this.queue
+    await Promise.allSettled(this.pendingStills.values())
+    await Promise.all(this.queues)
     await this.browser?.close()
     this.browser = undefined
     this.context = undefined
@@ -85,12 +93,13 @@ export class StillRenderer {
     await mkdir(this.cacheDirectory, { recursive: true })
     for (const name of await readdir(this.cacheDirectory)) {
       const temporaryFrames = /^\.frames-(weather|air|feels|wind)-loop-[a-f0-9]{24}-[a-zA-Z0-9]+$/.test(name)
-      if (!temporaryFrames && !/^(weather|air|feels|wind)-(?:\d+|loop)-[a-f0-9]{24}\.(?:jpg|mp4|sequence\.json)(?:\.file-id\.json)?(?:\.tmp)?$/.test(name)) continue
+      const storedFrames = /^(weather|air|feels|wind)-loop-[a-f0-9]{24}\.frames$/.test(name)
+      if (!temporaryFrames && !storedFrames && !/^(weather|air|feels|wind)-(?:\d+|loop)-[a-f0-9]{24}\.(?:jpg|mp4|sequence\.json)(?:\.file-id\.json)?(?:\.tmp)?$/.test(name)) continue
       const path = join(this.cacheDirectory, name)
       try {
         const metadata = await stat(path)
         if (now - metadata.mtimeMs > STILL_CACHE_TTL) {
-          if (temporaryFrames) await rm(path, { recursive: true, force: true })
+          if (temporaryFrames || storedFrames) await rm(path, { recursive: true, force: true })
           else await unlink(path)
         }
       } catch (error) {
@@ -99,8 +108,35 @@ export class StillRenderer {
     }
   }
 
+  private frameDirectory(key: string): string {
+    return join(this.cacheDirectory, `${key}.frames`)
+  }
+
+  private convertStill(still: RenderedStill, frame: string): Promise<RenderedStill> {
+    const existing = this.pendingStills.get(still.key)
+    if (existing) return existing
+    const conversion = (async () => {
+      try {
+        await access(still.path)
+        return { ...still, cached: true, milliseconds: 0 }
+      } catch {
+        const started = performance.now()
+        await encodeStill(frame, `${still.path}.tmp`)
+        await rename(`${still.path}.tmp`, still.path)
+        const milliseconds = Math.round(performance.now() - started)
+        console.info(JSON.stringify({ event: 'still-encoded', key: still.key, milliseconds }))
+        return { ...still, cached: false, milliseconds: still.milliseconds + milliseconds }
+      }
+    })()
+    this.pendingStills.set(still.key, conversion)
+    void conversion.finally(() => this.pendingStills.delete(still.key)).catch(() => undefined)
+    return conversion
+  }
+
   private async browserContext(): Promise<BrowserContext> {
-    if (!this.browser?.isConnected()) {
+    if (this.opening) return this.opening
+    if (this.browser?.isConnected() && this.context) return this.context
+    const opening = (async () => {
       this.browser = await chromium.launch({
         executablePath: process.env.MOTREGEN_CHROMIUM_PATH,
         args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'],
@@ -109,8 +145,10 @@ export class StillRenderer {
         viewport: { width: 640, height: 848 }, deviceScaleFactor: 1.5,
         locale: 'nl-NL', timezoneId: 'Europe/Amsterdam', reducedMotion: 'reduce', serviceWorkers: 'block',
       })
-    }
-    return this.context!
+      return this.context
+    })()
+    this.opening = opening
+    try { return await opening } finally { this.opening = undefined }
   }
 
   private media(selection: MediaSelection, manifest: StillManifest): RenderedBase {
@@ -136,7 +174,9 @@ export class StillRenderer {
       const metrics = JSON.parse(await readFile(path, 'utf8')) as SequenceMetrics
       if (metrics.key !== key || !Number.isFinite(metrics.frames) || !Number.isFinite(metrics.bytes)) return undefined
       const sequence = this.results(mode, manifest, metrics, true)
-      await Promise.all([sequence.loop, ...sequence.stills].map((media) => access(media.path)))
+      await access(sequence.loop.path)
+      const directory = this.frameDirectory(key)
+      await Promise.all(sequencePlan(mode, manifest).epochs.map((_epoch, index) => access(framePath(directory, index))))
       return sequence
     } catch {
       return undefined
@@ -173,6 +213,7 @@ export class StillRenderer {
     try {
       const context = await this.browserContext()
       page = await context.newPage()
+      const capture = await context.newCDPSession(page)
       await this.openSequence(page, mode, manifest, plan.epochs[0]!)
       for (const [index, epoch] of plan.epochs.entries()) {
         await page.evaluate(async ({ epoch, simulationMs, regime }) => {
@@ -188,20 +229,17 @@ export class StillRenderer {
         }))
         if (state.error) throw new Error(state.error)
         if (state.generated !== manifest.generated || Math.abs(state.epoch - epoch) >= 60_000) throw new Error('Frame wijkt af van de gevraagde manifestversie of tijd')
-        await page.screenshot({ path: framePath(directory, index), type: 'png', timeout: 60_000 })
+        const screenshot = await capture.send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false, optimizeForSpeed: true, clip: { x: 0, y: 0, width: 640, height: 848, scale: 1.5 } })
+        await writeFile(framePath(directory, index), Buffer.from(screenshot.data, 'base64'))
       }
       const renderMs = Math.round(performance.now() - started)
       const loop = this.media({ mode, hour: 'loop' }, manifest)
       const encoded = await encodeLoop(directory, `${loop.path}.tmp`, plan)
-      const conversionsStarted = performance.now()
-      for (const frame of plan.stillFrames) {
-        if (mode === 'wind') throw new Error('Wind heeft geen stills')
-        const still = this.media({ mode, hour: frame.hour }, manifest)
-        await encodeStill(framePath(directory, frame.index), `${still.path}.tmp`)
-        await rename(`${still.path}.tmp`, still.path)
-      }
       await rename(`${loop.path}.tmp`, loop.path)
-      const metrics = { key, frames: plan.loopFrames, fps: plan.fps, bytes: encoded.bytes, renderMs, encodeMs: encoded.milliseconds + Math.round(performance.now() - conversionsStarted) }
+      const publishedFrames = this.frameDirectory(key)
+      await rm(publishedFrames, { recursive: true, force: true })
+      await rename(directory, publishedFrames)
+      const metrics = { key, frames: plan.loopFrames, fps: plan.fps, bytes: encoded.bytes, renderMs, encodeMs: encoded.milliseconds }
       const receipt = join(this.cacheDirectory, `${key}.sequence.json`)
       // Alleen complete, atomair gepubliceerde reeksen tellen als cache-hit.
       await writeFile(`${receipt}.tmp`, JSON.stringify(metrics))

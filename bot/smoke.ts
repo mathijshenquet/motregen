@@ -3,8 +3,8 @@ import { readConfig, validateCacheChat } from './config.js'
 import { setTimeout as delay } from 'node:timers/promises'
 import { FileIdCache } from './file-ids.js'
 import { StillPhotos } from './photos.js'
-import { StillRenderer } from './render.js'
-import { keyboard, STILL_HOURS, LOOP_MODES } from './stills.js'
+import { StillRenderer, type RenderedMedia } from './render.js'
+import { keyboard, PREWARM_HOURS, STILL_HOURS, LOOP_MODES } from './stills.js'
 
 async function smoke(): Promise<void> {
   const config = readConfig()
@@ -37,13 +37,16 @@ async function smoke(): Promise<void> {
     const chatId = process.env.MOTREGEN_SMOKE_CHAT_ID ?? start?.message?.chat.id
     if (!chatId) throw new Error('Geen rooktestchat: stuur /start of zet MOTREGEN_SMOKE_CHAT_ID')
     if (!config.cacheChatId) throw new Error('MOTREGEN_CACHE_CHAT_ID ontbreekt voor de matrixrooktest')
-    const matrix = []
-    for (const definition of LOOP_MODES) {
-      matrix.push(await renderer.render({ mode: definition.mode, hour: 'loop' }, manifest))
-      if (definition.mode !== 'wind') for (const hour of STILL_HOURS) matrix.push(await renderer.render({ mode: definition.mode, hour }, manifest))
-    }
+    const matrixStarted = performance.now()
+    const batches = await Promise.all(LOOP_MODES.map(async (definition) => {
+      const media: RenderedMedia[] = [await renderer.render({ mode: definition.mode, hour: 'loop' }, manifest)]
+      if (definition.mode !== 'wind') for (const hour of PREWARM_HOURS) media.push(await renderer.render({ mode: definition.mode, hour }, manifest))
+      return media
+    }))
+    const matrix = batches.flat()
+    const primeStarted = performance.now()
     await photos.primeGeneration(matrix)
-    console.info(JSON.stringify({ event: 'matrix-primed', count: matrix.length, generated: manifest.generated }))
+    console.info(JSON.stringify({ event: 'matrix-primed', count: matrix.length, generated: manifest.generated, renderMs: Math.round(primeStarted - matrixStarted), primeMs: Math.round(performance.now() - primeStarted), milliseconds: Math.round(performance.now() - matrixStarted) }))
     // De renderer mag localhost gebruiken; Telegram-knoppen vereisen een publieke HTTPS-URL.
     const buttonOrigin = config.origin.startsWith('https://') ? config.origin : 'https://motregen.nl'
     await api.call('sendMessage', {
@@ -57,12 +60,13 @@ async function smoke(): Promise<void> {
       caption: first.caption,
       reply_markup: keyboard({ mode: 'weather', hour: 0 }, first.epoch, first.generated),
     })
-    const next = await renderer.render({ mode: 'air', hour: 3 }, manifest)
+    const next = await renderer.render({ mode: 'air', hour: 1 / 6 }, manifest)
+    if (!await photos.fileIds.get(next)) throw new Error('Eerste selectie is niet vooraf geprimed')
     const firstEditStarted = performance.now()
     const edited = await photos.edit(next, {
       chat_id: chatId,
       message_id: message.message_id,
-      reply_markup: keyboard({ mode: 'air', hour: 3 }, next.epoch, next.generated),
+      reply_markup: keyboard({ mode: 'air', hour: 1 / 6 }, next.epoch, next.generated),
     })
     const firstEditMs = Math.round(performance.now() - firstEditStarted)
     if (!edited.fileIdCached) throw new Error('Eerste edit gebruikt geen matrix-file_id')
@@ -70,11 +74,25 @@ async function smoke(): Promise<void> {
     await photos.edit(first, { chat_id: chatId, message_id: message.message_id, reply_markup: keyboard({ mode: 'weather', hour: 0 }, first.epoch, first.generated) })
     await delay(1100)
     const cachedStarted = performance.now()
-    const cachedEdit = await photos.edit(next, { chat_id: chatId, message_id: message.message_id, reply_markup: keyboard({ mode: 'air', hour: 3 }, next.epoch, next.generated) })
+    const cachedEdit = await photos.edit(next, { chat_id: chatId, message_id: message.message_id, reply_markup: keyboard({ mode: 'air', hour: 1 / 6 }, next.epoch, next.generated) })
     const cachedMs = Math.round(performance.now() - cachedStarted)
     if (!cachedEdit.fileIdCached) throw new Error('file_id niet hergebruikt')
     await api.call('setChatMenuButton', { menu_button: { type: 'web_app', text: 'motregen.nl', web_app: { url: `${buttonOrigin}/?tg=1` } } })
     console.info(JSON.stringify({ event: 'telegram-smoke', messageId: message.message_id, firstEditMs, cachedMs, firstEditFileIdCached: edited.fileIdCached, fileIdCached: cachedEdit.fileIdCached, generated: manifest.generated }))
+    const lazy = await renderer.render({ mode: 'air', hour: 1 / 3 }, manifest)
+    if (await photos.fileIds.get(lazy)) throw new Error('Luie selectie is onverwacht vooraf geüpload')
+    const lazyStarted = performance.now()
+    await photos.edit(lazy, { chat_id: chatId, message_id: message.message_id, reply_markup: keyboard({ mode: 'air', hour: 1 / 3 }, lazy.epoch, lazy.generated) })
+    const lazyMs = Math.round(performance.now() - lazyStarted)
+    const lazyId = await photos.fileIds.get(lazy)
+    if (!lazyId) throw new Error('Luie selectie heeft geen file_id gekregen')
+    await delay(1100)
+    await photos.edit(first, { chat_id: chatId, message_id: message.message_id })
+    await delay(1100)
+    const repeatStarted = performance.now()
+    await photos.edit(lazy, { chat_id: chatId, message_id: message.message_id, reply_markup: keyboard({ mode: 'air', hour: 1 / 3 }, lazy.epoch, lazy.generated) })
+    if (await photos.fileIds.get(lazy) !== lazyId) throw new Error('Luie selectie is opnieuw geüpload')
+    console.info(JSON.stringify({ event: 'lazy-still-smoke', hour: 1 / 3, encodeMs: lazy.milliseconds, firstEditMs: lazyMs, cachedMs: Math.round(performance.now() - repeatStarted) }))
     for (const definition of LOOP_MODES) {
       const selection = { mode: definition.mode, hour: 'loop' } as const
       const loop = await renderer.render(selection, manifest)

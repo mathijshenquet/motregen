@@ -6,7 +6,7 @@ import { StillRenderer, type RenderedMedia } from './render.js'
 import { FileIdCache } from './file-ids.js'
 import { StillPhotos } from './photos.js'
 import { MessageSelections } from './selections.js'
-import { STILL_HOURS, LOOP_MODES, type StillManifest, type MediaSelection } from './stills.js'
+import { PREWARM_HOURS, LOOP_MODES, type StillManifest, type MediaSelection } from './stills.js'
 
 async function runBot(): Promise<void> {
   const config = readConfig()
@@ -99,20 +99,24 @@ async function refreshStills(runtime: BotRuntime, available: Map<string, Rendere
       if (manifest.generated !== renderedGeneration) {
         const started = performance.now()
         const next = new Map<string, RenderedMedia>()
-        for (const definition of LOOP_MODES) {
-          if (signal.aborted) return
-          step = 'render'
-          mode = definition.mode
+        step = 'render'
+        const renders = await Promise.allSettled(LOOP_MODES.map(async (definition) => {
           const loopSelection = { mode: definition.mode, hour: 'loop' } as const
-          next.set(selectionKey(loopSelection), await runtime.renderer.render(loopSelection, manifest))
-          if (definition.mode === 'wind') continue
-          for (const hour of STILL_HOURS) {
-            if (signal.aborted) return
-            const selection = { mode: definition.mode, hour }
-            const still = await runtime.renderer.render(selection, manifest)
-            next.set(selectionKey(selection), still)
+          try {
+            next.set(selectionKey(loopSelection), await runtime.renderer.render(loopSelection, manifest))
+            if (definition.mode === 'wind' || signal.aborted) return
+            for (const hour of PREWARM_HOURS) {
+              if (signal.aborted) return
+              const selection = { mode: definition.mode, hour }
+              next.set(selectionKey(selection), await runtime.renderer.render(selection, manifest))
+            }
+          } catch (error) {
+            mode = definition.mode
+            throw error
           }
-        }
+        }))
+        const failed = renders.find((result) => result.status === 'rejected')
+        if (failed?.status === 'rejected') throw failed.reason
         if (signal.aborted) return
         step = 'prime'
         mode = undefined

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { sequencePlan } from './sequences.js'
-import { cacheKey, LOOP_MODES, type StillManifest } from './stills.js'
+import { cacheKey, LOOP_MODES, PREWARM_HOURS, type StillManifest } from './stills.js'
 
 const manifest: StillManifest = { version: 0, generated: '2026-10-07T12:00:00Z', now: '2026-10-07T12:00:00Z', chunks: [] }
 const now = Date.parse(manifest.now)
@@ -49,5 +49,20 @@ describe('one frame sequence per mode', () => {
       }
     }
     expect(keys.size).toBe(259)
+  })
+
+  it('prewarms 19 media while retaining all delta frames for lazy stills', () => {
+    const keys = new Set<string>()
+    for (const definition of LOOP_MODES) {
+      keys.add(cacheKey({ mode: definition.mode, hour: 'loop' }, manifest))
+      if (definition.mode === 'wind') continue
+      const plan = sequencePlan(definition.mode, manifest)
+      for (const hour of PREWARM_HOURS) {
+        expect(plan.stillFrames.some((frame) => frame.hour === hour)).toBe(true)
+        keys.add(cacheKey({ mode: definition.mode, hour }, manifest))
+      }
+      expect(plan.stillFrames).toHaveLength(85)
+    }
+    expect(keys.size).toBe(19)
   })
 })
