@@ -76,3 +76,17 @@ het KNMI" — één regel erbij.
 - 23:15 Isobaren: PO vindt ze flikkerig en op NL-schaal weinig informatief (te ver ingezoomd);
   voor nu: sterker laagdoorlaten, 33 % van de dekking, H/L (rood/blauw) alleen in windmodus. Open
   vraag voor later: isobaren pas tonen bij uitzoomen / groter drukveld ophalen (Europa-uitsnede).
+
+## Amendement 2026-10-07 (PO, chat) — kolommen en modi herindeling
+
+- **Weer** is de standaardmodus en staat bij laden geselecteerd (alleen regen op de kaart,
+  regenhistogram in de scrubber). Er is altijd precies één modus gepind.
+- **Lucht** = UV en wolken samengevoegd tot één kolom mét eigen kaartmodus (bewolkingssluier,
+  wolkenlagen in de scrubber); cel: overdag UV + wolkje, 's nachts de maan.
+- **RV** uit beeld (data en ingest blijven; de kolom komt terug als extra kolom in de kolomset).
+- **Uur** zonder kop; de moduskoppen gelijkmatig over de resterende breedte.
+- **Maan** fotorealistisch (NASA SVS, publiek domein) met onze terminator.
+- **Mobiel**: koppen moeten als tabelkop lezen — eerste rij (±1,2 rij) al zichtbaar onder de
+  kaart met schaduw als nudge; tabel openen als view-switch met sticky sleep-handle; in de open
+  staat rendert de kaart niet.
+- Spoor: U42 (live-pane met de PO). U38 (kolomset/paging) komt daarna en bouwt hierop voort.
