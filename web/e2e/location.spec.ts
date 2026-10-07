@@ -93,7 +93,8 @@ test('the search panel is one element; a tap outside closes it without touching 
   const box = page.locator('.search-box')
   const rest = (await box.boundingBox())!
   expect(rest.width).toBeLessThanOrEqual(125)
-  await expect(page.locator('.search-field')).toHaveCSS('font-size', testInfo.project.use.hasTouch ? '16px' : '15px')
+  // 16 px op elk apparaat sinds U34 (2026-09-25): voorkomt de iOS-zoom bij focus en houdt het veld gelijk aan de pil.
+  await expect(page.locator('.search-field')).toHaveCSS('font-size', '16px')
   await expect(page.getByRole('button', { name: 'Deze plaats opslaan' })).toHaveCount(0)
   expect(rest.height).toBeGreaterThanOrEqual(testInfo.project.use.hasTouch ? 44 : 38)
   expect(rest.height).toBeLessThanOrEqual(testInfo.project.use.hasTouch ? 46 : 40)

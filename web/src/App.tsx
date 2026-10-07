@@ -326,7 +326,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // Verleende locatietoestemming gaat vóór de onthouden plaats (U26); tot de fix er is staat die er.
   void grantedStartFix({ permissions: navigator.permissions, geolocation: navigator.geolocation }, MAP_CONTAIN_BOUNDS).then((fix) => {
     if (stillMode) return
-    if (initialPresets.point || initialPresets.place) return
+    // Een gedeeld punt of een andere plaats dan waar we al staan gaat vóór de locatiefix; de eigen
+    // permalink (?plaats= van de huidige plaats) niet.
+    if (initialPresets.point) return
+    if (initialPresets.place && initialPresets.place.trim().toLowerCase() !== startLocation.label.trim().toLowerCase()) return
     if (!fix) return
     const current = location()
     if (current.lng !== startLocation.lng || current.lat !== startLocation.lat) return
@@ -2273,6 +2276,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   async function selectPresetPlace(place: string): Promise<void> {
+    // De live permalink zet ?plaats= op elke plaats die je kiest; na een herlaad is dat meestal de plaats
+    // waar je al staat of een opgeslagen plaats. Die hoeven niet langs de geocoder (die kan anders winnen
+    // van de onthouden plaats). Alleen een onbekende naam wordt opgezocht.
+    const wanted = place.trim().toLowerCase()
+    if (locationLabel().trim().toLowerCase() === wanted) return
+    const saved = savedPlaces().find((candidate) => candidate.name.trim().toLowerCase() === wanted)
+    if (saved) { chooseSaved(saved); revealPoint(saved.lng, saved.lat); return }
     try {
       const [suggestion] = await suggestLocations(place, map?.getCenter() ?? location())
       if (!suggestion) return
