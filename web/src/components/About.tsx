@@ -1,7 +1,7 @@
 import { For, onCleanup, type JSX } from 'solid-js'
 import { Dynamic } from 'solid-js/web'
 import { WIND_UNITS, type WindUnit } from '../core/weather'
-import { BUTTON_ICON, INLINE_ICON, Moon, Sun, SunMoon, X } from './icons'
+import { BUTTON_ICON, INLINE_ICON, Moon, Share2, Sun, SunMoon, X } from './icons'
 import { backdropHandlers } from './modal'
 
 export const REPOSITORY_URL = 'https://github.com/mathijshenquet/motregen'
@@ -25,6 +25,8 @@ interface Props {
   windUnit: WindUnit
   onWindUnit: (unit: WindUnit) => void
   onOpen?: () => void
+  onShare?: () => void
+  shareNotice?: string
   onTripleTap: () => void
   /** Links in de bron-regel, bv. de temperatuurlegenda. */
   sourcePrefix?: JSX.Element
@@ -92,7 +94,8 @@ export default function About(props: Props) {
           <img src="/droplet.svg" alt="" />
           <h2 id="about-title">motregen.nl</h2>
         </header>
-        <p class="about-lead">Rechtstreeks van het KNMI<br />Gratis en zonder reclame</p>
+        <p class="about-lead">Regenradar en weersverwachting</p>
+        <div class="about-share"><button type="button" onClick={() => void props.onShare?.()}><Share2 {...INLINE_ICON} />Deel deze stand</button><span aria-live="polite">{props.shareNotice}</span></div>
         <dl>
           <dt>Observatie</dt><dd>KNMI-radar, elke 5 min · NL en Vlaanderen</dd>
           <dt>Voorspelling</dt><dd>KNMI-nowcast (2 uur), dan HARMONIE-AROME</dd>

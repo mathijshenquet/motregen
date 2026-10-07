@@ -13,6 +13,8 @@
 	header /manifest.json Cache-Control "public, max-age=15, stale-while-revalidate=60"
 	header /chunks/* Cache-Control "public, max-age=31536000, immutable"
 	header /chunks/* -Content-Encoding
+	header /sw.js Cache-Control "no-cache"
+	header /manifest.webmanifest Cache-Control "no-cache"
 
 	handle /manifest.json {
 		file_server

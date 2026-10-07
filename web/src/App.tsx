@@ -1,5 +1,6 @@
 import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show, untrack } from 'solid-js'
 import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
+import { registerSW } from 'virtual:pwa-register'
 import About, { type ThemeChoice } from './components/About'
 import HistogramScrubber from './components/HistogramScrubber'
 import { INLINE_ICON, Star, Sun } from './components/icons'
@@ -51,6 +52,9 @@ import { clearTuningStorage } from './core/dev-settings'
 import { watchIdle } from './core/activity'
 import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
 import { browserUsageEnvironment, createUsageTracker, installUsageBeacon, sessionManifestUrls } from './core/usage'
+import { copyText } from './core/clipboard'
+import { resolveLocation, suggestLocations } from './core/geocoder'
+import { cursorForPresetEpoch, modeForActiveFocus, modeForFocus, parsePresets, shareUrl } from './core/presets'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
 const manifestRequestUrl = sessionManifestUrls(manifestUrl)
@@ -143,6 +147,7 @@ const WIND_IDLE_FPS = 30
 
 export default function App() {
   const devMode = new URLSearchParams(window.location.search).has('dev')
+  const initialPresets = parsePresets(window.location.search)
   let mapElement!: HTMLDivElement
   let splashElement!: HTMLDivElement
   let map: maplibregl.Map | undefined
@@ -255,13 +260,16 @@ export default function App() {
   // Afspelen loopt door de hele tijdlijn (PO 2026-09-25 live; was +8 u, restant van de bereikknoppen).
   const [timeHorizonHours] = createSignal<number | null>(null)
   const initialSavedPlaces = loadSavedPlaces()
-  const initialMapView = loadMapView()
-  let startLocation = resolveStartLocation(initialSavedPlaces, loadLastSavedPlaceId(), initialMapView, defaultLocation)
+  const initialMapView = initialPresets.point ? undefined : loadMapView()
+  let startLocation = initialPresets.point
+    ? { ...initialPresets.point, label: nearestPlace(initialPresets.point.lng, initialPresets.point.lat).name }
+    : resolveStartLocation(initialSavedPlaces, loadLastSavedPlaceId(), initialMapView, defaultLocation)
   let startFromFix = false
   const [location, setLocation] = createSignal({ lng: startLocation.lng, lat: startLocation.lat })
   const [locationLabel, setLocationLabel] = createSignal(startLocation.label)
   // Verleende locatietoestemming gaat vóór de onthouden plaats (U26); tot de fix er is staat die er.
   void grantedStartFix({ permissions: navigator.permissions, geolocation: navigator.geolocation }, MAP_CONTAIN_BOUNDS).then((fix) => {
+    if (initialPresets.point || initialPresets.place) return
     if (!fix) return
     const current = location()
     if (current.lng !== startLocation.lng || current.lat !== startLocation.lat) return
@@ -354,6 +362,10 @@ export default function App() {
   const [mapReady, setMapReady] = createSignal(false)
   const [resetNotice, setResetNotice] = createSignal(false)
   let resetNoticeTimer: number | undefined
+  const [updateReady, setUpdateReady] = createSignal(false)
+  let updateServiceWorker: (() => Promise<void>) | undefined
+  const [shareNotice, setShareNotice] = createSignal<string>()
+  let shareNoticeTimer: number | undefined
   const [perfVisible, setPerfVisible] = createSignal(false)
   const [systemDark, setSystemDark] = createSignal(media.matches)
   const mapTheme = createMemo<MapTheme>(() => theme() === 'system' ? systemDark() ? 'dark' : 'light' : theme() as MapTheme)
@@ -378,6 +390,13 @@ export default function App() {
     })
   })
 
+  onMount(() => {
+    if (!('serviceWorker' in navigator)) return
+    updateServiceWorker = registerSW({
+      onNeedRefresh: () => setUpdateReady(true),
+    })
+  })
+
   onMount(async () => {
     const mediaChanged = (event: MediaQueryListEvent) => setSystemDark(event.matches)
     media.addEventListener('change', mediaChanged)
@@ -391,6 +410,7 @@ export default function App() {
       setManifestRefresh({ checkedAt: Date.now() })
       const frames = buildTimeline(data)
       if (!frames.length) throw new Error('De tijdlijn is leeg')
+      const presets = parsePresets(window.location.search, Date.parse(data.now))
       setManifest(data)
       void Promise.all(data.chunks.filter(eagerHeader).map((chunk) => client.getHeader(chunk))).catch(() => undefined)
       stopManifestRefresh = scheduleManifestRefresh(refreshManifest, {
@@ -405,12 +425,17 @@ export default function App() {
       })
       let nowIndex = 0
       for (let index = 0; index < frames.length; index++) if (frames[index]!.epoch <= Date.parse(data.now)) nowIndex = index
-      setCursor(nowIndex)
+      const presetCursor = presets.epoch === undefined ? undefined : cursorForPresetEpoch(frames, presets.epoch)
+      setCursor(presetCursor ?? nowIndex)
+      if (presetCursor !== undefined) setPlaying(false)
+      if (presets.mode) applyPresetMode(presets.mode)
       const header = await client.getHeader(frames[0]!.chunk)
       const initialTheme = mapTheme()
       const style = await loadBasemapStyle(initialTheme)
       appliedMapTheme = initialTheme
-      const initialView = constrainView(initialMapView ?? containView(MAP_CONTAIN_BOUNDS, mapViewport()), MAP_CONTAIN_BOUNDS, mapViewport())
+      const initialView = constrainView(initialPresets.point
+        ? { ...initialPresets.point, zoom: 7 }
+        : initialMapView ?? containView(MAP_CONTAIN_BOUNDS, mapViewport()), MAP_CONTAIN_BOUNDS, mapViewport())
       map = new maplibregl.Map({
         container: mapElement,
         style,
@@ -441,6 +466,7 @@ export default function App() {
         usage.mark('pin')
         pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name)
       })
+      if (presets.place) void selectPresetPlace(presets.place)
       if (mapTheme() !== appliedMapTheme) void applyMapTheme(mapTheme())
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error))
@@ -450,6 +476,7 @@ export default function App() {
   onCleanup(() => {
     window.clearTimeout(splashReplayTimer)
     window.clearTimeout(resetNoticeTimer)
+    window.clearTimeout(shareNoticeTimer)
     window.clearTimeout(mapViewTimer)
     stopManifestRefresh?.()
     focusMode.dispose()
@@ -1309,6 +1336,14 @@ export default function App() {
     if (pinned === 'wind' || pinned === 'temperature') usage.mark(pinned === 'wind' ? 'pinWind' : 'pinFeel')
   }
 
+  function applyPresetMode(mode: Parameters<typeof modeForFocus>[0]): void {
+    const previous = focusPinned()
+    if (previous) focusMode.set(previous, 'pinned', false)
+    const next = modeForFocus(mode)
+    setFocusPinned(next)
+    if (next) focusMode.set(next, 'pinned', true)
+  }
+
   function attachSunLayer(): void {
     if (!map || map.getLayer('motregen-sun')) return
     sunFeatureKey = ''
@@ -1767,6 +1802,18 @@ export default function App() {
     pick(point.lng, point.lat, label)
   }
 
+  async function selectPresetPlace(place: string): Promise<void> {
+    try {
+      const [suggestion] = await suggestLocations(place, map?.getCenter() ?? location())
+      if (!suggestion) return
+      const point = await resolveLocation(suggestion)
+      pick(point.lng, point.lat, suggestion.label)
+      revealPoint(point.lng, point.lat)
+    } catch {
+      // Een gedeelde plaats mag de kaart niet onbruikbaar maken wanneer een geocoder tijdelijk uitvalt.
+    }
+  }
+
   function chooseSaved(place: SavedPlace): void {
     storeLastSavedPlaceId(place.id)
     pick(place.lng, place.lat, place.name)
@@ -1893,6 +1940,34 @@ export default function App() {
     setCursor(cursor)
   }
 
+  function currentShareMode(): Parameters<typeof modeForFocus>[0] {
+    return modeForActiveFocus(focusPinned() ?? focusMode.active())
+  }
+
+  async function shareCurrentState(): Promise<void> {
+    const url = shareUrl({ mode: currentShareMode(), epoch: selectedEpoch(), point: location() })
+    const touch = matchMedia('(pointer: coarse)').matches
+    if (touch && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: 'motregen.nl', text: 'Regenradar en weersverwachting', url })
+        usage.mark('share')
+        showShareNotice('Link gedeeld')
+        return
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+      }
+    }
+    await copyText(url)
+    usage.mark('share')
+    showShareNotice('Link gekopieerd')
+  }
+
+  function showShareNotice(message: string): void {
+    window.clearTimeout(shareNoticeTimer)
+    setShareNotice(message)
+    shareNoticeTimer = window.setTimeout(() => setShareNotice(), 2_500)
+  }
+
   const manifestNow = () => manifest() ? Date.parse(manifest()!.now) : 0
   const forecast = createMemo(() => buildHourlyForecast({
     rain: timeline(),
@@ -1996,7 +2071,8 @@ export default function App() {
         </div>
       </div>
       <About theme={theme()} onTheme={(choice) => { usage.setTheme(choice); setTheme(choice) }}
-        windUnit={windUnit()} onWindUnit={(unit) => { usage.setUnit(unit); setWindUnit(unit); localStorage.setItem('motregen-wind-unit', unit) }} onOpen={() => usage.mark('about')} onTripleTap={() => setPerfVisible((visible) => !visible)} />
+        windUnit={windUnit()} onWindUnit={(unit) => { usage.setUnit(unit); setWindUnit(unit); localStorage.setItem('motregen-wind-unit', unit) }} onOpen={() => usage.mark('about')} onShare={shareCurrentState} shareNotice={shareNotice()} onTripleTap={() => setPerfVisible((visible) => !visible)} />
+      <Show when={updateReady()}><aside class="update-toast" role="status">Nieuwe versie — <button type="button" onClick={() => void updateServiceWorker?.()}>herlaad</button></aside></Show>
       {/* Kaartlegenda als eigen pil linksonder, los van de bronvermelding (PO 2026-09-25 live, U34). */}
       <Show when={focus() > 0 && temperatureLegend()}>
         {(legend) => <div class="map-legend temperature-legend" style={{ opacity: focus() }} role="img" aria-label={`Kleurschaal gevoelstemperatuur ${legend().low} tot ${legend().high} graden`}>
@@ -2152,4 +2228,3 @@ function project(lng: number, lat: number): [number, number] {
   const radius = 6378137
   return [lng * Math.PI / 180 * radius, Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) * radius]
 }
-

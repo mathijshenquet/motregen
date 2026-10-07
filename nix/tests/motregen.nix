@@ -85,6 +85,13 @@
     assert "x-robots-tag" not in frontend_headers, frontend_headers
     machine.succeed("grep -F '<div id=\"root\"></div>' /tmp/index")
 
+    for path in ["sw.js", "manifest.webmanifest"]:
+      pwa_headers = machine.succeed(
+        f"curl --silent --show-error --dump-header - --output /dev/null http://localhost/{path}"
+      ).lower()
+      assert "200 ok" in pwa_headers, (path, pwa_headers)
+      assert "cache-control: no-cache" in pwa_headers, (path, pwa_headers)
+
     missing_headers = machine.succeed(
       "curl --silent --show-error --dump-header - --output /dev/null http://localhost/data/missing"
     ).lower()
@@ -135,7 +142,7 @@
     machine.succeed(f"test ! -s {usage_today}")
     machine.succeed("test -z \"$(ls -A /var/log/caddy 2>/dev/null | grep access)\"")
 
-    body = '{"v":1,"search":true,"range":null,"theme":"dark","coarse":false,"width":">=960","dur":"1-5"}'
+    body = '{"v":2,"search":true,"range":null,"theme":"dark","coarse":false,"width":">=960","dur":"1-5"}'
     hit_status = machine.succeed(
       "curl --silent --show-error --output /dev/null --write-out '%{http_code}' "
       "--header 'X-Forwarded-For: 198.51.100.7' --header 'CF-Connecting-IP: 198.51.100.7' "

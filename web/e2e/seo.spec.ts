@@ -12,7 +12,7 @@ test('robots.txt allows the site and excludes /data/ and /stats/', async ({ requ
 test('index.html carries title, description, canonical, social cards and noscript text', async ({ page, request }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'gedrag, geen performance: één profiel volstaat')
   await page.goto('/')
-  await expect(page).toHaveTitle('motregen.nl — regenradar en verwachting voor Nederland en Vlaanderen')
+  await expect(page).toHaveTitle('motregen.nl — Regenradar en weersverwachting')
   await expect(page.locator('html')).toHaveAttribute('lang', 'nl')
   const head = page.locator('head')
   await expect(head.locator('meta[name="description"]')).toHaveAttribute('content', /KNMI/)
