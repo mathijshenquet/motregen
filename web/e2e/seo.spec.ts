@@ -1,12 +1,12 @@
 import { expect, test } from '@playwright/test'
 
-test('robots.txt allows the site and excludes /data/ and /stats/', async ({ request }, testInfo) => {
+test('robots.txt allows the site and excludes /data/', async ({ request }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'gedrag, geen performance: één profiel volstaat')
   const response = await request.get('/robots.txt')
   expect(response.status()).toBe(200)
   expect(response.headers()['content-type']).toMatch(/^text\/plain/)
   const lines = (await response.text()).trim().split('\n')
-  expect(lines).toEqual(['User-agent: *', 'Allow: /', 'Disallow: /data/', 'Disallow: /stats/'])
+  expect(lines).toEqual(['User-agent: *', 'Allow: /', 'Disallow: /data/'])
 })
 
 test('index.html carries title, description, canonical, social cards and noscript text', async ({ page, request }, testInfo) => {
