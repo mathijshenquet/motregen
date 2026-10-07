@@ -143,6 +143,15 @@
   nachtelijke e2e-triage** gestart (gpt-6.1-sol, spec 09d13646): oorzaak per test (productbug /
   verouderde test / flake / nieuwe test nooit op mobiel gedraaid), productbugs fixen, tests alleen
   met benoemde reden aanpassen, daarna de suite nog één keer op een rustige host.
+- **U60 gemerged** (e37731bf, 01:20): groen en grijs binnen ±1 pp van Liberty per A/B-paar (28 paren),
+  labels als Liberty, nachtcontrast 8,4 → 11,7, kaartbytes +13,5 % t.o.v. U59, kaartfasen ~0,5 s; PR #87.
+  Twee nachtelijke oorzaken op main gefixt (5ba8c171): mijn preview-plugin voor het lokale PMTiles-
+  archief is nu alleen actief bij een externe https-data-origin (hij zat in e2e tussen de metingen);
+  `pnpm test` draait eerst synthgen (de "verse worktree"-unit-fout was `mrf.test.ts`, niet wind-layer:
+  het leest gegenereerde chunks). Nog open: basemap.spec/basemap-cache.spec zijn in een verse checkout
+  rood omdat e2e/style.json een teststub is en public/data/basemap niet bestaat (gitignored) — U59/U60
+  kregen ze alleen groen met een voorbereide omgeving; U61 maakt ze zelfvoorzienend. U61 loopt verder
+  op de overige nachtelijke reds. Workers nog open: alleen U61.
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
