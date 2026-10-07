@@ -118,3 +118,18 @@
 - Receipts (synchroon): `pnpm typecheck` → 0; `pnpm test` → 0; `pnpm build` → 0; stills
   `zacht{2,10}` → SHOT-EXIT 0. Gezien: overdag nauwelijks zichtbare textuur, in de donkere nacht nog
   als lichte golflijnen te zien, duidelijk zwakker dan de wolken.
+
+## 2026-10-07 15:48 — PO: hemel achter alle scrubber-modi
+- PO: "maak die achtergrond universeel over alle histogram-modi; mag wat meer op de achtergrond bij de
+  andere modi". `SKY_BACKGROUND_STRENGTH = 0.45` buiten Lucht, tweent naar 1 met `mix.air`; de hemel
+  vervaagt niet meer mee met de basis (Wind/Gevoel). Dit vervangt de eerdere lijn "Weer blijft rustig
+  zonder hemel".
+- `scrubber-shot.ts`: `SHOT_MODE=lucht|weer|wind|gevoel`.
+- Receipts (synchroon): `pnpm typecheck` → 0; `pnpm test` → 0 (391 tests); `pnpm build` → 0. Stills:
+  wind, gevoel, lucht → SHOT-EXIT 0; weer → 1, 1, 1, daarna 0; lucht daarna één keer 1. De fout is
+  steeds een time-out van 60 s op het eerste wolkenpad (`.cloud-band path` komt niet in de DOM), niet
+  modusgebonden; een losse probe had de paden na 20 s wel. Oorzaak niet gevonden: of de headless
+  opname, of de wolkenlagen laden soms niet. OPEN.
+- Gezien: Wind en Gevoel leesbaar met de hemel erachter. In Weer licht thema zijn de cirrusvegen
+  nauwelijks te zien (lichtgrijs op pastelblauw, lagen op halve dekking) en oogt de nacht grauw
+  (donkerblauw op 45 % over wit).

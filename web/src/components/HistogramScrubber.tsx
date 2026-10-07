@@ -30,8 +30,7 @@ interface Props {
   clouds?: CloudSeries
   /**
    * Hoe licht het wordt (U47, MIP-18): straling (uurgemiddelden, W/m²) en zonnestand op de locatie. Kleurt
-   * de wolken altijd; de hemelachtergrond alleen naar rato van `mix.air` (vol in de modus Lucht,
-   * afwezig in de rustige weergave eronder).
+   * de wolken en de hemelachtergrond: vol in de modus Lucht (`mix.air`), teruggenomen in de andere.
    */
   sky?: { radiation: { timeline: TimelineFrame[]; values: Array<number | null> }; sinElevation: (epoch: number) => number }
   /** Totale bewolking als één band boven het regenhistogram, in de weermodus (PO 2026-09-25 live, U34). */
@@ -55,6 +54,8 @@ const CLOUD_COVER_SHARE = 0.3
 // In Weer blijven de wolkenlagen als rustige achtergrond staan; Lucht brengt ze naar volle dekking.
 const CLOUD_LAYERS_DEFAULT_OPACITY = 0.5
 const HOUR = 3_600_000
+// Dekking van de hemel buiten de modus Lucht (Weer, Wind, Gevoel): aanwezig, maar op de achtergrond.
+const SKY_BACKGROUND_STRENGTH = 0.45
 // Straal van de schemergloed als deel van de plothoogte (hoogstens één uur breed).
 const DUSK_RADIUS_SHARE = 0.62
 // Gedeeld met het laadvenster in App (U49), dat alleen laadt wat hier in beeld is.
@@ -206,8 +207,8 @@ export default function HistogramScrubber(props: Props) {
       sinElevation: inputs.sinElevation,
     })
   })
-  const skyStrength = () => sky().length ? airMix() : 0
-  // Alleen opbouwen als de hemel zichtbaar is: in de rustige weergave kost hij dan niets.
+  // De hemel staat achter elke weergave (PO 2026-10-07 live), buiten Lucht teruggenomen tot achtergrond.
+  const skyStrength = () => sky().length ? SKY_BACKGROUND_STRENGTH + (1 - SKY_BACKGROUND_STRENGTH) * airMix() : 0
   const skyVisible = createMemo(() => skyStrength() > 0)
   const skyDetail = createMemo(() => {
     if (!skyVisible()) return undefined
@@ -581,7 +582,7 @@ export default function HistogramScrubber(props: Props) {
           <div class="day-grid"><For each={dayMarkers()}>{(marker) => <div class="boundary" style={{ left: `${xAt(marker.epoch)}px` }} />}</For></div>
           <svg width={trackWidth()} height={plotHeight()} viewBox={`0 0 ${trackWidth()} ${plotHeight()}`} style={{ '--sky': skyStrength() }}>
             {/* De hemel ligt achter alles, ook achter de regen (de verlopen staan verderop in defs). */}
-            <Show when={skyDetail()}>{(detail) => <g class="sky" data-testid="sky" clip-path={`url(#${cloudId}-plot)`} style={{ opacity: baseOpacity() * skyStrength() }}>
+            <Show when={skyDetail()}>{(detail) => <g class="sky" data-testid="sky" clip-path={`url(#${cloudId}-plot)`} style={{ opacity: skyStrength() }}>
               <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-sky)`} />
               <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-depth)`} />
               <For each={detail().dusks}>{(dusk) => <g class="dusk" style={{ opacity: dusk.strength }}>
@@ -649,7 +650,7 @@ export default function HistogramScrubber(props: Props) {
             <line class="rain-baseline" x1="0" x2={trackWidth()} y1={plotHeight() - 0.5} y2={plotHeight() - 0.5} />
           </svg>
           {/* Korrel over lucht, wolken en regen: breekt de gladde verlopen (PO 2026-10-07 live). */}
-          <Show when={skyVisible()}><div class="sky-grain" style={{ width: `${cloudWidth()}px`, opacity: baseOpacity() * skyStrength() }} /></Show>
+          <Show when={skyVisible()}><div class="sky-grain" style={{ width: `${cloudWidth()}px`, opacity: skyStrength() }} /></Show>
           <div class="now-line" style={{ left: `${nowX()}px` }} />
           {/* "Nu" staat in de urenbalk (PO 2026-09-25 live); het uurlabel eronder wijkt. */}
           <div class="x-axis">
