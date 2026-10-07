@@ -162,6 +162,7 @@ export function renderMobileReport(report: MobileReport): string {
     `| ttfh (nu ±1 u) | ${report.milestones.ttfhMs ?? 'onbekend'} ms |`,
     `| decodes | ${decode?.count ?? 0} |`,
     `| decode totaal / p50 / p95 | ${decode?.totalMs ?? 0} / ${decode?.p50Ms ?? '—'} / ${decode?.p95Ms ?? '—'} ms |`,
+    `| basemap-tegels aantal / totaal / p50 / p95 | ${report.decode.phases['basemap-tile']?.count ?? 0} / ${report.decode.phases['basemap-tile']?.totalMs ?? 0} / ${report.decode.phases['basemap-tile']?.p50Ms ?? '—'} / ${report.decode.phases['basemap-tile']?.p95Ms ?? '—'} ms |`,
     `| encoded body bytes na 30 s | ${report.wire.playwright.total.bytes} B |`,
     `| bytes voltooid vóór TTFR / ttfh | ${report.wire.beforeTtfrBytes ?? 'onbekend'} / ${report.wire.beforeTtfhBytes ?? 'onbekend'} B |`,
     `| Range-requests | ${report.wire.rangeRequests} |`,

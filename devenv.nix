@@ -16,6 +16,10 @@
 
   packages = [
     pkgs.caddy
+    pkgs.tilemaker
+    pkgs.osmium-tool
+    pkgs.gdal
+    pkgs.unzip
     pkgs.ffmpeg
     pkgs.eccodes
     pkgs.hdf5

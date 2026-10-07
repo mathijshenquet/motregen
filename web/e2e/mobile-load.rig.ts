@@ -19,7 +19,7 @@ interface ScenarioStep {
   mode?: 'Weer' | 'Lucht' | 'Gevoel' | 'Wind'
 }
 interface Scenario { durationMs: number; description: string; steps: ScenarioStep[] }
-interface RigOptions { profiles: string[]; scenarios: string[]; repeat: number; cpuRate: number }
+interface RigOptions { profiles: string[]; scenarios: string[]; repeat: number; cpuRate: number; basemap?: string }
 const options = JSON.parse(process.env.MOTREGEN_MOBILE_OPTIONS ?? '{"profiles":["mobile-4g"],"scenarios":["koud"],"repeat":1,"cpuRate":4}') as RigOptions
 const scenarios = JSON.parse(readFileSync('perf/scenarios.json', 'utf8')) as Record<string, Scenario>
 const sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
@@ -29,7 +29,8 @@ for (const profileId of options.profiles) {
     for (let repetition = 1; repetition <= options.repeat; repetition++) {
       test(`${profileId} / ${scenarioId} / run ${repetition}`, async ({ page, context, baseURL }) => {
         const scenario = scenarios[scenarioId]!
-        const profile = { ...performanceProfile(profileId), cpuThrottleRate: options.cpuRate }
+        if (profileId === 'desktop') await page.setViewportSize({ width: 1280, height: 800 })
+        const profile = { ...performanceProfile(profileId), cpuThrottleRate: profileId === 'desktop' ? 1 : options.cpuRate }
         const actions: MobileReport['actions'] = []
         const errors: string[] = []
         const findings: string[] = []

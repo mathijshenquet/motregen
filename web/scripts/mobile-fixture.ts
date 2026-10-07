@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import Pbf from 'pbf'
 
@@ -31,3 +31,15 @@ writeFileSync(resolve(root, 'style.json'), JSON.stringify({
   ],
 }))
 console.log('Offline mobiele vectorfixture geschreven')
+
+const basemap = process.env.MOTREGEN_MOBILE_BASEMAP ?? 'fixture'
+if (basemap === 'openfreemap') {
+  cpSync('../tmp/basemap/openfreemap', resolve(root, 'basemap-ofm'), { recursive: true })
+  const style = JSON.parse(readFileSync(resolve(root, 'basemap-ofm/liberty.json'), 'utf8'))
+  const local = `http://127.0.0.1:${port}/basemap-ofm`
+  style.glyphs = `${local}/fonts/{fontstack}/{range}.pbf`
+  style.sprite = `${local}/sprite`
+  style.sources.openmaptiles = { type: 'vector', tiles: [`${local}/tiles/{z}/{x}/{y}.pbf`], minzoom: 0, maxzoom: 14 }
+  style.sources.ne2_shaded.tiles = [`${local}/raster/{z}/{x}/{y}.png`]
+  writeFileSync(resolve(root, 'style.json'), JSON.stringify(style))
+}
