@@ -6,7 +6,7 @@ import type { LoadTraceSnapshot } from '../src/core/perf'
 test.use({ viewport: { width: 393, height: 727 } })
 
 interface PerfWindow {
-  __motregenPerf?: { snapshot: () => { ttfrMs: number | null }; loads: { snapshot: () => LoadTraceSnapshot } }
+  __motregenPerf?: { snapshot: () => { ttfrMs: number | null; windowReadyMs: Record<string, number> }; loads: { snapshot: () => LoadTraceSnapshot } }
 }
 
 async function decodedFrames(page: Page): Promise<Array<{ chunk: string; frameIndex: number }>> {
@@ -34,6 +34,10 @@ test('a constrained device decodes only what the scrubber and the table show', a
   expect(ofField(passive, 'cloud_low').length).toBeLessThan(20)
   // Vóór U49 decodeerde dezelfde passieve start hier ruim 400 frames.
   expect(passive.length).toBeLessThan(180)
+
+  // U52: regen en wolkenlagen melden elk wanneer hun venster nu ± 1 u compleet was.
+  await expect.poll(async () => Object.keys(await page.evaluate(() => (window as unknown as PerfWindow).__motregenPerf!.snapshot().windowReadyMs)), { timeout: 20_000 })
+    .toEqual(expect.arrayContaining(['rain_rate', 'cloud_low', 'cloud_mid', 'cloud_high']))
 
   // De tabel in beeld: nu pas laden de rijen, en ze vullen zich.
   await page.locator('.forecast-table tbody tr.current-hour').scrollIntoViewIfNeeded()

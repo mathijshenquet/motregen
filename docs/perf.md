@@ -70,13 +70,12 @@ modus (UV altijd, wind in windmodus, temperatuur in gevoelsmodus). De rest van d
 als de rijen in beeld komen, en verder dan +18 u zoals voorheen op `onNeedRows`.
 
 Los daarvan, voor ieder apparaat: `MrfClient` geeft werk via een wachtrij aan de workers
-(`decode-queue.ts`), één decode per worker tegelijk, in drie banen: het frame onder de cursor
-(kaart, afspelen) vóór een puntreeks waar de gebruiker op wacht, en die vóór vooruitladen. Een al
-wachtend frame schuift op als de cursor het nodig heeft. `getFrames` neemt een `AbortSignal`:
-een wachtende decode waar geen enkele vrager meer op wacht (het venster is verder geschoven)
-vervalt met `DecodeCancelled`; de gedownloade bytes blijven staan.
+(`decode-queue.ts`), één decode per worker tegelijk. De volgorde is sinds U52 tijd-majeur; zie
+de volgende sectie. `getFrames` neemt een `AbortSignal`: een wachtende request of decode waar
+geen enkele vrager meer op wacht (het venster is verder geschoven) vervalt met
+`DecodeCancelled`; al gedownloade bytes blijven staan.
 
-Meten: `pnpm prof:capture [origin] [uitvoer.json] [--profile=desktop|mobile-4g|mobile-fast-3g] [--passive] [--no-send]`
+Meten: `pnpm prof:capture [origin] [uitvoer.json] [--profile=desktop|mobile-4g|mobile-fast-3g] [--passive] [--decode-cost=<ms>] [--no-send]`
 neemt een koude start op (`?perf=start`, 30 s) onder het e2e-profiel en print aantal decodes,
 totale decodetijd, p50/p95, scrub-latency en de verdeling per laag en per veld (elke
 `frame-decode`-fase draagt `field` en `layer`). CDP kan workers niet remmen
@@ -102,7 +101,76 @@ node 2,2–2,5× (regen), 4,5–5× (temperatuur, wind) tot 20× (wolkenlagen) s
 frame. Dat is een ingest-wijziging (`crates/mrf/src/lib.rs`: `zstd::bulk::compress`) en staat
 als vervolg open.
 
+## Intent-gedreven laden (U52, MIP-19 punt 4, MIP-20 stap 1)
+
+Eén `Intent` (`web/src/core/intent.ts`) beschrijft wat de gebruiker nu wil zien: de cursor, het
+zichtbare venster van de scrubber, afspelen met richting, de scrubsnelheid en de velden die
+getoond worden. `App.tsx` zet hem bij elke wijziging (`client.setIntent`); hij stuurt twee
+wachtrijen met dezelfde rangorde (`IntentRanker`):
+
+1. **Idle of niet.** Een frame meer dan een uur buiten het venster, of van een veld dat nu
+   nergens getekend wordt, is idle-werk: het komt pas aan de beurt als er binnen het venster
+   niets meer loopt of wacht.
+2. **Afstand tot het doel**, in stappen van 5 minuten. Het doel is de cursor, tijdens scrubben
+   400 ms verder in de scrubrichting (binnen het venster). De afstand telt vanaf het interval
+   waarin het frame getekend wordt (frametijd ± de stap van zijn veld): de twee frames waartussen
+   de cursor staat liggen op afstand 0, ook van een uurveld. In de afspeel- of scrubrichting
+   telt de afstand ×0,8.
+3. **Bij gelijke afstand** regen eerst, daarna het veld dat het langst niet aan de beurt was
+   (round-robin), daarna volgorde van aankomst.
+
+De **decodewachtrij** (`decode-queue.ts`) bepaalt de volgorde bij elke vrije worker opnieuw, dus
+een cursorsprong herordent wat nog wacht. De **fetch-planner** (`fetch-planner.ts`) doet
+hetzelfde voor elke Range (ook headers: een header telt als de frames van zijn chunk):
+
+- hooguit `requests` grote overdrachten (≥ 64 kB) tegelijk — 3 op een krap apparaat (2 bij
+  ≤ 2 kernen), 6 op een ruim; kleine requests (een header, één uurframe, een wolkenpayload) zijn
+  vertraging en geen bandbreedte en lopen ernaast, tot zes requests in totaal;
+- één Range tegelijk per chunk-URL (Chromium cachet een tweede gelijktijdige Range op dezelfde
+  cache-entry niet);
+- een nieuwe intent laat wensen vervallen waar niemand meer op wacht en herordent de rest.
+
+Op een krap apparaat (`rangeBytes` = 256 kB in `decode-budget.ts`) wordt een reeks frames niet
+meer als één omvattende Range per chunk gehaald maar in stukken: 256 kB binnen een uur van de
+cursor, 1 MB daarbuiten, de motion-annexen van de chunk als één klein blok. Zo komen de frames
+rond "nu" eerst, ook als ze achteraan in het bestand staan (rtcor), en deelt een verre chunk
+(seamless, 4–6 MB) de lijn niet met wat in beeld is. Een ruim apparaat houdt de omvattende
+Range (bulk-prefetch; de warme-cache-eigenschappen uit U1 blijven daar ongewijzigd).
+
+In `App.tsx` vervalt daarmee het veld-voor-veld-wachten: wolkenlagen en `uv_clear` worden
+gevraagd bij de eerste locatiekeuze (niet pas na de fase `direct`), wolken per chunk, en
+tabelreeksen en wolkenbanden verschijnen per frame (één publicatie per animatieframe) in
+plaats van als blok per veld. De fase `direct` wacht alleen nog op de rijen binnen nu ± 1 u.
+
+Meting van 2026-10-07 (prod-data, vóór = main `234c8ad` + alleen het meetpunt, om en om
+gemeten; ms na de eerste regen-draw tot nu ± 1 u compleet):
+
+| scenario | wolkenlagen vóór → ná | regen-histogram vóór → ná | tabel/modus vóór → ná |
+| --- | ---: | ---: | ---: |
+| mobile-4g, alleen kijken | +1.300…1.450 → +250…470 | +4.420…4.450 → +2.340…2.430 | uv +280…450 → +410…750 |
+| mobile-4g, journey | +2.900…2.980 → +470…820 | +5.280…5.410 → +3.500…3.790 | wind +1.840…2.060 → +650…760 |
+| desktop, alleen kijken | +2.390 → +770 | +1.560 → +1.360 | temp +1.170 → +780 |
+| desktop, 26 ms per decode (`--decode-cost=26`) | +5.160 → +1.510…1.710 | +3.260 → +2.490 | temp +1.610 → +1.710 |
+
+Decodes en decodetijd zijn gelijk gebleven; de chunkbytes volgens de laadtrace dalen op mobiel
+(9,58 → 8,99 MB passief) bij meer Range-requests (35 → 45). Twee dingen zijn trager: uv (het
+jongste frame is 35–70 min oud en staat dus zover van de cursor) en op desktop de fase `window`
+(start van automatisch afspelen: 2,9 → 3,7 s), omdat de regenreeks de workers nu deelt.
+
+**Valkuil bij wire weight.** Resource Timing telt een Range die een al gecachet stuk van dezelfde
+chunk overlapt niet volledig: op de synth-fixture stond de omvattende nowcast-Range van 113 kB
+voor ~0 B, in totaal 549 kB waar de laadtrace 689 kB telt. Bytebudgetten die op Resource Timing
+zijn gekalibreerd terwijl de client omvattende Ranges gebruikte, onderschatten die stand.
+
 ## Meetpunten
+
+- **Window-ready per veld** (U52): het eerste moment waarop een veld al zijn waarden binnen
+  nu ± 1 u heeft (`core/window-ready.ts`; regen = geladen histogrambalken, wolkenlagen = hun
+  frames, tabelvelden = de uurrijen in dat venster). In de snapshot als `windowReadyMs`, als
+  user-timing `motregen:window-ready:<veld>` en in de `?perf`-trace als balk
+  `window-ready:<veld>` van 0 tot gereed. Het verschil met TTFR is het "jarring"-getal uit
+  MIP-19. Elke `frame-decode`-fase draagt daarnaast `waitMs`: hoe lang het frame op een vrije
+  worker wachtte.
 
 - **TTFR** (time to first rain) loopt vanaf `navigationStart`
   (`performance.timeOrigin`) tot de eerste MapLibre-`render` nadat het eerste
@@ -219,8 +287,15 @@ moderne combinatie `Network.emulateNetworkConditionsByRule` en
 | Profiel | CPU | Download / upload | RTT | Cold | Warm | Passief | Scrub | Sessie |
 | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Desktop | 1× | geen emulatie | — | < 1.210 ms | < 890 ms | ≤ 1.155.000 B | ≤ 19 | ≤ 2.640.000 B |
-| Mobiel 4G | 4× | 9 / 1,5 Mbps | 60 ms | < 4.915 ms | < 1.545 ms | ≤ 587.000 B | ≤ 11 | ≤ 1.345.000 B |
-| Mobiel Fast 3G | 4× | 1,6 / 0,75 Mbps | 150 ms | < 5.360 ms | < 1.690 ms | ≤ 587.000 B | ≤ 14 | ≤ 1.355.000 B |
+| Mobiel 4G | 4× | 9 / 1,5 Mbps | 60 ms | < 4.915 ms | < 1.545 ms | ≤ 686.000 B | ≤ 11 | ≤ 1.345.000 B |
+| Mobiel Fast 3G | 4× | 1,6 / 0,75 Mbps | 150 ms | < 5.360 ms | < 1.690 ms | ≤ 686.000 B | ≤ 14 | ≤ 1.355.000 B |
+
+Het mobiele passieve budget is bij de U52-merge (2026-10-07) van 587.000 op 686.000 B gezet:
+gemeten 623.200 B op beide mobiele profielen + 10 %. De stijging in Resource Timing is geen
+extra draadverkeer (de U53-rig meet 4–10 % mínder bytes): Resource Timing telt een Range die
+een al gecachet stuk overlapt niet volledig, en U52 haalt rond de cursor kleinere, niet-
+overlappende stukken. Voor wire weight is de rig de maat, dit budget bewaakt alleen regressies
+in dezelfde meetwijze.
 
 `warm chunks` blijft op ieder profiel exact 0 B. Een niet-nul resultaat is een
 cache-regressie, geen meetruis die een 10%-marge rechtvaardigt.
