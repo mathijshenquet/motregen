@@ -1,0 +1,14 @@
+[Unit]
+Description=Motregen skywatch measurement poller
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@REPO_ROOT@
+EnvironmentFile=@ENV_FILE@
+Environment=SKYWATCH_HOME=%h/skywatch
+Environment=SKYWATCH_H5DUMP=@H5DUMP@
+Environment=SKYWATCH_PNPM=@PNPM@
+ExecStart=@UV@ run --frozen --project @PROJECT@ skywatch-poll
+UMask=0077
