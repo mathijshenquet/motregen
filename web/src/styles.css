@@ -614,7 +614,7 @@ button.column-mode { width: 100%; cursor: pointer; }
 .forecast-table tbody tr:not(.sun-row):not(.history-toggle-row) { cursor: pointer; }
 /* Tijd op inhoudsbreedte; de vier overige kolommen delen door table-layout: fixed de rest gelijk. */
 .forecast-table :is(.time-cell, .time-heading) { width: calc(var(--panel-inset, 16px) + 58px); padding-right: 14px; text-align: left; white-space: nowrap; }
-.time-heading .column-mode { align-items: flex-start; padding-left: 0; }
+.time-heading .column-mode { padding-right: 0; padding-left: 0; }
 .time-label { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; padding: 0; border: 0; color: inherit; background: none; font: inherit; text-align: left; cursor: pointer; }
 .time-label:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 .weather-glyph { display: flex; min-width: 38px; flex-direction: column; align-items: center; }

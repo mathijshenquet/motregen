@@ -132,3 +132,9 @@
   groen; `pnpm build` exit 0 (98 modules, `index-AsYr_iLz.js`, `index-BTpO0pAU.css`, PWA).
   Preview op `http://ageq-dev2:4320/` antwoordt HTTP 200. Geen e2e uitgevoerd vóór het
   afgesproken expliciete PO-signaal “klaar”.
+
+## 2026-10-07 09:13 UTC
+
+- PO zag dat klok + `Uur` optisch links in het labelvak stond. De tijden blijven links op hun
+  bestaande lijn; alleen het koplabel is nu, net als de vier moduslabels, binnen zijn eigen
+  kolom gecentreerd.
