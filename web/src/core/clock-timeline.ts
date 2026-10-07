@@ -1,18 +1,11 @@
 import type { Source, TimelineFrame } from './contract'
 import { sourceZone, timelineCursorAtEpoch, type TimelineZone } from './time-model'
 
-/** Vaste jog-schaal van de klokpil (U56): één pixel slepen is twee minuten kaarttijd. */
+/**
+ * Vaste jog-schaal van de klokpil (U56): één pixel slepen is twee minuten kaarttijd, naar rechts is later.
+ * PO 2026-10-07 live (U58), gekozen boven de scrubberschaal en de omgekeerde richting.
+ */
 export const CLOCK_JOG_MS_PER_PX = 120_000
-
-// Tijdelijke ?dev-keuze tot de PO de schaal kiest (docs/dev-opties.md, groep Klok).
-// De -omgekeerd-varianten slepen de tijd zoals de scrubber: naar rechts is vroeger (U58, PO kiest live).
-export const CLOCK_JOG_SCALES = ['vast', 'scrubber', 'vast-omgekeerd', 'scrubber-omgekeerd'] as const
-export type ClockJogScale = typeof CLOCK_JOG_SCALES[number]
-export const CLOCK_JOG_STORAGE_KEY = 'motregen-clock-jog'
-
-export function parseClockJogScale(value: string | null): ClockJogScale {
-  return CLOCK_JOG_SCALES.find((scale) => scale === value) ?? 'vast'
-}
 
 /**
  * Cursor na `deltaPx` slepen vanaf `startEpoch`: naar rechts is later, zoals de duim van een

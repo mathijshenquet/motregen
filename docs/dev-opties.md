@@ -21,7 +21,6 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Wind | Lijnbreedte | dikte van de streepjes | U3 | idem |
 | Wind | Tempo | snelheid van de streepjes | U3b | idem |
 | Wind | Kopieer wind als JSON | de vier waarden naar het klembord (PO-terugkoppelweg) | U20 | blijft zolang de windknoppen er zijn |
-| Klok | Jog-schaal | slepen op de klokpil: vast 2 min/px of de schaal van de scrubber (8 u over de plotbreedte), elk ook omgekeerd (rechts = vroeger) | U56 / U58 | U58 stap 2: zodra de PO richting en schaal kiest (dan een constante, uiterlijk bij de afsluiting van U58) |
 | Lucht nu | strakblauw · mooie wolkenlucht · melkachtig · grijs · Mordor | tijd, klasse en gekozen locatie op 0,1° als menselijk anker voor de wolkenanalyse | U46 | na de analyse |
 | Lucht nu | Kopieer dagboek | alle lokale luchtmetingen als JSON naar het klembord | U46 | na de analyse |
 | Diagnose | Perf-HUD | meetpaneel aan/uit (ook: drie tikken op het logo) | T5 / U30 | blijft (diagnose) |
@@ -31,7 +30,8 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Diagnose | Reset alle instellingen | alle knoppen en tuningsleutels terug; gebruikersstaat blijft | U20 | blijft (vluchtweg, MIP-12 regel 4) |
 
 Weggesnoeid in U30 (nu constanten met herkomstregel): Vulling (0,35, PO-keuze na U25b), Label-afstand
-(90 px, U8b), Focus dim (0,25, U8), Min. breedte (20 km, T3g), plus de 19 knoppen uit MIP-12. Sinds U37 (PO-keuze 2026-09-25): Scrubber regen/wolken → de
+(90 px, U8b), Focus dim (0,25, U8), Min. breedte (20 km, T3g), plus de 19 knoppen uit MIP-12. Sinds U58 (PO-keuze 2026-10-07 live): Klok › Jog-schaal → vast 2 min/px, naar rechts is later
+(`CLOCK_JOG_MS_PER_PX`); de scrubberschaal en de omgekeerde richting zijn afgevallen. Sinds U37 (PO-keuze 2026-09-25): Scrubber regen/wolken → de
 wolkendoorsnede (variant A) is vast de weermodus-scrubber; variant B (strook) is weg.
 
 De overige elf windparameters (Afstand per leven, Fade-in/-out, Max. leeftijd, Spawn-jitter,
@@ -49,6 +49,6 @@ Gebruikersstaat (blijft bij reset): `theme`, `saved-places`, `last-saved-place`,
 `expressive` (standaard aan; hemel en streken in de grafiek plus dag/nacht-kleuring in de tabel, U58 — de
 oude `table-day-night` wordt bij het laden gemigreerd: uit → expressief uit) en `sky-diary` (tijd, vijfklassenlabel en gekozen locatie
 afgerond op 0,1°; U46).
-Tuning/debug: `wind-tuning-v4` (v3 wordt bij het laden gemigreerd), `clock-jog` (U56), `perf` en de eenmalige
-`perf-cold`. Oude sleutels (`wind-tuning`, `-v2`, `-v3`, `splash-slowdown`, `scrubber-view`) wist
+Tuning/debug: `wind-tuning-v4` (v3 wordt bij het laden gemigreerd), `perf` en de eenmalige
+`perf-cold`. Oude sleutels (`wind-tuning`, `-v2`, `-v3`, `splash-slowdown`, `scrubber-view`, `clock-jog`) wist
 "Reset alle instellingen".

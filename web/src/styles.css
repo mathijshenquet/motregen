@@ -1029,7 +1029,8 @@ td small { color: var(--muted); font-size: 9px; }
 .live-age i { width: 6px; height: 6px; border-radius: 50%; background: var(--fresh); animation: live-age-pulse 2s ease-in-out infinite; }
 @keyframes live-age-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
 /* U56: de tijdlijn als strook met de drie bronzones; "Nu" staat boven de balk, de getoonde tijd is de dikke streep. */
-.freshness-strip { position: relative; margin: 0 0 14px; padding-top: 16px; cursor: pointer; user-select: none; -webkit-user-select: none; }
+/* touch-action none: anders neemt de browser een sleep over de strook over als scroll en breekt hij af. */
+.freshness-strip { position: relative; margin: 0 0 14px; padding-top: 16px; cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; }
 .freshness-strip-zones { display: flex; }
 .freshness-strip-zone { min-width: 0; display: flex; flex-direction: column; gap: 1px; line-height: 1.25; }
 .freshness-strip-zone i { height: 10px; margin-bottom: 4px; background: var(--zone); }

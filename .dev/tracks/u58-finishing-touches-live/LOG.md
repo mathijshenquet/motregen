@@ -347,3 +347,33 @@ laatste `dev-panel.spec`-run had ik `web/dist` niet opnieuw normaal gebouwd.
   rig-dist daardoor de echte basemap krijgt heb ik niet nagegaan (niet mijn branch).
 - Daarna `pnpm build` (exit 0) en 4320 gecontroleerd met `expressive-shot.ts` (wacht op `.map-splash.ready`):
   laadt, echte basiskaart, 390-px-beeld bekeken.
+
+## 2026-10-07 23:35 — stap 2 afgerond (jog-default) + sleepbug tijdlijn op touch
+
+**Stap 2, PO-besluit:** `vast` (2 min/px, naar rechts is later) blijft de default. De `?dev`-knop Klok ›
+Jog-schaal is weg (MIP-12): `ClockJogScale`, `CLOCK_JOG_SCALES`, `parseClockJogScale`, de opslagsleutel en de
+groep Klok verwijderd; `CLOCK_JOG_MS_PER_PX` draagt de herkomst. `docs/dev-opties.md`: rij weg, bij de
+weggesnoeide knoppen genoteerd, `clock-jog` bij de oude sleutels die Reset wist. `dev-panel.spec` weer vier
+groepen.
+
+**Sleepbug (PO, Android Chrome, 4320?dev):** eerst gemeld als "tijdlijn in de uitgeklapte klokpil", daarna
+verduidelijkt als "tijdlijn/tijdregelaar in het dev-menu".
+- Dev-paneel nagekeken: het heeft geen tijdlijn, alleen de vier windschuifjes. In touch-emulatie (390 px,
+  `pointer: coarse`, CDP-touch) slepen die: Intensiteit 0,5 → 1,69 bij een sleep met 6 px verticale
+  afwijking, → 0,77 bij 25 px scheef; de pagina scrolde niet. Daar heb ik dus niets kunnen reproduceren en
+  niets veranderd.
+- De strook in het uitgeklapte klokpaneel was in de code alleen aanklikbaar (`onClick`), op elk apparaat.
+  Dat past letterlijk op "alleen klikken, niet slepen". Nu: pointerdown/move/up met pointer capture verzet de
+  tijd mee, geklemd op de randen; `touch-action: none` op de strook; de tik blijft werken.
+- Zelf getest op 4320 met CDP-touch op 390 px: vinger neer op 10 % → marker 9 %, klok 19:12; al slepend
+  30 % → 29 % / 00:03, 50 % → 49 % / 09:32, 70 % → 69 % / 21:19; pagina scrolde niet, paneel bleef open.
+  Screenshot halverwege de sleep bekeken: marker midden in de HARMONIE-zone, klok 09:32 do.
+  De klokpil zelf op touch: vinger 60 px naar rechts = +120 min, paneel blijft dicht — die werkte al.
+- Gezien, niet aangepakt: in het klokpaneel valt de kolom "Uitleg" op 390 px rechts buiten beeld.
+- Nieuwe unit-test (Freshness): slepen over de strook, klemmen op de rand, niets meer na loslaten.
+
+Receipts (synchroon): `pnpm typecheck` 0; `pnpm test` 0 (454 tests: één parse-test weg, sleeptest in een
+bestaande test erbij); `pnpm build` 0; `pnpm e2e e2e/freshness.spec.ts e2e/dev-panel.spec.ts --project
+desktop` 0 (5 passed). `web/dist` na de e2e-run ongewijzigd, 4320 serveert `index-BWSMUScH.js`.
+
+Volgende: stap 4–5 (bot).

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Source, TimelineFrame } from './contract'
-import { CLOCK_JOG_MS_PER_PX, clockKeyCursor, jogCursor, parseClockJogScale, sourceStrip, stripEpochAtPosition, stripPositionAtEpoch } from './clock-timeline'
+import { CLOCK_JOG_MS_PER_PX, clockKeyCursor, jogCursor, sourceStrip, stripEpochAtPosition, stripPositionAtEpoch } from './clock-timeline'
 
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE
@@ -58,12 +58,6 @@ describe('clock jog', () => {
     expect(clockKeyCursor('Home', 3, lastCursor)).toBe(0)
     expect(clockKeyCursor('ArrowRight', lastCursor, lastCursor)).toBe(lastCursor)
     expect(clockKeyCursor('Enter', 3, lastCursor)).toBeUndefined()
-  })
-
-  it('falls back to the fixed scale for an unknown stored choice', () => {
-    expect(parseClockJogScale('scrubber')).toBe('scrubber')
-    expect(parseClockJogScale('iets anders')).toBe('vast')
-    expect(parseClockJogScale(null)).toBe('vast')
   })
 })
 

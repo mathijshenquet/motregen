@@ -1,9 +1,9 @@
 import { createMemo, createSignal, For, onCleanup, Show } from 'solid-js'
 import { Portal } from 'solid-js/web'
-import { CLOCK_JOG_MS_PER_PX, clockKeyCursor, jogCursor, sourceStrip, STRIP_ZONES, stripEpochAtPosition, stripPositionAtEpoch, type ClockJogScale, type SourceStripZone } from '../core/clock-timeline'
+import { clockKeyCursor, jogCursor, sourceStrip, STRIP_ZONES, stripEpochAtPosition, stripPositionAtEpoch, type SourceStripZone } from '../core/clock-timeline'
 import type { Manifest, Source, TimelineFrame } from '../core/contract'
 import { ageMs, expectedNext, formatAge, formatAgeShort, formatClock, freshnessStatus, latestRadarEpoch, sourceFreshness, STATUS_LABELS, type RefreshState } from '../core/freshness'
-import { SCRUBBER_VIEW_HOURS, sourceZone, timelineCursorAtEpoch, timelineEpochAtCursor } from '../core/time-model'
+import { sourceZone, timelineCursorAtEpoch, timelineEpochAtCursor } from '../core/time-model'
 import { BUTTON_ICON, INLINE_ICON, Play, X } from './icons'
 import { backdropHandlers } from './modal'
 import { formatTime, formatWeekdayShort } from '../core/locale'
@@ -29,7 +29,6 @@ interface Props {
   timeline?: TimelineFrame[]
   cursor?: number
   onCursor?: (cursor: number) => void
-  jogScale?: ClockJogScale
 }
 
 const TICK_MS = 15_000
@@ -37,7 +36,6 @@ const CLOSE_FALLBACK_MS = 600
 // Gelijk aan de scrubber: tot zoveel px is het een tik, en na een sleep hervat afspelen na zoveel rust.
 const TAP_SLOP_PX = 4
 const RESUME_IDLE_MS = 1_000
-const HOUR_MS = 3_600_000
 
 // Leeftijd als tikkend label (PO 2026-09-25 live): zichtbaar dat hij meeloopt met de klok.
 function LiveAge(props: { ms: number; short?: boolean; title?: string }) {
@@ -76,20 +74,13 @@ export default function Freshness(props: Props) {
   const frames = () => props.timeline ?? []
   const lastCursor = () => Math.max(0, frames().length - 1)
   const sliderValue = createMemo(() => Math.round(props.cursor ?? 0))
-  let jog: { startX: number; startEpoch: number; msPerPx: number; moved: boolean } | undefined
+  let jog: { startX: number; startEpoch: number; moved: boolean } | undefined
   let swallowClick = false
   let resumeTimer: number | undefined
   // Onze eigen korte pauze tijdens slepen; de ▶ blijft dan weg, anders verspringt de pil onder de vinger.
   const [jogPaused, setJogPaused] = createSignal(false)
   const [jogging, setJogging] = createSignal(false)
   onCleanup(() => window.clearTimeout(resumeTimer))
-
-  function jogMsPerPx(): number {
-    const direction = props.jogScale?.endsWith('-omgekeerd') ? -1 : 1
-    if (!props.jogScale?.startsWith('scrubber')) return direction * CLOCK_JOG_MS_PER_PX
-    const plotWidth = document.querySelector('.scrub-surface .chart-plot')?.clientWidth
-    return direction * (plotWidth ? SCRUBBER_VIEW_HOURS * HOUR_MS / plotWidth : CLOCK_JOG_MS_PER_PX)
-  }
 
   function pauseForJog(): void {
     window.clearTimeout(resumeTimer)
@@ -113,7 +104,7 @@ export default function Freshness(props: Props) {
 
   function jogStart(event: PointerEvent & { currentTarget: HTMLButtonElement }): void {
     if (event.button !== 0 || !frames().length || !props.onCursor) return
-    jog = { startX: event.clientX, startEpoch: timelineEpochAtCursor(frames(), props.cursor ?? 0), msPerPx: jogMsPerPx(), moved: false }
+    jog = { startX: event.clientX, startEpoch: timelineEpochAtCursor(frames(), props.cursor ?? 0), moved: false }
     event.currentTarget.setPointerCapture(event.pointerId)
   }
 
@@ -126,7 +117,7 @@ export default function Freshness(props: Props) {
       setJogging(true)
       pauseForJog()
     }
-    props.onCursor?.(jogCursor(frames(), jog.startEpoch, deltaPx, jog.msPerPx))
+    props.onCursor?.(jogCursor(frames(), jog.startEpoch, deltaPx))
   }
 
   function jogEnd(event: PointerEvent & { currentTarget: HTMLButtonElement }): void {
@@ -175,8 +166,24 @@ export default function Freshness(props: Props) {
   function jumpInStrip(event: MouseEvent & { currentTarget: HTMLDivElement }): void {
     const bounds = event.currentTarget.getBoundingClientRect()
     if (!bounds.width || !strip().length) return
-    const epoch = stripEpochAtPosition(strip(), (event.clientX - bounds.left) / bounds.width * 100)
-    props.onCursor?.(timelineCursorAtEpoch(frames(), epoch))
+    const position = Math.max(0, Math.min(100, (event.clientX - bounds.left) / bounds.width * 100))
+    props.onCursor?.(timelineCursorAtEpoch(frames(), stripEpochAtPosition(strip(), position)))
+  }
+  // Slepen over de strook verzet de tijd mee (PO 2026-10-07: op de telefoon kon je alleen tikken). De
+  // pointer blijft bij de strook, ook als de vinger eroverheen schiet.
+  let stripDragging = false
+  function stripDragStart(event: PointerEvent & { currentTarget: HTMLDivElement }): void {
+    if (event.button !== 0 || !strip().length) return
+    stripDragging = true
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+    jumpInStrip(event)
+  }
+  function stripDragMove(event: PointerEvent & { currentTarget: HTMLDivElement }): void {
+    if (stripDragging) jumpInStrip(event)
+  }
+  function stripDragEnd(event: PointerEvent & { currentTarget: HTMLDivElement }): void {
+    stripDragging = false
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
   }
   const summary = () => {
     const age = radarAge()
@@ -302,7 +309,8 @@ export default function Freshness(props: Props) {
           </p>
           <Show when={strip().length}>
             {/* Tik springt naar dat moment; met het toetsenbord verzet de klok zelf de tijd. */}
-            <div class="freshness-strip" data-testid="freshness-strip" title="Tik om naar dat moment te gaan" onClick={jumpInStrip}>
+            <div class="freshness-strip" data-testid="freshness-strip" title="Tik of sleep om naar dat moment te gaan" onClick={jumpInStrip}
+              onPointerDown={stripDragStart} onPointerMove={stripDragMove} onPointerUp={stripDragEnd} onPointerCancel={stripDragEnd}>
               <div class="freshness-strip-zones">
                 <For each={strip()}>{(zone) => <div class="freshness-strip-zone" data-zone={zone.key} data-kind={zone.kind} style={{ width: `${zone.end - zone.start}%` }}>
                   <i aria-hidden="true" />

@@ -221,6 +221,23 @@ describe('freshness indicator', () => {
     expect(marker).toBeGreaterThan(radarWidth + nowcastWidth * 0.37)
     expect(marker).toBeLessThan(radarWidth + nowcastWidth * 0.41)
 
+    // Slepen over de strook verzet de tijd mee, ook voorbij de randen (U58).
+    strip.getBoundingClientRect = () => ({ left: 100, width: 200, top: 0, height: 40, right: 300, bottom: 40, x: 100, y: 0, toJSON: () => ({}) })
+    fireEvent.pointerMove(strip, { clientX: 200 })
+    expect(onCursor).not.toHaveBeenCalled()
+    fireEvent.pointerDown(strip, { button: 0, pointerId: 1, clientX: 100 })
+    expect(onCursor).toHaveBeenLastCalledWith(0)
+    fireEvent.pointerMove(strip, { pointerId: 1, clientX: 200 })
+    const halfway = onCursor.mock.lastCall![0] as number
+    expect(halfway).toBeGreaterThan(0)
+    expect(halfway).toBeLessThan(timeline.length - 1)
+    fireEvent.pointerMove(strip, { pointerId: 1, clientX: 900 })
+    expect(onCursor).toHaveBeenLastCalledWith(timeline.length - 1)
+    fireEvent.pointerUp(strip, { pointerId: 1, clientX: 900 })
+    const calls = onCursor.mock.calls.length
+    fireEvent.pointerMove(strip, { pointerId: 1, clientX: 150 })
+    expect(onCursor).toHaveBeenCalledTimes(calls)
+    onCursor.mockClear()
     // Tik helemaal links en rechts in de strook: begin en einde van de tijdlijn.
     strip.getBoundingClientRect = () => ({ left: 100, width: 400, top: 0, right: 500, bottom: 30, height: 30, x: 100, y: 0, toJSON: () => undefined })
     fireEvent.click(strip, { clientX: 100 })
