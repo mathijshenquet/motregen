@@ -52,3 +52,16 @@
 - `gh pr edit 72 --body-file tmp/u45-pr.md`: synchrone exit 0. Beschrijving bevat alle groene receipts en integratiestatus; https://github.com/mathijshenquet/motregen/pull/72 blijft draft voor onafhankelijke review/merge-gate. Publieke inlinefoto's worden pas na deploy beschikbaar.
 - `git diff --cached --check`: synchrone exit 0; preview HTTP 200 op 4360. Eigen rooktestchat staat op expliciet PO-verzoek in genegeerde `.env`; geen waarde in Git of LOG.
 - Trackwerk afgerond; deze overdrachtsentry wordt afzonderlijk committed. Preview blijft beschikbaar voor PO-beoordeling; merge en productiedeploy zijn aan de orkestrator.
+
+## 2026-10-07T09:32:54Z — Orkestrator-review oppakken
+- Opdracht: actuele main mergen, skywatch-render-route en Telegram-bootstrap beide behouden, initData-POST en Caddy-validatieroute verwijderen wegens MIP-13. Werkboom bij start schoon; devenv via `direnv exec .` actief gecontroleerd, synchrone exit 0.
+- `git fetch origin main`: synchrone exit 0. `git merge --no-commit origin/main`: exit 1 met verwachte conflicten in App.tsx/index.tsx; main op `21717fc`. Beide routes gecombineerd; U43-profielregistratie/HUD en U45-stillbediening behouden.
+- Client leest alleen de startparameter en het thema; geen initData-request of verificatieattribuut. HTTP-server en poortconfig uit bot verwijderd, Caddy-proxy weg; zuivere HMAC-module blijft alleen unit-getest. Privacydocumentatie en VM-checks aangepast.
+- Browserregressie controleert dat Mini App-opening geen identifiers verstuurt; extra gerichte check bewaakt skywatch-render naast Telegram-bootstrap. Volgende stap: review van merge-diff, nieuwe synchrone gates en PR-update.
+
+## 2026-10-07T09:36:59Z — Reviewfix opnieuw geverifieerd
+- `direnv exec . pnpm typecheck`: SYNCHRONE EXIT 0. `direnv exec . pnpm test`: SYNCHRONE EXIT 0, 347 webtests + 10 bot-tests. `direnv exec . pnpm build`: SYNCHRONE EXIT 0.
+- `direnv exec . env MOTREGEN_E2E_PORT=4361 MOTREGEN_E2E_DATA_PORT=8361 pnpm --dir web e2e e2e/telegram.spec.ts e2e/presets.spec.ts --project desktop`: SYNCHRONE EXIT 0, 9/9 in 26,3 s. Inclusief Mini App zonder initData-verzoek, skywatch-render-route, presets en vier nationale stills.
+- `nix build .#checks.x86_64-linux.nixos-vm -L --no-link`: eerste run SYNCHRONE EXIT 1 wegens dubbele, nu ongebruikte json-import in aangepaste VM-test; import verwijderd. Dezelfde opdracht opnieuw: SYNCHRONE EXIT 0, VM-script 24,19 s. Geen pipe gebruikt; dit is de exitstatus van nix zelf. VM controleert productie-Chromium onder hardening, afwezige botlistener/HTTP-validatie (POST 405), publieke still-cache en bestaande deployment-/privacygates.
+- Preview-artifacts op 4360 bijgewerkt met de nieuwe productiebundel vóór de e2e-build; HTTP 200. Geen volledige/perf-suite gedraaid. De historische initData-validatie hierboven is door deze reviewfix vervallen: de draaiende app en bot gebruiken de HMAC-module niet.
+- Volgende stap: mergecommit voor main `21717fc` plus privacyfix maken, pushen, PR #72 beschrijving bijwerken en remote-head controleren.

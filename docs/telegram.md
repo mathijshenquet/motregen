@@ -34,13 +34,13 @@ gebruiker, querytekst, token of upstream fouttekst. De cache bevat uitsluitend
 nationale JPEG-kaarten zonder locatie of persoonsgegevens. Stills sturen geen
 sessieteller of gebruiksbaken.
 
-De app stuurt Telegram `initData` eenmalig naar `/telegram/validate`; de bot
-controleert server-side HMAC-SHA256, unieke velden en een maximale leeftijd van
-één uur. Alleen `{valid: true|false}` komt terug, zonder opslag of logging van de
-inhoud. Motregen gebruikt deze data niet voor accounts of persoonlijke acties;
-ook bij mislukte verificatie blijft de openbare weerkaart beschikbaar. Presets
-en themakleuren zijn weergave-invoer, geen identiteit. Locatie en favorieten
-blijven in de browser zoals in [het privacycontract](analytics.md).
+De Mini App stuurt geen Telegram `initData`, gebruikers-id of naam naar onze
+server. De SDK levert uitsluitend het thema en de startparameter voor de lokale
+weergave; er is geen validatieverzoek of HTTP-validatie-endpoint. Presets en
+themakleuren zijn weergave-invoer, geen identiteit. Locatie en favorieten blijven
+in de browser zoals in [het privacycontract](analytics.md). De HMAC-module in
+`bot/auth.ts` blijft unit-getest maar wordt nergens in de draaiende app of bot
+aangeroepen.
 
 ## Rendering en cache
 
@@ -88,15 +88,15 @@ Het token gaat nooit in Git of de Nix-store. Configuratie via environment:
 | `TG_BOT_KEY` | verplicht | token uit BotFather |
 | `MOTREGEN_ORIGIN` | `https://motregen.nl` | app en publieke still-URLs |
 | `MOTREGEN_RENDER_CACHE` | `tmp/telegram-stills` | lokale cachemap |
-| `MOTREGEN_BOT_PORT` | `8090` | loopbackpoort voor initData-verificatie |
 | `MOTREGEN_CHROMIUM_PATH` | Playwright-selectie | expliciete nixpkgs-Chromium-binary |
 
 De unit zet de cache op `/var/cache/motregen-bot/stills`, de browsers op het
 Nix-storepad, de executable op de headless Chromium uit dezelfde nixpkgs-revisie,
 en de origin op het geconfigureerde domein. Hierdoor hangen browserpaden niet af
-van de pnpm-versie van Playwright. Caddy proxyt uitsluitend
-`/telegram/validate` naar poort 8090. Er is geen webhook. Laat nooit twee pollers
-voor hetzelfde token draaien; een Telegram-409 laat de unit stoppen/herstarten.
+van de pnpm-versie van Playwright. Caddy serveert uitsluitend de nationale
+stills voor Telegram; de bot heeft geen HTTP-server. Er is geen webhook. Laat
+nooit twee pollers voor hetzelfde token draaien; een Telegram-409 laat de unit
+stoppen/herstarten.
 
 Na deploy:
 

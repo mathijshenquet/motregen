@@ -7,18 +7,20 @@
     { lib, pkgs, ... }:
     let
       botPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-bot;
-      botTestServer = pkgs.writeText "motregen-bot-test.mjs" ''
+      botTestProgram = pkgs.writeText "motregen-bot-test.mjs" ''
+        import { setTimeout as delay } from 'node:timers/promises';
         import { readConfig } from '${botPackage}/lib/motregen-bot/dist/bot/config.js';
-        import { startValidationServer } from '${botPackage}/lib/motregen-bot/dist/bot/server.js';
         import { chromium } from '${botPackage}/lib/motregen-bot/node_modules/playwright/index.mjs';
+        readConfig();
         const browser = await chromium.launch({ executablePath: process.env.MOTREGEN_CHROMIUM_PATH, args: ['--use-angle=swiftshader'] });
         await browser.close();
-        startValidationServer(readConfig());
+        console.info('bot-test-chromium-ready');
+        await delay(3_600_000);
       '';
       fakeBot = pkgs.writeShellApplication {
         name = "motregen-bot";
         runtimeInputs = [ pkgs.nodejs ];
-        text = ''exec node ${botTestServer}'';
+        text = ''exec node ${botTestProgram}'';
       };
       fakeIngest = pkgs.writeShellApplication {
         name = "motregen-ingest";
@@ -48,7 +50,7 @@
         };
       };
 
-      # De echte validatieserver en Chromium draaien onder de productiehardening, zonder Telegram-netwerk.
+      # Chromium draait onder de productiehardening, zonder Telegram-netwerk.
       systemd.services.motregen-bot.environment.TG_BOT_KEY = "test-token";
 
       # Geen netwerk in de VM: de CAMS-job decodeert de opgenomen ADS-fixture.
@@ -78,24 +80,11 @@
     machine.wait_for_unit("caddy.service")
     machine.wait_for_unit("motregen-bot.service")
     machine.succeed("systemctl is-active motregen-ingest.service caddy.service motregen-bot.service")
-    machine.wait_until_succeeds("curl -fsS -H 'Content-Type: application/json' --data '{\"initData\":\"bad\"}' http://localhost/telegram/validate | jq -e '.valid == false'", timeout=60)
+    machine.wait_until_succeeds("journalctl -u motregen-bot --no-pager | grep -F bot-test-chromium-ready", timeout=60)
+    machine.fail("ss -H -lnt | grep -F ':8090'")
 
-    import hashlib
-    import hmac
-    import json
-    import shlex
-    from urllib.parse import urlencode
-
-    auth_date = machine.succeed("date +%s").strip()
-    check_string = f"auth_date={auth_date}\nquery_id=example"
-    secret = hmac.new(b"WebAppData", b"test-token", hashlib.sha256).digest()
-    signature = hmac.new(secret, check_string.encode(), hashlib.sha256).hexdigest()
-    init_data = urlencode({"query_id": "example", "auth_date": auth_date, "hash": signature})
-    request_body = shlex.quote(json.dumps({"initData": init_data}))
-    verified = machine.succeed(f"curl -fsS -H 'Content-Type: application/json' --data {request_body} http://localhost/telegram/validate")
-    assert json.loads(verified) == {"valid": True}, verified
-    validation_headers = machine.succeed("curl -sS -D - -o /dev/null -H 'Content-Type: application/json' --data '{\"initData\":\"bad\"}' http://localhost/telegram/validate").lower()
-    assert "cache-control: no-store" in validation_headers, validation_headers
+    validation_status = machine.succeed("curl -sS -X POST --output /dev/null --write-out '%{http_code}' http://localhost/telegram/validate")
+    assert validation_status == "405", validation_status
 
     machine.succeed("install -d -m 0755 /var/cache/motregen-bot/stills; printf JPEG > /var/cache/motregen-bot/stills/test.jpg")
     still_headers = machine.succeed("curl -sS -D - -o /dev/null http://localhost/telegram/stills/test.jpg").lower()
@@ -105,14 +94,6 @@
     assert "x-robots-tag: noindex" in still_headers, still_headers
     missing_still = machine.succeed("curl -sS -D - -o /dev/null http://localhost/telegram/stills/missing.jpg").lower()
     assert "404" in missing_still, missing_still
-
-    machine.succeed("systemctl stop motregen-bot.service")
-    machine.succeed("curl -sS -H 'X-Privacy: telegram-private-header' -H 'User-Agent: telegram-private-agent' --data '{\"initData\":\"telegram-private-data\"}' http://localhost/telegram/validate -o /dev/null")
-    error_journal = machine.succeed("journalctl -u caddy --no-pager")
-    assert "connect: connection refused" in error_journal, error_journal
-    for private_field in ["remote_ip", "client_ip", "telegram-private-header", "telegram-private-agent", "telegram-private-data"]:
-      assert private_field not in error_journal, error_journal
-    machine.succeed("systemctl start motregen-bot.service")
 
     manifest_headers = machine.succeed(
       "curl --silent --show-error --dump-header - --output /tmp/manifest http://localhost/data/manifest.json"

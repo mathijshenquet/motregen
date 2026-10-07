@@ -1,6 +1,12 @@
 import { expect, test } from '@playwright/test'
 
-test('Telegram launch applies presets and follows the host theme', async ({ page }) => {
+test('Telegram launch applies presets and follows the host theme without sending identifiers', async ({ page }) => {
+  const identifierRequests: string[] = []
+  page.on('request', (request) => {
+    if (request.url().includes('/telegram/validate') || request.postData()?.includes('test-init-data')) {
+      identifierRequests.push(request.url())
+    }
+  })
   await page.route('https://telegram.org/js/telegram-web-app.js', (route) => route.fulfill({
     contentType: 'text/javascript',
     body: `window.Telegram = { WebApp: {
@@ -11,12 +17,10 @@ test('Telegram launch applies presets and follows the host theme', async ({ page
       onEvent(event, callback) { window.telegramThemeChanged = callback }, offEvent() {}
     } }`,
   }))
-  await page.route('**/telegram/validate', (route) => route.fulfill({ json: { valid: true } }))
   await page.goto('/?tg=1')
   await expect(page.locator('.map-splash.ready')).toBeAttached()
   await expect(page.locator('.forecast-table')).toHaveAttribute('data-mode', 'wind')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
-  await expect(page.locator('html')).toHaveAttribute('data-telegram-verified', 'true')
   expect(await page.evaluate(() => document.documentElement.style.getPropertyValue('--page'))).toBe('#112233')
   expect(await page.evaluate(() => localStorage.getItem('motregen-theme'))).toBeNull()
   await page.evaluate(() => {
@@ -28,6 +32,25 @@ test('Telegram launch applies presets and follows the host theme', async ({ page
   })
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   expect(await page.evaluate(() => document.documentElement.style.getPropertyValue('--page'))).toBe('#aabbcc')
+  await page.goto('about:blank')
+  expect(identifierRequests).toEqual([])
+})
+
+test('skywatch rendering keeps its own route alongside the Telegram bootstrap', async ({ page }) => {
+  const telegramRequests: string[] = []
+  page.on('request', (request) => {
+    if (request.url().includes('telegram.org/js/')) telegramRequests.push(request.url())
+  })
+  const query = new URLSearchParams({
+    'skywatch-render': '', tg: '1', at: '2026-10-07T10:00:00Z', sample: 'route-regression',
+    times: JSON.stringify(['2026-10-07T10:00:00Z', '2026-10-07T13:00:00Z']),
+    high: '[20,30]', mid: '[40,50]', low: '[60,70]',
+  })
+  await page.goto(`/?${query}`)
+  await expect(page.getByTestId('skywatch-render')).toBeVisible()
+  await expect(page.getByText('route-regression')).toBeVisible()
+  await expect(page.locator('.map')).toHaveCount(0)
+  expect(telegramRequests).toEqual([])
 })
 
 test('ordinary visits never load the Telegram SDK', async ({ page }) => {

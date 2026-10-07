@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PerfMonitor, type PerfEnvironment } from './perf'
+import { configurePerfMode, consumeColdProfile, PerfMonitor, type PerfEnvironment } from './perf'
 
 function harness() {
   let now = 0
@@ -101,5 +101,42 @@ describe('performance monitor', () => {
       { url: 'https://motregen.nl/data/chunks/rain.mrf', frameIndex: 4, layer: 'L1', requestId: 1, requestedMs: 10 },
     ])
     expect(snapshot.marks).toEqual([{ kind: 'schedule', layer: 'L1', field: 'rain_rate', indexes: [3, 4], reason: 'idle', t: 0 }])
+  })
+
+  it('aggregates phase percentiles in the last 30 seconds and keeps the five longest frames', () => {
+    const test = harness()
+    for (const [index, duration] of [1, 2, 3, 4, 100].entries()) {
+      test.monitor.recordPhase({ phase: 'wind-step', startTime: 2_000 + index * 10, duration })
+    }
+    test.monitor.recordPhase({ phase: 'wind-step', startTime: 1, duration: 999 })
+    for (let index = 0; index < 7; index++) test.monitor.recordLongFrame({
+      startTime: 31_000 + index,
+      duration: 50 + index,
+      blockingDuration: index,
+      scripts: [{ duration: index, sourceURL: `/app-${index}.js`, sourceFunctionName: 'tick', invoker: 'event-listener' }],
+    })
+    test.advance(31_100)
+
+    const snapshot = test.monitor.snapshot()
+    expect(snapshot.phases['wind-step']).toEqual({ count: 5, p50Ms: 3, p95Ms: 100 })
+    expect(snapshot.longFrames.map((frame) => frame.duration)).toEqual([56, 55, 54, 53, 52])
+    expect(snapshot.longFrames[0]!.scripts[0]!.sourceURL).toBe('/app-6.js')
+  })
+
+  it('persists ?perf, clears ?perf=0 and consumes a cold-start request once', () => {
+    const values = new Map<string, string>()
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { values.set(key, value) },
+      removeItem: (key: string) => { values.delete(key) },
+    }
+    expect(configurePerfMode(new URL('https://example.test/?perf'), storage)).toBe(true)
+    expect(configurePerfMode(new URL('https://example.test/'), storage)).toBe(true)
+    storage.setItem('motregen-perf-cold', '1')
+    expect(consumeColdProfile(storage)).toBe(true)
+    expect(consumeColdProfile(storage)).toBe(false)
+    expect(configurePerfMode(new URL('https://example.test/?perf=0'), storage)).toBe(false)
+    expect(configurePerfMode(new URL('https://example.test/?perf=start'), storage)).toBe(true)
+    expect(consumeColdProfile(storage)).toBe(true)
   })
 })

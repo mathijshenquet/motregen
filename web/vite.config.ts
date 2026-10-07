@@ -15,8 +15,10 @@ const allowedHosts = ['ageq-mthq', 'ageq-dev2']
 // MOTREGEN_SYNTH=1 valt terug op de synthetische dataset in public/data
 const dataOrigin = process.env.MOTREGEN_DATA_ORIGIN
 const dataProxy = (target: string) => ({ '/data': { target, changeOrigin: true, rewrite: (path: string) => path.replace(/^\/data/, '') } })
-const proxy = process.env.MOTREGEN_SYNTH ? undefined : dataProxy(dataOrigin ?? 'http://localhost:8080')
-const previewProxy = dataOrigin ? dataProxy(dataOrigin) : undefined
+const profileProxy = { '/prof': { target: process.env.MOTREGEN_PROF_ORIGIN ?? 'http://127.0.0.1:4331', changeOrigin: true } }
+const proxy = { ...process.env.MOTREGEN_SYNTH ? {} : dataProxy(dataOrigin ?? 'http://localhost:8080'), ...profileProxy }
+const previewProxy = { ...dataOrigin ? dataProxy(dataOrigin) : {}, ...profileProxy }
+const profilingHeaders = { 'Document-Policy': 'js-profiling' }
 
 // Het gebruiksbaken (MIP-13) gaat naar /hit; in prod beantwoordt Caddy dat (U32). dev/preview
 // antwoorden net zo met 204, en e2e leest de ontvangen bodies uit MOTREGEN_HIT_LOG.
@@ -69,7 +71,7 @@ export default defineConfig({
     },
   })],
   build: { sourcemap: true },
-  server: { allowedHosts, proxy },
-  preview: { allowedHosts, proxy: previewProxy },
+  server: { allowedHosts, proxy, headers: profilingHeaders },
+  preview: { allowedHosts, proxy: previewProxy, headers: profilingHeaders },
   test: { environment: 'node', exclude: [...configDefaults.exclude, 'e2e/**'] },
 })

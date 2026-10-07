@@ -3,7 +3,6 @@ import { TelegramApi, TelegramApiError, type TelegramUpdate } from './api.js'
 import { readConfig } from './config.js'
 import { configureBot, handleUpdate, type BotRuntime } from './handlers.js'
 import { StillRenderer, type RenderedStill } from './render.js'
-import { startValidationServer } from './server.js'
 import { STILL_HOURS, STILL_MODES, type StillManifest, type StillSelection } from './stills.js'
 
 async function runBot(): Promise<void> {
@@ -21,7 +20,6 @@ async function runBot(): Promise<void> {
     currentManifest: async () => manifest ?? renderer.manifest(),
     availableStill: (selection) => available.get(selectionKey(selection)),
   }
-  const server = startValidationServer(config)
   const stop = () => controller.abort()
   process.once('SIGTERM', stop)
   process.once('SIGINT', stop)
@@ -31,7 +29,6 @@ async function runBot(): Promise<void> {
     await Promise.all([pollUpdates(runtime, controller.signal), refreshStills(runtime, available, (current) => { manifest = current }, controller.signal)])
   } finally {
     controller.abort()
-    server.close()
     await renderer.close()
   }
 }

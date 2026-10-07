@@ -1,16 +1,17 @@
 .perf-hud {
   position: fixed;
-  right: max(8px, env(safe-area-inset-right));
+  /* Linksonder en compact: rechtsonder blokkeerde de UI (PO 2026-10-07). */
+  left: max(8px, env(safe-area-inset-left));
   bottom: max(8px, env(safe-area-inset-bottom));
   z-index: 1000;
-  width: min(286px, calc(100vw - 16px));
-  padding: 11px;
+  width: min(220px, calc(100vw - 16px));
+  padding: 8px;
   border: 1px solid var(--line-strong);
   border-radius: 11px;
   color: var(--text);
   background: color-mix(in srgb, var(--surface) 94%, transparent);
   box-shadow: var(--shadow);
-  font-size: 11px;
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
   backdrop-filter: blur(10px);
 }
@@ -18,10 +19,11 @@
 .perf-title { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 7px; }
 .perf-title strong { font-size: 14px; }
 .perf-title span { color: var(--muted); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
-.perf-hud dl { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 12px; margin: 0 0 8px; }
+.perf-hud dl { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 8px; margin: 0 0 6px; }
 .perf-hud dl div { min-width: 0; }
 .perf-hud dt { color: var(--muted); font-size: 9px; }
-.perf-hud dd { margin: 1px 0 0; font-weight: 700; white-space: nowrap; }
+/* Lange meetregels (isolijnen, regen·wind) liepen over de rand; wikkelen in plaats van nowrap (PO 2026-10-07). */
+.perf-hud dd { margin: 1px 0 0; font-weight: 700; overflow-wrap: anywhere; }
 .perf-hud table { width: 100%; margin-bottom: 8px; }
 .perf-hud th, .perf-hud td { position: static; padding: 2px 3px; border: 0; background: transparent; font-size: 9px; text-align: right; text-transform: none; }
 .perf-hud th:first-child { text-align: left; }
@@ -29,4 +31,19 @@
 .perf-hud tbody th { color: var(--text); font-weight: 600; }
 .perf-hud button { width: 100%; padding: 6px 9px; border: 1px solid var(--line-strong); border-radius: 7px; color: var(--text); background: var(--surface-soft); font-size: 10px; font-weight: 700; }
 .perf-hud button:hover { border-color: var(--accent); background: var(--accent-soft); }
-.perf-hud { max-height: calc(100dvh - 16px); overflow-y: auto; }
+.perf-hud { max-height: min(60dvh, calc(100dvh - 16px)); overflow-y: auto; }
+.perf-hud button:disabled { cursor: wait; opacity: .55; }
+.perf-phases, .perf-long-frames { margin: 0 0 8px; padding-top: 7px; border-top: 1px solid var(--line); }
+.perf-phases > strong, .perf-long-frames > strong { display: block; margin-bottom: 3px; font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.perf-phases > div, .perf-long-frames > div { display: flex; justify-content: space-between; gap: 8px; padding: 1px 0; }
+.perf-phases > div span:last-child, .perf-long-frames > div span:last-child { overflow: hidden; color: var(--muted); text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.perf-recording { margin-top: 6px; }
+.perf-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.perf-export-actions { grid-template-columns: repeat(3, 1fr); margin-top: 5px; }
+.perf-recording p { min-height: 1.2em; margin: 5px 1px 0; color: var(--muted); font-size: 9px; overflow-wrap: anywhere; }
+
+.perf-hud-recording { display: flex; align-items: center; gap: 8px; width: auto; max-width: calc(100vw - 16px); padding: 6px 8px; border-radius: 999px; font-weight: 700; }
+.perf-hud-recording button { width: auto; padding: 3px 9px; }
+.perf-recording-dot { width: 8px; height: 8px; border-radius: 50%; background: #e0352b; animation: perf-blink 1s steps(2, start) infinite; }
+@keyframes perf-blink { to { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .perf-recording-dot { animation: none; } }

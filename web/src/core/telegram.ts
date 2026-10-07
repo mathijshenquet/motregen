@@ -4,7 +4,6 @@ export interface TelegramWebApp {
   colorScheme: 'light' | 'dark'
   themeParams: Record<string, string | undefined>
   initDataUnsafe?: { start_param?: string }
-  initData?: string
   ready(): void
   expand(): void
   onEvent(event: 'themeChanged', callback: () => void): void
@@ -38,20 +37,6 @@ export async function loadTelegram(): Promise<TelegramWebApp | undefined> {
   }
   const webApp = window.Telegram?.WebApp
   if (!webApp) return undefined
-  if (webApp.initData) {
-    try {
-      const response = await fetch('/telegram/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ initData: webApp.initData }),
-        signal: AbortSignal.timeout(5000),
-      })
-      const validation = await response.json() as { valid?: boolean }
-      document.documentElement.dataset.telegramVerified = validation.valid === true ? 'true' : 'false'
-    } catch {
-      document.documentElement.dataset.telegramVerified = 'false'
-    }
-  }
   const search = telegramPresetSearch(window.location.search, webApp.initDataUnsafe?.start_param)
   window.history.replaceState(null, '', `${window.location.pathname}?${search}${window.location.hash}`)
   webApp.expand()

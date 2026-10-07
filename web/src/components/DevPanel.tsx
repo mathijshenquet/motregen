@@ -1,5 +1,6 @@
 import { createSignal, For, type JSX } from 'solid-js'
 import { copyText } from '../core/clipboard'
+import { appendSkyDiaryEntry, SKY_DIARY_CLASSES, skyDiaryJson, type SkyDiaryClass } from '../core/dev-settings'
 import { ISOLINE_FADES, ISOLINE_FILL_STYLES, ISOLINE_STEPS, type IsolineFade, type IsolineFillStyle, type IsolineStep, type IsolineTuning } from '../core/isolines'
 import { sanitizeWindTuning, WIND_TUNING_CONTROLS, type WindTuning } from '../core/wind-layer'
 
@@ -12,6 +13,9 @@ interface Props {
   onWindTuning: (tuning: WindTuning) => void
   perfVisible: boolean
   onPerfVisible: (visible: boolean) => void
+  profileRecording: boolean
+  onProfileRecord: () => void
+  onColdProfile: () => void
   onReplaySplash: () => void
   onReset: () => void
   resetNotice: boolean
@@ -28,11 +32,38 @@ const WIND_HINTS: Record<keyof WindTuning, string> = {
 
 export default function DevPanel(props: Props) {
   const [windCopied, setWindCopied] = createSignal(false)
+  const [skyClass, setSkyClass] = createSignal<SkyDiaryClass>('mooie wolkenlucht')
+  const [skyNotice, setSkyNotice] = createSignal('')
 
   async function copyWind(): Promise<void> {
     await copyText(JSON.stringify(props.windTuning, null, 2))
     setWindCopied(true)
     window.setTimeout(() => setWindCopied(false), 1_500)
+  }
+
+  function recordSky(klasse: SkyDiaryClass): void {
+    const location = currentLocation()
+    if (!location) { showSkyNotice('Geen gekozen locatie beschikbaar'); return }
+    try {
+      appendSkyDiaryEntry(klasse, location)
+      showSkyNotice(`${klasse} opgeslagen`)
+    } catch {
+      showSkyNotice('Opslaan mislukt')
+    }
+  }
+
+  async function copySkyDiary(): Promise<void> {
+    try {
+      await copyText(skyDiaryJson())
+      showSkyNotice('Dagboek gekopieerd')
+    } catch {
+      showSkyNotice('Kopiëren mislukt')
+    }
+  }
+
+  function showSkyNotice(message: string): void {
+    setSkyNotice(message)
+    window.setTimeout(() => setSkyNotice(''), 2_000)
   }
 
   return <details class="dev-panel" open data-testid="dev-panel">
@@ -63,16 +94,34 @@ export default function DevPanel(props: Props) {
       }</For>
       <Action label={windCopied() ? 'Gekopieerd' : 'Kopieer wind als JSON'} hint="Zet de vier windwaarden op het klembord, om terug te sturen." onClick={() => void copyWind()} />
     </Group>
+    <Group title="Lucht nu">
+      <Control label="Klasse" output={skyClass()} hint="Hoe de lucht op de gekozen locatie nu aanvoelt.">
+        <select value={skyClass()} onChange={(event) => setSkyClass(event.currentTarget.value as SkyDiaryClass)}>
+          <For each={SKY_DIARY_CLASSES}>{(klasse) => <option value={klasse}>{klasse}</option>}</For>
+        </select>
+      </Control>
+      <Action label="Lucht nu" hint="Slaat tijd, klasse en de gekozen locatie op 0,1° in deze browser op." onClick={() => recordSky(skyClass())} />
+      <Action label="Kopieer dagboek" hint="Zet alle luchtmetingen als JSON op het klembord." onClick={() => void copySkyDiary()} />
+      <p class="dev-notice" role="status">{skyNotice()}</p>
+    </Group>
     <Group title="Diagnose">
       <Control label="Perf-HUD" output={props.perfVisible ? 'Aan' : 'Uit'} toggle hint="Meetpaneel met laadtijd, fps en netwerk; ook drie tikken op het logo.">
         <input type="checkbox" checked={props.perfVisible} onChange={(event) => props.onPerfVisible(event.currentTarget.checked)} />
       </Control>
+      <Action label={props.profileRecording ? 'Opname loopt…' : 'Opname 30 s'} hint="Neemt stacks, fasen en lange frames dertig seconden op." onClick={props.onProfileRecord} disabled={props.profileRecording} />
+      <Action label="Koude start" hint="Herlaadt en neemt de eerste dertig seconden vanaf de start op." onClick={props.onColdProfile} disabled={props.profileRecording} />
       <Action label="Herhaal splash" hint="Speelt het openingslogo opnieuw af." onClick={props.onReplaySplash} />
       <Action label="Reset alle instellingen" hint="Zet alle knoppen terug; favorieten, locatie, kaartbeeld en thema blijven." onClick={props.onReset} />
       <p class="dev-usage">Gebruiksbaken: <code>{props.usageBody}</code></p>
       <p class="dev-notice" role="status">{props.resetNotice ? 'Standaardwaarden hersteld' : ''}</p>
     </Group>
   </details>
+}
+
+function currentLocation(): { lng: number; lat: number } | undefined {
+  const camera = (window as unknown as { __motregenCamera?: () => { location?: { lng: number; lat: number } } }).__motregenCamera?.()
+  const location = camera?.location
+  return location && Number.isFinite(location.lng) && Number.isFinite(location.lat) ? location : undefined
 }
 
 function Group(props: { title: string; open?: boolean; children: JSX.Element }) {
@@ -90,9 +139,9 @@ function Control(props: { label: string; output: string; hint: string; toggle?: 
   </div>
 }
 
-function Action(props: { label: string; hint: string; onClick: () => void }) {
+function Action(props: { label: string; hint: string; onClick: () => void; disabled?: boolean }) {
   return <div class="dev-control" title={props.hint}>
-    <button type="button" class="dev-action" onClick={() => props.onClick()}>{props.label}</button>
+    <button type="button" class="dev-action" disabled={props.disabled} onClick={() => props.onClick()}>{props.label}</button>
     <p class="dev-hint">{props.hint}</p>
   </div>
 }

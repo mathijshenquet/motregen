@@ -365,7 +365,6 @@ in
       environment = {
         MOTREGEN_ORIGIN = "https://${cfg.domain}";
         MOTREGEN_RENDER_CACHE = "/var/cache/motregen-bot/stills";
-        MOTREGEN_BOT_PORT = "8090";
         PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
         MOTREGEN_CHROMIUM_PATH = "${pkgs.playwright-driver.browsers}/chromium_headless_shell-${pkgs.playwright-driver.browsersJSON."chromium-headless-shell".revision}/chrome-headless-shell-linux64/chrome-headless-shell";
         PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
@@ -493,10 +492,6 @@ in
           }
 
           ${lib.optionalString cfg.bot.enable ''
-            handle /telegram/validate {
-              header Cache-Control "no-store"
-              reverse_proxy 127.0.0.1:8090
-            }
             handle_path /telegram/stills/* {
               root * /var/cache/motregen-bot/stills
               header Cache-Control "public, max-age=7200, immutable"

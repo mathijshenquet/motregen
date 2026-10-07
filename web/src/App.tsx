@@ -33,7 +33,8 @@ import { MrfClient, type MotionField } from './core/mrf'
 import { selectPairMotion } from './core/motion-selection'
 import { nearestPlace } from './core/places'
 import { startFrameLoop } from './core/playback'
-import { installPerfMonitor, type LoadLayer } from './core/perf'
+import { configurePerfMode, consumeColdProfile, installPerfMonitor, measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer } from './core/perf'
+import type { ProfileRecording } from './core/profile-recorder'
 import { RainLayer } from './core/rain-layer'
 import { LayerOverlay } from './core/overlay-canvas'
 import { grantedStartFix, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastSavedPlaceId, storeMapView } from './core/location-memory'
@@ -59,7 +60,10 @@ import { applyTelegramColors, type TelegramWebApp } from './core/telegram'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
 const manifestRequestUrl = sessionManifestUrls(manifestUrl)
+const profileMode = configurePerfMode(new URL(location.href), localStorage)
+const coldProfileRequested = consumeColdProfile(localStorage)
 const perf = installPerfMonitor()
+perf.setDetailedEnabled(profileMode)
 const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
 type PointLoadStage = 'initial' | 'direct' | 'window' | 'complete'
 type FetchPriority = 'high' | 'low'
@@ -146,6 +150,14 @@ const PLAYBACK_MAX_FPS = 30
 const IDLE_AFTER_MS = 60_000
 const WIND_IDLE_FPS = 30
 
+function basemapTileKey(event: { sourceId?: string; tile?: { tileID?: { key?: string; canonical?: { z?: number; x?: number; y?: number } } } }): string | undefined {
+  if (!event.sourceId || event.sourceId.startsWith('motregen-') || !event.tile) return undefined
+  const id = event.tile.tileID
+  const canonical = id?.canonical
+  const tile = id?.key ?? (canonical ? `${canonical.z}/${canonical.x}/${canonical.y}` : undefined)
+  return tile === undefined ? undefined : `${event.sourceId}:${tile}`
+}
+
 export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const devMode = new URLSearchParams(window.location.search).has('dev')
   const stillMode = new URLSearchParams(window.location.search).get('still') === '1'
@@ -174,6 +186,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let shownSunRequest = 0
   let frameLoopDrives = false
   let mapRepaints = 0
+  const basemapTiles = new Map<string, number>()
   const isolineCounters = (): IsolineCounters => ({
     ...temperatureIsolines.layer?.stats,
     repaints: mapRepaints,
@@ -373,9 +386,55 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let updateServiceWorker: (() => Promise<void>) | undefined
   const [shareNotice, setShareNotice] = createSignal<string>()
   let shareNoticeTimer: number | undefined
-  const [perfVisible, setPerfVisible] = createSignal(false)
+  const [perfVisible, setPerfVisible] = createSignal(profileMode)
+  const [profileState, setProfileState] = createSignal<'idle' | 'recording' | 'ready' | 'error'>('idle')
+  const [profileRecording, setProfileRecording] = createSignal<ProfileRecording>()
+  const [profileNotice, setProfileNotice] = createSignal('')
   const [systemDark, setSystemDark] = createSignal(media.matches)
   const mapTheme = createMemo<MapTheme>(() => theme() === 'system' ? systemDark() ? 'dark' : 'light' : theme() as MapTheme)
+  createEffect(() => perf.setDetailedEnabled(profileMode || perfVisible()))
+
+  let profileStop: AbortController | undefined
+  async function startProfile(durationMs = 30_000, captureStartTime = performance.now()): Promise<void> {
+    if (profileState() === 'recording') return
+    setPerfVisible(true)
+    setProfileState('recording')
+    setProfileNotice('Opname loopt…')
+    setProfileRecording(undefined)
+    profileStop = new AbortController()
+    try {
+      const { recordProfile } = await import('./core/profile-recorder')
+      const recording = await recordProfile(perf, durationMs, captureStartTime, profileStop.signal)
+      setProfileRecording(recording)
+      setProfileState('ready')
+      setProfileNotice(recording.profilerAvailable ? 'Opname gereed · stacks + fasen' : 'Opname gereed · alleen fasen')
+    } catch (error) {
+      setProfileState('error')
+      setProfileNotice(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  function coldProfile(): void {
+    localStorage.setItem(PERF_STORAGE_KEY, '1')
+    localStorage.setItem(PERF_COLD_STORAGE_KEY, '1')
+    window.location.reload()
+  }
+
+  async function sendProfile(): Promise<void> {
+    const recording = profileRecording()
+    if (!recording) return
+    setProfileNotice('Versturen…')
+    try {
+      const response = await fetch('/prof', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: recording.json })
+      if (!response.ok) throw new Error(`Profielsink antwoordde ${response.status}`)
+      const result = await response.json() as { file?: string }
+      setProfileNotice(result.file ? `Verstuurd als ${result.file}` : 'Verstuurd')
+    } catch (error) {
+      setProfileNotice(`Niet verstuurd: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  if (coldProfileRequested) void startProfile(Math.max(0, 30_000 - performance.now()), 0)
 
   onMount(() => {
     const telegram = props.telegram
@@ -477,6 +536,19 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       syncSavedMarkers(savedPlaces())
       map.on('style.load', () => attachMapLayers(header.grid))
       map.on('render', () => { mapRepaints++ })
+      map.on('sourcedataloading', (event) => {
+        if (!perfPhasesEnabled()) return
+        const key = basemapTileKey(event)
+        if (key) basemapTiles.set(key, performance.now())
+      })
+      map.on('sourcedata', (event) => {
+        const key = basemapTileKey(event)
+        if (!key) return
+        const started = basemapTiles.get(key)
+        if (started === undefined) return
+        basemapTiles.delete(key)
+        recordPerfPhase('basemap-tile', performance.now() - started, { tile: key }, performance.now())
+      })
       map.on('moveend', rememberMapView)
       map.on('zoomend', () => void showTemperature())
       map.on('moveend', () => {
@@ -2019,7 +2091,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   const manifestNow = () => manifest() ? Date.parse(manifest()!.now) : 0
-  const forecast = createMemo(() => buildHourlyForecast({
+  const forecast = createMemo(() => measurePerfPhase('table-render', () => buildHourlyForecast({
     rain: timeline(),
     uv: uvTimeline(),
     uvClear: uvClearTimeline(),
@@ -2031,7 +2103,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     windU: windUFrames(),
     windV: windVFrames(),
     gust: gustTimeline(),
-  }, manifest() ? Date.parse(manifest()!.now) : 0))
+  }, manifest() ? Date.parse(manifest()!.now) : 0), { memo: 'uurindeling' }))
   let radiationRequest = 0
   createEffect(() => {
     const point = location()
@@ -2151,6 +2223,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             onWindTuning={tuneWind}
             perfVisible={perfVisible()}
             onPerfVisible={setPerfVisible}
+            profileRecording={profileState() === 'recording'}
+            onProfileRecord={() => void startProfile()}
+            onColdProfile={coldProfile}
             onReplaySplash={replaySplash}
             onReset={resetAllSettings}
             resetNotice={resetNotice()}
@@ -2218,7 +2293,15 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         </section>
       </aside>
     </Show>
-    <Show when={perfVisible()}><PerfHud monitor={perf} isolines={isolineCounters} windStats={() => windLayer?.windProfile()} /></Show>
+    <Show when={!stillMode && perfVisible()}><PerfHud
+      monitor={perf}
+      isolines={isolineCounters}
+      windStats={() => windLayer?.windProfile()}
+      profile={profileMode || devMode ? {
+        state: profileState(), recording: profileRecording(), notice: profileNotice(),
+        onRecord: () => void startProfile(), onStop: () => profileStop?.abort(), onCold: coldProfile, onSend: sendProfile,
+      } : undefined}
+    /></Show>
   </main>
 }
 

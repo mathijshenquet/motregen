@@ -68,8 +68,8 @@ evenals status, duur en groottes. De NixOS-test
 controleert dat de regel alleen de velden hierboven bevat.
 
 Ook de algemene Caddy-foutlogger verwijdert het volledige request-object.
-Bijvoorbeeld een onbereikbare Telegram-validatieserver mag geen IP-adres of
-headers in het systemd-journal laten belanden; de foutoorzaak blijft zichtbaar.
+Ook bij afhandelingsfouten mogen geen IP-adres of headers in het systemd-journal
+belanden; de foutoorzaak blijft zichtbaar.
 
 ## Bewaartermijnen en locatie
 

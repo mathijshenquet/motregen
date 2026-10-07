@@ -1,8 +1,31 @@
 # Performance
 
 De performance-aanpak volgt MIP-7: dezelfde browsermetingen voeden de
-apparaat-HUD en de deterministische Playwright-gate. Er worden geen metingen
-naar een server verstuurd.
+apparaat-HUD en de deterministische Playwright-gate. Alleen een expliciete klik op *Stuur* in
+profielmodus verstuurt een opname naar de lokale dev/preview-sink; er gaat nooit automatisch een
+meting naar een server.
+
+## Profielmodus (MIP-16)
+
+`?perf=start` zet de vlag én start direct een koude-startopname van die lading (de eerste
+30 s na `timeOrigin`), zonder eerst op *Koude start* te tikken; handig omdat veel effecten op
+pageload zitten (PO 2026-10-07).
+
+`?perf` bewaart `localStorage['motregen-perf']=1`, opent de compacte HUD en houdt de
+fase-instrumentatie aan; `?perf=0` wist de vlag. De HUD toont per fase count/p50/p95 over de laatste
+30 seconden en maximaal vijf lange animatieframes. *Opname 30 s* combineert die tijdvakken met de
+JS Self-Profiling-stacks (als de browser de API biedt) tot Chrome Trace Event-JSON. *Koude start*
+herlaadt en neemt het venster vanaf `performance.timeOrigin` op. Zonder Self-Profiling blijven
+fasen en lange frames beschikbaar.
+
+Vite dev en preview zetten hiervoor `Document-Policy: js-profiling` en proxyen `/prof` naar
+`pnpm prof:sink` (standaard `127.0.0.1:4331`). De sink accepteert uitsluitend `POST /prof`,
+valideert het formaat en schrijft mode 0600 naar
+`~/motregen-profiles/<ISO>-<platform>.json`. `pnpm prof:check <bestand>` valideert een export los.
+`pnpm prof:import <bestand>` opent dezelfde export headless in Firefox Profiler en controleert de
+call-tree-import.
+De productie-Caddyconfiguratie heeft bewust géén profilingheader en géén `/prof`-route; daar blijven
+lokale kopie en download wel bruikbaar.
 
 ## Meetpunten
 
@@ -23,8 +46,8 @@ naar een server verstuurd.
   zodat een lang openstaande tab niet de leeftijd van zijn mountmoment blijft
   rapporteren.
 
-De HUD opent met drie tikken binnen 700 ms op het logo, of met de knop *Perf-HUD* in
-het `?dev`-paneel (`?perf=1` verviel in U30, MIP-12). De knop
+De HUD opent met drie tikken binnen 700 ms op het logo, met `?perf`, of met de knop *Perf-HUD* in
+het `?dev`-paneel. De knop
 `Kopieer JSON` kopieert de volledige actuele snapshot.
 
 De windknoppen staan sinds U30 (MIP-12) in de groep *Wind* van het `?dev`-paneel: alleen
