@@ -329,12 +329,17 @@ button { color: inherit; cursor: pointer; }
   max-width: min(200px, calc(50% - var(--clock-half) - 20px));
   color: var(--text);
 }
-.search.open { z-index: 8; width: min(420px, calc(100% - 74px)); max-width: none; }
-/* Openen: breedte, hoekradius en schaduw bewegen in één beweging (PO 2026-10-07: de pil sprong
-   open terwijl de hoeken en schaduw 150 ms achterliepen). Dezelfde duur als .search-box. */
-.search { transition: width 180ms ease, max-width 180ms ease; }
-.search-box { transition-duration: 180ms; }
-.search-field { transition: color 120ms ease 80ms, padding 180ms ease; }
+/* Open over de volle kaartbreedte tot aan de merkdruppel (PO 2026-10-07: het halfbrede veld in de smalle en
+   middenbrede layout oogde onaf); op een brede kaart begrensd, anders wordt het een balk. */
+.search.open { z-index: 8; width: min(560px, calc(100% - 74px)); max-width: none; }
+/* Openen is één morph (PO 2026-10-07): breedte, hoogte, hoekradius, rand en schaduw bewegen samen in
+   --search-morph met dezelfde easing; de inhoud (knoppen, lijst) komt daarna pas in beeld. De hoogte
+   groeit via de tweede rasterrij (0fr → 1fr), want naar `height: auto` valt niet te tweenen. */
+.search { --search-morph: 180ms; transition: width var(--search-morph) ease, max-width var(--search-morph) ease; }
+/* Tijdens de morph ook niet aanklikbaar (visibility): de rijen schuiven dan nog onder de aanwijzer door. */
+@keyframes search-content-in { from { opacity: 0; visibility: hidden; } to { opacity: 1; visibility: visible; } }
+.search-results, .save-place, .search-clear { animation: search-content-in 120ms ease var(--search-morph) both; }
+.search-field { transition: color 120ms ease 80ms, padding var(--search-morph) ease, height var(--search-morph) ease; }
 .search:not(.open) .search-field { transition-delay: 0ms; }
 .search-scrim { position: fixed; inset: 0; z-index: -1; background: rgba(7, 19, 26, .14); }
 .search-box {
@@ -345,7 +350,8 @@ button { color: inherit; cursor: pointer; }
   background: color-mix(in srgb, var(--surface-raised) 86%, transparent);
   box-shadow: 0 2px 10px rgba(10, 32, 41, .1);
   backdrop-filter: blur(8px);
-  transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease, border-radius 150ms ease;
+  grid-template-rows: auto 0fr;
+  transition: border-color var(--search-morph) ease, background-color var(--search-morph) ease, box-shadow var(--search-morph) ease, border-radius var(--search-morph) ease, grid-template-rows var(--search-morph) ease;
 }
 /* U34 (PO 2026-09-25 live): 44 px hoog, gelijk aan de merkdruppel rechtsboven. */
 .search-icon { position: absolute; left: 14px; top: 12px; z-index: 1; width: 20px; height: 20px; color: var(--muted); pointer-events: none; }
@@ -398,22 +404,26 @@ button { color: inherit; cursor: pointer; }
 /* Open: de pil vouwt open — veld en lijst delen één rand, achtergrond en schaduw. */
 .search.open .search-box {
   overflow: hidden;
-  border-color: var(--line-strong);
+  grid-template-rows: auto 1fr;
+  /* Eén randkleur voor open, met of zonder focus: een aparte focuskleur wisselde zichtbaar ná de morph. */
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line-strong));
   border-radius: 14px;
   background: var(--surface);
   box-shadow: 0 14px 40px rgba(4, 14, 20, .26), 0 2px 6px rgba(4, 14, 20, .1);
   backdrop-filter: none;
 }
-.search.open .search-box:focus-within { border-color: color-mix(in srgb, var(--accent) 60%, var(--line-strong)); }
 .search.open .search-field { height: 44px; padding-right: 46px; padding-left: 40px; }
 .search.open:not(.saved-current) .search-field { padding-right: 86px; }
 .search.open .search-icon { top: 13px; left: 13px; }
 .search-results:focus { outline: none; }
 .search-results {
+  grid-row: 2;
+  min-height: 0;
   max-height: min(380px, calc(48svh - 64px));
   overflow: hidden;
   overflow-y: auto;
-  border-top: 1px solid var(--line);
+  /* Scheidslijn als schaduw: een echte rand houdt de rij 1 px open en geeft de morph een sprongetje bij de start. */
+  box-shadow: inset 0 1px 0 var(--line);
 }
 .search-results > button, .saved-location-row > .saved-location {
   width: 100%;
@@ -903,6 +913,7 @@ td small { color: var(--muted); font-size: 9px; }
 
 @media (prefers-reduced-motion: reduce) {
   .search, .search-box, .search-field { transition: none; }
+  .search-results, .save-place, .search-clear { animation: none; }
   .freshness-dialog[open], .freshness-dialog[open]::backdrop { animation: none; }
   .live-age i { animation: none; }
   .map-splash, .map-splash-veil, .map-splash-mark { transition-duration: 1ms; transition-delay: 0s; }
@@ -925,7 +936,7 @@ td small { color: var(--muted); font-size: 9px; }
   .scrub-surface { height: 198px; margin-inline: -24px; }
   .forecast-panel { padding: 0 0 36px; }
   .search { top: 18px; left: 18px; max-width: min(200px, calc(50% - var(--clock-half) - 26px)); }
-  .search.open { width: min(380px, calc(100% - 90px)); }
+  .search.open { width: min(560px, calc(100% - 90px)); }
   .map-brand { top: 18px; right: 18px; }
   .dev-panel { top: 112px; left: 18px; }
   /* Een ingeklapte tabelrand plakt niet mee; de schaduw wel (U34). */

@@ -88,16 +88,16 @@ test('the search panel is one element; a tap outside closes it without touching 
   const viewBefore = await page.evaluate(() => localStorage.getItem('motregen-map-view'))
   const markerBefore = await page.locator('.maplibregl-marker').first().boundingBox()
 
-  // In rust alleen icoon + plaatsnaam, zo breed als de naam (U22), maar op U17-maat (U22b):
-  // 40 px hoog en 15 px (touch 44 px en 16 px: iOS-zoom), icoon 18 px.
+  // In rust een ronde zoekknop van 44 px, gelijk aan de merkdruppel (U34, PO 2026-09-25 live): 16 px
+  // tekst (iOS-zoom) en een icoon van 20 px, op elk apparaat.
   const box = page.locator('.search-box')
   const rest = (await box.boundingBox())!
   expect(rest.width).toBeLessThanOrEqual(125)
-  await expect(page.locator('.search-field')).toHaveCSS('font-size', testInfo.project.use.hasTouch ? '16px' : '15px')
+  await expect(page.locator('.search-field')).toHaveCSS('font-size', '16px')
   await expect(page.getByRole('button', { name: 'Deze plaats opslaan' })).toHaveCount(0)
-  expect(rest.height).toBeGreaterThanOrEqual(testInfo.project.use.hasTouch ? 44 : 38)
-  expect(rest.height).toBeLessThanOrEqual(testInfo.project.use.hasTouch ? 46 : 40)
-  expect((await page.locator('.search-icon').boundingBox())!.width).toBe(18)
+  expect(rest.height).toBeGreaterThanOrEqual(44)
+  expect(rest.height).toBeLessThanOrEqual(46)
+  expect((await page.locator('.search-icon').boundingBox())!.width).toBe(20)
 
   const input = page.getByRole('textbox', { name: 'Zoek plaats' })
   if (testInfo.project.use.hasTouch) await input.tap()
@@ -107,9 +107,13 @@ test('the search panel is one element; a tap outside closes it without touching 
   // De ster staat in het open paneel, naast het veld.
   await expect(page.getByRole('button', { name: 'Deze plaats opslaan' })).toBeVisible()
   // Veld en lijst in één paneel: de lijst sluit zonder gat aan op het veld.
-  const field = (await input.boundingBox())!
-  const listBox = (await list.boundingBox())!
-  expect(Math.abs(listBox.y - (field.y + field.height))).toBeLessThanOrEqual(2)
+  // Pas na de open-morph (180 ms): tot die tijd groeit de pil nog.
+  await expect.poll(async () => {
+    const field = (await input.boundingBox())!
+    const listBox = (await list.boundingBox())!
+    return Math.abs(listBox.y - (field.y + field.height))
+  }).toBeLessThanOrEqual(2)
+  await expect(list).toHaveCSS('opacity', '1')
   await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-zoekpaneel.png`) })
 
   // Tik/klik midden op de kaart: sluit het paneel, geen locatiekeuze, geen pan.
