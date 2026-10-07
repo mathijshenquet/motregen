@@ -1,0 +1,351 @@
+{
+  "profile": "mobile-4g",
+  "scenario": "koud",
+  "rounds": [
+    {
+      "run": 1,
+      "before": {
+        "meta": {
+          "profile": "mobile-4g",
+          "scenario": "koud",
+          "sourceSha": "88f193f66cc450a68d70742688d7067b177c062e",
+          "capturedAt": "2026-10-07T19:17:02.411Z",
+          "cpuThrottleRate": 4,
+          "contractHash": "0ea7007603c75db879c70dc5baf356c7af503a0e95b76ec1c9a6bf6db33d0352",
+          "fixtureHash": "7130ddeadab192ba5f67aa32a8d6f26e132a6a21f9d16d15627115f34c516865",
+          "basemapContractHash": "ce9d61030167808c03020fc470e4a41318fa28ba888b30ecd57fc3361816a7ff",
+          "network": {
+            "label": "4G (9 Mbps, 60 ms RTT)",
+            "downloadThroughput": 1125000,
+            "uploadThroughput": 187500,
+            "latency": 60,
+            "connectionType": "cellular4g"
+          },
+          "hardwareConcurrency": 4
+        },
+        "basemap": {
+          "count": 1,
+          "totalMs": 678.8,
+          "p50Ms": 678.7999999523163,
+          "p95Ms": 678.7999999523163
+        },
+        "wire": {
+          "manifest": {
+            "requests": 1,
+            "bytes": 36513,
+            "meanRequestBytes": 36513
+          },
+          "chunks": {
+            "requests": 78,
+            "bytes": 625587,
+            "meanRequestBytes": 8020.346153846154
+          },
+          "tiles": {
+            "requests": 4,
+            "bytes": 133345,
+            "meanRequestBytes": 33336.25
+          },
+          "other": {
+            "requests": 10,
+            "bytes": 458342,
+            "meanRequestBytes": 45834.2
+          },
+          "total": {
+            "requests": 93,
+            "bytes": 1253787,
+            "meanRequestBytes": 13481.58064516129
+          }
+        },
+        "findings": [],
+        "decodes": 128
+      },
+      "after": {
+        "meta": {
+          "profile": "mobile-4g",
+          "scenario": "koud",
+          "sourceSha": "d3b24bf759708ba7d4160331b6e3c4634063a040",
+          "capturedAt": "2026-10-07T20:32:16.594Z",
+          "cpuThrottleRate": 4,
+          "contractHash": "70132c73de570dc74cea9b42ac7fea8553dcd40163df1583f12bc3478d41a7eb",
+          "fixtureHash": "907273eeb9cb9b80f6f8cd2bded69a51651821eee0b9d69df1d68b5efe812a75",
+          "basemapContractHash": "ce9d61030167808c03020fc470e4a41318fa28ba888b30ecd57fc3361816a7ff",
+          "network": {
+            "label": "4G (9 Mbps, 60 ms RTT)",
+            "downloadThroughput": 1125000,
+            "uploadThroughput": 187500,
+            "latency": 60,
+            "connectionType": "cellular4g"
+          },
+          "hardwareConcurrency": 4
+        },
+        "basemap": {
+          "count": 1,
+          "totalMs": 387.4,
+          "p50Ms": 387.40000009536743,
+          "p95Ms": 387.40000009536743
+        },
+        "wire": {
+          "manifest": {
+            "requests": 1,
+            "bytes": 36513,
+            "meanRequestBytes": 36513
+          },
+          "chunks": {
+            "requests": 78,
+            "bytes": 625587,
+            "meanRequestBytes": 8020.346153846154
+          },
+          "tiles": {
+            "requests": 4,
+            "bytes": 138043,
+            "meanRequestBytes": 34510.75
+          },
+          "other": {
+            "requests": 10,
+            "bytes": 460383,
+            "meanRequestBytes": 46038.3
+          },
+          "total": {
+            "requests": 93,
+            "bytes": 1260526,
+            "meanRequestBytes": 13554.043010752688
+          }
+        },
+        "findings": [],
+        "decodes": 128
+      },
+      "tileGrowthPercent": 3.523191720724439,
+      "totalGrowthPercent": 0.5374916154019749
+    },
+    {
+      "run": 2,
+      "before": {
+        "meta": {
+          "profile": "mobile-4g",
+          "scenario": "koud",
+          "sourceSha": "88f193f66cc450a68d70742688d7067b177c062e",
+          "capturedAt": "2026-10-07T19:17:33.224Z",
+          "cpuThrottleRate": 4,
+          "contractHash": "0ea7007603c75db879c70dc5baf356c7af503a0e95b76ec1c9a6bf6db33d0352",
+          "fixtureHash": "7130ddeadab192ba5f67aa32a8d6f26e132a6a21f9d16d15627115f34c516865",
+          "basemapContractHash": "ce9d61030167808c03020fc470e4a41318fa28ba888b30ecd57fc3361816a7ff",
+          "network": {
+            "label": "4G (9 Mbps, 60 ms RTT)",
+            "downloadThroughput": 1125000,
+            "uploadThroughput": 187500,
+            "latency": 60,
+            "connectionType": "cellular4g"
+          },
+          "hardwareConcurrency": 4
+        },
+        "basemap": {
+          "count": 1,
+          "totalMs": 244.9,
+          "p50Ms": 244.90000009536743,
+          "p95Ms": 244.90000009536743
+        },
+        "wire": {
+          "manifest": {
+            "requests": 1,
+            "bytes": 36513,
+            "meanRequestBytes": 36513
+          },
+          "chunks": {
+            "requests": 78,
+            "bytes": 625587,
+            "meanRequestBytes": 8020.346153846154
+          },
+          "tiles": {
+            "requests": 4,
+            "bytes": 133345,
+            "meanRequestBytes": 33336.25
+          },
+          "other": {
+            "requests": 10,
+            "bytes": 458342,
+            "meanRequestBytes": 45834.2
+          },
+          "total": {
+            "requests": 93,
+            "bytes": 1253787,
+            "meanRequestBytes": 13481.58064516129
+          }
+        },
+        "findings": [],
+        "decodes": 128
+      },
+      "after": {
+        "meta": {
+          "profile": "mobile-4g",
+          "scenario": "koud",
+          "sourceSha": "d3b24bf759708ba7d4160331b6e3c4634063a040",
+          "capturedAt": "2026-10-07T20:32:47.402Z",
+          "cpuThrottleRate": 4,
+          "contractHash": "70132c73de570dc74cea9b42ac7fea8553dcd40163df1583f12bc3478d41a7eb",
+          "fixtureHash": "907273eeb9cb9b80f6f8cd2bded69a51651821eee0b9d69df1d68b5efe812a75",
+          "basemapContractHash": "ce9d61030167808c03020fc470e4a41318fa28ba888b30ecd57fc3361816a7ff",
+          "network": {
+            "label": "4G (9 Mbps, 60 ms RTT)",
+            "downloadThroughput": 1125000,
+            "uploadThroughput": 187500,
+            "latency": 60,
+            "connectionType": "cellular4g"
+          },
+          "hardwareConcurrency": 4
+        },
+        "basemap": {
+          "count": 1,
+          "totalMs": 261.4,
+          "p50Ms": 261.39999997615814,
+          "p95Ms": 261.39999997615814
+        },
+        "wire": {
+          "manifest": {
+            "requests": 1,
+            "bytes": 36513,
+            "meanRequestBytes": 36513
+          },
+          "chunks": {
+            "requests": 78,
+            "bytes": 625587,
+            "meanRequestBytes": 8020.346153846154
+          },
+          "tiles": {
+            "requests": 4,
+            "bytes": 138043,
+            "meanRequestBytes": 34510.75
+          },
+          "other": {
+            "requests": 10,
+            "bytes": 460383,
+            "meanRequestBytes": 46038.3
+          },
+          "total": {
+            "requests": 93,
+            "bytes": 1260526,
+            "meanRequestBytes": 13554.043010752688
+          }
+        },
+        "findings": [],
+        "decodes": 128
+      },
+      "tileGrowthPercent": 3.523191720724439,
+      "totalGrowthPercent": 0.5374916154019749
+    },
+    {
+      "run": 3,
+      "before": {
+        "meta": {
+          "profile": "mobile-4g",
+          "scenario": "koud",
+          "sourceSha": "88f193f66cc450a68d70742688d7067b177c062e",
+          "capturedAt": "2026-10-07T19:18:04.008Z",
+          "cpuThrottleRate": 4,
+          "contractHash": "0ea7007603c75db879c70dc5baf356c7af503a0e95b76ec1c9a6bf6db33d0352",
+          "fixtureHash": "7130ddeadab192ba5f67aa32a8d6f26e132a6a21f9d16d15627115f34c516865",
+          "basemapContractHash": "ce9d61030167808c03020fc470e4a41318fa28ba888b30ecd57fc3361816a7ff",
+          "network": {
+            "label": "4G (9 Mbps, 60 ms RTT)",
+            "downloadThroughput": 1125000,
+            "uploadThroughput": 187500,
+            "latency": 60,
+            "connectionType": "cellular4g"
+          },
+          "hardwareConcurrency": 4
+        },
+        "basemap": {
+          "count": 1,
+          "totalMs": 458.2,
+          "p50Ms": 458.2000000476837,
+          "p95Ms": 458.2000000476837
+        },
+        "wire": {
+          "manifest": {
+            "requests": 1,
+            "bytes": 36513,
+            "meanRequestBytes": 36513
+          },
+          "chunks": {
+            "requests": 78,
+            "bytes": 625587,
+            "meanRequestBytes": 8020.346153846154
+          },
+          "tiles": {
+            "requests": 4,
+            "bytes": 133345,
+            "meanRequestBytes": 33336.25
+          },
+          "other": {
+            "requests": 10,
+            "bytes": 458342,
+            "meanRequestBytes": 45834.2
+          },
+          "total": {
+            "requests": 93,
+            "bytes": 1253787,
+            "meanRequestBytes": 13481.58064516129
+          }
+        },
+        "findings": [],
+        "decodes": 128
+      },
+      "after": {
+        "meta": {
+          "profile": "mobile-4g",
+          "scenario": "koud",
+          "sourceSha": "d3b24bf759708ba7d4160331b6e3c4634063a040",
+          "capturedAt": "2026-10-07T20:33:18.111Z",
+          "cpuThrottleRate": 4,
+          "contractHash": "70132c73de570dc74cea9b42ac7fea8553dcd40163df1583f12bc3478d41a7eb",
+          "fixtureHash": "907273eeb9cb9b80f6f8cd2bded69a51651821eee0b9d69df1d68b5efe812a75",
+          "basemapContractHash": "ce9d61030167808c03020fc470e4a41318fa28ba888b30ecd57fc3361816a7ff",
+          "network": {
+            "label": "4G (9 Mbps, 60 ms RTT)",
+            "downloadThroughput": 1125000,
+            "uploadThroughput": 187500,
+            "latency": 60,
+            "connectionType": "cellular4g"
+          },
+          "hardwareConcurrency": 4
+        },
+        "basemap": {
+          "count": 1,
+          "totalMs": 244.5,
+          "p50Ms": 244.5,
+          "p95Ms": 244.5
+        },
+        "wire": {
+          "manifest": {
+            "requests": 1,
+            "bytes": 36513,
+            "meanRequestBytes": 36513
+          },
+          "chunks": {
+            "requests": 78,
+            "bytes": 625587,
+            "meanRequestBytes": 8020.346153846154
+          },
+          "tiles": {
+            "requests": 4,
+            "bytes": 138043,
+            "meanRequestBytes": 34510.75
+          },
+          "other": {
+            "requests": 10,
+            "bytes": 460383,
+            "meanRequestBytes": 46038.3
+          },
+          "total": {
+            "requests": 93,
+            "bytes": 1260526,
+            "meanRequestBytes": 13554.043010752688
+          }
+        },
+        "findings": [],
+        "decodes": 128
+      },
+      "tileGrowthPercent": 3.523191720724439,
+      "totalGrowthPercent": 0.5374916154019749
+    }
+  ]
+}

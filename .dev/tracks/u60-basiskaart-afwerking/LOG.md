@@ -86,3 +86,84 @@
 - nix build .#motregen-basemap --no-link --print-out-paths: exit 0. Package /nix/store/zcgrg2v2d8mghxzmq9vja34vz5d2il8z-motregen-basemap; archief-SHA exact gelijk aan repo: 1395e020ae33a90b51b0013650ce2b5697d655124b0cc1082de52b7274a79540.
 - Preview http://ageq-dev2:4340/ gestart op de productiebuild. Lokale ingest :8080 is niet beschikbaar; daarom MOTREGEN_DATA_ORIGIN=https://motregen.nl/data. HTTP-root/manifest 200, PMTiles Range 0–126 geeft 206 met 127 B. De lokale gehashte kaart wordt rechtstreeks geserveerd.
 - Volgende stap: eind-A/B receipt, mobiele rig drie koude runs, cache-spec en PO-beeldreview.
+
+## 2026-10-07T20:32:10.276Z — Contrastieve A/B (nl-1395e020ae33a90b.pmtiles, head d3b24bf)
+
+Oud = offline OpenFreeMap/Liberty met U59’s filtering en darkenLibertyLayer; nieuw = eigen archief. De camera en het kaartvlak zijn per paar gelijk. Groen is het getekende onbedekte wood/grass/park-oppervlak via een zwart/wit-masker, als percentage van het hele kaartvlak (incl. water). Plaatslabels zijn unieke geplaatste city/town/village-namen; provincies tellen niet mee.
+
+ΔL* gebruikt sRGB→CIE L*. Kale landkleur = dominante screenshotkleur nabij de stijlachtergrond; water-/labelverf zijn de dekkende stijlkleuren, grenzen worden met hun werkelijke dekking over land gemengd. Dit meet kleurcontrast vóór tekst-antialiasing; lijndikte, halo en groenoppervlak blijven in de PNG-paren zichtbaar. Liberty’s rasterachtergrond beïnvloedt alleen de lage startzoom. Wetland-textuur en fijne POI-/gebouwdetails zijn geen onderdeel van de eigen kaart.
+
+| Paar (oud naast nieuw) | Groen % oud / nieuw | Plaatslabels oud / nieuw | ΔL* water–land | ΔL* label–land | ΔL* landgrens–land | ΔL* provinciegrens–land |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| [390 licht start](ab-390-light-start.png) | 8.20 / 4.39 | 6 / 6 | 17.27 / 19.78 | 93.88 / 96.39 | 49.81 / 44.14 | 30.14 / 31.90 |
+| [390 licht utrecht](ab-390-light-utrecht.png) | 19.77 / 15.62 | 25 / 28 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [390 licht kust](ab-390-light-kust.png) | 2.03 / 1.79 | 5 / 3 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [390 licht ijsselmeer](ab-390-light-ijsselmeer.png) | 3.22 / 2.39 | 15 / 14 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [390 licht utrecht-z7](ab-390-light-utrecht-z7.png) | 15.20 / 12.41 | 16 / 15 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [390 licht utrecht-z10](ab-390-light-utrecht-z10.png) | 18.72 / 17.22 | 29 / 27 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [390 licht utrecht-z12](ab-390-light-utrecht-z12.png) | 6.51 / 4.00 | 1 / 1 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [390 donker start](ab-390-dark-start.png) | 8.20 / 4.39 | 6 / 6 | 8.37 / 11.68 | 71.23 / 74.53 | 38.89 / 36.40 | 35.20 / 37.75 |
+| [390 donker utrecht](ab-390-dark-utrecht.png) | 19.77 / 15.62 | 25 / 28 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [390 donker kust](ab-390-dark-kust.png) | 2.03 / 1.79 | 5 / 3 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [390 donker ijsselmeer](ab-390-dark-ijsselmeer.png) | 3.22 / 2.39 | 15 / 14 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [390 donker utrecht-z7](ab-390-dark-utrecht-z7.png) | 15.20 / 12.41 | 16 / 15 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [390 donker utrecht-z10](ab-390-dark-utrecht-z10.png) | 18.72 / 17.22 | 29 / 27 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [390 donker utrecht-z12](ab-390-dark-utrecht-z12.png) | 6.51 / 4.00 | 1 / 1 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [1280 licht start](ab-1280-light-start.png) | 10.85 / 4.58 | 19 / 18 | 18.16 / 19.78 | 94.77 / 96.39 | 50.71 / 44.14 | 30.77 / 31.90 |
+| [1280 licht utrecht](ab-1280-light-utrecht.png) | 17.13 / 13.38 | 70 / 77 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [1280 licht kust](ab-1280-light-kust.png) | 5.54 / 4.69 | 32 / 25 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [1280 licht ijsselmeer](ab-1280-light-ijsselmeer.png) | 7.43 / 5.45 | 55 / 61 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [1280 licht utrecht-z7](ab-1280-light-utrecht-z7.png) | 12.23 / 7.27 | 40 / 44 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [1280 licht utrecht-z10](ab-1280-light-utrecht-z10.png) | 20.52 / 18.61 | 85 / 79 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [1280 licht utrecht-z12](ab-1280-light-utrecht-z12.png) | 16.80 / 7.90 | 5 / 5 | 19.78 / 19.78 | 96.39 / 96.39 | 52.32 / 44.14 | 31.90 / 31.90 |
+| [1280 donker start](ab-1280-dark-start.png) | 10.85 / 4.58 | 19 / 18 | 8.37 / 11.68 | 71.23 / 74.53 | 38.89 / 36.40 | 35.20 / 37.75 |
+| [1280 donker utrecht](ab-1280-dark-utrecht.png) | 17.13 / 13.38 | 70 / 77 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [1280 donker kust](ab-1280-dark-kust.png) | 5.54 / 4.69 | 32 / 25 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [1280 donker ijsselmeer](ab-1280-dark-ijsselmeer.png) | 7.43 / 5.45 | 55 / 61 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [1280 donker utrecht-z7](ab-1280-dark-utrecht-z7.png) | 12.23 / 7.27 | 40 / 44 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [1280 donker utrecht-z10](ab-1280-dark-utrecht-z10.png) | 20.52 / 18.61 | 85 / 79 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+| [1280 donker utrecht-z12](ab-1280-dark-utrecht-z12.png) | 16.80 / 7.90 | 5 / 5 | 11.68 / 11.68 | 74.53 / 74.53 | 42.20 / 36.40 | 37.75 / 37.75 |
+
+Bijbehorende volledige app-paren: `app-<390|1280>-<light|dark>-<start|utrecht>.png`. Het eindbeeld ligt ter PO-review; een technische gate is geen smaakakkoord.
+
+
+## 2026-10-07T20:34:35.115Z — Mobiele rig en eindbeeld
+
+- Eind-A/B: MOTREGEN_E2E_PORT=4397 MOTREGEN_E2E_DATA_PORT=8397 MOTREGEN_MOBILE_BASEMAP=own MOTREGEN_BASEMAP_COMPARISON=1 pnpm --filter motregen-web e2e e2e/basemap-comparison.spec.ts --config playwright.basemap.config.ts --project desktop: exit 0, 4 tests, 28 kaartparen en 8 app-paren. Startlabels licht én donker 390: 6→6 (0 %), 1280: 19→18 (−5,3 %).
+- Alle acht app-paren daadwerkelijk bekeken: labels zijn rustiger en het nachtbeeld heeft Liberty’s water-/tekstcontrast; groen blijft grover en minder volledig, vooral in de startview en bij overzoom.
+- Groen-Utrecht z9 390: 19,77→15,62 %; z10: 18,72→17,22 %. Start390 8,20→4,39 %, start1280 10,85→4,58 %. Dit resterende lage-zoom-/overzoomverschil is expliciet aan de PO ter review, geen claim van gelijk groenoppervlak.
+- Nacht ΔL* water–land 11,68 en label–land 74,53, gelijk aan Liberty’s vectorverf; Liberty’s start-raster verlaagt dat naar 8,37 / 71,23. De eigen U59-palette had 3,47 / 66,33. Grenzen/provincies staan in de volledige tabel hierboven.
+- MOTREGEN_E2E_PORT=4397 MOTREGEN_E2E_DATA_PORT=8397 pnpm --filter motregen-web perf:mobile --profile mobile-4g --scenario koud --basemap own --repeat 3 --compare: exit 0; 3 browsertests, 128 decodes in elke run, geen netwerkbevindingen, bytes/decodes-spreiding 0 %. Output tmp/basemap/u60/perf-own-final.txt; beknopte eigen voor/na-receipts in perf-mobile.json.
+
+| Run | U59 kaartfase ms | U60 kaartfase ms | Kaartbytes U59 / U60 | Totaalbytes U59 / U60 |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 678.8 | 387.4 | 133345 / 138043 | 1253787 / 1260526 |
+| 2 | 244.9 | 261.4 | 133345 / 138043 | 1253787 / 1260526 |
+| 3 | 458.2 | 244.5 | 133345 / 138043 | 1253787 / 1260526 |
+
+- Kaartbytes +3.52 %, totaalbytes +0.54 % t.o.v. eigen U59; beide onder +25 %. Vergelijking met het verse OpenFreeMap-nulpunt: −48,974 % totaalbytes, decodes gelijk.
+- Losse strikte TypeScript-check op style/publisher/snapshot/comparison/report en e2e-spec: exit 0 met --allowImportingTsExtensions (eerste handmatige oproep miste die flag en gaf TS5097 op de bestaande .mts-import).
+- Volgende stap: cache + laatste gerichte basiskaartchecks, finale commit/push en bijgewerkte draft-PR.
+
+## 2026-10-07T20:35:05.389Z — Tegelbudget per zoom
+
+Gecomprimeerde bytes; publisher valideert totaal én grootste tegel tegen dezelfde U59-nulmeting.
+
+| Zoom | Totaal U59 / U60 B | Groei totaal | Grootste U59 / U60 B | Groei grootste |
+| --- | ---: | ---: | ---: | ---: |
+| 4 | 16388 / 18153 | 10.77 % | 10469 / 12252 | 17.03 % |
+| 5 | 40273 / 44943 | 11.60 % | 27227 / 31925 | 17.25 % |
+| 6 | 91148 / 107650 | 18.10 % | 28459 / 35174 | 23.60 % |
+| 7 | 207680 / 204075 | -1.74 % | 50129 / 46798 | -6.64 % |
+| 8 | 505563 / 509497 | 0.78 % | 47865 / 55839 | 16.66 % |
+| 9 | 909240 / 1106471 | 21.69 % | 32688 / 34280 | 4.87 % |
+| 10 | 1799077 / 2233115 | 24.13 % | 21270 / 23101 | 8.61 % |
+
+## 2026-10-07T20:37:03.970Z — Technisch afgerond, eindparen voor PO
+
+- MOTREGEN_E2E_PORT=4397 MOTREGEN_E2E_DATA_PORT=8397 MOTREGEN_MOBILE_BASEMAP=own pnpm --filter motregen-web e2e e2e/basemap-cache.spec.ts --config playwright.basemap-cache.config.ts --project desktop: exit 0, 2 tests. Beide warme reloads 0 kaartnetwerkrequests; cached Range 206, offline eigen hash en afwijzing van foutieve/cross-origin ranges groen. Receipts tmp/basemap/u60/cache-final.txt en web/tmp/basemap/cache-{390,1280}.json.
+- MOTREGEN_E2E_PORT=4397 MOTREGEN_E2E_DATA_PORT=8397 MOTREGEN_MOBILE_BASEMAP=own pnpm --filter motregen-web e2e e2e/basemap.spec.ts --config playwright.basemap.config.ts --project desktop: exit 0, 7 tests op de definitieve stijl/hash, incl. maximale kaartzoom 390/1280/3840. Output tmp/basemap/u60/basemap-final.txt.
+- Unitrepro voor de echte MapLibre-stijlvalidator: pnpm --filter motregen-web exec vitest run src/core/basemap.test.ts. Losse toolingrepro: pnpm --filter motregen-web exec tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution Bundler --allowImportingTsExtensions --types node --skipLibCheck ../tools/basemap/style.mts ../tools/basemap/publish.mts ../tools/basemap/snapshot.mts ../tools/basemap/comparison-fixture.mts ../tools/basemap/report-comparison.mts e2e/basemap-comparison.spec.ts. De tijdelijk genegeerde tools/basemap/node_modules/maplibre-gl verwijst naar web/node_modules/maplibre-gl voor die losse type-import; workspace-typecheck heeft die niet nodig.
+- Preview root/manifest HTTP 200; gehashte PMTiles en live MRF Range geven 206 (127 / 32 B). Preview blijft op http://ageq-dev2:4340/ draaien met MOTREGEN_DATA_ORIGIN=https://motregen.nl/data; sessie 51755.
+- 28 kaartparen, 8 volledige app-paren, 4 meet-JSON’s, eigen mobiele voor/na-receipts en meegeleverd PO-beeld worden samen gecommit. Het meegeleverde PO-beeld bleek de uurtabel te tonen; daarom dienen de eigen vaste paren als kaartbewijs.
+- Alle afgesproken technische gates groen; groenoppervlak is nog niet gelijk aan Liberty, met name op lage zoom en z12-overzoom. Draft-PR #87 blijft ter PO-beoordeling, geen merge.
