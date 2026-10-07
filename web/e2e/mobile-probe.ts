@@ -5,6 +5,8 @@ export interface MobileProbe {
   splashGoneMs: number | null
   ttfhMs: number | null
   histogramSource: string
+  /** Tijdstip van elk animatiebeeld (rAF), voor frame-tijden per venster. */
+  frameTimes: number[]
   stop: () => Promise<{ trace: SelfProfilerTrace | null; startedAt: number; error: string | null }>
 }
 
@@ -26,6 +28,7 @@ export function installMobileProbe(): void {
     splashGoneMs: null,
     ttfhMs: null,
     histogramSource: 'loadtrace, bemonsterd op DOM-mutatie/100 ms',
+    frameTimes: [],
     stop: async () => {
       clearInterval(timer)
       observer.disconnect()
@@ -34,6 +37,11 @@ export function installMobileProbe(): void {
     },
   }
   window.__mobileProbe = probe
+  const recordFrame = (time: number) => {
+    probe.frameTimes.push(time)
+    requestAnimationFrame(recordFrame)
+  }
+  requestAnimationFrame(recordFrame)
   const sample = () => {
     const splash = document.querySelector('.map-splash')
     const splashStyle = splash ? getComputedStyle(splash) : null

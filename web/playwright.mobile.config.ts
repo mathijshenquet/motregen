@@ -1,13 +1,21 @@
 import { defineConfig, devices } from '@playwright/test'
+import { rigBuild } from './scripts/rig-host'
 
 const port = Number(process.env.MOTREGEN_E2E_PORT ?? 4392)
 const dataPort = Number(process.env.MOTREGEN_E2E_DATA_PORT ?? 8392)
-const fixtureDir = `tmp/perf-mobile/fixture-${dataPort}`
-const distDir = `tmp/perf-mobile/dist-${port}`
-process.env.MOTREGEN_MOBILE_FIXTURE_DIR = fixtureDir
-process.env.MOTREGEN_RIG_DIST = distDir
-const basemap = process.env.MOTREGEN_MOBILE_BASEMAP ?? 'fixture'
-const styleOverride = `VITE_BASEMAP_STYLE_URL=http://127.0.0.1:${dataPort}/${basemap === 'fixture' ? 'style' : 'style-{theme}'}.json`
+const build = rigBuild(port, dataPort, process.env.MOTREGEN_MOBILE_BASEMAP ?? 'fixture')
+process.env.MOTREGEN_MOBILE_FIXTURE_DIR = build.fixtureDir
+process.env.MOTREGEN_RIG_DIST = build.distDir
+
+// Zie PerformanceProfile.rendererCpuQuotaPercent. De korte periode (5 ms) maakt van de quota een
+// gelijkmatige rem; met de standaard 100 ms zou de renderer in blokken stilvallen en zelf lange
+// frames veroorzaken.
+// perf:mobile bouwt fixture en client zelf, vóór het wachten op een rustige host.
+const prebuilt = process.env.MOTREGEN_RIG_PREBUILT === '1'
+const rendererQuota = Number(process.env.MOTREGEN_RIG_RENDERER_QUOTA ?? 0)
+const rendererPrefix = rendererQuota > 0
+  ? [`--renderer-cmd-prefix=systemd-run --user --scope --quiet -p CPUQuota=${rendererQuota}% -p CPUQuotaPeriodSec=5ms --`]
+  : []
 
 export default defineConfig({
   testDir: './e2e',
@@ -22,17 +30,17 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${port}`,
     serviceWorkers: 'block',
-    launchOptions: { args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] },
+    launchOptions: { args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader', ...rendererPrefix] },
   },
   webServer: [
     {
-      command: `MOTREGEN_SYNTH_DIR=${fixtureDir} pnpm synthgen && MOTREGEN_E2E_DATA_PORT=${dataPort} pnpm exec tsx scripts/mobile-fixture.ts && MOTREGEN_E2E_DATA_PORT=${dataPort} caddy run --config perf/Caddyfile`,
+      command: `${prebuilt ? '' : `${build.fixtureCommand} && `}MOTREGEN_E2E_DATA_PORT=${dataPort} caddy run --config perf/Caddyfile`,
       url: `http://127.0.0.1:${dataPort}/manifest.json`,
       reuseExistingServer: false,
       timeout: 120_000,
     },
     {
-      command: `${styleOverride} pnpm build --outDir ${distDir} && pnpm exec tsx scripts/mobile-assets.ts && MOTREGEN_E2E_PORT=${port} MOTREGEN_E2E_DATA_PORT=${dataPort} caddy run --config perf/Preview.Caddyfile`,
+      command: `${prebuilt ? '' : `${build.buildCommand} && `}MOTREGEN_E2E_PORT=${port} MOTREGEN_E2E_DATA_PORT=${dataPort} caddy run --config perf/Preview.Caddyfile`,
       url: `http://127.0.0.1:${port}`,
       reuseExistingServer: false,
       timeout: 120_000,

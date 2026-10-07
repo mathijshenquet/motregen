@@ -210,12 +210,24 @@ export class MrfClient {
     return promise
   }
 
+  private readonly chunkHrefs = new WeakMap<ManifestChunk, string>()
+
   getCachedHeader(chunk: ManifestChunk): MrfHeader | undefined {
     return this.resolvedHeaders.get(new URL(chunk.url, this.manifestUrl).href)
   }
 
   getCachedFrame(chunk: ManifestChunk, frameIndex: number): Uint8Array | undefined {
     return this.frames.get(frameKey(new URL(chunk.url, this.manifestUrl).href, frameIndex))
+  }
+
+  /** Of het gedecodeerde frame er is. Wordt per afspeelbeeld voor een reeks frames gevraagd, dus zonder URL-parse. */
+  hasFrame(chunk: ManifestChunk, frameIndex: number): boolean {
+    let href = this.chunkHrefs.get(chunk)
+    if (href === undefined) {
+      href = new URL(chunk.url, this.manifestUrl).href
+      this.chunkHrefs.set(chunk, href)
+    }
+    return this.frames.get(frameKey(href, frameIndex)) !== undefined
   }
 
   async getFrame(chunk: ManifestChunk, frameIndex: number, priority: FetchPriority = 'high'): Promise<Uint8Array> {

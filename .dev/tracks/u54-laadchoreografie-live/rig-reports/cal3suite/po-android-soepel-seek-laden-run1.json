@@ -1,0 +1,474 @@
+{
+  "meta": {
+    "profile": "po-android",
+    "scenario": "soepel-seek-laden",
+    "sourceSha": "99893f56767f49923203a3f0c47e5bbbb2bc9267",
+    "capturedAt": "2026-10-07T20:40:30.830Z",
+    "cpuThrottleRate": 1,
+    "contractHash": "a07772eb214ba98ccefb947ceb40629e1496137484100f777159bc74b3e29143",
+    "fixtureHash": "20322001d19e96131c3fb7dea1e65dcfc2ca7e702fedf0e86577c3a68e4d7f69",
+    "basemapContractHash": "14d905fb28f424000353ab0585bbe17d93d97efaa2f82206542cc8693280f604",
+    "network": {
+      "label": "wifi via dev-host (30 Mbps, 20 ms RTT)",
+      "downloadThroughput": 3750000,
+      "uploadThroughput": 1250000,
+      "latency": 20,
+      "connectionType": "cellular4g"
+    },
+    "hardwareConcurrency": 4,
+    "loadAverage": 7.93,
+    "synthGridScale": 6,
+    "rendererCpuQuotaPercent": 40
+  },
+  "milestones": {
+    "ttfrMs": 1357.5,
+    "firstRainMs": 1357.5,
+    "basemapReadyMs": 947.4,
+    "ttfpMs": null,
+    "blankVisibleMs": 7036,
+    "blankSlotSeconds": 174.1,
+    "blankShareSeconds": 3.04,
+    "firstBarMs": 1309.1,
+    "splashGoneMs": 3328.1999999284744,
+    "ttfhMs": 4364,
+    "windowReadyMs": {
+      "cloud_high": 2092,
+      "cloud_low": 2363,
+      "cloud_mid": 2363,
+      "uv": 4028,
+      "feels_like_c": 4082,
+      "wind_u": 4082,
+      "wind_v": 4082,
+      "rain_rate": 4364,
+      "temp_c": 4388,
+      "cloud_frac": 4388,
+      "gust_ms": 4388
+    },
+    "histogramSource": "U52 window-ready:rain_rate"
+  },
+  "decode": {
+    "phases": {
+      "table-render": {
+        "count": 7,
+        "totalMs": 11.5,
+        "p50Ms": 0.10000002384185791,
+        "p95Ms": 10.800000071525574
+      },
+      "scrubber-paint": {
+        "count": 325,
+        "totalMs": 325.4,
+        "p50Ms": 0.10000002384185791,
+        "p95Ms": 4.899999976158142
+      },
+      "basemap-tile": {
+        "count": 1,
+        "totalMs": 170.1,
+        "p50Ms": 170.09999990463257,
+        "p95Ms": 170.09999990463257
+      },
+      "milestone:basemap-ready": {
+        "count": 1,
+        "totalMs": 947.4,
+        "p50Ms": 947.3999999761581,
+        "p95Ms": 947.3999999761581
+      },
+      "frame-decode": {
+        "count": 635,
+        "totalMs": 5311.1,
+        "p50Ms": 0.20000004768371582,
+        "p95Ms": 36.700000047683716
+      },
+      "texture-upload": {
+        "count": 50,
+        "totalMs": 95.1,
+        "p50Ms": 0.19999992847442627,
+        "p95Ms": 5
+      },
+      "milestone:first-bar": {
+        "count": 1,
+        "totalMs": 1309.1,
+        "p50Ms": 1309.0999999046326,
+        "p95Ms": 1309.0999999046326
+      },
+      "milestone:first-rain": {
+        "count": 1,
+        "totalMs": 1357.5,
+        "p50Ms": 1357.5,
+        "p95Ms": 1357.5
+      },
+      "milestone:ttfr": {
+        "count": 1,
+        "totalMs": 1357.5,
+        "p50Ms": 1357.5,
+        "p95Ms": 1357.5
+      },
+      "wind-step": {
+        "count": 330,
+        "totalMs": 314.7,
+        "p50Ms": 0.20000004768371582,
+        "p95Ms": 5.100000023841858
+      },
+      "window-ready:cloud_high": {
+        "count": 1,
+        "totalMs": 2092.1,
+        "p50Ms": 2092.0999999046326,
+        "p95Ms": 2092.0999999046326
+      },
+      "window-ready:cloud_low": {
+        "count": 1,
+        "totalMs": 2363,
+        "p50Ms": 2363,
+        "p95Ms": 2363
+      },
+      "window-ready:cloud_mid": {
+        "count": 1,
+        "totalMs": 2363,
+        "p50Ms": 2363,
+        "p95Ms": 2363
+      },
+      "window-ready:uv": {
+        "count": 1,
+        "totalMs": 4028.1,
+        "p50Ms": 4028.0999999046326,
+        "p95Ms": 4028.0999999046326
+      },
+      "window-ready:feels_like_c": {
+        "count": 1,
+        "totalMs": 4082.4,
+        "p50Ms": 4082.399999976158,
+        "p95Ms": 4082.399999976158
+      },
+      "window-ready:wind_u": {
+        "count": 1,
+        "totalMs": 4082.4,
+        "p50Ms": 4082.399999976158,
+        "p95Ms": 4082.399999976158
+      },
+      "window-ready:wind_v": {
+        "count": 1,
+        "totalMs": 4082.4,
+        "p50Ms": 4082.399999976158,
+        "p95Ms": 4082.399999976158
+      },
+      "window-ready:rain_rate": {
+        "count": 1,
+        "totalMs": 4363.7,
+        "p50Ms": 4363.699999928474,
+        "p95Ms": 4363.699999928474
+      },
+      "window-ready:temp_c": {
+        "count": 1,
+        "totalMs": 4387.8,
+        "p50Ms": 4387.799999952316,
+        "p95Ms": 4387.799999952316
+      },
+      "window-ready:cloud_frac": {
+        "count": 1,
+        "totalMs": 4387.8,
+        "p50Ms": 4387.799999952316,
+        "p95Ms": 4387.799999952316
+      },
+      "window-ready:gust_ms": {
+        "count": 1,
+        "totalMs": 4387.8,
+        "p50Ms": 4387.799999952316,
+        "p95Ms": 4387.799999952316
+      },
+      "blank-visible": {
+        "count": 7,
+        "totalMs": 7036.2,
+        "p50Ms": 725,
+        "p95Ms": 3884.7000000476837
+      }
+    },
+    "fields": {
+      "rain_rate": {
+        "count": 106,
+        "totalMs": 4225,
+        "p50Ms": 29.5,
+        "p95Ms": 104.40000009536743
+      },
+      "radiation": {
+        "count": 9,
+        "totalMs": 14.7,
+        "p50Ms": 0.19999992847442627,
+        "p95Ms": 9.600000023841858
+      },
+      "motion": {
+        "count": 52,
+        "totalMs": 6.6,
+        "p50Ms": 0,
+        "p95Ms": 0.10000002384185791
+      },
+      "cloud_high": {
+        "count": 33,
+        "totalMs": 45.4,
+        "p50Ms": 0.19999992847442627,
+        "p95Ms": 5
+      },
+      "cloud_mid": {
+        "count": 33,
+        "totalMs": 23.4,
+        "p50Ms": 0.19999992847442627,
+        "p95Ms": 5
+      },
+      "feels_like_c": {
+        "count": 52,
+        "totalMs": 772,
+        "p50Ms": 9.900000095367432,
+        "p95Ms": 54
+      },
+      "cloud_low": {
+        "count": 33,
+        "totalMs": 14.3,
+        "p50Ms": 0.19999992847442627,
+        "p95Ms": 4
+      },
+      "uv_clear": {
+        "count": 8,
+        "totalMs": 5.8,
+        "p50Ms": 0.10000002384185791,
+        "p95Ms": 5
+      },
+      "uv": {
+        "count": 49,
+        "totalMs": 14.6,
+        "p50Ms": 0.10000002384185791,
+        "p95Ms": 0.30000007152557373
+      },
+      "temp_c": {
+        "count": 52,
+        "totalMs": 22.4,
+        "p50Ms": 0.19999992847442627,
+        "p95Ms": 4
+      },
+      "cloud_frac": {
+        "count": 52,
+        "totalMs": 23.4,
+        "p50Ms": 0.10000002384185791,
+        "p95Ms": 3.899999976158142
+      },
+      "wind_u_ms": {
+        "count": 52,
+        "totalMs": 45.7,
+        "p50Ms": 0.20000004768371582,
+        "p95Ms": 5
+      },
+      "wind_v_ms": {
+        "count": 52,
+        "totalMs": 47.4,
+        "p50Ms": 0.20000004768371582,
+        "p95Ms": 5.100000023841858
+      },
+      "gust_ms": {
+        "count": 52,
+        "totalMs": 50.4,
+        "p50Ms": 0.20000004768371582,
+        "p95Ms": 5
+      }
+    },
+    "decodesPerSecond": [
+      2,
+      20,
+      25,
+      36,
+      59,
+      17,
+      13,
+      24,
+      43,
+      72,
+      101,
+      113,
+      110,
+      0
+    ]
+  },
+  "wire": {
+    "playwright": {
+      "manifest": {
+        "requests": 1,
+        "bytes": 36513,
+        "meanRequestBytes": 36513
+      },
+      "chunks": {
+        "requests": 181,
+        "bytes": 5337161,
+        "meanRequestBytes": 29487.077348066297
+      },
+      "tiles": {
+        "requests": 2,
+        "bytes": 13227,
+        "meanRequestBytes": 6613.5
+      },
+      "other": {
+        "requests": 10,
+        "bytes": 462234,
+        "meanRequestBytes": 46223.4
+      },
+      "total": {
+        "requests": 194,
+        "bytes": 5849135,
+        "meanRequestBytes": 30150.180412371134
+      }
+    },
+    "resourceTiming": {
+      "manifest": {
+        "requests": 1,
+        "bytes": 36513,
+        "meanRequestBytes": 36513
+      },
+      "chunks": {
+        "requests": 181,
+        "bytes": 5337161,
+        "meanRequestBytes": 29487.077348066297
+      },
+      "tiles": {
+        "requests": 2,
+        "bytes": 13227,
+        "meanRequestBytes": 6613.5
+      },
+      "other": {
+        "requests": 10,
+        "bytes": 462234,
+        "meanRequestBytes": 46223.4
+      },
+      "total": {
+        "requests": 194,
+        "bytes": 5849135,
+        "meanRequestBytes": 30150.180412371134
+      }
+    },
+    "differences": [
+      {
+        "kind": "manifest",
+        "differencePercent": 0,
+        "requestDifference": 0
+      },
+      {
+        "kind": "chunks",
+        "differencePercent": 0,
+        "requestDifference": 0
+      },
+      {
+        "kind": "tiles",
+        "differencePercent": 0,
+        "requestDifference": 0
+      },
+      {
+        "kind": "other",
+        "differencePercent": 0,
+        "requestDifference": 0
+      },
+      {
+        "kind": "total",
+        "differencePercent": 0,
+        "requestDifference": 0
+      }
+    ],
+    "completeBodyAborts": 24,
+    "contentLengthFallbacks": 3,
+    "findings": [],
+    "rangeRequests": 181,
+    "beforeTtfrBytes": 805421,
+    "beforeTtfhBytes": 4435131
+  },
+  "longFrames": {
+    "first12s": {
+      "count": 35,
+      "totalMs": 3210.0999999046326,
+      "blockingMs": 866.1999999999999
+    },
+    "count": 36,
+    "totalMs": 3305.299999833107,
+    "blockingMs": 902.3,
+    "topSources": [
+      {
+        "source": "http://127.0.0.1:4455/assets/index-4sq-QxD0.js FrameRequestCallback",
+        "durationMs": 600.8999999761581
+      },
+      {
+        "source": "http://127.0.0.1:4455/assets/index-4sq-QxD0.js a",
+        "durationMs": 599.6000003814697
+      },
+      {
+        "source": "http://127.0.0.1:4455/assets/index-4sq-QxD0.js Worker.onmessage",
+        "durationMs": 299.39999985694885
+      }
+    ]
+  },
+  "mainThread": {
+    "samples": 1421,
+    "busySamples": 475,
+    "busyPercent": 33.42716396903589,
+    "topSources": [
+      {
+        "functionName": "advance",
+        "url": "src/core/wind-layer.ts",
+        "selfSamples": 8
+      },
+      {
+        "functionName": "markDownstream",
+        "url": "node_modules/.pnpm/solid-js@1.9.15/node_modules/solid-js/dist/solid.js",
+        "selfSamples": 18
+      },
+      {
+        "functionName": "scrollTableToEpoch",
+        "url": "src/App.tsx",
+        "selfSamples": 11
+      }
+    ]
+  },
+  "intent": {
+    "fieldBytes": {
+      "rain_rate": 4120541,
+      "uv": 61584,
+      "uv_clear": 6214,
+      "radiation": 19116,
+      "temp_c": 120135,
+      "feels_like_c": 51990,
+      "wind_u_ms": 219918,
+      "wind_v_ms": 205141,
+      "gust_ms": 221963,
+      "rel_humidity": 9636,
+      "cloud_frac": 119179,
+      "cloud_low": 72071,
+      "cloud_mid": 48080,
+      "cloud_high": 61593
+    },
+    "lateOutsideIntent": []
+  },
+  "actions": [
+    {
+      "action": "seek",
+      "plannedMs": 2000,
+      "actualMs": 2023.2999999523163,
+      "detail": "seek 49 stappen in 10000 ms"
+    }
+  ],
+  "smoothness": [
+    {
+      "name": "seeken tijdens laden",
+      "frames": 372,
+      "p50Ms": 16.7,
+      "p95Ms": 66.7,
+      "maxMs": 200,
+      "over50Ms": 28,
+      "over100Ms": 5,
+      "longFrames": {
+        "count": 24,
+        "totalMs": 1900,
+        "blockingMs": 264
+      }
+    }
+  ],
+  "scrub": {
+    "samples": 49,
+    "p50Ms": 15.9,
+    "p95Ms": 40.2
+  },
+  "findings": [
+    "1 sampleposities zonder sourcemap-positie; oorspronkelijke bundelpositie bewaard",
+    "blank-visible-ms 7036: na de splash stond er een leeg slot in beeld (doel 0, MIP-19)"
+  ]
+}

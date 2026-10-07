@@ -90,6 +90,24 @@ export function reconcileWire(requests: WireRequest[], timing: TimingRequest[]) 
   return { playwright, resourceTiming, differences, completeBodyAborts, contentLengthFallbacks, findings }
 }
 
+export interface SmoothnessWindow { name: string; fromMs: number; toMs: number }
+export interface Smoothness {
+  name: string; frames: number; p50Ms: number | null; p95Ms: number | null; maxMs: number | null; over50Ms: number; over100Ms: number
+  /** Lange animatiebeelden (LoAF) die in het venster beginnen. */
+  longFrames: { count: number; totalMs: number; blockingMs: number }
+}
+export interface LongFrameSpan { startTime: number; duration: number; blockingDuration: number }
+
+/** Frame-tijden (afstand tussen opeenvolgende animatiebeelden) binnen een venster van het scenario. */
+export function smoothness(frameTimes: number[], window: SmoothnessWindow, longFrames: LongFrameSpan[] = []): Smoothness {
+  const long = longFrames.filter((frame) => frame.startTime >= window.fromMs && frame.startTime <= window.toMs)
+  const inside = frameTimes.filter((time) => time >= window.fromMs && time <= window.toMs)
+  const gaps = inside.slice(1).map((time, index) => time - inside[index]!).sort((left, right) => left - right)
+  const percentile = (fraction: number) => gaps.length ? Math.round(gaps[Math.ceil(gaps.length * fraction) - 1]! * 10) / 10 : null
+  return { name: window.name, frames: inside.length, p50Ms: percentile(0.5), p95Ms: percentile(0.95), maxMs: gaps.length ? Math.round(gaps.at(-1)! * 10) / 10 : null, over50Ms: gaps.filter((gap) => gap > 50).length, over100Ms: gaps.filter((gap) => gap > 100).length,
+    longFrames: { count: long.length, totalMs: Math.round(long.reduce((total, frame) => total + frame.duration, 0)), blockingMs: Math.round(long.reduce((total, frame) => total + frame.blockingDuration, 0)) } }
+}
+
 export function completedBytesBefore(requests: WireRequest[], cutoffMs: number | null): number | null {
   if (cutoffMs === null) return null
   return requests.reduce((total, request) => total + (request.endMs !== null && request.endMs <= cutoffMs ? request.encodedBodyBytes ?? 0 : 0), 0)
@@ -153,11 +171,16 @@ export function renderMobileReport(report: MobileReport): string {
   const lines = [
     `# Mobiele laadrig: ${report.meta.profile} / ${report.meta.scenario}`,
     '',
-    `Commit ${report.meta.sourceSha}, ${report.meta.capturedAt}. CPU ${report.meta.cpuThrottleRate}×; worker-CPU ongeremd.`,
+    `Commit ${report.meta.sourceSha}, ${report.meta.capturedAt}. CPU ${report.meta.cpuThrottleRate}×; renderer-quota ${report.meta.rendererCpuQuotaPercent === null ? 'geen (workers op hostsnelheid)' : `${report.meta.rendererCpuQuotaPercent} % van één kern`}; synthraster ×${report.meta.synthGridScale}. Loadavg host bij start ${report.meta.loadAverage}.`,
     '',
     '| maat | waarde |',
     '| --- | ---: |',
-    `| TTFR | ${report.milestones.ttfrMs ?? 'onbekend'} ms |`,
+    `| ttfp (eerste frame-wissel tijdens afspelen) | ${report.milestones.ttfpMs ?? 'niet bereikt'} ms |`,
+    `| ttfr (eerste regen én basemap-tiles) | ${report.milestones.ttfrMs ?? 'onbekend'} ms |`,
+    `| eerste regenframe / basemap-tiles | ${report.milestones.firstRainMs ?? 'onbekend'} / ${report.milestones.basemapReadyMs ?? 'onbekend'} ms |`,
+    `| eerste balk | ${report.milestones.firstBarMs ?? 'onbekend'} ms |`,
+    `| blank-visible: laatste zichtbare balk binnen na | ${report.milestones.blankVisibleMs} ms |`,
+    `| blank-visible als oppervlak | ${report.milestones.blankSlotSeconds} slot-s (${report.milestones.blankShareSeconds} s volledig-leeg-equivalent) |`,
     `| splash klaar (DOM) | ${report.milestones.splashGoneMs ?? 'onbekend'} ms |`,
     `| ttfh (nu ±1 u) | ${report.milestones.ttfhMs ?? 'onbekend'} ms |`,
     `| decodes | ${decode?.count ?? 0} |`,
@@ -169,6 +192,7 @@ export function renderMobileReport(report: MobileReport): string {
     `| ERR_ABORTED met volledige gemeten body | ${report.wire.completeBodyAborts} |`,
     `| complete Content-Length-fallbacks | ${report.wire.contentLengthFallbacks} |`,
     `| lange frames / blocking | ${report.longFrames.count} / ${report.longFrames.blockingMs} ms |`,
+    `| lange frames eerste 12 s: aantal / totaal / blocking | ${report.longFrames.first12s.count} / ${Math.round(report.longFrames.first12s.totalMs)} / ${Math.round(report.longFrames.first12s.blockingMs)} ms |`,
     `| hoofddraad bezet (Self-Profiling) | ${report.mainThread.busyPercent ?? 'niet beschikbaar'} % |`,
     `| focusrequests voltooid na volgende modusintentie (kandidaten) | ${report.intent.lateOutsideIntent.length} |`,
     '',
@@ -179,6 +203,12 @@ export function renderMobileReport(report: MobileReport): string {
     const playwright = report.wire.playwright[kind]
     const resource = report.wire.resourceTiming[kind]
     lines.push(`| ${kind} | ${playwright.requests} | ${playwright.bytes} | ${resource.requests} | ${resource.bytes} | ${playwright.meanRequestBytes.toFixed(1)} |`)
+  }
+  if (report.smoothness.length) {
+    lines.push('', '| venster | beelden | frame-tijd p50 / p95 / max | > 50 ms | > 100 ms | LoAF aantal / totaal / blocking |', '| --- | ---: | ---: | ---: | ---: | ---: |')
+    for (const window of report.smoothness) lines.push(`| ${window.name} | ${window.frames} | ${window.p50Ms ?? '—'} / ${window.p95Ms ?? '—'} / ${window.maxMs ?? '—'} ms | ${window.over50Ms} | ${window.over100Ms} | ${window.longFrames.count} / ${window.longFrames.totalMs} / ${window.longFrames.blockingMs} ms |`)
+    const upload = report.decode.phases['texture-upload']
+    lines.push('', `Texture-upload: ${upload?.count ?? 0} keer, p50 ${upload?.p50Ms ?? '—'} ms, p95 ${upload?.p95Ms ?? '—'} ms. Scrub (invoer → regenbeeld): p50 ${report.scrub.p50Ms ?? '—'} ms, p95 ${report.scrub.p95Ms ?? '—'} ms over ${report.scrub.samples} metingen.`)
   }
   lines.push('', '| veld | decodes | totaal ms | p50 ms | p95 ms |', '| --- | ---: | ---: | ---: | ---: |')
   for (const [field, stats] of Object.entries(report.decode.fields)) lines.push(`| ${field} | ${stats.count} | ${stats.totalMs} | ${stats.p50Ms} | ${stats.p95Ms} |`)
@@ -196,14 +226,23 @@ export interface MobileReport {
     cpuThrottleRate: number; contractHash: string; fixtureHash: string
     basemapContractHash?: string
     network: unknown; hardwareConcurrency: number
+    /** 1-minuut-loadavg van de host bij de start van de run; boven MAX_LOAD_AVERAGE telt de run niet mee. */
+    loadAverage: number
+    synthGridScale: number
+    /** null: geen quota, workers op hostsnelheid. */
+    rendererCpuQuotaPercent: number | null
   }
-  milestones: { ttfrMs: number | null; splashGoneMs: number | null; ttfhMs: number | null; windowReadyMs: Record<string, number>; histogramSource: string }
+  milestones: { ttfrMs: number | null; firstRainMs: number | null; basemapReadyMs: number | null; ttfpMs: number | null; blankVisibleMs: number; blankSlotSeconds: number; blankShareSeconds: number; firstBarMs: number | null; splashGoneMs: number | null; ttfhMs: number | null; windowReadyMs: Record<string, number>; histogramSource: string }
   decode: ReturnType<typeof summarizePhases>
   wire: ReturnType<typeof reconcileWire> & { rangeRequests: number; beforeTtfrBytes: number | null; beforeTtfhBytes: number | null }
-  longFrames: { count: number; totalMs: number; blockingMs: number; topSources: Array<{ source: string; durationMs: number }> }
+  longFrames: { first12s: { count: number; totalMs: number; blockingMs: number }; count: number; totalMs: number; blockingMs: number; topSources: Array<{ source: string; durationMs: number }> }
   mainThread: { samples: number; busySamples: number; busyPercent: number | null; topSources: Array<{ functionName: string; url: string; selfSamples: number }> }
   intent: { fieldBytes: Record<string, number>; lateOutsideIntent: WireRequest[] }
   actions: Array<{ action: string; plannedMs: number; actualMs: number; detail: string }>
+  /** Beelden met een lege temperatuurlaag na de eerste 300 ms van een wissel naar Gevoel; null zonder zo'n wissel. */
+  temperatureBlankDraws: number | null
+  smoothness: Smoothness[]
+  scrub: { samples: number; p50Ms: number | null; p95Ms: number | null }
   findings: string[]
 }
 

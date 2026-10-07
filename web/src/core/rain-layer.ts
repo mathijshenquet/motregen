@@ -4,9 +4,8 @@ import type { Grid } from './contract'
 import type { MotionField } from './mrf'
 import { measurePerfPhase } from './perf'
 import { rainColormap } from './rain-chart'
-import { packRainTexture } from './rain-pack'
 
-export { packRainTexture, rainColormap }
+export { rainColormap }
 
 export const WARP_CAP_CELLS = 15
 export const WARP_FADE_END_CELLS = 30
@@ -48,11 +47,24 @@ float blendWeight(float value) {
   return right / max(left + right, 0.0001);
 }
 
+// Het frame staat als ruwe bytes in een R8-textuur (255 = geen data). De shader mengt de vier
+// buurcellen zelf: zo is er geen tweede kanaal voor geldigheid nodig en hoeft de hoofddraad het
+// frame niet meer in te pakken en dubbel zo groot te uploaden. Eén buur zonder data maakt het
+// punt ongeldig, precies wat de geldigheid in het G-kanaal onder lineair filteren deed.
 vec2 rainSample(sampler2D frame, vec2 uv) {
   vec2 halfTexel = 0.5 / u_grid_size;
   bool inside = all(greaterThanEqual(uv, halfTexel)) && all(lessThanEqual(uv, vec2(1.0) - halfTexel));
-  vec2 sampleValue = texture(frame, clamp(uv, halfTexel, vec2(1.0) - halfTexel)).rg;
-  return vec2(sampleValue.r, (inside ? 1.0 : 0.0) * step(0.999, sampleValue.g));
+  vec2 cell = clamp(uv, halfTexel, vec2(1.0) - halfTexel) * u_grid_size - 0.5;
+  ivec2 lower = ivec2(floor(cell));
+  ivec2 upper = min(lower + 1, ivec2(u_grid_size) - 1);
+  vec2 weight = cell - vec2(lower);
+  float northWest = texelFetch(frame, lower, 0).r;
+  float northEast = texelFetch(frame, ivec2(upper.x, lower.y), 0).r;
+  float southWest = texelFetch(frame, ivec2(lower.x, upper.y), 0).r;
+  float southEast = texelFetch(frame, upper, 0).r;
+  float valid = 1.0 - step(0.999, max(max(northWest, northEast), max(southWest, southEast)));
+  float value = mix(mix(northWest, northEast, weight.x), mix(southWest, southEast, weight.x), weight.y);
+  return vec2(value, (inside ? 1.0 : 0.0) * valid);
 }
 
 void main() {
@@ -72,53 +84,6 @@ void main() {
   color.a *= u_opacity;
 }`
 
-const packedFrames = new WeakMap<Uint8Array, Uint8Array>()
-const packing = new WeakMap<Uint8Array, Promise<void>>()
-let packWorker: Worker | undefined
-let packWorkerFailed = false
-let packSequence = 0
-const packReplies = new Map<number, (packed?: ArrayBuffer) => void>()
-
-/**
- * Pakt een regenframe in op een worker vóór het getoond wordt, zodat de upload op de hoofddraad alleen nog
- * een texImage2D is (PO-opnames 2026-10-07: het inpakken kostte daar ~8 ms per nieuw frame). Lukt dat niet,
- * dan pakt uploadRain het frame zelf in zoals voorheen.
- */
-export function prepareRainTexture(data: Uint8Array): Promise<void> {
-  if (packedFrames.has(data) || packWorkerFailed || typeof Worker === 'undefined') return Promise.resolve()
-  const running = packing.get(data)
-  if (running) return running
-  if (!packWorker) {
-    try {
-      packWorker = new Worker(new URL('./rain-pack.worker.ts', import.meta.url), { type: 'module' })
-    } catch {
-      packWorkerFailed = true
-      return Promise.resolve()
-    }
-    packWorker.onmessage = ({ data: reply }: MessageEvent<{ id: number; packed: ArrayBuffer }>) => {
-      packReplies.get(reply.id)?.(reply.packed)
-      packReplies.delete(reply.id)
-    }
-    packWorker.onerror = () => {
-      packWorkerFailed = true
-      for (const settle of packReplies.values()) settle()
-      packReplies.clear()
-    }
-  }
-  const id = ++packSequence
-  const prepared = new Promise<void>((resolve) => {
-    packReplies.set(id, (packed) => {
-      if (packed) packedFrames.set(data, new Uint8Array(packed))
-      packing.delete(data)
-      resolve()
-    })
-  })
-  packing.set(data, prepared)
-  // Een kopie: het frame zelf blijft in de framecache voor de puntreeksen.
-  const copy = data.slice()
-  packWorker.postMessage({ id, bytes: copy.buffer }, [copy.buffer])
-  return prepared
-}
 const encodedMotion = new WeakMap<Uint8Array, { vectors: Uint8Array; mask: Uint8Array }>()
 
 export class RainLayer implements CustomLayerInterface {
@@ -158,8 +123,8 @@ export class RainLayer implements CustomLayerInterface {
     const nw = mercator(west, north), se = mercator(east, south)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer)
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([nw.x, nw.y, 0, 0, se.x, nw.y, 1, 0, nw.x, se.y, 0, 1, se.x, se.y, 1, 1]), gl.STATIC_DRAW)
-    this.left = texture(gl)
-    this.right = texture(gl)
+    this.left = texture(gl, gl.NEAREST)
+    this.right = texture(gl, gl.NEAREST)
     this.motion = texture(gl)
     this.motionMask = texture(gl)
     gl.activeTexture(gl.TEXTURE3)
@@ -244,11 +209,11 @@ function mercator(x: number, y: number): MercatorCoordinate {
   return MercatorCoordinate.fromLngLat({ lng, lat })
 }
 
-function texture(gl: WebGL2RenderingContext): WebGLTexture {
+function texture(gl: WebGL2RenderingContext, filter: number = gl.LINEAR): WebGLTexture {
   const value = gl.createTexture()!
   gl.bindTexture(gl.TEXTURE_2D, value)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
   return value
@@ -258,12 +223,7 @@ function uploadRain(gl: WebGL2RenderingContext, target: WebGLTexture, grid: Grid
   gl.activeTexture(gl.TEXTURE0)
   gl.bindTexture(gl.TEXTURE_2D, target)
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-  let packed = packedFrames.get(data)
-  if (!packed) {
-    packed = packRainTexture(data)
-    packedFrames.set(data, packed)
-  }
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG8, grid.width, grid.height, 0, gl.RG, gl.UNSIGNED_BYTE, packed)
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, grid.width, grid.height, 0, gl.RED, gl.UNSIGNED_BYTE, data)
 }
 
 function uploadMotion(gl: WebGL2RenderingContext, target: WebGLTexture, maskTarget: WebGLTexture, motion: MotionField): void {

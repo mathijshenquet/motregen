@@ -12,3 +12,6 @@ __pycache__/
 web/e2e/profiles/
 web/dist-preview/
 web/public/perf-mobile/
+
+# Ruwe Firefox-profielen van de PO bevatten ook zijn andere tabbladen.
+.dev/tracks/*/macbook-firefox/

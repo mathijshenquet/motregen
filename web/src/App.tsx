@@ -36,9 +36,10 @@ import { MrfClient, type MotionField } from './core/mrf'
 import { selectPairMotion } from './core/motion-selection'
 import { nearestPlace } from './core/places'
 import { startFrameLoop } from './core/playback'
+import { clampPlaybackCursor, playbackReach } from './core/playback-gate'
 import { configurePerfMode, consumeColdProfile, installPerfMonitor, measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer } from './core/perf'
 import type { ProfileRecording } from './core/profile-recorder'
-import { prepareRainTexture, RainLayer } from './core/rain-layer'
+import { RainLayer } from './core/rain-layer'
 import { LayerOverlay } from './core/overlay-canvas'
 import { grantedStartFix, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastSavedPlaceId, storeMapView } from './core/location-memory'
 import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGestures } from './core/pin-navigation'
@@ -62,6 +63,7 @@ import { applyPresetParams, cursorForPresetEpoch, modeForActiveFocus, modeForFoc
 import { applyTelegramColors, type TelegramWebApp } from './core/telegram'
 import { loadExpressive, storeExpressive } from './core/expressive'
 import { READY_WINDOW_MS, windowReady } from './core/window-ready'
+import { visibleSlotStates } from './core/screen-truth'
 import type { Intent } from './core/intent'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
@@ -171,6 +173,17 @@ const PRESSURE_MATCH_KM = 300
 // Afspelen tikt op 30 Hz: regen-tween, isolijnsnede en klok zijn traag genoeg; alleen de
 // windpartikels animeren op WIND_MAX_FPS in hun eigen lus (U41).
 const PLAYBACK_MAX_FPS = 30
+// Zo lang wacht afspelen op één ontbrekend frame; daarna loopt de cursor door zoals vóór de
+// speelregel, zodat een frame dat nooit komt de tijdlijn niet voorgoed stilzet.
+const PLAYBACK_FRAME_WAIT_MS = 3_000
+// Zo ver vóór de cursor vraagt de afspeellus zelf een ontbrekend frame op: het volgende en dat daarna.
+const PLAYBACK_WAIT_AHEAD_FRAMES = 2
+// Rig-schakelaar (?dev): 'venster' zet de oude regel terug (spelen pas na laadfase "window").
+const PLAY_RULE_STORAGE_KEY = 'motregen-dev-speelregel'
+// Rig-schakelaar (?dev): 'laat' vraagt het eerste regenframe weer pas na de kaart-opzet.
+const FIRST_RAIN_STORAGE_KEY = 'motregen-dev-eerste-regen'
+// PO-vergelijking (?dev): het lege scrubber-kader neemt de hemelkleur van het uur aan.
+const FRAME_SKY_STORAGE_KEY = 'motregen-dev-kaderhemel'
 // Stil op de achtergrond (U41): na een minuut zonder invoer tekent de wind op halve snelheid.
 const IDLE_AFTER_MS = 60_000
 const WIND_IDLE_FPS = 30
@@ -275,6 +288,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let rainReadyPending = false
   let scrubPrefetch = false
   let initialPickStarted = false
+  const playRuleWaitsForWindow = devMode && localStorage.getItem(PLAY_RULE_STORAGE_KEY) === 'venster'
+  const [firstRainLate, setFirstRainLate] = createSignal(devMode && localStorage.getItem(FIRST_RAIN_STORAGE_KEY) === 'laat')
+  // Bij het laden vastgelegd: de knop werkt pas na herladen.
+  const firstRainEarly = !firstRainLate()
   let pointLoad: PointLoadState | undefined
   const windFrameCache = new Map<string, Promise<Float32Array>>()
   const media = matchMedia('(prefers-color-scheme: dark)')
@@ -476,6 +493,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
   const [windTuning, setWindTuning] = createSignal<WindTuning>(loadWindTuning())
   const [isolineTuning, setIsolineTuning] = createSignal<IsolineTuning>({ ...DEFAULT_ISOLINE_TUNING })
+  const [frameSky, setFrameSky] = createSignal(devMode && localStorage.getItem(FRAME_SKY_STORAGE_KEY) === 'aan')
   const [temperatureRange, setTemperatureRange] = createSignal<PaletteRange | undefined>()
   let temperatureRangeKey = ''
   const [focus, setFocus] = createSignal(0)
@@ -721,6 +739,16 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       if (!frames.length) throw new Error('De tijdlijn is leeg')
       const presets = parsePresets(initialSearch, Date.parse(data.now))
       setManifest(data)
+      let nowIndex = 0
+      for (let index = 0; index < frames.length; index++) if (frames[index]!.epoch <= Date.parse(data.now)) nowIndex = index
+      const presetCursor = presets.epoch === undefined ? undefined : cursorForPresetEpoch(frames, presets.epoch)
+      // Het eerste kaartbeeld gaat vóór alles de lijn op: het regenframe op de cursor en het volgende.
+      // Zo wacht het niet op de kaart-opzet en staat het niet achter de ~40 headers van de andere velden
+      // (koude PO-opname 2026-10-07: eerste regen-decode pas op 1,9 s, 0,85 s na de kaart).
+      if (firstRainEarly) {
+        const firstIndex = Math.floor(presetCursor ?? nowIndex)
+        for (const frame of frames.slice(firstIndex, firstIndex + 2)) void load(frame).catch(() => undefined)
+      }
       void Promise.all(data.chunks.filter(eagerHeader).map((chunk) => client.getHeader(chunk))).catch(() => undefined)
       if (!stillMode) stopManifestRefresh = scheduleManifestRefresh(refreshManifest, {
         setTimeout: (callback, delay) => window.setTimeout(callback, delay),
@@ -732,9 +760,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         const current = manifest()
         return nextManifestRefreshDelay(Date.now(), current && latestRadarEpoch(current))
       })
-      let nowIndex = 0
-      for (let index = 0; index < frames.length; index++) if (frames[index]!.epoch <= Date.parse(data.now)) nowIndex = index
-      const presetCursor = presets.epoch === undefined ? undefined : cursorForPresetEpoch(frames, presets.epoch)
       setCursor(presetCursor ?? nowIndex)
       if (presetCursor !== undefined) setPlaying(false)
       if (presets.mode) applyPresetMode(presets.mode)
@@ -765,7 +790,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       map.on('resize', applyMapContainLimit)
       syncSavedMarkers(savedPlaces())
       map.on('style.load', () => attachMapLayers(header.grid))
-      map.on('render', () => { mapRepaints++ })
+      map.on('render', () => {
+        mapRepaints++
+        if (map?.isStyleLoaded() && map.areTilesLoaded()) perf.markBasemapReady()
+      })
       map.on('sourcedataloading', (event) => {
         if (!perfPhasesEnabled()) return
         const key = basemapTileKey(event)
@@ -967,8 +995,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (pressureIsolines.active()) updatePressureMarks()
   }
   createEffect(() => {
-    const loadStage = pointLoadStage()
-    if (!playing() || !mapRendering() || !mapReady() || (initialPickStarted && (loadStage === 'initial' || loadStage === 'direct'))) return
+    // Speelregel (MIP-19 §De lat): spelen zodra het cursorframe en het volgende er zijn. De oude
+    // regel wachtte op laadfase "window" van de puntreeks.
+    const waitsForWindow = playRuleWaitsForWindow && initialPickStarted && (pointLoadStage() === 'initial' || pointLoadStage() === 'direct')
+    if (!playing() || !mapRendering() || !mapReady() || waitsForWindow) return
     const horizonHours = timeHorizonHours()
     const frames = timeline()
     if (frames.length < 2) return
@@ -982,6 +1012,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     let rewind: { from: number; startedAt: number } | undefined
     // Aan het eind even stilstaan voordat het terugglijdt (PO 2026-09-25 live).
     let holdUntil: number | undefined
+    let waiting: { frame: number; since: number } | undefined
+    const framePresent = (index: number) => client.hasFrame(frames[index]!.chunk, frames[index]!.frameIndex)
     frameLoopDrives = true
     const stop = startFrameLoop((now) => {
       const elapsed = now - previous
@@ -1012,8 +1044,23 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         holdUntil = now + PLAYBACK_END_HOLD_MS
         return
       }
+      let nextCursor = timelineCursorAtEpoch(frames, nextEpoch)
+      if (!playRuleWaitsForWindow) {
+        const reach = playbackReach(cursor(), 1, frames.length, framePresent)
+        // Alleen het frame waar de cursor nu tegenaan loopt telt als wachten. Zonder die grens
+        // schoof het wachtframe elke tik één op zodra het vorige binnen was en haalde de lus zo de
+        // hele tijdlijn vooruit binnen (decode-budget.spec: het laatste regenframe na 4 s).
+        const blocking = reach.waitingFor !== null && reach.waitingFor <= Math.floor(cursor()) + PLAYBACK_WAIT_AHEAD_FRAMES
+        if (!blocking) waiting = undefined
+        else if (waiting?.frame !== reach.waitingFor) {
+          waiting = { frame: reach.waitingFor!, since: now }
+          void load(frames[reach.waitingFor!]!).catch(() => undefined)
+        }
+        if (!waiting || now - waiting.since < PLAYBACK_FRAME_WAIT_MS) nextCursor = clampPlaybackCursor(nextCursor, reach, 1)
+        if (nextCursor <= cursor()) { setGlideRate(0); return }
+      }
       batch(() => {
-        setCursor(timelineCursorAtEpoch(frames, nextEpoch))
+        setCursor(nextCursor)
         setGlideRate(playbackRate)
       })
       drawLayers()
@@ -1202,8 +1249,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       loadPairMotion(leftFrame, rightFrame).catch(() => undefined),
     ])
     if (request !== shownFrameRequest || !layer || !map) return
-    await Promise.all([prepareRainTexture(left), prepareRainTexture(right)])
-    if (request !== shownFrameRequest || !layer || !map) return
     layer.setFrames(left, right, blend.mix, motion, (rightFrame.epoch - leftFrame.epoch) / 60_000)
     const afterRainDraw = (callback: () => void) => rainOverlay ? rainOverlay.once(callback) : map!.once('render', callback)
     if (!mapReady() && !rainReadyPending) {
@@ -1214,7 +1259,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (map !== renderedMap) return
         setMapReady(true)
         if (stillMode) void prepareStill()
-        else void attachWindLayer()
+        else {
+          void attachWindLayer()
+          scheduleIdle(preloadTemperatureAtCursor, 1_000)
+        }
         if (!stillMode && !initialPickStarted) {
           initialPickStarted = true
           setPointLoadsStarted(true)
@@ -1223,7 +1271,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         }
       })
     }
-    afterRainDraw(() => perf.markRainFrameCommitted())
+    afterRainDraw(() => perf.markRainFrameCommitted({ frameEpoch: leftFrame.epoch, playing: playing() }))
     if (!rainOverlay) map.triggerRepaint()
     // De eerste locatiereeks haalt dezelfde chunks direct in bulk op. Losse,
     // overlappende Range-prefetches maken Chromiums sparse HTTP-cache instabiel.
@@ -1562,6 +1610,20 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return { grid: parts[0]!.grid, frames: parts.map((part) => part.frame) }
   }
 
+  /**
+   * Een wissel naar Gevoel direct na het laden had nog geen uurframe en dus geen snede om te
+   * tekenen. De uurlagen rond de cursor liggen daarom klaar zodra de regen staat: twee à drie
+   * decodes van het kleine uurraster, in rust.
+   */
+  function preloadTemperatureAtCursor(): void {
+    const frames = temperatureIsolines.timeline()
+    if (!frames.length) return
+    const blend = frameBlend(frames, selectedEpoch())
+    for (const index of isolineLayerIndices(blend.left + blend.mix, frames.length, ISOLINE_WINDOW)) {
+      void preparedIsolineField(temperatureIsolines, frames[index]!).catch(() => undefined)
+    }
+  }
+
   function preparedIsolineField(set: IsolineSet, frame: TimelineFrame): Promise<{ grid: Grid; field: PreparedField }> {
     const preparedIsolineFields = set.prepared
     const key = `${frame.chunk.url}#${frame.frameIndex}`
@@ -1587,6 +1649,18 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
    * Alleen cellen binnen het kaartkader (NL + Vlaanderen): het rooster reikt tot ver in Duitsland,
    * waar zon en nacht het bereik op 25-09 van 9–17 °C naar 1–30 °C rekten.
    */
+  /**
+   * Het palet hangt aan het temperatuurbereik van de hele verwachting, en dat vraagt alle uurframes
+   * van de gevoelstemperatuur. Tot die er zijn tekende de laag zonder kleur ("alles grijs", PO
+   * 2026-10-08). Het eerste uurframe dat de kaart toont geeft daarom alvast een voorlopig bereik;
+   * updateTemperatureRange vervangt het zodra het volledige bekend is.
+   */
+  function provisionalTemperatureRange(field: PreparedField, grid: Grid): void {
+    if (temperatureRange()) return
+    const inView = fieldRangeInView(field.values, field.valid, grid, NETHERLANDS_FLANDERS_BOUNDS)
+    if (inView) setTemperatureRange(paletteRange(inView[0], inView[1]))
+  }
+
   async function updateTemperatureRange(): Promise<void> {
     const frames = feelsLikeTimeline()
     const key = [...new Set(frames.map((frame) => frame.chunk.url))].join('|')
@@ -1667,12 +1741,18 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       if (set.frameKeys.frames !== frames) set.frameKeys = { frames, keys: frames.map((frame) => `${frame.chunk.url}#${frame.frameIndex}`) }
       const frameKeys = set.frameKeys.keys
       for (const index of layer.setFrameKeys(frameKeys)) set.fields[index] = undefined
-      layer.setTime(time, playing())
+      // Nooit een lege laag (MIP-19): de snede schuift pas op als haar uurlagen er zijn; tot dan
+      // blijft de vorige staan. Na een moduswissel of een sprong buiten het geladen venster tekende
+      // de laag anders niets tot de decode binnen was (PO 2026-10-08, Android).
+      const cursorLayersReady = () => required.every((index) => layer.hasLayer(index))
+      if (cursorLayersReady()) layer.setTime(time, playing())
       await Promise.all(wanted.filter((index) => !layer.hasLayer(index)).map(async (index) => {
         const prepared = await preparedIsolineField(set, frames[index]!)
         if (!mapRendering() || layer !== set.layer || layer.frameKey(index) !== frameKeys[index] || !sameGrid(prepared, { grid: layer.grid })) return
         set.fields[index] = prepared.field
         layer.setLayer(index, prepared.field)
+        if (set.kind === 'temperature') provisionalTemperatureRange(prepared.field, layer.grid)
+        if (layer === set.layer && set.time === time && cursorLayersReady()) layer.setTime(time, playing())
       }))
       // Stap alleen op een nieuwe uurstap (en bij moveend), nooit midden in een tween (MIP-14).
       if (set.kind === 'pressure' && Math.round(time) !== isobarStepHour) {
@@ -2394,6 +2474,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     batch(() => {
       setWindTuning({ ...DEFAULT_WIND_TUNING })
       setIsolineTuning({ ...DEFAULT_ISOLINE_TUNING })
+      setFrameSky(false)
+      setFirstRainLate(false)
       focusMode.pin(DEFAULT_FOCUS_MODE)
       setFocusPinned(DEFAULT_FOCUS_MODE)
     })
@@ -2583,11 +2665,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     // Ook een lezing die bij een vorig venster begon publiceert nog: de waarden zijn gedeeld.
     const publish = () => { if (read === cloudsRead) cloudPublisher.schedule() }
     if (otherPlaceOrTimeline) publish()
+    // De cursor bepaalt alleen de volgorde binnen het venster. Hem hier volgen zou dit effect tijdens
+    // afspelen elk beeld opnieuw laten lezen; het venster zelf verandert al wanneer het moet.
+    const cursorEpoch = untrack(selectedEpoch)
     for (const layer of CLOUD_LAYERS) {
       const frames = timelines[layer]
       if (read.values[layer].length !== frames.length) read.values[layer] = new Array<number | null>(frames.length).fill(null)
       const values = read.values[layer]
-      const wanted = window ? timelineIndexesInWindow(frames, window, selectedEpoch()) : frames.map((_, index) => index)
+      const wanted = window ? timelineIndexesInWindow(frames, window, cursorEpoch) : frames.map((_, index) => index)
       const missing = wanted.filter((index) => values[index] == null)
       // Per chunk, zodat de uren rond de cursor niet op de payload van morgen wachten.
       for (const chunk of new Set(missing.map((index) => frames[index]!.chunk))) {
@@ -2616,6 +2701,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const withFrame = rows.filter((row) => row[series.key] != null)
       reportWindowReady(series.field, withFrame.map((row) => row.epoch), (index) => series.values()[withFrame[index]![series.key]!] != null)
     }
+  })
+  // Schermwaarheid (MIP-19): de scrubber tekent nog geen fog, dus elk zichtbaar regenslot zonder waarde is leeg.
+  createEffect(() => {
+    if (mapReady()) perf.markSplashGone()
+    const loaded = rainLoaded()
+    const slots = timeline().map((frame, index) => ({ epoch: frame.epoch, loaded: loaded[index] === true, fogDrawn: false }))
+    const states = visibleSlotStates(slots, viewWindow())
+    perf.setBlankVisibleSlots(states.blank, states.blank + states.fog + states.loaded)
   })
   createEffect(() => {
     if (!inViewOnly) return
@@ -2746,6 +2839,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           <DevPanel
             isolineTuning={isolineTuning()}
             onIsolineTuning={(patch) => setIsolineTuning((current) => ({ ...current, ...patch }))}
+            firstRainLate={firstRainLate()}
+            onFirstRainLate={(late) => { setFirstRainLate(late); localStorage.setItem(FIRST_RAIN_STORAGE_KEY, late ? 'laat' : 'vroeg') }}
+            frameSky={frameSky()}
+            onFrameSky={(enabled) => { setFrameSky(enabled); localStorage.setItem(FRAME_SKY_STORAGE_KEY, enabled ? 'aan' : 'uit') }}
             windTuning={windTuning()}
             onWindTuning={tuneWind}
             perfVisible={perfVisible()}
@@ -2788,6 +2885,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           sky={{ radiation: { timeline: radiationTimeline(), values: radiationSeries() }, sinElevation: sunElevationAt() }}
           wind={{ timeline: windUFrames(), speed: windSpeedSeries(), gustTimeline: gustTimeline(), gust: gustSeries(), unit: windUnit() }}
           expressive={expressive()}
+          frameSky={frameSky()}
           mix={{ wind: windFocus(), air: airFocus(), temperature: focus() }}
           temperature={{ timeline: feelsLikeTimeline(), values: feelsLikeSeries(), airTimeline: tempTimeline(), air: temperatureSeries(), stops: temperatureRange() && paletteStops(temperatureRange()!) }}
         />

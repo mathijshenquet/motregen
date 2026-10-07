@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { encodeMotionTexture, motionWarpStrength, neutralizeNoData, packRainTexture, planRainUploads, rainColormap, WARP_CAP_CELLS } from './rain-layer'
+import { encodeMotionTexture, motionWarpStrength, neutralizeNoData, planRainUploads, rainColormap, WARP_CAP_CELLS } from './rain-layer'
 
 describe('rain rendering transitions', () => {
   it('keeps a blue hue while alpha rises continuously from dry into drizzle', () => {
@@ -18,7 +18,6 @@ describe('rain rendering transitions', () => {
     expect(Array.from(source)).toEqual([0, 1, 254, 255])
     const withoutNoData = source.subarray(0, 3)
     expect(neutralizeNoData(withoutNoData)).toBe(withoutNoData)
-    expect(Array.from(packRainTexture(source))).toEqual([0, 255, 1, 255, 254, 255, 0, 0])
   })
 
   it('encodes signed motion as RG8 with a separate no-data mask', () => {

@@ -685,7 +685,7 @@ CPU/netwerkvarianten van de nieuwe offline rig worden apart gerapporteerd.
 De rig draait vanuit `web` in devenv. Eén commando genereert zijn eigen
 synthdata, bouwt deze client, start twee lokale Caddy-servers, neemt de eerste
 30 seconden op en schrijft JSON, Markdown, een Chrome-trace en de ruwe bronnen
-naar `web/tmp/perf-mobile/`. De standaardpoorten zijn 4392/8392; het bestaande
+naar `web/tmp/perf-mobile/`. De poorten zijn per worktree eigen (zie §Laadlat); het bestaande
 e2e-slotscript houdt één Chromium per slot. Het Playwrightproject heet
 `desktop` voor het worker-regime, maar de context is expliciet Pixel 5.
 
@@ -831,6 +831,219 @@ De storm kost in deze fixture 600.472 B extra ten opzichte van koud; de
 journey 139.142 B. De RT- en Playwright-totalen waren per soort en per response
 exact gelijk. De ontbrekende U52-meetpunten en Lucht-adapter blijven als
 bevinding in de baselines staan.
+
+## Laadlat: ttfp naast Buienradar (U54, MIP-19 §De lat)
+
+De maat is `ttfp` (time to first play): van navigatiestart tot de kaart een regenframe toont
+én de tijdlijn op het scherm loopt. De client telt de eerste wissel van het linker regenframe
+in een getekend beeld terwijl `playing` aan staat (`PerfMonitor.markRainFrameCommitted`); een
+bewegende cursor boven een stilstaande kaart telt dus niet. Doel: `ttfp ≤ ttfp-ref`.
+
+```sh
+pnpm perf:mobile --scenario koud-spelend --repeat 3            # ttfp, ttfr, ttfh, blank-visible, LoAF 12 s
+pnpm perf:mobile --scenario referentie-buienradar --repeat 3   # ttfp-ref
+pnpm exec tsx scripts/po-reference.ts compare perf/po-android-reference.json tmp/perf-mobile/<rapport>.json
+```
+
+- `koud-spelend` opent zonder `?t`, zodat de app vanzelf afspeelt. `koud` heeft een tijdpreset
+  en staat daardoor stil; dat scenario kan geen ttfp meten.
+- `referentie-buienradar` meet https://www.buienradar.nl met dezelfde Pixel 5-emulatie en
+  hetzelfde CDP-profiel, koud (verse context, cache uit), over het echte netwerk. Het
+  radarbeeld is een `img.leaflet-image-layer`; een wissel van zijn `src` is een frame-wissel en
+  het tijdlabel dient als tweede getuige. De rig klikt de toestemmingsmuur weg zodra de knop er
+  staat. Dat is sneller dan een mens, dus de referentie valt eerder gunstig uit voor Buienradar.
+  `ttfp-ref zonder iets over de kaart` telt pas vanaf het eerste beeld waar niets overheen ligt.
+- De overige meetpunten: `ttfr` is het eerste regenframe én de basemap-tiles van het eerste
+  beeld (`map.areTilesLoaded()` na een render); `ttfh` is `window-ready:rain_rate`;
+  `blank-visible-ms` is de tijd na de splash waarin een zichtbaar regenslot van de scrubber geen
+  waarde had en ook niet als "komt nog" getekend was (`core/screen-truth.ts`). Main tekent nog
+  geen fog, dus daar telt elk ontbrekend slot als leeg. Tabelrijen tellen nog niet mee.
+
+### Wanneer een rig-meting telt
+
+- **Loadavg ≤ 8** (1 minuut, `scripts/rig-host.ts`). `perf:mobile` wacht vóór de run tot de host
+  zo rustig is (`--load-wait <minuten>`, standaard 20) en schrijft de loadavg bij de start van
+  elke run in het rapport. Runs boven de drempel doen niet mee in de mediaan en staan als
+  weggegooid in de samenvatting. Op 2026-10-07 draaiden drie tracks tegelijk rigs (loadavg
+  13–18): dezelfde code gaf toen een time-out, 2,9 s en 4,5 s.
+- **×3, mediaan.** Eén run is geen meting.
+- **Eigen poorten per worktree** (4400–4899 / 8400–8899, afgeleid van het pad). Op de oude vaste
+  4392/8392 raakten rigs van verschillende tracks elkaars webserver. `MOTREGEN_E2E_PORT` en
+  `MOTREGEN_E2E_DATA_PORT` gaan nog steeds voor.
+- De rig en `synthgen` draaien via `tsx`, dat een IPC-socket opent; binnen een sandbox zonder
+  socketrechten faalt dat met `listen EPERM`.
+
+### Vóór-meting main, 2026-10-07 (mobile-4g, CPU 4×, rig 621576e, loadavg 5,9–7,5)
+
+| maat | run 1 | run 2 | run 3 | mediaan |
+| --- | ---: | ---: | ---: | ---: |
+| ttfp | 2558 | 4342 | 4446 | 4342 ms |
+| ttfr | 1600 | 1620 | 1588 | 1600 ms |
+| ttfh | 2887 | 25532 | 29487 | 25532 ms |
+| blank-visible-ms | 3977 | 22215 | 26015 | 22215 ms |
+| LoAF eerste 12 s, totaal | 2672 | 10239 | 10686 | 10239 ms |
+| decodes in 30 s | 356 | 341 | 276 | |
+| ttfp-ref Buienradar | 3728 | 3586 | weggegooid (loadavg 8,71) | ≈ 3,6–3,7 s |
+
+De koude start van main is bimodaal: een snelle tak (run 1) en een trage (run 2 en 3) waarin
+de puntreeks pas na 25 s laadfase `direct` haalt. De oorzaak en het vervolg staan in de
+track-LOG (`.dev/tracks/u54-laadchoreografie-live/LOG.md`).
+
+### Baselines na U54 + U59 (2026-10-08, rig 2afe2ec)
+
+`pnpm perf:mobile --profile all --scenario all --repeat 3 --baseline`, exit 0, loadavg
+5,5–7,9, spreiding op decodes en bytes 0 % in alle zes combinaties. Ten opzichte van de
+baselines van U59 (ac9961a):
+
+| profiel / scenario | wire (B) was → nu | decodes was → nu |
+| --- | ---: | ---: |
+| 4G en Fast 3G / koud | 1127388 → 1137555 (+0,9 %) | 128 → 128 |
+| 4G en Fast 3G / journey | 1293377 → 1330346 (+2,9 %) | 228 → 263 (+15 %) |
+| 4G / storm | 1318557 → 1328724 (+0,8 %) | 189 → 189 |
+| Fast 3G / storm | 1572568 → 1328724 (−15,5 %) | 280 → 189 (−33 %) |
+
+De stijging in `journey` is **bedoeld** (orkestrator/PO 2026-10-07): met de speelregel van
+MIP-19 §De lat begint afspelen zodra het cursorframe en het volgende er zijn, dus loopt de
+tijdlijn binnen de vaste meetduur eerder en verder en toont hij meer frames. Het is geen extra
+werk per getoond frame. De ≈ 10 kB bij `koud` en `storm` is de grotere bundel (meetpunten,
+speelregel, kader). De daling in de Fast-3G-storm is niet onderzocht; vermoedelijk dezelfde
+oorzaak als het verdwijnen van de trage tak (iteratie 1), maar dat is een vermoeden.
+
+Tijden uit dezelfde runs (mediaan ×3): 4G koud ttfr 1653 ms, ttfh 2337 ms; Fast 3G koud ttfr
+5098 ms, ttfh 7963 ms; ttfp in `journey` 9,1 s (dat scenario start het afspelen zelf op 9 s).
+
+### Referentie: desktop-MacBook, Firefox Profiler (PO, 2026-10-07 20:32/20:33)
+
+Twee opnames met de Firefox Profiler op de MacBook van de PO: één met Buienradar, één met
+motregen op de preview (:4355, commit d315561 of 0eda33a — de opname zegt niet welke). Lezen met:
+
+```sh
+pnpm prof:firefox "<opname>.json.gz" [meer opnames…]
+```
+
+`web/scripts/firefox-profile.ts` zoekt per contentproces de paginaladingen van Buienradar en
+motregen, neemt `Navigation::Start` als nulpunt en leest de `Network`-markers (begin van de
+START-marker, eind van de STOP-marker), de paint-markers en — als ze er zijn — onze
+UserTiming-mijlpalen. De ruwe opnames worden niet gecommit: ze bevatten ook de andere tabbladen
+van de PO.
+
+| meetpunt (ms sinds navigatiestart) | Buienradar | motregen (:4355) |
+| --- | ---: | ---: |
+| document binnen | 222 | 101 |
+| FirstContentfulPaint | 443 | 402 |
+| LargestContentfulPaint | 817 | 468 |
+| DocumentLoad | 908 | 507 |
+| eerste radarbeeld / eerste regen-Range: begin → eind | 697 → 795 | 734 → 1579 |
+| tweede radarbeeld / tweede regen-Range: begin → eind | 1704 → 1816 | 1580 → 1859 |
+| **ttfp-ref / ondergrens ttfp (tweede beeld binnen)** | **1816** | **1859** |
+
+Motregen-specifiek: manifest 396 → 581 ms; daarna 39 chunk-headers tegelijk, 590 → 1512 ms
+(172 kB); basemap-stijl 692 → 702 ms (0 B, uit de cache).
+
+Wat dit zegt: op deze desktop liggen de twee gelijk op het moment dat het tweede beeld binnen
+is (1,82 s tegen 1,86 s). Bij motregen is dat een **ondergrens** voor ttfp: na de bytes komen
+nog decode, textuur en tekenen; bij Buienradar is een png tonen vrijwel direct. Het eerste
+regenframe (100 kB) deed er 845 ms over terwijl de 39 headers de lijn bezetten — hetzelfde
+patroon als in de koude telefoonopname.
+
+Wat er **niet** uit te halen is:
+- Onze eigen mijlpalen (`milestone:ttfp`, `window-ready:rain_rate`, `blank-visible`,
+  texture-upload): de app schrijft die alleen met `?perf` en de opname is zonder gemaakt. Een
+  nieuwe opname op `…:4355/?perf=1` geeft ze wel; het script leest ze dan vanzelf.
+- Het moment waarop een beeld op het scherm staat. WebGL-uploads en -draws hebben geen eigen
+  marker; voor Buienradar is "png binnen" een goede benadering, voor ons niet.
+- Of Buienradars animatie doorloopt: de opname stopt ≈ 2,5 s na de navigatie, met precies twee
+  radarbeelden. De cadans van 1 beeld/s komt uit de rig, niet uit dit profiel.
+- De cachetoestand vooraf (koud of warm) en dus of dit een eerste bezoek was. De radar-png's
+  kwamen met body over de lijn (≈ 137 kB); bij motregen kwam de basemap-stijl uit de cache.
+- De eerste basemap-tile: geen tile-verzoek in het venster van de opname.
+- Eén lading per site: geen spreiding, dus geen mediaan.
+
+### Profiel po-android
+
+**Herijkt op 2026-10-08 (geldt nu):** renderer-quota **40 %**, synthraster **alleen voor regen
+×6** (1140 × 1380 cellen). Aanleiding: de productie-headers. Regen is daar 1250 × 1350 cellen;
+de uurvelden zijn 209 × 225 (temperatuur, gevoel, wind, vlagen), 157 × 169 (straling),
+250 × 270 (uv) en 79 × 85 (wolken) — ongeveer het basisraster van de synthdata (190 × 230). De
+eerdere stand rekte álle velden ×3 op: uurveld-decodes en windwerk waren daardoor veel te
+zwaar (`feels_like_c` 110 ms per decode) en regen juist te licht (393k i.p.v. 1,69 M cellen).
+
+Sweep met het nieuwe raster, `koud-spelend` op de huidige code, één run per stand, loadavg
+5,8–6,6, naast de PO-opnames van 18:05 (koud) en 18:06 (warm) op dezelfde speelregel:
+
+| meetpunt | telefoon warm | telefoon koud | quota 100 % | 60 % | **40 %** |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| regen-decode p50 | 27,8 ms | 36,1 ms | 3,9 | 10,2 | **19,8 ms** |
+| eerste regenframe | 1314 ms | 2540 ms | 742 | 981 | **1347 ms** |
+| ttfp | 1797 ms | 3647 ms | 861 | 1197 | **1745 ms** |
+| ttfh | 2836 ms | 5552 ms | 1880 | 2057 | **3951 ms** |
+| blank-visible (laatste balk) | 2844 ms | 7559 ms | 1468 | 1832 | **3555 ms** |
+| lange frames eerste 12 s | 0,4 s (hele opname) | 0,6 s (hele opname) | 1,8 s | 2,0 s | **3,1 s** |
+| uurveld-decode p50 (temp_c) | 31 ms | 15 ms | 0,2 | 0,2 | **0,2 ms** |
+
+De rig haalt zijn data lokaal en lijkt daarin op de **warme** telefoonrun; daartegen zit 40 %
+op eerste regenframe (+3 %) en ttfp (−3 %) vrijwel goed, op regen-decode −29 % en op ttfh
++39 %. Wat afwijkt: de rig heeft meer lange frames dan de telefoon met de huidige build, en
+uurveld-decodes kosten in de rig vrijwel niets terwijl de telefoon er 15–30 ms per stuk over
+doet. Uitspraken over uurvelden (tabel, wind, wolken) blijven dus telefoonwerk.
+Getallen van vóór deze herijking (kalibratie op 30 %, alle velden ×3) zijn onderling
+vergelijkbaar maar niet met de getallen erna.
+
+De rest van deze paragraaf beschrijft de eerdere stand (quota 30 %, alle velden ×3) en hoe de
+quota werkt.
+
+
+`web/perf/po-android-reference.json` is de samenvatting van de koude PO-opname van 16:27:59
+(Android Chrome, UA "Linux; Android 10; K"), gemaakt met `scripts/po-reference.ts summarize`.
+De ruwe opnames blijven lokaal in `~/motregen-profiles`. Het profiel `po-android` in
+`e2e/profiles.ts` bootst die telefoon na:
+
+| knop | waarde | waarom |
+| --- | --- | --- |
+| viewport / UA | 390 × 844, "Linux; Android 10; K" | uit de opname |
+| renderer-quota | 30 % van één kern (`--renderer-quota`) | remt hoofddraad én workers; zie hieronder |
+| page-CPU (CDP) | 1× | de quota remt de hoofddraad al; CDP erbovenop zou dubbel remmen |
+| netwerk | 30 Mbps, 20 ms RTT | de opnames liepen over wifi naar de dev-host |
+| synthraster | ×3 (570 × 690 cellen, `MOTREGEN_SYNTH_GRID_SCALE`) | in de orde van het KNMI-raster (700 × 765); wire 5,5 MB i.p.v. 1,7 MB |
+
+**De quota.** CDP's `Emulation.setCPUThrottlingRate` geldt alleen voor de hoofddraad; op een
+workerdoel antwoordt Chrome "Operation is only supported for pages, not workers". Decodes
+liepen in de rig daardoor op hostsnelheid (p50 1,1 ms tegen 22 ms op de telefoon). De rig start
+het renderer-proces nu in een eigen cgroup:
+`--renderer-cmd-prefix=systemd-run --user --scope -p CPUQuota=30% -p CPUQuotaPeriodSec=5ms`.
+Dat raakt hoofddraad, decodeworkers en de MapLibre-workers samen. De periode van 5 ms maakt er
+een gelijkmatige rem van; met de standaard 100 ms valt de renderer in blokken stil. Het
+GPU-proces valt er bewust buiten: SwiftShader is geen telefoon-GPU. Met de hele browser op 1–2
+kernen (`taskset`) at SwiftShader de ruimte op (eerste regenframe 2,5–7,1 s tegen 1,15 s)
+terwijl een decode op 1–4 ms bleef.
+
+Kalibratie 2026-10-07, loadavg 5,1–7,8, `koud-spelend-vensterregel` (de speelregel van de
+opname), één of twee runs per stand:
+
+| meetpunt | PO-opname | quota 50 % | 35 % (×2) | **30 % (×2)** | 25 % | 12 % |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| frame-decode p50 | 22 ms | 3,0 | 8,8 / 8,9 | **9,8 / 10,3** | 14,1 | 32,8 |
+| frame-decode p95 | 53 ms | 59 | 123 / 101 | **101 / 120** | 140 | 367 |
+| basemap-tile p50 | 0,7–1,0 s (trage helft; alle acht: 86 ms) | 0,23 s | 0,43 / 0,45 s | **0,33 / 0,64 s** | 0,48 s | 1,62 s |
+| eerste regenframe | 1151 ms | 937 | 1421 / 1459 | **1719 / 1648** | 2032 | 5088 |
+| ttfh | 4026 ms | 3286 | 5135 / 5767 | **5880 / 6113** | 7692 | 25529 |
+| ttfp | 4,0–4,6 s (orkestrator) | 1606 | 3461 / 3498 | **4050 / 4053** | 5297 | 16263 |
+| lange frames 12 s, totaal | 4261 ms | 1795 | 3720 / 4618 | **5412 / 5158** | 6651 | 10047 |
+| lange frames 12 s, aantal | 22 | 18 | 35 / 48 | **53 / 50** | 56 | 41 |
+
+Gekozen: **30 %**. ttfp valt in de band van de telefoon, de decode is van −95 % naar −55 %
+gegaan en de lange frames kloppen in totale duur (+21 à +27 %). Wat afwijkt: de eerste
+mijlpalen zijn te laat (eerste regenframe +45 %, ttfh +50 %), de decode-p95 is twee keer te
+hoog en er zijn twee keer zoveel lange frames, elk korter. De oorzaak is dat één quota alle
+draden van de renderer uit één budget laat putten, terwijl een telefoon meerdere echte kernen
+heeft: decode-p50 en eerste-regenframe zijn met deze ene knop niet tegelijk goed te krijgen
+(25 % brengt de decode dichterbij maar zet ttfh op +91 %). De rig is hiermee een ruwe
+telefoon, geschikt voor rangorde en voor verschillen tussen varianten uit dezelfde build; een
+uitspraak in milliseconden over de echte telefoon blijft een PO-opname.
+
+Een eerdere stand zonder quota (page-CPU 4×, workers ongeremd) gaf op de code van de opname
+ttfp 4003 ms en ttfh 4229 ms in de snelle tak, maar met decodes van 1,1 ms; die stand
+onderschat alles wat achter de decodewachtrij wacht en is vervangen.
 
 ## Eigen basiskaart (U59)
 

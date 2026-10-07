@@ -4,6 +4,53 @@
     "description": "Koude start op nu, gepauzeerd, 30 seconden zonder interactie",
     "steps": []
   },
+  "koud-spelend": {
+    "durationMs": 30000,
+    "description": "Koude start zonder tijdpreset: de tijdlijn speelt vanzelf, 30 seconden zonder interactie (ttfp)",
+    "autoplay": true,
+    "steps": []
+  },
+  "koud-spelend-vensterregel": {
+    "durationMs": 30000,
+    "description": "Als koud-spelend, maar met de oude speelregel (spelen pas na laadfase window) via de ?dev-schakelaar: vergelijking uit dezelfde build",
+    "autoplay": true,
+    "devStorage": { "motregen-dev-speelregel": "venster" },
+    "steps": []
+  },
+  "koud-spelend-regen-laat": {
+    "durationMs": 30000,
+    "description": "Als koud-spelend-dev, maar het eerste regenframe wordt pas na de kaart-opzet gevraagd (de oude volgorde)",
+    "autoplay": true,
+    "devStorage": { "motregen-dev-eerste-regen": "laat" },
+    "steps": []
+  },
+  "koud-spelend-dev": {
+    "durationMs": 30000,
+    "description": "Als koud-spelend met ?dev maar zonder schakelaar: de eerlijke tegenhanger van koud-spelend-vensterregel",
+    "autoplay": true,
+    "devStorage": {},
+    "steps": []
+  },
+  "soepel": {
+    "durationMs": 38000,
+    "description": "Soepelheid: koude start die vanzelf speelt (afspelen tijdens laden), daarna afspelen en seeken na het laden",
+    "autoplay": true,
+    "windows": [
+      { "name": "afspelen tijdens laden", "fromMs": 2000, "toMs": 12000 },
+      { "name": "afspelen na laden", "fromMs": 15000, "toMs": 25000 },
+      { "name": "seeken na laden", "fromMs": 26500, "toMs": 36500 }
+    ],
+    "steps": [
+      { "atMs": 25500, "action": "play", "playing": false },
+      { "atMs": 26500, "action": "seek", "seekMs": 10000 }
+    ]
+  },
+  "soepel-seek-laden": {
+    "durationMs": 14000,
+    "description": "Soepelheid: koude start gepauzeerd, vanaf 2 s tien seconden seeken terwijl de data nog komt",
+    "windows": [{ "name": "seeken tijdens laden", "fromMs": 2000, "toMs": 12000 }],
+    "steps": [{ "atMs": 2000, "action": "seek", "seekMs": 10000 }]
+  },
   "journey": {
     "durationMs": 30000,
     "description": "Koude start, twee uur vooruit, tien seconden afspelen, wind, terug naar Weer",
@@ -13,6 +60,15 @@
       { "atMs": 19000, "action": "play", "playing": false },
       { "atMs": 20000, "action": "mode", "mode": "Wind" },
       { "atMs": 23000, "action": "mode", "mode": "Weer" }
+    ]
+  },
+  "modus-wissel-koud": {
+    "durationMs": 16000,
+    "description": "Koude start, anderhalve seconde na het eerste regenframe naar Gevoel (het regenvenster laadt nog), op 9 s een sprong ver vooruit (acht keer PageUp): de temperatuurlaag mag na 300 ms nooit leeg zijn",
+    "requireFilledTemperature": true,
+    "steps": [
+      { "atMs": 3000, "action": "mode", "mode": "Gevoel" },
+      { "atMs": 9000, "action": "jump", "presses": 8 }
     ]
   },
   "modus-wissel-storm": {
