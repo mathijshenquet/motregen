@@ -641,7 +641,7 @@ function resourceKind(entry: ResourceEntry): PerfResourceKind {
   const url = new URL(entry.name, 'http://localhost')
   if (url.pathname.endsWith('/manifest.json')) return 'manifest'
   if (url.pathname.includes('/chunks/') || url.pathname.endsWith('.mrf')) return 'chunks'
-  if (entry.initiatorType === 'img' || url.pathname.includes('/tiles/') || /\.(?:pbf|png|jpe?g|webp)$/i.test(url.pathname)) return 'tiles'
+  if (entry.initiatorType === 'img' || url.pathname.includes('/tiles/') || /\.(?:pmtiles|pbf|png|jpe?g|webp)$/i.test(url.pathname)) return 'tiles'
   return 'other'
 }
 

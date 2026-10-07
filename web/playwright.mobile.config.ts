@@ -1,8 +1,11 @@
 import { defineConfig, devices } from '@playwright/test'
-import { RIG_BUILD_COMMAND, RIG_FIXTURE_COMMAND } from './scripts/rig-host'
+import { rigBuild } from './scripts/rig-host'
 
 const port = Number(process.env.MOTREGEN_E2E_PORT ?? 4392)
 const dataPort = Number(process.env.MOTREGEN_E2E_DATA_PORT ?? 8392)
+const build = rigBuild(port, dataPort, process.env.MOTREGEN_MOBILE_BASEMAP ?? 'fixture')
+process.env.MOTREGEN_MOBILE_FIXTURE_DIR = build.fixtureDir
+process.env.MOTREGEN_RIG_DIST = build.distDir
 
 // Zie PerformanceProfile.rendererCpuQuotaPercent. De korte periode (5 ms) maakt van de quota een
 // gelijkmatige rem; met de standaard 100 ms zou de renderer in blokken stilvallen en zelf lange
@@ -31,13 +34,13 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `${prebuilt ? '' : `${RIG_FIXTURE_COMMAND} && `}MOTREGEN_E2E_DATA_PORT=${dataPort} caddy run --config perf/Caddyfile`,
+      command: `${prebuilt ? '' : `${build.fixtureCommand} && `}MOTREGEN_E2E_DATA_PORT=${dataPort} caddy run --config perf/Caddyfile`,
       url: `http://127.0.0.1:${dataPort}/manifest.json`,
       reuseExistingServer: false,
       timeout: 120_000,
     },
     {
-      command: `${prebuilt ? '' : `${RIG_BUILD_COMMAND} && `}MOTREGEN_E2E_PORT=${port} MOTREGEN_E2E_DATA_PORT=${dataPort} caddy run --config perf/Preview.Caddyfile`,
+      command: `${prebuilt ? '' : `${build.buildCommand} && `}MOTREGEN_E2E_PORT=${port} MOTREGEN_E2E_DATA_PORT=${dataPort} caddy run --config perf/Preview.Caddyfile`,
       url: `http://127.0.0.1:${port}`,
       reuseExistingServer: false,
       timeout: 120_000,

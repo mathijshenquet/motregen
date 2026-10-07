@@ -285,7 +285,7 @@ test('pinned isolines re-render after a manifest refresh with a new run and afte
 
   newRun = true
   await page.locator('.freshness-trigger').first().click()
-  await page.getByRole('button', { name: 'Nu verversen' }).click()
+  await page.getByRole('button', { name: 'Nu verversen', exact: true }).click()
   await page.keyboard.press('Escape')
   await page.mouse.move(5, 5)
   // De uurlagen van de nieuwe run worden opnieuw geüpload en de snede opnieuw getekend.

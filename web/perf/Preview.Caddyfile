@@ -10,7 +10,7 @@
 		reverse_proxy 127.0.0.1:{$MOTREGEN_E2E_DATA_PORT:8392}
 	}
 	handle {
-		root * tmp/rig-dist
+		root * {$MOTREGEN_RIG_DIST:dist}
 		file_server {
 			precompressed gzip
 		}

@@ -1,0 +1,460 @@
+{
+  "schema": 1,
+  "capturedAt": "2026-10-07T18:42:30.837Z",
+  "basemap": {
+    "filename": "nl-0aa536ff364f7cce.pmtiles",
+    "sha256": "0aa536ff364f7cce58a813bf9a190b5267baafcb4cc27a3949699d662f1456a2",
+    "bytes": 3536092,
+    "minzoom": 4,
+    "maxzoom": 10
+  },
+  "decision": {
+    "date": "2026-10-07",
+    "mobileTotalGateMs": 1000,
+    "p50FollowUpTargetMs": 300,
+    "p50HardGate": false,
+    "desktopTimingHardGate": false
+  },
+  "cold": [
+    {
+      "profile": "mobile-4g",
+      "source": "openfreemap",
+      "basemapContractHash": "b091de9df36b98beb9fda086b8c8cac3aa4a4ebf2c0bc6c25bad68420f7a9ec4",
+      "cpuThrottleRate": 4,
+      "runs": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-10-07T17:31:45.810Z",
+          "sourceSha": "673ac3ca630d5021b0f19061dc2458bce9d73906",
+          "basemap": {
+            "count": 5,
+            "totalMs": 5641.3,
+            "p50Ms": 749.2999999523163,
+            "p95Ms": 2432.5
+          },
+          "tileBytes": 1306253,
+          "bodyBytes": 2987829,
+          "decodes": 297,
+          "ttfrMs": 1948.8,
+          "splashGoneMs": 3967
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-10-07T17:32:16.691Z",
+          "sourceSha": "673ac3ca630d5021b0f19061dc2458bce9d73906",
+          "basemap": {
+            "count": 5,
+            "totalMs": 5805.6,
+            "p50Ms": 945.5,
+            "p95Ms": 2455.5
+          },
+          "tileBytes": 1306253,
+          "bodyBytes": 2987829,
+          "decodes": 297,
+          "ttfrMs": 1738.3,
+          "splashGoneMs": 3673.5
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-10-07T17:32:47.462Z",
+          "sourceSha": "673ac3ca630d5021b0f19061dc2458bce9d73906",
+          "basemap": {
+            "count": 5,
+            "totalMs": 5759.5,
+            "p50Ms": 869.5999999046326,
+            "p95Ms": 2476.6999999284744
+          },
+          "tileBytes": 1306253,
+          "bodyBytes": 2987829,
+          "decodes": 297,
+          "ttfrMs": 1673.8,
+          "splashGoneMs": 3602.100000023842
+        }
+      ]
+    },
+    {
+      "profile": "mobile-4g",
+      "source": "own-6f0519a",
+      "basemapContractHash": "b091de9df36b98beb9fda086b8c8cac3aa4a4ebf2c0bc6c25bad68420f7a9ec4",
+      "cpuThrottleRate": 4,
+      "runs": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-10-07T18:08:34.723Z",
+          "sourceSha": "6f0519aa140b0f1b8ccf2690b3405e29da92ba48",
+          "basemap": {
+            "count": 1,
+            "totalMs": 437.6,
+            "p50Ms": 437.59999990463257,
+            "p95Ms": 437.59999990463257
+          },
+          "tileBytes": 133345,
+          "bodyBytes": 1771489,
+          "decodes": 297,
+          "ttfrMs": 1686.4,
+          "splashGoneMs": 3610.8000000715256
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-10-07T18:09:05.900Z",
+          "sourceSha": "6f0519aa140b0f1b8ccf2690b3405e29da92ba48",
+          "basemap": {
+            "count": 1,
+            "totalMs": 499.5,
+            "p50Ms": 499.5,
+            "p95Ms": 499.5
+          },
+          "tileBytes": 133345,
+          "bodyBytes": 1771489,
+          "decodes": 297,
+          "ttfrMs": 1881.2,
+          "splashGoneMs": 3825
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-10-07T18:09:36.730Z",
+          "sourceSha": "6f0519aa140b0f1b8ccf2690b3405e29da92ba48",
+          "basemap": {
+            "count": 1,
+            "totalMs": 503,
+            "p50Ms": 503,
+            "p95Ms": 503
+          },
+          "tileBytes": 133345,
+          "bodyBytes": 1771489,
+          "decodes": 297,
+          "ttfrMs": 1635.8,
+          "splashGoneMs": 3596.1999999284744
+        }
+      ]
+    },
+    {
+      "profile": "mobile-4g",
+      "source": "own-verification",
+      "basemapContractHash": "b091de9df36b98beb9fda086b8c8cac3aa4a4ebf2c0bc6c25bad68420f7a9ec4",
+      "cpuThrottleRate": 4,
+      "runs": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-10-07T18:38:00.345Z",
+          "sourceSha": "18fe5f32dac40efc8722d0e5d67676db915b38e8",
+          "basemap": {
+            "count": 1,
+            "totalMs": 604.8,
+            "p50Ms": 604.8000000715256,
+            "p95Ms": 604.8000000715256
+          },
+          "tileBytes": 133345,
+          "bodyBytes": 1776512,
+          "decodes": 297,
+          "ttfrMs": 1677.2,
+          "splashGoneMs": 3658.2999999523163
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-10-07T18:38:31.280Z",
+          "sourceSha": "18fe5f32dac40efc8722d0e5d67676db915b38e8",
+          "basemap": {
+            "count": 1,
+            "totalMs": 255.1,
+            "p50Ms": 255.10000002384186,
+            "p95Ms": 255.10000002384186
+          },
+          "tileBytes": 133345,
+          "bodyBytes": 1771489,
+          "decodes": 297,
+          "ttfrMs": 1684.5,
+          "splashGoneMs": 3632.1999999284744
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-10-07T18:39:02.074Z",
+          "sourceSha": "18fe5f32dac40efc8722d0e5d67676db915b38e8",
+          "basemap": {
+            "count": 1,
+            "totalMs": 222.7,
+            "p50Ms": 222.70000004768372,
+            "p95Ms": 222.70000004768372
+          },
+          "tileBytes": 133345,
+          "bodyBytes": 1771489,
+          "decodes": 297,
+          "ttfrMs": 1700,
+          "splashGoneMs": 3603.399999976158
+        }
+      ]
+    },
+    {
+      "profile": "desktop",
+      "source": "openfreemap",
+      "basemapContractHash": "71dc3d996ad425692c06d31decda17b75ebe0de3bb9db6eb7c4b983359d26a11",
+      "cpuThrottleRate": 1,
+      "runs": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-10-07T17:33:34.588Z",
+          "sourceSha": "673ac3ca630d5021b0f19061dc2458bce9d73906",
+          "basemap": {
+            "count": 8,
+            "totalMs": 2650.9,
+            "p50Ms": 253.5,
+            "p95Ms": 414.39999997615814
+          },
+          "tileBytes": 1886538,
+          "bodyBytes": 3433687,
+          "decodes": 250,
+          "ttfrMs": 603.2,
+          "splashGoneMs": 3008.899999976158
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-10-07T17:34:05.784Z",
+          "sourceSha": "673ac3ca630d5021b0f19061dc2458bce9d73906",
+          "basemap": {
+            "count": 8,
+            "totalMs": 1080.4,
+            "p50Ms": 43.60000002384186,
+            "p95Ms": 269.60000002384186
+          },
+          "tileBytes": 1886538,
+          "bodyBytes": 3433687,
+          "decodes": 250,
+          "ttfrMs": 271.5,
+          "splashGoneMs": 2205.8000000715256
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-10-07T17:34:36.413Z",
+          "sourceSha": "673ac3ca630d5021b0f19061dc2458bce9d73906",
+          "basemap": {
+            "count": 8,
+            "totalMs": 1229.7,
+            "p50Ms": 44.89999997615814,
+            "p95Ms": 264.89999997615814
+          },
+          "tileBytes": 1886538,
+          "bodyBytes": 3433687,
+          "decodes": 250,
+          "ttfrMs": 291.7,
+          "splashGoneMs": 2210.8000000715256
+        }
+      ]
+    },
+    {
+      "profile": "desktop",
+      "source": "own-6f0519a",
+      "basemapContractHash": "71dc3d996ad425692c06d31decda17b75ebe0de3bb9db6eb7c4b983359d26a11",
+      "cpuThrottleRate": 1,
+      "runs": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-10-07T18:10:28.299Z",
+          "sourceSha": "6f0519aa140b0f1b8ccf2690b3405e29da92ba48",
+          "basemap": {
+            "count": 4,
+            "totalMs": 1475.1,
+            "p50Ms": 368.60000002384186,
+            "p95Ms": 369.5
+          },
+          "tileBytes": 173458,
+          "bodyBytes": 1682198,
+          "decodes": 250,
+          "ttfrMs": 744.8,
+          "splashGoneMs": 3309.600000023842
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-10-07T18:10:59.814Z",
+          "sourceSha": "6f0519aa140b0f1b8ccf2690b3405e29da92ba48",
+          "basemap": {
+            "count": 4,
+            "totalMs": 1230.5,
+            "p50Ms": 294.59999990463257,
+            "p95Ms": 346.6999999284744
+          },
+          "tileBytes": 173458,
+          "bodyBytes": 1682198,
+          "decodes": 250,
+          "ttfrMs": 277.6,
+          "splashGoneMs": 2206.399999976158
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-10-07T18:11:31.122Z",
+          "sourceSha": "6f0519aa140b0f1b8ccf2690b3405e29da92ba48",
+          "basemap": {
+            "count": 4,
+            "totalMs": 823.7,
+            "p50Ms": 206,
+            "p95Ms": 207.19999992847443
+          },
+          "tileBytes": 173458,
+          "bodyBytes": 1677175,
+          "decodes": 250,
+          "ttfrMs": 289.8,
+          "splashGoneMs": 2206.100000023842
+        }
+      ]
+    },
+    {
+      "profile": "desktop",
+      "source": "own-verification",
+      "basemapContractHash": "71dc3d996ad425692c06d31decda17b75ebe0de3bb9db6eb7c4b983359d26a11",
+      "cpuThrottleRate": 1,
+      "runs": [
+        {
+          "repetition": 1,
+          "capturedAt": "2026-10-07T18:40:08.849Z",
+          "sourceSha": "18fe5f32dac40efc8722d0e5d67676db915b38e8",
+          "basemap": {
+            "count": 4,
+            "totalMs": 926.7,
+            "p50Ms": 231.60000002384186,
+            "p95Ms": 232.30000007152557
+          },
+          "tileBytes": 173458,
+          "bodyBytes": 1677175,
+          "decodes": 250,
+          "ttfrMs": 672.1,
+          "splashGoneMs": 2609.2000000476837
+        },
+        {
+          "repetition": 2,
+          "capturedAt": "2026-10-07T18:40:40.710Z",
+          "sourceSha": "18fe5f32dac40efc8722d0e5d67676db915b38e8",
+          "basemap": {
+            "count": 4,
+            "totalMs": 1421.4,
+            "p50Ms": 355.09999990463257,
+            "p95Ms": 356
+          },
+          "tileBytes": 173458,
+          "bodyBytes": 1682198,
+          "decodes": 250,
+          "ttfrMs": 352.7,
+          "splashGoneMs": 2308.5
+        },
+        {
+          "repetition": 3,
+          "capturedAt": "2026-10-07T18:41:12.027Z",
+          "sourceSha": "18fe5f32dac40efc8722d0e5d67676db915b38e8",
+          "basemap": {
+            "count": 4,
+            "totalMs": 1330,
+            "p50Ms": 332,
+            "p95Ms": 333.60000002384186
+          },
+          "tileBytes": 173458,
+          "bodyBytes": 1682198,
+          "decodes": 250,
+          "ttfrMs": 295.8,
+          "splashGoneMs": 2207.5
+        }
+      ]
+    }
+  ],
+  "warm": [
+    {
+      "viewportWidth": 390,
+      "browser": "Desktop Chrome",
+      "cpuThrottleRate": 4,
+      "network": "4G, 9 Mbps, 60 ms RTT",
+      "browserHttpCache": "cleared before visit",
+      "networkRequests": 0,
+      "ranges": [
+        {
+          "status": 206,
+          "cached": true
+        },
+        {
+          "status": 206,
+          "cached": true
+        }
+      ],
+      "cache": {
+        "entries": 2,
+        "bytes": 43611
+      },
+      "firstVisit": {
+        "count": 1,
+        "p50Ms": 490.6,
+        "p95Ms": 490.6,
+        "totalMs": 490.60000002384186,
+        "durationsMs": [
+          490.60000002384186
+        ],
+        "ttfrMs": 1986.9
+      },
+      "warmVisit": {
+        "count": 1,
+        "p50Ms": 834.3,
+        "p95Ms": 834.3,
+        "totalMs": 834.3000000715256,
+        "durationsMs": [
+          834.3000000715256
+        ],
+        "ttfrMs": 1266.8
+      }
+    },
+    {
+      "viewportWidth": 1280,
+      "browser": "Desktop Chrome",
+      "cpuThrottleRate": 1,
+      "network": "unthrottled",
+      "browserHttpCache": "cleared before visit",
+      "networkRequests": 0,
+      "ranges": [
+        {
+          "status": 206,
+          "cached": true
+        },
+        {
+          "status": 206,
+          "cached": true
+        },
+        {
+          "status": 206,
+          "cached": true
+        },
+        {
+          "status": 206,
+          "cached": true
+        },
+        {
+          "status": 206,
+          "cached": true
+        }
+      ],
+      "cache": {
+        "entries": 5,
+        "bytes": 83724
+      },
+      "firstVisit": {
+        "count": 4,
+        "p50Ms": 290.5,
+        "p95Ms": 298.5,
+        "totalMs": 1169.3000000715256,
+        "durationsMs": [
+          288,
+          290.5,
+          292.3000000715256,
+          298.5
+        ],
+        "ttfrMs": 416.5
+      },
+      "warmVisit": {
+        "count": 4,
+        "p50Ms": 221.3,
+        "p95Ms": 253.2,
+        "totalMs": 917.299999833107,
+        "durationsMs": [
+          221.10000002384186,
+          221.29999995231628,
+          221.69999992847443,
+          253.19999992847443
+        ],
+        "ttfrMs": 1540.5
+      }
+    }
+  ]
+}

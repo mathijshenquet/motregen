@@ -8,7 +8,7 @@ import { installMobileProbe } from './mobile-probe'
 import { buildChromeTrace, type SelfProfilerTrace } from '../src/core/profile-recorder'
 import { createSourceMapResolver } from '../scripts/prof-source-map'
 import { profileTop } from '../scripts/prof-top'
-import { RIG_DIST, hostLoadAverage, waitForQuietHost } from '../scripts/rig-host'
+import { hostLoadAverage, waitForQuietHost } from '../scripts/rig-host'
 import { completedBytesBefore, reconcileWire, renderMobileReport, smoothness, summarizePhases, type MobileReport, type SmoothnessWindow, type WireRequest } from '../scripts/mobile-report'
 import type { PerfMonitor } from '../src/core/perf'
 
@@ -22,12 +22,13 @@ interface ScenarioStep {
   mode?: 'Weer' | 'Lucht' | 'Gevoel' | 'Wind'
 }
 interface Scenario { durationMs: number; description: string; steps: ScenarioStep[]; autoplay?: boolean; devStorage?: Record<string, string>; windows?: SmoothnessWindow[] }
-interface RigOptions { profiles: string[]; scenarios: string[]; repeat: number; cpuRate?: number }
+interface RigOptions { profiles: string[]; scenarios: string[]; repeat: number; cpuRate?: number; basemap?: string }
 const options = JSON.parse(process.env.MOTREGEN_MOBILE_OPTIONS ?? '{"profiles":["mobile-4g"],"scenarios":["koud"],"repeat":1,"cpuRate":4}') as RigOptions
 const scenarios = JSON.parse(readFileSync('perf/scenarios.json', 'utf8')) as Record<string, Scenario>
 const QUIET_HOST_WAIT_MS = 15 * 60_000
 const synthGridScale = Number(process.env.MOTREGEN_SYNTH_GRID_SCALE ?? 1)
 const rendererCpuQuotaPercent = Number(process.env.MOTREGEN_RIG_RENDERER_QUOTA ?? 0) || null
+const fixtureRoot = process.env.MOTREGEN_MOBILE_FIXTURE_DIR ?? 'public/perf-mobile'
 const sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
 
 for (const profileId of options.profiles) {
@@ -39,14 +40,16 @@ for (const profileId of options.profiles) {
         test.setTimeout(60_000 + QUIET_HOST_WAIT_MS)
         await waitForQuietHost(QUIET_HOST_WAIT_MS, (message) => console.log(message))
         const loadAverage = hostLoadAverage()
+        if (profileId === 'desktop') await page.setViewportSize({ width: 1280, height: 800 })
         const calibrated = performanceProfile(profileId)
-        const profile = { ...calibrated, cpuThrottleRate: options.cpuRate ?? calibrated.cpuThrottleRate }
+        const profile = { ...calibrated, cpuThrottleRate: profileId === 'desktop' ? 1 : options.cpuRate ?? calibrated.cpuThrottleRate }
         const actions: MobileReport['actions'] = []
         const errors: string[] = []
         const findings: string[] = []
         const externalRequests: string[] = []
         page.on('pageerror', (error) => errors.push(error.message))
         page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
+        page.on('response', (response) => { if (response.status() >= 400) errors.push(`HTTP ${response.status()}: ${response.url()}`) })
         const cdp = await context.newCDPSession(page)
         await applyEmulation(cdp, profile)
         await cdp.send('Network.setCacheDisabled', { cacheDisabled: true })
@@ -81,7 +84,7 @@ for (const profileId of options.profiles) {
         const capturedAt = new Date().toISOString()
         // Een ?t-preset zet de tijdlijn stil; zonder preset speelt de app vanzelf, zoals bij een gewone bezoeker.
         await page.goto(`${scenario.autoplay ? '/?perf=1&modus=weer' : '/?perf=1&t=%2B0u&modus=weer'}${scenario.devStorage ? '&dev' : ''}`, { waitUntil: 'commit' })
-        await page.waitForFunction(() => window.__motregenPerf?.snapshot().firstRainMs !== null && window.__motregenPerf?.snapshot().firstRainMs !== undefined)
+        await page.waitForFunction(() => window.__motregenPerf?.snapshot().firstRainMs !== null && window.__motregenPerf?.snapshot().firstRainMs !== undefined, undefined, { timeout: 30_000 }).catch((error) => { throw new Error(`${error}\n${errors.join('\n')}\n${externalRequests.join('\n')}`) })
         if (!scenario.autoplay) await expect(page.getByRole('slider', { name: 'Tijd' })).not.toHaveAttribute('data-playing', '')
 
         for (const step of scenario.steps) {
@@ -163,7 +166,7 @@ for (const profileId of options.profiles) {
           platform: `Pixel 5-emulatie, renderer-quota ${rendererCpuQuotaPercent ?? 'geen'}`,
           userAgent: await page.evaluate(() => navigator.userAgent),
         })
-        const resolveFrame = createSourceMapResolver(RIG_DIST)
+        const resolveFrame = createSourceMapResolver(process.env.MOTREGEN_RIG_DIST ?? 'dist')
         const unmappedPositions = new Set<string>()
         const top = profileTop(trace, (frame) => {
           try { return resolveFrame(frame) }
@@ -177,6 +180,7 @@ for (const profileId of options.profiles) {
         if (unmappedPositions.size) findings.push(`${unmappedPositions.size} sampleposities zonder sourcemap-positie; oorspronkelijke bundelpositie bewaard`)
         const fixtureHash = hashFixture()
         const contractHash = hashContract({ fixtureHash, profile, scenario })
+        const basemapContractHash = hashContract({ weatherHash: hashWeatherFixture(), profile, scenario, viewport: page.viewportSize() })
         const fieldBytes: Record<string, number> = {}
         const traceRequests = captured.loads.requests
         const lateOutsideIntent: WireRequest[] = []
@@ -195,7 +199,7 @@ for (const profileId of options.profiles) {
         if (!Object.keys(captured.milestones.windowReadyMs).length) findings.push('U52 window-ready-meetpunten ontbreken op deze main; ttfh komt uit de loadtrace')
         if (scenario.steps.some((step) => step.mode === 'Lucht') && !actions.some((action) => action.detail === 'modus Lucht')) findings.push('Deze main heeft nog geen Lucht-knop: bestaande Weer-wolkenfocus gebruikt en expliciet geregistreerd')
         const report: MobileReport = {
-          meta: { profile: profileId, scenario: scenarioId, sourceSha, capturedAt, cpuThrottleRate: profile.cpuThrottleRate, contractHash, fixtureHash, network: profile.network, hardwareConcurrency: captured.hardwareConcurrency, loadAverage, synthGridScale, rendererCpuQuotaPercent },
+          meta: { profile: profileId, scenario: scenarioId, sourceSha, capturedAt, cpuThrottleRate: profile.cpuThrottleRate, contractHash, fixtureHash, basemapContractHash, network: profile.network, hardwareConcurrency: captured.hardwareConcurrency, loadAverage, synthGridScale, rendererCpuQuotaPercent },
           milestones: captured.milestones,
           decode,
           wire: { ...wire, rangeRequests: requests.filter((request) => request.range !== null).length, beforeTtfrBytes: completedBytesBefore(requests, captured.milestones.ttfrMs), beforeTtfhBytes: completedBytesBefore(requests, captured.milestones.ttfhMs) },
@@ -325,11 +329,24 @@ function recordPlaywrightNetwork(page: Page) {
 
 function hashFixture(): string {
   const hash = createHash('sha256')
-  for (const filename of ['manifest.json', ...readdirSync('public/perf-mobile/chunks').sort().map((name) => `chunks/${name}`), 'style.json', 'tile.pbf']) {
-    const content = readFileSync(join('public/perf-mobile', filename))
+  function files(directory: string, prefix = ''): string[] {
+    return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => entry.isDirectory()
+      ? files(join(directory, entry.name), `${prefix}${entry.name}/`)
+      : [`${prefix}${entry.name}`])
+  }
+  for (const filename of files(fixtureRoot).sort()) {
+    const content = readFileSync(join(fixtureRoot, filename))
     hash.update(filename)
     // De style-URL bevat uitsluitend een lokale poort, geen deel van de datasetidentiteit.
-    hash.update(filename === 'style.json' ? content.toString().replace(/127\.0\.0\.1:\d+/g, '127.0.0.1:DATA') : content)
+    hash.update(filename.endsWith('.json') ? content.toString().replace(/127\.0\.0\.1:\d+/g, '127.0.0.1:DATA') : content)
+  }
+  return hash.digest('hex')
+}
+
+function hashWeatherFixture(): string {
+  const hash = createHash('sha256')
+  for (const filename of ['manifest.json', ...readdirSync(join(fixtureRoot, 'chunks')).sort().map((name) => `chunks/${name}`)]) {
+    hash.update(filename).update(readFileSync(join(fixtureRoot, filename)))
   }
   return hash.digest('hex')
 }

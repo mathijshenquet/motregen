@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { smoothness } from './mobile-report'
-import { compareBaseline, completedBytesBefore, reconcileWire, repetitionSpread, summarizePhases, type MobileBaseline, type WireRequest } from './mobile-report'
+import { compareBaseline, completedBytesBefore, reconcileWire, repetitionSpread, resourceKind, smoothness, summarizePhases, type MobileBaseline, type WireRequest } from './mobile-report'
 
 const baseline: MobileBaseline = { schema: 1, profile: 'mobile-4g', scenario: 'koud', sourceSha: 'abc', capturedAt: '2026-10-07', contractHash: 'fixed', regressionLimitPercent: 10, wireBytes: 1_000, decodes: 100 }
 const request: WireRequest = { url: '/data/chunks/rain.mrf', startMs: 10, endMs: 100, encodedBodyBytes: 1_000, range: 'bytes=0-999', status: 206, failure: null }
 
 describe('mobiele rapportage', () => {
+  it('telt PMTiles-ranges bij kaartbytes', () => {
+    expect(resourceKind('/data/basemap/nl-0123456789abcdef.pmtiles')).toBe('tiles')
+  })
   it('houdt bodies, ranges, categorieën en een strikte 2%-bevinding uit elkaar', () => {
     const equal = reconcileWire([request], [{ ...request, endMs: 100, encodedBodyBytes: 1_000 }])
     expect(equal.playwright.chunks).toEqual({ requests: 1, bytes: 1_000, meanRequestBytes: 1_000 })

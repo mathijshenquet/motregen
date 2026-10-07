@@ -47,6 +47,7 @@
         ingestPackage = fakeIngest;
         camsPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-ingest;
         frontendPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-web;
+        basemapPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-basemap;
         bot = {
           enable = true;
           package = fakeBot;
@@ -126,6 +127,23 @@
     assert "cache-control: public, max-age=31536000, immutable" in chunk_headers, chunk_headers
     assert "content-range: bytes 0-7/" in chunk_headers, chunk_headers
     machine.succeed("test \"$(cat /tmp/chunk)\" = MRF0TEST")
+
+    basemap_file = "${(builtins.fromJSON (builtins.readFile ../../tools/basemap/tiles/manifest.json)).filename}"
+    assert basemap_file.startswith("nl-") and len(basemap_file) == 27, basemap_file
+    basemap_headers = machine.succeed(
+      f"curl --silent --show-error --header 'Range: bytes=0-6' --dump-header - --output /tmp/basemap http://localhost/data/basemap/{basemap_file}"
+    ).lower()
+    assert "206 partial content" in basemap_headers, basemap_headers
+    assert "cache-control: public, max-age=31536000, immutable" in basemap_headers, basemap_headers
+    assert "content-range: bytes 0-6/" in basemap_headers, basemap_headers
+    assert "access-control-allow-origin: *" in basemap_headers, basemap_headers
+    assert "access-control-expose-headers: accept-ranges, content-length, content-range, etag" in basemap_headers, basemap_headers
+    assert "x-robots-tag: noindex" in basemap_headers, basemap_headers
+    assert "content-encoding" not in basemap_headers, basemap_headers
+    machine.succeed("test \"$(cat /tmp/basemap)\" = PMTiles")
+    for path in ["nl.pmtiles", "manifest.json", "nl-0000000000000000.pmtiles"]:
+      status = machine.succeed(f"curl --silent --output /dev/null --write-out '%{{http_code}}' http://localhost/data/basemap/{path}")
+      assert status == "404", (path, status)
 
     frontend_headers = machine.succeed(
       "curl --silent --show-error --dump-header - --output /tmp/index http://localhost/"
