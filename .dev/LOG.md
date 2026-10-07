@@ -112,6 +112,30 @@
   adoptie (optie 1 gebouwd), MIP-19/20; push-notificaties (Telegram eerst, Web Push daarna) als MIP-22
   als gewenst; deploy; `TG_BOT_KEY` + `MOTREGEN_CACHE_CHAT_ID` in prod. **VOOR AGENTS**: U58 deel 2
   (zoekpil-morph, bot), U54 lus + stap 4 fog/skeleton, U57 pad-URI's, skywatch-rooktest, U41b, U29, U40.
+- **Nacht (23:00–00:30, PO slaapt, "alles naar eigen inzicht afronden")**: **U58 deel 2 gemerged**
+  (29d30a63: zoekpil-morph in één beweging met inhoud erna en full width in de smalle modus, jog-default
+  vast + strook sleepbaar op touch, dev-panel.spec, bot: /temperatuur (+/hitte), loop als standaard-
+  antwoord, knop Temperatuur, 10-minuten-temperatuurloop, deltaknoppen per modus, loop-upload met
+  afmetingen, klok groter; e2e bouwt naar tmp/e2e-dist; devtools-trace/search-trace-scripts; location.
+  spec wisknop). PO-oordeel landscape-proef: "afschuwelijk" → staand blijft (mijn misverstand hersteld).
+  **U54 gemerged** (486e23da: MIP-19 meetpunten, po-android met cgroup-CPUQuota, speelregel cursorframe
+  + volgend frame met 3 s wachtlimiet, scrubber-kader tijdens laden, temperatuurpalet-fix, soepelheids-
+  scenario's, ?dev Eerste regen/Kaderhemel, prof:firefox; rig ttfp 1,68 s vs Buienradar 2,52 s). De
+  rode decode-budget.spec vond een echte bug in de speelregel (lus haalde de hele tijdlijn binnen) —
+  gefixt vóór de merge. Conflicten U54×U58 (jog-optie weg vs Laden-groep erbij) door mij opgelost;
+  dev-paneel boven de Perf-HUD (z 1001) omdat de HUD anders de Diagnose-knoppen afdekt. Micro-fixes op
+  main: location.spec (startlocatie na herlaad via eigen permalink → geen geocoder; 16 px/44 px/20 px
+  sinds U34; verse navigatie i.p.v. reload), zoekpil-radius 22 px, dev/preview serveren de PMTiles
+  lokaal (grijze kaart op 4330). Bot herstart vanaf main tegen 4330 (staand). Open: verse-worktree-
+  unit-run laat soms `wind-layer.test.ts` op bestandsniveau omvallen onder load (herhaling groen) —
+  foutmelding nog niet gevangen. **U60 loopt nog** (gpt-6.1-sol, 4340, PR #87): labels en nacht-
+  contrast goed, groen nog te schaars en verkeerd (parken i.p.v. bos/landcover) + bebouwd grijs
+  ontbreekt → bijgestuurd (±15 % van Liberty, budget +25 %); Codex-sessie herstart na uitval om het uur.
+- **Voor de PO morgen (live op http://ageq-dev2:4330/)**: zoekpil-morph (390 én ~800 px), speelregel +
+  laadkader + temperatuurpalet, Kaderhemel/Eerste regen (?dev, kiezen of weg), Telegram
+  /temperatuur-loop en loop-bubbelbreedte, U60-kaart op 4340 zodra "klaar". Buienradar op de telefoon
+  meten (recept docs/perf.md) of adb-server openzetten. Deploy + prod-secrets (TG_BOT_KEY, cache-chat).
+  MIP-19/20/21 adoptie; MIP-22 push-notificaties als gewenst.
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
