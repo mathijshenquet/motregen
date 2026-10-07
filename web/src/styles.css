@@ -673,6 +673,7 @@ button.column-mode { width: 100%; cursor: pointer; }
 .forecast-table.day-night-table tr.day-hour td { background: transparent; }
 :root[data-theme="dark"] .forecast-table.day-night-table tr.day-hour .weather-icon .weather-cloud { fill: #e7eef1; stroke: #8399a3; }
 .forecast-table tbody tr:not(.sun-row):not(.history-toggle-row) td { border-bottom-color: color-mix(in srgb, #fff 38%, var(--line)); }
+.forecast-table.day-night-table tr.night-hour td { border-bottom-color: color-mix(in srgb, #fff 16%, var(--line)); }
 tr.past-hour td { color: color-mix(in srgb, var(--text) 68%, var(--muted)); }
 tr.pending-hour td { color: var(--muted); }
 /* De nu-markering staat in de 8 px-goot van de eerste kolom: de tijd springt niet in. */

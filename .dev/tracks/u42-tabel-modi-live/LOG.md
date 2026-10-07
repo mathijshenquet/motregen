@@ -581,6 +581,18 @@
   even leesbaar zonder de gradients op te knippen; `UV` is ondergeschikt aan de waarde en de komma
   sluit visueel aan op beide cijfers. Computed style bevestigt `font-kerning: none`.
 
+## 2026-10-07 14:21 UTC
+
+- De universele separator was in het nachtvlak te hard. Dagranden behouden 38% wit voor contrast op
+  wisselende luchtkleuren; nachtranden gebruiken nu 16% wit in dezelfde lokale lijnkleur, zodat de
+  sectie weer als één rustig donker vlak leest zonder dat rijen in elkaar verdwijnen.
+- Synchrone receipts: `git diff --check` en `pnpm build` exit 0; de build omvatte `tsc -b` en leverde
+  113 modules, `index-CeC2HYwd.js`, `index-CchBVGyN.css`, PWA + workers. De voorafgaande codeversie
+  had 68 bestanden/439 tests groen; deze correctie raakt alleen CSS.
+- Eigen visuele controle op desktop 1280×900 en mobiel 390×844: de dagseparator blijft helder, de
+  nachtranden zijn teruggebracht tot zachte blauwgrijze haarlijnen en de zonregel houdt zijn eigen
+  duidelijke begrenzing.
+
 ## 2026-10-07 13:26 UTC
 
 - De tabelcyclus is nu een gebruikersoptie “Dag en nacht in tabel” onder Weergave, standaard aan en
