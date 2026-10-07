@@ -67,3 +67,10 @@
 
 - Commit `f8126b7` bevat dagboek, render/grading/analyse, contracttests en de tot dan verzamelde append-only samples. `git commit` exit 0.
 - Receipt: `git push origin HEAD:track/u46-wolken-webcam-poller` exit 0 (`490c0da..f8126b7`). Draft-PR #71 blijft draft en wordt bijgewerkt met de feitelijke groene gates en de twee rooktestblokkades.
+
+## 2026-10-07T10:57:30+02:00 — slot: gemerged en overgedragen
+
+- U46 is op `main` gemerged als `68087d1`; receipt: `git ls-remote origin refs/heads/main` exit 0 en wees naar `68087d18abca5b46d47009eee6eeec0ba1503b91`.
+- Onafhankelijke mergegate door de orkestrator: typecheck exit 0, unit exit 0, build exit 0, pytest 11 tests exit 0 en pyright exit 0.
+- De skywatch-user-timer is opnieuw geïnstalleerd vanuit `/home/mathijs/motregen`. Lokale controle exit 0: `WorkingDirectory=/home/mathijs/motregen`, timer `ActiveState=active`, laatste service `Result=success` en `ExecMainStatus=0`. Deze trackworktree hoeft niet meer te pollen.
+- De Decisions-rooktest met `OPENAI_API_KEY` en tien daglichtbeelden is expliciet overgedragen aan een verse worker vanaf `main`. U46-slot gesloten; geen werk meer open in deze track.
