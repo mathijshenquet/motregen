@@ -1064,14 +1064,23 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
   // Zolang het versheidspaneel open is staat de klok stil (PO 2026-09-25 live).
   let playingBeforeFreshness = false
+  let freshnessOpen = false
   function pauseForFreshness(): void {
     usage.mark('fresh')
+    freshnessOpen = true
     playingBeforeFreshness = playing()
     setPlaying(false)
   }
   function resumeAfterFreshness(): void {
+    freshnessOpen = false
     if (playingBeforeFreshness) setPlaying(true)
     playingBeforeFreshness = false
+  }
+  // De scrubber hervat 1 s na een sleep; als het versheidspaneel intussen open ging, mag dat niet
+  // onder het paneel door (bug PO 2026-10-07): onthoud het en hervat pas bij sluiten.
+  function setPlayingFromScrubber(value: boolean): void {
+    if (freshnessOpen) { playingBeforeFreshness = value; return }
+    setPlaying(value)
   }
 
   async function applyMapTheme(nextTheme: MapTheme): Promise<void> {
@@ -2715,7 +2724,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           locationLabel={status()}
           onCursor={scrub}
           onIntent={completeOnIntent}
-          onPlaying={setPlaying}
+          onPlaying={setPlayingFromScrubber}
           glideRate={glideRate()}
           onPlayPressed={() => usage.mark('play')}
           clouds={{ timeline: cloudTimelines(), values: cloudValues() }}
