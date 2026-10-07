@@ -27,8 +27,15 @@ de URL in je eerste bericht aan de PO. Test je stappen zelf ook op een smal view
 
 1. **Weer standaard gepind.** `FocusMode` krijgt een vaste standaardmodus `clouds`→ hernoem
    naar `weather` waar dat de leesbaarheid helpt; er is altijd precies één gepinde modus;
-   klik op de gepinde kop doet niets (geen "terug naar niets"). Weer-modus = alleen regen op
-   de kaart + regenhistogram. Baken: `pinFeel`/`pinWind` blijven; voeg `pinAir` toe
+   klik op de gepinde kop doet niets (geen "terug naar niets"). Weer-modus = de standaard-
+   kaart zoals die nu zonder pin is: regen plus de bestaande achtergrondwind (ambient) blijven;
+   "alleen regen" betekent dat Weer geen wolkensluier/-modus overneemt, niet dat de wind
+   verdwijnt (PO-steer 2026-10-07). In het histogram blijven de drie wolkenlagen in Weer
+   zichtbaar zoals vóór U42: rustig, onder het regenhistogram (geen kale regen-only grafiek).
+   Lucht (stap 2) gebruikt dezelfde lagen als actieve modus (volle nadruk, laagwaarden bij de
+   cursor) en voegt de wolkensluier op de kaart toe (PO-verduidelijking 2026-10-07, tweede).
+   Stap 1, 2 en 3 zijn samen de eerste review-eenheid. Bij semantische twijfel over
+   bestaand gedrag: eerst vragen, dan pas verwijderen. Baken: `pinFeel`/`pinWind` blijven; voeg `pinAir` toe
    (MIP-13-contract in `docs/analytics.md` + `USAGE_FIELDS`/schema-versie).
 2. **Lucht** vervangt de kolommen UV en Weer-als-wolkenmodus: één kolom met eigen modus
    (`air`): kaart = bewolkingssluier (nu `clouds`), scrubber = wolkenlagen zoals nu in Weer.
