@@ -627,3 +627,74 @@ Receipts: `pnpm typecheck` exit 0, `pnpm test` exit 0 (479), `pnpm build` exit 0
 `pnpm exec tsx scripts/pixel-diff.ts http://127.0.0.1:4357 http://127.0.0.1:4356 tmp/u54/diff-r8`
 (grootste afwijking 1), `pnpm perf:mobile --profile po-android --scenario
 soepel,soepel-seek-laden --repeat 3` (exit 1 door de bekende wire-boekhouding/spreiding).
+
+## 2026-10-08 07:20 — PO-bug "temperatuur zonder kleurschaal" gevonden en gefixt; rig herijkt; lus-regel op het herijkte profiel
+
+**Rig herijkt (1f79aa6).** Productie-headers: regen 1250 × 1350 cellen, uurvelden 209 × 225 of
+kleiner, wolken 79 × 85. De rig rekte álle velden ×3 op. Nu: alleen regen ×6 (1140 × 1380),
+renderer-quota 40 %. Tegen de warme telefoonopname van 18:06: eerste regenframe 1347 tegen
+1314 ms, ttfp 1745 tegen 1797 ms, regen-decode 19,8 tegen 27,8 ms, ttfh 3951 tegen 2836 ms.
+Tabel en kanttekeningen in docs/perf.md §Profiel po-android. Getallen van vóór de herijking
+zijn niet vergelijkbaar met die erna.
+
+**Lus-regel op het herijkte profiel** (HEAD met R8, ×3, loadavg 5,3–7,9, `perf:mobile` exit 0):
+
+| scenario | ttfp (run 1 / 2 / 3) | eerste regenframe | ttfh | blank-visible | LoAF 12 s |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| koud-spelend | 1675 / 1684 / 1653 | 1325 ms | 4443 ms | 3806 ms | 2932 ms |
+| ttfp-ref Buienradar (quota 40 %) | 3040 / 2523 / 2461 | 1462 ms (radar) | | | |
+
+ttfp 1675 ms tegen ttfp-ref 2523 ms (mediaan), ≈ 0,66 ×.
+
+**PO-bug: temperatuur-kaartmodus "alles grijs/transparant, zonder kleurschaal".**
+Gereproduceerd (`web/scripts/mode-shot.ts`, productiegrote regendata, renderer-quota 40 %,
+4G-lijn): 1 s na een wissel naar Gevoel staan de isolijnen en het label er, maar zonder
+vulling; de vulling komt pas na ≈ 2,5 s. Still: `stills/temperatuur-wissel-voor.png`
+(v.l.n.r. 0,3 / 1 / 2,5 / 6 s na de wissel, dan 0,3 / 1 / 2,5 s na een sprong ver vooruit).
+
+Echte oorzaak — niet het cursorframe en geen 0-byte frame, maar het **palet**:
+`isolineStyle()` geeft de laag pas een palet als `temperatureRange()` bekend is, en
+`updateTemperatureRange()` berekent dat bereik door álle uurframes van de gevoelstemperatuur
+van de passieve verwachting te decoderen. De decodewachtrij is tijd-majeur (MIP-19 punt 5):
+frames ver van de cursor zijn rustwerk en komen als laatste, achter de hele regenachterstand.
+Zonder palet tekent `IsolineLayer` geen vulling. Op een telefoon die nog regen laadt duurt dat
+seconden; in de koude opname van 18:05 liep de laatste `feels_like`-decode tot 16,8 s.
+Bovendien start die berekening pas bij de eerste wissel naar Gevoel.
+
+Fix (`App.tsx`, `isoline-layer.ts`):
+1. **Voorlopig palet**: het eerste uurframe dat de kaart toont geeft meteen een bereik (binnen
+   Nederland/Vlaanderen); het volledige bereik vervangt het zodra het er is.
+2. **Vorige snede vasthouden**: `showIsolineField` zet de tijd van de laag pas als de uurlagen
+   van de cursor geladen zijn; tot dan blijft de vorige snede staan (sprong buiten het venster,
+   afspelen voorbij wat geladen is).
+3. **Cursor-uurlagen vooraf**: zodra de regen staat laden in rust de twee à drie uurlagen van
+   de gevoelstemperatuur rond de cursor, zodat een directe wissel een snede heeft.
+
+Ná (`stills/temperatuur-wissel-na.png`): de vulling staat er op 0,3 s na de wissel; na de
+sprong blijft de laag gevuld.
+**Zichtbaar gevolg, voor de PO:** het voorlopige palet is smaller dan het definitieve, dus de
+kleuren verspringen één keer (in de still van geelgroen naar blauw) wanneer het volledige
+bereik binnen is. Dat is eerlijker dan grijs maar het is wél een kleursprong; alternatief is
+het bereik vooraf in rust berekenen (kost ≈ 24 extra decodes op elke koude start, ook als
+niemand naar Gevoel gaat) of een vast seizoensbereik. Keuze aan de PO.
+
+**Rig-check** (gevraagd: 0 lege beelden na de eerste 300 ms): `IsolineLayer` telt nu
+`blankDraws` met oorzaak (`slice` / `palette` / `fill`) en tijdstip; scenario
+`modus-wissel-koud` (wissel naar Gevoel op 3 s, sprong op 9 s) faalt als het aantal > 0 is.
+- zonder fix (×2): 4 / 4 lege beelden;
+- met fix (×2): 3 / 3, oorzaak alleen `slice` — palet en vulling 0, de sprong 0.
+De check is dus **nog rood**. De drie resterende beelden vallen 0,6–0,85 s na de wissel in
+≈ 0,2 s: de laag is dan net aangemaakt en wacht op de eerste snede van de tracer-worker. Er
+bestaat op dat moment geen vorige snede om vast te houden. Dat is het volgende stuk
+(samen met orkestrator-kandidaat 1: isolines cachen/pacen); ik heb de eis niet versoepeld.
+
+**PO-opnames moduswissel (20:33 a/b), genoteerd, nog niet opgepakt:** LoAF 3× / 255 ms en
+7× / 534 ms; bij Wind `isoline-trace` 196× / 3,3 s en 277× / 4,4 s. Kandidaten: (1) isolines
+alleen rond de cursor traceren, de rest gepaced en per uur gecachet; (2) moduswissel-decodes
+pacen (cursorframe eerst, dan ± 1 u, rest in rust) — het vooraf laden hierboven is daar het
+begin van, alleen voor temperatuur; (3) `isoline-trace` en LoAF per wissel als kolommen in het
+rig-scenario. Niet gebouwd.
+
+Receipts: `pnpm typecheck` exit 0, `pnpm test` exit 0 (479), `pnpm build` exit 0;
+`pnpm perf:mobile --profile po-android --scenario modus-wissel-koud --repeat 2` exit 1
+(de check, zie boven).

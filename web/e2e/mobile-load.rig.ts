@@ -14,14 +14,16 @@ import type { PerfMonitor } from '../src/core/perf'
 
 interface ScenarioStep {
   atMs: number
-  action: 'scrub' | 'play' | 'mode' | 'seek'
+  action: 'scrub' | 'play' | 'mode' | 'seek' | 'jump'
+  /** jump: zo vaak PageUp op de tijdslider, zonder eis aan de precieze afstand. */
+  presses?: number
   /** seek: zo lang elke 100 ms één stap vooruit op de tijdslider. */
   seekMs?: number
   minutes?: number
   playing?: boolean
   mode?: 'Weer' | 'Lucht' | 'Gevoel' | 'Wind'
 }
-interface Scenario { durationMs: number; description: string; steps: ScenarioStep[]; autoplay?: boolean; devStorage?: Record<string, string>; windows?: SmoothnessWindow[] }
+interface Scenario { durationMs: number; description: string; steps: ScenarioStep[]; autoplay?: boolean; devStorage?: Record<string, string>; windows?: SmoothnessWindow[]; requireFilledTemperature?: boolean }
 interface RigOptions { profiles: string[]; scenarios: string[]; repeat: number; cpuRate?: number; basemap?: string }
 const options = JSON.parse(process.env.MOTREGEN_MOBILE_OPTIONS ?? '{"profiles":["mobile-4g"],"scenarios":["koud"],"repeat":1,"cpuRate":4}') as RigOptions
 const scenarios = JSON.parse(readFileSync('perf/scenarios.json', 'utf8')) as Record<string, Scenario>
@@ -124,6 +126,13 @@ for (const profileId of options.profiles) {
               encodedBodyBytes: entry.transferSize === 0 ? 0 : entry.encodedBodySize,
             })),
             frameTimes: window.__mobileProbe.frameTimes,
+            temperatureBlankDraws: (() => {
+              const settled = (window as unknown as { __blankDrawsAtSettle?: number }).__blankDrawsAtSettle
+              const total = (window as unknown as { __motregenIsolines?: () => { blankDraws?: number } }).__motregenIsolines?.().blankDraws ?? 0
+              return settled === undefined ? null : total - settled
+            })(),
+            temperatureBlankReasons: (window as unknown as { __motregenIsolines?: () => { blankReasons?: { slice: number; palette: number; fill: number } } }).__motregenIsolines?.().blankReasons ?? null,
+            temperatureBlankAt: (window as unknown as { __motregenIsolines?: () => { blankAt?: number[] } }).__motregenIsolines?.().blankAt ?? [],
             timeOrigin: performance.timeOrigin,
             hardwareConcurrency: navigator.hardwareConcurrency,
           }
@@ -194,6 +203,7 @@ for (const profileId of options.profiles) {
           if (isFocusField && lastMode && nextMode && request.endMs !== null && request.endMs > nextMode.actualMs) lateOutsideIntent.push(request)
         }
         if (captured.milestones.blankVisibleMs > 0) findings.push(`blank-visible-ms ${captured.milestones.blankVisibleMs}: na de splash stond er een leeg slot in beeld (doel 0, MIP-19)`)
+        if (captured.temperatureBlankDraws) findings.push(`Temperatuurlaag ${captured.temperatureBlankDraws} beelden leeg na de eerste 300 ms van de moduswissel (doel 0); oorzaken over de hele run: ${JSON.stringify(captured.temperatureBlankReasons)}, tijdstippen ${captured.temperatureBlankAt.join(' ')}`)
         if (scenario.autoplay && captured.milestones.ttfpMs === null) findings.push('ttfp niet bereikt: geen frame-wissel tijdens afspelen binnen de meetduur')
         if (!self) findings.push(captured.self.error ?? 'Self-Profiling leverde geen samples')
         if (!Object.keys(captured.milestones.windowReadyMs).length) findings.push('U52 window-ready-meetpunten ontbreken op deze main; ttfh komt uit de loadtrace')
@@ -207,6 +217,7 @@ for (const profileId of options.profiles) {
           mainThread: { samples: self?.samples.length ?? 0, busySamples: self?.samples.filter((sample) => sample.stackId !== undefined).length ?? 0, busyPercent: self?.samples.length ? 100 * self.samples.filter((sample) => sample.stackId !== undefined).length / self.samples.length : null, topSources: top.functions.filter((entry) => entry.url).slice(0, 3).map(({ functionName, url, selfSamples }) => ({ functionName, url, selfSamples })) },
           intent: { fieldBytes, lateOutsideIntent },
           actions,
+          temperatureBlankDraws: captured.temperatureBlankDraws,
           smoothness: (scenario.windows ?? []).map((window) => smoothness(captured.frameTimes, window, longFrames)),
           scrub: captured.snapshot.scrub,
           findings: [...wire.findings, ...findings, ...errors, ...externalRequests.map((url) => `Extern netwerk geblokkeerd: ${url}`)],
@@ -219,6 +230,7 @@ for (const profileId of options.profiles) {
         writeFileSync(`${output}.raw.json`, JSON.stringify({ requests, pageResourceTiming: captured.resources, workerResourceTiming: workerResources, actions, loads: captured.loads, selfProfile: self, entries: captured.entries }))
         console.log(`${profileId}/${scenarioId}: ${decode.phases['frame-decode']?.count} decodes, ${wire.playwright.total.bytes} bodybytes, ${wire.findings.length} netwerkbevindingen → ${output}.md`)
         for (const window of report.smoothness) console.log(`  ${window.name}: frame-tijd p95 ${window.p95Ms} ms, ${window.over50Ms} beelden > 50 ms, ${window.frames} beelden, LoAF ${window.longFrames.totalMs} ms`)
+        if (scenario.requireFilledTemperature) expect(captured.temperatureBlankDraws, `temperatuurlaag nooit leeg na de eerste 300 ms; oorzaken ${JSON.stringify(captured.temperatureBlankReasons)}`).toBe(0)
         expect(externalRequests, 'geen live-netwerk').toEqual([])
         expect(errors, 'geen pagina-/consolefouten').toEqual([])
         expect(captured.milestones.ttfrMs).not.toBeNull()
@@ -245,6 +257,10 @@ async function performStep(page: Page, step: ScenarioStep): Promise<string> {
     if (playing !== step.playing) await slider.press(' ')
     return step.playing ? 'afspelen' : 'pauzeren'
   }
+  if (step.action === 'jump') {
+    for (let press = 0; press < step.presses!; press++) await slider.press('PageUp')
+    return `sprong ${step.presses}× PageUp`
+  }
   if (step.action === 'seek') {
     const until = Date.now() + step.seekMs!
     let presses = 0
@@ -259,12 +275,14 @@ async function performStep(page: Page, step: ScenarioStep): Promise<string> {
     const before = Number(await page.locator('.app-shell').getAttribute('data-epoch'))
     for (let offset = 0; offset < step.minutes! / 30; offset++) await slider.press('PageUp')
     const after = Number(await page.locator('.app-shell').getAttribute('data-epoch'))
-    expect(after - before, 'scrub precies twee uur vooruit').toBe(step.minutes! * 60_000)
+    expect(after - before, `scrub precies ${step.minutes} minuten vooruit`).toBe(step.minutes! * 60_000)
     return `scrub ${step.minutes} minuten`
   }
   let label = step.mode!
   const nativeAir = await page.getByRole('button', { name: 'Lucht', exact: true }).count() > 0
   if (label === 'Lucht' && !nativeAir) label = 'Weer'
+  // Temperatuurlaag: na 300 ms mag er geen beeld meer zijn waarin de laag leeg is (MIP-19).
+  if (label === 'Gevoel') setTimeout(() => { void page.evaluate(() => { (window as unknown as { __blankDrawsAtSettle?: number }).__blankDrawsAtSettle = (window as unknown as { __motregenIsolines: () => { blankDraws?: number } }).__motregenIsolines().blankDraws ?? 0 }).catch(() => undefined) }, 300)
   const button = page.getByRole('button', { name: label, exact: true })
   // Een DOM-klik, geen Playwright-klik: die scrolt bij een mislukte hit-test de pagina naar de kop, en op
   // een telefoon is dat de tabel openen — dan laadt de hele tabel en meet het scenario iets anders (U58).

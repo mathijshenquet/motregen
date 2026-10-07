@@ -1252,7 +1252,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (map !== renderedMap) return
         setMapReady(true)
         if (stillMode) void prepareStill()
-        else void attachWindLayer()
+        else {
+          void attachWindLayer()
+          scheduleIdle(preloadTemperatureAtCursor, 1_000)
+        }
         if (!stillMode && !initialPickStarted) {
           initialPickStarted = true
           setPointLoadsStarted(true)
@@ -1600,6 +1603,20 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return { grid: parts[0]!.grid, frames: parts.map((part) => part.frame) }
   }
 
+  /**
+   * Een wissel naar Gevoel direct na het laden had nog geen uurframe en dus geen snede om te
+   * tekenen. De uurlagen rond de cursor liggen daarom klaar zodra de regen staat: twee à drie
+   * decodes van het kleine uurraster, in rust.
+   */
+  function preloadTemperatureAtCursor(): void {
+    const frames = temperatureIsolines.timeline()
+    if (!frames.length) return
+    const blend = frameBlend(frames, selectedEpoch())
+    for (const index of isolineLayerIndices(blend.left + blend.mix, frames.length, ISOLINE_WINDOW)) {
+      void preparedIsolineField(temperatureIsolines, frames[index]!).catch(() => undefined)
+    }
+  }
+
   function preparedIsolineField(set: IsolineSet, frame: TimelineFrame): Promise<{ grid: Grid; field: PreparedField }> {
     const preparedIsolineFields = set.prepared
     const key = `${frame.chunk.url}#${frame.frameIndex}`
@@ -1625,6 +1642,18 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
    * Alleen cellen binnen het kaartkader (NL + Vlaanderen): het rooster reikt tot ver in Duitsland,
    * waar zon en nacht het bereik op 25-09 van 9–17 °C naar 1–30 °C rekten.
    */
+  /**
+   * Het palet hangt aan het temperatuurbereik van de hele verwachting, en dat vraagt alle uurframes
+   * van de gevoelstemperatuur. Tot die er zijn tekende de laag zonder kleur ("alles grijs", PO
+   * 2026-10-08). Het eerste uurframe dat de kaart toont geeft daarom alvast een voorlopig bereik;
+   * updateTemperatureRange vervangt het zodra het volledige bekend is.
+   */
+  function provisionalTemperatureRange(field: PreparedField, grid: Grid): void {
+    if (temperatureRange()) return
+    const inView = fieldRangeInView(field.values, field.valid, grid, NETHERLANDS_FLANDERS_BOUNDS)
+    if (inView) setTemperatureRange(paletteRange(inView[0], inView[1]))
+  }
+
   async function updateTemperatureRange(): Promise<void> {
     const frames = feelsLikeTimeline()
     const key = [...new Set(frames.map((frame) => frame.chunk.url))].join('|')
@@ -1705,12 +1734,18 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       if (set.frameKeys.frames !== frames) set.frameKeys = { frames, keys: frames.map((frame) => `${frame.chunk.url}#${frame.frameIndex}`) }
       const frameKeys = set.frameKeys.keys
       for (const index of layer.setFrameKeys(frameKeys)) set.fields[index] = undefined
-      layer.setTime(time, playing())
+      // Nooit een lege laag (MIP-19): de snede schuift pas op als haar uurlagen er zijn; tot dan
+      // blijft de vorige staan. Na een moduswissel of een sprong buiten het geladen venster tekende
+      // de laag anders niets tot de decode binnen was (PO 2026-10-08, Android).
+      const cursorLayersReady = () => required.every((index) => layer.hasLayer(index))
+      if (cursorLayersReady()) layer.setTime(time, playing())
       await Promise.all(wanted.filter((index) => !layer.hasLayer(index)).map(async (index) => {
         const prepared = await preparedIsolineField(set, frames[index]!)
         if (!mapRendering() || layer !== set.layer || layer.frameKey(index) !== frameKeys[index] || !sameGrid(prepared, { grid: layer.grid })) return
         set.fields[index] = prepared.field
         layer.setLayer(index, prepared.field)
+        if (set.kind === 'temperature') provisionalTemperatureRange(prepared.field, layer.grid)
+        if (layer === set.layer && set.time === time && cursorLayersReady()) layer.setTime(time, playing())
       }))
       // Stap alleen op een nieuwe uurstap (en bij moveend), nooit midden in een tween (MIP-14).
       if (set.kind === 'pressure' && Math.round(time) !== isobarStepHour) {

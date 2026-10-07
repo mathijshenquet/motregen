@@ -6,6 +6,9 @@ export interface IsolineCounters {
   isolineDraws?: number
   windDraws?: number
   passes?: number
+  blankDraws?: number
+  blankReasons?: { slice: number; palette: number; fill: number }
+  blankAt?: number[]
   composites?: number
   passPixels?: number
   compositePixels?: number

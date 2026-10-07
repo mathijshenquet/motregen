@@ -225,6 +225,12 @@ void main() {
 export interface IsolinePassStats {
   passes: number
   composites: number
+  /** Beelden waarin de laag zichtbaar hoort te zijn maar niets of geen vulling tekende (MIP-19: nooit leeg). */
+  blankDraws: number
+  /** Waarom: nog geen snede getekend, nog geen palet, of de vulling van de snede ontbreekt nog. */
+  blankReasons: { slice: number; palette: number; fill: number }
+  /** Tijdstippen (performance.now) van de eerste lege beelden, om ze aan een handeling te koppelen. */
+  blankAt: number[]
   uploads: number
   /** Opgetelde fragmenten (offscreen pixels) van alle contour-passes resp. blits. */
   passPixels: number
@@ -254,7 +260,7 @@ export interface IsolinePassStats {
 export class IsolineLayer implements CustomLayerInterface {
   readonly type = 'custom' as const
   readonly renderingMode = '2d' as const
-  readonly stats: IsolinePassStats = { passes: 0, composites: 0, uploads: 0, passPixels: 0, compositePixels: 0, passMs: 0, compositeMs: 0, fillPasses: 0, fillMs: 0, timing: 'cpu' }
+  readonly stats: IsolinePassStats = { passes: 0, composites: 0, blankDraws: 0, blankReasons: { slice: 0, palette: 0, fill: 0 }, blankAt: [], uploads: 0, passPixels: 0, compositePixels: 0, passMs: 0, compositeMs: 0, fillPasses: 0, fillMs: 0, timing: 'cpu' }
   private timer?: GpuTimer
   /** Na elke contour-pass: de snede is veranderd (tijd, kaartbeeld, stijl of lagen). */
   onPass?: () => void
@@ -352,6 +358,10 @@ export class IsolineLayer implements CustomLayerInterface {
   /** De tracer-worker leeft met de laag mee (onRemove kan gevolgd worden door een nieuwe onAdd). */
   dispose(): void {
     this.tracer.dispose()
+  }
+
+  private noteBlank(): void {
+    if (this.stats.blankAt.length < 40) this.stats.blankAt.push(Math.round(performance.now()))
   }
 
   hasLayer(index: number): boolean {
@@ -603,6 +613,7 @@ export class IsolineLayer implements CustomLayerInterface {
   render(context: WebGLRenderingContext | WebGL2RenderingContext): void {
     const gl = context as WebGL2RenderingContext
     const [a, b] = this.shown
+    if (!this.paused && this.composite && this.opacity > 0 && (!a || !a.slice.passed || (b && !b.slice.passed))) { this.stats.blankDraws++; this.stats.blankReasons.slice++; this.noteBlank() }
     if (this.paused || !this.composite || !a || this.opacity <= 0 || !a.slice.passed || (b && !b.slice.passed)) return
     const program = this.composite
     gl.useProgram(program)
@@ -611,6 +622,11 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.enableVertexAttribArray(clip)
     gl.vertexAttribPointer(clip, 2, gl.FLOAT, false, 8, 0)
     const filled = a.slice.filled && (!b || b.slice.filled) && this.style.fill > 0 && !!this.style.palette
+    if (this.style.fill > 0 && !filled) {
+      this.stats.blankDraws++
+      this.stats.blankReasons[this.style.palette ? 'fill' : 'palette']++
+      this.noteBlank()
+    }
     const textures: Array<[string, WebGLTexture | null]> = [
       ['u_result', a.slice.lines.texture], ['u_fill', filled ? a.slice.fill.texture : null],
       ['u_result_b', (b ?? a).slice.lines.texture], ['u_fill_b', filled ? (b ?? a).slice.fill.texture : null],

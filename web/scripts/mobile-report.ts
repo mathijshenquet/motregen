@@ -239,6 +239,8 @@ export interface MobileReport {
   mainThread: { samples: number; busySamples: number; busyPercent: number | null; topSources: Array<{ functionName: string; url: string; selfSamples: number }> }
   intent: { fieldBytes: Record<string, number>; lateOutsideIntent: WireRequest[] }
   actions: Array<{ action: string; plannedMs: number; actualMs: number; detail: string }>
+  /** Beelden met een lege temperatuurlaag na de eerste 300 ms van een wissel naar Gevoel; null zonder zo'n wissel. */
+  temperatureBlankDraws: number | null
   smoothness: Smoothness[]
   scrub: { samples: number; p50Ms: number | null; p95Ms: number | null }
   findings: string[]
