@@ -78,3 +78,42 @@ cd tools/skywatch
 uv run pyright
 uv run pytest
 ```
+
+## Renderen, graden en analyseren
+
+`render.ts` bouwt de echte Vite-preview, start die tijdelijk met Playwright en gebruikt de
+aparte `?skywatch-render`-route. De route tekent met `web/src/core/cloud-section.ts` een
+vaste uitsnede van drie uur uit de in de CSV bewaarde modelpunten. Zo blijven oude samples
+renderbaar als de live chunks uit het manifest verdwenen zijn.
+
+Een render controleren:
+
+```bash
+pnpm --dir web exec tsx ../tools/skywatch/render.ts \
+  --sample 20261007T083213Z --output-dir /tmp/skywatch-renders
+```
+
+`grade.py` kiest alleen unieke, gewijzigde webcambeelden bij een zonshoogte boven 5°. Per
+sample stuurt het de webcamfoto en de bijbehorende grafiek apart naar `POST
+/v1/decisions` met model `gpt-6-luna`. Beide krijgen exact dezelfde vijfklassenkeuze,
+0–10-score en zon-zichtbaar-predicaat; alleen de bewijsinstructie verschilt. De API vereist
+inline data-URL's voor beelden, zoals vastgelegd in de [officiële Decisions-API-referentie](https://developers.openai.com/api/reference/resources/decisions/methods/create).
+Resultaten inclusief ruwe antwoorden, usage en latency gaan append-only naar
+`data/grades.jsonl`.
+
+De rooktest wacht bewust tot tien nieuwe daglichtbeelden beschikbaar zijn:
+
+```bash
+set -a
+source .env
+set +a
+uv run --project tools/skywatch python tools/skywatch/grade.py --limit 10 --require 10
+uv run --project tools/skywatch python tools/skywatch/analyse.py
+```
+
+De kostenschatting gebruikt de [officiële GPT-6 Luna-prijzen](https://developers.openai.com/api/docs/models/gpt-6-luna)
+van 7 oktober 2026: $0,10 per miljoen inputtokens, $0,01 cached input, $0,125
+cache-write en $0,50 output. `analyse.py` schrijft Markdown onder `reports/` met Cohen's
+kappa, Spearman-correlatie, een matrix van dominante modellaag tegen webcamklasse en een
+kleine regressieboom op laagfracties, totale fractie en CMF. De boom-RMSE is alleen een
+trainingsmaat; de rooktest is te klein voor een generalisatieclaim.

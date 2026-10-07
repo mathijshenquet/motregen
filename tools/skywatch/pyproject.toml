@@ -22,8 +22,9 @@ build-backend = "hatchling.build"
 packages = ["src/skywatch"]
 
 [tool.pyright]
-include = ["src", "tests"]
+include = ["src", "tests", "analyse.py", "grade.py"]
 typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
