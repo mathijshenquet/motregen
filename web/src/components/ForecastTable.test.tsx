@@ -104,6 +104,16 @@ describe('forecast table headings', () => {
     expect(onSelectMobileMode).toHaveBeenCalledOnce()
   })
 
+  it('returns to the map at the selected time from an open mobile table', () => {
+    const onSelectTime = vi.fn()
+    const onSelectMobileMode = vi.fn()
+    renderTable({ mobileTableOpen: true, onOpenMobileTable: vi.fn(), onSelectMobileMode, onSelectTime })
+    fireEvent.click(document.querySelectorAll<HTMLButtonElement>('.time-label')[2]!)
+    expect(onSelectTime).toHaveBeenCalledOnce()
+    expect(onSelectTime).toHaveBeenLastCalledWith(rows[2]!.epoch)
+    expect(onSelectMobileMode).toHaveBeenCalledOnce()
+  })
+
   it('makes Weer, Lucht, Gevoel and Wind mode buttons while RV stays out of view', () => {
     renderTable()
     expect(screen.getByRole('button', { name: 'Weer' }).getAttribute('aria-pressed')).toBe('true')

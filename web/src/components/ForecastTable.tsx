@@ -250,7 +250,16 @@ export default function ForecastTable(props: Props) {
           onClick={() => props.onSelectTime?.(row.epoch)}
         >
           <td class="time-cell">
-            <button type="button" class="time-label" title="Naar dit uur in de grafiek" onClick={(event) => { event.stopPropagation(); props.onSelectTime?.(row.epoch) }}>
+            <button
+              type="button"
+              class="time-label"
+              title={props.mobileTableOpen ? 'Toon dit uur op de kaart' : 'Naar dit uur in de grafiek'}
+              onClick={(event) => {
+                event.stopPropagation()
+                props.onSelectTime?.(row.epoch)
+                if (props.mobileTableOpen) props.onSelectMobileMode?.()
+              }}
+            >
               <strong>{time(row.epoch)}</strong>
               <span classList={{ 'now-label': row.kind === 'now' }}>{row.kind === 'now' ? 'Nu' : formatWeekdayShort(row.epoch)}</span>
             </button>

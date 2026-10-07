@@ -337,3 +337,16 @@
 - Synchrone receipts: `git diff --check`, `pnpm typecheck` en `pnpm build` exit 0 (107 modules,
   `index-BWIt3Fla.js`, `index-DLb6ISxo.css`, PWA + workers). Preview
   `http://ageq-dev2:4320/` serveert de nieuwe assets. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+
+## 2026-10-07 11:38 UTC
+
+- De mobiele tijdkolom gebruikt in portrait nu net als elk van de vier weermodi 20% van de
+  tabelbreedte. Alleen de kop-padding is losgetrokken van de ingesprongen tijdcellen, zodat het
+  actieve Tabel-selectievlak dezelfde maat heeft zonder de uitlijning van de tijden te verliezen.
+- Tik op de tijdtekst in een open mobiele tabel selecteert eerst dat uur in de scrubber en roept
+  daarna dezelfde kaarttransitie aan als een modusknop. Rijtikken buiten de tijdtekst behouden het
+  bestaande gedrag en desktop blijft in de tabel. Componenttest dekt selectie plus terugkeer.
+- Synchrone receipts: `git diff --check`, `pnpm typecheck` en `pnpm build` exit 0; gerichte test
+  17/17 en volledige `pnpm test` 59 bestanden / 385 tests groen. Build: 107 modules,
+  `index-CacRwcjW.js`, `index-DwZCoSeX.css`, PWA + workers. Preview
+  `http://ageq-dev2:4320/` serveert de nieuwe assets. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
