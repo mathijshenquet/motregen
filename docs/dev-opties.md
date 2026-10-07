@@ -22,6 +22,8 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Wind | Tempo | snelheid van de streepjes | U3b | idem |
 | Wind | Kopieer wind als JSON | de vier waarden naar het klembord (PO-terugkoppelweg) | U20 | blijft zolang de windknoppen er zijn |
 | Diagnose | Perf-HUD | meetpaneel aan/uit (ook: drie tikken op het logo) | T5 / U30 | blijft (diagnose) |
+| Diagnose | Opname 30 s | stacks, fasen en lange frames als Chrome Trace opnemen | U43 | blijft (diagnose) |
+| Diagnose | Koude start | herlaadt en neemt de eerste 30 s vanaf `timeOrigin` op | U43 | blijft (diagnose) |
 | Diagnose | Herhaal splash | openingslogo opnieuw afspelen | T3 | blijft (diagnose) |
 | Diagnose | Reset alle instellingen | alle knoppen en tuningsleutels terug; gebruikersstaat blijft | U20 | blijft (vluchtweg, MIP-12 regel 4) |
 
@@ -37,5 +39,6 @@ is alleen nog meting (plus de perf-JSON met het loef/lij-profiel van U24).
 ## Opslag (`localStorage`, prefix `motregen-`)
 
 Gebruikersstaat (blijft bij reset): `theme`, `saved-places`, `last-saved-place`, `map-view`.
-Tuning: `wind-tuning-v4` (v3 wordt bij het laden gemigreerd). Oude sleutels (`wind-tuning`, `-v2`, `-v3`, `splash-slowdown`, `scrubber-view`) wist
+Tuning/debug: `wind-tuning-v4` (v3 wordt bij het laden gemigreerd), `perf` en de eenmalige
+`perf-cold`. Oude sleutels (`wind-tuning`, `-v2`, `-v3`, `splash-slowdown`, `scrubber-view`) wist
 "Reset alle instellingen".

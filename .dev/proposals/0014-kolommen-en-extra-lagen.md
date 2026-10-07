@@ -85,9 +85,12 @@ het KNMI" — één regel erbij.
   dezelfde lagen met volle nadruk en voegt de sluier op de kaart toe. Er is altijd precies één
   modus gepind.
 - **Lucht** = UV en wolken samengevoegd tot één kolom mét eigen kaartmodus (bewolkingssluier,
-  wolkenlagen in de scrubber); cel: overdag UV + wolkje, 's nachts de maan.
+  wolkenlagen in de scrubber op volle nadruk, regenhistogram erachter op 0,35 zonder
+  cursorlabel); cel: overdag UV-waarde + relatieve UV-balk (geen wolkje: dat dubbelde met het
+  weersymbool, PO live 2026-10-07), 's nachts de maan.
 - **RV** uit beeld (data en ingest blijven; de kolom komt terug als extra kolom in de kolomset).
-- **Uur** zonder kop; de moduskoppen gelijkmatig over de resterende breedte.
+- **Uur** met een subtiele gedempte tekstkop zonder icoon of knop (een lege kop voelde onaf,
+  PO live 2026-10-07); de vier moduskoppen op gelijke breedte en centra.
 - **Maan** fotorealistisch (NASA SVS, publiek domein) met onze terminator.
 - **Mobiel**: koppen moeten als tabelkop lezen — eerste rij (±1,2 rij) al zichtbaar onder de
   kaart met schaduw als nudge; tabel openen als view-switch met sticky sleep-handle; in de open

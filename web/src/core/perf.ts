@@ -81,6 +81,56 @@ export interface PerfSnapshot {
   fps: number | null
   network: Record<PerfResourceKind | 'total', PerfResourceTotals>
   manifestAgeMs: number | null
+  phases: Partial<Record<PerfPhase, PerfPhaseSummary>>
+  longFrames: LongFrameSummary[]
+}
+
+export const PERF_STORAGE_KEY = 'motregen-perf'
+export const PERF_COLD_STORAGE_KEY = 'motregen-perf-cold'
+
+export const PERF_PHASES = [
+  'frame-decode',
+  'texture-upload',
+  'isoline-trace',
+  'isoline-blit',
+  'wind-step',
+  'scrubber-paint',
+  'table-render',
+  'basemap-tile',
+] as const
+
+export type PerfPhase = typeof PERF_PHASES[number]
+
+export interface PerfPhaseSummary {
+  count: number
+  p50Ms: number
+  p95Ms: number
+}
+
+export interface PerfMeasure {
+  phase: PerfPhase
+  startTime: number
+  duration: number
+  detail?: Record<string, unknown>
+}
+
+export interface LongFrameScript {
+  duration: number
+  sourceURL: string
+  sourceFunctionName: string
+  invoker: string
+}
+
+export interface LongFrameSummary {
+  startTime: number
+  duration: number
+  blockingDuration: number
+  scripts: LongFrameScript[]
+}
+
+export interface PerfTraceSlice {
+  measures: PerfMeasure[]
+  longFrames: LongFrameSummary[]
 }
 
 interface ResourceEntry {
@@ -99,6 +149,63 @@ export interface PerfEnvironment {
 
 const sampleCapacity = 256
 const loadTraceCapacity = 4_000
+const phaseWindowMs = 30_000
+const detailedEntryCapacity = 10_000
+let detailedMeasurementsEnabled = false
+let activeMonitor: PerfMonitor | undefined
+let measureSequence = 0
+
+export function perfPhasesEnabled(): boolean {
+  return detailedMeasurementsEnabled
+}
+
+export function measurePerfPhase<T>(phase: PerfPhase, operation: () => T, detail?: Record<string, unknown>): T {
+  if (!detailedMeasurementsEnabled) return operation()
+  const startTime = performance.now()
+  const suffix = ++measureSequence
+  const start = `motregen:${phase}:start:${suffix}`
+  const end = `motregen:${phase}:end:${suffix}`
+  const name = `motregen:${phase}`
+  performance.mark(start)
+  try {
+    return operation()
+  } finally {
+    performance.mark(end)
+    performance.measure(name, { start, end, detail })
+    performance.clearMarks(start)
+    performance.clearMarks(end)
+    performance.clearMeasures(name)
+    activeMonitor?.recordPhase({ phase, startTime, duration: performance.now() - startTime, detail })
+  }
+}
+
+/** Legt werkduur uit een worker of eventpaar vast op de tijdlijn van de hoofdpagina. */
+export function recordPerfPhase(phase: PerfPhase, duration: number, detail?: Record<string, unknown>, endTime = performance.now()): void {
+  if (!detailedMeasurementsEnabled || !Number.isFinite(duration) || duration < 0) return
+  const startTime = Math.max(0, endTime - duration)
+  const name = `motregen:${phase}`
+  performance.measure(name, { start: startTime, duration, detail })
+  performance.clearMeasures(name)
+  activeMonitor?.recordPhase({ phase, startTime, duration, detail })
+}
+
+export function configurePerfMode(url: URL, storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>): boolean {
+  if (url.searchParams.has('perf')) {
+    if (url.searchParams.get('perf') === '0') {
+      storage.removeItem(PERF_STORAGE_KEY)
+      storage.removeItem(PERF_COLD_STORAGE_KEY)
+    } else {
+      storage.setItem(PERF_STORAGE_KEY, '1')
+    }
+  }
+  return storage.getItem(PERF_STORAGE_KEY) === '1'
+}
+
+export function consumeColdProfile(storage: Pick<Storage, 'getItem' | 'removeItem'>): boolean {
+  const requested = storage.getItem(PERF_COLD_STORAGE_KEY) === '1'
+  if (requested) storage.removeItem(PERF_COLD_STORAGE_KEY)
+  return requested
+}
 
 export type LoadLayer = 'header' | 'map' | 'motion' | 'prefetch' | 'L0' | 'L1' | 'L2' | 'refresh'
 
@@ -204,6 +311,9 @@ export class PerfMonitor {
   private fpsWindowStart: number | null = null
   private fpsFrames = 0
   private fpsValue: number | null = null
+  private readonly measures: PerfMeasure[] = []
+  private readonly longFrames: LongFrameSummary[] = []
+  private longFrameObserver?: PerformanceObserver
   readonly loads: LoadTrace
 
   constructor(private readonly environment: PerfEnvironment) {
@@ -219,6 +329,39 @@ export class PerfMonitor {
     if (this.frameHandle === null) return
     this.environment.cancelFrame(this.frameHandle)
     this.frameHandle = null
+  }
+
+  setDetailedEnabled(enabled: boolean): void {
+    detailedMeasurementsEnabled = enabled
+    activeMonitor = this
+    if (!enabled) {
+      this.longFrameObserver?.disconnect()
+      this.longFrameObserver = undefined
+      return
+    }
+    if (this.longFrameObserver || typeof PerformanceObserver === 'undefined' || !PerformanceObserver.supportedEntryTypes?.includes('long-animation-frame')) return
+    this.longFrameObserver = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) this.recordLongFrame(longFrame(entry))
+    })
+    this.longFrameObserver.observe({ type: 'long-animation-frame', buffered: true })
+  }
+
+  recordPhase(measure: PerfMeasure): void {
+    this.measures.push({ ...measure, detail: measure.detail && { ...measure.detail } })
+    if (this.measures.length > detailedEntryCapacity) this.measures.splice(0, this.measures.length - detailedEntryCapacity)
+  }
+
+  recordLongFrame(frame: LongFrameSummary): void {
+    this.longFrames.push({ ...frame, scripts: frame.scripts.map((script) => ({ ...script })) })
+    if (this.longFrames.length > detailedEntryCapacity) this.longFrames.splice(0, this.longFrames.length - detailedEntryCapacity)
+  }
+
+  traceSlice(startTime = 0, endTime = Number.POSITIVE_INFINITY): PerfTraceSlice {
+    const within = (start: number, duration: number) => start <= endTime && start + duration >= startTime
+    return {
+      measures: this.measures.filter((entry) => within(entry.startTime, entry.duration)).map((entry) => ({ ...entry, detail: entry.detail && { ...entry.detail } })),
+      longFrames: this.longFrames.filter((entry) => within(entry.startTime, entry.duration)).map((entry) => ({ ...entry, scripts: entry.scripts.map((script) => ({ ...script })) })),
+    }
   }
 
   setManifestGenerated(generated: string): void {
@@ -243,6 +386,13 @@ export class PerfMonitor {
   snapshot(): PerfSnapshot {
     const samples = Array.from(this.scrubSamples.subarray(0, this.scrubSampleCount)).sort((left, right) => left - right)
     const network = resourceTotals(this.environment.resources())
+    const cutoff = this.environment.now() - phaseWindowMs
+    const phases: Partial<Record<PerfPhase, PerfPhaseSummary>> = {}
+    for (const phase of PERF_PHASES) {
+      const durations = this.measures.filter((entry) => entry.phase === phase && entry.startTime + entry.duration >= cutoff)
+        .map((entry) => entry.duration).sort((left, right) => left - right)
+      if (durations.length) phases[phase] = { count: durations.length, p50Ms: percentile(durations, 0.5)!, p95Ms: percentile(durations, 0.95)! }
+    }
     return {
       capturedAt: new Date(this.environment.wallNow()).toISOString(),
       ttfrMs: rounded(this.ttfrMs),
@@ -254,6 +404,10 @@ export class PerfMonitor {
       fps: rounded(this.fpsValue),
       network,
       manifestAgeMs: this.manifestGeneratedAt === null ? null : Math.max(0, this.environment.wallNow() - this.manifestGeneratedAt),
+      phases,
+      longFrames: this.longFrames.filter((entry) => entry.startTime + entry.duration >= cutoff)
+        .sort((left, right) => right.duration - left.duration).slice(0, 5)
+        .map((entry) => ({ ...entry, scripts: entry.scripts.map((script) => ({ ...script })) })),
     }
   }
 
@@ -284,8 +438,37 @@ export function installPerfMonitor(): PerfMonitor {
   })
   performance.setResourceTimingBufferSize(2_000)
   monitor.start()
+  activeMonitor = monitor
   window.__motregenPerf = monitor
   return monitor
+}
+
+interface LongAnimationFrameEntryLike extends PerformanceEntry {
+  blockingDuration?: number
+  scripts?: Array<{
+    duration?: number
+    sourceURL?: string
+    sourceFunctionName?: string
+    invoker?: string
+  }>
+}
+
+function longFrame(entry: PerformanceEntry): LongFrameSummary {
+  const frame = entry as LongAnimationFrameEntryLike
+  return {
+    startTime: frame.startTime,
+    duration: frame.duration,
+    blockingDuration: frame.blockingDuration ?? 0,
+    scripts: [...frame.scripts ?? []]
+      .sort((left, right) => (right.duration ?? 0) - (left.duration ?? 0))
+      .slice(0, 5)
+      .map((script) => ({
+        duration: script.duration ?? 0,
+        sourceURL: script.sourceURL ?? '',
+        sourceFunctionName: script.sourceFunctionName ?? '',
+        invoker: script.invoker ?? '',
+      })),
+  }
 }
 
 function resourceTotals(entries: ResourceEntry[]): Record<PerfResourceKind | 'total', PerfResourceTotals> {
