@@ -98,3 +98,15 @@
 - De hele U42-implementatie staat nu voor PO-review op `http://ageq-dev2:4320/`. Nog niet
   gecommit en nog geen gerichte desktop-e2e/stills: volgens de live-werkwijze volgen die pas
   op het expliciete “klaar” van de PO.
+
+## 2026-10-07 08:56 UTC
+
+- Op PM-instructie de groene live-staat vastgezet als tussencommit `0643c59`; daarna `main`
+  (`5f4714f`, inclusief de canonieke U42/MIP-14-livebesluiten en U43-profielmodus) zonder
+  conflicten gemerged als `35276f4`.
+- Na de merge opnieuw synchroon ontvangen: `pnpm typecheck` exit 0 en `pnpm build` exit 0
+  (98 modules, `index-DZkOhHXy.js`, `index-DbWDjY9g.css`, PWA + profielrecorderchunk).
+  Verse Chromium-smoke op 390 px: Lucht-URL-preset actief, regen 0,35 achter wolken,
+  geen overflow, tabel openen pauzeert de kaart en sluiten hervat haar.
+- Volgende stap: deze logaanvulling committen en branch pushen. Geen e2e en geen merge tot
+  het expliciete “klaar” van de PO.
