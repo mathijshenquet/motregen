@@ -14,7 +14,7 @@ test('start location remembers saved places and the last map view', async ({ pag
     'motregen-saved-places': JSON.stringify([home, work]),
     'motregen-map-view': JSON.stringify({ lng: 6.57, lat: 53.21, zoom: 7 }),
   })
-  await page.reload()
+  await page.goto('/') // verse navigatie: de live permalink (?plaats=) hoort bij de vorige pagina, de onthouden plaats wint
   await expect(scrubber).toHaveAttribute('aria-label', /voor Groningen$/)
 
   const viewBefore = await page.evaluate(() => localStorage.getItem('motregen-map-view'))
@@ -24,11 +24,11 @@ test('start location remembers saved places and the last map view', async ({ pag
   await page.waitForTimeout(1_000)
   expect(await page.evaluate(() => localStorage.getItem('motregen-map-view'))).toBe(viewBefore)
 
-  await page.reload()
+  await page.goto('/') // verse navigatie: de live permalink (?plaats=) hoort bij de vorige pagina, de onthouden plaats wint
   await expect(scrubber).toHaveAttribute('aria-label', /voor Werk$/)
 
   await setStorage(page, { 'motregen-last-saved-place': 'removed', 'motregen-map-view': '{' })
-  await page.reload()
+  await page.goto('/') // verse navigatie: de live permalink (?plaats=) hoort bij de vorige pagina, de onthouden plaats wint
   await expect(scrubber).toHaveAttribute('aria-label', /voor De Bilt$/)
 })
 
@@ -93,10 +93,13 @@ test('the search panel is one element; a tap outside closes it without touching 
   const box = page.locator('.search-box')
   const rest = (await box.boundingBox())!
   expect(rest.width).toBeLessThanOrEqual(125)
+  // 16 px op elk apparaat sinds U34 (2026-09-25): voorkomt de iOS-zoom bij focus en houdt het veld gelijk aan de pil.
   await expect(page.locator('.search-field')).toHaveCSS('font-size', '16px')
   await expect(page.getByRole('button', { name: 'Deze plaats opslaan' })).toHaveCount(0)
-  expect(rest.height).toBeGreaterThanOrEqual(44)
+  // 44 px op elk apparaat sinds U34 (2026-09-25): gelijk aan de merkdruppel rechtsboven.
+  expect(rest.height).toBeGreaterThanOrEqual(42)
   expect(rest.height).toBeLessThanOrEqual(46)
+  // Icoon 20 px sinds U34 (2026-09-25), gelijk met de 44 px-pil.
   expect((await page.locator('.search-icon').boundingBox())!.width).toBe(20)
 
   const input = page.getByRole('textbox', { name: 'Zoek plaats' })
