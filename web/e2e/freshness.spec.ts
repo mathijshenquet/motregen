@@ -138,13 +138,17 @@ test('fresh radar reads as current, with the scan time and its age', async ({ pa
   expect(Math.abs(panel.x + panel.width / 2 - centred)).toBeLessThanOrEqual(8)
   await page.keyboard.press('Escape')
 
-  // Kleinste telefoon: nog steeds midden boven en vrij van zoekpil en merk; "De Bilt" heel.
+  // U34/U58: in rust staat alleen het zoekicoon; het uitgevouwen veld vult de smalle kaartbreedte.
   if (testInfo.project.use.hasTouch) {
     await page.setViewportSize({ width: 320, height: 640 })
     await page.reload()
     await expect(page.locator('.map-splash.ready')).toBeAttached()
     await expectTopCenter(page)
-    expect(await page.locator('.search-field').evaluate((field: HTMLInputElement) => field.scrollWidth <= field.clientWidth)).toBe(true)
+    await expect(page.getByRole('textbox', { name: 'Zoek plaats' })).toHaveAttribute('aria-expanded', 'false')
+    await page.getByRole('textbox', { name: 'Zoek plaats' }).tap()
+    await page.getByRole('textbox', { name: 'Zoek plaats' }).fill('De Bilt')
+    await expect.poll(() => page.locator('.search-field').evaluate((field: HTMLInputElement) => field.scrollWidth <= field.clientWidth)).toBe(true)
+    await page.keyboard.press('Escape')
     await shoot(page, testInfo, '320')
   }
 })
@@ -251,7 +255,8 @@ test('dragging the clock scrubs the time and the unrolled panel shows the source
   await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-strook-light.png`) })
 
   // Tik in de strook springt de cursor: links het begin van de radar, rechts het einde van HARMONIE.
-  await strip.click({ position: { x: 1, y: 22 } })
+  // De strook is continu: op mobiel ligt 1 px al voorbij een halve radarstap. Raak de rand zelf.
+  await strip.click({ position: { x: 0, y: 22 } })
   await expect(scrubber(page)).toHaveAttribute('aria-valuenow', '0')
   const leftMarker = await markerX()
   await strip.click({ position: { x: stripBox.width - 1, y: 22 } })

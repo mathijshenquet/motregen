@@ -166,7 +166,8 @@ test('the two focus modes exclude each other: the last one wins, a pin returns a
 test('tapping the wind heading pins wind focus on touch', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile-4g', 'touchroute op het mobiele profiel')
   await ready(page)
-  await page.getByRole('button', { name: 'Tabel openen' }).tap()
+  // U42: de tabelkop Tabel opent de view; een moduskeuze brengt de kaart weer in beeld.
+  await page.getByRole('button', { name: 'Tabel', exact: true }).tap()
   await windHeading(page).tap()
   await expect(windHeading(page)).toHaveAttribute('aria-pressed', 'true')
   await expect(shell(page)).toHaveAttribute('data-wind-focus', '1.00')
@@ -186,18 +187,19 @@ test('tapping the column heading pins focus on touch, and measures frame rate', 
   await applyEmulation(cdp, performanceProfile(testInfo.project.name))
   await ready(page)
   const baseline = await fps(page)
-  await page.getByRole('button', { name: 'Tabel openen' }).tap()
+  // U42: modi zijn direct bereikbaar in de koprij, ook in de mobiele preview.
+  await page.getByRole('button', { name: 'Tabel', exact: true }).tap()
   await heading(page).tap()
   await expect(heading(page)).toHaveAttribute('aria-pressed', 'true')
   await expect(shell(page)).toHaveAttribute('data-focus', '1.00')
-  await page.getByRole('button', { name: 'Tabel sluiten en kaart tonen' }).tap()
+  await expect(page.locator('.app-shell')).not.toHaveClass(/table-view-open/)
   await expect.poll(async () => Number(await shell(page).getAttribute('data-isolines')), { timeout: 20_000 }).toBeGreaterThan(0)
   const focused = await fps(page)
   await page.screenshot({ path: testInfo.outputPath('focus-mobile.png') })
   // Alleen loggen: headless SwiftShader is geen GPU-gate (docs/perf.md).
   console.log(`[focus] ${testInfo.project.name} fps buiten focus ${baseline}, in focus ${focused}`)
   testInfo.annotations.push({ type: 'fps', description: `buiten ${baseline}, in focus ${focused}` })
-  await page.getByRole('button', { name: 'Tabel openen' }).tap()
+  await page.getByRole('button', { name: 'Tabel', exact: true }).tap()
   await weatherHeading(page).tap()
   await expect(heading(page)).toHaveAttribute('aria-pressed', 'false')
   await expect(shell(page)).toHaveAttribute('data-focus', '0.00')

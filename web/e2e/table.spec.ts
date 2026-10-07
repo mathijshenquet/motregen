@@ -69,7 +69,8 @@ test('mobile previews the heading and current row, then scrolls smoothly between
   test.skip(testInfo.project.name !== 'mobile-4g', 'mobiele scroll-switch')
   await page.goto('/')
   const panel = page.locator('.forecast-panel')
-  await expect(page.getByRole('button', { name: 'Tabel openen' })).toBeVisible()
+  // U42: Tabel staat in de koprij naast de kaartmodi; de losse openknop is vervallen.
+  await expect(page.getByRole('button', { name: 'Tabel', exact: true })).toBeVisible()
   await expect.poll(() => previewOffset(page)).toBe(0)
   const rowBox = await page.evaluate(() => {
     const cursor = Number(document.querySelector<HTMLElement>('.app-shell')!.dataset.epoch)

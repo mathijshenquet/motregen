@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
 import { applyEmulation, performanceProfile } from './profiles'
+import { useOwnBasemap } from './basemap-fixture'
 
 for (const width of [390, 1280]) {
   test(`warme basiskaart zonder netwerk ${width}px`, async ({ page, context }, testInfo) => {
@@ -13,6 +14,8 @@ for (const width of [390, 1280]) {
     const cdp = await context.newCDPSession(page)
     await applyEmulation(cdp, performanceProfile(width === 390 ? 'mobile-4g' : 'desktop'))
     await cdp.send('Network.clearBrowserCache')
+    await page.addInitScript(() => localStorage.setItem('motregen-theme', 'light'))
+    await useOwnBasemap(page)
     await page.goto('/?perf=1&t=%2B0u&modus=weer')
     await expect(page.locator('.map-splash.ready')).toBeAttached()
     await page.waitForTimeout(1_000)
