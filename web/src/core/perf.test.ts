@@ -123,7 +123,7 @@ describe('performance monitor', () => {
     expect(snapshot.longFrames[0]!.scripts[0]!.sourceURL).toBe('/app-6.js')
   })
 
-  it('persists ?perf, clears ?perf=0 and consumes a cold-start request once', () => {
+  it('keeps ?perf explicit, clears stale state on a plain URL and consumes a cold-start request once', () => {
     const values = new Map<string, string>()
     const storage = {
       getItem: (key: string) => values.get(key) ?? null,
@@ -131,10 +131,14 @@ describe('performance monitor', () => {
       removeItem: (key: string) => { values.delete(key) },
     }
     expect(configurePerfMode(new URL('https://example.test/?perf'), storage)).toBe(true)
-    expect(configurePerfMode(new URL('https://example.test/'), storage)).toBe(true)
+    expect(configurePerfMode(new URL('https://example.test/'), storage)).toBe(false)
+    expect(values.get('motregen-perf')).toBeUndefined()
+    storage.setItem('motregen-perf', '1')
     storage.setItem('motregen-perf-cold', '1')
+    expect(configurePerfMode(new URL('https://example.test/'), storage)).toBe(true)
     expect(consumeColdProfile(storage)).toBe(true)
     expect(consumeColdProfile(storage)).toBe(false)
+    expect(values.get('motregen-perf')).toBeUndefined()
     expect(configurePerfMode(new URL('https://example.test/?perf=0'), storage)).toBe(false)
     expect(configurePerfMode(new URL('https://example.test/?perf=start'), storage)).toBe(true)
     expect(consumeColdProfile(storage)).toBe(true)

@@ -5,6 +5,7 @@ export const PRESERVED_STORAGE_KEYS: readonly string[] = [
   'motregen-saved-places',
   'motregen-last-saved-place',
   'motregen-map-view',
+  'motregen-table-day-night',
   'motregen-sky-diary',
 ]
 

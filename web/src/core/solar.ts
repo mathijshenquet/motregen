@@ -54,9 +54,13 @@ export interface SunEvent {
 // Upper limb on the apparent horizon: 34′ refraction plus 16′ semi-diameter.
 const horizonSin = Math.sin(-0.833 * radians)
 
+export function isSunUp(epoch: number, longitude: number, latitude: number): boolean {
+  return solarElevationSin(epoch, longitude, latitude) > horizonSin
+}
+
 export function sunEvents(start: number, end: number, longitude: number, latitude: number): SunEvent[] {
   const step = 10 * 60_000
-  const above = (epoch: number) => solarElevationSin(epoch, longitude, latitude) > horizonSin
+  const above = (epoch: number) => isSunUp(epoch, longitude, latitude)
   const events: SunEvent[] = []
   let previous = start
   let previousAbove = above(start)

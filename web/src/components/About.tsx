@@ -22,6 +22,8 @@ const WIND_UNIT_CHOICES: Record<WindUnit, string> = { bft: 'Bft', kn: 'knopen', 
 interface Props {
   theme: ThemeChoice
   onTheme: (theme: ThemeChoice) => void
+  tableDayNight?: boolean
+  onTableDayNight?: (enabled: boolean) => void
   windUnit: WindUnit
   onWindUnit: (unit: WindUnit) => void
   onOpen?: () => void
@@ -89,6 +91,16 @@ export default function About(props: Props) {
               {WIND_UNIT_CHOICES[unit]}
             </button>}</For>
           </div>
+          <button
+            type="button"
+            class="about-table-cycle"
+            aria-pressed={props.tableDayNight !== false}
+            onClick={() => props.onTableDayNight?.(props.tableDayNight === false)}
+          >
+            <SunMoon {...INLINE_ICON} />
+            <span><b>Dag en nacht in tabel</b><small>Kleur de uren mee met de zon</small></span>
+            <i aria-hidden="true">{props.tableDayNight === false ? 'Uit' : 'Aan'}</i>
+          </button>
         </section>
         <header>
           <img src="/droplet.svg" alt="" />
@@ -100,6 +112,7 @@ export default function About(props: Props) {
           <dt>Observatie</dt><dd>KNMI-radar, elke 5 min · NL en Vlaanderen</dd>
           <dt>Voorspelling</dt><dd>KNMI-nowcast (2 uur), dan HARMONIE-AROME</dd>
           <dt>UV</dt><dd>UV-index van het KNMI, met bewolking</dd>
+          <dt>Maan</dt><dd>Textuur: <a href="https://svs.gsfc.nasa.gov/5587/" target="_blank" rel="noopener">NASA Scientific Visualization Studio</a></dd>
           <dt>Kaart</dt><dd><a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></dd>
           <dt>Zoeken</dt><dd>PDOK (NL) · Digitaal Vlaanderen (BE)</dd>
           <dt>Privacy</dt><dd>Geen tracking, geen advertenties. Anoniem geteld: sessies en gebruikte functies, zonder IP of identificatie; locatie en favorieten blijven in je browser</dd>

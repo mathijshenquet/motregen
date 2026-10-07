@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, onCleanup, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
 import { resolveLocation, suggestionContext, suggestLocations, type LocationSuggestion } from '../core/geocoder'
 import { samePlace, type SavedPlace } from '../core/saved-places'
 import { BUTTON_ICON, INLINE_ICON, LocateFixed, Search, Star, Trash2, X } from './icons'
@@ -66,6 +66,33 @@ export default function LocationSearch(props: Props) {
   createEffect(() => { if (!open()) setConfirmingRemove() })
 
   onCleanup(() => { window.clearTimeout(timer); request?.abort() })
+
+  onMount(() => {
+    let shownFrame: number | undefined
+    const closeRestoredSearch = () => {
+      if (shownFrame !== undefined) window.cancelAnimationFrame(shownFrame)
+      shownFrame = undefined
+      window.clearTimeout(timer)
+      request?.abort()
+      setSelectedLabel(props.locationLabel)
+      setQuery(props.locationLabel)
+      setSuggestions([])
+      setActive(-1)
+      setMessage('')
+      setOpen(false)
+      setFocused(false)
+      setEditingName(false)
+      input.blur()
+    }
+    const shown = () => { shownFrame = window.requestAnimationFrame(closeRestoredSearch) }
+    window.addEventListener('pagehide', closeRestoredSearch)
+    window.addEventListener('pageshow', shown)
+    onCleanup(() => {
+      window.removeEventListener('pagehide', closeRestoredSearch)
+      window.removeEventListener('pageshow', shown)
+      if (shownFrame !== undefined) window.cancelAnimationFrame(shownFrame)
+    })
+  })
 
   async function search(value: string): Promise<void> {
     request = new AbortController()
@@ -214,6 +241,7 @@ export default function LocationSearch(props: Props) {
         type="text"
         size={1}
         inputMode="search"
+        autocomplete="off"
         value={query()}
         onInput={(event) => { setSelectedLabel(''); setQuery(event.currentTarget.value); setOpen(true) }}
         // Openen begint met een leeg veld om meteen te typen (PO 2026-09-25 live, U34); de huidige plaats

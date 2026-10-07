@@ -37,7 +37,7 @@ interface JourneyResult {
 
 const live = process.env.MOTREGEN_PERF_MODE === 'live'
 
-test('?perf persists the compact profiler controls and ?perf=0 clears them', async ({ page }) => {
+test('?perf opens the compact profiler controls while a plain URL closes stale state', async ({ page }) => {
   await page.route('**/data/**', (route) => route.abort())
   await page.goto('/?perf')
   await expect(page.getByTestId('perf-hud')).toBeVisible()
@@ -46,7 +46,8 @@ test('?perf persists the compact profiler controls and ?perf=0 clears them', asy
   expect(await page.evaluate(() => localStorage.getItem('motregen-perf'))).toBe('1')
 
   await page.goto('/')
-  await expect(page.getByTestId('perf-hud')).toBeVisible()
+  await expect(page.getByTestId('perf-hud')).toBeHidden()
+  expect(await page.evaluate(() => localStorage.getItem('motregen-perf'))).toBeNull()
 
   await page.goto('/?perf=0')
   await expect(page.getByTestId('perf-hud')).toBeHidden()

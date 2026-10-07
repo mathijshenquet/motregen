@@ -1,10 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { pausePlayback } from './playback'
 
-// U37 → U34 (PO 2026-09-25 live): altijd de drie wolkenlagen met het regenhistogram eroverheen; de
-// wolkenmodus (kop Weer) voegt de laagwaarden bij de cursor en de sluier op de kaart toe; Gevoel en
-// Wind hebben een eigen grafiek.
-test('the scrubber always shows the cloud layers under the rain; the cloud mode adds the map veil', async ({ page }, testInfo) => {
+test('air shows the cloud layers under the rain and adds the map veil', async ({ page }, testInfo) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/')
   await expect(page.locator('.map-splash.ready')).toBeAttached()
@@ -15,12 +12,11 @@ test('the scrubber always shows the cloud layers under the rain; the cloud mode 
   for (const layer of ['high', 'mid', 'low']) await expect(section.locator(`[data-layer=${layer}] path`).first()).toBeAttached()
   await expect(page.locator('.rain-bar:not(.pending)').first()).toBeAttached()
 
-  // Wolkenmodus via de kop Weer: de regen blijft, de sluier komt op de kaart.
-  const clouds = page.getByRole('button', { name: 'Weer' })
+  const clouds = page.getByRole('button', { name: 'Lucht' })
   await clouds.click()
   await clouds.blur()
   await page.mouse.move(5, 5)
-  await expect(surface).toHaveAttribute('data-scrubber-view', 'clouds')
+  await expect(surface).toHaveAttribute('data-scrubber-view', 'air')
   await expect(page.locator('.rain-bar:not(.pending)').first()).toBeAttached()
   await expect(page.locator('.map-overlay-motregen-cloud-veil')).toBeAttached()
 
@@ -45,8 +41,7 @@ test('the scrubber always shows the cloud layers under the rain; the cloud mode 
   // Gevoel heeft sinds U34 een eigen temperatuurgrafiek.
   await expect(surface).toHaveAttribute('data-scrubber-view', 'temperature')
 
-  // Nog eens op de gepinde kop: terug naar de standaard (bewolkingsband boven de regen).
-  await temperature.click()
+  await page.getByRole('button', { name: 'Weer' }).click()
   await page.mouse.move(5, 5)
   await expect(surface).toHaveAttribute('data-scrubber-view', 'rain')
   await expect(section).toBeAttached()

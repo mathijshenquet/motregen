@@ -19,18 +19,19 @@ const series: ForecastSeries = {
   rain: rows.map((_, index) => [0, 0.004, 0.35, 1.26][index % 4]!), uv: [], uvClear: [], radiation: [], temperature: filled(15),
   feelsLike: filled(14), humidity: filled(70), cloud: filled(0.5), windU: filled(3), windV: filled(1), gust: filled(8),
 }
-const allColumns = { weather: true, uv: true, temperature: true, humidity: true, wind: true }
+const allColumns = { weather: true, air: true, temperature: true, wind: true }
 
-function renderTable(options: { pinned?: FocusKind; weather?: boolean; onSelectTime?: (epoch: number) => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
-  const [pinned, setPinned] = createSignal<FocusKind | undefined>(options.pinned)
-  const onTogglePin = vi.fn((mode: FocusKind) => setPinned((current) => current === mode ? undefined : mode))
+function renderTable(options: { pinned?: FocusKind; weather?: boolean; dayNight?: boolean; forecastSeries?: ForecastSeries; onSelectTime?: (epoch: number) => void; mobileTableOpen?: boolean; onOpenMobileTable?: () => void; onSelectMobileMode?: () => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
+  const [pinned, setPinned] = createSignal<FocusKind>(options.pinned ?? 'weather')
+  const onPin = vi.fn((mode: FocusKind) => setPinned(mode))
   const onFocus = vi.fn()
   render(() => <ForecastTable
     rows={options.rows ?? rows}
-    series={series}
+    series={options.forecastSeries ?? series}
     location={{ lng: 5.18, lat: 52.1 }}
     columns={{ ...allColumns, weather: options.weather ?? true }}
     windUnit={options.windUnit?.() ?? 'bft'}
+    dayNight={options.dayNight}
     loadedUntil={Number.POSITIVE_INFINITY}
     historyInline={options.historyInline ?? false}
     historyOpen={false}
@@ -39,9 +40,12 @@ function renderTable(options: { pinned?: FocusKind; weather?: boolean; onSelectT
     onNeedHistory={() => undefined}
     onOpenHistory={() => undefined}
     onSelectTime={options.onSelectTime}
-    focus={{ pinned: pinned(), onTogglePin, onFocus }}
+    mobileTableOpen={options.mobileTableOpen}
+    onOpenMobileTable={options.onOpenMobileTable}
+    onSelectMobileMode={options.onSelectMobileMode}
+    focus={{ pinned: pinned(), onPin, onFocus }}
   />)
-  return { pinned, onTogglePin, onFocus }
+  return { pinned, onPin, onFocus }
 }
 
 afterEach(cleanup)
@@ -50,7 +54,8 @@ describe('forecast table headings', () => {
   it('render every column heading with an icon and a word; time and weather in their own columns (U34)', () => {
     renderTable()
     const headings = [...document.querySelectorAll('thead th')]
-    expect(headings.map((heading) => heading.textContent)).toEqual(['Uur', 'Weer', 'UV', 'Gevoel', 'RV', 'Wind'])
+    expect(headings.map((heading) => heading.textContent)).toEqual(['Uur', 'Weer', 'Lucht', 'Gevoel', 'Wind'])
+    expect(screen.getByRole('columnheader', { name: 'Uur' })).toBe(headings[0])
     for (const heading of headings) expect(heading.querySelector('svg.lucide')).not.toBeNull()
     const [time, weather] = document.querySelectorAll('tbody tr:not(.history-toggle-row) td')
     expect(time!.textContent).toContain('Nu')
@@ -61,43 +66,93 @@ describe('forecast table headings', () => {
     const onSelectTime = vi.fn()
     renderTable({ onSelectTime })
     const second = document.querySelectorAll<HTMLTableRowElement>('tbody tr:not(.sun-row):not(.history-toggle-row)')[1]!
-    fireEvent.click(second.querySelector('.uv-cell') ?? second)
+    fireEvent.click(second.querySelector('.air-cell') ?? second)
     expect(onSelectTime).toHaveBeenLastCalledWith(rows[1]!.epoch)
     fireEvent.click(document.querySelectorAll('.time-label')[2]!)
     expect(onSelectTime).toHaveBeenLastCalledWith(rows[2]!.epoch)
     expect(onSelectTime).toHaveBeenCalledTimes(2)
   })
 
-  it('fall back to an hour heading when there is no cloud data', () => {
+  it('keeps the hour heading when there is no cloud data', () => {
     renderTable({ weather: false })
     expect(document.querySelector('thead th')!.textContent).toBe('Uur')
     expect(document.querySelector('.weather-icon')).toBeNull()
   })
 
-  it('make Weer, Gevoel and Wind mode toggles; UV and RV are plain headings', () => {
-    renderTable()
+  it('uses the first heading as a regular table mode on portrait mobile', () => {
+    const onOpenMobileTable = vi.fn()
+    const onSelectMobileMode = vi.fn()
+    const past = { ...rows[0]!, epoch: start - 3_600_000, kind: 'past' as const }
+    renderTable({ rows: [past, ...rows], onOpenMobileTable, onSelectMobileMode })
+    expect(screen.queryByRole('columnheader', { name: 'Uur' })).toBeNull()
+    const table = screen.getByRole('button', { name: 'Tabel' })
+    expect(table.classList.contains('column-focus')).toBe(true)
+    expect(table.getAttribute('aria-pressed')).toBe('false')
+    expect(document.querySelector('tr.past-hour')).not.toBeNull()
+    fireEvent.click(table)
+    expect(onOpenMobileTable).toHaveBeenCalledOnce()
+    cleanup()
+    renderTable({ rows: [past, ...rows], mobileTableOpen: true, onOpenMobileTable, onSelectMobileMode })
+    expect(screen.getByRole('button', { name: 'Tabel' }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByRole('button', { name: 'Weer' }).getAttribute('aria-pressed')).toBe('false')
-    expect(screen.queryByRole('button', { name: 'UV' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Kaart' })).toBeNull()
+    expect(document.querySelector('tr.past-hour')).not.toBeNull()
+    expect(document.querySelector('.history-toggle')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Tabel' }))
+    expect(onSelectMobileMode).toHaveBeenCalledOnce()
+    onSelectMobileMode.mockClear()
+    fireEvent.click(screen.getByRole('button', { name: 'Lucht' }))
+    expect(onSelectMobileMode).toHaveBeenCalledOnce()
+  })
+
+  it('returns to the map at the selected time from an open mobile table', () => {
+    const onSelectTime = vi.fn()
+    const onSelectMobileMode = vi.fn()
+    renderTable({ mobileTableOpen: true, onOpenMobileTable: vi.fn(), onSelectMobileMode, onSelectTime })
+    fireEvent.click(document.querySelectorAll<HTMLButtonElement>('.time-label')[2]!)
+    expect(onSelectTime).toHaveBeenCalledOnce()
+    expect(onSelectTime).toHaveBeenLastCalledWith(rows[2]!.epoch)
+    expect(onSelectMobileMode).toHaveBeenCalledOnce()
+    expect(onSelectTime.mock.invocationCallOrder[0]).toBeLessThan(onSelectMobileMode.mock.invocationCallOrder[0]!)
+  })
+
+  it('makes Weer, Lucht, Gevoel and Wind mode buttons while RV stays out of view', () => {
+    renderTable()
+    expect(screen.getByRole('button', { name: 'Weer' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Lucht' }).getAttribute('aria-pressed')).toBe('false')
     expect(screen.getByRole('button', { name: 'Gevoel' }).getAttribute('aria-pressed')).toBe('false')
     expect(screen.getByRole('button', { name: 'Wind' }).getAttribute('aria-pressed')).toBe('false')
     expect(screen.queryByRole('button', { name: 'RV' })).toBeNull()
   })
 
-  it('pin the cloud mode on Weer (U34), and unpin on a second click', () => {
-    const { pinned, onTogglePin } = renderTable({ pinned: 'wind' })
+  it('pins air from its heading and treats the whole air column as a hover target', () => {
+    const { pinned, onPin, onFocus } = renderTable()
+    fireEvent.click(screen.getByRole('button', { name: 'Lucht' }))
+    expect(onPin).toHaveBeenCalledWith('air')
+    expect(pinned()).toBe('air')
+    const cell = document.querySelector('.air-cell')!
+    fireEvent.pointerEnter(cell, { pointerType: 'mouse' })
+    expect(onFocus).toHaveBeenLastCalledWith('air', 'table', true)
+    fireEvent.pointerEnter(cell, { pointerType: 'touch' })
+    expect(document.querySelector('.forecast-table')!.getAttribute('data-hover')).toBeNull()
+    expect(onFocus).toHaveBeenLastCalledWith('air', 'table', false)
+  })
+
+  it('pin the weather mode and keep it pinned on a second click', () => {
+    const { pinned, onPin } = renderTable({ pinned: 'wind' })
     fireEvent.click(screen.getByRole('button', { name: 'Weer' }))
-    expect(onTogglePin).toHaveBeenCalledWith('clouds')
-    expect(pinned()).toBe('clouds')
-    expect(document.querySelector('table')!.dataset.mode).toBe('clouds')
+    expect(onPin).toHaveBeenCalledWith('weather')
+    expect(pinned()).toBe('weather')
+    expect(document.querySelector('table')!.dataset.mode).toBe('weather')
     fireEvent.click(screen.getByRole('button', { name: 'Weer' }))
-    expect(pinned()).toBeUndefined()
-    expect(document.querySelector('table')!.dataset.mode).toBeUndefined()
+    expect(pinned()).toBe('weather')
+    expect(document.querySelector('table')!.dataset.mode).toBe('weather')
   })
 
   it('pin a mode on click, marking the heading and tinting its column', () => {
-    const { pinned, onTogglePin } = renderTable()
+    const { pinned, onPin } = renderTable()
     fireEvent.click(screen.getByRole('button', { name: 'Gevoel' }))
-    expect(onTogglePin).toHaveBeenCalledWith('temperature')
+    expect(onPin).toHaveBeenCalledWith('temperature')
     expect(pinned()).toBe('temperature')
     expect(screen.getByRole('button', { name: 'Gevoel' }).getAttribute('aria-pressed')).toBe('true')
     expect(document.querySelector('table')!.dataset.mode).toBe('temperature')
@@ -132,6 +187,49 @@ describe('forecast table headings', () => {
 })
 
 describe('forecast table cells', () => {
+  it('groups night hours with a distinct row treatment around the sun boundaries', () => {
+    renderTable()
+    expect(document.querySelector('.forecast-table')?.classList.contains('day-night-table')).toBe(true)
+    const rowAt = (hour: number) => document.querySelector<HTMLTableRowElement>(`tr[data-epoch="${start + hour * 3_600_000}"]`)!
+    expect(rowAt(2).classList.contains('night-hour')).toBe(true)
+    expect(rowAt(14).classList.contains('night-hour')).toBe(false)
+    expect(rowAt(22).classList.contains('night-hour')).toBe(true)
+    const sunrise = [...document.querySelectorAll<HTMLTableRowElement>('.sun-row')].find((row) => row.textContent?.includes('Zon op'))!
+    const sunset = [...document.querySelectorAll<HTMLTableRowElement>('.sun-row')].find((row) => row.textContent?.includes('Zon onder'))!
+    expect(sunrise.classList.contains('sunrise-row')).toBe(true)
+    expect(sunset.classList.contains('sunset-row')).toBe(true)
+    expect(sunrise.previousElementSibling?.classList.contains('before-sunrise')).toBe(true)
+    expect(sunset.previousElementSibling?.classList.contains('before-sunset')).toBe(true)
+    expect(sunrise.previousElementSibling?.classList.contains('night-hour')).toBe(true)
+    expect(sunset.previousElementSibling?.classList.contains('night-hour')).toBe(false)
+    expect(sunrise.nextElementSibling?.classList.contains('day-hour')).toBe(true)
+    expect(sunset.nextElementSibling?.classList.contains('night-hour')).toBe(true)
+  })
+
+  it('can turn the complete table day/night treatment off', () => {
+    renderTable({ dayNight: false })
+    expect(document.querySelector('.forecast-table')?.classList.contains('day-night-table')).toBe(false)
+    expect(document.querySelector('tr.night-hour')).not.toBeNull()
+  })
+
+  it('carries U47 its perceptual daytime overcast mood per hour', () => {
+    renderTable({ forecastSeries: { ...series, cloud: rows.map((_, index) => index === 14 ? 100 : 0) } })
+    const rowAt = (hour: number) => document.querySelector<HTMLTableRowElement>(`tr[data-epoch="${start + hour * 3_600_000}"]`)!
+    expect(Number(rowAt(13).dataset.dayOvercast)).toBe(0)
+    expect(Number(rowAt(14).dataset.dayOvercast)).toBeCloseTo(2 / 3, 2)
+    expect(Number(rowAt(13).style.getPropertyValue('--day-overcast-next'))).toBeCloseTo(2 / 3, 2)
+    expect(rowAt(2).dataset.dayOvercast).toBeUndefined()
+  })
+
+  it('masks the NASA moon texture with the calculated terminator at night', () => {
+    renderTable()
+    const moon = document.querySelector('.moon-glyph')!
+    expect(moon.querySelectorAll('image[href="/moon@2x.png"]')).toHaveLength(2)
+    expect(moon.querySelector('.moon-texture')?.getAttribute('clip-path')).toMatch(/^url\(#.+-litclip\)$/)
+    expect(document.querySelector('.moon-angle')?.textContent).toMatch(/^∠-?\d+°$/)
+    expect(document.querySelector('.moon-reading')?.getAttribute('aria-label')).toMatch(/graden (boven|onder) de horizon$/)
+  })
+
   it('show rain beside the weather icon only when the rounded amount is not zero', () => {
     renderTable()
     const amounts = [...document.querySelectorAll('tbody tr:not(.sun-row):not(.history-toggle-row)')].slice(0, 4)
@@ -172,8 +270,10 @@ describe('history rows', () => {
 
   it('fold behind a small toggle on touch', () => {
     renderTable({ rows: withHistory })
-    expect(screen.getByRole('button', { name: 'Afgelopen 2 uur tonen' }).getAttribute('aria-expanded')).toBe('false')
+    const toggle = screen.getByRole('button', { name: 'Afgelopen 2 uur tonen' })
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
     expect(document.querySelectorAll('tr.past-hour')).toHaveLength(0)
+    expect(toggle.closest('tr')?.previousElementSibling?.classList.contains('current-hour')).toBe(true)
   })
 
   it('stand inline above the now-row on desktop, without a toggle', () => {
@@ -191,6 +291,7 @@ describe('sun rows', () => {
     expect(sunRows.map((row) => row.textContent?.replace(/\d\d:\d\d/, 'hh:mm'))).toEqual(['Zon op hh:mm', 'Zon onder hh:mm'])
     for (const row of sunRows) {
       expect(row.querySelector('.sun-glyph-disc')).not.toBeNull()
+      expect(row.previousElementSibling?.classList.contains('before-sun-row')).toBe(true)
       // Horizon, halve schijf en stralen (U34); geen pijl.
       expect(row.querySelectorAll('.sun-glyph path')).toHaveLength(3)
       expect(row.querySelector('.sun-glyph-rays')).not.toBeNull()

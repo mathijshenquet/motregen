@@ -7,12 +7,13 @@ meting naar een server.
 
 ## Profielmodus (MIP-16)
 
-`?perf=start` zet de vlag én start direct een koude-startopname van die lading (de eerste
-30 s na `timeOrigin`), zonder eerst op *Koude start* te tikken; handig omdat veel effecten op
-pageload zitten (PO 2026-10-07).
+`?perf=start` opent de HUD en start direct een koude-startopname van deze lading (de eerste 30 s
+na `timeOrigin`), zonder eerst op *Koude start* te tikken; handig omdat veel effecten op pageload
+zitten (PO 2026-10-07).
 
-`?perf` bewaart `localStorage['motregen-perf']=1`, opent de compacte HUD en houdt de
-fase-instrumentatie aan; `?perf=0` wist de vlag. De HUD toont per fase count/p50/p95 over de laatste
+`?perf` opent de compacte HUD en houdt de fase-instrumentatie aan; een kale URL sluit eventuele
+oude profielstaat en `?perf=0` wist die eveneens expliciet. Alleen *Koude start* gebruikt kort een
+`localStorage`-vlag om de profielmodus één herlaadbeurt mee te nemen. De HUD toont per fase count/p50/p95 over de laatste
 30 seconden en maximaal vijf lange animatieframes. *Opname 30 s* combineert die tijdvakken met de
 JS Self-Profiling-stacks (als de browser de API biedt) tot Chrome Trace Event-JSON. *Koude start*
 herlaadt en neemt het venster vanaf `performance.timeOrigin` op. Zonder Self-Profiling blijven
