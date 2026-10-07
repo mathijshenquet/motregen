@@ -20,7 +20,7 @@ interface ScenarioStep {
   mode?: 'Weer' | 'Lucht' | 'Gevoel' | 'Wind'
 }
 interface Scenario { durationMs: number; description: string; steps: ScenarioStep[]; autoplay?: boolean }
-interface RigOptions { profiles: string[]; scenarios: string[]; repeat: number; cpuRate: number }
+interface RigOptions { profiles: string[]; scenarios: string[]; repeat: number; cpuRate?: number }
 const options = JSON.parse(process.env.MOTREGEN_MOBILE_OPTIONS ?? '{"profiles":["mobile-4g"],"scenarios":["koud"],"repeat":1,"cpuRate":4}') as RigOptions
 const scenarios = JSON.parse(readFileSync('perf/scenarios.json', 'utf8')) as Record<string, Scenario>
 const sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
@@ -31,7 +31,8 @@ for (const profileId of options.profiles) {
       test(`${profileId} / ${scenarioId} / run ${repetition}`, async ({ page, context, baseURL }) => {
         const scenario = scenarios[scenarioId]!
         const loadAverage = hostLoadAverage()
-        const profile = { ...performanceProfile(profileId), cpuThrottleRate: options.cpuRate }
+        const calibrated = performanceProfile(profileId)
+        const profile = { ...calibrated, cpuThrottleRate: options.cpuRate ?? calibrated.cpuThrottleRate }
         const actions: MobileReport['actions'] = []
         const errors: string[] = []
         const findings: string[] = []
@@ -41,6 +42,10 @@ for (const profileId of options.profiles) {
         const cdp = await context.newCDPSession(page)
         await applyEmulation(cdp, profile)
         await cdp.send('Network.setCacheDisabled', { cacheDisabled: true })
+        if (profile.device) {
+          await page.setViewportSize(profile.device.viewport)
+          await cdp.send('Emulation.setUserAgentOverride', { userAgent: profile.device.userAgent })
+        }
         const allowedOrigins = new Set([baseURL!, `http://127.0.0.1:${process.env.MOTREGEN_E2E_DATA_PORT ?? 8392}`])
         await context.route(/^https?:\/\//, async (route) => {
           if (allowedOrigins.has(new URL(route.request().url()).origin)) await route.continue()

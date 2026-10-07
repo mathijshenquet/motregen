@@ -41,3 +41,51 @@ Receipts: `pnpm typecheck` exit 0; `pnpm test` exit 0 (69 bestanden, 456 tests; 
 sandbox, na `pnpm synthgen`).
 
 Volgende stap: meten op een rustige host (loadavg ≤ 8) ×3, mediaan; dan `po-android`.
+
+## 2026-10-07 19:45 — eerste geldige vóór-meting (mobile-4g, CPU 4×), referentie, oorzaak gevonden
+
+Host rustig (loadavg 5,9–7,5; drempel 8, één referentierun op 8,71 weggegooid). Rig-commit
+621576e, eigen poorten 4455/8455.
+
+| maat (mobile-4g, koud, ×3) | run 1 | run 2 | run 3 | mediaan |
+| --- | ---: | ---: | ---: | ---: |
+| **ttfp** main, `koud-spelend` | 2558 | 4342 | 4446 | **4342 ms** |
+| ttfr (regen én tiles) | 1600 | 1620 | 1588 | 1600 ms |
+| eerste regenframe / basemap-tiles | 1600 / 1406 | 1620 / 1318 | 1588 / 1310 | |
+| ttfh (regen nu ± 1 u) | 2887 | 25532 | 29487 | 25532 ms |
+| blank-visible-ms | 3977 | 22215 | 26015 | 22215 ms |
+| LoAF eerste 12 s (totaal / blocking) | 2672 / 965 | 10239 / 9094 | 10686 / 9525 | 10239 ms |
+| decodes in 30 s | 356 | 341 | 276 | |
+| wire (bodybytes) | 1675565 | 1675565 | 1675382 | |
+| **ttfp-ref** Buienradar | 3728 | 3586 | (load 8,71) | **≈ 3,6–3,7 s** |
+
+Buienradar: eerste radarbeeld ≈ 2,9 s, daarna 1 beeld/s; de animatie loopt ook onder de
+toestemmingsmuur door. Stand: main 4,3 s tegen 3,7 s — de lat is niet gehaald.
+
+De koude start is **bimodaal**: run 1 is de snelle tak (puntreeks `direct` op 2,7 s), run 2/3 de
+trage (`direct` pas op 25 s, lange frames groeien van 0,5 naar 1,4 s). Oorzaak in de trage tak
+(source-mapped self-profile run 2, 1162 samples): 64 % van de hoofddraad zit onder
+`frame-batcher.ts` ← het wolkenreeks-effect in `App.tsx`. Dat effect leest `selectedEpoch()` en
+draait dus tijdens afspelen elk beeld opnieuw: nieuwe leesopdrachten per laag en per chunk plus
+een eigen rAF-publisher per run, die elk `setCloudValues` doen en de wolkensectie van de
+scrubber opnieuw laten opbouwen. Dat verhongert de puntreeks. De PO-opname 16:27:59 toont
+hetzelfde beeld: van 2,2 tot 7,2 s lange frames van ≈ 250 ms met elk een rij rAF-callbacks van
+≈ 12 ms, en de kaart wisselt pas vanaf ≈ 7,5 s op afspeelcadans van frame.
+
+Nevenvondst (speelregel, dus PO-stap, niet aangeraakt): `setMapReady(true)` start het
+afspeel-effect synchroon vóórdat `initialPickStarted` op true staat. Afspelen begint daardoor
+al tijdens laadfase `initial`, terwijl de poort dat juist wil tegenhouden; welke tak je krijgt
+is een race.
+
+PO-referentie vastgelegd: `web/perf/po-android-reference.json` (uit opname 16:27:59 via
+`tsx scripts/po-reference.ts summarize`): eerste decode 1024 ms, eerste texture-upload 1151 ms,
+ttfh 4026 ms, uploads op afspeelcadans vanaf 7481 ms, decode p50 22 ms, basemap-tile p50 721 ms,
+22 lange frames / 4261 ms (blocking 2967 ms) in 12 s.
+
+Profiel `po-android` staat als eerste aanzet in `e2e/profiles.ts` (390 px, UA Android 10 K,
+CPU 4×, 30 Mbps/20 ms); nog NIET gekalibreerd. Grootste gat: decodes kosten in de rig 0,3 ms
+(synthraster 190×230, workers ongeremd) tegen 22 ms op de telefoon.
+
+Iteratie 1 (in meting, nog niet gecommit): het wolken-effect volgt de cursor niet meer
+(`untrack`) en deelt één publisher per locatie/tijdlijn. Geen waarneembare verandering beoogd.
+Receipts: `pnpm typecheck` exit 0, `pnpm test` exit 0 (456 tests).

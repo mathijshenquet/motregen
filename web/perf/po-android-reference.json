@@ -1,0 +1,65 @@
+{
+  "source": "2026-10-07T16:27:59.971Z-linux-armv81.json",
+  "sha256": "371a5d233a2cddaf168415a922fdd559c2d3c9f28da5b1cf4d2affd27b73a2df",
+  "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Mobile Safari/537.36",
+  "firstDecodeMs": 1024,
+  "firstTextureUploadMs": 1151,
+  "playbackUploadsFromMs": 7481,
+  "windowReadyMs": {
+    "temp_c": 1808,
+    "feels_like_c": 1808,
+    "cloud_frac": 1808,
+    "wind_u": 1808,
+    "wind_v": 1808,
+    "gust_ms": 1808,
+    "cloud_high": 1828,
+    "cloud_low": 1937,
+    "cloud_mid": 1937,
+    "uv": 2729,
+    "rain_rate": 4026
+  },
+  "phases": {
+    "table-render": {
+      "count": 8,
+      "totalMs": 4.2,
+      "p50Ms": 0.2,
+      "p95Ms": 3.1
+    },
+    "scrubber-paint": {
+      "count": 472,
+      "totalMs": 232.9,
+      "p50Ms": 0.4,
+      "p95Ms": 1.1
+    },
+    "basemap-tile": {
+      "count": 8,
+      "totalMs": 3311,
+      "p50Ms": 86.2,
+      "p95Ms": 768.5
+    },
+    "frame-decode": {
+      "count": 221,
+      "totalMs": 5520.2,
+      "p50Ms": 22,
+      "p95Ms": 53
+    },
+    "texture-upload": {
+      "count": 31,
+      "totalMs": 193.7,
+      "p50Ms": 5.8,
+      "p95Ms": 11
+    },
+    "wind-step": {
+      "count": 671,
+      "totalMs": 351.2,
+      "p50Ms": 0.5,
+      "p95Ms": 0.9
+    }
+  },
+  "decodesBeforeRainWindow": 75,
+  "longFramesFirst12s": {
+    "count": 22,
+    "totalMs": 4261,
+    "blockingMs": 2967
+  }
+}

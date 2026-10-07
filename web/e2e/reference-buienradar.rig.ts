@@ -5,7 +5,7 @@ import { installReferenceProbe, type ReferenceEvent } from './reference-probe'
 import { hostLoadAverage } from '../scripts/rig-host'
 import { referenceMilestones, renderReferenceReport, type ReferenceReport } from '../scripts/reference-report'
 
-interface RigOptions { profiles: string[]; repeat: number; cpuRate: number }
+interface RigOptions { profiles: string[]; repeat: number; cpuRate?: number }
 const options = JSON.parse(process.env.MOTREGEN_MOBILE_OPTIONS ?? '{"profiles":["mobile-4g"],"repeat":3,"cpuRate":4}') as RigOptions
 const origin = 'https://www.buienradar.nl'
 const observeAfterFirstFrameMs = 15_000
@@ -14,7 +14,8 @@ const selectors = { radarImage: 'img.leaflet-image-layer', mapContainer: '.leafl
 for (const profileId of options.profiles) {
   for (let repetition = 1; repetition <= options.repeat; repetition++) {
     test(`${profileId} / referentie-buienradar / run ${repetition}`, async ({ page, context }) => {
-      const profile = { ...performanceProfile(profileId), cpuThrottleRate: options.cpuRate }
+      const calibrated = performanceProfile(profileId)
+      const profile = { ...calibrated, cpuThrottleRate: options.cpuRate ?? calibrated.cpuThrottleRate }
       const loadAverage = hostLoadAverage()
       const events: ReferenceEvent[] = []
       const actions: ReferenceReport['actions'] = []
@@ -23,6 +24,10 @@ for (const profileId of options.profiles) {
       const cdp = await context.newCDPSession(page)
       await applyEmulation(cdp, profile)
       await cdp.send('Network.setCacheDisabled', { cacheDisabled: true })
+      if (profile.device) {
+        await page.setViewportSize(profile.device.viewport)
+        await cdp.send('Emulation.setUserAgentOverride', { userAgent: profile.device.userAgent })
+      }
 
       const capturedAt = new Date().toISOString()
       const navigationStartMs = Date.now()

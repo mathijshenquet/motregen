@@ -8,7 +8,8 @@ import { MAX_LOAD_AVERAGE, hostLoadAverage, rigPorts, waitForQuietHost } from '.
 const REFERENCE_SCENARIO = 'referentie-buienradar'
 
 const args = process.argv.slice(2)
-const options = { profiles: ['mobile-4g'], scenarios: ['koud'], repeat: 1, baseline: false, compare: false, cpuRate: 4, loadWaitMinutes: 20 }
+// Zonder --cpu-rate geldt de page-throttle van het profiel zelf.
+const options: { profiles: string[]; scenarios: string[]; repeat: number; baseline: boolean; compare: boolean; cpuRate?: number; loadWaitMinutes: number } = { profiles: ['mobile-4g'], scenarios: ['koud'], repeat: 1, baseline: false, compare: false, loadWaitMinutes: 20 }
 for (let index = 0; index < args.length; index++) {
   const argument = args[index]!
   const [flag, inline] = argument.split('=')
@@ -26,10 +27,10 @@ for (let index = 0; index < args.length; index++) {
 }
 if (options.baseline && options.compare) throw new Error('--baseline en --compare sluiten elkaar uit')
 if (!Number.isInteger(options.repeat) || options.repeat < 1 || options.repeat > 10) throw new Error('--repeat moet 1…10 zijn')
-if (!Number.isFinite(options.cpuRate) || options.cpuRate < 1 || options.cpuRate > 32) throw new Error('--cpu-rate moet 1…32 zijn')
+if (options.cpuRate !== undefined && (!Number.isFinite(options.cpuRate) || options.cpuRate < 1 || options.cpuRate > 32)) throw new Error('--cpu-rate moet 1…32 zijn')
 if (options.baseline && options.repeat < 3) throw new Error('--baseline vereist --repeat 3 (of meer) om determinisme te verifiëren')
 const scenarios = JSON.parse(readFileSync('perf/scenarios.json', 'utf8')) as Record<string, unknown>
-if (options.profiles.some((profile) => !['mobile-4g', 'mobile-fast-3g'].includes(profile))) throw new Error('Onbekend mobiel profiel')
+if (options.profiles.some((profile) => !['mobile-4g', 'mobile-fast-3g', 'po-android'].includes(profile))) throw new Error('Onbekend mobiel profiel')
 if (options.scenarios.some((scenario) => scenario !== REFERENCE_SCENARIO && !(scenario in scenarios))) throw new Error('Onbekend scenario')
 
 if (!await waitForQuietHost(options.loadWaitMinutes * 60_000, (message) => console.log(message))) {
