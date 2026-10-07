@@ -99,7 +99,8 @@ test('the search panel is one element; a tap outside closes it without touching 
   // 44 px op elk apparaat sinds U34 (2026-09-25): gelijk aan de merkdruppel rechtsboven.
   expect(rest.height).toBeGreaterThanOrEqual(42)
   expect(rest.height).toBeLessThanOrEqual(46)
-  expect((await page.locator('.search-icon').boundingBox())!.width).toBe(18)
+  // Icoon 20 px sinds U34 (2026-09-25), gelijk met de 44 px-pil.
+  expect((await page.locator('.search-icon').boundingBox())!.width).toBe(20)
 
   const input = page.getByRole('textbox', { name: 'Zoek plaats' })
   if (testInfo.project.use.hasTouch) await input.tap()
