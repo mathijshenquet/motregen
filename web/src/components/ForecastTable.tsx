@@ -215,7 +215,7 @@ export default function ForecastTable(props: Props) {
       </th></Show>
     </tr></thead>
     <tbody>
-    <For each={visibleRows()}>{(row) => {
+    <For each={visibleRows()}>{(row, rowIndex) => {
       const pending = () => row.epoch > props.loadedUntil || (row.kind === 'past' && !props.historyLoaded)
       const value = (series: Array<number | null>, index: number | null) => index == null ? null : series[index] ?? null
       const rain = () => value(props.series.rain, row.rainIndex)
@@ -229,11 +229,19 @@ export default function ForecastTable(props: Props) {
       const daylight = () => sunEvent()?.kind === 'set' || (sunEvent() === undefined && elevation(row.epoch) > 0)
       const radiationBefore = () => value(props.series.radiation, row.radiationIndex)
       const radiationAfter = () => value(props.series.radiation, row.radiationNextIndex)
-      const dayDarkness = createMemo(() => {
-        const cover = cloud()
+      const darknessFor = (target: HourlyForecastRow) => {
+        const cover = value(props.series.cloud, target.cloudIndex)
         // U47 gebruikt CMF op een perceptuele schaal; zonder straling volgt 100% bewolking 25% licht.
         const fallbackLight = cover == null ? 1 : 1 - 0.75 * Math.max(0, Math.min(1, cover / 100))
-        return lightDarkness(cloudModification(row.epoch, radiationBefore(), radiationAfter(), elevation) ?? fallbackLight)
+        return lightDarkness(cloudModification(target.epoch,
+          value(props.series.radiation, target.radiationIndex),
+          value(props.series.radiation, target.radiationNextIndex), elevation) ?? fallbackLight)
+      }
+      const dayDarkness = createMemo(() => darknessFor(row))
+      const nextDayDarkness = createMemo(() => {
+        const next = visibleRows()[rowIndex() + 1]
+        if (!next || elevation(next.epoch) <= 0) return dayDarkness()
+        return darknessFor(next)
       })
       const icon = () => deriveWeatherIcon(rain(), cloud(), daylight())
       const uv = createMemo(() => uvReading(row.epoch, value(props.series.uv, row.uvIndex), value(props.series.uvClear, row.uvClearIndex),
@@ -250,7 +258,10 @@ export default function ForecastTable(props: Props) {
         <tr
           data-epoch={row.epoch}
           data-day-overcast={daylight() ? dayDarkness().toFixed(3) : undefined}
-          style={{ '--day-overcast': dayDarkness().toFixed(3) }}
+          style={{
+            '--day-overcast': dayDarkness().toFixed(3),
+            '--day-overcast-next': nextDayDarkness().toFixed(3),
+          }}
           ref={(element) => {
             rowElements.set(row.epoch, element)
             onCleanup(() => rowElements.delete(row.epoch))

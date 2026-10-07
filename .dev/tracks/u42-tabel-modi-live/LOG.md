@@ -480,6 +480,22 @@
    checkpoint via de U42-branch binnenhalen in plaats van de vijf U42×U56-conflicten zelf op te
    lossen.
 
+## 2026-10-07 13:46 UTC
+
+- Correctie na PO-screenshot: de U47-dagmood is geen effen kleurband meer. Elk daguur verloopt nu
+  verticaal van zijn eigen CMF-/bewolkingskleur naar die van het volgende uur, zoals U47's
+  tijdsgradient tussen uurstops. Daardoor delen aangrenzende rijen exact dezelfde kleur op hun
+  grens.
+- De laatste dagrij vóór zonsondergang begon ten onrechte opnieuw op `--surface`. De dusk-compositie
+  vertrekt nu vanaf precies de geïnterpoleerde dagluchtkleur; ook de eerste rij na zonsopkomst eindigt
+  in zijn eigen volgende-uurkleur. De bestaande radiale amber/roze/paarse lagen zijn behouden.
+- Synchrone receipts: `git diff --check`, `pnpm typecheck`, volledige Vitest-run 67 bestanden/437
+  tests en `pnpm build` exit 0. Build: 113 modules, `index-Q0CUmeJA.js`, `index-Dc9du3-w.css`, PWA +
+  workers. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+- Eigen visuele controle op desktop 1280×900 en mobiel 390×844: 18:00 vloeit nu zonder kleursprong
+  door naar de bovenkant van 19:00, waarna de warme gloed binnen die rij opbouwt naar de zonregel;
+  de losse daguren tonen subtiele gradients in plaats van effen banden en de nacht blijft rustig.
+
 ## 2026-10-07 13:26 UTC
 
 - De tabelcyclus is nu een gebruikersoptie “Dag en nacht in tabel” onder Weergave, standaard aan en

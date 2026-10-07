@@ -667,7 +667,14 @@ button.column-mode { width: 100%; cursor: pointer; }
 .forecast-table.day-night-table tr.night-hour .moon-night-edge { stop-color: #1b262c; }
 .forecast-table.day-night-table tr.night-hour .moon-earthshine { opacity: .25; }
 :root[data-theme="dark"] .forecast-table.day-night-table tr.day-hour { --surface: #fff; --surface-soft: #f2f7f8; --text: #102630; --muted: #637b85; --line: #d5e1e5; --line-strong: #b7cbd2; --accent: #1688ad; --accent-soft: #d9f1f8; color: var(--text); }
-.forecast-table.day-night-table tr.day-hour td { background: color-mix(in oklab, color-mix(in oklab, var(--sky-dull) calc(var(--day-overcast) * 100%), var(--sky-bright)) 28%, var(--surface)); }
+.forecast-table.day-night-table tr.day-hour {
+  --day-sky-start: color-mix(in oklab, color-mix(in oklab, var(--sky-dull) calc(var(--day-overcast) * 100%), var(--sky-bright)) 28%, var(--surface));
+  --day-sky-end: color-mix(in oklab, color-mix(in oklab, var(--sky-dull) calc(var(--day-overcast-next) * 100%), var(--sky-bright)) 28%, var(--surface));
+  background:
+    radial-gradient(ellipse 82% 95% at 76% 115%, color-mix(in srgb, #fff 8%, transparent), transparent 72%),
+    linear-gradient(180deg, var(--day-sky-start), var(--day-sky-end));
+}
+.forecast-table.day-night-table tr.day-hour td { background: transparent; }
 :root[data-theme="dark"] .forecast-table.day-night-table tr.day-hour .weather-icon .weather-cloud { fill: #e7eef1; stroke: #8399a3; }
 tr.past-hour td { color: color-mix(in srgb, var(--text) 68%, var(--muted)); }
 tr.pending-hour td { color: var(--muted); }
@@ -718,7 +725,7 @@ td small { color: var(--muted); font-size: 9px; }
     radial-gradient(ellipse 48% 95% at 52% 118%, rgba(255, 184, 92, .7), transparent 66%),
     radial-gradient(ellipse 72% 78% at 7% 116%, rgba(239, 66, 105, .28), transparent 70%),
     radial-gradient(ellipse 58% 72% at 96% 112%, rgba(123, 57, 137, .2), transparent 72%),
-    linear-gradient(180deg, var(--surface) 24%, color-mix(in srgb, #ef7a64 24%, var(--surface)) 100%);
+    linear-gradient(180deg, var(--day-sky-start) 24%, color-mix(in srgb, #ef7a64 24%, var(--day-sky-start)) 100%);
 }
 .forecast-table.day-night-table tr.before-sunrise {
   background:
@@ -752,7 +759,7 @@ td small { color: var(--muted); font-size: 9px; }
   background:
     radial-gradient(ellipse 54% 105% at 52% -15%, rgba(255, 164, 92, .54), rgba(238, 95, 107, .22) 40%, transparent 74%),
     radial-gradient(ellipse 72% 90% at 3% -15%, rgba(126, 62, 142, .18), transparent 67%),
-    linear-gradient(180deg, color-mix(in srgb, #f7ad7b 24%, var(--surface)) 0%, var(--surface) 82%);
+    linear-gradient(180deg, color-mix(in srgb, #f7ad7b 24%, var(--day-sky-start)) 0%, var(--day-sky-end) 82%);
 }
 .forecast-table.day-night-table tr.sunset-row + tr.night-hour td,
 .forecast-table.day-night-table tr.sunrise-row + tr.day-hour td { background: transparent; }

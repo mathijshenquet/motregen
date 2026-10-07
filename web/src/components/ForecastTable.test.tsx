@@ -215,6 +215,7 @@ describe('forecast table cells', () => {
     const rowAt = (hour: number) => document.querySelector<HTMLTableRowElement>(`tr[data-epoch="${start + hour * 3_600_000}"]`)!
     expect(Number(rowAt(13).dataset.dayOvercast)).toBe(0)
     expect(Number(rowAt(14).dataset.dayOvercast)).toBeCloseTo(2 / 3, 2)
+    expect(Number(rowAt(13).style.getPropertyValue('--day-overcast-next'))).toBeCloseTo(2 / 3, 2)
     expect(rowAt(2).dataset.dayOvercast).toBeUndefined()
   })
 
