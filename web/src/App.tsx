@@ -177,6 +177,8 @@ const PLAYBACK_MAX_FPS = 30
 // Zo lang wacht afspelen op één ontbrekend frame; daarna loopt de cursor door zoals vóór de
 // speelregel, zodat een frame dat nooit komt de tijdlijn niet voorgoed stilzet.
 const PLAYBACK_FRAME_WAIT_MS = 3_000
+// Zo ver vóór de cursor vraagt de afspeellus zelf een ontbrekend frame op: het volgende en dat daarna.
+const PLAYBACK_WAIT_AHEAD_FRAMES = 2
 // Rig-schakelaar (?dev): 'venster' zet de oude regel terug (spelen pas na laadfase "window").
 const PLAY_RULE_STORAGE_KEY = 'motregen-dev-speelregel'
 // Rig-schakelaar (?dev): 'laat' vraagt het eerste regenframe weer pas na de kaart-opzet.
@@ -1047,10 +1049,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       let nextCursor = timelineCursorAtEpoch(frames, nextEpoch)
       if (!playRuleWaitsForWindow) {
         const reach = playbackReach(cursor(), 1, frames.length, framePresent)
-        if (reach.waitingFor === null) waiting = undefined
+        // Alleen het frame waar de cursor nu tegenaan loopt telt als wachten. Zonder die grens
+        // schoof het wachtframe elke tik één op zodra het vorige binnen was en haalde de lus zo de
+        // hele tijdlijn vooruit binnen (decode-budget.spec: het laatste regenframe na 4 s).
+        const blocking = reach.waitingFor !== null && reach.waitingFor <= Math.floor(cursor()) + PLAYBACK_WAIT_AHEAD_FRAMES
+        if (!blocking) waiting = undefined
         else if (waiting?.frame !== reach.waitingFor) {
-          waiting = { frame: reach.waitingFor, since: now }
-          void load(frames[reach.waitingFor]!).catch(() => undefined)
+          waiting = { frame: reach.waitingFor!, since: now }
+          void load(frames[reach.waitingFor!]!).catch(() => undefined)
         }
         if (!waiting || now - waiting.since < PLAYBACK_FRAME_WAIT_MS) nextCursor = clampPlaybackCursor(nextCursor, reach, 1)
         if (nextCursor <= cursor()) { setGlideRate(0); return }

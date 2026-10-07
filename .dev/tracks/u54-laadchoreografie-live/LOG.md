@@ -765,3 +765,31 @@ f6fcffa**; HEAD is daarna alleen LOG. Er draait geen rig, preview-hulpservers zi
 - Bij het opruimen `pkill -f "caddy run --config perf/Caddyfile"` zonder mijn worktree in het
   patroon: mogelijk de dataserver van een andere track gestopt.
 Alle vier zijn hersteld of gemeld; de eerste drie zijn in de rig dichtgezet.
+
+## 2026-10-08 09:05 — main gemerged; decode-budget.spec rood door een echte fout in mijn speelregel, hersteld
+
+Merge 6f74b7d (main 729707a9 + de location.spec-fix). Onafhankelijke gate van de orkestrator:
+`decode-budget.spec` rood door deze branch; `freshness.spec` was een load-flake (bij mij los
+ook groen); `location.spec` was al rood op main en is daar gefixt.
+
+**Oorzaak decode-budget** — geen assertie die de speelregel "nog niet kent", maar een fout van
+mij. De afspeellus vroeg het frame op waarop `playbackReach` wachtte. Zodra dat binnen was
+schoof het wachtframe één op, en de lus vroeg het volgende: zo haalde hij elke tik één frame
+verder vooruit binnen, de hele tijdlijn door. Diagnose (tijdelijke log in de spec, daarna
+teruggezet): de regenframes 36…47 van `harmonie-20260828T1200.mrf` werden met laag `map` om de
+≈ 33 ms gedecodeerd, het laatste al op 4,4 s na de navigatie.
+**Fix** (`App.tsx`): de lus vraagt alleen nog een ontbrekend frame op dat de cursor
+daadwerkelijk blokkeert (hooguit `PLAYBACK_WAIT_AHEAD_FRAMES` = 2 vóór de cursor); verder
+vooruit laden blijft het werk van de planner. De assertie in de spec is NIET aangepast.
+
+Gevolg voor eerdere uitspraken in deze LOG — **die moeten herzien worden**:
+- De "+14 % decodes / +2 % wire, bedoeld" van de speelregel (iteratie 2) en de +15 % decodes
+  in de `journey`-baseline kwamen op zijn minst deels van deze fout, niet alleen van "de
+  tijdlijn loopt eerder en verder". De reden in docs/perf.md §Baselines klopt dus niet zonder
+  meer; die baselines waren al ongeldig en moeten na deze fix opnieuw (`--baseline` ×3).
+- Alle ttfp- en soepelheidsgetallen sinds iteratie 2 zijn gemeten mét dit vooruitladen. ttfp
+  zelf (eerste frame-wissel) zal er weinig van merken; decodes, ttfh, blank-visible en de
+  soepelheid tijdens laden mogelijk wel. Niet opnieuw gemeten.
+
+Receipts: `pnpm typecheck` exit 0; `pnpm test` exit 0;
+`pnpm e2e e2e/decode-budget.spec.ts e2e/freshness.spec.ts --project desktop` exit 0 (5 geslaagd).
