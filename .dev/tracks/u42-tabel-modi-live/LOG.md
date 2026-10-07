@@ -394,3 +394,13 @@
   `pnpm build` exit 0; ForecastTable 17/17 groen. Build: 107 modules, `index-DN0LFS2x.js`,
   `index-dX-EyVoq.css`, PWA + workers. Preview `http://ageq-dev2:4320/` serveert de nieuwe assets.
   Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+
+## 2026-10-07 12:25 UTC
+
+- De maanillustratie is vergroot van 26 naar 32px. Maan plus waarden vormen nu één gecentreerde
+  tweekolomscompositie in de Lucht-cel; percentage en horizonhoek staan als compact, rechts uitgelijnd
+  blok naast de maan in plaats van als los ogende tekst.
+- Synchrone receipts: `git diff --check`, `pnpm typecheck` en `pnpm build` exit 0; ForecastTable
+  17/17 groen. Build: 107 modules, `index-CovZL7Jy.js`, `index-Dm2XnRRk.css`, PWA + workers.
+  Preview `http://ageq-dev2:4320/` serveert de nieuwe assets. Geen e2e uitgevoerd vóór PO-signaal
+  “klaar”.

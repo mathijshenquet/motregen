@@ -533,12 +533,12 @@ button { color: inherit; cursor: pointer; }
 .air-cell .uv-bar { min-width: 0; }
 .air-cell .uv-bar-track { min-width: 0; }
 .air-uv-placeholder { color: var(--muted); text-align: center; }
-.moon-reading { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-variant-numeric: tabular-nums; text-align: left; }
-.moon-meta { display: flex; flex-direction: column; gap: 1px; line-height: 1; }
+.moon-reading { width: 100%; display: grid; grid-template-columns: 32px auto; align-items: center; justify-content: center; column-gap: 4px; color: var(--muted); font-variant-numeric: tabular-nums; text-align: left; }
+.moon-meta { display: grid; justify-items: end; gap: 2px; line-height: 1; }
 .moon-reading small { font-size: 10.5px; font-weight: 700; }
 .moon-reading .moon-angle { display: inline-flex; align-items: baseline; gap: 2px; color: color-mix(in srgb, var(--muted) 82%, transparent); font-size: 8.5px; font-weight: 620; }
 .moon-angle > span { font-size: 10px; line-height: .7; }
-.moon-glyph { flex: none; width: 26px; height: 26px; overflow: visible; filter: drop-shadow(0 1px 1px rgba(20, 36, 43, .22)); }
+.moon-glyph { width: 32px; height: 32px; overflow: visible; filter: drop-shadow(0 1px 1px rgba(20, 36, 43, .22)); }
 .moon-glow { fill: #f6e9b8; }
 .moon-texture { filter: sepia(.1) saturate(.76) brightness(1.16) contrast(1.1); }
 .moon-earthshine { opacity: .2; filter: grayscale(1) brightness(.58) contrast(1.16); }
