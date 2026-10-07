@@ -700,3 +700,68 @@ Receipts: `pnpm typecheck` exit 0, `pnpm test` exit 0 (479), `pnpm build` exit 0
 (de check, zie boven).
 
 **Preview :4355 = f6fcffa** (R8-regentextuur, temperatuur-fix, herijkte rig).
+
+## 2026-10-08 08:10 — afronding van deze sessie: stand voor merge
+
+Geen nieuw lus-item meer begonnen (orkestrator: bij volle context afronden). **:4355 serveert
+f6fcffa**; HEAD is daarna alleen LOG. Er draait geen rig, preview-hulpservers zijn gestopt.
+
+**Gate op HEAD (2b6e459):**
+- `pnpm typecheck` exit 0; `pnpm test` exit 0 (72 bestanden, 479 tests); `pnpm build` exit 0.
+- Gerichte e2e desktop — nu voor het eerst gedraaid op deze branch:
+  `pnpm e2e e2e/focus.spec.ts e2e/cloud-section.spec.ts e2e/presets.spec.ts e2e/freshness.spec.ts
+  e2e/isobars.spec.ts e2e/table.spec.ts e2e/location.spec.ts --project desktop` → **exit 1**:
+  23 geslaagd, 4 overgeslagen, **2 gefaald**, beide in `location.spec.ts`:
+  1. `start location remembers saved places…`: na herladen eindigt het label op "De Bilt"
+     i.p.v. "Groningen" (volgorde: "Regen laden…" → "Groningen · verwachting laden…" →
+     "De Bilt").
+  2. `the search panel is one element…`: `.search-field` font-size 16 px, verwacht 15 px.
+  Deze branch raakt de zoekveld-CSS niet (`git diff main -- web/src/styles.css` bevat geen
+  `search-field`) en ook de startlocatie-code niet. Mijn vermoeden is dat beide al op main
+  falen (permalink `?plaats=` uit U58; zoekveld-stijl), maar dat is **niet geverifieerd**: ik
+  heb de spec niet op main gedraaid.
+- Rig-check `modus-wissel-koud`: rood (3 lege beelden vóór de eerste trace; zie vorige entry).
+- Rig-baselines: die van f105483 zijn ongeldig door de latere rig-wijzigingen (herijking,
+  scenario's, meetpunten). `--compare` vraagt een nieuwe `--baseline` ×3 na de merge.
+
+**Wat deze branch levert**
+1. Meetpunten: ttfp, ttfr (regen én tiles), ttfh, eerste balk, blank-visible (interval en
+   oppervlak), LoAF 12 s en per venster, soepelheid per venster, lege temperatuurbeelden.
+2. Rig: `koud-spelend`, `soepel`, `soepel-seek-laden`, `modus-wissel-koud`,
+   `referentie-buienradar`; profiel `po-android` (renderer-quota 40 %, regen op
+   productiegrootte); loadavg-drempel, eigen poorten, voorbouw, oude rapporten gewist.
+3. Gereedschap: `pnpm prof:firefox`, `scripts/load-shot.ts`, `mode-shot.ts`, `pixel-diff.ts`,
+   `po-reference.ts`, `track-preview.sh`.
+4. Gedrag zonder zichtbaar verschil: wolkenreeks-effect volgt de cursor niet meer; regen rond
+   nu als eerste verzoek (op de rig niet aangetoond); regentextuur R8 (pixelverschil ≤ 1/255).
+5. Gedrag mét zichtbaar verschil — **PO-akkoord nodig vóór merge**:
+   a. speelregel (cursorframe + volgend frame; wachtlimiet 3 s; stil wachten zonder melding);
+   b. stap 3: scrubber-kader tijdens laden en vóór het manifest;
+   c. temperatuur: voorlopig palet met één kleursprong, vorige snede vasthouden,
+      cursor-uurlagen vooraf;
+   d. `?dev`-knoppen Kaderhemel en Eerste regen (standaard uit / vroeg).
+
+**Open voor agents (volgende sessie, in deze volgorde)**
+1. Eerste trace na een moduswissel (de resterende 3 lege beelden) samen met de Wind-wissel:
+   isolines alleen rond de cursor traceren, de rest gepaced en per uur gecachet (PO-opnames
+   20:33: 196–277 traces, 3,3–4,4 s).
+2. Wissel-decodes pacen voor Wind/Lucht (cursorframe eerst), zoals nu voor temperatuur.
+3. Soepelheidsvensters van de herijkte meting uitlezen (rapporten liggen in
+   `web/tmp/u54/cal3suite/`, niet gecommit en morgen weg) of opnieuw meten; daarna pas de
+   overige rendering-kandidaten kiezen op een profiel van het herijkte profiel.
+4. Stap 4 (fog, skeleton tabel) en de laadmelding op het wachtende slot.
+5. `location.spec` op main draaien om de twee fouten toe te wijzen.
+
+**Open bij de PO**
+1. Akkoord op 5a–5d; de kleursprong van het voorlopige palet of een alternatief.
+2. Telefoonopname van 30 s met scrubben en afspelen na het laden (referentie soepelheid).
+3. Opname op `…:4355/?perf=1&dev` met knop "Eerste regen" vroeg en laat (A/B iteratie 3).
+4. Buienradar op de telefoon volgens het meetrecept (ttfp-ref op het echte toestel).
+
+**Eigen fouten deze sessie, voor de volgende lezer**
+- Rig bouwde een tijd met de echte basemap (env-prefix op de verkeerde stap) en liep vast.
+- Twee rigs van mij liepen tegelijk; ik bouwde en fotografeerde tijdens een meting.
+- De referentie-samenvatting toonde een oud rapport als uitslag van een mislukte run.
+- Bij het opruimen `pkill -f "caddy run --config perf/Caddyfile"` zonder mijn worktree in het
+  patroon: mogelijk de dataserver van een andere track gestopt.
+Alle vier zijn hersteld of gemeld; de eerste drie zijn in de rig dichtgezet.
