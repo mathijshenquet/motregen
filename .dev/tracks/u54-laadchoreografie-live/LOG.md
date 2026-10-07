@@ -698,3 +698,5 @@ rig-scenario. Niet gebouwd.
 Receipts: `pnpm typecheck` exit 0, `pnpm test` exit 0 (479), `pnpm build` exit 0;
 `pnpm perf:mobile --profile po-android --scenario modus-wissel-koud --repeat 2` exit 1
 (de check, zie boven).
+
+**Preview :4355 = f6fcffa** (R8-regentextuur, temperatuur-fix, herijkte rig).
