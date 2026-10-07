@@ -2560,14 +2560,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           class="forecast-panel"
           onClick={openTableFromPeek}
         >
-          <button
-            type="button"
-            class="table-view-handle"
-            aria-expanded={tableModeSelected()}
-            aria-controls="forecast-table-view"
-            aria-label={tableModeSelected() ? 'Tabel sluiten en kaart tonen' : 'Tabel openen'}
-            onClick={(event) => { event.stopPropagation(); tableModeSelected() ? scrollToMap() : scrollToTable() }}
-          ><span aria-hidden="true" /></button>
           <div class="table-scroll">
             <ForecastTable
               rows={forecast()}

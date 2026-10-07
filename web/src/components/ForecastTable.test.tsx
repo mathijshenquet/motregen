@@ -186,6 +186,18 @@ describe('forecast table headings', () => {
 })
 
 describe('forecast table cells', () => {
+  it('groups night hours with a distinct row treatment around the sun boundaries', () => {
+    renderTable()
+    const rowAt = (hour: number) => document.querySelector<HTMLTableRowElement>(`tr[data-epoch="${start + hour * 3_600_000}"]`)!
+    expect(rowAt(2).classList.contains('night-hour')).toBe(true)
+    expect(rowAt(14).classList.contains('night-hour')).toBe(false)
+    expect(rowAt(22).classList.contains('night-hour')).toBe(true)
+    const sunrise = [...document.querySelectorAll<HTMLTableRowElement>('.sun-row')].find((row) => row.textContent?.includes('Zon op'))!
+    const sunset = [...document.querySelectorAll<HTMLTableRowElement>('.sun-row')].find((row) => row.textContent?.includes('Zon onder'))!
+    expect(sunrise.previousElementSibling?.classList.contains('night-hour')).toBe(true)
+    expect(sunset.previousElementSibling?.classList.contains('night-hour')).toBe(false)
+  })
+
   it('masks the NASA moon texture with the calculated terminator at night', () => {
     renderTable()
     const moon = document.querySelector('.moon-glyph')!

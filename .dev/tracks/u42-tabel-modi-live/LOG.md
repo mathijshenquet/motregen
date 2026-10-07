@@ -428,3 +428,22 @@
   scriptconfiguratie de volledige set: 59 bestanden/385 tests groen. Build: 107 modules,
   `index-D4A7_Xer.js`, `index-jbCfyrsS.css`, PWA + workers. Preview
   `http://ageq-dev2:4320/` serveert de nieuwe assets. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+
+## 2026-10-07 13:16 UTC
+
+- Dag en nacht zijn nu volledige visuele secties: nachtuurrijen nemen lokaal het donkerblauwe palet
+  over, met eigen tekst-, lijn-, accent- en weericoonkleuren. Het uur dat de zon ondergaat blijft aan
+  de dagzijde van de zonregel; het uur van zonsopkomst blijft aan de nachtzijde. De eerdere zachte
+  nachtshading en de achtergrondshading van historie en NU zijn verwijderd. NU gebruikt nu een
+  accent-overline in plaats van een underline; de linker accentmarkering blijft staan.
+- De zonregels blijven op de door de PO teruggekozen 9px verticale padding. De redundante mobiele
+  `table-view-handle` en zijn 24px strook zijn verwijderd; scroll-snap en de Tabel-knop blijven de
+  twee viewbedieningen.
+- Synchrone receipts: `git diff --check`, `pnpm typecheck`, `pnpm test -- --run
+  src/components/ForecastTable.test.tsx` en `pnpm build` exit 0. Door de scriptconfiguratie draaide
+  Vitest volledig: 59 bestanden/386 tests groen. Build: 107 modules, `index-B_9vCvIP.js`,
+  `index-PZlMyyb_.css`, PWA + workers. Preview `http://ageq-dev2:4320/` serveert de assets.
+- Eigen visuele controle op desktop 1280×900 en mobiel 390×844: de witte dagsectie gaat exact na
+  “Zon onder 19:03” over in één donker nachtvlak; de zonregel blijft compact maar herkenbaar, NU is
+  ongevuld met een bovenlijn en mobiel begint direct bij de sticky moduskoppen zonder zwevende
+  handle. Geen e2e uitgevoerd vóór PO-signaal “klaar”.

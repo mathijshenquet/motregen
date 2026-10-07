@@ -223,10 +223,11 @@ export default function ForecastTable(props: Props) {
       const degrees = (reading: number | null) => reading == null ? placeholder() : `${Math.round(reading)}°`
       const wind = () => summarizeWind(value(props.series.windU, row.windUIndex), value(props.series.windV, row.windVIndex),
         value(props.series.gust, row.gustIndex), props.windUnit)
-      const icon = () => deriveWeatherIcon(rain(), cloud(), elevation(row.epoch) > 0)
+      const sunEvent = () => sun().get(row.epoch)
+      const daylight = () => sunEvent()?.kind === 'set' || (sunEvent() === undefined && elevation(row.epoch) > 0)
+      const icon = () => deriveWeatherIcon(rain(), cloud(), daylight())
       const uv = createMemo(() => uvReading(row.epoch, value(props.series.uv, row.uvIndex), value(props.series.uvClear, row.uvClearIndex),
         value(props.series.radiation, row.radiationIndex), value(props.series.radiation, row.radiationNextIndex), elevation, row.kind !== 'past'))
-      const sunEvent = () => sun().get(row.epoch)
       const time = formatTime
       const sunLabel = (event: SunEvent) => `${event.kind === 'rise' ? 'Zon op' : 'Zon onder'} ${time(event.epoch)}`
       const placeholder = () => pending() ? '…' : '—'
@@ -243,7 +244,7 @@ export default function ForecastTable(props: Props) {
             onCleanup(() => rowElements.delete(row.epoch))
             if (row.kind === 'now') pinNow(element)
           }}
-          classList={{ 'current-hour': row.kind === 'now', 'past-hour': row.kind === 'past', 'pending-hour': pending(), 'before-sun-row': !!sunEvent() }}
+          classList={{ 'night-hour': !daylight(), 'current-hour': row.kind === 'now', 'past-hour': row.kind === 'past', 'pending-hour': pending(), 'before-sun-row': !!sunEvent() }}
           onClick={() => props.onSelectTime?.(row.epoch)}
         >
           <td class="time-cell">
@@ -271,7 +272,7 @@ export default function ForecastTable(props: Props) {
           </Show>
           <Show when={props.columns.air}>
             <td class="air-cell" {...columnHover('air')}>
-              <Show when={elevation(row.epoch) > 0} fallback={<MoonReading epoch={row.epoch} longitude={props.location.lng} latitude={props.location.lat} />}>
+              <Show when={daylight()} fallback={<MoonReading epoch={row.epoch} longitude={props.location.lng} latitude={props.location.lat} />}>
                 <Show when={uv()} fallback={<span class="air-uv-placeholder">{placeholder()}</span>}>
                   <UvBar reading={uv()} scale={dailyClearSkyUvMax(row.epoch, props.location.lat)} />
                 </Show>
