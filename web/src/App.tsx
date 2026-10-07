@@ -486,6 +486,14 @@ export default function App() {
 
   onMount(() => {
     if (!('serviceWorker' in navigator)) return
+    const productionPwa = window.location.hostname === 'motregen.nl' || window.location.hostname === 'www.motregen.nl'
+    if (!productionPwa) {
+      void navigator.serviceWorker.getRegistrations().then(async (registrations) => {
+        await Promise.all(registrations.map((registration) => registration.unregister()))
+        if ('caches' in window) await Promise.all((await caches.keys()).map((key) => caches.delete(key)))
+      })
+      return
+    }
     updateServiceWorker = registerSW({
       onNeedRefresh: () => setUpdateReady(true),
     })

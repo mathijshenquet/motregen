@@ -172,3 +172,16 @@
 - Synchrone receipts: `pnpm typecheck` exit 0; volledige `pnpm test` 51 bestanden / 349 tests
   groen; `pnpm build` exit 0 (100 modules, `index-CM2YAs9w.js`, `index-DxiPmx6k.css`). Preview
   `http://ageq-dev2:4320/` antwoordt HTTP 200. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+
+## 2026-10-07 09:33 UTC
+
+- Screenshot van PO verklaarde twee zaken: de los hangende schaduw was de uitwendige
+  `forecast-panel`-schaduw en Firefox draaide nog de vorige serviceworker-bundel (`Kaart` in de
+  kaartstand plus oude perf-persistentie). De uitwendige schaduw is verwijderd; het interne
+  previewverloop blijft als begrensde nudge staan.
+- PWA-registratie is nu alleen actief op `motregen.nl`/`www.motregen.nl`. Op dev/preview ruimt de
+  actuele app bestaande serviceworkers en caches op, zodat live reviews niet achter een app-shell
+  blijven hangen. De productie-updateprompt staat voortaan boven de perf-HUD.
+- Eerste typecheck wees terecht op de lokale `location`-signal die `window.location` overschaduwde;
+  na expliciet `window.location.hostname`: `pnpm typecheck` exit 0 en `pnpm build` exit 0
+  (100 modules, `index-DUwaPu0w.js`, `index-DdT8jbfZ.css`), preview HTTP 200.
