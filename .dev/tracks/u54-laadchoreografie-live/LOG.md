@@ -353,3 +353,38 @@ Volgende lus-kandidaten uit deze opnames:
   een goedkoper niveau zou ttfh en blank-visible direct verkorten.
 - Koud is netwerk-begrensd: volgorde en grootte van de eerste regen-Ranges (de vraag
   "regen rond nu eerst, dan de uurvelden") is daar de hefboom, niet de CPU.
+
+## 2026-10-08 00:30 — stap 3 (kader) als voorstel, klaar voor PO-akkoord
+
+Besluiten orkestrator verwerkt of ingepland: +14 % decodes / +2 % wire zijn bedoeld (nieuwe
+baselines volgen); blank-visible wordt een oppervlak met losse mijlpalen (volgt); lus
+verbreed naar soepelheid (volgt, zie volgende entry).
+
+Stap 3, wat er verandert (`HistogramScrubber.tsx`, `styles.css`):
+- De laadtoestand dekte het plotvlak af met een wit blok, "Regenverwachting laden…" en een
+  heen-en-weer lopend streepje. Nu blijft het kader zichtbaar: uurraster, verleden-tint,
+  nu-lijn, cursor, dagstreep. De melding staat er gedempt in, rechts van de cursor, zonder
+  beweging: "regen laden…" (of wolken / temperatuur / wind, naar de modus).
+- Vóór het manifest is er geen tijdlijn; de scrubber rekent dan met de klok (nu − 3 u …
+  nu + 48 u, op 5 minuten). As, "Nu", nu-lijn en cursor staan er daardoor vanaf het eerste
+  beeld. Komt het manifest, dan verschuift de as hooguit het verschil tussen klok en laatste
+  radarbeeld (minuten = enkele pixels).
+
+Zelf bekeken (desktop 1280 en 390 px, trage lijn, CPU 4×; `scripts/load-shot.ts`), stills in
+`stills/`:
+- `stap3-voor-390.png`: oud — as erboven, plotvlak leeg wit met melding.
+- `stap3-na-390.png` en `stap3-na-390-zonder-manifest.png`: kader compleet in beide fasen.
+- `stap3-na-desktop-zonder-manifest.png`: idem op desktop.
+Gezien en opgelost: de dagstreep liep door de tekst; de melding heeft nu een eigen ondergrond.
+
+Gezien en NIET opgelost (voor de PO):
+1. Vóór het manifest toont de tabel één rij "01:00 NU" (epoch 0) en ontbreken de modusknoppen
+   op "Tabel"/"Uur" na. Dat is de tabel, niet de scrubber; hoort bij het skeleton van stap 4.
+2. 's Nachts is het kader licht en wordt het plotvlak donker zodra de hemel (expressief)
+   binnenkomt: een harde omslag van licht naar donker. Het kader zou de hemelkleur van het
+   uur kunnen aannemen; dat is een smaakkeuze.
+3. Na `loading` (eerste waarden binnen) tekent de scrubber voor ontbrekende balken nog het
+   oude 2 px-streepje; fog is stap 4.
+
+Receipts: `pnpm typecheck` exit 0, `pnpm test` exit 0 (470 tests; scrubber-test aangepast aan
+de nieuwe meldingstekst), `pnpm build` exit 0. Nog niet: gerichte e2e desktop.

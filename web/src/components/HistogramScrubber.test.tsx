@@ -426,7 +426,7 @@ describe('histogram scrubber', () => {
       onCursor={() => undefined}
       onPlaying={() => undefined}
     />)
-    expect(screen.getByRole('status').textContent).toContain('Regenverwachting laden…')
+    expect(screen.getByRole('status').textContent).toContain('regen laden…')
     expect(screen.getByRole('slider', { name: 'Tijd' }).getAttribute('aria-disabled')).toBe('true')
   })
 

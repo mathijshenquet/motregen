@@ -67,6 +67,10 @@ const HAZE_BANDS = Array.from({ length: HAZE_BAND_COUNT }, (_, index) => ({ from
 const DUSK_RADIUS_SHARE = 0.62
 // Gedeeld met het laadvenster in App (U49), dat alleen laadt wat hier in beeld is.
 const VIEW_HOURS = SCRUBBER_VIEW_HOURS
+const PROVISIONAL_STEP_MS = 5 * 60_000
+const PROVISIONAL_PAST_HOURS = 3
+const PROVISIONAL_AHEAD_HOURS = 48
+const LOADING_LABELS = { rain: 'regen laden…', cover: 'regen laden…', air: 'wolken laden…', temperature: 'temperatuur laden…', wind: 'wind laden…' } as const
 const CURSOR_FRACTION = SCRUBBER_CURSOR_FRACTION
 const hourLabelSteps = [1, 2, 3, 6, 12, 24]
 // Wide enough for "23u" at the axis font size plus breathing room.
@@ -136,8 +140,13 @@ export default function HistogramScrubber(props: Props) {
     observer.observe(plotElement)
     onCleanup(() => observer.disconnect())
   })
-  const timelineStart = createMemo(() => props.timeline[0]?.epoch ?? 0)
-  const timelineEnd = createMemo(() => props.timeline.at(-1)?.epoch ?? timelineStart())
+  // Vóór het manifest is er geen tijdlijn. Het kader rekent dan met de klok, zodat as, nu-lijn en
+  // cursor er vanaf het eerste beeld staan (MIP-19 punt 3); het manifest verschuift ze hooguit minuten.
+  const clockNow = Math.floor(Date.now() / PROVISIONAL_STEP_MS) * PROVISIONAL_STEP_MS
+  const provisional = { start: clockNow - PROVISIONAL_PAST_HOURS * HOUR, end: clockNow + PROVISIONAL_AHEAD_HOURS * HOUR, now: clockNow }
+  const nowEpoch = () => props.timeline.length ? props.now : provisional.now
+  const timelineStart = createMemo(() => props.timeline[0]?.epoch ?? provisional.start)
+  const timelineEnd = createMemo(() => props.timeline.at(-1)?.epoch ?? provisional.end)
   const pxPerMs = createMemo(() => Math.max(1, plotWidth()) / (VIEW_HOURS * HOUR))
   const xAt = (epoch: number) => (epoch - timelineStart()) * pxPerMs()
   const trackWidth = createMemo(() => Math.max(plotWidth(), xAt(timelineEnd()) + plotWidth()))
@@ -317,7 +326,6 @@ export default function HistogramScrubber(props: Props) {
   const temperatureId = createUniqueId()
   const hourStep = createMemo(() => hourLabelStep(VIEW_HOURS, plotWidth()))
   const xTicks = createMemo(() => {
-    if (!props.timeline.length) return []
     const firstHour = Math.ceil(timelineStart() / HOUR) * HOUR
     const ticks = []
     const step = hourStep()
@@ -326,8 +334,8 @@ export default function HistogramScrubber(props: Props) {
     }
     return ticks
   })
-  const nowX = createMemo(() => xAt(Math.max(timelineStart(), Math.min(timelineEnd(), props.now))))
-  const cursorEpoch = createMemo(() => timelineEpochAtCursor(props.timeline, props.cursor))
+  const nowX = createMemo(() => xAt(Math.max(timelineStart(), Math.min(timelineEnd(), nowEpoch()))))
+  const cursorEpoch = createMemo(() => props.timeline.length ? timelineEpochAtCursor(props.timeline, props.cursor) : provisional.now)
   // Aan begin en eind loopt de baan tegen een muur en beweegt de cursor zelf (PO 2026-09-25 live, U34),
   // met een zachte knie van WALL_KNEE_PX zodat de overgang geen knik heeft.
   const freeOffset = () => plotWidth() * CURSOR_FRACTION - xAt(cursorEpoch())
@@ -438,8 +446,7 @@ export default function HistogramScrubber(props: Props) {
   })
   onCleanup(() => { slide?.animation.cancel(); for (const labelAnimation of slide?.labels ?? []) labelAnimation.cancel() })
   const dayMarkers = createMemo(() => {
-    if (!props.timeline.length) return []
-    const today = new Date(props.now)
+    const today = new Date(nowEpoch())
     today.setHours(0, 0, 0, 0)
     const day = new Date(timelineStart())
     day.setHours(0, 0, 0, 0)
@@ -455,8 +462,7 @@ export default function HistogramScrubber(props: Props) {
   // (PO 2026-09-25 live, U34). In baancoördinaten: links = min(max(a + verschuiving, inset), b + verschuiving),
   // stuksgewijs lineair in de verschuiving, dus tijdens afspelen ook als compositor-animatie (zie slide).
   const daySegments = createMemo(() => {
-    if (!props.timeline.length) return []
-    const today = new Date(props.now)
+    const today = new Date(nowEpoch())
     today.setHours(0, 0, 0, 0)
     const first = { epoch: timelineStart(), label: dayLabel(timelineStart(), today.getTime()) || 'Vandaag' }
     const segments = [first, ...dayMarkers()]
@@ -701,10 +707,8 @@ export default function HistogramScrubber(props: Props) {
           <div class="cursor-tags" style={{ opacity: coverOpacity() }} aria-hidden="true"><span style={{ left: `${cursorX()}px`, top: `${tag().y}px` }}>{tag().text}</span></div>
         }</Show>
         <Show when={props.loading}>
-          <div class="scrubber-placeholder" role="status">
-            <div class="scrubber-placeholder-bars" aria-hidden="true" />
-            <span>Regenverwachting laden…</span>
-          </div>
+          {/* Het kader (uurraster, nu-lijn, cursor) blijft zichtbaar; de melding staat er gedempt in (MIP-19 punt 3). */}
+          <div class="scrubber-placeholder" role="status"><span>{LOADING_LABELS[view()]}</span></div>
         </Show>
         <Show when={!props.loading && !props.values.length}><span class="empty-graph">Kies een locatie voor de regengrafiek</span></Show>
         <div class="cursor-marker" style={{ left: `${cursorX()}px` }} />
