@@ -31,6 +31,19 @@ if [ ! -f "$scratch/build/region.osm.pbf" ] || [ "$filter_hash" != "$previous_fi
   osmium extract --bbox 2.3108,50.3256,7.4192,53.6844 --strategy smart "$scratch/build/filtered.osm.pbf" -o "$scratch/build/region.osm.pbf" --overwrite
   printf '%s\n' "$filter_hash" > "$scratch/build/filter.sha256"
 fi
+landcover_hash="$(sha256sum tools/basemap/landcover.mts tools/basemap/build.sh tools/basemap/sources.sha256 "$scratch/build/filter.sha256" | sha256sum | cut -d ' ' -f 1)"
+previous_landcover_hash="$(cat "$scratch/build/landcover.sha256" 2>/dev/null || true)"
+if [ ! -f "$scratch/build/landcover.geojson" ] || [ "$landcover_hash" != "$previous_landcover_hash" ]; then
+  osmium export "$scratch/build/filtered.osm.pbf" --geometry-types polygon -f geojsonseq \
+    --output "$scratch/build/raw-landcover.geojsonl" --overwrite
+  pnpm --filter motregen-web exec tsx ../tools/basemap/landcover.mts "$(realpath "$scratch/build")"
+  ogr2ogr -f GPKG "$scratch/build/landcover-parts.gpkg" "$scratch/build/landcover-parts.geojsonl" \
+    -nln cover -spat 0 49 10 55 -clipsrc 0 49 10 55 -overwrite
+  # GEOS-union vóór tilemaker voorkomt herhaalde, dure unions op elke lage-zoomtegel.
+  ogr2ogr -f GeoJSON "$scratch/build/landcover.geojson" "$scratch/build/landcover-parts.gpkg" \
+    -overwrite -dialect SQLite -sql 'SELECT ST_UnaryUnion(ST_Collect(ST_CollectionExtract(ST_MakeValid(geom), 3))) AS geometry, class FROM cover GROUP BY class, batch'
+  printf '%s\n' "$landcover_hash" > "$scratch/build/landcover.sha256"
+fi
 cp tools/basemap/config.json tools/basemap/process.lua "$scratch/build/"
 gzip --decompress --stdout tools/basemap/ocean.geojson.gz > "$scratch/build/ocean.geojson"
 (

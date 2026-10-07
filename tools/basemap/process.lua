@@ -1,12 +1,5 @@
 node_keys = { "place" }
-way_keys = { "natural", "landuse", "leisure", "waterway", "boundary" }
-
-local function write_landcover(cover)
-    for _, layer in ipairs({ "landcover", "landcover_low" }) do
-        Layer(layer, true)
-        Attribute("class", cover)
-    end
-end
+way_keys = { "natural", "landuse", "waterway", "boundary" }
 
 function node_function()
     local kind = Find("place")
@@ -43,14 +36,6 @@ end
 function relation_scan_function()
     local level = tonumber(Find("admin_level"))
     if Find("boundary") == "administrative" and (level == 2 or level == 4) and Find("maritime") ~= "yes" then Accept() end
-    if Find("type") == "boundary" and (Find("boundary") == "national_park" or Find("leisure") == "nature_reserve") then Accept() end
-end
-
-function relation_function()
-    -- Boundary-relaties worden niet automatisch als vlakken naar way_function gestuurd.
-    if Find("type") == "boundary" and (Find("boundary") == "national_park" or Find("leisure") == "nature_reserve") then
-        write_landcover("park")
-    end
 end
 
 function way_function()
@@ -71,27 +56,12 @@ function way_function()
     if not IsClosed() then return end
     local natural = Find("natural")
     local landuse = Find("landuse")
-    local leisure = Find("leisure")
-    local cover = nil
     if natural == "water" or Find("waterway") == "riverbank" or landuse == "reservoir" then
         Layer("water", true)
-        return
-    elseif natural == "wood" or landuse == "forest" then cover = "wood"
-    elseif natural == "sand" or natural == "beach" then cover = "sand"
-    elseif natural == "wetland" then cover = "wetland"
-    elseif leisure == "nature_reserve" or Find("boundary") == "national_park" then cover = "park"
-    elseif natural == "grassland" or natural == "heath" or natural == "scrub"
-        or landuse == "grass" or landuse == "meadow" or landuse == "allotments"
-        or landuse == "village_green" or landuse == "recreation_ground"
-        or leisure == "park" or leisure == "garden" or leisure == "golf_course" then cover = "grass"
-    elseif landuse == "residential" or landuse == "commercial" or landuse == "industrial" or landuse == "retail" then
-        cover = "urban"
-    end
-    if cover then
-        write_landcover(cover)
     end
 end
 
 function attribute_function(attributes, layer)
+    if layer == "landcover" or layer == "landcover_low" then return { class = attributes.class } end
     return {}
 end

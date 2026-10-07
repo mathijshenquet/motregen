@@ -20,19 +20,25 @@
     "landcover": {
       "minzoom": 8,
       "maxzoom": 10,
-      "simplify_below": 14,
-      "simplify_level": 0.00024,
-      "filter_below": 14,
-      "filter_area": 0.3
+      "source": "landcover.geojson",
+      "source_columns": ["class"],
+      "simplify_below": 11,
+      "simplify_level": 0.0001,
+      "simplify_algorithm": "visvalingam",
+      "filter_below": 11,
+      "filter_area": 0.01
     },
     "landcover_low": {
       "minzoom": 5,
       "maxzoom": 7,
       "write_to": "landcover",
-      "simplify_below": 14,
-      "simplify_level": 0.00023,
-      "filter_below": 14,
-      "filter_area": 0.56
+      "source": "landcover.geojson",
+      "source_columns": ["class"],
+      "simplify_below": 11,
+      "simplify_level": 0.0001,
+      "simplify_algorithm": "visvalingam",
+      "filter_below": 11,
+      "filter_area": 0.01
     },
     "boundary": {
       "minzoom": 4,

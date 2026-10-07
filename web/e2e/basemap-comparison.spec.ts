@@ -133,12 +133,16 @@ for (const width of [390, 1280]) {
           const image = await page.locator('#map').screenshot()
           images.push(image)
           const contrast = await contrasts(image, capture)
-          await page.evaluate(() => (window as unknown as { renderGreenMask: () => Promise<void> }).renderGreenMask())
-          const mask = await page.locator('#map').screenshot()
-          const { data, info } = await sharp(mask).removeAlpha().raw().toBuffer({ resolveWithObject: true })
-          let green = 0
-          for (let index = 0; index < data.length; index += info.channels) green += data[index]! / 255
-          captures.push({ basemap, places: capture.places, labelCount: capture.places.length, greenPercent: green / (info.width * info.height) * 100, contrast })
+          const coverPercent: Record<string, number> = {}
+          for (const kind of ['green', 'gray']) {
+            await page.evaluate(kind => (window as unknown as { renderCoverMask: (kind: string) => Promise<void> }).renderCoverMask(kind), kind)
+            const mask = await page.locator('#map').screenshot()
+            const { data, info } = await sharp(mask).removeAlpha().raw().toBuffer({ resolveWithObject: true })
+            let area = 0
+            for (let index = 0; index < data.length; index += info.channels) area += data[index]! / 255
+            coverPercent[kind] = area / (info.width * info.height) * 100
+          }
+          captures.push({ basemap, places: capture.places, labelCount: capture.places.length, greenPercent: coverPercent.green!, grayPercent: coverPercent.gray!, contrast })
         }
         const path = resolve(output, `ab-${width}-${theme}-${view.name}.png`)
         await pair(images[0]!, images[1]!, path, `${width}px · ${theme} · ${view.name} · z${view.camera.zoom.toFixed(2)}`)
@@ -146,6 +150,14 @@ for (const width of [390, 1280]) {
         writeFileSync(resolve(output, `ab-${width}-${theme}.json`), `${JSON.stringify(results, null, 2)}\n`)
       }
       expect(errors).toEqual([])
+      for (const view of results) {
+        for (const kind of ['greenPercent', 'grayPercent'] as const) {
+          const old = view.captures[0]![kind]
+          const current = view.captures[1]![kind]
+          expect.soft(current, `${view.view} ${kind}`).toBeGreaterThanOrEqual(old * 0.85)
+          expect.soft(current, `${view.view} ${kind}`).toBeLessThanOrEqual(Math.max(0.05, old * 1.15))
+        }
+      }
       const start = results[0]!.captures
       expect(start[1]!.labelCount).toBeGreaterThanOrEqual(start[0]!.labelCount * 0.8)
       expect(start[1]!.labelCount).toBeLessThanOrEqual(start[0]!.labelCount * 1.2)

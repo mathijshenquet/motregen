@@ -167,3 +167,18 @@ Gecomprimeerde bytes; publisher valideert totaal én grootste tegel tegen dezelf
 - Preview root/manifest HTTP 200; gehashte PMTiles en live MRF Range geven 206 (127 / 32 B). Preview blijft op http://ageq-dev2:4340/ draaien met MOTREGEN_DATA_ORIGIN=https://motregen.nl/data; sessie 51755.
 - 28 kaartparen, 8 volledige app-paren, 4 meet-JSON’s, eigen mobiele voor/na-receipts en meegeleverd PO-beeld worden samen gecommit. Het meegeleverde PO-beeld bleek de uurtabel te tonen; daarom dienen de eigen vaste paren als kaartbewijs.
 - Alle afgesproken technische gates groen; groenoppervlak is nog niet gelijk aan Liberty, met name op lage zoom en z12-overzoom. Draft-PR #87 blijft ter PO-beoordeling, geen merge.
+
+## 2026-10-07T20:40:04.422Z — Orkestrator: groen/grijs opnieuw
+
+- PO/orkestrator keurt labels en nachtcontrast goed, maar groen af: losse parkomlijningen, te weinig bos/landcover en bebouwing. Nieuwe harde beeldgate: groen én grijs per A/B-paar binnen ±15 % van Liberty.
+- Aanpak: natuurlijke bos-/grasvlakken zonder omtrek, per-zoom union/simplify/min-area; residential/commercial/industrial/retail als Liberty-grijs. Meting wordt uitgebreid naar grijs en faalt per paar buiten ±15 %. Mobiele eigen U59-bytegate +25 % en kaartfase ≤1 s blijven leidend.
+- Vorige publisher stelde daarnaast striktere archief-/perzoom-maxgates in, terwijl de PO nu het gemeten mobiele bytebudget aanwijst (vorige groei +3,52 %). Die extra grenzen mogen de gevraagde vlakdekking niet meer onderdrukken; werkelijke bytes worden opnieuw gemeten.
+
+## 2026-10-07T20:51:15.032Z — Vlakkenpipeline en nieuwe beeldgate
+
+- Bos/gras/park/sand krijgen transparante omtrek en fill-antialias=false; Liberty-vulling/dekking behouden. Grijs blijft Liberty-residential, nu op volledigere samengevoegde residential/commercial/industrial/retail-vlakken.
+- osmium export + streaming TypeScript-classificatie + GDAL/GEOS ST_UnaryUnion per klasse/0,5°-groep vervangen herhaalde tilemaker-unions. Bron-landcover bestrijkt aanwezige vier extracten binnen [0,49,10,55]; water/grenzen/plaatsnamen behouden hun eigen extract. Tilemaker gebruikt Visvalingam en lager min-area, met minder extreme laagzoom-simplificatie.
+- Bronexport/classificatie en GeoPackage-import voltooid; circa 2,2 GB GIS-tussenbestand, genegeerd. Eerste GEOS-union loopt; nog geen native/beeld/perf-receipt. Build-cachehash bewaakt classifier, pipeline en bronfingerprint.
+- Stijlunit 6/6 exit 0 en strikte tooling/spec-typecheck exit 0. Nieuwe e2e-gate meet onbedekt groen/grijs zonder omtrek en faalt per paar buiten ±15 %. Grijs is landuse, geen gebouwen; bij Liberty’s landuse-maxzoom 12 is dat oppervlak nul.
+- Tilemaker-profiel en archiefcijfers blijven voorlopig; nieuwe archiefhash volgt pas na herbouw en beelden. Oudere paren zijn terug te zien op commit 444e205. Draft-PR is weer in uitvoering; labels/nachtcontrast zijn PO-goedgekeurd, groen/grijs niet.
+- Technische bron voor union-/simplificatievolgorde: https://github.com/systemed/tilemaker/blob/v3.1.0/docs/CONFIGURATION.md en src/tile_worker.cpp; GEOS-union komt vóór tilemaker-simplify/min-area.

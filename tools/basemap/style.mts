@@ -14,10 +14,14 @@ for (const [theme, name] of [['light', 'licht'], ['dark', 'donker']] as const) {
     if (!layer) throw new Error(`Liberty-laag ontbreekt: ${id}`)
     return structuredClone(layer)
   }
-  const cover = (id: string, kind: string) => ({
-    ...referenceLayer(id), source: 'basemap', 'source-layer': 'landcover',
-    filter: ['==', ['get', 'class'], kind],
-  })
+  const cover = (id: string, kind: string) => {
+    const layer = referenceLayer(id)
+    return {
+      ...layer, source: 'basemap', 'source-layer': 'landcover',
+      filter: ['==', ['get', 'class'], kind],
+      paint: { ...layer.paint, 'fill-outline-color': 'rgba(0,0,0,0)', 'fill-antialias': false },
+    }
+  }
   const label = (id: string, kind: string, padding: number) => {
     const layer = referenceLayer(id)
     if (layer.type !== 'symbol') throw new Error(`Liberty-label ontbreekt: ${id}`)

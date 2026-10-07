@@ -25,14 +25,16 @@ window.renderComparison = async function(styleUrl, camera, viewport) {
   const places = [...new Set(labels.map(feature => feature.properties.name))].sort()
   return { places, camera: { lng: map.getCenter().lng, lat: map.getCenter().lat, zoom: map.getZoom() }, viewport, paints: Object.fromEntries(['background', 'water', 'label_city', 'boundary_2', 'motregen-province-boundaries'].map(id => [id, style.layers.find(layer => layer.id === id)?.paint])) }
 }
-window.renderGreenMask = async function() {
+window.renderCoverMask = async function(kind) {
   for (const layer of map.getStyle().layers) {
-    const green = layer.id === 'park' || layer.id === 'landcover_wood' || layer.id === 'landcover_grass'
+    const selected = kind === 'green'
+      ? layer.id === 'park' || layer.id === 'landcover_wood' || layer.id === 'landcover_grass'
+      : layer.id === 'landuse_residential'
     if (layer.type === 'background') map.setPaintProperty(layer.id, 'background-color', '#000000')
     else if (layer.type === 'fill') {
       map.setPaintProperty(layer.id, 'fill-pattern', undefined)
-      map.setPaintProperty(layer.id, 'fill-color', green ? '#ffffff' : '#000000')
-      map.setPaintProperty(layer.id, 'fill-outline-color', green ? '#ffffff' : '#000000')
+      map.setPaintProperty(layer.id, 'fill-color', selected ? '#ffffff' : '#000000')
+      map.setPaintProperty(layer.id, 'fill-outline-color', 'rgba(0,0,0,0)')
       map.setPaintProperty(layer.id, 'fill-opacity', 1)
     } else map.setLayoutProperty(layer.id, 'visibility', 'none')
   }

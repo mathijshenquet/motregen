@@ -50,13 +50,18 @@ pnpm basemap:build
 
 Devenv bevat tilemaker, de PMTiles-CLI, osmium, GDAL en unzip. De ingang downloadt de vier
 vastgepinde PBF’s, controleert SHA256, voegt ze samen, filtert tags en maakt
-met osmium een complete-way/multipolygon-extract. Tilemaker gebruikt
+met osmium een complete-way/multipolygon-extract. Landcover wordt met osmium
+naar GeoJSON geëxporteerd en door `landcover.mts` in bos, gras, park, moeras,
+zand en bebouwing ingedeeld. GDAL/GEOS verenigt de vlakken per klasse en
+ruimtelijke groep van 0,5° vóór de tegelbouw; tilemaker past daarna simplificatie
+en minimumoppervlak per zoom toe. Tilemaker gebruikt
 `config.json` en `process.lua` en schrijft `tmp/basemap/build/nl.pmtiles`.
 De PMTiles-CLI clustert en verifieert het archief.
 `publish.mts` controleert iedere tegel op het toegestane schema, grenzen,
 landklassen en labels, meet tegelgroottes per zoom en weigert meer dan 25 MB.
-`budget.json` bewaart het U59-manifest als vaste nulmeting: archief, gecomprimeerd
-tegeltotaal per zoom en grootste tegel mogen elk maximaal 25 % groeien.
+`budget.json` bewaart het U59-manifest voor de archief-/tegelrapportage.
+De +25 %-gate vergelijkt het daadwerkelijke koude mobiele kaartverkeer met
+de eigen U59-nulmeting; de mobiele rig bewaakt daarnaast maximaal 1 s kaartfase.
 Daarna schrijft het `tools/basemap/tiles/nl-<16 hex SHA256>.pmtiles`, een
 manifest met de volledige hash en twee stijlen. De tegels en stijlen worden
 samen gecommit; downloads en tussenbestanden zijn genegeerd.
@@ -66,6 +71,8 @@ samen gecommit; downloads en tussenbestanden zijn genegeerd.
 De tagselectie heeft een hash in `tmp/basemap/build/filter.sha256`; wijziging
 van de selectie bouwt het regio-extract opnieuw. Verwijder
 `tmp/basemap/build/region.osm.pbf` om de voorbewerking te forceren.
+`landcover.sha256` bewaakt de GIS-voorbewerking; de grote exports en GeoPackage
+staan uitsluitend in scratch.
 Bij vernieuwde brondata moeten datum/URL’s, SHA256’s, de
 kustsnapshot en beide gegenereerde stijlen samen worden bijgewerkt. Laat oude
 gehashte archieven gedurende een frontend-cacheovergang in het package staan.
@@ -75,6 +82,8 @@ gehashte archieven gedurende een frontend-cacheovergang in het package staan.
 De kaartbounds volgen `MAP_CONTAIN_BOUNDS`: west 2,3108, zuid 50,3256,
 oost 7,4192, noord 53,6844. Bronzoom z4–10. Bij z4/z5 past dit venster in één
 tegel; bij desktop-start z6 in vier. Het OSM-landextract volgt deze bounds.
+Landcover gebruikt de aanwezige bronextracten binnen [0,49,10,55], om ook
+de ruimte rond de contain-view met bos/gras/bebouwing te vullen.
 Het archief bevat kustwater tot [-5,48,13,57], omdat contain-zoom ook ruimte
 buiten de app-bounds toont. Zo krijgt de Noordzee geen rechte, lege rand.
 
@@ -133,10 +142,10 @@ en wordt daarom niet meegeleverd. Wetland wordt bij z12 zichtbaar, ook bij
 bron-overzoom; een vlakke kleur vervangt het spritepatroon zodat er geen
 extra sprite-aanvraag nodig is. Tilemaker generaliseert de landcover per zoom
 met `simplify_below`, `simplify_level`, `filter_below` en `filter_area`.
-Z5–7 gebruikt simplify_level 0,00023 en filter_area 0,56; z8–10 gebruikt
-0,00024 en 0,3. Beide profielen schrijven naar dezelfde landcover-laag.
-Nationale parken en natuurreservaten met boundary-relaties krijgen expliciet
-een vlak, naast de automatisch verwerkte multipolygonen.
+GEOS-union komt eerst, daarna Visvalingam-simplificatie en minimumoppervlak.
+Beide zoomprofielen schrijven naar dezelfde landcover-laag. Bos/gras/parken
+hebben een gevulde Liberty-kleur zonder omtrek. Residential/commercial/
+industrial/retail vormen de lichtgrijze bebouwing, met Liberty’s residential-verf.
 
 Plaatsnamen krijgen een rang uit OSM-bevolking en place-klasse. City/town/village
 volgen Liberty’s minimumzoom; een `text-field`-stap per zoom selecteert de
@@ -147,7 +156,9 @@ bestaande schema van vier lagen.
 De contrastieve controle gebruikt dezelfde camera en het werkelijke kaartvlak
 van de 390/1280 px-app voor beide bronnen. `basemap-comparison.spec.ts` schrijft
 licht/donker-beeldparen van start, Utrecht, kust, IJsselmeer en z7/z9/z10/z12.
-Een afzonderlijk zwart/wit-render meet het onbedekte groenoppervlak; MapLibre
+Afzonderlijke zwart/wit-renders meten het onbedekte groen- en landuse-grijsoppervlak
+zonder omtrekken. Groen en grijs moeten per paar binnen ±15 % van Liberty liggen;
+gebouwen tellen niet als landuse-grijs. MapLibre
 levert de geplaatste unieke city/town/village-labels. CIE L*-verschillen meten
 water, labeltekst en grensverf tegenover de dominante kale landkleur. De
 uitslagen en meetbeperkingen staan in het U60-LOG, de eindparen vragen PO-review.
