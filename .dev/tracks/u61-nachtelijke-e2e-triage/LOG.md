@@ -258,3 +258,9 @@
 | 30 | perf-journey / mobile-fast-3g | U42/U58-previewrij vraagt zes bedoelde ranges (24.320 B); orkestrator herijkt 14 → 16. | Groen, exit 0; volledige mobiele journey doorlopen |
 
 - Hiermee zijn de twee resterende oorspronkelijke gevallen gericht groen. De oudere volledige-suite-receipt blijft historisch ongewijzigd; geen nieuwe volledige suite gedraaid. Reden staat bij beide budgetten en als één regel in docs/perf.md; tabelwaarden bijgewerkt. Eindcommit bevat alleen deze receipt. PR #88 blijft beschikbaar voor de onafhankelijke gate en merge door de orkestrator. **Klaar.**
+
+## 2026-10-08 01:27 CEST — slotentry: U61 gemerged en afgesloten
+
+- Orkestrator heeft U61 via PR #88 op main gemerged: **`25d500e494875091d77ec9d0888c6eb8b2298be4`** (kort `25d500e4`). Git-mergecommit en GitHub-status MERGED onafhankelijk gelezen; mergedAt `2026-10-07T23:26:01Z`.
+- Onafhankelijke gate, door de orkestrator gerapporteerd: typecheck exit 0; 478 unittests groen; build exit 0; bot exit 0; volledige suite 112 groen plus gerichte mobiele perf.spec 4 groen na herijking, **0 rood**. De nachtelijke suite is schoon. Deze gate is de receipt van de orkestrator, aanvullend op de eerder vastgelegde worker-receipts.
+- Slotentry op verzoek gecommitteerd en gepusht naar de trackbranch. U61 is afgerond; geen open triage- of budgetpunten. **Klaar.**
