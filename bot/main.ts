@@ -65,6 +65,7 @@ async function refreshStills(runtime: BotRuntime, available: Map<string, Rendere
   let renderedGeneration = ''
   while (!signal.aborted) {
     try {
+      await runtime.renderer.prune()
       const manifest = await runtime.renderer.manifest()
       publish(manifest)
       if (manifest.generated !== renderedGeneration) {
@@ -78,7 +79,6 @@ async function refreshStills(runtime: BotRuntime, available: Map<string, Rendere
           }
         }
         renderedGeneration = manifest.generated
-        await runtime.renderer.prune()
         console.info(JSON.stringify({ event: 'stills-refresh', generated: manifest.generated, count: available.size, milliseconds: Math.round(performance.now() - started) }))
       }
     } catch (error) {

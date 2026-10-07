@@ -2121,101 +2121,103 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         </div>
       </div>
       <Show when={!stillMode}>
-      <About theme={theme()} onTheme={(choice) => { usage.setTheme(choice); setTheme(choice) }}
-        windUnit={windUnit()} onWindUnit={(unit) => { usage.setUnit(unit); setWindUnit(unit); localStorage.setItem('motregen-wind-unit', unit) }} onOpen={() => usage.mark('about')} onShare={shareCurrentState} shareNotice={shareNotice()} onTripleTap={() => setPerfVisible((visible) => !visible)} />
-      <Show when={updateReady()}><aside class="update-toast" role="status">Nieuwe versie — <button type="button" onClick={() => void updateServiceWorker?.()}>herlaad</button></aside></Show>
-      {/* Kaartlegenda als eigen pil linksonder, los van de bronvermelding (PO 2026-09-25 live, U34). */}
-      <Show when={focus() > 0 && temperatureLegend()}>
-        {(legend) => <div class="map-legend temperature-legend" style={{ opacity: focus() }} role="img" aria-label={`Kleurschaal gevoelstemperatuur ${legend().low} tot ${legend().high} graden`}>
-          <span>{legend().low}°</span>
-          <span class="temperature-legend-bar">{legend().bands.map((color) => <i style={{ background: color }} />)}</span>
-          <span>{legend().high}°</span>
-        </div>}
-      </Show>
-      <LocationSearch
-        location={location()}
-        mapCenter={() => map?.getCenter() ?? location()}
-        locationLabel={locationLabel()}
-        savedPlaces={savedPlaces()}
-        onLocate={locate}
-        onRemove={removeSavedPlace}
-        onSave={saveCurrentPlace}
-        onSelect={chooseSearch}
-        onSelectSaved={chooseSaved}
-      />
-      <Show when={devMode}>
-        <DevPanel
-          isolineTuning={isolineTuning()}
-          onIsolineTuning={(patch) => setIsolineTuning((current) => ({ ...current, ...patch }))}
-          windTuning={windTuning()}
-          onWindTuning={tuneWind}
-          perfVisible={perfVisible()}
-          onPerfVisible={setPerfVisible}
-          onReplaySplash={replaySplash}
-          onReset={resetAllSettings}
-          resetNotice={resetNotice()}
-          usageBody={usageBody()}
+        <About theme={theme()} onTheme={(choice) => { usage.setTheme(choice); setTheme(choice) }}
+          windUnit={windUnit()} onWindUnit={(unit) => { usage.setUnit(unit); setWindUnit(unit); localStorage.setItem('motregen-wind-unit', unit) }} onOpen={() => usage.mark('about')} onShare={shareCurrentState} shareNotice={shareNotice()} onTripleTap={() => setPerfVisible((visible) => !visible)} />
+        <Show when={updateReady()}><aside class="update-toast" role="status">Nieuwe versie — <button type="button" onClick={() => void updateServiceWorker?.()}>herlaad</button></aside></Show>
+        {/* Kaartlegenda als eigen pil linksonder, los van de bronvermelding (PO 2026-09-25 live, U34). */}
+        <Show when={focus() > 0 && temperatureLegend()}>
+          {(legend) => <div class="map-legend temperature-legend" style={{ opacity: focus() }} role="img" aria-label={`Kleurschaal gevoelstemperatuur ${legend().low} tot ${legend().high} graden`}>
+            <span>{legend().low}°</span>
+            <span class="temperature-legend-bar">{legend().bands.map((color) => <i style={{ background: color }} />)}</span>
+            <span>{legend().high}°</span>
+          </div>}
+        </Show>
+        <LocationSearch
+          location={location()}
+          mapCenter={() => map?.getCenter() ?? location()}
+          locationLabel={locationLabel()}
+          savedPlaces={savedPlaces()}
+          onLocate={locate}
+          onRemove={removeSavedPlace}
+          onSave={saveCurrentPlace}
+          onSelect={chooseSearch}
+          onSelectSaved={chooseSaved}
         />
-      </Show>
-      <Freshness mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness}
-        paused={!playing()} onPlay={() => setPlaying(true)} />
+        <Show when={devMode}>
+          <DevPanel
+            isolineTuning={isolineTuning()}
+            onIsolineTuning={(patch) => setIsolineTuning((current) => ({ ...current, ...patch }))}
+            windTuning={windTuning()}
+            onWindTuning={tuneWind}
+            perfVisible={perfVisible()}
+            onPerfVisible={setPerfVisible}
+            onReplaySplash={replaySplash}
+            onReset={resetAllSettings}
+            resetNotice={resetNotice()}
+            usageBody={usageBody()}
+          />
+        </Show>
+        <Freshness mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness}
+          paused={!playing()} onPlay={() => setPlaying(true)} />
       </Show>
     </section>
-    <Show when={!stillMode}><aside class="dashboard">
-      <Show when={cursorUvChip()}>{(label) => <div class="sidebar-nav">
-        <span class="uv-chip sidebar-uv-chip" data-level={uvLevel(cursorUv()!).key} title={cursorUvReading() ? `Insmeren aanbevolen · ${uvBarLabel(cursorUvReading()!)}` : 'Insmeren aanbevolen'}><Sun {...INLINE_ICON} /><span class="uv-long">{label()}</span><span class="uv-short">UV {formatUv(cursorUv())}</span><UvBar reading={cursorUvReading()} bare /></span>
-      </div>}</Show>
-      <HistogramScrubber
-        timeline={timeline()}
-        values={rainSeries()}
-        loaded={rainLoaded()}
-        cursor={cursor()}
-        now={manifest() ? Date.parse(manifest()!.now) : 0}
-        playing={playing()}
-        loading={pointSeriesLoading()}
-        loadStage={pointLoadStage()}
-        locationLabel={status()}
-        onCursor={scrub}
-        onIntent={() => { void completePointSeries(pointLoad, 'high') }}
-        onPlaying={setPlaying}
-        glideRate={glideRate()}
-        onPlayPressed={() => usage.mark('play')}
-        clouds={{ timeline: cloudTimelines(), values: cloudValues() }}
-        wind={{ timeline: windUFrames(), speed: windSpeedSeries(), gustTimeline: gustTimeline(), gust: gustSeries(), unit: windUnit() }}
-        mix={{ wind: windFocus(), clouds: cloudFocus(), temperature: focus() }}
-        temperature={{ timeline: feelsLikeTimeline(), values: feelsLikeSeries(), airTimeline: tempTimeline(), air: temperatureSeries(), stops: temperatureRange() && paletteStops(temperatureRange()!) }}
-      />
-      <section class="forecast-panel">
-        <div class="table-scroll">
-          <ForecastTable
-            rows={forecast()}
-            series={{
-              rain: rainSeries(), uv: uvSeries(), uvClear: uvClearSeries(), radiation: radiationSeries(), temperature: temperatureSeries(),
-              feelsLike: feelsLikeSeries(), humidity: humiditySeries(), cloud: cloudSeries(), windU: windUSeries(), windV: windVSeries(), gust: gustSeries(),
-            }}
-            location={location()}
-            windUnit={windUnit()}
-            columns={{ weather: hasWeatherIcons(), uv: uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), humidity: hasHumidity(), wind: hasWind() }}
-            loadedUntil={pointLoadStage() === 'complete' ? Number.POSITIVE_INFINITY : manifestNow() + PASSIVE_FORECAST_HOURS * 3_600_000}
-            historyInline={historyInline()}
-            historyOpen={historyOpen()}
-            historyLoaded={historyRowsWanted() || pointLoadStage() === 'complete'}
-            onNeedRows={() => { void completePointSeries(pointLoad, 'high') }}
-            onNeedHistory={() => { void loadHistoryRows() }}
-            onSelectTime={jumpToTime}
-            onOpenHistory={() => {
-              if (!historyOpen()) usage.mark('history')
-              setHistoryOpen((open) => !open)
-              void loadHistoryRows()
-            }}
-            focus={{ pinned: focusPinned(), onTogglePin: toggleFocusPin, onFocus: (mode, source, active) => {
-              if (mode === 'temperature' && source === 'table' && active) usage.mark('hover')
-              focusMode.set(mode, source, active)
-            } }}
-          />
-        </div>
-      </section>
-    </aside></Show>
+    <Show when={!stillMode}>
+      <aside class="dashboard">
+        <Show when={cursorUvChip()}>{(label) => <div class="sidebar-nav">
+          <span class="uv-chip sidebar-uv-chip" data-level={uvLevel(cursorUv()!).key} title={cursorUvReading() ? `Insmeren aanbevolen · ${uvBarLabel(cursorUvReading()!)}` : 'Insmeren aanbevolen'}><Sun {...INLINE_ICON} /><span class="uv-long">{label()}</span><span class="uv-short">UV {formatUv(cursorUv())}</span><UvBar reading={cursorUvReading()} bare /></span>
+        </div>}</Show>
+        <HistogramScrubber
+          timeline={timeline()}
+          values={rainSeries()}
+          loaded={rainLoaded()}
+          cursor={cursor()}
+          now={manifest() ? Date.parse(manifest()!.now) : 0}
+          playing={playing()}
+          loading={pointSeriesLoading()}
+          loadStage={pointLoadStage()}
+          locationLabel={status()}
+          onCursor={scrub}
+          onIntent={() => { void completePointSeries(pointLoad, 'high') }}
+          onPlaying={setPlaying}
+          glideRate={glideRate()}
+          onPlayPressed={() => usage.mark('play')}
+          clouds={{ timeline: cloudTimelines(), values: cloudValues() }}
+          wind={{ timeline: windUFrames(), speed: windSpeedSeries(), gustTimeline: gustTimeline(), gust: gustSeries(), unit: windUnit() }}
+          mix={{ wind: windFocus(), clouds: cloudFocus(), temperature: focus() }}
+          temperature={{ timeline: feelsLikeTimeline(), values: feelsLikeSeries(), airTimeline: tempTimeline(), air: temperatureSeries(), stops: temperatureRange() && paletteStops(temperatureRange()!) }}
+        />
+        <section class="forecast-panel">
+          <div class="table-scroll">
+            <ForecastTable
+              rows={forecast()}
+              series={{
+                rain: rainSeries(), uv: uvSeries(), uvClear: uvClearSeries(), radiation: radiationSeries(), temperature: temperatureSeries(),
+                feelsLike: feelsLikeSeries(), humidity: humiditySeries(), cloud: cloudSeries(), windU: windUSeries(), windV: windVSeries(), gust: gustSeries(),
+              }}
+              location={location()}
+              windUnit={windUnit()}
+              columns={{ weather: hasWeatherIcons(), uv: uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), humidity: hasHumidity(), wind: hasWind() }}
+              loadedUntil={pointLoadStage() === 'complete' ? Number.POSITIVE_INFINITY : manifestNow() + PASSIVE_FORECAST_HOURS * 3_600_000}
+              historyInline={historyInline()}
+              historyOpen={historyOpen()}
+              historyLoaded={historyRowsWanted() || pointLoadStage() === 'complete'}
+              onNeedRows={() => { void completePointSeries(pointLoad, 'high') }}
+              onNeedHistory={() => { void loadHistoryRows() }}
+              onSelectTime={jumpToTime}
+              onOpenHistory={() => {
+                if (!historyOpen()) usage.mark('history')
+                setHistoryOpen((open) => !open)
+                void loadHistoryRows()
+              }}
+              focus={{ pinned: focusPinned(), onTogglePin: toggleFocusPin, onFocus: (mode, source, active) => {
+                if (mode === 'temperature' && source === 'table' && active) usage.mark('hover')
+                focusMode.set(mode, source, active)
+              } }}
+            />
+          </div>
+        </section>
+      </aside>
+    </Show>
     <Show when={perfVisible()}><PerfHud monitor={perf} isolines={isolineCounters} windStats={() => windLayer?.windProfile()} /></Show>
   </main>
 }

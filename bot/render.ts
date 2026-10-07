@@ -57,7 +57,10 @@ export class StillRenderer {
 
   private async browserContext(): Promise<BrowserContext> {
     if (!this.browser?.isConnected()) {
-      this.browser = await chromium.launch({ args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
+      this.browser = await chromium.launch({
+        executablePath: process.env.MOTREGEN_CHROMIUM_PATH,
+        args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'],
+      })
       this.context = await this.browser.newContext({
         viewport: { width: 900, height: 1200 },
         deviceScaleFactor: 2,
@@ -87,7 +90,18 @@ export class StillRenderer {
     const page = await context.newPage()
     try {
       await mkdir(this.cacheDirectory, { recursive: true })
-      await page.route('**/data/manifest.json*', (route) => route.fulfill({ json: manifest }))
+      // Playwright-routing schakelt de HTTP-cache uit; alleen fetch vervangen houdt tiles/chunks warm.
+      await page.addInitScript((pinnedManifest) => {
+        const originalFetch = window.fetch.bind(window)
+        window.fetch = (input, options) => {
+          const address = input instanceof Request ? input.url : String(input)
+          const url = new URL(address, window.location.href)
+          if (url.origin === window.location.origin && url.pathname === '/data/manifest.json') {
+            return Promise.resolve(new Response(JSON.stringify(pinnedManifest), { headers: { 'Content-Type': 'application/json' } }))
+          }
+          return originalFetch(input, options)
+        }
+      }, manifest)
       await page.goto(presetUrl(this.origin, selection.mode, epoch, true), { waitUntil: 'domcontentloaded', timeout: 60_000 })
       await page.waitForFunction(() => {
         const map = document.querySelector<HTMLElement>('.map')

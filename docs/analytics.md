@@ -67,6 +67,10 @@ evenals status, duur en groottes. De NixOS-test
 (`nix/tests/motregen.nix`) stuurt een baken met een nep-IP en -user-agent en
 controleert dat de regel alleen de velden hierboven bevat.
 
+Ook de algemene Caddy-foutlogger verwijdert het volledige request-object.
+Bijvoorbeeld een onbereikbare Telegram-validatieserver mag geen IP-adres of
+headers in het systemd-journal laten belanden; de foutoorzaak blijft zichtbaar.
+
 ## Bewaartermijnen en locatie
 
 | wat | waar (prod) | hoe lang |

@@ -53,7 +53,8 @@ moeten expliciet gereed zijn; ontbrekende data levert geen gecachte lege kaart.
 Het bijschrift gebruikt Amsterdamtijd, bijvoorbeeld
 `za 14:10 · Gevoelstemperatuur · bron KNMI`, plus kaartattributie.
 
-De manifestrespons is per render vastgezet op de gekozen generatie. De cachekey
+De manifest-fetch is per render vastgezet op de gekozen generatie, terwijl
+Chromiums HTTP-cache voor tiles en chunks actief blijft. De cachekey
 bevat renderer-versie, modus, tijdstap, absolute tijd en manifest-`generated`.
 Bestanden worden atomair gepubliceerd. Eén Chromium rendert serieel; gelijke
 verzoeken delen een render. Bij een nieuwe manifestversie worden de 28
@@ -65,7 +66,8 @@ De manifestcheck loopt elke 15 seconden na voltooiing van een matrix.
 
 Caddy serveert `/telegram/stills/*.jpg` met twee uur cacheduur en `noindex`;
 zo kan Telegram inlinefoto's en inline-edits ophalen zonder uploadchat.
-Cachebestanden ouder dan twee uur verdwijnen bij een matrixverversing.
+Cachebestanden ouder dan twee uur verdwijnen bij een manifestcheck, ook als
+het renderen van een nieuwe matrix mislukt.
 Gewone chatfoto's en edits worden als multipart geüpload; een lokale preview
 hoeft daarvoor niet publiek bereikbaar te zijn.
 
@@ -87,9 +89,12 @@ Het token gaat nooit in Git of de Nix-store. Configuratie via environment:
 | `MOTREGEN_ORIGIN` | `https://motregen.nl` | app en publieke still-URLs |
 | `MOTREGEN_RENDER_CACHE` | `tmp/telegram-stills` | lokale cachemap |
 | `MOTREGEN_BOT_PORT` | `8090` | loopbackpoort voor initData-verificatie |
+| `MOTREGEN_CHROMIUM_PATH` | Playwright-selectie | expliciete nixpkgs-Chromium-binary |
 
 De unit zet de cache op `/var/cache/motregen-bot/stills`, de browsers op het
-Nix-storepad en de origin op het geconfigureerde domein. Caddy proxyt uitsluitend
+Nix-storepad, de executable op de headless Chromium uit dezelfde nixpkgs-revisie,
+en de origin op het geconfigureerde domein. Hierdoor hangen browserpaden niet af
+van de pnpm-versie van Playwright. Caddy proxyt uitsluitend
 `/telegram/validate` naar poort 8090. Er is geen webhook. Laat nooit twee pollers
 voor hetzelfde token draaien; een Telegram-409 laat de unit stoppen/herstarten.
 

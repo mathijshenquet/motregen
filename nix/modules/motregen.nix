@@ -367,6 +367,7 @@ in
         MOTREGEN_RENDER_CACHE = "/var/cache/motregen-bot/stills";
         MOTREGEN_BOT_PORT = "8090";
         PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
+        MOTREGEN_CHROMIUM_PATH = "${pkgs.playwright-driver.browsers}/chromium_headless_shell-${pkgs.playwright-driver.browsersJSON."chromium-headless-shell".revision}/chrome-headless-shell-linux64/chrome-headless-shell";
         PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
       };
       serviceConfig = hardening // {
@@ -389,6 +390,14 @@ in
     services.caddy = {
       enable = true;
       globalConfig = lib.optionalString (!cfg.enableTls) "auto_https off";
+      logFormat = ''
+        format filter {
+          wrap json
+          fields {
+            request delete
+          }
+        }
+      '';
       virtualHosts.${cfg.domain} = {
         hostName = if cfg.enableTls then cfg.domain else ":80";
         # MIP-13: geen access-log met IP of headers; alleen het usage-log hieronder.
