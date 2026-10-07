@@ -555,6 +555,16 @@
   zijn alle 51 Luchtcellen getint, inclusief de eerste nachtregel; bij 19:00 is de lege UV-pil op
   beide formaten weg en blijft de zonsonderganggradient ononderbroken.
 
+## 2026-10-07 14:11 UTC
+
+- De volledige tabelweergave prefixeert de UV-waarde nu expliciet: bijvoorbeeld `UV 1,8 laag` in
+  plaats van `1,8 laag`. De compacte `bare`-variant in de kaartchip is niet gewijzigd.
+- Synchrone receipts: `git diff --check`, volledige Vitest-run 68 bestanden/439 tests en `pnpm
+  build` exit 0; de build omvatte `tsc -b` en leverde 113 modules, `index-CqnPgWg4.js`,
+  `index-D5XyfAm7.css`, PWA + workers. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+- Eigen visuele controle op desktop 1280×900 en mobiel 390×844: `UV 1`, `UV 0,4` en `UV 0,1 laag`
+  passen zonder afbreken in de Luchtkolom; de lege schemerpil blijft weg.
+
 ## 2026-10-07 13:26 UTC
 
 - De tabelcyclus is nu een gebruikersoptie “Dag en nacht in tabel” onder Weergave, standaard aan en

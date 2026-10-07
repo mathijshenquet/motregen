@@ -15,5 +15,6 @@ describe('UV bar', () => {
   it('houdt echte lage UV zichtbaar als de zon wel kracht heeft', () => {
     const { container } = render(() => <UvBar reading={{ value: 0, clear: 0.1, estimated: true, clearEstimated: true }} />)
     expect(container.querySelector('.uv-bar-track')).not.toBeNull()
+    expect(container.querySelector('.uv-bar-value')?.textContent).toBe('UV 0')
   })
 })
