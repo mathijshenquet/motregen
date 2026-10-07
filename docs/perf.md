@@ -24,6 +24,23 @@ valideert het formaat en schrijft mode 0600 naar
 `~/motregen-profiles/<ISO>-<platform>.json`. `pnpm prof:check <bestand>` valideert een export los.
 `pnpm prof:import <bestand>` opent dezelfde export headless in Firefox Profiler en controleert de
 call-tree-import.
+`pnpm prof:top <bestand> [top-N] [--json]` rangschikt functies op self-time uit `ProfileChunk`
+en toont hun self- en stack-sample-aandeel (inclusief aangeroepen functies). De JSON-uitvoer bevat
+alle functies. In JS Self-Profiling ontbreken idle-samples; tijd tussen samples is daarom
+intervalattributie, geen exacte CPU-tijd. Gebruik het stack-sample-aandeel om een fase vóór en na
+een wijziging te vergelijken.
+
+`scripts/e2e-slot.sh pnpm prof:capture ORIGIN UITVOER.json --water-mask` neemt in een nieuwe
+desktop-Chromiumcontext de koude start op, met daarna tien seconden pan/zoom en tien seconden
+rust. De opname loopt dertig seconden vanaf pageload; kaart en weerdata moeten beschikbaar zijn.
+Zonder `--water-mask` blijft het algemene wind/gevoel/scrub-scenario beschikbaar. Met een
+uitvoerpad wordt de opname lokaal gedownload; zonder uitvoerpad gaat hij naar de preview-sink.
+`scripts/e2e-slot.sh pnpm exec tsx scripts/verify-water-mask.ts ORIGIN [SCREENSHOT.png]`
+vergelijkt het masker met de oorspronkelijke rastering van dezelfde geladen waterpolygonen en
+controleert de factor 0,67 op Noordzee/IJsselmeer en 1 op land. Met `--fallback` controleert hij
+het pad zonder OffscreenCanvas. De windlaag gebruikt MapLibre 5.24-tegelbytes voor decode en
+rastering in een worker; zonder die internals, bij MLT, of zonder workerondersteuning blijft het
+cachepad op de hoofddraad actief.
 De productie-Caddyconfiguratie heeft bewust géén profilingheader en géén `/prof`-route; daar blijven
 lokale kopie en download wel bruikbaar.
 

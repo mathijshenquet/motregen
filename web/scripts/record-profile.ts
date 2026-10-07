@@ -34,21 +34,21 @@ try {
     }
     await page.waitForTimeout(10_000)
   } else {
-  const wind = page.getByRole('button', { name: 'Wind' })
-  if (await wind.isVisible()) await wind.click({ force: true })
-  await page.waitForTimeout(2_000)
-  const feelsLike = page.getByRole('button', { name: 'Gevoel' })
-  if (await feelsLike.isVisible()) await feelsLike.click({ force: true })
-  await page.waitForTimeout(2_000)
-  const map = page.locator('.maplibregl-canvas')
-  if (await map.isVisible()) {
-    await map.hover({ position: { x: 320, y: 240 } })
-    await page.mouse.wheel(0, -400)
-  }
-  const scrubber = page.getByRole('slider', { name: 'Tijd' })
-  await scrubber.focus()
-  await scrubber.press('Home')
-  for (let step = 0; step < 20; step++) await scrubber.press('ArrowRight')
+    const wind = page.getByRole('button', { name: 'Wind' })
+    if (await wind.isVisible()) await wind.click({ force: true })
+    await page.waitForTimeout(2_000)
+    const feelsLike = page.getByRole('button', { name: 'Gevoel' })
+    if (await feelsLike.isVisible()) await feelsLike.click({ force: true })
+    await page.waitForTimeout(2_000)
+    const map = page.locator('.maplibregl-canvas')
+    if (await map.isVisible()) {
+      await map.hover({ position: { x: 320, y: 240 } })
+      await page.mouse.wheel(0, -400)
+    }
+    const scrubber = page.getByRole('slider', { name: 'Tijd' })
+    await scrubber.focus()
+    await scrubber.press('Home')
+    for (let step = 0; step < 20; step++) await scrubber.press('ArrowRight')
   }
 
   await page.locator('.perf-recording').getByText(/Opname gereed/).waitFor({ timeout: 45_000 })
@@ -63,8 +63,18 @@ try {
   }
   const result = await page.evaluate((apiAvailable) => {
     const snapshot = (window as typeof window & { __motregenPerf: { snapshot: () => unknown } }).__motregenPerf.snapshot()
-    return { profilerAvailable: apiAvailable, snapshot }
+    const wind = (window as typeof window & { __motregenWind?: {
+      waterMask?: Uint8Array; waterWorker?: Worker; waterWorkerFailed: boolean; waterTileBuffers: Map<string, ArrayBuffer>
+    } }).__motregenWind
+    const mask = wind?.waterMask
+    const waterMask = mask ? {
+      cells: mask.length, waterCells: mask.filter((value) => value === 255).length,
+      landCells: mask.filter((value) => value === 0).length, worker: !!wind?.waterWorker,
+      workerFailed: wind?.waterWorkerFailed, cachedTiles: wind?.waterTileBuffers.size,
+    } : undefined
+    return { profilerAvailable: apiAvailable, snapshot, waterMask }
   }, profilerAvailable)
+  if (waterMask && (!result.waterMask?.waterCells || !result.waterMask?.landCells)) throw new Error('watermasker-scenario mist water of land')
   console.log(JSON.stringify(result, null, 2))
 } finally {
   await browser.close()

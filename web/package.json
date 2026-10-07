@@ -22,9 +22,11 @@
     "e2e:benchmark": "scripts/e2e-slot.sh playwright test --config playwright.benchmark.config.ts"
   },
   "dependencies": {
+    "@mapbox/vector-tile": "^2.0.5",
     "fzstd": "^0.1.1",
     "lucide-solid": "^1.47.0",
     "maplibre-gl": "^5.7.1",
+    "pbf": "^4.0.2",
     "solid-js": "^1.9.9"
   },
   "devDependencies": {
