@@ -18,7 +18,7 @@ for (const [theme, name] of [['light', 'licht'], ['dark', 'donker']] as const) {
     const layer = referenceLayer(id)
     return {
       ...layer, source: 'basemap', 'source-layer': 'landcover',
-      filter: ['==', ['get', 'class'], kind],
+      filter: ['all', ['==', ['get', 'class'], kind], ['<=', ['get', 'detail_minzoom'], ['zoom']]],
       paint: { ...layer.paint, 'fill-outline-color': 'rgba(0,0,0,0)', 'fill-antialias': false },
     }
   }

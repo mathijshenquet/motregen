@@ -29,12 +29,25 @@
         "fill-antialias": false
       },
       "filter": [
-        "==",
+        "all",
         [
-          "get",
-          "class"
+          "==",
+          [
+            "get",
+            "class"
+          ],
+          "park"
         ],
-        "park"
+        [
+          "<=",
+          [
+            "get",
+            "detail_minzoom"
+          ],
+          [
+            "zoom"
+          ]
+        ]
       ]
     },
     {
@@ -44,12 +57,25 @@
       "source-layer": "landcover",
       "maxzoom": 12,
       "filter": [
-        "==",
+        "all",
         [
-          "get",
-          "class"
+          "==",
+          [
+            "get",
+            "class"
+          ],
+          "urban"
         ],
-        "urban"
+        [
+          "<=",
+          [
+            "get",
+            "detail_minzoom"
+          ],
+          [
+            "zoom"
+          ]
+        ]
       ],
       "paint": {
         "fill-color": [
@@ -75,12 +101,25 @@
       "source": "basemap",
       "source-layer": "landcover",
       "filter": [
-        "==",
+        "all",
         [
-          "get",
-          "class"
+          "==",
+          [
+            "get",
+            "class"
+          ],
+          "wood"
         ],
-        "wood"
+        [
+          "<=",
+          [
+            "get",
+            "detail_minzoom"
+          ],
+          [
+            "zoom"
+          ]
+        ]
       ],
       "paint": {
         "fill-antialias": false,
@@ -95,12 +134,25 @@
       "source": "basemap",
       "source-layer": "landcover",
       "filter": [
-        "==",
+        "all",
         [
-          "get",
-          "class"
+          "==",
+          [
+            "get",
+            "class"
+          ],
+          "grass"
         ],
-        "grass"
+        [
+          "<=",
+          [
+            "get",
+            "detail_minzoom"
+          ],
+          [
+            "zoom"
+          ]
+        ]
       ],
       "paint": {
         "fill-antialias": false,
@@ -144,12 +196,25 @@
       "source": "basemap",
       "source-layer": "landcover",
       "filter": [
-        "==",
+        "all",
         [
-          "get",
-          "class"
+          "==",
+          [
+            "get",
+            "class"
+          ],
+          "sand"
         ],
-        "sand"
+        [
+          "<=",
+          [
+            "get",
+            "detail_minzoom"
+          ],
+          [
+            "zoom"
+          ]
+        ]
       ],
       "paint": {
         "fill-color": "rgba(247, 239, 195, 1)",

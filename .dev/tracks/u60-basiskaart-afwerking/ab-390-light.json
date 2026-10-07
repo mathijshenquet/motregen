@@ -28,7 +28,15 @@
           "Lille"
         ],
         "labelCount": 6,
-        "greenPercent": 8.199303964009808,
+        "greenPercent": 7.896547896547896,
+        "grayPercent": 15.706515706515706,
+        "coverPercent": {
+          "green": 7.896547896547896,
+          "gray": 15.706515706515706,
+          "wood": 0,
+          "grass": 0,
+          "park": 7.896547896547896
+        },
         "contrast": {
           "landColor": [
             238,
@@ -52,7 +60,15 @@
           "Keulen"
         ],
         "labelCount": 6,
-        "greenPercent": 4.394400806165546,
+        "greenPercent": 14.213009213009212,
+        "grayPercent": 4.94005994005994,
+        "coverPercent": {
+          "green": 14.213009213009212,
+          "gray": 4.94005994005994,
+          "wood": 4.512154512154512,
+          "grass": 6.928071928071929,
+          "park": 2.7727827727827727
+        },
         "contrast": {
           "landColor": [
             248,
@@ -109,7 +125,15 @@
           "Zeist"
         ],
         "labelCount": 25,
-        "greenPercent": 19.765857236445292,
+        "greenPercent": 19.143634143634145,
+        "grayPercent": 13.953268953268951,
+        "coverPercent": {
+          "green": 19.143634143634145,
+          "gray": 13.953268953268951,
+          "wood": 3.1712731712731714,
+          "grass": 5.909090909090909,
+          "park": 10.063270063270064
+        },
         "contrast": {
           "landColor": [
             248,
@@ -155,7 +179,15 @@
           "Zeist"
         ],
         "labelCount": 28,
-        "greenPercent": 15.617541499894283,
+        "greenPercent": 63.04029304029304,
+        "grayPercent": 14.862914862914863,
+        "coverPercent": {
+          "green": 63.04029304029304,
+          "gray": 14.862914862914863,
+          "wood": 10.995115995115995,
+          "grass": 49.76245976245976,
+          "park": 2.282717282717283
+        },
         "contrast": {
           "landColor": [
             248,
@@ -192,7 +224,15 @@
           "Rijswijk"
         ],
         "labelCount": 5,
-        "greenPercent": 2.030581618816912,
+        "greenPercent": 2.021867021867022,
+        "grayPercent": 2.5835275835275837,
+        "coverPercent": {
+          "green": 2.021867021867022,
+          "gray": 2.5835275835275837,
+          "wood": 0.0666000666000666,
+          "grass": 1.5850815850815851,
+          "park": 0.37018537018537023
+        },
         "contrast": {
           "landColor": [
             248,
@@ -213,7 +253,15 @@
           "Den Haag"
         ],
         "labelCount": 3,
-        "greenPercent": 1.793768323180088,
+        "greenPercent": 3.4054834054834053,
+        "grayPercent": 4.199134199134199,
+        "coverPercent": {
+          "green": 3.4054834054834053,
+          "gray": 4.199134199134199,
+          "wood": 0.33133533133533133,
+          "grass": 2.980907980907981,
+          "park": 0.09324009324009325
+        },
         "contrast": {
           "landColor": [
             248,
@@ -260,7 +308,15 @@
           "Wervershoof"
         ],
         "labelCount": 15,
-        "greenPercent": 3.218517865576661,
+        "greenPercent": 3.347763347763348,
+        "grayPercent": 1.8603618603618606,
+        "coverPercent": {
+          "green": 3.347763347763348,
+          "gray": 1.8603618603618606,
+          "wood": 0.4179154179154179,
+          "grass": 1.5445665445665446,
+          "park": 1.3852813852813852
+        },
         "contrast": {
           "landColor": [
             248,
@@ -292,7 +348,15 @@
           "Zwaagdijk-Oost"
         ],
         "labelCount": 14,
-        "greenPercent": 2.3918129800482695,
+        "greenPercent": 13.791208791208792,
+        "grayPercent": 2.2094572094572094,
+        "coverPercent": {
+          "green": 13.791208791208792,
+          "gray": 2.2094572094572094,
+          "wood": 1.1277611277611277,
+          "grass": 11.385836385836386,
+          "park": 1.2776112776112776
+        },
         "contrast": {
           "landColor": [
             248,
@@ -340,7 +404,15 @@
           "Zwolle"
         ],
         "labelCount": 16,
-        "greenPercent": 15.196141549082531,
+        "greenPercent": 13.864468864468865,
+        "grayPercent": 9.155844155844155,
+        "coverPercent": {
+          "green": 13.864468864468865,
+          "gray": 9.155844155844155,
+          "wood": 0.5233655233655233,
+          "grass": 0.5466755466755467,
+          "park": 12.794427794427795
+        },
         "contrast": {
           "landColor": [
             248,
@@ -373,7 +445,15 @@
           "Zwolle"
         ],
         "labelCount": 15,
-        "greenPercent": 12.409472880061005,
+        "greenPercent": 36.106116106116104,
+        "grayPercent": 11.58175158175158,
+        "coverPercent": {
+          "green": 36.106116106116104,
+          "gray": 11.58175158175158,
+          "wood": 7.1800421800421805,
+          "grass": 24.175824175824175,
+          "park": 4.75024975024975
+        },
         "contrast": {
           "landColor": [
             248,
@@ -434,7 +514,15 @@
           "Zeist"
         ],
         "labelCount": 29,
-        "greenPercent": 18.716925775749228,
+        "greenPercent": 18.462093462093463,
+        "grayPercent": 23.497058497058497,
+        "coverPercent": {
+          "green": 18.462093462093463,
+          "gray": 23.497058497058497,
+          "wood": 2.039072039072039,
+          "grass": 6.334221334221334,
+          "park": 10.088800088800088
+        },
         "contrast": {
           "landColor": [
             248,
@@ -479,7 +567,15 @@
           "Zeist"
         ],
         "labelCount": 27,
-        "greenPercent": 17.219103336750315,
+        "greenPercent": 52.67787767787768,
+        "grayPercent": 24.65867465867466,
+        "coverPercent": {
+          "green": 52.67787767787768,
+          "gray": 24.65867465867466,
+          "wood": 10.62937062937063,
+          "grass": 39.75024975024975,
+          "park": 2.298257298257298
+        },
         "contrast": {
           "landColor": [
             248,
@@ -512,7 +608,15 @@
           "Utrecht"
         ],
         "labelCount": 1,
-        "greenPercent": 6.507255271961157,
+        "greenPercent": 7.1262071262071265,
+        "grayPercent": 0,
+        "coverPercent": {
+          "green": 7.1262071262071265,
+          "gray": 0,
+          "wood": 0.07492507492507493,
+          "grass": 6.889221889221889,
+          "park": 0.16206016206016205
+        },
         "contrast": {
           "landColor": [
             248,
@@ -531,7 +635,15 @@
           "Utrecht"
         ],
         "labelCount": 1,
-        "greenPercent": 4.000444000444,
+        "greenPercent": 20.04995004995005,
+        "grayPercent": 0,
+        "coverPercent": {
+          "green": 20.04995004995005,
+          "gray": 0,
+          "wood": 2.3892773892773893,
+          "grass": 17.652347652347654,
+          "park": 0.008325008325008324
+        },
         "contrast": {
           "landColor": [
             248,

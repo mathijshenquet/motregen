@@ -17,29 +17,6 @@
       "simplify_level": 0.00003,
       "write_to": "water"
     },
-    "landcover": {
-      "minzoom": 8,
-      "maxzoom": 10,
-      "source": "landcover.geojson",
-      "source_columns": ["class"],
-      "simplify_below": 11,
-      "simplify_level": 0.0001,
-      "simplify_algorithm": "visvalingam",
-      "filter_below": 11,
-      "filter_area": 0.01
-    },
-    "landcover_low": {
-      "minzoom": 5,
-      "maxzoom": 7,
-      "write_to": "landcover",
-      "source": "landcover.geojson",
-      "source_columns": ["class"],
-      "simplify_below": 11,
-      "simplify_level": 0.0001,
-      "simplify_algorithm": "visvalingam",
-      "filter_below": 11,
-      "filter_area": 0.01
-    },
     "boundary": {
       "minzoom": 4,
       "maxzoom": 10,
@@ -50,6 +27,76 @@
     "place": {
       "minzoom": 4,
       "maxzoom": 10
+    },
+    "landcover_4": {
+      "minzoom": 4,
+      "maxzoom": 4,
+      "write_to": "landcover",
+      "source": "landcover-4.geojson",
+      "source_columns": [
+        "class",
+        "detail_minzoom"
+      ]
+    },
+    "landcover_5": {
+      "minzoom": 5,
+      "maxzoom": 5,
+      "write_to": "landcover",
+      "source": "landcover-5.geojson",
+      "source_columns": [
+        "class",
+        "detail_minzoom"
+      ]
+    },
+    "landcover_6": {
+      "minzoom": 6,
+      "maxzoom": 6,
+      "write_to": "landcover",
+      "source": "landcover-6.geojson",
+      "source_columns": [
+        "class",
+        "detail_minzoom"
+      ]
+    },
+    "landcover_7": {
+      "minzoom": 7,
+      "maxzoom": 7,
+      "write_to": "landcover",
+      "source": "landcover-7.geojson",
+      "source_columns": [
+        "class",
+        "detail_minzoom"
+      ]
+    },
+    "landcover_8": {
+      "minzoom": 8,
+      "maxzoom": 8,
+      "write_to": "landcover",
+      "source": "landcover-8.geojson",
+      "source_columns": [
+        "class",
+        "detail_minzoom"
+      ]
+    },
+    "landcover_9": {
+      "minzoom": 9,
+      "maxzoom": 9,
+      "write_to": "landcover",
+      "source": "landcover-9.geojson",
+      "source_columns": [
+        "class",
+        "detail_minzoom"
+      ]
+    },
+    "landcover_10": {
+      "minzoom": 10,
+      "maxzoom": 10,
+      "write_to": "landcover",
+      "source": "landcover-10.geojson",
+      "source_columns": [
+        "class",
+        "detail_minzoom"
+      ]
     }
   },
   "settings": {

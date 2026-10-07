@@ -199,3 +199,10 @@ Gecomprimeerde bytes; publisher valideert totaal én grootste tegel tegen dezelf
 - Liberty-producerregels onderzocht in primaire bron: https://github.com/openmaptiles/planetiler-openmaptiles/tree/main/src/main/java/org/openmaptiles/layers. Landcover begint op z7 en selecteert oorspronkelijke polygonen op pixeloppervlak vóór union. Park omvat boundary=protected_area en kan hetzelfde gebied daarnaast als bos bevatten. Onze selectie miste die beschermde gebieden en liet te kleine grasvlakken toe.
 - Landuse gebruikt Natural Earth 50m urban areas op z4–5, OSM residential vanaf z6, overige stedelijke klassen vanaf z9. Natural Earth-download SHA256 69e916a46e663eefe8469cf4154bd34ff9486fb91e4a54762dbe85c1bbfb912b; public domain: https://www.naturalearthdata.com/about/terms-of-use/.
 - Volgende stap: selectie van bronoppervlakken volgens zoom, beschermde gebieden zelfstandig meenemen, Natural Earth-laagzoomgrijs toevoegen en union/simplify/min-area op die selectie. De native bovengrens z10 blijft; detailselectie moet ook z12-overzoom volgen. ±15 % per paar en mobiele +25 %/≤1 s nog open.
+
+## 2026-10-07T21:43:00Z — WIP op expliciet verzoek, nachtelijke afronding
+
+- Volledige huidige WIP wordt gecommit/gepusht op verzoek van de orkestrator wegens verbindingsduur. A/B-bestanden in dit checkpoint tonen de afgekeurde wide-kandidaat; zij zijn nadrukkelijk geen geslaagde eindparen.
+- Nieuwe pipeline geselecteerde bronpolygonen op geprojecteerd pixeloppervlak, union per klasse/detailzoom/5 km-cel, zoomafhankelijke topology-preserving simplify en closing van stedelijke vlakken. Beschermde gebieden zelfstandig park naast bos/gras. Native z10 bevat detail tot z12, stijlfilter detail_minzoom bewaakt overzoom.
+- Natural Earth 50m urban areas uitgesneden [0,49,10,55] als gecomprimeerde reproduceerbare bron voor grijs z4–5. Bouw 5 en echte MapLibre-stijlvalidatie gestart (exec-session 14177, tmp/basemap/u60/build-revision-5.txt).
+- Opdracht bevestigd: vannacht afronden met groen/grijs elk paar ±15 %, eindparen, mobiele rig-gate, docs en PR #87 ready; PO slaapt. Geen mergeopdracht.
