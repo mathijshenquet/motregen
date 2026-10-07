@@ -227,6 +227,51 @@ fn motion_annex_roundtrips_through_full_and_ranged_decoders() {
 }
 
 #[test]
+fn every_member_pledges_its_content_size_and_roundtrips() {
+    let frames = vec![vec![0, 1, 2, 3], vec![4, 5, 6, 7], vec![8, 9, 10, 11]];
+    let motions = vec![
+        None,
+        Some(vec![10, -5, -128, -128]),
+        Some(vec![11, -4, 9, -6]),
+    ];
+    let chunk = encode_with_motion(
+        &frames,
+        &meta(2, 2, frames.len()),
+        MotionGrid { bw: 2, bh: 1 },
+        &motions,
+    )
+    .unwrap();
+    let index = parse_header(&chunk).unwrap();
+
+    for (frame_index, expected) in frames.iter().enumerate() {
+        let range = index.frame_range(frame_index).unwrap();
+        let member = &chunk[range.start as usize..range.end as usize];
+        assert!(
+            zstd::zstd_safe::get_frame_content_size(member)
+                .unwrap()
+                .is_some(),
+            "frame {frame_index} does not pledge its content size"
+        );
+        assert_eq!(index.decode_frame(frame_index, member).unwrap(), *expected);
+    }
+
+    for (frame_index, expected) in motions.iter().enumerate().skip(1) {
+        let range = index.motion_range(frame_index).unwrap();
+        let member = &chunk[range.start as usize..range.end as usize];
+        assert!(
+            zstd::zstd_safe::get_frame_content_size(member)
+                .unwrap()
+                .is_some(),
+            "motion member {frame_index} does not pledge its content size"
+        );
+        assert_eq!(
+            index.decode_motion(frame_index, member).unwrap(),
+            *expected.as_ref().unwrap()
+        );
+    }
+}
+
+#[test]
 fn parallel_motion_encoding_is_byte_identical() {
     let frames = vec![
         (0..4096).map(|index| (index % 256) as u8).collect(),
@@ -461,17 +506,19 @@ fn pred_chunks_are_transparent_and_smaller_than_bitmaps() {
     );
     assert!(
         !String::from_utf8_lossy(&plain).contains("\"pred\""),
-        "bitmap chunks keep their exact header bytes"
+        "bitmap chunks omit the predictive-frame marker"
     );
     let index = parse_header(&pred).unwrap();
-    let range = index.frame_range(0).unwrap();
-    let member = &pred[range.start as usize..range.end as usize];
-    assert!(
-        zstd::zstd_safe::get_frame_content_size(member)
-            .unwrap()
-            .is_some(),
-        "predictive members carry their content size"
-    );
+    for frame_index in 0..index.header.frames.len() {
+        let range = index.frame_range(frame_index).unwrap();
+        let member = &pred[range.start as usize..range.end as usize];
+        assert!(
+            zstd::zstd_safe::get_frame_content_size(member)
+                .unwrap()
+                .is_some(),
+            "predictive frame {frame_index} does not pledge its content size"
+        );
+    }
 }
 
 #[test]

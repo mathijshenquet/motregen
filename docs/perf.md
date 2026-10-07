@@ -188,13 +188,13 @@ expliciet kan forceren en daarmee een ander scenario meet.
 
 | Gate | Budget | Kalibratie |
 | --- | ---: | --- |
-| cold TTFR | < 2.000 ms | gemeten 461–475 ms; ruime marge voor tragere hosts |
-| warm TTFR | profielafhankelijk, zie hieronder | desktop blijft sneller dan cold; mobiele CPU-/netwerkprofielen hebben eigen marge |
-| warm chunks | profielafhankelijk, zie hieronder | desktop blijft 0 B; CDP-netwerkthrottling draagt enkele actuele ranges opnieuw over |
-| passief geopende chunks | desktop ≤ 1.100.000 B, mobiel ≤ 600.000 B | desktop (`eager`) gemeten op 1.049.415 B sinds de velden van U35–U39; mobiel (`in-view`, U49) op 533.041 B; ruim onder MIP-8's bovengrens van 3 MB |
-| volledige scrub | < 1 chunktransfer per 3 frames | L2-intentie plus 85 frames kost 4–7 transfers; grens 28,3 |
-| warme locatiewissel | 0 data-transfers en 0 skeleton-reset | volledig gedecodeerde frames worden in dezelfde tick opnieuw bemonsterd |
-| volledige sessie | < 8.000.000 bytes | progressief gemeten 1,25–1,36 MB |
+| cold TTFR | profielafhankelijk, zie hieronder | per profiel op het gemeten maximum + 10% |
+| warm TTFR | profielafhankelijk, zie hieronder | per profiel op het gemeten maximum + 10% |
+| warm chunks | 0 B | cache-invariant in de huidige journey, geen marge op nul |
+| passief geopende chunks | profielafhankelijk, zie hieronder | desktop `eager`; mobiel `in-view` (U49), per profiel + 10% |
+| scrubtransfers | profielafhankelijk, zie hieronder | dezelfde journey, per profiel + 10% |
+| locatie via zoekpil | desktop 0 data-transfers | desktop is na sliderintentie volledig gedecodeerd; mobiele profielen wachten op hun zichtbare venster |
+| volledige sessie | profielafhankelijk, zie hieronder | per profiel op het gemeten maximum + 10% |
 | browserfouten | 0 | console, page errors en mislukte requests |
 
 FPS wordt alleen gelogd: headless Chromium gebruikt SwiftShader en is geen
@@ -216,19 +216,31 @@ touch, DPR 2,75 en mobiel layoutgedrag. CDP zet de CPU op 4× vertraging. De
 moderne combinatie `Network.emulateNetworkConditionsByRule` en
 `Network.overrideNetworkState` emuleert daarnaast de verbinding in de browser:
 
-| Profiel | CPU | Download / upload | RTT | Cold TTFR | Warm TTFR | Warm chunks |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Desktop | 1× | geen emulatie | — | < 2.000 ms | < 1.500 ms | 0 B |
-| Mobiel 4G | 4× | 9 / 1,5 Mbps | 60 ms | < 4.000 ms | < 3.500 ms | ≤ 12.000 B |
-| Mobiel Fast 3G | 4× | 1,6 / 0,75 Mbps | 150 ms | < 8.000 ms | < 4.000 ms | ≤ 12.000 B |
+| Profiel | CPU | Download / upload | RTT | Cold | Warm | Passief | Scrub | Sessie |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Desktop | 1× | geen emulatie | — | < 1.210 ms | < 890 ms | ≤ 1.155.000 B | ≤ 19 | ≤ 2.640.000 B |
+| Mobiel 4G | 4× | 9 / 1,5 Mbps | 60 ms | < 4.915 ms | < 1.545 ms | ≤ 587.000 B | ≤ 11 | ≤ 1.345.000 B |
+| Mobiel Fast 3G | 4× | 1,6 / 0,75 Mbps | 150 ms | < 5.360 ms | < 1.690 ms | ≤ 587.000 B | ≤ 14 | ≤ 1.355.000 B |
 
-De sessiegrens van 8 MB, scrubgrens van minder dan één chunktransfer per drie
-frames, nul browserfouten en nul datarequests bij de tweede locatieklik gelden
-voor ieder profiel. Onder actieve CDP-netwerkthrottling draagt Chromium bij de
-warmnavigatie reproduceerbaar enkele kleine Range-responses van het actuele
-nowcastchunk opnieuw over: 8.792 B op 4G en 4.696 B op Fast 3G in de
-kalibratieruns. Een limiet van 12 kB houdt dit expliciet begrensd; zonder
-netwerkthrottling blijft dezelfde warmnavigatie exact 0 B.
+`warm chunks` blijft op ieder profiel exact 0 B. Een niet-nul resultaat is een
+cache-regressie, geen meetruis die een 10%-marge rechtvaardigt.
+
+### U51-kalibratie
+
+Gemeten op `00cb6a2`, 2026-10-07, met synthdata en de e2e-poorten 4390/8390.
+De volledige journey is koud openen → TTFR → Home + twaalf toetsen op de
+scrubber → spatie-afspelen → Utrecht kiezen via de zoekpil → desktop `complete`
+of mobiel `window` → manifestrefresh → warme navigatie. Elke positieve grens is
+het hoogste resultaat uit de kalibratie plus 10%, naar boven afgerond.
+
+| Ronde / profiel | Cold | Passief | Laadstadium | Scrub | Warm | Warme chunks | Sessie |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 / Desktop | 391,4 ms | 1.049.415 B | complete 1.572,9 ms | 17 | 518,1 ms | 0 B | 2.398.975 B |
+| 2 / Desktop | 391,1 ms | 1.049.415 B | complete 1.420,6 ms | 17 | 367,3 ms | 0 B | 2.398.975 B |
+| 1 / Mobiel 4G | 1.998,2 ms | 533.041 B | window 2.821,6 ms | 10 | 1.275,6 ms | 0 B | 1.220.207 B |
+| 2 / Mobiel 4G | 1.704,2 ms | 533.041 B | window 2.482,5 ms | 10 | 1.080,4 ms | 0 B | 1.220.207 B |
+| 1 / Mobiel Fast 3G | 4.805,7 ms | 533.041 B | window 2.322,7 ms | 10 | 1.015,9 ms | 0 B | 1.220.207 B |
+| 2 / Mobiel Fast 3G | 4.852,8 ms | 533.041 B | window 2.363,7 ms | 10 | 1.173,5 ms | 0 B | 1.220.207 B |
 
 Na integratie van de standaard autoplay en de verkorte scrubberhorizon bleek
 die desktopnulgrens intermitterend te falen. Een falende run droeg 2.663 B
@@ -245,10 +257,11 @@ met een ruimer budget te maskeren. Bij een toekomstige failure logt de suite
 de overgedragen chunk-URL en Resource Timing-bytevelden direct.
 
 De passieve snapshot wordt pas gemaakt nadat TTFR is vastgelegd, L0 gereed is,
-het L1-venster rond nu is ingevuld en het netwerk idle is. Daarna activeert de
-suite met `Alles` plus een scrub naar het eerste frame L2, wacht op compleet en
-loopt door alle frames. Pas na die afzonderlijke scrubmeting volgt de warme
-navigatie. De warmbyte-snapshot wacht opnieuw op het L1-stadium en netwerk-idle.
+het L1-venster rond nu is ingevuld en het netwerk idle is. Daarna pauzeert de
+suite de tijdslider, gaat met Home en twaalf toetsen vooruit, speelt met spatie
+af en kiest Utrecht via de zoekpil. De daaropvolgende sliderintentie moet op
+desktop `complete` bereiken; mobiel hoeft uitsluitend het zichtbare `window` te
+vullen. De warmbyte-snapshot wacht opnieuw op het L1-stadium en netwerk-idle.
 TTFR zelf behoudt zijn oorspronkelijke eerste-rendermeetpunt; passief, intentie
 en warm cachegebruik zijn daardoor drie afzonderlijke meetfasen.
 

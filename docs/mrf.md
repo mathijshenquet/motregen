@@ -20,7 +20,7 @@ The rain table has 256 entries:
 
 ## Compression level
 
-The core uses zstd level 19. On twelve deterministic sparse, smooth 700×765 synthetic fields used by the test suite (about 8% coverage), level 3 produced 15,260 bytes and level 19 produced 10,692 bytes. The write-once/read-many byte saving justifies its ingestion-only CPU cost. Reproduce with `devenv shell cargo test --test mrf level_19_beats_level_3_on_sparse_advecting_fields -- --nocapture`.
+The core uses zstd level 19 and every member pledges its uncompressed content size. The pledge makes `fzstd` allocate the exact decoded buffer instead of a level-19 8 MiB window; U49 measured a 2.2–2.5× decode speed-up for rain, 4.5–5× for temperature and wind, and about 20× for cloud layers, for about three extra bytes per member. On twelve deterministic sparse, smooth 700×765 synthetic fields used by the test suite (about 8% coverage), level 3 produced 15,260 bytes and level 19 produced 10,692 bytes. The write-once/read-many byte saving justifies its ingestion-only CPU cost. Reproduce with `devenv shell cargo test --test mrf level_19_beats_level_3_on_sparse_advecting_fields -- --nocapture`.
 
 ## CLI raw input
 
@@ -108,12 +108,10 @@ Encoding costs 1.3 ms per frame including zstd-19, decoding 1.0 ms in Rust.
 Reproduce with `cargo run --release -p mrf --example pred_measure --
 <chunk.mrf>...`.
 
-Predictive members carry their content size in the zstd frame header (the
-ingest pledges it). The web decoder (fzstd) then allocates the member instead
-of a level-19 window of 8 MiB per frame; decoders still check the decoded
-length. On these entropy-coded payloads the pledge costs 77 bytes over 109
-frames. On raw bitmaps zstd tunes itself to the pledged size and loses about
-1 %, which is why bitmap members don't carry it.
+Every member carries its content size in the zstd frame header. The web decoder
+(`fzstd`) then allocates the member instead of a level-19 window of 8 MiB per
+frame; decoders still check the decoded length. On the 109 predictive members
+measured for U18b the pledge costs 77 bytes in total.
 
 The Rust encoder (`mrf::pred`) and the TypeScript encoder/decoder
 (`web/src/core/pred.ts`) share a byte-exact golden frame in their tests.
