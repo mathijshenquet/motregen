@@ -17,13 +17,18 @@ LOG: `.dev/tracks/u54-laadchoreografie-live/LOG.md` (committed, append-only). Br
    splash). Vóór-meting op main in de LOG.
 2. **Splash**: verbergt kaart + eerste regenlaag tot beide er zijn; nooit langer dan het plafond;
    daarna geen tweede wachtmoment.
-3. **Histogram per balk, van binnen naar buiten**, en **fog** voor slots die nog komen (gedempte
+3. **Scrubber-kader vanaf het eerste frame** (PO 2026-10-07): de scrubber tekent direct zijn
+   kader — tijdas met uurlabels en dagstreepjes, nu-lijn, cursor — ook als er nog geen reeks is,
+   met een rustige laadmelding ín het plotvlak ("regen laden…" / "tabel laden…", gedempt,
+   geen spinner), zodat het scherm nooit een leeg blok onder de kaart toont. Zodra balken
+   komen vervangt de fog/balk de melding per slot.
+4. **Histogram per balk, van binnen naar buiten**, en **fog** voor slots die nog komen (gedempte
    arcering of wazige band die wegtrekt), ook voor wolkenlagen en tabelrijen (skeleton);
    kaartlagen van een modus faden in. Fog alleen voor "nog niet binnen" binnen het venster dat
    we laden; "niet nodig" is geen fog. PO kiest de vorm live.
-4. **Autoplay loskoppelen van de fase "venster compleet"** (U52-prijs op desktop 2,9 → 3,7 s):
+5. **Autoplay loskoppelen van de fase "venster compleet"** (U52-prijs op desktop 2,9 → 3,7 s):
    afspelen start zodra het afspeelvenster vooruit geladen is, niet het hele venster.
-5. Bij "klaar": unit voor de slot-classificatie, `pnpm perf:mobile --compare` (geen stijging van
+6. Bij "klaar": unit voor de slot-classificatie, `pnpm perf:mobile --compare` (geen stijging van
    bytes/decodes), gerichte e2e desktop, stills, LOG met receipts, draft-PR.
 
 ## Afbakening
