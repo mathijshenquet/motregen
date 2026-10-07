@@ -165,3 +165,35 @@
 - `scrubber-shot.ts`: wacht op de hemel en op het einde van de laadmelding, time-out 150 s.
 - Receipts (synchroon): `pnpm typecheck` → 0; `pnpm test` → 0 (391 tests); `pnpm build` → 0; stills
   `nevel-nacht` (weer), `strook`, `glad` (lucht) → SHOT-EXIT 0.
+
+## 2026-10-07 16:29 — afsluiting (PO-signaal "klaar" via orkestrator)
+- Main gemerged t/m 5e1ff58 → 30ca03e. De vijf U42 × U56-conflicten (usage v2) zijn automatisch opgelost
+  uit de gedeelde rerere-cache (iemand had ze al opgelost); nagekeken: `pinAir` én `clockScrub` in
+  `contract.jq`, `usage.spec.ts`, `usage.ts`; bodybudget 300.
+- LET OP voor de orkestrator: deze branch bevat U42 t/m dabdbfb (door de PO gevraagd). De opdracht ging
+  ervan uit dat U42 er niet in zit; de vol/subtiel-ingang volgt dus al `mix.air`, niet `clouds`. U42 is
+  sindsdien ~50 commits verder en gebruikt mijn hemelkleuren ook in de tabel. Merge-volgorde: eerst
+  PR #73 (U42), dan deze.
+- Antwoord U42 (hun LOG, "Antwoord aan U47"): gedeeld `--dusk-*`-palet akkoord, zij vervangen hun
+  losse kleuren bij hereniging; `tableDayNight` blijft alleen de tabel; gloed centreren op de
+  horizonpassage (is zo); main via U42 binnenhalen.
+- Orkestrator: geen eigen instelling; één boolean-ingang. → prop `expressive` op HistogramScrubber
+  (standaard aan; uit = geen hemel/korrel/streken/gloed, wolken in rustige grijzen).
+- Nieuwe tests: `cloud-section.test.ts` (lichtdoorlating, donkerte, uurstops, zonsdoorgangen, sterren,
+  streken), `uv.test.ts` (cloudModification), `HistogramScrubber.test.tsx` (hemel pas na de lagen,
+  expressive uit), `e2e/cloud-section.spec.ts` (hemel in elke weergave, lagen alleen in Lucht).
+- Receipts (synchroon) op 2793554:
+  - `pnpm typecheck` → 0; `pnpm test` → 0 (67 bestanden, 444 tests); `pnpm build` → 0.
+  - `MOTREGEN_E2E_PORT=4377 MOTREGEN_E2E_DATA_PORT=8377 pnpm e2e e2e/cloud-section.spec.ts
+    e2e/focus.spec.ts --project desktop` → E2E-EXIT: 0 (9 passed, 2 skipped: touch-tests).
+  - Stills: `SHOT_MODE=<modus> scripts/e2e-slot.sh pnpm exec tsx scripts/scrubber-shot.ts
+    http://127.0.0.1:4350 <map> <label> [toetsen]` → 5× SHOT-EXIT 0; zeven ervan in `stills/`, bekeken.
+- OPEN, niet af:
+  1. Stap 4 (vibe-woord bij de cursor, regeltabel) is niet gebouwd.
+  2. Contrast van regenbalken/cursor op de hemel niet gemeten.
+  3. Tekenkosten (hemel, ~500 streken, overlay-korrel) niet gemeten; perf.spec niet gedraaid.
+  4. Gevoel: groenige waas van het temperatuurvlak; Wind: Beaufort-kleuren tegen de nachtlucht.
+  5. SVG-masker over de hele baan werkte niet, oorzaak onbekend (nevel = 16 stroken).
+  6. SkywatchRender (U46-grader) tekent de nieuwe vormen zonder licht/hemel.
+  7. Afwijking van MIP-18 ("nacht: geen lichtfactor") is niet in de proposal verwerkt; dat is aan de PO.
+  8. Mobiel-e2e en de volledige suite niet gedraaid.
