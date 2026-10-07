@@ -458,3 +458,64 @@ meteen in de nog smalle pil, en `:focus-within` wisselde de randkleur na afloop.
 
 Receipts (synchroon): `pnpm typecheck` 0; `pnpm test` 0 (70 bestanden, 460 tests na de merge); `pnpm build`
 0. `pnpm e2e e2e/location.spec.ts --project desktop`: 2 passed, 2 failed (zie hierboven).
+
+## 2026-10-08 02:50 — PO-trace MacBook "laden + zoekpil openen" (`po-macbook-chrome-load-zoek.json.gz`)
+
+Main opnieuw gemerged (f0ecbad: de preview serveert het basiskaartarchief zelf); mijn eigen
+`track-data-origin.Caddyfile` weer verwijderd, 4320 herstart met `MOTREGEN_DATA_ORIGIN=https://motregen.nl/data`
+(pmtiles via 4320 → 206, beeld bekeken: kust, grenzen, plaatsnamen).
+
+Analyse met `web/scripts/devtools-trace.ts` (nieuw; leest de ingesloten sourcemap). De trace is van de build
+`index-BKwronxa.js` = vóór het morph-herontwerp (de transities zijn width/radius/rand/schaduw/padding, zonder
+`grid-template-rows` of `search-content-in`). 5,4 s, scherm op ~120 Hz (frames om de 8,3 ms).
+
+**(1) Laden — hoofddraad-taken ≥ 50 ms: één.** t=373 ms, 71 ms, `EvaluateScript` (de bundel evalueren). Het
+profiel daarbinnen wijst voor ~27 ms naar `chrome-extension://…/inject-css/index.js`: een browserextensie van
+de PO, niet onze code. Verder geen lange taken op de MacBook tijdens het laden.
+
+**(2) Zoekpil openen — twee keer in de trace.**
+
+| | opening 1 (t=2546 ms) | opening 2 (t=4738 ms) |
+| --- | ---: | ---: |
+| hoofddraadframes in 360 ms | 26, één gat van 164 ms | 45, geen gat |
+| compositorframes gepresenteerd / deels / gedropt | 25 / 9 / 18 | 45 / 0 / 0 |
+| stijl + layout + paint (som) | 2,5 + 1,9 + 3,1 ms | 4,5 + 4,4 + 5,4 ms |
+| Layerize (som) | 23,9 ms | 58,0 ms |
+| afgedwongen stijl/layout binnen script | 4× / 0,4 ms | 4× / 0,4 ms |
+
+- De 18 gedropte frames van opening 1 (t=2599…2741) vallen samen met één taak van 169 ms op de hoofddraad
+  van het **GPU-proces** (t=2586). De hoofddraad van de pagina lag in die tijd stil (geen taak > 3 ms).
+  Wat het GPU-proces deed staat niet in de trace (geen kind-events). Aanwijzingen dat het niet de pagina was:
+  de trace bevat 384 `Screenshot`-events (DevTools maakte schermafdrukken tijdens de opname), er draaien twee
+  andere renderers mee, en de vergelijkbare GPU-taak op t=1518 (221 ms, 24 drops) is gelabeld met een andere
+  `renderer_pid`. Bewijs is het niet.
+- Opening 2 is schoon: ~2 ms hoofddraadwerk per frame, geen gemist frame. Frames > 16,7 ms door de animatie
+  zelf: 0 in beide openingen (het gat van 164 ms in opening 1 is de GPU-taak).
+- Compositor: geen enkele transitie van de pil loopt op de compositor (`compositeFailed`, "unsupported
+  property": width, border-*-color, border-*-radius, box-shadow, color, padding). Elk frame is dus stijl →
+  layout → paint → layerize op de hoofddraad. Op de MacBook kost dat ~2 ms per frame.
+- Afgedwongen layout: 4× per opening, samen 0,4 ms — `isoline-layer.ts:33` (via een MapLibre-event) en één
+  plek in de bundel op regel 1139 (MapLibre). Verwaarloosbaar.
+- Paint-oppervlak: niet uit deze trace te halen (geen paint-rects/LayerTreeHost-snapshot in de opname).
+
+**(3) Koppeling met het herontwerp.** De oude sprong zat niet in de framekosten maar in de keyframes: hoogte
+en inhoud versprongen direct, breedte/radius liepen niet gelijk. Het herontwerp lost dat op, maar blijft een
+hoofddraad-animatie (er komen `grid-template-rows` en `height` bij). Een transform/clip-path-morph zou wel
+op de compositor kunnen, maar `scale` vervormt radius, rand en tekst en `clip-path` wordt in Chrome ook niet
+gecomposite; bij ~2 ms per frame op desktop heb ik dat niet gebouwd. Niet gemeten: een zwakke telefoon.
+
+Vóór/ná op dezelfde machine (headless SwiftShader, `web/scripts/search-trace.ts` nieuw, 1280×800, build
+`842a493` tegen de huidige; twee openingen elk, venster 360 ms):
+
+| | vóór 1 | vóór 2 | ná 1 | ná 2 |
+| --- | ---: | ---: | ---: | ---: |
+| hoofddraadframes / tussenpozen > 20 ms | 20 / 2 | 22 / 0 | 22 / 0 | 21 / 0 |
+| compositorframes volledig / deels | 21 / 21 | 22 / 17 | 22 / 0 | 21 / 0 |
+| stijl + layout + paint | 19,1 ms | 14,7 ms | 12,7 ms | 14,8 ms |
+| Layerize | 109,9 ms | 89,2 ms | 71,4 ms | 78,9 ms |
+
+De nieuwe morph is dus niet duurder dan de oude, en in deze opname zijn alle frames volledig gepresenteerd.
+Een ná-trace op de MacBook zelf ontbreekt nog (de PO-trace is van de oude build).
+
+Receipts (synchroon): `pnpm typecheck` 0 na het toevoegen van de twee scripts; `pnpm build` 0; 4320 serveert
+`index-SpEEwXLh.js` (200) na de herstart.
