@@ -189,13 +189,16 @@ export function recordPerfPhase(phase: PerfPhase, duration: number, detail?: Rec
   activeMonitor?.recordPhase({ phase, startTime, duration, detail })
 }
 
+/** `?perf` zet de vlag, `?perf=0` wist hem, `?perf=start` start bovendien meteen een koude-startopname van deze lading (PO 2026-10-07). */
 export function configurePerfMode(url: URL, storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>): boolean {
   if (url.searchParams.has('perf')) {
-    if (url.searchParams.get('perf') === '0') {
+    const value = url.searchParams.get('perf')
+    if (value === '0') {
       storage.removeItem(PERF_STORAGE_KEY)
       storage.removeItem(PERF_COLD_STORAGE_KEY)
     } else {
       storage.setItem(PERF_STORAGE_KEY, '1')
+      if (value === 'start') storage.setItem(PERF_COLD_STORAGE_KEY, '1')
     }
   }
   return storage.getItem(PERF_STORAGE_KEY) === '1'

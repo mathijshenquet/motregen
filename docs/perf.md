@@ -7,6 +7,10 @@ meting naar een server.
 
 ## Profielmodus (MIP-16)
 
+`?perf=start` zet de vlag én start direct een koude-startopname van die lading (de eerste
+30 s na `timeOrigin`), zonder eerst op *Koude start* te tikken; handig omdat veel effecten op
+pageload zitten (PO 2026-10-07).
+
 `?perf` bewaart `localStorage['motregen-perf']=1`, opent de compacte HUD en houdt de
 fase-instrumentatie aan; `?perf=0` wist de vlag. De HUD toont per fase count/p50/p95 over de laatste
 30 seconden en maximaal vijf lange animatieframes. *Opname 30 s* combineert die tijdvakken met de
