@@ -1,8 +1,9 @@
 import { createEffect, createMemo, createSignal, createUniqueId, For, Index, onCleanup, onMount, Show, untrack } from 'solid-js'
-import { CLOUD_LAYERS, cloudBand, type CloudSeries } from '../core/cloud-section'
+import { CLOUD_LAYERS, cloudBand, skyStops, type CloudSeries } from '../core/cloud-section'
 import type { TimelineFrame } from '../core/contract'
 import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColor } from '../core/rain-chart'
 import { seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
+import { cloudModification } from '../core/uv'
 import { summarizeWind, WIND_UNIT_LABELS, type WindUnit } from '../core/weather'
 import { BEAUFORT_STOPS, windColor } from '../core/wind-layer'
 import type { PaletteStops } from '../core/temperature-palette'
@@ -25,6 +26,12 @@ interface Props {
   /** Spatie: bewust pauzeren/afspelen (niet het korte pauzeren tijdens interactie), voor de ▶ in de klok. */
   /** De drie wolkenlagen (U37) — sinds U34 alleen in de modus Wolken, en dan zonder regen. */
   clouds?: CloudSeries
+  /**
+   * Hoe licht het wordt (U47, MIP-18): straling (uurgemiddelden, W/m²) en zonnestand op de locatie. Kleurt
+   * de wolken altijd; de hemelachtergrond alleen naar rato van `mix.clouds` (vol in de wolkenmodus,
+   * afwezig in de rustige weergave eronder).
+   */
+  sky?: { radiation: { timeline: TimelineFrame[]; values: Array<number | null> }; sinElevation: (epoch: number) => number }
   /** Totale bewolking als één band boven het regenhistogram, in de weermodus (PO 2026-09-25 live, U34). */
   cloudCover?: { timeline: TimelineFrame[]; values: Array<number | null> }
   /** Tijdens gelijkmatig afspelen: epoch-ms per ms; de baan schuift dan op de compositor (U41). */
@@ -166,7 +173,7 @@ export default function HistogramScrubber(props: Props) {
   const coverBands = createMemo(() => {
     const cover = props.cloudCover
     if (!cover) return []
-    // Eén band in de stijl van de middelste laag: vorm en dekking volgen de totale bewolking.
+    // Eén band in de stijl van de middelste laag: de gaten volgen de totale bewolking.
     return [{ key: 'total', label: '', top: 0, height: cloudHeight(), ...cloudBand(cover.timeline, cover.values, 'mid', geometry(0, cloudHeight())) }]
   })
   const layerBands = createMemo(() => {
@@ -182,6 +189,22 @@ export default function HistogramScrubber(props: Props) {
     }))
   })
   const cloudBands = () => [...coverBands(), ...layerBands()]
+  const sky = createMemo(() => {
+    const clouds = props.clouds
+    const inputs = props.sky
+    if (!clouds || !inputs || !props.timeline.length) return []
+    const radiationAt = (epoch: number) => seriesValueAt(inputs.radiation.timeline, inputs.radiation.values, epoch, 5 * 60_000)
+    return skyStops(timelineStart(), timelineEnd(), {
+      lightAt: (epoch) => cloudModification(epoch, radiationAt(epoch), radiationAt(epoch + HOUR), inputs.sinElevation),
+      coverAt: (epoch) => ({
+        high: (seriesValueAt(clouds.timeline.high, clouds.values.high, epoch, 30 * 60_000) ?? 0) / 100,
+        mid: (seriesValueAt(clouds.timeline.mid, clouds.values.mid, epoch, 30 * 60_000) ?? 0) / 100,
+        low: (seriesValueAt(clouds.timeline.low, clouds.values.low, epoch, 30 * 60_000) ?? 0) / 100,
+      }),
+      sinElevation: inputs.sinElevation,
+    })
+  })
+  const skyStrength = () => sky().length ? cloudsMix() : 0
   // Windgrafiek in baancoördinaten (één keer per data/afmeting, schuift met de baan mee).
   const windChart = createMemo(() => {
     const wind = props.wind
@@ -536,23 +559,37 @@ export default function HistogramScrubber(props: Props) {
           <div class="past-shade" style={{ width: `${nowX()}px` }} />
           <div class="hour-grid"><For each={xTicks()}>{(tick) => <i style={{ left: `${tick.x}px` }} />}</For></div>
           <div class="day-grid"><For each={dayMarkers()}>{(marker) => <div class="boundary" style={{ left: `${xAt(marker.epoch)}px` }} />}</For></div>
-          <svg width={trackWidth()} height={plotHeight()} viewBox={`0 0 ${trackWidth()} ${plotHeight()}`}>
+          <svg width={trackWidth()} height={plotHeight()} viewBox={`0 0 ${trackWidth()} ${plotHeight()}`} style={{ '--sky': skyStrength() }}>
             <Show when={cloudBands().length}>
               <defs>
                 <filter id={`${cloudId}-soft`} x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="0.9" /></filter>
-                <For each={cloudBands()}>{(band) => <linearGradient id={`${cloudId}-${band.key}`} class={`cloud-${band.key}`} gradientUnits="userSpaceOnUse" x1="0" x2={cloudWidth()} y1="0" y2="0">
-                  <For each={band.stops}>{(stop) => <stop offset={stop.offset} stop-opacity={stop.opacity} />}</For>
+                <For each={['sky', ...cloudBands().map((band) => band.key)]}>{(key) => <linearGradient id={`${cloudId}-${key}`} class={key === 'sky' ? 'sky-gradient' : `cloud-tone cloud-${key}`} gradientUnits="userSpaceOnUse" x1="0" x2={cloudWidth()} y1="0" y2="0">
+                  <For each={sky().length ? sky() : [{ offset: 0, darkness: 0, daylight: 1, glow: 0 }]}>{(stop) => <stop offset={stop.offset} style={{ '--dark': stop.darkness, '--day': stop.daylight }} />}</For>
                 </linearGradient>}</For>
+                <linearGradient id={`${cloudId}-glow`} class="sky-glow-gradient" gradientUnits="userSpaceOnUse" x1="0" x2={cloudWidth()} y1="0" y2="0">
+                  <For each={sky()}>{(stop) => <stop offset={stop.offset} stop-opacity={stop.glow} />}</For>
+                </linearGradient>
+                {/* Verticale lagen over de lucht: donkerder zenit, lichtere horizon; de gloed hangt laag. */}
+                <linearGradient id={`${cloudId}-depth`} class="sky-depth-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0" /><stop offset="0.55" /><stop offset="1" /></linearGradient>
+                <linearGradient id={`${cloudId}-horizon`} x1="0" x2="0" y1="0" y2="1"><stop offset="0.15" stop-color="#000" /><stop offset="1" stop-color="#fff" /></linearGradient>
+                <mask id={`${cloudId}-low`} maskUnits="userSpaceOnUse" x="0" y="0" width={cloudWidth()} height={plotHeight()}><rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-horizon)`} /></mask>
+                {/* Schaduw aan de basis van elke wolk: volume in plaats van een vlak silhouet. */}
+                <linearGradient id={`${cloudId}-shadow`} class="cloud-shadow-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0.25" /><stop offset="1" /></linearGradient>
               </defs>
+              <Show when={skyStrength() > 0}><g class="sky" data-testid="sky" style={{ opacity: baseOpacity() * skyStrength() }}>
+                <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-sky)`} />
+                <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-depth)`} />
+                <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-glow)`} mask={`url(#${cloudId}-low)`} />
+              </g></Show>
               <g class="cloud-section" data-testid="cloud-section" filter={`url(#${cloudId}-soft)`}>
                 <g class="scrub-view" style={layerStyle(coverOpacity())}>
                   <For each={coverBands()}>{(band) => <g class="cloud-band" data-layer={band.key}>
-                    <For each={band.paths}>{(path) => <path d={path} fill={`url(#${cloudId}-${band.key})`} />}</For>
+                    <For each={band.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${band.key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /></>}</For>
                   </g>}</For>
                 </g>
                 <g class="scrub-view" style={{ opacity: baseOpacity() * (CLOUD_LAYERS_DEFAULT_OPACITY + (1 - CLOUD_LAYERS_DEFAULT_OPACITY) * cloudsMix()) }}>
                   <For each={layerBands()}>{(band) => <g class="cloud-band" data-layer={band.key}>
-                    <For each={band.paths}>{(path) => <path d={path} fill={`url(#${cloudId}-${band.key})`} />}</For>
+                    <For each={band.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${band.key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /></>}</For>
                   </g>}</For>
                 </g>
               </g>

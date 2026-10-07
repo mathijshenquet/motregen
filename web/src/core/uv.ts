@@ -72,6 +72,27 @@ export function clearSkyRadiation(mu: number): number {
 }
 
 /**
+ * Cloud modification factor G/G_c at `epoch`: the share of the clear-sky irradiance that reaches the
+ * ground, from the HARMONIE hour means that end at `epoch` and one hour later. Null at night and
+ * without radiation data.
+ */
+export function cloudModification(
+  epoch: number,
+  radiationBefore: number | null | undefined,
+  radiationAfter: number | null | undefined,
+  sinElevation: (epoch: number) => number,
+): number | null {
+  const ratios: number[] = []
+  for (const [radiation, end] of [[radiationBefore, epoch], [radiationAfter, epoch + 3_600_000]] as const) {
+    if (radiation == null || !Number.isFinite(radiation)) continue
+    let clear = 0
+    for (let step = 0; step < 6; step++) clear += clearSkyRadiation(sinElevation(end - (step + 0.5) * 600_000)) / 6
+    if (clear > 20) ratios.push(Math.max(0, Math.min(1, radiation / clear)))
+  }
+  return ratios.length ? ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length : null
+}
+
+/**
  * UV index at `epoch` from the HARMONIE hour means that end at `epoch`
  * (`radiationBefore`) and one hour later (`radiationAfter`): the clear-sky UV
  * scaled by how much of the clear-sky irradiance reached the ground.
@@ -83,16 +104,9 @@ export function estimateUv(
   sinElevation: (epoch: number) => number,
   clearUv = clearSkyUv(sinElevation(epoch), epoch),
 ): number | null {
-  const ratios: number[] = []
-  for (const [radiation, end] of [[radiationBefore, epoch], [radiationAfter, epoch + 3_600_000]] as const) {
-    if (radiation == null || !Number.isFinite(radiation)) continue
-    let clear = 0
-    for (let step = 0; step < 6; step++) clear += clearSkyRadiation(sinElevation(end - (step + 0.5) * 600_000)) / 6
-    if (clear > 20) ratios.push(Math.max(0, Math.min(1, radiation / clear)))
-  }
-  if (!ratios.length) return radiationBefore == null && radiationAfter == null ? null : clearUv
-  const cloudModification = ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length
-  return clearUv * Math.pow(cloudModification, UV_ESTIMATE_EXPONENT)
+  const modification = cloudModification(epoch, radiationBefore, radiationAfter, sinElevation)
+  if (modification == null) return radiationBefore == null && radiationAfter == null ? null : clearUv
+  return clearUv * Math.pow(modification, UV_ESTIMATE_EXPONENT)
 }
 
 export interface UvReading {

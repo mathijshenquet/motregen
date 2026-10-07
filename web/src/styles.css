@@ -28,9 +28,21 @@
   --uv-very-high: #d8323f;
   --uv-extreme: #8d4fc0;
   /* Wolkendoorsnede (U37): lage wolken het zwaarst, cirrus het lichtst. */
-  --cloud-high: #9fb2ba;
-  --cloud-mid: #7f949d;
-  --cloud-low: #5d717a;
+  --cloud-high: #b4c3ca;
+  --cloud-mid: #9aacb4;
+  --cloud-low: #8fa2ab;
+  --cloud-storm-plain: #33424a;
+  /* Met hemelachtergrond: wit tegen blauw (Hobbiton) tot antraciet tegen lood (Mordor). */
+  --cloud-bright: #ffffff;
+  --cloud-storm: #262f35;
+  --cloud-night: #4a5964;
+  --sky-bright: #8cc8f4;
+  --sky-dull: #68767e;
+  --sky-glow: #ff9a52;
+  --sky-zenith: #1d3f78;
+  --cloud-shadow: #1c262d;
+  --sky-night: #1b2a3b;
+  --sky-night-dull: #10161b;
 }
 
 :root[data-theme="dark"] {
@@ -58,9 +70,20 @@
   --uv-high: #ff9236;
   --uv-very-high: #f25563;
   --uv-extreme: #b27ce6;
-  --cloud-high: #6d8792;
-  --cloud-mid: #9cb2bb;
+  --cloud-high: #7e97a1;
+  --cloud-mid: #a9bcc4;
   --cloud-low: #d0dde2;
+  --cloud-storm-plain: #586870;
+  --cloud-bright: #f1f6f8;
+  --cloud-storm: #141a1e;
+  --cloud-night: #2b3a44;
+  --sky-bright: #2f78b3;
+  --sky-dull: #3d4a51;
+  --sky-glow: #f0733a;
+  --sky-zenith: #061426;
+  --cloud-shadow: #04080b;
+  --sky-night: #0c1a27;
+  --sky-night-dull: #05080a;
 }
 
 * { box-sizing: border-box; }
@@ -499,10 +522,35 @@ button { color: inherit; cursor: pointer; }
 .past-shade { position: absolute; top: 0; bottom: 0; left: 0; background: color-mix(in srgb, var(--text) 4%, transparent); pointer-events: none; }
 .rain-guide { stroke: color-mix(in srgb, var(--line-strong) 70%, transparent); stroke-dasharray: 2 4; stroke-width: 1; }
 .rain-baseline { stroke: var(--line-strong); stroke-width: 1; }
-.cloud-high stop { stop-color: var(--cloud-high); }
-.cloud-mid stop { stop-color: var(--cloud-mid); }
-.cloud-low stop { stop-color: var(--cloud-low); }
-.cloud-total stop { stop-color: var(--cloud-mid); }
+/* Bedekking zit in de gaten tussen de wolken (U47), dus de vulling zelf is vast en bijna dekkend. */
+.cloud-band path { fill-opacity: .94; }
+.cloud-band[data-layer="high"] path { fill-opacity: .8; }
+.cloud-band path.cloud-shadow { fill-opacity: 1; }
+.cloud-band[data-layer="high"] path.cloud-shadow { display: none; }
+.cloud-shadow-gradient stop { stop-color: var(--cloud-shadow); }
+.cloud-shadow-gradient stop:first-child { stop-opacity: 0; }
+.cloud-shadow-gradient stop:last-child { stop-opacity: .42; }
+.sky-glow-gradient stop { stop-color: var(--sky-glow); }
+.sky-depth-gradient stop:nth-child(1) { stop-color: var(--sky-zenith); stop-opacity: .38; }
+.sky-depth-gradient stop:nth-child(2) { stop-color: var(--sky-zenith); stop-opacity: 0; }
+.sky-depth-gradient stop:nth-child(3) { stop-color: #fff; stop-opacity: .16; }
+/* Lucht en wolken kleuren per uur mee met het licht (U47, MIP-18). --dark en --day staan per stop,
+   --sky (0–1) op de svg: zonder hemel houden de wolken hun rustige grijzen, met hemel worden ze wit
+   tegen blauw of zwaar tegen lood. --weight: hoe sterk een laag meedonkert (cirrus blijft licht). */
+.sky-gradient stop {
+  stop-color: color-mix(in oklab,
+    color-mix(in oklab, var(--sky-dull) calc(var(--dark) * 100%), var(--sky-bright)) calc(var(--day) * 100%),
+    color-mix(in oklab, var(--sky-night-dull) calc(var(--dark) * 100%), var(--sky-night)));
+}
+.cloud-tone stop {
+  --plain: color-mix(in oklab, var(--cloud-storm-plain) calc(var(--dark) * var(--weight) * 100%), var(--cloud-base));
+  --lit: color-mix(in oklab, var(--cloud-storm) calc(var(--dark) * var(--weight) * 100%), var(--cloud-bright));
+  --moonlit: color-mix(in oklab, var(--cloud-night) calc((1 - var(--day)) * 55%), var(--lit));
+  stop-color: color-mix(in oklab, var(--moonlit) calc(var(--sky) * 100%), var(--plain));
+}
+.cloud-high { --cloud-base: var(--cloud-high); --weight: .35; }
+.cloud-mid, .cloud-total { --cloud-base: var(--cloud-mid); --weight: .85; }
+.cloud-low { --cloud-base: var(--cloud-low); --weight: 1; }
 .uv-heading { text-align: left; }
 .uv-cell { width: 74px; min-width: 64px; font-size: 12px; text-align: left; }
 .moon-reading { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-variant-numeric: tabular-nums; }

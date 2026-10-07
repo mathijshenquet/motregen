@@ -2053,6 +2053,7 @@ export default function App() {
         glideRate={glideRate()}
         onPlayPressed={() => usage.mark('play')}
         clouds={{ timeline: cloudTimelines(), values: cloudValues() }}
+        sky={{ radiation: { timeline: radiationTimeline(), values: radiationSeries() }, sinElevation: (epoch) => solarElevationSin(epoch, location().lng, location().lat) }}
         wind={{ timeline: windUFrames(), speed: windSpeedSeries(), gustTimeline: gustTimeline(), gust: gustSeries(), unit: windUnit() }}
         mix={{ wind: windFocus(), clouds: cloudFocus(), temperature: focus() }}
         temperature={{ timeline: feelsLikeTimeline(), values: feelsLikeSeries(), airTimeline: tempTimeline(), air: temperatureSeries(), stops: temperatureRange() && paletteStops(temperatureRange()!) }}
