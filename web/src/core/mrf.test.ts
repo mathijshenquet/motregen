@@ -415,25 +415,25 @@ describe('mrf v0', () => {
 
     const settle = () => new Promise((done) => setTimeout(done, 0))
 
-    it('decodes the cursor frame before point series and prefetch that were queued earlier', async () => {
+    it('decodes outward from the cursor, whoever asked first, and follows a cursor jump (U52)', async () => {
       const worker = stubHeldWorker()
       const client = new MrfClient(new URL('https://example.test/data/manifest.json'), undefined, 1)
       const chunk = manifest.chunks[0]!
+      const epochOf = (frameIndex: number) => Date.parse(chunk.times[frameIndex]!)
 
+      client.setCursor({ epoch: epochOf(6), direction: 0 })
       const background = client.getFrames(chunk, [0, 1, 2, 3], 'low', undefined, 'prefetch')
       await settle()
-      const series = client.getFrames(chunk, [4, 5], 'high', undefined, 'L0')
+      const series = client.getFrames(chunk, [4, 5, 6, 7, 8], 'high', undefined, 'L0')
       await settle()
-      const cursor = client.getFrame(chunk, 6)
-      await settle()
-      const promoted = client.getFrame(chunk, 3)
-      await settle()
-      for (let reply = 0; reply < 7; reply++) { worker.releaseNext(); await settle() }
-      await Promise.all([background, series, cursor, promoted])
+      for (let reply = 0; reply < 4; reply++) { worker.releaseNext(); await settle() }
+      client.setCursor({ epoch: epochOf(0), direction: 0 })
+      for (let reply = 0; reply < 5; reply++) { worker.releaseNext(); await settle() }
+      await Promise.all([background, series])
 
-      // Frame 0 was al onderweg toen de rest binnenkwam; daarna cursor (6, en 3 dat ernaar opschoof),
-      // dan de puntreeks (4, 5) en pas dan het vooruitladen (1, 2).
-      expect(worker.decodeOrder).toEqual([0, 6, 3, 4, 5, 1, 2])
+      // Frame 0 was al onderweg toen de rest binnenkwam. Daarna van de cursor (6) naar buiten: 5, 6 en
+      // 7 liggen binnen één framestap, dan 4. Na de sprong naar frame 0 gaat 1 (en 2) voor 3 en 8.
+      expect(worker.decodeOrder).toEqual([0, 5, 6, 7, 4, 1, 2, 3, 8])
     })
 
     it('skips a queued decode once every requester has aborted, but not one somebody still wants', async () => {

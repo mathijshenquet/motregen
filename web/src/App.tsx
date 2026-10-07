@@ -1,4 +1,4 @@
-import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show, untrack } from 'solid-js'
+import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show, untrack, type Accessor, type Setter } from 'solid-js'
 import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
 import { registerSW } from 'virtual:pwa-register'
 import About, { type ThemeChoice } from './components/About'
@@ -70,6 +70,7 @@ const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
 type PointLoadStage = 'initial' | 'direct' | 'window' | 'complete'
 type FetchPriority = 'high' | 'low'
 type ForecastIndex = 'radiationIndex' | 'uvIndex' | 'temperatureIndex' | 'feelsLikeIndex' | 'humidityIndex' | 'cloudIndex' | 'windUIndex' | 'windVIndex' | 'gustIndex'
+type TableSeriesKey = Exclude<ForecastIndex, 'radiationIndex'>
 
 interface IsolineSetConfig {
   kind: IsolineKind
@@ -124,6 +125,9 @@ interface PointLoadState {
   idle?: number
   deepIdle?: number
   rainPublisher?: FrameBatcher
+  /** Tabelreeksen die nog laden, met de tijdlijn waarop hun indexen slaan; zie publishLoadedSeries. */
+  loading: Map<TableSeriesKey, { frames: TimelineFrame[]; values: Array<number | null> }>
+  seriesPublisher?: FrameBatcher
 }
 const emptyTemperatureData: TemperatureFeatureCollection = { type: 'FeatureCollection', features: [] }
 const emptySunData: SunFeatureCollection = { type: 'FeatureCollection', features: [] }
@@ -326,6 +330,19 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [gustSeries, setGustSeries] = createSignal<Array<number | null>>([])
   const [radiationSeries, setRadiationSeries] = createSignal<Array<number | null>>([])
   const [uvClearSeries, setUvClearSeries] = createSignal<Array<number | null>>([])
+  // De tabelvelden die als puntreeks per locatie laden; `field` is de naam in het meetpunt window-ready.
+  const tableSeries: Array<{ key: TableSeriesKey; field: string; frames: Accessor<TimelineFrame[]>; values: Accessor<Array<number | null>>; set: Setter<Array<number | null>> }> = [
+    { key: 'uvIndex', field: 'uv', frames: uvTimeline, values: uvSeries, set: setUvSeries },
+    { key: 'temperatureIndex', field: 'temp_c', frames: tempTimeline, values: temperatureSeries, set: setTemperatureSeries },
+    { key: 'feelsLikeIndex', field: 'feels_like_c', frames: feelsLikeTimeline, values: feelsLikeSeries, set: setFeelsLikeSeries },
+    { key: 'humidityIndex', field: 'rel_humidity', frames: humidityTimeline, values: humiditySeries, set: setHumiditySeries },
+    { key: 'cloudIndex', field: 'cloud_frac', frames: cloudTimeline, values: cloudSeries, set: setCloudSeries },
+    { key: 'windUIndex', field: 'wind_u', frames: windUFrames, values: windUSeries, set: setWindUSeries },
+    { key: 'windVIndex', field: 'wind_v', frames: windVFrames, values: windVSeries, set: setWindVSeries },
+    { key: 'gustIndex', field: 'gust_ms', frames: gustTimeline, values: gustSeries, set: setGustSeries },
+  ]
+  // Vanaf de eerste locatiekeuze (direct na de eerste regen-draw) mogen alle puntreeksen laden.
+  const [pointLoadsStarted, setPointLoadsStarted] = createSignal(false)
   // History rows cost bytes the old table never loaded; they stay folded until asked for.
   const [historyRowsWanted, setHistoryRowsWanted] = createSignal(false)
   let forecastPanel: HTMLElement | undefined
@@ -829,6 +846,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }, requestAnimationFrame, cancelAnimationFrame)
     onCleanup(() => { stop(); frameLoopDrives = false; setGlideRate(0) })
   })
+  // De decodewachtrij werkt van de cursor naar buiten, tijdens afspelen met voorkeur vooruit (U52).
+  createEffect(() => {
+    if (!timeline().length) return
+    client.setCursor({ epoch: selectedEpoch(), direction: playing() ? 1 : 0 })
+  })
   // Buiten het afspelen (scrubben, toetsen, pauze, focuswissel, nieuwe tijdlijn) tekent dit effect.
   createEffect(() => {
     cursor()
@@ -983,6 +1005,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         else void attachWindLayer()
         if (!stillMode && !initialPickStarted) {
           initialPickStarted = true
+          setPointLoadsStarted(true)
           pick(startLocation.lng, startLocation.lat, startLocation.label)
           if (startFromFix) revealPoint(startLocation.lng, startLocation.lat)
         }
@@ -1687,14 +1710,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     setGustSeries([])
     state.direct = (async () => {
       const [uv, temperature, feelsLike, humidity, cloud, windU, windV, gust] = await Promise.all([
-        readForecastPointSeries(uvTimeline(), point, 'uvIndex', 'L0'),
-        readForecastPointSeries(tempTimeline(), point, 'temperatureIndex', 'L0'),
-        readForecastPointSeries(feelsLikeTimeline(), point, 'feelsLikeIndex', 'L0'),
-        readForecastPointSeries(humidityTimeline(), point, 'humidityIndex', 'L0'),
-        readForecastPointSeries(cloudTimeline(), point, 'cloudIndex', 'L0'),
-        readForecastPointSeries(windUFrames(), point, 'windUIndex', 'L0'),
-        readForecastPointSeries(windVFrames(), point, 'windVIndex', 'L0'),
-        readForecastPointSeries(gustTimeline(), point, 'gustIndex', 'L0'),
+        readForecastPointSeries(uvTimeline(), point, 'uvIndex', 'L0', state),
+        readForecastPointSeries(tempTimeline(), point, 'temperatureIndex', 'L0', state),
+        readForecastPointSeries(feelsLikeTimeline(), point, 'feelsLikeIndex', 'L0', state),
+        readForecastPointSeries(humidityTimeline(), point, 'humidityIndex', 'L0', state),
+        readForecastPointSeries(cloudTimeline(), point, 'cloudIndex', 'L0', state),
+        readForecastPointSeries(windUFrames(), point, 'windUIndex', 'L0', state),
+        readForecastPointSeries(windVFrames(), point, 'windVIndex', 'L0', state),
+        readForecastPointSeries(gustTimeline(), point, 'gustIndex', 'L0', state),
         enqueueRain(state, directRainIndexes(timeline(), manifest() ? Date.parse(manifest()!.now) : 0), 'high', 'L0', 'locatie'),
       ])
       if (request !== pointRequest) return
@@ -1733,8 +1756,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       rainLoaded: new Set(rainLoaded.flatMap((loaded, index) => loaded ? [index] : [])),
       rainQueue: Promise.resolve(),
       direct: Promise.resolve(),
+      loading: new Map(),
     }
     state.rainPublisher = new FrameBatcher(() => publishRain(state))
+    state.seriesPublisher = new FrameBatcher(() => publishLoadedSeries(state))
     return state
   }
 
@@ -1788,7 +1813,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     await mergeForecastSeries(state, 'L2')
   }
 
-  function readForecastPointSeries(frames: TimelineFrame[], point: { lng: number; lat: number }, key: ForecastIndex, layer: LoadLayer): Promise<Array<number | null>> {
+  /** Met een `state` verschijnen de waarden per frame (publishLoadedSeries), niet pas als de hele reeks er is. */
+  function readForecastPointSeries(frames: TimelineFrame[], point: { lng: number; lat: number }, key: TableSeriesKey, layer: LoadLayer, state?: PointLoadState): Promise<Array<number | null>> {
     const now = manifestNow()
     const history = historyRowsWanted()
     const window = viewWindow()
@@ -1799,7 +1825,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const wanted = (tableInView() && tableRow) || (scrubberSeries().has(key) && rowInView(row, window))
       return wanted ? [row[key]] : []
     })
-    return frames.length ? readPointSeries(frames, point, indexes, 'high', undefined, undefined, layer).catch(() => []) : Promise.resolve([])
+    if (!frames.length) return Promise.resolve([])
+    const values = new Array<number | null>(frames.length).fill(null)
+    const showLoaded = state && (() => {
+      state.loading.set(key, { frames, values })
+      state.seriesPublisher?.schedule()
+    })
+    return readPointSeries(frames, point, indexes, 'high', values, showLoaded, layer).catch(() => [])
   }
 
   // Uurrijen: een uur speling, zodat de lijn in de scrubber tot aan de rand van het venster doorloopt.
@@ -1823,28 +1855,46 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
   async function mergeForecastSeries(state: PointLoadState, layer: LoadLayer): Promise<void> {
     const [uv, temperature, feelsLike, humidity, cloud, windU, windV, gust] = await Promise.all([
-      readForecastPointSeries(uvTimeline(), state.point, 'uvIndex', layer),
-      readForecastPointSeries(tempTimeline(), state.point, 'temperatureIndex', layer),
-      readForecastPointSeries(feelsLikeTimeline(), state.point, 'feelsLikeIndex', layer),
-      readForecastPointSeries(humidityTimeline(), state.point, 'humidityIndex', layer),
-      readForecastPointSeries(cloudTimeline(), state.point, 'cloudIndex', layer),
-      readForecastPointSeries(windUFrames(), state.point, 'windUIndex', layer),
-      readForecastPointSeries(windVFrames(), state.point, 'windVIndex', layer),
-      readForecastPointSeries(gustTimeline(), state.point, 'gustIndex', layer),
+      readForecastPointSeries(uvTimeline(), state.point, 'uvIndex', layer, state),
+      readForecastPointSeries(tempTimeline(), state.point, 'temperatureIndex', layer, state),
+      readForecastPointSeries(feelsLikeTimeline(), state.point, 'feelsLikeIndex', layer, state),
+      readForecastPointSeries(humidityTimeline(), state.point, 'humidityIndex', layer, state),
+      readForecastPointSeries(cloudTimeline(), state.point, 'cloudIndex', layer, state),
+      readForecastPointSeries(windUFrames(), state.point, 'windUIndex', layer, state),
+      readForecastPointSeries(windVFrames(), state.point, 'windVIndex', layer, state),
+      readForecastPointSeries(gustTimeline(), state.point, 'gustIndex', layer, state),
     ])
     if (state.request !== pointRequest) return
-    const merge = (next: Array<number | null>) => (previous: Array<number | null>) =>
-      Array.from({ length: Math.max(previous.length, next.length) }, (_, index) => next[index] ?? previous[index] ?? null)
     batch(() => {
-      setUvSeries(merge(uv))
-      setTemperatureSeries(merge(temperature))
-      setFeelsLikeSeries(merge(feelsLike))
-      setHumiditySeries(merge(humidity))
-      setCloudSeries(merge(cloud))
-      setWindUSeries(merge(windU))
-      setWindVSeries(merge(windV))
-      setGustSeries(merge(gust))
+      setUvSeries(mergeLoaded(uv))
+      setTemperatureSeries(mergeLoaded(temperature))
+      setFeelsLikeSeries(mergeLoaded(feelsLike))
+      setHumiditySeries(mergeLoaded(humidity))
+      setCloudSeries(mergeLoaded(cloud))
+      setWindUSeries(mergeLoaded(windU))
+      setWindVSeries(mergeLoaded(windV))
+      setGustSeries(mergeLoaded(gust))
     })
+  }
+
+  function mergeLoaded(loaded: Array<number | null>): (previous: Array<number | null>) => Array<number | null> {
+    return (previous) => Array.from({ length: Math.max(previous.length, loaded.length) }, (_, index) => loaded[index] ?? previous[index] ?? null)
+  }
+
+  /**
+   * Wat van een tabelreeks al binnen is meteen tonen (U52): een veld groeit per frame aan vanaf de
+   * cursor, niet als blok. Alleen zolang de tijdlijn dezelfde is; na een manifestwissel slaan de
+   * indexen op een andere reeks.
+   */
+  function publishLoadedSeries(state: PointLoadState): void {
+    if (state.request !== pointRequest) return
+    batch(() => {
+      for (const series of tableSeries) {
+        const loading = state.loading.get(series.key)
+        if (loading && loading.frames === series.frames()) series.set(mergeLoaded(loading.values))
+      }
+    })
+    state.loading.clear()
   }
 
   async function readPointSeries(
@@ -1968,6 +2018,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (state.idle !== undefined) cancelIdle(state.idle)
     window.clearTimeout(state.deepIdle)
     state.rainPublisher?.cancel()
+    state.seriesPublisher?.cancel()
   }
 
   function publishRain(state: PointLoadState): void {
@@ -2200,7 +2251,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // Heldere-hemel-UV reist als eigen veld mee; net als de straling alleen de uurframes van de tabelrijen
   // (alle kwartieren decoderen zou de gedeelde framecache van 512 uit de puntreeksen drukken). De bytes
   // komen wel als één payload-Range binnen: losse frame-Ranges op dit kleine bestand kwamen warm opnieuw
-  // over (perf.spec warm = 0 B). Pas na de initial-fase, om de eerste puntreeks niet te vertragen.
+  // over (perf.spec warm = 0 B). Vanaf de eerste locatiekeuze; de volgorde regelt de decodewachtrij.
   let uvClearRequest = 0
   createEffect(() => {
     const point = location()
@@ -2219,16 +2270,16 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       return wanted ? [row.uvClearIndex] : []
     })
     const request = ++uvClearRequest
-    if (stage === 'initial' || !indexes.length) return
+    if (!pointLoadsStarted() || !indexes.length) return
     void (async () => {
       await Promise.all([...new Set(indexes.map((index) => frames[index]!.chunk))].map((chunk) => client.fetchPayload(chunk)))
       const values = await readPointSeries(frames, point, indexes, 'low', undefined, undefined, 'L0')
       if (request === uvClearRequest) setUvClearSeries(values)
     })().catch(() => undefined)
   })
-  // Wolkenlagen (U37; sinds U34 altijd de achtergrond van de scrubber): na de initial-fase laden
-  // (de eerste regenreeks gaat voor), als hele payload per chunk (16 km-raster, klein), lage prioriteit.
-  const cloudsMayLoad = createMemo(() => pointLoadStage() !== 'initial')
+  // Wolkenlagen (U37; sinds U34 altijd de achtergrond van de scrubber): als hele payload per chunk
+  // (16 km-raster, klein), lage prioriteit. Ze laden tegelijk met de regenreeks (U52); wat het
+  // dichtst bij de cursor ligt gaat in de decodewachtrij voor, van welk veld ook.
   const windSpeedSeries = createMemo(() => windUSeries().map((u, index) => {
     const v = windVSeries()[index]
     return u == null || v == null ? null : Math.hypot(u, v)
@@ -2236,30 +2287,37 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const cloudTimelines = createMemo(() => Object.fromEntries(CLOUD_LAYERS.map((layer) =>
     [layer, manifest() ? buildTimeline(manifest()!, `cloud_${layer}`) : []])) as Record<CloudLayer, TimelineFrame[]>)
   const [cloudValues, setCloudValues] = createSignal<Record<CloudLayer, Array<number | null>>>({ high: [], mid: [], low: [] })
-  let cloudRequest = 0
-  // Krap apparaat: de banden groeien venster voor venster aan; de al gelezen waarden blijven staan
-  // zolang locatie en tijdlijn dezelfde zijn.
+  // De banden groeien per frame aan (krap apparaat: venster voor venster); de al gelezen waarden
+  // blijven staan zolang locatie en tijdlijn dezelfde zijn.
   let cloudsRead: { point: object; timelines: object; values: Record<CloudLayer, Array<number | null>> } | undefined
   createEffect(() => {
     const point = location()
     const timelines = cloudTimelines()
     const window = inViewOnly ? viewWindow() : undefined
     const signal = inViewOnly ? viewDemand().signal : undefined
-    const request = ++cloudRequest
-    if (!cloudsMayLoad()) return
-    if (cloudsRead?.point !== point || cloudsRead.timelines !== timelines) cloudsRead = { point, timelines, values: { high: [], mid: [], low: [] } }
-    const read = cloudsRead
-    void Promise.all(CLOUD_LAYERS.map(async (layer) => {
+    if (!pointLoadsStarted()) return
+    const otherPlaceOrTimeline = cloudsRead?.point !== point || cloudsRead.timelines !== timelines
+    if (otherPlaceOrTimeline) cloudsRead = { point, timelines, values: { high: [], mid: [], low: [] } }
+    const read = cloudsRead!
+    // Ook een lezing die bij een vorig venster begon publiceert nog: de waarden zijn gedeeld.
+    const publisher = new FrameBatcher(() => {
+      if (read === cloudsRead) setCloudValues({ high: [...read.values.high], mid: [...read.values.mid], low: [...read.values.low] })
+    })
+    if (otherPlaceOrTimeline) publisher.schedule()
+    for (const layer of CLOUD_LAYERS) {
       const frames = timelines[layer]
-      await Promise.all([...new Set(frames.map((frame) => frame.chunk))].map((chunk) => client.fetchPayload(chunk)))
-      if (!window) return [layer, await readPointSeries(frames, point, undefined, 'low', undefined, undefined, 'L0')] as const
       if (read.values[layer].length !== frames.length) read.values[layer] = new Array<number | null>(frames.length).fill(null)
-      const indexes = timelineIndexesInWindow(frames, window, selectedEpoch()).filter((index) => read.values[layer][index] == null)
-      await readPointSeries(frames, point, indexes, 'low', read.values[layer], undefined, 'L1', signal)
-      return [layer, [...read.values[layer]]] as const
-    })).then((layers) => {
-      if (request === cloudRequest) setCloudValues(Object.fromEntries(layers) as Record<CloudLayer, Array<number | null>>)
-    }).catch(() => undefined)
+      const values = read.values[layer]
+      const wanted = window ? timelineIndexesInWindow(frames, window, selectedEpoch()) : frames.map((_, index) => index)
+      const missing = wanted.filter((index) => values[index] == null)
+      // Per chunk, zodat de uren rond de cursor niet op de payload van morgen wachten.
+      for (const chunk of new Set(missing.map((index) => frames[index]!.chunk))) {
+        const indexes = missing.filter((index) => frames[index]!.chunk === chunk)
+        void client.fetchPayload(chunk)
+          .then(() => readPointSeries(frames, point, indexes, 'low', values, () => publisher.schedule(), window ? 'L1' : 'L0', signal))
+          .catch(() => undefined)
+      }
+    }
   })
   // Meetpunt "window-ready:<veld>" (U52): wanneer heeft elk getoond veld zijn waarden voor nu ± 1 u.
   const reportWindowReady = (field: string, epochs: number[], present: (index: number) => boolean) => {
@@ -2275,19 +2333,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       reportWindowReady(`cloud_${layer}`, cloudTimelines()[layer].map((frame) => frame.epoch), (index) => cloudValues()[layer][index] != null)
     }
     const rows = forecast()
-    const tableFields: Array<[string, ForecastIndex, () => Array<number | null>]> = [
-      ['uv', 'uvIndex', uvSeries],
-      ['temp_c', 'temperatureIndex', temperatureSeries],
-      ['feels_like_c', 'feelsLikeIndex', feelsLikeSeries],
-      ['rel_humidity', 'humidityIndex', humiditySeries],
-      ['cloud_frac', 'cloudIndex', cloudSeries],
-      ['wind_u', 'windUIndex', windUSeries],
-      ['wind_v', 'windVIndex', windVSeries],
-      ['gust_ms', 'gustIndex', gustSeries],
-    ]
-    for (const [field, key, series] of tableFields) {
-      const withFrame = rows.filter((row) => row[key] != null)
-      reportWindowReady(field, withFrame.map((row) => row.epoch), (index) => series()[withFrame[index]![key]!] != null)
+    for (const series of tableSeries) {
+      const withFrame = rows.filter((row) => row[series.key] != null)
+      reportWindowReady(series.field, withFrame.map((row) => row.epoch), (index) => series.values()[withFrame[index]![series.key]!] != null)
     }
   })
   createEffect(() => {

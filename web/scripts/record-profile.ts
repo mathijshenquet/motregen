@@ -85,6 +85,7 @@ try {
   const manifest = await (await fetch(`${origin}/data/manifest.json`)).json() as Manifest
   const decodes = captured.slice.measures.filter((measure) => measure.phase === 'frame-decode' && measure.startTime <= windowMs)
   const durations = decodes.map((measure) => measure.duration).sort((left, right) => left - right)
+  const waits = decodes.flatMap((measure) => typeof measure.detail?.waitMs === 'number' ? [measure.detail.waitMs] : []).sort((left, right) => left - right)
   console.log(JSON.stringify({
     origin,
     profile: profile.id,
@@ -109,6 +110,9 @@ try {
     scrub: captured.snapshot.scrub,
     // CDP kan workers niet remmen ("only supported for pages"): de decodetijd hieronder is die van
     // deze host, ook onder mobile-4g. Het aantal is de robuuste maat; zie docs/perf.md.
+    // Hoe lang een frame op een vrije worker wachtte nadat zijn bytes binnen waren.
+    queueWaitP50Ms: percentile(waits, 0.5),
+    queueWaitP95Ms: percentile(waits, 0.95),
     byLayer: breakdown(decodes, 'layer'),
     byField: breakdown(decodes, 'field'),
     waterMask: captured.waterMask,
@@ -208,12 +212,15 @@ function percentile(sorted: number[], fraction: number): number | null {
   return Math.round(sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * fraction))]! * 10) / 10
 }
 
-function breakdown(decodes: PerfMeasure[], key: 'layer' | 'field'): Record<string, { decodes: number; totalMs: number }> {
-  const groups: Record<string, { decodes: number; totalMs: number }> = {}
+interface DecodeGroup { decodes: number; totalMs: number; maxWaitMs: number }
+
+function breakdown(decodes: PerfMeasure[], key: 'layer' | 'field'): Record<string, DecodeGroup> {
+  const groups: Record<string, DecodeGroup> = {}
   for (const decode of decodes) {
-    const group = groups[String(decode.detail?.[key] ?? 'onbekend')] ??= { decodes: 0, totalMs: 0 }
+    const group = groups[String(decode.detail?.[key] ?? 'onbekend')] ??= { decodes: 0, totalMs: 0, maxWaitMs: 0 }
     group.decodes++
     group.totalMs += decode.duration
+    if (typeof decode.detail?.waitMs === 'number') group.maxWaitMs = Math.max(group.maxWaitMs, decode.detail.waitMs)
   }
   for (const group of Object.values(groups)) group.totalMs = Math.round(group.totalMs)
   return groups
