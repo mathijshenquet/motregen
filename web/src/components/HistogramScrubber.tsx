@@ -23,7 +23,6 @@ interface Props {
   /** Alleen een expliciete afspeelkeuze, niet het hervatten na slepen. */
   onPlayPressed?: () => void
   /** Spatie: bewust pauzeren/afspelen (niet het korte pauzeren tijdens interactie), voor de ▶ in de klok. */
-  onPauseToggle?: (playing: boolean) => void
   /** De drie wolkenlagen (U37) — sinds U34 alleen in de modus Wolken, en dan zonder regen. */
   clouds?: CloudSeries
   /** Totale bewolking als één band boven het regenhistogram, in de weermodus (PO 2026-09-25 live, U34). */
@@ -41,7 +40,7 @@ interface Props {
   temperature?: { timeline: TimelineFrame[]; values: Array<number | null>; airTimeline?: TimelineFrame[]; air?: Array<number | null>; stops?: PaletteStops }
 }
 
-const CLOUD_LAYER_LABELS = { high: 'hoogwolken', mid: 'middenwolken', low: 'laagwolken' } as const
+const CLOUD_LAYER_LABELS = { high: 'hoge wolken', mid: 'midden wolken', low: 'lage wolken' } as const
 // Deel van de plothoogte voor de bewolkingsband boven de regen.
 const CLOUD_COVER_SHARE = 0.3
 // Wolkenlagen buiten de wolkenmodus iets subtieler (PO 2026-09-25 live); de wolkenmodus tweent naar vol.
@@ -57,7 +56,7 @@ const hourLabelSteps = [1, 2, 3, 6, 12, 24]
 const minimumHourLabelSpacingPx = 34
 const TAP_SLOP_PX = 4
 // Na slepen, scrollen of tikken hervat het afspelen pas na zoveel rust (PO 2026-09-25 live: eerst kijken).
-const RESUME_IDLE_MS = 4_000
+const RESUME_IDLE_MS = 1_000
 // Breedteschatting van een daglabel (10 px hoofdletters met spatiëring) en de marge tot de plotrand.
 const DAY_LABEL_CHAR_PX = 7.2
 const DAY_LABEL_PAD_PX = 8
@@ -443,7 +442,6 @@ export default function HistogramScrubber(props: Props) {
       stopFling()
       setResumePlayback(false)
       if (!props.playing) props.onPlayPressed?.()
-      props.onPauseToggle?.(!props.playing)
       props.onPlaying(!props.playing)
       return
     }

@@ -250,9 +250,6 @@ export default function App() {
   }
   const [cursor, setCursor] = createSignal(0)
   const [playing, setPlaying] = createSignal(true)
-  // Bewust gepauzeerd met spatie: dan toont de klok ▶ (PO 2026-09-25 live; er is geen afspeelknop).
-  const [userPaused, setUserPaused] = createSignal(false)
-  createEffect(() => { if (playing()) setUserPaused(false) })
   // Tempo van gelijkmatig afspelen (epoch-ms per ms) voor de scrubberbaan; 0 tijdens terugglijden.
   const [glideRate, setGlideRate] = createSignal(0)
   // Afspelen loopt door de hele tijdlijn (PO 2026-09-25 live; was +8 u, restant van de bereikknoppen).
@@ -2034,7 +2031,7 @@ export default function App() {
         />
       </Show>
       <Freshness mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness}
-        paused={userPaused() && !playing()} onPlay={() => { setUserPaused(false); setPlaying(true) }} />
+        paused={!playing()} onPlay={() => setPlaying(true)} />
     </section>
     <aside class="dashboard">
       <Show when={cursorUvChip()}>{(label) => <div class="sidebar-nav">
@@ -2055,7 +2052,6 @@ export default function App() {
         onPlaying={setPlaying}
         glideRate={glideRate()}
         onPlayPressed={() => usage.mark('play')}
-        onPauseToggle={(nextPlaying) => setUserPaused(!nextPlaying)}
         clouds={{ timeline: cloudTimelines(), values: cloudValues() }}
         wind={{ timeline: windUFrames(), speed: windSpeedSeries(), gustTimeline: gustTimeline(), gust: gustSeries(), unit: windUnit() }}
         mix={{ wind: windFocus(), clouds: cloudFocus(), temperature: focus() }}

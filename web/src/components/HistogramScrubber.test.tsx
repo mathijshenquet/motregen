@@ -184,7 +184,7 @@ describe('histogram scrubber', () => {
     fireEvent.pointerUp(slider, { clientX: -200, pointerId: 1, pointerType: 'touch' })
   })
 
-  it('glides to the tapped moment and pauses autoplay until 4 s after interacting', () => {
+  it('glides to the tapped moment and pauses autoplay until 1 s after interacting', () => {
     vi.useFakeTimers()
     const timeline = day24()
     const onCursor = vi.fn()
@@ -209,7 +209,7 @@ describe('histogram scrubber', () => {
     fireEvent.pointerUp(slider, { clientX: tapX, pointerId: 1, pointerType: 'mouse' })
     expect(onCursor).toHaveBeenLastCalledWith(6)
     expect(onPlaying.mock.calls).toEqual([[false]])
-    vi.advanceTimersByTime(4_000)
+    vi.advanceTimersByTime(1_000)
     expect(onPlaying.mock.calls).toEqual([[false], [true]])
     vi.useRealTimers()
     // Spatie schakelt afspelen/pauzeren (er is geen afspeelknop meer).
@@ -218,7 +218,7 @@ describe('histogram scrubber', () => {
     expect(slider.hasAttribute('data-playing')).toBe(true)
   })
 
-  it('pauses autoplay while the wheel scrolls and resumes 4 s after the last wheel step', () => {
+  it('pauses autoplay while the wheel scrolls and resumes 1 s after the last wheel step', () => {
     vi.useFakeTimers()
     try {
       const timeline = ['14', '15', '16', '17', '18'].map((hour) => frame(`2026-08-28T${hour}:00:00Z`, 'harmonie'))
@@ -239,11 +239,11 @@ describe('histogram scrubber', () => {
       fireEvent.wheel(slider, { deltaY: PX_PER_HOUR })
       expect(onCursor).toHaveBeenLastCalledWith(1)
       expect(onPlaying.mock.calls).toEqual([[false]])
-      vi.advanceTimersByTime(3_000)
+      vi.advanceTimersByTime(800)
       fireEvent.wheel(slider, { deltaY: PX_PER_HOUR })
-      vi.advanceTimersByTime(3_900)
+      vi.advanceTimersByTime(900)
       expect(onPlaying.mock.calls).toEqual([[false]])
-      vi.advanceTimersByTime(200)
+      vi.advanceTimersByTime(100)
       expect(onPlaying.mock.calls).toEqual([[false], [true]])
     } finally {
       vi.useRealTimers()
@@ -279,7 +279,7 @@ describe('histogram scrubber', () => {
     expect(slider.getAttribute('data-scrubber-view')).toBe('clouds')
     expect(container.querySelectorAll('.rain-bar').length).toBeGreaterThan(0)
     // Waarden per laag bij de cursor; een lege laag (0 %) krijgt geen label.
-    expect([...container.querySelectorAll('.cursor-tags span')].map((label) => label.textContent)).toEqual(['hoogwolken 80%', 'middenwolken 60%'])
+    expect([...container.querySelectorAll('.cursor-tags span')].map((label) => label.textContent)).toEqual(['hoge wolken 80%', 'midden wolken 60%'])
   })
 
   it('cross-fades to the wind chart on the wind focus, with the reading in the chosen unit (U34)', () => {
