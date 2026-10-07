@@ -2,143 +2,179 @@
   "schema": 1,
   "profile": "mobile-fast-3g",
   "scenario": "journey",
-  "sourceSha": "d035d7449dd4ce84d0f5d18d34839bea4d63f93b",
-  "capturedAt": "2026-10-07T11:21:59.360Z",
+  "sourceSha": "2aa3589c38332a55ae509b459bcfdfd31f501565",
+  "capturedAt": "2026-10-07T11:52:42.210Z",
   "contractHash": "1ffce91b42161cb4a27f90131f2e6b1e5e930612c437fd0ea03732caa77c5992",
   "regressionLimitPercent": 10,
-  "wireBytes": 1280402,
+  "wireBytes": 1225342,
   "decodes": 207,
   "metrics": {
     "milestones": {
-      "ttfrMs": 4787,
-      "splashGoneMs": 6687.899999976158,
-      "ttfhMs": 6523.700000047684,
-      "windowReadyMs": {},
-      "histogramSource": "loadtrace, bemonsterd op DOM-mutatie/100 ms"
+      "ttfrMs": 4727.1,
+      "splashGoneMs": 6611.100000023842,
+      "ttfhMs": 7192,
+      "windowReadyMs": {
+        "uv": 5842,
+        "cloud_mid": 6056,
+        "cloud_low": 6104,
+        "cloud_high": 6152,
+        "rain_rate": 7192
+      },
+      "histogramSource": "U52 window-ready:rain_rate"
     },
     "decode": {
       "phases": {
         "table-render": {
           "count": 7,
-          "totalMs": 12,
-          "p50Ms": 0.8000000715255737,
-          "p95Ms": 6.600000023841858
+          "totalMs": 6.7,
+          "p50Ms": 0.7999999523162842,
+          "p95Ms": 2.899999976158142
         },
         "scrubber-paint": {
-          "count": 165,
-          "totalMs": 83.9,
+          "count": 176,
+          "totalMs": 100.7,
           "p50Ms": 0.3999999761581421,
-          "p95Ms": 1.4000000953674316
+          "p95Ms": 1.899999976158142
         },
         "basemap-tile": {
           "count": 1,
-          "totalMs": 236.9,
-          "p50Ms": 236.89999997615814,
-          "p95Ms": 236.89999997615814
+          "totalMs": 210.2,
+          "p50Ms": 210.20000004768372,
+          "p95Ms": 210.20000004768372
         },
         "frame-decode": {
           "count": 207,
-          "totalMs": 95.3,
+          "totalMs": 102.3,
           "p50Ms": 0.20000004768371582,
-          "p95Ms": 1.8000000715255737
+          "p95Ms": 2.299999952316284
         },
         "texture-upload": {
           "count": 14,
-          "totalMs": 26.5,
-          "p50Ms": 1.2000000476837158,
-          "p95Ms": 5.200000047683716
+          "totalMs": 19.1,
+          "p50Ms": 1,
+          "p95Ms": 4.5
         },
         "wind-step": {
-          "count": 861,
-          "totalMs": 1181.5,
-          "p50Ms": 1.1999999284744263,
-          "p95Ms": 3.100000023841858
+          "count": 872,
+          "totalMs": 1098.2,
+          "p50Ms": 1.100000023841858,
+          "p95Ms": 2.5
+        },
+        "window-ready:uv": {
+          "count": 1,
+          "totalMs": 5842.4,
+          "p50Ms": 5842.400000095367,
+          "p95Ms": 5842.400000095367
+        },
+        "window-ready:cloud_mid": {
+          "count": 1,
+          "totalMs": 6055.7,
+          "p50Ms": 6055.700000047684,
+          "p95Ms": 6055.700000047684
+        },
+        "window-ready:cloud_low": {
+          "count": 1,
+          "totalMs": 6104.3,
+          "p50Ms": 6104.300000071526,
+          "p95Ms": 6104.300000071526
+        },
+        "window-ready:cloud_high": {
+          "count": 1,
+          "totalMs": 6151.9,
+          "p50Ms": 6151.900000095367,
+          "p95Ms": 6151.900000095367
+        },
+        "window-ready:rain_rate": {
+          "count": 1,
+          "totalMs": 7192.4,
+          "p50Ms": 7192.400000095367,
+          "p95Ms": 7192.400000095367
         },
         "isoline-trace": {
           "count": 1,
-          "totalMs": 17.2,
-          "p50Ms": 17.200000047683716,
-          "p95Ms": 17.200000047683716
+          "totalMs": 15.5,
+          "p50Ms": 15.5,
+          "p95Ms": 15.5
         },
         "isoline-blit": {
-          "count": 13,
-          "totalMs": 1,
-          "p50Ms": 0,
-          "p95Ms": 0.5999999046325684
+          "count": 14,
+          "totalMs": 1.4,
+          "p50Ms": 0.10000002384185791,
+          "p95Ms": 0.3999999761581421
         }
       },
       "fields": {
         "rain_rate": {
           "count": 71,
-          "totalMs": 27.3,
+          "totalMs": 26,
           "p50Ms": 0.2999999523162842,
-          "p95Ms": 1.100000023841858
+          "p95Ms": 1.399999976158142
         },
         "motion": {
           "count": 29,
-          "totalMs": 0.9,
+          "totalMs": 1.5,
           "p50Ms": 0,
           "p95Ms": 0.10000002384185791
         },
         "feels_like_c": {
           "count": 7,
-          "totalMs": 21.3,
-          "p50Ms": 3.5,
-          "p95Ms": 4.700000047683716
+          "totalMs": 16.8,
+          "p50Ms": 2.299999952316284,
+          "p95Ms": 3.5999999046325684
         },
-        "uv": {
-          "count": 5,
-          "totalMs": 2.5,
-          "p50Ms": 0.20000004768371582,
-          "p95Ms": 1.5
-        },
-        "wind_u_ms": {
-          "count": 13,
-          "totalMs": 5.1,
-          "p50Ms": 0.20000004768371582,
-          "p95Ms": 1.600000023841858
-        },
-        "wind_v_ms": {
-          "count": 13,
-          "totalMs": 7.7,
-          "p50Ms": 0.20000004768371582,
-          "p95Ms": 5.100000023841858
+        "uv_clear": {
+          "count": 8,
+          "totalMs": 4.6,
+          "p50Ms": 0.5,
+          "p95Ms": 1.100000023841858
         },
         "cloud_high": {
           "count": 14,
-          "totalMs": 2.4,
-          "p50Ms": 0.19999992847442627,
+          "totalMs": 13.2,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 9
+        },
+        "uv": {
+          "count": 5,
+          "totalMs": 7.3,
+          "p50Ms": 0.30000007152557373,
+          "p95Ms": 6.100000023841858
+        },
+        "wind_u_ms": {
+          "count": 13,
+          "totalMs": 3.2,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.5
+        },
+        "wind_v_ms": {
+          "count": 13,
+          "totalMs": 2.7,
+          "p50Ms": 0.20000004768371582,
           "p95Ms": 0.30000007152557373
         },
         "cloud_mid": {
           "count": 14,
-          "totalMs": 4.2,
+          "totalMs": 2.9,
           "p50Ms": 0.20000004768371582,
-          "p95Ms": 0.7999999523162842
-        },
-        "uv_clear": {
-          "count": 8,
-          "totalMs": 0.8,
-          "p50Ms": 0.10000002384185791,
-          "p95Ms": 0.10000002384185791
+          "p95Ms": 0.40000009536743164
         },
         "cloud_low": {
           "count": 14,
-          "totalMs": 2.3,
+          "totalMs": 5,
           "p50Ms": 0.19999992847442627,
-          "p95Ms": 0.30000007152557373
+          "p95Ms": 2.600000023841858
         },
         "gust_ms": {
           "count": 11,
-          "totalMs": 2.4,
+          "totalMs": 2.9,
           "p50Ms": 0.20000004768371582,
-          "p95Ms": 0.30000007152557373
+          "p95Ms": 0.5
         },
         "pressure_hpa": {
           "count": 8,
-          "totalMs": 18.4,
+          "totalMs": 16.2,
           "p50Ms": 1.7000000476837158,
-          "p95Ms": 4.800000071525574
+          "p95Ms": 3.5
         }
       },
       "decodesPerSecond": [
@@ -146,10 +182,10 @@
         0,
         0,
         0,
-        3,
-        40,
-        28,
-        42,
+        4,
+        24,
+        65,
+        20,
         37,
         6,
         4,
@@ -182,9 +218,9 @@
           "meanRequestBytes": 36513
         },
         "chunks": {
-          "requests": 97,
-          "bytes": 800942,
-          "meanRequestBytes": 8257.134020618556
+          "requests": 105,
+          "bytes": 743025,
+          "meanRequestBytes": 7076.428571428572
         },
         "tiles": {
           "requests": 1,
@@ -193,13 +229,13 @@
         },
         "other": {
           "requests": 12,
-          "bytes": 442874,
-          "meanRequestBytes": 36906.166666666664
+          "bytes": 445731,
+          "meanRequestBytes": 37144.25
         },
         "total": {
-          "requests": 111,
-          "bytes": 1280402,
-          "meanRequestBytes": 11535.153153153153
+          "requests": 119,
+          "bytes": 1225342,
+          "meanRequestBytes": 10296.991596638656
         }
       },
       "resourceTiming": {
@@ -209,9 +245,9 @@
           "meanRequestBytes": 36513
         },
         "chunks": {
-          "requests": 97,
-          "bytes": 800942,
-          "meanRequestBytes": 8257.134020618556
+          "requests": 105,
+          "bytes": 743025,
+          "meanRequestBytes": 7076.428571428572
         },
         "tiles": {
           "requests": 1,
@@ -220,13 +256,13 @@
         },
         "other": {
           "requests": 12,
-          "bytes": 442874,
-          "meanRequestBytes": 36906.166666666664
+          "bytes": 445731,
+          "meanRequestBytes": 37144.25
         },
         "total": {
-          "requests": 111,
-          "bytes": 1280402,
-          "meanRequestBytes": 11535.153153153153
+          "requests": 119,
+          "bytes": 1225342,
+          "meanRequestBytes": 10296.991596638656
         }
       },
       "differences": [
@@ -256,57 +292,57 @@
           "requestDifference": 0
         }
       ],
-      "completeBodyAborts": 72,
+      "completeBodyAborts": 81,
       "contentLengthFallbacks": 5,
       "findings": [],
-      "rangeRequests": 97,
-      "beforeTtfrBytes": 601359,
-      "beforeTtfhBytes": 695206
+      "rangeRequests": 105,
+      "beforeTtfrBytes": 604216,
+      "beforeTtfhBytes": 856663
     },
     "longFrames": {
-      "count": 22,
-      "totalMs": 2209.800000190735,
-      "blockingMs": 444.5,
+      "count": 13,
+      "totalMs": 1475.0000001192093,
+      "blockingMs": 355.8,
       "topSources": [
         {
-          "source": "http://127.0.0.1:4392/assets/index-FfN-FQgA.js Worker.onmessage",
-          "durationMs": 294.39999997615814
+          "source": "http://127.0.0.1:4386/assets/index-BP-cTloi.js Worker.onmessage",
+          "durationMs": 223.700000166893
         },
         {
-          "source": "http://127.0.0.1:4392/assets/index-FfN-FQgA.js FrameRequestCallback",
-          "durationMs": 222.5000001192093
+          "source": "http://127.0.0.1:4386/assets/index-BP-cTloi.js FrameRequestCallback",
+          "durationMs": 174.80000007152557
         },
         {
-          "source": "http://127.0.0.1:4392/assets/index-FfN-FQgA.js http://127.0.0.1:4392/assets/index-FfN-FQgA.js",
-          "durationMs": 171
+          "source": "http://127.0.0.1:4386/assets/index-BP-cTloi.js http://127.0.0.1:4386/assets/index-BP-cTloi.js",
+          "durationMs": 141.89999997615814
         }
       ]
     },
     "mainThread": {
-      "samples": 3173,
-      "busySamples": 667,
-      "busyPercent": 21.021115663410022,
+      "samples": 3385,
+      "busySamples": 820,
+      "busyPercent": 24.224519940915805,
       "topSources": [
-        {
-          "functionName": "currentTrailView",
-          "url": "src/core/wind-layer.ts",
-          "selfSamples": 41
-        },
         {
           "functionName": "showTemperature",
           "url": "src/App.tsx",
-          "selfSamples": 32
+          "selfSamples": 28
         },
         {
           "functionName": "(anonymous)",
-          "url": "http://127.0.0.1:4392/assets/index-FfN-FQgA.js",
-          "selfSamples": 6
+          "url": "http://127.0.0.1:4386/assets/index-BP-cTloi.js",
+          "selfSamples": 4
+        },
+        {
+          "functionName": "currentTrailView",
+          "url": "src/core/wind-layer.ts",
+          "selfSamples": 34
         }
       ]
     },
     "intent": {
       "fieldBytes": {
-        "rain_rate": 365614,
+        "rain_rate": 329429,
         "uv": 28747,
         "uv_clear": 6214,
         "radiation": 6792,
@@ -317,16 +353,15 @@
         "gust_ms": 49616,
         "rel_humidity": 9636,
         "cloud_frac": 9600,
-        "cloud_low": 72071,
-        "cloud_mid": 48080,
-        "cloud_high": 61593,
+        "cloud_low": 51299,
+        "cloud_mid": 47600,
+        "cloud_high": 61113,
         "pressure_hpa": 19124
       },
       "lateOutsideIntentCount": 0
     },
     "findings": [
-      "1 sampleposities zonder sourcemap-positie; oorspronkelijke bundelpositie bewaard",
-      "U52 window-ready-meetpunten ontbreken op deze main; ttfh komt uit de loadtrace"
+      "1 sampleposities zonder sourcemap-positie; oorspronkelijke bundelpositie bewaard"
     ]
   }
 }

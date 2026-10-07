@@ -142,6 +142,26 @@ gevraagd bij de eerste locatiekeuze (niet pas na de fase `direct`), wolken per c
 tabelreeksen en wolkenbanden verschijnen per frame (één publicatie per animatieframe) in
 plaats van als blok per veld. De fase `direct` wacht alleen nog op de rijen binnen nu ± 1 u.
 
+Meting van 2026-10-07 (prod-data, vóór = main `234c8ad` + alleen het meetpunt, om en om
+gemeten; ms na de eerste regen-draw tot nu ± 1 u compleet):
+
+| scenario | wolkenlagen vóór → ná | regen-histogram vóór → ná | tabel/modus vóór → ná |
+| --- | ---: | ---: | ---: |
+| mobile-4g, alleen kijken | +1.300…1.450 → +250…470 | +4.420…4.450 → +2.340…2.430 | uv +280…450 → +410…750 |
+| mobile-4g, journey | +2.900…2.980 → +470…820 | +5.280…5.410 → +3.500…3.790 | wind +1.840…2.060 → +650…760 |
+| desktop, alleen kijken | +2.390 → +770 | +1.560 → +1.360 | temp +1.170 → +780 |
+| desktop, 26 ms per decode (`--decode-cost=26`) | +5.160 → +1.510…1.710 | +3.260 → +2.490 | temp +1.610 → +1.710 |
+
+Decodes en decodetijd zijn gelijk gebleven; de chunkbytes volgens de laadtrace dalen op mobiel
+(9,58 → 8,99 MB passief) bij meer Range-requests (35 → 45). Twee dingen zijn trager: uv (het
+jongste frame is 35–70 min oud en staat dus zover van de cursor) en op desktop de fase `window`
+(start van automatisch afspelen: 2,9 → 3,7 s), omdat de regenreeks de workers nu deelt.
+
+**Valkuil bij wire weight.** Resource Timing telt een Range die een al gecachet stuk van dezelfde
+chunk overlapt niet volledig: op de synth-fixture stond de omvattende nowcast-Range van 113 kB
+voor ~0 B, in totaal 549 kB waar de laadtrace 689 kB telt. Bytebudgetten die op Resource Timing
+zijn gekalibreerd terwijl de client omvattende Ranges gebruikte, onderschatten die stand.
+
 ## Meetpunten
 
 - **Window-ready per veld** (U52): het eerste moment waarop een veld al zijn waarden binnen
