@@ -8,7 +8,7 @@ import { installMobileProbe } from './mobile-probe'
 import { buildChromeTrace, type SelfProfilerTrace } from '../src/core/profile-recorder'
 import { createSourceMapResolver } from '../scripts/prof-source-map'
 import { profileTop } from '../scripts/prof-top'
-import { hostLoadAverage, waitForQuietHost } from '../scripts/rig-host'
+import { RIG_DIST, hostLoadAverage, waitForQuietHost } from '../scripts/rig-host'
 import { completedBytesBefore, reconcileWire, renderMobileReport, summarizePhases, type MobileReport, type WireRequest } from '../scripts/mobile-report'
 import type { PerfMonitor } from '../src/core/perf'
 
@@ -157,7 +157,7 @@ for (const profileId of options.profiles) {
           platform: `Pixel 5-emulatie, renderer-quota ${rendererCpuQuotaPercent ?? 'geen'}`,
           userAgent: await page.evaluate(() => navigator.userAgent),
         })
-        const resolveFrame = createSourceMapResolver('dist')
+        const resolveFrame = createSourceMapResolver(RIG_DIST)
         const unmappedPositions = new Set<string>()
         const top = profileTop(trace, (frame) => {
           try { return resolveFrame(frame) }

@@ -34,7 +34,7 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: `VITE_BASEMAP_STYLE_URL=http://127.0.0.1:${dataPort}/style.json pnpm build && pnpm exec tsx scripts/mobile-assets.ts && MOTREGEN_E2E_PORT=${port} MOTREGEN_E2E_DATA_PORT=${dataPort} caddy run --config perf/Preview.Caddyfile`,
+      command: `VITE_BASEMAP_STYLE_URL=http://127.0.0.1:${dataPort}/style.json pnpm exec tsc -b && pnpm exec vite build --outDir tmp/rig-dist --emptyOutDir && pnpm exec tsx scripts/mobile-assets.ts && MOTREGEN_E2E_PORT=${port} MOTREGEN_E2E_DATA_PORT=${dataPort} caddy run --config perf/Preview.Caddyfile`,
       url: `http://127.0.0.1:${port}`,
       reuseExistingServer: false,
       timeout: 120_000,

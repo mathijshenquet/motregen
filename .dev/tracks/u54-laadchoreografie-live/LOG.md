@@ -208,3 +208,44 @@ Niet gehaald: decode p50 ≈ 22 ms samen met de vroege mijlpalen. Eén quota laa
 rig is een ruwe telefoon: goed voor verschillen tussen varianten uit één build.
 
 Volgende: A/B van de speelregel op dit profiel (loopt).
+
+## 2026-10-07 23:10 — iteratie 2 gemeten: speelregel, A/B uit één build op po-android
+
+Profiel po-android (renderer-quota 30 %, raster ×3), build van 3a907fe + rigwijzigingen,
+loadavg 6,8–8,0 (alle zes runs onder de drempel). Oud = `koud-spelend-vensterregel`
+(schakelaar), nieuw = `koud-spelend-dev`; beide met `?dev`.
+
+| maat | oud: venster (run 1 / 2 / 3) | mediaan | nieuw: frame (run 1 / 2 / 3) | mediaan | verschil |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| **ttfp** | 4363 / 3934 / 3820 | 3934 ms | 2619 / 2554 / 2838 | **2619 ms** | **−1315 ms (−33 %)** |
+| eerste regenframe | 1723 / 1820 / 1805 | 1805 ms | 1619 / 1764 / 1749 | 1749 ms | −56 ms (ruis) |
+| ttfh | 6418 / 6174 / 6529 | 6418 ms | 6319 / 6419 / 6568 | 6419 ms | 0 |
+| blank-visible-ms | 6045 / 6036 / 6521 | 6045 ms | 5575 / 5580 / 5430 | 5575 ms | −470 ms |
+| LoAF 12 s totaal | 4957 / 5302 / 5554 | 5302 ms | 5055 / 5009 / 5061 | 5055 ms | −247 ms |
+| decodes in 30 s | 222 / 222 / 223 | 222 | 253 / 253 / 253 | 253 | +31 (+14 %) |
+| wire (bodybytes) | 3705588 / 3705588 / 3707305 | | 3782348 ×3 | | +76760 B (+2,1 %) |
+| decode p50 | 9,9 / 9,9 / 10,3 ms | | 9,9 / 9,5 / 9,1 ms | | |
+
+Lezing:
+- De speelregel alleen levert 1,3 s op ttfp. De spreiding binnen een variant (≈ 0,3–0,5 s) is
+  kleiner dan het verschil en de varianten overlappen niet.
+- Spelen begint nu ≈ 0,9 s na het eerste regenframe. ttfh verandert niet: het histogram is
+  nog steeds pas rond 6,4 s compleet, dus afspelen loopt ≈ 3,8 s vóór het histogram uit. Dat
+  is precies het gat dat kader + fog (PO-stappen) moeten dekken.
+- Meer decodes en bytes binnen 30 s komen doordat de tijdlijn 1,3 s eerder loopt en dus verder
+  komt; het is geen extra werk per getoond frame. Voor de `--compare`-gate (geen stijging) is
+  dit wel een stijging en moet de PO/orkestrator het als bedoeld aanmerken.
+- `perf:mobile` gaf exit 1: "meetbron onvolledig". In 3 van de 6 runs wijkt Resource Timing af
+  van de Playwright-bodybytes (ontbrekende requests, bodies tot 10× verschil op de
+  HARMONIE-chunks). De Playwright-totalen zijn per variant identiek; de mijlpalen staan er los
+  van. Onder de renderer-quota is de wire-boekhouding dus nog niet sluitend — open punt.
+
+Nog te meten: ttfp-ref (Buienradar) op po-android en de productieroute zonder `?dev`; beide
+lopen nu.
+
+Preview voor de PO: **:4355 serveert commit 069b48d** (normale build, productiedata via
+`MOTREGEN_DATA_ORIGIN=https://motregen.nl/data`, echte basemap), overgenomen van de tijdelijke
+kopie van de orkestrator. Herhaalbaar met `web/scripts/track-preview.sh 4355`: bouwt, kopieert
+naar `web/dist-preview` (met `.commit`) en herstart. De rig bouwt voortaan naar
+`web/tmp/rig-dist` en raakt `dist` en `dist-preview` niet meer. 069b48d bevat de speelregel
+(iteratie 2) en iteratie 1.

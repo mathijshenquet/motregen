@@ -49,7 +49,7 @@ for (const profileId of options.profiles) {
       }
 
       const report: ReferenceReport = {
-        meta: { profile: profileId, origin, capturedAt, cpuThrottleRate: profile.cpuThrottleRate, network: profile.network, observeAfterFirstFrameMs, loadAverage },
+        meta: { profile: profileId, origin, capturedAt, cpuThrottleRate: profile.cpuThrottleRate, network: profile.network, observeAfterFirstFrameMs, loadAverage, rendererCpuQuotaPercent: Number(process.env.MOTREGEN_RIG_RENDERER_QUOTA ?? 0) || null },
         milestones: referenceMilestones(events, actions, navigationStartMs),
         actions: actions.map((action) => ({ ...action, wallMs: action.wallMs - navigationStartMs })),
         events: events.map((event) => ({ ...event, wallMs: event.wallMs - navigationStartMs })),

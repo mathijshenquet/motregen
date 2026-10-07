@@ -8,6 +8,12 @@ import { loadavg } from 'node:os'
  */
 export const MAX_LOAD_AVERAGE = 8
 
+/**
+ * De rig bouwt met een test-basemap en synthdata. Die build hoort niet in `dist`: daar staat de
+ * preview die de PO op zijn telefoon opent.
+ */
+export const RIG_DIST = 'tmp/rig-dist'
+
 export function hostLoadAverage(): number {
   return Math.round(loadavg()[0]! * 100) / 100
 }

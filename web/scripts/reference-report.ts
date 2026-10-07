@@ -15,7 +15,7 @@ export interface ReferenceMilestones {
 }
 
 export interface ReferenceReport {
-  meta: { profile: string; origin: string; capturedAt: string; cpuThrottleRate: number; network: unknown; observeAfterFirstFrameMs: number; loadAverage: number }
+  meta: { profile: string; origin: string; capturedAt: string; cpuThrottleRate: number; network: unknown; observeAfterFirstFrameMs: number; loadAverage: number; rendererCpuQuotaPercent: number | null }
   milestones: ReferenceMilestones
   actions: ReferenceAction[]
   events: ReferenceTimedEvent[]
