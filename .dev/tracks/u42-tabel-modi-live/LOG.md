@@ -110,3 +110,9 @@
   geen overflow, tabel openen pauzeert de kaart en sluiten hervat haar.
 - Volgende stap: deze logaanvulling committen en branch pushen. Geen e2e en geen merge tot
   het expliciete “klaar” van de PO.
+
+## 2026-10-07 08:57 UTC
+
+- Branch gepusht naar `origin/track/u42-tabel-modi-live`; draft-PR geopend:
+  https://github.com/mathijshenquet/motregen/pull/73. De beschrijving markeert de gerichte
+  desktop-e2e en definitieve stills eerlijk als wachtend op het PO-signaal “klaar”.
