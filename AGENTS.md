@@ -26,7 +26,7 @@ product manager (proposals, specs, verification), codex agents
 - devenv + direnv once T0 lands. Ingest: Rust (MIP-1, subject to the T1 GRIB gate);
   Python only as throwaway exploration/independent validator via uv, never in the
   production path. Frontend: pnpm + Vite + TypeScript + SolidJS + Tailwind v4 (no shadcn).
-- Dev host: ageq-mthq. Deploy later to a dedicated box; motregen.nl is registered (Porkbun).
+- Dev host: ageq-dev2 (was ageq-mthq tot 2026-10-07; worker-previews op http://ageq-dev2:43xx/). Deploy later to a dedicated box; motregen.nl is registered (Porkbun).
 - KNMI Open Data API key lives in `.env` (never committed). The shared anonymous key is
   rate-limit-saturated in practice — use the registered key.
 
