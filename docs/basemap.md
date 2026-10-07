@@ -85,20 +85,20 @@ zoom circa 10,93 bij de gekozen kustlocatie (51,9° N).
 Boven z10 gebruikt MapLibre bron-overzoom; de bestaande zoomregel blijft gelden.
 Z9, z10 en z11 zijn vergeleken bij start en maximale appzoom op 390, 1280 en
 3840 px. Z10 behoudt het Brielse Meer en bruikbare watervormen bij overzoom;
-z9 maakt die te grof. Z11 voegt vooral kleine vlakken toe. Het definitieve
-z10-archief met de ruimere kustdekking is `nl-0aa536ff364f7cce.pmtiles`,
-3.536.092 B voor 1.951 tegels. Het manifest bewaart de volledige SHA256 en
-de gecomprimeerde en uitgepakte tegelgroottes per zoom:
+z9 maakt die te grof. Z11 voegt vooral kleine vlakken toe. Het U60-z10-archief met de ruimere kustdekking is `nl-1395e020ae33a90b.pmtiles`,
+4.191.993 B voor 1.951 tegels (+18,55 % tegenover U59). Het U59-archief
+`nl-0aa536ff364f7cce.pmtiles` blijft beschikbaar tijdens de frontend-cacheovergang.
+Het manifest bewaart SHA256 en gecomprimeerde/uitgepakte tegelgroottes.
 
 | Zoom | Tegels | Gecomprimeerd totaal | p50 / grootste tegel |
 | --- | ---: | ---: | ---: |
-| 4 | 4 | 16.388 B | 1.591 / 10.469 B |
-| 5 | 7 | 40.273 B | 2.076 / 27.227 B |
-| 6 | 12 | 91.148 B | 3.824 / 28.459 B |
-| 7 | 33 | 207.680 B | 2.278 / 50.129 B |
-| 8 | 118 | 505.563 B | 813 / 47.865 B |
-| 9 | 405 | 909.240 B | 266 / 32.688 B |
-| 10 | 1.372 | 1.799.077 B | 75 / 21.270 B |
+| 4 | 4 | 18.153 B | 1.597 / 12.252 B |
+| 5 | 7 | 44.943 B | 2.071 / 31.925 B |
+| 6 | 12 | 107.650 B | 3.822 / 35.174 B |
+| 7 | 33 | 204.075 B | 2.284 / 46.798 B |
+| 8 | 118 | 509.497 B | 813 / 55.839 B |
+| 9 | 405 | 1.106.471 B | 271 / 34.280 B |
+| 10 | 1.372 | 2.233.115 B | 95 / 23.101 B |
 
 | Laag | Geometrie | Attributen |
 | --- | --- | --- |
@@ -221,8 +221,8 @@ MOTREGEN_E2E_PORT=4393 MOTREGEN_E2E_DATA_PORT=8393 \
 ```
 
 Met `MOTREGEN_MOBILE_BASEMAP=openfreemap` ontstaan dezelfde referentiebeelden.
-De screenshots staan in `web/tmp/basemap/`. Exacte meetresultaten en synchrone
-receipts staan in het genegeerde werklog `tmp/basemap/u59/LOG.md`.
+De screenshots staan in `web/tmp/basemap/`. Exacte U60-meetresultaten en synchrone receipts staan in
+`.dev/tracks/u60-basiskaart-afwerking/LOG.md`.
 
 `basemap-parse.rig.ts` met dezelfde config laadt gedecomprimeerde tegels en
 glyphs uit geheugen en meet vijf runs na één opwarmrun. Dit onderscheidt
