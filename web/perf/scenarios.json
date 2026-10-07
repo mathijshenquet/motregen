@@ -17,6 +17,13 @@
     "devStorage": { "motregen-dev-speelregel": "venster" },
     "steps": []
   },
+  "koud-spelend-regen-laat": {
+    "durationMs": 30000,
+    "description": "Als koud-spelend-dev, maar het eerste regenframe wordt pas na de kaart-opzet gevraagd (de oude volgorde)",
+    "autoplay": true,
+    "devStorage": { "motregen-dev-eerste-regen": "laat" },
+    "steps": []
+  },
   "koud-spelend-dev": {
     "durationMs": 30000,
     "description": "Als koud-spelend met ?dev maar zonder schakelaar: de eerlijke tegenhanger van koud-spelend-vensterregel",

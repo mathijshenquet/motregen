@@ -179,6 +179,8 @@ const PLAYBACK_MAX_FPS = 30
 const PLAYBACK_FRAME_WAIT_MS = 3_000
 // Rig-schakelaar (?dev): 'venster' zet de oude regel terug (spelen pas na laadfase "window").
 const PLAY_RULE_STORAGE_KEY = 'motregen-dev-speelregel'
+// Rig-schakelaar (?dev): 'laat' vraagt het eerste regenframe weer pas na de kaart-opzet.
+const FIRST_RAIN_STORAGE_KEY = 'motregen-dev-eerste-regen'
 // PO-vergelijking (?dev): het lege scrubber-kader neemt de hemelkleur van het uur aan.
 const FRAME_SKY_STORAGE_KEY = 'motregen-dev-kaderhemel'
 // Stil op de achtergrond (U41): na een minuut zonder invoer tekent de wind op halve snelheid.
@@ -286,6 +288,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let scrubPrefetch = false
   let initialPickStarted = false
   const playRuleWaitsForWindow = devMode && localStorage.getItem(PLAY_RULE_STORAGE_KEY) === 'venster'
+  const firstRainEarly = !(devMode && localStorage.getItem(FIRST_RAIN_STORAGE_KEY) === 'laat')
   let pointLoad: PointLoadState | undefined
   const windFrameCache = new Map<string, Promise<Float32Array>>()
   const media = matchMedia('(prefers-color-scheme: dark)')
@@ -729,6 +732,16 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       if (!frames.length) throw new Error('De tijdlijn is leeg')
       const presets = parsePresets(initialSearch, Date.parse(data.now))
       setManifest(data)
+      let nowIndex = 0
+      for (let index = 0; index < frames.length; index++) if (frames[index]!.epoch <= Date.parse(data.now)) nowIndex = index
+      const presetCursor = presets.epoch === undefined ? undefined : cursorForPresetEpoch(frames, presets.epoch)
+      // Het eerste kaartbeeld gaat vóór alles de lijn op: het regenframe op de cursor en het volgende.
+      // Zo wacht het niet op de kaart-opzet en staat het niet achter de ~40 headers van de andere velden
+      // (koude PO-opname 2026-10-07: eerste regen-decode pas op 1,9 s, 0,85 s na de kaart).
+      if (firstRainEarly) {
+        const firstIndex = Math.floor(presetCursor ?? nowIndex)
+        for (const frame of frames.slice(firstIndex, firstIndex + 2)) void load(frame).catch(() => undefined)
+      }
       void Promise.all(data.chunks.filter(eagerHeader).map((chunk) => client.getHeader(chunk))).catch(() => undefined)
       if (!stillMode) stopManifestRefresh = scheduleManifestRefresh(refreshManifest, {
         setTimeout: (callback, delay) => window.setTimeout(callback, delay),
@@ -740,9 +753,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         const current = manifest()
         return nextManifestRefreshDelay(Date.now(), current && latestRadarEpoch(current))
       })
-      let nowIndex = 0
-      for (let index = 0; index < frames.length; index++) if (frames[index]!.epoch <= Date.parse(data.now)) nowIndex = index
-      const presetCursor = presets.epoch === undefined ? undefined : cursorForPresetEpoch(frames, presets.epoch)
       setCursor(presetCursor ?? nowIndex)
       if (presetCursor !== undefined) setPlaying(false)
       if (presets.mode) applyPresetMode(presets.mode)

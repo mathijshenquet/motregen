@@ -52,6 +52,8 @@ afgerond op 0,1°; U46).
 Rig-schakelaar zonder knop: `dev-speelregel` = `venster` zet onder `?dev` de oude speelregel terug
 (spelen pas na laadfase "window"), zodat de mobiele laadrig oud en nieuw uit één build meet
 (`koud-spelend-vensterregel`). Eigenaar U54; vervalt zodra de PO de speelregel heeft bevestigd.
+Idem `dev-eerste-regen` = `laat`: het eerste regenframe wordt weer pas na de kaart-opzet gevraagd
+(`koud-spelend-regen-laat`). Eigenaar U54; vervalt zodra de winst is vastgelegd.
 Tuning/debug: `wind-tuning-v4` (v3 wordt bij het laden gemigreerd), `clock-jog` (U56), `perf` en de eenmalige
 `perf-cold`. Oude sleutels (`wind-tuning`, `-v2`, `-v3`, `splash-slowdown`, `scrubber-view`) wist
 "Reset alle instellingen".
