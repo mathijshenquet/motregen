@@ -46,10 +46,13 @@ function localBasemapArchive(): Plugin {
     if (request.method === 'HEAD') { response.end(); return }
     createReadStream(file, { start, end }).pipe(response)
   }
+  // Alleen wanneer /data naar een externe origin gaat (motregen.nl): e2e en de rig serveren hun eigen
+  // data-origin mét archief en meten de tegelverzoeken daarop, dus daar mag niets tussen zitten.
+  const active = Boolean(dataOrigin?.startsWith('https://'))
   return {
     name: 'motregen-local-basemap-archive',
-    configureServer(server) { server.middlewares.use(handle) },
-    configurePreviewServer(server) { server.middlewares.use(handle) },
+    configureServer(server) { if (active) server.middlewares.use(handle) },
+    configurePreviewServer(server) { if (active) server.middlewares.use(handle) },
   }
 }
 
