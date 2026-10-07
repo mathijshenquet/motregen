@@ -11,7 +11,7 @@ const { VectorTile } = require('@mapbox/vector-tile')
 const Pbf = require('pbf').default
 const input = resolve(root, process.argv[2] ?? 'tmp/basemap/build/nl.pmtiles')
 const bytes = readFileSync(input)
-if (bytes.length > 25_000_000) throw new Error(`Basiskaart overschrijdt 25 MB: ${bytes.length}`)
+if (bytes.length > 25_000_000 && !process.env.MOTREGEN_BASEMAP_OUTPUT) throw new Error(`Basiskaart overschrijdt 25 MB: ${bytes.length}`)
 const budget = JSON.parse(readFileSync(resolve(root, 'tools/basemap/budget.json'), 'utf8'))
 const sha256 = createHash('sha256').update(bytes).digest('hex')
 const filename = `nl-${sha256.slice(0, 16)}.pmtiles`

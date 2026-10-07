@@ -29,12 +29,5 @@ for cover_class in wood grass urban park sand wetland; do
 done
 for pid in "${pids[@]}"; do wait "$pid"; done
 
-{
-  printf '<OGRVRTDataSource><OGRVRTUnionLayer name="landcover">\n'
-  for cover_class in wood grass urban park sand wetland; do
-    printf '<OGRVRTLayer name="%s"><SrcDataSource relativeToVRT="1">cover-%s.geojson</SrcDataSource><SrcLayer>SELECT</SrcLayer></OGRVRTLayer>\n' "$cover_class" "$cover_class"
-  done
-  printf '</OGRVRTUnionLayer></OGRVRTDataSource>\n'
-} > "$cover_dir/landcover.vrt"
-ogr2ogr -f GeoJSON "$cover_dir/landcover.tmp.geojson" "$cover_dir/landcover.vrt" -overwrite
+pnpm --filter motregen-web exec tsx ../tools/basemap/merge-landcover.mts "$cover_dir"
 mv "$cover_dir/landcover.tmp.geojson" "$cover_dir/landcover.geojson"

@@ -41,11 +41,12 @@ if [ ! -f "$scratch/build/landcover-parts.gpkg" ] || [ "$parts_hash" != "$previo
     -nln cover -spat 0 49 10 55 -clipsrc 0 49 10 55 -overwrite
   printf '%s\n' "$parts_hash" > "$scratch/build/landcover-parts.sha256"
 fi
-landcover_hash="$(sha256sum tools/basemap/generalize-landcover.sh "$scratch/build/landcover-parts.sha256" | sha256sum | cut -d ' ' -f 1)"
+landcover_hash="$(sha256sum tools/basemap/generalize-landcover.sh tools/basemap/merge-landcover.mts "$scratch/build/landcover-parts.sha256" | sha256sum | cut -d ' ' -f 1)"
 previous_landcover_hash="$(cat "$scratch/build/landcover.sha256" 2>/dev/null || true)"
 if [ ! -f "$scratch/build/landcover.geojson" ] || [ "$landcover_hash" != "$previous_landcover_hash" ]; then
   # GEOS-union vóór tilemaker voorkomt herhaalde, dure unions op elke lage-zoomtegel.
-  bash tools/basemap/generalize-landcover.sh "$(realpath "$scratch/build")"
+  cp tools/basemap/generalize-landcover.sh "$scratch/build/generalize-landcover.sh"
+  bash "$scratch/build/generalize-landcover.sh" "$(realpath "$scratch/build")"
   printf '%s\n' "$landcover_hash" > "$scratch/build/landcover.sha256"
 fi
 cp tools/basemap/config.json tools/basemap/process.lua "$scratch/build/"
