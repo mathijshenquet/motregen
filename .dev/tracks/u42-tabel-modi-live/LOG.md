@@ -373,3 +373,15 @@
   `pnpm test` 59 bestanden / 385 tests groen. Build: 107 modules, `index-BnMd4Cvt.js`,
   `index-BCs1V726.css`, PWA + workers. Preview `http://ageq-dev2:4320/` serveert de nieuwe assets.
   Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+
+## 2026-10-07 12:07 UTC
+
+- De maanopkomsttijd onder het maanpercentage is vervangen door de hoogtehoek t.o.v. de lokale
+  schijnbare horizon. `moonHorizonAngle` exposeert de bestaande lage-precisie maanpositie in graden
+  met dezelfde 0,133°-correctie als de opkomst/ondergangszoeker: positief is boven, negatief onder en
+  `0°` valt exact op de gebruikte horizon. Daarmee zijn tabelwaarde en eventsemantiek niet twee losse
+  benaderingen. De aria-/titletekst noemt boven of onder de horizon voluit.
+- Synchrone receipts: `git diff --check`, `pnpm typecheck` en `pnpm build` exit 0; gerichte tests
+  21/21 en volledige `pnpm test` 59 bestanden / 385 tests groen. Build: 107 modules,
+  `index-BQ9Oq3CL.js`, `index-BuD3o0EU.css`, PWA + workers. Preview
+  `http://ageq-dev2:4320/` serveert de nieuwe assets. Geen e2e uitgevoerd vóór PO-signaal “klaar”.

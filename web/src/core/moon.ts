@@ -9,6 +9,7 @@ const RADIANS = Math.PI / 180
 const J1970 = 2_440_587.5
 const J2000 = 2_451_545
 const OBLIQUITY = 23.4397 * RADIANS
+const APPARENT_HORIZON = 0.133 * RADIANS
 
 export interface MoonPhase {
   /** 0 = nieuwe maan, 0,5 = volle maan, oplopend naar 1. */
@@ -77,10 +78,15 @@ function apparentMoonAltitude(epoch: number, longitude: number, latitude: number
   return altitude + refraction
 }
 
+/** Hoogte van de maan t.o.v. haar schijnbare opkomst-/ondergangshorizon, in graden. */
+export function moonHorizonAngle(epoch: number, longitude: number, latitude: number): number {
+  return (apparentMoonAltitude(epoch, longitude, latitude) - APPARENT_HORIZON) / RADIANS
+}
+
 /** Maanopkomst/-ondergang tussen twee epochs; 0,133° is de gebruikelijke schijnbare horizon. */
 export function moonEvents(start: number, end: number, longitude: number, latitude: number): MoonEvent[] {
   const step = 10 * 60_000
-  const above = (epoch: number) => apparentMoonAltitude(epoch, longitude, latitude) > 0.133 * RADIANS
+  const above = (epoch: number) => moonHorizonAngle(epoch, longitude, latitude) > 0
   const events: MoonEvent[] = []
   let previous = start
   let previousAbove = above(start)

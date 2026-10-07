@@ -1,7 +1,7 @@
 import { createEffect, createMemo, createSignal, createUniqueId, For, onCleanup, Show } from 'solid-js'
 import type { FocusKind } from '../core/focus-mode'
 import type { HourlyForecastRow } from '../core/forecast'
-import { moonEvents, moonLitPath, moonPhase } from '../core/moon'
+import { moonHorizonAngle, moonLitPath, moonPhase } from '../core/moon'
 import { solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
 import { dailyClearSkyUvMax, uvReading } from '../core/uv'
 import { deriveWeatherIcon, summarizeWind, WIND_UNIT_LABELS, type WindSummary, type WindUnit } from '../core/weather'
@@ -114,15 +114,6 @@ export default function ForecastTable(props: Props) {
     const events = sunEvents(first.epoch, last.epoch + hour, props.location.lng, props.location.lat)
     return new Map(events.map((event) => [Math.floor(event.epoch / hour) * hour, event]))
   })
-  const moonRises = tableMemo('maanopkomst', () => {
-    const first = props.rows[0]
-    const last = props.rows.at(-1)
-    if (!first || !last) return []
-    return moonEvents(first.epoch - 36 * hour, last.epoch + 36 * hour, props.location.lng, props.location.lat)
-      .filter((event) => event.kind === 'rise').map((event) => event.epoch)
-  })
-  const nearestMoonRise = (epoch: number) => moonRises().reduce<number | undefined>((nearest, rise) =>
-    nearest === undefined || Math.abs(rise - epoch) < Math.abs(nearest - epoch) ? rise : nearest, undefined)
   const elevation = (epoch: number) => solarElevationSin(epoch, props.location.lng, props.location.lat)
 
   const rowElements = new Map<number, HTMLTableRowElement>()
@@ -280,7 +271,7 @@ export default function ForecastTable(props: Props) {
           </Show>
           <Show when={props.columns.air}>
             <td class="air-cell" {...columnHover('air')}>
-              <Show when={elevation(row.epoch) > 0} fallback={<MoonReading epoch={row.epoch} rise={nearestMoonRise(row.epoch)} />}>
+              <Show when={elevation(row.epoch) > 0} fallback={<MoonReading epoch={row.epoch} longitude={props.location.lng} latitude={props.location.lat} />}>
                 <Show when={uv()} fallback={<span class="air-uv-placeholder">{placeholder()}</span>}>
                   <UvBar reading={uv()} scale={dailyClearSkyUvMax(row.epoch, props.location.lat)} />
                 </Show>
@@ -328,13 +319,14 @@ function WindReading(props: { summary: WindSummary }) {
   </span>
 }
 
-function MoonReading(props: { epoch: number; rise?: number }) {
+function MoonReading(props: { epoch: number; longitude: number; latitude: number }) {
   const moon = () => moonPhase(props.epoch)
-  const rise = () => props.rise === undefined ? undefined : new Date(props.rise).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
-  const text = () => `${moon().label}, ${Math.round(moon().illumination * 100)} % verlicht${rise() ? `, maan op ${rise()}` : ''}`
+  const angle = () => Math.round(moonHorizonAngle(props.epoch, props.longitude, props.latitude))
+  const horizon = () => angle() >= 0 ? `${angle()} graden boven de horizon` : `${Math.abs(angle())} graden onder de horizon`
+  const text = () => `${moon().label}, ${Math.round(moon().illumination * 100)} % verlicht, ${horizon()}`
   return <span class="moon-reading" role="img" aria-label={text()} title={text()}>
     <MoonGlyph phase={moon().phase} illumination={moon().illumination} />
-    <span class="moon-meta"><small>{Math.round(moon().illumination * 100)}%</small><Show when={rise()}>{(time) => <small class="moon-rise">op {time()}</small>}</Show></span>
+    <span class="moon-meta"><small>{Math.round(moon().illumination * 100)}%</small><small class="moon-angle">{angle()}°</small></span>
   </span>
 }
 

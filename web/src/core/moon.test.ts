@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { moonEvents, moonLitPath, moonPhase } from './moon'
+import { moonEvents, moonHorizonAngle, moonLitPath, moonPhase } from './moon'
 
 describe('moon phase', () => {
   it('finds known new and full moons within a day of accuracy', () => {
@@ -35,5 +35,6 @@ describe('moon phase', () => {
     const rise = events.find((event) => event.kind === 'rise')
     expect(rise).toBeDefined()
     expect(Math.abs(rise!.epoch - Date.UTC(2026, 6, 7, 7, 8))).toBeLessThan(5 * 60_000)
+    expect(Math.abs(moonHorizonAngle(rise!.epoch, -122.34, 47.61))).toBeLessThan(0.01)
   })
 })

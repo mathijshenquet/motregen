@@ -191,7 +191,8 @@ describe('forecast table cells', () => {
     const moon = document.querySelector('.moon-glyph')!
     expect(moon.querySelectorAll('image[href="/moon@2x.png"]')).toHaveLength(2)
     expect(moon.querySelector('.moon-texture')?.getAttribute('clip-path')).toMatch(/^url\(#.+-litclip\)$/)
-    expect(document.querySelector('.moon-rise')?.textContent).toMatch(/^op \d\d:\d\d$/)
+    expect(document.querySelector('.moon-angle')?.textContent).toMatch(/^-?\d+°$/)
+    expect(document.querySelector('.moon-reading')?.getAttribute('aria-label')).toMatch(/graden (boven|onder) de horizon$/)
   })
 
   it('show rain beside the weather icon only when the rounded amount is not zero', () => {
