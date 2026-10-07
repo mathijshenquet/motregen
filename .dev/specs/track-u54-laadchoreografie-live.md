@@ -18,7 +18,14 @@ dat je zelf niet kijkt (les U47 2026-10-07: een band die op y=0 begon viel de wo
 
 ## Opdracht
 
-1. **Meetpunten eerst**: `blank-visible-ms`, `ttfh`, en `ttfr` dat op tiles + eerste regen wacht
+0. **De lat (PO 2026-10-07, MIP-19 §De lat)**: `ttfp` — tijd tot kaart met eerste regenframe én
+   lopende tijdlijn — op mobile-4g **≤ Buienradar**. Eerst meten: (a) `ttfp` op main in de rig
+   (navigatiestart → eerste frame-wissel tijdens afspelen; markeer in `perf.ts`, HUD, trace,
+   rig-rapport); (b) `ttfp-ref` op https://www.buienradar.nl (mobiel, koud, zelfde rig-profiel,
+   drie herhalingen; detecteer het lopen van hun radaranimatie via frame-wissels van de
+   radarafbeelding of hun tijdlabel) als los rig-scenario `referentie-buienradar`, resultaat in
+   `docs/perf.md` met datum. Beide getallen vóór je iets verandert in de LOG.
+1. **Meetpunten**: `blank-visible-ms`, `ttfh`, en `ttfr` dat op tiles + eerste regen wacht
    (plafond 1,5 s); in snapshot, HUD, trace en als rig-assertie (`blank-visible-ms == 0` na de
    splash). Vóór-meting op main in de LOG.
 2. **Splash**: verbergt kaart + eerste regenlaag tot beide er zijn; nooit langer dan het plafond;
@@ -32,8 +39,12 @@ dat je zelf niet kijkt (les U47 2026-10-07: een band die op y=0 begon viel de wo
    arcering of wazige band die wegtrekt), ook voor wolkenlagen en tabelrijen (skeleton);
    kaartlagen van een modus faden in. Fog alleen voor "nog niet binnen" binnen het venster dat
    we laden; "niet nodig" is geen fog. PO kiest de vorm live.
-5. **Autoplay loskoppelen van de fase "venster compleet"** (U52-prijs op desktop 2,9 → 3,7 s):
-   afspelen start zodra het afspeelvenster vooruit geladen is, niet het hele venster.
+5. **Spelen zodra het kan** (vervangt "venster compleet", MIP-19 §De lat): afspelen start als
+   het frame op de cursor en het volgende frame in afspeelrichting aanwezig zijn; de intent krijgt
+   de afspeelrichting als richting (regen vooruit vóór achteruit); ontbreekt het volgende frame
+   dan toont het scrubber-kader de laadmelding op dat slot en loopt de cursor door zodra het er is
+   — nooit een onzichtbare pauze. Uurvelden/andere modi zijn nooit een speelvoorwaarde.
+   Gate: `ttfp` op de rig ≤ `ttfp-ref`, en in een PO-opname op Android.
 6. Bij "klaar": unit voor de slot-classificatie, `pnpm perf:mobile --compare` (geen stijging van
    bytes/decodes), gerichte e2e desktop, stills, LOG met receipts, draft-PR.
 

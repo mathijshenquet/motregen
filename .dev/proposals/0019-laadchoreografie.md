@@ -60,6 +60,25 @@ even op een kale kaart.
 - **`ttfh`** (histogram nu ± 1 u compleet): het gat `ttfr → ttfh` mag bestaan, maar is nooit leeg.
 - Tijd-majeur zelf is al meetbaar via `window-ready:<veld>` (U52) in HUD, trace en rig.
 
+## De lat (PO 2026-10-07)
+
+"Het is echt belangrijk dat we een geladen pagina met een spelende tijdlijn hebben op mobiel die
+even snel of sneller is dan Buienradar." Dat is de maat van deze proposal, boven de losse
+meetpunten: **`ttfp`** (time to first play) = tijd van navigatiestart tot de kaart het eerste
+regenframe toont én de tijdlijn daadwerkelijk loopt (cursor beweegt, frames wisselen), gemeten
+op de mobile-4g-rig en in echte PO-opnames. Referentie: dezelfde meting op buienradar.nl
+(mobiele site, koud, zelfde rig-profiel) als `ttfp-ref`; doel `ttfp ≤ ttfp-ref`, ambitie `≤ 0,8 ×`.
+
+Wat dat voor het laden betekent (uit de PO-opnames van 2026-10-07, koud: eerste regenframe
+1,2 s, regenvenster ±1 u gereed 4,0–4,6 s, uurvelden 1,8 s):
+1. **Spelen start niet op "venster compleet"** maar zodra het frame op de cursor en het volgende
+   frame in afspeelrichting er zijn; de planner laadt regen in afspeelrichting vóór de frames
+   erachter (intent-richting = afspeelrichting, ook zonder scrubben).
+2. **Nooit stil pauzeren**: ontbreekt het volgende frame, dan toont het scrubber-kader de
+   laadmelding op dat slot en loopt de cursor door zodra het frame er is — geen onzichtbare pauze
+   (warme PO-run 16:28:21: stond stil zonder uitleg omdat de cursor buiten het geladen venster lag).
+3. Uurvelden en kaartlagen van andere modi zijn nooit een voorwaarde om te spelen.
+
 ## Open vragen
 
 1. Vorm van de fog: arcering, blur of alleen een lagere dekking — PO kiest op stills/live.
