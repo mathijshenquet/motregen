@@ -285,3 +285,19 @@
   `index-DcoDKbba.js`, `index-yBp8WuKo.css`, PWA + workers). Preview
   `http://ageq-dev2:4320/` serveert beide nieuwe assets en antwoordt HTTP 200. Geen e2e uitgevoerd vóór
   PO-signaal “klaar”.
+
+## 2026-10-07 11:13 UTC
+
+- Acceptatie van kaart/tabel en de scrollbaarheid van de tabel zijn van elkaar losgetrokken. De
+  bestaande positiedrempels accepteren nog steeds de view en sturen de kaartpauze, maar tijdens een
+  actieve touch blijft de huidige `overflow` ongewijzigd. Een gewenste lock of unlock wordt bewaard
+  en pas op `touchend`/`touchcancel` toegepast; hiermee verandert het scrollende element nooit onder
+  een neergelegde vinger.
+- Na acceptatie van de kaartview en loslaten wordt de tabel eerst vergrendeld en daarna met native
+  smooth element-scroll teruggezet op de Nu-rij (direct bij reduced motion). De veilige bovenruimte
+  van de handle volgt dezelfde afgeronde scrollstatus, zodat ook die geen layoutwissel tijdens de
+  gesture veroorzaakt. De omgekeerde route geeft de tabel pas na acceptatie en loslaten vrij.
+- Synchrone receipts: `git diff --check` exit 0; `pnpm typecheck` exit 0; gerichte ForecastTable-test
+  16/16 groen; volledige `pnpm test` 59 bestanden / 384 tests groen; `pnpm build` exit 0 (107 modules,
+  `index-B6zFC3Sq.js`, `index-DGcLPeT7.css`, PWA + workers). De preview op
+  `http://ageq-dev2:4320/` serveert de nieuwe assets. Geen e2e uitgevoerd vóór PO-signaal “klaar”.

@@ -348,23 +348,47 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const tableViewMedia = matchMedia('(max-width: 959px) and (orientation: portrait)')
   const [tableViewAvailable, setTableViewAvailable] = createSignal(tableViewMedia.matches)
   const [tableOpen, setTableOpen] = createSignal(false)
+  const [tableScrollOpen, setTableScrollOpen] = createSignal(false)
   const [tableViewTarget, setTableViewTarget] = createSignal<'map' | 'table'>()
   const tableViewOpen = createMemo(() => tableViewAvailable() && tableOpen())
   const tableModeSelected = createMemo(() => tableViewAvailable() && (tableViewTarget() === 'table' || (tableViewTarget() === undefined && tableOpen())))
   let tableViewFrame: number | undefined
   let tableViewResizeTimer: number | undefined
+  let tableTouchActive = false
+  let pendingTableScrollOpen: boolean | undefined
+  let tablePinFrame: number | undefined
+  function applyTableScrollOpen(open: boolean): void {
+    pendingTableScrollOpen = undefined
+    if (tableScrollOpen() === open) return
+    setTableScrollOpen(open)
+    if (!open) {
+      if (tablePinFrame !== undefined) cancelAnimationFrame(tablePinFrame)
+      tablePinFrame = requestAnimationFrame(() => {
+        tablePinFrame = undefined
+        if (!tableScrollOpen()) pinTableToNow(reducedMotion.matches ? 'auto' : 'smooth')
+      })
+    }
+  }
+  function settleTableScroll(open: boolean): void {
+    if (tableTouchActive) pendingTableScrollOpen = open
+    else applyTableScrollOpen(open)
+  }
   function syncTableViewPosition(): void {
     tableViewFrame = undefined
     if (!tableViewAvailable() || !forecastPanelElement) {
       setTableOpen(false)
+      applyTableScrollOpen(false)
       setTableViewTarget(undefined)
       return
     }
     const panelTop = forecastPanelElement.getBoundingClientRect().top
-    if (!tableOpen() && panelTop <= 0) setTableOpen(true)
+    if (!tableOpen() && panelTop <= 0) {
+      setTableOpen(true)
+      settleTableScroll(true)
+    }
     else if (tableOpen() && panelTop > 24) {
       setTableOpen(false)
-      queueMicrotask(pinTableToNow)
+      settleTableScroll(false)
     }
     const target = tableViewTarget()
     if ((target === 'table' && panelTop <= 0) || (target === 'map' && panelTop > 24)) setTableViewTarget(undefined)
@@ -543,15 +567,27 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   })
 
   onMount(() => {
+    const touchStart = (event: TouchEvent) => { tableTouchActive = event.touches.length > 0 }
+    const touchEnd = (event: TouchEvent) => {
+      tableTouchActive = event.touches.length > 0
+      if (!tableTouchActive && pendingTableScrollOpen !== undefined) applyTableScrollOpen(pendingTableScrollOpen)
+    }
     window.addEventListener('scroll', queueTableViewSync, { passive: true })
     window.addEventListener('resize', settleTableViewAfterResize, { passive: true })
+    window.addEventListener('touchstart', touchStart, { passive: true })
+    window.addEventListener('touchend', touchEnd, { passive: true })
+    window.addEventListener('touchcancel', touchEnd, { passive: true })
     window.visualViewport?.addEventListener('resize', settleTableViewAfterResize, { passive: true })
     syncTableViewPosition()
     onCleanup(() => {
       window.removeEventListener('scroll', queueTableViewSync)
       window.removeEventListener('resize', settleTableViewAfterResize)
+      window.removeEventListener('touchstart', touchStart)
+      window.removeEventListener('touchend', touchEnd)
+      window.removeEventListener('touchcancel', touchEnd)
       window.visualViewport?.removeEventListener('resize', settleTableViewAfterResize)
       if (tableViewFrame !== undefined) cancelAnimationFrame(tableViewFrame)
+      if (tablePinFrame !== undefined) cancelAnimationFrame(tablePinFrame)
       window.clearTimeout(tableViewResizeTimer)
     })
   })
@@ -583,6 +619,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setTableViewAvailable(event.matches)
       if (!event.matches) {
         setTableOpen(false)
+        applyTableScrollOpen(false)
         setTableViewTarget(undefined)
       }
       else queueTableViewSync()
@@ -2373,12 +2410,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const hasTemperature = createMemo(() => feelsLikeTimeline().length > 0)
   const hasWeatherIcons = createMemo(() => cloudTimeline().length > 0)
   const hasWind = createMemo(() => windUFrames().length > 0 && windVFrames().length > 0)
-  function pinTableToNow(): void {
+  function pinTableToNow(behavior: ScrollBehavior = 'auto'): void {
     const scroller = forecastPanelElement.querySelector<HTMLElement>('.table-scroll')
     const current = forecastPanelElement.querySelector<HTMLElement>('tr.current-hour')
     const heading = forecastPanelElement.querySelector<HTMLElement>('thead')
     if (!scroller || !current || !heading) return
-    scroller.scrollTop += current.getBoundingClientRect().top - scroller.getBoundingClientRect().top - heading.getBoundingClientRect().height
+    const top = scroller.scrollTop + current.getBoundingClientRect().top - scroller.getBoundingClientRect().top - heading.getBoundingClientRect().height
+    scroller.scrollTo({ top, behavior })
   }
 
   function scrollToTable(): void {
@@ -2397,7 +2435,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     scrollToTable()
   }
 
-  return <main class="app-shell" classList={{ 'still-view': stillMode, 'table-view-open': tableViewOpen() }} data-generated={manifest()?.generated} data-epoch={cursorMinute()}>
+  return <main class="app-shell" classList={{ 'still-view': stillMode, 'table-view-open': tableViewOpen(), 'table-scroll-open': tableViewAvailable() && tableScrollOpen() }} data-generated={manifest()?.generated} data-epoch={cursorMinute()}>
     <section class="map-shell" aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainFocusOpacity(focus(), windFocus()).toFixed(2)} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
       <div ref={mapElement} class="map" />
       <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() }} aria-hidden={mapReady()}>

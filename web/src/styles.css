@@ -961,8 +961,8 @@ td small { color: var(--muted); font-size: 9px; }
   .table-scroll { min-height: 0; flex: 1 1 auto; overflow-y: hidden; overscroll-behavior-y: auto; touch-action: pan-y; }
   .table-scroll th { top: 0; }
   .app-shell:not(.table-view-open) .history-toggle-row { display: none; }
-  .table-view-open .table-view-handle { height: calc(24px + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); }
-  .table-view-open .table-scroll { overflow-y: auto; }
+  .table-scroll-open .table-view-handle { height: calc(24px + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); }
+  .table-scroll-open .table-scroll { overflow-y: auto; }
 }
 
 /* Telefoon liggend: kaart en paneel naast elkaar, zoals desktop; de scrubber schuift mee weg
