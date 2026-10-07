@@ -1,5 +1,48 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-07 — perf-dag: profielmodus, twee gemeten daders gefixt; PWA, Telegram, skywatch; tabel/modi en wolken live
+
+- **Dev-host heet nu ageq-dev2** (was ageq-mthq): Vite `allowedHosts` + AGENTS.md bijgewerkt;
+  previews op http://ageq-dev2:43xx/. De stats-rsync-pull en de prod-authorized-key wijzen nog naar
+  ageq-mthq (oorzaak van "stats doet het niet", E5) — nix-wijziging + sleutel van deze host nodig.
+- **Gemerged op main (in volgorde)**: micro-fix ▶/1 s hervatten/wolkenlabels; U44 presets + PWA
+  (naam "motregen.nl", tagline "Regenradar en weersverwachting", SW NetworkOnly voor data/hit/tiles,
+  update-toast; workspace-lock naar de root); U43 profielmodus `?perf` (MIP-16: acht fasen, LoAF,
+  JS Self-Profiling, Chrome Trace-export, prof-sink op de dev-host; `?perf=start` = koude start,
+  HUD linksonder/compact, opname-pil met Stop); U46 skywatch-meetrig De Bilt (MIP-18 deel 3: poller
+  elke 10 min vanuit de main-checkout, dagboekknop, Decisions-grading-pijplijn; rooktest wacht op
+  OPENAI_API_KEY + 10 daglichtbeelden); U45 Telegram (MIP-17: @motregen_bot, inline, stills,
+  Mini App bij ?tg=1, Nix-service; identifier-overdracht naar de server in review verwijderd);
+  U48 watermasker in worker (buildWaterMask 66 % → 0,4 % van de hoofddraad-samples; `pnpm
+  prof:top --dist` met sourcemap); micro-fix gecachte Intl-formatters (~2,5 s/30 s op Android);
+  U49 decode-budget (mobile-4g passief 492→223 decodes, 4,2→1,9 s; scrub p95 1439→73 ms).
+- **Metingen (PO-opnames in ~/motregen-profiles)**: Mac-Chrome 54 % in buildWaterMask; Android-
+  Firefox 893 decodes / 23,6 s in 29 s; Android-Chrome (echt) 152 LoAF / 15 s, Worker.onmessage
+  tot 286 ms, basemap-tiles p50 0,3–1 s. Na U48/U49 is de hoofddraad vlak; resterende posten:
+  decode (ingest zonder zstd content size → U50), basemap-tiles (netwerk+parse; E8 PMTiles),
+  ~750 van ~830 decodes waren puntreeksen die een heel rooster uitpakten voor één pixel.
+- **Proposals**: MIP-16, MIP-17, MIP-18 accepted (PO in chat); MIP-14 amendement tabel/modi met
+  de live-besluiten (Weer standaard gepind mét ambient wind en rustige wolkenlagen; Lucht = UV+
+  wolken met sluier, regen erachter op 0,35 zonder label; RV uit beeld; subtiele Uur-tekstkop;
+  geen wolkje in de Lucht-cel; contract v2 = share + pinAir); MIP-19 laadchoreografie (draft:
+  splash = kaart + eerste regenlaag, histogram van binnen naar buiten, fog of war, ttfr/ttfh/ttfc).
+- **Lopend**: U42 tabel/modi live-pane (4320, draft-PR #73, wacht op PO "klaar"; mobiele
+  view-switch als native scroll + kaartpauze), U47 wolkentekening live-pane (4350, opus 5.5,
+  wacht op PO-review stap 1), U50 ingest zstd content size (terra), U51 perf-journey e2e (terra;
+  de journey klikte op de verdwenen bereikknop "Alles" — pre-existing rood sinds U34).
+- **Modeltabel (nix-config)**: opus-5.5 + gpt-6.1-sol voorkeurswerkers; gpt-6 code-golf-tic als
+  bekend risico; gpt-6-luna = Decisions-grader; codex-default is gpt-6-sol, model altijd expliciet.
+  Datapoints vandaag: 5.6-sol (U42/U43/U46) en 6.1-sol (U45/U48) zonder false greens; U48 en U49
+  (opus 5.5) exemplarisch in eerlijke metingen; terra nog te zien (U50/U51).
+- **Search Console** via gcloud ADC (quota-project Personal, scope webmasters.readonly): 3
+  vertoningen sinds 1-9, geïndexeerd, laatste crawl 25-9; link op mathijshenquet.nl geplaatst.
+- **Open MET PO**: `TG_BOT_KEY` in prod `secrets.env` vóór de deploy; deploy (nachtelijk of
+  "deploy"); reviews U42/U47; MIP-19 adoptie; productkeuze decode-rest (histogram grover buiten
+  ±2 u / geen autoplay op krappe toestellen); OPENAI_API_KEY voor de skywatch-rooktest; E5 stats-
+  pull naar ageq-dev2; A1 nog een Android-Chrome-opname op de nieuwe main (4330).
+  **VOOR AGENTS**: U38 kolomset (na U42), U50 (MIP-19) na U42, skywatch-rooktest na ~10 beelden,
+  U41b, U29, U40, E8 PMTiles-meting.
+
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
   (afspeelrondje glijdt terug; horizon +8 u blijft, PO: "afspelen ziet er goed uit"), windlijnbreedte in
