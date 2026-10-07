@@ -1,6 +1,6 @@
 /// <reference types="vitest/config" />
-import { appendFileSync, mkdirSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { appendFileSync, createReadStream, existsSync, mkdirSync, statSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, type Plugin } from 'vite'
@@ -20,6 +20,38 @@ const profileProxy = { '/prof': { target: process.env.MOTREGEN_PROF_ORIGIN ?? 'h
 const proxy = { ...process.env.MOTREGEN_SYNTH ? {} : dataProxy(dataOrigin ?? 'http://localhost:8080'), ...profileProxy }
 const previewProxy = { ...dataOrigin ? dataProxy(dataOrigin) : {}, ...profileProxy }
 const profilingHeaders = { 'Document-Policy': 'js-profiling' }
+
+// De PMTiles-basiskaart staat in prod onder /data/basemap/ (Caddy, Nix-package). dev/preview proxyen
+// /data naar een origin die het archief nog niet hoeft te hebben; serveer het daarom lokaal uit
+// tools/basemap/tiles, met Range-ondersteuning zoals de pmtiles-client verwacht.
+function localBasemapArchive(): Plugin {
+  const tilesDir = resolve(__dirname, '../tools/basemap/tiles')
+  const handle = (request: IncomingMessage, response: ServerResponse, next: () => void) => {
+    const match = /^\/data\/basemap\/(nl-[0-9a-f]{16}\.pmtiles)(?:\?.*)?$/.exec(request.url ?? '')
+    if (!match) { next(); return }
+    const file = resolve(tilesDir, match[1]!)
+    if (!existsSync(file)) { next(); return }
+    const size = statSync(file).size
+    const range = /^bytes=(\d+)-(\d*)$/.exec(request.headers.range ?? '')
+    const start = range ? Number(range[1]) : 0
+    const end = range ? (range[2] ? Math.min(Number(range[2]), size - 1) : size - 1) : size - 1
+    if (start > end || start >= size) { response.writeHead(416, { 'Content-Range': `bytes */${size}` }); response.end(); return }
+    response.writeHead(range ? 206 : 200, {
+      'Content-Type': 'application/octet-stream',
+      'Accept-Ranges': 'bytes',
+      'Content-Length': String(end - start + 1),
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      ...(range ? { 'Content-Range': `bytes ${start}-${end}/${size}` } : {}),
+    })
+    if (request.method === 'HEAD') { response.end(); return }
+    createReadStream(file, { start, end }).pipe(response)
+  }
+  return {
+    name: 'motregen-local-basemap-archive',
+    configureServer(server) { server.middlewares.use(handle) },
+    configurePreviewServer(server) { server.middlewares.use(handle) },
+  }
+}
 
 // Het gebruiksbaken (MIP-13) gaat naar /hit; in prod beantwoordt Caddy dat (U32). dev/preview
 // antwoorden net zo met 204, en e2e leest de ontvangen bodies uit MOTREGEN_HIT_LOG.
@@ -46,7 +78,7 @@ function usageBeaconEndpoint(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [solid(), tailwindcss(), usageBeaconEndpoint(), VitePWA({
+  plugins: [solid(), tailwindcss(), usageBeaconEndpoint(), localBasemapArchive(), VitePWA({
     injectRegister: false,
     registerType: 'prompt',
     includeAssets: ['droplet.svg'],
