@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false",
+    "pretest": "pnpm synthgen",
     "test": "vitest run",
     "prof:check": "tsx scripts/prof-check.ts",
     "prof:top": "tsx scripts/prof-top.ts",
