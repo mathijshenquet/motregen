@@ -6,6 +6,7 @@ import { seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineZo
 import { summarizeWind, WIND_UNIT_LABELS, type WindUnit } from '../core/weather'
 import { BEAUFORT_STOPS, windColor } from '../core/wind-layer'
 import type { PaletteStops } from '../core/temperature-palette'
+import { measurePerfPhase } from '../core/perf'
 
 interface Props {
   timeline: TimelineFrame[]
@@ -84,6 +85,7 @@ export function hourLabelStep(spanHours: number, plotWidthPx: number): number {
 }
 
 export default function HistogramScrubber(props: Props) {
+  const scrubMemo = <T,>(name: string, compute: () => T) => createMemo(() => measurePerfPhase('scrubber-paint', compute, { memo: name }))
   let plotElement!: HTMLDivElement
   let surfaceElement!: HTMLDivElement
   let trackElement!: HTMLDivElement
@@ -141,7 +143,7 @@ export default function HistogramScrubber(props: Props) {
   const rainTop = createMemo(() => cloudHeight() && cloudHeight() + 4)
   const y = (value: number) => rainTop() + (plotHeight() - rainTop()) * (1 - rainChartPosition(value, maximum()))
   const barTop = (value: number | null | undefined) => value == null || value <= 0 ? plotHeight() : Math.min(plotHeight() - 2, y(value))
-  const bars = createMemo(() => {
+  const bars = scrubMemo('regenbalken', () => {
     const frames = props.timeline
     if (!frames.length || !baseVisible()) return []
     const pitch = frames.length > 1 ? xAt(frames[1]!.epoch) - xAt(frames[0]!.epoch) : plotWidth()
@@ -163,13 +165,13 @@ export default function HistogramScrubber(props: Props) {
   // wolken schuiven gratis mee en worden niet per afspeelframe opnieuw getekend.
   const cloudWidth = createMemo(() => Math.max(1, xAt(timelineEnd())))
   const geometry = (top: number, height: number) => ({ width: cloudWidth(), top, height, start: timelineStart(), end: timelineEnd() })
-  const coverBands = createMemo(() => {
+  const coverBands = scrubMemo('bewolkingsband', () => {
     const cover = props.cloudCover
     if (!cover) return []
     // Eén band in de stijl van de middelste laag: vorm en dekking volgen de totale bewolking.
     return [{ key: 'total', label: '', top: 0, height: cloudHeight(), ...cloudBand(cover.timeline, cover.values, 'mid', geometry(0, cloudHeight())) }]
   })
-  const layerBands = createMemo(() => {
+  const layerBands = scrubMemo('wolkenlagen', () => {
     const clouds = props.clouds
     if (!clouds) return []
     const bandHeight = plotHeight() / CLOUD_LAYERS.length
@@ -183,7 +185,7 @@ export default function HistogramScrubber(props: Props) {
   })
   const cloudBands = () => [...coverBands(), ...layerBands()]
   // Windgrafiek in baancoördinaten (één keer per data/afmeting, schuift met de baan mee).
-  const windChart = createMemo(() => {
+  const windChart = scrubMemo('windgrafiek', () => {
     const wind = props.wind
     if (!wind || !wind.timeline.length) return undefined
     const gustAt = (epoch: number) => seriesValueAt(wind.gustTimeline, wind.gust, epoch, 30 * 60_000)
@@ -215,7 +217,7 @@ export default function HistogramScrubber(props: Props) {
     }
   })
   const windId = createUniqueId()
-  const temperatureChart = createMemo(() => {
+  const temperatureChart = scrubMemo('temperatuurgrafiek', () => {
     const series = props.temperature
     if (!series || !series.timeline.length) return undefined
     const known = [...series.values, ...series.air ?? []].filter((value): value is number => value != null)

@@ -1,6 +1,7 @@
 import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap } from 'maplibre-gl'
 import type { MapTheme } from './basemap'
 import type { Grid } from './contract'
+import { measurePerfPhase } from './perf'
 
 export const WIND_PARTICLES_PER_MEGAPIXEL = 620
 export const WIND_REFERENCE_ZOOM = 6.4
@@ -618,6 +619,10 @@ export class WindLayer implements CustomLayerInterface {
   }
 
   render(context: WebGLRenderingContext | WebGL2RenderingContext, options: CustomRenderMethodInput): void {
+    measurePerfPhase('wind-step', () => this.renderStep(context, options), { particles: this.active })
+  }
+
+  private renderStep(context: WebGLRenderingContext | WebGL2RenderingContext, options: CustomRenderMethodInput): void {
     const gl = context as WebGL2RenderingContext
     // Onzichtbaar: geen frame en geen volgende aanvraag; setTuning/setTheme wekken weer.
     if (this.tuning.intensity * Math.min(this.tuning.visibility, 1) <= 0) { this.previousTime = 0; return }

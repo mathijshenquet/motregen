@@ -8,6 +8,7 @@ import { deriveWeatherIcon, summarizeWind, WIND_UNIT_LABELS, type WindSummary, t
 import { ArrowUp, BUTTON_ICON, Clock, CloudSun, Droplets, Sun, Thermometer, Wind } from './icons'
 import UvBar from './UvBar'
 import WeatherIcon from './WeatherIcon'
+import { measurePerfPhase } from '../core/perf'
 
 export interface ForecastSeries {
   rain: Array<number | null>
@@ -54,6 +55,7 @@ const hour = 3_600_000
 const HOVER_LEAVE_MS = 80
 
 export default function ForecastTable(props: Props) {
+  const tableMemo = <T,>(name: string, compute: () => T) => createMemo(() => measurePerfPhase('table-render', compute, { memo: name }))
   // De hele kolom (kop én cellen) is het hoverdoel en kleurt mee (PO 2026-09-25 live, U34). Verlaten
   // wacht HOVER_LEAVE_MS: van cel naar cel (of over een zonrij) gaat de focus zo niet even uit.
   // Touch vuurt ook pointerenter; dat mag geen blijvende hover worden (tap op de kop toggelt).
@@ -92,7 +94,7 @@ export default function ForecastTable(props: Props) {
     onFocus={(event) => { if (event.currentTarget.matches(':focus-visible')) props.focus.onFocus(heading.mode, 'keyboard', true) }}
     onBlur={() => props.focus.onFocus(heading.mode, 'keyboard', false)}
   ><ColumnLabel icon={heading.icon} text={heading.label} /></button>
-  const sun = createMemo(() => {
+  const sun = tableMemo('zonmomenten', () => {
     const first = props.rows[0]
     const last = props.rows.at(-1)
     if (!first || !last) return new Map<number, SunEvent>()
@@ -112,7 +114,7 @@ export default function ForecastTable(props: Props) {
     for (const [epoch, element] of rowElements) if (epoch > until) observer?.observe(element)
   })
   const pastCount = () => props.rows.filter((row) => row.kind === 'past').length
-  const visibleRows = () => props.historyInline || props.historyOpen ? props.rows : props.rows.filter((row) => row.kind !== 'past')
+  const visibleRows = tableMemo('zichtbare-rijen', () => props.historyInline || props.historyOpen ? props.rows : props.rows.filter((row) => row.kind !== 'past'))
   const historyObserver = typeof IntersectionObserver === 'undefined' ? undefined : new IntersectionObserver((entries) => {
     if (!entries.some((entry) => entry.isIntersecting)) return
     historyObserver?.disconnect()

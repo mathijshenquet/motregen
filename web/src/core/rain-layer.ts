@@ -2,6 +2,7 @@ import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap 
 import { MercatorCoordinate } from 'maplibre-gl'
 import type { Grid } from './contract'
 import type { MotionField } from './mrf'
+import { measurePerfPhase } from './perf'
 import { rainColormap } from './rain-chart'
 
 export { rainColormap }
@@ -135,13 +136,16 @@ export class RainLayer implements CustomLayerInterface {
       [this.left, this.right] = [this.right, this.left];
       [this.leftData, this.rightData] = [this.rightData, this.leftData]
     }
-    if (plan.left) { uploadRain(this.gl, this.left, this.grid, left); this.leftData = left; this.uploads++ }
-    if (plan.right) { uploadRain(this.gl, this.right, this.grid, right); this.rightData = right; this.uploads++ }
-    if (motion && motion !== this.motionData && this.motion && this.motionMask) {
-      uploadMotion(this.gl, this.motion, this.motionMask, motion)
-      this.motionData = motion
-      this.uploads++
-    }
+    const motionChanged = !!motion && motion !== this.motionData && !!this.motion && !!this.motionMask
+    if (plan.left || plan.right || motionChanged) measurePerfPhase('texture-upload', () => {
+      if (plan.left) { uploadRain(this.gl!, this.left!, this.grid, left); this.leftData = left; this.uploads++ }
+      if (plan.right) { uploadRain(this.gl!, this.right!, this.grid, right); this.rightData = right; this.uploads++ }
+      if (motionChanged) {
+        uploadMotion(this.gl!, this.motion!, this.motionMask!, motion!)
+        this.motionData = motion
+        this.uploads++
+      }
+    }, { layer: 'rain', textures: Number(plan.left) + Number(plan.right) + Number(motionChanged) })
     this.mix = mix
     this.hasMotion = motion !== undefined
     this.intervalMinutes = intervalMinutes

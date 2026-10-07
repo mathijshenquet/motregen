@@ -12,6 +12,9 @@ interface Props {
   onWindTuning: (tuning: WindTuning) => void
   perfVisible: boolean
   onPerfVisible: (visible: boolean) => void
+  profileRecording: boolean
+  onProfileRecord: () => void
+  onColdProfile: () => void
   onReplaySplash: () => void
   onReset: () => void
   resetNotice: boolean
@@ -67,6 +70,8 @@ export default function DevPanel(props: Props) {
       <Control label="Perf-HUD" output={props.perfVisible ? 'Aan' : 'Uit'} toggle hint="Meetpaneel met laadtijd, fps en netwerk; ook drie tikken op het logo.">
         <input type="checkbox" checked={props.perfVisible} onChange={(event) => props.onPerfVisible(event.currentTarget.checked)} />
       </Control>
+      <Action label={props.profileRecording ? 'Opname loopt…' : 'Opname 30 s'} hint="Neemt stacks, fasen en lange frames dertig seconden op." onClick={props.onProfileRecord} disabled={props.profileRecording} />
+      <Action label="Koude start" hint="Herlaadt en neemt de eerste dertig seconden vanaf de start op." onClick={props.onColdProfile} disabled={props.profileRecording} />
       <Action label="Herhaal splash" hint="Speelt het openingslogo opnieuw af." onClick={props.onReplaySplash} />
       <Action label="Reset alle instellingen" hint="Zet alle knoppen terug; favorieten, locatie, kaartbeeld en thema blijven." onClick={props.onReset} />
       <p class="dev-usage">Gebruiksbaken: <code>{props.usageBody}</code></p>
@@ -90,9 +95,9 @@ function Control(props: { label: string; output: string; hint: string; toggle?: 
   </div>
 }
 
-function Action(props: { label: string; hint: string; onClick: () => void }) {
+function Action(props: { label: string; hint: string; onClick: () => void; disabled?: boolean }) {
   return <div class="dev-control" title={props.hint}>
-    <button type="button" class="dev-action" onClick={() => props.onClick()}>{props.label}</button>
+    <button type="button" class="dev-action" disabled={props.disabled} onClick={() => props.onClick()}>{props.label}</button>
     <p class="dev-hint">{props.hint}</p>
   </div>
 }

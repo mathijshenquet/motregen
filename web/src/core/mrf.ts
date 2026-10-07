@@ -1,6 +1,6 @@
 import { decompress } from 'fzstd'
 import { chunkField, type ManifestChunk, type MrfHeader } from './contract'
-import type { LoadLayer, LoadTrace } from './perf'
+import { recordPerfPhase, type LoadLayer, type LoadTrace } from './perf'
 import { decodePredFrame, PRED_VERSION, type PredFrameSpec } from './pred'
 
 const decoder = new TextDecoder()
@@ -51,7 +51,7 @@ export class LruCache<K, V> {
   }
 }
 
-interface WorkerReply { id: number; frame?: ArrayBuffer; error?: string }
+interface WorkerReply { id: number; frame?: ArrayBuffer; error?: string; duration?: number }
 
 export interface MotionField {
   width: number
@@ -146,6 +146,7 @@ export class MrfClient {
         if (!request) return
         this.pending.delete(data.id)
         this.workerLoad[request.worker]!--
+        if (data.duration !== undefined) recordPerfPhase('frame-decode', data.duration, { codec: 'zstd/mrf' })
         if (data.error) request.reject(new Error(data.error)); else request.resolve(new Uint8Array(data.frame!))
       }
     }
