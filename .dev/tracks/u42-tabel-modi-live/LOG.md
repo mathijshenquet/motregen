@@ -268,3 +268,20 @@
   volledige `pnpm test` 59 bestanden / 384 tests groen; `pnpm build` exit 0 (107 modules,
   `index-BCR8RPbI.js`, `index-DI_Qw9gi.css`, PWA + workers). Preview
   `http://ageq-dev2:4320/` antwoordt HTTP 200. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+
+## 2026-10-07 11:08 UTC
+
+- De eerdere invoeging van mobiele historieverleden bij het openen is vervangen door één blijvende
+  tabel. In portrait mobile zijn de zes verleden rijen vanaf de eerste render gemount en wordt hun
+  data na de initial-fase geladen. De eigen tabelscroller staat in kaartweergave vergrendeld en op de
+  Nu-rij; tabelweergave ontgrendelt exact dezelfde `scrollTop`. Terugkeer naar de kaart vergrendelt de
+  scroller opnieuw en zet hem terug op Nu. Daardoor wijzigt de rijset niet tijdens handmatig scrollen
+  en kan de anker-rij niet meer springen.
+- Het forecast-paneel is exact `100svh` en flex; de interne scroller vult de ruimte onder de handle.
+  De sticky kop hoort nu bij die scroller (`top: 0`), terwijl scroll-chaining vanaf het begin van de
+  historie de bestaande paginascroll terug naar de kaart kan activeren.
+- Synchrone receipts: `git diff --check` exit 0; `pnpm typecheck` exit 0; gerichte ForecastTable-test
+  16/16 groen; volledige `pnpm test` 59 bestanden / 384 tests groen; `pnpm build` exit 0 (107 modules,
+  `index-DcoDKbba.js`, `index-yBp8WuKo.css`, PWA + workers). Preview
+  `http://ageq-dev2:4320/` serveert beide nieuwe assets en antwoordt HTTP 200. Geen e2e uitgevoerd vóór
+  PO-signaal “klaar”.

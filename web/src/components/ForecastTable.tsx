@@ -130,7 +130,7 @@ export default function ForecastTable(props: Props) {
     for (const [epoch, element] of rowElements) if (epoch > until) observer?.observe(element)
   })
   const pastCount = () => props.rows.filter((row) => row.kind === 'past').length
-  const visibleRows = tableMemo('zichtbare-rijen', () => props.historyInline || props.historyOpen || props.mobileTableOpen ? props.rows : props.rows.filter((row) => row.kind !== 'past'))
+  const visibleRows = tableMemo('zichtbare-rijen', () => props.historyInline || props.historyOpen || props.onOpenMobileTable ? props.rows : props.rows.filter((row) => row.kind !== 'past'))
   const historyObserver = typeof IntersectionObserver === 'undefined' ? undefined : new IntersectionObserver((entries) => {
     if (!entries.some((entry) => entry.isIntersecting)) return
     historyObserver?.disconnect()
@@ -146,7 +146,7 @@ export default function ForecastTable(props: Props) {
   onCleanup(() => release())
   const pinNow = (element: HTMLTableRowElement) => {
     nowElement = element
-    if (pinning || !props.historyInline || typeof ResizeObserver === 'undefined') return
+    if (pinning || (!props.historyInline && !props.onOpenMobileTable) || typeof ResizeObserver === 'undefined') return
     pinning = true
     // De ref vuurt vóór de rij in de DOM hangt: een frame later bestaat de scroller.
     requestAnimationFrame(() => {

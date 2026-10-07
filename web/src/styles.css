@@ -954,14 +954,15 @@ td small { color: var(--muted); font-size: 9px; }
   .app-shell { min-height: 100svh; overflow: visible; }
   .map-shell { scroll-snap-align: start; }
   .dashboard { overflow: visible; }
-  .forecast-panel { position: relative; min-height: 100svh; padding: 0 0 env(safe-area-inset-bottom); overflow: visible; scroll-snap-align: start; touch-action: pan-y; }
-  .table-view-handle { position: sticky; top: 0; z-index: 5; width: 100%; height: 24px; display: grid; place-items: center; padding: 0; border: 0; background: var(--surface); }
+  .forecast-panel { position: relative; height: 100svh; min-height: 100svh; display: flex; flex-direction: column; padding: 0 0 env(safe-area-inset-bottom); overflow: visible; scroll-snap-align: start; touch-action: pan-y; }
+  .table-view-handle { position: sticky; top: 0; z-index: 5; width: 100%; height: 24px; display: grid; flex: none; place-items: center; padding: 0; border: 0; background: var(--surface); }
   .table-view-handle span { width: 42px; height: 4px; border-radius: 999px; background: var(--line-strong); box-shadow: 0 1px 0 color-mix(in srgb, var(--surface) 60%, transparent); }
   .table-view-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
-  .table-scroll { overflow-y: visible; touch-action: pan-y; }
+  .table-scroll { min-height: 0; flex: 1 1 auto; overflow-y: hidden; overscroll-behavior-y: auto; touch-action: pan-y; }
+  .table-scroll th { top: 0; }
   .app-shell:not(.table-view-open) .history-toggle-row { display: none; }
   .table-view-open .table-view-handle { height: calc(24px + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); }
-  .table-view-open th { top: calc(24px + env(safe-area-inset-top)); }
+  .table-view-open .table-scroll { overflow-y: auto; }
 }
 
 /* Telefoon liggend: kaart en paneel naast elkaar, zoals desktop; de scrubber schuift mee weg

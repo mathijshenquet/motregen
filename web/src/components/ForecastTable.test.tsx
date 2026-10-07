@@ -81,15 +81,16 @@ describe('forecast table headings', () => {
   it('uses the first heading as a regular table mode on portrait mobile', () => {
     const onOpenMobileTable = vi.fn()
     const onSelectMobileMode = vi.fn()
-    renderTable({ onOpenMobileTable, onSelectMobileMode })
+    const past = { ...rows[0]!, epoch: start - 3_600_000, kind: 'past' as const }
+    renderTable({ rows: [past, ...rows], onOpenMobileTable, onSelectMobileMode })
     expect(screen.queryByRole('columnheader', { name: 'Uur' })).toBeNull()
     const table = screen.getByRole('button', { name: 'Tabel' })
     expect(table.classList.contains('column-focus')).toBe(true)
     expect(table.getAttribute('aria-pressed')).toBe('false')
+    expect(document.querySelector('tr.past-hour')).not.toBeNull()
     fireEvent.click(table)
     expect(onOpenMobileTable).toHaveBeenCalledOnce()
     cleanup()
-    const past = { ...rows[0]!, epoch: start - 3_600_000, kind: 'past' as const }
     renderTable({ rows: [past, ...rows], mobileTableOpen: true, onOpenMobileTable, onSelectMobileMode })
     expect(screen.getByRole('button', { name: 'Tabel' }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByRole('button', { name: 'Weer' }).getAttribute('aria-pressed')).toBe('false')

@@ -26,13 +26,20 @@ test('desktop opens the table on the now-row and fetches history only when scrol
   expect(history.length).toBeGreaterThan(passive)
 })
 
-test('portrait mobile loads the short history on entering the table without a toggle', async ({ page }, testInfo) => {
+test('portrait mobile keeps history mounted and unlocks the same table offset', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile-4g', 'portrait-scrollroute op het mobiele profiel')
   await page.goto('/')
+  const scroller = page.locator('.table-scroll')
+  await expect(page.locator('tr.past-hour').first()).toBeAttached()
+  await expect.poll(() => nowOffset(page)).toBe(0)
+  const offset = await scroller.evaluate((element) => element.scrollTop)
+  expect(offset).toBeGreaterThan(0)
   await page.getByRole('button', { name: 'Tabel' }).tap()
   await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
   await expect(page.locator('.map-shell')).toHaveAttribute('data-rendering', 'false')
   await expect(page.locator('.history-toggle')).toHaveCount(0)
+  await expect.poll(async () => Math.abs(await scroller.evaluate((element) => element.scrollTop) - offset)).toBeLessThanOrEqual(1)
+  await scroller.evaluate((element) => { element.scrollTop = 0 })
   await expect(page.locator('tr.past-hour').first()).toBeVisible()
 })
 

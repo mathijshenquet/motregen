@@ -326,7 +326,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [gustSeries, setGustSeries] = createSignal<Array<number | null>>([])
   const [radiationSeries, setRadiationSeries] = createSignal<Array<number | null>>([])
   const [uvClearSeries, setUvClearSeries] = createSignal<Array<number | null>>([])
-  // History rows cost bytes the old table never loaded; they stay folded until asked for.
+  // History rows cost bytes the old table never loaded. Portrait mobile keeps them mounted above
+  // Nu so switching views only changes scrolling, never the table's contents.
   const [historyRowsWanted, setHistoryRowsWanted] = createSignal(false)
   let forecastPanel: HTMLElement | undefined
   const [tableInView, setTableInView] = createSignal(!inViewOnly)
@@ -361,7 +362,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
     const panelTop = forecastPanelElement.getBoundingClientRect().top
     if (!tableOpen() && panelTop <= 0) setTableOpen(true)
-    else if (tableOpen() && panelTop > 24) setTableOpen(false)
+    else if (tableOpen() && panelTop > 24) {
+      setTableOpen(false)
+      queueMicrotask(pinTableToNow)
+    }
     const target = tableViewTarget()
     if ((target === 'table' && panelTop <= 0) || (target === 'map' && panelTop > 24)) setTableViewTarget(undefined)
   }
@@ -1869,6 +1873,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     await mergeForecastSeries(state, 'L2')
   }
 
+  createEffect(() => {
+    if (!tableViewAvailable() || pointLoadStage() === 'initial') return
+    untrack(() => { void loadHistoryRows() })
+  })
+
   function readForecastPointSeries(frames: TimelineFrame[], point: { lng: number; lat: number }, key: ForecastIndex, layer: LoadLayer): Promise<Array<number | null>> {
     const now = manifestNow()
     const history = historyRowsWanted()
@@ -2364,21 +2373,17 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const hasTemperature = createMemo(() => feelsLikeTimeline().length > 0)
   const hasWeatherIcons = createMemo(() => cloudTimeline().length > 0)
   const hasWind = createMemo(() => windUFrames().length > 0 && windVFrames().length > 0)
+  function pinTableToNow(): void {
+    const scroller = forecastPanelElement.querySelector<HTMLElement>('.table-scroll')
+    const current = forecastPanelElement.querySelector<HTMLElement>('tr.current-hour')
+    const heading = forecastPanelElement.querySelector<HTMLElement>('thead')
+    if (!scroller || !current || !heading) return
+    scroller.scrollTop += current.getBoundingClientRect().top - scroller.getBoundingClientRect().top - heading.getBoundingClientRect().height
+  }
+
   function scrollToTable(): void {
     setTableViewTarget('table')
-    if (!historyRowsWanted()) usage.mark('history')
-    void loadHistoryRows()
-    requestAnimationFrame(() => {
-      const current = forecastPanelElement.querySelector<HTMLElement>('tr.current-hour')
-      if (!current) {
-        forecastPanelElement.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' })
-        return
-      }
-      const handle = forecastPanelElement.querySelector<HTMLElement>('.table-view-handle')?.getBoundingClientRect().height ?? 0
-      const heading = forecastPanelElement.querySelector<HTMLElement>('thead')?.getBoundingClientRect().height ?? 0
-      const top = window.scrollY + current.getBoundingClientRect().top - handle - heading
-      window.scrollTo({ top: Math.max(0, top), behavior: reducedMotion.matches ? 'auto' : 'smooth' })
-    })
+    forecastPanelElement.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' })
   }
 
   function scrollToMap(): void {
