@@ -2,7 +2,7 @@ import { createEffect, createMemo, createSignal, createUniqueId, For, Index, onC
 import { CLOUD_LAYERS, cloudBand, type CloudSeries } from '../core/cloud-section'
 import type { TimelineFrame } from '../core/contract'
 import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColor } from '../core/rain-chart'
-import { seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
+import { SCRUBBER_CURSOR_FRACTION, SCRUBBER_VIEW_HOURS, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
 import { summarizeWind, WIND_UNIT_LABELS, type WindUnit } from '../core/weather'
 import { BEAUFORT_STOPS, windColor } from '../core/wind-layer'
 import type { PaletteStops } from '../core/temperature-palette'
@@ -48,10 +48,9 @@ const CLOUD_COVER_SHARE = 0.3
 // In Weer blijven de wolkenlagen als rustige achtergrond staan; Lucht brengt ze naar volle dekking.
 const CLOUD_LAYERS_DEFAULT_OPACITY = 0.5
 const HOUR = 3_600_000
-// PO 2026-09-25 live (U34), naar WarnWetter: de cursor staat vast op CURSOR_FRACTION van de breedte en
-// de tijdlijn schuift eronder; zoveel uur past in de breedte. Vervangt de tijdsbereikknoppen.
-const VIEW_HOURS = 8
-const CURSOR_FRACTION = 1 / 3
+// Gedeeld met het laadvenster in App (U49), dat alleen laadt wat hier in beeld is.
+const VIEW_HOURS = SCRUBBER_VIEW_HOURS
+const CURSOR_FRACTION = SCRUBBER_CURSOR_FRACTION
 const hourLabelSteps = [1, 2, 3, 6, 12, 24]
 // Wide enough for "23u" at the axis font size plus breathing room.
 const minimumHourLabelSpacingPx = 34

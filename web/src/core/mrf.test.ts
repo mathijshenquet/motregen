@@ -381,4 +381,86 @@ describe('mrf v0', () => {
       expect(frames.map((frame) => frame[cell])).toEqual(cells.map((frame) => frame[cell]))
     }
   })
+
+  describe('decode order and cancellation (U49)', () => {
+    /** Eén worker die pas antwoordt als de test dat zegt, zodat de wachtrij zich kan vullen. */
+    function stubHeldWorker(): { decodeOrder: number[]; releaseNext: () => void } {
+      const decodeOrder: number[] = []
+      const held: Array<() => void> = []
+      class HeldWorker {
+        onmessage?: (event: MessageEvent) => void
+        postMessage(message: { id: number; bytes: ArrayBuffer; expectedLength: number; pred?: PredFrameSpec }): void {
+          const frame = decodeFrame(new Uint8Array(message.bytes), message.expectedLength, message.pred)
+          decodeOrder.push(frameIdentity.get(createHash('sha256').update(frame).digest('hex'))!)
+          held.push(() => this.onmessage?.({ data: { id: message.id, frame: frame.slice().buffer } } as MessageEvent))
+        }
+      }
+      vi.stubGlobal('Worker', HeldWorker)
+      vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
+        const bytes = files.get(new URL(String(input)).pathname.replace('/data/', ''))!
+        const match = /^bytes=(\d+)-(\d+)$/.exec(new Headers(init?.headers).get('Range')!)!
+        return new Response(Uint8Array.from(bytes.subarray(Number(match[1]), Number(match[2]) + 1)).buffer, { status: 206 })
+      })
+      return { decodeOrder, releaseNext: () => held.shift()!() }
+    }
+
+    const frameIdentity = new Map<string, number>()
+    beforeAll(() => {
+      const header = parseMrfHeader(file.subarray(0, headerLength))
+      for (const [index, frame] of header.frames.entries()) {
+        const decoded = decodeFrame(file.subarray(headerLength + frame.offset, headerLength + frame.offset + frame.len), header.grid.width * header.grid.height)
+        frameIdentity.set(createHash('sha256').update(decoded).digest('hex'), index)
+      }
+    })
+
+    const settle = () => new Promise((done) => setTimeout(done, 0))
+
+    it('decodes the cursor frame before point series and prefetch that were queued earlier', async () => {
+      const worker = stubHeldWorker()
+      const client = new MrfClient(new URL('https://example.test/data/manifest.json'), undefined, 1)
+      const chunk = manifest.chunks[0]!
+
+      const background = client.getFrames(chunk, [0, 1, 2, 3], 'low', undefined, 'prefetch')
+      await settle()
+      const series = client.getFrames(chunk, [4, 5], 'high', undefined, 'L0')
+      await settle()
+      const cursor = client.getFrame(chunk, 6)
+      await settle()
+      const promoted = client.getFrame(chunk, 3)
+      await settle()
+      for (let reply = 0; reply < 7; reply++) { worker.releaseNext(); await settle() }
+      await Promise.all([background, series, cursor, promoted])
+
+      // Frame 0 was al onderweg toen de rest binnenkwam; daarna cursor (6, en 3 dat ernaar opschoof),
+      // dan de puntreeks (4, 5) en pas dan het vooruitladen (1, 2).
+      expect(worker.decodeOrder).toEqual([0, 6, 3, 4, 5, 1, 2])
+    })
+
+    it('skips a queued decode once every requester has aborted, but not one somebody still wants', async () => {
+      const worker = stubHeldWorker()
+      const client = new MrfClient(new URL('https://example.test/data/manifest.json'), undefined, 1)
+      const chunk = manifest.chunks[0]!
+      const view = new AbortController()
+
+      const windowed = client.getFrames(chunk, [0, 1, 2, 3], 'low', undefined, 'L1', view.signal)
+      const outcome = windowed.then(() => 'geladen', (error: Error) => error.name)
+      await settle()
+      const keeper = client.getFrames(chunk, [2], 'low', undefined, 'prefetch')
+      await settle()
+      view.abort()
+      for (let reply = 0; reply < 2; reply++) { worker.releaseNext(); await settle() }
+      await keeper
+
+      expect(worker.decodeOrder).toEqual([0, 2])
+      expect(await outcome).toBe('DecodeCancelled')
+      expect(client.getCachedFrame(chunk, 1)).toBeUndefined()
+
+      // Een afgebroken frame is niet verloren: een nieuwe vraag decodeert het alsnog.
+      const retry = client.getFrame(chunk, 1)
+      await settle()
+      worker.releaseNext()
+      expect((await retry).length).toBeGreaterThan(0)
+      expect(worker.decodeOrder).toEqual([0, 2, 1])
+    })
+  })
 })

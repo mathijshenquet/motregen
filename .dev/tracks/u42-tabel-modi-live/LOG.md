@@ -242,3 +242,13 @@
   57 bestanden / 373 tests groen; `pnpm build` exit 0 (105 modules, `index-BQZBP1NC.js`,
   `index-BQt5enWL.css`, PWA + watermaskerworker). Preview `http://ageq-dev2:4320/` antwoordt
   HTTP 200. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+
+## 2026-10-07 10:08 UTC
+
+- Nieuwere `main` op `d016f56` met U49 gemerged. U49’s view-window, AbortController en
+  scrubberSeries-decodevraag zijn behouden naast U42’s vier modi. De forecast-paneelref wordt nu
+  door één callback aan zowel de mobiele scroll/hysterese als U49’s rij-zichtbaarheidsmeting
+  gegeven; daarmee blijven tabelmodus en het in-view decodebudget samen werken.
+- Synchrone receipts: `pnpm typecheck` exit 0; volledige `pnpm test` 59 bestanden / 384 tests groen;
+  `pnpm build` exit 0 (107 modules, `index-BBrCYjy9.js`, `index-BQt5enWL.css`, PWA + workers).
+  Preview `http://ageq-dev2:4320/` antwoordt HTTP 200. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
