@@ -213,3 +213,49 @@ schemergloed, sterren) en de hele pagina desktop (regen op de kaart, tabel) — 
 Nog niet opnieuw gedraaid op deze stand: rig `--compare` en de gerichte e2e (volgt na de scroll-bug).
 
 Volgende: PO-bug "naar de tabel scrollen laat een strook histogram staan" (Android Chrome), dan stap 2.
+
+## 2026-10-07 21:20 — PO-bug tabel-scroll (Android Chrome) + meting "scrubben tijdens laden"
+
+**Scroll-bug** (PO-screenshot `po-scroll-bug-chrome.png`: ~48 CSS-px histogram blijft boven de tabelkop, "Weer"
+nog gepind, kaart actief). Oorzaak volgens mij: `.forecast-panel` was `100svh` hoog. Klapt de adresbalk in,
+dan is het scherm hoger dan 100svh en eindigt de pagina vóór het paneel bovenaan staat; de snap komt niet
+aan, `panelTop` wordt nooit ≤ 2 px en dus geen tabelview en geen kaartpauze. De strook in de screenshot is
+ongeveer een adresbalk hoog. scroll/scrollend-afhandeling bestond al (debounce 160 ms + `scrollend`).
+- Fix 1 (CSS): paneel `height: 100dvh` (min-height blijft 100svh).
+- Fix 2 (JS, vangnet): staat de pagina aan haar einde en steekt er hooguit `TABLE_SNAP_SLACK_PX` (120) boven
+  het paneel uit, dan geldt dat als gesnapt — voor `settleTableView` én voor de kaartpauze
+  (`tableCoversViewport`).
+- Test: `table.spec` "telefoon met ingeklapte adresbalk" (390×844, touch): paneel 56 px korter dan het
+  scherm, wielscroll zonder klik → `table-view-open`, `table-scroll-open`, Tabel gepind, kaart
+  `data-rendering=false`; terug naar boven → kaart weer actief.
+- Zelf bekeken (390 px, na wielscroll): gewoon → paneel op 0, Tabel gepind, kaart gepauzeerd; nagebootste
+  balk → paneel op 56 px, Tabel gepind, kaart gepauzeerd. In die nabootsing blijft de strook zichtbaar (ik
+  forceer daar de hoogte); of de strook op het echte toestel met `100dvh` verdwijnt kan ik headless niet
+  aantonen — dat moet de PO op Android bevestigen. Niet tegen de oude code gedraaid om de test rood te zien.
+- `pnpm e2e e2e/table.spec.ts --project mobile-4g` (eenmalig, buiten de desktop-regel, omdat de wijziging
+  precies dit pad raakt): 3 passed, 1 failed — "mobile previews the heading…" zoekt een knop "Tabel openen"
+  die in `src` niet bestaat (de knop heet "Tabel"); verouderde test, niet door deze wijziging. Niet gefixt.
+
+**Scrubben tijdens laden** (correctie orkestrator: PO-run 3 was handmatig scrubben, run 2 telt niet).
+`prof:capture --scrub`: twaalf seconden lang elke 800 ms een sleep van een derde plotbreedte. Vóór = build
+van `d19827b` (de stand van de PO-opname; bronnen tijdelijk uitgecheckt, gebouwd naar een scratchmap,
+geserveerd op 4321), ná = huidige stand op 4320. mobile-4g, headless SwiftShader.
+
+| eerste 12 s | vóór Lucht | ná Lucht | vóór Weer | ná Weer |
+| --- | ---: | ---: | ---: | ---: |
+| lange frames (aantal / totaal) | 39 / 8 449 ms | 41 / 3 957 ms | 36 / 8 919 ms | 25 / 2 646 ms |
+| wolkenlagen herbouwd | 236× | 22× | 259× | 20× |
+| texture-upload | 41× / 316 ms | 56× / 75 ms | 2× / 67 ms | 16× / 49 ms |
+
+Vóór komt overeen met PO-run 3 (~1 s lange frames per seconde tot t≈14). Ná: Lucht hapert nog licht tot
+t≈10 (0,2–0,5 s per seconde); grootste resterende scrubberpost is `hemelstreken` (17–20× / ~0,4 s).
+
+**Receipts (synchroon):** `pnpm typecheck` 0; `pnpm test` 0 (69 bestanden, 455 tests); `pnpm e2e
+e2e/decode-budget.spec.ts e2e/table.spec.ts e2e/cloud-section.spec.ts e2e/freshness.spec.ts e2e/focus.spec.ts
+--project desktop` 0 (17 passed, 4 skipped); `pnpm perf:mobile --profile mobile-4g --scenario all --compare`
+0 (drie keer groen, decodes 0,000 %, wire +0,09…0,10 %); `pnpm build` 0, 4320 serveert `index-DCUpyv9q.js`.
+Valkuil: een eerdere `--compare` gaf drie time-outs op ttfr terwijl de rig van track U59 tegelijk draaide
+(zelfde poorten 8392/4392, andere worktree); alleen opnieuw gedraaid toen de poort vrij was. Twee rigs
+tegelijk op deze host bijten elkaar — het e2e-slot dekt dat kennelijk niet af.
+
+Volgende: PO bevestigt de scroll-fix op Android en maakt een nieuwe scrub-opname; dan stap 2 (klokpil-jog).

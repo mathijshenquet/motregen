@@ -7,10 +7,11 @@ import type { LoadFrameTrace, LoadTraceSnapshot, PerfMeasure, PerfSnapshot, Perf
 import { READY_WINDOW_MS } from '../src/core/window-ready'
 
 // Gebruik: pnpm prof:capture [origin] [uitvoer.json] [--profile=desktop|mobile-4g|mobile-fast-3g]
-//                            [--passive | --water-mask] [--decode-cost=<ms>] [--no-send] [--mode=lucht|wind|gevoel]
+//                            [--passive | --scrub | --water-mask] [--decode-cost=<ms>] [--no-send] [--mode=lucht|wind|gevoel]
 // Koude-startopname (`?perf=start`, de eerste 30 s na timeOrigin) onder een e2e-profiel. Scenario:
 // de vaste journey (wind, gevoel, zoom, scrub), met --passive alleen kijken (de app speelt zelf
-// af), of met --water-mask pannen en zoomen (U48). Print het decode-budget (U49). Met een
+// af), met --scrub de eerste twaalf seconden heen en weer slepen op de scrubber terwijl de reeksen nog
+// laden (PO-opname 2026-10-07), of met --water-mask pannen en zoomen (U48). Print het decode-budget (U49). Met een
 // uitvoerpad wordt de opname gedownload; anders gaat ze naar de profielsink, tenzij --no-send.
 // --decode-cost=<ms> laat elke decode-worker zoveel ms extra rekenen per frame: CDP kan workers
 // niet remmen, en op een telefoon is juist de decode de bottleneck (PO-opname: 26 ms per frame).
@@ -21,6 +22,7 @@ const output = positional[1]
 const profile = performanceProfile(flags.find((flag) => flag.startsWith('--profile='))?.slice('--profile='.length) ?? 'desktop')
 const waterMask = flags.includes('--water-mask')
 const passive = flags.includes('--passive')
+const scrub = flags.includes('--scrub')
 // Start in een modus (permalink-parameter `modus`), bijvoorbeeld Lucht om de wolkendoorsnede tijdens het laden te meten.
 const startMode = flags.find((flag) => flag.startsWith('--mode='))?.slice('--mode='.length)
 const send = !flags.includes('--no-send')
@@ -51,6 +53,7 @@ try {
   const profilerAvailable = await page.evaluate(() => 'Profiler' in globalThis)
 
   if (waterMask) await panAndZoom()
+  else if (scrub) await scrubWhileLoading()
   else if (!passive) await journey()
 
   await page.locator('.perf-recording').getByText(/Opname gereed/).waitFor({ timeout: 120_000 })
@@ -91,7 +94,7 @@ try {
   console.log(JSON.stringify({
     origin,
     profile: profile.id,
-    scenario: waterMask ? 'pannen en zoomen' : passive ? 'passief' : 'wind, gevoel, zoom, scrub',
+    scenario: waterMask ? 'pannen en zoomen' : scrub ? 'scrubben tijdens laden' : passive ? 'passief' : 'wind, gevoel, zoom, scrub',
     cpuThrottleRate: profile.cpuThrottleRate,
     decodeCostMs,
     hardwareConcurrency: await page.evaluate(() => navigator.hardwareConcurrency),
@@ -164,6 +167,25 @@ async function journey(): Promise<void> {
   await scrubber.focus()
   await scrubber.press('Home')
   for (let step = 0; step < 20; step++) await scrubber.press('ArrowRight')
+}
+
+async function scrubWhileLoading(): Promise<void> {
+  const surface = page.locator('.scrub-surface')
+  await surface.waitFor()
+  const box = await surface.boundingBox()
+  if (!box) throw new Error('scrubber ontbreekt in scrub-scenario')
+  const centreX = box.x + box.width / 2
+  const centreY = box.y + box.height / 2
+  const started = performance.now()
+  // Elke 800 ms een sleep van een derde plotbreedte, afwisselend vooruit en terug, tot twaalf seconden na de start.
+  for (let gesture = 0; performance.now() - started < 12_000; gesture++) {
+    const direction = gesture % 3 === 2 ? 1 : -1
+    await page.mouse.move(centreX, centreY)
+    await page.mouse.down()
+    await page.mouse.move(centreX + direction * box.width / 3, centreY, { steps: 12 })
+    await page.mouse.up()
+    await page.waitForTimeout(Math.max(0, started + (gesture + 1) * 800 - performance.now()))
+  }
 }
 
 async function panAndZoom(): Promise<void> {
