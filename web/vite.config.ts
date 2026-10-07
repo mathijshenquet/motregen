@@ -8,8 +8,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 import solid from 'vite-plugin-solid'
 import { configDefaults } from 'vitest/config'
 
-// dev/preview draait op ageq-mthq en wordt via het tailnet bekeken (MIP-1 §5)
-const allowedHosts = ['ageq-mthq']
+// dev/preview draait op de dev-host (ageq-mthq, sinds 2026-10-07 ageq-dev2) en wordt via het tailnet bekeken (MIP-1 §5)
+const allowedHosts = ['ageq-mthq', 'ageq-dev2']
 
 // dev gebruikt de echte ingest-data via caddy (:8080, MIP-3-contract) of MOTREGEN_DATA_ORIGIN;
 // MOTREGEN_SYNTH=1 valt terug op de synthetische dataset in public/data
