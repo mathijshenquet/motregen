@@ -40,7 +40,7 @@ import { startFrameLoop } from './core/playback'
 import { clampPlaybackCursor, playbackReach } from './core/playback-gate'
 import { configurePerfMode, consumeColdProfile, installPerfMonitor, measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer } from './core/perf'
 import type { ProfileRecording } from './core/profile-recorder'
-import { prepareRainTexture, RainLayer } from './core/rain-layer'
+import { RainLayer } from './core/rain-layer'
 import { LayerOverlay } from './core/overlay-canvas'
 import { grantedStartFix, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastSavedPlaceId, storeMapView } from './core/location-memory'
 import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGestures } from './core/pin-navigation'
@@ -1241,8 +1241,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       load(rightFrame),
       loadPairMotion(leftFrame, rightFrame).catch(() => undefined),
     ])
-    if (request !== shownFrameRequest || !layer || !map) return
-    await Promise.all([prepareRainTexture(left), prepareRainTexture(right)])
     if (request !== shownFrameRequest || !layer || !map) return
     layer.setFrames(left, right, blend.mix, motion, (rightFrame.epoch - leftFrame.epoch) / 60_000)
     const afterRainDraw = (callback: () => void) => rainOverlay ? rainOverlay.once(callback) : map!.once('render', callback)

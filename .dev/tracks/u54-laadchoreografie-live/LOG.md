@@ -578,3 +578,52 @@ Nog niet gedaan: rendering-kandidaten (R8-regentextuur, uploads spreiden, wind-t
 tabel zonder layout-reads) — niet begonnen; gerichte e2e desktop — niet gedraaid.
 
 **Preview :4355 = cb36c9e** (na deze entry herbouwd en herstart: U59-basiskaart, stap 3, speelregel, knoppen Kaderhemel en Eerste regen).
+
+## 2026-10-08 05:40 — soepelheid iteratie 1: regentextuur als R8, menging in de shader
+
+Wijziging (`web/src/core/rain-layer.ts`, `App.tsx`; `rain-pack.ts` en de pack-worker vervallen):
+het regenframe gaat als ruwe bytes naar een R8-textuur (was RG8: waarde + geldigheid, twee keer
+zo groot en eerst ingepakt op een worker). De shader haalt de vier buurcellen met `texelFetch`
+en mengt ze zelf; één buur zonder data (255) maakt het punt ongeldig, zoals de geldigheid in
+het G-kanaal dat onder lineair filteren deed. `showFrame` wacht niet meer op het inpakken.
+
+**Pixelvergelijking** (`web/scripts/pixel-diff.ts`, nieuw): twee builds op dezelfde synthdata,
+stills-modus, vijf tijdstippen (op een frame, tussen twee frames met motion, +32,5 / +61 /
++180 min), desktop 1100×800 en 390×844 op DPR 2. Controle van de vergelijker zelf: build
+tegen zichzelf = 0 op alle tien beelden. R8 tegen RG8: **grootste afwijking 1 van 255,
+gemiddeld 0,0000, geen pixel boven 2** → vrijwel identiek, geen PO-stap.
+Niet gedekt: de synthdata bevat geen cellen zonder data (255); dat pad is op redenering
+gelijk, niet op beeld vergeleken.
+
+**Vóór/ná** op po-android (renderer-quota 30 %, ×3, loadavg 5,5–8,0). Vóór = "na U59"
+(cb36c9e-stand), ná = met R8:
+
+| maat | vóór (run 1 / 2 / 3) | ná (run 1 / 2 / 3) |
+| --- | ---: | ---: |
+| scrub p50, na laden | 105 / 85 / 90 ms | 31 / 46 / 30 ms |
+| scrub p95, na laden | 269 / 195 / 216 ms | 55 / 90 / 71 ms |
+| scrub p50, tijdens laden | 59 / 79 / 66 ms | 14 / 25 / 16 ms |
+| scrub p95, tijdens laden | 230 / 240 / 140 ms | 126 / 59 / 120 ms |
+| seeken na laden: frame-tijd p95 | 100 / 117 / 100 ms | 67 / 117 / 83 ms |
+| seeken na laden: beelden > 50 ms | 68 / 68 / 55 | 35 / 72 / 44 |
+| afspelen na laden: frame-tijd p95 | 33,3 / 33,4 / 33,3 ms | 16,8 / 50,1 / 16,8 ms |
+| afspelen tijdens laden: frame-tijd p95 | 217 / 117 / 117 ms | 100 / 217 / 100 ms |
+| seeken tijdens laden: frame-tijd p95 | 150 / 117 / 133 ms | 133 / 267 / 117 ms |
+| texture-upload totaal per run (soepel) | 94 / 69 / 81 ms | 44 / 75 / 48 ms |
+
+Wat hard is: **scrub-latentie (invoer → regenbeeld) daalt met ≈ 60–70 %**; de reeksen
+overlappen nergens (p50 na laden hoogstens 46 ms tegen minstens 85 ms). Dat past bij de
+oorzaak: het wachten op de pack-worker zat in elk nieuw kaartbeeld.
+Wat niet hard is: de frame-tijden. Run 2 van de ná-meting is over de hele linie een uitschieter
+(ttfp 3622 ms, LoAF 6,7 s) bij loadavg 6,5; zonder die run is seeken na laden beter (67 / 83
+tegen 100–117 ms) en afspelen na laden terug op 16,8 ms, maar twee runs zijn geen bewijs.
+Het signaal "afspelen na laden 33 ms na U59" van de vorige entry is daarmee ook onzeker: het
+kan dezelfde tweeledigheid zijn.
+Texture-upload meet de rig nog steeds op 0,1 ms p50 (quota raakt het GPU-proces niet); de
+halvering van de uploadgrootte is hier dus niet af te lezen en moet uit een telefoonopname
+komen (daar 5,8 ms per upload).
+
+Receipts: `pnpm typecheck` exit 0, `pnpm test` exit 0 (479), `pnpm build` exit 0,
+`pnpm exec tsx scripts/pixel-diff.ts http://127.0.0.1:4357 http://127.0.0.1:4356 tmp/u54/diff-r8`
+(grootste afwijking 1), `pnpm perf:mobile --profile po-android --scenario
+soepel,soepel-seek-laden --repeat 3` (exit 1 door de bekende wire-boekhouding/spreiding).
