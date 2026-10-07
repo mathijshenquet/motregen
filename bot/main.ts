@@ -2,11 +2,11 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { TelegramApi, TelegramApiError, type TelegramUpdate } from './api.js'
 import { readConfig } from './config.js'
 import { configureBot, handleUpdate, type BotRuntime } from './handlers.js'
-import { StillRenderer, type RenderedStill } from './render.js'
+import { StillRenderer, type RenderedMedia } from './render.js'
 import { FileIdCache } from './file-ids.js'
 import { StillPhotos } from './photos.js'
 import { MessageSelections } from './selections.js'
-import { STILL_HOURS, STILL_MODES, type StillManifest, type StillSelection } from './stills.js'
+import { STILL_HOURS, LOOP_MODES, type StillManifest, type MediaSelection } from './stills.js'
 
 async function runBot(): Promise<void> {
   const config = readConfig()
@@ -16,7 +16,7 @@ async function runBot(): Promise<void> {
   if (webhook.url) throw new Error('Webhook staat aan; schakel die uit voordat long polling start')
   const renderer = new StillRenderer(config.origin, config.cacheDirectory)
   const controller = new AbortController()
-  const available = new Map<string, RenderedStill>()
+  const available = new Map<string, RenderedMedia>()
   let manifest: StillManifest | undefined
   const runtime: BotRuntime = {
     api, config, renderer, username: identity.username,
@@ -63,23 +63,27 @@ async function pollUpdates(runtime: BotRuntime, signal: AbortSignal): Promise<vo
   }
 }
 
-async function refreshStills(runtime: BotRuntime, available: Map<string, RenderedStill>, publish: (manifest: StillManifest) => void, signal: AbortSignal): Promise<void> {
+async function refreshStills(runtime: BotRuntime, available: Map<string, RenderedMedia>, publish: (manifest: StillManifest) => void, signal: AbortSignal): Promise<void> {
   let renderedGeneration = ''
   while (!signal.aborted) {
     try {
       await runtime.renderer.prune()
       const manifest = await runtime.renderer.manifest()
-      publish(manifest)
       if (manifest.generated !== renderedGeneration) {
         const started = performance.now()
-        for (const hour of STILL_HOURS) {
-          for (const definition of STILL_MODES) {
+        const next = new Map<string, RenderedMedia>()
+        for (const definition of LOOP_MODES) {
+          const hours = definition.mode === 'wind' ? ['loop'] as const : ['loop', ...STILL_HOURS] as const
+          for (const hour of hours) {
             if (signal.aborted) return
-            const selection: StillSelection = { mode: definition.mode, hour }
+            const selection: MediaSelection = hour === 'loop' ? { mode: definition.mode, hour } : { mode: definition.mode as Exclude<typeof definition.mode, 'wind'>, hour }
             const still = await runtime.renderer.render(selection, manifest)
-            available.set(selectionKey(selection), still)
+            next.set(selectionKey(selection), still)
           }
         }
+        available.clear()
+        for (const [key, media] of next) available.set(key, media)
+        publish(manifest)
         renderedGeneration = manifest.generated
         console.info(JSON.stringify({ event: 'stills-refresh', generated: manifest.generated, count: available.size, milliseconds: Math.round(performance.now() - started) }))
       }
@@ -90,7 +94,7 @@ async function refreshStills(runtime: BotRuntime, available: Map<string, Rendere
   }
 }
 
-function selectionKey(selection: StillSelection): string {
+function selectionKey(selection: MediaSelection): string {
   return `${selection.mode}:${selection.hour}`
 }
 

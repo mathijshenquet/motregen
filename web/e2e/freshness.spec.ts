@@ -2,6 +2,7 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test'
 
 // Laatste rtcor-frame in het synth-manifest (scripts/synthgen.ts: now − 5 min).
 const LATEST_RADAR = Date.parse('2026-08-28T14:55:00Z')
+const radarClock = (page: Page) => page.evaluate((epoch) => new Intl.DateTimeFormat('nl-NL', { hour: '2-digit', minute: '2-digit' }).format(epoch), LATEST_RADAR)
 const minutes = (n: number) => n * 60_000
 
 const pill = (page: Page) => page.locator('.map-clock')
@@ -99,7 +100,7 @@ test('fresh radar reads as current, with the scan time and its age', async ({ pa
   await expectDot(page, '--fresh')
   // Alleen de kaarttijd als tekst; status, radartijd en leeftijd in de aria-label en het paneel.
   await expect(details(page)).toHaveText(/^\d\d:\d\d$/)
-  await expect(details(page)).toHaveAttribute('aria-label', /\. Actueel: Radar 14:55, 3 min geleden\. Details over dataversheid$/)
+  await expect(details(page)).toHaveAttribute('aria-label', new RegExp(`\\. Actueel: Radar ${await radarClock(page)}, 3 min geleden\\. Details over dataversheid$`))
   await expect(page.locator('.map-clock [aria-live="polite"]')).toHaveText('Actueel')
   await shoot(page, testInfo, 'vers')
 
@@ -141,13 +142,13 @@ test('radar that stopped arriving is marked aging, then stale', async ({ page },
   await openAt(page, LATEST_RADAR + minutes(14))
   await expect(pill(page)).toHaveAttribute('data-freshness', 'aging')
   await expectDot(page, '--aging')
-  await expect(details(page)).toHaveAttribute('aria-label', /Loopt achter: Radar 14:55, 14 min geleden/)
+  await expect(details(page)).toHaveAttribute('aria-label', new RegExp(`Loopt achter: Radar ${await radarClock(page)}, 14 min geleden`))
   await shoot(page, testInfo, 'verouderend')
 
   await openAt(page, LATEST_RADAR + minutes(95))
   await expect(pill(page)).toHaveAttribute('data-freshness', 'stale')
   await expectDot(page, '--stale')
-  await expect(details(page)).toHaveAttribute('aria-label', /Verouderd: Radar 14:55, 1 u 35 min geleden/)
+  await expect(details(page)).toHaveAttribute('aria-label', new RegExp(`Verouderd: Radar ${await radarClock(page)}, 1 u 35 min geleden`))
   await expectTopCenter(page)
   await shoot(page, testInfo, 'verouderd')
 
@@ -189,7 +190,7 @@ test('a failed manifest refresh shows offline instead of silently stale data', a
   await expect(page.getByRole('dialog')).toBeHidden()
   await shoot(page, testInfo, 'offline-paneel', true)
   await expectDot(page, '--stale')
-  await expect(details(page)).toHaveAttribute('aria-label', /\. Offline: Radar 14:55/)
+  await expect(details(page)).toHaveAttribute('aria-label', new RegExp(`\\. Offline: Radar ${await radarClock(page)}`))
   await expect(page.locator('.map-clock [aria-live="polite"]')).toHaveText('Offline')
   await shoot(page, testInfo, 'offline')
 

@@ -49,3 +49,19 @@
 
 ## 2026-10-07T11:25:05.934Z — Start fase-1-poke met websiteklok
 - Vorige botexec SYNCHRONE EXIT 130 na SIGINT; instantie beëindigd. Nieuwe immutable build met gedeelde websiteklok start nu tegen preview 4365, cache tmp/u55-smoke; alleen deze poller.
+
+## 2026-10-07T11:35:05.366Z — Framereeks, klokcontrole en eerste loopcode
+- Websiteklok staat in commit 2e15b35, push SYNCHRONE EXIT 0. Freshness-unit 5/5, SYNCHRONE EXIT 0. Telegram/Freshness-desktoprun SYNCHRONE EXIT 1: zes Telegram-tests groen, drie bestaande Freshness-verwachtingen gebruiken hardcoded 14:55 UTC terwijl browser 16:55 Amsterdam toont. Assertions nu afgeleid van de browserformatter; hertest nodig.
+- Correctie vorige matrix-range: 12 receipts, waarvan twee cached door overlappende rooktest; tien echte renders 1258–2252 ms. Matrixrun exit 0 en 12 artifacts blijven correct.
+- Renderer renderpass per modus: Regen 49 loopframes -2…+2 u op 5 min plus drie toekomstige stillframes; Lucht/Gevoel 13 uurframes; Wind 49 kwartierframes met vaste simulatieklok op 4 fps, geen stills. Web-renderhook hergebruikt dezelfde pagina/data; Wind-overlay tekent alleen handmatig.
+- PNGs voeden H.264/geen audio, eindhold 1 s, max 3 MB met bitratefallback; JPEGs worden uit dezelfde PNGs geconverteerd. FFmpeg uit nixpkgs toegevoegd aan devenv, botwrapper en servicepad. Cache receipt pas na complete reeks; cache-hits wachten niet achter nieuwe renders.
+- Bot bevat /loop (+modus), /wind als loop, Loop-knop, animation-file_id-cache en cached mpeg4-inline. Inline zonder bekende loop-id blijft wachten op een eerste chat-upload. Manifest wordt pas gepubliceerd zodra de volledige nieuwe matrix gereed is. Eerste loop-typecheck SYNCHRONE EXIT 0; units/build lopen.
+- Fase-1-poller met websiteklok blijft beschikbaar voor PO; fase-2-smoke volgt na render/encode-validatie.
+
+## 2026-10-07T11:41:43.602Z — Eerste complete video-/stillmatrix
+- direnv exec . env MOTREGEN_CHROMIUM_PATH=<productie-Chromium> MOTREGEN_ORIGIN=http://localhost:4365 MOTREGEN_RENDER_CACHE=tmp/u55-sequences web/scripts/e2e-slot.sh node --env-file=.env bot/dist/bot/smoke.js --render-only --matrix: SYNCHRONE EXIT 0. Vier renderpasses, 4 MP4 + 12 JPEG; geen Wind-JPEG. Manifest 2026-10-07T11:32:50Z.
+- Regen: 49 loopframes + 3 extra stillframes, render 17343 ms, encode+JPEG 573 ms, 237085 B. Lucht: 13 frames, 6068/593 ms, 556194 B. Gevoel: 13 frames, 6317/504 ms, 800211 B. Wind: 49 frames, 23478/681 ms, 1983408 B.
+- Onafhankelijke ffprobe: allemaal H.264, uitsluitend videostream, 960×1272. Regen 59 uitvoerframes/10 fps/5,9 s; Lucht en Gevoel 17/4/4,25 s; Wind 53/4/13,25 s. Eén seconde eindhold klopt. Wind-frame visueel bekeken: bewegingssporen, websiteklok, bronnen, geen bediening/pin/legenda.
+- Bot-units inclusief echte FFmpeg-encoder: SYNCHRONE EXIT 0, 25/25. Eerste loopbuild SYNCHRONE EXIT 0. Desktop Telegram/Freshness: SYNCHRONE EXIT 1, 9/10 groen, waaronder vaste Wind-simulatieklok. Laatste fout: gedeelde ClockFace gaf een dubbele .clock-main in het versheidsdialoog; sluitknop krijgt eigen class, CSS behoudt positie. Hertest volgt.
+- Caddy beperkt publicatie tot JPEG/MP4; cache-sidecars blijven privé. Nix-VM test nu ook FFmpeg onder hardening, MP4-headers en sidecar-404.
+- PO-tagline letterlijk toegepast in bot/rooktest/docs: “motregen.nl -- Regenradar en Weersverwachting”. Spec op branch bevat de aanvulling en de latere matrixprecisering. Volgende stap: docs afmaken, finale gates, Telegram-loops versturen en livebot vervangen.

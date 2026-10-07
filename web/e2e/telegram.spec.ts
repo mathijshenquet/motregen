@@ -87,3 +87,24 @@ for (const mode of ['weer', 'lucht', 'gevoel']) {
     expect(usageRequests).toEqual([])
   })
 }
+
+test('wind loop frames advance only with the fixed simulation clock', async ({ page }) => {
+  await page.setViewportSize({ width: 640, height: 848 })
+  await page.goto('/?modus=wind&t=+3u&still=1')
+  await expect(page.locator('.map')).toHaveAttribute('data-still-ready', 'true', { timeout: 45_000 })
+  const epoch = Number(await page.locator('.app-shell').getAttribute('data-epoch'))
+  const render = (simulationMs: number) => page.evaluate(async ({ epoch, simulationMs }) => {
+    await (window as unknown as { __motregenRenderFrame: (epoch: number, simulationMs: number) => Promise<void> }).__motregenRenderFrame(epoch, simulationMs)
+  }, { epoch, simulationMs })
+  await render(1_000)
+  const wind = page.locator('.map-overlay-motregen-wind')
+  const first = await wind.screenshot()
+  await render(1_250)
+  const second = await wind.screenshot()
+  expect(second.equals(first)).toBe(false)
+  await page.waitForTimeout(250)
+  expect((await wind.screenshot()).equals(second)).toBe(true)
+  await render(1_250)
+  expect((await wind.screenshot()).equals(second)).toBe(true)
+  await expect(page.locator('.map-clock button')).toHaveCount(0)
+})

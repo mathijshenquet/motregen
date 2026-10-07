@@ -45,7 +45,7 @@ describe('stills and Telegram selections', () => {
     expect(app.searchParams.has('lat')).toBe(false)
   })
 
-  it('has all 12 selections and respects the inline web_app restriction', () => {
+  it('keeps twelve stills, adds four loops and respects the inline web_app restriction', () => {
     expect(STILL_MODES.map((entry) => entry.command)).toEqual(['regen', 'lucht', 'gevoel'])
     expect(STILL_HOURS).toEqual([0, 3, 6, 12])
     const selections = new Set<string>()
@@ -53,7 +53,7 @@ describe('stills and Telegram selections', () => {
       for (const hour of STILL_HOURS) {
         const selection = { mode: definition.mode, hour }
         const inline = keyboard(selection, stillEpoch(manifest, hour), 'https://motregen.nl', 'motregen_bot')
-        expect(inline.inline_keyboard.map((row) => row.length)).toEqual([3, 4, 1])
+        expect(inline.inline_keyboard.map((row) => row.length)).toEqual([4, 5, 1])
         for (const button of inline.inline_keyboard.flat()) {
           expect(button.web_app).toBeUndefined()
           if (button.callback_data) {
@@ -65,15 +65,17 @@ describe('stills and Telegram selections', () => {
         expect(inline.inline_keyboard.at(-1)![0]!.url).toContain('https://t.me/motregen_bot?startapp=')
       }
     }
-    expect(selections.size).toBe(12)
+    expect(selections.size).toBe(16)
     const privateKeyboard = keyboard({ mode: 'air', hour: 3 }, stillEpoch(manifest, 3), 'https://motregen.nl', 'motregen_bot', true)
     expect(privateKeyboard.inline_keyboard.at(-1)![0]!.web_app?.url).toContain('modus=lucht')
   })
 
-  it('rejects malformed callback data and filters the three modes', () => {
+  it('rejects wind stills and filters all four loop modes', () => {
     for (const invalid of [undefined, 'pollen:0', 'wind:01', 'wind:25', 'wind:0:extra', 'wind:-1', 'wind:0', 'weather:1', 'weather:2', 'weather:24']) expect(parseCallback(invalid)).toBeUndefined()
-    expect(matchingModes('')).toHaveLength(3)
-    expect(matchingModes(' WIND ')).toEqual([])
+    expect(matchingModes('')).toHaveLength(4)
+    expect(matchingModes(' WIND ')).toEqual(['wind'])
+    expect(parseCallback('wind:loop')).toEqual({ mode: 'wind', hour: 'loop' })
+    expect(keyboard({ mode: 'wind', hour: 'loop' }, stillEpoch(manifest, 0), 'https://motregen.nl', 'motregen_bot').inline_keyboard[1].map((button) => button.callback_data)).toEqual(['wind:loop'])
     expect(matchingModes('gevoel')).toEqual(['feels'])
     expect(matchingModes('pollen')).toEqual([])
   })

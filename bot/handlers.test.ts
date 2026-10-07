@@ -7,8 +7,8 @@ import { FileIdCache } from './file-ids.js'
 import { handleUpdate, type BotRuntime } from './handlers.js'
 import { StillPhotos } from './photos.js'
 import { MessageSelections } from './selections.js'
-import type { RenderedStill, StillRenderer } from './render.js'
-import { cacheKey, caption, stillEpoch, type StillManifest, type StillSelection } from './stills.js'
+import type { RenderedMedia, StillRenderer } from './render.js'
+import { cacheKey, caption, stillEpoch, type MediaSelection, type StillManifest } from './stills.js'
 
 let directory: string
 beforeEach(async () => { directory = await mkdtemp(join(tmpdir(), 'motregen-handlers-')) })
@@ -18,13 +18,15 @@ async function setup() {
   let manifest: StillManifest = { version: 0, generated: '2026-10-07T12:00:00Z', now: '2026-10-07T12:00:00Z', chunks: [] }
   let failure: string | undefined
   const calls: Array<{ method: string; fields: Record<string, unknown>; multipart: boolean }> = []
-  const available = new Map<string, RenderedStill>()
-  const render = vi.fn(async (selection: StillSelection) => {
+  const available = new Map<string, RenderedMedia>()
+  const render = vi.fn(async (selection: MediaSelection) => {
     const key = cacheKey(selection, manifest)
-    const path = join(directory, `${key}.jpg`)
+    const animation = selection.hour === 'loop'
+    const path = join(directory, `${key}.${animation ? 'mp4' : 'jpg'}`)
     await writeFile(path, 'jpeg')
-    const epoch = stillEpoch(manifest, selection.hour)
-    const still = { key, path, url: `http://localhost:4365/telegram/stills/${key}.jpg`, epoch, caption: caption(selection.mode, epoch), milliseconds: 0, cached: true }
+    const epoch = animation ? Date.parse(manifest.now) : stillEpoch(manifest, selection.hour)
+    const base = { key, path, url: `http://localhost:4365/telegram/stills/${key}.${animation ? 'mp4' : 'jpg'}`, epoch, caption: caption(selection.mode, epoch), milliseconds: 0, cached: true }
+    const still: RenderedMedia = animation ? { ...base, kind: 'animation', frames: 49, fps: 4, bytes: 20000, renderMs: 1000, encodeMs: 100 } : { ...base, kind: 'photo' }
     available.set(`${selection.mode}:${selection.hour}`, still)
     return still
   })
@@ -35,8 +37,10 @@ async function setup() {
     if (multipart && typeof fields.media === 'string') fields.media = JSON.parse(fields.media)
     calls.push({ method, fields, multipart })
     if (failure && method === 'editMessageMedia') return Response.json({ ok: false, error_code: 400, description: failure })
-    const result = method === 'sendPhoto' || method === 'editMessageMedia'
-      ? fields.inline_message_id ? true : { message_id: Number(fields.message_id ?? 10), chat: { id: Number(fields.chat_id), type: 'private' }, photo: [{ file_id: multipart ? `uploaded-${calls.length}` : fields.photo ?? fields.media.media }] }
+    const animation = method === 'sendAnimation' || fields.media?.type === 'animation'
+    const fileId = multipart ? `uploaded-${calls.length}` : fields.photo ?? fields.animation ?? fields.media?.media
+    const result = method === 'sendPhoto' || method === 'sendAnimation' || method === 'editMessageMedia'
+      ? fields.inline_message_id ? true : { message_id: Number(fields.message_id ?? 10), chat: { id: Number(fields.chat_id), type: 'private' }, ...animation ? { animation: { file_id: fileId } } : { photo: [{ file_id: fileId }] } }
       : true
     return Response.json({ ok: true, result })
   })
@@ -137,8 +141,23 @@ describe('still delivery and callbacks', () => {
     render.mockClear()
     await handleUpdate(callback('wind:0'), runtime)
     await handleUpdate(callback('weather:1'), runtime)
-    await handleUpdate({ update_id: 5, message: { message_id: 1, chat: { id: 99, type: 'private' }, text: '/wind' } }, runtime)
     expect(calls.map((call) => call.method)).toEqual(['answerCallbackQuery', 'answerCallbackQuery'])
     expect(render).not.toHaveBeenCalled()
+  })
+
+  it('uploads loops as animations, edits photos into loops, reuses animation ids inline and skips duplicates', async () => {
+    const { runtime, calls } = await setup()
+    await handleUpdate({ update_id: 6, message: { message_id: 1, chat: { id: 99, type: 'private' }, text: '/loop wind' } }, runtime)
+    expect(calls[0]).toMatchObject({ method: 'sendAnimation', multipart: true })
+    await handleUpdate(callback('weather:0'), runtime)
+    await handleUpdate(callback('wind:loop'), runtime)
+    expect(calls.at(-1)).toMatchObject({ method: 'editMessageMedia', multipart: false, fields: { media: { type: 'animation', media: 'uploaded-1' } } })
+    await handleUpdate(callback('wind:loop'), runtime)
+    expect(calls.at(-1)?.fields.text).toBe('Al in beeld')
+    await handleUpdate({ update_id: 7, inline_query: { id: 'inline', query: 'wind' } }, runtime)
+    expect(calls.at(-1)!.fields.results).toMatchObject([{ type: 'mpeg4_gif', mpeg4_file_id: 'uploaded-1' }])
+    expect((calls.at(-1)!.fields.results as unknown[]).length).toBe(1)
+    await handleUpdate({ update_id: 8, message: { message_id: 1, chat: { id: 99, type: 'private' }, text: '/wind' } }, runtime)
+    expect(calls.at(-1)).toMatchObject({ method: 'sendAnimation', multipart: false, fields: { animation: 'uploaded-1' } })
   })
 })

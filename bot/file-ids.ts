@@ -1,6 +1,6 @@
 import { readFile, rename, stat, writeFile } from 'node:fs/promises'
 import type { TelegramMessage } from './api.js'
-import type { RenderedStill } from './render.js'
+import type { RenderedMedia } from './render.js'
 
 export const STILL_CACHE_TTL = 2 * 3_600_000
 
@@ -9,7 +9,7 @@ export class FileIdCache {
 
   constructor(private readonly bot: string) {}
 
-  async get(still: RenderedStill): Promise<string | undefined> {
+  async get(still: RenderedMedia): Promise<string | undefined> {
     const now = Date.now()
     this.prune(now)
     const existing = this.entries.get(still.key)
@@ -27,9 +27,9 @@ export class FileIdCache {
     }
   }
 
-  async remember(still: RenderedStill, message: TelegramMessage | true): Promise<void> {
+  async remember(still: RenderedMedia, message: TelegramMessage | true): Promise<void> {
     if (message === true) return
-    const fileId = message.photo?.at(-1)?.file_id
+    const fileId = still.kind === 'animation' ? message.animation?.file_id : message.photo?.at(-1)?.file_id
     if (!fileId) return
     const metadata = await stat(still.path)
     const expires = metadata.mtimeMs + STILL_CACHE_TTL

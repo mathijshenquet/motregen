@@ -13,6 +13,7 @@ export interface TelegramMessage {
   chat: { id: number; type: string }
   text?: string
   photo?: Array<{ file_id: string }>
+  animation?: { file_id: string }
 }
 
 export interface TelegramUpdate {
@@ -40,13 +41,13 @@ export class TelegramApi {
     return this.upload<TelegramMessage>('sendPhoto', fields, path)
   }
 
-  async upload<Result>(method: string, fields: Record<string, unknown>, path: string): Promise<Result> {
+  async upload<Result>(method: string, fields: Record<string, unknown>, path: string, attachment = { name: 'photo', mime: 'image/jpeg', filename: 'motregen.jpg' }): Promise<Result> {
     const form = new FormData()
     for (const [name, value] of Object.entries(fields)) {
       form.set(name, typeof value === 'string' ? value : JSON.stringify(value))
     }
     const contents = await readFile(path)
-    form.set('photo', new Blob([contents], { type: 'image/jpeg' }), 'motregen.jpg')
+    form.set(attachment.name, new Blob([contents], { type: attachment.mime }), attachment.filename)
     return this.send<Result>(method, form)
   }
 

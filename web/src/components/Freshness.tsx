@@ -147,7 +147,7 @@ export default function Freshness(props: Props) {
       >
         {/* Nog eens op de klok klikken rolt het papier weer op; grijs = de tijd staat stil. */}
         <div class="freshness-clock">
-          <button type="button" class="clock-main" aria-label="Sluiten" title="Sluiten" onClick={closePanel}>
+          <button type="button" class="freshness-close" aria-label="Sluiten" title="Sluiten" onClick={closePanel}>
             <ClockFace time={mapTime()} day={mapDay()} />
           </button>
         </div>

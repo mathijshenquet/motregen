@@ -1,7 +1,7 @@
 # Telegram
 
-De bot `@motregen_bot` opent motregen.nl als Mini App en deelt nationale kaarten
-van Nederland en Vlaanderen. `/regen`, `/lucht` en `/gevoel` plaatsen
+De bot `@motregen_bot` opent “motregen.nl -- Regenradar en Weersverwachting”
+als Mini App en deelt nationale kaarten. `/regen`, `/lucht` en `/gevoel` plaatsen
 een foto met knoppen voor de drie modi en nu, +3, +6 en +12 uur.
 De knoppen verversen hetzelfde bericht. Opnieuw dezelfde selectie aantikken geeft
 de toast “Al in beeld” zonder nieuwe render of edit. Inline: typ `@motregen_bot ` in een chat,
