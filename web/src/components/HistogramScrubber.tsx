@@ -30,7 +30,7 @@ interface Props {
   clouds?: CloudSeries
   /**
    * Hoe licht het wordt (U47, MIP-18): straling (uurgemiddelden, W/m²) en zonnestand op de locatie. Kleurt
-   * de wolken en de hemelachtergrond: vol in de modus Lucht (`mix.air`), teruggenomen in de andere.
+   * de wolken en de hemelachtergrond, in elke weergave.
    */
   sky?: { radiation: { timeline: TimelineFrame[]; values: Array<number | null> }; sinElevation: (epoch: number) => number }
   /** Totale bewolking als één band boven het regenhistogram, in de weermodus (PO 2026-09-25 live, U34). */
@@ -52,10 +52,8 @@ const CLOUD_LAYER_LABELS = { high: 'hoge wolken', mid: 'midden wolken', low: 'la
 // Deel van de plothoogte voor de bewolkingsband boven de regen.
 const CLOUD_COVER_SHARE = 0.3
 // In Weer blijven de wolkenlagen als rustige achtergrond staan; Lucht brengt ze naar volle dekking.
-const CLOUD_LAYERS_DEFAULT_OPACITY = 0.5
+const CLOUD_LAYERS_DEFAULT_OPACITY = 0.8
 const HOUR = 3_600_000
-// Dekking van de hemel buiten de modus Lucht (Weer, Wind, Gevoel): aanwezig, maar op de achtergrond.
-const SKY_BACKGROUND_STRENGTH = 0.45
 // Straal van de schemergloed als deel van de plothoogte (hoogstens één uur breed).
 const DUSK_RADIUS_SHARE = 0.62
 // Gedeeld met het laadvenster in App (U49), dat alleen laadt wat hier in beeld is.
@@ -207,8 +205,9 @@ export default function HistogramScrubber(props: Props) {
       sinElevation: inputs.sinElevation,
     })
   })
-  // De hemel staat achter elke weergave (PO 2026-10-07 live), buiten Lucht teruggenomen tot achtergrond.
-  const skyStrength = () => sky().length ? SKY_BACKGROUND_STRENGTH + (1 - SKY_BACKGROUND_STRENGTH) * airMix() : 0
+  // De hemel staat onaangepast achter elke weergave (PO 2026-10-07 live): doorzichtig maken over het lichte
+  // vlak maakte de kleuren flets; de grafieken staan er in plaats daarvan duidelijk vóór (zie styles.css).
+  const skyStrength = () => sky().length ? 1 : 0
   const skyVisible = createMemo(() => skyStrength() > 0)
   const skyDetail = createMemo(() => {
     if (!skyVisible()) return undefined

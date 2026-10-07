@@ -46,6 +46,9 @@ export function cloudSpanInSlot(fraction: number, slot: number, layer: CloudLaye
 const LAYER_BLOCKING: Record<CloudLayer, number> = { high: 0.25, mid: 0.6, low: 0.75 }
 // Elke halvering van het licht telt even zwaar (Weber-Fechner); na zoveel halveringen is het "Mordor".
 const DARKEST_HALVINGS = 3
+// Zoveel halvering telt nog als mooi weer en kleurt niet grijs (PO 2026-10-07 live: een lekkere dag met
+// sluierbewolking oogde blauwgrijs). 0,35 halvering ≈ 78 % van het licht.
+const FAIR_HALVINGS = 0.35
 // Deel van de schemergloed dat een loodgrijze lucht wegneemt.
 const GLOW_DAMPING = 0.7
 
@@ -57,7 +60,7 @@ export function layerTransmission(cover: Record<CloudLayer, number>): number {
 /** Lichtfactor (CMF, 0–1) → donkerte 0–1 op een perceptuele (logaritmische) schaal. */
 export function lightDarkness(light: number): number {
   if (!(light > 0)) return 1
-  return Math.max(0, Math.min(1, -Math.log2(Math.min(1, light)) / DARKEST_HALVINGS))
+  return Math.max(0, Math.min(1, (-Math.log2(Math.min(1, light)) - FAIR_HALVINGS) / (DARKEST_HALVINGS - FAIR_HALVINGS)))
 }
 
 export interface SkyStop {
@@ -323,7 +326,8 @@ export function skyStrokes(width: number, height: number, pxPerHour: number, sto
     let from = -pxPerHour * unitHash(row * 3.3 + STROKE_SEED)
     for (let index = 0; from < width; index++) {
       const key = row * 101.3 + index * 7.77 + STROKE_SEED
-      const turbulence = skyAt(stops, Math.max(0, Math.min(1, (from + pxPerHour / 2) / width))).darkness
+      const here = skyAt(stops, Math.max(0, Math.min(1, (from + pxPerHour / 2) / width)))
+      const turbulence = here.darkness
       const length = Math.max(rowHeight * 5, pxPerHour * (1.4 + 1.8 * unitHash(key)))
       const centreY = (row + 0.5) * rowHeight + (unitHash(key + 0.21) - 0.5) * rowHeight * 0.6
       const half = rowHeight * (0.08 + 0.16 * unitHash(key + 0.43))
@@ -341,8 +345,10 @@ export function skyStrokes(width: number, height: number, pxPerHour: number, sto
         lower.push(`${round(from + length * along)} ${round(middle + thickness)}`)
       }
       const tone = unitHash(key + 0.99) * 2 - 1
-      strokes.push({ path: `M${upper.join('L')}L${lower.reverse().join('L')}Z`, light: tone > 0, strength: round(Math.abs(tone), 3) })
       from += length * 0.6
+      // Alleen overdag (PO 2026-10-07 live): de nacht is van de sterren.
+      if (here.daylight < 0.05) continue
+      strokes.push({ path: `M${upper.join('L')}L${lower.reverse().join('L')}Z`, light: tone > 0, strength: round(Math.abs(tone) * here.daylight, 3) })
     }
   }
   return strokes

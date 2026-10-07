@@ -133,3 +133,18 @@
 - Gezien: Wind en Gevoel leesbaar met de hemel erachter. In Weer licht thema zijn de cirrusvegen
   nauwelijks te zien (lichtgrijs op pastelblauw, lagen op halve dekking) en oogt de nacht grauw
   (donkerblauw op 45 % over wit).
+
+## 2026-10-07 15:56 — PO: te flets → volle hemel achter alles, grafieken ervoor, streken alleen overdag
+- PO: "kleuren iets te drab, vandaag was het lekker weer maar het ziet er blauwgrijs uit"; "komt vooral
+  door de transparency op de andere views"; "achtergrond onaangepast overnemen en de andere elementen
+  er duidelijk voor plaatsen"; "streaks alleen overdag, in de nacht zijn de sterren perfect".
+- Kleur: licht boven ~78 % kleurt niet meer grijs (`FAIR_HALVINGS = 0.35`); `--sky-bright` verzadigder
+  (#4fb0f7 / donker #2489e0), zenit blauwer, warme nevel aan de horizon (`--sky-haze`).
+- Hemel op volle sterkte in elke weergave (tussenstap 45 % en 70 % + saturate verworpen). Voorgrond:
+  regenbalken met lichte rand, windvlak .8 met witte lijn, temperatuurvlak .3 / lint .55; wolkenlagen
+  buiten Lucht op .8 (was .5).
+- Streken: sterkte × daglicht, onder 5 % daglicht geen streek.
+- Receipts (synchroon): `pnpm typecheck` → 0; `pnpm test` → 0 (391 tests); `pnpm build` → 0; stills
+  `voor-{weer,wind,gevoel}` → SHOT-EXIT 0 (weer na één herhaling).
+- De wisselvallige opnamen (time-out op splash of wolkenpad) vallen samen met een load average van 27
+  op de dev-host; waarschijnlijk load, niet de app. Niet verder onderzocht.
