@@ -61,8 +61,10 @@ samen gecommit; downloads en tussenbestanden zijn genegeerd.
 
 `MOTREGEN_BASEMAP_SCRATCH` kiest een andere tijdelijke directory;
 `MOTREGEN_BASEMAP_THREADS` kiest het aantal tilemaker-threads (standaard vier).
-Verwijder `tmp/basemap/build/region.osm.pbf` om de voorbewerking opnieuw te
-laten lopen. Bij vernieuwde brondata moeten datum/URL’s, SHA256’s, de
+De tagselectie heeft een hash in `tmp/basemap/build/filter.sha256`; wijziging
+van de selectie bouwt het regio-extract opnieuw. Verwijder
+`tmp/basemap/build/region.osm.pbf` om de voorbewerking te forceren.
+Bij vernieuwde brondata moeten datum/URL’s, SHA256’s, de
 kustsnapshot en beide gegenereerde stijlen samen worden bijgewerkt. Laat oude
 gehashte archieven gedurende een frontend-cacheovergang in het package staan.
 
@@ -101,7 +103,7 @@ de gecomprimeerde en uitgepakte tegelgroottes per zoom:
 | Laag | Geometrie | Attributen |
 | --- | --- | --- |
 | water | vlakken, inclusief rivierwater en Noordzee | geen |
-| landcover | grove vlakken | class: wood of urban |
+| landcover | grove vlakken | class: wood, grass, park, wetland, sand of urban |
 | boundary | lijnen; uitsluitend admin 2/4, geen maritime | admin_level, maritime=0 |
 | place | punten; land, provincie, city/town/village | name (name:nl, anders name), class, rank, population |
 
@@ -111,6 +113,44 @@ Landen staan in de bron maar krijgen net als voorheen geen zichtbaar label.
 De bestaande `motregen-province-boundaries`-laag behoudt zijn naam, patroon,
 kleur en laagvolgorde. `label_village` komt vóór de temperatuurlaag;
 `label_town`, `label_city` en `label_state` houden voorrang in labelbotsingen.
+
+## Stijl
+
+U60 gebruikt de relevante lagen uit de vastgelegde Liberty-stijl in
+`tools/basemap/liberty-reference.json`. Kleuren, dekking en plaatslabelgroottes
+komen uit deze referentie. Voor donker gebruikt de generator dezelfde
+`darkenLibertyLayer`-transformatie als de U59-referentie: achtergrond `#101d21`,
+water `#183746`, plaatsnamen `#c7d5d8` met een donkere halo. De provinciegrens
+houdt zijn eigen patroon en verf; provincienamen volgen Liberty’s z5–8.
+
+Naast bos zijn meadow/grass/grassland/heath/scrub, parken/natuurreservaten,
+wetland en sand/beach opgenomen. Farmland is in Liberty geen gekleurde laag
+en wordt daarom niet meegeleverd. Wetland wordt bij z12 zichtbaar, ook bij
+bron-overzoom; een vlakke kleur vervangt het spritepatroon zodat er geen
+extra sprite-aanvraag nodig is. Tilemaker generaliseert de landcover per zoom
+met `simplify_below`, `simplify_level`, `filter_below` en `filter_area`.
+
+Plaatsnamen krijgen een rang uit OSM-bevolking en place-klasse. City/town/village
+volgen Liberty’s minimumzoom; een `text-field`-stap per zoom selecteert de
+rang, `symbol-sort-key` geeft grote plaatsen voorrang en `text-padding`
+compenseert de ontbrekende concurrerende weglabels. De kaart houdt het
+bestaande schema van vier lagen.
+
+De contrastieve controle gebruikt dezelfde camera en het werkelijke kaartvlak
+van de 390/1280 px-app voor beide bronnen. `basemap-comparison.spec.ts` schrijft
+licht/donker-beeldparen van start, Utrecht, kust, IJsselmeer en z7/z9/z10/z12.
+Een afzonderlijk zwart/wit-render meet het onbedekte groenoppervlak; MapLibre
+levert de geplaatste unieke city/town/village-labels. CIE L*-verschillen meten
+water, labeltekst en grensverf tegenover de dominante kale landkleur. De
+uitslagen en meetbeperkingen staan in het U60-LOG, de eindparen vragen PO-review.
+
+```bash
+pnpm basemap:snapshot --detail
+MOTREGEN_E2E_PORT=4397 MOTREGEN_E2E_DATA_PORT=8397 \
+  MOTREGEN_MOBILE_BASEMAP=own MOTREGEN_BASEMAP_COMPARISON=1 \
+  pnpm --filter motregen-web e2e e2e/basemap-comparison.spec.ts \
+  --config playwright.basemap.config.ts --project desktop
+```
 
 ## Serveren en deploy
 

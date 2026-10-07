@@ -21,10 +21,10 @@
       "minzoom": 5,
       "maxzoom": 10,
       "simplify_below": 14,
-      "simplify_level": 0.00022,
+      "simplify_level": 0.00015,
       "combine_polygons_below": 11,
       "filter_below": 14,
-      "filter_area": 0.6
+      "filter_area": 0.3
     },
     "boundary": {
       "minzoom": 4,

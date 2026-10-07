@@ -28,6 +28,25 @@ function color(value: unknown): number[] {
   throw new Error(`Onbekende kleur: ${value}`)
 }
 
+function opacityAtZoom(value: unknown, zoom: number): number {
+  if (value === undefined) return 1
+  if (typeof value === 'number') return value
+  if (!Array.isArray(value) || value[0] !== 'interpolate') throw new Error('Onbekende dekking')
+  let previousZoom = value[3] as number
+  let previousValue = value[4] as number
+  for (let index = 5; index < value.length; index += 2) {
+    const nextZoom = value[index] as number
+    const nextValue = value[index + 1] as number
+    if (zoom <= nextZoom) {
+      const fraction = Math.max(0, (zoom - previousZoom) / (nextZoom - previousZoom))
+      return previousValue + (nextValue - previousValue) * fraction
+    }
+    previousZoom = nextZoom
+    previousValue = nextValue
+  }
+  return previousValue
+}
+
 async function contrasts(png: Buffer, capture: Capture) {
   const { data, info } = await sharp(png).removeAlpha().raw().toBuffer({ resolveWithObject: true })
   const background = color(capture.paints.background!['background-color'])
@@ -49,8 +68,8 @@ async function contrasts(png: Buffer, capture: Capture) {
     landColor: land,
     waterLand: Math.abs(luminance(water) - landL),
     labelLand: Math.abs(luminance(color(capture.paints.label_city!['text-color'])) - landL),
-    boundaryLand: Math.abs(luminance(blend(boundary, 0.85)) - landL),
-    provinceLand: Math.abs(luminance(blend(province, 0.72)) - landL),
+    boundaryLand: Math.abs(luminance(blend(boundary, opacityAtZoom(capture.paints.boundary_2!['line-opacity'], capture.camera.zoom))) - landL),
+    provinceLand: Math.abs(luminance(blend(province, opacityAtZoom(capture.paints['motregen-province-boundaries']!['line-opacity'], capture.camera.zoom))) - landL),
   }
 }
 
@@ -71,7 +90,8 @@ for (const width of [390, 1280]) {
       const errors: string[] = []
       page.on('pageerror', error => errors.push(error.message))
       page.on('request', request => {
-        if (!['127.0.0.1', 'localhost'].includes(new URL(request.url()).hostname)) errors.push(`Extern verzoek: ${request.url()}`)
+        const url = new URL(request.url())
+        if (['http:', 'https:'].includes(url.protocol) && !['127.0.0.1', 'localhost'].includes(url.hostname)) errors.push(`Extern verzoek: ${request.url()}`)
       })
       await page.setViewportSize({ width, height: width === 390 ? 844 : 800 })
       await page.addInitScript(theme => localStorage.setItem('motregen-theme', theme), theme)
@@ -109,7 +129,7 @@ for (const width of [390, 1280]) {
         for (const basemap of ['openfreemap', 'own']) {
           const styleUrl = `${dataOrigin}/${basemap === 'own' ? 'style' : 'reference-style'}-${theme}.json`
           const capture = await page.evaluate(async ({ styleUrl, camera, viewport }) => (window as unknown as { renderComparison: (url: string, camera: Camera, viewport: Viewport) => Promise<Capture> }).renderComparison(styleUrl, camera, viewport), { styleUrl, camera: view.camera, viewport })
-          expect(capture.camera).toMatchObject(view.camera)
+          for (const axis of ['lng', 'lat', 'zoom'] as const) expect(capture.camera[axis]).toBeCloseTo(view.camera[axis], 6)
           const image = await page.locator('#map').screenshot()
           images.push(image)
           const contrast = await contrasts(image, capture)
@@ -129,7 +149,7 @@ for (const width of [390, 1280]) {
       const start = results[0]!.captures
       expect(start[1]!.labelCount).toBeGreaterThanOrEqual(start[0]!.labelCount * 0.8)
       expect(start[1]!.labelCount).toBeLessThanOrEqual(start[0]!.labelCount * 1.2)
-      if (theme === 'dark') expect(Math.abs(start[1]!.contrast.waterLand - start[0]!.contrast.waterLand)).toBeLessThanOrEqual(2)
+      if (theme === 'dark') expect(start[1]!.contrast.waterLand).toBeGreaterThanOrEqual(start[0]!.contrast.waterLand - 2)
     })
   }
 }

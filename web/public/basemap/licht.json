@@ -247,38 +247,113 @@
       ],
       "layout": {
         "text-field": [
-          "case",
+          "step",
           [
-            "<=",
+            "zoom"
+          ],
+          "",
+          4,
+          [
+            "case",
             [
-              "get",
-              "rank"
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              3
             ],
             [
-              "step",
-              [
-                "zoom"
-              ],
-              0,
-              4,
-              3,
-              5,
-              5,
-              6,
-              7,
-              7,
-              8,
-              8,
-              9,
-              9,
-              10
-            ]
+              "get",
+              "name"
+            ],
+            ""
           ],
+          5,
           [
-            "get",
-            "name"
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              4
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
           ],
-          ""
+          6,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              5
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          7,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              8
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          8,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              9
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          9,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              10
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ]
         ],
         "text-font": [
           "Noto Sans Regular"
@@ -298,7 +373,19 @@
           12
         ],
         "text-max-width": 8,
-        "text-padding": 8,
+        "text-padding": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          9,
+          18,
+          10,
+          4
+        ],
         "symbol-sort-key": [
           "-",
           [
@@ -338,38 +425,113 @@
       ],
       "layout": {
         "text-field": [
-          "case",
+          "step",
           [
-            "<=",
+            "zoom"
+          ],
+          "",
+          4,
+          [
+            "case",
             [
-              "get",
-              "rank"
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              3
             ],
             [
-              "step",
-              [
-                "zoom"
-              ],
-              0,
-              4,
-              3,
-              5,
-              5,
-              6,
-              7,
-              7,
-              8,
-              8,
-              9,
-              9,
-              10
-            ]
+              "get",
+              "name"
+            ],
+            ""
           ],
+          5,
           [
-            "get",
-            "name"
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              4
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
           ],
-          ""
+          6,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              5
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          7,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              8
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          8,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              9
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          9,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              10
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ]
         ],
         "text-font": [
           "Noto Sans Regular"
@@ -389,100 +551,19 @@
           14
         ],
         "text-max-width": 8,
-        "text-padding": 8,
-        "symbol-sort-key": [
-          "-",
-          [
-            "*",
-            [
-              "get",
-              "rank"
-            ],
-            10000000
-          ],
-          [
-            "get",
-            "population"
-          ]
-        ]
-      },
-      "paint": {
-        "text-color": "#000",
-        "text-halo-blur": 1,
-        "text-halo-color": "#fff",
-        "text-halo-width": 1
-      }
-    },
-    {
-      "id": "label_city",
-      "type": "symbol",
-      "source": "basemap",
-      "source-layer": "place",
-      "minzoom": 3,
-      "filter": [
-        "==",
-        [
-          "get",
-          "class"
-        ],
-        "city"
-      ],
-      "layout": {
-        "text-field": [
-          "case",
-          [
-            "<=",
-            [
-              "get",
-              "rank"
-            ],
-            [
-              "step",
-              [
-                "zoom"
-              ],
-              0,
-              4,
-              3,
-              5,
-              5,
-              6,
-              7,
-              7,
-              8,
-              8,
-              9,
-              9,
-              10
-            ]
-          ],
-          [
-            "get",
-            "name"
-          ],
-          ""
-        ],
-        "text-font": [
-          "Noto Sans Regular"
-        ],
-        "text-size": [
+        "text-padding": [
           "interpolate",
           [
-            "exponential",
-            1.2
+            "linear"
           ],
           [
             "zoom"
           ],
-          4,
-          11,
-          7,
-          13,
-          11,
-          18
+          9,
+          18,
+          10,
+          4
         ],
-        "text-max-width": 8,
-        "text-padding": 8,
         "symbol-sort-key": [
           "-",
           [
@@ -511,8 +592,7 @@
       "type": "symbol",
       "source": "basemap",
       "source-layer": "place",
-      "minzoom": 5,
-      "maxzoom": 8,
+      "minzoom": 6,
       "filter": [
         "==",
         [
@@ -538,8 +618,8 @@
             "zoom"
           ],
           5,
-          10,
-          8,
+          11,
+          11,
           14
         ],
         "text-max-width": 9,
@@ -561,7 +641,186 @@
         ]
       },
       "paint": {
-        "text-color": "#333",
+        "text-color": "#657375",
+        "text-halo-color": "#f8f4f0",
+        "text-halo-width": 1
+      }
+    },
+    {
+      "id": "label_city",
+      "type": "symbol",
+      "source": "basemap",
+      "source-layer": "place",
+      "minzoom": 3,
+      "filter": [
+        "==",
+        [
+          "get",
+          "class"
+        ],
+        "city"
+      ],
+      "layout": {
+        "text-field": [
+          "step",
+          [
+            "zoom"
+          ],
+          "",
+          4,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              3
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          5,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              4
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          6,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              5
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          7,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              8
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          8,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              9
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          9,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              10
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ]
+        ],
+        "text-font": [
+          "Noto Sans Regular"
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "exponential",
+            1.2
+          ],
+          [
+            "zoom"
+          ],
+          4,
+          11,
+          7,
+          13,
+          11,
+          18
+        ],
+        "text-max-width": 8,
+        "text-padding": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          9,
+          18,
+          10,
+          4
+        ],
+        "symbol-sort-key": [
+          "-",
+          [
+            "*",
+            [
+              "get",
+              "rank"
+            ],
+            10000000
+          ],
+          [
+            "get",
+            "population"
+          ]
+        ]
+      },
+      "paint": {
+        "text-color": "#000",
         "text-halo-blur": 1,
         "text-halo-color": "#fff",
         "text-halo-width": 1

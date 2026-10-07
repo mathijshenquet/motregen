@@ -21,18 +21,27 @@ for (const [theme, name] of [['light', 'licht'], ['dark', 'donker']] as const) {
   const label = (id: string, kind: string, padding: number) => {
     const layer = referenceLayer(id)
     if (layer.type !== 'symbol') throw new Error(`Liberty-label ontbreekt: ${id}`)
-    const rankLimit = ['step', ['zoom'], 0, 4, 3, 5, 5, 6, 7, 7, 8, 8, 9, 9, 10]
-    return {
+    const rankStops = [[4, 3], [5, 4], [6, 5], [7, 8], [8, 9], [9, 10]]
+    const rankedName: unknown[] = ['step', ['zoom'], '']
+    for (const [zoom, rank] of rankStops) {
+      rankedName.push(zoom, ['case', ['<=', ['get', 'rank'], rank], ['get', 'name'], ''])
+    }
+    const labeled = {
       ...layer, source: 'basemap',
       filter: ['==', ['get', 'class'], kind],
       layout: {
-        'text-field': kind === 'state' ? ['get', 'name'] : ['case', ['<=', ['get', 'rank'], rankLimit], ['get', 'name'], ''],
+        'text-field': kind === 'state' ? ['get', 'name'] : rankedName,
         'text-font': ['Noto Sans Regular'],
-        'text-size': layer.layout?.['text-size'],
+        'text-size': kind === 'state' ? ['interpolate', ['linear'], ['zoom'], 5, 11, 11, 14] : layer.layout?.['text-size'],
         'text-max-width': layer.layout?.['text-max-width'],
-        'text-padding': padding,
+        'text-padding': kind === 'state' ? padding : ['interpolate', ['linear'], ['zoom'], 9, padding, 10, 4],
         'symbol-sort-key': ['-', ['*', ['get', 'rank'], 10_000_000], ['get', 'population']],
       },
+    }
+    if (kind !== 'state') return labeled
+    return {
+      ...labeled, minzoom: 6, maxzoom: undefined,
+      paint: { 'text-color': theme === 'dark' ? '#a8babc' : '#657375', 'text-halo-color': theme === 'dark' ? '#101d21' : '#f8f4f0', 'text-halo-width': 1 },
     }
   }
   const dark = theme === 'dark'
@@ -53,10 +62,10 @@ for (const [theme, name] of [['light', 'licht'], ['dark', 'donker']] as const) {
       cover('landcover_sand', 'sand'),
       { id: 'boundary_2', type: 'line', source: 'basemap', 'source-layer': 'boundary', filter: ['==', ['get', 'admin_level'], 2], layout: { 'line-join': 'round' }, paint: { 'line-color': dark ? '#688087' : '#68676a', 'line-opacity': 0.85, 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.8, 11, 1.6] } },
       { ...referenceLayer('motregen-province-boundaries'), source: 'basemap' },
-      label('label_village', 'village', 8),
-      label('label_town', 'town', 8),
-      label('label_city', 'city', 8),
+      label('label_village', 'village', 18),
+      label('label_town', 'town', 18),
       label('label_state', 'state', 4),
+      label('label_city', 'city', 18),
     ],
   }
   writeFileSync(resolve(root, `web/public/basemap/${name}.json`), `${JSON.stringify(style, null, 2)}\n`)

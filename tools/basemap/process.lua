@@ -74,6 +74,13 @@ function way_function()
     if cover then
         Layer("landcover", true)
         Attribute("class", cover)
+        -- Unions per ~7 × 11 km behouden kleine aaneengesloten groenvlakken zonder een landelijke union.
+        local centroid = Centroid("centroid")
+        if centroid then
+            local row = math.floor((centroid[1] - 50) / 0.1)
+            local column = math.floor((centroid[2] - 2) / 0.1)
+            ZOrder(row * 64 + column)
+        end
     end
 end
 

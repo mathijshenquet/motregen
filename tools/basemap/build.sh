@@ -15,15 +15,21 @@ done
 if [ -f tools/basemap/sources.sha256 ]; then
   (cd "$scratch/sources" && sha256sum --check "${OLDPWD}/tools/basemap/sources.sha256")
 fi
-if [ ! -f "$scratch/build/region.osm.pbf" ]; then
+filter_tags=(
+  n/place
+  wr/natural=water,wood,grassland,heath,scrub,wetland,sand,beach
+  wr/landuse=forest,residential,commercial,industrial,retail,reservoir,grass,meadow,allotments,village_green,recreation_ground
+  wr/leisure=park,garden,golf_course,nature_reserve
+  wr/waterway=riverbank wr/boundary=administrative,national_park
+)
+filter_hash="$(printf '%s\n' "${filter_tags[@]}" | sha256sum | cut -d ' ' -f 1)"
+previous_filter_hash="$(cat "$scratch/build/filter.sha256" 2>/dev/null || true)"
+if [ ! -f "$scratch/build/region.osm.pbf" ] || [ "$filter_hash" != "$previous_filter_hash" ]; then
   osmium merge "$scratch"/sources/*.osm.pbf -o "$scratch/build/merged.osm.pbf" --overwrite
-  osmium tags-filter "$scratch/build/merged.osm.pbf" n/place \
-    wr/natural=water,wood,grassland,heath,scrub,wetland,sand,beach \
-    wr/landuse=forest,residential,commercial,industrial,retail,reservoir,grass,meadow,allotments,village_green,recreation_ground \
-    wr/leisure=park,garden,golf_course,nature_reserve \
-    wr/waterway=riverbank wr/boundary=administrative,national_park \
+  osmium tags-filter "$scratch/build/merged.osm.pbf" "${filter_tags[@]}" \
     -o "$scratch/build/filtered.osm.pbf" --overwrite
   osmium extract --bbox 2.3108,50.3256,7.4192,53.6844 --strategy smart "$scratch/build/filtered.osm.pbf" -o "$scratch/build/region.osm.pbf" --overwrite
+  printf '%s\n' "$filter_hash" > "$scratch/build/filter.sha256"
 fi
 cp tools/basemap/config.json tools/basemap/process.lua "$scratch/build/"
 gzip --decompress --stdout tools/basemap/ocean.geojson.gz > "$scratch/build/ocean.geojson"
