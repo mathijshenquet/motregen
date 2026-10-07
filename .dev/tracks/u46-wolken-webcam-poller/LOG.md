@@ -62,3 +62,8 @@
 - Rooktestgate synchroon en zonder API-verkeer gecontroleerd: `uv run python grade.py --limit 10 --require 10` exit 1 met `Slechts 2 nieuwe daglichtbeelden beschikbaar; vereist 10`. `env -u OPENAI_API_KEY uv run python grade.py --limit 1` exit 1 met `OPENAI_API_KEY ontbreekt`.
 - Openstaand: de timer moet nog acht unieke daglichtbeelden verzamelen en de genegeerde `.env` moet een `OPENAI_API_KEY` krijgen. Pas dan kunnen de vereiste twintig Decisions-calls, echte kosten/latency/ruwe antwoorden en het rooktestrapport worden vastgelegd; dit is niet als groen voorgesteld.
 - Na de laatste UI-wijziging opnieuw synchroon gecontroleerd: `pnpm typecheck` exit 0, `pnpm test` exit 0 (48 bestanden/331 tests), `pnpm build` exit 0; `uv run pytest` exit 0 (11 tests) en `uv run pyright` exit 0.
+
+## 2026-10-07T10:55:10+02:00 — tweede snede gepubliceerd
+
+- Commit `f8126b7` bevat dagboek, render/grading/analyse, contracttests en de tot dan verzamelde append-only samples. `git commit` exit 0.
+- Receipt: `git push origin HEAD:track/u46-wolken-webcam-poller` exit 0 (`490c0da..f8126b7`). Draft-PR #71 blijft draft en wordt bijgewerkt met de feitelijke groene gates en de twee rooktestblokkades.
