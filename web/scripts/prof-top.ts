@@ -1,10 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { createSourceMapResolver, type ProfileCallFrame } from './prof-source-map'
 
 interface ProfileNode {
   id: number
-  callFrame: { functionName: string; url: string; lineNumber: number; columnNumber: number }
+  callFrame: ProfileCallFrame
   children?: number[]
   parent?: number
 }
@@ -28,7 +29,7 @@ export interface FunctionTime {
   stackMs: number
 }
 
-export function profileTop(trace: { traceEvents: ProfileChunk[] }) {
+export function profileTop(trace: { traceEvents: ProfileChunk[] }, resolveFrame = (frame: ProfileCallFrame) => frame) {
   const profiles = new Map<string, ProfileChunk[]>()
   for (const event of trace.traceEvents) {
     if (event.name !== 'ProfileChunk') continue
@@ -45,7 +46,7 @@ export function profileTop(trace: { traceEvents: ProfileChunk[] }) {
     const parents = new Map<number, number>()
     for (const chunk of chunks) {
       for (const node of chunk.args?.data?.cpuProfile?.nodes ?? []) {
-        nodes.set(node.id, node)
+        nodes.set(node.id, { ...node, callFrame: resolveFrame(node.callFrame) })
         if (node.parent !== undefined) parents.set(node.id, node.parent)
         for (const child of node.children ?? []) parents.set(child, node.id)
       }
@@ -91,20 +92,46 @@ export function profileTop(trace: { traceEvents: ProfileChunk[] }) {
   return { samples, sampledMs, functions: [...functions.values()].sort((left, right) => right.selfMs - left.selfMs) }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  const [file, count = '20'] = process.argv.slice(2).filter((argument) => argument !== '--json')
-  if (!file) throw new Error('Gebruik: pnpm prof:top <profiel.json> [top-N] [--json]')
-  const result = profileTop(JSON.parse(readFileSync(file, 'utf8')))
+export function parseProfileTopArgs(args: string[]) {
+  const positional: string[] = []
+  let dist: string | undefined
+  let json = false
+  for (let index = 0; index < args.length; index++) {
+    const argument = args[index]!
+    if (argument === '--json') json = true
+    else if (argument === '--dist') {
+      dist = args[++index]
+      if (!dist || dist.startsWith('--')) throw new Error('--dist vereist een buildmap')
+    } else if (argument.startsWith('--')) throw new Error(`onbekende optie: ${argument}`)
+    else positional.push(argument)
+  }
+  const [file, count = '20'] = positional
+  if (!file || positional.length > 2) throw new Error('Gebruik: pnpm prof:top <profiel.json> [top-N] [--json] [--dist <buildmap>]')
+  if (!Number.isInteger(Number(count)) || Number(count) < 1) throw new Error('top-N moet een positief geheel getal zijn')
+  return { file, count: Number(count), json, dist }
+}
+
+function main() {
+  const { file, count, json, dist } = parseProfileTopArgs(process.argv.slice(2))
+  const result = profileTop(JSON.parse(readFileSync(file, 'utf8')), dist ? createSourceMapResolver(dist) : undefined)
   if (!result.samples) throw new Error('geen ProfileChunk-samples; dit profiel bevat alleen tijdvakken')
-  if (process.argv.includes('--json')) console.log(JSON.stringify(result, null, 2))
+  if (json) console.log(JSON.stringify(result, null, 2))
   else {
     console.log(`${result.samples} samples, ${result.sampledMs.toFixed(1)} ms over de bemonsterde intervallen`)
-    console.table(result.functions.slice(0, Number(count)).map((entry) => ({
+    console.table(result.functions.slice(0, count).map((entry) => ({
       functie: entry.functionName,
       'self ms': entry.selfMs.toFixed(1),
       'self %': (100 * entry.selfSamples / result.samples).toFixed(2),
       'stack %': (100 * entry.stackSamples / result.samples).toFixed(2),
       bron: `${entry.url}:${entry.lineNumber + 1}:${entry.columnNumber + 1}`,
     })))
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  try { main() }
+  catch (error) {
+    console.error(`prof:top: ${error instanceof Error ? error.message : String(error)}`)
+    process.exitCode = 1
   }
 }

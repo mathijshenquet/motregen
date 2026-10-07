@@ -30,6 +30,7 @@
     "solid-js": "^1.9.9"
   },
   "devDependencies": {
+    "@jridgewell/trace-mapping": "^0.3.31",
     "@playwright/test": "^1.61.1",
     "@solidjs/testing-library": "^0.8.10",
     "@tailwindcss/vite": "^4.1.13",

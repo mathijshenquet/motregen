@@ -24,11 +24,18 @@ valideert het formaat en schrijft mode 0600 naar
 `~/motregen-profiles/<ISO>-<platform>.json`. `pnpm prof:check <bestand>` valideert een export los.
 `pnpm prof:import <bestand>` opent dezelfde export headless in Firefox Profiler en controleert de
 call-tree-import.
-`pnpm prof:top <bestand> [top-N] [--json]` rangschikt functies op self-time uit `ProfileChunk`
+`pnpm prof:top <bestand> [top-N] [--json] [--dist <buildmap>]` rangschikt functies op self-time uit `ProfileChunk`
 en toont hun self- en stack-sample-aandeel (inclusief aangeroepen functies). De JSON-uitvoer bevat
 alle functies. In JS Self-Profiling ontbreken idle-samples; tijd tussen samples is daarom
 intervalattributie, geen exacte CPU-tijd. Gebruik het stack-sample-aandeel om een fase vóór en na
 een wijziging te vergelijken.
+Met `--dist dist-preview` vertaalt hij de 0-based Chrome-callFrame-posities via de sourcemaps
+naar bronbestand, functie en positie. Hij gebruikt ook `sourcesContent` voor functienamen
+(de map-name kan bijvoorbeeld een parameter zijn). Zonder embedded bron blijft de map-name of
+gegenereerde naam beschikbaar. Bewaar de dist van elke meetbuild: bundelnaam inclusief hash,
+`sourceMappingURL` en de `file` in de map moeten overeenkomen; een andere build geeft exit 1,
+geen gok naar de nieuwste map. Voor gecompileerde dependencybundels kan de bron nog steeds
+de gebundelde packagecode zijn.
 
 `scripts/e2e-slot.sh pnpm prof:capture ORIGIN UITVOER.json --water-mask` neemt in een nieuwe
 desktop-Chromiumcontext de koude start op, met daarna tien seconden pan/zoom en tien seconden
