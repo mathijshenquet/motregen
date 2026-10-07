@@ -68,3 +68,12 @@ de URL in je eerste bericht aan de PO. Test je stappen zelf ook op een smal view
 Geen kolomset/paging (U38), geen nieuwe data, geen wijzigingen aan de windlaag-tuning.
 Leesbaarheidsbar: geen één-letternamen, geen slimme one-liners, commentaar alleen voor een
 niet-triviaal waarom.
+
+## Live-besluiten 2026-10-07 (PO in de pane, canoniek)
+
+- Lucht-cel overdag: UV-waarde + relatieve UV-balk, géén wolkje en geen "20 %"-tekst.
+- Uur: subtiele gedempte tekstkop, links uitgelijnd met de tijden, geen icoon/knop.
+- Lucht-scrubber: wolkenlagen vóór op volle nadruk als enige cursorwaarden; regenhistogram
+  erachter op 0,35 (tween vanaf 1 in Weer), zonder cursorlabel.
+- Windmodus houdt regen op 50 %; Weer houdt ambient wind en de rustige wolkenlagen.
+- Baken: `pinAir` in dezelfde onuitgebrachte contractversie v2 als `share` (U44).
