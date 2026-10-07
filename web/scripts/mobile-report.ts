@@ -153,11 +153,14 @@ export function renderMobileReport(report: MobileReport): string {
   const lines = [
     `# Mobiele laadrig: ${report.meta.profile} / ${report.meta.scenario}`,
     '',
-    `Commit ${report.meta.sourceSha}, ${report.meta.capturedAt}. CPU ${report.meta.cpuThrottleRate}×; worker-CPU ongeremd.`,
+    `Commit ${report.meta.sourceSha}, ${report.meta.capturedAt}. CPU ${report.meta.cpuThrottleRate}×; worker-CPU ongeremd. Loadavg host bij start ${report.meta.loadAverage}.`,
     '',
     '| maat | waarde |',
     '| --- | ---: |',
-    `| TTFR | ${report.milestones.ttfrMs ?? 'onbekend'} ms |`,
+    `| ttfp (eerste frame-wissel tijdens afspelen) | ${report.milestones.ttfpMs ?? 'niet bereikt'} ms |`,
+    `| ttfr (eerste regen én basemap-tiles) | ${report.milestones.ttfrMs ?? 'onbekend'} ms |`,
+    `| eerste regenframe / basemap-tiles | ${report.milestones.firstRainMs ?? 'onbekend'} / ${report.milestones.basemapReadyMs ?? 'onbekend'} ms |`,
+    `| blank-visible-ms | ${report.milestones.blankVisibleMs} ms |`,
     `| splash klaar (DOM) | ${report.milestones.splashGoneMs ?? 'onbekend'} ms |`,
     `| ttfh (nu ±1 u) | ${report.milestones.ttfhMs ?? 'onbekend'} ms |`,
     `| decodes | ${decode?.count ?? 0} |`,
@@ -168,6 +171,7 @@ export function renderMobileReport(report: MobileReport): string {
     `| ERR_ABORTED met volledige gemeten body | ${report.wire.completeBodyAborts} |`,
     `| complete Content-Length-fallbacks | ${report.wire.contentLengthFallbacks} |`,
     `| lange frames / blocking | ${report.longFrames.count} / ${report.longFrames.blockingMs} ms |`,
+    `| lange frames eerste 12 s: aantal / totaal / blocking | ${report.longFrames.first12s.count} / ${Math.round(report.longFrames.first12s.totalMs)} / ${Math.round(report.longFrames.first12s.blockingMs)} ms |`,
     `| hoofddraad bezet (Self-Profiling) | ${report.mainThread.busyPercent ?? 'niet beschikbaar'} % |`,
     `| focusrequests voltooid na volgende modusintentie (kandidaten) | ${report.intent.lateOutsideIntent.length} |`,
     '',
@@ -194,11 +198,13 @@ export interface MobileReport {
     profile: string; scenario: string; sourceSha: string; capturedAt: string
     cpuThrottleRate: number; contractHash: string; fixtureHash: string
     network: unknown; hardwareConcurrency: number
+    /** 1-minuut-loadavg van de host bij de start van de run; boven MAX_LOAD_AVERAGE telt de run niet mee. */
+    loadAverage: number
   }
-  milestones: { ttfrMs: number | null; splashGoneMs: number | null; ttfhMs: number | null; windowReadyMs: Record<string, number>; histogramSource: string }
+  milestones: { ttfrMs: number | null; firstRainMs: number | null; basemapReadyMs: number | null; ttfpMs: number | null; blankVisibleMs: number; splashGoneMs: number | null; ttfhMs: number | null; windowReadyMs: Record<string, number>; histogramSource: string }
   decode: ReturnType<typeof summarizePhases>
   wire: ReturnType<typeof reconcileWire> & { rangeRequests: number; beforeTtfrBytes: number | null; beforeTtfhBytes: number | null }
-  longFrames: { count: number; totalMs: number; blockingMs: number; topSources: Array<{ source: string; durationMs: number }> }
+  longFrames: { first12s: { count: number; totalMs: number; blockingMs: number }; count: number; totalMs: number; blockingMs: number; topSources: Array<{ source: string; durationMs: number }> }
   mainThread: { samples: number; busySamples: number; busyPercent: number | null; topSources: Array<{ functionName: string; url: string; selfSamples: number }> }
   intent: { fieldBytes: Record<string, number>; lateOutsideIntent: WireRequest[] }
   actions: Array<{ action: string; plannedMs: number; actualMs: number; detail: string }>

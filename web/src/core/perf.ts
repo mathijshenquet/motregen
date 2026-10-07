@@ -76,7 +76,16 @@ export interface PerfResourceTotals {
 
 export interface PerfSnapshot {
   capturedAt: string
+  /** Splash-eerlijk (MIP-19): eerste regenframe én de basemap-tiles van het eerste beeld getekend. */
   ttfrMs: number | null
+  firstRainMs: number | null
+  basemapReadyMs: number | null
+  /** Histogram nu ± 1 u compleet (`window-ready:rain_rate`). */
+  ttfhMs: number | null
+  /** Eerste frame-wissel van de regenlaag terwijl de tijdlijn afspeelt (MIP-19 §De lat). */
+  ttfpMs: number | null
+  /** Tijd na de splash waarin een zichtbaar slot leeg was terwijl zijn data nog kwam. */
+  blankVisibleMs: number
   scrub: { samples: number; p50Ms: number | null; p95Ms: number | null }
   fps: number | null
   network: Record<PerfResourceKind | 'total', PerfResourceTotals>
@@ -112,8 +121,11 @@ export interface PerfPhaseSummary {
 /** Mijlpaal op de tijdlijn: van timeOrigin tot het venster nu ± 1 u van dit veld compleet was (U52). */
 export type WindowReadyMeasure = `window-ready:${string}`
 
+/** Mijlpalen van de koude start (MIP-19), elk van timeOrigin tot het moment zelf. */
+export type LoadMilestone = 'first-rain' | 'basemap-ready' | 'ttfr' | 'ttfp'
+
 export interface PerfMeasure {
-  phase: PerfPhase | WindowReadyMeasure
+  phase: PerfPhase | WindowReadyMeasure | `milestone:${LoadMilestone}` | 'blank-visible'
   startTime: number
   duration: number
   detail?: Record<string, unknown>
@@ -315,7 +327,15 @@ export class LoadTrace {
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
 export class PerfMonitor {
+  private firstRainMs: number | null = null
+  private basemapReadyMs: number | null = null
   private ttfrMs: number | null = null
+  private ttfpMs: number | null = null
+  private shownRainFrame: number | undefined
+  private splashGoneMs: number | null = null
+  private blankSlots = 0
+  private blankSinceMs: number | null = null
+  private blankVisibleMs = 0
   private manifestGeneratedAt: number | null = null
   private pendingScrubAt: number | null = null
   private readonly scrubSamples = new Float64Array(sampleCapacity)
@@ -398,9 +418,69 @@ export class PerfMonitor {
     this.pendingScrubAt = this.environment.now()
   }
 
-  markRainFrameCommitted(): void {
+  private markMilestone(milestone: LoadMilestone, now: number): void {
+    if (!detailedMeasurementsEnabled) return
+    performance.measure(`motregen:milestone:${milestone}`, { start: 0, end: now })
+    this.recordPhase({ phase: `milestone:${milestone}`, startTime: 0, duration: now })
+  }
+
+  private settleFirstRender(now: number): void {
+    if (this.ttfrMs !== null || this.firstRainMs === null || this.basemapReadyMs === null) return
+    this.ttfrMs = now
+    this.markMilestone('ttfr', now)
+  }
+
+  /** De basemap-tiles van het eerste beeld zijn getekend. */
+  markBasemapReady(): void {
+    if (this.basemapReadyMs !== null) return
     const now = this.environment.now()
-    this.ttfrMs ??= now
+    this.basemapReadyMs = now
+    this.markMilestone('basemap-ready', now)
+    this.settleFirstRender(now)
+  }
+
+  markSplashGone(): void {
+    if (this.splashGoneMs !== null) return
+    this.splashGoneMs = this.environment.now()
+    if (this.blankSlots > 0) this.blankSinceMs = this.splashGoneMs
+  }
+
+  /** Aantal zichtbare slots dat nu leeg is (niet geladen, niet als fog getekend). */
+  setBlankVisibleSlots(blankSlots: number): void {
+    const now = this.environment.now()
+    const wasBlank = this.blankSlots > 0
+    this.blankSlots = blankSlots
+    if (this.splashGoneMs === null || wasBlank === blankSlots > 0) return
+    if (blankSlots > 0) {
+      this.blankSinceMs = now
+      return
+    }
+    const startTime = this.blankSinceMs ?? now
+    this.blankSinceMs = null
+    this.blankVisibleMs += now - startTime
+    if (!detailedMeasurementsEnabled) return
+    performance.measure('motregen:blank-visible', { start: startTime, end: now })
+    this.recordPhase({ phase: 'blank-visible', startTime, duration: now - startTime })
+  }
+
+  /**
+   * `shown` is het linker regenframe van dit getekende beeld. Wisselt dat tijdens afspelen, dan
+   * loopt de tijdlijn ook echt op het scherm: een bewegende cursor boven een stilstaande kaart telt niet.
+   */
+  markRainFrameCommitted(shown?: { frameEpoch: number; playing: boolean }): void {
+    const now = this.environment.now()
+    if (this.firstRainMs === null) {
+      this.firstRainMs = now
+      this.markMilestone('first-rain', now)
+      this.settleFirstRender(now)
+    }
+    if (shown) {
+      if (shown.playing && this.ttfpMs === null && this.shownRainFrame !== undefined && shown.frameEpoch !== this.shownRainFrame) {
+        this.ttfpMs = now
+        this.markMilestone('ttfp', now)
+      }
+      this.shownRainFrame = shown.frameEpoch
+    }
     if (this.pendingScrubAt === null) return
     this.scrubSamples[this.scrubSampleCursor] = Math.max(0, now - this.pendingScrubAt)
     this.scrubSampleCursor = (this.scrubSampleCursor + 1) % sampleCapacity
@@ -421,6 +501,11 @@ export class PerfMonitor {
     return {
       capturedAt: new Date(this.environment.wallNow()).toISOString(),
       ttfrMs: rounded(this.ttfrMs),
+      firstRainMs: rounded(this.firstRainMs),
+      basemapReadyMs: rounded(this.basemapReadyMs),
+      ttfhMs: rounded(this.windowReady.get('rain_rate') ?? null),
+      ttfpMs: rounded(this.ttfpMs),
+      blankVisibleMs: Math.round(this.blankVisibleMs + (this.blankSinceMs === null ? 0 : this.environment.now() - this.blankSinceMs)),
       scrub: {
         samples: this.scrubSampleCount,
         p50Ms: percentile(samples, 0.5),

@@ -63,6 +63,7 @@ import { applyPresetParams, cursorForPresetEpoch, modeForActiveFocus, modeForFoc
 import { applyTelegramColors, type TelegramWebApp } from './core/telegram'
 import { loadTableDayNight, storeTableDayNight } from './core/table-appearance'
 import { READY_WINDOW_MS, windowReady } from './core/window-ready'
+import { visibleSlotStates } from './core/screen-truth'
 import type { Intent } from './core/intent'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
@@ -746,7 +747,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       map.on('resize', applyMapContainLimit)
       syncSavedMarkers(savedPlaces())
       map.on('style.load', () => attachMapLayers(header.grid))
-      map.on('render', () => { mapRepaints++ })
+      map.on('render', () => {
+        mapRepaints++
+        if (map?.isStyleLoaded() && map.areTilesLoaded()) perf.markBasemapReady()
+      })
       map.on('sourcedataloading', (event) => {
         if (!perfPhasesEnabled()) return
         const key = basemapTileKey(event)
@@ -1205,7 +1209,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         }
       })
     }
-    afterRainDraw(() => perf.markRainFrameCommitted())
+    afterRainDraw(() => perf.markRainFrameCommitted({ frameEpoch: leftFrame.epoch, playing: playing() }))
     if (!rainOverlay) map.triggerRepaint()
     // De eerste locatiereeks haalt dezelfde chunks direct in bulk op. Losse,
     // overlappende Range-prefetches maken Chromiums sparse HTTP-cache instabiel.
@@ -2570,6 +2574,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const withFrame = rows.filter((row) => row[series.key] != null)
       reportWindowReady(series.field, withFrame.map((row) => row.epoch), (index) => series.values()[withFrame[index]![series.key]!] != null)
     }
+  })
+  // Schermwaarheid (MIP-19): de scrubber tekent nog geen fog, dus elk zichtbaar regenslot zonder waarde is leeg.
+  createEffect(() => {
+    if (mapReady()) perf.markSplashGone()
+    const loaded = rainLoaded()
+    const slots = timeline().map((frame, index) => ({ epoch: frame.epoch, loaded: loaded[index] === true, fogDrawn: false }))
+    perf.setBlankVisibleSlots(visibleSlotStates(slots, viewWindow()).blank)
   })
   createEffect(() => {
     if (!inViewOnly) return

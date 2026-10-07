@@ -83,6 +83,9 @@ export default function PerfHud(props: Props) {
     <div class="perf-title"><strong>Perf</strong><span>live</span></div>
     <dl>
       <div><dt>TTFR</dt><dd data-testid="perf-ttfr">{milliseconds(metric().ttfrMs)}</dd></div>
+      <div><dt>Regen · tiles</dt><dd>{milliseconds(metric().firstRainMs)} · {milliseconds(metric().basemapReadyMs)}</dd></div>
+      <div><dt>ttfh · ttfp</dt><dd data-testid="perf-ttfp">{milliseconds(metric().ttfhMs)} · {milliseconds(metric().ttfpMs)}</dd></div>
+      <div><dt>Leeg in beeld</dt><dd data-testid="perf-blank-visible">{milliseconds(metric().blankVisibleMs)}</dd></div>
       <div><dt>Scrub p50 / p95</dt><dd>{milliseconds(metric().scrub.p50Ms)} / {milliseconds(metric().scrub.p95Ms)}</dd></div>
       <div><dt>FPS</dt><dd>{metric().fps?.toFixed(1) ?? '—'}</dd></div>
       <div><dt>Manifest</dt><dd>{age(metric().manifestAgeMs)}</dd></div>

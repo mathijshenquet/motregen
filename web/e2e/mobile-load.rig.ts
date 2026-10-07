@@ -8,6 +8,7 @@ import { installMobileProbe } from './mobile-probe'
 import { buildChromeTrace, type SelfProfilerTrace } from '../src/core/profile-recorder'
 import { createSourceMapResolver } from '../scripts/prof-source-map'
 import { profileTop } from '../scripts/prof-top'
+import { hostLoadAverage } from '../scripts/rig-host'
 import { completedBytesBefore, reconcileWire, renderMobileReport, summarizePhases, type MobileReport, type WireRequest } from '../scripts/mobile-report'
 import type { PerfMonitor } from '../src/core/perf'
 
@@ -18,7 +19,7 @@ interface ScenarioStep {
   playing?: boolean
   mode?: 'Weer' | 'Lucht' | 'Gevoel' | 'Wind'
 }
-interface Scenario { durationMs: number; description: string; steps: ScenarioStep[] }
+interface Scenario { durationMs: number; description: string; steps: ScenarioStep[]; autoplay?: boolean }
 interface RigOptions { profiles: string[]; scenarios: string[]; repeat: number; cpuRate: number }
 const options = JSON.parse(process.env.MOTREGEN_MOBILE_OPTIONS ?? '{"profiles":["mobile-4g"],"scenarios":["koud"],"repeat":1,"cpuRate":4}') as RigOptions
 const scenarios = JSON.parse(readFileSync('perf/scenarios.json', 'utf8')) as Record<string, Scenario>
@@ -29,6 +30,7 @@ for (const profileId of options.profiles) {
     for (let repetition = 1; repetition <= options.repeat; repetition++) {
       test(`${profileId} / ${scenarioId} / run ${repetition}`, async ({ page, context, baseURL }) => {
         const scenario = scenarios[scenarioId]!
+        const loadAverage = hostLoadAverage()
         const profile = { ...performanceProfile(profileId), cpuThrottleRate: options.cpuRate }
         const actions: MobileReport['actions'] = []
         const errors: string[] = []
@@ -63,9 +65,10 @@ for (const profileId of options.profiles) {
         await page.addInitScript(installMobileProbe)
         const network = recordPlaywrightNetwork(page)
         const capturedAt = new Date().toISOString()
-        await page.goto('/?perf=1&t=%2B0u&modus=weer', { waitUntil: 'commit' })
-        await page.waitForFunction(() => window.__motregenPerf?.snapshot().ttfrMs !== null && window.__motregenPerf?.snapshot().ttfrMs !== undefined)
-        await expect(page.getByRole('slider', { name: 'Tijd' })).not.toHaveAttribute('data-playing', '')
+        // Een ?t-preset zet de tijdlijn stil; zonder preset speelt de app vanzelf, zoals bij een gewone bezoeker.
+        await page.goto(scenario.autoplay ? '/?perf=1&modus=weer' : '/?perf=1&t=%2B0u&modus=weer', { waitUntil: 'commit' })
+        await page.waitForFunction(() => window.__motregenPerf?.snapshot().firstRainMs !== null && window.__motregenPerf?.snapshot().firstRainMs !== undefined)
+        if (!scenario.autoplay) await expect(page.getByRole('slider', { name: 'Tijd' })).not.toHaveAttribute('data-playing', '')
 
         for (const step of scenario.steps) {
           await waitUntil(page, step.atMs)
@@ -87,6 +90,10 @@ for (const profileId of options.profiles) {
             loads: monitor.loads.snapshot(),
             milestones: {
               ttfrMs: sample.ttfrMs,
+              firstRainMs: sample.firstRainMs,
+              basemapReadyMs: sample.basemapReadyMs,
+              ttfpMs: sample.ttfpMs,
+              blankVisibleMs: sample.blankVisibleMs,
               splashGoneMs: window.__mobileProbe.splashGoneMs,
               ttfhMs: window.__mobileProbe.ttfhMs,
               windowReadyMs: sample.windowReadyMs ?? {},
@@ -164,15 +171,17 @@ for (const profileId of options.profiles) {
           const isFocusField = traceRequest && traceRequest.layer !== 'header' && ['temp_c', 'pressure_hpa', 'cloud_frac'].includes(field ?? '')
           if (isFocusField && lastMode && nextMode && request.endMs !== null && request.endMs > nextMode.actualMs) lateOutsideIntent.push(request)
         }
+        if (captured.milestones.blankVisibleMs > 0) findings.push(`blank-visible-ms ${captured.milestones.blankVisibleMs}: na de splash stond er een leeg slot in beeld (doel 0, MIP-19)`)
+        if (scenario.autoplay && captured.milestones.ttfpMs === null) findings.push('ttfp niet bereikt: geen frame-wissel tijdens afspelen binnen de meetduur')
         if (!self) findings.push(captured.self.error ?? 'Self-Profiling leverde geen samples')
         if (!Object.keys(captured.milestones.windowReadyMs).length) findings.push('U52 window-ready-meetpunten ontbreken op deze main; ttfh komt uit de loadtrace')
         if (scenario.steps.some((step) => step.mode === 'Lucht') && !actions.some((action) => action.detail === 'modus Lucht')) findings.push('Deze main heeft nog geen Lucht-knop: bestaande Weer-wolkenfocus gebruikt en expliciet geregistreerd')
         const report: MobileReport = {
-          meta: { profile: profileId, scenario: scenarioId, sourceSha, capturedAt, cpuThrottleRate: profile.cpuThrottleRate, contractHash, fixtureHash, network: profile.network, hardwareConcurrency: captured.hardwareConcurrency },
+          meta: { profile: profileId, scenario: scenarioId, sourceSha, capturedAt, cpuThrottleRate: profile.cpuThrottleRate, contractHash, fixtureHash, network: profile.network, hardwareConcurrency: captured.hardwareConcurrency, loadAverage },
           milestones: captured.milestones,
           decode,
           wire: { ...wire, rangeRequests: requests.filter((request) => request.range !== null).length, beforeTtfrBytes: completedBytesBefore(requests, captured.milestones.ttfrMs), beforeTtfhBytes: completedBytesBefore(requests, captured.milestones.ttfhMs) },
-          longFrames: { count: longFrames.length, totalMs: longFrames.reduce((total, frame) => total + frame.duration, 0), blockingMs: longFrames.reduce((total, frame) => total + frame.blockingDuration, 0), topSources: [...longSources].sort((left, right) => right[1] - left[1]).slice(0, 3).map(([source, durationMs]) => ({ source, durationMs })) },
+          longFrames: { first12s: longFrameTotals(longFrames.filter((frame) => frame.startTime < 12_000)), count: longFrames.length, totalMs: longFrames.reduce((total, frame) => total + frame.duration, 0), blockingMs: longFrames.reduce((total, frame) => total + frame.blockingDuration, 0), topSources: [...longSources].sort((left, right) => right[1] - left[1]).slice(0, 3).map(([source, durationMs]) => ({ source, durationMs })) },
           mainThread: { samples: self?.samples.length ?? 0, busySamples: self?.samples.filter((sample) => sample.stackId !== undefined).length ?? 0, busyPercent: self?.samples.length ? 100 * self.samples.filter((sample) => sample.stackId !== undefined).length / self.samples.length : null, topSources: top.functions.filter((entry) => entry.url).slice(0, 3).map(({ functionName, url, selfSamples }) => ({ functionName, url, selfSamples })) },
           intent: { fieldBytes, lateOutsideIntent },
           actions,
@@ -193,6 +202,10 @@ for (const profileId of options.profiles) {
       })
     }
   }
+}
+
+function longFrameTotals(frames: Array<{ duration: number; blockingDuration: number }>) {
+  return { count: frames.length, totalMs: frames.reduce((total, frame) => total + frame.duration, 0), blockingMs: frames.reduce((total, frame) => total + frame.blockingDuration, 0) }
 }
 
 async function waitUntil(page: Page, timestampMs: number): Promise<void> {

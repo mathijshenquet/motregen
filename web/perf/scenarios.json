@@ -4,6 +4,12 @@
     "description": "Koude start op nu, gepauzeerd, 30 seconden zonder interactie",
     "steps": []
   },
+  "koud-spelend": {
+    "durationMs": 30000,
+    "description": "Koude start zonder tijdpreset: de tijdlijn speelt vanzelf, 30 seconden zonder interactie (ttfp)",
+    "autoplay": true,
+    "steps": []
+  },
   "journey": {
     "durationMs": 30000,
     "description": "Koude start, twee uur vooruit, tien seconden afspelen, wind, terug naar Weer",
