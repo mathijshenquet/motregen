@@ -35,7 +35,6 @@ interface JourneyResult {
   errors: string[]
 }
 
-const sessionByteBudget = 8_000_000
 const live = process.env.MOTREGEN_PERF_MODE === 'live'
 
 test('?perf persists the compact profiler controls and ?perf=0 clears them', async ({ page }) => {
@@ -144,11 +143,11 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     timeToLoadStageMs = performance.now() - completeStartedAt
     await page.waitForTimeout(500)
     scrubTransfers = await transferredDataRequests(page, '/data/chunks/') - requestStart
-    if (!live) expect(scrubTransfers).toBeLessThanOrEqual(scrubSteps)
+    if (!live) expect(scrubTransfers).toBeLessThanOrEqual(profile.scrubTransferBudget)
     const measured = await perfSnapshot(page)
     expect(measured.scrub.samples).toBeGreaterThan(0)
     expect(errors).toEqual([])
-    console.log(`${profile.label}: ${expectedLoadStage(profile)} in ${timeToCompleteMs.toFixed(1)} ms; scrub ${scrubTransfers} chunk requests / ${scrubFrames} frames; p50 ${measured.scrub.p50Ms} ms; p95 ${measured.scrub.p95Ms} ms; fps ${measured.fps ?? 'pending'}`)
+    console.log(`${profile.label}: ${expectedLoadStage(profile)} in ${timeToLoadStageMs.toFixed(1)} ms; scrub ${scrubTransfers} chunk requests / ${scrubFrames} frames; p50 ${measured.scrub.p50Ms} ms; p95 ${measured.scrub.p95Ms} ms; fps ${measured.fps ?? 'pending'}`)
   })
 
   await test.step('location changes through the search pill and reaches the appropriate load window', async () => {
@@ -157,7 +156,11 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     await page.getByRole('textbox', { name: 'Zoek plaats' }).click()
     await page.getByRole('option', { name: /^Utrecht/ }).click()
     await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor Utrecht$/)
+    // De slider-intentie is het productcontract voor L2 op desktop; op een krap apparaat
+    // vult dezelfde intentie uitsluitend het huidige zichtbare venster (U49).
+    await startPlayback(page)
     await expect(scrubber).toHaveAttribute('data-load-stage', expectedLoadStage(profile), { timeout: live ? 180_000 : 30_000 })
+    await pausePlayback(page)
     if (profile.id === 'desktop') await expect(page.locator('rect.rain-bar.pending')).toHaveCount(0)
     await page.waitForTimeout(100)
     locationTransfers = await transferredDataRequests(page, '/data/') - requestStart
@@ -217,7 +220,7 @@ test('user journey measures performance and cache behaviour', async ({ page, con
 
   await test.step('the complete session reports transfer volume and duration', async () => {
     await page.waitForTimeout(500)
-    if (!live) expect(network.bytes()).toBeLessThan(sessionByteBudget)
+    if (!live) expect(network.bytes()).toBeLessThanOrEqual(profile.sessionByteBudget)
     const measured = await perfSnapshot(page)
     const result: JourneyResult = {
       profile: profile.id,
