@@ -16,6 +16,8 @@ export interface ShareState {
   mode: PresetMode
   epoch: number
   point: PresetPoint
+  /** Label van de gekozen plek (zoekresultaat of dichtstbijzijnde plaats). */
+  place?: string
 }
 
 /** URL-termen blijven los van de interne focusnamen; de focusnamen staan hier als losse literals zodat de
@@ -64,23 +66,34 @@ export function modeForActiveFocus(focus: string | undefined): PresetMode {
 }
 
 /** Schrijft modus, plek en (optioneel) tijdstip in bestaande zoekparameters; andere parameters (dev, perf, tg) blijven. */
-export function applyPresetParams(params: URLSearchParams, state: { mode: PresetMode; epoch: number; point: PresetPoint }, includeTime: boolean): URLSearchParams {
+/** Een plaatsnaam in de link leest beter en lekt minder dan een pin (PO 2026-10-07); generieke labels tellen niet. */
+export function shareablePlace(label: string | undefined): string | undefined {
+  const place = label?.trim()
+  if (!place || place === 'Mijn locatie' || /^-?\d/.test(place)) return undefined
+  return place
+}
+
+export function applyPresetParams(params: URLSearchParams, state: ShareState, includeTime: boolean): URLSearchParams {
   params.set('modus', queryModes[state.mode])
   if (includeTime) params.set('t', new Date(Math.round(state.epoch / 60_000) * 60_000).toISOString().replace('.000Z', 'Z'))
   else params.delete('t')
-  params.set('lat', state.point.lat.toFixed(3))
-  params.set('lon', state.point.lng.toFixed(3))
-  params.delete('plaats')
+  const place = shareablePlace(state.place)
+  if (place) {
+    params.set('plaats', place)
+    params.delete('lat')
+    params.delete('lon')
+  } else {
+    params.set('lat', state.point.lat.toFixed(3))
+    params.set('lon', state.point.lng.toFixed(3))
+    params.delete('plaats')
+  }
   return params
 }
 
 /** Maakt altijd een productie-link: gedeelde previews horen naar de publieke app te wijzen. */
-export function shareUrl({ mode, epoch, point }: ShareState): string {
+export function shareUrl(state: ShareState): string {
   const url = new URL('https://motregen.nl/')
-  url.searchParams.set('modus', queryModes[mode])
-  url.searchParams.set('t', new Date(epoch).toISOString())
-  url.searchParams.set('lat', point.lat.toFixed(3))
-  url.searchParams.set('lon', point.lng.toFixed(3))
+  applyPresetParams(url.searchParams, state, true)
   return url.href
 }
 

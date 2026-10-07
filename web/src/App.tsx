@@ -180,7 +180,9 @@ function basemapTileKey(event: { sourceId?: string; tile?: { tileID?: { key?: st
 export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const devMode = new URLSearchParams(window.location.search).has('dev')
   const stillMode = new URLSearchParams(window.location.search).get('still') === '1'
-  const initialPresets = parsePresets(window.location.search)
+  // De adresbalk wordt later live bijgeschreven (permalink); de presets komen uit de zoekstring van het begin.
+  const initialSearch = window.location.search
+  const initialPresets = parsePresets(initialSearch)
   let mapElement!: HTMLDivElement
   let splashElement!: HTMLDivElement
   let forecastPanelElement!: HTMLElement
@@ -698,7 +700,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setManifestRefresh({ checkedAt: Date.now() })
       const frames = buildTimeline(data)
       if (!frames.length) throw new Error('De tijdlijn is leeg')
-      const presets = parsePresets(window.location.search, Date.parse(data.now))
+      const presets = parsePresets(initialSearch, Date.parse(data.now))
       setManifest(data)
       void Promise.all(data.chunks.filter(eagerHeader).map((chunk) => client.getHeader(chunk))).catch(() => undefined)
       if (!stillMode) stopManifestRefresh = scheduleManifestRefresh(refreshManifest, {
@@ -1064,22 +1066,22 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
   // Zolang het versheidspaneel open is staat de klok stil (PO 2026-09-25 live).
   let playingBeforeFreshness = false
-  let freshnessOpen = false
+  const [freshnessOpen, setFreshnessOpen] = createSignal(false)
   function pauseForFreshness(): void {
     usage.mark('fresh')
-    freshnessOpen = true
+    setFreshnessOpen(true)
     playingBeforeFreshness = playing()
     setPlaying(false)
   }
   function resumeAfterFreshness(): void {
-    freshnessOpen = false
+    setFreshnessOpen(false)
     if (playingBeforeFreshness) setPlaying(true)
     playingBeforeFreshness = false
   }
   // De scrubber hervat 1 s na een sleep; als het versheidspaneel intussen open ging, mag dat niet
   // onder het paneel door (bug PO 2026-10-07): onthoud het en hervat pas bij sluiten.
   function setPlayingFromScrubber(value: boolean): void {
-    if (freshnessOpen) { playingBeforeFreshness = value; return }
+    if (freshnessOpen()) { playingBeforeFreshness = value; return }
     setPlaying(value)
   }
 
@@ -2414,17 +2416,17 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return modeForActiveFocus(focusPinned() ?? focusMode.active())
   }
 
-  // De adresbalk is de permalink (PO 2026-10-07): modus en plek volgen live; het tijdstip alleen bij pauze/scrub,
-  // anders zou een herlaad tijdens afspelen op dat moment blijven staan (preset-semantiek).
+  // De adresbalk is de permalink (PO 2026-10-07): modus en plek volgen live; het tijdstip staat er alleen
+  // zolang het klokpaneel open is ("dit moment"), anders verandert de URL constant.
   createEffect(() => {
     if (stillMode) return
     const url = new URL(window.location.href)
-    applyPresetParams(url.searchParams, { mode: currentShareMode(), epoch: selectedEpoch(), point: location() }, !playing())
+    applyPresetParams(url.searchParams, { mode: currentShareMode(), epoch: selectedEpoch(), point: location(), place: locationLabel() }, freshnessOpen())
     if (url.href !== window.location.href) history.replaceState(history.state, '', url)
   })
 
   async function shareCurrentState(): Promise<void> {
-    const url = shareUrl({ mode: currentShareMode(), epoch: selectedEpoch(), point: location() })
+    const url = shareUrl({ mode: currentShareMode(), epoch: selectedEpoch(), point: location(), place: locationLabel() })
     const touch = matchMedia('(pointer: coarse)').matches
     if (touch && typeof navigator.share === 'function') {
       try {

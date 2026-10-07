@@ -39,7 +39,14 @@ describe('URL presets', () => {
 
   it('builds the canonical, rounded production share link', () => {
     expect(shareUrl({ mode: 'feels', epoch: now, point: { lng: 5.1236, lat: 52.0874 } })).toBe(
-      'https://motregen.nl/?modus=gevoel&t=2026-10-07T10%3A00%3A00.000Z&lat=52.087&lon=5.124',
+      'https://motregen.nl/?modus=gevoel&t=2026-10-07T10%3A00%3A00Z&lat=52.087&lon=5.124',
     )
+  })
+
+  it('prefers the place name over coordinates in a share link (reads better, leaks less)', () => {
+    expect(shareUrl({ mode: 'weather', epoch: now, point: { lng: 5.1236, lat: 52.0874 }, place: 'Utrecht' })).toBe(
+      'https://motregen.nl/?modus=weer&t=2026-10-07T10%3A00%3A00Z&plaats=Utrecht',
+    )
+    expect(shareUrl({ mode: 'weather', epoch: now, point: { lng: 5.1236, lat: 52.0874 }, place: 'Mijn locatie' })).toContain('lat=52.087')
   })
 })
