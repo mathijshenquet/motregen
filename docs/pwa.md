@@ -27,3 +27,11 @@ ook vóór Cloudflare. Als een open installatie een nieuwe worker ziet, verschij
 de kleine melding **Nieuwe versie — herlaad**. Na die knop gebruikt de pagina de
 nieuwe app-schil. Data onder `/data/` en kaarttegels worden nooit door de worker
 opgeslagen en blijven bij een vernieuwde ingest direct actueel.
+
+## Controle
+
+Lighthouse 13.5 heeft geen aparte PWA-categorie meer, dus het kan geen
+installability-score draaien. De gerichte Playwright-test `presets.spec.ts`
+controleert daarom in een preview-build dat de service worker gereed is én dat
+het manifest de standalone-weergave, beide `motregen.nl`-namen en de
+192/512/maskable iconen bevat.

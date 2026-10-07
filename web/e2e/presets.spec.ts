@@ -23,4 +23,18 @@ test('the preview build registers its service worker', async ({ page }, testInfo
   })
   expect(registration.scope).toBe(`${new URL(page.url()).origin}/`)
   expect(registration.script).toBe(`${new URL(page.url()).origin}/sw.js`)
+  const manifest = await page.evaluate(async () => fetch('/manifest.webmanifest').then((response) => response.json() as Promise<{
+    name: string
+    short_name: string
+    display: string
+    icons: Array<{ sizes: string; purpose?: string }>
+  }>))
+  expect(manifest.name).toBe('motregen.nl')
+  expect(manifest.short_name).toBe('motregen.nl')
+  expect(manifest.display).toBe('standalone')
+  expect(manifest.icons).toEqual(expect.arrayContaining([
+    expect.objectContaining({ sizes: '192x192' }),
+    expect.objectContaining({ sizes: '512x512' }),
+    expect.objectContaining({ purpose: 'maskable' }),
+  ]))
 })
