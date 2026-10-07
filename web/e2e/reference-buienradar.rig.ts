@@ -2,11 +2,12 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { expect, test, type Page } from '@playwright/test'
 import { applyEmulation, performanceProfile } from './profiles'
 import { installReferenceProbe, type ReferenceEvent } from './reference-probe'
-import { hostLoadAverage } from '../scripts/rig-host'
+import { hostLoadAverage, waitForQuietHost } from '../scripts/rig-host'
 import { referenceMilestones, renderReferenceReport, type ReferenceReport } from '../scripts/reference-report'
 
 interface RigOptions { profiles: string[]; repeat: number; cpuRate?: number }
 const options = JSON.parse(process.env.MOTREGEN_MOBILE_OPTIONS ?? '{"profiles":["mobile-4g"],"repeat":3,"cpuRate":4}') as RigOptions
+const QUIET_HOST_WAIT_MS = 15 * 60_000
 const origin = 'https://www.buienradar.nl'
 const observeAfterFirstFrameMs = 15_000
 const selectors = { radarImage: 'img.leaflet-image-layer', mapContainer: '.leaflet-container', timeLabel: '[class*="time" i]' }
@@ -16,6 +17,8 @@ for (const profileId of options.profiles) {
     test(`${profileId} / referentie-buienradar / run ${repetition}`, async ({ page, context }) => {
       const calibrated = performanceProfile(profileId)
       const profile = { ...calibrated, cpuThrottleRate: options.cpuRate ?? calibrated.cpuThrottleRate }
+      test.setTimeout(240_000 + QUIET_HOST_WAIT_MS)
+      await waitForQuietHost(QUIET_HOST_WAIT_MS, (message) => console.log(message))
       const loadAverage = hostLoadAverage()
       const events: ReferenceEvent[] = []
       const actions: ReferenceReport['actions'] = []

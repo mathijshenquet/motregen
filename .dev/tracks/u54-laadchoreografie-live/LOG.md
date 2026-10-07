@@ -89,3 +89,42 @@ CPU 4×, 30 Mbps/20 ms); nog NIET gekalibreerd. Grootste gat: decodes kosten in 
 Iteratie 1 (in meting, nog niet gecommit): het wolken-effect volgt de cursor niet meer
 (`untrack`) en deelt één publisher per locatie/tijdlijn. Geen waarneembare verandering beoogd.
 Receipts: `pnpm typecheck` exit 0, `pnpm test` exit 0 (456 tests).
+
+## 2026-10-07 20:40 — iteratie 1: wolkenreeks-effect volgt de cursor niet meer
+
+Wijziging (`web/src/App.tsx`, geen waarneembare verandering): het effect dat de wolkenreeksen
+leest gebruikt de cursor alleen nog voor de volgorde (`untrack(selectedEpoch)`) en deelt één
+`FrameBatcher` per locatie/tijdlijn. Vóór: elk afspeelbeeld opnieuw lezen + een eigen
+rAF-publisher per run.
+
+mobile-4g, CPU 4×, `koud-spelend`. Vóór = main ×3 (loadavg 6,1–7,5). Ná = ×5, waarvan alleen
+run 1 onder de drempel liep (5,47); run 2–5 begonnen op loadavg 9,4–11,4 en tellen volgens de
+regel niet mee. Ze staan er wel bij: een drukke host maakt tijden trager, niet sneller.
+
+| maat | vóór (mediaan ×3) | ná run 1 (geldig) | ná run 2–5 (loadavg > 8) | verschil |
+| --- | ---: | ---: | ---: | ---: |
+| ttfp | 4342 ms (2558 / 4342 / 4446) | 2934 ms | 2756 / 2572 / 2708 / 2551 | −1408 ms |
+| ttfp-ref Buienradar | ≈ 3,6–3,7 s | — | — | |
+| ttfh | 25532 ms | 3127 ms | 4326 / 4102 / 4244 / 4615 | −22,4 s |
+| blank-visible-ms | 22215 ms | 3919 ms | 5597 / 5407 / 5516 / 6449 | −18,3 s |
+| LoAF 12 s totaal / blocking | 10239 / 9094 ms | 2813 / 1119 ms | 1991–3040 / 612–1019 | −7,4 s |
+| decodes in 30 s | 356 / 341 / 276 | 356 | 356 / 355 / 356 / 356 | spreiding 25 % → 0,3 % |
+| wire (bodybytes) | 1675565 | 1675559 | 1675559 ×4 | −6 B |
+
+Lezing: de trage tak is weg (5 van 5 runs snel, tegen 1 van 3). Het effect is categorisch,
+geen marge: ttfh van 25 s naar 3–4,6 s. Wat nog NIET hard is: het precieze ttfp-getal na de
+fix rust op één geldige run; herhaling ×3 op een rustige host volgt. Op de rig staat ttfp nu
+onder ttfp-ref, maar de rig is de telefoon niet (decodes 0,3 ms tegen 22 ms) — zie kalibratie.
+
+ttfh blijft tweeledig (3,1 s tegen 4,1–4,6 s): afspelen begint rond 2,5 s, soms vóór het
+regenvenster compleet is, en remt dan het histogram. Dat is de race uit de vorige entry
+(speelregel, PO-stap).
+
+Rig: wacht nu ook vóór elke afzonderlijke run tot loadavg ≤ 8 (tot 15 min), niet alleen vóór
+de eerste. Nieuwe knoppen, nog zonder kalibratie: `--worker-cpu-rate` (CDP-rem per worker via
+`Target.sendMessageToTarget`, onbewezen) en `--grid-scale` (synthraster bilineair opgerekt,
+schaal 3 = 570 × 690).
+
+Receipts: `pnpm typecheck` exit 0; `pnpm test` exit 0 (456 tests, vóór de speelregel-tests);
+`pnpm exec vitest run src/core/playback-gate.test.ts` exit 0 (9 tests);
+`pnpm perf:mobile --scenario koud-spelend --repeat 5` exit 0.

@@ -12,6 +12,31 @@ const dataDir = resolve(root, process.env.MOTREGEN_SYNTH_DIR ?? 'public/data')
 const temperatureShift = Number(process.env.MOTREGEN_SYNTH_TEMP_SHIFT ?? 0)
 const grid: Grid = { crs: 'EPSG:3857', x0: 320_000, y0: 7_170_000, dx: 3_000, dy: -3_000, width: 190, height: 230 }
 const motionGrid: MotionGrid = { bw: 19, bh: 23 }
+// De patronen staan op het 3 km-raster; een schaal van 3 schrijft ze bilineair opgerekt op 1 km
+// (570 × 690, in de orde van het KNMI-raster van 700 × 765), zodat een decode in de laadrig echt
+// werk is. De motionvectoren blijven in cellen van het basisraster: alleen voor laadmetingen.
+const gridScale = Number(process.env.MOTREGEN_SYNTH_GRID_SCALE ?? 1)
+if (!Number.isInteger(gridScale) || gridScale < 1 || gridScale > 4) throw new Error('MOTREGEN_SYNTH_GRID_SCALE moet 1…4 zijn')
+const outputGrid: Grid = { ...grid, dx: grid.dx / gridScale, dy: grid.dy / gridScale, width: grid.width * gridScale, height: grid.height * gridScale }
+
+function upscale(cells: Uint8Array): Uint8Array {
+  if (gridScale === 1) return cells
+  const scaled = new Uint8Array(outputGrid.width * outputGrid.height)
+  for (let row = 0; row < outputGrid.height; row++) {
+    const sourceRow = Math.min(grid.height - 1, Math.max(0, (row + 0.5) / gridScale - 0.5))
+    const upperRow = Math.floor(sourceRow), lowerRow = Math.min(grid.height - 1, upperRow + 1), rowMix = sourceRow - upperRow
+    for (let column = 0; column < outputGrid.width; column++) {
+      const sourceColumn = Math.min(grid.width - 1, Math.max(0, (column + 0.5) / gridScale - 0.5))
+      const leftColumn = Math.floor(sourceColumn), rightColumn = Math.min(grid.width - 1, leftColumn + 1), columnMix = sourceColumn - leftColumn
+      const corners = [cells[upperRow * grid.width + leftColumn]!, cells[upperRow * grid.width + rightColumn]!, cells[lowerRow * grid.width + leftColumn]!, cells[lowerRow * grid.width + rightColumn]!]
+      // 255 is "geen data": niet mengen met echte waarden.
+      const nearest = corners[(rowMix < 0.5 ? 0 : 2) + (columnMix < 0.5 ? 0 : 1)]!
+      scaled[row * outputGrid.width + column] = corners.includes(255) ? nearest : Math.round(
+        (corners[0]! * (1 - columnMix) + corners[1]! * columnMix) * (1 - rowMix) + (corners[2]! * (1 - columnMix) + corners[3]! * columnMix) * rowMix)
+    }
+  }
+  return scaled
+}
 const now = Date.parse('2026-08-28T15:00:00Z')
 const rainQuant: Array<number | null> = [0]
 for (let i = 1; i < 255; i++) rainQuant.push(Number((0.01 * Math.pow(150 / 0.01, (i - 1) / 253)).toFixed(4)))
@@ -241,8 +266,8 @@ async function main(): Promise<void> {
   for (const plan of plans) {
     const predictive = plan.field === 'feels_like_c' || plan.field === 'pressure_hpa'
     const compressed = plan.times.map((time, index) => {
-      const cells = frameFor(plan, time, index)
-      return compressor.compress(predictive ? encodePredFrame(cells, grid.width) : cells, 9)
+      const cells = upscale(frameFor(plan, time, index))
+      return compressor.compress(predictive ? encodePredFrame(cells, outputGrid.width) : cells, 9)
     })
     const compressedMotion = plan.field === 'rain_rate'
       ? plan.times.map((time, index) => index === 0 ? undefined : compressor.compress(makeMotion(plan.times[index - 1]!, time), 9))
@@ -262,7 +287,7 @@ async function main(): Promise<void> {
     const header: MrfHeader = {
       version: 0,
       field: plan.field,
-      grid,
+      grid: outputGrid,
       quant: quantFor(plan.field),
       source: plan.source,
       run: iso(plan.run),

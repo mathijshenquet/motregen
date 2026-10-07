@@ -19,6 +19,10 @@ export interface PerformanceProfile {
   sessionByteBudget: number
   /** Wijkt het toestel af van de Pixel 5 van het Playwright-project, dan zet de rig dit per run. */
   device?: { viewport: { width: number; height: number }; userAgent: string }
+  /** CPU-rem per worker (decodes); zonder dit veld draaien workers op hostsnelheid. */
+  workerCpuThrottleRate?: number
+  /** Schaal van het synthraster in de laadrig; 3 geeft 570 × 690 cellen, in de orde van het KNMI-raster. */
+  synthGridScale?: number
 }
 
 const megabit = 1_000_000 / 8
