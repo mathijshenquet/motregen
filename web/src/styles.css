@@ -672,6 +672,7 @@ button.column-mode { width: 100%; cursor: pointer; }
 }
 .forecast-table.day-night-table tr.day-hour td { background: transparent; }
 :root[data-theme="dark"] .forecast-table.day-night-table tr.day-hour .weather-icon .weather-cloud { fill: #e7eef1; stroke: #8399a3; }
+.forecast-table tbody tr:not(.sun-row):not(.history-toggle-row) td { border-bottom-color: color-mix(in srgb, #fff 38%, var(--line)); }
 tr.past-hour td { color: color-mix(in srgb, var(--text) 68%, var(--muted)); }
 tr.pending-hour td { color: var(--muted); }
 /* De nu-markering staat in de 8 px-goot van de eerste kolom: de tijd springt niet in. */
@@ -709,7 +710,8 @@ td small { color: var(--muted); font-size: 9px; }
 .uv-bar-fill, .uv-bar-clear { position: absolute; top: 0; bottom: 0; left: 0; min-width: 9px; border-radius: inherit; }
 .uv-bar-fill { background: var(--uv-color); }
 .uv-bar-clear { background: color-mix(in srgb, var(--muted) 38%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--muted) 62%, var(--line)); }
-.uv-bar-value { font-variant-numeric: tabular-nums; font-weight: 650; line-height: 1; }
+.uv-bar-value { font-kerning: none; font-variant-numeric: tabular-nums; font-weight: 650; letter-spacing: 0; line-height: 1; }
+.uv-prefix { color: var(--muted); font-size: 8.5px; font-weight: 580; letter-spacing: .03em; }
 .uv-bar-level { line-height: 1; white-space: nowrap; color: color-mix(in srgb, var(--uv-color) 50%, var(--text)); font-size: 9.5px; font-weight: 700; letter-spacing: -.01em; }
 .uv-bar-bare { display: block; }
 .uv-bar-bare .uv-bar-track { min-width: 0; height: 6px; }

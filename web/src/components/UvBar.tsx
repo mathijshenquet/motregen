@@ -41,7 +41,7 @@ export default function UvBar(props: Props) {
         <span class="uv-bar-fill" style={{ width: percent(reading()!.value) }} />
       </span>
       <Show when={!props.bare}>
-        <span class="uv-bar-value" aria-hidden="true">UV {formatUv(reading()!.value)}</span>
+        <span class="uv-bar-value" aria-hidden="true"><span class="uv-prefix">UV</span> {formatUv(reading()!.value)}</span>
         <span class="uv-bar-level" aria-hidden="true">{uvLevel(reading()!.value).level}</span>
       </Show>
     </Show>

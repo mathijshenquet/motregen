@@ -565,6 +565,22 @@
 - Eigen visuele controle op desktop 1280×900 en mobiel 390×844: `UV 1`, `UV 0,4` en `UV 0,1 laag`
   passen zonder afbreken in de Luchtkolom; de lege schemerpil blijft weg.
 
+## 2026-10-07 14:19 UTC
+
+- Alle gewone tabelrijen hebben nu een vaste separator waarin 38% wit bij de lokale lijnkleur wordt
+  gemengd. Daardoor blijft de grens zichtbaar op heldere daglucht, grijze cellen, kolomhover en de
+  donkere nacht; de zonregels behouden hun eigen sterkere begrenzing.
+- Het prefix `UV` is binnen de meetwaarde kleiner, lichter en minder vet gemaakt. Voor de numerieke
+  waarde staan font-kerning expliciet uit en letterafstand op nul, zodat Nederlandse kommagetallen
+  zoals `1,3` niet langer als `1, 3` ogen.
+- Synchrone receipts: `git diff --check`, volledige Vitest-run 68 bestanden/439 tests en `pnpm
+  build` exit 0; na de CSS-kerningcorrectie is nogmaals gebouwd. Eindbuild: 113 modules,
+  `index-CRJqbydo.js`, `index-D-UwFtTA.css`, PWA + workers. Geen e2e uitgevoerd vóór PO-signaal
+  “klaar”.
+- Eigen visuele controle op desktop 1280×900 en mobiel 390×844: de rijscheidingen blijven overal
+  even leesbaar zonder de gradients op te knippen; `UV` is ondergeschikt aan de waarde en de komma
+  sluit visueel aan op beide cijfers. Computed style bevestigt `font-kerning: none`.
+
 ## 2026-10-07 13:26 UTC
 
 - De tabelcyclus is nu een gebruikersoptie “Dag en nacht in tabel” onder Weergave, standaard aan en
