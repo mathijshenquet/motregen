@@ -2,7 +2,7 @@ import { chromium } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
-// Stilstaand beeld van de scrubber in de wolkenmodus (track U47): de worker bekijkt dit zelf vóór elk
+// Stilstaand beeld van de scrubber in de modus Lucht, of met SHOT_MODE=weer in de rustige standaardweergave (track U47): de worker bekijkt dit zelf vóór elk
 // "klaar, herlaad" in een live-pane. Desktop en 390 px, licht en donker.
 // KEYS: door komma's gescheiden toetsen op de tijdslider (bijv. "PageUp,PageUp") om een ander moment te kiezen.
 const [origin, outDir, label = 'scrubber', keys = ''] = process.argv.slice(2)
@@ -18,9 +18,11 @@ for (const [name, viewport] of Object.entries(viewports)) {
   await page.locator('.map-splash.ready').waitFor({ state: 'attached' })
   const surface = page.locator('.scrub-surface')
   await page.locator('[data-testid=cloud-section] .cloud-band path').first().waitFor({ state: 'attached' })
-  await page.getByRole('button', { name: 'Weer' }).click()
-  await page.mouse.move(5, 5)
-  await page.locator('.scrub-surface[data-scrubber-view=clouds]').waitFor()
+  if (process.env.SHOT_MODE !== 'weer') {
+    await page.getByRole('button', { name: 'Lucht' }).first().click()
+    await page.mouse.move(5, 5)
+    await page.locator('.scrub-surface[data-scrubber-view=air]').waitFor()
+  }
   await surface.focus()
   if (await surface.getAttribute('data-playing') !== null) await surface.press(' ')
   for (const key of keys.split(',').filter(Boolean)) await surface.press(key)
