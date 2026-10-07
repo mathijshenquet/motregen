@@ -16,6 +16,10 @@ klein blijft.
 
 ## Werkwijze (live-pane, loop van minuten)
 
+Per stap: bouw, **maak zelf een screenshot van het resultaat (desktop én 390 px breed) en bekijk
+hem** vóór je "klaar, herlaad" meldt — "geen stills" betekent geen stills-gate voor de PO, niet
+dat je zelf niet kijkt (les U47 2026-10-07: een band die op y=0 begon viel de worker niet op).
+
 De PO kijkt live mee. Per stap één gerichte wijziging, `pnpm typecheck`, `pnpm build`, dan
 "klaar, herlaad" met in één zin wat er veranderde. Geen e2e, geen stills, tenzij gevraagd.
 Commit na elke stap die de PO goedkeurt. Preview (achtergrond; na een wijziging alleen

@@ -10,6 +10,12 @@ append-only, timestamped). Branch `track/u56-klokpil-tijdlijn` vanaf main. Eigen
 op 4345. U42 (tabel/modi) en U54 (scrubber/laadchoreografie) raken de scrubber; jij raakt alleen
 Freshness/klokpil-code en CSS.
 
+## Werkwijze
+
+Per stap: bouw, **maak zelf een screenshot van het resultaat (desktop én 390 px breed) en bekijk
+hem** vóór je "klaar, herlaad" meldt — "geen stills" betekent geen stills-gate voor de PO, niet
+dat je zelf niet kijkt (les U47 2026-10-07: een band die op y=0 begon viel de worker niet op).
+
 ## Opdracht
 
 1. **Slepen op de klokpil = scrubben**: `pointerdown` + horizontale beweging op de pil stuurt
