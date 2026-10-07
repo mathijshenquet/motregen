@@ -353,3 +353,9 @@ Alle drie runs: kaartfase ≤1 s, kaart-/totaalbytes ≤U59 +25 %, gelijk aantal
 
 - Strikte tooling/spec-typecheck en git diff --check exit 0. Mobiel rapport opnieuw gegenereerd: afgeleide JSON-groeivelden rekenen nu met dezelfde definitieve bytes als de tabel; report-mobile en zijn typecheck exit 0. Netwerk-/kaartgates blijven gelijk.
 - A/B-eindbeelden, rig- en cache-receipts veiliggesteld in commit/push; volgende stap einduitslag in docs en PR #87 ready.
+
+## 2026-10-07T22:43:22Z — Klaar voor review
+
+- docs/basemap.md §Stijl bevat nu de definitieve A/B-, label-, contrast-, mobiele byte-/fase- en cacheuitslagen. PR #87 bijgewerkt op de uiteindelijke implementatie en ready gezet; gh pr ready exit 0 en isDraft=false onafhankelijk teruggelezen. Geen merge uitgevoerd.
+- Preview-eindcontrole: root en live weermanifest HTTP 200, eerste radarframe Range 0–126 HTTP 206 / 127 B. De definitieve kaartbron is nl-91e2043db5c73799.pmtiles. Alle acht app-paren zijn bekeken; zachte bos-/grasvlakken zonder randen en lichtgrijze bebouwing geven de kaart de gevraagde textuur.
+- Eindgates: alle 28 paren groen/grijs binnen ±15 %, startlabels binnen ±20 %, nachtcontrast water–land 8,37 → 11,68; kaartbytes +13,46 %, totaalbytes +1,63 %, kaartfasen 550,4 / 504,0 / 556,8 ms. Typecheck, 519 units, stijlvalidator 6/6, build, Nix-package, 11 gerichte kaart/A/B-tests, 2 cachetests en 3 rigruns met waargenomen exit 0. Klaar; finale documentatie/log worden hieronder gecommit en gepusht.

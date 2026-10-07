@@ -195,7 +195,17 @@ zonder omtrekken. Groen en grijs moeten per paar binnen ±15 % van Liberty ligge
 gebouwen tellen niet als landuse-grijs. MapLibre
 levert de geplaatste unieke city/town/village-labels. CIE L*-verschillen meten
 water, labeltekst en grensverf tegenover de dominante kale landkleur. De
-uitslagen en meetbeperkingen staan in het U60-LOG, de eindparen vragen PO-review.
+uitslagen en meetbeperkingen staan in het
+[U60-LOG](../.dev/tracks/u60-basiskaart-afwerking/LOG.md), de eindparen vragen PO-review.
+
+De eindmeting op `nl-91e2043db5c73799.pmtiles` voldoet voor alle 28 licht/donker-paren:
+groen wijkt relatief −5,67 tot +12,68 % af, bebouwingsgrijs −8,52 tot +9,05 %.
+Bij z12 is grijs in beide bronnen nul. Startlabels zijn 6/6 op 390 px en 19/18
+op 1280 px (oud/nieuw). Het nachtcontrast water–land stijgt van ΔL* 8,37 naar 11,68.
+De drie koude mobile-4g-runs meten kaartfasen van 550,4 / 504,0 / 556,8 ms,
+kaartbytes +13,46 % en totaalbytes +1,63 % tegenover U59. De cachecontrole
+meet nul kaartnetwerkrequests bij beide warme reloads. De receipts bewaren ook
+de informatieve CPU-samples zonder sourcemap-positie; de netwerkmetingen zijn volledig.
 
 ```bash
 pnpm basemap:snapshot --detail
