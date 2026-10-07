@@ -288,7 +288,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let scrubPrefetch = false
   let initialPickStarted = false
   const playRuleWaitsForWindow = devMode && localStorage.getItem(PLAY_RULE_STORAGE_KEY) === 'venster'
-  const firstRainEarly = !(devMode && localStorage.getItem(FIRST_RAIN_STORAGE_KEY) === 'laat')
+  const [firstRainLate, setFirstRainLate] = createSignal(devMode && localStorage.getItem(FIRST_RAIN_STORAGE_KEY) === 'laat')
+  // Bij het laden vastgelegd: de knop werkt pas na herladen.
+  const firstRainEarly = !firstRainLate()
   let pointLoad: PointLoadState | undefined
   const windFrameCache = new Map<string, Promise<Float32Array>>()
   const media = matchMedia('(prefers-color-scheme: dark)')
@@ -2427,6 +2429,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setIsolineTuning({ ...DEFAULT_ISOLINE_TUNING })
       setClockJogScale('vast')
       setFrameSky(false)
+      setFirstRainLate(false)
       focusMode.pin(DEFAULT_FOCUS_MODE)
       setFocusPinned(DEFAULT_FOCUS_MODE)
     })
@@ -2792,6 +2795,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             onIsolineTuning={(patch) => setIsolineTuning((current) => ({ ...current, ...patch }))}
             clockJogScale={clockJogScale()}
             onClockJogScale={(scale) => { setClockJogScale(scale); localStorage.setItem(CLOCK_JOG_STORAGE_KEY, scale) }}
+            firstRainLate={firstRainLate()}
+            onFirstRainLate={(late) => { setFirstRainLate(late); localStorage.setItem(FIRST_RAIN_STORAGE_KEY, late ? 'laat' : 'vroeg') }}
             frameSky={frameSky()}
             onFrameSky={(enabled) => { setFrameSky(enabled); localStorage.setItem(FRAME_SKY_STORAGE_KEY, enabled ? 'aan' : 'uit') }}
             windTuning={windTuning()}

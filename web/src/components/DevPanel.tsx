@@ -12,6 +12,8 @@ interface Props {
   onIsolineTuning: (patch: Partial<IsolineTuning>) => void
   clockJogScale: ClockJogScale
   onClockJogScale: (scale: ClockJogScale) => void
+  firstRainLate: boolean
+  onFirstRainLate: (late: boolean) => void
   frameSky: boolean
   onFrameSky: (enabled: boolean) => void
   windTuning: WindTuning
@@ -100,6 +102,12 @@ export default function DevPanel(props: Props) {
       <Action label={windCopied() ? 'Gekopieerd' : 'Kopieer wind als JSON'} hint="Zet de vier windwaarden op het klembord, om terug te sturen." onClick={() => void copyWind()} />
     </Group>
     <Group title="Laden">
+      <Control label="Eerste regen" output={props.firstRainLate ? 'laat' : 'vroeg'} hint="Vroeg: het regenframe op de cursor en het volgende gaan direct na het manifest de lijn op. Laat: pas na de kaart-opzet, zoals voorheen. Herlaad met ?perf=1 om ttfp te vergelijken.">
+        <select value={props.firstRainLate ? 'laat' : 'vroeg'} onChange={(event) => props.onFirstRainLate(event.currentTarget.value === 'laat')}>
+          <option value="vroeg">vroeg</option>
+          <option value="laat">laat</option>
+        </select>
+      </Control>
       <Control label="Kaderhemel" output={props.frameSky ? 'aan' : 'uit'} hint="Het lege scrubber-kader krijgt tijdens het laden al de hemelkleur van het uur (halve bewolking aangenomen). Herlaad om het te zien.">
         <select value={props.frameSky ? 'aan' : 'uit'} onChange={(event) => props.onFrameSky(event.currentTarget.value === 'aan')}>
           <option value="uit">uit</option>

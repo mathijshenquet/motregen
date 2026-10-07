@@ -520,3 +520,59 @@ zien en moet uit een telefoonopname komen.
 Loopt nu (na U59): nieuwe baselines `--baseline` ×3 voor de zes klassieke combinaties, daarna
 po-android `koud-spelend` / `soepel` / `soepel-seek-laden` ×3 en ttfp-ref ×3 voor de
 "na U59"-regel.
+
+## 2026-10-08 04:15 — lus-tabel, nieuwe regel "na U59"; baselines gezet; meetfout in de referentie hersteld
+
+**Baselines:** `--baseline` ×3 voor de zes klassieke combinaties, exit 0, spreiding 0 %,
+loadavg 5,5–7,9 (commit f105483). `journey` +15 % decodes / +2,9 % wire is bedoeld en staat
+met reden in docs/perf.md §Baselines na U54 + U59.
+
+**Lus-tabel po-android** (renderer-quota 30 %, raster ×3, ×3 per regel, loadavg ≤ 8):
+
+| stand | ttfp (run 1 / 2 / 3) | mediaan | ttfp-ref | eerste regenframe | ttfh | LoAF 12 s | decodes / wire in 30 s |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| oude speelregel (`?dev`, vóór U59) | 4363 / 3934 / 3820 | 3934 ms | 3239 | 1805 | 6418 | 5302 ms | 222 / 3,71 MB |
+| speelregel (`?dev`, vóór U59) | 2619 / 2554 / 2838 | 2619 ms | 3239 | 1749 | 6419 | 5055 ms | 253 / 3,78 MB |
+| + eerste regen vroeg (`?dev`, vóór U59) | 2279 / 2433 / 2608 | 2433 ms | 3239 | 1917 | 6778 | 5724 ms | 252 / 3,78 MB |
+| **na U59, productieroute (526b987)** | 2350 / 2256 / 2072 | **2256 ms** | **3112 / 3223** | 1771 | 6021 | 5138 ms | 252 / 3,79 MB |
+
+Na U59: ttfp 2256 ms tegen ttfp-ref 3112–3223 ms, ≈ 0,71 ×. Op de rig is ook de ambitie
+(≤ 0,8 ×) gehaald. Eerste balk 1,58–1,83 s; blank-visible 225–227 slot-s (3,5–3,6 s
+volledig-leeg-equivalent), laatste balk binnen na 5,2–5,3 s.
+
+**Meetfout, hersteld.** De referentie-samenvatting toonde "3112 / 2975 / 3223": de middelste
+waarde was een rapportbestand van de run van 18:06. Run 2 van nu mislukte — Buienradar zelf
+gaf "Niet gevonden — momenteel kunnen wij geen informatie ophalen" en toonde geen radar
+(screenshot bekeken). Geldig zijn dus twee runs: 3112 en 3223 ms. `perf:mobile` wist voortaan
+de rapporten van dezelfde profiel/scenario-combinatie vóór een run. De eerdere tabellen zijn
+nagelopen: daar slaagden alle runs van de aanroep, dus geen oude bestanden in de uitslag.
+
+**Soepelheid na U59** (run 1 / 2 / 3; tussen haakjes de nulmeting vóór U59):
+
+| venster (10 s) | frame-tijd p95 | beelden > 50 ms | LoAF totaal | scrub p95 |
+| --- | ---: | ---: | ---: | ---: |
+| afspelen tijdens laden | 217 / 117 / 117 ms (100 / 100 / 100) | 66 / 48 / 47 (47 / 40 / 39) | 6683 / 3357 / 3734 ms | — |
+| afspelen na laden | 33,3 / 33,4 / 33,3 ms (16,8 ×3) | 6 / 10 / 6 (3 / 3 / 4) | 461 / 796 / 240 ms (298 / 137 / 301) | — |
+| seeken na laden | 100 / 117 / 100 ms (133 / 83 / 83) | 68 / 68 / 55 (67 / 43 / 32) | 4074 / 4117 / 2915 ms | 269 / 195 / 216 ms (175 / 120 / 175) |
+| seeken tijdens laden | 150 / 117 / 133 ms (133 / 117 / 133) | 53 / 48 / 51 (55 / 56 / 49) | 4184 / 4323 / 4338 ms | 230 / 240 / 140 ms (164 / 160 / 135) |
+
+Opvallend en consistent (3 van 3 aan beide kanten): **afspelen na laden ging van p95 16,8 naar
+33,3 ms** tussen de build van vóór U59 en die erna. Tussen die twee builds zit de U59-merge én
+mijn knop "Kaderhemel" (standaard uit) en LoAF-rapportage; ik heb het niet uitgesplitst. Het
+is een signaal, geen diagnose — voor de orkestrator/U59 om mee te wegen.
+
+**Waar het haperen bij seeken vandaan komt (rig):** in het venster "seeken na laden" vielen 370
+decodes, 7,3 s workertijd in 10 s. Niet regen, maar uurvelden voor wat in beeld schuift:
+`feels_like_c` 33 × 110 ms (3,8 s), de rest ≈ 10 ms per stuk. Twee kanttekeningen maken dit
+geen productconclusie: (1) de quota laat workers en hoofddraad uit één budget putten, op een
+telefoon met meerdere kernen verdringen decodes de hoofddraad veel minder; (2) op de telefoon
+kost `feels_like_c` 27–35 ms, geen 110. En de rig zet maar 34 stappen in 10 s. Er is geen
+telefoonopname van seeken; de opname van 17:02 is een koude start van 10 s.
+**Verzoek aan de PO:** één opname "30 s" op de telefoon terwijl hij na het laden 10 s
+heen en weer scrubt en 10 s laat afspelen — dan is er een echte referentie voor soepelheid.
+
+**Nieuw in deze commit:** `?dev`-knop "Eerste regen" (vroeg/laat, groep Laden) zodat de A/B
+van iteratie 3 op de telefoon kan met `?perf=1&dev`.
+
+Nog niet gedaan: rendering-kandidaten (R8-regentextuur, uploads spreiden, wind-trail per tik,
+tabel zonder layout-reads) — niet begonnen; gerichte e2e desktop — niet gedraaid.

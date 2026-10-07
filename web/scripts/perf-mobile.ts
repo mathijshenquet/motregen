@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
+import { readFileSync, readdirSync, rmSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { compactBaseline, compareBaseline, repetitionSpread, type MobileReport, type MobileBaseline } from './mobile-report'
 import { median, type ReferenceReport } from './reference-report'
@@ -48,6 +48,14 @@ if (gridScales.size > 1) throw new Error('Profielen met een verschillende raster
 const rendererQuotas = new Set(options.profiles.map((profile) => options.rendererQuota ?? performanceProfile(profile).rendererCpuQuotaPercent ?? 0))
 if (rendererQuotas.size > 1) throw new Error('Profielen met een verschillende renderer-quota kunnen niet in één aanroep')
 const rigEnvironment: NodeJS.ProcessEnv = { ...process.env, MOTREGEN_RIG_RENDERER_QUOTA: String([...rendererQuotas][0]), MOTREGEN_SYNTH_GRID_SCALE: String([...gridScales][0]), MOTREGEN_E2E_PORT: String(ports.port), MOTREGEN_E2E_DATA_PORT: String(ports.dataPort), MOTREGEN_MOBILE_OPTIONS: JSON.stringify(options), MOTREGEN_MOBILE_BASEMAP: options.basemap }
+// Rapporten van een eerdere aanroep mogen nooit als uitslag van deze meelopen: een run die nu
+// mislukt liet anders zijn oude getal in de samenvatting staan (referentie, 2026-10-08).
+if (existsSync('tmp/perf-mobile')) {
+  for (const file of readdirSync('tmp/perf-mobile')) {
+    const stale = options.profiles.some((profile) => options.scenarios.some((scenario) => file.startsWith(`${profile}-${scenario}-run`)))
+    if (stale) rmSync(`tmp/perf-mobile/${file}`, { force: true })
+  }
+}
 // Eerst bouwen, dan pas wachten op een rustige host: zo meet de run de werkboom van het moment
 // van de aanroep, ook als er tijdens het wachten verder wordt gewerkt.
 if (!options.scenarios.includes(REFERENCE_SCENARIO)) {
