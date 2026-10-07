@@ -1,7 +1,7 @@
 import { For, onCleanup, type JSX } from 'solid-js'
 import { Dynamic } from 'solid-js/web'
 import { WIND_UNITS, type WindUnit } from '../core/weather'
-import { BUTTON_ICON, INLINE_ICON, Moon, Share2, Sun, SunMoon, X } from './icons'
+import { BUTTON_ICON, INLINE_ICON, Moon, Palette, Share2, Sun, SunMoon, X } from './icons'
 import { backdropHandlers } from './modal'
 
 export const REPOSITORY_URL = 'https://github.com/mathijshenquet/motregen'
@@ -22,8 +22,8 @@ const WIND_UNIT_CHOICES: Record<WindUnit, string> = { bft: 'Bft', kn: 'knopen', 
 interface Props {
   theme: ThemeChoice
   onTheme: (theme: ThemeChoice) => void
-  tableDayNight?: boolean
-  onTableDayNight?: (enabled: boolean) => void
+  expressive?: boolean
+  onExpressive?: (enabled: boolean) => void
   windUnit: WindUnit
   onWindUnit: (unit: WindUnit) => void
   onOpen?: () => void
@@ -93,13 +93,13 @@ export default function About(props: Props) {
           </div>
           <button
             type="button"
-            class="about-table-cycle"
-            aria-pressed={props.tableDayNight !== false}
-            onClick={() => props.onTableDayNight?.(props.tableDayNight === false)}
+            class="about-expressive"
+            aria-pressed={props.expressive !== false}
+            onClick={() => props.onExpressive?.(props.expressive === false)}
           >
-            <SunMoon {...INLINE_ICON} />
-            <span><b>Dag en nacht in tabel</b><small>Kleur de uren mee met de zon</small></span>
-            <i aria-hidden="true">{props.tableDayNight === false ? 'Uit' : 'Aan'}</i>
+            <Palette {...INLINE_ICON} />
+            <span><b>Expressief</b><small>Hemel in de grafiek, dag en nacht in de tabel</small></span>
+            <i aria-hidden="true">{props.expressive === false ? 'Uit' : 'Aan'}</i>
           </button>
         </section>
         <header>

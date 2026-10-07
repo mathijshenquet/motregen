@@ -61,7 +61,7 @@ import { copyText } from './core/clipboard'
 import { resolveLocation, suggestLocations } from './core/geocoder'
 import { applyPresetParams, cursorForPresetEpoch, modeForActiveFocus, modeForFocus, parsePresets, shareUrl } from './core/presets'
 import { applyTelegramColors, type TelegramWebApp } from './core/telegram'
-import { loadTableDayNight, storeTableDayNight } from './core/table-appearance'
+import { loadExpressive, storeExpressive } from './core/expressive'
 import { READY_WINDOW_MS, windowReady } from './core/window-ready'
 import type { Intent } from './core/intent'
 
@@ -446,7 +446,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(stillMode ? 'light' : props.telegram?.colorScheme ?? storedTheme())
   const [windUnit, setWindUnit] = createSignal<WindUnit>(storedWindUnit())
-  const [tableDayNight, setTableDayNight] = createSignal(loadTableDayNight())
+  const [expressive, setExpressive] = createSignal(loadExpressive())
   const usage = createUsageTracker(browserUsageEnvironment(), theme(), windUnit())
   if (!stillMode) onCleanup(installUsageBeacon(usage, document, window))
   const [usageBody, setUsageBody] = createSignal(JSON.stringify(usage.sessionBody()))
@@ -2680,7 +2680,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         <footer class="still-attribution">KNMI · OpenFreeMap · © OpenStreetMap</footer>
       </Show>
       <Show when={!stillMode}>
-        <About theme={theme()} onTheme={(choice) => { usage.setTheme(choice); setTheme(choice) }} tableDayNight={tableDayNight()} onTableDayNight={(enabled) => { setTableDayNight(enabled); storeTableDayNight(enabled) }}
+        <About theme={theme()} onTheme={(choice) => { usage.setTheme(choice); setTheme(choice) }} expressive={expressive()} onExpressive={(enabled) => { setExpressive(enabled); storeExpressive(enabled) }}
           windUnit={windUnit()} onWindUnit={(unit) => { usage.setUnit(unit); setWindUnit(unit); localStorage.setItem('motregen-wind-unit', unit) }} onOpen={() => usage.mark('about')} onShare={shareCurrentState} shareNotice={shareNotice()} onTripleTap={() => setPerfVisible((visible) => !visible)} />
         <Show when={updateReady()}><aside class="update-toast" role="status">Nieuwe versie — <button type="button" onClick={() => void updateServiceWorker?.()}>herlaad</button></aside></Show>
         <LocationSearch
@@ -2741,6 +2741,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           clouds={{ timeline: cloudTimelines(), values: cloudValues() }}
           sky={{ radiation: { timeline: radiationTimeline(), values: radiationSeries() }, sinElevation: (epoch) => solarElevationSin(epoch, location().lng, location().lat) }}
           wind={{ timeline: windUFrames(), speed: windSpeedSeries(), gustTimeline: gustTimeline(), gust: gustSeries(), unit: windUnit() }}
+          expressive={expressive()}
           mix={{ wind: windFocus(), air: airFocus(), temperature: focus() }}
           temperature={{ timeline: feelsLikeTimeline(), values: feelsLikeSeries(), airTimeline: tempTimeline(), air: temperatureSeries(), stops: temperatureRange() && paletteStops(temperatureRange()!) }}
         />
@@ -2759,7 +2760,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
               }}
               location={location()}
               windUnit={windUnit()}
-              dayNight={tableDayNight()}
+              dayNight={expressive()}
               columns={{ weather: hasWeatherIcons(), air: hasWeatherIcons() || uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), wind: hasWind() }}
               loadedUntil={pointLoadStage() === 'complete' ? Number.POSITIVE_INFINITY : manifestNow() + PASSIVE_FORECAST_HOURS * 3_600_000}
               historyInline={historyInline()}
