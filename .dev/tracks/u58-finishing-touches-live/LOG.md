@@ -540,3 +540,32 @@ Receipts (synchroon): `pnpm typecheck` 0 na het toevoegen van de twee scripts; `
 **Bot klaar voor herstart** vanuit deze branch. Voor de proef: `MOTREGEN_BOT_FRAME=landscape` (zonder die
 variabele blijft alles staand). Commando's: /start, /regen, /temperatuur (alias /hitte; /gevoel werkt stil),
 /wind — elk antwoordt met de loop; /loop is vervallen.
+
+## 2026-10-08 04:20 — stap 5 teruggedraaid: staand blijft, landscape-proef weg; klok groter; loop-upload met maat
+
+Volgorde van de berichten: eerst las de orkestrator het PO-oordeel als "landscape top" en heb ik landscape
+de vaste maat gemaakt (niet gecommit); daarna de correctie: de PO vindt de **staande** opmaak "top, klok een
+tikje klein" en de landscape-proef "afschuwelijk".
+- Landscape-proef volledig verwijderd: `still-landscape` (CSS, App), `MOTREGEN_BOT_FRAME`, de eigen cachemap.
+  `FRAME` in `bot/config.ts` is één constante: 640×848 ×1,5 = 960×1272.
+- Klok in het still-beeld groter: tijd 20 → 25 px, dag/modus 11 → 13 px (alleen `.still-clock`, de app zelf
+  niet). `cacheKey` renderer 10 → 11, zodat de oude beelden met de kleine klok niet uit de cache komen.
+- Loop kleiner dan stills in Telegram: de container was al in orde (ffprobe: 960×1272, yuv420p, moov vooraan
+  = faststart, even afmetingen). Toegevoegd: `width`, `height` en `duration` bij `sendAnimation` en bij
+  `editMessageMedia` met een nieuw bestand (`animationSize` in `photos.ts`), en `setsar=1` in ffmpeg (de
+  pixelverhouding stond niet in het bestand; nu 1:1). Geen eigen thumbnail meegegeven: Telegram maakt die
+  zelf. `sendVideo` niet gebouwd.
+- **Niet aangetoond dat dit het verhelpt**: ik kan geen Telegram-bericht sturen of een bubbel bekijken. Mijn
+  inschatting (uit het hoofd, niet nagezocht): Telegram Desktop toont GIF/animaties met een kleinere
+  maximale maat dan foto's, los van wat de server over het bestand weet; dan helpen deze velden niet en is
+  de keuze `sendVideo` (volle breedte, maar speelt niet vanzelf in een lus) of de kleinere bubbel accepteren.
+- Zelf bekeken: echte loop en still met de bot-renderer (`TG_BOT_KEY=<nepwaarde> pnpm render --mode=weather`,
+  exit 0): mp4 960×1272, SAR 1:1, yuv420p, 59 frames, 5,9 s; bovenkant van een loopframe: klok "22:50 wo /
+  Regen" duidelijk groter, verwachtingsstreepje ernaast.
+- Receipts (synchroon): `bot`: `pnpm typecheck` 0, `pnpm test` 0 (12 bestanden, 60 tests; upload noemt
+  960/1272 en een duur), `pnpm build` 0. `web`: `pnpm typecheck` 0, `pnpm test` 0 (460), `pnpm build` 0,
+  `pnpm e2e e2e/telegram.spec.ts --project desktop` 0 (7 passed).
+
+**Bot klaar voor herstart** vanuit deze branch (geen variabele nodig). Na de herstart rendert en uploadt hij
+alles één keer opnieuw (nieuwe cachesleutel). Vraag aan de PO via de orkestrator: is de loop-bubbel nu even
+breed als de foto?

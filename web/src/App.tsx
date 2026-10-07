@@ -163,8 +163,6 @@ const TABLE_JUMP_RESUME_MS = 4_000
 // Zoveel px van de tabelrijen moet in beeld zijn voordat hun reeksen laden (U49): in het mobiele
 // startbeeld steekt de eerste rij 2 px boven de onderrand uit, en dat is nog geen lezen.
 const TABLE_PEEK_PX = 24
-// Breedte van het klokpaneel in een liggend still, als deel van het beeld; gelijk aan --still-panel in styles.css.
-const STILL_PANEL_SHARE = 0.36
 // Hoger dan een ingeklapte adresbalk (Android Chrome ~56 px, iOS Safari ~100 px): staat de pagina aan haar
 // einde en steekt er hooguit zoveel boven het tabelpaneel uit, dan is dat de tabelview — verder komt hij niet.
 const TABLE_SNAP_SLACK_PX = 120
@@ -188,8 +186,6 @@ function basemapTileKey(event: { sourceId?: string; tile?: { tileID?: { key?: st
 export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const devMode = new URLSearchParams(window.location.search).has('dev')
   const stillMode = new URLSearchParams(window.location.search).get('still') === '1'
-  // Liggend still (Telegram-loop, U58): rechts staat een paneel met klok en bron, de kaart past in de rest.
-  const stillLandscape = stillMode && window.innerWidth >= window.innerHeight * 4 / 3
   // De adresbalk wordt later live bijgeschreven (permalink); de presets komen uit de zoekstring van het begin.
   const initialSearch = window.location.search
   const initialPresets = parsePresets(initialSearch)
@@ -2347,7 +2343,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       topInset = { size, top: stillMode ? 0 : topOverlayInset() }
       mapElement.dataset.insetTop = String(topInset.top)
     }
-    return { width, height, insets: { top: topInset.top, right: stillLandscape ? Math.round(width * STILL_PANEL_SHARE) : 0, bottom: 0, left: 0 } }
+    return { width, height, insets: { top: topInset.top, right: 0, bottom: 0, left: 0 } }
   }
 
   // De klok hangt midden aan de bovenrand (U21/U22), dus de Waddenkust moet eronder vandaan; de
@@ -2702,7 +2698,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     scrollToTable()
   }
 
-  return <main class="app-shell" classList={{ 'still-view': stillMode, 'still-landscape': stillLandscape, 'table-view-open': tableViewOpen(), 'table-scroll-open': tableViewAvailable() && tableScrollOpen() }} data-generated={manifest()?.generated} data-epoch={cursorMinute()}>
+  return <main class="app-shell" classList={{ 'still-view': stillMode, 'table-view-open': tableViewOpen(), 'table-scroll-open': tableViewAvailable() && tableScrollOpen() }} data-generated={manifest()?.generated} data-epoch={cursorMinute()}>
     <section class="map-shell" aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainFocusOpacity(focus(), windFocus()).toFixed(2)} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
       <div ref={mapElement} class="map" />
       <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() }} aria-hidden={mapReady()}>

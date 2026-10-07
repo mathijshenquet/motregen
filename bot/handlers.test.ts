@@ -72,6 +72,9 @@ describe('still delivery and callbacks', () => {
     await handleUpdate(command, runtime)
     expect(calls.map((call) => [call.method, call.multipart])).toEqual([['sendAnimation', true], ['sendAnimation', false]])
     expect(calls[1].fields.animation).toBe('uploaded-1')
+    // De upload noemt maat en duur, zodat de client de loop even breed toont als een foto van dezelfde maat.
+    expect(calls[0].fields).toMatchObject({ width: '960', height: '1272' })
+    expect(Number(calls[0].fields.duration)).toBeGreaterThan(0)
   })
 
   it('answers /temperatuur and its aliases with the feels loop, and ignores the removed /loop', async () => {

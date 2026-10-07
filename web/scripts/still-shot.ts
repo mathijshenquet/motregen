@@ -2,12 +2,12 @@ import { chromium } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
-// Het still-beeld dat de Telegram-bot rendert, in beide beeldmaten (track U58): de worker bekijkt dit zelf
-// vóór "bot klaar voor herstart". Zelfde viewport en schaal als FRAMES in bot/config.ts.
+// Het still-beeld dat de Telegram-bot rendert (track U58): de worker bekijkt dit zelf vóór "bot klaar voor
+// herstart". Zelfde viewport en schaal als FRAME in bot/config.ts.
 const [origin, outDir] = process.argv.slice(2)
 if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/still-shot.ts ORIGIN OUT_DIR')
 mkdirSync(outDir, { recursive: true })
-const frames = { portrait: { width: 640, height: 848, scale: 1.5 }, landscape: { width: 800, height: 500, scale: 1.6 } }
+const frames = { portrait: { width: 640, height: 848, scale: 1.5 } }
 const manifest = await (await fetch(new URL('/data/manifest.json', origin))).json() as { now: string }
 const browser = await chromium.launch({ headless: true, args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
 for (const [name, frame] of Object.entries(frames)) {

@@ -170,18 +170,16 @@ nu pakt steeds de nieuwste matrix. Niet meer bekende generaties en Telegrams
 Een verlopen callback-query kan Telegram niet meer beantwoorden; die wordt
 stil afgehandeld, zonder `update-failed 400`. Andere API-fouten blijven zichtbaar.
 
-## Beeldmaat (proef, U58)
+## Beeldmaat
 
-De staande loop (960×1272) maakt de Telegram-bubbel op desktop smal, waardoor knoppen en labels klein
-worden. `MOTREGEN_BOT_FRAME=landscape` rendert alles op 1280×800: de app zet de kaart dan in de linker 64 %
-en de klok, dag, modus en bron in een paneel rechts (`still-landscape` in `web/src/styles.css`). Loops en
-stills komen uit dezelfde framereeks en gaan dus samen mee. Elke beeldmaat heeft een eigen cachemap
-(`<cache>/landscape`), zodat bestanden en file_id's niet mengen; wisselen van maat betekent dus één keer
-alles opnieuw renderen en uploaden. De cachechat-berichten van de andere maat worden daarbij niet opgeruimd.
-Na de PO-keuze wordt de gekozen maat een constante en vervalt de variabele.
-`web/scripts/still-shot.ts` rendert het still-beeld in beide maten om zelf te bekijken;
-`TG_BOT_KEY=x MOTREGEN_BOT_FRAME=landscape pnpm render --mode=weather` (in `bot/`) maakt een echte loop zonder
-Telegram aan te raken.
+Stills en loops zijn staand, 960×1272 (`FRAME` in `bot/config.ts`). Een liggende proef (1280×800 met de klok
+in een paneel naast de kaart) is door de PO afgewezen (2026-10-08) en weer verwijderd. De klok in het beeld
+is een maat groter dan in de app. Bij het uploaden van een loop geeft de bot `width`, `height` en
+`duration` expliciet mee en zet ffmpeg vierkante pixels (`setsar=1`), naast yuv420p en faststart:
+de PO zag de mp4 kleiner in de bubbel dan een foto van dezelfde maat. Of dat het verhelpt is nog niet op
+een echt bericht bevestigd; Telegram-clients kunnen animaties ook uit zichzelf kleiner tonen dan foto's.
+`web/scripts/still-shot.ts` rendert het still-beeld om zelf te bekijken;
+`TG_BOT_KEY=x pnpm render --mode=weather` (in `bot/`) maakt een echte loop zonder Telegram aan te raken.
 
 ## Productie
 
@@ -209,7 +207,6 @@ Het token gaat nooit in Git of de Nix-store. Configuratie via environment:
 | `MOTREGEN_CACHE_CHAT_ID` | niet ingesteld | optioneel privékanaal of -groep voor vooraf uploaden; anders luie uploads |
 | `MOTREGEN_ORIGIN` | `https://motregen.nl` | app en publieke still-URLs |
 | `MOTREGEN_RENDER_CACHE` | `tmp/telegram-stills` | lokale cachemap |
-| `MOTREGEN_BOT_FRAME` | `portrait` | beeldmaat van loops en stills: `portrait` (960×1272) of `landscape` (1280×800); proef tot de PO kiest (U58) |
 | `MOTREGEN_CHROMIUM_PATH` | Playwright-selectie | expliciete nixpkgs-Chromium-binary |
 
 De unit zet de cache op `/var/cache/motregen-bot/stills`, de browsers op het

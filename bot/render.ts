@@ -1,4 +1,4 @@
-import { FRAMES, type FrameName } from './config.js'
+import { FRAME } from './config.js'
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright'
 import { access, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -51,7 +51,7 @@ export class StillRenderer {
   private pending = new Map<string, Promise<RenderedSequence>>()
   private pendingStills = new Map<string, Promise<RenderedStill>>()
 
-  constructor(private readonly origin: string, private readonly cacheDirectory: string, private readonly frame: FrameName = 'portrait') {}
+  constructor(private readonly origin: string, private readonly cacheDirectory: string) {}
 
   async manifest(): Promise<StillManifest> {
     const response = await fetch(new URL('/data/manifest.json', this.origin), { cache: 'no-store', signal: AbortSignal.timeout(15_000) })
@@ -153,7 +153,7 @@ export class StillRenderer {
         args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'],
       })
       this.context = await this.browser.newContext({
-        viewport: { width: FRAMES[this.frame].width, height: FRAMES[this.frame].height }, deviceScaleFactor: FRAMES[this.frame].scale,
+        viewport: { width: FRAME.width, height: FRAME.height }, deviceScaleFactor: FRAME.scale,
         locale: 'nl-NL', timezoneId: 'Europe/Amsterdam', reducedMotion: 'reduce', serviceWorkers: 'block',
       })
       return this.context
@@ -224,7 +224,7 @@ export class StillRenderer {
         if (state.error) throw new Error(state.error)
         if (state.generated !== manifest.generated || Math.abs(state.epoch - epoch) >= 60_000) throw new Error('Frame wijkt af van de gevraagde manifestversie of tijd')
         phase = 'capture'
-        const screenshot = await capture.send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false, optimizeForSpeed: true, clip: { x: 0, y: 0, width: FRAMES[this.frame].width, height: FRAMES[this.frame].height, scale: FRAMES[this.frame].scale } })
+        const screenshot = await capture.send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false, optimizeForSpeed: true, clip: { x: 0, y: 0, width: FRAME.width, height: FRAME.height, scale: FRAME.scale } })
         await writeFile(framePath(directory, index), Buffer.from(screenshot.data, 'base64'))
       }
       const renderMs = Math.round(performance.now() - started)

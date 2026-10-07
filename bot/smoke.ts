@@ -9,7 +9,7 @@ import { keyboard, PREWARM_HOURS, STILL_HOURS, LOOP_MODES } from './stills.js'
 
 async function smoke(): Promise<void> {
   const config = readConfig()
-  const renderer = new StillRenderer(config.origin, config.cacheDirectory, config.frame)
+  const renderer = new StillRenderer(config.origin, config.cacheDirectory)
   try {
     const manifest = await renderer.manifest()
     if (process.argv.includes('--render-only')) {

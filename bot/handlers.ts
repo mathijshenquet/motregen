@@ -1,5 +1,5 @@
 import { TelegramApiError, type TelegramApi, type TelegramMessage, type TelegramUpdate } from './api.js'
-import { FRAMES, type BotConfig } from './config.js'
+import { FRAME_PIXELS, type BotConfig } from './config.js'
 import type { RenderedMedia, StillRenderer } from './render.js'
 import type { StillPhotos } from './photos.js'
 import type { MessageSelections } from './selections.js'
@@ -91,7 +91,6 @@ async function handleCommand(message: TelegramMessage, runtime: BotRuntime): Pro
 
 async function handleInline(query: NonNullable<TelegramUpdate['inline_query']>, runtime: BotRuntime): Promise<void> {
   const results = []
-  const frame = FRAMES[runtime.config.frame ?? 'portrait']
   const loopsOnly = /^loop(?:\s|$)/i.test(query.query.trim())
   const filter = loopsOnly ? query.query.trim().replace(/^loop\s*/i, '') : query.query
   for (const mode of matchingModes(filter)) {
@@ -114,7 +113,7 @@ async function handleInline(query: NonNullable<TelegramUpdate['inline_query']>, 
     results.push({
       type: 'photo',
       id: still.key,
-      ...(fileId ? { photo_file_id: fileId } : { photo_url: still.url, thumbnail_url: still.url, photo_width: frame.width * frame.scale, photo_height: frame.height * frame.scale }),
+      ...(fileId ? { photo_file_id: fileId } : { photo_url: still.url, thumbnail_url: still.url, photo_width: FRAME_PIXELS.width, photo_height: FRAME_PIXELS.height }),
       title: definition.label,
       description: definition.label,
       caption: still.caption,

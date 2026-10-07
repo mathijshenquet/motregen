@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { resolve } from 'node:path'
-import { FRAMES, readConfig, validateCacheChat } from './config.js'
+import { FRAME_PIXELS, readConfig, validateCacheChat } from './config.js'
 import type { TelegramApi } from './api.js'
 
 describe('cache destination validation', () => {
@@ -29,23 +29,8 @@ describe('cache destination validation', () => {
 })
 
 describe('frame size', () => {
-  const environment = { TG_BOT_KEY: 'test-token', MOTREGEN_RENDER_CACHE: 'tmp/frame-test' }
-
-  it('defaults to portrait and keeps the cache directory as it was', () => {
-    const config = readConfig(environment)
-    expect(config.frame).toBe('portrait')
-    expect(config.cacheDirectory).toBe(resolve('tmp/frame-test'))
-    expect([FRAMES.portrait.width * FRAMES.portrait.scale, FRAMES.portrait.height * FRAMES.portrait.scale]).toEqual([960, 1272])
-  })
-
-  it('gives landscape its own cache directory so files and file ids never mix', () => {
-    const config = readConfig({ ...environment, MOTREGEN_BOT_FRAME: 'landscape' })
-    expect(config.frame).toBe('landscape')
-    expect(config.cacheDirectory).toBe(resolve('tmp/frame-test', 'landscape'))
-    expect([FRAMES.landscape.width * FRAMES.landscape.scale, FRAMES.landscape.height * FRAMES.landscape.scale]).toEqual([1280, 800])
-  })
-
-  it('rejects an unknown frame name', () => {
-    expect(() => readConfig({ ...environment, MOTREGEN_BOT_FRAME: 'vierkant' })).toThrow('MOTREGEN_BOT_FRAME')
+  it('renders portrait media of 960×1272 into the configured cache directory', () => {
+    expect(FRAME_PIXELS).toEqual({ width: 960, height: 1272 })
+    expect(readConfig({ TG_BOT_KEY: 'test-token', MOTREGEN_RENDER_CACHE: 'tmp/frame-test' }).cacheDirectory).toBe(resolve('tmp/frame-test'))
   })
 })

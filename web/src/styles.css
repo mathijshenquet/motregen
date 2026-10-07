@@ -115,25 +115,11 @@ button { color: inherit; cursor: pointer; }
 .still-view .map-shell { width: 100%; height: 100%; border-radius: 0; }
 .still-view .map-splash.ready { display: none; }
 .still-clock { pointer-events: none; }
-.still-clock[data-regime]::before { content: ''; position: absolute; left: 6px; top: 12px; width: 2px; height: 16px; background: var(--muted); }
+/* Klok in het Telegram-beeld een maat groter dan in de app (PO 2026-10-08: "een tikje klein"). */
+.still-clock .clock-map-time { font-size: 25px; }
+.still-clock .clock-day { font-size: 13px; }
+.still-clock[data-regime]::before { content: ''; position: absolute; left: 6px; top: 12px; width: 2px; height: 20px; background: var(--muted); }
 .still-clock[data-regime="forecast"]::before { background: var(--accent); }
-/* Liggend still (Telegram-loop, U58): de staande kaart maakte de bubbel op desktop smal. Kaart links, rechts
-   een vol paneel met klok, modus en bron in grote letters. --still-panel hoort bij STILL_PANEL_SHARE in App. */
-.still-landscape { --still-panel: 36%; }
-.still-landscape .still-clock {
-  top: 0; right: 0; bottom: 0; left: auto; width: var(--still-panel); min-width: 0; transform: none;
-  border: 0; border-left: 1px solid var(--line-strong); border-radius: 0;
-  /* Dekkend: --surface-raised is 96 % en liet plaatsnamen van de kaart eronder doorschemeren. */
-  background: var(--surface); backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none;
-}
-.still-landscape .still-clock .freshness-trigger { align-items: flex-start; gap: 10px; padding: 0 30px; border-radius: 0; }
-.still-landscape .still-clock .clock-main { flex-direction: column; align-items: flex-start; gap: 4px; }
-.still-landscape .still-clock .clock-map-time { font-size: 76px; line-height: 1; }
-.still-landscape .still-clock .clock-day { font-size: 24px; }
-/* De modusnaam ("Gevoelstemperatuur") moet binnen het paneel passen. */
-.still-landscape .still-clock .freshness-trigger > .clock-day { font-size: 20px; }
-.still-landscape .still-clock[data-regime]::before { left: 0; top: 0; width: 6px; height: 100%; }
-.still-landscape .still-attribution { left: auto; right: 0; bottom: 16px; width: var(--still-panel); padding: 0 30px; background: none; color: var(--muted); font-size: 13px; }
 .still-attribution {
   position: absolute;
   z-index: 10;
