@@ -1,4 +1,4 @@
-import { createSignal, For, onCleanup, onMount, Show } from 'solid-js'
+import { createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
 import { PERF_PHASES, isolineRates, type IsolineCounters, type IsolineRates, type PerfMonitor, type PerfPhase, type PerfSnapshot } from '../core/perf'
 import type { ProfileRecording } from '../core/profile-recorder'
 import { copyText } from '../core/clipboard'
@@ -14,6 +14,7 @@ interface Props {
     recording?: ProfileRecording
     notice: string
     onRecord: () => void
+    onStop: () => void
     onCold: () => void
     onSend: () => Promise<void>
   }
@@ -64,7 +65,21 @@ export default function PerfHud(props: Props) {
   }
 
   const metric = () => snapshot()
-  return <aside class="perf-hud" aria-label="Prestatiemetingen" data-testid="perf-hud">
+  const [recordingSeconds, setRecordingSeconds] = createSignal(0)
+  createEffect(() => {
+    if (props.profile?.state !== 'recording') { setRecordingSeconds(0); return }
+    const started = performance.now()
+    const tick = window.setInterval(() => setRecordingSeconds(Math.floor((performance.now() - started) / 1_000)), 500)
+    onCleanup(() => window.clearInterval(tick))
+  })
+  // Tijdens een opname krimpt de HUD tot een pil: het volle paneel blokkeerde de UI die je juist wilt profileren (PO 2026-10-07).
+  return <Show when={props.profile?.state !== 'recording'} fallback={
+    <aside class="perf-hud perf-hud-recording" aria-label="Opname loopt" data-testid="perf-hud">
+      <span class="perf-recording-dot" aria-hidden="true" /><span>Opname {recordingSeconds()} s</span>
+      <button type="button" onClick={() => props.profile?.onStop()}>Stop</button>
+    </aside>
+  }>
+  <aside class="perf-hud" aria-label="Prestatiemetingen" data-testid="perf-hud">
     <div class="perf-title"><strong>Perf</strong><span>live</span></div>
     <dl>
       <div><dt>TTFR</dt><dd data-testid="perf-ttfr">{milliseconds(metric().ttfrMs)}</dd></div>
@@ -117,6 +132,7 @@ export default function PerfHud(props: Props) {
       <p role="status">{profile().notice}</p>
     </div>}</Show>
   </aside>
+  </Show>
 }
 
 const phaseLabels: Record<PerfPhase, string> = {

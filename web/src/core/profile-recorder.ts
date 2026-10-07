@@ -50,6 +50,7 @@ export async function recordProfile(
   monitor: PerfMonitor,
   durationMs = 30_000,
   captureStartTime = performance.now(),
+  stop?: AbortSignal,
 ): Promise<ProfileRecording> {
   const startedAt = performance.now()
   const Profiler = (globalThis as typeof globalThis & { Profiler?: ProfilerConstructor }).Profiler
@@ -61,7 +62,7 @@ export async function recordProfile(
       profiler = undefined
     }
   }
-  await delay(Math.max(0, durationMs))
+  await delay(Math.max(0, durationMs), stop)
   const endedAt = performance.now()
   let selfProfile: SelfProfilerTrace | undefined
   if (profiler) {
@@ -215,6 +216,11 @@ function browserPlatform(): string {
   return data.userAgentData?.platform || navigator.platform || 'unknown'
 }
 
-function delay(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => globalThis.setTimeout(resolve, milliseconds))
+/** Wacht de opnameduur af, of korter als de gebruiker op Stop tikt (PO 2026-10-07). */
+function delay(milliseconds: number, stop?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (stop?.aborted) { resolve(); return }
+    const timer = globalThis.setTimeout(resolve, milliseconds)
+    stop?.addEventListener('abort', () => { globalThis.clearTimeout(timer); resolve() }, { once: true })
+  })
 }

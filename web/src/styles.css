@@ -76,6 +76,32 @@ button { color: inherit; cursor: pointer; }
   background: var(--page);
 }
 
+.app-shell.still-view {
+  display: block;
+  height: 100vh;
+  min-height: 0;
+}
+.still-view .map-shell { width: 100%; height: 100%; border-radius: 0; }
+.still-view .map-splash.ready { display: none; }
+.still-caption {
+  position: absolute;
+  z-index: 10;
+  left: 24px;
+  right: 24px;
+  bottom: 24px;
+  display: grid;
+  gap: 7px;
+  padding: 18px 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: 21px;
+  box-shadow: var(--shadow);
+}
+.still-caption strong { font-size: 26px; }
+.still-caption small { color: var(--muted); font-size: 12px; }
+
 .uv-chip {
   --uv-color: var(--uv-moderate);
   display: inline-flex;

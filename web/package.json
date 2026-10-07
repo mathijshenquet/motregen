@@ -10,6 +10,7 @@
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
     "prof:check": "tsx scripts/prof-check.ts",
+    "prof:top": "tsx scripts/prof-top.ts",
     "prof:import": "tsx scripts/prof-import.ts",
     "prof:sink": "tsx scripts/prof-sink.ts",
     "prof:capture": "tsx scripts/record-profile.ts",
@@ -21,12 +22,15 @@
     "e2e:benchmark": "scripts/e2e-slot.sh playwright test --config playwright.benchmark.config.ts"
   },
   "dependencies": {
+    "@mapbox/vector-tile": "^2.0.5",
     "fzstd": "^0.1.1",
     "lucide-solid": "^1.47.0",
     "maplibre-gl": "^5.7.1",
+    "pbf": "^4.0.2",
     "solid-js": "^1.9.9"
   },
   "devDependencies": {
+    "@jridgewell/trace-mapping": "^0.3.31",
     "@playwright/test": "^1.61.1",
     "@solidjs/testing-library": "^0.8.10",
     "@tailwindcss/vite": "^4.1.13",

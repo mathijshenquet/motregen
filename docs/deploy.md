@@ -67,6 +67,9 @@ optionele ingestvariabelen zijn `MOTREGEN_RADAR_CADENCE`,
 
 ## Cloudflare
 
+De Telegram-service leest `TG_BOT_KEY` uit hetzelfde `secrets.env`. BotFather,
+cache, Mini App en controlecommando's staan in [telegram.md](telegram.md).
+
 Voer deze stappen uit in het Cloudflare-dashboard:
 
 1. Voeg voor `motregen.nl` een proxied A-record toe naar `57.129.47.17` en een

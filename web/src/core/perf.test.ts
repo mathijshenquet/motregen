@@ -140,5 +140,7 @@ describe('performance monitor', () => {
     expect(consumeColdProfile(storage)).toBe(false)
     expect(values.get('motregen-perf')).toBeUndefined()
     expect(configurePerfMode(new URL('https://example.test/?perf=0'), storage)).toBe(false)
+    expect(configurePerfMode(new URL('https://example.test/?perf=start'), storage)).toBe(true)
+    expect(consumeColdProfile(storage)).toBe(true)
   })
 })

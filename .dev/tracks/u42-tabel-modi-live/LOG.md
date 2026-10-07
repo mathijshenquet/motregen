@@ -230,3 +230,15 @@
   51 bestanden / 349 tests groen; `pnpm build` exit 0 (100 modules, `index-BUennRHE.js`,
   `index-yfRRTRYH.css`, PWA). Preview `http://ageq-dev2:4320/` antwoordt HTTP 200. Geen e2e
   uitgevoerd vóór PO-signaal “klaar”.
+
+## 2026-10-07 10:07 UTC
+
+- `main` op commit `8f75d16` gemerged op verzoek van de orkestrator. De nieuwe gecachte
+  locale-formatters zijn in ForecastTable en HistogramScrubber behouden. Conflicten zijn bewust
+  gecombineerd: U42’s Lucht/tabelstructuur, kaartpauze en mobiele modus blijven staan; mains
+  Telegram/still-rendering, watermasker en `?perf=start` zijn meegenomen. De About-fixture bevat
+  nu zowel Maan als Telegram. De kale preview-URL blijft oude perfstaat wissen.
+- Synchrone receipts op de gemergde staat: `pnpm typecheck` exit 0; volledige `pnpm test`
+  57 bestanden / 373 tests groen; `pnpm build` exit 0 (105 modules, `index-BQZBP1NC.js`,
+  `index-BQt5enWL.css`, PWA + watermaskerworker). Preview `http://ageq-dev2:4320/` antwoordt
+  HTTP 200. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
