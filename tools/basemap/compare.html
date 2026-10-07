@@ -12,6 +12,7 @@ let map
 window.renderComparison = async function(styleUrl, camera, viewport) {
   if (map) map.remove()
   const style = await fetch(styleUrl).then(response => response.json())
+  style.transition = { duration: 0, delay: 0 }
   const container = document.getElementById('map')
   container.style.width = viewport.width + 'px'
   container.style.height = viewport.height + 'px'

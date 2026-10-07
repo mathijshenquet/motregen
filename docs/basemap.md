@@ -55,6 +55,8 @@ met osmium een complete-way/multipolygon-extract. Tilemaker gebruikt
 De PMTiles-CLI clustert en verifieert het archief.
 `publish.mts` controleert iedere tegel op het toegestane schema, grenzen,
 landklassen en labels, meet tegelgroottes per zoom en weigert meer dan 25 MB.
+`budget.json` bewaart het U59-manifest als vaste nulmeting: archief, gecomprimeerd
+tegeltotaal per zoom en grootste tegel mogen elk maximaal 25 % groeien.
 Daarna schrijft het `tools/basemap/tiles/nl-<16 hex SHA256>.pmtiles`, een
 manifest met de volledige hash en twee stijlen. De tegels en stijlen worden
 samen gecommit; downloads en tussenbestanden zijn genegeerd.
@@ -131,6 +133,10 @@ en wordt daarom niet meegeleverd. Wetland wordt bij z12 zichtbaar, ook bij
 bron-overzoom; een vlakke kleur vervangt het spritepatroon zodat er geen
 extra sprite-aanvraag nodig is. Tilemaker generaliseert de landcover per zoom
 met `simplify_below`, `simplify_level`, `filter_below` en `filter_area`.
+Z5–7 gebruikt simplify_level 0,00023 en filter_area 0,56; z8–10 gebruikt
+0,00024 en 0,3. Beide profielen schrijven naar dezelfde landcover-laag.
+Nationale parken en natuurreservaten met boundary-relaties krijgen expliciet
+een vlak, naast de automatisch verwerkte multipolygonen.
 
 Plaatsnamen krijgen een rang uit OSM-bevolking en place-klasse. City/town/village
 volgen Liberty’s minimumzoom; een `text-field`-stap per zoom selecteert de

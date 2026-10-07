@@ -78,3 +78,11 @@
 - `pnpm basemap:build` poging 10: exit 0, inclusief gepinde bron-SHA’s, tilemaker, PMTiles cluster/verify, alle schema-/naamchecks en de nieuwe +25 %-gates per archief, tegeltotaal per zoom en grootste tegel.
 - Definitief `nl-1395e020ae33a90b.pmtiles`: 4.191.993 B (+18,55 % tegenover U59 3.536.092 B), 1.951 tegels, z4–10. Alleen U59 en deze nieuwe hash blijven in de publiceerbare tiles-map; tussenarchieven verplaatst naar genegeerde scratch/rejected.
 - Code en gehashte data/stijlen worden nu samen gecommit. Docs-archiefcijfers bijgewerkt. Eind-A/B en rig hieronder volgen op deze hash; PO-akkoord blijft open.
+
+## 2026-10-07T20:31:48.577Z — Eindchecks en labelcorrectie
+
+- Eerste eind-A/B exit 1: mobiel 6→8 plaatslabels, buiten ±20 %. Padding onder z6 verhoogd van 18 naar 24; z8–9 gebruikt 14. Nieuwe vier A/B-tests lopen; mobiel licht/donker inmiddels passed. Maskertransities uitgeschakeld om identieke dag-/nacht-geometrie te meten.
+- Definitieve archiefcode: pnpm typecheck, pnpm test, pnpm build alle exit 0. Web 70 bestanden/461 tests; bot 58 tests. Na de paddingcorrectie basemap-unitcheck 6/6 en pnpm --filter motregen-web build opnieuw exit 0. Receipts in tmp/basemap/u60/{typecheck-final,unit-final,build-web-final,build-preview-final}.txt.
+- nix build .#motregen-basemap --no-link --print-out-paths: exit 0. Package /nix/store/zcgrg2v2d8mghxzmq9vja34vz5d2il8z-motregen-basemap; archief-SHA exact gelijk aan repo: 1395e020ae33a90b51b0013650ce2b5697d655124b0cc1082de52b7274a79540.
+- Preview http://ageq-dev2:4340/ gestart op de productiebuild. Lokale ingest :8080 is niet beschikbaar; daarom MOTREGEN_DATA_ORIGIN=https://motregen.nl/data. HTTP-root/manifest 200, PMTiles Range 0–126 geeft 206 met 127 B. De lokale gehashte kaart wordt rechtstreeks geserveerd.
+- Volgende stap: eind-A/B receipt, mobiele rig drie koude runs, cache-spec en PO-beeldreview.

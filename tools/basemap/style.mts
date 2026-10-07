@@ -34,7 +34,7 @@ for (const [theme, name] of [['light', 'licht'], ['dark', 'donker']] as const) {
         'text-font': ['Noto Sans Regular'],
         'text-size': kind === 'state' ? ['interpolate', ['linear'], ['zoom'], 5, 11, 11, 14] : layer.layout?.['text-size'],
         'text-max-width': layer.layout?.['text-max-width'],
-        'text-padding': kind === 'state' ? padding : ['interpolate', ['linear'], ['zoom'], 9, padding, 10, 4],
+        'text-padding': kind === 'state' ? padding : ['step', ['zoom'], 24, 6, padding, 8, 14, 10, 4],
         'symbol-sort-key': ['-', ['*', ['get', 'rank'], 10_000_000], ['get', 'population']],
       },
     }

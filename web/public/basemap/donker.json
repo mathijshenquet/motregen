@@ -367,15 +367,15 @@
         ],
         "text-max-width": 8,
         "text-padding": [
-          "interpolate",
-          [
-            "linear"
-          ],
+          "step",
           [
             "zoom"
           ],
-          9,
+          24,
+          6,
           18,
+          8,
+          14,
           10,
           4
         ],
@@ -545,15 +545,15 @@
         ],
         "text-max-width": 8,
         "text-padding": [
-          "interpolate",
-          [
-            "linear"
-          ],
+          "step",
           [
             "zoom"
           ],
-          9,
+          24,
+          6,
           18,
+          8,
+          14,
           10,
           4
         ],
@@ -784,15 +784,15 @@
         ],
         "text-max-width": 8,
         "text-padding": [
-          "interpolate",
-          [
-            "linear"
-          ],
+          "step",
           [
             "zoom"
           ],
-          9,
+          24,
+          6,
           18,
+          8,
+          14,
           10,
           4
         ],
