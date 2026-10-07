@@ -404,3 +404,19 @@ antwoord), `pnpm build` 0. `web` na de merge van main: `pnpm typecheck` 0, `pnpm
 orkestrator vanaf main; **bot klaar voor herstart** vanuit deze branch.
 
 Volgende: stap 5 (landscape-loop).
+
+## 2026-10-08 00:50 — stap 5 half (landscape-still), geparkeerd voor een live-item (zoekpil-tween)
+
+- Web: liggend still (`?still=1` in een viewport breder dan 4:3) → klasse `still-landscape`: kaart past via
+  de bestaande viewport-insets in de linker 64 %, rechts een dekkend paneel (36 %) met klok 76 px, dag, modus
+  en bron. Staand still ongewijzigd (zelf bekeken, zelfde beeld als voorheen).
+- Bot: `FRAMES` in `bot/config.ts` (portrait 640×848 ×1,5 = 960×1272; landscape 800×500 ×1,6 = 1280×800),
+  proefschakelaar `MOTREGEN_BOT_FRAME=landscape` (default portrait), eigen cachemap per beeldmaat zodat
+  bestanden en file_id's niet mengen. Stills en loop komen uit dezelfde framereeks en gaan dus samen mee.
+- `web/scripts/still-shot.ts` (nieuw): rendert het still-beeld in beide maten voor weer/gevoel/wind.
+  Bekeken: landscape weer en gevoel. NL + Vlaanderen passen precies in het linkervlak (breedte-begrensd; de
+  Wadden staan krap tegen de bovenrand). **Open punt:** "Gevoelstemperatuur" (24 px) loopt in het paneel
+  tegen de rechterrand — nog fixen (kleiner of "Gevoel"). Wind-landscape nog niet bekeken.
+- Receipts: `bot` typecheck 0, tests 0 (59); `web` typecheck 0, build 0. Geen echte Telegram-test.
+- Nog niet gedaan voor stap 5: label-overloop, docs/telegram.md, tests voor config/frame, loop encoderen en
+  op een echt bericht bekijken (orkestrator herstart de bot met `MOTREGEN_BOT_FRAME=landscape`).

@@ -15,7 +15,7 @@ async function runBot(): Promise<void> {
   await validateCacheChat(api, config.cacheChatId, identity.id)
   const webhook = await api.call<{ url: string }>('getWebhookInfo')
   if (webhook.url) throw new Error('Webhook staat aan; schakel die uit voordat long polling start')
-  const renderer = new StillRenderer(config.origin, config.cacheDirectory)
+  const renderer = new StillRenderer(config.origin, config.cacheDirectory, config.frame)
   const controller = new AbortController()
   const available = new Map<string, RenderedMedia>()
   let manifest: StillManifest | undefined
