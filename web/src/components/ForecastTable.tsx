@@ -5,7 +5,7 @@ import { moonLitPath, moonPhase } from '../core/moon'
 import { solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
 import { dailyClearSkyUvMax, uvReading } from '../core/uv'
 import { deriveWeatherIcon, summarizeWind, WIND_UNIT_LABELS, type WindSummary, type WindUnit } from '../core/weather'
-import { ArrowUp, BUTTON_ICON, CloudRain, CloudSun, Thermometer, Wind } from './icons'
+import { ArrowUp, BUTTON_ICON, Clock, CloudRain, CloudSun, Thermometer, Wind } from './icons'
 import UvBar from './UvBar'
 import WeatherIcon from './WeatherIcon'
 import { measurePerfPhase } from '../core/perf'
@@ -170,7 +170,7 @@ export default function ForecastTable(props: Props) {
   return <table class="forecast-table" data-mode={props.focus.pinned} data-hover={hovered()}>
     <thead><tr>
       {/* Weer is de vaste standaardmodus: regen op de kaart en in de grafiek. */}
-      <th class="time-heading"><span class="time-heading-label">Uur</span></th>
+      <th class="time-heading"><span class="column-mode"><ColumnLabel icon={Clock} text="Uur" /></span></th>
       <Show when={props.columns.weather}><th class="weather-heading" {...columnHover('weather')}>
         <FocusHeading mode="weather" icon={CloudRain} label="Weer" title="Toon regen op de kaart en in de grafiek" />
       </th></Show>

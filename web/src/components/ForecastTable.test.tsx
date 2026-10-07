@@ -52,7 +52,7 @@ describe('forecast table headings', () => {
     const headings = [...document.querySelectorAll('thead th')]
     expect(headings.map((heading) => heading.textContent)).toEqual(['Uur', 'Weer', 'Lucht', 'Gevoel', 'Wind'])
     expect(screen.getByRole('columnheader', { name: 'Uur' })).toBe(headings[0])
-    for (const heading of headings.slice(1)) expect(heading.querySelector('svg.lucide')).not.toBeNull()
+    for (const heading of headings) expect(heading.querySelector('svg.lucide')).not.toBeNull()
     const [time, weather] = document.querySelectorAll('tbody tr:not(.history-toggle-row) td')
     expect(time!.textContent).toContain('Nu')
     expect(weather!.querySelector('.weather-icon')).not.toBeNull()

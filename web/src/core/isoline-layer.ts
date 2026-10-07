@@ -272,6 +272,7 @@ export class IsolineLayer implements CustomLayerInterface {
   private time = 0
   /** Afspelen: tracen alleen op hele uren en daartussen overvloeien (U41); stil: exact op `time`. */
   private moving = false
+  private paused = false
   private opacity = 0
   private version = 1
   private line?: WebGLProgram
@@ -430,6 +431,14 @@ export class IsolineLayer implements CustomLayerInterface {
     this.repaint()
   }
 
+  setPaused(paused: boolean): void {
+    if (paused === this.paused) return
+    this.paused = paused
+    this.requestedTrace = ''
+    this.tracer.setPaused(paused)
+    if (!paused) this.repaint()
+  }
+
   setStyle(style: IsolineStyle): void {
     this.style = style
     this.invalidate()
@@ -438,7 +447,7 @@ export class IsolineLayer implements CustomLayerInterface {
   prerender(context: WebGLRenderingContext | WebGL2RenderingContext, options: CustomRenderMethodInput): void {
     const gl = context as WebGL2RenderingContext
     const map = this.map
-    if (!map || !this.line || this.opacity <= 0 || !this.ready()) return
+    if (this.paused || !map || !this.line || this.opacity <= 0 || !this.ready()) return
     this.prerenderVector(gl, map, options.defaultProjectionData.mainMatrix)
   }
 
@@ -594,7 +603,7 @@ export class IsolineLayer implements CustomLayerInterface {
   render(context: WebGLRenderingContext | WebGL2RenderingContext): void {
     const gl = context as WebGL2RenderingContext
     const [a, b] = this.shown
-    if (!this.composite || !a || this.opacity <= 0 || !a.slice.passed || (b && !b.slice.passed)) return
+    if (this.paused || !this.composite || !a || this.opacity <= 0 || !a.slice.passed || (b && !b.slice.passed)) return
     const program = this.composite
     gl.useProgram(program)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.screen!)

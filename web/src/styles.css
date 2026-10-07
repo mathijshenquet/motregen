@@ -614,7 +614,7 @@ button.column-mode { width: 100%; cursor: pointer; }
 .forecast-table tbody tr:not(.sun-row):not(.history-toggle-row) { cursor: pointer; }
 /* Tijd op inhoudsbreedte; de vier overige kolommen delen door table-layout: fixed de rest gelijk. */
 .forecast-table :is(.time-cell, .time-heading) { width: calc(var(--panel-inset, 16px) + 58px); padding-right: 14px; text-align: left; white-space: nowrap; }
-.time-heading-label { height: 46px; display: flex; align-items: flex-end; padding-bottom: 5px; color: var(--muted); font-size: 10px; font-weight: 700; line-height: 1; }
+.time-heading .column-mode { align-items: flex-start; padding-left: 0; }
 .time-label { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; padding: 0; border: 0; color: inherit; background: none; font: inherit; text-align: left; cursor: pointer; }
 .time-label:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 .weather-glyph { display: flex; min-width: 38px; flex-direction: column; align-items: center; }
@@ -883,13 +883,12 @@ td small { color: var(--muted); font-size: 9px; }
 .isoline-label-light span { text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff; }
 .isoline-label-dark span { text-shadow: 0 0 2px #102027, 0 0 2px #102027, 0 0 3px #102027; }
 
-/* Mobiel (U14): het eerste scherm is kaart + scrubber + de koprij van de tabel (de modeknoppen).
-   U34 (PO 2026-09-25 live): gerekend in svh, de hoogte MET zichtbare werkbalken — in dvh viel de koprij
-   op Firefox onder de onderste URL-balk. Bij scrollen plakt de koprij, niet meer de scrubber. */
+/* Mobiel (U14/U42): het eerste scherm is kaart + scrubber + een voorproef van de tabel. De dynamische
+   viewport houdt de twee scroll-snapstanden stabiel wanneer de browserbalk in- of uitklapt. */
 :root {
   --scrubber-mobile: 236px;
   --table-peek-mobile: 146px;
-  --map-mobile: max(42svh, calc(100svh - var(--scrubber-mobile) - var(--table-peek-mobile) - env(safe-area-inset-bottom)));
+  --map-mobile: max(42dvh, calc(100dvh - var(--scrubber-mobile) - var(--table-peek-mobile) - env(safe-area-inset-bottom)));
 }
 @media (max-width: 959px) {
   .app-shell { display: block; }
@@ -921,21 +920,21 @@ td small { color: var(--muted); font-size: 9px; }
 }
 
 @media (max-width: 959px) and (orientation: portrait) {
-  body { overflow: hidden; }
-  .app-shell { height: 100svh; min-height: 0; overflow: hidden; }
-  .forecast-panel { position: relative; height: var(--table-peek-mobile); padding: 0; overflow: hidden; touch-action: pan-x; }
-  .forecast-panel::after { position: absolute; right: 0; bottom: 0; left: 0; z-index: 3; height: 25px; background: linear-gradient(transparent, color-mix(in srgb, var(--surface) 92%, transparent)); box-shadow: inset 0 -1px var(--line-strong); content: ''; pointer-events: none; }
+  html { scroll-snap-type: y proximity; }
+  body { overflow-y: auto; }
+  .app-shell { min-height: 100dvh; overflow: visible; }
+  .map-shell { scroll-snap-align: start; }
+  .dashboard { overflow: visible; }
+  .forecast-panel { position: relative; min-height: 100dvh; padding: 0 0 env(safe-area-inset-bottom); overflow: visible; scroll-snap-align: start; touch-action: pan-y; }
+  .forecast-panel::after { position: absolute; top: calc(var(--table-peek-mobile) - 25px); right: 0; left: 0; z-index: 3; height: 25px; background: linear-gradient(transparent, color-mix(in srgb, var(--surface) 92%, transparent)); box-shadow: inset 0 -1px var(--line-strong); content: ''; pointer-events: none; }
   .table-view-handle { position: sticky; top: 0; z-index: 5; width: 100%; height: 24px; display: grid; place-items: center; padding: 0; border: 0; background: var(--surface); }
   .table-view-handle span { width: 42px; height: 4px; border-radius: 999px; background: var(--line-strong); box-shadow: 0 1px 0 color-mix(in srgb, var(--surface) 60%, transparent); }
   .table-view-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+  .table-scroll { overflow-y: visible; touch-action: pan-y; }
   .app-shell:not(.table-view-open) .history-toggle-row { display: none; }
-  .table-view-open .map-shell, .table-view-open .scrubber, .table-view-open .sidebar-nav { display: none; }
-  .table-view-open .dashboard { height: 100dvh; overflow: hidden; }
-  .table-view-open .forecast-panel { height: 100%; display: flex; flex-direction: column; overflow: hidden; padding-bottom: env(safe-area-inset-bottom); touch-action: auto; }
   .table-view-open .forecast-panel::after { display: none; }
-  .table-view-open .table-view-handle { height: calc(24px + env(safe-area-inset-top)); flex: none; padding-top: env(safe-area-inset-top); }
-  .table-view-open .table-scroll { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; }
-  .table-view-open th { top: 0; }
+  .table-view-open .table-view-handle { height: calc(24px + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); }
+  .table-view-open th { top: calc(24px + env(safe-area-inset-top)); }
 }
 
 /* Telefoon liggend: kaart en paneel naast elkaar, zoals desktop; de scrubber schuift mee weg

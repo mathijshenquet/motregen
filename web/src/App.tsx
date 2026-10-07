@@ -162,6 +162,7 @@ export default function App() {
   const initialPresets = parsePresets(window.location.search)
   let mapElement!: HTMLDivElement
   let splashElement!: HTMLDivElement
+  let forecastPanelElement!: HTMLElement
   let map: maplibregl.Map | undefined
   let marker: Marker | undefined
   let detachPinNavigation: (() => void) | undefined
@@ -322,6 +323,20 @@ export default function App() {
   const [tableViewAvailable, setTableViewAvailable] = createSignal(tableViewMedia.matches)
   const [tableOpen, setTableOpen] = createSignal(false)
   const tableViewOpen = createMemo(() => tableViewAvailable() && tableOpen())
+  let tableViewFrame: number | undefined
+  function syncTableViewPosition(): void {
+    tableViewFrame = undefined
+    if (!tableViewAvailable() || !forecastPanelElement) {
+      setTableOpen(false)
+      return
+    }
+    const panelTop = forecastPanelElement.getBoundingClientRect().top
+    if (!tableOpen() && panelTop <= 0) setTableOpen(true)
+    else if (tableOpen() && panelTop > 24) setTableOpen(false)
+  }
+  function queueTableViewSync(): void {
+    if (tableViewFrame === undefined) tableViewFrame = requestAnimationFrame(syncTableViewPosition)
+  }
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
   const [windUnit, setWindUnit] = createSignal<WindUnit>(storedWindUnit())
@@ -457,6 +472,19 @@ export default function App() {
   })
 
   onMount(() => {
+    window.addEventListener('scroll', queueTableViewSync, { passive: true })
+    window.addEventListener('resize', queueTableViewSync, { passive: true })
+    window.visualViewport?.addEventListener('resize', queueTableViewSync, { passive: true })
+    syncTableViewPosition()
+    onCleanup(() => {
+      window.removeEventListener('scroll', queueTableViewSync)
+      window.removeEventListener('resize', queueTableViewSync)
+      window.visualViewport?.removeEventListener('resize', queueTableViewSync)
+      if (tableViewFrame !== undefined) cancelAnimationFrame(tableViewFrame)
+    })
+  })
+
+  onMount(() => {
     if (!('serviceWorker' in navigator)) return
     updateServiceWorker = registerSW({
       onNeedRefresh: () => setUpdateReady(true),
@@ -473,6 +501,7 @@ export default function App() {
     const tableViewChanged = (event: MediaQueryListEvent) => {
       setTableViewAvailable(event.matches)
       if (!event.matches) setTableOpen(false)
+      else queueTableViewSync()
     }
     tableViewMedia.addEventListener('change', tableViewChanged)
     onCleanup(() => tableViewMedia.removeEventListener('change', tableViewChanged))
@@ -798,7 +827,16 @@ export default function App() {
   })
 
   createEffect(() => {
-    if (tableViewOpen()) return
+    const rendering = mapRendering()
+    for (const set of isolineSets) {
+      set.layer?.setPaused(!rendering)
+      if (!rendering) {
+        set.shownRequest++
+        set.worker?.dispose()
+        set.worker = undefined
+      }
+    }
+    if (!rendering) return
     requestAnimationFrame(() => {
       map?.resize()
       if (mapReady()) drawLayers()
@@ -1319,6 +1357,7 @@ export default function App() {
   })
 
   async function showIsolineField(set: IsolineSet): Promise<void> {
+    if (!mapRendering()) return
     if (set.kind === 'temperature') void updateTemperatureRange()
     const frames = set.timeline()
     const renderedMap = map
@@ -1336,7 +1375,7 @@ export default function App() {
     try {
       if (!set.layer) {
         const { grid } = await preparedIsolineField(set, frames[required[0]!]!)
-        if (map !== renderedMap || set.layer || !renderedMap.getLayer('motregen-temperature')) return
+        if (!mapRendering() || map !== renderedMap || set.layer || !renderedMap.getLayer('motregen-temperature')) return
         const created = new IsolineLayer(grid, frames.length, set.style(), set.layerId)
         set.layer = created
         set.layerKey = key
@@ -1360,7 +1399,7 @@ export default function App() {
       layer.setTime(time, playing())
       await Promise.all(wanted.filter((index) => !layer.hasLayer(index)).map(async (index) => {
         const prepared = await preparedIsolineField(set, frames[index]!)
-        if (layer !== set.layer || layer.frameKey(index) !== frameKeys[index] || !sameGrid(prepared, { grid: layer.grid })) return
+        if (!mapRendering() || layer !== set.layer || layer.frameKey(index) !== frameKeys[index] || !sameGrid(prepared, { grid: layer.grid })) return
         set.fields[index] = prepared.field
         layer.setLayer(index, prepared.field)
       }))
@@ -1379,7 +1418,7 @@ export default function App() {
    * het label volgt het dichtstbijzijnde uur. Afspelen kost zo één ronde per uur, rust nul.
    */
   async function showIsolines(set: IsolineSet): Promise<void> {
-    if (set.kind === 'cloud') return
+    if (!mapRendering() || set.kind === 'cloud') return
     const frames = set.timeline()
     if (!frames.length || !set.labels) return
     const request = ++set.shownRequest
@@ -1401,7 +1440,7 @@ export default function App() {
       }
       const data = await labels
       if (!data) isolineLabelCache.delete(key)
-      if (!data || request !== set.shownRequest || !set.labels) return
+      if (!mapRendering() || !data || request !== set.shownRequest || !set.labels) return
       set.key = key
       set.labels.setLines(data, step)
       set.setCount(data.features.length)
@@ -2149,26 +2188,18 @@ export default function App() {
   const hasTemperature = createMemo(() => feelsLikeTimeline().length > 0)
   const hasWeatherIcons = createMemo(() => cloudTimeline().length > 0)
   const hasWind = createMemo(() => windUFrames().length > 0 && windVFrames().length > 0)
-  let tablePeekStart: { pointerId: number; y: number } | undefined
+  function scrollToTable(): void {
+    forecastPanelElement.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' })
+  }
 
-  function startTablePeekGesture(event: PointerEvent): void {
+  function scrollToMap(): void {
+    window.scrollTo({ top: 0, behavior: reducedMotion.matches ? 'auto' : 'smooth' })
+  }
+
+  function openTableFromPeek(event: MouseEvent): void {
     if (tableViewOpen() || !tableViewAvailable()) return
-    tablePeekStart = { pointerId: event.pointerId, y: event.clientY }
-  }
-
-  function moveTablePeekGesture(event: PointerEvent): void {
-    if (tablePeekStart?.pointerId !== event.pointerId || tablePeekStart.y - event.clientY < 14) return
-    tablePeekStart = undefined
-    setTableOpen(true)
-  }
-
-  function finishTablePeekGesture(event: PointerEvent): void {
-    if (tablePeekStart?.pointerId === event.pointerId) tablePeekStart = undefined
-  }
-
-  function openTableFromPeek(): void {
-    if (tableViewOpen() || !tableViewAvailable()) return
-    setTableOpen(true)
+    if (event.target instanceof Element && event.target.closest('button.column-mode')) return
+    scrollToTable()
   }
 
   return <main class="app-shell" classList={{ 'table-view-open': tableViewOpen() }}>
@@ -2248,13 +2279,10 @@ export default function App() {
         temperature={{ timeline: feelsLikeTimeline(), values: feelsLikeSeries(), airTimeline: tempTimeline(), air: temperatureSeries(), stops: temperatureRange() && paletteStops(temperatureRange()!) }}
       />
       <section
+        ref={forecastPanelElement}
         id="forecast-table-view"
         class="forecast-panel"
         onClick={openTableFromPeek}
-        onPointerDown={startTablePeekGesture}
-        onPointerMove={moveTablePeekGesture}
-        onPointerUp={finishTablePeekGesture}
-        onPointerCancel={finishTablePeekGesture}
       >
         <button
           type="button"
@@ -2262,7 +2290,7 @@ export default function App() {
           aria-expanded={tableViewOpen()}
           aria-controls="forecast-table-view"
           aria-label={tableViewOpen() ? 'Tabel sluiten en kaart tonen' : 'Tabel openen'}
-          onClick={(event) => { event.stopPropagation(); setTableOpen((open) => !open) }}
+          onClick={(event) => { event.stopPropagation(); tableViewOpen() ? scrollToMap() : scrollToTable() }}
         ><span aria-hidden="true" /></button>
         <div class="table-scroll">
           <ForecastTable

@@ -116,3 +116,19 @@
 - Branch gepusht naar `origin/track/u42-tabel-modi-live`; draft-PR geopend:
   https://github.com/mathijshenquet/motregen/pull/73. De beschrijving markeert de gerichte
   desktop-e2e en definitieve stills eerlijk als wachtend op het PO-signaal “klaar”.
+
+## 2026-10-07 09:09 UTC
+
+- Nieuwe PO-steer verwerkt: de oorspronkelijke klok + `Uur`-kop is op mobiel en desktop
+  hersteld. De mobiele harde view-switch is vervangen door één native verticale pagina met
+  `scroll-snap-type: y proximity`: tik op preview/handgreep scrollt vloeiend naar het tabelpaneel;
+  omhoogscrollen of de sticky handgreep brengt de kaart terug. De modusknoppen scrollen bij tik
+  niet mee en de tabelkop blijft onder de handgreep sticky.
+- De mobiele maatvoering gebruikt `dvh`; alleen preview en tabel hebben `touch-action: pan-y`,
+  zodat de horizontale scrubber zijn eigen gebaar houdt. Kaartpauze volgt de echte paneelpositie
+  met hysterese (open bij top <= 0, hervatten boven 24 px). Daarmee stoppen frame-lus en wind;
+  ook contour- en labelworkers worden gepauzeerd/beëindigd en bij hervatten schoon herstart.
+- Synchrone receipts: `pnpm typecheck` exit 0; volledige `pnpm test` 51 bestanden / 346 tests
+  groen; `pnpm build` exit 0 (98 modules, `index-AsYr_iLz.js`, `index-BTpO0pAU.css`, PWA).
+  Preview op `http://ageq-dev2:4320/` antwoordt HTTP 200. Geen e2e uitgevoerd vóór het
+  afgesproken expliciete PO-signaal “klaar”.
