@@ -5,6 +5,14 @@ const nowOffset = (page: Page) => page.evaluate(() => {
   const head = document.querySelector('.forecast-table thead')!.getBoundingClientRect().height
   return Math.round(document.querySelector('tr.current-hour')!.getBoundingClientRect().top - scroller.getBoundingClientRect().top - head)
 })
+const previewOffset = (page: Page) => page.evaluate(() => {
+  const scroller = document.querySelector('.table-scroll')!
+  const head = document.querySelector('.forecast-table thead')!.getBoundingClientRect().height
+  const cursor = Number(document.querySelector<HTMLElement>('.app-shell')!.dataset.epoch)
+  const epoch = Math.round(cursor / 3_600_000) * 3_600_000
+  const row = document.querySelector<HTMLElement>(`tr[data-epoch="${epoch}"]`)!
+  return Math.round(row.getBoundingClientRect().top - scroller.getBoundingClientRect().top - head)
+})
 
 test('desktop opens the table on the now-row and fetches history only when scrolled up to', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'inline historie is desktop (muis, ≥ 960 px); touch houdt de uitklaprij')
@@ -26,15 +34,66 @@ test('desktop opens the table on the now-row and fetches history only when scrol
   expect(history.length).toBeGreaterThan(passive)
 })
 
-test('touch keeps the history behind a small toggle', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'mobile-4g', 'touchroute op het mobiele profiel')
+test('portrait mobile keeps history mounted and unlocks the same table offset', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-4g', 'portrait-scrollroute op het mobiele profiel')
   await page.goto('/')
-  const toggle = page.locator('.history-toggle')
-  await expect(toggle).toHaveText(/^Afgelopen \d+ uur tonen$/)
-  await expect(page.locator('tr.past-hour')).toHaveCount(0)
-  await toggle.tap()
-  await expect(toggle).toHaveText('Afgelopen uren verbergen')
+  const scroller = page.locator('.table-scroll')
+  await expect(page.locator('tr.past-hour').first()).toBeAttached()
+  await expect.poll(() => previewOffset(page)).toBe(0)
+  const offset = await scroller.evaluate((element) => element.scrollTop)
+  expect(offset).toBeGreaterThan(0)
+  await page.getByRole('button', { name: 'Tabel' }).tap()
+  await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
+  await expect(page.locator('.app-shell')).toHaveClass(/table-scroll-open/)
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rendering', 'false')
+  await expect(page.locator('.history-toggle')).toHaveCount(0)
+  await expect.poll(async () => Math.abs(await scroller.evaluate((element) => element.scrollTop) - offset)).toBeLessThanOrEqual(1)
+  await scroller.evaluate((element) => { element.scrollTop = 0 })
   await expect(page.locator('tr.past-hour').first()).toBeVisible()
+
+  const tablePageOffset = await page.evaluate(() => window.scrollY)
+  await page.evaluate(async (acceptedOffset) => {
+    document.documentElement.style.scrollSnapType = 'none'
+    window.scrollTo(0, acceptedOffset - 48)
+    window.dispatchEvent(new Event('scrollend'))
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+    window.scrollTo(0, acceptedOffset)
+    document.documentElement.style.scrollSnapType = ''
+    window.dispatchEvent(new Event('scrollend'))
+  }, tablePageOffset)
+  await expect(page.locator('.app-shell')).toHaveClass(/table-scroll-open/)
+  await expect.poll(() => scroller.evaluate((element) => Math.round(element.scrollTop))).toBe(0)
+})
+
+test('mobile previews the heading and current row, then scrolls smoothly between table and map', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-4g', 'mobiele scroll-switch')
+  await page.goto('/')
+  const panel = page.locator('.forecast-panel')
+  await expect(page.getByRole('button', { name: 'Tabel openen' })).toBeVisible()
+  await expect.poll(() => previewOffset(page)).toBe(0)
+  const rowBox = await page.evaluate(() => {
+    const cursor = Number(document.querySelector<HTMLElement>('.app-shell')!.dataset.epoch)
+    const epoch = Math.round(cursor / 3_600_000) * 3_600_000
+    return document.querySelector<HTMLElement>(`tr[data-epoch="${epoch}"]`)!.getBoundingClientRect().toJSON()
+  })
+  expect(rowBox.top).toBeLessThan(page.viewportSize()!.height)
+  expect(rowBox.bottom).toBeGreaterThan(page.viewportSize()!.height)
+
+  await page.getByRole('button', { name: 'Wind' }).tap()
+  await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(0)
+
+  await page.getByRole('button', { name: 'Tabel' }).tap()
+  await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
+  await expect(page.getByRole('button', { name: 'Tabel' })).toHaveAttribute('aria-pressed', 'true')
+  await expect.poll(() => panel.evaluate((element) => Math.round(element.getBoundingClientRect().top))).toBeLessThanOrEqual(1)
+  await expect(page.locator('.map-shell')).toBeVisible()
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rendering', 'false')
+  await page.getByRole('button', { name: 'Weer' }).tap()
+  await expect(page.locator('.app-shell')).not.toHaveClass(/table-view-open/)
+  await expect(page.locator('.app-shell')).not.toHaveClass(/table-scroll-open/)
+  await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBeLessThanOrEqual(1)
+  await expect(page.locator('.map-shell')).toBeVisible()
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rendering', 'true')
 })
 
 test('wind column shows the gust and follows the unit setting across reloads', async ({ page }) => {

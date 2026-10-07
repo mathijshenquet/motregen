@@ -43,6 +43,20 @@ describe('location search', () => {
     expect(onLocate).toHaveBeenCalledOnce()
   })
 
+  it('closes restored search state before Firefox stores or restores the page', () => {
+    renderSearch()
+    const input = screen.getByRole<HTMLInputElement>('textbox', { name: 'Zoek plaats' })
+    fireEvent.focus(input)
+    fireEvent.input(input, { target: { value: 'Ut' } })
+    expect(screen.getByRole('listbox')).toBeTruthy()
+
+    window.dispatchEvent(new Event('pagehide'))
+
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect(input.value).toBe('De Bilt')
+    expect(input.getAttribute('autocomplete')).toBe('off')
+  })
+
   it('draws its icons as decorative Lucide SVGs and keeps the labels on the buttons', () => {
     renderSearch([home])
     fireEvent.focus(screen.getByRole('textbox', { name: 'Zoek plaats' }))

@@ -6,6 +6,22 @@
   nodes.machine =
     { lib, pkgs, ... }:
     let
+      botPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-bot;
+      botTestProgram = pkgs.writeText "motregen-bot-test.mjs" ''
+        import { setTimeout as delay } from 'node:timers/promises';
+        import { readConfig } from '${botPackage}/lib/motregen-bot/dist/bot/config.js';
+        import { chromium } from '${botPackage}/lib/motregen-bot/node_modules/playwright/index.mjs';
+        readConfig();
+        const browser = await chromium.launch({ executablePath: process.env.MOTREGEN_CHROMIUM_PATH, args: ['--use-angle=swiftshader'] });
+        await browser.close();
+        console.info('bot-test-chromium-ready');
+        await delay(3_600_000);
+      '';
+      fakeBot = pkgs.writeShellApplication {
+        name = "motregen-bot";
+        runtimeInputs = [ pkgs.nodejs ];
+        text = ''exec node ${botTestProgram}'';
+      };
       fakeIngest = pkgs.writeShellApplication {
         name = "motregen-ingest";
         runtimeInputs = [ pkgs.coreutils ];
@@ -28,7 +44,14 @@
         ingestPackage = fakeIngest;
         camsPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-ingest;
         frontendPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-web;
+        bot = {
+          enable = true;
+          package = fakeBot;
+        };
       };
+
+      # Chromium draait onder de productiehardening, zonder Telegram-netwerk.
+      systemd.services.motregen-bot.environment.TG_BOT_KEY = "test-token";
 
       # Geen netwerk in de VM: de CAMS-job decodeert de opgenomen ADS-fixture.
       systemd.services.motregen-cams.environment.MOTREGEN_CAMS_GRIB =
@@ -55,7 +78,22 @@
     start_all()
     machine.wait_for_unit("motregen-ingest.service")
     machine.wait_for_unit("caddy.service")
-    machine.succeed("systemctl is-active motregen-ingest.service caddy.service")
+    machine.wait_for_unit("motregen-bot.service")
+    machine.succeed("systemctl is-active motregen-ingest.service caddy.service motregen-bot.service")
+    machine.wait_until_succeeds("journalctl -u motregen-bot --no-pager | grep -F bot-test-chromium-ready", timeout=60)
+    machine.fail("ss -H -lnt | grep -F ':8090'")
+
+    validation_status = machine.succeed("curl -sS -X POST --output /dev/null --write-out '%{http_code}' http://localhost/telegram/validate")
+    assert validation_status == "405", validation_status
+
+    machine.succeed("install -d -m 0755 /var/cache/motregen-bot/stills; printf JPEG > /var/cache/motregen-bot/stills/test.jpg")
+    still_headers = machine.succeed("curl -sS -D - -o /dev/null http://localhost/telegram/stills/test.jpg").lower()
+    assert "200 ok" in still_headers, still_headers
+    assert "content-type: image/jpeg" in still_headers, still_headers
+    assert "cache-control: public, max-age=7200, immutable" in still_headers, still_headers
+    assert "x-robots-tag: noindex" in still_headers, still_headers
+    missing_still = machine.succeed("curl -sS -D - -o /dev/null http://localhost/telegram/stills/missing.jpg").lower()
+    assert "404" in missing_still, missing_still
 
     manifest_headers = machine.succeed(
       "curl --silent --show-error --dump-header - --output /tmp/manifest http://localhost/data/manifest.json"
@@ -84,6 +122,13 @@
     assert "200 ok" in frontend_headers, frontend_headers
     assert "x-robots-tag" not in frontend_headers, frontend_headers
     machine.succeed("grep -F '<div id=\"root\"></div>' /tmp/index")
+
+    for path in ["sw.js", "manifest.webmanifest"]:
+      pwa_headers = machine.succeed(
+        f"curl --silent --show-error --dump-header - --output /dev/null http://localhost/{path}"
+      ).lower()
+      assert "200 ok" in pwa_headers, (path, pwa_headers)
+      assert "cache-control: no-cache" in pwa_headers, (path, pwa_headers)
 
     missing_headers = machine.succeed(
       "curl --silent --show-error --dump-header - --output /dev/null http://localhost/data/missing"
@@ -135,7 +180,7 @@
     machine.succeed(f"test ! -s {usage_today}")
     machine.succeed("test -z \"$(ls -A /var/log/caddy 2>/dev/null | grep access)\"")
 
-    body = '{"v":1,"search":true,"range":null,"theme":"dark","coarse":false,"width":">=960","dur":"1-5"}'
+    body = '{"v":2,"search":true,"range":null,"theme":"dark","coarse":false,"width":">=960","dur":"1-5"}'
     hit_status = machine.succeed(
       "curl --silent --show-error --output /dev/null --write-out '%{http_code}' "
       "--header 'X-Forwarded-For: 198.51.100.7' --header 'CF-Connecting-IP: 198.51.100.7' "
@@ -202,6 +247,7 @@
     features = {name: value["pct"] for name, value in day["features"].items()}
     assert features["search"] == 50 and features["geo"] == 25 and features["fav"] == 25, features
     assert features["play"] == 25 and features["about"] == 0, features
+    assert features["pinAir"] == 25 and features["share"] == 25, features
     assert day["dimensions"]["range"]["none"] == {"n": 2, "pct": 50}, day
     assert day["dimensions"]["coarse"]["true"]["n"] == 2, day
     assert day["dimensions"]["unit"]["kmh"] == {"n": 1, "pct": 25}, day

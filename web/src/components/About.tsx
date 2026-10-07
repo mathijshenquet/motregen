@@ -1,7 +1,7 @@
 import { For, onCleanup, type JSX } from 'solid-js'
 import { Dynamic } from 'solid-js/web'
 import { WIND_UNITS, type WindUnit } from '../core/weather'
-import { BUTTON_ICON, INLINE_ICON, Moon, Sun, SunMoon, X } from './icons'
+import { BUTTON_ICON, INLINE_ICON, Moon, Share2, Sun, SunMoon, X } from './icons'
 import { backdropHandlers } from './modal'
 
 export const REPOSITORY_URL = 'https://github.com/mathijshenquet/motregen'
@@ -22,9 +22,13 @@ const WIND_UNIT_CHOICES: Record<WindUnit, string> = { bft: 'Bft', kn: 'knopen', 
 interface Props {
   theme: ThemeChoice
   onTheme: (theme: ThemeChoice) => void
+  tableDayNight?: boolean
+  onTableDayNight?: (enabled: boolean) => void
   windUnit: WindUnit
   onWindUnit: (unit: WindUnit) => void
   onOpen?: () => void
+  onShare?: () => void
+  shareNotice?: string
   onTripleTap: () => void
   /** Links in de bron-regel, bv. de temperatuurlegenda. */
   sourcePrefix?: JSX.Element
@@ -87,19 +91,32 @@ export default function About(props: Props) {
               {WIND_UNIT_CHOICES[unit]}
             </button>}</For>
           </div>
+          <button
+            type="button"
+            class="about-table-cycle"
+            aria-pressed={props.tableDayNight !== false}
+            onClick={() => props.onTableDayNight?.(props.tableDayNight === false)}
+          >
+            <SunMoon {...INLINE_ICON} />
+            <span><b>Dag en nacht in tabel</b><small>Kleur de uren mee met de zon</small></span>
+            <i aria-hidden="true">{props.tableDayNight === false ? 'Uit' : 'Aan'}</i>
+          </button>
         </section>
         <header>
           <img src="/droplet.svg" alt="" />
           <h2 id="about-title">motregen.nl</h2>
         </header>
-        <p class="about-lead">Rechtstreeks van het KNMI<br />Gratis en zonder reclame</p>
+        <p class="about-lead">Regenradar en weersverwachting</p>
+        <div class="about-share"><button type="button" onClick={() => void props.onShare?.()}><Share2 {...INLINE_ICON} />Deel deze stand</button><span aria-live="polite">{props.shareNotice}</span></div>
         <dl>
           <dt>Observatie</dt><dd>KNMI-radar, elke 5 min · NL en Vlaanderen</dd>
           <dt>Voorspelling</dt><dd>KNMI-nowcast (2 uur), dan HARMONIE-AROME</dd>
           <dt>UV</dt><dd>UV-index van het KNMI, met bewolking</dd>
+          <dt>Maan</dt><dd>Textuur: <a href="https://svs.gsfc.nasa.gov/5587/" target="_blank" rel="noopener">NASA Scientific Visualization Studio</a></dd>
           <dt>Kaart</dt><dd><a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></dd>
           <dt>Zoeken</dt><dd>PDOK (NL) · Digitaal Vlaanderen (BE)</dd>
           <dt>Privacy</dt><dd>Geen tracking, geen advertenties. Anoniem geteld: sessies en gebruikte functies, zonder IP of identificatie; locatie en favorieten blijven in je browser</dd>
+          <dt>Telegram</dt><dd>De bot bewaart chat-id’s alleen tijdens verzoeken in het geheugen; er worden geen persoonsgegevens op schijf opgeslagen.</dd>
           <dt>Broncode</dt><dd><a href={REPOSITORY_URL} target="_blank" rel="noopener">GitHub ↗</a></dd>
         </dl>
       </div>

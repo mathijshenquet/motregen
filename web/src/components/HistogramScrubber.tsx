@@ -2,11 +2,13 @@ import { createEffect, createMemo, createSignal, createUniqueId, For, Index, onC
 import { CLOUD_LAYERS, cloudBand, skyStops, type CloudSeries } from '../core/cloud-section'
 import type { TimelineFrame } from '../core/contract'
 import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColor } from '../core/rain-chart'
-import { seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
+import { SCRUBBER_CURSOR_FRACTION, SCRUBBER_VIEW_HOURS, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
 import { cloudModification } from '../core/uv'
 import { summarizeWind, WIND_UNIT_LABELS, type WindUnit } from '../core/weather'
 import { BEAUFORT_STOPS, windColor } from '../core/wind-layer'
 import type { PaletteStops } from '../core/temperature-palette'
+import { measurePerfPhase } from '../core/perf'
+import { formatNumber, formatTime, formatWeekdayLong, formatWeekdayShort } from '../core/locale'
 
 interface Props {
   timeline: TimelineFrame[]
@@ -28,7 +30,7 @@ interface Props {
   clouds?: CloudSeries
   /**
    * Hoe licht het wordt (U47, MIP-18): straling (uurgemiddelden, W/m²) en zonnestand op de locatie. Kleurt
-   * de wolken altijd; de hemelachtergrond alleen naar rato van `mix.clouds` (vol in de wolkenmodus,
+   * de wolken altijd; de hemelachtergrond alleen naar rato van `mix.air` (vol in de modus Lucht,
    * afwezig in de rustige weergave eronder).
    */
   sky?: { radiation: { timeline: TimelineFrame[]; values: Array<number | null> }; sinElevation: (epoch: number) => number }
@@ -42,7 +44,7 @@ interface Props {
    * Focus-tweens (0–1) van de modi: de grafiek vloeit mee over zoals de kaart, bij hover én pin (U34).
    * Zonder `mix` telt een meegegeven `clouds`/`wind` als volledig actief.
    */
-  mix?: { wind: number; clouds: number; temperature: number }
+  mix?: { wind: number; air: number; temperature: number }
   /** Gevoelstemperatuur (vlakte, kaartpalet) en luchttemperatuur (lijn) in de Gevoel-modus (U34). */
   temperature?: { timeline: TimelineFrame[]; values: Array<number | null>; airTimeline?: TimelineFrame[]; air?: Array<number | null>; stops?: PaletteStops }
 }
@@ -50,14 +52,12 @@ interface Props {
 const CLOUD_LAYER_LABELS = { high: 'hoge wolken', mid: 'midden wolken', low: 'lage wolken' } as const
 // Deel van de plothoogte voor de bewolkingsband boven de regen.
 const CLOUD_COVER_SHARE = 0.3
-// Wolkenlagen buiten de wolkenmodus iets subtieler (PO 2026-09-25 live); de wolkenmodus tweent naar vol.
+// In Weer blijven de wolkenlagen als rustige achtergrond staan; Lucht brengt ze naar volle dekking.
 const CLOUD_LAYERS_DEFAULT_OPACITY = 0.5
-
 const HOUR = 3_600_000
-// PO 2026-09-25 live (U34), naar WarnWetter: de cursor staat vast op CURSOR_FRACTION van de breedte en
-// de tijdlijn schuift eronder; zoveel uur past in de breedte. Vervangt de tijdsbereikknoppen.
-const VIEW_HOURS = 8
-const CURSOR_FRACTION = 1 / 3
+// Gedeeld met het laadvenster in App (U49), dat alleen laadt wat hier in beeld is.
+const VIEW_HOURS = SCRUBBER_VIEW_HOURS
+const CURSOR_FRACTION = SCRUBBER_CURSOR_FRACTION
 const hourLabelSteps = [1, 2, 3, 6, 12, 24]
 // Wide enough for "23u" at the axis font size plus breathing room.
 const minimumHourLabelSpacingPx = 34
@@ -91,6 +91,7 @@ export function hourLabelStep(spanHours: number, plotWidthPx: number): number {
 }
 
 export default function HistogramScrubber(props: Props) {
+  const scrubMemo = <T,>(name: string, compute: () => T) => createMemo(() => measurePerfPhase('scrubber-paint', compute, { memo: name }))
   let plotElement!: HTMLDivElement
   let surfaceElement!: HTMLDivElement
   let trackElement!: HTMLDivElement
@@ -131,16 +132,15 @@ export default function HistogramScrubber(props: Props) {
   const xAt = (epoch: number) => (epoch - timelineStart()) * pxPerMs()
   const trackWidth = createMemo(() => Math.max(plotWidth(), xAt(timelineEnd()) + plotWidth()))
   const maximum = createMemo(() => rainChartMaximum(props.values))
-  // Overvloeien tussen de weergaven op de focus-tweens (U34): regen+bewolking, wolkenlagen, wind.
-  const cloudsMix = () => props.clouds ? props.mix ? props.mix.clouds : 1 : 0
+  // Overvloeien tussen de weergaven op de focus-tweens (U34): regen, wolkenlagen, wind.
+  const airMix = () => props.clouds ? props.mix ? props.mix.air : 1 : 0
   const windMix = () => props.wind ? props.mix ? props.mix.wind : 1 : 0
   const temperatureMix = () => props.temperature ? props.mix ? props.mix.temperature : 1 : 0
-  // Wolkenlagen + regen zijn de basis (PO 2026-09-25 live: altijd de drie lagen, regen eroverheen);
-  // alleen wind en temperatuur hebben een eigen grafiek waar de basis naar wegvloeit.
   const baseOpacity = () => 1 - Math.max(windMix(), temperatureMix())
+  const rainOpacity = () => baseOpacity() * (1 - 0.65 * airMix())
   const coverOpacity = () => props.cloudCover ? Math.min(baseOpacity(), 1 - (props.mix?.temperature ?? 0)) : 0
   const baseVisible = createMemo(() => baseOpacity() > 0)
-  const view = () => cloudsMix() >= 0.5 ? 'clouds' : windMix() >= 0.5 ? 'wind' : temperatureMix() >= 0.5 ? 'temperature' : coverOpacity() >= 0.5 ? 'cover' : 'rain'
+  const view = () => airMix() >= 0.5 ? 'air' : windMix() >= 0.5 ? 'wind' : temperatureMix() >= 0.5 ? 'temperature' : coverOpacity() >= 0.5 ? 'cover' : 'rain'
   // Binnenkomende weergave schuift een paar px omhoog terwijl hij invloeit.
   const layerStyle = (opacity: number) => ({ opacity, transform: `translateY(${((1 - opacity) * VIEW_SHIFT_PX).toFixed(2)}px)` })
   const cloudHeight = createMemo(() => props.cloudCover ? plotHeight() * CLOUD_COVER_SHARE : 0)
@@ -148,7 +148,7 @@ export default function HistogramScrubber(props: Props) {
   const rainTop = createMemo(() => cloudHeight() && cloudHeight() + 4)
   const y = (value: number) => rainTop() + (plotHeight() - rainTop()) * (1 - rainChartPosition(value, maximum()))
   const barTop = (value: number | null | undefined) => value == null || value <= 0 ? plotHeight() : Math.min(plotHeight() - 2, y(value))
-  const bars = createMemo(() => {
+  const bars = scrubMemo('regenbalken', () => {
     const frames = props.timeline
     if (!frames.length || !baseVisible()) return []
     const pitch = frames.length > 1 ? xAt(frames[1]!.epoch) - xAt(frames[0]!.epoch) : plotWidth()
@@ -170,13 +170,13 @@ export default function HistogramScrubber(props: Props) {
   // wolken schuiven gratis mee en worden niet per afspeelframe opnieuw getekend.
   const cloudWidth = createMemo(() => Math.max(1, xAt(timelineEnd())))
   const geometry = (top: number, height: number) => ({ width: cloudWidth(), top, height, start: timelineStart(), end: timelineEnd() })
-  const coverBands = createMemo(() => {
+  const coverBands = scrubMemo('bewolkingsband', () => {
     const cover = props.cloudCover
     if (!cover) return []
     // Eén band in de stijl van de middelste laag: de gaten volgen de totale bewolking.
     return [{ key: 'total', label: '', top: 0, height: cloudHeight(), ...cloudBand(cover.timeline, cover.values, 'mid', geometry(0, cloudHeight())) }]
   })
-  const layerBands = createMemo(() => {
+  const layerBands = scrubMemo('wolkenlagen', () => {
     const clouds = props.clouds
     if (!clouds) return []
     const bandHeight = plotHeight() / CLOUD_LAYERS.length
@@ -204,9 +204,9 @@ export default function HistogramScrubber(props: Props) {
       sinElevation: inputs.sinElevation,
     })
   })
-  const skyStrength = () => sky().length ? cloudsMix() : 0
+  const skyStrength = () => sky().length ? airMix() : 0
   // Windgrafiek in baancoördinaten (één keer per data/afmeting, schuift met de baan mee).
-  const windChart = createMemo(() => {
+  const windChart = scrubMemo('windgrafiek', () => {
     const wind = props.wind
     if (!wind || !wind.timeline.length) return undefined
     const gustAt = (epoch: number) => seriesValueAt(wind.gustTimeline, wind.gust, epoch, 30 * 60_000)
@@ -238,7 +238,7 @@ export default function HistogramScrubber(props: Props) {
     }
   })
   const windId = createUniqueId()
-  const temperatureChart = createMemo(() => {
+  const temperatureChart = scrubMemo('temperatuurgrafiek', () => {
     const series = props.temperature
     if (!series || !series.timeline.length) return undefined
     const known = [...series.values, ...series.air ?? []].filter((value): value is number => value != null)
@@ -348,7 +348,7 @@ export default function HistogramScrubber(props: Props) {
   const cursorMinute = createMemo(() => Math.floor(cursorEpoch() / 60_000) * 60_000)
   const valueText = createMemo(() => {
     const epoch = cursorMinute()
-    const time = new Date(epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+    const time = formatTime(epoch)
     const value = cursorValue()
     const rain = value == null ? 'geen data' : value < 0.05 ? 'droog' : `${formatRate(value)}, ${RAIN_BANDS.find((band) => band.key === classifyRain(value))!.label.toLowerCase()}`
     const source = cursorZone()?.label.toLowerCase()
@@ -560,6 +560,17 @@ export default function HistogramScrubber(props: Props) {
           <div class="hour-grid"><For each={xTicks()}>{(tick) => <i style={{ left: `${tick.x}px` }} />}</For></div>
           <div class="day-grid"><For each={dayMarkers()}>{(marker) => <div class="boundary" style={{ left: `${xAt(marker.epoch)}px` }} />}</For></div>
           <svg width={trackWidth()} height={plotHeight()} viewBox={`0 0 ${trackWidth()} ${plotHeight()}`} style={{ '--sky': skyStrength() }}>
+            {/* De hemel ligt achter alles, ook achter de regen (de verlopen staan verderop in defs). */}
+            <Show when={skyStrength() > 0}><g class="sky" data-testid="sky" style={{ opacity: baseOpacity() * skyStrength() }}>
+              <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-sky)`} />
+              <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-depth)`} />
+              <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-glow)`} mask={`url(#${cloudId}-low)`} />
+            </g></Show>
+            {/* In Lucht blijft regen context: achter de wolkenlagen en getweend naar 35% dekking. */}
+            <g class="rain-bars scrub-view" style={layerStyle(rainOpacity())}><Index each={bars()}>{(bar) => <Show
+              when={!bar().pending}
+              fallback={<rect class="rain-bar pending" x={bar().x} y={plotHeight() - 2} width={bar().width} height="2" rx="1" />}
+            ><rect class="rain-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={rainColor(bar().value)} /></Show>}</Index></g>
             <Show when={cloudBands().length}>
               <defs>
                 <filter id={`${cloudId}-soft`} x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="0.9" /></filter>
@@ -576,18 +587,13 @@ export default function HistogramScrubber(props: Props) {
                 {/* Schaduw aan de basis van elke wolk: volume in plaats van een vlak silhouet. */}
                 <linearGradient id={`${cloudId}-shadow`} class="cloud-shadow-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0.25" /><stop offset="1" /></linearGradient>
               </defs>
-              <Show when={skyStrength() > 0}><g class="sky" data-testid="sky" style={{ opacity: baseOpacity() * skyStrength() }}>
-                <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-sky)`} />
-                <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-depth)`} />
-                <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-glow)`} mask={`url(#${cloudId}-low)`} />
-              </g></Show>
               <g class="cloud-section" data-testid="cloud-section" filter={`url(#${cloudId}-soft)`}>
                 <g class="scrub-view" style={layerStyle(coverOpacity())}>
                   <For each={coverBands()}>{(band) => <g class="cloud-band" data-layer={band.key}>
                     <For each={band.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${band.key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /></>}</For>
                   </g>}</For>
                 </g>
-                <g class="scrub-view" style={{ opacity: baseOpacity() * (CLOUD_LAYERS_DEFAULT_OPACITY + (1 - CLOUD_LAYERS_DEFAULT_OPACITY) * cloudsMix()) }}>
+                <g class="scrub-view" style={{ opacity: baseOpacity() * (CLOUD_LAYERS_DEFAULT_OPACITY + (1 - CLOUD_LAYERS_DEFAULT_OPACITY) * airMix()) }}>
                   <For each={layerBands()}>{(band) => <g class="cloud-band" data-layer={band.key}>
                     <For each={band.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${band.key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /></>}</For>
                   </g>}</For>
@@ -616,13 +622,7 @@ export default function HistogramScrubber(props: Props) {
               <For each={chart().gust}>{(path) => <path class="wind-gust-band" d={path} fill={`url(#${windId}-fill)`} />}</For>
               <For each={chart().area}>{(path) => <path class="wind-area" d={path} fill={`url(#${windId}-fill)`} />}</For>
               <For each={chart().line}>{(path) => <path class="wind-line" d={path} />}</For>
-
             </g>}</Show>
-            {/* Index keeps each slot's rect alive, so only frames that arrive (pending → loaded) fade in. */}
-            <g class="rain-bars scrub-view" style={layerStyle(baseOpacity())}><Index each={bars()}>{(bar) => <Show
-              when={!bar().pending}
-              fallback={<rect class="rain-bar pending" x={bar().x} y={plotHeight() - 2} width={bar().width} height="2" rx="1" />}
-            ><rect class="rain-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={rainColor(bar().value)} /></Show>}</Index></g>
             <line class="rain-baseline" x1="0" x2={trackWidth()} y1={plotHeight() - 0.5} y2={plotHeight() - 0.5} />
           </svg>
           <div class="now-line" style={{ left: `${nowX()}px` }} />
@@ -637,8 +637,8 @@ export default function HistogramScrubber(props: Props) {
           <span ref={(element) => { dayLabelElements[index()] = element }} style={{ transform: `translateX(${stickyLeft(segment, shownOffset())}px)` }}>{segment.label}</span>
         }</For></div>
         {/* Waarden bij de cursor i.p.v. een y-as (PO 2026-09-25 live). */}
-        <Show when={!props.loading && cloudsMix() > 0 && baseOpacity() > 0}>
-          <div class="cursor-tags" style={{ opacity: Math.min(cloudsMix(), baseOpacity()) }} aria-hidden="true"><For each={cursorLayers()}>{(tag) =>
+        <Show when={!props.loading && airMix() > 0 && baseOpacity() > 0}>
+          <div class="cursor-tags" style={{ opacity: Math.min(airMix(), baseOpacity()) }} aria-hidden="true"><For each={cursorLayers()}>{(tag) =>
             <span style={{ left: `${cursorX()}px`, top: `${tag.y}px` }}>{tag.text}</span>
           }</For></div>
         </Show>
@@ -653,7 +653,7 @@ export default function HistogramScrubber(props: Props) {
         </Show>
         <Show when={!props.loading && !props.values.length}><span class="empty-graph">Kies een locatie voor de regengrafiek</span></Show>
         <div class="cursor-marker" style={{ left: `${cursorX()}px` }} />
-        <Show when={!props.loading && (view() === 'rain' || view() === 'cover' || view() === 'clouds') && (cursorValue() ?? 0) >= 0.05}>
+        <Show when={!props.loading && (view() === 'rain' || view() === 'cover') && (cursorValue() ?? 0) >= 0.05}>
           <div class="cursor-readout" classList={{ tween: tween() }} style={{ left: `${cursorX()}px`, top: `${barTop(cursorValue())}px` }} aria-hidden="true">
             <span>{formatRate(cursorValue()!)}</span>
           </div>
@@ -761,12 +761,12 @@ export function stickyKeyframes(segment: DaySegment, from: number, to: number): 
 }
 
 function formatRate(value: number): string {
-  return `${value < 0.1 ? '<0,1' : value.toLocaleString('nl-NL', { maximumFractionDigits: value < 10 ? 1 : 0 })} mm/u`
+  return `${value < 0.1 ? '<0,1' : formatNumber(value, value < 10 ? 1 : 0)} mm/u`
 }
 
 function hourLabel(epoch: number): string {
   const date = new Date(epoch)
-  return date.getHours() === 0 ? date.toLocaleDateString('nl-NL', { weekday: 'short' }) : `${date.getHours()}u`
+  return date.getHours() === 0 ? formatWeekdayShort(epoch) : `${date.getHours()}u`
 }
 
 function dayLabel(epoch: number, todayEpoch: number): string {
@@ -778,5 +778,5 @@ function dayLabel(epoch: number, todayEpoch: number): string {
   if (date.toDateString() === today.toDateString()) return 'Morgen'
   today.setDate(today.getDate() - 2)
   if (date.toDateString() === today.toDateString()) return 'Gisteren'
-  return date.toLocaleDateString('nl-NL', { weekday: 'long' })
+  return formatWeekdayLong(epoch)
 }

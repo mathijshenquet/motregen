@@ -39,6 +39,11 @@ export function contextOpacity(focus: number, dim: number): number {
   return 1 - focus * (1 - dim)
 }
 
+/** Regen verdwijnt bij temperatuurfocus en dimt tot de helft bij volledige windfocus. */
+export function rainFocusOpacity(temperatureFocus: number, windFocus: number): number {
+  return (1 - temperatureFocus) * (1 - 0.5 * windFocus)
+}
+
 /** Verzadiging van de basiskaart tijdens volle temperatuurfocus (PO U25b). */
 export const MAP_FOCUS_SATURATION = 0.55
 
@@ -54,8 +59,8 @@ export function windFocusIntensity(intensity: number, focus: number): number {
   return intensity * (1 + focus * (WIND_FOCUS_GAIN - 1))
 }
 
-// 'clouds' (U34) is alleen een scrubbermodus (de drie wolkenlagen); de kaart kent er geen tween voor.
-export type FocusKind = 'temperature' | 'wind' | 'clouds'
+export type FocusKind = 'weather' | 'air' | 'temperature' | 'wind'
+export const DEFAULT_FOCUS_MODE: FocusKind = 'weather'
 
 type FrameScheduler = (callback: (now: number) => void) => number
 
@@ -65,33 +70,75 @@ type FrameScheduler = (callback: (now: number) => void) => number
  * eigen waarde 0→1 in één rAF-loop die alleen loopt zolang er iets beweegt.
  */
 export class FocusMode<Mode extends string = FocusKind> {
+  private static readonly PIN_SOURCE = 'fixed-pin'
   // Map-volgorde is activeringsvolgorde: heractiveren zet een bron achteraan.
   private readonly sources = new Map<string, Mode>()
   private readonly tweens = new Map<Mode, FocusTween>()
   private readonly emitted = new Map<Mode, number>()
+  private pinnedMode: Mode
   private frame: number | undefined
 
   constructor(
     modes: readonly Mode[],
+    defaultMode: Mode,
     private readonly onValue: (mode: Mode, value: number) => void,
     private readonly reducedMotion: () => boolean,
     private readonly now: () => number = () => performance.now(),
     private readonly requestFrame: FrameScheduler = (callback) => requestAnimationFrame(callback),
     private readonly cancelFrame: (handle: number) => void = (handle) => cancelAnimationFrame(handle),
   ) {
+    if (!modes.includes(defaultMode)) throw new Error(`Default focus mode ${defaultMode} is not registered`)
+    this.pinnedMode = defaultMode
     for (const mode of modes) {
-      this.tweens.set(mode, { from: 0, to: 0, start: 0, duration: 0 })
-      this.emitted.set(mode, 0)
+      const initial = mode === defaultMode ? 1 : 0
+      this.tweens.set(mode, { from: initial, to: initial, start: 0, duration: 0 })
+      this.emitted.set(mode, initial)
     }
+    this.sources.set(this.sourceKey(defaultMode, FocusMode.PIN_SOURCE), defaultMode)
+    this.onValue(defaultMode, 1)
   }
 
   set(mode: Mode, source: string, active: boolean): void {
-    const key = `${mode}:${source}`
+    const key = this.sourceKey(mode, source)
     if (active) {
       if (this.sources.get(key) === mode && [...this.sources.keys()].at(-1) === key) return
       this.sources.delete(key)
       this.sources.set(key, mode)
     } else if (!this.sources.delete(key)) return
+    this.retargetToActiveMode()
+  }
+
+  pin(mode: Mode): boolean {
+    if (mode === this.pinnedMode) return false
+    this.sources.delete(this.sourceKey(this.pinnedMode, FocusMode.PIN_SOURCE))
+    this.pinnedMode = mode
+    this.sources.set(this.sourceKey(mode, FocusMode.PIN_SOURCE), mode)
+    this.retargetToActiveMode()
+    return true
+  }
+
+  pinned(): Mode {
+    return this.pinnedMode
+  }
+
+  has(mode: Mode, source: string): boolean {
+    return this.sources.has(this.sourceKey(mode, source))
+  }
+
+  active(): Mode {
+    return [...this.sources.values()].at(-1) ?? this.pinnedMode
+  }
+
+  dispose(): void {
+    if (this.frame !== undefined) this.cancelFrame(this.frame)
+    this.frame = undefined
+  }
+
+  private sourceKey(mode: Mode, source: string): string {
+    return `${mode}:${source}`
+  }
+
+  private retargetToActiveMode(): void {
     const winner = this.active()
     let changed = false
     for (const [tweenMode, tween] of this.tweens) {
@@ -101,19 +148,6 @@ export class FocusMode<Mode extends string = FocusKind> {
       changed = true
     }
     if (changed) this.tick()
-  }
-
-  has(mode: Mode, source: string): boolean {
-    return this.sources.has(`${mode}:${source}`)
-  }
-
-  active(): Mode | undefined {
-    return [...this.sources.values()].at(-1)
-  }
-
-  dispose(): void {
-    if (this.frame !== undefined) this.cancelFrame(this.frame)
-    this.frame = undefined
   }
 
   private tick(): void {

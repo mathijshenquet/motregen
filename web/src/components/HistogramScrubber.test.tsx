@@ -250,14 +250,14 @@ describe('histogram scrubber', () => {
     }
   })
 
-  it('always shows the three cloud layers with the rain histogram on top; the cloud mode adds the layer values (U34)', () => {
+  it('keeps the three cloud layers under rain in weather and brings them forward in air', () => {
     const timeline = ['14', '15', '16', '17', '18'].map((hour) => frame(`2026-08-28T${hour}:00:00Z`, 'harmonie'))
     const layers = { timeline: { high: timeline, mid: timeline, low: timeline }, values: { high: [80, 80, 80, 80, 80], mid: [60, 60, 60, 60, 60], low: [0, 0, 0, 0, 0] } }
-    const [mix, setMix] = createSignal({ wind: 0, clouds: 0, temperature: 0 })
+    const [mix, setMix] = createSignal({ wind: 0, air: 0, temperature: 0 })
     const { container } = render(() => <HistogramScrubber
       timeline={timeline}
       values={[0, 2, 2, 2, 0]}
-      cursor={0}
+      cursor={1}
       now={timeline[0]!.epoch}
       playing={false}
       loading={false}
@@ -274,17 +274,23 @@ describe('histogram scrubber', () => {
     const bar = container.querySelector<SVGRectElement>('.rain-bar')!
     expect(Number(bar.getAttribute('width'))).toBeGreaterThan(PX_PER_HOUR * 0.9)
     expect(container.querySelector('.cursor-tags')).toBeNull()
+    expect(container.querySelector('.cursor-readout')).not.toBeNull()
 
-    setMix({ wind: 0, clouds: 1, temperature: 0 })
-    expect(slider.getAttribute('data-scrubber-view')).toBe('clouds')
+    setMix({ wind: 0, air: 1, temperature: 0 })
+    expect(slider.getAttribute('data-scrubber-view')).toBe('air')
     expect(container.querySelectorAll('.rain-bar').length).toBeGreaterThan(0)
+    const rain = container.querySelector<SVGGElement>('.rain-bars')!
+    const clouds = container.querySelector<SVGGElement>('.cloud-section')!
+    expect(Number(rain.style.opacity)).toBeCloseTo(0.35)
+    expect(rain.compareDocumentPosition(clouds) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(container.querySelector('.cursor-readout')).toBeNull()
     // Waarden per laag bij de cursor; een lege laag (0 %) krijgt geen label.
     expect([...container.querySelectorAll('.cursor-tags span')].map((label) => label.textContent)).toEqual(['hoge wolken 80%', 'midden wolken 60%'])
   })
 
   it('cross-fades to the wind chart on the wind focus, with the reading in the chosen unit (U34)', () => {
     const timeline = day24()
-    const [mix, setMix] = createSignal({ wind: 0, clouds: 0, temperature: 0 })
+    const [mix, setMix] = createSignal({ wind: 0, air: 0, temperature: 0 })
     const { container } = render(() => <HistogramScrubber
       timeline={timeline}
       values={timeline.map(() => 1)}
@@ -301,11 +307,11 @@ describe('histogram scrubber', () => {
     const slider = screen.getByRole('slider', { name: 'Tijd' })
     expect(slider.getAttribute('data-scrubber-view')).toBe('rain')
     expect(container.querySelector('[data-testid="wind-chart"]')).toBeNull()
-    setMix({ wind: 0.3, clouds: 0, temperature: 0 })
+    setMix({ wind: 0.3, air: 0, temperature: 0 })
     const chart = container.querySelector<SVGGElement>('[data-testid="wind-chart"]')!
     expect(Number(chart.style.opacity)).toBeCloseTo(0.3)
     expect(Number((container.querySelector<SVGGElement>('.rain-bars')!).style.opacity)).toBeCloseTo(0.7)
-    setMix({ wind: 1, clouds: 0, temperature: 0 })
+    setMix({ wind: 1, air: 0, temperature: 0 })
     expect(slider.getAttribute('data-scrubber-view')).toBe('wind')
     expect(container.querySelector('.wind-area')!.getAttribute('d')).toMatch(/^M/)
     // 5 m/s = 3 Bft, vlaag 12,5 m/s = 6 Bft.
@@ -317,7 +323,7 @@ describe('histogram scrubber', () => {
 
   it('renders with every series the app passes and shows the temperature chart on the temperature focus (U34)', () => {
     const timeline = day24()
-    const [mix, setMix] = createSignal({ wind: 0, clouds: 0, temperature: 0 })
+    const [mix, setMix] = createSignal({ wind: 0, air: 0, temperature: 0 })
     const { container } = render(() => <HistogramScrubber
       timeline={timeline}
       values={timeline.map(() => 0)}
@@ -336,7 +342,7 @@ describe('histogram scrubber', () => {
     />)
     const slider = screen.getByRole('slider', { name: 'Tijd' })
     expect(slider.getAttribute('data-scrubber-view')).toBe('cover')
-    setMix({ wind: 0, clouds: 0, temperature: 1 })
+    setMix({ wind: 0, air: 0, temperature: 1 })
     expect(slider.getAttribute('data-scrubber-view')).toBe('temperature')
     expect(container.querySelector('[data-testid="temperature-chart"] .temperature-area')).not.toBeNull()
     // Gevoel en lucht als twee puntjes (U34).

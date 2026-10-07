@@ -1,4 +1,4 @@
-# Track U45 — Telegram: Mini App + inline-bot met stills (MIP-17 stap 3 en 4) (gpt-5.6-sol)
+# Track U45 — Telegram: Mini App + inline-bot met stills (MIP-17 stap 3 en 4) (gpt-6.1-sol)
 
 **Start na de merge van U44** (URL-presets + PWA): de Mini App en de "Open in motregen.nl"-knop
 bouwen op de presets.
@@ -45,3 +45,9 @@ de ADS-sleutel), `docs/analytics.md` (MIP-13-privacycontract). Bot-token: `TG_BO
 Geen pollen-knop tot de kolom bestaat (U38). Geen locatiegebonden stills (nationaal; "mijn
 plek" is de Mini App). Geen webhook (long polling volstaat). Leesbaarheidsbar: geen
 één-letternamen, geen slimme one-liners.
+
+## Leesbaarheidsbar (gpt-6-klasse)
+
+Geen code-golf: geen één-letternamen, geen slimme one-liners of gecomprimeerde expressies,
+functies die één ding doen met een naam die dat zegt, commentaar alleen voor een niet-triviaal
+waarom. De orkestrator leest de diff op compressie vóór de merge.

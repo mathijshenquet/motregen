@@ -5,6 +5,7 @@ import { ageMs, expectedNext, formatAge, formatAgeShort, formatClock, freshnessS
 import { sourceZone } from '../core/time-model'
 import { BUTTON_ICON, INLINE_ICON, Play, X } from './icons'
 import { backdropHandlers } from './modal'
+import { formatTime, formatWeekdayShort } from '../core/locale'
 
 interface Props {
   // Epoch shown on the map (scrubber position) and the frame's source and run.
@@ -45,8 +46,8 @@ export default function Freshness(props: Props) {
     return seconds < 60 ? `${seconds} ${seconds === 1 ? 'seconde' : 'seconden'} geleden` : formatAge(seconds * 1_000)
   }
 
-  const time = (epoch: number) => new Date(epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
-  const day = (epoch: number) => new Date(epoch).toLocaleDateString('nl-NL', { weekday: 'short' })
+  const time = formatTime
+  const day = formatWeekdayShort
   const mapDay = () => day(props.mapEpoch) === day(clock()) ? '' : day(props.mapEpoch)
   const mapTime = () => props.mapFrame ? time(props.mapEpoch) : '––:––'
   // Alleen voor de schermlezer; zichtbaar scheidt de nu-lijn observatie van verwachting.

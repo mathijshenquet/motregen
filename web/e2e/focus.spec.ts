@@ -107,16 +107,19 @@ test('hovering the wind column brings the damped wind to full strength and dims 
   test.skip(testInfo.project.name !== 'desktop', 'muishover is een desktopgedrag; touch heeft een eigen test')
   await ready(page)
   const damped = await windIntensity(page)
+  await expect(shell(page)).toHaveAttribute('data-rain-opacity', '1.00')
   // PO 2026-09-25 live (U34): default 0,5, windfocus 0,8.
   expect(damped).toBeCloseTo(0.5, 2)
   await windHeading(page).hover()
   await expect.poll(async () => Number(await shell(page).getAttribute('data-wind-focus'))).toBeGreaterThan(0)
   await expect(shell(page)).toHaveAttribute('data-wind-focus', '1.00')
+  await expect(shell(page)).toHaveAttribute('data-rain-opacity', '0.50')
   expect(await windIntensity(page)).toBeCloseTo(0.8, 1)
   expect(await shell(page).getAttribute('data-focus')).toBe('0.00')
   await page.screenshot({ path: testInfo.outputPath('wind-focus.png') })
   await page.mouse.move(5, 5)
   await expect(shell(page)).toHaveAttribute('data-wind-focus', '0.00')
+  await expect(shell(page)).toHaveAttribute('data-rain-opacity', '1.00')
   expect(await windIntensity(page)).toBeCloseTo(damped, 2)
 
   await page.locator('.wind-cell').nth(5).hover()
@@ -147,7 +150,7 @@ test('the two focus modes exclude each other: the last one wins, a pin returns a
   await expect(heading(page)).toHaveAttribute('aria-pressed', 'false')
   await expect(shell(page)).toHaveAttribute('data-wind-focus', '1.00')
   await expect(shell(page)).toHaveAttribute('data-focus', '0.00')
-  // Weer is sinds U34 de wolkenmodus: vastzetten maakt de windpin los; nog eens klikken geeft de standaard.
+  // Weer is de vaste standaardpin en maakt de windpin los.
   await expect(weatherHeading(page)).toHaveAttribute('aria-pressed', 'false')
   await weatherHeading(page).click()
   await page.mouse.move(5, 5)
@@ -157,21 +160,21 @@ test('the two focus modes exclude each other: the last one wins, a pin returns a
   await expect(shell(page)).toHaveAttribute('data-focus', '0.00')
   await weatherHeading(page).click()
   await page.mouse.move(5, 5)
-  await expect(weatherHeading(page)).toHaveAttribute('aria-pressed', 'false')
+  await expect(weatherHeading(page)).toHaveAttribute('aria-pressed', 'true')
 })
 
 test('tapping the wind heading pins wind focus on touch', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile-4g', 'touchroute op het mobiele profiel')
   await ready(page)
+  await page.getByRole('button', { name: 'Tabel openen' }).tap()
   await windHeading(page).tap()
   await expect(windHeading(page)).toHaveAttribute('aria-pressed', 'true')
   await expect(shell(page)).toHaveAttribute('data-wind-focus', '1.00')
   expect(await shell(page).getAttribute('data-focus')).toBe('0.00')
   await windHeading(page).tap()
-  await expect(windHeading(page)).toHaveAttribute('aria-pressed', 'false')
-  await expect(shell(page)).toHaveAttribute('data-wind-focus', '0.00')
-  await windHeading(page).tap()
-  // Weer (wolkenmodus, U34) vastzetten maakt de windpin los.
+  await expect(windHeading(page)).toHaveAttribute('aria-pressed', 'true')
+  await expect(shell(page)).toHaveAttribute('data-wind-focus', '1.00')
+  // Weer vastzetten maakt de windpin los.
   await weatherHeading(page).tap()
   await expect(windHeading(page)).toHaveAttribute('aria-pressed', 'false')
   await expect(shell(page)).toHaveAttribute('data-wind-focus', '0.00')
@@ -183,16 +186,19 @@ test('tapping the column heading pins focus on touch, and measures frame rate', 
   await applyEmulation(cdp, performanceProfile(testInfo.project.name))
   await ready(page)
   const baseline = await fps(page)
+  await page.getByRole('button', { name: 'Tabel openen' }).tap()
   await heading(page).tap()
   await expect(heading(page)).toHaveAttribute('aria-pressed', 'true')
   await expect(shell(page)).toHaveAttribute('data-focus', '1.00')
+  await page.getByRole('button', { name: 'Tabel sluiten en kaart tonen' }).tap()
   await expect.poll(async () => Number(await shell(page).getAttribute('data-isolines')), { timeout: 20_000 }).toBeGreaterThan(0)
   const focused = await fps(page)
   await page.screenshot({ path: testInfo.outputPath('focus-mobile.png') })
   // Alleen loggen: headless SwiftShader is geen GPU-gate (docs/perf.md).
   console.log(`[focus] ${testInfo.project.name} fps buiten focus ${baseline}, in focus ${focused}`)
   testInfo.annotations.push({ type: 'fps', description: `buiten ${baseline}, in focus ${focused}` })
-  await heading(page).tap()
+  await page.getByRole('button', { name: 'Tabel openen' }).tap()
+  await weatherHeading(page).tap()
   await expect(heading(page)).toHaveAttribute('aria-pressed', 'false')
   await expect(shell(page)).toHaveAttribute('data-focus', '0.00')
 })
@@ -215,16 +221,12 @@ test('temperature focus desaturates only the basemap canvas and fills the bands,
   // De overlays (regen, wind, isolijnen) zijn eigen canvassen en blijven verzadigd.
   for (const filter of await page.locator('.map-overlay').evaluateAll((canvases) => canvases.map((canvas) => getComputedStyle(canvas).filter))) expect(filter).toBe('none')
   await expect.poll(() => fillCoverage(page)).toBeGreaterThan(0.005)
-  // Legenda: het gerekte bereik (hele graden, ≥ 8 °C breed), een blok per band.
-  const legend = page.locator('.temperature-legend')
-  await expect(legend).toBeVisible()
+  await expect(page.locator('.temperature-legend')).toHaveCount(0)
   const range = await page.evaluate(() => (window as typeof window & { __motregenIsolines: () => { paletteRange?: { low: number; high: number } } }).__motregenIsolines().paletteRange)
   expect(range!.high - range!.low).toBeGreaterThanOrEqual(8)
-  await expect(legend).toHaveAttribute('aria-label', `Kleurschaal gevoelstemperatuur ${range!.low} tot ${range!.high} graden`)
-  await expect(legend.locator('.temperature-legend-bar i')).toHaveCount(range!.high - range!.low)
   await page.screenshot({ path: testInfo.outputPath('focus-fill.png') })
 
-  await heading(page).click()
+  await weatherHeading(page).click()
   await heading(page).blur()
   await page.mouse.move(5, 5)
   await expect(shell(page)).toHaveAttribute('data-focus', '0.00')
@@ -232,7 +234,6 @@ test('temperature focus desaturates only the basemap canvas and fills the bands,
   await expect.poll(() => saturation(page)).toBe(1)
   expect(await page.locator('.maplibregl-canvas').evaluate((canvas) => getComputedStyle(canvas).filter)).toBe('none')
   await expect.poll(() => fillCoverage(page)).toBe(0)
-  await expect(page.locator('.temperature-legend')).toHaveCount(0)
 })
 
 test('pinned focus at rest does no contour or worker work', async ({ page }, testInfo) => {

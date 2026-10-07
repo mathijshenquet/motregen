@@ -64,45 +64,81 @@ export type TracerReply = { id: number; result: TraceResult | undefined }
 export class ContourTracer {
   private worker?: Worker
   private core?: TraceCore
+  private readonly fields: Array<PreparedField | undefined>
   private busy = false
   private pending?: TraceRequest
   private id = 0
+  private paused = false
 
-  constructor(grid: Grid, depth: number, private readonly done: (result: TraceResult | undefined) => void) {
+  constructor(private readonly grid: Grid, private readonly depth: number, private readonly done: (result: TraceResult | undefined) => void) {
+    this.fields = new Array<PreparedField | undefined>(depth)
     if (typeof Worker === 'undefined') {
       this.core = new TraceCore(grid, depth)
       return
     }
-    this.worker = new Worker(new URL('./isoline-tracer.worker.ts', import.meta.url), { type: 'module' })
-    this.worker.onmessage = ({ data }: MessageEvent<TracerReply>) => {
+    this.startWorker()
+  }
+
+  private startWorker(): void {
+    const worker = new Worker(new URL('./isoline-tracer.worker.ts', import.meta.url), { type: 'module' })
+    this.worker = worker
+    worker.onmessage = ({ data }: MessageEvent<TracerReply>) => {
+      if (worker !== this.worker) return
       if (data.id !== this.id) return
       this.busy = false
       this.done(data.result)
       this.pump()
     }
-    this.post({ type: 'init', grid, depth })
+    this.post({ type: 'init', grid: this.grid, depth: this.depth })
+    this.fields.forEach((field, index) => {
+      if (field) this.postLayer(index, field)
+    })
   }
 
   setLayer(index: number, field: PreparedField | undefined): void {
+    this.fields[index] = field
     if (this.core) { this.core.setLayer(index, field); return }
+    if (this.paused) return
+    this.postLayer(index, field)
+  }
+
+  private postLayer(index: number, field: PreparedField | undefined): void {
     // Kopieën: het veld blijft ook in de labelcache van de app in gebruik.
     const values = field ? field.values.slice() : null, valid = field ? field.valid.slice() : null
     this.post({ type: 'layer', index, values, valid }, values && valid ? [values.buffer, valid.buffer] : [])
   }
 
   request(request: TraceRequest): void {
+    if (this.paused) return
     this.pending = request
     this.pump()
   }
 
+  setPaused(paused: boolean): void {
+    if (paused === this.paused) return
+    this.paused = paused
+    this.pending = undefined
+    if (this.core) return
+    if (paused) {
+      this.worker?.terminate()
+      this.worker = undefined
+      this.busy = false
+      this.id++
+    } else {
+      this.startWorker()
+    }
+  }
+
   dispose(): void {
+    this.paused = true
     this.worker?.terminate()
     this.worker = undefined
     this.pending = undefined
+    this.busy = false
   }
 
   private pump(): void {
-    if (this.busy || !this.pending) return
+    if (this.paused || this.busy || !this.pending) return
     const request = this.pending
     this.pending = undefined
     if (this.core) {

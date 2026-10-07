@@ -1,13 +1,15 @@
 import { createEffect, createMemo, createSignal, createUniqueId, For, onCleanup, Show } from 'solid-js'
 import type { FocusKind } from '../core/focus-mode'
 import type { HourlyForecastRow } from '../core/forecast'
-import { moonLitPath, moonPhase } from '../core/moon'
+import { moonHorizonAngle, moonLitPath, moonPhase } from '../core/moon'
 import { solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
 import { dailyClearSkyUvMax, uvReading } from '../core/uv'
 import { deriveWeatherIcon, summarizeWind, WIND_UNIT_LABELS, type WindSummary, type WindUnit } from '../core/weather'
-import { ArrowUp, BUTTON_ICON, Clock, CloudSun, Droplets, Sun, Thermometer, Wind } from './icons'
+import { ArrowUp, BUTTON_ICON, Clock, CloudRain, CloudSun, Table2, Thermometer, Wind } from './icons'
 import UvBar from './UvBar'
 import WeatherIcon from './WeatherIcon'
+import { measurePerfPhase } from '../core/perf'
+import { formatTime, formatWeekdayShort } from '../core/locale'
 
 export interface ForecastSeries {
   rain: Array<number | null>
@@ -27,12 +29,13 @@ interface Props {
   rows: HourlyForecastRow[]
   series: ForecastSeries
   location: { lng: number; lat: number }
-  columns: { weather: boolean; uv: boolean; temperature: boolean; humidity: boolean; wind: boolean }
+  columns: { weather: boolean; air: boolean; temperature: boolean; wind: boolean }
   windUnit: WindUnit
+  dayNight?: boolean
   // Rows after this epoch have not been fetched yet; scrolling near them asks for them.
   loadedUntil: number
-  // Touch: history rows stay folded (and unfetched) until the toggle row is tapped. Desktop (inline):
-  // they sit above the now-row, the table opens scrolled to now and fetches them once one scrolls into view.
+  // Desktop (inline) keeps history above now; portrait mobile reveals it when table mode opens.
+  // Other touch layouts keep the explicit foldout.
   historyInline: boolean
   historyOpen: boolean
   historyLoaded: boolean
@@ -41,11 +44,14 @@ interface Props {
   onOpenHistory: () => void
   /** Klik op een rij: de scrubber springt naar dat uur (U34). */
   onSelectTime?: (epoch: number) => void
-  // De koppenrij is de modebalk: Gevoel en Wind zijn kaartmodes (hover/toetsenbordfocus tijdelijk,
-  // klik pint), Weer is de standaard en zet een pin uit.
+  /** Portrait-mobiel gebruikt de eerste kop als wissel tussen kaart en tabel. */
+  mobileTableOpen?: boolean
+  onOpenMobileTable?: () => void
+  onSelectMobileMode?: () => void
+  // De koppenrij is de modebalk: hover/toetsenbordfocus is tijdelijk, klikken pint één modus.
   focus: {
-    pinned: FocusKind | undefined
-    onTogglePin: (mode: FocusKind) => void
+    pinned: FocusKind
+    onPin: (mode: FocusKind) => void
     onFocus: (mode: FocusKind, source: 'table' | 'keyboard', active: boolean) => void
   }
 }
@@ -54,6 +60,7 @@ const hour = 3_600_000
 const HOVER_LEAVE_MS = 80
 
 export default function ForecastTable(props: Props) {
+  const tableMemo = <T,>(name: string, compute: () => T) => createMemo(() => measurePerfPhase('table-render', compute, { memo: name }))
   // De hele kolom (kop én cellen) is het hoverdoel en kleurt mee (PO 2026-09-25 live, U34). Verlaten
   // wacht HOVER_LEAVE_MS: van cel naar cel (of over een zonrij) gaat de focus zo niet even uit.
   // Touch vuurt ook pointerenter; dat mag geen blijvende hover worden (tap op de kop toggelt).
@@ -61,7 +68,13 @@ export default function ForecastTable(props: Props) {
   let leaveTimer: number | undefined
   onCleanup(() => window.clearTimeout(leaveTimer))
   const hover = (mode: FocusKind, event: PointerEvent, active: boolean) => {
-    if (event.pointerType === 'touch') return
+    if (event.pointerType === 'touch') {
+      window.clearTimeout(leaveTimer)
+      const previous = hovered()
+      if (previous) props.focus.onFocus(previous, 'table', false)
+      setHovered(undefined)
+      return
+    }
     window.clearTimeout(leaveTimer)
     if (active) {
       const previous = hovered()
@@ -86,13 +99,16 @@ export default function ForecastTable(props: Props) {
   const FocusHeading = (heading: { mode: FocusKind; icon: typeof CloudSun; label: string; title: string }) => <button
     type="button"
     class={`column-mode column-focus ${heading.mode}-focus`}
-    aria-pressed={props.focus.pinned === heading.mode}
+    aria-pressed={!props.mobileTableOpen && props.focus.pinned === heading.mode}
     title={heading.title}
-    onClick={() => props.focus.onTogglePin(heading.mode)}
+    onClick={() => {
+      props.focus.onPin(heading.mode)
+      props.onSelectMobileMode?.()
+    }}
     onFocus={(event) => { if (event.currentTarget.matches(':focus-visible')) props.focus.onFocus(heading.mode, 'keyboard', true) }}
     onBlur={() => props.focus.onFocus(heading.mode, 'keyboard', false)}
   ><ColumnLabel icon={heading.icon} text={heading.label} /></button>
-  const sun = createMemo(() => {
+  const sun = tableMemo('zonmomenten', () => {
     const first = props.rows[0]
     const last = props.rows.at(-1)
     if (!first || !last) return new Map<number, SunEvent>()
@@ -112,7 +128,7 @@ export default function ForecastTable(props: Props) {
     for (const [epoch, element] of rowElements) if (epoch > until) observer?.observe(element)
   })
   const pastCount = () => props.rows.filter((row) => row.kind === 'past').length
-  const visibleRows = () => props.historyInline || props.historyOpen ? props.rows : props.rows.filter((row) => row.kind !== 'past')
+  const visibleRows = tableMemo('zichtbare-rijen', () => props.historyInline || props.historyOpen || props.onOpenMobileTable ? props.rows : props.rows.filter((row) => row.kind !== 'past'))
   const historyObserver = typeof IntersectionObserver === 'undefined' ? undefined : new IntersectionObserver((entries) => {
     if (!entries.some((entry) => entry.isIntersecting)) return
     historyObserver?.disconnect()
@@ -164,39 +180,40 @@ export default function ForecastTable(props: Props) {
     historyObserver?.disconnect()
   })
 
-  const columnCount = () => 2 + Number(props.columns.weather) + Number(props.columns.uv) + Number(props.columns.temperature) +
-    Number(props.columns.humidity) + Number(props.columns.wind)
+  const columnCount = () => 1 + Number(props.columns.weather) + Number(props.columns.air) + Number(props.columns.temperature) + Number(props.columns.wind)
 
-  return <table class="forecast-table" data-mode={props.focus.pinned} data-hover={hovered()}>
+  return <table class="forecast-table" classList={{ 'day-night-table': props.dayNight !== false }} data-mode={props.focus.pinned} data-hover={hovered()}>
     <thead><tr>
-      {/* Weer is de wolkenmodus (PO 2026-09-25 live, U34): bewolkingssluier op de kaart en de wolkenlagen
-          in de grafiek; nog eens klikken op de gepinde kop geeft de standaardweergave. */}
-      {/* Tijd weer als eigen kolom (PO 2026-09-25 live); een klik op een rij springt de scrubber erheen. */}
-      <th class="time-heading"><span class="column-mode"><ColumnLabel icon={Clock} text="Uur" /></span></th>
-      <Show when={props.columns.weather}><th class="weather-heading" {...columnHover('clouds')}>
-        <FocusHeading mode="clouds" icon={CloudSun} label="Weer" title="Toon de bewolking op de kaart en de wolkenlagen in de grafiek" />
+      {/* Weer is de vaste standaardmodus: regen op de kaart en in de grafiek. */}
+      <th class="time-heading"><Show when={props.onOpenMobileTable} fallback={<span class="column-mode"><ColumnLabel icon={Clock} text="Uur" /></span>}>
+        <button
+          type="button"
+          class="column-mode column-focus table-focus"
+          title="Toon de tabel"
+          aria-pressed={Boolean(props.mobileTableOpen)}
+          onClick={(event) => {
+            event.stopPropagation()
+            if (props.mobileTableOpen) props.onSelectMobileMode?.()
+            else props.onOpenMobileTable?.()
+          }}
+        >
+          <ColumnLabel icon={Table2} text="Tabel" />
+        </button>
+      </Show></th>
+      <Show when={props.columns.weather}><th class="weather-heading" {...columnHover('weather')}>
+        <FocusHeading mode="weather" icon={CloudRain} label="Weer" title="Toon regen op de kaart en in de grafiek" />
       </th></Show>
-      <Show when={props.columns.uv}><th class="uv-heading" title="UV-index met en zonder wolken">
-        <span class="column-mode"><ColumnLabel icon={Sun} text="UV" /></span>
+      <Show when={props.columns.air}><th class="air-heading" {...columnHover('air')}>
+        <FocusHeading mode="air" icon={CloudSun} label="Lucht" title="Toon bewolking op de kaart en de wolkenlagen in de grafiek" />
       </th></Show>
       <Show when={props.columns.temperature}><th class="temperature-heading" {...columnHover('temperature')}>
         <FocusHeading mode="temperature" icon={Thermometer} label="Gevoel" title="Toon temperatuurlijnen op de kaart" />
       </th></Show>
-      <Show when={props.columns.humidity}><th title="Relatieve luchtvochtigheid"><span class="column-mode"><ColumnLabel icon={Droplets} text="RV" /></span></th></Show>
       <Show when={props.columns.wind}><th class="wind-heading" {...columnHover('wind')}>
         <FocusHeading mode="wind" icon={Wind} label="Wind" title="Toon de wind op de kaart op volle sterkte" />
       </th></Show>
     </tr></thead>
     <tbody>
-    <Show when={!props.historyInline && pastCount() > 0}>
-      <tr class="history-toggle-row">
-        <td colSpan={columnCount()}>
-          <button type="button" class="history-toggle" aria-expanded={props.historyOpen} onClick={() => props.onOpenHistory()}>
-            {props.historyOpen ? 'Afgelopen uren verbergen' : `Afgelopen ${pastCount()} uur tonen`}
-          </button>
-        </td>
-      </tr>
-    </Show>
     <For each={visibleRows()}>{(row) => {
       const pending = () => row.epoch > props.loadedUntil || (row.kind === 'past' && !props.historyLoaded)
       const value = (series: Array<number | null>, index: number | null) => index == null ? null : series[index] ?? null
@@ -205,14 +222,14 @@ export default function ForecastTable(props: Props) {
       const feelsLike = () => value(props.series.feelsLike, row.feelsLikeIndex)
       const temperature = () => value(props.series.temperature, row.temperatureIndex)
       const degrees = (reading: number | null) => reading == null ? placeholder() : `${Math.round(reading)}°`
-      const humidity = () => value(props.series.humidity, row.humidityIndex)
       const wind = () => summarizeWind(value(props.series.windU, row.windUIndex), value(props.series.windV, row.windVIndex),
         value(props.series.gust, row.gustIndex), props.windUnit)
-      const icon = () => deriveWeatherIcon(rain(), cloud(), elevation(row.epoch) > 0)
+      const sunEvent = () => sun().get(row.epoch)
+      const daylight = () => sunEvent()?.kind === 'set' || (sunEvent() === undefined && elevation(row.epoch) > 0)
+      const icon = () => deriveWeatherIcon(rain(), cloud(), daylight())
       const uv = createMemo(() => uvReading(row.epoch, value(props.series.uv, row.uvIndex), value(props.series.uvClear, row.uvClearIndex),
         value(props.series.radiation, row.radiationIndex), value(props.series.radiation, row.radiationNextIndex), elevation, row.kind !== 'past'))
-      const sunEvent = () => sun().get(row.epoch)
-      const time = (epoch: number) => new Date(epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+      const time = formatTime
       const sunLabel = (event: SunEvent) => `${event.kind === 'rise' ? 'Zon op' : 'Zon onder'} ${time(event.epoch)}`
       const placeholder = () => pending() ? '…' : '—'
       const rainAmount = () => {
@@ -222,46 +239,72 @@ export default function ForecastTable(props: Props) {
       }
       return <>
         <tr
+          data-epoch={row.epoch}
           ref={(element) => {
             rowElements.set(row.epoch, element)
             onCleanup(() => rowElements.delete(row.epoch))
             if (row.kind === 'now') pinNow(element)
           }}
-          classList={{ 'current-hour': row.kind === 'now', 'past-hour': row.kind === 'past', 'pending-hour': pending() }}
+          classList={{
+            'day-hour': daylight(),
+            'night-hour': !daylight(),
+            'current-hour': row.kind === 'now',
+            'past-hour': row.kind === 'past',
+            'pending-hour': pending(),
+            'before-sun-row': !!sunEvent(),
+            'before-sunrise': sunEvent()?.kind === 'rise',
+            'before-sunset': sunEvent()?.kind === 'set',
+          }}
           onClick={() => props.onSelectTime?.(row.epoch)}
         >
           <td class="time-cell">
-            <button type="button" class="time-label" title="Naar dit uur in de grafiek" onClick={(event) => { event.stopPropagation(); props.onSelectTime?.(row.epoch) }}>
+            <button
+              type="button"
+              class="time-label"
+              title={props.mobileTableOpen ? 'Toon dit uur op de kaart' : 'Naar dit uur in de grafiek'}
+              onClick={(event) => {
+                event.stopPropagation()
+                props.onSelectTime?.(row.epoch)
+                if (props.mobileTableOpen) props.onSelectMobileMode?.()
+              }}
+            >
               <strong>{time(row.epoch)}</strong>
-              <span classList={{ 'now-label': row.kind === 'now' }}>{row.kind === 'now' ? 'Nu' : new Date(row.epoch).toLocaleDateString('nl-NL', { weekday: 'short' })}</span>
+              <span classList={{ 'now-label': row.kind === 'now' }}>{row.kind === 'now' ? 'Nu' : formatWeekdayShort(row.epoch)}</span>
             </button>
           </td>
           <Show when={props.columns.weather}>
-            <td class="weather-cell" {...columnHover('clouds')}>
+            <td class="weather-cell" {...columnHover('weather')}>
               <div class="weather-glyph">
                 <Show when={icon()}>{(model) => <WeatherIcon model={model()} />}</Show>
                 <Show when={rainAmount()}>{(amount) => <span class="rain-amount">{amount()}<small> mm/u</small></span>}</Show>
               </div>
             </td>
           </Show>
-          <Show when={props.columns.uv}>
-            <td class="uv-cell">
-              {/* Overdag de zon (UV), 's nachts de maan (PO 2026-09-25 live, U34). */}
-              <Show when={elevation(row.epoch) > 0} fallback={<MoonReading epoch={row.epoch} />}>
-                <Show when={uv()} fallback={pending() ? '…' : ''}>
+          <Show when={props.columns.air}>
+            <td class="air-cell" {...columnHover('air')}>
+              <Show when={daylight()} fallback={<MoonReading epoch={row.epoch} longitude={props.location.lng} latitude={props.location.lat} />}>
+                <Show when={uv()} fallback={<span class="air-uv-placeholder">{placeholder()}</span>}>
                   <UvBar reading={uv()} scale={dailyClearSkyUvMax(row.epoch, props.location.lat)} />
                 </Show>
               </Show>
             </td>
           </Show>
           <Show when={props.columns.temperature}><td class="temperature-cell" {...columnHover('temperature')}>{degrees(feelsLike())}<small class="air-temperature" title="Luchttemperatuur">{degrees(temperature())}</small></td></Show>
-          <Show when={props.columns.humidity}><td>{humidity() == null ? placeholder() : `${Math.round(humidity()!)}%`}</td></Show>
           <Show when={props.columns.wind}><td class="wind-cell" {...columnHover('wind')}><Show when={wind()} fallback={placeholder()}>{(summary) =>
             <WindReading summary={summary()} />
           }</Show></td></Show>
         </tr>
+        <Show when={!props.historyInline && !props.onOpenMobileTable && row.kind === 'now' && pastCount() > 0}>
+          <tr class="history-toggle-row">
+            <td colSpan={columnCount()}>
+              <button type="button" class="history-toggle" aria-expanded={props.historyOpen} onClick={() => props.onOpenHistory()}>
+                {props.historyOpen ? 'Afgelopen uren verbergen' : `Afgelopen ${pastCount()} uur tonen`}
+              </button>
+            </td>
+          </tr>
+        </Show>
         <Show when={sunEvent()}>{(event) =>
-          <tr class="sun-row" classList={{ 'past-hour': row.kind === 'past' }}>
+          <tr class="sun-row" classList={{ 'past-hour': row.kind === 'past', 'sunrise-row': event().kind === 'rise', 'sunset-row': event().kind === 'set' }}>
             <td colSpan={columnCount()}><SunGlyph />{sunLabel(event())}</td>
           </tr>
         }</Show>
@@ -287,41 +330,35 @@ function WindReading(props: { summary: WindSummary }) {
   </span>
 }
 
-function MoonReading(props: { epoch: number }) {
+function MoonReading(props: { epoch: number; longitude: number; latitude: number }) {
   const moon = () => moonPhase(props.epoch)
-  const text = () => `${moon().label}, ${Math.round(moon().illumination * 100)} % verlicht`
+  const angle = () => Math.round(moonHorizonAngle(props.epoch, props.longitude, props.latitude))
+  const horizon = () => angle() >= 0 ? `${angle()} graden boven de horizon` : `${Math.abs(angle())} graden onder de horizon`
+  const text = () => `${moon().label}, ${Math.round(moon().illumination * 100)} % verlicht, ${horizon()}`
   return <span class="moon-reading" role="img" aria-label={text()} title={text()}>
     <MoonGlyph phase={moon().phase} illumination={moon().illumination} />
-    <small>{Math.round(moon().illumination * 100)}%</small>
+    <span class="moon-meta"><small>{Math.round(moon().illumination * 100)}%</small><small class="moon-angle"><span aria-hidden="true">∠</span>{angle()}°</small></span>
   </span>
 }
 
-/** Maantje met verloop, zachte schemergrens, vage maria, aardschijn en een gloed die met de fase meegroeit. */
+/** NASA's volle-maantextuur onder onze berekende terminator, met aardschijn en een zachte gloed. */
 function MoonGlyph(props: { phase: number; illumination: number }) {
   const id = createUniqueId()
-  const lit = () => moonLitPath(props.phase, 8, 8, 6.2)
+  const lit = () => moonLitPath(props.phase, 8, 8, 6.7)
   return <svg class="moon-glyph" viewBox="0 0 16 16" aria-hidden="true">
     <defs>
-      <radialGradient id={`${id}-lit`} cx="42%" cy="38%" r="68%">
-        <stop offset="0" stop-color="#fffbea" /><stop offset=".65" stop-color="#efe3b8" /><stop offset="1" stop-color="#cdbf92" />
-      </radialGradient>
       <radialGradient id={`${id}-night`} cx="45%" cy="40%" r="70%">
         <stop offset="0" class="moon-night-core" /><stop offset="1" class="moon-night-edge" />
       </radialGradient>
-      <clipPath id={`${id}-disc`}><circle cx="8" cy="8" r="6.2" /></clipPath>
+      <clipPath id={`${id}-disc`}><circle cx="8" cy="8" r="6.7" /></clipPath>
       <clipPath id={`${id}-litclip`}><path d={lit()} /></clipPath>
-      <filter id={`${id}-soft`} x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation=".4" /></filter>
-      <filter id={`${id}-glow`} x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="1.3" /></filter>
+      <filter id={`${id}-glow`} x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="1.1" /></filter>
     </defs>
-    <circle class="moon-glow" cx="8" cy="8" r="6.2" filter={`url(#${id}-glow)`} opacity={(0.15 + 0.45 * props.illumination).toFixed(2)} />
-    <circle cx="8" cy="8" r="6.2" fill={`url(#${id}-night)`} />
-    <g clip-path={`url(#${id}-disc)`}>
-      <path d={lit()} fill={`url(#${id}-lit)`} filter={`url(#${id}-soft)`} />
-      <g class="moon-maria" clip-path={`url(#${id}-litclip)`}>
-        <ellipse cx="6.2" cy="6.4" rx="2" ry="1.4" /><ellipse cx="9.8" cy="5.6" rx="1.3" ry="1" />
-        <ellipse cx="9.2" cy="9.6" rx="1.8" ry="1.2" /><ellipse cx="5.9" cy="10.1" rx="1" ry=".8" />
-      </g>
-    </g>
+    <circle class="moon-glow" cx="8" cy="8" r="6.7" filter={`url(#${id}-glow)`} opacity={(0.18 + 0.48 * props.illumination).toFixed(2)} />
+    <circle cx="8" cy="8" r="6.7" fill={`url(#${id}-night)`} />
+    <image class="moon-earthshine" href="/moon@2x.png" x="1.3" y="1.3" width="13.4" height="13.4" clip-path={`url(#${id}-disc)`} />
+    <image class="moon-texture" href="/moon@2x.png" x="1.3" y="1.3" width="13.4" height="13.4" clip-path={`url(#${id}-litclip)`} />
+    <circle class="moon-rim" cx="8" cy="8" r="6.7" />
   </svg>
 }
 

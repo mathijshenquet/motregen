@@ -9,6 +9,11 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
+    "prof:check": "tsx scripts/prof-check.ts",
+    "prof:top": "tsx scripts/prof-top.ts",
+    "prof:import": "tsx scripts/prof-import.ts",
+    "prof:sink": "tsx scripts/prof-sink.ts",
+    "prof:capture": "tsx scripts/record-profile.ts",
     "synthgen": "tsx scripts/synthgen.ts",
     "e2e": "scripts/e2e-slot.sh playwright test",
     "e2e:live": "MOTREGEN_PERF_MODE=live scripts/e2e-slot.sh playwright test --config playwright.live.config.ts",
@@ -17,23 +22,31 @@
     "e2e:benchmark": "scripts/e2e-slot.sh playwright test --config playwright.benchmark.config.ts"
   },
   "dependencies": {
+    "@mapbox/vector-tile": "^2.0.5",
     "fzstd": "^0.1.1",
     "lucide-solid": "^1.47.0",
     "maplibre-gl": "^5.7.1",
+    "pbf": "^4.0.2",
     "solid-js": "^1.9.9"
   },
   "devDependencies": {
+    "@jridgewell/trace-mapping": "^0.3.31",
     "@playwright/test": "^1.61.1",
     "@solidjs/testing-library": "^0.8.10",
     "@tailwindcss/vite": "^4.1.13",
     "@types/node": "^24.5.2",
+    "@vite-pwa/assets-generator": "^2.0.0",
     "jsdom": "^27.0.0",
+    "sharp": "^0.35.5",
+    "sharp-ico": "^0.1.5",
     "tailwindcss": "^4.1.13",
     "tsx": "^4.20.5",
     "typescript": "~5.9.2",
     "vite": "^7.1.7",
+    "vite-plugin-pwa": "^2.0.0",
     "vite-plugin-solid": "^2.11.8",
     "vitest": "^3.2.4",
+    "workbox-window": "^7.4.1",
     "zstd-codec": "^0.1.5"
   },
   "packageManager": "pnpm@11.21.0"

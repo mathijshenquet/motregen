@@ -1,6 +1,8 @@
-import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap } from 'maplibre-gl'
+import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap, MapSourceDataEvent, GeoJSONFeature } from 'maplibre-gl'
 import type { MapTheme } from './basemap'
 import type { Grid } from './contract'
+import { measurePerfPhase } from './perf'
+import { loadedWaterTiles, WaterTileCache, waterMaskNeedsRebuild, waterTileKey, type WaterMaskView, type WaterTile, type WaterMaskRequest, type WaterMaskReply } from './wind-water-mask'
 
 export const WIND_PARTICLES_PER_MEGAPIXEL = 620
 export const WIND_REFERENCE_ZOOM = 6.4
@@ -138,7 +140,7 @@ const SPAWN_CANDIDATES = 6
 const DECLUMP_PX = 10
 // PO 2026-09-25 live (U34): koppen boven water (de `water`-laag van de basemap) een derde zachter.
 const SEA_PENALTY = 0.33
-// Maskercel in CSS-px; het masker wordt na elke beweging uit de geladen tegels opnieuw getekend.
+// Maskercel in CSS-px; dezelfde zee-penalty als de PO-keuze in U34.
 const WATER_MASK_PX = 4
 const WATER_REBUILD_MS = 200
 const DECLUMP_NEIGHBOURS = [[0, 0], [1, 0], [-1, 1], [0, 1], [1, 1]] as const
@@ -424,7 +426,20 @@ export class WindLayer implements CustomLayerInterface {
   private simBounds: ParticleBounds = { west: 0, north: 0, east: 1, south: 1 }
   private tuning: WindParameters
   private readonly viewportChanged = () => { this.resetViewport(); this.scheduleWaterMask() }
-  private readonly tilesChanged = () => this.scheduleWaterMask()
+  private readonly tilesChanged = (event: MapSourceDataEvent) => {
+    if (event.sourceId !== this.waterSourceId || event.sourceDataType !== 'content' || !event.tile) return
+    const tile = event.tile.tileID?.canonical as WaterTile | undefined
+    const bytes = tile && this.waterTileBuffers.get(waterTileKey(tile))
+    if (!event.sourceDataChanged && tile && (this.waterWorker
+      ? bytes && bytes === event.tile.latestFeatureIndex?.rawTileData
+      : this.waterTiles.has(tile))) return
+    if (event.sourceDataChanged) {
+      this.waterTiles.clear()
+      this.waterTileBuffers.clear()
+    }
+    this.waterTilesChanged = true
+    this.scheduleWaterMask()
+  }
   /** Waterfractie (0–255) per maskercel over `waterBounds`; undefined = alles land. */
   private waterMask?: Uint8Array
   private waterColumns = 0
@@ -432,6 +447,15 @@ export class WindLayer implements CustomLayerInterface {
   private waterBounds: ParticleBounds = { west: 0, north: 0, east: 1, south: 1 }
   private waterCanvas?: HTMLCanvasElement
   private waterTimer?: ReturnType<typeof setTimeout>
+  private readonly waterTiles = new WaterTileCache<Path2D>()
+  private waterTilesChanged = true
+  private waterSourceId?: string
+  private waterSource?: unknown
+  private waterView?: WaterMaskView
+  private waterWorker?: Worker
+  private waterWorkerFailed = false
+  private waterRequest = 0
+  private readonly waterTileBuffers = new Map<string, ArrayBuffer>()
 
   constructor(private readonly grid: Grid, private theme: MapTheme, tuning: Partial<WindParameters> = {}) {
     this.tuning = { ...WIND_PARAMETERS, ...tuning }
@@ -504,6 +528,14 @@ export class WindLayer implements CustomLayerInterface {
     this.map?.off('sourcedata', this.tilesChanged)
     if (this.waterTimer !== undefined) clearTimeout(this.waterTimer)
     this.waterTimer = undefined
+    this.waterTiles.clear()
+    this.waterWorker?.terminate()
+    this.waterWorker = undefined
+    this.waterTileBuffers.clear()
+    this.waterView = undefined
+    this.waterSource = undefined
+    this.waterSourceId = undefined
+    this.waterTilesChanged = true
     for (const buffer of [this.instanceBuffer, this.screenBuffer]) if (buffer) gl.deleteBuffer(buffer)
     for (const array of [this.segmentArray, this.fadeArray, this.compositeArray]) if (array) gl.deleteVertexArray(array)
     for (const program of [this.segmentProgram, this.fadeProgram, this.compositeProgram, this.markProgram]) if (program) gl.deleteProgram(program)
@@ -618,6 +650,10 @@ export class WindLayer implements CustomLayerInterface {
   }
 
   render(context: WebGLRenderingContext | WebGL2RenderingContext, options: CustomRenderMethodInput): void {
+    measurePerfPhase('wind-step', () => this.renderStep(context, options), { particles: this.active })
+  }
+
+  private renderStep(context: WebGLRenderingContext | WebGL2RenderingContext, options: CustomRenderMethodInput): void {
     const gl = context as WebGL2RenderingContext
     // Onzichtbaar: geen frame en geen volgende aanvraag; setTuning/setTheme wekken weer.
     if (this.tuning.intensity * Math.min(this.tuning.visibility, 1) <= 0) { this.previousTime = 0; return }
@@ -1023,6 +1059,28 @@ export class WindLayer implements CustomLayerInterface {
   }
 
   private scheduleWaterMask(): void {
+    const map = this.map
+    if (!map || typeof map.getStyle !== 'function') return
+    let source = this.waterSourceId ? map.getSource(this.waterSourceId) : undefined
+    if (!source || source !== this.waterSource) {
+      const layer = map.getStyle()?.layers?.find((candidate) => 'source-layer' in candidate && candidate['source-layer'] === 'water')
+      if (!layer || !('source' in layer) || typeof layer.source !== 'string') return
+      this.waterSourceId = layer.source
+      source = map.getSource(layer.source)
+    }
+    if (source !== this.waterSource) {
+      this.waterTiles.clear()
+      this.waterWorker?.terminate()
+      this.waterWorker = undefined
+      this.waterTileBuffers.clear()
+      this.waterTilesChanged = true
+      this.waterView = undefined
+      this.waterSource = source
+    }
+    const canvas = map.getCanvas()
+    if (!waterMaskNeedsRebuild(this.waterView, {
+      bounds: this.viewBounds, zoom: map.getZoom(), width: canvas.clientWidth, height: canvas.clientHeight,
+    }, this.waterTilesChanged)) return
     if (this.waterTimer !== undefined) return
     this.waterTimer = setTimeout(() => {
       this.waterTimer = undefined
@@ -1034,13 +1092,49 @@ export class WindLayer implements CustomLayerInterface {
   private buildWaterMask(): void {
     const map = this.map
     if (!map || typeof map.querySourceFeatures !== 'function' || typeof document === 'undefined') return
-    const layer = map.getStyle()?.layers?.find((candidate) => 'source-layer' in candidate && candidate['source-layer'] === 'water')
-    if (!layer || !('source' in layer) || typeof layer.source !== 'string') return
-    const features = map.querySourceFeatures(layer.source, { sourceLayer: 'water' })
+    if (!this.waterSourceId) return
     const bounds = { ...this.simBounds }
     const canvas = map.getCanvas()
     const columns = Math.max(1, Math.ceil((canvas.clientWidth + 2 * OVERDRAW_PX) / WATER_MASK_PX))
     const rows = Math.max(1, Math.ceil((canvas.clientHeight + 2 * OVERDRAW_PX) / WATER_MASK_PX))
+    const view = { bounds, zoom: map.getZoom(), width: canvas.clientWidth, height: canvas.clientHeight }
+    const tiles = loadedWaterTiles(map, this.waterSourceId)
+    if (tiles && !this.waterWorkerFailed && typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined') {
+      try {
+        if (!this.waterWorker) {
+          const worker = this.waterWorker = new Worker(new URL('./wind-water-mask.worker.ts', import.meta.url), { type: 'module' })
+          worker.onmessage = ({ data }: MessageEvent<WaterMaskReply>) => {
+            if (worker !== this.waterWorker) return
+            if ('error' in data) { this.fallbackWaterMask(); return }
+            if (data.id !== this.waterRequest) return
+            this.waterMask = data.mask
+            this.waterColumns = data.columns
+            this.waterRows = data.rows
+            this.waterBounds = data.view.bounds
+          }
+          worker.onerror = worker.onmessageerror = () => {
+            if (worker === this.waterWorker) this.fallbackWaterMask()
+          }
+        }
+        const tileKeys = tiles.map(waterTileKey)
+        const loaded = new Set(tileKeys)
+        for (const key of this.waterTileBuffers.keys()) if (!loaded.has(key)) this.waterTileBuffers.delete(key)
+        const changed = tiles.filter((tile) => this.waterTileBuffers.get(waterTileKey(tile)) !== tile.data)
+        const request: WaterMaskRequest = {
+          id: ++this.waterRequest, grid: this.grid, view, columns, rows, tileKeys,
+          // Kopieën overdragen: MapLibre blijft eigenaar van de oorspronkelijke buffers.
+          tiles: changed.map((tile) => ({ ...tile, data: tile.data.slice(0) })),
+        }
+        this.waterWorker.postMessage(request, request.tiles.map((tile) => tile.data))
+        for (const tile of changed) this.waterTileBuffers.set(waterTileKey(tile), tile.data)
+        this.waterView = view
+        this.waterTilesChanged = false
+        return
+      } catch {
+        this.fallbackWaterMask()
+      }
+    }
+    const features = map.querySourceFeatures(this.waterSourceId, { sourceLayer: 'water' }) as Array<GeoJSONFeature & { tile?: WaterTile }>
     const target = this.waterCanvas ??= document.createElement('canvas')
     target.width = columns
     target.height = rows
@@ -1050,24 +1144,28 @@ export class WindLayer implements CustomLayerInterface {
     context.fillStyle = '#fff'
     const scaleX = columns / (bounds.east - bounds.west)
     const scaleY = rows / (bounds.south - bounds.north)
-    const drawPolygon = (rings: number[][][]) => {
-      context.beginPath()
+    const polygonPath = (rings: number[][][]) => {
+      const path = new Path2D()
       for (const ring of rings) {
         ring.forEach(([lng, lat], index) => {
-          const px = (gridFractionX(this.grid, projectX(lng!)) - bounds.west) * scaleX
-          const py = (gridFractionY(this.grid, projectY(lat!)) - bounds.north) * scaleY
-          if (index === 0) context.moveTo(px, py)
-          else context.lineTo(px, py)
+          const gridX = gridFractionX(this.grid, projectX(lng!))
+          const gridY = gridFractionY(this.grid, projectY(lat!))
+          if (index === 0) path.moveTo(gridX, gridY)
+          else path.lineTo(gridX, gridY)
         })
-        context.closePath()
+        path.closePath()
       }
-      context.fill('evenodd')
+      return path
     }
-    for (const feature of features) {
+    // MapLibre levert canonical tile-coördinaten op de wrapper; geometry decodeert lui.
+    const paths = this.waterTiles.collect(features, (feature) => {
       const geometry = feature.geometry
-      if (geometry.type === 'Polygon') drawPolygon(geometry.coordinates)
-      else if (geometry.type === 'MultiPolygon') for (const polygon of geometry.coordinates) drawPolygon(polygon)
-    }
+      if (geometry.type === 'Polygon') return [polygonPath(geometry.coordinates)]
+      if (geometry.type === 'MultiPolygon') return geometry.coordinates.map(polygonPath)
+      return []
+    })
+    context.setTransform(scaleX, 0, 0, scaleY, -bounds.west * scaleX, -bounds.north * scaleY)
+    for (const path of paths) context.fill(path, 'evenodd')
     const pixels = context.getImageData(0, 0, columns, rows).data
     const mask = new Uint8Array(columns * rows)
     for (let index = 0; index < mask.length; index++) mask[index] = pixels[index * 4 + 3]!
@@ -1075,6 +1173,17 @@ export class WindLayer implements CustomLayerInterface {
     this.waterColumns = columns
     this.waterRows = rows
     this.waterBounds = bounds
+    this.waterTilesChanged = false
+    this.waterView = view
+  }
+
+  private fallbackWaterMask(): void {
+    this.waterWorker?.terminate()
+    this.waterWorker = undefined
+    this.waterWorkerFailed = true
+    this.waterTileBuffers.clear()
+    this.waterTilesChanged = true
+    this.scheduleWaterMask()
   }
 
   private advectionScale(): number {

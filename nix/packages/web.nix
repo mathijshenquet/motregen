@@ -3,21 +3,14 @@
   stdenvNoCC,
   nodejs,
   pnpm_10,
-  fetchPnpmDeps,
+  callPackage,
   pnpmConfigHook,
 }:
 
-stdenvNoCC.mkDerivation (finalAttrs: {
+stdenvNoCC.mkDerivation {
   pname = "motregen-web";
   version = "0.1.0";
-  src = lib.cleanSource ../../web;
-
-  pnpmDeps = fetchPnpmDeps {
-    inherit (finalAttrs) pname version src;
-    pnpm = pnpm_10;
-    fetcherVersion = 3;
-    hash = "sha256-iBdu0lI94rn6xFBl7n2g5LfKc/G8dsLcigzOvSIRQEo=";
-  };
+  inherit (callPackage ./javascript-deps.nix { }) src pnpmDeps;
 
   nativeBuildInputs = [
     nodejs
@@ -27,14 +20,14 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
   buildPhase = ''
     runHook preBuild
-    pnpm run build
+    pnpm --filter motregen-web run build
     runHook postBuild
   '';
 
   installPhase = ''
     runHook preInstall
     mkdir -p "$out"
-    cp -r dist/. "$out/"
+    cp -r web/dist/. "$out/"
     runHook postInstall
   '';
 
@@ -43,4 +36,4 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     license = lib.licenses.mit;
     platforms = lib.platforms.all;
   };
-})
+}

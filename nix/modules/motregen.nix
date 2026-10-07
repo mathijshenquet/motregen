@@ -159,6 +159,15 @@ in
       defaultText = lib.literalExpression "self.packages.\${pkgs.stdenv.hostPlatform.system}.motregen-web";
       description = "Vite dist tree served by Caddy.";
     };
+
+    bot = {
+      enable = lib.mkEnableOption "Telegram long polling and still renderer";
+      package = lib.mkOption {
+        type = lib.types.package;
+        default = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-bot;
+        description = "Package providing the Telegram bot and renderer.";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -342,9 +351,52 @@ in
       };
     };
 
+    users.users.motregen-bot = lib.mkIf cfg.bot.enable {
+      isSystemUser = true;
+      group = "motregen-bot";
+    };
+    users.groups.motregen-bot = lib.mkIf cfg.bot.enable { };
+
+    systemd.services.motregen-bot = lib.mkIf cfg.bot.enable {
+      description = "Telegram bot and national still renderer for motregen.nl";
+      wantedBy = [ "multi-user.target" ];
+      wants = [ "network-online.target" ];
+      after = [ "network-online.target" "caddy.service" ];
+      environment = {
+        MOTREGEN_ORIGIN = "https://${cfg.domain}";
+        MOTREGEN_RENDER_CACHE = "/var/cache/motregen-bot/stills";
+        PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
+        MOTREGEN_CHROMIUM_PATH = "${pkgs.playwright-driver.browsers}/chromium_headless_shell-${pkgs.playwright-driver.browsersJSON."chromium-headless-shell".revision}/chrome-headless-shell-linux64/chrome-headless-shell";
+        PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
+      };
+      serviceConfig = hardening // {
+        ExecStart = lib.getExe cfg.bot.package;
+        EnvironmentFile = cfg.secretsFile;
+        User = "motregen-bot";
+        Group = "motregen-bot";
+        CacheDirectory = "motregen-bot";
+        CacheDirectoryMode = "0755";
+        UMask = "0022";
+        Restart = "on-failure";
+        RestartSec = "15s";
+        TimeoutStopSec = "90s";
+        LimitCORE = 0;
+        PrivateNetwork = false;
+        RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" "AF_NETLINK" ];
+      };
+    };
+
     services.caddy = {
       enable = true;
       globalConfig = lib.optionalString (!cfg.enableTls) "auto_https off";
+      logFormat = ''
+        format filter {
+          wrap json
+          fields {
+            request delete
+          }
+        }
+      '';
       virtualHosts.${cfg.domain} = {
         hostName = if cfg.enableTls then cfg.domain else ":80";
         # MIP-13: geen access-log met IP of headers; alleen het usage-log hieronder.
@@ -352,6 +404,8 @@ in
         extraConfig = ''
           @noindex path /data/*
           header @noindex X-Robots-Tag "noindex"
+          @pwa path /sw.js /manifest.webmanifest
+          header @pwa Cache-Control "no-cache"
 
           # MIP-13 privacycontract: het hele request-object (IP, headers, UA) gaat eruit;
           # over blijven ts (op de minuut), uri-pad en de /hit-body.
@@ -436,6 +490,15 @@ in
           handle /data/* {
             respond 404
           }
+
+          ${lib.optionalString cfg.bot.enable ''
+            handle_path /telegram/stills/* {
+              root * /var/cache/motregen-bot/stills
+              header Cache-Control "public, max-age=7200, immutable"
+              header X-Robots-Tag "noindex"
+              file_server
+            }
+          ''}
 
           handle {
             root * ${cfg.frontendPackage}

@@ -1,4 +1,5 @@
 import type { Manifest, Source } from './contract'
+import { formatDayShort, formatTime } from './locale'
 
 export type FreshnessStatus = 'fresh' | 'aging' | 'stale' | 'offline'
 
@@ -117,7 +118,7 @@ export function formatAgeShort(ms: number): string {
 }
 
 export function formatClock(epoch: number, now: number): string {
-  const time = new Date(epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
-  const day = (at: number) => new Date(at).toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' })
+  const time = formatTime(epoch)
+  const day = formatDayShort
   return day(epoch) === day(now) ? time : `${day(epoch)} ${time}`
 }

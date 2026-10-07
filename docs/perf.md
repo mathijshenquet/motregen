@@ -1,8 +1,107 @@
 # Performance
 
 De performance-aanpak volgt MIP-7: dezelfde browsermetingen voeden de
-apparaat-HUD en de deterministische Playwright-gate. Er worden geen metingen
-naar een server verstuurd.
+apparaat-HUD en de deterministische Playwright-gate. Alleen een expliciete klik op *Stuur* in
+profielmodus verstuurt een opname naar de lokale dev/preview-sink; er gaat nooit automatisch een
+meting naar een server.
+
+## Profielmodus (MIP-16)
+
+`?perf=start` opent de HUD en start direct een koude-startopname van deze lading (de eerste 30 s
+na `timeOrigin`), zonder eerst op *Koude start* te tikken; handig omdat veel effecten op pageload
+zitten (PO 2026-10-07).
+
+`?perf` opent de compacte HUD en houdt de fase-instrumentatie aan; een kale URL sluit eventuele
+oude profielstaat en `?perf=0` wist die eveneens expliciet. Alleen *Koude start* gebruikt kort een
+`localStorage`-vlag om de profielmodus één herlaadbeurt mee te nemen. De HUD toont per fase count/p50/p95 over de laatste
+30 seconden en maximaal vijf lange animatieframes. *Opname 30 s* combineert die tijdvakken met de
+JS Self-Profiling-stacks (als de browser de API biedt) tot Chrome Trace Event-JSON. *Koude start*
+herlaadt en neemt het venster vanaf `performance.timeOrigin` op. Zonder Self-Profiling blijven
+fasen en lange frames beschikbaar.
+
+Vite dev en preview zetten hiervoor `Document-Policy: js-profiling` en proxyen `/prof` naar
+`pnpm prof:sink` (standaard `127.0.0.1:4331`). De sink accepteert uitsluitend `POST /prof`,
+valideert het formaat en schrijft mode 0600 naar
+`~/motregen-profiles/<ISO>-<platform>.json`. `pnpm prof:check <bestand>` valideert een export los.
+`pnpm prof:import <bestand>` opent dezelfde export headless in Firefox Profiler en controleert de
+call-tree-import.
+`pnpm prof:top <bestand> [top-N] [--json] [--dist <buildmap>]` rangschikt functies op self-time uit `ProfileChunk`
+en toont hun self- en stack-sample-aandeel (inclusief aangeroepen functies). De JSON-uitvoer bevat
+alle functies. In JS Self-Profiling ontbreken idle-samples; tijd tussen samples is daarom
+intervalattributie, geen exacte CPU-tijd. Gebruik het stack-sample-aandeel om een fase vóór en na
+een wijziging te vergelijken.
+Met `--dist dist-preview` vertaalt hij de 0-based Chrome-callFrame-posities via de sourcemaps
+naar bronbestand, functie en positie. Hij gebruikt ook `sourcesContent` voor functienamen
+(de map-name kan bijvoorbeeld een parameter zijn). Zonder embedded bron blijft de map-name of
+gegenereerde naam beschikbaar. Bewaar de dist van elke meetbuild: bundelnaam inclusief hash,
+`sourceMappingURL` en de `file` in de map moeten overeenkomen; een andere build geeft exit 1,
+geen gok naar de nieuwste map. Voor gecompileerde dependencybundels kan de bron nog steeds
+de gebundelde packagecode zijn.
+
+`scripts/e2e-slot.sh pnpm prof:capture ORIGIN UITVOER.json --water-mask` neemt in een nieuwe
+desktop-Chromiumcontext de koude start op, met daarna tien seconden pan/zoom en tien seconden
+rust. De opname loopt dertig seconden vanaf pageload; kaart en weerdata moeten beschikbaar zijn.
+Zonder `--water-mask` blijft het algemene wind/gevoel/scrub-scenario beschikbaar. Met een
+uitvoerpad wordt de opname lokaal gedownload; zonder uitvoerpad gaat hij naar de preview-sink.
+`scripts/e2e-slot.sh pnpm exec tsx scripts/verify-water-mask.ts ORIGIN [SCREENSHOT.png]`
+vergelijkt het masker met de oorspronkelijke rastering van dezelfde geladen waterpolygonen en
+controleert de factor 0,67 op Noordzee/IJsselmeer en 1 op land. Met `--fallback` controleert hij
+het pad zonder OffscreenCanvas. De windlaag gebruikt MapLibre 5.24-tegelbytes voor decode en
+rastering in een worker; zonder die internals, bij MLT, of zonder workerondersteuning blijft het
+cachepad op de hoofddraad actief.
+De productie-Caddyconfiguratie heeft bewust géén profilingheader en géén `/prof`-route; daar blijven
+lokale kopie en download wel bruikbaar.
+
+## Decode-budget (U49)
+
+Bijna alle frame-decodes zijn *puntreeksen*: histogram, tabel en wolkenbanden pakken een heel
+rooster uit om één pixel (de gekozen locatie) te lezen. De kaart zelf vraagt er per koude start
+een stuk of twintig. `decodeBudget` (`web/src/core/decode-budget.ts`) kiest daarom per apparaat:
+
+| | ruim (desktop) | krap |
+| --- | --- | --- |
+| wanneer | al het andere | ≤ 4 kernen, ≤ 4 GB `deviceMemory` of `(pointer: coarse)` |
+| decode-workers | min(4, kernen − 1) | 2 (1 bij ≤ 2 kernen) |
+| puntreeksen | `eager`: tabel t/m +18 u, hele regentijdlijn, alles bij de eerste aanraking van de scrubber | `in-view`: alleen het scrubbervenster (8 u rond de cursor + een halfuur lucht) en de tabelrijen zodra die in beeld zijn |
+
+De aanwijzerregel staat erin omdat kernen en geheugen de telefoons missen waar het om gaat: een
+recente Android meldt acht kernen en Firefox kent geen `deviceMemory`. In `in-view` volgt het
+laadvenster de cursor (afspelen, scrubben); tabelvelden die de scrubber zelf tekent laden per
+modus (UV altijd, wind in windmodus, temperatuur in gevoelsmodus). De rest van de tabel laadt
+als de rijen in beeld komen, en verder dan +18 u zoals voorheen op `onNeedRows`.
+
+Los daarvan, voor ieder apparaat: `MrfClient` geeft werk via een wachtrij aan de workers
+(`decode-queue.ts`), één decode per worker tegelijk, in drie banen: het frame onder de cursor
+(kaart, afspelen) vóór een puntreeks waar de gebruiker op wacht, en die vóór vooruitladen. Een al
+wachtend frame schuift op als de cursor het nodig heeft. `getFrames` neemt een `AbortSignal`:
+een wachtende decode waar geen enkele vrager meer op wacht (het venster is verder geschoven)
+vervalt met `DecodeCancelled`; de gedownloade bytes blijven staan.
+
+Meten: `pnpm prof:capture [origin] [uitvoer.json] [--profile=desktop|mobile-4g|mobile-fast-3g] [--passive] [--no-send]`
+neemt een koude start op (`?perf=start`, 30 s) onder het e2e-profiel en print aantal decodes,
+totale decodetijd, p50/p95, scrub-latency en de verdeling per laag en per veld (elke
+`frame-decode`-fase draagt `field` en `layer`). CDP kan workers niet remmen
+(`Emulation.setCPUThrottlingRate`: "only supported for pages"), dus de decode*tijd* onder
+`mobile-4g` is die van de meethost; het *aantal* is de maat, en de telefoontijd volgt uit een
+echte opname. Metingen van 2026-10-07 (prod-data, eerste 30 s):
+
+| profiel | vóór | ná |
+| --- | ---: | ---: |
+| mobile-4g, alleen kijken | 492 decodes / 4,2 s | 223 / 1,9 s |
+| mobile-4g, journey (wind, gevoel, zoom, scrub) | 801 / 6,7 s; scrub-p95 1.439 ms (2 samples) | 309 / 2,5 s; scrub-p95 73 ms (20 samples) |
+| desktop, journey | 833 / 9,2 s | 830 / 8,8 s (ongewijzigd, `eager`) |
+
+Wat er op een krap apparaat overblijft is het zichtbare werk zelf: ~110 regenframes (het
+histogram toont 8 uur op 5-minutenresolutie en het afspelen loopt erdoorheen), ~45–60
+motion-annexen (één per afgespeeld framepaar) en 3 × 12 wolkenframes.
+
+**Kosten per decode.** De ingest schrijft niet-predictieve frames en motion-annexen met
+`zstd::stream::encode_all`: geen content size in de frameheader en een venster van 8 MB.
+`fzstd` alloceert en verschuift dat venster bij elke decode, ook voor een wolkenframe van
+6,7 kB. Dezelfde frames mét content size (zoals de predictieve frames al hebben) decoderen in
+node 2,2–2,5× (regen), 4,5–5× (temperatuur, wind) tot 20× (wolkenlagen) sneller, bij +3 B per
+frame. Dat is een ingest-wijziging (`crates/mrf/src/lib.rs`: `zstd::bulk::compress`) en staat
+als vervolg open.
 
 ## Meetpunten
 
@@ -23,8 +122,8 @@ naar een server verstuurd.
   zodat een lang openstaande tab niet de leeftijd van zijn mountmoment blijft
   rapporteren.
 
-De HUD opent met drie tikken binnen 700 ms op het logo, of met de knop *Perf-HUD* in
-het `?dev`-paneel (`?perf=1` verviel in U30, MIP-12). De knop
+De HUD opent met drie tikken binnen 700 ms op het logo, met `?perf`, of met de knop *Perf-HUD* in
+het `?dev`-paneel. De knop
 `Kopieer JSON` kopieert de volledige actuele snapshot.
 
 De windknoppen staan sinds U30 (MIP-12) in de groep *Wind* van het `?dev`-paneel: alleen
@@ -93,7 +192,7 @@ expliciet kan forceren en daarmee een ander scenario meet.
 | cold TTFR | < 2.000 ms | gemeten 461–475 ms; ruime marge voor tragere hosts |
 | warm TTFR | profielafhankelijk, zie hieronder | desktop blijft sneller dan cold; mobiele CPU-/netwerkprofielen hebben eigen marge |
 | warm chunks | profielafhankelijk, zie hieronder | desktop blijft 0 B; CDP-netwerkthrottling draagt enkele actuele ranges opnieuw over |
-| passief geopende chunks | ≤ 800.000 B | progressieve L0+L1 (sinds U1: heel het zichtbare bereik) gemeten op 720 kB; ruim onder MIP-8's bovengrens van 3 MB |
+| passief geopende chunks | desktop ≤ 1.100.000 B, mobiel ≤ 600.000 B | desktop (`eager`) gemeten op 1.049.415 B sinds de velden van U35–U39; mobiel (`in-view`, U49) op 533.041 B; ruim onder MIP-8's bovengrens van 3 MB |
 | volledige scrub | < 1 chunktransfer per 3 frames | L2-intentie plus 85 frames kost 4–7 transfers; grens 28,3 |
 | warme locatiewissel | 0 data-transfers en 0 skeleton-reset | volledig gedecodeerde frames worden in dezelfde tick opnieuw bemonsterd |
 | volledige sessie | < 8.000.000 bytes | progressief gemeten 1,25–1,36 MB |

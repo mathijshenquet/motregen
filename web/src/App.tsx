@@ -1,5 +1,6 @@
 import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show, untrack } from 'solid-js'
 import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
+import { registerSW } from 'virtual:pwa-register'
 import About, { type ThemeChoice } from './components/About'
 import HistogramScrubber from './components/HistogramScrubber'
 import { INLINE_ICON, Star, Sun } from './components/icons'
@@ -16,7 +17,7 @@ import { DayNightLayer } from './core/day-night-layer'
 
 const DAY_NIGHT_ENABLED = false
 import { buildHourlyForecast, isPassiveRow, PASSIVE_FORECAST_HOURS } from './core/forecast'
-import { contextOpacity, FOCUS_DIM, FocusMode, mapSaturation, type FocusKind, windFocusIntensity } from './core/focus-mode'
+import { contextOpacity, DEFAULT_FOCUS_MODE, FOCUS_DIM, FocusMode, mapSaturation, rainFocusOpacity, type FocusKind, windFocusIntensity } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import { latestRadarEpoch, type RefreshState } from './core/freshness'
 import { adaptiveIsobarStep, PRESSURE_EXTREMUM_KM, pressureExtrema, blendFrames, blurField, DEFAULT_ISOLINE_TUNING, fieldRangeInView, ISOBAR_STEP_HPA, isolineBlurPasses, isolineFrameWeights, type WeightedFrame, ISOLINE_EDGE_FADE_MS, ISOLINE_FILL_OPACITY, ISOLINE_GRADIENT, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineKind, type IsolineTuning } from './core/isolines'
@@ -28,11 +29,13 @@ import { hexColor, IsolineLayer, isolineLayerIndices, type IsolineStyle } from '
 import { cursorAfterTimelineRefresh, isNewerManifest, nextManifestRefreshDelay, reconcileTimelineSeries, scheduleManifestRefresh } from './core/manifest-refresh'
 import { constrainView, containView, containZoom, MAP_CONTAIN_BOUNDS, type Viewport } from './core/map-constraint'
 import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS } from './core/map-frame'
+import { browserDeviceHints, decodeBudget } from './core/decode-budget'
 import { MrfClient, type MotionField } from './core/mrf'
 import { selectPairMotion } from './core/motion-selection'
 import { nearestPlace } from './core/places'
 import { startFrameLoop } from './core/playback'
-import { installPerfMonitor, type LoadLayer } from './core/perf'
+import { configurePerfMode, consumeColdProfile, installPerfMonitor, measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer } from './core/perf'
+import type { ProfileRecording } from './core/profile-recorder'
 import { RainLayer } from './core/rain-layer'
 import { LayerOverlay } from './core/overlay-canvas'
 import { grantedStartFix, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastSavedPlaceId, storeMapView } from './core/location-memory'
@@ -40,9 +43,9 @@ import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGesture
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
 import { solarElevationSin } from './core/solar'
-import { bandColor, paletteRange, paletteStops, type PaletteRange } from './core/temperature-palette'
+import { paletteRange, paletteStops, type PaletteRange } from './core/temperature-palette'
 import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
-import { buildTimeline, frameBlend, seriesValueAt, timelineCoverage, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelinePlaybackRate } from './core/time-model'
+import { buildTimeline, epochInWindow, frameBlend, scrubberViewWindow, seriesValueAt, timelineCoverage, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelineIndexesInWindow, timelinePlaybackRate, type EpochWindow } from './core/time-model'
 import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
 import { WIND_UNITS, type WindUnit } from './core/weather'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
@@ -51,10 +54,18 @@ import { clearTuningStorage } from './core/dev-settings'
 import { watchIdle } from './core/activity'
 import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
 import { browserUsageEnvironment, createUsageTracker, installUsageBeacon, sessionManifestUrls } from './core/usage'
+import { copyText } from './core/clipboard'
+import { resolveLocation, suggestLocations } from './core/geocoder'
+import { cursorForPresetEpoch, modeForActiveFocus, modeForFocus, parsePresets, shareUrl } from './core/presets'
+import { applyTelegramColors, type TelegramWebApp } from './core/telegram'
+import { loadTableDayNight, storeTableDayNight } from './core/table-appearance'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
 const manifestRequestUrl = sessionManifestUrls(manifestUrl)
+const profileMode = configurePerfMode(new URL(location.href), localStorage)
+const coldProfileRequested = consumeColdProfile(localStorage)
 const perf = installPerfMonitor()
+perf.setDetailedEnabled(profileMode)
 const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
 type PointLoadStage = 'initial' | 'direct' | 'window' | 'complete'
 type FetchPriority = 'high' | 'low'
@@ -132,6 +143,9 @@ const PLAYBACK_REWIND_MS = 700
 const PLAYBACK_END_HOLD_MS = 2_000
 const PLAYBACK_TEMPO_HOURS = 8
 const TABLE_JUMP_RESUME_MS = 4_000
+// Zoveel px van de tabelrijen moet in beeld zijn voordat hun reeksen laden (U49): in het mobiele
+// startbeeld steekt de eerste rij 2 px boven de onderrand uit, en dat is nog geen lezen.
+const TABLE_PEEK_PX = 24
 // H/L van twee opeenvolgende uren horen bij elkaar als ze binnen deze afstand liggen.
 const PRESSURE_MATCH_KM = 300
 // Afspelen tikt op 30 Hz: regen-tween, isolijnsnede en klok zijn traag genoeg; alleen de
@@ -141,10 +155,21 @@ const PLAYBACK_MAX_FPS = 30
 const IDLE_AFTER_MS = 60_000
 const WIND_IDLE_FPS = 30
 
-export default function App() {
+function basemapTileKey(event: { sourceId?: string; tile?: { tileID?: { key?: string; canonical?: { z?: number; x?: number; y?: number } } } }): string | undefined {
+  if (!event.sourceId || event.sourceId.startsWith('motregen-') || !event.tile) return undefined
+  const id = event.tile.tileID
+  const canonical = id?.canonical
+  const tile = id?.key ?? (canonical ? `${canonical.z}/${canonical.x}/${canonical.y}` : undefined)
+  return tile === undefined ? undefined : `${event.sourceId}:${tile}`
+}
+
+export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const devMode = new URLSearchParams(window.location.search).has('dev')
+  const stillMode = new URLSearchParams(window.location.search).get('still') === '1'
+  const initialPresets = parsePresets(window.location.search)
   let mapElement!: HTMLDivElement
   let splashElement!: HTMLDivElement
+  let forecastPanelElement!: HTMLElement
   let map: maplibregl.Map | undefined
   let marker: Marker | undefined
   let detachPinNavigation: (() => void) | undefined
@@ -167,6 +192,7 @@ export default function App() {
   let shownSunRequest = 0
   let frameLoopDrives = false
   let mapRepaints = 0
+  const basemapTiles = new Map<string, number>()
   const isolineCounters = (): IsolineCounters => ({
     ...temperatureIsolines.layer?.stats,
     repaints: mapRepaints,
@@ -185,6 +211,10 @@ export default function App() {
   // Camera voor de e2e van pin-navigatie en pan/zoom-only (U26).
   ;(window as unknown as { __motregenCamera: () => object | undefined }).__motregenCamera = () => map && {
     ...map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch(), location: location(),
+  }
+  if (stillMode) {
+    const stillWindow = window as unknown as { __motregenStillMapLoaded: () => boolean }
+    stillWindow.__motregenStillMapLoaded = () => Boolean(map?.loaded())
   }
   // Meetpunt voor de kostenmeting (track-LOGs U8b/U8c): repaints, contour-passes, blits, label-rondes.
   ;(window as unknown as { __motregenIsolines: () => object }).__motregenIsolines = () => ({
@@ -221,7 +251,10 @@ export default function App() {
   const windFrameCache = new Map<string, Promise<Float32Array>>()
   const media = matchMedia('(prefers-color-scheme: dark)')
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
-  const client = new MrfClient(manifestUrl, perf.loads)
+  const decode = decodeBudget(browserDeviceHints())
+  // Krap apparaat (U49): puntreeksen alleen voor wat scrubber en tabel nu tonen, niet vooruit.
+  const inViewOnly = decode.pointSeries === 'in-view'
+  const client = new MrfClient(manifestUrl, perf.loads, decode.workers)
   const [manifest, setManifest] = createSignal<Manifest>()
   const [manifestRefresh, setManifestRefresh] = createSignal<RefreshState>()
   const timeline = createMemo(() => manifest() ? buildTimeline(manifest()!) : [])
@@ -249,19 +282,23 @@ export default function App() {
     state.rainPublisher?.schedule()
   }
   const [cursor, setCursor] = createSignal(0)
-  const [playing, setPlaying] = createSignal(true)
+  const [playing, setPlaying] = createSignal(!stillMode)
   // Tempo van gelijkmatig afspelen (epoch-ms per ms) voor de scrubberbaan; 0 tijdens terugglijden.
   const [glideRate, setGlideRate] = createSignal(0)
   // Afspelen loopt door de hele tijdlijn (PO 2026-09-25 live; was +8 u, restant van de bereikknoppen).
   const [timeHorizonHours] = createSignal<number | null>(null)
-  const initialSavedPlaces = loadSavedPlaces()
-  const initialMapView = loadMapView()
-  let startLocation = resolveStartLocation(initialSavedPlaces, loadLastSavedPlaceId(), initialMapView, defaultLocation)
+  const initialSavedPlaces = stillMode ? [] : loadSavedPlaces()
+  const initialMapView = stillMode || initialPresets.point ? undefined : loadMapView()
+  let startLocation = initialPresets.point
+    ? { ...initialPresets.point, label: nearestPlace(initialPresets.point.lng, initialPresets.point.lat).name }
+    : resolveStartLocation(initialSavedPlaces, loadLastSavedPlaceId(), initialMapView, defaultLocation)
   let startFromFix = false
   const [location, setLocation] = createSignal({ lng: startLocation.lng, lat: startLocation.lat })
   const [locationLabel, setLocationLabel] = createSignal(startLocation.label)
   // Verleende locatietoestemming gaat vóór de onthouden plaats (U26); tot de fix er is staat die er.
   void grantedStartFix({ permissions: navigator.permissions, geolocation: navigator.geolocation }, MAP_CONTAIN_BOUNDS).then((fix) => {
+    if (stillMode) return
+    if (initialPresets.point || initialPresets.place) return
     if (!fix) return
     const current = location()
     if (current.lng !== startLocation.lng || current.lat !== startLocation.lat) return
@@ -290,18 +327,95 @@ export default function App() {
   const [gustSeries, setGustSeries] = createSignal<Array<number | null>>([])
   const [radiationSeries, setRadiationSeries] = createSignal<Array<number | null>>([])
   const [uvClearSeries, setUvClearSeries] = createSignal<Array<number | null>>([])
-  // History rows cost bytes the old table never loaded; they stay folded until asked for.
+  // History rows cost bytes the old table never loaded. Portrait mobile keeps them mounted above
+  // Nu so switching views only changes scrolling, never the table's contents.
   const [historyRowsWanted, setHistoryRowsWanted] = createSignal(false)
+  let forecastPanel: HTMLElement | undefined
+  const [tableInView, setTableInView] = createSignal(!inViewOnly)
+  onMount(() => {
+    // De rijen, niet het paneel: op een telefoon staat de kolomkop al in beeld terwijl de rijen
+    // nog onder de vouw liggen.
+    const rows = forecastPanel?.querySelector('tbody')
+    if (!inViewOnly || !rows) return
+    const observer = new IntersectionObserver((entries) => setTableInView(entries.some((entry) => entry.isIntersecting)), { rootMargin: `0px 0px -${TABLE_PEEK_PX}px 0px` })
+    observer.observe(rows)
+    onCleanup(() => observer.disconnect())
+  })
   const [historyOpen, setHistoryOpen] = createSignal(false)
   // Desktop: historie staat in de tabel boven de nu-rij; touch houdt de uitklaprij (scrollen in een
   // eigen tabelscroller onder de sticky scrubber werkt daar niet prettig).
   const inlineHistoryMedia = matchMedia('(min-width: 960px) and (pointer: fine)')
   const [historyInline, setHistoryInline] = createSignal(inlineHistoryMedia.matches)
+  const tableViewMedia = matchMedia('(max-width: 959px) and (orientation: portrait)')
+  const [tableViewAvailable, setTableViewAvailable] = createSignal(tableViewMedia.matches)
+  // De view is pas open na een afgeronde snap; de live dekking stuurt tijdens de gesture alleen
+  // de dure kaartlussen, met de afgesproken 0/24px-hysterese.
+  const [tableOpen, setTableOpen] = createSignal(false)
+  const [tableScrollOpen, setTableScrollOpen] = createSignal(false)
+  const [tableCoversViewport, setTableCoversViewport] = createSignal(false)
+  const [tableViewTarget, setTableViewTarget] = createSignal<'map' | 'table'>()
+  const tableViewOpen = createMemo(() => tableViewAvailable() && tableOpen())
+  const tableModeSelected = createMemo(() => tableViewAvailable() && (tableViewTarget() === 'table' || (tableViewTarget() === undefined && tableOpen())))
+  let tableViewFrame: number | undefined
+  let tableViewResizeTimer: number | undefined
+  let tableViewSettleTimer: number | undefined
+  let tableTouchActive = false
+  function applyTableScrollOpen(open: boolean): void {
+    if (tableScrollOpen() === open) return
+    setTableScrollOpen(open)
+  }
+  function syncTableViewPosition(): void {
+    tableViewFrame = undefined
+    if (!tableViewAvailable() || !forecastPanelElement) {
+      setTableCoversViewport(false)
+      return
+    }
+    const panelTop = forecastPanelElement.getBoundingClientRect().top
+    if (!tableCoversViewport() && panelTop <= 0) setTableCoversViewport(true)
+    else if (tableCoversViewport() && panelTop > 24) setTableCoversViewport(false)
+  }
+  function queueTableViewSync(): void {
+    if (tableViewFrame === undefined) tableViewFrame = requestAnimationFrame(syncTableViewPosition)
+  }
+  function settleTableView(): void {
+    if (tableTouchActive || !tableViewAvailable() || !forecastPanelElement) return
+    if (tableViewFrame !== undefined) cancelAnimationFrame(tableViewFrame)
+    syncTableViewPosition()
+    const panelTop = forecastPanelElement.getBoundingClientRect().top
+    const atTable = Math.abs(panelTop) <= 2
+    const atMap = window.scrollY <= 2
+    if (!atTable && !atMap) return
+    const open = atTable
+    setTableCoversViewport(open)
+    setTableOpen(open)
+    applyTableScrollOpen(open)
+    setTableViewTarget(undefined)
+  }
+  function scheduleTableViewSettlement(delay = 160): void {
+    window.clearTimeout(tableViewSettleTimer)
+    tableViewSettleTimer = window.setTimeout(() => {
+      tableViewSettleTimer = undefined
+      settleTableView()
+    }, delay)
+  }
+  function pageScrolled(): void {
+    queueTableViewSync()
+    scheduleTableViewSettlement()
+  }
+  function settleTableViewAfterResize(): void {
+    // Mobiele browserbalken sturen tijdens hun animatie iedere frame een resize-event.
+    window.clearTimeout(tableViewResizeTimer)
+    tableViewResizeTimer = window.setTimeout(() => {
+      queueTableViewSync()
+      scheduleTableViewSettlement()
+    }, 120)
+  }
   const [status, setStatus] = createSignal('Regen laden…')
-  const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
+  const [theme, setTheme] = createSignal<ThemeChoice>(stillMode ? 'light' : props.telegram?.colorScheme ?? storedTheme())
   const [windUnit, setWindUnit] = createSignal<WindUnit>(storedWindUnit())
+  const [tableDayNight, setTableDayNight] = createSignal(loadTableDayNight())
   const usage = createUsageTracker(browserUsageEnvironment(), theme(), windUnit())
-  onCleanup(installUsageBeacon(usage, document, window))
+  if (!stillMode) onCleanup(installUsageBeacon(usage, document, window))
   const [usageBody, setUsageBody] = createSignal(JSON.stringify(usage.sessionBody()))
   if (devMode) {
     usage.onChange = () => setUsageBody(JSON.stringify(usage.sessionBody()))
@@ -315,12 +429,33 @@ export default function App() {
   let temperatureRangeKey = ''
   const [focus, setFocus] = createSignal(0)
   const [windFocus, setWindFocus] = createSignal(0)
-  const [cloudFocus, setCloudFocus] = createSignal(0)
+  const [airFocus, setAirFocus] = createSignal(0)
   const [isobarStep, setIsobarStep] = createSignal(ISOBAR_STEP_HPA)
-  const [focusPinned, setFocusPinned] = createSignal<FocusKind>()
+  const viewWindow = createMemo(() => scrubberViewWindow(selectedEpoch()), undefined, { equals: (left, right) => left.start === right.start && left.end === right.end })
+  // Eén afbreeksignaal per venster: wat voor het vorige venster nog op een worker wacht en in het
+  // nieuwe niet meer voorkomt, wordt niet meer gedecodeerd. Pas na de huidige tik afbreken, zodat
+  // de effecten hieronder hun nieuwe vraag eerst stellen en overlappende frames blijven staan.
+  const viewDemand = createMemo<AbortController>((previous) => {
+    viewWindow()
+    location()
+    if (previous) queueMicrotask(() => previous.abort())
+    return new AbortController()
+  })
+  // Tabelvelden die de scrubber zelf tekent: de UV-chip altijd, wind en temperatuur in hun modus.
+  const scrubberSeries = createMemo(() => {
+    const keys = new Set<ForecastIndex>(['uvIndex'])
+    if (windFocus() > 0) for (const key of ['windUIndex', 'windVIndex', 'gustIndex'] as const) keys.add(key)
+    if (focus() > 0) for (const key of ['feelsLikeIndex', 'temperatureIndex'] as const) keys.add(key)
+    return keys
+  }, undefined, { equals: (left, right) => left.size === right.size && [...left].every((key) => right.has(key)) })
   const [isolineCount, setIsolineCount] = createSignal(0)
-  const focusMode = new FocusMode<FocusKind>(['temperature', 'wind', 'clouds'], (mode, value) => (mode === 'wind' ? setWindFocus : mode === 'clouds' ? setCloudFocus : setFocus)(value),
+  const focusMode = new FocusMode<FocusKind>(['weather', 'air', 'temperature', 'wind'], DEFAULT_FOCUS_MODE, (mode, value) => {
+    if (mode === 'air') setAirFocus(value)
+    else if (mode === 'wind') setWindFocus(value)
+    else if (mode === 'temperature') setFocus(value)
+  },
     () => reducedMotion.matches)
+  const [focusPinned, setFocusPinned] = createSignal<FocusKind>(focusMode.pinned())
   const [isobarCount, setIsobarCount] = createSignal(0)
   // Niet-reactief op de cursor: de frame-loop zet de dekking per tik (U41).
   const isolineCoverage = () => untrack(() => timelineCoverage(feelsLikeTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
@@ -338,25 +473,88 @@ export default function App() {
   // Bewolkingssluier (PO 2026-09-25 live, U34): cloud_frac als zachte grijswitte vulling, zonder lijnen of
   // labels, alleen in de modus Lucht en pas dan geladen. Wijkt af van MIP-4 ronde 3 ("nooit als kaartlaag").
   const cloudIsolines = isolineSet({
-    kind: 'cloud', layerId: 'motregen-cloud-veil', timeline: cloudTimeline, focus: cloudFocus, active: createMemo(() => cloudFocus() > 0),
+    kind: 'cloud', layerId: 'motregen-cloud-veil', timeline: cloudTimeline, focus: airFocus, active: createMemo(() => airFocus() > 0),
     step: () => CLOUD_VEIL_STEP, style: cloudVeilStyle, labelFade: () => undefined, coverage: () => untrack(() => timelineCoverage(cloudTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS)), setCount: () => undefined,
   })
   const isolineSets = [temperatureIsolines, pressureIsolines, cloudIsolines]
   // Verborgen tab: afspelen en wind staan stil (zichtbaarheid 0 stopt de windlus; de trails blijven).
   const [pageVisible, setPageVisible] = createSignal(document.visibilityState !== 'hidden')
+  const mapRendering = createMemo(() => pageVisible() && !(tableViewAvailable() && tableCoversViewport()))
   const [userIdle, setUserIdle] = createSignal(false)
   const focusedWindTuning = createMemo(() => ({
     ...windTuning(),
     intensity: windFocusIntensity(windTuning().intensity, windFocus()),
-    visibility: pageVisible() ? WIND_PARAMETERS.visibility * contextOpacity(focus(), FOCUS_DIM) : 0,
+    visibility: mapRendering() ? WIND_PARAMETERS.visibility * contextOpacity(focus(), FOCUS_DIM) : 0,
     maxFps: userIdle() ? WIND_IDLE_FPS : WIND_MAX_FPS,
   }))
   const [mapReady, setMapReady] = createSignal(false)
   const [resetNotice, setResetNotice] = createSignal(false)
   let resetNoticeTimer: number | undefined
-  const [perfVisible, setPerfVisible] = createSignal(false)
+  const [updateReady, setUpdateReady] = createSignal(false)
+  let updateServiceWorker: (() => Promise<void>) | undefined
+  const [shareNotice, setShareNotice] = createSignal<string>()
+  let shareNoticeTimer: number | undefined
+  const [perfVisible, setPerfVisible] = createSignal(profileMode)
+  const [profileState, setProfileState] = createSignal<'idle' | 'recording' | 'ready' | 'error'>('idle')
+  const [profileRecording, setProfileRecording] = createSignal<ProfileRecording>()
+  const [profileNotice, setProfileNotice] = createSignal('')
   const [systemDark, setSystemDark] = createSignal(media.matches)
   const mapTheme = createMemo<MapTheme>(() => theme() === 'system' ? systemDark() ? 'dark' : 'light' : theme() as MapTheme)
+  createEffect(() => perf.setDetailedEnabled(profileMode || perfVisible()))
+
+  let profileStop: AbortController | undefined
+  async function startProfile(durationMs = 30_000, captureStartTime = performance.now()): Promise<void> {
+    if (profileState() === 'recording') return
+    setPerfVisible(true)
+    setProfileState('recording')
+    setProfileNotice('Opname loopt…')
+    setProfileRecording(undefined)
+    profileStop = new AbortController()
+    try {
+      const { recordProfile } = await import('./core/profile-recorder')
+      const recording = await recordProfile(perf, durationMs, captureStartTime, profileStop.signal)
+      setProfileRecording(recording)
+      setProfileState('ready')
+      setProfileNotice(recording.profilerAvailable ? 'Opname gereed · stacks + fasen' : 'Opname gereed · alleen fasen')
+    } catch (error) {
+      setProfileState('error')
+      setProfileNotice(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  function coldProfile(): void {
+    localStorage.setItem(PERF_STORAGE_KEY, '1')
+    localStorage.setItem(PERF_COLD_STORAGE_KEY, '1')
+    window.location.reload()
+  }
+
+  async function sendProfile(): Promise<void> {
+    const recording = profileRecording()
+    if (!recording) return
+    setProfileNotice('Versturen…')
+    try {
+      const response = await fetch('/prof', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: recording.json })
+      if (!response.ok) throw new Error(`Profielsink antwoordde ${response.status}`)
+      const result = await response.json() as { file?: string }
+      setProfileNotice(result.file ? `Verstuurd als ${result.file}` : 'Verstuurd')
+    } catch (error) {
+      setProfileNotice(`Niet verstuurd: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  if (coldProfileRequested) void startProfile(Math.max(0, 30_000 - performance.now()), 0)
+
+  onMount(() => {
+    const telegram = props.telegram
+    if (!telegram) return
+    const updateTheme = () => {
+      setTheme(telegram.colorScheme)
+      applyTelegramColors(telegram)
+    }
+    updateTheme()
+    telegram.onEvent('themeChanged', updateTheme)
+    onCleanup(() => telegram.offEvent('themeChanged', updateTheme))
+  })
 
   onMount(() => {
     const idle = watchIdle(IDLE_AFTER_MS, {
@@ -378,6 +576,54 @@ export default function App() {
     })
   })
 
+  onMount(() => {
+    const touchStart = (event: TouchEvent) => {
+      tableTouchActive = event.touches.length > 0
+      window.clearTimeout(tableViewSettleTimer)
+    }
+    const touchEnd = (event: TouchEvent) => {
+      tableTouchActive = event.touches.length > 0
+      if (!tableTouchActive) scheduleTableViewSettlement()
+    }
+    window.addEventListener('scroll', pageScrolled, { passive: true })
+    window.addEventListener('scrollend', settleTableView, { passive: true })
+    window.addEventListener('resize', settleTableViewAfterResize, { passive: true })
+    window.addEventListener('touchstart', touchStart, { passive: true })
+    window.addEventListener('touchend', touchEnd, { passive: true })
+    window.addEventListener('touchcancel', touchEnd, { passive: true })
+    window.visualViewport?.addEventListener('resize', settleTableViewAfterResize, { passive: true })
+    syncTableViewPosition()
+    scheduleTableViewSettlement(0)
+    onCleanup(() => {
+      window.removeEventListener('scroll', pageScrolled)
+      window.removeEventListener('scrollend', settleTableView)
+      window.removeEventListener('resize', settleTableViewAfterResize)
+      window.removeEventListener('touchstart', touchStart)
+      window.removeEventListener('touchend', touchEnd)
+      window.removeEventListener('touchcancel', touchEnd)
+      window.visualViewport?.removeEventListener('resize', settleTableViewAfterResize)
+      if (tableViewFrame !== undefined) cancelAnimationFrame(tableViewFrame)
+      window.clearTimeout(tableViewResizeTimer)
+      window.clearTimeout(tableViewSettleTimer)
+    })
+  })
+
+  onMount(() => {
+    if (stillMode) return
+    if (!('serviceWorker' in navigator)) return
+    const productionPwa = window.location.hostname === 'motregen.nl' || window.location.hostname === 'www.motregen.nl'
+    if (!productionPwa) {
+      void navigator.serviceWorker.getRegistrations().then(async (registrations) => {
+        await Promise.all(registrations.map((registration) => registration.unregister()))
+        if ('caches' in window) await Promise.all((await caches.keys()).map((key) => caches.delete(key)))
+      })
+      return
+    }
+    updateServiceWorker = registerSW({
+      onNeedRefresh: () => setUpdateReady(true),
+    })
+  })
+
   onMount(async () => {
     const mediaChanged = (event: MediaQueryListEvent) => setSystemDark(event.matches)
     media.addEventListener('change', mediaChanged)
@@ -385,15 +631,31 @@ export default function App() {
     const inlineHistoryChanged = (event: MediaQueryListEvent) => setHistoryInline(event.matches)
     inlineHistoryMedia.addEventListener('change', inlineHistoryChanged)
     onCleanup(() => inlineHistoryMedia.removeEventListener('change', inlineHistoryChanged))
+    const tableViewChanged = (event: MediaQueryListEvent) => {
+      setTableViewAvailable(event.matches)
+      if (!event.matches) {
+        setTableCoversViewport(false)
+        setTableOpen(false)
+        applyTableScrollOpen(false)
+        setTableViewTarget(undefined)
+      }
+      else {
+        queueTableViewSync()
+        scheduleTableViewSettlement()
+      }
+    }
+    tableViewMedia.addEventListener('change', tableViewChanged)
+    onCleanup(() => tableViewMedia.removeEventListener('change', tableViewChanged))
     try {
       const data = await fetchManifest()
       perf.setManifestGenerated(data.generated)
       setManifestRefresh({ checkedAt: Date.now() })
       const frames = buildTimeline(data)
       if (!frames.length) throw new Error('De tijdlijn is leeg')
+      const presets = parsePresets(window.location.search, Date.parse(data.now))
       setManifest(data)
       void Promise.all(data.chunks.filter(eagerHeader).map((chunk) => client.getHeader(chunk))).catch(() => undefined)
-      stopManifestRefresh = scheduleManifestRefresh(refreshManifest, {
+      if (!stillMode) stopManifestRefresh = scheduleManifestRefresh(refreshManifest, {
         setTimeout: (callback, delay) => window.setTimeout(callback, delay),
         clearTimeout: (handle) => window.clearTimeout(handle),
         visibilityState: () => document.visibilityState,
@@ -405,12 +667,17 @@ export default function App() {
       })
       let nowIndex = 0
       for (let index = 0; index < frames.length; index++) if (frames[index]!.epoch <= Date.parse(data.now)) nowIndex = index
-      setCursor(nowIndex)
+      const presetCursor = presets.epoch === undefined ? undefined : cursorForPresetEpoch(frames, presets.epoch)
+      setCursor(presetCursor ?? nowIndex)
+      if (presetCursor !== undefined) setPlaying(false)
+      if (presets.mode) applyPresetMode(presets.mode)
       const header = await client.getHeader(frames[0]!.chunk)
       const initialTheme = mapTheme()
       const style = await loadBasemapStyle(initialTheme)
       appliedMapTheme = initialTheme
-      const initialView = constrainView(initialMapView ?? containView(MAP_CONTAIN_BOUNDS, mapViewport()), MAP_CONTAIN_BOUNDS, mapViewport())
+      const initialView = constrainView(!stillMode && initialPresets.point
+        ? { ...initialPresets.point, zoom: 7 }
+        : initialMapView ?? containView(MAP_CONTAIN_BOUNDS, mapViewport()), MAP_CONTAIN_BOUNDS, mapViewport())
       map = new maplibregl.Map({
         container: mapElement,
         style,
@@ -423,6 +690,7 @@ export default function App() {
         fadeDuration: 0,
         renderWorldCopies: false,
         attributionControl: false,
+        interactive: !stillMode,
       })
       restrictMapGestures(map, window.matchMedia('(pointer: coarse)').matches)
       applyMapDetailLimit()
@@ -431,6 +699,19 @@ export default function App() {
       syncSavedMarkers(savedPlaces())
       map.on('style.load', () => attachMapLayers(header.grid))
       map.on('render', () => { mapRepaints++ })
+      map.on('sourcedataloading', (event) => {
+        if (!perfPhasesEnabled()) return
+        const key = basemapTileKey(event)
+        if (key) basemapTiles.set(key, performance.now())
+      })
+      map.on('sourcedata', (event) => {
+        const key = basemapTileKey(event)
+        if (!key) return
+        const started = basemapTiles.get(key)
+        if (started === undefined) return
+        basemapTiles.delete(key)
+        recordPerfPhase('basemap-tile', performance.now() - started, { tile: key }, performance.now())
+      })
       map.on('moveend', rememberMapView)
       map.on('zoomend', () => void showTemperature())
       map.on('moveend', () => {
@@ -441,6 +722,7 @@ export default function App() {
         usage.mark('pin')
         pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name)
       })
+      if (!stillMode && presets.place) void selectPresetPlace(presets.place)
       if (mapTheme() !== appliedMapTheme) void applyMapTheme(mapTheme())
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error))
@@ -450,6 +732,7 @@ export default function App() {
   onCleanup(() => {
     window.clearTimeout(splashReplayTimer)
     window.clearTimeout(resetNoticeTimer)
+    window.clearTimeout(shareNoticeTimer)
     window.clearTimeout(mapViewTimer)
     stopManifestRefresh?.()
     focusMode.dispose()
@@ -464,7 +747,7 @@ export default function App() {
   })
 
   async function fetchManifest(cache: RequestCache = 'default'): Promise<Manifest> {
-    const response = await fetch(manifestRequestUrl(), { cache })
+    const response = await fetch(stillMode ? manifestUrl : manifestRequestUrl(), { cache })
     if (!response.ok) throw new Error(`Manifest laden mislukt (${response.status})`)
     return response.json() as Promise<Manifest>
   }
@@ -537,7 +820,7 @@ export default function App() {
   createEffect(() => {
     const choice = theme()
     const effective = mapTheme()
-    localStorage.setItem('motregen-theme', choice)
+    if (!props.telegram && !stillMode) localStorage.setItem('motregen-theme', choice)
     document.documentElement.dataset.theme = effective
     document.documentElement.style.colorScheme = effective
     windLayer?.setTheme(effective)
@@ -559,7 +842,7 @@ export default function App() {
 
   createEffect(() => {
     const places = savedPlaces()
-    storeSavedPlaces(places)
+    if (!stillMode) storeSavedPlaces(places)
     syncSavedMarkers(places)
   })
 
@@ -568,7 +851,7 @@ export default function App() {
     windLayer?.setTuning(tuning)
   })
 
-  createEffect(() => applyFocus(focus()))
+  createEffect(() => applyFocus(focus(), windFocus()))
   createEffect(() => applyMapSaturation(mapSaturation(focus())))
   for (const set of isolineSets) {
     createEffect(() => applyIsolineOpacity(set))
@@ -600,6 +883,7 @@ export default function App() {
    * blijven alleen scrubber, klok en tabel (op frame-index/minuut).
    */
   function drawLayers(): void {
+    if (stillMode || !mapRendering()) return
     const epoch = selectedEpoch()
     const ready = mapReady()
     dayNightLayer?.setEpoch(epoch)
@@ -620,7 +904,7 @@ export default function App() {
   }
   createEffect(() => {
     const loadStage = pointLoadStage()
-    if (!playing() || !pageVisible() || !mapReady() || (initialPickStarted && (loadStage === 'initial' || loadStage === 'direct'))) return
+    if (!playing() || !mapRendering() || !mapReady() || (initialPickStarted && (loadStage === 'initial' || loadStage === 'direct'))) return
     const horizonHours = timeHorizonHours()
     const frames = timeline()
     if (frames.length < 2) return
@@ -677,13 +961,33 @@ export default function App() {
     cursor()
     timeline()
     mapReady()
+    mapRendering()
     for (const set of isolineSets) { set.active(); set.step() }
+    if (!mapRendering()) return
     if (playing() && frameLoopDrives) return
     untrack(drawLayers)
+  })
+
+  createEffect(() => {
+    const rendering = mapRendering()
+    for (const set of isolineSets) {
+      set.layer?.setPaused(!rendering)
+      if (!rendering) {
+        set.shownRequest++
+        set.worker?.dispose()
+        set.worker = undefined
+      }
+    }
+    if (!rendering) return
+    requestAnimationFrame(() => {
+      map?.resize()
+      if (mapReady()) drawLayers()
+    })
   })
   const cursorFrame = createMemo(() => Math.round(cursor()))
   // Klok en UV-chip tonen minuten: per afspeeltik hoeven ze niet opnieuw.
   const cursorMinute = createMemo(() => Math.floor(selectedEpoch() / 60_000) * 60_000)
+  const tablePreviewEpoch = createMemo(() => Math.round(cursorMinute() / 3_600_000) * 3_600_000)
 
   // Klik op een tabelrij: de scrubber springt naar dat uur (PO 2026-09-25 live). Liep het afspelen, dan
   // pauzeert het en hervat het na dezelfde rust als na slepen in de scrubber.
@@ -741,7 +1045,7 @@ export default function App() {
     if (SUN_ICONS_ENABLED && (radiationTimeline().length || uvTimeline().length)) attachSunLayer()
     if (hasTemperature()) attachTemperatureLayer()
     attachMapFrame(grid)
-    applyFocus(focus())
+    applyFocus(focus(), windFocus())
     // Na een stijlwissel met vastgezette focus loopt het isolijn-effect niet vanzelf opnieuw.
     for (const set of isolineSets) if (set.active() && mapReady()) { void showIsolineField(set); void showIsolines(set) }
     void showFrame()
@@ -822,8 +1126,9 @@ export default function App() {
         rainReadyPending = false
         if (map !== renderedMap) return
         setMapReady(true)
-        void attachWindLayer()
-        if (!initialPickStarted) {
+        if (stillMode) void prepareStill()
+        else void attachWindLayer()
+        if (!stillMode && !initialPickStarted) {
           initialPickStarted = true
           pick(startLocation.lng, startLocation.lat, startLocation.label)
           if (startFromFix) revealPoint(startLocation.lng, startLocation.lat)
@@ -868,6 +1173,33 @@ export default function App() {
     if (!map || !windGrid || !windTimeline().length || windLayer) return
     mountWind(windGrid)
     await showWind()
+  }
+
+  async function prepareStill(): Promise<void> {
+    try {
+      await attachWindLayer()
+      await showTemperature()
+      await updateTemperatureRange()
+      for (const set of isolineSets) {
+        if (!set.active()) continue
+        await showIsolineField(set)
+        await showIsolines(set)
+        const required = isolineLayerIndices(set.time, set.timeline().length, ISOLINE_WINDOW)
+        if (!set.layer || required.some((index) => !set.layer!.hasLayer(index))) {
+          throw new Error(`Kaartlaag ${set.kind} is niet geladen`)
+        }
+      }
+      if (windFocus() > 0 && !windLayer) throw new Error('Wind is niet geladen')
+      if (hasTemperature() && !temperatureInput) throw new Error('Temperatuurlabels zijn niet geladen')
+      const overlays = [rainOverlay, windOverlay, ...isolineSets.map((set) => set.overlay)]
+      await Promise.all(overlays.map((overlay) => {
+        if (!overlay) return Promise.resolve()
+        return new Promise<void>((resolve) => overlay.once(resolve))
+      }))
+      mapElement.dataset.stillReady = 'true'
+    } catch (error) {
+      mapElement.dataset.stillError = error instanceof Error ? error.message : 'Still laden mislukt'
+    }
   }
 
   function mountRain(grid: Grid): void {
@@ -978,11 +1310,10 @@ export default function App() {
     map.addLayer(temperatureLayer(mapTheme()), beforeId)
   }
 
-  function applyFocus(value: number): void {
+  function applyFocus(value: number, windValue: number): void {
     if (!map) return
     const context = contextOpacity(value, FOCUS_DIM)
-    // In de temperatuurmodus verdwijnt de regenlaag helemaal (PO 2026-09-25 live; was gedimd tot FOCUS_DIM).
-    layer?.setOpacity(1 - value)
+    layer?.setOpacity(rainFocusOpacity(value, windValue))
     rainOverlay?.triggerRepaint()
     if (map.getLayer('motregen-sun')) map.setPaintProperty('motregen-sun', 'text-opacity', ['*', ['get', 'opacity'], context])
     applyIsolineOpacity(temperatureIsolines)
@@ -1183,21 +1514,9 @@ export default function App() {
     if (key === temperatureRangeKey) setTemperatureRange(paletteRange(min, max))
   }
 
-  /** Kleurbalk van de vulling: één blok per band van het bereik. */
-  const temperatureLegend = createMemo(() => {
-    const range = temperatureRange()
-    if (!range) return undefined
-    const { step } = isolineTuning()
-    const stops = paletteStops(range)
-    const bands: string[] = []
-    for (let band = Math.floor(range.low / step); band < Math.ceil(range.high / step); band++) {
-      bands.push(`rgb(${bandColor(band, step, stops).map((channel) => Math.round(channel * 255)).join(' ')})`)
-    }
-    return { ...range, bands }
-  })
-
   async function showIsolineField(set: IsolineSet): Promise<void> {
-    if (set.kind === 'temperature') void updateTemperatureRange()
+    if (!mapRendering()) return
+    if (set.kind === 'temperature' && !stillMode) void updateTemperatureRange()
     const frames = set.timeline()
     const renderedMap = map
     if (!frames.length || !renderedMap?.getLayer('motregen-temperature')) return
@@ -1214,7 +1533,7 @@ export default function App() {
     try {
       if (!set.layer) {
         const { grid } = await preparedIsolineField(set, frames[required[0]!]!)
-        if (map !== renderedMap || set.layer || !renderedMap.getLayer('motregen-temperature')) return
+        if (!mapRendering() || map !== renderedMap || set.layer || !renderedMap.getLayer('motregen-temperature')) return
         const created = new IsolineLayer(grid, frames.length, set.style(), set.layerId)
         set.layer = created
         set.layerKey = key
@@ -1238,7 +1557,7 @@ export default function App() {
       layer.setTime(time, playing())
       await Promise.all(wanted.filter((index) => !layer.hasLayer(index)).map(async (index) => {
         const prepared = await preparedIsolineField(set, frames[index]!)
-        if (layer !== set.layer || layer.frameKey(index) !== frameKeys[index] || !sameGrid(prepared, { grid: layer.grid })) return
+        if (!mapRendering() || layer !== set.layer || layer.frameKey(index) !== frameKeys[index] || !sameGrid(prepared, { grid: layer.grid })) return
         set.fields[index] = prepared.field
         layer.setLayer(index, prepared.field)
       }))
@@ -1257,7 +1576,7 @@ export default function App() {
    * het label volgt het dichtstbijzijnde uur. Afspelen kost zo één ronde per uur, rust nul.
    */
   async function showIsolines(set: IsolineSet): Promise<void> {
-    if (set.kind === 'cloud') return
+    if (!mapRendering() || set.kind === 'cloud') return
     const frames = set.timeline()
     if (!frames.length || !set.labels) return
     const request = ++set.shownRequest
@@ -1279,7 +1598,7 @@ export default function App() {
       }
       const data = await labels
       if (!data) isolineLabelCache.delete(key)
-      if (!data || request !== set.shownRequest || !set.labels) return
+      if (!mapRendering() || !data || request !== set.shownRequest || !set.labels) return
       set.key = key
       set.labels.setLines(data, step)
       set.setCount(data.features.length)
@@ -1299,14 +1618,18 @@ export default function App() {
     labels.update({ width: layer.grid.width, height: layer.grid.height, fields: fields as PreparedField[], weights: weights.map(({ weight }) => weight) }, layer.rings)
   }
 
-  /** Vastzetten sluit de andere modus uit; opnieuw tikken op dezelfde kop maakt los. */
-  function toggleFocusPin(mode: FocusKind): void {
-    const previous = focusPinned()
-    if (previous) focusMode.set(previous, 'pinned', false)
-    const pinned = previous === mode ? undefined : mode
-    setFocusPinned(pinned)
-    if (pinned) focusMode.set(pinned, 'pinned', true)
-    if (pinned === 'wind' || pinned === 'temperature') usage.mark(pinned === 'wind' ? 'pinWind' : 'pinFeel')
+  function pinFocusMode(mode: FocusKind): void {
+    if (!focusMode.pin(mode)) return
+    setFocusPinned(mode)
+    if (mode === 'air') usage.mark('pinAir')
+    else if (mode === 'wind') usage.mark('pinWind')
+    else if (mode === 'temperature') usage.mark('pinFeel')
+  }
+
+  function applyPresetMode(mode: Parameters<typeof modeForFocus>[0]): void {
+    const next = modeForFocus(mode)
+    focusMode.pin(next)
+    setFocusPinned(next)
   }
 
   function attachSunLayer(): void {
@@ -1592,15 +1915,57 @@ export default function App() {
     if (!state) return
     await state.direct.catch(() => undefined)
     if (state.request !== pointRequest) return
+    await mergeForecastSeries(state, 'L2')
+  }
+
+  createEffect(() => {
+    if (!tableViewAvailable() || pointLoadStage() === 'initial') return
+    untrack(() => { void loadHistoryRows() })
+  })
+
+  function readForecastPointSeries(frames: TimelineFrame[], point: { lng: number; lat: number }, key: ForecastIndex, layer: LoadLayer): Promise<Array<number | null>> {
+    const now = manifestNow()
+    const history = historyRowsWanted()
+    const window = viewWindow()
+    const indexes = forecast().flatMap((row) => {
+      if (row[key] == null) return []
+      const tableRow = isPassiveRow(row, now) && (row.kind !== 'past' || history)
+      if (!inViewOnly) return tableRow ? [row[key]] : []
+      const wanted = (tableInView() && tableRow) || (scrubberSeries().has(key) && rowInView(row, window))
+      return wanted ? [row[key]] : []
+    })
+    return frames.length ? readPointSeries(frames, point, indexes, 'high', undefined, undefined, layer).catch(() => []) : Promise.resolve([])
+  }
+
+  // Uurrijen: een uur speling, zodat de lijn in de scrubber tot aan de rand van het venster doorloopt.
+  function rowInView(row: { epoch: number }, window: EpochWindow): boolean {
+    return epochInWindow(row.epoch, window, 3_600_000)
+  }
+
+  /** Krap apparaat: haal bij wat er door een verschoven venster, een andere modus of de tabel in beeld is gekomen. */
+  async function loadViewWindow(state: PointLoadState): Promise<void> {
+    const missingRain = visibleRainIndexes().filter((index) => !state.rainLoaded.has(index))
+    if (missingRain.length) {
+      void readPointSeries(timeline(), state.point, missingRain, 'low', state.rainValues, (_, loaded) => {
+        for (const index of loaded) state.rainLoaded.add(index)
+        if (state.request === pointRequest) state.rainPublisher?.schedule()
+      }, 'L1', viewDemand().signal).catch(() => undefined)
+    }
+    await state.direct.catch(() => undefined)
+    if (state.request !== pointRequest) return
+    await mergeForecastSeries(state, 'L1')
+  }
+
+  async function mergeForecastSeries(state: PointLoadState, layer: LoadLayer): Promise<void> {
     const [uv, temperature, feelsLike, humidity, cloud, windU, windV, gust] = await Promise.all([
-      readForecastPointSeries(uvTimeline(), state.point, 'uvIndex', 'L2'),
-      readForecastPointSeries(tempTimeline(), state.point, 'temperatureIndex', 'L2'),
-      readForecastPointSeries(feelsLikeTimeline(), state.point, 'feelsLikeIndex', 'L2'),
-      readForecastPointSeries(humidityTimeline(), state.point, 'humidityIndex', 'L2'),
-      readForecastPointSeries(cloudTimeline(), state.point, 'cloudIndex', 'L2'),
-      readForecastPointSeries(windUFrames(), state.point, 'windUIndex', 'L2'),
-      readForecastPointSeries(windVFrames(), state.point, 'windVIndex', 'L2'),
-      readForecastPointSeries(gustTimeline(), state.point, 'gustIndex', 'L2'),
+      readForecastPointSeries(uvTimeline(), state.point, 'uvIndex', layer),
+      readForecastPointSeries(tempTimeline(), state.point, 'temperatureIndex', layer),
+      readForecastPointSeries(feelsLikeTimeline(), state.point, 'feelsLikeIndex', layer),
+      readForecastPointSeries(humidityTimeline(), state.point, 'humidityIndex', layer),
+      readForecastPointSeries(cloudTimeline(), state.point, 'cloudIndex', layer),
+      readForecastPointSeries(windUFrames(), state.point, 'windUIndex', layer),
+      readForecastPointSeries(windVFrames(), state.point, 'windVIndex', layer),
+      readForecastPointSeries(gustTimeline(), state.point, 'gustIndex', layer),
     ])
     if (state.request !== pointRequest) return
     const merge = (next: Array<number | null>) => (previous: Array<number | null>) =>
@@ -1617,13 +1982,6 @@ export default function App() {
     })
   }
 
-  function readForecastPointSeries(frames: TimelineFrame[], point: { lng: number; lat: number }, key: ForecastIndex, layer: LoadLayer): Promise<Array<number | null>> {
-    const now = manifestNow()
-    const history = historyRowsWanted()
-    const indexes = forecast().flatMap((row) => row[key] == null || !isPassiveRow(row, now) || (row.kind === 'past' && !history) ? [] : [row[key]])
-    return frames.length ? readPointSeries(frames, point, indexes, 'high', undefined, undefined, layer).catch(() => []) : Promise.resolve([])
-  }
-
   async function readPointSeries(
     frames: TimelineFrame[],
     point: { lng: number; lat: number },
@@ -1632,6 +1990,7 @@ export default function App() {
     values = new Array<number | null>(frames.length).fill(null),
     progress?: (values: Array<number | null>, loaded: number[]) => void,
     layer: LoadLayer = 'map',
+    signal?: AbortSignal,
   ): Promise<Array<number | null>> {
     const [x, y] = project(point.lng, point.lat)
     const chunks = new Map<ManifestChunk, Array<{ position: number; frameIndex: number }>>()
@@ -1653,7 +2012,7 @@ export default function App() {
         const loaded = positions.get(frameIndex) ?? []
         if (inside) for (const position of loaded) values[position] = header.quant[decoded[row * header.grid.width + column]!] ?? null
         progress?.(values, loaded)
-      }, layer)
+      }, layer, signal)
     }))
     return values
   }
@@ -1689,6 +2048,7 @@ export default function App() {
   }
 
   function scheduleDeepIdle(state: PointLoadState): void {
+    if (inViewOnly) return
     state.deepIdle = window.setTimeout(() => {
       state.idle = scheduleIdle(() => { void completePointSeries(state, 'low', 'L2', 'diepe idle') }, 5_000)
     }, 30_000)
@@ -1697,6 +2057,7 @@ export default function App() {
   function visibleRainIndexes(): number[] {
     const frames = timeline()
     if (!frames.length) return []
+    if (inViewOnly) return timelineIndexesInWindow(frames, viewWindow(), selectedEpoch())
     const now = manifest() ? Date.parse(manifest()!.now) : frames[0]!.epoch
     const end = timelineHorizonEnd(frames, now, timeHorizonHours())
     return frames
@@ -1767,6 +2128,18 @@ export default function App() {
     pick(point.lng, point.lat, label)
   }
 
+  async function selectPresetPlace(place: string): Promise<void> {
+    try {
+      const [suggestion] = await suggestLocations(place, map?.getCenter() ?? location())
+      if (!suggestion) return
+      const point = await resolveLocation(suggestion)
+      pick(point.lng, point.lat, suggestion.label)
+      revealPoint(point.lng, point.lat)
+    } catch {
+      // Een gedeelde plaats mag de kaart niet onbruikbaar maken wanneer een geocoder tijdelijk uitvalt.
+    }
+  }
+
   function chooseSaved(place: SavedPlace): void {
     storeLastSavedPlaceId(place.id)
     pick(place.lng, place.lat, place.name)
@@ -1825,7 +2198,7 @@ export default function App() {
     const height = mapElement.clientHeight
     const size = `${width}x${height}`
     if (topInset?.size !== size) {
-      topInset = { size, top: topOverlayInset() }
+      topInset = { size, top: stillMode ? 0 : topOverlayInset() }
       mapElement.dataset.insetTop = String(topInset.top)
     }
     return { width, height, insets: { top: topInset.top, right: 0, bottom: 0, left: 0 } }
@@ -1869,8 +2242,8 @@ export default function App() {
     batch(() => {
       setWindTuning({ ...DEFAULT_WIND_TUNING })
       setIsolineTuning({ ...DEFAULT_ISOLINE_TUNING })
-      const pinned = focusPinned()
-      if (pinned) toggleFocusPin(pinned)
+      focusMode.pin(DEFAULT_FOCUS_MODE)
+      setFocusPinned(DEFAULT_FOCUS_MODE)
     })
     window.clearTimeout(resetNoticeTimer)
     setResetNotice(true)
@@ -1889,12 +2262,46 @@ export default function App() {
     usage.mark('scrub')
     perf.markScrubInput()
     scrubPrefetch = true
-    void completePointSeries(pointLoad, 'high')
+    completeOnIntent()
     setCursor(cursor)
   }
 
+  // Een aanraking van de scrubber haalt op een ruim apparaat alvast alles binnen; op een krap
+  // apparaat volgt het laadvenster de cursor (zie loadViewWindow).
+  function completeOnIntent(): void {
+    if (!inViewOnly) void completePointSeries(pointLoad, 'high')
+  }
+
+  function currentShareMode(): Parameters<typeof modeForFocus>[0] {
+    return modeForActiveFocus(focusPinned() ?? focusMode.active())
+  }
+
+  async function shareCurrentState(): Promise<void> {
+    const url = shareUrl({ mode: currentShareMode(), epoch: selectedEpoch(), point: location() })
+    const touch = matchMedia('(pointer: coarse)').matches
+    if (touch && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: 'motregen.nl', text: 'Regenradar en weersverwachting', url })
+        usage.mark('share')
+        showShareNotice('Link gedeeld')
+        return
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+      }
+    }
+    await copyText(url)
+    usage.mark('share')
+    showShareNotice('Link gekopieerd')
+  }
+
+  function showShareNotice(message: string): void {
+    window.clearTimeout(shareNoticeTimer)
+    setShareNotice(message)
+    shareNoticeTimer = window.setTimeout(() => setShareNotice(), 2_500)
+  }
+
   const manifestNow = () => manifest() ? Date.parse(manifest()!.now) : 0
-  const forecast = createMemo(() => buildHourlyForecast({
+  const forecast = createMemo(() => measurePerfPhase('table-render', () => buildHourlyForecast({
     rain: timeline(),
     uv: uvTimeline(),
     uvClear: uvClearTimeline(),
@@ -1906,7 +2313,7 @@ export default function App() {
     windU: windUFrames(),
     windV: windVFrames(),
     gust: gustTimeline(),
-  }, manifest() ? Date.parse(manifest()!.now) : 0))
+  }, manifest() ? Date.parse(manifest()!.now) : 0), { memo: 'uurindeling' }))
   let radiationRequest = 0
   createEffect(() => {
     const point = location()
@@ -1919,7 +2326,8 @@ export default function App() {
       return [row.radiationIndex, row.radiationNextIndex].filter((index): index is number => index != null)
     })
     const request = ++radiationRequest
-    if (!indexes.length) return
+    // De straling voedt alleen de tabel (weericoon, UV-schatting).
+    if (!indexes.length || !tableInView()) return
     void readPointSeries(frames, point, indexes, 'low', undefined, undefined, 'L0').then((values) => {
       if (request === radiationRequest) setRadiationSeries(values)
     }).catch(() => undefined)
@@ -1936,9 +2344,15 @@ export default function App() {
     const all = stage === 'complete'
     const history = historyRowsWanted()
     const now = manifestNow()
-    const indexes = forecast().flatMap((row) =>
-      row.uvClearIndex == null || (!all && !isPassiveRow(row, now)) || (row.kind === 'past' && !history) ||
-        solarElevationSin(row.epoch, point.lng, point.lat) <= 0 ? [] : [row.uvClearIndex])
+    const tableOpen = tableInView()
+    const window = inViewOnly ? viewWindow() : undefined
+    const indexes = forecast().flatMap((row) => {
+      if (row.uvClearIndex == null || solarElevationSin(row.epoch, point.lng, point.lat) <= 0) return []
+      const tableRow = (all || isPassiveRow(row, now)) && (row.kind !== 'past' || history)
+      // Zonder tabel in beeld leest alleen de UV-chip bij de cursor deze reeks.
+      const wanted = tableOpen ? tableRow : window !== undefined && rowInView(row, window)
+      return wanted ? [row.uvClearIndex] : []
+    })
     const request = ++uvClearRequest
     if (stage === 'initial' || !indexes.length) return
     void (async () => {
@@ -1958,18 +2372,39 @@ export default function App() {
     [layer, manifest() ? buildTimeline(manifest()!, `cloud_${layer}`) : []])) as Record<CloudLayer, TimelineFrame[]>)
   const [cloudValues, setCloudValues] = createSignal<Record<CloudLayer, Array<number | null>>>({ high: [], mid: [], low: [] })
   let cloudRequest = 0
+  // Krap apparaat: de banden groeien venster voor venster aan; de al gelezen waarden blijven staan
+  // zolang locatie en tijdlijn dezelfde zijn.
+  let cloudsRead: { point: object; timelines: object; values: Record<CloudLayer, Array<number | null>> } | undefined
   createEffect(() => {
     const point = location()
     const timelines = cloudTimelines()
+    const window = inViewOnly ? viewWindow() : undefined
+    const signal = inViewOnly ? viewDemand().signal : undefined
     const request = ++cloudRequest
     if (!cloudsMayLoad()) return
+    if (cloudsRead?.point !== point || cloudsRead.timelines !== timelines) cloudsRead = { point, timelines, values: { high: [], mid: [], low: [] } }
+    const read = cloudsRead
     void Promise.all(CLOUD_LAYERS.map(async (layer) => {
       const frames = timelines[layer]
       await Promise.all([...new Set(frames.map((frame) => frame.chunk))].map((chunk) => client.fetchPayload(chunk)))
-      return [layer, await readPointSeries(frames, point, undefined, 'low', undefined, undefined, 'L0')] as const
+      if (!window) return [layer, await readPointSeries(frames, point, undefined, 'low', undefined, undefined, 'L0')] as const
+      if (read.values[layer].length !== frames.length) read.values[layer] = new Array<number | null>(frames.length).fill(null)
+      const indexes = timelineIndexesInWindow(frames, window, selectedEpoch()).filter((index) => read.values[layer][index] == null)
+      await readPointSeries(frames, point, indexes, 'low', read.values[layer], undefined, 'L1', signal)
+      return [layer, [...read.values[layer]]] as const
     })).then((layers) => {
       if (request === cloudRequest) setCloudValues(Object.fromEntries(layers) as Record<CloudLayer, Array<number | null>>)
     }).catch(() => undefined)
+  })
+  createEffect(() => {
+    if (!inViewOnly) return
+    viewWindow()
+    scrubberSeries()
+    tableInView()
+    const stage = pointLoadStage()
+    if (stage === 'initial' || stage === 'complete') return
+    const state = untrack(() => pointLoad)
+    if (state) untrack(() => { void loadViewWindow(state) })
   })
   const cursorUv = createMemo(() => seriesValueAt(uvTimeline(), uvSeries(), cursorMinute(), 30 * 60_000))
   const cursorUvReading = createMemo(() => {
@@ -1982,11 +2417,76 @@ export default function App() {
   const cursorUvChip = createMemo(() => uvChipLabel(cursorUv()))
   const hasTemperature = createMemo(() => feelsLikeTimeline().length > 0)
   const hasWeatherIcons = createMemo(() => cloudTimeline().length > 0)
-  const hasHumidity = createMemo(() => humidityTimeline().length > 0)
   const hasWind = createMemo(() => windUFrames().length > 0 && windVFrames().length > 0)
+  function scrollTableToEpoch(epoch: number, behavior: ScrollBehavior): boolean {
+    const scroller = forecastPanelElement.querySelector<HTMLElement>('.table-scroll')
+    const rows = [...forecastPanelElement.querySelectorAll<HTMLElement>('tr[data-epoch]')]
+    const current = rows.find((row) => Number(row.dataset.epoch) === epoch) ?? rows.reduce<HTMLElement | undefined>((nearest, row) =>
+      !nearest || Math.abs(Number(row.dataset.epoch) - epoch) < Math.abs(Number(nearest.dataset.epoch) - epoch) ? row : nearest, undefined)
+    const heading = forecastPanelElement.querySelector<HTMLElement>('thead')
+    if (!scroller || !current || !heading) return false
+    const top = scroller.scrollTop + current.getBoundingClientRect().top - scroller.getBoundingClientRect().top - heading.getBoundingClientRect().height
+    scroller.scrollTo({ top, behavior })
+    return true
+  }
+  let tablePreviewFrame: number | undefined
+  let tablePreviewPositioned = false
+  function queueTablePreview(epoch: number, behavior: ScrollBehavior): void {
+    if (tablePreviewFrame !== undefined) cancelAnimationFrame(tablePreviewFrame)
+    tablePreviewFrame = requestAnimationFrame(() => {
+      tablePreviewFrame = undefined
+      if (!tableViewAvailable() || tableScrollOpen()) return
+      const positioned = scrollTableToEpoch(epoch, behavior)
+      if (positioned) tablePreviewPositioned = true
+    })
+  }
+  createEffect(() => {
+    const epoch = tablePreviewEpoch()
+    if (!tableViewAvailable() || tableScrollOpen()) return
+    queueTablePreview(epoch, tablePreviewPositioned && !reducedMotion.matches ? 'smooth' : 'auto')
+  })
+  onMount(() => {
+    const scroller = forecastPanelElement.querySelector<HTMLElement>('.table-scroll')
+    const table = forecastPanelElement.querySelector<HTMLElement>('.forecast-table')
+    if (!scroller || !table || typeof ResizeObserver === 'undefined') return
+    const correct = () => {
+      if (!tableViewAvailable() || tableScrollOpen()) return
+      queueTablePreview(untrack(tablePreviewEpoch), 'auto')
+    }
+    const observer = new ResizeObserver(correct)
+    observer.observe(scroller)
+    observer.observe(table)
+    scroller.addEventListener('scrollend', correct, { passive: true })
+    onCleanup(() => {
+      observer.disconnect()
+      scroller.removeEventListener('scrollend', correct)
+    })
+  })
+  onCleanup(() => { if (tablePreviewFrame !== undefined) cancelAnimationFrame(tablePreviewFrame) })
 
-  return <main class="app-shell">
-    <section class="map-shell" aria-label="Regenkaart van Nederland" data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
+  function selectTableTime(epoch: number): void {
+    jumpToTime(epoch)
+    if (tableViewOpen() && scrollTableToEpoch(epoch, reducedMotion.matches ? 'auto' : 'smooth')) tablePreviewPositioned = true
+  }
+
+  function scrollToTable(): void {
+    setTableViewTarget('table')
+    forecastPanelElement.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' })
+  }
+
+  function scrollToMap(): void {
+    setTableViewTarget('map')
+    window.scrollTo({ top: 0, behavior: reducedMotion.matches ? 'auto' : 'smooth' })
+  }
+
+  function openTableFromPeek(event: MouseEvent): void {
+    if (tableViewOpen() || !tableViewAvailable()) return
+    if (event.target instanceof Element && event.target.closest('button.column-mode')) return
+    scrollToTable()
+  }
+
+  return <main class="app-shell" classList={{ 'still-view': stillMode, 'table-view-open': tableViewOpen(), 'table-scroll-open': tableViewAvailable() && tableScrollOpen() }} data-generated={manifest()?.generated} data-epoch={cursorMinute()}>
+    <section class="map-shell" aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainFocusOpacity(focus(), windFocus()).toFixed(2)} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
       <div ref={mapElement} class="map" />
       <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() }} aria-hidden={mapReady()}>
         <div class="map-splash-veil" />
@@ -1995,101 +2495,118 @@ export default function App() {
           <strong>motregen.nl</strong>
         </div>
       </div>
-      <About theme={theme()} onTheme={(choice) => { usage.setTheme(choice); setTheme(choice) }}
-        windUnit={windUnit()} onWindUnit={(unit) => { usage.setUnit(unit); setWindUnit(unit); localStorage.setItem('motregen-wind-unit', unit) }} onOpen={() => usage.mark('about')} onTripleTap={() => setPerfVisible((visible) => !visible)} />
-      {/* Kaartlegenda als eigen pil linksonder, los van de bronvermelding (PO 2026-09-25 live, U34). */}
-      <Show when={focus() > 0 && temperatureLegend()}>
-        {(legend) => <div class="map-legend temperature-legend" style={{ opacity: focus() }} role="img" aria-label={`Kleurschaal gevoelstemperatuur ${legend().low} tot ${legend().high} graden`}>
-          <span>{legend().low}°</span>
-          <span class="temperature-legend-bar">{legend().bands.map((color) => <i style={{ background: color }} />)}</span>
-          <span>{legend().high}°</span>
-        </div>}
-      </Show>
-      <LocationSearch
-        location={location()}
-        mapCenter={() => map?.getCenter() ?? location()}
-        locationLabel={locationLabel()}
-        savedPlaces={savedPlaces()}
-        onLocate={locate}
-        onRemove={removeSavedPlace}
-        onSave={saveCurrentPlace}
-        onSelect={chooseSearch}
-        onSelectSaved={chooseSaved}
-      />
-      <Show when={devMode}>
-        <DevPanel
-          isolineTuning={isolineTuning()}
-          onIsolineTuning={(patch) => setIsolineTuning((current) => ({ ...current, ...patch }))}
-          windTuning={windTuning()}
-          onWindTuning={tuneWind}
-          perfVisible={perfVisible()}
-          onPerfVisible={setPerfVisible}
-          onReplaySplash={replaySplash}
-          onReset={resetAllSettings}
-          resetNotice={resetNotice()}
-          usageBody={usageBody()}
+      <Show when={!stillMode}>
+        <About theme={theme()} onTheme={(choice) => { usage.setTheme(choice); setTheme(choice) }} tableDayNight={tableDayNight()} onTableDayNight={(enabled) => { setTableDayNight(enabled); storeTableDayNight(enabled) }}
+          windUnit={windUnit()} onWindUnit={(unit) => { usage.setUnit(unit); setWindUnit(unit); localStorage.setItem('motregen-wind-unit', unit) }} onOpen={() => usage.mark('about')} onShare={shareCurrentState} shareNotice={shareNotice()} onTripleTap={() => setPerfVisible((visible) => !visible)} />
+        <Show when={updateReady()}><aside class="update-toast" role="status">Nieuwe versie — <button type="button" onClick={() => void updateServiceWorker?.()}>herlaad</button></aside></Show>
+        <LocationSearch
+          location={location()}
+          mapCenter={() => map?.getCenter() ?? location()}
+          locationLabel={locationLabel()}
+          savedPlaces={savedPlaces()}
+          onLocate={locate}
+          onRemove={removeSavedPlace}
+          onSave={saveCurrentPlace}
+          onSelect={chooseSearch}
+          onSelectSaved={chooseSaved}
         />
-      </Show>
-      <Freshness mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness}
-        paused={!playing()} onPlay={() => setPlaying(true)} />
-    </section>
-    <aside class="dashboard">
-      <Show when={cursorUvChip()}>{(label) => <div class="sidebar-nav">
-        <span class="uv-chip sidebar-uv-chip" data-level={uvLevel(cursorUv()!).key} title={cursorUvReading() ? `Insmeren aanbevolen · ${uvBarLabel(cursorUvReading()!)}` : 'Insmeren aanbevolen'}><Sun {...INLINE_ICON} /><span class="uv-long">{label()}</span><span class="uv-short">UV {formatUv(cursorUv())}</span><UvBar reading={cursorUvReading()} bare /></span>
-      </div>}</Show>
-      <HistogramScrubber
-        timeline={timeline()}
-        values={rainSeries()}
-        loaded={rainLoaded()}
-        cursor={cursor()}
-        now={manifest() ? Date.parse(manifest()!.now) : 0}
-        playing={playing()}
-        loading={pointSeriesLoading()}
-        loadStage={pointLoadStage()}
-        locationLabel={status()}
-        onCursor={scrub}
-        onIntent={() => { void completePointSeries(pointLoad, 'high') }}
-        onPlaying={setPlaying}
-        glideRate={glideRate()}
-        onPlayPressed={() => usage.mark('play')}
-        clouds={{ timeline: cloudTimelines(), values: cloudValues() }}
-        sky={{ radiation: { timeline: radiationTimeline(), values: radiationSeries() }, sinElevation: (epoch) => solarElevationSin(epoch, location().lng, location().lat) }}
-        wind={{ timeline: windUFrames(), speed: windSpeedSeries(), gustTimeline: gustTimeline(), gust: gustSeries(), unit: windUnit() }}
-        mix={{ wind: windFocus(), clouds: cloudFocus(), temperature: focus() }}
-        temperature={{ timeline: feelsLikeTimeline(), values: feelsLikeSeries(), airTimeline: tempTimeline(), air: temperatureSeries(), stops: temperatureRange() && paletteStops(temperatureRange()!) }}
-      />
-      <section class="forecast-panel">
-        <div class="table-scroll">
-          <ForecastTable
-            rows={forecast()}
-            series={{
-              rain: rainSeries(), uv: uvSeries(), uvClear: uvClearSeries(), radiation: radiationSeries(), temperature: temperatureSeries(),
-              feelsLike: feelsLikeSeries(), humidity: humiditySeries(), cloud: cloudSeries(), windU: windUSeries(), windV: windVSeries(), gust: gustSeries(),
-            }}
-            location={location()}
-            windUnit={windUnit()}
-            columns={{ weather: hasWeatherIcons(), uv: uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), humidity: hasHumidity(), wind: hasWind() }}
-            loadedUntil={pointLoadStage() === 'complete' ? Number.POSITIVE_INFINITY : manifestNow() + PASSIVE_FORECAST_HOURS * 3_600_000}
-            historyInline={historyInline()}
-            historyOpen={historyOpen()}
-            historyLoaded={historyRowsWanted() || pointLoadStage() === 'complete'}
-            onNeedRows={() => { void completePointSeries(pointLoad, 'high') }}
-            onNeedHistory={() => { void loadHistoryRows() }}
-            onSelectTime={jumpToTime}
-            onOpenHistory={() => {
-              if (!historyOpen()) usage.mark('history')
-              setHistoryOpen((open) => !open)
-              void loadHistoryRows()
-            }}
-            focus={{ pinned: focusPinned(), onTogglePin: toggleFocusPin, onFocus: (mode, source, active) => {
-              if (mode === 'temperature' && source === 'table' && active) usage.mark('hover')
-              focusMode.set(mode, source, active)
-            } }}
+        <Show when={devMode}>
+          <DevPanel
+            isolineTuning={isolineTuning()}
+            onIsolineTuning={(patch) => setIsolineTuning((current) => ({ ...current, ...patch }))}
+            windTuning={windTuning()}
+            onWindTuning={tuneWind}
+            perfVisible={perfVisible()}
+            onPerfVisible={setPerfVisible}
+            profileRecording={profileState() === 'recording'}
+            onProfileRecord={() => void startProfile()}
+            onColdProfile={coldProfile}
+            onReplaySplash={replaySplash}
+            onReset={resetAllSettings}
+            resetNotice={resetNotice()}
+            usageBody={usageBody()}
           />
-        </div>
-      </section>
-    </aside>
-    <Show when={perfVisible()}><PerfHud monitor={perf} isolines={isolineCounters} windStats={() => windLayer?.windProfile()} /></Show>
+        </Show>
+        <Freshness mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness}
+          paused={!playing()} onPlay={() => setPlaying(true)} />
+      </Show>
+    </section>
+    <Show when={!stillMode}>
+      <aside class="dashboard">
+        <Show when={cursorUvChip()}>{(label) => <div class="sidebar-nav">
+          <span class="uv-chip sidebar-uv-chip" data-level={uvLevel(cursorUv()!).key} title={cursorUvReading() ? `Insmeren aanbevolen · ${uvBarLabel(cursorUvReading()!)}` : 'Insmeren aanbevolen'}><Sun {...INLINE_ICON} /><span class="uv-long">{label()}</span><span class="uv-short">UV {formatUv(cursorUv())}</span><UvBar reading={cursorUvReading()} bare /></span>
+        </div>}</Show>
+        <HistogramScrubber
+          timeline={timeline()}
+          values={rainSeries()}
+          loaded={rainLoaded()}
+          cursor={cursor()}
+          now={manifest() ? Date.parse(manifest()!.now) : 0}
+          playing={playing()}
+          loading={pointSeriesLoading()}
+          loadStage={pointLoadStage()}
+          locationLabel={status()}
+          onCursor={scrub}
+          onIntent={completeOnIntent}
+          onPlaying={setPlaying}
+          glideRate={glideRate()}
+          onPlayPressed={() => usage.mark('play')}
+          clouds={{ timeline: cloudTimelines(), values: cloudValues() }}
+          sky={{ radiation: { timeline: radiationTimeline(), values: radiationSeries() }, sinElevation: (epoch) => solarElevationSin(epoch, location().lng, location().lat) }}
+          wind={{ timeline: windUFrames(), speed: windSpeedSeries(), gustTimeline: gustTimeline(), gust: gustSeries(), unit: windUnit() }}
+          mix={{ wind: windFocus(), air: airFocus(), temperature: focus() }}
+          temperature={{ timeline: feelsLikeTimeline(), values: feelsLikeSeries(), airTimeline: tempTimeline(), air: temperatureSeries(), stops: temperatureRange() && paletteStops(temperatureRange()!) }}
+        />
+        <section
+          ref={(element) => { forecastPanelElement = element; forecastPanel = element }}
+          id="forecast-table-view"
+          class="forecast-panel"
+          onClick={openTableFromPeek}
+        >
+          <div class="table-scroll">
+            <ForecastTable
+              rows={forecast()}
+              series={{
+                rain: rainSeries(), uv: uvSeries(), uvClear: uvClearSeries(), radiation: radiationSeries(), temperature: temperatureSeries(),
+                feelsLike: feelsLikeSeries(), humidity: humiditySeries(), cloud: cloudSeries(), windU: windUSeries(), windV: windVSeries(), gust: gustSeries(),
+              }}
+              location={location()}
+              windUnit={windUnit()}
+              dayNight={tableDayNight()}
+              columns={{ weather: hasWeatherIcons(), air: hasWeatherIcons() || uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), wind: hasWind() }}
+              loadedUntil={pointLoadStage() === 'complete' ? Number.POSITIVE_INFINITY : manifestNow() + PASSIVE_FORECAST_HOURS * 3_600_000}
+              historyInline={historyInline()}
+              historyOpen={historyOpen()}
+              historyLoaded={historyRowsWanted() || pointLoadStage() === 'complete'}
+              mobileTableOpen={tableModeSelected()}
+              onOpenMobileTable={tableViewAvailable() ? scrollToTable : undefined}
+              onSelectMobileMode={tableViewAvailable() ? scrollToMap : undefined}
+              onNeedRows={() => { void completePointSeries(pointLoad, 'high') }}
+              onNeedHistory={() => { void loadHistoryRows() }}
+              onSelectTime={selectTableTime}
+              onOpenHistory={() => {
+                if (!historyOpen()) usage.mark('history')
+                setHistoryOpen((open) => !open)
+                void loadHistoryRows()
+              }}
+              focus={{ pinned: focusPinned(), onPin: pinFocusMode, onFocus: (mode, source, active) => {
+                if (mode === 'temperature' && source === 'table' && active) usage.mark('hover')
+                focusMode.set(mode, source, active)
+              } }}
+            />
+          </div>
+        </section>
+      </aside>
+    </Show>
+    <Show when={!stillMode && perfVisible()}><PerfHud
+      monitor={perf}
+      isolines={isolineCounters}
+      windStats={() => windLayer?.windProfile()}
+      profile={profileMode || devMode ? {
+        state: profileState(), recording: profileRecording(), notice: profileNotice(),
+        onRecord: () => void startProfile(), onStop: () => profileStop?.abort(), onCold: coldProfile, onSend: sendProfile,
+      } : undefined}
+    /></Show>
   </main>
 }
 
@@ -2153,4 +2670,3 @@ function project(lng: number, lat: number): [number, number] {
   const radius = 6378137
   return [lng * Math.PI / 180 * radius, Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) * radius]
 }
-

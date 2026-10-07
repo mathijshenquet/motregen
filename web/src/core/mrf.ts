@@ -1,6 +1,8 @@
 import { decompress } from 'fzstd'
 import { chunkField, type ManifestChunk, type MrfHeader } from './contract'
-import type { LoadLayer, LoadTrace } from './perf'
+import { browserDeviceHints, decodeBudget } from './decode-budget'
+import { DecodeCancelled, DecodeQueue, type DecodeLane } from './decode-queue'
+import { recordPerfPhase, type LoadLayer, type LoadTrace } from './perf'
 import { decodePredFrame, PRED_VERSION, type PredFrameSpec } from './pred'
 
 const decoder = new TextDecoder()
@@ -51,7 +53,32 @@ export class LruCache<K, V> {
   }
 }
 
-interface WorkerReply { id: number; frame?: ArrayBuffer; error?: string }
+/** Komt als detail in de `frame-decode`-fase, zodat een opname laat zien wélk veld de workers bezet houdt. */
+interface DecodeDetail { field: string; layer: LoadLayer }
+
+interface DecodeJob {
+  key: string
+  compressed: Uint8Array
+  expectedLength: number
+  detail: DecodeDetail
+  pred?: PredFrameSpec
+  resolve: (frame: Uint8Array) => void
+  reject: (error: Error) => void
+}
+
+/** Wie er nog op een wachtend frame wacht: zonder signaal blijvend, met signaal tot dat is afgebroken. */
+interface FrameInterest {
+  pinned: boolean
+  signals: Set<AbortSignal>
+}
+
+// De kaart en het afspelen lezen via laag `map`/`motion`; al het andere is een puntreeks of vooruitladen.
+function decodeLane(layer: LoadLayer, priority: FetchPriority): DecodeLane {
+  if (layer === 'map' || layer === 'motion') return 'cursor'
+  return priority === 'high' ? 'series' : 'background'
+}
+
+interface WorkerReply { id: number; frame?: ArrayBuffer; error?: string; duration?: number }
 
 export interface MotionField {
   width: number
@@ -128,25 +155,32 @@ export class MrfClient {
   private readonly motions = new LruCache<string, MotionField>(256)
   private readonly motionPromises = new Map<string, Promise<MotionField>>()
   private readonly payloads = new Map<string, PayloadSpan[]>()
-  private readonly pending = new Map<number, { worker: number; resolve: (frame: Uint8Array) => void; reject: (error: Error) => void }>()
+  private readonly pending = new Map<number, { worker: number; job: DecodeJob }>()
+  private readonly queue = new DecodeQueue<DecodeJob>()
+  private readonly interest = new Map<string, FrameInterest>()
   // Eén worker maakte zstd-decode de poort van het koude laden (U1-profiel:
   // alle bytes binnen op 3,3 s, laatste balk pas op 6,7 s).
   private readonly workers: Worker[]
-  private readonly workerLoad: number[]
+  private readonly idleWorkers: number[]
   private requestId = 0
   onFrameDecoded?: (url: string, frameIndex: number, frame: Uint8Array) => void
 
-  constructor(private readonly manifestUrl: URL, private readonly trace?: LoadTrace) {
-    const cores = globalThis.navigator?.hardwareConcurrency ?? 2
-    this.workers = Array.from({ length: Math.max(1, Math.min(4, cores - 1)) }, () => new Worker(new URL('./zstd.worker.ts', import.meta.url), { type: 'module' }))
-    this.workerLoad = this.workers.map(() => 0)
+  constructor(
+    private readonly manifestUrl: URL,
+    private readonly trace?: LoadTrace,
+    workerCount = decodeBudget(browserDeviceHints()).workers,
+  ) {
+    this.workers = Array.from({ length: Math.max(1, workerCount) }, () => new Worker(new URL('./zstd.worker.ts', import.meta.url), { type: 'module' }))
+    this.idleWorkers = this.workers.map((_, index) => index)
     for (const worker of this.workers) {
       worker.onmessage = ({ data }: MessageEvent<WorkerReply>) => {
         const request = this.pending.get(data.id)
         if (!request) return
         this.pending.delete(data.id)
-        this.workerLoad[request.worker]!--
-        if (data.error) request.reject(new Error(data.error)); else request.resolve(new Uint8Array(data.frame!))
+        this.idleWorkers.push(request.worker)
+        if (data.duration !== undefined) recordPerfPhase('frame-decode', data.duration, { codec: 'zstd/mrf', ...request.job.detail })
+        if (data.error) request.job.reject(new Error(data.error)); else request.job.resolve(new Uint8Array(data.frame!))
+        this.dispatch()
       }
     }
   }
@@ -177,20 +211,30 @@ export class MrfClient {
     return (await this.getFrames(chunk, [frameIndex], priority))[0]!
   }
 
+  /**
+   * Met een `signal` vervalt de vraag zodra dat is afgebroken: een frame dat dan nog op een worker
+   * wacht en door niemand anders gevraagd is, wordt niet meer gedecodeerd (`DecodeCancelled`).
+   */
   async getFrames(
     chunk: ManifestChunk,
     frameIndexes: number[],
     priority: FetchPriority = 'high',
     progress?: (frameIndex: number, frame: Uint8Array) => void,
     layer: LoadLayer = 'map',
+    signal?: AbortSignal,
   ): Promise<Uint8Array[]> {
     const url = new URL(chunk.url, this.manifestUrl).href
     const header = await this.getHeader(chunk)
     const uniqueIndexes = [...new Set(frameIndexes)]
     for (const index of uniqueIndexes) if (!header.frames[index]) throw new Error('Frame-index buiten bereik')
+    const lane = decodeLane(layer, priority)
     const missing = uniqueIndexes.filter((index) => {
       const key = frameKey(url, index)
-      return !this.frames.get(key) && !this.framePromises.has(key)
+      if (this.frames.get(key)) return false
+      this.registerInterest(key, signal)
+      if (!this.framePromises.has(key)) return true
+      this.queue.promote(key, lane)
+      return false
     })
 
     if (missing.length >= 2) {
@@ -224,7 +268,7 @@ export class MrfClient {
     await this.payload(url, chunk, 0, end, priority, layer, header.frames.map((_, index) => index)).bytes
   }
 
-  async getMotion(chunk: ManifestChunk, frameIndex: number): Promise<MotionField | undefined> {
+  async getMotion(chunk: ManifestChunk, frameIndex: number, lane: DecodeLane = 'cursor'): Promise<MotionField | undefined> {
     const url = new URL(chunk.url, this.manifestUrl).href
     const header = await this.getHeader(chunk)
     const motion = header.frames[frameIndex]?.motion
@@ -233,6 +277,7 @@ export class MrfClient {
     const cached = this.motions.get(key)
     if (cached) return cached
     let pending = this.motionPromises.get(key)
+    if (pending) this.queue.promote(motionKey(key), lane)
     if (!pending) {
       pending = (async () => {
         const end = motion.offset + motion.len
@@ -240,7 +285,7 @@ export class MrfClient {
         const compressed = payload
           ? await payload.read(motion.offset, end)
           : await fetchRange(url, chunk.header_len + motion.offset, chunk.header_len + end - 1, 'high', this.rangeTrace('motion', [frameIndex]))
-        const vectors = await this.decodeInWorker(compressed, header.motion_grid!.bw * header.motion_grid!.bh * 2)
+        const vectors = await this.decodeInWorker(motionKey(key), lane, compressed, header.motion_grid!.bw * header.motion_grid!.bh * 2, { field: 'motion', layer: 'motion' })
         const field = { width: header.motion_grid!.bw, height: header.motion_grid!.bh, vectors }
         this.motions.set(key, field)
         return field
@@ -261,7 +306,7 @@ export class MrfClient {
       ? await payload.read(frame.offset, frame.offset + frame.len)
       : await fetchRange(url, start, start + frame.len - 1, priority, this.rangeTrace(layer, [frameIndex]))
     this.trace?.frameBytesReady(url, frameIndex)
-    const decoded = await this.decodeInWorker(compressed, header.grid.width * header.grid.height, predSpec(header))
+    const decoded = await this.decodeInWorker(key, decodeLane(layer, priority), compressed, header.grid.width * header.grid.height, { field: chunkField(chunk), layer }, predSpec(header))
     this.trace?.frameDecoded(url, frameIndex)
     this.frames.set(key, decoded)
     this.onFrameDecoded?.(url, frameIndex, decoded)
@@ -292,7 +337,7 @@ export class MrfClient {
       const frame = header.frames[index]!
       const compressed = await payload.read(frame.offset, frame.offset + frame.len)
       this.trace?.frameBytesReady(url, index)
-      const decodedBytes = await this.decodeInWorker(compressed, header.grid.width * header.grid.height, predSpec(header))
+      const decodedBytes = await this.decodeInWorker(frameKey(url, index), decodeLane(layer, priority), compressed, header.grid.width * header.grid.height, { field: chunkField(chunk), layer }, predSpec(header))
       this.trace?.frameDecoded(url, index)
       this.frames.set(frameKey(url, index), decodedBytes)
       this.onFrameDecoded?.(url, index, decodedBytes)
@@ -322,8 +367,28 @@ export class MrfClient {
 
   private trackFramePromise(key: string, promise: Promise<Uint8Array>): void {
     this.framePromises.set(key, promise)
-    const clear = () => { if (this.framePromises.get(key) === promise) this.framePromises.delete(key) }
+    const clear = () => {
+      if (this.framePromises.get(key) !== promise) return
+      this.framePromises.delete(key)
+      this.interest.delete(key)
+    }
     void promise.then(clear, clear)
+  }
+
+  private registerInterest(key: string, signal: AbortSignal | undefined): void {
+    let interest = this.interest.get(key)
+    if (!interest) {
+      interest = { pinned: false, signals: new Set() }
+      this.interest.set(key, interest)
+    }
+    if (signal) interest.signals.add(signal); else interest.pinned = true
+  }
+
+  private stillWanted(key: string): boolean {
+    const interest = this.interest.get(key)
+    if (!interest || interest.pinned) return true
+    for (const signal of interest.signals) if (!signal.aborted) return true
+    return false
   }
 
   prefetch(chunk: ManifestChunk, indexes: number[], priority: FetchPriority = 'low'): void {
@@ -336,20 +401,34 @@ export class MrfClient {
   }
 
   prefetchMotion(chunk: ManifestChunk, indexes: number[]): void {
-    for (const index of indexes) void this.getMotion(chunk, index).catch(() => undefined)
+    for (const index of indexes) void this.getMotion(chunk, index, 'background').catch(() => undefined)
   }
 
-  private decodeInWorker(compressed: Uint8Array, expectedLength: number, pred?: PredFrameSpec): Promise<Uint8Array> {
-    const id = ++this.requestId
+  private decodeInWorker(key: string, lane: DecodeLane, compressed: Uint8Array, expectedLength: number, detail: DecodeDetail, pred?: PredFrameSpec): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
-      const worker = this.workerLoad.indexOf(Math.min(...this.workerLoad))
-      this.workerLoad[worker]!++
-      this.pending.set(id, { worker, resolve, reject })
-      const bytes = compressed.byteOffset === 0 && compressed.byteLength === compressed.buffer.byteLength
-        ? compressed.buffer
-        : compressed.slice().buffer
-      this.workers[worker]!.postMessage({ id, bytes, expectedLength, pred }, [bytes])
+      this.queue.enqueue(key, lane, { key, compressed, expectedLength, detail, pred, resolve, reject })
+      this.dispatch()
     })
+  }
+
+  // Eén decode per worker tegelijk; de rest wacht hier, zodat een cursorframe dat later binnenkomt
+  // nog vóór het vooruitladen kan en een afgebroken vraag de worker nooit bereikt.
+  private dispatch(): void {
+    while (this.idleWorkers.length) {
+      const job = this.queue.take()
+      if (!job) return
+      if (!this.stillWanted(job.key)) {
+        job.reject(new DecodeCancelled())
+        continue
+      }
+      const worker = this.idleWorkers.pop()!
+      const id = ++this.requestId
+      this.pending.set(id, { worker, job })
+      const bytes = job.compressed.byteOffset === 0 && job.compressed.byteLength === job.compressed.buffer.byteLength
+        ? job.compressed.buffer
+        : job.compressed.slice().buffer
+      this.workers[worker]!.postMessage({ id, bytes, expectedLength: job.expectedLength, pred: job.pred }, [bytes])
+    }
   }
 }
 
@@ -361,6 +440,10 @@ interface RangeTrace {
 
 function frameKey(url: string, index: number): string {
   return `${url}#${index}`
+}
+
+function motionKey(frame: string): string {
+  return `motion:${frame}`
 }
 
 async function fetchRange(url: string, start: number, end: number, priority: FetchPriority = 'high', trace?: RangeTrace): Promise<Uint8Array> {

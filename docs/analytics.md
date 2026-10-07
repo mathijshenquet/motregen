@@ -17,9 +17,10 @@ beschrijft wat er precies wordt opgeslagen, hoe lang, en waar het rapport staat.
 
 | veld | waarden | betekenis |
 | --- | --- | --- |
-| `v` | `1` | contractversie; het rapport telt alleen `v: 1` |
+| `v` | `2` | contractversie; het rapport telt alleen `v: 2` |
 | `pinFeel` | `true` of afwezig | modus gevoel vastgezet |
 | `pinWind` | `true` of afwezig | modus wind vastgezet |
+| `pinAir` | `true` of afwezig | modus lucht vastgezet |
 | `hover` | `true` of afwezig | isolijnfocus via hover op de kolom Gevoel |
 | `search` | `true` of afwezig | zoekresultaat gekozen |
 | `geo` | `true` of afwezig | geolocatie gelukt (nooit de plaats) |
@@ -30,6 +31,7 @@ beschrijft wat er precies wordt opgeslagen, hoe lang, en waar het rapport staat.
 | `history` | `true` of afwezig | historie in de tabel geopend |
 | `fresh` | `true` of afwezig | versheidspaneel geopend |
 | `about` | `true` of afwezig | About geopend |
+| `share` | `true` of afwezig | deel-link gedeeld of naar het klembord gekopieerd |
 | `range` | `"3"`, `"8"`, `"24"`, `"all"`, `null` | laatst gekozen bereik; `null` = knop niet gebruikt |
 | `theme` | `"light"`, `"system"`, `"dark"` | thema |
 | `unit` | `"bft"`, `"kn"`, `"kmh"`, `"ms"` | windeenheid (U36; ontbreekt in bakens van vóór 2026-09-25) |
@@ -52,7 +54,7 @@ worden niet gelogd. Alle overige verzoeken, inclusief manifestverzoeken zonder
 Een logregel bevat uitsluitend deze velden:
 
 ```json
-{"level":"info","ts":"2026-09-25T14:28+02:00","logger":"http.log.access.usage","msg":"handled request","uri":"/hit","hit":"{\"v\":1,\"search\":true,\"range\":null,\"theme\":\"dark\",\"unit\":\"bft\",\"coarse\":false,\"width\":\">=960\",\"dur\":\"1-5\"}"}
+{"level":"info","ts":"2026-09-25T14:28+02:00","logger":"http.log.access.usage","msg":"handled request","uri":"/hit","hit":"{\"v\":2,\"search\":true,\"range\":null,\"theme\":\"dark\",\"unit\":\"bft\",\"coarse\":false,\"width\":\">=960\",\"dur\":\"1-5\"}"}
 {"level":"info","ts":"2026-09-25T14:31+02:00","logger":"http.log.access.usage","msg":"handled request","uri":"/data/manifest.json"}
 ```
 
@@ -65,6 +67,10 @@ Het volledige Caddy-`request`-object (met `remote_ip`, `client_ip`, headers,
 evenals status, duur en groottes. De NixOS-test
 (`nix/tests/motregen.nix`) stuurt een baken met een nep-IP en -user-agent en
 controleert dat de regel alleen de velden hierboven bevat.
+
+Ook de algemene Caddy-foutlogger verwijdert het volledige request-object.
+Ook bij afhandelingsfouten mogen geen IP-adres of headers in het systemd-journal
+belanden; de foutoorzaak blijft zichtbaar.
 
 ## Bewaartermijnen en locatie
 
@@ -94,7 +100,7 @@ en bouwt het `stats.html`: een overzicht over de laatste 30 dagen en een tabel
 per dag.
 
 - **sessies** is het aantal manifestverzoeken met `?s=1`;
-- **bakens** is het aantal geldige `v: 1`-bodies; **afgewezen** telt `/hit`-regels
+- **bakens** is het aantal geldige `v: 2`-bodies; **afgewezen** telt `/hit`-regels
   die geen geldige JSON waren of een andere versie hadden;
 - elk percentage is een aandeel van de **bakens**, omdat alleen een baken iets
   over featuregebruik zegt. `sendBeacon` gaat vooral op mobiel niet altijd weg;

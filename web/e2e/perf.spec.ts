@@ -36,8 +36,30 @@ interface JourneyResult {
 }
 
 const sessionByteBudget = 8_000_000
-const passiveChunkByteBudget = 800_000
 const live = process.env.MOTREGEN_PERF_MODE === 'live'
+
+test('?perf opens the compact profiler controls while a plain URL closes stale state', async ({ page }) => {
+  await page.route('**/data/**', (route) => route.abort())
+  await page.goto('/?perf')
+  await expect(page.getByTestId('perf-hud')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Opname 30 s' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Koude start' })).toBeVisible()
+  expect(await page.evaluate(() => localStorage.getItem('motregen-perf'))).toBe('1')
+
+  await page.goto('/')
+  await expect(page.getByTestId('perf-hud')).toBeHidden()
+  expect(await page.evaluate(() => localStorage.getItem('motregen-perf'))).toBeNull()
+
+  await page.goto('/?perf=0')
+  await expect(page.getByTestId('perf-hud')).toBeHidden()
+  expect(await page.evaluate(() => localStorage.getItem('motregen-perf'))).toBeNull()
+
+  await page.goto('/?dev')
+  await page.getByTestId('dev-panel').locator('details.dev-group').filter({ hasText: 'Diagnose' })
+    .evaluate((element: HTMLDetailsElement) => { element.open = true })
+  await expect(page.getByTestId('dev-panel').getByRole('button', { name: 'Opname 30 s' })).toBeVisible()
+  await expect(page.getByTestId('dev-panel').getByRole('button', { name: 'Koude start' })).toBeVisible()
+})
 
 test('user journey measures performance and cache behaviour', async ({ page, context }, testInfo) => {
   const profile = performanceProfile(testInfo.project.name)
@@ -79,7 +101,7 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     await expect(page.getByRole('slider', { name: 'Tijd' })).toHaveAttribute('data-load-stage', 'window', { timeout: live ? 180_000 : 20_000 })
     await page.waitForLoadState('networkidle')
     passive = await perfSnapshot(page)
-    if (!live) expect(passive.network.chunks.bytes).toBeLessThanOrEqual(passiveChunkByteBudget)
+    if (!live) expect(passive.network.chunks.bytes).toBeLessThanOrEqual(profile.passiveChunkByteBudget)
     expect(beaconRequests, 'geen gebruiksbaken tijdens de sessie').toEqual([])
     expect(errors).toEqual([])
     console.log(`${profile.label}: cold TTFR ${cold.ttfrMs} ms; passive chunks ${passive.network.chunks.bytes} B`)

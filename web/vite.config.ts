@@ -4,6 +4,7 @@ import { dirname } from 'node:path'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, type Plugin } from 'vite'
+import { VitePWA } from 'vite-plugin-pwa'
 import solid from 'vite-plugin-solid'
 import { configDefaults } from 'vitest/config'
 
@@ -14,8 +15,10 @@ const allowedHosts = ['ageq-mthq', 'ageq-dev2']
 // MOTREGEN_SYNTH=1 valt terug op de synthetische dataset in public/data
 const dataOrigin = process.env.MOTREGEN_DATA_ORIGIN
 const dataProxy = (target: string) => ({ '/data': { target, changeOrigin: true, rewrite: (path: string) => path.replace(/^\/data/, '') } })
-const proxy = process.env.MOTREGEN_SYNTH ? undefined : dataProxy(dataOrigin ?? 'http://localhost:8080')
-const previewProxy = dataOrigin ? dataProxy(dataOrigin) : undefined
+const profileProxy = { '/prof': { target: process.env.MOTREGEN_PROF_ORIGIN ?? 'http://127.0.0.1:4331', changeOrigin: true } }
+const proxy = { ...process.env.MOTREGEN_SYNTH ? {} : dataProxy(dataOrigin ?? 'http://localhost:8080'), ...profileProxy }
+const previewProxy = { ...dataOrigin ? dataProxy(dataOrigin) : {}, ...profileProxy }
+const profilingHeaders = { 'Document-Policy': 'js-profiling' }
 
 // Het gebruiksbaken (MIP-13) gaat naar /hit; in prod beantwoordt Caddy dat (U32). dev/preview
 // antwoorden net zo met 204, en e2e leest de ontvangen bodies uit MOTREGEN_HIT_LOG.
@@ -42,9 +45,33 @@ function usageBeaconEndpoint(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [solid(), tailwindcss(), usageBeaconEndpoint()],
+  plugins: [solid(), tailwindcss(), usageBeaconEndpoint(), VitePWA({
+    injectRegister: false,
+    registerType: 'prompt',
+    includeAssets: ['droplet.svg'],
+    pwaAssets: { image: 'public/droplet.svg', preset: 'minimal-2023', overrideManifestIcons: true },
+    manifest: {
+      name: 'motregen.nl',
+      short_name: 'motregen.nl',
+      description: 'Regenradar en weersverwachting',
+      lang: 'nl',
+      start_url: '/',
+      scope: '/',
+      display: 'standalone',
+      theme_color: '#eaf1f3',
+      background_color: '#eaf1f3',
+    },
+    workbox: {
+      globIgnores: ['**/data/**'],
+      navigateFallback: '/index.html',
+      runtimeCaching: [
+        { urlPattern: /\/data\/|\/hit(?:\?|$)/, handler: 'NetworkOnly' },
+        { urlPattern: /^https:\/\/[^/]*openfreemap\.org\//, handler: 'NetworkOnly' },
+      ],
+    },
+  })],
   build: { sourcemap: true },
-  server: { allowedHosts, proxy },
-  preview: { allowedHosts, proxy: previewProxy },
+  server: { allowedHosts, proxy, headers: profilingHeaders },
+  preview: { allowedHosts, proxy: previewProxy, headers: profilingHeaders },
   test: { environment: 'node', exclude: [...configDefaults.exclude, 'e2e/**'] },
 })
