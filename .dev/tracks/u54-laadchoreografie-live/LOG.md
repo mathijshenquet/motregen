@@ -128,3 +128,32 @@ schaal 3 = 570 × 690).
 Receipts: `pnpm typecheck` exit 0; `pnpm test` exit 0 (456 tests, vóór de speelregel-tests);
 `pnpm exec vitest run src/core/playback-gate.test.ts` exit 0 (9 tests);
 `pnpm perf:mobile --scenario koud-spelend --repeat 5` exit 0.
+
+## 2026-10-07 21:35 — A: profiel po-android gekalibreerd (op de code van de opname)
+
+Knoppen: 390 × 844, UA Android 10 K, page-CPU 4×, 30 Mbps / 20 ms, synthraster ×3
+(570 × 690, wire 5,5 MB). Vergeleken op main vóór iteratie 1 (fix tijdelijk teruggedraaid in de
+werkboom, daarna hersteld), loadavg 6,0–6,9, `koud-spelend` ×2:
+
+| meetpunt | PO 16:27:59 | rig run 1 (snelle tak) | rig run 2 (trage tak) |
+| --- | ---: | ---: | ---: |
+| eerste regenframe | 1151 ms | 1042 ms (−9 %) | 1801 ms |
+| ttfh | 4026 ms | 4229 ms (+5 %) | niet binnen 30 s |
+| ttfp | 4,0–4,6 s / uploads vanaf 7481 ms | 4003 ms | 7293 ms (−3 % t.o.v. 7481) |
+| LoAF 12 s aantal / totaal | 22 / 4261 ms | 24 / 6249 ms | 28 / 11663 ms |
+| decode p50 | 22 ms | 1,1 ms (−95 %) | 1,2 ms |
+
+De rig reproduceert beide gezichten van de opname op dezelfde code: ttfh ≈ 4 s én de late
+afspeelcadans rond 7,3–7,5 s. Decodetijd is niet te kalibreren:
+- CDP-rem per worker geprobeerd (`Target.sendMessageToTarget` → `Emulation.setCPUThrottlingRate`):
+  Chrome antwoordt "Operation is only supported for pages, not workers". Code weer verwijderd.
+- Browser via `taskset` op 2 / 1 kernen: eerste regenframe 2506 / 7124 ms (telefoon 1151),
+  decode p50 1,2 / 3,6 ms. Remt SwiftShader, niet de decoder. Code weer verwijderd.
+Dus: decodes vóór een mijlpaal tellen als kostenpost (≈ 22 ms workertijd per stuk op de
+telefoon), naast de klok. Volledige tabel en redenering: docs/perf.md §Profiel po-android.
+
+Kanttekening: ×2 per variant en één profielkeuze; CPU 6× niet meer gemeten (host liep weer
+naar loadavg 18). Genoeg voor "zelfde rangorde van kosten", niet voor procenten.
+
+Volgende: main mergen (U58 is binnen), iteratie 1 opnieuw meten op po-android ×3, dan de
+speelregel (cursorframe + volgend frame) als lus-item.

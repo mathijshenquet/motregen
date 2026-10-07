@@ -5,7 +5,6 @@ import { join } from 'node:path'
 import { expect, test, type Page, type Request } from '@playwright/test'
 import { applyEmulation, performanceProfile } from './profiles'
 import { installMobileProbe } from './mobile-probe'
-import { throttleWorkers } from './worker-throttle'
 import { buildChromeTrace, type SelfProfilerTrace } from '../src/core/profile-recorder'
 import { createSourceMapResolver } from '../scripts/prof-source-map'
 import { profileTop } from '../scripts/prof-top'
@@ -21,10 +20,11 @@ interface ScenarioStep {
   mode?: 'Weer' | 'Lucht' | 'Gevoel' | 'Wind'
 }
 interface Scenario { durationMs: number; description: string; steps: ScenarioStep[]; autoplay?: boolean }
-interface RigOptions { profiles: string[]; scenarios: string[]; repeat: number; cpuRate?: number; workerCpuRate?: number }
+interface RigOptions { profiles: string[]; scenarios: string[]; repeat: number; cpuRate?: number }
 const options = JSON.parse(process.env.MOTREGEN_MOBILE_OPTIONS ?? '{"profiles":["mobile-4g"],"scenarios":["koud"],"repeat":1,"cpuRate":4}') as RigOptions
 const scenarios = JSON.parse(readFileSync('perf/scenarios.json', 'utf8')) as Record<string, Scenario>
 const QUIET_HOST_WAIT_MS = 15 * 60_000
+const synthGridScale = Number(process.env.MOTREGEN_SYNTH_GRID_SCALE ?? 1)
 const sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
 
 for (const profileId of options.profiles) {
@@ -47,8 +47,6 @@ for (const profileId of options.profiles) {
         const cdp = await context.newCDPSession(page)
         await applyEmulation(cdp, profile)
         await cdp.send('Network.setCacheDisabled', { cacheDisabled: true })
-        const workerRate = options.workerCpuRate ?? profile.workerCpuThrottleRate
-        const workerThrottle = workerRate ? await throttleWorkers(cdp, workerRate) : null
         if (profile.device) {
           await page.setViewportSize(profile.device.viewport)
           await cdp.send('Emulation.setUserAgentOverride', { userAgent: profile.device.userAgent })
@@ -154,7 +152,7 @@ for (const profileId of options.profiles) {
           selfProfile: self ?? undefined,
           capturedAt,
           origin: baseURL!,
-          platform: `Pixel 5-emulatie, worker-CPU ${workerRate ? `${workerRate}× geremd` : 'ongeremd'}`,
+          platform: 'Pixel 5-emulatie, worker-CPU ongeremd',
           userAgent: await page.evaluate(() => navigator.userAgent),
         })
         const resolveFrame = createSourceMapResolver('dist')
@@ -185,15 +183,11 @@ for (const profileId of options.profiles) {
         }
         if (captured.milestones.blankVisibleMs > 0) findings.push(`blank-visible-ms ${captured.milestones.blankVisibleMs}: na de splash stond er een leeg slot in beeld (doel 0, MIP-19)`)
         if (scenario.autoplay && captured.milestones.ttfpMs === null) findings.push('ttfp niet bereikt: geen frame-wissel tijdens afspelen binnen de meetduur')
-        if (workerThrottle) {
-          if (workerThrottle.errors.length) findings.push(`Worker-rem mislukt: ${[...new Set(workerThrottle.errors)].join('; ')}`)
-          else if (workerThrottle.throttled() === 0) findings.push('Worker-rem gevraagd maar door geen enkele worker bevestigd')
-        }
         if (!self) findings.push(captured.self.error ?? 'Self-Profiling leverde geen samples')
         if (!Object.keys(captured.milestones.windowReadyMs).length) findings.push('U52 window-ready-meetpunten ontbreken op deze main; ttfh komt uit de loadtrace')
         if (scenario.steps.some((step) => step.mode === 'Lucht') && !actions.some((action) => action.detail === 'modus Lucht')) findings.push('Deze main heeft nog geen Lucht-knop: bestaande Weer-wolkenfocus gebruikt en expliciet geregistreerd')
         const report: MobileReport = {
-          meta: { profile: profileId, scenario: scenarioId, sourceSha, capturedAt, cpuThrottleRate: profile.cpuThrottleRate, contractHash, fixtureHash, network: profile.network, hardwareConcurrency: captured.hardwareConcurrency, loadAverage, workerCpuThrottleRate: workerRate ?? 1, throttledWorkers: workerThrottle?.throttled() ?? 0 },
+          meta: { profile: profileId, scenario: scenarioId, sourceSha, capturedAt, cpuThrottleRate: profile.cpuThrottleRate, contractHash, fixtureHash, network: profile.network, hardwareConcurrency: captured.hardwareConcurrency, loadAverage, synthGridScale },
           milestones: captured.milestones,
           decode,
           wire: { ...wire, rangeRequests: requests.filter((request) => request.range !== null).length, beforeTtfrBytes: completedBytesBefore(requests, captured.milestones.ttfrMs), beforeTtfhBytes: completedBytesBefore(requests, captured.milestones.ttfhMs) },

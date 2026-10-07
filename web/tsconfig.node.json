@@ -12,5 +12,5 @@
     "strict": true,
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "playwright.mobile.config.ts", "playwright.reference.config.ts", "e2e/mobile-load.rig.ts", "e2e/mobile-probe.ts", "e2e/worker-throttle.ts", "e2e/profiles.ts", "e2e/reference-buienradar.rig.ts", "e2e/reference-probe.ts", "scripts", "src/types"]
+  "include": ["vite.config.ts", "playwright.mobile.config.ts", "playwright.reference.config.ts", "e2e/mobile-load.rig.ts", "e2e/mobile-probe.ts", "e2e/profiles.ts", "e2e/reference-buienradar.rig.ts", "e2e/reference-probe.ts", "scripts", "src/types"]
 }

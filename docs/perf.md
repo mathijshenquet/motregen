@@ -894,10 +894,40 @@ track-LOG (`.dev/tracks/u54-laadchoreografie-live/LOG.md`).
 `web/perf/po-android-reference.json` is de samenvatting van de koude PO-opname van 16:27:59
 (Android Chrome, UA "Linux; Android 10; K"), gemaakt met `scripts/po-reference.ts summarize`.
 De ruwe opnames blijven lokaal in `~/motregen-profiles`. Het profiel `po-android` in
-`e2e/profiles.ts` is een eerste aanzet (390 px, die UA, CPU 4×, 30 Mbps / 20 ms) en is **nog
-niet gekalibreerd**: de tabel met afwijking per meetpunt volgt zodra er een meting op een
-rustige host is. Bekend gat: een decode kost in de rig 0,3 ms (synthraster 190 × 230, workers
-niet geremd door CDP) tegen 22 ms op de telefoon.
+`e2e/profiles.ts` bootst die telefoon na:
+
+| knop | waarde | waarom |
+| --- | --- | --- |
+| viewport / UA | 390 × 844, "Linux; Android 10; K" | uit de opname |
+| page-CPU (CDP) | 4× | lange frames en ttfh in dezelfde orde als de opname |
+| netwerk | 30 Mbps, 20 ms RTT | de opnames liepen over wifi naar de dev-host; eerste regenframe op ≈ 1,1 s |
+| synthraster | ×3 (570 × 690 cellen, `MOTREGEN_SYNTH_GRID_SCALE`) | in de orde van het KNMI-raster (700 × 765); wire 5,5 MB i.p.v. 1,7 MB |
+| worker-CPU | ongeremd | zie hieronder |
+
+Gekalibreerd op **dezelfde code als de opname** (main vóór U54-iteratie 1), 2026-10-07,
+loadavg 6,0–6,9, `koud-spelend`. Die code is bimodaal; de opname van 16:27:59 past bij beide
+takken, afhankelijk van welk meetpunt je neemt:
+
+| meetpunt | PO-opname | rig snelle tak | afwijking | rig trage tak | afwijking |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| eerste regenframe | 1151 ms | 1042 ms | −9 % | 1801 ms | +56 % |
+| ttfh (regen nu ± 1 u) | 4026 ms | 4229 ms | +5 % | niet binnen 30 s | — |
+| ttfp | 4,0–4,6 s (orkestrator) / uploads op afspeelcadans vanaf 7481 ms | 4003 ms | binnen de band | 7293 ms | −3 % t.o.v. 7481 |
+| lange frames eerste 12 s, aantal | 22 | 24 | +9 % | 28 | +27 % |
+| lange frames eerste 12 s, totaal | 4261 ms | 6249 ms | +47 % | 11663 ms | +174 % |
+| texture-upload p50 | 5,8 ms | 3,5 ms | −40 % | 5,2 ms | −10 % |
+| frame-decode p50 | 22 ms | 1,1 ms | −95 % | 1,2 ms | −95 % |
+
+Wat klopt: de volgorde en grootte van de mijlpalen (eerste regen, ttfh, ttfp) en het aantal
+lange frames. Wat niet klopt en niet te kalibreren is: **decodetijd**. CDP weigert de CPU-rem
+voor workers (`Emulation.setCPUThrottlingRate` op een workerdoel: "Operation is only supported
+for pages, not workers"). De hele browser via `taskset` op 1–2 kernen zetten remt vooral
+SwiftShader (eerste regenframe 2,5–7,1 s tegen 1,15 s) en laat een decode op 1–4 ms; dat is
+dus ook geen model van de telefoon. Een kunstmatige decodepauze zou faken zijn. Gevolg voor
+uitspraken: de rig onderschat alles wat op de telefoon achter de decodewachtrij wacht. Reken
+een decode vóór een mijlpaal als ≈ 22 ms workertijd op de telefoon (opname: 75 decodes vóór het
+regenvenster ≈ 1,7 s workertijd) en lees `decodes vóór ttfp` in het rapport als kostenpost,
+niet alleen de klok.
 
 ## Live-smoke
 

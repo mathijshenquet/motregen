@@ -19,8 +19,6 @@ export interface PerformanceProfile {
   sessionByteBudget: number
   /** Wijkt het toestel af van de Pixel 5 van het Playwright-project, dan zet de rig dit per run. */
   device?: { viewport: { width: number; height: number }; userAgent: string }
-  /** CPU-rem per worker (decodes); zonder dit veld draaien workers op hostsnelheid. */
-  workerCpuThrottleRate?: number
   /** Schaal van het synthraster in de laadrig; 3 geeft 570 × 690 cellen, in de orde van het KNMI-raster. */
   synthGridScale?: number
 }
@@ -83,6 +81,7 @@ export const performanceProfiles: readonly PerformanceProfile[] = [
     id: 'po-android',
     label: 'PO-telefoon (Android Chrome)',
     cpuThrottleRate: 4,
+    synthGridScale: 3,
     network: {
       label: 'wifi via dev-host (30 Mbps, 20 ms RTT)',
       downloadThroughput: 30 * megabit,
@@ -98,7 +97,7 @@ export const performanceProfiles: readonly PerformanceProfile[] = [
     sessionByteBudget: 1_345_000,
     device: {
       viewport: { width: 390, height: 844 },
-      userAgent: 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36',
+      userAgent: 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Mobile Safari/537.36',
     },
   },
 ]

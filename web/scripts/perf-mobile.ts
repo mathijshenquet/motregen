@@ -10,13 +10,13 @@ const REFERENCE_SCENARIO = 'referentie-buienradar'
 
 const args = process.argv.slice(2)
 // Zonder --cpu-rate geldt de page-throttle van het profiel zelf.
-const options: { profiles: string[]; scenarios: string[]; repeat: number; baseline: boolean; compare: boolean; cpuRate?: number; workerCpuRate?: number; gridScale?: number; loadWaitMinutes: number } = { profiles: ['mobile-4g'], scenarios: ['koud'], repeat: 1, baseline: false, compare: false, loadWaitMinutes: 20 }
+const options: { profiles: string[]; scenarios: string[]; repeat: number; baseline: boolean; compare: boolean; cpuRate?: number; gridScale?: number; loadWaitMinutes: number } = { profiles: ['mobile-4g'], scenarios: ['koud'], repeat: 1, baseline: false, compare: false, loadWaitMinutes: 20 }
 for (let index = 0; index < args.length; index++) {
   const argument = args[index]!
   const [flag, inline] = argument.split('=')
   if (flag === '--baseline') options.baseline = true
   else if (flag === '--compare') options.compare = true
-  else if (['--profile', '--scenario', '--repeat', '--cpu-rate', '--worker-cpu-rate', '--grid-scale', '--load-wait'].includes(flag!)) {
+  else if (['--profile', '--scenario', '--repeat', '--cpu-rate', '--grid-scale', '--load-wait'].includes(flag!)) {
     const value = inline ?? args[++index]
     if (!value || value.startsWith('--')) throw new Error(`${flag} vereist een waarde`)
     if (flag === '--profile') options.profiles = value === 'all' ? ['mobile-4g', 'mobile-fast-3g'] : [value]
@@ -24,7 +24,6 @@ for (let index = 0; index < args.length; index++) {
     if (flag === '--repeat') options.repeat = Number(value)
     if (flag === '--cpu-rate') options.cpuRate = Number(value)
     if (flag === '--load-wait') options.loadWaitMinutes = Number(value)
-    if (flag === '--worker-cpu-rate') options.workerCpuRate = Number(value)
     if (flag === '--grid-scale') options.gridScale = Number(value)
   } else throw new Error(`Onbekende optie: ${argument}`)
 }
