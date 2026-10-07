@@ -496,6 +496,19 @@
   door naar de bovenkant van 19:00, waarna de warme gloed binnen die rij opbouwt naar de zonregel;
   de losse daguren tonen subtiele gradients in plaats van effen banden en de nacht blijft rustig.
 
+## 2026-10-07 13:49 UTC
+
+- Op PO-steer is de tabeldag losgetrokken van U47's vrij sobere volle-hemelkleuren: de meetlogica en
+  tijdsinterpolatie blijven gelijk, maar de tabel gebruikt nu een eigen zonniger cyaanblauw palet.
+  Middelmatige bewolking weegt minder snel loodgrijs; alleen echt dichte lucht blijft duidelijk
+  gedempt. Een heel lichte warme gloed voorkomt dat helder weer klinisch blauw wordt.
+- Synchrone receipts: `git diff --check` en `pnpm build` exit 0; de build omvatte ook `tsc -b` en
+  leverde 113 modules, `index-CCwk2N3g.js`, `index-BABwamOn.css`, PWA + workers. De voorafgaande
+  codeversie had 67 bestanden/437 tests groen; deze wijziging raakt alleen CSS.
+- Eigen visuele controle op desktop 1280×900 en mobiel 390×844: de dagsectie leest nu helder
+  cyaanblauw en levendig in plaats van blauwgrijs, met nog steeds zichtbare verschillen per uur;
+  de warme zonsondergang en donkere nacht houden hun contrast.
+
 ## 2026-10-07 13:26 UTC
 
 - De tabelcyclus is nu een gebruikersoptie “Dag en nacht in tabel” onder Weergave, standaard aan en

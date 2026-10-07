@@ -33,6 +33,8 @@
   --cloud-low: #5d717a;
   --sky-bright: #8cc8f4;
   --sky-dull: #68767e;
+  --table-day-bright: #64c6f2;
+  --table-day-dull: #8ba4a8;
 }
 
 :root[data-theme="dark"] {
@@ -668,10 +670,10 @@ button.column-mode { width: 100%; cursor: pointer; }
 .forecast-table.day-night-table tr.night-hour .moon-earthshine { opacity: .25; }
 :root[data-theme="dark"] .forecast-table.day-night-table tr.day-hour { --surface: #fff; --surface-soft: #f2f7f8; --text: #102630; --muted: #637b85; --line: #d5e1e5; --line-strong: #b7cbd2; --accent: #1688ad; --accent-soft: #d9f1f8; color: var(--text); }
 .forecast-table.day-night-table tr.day-hour {
-  --day-sky-start: color-mix(in oklab, color-mix(in oklab, var(--sky-dull) calc(var(--day-overcast) * 100%), var(--sky-bright)) 28%, var(--surface));
-  --day-sky-end: color-mix(in oklab, color-mix(in oklab, var(--sky-dull) calc(var(--day-overcast-next) * 100%), var(--sky-bright)) 28%, var(--surface));
+  --day-sky-start: color-mix(in oklab, color-mix(in oklab, var(--table-day-dull) calc(var(--day-overcast) * 74%), var(--table-day-bright)) 44%, var(--surface));
+  --day-sky-end: color-mix(in oklab, color-mix(in oklab, var(--table-day-dull) calc(var(--day-overcast-next) * 74%), var(--table-day-bright)) 44%, var(--surface));
   background:
-    radial-gradient(ellipse 82% 95% at 76% 115%, color-mix(in srgb, #fff 8%, transparent), transparent 72%),
+    radial-gradient(ellipse 82% 95% at 76% 115%, color-mix(in srgb, #fff8df 12%, transparent), transparent 72%),
     linear-gradient(180deg, var(--day-sky-start), var(--day-sky-end));
 }
 .forecast-table.day-night-table tr.day-hour td { background: transparent; }
