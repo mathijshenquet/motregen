@@ -14,6 +14,12 @@ export const MAX_LOAD_AVERAGE = 8
  */
 export const RIG_DIST = 'tmp/rig-dist'
 
+// De poorten komen uit de omgeving (MOTREGEN_E2E_PORT / MOTREGEN_E2E_DATA_PORT). De stijl-URL
+// hoort bij `vite build` zelf: als prefix van een eerdere stap in de keten bereikt hij Vite niet
+// en bouwt de rig met de echte basemap, die hij daarna als extern verkeer blokkeert.
+export const RIG_FIXTURE_COMMAND = 'MOTREGEN_SYNTH_DIR=public/perf-mobile pnpm synthgen && pnpm exec tsx scripts/mobile-fixture.ts'
+export const RIG_BUILD_COMMAND = `pnpm exec tsc -b && VITE_BASEMAP_STYLE_URL=http://127.0.0.1:$MOTREGEN_E2E_DATA_PORT/style.json pnpm exec vite build --outDir ${RIG_DIST} --emptyOutDir && pnpm exec tsx scripts/mobile-assets.ts`
+
 export function hostLoadAverage(): number {
   return Math.round(loadavg()[0]! * 100) / 100
 }

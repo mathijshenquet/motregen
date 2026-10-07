@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { compactBaseline, compareBaseline, repetitionSpread, type MobileReport, type MobileBaseline } from './mobile-report'
 import { median, type ReferenceReport } from './reference-report'
 import { performanceProfile } from '../e2e/profiles'
-import { MAX_LOAD_AVERAGE, hostLoadAverage, rigPorts, waitForQuietHost } from './rig-host'
+import { MAX_LOAD_AVERAGE, RIG_BUILD_COMMAND, RIG_FIXTURE_COMMAND, hostLoadAverage, rigPorts, waitForQuietHost } from './rig-host'
 
 // Geen scenario op onze fixture maar dezelfde meting op de site van de concurrent, over het echte netwerk.
 const REFERENCE_SCENARIO = 'referentie-buienradar'
@@ -36,10 +36,6 @@ const scenarios = JSON.parse(readFileSync('perf/scenarios.json', 'utf8')) as Rec
 if (options.profiles.some((profile) => !['mobile-4g', 'mobile-fast-3g', 'po-android'].includes(profile))) throw new Error('Onbekend mobiel profiel')
 if (options.scenarios.some((scenario) => scenario !== REFERENCE_SCENARIO && !(scenario in scenarios))) throw new Error('Onbekend scenario')
 
-if (!await waitForQuietHost(options.loadWaitMinutes * 60_000, (message) => console.log(message))) {
-  console.error(`Host blijft te druk (loadavg ${hostLoadAverage()} > ${MAX_LOAD_AVERAGE}); geen meting`)
-  process.exit(1)
-}
 const ports = process.env.MOTREGEN_E2E_PORT && process.env.MOTREGEN_E2E_DATA_PORT
   ? { port: Number(process.env.MOTREGEN_E2E_PORT), dataPort: Number(process.env.MOTREGEN_E2E_DATA_PORT) }
   : await rigPorts(process.cwd())
@@ -48,7 +44,18 @@ const gridScales = new Set(options.profiles.map((profile) => options.gridScale ?
 if (gridScales.size > 1) throw new Error('Profielen met een verschillende rasterschaal kunnen niet in één aanroep')
 const rendererQuotas = new Set(options.profiles.map((profile) => options.rendererQuota ?? performanceProfile(profile).rendererCpuQuotaPercent ?? 0))
 if (rendererQuotas.size > 1) throw new Error('Profielen met een verschillende renderer-quota kunnen niet in één aanroep')
-const rigEnvironment = { ...process.env, MOTREGEN_RIG_RENDERER_QUOTA: String([...rendererQuotas][0]), MOTREGEN_SYNTH_GRID_SCALE: String([...gridScales][0]), MOTREGEN_E2E_PORT: String(ports.port), MOTREGEN_E2E_DATA_PORT: String(ports.dataPort), MOTREGEN_MOBILE_OPTIONS: JSON.stringify(options) }
+const rigEnvironment: NodeJS.ProcessEnv = { ...process.env, MOTREGEN_RIG_RENDERER_QUOTA: String([...rendererQuotas][0]), MOTREGEN_SYNTH_GRID_SCALE: String([...gridScales][0]), MOTREGEN_E2E_PORT: String(ports.port), MOTREGEN_E2E_DATA_PORT: String(ports.dataPort), MOTREGEN_MOBILE_OPTIONS: JSON.stringify(options) }
+// Eerst bouwen, dan pas wachten op een rustige host: zo meet de run de werkboom van het moment
+// van de aanroep, ook als er tijdens het wachten verder wordt gewerkt.
+if (!options.scenarios.includes(REFERENCE_SCENARIO)) {
+  const build = spawnSync('bash', ['-c', `${RIG_FIXTURE_COMMAND} && ${RIG_BUILD_COMMAND}`], { stdio: 'inherit', env: rigEnvironment })
+  if (build.status !== 0) throw new Error('Rig-build mislukt')
+  rigEnvironment.MOTREGEN_RIG_PREBUILT = '1'
+}
+if (!await waitForQuietHost(options.loadWaitMinutes * 60_000, (message) => console.log(message))) {
+  console.error(`Host blijft te druk (loadavg ${hostLoadAverage()} > ${MAX_LOAD_AVERAGE}); geen meting`)
+  process.exit(1)
+}
 console.log(`Rig: loadavg ${hostLoadAverage()}, poorten ${ports.port}/${ports.dataPort}`)
 
 if (options.scenarios.includes(REFERENCE_SCENARIO)) {
