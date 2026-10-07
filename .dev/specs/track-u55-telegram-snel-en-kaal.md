@@ -37,3 +37,23 @@ de still uit cache komt; herhaald tikken geeft `update-failed 400` ("message is 
 
 Geen video (U54 later), geen nieuwe modi. Leesbaarheidsbar: geen één-letternamen, geen slimme
 one-liners, commentaar alleen voor een niet-triviaal waarom.
+
+## Aanvulling PO 2026-10-07 (was U54): video-loop, stills uit de framereeks
+
+6. **Eén render-pass per modus = framereeks.** De renderer maakt per verversing per modus een
+   reeks frames (Playwright, still-modus met tijdpreset; Regen: afgelopen 2 u radar + 2 u
+   nowcast op 5 min ≈ 48 frames; Lucht/Gevoel: uurframes nu…+12 u; Wind komt hier terug als
+   loop, want in video bewegen de particles — render de windlaag met een vaste simulatieklok
+   per frame zodat de loop vloeiend is). Stills voor de knoppen (nu, +3u, +6u, +12u) zijn
+   frames uit die reeks (JPEG uit het PNG-frame); geen aparte still-renders meer.
+7. **mp4 via ffmpeg** (nixpkgs; in de Nix-service meenemen): H.264 geluidloos, lange zijde
+   ≤ 1280, ~10 fps voor radar, ~4 fps voor uurreeksen, laatste frame 1 s vasthouden, doel
+   ≤ 3 MB. Versturen met `sendAnimation` (autoplay + lus); `file_id` cachen zoals bij de
+   stills; inline via `InlineQueryResultCachedMpeg4Gif`. Knop "Loop" naast de tijden, en
+   `/loop` (+ modus-argument).
+8. Overlay in de video: alleen de lopende tijd bovenaan (per frame), bronnen klein
+   linksonder; de "nu"-grens als dun verticaal streepje in het tijdlabel of een kleur-
+   omslag van het label (radar vs nowcast) — kies wat leesbaar blijft op een telefoon.
+9. Meet en log per modus: frames, rendertijd, encodetijd, mp4-bytes, upload-tijd eerste
+   verzending, edit-latency met file_id. Matrix per verversing wordt: 4 modi × (video +
+   4 stills uit dezelfde frames).
