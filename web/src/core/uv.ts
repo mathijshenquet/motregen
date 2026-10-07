@@ -72,7 +72,11 @@ export function clearSkyRadiation(mu: number): number {
   return mu > 0.01 ? 1_098 * mu * Math.exp(-0.057 / mu) : 0
 }
 
-/** Bewolkingsfactor G/G_c uit de HARMONIE-uurgemiddelden; null 's nachts of zonder straling. */
+/**
+ * Cloud modification factor G/G_c at `epoch`: the share of the clear-sky irradiance that reaches the
+ * ground, from the HARMONIE hour means that end at `epoch` and one hour later. Null at night and
+ * without radiation data.
+ */
 export function cloudModification(
   epoch: number,
   radiationBefore: number | null | undefined,

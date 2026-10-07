@@ -62,13 +62,11 @@ export default function SkywatchRender() {
       <text x="16" y="25" font-size="14" font-weight="700" fill="var(--ink)">De Bilt · wolkendoorsnede</text>
       <text x={WIDTH - 16} y="25" text-anchor="end" font-size="11" fill="var(--muted)">{input.sampleId}</text>
       <For each={bands}>{(band) => <>
-        <defs><linearGradient id={`skywatch-${band.layer}`} class={`cloud-${band.layer}`} gradientUnits="userSpaceOnUse" x1={LABEL_WIDTH} x2={LABEL_WIDTH + plotWidth} y1="0" y2="0">
-          <For each={band.stops}>{(stop) => <stop offset={stop.offset} stop-opacity={stop.opacity} />}</For>
-        </linearGradient></defs>
         <rect x={LABEL_WIDTH} y={band.top} width={plotWidth} height={bandHeight} fill={band.layer === 'high' ? '#dbe8ed' : band.layer === 'mid' ? '#d2dfe4' : '#c7d9e0'} opacity="0.22" />
         <text x={LABEL_WIDTH - 10} y={band.top + bandHeight / 2 + 4} text-anchor="end" font-size="12" fill="var(--muted)">{LABELS[band.layer]}</text>
-        <g class={`cloud-${band.layer}`} transform={`translate(${LABEL_WIDTH} 0)`}>
-          <For each={band.paths}>{(path) => <path d={path} fill={`url(#skywatch-${band.layer})`} />}</For>
+        <g transform={`translate(${LABEL_WIDTH} 0)`}>
+          {/* Sinds U47 zit de bedekking in de gaten; de vulling is één vaste laagkleur. */}
+          <For each={band.paths}>{(path) => <path d={path} fill={`var(--cloud-${band.layer})`} />}</For>
         </g>
         <line x1={LABEL_WIDTH} x2={LABEL_WIDTH + plotWidth} y1={band.top + bandHeight} y2={band.top + bandHeight} stroke="var(--line)" />
       </>}</For>
