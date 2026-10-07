@@ -252,3 +252,19 @@
 - Synchrone receipts: `pnpm typecheck` exit 0; volledige `pnpm test` 59 bestanden / 384 tests groen;
   `pnpm build` exit 0 (107 modules, `index-BBrCYjy9.js`, `index-BQt5enWL.css`, PWA + workers).
   Preview `http://ageq-dev2:4320/` antwoordt HTTP 200. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+
+## 2026-10-07 10:50 UTC
+
+- Gekozen mobiele view en werkelijke kaartpauze zijn gescheiden: tik op Tabel zet de modusknop nu
+  direct actief; tik op Weer/Lucht/Gevoel/Wind zet hem direct uit. De bestaande paneelpositie en
+  hysterese blijven exclusief de dure kaartlussen pauzeren/hervatten. Een tijdelijke view-target
+  overbrugt de native smooth scroll zonder dat de knop aan het eind nog terugflitst.
+- Portrait Tabel vraagt bij de tik de zes historische uren direct aan, toont geen awkward
+  `Afgelopen … uur`-rij meer en scrolt na DOM-invoeging naar de op zijn plek verankerde Nu-rij.
+  De historie ligt erboven, zodat handmatig omhoogscrollen er eerst doorheen gaat vóór de
+  kaartgrens. Liggend touch behoudt de bestaande expliciete history-toggle.
+- In de UV-balk is het verschil tussen heldere-hemel-UV en actuele UV nu gedempt grijs; de actuele
+  waarde houdt zijn WHO-kleur. Synchrone receipts: `pnpm typecheck` exit 0; gerichte tests 28/28;
+  volledige `pnpm test` 59 bestanden / 384 tests groen; `pnpm build` exit 0 (107 modules,
+  `index-BCR8RPbI.js`, `index-DI_Qw9gi.css`, PWA + workers). Preview
+  `http://ageq-dev2:4320/` antwoordt HTTP 200. Geen e2e uitgevoerd vóór PO-signaal “klaar”.

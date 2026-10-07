@@ -33,8 +33,8 @@ interface Props {
   windUnit: WindUnit
   // Rows after this epoch have not been fetched yet; scrolling near them asks for them.
   loadedUntil: number
-  // Touch: history rows stay folded (and unfetched) until the toggle row is tapped. Desktop (inline):
-  // they sit above the now-row, the table opens scrolled to now and fetches them once one scrolls into view.
+  // Desktop (inline) keeps history above now; portrait mobile reveals it when table mode opens.
+  // Other touch layouts keep the explicit foldout.
   historyInline: boolean
   historyOpen: boolean
   historyLoaded: boolean
@@ -130,7 +130,7 @@ export default function ForecastTable(props: Props) {
     for (const [epoch, element] of rowElements) if (epoch > until) observer?.observe(element)
   })
   const pastCount = () => props.rows.filter((row) => row.kind === 'past').length
-  const visibleRows = tableMemo('zichtbare-rijen', () => props.historyInline || props.historyOpen ? props.rows : props.rows.filter((row) => row.kind !== 'past'))
+  const visibleRows = tableMemo('zichtbare-rijen', () => props.historyInline || props.historyOpen || props.mobileTableOpen ? props.rows : props.rows.filter((row) => row.kind !== 'past'))
   const historyObserver = typeof IntersectionObserver === 'undefined' ? undefined : new IntersectionObserver((entries) => {
     if (!entries.some((entry) => entry.isIntersecting)) return
     historyObserver?.disconnect()
@@ -272,7 +272,7 @@ export default function ForecastTable(props: Props) {
             <WindReading summary={summary()} />
           }</Show></td></Show>
         </tr>
-        <Show when={!props.historyInline && row.kind === 'now' && pastCount() > 0}>
+        <Show when={!props.historyInline && !props.onOpenMobileTable && row.kind === 'now' && pastCount() > 0}>
           <tr class="history-toggle-row">
             <td colSpan={columnCount()}>
               <button type="button" class="history-toggle" aria-expanded={props.historyOpen} onClick={() => props.onOpenHistory()}>

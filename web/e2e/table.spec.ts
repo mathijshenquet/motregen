@@ -26,17 +26,13 @@ test('desktop opens the table on the now-row and fetches history only when scrol
   expect(history.length).toBeGreaterThan(passive)
 })
 
-test('touch keeps the history behind a small toggle', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'mobile-4g', 'touchroute op het mobiele profiel')
+test('portrait mobile loads the short history on entering the table without a toggle', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-4g', 'portrait-scrollroute op het mobiele profiel')
   await page.goto('/')
   await page.getByRole('button', { name: 'Tabel' }).tap()
   await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
   await expect(page.locator('.map-shell')).toHaveAttribute('data-rendering', 'false')
-  const toggle = page.locator('.history-toggle')
-  await expect(toggle).toHaveText(/^Afgelopen \d+ uur tonen$/)
-  await expect(page.locator('tr.past-hour')).toHaveCount(0)
-  await toggle.tap()
-  await expect(toggle).toHaveText('Afgelopen uren verbergen')
+  await expect(page.locator('.history-toggle')).toHaveCount(0)
   await expect(page.locator('tr.past-hour').first()).toBeVisible()
 })
 

@@ -347,18 +347,23 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const tableViewMedia = matchMedia('(max-width: 959px) and (orientation: portrait)')
   const [tableViewAvailable, setTableViewAvailable] = createSignal(tableViewMedia.matches)
   const [tableOpen, setTableOpen] = createSignal(false)
+  const [tableViewTarget, setTableViewTarget] = createSignal<'map' | 'table'>()
   const tableViewOpen = createMemo(() => tableViewAvailable() && tableOpen())
+  const tableModeSelected = createMemo(() => tableViewAvailable() && (tableViewTarget() === 'table' || (tableViewTarget() === undefined && tableOpen())))
   let tableViewFrame: number | undefined
   let tableViewResizeTimer: number | undefined
   function syncTableViewPosition(): void {
     tableViewFrame = undefined
     if (!tableViewAvailable() || !forecastPanelElement) {
       setTableOpen(false)
+      setTableViewTarget(undefined)
       return
     }
     const panelTop = forecastPanelElement.getBoundingClientRect().top
     if (!tableOpen() && panelTop <= 0) setTableOpen(true)
     else if (tableOpen() && panelTop > 24) setTableOpen(false)
+    const target = tableViewTarget()
+    if ((target === 'table' && panelTop <= 0) || (target === 'map' && panelTop > 24)) setTableViewTarget(undefined)
   }
   function queueTableViewSync(): void {
     if (tableViewFrame === undefined) tableViewFrame = requestAnimationFrame(syncTableViewPosition)
@@ -572,7 +577,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     onCleanup(() => inlineHistoryMedia.removeEventListener('change', inlineHistoryChanged))
     const tableViewChanged = (event: MediaQueryListEvent) => {
       setTableViewAvailable(event.matches)
-      if (!event.matches) setTableOpen(false)
+      if (!event.matches) {
+        setTableOpen(false)
+        setTableViewTarget(undefined)
+      }
       else queueTableViewSync()
     }
     tableViewMedia.addEventListener('change', tableViewChanged)
@@ -2357,10 +2365,24 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const hasWeatherIcons = createMemo(() => cloudTimeline().length > 0)
   const hasWind = createMemo(() => windUFrames().length > 0 && windVFrames().length > 0)
   function scrollToTable(): void {
-    forecastPanelElement.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' })
+    setTableViewTarget('table')
+    if (!historyRowsWanted()) usage.mark('history')
+    void loadHistoryRows()
+    requestAnimationFrame(() => {
+      const current = forecastPanelElement.querySelector<HTMLElement>('tr.current-hour')
+      if (!current) {
+        forecastPanelElement.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' })
+        return
+      }
+      const handle = forecastPanelElement.querySelector<HTMLElement>('.table-view-handle')?.getBoundingClientRect().height ?? 0
+      const heading = forecastPanelElement.querySelector<HTMLElement>('thead')?.getBoundingClientRect().height ?? 0
+      const top = window.scrollY + current.getBoundingClientRect().top - handle - heading
+      window.scrollTo({ top: Math.max(0, top), behavior: reducedMotion.matches ? 'auto' : 'smooth' })
+    })
   }
 
   function scrollToMap(): void {
+    setTableViewTarget('map')
     window.scrollTo({ top: 0, behavior: reducedMotion.matches ? 'auto' : 'smooth' })
   }
 
@@ -2458,10 +2480,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           <button
             type="button"
             class="table-view-handle"
-            aria-expanded={tableViewOpen()}
+            aria-expanded={tableModeSelected()}
             aria-controls="forecast-table-view"
-            aria-label={tableViewOpen() ? 'Tabel sluiten en kaart tonen' : 'Tabel openen'}
-            onClick={(event) => { event.stopPropagation(); tableViewOpen() ? scrollToMap() : scrollToTable() }}
+            aria-label={tableModeSelected() ? 'Tabel sluiten en kaart tonen' : 'Tabel openen'}
+            onClick={(event) => { event.stopPropagation(); tableModeSelected() ? scrollToMap() : scrollToTable() }}
           ><span aria-hidden="true" /></button>
           <div class="table-scroll">
             <ForecastTable
@@ -2477,7 +2499,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
               historyInline={historyInline()}
               historyOpen={historyOpen()}
               historyLoaded={historyRowsWanted() || pointLoadStage() === 'complete'}
-              mobileTableOpen={tableViewOpen()}
+              mobileTableOpen={tableModeSelected()}
               onOpenMobileTable={tableViewAvailable() ? scrollToTable : undefined}
               onSelectMobileMode={tableViewAvailable() ? scrollToMap : undefined}
               onNeedRows={() => { void completePointSeries(pointLoad, 'high') }}
