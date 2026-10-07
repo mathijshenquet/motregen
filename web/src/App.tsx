@@ -6,6 +6,8 @@ import HistogramScrubber from './components/HistogramScrubber'
 import { INLINE_ICON, Star, Sun } from './components/icons'
 import LocationSearch from './components/LocationSearch'
 import Freshness from './components/Freshness'
+import ClockFace from './components/ClockFace'
+import { formatTime, formatWeekdayShort } from './core/locale'
 import { CLOCK_JOG_STORAGE_KEY, parseClockJogScale, type ClockJogScale } from './core/clock-timeline'
 import PerfHud from './components/PerfHud'
 import type { IsolineCounters } from './core/perf'
@@ -223,8 +225,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     ...map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch(), location: location(),
   }
   if (stillMode) {
-    const stillWindow = window as unknown as { __motregenStillMapLoaded: () => boolean }
+    const stillWindow = window as unknown as {
+      __motregenStillMapLoaded: () => boolean
+      __motregenRenderFrame: (epoch: number, simulationMs?: number) => Promise<void>
+    }
     stillWindow.__motregenStillMapLoaded = () => Boolean(map?.loaded())
+    stillWindow.__motregenRenderFrame = renderStillFrame
   }
   // Meetpunt voor de kostenmeting (track-LOGs U8b/U8c): repaints, contour-passes, blits, label-rondes.
   ;(window as unknown as { __motregenIsolines: () => object }).__motregenIsolines = () => ({
@@ -1080,7 +1086,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
   async function prepareStill(): Promise<void> {
     try {
-      await attachWindLayer()
+      if (initialPresets.mode === 'wind') await attachWindLayer()
       await showTemperature()
       await updateTemperatureRange()
       for (const set of isolineSets) {
@@ -1094,7 +1100,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       }
       if (windFocus() > 0 && !windLayer) throw new Error('Wind is niet geladen')
       if (hasTemperature() && !temperatureInput) throw new Error('Temperatuurlabels zijn niet geladen')
-      const overlays = [rainOverlay, windOverlay, ...isolineSets.map((set) => set.overlay)]
+      const overlays = [rainOverlay, ...isolineSets.map((set) => set.overlay)]
       await Promise.all(overlays.map((overlay) => {
         if (!overlay) return Promise.resolve()
         return new Promise<void>((resolve) => overlay.once(resolve))
@@ -1103,6 +1109,26 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     } catch (error) {
       mapElement.dataset.stillError = error instanceof Error ? error.message : 'Still laden mislukt'
     }
+  }
+
+  let stillSimulationMs = 0
+  async function renderStillFrame(epoch: number, simulationMs = 0): Promise<void> {
+    mapElement.dataset.stillReady = 'false'
+    delete mapElement.dataset.stillError
+    const nextCursor = cursorForPresetEpoch(timeline(), epoch)
+    if (nextCursor === undefined) throw new Error('Frame valt buiten de beschikbare tijdlijn')
+    setCursor(nextCursor)
+    await showFrame()
+    await prepareStill()
+    if (mapElement.dataset.stillError) throw new Error(mapElement.dataset.stillError)
+    if (windLayer && windOverlay) {
+      while (stillSimulationMs < simulationMs) {
+        stillSimulationMs = Math.min(simulationMs, stillSimulationMs + 1_000 / 30)
+        windLayer.setSimulationTime(stillSimulationMs)
+        windOverlay.drawNow()
+      }
+    }
+    await document.fonts.ready
   }
 
   function mountRain(grid: Grid): void {
@@ -1123,6 +1149,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     try {
       // Boven kaart en isolijnen, onder de regen, zoals vroeger in de lagenstapel.
       windOverlay = new LayerOverlay(map, wind, topIsolineCanvas() ?? map.getCanvas(), () => wind.maxFps)
+      if (stillMode) {
+        wind.setSimulationTime(0)
+        windOverlay.pause()
+      }
     } catch {
       windOverlay = undefined
       map.addLayer(wind, map.getLayer('motregen-rain') ? 'motregen-rain' : undefined)
@@ -2417,6 +2447,15 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           <strong>motregen.nl</strong>
         </div>
       </div>
+      <Show when={stillMode}>
+        <div class="map-clock still-clock">
+          <div class="freshness-trigger">
+            <ClockFace time={formatTime(cursorMinute())} day={formatWeekdayShort(cursorMinute())} />
+            <small class="clock-day">{{ weather: 'Regen', air: 'Lucht', feels: 'Gevoelstemperatuur', wind: 'Wind' }[initialPresets.mode ?? 'weather']}</small>
+          </div>
+        </div>
+        <footer class="still-attribution">KNMI · OpenFreeMap · © OpenStreetMap</footer>
+      </Show>
       <Show when={!stillMode}>
         <About theme={theme()} onTheme={(choice) => { usage.setTheme(choice); setTheme(choice) }}
           windUnit={windUnit()} onWindUnit={(unit) => { usage.setUnit(unit); setWindUnit(unit); localStorage.setItem('motregen-wind-unit', unit) }} onOpen={() => usage.mark('about')} onShare={shareCurrentState} shareNotice={shareNotice()} onTripleTap={() => setPerfVisible((visible) => !visible)} />

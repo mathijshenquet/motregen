@@ -1,23 +1,54 @@
-import { chromium, type Browser, type BrowserContext } from 'playwright'
-import { access, mkdir, readdir, rename, stat, unlink } from 'node:fs/promises'
+import { chromium, type Browser, type BrowserContext, type Page } from 'playwright'
+import { access, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
-import { cacheKey, caption, presetUrl, stillEpoch, validateManifest, type StillManifest, type StillSelection } from './stills.js'
+import { STILL_CACHE_TTL } from './file-ids.js'
+import { encodeLoop, encodeStill, framePath } from './encode.js'
+import { sequencePlan } from './sequences.js'
+import { openRenderPage } from './render-open.js'
+import { cacheKey, caption, stillEpoch, STILL_HOURS, validateManifest, type LoopMode, type LoopSelection, type MediaSelection, type StillManifest, type StillSelection } from './stills.js'
 
-export interface RenderedStill {
+interface RenderedBase {
+  key: string
   path: string
   url: string
   epoch: number
+  generated: string
   caption: string
   milliseconds: number
   cached: boolean
 }
 
+export interface RenderedStill extends RenderedBase { kind: 'photo' }
+export interface RenderedLoop extends RenderedBase {
+  kind: 'animation'
+  frames: number
+  fps: number
+  bytes: number
+  renderMs: number
+  encodeMs: number
+  openMs?: number
+}
+export type RenderedMedia = RenderedStill | RenderedLoop
+interface RenderedSequence { loop: RenderedLoop; stills: RenderedStill[] }
+interface SequenceMetrics { key: string; frames: number; fps: number; bytes: number; renderMs: number; encodeMs: number; openMs?: number }
+
+export class StillRenderError extends Error {
+  readonly timeout: boolean
+  constructor(readonly mode: LoopMode, readonly phase: string, readonly frame: number | undefined, cause: unknown) {
+    super(`Renderer ${mode} mislukt bij ${phase}`, { cause })
+    this.timeout = cause instanceof Error && cause.name === 'TimeoutError'
+  }
+}
+
 export class StillRenderer {
   private browser?: Browser
   private context?: BrowserContext
-  private queue: Promise<unknown> = Promise.resolve()
-  private pending = new Map<string, Promise<RenderedStill>>()
+  private queues: Promise<unknown>[] = Array.from({ length: 4 }, () => Promise.resolve())
+  private nextQueue = 0
+  private opening?: Promise<BrowserContext>
+  private pending = new Map<string, Promise<RenderedSequence>>()
+  private pendingStills = new Map<string, Promise<RenderedStill>>()
 
   constructor(private readonly origin: string, private readonly cacheDirectory: string) {}
 
@@ -27,19 +58,42 @@ export class StillRenderer {
     return validateManifest(await response.json())
   }
 
-  render(selection: StillSelection, manifest: StillManifest): Promise<RenderedStill> {
+  render(selection: StillSelection, manifest: StillManifest): Promise<RenderedStill>
+  render(selection: LoopSelection, manifest: StillManifest): Promise<RenderedLoop>
+  render(selection: MediaSelection, manifest: StillManifest): Promise<RenderedMedia>
+  async render(selection: MediaSelection, manifest: StillManifest): Promise<RenderedMedia> {
+    const sequence = await this.sequence(selection.mode, manifest)
+    if (selection.hour === 'loop') return sequence.loop
     const key = cacheKey(selection, manifest)
+    const still = sequence.stills.find((candidate) => candidate.key === key)
+    if (!still) throw new Error('Still ontbreekt in de framereeks')
+    const frame = sequencePlan(selection.mode, manifest).stillFrames.find((candidate) => candidate.hour === selection.hour)
+    if (!frame) throw new Error('Stillframe ontbreekt in de framereeks')
+    const loopKey = cacheKey({ mode: selection.mode, hour: 'loop' }, manifest)
+    return this.convertStill(still, framePath(this.frameDirectory(loopKey), frame.index))
+  }
+
+  private sequence(mode: LoopMode, manifest: StillManifest): Promise<RenderedSequence> {
+    const key = cacheKey({ mode, hour: 'loop' }, manifest)
     const existing = this.pending.get(key)
     if (existing) return existing
-    const task = this.queue.then(() => this.renderOne(selection, manifest, key))
-    this.queue = task.catch(() => undefined)
+    // Cache-hits hoeven niet achter een nieuwe Chromium-render te wachten.
+    const task = this.readCachedSequence(mode, manifest, key).then((cached) => {
+      if (cached) return cached
+      const index = this.nextQueue++ % this.queues.length
+      const render = this.queues[index]!.then(() => this.renderSequence(mode, manifest, key))
+      this.queues[index] = render.catch(() => undefined)
+      return render
+    })
     this.pending.set(key, task)
     void task.finally(() => this.pending.delete(key)).catch(() => undefined)
     return task
   }
 
   async close(): Promise<void> {
-    await this.queue
+    await Promise.allSettled(this.pending.values())
+    await Promise.allSettled(this.pendingStills.values())
+    await Promise.all(this.queues)
     await this.browser?.close()
     this.browser = undefined
     this.context = undefined
@@ -48,93 +102,154 @@ export class StillRenderer {
   async prune(now = Date.now()): Promise<void> {
     await mkdir(this.cacheDirectory, { recursive: true })
     for (const name of await readdir(this.cacheDirectory)) {
-      if (!/^(weather|air|feels|wind)-\d+-[a-f0-9]{24}\.jpg(?:\.tmp)?$/.test(name)) continue
+      const temporaryFrames = /^\.frames-(weather|air|feels|wind)-loop-[a-f0-9]{24}-[a-zA-Z0-9]+$/.test(name)
+      const storedFrames = /^(weather|air|feels|wind)-loop-[a-f0-9]{24}\.frames$/.test(name)
+      if (!temporaryFrames && !storedFrames && !/^(weather|air|feels|wind)-(?:\d+|loop)-[a-f0-9]{24}\.(?:jpg|mp4|sequence\.json)(?:\.file-id\.json)?(?:\.tmp)?$/.test(name)) continue
       const path = join(this.cacheDirectory, name)
-      const metadata = await stat(path)
-      if (now - metadata.mtimeMs > 2 * 3_600_000) await unlink(path)
+      try {
+        const metadata = await stat(path)
+        if (now - metadata.mtimeMs > STILL_CACHE_TTL) {
+          if (temporaryFrames || storedFrames) await rm(path, { recursive: true, force: true })
+          else await unlink(path)
+        }
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      }
     }
   }
 
+  private frameDirectory(key: string): string {
+    return join(this.cacheDirectory, `${key}.frames`)
+  }
+
+  private convertStill(still: RenderedStill, frame: string): Promise<RenderedStill> {
+    const existing = this.pendingStills.get(still.key)
+    if (existing) return existing
+    const conversion = (async () => {
+      try {
+        await access(still.path)
+        return { ...still, cached: true, milliseconds: 0 }
+      } catch {
+        const started = performance.now()
+        await encodeStill(frame, `${still.path}.tmp`)
+        await rename(`${still.path}.tmp`, still.path)
+        const milliseconds = Math.round(performance.now() - started)
+        console.info(JSON.stringify({ event: 'still-encoded', key: still.key, milliseconds }))
+        return { ...still, cached: false, milliseconds: still.milliseconds + milliseconds }
+      }
+    })()
+    this.pendingStills.set(still.key, conversion)
+    void conversion.finally(() => this.pendingStills.delete(still.key)).catch(() => undefined)
+    return conversion
+  }
+
   private async browserContext(): Promise<BrowserContext> {
-    if (!this.browser?.isConnected()) {
+    if (this.opening) return this.opening
+    if (this.browser?.isConnected() && this.context) return this.context
+    const opening = (async () => {
       this.browser = await chromium.launch({
         executablePath: process.env.MOTREGEN_CHROMIUM_PATH,
         args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'],
       })
       this.context = await this.browser.newContext({
-        viewport: { width: 900, height: 1200 },
-        deviceScaleFactor: 2,
-        locale: 'nl-NL',
-        timezoneId: 'Europe/Amsterdam',
-        reducedMotion: 'reduce',
-        serviceWorkers: 'block',
+        viewport: { width: 640, height: 848 }, deviceScaleFactor: 1.5,
+        locale: 'nl-NL', timezoneId: 'Europe/Amsterdam', reducedMotion: 'reduce', serviceWorkers: 'block',
       })
-    }
-    return this.context!
+      return this.context
+    })()
+    this.opening = opening
+    try { return await opening } finally { this.opening = undefined }
   }
 
-  private async renderOne(selection: StillSelection, manifest: StillManifest, key: string): Promise<RenderedStill> {
-    const epoch = stillEpoch(manifest, selection.hour)
-    const filename = `${key}.jpg`
-    const path = join(this.cacheDirectory, filename)
+  private media(selection: MediaSelection, manifest: StillManifest): RenderedBase {
+    const key = cacheKey(selection, manifest)
+    const filename = `${key}.${selection.hour === 'loop' ? 'mp4' : 'jpg'}`
+    const epoch = selection.hour === 'loop' ? Date.parse(manifest.now) : stillEpoch(manifest, selection.hour)
     const description = caption(selection.mode, epoch)
-    const result = { path, url: new URL(`/telegram/stills/${filename}`, this.origin).href, epoch, caption: description }
+    return { key, path: join(this.cacheDirectory, filename), url: new URL(`/telegram/stills/${filename}`, this.origin).href, epoch, generated: manifest.generated, caption: description, milliseconds: 0, cached: true }
+  }
+
+  private results(mode: LoopMode, manifest: StillManifest, metrics: SequenceMetrics, cached: boolean): RenderedSequence {
+    const milliseconds = cached ? 0 : metrics.renderMs + metrics.encodeMs
+    const loop: RenderedLoop = { ...this.media({ mode, hour: 'loop' }, manifest), kind: 'animation', ...metrics, milliseconds, cached }
+    const stills: RenderedStill[] = mode === 'wind' ? [] : STILL_HOURS.map((hour) => ({ ...this.media({ mode, hour }, manifest), kind: 'photo', milliseconds, cached }))
+    return { loop, stills }
+  }
+
+  private async readCachedSequence(mode: LoopMode, manifest: StillManifest, key: string): Promise<RenderedSequence | undefined> {
     try {
-      await access(path)
-      return { ...result, milliseconds: 0, cached: true }
+      const path = join(this.cacheDirectory, `${key}.sequence.json`)
+      const metadata = await stat(path)
+      if (Date.now() - metadata.mtimeMs >= STILL_CACHE_TTL) return undefined
+      const metrics = JSON.parse(await readFile(path, 'utf8')) as SequenceMetrics
+      if (metrics.key !== key || !Number.isFinite(metrics.frames) || !Number.isFinite(metrics.bytes)) return undefined
+      const sequence = this.results(mode, manifest, metrics, true)
+      await access(sequence.loop.path)
+      const directory = this.frameDirectory(key)
+      await Promise.all(sequencePlan(mode, manifest).epochs.map((_epoch, index) => access(framePath(directory, index))))
+      return sequence
     } catch {
-      // Alleen complete, atomair hernoemde bestanden tellen als cache-hit.
+      return undefined
     }
+  }
+
+  private async renderSequence(mode: LoopMode, manifest: StillManifest, key: string): Promise<RenderedSequence> {
     const started = performance.now()
-    const context = await this.browserContext()
-    const page = await context.newPage()
+    await mkdir(this.cacheDirectory, { recursive: true })
+    const directory = await mkdtemp(join(this.cacheDirectory, `.frames-${key}-`))
+    let page: Page | undefined
+    let phase = 'open'
+    let frameIndex: number | undefined
+    const plan = sequencePlan(mode, manifest)
     try {
-      await mkdir(this.cacheDirectory, { recursive: true })
-      // Playwright-routing schakelt de HTTP-cache uit; alleen fetch vervangen houdt tiles/chunks warm.
-      await page.addInitScript((pinnedManifest) => {
-        const originalFetch = window.fetch.bind(window)
-        window.fetch = (input, options) => {
-          const address = input instanceof Request ? input.url : String(input)
-          const url = new URL(address, window.location.href)
-          if (url.origin === window.location.origin && url.pathname === '/data/manifest.json') {
-            return Promise.resolve(new Response(JSON.stringify(pinnedManifest), { headers: { 'Content-Type': 'application/json' } }))
-          }
-          return originalFetch(input, options)
-        }
-      }, manifest)
-      await page.goto(presetUrl(this.origin, selection.mode, epoch, true), { waitUntil: 'domcontentloaded', timeout: 60_000 })
-      await page.waitForFunction(() => {
-        const map = document.querySelector<HTMLElement>('.map')
-        return map?.dataset.stillReady === 'true' || Boolean(map?.dataset.stillError)
-      }, undefined, { timeout: 60_000 })
-      const state = await page.locator('.map').evaluate((element) => ({
-        error: (element as HTMLElement).dataset.stillError,
-        generated: document.querySelector<HTMLElement>('.app-shell')?.dataset.generated,
-        epoch: Number(document.querySelector<HTMLElement>('.app-shell')?.dataset.epoch),
-      }))
-      if (state.error) throw new Error(state.error)
-      if (state.generated !== manifest.generated || Math.abs(state.epoch - epoch) >= 60_000) {
-        throw new Error('Still wijkt af van de gevraagde manifestversie of tijd')
+      const context = await this.browserContext()
+      page = await context.newPage()
+      const capture = await context.newCDPSession(page)
+      const openMs = await openRenderPage(page, this.origin, mode, manifest, plan.epochs[0]!)
+      for (const [index, epoch] of plan.epochs.entries()) {
+        phase = 'frame'
+        frameIndex = index
+        await page.evaluate(async ({ epoch, simulationMs, regime }) => {
+          const render = (window as unknown as { __motregenRenderFrame: (epoch: number, simulationMs: number) => Promise<void> }).__motregenRenderFrame
+          await render(epoch, simulationMs)
+          const clock = document.querySelector<HTMLElement>('.still-clock')!
+          if (regime) clock.dataset.regime = regime
+        }, { epoch, simulationMs: mode === 'wind' ? 1_000 + index * 1_000 / plan.fps : 0, regime: mode === 'weather' ? epoch <= Date.parse(manifest.now) ? 'history' : 'forecast' : '' })
+        const state = await page.locator('.map').evaluate((element) => ({
+          error: (element as HTMLElement).dataset.stillError,
+          generated: document.querySelector<HTMLElement>('.app-shell')?.dataset.generated,
+          epoch: Number(document.querySelector<HTMLElement>('.app-shell')?.dataset.epoch),
+        }))
+        if (state.error) throw new Error(state.error)
+        if (state.generated !== manifest.generated || Math.abs(state.epoch - epoch) >= 60_000) throw new Error('Frame wijkt af van de gevraagde manifestversie of tijd')
+        phase = 'capture'
+        const screenshot = await capture.send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false, optimizeForSpeed: true, clip: { x: 0, y: 0, width: 640, height: 848, scale: 1.5 } })
+        await writeFile(framePath(directory, index), Buffer.from(screenshot.data, 'base64'))
       }
-      await page.waitForFunction(() => (window as unknown as { __motregenStillMapLoaded?: () => boolean }).__motregenStillMapLoaded?.())
-      await page.evaluate(async (text) => {
-        const footer = document.createElement('footer')
-        footer.className = 'still-caption'
-        const brand = document.createElement('strong')
-        brand.textContent = 'motregen.nl'
-        const attribution = document.createElement('small')
-        attribution.textContent = 'Kaart © OpenStreetMap · OpenFreeMap'
-        footer.append(brand, document.createTextNode(text), attribution)
-        document.querySelector('.map-shell')!.append(footer)
-        await document.fonts.ready
-      }, description)
-      await page.screenshot({ path: `${path}.tmp`, type: 'jpeg', quality: 88 })
-      await rename(`${path}.tmp`, path)
-      const milliseconds = Math.round(performance.now() - started)
-      console.info(JSON.stringify({ event: 'still-render', mode: selection.mode, hour: selection.hour, generated: manifest.generated, milliseconds }))
-      return { ...result, milliseconds, cached: false }
+      const renderMs = Math.round(performance.now() - started)
+      phase = 'encode'
+      const loop = this.media({ mode, hour: 'loop' }, manifest)
+      const encoded = await encodeLoop(directory, `${loop.path}.tmp`, plan)
+      phase = 'publish'
+      await rename(`${loop.path}.tmp`, loop.path)
+      const publishedFrames = this.frameDirectory(key)
+      await rm(publishedFrames, { recursive: true, force: true })
+      await rename(directory, publishedFrames)
+      const metrics = { key, frames: plan.loopFrames, fps: plan.fps, bytes: encoded.bytes, renderMs, encodeMs: encoded.milliseconds, openMs }
+      const receipt = join(this.cacheDirectory, `${key}.sequence.json`)
+      // Alleen complete, atomair gepubliceerde reeksen tellen als cache-hit.
+      await writeFile(`${receipt}.tmp`, JSON.stringify(metrics))
+      await rename(`${receipt}.tmp`, receipt)
+      console.info(JSON.stringify({ event: 'sequence-render', mode, generated: manifest.generated, renderedFrames: plan.epochs.length, ...metrics }))
+      return this.results(mode, manifest, metrics, false)
+    } catch (error) {
+      throw new StillRenderError(mode, phase, frameIndex, error)
     } finally {
-      await page.close()
+      try {
+        await page?.close()
+      } finally {
+        await rm(directory, { recursive: true, force: true })
+      }
     }
   }
 }

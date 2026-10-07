@@ -1,23 +1,43 @@
 import { setTimeout as delay } from 'node:timers/promises'
 import { TelegramApi, TelegramApiError, type TelegramUpdate } from './api.js'
-import { readConfig } from './config.js'
+import { readConfig, validateCacheChat } from './config.js'
 import { configureBot, handleUpdate, type BotRuntime } from './handlers.js'
-import { StillRenderer, type RenderedStill } from './render.js'
-import { STILL_HOURS, STILL_MODES, type StillManifest, type StillSelection } from './stills.js'
+import { StillRenderer, StillRenderError, type RenderedMedia } from './render.js'
+import { FileIdCache } from './file-ids.js'
+import { StillPhotos } from './photos.js'
+import { MessageSelections } from './selections.js'
+import { PREWARM_HOURS, LOOP_MODES, type StillManifest, type MediaSelection } from './stills.js'
 
 async function runBot(): Promise<void> {
   const config = readConfig()
   const api = new TelegramApi(config.token)
-  const identity = await api.call<{ username: string }>('getMe')
+  const identity = await api.call<{ id: number; username: string }>('getMe')
+  await validateCacheChat(api, config.cacheChatId, identity.id)
   const webhook = await api.call<{ url: string }>('getWebhookInfo')
   if (webhook.url) throw new Error('Webhook staat aan; schakel die uit voordat long polling start')
   const renderer = new StillRenderer(config.origin, config.cacheDirectory)
   const controller = new AbortController()
-  const available = new Map<string, RenderedStill>()
+  const available = new Map<string, RenderedMedia>()
   let manifest: StillManifest | undefined
+  const generations = new Map<number, { manifest: StillManifest; expires: number }>()
+  const rememberGeneration = (current: StillManifest) => {
+    const now = Date.now()
+    for (const [key, entry] of generations) if (entry.expires <= now) generations.delete(key)
+    generations.set(Date.parse(current.generated), { manifest: current, expires: Date.parse(current.generated) + 2 * 3_600_000 })
+  }
   const runtime: BotRuntime = {
     api, config, renderer, username: identity.username,
-    currentManifest: async () => manifest ?? renderer.manifest(),
+    photos: new StillPhotos(api, new FileIdCache(identity.username), config.cacheChatId, config.cacheDirectory),
+    selections: new MessageSelections(),
+    currentManifest: async () => {
+      const current = manifest ?? await renderer.manifest()
+      rememberGeneration(current)
+      return current
+    },
+    manifestForGeneration: (generated) => {
+      const entry = generations.get(generated)
+      return entry && entry.expires > Date.now() ? entry.manifest : undefined
+    },
     availableStill: (selection) => available.get(selectionKey(selection)),
   }
   const stop = () => controller.abort()
@@ -26,7 +46,10 @@ async function runBot(): Promise<void> {
   console.info(JSON.stringify({ event: 'bot-started', username: identity.username }))
   try {
     await configureBot(runtime)
-    await Promise.all([pollUpdates(runtime, controller.signal), refreshStills(runtime, available, (current) => { manifest = current }, controller.signal)])
+    await Promise.all([pollUpdates(runtime, controller.signal), refreshStills(runtime, available, (current) => {
+      manifest = current
+      rememberGeneration(current)
+    }, controller.signal)])
   } finally {
     controller.abort()
     await renderer.close()
@@ -38,7 +61,7 @@ async function pollUpdates(runtime: BotRuntime, signal: AbortSignal): Promise<vo
   while (!signal.aborted) {
     try {
       const updates = await runtime.api.call<TelegramUpdate[]>('getUpdates', {
-        offset, timeout: 25, allowed_updates: ['message', 'inline_query', 'callback_query'],
+        offset, timeout: 25, allowed_updates: ['message', 'inline_query', 'callback_query', 'channel_post', 'my_chat_member'],
       }, signal)
       for (const update of updates) {
         if (signal.aborted) return
@@ -58,34 +81,59 @@ async function pollUpdates(runtime: BotRuntime, signal: AbortSignal): Promise<vo
   }
 }
 
-async function refreshStills(runtime: BotRuntime, available: Map<string, RenderedStill>, publish: (manifest: StillManifest) => void, signal: AbortSignal): Promise<void> {
+async function refreshStills(runtime: BotRuntime, available: Map<string, RenderedMedia>, publish: (manifest: StillManifest) => void, signal: AbortSignal): Promise<void> {
   let renderedGeneration = ''
   while (!signal.aborted) {
+    let step = 'prune'
+    let mode: string | undefined
     try {
       await runtime.renderer.prune()
+      step = 'manifest'
       const manifest = await runtime.renderer.manifest()
-      publish(manifest)
       if (manifest.generated !== renderedGeneration) {
         const started = performance.now()
-        for (const hour of STILL_HOURS) {
-          for (const definition of STILL_MODES) {
-            if (signal.aborted) return
-            const selection: StillSelection = { mode: definition.mode, hour }
-            const still = await runtime.renderer.render(selection, manifest)
-            available.set(selectionKey(selection), still)
+        const next = new Map<string, RenderedMedia>()
+        step = 'render'
+        const renders = await Promise.allSettled(LOOP_MODES.map(async (definition) => {
+          const loopSelection = { mode: definition.mode, hour: 'loop' } as const
+          try {
+            next.set(selectionKey(loopSelection), await runtime.renderer.render(loopSelection, manifest))
+            if (definition.mode === 'wind' || signal.aborted) return
+            for (const hour of PREWARM_HOURS) {
+              if (signal.aborted) return
+              const selection = { mode: definition.mode, hour }
+              next.set(selectionKey(selection), await runtime.renderer.render(selection, manifest))
+            }
+          } catch (error) {
+            mode = definition.mode
+            throw error
           }
+        }))
+        const failedIndex = renders.findIndex((result) => result.status === 'rejected')
+        const failed = renders[failedIndex]
+        if (failed?.status === 'rejected') {
+          mode = LOOP_MODES[failedIndex]!.mode
+          throw failed.reason
         }
+        if (signal.aborted) return
+        step = 'prime'
+        mode = undefined
+        await runtime.photos.primeGeneration([...next.values()])
+        available.clear()
+        for (const [key, media] of next) available.set(key, media)
+        publish(manifest)
         renderedGeneration = manifest.generated
         console.info(JSON.stringify({ event: 'stills-refresh', generated: manifest.generated, count: available.size, milliseconds: Math.round(performance.now() - started) }))
       }
     } catch (error) {
-      reportFailure('refresh', error)
+      if (signal.aborted) console.info(JSON.stringify({ event: 'refresh-interrupted', step, mode }))
+      else reportFailure('refresh', error, { step, mode })
     }
     await delay(15_000, undefined, { signal }).catch(() => undefined)
   }
 }
 
-function selectionKey(selection: StillSelection): string {
+function selectionKey(selection: MediaSelection): string {
   return `${selection.mode}:${selection.hour}`
 }
 
@@ -94,9 +142,9 @@ function retryDelay(error: unknown): number {
   return 5000
 }
 
-function reportFailure(event: string, error: unknown): void {
+function reportFailure(event: string, error: unknown, context: { step?: string; mode?: string } = {}): void {
   // Geen exceptiontekst: fetch/Playwright kan URL's, bot-token of verzoekinhoud opnemen.
-  console.error(JSON.stringify({ event: `${event}-failed`, code: error instanceof TelegramApiError ? error.code : undefined }))
+  console.error(JSON.stringify({ event: `${event}-failed`, ...context, phase: error instanceof StillRenderError ? error.phase : undefined, frame: error instanceof StillRenderError ? error.frame : undefined, method: error instanceof TelegramApiError ? error.method : undefined, code: error instanceof TelegramApiError ? error.code : undefined, reason: error instanceof StillRenderError && error.timeout ? 'TimeoutError' : error instanceof Error && ['TimeoutError', 'AbortError'].includes(error.name) ? error.name : undefined }))
 }
 
 void runBot().catch(() => {

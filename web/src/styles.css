@@ -83,24 +83,20 @@ button { color: inherit; cursor: pointer; }
 }
 .still-view .map-shell { width: 100%; height: 100%; border-radius: 0; }
 .still-view .map-splash.ready { display: none; }
-.still-caption {
+.still-clock { pointer-events: none; }
+.still-clock[data-regime]::before { content: ''; position: absolute; left: 6px; top: 12px; width: 2px; height: 16px; background: var(--muted); }
+.still-clock[data-regime="forecast"]::before { background: var(--accent); }
+.still-attribution {
   position: absolute;
   z-index: 10;
-  left: 24px;
-  right: 24px;
-  bottom: 24px;
-  display: grid;
-  gap: 7px;
-  padding: 18px 24px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--surface-raised);
+  left: 12px;
+  bottom: 10px;
+  padding: 3px 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
   color: var(--text);
-  font-size: 21px;
-  box-shadow: var(--shadow);
+  font-size: 12px;
 }
-.still-caption strong { font-size: 26px; }
-.still-caption small { color: var(--muted); font-size: 12px; }
 
 .uv-chip {
   --uv-color: var(--uv-moderate);
@@ -868,8 +864,8 @@ td small { color: var(--muted); font-size: 9px; }
 }
 @keyframes freshness-backdrop-out { to { opacity: 0; } }
 .freshness-clock { position: relative; height: var(--clock-height, 44px); border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.freshness-clock .clock-main { position: absolute; top: 0; bottom: 0; left: var(--clock-center, 50%); align-items: center; padding: 0 14px; border: 0; border-radius: 0 0 11px 11px; color: var(--muted); background: none; font: inherit; line-height: 1.1; transform: translateX(-50%); cursor: pointer; }
-.freshness-clock .clock-main:hover, .freshness-clock .clock-main:focus-visible { background: color-mix(in srgb, var(--accent-soft) 60%, transparent); outline: none; }
+.freshness-clock .freshness-close { position: absolute; top: 0; bottom: 0; left: var(--clock-center, 50%); display: inline-flex; align-items: center; padding: 0 14px; border: 0; border-radius: 0 0 11px 11px; color: var(--muted); background: none; font: inherit; line-height: 1.1; transform: translateX(-50%); cursor: pointer; }
+.freshness-clock .freshness-close:hover, .freshness-clock .freshness-close:focus-visible { background: color-mix(in srgb, var(--accent-soft) 60%, transparent); outline: none; }
 .freshness-dialog .about-body { padding: 20px 24px 20px; font-size: 14px; }
 .freshness-dialog .freshness-sources { font-size: 13px; }
 .live-age { display: inline-flex; align-items: center; gap: 5px; margin-left: 4px; padding: 1px 8px 1px 6px; border-radius: 999px; color: var(--text); background: var(--accent-soft); font-size: .92em; font-weight: 700; white-space: nowrap; }
