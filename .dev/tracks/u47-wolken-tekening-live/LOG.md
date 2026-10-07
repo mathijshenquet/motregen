@@ -197,3 +197,19 @@
   6. SkywatchRender (U46-grader) tekent de nieuwe vormen zonder licht/hemel.
   7. Afwijking van MIP-18 ("nacht: geen lichtfactor") is niet in de proposal verwerkt; dat is aan de PO.
   8. Mobiel-e2e en de volledige suite niet gedraaid.
+
+## 2026-10-07 16:47 — main met U42 (ff2b1f3) gemerged → efe678b
+- Conflicten: `cloud-section.ts` en `.test.ts` (mijn versie; main had alleen een kopie van
+  `lightDarkness` op de oude tekening gezet), `styles.css` (mijn tokens + U42's `--table-day-*`).
+- Na de auto-merge stond `cloudModification` twee keer in `uv.ts` (U42 had hem ook toegevoegd): één weg.
+- U42's tabel gebruikt `lightDarkness` zonder mooi-weermarge en test dat (`ForecastTable.test.tsx`).
+  Die schaal is hersteld zoals op main; de hemel gebruikt nu `skyDarkness` (met `FAIR_HALVINGS`).
+  Gevolg: tabel en scrubber vergrijzen niet op hetzelfde punt. OPEN voor de finishing-pane.
+- AFWIJKING van de opdracht "U42s semantiek: Weer rustig": op main staan de wolkenlagen in Weer op 50 %.
+  Hier zijn ze in Weer weg, op directe aanwijzing van de PO in deze pane ("haal anders wolken weg uit
+  de weer view"); de hemel vertelt daar de bewolking. Regen vóór in Weer, in Lucht erachter op 0,35
+  zonder label: ongewijzigd van U42. `presets.ts` niet aangeraakt.
+- Receipts (synchroon) op efe678b: `pnpm typecheck` → 0; `pnpm test` → 0 (68 bestanden, 448 tests);
+  `pnpm build` → 0; `MOTREGEN_E2E_PORT=4377 MOTREGEN_E2E_DATA_PORT=8377 pnpm e2e
+  e2e/cloud-section.spec.ts e2e/focus.spec.ts e2e/table.spec.ts e2e/usage.spec.ts --project desktop`
+  → E2E-EXIT: 0 (14 passed, 4 skipped: touch/mobiel). Stills lucht-regen en weer-nu → SHOT-EXIT 0, bekeken.
