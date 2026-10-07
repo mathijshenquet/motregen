@@ -31,6 +31,11 @@ gzip -n -9 -c ocean.geojson > tools/basemap/ocean.geojson.gz
 De meegeleverde Noto Sans Regular-glyphs (Latin 0–511) komen uit de
 OpenFreeMap-fontservice. Noto gebruikt de SIL Open Font License; deze staat
 naast de glyphs. `tilemaker` 3.1.0 en npm `pmtiles` 4.5.0 gebruiken BSD-licenties.
+De stijl en MapLibre-workerpool starten parallel met het weermanifest. Zodra de eigen stijl binnen is,
+start het ophalen van de gewone Latin-glyphs; een klein MapLibre-protocol deelt
+deze bytes met latere labelrequests. Iedere worker krijgt een kopie zodat
+overdracht de gedeelde buffer intact laat. Dit voorkomt dat de eerste fontaanvraag
+pas na tegelverwerking begint; het netwerkverkeer blijft in de koude rig gemeten.
 De bron, het profiel en het afgeleide PMTiles-archief blijven beschikbaar in de
 repo voor de ODbL-verplichtingen.
 
@@ -158,5 +163,5 @@ receipts staan in de track-LOG.
 glyphs uit geheugen en meet vijf runs na één opwarmrun. Dit onderscheidt
 MapLibre-worker/overdracht van HTTP, maar is nog geen exclusieve hoofddraad-CPU.
 `basemap-cache.spec.ts` met `playwright.basemap-cache.config.ts` controleert
-een warme herlaad zonder kaartnetwerk met uitgeschakelde browser-HTTP-cache,
+een warm bezoek zonder kaartnetwerk na het wissen van de browser-HTTP-cache,
 plus offline ranges op dezelfde en een andere origin.

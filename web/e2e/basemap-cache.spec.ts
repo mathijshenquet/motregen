@@ -3,18 +3,27 @@ import { expect, test } from '@playwright/test'
 import { applyEmulation, performanceProfile } from './profiles'
 
 for (const width of [390, 1280]) {
-  test(`warme basiskaart zonder netwerk ${width}px`, async ({ page, context }) => {
+  test(`warme basiskaart zonder netwerk ${width}px`, async ({ page, context }, testInfo) => {
+    const diagnostics: string[] = []
+    context.on('console', message => { if (message.type() === 'error') diagnostics.push(message.text()) })
+    page.on('response', response => {
+      if (response.url().endsWith('.pmtiles')) diagnostics.push(`${response.status()} ${response.url()} SW=${response.fromServiceWorker()}`)
+    })
     await page.setViewportSize({ width, height: width === 390 ? 844 : 800 })
     const cdp = await context.newCDPSession(page)
     await applyEmulation(cdp, performanceProfile(width === 390 ? 'mobile-4g' : 'desktop'))
-    await cdp.send('Network.setCacheDisabled', { cacheDisabled: true })
+    await cdp.send('Network.clearBrowserCache')
     await page.goto('/?perf=1&t=%2B0u&modus=weer')
     await expect(page.locator('.map-splash.ready')).toBeAttached()
     await page.evaluate(async () => { await navigator.serviceWorker.ready })
-    await page.reload()
+    await page.goto(page.url())
     await page.waitForFunction(() => navigator.serviceWorker.controller !== null)
     await expect(page.locator('.map-splash.ready')).toBeAttached()
-    await expect.poll(() => page.evaluate(async () => (await (await caches.open('motregen-basemap-ranges-v1')).keys()).length)).toBeGreaterThan(1)
+    await expect.poll(() => page.evaluate(async () => (await (await caches.open('motregen-basemap-ranges-v1')).keys()).length)).toBeGreaterThan(1).catch(async (error) => {
+      await testInfo.attach('rangecache', { body: diagnostics.join('\n'), contentType: 'text/plain' })
+      console.log(diagnostics.join('\n'))
+      throw error
+    })
     await page.waitForTimeout(1_000)
     const cold = await page.evaluate(() => window.__motregenPerf.snapshot())
     const network: string[] = []
@@ -26,7 +35,8 @@ for (const width of [390, 1280]) {
     page.on('response', response => {
       if (response.url().endsWith('.pmtiles')) ranges.push({ status: response.status(), cached: response.fromServiceWorker() })
     })
-    await page.reload()
+    await cdp.send('Network.clearBrowserCache')
+    await page.goto(page.url())
     await expect(page.locator('.map-splash.ready')).toBeAttached()
     await page.waitForTimeout(1_000)
     const warm = await page.evaluate(() => window.__motregenPerf.snapshot())

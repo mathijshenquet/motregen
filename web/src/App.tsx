@@ -694,6 +694,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
     tableViewMedia.addEventListener('change', tableViewChanged)
     onCleanup(() => tableViewMedia.removeEventListener('change', tableViewChanged))
+    maplibregl.prewarm()
+    void loadBasemapStyle(mapTheme()).catch(() => undefined)
     try {
       const data = await fetchManifest()
       perf.setManifestGenerated(data.generated)

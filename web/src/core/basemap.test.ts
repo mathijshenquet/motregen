@@ -1,7 +1,10 @@
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { addProtocol } from 'maplibre-gl'
 import type { StyleSpecification } from 'maplibre-gl'
-import { firstBasemapTextLayerId, prepareBasemapStyle, temperatureLayerBeforeId } from './basemap'
+import { firstBasemapTextLayerId, loadBasemapStyle, prepareBasemapStyle, temperatureLayerBeforeId } from './basemap'
+
+vi.mock('maplibre-gl', () => ({ addProtocol: vi.fn() }))
 
 const styles = ['licht', 'donker'].map((name) => JSON.parse(readFileSync(`public/basemap/${name}.json`, 'utf8')) as StyleSpecification)
 
@@ -51,5 +54,28 @@ describe('eigen basiskaart', () => {
     expect(prepareBasemapStyle(style, 'http://localhost').sources).toEqual(style.sources)
     expect(firstBasemapTextLayerId(style.layers)).toBe('places')
     expect(temperatureLayerBeforeId(style.layers)).toBe('places')
+  })
+
+  it('haalt glyphs vroeg en eenmaal op en houdt ze intact na overdracht aan een worker', async () => {
+    const bytes = new Uint8Array([0, 255, 17, 42])
+    const fetchMock = vi.fn(async (url: string) => url.endsWith('.json')
+      ? new Response(JSON.stringify(styles[0]))
+      : new Response(bytes))
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('location', { origin: 'https://app.example.test', href: 'https://app.example.test/' })
+    try {
+      const style = await loadBasemapStyle('light')
+      expect(style.glyphs).toBe('motregen-glyphs://https://app.example.test/basemap/fonts/{fontstack}/{range}.pbf')
+      const protocol = vi.mocked(addProtocol).mock.calls.find(([name]) => name === 'motregen-glyphs')![1]
+      const request = { url: style.glyphs!.replace('{fontstack}', 'Noto%20Sans%20Regular').replace('{range}', '0-255') }
+      const first = await protocol(request, new AbortController())
+      expect(new Uint8Array(first.data as ArrayBuffer)).toEqual(bytes)
+      structuredClone(first.data, { transfer: [first.data as ArrayBuffer] })
+      const second = await protocol({ url: request.url.replaceAll('%20', ' ') }, new AbortController())
+      expect(new Uint8Array(second.data as ArrayBuffer)).toEqual(bytes)
+      expect(fetchMock.mock.calls.filter(([url]) => url.endsWith('.pbf'))).toHaveLength(1)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

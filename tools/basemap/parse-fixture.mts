@@ -34,7 +34,10 @@ if (reference) {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const path = resolve(directory, entry.name)
       if (entry.isDirectory()) include(path, `${prefix}${entry.name}/`)
-      else if (/\.(pbf|png)$/.test(entry.name) || entry.name.startsWith('sprite')) data[`${prefix}${entry.name}`] = readFileSync(path).toString('base64')
+      else if (/\.(pbf|png)$/.test(entry.name) || entry.name.startsWith('sprite')) {
+        const key = entry.name.startsWith('sprite') ? `sprites/${entry.name}` : `${prefix}${entry.name}`
+        data[key] = readFileSync(path).toString('base64')
+      }
     }
   }
   include(snapshot)
@@ -42,7 +45,7 @@ if (reference) {
   measuredStyle.sources.openmaptiles = { type: 'vector', tiles: ['memory://tiles/{z}/{x}/{y}.pbf'], minzoom: 0, maxzoom: 7 }
   measuredStyle.sources.ne2_shaded.tiles = ['memory://raster/{z}/{x}/{y}.png']
   measuredStyle.glyphs = 'memory://fonts/{fontstack}/{range}.pbf'
-  measuredStyle.sprite = 'memory://sprite'
+  measuredStyle.sprite = 'memory://sprites/sprite'
   sourceId = 'openmaptiles'
 }
 const output = resolve(root, 'web', process.env.MOTREGEN_MOBILE_FIXTURE_DIR ?? 'public/perf-mobile', 'parse')

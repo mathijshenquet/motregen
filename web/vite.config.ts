@@ -63,8 +63,8 @@ export default defineConfig({
       background_color: '#eaf1f3',
     },
     workbox: {
-      globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}', 'basemap/**/*.{json,pbf}'],
-      globIgnores: ['**/data/**'],
+      globPatterns: ['**/*.{js,css,html,ico,png,svg}', 'basemap/**/*.{json,pbf}'],
+      globIgnores: ['**/data/**', '**/perf-mobile/**'],
       navigateFallback: '/index.html',
       runtimeCaching: [
         {
