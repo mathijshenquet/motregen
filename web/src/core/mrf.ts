@@ -51,6 +51,9 @@ export class LruCache<K, V> {
   }
 }
 
+/** Komt als detail in de `frame-decode`-fase, zodat een opname laat zien wélk veld de workers bezet houdt. */
+interface DecodeDetail { field: string; layer: LoadLayer }
+
 interface WorkerReply { id: number; frame?: ArrayBuffer; error?: string; duration?: number }
 
 export interface MotionField {
@@ -128,7 +131,7 @@ export class MrfClient {
   private readonly motions = new LruCache<string, MotionField>(256)
   private readonly motionPromises = new Map<string, Promise<MotionField>>()
   private readonly payloads = new Map<string, PayloadSpan[]>()
-  private readonly pending = new Map<number, { worker: number; resolve: (frame: Uint8Array) => void; reject: (error: Error) => void }>()
+  private readonly pending = new Map<number, { worker: number; detail: DecodeDetail; resolve: (frame: Uint8Array) => void; reject: (error: Error) => void }>()
   // Eén worker maakte zstd-decode de poort van het koude laden (U1-profiel:
   // alle bytes binnen op 3,3 s, laatste balk pas op 6,7 s).
   private readonly workers: Worker[]
@@ -146,7 +149,7 @@ export class MrfClient {
         if (!request) return
         this.pending.delete(data.id)
         this.workerLoad[request.worker]!--
-        if (data.duration !== undefined) recordPerfPhase('frame-decode', data.duration, { codec: 'zstd/mrf' })
+        if (data.duration !== undefined) recordPerfPhase('frame-decode', data.duration, { codec: 'zstd/mrf', ...request.detail })
         if (data.error) request.reject(new Error(data.error)); else request.resolve(new Uint8Array(data.frame!))
       }
     }
@@ -241,7 +244,7 @@ export class MrfClient {
         const compressed = payload
           ? await payload.read(motion.offset, end)
           : await fetchRange(url, chunk.header_len + motion.offset, chunk.header_len + end - 1, 'high', this.rangeTrace('motion', [frameIndex]))
-        const vectors = await this.decodeInWorker(compressed, header.motion_grid!.bw * header.motion_grid!.bh * 2)
+        const vectors = await this.decodeInWorker(compressed, header.motion_grid!.bw * header.motion_grid!.bh * 2, { field: 'motion', layer: 'motion' })
         const field = { width: header.motion_grid!.bw, height: header.motion_grid!.bh, vectors }
         this.motions.set(key, field)
         return field
@@ -262,7 +265,7 @@ export class MrfClient {
       ? await payload.read(frame.offset, frame.offset + frame.len)
       : await fetchRange(url, start, start + frame.len - 1, priority, this.rangeTrace(layer, [frameIndex]))
     this.trace?.frameBytesReady(url, frameIndex)
-    const decoded = await this.decodeInWorker(compressed, header.grid.width * header.grid.height, predSpec(header))
+    const decoded = await this.decodeInWorker(compressed, header.grid.width * header.grid.height, { field: chunkField(chunk), layer }, predSpec(header))
     this.trace?.frameDecoded(url, frameIndex)
     this.frames.set(key, decoded)
     this.onFrameDecoded?.(url, frameIndex, decoded)
@@ -293,7 +296,7 @@ export class MrfClient {
       const frame = header.frames[index]!
       const compressed = await payload.read(frame.offset, frame.offset + frame.len)
       this.trace?.frameBytesReady(url, index)
-      const decodedBytes = await this.decodeInWorker(compressed, header.grid.width * header.grid.height, predSpec(header))
+      const decodedBytes = await this.decodeInWorker(compressed, header.grid.width * header.grid.height, { field: chunkField(chunk), layer }, predSpec(header))
       this.trace?.frameDecoded(url, index)
       this.frames.set(frameKey(url, index), decodedBytes)
       this.onFrameDecoded?.(url, index, decodedBytes)
@@ -340,12 +343,12 @@ export class MrfClient {
     for (const index of indexes) void this.getMotion(chunk, index).catch(() => undefined)
   }
 
-  private decodeInWorker(compressed: Uint8Array, expectedLength: number, pred?: PredFrameSpec): Promise<Uint8Array> {
+  private decodeInWorker(compressed: Uint8Array, expectedLength: number, detail: DecodeDetail, pred?: PredFrameSpec): Promise<Uint8Array> {
     const id = ++this.requestId
     return new Promise((resolve, reject) => {
       const worker = this.workerLoad.indexOf(Math.min(...this.workerLoad))
       this.workerLoad[worker]!++
-      this.pending.set(id, { worker, resolve, reject })
+      this.pending.set(id, { worker, detail, resolve, reject })
       const bytes = compressed.byteOffset === 0 && compressed.byteLength === compressed.buffer.byteLength
         ? compressed.buffer
         : compressed.slice().buffer
