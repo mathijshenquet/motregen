@@ -41,3 +41,9 @@
 .perf-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
 .perf-export-actions { grid-template-columns: repeat(3, 1fr); margin-top: 5px; }
 .perf-recording p { min-height: 1.2em; margin: 5px 1px 0; color: var(--muted); font-size: 9px; overflow-wrap: anywhere; }
+
+.perf-hud-recording { display: flex; align-items: center; gap: 8px; width: auto; max-width: calc(100vw - 16px); padding: 6px 8px; border-radius: 999px; font-weight: 700; }
+.perf-hud-recording button { width: auto; padding: 3px 9px; }
+.perf-recording-dot { width: 8px; height: 8px; border-radius: 50%; background: #e0352b; animation: perf-blink 1s steps(2, start) infinite; }
+@keyframes perf-blink { to { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .perf-recording-dot { animation: none; } }

@@ -387,15 +387,17 @@ export default function App() {
   const mapTheme = createMemo<MapTheme>(() => theme() === 'system' ? systemDark() ? 'dark' : 'light' : theme() as MapTheme)
   createEffect(() => perf.setDetailedEnabled(profileMode || perfVisible()))
 
+  let profileStop: AbortController | undefined
   async function startProfile(durationMs = 30_000, captureStartTime = performance.now()): Promise<void> {
     if (profileState() === 'recording') return
     setPerfVisible(true)
     setProfileState('recording')
     setProfileNotice('Opname loopt…')
     setProfileRecording(undefined)
+    profileStop = new AbortController()
     try {
       const { recordProfile } = await import('./core/profile-recorder')
-      const recording = await recordProfile(perf, durationMs, captureStartTime)
+      const recording = await recordProfile(perf, durationMs, captureStartTime, profileStop.signal)
       setProfileRecording(recording)
       setProfileState('ready')
       setProfileNotice(recording.profilerAvailable ? 'Opname gereed · stacks + fasen' : 'Opname gereed · alleen fasen')
@@ -2243,7 +2245,7 @@ export default function App() {
       windStats={() => windLayer?.windProfile()}
       profile={profileMode || devMode ? {
         state: profileState(), recording: profileRecording(), notice: profileNotice(),
-        onRecord: () => void startProfile(), onCold: coldProfile, onSend: sendProfile,
+        onRecord: () => void startProfile(), onStop: () => profileStop?.abort(), onCold: coldProfile, onSend: sendProfile,
       } : undefined}
     /></Show>
   </main>
