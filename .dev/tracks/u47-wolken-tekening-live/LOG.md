@@ -102,3 +102,11 @@
 - Open: contrast van regenbalken/cursor op de hemel is niet gemeten (spec stap 3); geen unit-tests voor
   skyStops/skyStrokes/skyStars/sunCrossings; perf van ~500 strekenpaden + overlay-korrel niet gemeten;
   SkywatchRender (U46-grader) tekent de nieuwe vormen zonder licht/hemel.
+
+## 2026-10-07 15:39 — PO: golven weg, schemering rond
+- PO: "haal die waves maar helemaal weg; tinten en grain zijn wel nice; zons op en ondergang 'rond',
+  mag iets kleiner". Penseelstreken verwijderd (code + CSS). Schemergloed is nu drie cirkels op de
+  horizon, straal = min(62 % plothoogte, één uur). Sterren pas als daglicht < 12 %.
+- U42-worker gevraagd (herdr-prompt naar pane wZ:p1) de vragen in `afstemming-u42.md` te beantwoorden.
+- Receipts (synchroon): `pnpm typecheck` → 0; `pnpm test` → 0; `pnpm build` → 0; stills
+  `rond{2,20}`, `ster2` → SHOT-EXIT 0.

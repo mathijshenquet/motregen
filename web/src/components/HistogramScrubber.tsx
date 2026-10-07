@@ -1,5 +1,5 @@
 import { createEffect, createMemo, createSignal, createUniqueId, For, Index, onCleanup, onMount, Show, untrack } from 'solid-js'
-import { CLOUD_LAYERS, cloudBand, skyAt, skyStars, skyStops, skyStrokes, sunCrossings, type CloudSeries } from '../core/cloud-section'
+import { CLOUD_LAYERS, cloudBand, skyAt, skyStars, skyStops, sunCrossings, type CloudSeries } from '../core/cloud-section'
 import type { TimelineFrame } from '../core/contract'
 import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColor } from '../core/rain-chart'
 import { SCRUBBER_CURSOR_FRACTION, SCRUBBER_VIEW_HOURS, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
@@ -55,6 +55,8 @@ const CLOUD_COVER_SHARE = 0.3
 // In Weer blijven de wolkenlagen als rustige achtergrond staan; Lucht brengt ze naar volle dekking.
 const CLOUD_LAYERS_DEFAULT_OPACITY = 0.5
 const HOUR = 3_600_000
+// Straal van de schemergloed als deel van de plothoogte (hoogstens één uur breed).
+const DUSK_RADIUS_SHARE = 0.62
 // Gedeeld met het laadvenster in App (U49), dat alleen laadt wat hier in beeld is.
 const VIEW_HOURS = SCRUBBER_VIEW_HOURS
 const CURSOR_FRACTION = SCRUBBER_CURSOR_FRACTION
@@ -211,13 +213,14 @@ export default function HistogramScrubber(props: Props) {
     if (!skyVisible()) return undefined
     const pxPerHour = HOUR * pxPerMs()
     return {
-      strokes: skyStrokes(cloudWidth(), plotHeight(), pxPerHour, sky()),
       stars: skyStars(cloudWidth(), plotHeight(), pxPerHour, sky()),
       dusks: sunCrossings(timelineStart(), timelineEnd(), props.sky!.sinElevation).map((crossing) => {
         const x = xAt(crossing.epoch)
-        // De gloed staat aan de dagkant van de horizon; roze en paars waaieren naar weerszijden uit.
+        // Ronde gloed rond de zon op de horizon (PO 2026-10-07 live: rond, mag kleiner); roze hangt naar
+        // de dagkant, paars naar de nachtkant.
         const side = crossing.rising ? 1 : -1
-        return { x, side, pxPerHour, strength: 1 - 0.75 * skyAt(sky(), x / cloudWidth()).darkness }
+        const radius = Math.min(plotHeight() * DUSK_RADIUS_SHARE, pxPerHour)
+        return { x, side, radius, strength: 1 - 0.75 * skyAt(sky(), x / cloudWidth()).darkness }
       }),
     }
   })
@@ -581,11 +584,10 @@ export default function HistogramScrubber(props: Props) {
               <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-sky)`} />
               <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-depth)`} />
               <For each={detail().dusks}>{(dusk) => <g class="dusk" style={{ opacity: dusk.strength }}>
-                <ellipse cx={dusk.x - dusk.side * dusk.pxPerHour * 1.3} cy={plotHeight() * 0.95} rx={dusk.pxPerHour * 2.3} ry={plotHeight() * 0.95} fill={`url(#${cloudId}-dusk-purple)`} />
-                <ellipse cx={dusk.x + dusk.side * dusk.pxPerHour * 0.6} cy={plotHeight() * 1.05} rx={dusk.pxPerHour * 2} ry={plotHeight() * 0.85} fill={`url(#${cloudId}-dusk-rose)`} />
-                <ellipse cx={dusk.x} cy={plotHeight() * 1.12} rx={dusk.pxPerHour * 1.25} ry={plotHeight() * 0.8} fill={`url(#${cloudId}-dusk-amber)`} />
+                <circle cx={dusk.x - dusk.side * dusk.radius * 0.55} cy={plotHeight()} r={dusk.radius * 1.5} fill={`url(#${cloudId}-dusk-purple)`} />
+                <circle cx={dusk.x + dusk.side * dusk.radius * 0.35} cy={plotHeight()} r={dusk.radius * 1.25} fill={`url(#${cloudId}-dusk-rose)`} />
+                <circle cx={dusk.x} cy={plotHeight()} r={dusk.radius} fill={`url(#${cloudId}-dusk-amber)`} />
               </g>}</For>
-              <For each={detail().strokes}>{(stroke) => <path class="sky-stroke" classList={{ light: stroke.light }} d={stroke.path} style={{ '--strength': stroke.strength }} />}</For>
               <For each={detail().stars}>{(star) => <circle class="sky-star" cx={star.x} cy={star.y} r={star.radius} opacity={star.brightness} />}</For>
             </g>}</Show>
             {/* In Lucht blijft regen context: achter de wolkenlagen en getweend naar 35% dekking. */}

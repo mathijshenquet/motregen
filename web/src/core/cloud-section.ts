@@ -298,57 +298,8 @@ export function skyAt(stops: SkyStop[], offset: number): SkyStop {
   return { offset, darkness: between(from.darkness, to.darkness), daylight: between(from.daylight, to.daylight), glow: between(from.glow, to.glow) }
 }
 
-// Penseelstreken over de lucht (U47, PO: "te gradient, meer grain en detail"): rijen spitse vegen die het
-// verloop breken. Dun, lang en zacht: textuur, geen vormen die met de wolken concurreren (PO: "te druk").
-// Een kalme lucht krijgt vlakke streken, een zware lucht licht golvende.
-const STROKE_ROW_PX = 13
-const STROKE_SAMPLE_PX = 3
-// Golflengte van een streek als veelvoud van de rijhoogte: korter wordt een zaagtand in plaats van een veeg.
-const STROKE_WAVELENGTH_ROWS = 7
-const STROKE_SEED = 5.7
-
-export interface SkyStroke {
-  path: string
-  /** Lichter (true) of donkerder dan de lucht eronder, en hoe sterk (0–1). */
-  light: boolean
-  strength: number
-}
-
-export function skyStrokes(width: number, height: number, pxPerHour: number, stops: SkyStop[]): SkyStroke[] {
-  if (!stops.length || width <= 0 || height <= 0) return []
-  const rows = Math.max(3, Math.round(height / STROKE_ROW_PX))
-  const rowHeight = height / rows
-  const strokes: SkyStroke[] = []
-  for (let row = 0; row < rows; row++) {
-    let from = -pxPerHour * unitHash(row * 3.3 + STROKE_SEED)
-    for (let index = 0; from < width; index++) {
-      const key = row * 101.3 + index * 7.77 + STROKE_SEED
-      const turbulence = skyAt(stops, Math.max(0, Math.min(1, (from + pxPerHour / 2) / width))).darkness
-      const length = Math.max(rowHeight * 5, pxPerHour * (1.4 + 1.8 * unitHash(key)))
-      const centreY = (row + 0.5) * rowHeight + (unitHash(key + 0.21) - 0.5) * rowHeight * 0.6
-      const half = rowHeight * (0.08 + 0.16 * unitHash(key + 0.43))
-      const wave = rowHeight * (0.05 + 0.22 * turbulence)
-      const waves = length / (rowHeight * STROKE_WAVELENGTH_ROWS) * (0.7 + 0.6 * unitHash(key + 0.65))
-      const phase = 2 * Math.PI * unitHash(key + 0.87)
-      const steps = Math.max(4, Math.ceil(length / STROKE_SAMPLE_PX))
-      const upper: string[] = []
-      const lower: string[] = []
-      for (let step = 0; step <= steps; step++) {
-        const along = step / steps
-        const middle = centreY + wave * Math.sin(2 * Math.PI * waves * along + phase)
-        const thickness = half * Math.max(0, Math.sin(Math.PI * along)) ** 0.7
-        upper.push(`${round(from + length * along)} ${round(middle - thickness)}`)
-        lower.push(`${round(from + length * along)} ${round(middle + thickness)}`)
-      }
-      const tone = unitHash(key + 0.99) * 2 - 1
-      strokes.push({ path: `M${upper.join('L')}L${lower.reverse().join('L')}Z`, light: tone > 0, strength: round(Math.abs(tone), 3) })
-      from += length * 0.6
-    }
-  }
-  return strokes
-}
-
 const STARS_PER_HOUR = 5
+const STAR_TWILIGHT_LIMIT = 0.12
 
 export interface SkyStar { x: number; y: number; radius: number; brightness: number }
 
@@ -359,7 +310,8 @@ export function skyStars(width: number, height: number, pxPerHour: number, stops
   for (let index = 0; index * pxPerHour / STARS_PER_HOUR < width; index++) {
     const x = (index + unitHash(index * 1.37 + 2.9)) * pxPerHour / STARS_PER_HOUR
     const sky = skyAt(stops, Math.min(1, x / width))
-    const visibility = (1 - sky.daylight) ** 3 * (1 - sky.darkness) ** 2
+    // Pas als de schemering vrijwel voorbij is: geen sterren in de gloed van de zonsondergang.
+    const visibility = Math.max(0, 1 - sky.daylight / STAR_TWILIGHT_LIMIT) * (1 - sky.darkness) ** 2
     const twinkle = unitHash(index * 2.11 + 8.3)
     if (twinkle > visibility) continue
     stars.push({ x: round(x), y: round(height * 0.72 * unitHash(index * 3.03 + 4.1)), radius: round(0.5 + 0.9 * unitHash(index * 4.7 + 1.9), 2), brightness: round(0.45 + 0.55 * (1 - twinkle), 2) })
