@@ -259,3 +259,36 @@ Valkuil: een eerdere `--compare` gaf drie time-outs op ttfr terwijl de rig van t
 tegelijk op deze host bijten elkaar — het e2e-slot dekt dat kennelijk niet af.
 
 Volgende: PO bevestigt de scroll-fix op Android en maakt een nieuwe scrub-opname; dan stap 2 (klokpil-jog).
+
+## 2026-10-07 21:55 — PO-opname Android Chrome ná de fixes (`po-chrome-1702-na.json`): nog binnen bereik?
+
+PO/orkestrator: lange frames 9,3 → 1,35 s, blocking 8,2 → 0,28 s in 10 s. Opname: 387 samples over 9,5 s.
+Leeswijzer: de "self ms" van `prof:top` wegen elk sample met het gat tot het volgende en zijn hier grof;
+ik reken met het aantal samples (1 sample ≈ 0,26 %) en met de gemeten fasen in dezelfde opname.
+
+| post | samples | oordeel |
+| --- | ---: | --- |
+| maplibre `xs` / `receive` / `calculatePosMatrix` | 27 / 11 / 1 | niet van mij (basemap-tiles, U59) |
+| `measurePerfPhase` | 3 (0,78 %) | niet de moeite: de 508 ms is weegruis. Zonder vlag geeft de functie direct `operation()` terug (code gelezen, niet apart gemeten); met vlag is het sinds `d19827b` één `performance.measure` |
+| `mrf.ts:176` | 7 | niet de moeite: dit is het antwoord van de decode-worker (boekhouding + volgende opdracht versturen), 280× in 10 s; geen chunkparsing. Het frame komt al als Transferable |
+| `texImage2D` | 12 | niet gedaan: fase `texture-upload` 55× / 153 ms (2,8 ms per nieuw frame). Halveren kan met R8 + een shader die zelf filtert; raakt de regenweergave, dus alleen met visuele controle |
+| `prepareRainTexture` | 9 | niet gedaan: de kopie van het frame naar de pack-worker. Goedkoper dan inpakken op de hoofddraad, maar niet nul |
+| `postMessage` | 7 | niet de moeite: alle grote berichten gaan al als Transferable |
+| Solid `markDownstream`/`readSignal`/`cleanNode` | 11 / 7 / 7 | deels gedaan: zie hemelstreken; de rest is de cursor per afspeeltik (scrubber, klok) |
+| `scrubber-paint:hemelstreken` (fase) | 18× / 304 ms | **gedaan**: pad per streek gecachet, nachtstreken niet meer bemonsterd |
+| `showTemperature` | 6 | **gedaan**: per tik eerst op getallen vergelijken (stap, zoom, canvasmaat) vóór frames opzoeken en een sleutel met twee chunk-URL's bouwen |
+| `scrollTableToEpoch` | 8 | niet gedaan: de tabelpiep volgt de cursor en leest daarbij rijposities (layout). Kan goedkoper met een vaste rijhoogte, maar dat raakt U42's scrollgedrag |
+| `overlay-canvas resize` | 4 | niet de moeite |
+
+Gemeten effect hemelstreken (prof:capture `--scrub --mode=lucht`, om en om tegen de build van `842a493`,
+host zwaar belast — load 17–25 door een botrenderer op 337 % CPU en de rig van U59):
+vorige 17× / 431 ms en 18× / 371 ms → nieuw 19× / 55 ms en 15× / 48 ms. Lange frames in die vier runs:
+vorige 7,5 / 5,3 s, nieuw 5,5 / 5,8 s — onder deze belasting geen bruikbaar verschil; een eerdere, rustiger
+run gaf 4,0 s. De stadstemperatuur-tik is niet apart gemeten.
+
+Receipts (synchroon): `pnpm typecheck` 0; `pnpm test` 0 (455 tests); `pnpm build` 0. Niet opnieuw gedraaid op
+deze stand: gerichte e2e en rig `--compare` (de host is nu te druk voor een zinnige rig-run).
+
+Wachtrij (orkestrator): bot-item voor stap 4–6 — Playwright-renderer van de bot houdt een GPU-proces op
+300+ % CPU (page.close in finally, context per generatie sluiten, afspelen uit in de render-URL, CPU 60 s na
+een generatie meten, docs/telegram.md).
