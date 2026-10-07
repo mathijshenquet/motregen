@@ -47,6 +47,17 @@ even op een kale kaart.
 5. **Gereedheidsniveaus meten**: `ttfr` (splash weg), `ttfh` (histogram-venster rond nu),
    `ttfc` (alles) in HUD en perf-gate; het gat ttfr→ttfh is het "jarring"-getal.
 
+## Meetkant (PO 2026-10-07: "goede observability dat er altijd zinnige dingen op het scherm staan")
+
+- **Schermwaarheid per frame**: voor het zichtbare venster van scrubber en tabel telt de client
+  elk slot als *geladen*, *fog* (bekend nog-niet-beschikbaar, zichtbaar als zodanig) of *leeg*
+  (niets getekend terwijl de data nog komt). `blank-visible-ms` = tijd na de splash waarin een
+  zichtbaar slot leeg is. Doel 0 ms; assertie in de mobiele rig (U53) en regel in de HUD.
+- **Splash eerlijk**: `ttfr` telt pas als de basemap-tiles van het eerste beeld én het eerste
+  regenframe getekend zijn (plafond 1,5 s); de rig logt wat er onder de splash gebeurde.
+- **`ttfh`** (histogram nu ± 1 u compleet): het gat `ttfr → ttfh` mag bestaan, maar is nooit leeg.
+- Tijd-majeur zelf is al meetbaar via `window-ready:<veld>` (U52) in HUD, trace en rig.
+
 ## Open vragen
 
 1. Vorm van de fog: arcering, blur of alleen een lagere dekking — PO kiest op stills/live.
