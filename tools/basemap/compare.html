@@ -29,7 +29,8 @@ window.renderCoverMask = async function(kind) {
   for (const layer of map.getStyle().layers) {
     const selected = kind === 'green'
       ? layer.id === 'park' || layer.id === 'landcover_wood' || layer.id === 'landcover_grass'
-      : layer.id === 'landuse_residential'
+      : kind === 'gray' ? layer.id === 'landuse_residential'
+        : kind === 'park' ? layer.id === 'park' : layer.id === 'landcover_' + kind
     if (layer.type === 'background') map.setPaintProperty(layer.id, 'background-color', '#000000')
     else if (layer.type === 'fill') {
       map.setPaintProperty(layer.id, 'fill-pattern', undefined)

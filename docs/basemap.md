@@ -53,7 +53,7 @@ vastgepinde PBF’s, controleert SHA256, voegt ze samen, filtert tags en maakt
 met osmium een complete-way/multipolygon-extract. Landcover wordt met osmium
 naar GeoJSON geëxporteerd en door `landcover.mts` in bos, gras, park, moeras,
 zand en bebouwing ingedeeld. GDAL/GEOS verenigt de vlakken per klasse en
-ruimtelijke groep van 0,5° vóór de tegelbouw; tilemaker past daarna simplificatie
+ruimtelijke groep van 0,05° vóór de tegelbouw; tilemaker past daarna simplificatie
 en minimumoppervlak per zoom toe. Tilemaker gebruikt
 `config.json` en `process.lua` en schrijft `tmp/basemap/build/nl.pmtiles`.
 De PMTiles-CLI clustert en verifieert het archief.

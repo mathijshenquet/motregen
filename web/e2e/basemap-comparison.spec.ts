@@ -134,7 +134,7 @@ for (const width of [390, 1280]) {
           images.push(image)
           const contrast = await contrasts(image, capture)
           const coverPercent: Record<string, number> = {}
-          for (const kind of ['green', 'gray']) {
+          for (const kind of ['green', 'gray', 'wood', 'grass', 'park']) {
             await page.evaluate(kind => (window as unknown as { renderCoverMask: (kind: string) => Promise<void> }).renderCoverMask(kind), kind)
             const mask = await page.locator('#map').screenshot()
             const { data, info } = await sharp(mask).removeAlpha().raw().toBuffer({ resolveWithObject: true })
@@ -142,7 +142,7 @@ for (const width of [390, 1280]) {
             for (let index = 0; index < data.length; index += info.channels) area += data[index]! / 255
             coverPercent[kind] = area / (info.width * info.height) * 100
           }
-          captures.push({ basemap, places: capture.places, labelCount: capture.places.length, greenPercent: coverPercent.green!, grayPercent: coverPercent.gray!, contrast })
+          captures.push({ basemap, places: capture.places, labelCount: capture.places.length, greenPercent: coverPercent.green!, grayPercent: coverPercent.gray!, coverPercent, contrast })
         }
         const path = resolve(output, `ab-${width}-${theme}-${view.name}.png`)
         await pair(images[0]!, images[1]!, path, `${width}px · ${theme} · ${view.name} · z${view.camera.zoom.toFixed(2)}`)

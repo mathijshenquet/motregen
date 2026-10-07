@@ -182,3 +182,12 @@ Gecomprimeerde bytes; publisher valideert totaal én grootste tegel tegen dezelf
 - Stijlunit 6/6 exit 0 en strikte tooling/spec-typecheck exit 0. Nieuwe e2e-gate meet onbedekt groen/grijs zonder omtrek en faalt per paar buiten ±15 %. Grijs is landuse, geen gebouwen; bij Liberty’s landuse-maxzoom 12 is dat oppervlak nul.
 - Tilemaker-profiel en archiefcijfers blijven voorlopig; nieuwe archiefhash volgt pas na herbouw en beelden. Oudere paren zijn terug te zien op commit 444e205. Draft-PR is weer in uitvoering; labels/nachtcontrast zijn PO-goedgekeurd, groen/grijs niet.
 - Technische bron voor union-/simplificatievolgorde: https://github.com/systemed/tilemaker/blob/v3.1.0/docs/CONFIGURATION.md en src/tile_worker.cpp; GEOS-union komt vóór tilemaker-simplify/min-area.
+
+## 2026-10-07T21:06:59.504Z — Kleinere uniongroepen, checkpoint
+
+- Eerste union in 0,5°-groepen na circa acht CPU-minuten zonder eerste rij beëindigd: build-revision-1 exit 143, geen groen receipt. Tweede aanpak groepeert op geometriecentroid per 0,05° en verwerkt vier klassen tegelijk. Vier grote klassen voltooid: wood circa 487 MB, grass 955 MB, urban 201 MB, park 34 MB in scratch.
+- Bouw 2 exit 2 doordat ik generalize-landcover.sh wijzigde terwijl bash er nog uit las: de verschoven regels maakten de afronding ongeldig. Actieve scripts voortaan ongemoeid laten. bash -n op het definitieve script is groen.
+- Bouw 3 loopt met MOTREGEN_LANDCOVER_RESUME=1 pnpm basemap:build, output tmp/basemap/u60/build-revision-3.txt, exec-session 30782. De vier volledige GeoJSON’s worden met ogrinfo gevalideerd en hergebruikt; zand/moeras en samengevoegde bron worden daarna opgebouwd. Nieuwe bestanden worden atomair gepubliceerd.
+- Eerste GIS-import voltooide vóór de mislukte union; parts-fingerprint vastgelegd op dezelfde classifier, gepinde bronnen en filterhash om die identieke import te hergebruiken. Bron- en union-caches zijn nu gescheiden.
+- A/B meet naast totaal groen/grijs ook wood/grass/park afzonderlijk in JSON om ander groen niet als bosherstel te laten doorgaan. Stilering/bebouwingsverf komen uit dezelfde Liberty-referentie; labelselectie en nachtpalet blijven PO-goedgekeurd.
+- pnpm typecheck exit 0 (web+bot). Stijlunit/strikte toolingcheck eerder exit 0. Nieuwe native hash, ±15 %-beeldgates en mobiele byte-/tijdgates staan nog open; volgende stap na bouw 3 is de volledige contrastieve A/B.
