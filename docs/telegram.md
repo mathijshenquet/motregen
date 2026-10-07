@@ -44,7 +44,7 @@ cacheposts worden verwijderd nadat hun ids zijn opgeslagen. Journallogs
 bevatten alleen gebeurtenisnamen, modi, stappen, manifestversies, rendertijden,
 foutcodes en eventueel het berichtnummer van een verzonden foto; geen chat-id,
 gebruiker, querytekst, token of upstream fouttekst. De cache bevat uitsluitend
-nationale JPEG-kaarten, MP4-loops, renderreceipts en Telegram-file_id's zonder
+nationale PNG-frames, JPEG-kaarten, MP4-loops, renderreceipts en Telegram-file_id's zonder
 locatie of persoonsgegevens. De renderroute stuurt geen sessieteller of
 gebruiksbaken. Alleen een expliciete lokale `MOTREGEN_DEBUG_CHAT_ID` logt daarnaast
 acties uit de aangewezen testchat; die opt-in staat niet in de productie-unit.
@@ -80,7 +80,9 @@ drijven de simulatie niet aan. FFmpeg maakt een geluidloze H.264-MP4 met
 `yuv420p`, `faststart` en een seconde eindhold. CRF 25 is de eerste keuze;
 een bitratefallback begrenst te grote video's tot maximaal 3 MB. JPEGs komen
 met ffmpeg `-q:v 3` rechtstreeks uit de betreffende PNG-frames: er zijn geen
-afzonderlijke still-renders. Tijdelijke PNGs verdwijnen na de renderpass.
+afzonderlijke still-renders. De PNG-reeks blijft in `<loop-key>.frames` twee uur
+op schijf. Alleen aangevraagde JPEGs worden gemaakt; gelijke aanvragen delen
+die conversie. PNGs en receipts zijn privé en worden niet door Caddy geserveerd.
 
 Op het beeld staat bovenaan dezelfde klokmarkup en typografie als op
 motregen.nl, in Amsterdamtijd, met de dag ernaast en het moduswoord klein eronder.
@@ -93,8 +95,15 @@ De manifest-fetch is per reeks vastgezet op de gekozen generatie, terwijl
 Chromiums HTTP-cache voor tiles en chunks actief blijft. De cachekey bevat
 renderer-versie, modus, tijdstap, absolute tijd en manifest-`generated`.
 Bestanden worden atomair gepubliceerd; een receipt verschijnt pas nadat de
-hele reeks compleet is. Eén Chromium rendert serieel en gelijke verzoeken
-delen een renderpass. Elke generatie levert 4 loops en 255 zelfstandige stills.
+hele reeks compleet is. Eén Chromium rendert maximaal vier modusreeksen tegelijk;
+gelijke verzoeken delen een renderpass. Per generatie worden 4 loops en 15 JPEGs
+vooraf klaargezet: nu/−10m/+10m/−1u/+1u per niet-Wind-modus. Alleen deze **19 media**
+worden vooraf naar Telegram geüpload. De overige tienminutenposities blijven
+beschikbaar als PNG in dezelfde reeks; JPEG en eenmalige upload volgen bij aanvraag.
+Daarna gebruikt ook die selectie file_id. Doel voor render+prime is <90 seconden;
+de gemeten tijden staan in het track-LOG.
+Een tijdelijke netwerkfout of HTTP 5xx bij een weerchunk krijgt tijdens rendering
+één herpoging met dezelfde Range. Een blijvende fout publiceert geen nieuwe matrix.
 De bot publiceert de nieuwe matrix pas als alle modi gerenderd zijn en, bij een
 geconfigureerde cachechat, hun Telegram-ids bekend zijn; de oude
 generatie blijft beschikbaar tijdens verversing. Cache-hits en inline
@@ -104,10 +113,10 @@ De manifestcheck loopt elke 15 seconden na voltooiing van een matrix.
 
 Caddy serveert uitsluitend `/telegram/stills/*.jpg` en `*.mp4` met twee uur
 cacheduur en `noindex`; sidecars en receipts geven 404. Cachebestanden ouder
-dan twee uur verdwijnen bij een manifestcheck, ook als het renderen van een
+dan twee uur, inclusief PNG-directories, verdwijnen bij een manifestcheck, ook als het renderen van een
 nieuwe matrix mislukt.
 
-Met `MOTREGEN_CACHE_CHAT_ID` uploadt de bot vóór publicatie ontbrekende JPEGs in albums van maximaal tien
+Met `MOTREGEN_CACHE_CHAT_ID` uploadt de bot vóór publicatie de maximaal 15 ontbrekende prewarm-JPEGs in albums van maximaal tien
 via `sendMediaGroup` en MP4s via `sendAnimation` naar `MOTREGEN_CACHE_CHAT_ID`.
 Uploads zijn stil, serieel met tussenruimte, en volgen Telegram `retry_after`.
 Gelijke aanvragen delen de upload. De huidige generatie blijft in het aparte
@@ -217,11 +226,13 @@ MOTREGEN_ORIGIN=http://localhost:4365 MOTREGEN_RENDER_CACHE=tmp/telegram-smoke \
 Voor de Telegram-rooktest stuurt de PO eerst `/start` in een privéchat aan de
 bot; de test leest dat chat-id uitsluitend in het geheugen. Een expliciet
 `MOTREGEN_SMOKE_CHAT_ID` kan ook. De test rendert en uploadt eerst de volledige
-matrix naar de geconfigureerde cachechat. Vervolgens verstuurt hij uitleg en
+19-media-matrix naar de geconfigureerde cachechat. Vervolgens verstuurt hij uitleg en
 een regenfoto en ververst hetzelfde bericht naar
-Lucht +3u met het vooraf verkregen file_id. Daarna gaat hij terug naar Regen en
+Lucht +10m met het vooraf verkregen file_id. Daarna gaat hij terug naar Regen en
 opnieuw naar Lucht. Hij rapporteert berichtnummer, manifestversie en beide
 cached edit-responstijden; de eerste edit moet al fileIdCached=true zijn.
+Lucht +20m controleert vervolgens het luie pad: JPEG uit bestaande PNG, één
+cache-upload en hergebruik van hetzelfde id bij de volgende edit.
 Daarna verstuurt de test iedere modus als animation, wisselt hetzelfde bericht
 naar een still en terug naar de loop met file_id. Per modus rapporteert hij
 frames, render- en encodetijd, MP4-bytes, cached verzendtijd en edit-tijd.
@@ -236,7 +247,7 @@ poller stoppen en log zelf de start en stop van de rooktest. Gebruik één
 poller per token:
 
 De rooktestchat mag nooit het cache-uploaddoel zijn, ook niet lokaal: send+delete
-is zichtbaar. Vooraf uploaden mag uitsluitend naar een apart privékanaal via
+is zichtbaar. Vooraf uploaden mag uitsluitend naar een apart privékanaal of -groep via
 `MOTREGEN_CACHE_CHAT_ID`, met de bot als beheerder. Een privégroep of supergroep
 werkt ook, met dezelfde uploads en verwijderrechten. Zonder cache-id draait de
 poke-bot in luie modus; de matrixrooktest vereist het aparte cache-id.

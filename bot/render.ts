@@ -5,6 +5,7 @@ import { performance } from 'node:perf_hooks'
 import { STILL_CACHE_TTL } from './file-ids.js'
 import { encodeLoop, encodeStill, framePath } from './encode.js'
 import { sequencePlan } from './sequences.js'
+import { installRenderFetch } from './render-fetch.js'
 import { cacheKey, caption, presetUrl, stillEpoch, STILL_HOURS, validateManifest, type LoopMode, type LoopSelection, type MediaSelection, type StillManifest, type StillSelection } from './stills.js'
 
 interface RenderedBase {
@@ -31,10 +32,18 @@ export type RenderedMedia = RenderedStill | RenderedLoop
 interface RenderedSequence { loop: RenderedLoop; stills: RenderedStill[] }
 interface SequenceMetrics { key: string; frames: number; fps: number; bytes: number; renderMs: number; encodeMs: number }
 
+export class StillRenderError extends Error {
+  readonly timeout: boolean
+  constructor(readonly mode: LoopMode, readonly phase: string, readonly frame: number | undefined, cause: unknown) {
+    super(`Renderer ${mode} mislukt bij ${phase}`, { cause })
+    this.timeout = cause instanceof Error && cause.name === 'TimeoutError'
+  }
+}
+
 export class StillRenderer {
   private browser?: Browser
   private context?: BrowserContext
-  private queues: Promise<unknown>[] = [Promise.resolve(), Promise.resolve()]
+  private queues: Promise<unknown>[] = Array.from({ length: 4 }, () => Promise.resolve())
   private nextQueue = 0
   private opening?: Promise<BrowserContext>
   private pending = new Map<string, Promise<RenderedSequence>>()
@@ -185,17 +194,7 @@ export class StillRenderer {
 
   private async openSequence(page: Page, mode: LoopMode, manifest: StillManifest, epoch: number): Promise<void> {
     // Playwright-routing schakelt de HTTP-cache uit; alleen fetch vervangen houdt tiles/chunks warm.
-    await page.addInitScript((pinnedManifest) => {
-      const originalFetch = window.fetch.bind(window)
-      window.fetch = (input, options) => {
-        const address = input instanceof Request ? input.url : String(input)
-        const url = new URL(address, window.location.href)
-        if (url.origin === window.location.origin && url.pathname === '/data/manifest.json') {
-          return Promise.resolve(new Response(JSON.stringify(pinnedManifest), { headers: { 'Content-Type': 'application/json' } }))
-        }
-        return originalFetch(input, options)
-      }
-    }, manifest)
+    await page.addInitScript(installRenderFetch, manifest)
     await page.goto(presetUrl(this.origin, mode, epoch, true), { waitUntil: 'domcontentloaded', timeout: 60_000 })
     await page.waitForFunction(() => {
       const map = document.querySelector<HTMLElement>('.map')
@@ -209,6 +208,8 @@ export class StillRenderer {
     await mkdir(this.cacheDirectory, { recursive: true })
     const directory = await mkdtemp(join(this.cacheDirectory, `.frames-${key}-`))
     let page: Page | undefined
+    let phase = 'open'
+    let frameIndex: number | undefined
     const plan = sequencePlan(mode, manifest)
     try {
       const context = await this.browserContext()
@@ -216,6 +217,8 @@ export class StillRenderer {
       const capture = await context.newCDPSession(page)
       await this.openSequence(page, mode, manifest, plan.epochs[0]!)
       for (const [index, epoch] of plan.epochs.entries()) {
+        phase = 'frame'
+        frameIndex = index
         await page.evaluate(async ({ epoch, simulationMs, regime }) => {
           const render = (window as unknown as { __motregenRenderFrame: (epoch: number, simulationMs: number) => Promise<void> }).__motregenRenderFrame
           await render(epoch, simulationMs)
@@ -229,12 +232,15 @@ export class StillRenderer {
         }))
         if (state.error) throw new Error(state.error)
         if (state.generated !== manifest.generated || Math.abs(state.epoch - epoch) >= 60_000) throw new Error('Frame wijkt af van de gevraagde manifestversie of tijd')
+        phase = 'capture'
         const screenshot = await capture.send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false, optimizeForSpeed: true, clip: { x: 0, y: 0, width: 640, height: 848, scale: 1.5 } })
         await writeFile(framePath(directory, index), Buffer.from(screenshot.data, 'base64'))
       }
       const renderMs = Math.round(performance.now() - started)
+      phase = 'encode'
       const loop = this.media({ mode, hour: 'loop' }, manifest)
       const encoded = await encodeLoop(directory, `${loop.path}.tmp`, plan)
+      phase = 'publish'
       await rename(`${loop.path}.tmp`, loop.path)
       const publishedFrames = this.frameDirectory(key)
       await rm(publishedFrames, { recursive: true, force: true })
@@ -246,6 +252,8 @@ export class StillRenderer {
       await rename(`${receipt}.tmp`, receipt)
       console.info(JSON.stringify({ event: 'sequence-render', mode, generated: manifest.generated, renderedFrames: plan.epochs.length, ...metrics }))
       return this.results(mode, manifest, metrics, false)
+    } catch (error) {
+      throw new StillRenderError(mode, phase, frameIndex, error)
     } finally {
       try {
         await page?.close()

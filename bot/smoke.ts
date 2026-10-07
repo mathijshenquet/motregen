@@ -3,7 +3,7 @@ import { readConfig, validateCacheChat } from './config.js'
 import { setTimeout as delay } from 'node:timers/promises'
 import { FileIdCache } from './file-ids.js'
 import { StillPhotos } from './photos.js'
-import { StillRenderer, type RenderedMedia } from './render.js'
+import { StillRenderer, StillRenderError, type RenderedMedia } from './render.js'
 import { keyboard, PREWARM_HOURS, STILL_HOURS, LOOP_MODES } from './stills.js'
 
 async function smoke(): Promise<void> {
@@ -114,6 +114,7 @@ async function smoke(): Promise<void> {
 }
 
 void smoke().catch((error) => {
-  console.error(error instanceof Error && !error.message.includes('http') ? error.message : 'Rooktest mislukt')
+  if (error instanceof StillRenderError) console.error(JSON.stringify({ event: 'render-failed', mode: error.mode, phase: error.phase, frame: error.frame, timeout: error.timeout }))
+  else console.error(error instanceof Error && !error.message.includes('http') ? error.message : 'Rooktest mislukt')
   process.exitCode = 1
 })

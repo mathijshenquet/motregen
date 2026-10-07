@@ -2,7 +2,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { TelegramApi, TelegramApiError, type TelegramUpdate } from './api.js'
 import { readConfig, validateCacheChat } from './config.js'
 import { configureBot, handleUpdate, type BotRuntime } from './handlers.js'
-import { StillRenderer, type RenderedMedia } from './render.js'
+import { StillRenderer, StillRenderError, type RenderedMedia } from './render.js'
 import { FileIdCache } from './file-ids.js'
 import { StillPhotos } from './photos.js'
 import { MessageSelections } from './selections.js'
@@ -58,7 +58,6 @@ async function runBot(): Promise<void> {
 
 async function pollUpdates(runtime: BotRuntime, signal: AbortSignal): Promise<void> {
   let offset = 0
-  const discoveredChannels = new Set<number>()
   while (!signal.aborted) {
     try {
       const updates = await runtime.api.call<TelegramUpdate[]>('getUpdates', {
@@ -66,11 +65,6 @@ async function pollUpdates(runtime: BotRuntime, signal: AbortSignal): Promise<vo
       }, signal)
       for (const update of updates) {
         if (signal.aborted) return
-        const chat = update.channel_post?.chat ?? update.my_chat_member?.chat ?? update.message?.chat
-        if (chat && ['channel', 'group', 'supergroup'].includes(chat.type) && !discoveredChannels.has(chat.id)) {
-          discoveredChannels.add(chat.id)
-          console.info(JSON.stringify({ event: 'cache-chat-discovered', id: chat.id }))
-        }
         try {
           await handleUpdate(update, runtime)
         } catch (error) {
@@ -115,8 +109,12 @@ async function refreshStills(runtime: BotRuntime, available: Map<string, Rendere
             throw error
           }
         }))
-        const failed = renders.find((result) => result.status === 'rejected')
-        if (failed?.status === 'rejected') throw failed.reason
+        const failedIndex = renders.findIndex((result) => result.status === 'rejected')
+        const failed = renders[failedIndex]
+        if (failed?.status === 'rejected') {
+          mode = LOOP_MODES[failedIndex]!.mode
+          throw failed.reason
+        }
         if (signal.aborted) return
         step = 'prime'
         mode = undefined
@@ -146,7 +144,7 @@ function retryDelay(error: unknown): number {
 
 function reportFailure(event: string, error: unknown, context: { step?: string; mode?: string } = {}): void {
   // Geen exceptiontekst: fetch/Playwright kan URL's, bot-token of verzoekinhoud opnemen.
-  console.error(JSON.stringify({ event: `${event}-failed`, ...context, method: error instanceof TelegramApiError ? error.method : undefined, code: error instanceof TelegramApiError ? error.code : undefined, reason: error instanceof Error && ['TimeoutError', 'AbortError'].includes(error.name) ? error.name : undefined }))
+  console.error(JSON.stringify({ event: `${event}-failed`, ...context, phase: error instanceof StillRenderError ? error.phase : undefined, frame: error instanceof StillRenderError ? error.frame : undefined, method: error instanceof TelegramApiError ? error.method : undefined, code: error instanceof TelegramApiError ? error.code : undefined, reason: error instanceof StillRenderError && error.timeout ? 'TimeoutError' : error instanceof Error && ['TimeoutError', 'AbortError'].includes(error.name) ? error.name : undefined }))
 }
 
 void runBot().catch(() => {
