@@ -12,6 +12,11 @@ let file: Uint8Array
 let headerLength: number
 let manifest: Manifest
 const files = new Map<string, Uint8Array>()
+// Ruim apparaat: één omvattende Range per chunk, zoals de tests hieronder tellen.
+const roomy = { workers: 1, requests: 6, rangeBytes: Number.POSITIVE_INFINITY }
+const everyField = new Set(['rain_rate', 'motion'])
+const intentAt = (cursorEpoch: number, window = { start: cursorEpoch - 8 * 3_600_000, end: cursorEpoch + 8 * 3_600_000 }) =>
+  ({ cursorEpoch, window, playback: 0 as const, scrubVelocity: 0, fields: everyField })
 
 beforeAll(async () => {
   manifest = JSON.parse(await readFile(resolve('public/data/manifest.json'), 'utf8')) as Manifest
@@ -100,7 +105,7 @@ describe('mrf v0', () => {
       const match = /^bytes=(\d+)-(\d+)$/.exec(new Headers(init?.headers).get('Range')!)!
       return new Response(Uint8Array.from(bytes.subarray(Number(match[1]), Number(match[2]) + 1)).buffer, { status: 206 })
     })
-    const client = new MrfClient(new URL('https://example.test/data/manifest.json'))
+    const client = new MrfClient(new URL('https://example.test/data/manifest.json'), undefined, roomy)
     const motion = await client.getMotion(manifest.chunks[0]!, 3)
 
     expect(motion && [motion.width, motion.height, motion.vectors.length]).toEqual([19, 23, 874])
@@ -187,7 +192,7 @@ describe('mrf v0', () => {
       return new Response(Uint8Array.from(bytes.subarray(start, end + 1)).buffer, { status: 206 })
     })
     vi.stubGlobal('fetch', fetchMock)
-    const client = new MrfClient(new URL('https://example.test/data/manifest.json'))
+    const client = new MrfClient(new URL('https://example.test/data/manifest.json'), undefined, roomy)
     const frames = [...buildTimeline(manifest), ...buildTimeline(manifest, 'radiation'), ...buildTimeline(manifest, 'uv')]
     const chunks = new Map(frames.map((frame) => [frame.chunk, [] as number[]]))
     for (const frame of frames) chunks.get(frame.chunk)!.push(frame.frameIndex)
@@ -234,7 +239,7 @@ describe('mrf v0', () => {
       return new Response(Uint8Array.from(bytes.subarray(Number(match[1]), Number(match[2]) + 1)).buffer, { status: 206 })
     })
     vi.stubGlobal('fetch', fetchMock)
-    const client = new MrfClient(new URL('https://example.test/data/manifest.json'))
+    const client = new MrfClient(new URL('https://example.test/data/manifest.json'), undefined, roomy)
     const original = manifest.chunks[0]!
     const decoded = await client.getFrame(original, 3)
     const refreshed = { ...original, times: [...original.times] }
@@ -278,7 +283,7 @@ describe('mrf v0', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
     const chunk = manifest.chunks.find((candidate) => candidate.source === 'nowcast')!
-    const client = new MrfClient(new URL('https://example.test/data/manifest.json'))
+    const client = new MrfClient(new URL('https://example.test/data/manifest.json'), undefined, roomy)
     const header = await client.getHeader(chunk)
     fetchMock.mockClear()
     streamPayload = true
@@ -311,7 +316,7 @@ describe('mrf v0', () => {
       const match = /^bytes=(\d+)-(\d+)$/.exec(new Headers(init?.headers).get('Range')!)!
       return new Response(Uint8Array.from(bytes.subarray(Number(match[1]), Number(match[2]) + 1)).buffer, { status: 206 })
     })
-    const client = new MrfClient(new URL('https://example.test/data/manifest.json'))
+    const client = new MrfClient(new URL('https://example.test/data/manifest.json'), undefined, roomy)
     const decoded: string[] = []
     client.onFrameDecoded = (url, frameIndex) => decoded.push(`${url.split('/').at(-1)}#${frameIndex}`)
     const chunk = manifest.chunks[0]!
@@ -371,7 +376,7 @@ describe('mrf v0', () => {
         ? new Response(Uint8Array.from(bytes.subarray(Number(match[1]), Number(match[2]) + 1)).buffer, { status: 206 })
         : new Response(Uint8Array.from(bytes).buffer, { status: 200 })
     })
-    const client = new MrfClient(new URL('https://example.test/data/manifest.json'))
+    const client = new MrfClient(new URL('https://example.test/data/manifest.json'), undefined, roomy)
     const indexes = predHeader.frames.map((_, index) => index)
     const frames = await Promise.all(indexes.map((index) => client.getFrame(predChunk, index)))
 
@@ -417,17 +422,17 @@ describe('mrf v0', () => {
 
     it('decodes outward from the cursor, whoever asked first, and follows a cursor jump (U52)', async () => {
       const worker = stubHeldWorker()
-      const client = new MrfClient(new URL('https://example.test/data/manifest.json'), undefined, 1)
+      const client = new MrfClient(new URL('https://example.test/data/manifest.json'), undefined, { ...roomy, workers: 1 })
       const chunk = manifest.chunks[0]!
       const epochOf = (frameIndex: number) => Date.parse(chunk.times[frameIndex]!)
 
-      client.setCursor({ epoch: epochOf(6), direction: 0 })
+      client.setIntent(intentAt(epochOf(6)))
       const background = client.getFrames(chunk, [0, 1, 2, 3], 'low', undefined, 'prefetch')
       await settle()
       const series = client.getFrames(chunk, [4, 5, 6, 7, 8], 'high', undefined, 'L0')
       await settle()
       for (let reply = 0; reply < 4; reply++) { worker.releaseNext(); await settle() }
-      client.setCursor({ epoch: epochOf(0), direction: 0 })
+      client.setIntent(intentAt(epochOf(0)))
       for (let reply = 0; reply < 5; reply++) { worker.releaseNext(); await settle() }
       await Promise.all([background, series])
 
@@ -438,7 +443,7 @@ describe('mrf v0', () => {
 
     it('skips a queued decode once every requester has aborted, but not one somebody still wants', async () => {
       const worker = stubHeldWorker()
-      const client = new MrfClient(new URL('https://example.test/data/manifest.json'), undefined, 1)
+      const client = new MrfClient(new URL('https://example.test/data/manifest.json'), undefined, { ...roomy, workers: 1 })
       const chunk = manifest.chunks[0]!
       const view = new AbortController()
 
@@ -461,6 +466,51 @@ describe('mrf v0', () => {
       worker.releaseNext()
       expect((await retry).length).toBeGreaterThan(0)
       expect(worker.decodeOrder).toEqual([0, 2, 1])
+    })
+
+    it('fetches a constrained device\'s frames in pieces, nearest to the cursor first (MIP-20)', async () => {
+      const ranges: string[] = []
+      const releases: Array<() => void> = []
+      class InstantWorker {
+        onmessage?: (event: MessageEvent) => void
+        postMessage(message: { id: number; bytes: ArrayBuffer; expectedLength: number; pred?: PredFrameSpec }): void {
+          const frame = decodeFrame(new Uint8Array(message.bytes), message.expectedLength, message.pred)
+          queueMicrotask(() => this.onmessage?.({ data: { id: message.id, frame: frame.slice().buffer } } as MessageEvent))
+        }
+      }
+      vi.stubGlobal('Worker', InstantWorker)
+      vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
+        const bytes = files.get(new URL(String(input)).pathname.replace('/data/', ''))!
+        const range = new Headers(init?.headers).get('Range')!
+        const match = /^bytes=(\d+)-(\d+)$/.exec(range)!
+        if (Number(match[1]) >= headerLength) {
+          ranges.push(range)
+          await new Promise<void>((release) => releases.push(release))
+        }
+        return new Response(Uint8Array.from(bytes.subarray(Number(match[1]), Number(match[2]) + 1)).buffer, { status: 206 })
+      })
+      const chunk = manifest.chunks[0]!
+      const header = parseMrfHeader(file.subarray(0, headerLength))
+      const frameRange = (index: number) =>
+        `bytes=${headerLength + header.frames[index]!.offset}-${headerLength + header.frames[index]!.offset + header.frames[index]!.len - 1}`
+      // Eén byte per stuk: elk frame wordt zijn eigen Range (een stuk heeft minstens één frame).
+      const client = new MrfClient(new URL('https://example.test/data/manifest.json'), undefined, { workers: 1, requests: 1, rangeBytes: 1 })
+      client.setIntent(intentAt(Date.parse(chunk.times[7]!)))
+
+      const loaded = client.getFrames(chunk, [0, 1, 2, 3, 4, 5, 6, 7], 'low', undefined, 'L1')
+      let settled = false
+      void loaded.finally(() => { settled = true })
+      while (!settled) {
+        await settle()
+        expect(releases.length).toBeLessThanOrEqual(1)
+        releases.shift()?.()
+      }
+      expect((await loaded).length).toBe(8)
+
+      // Eén request tegelijk, en de frames naast de cursor (6 en 7, binnen één framestap) gaan
+      // voor het begin van het bestand, ook al staan ze daar achteraan.
+      const frameRanges = ranges.filter((range) => [0, 1, 2, 3, 4, 5, 6, 7].some((index) => range === frameRange(index)))
+      expect(frameRanges).toEqual([6, 7, 5, 4, 3, 2, 1, 0].map(frameRange))
     })
   })
 })

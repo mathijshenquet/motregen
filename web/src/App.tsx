@@ -59,6 +59,7 @@ import { resolveLocation, suggestLocations } from './core/geocoder'
 import { cursorForPresetEpoch, modeForActiveFocus, modeForFocus, parsePresets, shareUrl } from './core/presets'
 import { applyTelegramColors, type TelegramWebApp } from './core/telegram'
 import { windowReady } from './core/window-ready'
+import type { Intent } from './core/intent'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
 const manifestRequestUrl = sessionManifestUrls(manifestUrl)
@@ -67,6 +68,11 @@ const coldProfileRequested = consumeColdProfile(localStorage)
 const perf = installPerfMonitor()
 perf.setDetailedEnabled(profileMode)
 const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
+// Intent (MIP-20): velden die de kaart of de scrubber in een van de modi tekent, en velden die
+// alleen de tabel voedt. Na deze rust geldt de scrubber als stilstaand.
+const ALWAYS_SHOWN_FIELDS = ['rain_rate', 'motion', 'uv', 'uv_clear', 'cloud_low', 'cloud_mid', 'cloud_high', 'cloud_frac', 'wind_u_ms', 'wind_v_ms', 'gust_ms', 'pressure_hpa', 'feels_like_c', 'temp_c']
+const TABLE_ONLY_FIELDS = ['rel_humidity', 'radiation']
+const SCRUB_REST_MS = 250
 type PointLoadStage = 'initial' | 'direct' | 'window' | 'complete'
 type FetchPriority = 'high' | 'low'
 type ForecastIndex = 'radiationIndex' | 'uvIndex' | 'temperatureIndex' | 'feelsLikeIndex' | 'humidityIndex' | 'cloudIndex' | 'windUIndex' | 'windVIndex' | 'gustIndex'
@@ -257,7 +263,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const decode = decodeBudget(browserDeviceHints())
   // Krap apparaat (U49): puntreeksen alleen voor wat scrubber en tabel nu tonen, niet vooruit.
   const inViewOnly = decode.pointSeries === 'in-view'
-  const client = new MrfClient(manifestUrl, perf.loads, decode.workers)
+  const client = new MrfClient(manifestUrl, perf.loads, decode)
   const [manifest, setManifest] = createSignal<Manifest>()
   const [manifestRefresh, setManifestRefresh] = createSignal<RefreshState>()
   const timeline = createMemo(() => manifest() ? buildTimeline(manifest()!) : [])
@@ -392,6 +398,18 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (previous) queueMicrotask(() => previous.abort())
     return new AbortController()
   })
+  // Velden die nu ergens getekend worden. Alles wat de kaart of de scrubber kan tonen telt mee; wat
+  // alleen de tabel voedt valt weg zolang de tabelrijen niet in beeld zijn.
+  const shownFields = createMemo<ReadonlySet<string>>(() => {
+    const fields = new Set(ALWAYS_SHOWN_FIELDS)
+    if (tableInView()) for (const field of TABLE_ONLY_FIELDS) fields.add(field)
+    return fields
+  })
+  // Tijdlijn-ms per ms tijdens slepen of toetsen; valt terug naar 0 zodra de scrubber stilstaat.
+  const [scrubVelocity, setScrubVelocity] = createSignal(0)
+  let lastScrub: { epoch: number; at: number } | undefined
+  let scrubRest: number | undefined
+  onCleanup(() => window.clearTimeout(scrubRest))
   // Tabelvelden die de scrubber zelf tekent: de UV-chip altijd, wind en temperatuur in hun modus.
   const scrubberSeries = createMemo(() => {
     const keys = new Set<ForecastIndex>(['uvIndex'])
@@ -846,10 +864,17 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }, requestAnimationFrame, cancelAnimationFrame)
     onCleanup(() => { stop(); frameLoopDrives = false; setGlideRate(0) })
   })
-  // De decodewachtrij werkt van de cursor naar buiten, tijdens afspelen met voorkeur vooruit (U52).
+  // Eén intent stuurt requests en decodes (MIP-20): van de cursor naar buiten, tijdens afspelen
+  // met voorkeur vooruit, tijdens scrubben gemikt op waar de cursor uitkomt.
+  const intent = createMemo<Intent>(() => ({
+    cursorEpoch: selectedEpoch(),
+    window: viewWindow(),
+    playback: playing() ? 1 : 0,
+    scrubVelocity: scrubVelocity(),
+    fields: shownFields(),
+  }))
   createEffect(() => {
-    if (!timeline().length) return
-    client.setCursor({ epoch: selectedEpoch(), direction: playing() ? 1 : 0 })
+    if (timeline().length) client.setIntent(intent())
   })
   // Buiten het afspelen (scrubben, toetsen, pauze, focuswissel, nieuwe tijdlijn) tekent dit effect.
   createEffect(() => {
@@ -2180,6 +2205,16 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     scrubPrefetch = true
     completeOnIntent()
     setCursor(cursor)
+    trackScrubVelocity()
+  }
+
+  function trackScrubVelocity(): void {
+    const now = performance.now()
+    const epoch = selectedEpoch()
+    if (lastScrub && now - lastScrub.at < SCRUB_REST_MS && now > lastScrub.at) setScrubVelocity((epoch - lastScrub.epoch) / (now - lastScrub.at))
+    lastScrub = { epoch, at: now }
+    window.clearTimeout(scrubRest)
+    scrubRest = window.setTimeout(() => { lastScrub = undefined; setScrubVelocity(0) }, SCRUB_REST_MS)
   }
 
   // Een aanraking van de scrubber haalt op een ruim apparaat alvast alles binnen; op een krap
