@@ -10,7 +10,7 @@ generalize_zoom() {
   pixel_metres="$(awk -v z="$zoom" 'BEGIN { print 40075016.6856 / (256 * 2^z) }')"
   tolerance="$(awk -v p="$pixel_metres" 'BEGIN { print p * 0.25 }')"
   park_tolerance="$(awk -v p="$pixel_metres" -v z="$zoom" 'BEGIN { print p * (z < 10 ? 0.1 : 0.25) }')"
-  urban_buffer="$(awk -v p="$pixel_metres" -v z="$zoom" 'BEGIN { print p * (z == 6 ? 0.5 : z == 7 ? 0.25 : z == 8 ? 0.125 : 0.1) }')"
+  urban_buffer="$(awk -v p="$pixel_metres" -v z="$zoom" 'BEGIN { print p * (z == 6 ? 0.5 : z == 7 ? 0.2 : z == 8 ? 0.125 : 0.1) }')"
   query="SELECT ST_SimplifyPreserveTopology(CASE WHEN class IN ('urban', 'urban_other') THEN ST_Buffer(ST_UnaryUnion(ST_Collect(ST_Buffer(ST_CollectionExtract(ST_MakeValid(geom), 3), $urban_buffer))), -$urban_buffer) ELSE ST_UnaryUnion(ST_Collect(ST_CollectionExtract(ST_MakeValid(geom), 3))) END, CASE WHEN class = 'park' THEN $park_tolerance ELSE $tolerance END) AS geometry, class, detail_minzoom FROM cover WHERE detail_minzoom <= $detail_zoom GROUP BY class, detail_minzoom, CAST(ST_X(ST_Centroid(geom)) / 5000 AS INTEGER), CAST(ST_Y(ST_Centroid(geom)) / 5000 AS INTEGER)"
   profile_hash="$( { printf '%s\n' "$query"; cat "$cover_dir/landcover-parts.sha256"; } | sha256sum | cut -d ' ' -f 1)"
   if [ ! -s "$cover_dir/cover-$zoom.geojson" ] || [ "$profile_hash" != "$(cat "$cover_dir/cover-$zoom.sha256" 2>/dev/null || true)" ]; then

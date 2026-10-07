@@ -78,7 +78,7 @@ De pixelmaat wordt gekwadrateerd: minimumoppervlak =
 GDAL/GEOS verenigt geselecteerde vlakken per klasse/detailzoom/5 km-groep in
 EPSG:3857. `generalize-landcover.sh` maakt afzonderlijke bronnen voor z4–10,
 met topology-preserving simplificatie op 0,25 pixel; park onder z10 op 0,1 pixel.
-Bebouwing krijgt een closing-buffer van 0,5 pixel op z6, 0,25 op z7, 0,125 op
+Bebouwing krijgt een closing-buffer van 0,5 pixel op z6, 0,2 op z7, 0,125 op
 z8 en 0,1 daarna. Na union verdwijnen stedelijke componenten kleiner dan
 1 pixel² en gaten kleiner dan 1 pixel², net als bij Liberty's residential-laag.
 De overige bebouwing verschijnt grof vanaf z10 om het totale grijsoppervlak
@@ -128,25 +128,28 @@ zoom circa 10,93 bij de gekozen kustlocatie (51,9° N).
 Boven z10 gebruikt MapLibre bron-overzoom; de bestaande zoomregel blijft gelden.
 Z9, z10 en z11 zijn vergeleken bij start en maximale appzoom op 390, 1280 en
 3840 px. Z10 behoudt het Brielse Meer en bruikbare watervormen bij overzoom;
-z9 maakt die te grof. Z11 voegt vooral kleine vlakken toe. Het U60-z10-archief met de ruimere kustdekking is `nl-1395e020ae33a90b.pmtiles`,
-4.191.993 B voor 1.951 tegels (+18,55 % tegenover U59). Het U59-archief
-`nl-0aa536ff364f7cce.pmtiles` blijft beschikbaar tijdens de frontend-cacheovergang.
+z9 maakt die te grof. Z11 voegt vooral kleine vlakken toe. Het U60-z10-archief met de ruimere landcover en z12-detail is `nl-91e2043db5c73799.pmtiles`,
+24.301.762 B voor 2.213 tegels.
+Het U59-archief `nl-0aa536ff364f7cce.pmtiles` en de eerste U60-hash
+`nl-1395e020ae33a90b.pmtiles` blijven beschikbaar tijdens de frontend-cacheovergang.
+De tussentijdse, niet uitgerolde profiel-kandidaat is verwijderd uit de package.
 Het manifest bewaart SHA256 en gecomprimeerde/uitgepakte tegelgroottes.
+De +25 %-gate geldt voor gemeten koude kaartbytes; het hele archief wordt niet gedownload.
 
 | Zoom | Tegels | Gecomprimeerd totaal | p50 / grootste tegel |
 | --- | ---: | ---: | ---: |
-| 4 | 4 | 18.153 B | 1.597 / 12.252 B |
-| 5 | 7 | 44.943 B | 2.071 / 31.925 B |
-| 6 | 12 | 107.650 B | 3.822 / 35.174 B |
-| 7 | 33 | 204.075 B | 2.284 / 46.798 B |
-| 8 | 118 | 509.497 B | 813 / 55.839 B |
-| 9 | 405 | 1.106.471 B | 271 / 34.280 B |
-| 10 | 1.372 | 2.233.115 B | 95 / 23.101 B |
+| 4 | 4 | 26.447 B | 1.588 / 20.530 B |
+| 5 | 7 | 58.220 B | 2.076 / 45.172 B |
+| 6 | 12 | 194.318 B | 3.824 / 65.221 B |
+| 7 | 35 | 836.292 B | 3.108 / 185.500 B |
+| 8 | 132 | 2.138.774 B | 1.109 / 192.778 B |
+| 9 | 461 | 5.565.270 B | 333 / 168.904 B |
+| 10 | 1.562 | 15.515.465 B | 103 / 130.814 B |
 
 | Laag | Geometrie | Attributen |
 | --- | --- | --- |
 | water | vlakken, inclusief rivierwater en Noordzee | geen |
-| landcover | grove vlakken | class: wood, grass, park, wetland, sand of urban |
+| landcover | gevulde vlakken per zoom | class: wood, grass, park, wetland, sand of urban; detail_minzoom: 4–12 |
 | boundary | lijnen; uitsluitend admin 2/4, geen maritime | admin_level, maritime=0 |
 | place | punten; land, provincie, city/town/village | name (name:nl, anders name), class, rank, population |
 

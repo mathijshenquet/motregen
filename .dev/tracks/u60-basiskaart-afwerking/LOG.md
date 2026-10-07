@@ -256,3 +256,16 @@ Gecomprimeerde bytes; publisher valideert totaal én grootste tegel tegen dezelf
 
 - pnpm basemap:build exit 0, inclusief gepinde vijf bronnen, complete GIS-profielen, tilemaker, cluster, verify en publisher/schema-validatie. Receipt tmp/basemap/u60/build-revision-7.txt (exec-session 47718). Nieuwe hash/archiefcijfers in tools/basemap/tiles/manifest.json; absolute 25 MB-cap gehaald.
 - Volledige vaste A/B licht/donker 390/1280 gestart, tmp/basemap/u60/ab-revision-7.txt. Groen/grijs en mobiele eindgate nog niet geclaimd. Nieuw archief en reproduceerbare source/docs gaan nu mee in vijftienminutencheckpoint.
+
+## 2026-10-07T22:22:36Z — A/B bouw 7: één zoomprofiel nog buiten grijsgrens
+
+- Volledige A/B exit 1: 390 licht/donker geslaagd; 1280 licht/donker uitsluitend Utrecht z7 grijs +15,95 % (7,5546→8,7594 %) boven +15 %. Alle 28 groenmetingen binnen ±15 %; overig grijs eveneens binnen grens, z12 beide nul. Receipt tmp/basemap/u60/ab-revision-7.txt; JSON bewaard in iteration-7.
+- Closing-buffer z7 van 0,25 naar 0,2 pixel; overige bronselectie/verf/labelregels gelijk. Per-zoom GIS-cache herbouwt alleen dit profiel. Bouw 8 gestart, daarna opnieuw alle contrastieve paren.
+- nix build .#motregen-basemap --no-link exit 0 op bouw-7-hash; nieuwe hash wordt na deze correctie opnieuw verpakt/gecheckt.
+
+## 2026-10-07T22:29:19Z — Definitieve beeldgate en verpakking groen
+
+- Bouw 8 exit 0; definitief nl-91e2043db5c73799.pmtiles, 24.301.762 B. Alleen urban-closing z7 gecorrigeerd naar 0,2 pixel; alle bronprofielen afgeleid uit dezelfde gepinde bronnen. Niet uitgerolde f057-profielkandidaat uit HEAD/package verwijderd, oudere cachehashes behouden.
+- MOTREGEN_E2E_PORT=4397 MOTREGEN_E2E_DATA_PORT=8397 MOTREGEN_MOBILE_BASEMAP=own MOTREGEN_BASEMAP_COMPARISON=1 pnpm --filter motregen-web e2e e2e/basemap-comparison.spec.ts e2e/basemap.spec.ts --config playwright.basemap.config.ts --project desktop: exit 0, 11 tests. Alle 28 groen-/grijsparen binnen ±15 %; labels en nachtcontrast groen. Receipt tmp/basemap/u60/ab-final-revision.txt.
+- pnpm typecheck, stijlvalidator 6/6 en pnpm build: exit 0 (samen exec-session 71805). Volledige unitrun eerder 519/519 exit 0; frontendcode gelijk. nix build .#motregen-basemap --no-link exit 0 op definitieve hash (exec-session 7017, nix-final-revision.txt).
+- Beeldmetingen/archief/docs nu coherent gecommit/gepusht vóór de mobiele eindrig; koude rig en cache nog open.
