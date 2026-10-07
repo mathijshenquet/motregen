@@ -7,6 +7,7 @@ import { defineConfig, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import solid from 'vite-plugin-solid'
 import { configDefaults } from 'vitest/config'
+import { basemapRangeCache } from './scripts/basemap-range-cache'
 
 // dev/preview draait op de dev-host (ageq-mthq, sinds 2026-10-07 ageq-dev2) en wordt via het tailnet bekeken (MIP-1 §5)
 const allowedHosts = ['ageq-mthq', 'ageq-dev2']
@@ -62,9 +63,19 @@ export default defineConfig({
       background_color: '#eaf1f3',
     },
     workbox: {
+      globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}', 'basemap/**/*.{json,pbf}'],
       globIgnores: ['**/data/**'],
       navigateFallback: '/index.html',
       runtimeCaching: [
+        {
+          urlPattern: /\/data\/basemap\/nl-[0-9a-f]{16}\.pmtiles$/,
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'motregen-basemap-ranges-v1',
+            plugins: [basemapRangeCache],
+            expiration: { maxEntries: 384, maxAgeSeconds: 31_536_000, purgeOnQuotaError: true },
+          },
+        },
         { urlPattern: /\/data\/|\/hit(?:\?|$)/, handler: 'NetworkOnly' },
         { urlPattern: /^https:\/\/[^/]*openfreemap\.org\//, handler: 'NetworkOnly' },
       ],

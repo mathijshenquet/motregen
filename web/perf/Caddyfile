@@ -4,7 +4,7 @@
 }
 
 :{$MOTREGEN_E2E_DATA_PORT:8392} {
-	root * public/perf-mobile
+	root * {$MOTREGEN_MOBILE_FIXTURE_DIR:public/perf-mobile}
 	header {
 		Access-Control-Allow-Origin "*"
 		Timing-Allow-Origin "*"

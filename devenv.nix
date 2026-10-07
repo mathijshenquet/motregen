@@ -17,6 +17,7 @@
   packages = [
     pkgs.caddy
     pkgs.tilemaker
+    pkgs.pmtiles
     pkgs.osmium-tool
     pkgs.gdal
     pkgs.unzip

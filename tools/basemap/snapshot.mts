@@ -1,6 +1,7 @@
-import { mkdirSync, existsSync, writeFileSync } from 'node:fs'
+import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { prepareBasemapStyle } from './liberty'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../tmp/basemap/openfreemap')
 const origin = 'https://tiles.openfreemap.org'
@@ -11,11 +12,12 @@ async function download(url: string, path: string) {
   mkdirSync(dirname(path), { recursive: true })
   writeFileSync(path, Buffer.from(await response.arrayBuffer()))
 }
-const style = await (await fetch(`${origin}/styles/liberty`)).json()
-const tilejson = await (await fetch(`${origin}/planet`)).json()
+const style = existsSync(resolve(root, 'liberty.json')) ? JSON.parse(readFileSync(resolve(root, 'liberty.json'), 'utf8')) : await (await fetch(`${origin}/styles/liberty`)).json()
+const tilejson = existsSync(resolve(root, 'tilejson.json')) ? JSON.parse(readFileSync(resolve(root, 'tilejson.json'), 'utf8')) : await (await fetch(`${origin}/planet`)).json()
 mkdirSync(root, { recursive: true })
 writeFileSync(resolve(root, 'liberty.json'), JSON.stringify(style, null, 2))
 writeFileSync(resolve(root, 'tilejson.json'), JSON.stringify(tilejson, null, 2))
+for (const theme of ['light', 'dark'] as const) writeFileSync(resolve(root, `${theme}.json`), JSON.stringify(prepareBasemapStyle(style, theme)))
 const downloads: Array<[string, string]> = []
 for (const font of ['Noto Sans Regular', 'Noto Sans Italic', 'Noto Sans Bold']) {
   for (const range of ['0-255', '256-511']) downloads.push([`${origin}/fonts/${font}/${range}.pbf`, `fonts/${font}/${range}.pbf`])
@@ -24,10 +26,10 @@ for (const suffix of ['.json', '.png', '@2x.json', '@2x.png']) downloads.push([`
 const mercatorY = (latitude: number) => (1 - Math.asinh(Math.tan(latitude * Math.PI / 180)) / Math.PI) / 2
 for (let zoom = 4; zoom <= 7; zoom++) {
   const count = 2 ** zoom
-  for (let x = Math.floor(180 / 360 * count); x <= Math.floor(190 / 360 * count); x++) {
-    for (let y = Math.floor(mercatorY(56) * count); y <= Math.floor(mercatorY(49) * count); y++) {
-      const path = `${zoom}/${x}/${y}`
-      downloads.push([tilejson.tiles[0].replace('{z}', String(zoom)).replace('{x}', String(x)).replace('{y}', String(y)), `tiles/${path}.pbf`])
+  for (let tileX = Math.floor(180 / 360 * count); tileX <= Math.floor(190 / 360 * count); tileX++) {
+    for (let tileY = Math.floor(mercatorY(56) * count); tileY <= Math.floor(mercatorY(49) * count); tileY++) {
+      const path = `${zoom}/${tileX}/${tileY}`
+      downloads.push([tilejson.tiles[0].replace('{z}', String(zoom)).replace('{x}', String(tileX)).replace('{y}', String(tileY)), `tiles/${path}.pbf`])
       if (zoom <= 6) downloads.push([`${origin}/natural_earth/ne2sr/${path}.png`, `raster/${path}.png`])
     }
   }

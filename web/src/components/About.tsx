@@ -69,7 +69,7 @@ export default function About(props: Props) {
     <button ref={trigger} type="button" class="map-brand round-action" aria-haspopup="dialog" aria-label="Over motregen en instellingen" title="Over motregen en instellingen" onClick={tapBrand}>
       <img src="/droplet.svg" alt="" />
     </button>
-    <div class="source">{props.sourcePrefix}<span>Bron: KNMI · Kaart: OpenFreeMap</span></div>
+    <div class="source">{props.sourcePrefix}<span>Bron: KNMI · © OpenStreetMap</span></div>
     <dialog
       ref={dialog}
       class="about-dialog"
@@ -113,7 +113,7 @@ export default function About(props: Props) {
           <dt>Voorspelling</dt><dd>KNMI-nowcast (2 uur), dan HARMONIE-AROME</dd>
           <dt>UV</dt><dd>UV-index van het KNMI, met bewolking</dd>
           <dt>Maan</dt><dd>Textuur: <a href="https://svs.gsfc.nasa.gov/5587/" target="_blank" rel="noopener">NASA Scientific Visualization Studio</a></dd>
-          <dt>Kaart</dt><dd><a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></dd>
+          <dt>Kaart</dt><dd>© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></dd>
           <dt>Zoeken</dt><dd>PDOK (NL) · Digitaal Vlaanderen (BE)</dd>
           <dt>Privacy</dt><dd>Geen tracking, geen advertenties. Anoniem geteld: sessies en gebruikte functies, zonder IP of identificatie; locatie en favorieten blijven in je browser</dd>
           <dt>Telegram</dt><dd>De bot bewaart chat-id’s alleen tijdens verzoeken in het geheugen; er worden geen persoonsgegevens op schijf opgeslagen.</dd>

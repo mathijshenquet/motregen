@@ -33,6 +33,7 @@
         rustc = rustToolchain;
       };
       motregenPackages = {
+        motregen-basemap = pkgs.callPackage ./nix/packages/basemap.nix { };
         motregen-ingest = pkgs.callPackage ./nix/packages/ingest.nix { inherit rustPlatform; };
         motregen-web = pkgs.callPackage ./nix/packages/web.nix { };
         motregen-bot = pkgs.callPackage ./nix/packages/bot.nix { };

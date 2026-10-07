@@ -1,0 +1,58 @@
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { expect, test } from '@playwright/test'
+import { applyEmulation, performanceProfile } from './profiles'
+
+for (const width of [390, 1280]) {
+  test(`warme basiskaart zonder netwerk ${width}px`, async ({ page, context }) => {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 800 })
+    const cdp = await context.newCDPSession(page)
+    await applyEmulation(cdp, performanceProfile(width === 390 ? 'mobile-4g' : 'desktop'))
+    await cdp.send('Network.setCacheDisabled', { cacheDisabled: true })
+    await page.goto('/?perf=1&t=%2B0u&modus=weer')
+    await expect(page.locator('.map-splash.ready')).toBeAttached()
+    await page.evaluate(async () => { await navigator.serviceWorker.ready })
+    await page.reload()
+    await page.waitForFunction(() => navigator.serviceWorker.controller !== null)
+    await expect(page.locator('.map-splash.ready')).toBeAttached()
+    await expect.poll(() => page.evaluate(async () => (await (await caches.open('motregen-basemap-ranges-v1')).keys()).length)).toBeGreaterThan(1)
+    await page.waitForTimeout(1_000)
+    const cold = await page.evaluate(() => window.__motregenPerf.snapshot())
+    const network: string[] = []
+    const isBasemap = (url: string) => /\/basemap\//.test(new URL(url).pathname)
+    context.on('request', request => {
+      if (isBasemap(request.url()) && (request.serviceWorker() || !request.frame())) network.push(request.url())
+    })
+    const ranges: Array<{ status: number; cached: boolean }> = []
+    page.on('response', response => {
+      if (response.url().endsWith('.pmtiles')) ranges.push({ status: response.status(), cached: response.fromServiceWorker() })
+    })
+    await page.reload()
+    await expect(page.locator('.map-splash.ready')).toBeAttached()
+    await page.waitForTimeout(1_000)
+    const warm = await page.evaluate(() => window.__motregenPerf.snapshot())
+    expect(network).toEqual([])
+    expect(ranges.length).toBeGreaterThan(1)
+    expect(ranges.every(response => response.status === 206 && response.cached)).toBe(true)
+    const cache = await page.evaluate(async () => {
+      const cache = await caches.open('motregen-basemap-ranges-v1')
+      const keys = await cache.keys()
+      let bytes = 0
+      for (const key of keys) bytes += (await (await cache.match(key))!.arrayBuffer()).byteLength
+      return { entries: keys.length, bytes }
+    })
+    mkdirSync('tmp/basemap', { recursive: true })
+    writeFileSync(`tmp/basemap/cache-${width}.json`, JSON.stringify({ network, ranges, cache, cold, warm }, null, 2))
+    await context.setOffline(true)
+    const cachedStyle = await page.evaluate(async () => (await fetch('/basemap/licht.json')).status)
+    expect(cachedStyle).toBe(200)
+    const cachedRange = await page.evaluate(async () => {
+      const style = await fetch('/basemap/licht.json').then(response => response.json())
+      const response = await fetch(style.sources.basemap.url.slice('pmtiles://'.length), { headers: { Range: 'bytes=0-16383' } })
+      return { status: response.status, bytes: (await response.arrayBuffer()).byteLength, range: response.headers.get('Content-Range') }
+    })
+    expect(cachedRange.status).toBe(206)
+    expect(cachedRange.bytes).toBe(16_384)
+    expect(cachedRange.range).toMatch(/^bytes 0-16383\//)
+    await context.setOffline(false)
+  })
+}

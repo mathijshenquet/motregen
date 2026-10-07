@@ -20,6 +20,7 @@ for (let index = 0; index < args.length; index++) {
   } else throw new Error(`Onbekende optie: ${argument}`)
 }
 if (options.baseline && options.compare) throw new Error('--baseline en --compare sluiten elkaar uit')
+if (options.baseline && options.basemap === 'own') throw new Error('Meet het basemap-nulpunt met --basemap openfreemap; --basemap own gebruikt --compare')
 if (!Number.isInteger(options.repeat) || options.repeat < 1 || options.repeat > 10) throw new Error('--repeat moet 1…10 zijn')
 if (!Number.isFinite(options.cpuRate) || options.cpuRate < 1 || options.cpuRate > 32) throw new Error('--cpu-rate moet 1…32 zijn')
 if (options.baseline && options.repeat < 3) throw new Error('--baseline vereist --repeat 3 (of meer) om determinisme te verifiëren')
@@ -54,7 +55,7 @@ for (const profile of options.profiles) {
       failed = true
       continue
     }
-    const baselinePath = `perf/baselines/${profile}-${scenario}${options.basemap === 'fixture' ? '' : `-${options.basemap}`}.json`
+    const baselinePath = `perf/baselines/${profile}-${scenario}${options.basemap === 'fixture' ? '' : '-openfreemap'}.json`
     if (options.baseline) {
       mkdirSync('perf/baselines', { recursive: true })
       const medianBytes = [...baselines].sort((left, right) => left.wireBytes - right.wireBytes)[Math.floor(baselines.length / 2)]!
@@ -64,9 +65,18 @@ for (const profile of options.profiles) {
       if (!existsSync(baselinePath)) throw new Error(`Baseline ontbreekt: ${baselinePath}`)
       const expected = JSON.parse(readFileSync(baselinePath, 'utf8')) as MobileBaseline
       for (const actual of baselines) {
-        const comparison = compareBaseline(actual, expected)
+        if (options.basemap !== 'fixture') {
+          if (!actual.metrics?.basemapContractHash || actual.metrics.basemapContractHash !== expected.metrics?.basemapContractHash) throw new Error('Basemap-nulpunt heeft een ander weer-/viewport-/throttle-/rigcontract; meet opnieuw')
+        }
+        const comparison = compareBaseline(options.basemap === 'fixture' ? actual : { ...actual, contractHash: expected.contractHash }, expected)
         console.log(`${profile}/${scenario}: wire ${comparison.wireDeltaPercent.toFixed(3)} %, decodes ${comparison.decodeDeltaPercent.toFixed(3)} %, ${comparison.passed ? 'groen' : 'REGRESSIE'}`)
         if (!comparison.passed) failed = true
+        if (options.basemap === 'own') {
+          const phases = (actual.metrics?.decode as MobileReport['decode']).phases['basemap-tile']
+          const passed = phases !== undefined && phases.count > 0 && phases.totalMs <= 1_000 && phases.p50Ms !== null && phases.p50Ms <= 150
+          console.log(`Eigen basemap: totaal ${phases?.totalMs ?? 'onbekend'} ms, p50 ${phases?.p50Ms ?? 'onbekend'} ms; ${passed ? 'groen' : 'DOEL NIET GEHAALD'}`)
+          if (!passed) failed = true
+        }
       }
     }
   }

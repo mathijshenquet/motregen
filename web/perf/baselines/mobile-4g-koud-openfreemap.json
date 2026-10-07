@@ -2,30 +2,31 @@
   "schema": 1,
   "profile": "mobile-4g",
   "scenario": "koud",
-  "sourceSha": "68cac20ed1ca8d7146948003fb992e596b4228ff",
-  "capturedAt": "2026-10-07T16:27:21.644Z",
-  "contractHash": "0796a135aa744c30161d1ac7bac215abb1c4be82b261b4c9326dcd71bb87c397",
+  "sourceSha": "2aeb95e8da34aed541a9d59d7cb1e5ee1484a56b",
+  "capturedAt": "2026-10-07T17:03:41.764Z",
+  "contractHash": "f5fd2a2a3e189997b951a01a321be990cb81cd5168c9306b5cb0b6c7a4f466f9",
   "regressionLimitPercent": 10,
-  "wireBytes": 3009816,
+  "wireBytes": 2987829,
   "decodes": 297,
   "metrics": {
+    "basemapContractHash": "16a2e6a2b67569fb57c7462d1f197efb7a56a0147d5b032d15f7fe44081508d3",
     "milestones": {
-      "ttfrMs": 1623,
-      "splashGoneMs": 3562.399999976158,
-      "ttfhMs": 3347,
+      "ttfrMs": 1656.1,
+      "splashGoneMs": 3585.5,
+      "ttfhMs": 3545,
       "windowReadyMs": {
-        "cloud_mid": 2338,
-        "cloud_low": 2756,
-        "cloud_high": 2756,
-        "uv": 3151,
-        "feels_like_c": 3235,
-        "wind_u": 3235,
-        "wind_v": 3235,
-        "rain_rate": 3347,
-        "temp_c": 3471,
-        "rel_humidity": 3504,
-        "cloud_frac": 3504,
-        "gust_ms": 3560
+        "cloud_mid": 2447,
+        "cloud_low": 2893,
+        "cloud_high": 2964,
+        "uv": 3380,
+        "feels_like_c": 3467,
+        "wind_u": 3467,
+        "wind_v": 3467,
+        "rain_rate": 3545,
+        "rel_humidity": 3729,
+        "cloud_frac": 3729,
+        "temp_c": 3771,
+        "gust_ms": 3771
       },
       "histogramSource": "U52 window-ready:rain_rate"
     },
@@ -33,213 +34,213 @@
       "phases": {
         "table-render": {
           "count": 7,
-          "totalMs": 6.8,
-          "p50Ms": 0.7999999523162842,
-          "p95Ms": 2.9000000953674316
+          "totalMs": 4.4,
+          "p50Ms": 0.5,
+          "p95Ms": 2
         },
         "scrubber-paint": {
-          "count": 224,
-          "totalMs": 91.7,
-          "p50Ms": 0.2999999523162842,
-          "p95Ms": 1
+          "count": 187,
+          "totalMs": 79.4,
+          "p50Ms": 0.3999999761581421,
+          "p95Ms": 0.8999999761581421
         },
         "frame-decode": {
           "count": 297,
-          "totalMs": 119,
+          "totalMs": 119.7,
           "p50Ms": 0.20000004768371582,
-          "p95Ms": 1.8000000715255737
+          "p95Ms": 1.899999976158142
         },
         "basemap-tile": {
           "count": 5,
-          "totalMs": 5816.9,
-          "p50Ms": 894.5,
-          "p95Ms": 2523.5999999046326
+          "totalMs": 5812,
+          "p50Ms": 949,
+          "p95Ms": 2345.100000023842
         },
         "texture-upload": {
           "count": 1,
-          "totalMs": 4.3,
-          "p50Ms": 4.299999952316284,
-          "p95Ms": 4.299999952316284
+          "totalMs": 5.3,
+          "p50Ms": 5.299999952316284,
+          "p95Ms": 5.299999952316284
         },
         "wind-step": {
-          "count": 1051,
-          "totalMs": 1063.9,
-          "p50Ms": 0.8999999761581421,
-          "p95Ms": 2
+          "count": 1027,
+          "totalMs": 1840.3,
+          "p50Ms": 1.6999999284744263,
+          "p95Ms": 2.9000000953674316
         },
         "window-ready:cloud_mid": {
           "count": 1,
-          "totalMs": 2337.5,
-          "p50Ms": 2337.5,
-          "p95Ms": 2337.5
+          "totalMs": 2446.7,
+          "p50Ms": 2446.7000000476837,
+          "p95Ms": 2446.7000000476837
         },
         "window-ready:cloud_low": {
           "count": 1,
-          "totalMs": 2755.5,
-          "p50Ms": 2755.5,
-          "p95Ms": 2755.5
+          "totalMs": 2892.7,
+          "p50Ms": 2892.7000000476837,
+          "p95Ms": 2892.7000000476837
         },
         "window-ready:cloud_high": {
           "count": 1,
-          "totalMs": 2755.5,
-          "p50Ms": 2755.5,
-          "p95Ms": 2755.5
+          "totalMs": 2964,
+          "p50Ms": 2964,
+          "p95Ms": 2964
         },
         "window-ready:uv": {
           "count": 1,
-          "totalMs": 3150.8,
-          "p50Ms": 3150.7999999523163,
-          "p95Ms": 3150.7999999523163
+          "totalMs": 3380.2,
+          "p50Ms": 3380.2000000476837,
+          "p95Ms": 3380.2000000476837
         },
         "window-ready:feels_like_c": {
           "count": 1,
-          "totalMs": 3235.2,
-          "p50Ms": 3235.1999999284744,
-          "p95Ms": 3235.1999999284744
+          "totalMs": 3467.4,
+          "p50Ms": 3467.4000000953674,
+          "p95Ms": 3467.4000000953674
         },
         "window-ready:wind_u": {
           "count": 1,
-          "totalMs": 3235.2,
-          "p50Ms": 3235.1999999284744,
-          "p95Ms": 3235.1999999284744
+          "totalMs": 3467.4,
+          "p50Ms": 3467.4000000953674,
+          "p95Ms": 3467.4000000953674
         },
         "window-ready:wind_v": {
           "count": 1,
-          "totalMs": 3235.2,
-          "p50Ms": 3235.1999999284744,
-          "p95Ms": 3235.1999999284744
+          "totalMs": 3467.4,
+          "p50Ms": 3467.4000000953674,
+          "p95Ms": 3467.4000000953674
         },
         "window-ready:rain_rate": {
           "count": 1,
-          "totalMs": 3346.5,
-          "p50Ms": 3346.5,
-          "p95Ms": 3346.5
-        },
-        "window-ready:temp_c": {
-          "count": 1,
-          "totalMs": 3471,
-          "p50Ms": 3471,
-          "p95Ms": 3471
+          "totalMs": 3544.9,
+          "p50Ms": 3544.9000000953674,
+          "p95Ms": 3544.9000000953674
         },
         "window-ready:rel_humidity": {
           "count": 1,
-          "totalMs": 3503.5,
-          "p50Ms": 3503.5,
-          "p95Ms": 3503.5
+          "totalMs": 3728.5,
+          "p50Ms": 3728.5,
+          "p95Ms": 3728.5
         },
         "window-ready:cloud_frac": {
           "count": 1,
-          "totalMs": 3503.5,
-          "p50Ms": 3503.5,
-          "p95Ms": 3503.5
+          "totalMs": 3728.5,
+          "p50Ms": 3728.5,
+          "p95Ms": 3728.5
+        },
+        "window-ready:temp_c": {
+          "count": 1,
+          "totalMs": 3771.1,
+          "p50Ms": 3771.100000023842,
+          "p95Ms": 3771.100000023842
         },
         "window-ready:gust_ms": {
           "count": 1,
-          "totalMs": 3559.6,
-          "p50Ms": 3559.5999999046326,
-          "p95Ms": 3559.5999999046326
+          "totalMs": 3771.1,
+          "p50Ms": 3771.100000023842,
+          "p95Ms": 3771.100000023842
         }
       },
       "fields": {
         "rain_rate": {
           "count": 66,
-          "totalMs": 17.1,
+          "totalMs": 19.3,
           "p50Ms": 0.20000004768371582,
-          "p95Ms": 0.40000009536743164
+          "p95Ms": 0.8999999761581421
         },
         "radiation": {
           "count": 11,
-          "totalMs": 6.6,
-          "p50Ms": 0.30000007152557373,
-          "p95Ms": 1.8000000715255737
+          "totalMs": 7.7,
+          "p50Ms": 0.3999999761581421,
+          "p95Ms": 2.600000023841858
         },
         "motion": {
           "count": 1,
-          "totalMs": 0.2,
-          "p50Ms": 0.19999992847442627,
-          "p95Ms": 0.19999992847442627
-        },
-        "uv_clear": {
-          "count": 10,
-          "totalMs": 3.2,
-          "p50Ms": 0.10000002384185791,
-          "p95Ms": 1.1999999284744263
+          "totalMs": 0,
+          "p50Ms": 0,
+          "p95Ms": 0
         },
         "feels_like_c": {
           "count": 25,
-          "totalMs": 52,
-          "p50Ms": 2,
-          "p95Ms": 3.5
+          "totalMs": 53.6,
+          "p50Ms": 1.899999976158142,
+          "p95Ms": 3.799999952316284
+        },
+        "uv_clear": {
+          "count": 10,
+          "totalMs": 2,
+          "p50Ms": 0.10000002384185791,
+          "p95Ms": 0.5999999046325684
         },
         "cloud_mid": {
           "count": 9,
-          "totalMs": 2,
-          "p50Ms": 0.20000004768371582,
-          "p95Ms": 0.3999999761581421
+          "totalMs": 1.4,
+          "p50Ms": 0.10000002384185791,
+          "p95Ms": 0.30000007152557373
+        },
+        "temp_c": {
+          "count": 25,
+          "totalMs": 4.5,
+          "p50Ms": 0.19999992847442627,
+          "p95Ms": 0.2999999523162842
         },
         "cloud_low": {
           "count": 9,
           "totalMs": 1.7,
           "p50Ms": 0.20000004768371582,
-          "p95Ms": 0.30000007152557373
-        },
-        "temp_c": {
-          "count": 25,
-          "totalMs": 4.3,
-          "p50Ms": 0.20000004768371582,
           "p95Ms": 0.2999999523162842
         },
         "cloud_high": {
           "count": 9,
-          "totalMs": 2,
+          "totalMs": 1.9,
           "p50Ms": 0.19999992847442627,
-          "p95Ms": 0.5
-        },
-        "rel_humidity": {
-          "count": 25,
-          "totalMs": 7.1,
-          "p50Ms": 0.2999999523162842,
           "p95Ms": 0.3999999761581421
         },
         "uv": {
           "count": 7,
-          "totalMs": 1,
-          "p50Ms": 0.10000002384185791,
-          "p95Ms": 0.20000004768371582
+          "totalMs": 1.7,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.7000000476837158
+        },
+        "rel_humidity": {
+          "count": 25,
+          "totalMs": 6.8,
+          "p50Ms": 0.2999999523162842,
+          "p95Ms": 0.40000009536743164
         },
         "cloud_frac": {
           "count": 25,
-          "totalMs": 4.2,
-          "p50Ms": 0.19999992847442627,
-          "p95Ms": 0.30000007152557373
+          "totalMs": 3.6,
+          "p50Ms": 0.10000002384185791,
+          "p95Ms": 0.20000004768371582
         },
         "wind_u_ms": {
           "count": 25,
-          "totalMs": 6.2,
-          "p50Ms": 0.20000004768371582,
-          "p95Ms": 0.5
-        },
-        "wind_v_ms": {
-          "count": 25,
-          "totalMs": 5.7,
+          "totalMs": 5.3,
           "p50Ms": 0.20000004768371582,
           "p95Ms": 0.30000007152557373
         },
+        "wind_v_ms": {
+          "count": 25,
+          "totalMs": 4.9,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.2999999523162842
+        },
         "gust_ms": {
           "count": 25,
-          "totalMs": 5.7,
+          "totalMs": 5.3,
           "p50Ms": 0.20000004768371582,
           "p95Ms": 0.30000007152557373
         }
       },
       "decodesPerSecond": [
         0,
-        18,
-        38,
-        32,
-        83,
-        81,
-        45,
+        14,
+        31,
+        39,
+        104,
+        66,
+        43,
         0,
         0,
         0,
@@ -284,13 +285,13 @@
         },
         "other": {
           "requests": 11,
-          "bytes": 522129,
-          "meanRequestBytes": 47466.27272727273
+          "bytes": 500142,
+          "meanRequestBytes": 45467.454545454544
         },
         "total": {
           "requests": 113,
-          "bytes": 3009816,
-          "meanRequestBytes": 26635.53982300885
+          "bytes": 2987829,
+          "meanRequestBytes": 26440.964601769912
         }
       },
       "resourceTiming": {
@@ -311,13 +312,13 @@
         },
         "other": {
           "requests": 11,
-          "bytes": 522129,
-          "meanRequestBytes": 47466.27272727273
+          "bytes": 500142,
+          "meanRequestBytes": 45467.454545454544
         },
         "total": {
           "requests": 113,
-          "bytes": 3009816,
-          "meanRequestBytes": 26635.53982300885
+          "bytes": 2987829,
+          "meanRequestBytes": 26440.964601769912
         }
       },
       "differences": [
@@ -351,47 +352,47 @@
       "contentLengthFallbacks": 3,
       "findings": [],
       "rangeRequests": 91,
-      "beforeTtfrBytes": 705011,
-      "beforeTtfhBytes": 2668263
+      "beforeTtfrBytes": 683024,
+      "beforeTtfhBytes": 2853402
     },
     "longFrames": {
-      "count": 25,
-      "totalMs": 2282.3000000715256,
-      "blockingMs": 780.3000000000001,
+      "count": 27,
+      "totalMs": 2465.800000190735,
+      "blockingMs": 880,
       "topSources": [
         {
-          "source": "http://127.0.0.1:4392/assets/index-06H9R-xt.js FrameRequestCallback",
-          "durationMs": 1223.5000003576279
+          "source": "http://127.0.0.1:4393/assets/index-C1kwVEUK.js FrameRequestCallback",
+          "durationMs": 1323.3999999761581
         },
         {
-          "source": "http://127.0.0.1:4392/assets/index-06H9R-xt.js Worker.onmessage",
-          "durationMs": 198.10000014305115
+          "source": "http://127.0.0.1:4393/assets/index-C1kwVEUK.js Worker.onmessage",
+          "durationMs": 213.9999998807907
         },
         {
-          "source": "http://127.0.0.1:4392/assets/index-06H9R-xt.js http://127.0.0.1:4392/assets/index-06H9R-xt.js",
-          "durationMs": 161.69999992847443
+          "source": "http://127.0.0.1:4393/assets/index-C1kwVEUK.js http://127.0.0.1:4393/assets/index-C1kwVEUK.js",
+          "durationMs": 187.29999995231628
         }
       ]
     },
     "mainThread": {
-      "samples": 3076,
-      "busySamples": 453,
-      "busyPercent": 14.726918075422628,
+      "samples": 3067,
+      "busySamples": 566,
+      "busyPercent": 18.45451581349853,
       "topSources": [
         {
           "functionName": "currentTrailView",
           "url": "src/core/wind-layer.ts",
-          "selfSamples": 54
+          "selfSamples": 105
         },
         {
-          "functionName": "declump",
+          "functionName": "drawHeads",
           "url": "src/core/wind-layer.ts",
-          "selfSamples": 7
+          "selfSamples": 20
         },
         {
-          "functionName": "measurePerfPhase",
-          "url": "src/core/perf.ts",
-          "selfSamples": 7
+          "functionName": "renderStep",
+          "url": "src/core/wind-layer.ts",
+          "selfSamples": 21
         }
       ]
     },
@@ -415,7 +416,7 @@
       "lateOutsideIntentCount": 0
     },
     "findings": [
-      "1 sampleposities zonder sourcemap-positie; oorspronkelijke bundelpositie bewaard"
+      "2 sampleposities zonder sourcemap-positie; oorspronkelijke bundelpositie bewaard"
     ]
   }
 }
