@@ -95,8 +95,8 @@ renderer-versie, modus, tijdstap, absolute tijd en manifest-`generated`.
 Bestanden worden atomair gepubliceerd; een receipt verschijnt pas nadat de
 hele reeks compleet is. Eén Chromium rendert serieel en gelijke verzoeken
 delen een renderpass. Elke generatie levert 4 loops en 255 zelfstandige stills.
-De bot publiceert de nieuwe matrix pas als alle modi gerenderd én hun Telegram-ids
-bekend zijn; de oude
+De bot publiceert de nieuwe matrix pas als alle modi gerenderd zijn en, bij een
+geconfigureerde cachechat, hun Telegram-ids bekend zijn; de oude
 generatie blijft beschikbaar tijdens verversing. Cache-hits en inline
 antwoorden wachten niet achter nieuwe Chromium-renders. De bot meet per modus
 frames, render- en encodetijd en bytes, en de hele matrix in milliseconden.
@@ -107,13 +107,16 @@ cacheduur en `noindex`; sidecars en receipts geven 404. Cachebestanden ouder
 dan twee uur verdwijnen bij een manifestcheck, ook als het renderen van een
 nieuwe matrix mislukt.
 
-Voor publicatie uploadt de bot ontbrekende JPEGs in albums van maximaal tien
+Met `MOTREGEN_CACHE_CHAT_ID` uploadt de bot vóór publicatie ontbrekende JPEGs in albums van maximaal tien
 via `sendMediaGroup` en MP4s via `sendAnimation` naar `MOTREGEN_CACHE_CHAT_ID`.
 Uploads zijn stil, serieel met tussenruimte, en volgen Telegram `retry_after`.
 Gelijke aanvragen delen de upload. Na het opslaan van de ids verwijdert de bot
 met `deleteMessages` uitsluitend deze eigen nieuwe cacheposts; de ids blijven
 bruikbaar. Ook een aanvraag tijdens opwarming krijgt eerst een cache-upload,
 zodat een gebruikersbericht en zijn eerste tik alleen file_id sturen.
+Zonder deze optionele variabele uploadt de bot lui bij de eerste verzending of
+edit naar de betreffende gebruikerschat en bewaart daarna het file_id. Er is
+geen automatisch gekozen cachechat en geen fallback naar een PO- of rooktestchat.
 Het grootste foto-file_id
 of het animation-file_id uit de Telegram-respons komt atomair in
 `<kaart>.jpg.file-id.json` of `<loop>.mp4.file-id.json` naast het mediabestand
@@ -123,7 +126,8 @@ selectie of andere bot kan geen oud id hergebruiken. Ids vervallen met de
 twee-uurs-mediacache; sidecars worden ook opgeruimd.
 
 Inline gebruikt `InlineQueryResultCachedPhoto` of
-`InlineQueryResultCachedMpeg4Gif` zodra de matrix gepubliceerd is, ook lokaal.
+`InlineQueryResultCachedMpeg4Gif` zodra het file_id bekend is, ook lokaal;
+met een cachechat geldt dat voor de hele gepubliceerde matrix.
 De cachechat wordt expliciet geconfigureerd. Stills hebben op een HTTPS-origin
 ook een publieke JPEG-URL als fallback. Inline-edits kunnen nooit een nieuw
 bestand uploaden en gebruiken een bestaand id of publieke URL.
@@ -143,15 +147,20 @@ root-beheerde `/var/lib/motregen/secrets.env` bevat naast de KNMI/ADS-sleutels:
 
 ```text
 TG_BOT_KEY=<bot-token>
-MOTREGEN_CACHE_CHAT_ID=<cache-chat-id of @kanaal>
 ```
+
+Optioneel kan `MOTREGEN_CACHE_CHAT_ID=<cache-chat-id of @kanaal>` worden toegevoegd
+voor vooraf uploaden. Dit is uitsluitend een expliciet ingericht productiekanaal
+of cachechat met schrijf- en verwijderrechten. Zonder deze variabele werkt de
+service met luie uploads. `MOTREGEN_SMOKE_CHAT_ID` en `MOTREGEN_DEBUG_CHAT_ID` horen
+niet in de productieconfiguratie en bepalen nooit het cache-uploaddoel.
 
 Het token gaat nooit in Git of de Nix-store. Configuratie via environment:
 
 | variabele | standaard | betekenis |
 | --- | --- | --- |
 | `TG_BOT_KEY` | verplicht | token uit BotFather |
-| `MOTREGEN_CACHE_CHAT_ID` | verplicht voor de bot | uploadchat of kanaal met schrijf- en verwijderrechten |
+| `MOTREGEN_CACHE_CHAT_ID` | niet ingesteld | optionele cachechat voor vooraf uploaden; anders luie uploads |
 | `MOTREGEN_ORIGIN` | `https://motregen.nl` | app en publieke still-URLs |
 | `MOTREGEN_RENDER_CACHE` | `tmp/telegram-stills` | lokale cachemap |
 | `MOTREGEN_CHROMIUM_PATH` | Playwright-selectie | expliciete nixpkgs-Chromium-binary |
@@ -211,6 +220,11 @@ HTTP-preview naar de publieke HTTPS-app. Meld vóór de test “rooktest klaar o
 te starten” aan de orkestrator en in het track-LOG; laat de orkestrator zijn
 poller stoppen en log zelf de start en stop van de rooktest. Gebruik één
 poller per token:
+
+Alleen voor een expliciet toegestane lokale proef mag `MOTREGEN_CACHE_CHAT_ID`
+in het testproces gelijk worden gezet aan `MOTREGEN_SMOKE_CHAT_ID`, omdat de
+bot zijn eigen tijdelijke uploadposts na het bewaren van de ids verwijdert.
+Dit is geen productieconfiguratie; de rooktest vereist een expliciet cache-uploaddoel.
 
 ```sh
 MOTREGEN_ORIGIN=http://localhost:4365 MOTREGEN_RENDER_CACHE=tmp/telegram-smoke \

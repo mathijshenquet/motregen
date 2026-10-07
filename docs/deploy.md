@@ -67,8 +67,16 @@ optionele ingestvariabelen zijn `MOTREGEN_RADAR_CADENCE`,
 
 ## Cloudflare
 
-De Telegram-service leest `TG_BOT_KEY` uit hetzelfde `secrets.env`. BotFather,
-cache, Mini App en controlecommando's staan in [telegram.md](telegram.md).
+De Nix-unit `motregen-bot.service` leest `TG_BOT_KEY` uit hetzelfde `secrets.env`.
+Optioneel stelt `MOTREGEN_CACHE_CHAT_ID` een eigen productiecachechat of kanaal
+met schrijf- en verwijderrechten in: de bot uploadt daar vooraf en verwijdert
+zijn eigen tijdelijke posts na file_id-opslag. Zonder deze variabele uploadt
+hij lui bij de eerste gebruikersverzending of edit. Er is geen fallback naar
+een PO- of rooktestchat; `MOTREGEN_SMOKE_CHAT_ID` en `MOTREGEN_DEBUG_CHAT_ID` horen
+niet in de productieomgeving. De PO-rooktestchat als tijdelijk cache-uploaddoel
+is alleen toegestaan voor een expliciet geautoriseerde lokale proef met deze
+postverwijdering. BotFather, cache, Mini App en controlecommando's staan in
+[telegram.md](telegram.md).
 
 Voer deze stappen uit in het Cloudflare-dashboard:
 

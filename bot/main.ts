@@ -10,11 +10,6 @@ import { STILL_HOURS, LOOP_MODES, type StillManifest, type MediaSelection } from
 
 async function runBot(): Promise<void> {
   const config = readConfig()
-  if (!config.cacheChatId) {
-    console.error('MOTREGEN_CACHE_CHAT_ID ontbreekt; stel de uploadchat in.')
-    process.exitCode = 1
-    return
-  }
   const api = new TelegramApi(config.token)
   const identity = await api.call<{ username: string }>('getMe')
   const webhook = await api.call<{ url: string }>('getWebhookInfo')

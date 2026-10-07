@@ -76,3 +76,10 @@ one-liners, commentaar alleen voor een niet-triviaal waarom.
     in dezelfde moduspass opnemen: 85 per niet-Wind-modus, dus 255 JPEG + 4 loops.
     De loop-fps en loop-tijdbereiken blijven die van punten 6–9. Nieuwe versie
     melden zodra de lokale bot deze contracten serveert.
+13. Productie gebruikt uitsluitend een expliciete, optionele
+    `MOTREGEN_CACHE_CHAT_ID` voor vooraf uploaden; zonder cachechat lui uploaden
+    bij eerste verzending/edit. Geen fallback naar PO-/rooktestchat. Alleen
+    deze geautoriseerde lokale proef mag de rooktestchat als cache-uploaddoel
+    gebruiken, met verwijdering van de eigen tijdelijke uploadposts. Vastleggen
+    in Telegram- en Nix-service-documentatie; herstel na getUpdates-netwerkfout
+    controleren en loggen.
