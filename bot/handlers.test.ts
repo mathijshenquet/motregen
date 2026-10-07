@@ -85,7 +85,7 @@ describe('still delivery and callbacks', () => {
     expect(calls.every((call) => call.method === 'sendAnimation')).toBe(true)
     // De tijdknoppen onder de loop vragen een stilstaand beeld van dat moment.
     const keyboardRows = JSON.parse(String(calls[0].fields.reply_markup)).inline_keyboard as Array<Array<{ text: string; callback_data: string }>>
-    expect(keyboardRows[0].map((button) => button.text)).toEqual(['Regen', '✓ Gevoel', 'Wind'])
+    expect(keyboardRows[0].map((button) => button.text)).toEqual(['Regen', '✓ Temperatuur', 'Wind'])
     expect(keyboardRows[1].map((button) => button.text)).toEqual(['−1u', '−10m', 'nu', '+10m', '+1u', '✓ Loop'])
     expect(keyboardRows[1][3].callback_data).toMatch(/^feels:at:\d{13}:\d{13}$/)
     const before = calls.length

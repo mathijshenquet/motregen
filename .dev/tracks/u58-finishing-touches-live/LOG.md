@@ -578,3 +578,20 @@ schreef de regel vóór ik de uitkomst las; de run eindigde met exit 1 (4 passed
 bewust 25 px. Assertie bijgewerkt; daarna `pnpm e2e e2e/telegram.spec.ts --project desktop` exit 0
 (7 passed), deze keer gelezen. De overige receipts in die entry (bot en web typecheck/test/build, de
 render-run) waren wel vooraf gezien.
+
+## 2026-10-08 04:55 — bot: modusknop "Temperatuur", tijdknoppen per modus instelbaar
+
+- Modusknop onder het beeld: "Gevoel" → "Temperatuur" (`button` in `STILL_MODES`); de app-tab blijft Gevoel.
+  Verder zegt de bot nergens meer los "Gevoel": het label "Gevoelstemperatuur" (commandomenu, inline-titel,
+  en de modusnaam in het beeld zelf, die uit de app komt) heb ik laten staan — dat is de naam van de
+  grootheid. Starttekst noemde al /temperatuur.
+- Waarom "uurstappen" bij temperatuur: de tijdknoppen zijn in de code voor regen en temperatuur al gelijk
+  (−1u · −10m · nu · +10m · +1u; één lijst in `keyboard()` sinds U55). Wat per uur loopt is de **loop**:
+  `sequencePlan` rendert temperatuur als uurframes nu…+12 u op 4 fps (regen: 5-minutenframes −2…+2 u op 10
+  fps), een U55-keuze; de tienminuten-stills komen uit extra frames in dezelfde reeks.
+- Voorbereid: `deltaMinutes` per modus in `STILL_MODES` (nu voor beide [-60, -10, 10, 60], wind leeg);
+  `keyboard()` leest die set en `deltaLabel` maakt de knoptekst. Een andere set per modus is daarmee één
+  regel. De looptijdstap (`sequencePlan`) is níet aangeraakt.
+- `docs/telegram.md`: modusrij, tabelrij en rooktestbeschrijving zeggen Temperatuur; zin over `deltaMinutes`.
+- Receipts (synchroon, gelezen): `bot`: `pnpm typecheck` 0, `pnpm test` 0 (12 bestanden, 60 tests), `pnpm
+  build` 0. Geen webwijziging. **Bot klaar voor herstart.**

@@ -3,15 +3,18 @@ import type { PresetMode } from '../web/src/core/presets.js'
 import { telegramStartParameter } from '../web/src/core/telegram-presets.js'
 
 // `command` staat in het commandomenu; `aliases` werken ook maar staan er alleen in als `listed`.
-// `button` is de tekst op de modusknop onder het beeld.
+// `button` is de tekst op de modusknop onder het beeld. `deltaMinutes` zijn de tijdknoppen rond "nu", per
+// modus instelbaar; elke stap moet een veelvoud van tien minuten zijn (STILL_MINUTES).
+const DEFAULT_DELTA_MINUTES = [-60, -10, 10, 60] as const
 export const STILL_MODES = [
-  { mode: 'weather', command: 'regen', aliases: [], listed: [], query: 'weer', label: 'Regen', button: 'Regen' },
+  { mode: 'weather', command: 'regen', aliases: [], listed: [], query: 'weer', label: 'Regen', button: 'Regen', deltaMinutes: DEFAULT_DELTA_MINUTES },
   // PO 2026-10-07: /temperatuur met alias /hitte. /gevoel (de naam tot U58) blijft werken zonder vermelding.
-  { mode: 'feels', command: 'temperatuur', aliases: ['hitte', 'gevoel'], listed: ['hitte'], query: 'gevoel', label: 'Gevoelstemperatuur', button: 'Gevoel' },
+  // De knop heet Temperatuur, net als het commando (PO 2026-10-08); de tab in de app blijft "Gevoel".
+  { mode: 'feels', command: 'temperatuur', aliases: ['hitte', 'gevoel'], listed: ['hitte'], query: 'gevoel', label: 'Gevoelstemperatuur', button: 'Temperatuur', deltaMinutes: DEFAULT_DELTA_MINUTES },
 ] as const
 
 export const LOOP_MODES = [...STILL_MODES,
-  { mode: 'wind', command: 'wind', aliases: [], listed: [], query: 'wind', label: 'Wind', button: 'Wind' },
+  { mode: 'wind', command: 'wind', aliases: [], listed: [], query: 'wind', label: 'Wind', button: 'Wind', deltaMinutes: [] },
 ] as const
 
 /** De modus van een commando of alias, zonder schuine streep. */
@@ -127,14 +130,24 @@ export function keyboard(selection: MediaSelection, epoch: number, generated?: s
   }))
   const timeButtons: InlineButton[] = []
   if (selection.mode !== 'wind') {
+    const stillMode = selection.mode
     const minute = selection.hour === 'loop' ? 0 : Math.round(selection.hour * 60)
-    for (const [delta, label] of [[-60, '−1u'], [-10, '−10m'], [0, 'nu'], [10, '+10m'], [60, '+1u']] as const) {
-      if (delta === 0) timeButtons.push({ text: `${selection.hour === 0 ? '✓ ' : ''}nu`, callback_data: callbackData({ mode: selection.mode, hour: 0 }) })
-      else if (STILL_MINUTES.includes(minute + delta)) timeButtons.push({ text: label, callback_data: callbackData({ mode: selection.mode, hour: (minute + delta) / 60 }, epoch + delta * 60_000, generated) })
-    }
+    const deltas: readonly number[] = STILL_MODES.find((entry) => entry.mode === stillMode)!.deltaMinutes
+    const deltaButton = (delta: number): InlineButton[] => STILL_MINUTES.includes(minute + delta)
+      ? [{ text: deltaLabel(delta), callback_data: callbackData({ mode: stillMode, hour: (minute + delta) / 60 }, epoch + delta * 60_000, generated) }]
+      : []
+    timeButtons.push(...deltas.filter((delta) => delta < 0).flatMap(deltaButton))
+    timeButtons.push({ text: `${selection.hour === 0 ? '✓ ' : ''}nu`, callback_data: callbackData({ mode: stillMode, hour: 0 }) })
+    timeButtons.push(...deltas.filter((delta) => delta > 0).flatMap(deltaButton))
   }
   timeButtons.push({ text: `${selection.hour === 'loop' ? '✓ ' : ''}Loop`, callback_data: callbackData({ mode: selection.mode, hour: 'loop' }, epoch, generated) })
   return { inline_keyboard: [modeButtons, timeButtons] }
+}
+
+/** −1u, −10m, +10m, +1u: hele uren in uren, de rest in minuten. */
+export function deltaLabel(minutes: number): string {
+  const size = Math.abs(minutes)
+  return `${minutes < 0 ? '−' : '+'}${size % 60 === 0 ? `${size / 60}u` : `${size}m`}`
 }
 
 export function validateManifest(value: unknown): StillManifest {
