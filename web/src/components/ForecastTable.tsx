@@ -1,11 +1,11 @@
 import { createEffect, createMemo, createSignal, createUniqueId, For, onCleanup, Show } from 'solid-js'
 import type { FocusKind } from '../core/focus-mode'
 import type { HourlyForecastRow } from '../core/forecast'
-import { moonLitPath, moonPhase } from '../core/moon'
+import { moonEvents, moonLitPath, moonPhase } from '../core/moon'
 import { solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
 import { dailyClearSkyUvMax, uvReading } from '../core/uv'
 import { deriveWeatherIcon, summarizeWind, WIND_UNIT_LABELS, type WindSummary, type WindUnit } from '../core/weather'
-import { ArrowUp, BUTTON_ICON, Clock, CloudRain, CloudSun, Thermometer, Wind } from './icons'
+import { ArrowUp, BUTTON_ICON, Clock, CloudRain, CloudSun, MapIcon, Thermometer, Wind } from './icons'
 import UvBar from './UvBar'
 import WeatherIcon from './WeatherIcon'
 import { measurePerfPhase } from '../core/perf'
@@ -42,6 +42,8 @@ interface Props {
   onOpenHistory: () => void
   /** Klik op een rij: de scrubber springt naar dat uur (U34). */
   onSelectTime?: (epoch: number) => void
+  /** Portrait-mobiel gebruikt de eerste kop als terugweg naar de kaart. */
+  onShowMap?: () => void
   // De koppenrij is de modebalk: hover/toetsenbordfocus is tijdelijk, klikken pint één modus.
   focus: {
     pinned: FocusKind
@@ -100,6 +102,15 @@ export default function ForecastTable(props: Props) {
     const events = sunEvents(first.epoch, last.epoch + hour, props.location.lng, props.location.lat)
     return new Map(events.map((event) => [Math.floor(event.epoch / hour) * hour, event]))
   })
+  const moonRises = tableMemo('maanopkomst', () => {
+    const first = props.rows[0]
+    const last = props.rows.at(-1)
+    if (!first || !last) return []
+    return moonEvents(first.epoch - 36 * hour, last.epoch + 36 * hour, props.location.lng, props.location.lat)
+      .filter((event) => event.kind === 'rise').map((event) => event.epoch)
+  })
+  const nearestMoonRise = (epoch: number) => moonRises().reduce<number | undefined>((nearest, rise) =>
+    nearest === undefined || Math.abs(rise - epoch) < Math.abs(nearest - epoch) ? rise : nearest, undefined)
   const elevation = (epoch: number) => solarElevationSin(epoch, props.location.lng, props.location.lat)
 
   const rowElements = new Map<number, HTMLTableRowElement>()
@@ -170,7 +181,11 @@ export default function ForecastTable(props: Props) {
   return <table class="forecast-table" data-mode={props.focus.pinned} data-hover={hovered()}>
     <thead><tr>
       {/* Weer is de vaste standaardmodus: regen op de kaart en in de grafiek. */}
-      <th class="time-heading"><span class="column-mode"><ColumnLabel icon={Clock} text="Uur" /></span></th>
+      <th class="time-heading"><Show when={props.onShowMap} fallback={<span class="column-mode"><ColumnLabel icon={Clock} text="Uur" /></span>}>
+        <button type="button" class="column-mode map-heading-action" title="Terug naar de kaart" onClick={(event) => { event.stopPropagation(); props.onShowMap?.() }}>
+          <ColumnLabel icon={MapIcon} text="Kaart" />
+        </button>
+      </Show></th>
       <Show when={props.columns.weather}><th class="weather-heading" {...columnHover('weather')}>
         <FocusHeading mode="weather" icon={CloudRain} label="Weer" title="Toon regen op de kaart en in de grafiek" />
       </th></Show>
@@ -185,15 +200,6 @@ export default function ForecastTable(props: Props) {
       </th></Show>
     </tr></thead>
     <tbody>
-    <Show when={!props.historyInline && pastCount() > 0}>
-      <tr class="history-toggle-row">
-        <td colSpan={columnCount()}>
-          <button type="button" class="history-toggle" aria-expanded={props.historyOpen} onClick={() => props.onOpenHistory()}>
-            {props.historyOpen ? 'Afgelopen uren verbergen' : `Afgelopen ${pastCount()} uur tonen`}
-          </button>
-        </td>
-      </tr>
-    </Show>
     <For each={visibleRows()}>{(row) => {
       const pending = () => row.epoch > props.loadedUntil || (row.kind === 'past' && !props.historyLoaded)
       const value = (series: Array<number | null>, index: number | null) => index == null ? null : series[index] ?? null
@@ -242,7 +248,7 @@ export default function ForecastTable(props: Props) {
           </Show>
           <Show when={props.columns.air}>
             <td class="air-cell" {...columnHover('air')}>
-              <Show when={elevation(row.epoch) > 0} fallback={<MoonReading epoch={row.epoch} />}>
+              <Show when={elevation(row.epoch) > 0} fallback={<MoonReading epoch={row.epoch} rise={nearestMoonRise(row.epoch)} />}>
                 <Show when={uv()} fallback={<span class="air-uv-placeholder">{placeholder()}</span>}>
                   <UvBar reading={uv()} scale={dailyClearSkyUvMax(row.epoch, props.location.lat)} />
                 </Show>
@@ -254,6 +260,15 @@ export default function ForecastTable(props: Props) {
             <WindReading summary={summary()} />
           }</Show></td></Show>
         </tr>
+        <Show when={!props.historyInline && row.kind === 'now' && pastCount() > 0}>
+          <tr class="history-toggle-row">
+            <td colSpan={columnCount()}>
+              <button type="button" class="history-toggle" aria-expanded={props.historyOpen} onClick={() => props.onOpenHistory()}>
+                {props.historyOpen ? 'Afgelopen uren verbergen' : `Afgelopen ${pastCount()} uur tonen`}
+              </button>
+            </td>
+          </tr>
+        </Show>
         <Show when={sunEvent()}>{(event) =>
           <tr class="sun-row" classList={{ 'past-hour': row.kind === 'past' }}>
             <td colSpan={columnCount()}><SunGlyph />{sunLabel(event())}</td>
@@ -281,32 +296,34 @@ function WindReading(props: { summary: WindSummary }) {
   </span>
 }
 
-function MoonReading(props: { epoch: number }) {
+function MoonReading(props: { epoch: number; rise?: number }) {
   const moon = () => moonPhase(props.epoch)
-  const text = () => `${moon().label}, ${Math.round(moon().illumination * 100)} % verlicht`
+  const rise = () => props.rise === undefined ? undefined : new Date(props.rise).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+  const text = () => `${moon().label}, ${Math.round(moon().illumination * 100)} % verlicht${rise() ? `, maan op ${rise()}` : ''}`
   return <span class="moon-reading" role="img" aria-label={text()} title={text()}>
     <MoonGlyph phase={moon().phase} illumination={moon().illumination} />
-    <small>{Math.round(moon().illumination * 100)}%</small>
+    <span class="moon-meta"><small>{Math.round(moon().illumination * 100)}%</small><Show when={rise()}>{(time) => <small class="moon-rise">op {time()}</small>}</Show></span>
   </span>
 }
 
 /** NASA's volle-maantextuur onder onze berekende terminator, met aardschijn en een zachte gloed. */
 function MoonGlyph(props: { phase: number; illumination: number }) {
   const id = createUniqueId()
-  const lit = () => moonLitPath(props.phase, 8, 8, 6.2)
+  const lit = () => moonLitPath(props.phase, 8, 8, 6.7)
   return <svg class="moon-glyph" viewBox="0 0 16 16" aria-hidden="true">
     <defs>
       <radialGradient id={`${id}-night`} cx="45%" cy="40%" r="70%">
         <stop offset="0" class="moon-night-core" /><stop offset="1" class="moon-night-edge" />
       </radialGradient>
-      <clipPath id={`${id}-disc`}><circle cx="8" cy="8" r="6.2" /></clipPath>
+      <clipPath id={`${id}-disc`}><circle cx="8" cy="8" r="6.7" /></clipPath>
       <clipPath id={`${id}-litclip`}><path d={lit()} /></clipPath>
-      <filter id={`${id}-glow`} x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="1.3" /></filter>
+      <filter id={`${id}-glow`} x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="1.1" /></filter>
     </defs>
-    <circle class="moon-glow" cx="8" cy="8" r="6.2" filter={`url(#${id}-glow)`} opacity={(0.15 + 0.45 * props.illumination).toFixed(2)} />
-    <circle cx="8" cy="8" r="6.2" fill={`url(#${id}-night)`} />
-    <image class="moon-earthshine" href="/moon.png" x="1.8" y="1.8" width="12.4" height="12.4" clip-path={`url(#${id}-disc)`} />
-    <image class="moon-texture" href="/moon.png" x="1.8" y="1.8" width="12.4" height="12.4" clip-path={`url(#${id}-litclip)`} />
+    <circle class="moon-glow" cx="8" cy="8" r="6.7" filter={`url(#${id}-glow)`} opacity={(0.18 + 0.48 * props.illumination).toFixed(2)} />
+    <circle cx="8" cy="8" r="6.7" fill={`url(#${id}-night)`} />
+    <image class="moon-earthshine" href="/moon@2x.png" x="1.3" y="1.3" width="13.4" height="13.4" clip-path={`url(#${id}-disc)`} />
+    <image class="moon-texture" href="/moon@2x.png" x="1.3" y="1.3" width="13.4" height="13.4" clip-path={`url(#${id}-litclip)`} />
+    <circle class="moon-rim" cx="8" cy="8" r="6.7" />
   </svg>
 }
 

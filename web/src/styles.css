@@ -513,18 +513,21 @@ button { color: inherit; cursor: pointer; }
 .air-cell .uv-bar { min-width: 0; }
 .air-cell .uv-bar-track { min-width: 0; }
 .air-uv-placeholder { color: var(--muted); text-align: center; }
-.moon-reading { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.moon-reading small { font-size: 10px; font-weight: 650; }
-.moon-glyph { flex: none; width: 18px; height: 18px; overflow: visible; }
+.moon-reading { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-variant-numeric: tabular-nums; text-align: left; }
+.moon-meta { display: flex; flex-direction: column; gap: 1px; line-height: 1; }
+.moon-reading small { font-size: 10.5px; font-weight: 700; }
+.moon-reading .moon-rise { color: color-mix(in srgb, var(--muted) 82%, transparent); font-size: 8.5px; font-weight: 620; }
+.moon-glyph { flex: none; width: 26px; height: 26px; overflow: visible; filter: drop-shadow(0 1px 1px rgba(20, 36, 43, .22)); }
 .moon-glow { fill: #f6e9b8; }
-.moon-texture { filter: sepia(.12) saturate(.72) brightness(1.08); }
-.moon-earthshine { opacity: .16; filter: grayscale(1) brightness(.62) contrast(1.08); }
+.moon-texture { filter: sepia(.1) saturate(.76) brightness(1.16) contrast(1.1); }
+.moon-earthshine { opacity: .2; filter: grayscale(1) brightness(.58) contrast(1.16); }
+.moon-rim { fill: none; stroke: color-mix(in srgb, #fff 42%, var(--muted)); stroke-width: .28; }
 /* Aardschijn: de donkere kant net zichtbaar, op licht en donker thema. */
 .moon-night-core { stop-color: #53626a; }
 .moon-night-edge { stop-color: #37444b; }
 :root[data-theme="dark"] .moon-night-core { stop-color: #2c3a41; }
 :root[data-theme="dark"] .moon-night-edge { stop-color: #1b262c; }
-:root[data-theme="dark"] .moon-earthshine { opacity: .2; }
+:root[data-theme="dark"] .moon-earthshine { opacity: .25; }
 :root:not([data-theme="dark"]) .moon-glow { fill: #e8d98f; }
 .weather-icon.dense .weather-cloud { fill: #b9c7cd; stroke: #6d828c; }
 :root[data-theme="dark"] .weather-icon.dense .weather-cloud { fill: #45575f; stroke: #8fa4ad; }
@@ -925,8 +928,8 @@ td small { color: var(--muted); font-size: 9px; }
   .app-shell { min-height: 100dvh; overflow: visible; }
   .map-shell { scroll-snap-align: start; }
   .dashboard { overflow: visible; }
-  .forecast-panel { position: relative; min-height: 100dvh; padding: 0 0 env(safe-area-inset-bottom); overflow: visible; scroll-snap-align: start; touch-action: pan-y; }
-  .forecast-panel::after { position: absolute; top: calc(var(--table-peek-mobile) - 25px); right: 0; left: 0; z-index: 3; height: 25px; background: linear-gradient(transparent, color-mix(in srgb, var(--surface) 92%, transparent)); box-shadow: inset 0 -1px var(--line-strong); content: ''; pointer-events: none; }
+  .forecast-panel { position: relative; min-height: 100dvh; padding: 0 0 env(safe-area-inset-bottom); overflow: visible; scroll-snap-align: start; touch-action: pan-y; box-shadow: 0 -12px 28px rgba(21, 51, 63, .16); }
+  .forecast-panel::after { position: absolute; top: calc(var(--table-peek-mobile) - 25px); right: 0; left: 0; z-index: 3; height: 25px; background: linear-gradient(transparent, color-mix(in srgb, var(--surface) 94%, transparent)); box-shadow: inset 0 -1px var(--line-strong), 0 -5px 12px rgba(21, 51, 63, .08); content: ''; pointer-events: none; }
   .table-view-handle { position: sticky; top: 0; z-index: 5; width: 100%; height: 24px; display: grid; place-items: center; padding: 0; border: 0; background: var(--surface); }
   .table-view-handle span { width: 42px; height: 4px; border-radius: 999px; background: var(--line-strong); box-shadow: 0 1px 0 color-mix(in srgb, var(--surface) 60%, transparent); }
   .table-view-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }

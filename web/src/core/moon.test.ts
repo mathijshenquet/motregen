@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { moonLitPath, moonPhase } from './moon'
+import { moonEvents, moonLitPath, moonPhase } from './moon'
 
 describe('moon phase', () => {
   it('finds known new and full moons within a day of accuracy', () => {
@@ -27,5 +27,13 @@ describe('moon phase', () => {
     expect(moonLitPath(0.75, 7, 7, 6)).toMatch(/^M7 1A6 6 0 0 0 7 13A0\.000 6 0 0 [01] 7 1Z$/)
     // Volle maan: twee halve cirkels, dus de hele schijf.
     expect(moonLitPath(0.5, 7, 7, 6)).toMatch(/^M7 1A6 6 0 0 [01] 7 13A6\.000 6 0 0 [01] 7 1Z$/)
+  })
+
+  it('finds moonrise within a few minutes of the USNO fixture', () => {
+    // USNO: Seattle, 2026-07-07, rise 00:08 at UTC−7 = 07:08 UTC.
+    const events = moonEvents(Date.UTC(2026, 6, 7), Date.UTC(2026, 6, 8), -122.34, 47.61)
+    const rise = events.find((event) => event.kind === 'rise')
+    expect(rise).toBeDefined()
+    expect(Math.abs(rise!.epoch - Date.UTC(2026, 6, 7, 7, 8))).toBeLessThan(5 * 60_000)
   })
 })

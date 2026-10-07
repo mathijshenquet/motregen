@@ -2306,6 +2306,7 @@ export default function App() {
             historyInline={historyInline()}
             historyOpen={historyOpen()}
             historyLoaded={historyRowsWanted() || pointLoadStage() === 'complete'}
+            onShowMap={tableViewAvailable() ? scrollToMap : undefined}
             onNeedRows={() => { void completePointSeries(pointLoad, 'high') }}
             onNeedHistory={() => { void loadHistoryRows() }}
             onSelectTime={jumpToTime}

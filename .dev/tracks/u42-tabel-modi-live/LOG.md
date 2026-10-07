@@ -138,3 +138,23 @@
 - PO zag dat klok + `Uur` optisch links in het labelvak stond. De tijden blijven links op hun
   bestaande lijn; alleen het koplabel is nu, net als de vier moduslabels, binnen zijn eigen
   kolom gecentreerd.
+
+## 2026-10-07 09:22 UTC
+
+- Verdere mobiele PO-review verwerkt. In portrait-mobiel is de eerste sticky tabelkop nu een
+  echte `Kaart`-knop (desktop/landscape houdt klok + `Uur`), zodat een aparte statische
+  screenshotsstrook niet nodig is. `Afgelopen 6 uur` staat voortaan ná de huidige rij en springt
+  daardoor niet meer boven `Nu` in zodra de scrolltween eindigt; de previewrand heeft een
+  duidelijker schaduw/verloop.
+- Maancel vergroot van 18 naar 26 px, de 128px-NASA-textuur wordt rechtstreeks gebruikt en
+  contrast, aardschijn, gloed en rand zijn verfijnd. Naast de fractie staat nu de dichtstbijzijnde
+  maanopkomst (`op hh:mm`), lokaal berekend met een lage-precisie maanpositie. Unitfixture tegen
+  USNO Seattle 2026-07-07 wijkt minder dan vijf minuten af.
+- Firefox-homescreenherstel: locatiezoeker sluit en vervaagt nu bij `pagehide` en na `pageshow`,
+  en het invoerveld heeft `autocomplete=off`; zo wordt een oude open zoekstaat niet als eerste
+  scherm hersteld.
+- Synchrone receipts: `pnpm typecheck` exit 0; volledige `pnpm test` 51 bestanden / 349 tests
+  groen; `pnpm build` exit 0 (99 modules, `index-SX4Fvb8T.js`, `index-Dnt_mOAx.css`). Preview
+  `http://ageq-dev2:4320/` antwoordt HTTP 200. Nog steeds geen e2e vóór PO-signaal “klaar”.
+- Na het opruimen van de uitgestelde `pageshow`-callback nogmaals `pnpm build` synchroon exit 0;
+  definitieve JS-bundel voor deze staat is `index-CW_uLU3J.js`.

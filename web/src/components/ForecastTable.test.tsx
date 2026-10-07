@@ -21,7 +21,7 @@ const series: ForecastSeries = {
 }
 const allColumns = { weather: true, air: true, temperature: true, wind: true }
 
-function renderTable(options: { pinned?: FocusKind; weather?: boolean; onSelectTime?: (epoch: number) => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
+function renderTable(options: { pinned?: FocusKind; weather?: boolean; onSelectTime?: (epoch: number) => void; onShowMap?: () => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
   const [pinned, setPinned] = createSignal<FocusKind>(options.pinned ?? 'weather')
   const onPin = vi.fn((mode: FocusKind) => setPinned(mode))
   const onFocus = vi.fn()
@@ -39,6 +39,7 @@ function renderTable(options: { pinned?: FocusKind; weather?: boolean; onSelectT
     onNeedHistory={() => undefined}
     onOpenHistory={() => undefined}
     onSelectTime={options.onSelectTime}
+    onShowMap={options.onShowMap}
     focus={{ pinned: pinned(), onPin, onFocus }}
   />)
   return { pinned, onPin, onFocus }
@@ -73,6 +74,14 @@ describe('forecast table headings', () => {
     renderTable({ weather: false })
     expect(document.querySelector('thead th')!.textContent).toBe('Uur')
     expect(document.querySelector('.weather-icon')).toBeNull()
+  })
+
+  it('uses the first heading as the map return on portrait mobile', () => {
+    const onShowMap = vi.fn()
+    renderTable({ onShowMap })
+    expect(screen.queryByRole('columnheader', { name: 'Uur' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Kaart' }))
+    expect(onShowMap).toHaveBeenCalledOnce()
   })
 
   it('makes Weer, Lucht, Gevoel and Wind mode buttons while RV stays out of view', () => {
@@ -146,8 +155,9 @@ describe('forecast table cells', () => {
   it('masks the NASA moon texture with the calculated terminator at night', () => {
     renderTable()
     const moon = document.querySelector('.moon-glyph')!
-    expect(moon.querySelectorAll('image[href="/moon.png"]')).toHaveLength(2)
+    expect(moon.querySelectorAll('image[href="/moon@2x.png"]')).toHaveLength(2)
     expect(moon.querySelector('.moon-texture')?.getAttribute('clip-path')).toMatch(/^url\(#.+-litclip\)$/)
+    expect(document.querySelector('.moon-rise')?.textContent).toMatch(/^op \d\d:\d\d$/)
   })
 
   it('show rain beside the weather icon only when the rounded amount is not zero', () => {
@@ -190,8 +200,10 @@ describe('history rows', () => {
 
   it('fold behind a small toggle on touch', () => {
     renderTable({ rows: withHistory })
-    expect(screen.getByRole('button', { name: 'Afgelopen 2 uur tonen' }).getAttribute('aria-expanded')).toBe('false')
+    const toggle = screen.getByRole('button', { name: 'Afgelopen 2 uur tonen' })
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
     expect(document.querySelectorAll('tr.past-hour')).toHaveLength(0)
+    expect(toggle.closest('tr')?.previousElementSibling?.classList.contains('current-hour')).toBe(true)
   })
 
   it('stand inline above the now-row on desktop, without a toggle', () => {
