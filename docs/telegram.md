@@ -1,12 +1,12 @@
 # Telegram
 
 De bot `@motregen_bot` opent “motregen.nl -- Regenradar en Weersverwachting”
-als Mini App en deelt nationale kaarten. `/regen`, `/lucht` en `/gevoel` plaatsen
-een foto; `/loop regen`, `/loop lucht`, `/loop gevoel` en `/wind` plaatsen een
+als Mini App en deelt nationale kaarten. `/regen` en `/gevoel` plaatsen
+een foto; `/loop regen`, `/loop gevoel` en `/wind` plaatsen een
 video die automatisch afspeelt en herhaalt. `/loop` kiest standaard Regen.
 Wind bestaat uitsluitend als loop, nooit als still.
 
-De modusrij bevat Regen, Lucht, Gevoel en Wind. De tijdrij bevat −1u, −10m, nu,
+De modusrij bevat Regen, Gevoel en Wind. De tijdrij bevat −1u, −10m, nu,
 +10m, +1u en Loop; bij Wind staat alleen Loop. Deltaknoppen stappen vanaf de
 getoonde tijd, nu kiest de nieuwste generatie. Aan de rand van −2…+12 uur
 verdwijnen stappen buiten het bereik. De knoppen verversen hetzelfde bericht,
@@ -18,13 +18,13 @@ in een chat, filter met `regen` of kies alleen video's met `loop regen`.
 
 ## BotFather (PO)
 
-1. Kies `@motregen_bot` bij `/setinline` en geef bijvoorbeeld `Regen, lucht
+1. Kies `@motregen_bot` bij `/setinline` en geef bijvoorbeeld `Regen
    of gevoel; loop of wind` als placeholder. Locatietoegang voor inline blijft uit.
 2. Open **Bot Settings → Configure Mini App** en zet de Main Mini App aan met
    URL `https://motregen.nl/?tg=1`. Hierdoor werkt ook de `startapp`-deeplink
    vanuit inlineberichten en groepen.
 3. De service stelt de menuknop met `setChatMenuButton` in op **motregen.nl**
-   met dezelfde URL en registreert de zes chatcommando's. `/start` geeft uitleg
+   met dezelfde URL en registreert de vijf chatcommando's. `/start` geeft uitleg
    en een `web_app`-knop in een privéchat.
 
 Het korte bijschrift opent de app met dezelfde modus en absolute tijd via
@@ -70,7 +70,6 @@ gecachete lege kaart. De nationale uitsnede is 640×848 CSS-pixels met
 | modus | framereeks | loop | stills uit dezelfde reeks |
 | --- | --- | --- | --- |
 | Regen | −2…+2 u, elke 5 minuten; extra tienminutenframes tot +12 u | 49 frames op 10 fps; extra toekomstframes buiten de video | 85 frames, −2…+12 u elke 10 minuten |
-| Lucht | uurframes nu…+12 u; aanvullende tienminutenframes −2…+12 u | 13 frames op 4 fps | 85 frames, −2…+12 u elke 10 minuten |
 | Gevoel | uurframes nu…+12 u; aanvullende tienminutenframes −2…+12 u | 13 frames op 4 fps | 85 frames, −2…+12 u elke 10 minuten |
 | Wind | nu…+12 u, elke 15 minuten | 49 frames op 4 fps | geen |
 
@@ -95,9 +94,9 @@ De manifest-fetch is per reeks vastgezet op de gekozen generatie, terwijl
 Chromiums HTTP-cache voor tiles en chunks actief blijft. De cachekey bevat
 renderer-versie, modus, tijdstap, absolute tijd en manifest-`generated`.
 Bestanden worden atomair gepubliceerd; een receipt verschijnt pas nadat de
-hele reeks compleet is. Eén Chromium rendert maximaal vier modusreeksen tegelijk;
-gelijke verzoeken delen een renderpass. Per generatie worden 4 loops en 15 JPEGs
-vooraf klaargezet: nu/−10m/+10m/−1u/+1u per niet-Wind-modus. Alleen deze **19 media**
+hele reeks compleet is. De drie modusreeksen delen één Chromium;
+gelijke verzoeken delen een renderpass. Per generatie worden 3 loops en 10 JPEGs
+vooraf klaargezet: nu/−10m/+10m/−1u/+1u per niet-Wind-modus. Alleen deze **13 media**
 worden vooraf naar Telegram geüpload. De overige tienminutenposities blijven
 beschikbaar als PNG in dezelfde reeks; JPEG en eenmalige upload volgen bij aanvraag.
 Daarna gebruikt ook die selectie file_id. Doel voor render+prime is <90 seconden;
@@ -120,7 +119,7 @@ cacheduur en `noindex`; sidecars en receipts geven 404. Cachebestanden ouder
 dan twee uur, inclusief PNG-directories, verdwijnen bij een manifestcheck, ook als het renderen van een
 nieuwe matrix mislukt.
 
-Met `MOTREGEN_CACHE_CHAT_ID` uploadt de bot vóór publicatie de maximaal 15 ontbrekende prewarm-JPEGs in albums van maximaal tien
+Met `MOTREGEN_CACHE_CHAT_ID` uploadt de bot vóór publicatie de maximaal 10 ontbrekende prewarm-JPEGs in albums van maximaal tien
 via `sendMediaGroup` en MP4s via `sendAnimation` naar `MOTREGEN_CACHE_CHAT_ID`.
 Uploads zijn stil, serieel met tussenruimte, en volgen Telegram `retry_after`.
 Gelijke aanvragen delen de upload. De huidige generatie blijft in het aparte
@@ -219,8 +218,8 @@ pnpm build
 MOTREGEN_DATA_ORIGIN=https://motregen.nl/data pnpm --dir web preview --host 0.0.0.0 --port 4365 --strictPort
 ```
 
-Alleen renderen (vier loops en drie nu-stills; `--matrix` geeft alle 255
-stills; `--mode=weather|air|feels|wind` beperkt tot één modus):
+Alleen renderen (drie loops en twee nu-stills; `--matrix` geeft alle 170
+stills; `--mode=weather|feels|wind` beperkt tot één modus):
 
 ```sh
 MOTREGEN_ORIGIN=http://localhost:4365 MOTREGEN_RENDER_CACHE=tmp/telegram-smoke \
@@ -230,12 +229,12 @@ MOTREGEN_ORIGIN=http://localhost:4365 MOTREGEN_RENDER_CACHE=tmp/telegram-smoke \
 Voor de Telegram-rooktest stuurt de PO eerst `/start` in een privéchat aan de
 bot; de test leest dat chat-id uitsluitend in het geheugen. Een expliciet
 `MOTREGEN_SMOKE_CHAT_ID` kan ook. De test rendert en uploadt eerst de volledige
-19-media-matrix naar de geconfigureerde cachechat. Vervolgens verstuurt hij uitleg en
+13-media-matrix naar de geconfigureerde cachechat. Vervolgens verstuurt hij uitleg en
 een regenfoto en ververst hetzelfde bericht naar
-Lucht +10m met het vooraf verkregen file_id. Daarna gaat hij terug naar Regen en
-opnieuw naar Lucht. Hij rapporteert berichtnummer, manifestversie en beide
+Gevoel +10m met het vooraf verkregen file_id. Daarna gaat hij terug naar Regen en
+opnieuw naar Gevoel. Hij rapporteert berichtnummer, manifestversie en beide
 cached edit-responstijden; de eerste edit moet al fileIdCached=true zijn.
-Lucht +20m controleert vervolgens het luie pad: JPEG uit bestaande PNG, één
+Gevoel +20m controleert vervolgens het luie pad: JPEG uit bestaande PNG, één
 cache-upload en hergebruik van hetzelfde id bij de volgende edit.
 Daarna verstuurt de test iedere modus als animation, wisselt hetzelfde bericht
 naar een still en terug naar de loop met file_id. Per modus rapporteert hij

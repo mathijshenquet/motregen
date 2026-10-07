@@ -4,7 +4,6 @@ import { telegramStartParameter } from '../web/src/core/telegram-presets.js'
 
 export const STILL_MODES = [
   { mode: 'weather', command: 'regen', query: 'weer', label: 'Regen' },
-  { mode: 'air', command: 'lucht', query: 'lucht', label: 'Lucht' },
   { mode: 'feels', command: 'gevoel', query: 'gevoel', label: 'Gevoelstemperatuur' },
 ] as const
 
@@ -61,7 +60,7 @@ export function cacheKey(selection: MediaSelection, manifest: StillManifest): st
   return `${selection.mode}-${selection.hour === 'loop' ? 'loop' : epoch}-${digest}`
 }
 
-export function presetUrl(origin: string, mode: PresetMode, epoch: number, still = false): string {
+export function presetUrl(origin: string, mode: LoopMode, epoch: number, still = false): string {
   const url = new URL('/', origin)
   const definition = LOOP_MODES.find((entry) => entry.mode === mode)!
   url.searchParams.set('modus', definition.query)

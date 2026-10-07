@@ -64,7 +64,7 @@ async function handleCommand(message: TelegramMessage, runtime: BotRuntime): Pro
     const useLaunch = message.chat.type === 'private' && runtime.config.origin.startsWith('https:')
     await runtime.api.call('sendMessage', {
       chat_id: message.chat.id,
-      text: 'motregen.nl -- Regenradar en Weersverwachting\n/regen, /lucht en /gevoel geven een kaart. /loop regen, /loop lucht, /loop gevoel en /wind geven een bewegende kaart. Open de app voor jouw plek. Inline: @' + runtime.username + ' regen.',
+      text: 'motregen.nl -- Regenradar en Weersverwachting\n/regen en /gevoel geven een kaart. /loop regen, /loop gevoel en /wind geven een bewegende kaart. Open de app voor jouw plek. Inline: @' + runtime.username + ' regen.',
       reply_markup: { inline_keyboard: [[useLaunch ? launch : link]] },
     })
     return
@@ -205,7 +205,7 @@ export async function configureBot(runtime: BotRuntime): Promise<void> {
       { command: 'start', description: 'Open de motregen Mini App' },
       ...STILL_MODES.map((entry) => ({ command: entry.command, description: entry.label })),
       { command: 'wind', description: 'Wind als bewegende kaart' },
-      { command: 'loop', description: 'Bewegende kaart: regen, lucht, gevoel of wind' },
+      { command: 'loop', description: 'Bewegende kaart: regen, gevoel of wind' },
     ],
   })
 }
