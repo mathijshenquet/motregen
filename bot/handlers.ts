@@ -51,7 +51,7 @@ async function handleCommand(message: TelegramMessage, runtime: BotRuntime): Pro
     const useLaunch = message.chat.type === 'private' && runtime.config.origin.startsWith('https:')
     await runtime.api.call('sendMessage', {
       chat_id: message.chat.id,
-      text: 'Regen en weer voor Nederland en Vlaanderen. Open de app voor jouw plek, of gebruik /regen, /lucht, /gevoel en /wind voor een weerkaart. Inline: @' + runtime.username + ' wind.',
+      text: 'Regen en weer voor Nederland en Vlaanderen. Open de app voor jouw plek, of gebruik /regen, /lucht en /gevoel voor een weerkaart. Inline: @' + runtime.username + ' regen.',
       reply_markup: { inline_keyboard: [[useLaunch ? launch : link]] },
     })
     return

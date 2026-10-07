@@ -6,14 +6,14 @@ export const STILL_MODES = [
   { mode: 'weather', command: 'regen', query: 'weer', label: 'Regen' },
   { mode: 'air', command: 'lucht', query: 'lucht', label: 'Lucht' },
   { mode: 'feels', command: 'gevoel', query: 'gevoel', label: 'Gevoelstemperatuur' },
-  { mode: 'wind', command: 'wind', query: 'wind', label: 'Wind' },
 ] as const
 
-export const STILL_HOURS = [0, 1, 2, 3, 6, 12, 24] as const
+export const STILL_HOURS = [0, 3, 6, 12] as const
 export type StillHour = typeof STILL_HOURS[number]
+export type StillMode = typeof STILL_MODES[number]['mode']
 
 export interface StillSelection {
-  mode: PresetMode
+  mode: StillMode
   hour: StillHour
 }
 
@@ -67,10 +67,10 @@ export function parseCallback(data: string | undefined): StillSelection | undefi
   if (extra !== undefined || !STILL_MODES.some((entry) => entry.mode === mode)) return undefined
   const hour = STILL_HOURS.find((candidate) => String(candidate) === hourText)
   if (hour === undefined) return undefined
-  return { mode: mode as PresetMode, hour }
+  return { mode: mode as StillMode, hour }
 }
 
-export function matchingModes(query: string): PresetMode[] {
+export function matchingModes(query: string): StillMode[] {
   const normalized = query.trim().toLocaleLowerCase('nl-NL')
   return STILL_MODES.filter((entry) => {
     return !normalized || entry.command.includes(normalized) || entry.label.toLocaleLowerCase('nl-NL').includes(normalized)
@@ -96,7 +96,7 @@ export function keyboard(selection: StillSelection, epoch: number, origin: strin
   const openButton: InlineButton = { text: 'Open in motregen.nl' }
   if (privateChat && origin.startsWith('https:')) openButton.web_app = { url: presetUrl(origin, selection.mode, epoch) }
   else openButton.url = miniAppLink(username, selection.mode, epoch)
-  return { inline_keyboard: [modeButtons, timeButtons.slice(0, 4), timeButtons.slice(4), [openButton]] }
+  return { inline_keyboard: [modeButtons, timeButtons, [openButton]] }
 }
 
 export function validateManifest(value: unknown): StillManifest {

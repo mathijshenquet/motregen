@@ -30,7 +30,7 @@ async function smoke(): Promise<void> {
     const buttonOrigin = config.origin.startsWith('https://') ? config.origin : 'https://motregen.nl'
     await api.call('sendMessage', {
       chat_id: chatId,
-      text: 'Regen en weer voor Nederland en Vlaanderen. Open de app voor jouw plek; /regen, /lucht, /gevoel en /wind geven een weerkaart.',
+      text: 'Regen en weer voor Nederland en Vlaanderen. Open de app voor jouw plek; /regen, /lucht en /gevoel geven een weerkaart.',
       reply_markup: { inline_keyboard: [[{ text: 'Open motregen.nl', web_app: { url: `${buttonOrigin}/?tg=1` } }]] },
     })
     const first = await renderer.render({ mode: 'weather', hour: 0 }, manifest)
@@ -39,12 +39,12 @@ async function smoke(): Promise<void> {
       caption: first.caption,
       reply_markup: keyboard({ mode: 'weather', hour: 0 }, first.epoch, buttonOrigin, identity.username, true),
     }, first.path)
-    const next = await renderer.render({ mode: 'wind', hour: 1 }, manifest)
+    const next = await renderer.render({ mode: 'air', hour: 3 }, manifest)
     const edited = await api.upload<TelegramMessage>('editMessageMedia', {
       chat_id: chatId,
       message_id: message.message_id,
       media: { type: 'photo', media: 'attach://photo', caption: next.caption },
-      reply_markup: keyboard({ mode: 'wind', hour: 1 }, next.epoch, buttonOrigin, identity.username, true),
+      reply_markup: keyboard({ mode: 'air', hour: 3 }, next.epoch, buttonOrigin, identity.username, true),
     }, next.path)
     if (edited.message_id !== message.message_id) throw new Error('Bericht-id gewijzigd bij edit')
     await api.call('setChatMenuButton', { menu_button: { type: 'web_app', text: 'motregen.nl', web_app: { url: `${buttonOrigin}/?tg=1` } } })

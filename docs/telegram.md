@@ -1,20 +1,20 @@
 # Telegram
 
 De bot `@motregen_bot` opent motregen.nl als Mini App en deelt nationale kaarten
-van Nederland en Vlaanderen. `/regen`, `/lucht`, `/gevoel` en `/wind` plaatsen
-een foto met knoppen voor de vier modi en nu, +1, +2, +3, +6, +12 en +24 uur.
+van Nederland en Vlaanderen. `/regen`, `/lucht`, `/gevoel` plaatsen
+een foto met knoppen voor de drie modi en nu, +3, +6 en +12 uur.
 De knoppen verversen hetzelfde bericht. Inline: typ `@motregen_bot ` in een chat,
-of filter met bijvoorbeeld `@motregen_bot wind`.
+of filter met bijvoorbeeld `@motregen_bot regen`.
 
 ## BotFather (PO)
 
 1. Kies `@motregen_bot` bij `/setinline` en geef bijvoorbeeld `Regen, lucht,
-   gevoel of wind` als placeholder. Locatietoegang voor inline blijft uit.
+   of gevoel` als placeholder. Locatietoegang voor inline blijft uit.
 2. Open **Bot Settings → Configure Mini App** en zet de Main Mini App aan met
    URL `https://motregen.nl/?tg=1`. Hierdoor werkt ook de `startapp`-deeplink
    vanuit inlineberichten en groepen.
 3. De service stelt de menuknop met `setChatMenuButton` in op **motregen.nl**
-   met dezelfde URL en registreert de vijf chatcommando's. `/start` geeft uitleg
+   met dezelfde URL en registreert de vier chatcommando's. `/start` geeft uitleg
    en een `web_app`-knop in een privéchat.
 
 Telegram verbiedt `web_app`-knoppen in inlineberichten en groepen. Daar opent
@@ -57,8 +57,8 @@ De manifest-fetch is per render vastgezet op de gekozen generatie, terwijl
 Chromiums HTTP-cache voor tiles en chunks actief blijft. De cachekey
 bevat renderer-versie, modus, tijdstap, absolute tijd en manifest-`generated`.
 Bestanden worden atomair gepubliceerd. Eén Chromium rendert serieel; gelijke
-verzoeken delen een render. Bij een nieuwe manifestversie worden de 28
-combinaties vooraf gemaakt, de vier nu-kaarten eerst. Inline antwoorden gebruiken
+verzoeken delen een render. Bij een nieuwe manifestversie worden de 12
+combinaties vooraf gemaakt, de drie nu-kaarten eerst. Inline antwoorden gebruiken
 beschikbare kaarten direct, zonder op Chromium te wachten; tijdens opwarming
 kunnen resultaten nog ontbreken. Bestaande kaarten blijven bruikbaar tijdens
 verversing. De bot meet iedere render en de hele matrix in milliseconden.
@@ -116,7 +116,7 @@ pnpm build
 MOTREGEN_DATA_ORIGIN=https://motregen.nl/data pnpm --dir web preview --host 0.0.0.0 --port 4360 --strictPort
 ```
 
-Alleen renderen (vier modi; voeg `--matrix` toe voor alle 28 combinaties):
+Alleen renderen (drie modi; voeg `--matrix` toe voor alle 12 combinaties):
 
 ```sh
 MOTREGEN_ORIGIN=http://localhost:4360 MOTREGEN_RENDER_CACHE=tmp/telegram-smoke \
@@ -126,7 +126,7 @@ MOTREGEN_ORIGIN=http://localhost:4360 MOTREGEN_RENDER_CACHE=tmp/telegram-smoke \
 Voor de Telegram-rooktest stuurt de PO eerst `/start` in een privéchat aan de
 bot; de test leest dat chat-id uitsluitend in het geheugen. Een expliciet
 `MOTREGEN_SMOKE_CHAT_ID` kan ook. De test stuurt uitleg en een regenfoto en
-ververst diezelfde foto naar Wind +1u; hij rapporteert berichtnummer,
+ververst diezelfde foto naar Lucht +3u; hij rapporteert berichtnummer,
 manifestversie en beide rendertijden. De PO bewaart zijn eigen testchat-id als
 `MOTREGEN_SMOKE_CHAT_ID` in de genegeerde lokale `.env`; dat is expliciete
 testconfiguratie, geen chatregister van de bot. De Mini App-knoppen wijzen bij een
