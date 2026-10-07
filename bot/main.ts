@@ -10,6 +10,11 @@ import { STILL_HOURS, LOOP_MODES, type StillManifest, type MediaSelection } from
 
 async function runBot(): Promise<void> {
   const config = readConfig()
+  if (!config.cacheChatId) {
+    console.error('MOTREGEN_CACHE_CHAT_ID ontbreekt; stel de uploadchat in.')
+    process.exitCode = 1
+    return
+  }
   const api = new TelegramApi(config.token)
   const identity = await api.call<{ username: string }>('getMe')
   const webhook = await api.call<{ url: string }>('getWebhookInfo')
@@ -18,11 +23,25 @@ async function runBot(): Promise<void> {
   const controller = new AbortController()
   const available = new Map<string, RenderedMedia>()
   let manifest: StillManifest | undefined
+  const generations = new Map<number, { manifest: StillManifest; expires: number }>()
+  const rememberGeneration = (current: StillManifest) => {
+    const now = Date.now()
+    for (const [key, entry] of generations) if (entry.expires <= now) generations.delete(key)
+    generations.set(Date.parse(current.generated), { manifest: current, expires: Date.parse(current.generated) + 2 * 3_600_000 })
+  }
   const runtime: BotRuntime = {
     api, config, renderer, username: identity.username,
-    photos: new StillPhotos(api, new FileIdCache(identity.username)),
+    photos: new StillPhotos(api, new FileIdCache(identity.username), config.cacheChatId),
     selections: new MessageSelections(),
-    currentManifest: async () => manifest ?? renderer.manifest(),
+    currentManifest: async () => {
+      const current = manifest ?? await renderer.manifest()
+      rememberGeneration(current)
+      return current
+    },
+    manifestForGeneration: (generated) => {
+      const entry = generations.get(generated)
+      return entry && entry.expires > Date.now() ? entry.manifest : undefined
+    },
     availableStill: (selection) => available.get(selectionKey(selection)),
   }
   const stop = () => controller.abort()
@@ -31,7 +50,10 @@ async function runBot(): Promise<void> {
   console.info(JSON.stringify({ event: 'bot-started', username: identity.username }))
   try {
     await configureBot(runtime)
-    await Promise.all([pollUpdates(runtime, controller.signal), refreshStills(runtime, available, (current) => { manifest = current }, controller.signal)])
+    await Promise.all([pollUpdates(runtime, controller.signal), refreshStills(runtime, available, (current) => {
+      manifest = current
+      rememberGeneration(current)
+    }, controller.signal)])
   } finally {
     controller.abort()
     await renderer.close()
@@ -84,6 +106,7 @@ async function refreshStills(runtime: BotRuntime, available: Map<string, Rendere
             next.set(selectionKey(selection), still)
           }
         }
+        await runtime.photos.prime([...next.values()])
         available.clear()
         for (const [key, media] of next) available.set(key, media)
         publish(manifest)

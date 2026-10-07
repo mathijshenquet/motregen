@@ -12,7 +12,7 @@ export function framePath(directory: string, index: number): string {
 }
 
 export async function encodeStill(frame: string, destination: string): Promise<void> {
-  await run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', frame, '-frames:v', '1', '-q:v', '3', '-f', 'image2', destination])
+  await run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', frame, '-frames:v', '1', '-threads', '2', '-q:v', '3', '-f', 'image2', destination])
 }
 
 export async function encodeLoop(directory: string, destination: string, plan: SequencePlan): Promise<{ milliseconds: number; bytes: number }> {

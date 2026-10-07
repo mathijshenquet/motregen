@@ -60,3 +60,19 @@ one-liners, commentaar alleen voor een niet-triviaal waarom.
 9. Meet en log per modus: frames, rendertijd, encodetijd, mp4-bytes, upload-tijd eerste
    verzending, edit-latency met file_id. Matrix per verversing wordt: Regen/Lucht/Gevoel elk
    video + 4 stills uit dezelfde frames; Wind alleen video (4 loops + 12 stills).
+
+## Latere PO-poke (2026-10-07)
+
+10. Niet bewerkbaar bericht: exacte 400-description vaststellen; specifieke
+    `message can't be edited`/`message to edit not found` afhandelen met toast
+    “Verlopen, stuur /regen opnieuw”, geen update-failed 400. Ook verlopen
+    callback-ack stil afhandelen. Vooraf cachechat-upload en file_id-opslag vóór
+    matrixpublicatie; eerste gebruikersklik mag niet meer uploaden.
+11. Bijschrift alleen een hyperlink motregen.nl; geen regenintensiteitsbeschrijving
+    of attributietekst. Tijd + dag zoals referentieklok, modus en bronnen op het
+    beeld. Open-in-motregen.nl-knop verwijderen.
+12. Eerdere vier vaste tijden vervangen door relatieve −1u/−10m/nu/+10m/+1u;
+    nu reset naar de nieuwste generatie. Hiervoor tienminutenstills over −2…+12u
+    in dezelfde moduspass opnemen: 85 per niet-Wind-modus, dus 255 JPEG + 4 loops.
+    De loop-fps en loop-tijdbereiken blijven die van punten 6–9. Nieuwe versie
+    melden zodra de lokale bot deze contracten serveert.

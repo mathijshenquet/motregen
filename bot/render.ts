@@ -5,13 +5,14 @@ import { performance } from 'node:perf_hooks'
 import { STILL_CACHE_TTL } from './file-ids.js'
 import { encodeLoop, encodeStill, framePath } from './encode.js'
 import { sequencePlan } from './sequences.js'
-import { cacheKey, caption, presetUrl, stillEpoch, stillTime, STILL_HOURS, validateManifest, type LoopMode, type LoopSelection, type MediaSelection, type StillManifest, type StillSelection } from './stills.js'
+import { cacheKey, caption, presetUrl, stillEpoch, STILL_HOURS, validateManifest, type LoopMode, type LoopSelection, type MediaSelection, type StillManifest, type StillSelection } from './stills.js'
 
 interface RenderedBase {
   key: string
   path: string
   url: string
   epoch: number
+  generated: string
   caption: string
   milliseconds: number
   cached: boolean
@@ -116,13 +117,8 @@ export class StillRenderer {
     const key = cacheKey(selection, manifest)
     const filename = `${key}.${selection.hour === 'loop' ? 'mp4' : 'jpg'}`
     const epoch = selection.hour === 'loop' ? Date.parse(manifest.now) : stillEpoch(manifest, selection.hour)
-    let description = caption(selection.mode, epoch)
-    if (selection.hour === 'loop') {
-      const plan = sequencePlan(selection.mode, manifest)
-      const lastEpoch = plan.epochs[plan.loopFrames - 1]!
-      description = `${stillTime(plan.epochs[0]!)} – ${stillTime(lastEpoch)} · Loop\n${description}`
-    }
-    return { key, path: join(this.cacheDirectory, filename), url: new URL(`/telegram/stills/${filename}`, this.origin).href, epoch, caption: description, milliseconds: 0, cached: true }
+    const description = caption(selection.mode, epoch)
+    return { key, path: join(this.cacheDirectory, filename), url: new URL(`/telegram/stills/${filename}`, this.origin).href, epoch, generated: manifest.generated, caption: description, milliseconds: 0, cached: true }
   }
 
   private results(mode: LoopMode, manifest: StillManifest, metrics: SequenceMetrics, cached: boolean): RenderedSequence {

@@ -16,7 +16,7 @@ export function sequencePlan(mode: LoopMode, manifest: StillManifest): SequenceP
   const epochs: number[] = []
   for (let minute = startMinutes; minute <= endMinutes; minute += stepMinutes) epochs.push(now + minute * 60_000)
   const loopFrames = epochs.length
-  if (mode === 'weather') {
+  if (mode !== 'wind') {
     for (const hour of STILL_HOURS) {
       const epoch = now + hour * 3_600_000
       if (!epochs.includes(epoch)) epochs.push(epoch)

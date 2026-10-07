@@ -2327,11 +2327,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       <Show when={stillMode}>
         <div class="map-clock still-clock">
           <div class="freshness-trigger">
-            <ClockFace time={formatTime(cursorMinute())} day={formatWeekdayShort(cursorMinute()) === formatWeekdayShort(Date.now()) ? '' : formatWeekdayShort(cursorMinute())} />
+            <ClockFace time={formatTime(cursorMinute())} day={formatWeekdayShort(cursorMinute())} />
             <small class="clock-day">{{ weather: 'Regen', air: 'Lucht', feels: 'Gevoelstemperatuur', wind: 'Wind' }[initialPresets.mode ?? 'weather']}</small>
           </div>
         </div>
-        <footer class="still-attribution">KNMI · OpenFreeMap</footer>
+        <footer class="still-attribution">KNMI · OpenFreeMap · © OpenStreetMap</footer>
       </Show>
       <Show when={!stillMode}>
         <About theme={theme()} onTheme={(choice) => { usage.setTheme(choice); setTheme(choice) }}

@@ -6,10 +6,14 @@ een foto; `/loop regen`, `/loop lucht`, `/loop gevoel` en `/wind` plaatsen een
 video die automatisch afspeelt en herhaalt. `/loop` kiest standaard Regen.
 Wind bestaat uitsluitend als loop, nooit als still.
 
-De modusrij bevat Regen, Lucht, Gevoel en Wind. De tijdrij bevat nu, +3u, +6u,
-+12u en Loop; bij Wind staat alleen Loop. De knoppen verversen hetzelfde bericht,
+De modusrij bevat Regen, Lucht, Gevoel en Wind. De tijdrij bevat −1u, −10m, nu,
++10m, +1u en Loop; bij Wind staat alleen Loop. Deltaknoppen stappen vanaf de
+getoonde tijd, nu kiest de nieuwste generatie. Aan de rand van −2…+12 uur
+verdwijnen stappen buiten het bereik. De knoppen verversen hetzelfde bericht,
 ook bij wisselen tussen foto en video. Opnieuw dezelfde selectie aantikken geeft
-de toast “Al in beeld” zonder nieuwe render of edit. Inline: typ `@motregen_bot `
+de toast “Al in beeld” zonder nieuwe render of edit. Niet meer bewerkbare of
+verlopen berichten geven “Verlopen, stuur /regen opnieuw”. Onder het beeld staat
+alleen een klikbare `motregen.nl`-link; er is geen aparte app-knop. Inline: typ `@motregen_bot `
 in een chat, filter met `regen` of kies alleen video's met `loop regen`.
 
 ## BotFather (PO)
@@ -23,10 +27,10 @@ in een chat, filter met `regen` of kies alleen video's met `loop regen`.
    met dezelfde URL en registreert de zes chatcommando's. `/start` geeft uitleg
    en een `web_app`-knop in een privéchat.
 
-Telegram verbiedt `web_app`-knoppen in inlineberichten en groepen. Daar opent
-**Open in motregen.nl** een `https://t.me/motregen_bot?startapp=...`-link naar de
-Main Mini App, met dezelfde modus en absolute tijd. Privéchatknoppen gebruiken
-rechtstreeks de app-URL met U44-presets. De SDK laadt alleen bij `?tg=1`, roept
+Het korte bijschrift opent de app met dezelfde modus en absolute tijd via
+U44-presets. `/start` en de menuknop openen de Mini App; groepen gebruiken bij
+`/start` een `https://t.me/motregen_bot?startapp`-link omdat Telegram daar geen
+`web_app`-knop accepteert. De SDK laadt alleen bij `?tg=1`, roept
 `expand()` en `ready()` aan, volgt het Telegram-thema en leest de selectie uit
 `tgWebAppStartParam`/`startapp`. Expliciete `modus`/`t`-parameters hebben voorrang.
 
@@ -34,7 +38,9 @@ rechtstreeks de app-URL met U44-presets. De SDK laadt alleen bij `?tg=1`, roept
 
 Chat-, bericht- en inline-id's bestaan alleen in het geheugen; de selectie per
 bericht wordt maximaal twee uur onthouden om herhaalde edits over te slaan.
-Er is geen database, chatregister of opslag van updates. Journallogs
+Er is geen database, chatregister of opslag van updates. De cachechat is expliciete
+configuratie via environment, geen verzamelde gebruiker. Alleen de eigen nieuwe
+cacheposts worden verwijderd nadat hun ids zijn opgeslagen. Journallogs
 bevatten alleen gebeurtenisnamen, modi, stappen, manifestversies, rendertijden,
 foutcodes en eventueel het berichtnummer van een verzonden foto; geen chat-id,
 gebruiker, querytekst, token of upstream fouttekst. De cache bevat uitsluitend
@@ -63,9 +69,9 @@ gecachete lege kaart. De nationale uitsnede is 640×848 CSS-pixels met
 
 | modus | framereeks | loop | stills uit dezelfde reeks |
 | --- | --- | --- | --- |
-| Regen | −2…+2 u, elke 5 minuten; plus +3/+6/+12 u | 49 frames op 10 fps; extra toekomstframes buiten de video | nu/+3/+6/+12 u |
-| Lucht | nu…+12 u, elk uur | 13 frames op 4 fps | nu/+3/+6/+12 u |
-| Gevoel | nu…+12 u, elk uur | 13 frames op 4 fps | nu/+3/+6/+12 u |
+| Regen | −2…+2 u, elke 5 minuten; extra tienminutenframes tot +12 u | 49 frames op 10 fps; extra toekomstframes buiten de video | 85 frames, −2…+12 u elke 10 minuten |
+| Lucht | uurframes nu…+12 u; aanvullende tienminutenframes −2…+12 u | 13 frames op 4 fps | 85 frames, −2…+12 u elke 10 minuten |
+| Gevoel | uurframes nu…+12 u; aanvullende tienminutenframes −2…+12 u | 13 frames op 4 fps | 85 frames, −2…+12 u elke 10 minuten |
 | Wind | nu…+12 u, elke 15 minuten | 49 frames op 4 fps | geen |
 
 Windparticles krijgen een vaste simulatieklok, met tussenstappen op 30 Hz en
@@ -77,20 +83,20 @@ met ffmpeg `-q:v 3` rechtstreeks uit de betreffende PNG-frames: er zijn geen
 afzonderlijke still-renders. Tijdelijke PNGs verdwijnen na de renderpass.
 
 Op het beeld staat bovenaan dezelfde klokmarkup en typografie als op
-motregen.nl, in Amsterdamtijd, met het moduswoord klein eronder. De dag staat
-erbij als het een andere dag is. Een dun streepje in de Regen-klok wisselt van
+motregen.nl, in Amsterdamtijd, met de dag ernaast en het moduswoord klein eronder.
+Een dun streepje in de Regen-klok wisselt van
 grijs bij historie naar de accentkleur bij verwachting. Linksonder staat
-“KNMI · OpenFreeMap”. Het bijschrift bevat tijd en modus, uitleg van de kleuren,
-bron- en kaartattributie en een link met tijdpreset; de uitleg staat per modus
-in STILL_MODES/LOOP_MODES en het geheel blijft onder 1024 tekens.
+“KNMI · OpenFreeMap · © OpenStreetMap”. Het bijschrift is alleen een HTML-link
+`motregen.nl` met tijdpreset; tijd, modus en attributie staan in het beeld.
 
 De manifest-fetch is per reeks vastgezet op de gekozen generatie, terwijl
 Chromiums HTTP-cache voor tiles en chunks actief blijft. De cachekey bevat
 renderer-versie, modus, tijdstap, absolute tijd en manifest-`generated`.
 Bestanden worden atomair gepubliceerd; een receipt verschijnt pas nadat de
 hele reeks compleet is. Eén Chromium rendert serieel en gelijke verzoeken
-delen een renderpass. Elke generatie levert 4 loops en 12 zelfstandige stills.
-De bot publiceert de nieuwe matrix pas als alle modi klaar zijn; de oude
+delen een renderpass. Elke generatie levert 4 loops en 255 zelfstandige stills.
+De bot publiceert de nieuwe matrix pas als alle modi gerenderd én hun Telegram-ids
+bekend zijn; de oude
 generatie blijft beschikbaar tijdens verversing. Cache-hits en inline
 antwoorden wachten niet achter nieuwe Chromium-renders. De bot meet per modus
 frames, render- en encodetijd en bytes, en de hele matrix in milliseconden.
@@ -101,8 +107,14 @@ cacheduur en `noindex`; sidecars en receipts geven 404. Cachebestanden ouder
 dan twee uur verdwijnen bij een manifestcheck, ook als het renderen van een
 nieuwe matrix mislukt.
 
-De eerste chatverzending of edit uploadt de JPEG of MP4 als multipart, via
-`sendPhoto`, `sendAnimation` of `editMessageMedia`. Het grootste foto-file_id
+Voor publicatie uploadt de bot ontbrekende JPEGs in albums van maximaal tien
+via `sendMediaGroup` en MP4s via `sendAnimation` naar `MOTREGEN_CACHE_CHAT_ID`.
+Uploads zijn stil, serieel met tussenruimte, en volgen Telegram `retry_after`.
+Gelijke aanvragen delen de upload. Na het opslaan van de ids verwijdert de bot
+met `deleteMessages` uitsluitend deze eigen nieuwe cacheposts; de ids blijven
+bruikbaar. Ook een aanvraag tijdens opwarming krijgt eerst een cache-upload,
+zodat een gebruikersbericht en zijn eerste tik alleen file_id sturen.
+Het grootste foto-file_id
 of het animation-file_id uit de Telegram-respons komt atomair in
 `<kaart>.jpg.file-id.json` of `<loop>.mp4.file-id.json` naast het mediabestand
 en blijft ook in geheugen. Vervolgverzendingen en edits sturen alleen dat id.
@@ -111,11 +123,17 @@ selectie of andere bot kan geen oud id hergebruiken. Ids vervallen met de
 twee-uurs-mediacache; sidecars worden ook opgeruimd.
 
 Inline gebruikt `InlineQueryResultCachedPhoto` of
-`InlineQueryResultCachedMpeg4Gif` zodra een file_id bekend is. Stills hebben op
-een HTTPS-origin ook een publieke JPEG-URL als fallback. Een loop verschijnt
-inline na de eerste chat-upload; er is geen verborgen uploadchat. Een lokale
-preview biedt alleen media met een bekend file_id aan. Inline-edits kunnen
-nooit een nieuw bestand uploaden en gebruiken een bestaand id of publieke URL.
+`InlineQueryResultCachedMpeg4Gif` zodra de matrix gepubliceerd is, ook lokaal.
+De cachechat wordt expliciet geconfigureerd. Stills hebben op een HTTPS-origin
+ook een publieke JPEG-URL als fallback. Inline-edits kunnen nooit een nieuw
+bestand uploaden en gebruiken een bestaand id of publieke URL.
+
+Deltacallbacks bevatten absolute tijd en generatie, zodat een manifestwissel
+tijdens het klikken de stap niet verschuift. De bot onthoudt generaties twee uur;
+nu pakt steeds de nieuwste matrix. Niet meer bekende generaties en Telegrams
+`message can't be edited`/`message to edit not found` geven de verlopen-toast.
+Een verlopen callback-query kan Telegram niet meer beantwoorden; die wordt
+stil afgehandeld, zonder `update-failed 400`. Andere API-fouten blijven zichtbaar.
 
 ## Productie
 
@@ -125,6 +143,7 @@ root-beheerde `/var/lib/motregen/secrets.env` bevat naast de KNMI/ADS-sleutels:
 
 ```text
 TG_BOT_KEY=<bot-token>
+MOTREGEN_CACHE_CHAT_ID=<cache-chat-id of @kanaal>
 ```
 
 Het token gaat nooit in Git of de Nix-store. Configuratie via environment:
@@ -132,6 +151,7 @@ Het token gaat nooit in Git of de Nix-store. Configuratie via environment:
 | variabele | standaard | betekenis |
 | --- | --- | --- |
 | `TG_BOT_KEY` | verplicht | token uit BotFather |
+| `MOTREGEN_CACHE_CHAT_ID` | verplicht voor de bot | uploadchat of kanaal met schrijf- en verwijderrechten |
 | `MOTREGEN_ORIGIN` | `https://motregen.nl` | app en publieke still-URLs |
 | `MOTREGEN_RENDER_CACHE` | `tmp/telegram-stills` | lokale cachemap |
 | `MOTREGEN_CHROMIUM_PATH` | Playwright-selectie | expliciete nixpkgs-Chromium-binary |
@@ -163,7 +183,7 @@ pnpm build
 MOTREGEN_DATA_ORIGIN=https://motregen.nl/data pnpm --dir web preview --host 0.0.0.0 --port 4365 --strictPort
 ```
 
-Alleen renderen (vier loops en drie nu-stills; `--matrix` geeft alle twaalf
+Alleen renderen (vier loops en drie nu-stills; `--matrix` geeft alle 255
 stills; `--mode=weather|air|feels|wind` beperkt tot één modus):
 
 ```sh
@@ -173,13 +193,16 @@ MOTREGEN_ORIGIN=http://localhost:4365 MOTREGEN_RENDER_CACHE=tmp/telegram-smoke \
 
 Voor de Telegram-rooktest stuurt de PO eerst `/start` in een privéchat aan de
 bot; de test leest dat chat-id uitsluitend in het geheugen. Een expliciet
-`MOTREGEN_SMOKE_CHAT_ID` kan ook. De test stuurt uitleg en een regenfoto en
-ververst diezelfde foto naar Lucht +3u. Daarna gaat hij terug naar Regen en
-opnieuw naar Lucht met file_id. Hij rapporteert berichtnummer, manifestversie,
-rendertijden en de edit-responstijd voor upload versus file_id (dezelfde JPEG).
+`MOTREGEN_SMOKE_CHAT_ID` kan ook. De test rendert en uploadt eerst de volledige
+matrix naar de geconfigureerde cachechat. Vervolgens verstuurt hij uitleg en
+een regenfoto en ververst hetzelfde bericht naar
+Lucht +3u met het vooraf verkregen file_id. Daarna gaat hij terug naar Regen en
+opnieuw naar Lucht. Hij rapporteert berichtnummer, manifestversie en beide
+cached edit-responstijden; de eerste edit moet al fileIdCached=true zijn.
 Daarna verstuurt de test iedere modus als animation, wisselt hetzelfde bericht
 naar een still en terug naar de loop met file_id. Per modus rapporteert hij
-frames, render- en encodetijd, MP4-bytes, eerste uploadtijd en cached edit-tijd.
+frames, render- en encodetijd, MP4-bytes, cached verzendtijd en edit-tijd.
+De eerste uploads staan apart als media-cache-primed in het log.
 De livebot logt daarnaast `callbackMs` vanaf callbackontvangst tot afronding
 van de Telegram-edit. De PO bewaart zijn eigen testchat-id als
 `MOTREGEN_SMOKE_CHAT_ID` in de genegeerde lokale `.env`; dat is expliciete

@@ -77,7 +77,7 @@ for (const mode of ['weer', 'lucht', 'gevoel']) {
     await expect(page.locator('.map-clock.still-clock')).toHaveCount(1)
     await expect(page.locator('.clock-map-time')).toHaveCSS('font-size', '20px')
     await expect(page.locator('.map-clock button')).toHaveCount(0)
-    await expect(page.locator('.still-attribution')).toHaveText('KNMI · OpenFreeMap')
+    await expect(page.locator('.still-attribution')).toHaveText('KNMI · OpenFreeMap · © OpenStreetMap')
     await expect(page.locator('.maplibregl-marker:not(.isoline-label)')).toHaveCount(0)
     expect(await page.locator('.map').boundingBox()).toMatchObject({ width: 900, height: 1200 })
     const epoch = await page.locator('.app-shell').getAttribute('data-epoch')

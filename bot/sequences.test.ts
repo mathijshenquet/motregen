@@ -10,19 +10,23 @@ describe('one frame sequence per mode', () => {
     const plan = sequencePlan('weather', manifest)
     expect(plan.fps).toBe(10)
     expect(plan.loopFrames).toBe(49)
-    expect(plan.epochs).toHaveLength(52)
+    expect(plan.epochs).toHaveLength(109)
     expect(plan.epochs[0]).toBe(now - 2 * 3_600_000)
     expect(plan.epochs[plan.loopFrames - 1]).toBe(now + 2 * 3_600_000)
     expect(new Set(plan.epochs).size).toBe(plan.epochs.length)
     for (const frame of plan.stillFrames) expect(plan.epochs[frame.index]).toBe(now + frame.hour * 3_600_000)
-    expect(plan.stillFrames.map((frame) => frame.index)).toEqual([24, 49, 50, 51])
+    expect(plan.stillFrames).toHaveLength(85)
+    expect(plan.stillFrames.find((frame) => frame.hour === 0)?.index).toBe(24)
+    expect(plan.stillFrames.find((frame) => frame.hour === 12)?.index).toBe(108)
   })
 
   it('keeps hourly still frames inside the air and feels loops and never renders wind stills', () => {
     for (const mode of ['air', 'feels'] as const) {
       const plan = sequencePlan(mode, manifest)
       expect(plan).toMatchObject({ fps: 4, loopFrames: 13 })
-      expect(plan.stillFrames.map((frame) => frame.index)).toEqual([0, 3, 6, 12])
+      expect(plan.epochs).toHaveLength(85)
+      expect(plan.stillFrames).toHaveLength(85)
+      for (const frame of plan.stillFrames) expect(plan.epochs[frame.index]).toBe(now + Math.round(frame.hour * 3_600_000))
     }
     const wind = sequencePlan('wind', manifest)
     expect(wind).toMatchObject({ fps: 4, loopFrames: 49, stillFrames: [] })
@@ -30,7 +34,7 @@ describe('one frame sequence per mode', () => {
     expect(wind.epochs[1] - wind.epochs[0]).toBe(15 * 60_000)
   })
 
-  it('isolates loop ids from still ids and all sixteen artifacts from a new generation', () => {
+  it('isolates loop ids from still ids and all 259 artifacts from a new generation', () => {
     const keys = new Set<string>()
     for (const definition of LOOP_MODES) {
       const plan = sequencePlan(definition.mode, manifest)
@@ -44,6 +48,6 @@ describe('one frame sequence per mode', () => {
         expect(cacheKey(selection, { ...manifest, generated: '2026-10-07T12:05:00Z' })).not.toBe(key)
       }
     }
-    expect(keys.size).toBe(16)
+    expect(keys.size).toBe(259)
   })
 })

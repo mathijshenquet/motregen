@@ -13,7 +13,7 @@ async function fixture(selection: StillSelection, generation = manifest): Promis
   const key = cacheKey(selection, generation)
   const path = join(directory, `${key}.jpg`)
   await writeFile(path, 'jpeg')
-  return { kind: 'photo', key, path, url: `https://motregen.nl/telegram/stills/${key}.jpg`, epoch: Date.parse(generation.now), caption: 'test', milliseconds: 0, cached: true }
+  return { kind: 'photo', key, path, url: `https://motregen.nl/telegram/stills/${key}.jpg`, epoch: Date.parse(generation.now), generated: generation.generated, caption: 'test', milliseconds: 0, cached: true }
 }
 
 beforeEach(async () => { directory = await mkdtemp(join(tmpdir(), 'motregen-file-ids-')) })

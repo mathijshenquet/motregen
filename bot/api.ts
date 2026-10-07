@@ -23,10 +23,17 @@ export interface TelegramUpdate {
   callback_query?: { id: string; data?: string; message?: TelegramMessage; inline_message_id?: string; from?: { id: number } }
 }
 
+type FailureReason = 'not-modified' | 'message-unavailable' | 'callback-expired'
+type KnownDescription = 'Bad Request: message is not modified' | "Bad Request: message can't be edited" | 'Bad Request: message to edit not found' | 'Bad Request: query is too old and response timeout expired or query ID is invalid'
+
 export class TelegramApiError extends Error {
-  constructor(readonly method: string, readonly code: number, readonly retryAfter?: number, readonly notModified = false) {
+  constructor(readonly method: string, readonly code: number, readonly retryAfter?: number, readonly reason?: FailureReason, readonly description?: KnownDescription) {
     super(`Telegram ${method} mislukt (${code})`)
   }
+
+  get notModified(): boolean { return this.reason === 'not-modified' }
+  get messageUnavailable(): boolean { return this.reason === 'message-unavailable' }
+  get callbackExpired(): boolean { return this.reason === 'callback-expired' }
 }
 
 export class TelegramApi {
@@ -51,6 +58,15 @@ export class TelegramApi {
     return this.send<Result>(method, form)
   }
 
+  async uploadAlbum(fields: Record<string, unknown>, photos: Array<{ path: string; caption: string }>): Promise<TelegramMessage[]> {
+    const form = new FormData()
+    for (const [name, value] of Object.entries(fields)) form.set(name, typeof value === 'string' ? value : JSON.stringify(value))
+    form.set('media', JSON.stringify(photos.map((photo, index) => ({ type: 'photo', media: `attach://photo${index}`, caption: photo.caption, parse_mode: 'HTML' }))))
+    const contents = await Promise.all(photos.map((photo) => readFile(photo.path)))
+    for (const [index, data] of contents.entries()) form.set(`photo${index}`, new Blob([data], { type: 'image/jpeg' }), `motregen-${index}.jpg`)
+    return this.send<TelegramMessage[]>('sendMediaGroup', form)
+  }
+
   private async send<Result>(method: string, body: string | FormData, headers?: Record<string, string>, signal?: AbortSignal): Promise<Result> {
     let response: Response
     try {
@@ -67,8 +83,26 @@ export class TelegramApi {
       throw new TelegramApiError(method, response.status)
     }
     if (!reply.ok) {
-      const notModified = method === 'editMessageMedia' && reply.error_code === 400 && Boolean(reply.description?.includes('message is not modified'))
-      throw new TelegramApiError(method, reply.error_code ?? response.status, reply.parameters?.retry_after, notModified)
+      const code = reply.error_code ?? response.status
+      const description = reply.description?.toLowerCase() ?? ''
+      let reason: FailureReason | undefined
+      let knownDescription: KnownDescription | undefined
+      if (code === 400 && method === 'editMessageMedia') {
+        if (description.includes('message is not modified')) {
+          reason = 'not-modified'
+          knownDescription = 'Bad Request: message is not modified'
+        } else if (description.includes("message can't be edited")) {
+          reason = 'message-unavailable'
+          knownDescription = "Bad Request: message can't be edited"
+        } else if (description.includes('message to edit not found')) {
+          reason = 'message-unavailable'
+          knownDescription = 'Bad Request: message to edit not found'
+        }
+      } else if (code === 400 && method === 'answerCallbackQuery' && (description.includes('query is too old') || description.includes('query id is invalid'))) {
+        reason = 'callback-expired'
+        knownDescription = 'Bad Request: query is too old and response timeout expired or query ID is invalid'
+      }
+      throw new TelegramApiError(method, code, reply.parameters?.retry_after, reason, knownDescription)
     }
     return reply.result
   }

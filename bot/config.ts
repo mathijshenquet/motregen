@@ -4,6 +4,7 @@ export interface BotConfig {
   token: string
   origin: string
   cacheDirectory: string
+  cacheChatId?: string
 }
 
 export function readConfig(environment: NodeJS.ProcessEnv = process.env): BotConfig {
@@ -15,5 +16,6 @@ export function readConfig(environment: NodeJS.ProcessEnv = process.env): BotCon
     token,
     origin: origin.origin,
     cacheDirectory: resolve(environment.MOTREGEN_RENDER_CACHE ?? 'tmp/telegram-stills'),
+    cacheChatId: environment.MOTREGEN_CACHE_CHAT_ID?.trim() || undefined,
   }
 }

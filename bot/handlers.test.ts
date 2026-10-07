@@ -17,6 +17,7 @@ afterEach(async () => { vi.restoreAllMocks(); await rm(directory, { recursive: t
 async function setup() {
   let manifest: StillManifest = { version: 0, generated: '2026-10-07T12:00:00Z', now: '2026-10-07T12:00:00Z', chunks: [] }
   let failure: string | undefined
+  let failureMethod = 'editMessageMedia'
   const calls: Array<{ method: string; fields: Record<string, unknown>; multipart: boolean }> = []
   const available = new Map<string, RenderedMedia>()
   const render = vi.fn(async (selection: MediaSelection) => {
@@ -25,7 +26,7 @@ async function setup() {
     const path = join(directory, `${key}.${animation ? 'mp4' : 'jpg'}`)
     await writeFile(path, 'jpeg')
     const epoch = animation ? Date.parse(manifest.now) : stillEpoch(manifest, selection.hour)
-    const base = { key, path, url: `http://localhost:4365/telegram/stills/${key}.${animation ? 'mp4' : 'jpg'}`, epoch, caption: caption(selection.mode, epoch), milliseconds: 0, cached: true }
+    const base = { key, path, url: `http://localhost:4365/telegram/stills/${key}.${animation ? 'mp4' : 'jpg'}`, epoch, generated: manifest.generated, caption: caption(selection.mode, epoch), milliseconds: 0, cached: true }
     const still: RenderedMedia = animation ? { ...base, kind: 'animation', frames: 49, fps: 4, bytes: 20000, renderMs: 1000, encodeMs: 100 } : { ...base, kind: 'photo' }
     available.set(`${selection.mode}:${selection.hour}`, still)
     return still
@@ -36,7 +37,8 @@ async function setup() {
     const fields = multipart ? Object.fromEntries((options!.body as FormData).entries()) : JSON.parse(options!.body as string)
     if (multipart && typeof fields.media === 'string') fields.media = JSON.parse(fields.media)
     calls.push({ method, fields, multipart })
-    if (failure && method === 'editMessageMedia') return Response.json({ ok: false, error_code: 400, description: failure })
+    if (failure && method === failureMethod) return Response.json({ ok: false, error_code: 400, description: failure })
+    if (method === 'sendMediaGroup') return Response.json({ ok: true, result: fields.media.map((_media: unknown, index: number) => ({ message_id: 100 + index, chat: { id: Number(fields.chat_id), type: 'private' }, photo: [{ file_id: `album-${calls.length}-${index}` }] })) })
     const animation = method === 'sendAnimation' || fields.media?.type === 'animation'
     const fileId = multipart ? `uploaded-${calls.length}` : fields.photo ?? fields.animation ?? fields.media?.media
     const result = method === 'sendPhoto' || method === 'sendAnimation' || method === 'editMessageMedia'
@@ -55,7 +57,7 @@ async function setup() {
     currentManifest: async () => manifest,
     availableStill: (selection) => available.get(`${selection.mode}:${selection.hour}`),
   }
-  return { runtime, calls, render, renew: () => { manifest = { ...manifest, generated: '2026-10-07T12:05:00Z' } }, fail: (description: string) => { failure = description } }
+  return { runtime, calls, render, renew: () => { manifest = { ...manifest, generated: '2026-10-07T12:05:00Z' } }, fail: (description: string, method = 'editMessageMedia') => { failure = description; failureMethod = method } }
 }
 
 function callback(data: string, chatId = 99): TelegramUpdate {
@@ -79,14 +81,14 @@ describe('still delivery and callbacks', () => {
     await handleUpdate(callback('air:3'), runtime)
     const edits = calls.filter((call) => call.method === 'editMessageMedia')
     expect(edits.map((call) => call.multipart)).toEqual([true, true, false])
-    expect(edits[2].fields.media).toMatchObject({ media: 'uploaded-2' })
+    expect(edits[2].fields.media).toMatchObject({ media: 'uploaded-1' })
     const previousRenders = render.mock.calls.length
     await handleUpdate(callback('air:3'), runtime)
     expect(calls.at(-1)).toMatchObject({ method: 'answerCallbackQuery', fields: { text: 'Al in beeld' } })
     expect(render.mock.calls).toHaveLength(previousRenders)
     const inline = { update_id: 3, callback_query: { id: 'inline-callback', data: 'air:3', inline_message_id: 'inline-message' } }
     await handleUpdate(inline, runtime)
-    expect(calls.at(-1)).toMatchObject({ method: 'editMessageMedia', multipart: false, fields: { inline_message_id: 'inline-message', media: { media: 'uploaded-2' } } })
+    expect(calls.findLast((call) => call.method === 'editMessageMedia')).toMatchObject({ multipart: false, fields: { inline_message_id: 'inline-message', media: { media: 'uploaded-1' } } })
     await handleUpdate(inline, runtime)
     expect(calls.at(-1)?.fields.text).toBe('Al in beeld')
   })
@@ -121,7 +123,7 @@ describe('still delivery and callbacks', () => {
     await handleUpdate({ update_id: 3, inline_query: { id: 'inline', query: 'regen' } }, runtime)
     expect(calls.at(-1)!.fields.results).toMatchObject([{ photo_url: still.url }])
     await handleUpdate({ update_id: 4, callback_query: { id: 'callback', data: 'weather:0', inline_message_id: 'inline-message' } }, runtime)
-    expect(calls.at(-1)).toMatchObject({ method: 'editMessageMedia', multipart: false, fields: { media: { media: still.url } } })
+    expect(calls.findLast((call) => call.method === 'editMessageMedia')).toMatchObject({ multipart: false, fields: { media: { media: still.url } } })
   })
 
   it('treats the exact not-modified response as a silent no-op after a restart', async () => {
@@ -135,14 +137,72 @@ describe('still delivery and callbacks', () => {
 
   it('preserves other edit failures and rejects removed buttons and commands', async () => {
     const { runtime, calls, render, fail } = await setup()
-    fail('Bad Request: message to edit not found')
+    fail('Bad Request: wrong file identifier/HTTP URL specified')
     await expect(handleUpdate(callback('weather:0'), runtime)).rejects.toBeInstanceOf(TelegramApiError)
     calls.length = 0
     render.mockClear()
     await handleUpdate(callback('wind:0'), runtime)
-    await handleUpdate(callback('weather:1'), runtime)
+    await handleUpdate(callback('weather:24'), runtime)
     expect(calls.map((call) => call.method)).toEqual(['answerCallbackQuery', 'answerCallbackQuery'])
     expect(render).not.toHaveBeenCalled()
+  })
+
+  it.each(["Bad Request: message can't be edited", 'Bad Request: message to edit not found'])('answers an unavailable message with an expiry toast and remembers it: %s', async (description) => {
+    const { runtime, calls, fail } = await setup()
+    fail(description)
+    await handleUpdate(callback('weather:0'), runtime)
+    expect(calls.at(-1)).toMatchObject({ method: 'answerCallbackQuery', fields: { text: 'Verlopen, stuur /regen opnieuw' } })
+    await handleUpdate(callback('air:3'), runtime)
+    expect(calls.filter((call) => call.method === 'editMessageMedia')).toHaveLength(1)
+    expect(calls.at(-1)?.fields.text).toBe('Verlopen, stuur /regen opnieuw')
+  })
+
+  it('handles expired callback acknowledgements without hiding other API errors', async () => {
+    const { runtime, calls, fail } = await setup()
+    fail('Bad Request: query is too old and response timeout expired or query ID is invalid', 'answerCallbackQuery')
+    await expect(handleUpdate(callback('weather:0'), runtime)).resolves.toBeUndefined()
+    expect(calls.filter((call) => call.method === 'editMessageMedia')).toHaveLength(1)
+    fail('Bad Request: unrelated acknowledgement failure', 'answerCallbackQuery')
+    await expect(handleUpdate(callback('weather:0'), runtime)).rejects.toBeInstanceOf(TelegramApiError)
+  })
+
+  it('rejects an expired generation and keeps a delta anchored to its original absolute time', async () => {
+    const { runtime, calls, render, renew } = await setup()
+    const firstManifest = await runtime.currentManifest()
+    runtime.manifestForGeneration = (generation) => generation === Date.parse(firstManifest.generated) ? firstManifest : undefined
+    renew()
+    await handleUpdate(callback(`weather:at:${stillEpoch(firstManifest, 1 / 6)}:${Date.parse(firstManifest.generated)}`), runtime)
+    expect(render.mock.calls.at(-1)?.[0]).toEqual({ mode: 'weather', hour: 1 / 6 })
+    const edits = calls.filter((call) => call.method === 'editMessageMedia').length
+    runtime.manifestForGeneration = () => undefined
+    await handleUpdate(callback(`weather:at:${stillEpoch(firstManifest, 1 / 6)}:${Date.parse(firstManifest.generated)}`), runtime)
+    expect(calls.at(-1)?.fields.text).toBe('Verlopen, stuur /regen opnieuw')
+    expect(calls.filter((call) => call.method === 'editMessageMedia')).toHaveLength(edits)
+  })
+
+  it('primes an album once, persists every id, and uses an id on the first user edit', async () => {
+    const { runtime, calls, render } = await setup()
+    runtime.photos = new StillPhotos(runtime.api, new FileIdCache('motregen_bot'), 'cache-chat')
+    const media = await Promise.all([render({ mode: 'weather', hour: 0 }), render({ mode: 'air', hour: 1 / 6 }), render({ mode: 'feels', hour: 1 })])
+    await runtime.photos.prime(media)
+    expect(calls.filter((call) => call.method === 'sendMediaGroup')).toMatchObject([{ multipart: true, fields: { chat_id: 'cache-chat', disable_notification: 'true' } }])
+    expect(calls.find((call) => call.method === 'deleteMessages')?.fields.message_ids).toEqual([100, 101, 102])
+    runtime.photos = new StillPhotos(runtime.api, new FileIdCache('motregen_bot'), 'cache-chat')
+    await runtime.photos.prime(media)
+    await handleUpdate(callback(`air:at:${media[1].epoch}:${Date.parse(media[1].generated)}`), runtime)
+    expect(calls.filter((call) => call.method === 'sendMediaGroup')).toHaveLength(1)
+    expect(calls.findLast((call) => call.method === 'editMessageMedia')).toMatchObject({ multipart: false, fields: { media: { type: 'photo', media: 'album-1-1', parse_mode: 'HTML' } } })
+  })
+
+  it('shares a concurrent cache upload between matrix priming and a user send', async () => {
+    const { runtime, calls, render } = await setup()
+    runtime.photos = new StillPhotos(runtime.api, new FileIdCache('motregen_bot'), 'cache-chat')
+    const media = await render({ mode: 'weather', hour: 0 })
+    await Promise.all([runtime.photos.prime([media]), runtime.photos.send(media, { chat_id: 99, caption: media.caption })])
+    const sends = calls.filter((call) => call.method === 'sendPhoto')
+    expect(sends.map((call) => call.multipart)).toEqual([true, false])
+    expect(sends[0].fields.chat_id).toBe('cache-chat')
+    expect(sends[1].fields.chat_id).toBe(99)
   })
 
   it('uploads loops as animations, edits photos into loops, reuses animation ids inline and skips duplicates', async () => {
@@ -151,7 +211,7 @@ describe('still delivery and callbacks', () => {
     expect(calls[0]).toMatchObject({ method: 'sendAnimation', multipart: true })
     await handleUpdate(callback('weather:0'), runtime)
     await handleUpdate(callback('wind:loop'), runtime)
-    expect(calls.at(-1)).toMatchObject({ method: 'editMessageMedia', multipart: false, fields: { media: { type: 'animation', media: 'uploaded-1' } } })
+    expect(calls.findLast((call) => call.method === 'editMessageMedia')).toMatchObject({ multipart: false, fields: { media: { type: 'animation', media: 'uploaded-1' } } })
     await handleUpdate(callback('wind:loop'), runtime)
     expect(calls.at(-1)?.fields.text).toBe('Al in beeld')
     await handleUpdate({ update_id: 7, inline_query: { id: 'inline', query: 'wind' } }, runtime)

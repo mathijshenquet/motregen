@@ -3,17 +3,18 @@ import type { PresetMode } from '../web/src/core/presets.js'
 import { telegramStartParameter } from '../web/src/core/telegram-presets.js'
 
 export const STILL_MODES = [
-  { mode: 'weather', command: 'regen', query: 'weer', label: 'Regen', explanation: 'Regenintensiteit: blauw is lichte regen, geel/rood is zware regen.' },
-  { mode: 'air', command: 'lucht', query: 'lucht', label: 'Lucht', explanation: 'Bewolking: een grijze sluier betekent meer wolken; regen staat erachter.' },
-  { mode: 'feels', command: 'gevoel', query: 'gevoel', label: 'Gevoelstemperatuur', explanation: 'Gevoelstemperatuur in °C: blauw is kouder, rood is warmer; lijnen en getallen geven de temperatuur.' },
+  { mode: 'weather', command: 'regen', query: 'weer', label: 'Regen' },
+  { mode: 'air', command: 'lucht', query: 'lucht', label: 'Lucht' },
+  { mode: 'feels', command: 'gevoel', query: 'gevoel', label: 'Gevoelstemperatuur' },
 ] as const
 
 export const LOOP_MODES = [...STILL_MODES,
-  { mode: 'wind', command: 'wind', query: 'wind', label: 'Wind', explanation: 'Wind: de bewegende deeltjes volgen richting en snelheid; warmere kleuren betekenen meer wind.' },
+  { mode: 'wind', command: 'wind', query: 'wind', label: 'Wind' },
 ] as const
 
-export const STILL_HOURS = [0, 3, 6, 12] as const
-export type StillHour = typeof STILL_HOURS[number]
+export const STILL_MINUTES = Array.from({ length: 85 }, (_, index) => -120 + index * 10)
+export const STILL_HOURS = STILL_MINUTES.map((minute) => minute / 60)
+export type StillHour = number
 export type StillMode = typeof STILL_MODES[number]['mode']
 export type LoopMode = typeof LOOP_MODES[number]['mode']
 
@@ -28,6 +29,7 @@ export interface LoopSelection {
 }
 
 export type MediaSelection = StillSelection | LoopSelection
+export type CallbackSelection = (MediaSelection & { generated?: number }) | { mode: StillMode; hour: 'at'; epoch: number; generated: number }
 
 export interface StillManifest {
   generated: string
@@ -37,7 +39,7 @@ export interface StillManifest {
 }
 
 export function stillEpoch(manifest: StillManifest, hour: StillHour): number {
-  return Date.parse(manifest.now) + hour * 3_600_000
+  return Date.parse(manifest.now) + Math.round(hour * 3_600_000)
 }
 
 export function stillTime(epoch: number): string {
@@ -48,15 +50,14 @@ export function stillTime(epoch: number): string {
 }
 
 export function caption(mode: LoopMode, epoch: number): string {
-  const definition = LOOP_MODES.find((entry) => entry.mode === mode)!
-  return `${stillTime(epoch)} · ${definition.label}\n${definition.explanation}\nKNMI · OpenFreeMap · © OpenStreetMap\n${presetUrl('https://motregen.nl', mode, epoch)}`
+  return `<a href="${presetUrl('https://motregen.nl', mode, epoch).replaceAll('&', '&amp;')}">motregen.nl</a>`
 }
 
 export function cacheKey(selection: MediaSelection, manifest: StillManifest): string {
   const epoch = selection.hour === 'loop' ? Date.parse(manifest.now) : stillEpoch(manifest, selection.hour)
-  const identity = JSON.stringify({ renderer: 7, ...selection, epoch, generated: manifest.generated })
+  const identity = JSON.stringify({ renderer: 8, mode: selection.mode, kind: selection.hour === 'loop' ? 'loop' : 'photo', epoch, generated: Date.parse(manifest.generated) })
   const digest = createHash('sha256').update(identity).digest('hex').slice(0, 24)
-  return `${selection.mode}-${selection.hour}-${digest}`
+  return `${selection.mode}-${selection.hour === 'loop' ? 'loop' : epoch}-${digest}`
 }
 
 export function presetUrl(origin: string, mode: PresetMode, epoch: number, still = false): string {
@@ -74,14 +75,21 @@ export function miniAppLink(username: string, mode: PresetMode, epoch: number): 
   return url.href
 }
 
-export function callbackData(selection: MediaSelection): string {
+export function callbackData(selection: MediaSelection, epoch?: number, generated?: string): string {
+  if (generated) {
+    if (selection.hour === 'loop') return `${selection.mode}:loop:${Date.parse(generated)}`
+    return `${selection.mode}:at:${epoch}:${Date.parse(generated)}`
+  }
   return `${selection.mode}:${selection.hour}`
 }
 
-export function parseCallback(data: string | undefined): MediaSelection | undefined {
+export function parseCallback(data: string | undefined): CallbackSelection | undefined {
   if (!data) return undefined
-  const [mode, hourText, extra] = data.split(':')
+  const [mode, hourText, epochText, generatedText, extra] = data.split(':')
   if (extra !== undefined || !LOOP_MODES.some((entry) => entry.mode === mode)) return undefined
+  if (hourText === 'loop' && epochText !== undefined && generatedText === undefined && /^\d{13}$/.test(epochText)) return { mode: mode as LoopMode, hour: 'loop', generated: Number(epochText) }
+  if (hourText === 'at' && STILL_MODES.some((entry) => entry.mode === mode) && /^\d{13}$/.test(epochText ?? '') && /^\d{13}$/.test(generatedText ?? '')) return { mode: mode as StillMode, hour: 'at', epoch: Number(epochText), generated: Number(generatedText) }
+  if (epochText !== undefined) return undefined
   if (hourText === 'loop') return { mode: mode as LoopMode, hour: 'loop' }
   if (!STILL_MODES.some((entry) => entry.mode === mode)) return undefined
   const hour = STILL_HOURS.find((candidate) => String(candidate) === hourText)
@@ -103,20 +111,21 @@ export interface InlineButton {
   web_app?: { url: string }
 }
 
-export function keyboard(selection: MediaSelection, epoch: number, origin: string, username: string, privateChat = false): { inline_keyboard: InlineButton[][] } {
+export function keyboard(selection: MediaSelection, epoch: number, generated?: string): { inline_keyboard: InlineButton[][] } {
   const modeButtons = LOOP_MODES.map((entry) => ({
     text: `${selection.mode === entry.mode ? '✓ ' : ''}${entry.command === 'gevoel' ? 'Gevoel' : entry.label}`,
-    callback_data: callbackData(entry.mode === 'wind' || selection.hour === 'loop' ? { mode: entry.mode, hour: 'loop' } : { mode: entry.mode, hour: selection.hour }),
+    callback_data: callbackData(entry.mode === 'wind' || selection.hour === 'loop' ? { mode: entry.mode, hour: 'loop' } : { mode: entry.mode, hour: selection.hour }, epoch, generated),
   }))
-  const timeButtons: InlineButton[] = selection.mode === 'wind' ? [] : STILL_HOURS.map((hour) => ({
-    text: `${selection.hour === hour ? '✓ ' : ''}${hour === 0 ? 'nu' : `+${hour}u`}`,
-    callback_data: callbackData({ mode: selection.mode as StillMode, hour }),
-  }))
-  timeButtons.push({ text: `${selection.hour === 'loop' ? '✓ ' : ''}Loop`, callback_data: callbackData({ mode: selection.mode, hour: 'loop' }) })
-  const openButton: InlineButton = { text: 'Open in motregen.nl' }
-  if (privateChat && origin.startsWith('https:')) openButton.web_app = { url: presetUrl(origin, selection.mode, epoch) }
-  else openButton.url = miniAppLink(username, selection.mode, epoch)
-  return { inline_keyboard: [modeButtons, timeButtons, [openButton]] }
+  const timeButtons: InlineButton[] = []
+  if (selection.mode !== 'wind') {
+    const minute = selection.hour === 'loop' ? 0 : Math.round(selection.hour * 60)
+    for (const [delta, label] of [[-60, '−1u'], [-10, '−10m'], [0, 'nu'], [10, '+10m'], [60, '+1u']] as const) {
+      if (delta === 0) timeButtons.push({ text: `${selection.hour === 0 ? '✓ ' : ''}nu`, callback_data: callbackData({ mode: selection.mode, hour: 0 }) })
+      else if (STILL_MINUTES.includes(minute + delta)) timeButtons.push({ text: label, callback_data: callbackData({ mode: selection.mode, hour: (minute + delta) / 60 }, epoch + delta * 60_000, generated) })
+    }
+  }
+  timeButtons.push({ text: `${selection.hour === 'loop' ? '✓ ' : ''}Loop`, callback_data: callbackData({ mode: selection.mode, hour: 'loop' }, epoch, generated) })
+  return { inline_keyboard: [modeButtons, timeButtons] }
 }
 
 export function validateManifest(value: unknown): StillManifest {
