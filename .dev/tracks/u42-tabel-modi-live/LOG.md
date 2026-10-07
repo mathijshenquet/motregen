@@ -326,3 +326,14 @@
   uurrow wanneer de afgeronde row buiten de tabel valt. Daarna opnieuw `pnpm typecheck` exit 0,
   ForecastTable 16/16 en `pnpm build` exit 0; de definitieve previewasset is
   `index-Be7X1Zve.js` met ongewijzigd `index-gdG2HYvp.css`.
+
+## 2026-10-07 11:28 UTC
+
+- Firefox phone-emulatie kon nog midden tussen Kaart en Tabel eindigen. Oorzaak was semantisch:
+  `scroll-snap-type: y proximity` staat expliciet toe dat een scroll niet snapt, terwijl viewcommit
+  alleen echte snap-punten accepteert. De mobiele documentroute gebruikt nu `y mandatory`; daardoor
+  rondt de browser iedere losgelaten viewgesture af naar Kaart of Tabel en blijft de `scrollend`-commit
+  eenvoudig zonder een kunstmatige midden-drempel.
+- Synchrone receipts: `git diff --check`, `pnpm typecheck` en `pnpm build` exit 0 (107 modules,
+  `index-BWIt3Fla.js`, `index-DLb6ISxo.css`, PWA + workers). Preview
+  `http://ageq-dev2:4320/` serveert de nieuwe assets. Geen e2e uitgevoerd vóór PO-signaal “klaar”.

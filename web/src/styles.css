@@ -942,7 +942,7 @@ td small { color: var(--muted); font-size: 9px; }
 }
 
 @media (max-width: 959px) and (orientation: portrait) {
-  html { scroll-snap-type: y proximity; }
+  html { scroll-snap-type: y mandatory; }
   body { overflow-y: auto; }
   .app-shell { min-height: 100svh; overflow: visible; }
   .map-shell { scroll-snap-align: start; }
