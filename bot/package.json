@@ -1,0 +1,25 @@
+{
+  "name": "motregen-bot",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "files": ["dist"],
+  "scripts": {
+    "start": "node dist/bot/main.js",
+    "dev": "tsx main.ts",
+    "smoke": "tsx smoke.ts",
+    "render": "tsx smoke.ts --render-only",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "playwright": "^1.61.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "tsx": "^4.20.5",
+    "typescript": "~5.9.2",
+    "vitest": "^3.2.4"
+  }
+}
