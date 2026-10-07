@@ -70,3 +70,9 @@
 - Mergecommit `3e46d9f` bevat main `21717fc` als tweede ouder en de privacyfix; commit en `git push origin HEAD:track/u45-telegram` beide SYNCHRONE EXIT 0. Ancestry gecontroleerd, werkboom schoon; remote-tip en PR-head exact `3e46d9f48baa348ee14f3d86ed4b7e335a0830ea`.
 - `gh pr edit 72 --body-file tmp/u45-pr.md`: SYNCHRONE EXIT 0. PR #72 beschrijft de gecombineerde routes, verwijderde identifieroverdracht en alle nieuwe groene gates; historische render-/Telegramreceipts duidelijk onderscheiden van de hercontrole.
 - Beide reviewpunten klaar. Deze append-only overdracht wordt committed en gepusht; preview blijft op http://ageq-dev2:4360/.
+
+## 2026-10-07T09:41:55Z — Slotentry
+- U45/PR #72 is op main gemerged: `ac075a7aeda8cad63be133e151bc5c73c242d70a`, merge op `2026-10-07T09:41:37Z`. Onafhankelijk bevestigd met `gh pr view 72 --json state,mergedAt,mergeCommit,url`: SYNCHRONE EXIT 0, state MERGED.
+- Orkestrator meldt onafhankelijke gate: typecheck 0, bot 10/10, web 347/347, build 0, 12 e2e groen en nix-VM groen. Dit zijn orkestratorreceipts, geen opnieuw door deze worker uitgevoerde checks.
+- Eigen Vite-preview op 4360 geïdentificeerd via procespad/cwd en gestopt met `kill -TERM 196898`: SYNCHRONE EXIT 0. `ss -H -ltn 'sport = :4360'` zonder listener gecontroleerd: SYNCHRONE EXIT 0; poort vrij.
+- Track afgesloten. Slotentry wordt committed en gepusht naar track/u45-telegram; workspace kan daarna worden gesloten.
