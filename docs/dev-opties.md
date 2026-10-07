@@ -39,7 +39,8 @@ Snelheidsdemping, Buffer-rest, Buffer-DPR max, Kopintensiteit, Contrast, Max. fp
 U30 constanten in `WIND_PARAMETERS` (`web/src/core/wind-layer.ts`), elk met herkomst. De PerfHud
 is alleen nog meting (plus de perf-JSON met het loef/lij-profiel van U24).
 
-Buiten het paneel: `?skywatch-render` (U46) rendert alleen de wolkendoorsnede voor De Bilt als
+Buiten het paneel: `?perf` is de profielmodus (MIP-16, U43): toont de perf-HUD en zet de gedetailleerde
+meting aan, blijft via `localStorage` staan tot `?perf=0`; geen knop, blijft (diagnose). `?skywatch-render` (U46) rendert alleen de wolkendoorsnede voor De Bilt als
 still voor de grading-pijplijn; geen knop, vervalt na de analyse.
 
 ## Opslag (`localStorage`, prefix `motregen-`)

@@ -316,3 +316,18 @@ tijdens een generatie zijn onbetrouwbaar). De cijfers in die alinea zijn van de 
   390 px: vast +120, scrubber +73, vast-omgekeerd −120, scrubber-omgekeerd −73.
 - Receipts (synchroon): `pnpm typecheck` 0; `pnpm test` 0 (455 tests); `pnpm build` 0.
 - Volgende: PO kiest → constante + knop weg; intussen stap 3 (dev-panel.spec rood op main).
+
+## 2026-10-07 22:45 — stap 3: dev-panel.spec rood op main — oorzaak en eerlijke aanpassing
+
+Drie verouderde asserties, geen productbug:
+1. "expected hidden, received visible" op `perf-hud`: de test laadde `/?perf=1&…` als voorbeeld van een losse
+   parameter die niets meer doet. Sinds MIP-16 (U43) is `?perf` juist de profielmodus en toont het de HUD.
+   → `perf=1` uit de dode-parameterlijst; de andere drie (`histogram`, `zon`, `uvbalk`) blijven getest.
+2. Groepenlijst: de test verwachtte Temperatuur/Wind/Diagnose; het paneel heeft sinds U56/U46 ook Klok en
+   Lucht nu. → lijst en "alleen de eerste open" bijgewerkt naar vijf groepen.
+3. Windintensiteit: de test zette 0,5 en verwachtte een opgeslagen afwijking, maar 0,5 is sinds de live
+   windtuning zelf de default (alleen afwijkingen worden opgeslagen). → 0,8.
+`docs/dev-opties.md`: `?perf` staat nu onder "Buiten het paneel" (plakkerig tot `?perf=0`).
+Receipt (synchroon): `pnpm e2e e2e/dev-panel.spec.ts --project desktop` exit 0 (1 passed). Paneel-screenshot
+van de test zelf bekeken: vijf groepen, Klok › Jog-schaal met de nieuwe uitleg. Gezien, niet aangepakt: in
+"Lucht nu" loopt het waardelabel "mooie wolkenlucht" rechts over de rand van het paneel.
