@@ -75,8 +75,11 @@ Het archief bevat kustwater tot [-5,48,13,57], omdat contain-zoom ook ruimte
 buiten de app-bounds toont. Zo krijgt de Noordzee geen rechte, lege rand.
 
 De app gebruikt contain-zoom en een maximale detailzoom waarbij de kaart
-minimaal 20 km breed blijft. MaxZoom hangt van de viewport af: ongeveer 9,84
-bij 390 px, 11,55 bij 1280 px en 13,14 bij 3840 px op Nederlandse breedte.
+minimaal 20 km breed blijft. MaxZoom hangt van de breedte van het kaartvlak
+af: ongeveer 9,84 bij 390 px, 11,55 bij 1280 px en 13,14 bij 3840 px op
+Nederlandse breedte. Dat is niet altijd de schermbreedte: op het 1280 px
+brede desktopbeeld is de kaart naast de tabel 810 px breed, met maximale
+zoom circa 10,93 bij de gekozen kustlocatie (51,9° N).
 Boven z10 gebruikt MapLibre bron-overzoom; de bestaande zoomregel blijft gelden.
 Z9, z10 en z11 zijn vergeleken bij start en maximale appzoom op 390, 1280 en
 3840 px. Z10 behoudt het Brielse Meer en bruikbare watervormen bij overzoom;

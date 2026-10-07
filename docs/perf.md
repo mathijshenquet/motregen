@@ -881,6 +881,21 @@ en 0,30% / 0% op desktop. Mobiele TTFR-mediaan is 1.738→1.686 ms;
 desktop 292→290 ms. De kaartwinst betekent dus geen even grote winst in
 de tijd tot de eerste regenlaag.
 
+Een onafhankelijke hercontrole op `18fe5f3` geeft op mobile-4g totaal én
+p50 **604,8 / 255,1 / 222,7 ms** (mediaan 255,1 ms). De drie totaalgates
+slagen; twee runs halen ook de p50-streefwaarde. Bodybytes zijn
+1.776.512 / 1.771.489 / 1.771.489 B (−40,54…−40,71%), met steeds
+297 weerdecodes en gelijke Playwright-/Resource-Timing-bytes. De byte-
+spreiding is 0,28%, decodespreiding 0%. De eerste run bevat een extra
+5.023-byte profilerasset; die blijft meetellen. Dit is geen nieuwe baseline
+en de tijdvariatie wordt niet als telefoonbenchmark gepresenteerd.
+
+De desktophercontrole op dezelfde head geeft totaal 926,7 / 1.421,4 /
+1.330 ms en p50 231,6 / 355,1 / 332 ms. Bodybytes blijven
+1.677.175–1.682.198 B, 250 weerdecodes, met gelijke bytebronnen en
+0,30% / 0% byte-/decodespreiding. Deze tijden tonen de gevoeligheid voor
+hostbelasting; desktop krijgt daarom geen mobiele tijdgate opgelegd.
+
 Reproduceren op de eigen trackpoorten:
 
 ```sh
@@ -903,6 +918,22 @@ blijft offline byte-identiek. Alleen bekeken bereiken worden opgeslagen,
 niet het hele archief. Deze cachewinst is een netwerkclaim; MapLibre moet de
 tegels op iedere navigatie opnieuw verwerken, dus warme fasetijden hoeven
 niet lager te zijn. Het repro-commando staat in [basemap.md](basemap.md#meten).
+
+De gemeten warme bezoeken op 2026-10-07, steeds Desktop Chrome met de
+aangegeven viewport; 390 px krijgt het 4G-netwerk en 4× page-CPU, 1280 px
+geen rem. Dat is een afzonderlijke cacheproef, geen identieke Pixel-5-context
+van de koude rig:
+
+| Viewport | Kaartnetwerk | Gecachte ranges / bytes | Warm totaal / p50 | Eerste bezoek totaal / p50 |
+| --- | ---: | ---: | ---: | ---: |
+| 390 px | 0 requests | 2 / 43.611 B | 834,3 / 834,3 ms | 490,6 / 490,6 ms |
+| 1280 px | 0 requests | 5 / 83.724 B | 917,3 / 221,3 ms | 1.169,3 / 290,5 ms |
+
+De bron-SHA's, contracthashes, afzonderlijke runs van beide koude metingen
+en warme cache-uitkomsten staan in
+[`web/perf/basemap-comparison.json`](../web/perf/basemap-comparison.json).
+Volledige netwerklogs, traces, screenshots en synchrone commandoreceipts
+blijven lokaal in het genegeerde werklog `tmp/basemap/u59/LOG.md`.
 
 ## Live-smoke
 
