@@ -250,8 +250,20 @@ export function neutralizeNoData(data: Uint8Array): Uint8Array {
   return normalized
 }
 
+const LITTLE_ENDIAN = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1
+
 export function packRainTexture(data: Uint8Array): Uint8Array {
   const packed = new Uint8Array(data.length * 2)
+  if (LITTLE_ENDIAN) {
+    // Eén 16-bit-schrijf per pixel (waarde in de lage byte, geldigheid in de hoge): het inpakken draait op
+    // de hoofddraad bij elke eerste upload van een frame (PO-opname 2026-10-07: 107 frames × ~8 ms).
+    const pairs = new Uint16Array(packed.buffer)
+    for (let index = 0; index < data.length; index++) {
+      const value = data[index]!
+      pairs[index] = value === 255 ? 0 : 0xff00 | value
+    }
+    return packed
+  }
   for (let index = 0; index < data.length; index++) {
     const valid = data[index] !== 255
     packed[index * 2] = valid ? data[index]! : 0

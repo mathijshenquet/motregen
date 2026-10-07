@@ -112,3 +112,63 @@ Volgende: besluit orkestrator/PO over doel en baseline; dan PO-akkoord stap 1 en
 - Stap 1 opnieuw bekeken op deze build (desktop 1280 + 390 px): aan = hemel + gekleurde tabel met
   zonsondergang-rij; uit = kale scrubber met regenbalken en vlakke tabel; paneel toont de schakelaar.
 - Volgende: PO-akkoord stap 1, dan stap 2 (klokpil-jog).
+
+## 2026-10-07 19:50 — urgent punt 2: haperend afspelen in de eerste ~10 s (PO-opname Chrome op 4320)
+
+Vóór-meting gereproduceerd met `prof:capture --profile=mobile-4g --passive` op de build van `2f94321`: lange
+frames eerste 12 s = 34 stuks / 7 846 ms, ~0,8 s per seconde van t=0 tot t=10, daarna vrijwel 0.
+
+**Oorzaken en fixes**
+- (a) `showTemperature` én `wind-layer currentTrailView`/`drawHeads` lazen elke frame `clientWidth`/
+  `clientHeight`. Zolang de DOM vuil is (reeksen komen binnen) dwingt elke lezing een layout af; die tijd
+  staat in het profiel als zelf-tijd van de lezende functie. Nu: App vergelijkt op de backing store van het
+  canvas (attribuut, geen layout) en leest de CSS-maat pas als de labels echt opnieuw berekend worden; de
+  windlaag cachet de CSS-maat, bewaakt door de backing store. `showTemperature` begon bovendien elke tik
+  opnieuw zolang dezelfde invoer nog laadde; nu één lading per invoer (`temperaturePending`).
+- (b) `packRainTexture`: het inpakken gebeurde al alleen bij de eerste upload van een frame (WeakMap-cache),
+  niet per gedecodeerd frame. Versneld met één 16-bit-schrijf per pixel (node, 700×765: 0,87 → 0,35 ms).
+  NIET naar de worker verplaatst: dat verdubbelt de overdracht/cache per regenframe of vraagt een andere
+  shader (R8 + handmatige bilineaire filter); als de resterende ~3 ms per frame nog stoort is dat de volgende
+  stap, met visuele controle.
+- (c) Perf-markeringen draaien alleen met de `?perf`-vlag of de zichtbare HUD (`detailedMeasurementsEnabled`;
+  `measurePerfPhase` geeft anders direct `operation()` terug). Let op: `?perf` is plakkerig via localStorage
+  tot `?perf=0`. Overhead in perf-modus verlaagd: één `performance.measure` op tijdstempels in plaats van
+  twee marks + measure + drie keer opruimen.
+- (d) Wolkvormen (`puffOutline`) en scrubberwerk liepen per publicatie van een reeks, en dat was elke
+  animatieframe. `FrameBatcher` kent nu een minimuminterval; regen-, tabel- en wolkenreeksen publiceren
+  hooguit elke 200 ms (`SERIES_PUBLISH_INTERVAL_MS`). Zichtbaar gevolg: de grafiek vult tijdens het laden in
+  stapjes van 0,2 s aan in plaats van per frame — productkeuze die de PO mag terugdraaien.
+- Bijvangst: het permalink-effect in App hing aan `selectedEpoch()` en liep elke afspeeltik (nieuwe URL +
+  params), ook als het tijdstip niet in de URL staat; nu alleen nog als het klokpaneel open is.
+- Niet aangepakt: basemap-tiles (8 × ~1 s in de PO-opname; netwerk + parse, E8 PMTiles), de per-tik
+  daglabel-transform en cursor-tags in de scrubber (~0,3–0,5 s per 30 s in mijn opname).
+
+**Metingen** (`prof:capture http://127.0.0.1:4320 --profile=mobile-4g --passive`, headless SwiftShader, 4× CPU)
+
+| meting | vóór (`2f94321`) | ná |
+| --- | ---: | ---: |
+| lange frames eerste 12 s (aantal / totaal) | 34 / 7 846 ms | 25 / 4 586 ms |
+| laatste seconde met > 300 ms lange frames | t = 10 | t = 5 |
+| `showTemperature` in de profieltop | plaats 1 (8,4 % van de samples) | niet meer in de top 22 |
+| `currentTrailView` in de profieltop | plaats 3 (5,4 %) | niet meer in de top 22 |
+
+Kanttekeningen: (1) de "self ms" van `prof:top` zijn bij deze schaarse bemonstering (~46 ms per sample)
+onbetrouwbaar — `packRainTexture` staat ná op 9 % van de samples terwijl de fase `texture-upload` in dezelfde
+opname 34 uploads / 479 ms telt; ik reken daarom met LoAF en fasen. (2) Headless SwiftShader rendert kaart en
+wind in software; wat ná overblijft (t=0–5 s) valt samen met het laden van basemap-tiles en de eerste
+kaartrenders en zegt weinig over een echte GPU. De echte toets is een nieuwe PO-opname in Chrome.
+(3) De rig-LoAF's zijn ruis: koud gaf nu 17 / 2 224 ms tegen 8 / 859 ms in de baseline-run en 13 / 1 894 ms
+eerder vandaag, bij gelijke code voor dat pad; hoofddraadbezetting daalde wel (koud 11,9 → 8,5 %, journey
+22,5 → 19,2 %) en ttfh werd niet slechter (koud 2 627 → 2 313 ms).
+
+**Receipts (synchroon):** `pnpm typecheck` 0; `pnpm test` 0 (68 bestanden, 453 tests, +1 FrameBatcher-
+interval); `pnpm build` 0; `pnpm perf:mobile --profile mobile-4g --scenario all --compare` 0 (drie keer
+groen: decodes 0,000 %, wire +0,02 %); `pnpm e2e e2e/decode-budget.spec.ts e2e/table.spec.ts
+e2e/cloud-section.spec.ts e2e/freshness.spec.ts e2e/focus.spec.ts --project desktop`: 15 passed, 1 failed
+(`focus.spec` "pinned isolines re-render…": strict-mode-fout op `.freshness-refresh`, twee knoppen sinds de
+deelknop — stond los van deze wijziging); locator aangepast naar de knop "Nu verversen", daarna
+`pnpm e2e e2e/focus.spec.ts --project desktop` 0 (8 passed, 2 skipped). dom-churn 390 px na de wijziging:
+hemel 33 / 9 knopen, tabel 35 / 12 (eerste 12 s / afspelen). Zelf bekeken: 390 px en desktop — stads-
+temperaturen op de kaart, regen, hemel en gevulde piep-rijen staan er.
+
+Volgende: PO-opname in Chrome op 4320 als echte ná-meting; PO-akkoord stap 1; stap 2 (klokpil-jog).

@@ -77,6 +77,10 @@ const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
 const ALWAYS_SHOWN_FIELDS = ['rain_rate', 'motion', 'uv', 'uv_clear', 'cloud_low', 'cloud_mid', 'cloud_high', 'cloud_frac', 'wind_u_ms', 'wind_v_ms', 'gust_ms', 'pressure_hpa', 'feels_like_c', 'temp_c']
 const TABLE_ONLY_FIELDS = ['radiation']
 const SCRUB_REST_MS = 250
+// Puntreeksen komen per frame binnen; elke publicatie loopt door scrubber, tabel en hemel. Per animatieframe
+// publiceren gaf tijdens het laden lange frames van ~0,8 s per seconde (prof:capture mobile-4g 2026-10-07);
+// vijf keer per seconde vult de grafiek nog zichtbaar aan.
+const SERIES_PUBLISH_INTERVAL_MS = 200
 type PointLoadStage = 'initial' | 'direct' | 'window' | 'complete'
 type FetchPriority = 'high' | 'low'
 type ForecastIndex = 'radiationIndex' | 'uvIndex' | 'temperatureIndex' | 'feelsLikeIndex' | 'cloudIndex' | 'windUIndex' | 'windVIndex' | 'gustIndex'
@@ -262,6 +266,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let appliedMapTheme: MapTheme | undefined
   let temperatureLabelKey = ''
   let temperatureInput = ''
+  let temperaturePending = ''
   let sunFeatureKey = ''
   let sunEpochBucket = Number.NaN
   let rainReadyPending = false
@@ -1392,7 +1397,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
   function attachTemperatureLayer(): void {
     if (!map || map.getLayer('motregen-temperature')) return
-    temperatureLabelKey = temperatureInput = ''
+    temperatureLabelKey = temperatureInput = temperaturePending = ''
     map.addSource('motregen-temperature', { type: 'geojson', data: emptyTemperatureData })
     const beforeId = temperatureLayerBeforeId(map.getStyle().layers)
     for (const set of isolineSets) {
@@ -1758,32 +1763,38 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   async function showTemperature(): Promise<void> {
     const frames = feelsLikeTimeline()
     if (!frames.length || !map?.getSource('motregen-temperature')) return
-    const request = ++shownTemperatureRequest
     // In stappen van 10 minuten tijdlijntijd (PO 2026-09-25: stadstemperaturen zijn minder belangrijk):
     // elke gewijzigde stadswaarde is een setData en dus een volledige kaartrender.
     const blend = frameBlend(frames, Math.round(selectedEpoch() / CITY_TEMPERATURE_STEP_MS) * CITY_TEMPERATURE_STEP_MS)
     const mix = blend.mix
     const leftFrame = frames[blend.left]!, rightFrame = frames[blend.right]!
-    const { clientWidth, clientHeight } = map.getContainer()
-    // Zelfde invoer als de getoonde labels: niets te doen (per afspeeltik het gewone geval).
-    const input = `${leftFrame.chunk.url}#${leftFrame.frameIndex}|${rightFrame.chunk.url}#${rightFrame.frameIndex}|${mix}|${map.getZoom()}|${clientWidth}x${clientHeight}`
-    if (input === temperatureInput) return
+    // De backing store van het canvas staat voor de kaartmaat: clientWidth zou hier per afspeeltik een
+    // layout afdwingen (PO-opname 2026-10-07: 1,8 s in de eerste tien seconden).
+    const canvas = map.getCanvas()
+    // Zelfde invoer als de getoonde labels: niets te doen (per afspeeltik het gewone geval). Ook niet
+    // zolang dezelfde invoer nog laadt: anders begint elke tik opnieuw en haalt de vorige lading in.
+    const input = `${leftFrame.chunk.url}#${leftFrame.frameIndex}|${rightFrame.chunk.url}#${rightFrame.frameIndex}|${mix}|${map.getZoom()}|${canvas.width}x${canvas.height}`
+    if (input === temperatureInput || input === temperaturePending) return
+    const request = ++shownTemperatureRequest
+    temperaturePending = input
     try {
       const [left, right, leftHeader, rightHeader] = await Promise.all([
         load(leftFrame), load(rightFrame), client.getHeader(leftFrame.chunk), client.getHeader(rightFrame.chunk),
       ])
       if (request !== shownTemperatureRequest || !map) return
       const source = map.getSource('motregen-temperature') as GeoJSONSource | undefined
+      const { clientWidth, clientHeight } = map.getContainer()
       const labels = temperatureLabels(left, right, leftHeader, rightHeader, mix, selectTemperaturePlaces(map.getZoom(), temperatureLabelSpacingPx(clientWidth, clientHeight)))
       const key = labels.features.map((feature) => `${feature.properties.name}:${feature.properties.label}`).join('|')
       temperatureInput = input
+      temperaturePending = ''
       if (key !== temperatureLabelKey) {
         temperatureLabelKey = key
         source?.setData(labels)
       }
     } catch {
       const source = map?.getSource('motregen-temperature') as GeoJSONSource | undefined
-      temperatureLabelKey = temperatureInput = ''
+      temperatureLabelKey = temperatureInput = temperaturePending = ''
       source?.setData(emptyTemperatureData)
     }
   }
@@ -1960,8 +1971,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       direct: Promise.resolve(),
       loading: new Map(),
     }
-    state.rainPublisher = new FrameBatcher(() => publishRain(state))
-    state.seriesPublisher = new FrameBatcher(() => publishLoadedSeries(state))
+    state.rainPublisher = new FrameBatcher(() => publishRain(state), undefined, undefined, SERIES_PUBLISH_INTERVAL_MS)
+    state.seriesPublisher = new FrameBatcher(() => publishLoadedSeries(state), undefined, undefined, SERIES_PUBLISH_INTERVAL_MS)
     return state
   }
 
@@ -2410,7 +2421,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   createEffect(() => {
     if (stillMode) return
     const url = new URL(window.location.href)
-    applyPresetParams(url.searchParams, { mode: currentShareMode(), epoch: selectedEpoch(), point: location(), place: locationLabel() }, freshnessOpen())
+    // Het tijdstip telt alleen mee zolang het in de URL staat; anders liep dit effect bij elke afspeeltik.
+    const withTime = freshnessOpen()
+    applyPresetParams(url.searchParams, { mode: currentShareMode(), epoch: withTime ? selectedEpoch() : untrack(selectedEpoch), point: location(), place: locationLabel() }, withTime)
     if (url.href !== window.location.href) history.replaceState(history.state, '', url)
   })
 
@@ -2522,7 +2535,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     // Ook een lezing die bij een vorig venster begon publiceert nog: de waarden zijn gedeeld.
     const publisher = new FrameBatcher(() => {
       if (read === cloudsRead) setCloudValues({ high: [...read.values.high], mid: [...read.values.mid], low: [...read.values.low] })
-    })
+    }, undefined, undefined, SERIES_PUBLISH_INTERVAL_MS)
     if (otherPlaceOrTimeline) publisher.schedule()
     for (const layer of CLOUD_LAYERS) {
       const frames = timelines[layer]
