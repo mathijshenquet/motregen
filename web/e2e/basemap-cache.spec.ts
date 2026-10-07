@@ -15,6 +15,11 @@ for (const width of [390, 1280]) {
     await cdp.send('Network.clearBrowserCache')
     await page.goto('/?perf=1&t=%2B0u&modus=weer')
     await expect(page.locator('.map-splash.ready')).toBeAttached()
+    await page.waitForTimeout(1_000)
+    const cold = await page.evaluate(() => ({
+      ...window.__motregenPerf.snapshot(),
+      basemapDurationsMs: window.__motregenPerf.traceSlice().measures.filter(entry => entry.phase === 'basemap-tile').map(entry => entry.duration),
+    }))
     await page.evaluate(async () => { await navigator.serviceWorker.ready })
     await page.goto(page.url())
     await page.waitForFunction(() => navigator.serviceWorker.controller !== null)
@@ -25,7 +30,6 @@ for (const width of [390, 1280]) {
       throw error
     })
     await page.waitForTimeout(1_000)
-    const cold = await page.evaluate(() => window.__motregenPerf.snapshot())
     const network: string[] = []
     const isBasemap = (url: string) => /\/basemap\//.test(new URL(url).pathname)
     context.on('request', request => {
@@ -39,7 +43,12 @@ for (const width of [390, 1280]) {
     await page.goto(page.url())
     await expect(page.locator('.map-splash.ready')).toBeAttached()
     await page.waitForTimeout(1_000)
-    const warm = await page.evaluate(() => window.__motregenPerf.snapshot())
+    const warm = await page.evaluate(() => ({
+      ...window.__motregenPerf.snapshot(),
+      basemapDurationsMs: window.__motregenPerf.traceSlice().measures.filter(entry => entry.phase === 'basemap-tile').map(entry => entry.duration),
+    }))
+    expect(cold.basemapDurationsMs.length).toBeGreaterThan(0)
+    expect(warm.basemapDurationsMs.length).toBeGreaterThan(0)
     expect(network).toEqual([])
     expect(ranges.length).toBeGreaterThan(1)
     expect(ranges.every(response => response.status === 206 && response.cached)).toBe(true)

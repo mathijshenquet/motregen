@@ -81,7 +81,19 @@ Boven z10 gebruikt MapLibre bron-overzoom; de bestaande zoomregel blijft gelden.
 Z9, z10 en z11 zijn vergeleken bij start en maximale appzoom op 390, 1280 en
 3840 px. Z10 behoudt het Brielse Meer en bruikbare watervormen bij overzoom;
 z9 maakt die te grof. Z11 voegt vooral kleine vlakken toe. Het definitieve
-z10-archief met de ruimere kustdekking is 3.536.092 B.
+z10-archief met de ruimere kustdekking is `nl-0aa536ff364f7cce.pmtiles`,
+3.536.092 B voor 1.951 tegels. Het manifest bewaart de volledige SHA256 en
+de gecomprimeerde en uitgepakte tegelgroottes per zoom:
+
+| Zoom | Tegels | Gecomprimeerd totaal | p50 / grootste tegel |
+| --- | ---: | ---: | ---: |
+| 4 | 4 | 16.388 B | 1.591 / 10.469 B |
+| 5 | 7 | 40.273 B | 2.076 / 27.227 B |
+| 6 | 12 | 91.148 B | 3.824 / 28.459 B |
+| 7 | 33 | 207.680 B | 2.278 / 50.129 B |
+| 8 | 118 | 505.563 B | 813 / 47.865 B |
+| 9 | 405 | 909.240 B | 266 / 32.688 B |
+| 10 | 1.372 | 1.799.077 B | 75 / 21.270 B |
 
 | Laag | Geometrie | Attributen |
 | --- | --- | --- |
@@ -142,8 +154,11 @@ dezelfde rig; externe requests maken de test rood. De OpenFreeMap-snapshot
 blijft in `tmp/basemap/openfreemap` vastgezet op dezelfde tileset; verwijderen
 ververst hem. Liberty-filtering leeft alleen in de referentietooling.
 Vergelijking controleert het weerfixture-, viewport-, netwerk- en rigcontract;
-de kaartbron mag veranderen. De gate vereist basemap-fase totaal ≤1000 ms,
-p50 ≤150 ms en geen wire/decode-regressie. De som van tegelduur bevat
+de kaartbron mag veranderen. De mobiele gate vereist basemap-fase totaal
+≤1000 ms en geen wire/decode-regressie. P50 ≤300 ms is sinds het
+orkestratorbesluit van 2026-10-07 een vervolgstreefwaarde; desktop-tijden
+zijn informatief. De uitkomsten en de motivatie staan in [perf.md](perf.md#eigen-basiskaart-u59).
+De som van tegelduur bevat
 netwerk+worker/afhandeling en overlappende requests; het is geen exclusieve
 hoofddraad-CPU-meting. CDP’s 4× page-throttle remt MapLibre-workers niet.
 
@@ -157,7 +172,7 @@ MOTREGEN_E2E_PORT=4393 MOTREGEN_E2E_DATA_PORT=8393 \
 
 Met `MOTREGEN_MOBILE_BASEMAP=openfreemap` ontstaan dezelfde referentiebeelden.
 De screenshots staan in `web/tmp/basemap/`. Exacte meetresultaten en synchrone
-receipts staan in de track-LOG.
+receipts staan in het genegeerde werklog `tmp/basemap/u59/LOG.md`.
 
 `basemap-parse.rig.ts` met dezelfde config laadt gedecomprimeerde tegels en
 glyphs uit geheugen en meet vijf runs na één opwarmrun. Dit onderscheidt
@@ -165,3 +180,9 @@ MapLibre-worker/overdracht van HTTP, maar is nog geen exclusieve hoofddraad-CPU.
 `basemap-cache.spec.ts` met `playwright.basemap-cache.config.ts` controleert
 een warm bezoek zonder kaartnetwerk na het wissen van de browser-HTTP-cache,
 plus offline ranges op dezelfde en een andere origin.
+
+```bash
+MOTREGEN_E2E_PORT=4393 MOTREGEN_E2E_DATA_PORT=8393 \
+  MOTREGEN_MOBILE_BASEMAP=own pnpm --filter motregen-web e2e \
+  e2e/basemap-cache.spec.ts --config playwright.basemap-cache.config.ts --project desktop
+```
