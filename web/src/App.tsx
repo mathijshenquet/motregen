@@ -325,6 +325,7 @@ export default function App() {
   const [tableViewProgress, setTableViewProgress] = createSignal(0)
   const tableViewOpen = createMemo(() => tableViewAvailable() && tableOpen())
   let tableViewFrame: number | undefined
+  let tableViewResizeTimer: number | undefined
   function syncTableViewPosition(): void {
     tableViewFrame = undefined
     if (!tableViewAvailable() || !forecastPanelElement) {
@@ -340,6 +341,11 @@ export default function App() {
   }
   function queueTableViewSync(): void {
     if (tableViewFrame === undefined) tableViewFrame = requestAnimationFrame(syncTableViewPosition)
+  }
+  function settleTableViewAfterResize(): void {
+    // Mobiele browserbalken sturen tijdens hun animatie iedere frame een resize-event.
+    window.clearTimeout(tableViewResizeTimer)
+    tableViewResizeTimer = window.setTimeout(queueTableViewSync, 120)
   }
   const [status, setStatus] = createSignal('Regen laden…')
   const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
@@ -477,14 +483,15 @@ export default function App() {
 
   onMount(() => {
     window.addEventListener('scroll', queueTableViewSync, { passive: true })
-    window.addEventListener('resize', queueTableViewSync, { passive: true })
-    window.visualViewport?.addEventListener('resize', queueTableViewSync, { passive: true })
+    window.addEventListener('resize', settleTableViewAfterResize, { passive: true })
+    window.visualViewport?.addEventListener('resize', settleTableViewAfterResize, { passive: true })
     syncTableViewPosition()
     onCleanup(() => {
       window.removeEventListener('scroll', queueTableViewSync)
-      window.removeEventListener('resize', queueTableViewSync)
-      window.visualViewport?.removeEventListener('resize', queueTableViewSync)
+      window.removeEventListener('resize', settleTableViewAfterResize)
+      window.visualViewport?.removeEventListener('resize', settleTableViewAfterResize)
       if (tableViewFrame !== undefined) cancelAnimationFrame(tableViewFrame)
+      window.clearTimeout(tableViewResizeTimer)
     })
   })
 

@@ -196,3 +196,14 @@
   `pnpm test` 51 bestanden / 349 tests groen; `pnpm build` exit 0 (100 modules,
   `index-BV6VLjcd.js`, `index-DTUvfvBt.css`, PWA). Preview `http://ageq-dev2:4320/` antwoordt
   HTTP 200. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+
+## 2026-10-07 09:38 UTC
+
+- Firefox-mobiel liet bij het terugkomen van de adresbalk de volledige kaart/tabelgeometrie per
+  animatieframe reflowen: de portrait-layout gebruikte dynamische `dvh`-maten en verwerkte ieder
+  `window`- én `visualViewport`-resize-event direct. De mobiele kaart, zoeklijst en tabel gebruiken
+  nu de stabiele kleine viewport (`svh`); resize-metingen worden samengevoegd en pas 120 ms na het
+  laatste event uitgevoerd. Scrollupdates voor de kaart/tabelknop blijven wel per frame lopen.
+- Synchrone receipts: `pnpm typecheck` exit 0; volledige `pnpm test` 51 bestanden / 349 tests groen;
+  `pnpm build` exit 0 (100 modules, `index-1Ptx711O.js`, `index-BVR2SLtD.css`, PWA). Preview
+  `http://ageq-dev2:4320/` antwoordt HTTP 200. Geen e2e uitgevoerd vóór PO-signaal “klaar”.
