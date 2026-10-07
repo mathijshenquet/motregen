@@ -28,6 +28,7 @@
     "lucide-solid": "^1.47.0",
     "maplibre-gl": "^5.7.1",
     "pbf": "^4.0.2",
+    "pmtiles": "^4.5.0",
     "solid-js": "^1.9.9"
   },
   "devDependencies": {

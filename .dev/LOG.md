@@ -85,6 +85,33 @@
   `secrets.env`; deploy van main (alles van vandaag); MIP-19/MIP-20 adoptie; nog één Android-
   Chrome-opname op 4320 na de regressiefix. **VOOR AGENTS**: U57 pad-URI's, U54 laadchoreografie
   (na U58), U38 kolomset, skywatch-rooktest, U41b, U29, U40, E8.
+- **Avond 2 (18:00–21:00)**: PO-lat vastgelegd (MIP-19 §De lat): spelende tijdlijn op mobiel ≤ Buienradar
+  (`ttfp` vs `ttfp-ref`); PO-mandaat: perf zonder waarneembaar effect mag autonoom door (spec U54
+  §Aanvulling). **U58 deel 1 gemerged** (e7466e4b): Expressief-schakelaar, drie regressiefixes, haperend
+  afspelen bij laden (layout-reads per frame, hemelstreken), scroll-naar-tabel 100dvh (PO bevestigd),
+  baselines, dom-churn.ts; deel 2 loopt live: jog-default vast (PO), strook sleepbaar op touch,
+  dev-panel.spec, zoekpil-morph (PO: sprong aan het eind, full-width in smalle modus), bot-commando's.
+  **U59 eigen basiskaart gemerged** (702d194, MIP-21 optie 1, gpt-6.1-sol): tilemaker-pijplijn
+  `tools/basemap`, z10-PMTiles met overzoom (PO: "degraderen mag"), eigen stijl licht/donker,
+  Nix-package + Caddy `/data/basemap` immutable, SW CacheFirst; rig mobiel koud basemap 5,6 s →
+  0,22–0,6 s, −41 % bytes; p50-gate versoepeld tot streefwaarde (één starttegel = totaal). Codex-sessie
+  viel twee keer na ~1 u uit (herdr bleef 'working' melden) — herstart in dezelfde pane, werk intact.
+  **U54 lus** (opus 5.5, live-pane 4355): meetpunten ttfp/ttfr/ttfh/blank-visible (nu ook oppervlak),
+  Buienradar-referentiescenario, profiel `po-android` gekalibreerd op de PO-opnames met cgroup-CPUQuota
+  op de renderer (remt ook workers), speelregel cursorframe + volgend frame: rig ttfp 3,93 → 2,62 s
+  tegen Buienradar 3,24 s (0,81×); PO-telefoon 3,65 s (ttfp-ref op de telefoon nog te meten, recept in
+  docs/perf.md); stap 3 scrubber-kader staat voor PO-akkoord; soepelheidsmetingen in de rig; rig bouwt
+  naar tmp/rig-dist (les: rigs overschreven previews → splash hing, twee keer); eigen rig-poorten per
+  track. PO-opnames (Android Chrome, 4320 ná fixes): lange frames 9,3 → 1,35 s; MacBook Firefox-
+  profielen (Buienradar + motregen) en Chrome-trace (laden + zoeken) in ~/motregen-profiles/macbook-*,
+  kopieën bij U54/U58. Bot: "renderer blijft heet" was een meetfout (levensgemiddelde; /proc toont 0 %
+  tussen generaties); een generatie kost ~4 cores × 60 s, cadans is de knop. Micro-fix zoekpil-radius
+  (23895a3b) loste de sprong niet op → bij U58.
+- **Open MET PO (avond 2)**: PO-akkoord U54 stap 3 (kader) en smaak A6 (kader in hemelkleur); Buienradar
+  op de telefoon meten (recept) of adb-server op de Mac openzetten voor een echte-telefoon-rig; MIP-21
+  adoptie (optie 1 gebouwd), MIP-19/20; push-notificaties (Telegram eerst, Web Push daarna) als MIP-22
+  als gewenst; deploy; `TG_BOT_KEY` + `MOTREGEN_CACHE_CHAT_ID` in prod. **VOOR AGENTS**: U58 deel 2
+  (zoekpil-morph, bot), U54 lus + stap 4 fog/skeleton, U57 pad-URI's, skywatch-rooktest, U41b, U29, U40.
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
