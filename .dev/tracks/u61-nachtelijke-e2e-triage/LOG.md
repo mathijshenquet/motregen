@@ -240,3 +240,21 @@
 ## 2026-10-08 01:19 CEST — budgetherijking als WIP publiceren
 
 - De rustige-hostwacht loopt nog (load circa 12). Coherente budgetwijziging nu commit/push met verificatie expliciet pending, zodat de 15–20-minutencadans en GitHub-zichtbaarheid behouden blijven. Twee mobiele budgetten =16; reden in de code en docs. De test-run blijft klaarstaan; daarna volgt een aparte receiptcommit.
+
+## 2026-10-08 01:23 CEST — mobiele perf-receipt na toegestane budgetherijking
+
+- Gerichte run op budgetcommit `ecee95f`: **SYNCHROON waargenomen exit 0, 4 passed / 0 skips (59,8 s)**. Repro: `cd web && MOTREGEN_E2E_PORT=4396 MOTREGEN_E2E_DATA_PORT=8396 pnpm e2e e2e/perf.spec.ts --project mobile-4g --project mobile-fast-3g --output tmp/u61-perf-recalibrated`. Uitvoer `web/tmp/u61-perf-recalibrated.txt`.
+- Start bij load **5,99** om 01:21:46 CEST, na ruim tien minuten buiten het e2e-slot wachten. Eindsample: ` 01:22:46  up 7 days 17:34,  1 user,  load average: 6.75, 11.15, 11.74`. Quiet-wachtlog: `web/tmp/u61-perf-recalibrated-quiet.txt`.
+- Beide journeys meten **16 scrub-transfers**, passend in het expliciet toegestane nieuwe budget 16. Ook de eerder niet bereikte manifestrefresh, warme navigatie en volledige sessie zijn nu daadwerkelijk geverifieerd; geen verdere budgetwijziging nodig.
+
+| Profiel | Cold TTFR | Passieve chunks | Scrub transfers | Scrub p50/p95 | Warm TTFR | Warme chunks | Sessiebytes |
+| --- | ---: | ---: | ---: | --- | ---: | ---: | ---: |
+| mobile-4g | 1.804,6 ms | 654.439 B | 16 | 9,5 / 21,2 ms | 1.040,5 ms | 0 B | 1.272.178 B |
+| mobile-fast-3g | 5.068,3 ms | 672.265 B | 16 | 17,8 / 25,6 ms | 1.125,3 ms | 0 B | 1.272.178 B |
+
+| Nr | Oorspronkelijk open geval | Gecorrigeerde oorzaak / besluit | Definitieve gerichte receipt |
+| --- | --- | --- | --- |
+| 19 | perf-journey / mobile-4g | U42/U58-previewrij vraagt zes bedoelde ranges (24.320 B); orkestrator herijkt 11 → 16. | Groen, exit 0; volledige mobiele journey doorlopen |
+| 30 | perf-journey / mobile-fast-3g | U42/U58-previewrij vraagt zes bedoelde ranges (24.320 B); orkestrator herijkt 14 → 16. | Groen, exit 0; volledige mobiele journey doorlopen |
+
+- Hiermee zijn de twee resterende oorspronkelijke gevallen gericht groen. De oudere volledige-suite-receipt blijft historisch ongewijzigd; geen nieuwe volledige suite gedraaid. Reden staat bij beide budgetten en als één regel in docs/perf.md; tabelwaarden bijgewerkt. Eindcommit bevat alleen deze receipt. PR #88 blijft beschikbaar voor de onafhankelijke gate en merge door de orkestrator. **Klaar.**
