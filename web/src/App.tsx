@@ -2526,7 +2526,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [cloudValues, setCloudValues] = createSignal<Record<CloudLayer, Array<number | null>>>({ high: [], mid: [], low: [] })
   // De banden groeien per frame aan (krap apparaat: venster voor venster); de al gelezen waarden
   // blijven staan zolang locatie en tijdlijn dezelfde zijn.
-  let cloudsRead: { point: object; timelines: object; values: Record<CloudLayer, Array<number | null>> } | undefined
+  let cloudsRead: { point: object; timelines: object; values: Record<CloudLayer, Array<number | null>>; publisher: FrameBatcher } | undefined
   createEffect(() => {
     const point = location()
     const timelines = cloudTimelines()
@@ -2534,18 +2534,26 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const signal = inViewOnly ? viewDemand().signal : undefined
     if (!pointLoadsStarted()) return
     const otherPlaceOrTimeline = cloudsRead?.point !== point || cloudsRead.timelines !== timelines
-    if (otherPlaceOrTimeline) cloudsRead = { point, timelines, values: { high: [], mid: [], low: [] } }
+    if (otherPlaceOrTimeline) {
+      const values: Record<CloudLayer, Array<number | null>> = { high: [], mid: [], low: [] }
+      // Eén publisher per locatie/tijdlijn: ook een lezing die bij een vorig venster begon publiceert
+      // nog (de waarden zijn gedeeld), maar alle lezingen samen hooguit één keer per beeld.
+      const publisher = new FrameBatcher(() => {
+        if (cloudsRead?.values === values) setCloudValues({ high: [...values.high], mid: [...values.mid], low: [...values.low] })
+      })
+      cloudsRead = { point, timelines, values, publisher }
+      publisher.schedule()
+    }
     const read = cloudsRead!
-    // Ook een lezing die bij een vorig venster begon publiceert nog: de waarden zijn gedeeld.
-    const publisher = new FrameBatcher(() => {
-      if (read === cloudsRead) setCloudValues({ high: [...read.values.high], mid: [...read.values.mid], low: [...read.values.low] })
-    })
-    if (otherPlaceOrTimeline) publisher.schedule()
+    const publisher = read.publisher
+    // De cursor bepaalt alleen de volgorde binnen het venster. Hem hier volgen zou dit effect tijdens
+    // afspelen elk beeld opnieuw laten lezen; het venster zelf verandert al wanneer het moet.
+    const cursorEpoch = untrack(selectedEpoch)
     for (const layer of CLOUD_LAYERS) {
       const frames = timelines[layer]
       if (read.values[layer].length !== frames.length) read.values[layer] = new Array<number | null>(frames.length).fill(null)
       const values = read.values[layer]
-      const wanted = window ? timelineIndexesInWindow(frames, window, selectedEpoch()) : frames.map((_, index) => index)
+      const wanted = window ? timelineIndexesInWindow(frames, window, cursorEpoch) : frames.map((_, index) => index)
       const missing = wanted.filter((index) => values[index] == null)
       // Per chunk, zodat de uren rond de cursor niet op de payload van morgen wachten.
       for (const chunk of new Set(missing.map((index) => frames[index]!.chunk))) {
