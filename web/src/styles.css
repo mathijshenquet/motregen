@@ -285,6 +285,12 @@ button { color: inherit; cursor: pointer; }
   color: var(--text);
 }
 .search.open { z-index: 8; width: min(420px, calc(100% - 74px)); max-width: none; }
+/* Openen: breedte, hoekradius en schaduw bewegen in één beweging (PO 2026-10-07: de pil sprong
+   open terwijl de hoeken en schaduw 150 ms achterliepen). Dezelfde duur als .search-box. */
+.search { transition: width 180ms ease, max-width 180ms ease; }
+.search-box { transition-duration: 180ms; }
+.search-field { transition: color 120ms ease 80ms, padding 180ms ease; }
+.search:not(.open) .search-field { transition-delay: 0ms; }
 .search-scrim { position: fixed; inset: 0; z-index: -1; background: rgba(7, 19, 26, .14); }
 .search-box {
   position: relative;
@@ -728,6 +734,7 @@ td small { color: var(--muted); font-size: 9px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .search, .search-box, .search-field { transition: none; }
   .freshness-dialog[open], .freshness-dialog[open]::backdrop { animation: none; }
   .live-age i { animation: none; }
   .map-splash, .map-splash-veil, .map-splash-mark { transition-duration: 1ms; transition-delay: 0s; }
