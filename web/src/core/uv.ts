@@ -1,4 +1,5 @@
 import { solarPosition } from './solar'
+import { formatNumber } from './locale'
 
 export type UvLevel = 'laag' | 'matig' | 'hoog' | 'zeer hoog' | 'extreem'
 
@@ -25,7 +26,7 @@ export function uvLevel(value: number): (typeof UV_LEVELS)[number] {
 }
 
 export function formatUv(value: number | null | undefined): string {
-  return value == null ? '—' : value.toLocaleString('nl-NL', { maximumFractionDigits: 1 })
+  return value == null ? '—' : formatNumber(value, 1)
 }
 
 export function uvChipLabel(value: number | null | undefined): string | null {

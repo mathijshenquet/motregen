@@ -7,6 +7,7 @@ import { summarizeWind, WIND_UNIT_LABELS, type WindUnit } from '../core/weather'
 import { BEAUFORT_STOPS, windColor } from '../core/wind-layer'
 import type { PaletteStops } from '../core/temperature-palette'
 import { measurePerfPhase } from '../core/perf'
+import { formatNumber, formatTime, formatWeekdayLong, formatWeekdayShort } from '../core/locale'
 
 interface Props {
   timeline: TimelineFrame[]
@@ -327,7 +328,7 @@ export default function HistogramScrubber(props: Props) {
   const cursorMinute = createMemo(() => Math.floor(cursorEpoch() / 60_000) * 60_000)
   const valueText = createMemo(() => {
     const epoch = cursorMinute()
-    const time = new Date(epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+    const time = formatTime(epoch)
     const value = cursorValue()
     const rain = value == null ? 'geen data' : value < 0.05 ? 'droog' : `${formatRate(value)}, ${RAIN_BANDS.find((band) => band.key === classifyRain(value))!.label.toLowerCase()}`
     const source = cursorZone()?.label.toLowerCase()
@@ -726,12 +727,12 @@ export function stickyKeyframes(segment: DaySegment, from: number, to: number): 
 }
 
 function formatRate(value: number): string {
-  return `${value < 0.1 ? '<0,1' : value.toLocaleString('nl-NL', { maximumFractionDigits: value < 10 ? 1 : 0 })} mm/u`
+  return `${value < 0.1 ? '<0,1' : formatNumber(value, value < 10 ? 1 : 0)} mm/u`
 }
 
 function hourLabel(epoch: number): string {
   const date = new Date(epoch)
-  return date.getHours() === 0 ? date.toLocaleDateString('nl-NL', { weekday: 'short' }) : `${date.getHours()}u`
+  return date.getHours() === 0 ? formatWeekdayShort(epoch) : `${date.getHours()}u`
 }
 
 function dayLabel(epoch: number, todayEpoch: number): string {
@@ -743,5 +744,5 @@ function dayLabel(epoch: number, todayEpoch: number): string {
   if (date.toDateString() === today.toDateString()) return 'Morgen'
   today.setDate(today.getDate() - 2)
   if (date.toDateString() === today.toDateString()) return 'Gisteren'
-  return date.toLocaleDateString('nl-NL', { weekday: 'long' })
+  return formatWeekdayLong(epoch)
 }

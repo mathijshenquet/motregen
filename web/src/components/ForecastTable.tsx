@@ -9,6 +9,7 @@ import { ArrowUp, BUTTON_ICON, Clock, CloudSun, Droplets, Sun, Thermometer, Wind
 import UvBar from './UvBar'
 import WeatherIcon from './WeatherIcon'
 import { measurePerfPhase } from '../core/perf'
+import { formatTime, formatWeekdayShort } from '../core/locale'
 
 export interface ForecastSeries {
   rain: Array<number | null>
@@ -214,7 +215,7 @@ export default function ForecastTable(props: Props) {
       const uv = createMemo(() => uvReading(row.epoch, value(props.series.uv, row.uvIndex), value(props.series.uvClear, row.uvClearIndex),
         value(props.series.radiation, row.radiationIndex), value(props.series.radiation, row.radiationNextIndex), elevation, row.kind !== 'past'))
       const sunEvent = () => sun().get(row.epoch)
-      const time = (epoch: number) => new Date(epoch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+      const time = formatTime
       const sunLabel = (event: SunEvent) => `${event.kind === 'rise' ? 'Zon op' : 'Zon onder'} ${time(event.epoch)}`
       const placeholder = () => pending() ? '…' : '—'
       const rainAmount = () => {
@@ -235,7 +236,7 @@ export default function ForecastTable(props: Props) {
           <td class="time-cell">
             <button type="button" class="time-label" title="Naar dit uur in de grafiek" onClick={(event) => { event.stopPropagation(); props.onSelectTime?.(row.epoch) }}>
               <strong>{time(row.epoch)}</strong>
-              <span classList={{ 'now-label': row.kind === 'now' }}>{row.kind === 'now' ? 'Nu' : new Date(row.epoch).toLocaleDateString('nl-NL', { weekday: 'short' })}</span>
+              <span classList={{ 'now-label': row.kind === 'now' }}>{row.kind === 'now' ? 'Nu' : formatWeekdayShort(row.epoch)}</span>
             </button>
           </td>
           <Show when={props.columns.weather}>
