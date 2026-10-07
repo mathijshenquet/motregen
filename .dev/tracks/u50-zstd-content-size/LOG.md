@@ -45,3 +45,9 @@
 - **Slotgates op `70bffaa` (allemaal synchroon):** `direnv exec . cargo fmt --check` → exit 0; `direnv exec . cargo clippy` → exit 0; `direnv exec . cargo test -p mrf` → exit 0 (5 unit + 16 integratie); `direnv exec . cargo test -p motregen-ingest` → exit 0 (35 lib + 4 binary-tests); `direnv exec . nix flake check` → exit 0 (alle 21 checks, inclusief NixOS-VM); `direnv exec . pnpm typecheck` → exit 0; `direnv exec . pnpm test` → exit 0 (366 web + 10 bot); `direnv exec . pnpm build` → exit 0.
 - De eerste `pnpm test`-receipt was exit 1 vóór het uitvoeren van de normale fixturevoorbereiding: verse worktree mistte het genegeerde `web/public/data/chunks/uv_clear-20260828.mrf`, zodat alleen `mrf.test.ts` niet kon laden (343 tests waren al groen). Synchroon herstel: `direnv exec . pnpm --dir web synthgen` → exit 0 (849 frames, 44 chunks); de herhaalde volledige test hierboven is daarna groen. Het gegenereerde bestand en de build-output zijn genegeerd; `git status --short --branch` was daarna schoon.
 - Eindstaat: twee commits (`c71eae9`, `70bffaa`) gepusht op de draft-PR; geen chunk-contract-, client- of andere-cratewijziging.
+
+## 2026-10-07T10:39:21Z — slot
+
+- U50 is gemerged op `main` als `9bf082f53ebfd96d9b2cf18a5ffac9d8c0eeec0f` (`merge track/u50-zstd-content-size`).
+- Onafhankelijke gate na merge: fmt en clippy exit 0, MRF-tests groen, web 377/377, `nix flake check` exit 0. De drie `knmi-hdf5`-cross-checks falen ook op `main` door de uv/pysteps-bouwfout onder Python 3.14 en vallen buiten deze track.
+- Track afgerond.
