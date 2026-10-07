@@ -27,6 +27,7 @@ beschrijft wat er precies wordt opgeslagen, hoe lang, en waar het rapport staat.
 | `pin` | `true` of afwezig | pin verplaatst |
 | `play` | `true` of afwezig | afspelen gestart |
 | `scrub` | `true` of afwezig | tijd gescrubd |
+| `clockScrub` | `true` of afwezig | tijd verzet via de klok: pil gesleept, toetsen op de pil of tik in de bronstrook (zet ook `scrub`) |
 | `history` | `true` of afwezig | historie in de tabel geopend |
 | `fresh` | `true` of afwezig | versheidspaneel geopend |
 | `about` | `true` of afwezig | About geopend |

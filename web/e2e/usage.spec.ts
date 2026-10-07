@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { expect, test, type Page, type TestInfo } from '@playwright/test'
 
 // MIP-13: exact deze velden mogen in het baken staan (docs/analytics.md, core/usage.ts).
-const FEATURES = ['pinFeel', 'pinWind', 'hover', 'search', 'geo', 'fav', 'pin', 'play', 'scrub', 'history', 'fresh', 'about', 'share']
+const FEATURES = ['pinFeel', 'pinWind', 'hover', 'search', 'geo', 'fav', 'pin', 'play', 'scrub', 'clockScrub', 'history', 'fresh', 'about', 'share']
 const REQUIRED = ['v', 'range', 'theme', 'unit', 'coarse', 'width', 'dur']
 
 // De preview-server schrijft elke ontvangen /hit-body als regel weg (vite.config.ts, playwright.config.ts).

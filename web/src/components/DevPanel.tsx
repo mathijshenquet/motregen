@@ -1,5 +1,6 @@
 import { createSignal, For, type JSX } from 'solid-js'
 import { copyText } from '../core/clipboard'
+import { CLOCK_JOG_SCALES, type ClockJogScale } from '../core/clock-timeline'
 import { appendSkyDiaryEntry, SKY_DIARY_CLASSES, skyDiaryJson, type SkyDiaryClass } from '../core/dev-settings'
 import { ISOLINE_FADES, ISOLINE_FILL_STYLES, ISOLINE_STEPS, type IsolineFade, type IsolineFillStyle, type IsolineStep, type IsolineTuning } from '../core/isolines'
 import { sanitizeWindTuning, WIND_TUNING_CONTROLS, type WindTuning } from '../core/wind-layer'
@@ -9,6 +10,8 @@ import { sanitizeWindTuning, WIND_TUNING_CONTROLS, type WindTuning } from '../co
 interface Props {
   isolineTuning: IsolineTuning
   onIsolineTuning: (patch: Partial<IsolineTuning>) => void
+  clockJogScale: ClockJogScale
+  onClockJogScale: (scale: ClockJogScale) => void
   windTuning: WindTuning
   onWindTuning: (tuning: WindTuning) => void
   perfVisible: boolean
@@ -93,6 +96,13 @@ export default function DevPanel(props: Props) {
         </Control>
       }</For>
       <Action label={windCopied() ? 'Gekopieerd' : 'Kopieer wind als JSON'} hint="Zet de vier windwaarden op het klembord, om terug te sturen." onClick={() => void copyWind()} />
+    </Group>
+    <Group title="Klok">
+      <Control label="Jog-schaal" output={props.clockJogScale} hint="Slepen op de klokpil: vast 2 minuten per pixel, of dezelfde schaal als de scrubber (8 uur over de breedte).">
+        <select value={props.clockJogScale} onChange={(event) => props.onClockJogScale(event.currentTarget.value as ClockJogScale)}>
+          <For each={CLOCK_JOG_SCALES}>{(scale) => <option value={scale}>{scale}</option>}</For>
+        </select>
+      </Control>
     </Group>
     <Group title="Lucht nu">
       <Control label="Klasse" output={skyClass()} hint="Hoe de lucht op de gekozen locatie nu aanvoelt.">

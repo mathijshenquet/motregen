@@ -815,9 +815,13 @@ td small { color: var(--muted); font-size: 9px; }
   background: none;
   font: inherit;
   line-height: 1.1;
-  cursor: pointer;
+  /* U56: horizontaal slepen verzet de tijd; verticaal blijft de pagina scrollen. */
+  cursor: ew-resize;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
 }
-.freshness-trigger:hover, .freshness-trigger:focus-visible { background: color-mix(in srgb, var(--accent-soft) 60%, transparent); outline: none; }
+.freshness-trigger:hover, .freshness-trigger:focus-visible, .freshness-trigger.jogging { background: color-mix(in srgb, var(--accent-soft) 60%, transparent); outline: none; }
 .freshness-trigger:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
 .clock-map-time { font-size: 20px; font-weight: 720; letter-spacing: -.01em; }
 .clock-main { display: inline-flex; align-items: baseline; gap: 6px; }
@@ -864,6 +868,22 @@ td small { color: var(--muted); font-size: 9px; }
 .live-age { display: inline-flex; align-items: center; gap: 5px; margin-left: 4px; padding: 1px 8px 1px 6px; border-radius: 999px; color: var(--text); background: var(--accent-soft); font-size: .92em; font-weight: 700; white-space: nowrap; }
 .live-age i { width: 6px; height: 6px; border-radius: 50%; background: var(--fresh); animation: live-age-pulse 2s ease-in-out infinite; }
 @keyframes live-age-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+/* U56: de tijdlijn als strook met de drie bronzones; "Nu" staat boven de balk, de getoonde tijd is de dikke streep. */
+.freshness-strip { position: relative; margin: 0 0 14px; padding-top: 16px; cursor: pointer; user-select: none; -webkit-user-select: none; }
+.freshness-strip-zones { display: flex; }
+.freshness-strip-zone { min-width: 0; display: flex; flex-direction: column; gap: 1px; line-height: 1.25; }
+.freshness-strip-zone i { height: 10px; margin-bottom: 4px; background: var(--zone); }
+.freshness-strip-zone + .freshness-strip-zone i { box-shadow: -1px 0 0 var(--surface); }
+.freshness-strip-zone:first-child i { border-radius: 5px 0 0 5px; }
+.freshness-strip-zone:last-child i { border-radius: 0 5px 5px 0; }
+.freshness-strip-zone[data-zone="radar"] { --zone: color-mix(in srgb, var(--text) 26%, transparent); }
+.freshness-strip-zone[data-zone="nowcast"] { --zone: var(--accent); }
+.freshness-strip-zone[data-zone="harmonie"] { --zone: color-mix(in srgb, var(--accent) 42%, transparent); }
+.freshness-strip-zone span { overflow: hidden; font-size: 11px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.freshness-strip-zone small { color: var(--muted); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.freshness-strip-now { position: absolute; top: 12px; height: 18px; border-left: 1px solid color-mix(in srgb, var(--text) 55%, transparent); pointer-events: none; }
+.freshness-strip-now b { position: absolute; bottom: 100%; left: 0; color: var(--muted); font-size: 10px; font-style: normal; font-weight: 750; line-height: 1.2; transform: translateX(-50%); }
+.freshness-strip-marker { position: absolute; top: 12px; width: 4px; height: 18px; border-radius: 2px; background: var(--text); box-shadow: 0 0 0 1.5px var(--surface); transform: translateX(-2px); pointer-events: none; }
 .freshness-table-scroll { margin: 0 0 12px; overflow-x: auto; border-radius: 10px; background: var(--surface-soft); }
 .freshness-sources { width: 100%; border-collapse: collapse; font-size: 12px; line-height: 1.35; }
 .freshness-sources :is(th, td) { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
