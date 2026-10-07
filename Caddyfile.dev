@@ -9,11 +9,15 @@
 		Access-Control-Allow-Origin "*"
 		Access-Control-Expose-Headers "Accept-Ranges, Content-Length, Content-Range, ETag"
 		Accept-Ranges "bytes"
+		Document-Policy "js-profiling"
 	}
 	header /manifest.json Cache-Control "public, max-age=15, stale-while-revalidate=60"
 	header /chunks/* Cache-Control "public, max-age=31536000, immutable"
 	header /chunks/* -Content-Encoding
 
+	handle /prof {
+		reverse_proxy {$MOTREGEN_PROF_ORIGIN:127.0.0.1:4331}
+	}
 	handle /manifest.json {
 		file_server
 	}

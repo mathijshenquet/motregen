@@ -1,5 +1,6 @@
-import { createSignal, onCleanup, onMount, Show } from 'solid-js'
-import { isolineRates, type IsolineCounters, type IsolineRates, type PerfMonitor, type PerfSnapshot } from '../core/perf'
+import { createSignal, For, onCleanup, onMount, Show } from 'solid-js'
+import { PERF_PHASES, isolineRates, type IsolineCounters, type IsolineRates, type PerfMonitor, type PerfPhase, type PerfSnapshot } from '../core/perf'
+import type { ProfileRecording } from '../core/profile-recorder'
 import { copyText } from '../core/clipboard'
 import './PerfHud.css'
 
@@ -8,6 +9,14 @@ interface Props {
   isolines?: () => IsolineCounters
   /** Windmeting (U24: loef/lij-profiel) voor de JSON-export. */
   windStats?: () => unknown
+  profile?: {
+    state: 'idle' | 'recording' | 'ready' | 'error'
+    recording?: ProfileRecording
+    notice: string
+    onRecord: () => void
+    onCold: () => void
+    onSend: () => Promise<void>
+  }
 }
 
 export default function PerfHud(props: Props) {
@@ -36,6 +45,24 @@ export default function PerfHud(props: Props) {
     window.setTimeout(() => setCopied(false), 1_500)
   }
 
+  async function copyProfile(): Promise<void> {
+    const recording = props.profile?.recording
+    if (!recording) return
+    await copyText(recording.json)
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 1_500)
+  }
+
+  function downloadProfile(): void {
+    const recording = props.profile?.recording
+    if (!recording) return
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(new Blob([recording.json], { type: 'application/json' }))
+    link.download = `motregen-${new Date().toISOString()}.json`
+    link.click()
+    window.setTimeout(() => URL.revokeObjectURL(link.href), 0)
+  }
+
   const metric = () => snapshot()
   return <aside class="perf-hud" aria-label="Prestatiemetingen" data-testid="perf-hud">
     <div class="perf-title"><strong>Perf</strong><span>live</span></div>
@@ -52,6 +79,24 @@ export default function PerfHud(props: Props) {
         <div><dt>Isolijnen blit</dt><dd>{rate().compositeMs === null ? '—' : `${rate().compositeMs!.toFixed(2)} ms${rate().timing === 'cpu' ? ' (cpu)' : ''}`} · {rate().passPixels === null ? '—' : `${(rate().passPixels! / 1e6).toFixed(2)} Mpx/pass`}</dd></div>
       </>}</Show>
     </dl>
+    <Show when={PERF_PHASES.some((phase) => metric().phases[phase])}>
+      <div class="perf-phases">
+        <strong>Fasen · 30 s</strong>
+        <For each={PERF_PHASES.filter((phase) => metric().phases[phase])}>{(phase) => {
+          const value = () => metric().phases[phase]!
+          return <div><span>{phaseLabel(phase)}</span><span>{value().count} · {value().p50Ms.toFixed(1)} / {value().p95Ms.toFixed(1)} ms</span></div>
+        }}</For>
+      </div>
+    </Show>
+    <Show when={metric().longFrames.length}>
+      <div class="perf-long-frames">
+        <strong>Lange frames</strong>
+        <For each={metric().longFrames}>{(frame) => <div>
+          <span>{frame.duration.toFixed(0)} ms · blok {frame.blockingDuration.toFixed(0)}</span>
+          <span title={frame.scripts[0]?.sourceURL}>{scriptLabel(frame.scripts[0])}</span>
+        </div>}</For>
+      </div>
+    </Show>
     <table>
       <thead><tr><th>Netwerk</th><th>req</th><th>bytes</th></tr></thead>
       <tbody>{(['manifest', 'chunks', 'tiles', 'other', 'total'] as const).map((kind) => <tr>
@@ -59,7 +104,40 @@ export default function PerfHud(props: Props) {
       </tr>)}</tbody>
     </table>
     <button type="button" onClick={() => void copyDump()}>{copied() ? 'Gekopieerd' : 'Kopieer JSON'}</button>
+    <Show when={props.profile}>{(profile) => <div class="perf-recording">
+      <div class="perf-actions">
+        <button type="button" disabled={profile().state === 'recording'} onClick={profile().onRecord}>{profile().state === 'recording' ? 'Opname loopt…' : 'Opname 30 s'}</button>
+        <button type="button" disabled={profile().state === 'recording'} onClick={profile().onCold}>Koude start</button>
+      </div>
+      <Show when={profile().recording}><div class="perf-actions perf-export-actions">
+        <button type="button" onClick={() => void profile().onSend()}>Stuur</button>
+        <button type="button" onClick={() => void copyProfile()}>Kopieer</button>
+        <button type="button" onClick={downloadProfile}>Download</button>
+      </div></Show>
+      <p role="status">{profile().notice}</p>
+    </div>}</Show>
   </aside>
+}
+
+const phaseLabels: Record<PerfPhase, string> = {
+  'frame-decode': 'Decode',
+  'texture-upload': 'Textuur',
+  'isoline-trace': 'Isolijn trace',
+  'isoline-blit': 'Isolijn blit',
+  'wind-step': 'Wind',
+  'scrubber-paint': 'Scrubber',
+  'table-render': 'Tabel',
+  'basemap-tile': 'Kaarttegel',
+}
+
+function phaseLabel(phase: PerfPhase): string {
+  return phaseLabels[phase]
+}
+
+function scriptLabel(script: PerfSnapshot['longFrames'][number]['scripts'][number] | undefined): string {
+  if (!script) return '—'
+  const source = script.sourceURL.split('/').at(-1) || script.invoker || 'script'
+  return script.sourceFunctionName ? `${source} · ${script.sourceFunctionName}` : source
 }
 
 function passCost(rate: IsolineRates): string {

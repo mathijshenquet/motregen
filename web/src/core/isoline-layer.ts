@@ -4,6 +4,7 @@ import type { Grid } from './contract'
 import type { PreparedField } from './isoline-field'
 import { SEGMENT_FLOATS, type ShortRing } from './isoline-contours'
 import { ContourTracer, type TraceRequest, type TraceResult } from './isoline-tracer'
+import { measurePerfPhase, recordPerfPhase } from './perf'
 import { sliceWeights } from './isoline-spline'
 import { ISOLINE_FILL_RESOLUTION, ISOLINE_GRADIENT, ISOLINE_LINE_OPACITY, ISOLINE_RING_KM, ISOLINE_TOLERANCE_PX, ISOLINE_WINDOW } from './isolines'
 import { PALETTE_STOPS, paletteUniforms, type PaletteStops } from './temperature-palette'
@@ -401,7 +402,7 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_3D, this.volume)
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
-    gl.texSubImage3D(gl.TEXTURE_3D, 0, 0, 0, index, this.grid.width, this.grid.height, 1, gl.RG, gl.FLOAT, interleaved)
+    measurePerfPhase('texture-upload', () => gl.texSubImage3D(gl.TEXTURE_3D, 0, 0, 0, index, this.grid.width, this.grid.height, 1, gl.RG, gl.FLOAT, interleaved), { layer: this.id })
     this.tracer.setLayer(index, field)
     // Een eerder mislukte trace (laag ontbrak) mag opnieuw; alleen een vervangen laag maakt
     // bestaande snedes ongeldig, een nieuwe laag hoort bij geen enkele getraceerde snede.
@@ -524,6 +525,7 @@ export class IsolineLayer implements CustomLayerInterface {
 
   private traced(result: TraceResult | undefined): void {
     if (!result) return
+    recordPerfPhase('isoline-trace', result.stats.ms, { layer: this.id, segments: result.stats.segments })
     this.pendingTraces.set(JSON.stringify(result.request), result)
     this.stats.traces = (this.stats.traces ?? 0) + 1
     this.stats.traceMs = smooth(this.stats.traceMs ?? 0, result.stats.ms)
@@ -615,7 +617,7 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.uniform1f(gl.getUniformLocation(program, 'u_opacity'), this.opacity)
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-    this.measure('compositeMs', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4))
+    this.measure('compositeMs', () => measurePerfPhase('isoline-blit', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4), { layer: this.id }))
     this.stats.composites++
     this.stats.compositePixels += gl.drawingBufferWidth * gl.drawingBufferHeight
   }

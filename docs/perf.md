@@ -1,8 +1,25 @@
 # Performance
 
 De performance-aanpak volgt MIP-7: dezelfde browsermetingen voeden de
-apparaat-HUD en de deterministische Playwright-gate. Er worden geen metingen
-naar een server verstuurd.
+apparaat-HUD en de deterministische Playwright-gate. Alleen een expliciete klik op *Stuur* in
+profielmodus verstuurt een opname naar de lokale dev/preview-sink; er gaat nooit automatisch een
+meting naar een server.
+
+## Profielmodus (MIP-16)
+
+`?perf` bewaart `localStorage['motregen-perf']=1`, opent de compacte HUD en houdt de
+fase-instrumentatie aan; `?perf=0` wist de vlag. De HUD toont per fase count/p50/p95 over de laatste
+30 seconden en maximaal vijf lange animatieframes. *Opname 30 s* combineert die tijdvakken met de
+JS Self-Profiling-stacks (als de browser de API biedt) tot Chrome Trace Event-JSON. *Koude start*
+herlaadt en neemt het venster vanaf `performance.timeOrigin` op. Zonder Self-Profiling blijven
+fasen en lange frames beschikbaar.
+
+Vite dev en preview zetten hiervoor `Document-Policy: js-profiling` en proxyen `/prof` naar
+`pnpm prof:sink` (standaard `127.0.0.1:4331`). De sink accepteert uitsluitend `POST /prof`,
+valideert het formaat en schrijft mode 0600 naar
+`~/motregen-profiles/<ISO>-<platform>.json`. `pnpm prof:check <bestand>` valideert een export los.
+De productie-Caddyconfiguratie heeft bewust géén profilingheader en géén `/prof`-route; daar blijven
+lokale kopie en download wel bruikbaar.
 
 ## Meetpunten
 
