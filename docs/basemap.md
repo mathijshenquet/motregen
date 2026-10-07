@@ -7,7 +7,7 @@ niet in de tegels terecht. De licht/donkerstijl komt uit
 
 ## Bronnen en licenties
 
-Geofabrik-extracten Nederland, België, Nordrhein-Westfalen en Niedersachsen,
+Geofabrik-extracten Nederland, België, Nordrhein-Westfalen, Niedersachsen en Rheinland-Pfalz,
 stand 2026-10-06, dekken de app-bounds inclusief de rand. URL’s staan in
 `tools/basemap/build.sh`, SHA256’s in `tools/basemap/sources.sha256`.
 [Geofabrik](https://download.geofabrik.de/europe/netherlands.html) levert
@@ -26,6 +26,19 @@ ogr2ogr -f GeoJSON -spat -5 48 13 57 -clipsrc -5 48 13 57 \
   -simplify 0.00015 -lco COORDINATE_PRECISION=5 ocean.geojson \
   water-polygons-split-4326/water_polygons.shp
 gzip -n -9 -c ocean.geojson > tools/basemap/ocean.geojson.gz
+```
+
+Laagzoom-bebouwing komt, net als bij Liberty, uit Natural Earth 50m urban areas
+([publiek domein](https://www.naturalearthdata.com/about/terms-of-use/)). De
+[bronzip](https://naciscdn.org/naturalearth/50m/cultural/ne_50m_urban_areas.zip)
+heeft SHA256 `69e916a46e663eefe8469cf4154bd34ff9486fb91e4a54762dbe85c1bbfb912b`.
+`natural-earth-urban.geojson.gz` bevat de uitsnede [0,49,10,55], klasse `urban`
+en `detail_minzoom` 4 voor scalerank ≤2, anders 5. Herbouw van deze uitsnede:
+
+```bash
+ogr2ogr -f GeoJSON urban.geojson ne_50m_urban_areas.shp -clipsrc 0 49 10 55 \
+  -dialect SQLite -sql "SELECT geometry, 'urban' AS class, CASE WHEN scalerank <= 2 THEN 4 ELSE 5 END AS detail_minzoom FROM ne_50m_urban_areas"
+gzip -n -c urban.geojson > tools/basemap/natural-earth-urban.geojson.gz
 ```
 
 De meegeleverde Noto Sans Regular-glyphs (Latin 0–511) komen uit de
@@ -48,21 +61,51 @@ Vanaf de root:
 pnpm basemap:build
 ```
 
-Devenv bevat tilemaker, de PMTiles-CLI, osmium, GDAL en unzip. De ingang downloadt de vier
+Devenv bevat tilemaker, de PMTiles-CLI, osmium, GDAL en unzip. De ingang downloadt de vijf
 vastgepinde PBF’s, controleert SHA256, voegt ze samen, filtert tags en maakt
-met osmium een complete-way/multipolygon-extract. Tilemaker gebruikt
+met osmium een complete-way/multipolygon-extract. Landcover wordt met osmium
+naar GeoJSON geëxporteerd en door `landcover.mts` in bos, gras, park, moeras,
+zand en bebouwing ingedeeld. Beschermde gebieden krijgen zelfstandig `park`,
+ook als hetzelfde gebied bos/gras is. De selectie volgt de
+[OpenMapTiles-producer](https://github.com/openmaptiles/planetiler-openmaptiles/tree/main/src/main/java/org/openmaptiles/layers):
+minimumoppervlak van oorspronkelijke polygonen in geprojecteerde pixels,
+vóór union. Park begint op z4 (2 pixels); bos/gras/zand op z7 (2 pixels t/m z9,
+4 op z10, 8 op z11–12). OSM residential begint op z6 (0,1 pixel), overige
+bebouwing op z10 (8 pixels). Natural Earth-bebouwing geldt alleen voor z4–5.
+De pixelmaat wordt gekwadrateerd: minimumoppervlak =
+`(40.075.016,6856 m / (256 × 2^zoom) × pixelmaat)²` in EPSG:3857.
+
+GDAL/GEOS verenigt geselecteerde vlakken per klasse/detailzoom/5 km-groep in
+EPSG:3857. `generalize-landcover.sh` maakt afzonderlijke bronnen voor z4–10,
+met topology-preserving simplificatie op 0,25 pixel; park onder z10 op 0,1 pixel.
+Bebouwing krijgt een closing-buffer van 0,5 pixel op z6, 0,2 op z7, 0,125 op
+z8 en 0,1 daarna. Na union verdwijnen stedelijke componenten kleiner dan
+1 pixel² en gaten kleiner dan 1 pixel², net als bij Liberty's residential-laag.
+De overige bebouwing verschijnt grof vanaf z10 om het totale grijsoppervlak
+in verhouding tot Liberty te houden. Native z10 bevat ook de bos-/gras-/parkselectie
+voor z12; de stijlexpressie
+`detail_minzoom` verbergt die fijne vlakken totdat de kaart zover is ingezoomd.
+Zo blijft overzoom bruikbaar zonder water/grenzen/labels tot z12 te dupliceren.
+Tilemaker gebruikt
 `config.json` en `process.lua` en schrijft `tmp/basemap/build/nl.pmtiles`.
 De PMTiles-CLI clustert en verifieert het archief.
 `publish.mts` controleert iedere tegel op het toegestane schema, grenzen,
 landklassen en labels, meet tegelgroottes per zoom en weigert meer dan 25 MB.
+`budget.json` bewaart het U59-manifest voor de archief-/tegelrapportage.
+De +25 %-gate vergelijkt het daadwerkelijke koude mobiele kaartverkeer met
+de eigen U59-nulmeting; de mobiele rig bewaakt daarnaast maximaal 1 s kaartfase.
 Daarna schrijft het `tools/basemap/tiles/nl-<16 hex SHA256>.pmtiles`, een
 manifest met de volledige hash en twee stijlen. De tegels en stijlen worden
 samen gecommit; downloads en tussenbestanden zijn genegeerd.
 
 `MOTREGEN_BASEMAP_SCRATCH` kiest een andere tijdelijke directory;
 `MOTREGEN_BASEMAP_THREADS` kiest het aantal tilemaker-threads (standaard vier).
-Verwijder `tmp/basemap/build/region.osm.pbf` om de voorbewerking opnieuw te
-laten lopen. Bij vernieuwde brondata moeten datum/URL’s, SHA256’s, de
+De tagselectie heeft een hash in `tmp/basemap/build/filter.sha256`; wijziging
+van de selectie bouwt het regio-extract opnieuw. Verwijder
+`tmp/basemap/build/region.osm.pbf` om de voorbewerking te forceren.
+`landcover.sha256` bewaakt de GIS-voorbewerking; de grote exports en GeoPackage
+staan uitsluitend in scratch.
+Bij vernieuwde brondata moeten datum/URL’s, SHA256’s, de
 kustsnapshot en beide gegenereerde stijlen samen worden bijgewerkt. Laat oude
 gehashte archieven gedurende een frontend-cacheovergang in het package staan.
 
@@ -71,6 +114,8 @@ gehashte archieven gedurende een frontend-cacheovergang in het package staan.
 De kaartbounds volgen `MAP_CONTAIN_BOUNDS`: west 2,3108, zuid 50,3256,
 oost 7,4192, noord 53,6844. Bronzoom z4–10. Bij z4/z5 past dit venster in één
 tegel; bij desktop-start z6 in vier. Het OSM-landextract volgt deze bounds.
+Landcover gebruikt de aanwezige bronextracten binnen [0,49,10,55], om ook
+de ruimte rond de contain-view met bos/gras/bebouwing te vullen.
 Het archief bevat kustwater tot [-5,48,13,57], omdat contain-zoom ook ruimte
 buiten de app-bounds toont. Zo krijgt de Noordzee geen rechte, lege rand.
 
@@ -83,25 +128,28 @@ zoom circa 10,93 bij de gekozen kustlocatie (51,9° N).
 Boven z10 gebruikt MapLibre bron-overzoom; de bestaande zoomregel blijft gelden.
 Z9, z10 en z11 zijn vergeleken bij start en maximale appzoom op 390, 1280 en
 3840 px. Z10 behoudt het Brielse Meer en bruikbare watervormen bij overzoom;
-z9 maakt die te grof. Z11 voegt vooral kleine vlakken toe. Het definitieve
-z10-archief met de ruimere kustdekking is `nl-0aa536ff364f7cce.pmtiles`,
-3.536.092 B voor 1.951 tegels. Het manifest bewaart de volledige SHA256 en
-de gecomprimeerde en uitgepakte tegelgroottes per zoom:
+z9 maakt die te grof. Z11 voegt vooral kleine vlakken toe. Het U60-z10-archief met de ruimere landcover en z12-detail is `nl-91e2043db5c73799.pmtiles`,
+24.301.762 B voor 2.213 tegels.
+Het U59-archief `nl-0aa536ff364f7cce.pmtiles` en de eerste U60-hash
+`nl-1395e020ae33a90b.pmtiles` blijven beschikbaar tijdens de frontend-cacheovergang.
+De tussentijdse, niet uitgerolde profiel-kandidaat is verwijderd uit de package.
+Het manifest bewaart SHA256 en gecomprimeerde/uitgepakte tegelgroottes.
+De +25 %-gate geldt voor gemeten koude kaartbytes; het hele archief wordt niet gedownload.
 
 | Zoom | Tegels | Gecomprimeerd totaal | p50 / grootste tegel |
 | --- | ---: | ---: | ---: |
-| 4 | 4 | 16.388 B | 1.591 / 10.469 B |
-| 5 | 7 | 40.273 B | 2.076 / 27.227 B |
-| 6 | 12 | 91.148 B | 3.824 / 28.459 B |
-| 7 | 33 | 207.680 B | 2.278 / 50.129 B |
-| 8 | 118 | 505.563 B | 813 / 47.865 B |
-| 9 | 405 | 909.240 B | 266 / 32.688 B |
-| 10 | 1.372 | 1.799.077 B | 75 / 21.270 B |
+| 4 | 4 | 26.447 B | 1.588 / 20.530 B |
+| 5 | 7 | 58.220 B | 2.076 / 45.172 B |
+| 6 | 12 | 194.318 B | 3.824 / 65.221 B |
+| 7 | 35 | 836.292 B | 3.108 / 185.500 B |
+| 8 | 132 | 2.138.774 B | 1.109 / 192.778 B |
+| 9 | 461 | 5.565.270 B | 333 / 168.904 B |
+| 10 | 1.562 | 15.515.465 B | 103 / 130.814 B |
 
 | Laag | Geometrie | Attributen |
 | --- | --- | --- |
 | water | vlakken, inclusief rivierwater en Noordzee | geen |
-| landcover | grove vlakken | class: wood of urban |
+| landcover | gevulde vlakken per zoom | class: wood, grass, park, wetland, sand of urban; detail_minzoom: 4–12 |
 | boundary | lijnen; uitsluitend admin 2/4, geen maritime | admin_level, maritime=0 |
 | place | punten; land, provincie, city/town/village | name (name:nl, anders name), class, rank, population |
 
@@ -111,6 +159,61 @@ Landen staan in de bron maar krijgen net als voorheen geen zichtbaar label.
 De bestaande `motregen-province-boundaries`-laag behoudt zijn naam, patroon,
 kleur en laagvolgorde. `label_village` komt vóór de temperatuurlaag;
 `label_town`, `label_city` en `label_state` houden voorrang in labelbotsingen.
+
+## Stijl
+
+U60 gebruikt de relevante lagen uit de vastgelegde Liberty-stijl in
+`tools/basemap/liberty-reference.json`. Kleuren, dekking en plaatslabelgroottes
+komen uit deze referentie. Voor donker gebruikt de generator dezelfde
+`darkenLibertyLayer`-transformatie als de U59-referentie: achtergrond `#101d21`,
+water `#183746`, plaatsnamen `#c7d5d8` met een donkere halo. De provinciegrens
+houdt zijn eigen patroon en verf; provincienamen houden U59’s minimumzoom 6,
+grootte en kleur. Steden staan net als in Liberty na de provincienamen, zodat
+een provincie de belangrijkste stadsnaam niet verdringt.
+
+Naast bos zijn meadow/grass/grassland/heath/scrub, parken/natuurreservaten,
+wetland en sand/beach opgenomen. Farmland is in Liberty geen gekleurde laag
+en wordt daarom niet meegeleverd. Wetland wordt bij z12 zichtbaar, ook bij
+bron-overzoom; een vlakke kleur vervangt het spritepatroon zodat er geen
+extra sprite-aanvraag nodig is. Minimumoppervlak, GEOS-union en
+topology-preserving simplificatie maken de selectie en geometrie per zoom;
+alle zeven bronnen schrijven naar dezelfde landcover-laag. Bos/gras/parken
+hebben een gevulde Liberty-kleur zonder omtrek. Residential/commercial/
+industrial/retail vormen de lichtgrijze bebouwing, met Liberty’s residential-verf.
+
+Plaatsnamen krijgen een rang uit OSM-bevolking en place-klasse. City/town/village
+volgen Liberty’s minimumzoom; een `text-field`-stap per zoom selecteert de
+rang, `symbol-sort-key` geeft grote plaatsen voorrang en `text-padding`
+compenseert de ontbrekende concurrerende weglabels. De kaart houdt het
+bestaande schema van vier lagen.
+
+De contrastieve controle gebruikt dezelfde camera en het werkelijke kaartvlak
+van de 390/1280 px-app voor beide bronnen. `basemap-comparison.spec.ts` schrijft
+licht/donker-beeldparen van start, Utrecht, kust, IJsselmeer en z7/z9/z10/z12.
+Afzonderlijke zwart/wit-renders meten het onbedekte groen- en landuse-grijsoppervlak
+zonder omtrekken. Groen en grijs moeten per paar binnen ±15 % van Liberty liggen;
+gebouwen tellen niet als landuse-grijs. MapLibre
+levert de geplaatste unieke city/town/village-labels. CIE L*-verschillen meten
+water, labeltekst en grensverf tegenover de dominante kale landkleur. De
+uitslagen en meetbeperkingen staan in het
+[U60-LOG](../.dev/tracks/u60-basiskaart-afwerking/LOG.md), de eindparen vragen PO-review.
+
+De eindmeting op `nl-91e2043db5c73799.pmtiles` voldoet voor alle 28 licht/donker-paren:
+groen wijkt relatief −5,67 tot +12,68 % af, bebouwingsgrijs −8,52 tot +9,05 %.
+Bij z12 is grijs in beide bronnen nul. Startlabels zijn 6/6 op 390 px en 19/18
+op 1280 px (oud/nieuw). Het nachtcontrast water–land stijgt van ΔL* 8,37 naar 11,68.
+De drie koude mobile-4g-runs meten kaartfasen van 550,4 / 504,0 / 556,8 ms,
+kaartbytes +13,46 % en totaalbytes +1,63 % tegenover U59. De cachecontrole
+meet nul kaartnetwerkrequests bij beide warme reloads. De receipts bewaren ook
+de informatieve CPU-samples zonder sourcemap-positie; de netwerkmetingen zijn volledig.
+
+```bash
+pnpm basemap:snapshot --detail
+MOTREGEN_E2E_PORT=4397 MOTREGEN_E2E_DATA_PORT=8397 \
+  MOTREGEN_MOBILE_BASEMAP=own MOTREGEN_BASEMAP_COMPARISON=1 \
+  pnpm --filter motregen-web e2e e2e/basemap-comparison.spec.ts \
+  --config playwright.basemap.config.ts --project desktop
+```
 
 ## Serveren en deploy
 
@@ -180,8 +283,8 @@ MOTREGEN_E2E_PORT=4393 MOTREGEN_E2E_DATA_PORT=8393 \
 ```
 
 Met `MOTREGEN_MOBILE_BASEMAP=openfreemap` ontstaan dezelfde referentiebeelden.
-De screenshots staan in `web/tmp/basemap/`. Exacte meetresultaten en synchrone
-receipts staan in het genegeerde werklog `tmp/basemap/u59/LOG.md`.
+De screenshots staan in `web/tmp/basemap/`. Exacte U60-meetresultaten en synchrone receipts staan in
+`.dev/tracks/u60-basiskaart-afwerking/LOG.md`.
 
 `basemap-parse.rig.ts` met dezelfde config laadt gedecomprimeerde tegels en
 glyphs uit geheugen en meet vijf runs na één opwarmrun. Dit onderscheidt

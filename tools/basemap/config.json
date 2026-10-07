@@ -1,5 +1,14 @@
 {
   "layers": {
+    "landcover": {
+      "minzoom": 10,
+      "maxzoom": 10,
+      "source": "landcover-10.geojson",
+      "source_columns": [
+        "class",
+        "detail_minzoom"
+      ]
+    },
     "water": {
       "minzoom": 4,
       "maxzoom": 10,
@@ -17,14 +26,6 @@
       "simplify_level": 0.00003,
       "write_to": "water"
     },
-    "landcover": {
-      "minzoom": 5,
-      "maxzoom": 10,
-      "simplify_below": 14,
-      "simplify_level": 0.00015,
-      "filter_below": 14,
-      "filter_area": 0.3
-    },
     "boundary": {
       "minzoom": 4,
       "maxzoom": 10,
@@ -35,6 +36,66 @@
     "place": {
       "minzoom": 4,
       "maxzoom": 10
+    },
+    "landcover_4": {
+      "minzoom": 4,
+      "maxzoom": 4,
+      "write_to": "landcover",
+      "source": "landcover-4.geojson",
+      "source_columns": [
+        "class",
+        "detail_minzoom"
+      ]
+    },
+    "landcover_5": {
+      "minzoom": 5,
+      "maxzoom": 5,
+      "write_to": "landcover",
+      "source": "landcover-5.geojson",
+      "source_columns": [
+        "class",
+        "detail_minzoom"
+      ]
+    },
+    "landcover_6": {
+      "minzoom": 6,
+      "maxzoom": 6,
+      "write_to": "landcover",
+      "source": "landcover-6.geojson",
+      "source_columns": [
+        "class",
+        "detail_minzoom"
+      ]
+    },
+    "landcover_7": {
+      "minzoom": 7,
+      "maxzoom": 7,
+      "write_to": "landcover",
+      "source": "landcover-7.geojson",
+      "source_columns": [
+        "class",
+        "detail_minzoom"
+      ]
+    },
+    "landcover_8": {
+      "minzoom": 8,
+      "maxzoom": 8,
+      "write_to": "landcover",
+      "source": "landcover-8.geojson",
+      "source_columns": [
+        "class",
+        "detail_minzoom"
+      ]
+    },
+    "landcover_9": {
+      "minzoom": 9,
+      "maxzoom": 9,
+      "write_to": "landcover",
+      "source": "landcover-9.geojson",
+      "source_columns": [
+        "class",
+        "detail_minzoom"
+      ]
     }
   },
   "settings": {
@@ -44,7 +105,7 @@
     "include_ids": false,
     "name": "motregen — Nederland en Vlaanderen",
     "version": "1",
-    "description": "Water, bos, stedelijk gebied, lands- en provinciegrenzen en Nederlandse plaatsnamen",
+    "description": "Water, bos, gras, parken, moeras, zand, stedelijk gebied, grenzen en Nederlandse plaatsnamen",
     "compress": "gzip",
     "bounding_box": [
       -5,

@@ -1,0 +1,661 @@
+[
+  {
+    "view": "start",
+    "camera": {
+      "lng": 4.864999999999981,
+      "lat": 52.25360533550395,
+      "zoom": 5.71902784639664,
+      "bearing": 0,
+      "pitch": 0,
+      "location": {
+        "lng": 5.18,
+        "lat": 52.1
+      }
+    },
+    "viewport": {
+      "width": 390,
+      "height": 462
+    },
+    "captures": [
+      {
+        "basemap": "openfreemap",
+        "places": [
+          "Amsterdam",
+          "Antwerpen",
+          "Bruxelles - Brussel",
+          "Den Haag",
+          "Köln",
+          "Lille"
+        ],
+        "labelCount": 6,
+        "greenPercent": 7.896547896547896,
+        "grayPercent": 15.706515706515706,
+        "coverPercent": {
+          "green": 7.896547896547896,
+          "gray": 15.706515706515706,
+          "wood": 0,
+          "grass": 0,
+          "park": 7.896547896547896
+        },
+        "contrast": {
+          "landColor": [
+            238,
+            238,
+            229
+          ],
+          "waterLand": 17.267076551215666,
+          "labelLand": 93.8759433565361,
+          "boundaryLand": 49.809408740700434,
+          "provinceLand": 30.139766132107454
+        }
+      },
+      {
+        "basemap": "own",
+        "places": [
+          "Amsterdam",
+          "Bochum",
+          "Brussel",
+          "Eindhoven",
+          "Groningen",
+          "Keulen"
+        ],
+        "labelCount": 6,
+        "greenPercent": 7.687867687867687,
+        "grayPercent": 15.384060384060383,
+        "coverPercent": {
+          "green": 7.687867687867687,
+          "gray": 15.384060384060383,
+          "wood": 0,
+          "grass": 0,
+          "park": 7.687867687867687
+        },
+        "contrast": {
+          "landColor": [
+            248,
+            244,
+            240
+          ],
+          "waterLand": 19.780213859744336,
+          "labelLand": 96.38908066506477,
+          "boundaryLand": 44.13928542950663,
+          "provinceLand": 31.896679154561212
+        }
+      }
+    ]
+  },
+  {
+    "view": "utrecht",
+    "camera": {
+      "lng": 5.1214,
+      "lat": 52.0907,
+      "zoom": 9
+    },
+    "viewport": {
+      "width": 390,
+      "height": 462
+    },
+    "captures": [
+      {
+        "basemap": "openfreemap",
+        "places": [
+          "Amersfoort",
+          "Baarn",
+          "Bilthoven",
+          "Bussum",
+          "Culemborg",
+          "De Meern",
+          "Doorn",
+          "Driebergen-Rijsenburg",
+          "Hilversum",
+          "Laren",
+          "Leerdam",
+          "Lopik",
+          "Maarssen",
+          "Mijdrecht",
+          "Montfoort",
+          "Nieuwegein",
+          "Schoonhoven",
+          "Soest",
+          "Uithoorn",
+          "Utrecht",
+          "Vianen",
+          "Vleuten",
+          "Wijk bij Duurstede",
+          "Woerden",
+          "Zeist"
+        ],
+        "labelCount": 25,
+        "greenPercent": 19.143634143634145,
+        "grayPercent": 13.953268953268951,
+        "coverPercent": {
+          "green": 19.143634143634145,
+          "gray": 13.953268953268951,
+          "wood": 3.1712731712731714,
+          "grass": 5.909090909090909,
+          "park": 10.063270063270064
+        },
+        "contrast": {
+          "landColor": [
+            248,
+            244,
+            240
+          ],
+          "waterLand": 19.780213859744336,
+          "labelLand": 96.38908066506477,
+          "boundaryLand": 52.3225460492291,
+          "provinceLand": 31.896679154561212
+        }
+      },
+      {
+        "basemap": "own",
+        "places": [
+          "'t Goy",
+          "Amersfoort",
+          "Amstelveen",
+          "Ankeveen",
+          "Brandwijk",
+          "Culemborg",
+          "Doorn",
+          "Eemdijk",
+          "Geldermalsen",
+          "Hilversum",
+          "Hoornaar",
+          "Huizen",
+          "IJsselstein",
+          "Kanis",
+          "Leerdam",
+          "Lexmond",
+          "Loenen aan de Vecht",
+          "Maarssen",
+          "Maartensdijk",
+          "Maurik",
+          "Oudewater",
+          "Schoonhoven",
+          "Uithoorn",
+          "Utrecht",
+          "Wilnis",
+          "Woerden",
+          "Woudenberg",
+          "Zeist"
+        ],
+        "labelCount": 28,
+        "greenPercent": 19.18137418137418,
+        "grayPercent": 14.000999000999,
+        "coverPercent": {
+          "green": 19.18137418137418,
+          "gray": 14.000999000999,
+          "wood": 3.023088023088023,
+          "grass": 5.66988566988567,
+          "park": 10.488400488400488
+        },
+        "contrast": {
+          "landColor": [
+            248,
+            244,
+            240
+          ],
+          "waterLand": 19.780213859744336,
+          "labelLand": 96.38908066506477,
+          "boundaryLand": 44.13928542950663,
+          "provinceLand": 31.896679154561212
+        }
+      }
+    ]
+  },
+  {
+    "view": "kust",
+    "camera": {
+      "lng": 4.05,
+      "lat": 52.14,
+      "zoom": 9
+    },
+    "viewport": {
+      "width": 390,
+      "height": 462
+    },
+    "captures": [
+      {
+        "basemap": "openfreemap",
+        "places": [
+          "'s-Gravenzande",
+          "Den Haag",
+          "Hoek van Holland",
+          "Monster",
+          "Rijswijk"
+        ],
+        "labelCount": 5,
+        "greenPercent": 2.021867021867022,
+        "grayPercent": 2.5835275835275837,
+        "coverPercent": {
+          "green": 2.021867021867022,
+          "gray": 2.5835275835275837,
+          "wood": 0.0666000666000666,
+          "grass": 1.5850815850815851,
+          "park": 0.37018537018537023
+        },
+        "contrast": {
+          "landColor": [
+            248,
+            244,
+            240
+          ],
+          "waterLand": 19.780213859744336,
+          "labelLand": 96.38908066506477,
+          "boundaryLand": 52.3225460492291,
+          "provinceLand": 31.896679154561212
+        }
+      },
+      {
+        "basemap": "own",
+        "places": [
+          "'s-Gravenzande",
+          "Delft",
+          "Den Haag"
+        ],
+        "labelCount": 3,
+        "greenPercent": 2.01021201021201,
+        "grayPercent": 2.693417693417693,
+        "coverPercent": {
+          "green": 2.01021201021201,
+          "gray": 2.693417693417693,
+          "wood": 0.06327006327006326,
+          "grass": 1.5645465645465646,
+          "park": 0.3823953823953824
+        },
+        "contrast": {
+          "landColor": [
+            248,
+            244,
+            240
+          ],
+          "waterLand": 19.780213859744336,
+          "labelLand": 96.38908066506477,
+          "boundaryLand": 44.13928542950663,
+          "provinceLand": 31.896679154561212
+        }
+      }
+    ]
+  },
+  {
+    "view": "ijsselmeer",
+    "camera": {
+      "lng": 5.4,
+      "lat": 52.75,
+      "zoom": 9
+    },
+    "viewport": {
+      "width": 390,
+      "height": 462
+    },
+    "captures": [
+      {
+        "basemap": "openfreemap",
+        "places": [
+          "Aldemardum",
+          "Andijk",
+          "Bakhuzen",
+          "Balk",
+          "Creil",
+          "Enkhuizen",
+          "Hoogkarspel",
+          "Koudum",
+          "Medemblik",
+          "Stavoren",
+          "Swifterbant",
+          "Tollebeek",
+          "Urk",
+          "Venhuizen",
+          "Wervershoof"
+        ],
+        "labelCount": 15,
+        "greenPercent": 3.347763347763348,
+        "grayPercent": 1.8603618603618606,
+        "coverPercent": {
+          "green": 3.347763347763348,
+          "gray": 1.8603618603618606,
+          "wood": 0.4179154179154179,
+          "grass": 1.5445665445665446,
+          "park": 1.3852813852813852
+        },
+        "contrast": {
+          "landColor": [
+            248,
+            244,
+            240
+          ],
+          "waterLand": 19.780213859744336,
+          "labelLand": 96.38908066506477,
+          "boundaryLand": 52.3225460492291,
+          "provinceLand": 31.896679154561212
+        }
+      },
+      {
+        "basemap": "own",
+        "places": [
+          "Andijk",
+          "Balk",
+          "Creil",
+          "Enkhuizen",
+          "Koudum",
+          "Lemmer",
+          "Medemblik",
+          "Oudemirdum",
+          "Rutten",
+          "Sint Nicolaasga",
+          "Swifterbant",
+          "Urk",
+          "Venhuizen",
+          "Zwaagdijk-Oost"
+        ],
+        "labelCount": 14,
+        "greenPercent": 3.772338772338772,
+        "grayPercent": 1.8964368964368965,
+        "coverPercent": {
+          "green": 3.772338772338772,
+          "gray": 1.8964368964368965,
+          "wood": 0.41736041736041735,
+          "grass": 1.4657564657564657,
+          "park": 1.889221889221889
+        },
+        "contrast": {
+          "landColor": [
+            248,
+            244,
+            240
+          ],
+          "waterLand": 19.780213859744336,
+          "labelLand": 96.38908066506477,
+          "boundaryLand": 44.13928542950663,
+          "provinceLand": 31.896679154561212
+        }
+      }
+    ]
+  },
+  {
+    "view": "utrecht-z7",
+    "camera": {
+      "lng": 5.1214,
+      "lat": 52.0907,
+      "zoom": 7
+    },
+    "viewport": {
+      "width": 390,
+      "height": 462
+    },
+    "captures": [
+      {
+        "basemap": "openfreemap",
+        "places": [
+          "'s-Gravenzande",
+          "'s-Hertogenbosch",
+          "Alkmaar",
+          "Amsterdam",
+          "Apeldoorn",
+          "Arnhem",
+          "Den Haag",
+          "Eindhoven",
+          "Hellevoetsluis",
+          "Hoorn",
+          "Lelystad",
+          "Nijmegen",
+          "Purmerend",
+          "Rotterdam",
+          "Utrecht",
+          "Zwolle"
+        ],
+        "labelCount": 16,
+        "greenPercent": 13.864468864468865,
+        "grayPercent": 9.155844155844155,
+        "coverPercent": {
+          "green": 13.864468864468865,
+          "gray": 9.155844155844155,
+          "wood": 0.5233655233655233,
+          "grass": 0.5466755466755467,
+          "park": 12.794427794427795
+        },
+        "contrast": {
+          "landColor": [
+            248,
+            244,
+            240
+          ],
+          "waterLand": 19.780213859744336,
+          "labelLand": 96.38908066506477,
+          "boundaryLand": 52.3225460492291,
+          "provinceLand": 31.896679154561212
+        }
+      },
+      {
+        "basemap": "own",
+        "places": [
+          "Alkmaar",
+          "Amsterdam",
+          "Antwerpen",
+          "Apeldoorn",
+          "Bergen op Zoom",
+          "Breda",
+          "Eindhoven",
+          "Leiden",
+          "Lelystad",
+          "Meppel",
+          "Nijmegen",
+          "Rotterdam",
+          "Utrecht",
+          "Venlo",
+          "Zwolle"
+        ],
+        "labelCount": 15,
+        "greenPercent": 13.993228993228993,
+        "grayPercent": 9.82961482961483,
+        "coverPercent": {
+          "green": 13.993228993228993,
+          "gray": 9.82961482961483,
+          "wood": 0.4967254967254967,
+          "grass": 0.6121656121656122,
+          "park": 12.884337884337885
+        },
+        "contrast": {
+          "landColor": [
+            248,
+            244,
+            240
+          ],
+          "waterLand": 19.780213859744336,
+          "labelLand": 96.38908066506477,
+          "boundaryLand": 44.13928542950663,
+          "provinceLand": 31.896679154561212
+        }
+      }
+    ]
+  },
+  {
+    "view": "utrecht-z10",
+    "camera": {
+      "lng": 5.1214,
+      "lat": 52.0907,
+      "zoom": 10
+    },
+    "viewport": {
+      "width": 390,
+      "height": 462
+    },
+    "captures": [
+      {
+        "basemap": "openfreemap",
+        "places": [
+          "'t Goy",
+          "Benschop",
+          "Bilthoven",
+          "Breukelen",
+          "Bunnik",
+          "De Bilt",
+          "De Meern",
+          "Den Dolder",
+          "Groenekan",
+          "Haarzuilens",
+          "Hollandsche Rading",
+          "Houten",
+          "Huis ter Heide",
+          "IJsselstein",
+          "Lopikerkapel",
+          "Maarssen",
+          "Maartensdijk",
+          "Nieuwegein",
+          "Odijk",
+          "Oud-Zuilen",
+          "Schalkwijk",
+          "Tienhoven",
+          "Tull en 't Waal",
+          "Utrecht",
+          "Vianen",
+          "Vleuten",
+          "Werkhoven",
+          "Westbroek",
+          "Zeist"
+        ],
+        "labelCount": 29,
+        "greenPercent": 18.462093462093463,
+        "grayPercent": 23.497058497058497,
+        "coverPercent": {
+          "green": 18.462093462093463,
+          "gray": 23.497058497058497,
+          "wood": 2.039072039072039,
+          "grass": 6.334221334221334,
+          "park": 10.088800088800088
+        },
+        "contrast": {
+          "landColor": [
+            248,
+            244,
+            240
+          ],
+          "waterLand": 19.780213859744336,
+          "labelLand": 96.38908066506477,
+          "boundaryLand": 52.3225460492291,
+          "provinceLand": 31.896679154561212
+        }
+      },
+      {
+        "basemap": "own",
+        "places": [
+          "Benschop",
+          "Bilthoven",
+          "Breukelen",
+          "Bunnik",
+          "De Bilt",
+          "De Meern",
+          "Den Dolder",
+          "Groenekan",
+          "Haarzuilens",
+          "Hollandsche Rading",
+          "Houten",
+          "Huis ter Heide",
+          "IJsselstein",
+          "Maarssen",
+          "Maartensdijk",
+          "Nieuwegein",
+          "Nieuwer ter Aa",
+          "Odijk",
+          "Oud-Zuilen",
+          "Schalkwijk",
+          "Tienhoven",
+          "Tull en 't Waal",
+          "Utrecht",
+          "Vianen",
+          "Vleuten",
+          "Werkhoven",
+          "Zeist"
+        ],
+        "labelCount": 27,
+        "greenPercent": 18.37606837606838,
+        "grayPercent": 25.623820623820627,
+        "coverPercent": {
+          "green": 18.37606837606838,
+          "gray": 25.623820623820627,
+          "wood": 2.0662670662670664,
+          "grass": 6.035631035631036,
+          "park": 10.274170274170274
+        },
+        "contrast": {
+          "landColor": [
+            248,
+            244,
+            240
+          ],
+          "waterLand": 19.780213859744336,
+          "labelLand": 96.38908066506477,
+          "boundaryLand": 44.13928542950663,
+          "provinceLand": 31.896679154561212
+        }
+      }
+    ]
+  },
+  {
+    "view": "utrecht-z12",
+    "camera": {
+      "lng": 5.1214,
+      "lat": 52.0907,
+      "zoom": 12
+    },
+    "viewport": {
+      "width": 390,
+      "height": 462
+    },
+    "captures": [
+      {
+        "basemap": "openfreemap",
+        "places": [
+          "Utrecht"
+        ],
+        "labelCount": 1,
+        "greenPercent": 7.1262071262071265,
+        "grayPercent": 0,
+        "coverPercent": {
+          "green": 7.1262071262071265,
+          "gray": 0,
+          "wood": 0.07492507492507493,
+          "grass": 6.889221889221889,
+          "park": 0.16206016206016205
+        },
+        "contrast": {
+          "landColor": [
+            248,
+            244,
+            240
+          ],
+          "waterLand": 19.780213859744336,
+          "labelLand": 96.38908066506477,
+          "boundaryLand": 52.3225460492291,
+          "provinceLand": 31.896679154561212
+        }
+      },
+      {
+        "basemap": "own",
+        "places": [
+          "Utrecht"
+        ],
+        "labelCount": 1,
+        "greenPercent": 7.910977910977911,
+        "grayPercent": 0,
+        "coverPercent": {
+          "green": 7.910977910977911,
+          "gray": 0,
+          "wood": 0.08047508047508048,
+          "grass": 7.624597624597625,
+          "park": 0.20590520590520592
+        },
+        "contrast": {
+          "landColor": [
+            248,
+            244,
+            240
+          ],
+          "waterLand": 19.780213859744336,
+          "labelLand": 96.38908066506477,
+          "boundaryLand": 44.13928542950663,
+          "provinceLand": 31.896679154561212
+        }
+      }
+    ]
+  }
+]

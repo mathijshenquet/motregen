@@ -1,7 +1,7 @@
 {
-  "filename": "nl-0aa536ff364f7cce.pmtiles",
-  "sha256": "0aa536ff364f7cce58a813bf9a190b5267baafcb4cc27a3949699d662f1456a2",
-  "bytes": 3536092,
+  "filename": "nl-91e2043db5c73799.pmtiles",
+  "sha256": "91e2043db5c73799861adc5ee715b34c2fddc4ab620e55927f6a3149a55b53db",
+  "bytes": 24301762,
   "minzoom": 4,
   "maxzoom": 10,
   "bounds": [
@@ -14,72 +14,72 @@
     {
       "zoom": 4,
       "tiles": 4,
-      "compressedBytes": 16388,
-      "p50CompressedBytes": 1591,
-      "maxCompressedBytes": 10469,
-      "decodedBytes": 29063,
+      "compressedBytes": 26447,
+      "p50CompressedBytes": 1588,
+      "maxCompressedBytes": 20530,
+      "decodedBytes": 47902,
       "p50Bytes": 2462,
-      "maxBytes": 19781
+      "maxBytes": 38620
     },
     {
       "zoom": 5,
       "tiles": 7,
-      "compressedBytes": 40273,
+      "compressedBytes": 58220,
       "p50CompressedBytes": 2076,
-      "maxCompressedBytes": 27227,
-      "decodedBytes": 71807,
+      "maxCompressedBytes": 45172,
+      "decodedBytes": 103740,
       "p50Bytes": 3152,
-      "maxBytes": 51975
+      "maxBytes": 83908
     },
     {
       "zoom": 6,
       "tiles": 12,
-      "compressedBytes": 91148,
+      "compressedBytes": 194318,
       "p50CompressedBytes": 3824,
-      "maxCompressedBytes": 28459,
-      "decodedBytes": 153377,
-      "p50Bytes": 5405,
-      "maxBytes": 52882
+      "maxCompressedBytes": 65221,
+      "decodedBytes": 335698,
+      "p50Bytes": 5404,
+      "maxBytes": 117476
     },
     {
       "zoom": 7,
-      "tiles": 33,
-      "compressedBytes": 207680,
-      "p50CompressedBytes": 2278,
-      "maxCompressedBytes": 50129,
-      "decodedBytes": 328607,
-      "p50Bytes": 3189,
-      "maxBytes": 85947
+      "tiles": 35,
+      "compressedBytes": 836292,
+      "p50CompressedBytes": 3108,
+      "maxCompressedBytes": 185500,
+      "decodedBytes": 1312643,
+      "p50Bytes": 4163,
+      "maxBytes": 291951
     },
     {
       "zoom": 8,
-      "tiles": 118,
-      "compressedBytes": 505563,
-      "p50CompressedBytes": 813,
-      "maxCompressedBytes": 47865,
-      "decodedBytes": 808088,
-      "p50Bytes": 944,
-      "maxBytes": 83470
+      "tiles": 132,
+      "compressedBytes": 2138774,
+      "p50CompressedBytes": 1109,
+      "maxCompressedBytes": 192778,
+      "decodedBytes": 3071546,
+      "p50Bytes": 1378,
+      "maxBytes": 277823
     },
     {
       "zoom": 9,
-      "tiles": 405,
-      "compressedBytes": 909240,
-      "p50CompressedBytes": 266,
-      "maxCompressedBytes": 32688,
-      "decodedBytes": 1280503,
-      "p50Bytes": 244,
-      "maxBytes": 49388
+      "tiles": 461,
+      "compressedBytes": 5565270,
+      "p50CompressedBytes": 333,
+      "maxCompressedBytes": 168904,
+      "decodedBytes": 7531350,
+      "p50Bytes": 344,
+      "maxBytes": 229280
     },
     {
       "zoom": 10,
-      "tiles": 1372,
-      "compressedBytes": 1799077,
-      "p50CompressedBytes": 75,
-      "maxCompressedBytes": 21270,
-      "decodedBytes": 2273443,
-      "p50Bytes": 57,
-      "maxBytes": 28409
+      "tiles": 1562,
+      "compressedBytes": 15515465,
+      "p50CompressedBytes": 103,
+      "maxCompressedBytes": 130814,
+      "decodedBytes": 19540404,
+      "p50Bytes": 101,
+      "maxBytes": 165866
     }
   ]
 }

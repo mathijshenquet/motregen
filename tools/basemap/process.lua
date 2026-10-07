@@ -6,16 +6,24 @@ function node_function()
     if kind ~= "country" and kind ~= "state" and kind ~= "city" and kind ~= "town" and kind ~= "village" then return end
     local name = Find("name:nl")
     if name == "" then name = Find("name") end
-    if name == "" then return end
-    local population = tonumber(Find("population")) or 0
-    local rank = 6
-    local minimum_zoom = 9
+    if name == "" or #name == 1 then return end
+    local population_text = Find("population"):gsub("[ ,.;]", "")
+    local population = tonumber(population_text) or 0
+    local rank = 10
+    local minimum_zoom = 6
     if kind == "country" then rank = 0; minimum_zoom = 4
     elseif kind == "state" then rank = 1; minimum_zoom = 5
-    elseif population >= 150000 then rank = 2; minimum_zoom = 5
-    elseif kind == "city" or population >= 50000 then rank = 3; minimum_zoom = 6
-    elseif kind == "town" or population >= 10000 then rank = 4; minimum_zoom = 7
-    else rank = 5; minimum_zoom = 8 end
+    elseif population >= 500000 then rank = 3
+    elseif population >= 200000 then rank = 4
+    elseif population >= 100000 then rank = 5
+    elseif population >= 75000 then rank = 6
+    elseif population >= 50000 then rank = 7
+    elseif population >= 25000 then rank = 8
+    elseif population >= 10000 then rank = 9
+    elseif kind == "city" and population == 0 then rank = 7 end
+    if kind == "city" and (Find("capital") == "yes" or Find("capital") == "2") then rank = 2 end
+    if kind == "city" then minimum_zoom = 4
+    elseif kind == "village" then minimum_zoom = 9 end
     Layer("place", false)
     Attribute("name", name)
     Attribute("class", kind)
@@ -50,15 +58,12 @@ function way_function()
     local landuse = Find("landuse")
     if natural == "water" or Find("waterway") == "riverbank" or landuse == "reservoir" then
         Layer("water", true)
-    elseif natural == "wood" or landuse == "forest" then
-        Layer("landcover", true)
-        Attribute("class", "wood")
-    elseif landuse == "residential" or landuse == "commercial" or landuse == "industrial" or landuse == "retail" then
-        Layer("landcover", true)
-        Attribute("class", "urban")
     end
 end
 
 function attribute_function(attributes, layer)
+    if layer == "landcover" or string.sub(layer, 1, 10) == "landcover_" then
+        return { class = attributes.class, detail_minzoom = attributes.detail_minzoom }
+    end
     return {}
 end
