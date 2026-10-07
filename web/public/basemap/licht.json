@@ -5,7 +5,7 @@
   "sources": {
     "basemap": {
       "type": "vector",
-      "url": "pmtiles:///data/basemap/nl-0aa536ff364f7cce.pmtiles",
+      "url": "pmtiles:///data/basemap/nl-91e2043db5c73799.pmtiles",
       "attribution": "© <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>"
     }
   },
@@ -18,38 +18,166 @@
       }
     },
     {
-      "id": "landcover_wood",
+      "id": "park",
       "type": "fill",
       "source": "basemap",
       "source-layer": "landcover",
-      "filter": [
-        "==",
-        [
-          "get",
-          "class"
-        ],
-        "wood"
-      ],
       "paint": {
-        "fill-color": "#cce0b9",
+        "fill-color": "#d8e8c8",
+        "fill-opacity": 0.7,
+        "fill-outline-color": "rgba(0,0,0,0)",
         "fill-antialias": false
-      }
+      },
+      "filter": [
+        "all",
+        [
+          "==",
+          [
+            "get",
+            "class"
+          ],
+          "park"
+        ],
+        [
+          "<=",
+          [
+            "get",
+            "detail_minzoom"
+          ],
+          [
+            "zoom"
+          ]
+        ]
+      ]
     },
     {
       "id": "landuse_residential",
       "type": "fill",
       "source": "basemap",
       "source-layer": "landcover",
+      "maxzoom": 12,
+      "filter": [
+        "all",
+        [
+          "==",
+          [
+            "get",
+            "class"
+          ],
+          "urban"
+        ],
+        [
+          "<=",
+          [
+            "get",
+            "detail_minzoom"
+          ],
+          [
+            "zoom"
+          ]
+        ]
+      ],
+      "paint": {
+        "fill-color": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          9,
+          "hsla(0,3%,85%,0.84)",
+          12,
+          "hsla(35,57%,88%,0.49)"
+        ],
+        "fill-outline-color": "rgba(0,0,0,0)",
+        "fill-antialias": false
+      }
+    },
+    {
+      "id": "landcover_wood",
+      "type": "fill",
+      "source": "basemap",
+      "source-layer": "landcover",
+      "filter": [
+        "all",
+        [
+          "==",
+          [
+            "get",
+            "class"
+          ],
+          "wood"
+        ],
+        [
+          "<=",
+          [
+            "get",
+            "detail_minzoom"
+          ],
+          [
+            "zoom"
+          ]
+        ]
+      ],
+      "paint": {
+        "fill-antialias": false,
+        "fill-color": "hsla(98,61%,72%,0.7)",
+        "fill-opacity": 0.4,
+        "fill-outline-color": "rgba(0,0,0,0)"
+      }
+    },
+    {
+      "id": "landcover_grass",
+      "type": "fill",
+      "source": "basemap",
+      "source-layer": "landcover",
+      "filter": [
+        "all",
+        [
+          "==",
+          [
+            "get",
+            "class"
+          ],
+          "grass"
+        ],
+        [
+          "<=",
+          [
+            "get",
+            "detail_minzoom"
+          ],
+          [
+            "zoom"
+          ]
+        ]
+      ],
+      "paint": {
+        "fill-antialias": false,
+        "fill-color": "rgba(176, 213, 154, 1)",
+        "fill-opacity": 0.3,
+        "fill-outline-color": "rgba(0,0,0,0)"
+      }
+    },
+    {
+      "id": "landcover_wetland",
+      "type": "fill",
+      "source": "basemap",
+      "source-layer": "landcover",
+      "minzoom": 12,
       "filter": [
         "==",
         [
           "get",
           "class"
         ],
-        "urban"
+        "wetland"
       ],
       "paint": {
-        "fill-color": "#e7e3df",
+        "fill-color": "#d8e8c8",
+        "fill-opacity": 0.8,
         "fill-antialias": false
       }
     },
@@ -59,8 +187,39 @@
       "source": "basemap",
       "source-layer": "water",
       "paint": {
-        "fill-color": "#9ebdff",
-        "fill-antialias": true
+        "fill-color": "rgb(158,189,255)"
+      }
+    },
+    {
+      "id": "landcover_sand",
+      "type": "fill",
+      "source": "basemap",
+      "source-layer": "landcover",
+      "filter": [
+        "all",
+        [
+          "==",
+          [
+            "get",
+            "class"
+          ],
+          "sand"
+        ],
+        [
+          "<=",
+          [
+            "get",
+            "detail_minzoom"
+          ],
+          [
+            "zoom"
+          ]
+        ]
+      ],
+      "paint": {
+        "fill-color": "rgba(247, 239, 195, 1)",
+        "fill-outline-color": "rgba(0,0,0,0)",
+        "fill-antialias": false
       }
     },
     {
@@ -149,7 +308,7 @@
       "type": "symbol",
       "source": "basemap",
       "source-layer": "place",
-      "minzoom": 8,
+      "minzoom": 9,
       "filter": [
         "==",
         [
@@ -160,8 +319,113 @@
       ],
       "layout": {
         "text-field": [
-          "get",
-          "name"
+          "step",
+          [
+            "zoom"
+          ],
+          "",
+          4,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              3
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          5,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              4
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          6,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              5
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          7,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              8
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          8,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              9
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          9,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              10
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ]
         ],
         "text-font": [
           "Noto Sans Regular"
@@ -169,18 +433,31 @@
         "text-size": [
           "interpolate",
           [
-            "linear"
+            "exponential",
+            1.2
           ],
           [
             "zoom"
           ],
-          5,
+          7,
           10,
           11,
-          13
+          12
         ],
-        "text-max-width": 9,
-        "text-padding": 4,
+        "text-max-width": 8,
+        "text-padding": [
+          "step",
+          [
+            "zoom"
+          ],
+          24,
+          6,
+          18,
+          8,
+          14,
+          10,
+          4
+        ],
         "symbol-sort-key": [
           "-",
           [
@@ -198,9 +475,10 @@
         ]
       },
       "paint": {
-        "text-color": "#283239",
-        "text-halo-color": "#f8f4f0",
-        "text-halo-width": 1.3
+        "text-color": "#000",
+        "text-halo-blur": 1,
+        "text-halo-color": "#fff",
+        "text-halo-width": 1
       }
     },
     {
@@ -219,8 +497,113 @@
       ],
       "layout": {
         "text-field": [
-          "get",
-          "name"
+          "step",
+          [
+            "zoom"
+          ],
+          "",
+          4,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              3
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          5,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              4
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          6,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              5
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          7,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              8
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          8,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              9
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          9,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              10
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ]
         ],
         "text-font": [
           "Noto Sans Regular"
@@ -228,77 +611,31 @@
         "text-size": [
           "interpolate",
           [
-            "linear"
+            "exponential",
+            1.2
           ],
           [
             "zoom"
           ],
-          5,
-          11,
+          7,
+          12,
           11,
           14
         ],
-        "text-max-width": 9,
-        "text-padding": 4,
-        "symbol-sort-key": [
-          "-",
-          [
-            "*",
-            [
-              "get",
-              "rank"
-            ],
-            10000000
-          ],
-          [
-            "get",
-            "population"
-          ]
-        ]
-      },
-      "paint": {
-        "text-color": "#283239",
-        "text-halo-color": "#f8f4f0",
-        "text-halo-width": 1.3
-      }
-    },
-    {
-      "id": "label_city",
-      "type": "symbol",
-      "source": "basemap",
-      "source-layer": "place",
-      "minzoom": 4,
-      "filter": [
-        "==",
-        [
-          "get",
-          "class"
-        ],
-        "city"
-      ],
-      "layout": {
-        "text-field": [
-          "get",
-          "name"
-        ],
-        "text-font": [
-          "Noto Sans Regular"
-        ],
-        "text-size": [
-          "interpolate",
-          [
-            "linear"
-          ],
+        "text-max-width": 8,
+        "text-padding": [
+          "step",
           [
             "zoom"
           ],
-          5,
-          12,
-          11,
-          15
+          24,
+          6,
+          18,
+          8,
+          14,
+          10,
+          4
         ],
-        "text-max-width": 9,
-        "text-padding": 4,
         "symbol-sort-key": [
           "-",
           [
@@ -316,9 +653,10 @@
         ]
       },
       "paint": {
-        "text-color": "#283239",
-        "text-halo-color": "#f8f4f0",
-        "text-halo-width": 1.3
+        "text-color": "#000",
+        "text-halo-blur": 1,
+        "text-halo-color": "#fff",
+        "text-halo-width": 1
       }
     },
     {
@@ -377,6 +715,186 @@
       "paint": {
         "text-color": "#657375",
         "text-halo-color": "#f8f4f0",
+        "text-halo-width": 1
+      }
+    },
+    {
+      "id": "label_city",
+      "type": "symbol",
+      "source": "basemap",
+      "source-layer": "place",
+      "minzoom": 3,
+      "filter": [
+        "==",
+        [
+          "get",
+          "class"
+        ],
+        "city"
+      ],
+      "layout": {
+        "text-field": [
+          "step",
+          [
+            "zoom"
+          ],
+          "",
+          4,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              3
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          5,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              4
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          6,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              5
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          7,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              8
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          8,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              9
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ],
+          9,
+          [
+            "case",
+            [
+              "<=",
+              [
+                "get",
+                "rank"
+              ],
+              10
+            ],
+            [
+              "get",
+              "name"
+            ],
+            ""
+          ]
+        ],
+        "text-font": [
+          "Noto Sans Regular"
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "exponential",
+            1.2
+          ],
+          [
+            "zoom"
+          ],
+          4,
+          11,
+          7,
+          13,
+          11,
+          18
+        ],
+        "text-max-width": 8,
+        "text-padding": [
+          "step",
+          [
+            "zoom"
+          ],
+          24,
+          6,
+          18,
+          8,
+          14,
+          10,
+          4
+        ],
+        "symbol-sort-key": [
+          "-",
+          [
+            "*",
+            [
+              "get",
+              "rank"
+            ],
+            10000000
+          ],
+          [
+            "get",
+            "population"
+          ]
+        ]
+      },
+      "paint": {
+        "text-color": "#000",
+        "text-halo-blur": 1,
+        "text-halo-color": "#fff",
         "text-halo-width": 1
       }
     }

@@ -1,0 +1,50 @@
+[
+  {
+    "width": 390,
+    "network": [],
+    "ranges": [
+      {
+        "status": 206,
+        "cached": true
+      },
+      {
+        "status": 206,
+        "cached": true
+      }
+    ],
+    "cache": {
+      "entries": 2,
+      "bytes": 48309
+    }
+  },
+  {
+    "width": 1280,
+    "network": [],
+    "ranges": [
+      {
+        "status": 206,
+        "cached": true
+      },
+      {
+        "status": 206,
+        "cached": true
+      },
+      {
+        "status": 206,
+        "cached": true
+      },
+      {
+        "status": 206,
+        "cached": true
+      },
+      {
+        "status": 206,
+        "cached": true
+      }
+    ],
+    "cache": {
+      "entries": 5,
+      "bytes": 100209
+    }
+  }
+]

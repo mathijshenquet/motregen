@@ -1,0 +1,342 @@
+{
+  "network": [],
+  "ranges": [
+    {
+      "status": 206,
+      "cached": true
+    },
+    {
+      "status": 206,
+      "cached": true
+    }
+  ],
+  "cache": {
+    "entries": 2,
+    "bytes": 61556
+  },
+  "cold": {
+    "capturedAt": "2026-10-07T22:34:06.284Z",
+    "ttfrMs": 2315.5,
+    "scrub": {
+      "samples": 0,
+      "p50Ms": null,
+      "p95Ms": null
+    },
+    "fps": 11,
+    "network": {
+      "manifest": {
+        "requests": 1,
+        "bytes": 36813
+      },
+      "chunks": {
+        "requests": 77,
+        "bytes": 1132443
+      },
+      "tiles": {
+        "requests": 5,
+        "bytes": 153040
+      },
+      "other": {
+        "requests": 11,
+        "bytes": 480893
+      },
+      "total": {
+        "requests": 94,
+        "bytes": 1803189
+      }
+    },
+    "manifestAgeMs": 3483246284,
+    "phases": {
+      "frame-decode": {
+        "count": 196,
+        "p50Ms": 0.3,
+        "p95Ms": 2.6
+      },
+      "texture-upload": {
+        "count": 1,
+        "p50Ms": 2.4,
+        "p95Ms": 2.4
+      },
+      "wind-step": {
+        "count": 6,
+        "p50Ms": 1.2,
+        "p95Ms": 6.4
+      },
+      "scrubber-paint": {
+        "count": 54,
+        "p50Ms": 0.2,
+        "p95Ms": 4.1
+      },
+      "table-render": {
+        "count": 7,
+        "p50Ms": 0.4,
+        "p95Ms": 3.3
+      },
+      "basemap-tile": {
+        "count": 1,
+        "p50Ms": 1074,
+        "p95Ms": 1074
+      }
+    },
+    "windowReadyMs": {
+      "cloud_high": 2809,
+      "cloud_mid": 2809,
+      "cloud_low": 3062,
+      "rain_rate": 3379,
+      "temp_c": 3459,
+      "feels_like_c": 3459,
+      "cloud_frac": 3459,
+      "wind_u": 3459,
+      "wind_v": 3459,
+      "uv": 3714,
+      "gust_ms": 3714
+    },
+    "longFrames": [
+      {
+        "startTime": 2197.5,
+        "duration": 291.2999999523163,
+        "blockingDuration": 237.4,
+        "scripts": [
+          {
+            "duration": 282.39999997615814,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "FrameRequestCallback"
+          }
+        ]
+      },
+      {
+        "startTime": 541.7999999523163,
+        "duration": 255.10000002384186,
+        "blockingDuration": 205,
+        "scripts": [
+          {
+            "duration": 239.10000002384186,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "http://127.0.0.1:4397/assets/index-DBlDxszH.js"
+          }
+        ]
+      },
+      {
+        "startTime": 822.2999999523163,
+        "duration": 238.5,
+        "blockingDuration": 104,
+        "scripts": [
+          {
+            "duration": 106.5,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "Response.json.then"
+          },
+          {
+            "duration": 41.10000002384186,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "FrameRequestCallback"
+          }
+        ]
+      },
+      {
+        "startTime": 1315,
+        "duration": 164.39999997615814,
+        "blockingDuration": 86.3,
+        "scripts": [
+          {
+            "duration": 76.60000002384186,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "FrameRequestCallback"
+          },
+          {
+            "duration": 58.5,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "ReadableStreamDefaultReader.read.then"
+          },
+          {
+            "duration": 8.600000023841858,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "ReadableStreamDefaultReader.read.then"
+          }
+        ]
+      },
+      {
+        "startTime": 1485.7999999523163,
+        "duration": 145.80000007152557,
+        "blockingDuration": 0,
+        "scripts": [
+          {
+            "duration": 41.300000071525574,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "FrameRequestCallback"
+          }
+        ]
+      }
+    ],
+    "basemapDurationsMs": [
+      1074
+    ]
+  },
+  "warm": {
+    "capturedAt": "2026-10-07T22:34:13.894Z",
+    "ttfrMs": 2069.8,
+    "scrub": {
+      "samples": 0,
+      "p50Ms": null,
+      "p95Ms": null
+    },
+    "fps": 8.2,
+    "network": {
+      "manifest": {
+        "requests": 1,
+        "bytes": 0
+      },
+      "chunks": {
+        "requests": 75,
+        "bytes": 0
+      },
+      "tiles": {
+        "requests": 5,
+        "bytes": 0
+      },
+      "other": {
+        "requests": 13,
+        "bytes": 0
+      },
+      "total": {
+        "requests": 94,
+        "bytes": 0
+      }
+    },
+    "manifestAgeMs": 3483253894,
+    "phases": {
+      "frame-decode": {
+        "count": 112,
+        "p50Ms": 0.4,
+        "p95Ms": 3.5
+      },
+      "texture-upload": {
+        "count": 2,
+        "p50Ms": 1.6,
+        "p95Ms": 1.9
+      },
+      "wind-step": {
+        "count": 12,
+        "p50Ms": 1.7,
+        "p95Ms": 5.9
+      },
+      "scrubber-paint": {
+        "count": 60,
+        "p50Ms": 0.1,
+        "p95Ms": 2.1
+      },
+      "table-render": {
+        "count": 8,
+        "p50Ms": 0.1,
+        "p95Ms": 5.8
+      },
+      "basemap-tile": {
+        "count": 1,
+        "p50Ms": 830.6,
+        "p95Ms": 830.6
+      }
+    },
+    "windowReadyMs": {
+      "temp_c": 2896,
+      "feels_like_c": 2896,
+      "cloud_frac": 2896,
+      "wind_u": 2896,
+      "wind_v": 2896,
+      "gust_ms": 2896,
+      "cloud_high": 2963,
+      "cloud_mid": 2963,
+      "cloud_low": 2963,
+      "uv": 3167,
+      "rain_rate": 3253
+    },
+    "longFrames": [
+      {
+        "startTime": 18.600000023841858,
+        "duration": 419.39999997615814,
+        "blockingDuration": 339.2,
+        "scripts": []
+      },
+      {
+        "startTime": 1970.1000000238419,
+        "duration": 243,
+        "blockingDuration": 185.7,
+        "scripts": [
+          {
+            "duration": 225.20000004768372,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "FrameRequestCallback"
+          }
+        ]
+      },
+      {
+        "startTime": 1666.8000000715256,
+        "duration": 206.79999995231628,
+        "blockingDuration": 42.3,
+        "scripts": [
+          {
+            "duration": 84.5,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "Response.json.then"
+          }
+        ]
+      },
+      {
+        "startTime": 574.5,
+        "duration": 181.60000002384186,
+        "blockingDuration": 107.3,
+        "scripts": [
+          {
+            "duration": 98,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "Response.json.then"
+          },
+          {
+            "duration": 51.200000047683716,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "FrameRequestCallback"
+          }
+        ]
+      },
+      {
+        "startTime": 951,
+        "duration": 162.80000007152557,
+        "blockingDuration": 73.1,
+        "scripts": [
+          {
+            "duration": 61.89999997615814,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "ReadableStreamDefaultReader.read.then"
+          },
+          {
+            "duration": 57.300000071525574,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "FrameRequestCallback"
+          },
+          {
+            "duration": 7.799999952316284,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "ReadableStreamDefaultReader.read.then"
+          }
+        ]
+      }
+    ],
+    "basemapDurationsMs": [
+      830.6000000238419
+    ]
+  }
+}

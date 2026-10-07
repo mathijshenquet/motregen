@@ -34,6 +34,22 @@ for (let zoom = 4; zoom <= 7; zoom++) {
     }
   }
 }
+if (process.argv.includes('--detail')) {
+  for (const zoom of [7, 9, 10, 12]) {
+    const count = 2 ** zoom
+    for (const [longitude, latitude] of [[5.1214, 52.0907], [4.05, 52.14], [5.4, 52.75]]) {
+      const centerX = (longitude! + 180) / 360 * count
+      const centerY = mercatorY(latitude!) * count
+      for (let tileX = Math.floor(centerX - 1280 / 1024); tileX <= Math.floor(centerX + 1280 / 1024); tileX++) {
+        for (let tileY = Math.floor(centerY - 900 / 1024); tileY <= Math.floor(centerY + 900 / 1024); tileY++) {
+          const path = `${zoom}/${tileX}/${tileY}`
+          const url = tilejson.tiles[0].replace('{z}', String(zoom)).replace('{x}', String(tileX)).replace('{y}', String(tileY))
+          if (!downloads.some(([, file]) => file === `tiles/${path}.pbf`)) downloads.push([url, `tiles/${path}.pbf`])
+        }
+      }
+    }
+  }
+}
 for (let index = 0; index < downloads.length; index += 6) {
   await Promise.all(downloads.slice(index, index + 6).map(([url, path]) => download(url, resolve(root, path))))
 }

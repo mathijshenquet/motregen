@@ -1,4 +1,6 @@
 import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { dirname } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { addProtocol } from 'maplibre-gl'
 import type { StyleSpecification } from 'maplibre-gl'
@@ -7,17 +9,20 @@ import { firstBasemapTextLayerId, loadBasemapStyle, prepareBasemapStyle, tempera
 vi.mock('maplibre-gl', () => ({ addProtocol: vi.fn() }))
 
 const styles = ['licht', 'donker'].map((name) => JSON.parse(readFileSync(`public/basemap/${name}.json`, 'utf8')) as StyleSpecification)
+const require = createRequire(import.meta.url)
+const { validateStyleMin } = require(require.resolve('@maplibre/maplibre-gl-style-spec', { paths: [dirname(require.resolve('maplibre-gl'))] }))
 
 describe('eigen basiskaart', () => {
   for (const [index, name] of ['licht', 'donker'].entries()) {
     it(`${name} gebruikt alleen ons schema met leesbare plaatsnamen en provinciegrenzen`, () => {
       const style = styles[index]!
+      expect(validateStyleMin(style)).toEqual([])
       const schema = new Set(['water', 'landcover', 'boundary', 'place'])
       expect(Object.keys(style.sources)).toEqual(['basemap'])
       for (const layer of style.layers) {
         if ('source-layer' in layer) expect(schema.has(layer['source-layer']!)).toBe(true)
         if (layer.type === 'symbol') {
-          expect(layer.layout?.['text-field']).toEqual(['get', 'name'])
+          expect(JSON.stringify(layer.layout?.['text-field'])).toContain(JSON.stringify(['get', 'name']))
           expect(layer.layout?.['text-size']).toBeDefined()
         }
       }

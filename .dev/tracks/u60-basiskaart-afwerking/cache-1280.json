@@ -1,0 +1,313 @@
+{
+  "network": [],
+  "ranges": [
+    {
+      "status": 206,
+      "cached": true
+    },
+    {
+      "status": 206,
+      "cached": true
+    },
+    {
+      "status": 206,
+      "cached": true
+    },
+    {
+      "status": 206,
+      "cached": true
+    },
+    {
+      "status": 206,
+      "cached": true
+    }
+  ],
+  "cache": {
+    "entries": 5,
+    "bytes": 186918
+  },
+  "cold": {
+    "capturedAt": "2026-10-07T22:34:16.768Z",
+    "ttfrMs": 553.3,
+    "scrub": {
+      "samples": 0,
+      "p50Ms": null,
+      "p95Ms": null
+    },
+    "fps": 22.7,
+    "network": {
+      "manifest": {
+        "requests": 1,
+        "bytes": 36813
+      },
+      "chunks": {
+        "requests": 70,
+        "bytes": 1039971
+      },
+      "tiles": {
+        "requests": 8,
+        "bytes": 279302
+      },
+      "other": {
+        "requests": 11,
+        "bytes": 480893
+      },
+      "total": {
+        "requests": 90,
+        "bytes": 1836979
+      }
+    },
+    "manifestAgeMs": 3483256768,
+    "phases": {
+      "frame-decode": {
+        "count": 396,
+        "p50Ms": 0.2,
+        "p95Ms": 2.6
+      },
+      "texture-upload": {
+        "count": 1,
+        "p50Ms": 0.8,
+        "p95Ms": 0.8
+      },
+      "wind-step": {
+        "count": 26,
+        "p50Ms": 0.4,
+        "p95Ms": 3.5
+      },
+      "scrubber-paint": {
+        "count": 43,
+        "p50Ms": 0.1,
+        "p95Ms": 1.6
+      },
+      "table-render": {
+        "count": 7,
+        "p50Ms": 0.1,
+        "p95Ms": 1.1
+      },
+      "basemap-tile": {
+        "count": 4,
+        "p50Ms": 376,
+        "p95Ms": 380.8
+      }
+    },
+    "windowReadyMs": {
+      "rain_rate": 902,
+      "cloud_mid": 925,
+      "cloud_low": 925,
+      "cloud_high": 925
+    },
+    "longFrames": [
+      {
+        "startTime": 796.2000000476837,
+        "duration": 172,
+        "blockingDuration": 10.3,
+        "scripts": [
+          {
+            "duration": 36.60000002384186,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "FrameRequestCallback"
+          },
+          {
+            "duration": 9.299999952316284,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "Worker.onmessage"
+          },
+          {
+            "duration": 7.399999976158142,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "a",
+            "invoker": "FrameRequestCallback"
+          }
+        ]
+      },
+      {
+        "startTime": 1029.6000000238419,
+        "duration": 161.89999997615814,
+        "blockingDuration": 0,
+        "scripts": []
+      },
+      {
+        "startTime": 209.30000007152557,
+        "duration": 138.79999995231628,
+        "blockingDuration": 84.3,
+        "scripts": [
+          {
+            "duration": 104.79999995231628,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "ReadableStreamDefaultReader.read.then"
+          },
+          {
+            "duration": 28.59999990463257,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "FrameRequestCallback"
+          }
+        ]
+      },
+      {
+        "startTime": 517.1000000238419,
+        "duration": 80.20000004768372,
+        "blockingDuration": 19.1,
+        "scripts": [
+          {
+            "duration": 65.29999995231628,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "FrameRequestCallback"
+          }
+        ]
+      },
+      {
+        "startTime": 41.10000002384186,
+        "duration": 78.60000002384186,
+        "blockingDuration": 26,
+        "scripts": [
+          {
+            "duration": 59.10000002384186,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "http://127.0.0.1:4397/assets/index-DBlDxszH.js"
+          }
+        ]
+      }
+    ],
+    "basemapDurationsMs": [
+      367.5,
+      376,
+      378,
+      380.8000000715256
+    ]
+  },
+  "warm": {
+    "capturedAt": "2026-10-07T22:34:21.787Z",
+    "ttfrMs": 1119.5,
+    "scrub": {
+      "samples": 0,
+      "p50Ms": null,
+      "p95Ms": null
+    },
+    "fps": 39,
+    "network": {
+      "manifest": {
+        "requests": 1,
+        "bytes": 0
+      },
+      "chunks": {
+        "requests": 68,
+        "bytes": 0
+      },
+      "tiles": {
+        "requests": 8,
+        "bytes": 0
+      },
+      "other": {
+        "requests": 14,
+        "bytes": 0
+      },
+      "total": {
+        "requests": 91,
+        "bytes": 0
+      }
+    },
+    "manifestAgeMs": 3483261787,
+    "phases": {
+      "frame-decode": {
+        "count": 403,
+        "p50Ms": 0.2,
+        "p95Ms": 2.7
+      },
+      "texture-upload": {
+        "count": 4,
+        "p50Ms": 0.1,
+        "p95Ms": 0.4
+      },
+      "wind-step": {
+        "count": 30,
+        "p50Ms": 0.4,
+        "p95Ms": 2.8
+      },
+      "scrubber-paint": {
+        "count": 53,
+        "p50Ms": 0.1,
+        "p95Ms": 1.8
+      },
+      "table-render": {
+        "count": 8,
+        "p50Ms": 0,
+        "p95Ms": 1.2
+      },
+      "basemap-tile": {
+        "count": 4,
+        "p50Ms": 512.7,
+        "p95Ms": 513.6
+      }
+    },
+    "windowReadyMs": {
+      "rain_rate": 1475,
+      "cloud_mid": 1494,
+      "cloud_low": 1494,
+      "cloud_high": 1494
+    },
+    "longFrames": [
+      {
+        "startTime": 6.5,
+        "duration": 697.1000000238419,
+        "blockingDuration": 641.8,
+        "scripts": []
+      },
+      {
+        "startTime": 1824.3999999761581,
+        "duration": 88.39999997615814,
+        "blockingDuration": 0,
+        "scripts": []
+      },
+      {
+        "startTime": 1097,
+        "duration": 86.89999997615814,
+        "blockingDuration": 32.1,
+        "scripts": [
+          {
+            "duration": 73.60000002384186,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "FrameRequestCallback"
+          }
+        ]
+      },
+      {
+        "startTime": 1934.5,
+        "duration": 58.89999997615814,
+        "blockingDuration": 0,
+        "scripts": []
+      },
+      {
+        "startTime": 801.7999999523163,
+        "duration": 56.60000002384186,
+        "blockingDuration": 0,
+        "scripts": [
+          {
+            "duration": 26,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "ReadableStreamDefaultReader.read.then"
+          },
+          {
+            "duration": 17.100000023841858,
+            "sourceURL": "http://127.0.0.1:4397/assets/index-DBlDxszH.js",
+            "sourceFunctionName": "",
+            "invoker": "FrameRequestCallback"
+          }
+        ]
+      }
+    ],
+    "basemapDurationsMs": [
+      512.3999999761581,
+      512.7000000476837,
+      513.3000000715256,
+      513.6000000238419
+    ]
+  }
+}
