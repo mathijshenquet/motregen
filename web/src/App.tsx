@@ -55,6 +55,7 @@ import { browserUsageEnvironment, createUsageTracker, installUsageBeacon, sessio
 import { copyText } from './core/clipboard'
 import { resolveLocation, suggestLocations } from './core/geocoder'
 import { cursorForPresetEpoch, modeForActiveFocus, modeForFocus, parsePresets, shareUrl } from './core/presets'
+import { applyTelegramColors, type TelegramWebApp } from './core/telegram'
 
 const manifestUrl = new URL('/data/manifest.json', location.href)
 const manifestRequestUrl = sessionManifestUrls(manifestUrl)
@@ -145,7 +146,7 @@ const PLAYBACK_MAX_FPS = 30
 const IDLE_AFTER_MS = 60_000
 const WIND_IDLE_FPS = 30
 
-export default function App() {
+export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const devMode = new URLSearchParams(window.location.search).has('dev')
   const initialPresets = parsePresets(window.location.search)
   let mapElement!: HTMLDivElement
@@ -306,7 +307,7 @@ export default function App() {
   const inlineHistoryMedia = matchMedia('(min-width: 960px) and (pointer: fine)')
   const [historyInline, setHistoryInline] = createSignal(inlineHistoryMedia.matches)
   const [status, setStatus] = createSignal('Regen laden…')
-  const [theme, setTheme] = createSignal<ThemeChoice>(storedTheme())
+  const [theme, setTheme] = createSignal<ThemeChoice>(props.telegram?.colorScheme ?? storedTheme())
   const [windUnit, setWindUnit] = createSignal<WindUnit>(storedWindUnit())
   const usage = createUsageTracker(browserUsageEnvironment(), theme(), windUnit())
   onCleanup(installUsageBeacon(usage, document, window))
@@ -369,6 +370,18 @@ export default function App() {
   const [perfVisible, setPerfVisible] = createSignal(false)
   const [systemDark, setSystemDark] = createSignal(media.matches)
   const mapTheme = createMemo<MapTheme>(() => theme() === 'system' ? systemDark() ? 'dark' : 'light' : theme() as MapTheme)
+
+  onMount(() => {
+    const telegram = props.telegram
+    if (!telegram) return
+    const updateTheme = () => {
+      setTheme(telegram.colorScheme)
+      applyTelegramColors(telegram)
+    }
+    updateTheme()
+    telegram.onEvent('themeChanged', updateTheme)
+    onCleanup(() => telegram.offEvent('themeChanged', updateTheme))
+  })
 
   onMount(() => {
     const idle = watchIdle(IDLE_AFTER_MS, {
@@ -564,7 +577,7 @@ export default function App() {
   createEffect(() => {
     const choice = theme()
     const effective = mapTheme()
-    localStorage.setItem('motregen-theme', choice)
+    if (!props.telegram) localStorage.setItem('motregen-theme', choice)
     document.documentElement.dataset.theme = effective
     document.documentElement.style.colorScheme = effective
     windLayer?.setTheme(effective)
