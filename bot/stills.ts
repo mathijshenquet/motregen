@@ -94,7 +94,7 @@ export function keyboard(selection: StillSelection, epoch: number, origin: strin
     callback_data: callbackData({ mode: selection.mode, hour }),
   }))
   const openButton: InlineButton = { text: 'Open in motregen.nl' }
-  if (privateChat) openButton.web_app = { url: presetUrl(origin, selection.mode, epoch) }
+  if (privateChat && origin.startsWith('https:')) openButton.web_app = { url: presetUrl(origin, selection.mode, epoch) }
   else openButton.url = miniAppLink(username, selection.mode, epoch)
   return { inline_keyboard: [modeButtons, timeButtons.slice(0, 4), timeButtons.slice(4), [openButton]] }
 }

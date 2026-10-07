@@ -1,0 +1,357 @@
+{
+  "schema": 1,
+  "profile": "mobile-fast-3g",
+  "scenario": "modus-wissel-storm",
+  "sourceSha": "d035d7449dd4ce84d0f5d18d34839bea4d63f93b",
+  "capturedAt": "2026-10-07T11:23:32.112Z",
+  "contractHash": "b89b3f3039b2ce8f138bb3146584cc30c558f98faf76448379718d9b2eb18935",
+  "regressionLimitPercent": 10,
+  "wireBytes": 1741732,
+  "decodes": 280,
+  "metrics": {
+    "milestones": {
+      "ttfrMs": 4946.5,
+      "splashGoneMs": 6860.599999904633,
+      "ttfhMs": 6717.899999976158,
+      "windowReadyMs": {},
+      "histogramSource": "loadtrace, bemonsterd op DOM-mutatie/100 ms"
+    },
+    "decode": {
+      "phases": {
+        "table-render": {
+          "count": 7,
+          "totalMs": 15.2,
+          "p50Ms": 0.7000000476837158,
+          "p95Ms": 11.300000071525574
+        },
+        "scrubber-paint": {
+          "count": 135,
+          "totalMs": 106.7,
+          "p50Ms": 0.2999999523162842,
+          "p95Ms": 3.200000047683716
+        },
+        "basemap-tile": {
+          "count": 1,
+          "totalMs": 252.9,
+          "p50Ms": 252.89999997615814,
+          "p95Ms": 252.89999997615814
+        },
+        "frame-decode": {
+          "count": 280,
+          "totalMs": 159.8,
+          "p50Ms": 0.2999999523162842,
+          "p95Ms": 2.5
+        },
+        "texture-upload": {
+          "count": 13,
+          "totalMs": 20.8,
+          "p50Ms": 1.5999999046325684,
+          "p95Ms": 3
+        },
+        "wind-step": {
+          "count": 907,
+          "totalMs": 1525.1,
+          "p50Ms": 1.399999976158142,
+          "p95Ms": 3.799999952316284
+        },
+        "isoline-trace": {
+          "count": 3,
+          "totalMs": 44.4,
+          "p50Ms": 15.199999928474426,
+          "p95Ms": 16.700000047683716
+        },
+        "isoline-blit": {
+          "count": 22,
+          "totalMs": 2.4,
+          "p50Ms": 0,
+          "p95Ms": 0.3999999761581421
+        }
+      },
+      "fields": {
+        "rain_rate": {
+          "count": 66,
+          "totalMs": 26.6,
+          "p50Ms": 0.2999999523162842,
+          "p95Ms": 0.8000000715255737
+        },
+        "motion": {
+          "count": 1,
+          "totalMs": 0.1,
+          "p50Ms": 0.10000002384185791,
+          "p95Ms": 0.10000002384185791
+        },
+        "feels_like_c": {
+          "count": 23,
+          "totalMs": 60.2,
+          "p50Ms": 2,
+          "p95Ms": 5
+        },
+        "uv": {
+          "count": 5,
+          "totalMs": 6.3,
+          "p50Ms": 1.5,
+          "p95Ms": 2.6999999284744263
+        },
+        "wind_v_ms": {
+          "count": 23,
+          "totalMs": 7,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.7000000476837158
+        },
+        "wind_u_ms": {
+          "count": 23,
+          "totalMs": 6.3,
+          "p50Ms": 0.2999999523162842,
+          "p95Ms": 0.3999999761581421
+        },
+        "uv_clear": {
+          "count": 8,
+          "totalMs": 5.3,
+          "p50Ms": 0.10000002384185791,
+          "p95Ms": 3.399999976158142
+        },
+        "cloud_high": {
+          "count": 9,
+          "totalMs": 2.5,
+          "p50Ms": 0.2999999523162842,
+          "p95Ms": 0.3999999761581421
+        },
+        "cloud_mid": {
+          "count": 9,
+          "totalMs": 1.8,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.30000007152557373
+        },
+        "cloud_low": {
+          "count": 9,
+          "totalMs": 1.5,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.2999999523162842
+        },
+        "radiation": {
+          "count": 11,
+          "totalMs": 3.7,
+          "p50Ms": 0.19999992847442627,
+          "p95Ms": 1.5
+        },
+        "cloud_frac": {
+          "count": 20,
+          "totalMs": 5.2,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.3999999761581421
+        },
+        "temp_c": {
+          "count": 23,
+          "totalMs": 5.3,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.30000007152557373
+        },
+        "rel_humidity": {
+          "count": 19,
+          "totalMs": 5.6,
+          "p50Ms": 0.2999999523162842,
+          "p95Ms": 0.5999999046325684
+        },
+        "gust_ms": {
+          "count": 23,
+          "totalMs": 6.4,
+          "p50Ms": 0.20000004768371582,
+          "p95Ms": 0.3999999761581421
+        },
+        "pressure_hpa": {
+          "count": 8,
+          "totalMs": 16,
+          "p50Ms": 1.600000023841858,
+          "p95Ms": 3.100000023841858
+        }
+      },
+      "decodesPerSecond": [
+        0,
+        0,
+        0,
+        0,
+        3,
+        33,
+        33,
+        35,
+        9,
+        50,
+        57,
+        48,
+        11,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "wire": {
+      "playwright": {
+        "manifest": {
+          "requests": 1,
+          "bytes": 36513,
+          "meanRequestBytes": 36513
+        },
+        "chunks": {
+          "requests": 90,
+          "bytes": 1252138,
+          "meanRequestBytes": 13912.644444444444
+        },
+        "tiles": {
+          "requests": 1,
+          "bytes": 73,
+          "meanRequestBytes": 73
+        },
+        "other": {
+          "requests": 15,
+          "bytes": 453008,
+          "meanRequestBytes": 30200.533333333333
+        },
+        "total": {
+          "requests": 107,
+          "bytes": 1741732,
+          "meanRequestBytes": 16277.869158878504
+        }
+      },
+      "resourceTiming": {
+        "manifest": {
+          "requests": 1,
+          "bytes": 36513,
+          "meanRequestBytes": 36513
+        },
+        "chunks": {
+          "requests": 90,
+          "bytes": 1252138,
+          "meanRequestBytes": 13912.644444444444
+        },
+        "tiles": {
+          "requests": 1,
+          "bytes": 73,
+          "meanRequestBytes": 73
+        },
+        "other": {
+          "requests": 15,
+          "bytes": 453008,
+          "meanRequestBytes": 30200.533333333333
+        },
+        "total": {
+          "requests": 107,
+          "bytes": 1741732,
+          "meanRequestBytes": 16277.869158878504
+        }
+      },
+      "differences": [
+        {
+          "kind": "manifest",
+          "differencePercent": 0,
+          "requestDifference": 0
+        },
+        {
+          "kind": "chunks",
+          "differencePercent": 0,
+          "requestDifference": 0
+        },
+        {
+          "kind": "tiles",
+          "differencePercent": 0,
+          "requestDifference": 0
+        },
+        {
+          "kind": "other",
+          "differencePercent": 0,
+          "requestDifference": 0
+        },
+        {
+          "kind": "total",
+          "differencePercent": 0,
+          "requestDifference": 0
+        }
+      ],
+      "completeBodyAborts": 70,
+      "contentLengthFallbacks": 8,
+      "findings": [],
+      "rangeRequests": 90,
+      "beforeTtfrBytes": 601359,
+      "beforeTtfhBytes": 695206
+    },
+    "longFrames": {
+      "count": 15,
+      "totalMs": 2028.6000000238419,
+      "blockingMs": 784.9,
+      "topSources": [
+        {
+          "source": "http://127.0.0.1:4392/assets/index-FfN-FQgA.js FrameRequestCallback",
+          "durationMs": 418.10000014305115
+        },
+        {
+          "source": "http://127.0.0.1:4392/assets/index-FfN-FQgA.js Worker.onmessage",
+          "durationMs": 260.09999990463257
+        },
+        {
+          "source": "http://127.0.0.1:4392/assets/index-FfN-FQgA.js Response.json.then",
+          "durationMs": 200.5
+        }
+      ]
+    },
+    "mainThread": {
+      "samples": 3110,
+      "busySamples": 600,
+      "busyPercent": 19.292604501607716,
+      "topSources": [
+        {
+          "functionName": "currentTrailView",
+          "url": "src/core/wind-layer.ts",
+          "selfSamples": 62
+        },
+        {
+          "functionName": "renderStep",
+          "url": "src/core/wind-layer.ts",
+          "selfSamples": 18
+        },
+        {
+          "functionName": "(anonymous)",
+          "url": "http://127.0.0.1:4392/assets/index-FfN-FQgA.js",
+          "selfSamples": 1
+        }
+      ]
+    },
+    "intent": {
+      "fieldBytes": {
+        "rain_rate": 365437,
+        "uv": 28747,
+        "uv_clear": 6214,
+        "radiation": 22978,
+        "temp_c": 60044,
+        "feels_like_c": 27335,
+        "wind_u_ms": 99212,
+        "wind_v_ms": 91900,
+        "gust_ms": 109109,
+        "rel_humidity": 183591,
+        "cloud_frac": 54775,
+        "cloud_low": 72071,
+        "cloud_mid": 48080,
+        "cloud_high": 61593,
+        "pressure_hpa": 21052
+      },
+      "lateOutsideIntentCount": 4
+    },
+    "findings": [
+      "2 sampleposities zonder sourcemap-positie; oorspronkelijke bundelpositie bewaard",
+      "U52 window-ready-meetpunten ontbreken op deze main; ttfh komt uit de loadtrace",
+      "Deze main heeft nog geen Lucht-knop: bestaande Weer-wolkenfocus gebruikt en expliciet geregistreerd"
+    ]
+  }
+}

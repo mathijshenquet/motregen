@@ -631,6 +631,179 @@ doet per event alleen een push; er wordt niets verstuurd.
 Caddy-poorten van `pnpm e2e` en het profiel, zodat parallelle tracks op één
 host elkaar niet blokkeren.
 
+## Mobiele laadrig
+
+U53 begint met de echte PO-opnames van 2026-10-07. De kleine, gehashte
+samenvatting staat in `web/perf/po-fidelity.json`; ruwe opnames blijven lokaal.
+De secondehistogrammen beginnen bij het eerste waargenomen event: de export
+bevat absolute timestamps maar geen navigatie-timeOrigin.
+
+| Maat | Android Chrome 10:01 | Android Firefox 10:02 | Pixel-emulatie 09:22 | Pixel versus Chrome |
+| --- | ---: | ---: | ---: | ---: |
+| Decodes | 801 | 903 | 804 | +0,4 % |
+| Decode totaal | 21.808 ms | 28.148 ms | 7.785 ms | −64,3 % |
+| Decode p50 | 19,1 ms | 21 ms | 9,2 ms | −51,8 % |
+| Decode p95 | 74,6 ms | 93 ms | 17,3 ms | −76,8 % |
+| Encoded body bytes | onbekend | onbekend | onbekend | niet meetbaar |
+
+De oude Pixel-emulatie reproduceert het aantal, maar mist de gevraagde ±30 %
+op decodetijden. CDP's CPU-throttle remt uitsluitend paginawerk; workers
+blijven op hostsnelheid. Een hogere throttle is daarom geen kalibratie van
+de decoder. De opnames bevatten geen Resource Timing/netwerklog; bytes zijn
+dus ontbrekende brondata, geen nul. GPU, thermiek, browserimplementatie en
+de inmiddels gewijzigde client/codec beperken de vergelijking verder.
+CPU/netwerkvarianten van de nieuwe offline rig worden apart gerapporteerd.
+
+De rig draait vanuit `web` in devenv. Eén commando genereert zijn eigen
+synthdata, bouwt deze client, start twee lokale Caddy-servers, neemt de eerste
+30 seconden op en schrijft JSON, Markdown, een Chrome-trace en de ruwe bronnen
+naar `web/tmp/perf-mobile/`. De standaardpoorten zijn 4392/8392; het bestaande
+e2e-slotscript houdt één Chromium per slot. Het Playwrightproject heet
+`desktop` voor het worker-regime, maar de context is expliciet Pixel 5.
+
+```sh
+pnpm perf:mobile --profile mobile-4g --scenario koud
+pnpm perf:mobile --profile mobile-fast-3g --scenario journey
+pnpm perf:mobile --profile all --scenario all --repeat 3 --baseline
+pnpm perf:mobile --profile all --scenario all --compare
+```
+
+`--baseline` vereist minstens drie runs per combinatie. De spreiding is
+`100 × (maximum − minimum) / gemiddelde` en moet voor decodes én bodybytes
+strikt kleiner dan 5 % zijn. `--compare` vergelijkt iedere run met
+`web/perf/baselines/<profiel>-<scenario>.json` en geeft exit 1 zodra bytes of
+decodes meer dan de baselinegrens (10 %) stijgen. Een ander meetcontract is een
+fout: fixture, scenario, CPU/netwerk en meetcode mogen niet stil veranderen.
+De opgeslagen SHA is de gemeten client plus rig; de productbasis voor deze
+track is main `234c8ad` (U50/U51, 2026-10-07). De bestaande U51-profielen en
+budgetten worden door U53 niet veranderd. U51's absolute bytebudgetten horen
+bij zijn eigen journey met HTTP-cache aan; deze rig toetst het hierboven
+vastgelegde contract relatief tegen zijn eigen baseline.
+
+De scenario's staan als data in `web/perf/scenarios.json`. `koud` opent op nu
+en blijft gepauzeerd. `journey` schuift na 8 s twee uur vooruit, speelt van
+9–19 s, kiest Wind en keert naar Weer terug. De storm wisselt binnen 3 s
+Weer→Lucht→Gevoel→Wind en keert na 5 s terug naar Weer. Deze main heeft vóór
+U42 nog geen zelfstandige Lucht-knop: de adapter gebruikt de bestaande
+Weer-wolkenfocus, schrijft dat in de acties/bevindingen, en kiest automatisch
+de native Lucht-knop zodra die bestaat. Modeklikken scrollen de tabel in beeld
+zoals een normale browserinteractie; eventuele extra tabeldata telt mee.
+
+Alleen `Date` staat vast op het tijdstip van de synthmanifestkopie.
+Performance, timers, animaties, profiler en netwerk blijven native.
+Vier kernen/4 GB en de coarse pointer kiezen het mobiele `in-view`-budget.
+Een verse context, geblokkeerde serviceworker en uitgeschakelde HTTP-cache
+maken herhalingen vergelijkbaar. Externe HTTP(S)-requests worden vóór verzending
+geblokkeerd en maken de test rood. Er is geen profielsink of live data-origin.
+De lokale vectortile heeft water en land en oefent de echte MapLibre-worker,
+maar zijn ene kleine body representeert geen OpenFreeMap-kaart.
+
+De rapportmaten betekenen:
+
+- TTFR is de eerste regen-draw uit de bestaande perf-monitor. Splash-weg is
+  de werkelijk verborgen splash na de CSS-reveal, bemonsterd per DOM-mutatie
+  en met een timerinterval van 100 ms.
+- Ttfh is het eerste complete regenhistogram voor nu ±1 u. De rig gebruikt
+  U52's native `windowReadyMs.rain_rate` zodra die aanwezig is; op deze main
+  wordt het uit geladen tijdlijnindices in de loadtrace afgeleid. Alle native
+  window-ready-velden blijven in JSON staan; ontbrekende meetpunten blijven
+  expliciet onbekend. Decodes, totale tijd en nearest-rank-p50/p95 zijn per
+  veld beschikbaar; de histogrammen tellen startmomenten per navigatieseconde.
+- Wire weight telt encoded **bodybytes**, exclusief headers/TLS. De twee
+  bronnen zijn Playwright request/response-sizes plus Range-headers, en native
+  Resource Timing van pagina én workers, met hun timeOrigins genormaliseerd.
+  De raw-JSON bewaart pagina/worker-RT apart. Navigatie telt bij overig mee.
+  Een worker-script dat Playwright als 0 bodybytes rapporteert krijgt uitsluitend
+  bij een voltooide response de encoded Content-Length; de oorspronkelijke
+  sizes, header en fallbackbron blijven in het requestlog en rapport staan.
+- Chromium kan onder interceptie/throttling `ERR_ABORTED` melden nadat een
+  body compleet is. De rig leest ook requestfailed-sizes. Alleen wanneer de
+  gemeten body gelijk is aan Content-Length én RT dezelfde body bevestigt,
+  telt deze response als gemeten; het transportlabel en aantal blijven bewaard.
+  Echte onvolledige/onbekende bodies zijn een bevinding. Een verschil >2 %,
+  ook per soort of individuele response, wordt nooit weggeafrond en verhindert
+  hier baselinevorming.
+- Bytes vóór TTFR/ttfh tellen bodies waarvan het response-einde vóór die
+  mijlpaal ligt. Een nog lopende body kan Resource Timing niet tussentijds
+  meten; dit is een expliciete ondergrens op verkeer tot die mijlpaal.
+  De 30-s-totalen bevatten uitsluitend in die periode beëindigde responses;
+  nog lopende requests blijven als onbekend in raw/rapport.
+- LoAF telt lange frames, totale duur, blokkeertijd en de drie grootste
+  scriptbronnen. Hoofddraadbezetting is het aandeel Self-Profiling-samples met
+  een stack, inclusief idle samples in de noemer. De top-3 gebruikt dezelfde
+  `prof:top`-analyse met passende sourcemaps. Ontbrekende sampleposities houden
+  hun bundelpositie; een verkeerde buildhash faalt. Zonder profiler is het
+  percentage onbekend.
+- De storm rapporteert bodybytes per veld en focusrequests die pas na een
+  volgende modusintentie eindigen. Dat zijn kandidaten voor verspild werk:
+  tabel/ambient lagen kunnen dezelfde data alsnog nodig hebben. De raw-trace
+  bewaart tijdstip, Range, laag en prioriteit voor controle op de latere U52-run.
+
+Voor CPU-kalibratie kan `--cpu-rate 1` of `--cpu-rate 8` worden toegevoegd.
+Dat verandert uitsluitend de page-throttle en wordt onderdeel van het
+meetcontract. Het is geen vervanging voor een echte worker-CPU-budgettering;
+een toegevoegde kunstmatige decodepauze zou de decoderfase niet eerlijk
+kalibreren. Baselines zijn geschikt voor wire weight en aantallen op deze
+fixture; telefoontijden vereisen een nieuwe echte opname met dezelfde code,
+data en netwerklog.
+
+De gemeten CPU/netwerkvarianten staan in `web/perf/calibration.json`, inclusief
+alle fase-p50's, secondehistogrammen en delta's ten opzichte van de historische
+Chrome-opname. De eerste gecontroleerde varianten op rigcommit `d035d74`:
+
+| profiel | page-CPU | decode p50 / p95 | tabel-render p50 | bodybytes |
+| --- | ---: | ---: | ---: | ---: |
+| 4G | 1× | 0,2 / 2,4 ms | 0,2 ms | 1.141.260 |
+| 4G | 4× | 0,3 / 2,0 ms | 0,8 ms | 1.141.260 |
+| 4G | 8× | 0,2 / 1,6 ms | 1,6 ms | 1.141.260 |
+| Fast 3G | 1× | 0,2 / 1,6 ms | 0,2 ms | 1.141.260 |
+| Fast 3G | 4× | 0,3 / 1,2 ms | 0,7 ms | 1.141.260 |
+| Fast 3G | 8× | 0,2 / 1,6 ms | 2,3 ms | 1.141.260 |
+
+Het ±30 %-getrouwheidsdoel is **niet gehaald**. De decoder-p50 wijkt in deze
+fixture circa −99 % af van de oude Chrome-opname (19,1 ms); de hoofddraad
+reageert wel op de throttle. Dit is een kleinere synthgrid (190×230), een
+andere client/codec en een gepauzeerd scenario. De netwerkprofielen blijven
+de gekalibreerde U51-referentie; de oude PO-export biedt geen bytebron om
+een telefoonspecifieke netwerkcalibratie uit af te leiden. De rigclaim is
+reproduceerbare aantallen/bytes en waargenomen fasen op de host, met deze
+expliciete grens voor uitspraken over telefoontijden.
+
+Baseline op 2026-10-07, product-main `234c8ad` plus rig `d035d74`. Alle zes
+combinaties liepen driemaal achter elkaar onder één e2e-slot (18 opnames,
+synchrone exit 0). In **alle** combinaties was de spreiding op decodes én
+bytes 0 %. De tabel gebruikt de opgeslagen run met mediane bodybytes (bij
+gelijke bodies de tweede run); tijden zijn informatief en afgerond op ms.
+JSON bewaart de precieze waarden, faseverdelingen per veld, secondehistogram,
+gemiddelde requestgrootte, bytecategorieën uit beide bronnen en bronnen-top-3.
+
+| profiel | scenario | TTFR | splash weg | ttfh | decodes | bodybytes | requests / Range |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 4G | koud | 1.581 ms | 3.486 ms | 2.522 ms | 113 | 1.141.260 | 79 / 67 |
+| 4G | journey | 1.625 ms | 3.581 ms | 2.553 ms | 207 | 1.280.402 | 111 / 97 |
+| 4G | storm | 1.585 ms | 3.486 ms | 2.587 ms | 280 | 1.741.732 | 107 / 90 |
+| Fast 3G | koud | 4.924 ms | 6.811 ms | 6.659 ms | 113 | 1.141.260 | 79 / 67 |
+| Fast 3G | journey | 4.787 ms | 6.688 ms | 6.524 ms | 207 | 1.280.402 | 111 / 97 |
+| Fast 3G | storm | 4.947 ms | 6.861 ms | 6.718 ms | 280 | 1.741.732 | 107 / 90 |
+
+| profiel / scenario | LoAF | blocking | hoofddraad bezet | late focusrequests |
+| --- | ---: | ---: | ---: | ---: |
+| 4G / koud | 8 | 375 ms | 11,7 % | 0 |
+| 4G / journey | 21 | 472 ms | 20,1 % | 0 |
+| 4G / storm | 13 | 556 ms | 20,2 % | 0 |
+| Fast 3G / koud | 7 | 411 ms | 11,7 % | 0 |
+| Fast 3G / journey | 22 | 445 ms | 21,0 % | 0 |
+| Fast 3G / storm | 15 | 785 ms | 19,3 % | 4 |
+
+De Fast-3G-storm liet vier focusrequests (97.493 B) pas na de volgende
+modusintentie eindigen: twee temperatuur-Ranges, één cloud-frac-Range en
+één druk-Range. Dat is controleerbare transportoverlap; gedeeld gebruik door
+de zichtbare tabel voorkomt een harde claim dat al deze bytes nutteloos zijn.
+De storm kost in deze fixture 600.472 B extra ten opzichte van koud; de
+journey 139.142 B. De RT- en Playwright-totalen waren per soort en per response
+exact gelijk. De ontbrekende U52-meetpunten en Lucht-adapter blijven als
+bevinding in de baselines staan.
+
 ## Live-smoke
 
 `cd web && pnpm e2e:live` draait de volledige journey voor desktop, 4G en Fast
