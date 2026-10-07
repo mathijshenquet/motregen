@@ -65,13 +65,33 @@ function callback(data: string, chatId = 99): TelegramUpdate {
 }
 
 describe('still delivery and callbacks', () => {
-  it('uploads a chat photo once and resends the cached Telegram file id', async () => {
+  it('answers a command with the loop, uploads it once and resends the cached Telegram file id', async () => {
     const { runtime, calls } = await setup()
     const command = { update_id: 1, message: { message_id: 1, chat: { id: 99, type: 'private' }, text: '/regen' } }
     await handleUpdate(command, runtime)
     await handleUpdate(command, runtime)
-    expect(calls.map((call) => call.multipart)).toEqual([true, false])
-    expect(calls[1].fields.photo).toBe('uploaded-1')
+    expect(calls.map((call) => [call.method, call.multipart])).toEqual([['sendAnimation', true], ['sendAnimation', false]])
+    expect(calls[1].fields.animation).toBe('uploaded-1')
+    // De upload noemt maat en duur, zodat de client de loop even breed toont als een foto van dezelfde maat.
+    expect(calls[0].fields).toMatchObject({ width: '960', height: '1272' })
+    expect(Number(calls[0].fields.duration)).toBeGreaterThan(0)
+  })
+
+  it('answers /temperatuur and its aliases with the feels loop, and ignores the removed /loop', async () => {
+    const { runtime, calls, render } = await setup()
+    const send = (text: string) => handleUpdate({ update_id: 1, message: { message_id: 1, chat: { id: 99, type: 'private' }, text } }, runtime)
+    for (const text of ['/temperatuur', '/hitte', '/gevoel', '/Temperatuur@motregen_bot']) await send(text)
+    expect(render.mock.calls.map((call) => call[0])).toEqual(Array.from({ length: 4 }, () => ({ mode: 'feels', hour: 'loop' })))
+    expect(calls.every((call) => call.method === 'sendAnimation')).toBe(true)
+    // De tijdknoppen onder de loop vragen een stilstaand beeld van dat moment.
+    const keyboardRows = JSON.parse(String(calls[0].fields.reply_markup)).inline_keyboard as Array<Array<{ text: string; callback_data: string }>>
+    expect(keyboardRows[0].map((button) => button.text)).toEqual(['Regen', '✓ Temperatuur', 'Wind'])
+    expect(keyboardRows[1].map((button) => button.text)).toEqual(['−1u', '−10m', 'nu', '+10m', '+1u', '✓ Loop'])
+    expect(keyboardRows[1][3].callback_data).toMatch(/^feels:at:\d{13}:\d{13}$/)
+    const before = calls.length
+    await send('/loop regen')
+    await send('/loop')
+    expect(calls).toHaveLength(before)
   })
 
   it('uploads the first edit, reuses its file id, and skips repeated chat and inline selections', async () => {
@@ -175,7 +195,7 @@ describe('still delivery and callbacks', () => {
     fail('Bad Request: file not found')
     await handleUpdate(callback('feels:3'), runtime)
     expect(calls.at(-1)).toMatchObject({ method: 'answerCallbackQuery', fields: { text: 'Beeld kon niet laden, probeer opnieuw' } })
-    fail('Bad Request: wrong file identifier/HTTP URL specified', 'sendPhoto')
+    fail('Bad Request: wrong file identifier/HTTP URL specified', 'sendAnimation')
     await handleUpdate({ update_id: 1, message: { message_id: 1, chat: { id: 99, type: 'private' }, text: '/regen' } }, runtime)
     expect(calls.at(-1)).toMatchObject({ method: 'sendMessage', fields: { text: 'Beeld kon niet laden, probeer opnieuw' } })
   })
@@ -221,7 +241,7 @@ describe('still delivery and callbacks', () => {
 
   it('uploads loops as animations, edits photos into loops, reuses animation ids inline and skips duplicates', async () => {
     const { runtime, calls } = await setup()
-    await handleUpdate({ update_id: 6, message: { message_id: 1, chat: { id: 99, type: 'private' }, text: '/loop wind' } }, runtime)
+    await handleUpdate({ update_id: 6, message: { message_id: 1, chat: { id: 99, type: 'private' }, text: '/wind' } }, runtime)
     expect(calls[0]).toMatchObject({ method: 'sendAnimation', multipart: true })
     await handleUpdate(callback('weather:0'), runtime)
     await handleUpdate(callback('wind:loop'), runtime)

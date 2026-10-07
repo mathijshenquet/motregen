@@ -300,3 +300,340 @@ geen lek, het gemiddelde komt van het rendervolume (13 media per generatie, soft
 `bot/render.ts` sluit de pagina al in een `finally`, dus er is geen één-regel-fix te doen. Alleen
 `docs/telegram.md` §Rendering en cache aangevuld (≈ 4 cores × 60 s per generatie, cadans is de knop, metingen
 tijdens een generatie zijn onbetrouwbaar). De cijfers in die alinea zijn van de orkestrator, niet door mij gemeten.
+
+## 2026-10-07 22:25 — main gemerged (deel 1 staat op main als e7466e4), stap 2 klaargezet voor de PO-keuze
+
+- Orkestrator: PO bevestigt de scroll-fix op Android; branch t/m `563135b` gemerged op main als `e7466e4`.
+  Main in de branch gemerged (alleen U59-proposal/spec erbij, geen conflict).
+- Stap 2 (klokpil-jog): de `?dev`-knop Klok › Jog-schaal had alleen de schaal; nu vier standen zodat de PO
+  richting én schaal live kan kiezen: `vast` (rechts = later, 2 min/px — huidige default), `scrubber`
+  (rechts = later, 8 u over de plotbreedte), `vast-omgekeerd` en `scrubber-omgekeerd` (rechts = vroeger, zoals
+  de scrubber zelf sleept). Eigenaar/verval bijgewerkt in `docs/dev-opties.md` (vervalt bij de keuze, uiterlijk
+  bij de afsluiting van U58). Bewust klein gehouden in `Freshness.tsx`/`clock-timeline.ts` (U54 werkt in
+  App/HistogramScrubber).
+- Zelf nagemeten op 4320 (`?dev`, klokpil 60 px naar rechts gesleept, verschil in kaarttijd):
+  1280 px: vast +120 min, scrubber +62 min, vast-omgekeerd −120 min, scrubber-omgekeerd −61 min;
+  390 px: vast +120, scrubber +73, vast-omgekeerd −120, scrubber-omgekeerd −73.
+- Receipts (synchroon): `pnpm typecheck` 0; `pnpm test` 0 (455 tests); `pnpm build` 0.
+- Volgende: PO kiest → constante + knop weg; intussen stap 3 (dev-panel.spec rood op main).
+
+## 2026-10-07 22:45 — stap 3: dev-panel.spec rood op main — oorzaak en eerlijke aanpassing
+
+Drie verouderde asserties, geen productbug:
+1. "expected hidden, received visible" op `perf-hud`: de test laadde `/?perf=1&…` als voorbeeld van een losse
+   parameter die niets meer doet. Sinds MIP-16 (U43) is `?perf` juist de profielmodus en toont het de HUD.
+   → `perf=1` uit de dode-parameterlijst; de andere drie (`histogram`, `zon`, `uvbalk`) blijven getest.
+2. Groepenlijst: de test verwachtte Temperatuur/Wind/Diagnose; het paneel heeft sinds U56/U46 ook Klok en
+   Lucht nu. → lijst en "alleen de eerste open" bijgewerkt naar vijf groepen.
+3. Windintensiteit: de test zette 0,5 en verwachtte een opgeslagen afwijking, maar 0,5 is sinds de live
+   windtuning zelf de default (alleen afwijkingen worden opgeslagen). → 0,8.
+`docs/dev-opties.md`: `?perf` staat nu onder "Buiten het paneel" (plakkerig tot `?perf=0`).
+Receipt (synchroon): `pnpm e2e e2e/dev-panel.spec.ts --project desktop` exit 0 (1 passed). Paneel-screenshot
+van de test zelf bekeken: vijf groepen, Klok › Jog-schaal met de nieuwe uitleg. Gezien, niet aangepakt: in
+"Lucht nu" loopt het waardelabel "mooie wolkenlucht" rechts over de rand van het paneel.
+
+## 2026-10-07 23:00 — e2e bouwt niet meer over web/dist heen
+
+Orkestrator: 4320 serveerde een dist met de test-basemap (splash bleef bij de PO hangen). Mijn fout: na de
+laatste `dev-panel.spec`-run had ik `web/dist` niet opnieuw normaal gebouwd.
+- `playwright.config.ts`: de e2e-webserver bouwt en serveert nu `tmp/e2e-dist` (`tsc -b` + `vite build --outDir`,
+  `vite preview --outDir`). Nagekeken: na `pnpm e2e e2e/dev-panel.spec.ts e2e/freshness.spec.ts --project
+  desktop` (exit 0, 5 passed) is `dist/assets/index-*.js` ongewijzigd en staat de test-basemap-URL alleen in
+  `tmp/e2e-dist`.
+- De rig (`playwright.mobile.config.ts`) heb ik NIET aangepast: U54 heeft dat al gedaan (`cc779b6`,
+  `tmp/rig-dist`) en dezelfde regels hier wijzigen geeft een merge-conflict. Tot dat via main binnen is: na
+  elke rig-run `pnpm build` en 4320 controleren. Gezien in U54's commando: `VITE_BASEMAP_STYLE_URL=… pnpm exec
+  tsc -b && pnpm exec vite build …` — de variabele staat daar vóór `tsc`, niet vóór `vite build`; of de
+  rig-dist daardoor de echte basemap krijgt heb ik niet nagegaan (niet mijn branch).
+- Daarna `pnpm build` (exit 0) en 4320 gecontroleerd met `expressive-shot.ts` (wacht op `.map-splash.ready`):
+  laadt, echte basiskaart, 390-px-beeld bekeken.
+
+## 2026-10-07 23:35 — stap 2 afgerond (jog-default) + sleepbug tijdlijn op touch
+
+**Stap 2, PO-besluit:** `vast` (2 min/px, naar rechts is later) blijft de default. De `?dev`-knop Klok ›
+Jog-schaal is weg (MIP-12): `ClockJogScale`, `CLOCK_JOG_SCALES`, `parseClockJogScale`, de opslagsleutel en de
+groep Klok verwijderd; `CLOCK_JOG_MS_PER_PX` draagt de herkomst. `docs/dev-opties.md`: rij weg, bij de
+weggesnoeide knoppen genoteerd, `clock-jog` bij de oude sleutels die Reset wist. `dev-panel.spec` weer vier
+groepen.
+
+**Sleepbug (PO, Android Chrome, 4320?dev):** eerst gemeld als "tijdlijn in de uitgeklapte klokpil", daarna
+verduidelijkt als "tijdlijn/tijdregelaar in het dev-menu".
+- Dev-paneel nagekeken: het heeft geen tijdlijn, alleen de vier windschuifjes. In touch-emulatie (390 px,
+  `pointer: coarse`, CDP-touch) slepen die: Intensiteit 0,5 → 1,69 bij een sleep met 6 px verticale
+  afwijking, → 0,77 bij 25 px scheef; de pagina scrolde niet. Daar heb ik dus niets kunnen reproduceren en
+  niets veranderd.
+- De strook in het uitgeklapte klokpaneel was in de code alleen aanklikbaar (`onClick`), op elk apparaat.
+  Dat past letterlijk op "alleen klikken, niet slepen". Nu: pointerdown/move/up met pointer capture verzet de
+  tijd mee, geklemd op de randen; `touch-action: none` op de strook; de tik blijft werken.
+- Zelf getest op 4320 met CDP-touch op 390 px: vinger neer op 10 % → marker 9 %, klok 19:12; al slepend
+  30 % → 29 % / 00:03, 50 % → 49 % / 09:32, 70 % → 69 % / 21:19; pagina scrolde niet, paneel bleef open.
+  Screenshot halverwege de sleep bekeken: marker midden in de HARMONIE-zone, klok 09:32 do.
+  De klokpil zelf op touch: vinger 60 px naar rechts = +120 min, paneel blijft dicht — die werkte al.
+- Gezien, niet aangepakt: in het klokpaneel valt de kolom "Uitleg" op 390 px rechts buiten beeld.
+- Nieuwe unit-test (Freshness): slepen over de strook, klemmen op de rand, niets meer na loslaten.
+
+Receipts (synchroon): `pnpm typecheck` 0; `pnpm test` 0 (454 tests: één parse-test weg, sleeptest in een
+bestaande test erbij); `pnpm build` 0; `pnpm e2e e2e/freshness.spec.ts e2e/dev-panel.spec.ts --project
+desktop` 0 (5 passed). `web/dist` na de e2e-run ongewijzigd, 4320 serveert `index-BWSMUScH.js`.
+
+Volgende: stap 4–5 (bot).
+
+## 2026-10-08 00:05 — stap 4: bot-commando's; main gemerged (zoekpil-fix 23895a3)
+
+PO (in de pane): de sleepbug ging inderdaad om het klokmenu, niet het dev-paneel — opgelost met de sleepbare
+strook (`b1fc405`).
+
+Stap 4 (`bot/`):
+- `/gevoel` → `/temperatuur`, alias `/hitte`. `STILL_MODES` heeft nu `aliases`, `listed` (wat in het
+  commandomenu komt) en `button`; `modeForCommand` zoekt op commando of alias. Eigen keuze, niet in de spec:
+  `/gevoel` blijft als stille alias werken (niet in menu of starttekst) voor wie het al kende.
+- Elk commando antwoordt met de loop (`sendAnimation`); `/loop` is vervallen en wordt genegeerd. Vanuit de
+  loop geven de tijdknoppen (−1u, −10m, nu, +10m, +1u) een still ten opzichte van nu; "✓ Loop" staat
+  aangevinkt. Wind blijft alleen loop.
+- Starttekst één functie (`startText`), ook gebruikt door de rooktest. Commandomenu: start, regen,
+  temperatuur, hitte, wind. Inline-filter matcht commando, aliassen en label; het voorvoegsel `loop …`
+  (alleen video's) in de inline-zoekbalk heb ik laten staan.
+- Niet veranderd, wel een vraag voor de PO: de modusknop onder het beeld heet nog "Gevoel" (zoals de kolom
+  in de app), het commando heet nu temperatuur.
+- `docs/telegram.md`: intro, knoppen, inline, BotFather-placeholder.
+
+Receipts (synchroon): `bot`: `pnpm typecheck` 0, `pnpm test` 0 (12 bestanden, 59 tests; +1 voor commando's,
+aliassen, toetsenbord onder de loop en het vervallen /loop; twee bestaande tests volgen het nieuwe standaard-
+antwoord), `pnpm build` 0. `web` na de merge van main: `pnpm typecheck` 0, `pnpm test` 0 (454), `pnpm build`
+0; 4320 serveert `index-DLpoHBni.js`. Niet gedaan: echte Telegram-rooktest — de bot draait bij de
+orkestrator vanaf main; **bot klaar voor herstart** vanuit deze branch.
+
+Volgende: stap 5 (landscape-loop).
+
+## 2026-10-08 00:50 — stap 5 half (landscape-still), geparkeerd voor een live-item (zoekpil-tween)
+
+- Web: liggend still (`?still=1` in een viewport breder dan 4:3) → klasse `still-landscape`: kaart past via
+  de bestaande viewport-insets in de linker 64 %, rechts een dekkend paneel (36 %) met klok 76 px, dag, modus
+  en bron. Staand still ongewijzigd (zelf bekeken, zelfde beeld als voorheen).
+- Bot: `FRAMES` in `bot/config.ts` (portrait 640×848 ×1,5 = 960×1272; landscape 800×500 ×1,6 = 1280×800),
+  proefschakelaar `MOTREGEN_BOT_FRAME=landscape` (default portrait), eigen cachemap per beeldmaat zodat
+  bestanden en file_id's niet mengen. Stills en loop komen uit dezelfde framereeks en gaan dus samen mee.
+- `web/scripts/still-shot.ts` (nieuw): rendert het still-beeld in beide maten voor weer/gevoel/wind.
+  Bekeken: landscape weer en gevoel. NL + Vlaanderen passen precies in het linkervlak (breedte-begrensd; de
+  Wadden staan krap tegen de bovenrand). **Open punt:** "Gevoelstemperatuur" (24 px) loopt in het paneel
+  tegen de rechterrand — nog fixen (kleiner of "Gevoel"). Wind-landscape nog niet bekeken.
+- Receipts: `bot` typecheck 0, tests 0 (59); `web` typecheck 0, build 0. Geen echte Telegram-test.
+- Nog niet gedaan voor stap 5: label-overloop, docs/telegram.md, tests voor config/frame, loop encoderen en
+  op een echt bericht bekijken (orkestrator herstart de bot met `MOTREGEN_BOT_FRAME=landscape`).
+
+## 2026-10-08 01:55 — zoekpil-morph (live-item), main met U59 gemerged, 4320 via lokale data-origin
+
+**Zoekpil (PO: "radius springt aan het eind"; aanvulling: "niet nice in de niet-zo-brede modus, full width is
+beter").** Oorzaken in de oude CSS: de hoogte sprong direct (lijst gemount, `height: auto`), de inhoud stond
+meteen in de nog smalle pil, en `:focus-within` wisselde de randkleur na afloop.
+- Eén morph in `--search-morph` (180 ms, ease): breedte (`.search`), hoogte via de tweede rasterrij
+  (`grid-template-rows: auto 0fr → auto 1fr`; naar `height: auto` valt niet te tweenen), radius 22 → 14,
+  rand, achtergrond en schaduw. Veldhoogte 42 → 44 tweent mee; de scheidslijn boven de lijst is een
+  inset-schaduw (een rand hield de rij 1 px open).
+- Inhoud (lijst, ster, ×) komt ná de morph: `search-content-in` 120 ms met 180 ms vertraging, en is tot dan
+  `visibility: hidden` (niet aanklikbaar terwijl de rijen nog schuiven).
+- Eén randkleur voor open; de aparte `:focus-within`-regel is weg.
+- Open over de volle kaartbreedte tot aan de merkdruppel, begrensd op 560 px (was 420/380 px).
+- Meting per animatieframe (`web/scripts/search-tween.ts`, nieuw), 390 px: dicht 44×44 r22 →
+  t=33 ms 67×48 r21,3 → 83 ms 217×73 r16,9 → 133 ms 293×86 r14,7 → 183 ms 316×90 r14,0; lijst/× 0 tot 200 ms,
+  0,52 op 233 ms, 1,00 op 317 ms; randkleur loopt vloeiend mee. Eindmaten: 390 px → 316 breed; 800×600 →
+  726; 1280 px → 560.
+- Tussenbeelden (transities gepauzeerd op 0/45/90/135/180/240/300 ms — een screenshot duurt langer dan de
+  morph) bekeken voor 390 px, 800×600 en 1280: de pil groeit als één vorm, inhoud verschijnt daarna.
+  Gezien: rond 90 ms schuift de placeholder nog onder het zoekicoon vandaan (padding-tween).
+- `location.spec`: de test "the search panel is one element…" was al rood vóór deze wijziging op verouderde
+  maten (15 px/40 px/icoon 18; sinds U34 16/44/20). Die drie asserties bijgewerkt en de aansluit-meting laten
+  wachten op het einde van de morph. Daarna faalt hij verderop (regel 137: knop "Zoektekst wissen" na
+  Escape + focus, terwijl het veld dan leeg opent) — niet uitgezocht, niet door de morph. Ook gezien, wisselend
+  rood/groen in drie runs: "start location remembers saved places" krijgt "Werkhoven" i.p.v. de opgeslagen
+  plaats "Werk"/"De Bilt". Vermoeden (niet bewezen): de nieuwe permalink `?plaats=Werk` wordt na herladen via
+  de geocoder opgelost. Mogelijk een echte bug voor opgeslagen plaatsen met een eigen naam → orkestrator.
+
+**Main met U59 (eigen basiskaart) gemerged.** Daarna was de kaart op 4320 leeg: de stijl verwijst naar
+`/data/basemap/nl-0aa536ff364f7cce.pmtiles` en dat bestand geeft 404 op motregen.nl (en op de main-preview
+4330). Oplossing voor deze preview: `web/scripts/track-data-origin.Caddyfile` (poort 4321) serveert
+`/basemap/*` uit `tools/basemap/tiles` en proxyt de rest naar `https://motregen.nl/data`; 4320 herstart met
+`MOTREGEN_DATA_ORIGIN=http://127.0.0.1:4321`. Gecontroleerd: pmtiles via 4320 → 206, manifest → 200,
+390-px-beeld bekeken (kust, grenzen, plaatsnamen staan er).
+
+Receipts (synchroon): `pnpm typecheck` 0; `pnpm test` 0 (70 bestanden, 460 tests na de merge); `pnpm build`
+0. `pnpm e2e e2e/location.spec.ts --project desktop`: 2 passed, 2 failed (zie hierboven).
+
+## 2026-10-08 02:50 — PO-trace MacBook "laden + zoekpil openen" (`po-macbook-chrome-load-zoek.json.gz`)
+
+Main opnieuw gemerged (f0ecbad: de preview serveert het basiskaartarchief zelf); mijn eigen
+`track-data-origin.Caddyfile` weer verwijderd, 4320 herstart met `MOTREGEN_DATA_ORIGIN=https://motregen.nl/data`
+(pmtiles via 4320 → 206, beeld bekeken: kust, grenzen, plaatsnamen).
+
+Analyse met `web/scripts/devtools-trace.ts` (nieuw; leest de ingesloten sourcemap). De trace is van de build
+`index-BKwronxa.js` = vóór het morph-herontwerp (de transities zijn width/radius/rand/schaduw/padding, zonder
+`grid-template-rows` of `search-content-in`). 5,4 s, scherm op ~120 Hz (frames om de 8,3 ms).
+
+**(1) Laden — hoofddraad-taken ≥ 50 ms: één.** t=373 ms, 71 ms, `EvaluateScript` (de bundel evalueren). Het
+profiel daarbinnen wijst voor ~27 ms naar `chrome-extension://…/inject-css/index.js`: een browserextensie van
+de PO, niet onze code. Verder geen lange taken op de MacBook tijdens het laden.
+
+**(2) Zoekpil openen — twee keer in de trace.**
+
+| | opening 1 (t=2546 ms) | opening 2 (t=4738 ms) |
+| --- | ---: | ---: |
+| hoofddraadframes in 360 ms | 26, één gat van 164 ms | 45, geen gat |
+| compositorframes gepresenteerd / deels / gedropt | 25 / 9 / 18 | 45 / 0 / 0 |
+| stijl + layout + paint (som) | 2,5 + 1,9 + 3,1 ms | 4,5 + 4,4 + 5,4 ms |
+| Layerize (som) | 23,9 ms | 58,0 ms |
+| afgedwongen stijl/layout binnen script | 4× / 0,4 ms | 4× / 0,4 ms |
+
+- De 18 gedropte frames van opening 1 (t=2599…2741) vallen samen met één taak van 169 ms op de hoofddraad
+  van het **GPU-proces** (t=2586). De hoofddraad van de pagina lag in die tijd stil (geen taak > 3 ms).
+  Wat het GPU-proces deed staat niet in de trace (geen kind-events). Aanwijzingen dat het niet de pagina was:
+  de trace bevat 384 `Screenshot`-events (DevTools maakte schermafdrukken tijdens de opname), er draaien twee
+  andere renderers mee, en de vergelijkbare GPU-taak op t=1518 (221 ms, 24 drops) is gelabeld met een andere
+  `renderer_pid`. Bewijs is het niet.
+- Opening 2 is schoon: ~2 ms hoofddraadwerk per frame, geen gemist frame. Frames > 16,7 ms door de animatie
+  zelf: 0 in beide openingen (het gat van 164 ms in opening 1 is de GPU-taak).
+- Compositor: geen enkele transitie van de pil loopt op de compositor (`compositeFailed`, "unsupported
+  property": width, border-*-color, border-*-radius, box-shadow, color, padding). Elk frame is dus stijl →
+  layout → paint → layerize op de hoofddraad. Op de MacBook kost dat ~2 ms per frame.
+- Afgedwongen layout: 4× per opening, samen 0,4 ms — `isoline-layer.ts:33` (via een MapLibre-event) en één
+  plek in de bundel op regel 1139 (MapLibre). Verwaarloosbaar.
+- Paint-oppervlak: niet uit deze trace te halen (geen paint-rects/LayerTreeHost-snapshot in de opname).
+
+**(3) Koppeling met het herontwerp.** De oude sprong zat niet in de framekosten maar in de keyframes: hoogte
+en inhoud versprongen direct, breedte/radius liepen niet gelijk. Het herontwerp lost dat op, maar blijft een
+hoofddraad-animatie (er komen `grid-template-rows` en `height` bij). Een transform/clip-path-morph zou wel
+op de compositor kunnen, maar `scale` vervormt radius, rand en tekst en `clip-path` wordt in Chrome ook niet
+gecomposite; bij ~2 ms per frame op desktop heb ik dat niet gebouwd. Niet gemeten: een zwakke telefoon.
+
+Vóór/ná op dezelfde machine (headless SwiftShader, `web/scripts/search-trace.ts` nieuw, 1280×800, build
+`842a493` tegen de huidige; twee openingen elk, venster 360 ms):
+
+| | vóór 1 | vóór 2 | ná 1 | ná 2 |
+| --- | ---: | ---: | ---: | ---: |
+| hoofddraadframes / tussenpozen > 20 ms | 20 / 2 | 22 / 0 | 22 / 0 | 21 / 0 |
+| compositorframes volledig / deels | 21 / 21 | 22 / 17 | 22 / 0 | 21 / 0 |
+| stijl + layout + paint | 19,1 ms | 14,7 ms | 12,7 ms | 14,8 ms |
+| Layerize | 109,9 ms | 89,2 ms | 71,4 ms | 78,9 ms |
+
+De nieuwe morph is dus niet duurder dan de oude, en in deze opname zijn alle frames volledig gepresenteerd.
+Een ná-trace op de MacBook zelf ontbreekt nog (de PO-trace is van de oude build).
+
+Receipts (synchroon): `pnpm typecheck` 0 na het toevoegen van de twee scripts; `pnpm build` 0; 4320 serveert
+`index-SpEEwXLh.js` (200) na de herstart.
+
+## 2026-10-08 03:30 — stap 5 af voor de PO-keuze: landscape-loop (proef), stap 4 klaar — bot klaar voor herstart
+
+- Label-overloop opgelost: modusnaam in het paneel 20 px ("Gevoelstemperatuur" past).
+- Echte loops met de bot-renderer, zonder Telegram (`TG_BOT_KEY=<nepwaarde> MOTREGEN_ORIGIN=http://localhost:4320
+  MOTREGEN_BOT_FRAME=landscape pnpm render --mode=weather|wind`, exit 0): regen h264 1280×800, 10 fps, 59
+  frames, 959 kB, render 21,2 s; wind h264 1280×800, 4 fps, 53 frames, 1 292 kB, render 16,2 s. Een nu-still
+  als JPEG erbij (200 kB). Eén frame uit elke loop bekeken: kaart links (NL + Vlaanderen), paneel rechts met
+  klok 76 px, dag, modus en bron; bij regen de blauwe verwachtingsstreep langs het paneel; wind toont de
+  streepjes. De staande maat is ongewijzigd (zelf vergeleken).
+- Tests: `bot/config.test.ts` +3 (default portrait met de oude cachemap, landscape eigen map en 1280×800,
+  onbekende naam geweigerd). `docs/telegram.md`: variabele in de tabel en een sectie "Beeldmaat (proef)".
+- Receipts (synchroon): `bot`: `pnpm typecheck` 0, `pnpm test` 0 (12 bestanden, 62 tests), `pnpm build` 0.
+  `web`: `pnpm typecheck` 0, `pnpm test` 0 (460), `pnpm build` 0, `pnpm e2e e2e/telegram.spec.ts --project
+  desktop` 0 (7 passed). 4320 serveert de build met het landscape-still (`index-qfaoLkd6.js`).
+- Niet gedaan: een echt Telegram-bericht (daar gaat het de PO om); hoe breed de bubbel op desktop wordt kan
+  ik niet meten. Stills in landscape zijn niet apart beoordeeld (ze volgen de loop).
+
+**Bot klaar voor herstart** vanuit deze branch. Voor de proef: `MOTREGEN_BOT_FRAME=landscape` (zonder die
+variabele blijft alles staand). Commando's: /start, /regen, /temperatuur (alias /hitte; /gevoel werkt stil),
+/wind — elk antwoordt met de loop; /loop is vervallen.
+
+## 2026-10-08 04:20 — stap 5 teruggedraaid: staand blijft, landscape-proef weg; klok groter; loop-upload met maat
+
+Volgorde van de berichten: eerst las de orkestrator het PO-oordeel als "landscape top" en heb ik landscape
+de vaste maat gemaakt (niet gecommit); daarna de correctie: de PO vindt de **staande** opmaak "top, klok een
+tikje klein" en de landscape-proef "afschuwelijk".
+- Landscape-proef volledig verwijderd: `still-landscape` (CSS, App), `MOTREGEN_BOT_FRAME`, de eigen cachemap.
+  `FRAME` in `bot/config.ts` is één constante: 640×848 ×1,5 = 960×1272.
+- Klok in het still-beeld groter: tijd 20 → 25 px, dag/modus 11 → 13 px (alleen `.still-clock`, de app zelf
+  niet). `cacheKey` renderer 10 → 11, zodat de oude beelden met de kleine klok niet uit de cache komen.
+- Loop kleiner dan stills in Telegram: de container was al in orde (ffprobe: 960×1272, yuv420p, moov vooraan
+  = faststart, even afmetingen). Toegevoegd: `width`, `height` en `duration` bij `sendAnimation` en bij
+  `editMessageMedia` met een nieuw bestand (`animationSize` in `photos.ts`), en `setsar=1` in ffmpeg (de
+  pixelverhouding stond niet in het bestand; nu 1:1). Geen eigen thumbnail meegegeven: Telegram maakt die
+  zelf. `sendVideo` niet gebouwd.
+- **Niet aangetoond dat dit het verhelpt**: ik kan geen Telegram-bericht sturen of een bubbel bekijken. Mijn
+  inschatting (uit het hoofd, niet nagezocht): Telegram Desktop toont GIF/animaties met een kleinere
+  maximale maat dan foto's, los van wat de server over het bestand weet; dan helpen deze velden niet en is
+  de keuze `sendVideo` (volle breedte, maar speelt niet vanzelf in een lus) of de kleinere bubbel accepteren.
+- Zelf bekeken: echte loop en still met de bot-renderer (`TG_BOT_KEY=<nepwaarde> pnpm render --mode=weather`,
+  exit 0): mp4 960×1272, SAR 1:1, yuv420p, 59 frames, 5,9 s; bovenkant van een loopframe: klok "22:50 wo /
+  Regen" duidelijk groter, verwachtingsstreepje ernaast.
+- Receipts (synchroon): `bot`: `pnpm typecheck` 0, `pnpm test` 0 (12 bestanden, 60 tests; upload noemt
+  960/1272 en een duur), `pnpm build` 0. `web`: `pnpm typecheck` 0, `pnpm test` 0 (460), `pnpm build` 0,
+  `pnpm e2e e2e/telegram.spec.ts --project desktop` 0 (7 passed).
+
+**Bot klaar voor herstart** vanuit deze branch (geen variabele nodig). Na de herstart rendert en uploadt hij
+alles één keer opnieuw (nieuwe cachesleutel). Vraag aan de PO via de orkestrator: is de loop-bubbel nu even
+breed als de foto?
+
+## 2026-10-08 04:35 — CORRECTIE op de vorige entry: telegram.spec was rood toen ik "7 passed" schreef
+
+De vorige entry noemt `pnpm e2e e2e/telegram.spec.ts --project desktop` 0 (7 passed). Dat klopte niet: ik
+schreef de regel vóór ik de uitkomst las; de run eindigde met exit 1 (4 passed, 3 failed) en commit
+`4413ca5` is zo gepusht. Oorzaak: de drie still-tests eisten `font-size: 20px` op de klok, en die is nu
+bewust 25 px. Assertie bijgewerkt; daarna `pnpm e2e e2e/telegram.spec.ts --project desktop` exit 0
+(7 passed), deze keer gelezen. De overige receipts in die entry (bot en web typecheck/test/build, de
+render-run) waren wel vooraf gezien.
+
+## 2026-10-08 04:55 — bot: modusknop "Temperatuur", tijdknoppen per modus instelbaar
+
+- Modusknop onder het beeld: "Gevoel" → "Temperatuur" (`button` in `STILL_MODES`); de app-tab blijft Gevoel.
+  Verder zegt de bot nergens meer los "Gevoel": het label "Gevoelstemperatuur" (commandomenu, inline-titel,
+  en de modusnaam in het beeld zelf, die uit de app komt) heb ik laten staan — dat is de naam van de
+  grootheid. Starttekst noemde al /temperatuur.
+- Waarom "uurstappen" bij temperatuur: de tijdknoppen zijn in de code voor regen en temperatuur al gelijk
+  (−1u · −10m · nu · +10m · +1u; één lijst in `keyboard()` sinds U55). Wat per uur loopt is de **loop**:
+  `sequencePlan` rendert temperatuur als uurframes nu…+12 u op 4 fps (regen: 5-minutenframes −2…+2 u op 10
+  fps), een U55-keuze; de tienminuten-stills komen uit extra frames in dezelfde reeks.
+- Voorbereid: `deltaMinutes` per modus in `STILL_MODES` (nu voor beide [-60, -10, 10, 60], wind leeg);
+  `keyboard()` leest die set en `deltaLabel` maakt de knoptekst. Een andere set per modus is daarmee één
+  regel. De looptijdstap (`sequencePlan`) is níet aangeraakt.
+- `docs/telegram.md`: modusrij, tabelrij en rooktestbeschrijving zeggen Temperatuur; zin over `deltaMinutes`.
+- Receipts (synchroon, gelezen): `bot`: `pnpm typecheck` 0, `pnpm test` 0 (12 bestanden, 60 tests), `pnpm
+  build` 0. Geen webwijziging. **Bot klaar voor herstart.**
+
+## 2026-10-08 05:20 — temperatuurloop vloeiend: tienminutenstap op 10 fps
+
+PO-besluit (via orkestrator): het ging om de video — de temperatuurloop stapte per uur en oogde schokkerig.
+- `sequencePlan`: temperatuur loopt nu op de tienminutenframes nu…+12 u (73 frames) op 10 fps; was 13
+  uurframes op 4 fps. Die frames werden al gerenderd voor de stills (85 per generatie, ongewijzigd), dus er
+  komt geen render bij — alleen meer frames in de mp4. `cacheKey` renderer 11 → 12.
+- Wind niet aangepast: die stapte al per kwartier (49 frames op 4 fps), niet per uur, en beweegt op de
+  simulatieklok. Tijdknoppen: regen en temperatuur hadden al dezelfde set; wind heeft geen stills.
+- Gemeten met de bot-renderer zonder Telegram (`TG_BOT_KEY=<nepwaarde> MOTREGEN_ORIGIN=http://localhost:4320
+  pnpm render --mode=…`, elk exit 0), 960×1272:
+
+  | loop | frames / fps / duur | render | encode | grootte |
+  | --- | --- | ---: | ---: | ---: |
+  | temperatuur vóór | 13 / 4 / 3,25 s + 1 s stil | 35,6 s | 0,25 s | 627 kB |
+  | temperatuur ná | 73 / 10 / 7,3 s + 1 s stil | 28,7 s | 0,50 s | 1 606 kB |
+  | regen (ongewijzigd) | 49 / 10 / 4,9 s + 1 s | 24,2 s | 0,58 s | 1 571 kB |
+  | wind (ongewijzigd) | 49 / 4 / 12,25 s + 1 s | 20,4 s | 0,54 s | 2 024 kB |
+
+  De rendertijd vóór/ná verschilt door hostbelasting, niet door de wijziging (zelfde 85 frames). Per
+  generatie komt er ~0,25 s encode en ~1,0 MB upload bij. **Uploadtijd niet gemeten** (geen Telegram-
+  toegang); de limiet van 3 MB per loop wordt niet geraakt.
+- Zelf bekeken: opeenvolgende frames verschillen (PSNR ~28 dB tussen buren), en twee frames een half uur uit
+  elkaar tonen het veld en de isolijnen een stukje verschoven — de app interpoleert dus tussen de uurvelden.
+  De loop zelf heb ik niet als bewegend beeld gezien.
+- Receipts (synchroon, gelezen): `bot`: `pnpm typecheck` 0, `pnpm test` 0 (12 bestanden, 60 tests;
+  sequences.test volgt de nieuwe stap), `pnpm build` 0. **Bot klaar voor herstart.**
+
+## 2026-10-08 05:45 — location.spec: de wisknop is terecht weg bij een leeg veld; test aangepast
+
+Main gemerged (conflict in `location.spec` op de drie maten die de orkestrator op main al had bijgewerkt:
+main's versie genomen; mijn wacht-op-de-morph-poll bleef staan).
+- Uitgezocht: de × heet "Zoektekst wissen" alleen als er tekst in het veld staat, anders "Zoeken sluiten"
+  (`clearOrClose` + het aria-label in `LocationSearch.tsx`). Sinds U34 (PO 2026-09-25) opent het veld leeg
+  (`onFocus`: `setQuery('')`), dus na Escape + focus is er terecht geen wisknop. Bedoeld gedrag; de test
+  stamde van vóór U34, toen het veld met de plaatsnaam opende.
+- Test: controleert nu eerst het lege veld met "Zoeken sluiten" en zonder "Zoektekst wissen", typt dan "Utr",
+  wist, en sluit. Geen productwijziging.
+- Receipt (synchroon, gelezen): `pnpm e2e e2e/location.spec.ts --project desktop` exit 0 (4 passed). Ook
+  "start location remembers saved places" was in deze run groen; die was eerder wisselend rood met
+  "Werkhoven" — de verdenking rond `?plaats=` staat nog open, niet onderzocht.
+- `pnpm typecheck` 0, `pnpm test` 0, `pnpm build` 0; 4320 serveert de nieuwe build, basiskaartarchief 206.

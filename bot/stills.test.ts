@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { telegramPresets } from '../web/src/core/telegram-presets.js'
-import { cacheKey, caption, keyboard, matchingModes, miniAppLink, parseCallback, presetUrl, STILL_HOURS, STILL_MINUTES, STILL_MODES, stillEpoch, stillTime, validateManifest, type StillManifest } from './stills.js'
+import { cacheKey, caption, deltaLabel, keyboard, matchingModes, miniAppLink, modeForCommand, parseCallback, presetUrl, STILL_HOURS, STILL_MINUTES, STILL_MODES, stillEpoch, stillTime, validateManifest, type StillManifest } from './stills.js'
 
 const manifest: StillManifest = {
   version: 0,
@@ -47,7 +47,7 @@ describe('stills and Telegram selections', () => {
   })
 
   it('provides relative steps with an independent now button and no duplicate app button', () => {
-    expect(STILL_MODES.map((entry) => entry.command)).toEqual(['regen', 'gevoel'])
+    expect(STILL_MODES.map((entry) => entry.command)).toEqual(['regen', 'temperatuur'])
     expect(STILL_MINUTES).toHaveLength(85)
     expect(STILL_MINUTES[0]).toBe(-120)
     expect(STILL_MINUTES.at(-1)).toBe(720)
@@ -83,8 +83,15 @@ describe('stills and Telegram selections', () => {
     expect(matchingModes(' WIND ')).toEqual(['wind'])
     expect(parseCallback('wind:loop')).toEqual({ mode: 'wind', hour: 'loop' })
     expect(keyboard({ mode: 'wind', hour: 'loop' }, stillEpoch(manifest, 0)).inline_keyboard[1].map((button) => button.callback_data)).toEqual(['wind:loop'])
-    expect(matchingModes('gevoel')).toEqual(['feels'])
+    for (const filter of ['temperatuur', 'hitte', 'gevoel', 'Gevoelstemp']) expect(matchingModes(filter)).toEqual(['feels'])
+    expect(['regen', 'temperatuur', 'hitte', 'gevoel', 'WIND', 'loop', 'lucht'].map(modeForCommand)).toEqual(['weather', 'feels', 'feels', 'feels', 'wind', undefined, undefined])
     expect(matchingModes('pollen')).toEqual([])
+    expect([-120, -60, -10, 10, 30, 60, 180].map(deltaLabel)).toEqual(['−2u', '−1u', '−10m', '+10m', '+30m', '+1u', '+3u'])
+    // Regen en temperatuur hebben dezelfde tijdknoppen; de set staat per modus in STILL_MODES.
+    for (const definition of STILL_MODES) {
+      expect(definition.deltaMinutes).toEqual([-60, -10, 10, 60])
+      expect(keyboard({ mode: definition.mode, hour: 'loop' }, stillEpoch(manifest, 0), manifest.generated).inline_keyboard[1].map((button) => button.text)).toEqual(['−1u', '−10m', 'nu', '+10m', '+1u', '✓ Loop'])
+    }
     expect(matchingModes('lucht')).toEqual([])
   })
 

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { validateCacheChat } from './config.js'
+import { resolve } from 'node:path'
+import { FRAME_PIXELS, readConfig, validateCacheChat } from './config.js'
 import type { TelegramApi } from './api.js'
 
 describe('cache destination validation', () => {
@@ -24,5 +25,12 @@ describe('cache destination validation', () => {
   it.each([{ status: 'member' }, { status: 'administrator', can_delete_messages: false }])('rejects insufficient group permissions: %j', async (member) => {
     const call = vi.fn().mockResolvedValueOnce({ type: 'supergroup' }).mockResolvedValueOnce(member)
     await expect(validateCacheChat({ call } as unknown as TelegramApi, '-100123', 1)).rejects.toThrow('verwijderrechten')
+  })
+})
+
+describe('frame size', () => {
+  it('renders portrait media of 960×1272 into the configured cache directory', () => {
+    expect(FRAME_PIXELS).toEqual({ width: 960, height: 1272 })
+    expect(readConfig({ TG_BOT_KEY: 'test-token', MOTREGEN_RENDER_CACHE: 'tmp/frame-test' }).cacheDirectory).toBe(resolve('tmp/frame-test'))
   })
 })

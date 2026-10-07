@@ -2,19 +2,20 @@ import { expect, test } from '@playwright/test'
 
 // MIP-12: ?dev is de enige poort; het paneel is gegroepeerd en elke knop legt zichzelf uit.
 test('dev panel only behind ?dev, grouped, every control explained', async ({ page }, testInfo) => {
-  await page.goto('/?perf=1&histogram=wait&zon=markering&uvbalk=stip')
+  // `?perf` staat hier bewust niet meer tussen: sinds MIP-16 (U43) is dat de profielmodus en toont het de HUD.
+  await page.goto('/?histogram=wait&zon=markering&uvbalk=stip')
   await expect(page.locator('.map-splash.ready')).toBeAttached()
   await expect(page.getByTestId('dev-panel')).toHaveCount(0)
-  // Losse ?-parameters doen niets meer.
+  // De oude losse ?-parameters doen niets meer.
   await expect(page.getByTestId('perf-hud')).toBeHidden()
 
   await page.goto('/?dev')
   const panel = page.getByTestId('dev-panel')
   await expect(panel).toBeVisible()
   const groups = panel.locator('.dev-group')
-  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wind', 'Diagnose'])
+  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wind', 'Lucht nu', 'Diagnose'])
   // Alleen de eerste groep start open.
-  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false])
+  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false])
   await expect(panel).not.toContainText('Wolkrand')
 
   const controls = panel.locator('.dev-control')
@@ -32,9 +33,10 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   const wind = groups.filter({ hasText: 'Wind' })
   await expect(wind.locator('input[type=range]')).toHaveCount(4)
   await expect(wind.locator('.dev-control label > span')).toHaveText(['Dichtheid', 'Intensiteit', 'Lijnbreedte', 'Tempo'])
-  await wind.getByLabel('Intensiteit').fill('0.5')
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-wind-tuning-v4'))).toBe('{"intensity":0.5}')
-  await expect(page.locator('.map-shell')).toHaveAttribute('data-wind-intensity', '0.50')
+  // Alleen afwijkingen worden opgeslagen; 0,5 is sinds de live windtuning (U34) zelf de default.
+  await wind.getByLabel('Intensiteit').fill('0.8')
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-wind-tuning-v4'))).toBe('{"intensity":0.8}')
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-wind-intensity', '0.80')
 
   await groups.locator('> summary', { hasText: 'Diagnose' }).click()
   const perfToggle = panel.getByRole('checkbox', { name: /Perf-HUD/ })

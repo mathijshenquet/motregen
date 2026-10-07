@@ -9,8 +9,11 @@ export interface SequencePlan {
 
 export function sequencePlan(mode: LoopMode, manifest: StillManifest): SequencePlan {
   const now = Date.parse(manifest.now)
-  const fps = mode === 'weather' ? 10 : 4
-  const stepMinutes = mode === 'weather' ? 5 : mode === 'wind' ? 15 : 60
+  // Temperatuur in stappen van tien minuten op 10 fps (PO 2026-10-08: per uur op 4 fps oogde schokkerig).
+  // Die frames bestonden al voor de stills; de app interpoleert tussen de uurvelden. Wind beweegt op de
+  // simulatieklok en houdt zijn kwartierstap.
+  const fps = mode === 'wind' ? 4 : 10
+  const stepMinutes = mode === 'weather' ? 5 : mode === 'wind' ? 15 : 10
   const startMinutes = mode === 'weather' ? -120 : 0
   const endMinutes = mode === 'weather' ? 120 : 720
   const epochs: number[] = []

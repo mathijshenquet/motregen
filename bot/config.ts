@@ -1,6 +1,14 @@
 import { resolve } from 'node:path'
 import type { TelegramApi } from './api.js'
 
+/**
+ * Beeldmaat van stills en loops: viewport in CSS-px maal `scale` geeft de pixels van het bestand (960×1272).
+ * Staand blijft (PO 2026-10-08 op echte berichten): een liggende proef met de klok in een paneel naast de
+ * kaart viel af.
+ */
+export const FRAME = { width: 640, height: 848, scale: 1.5 } as const
+export const FRAME_PIXELS = { width: FRAME.width * FRAME.scale, height: FRAME.height * FRAME.scale } as const
+
 export interface BotConfig {
   token: string
   origin: string

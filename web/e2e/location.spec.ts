@@ -88,8 +88,8 @@ test('the search panel is one element; a tap outside closes it without touching 
   const viewBefore = await page.evaluate(() => localStorage.getItem('motregen-map-view'))
   const markerBefore = await page.locator('.maplibregl-marker').first().boundingBox()
 
-  // In rust alleen icoon + plaatsnaam, zo breed als de naam (U22), maar op U17-maat (U22b):
-  // 40 px hoog en 15 px (touch 44 px en 16 px: iOS-zoom), icoon 18 px.
+  // In rust een ronde zoekknop van 44 px, gelijk aan de merkdruppel (U34, PO 2026-09-25 live): 16 px
+  // tekst (iOS-zoom) en een icoon van 20 px, op elk apparaat.
   const box = page.locator('.search-box')
   const rest = (await box.boundingBox())!
   expect(rest.width).toBeLessThanOrEqual(125)
@@ -110,9 +110,13 @@ test('the search panel is one element; a tap outside closes it without touching 
   // De ster staat in het open paneel, naast het veld.
   await expect(page.getByRole('button', { name: 'Deze plaats opslaan' })).toBeVisible()
   // Veld en lijst in één paneel: de lijst sluit zonder gat aan op het veld.
-  const field = (await input.boundingBox())!
-  const listBox = (await list.boundingBox())!
-  expect(Math.abs(listBox.y - (field.y + field.height))).toBeLessThanOrEqual(2)
+  // Pas na de open-morph (180 ms): tot die tijd groeit de pil nog.
+  await expect.poll(async () => {
+    const field = (await input.boundingBox())!
+    const listBox = (await list.boundingBox())!
+    return Math.abs(listBox.y - (field.y + field.height))
+  }).toBeLessThanOrEqual(2)
+  await expect(list).toHaveCSS('opacity', '1')
   await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-zoekpaneel.png`) })
 
   // Tik/klik midden op de kaart: sluit het paneel, geen locatiekeuze, geen pan.
@@ -133,6 +137,12 @@ test('the search panel is one element; a tap outside closes it without touching 
   await page.keyboard.press('Escape')
   await expect(list).toBeHidden()
   await input.focus()
+  // Openen begint met een leeg veld (U34, PO 2026-09-25): dan heet de × "Zoeken sluiten". Pas met tekst
+  // erin wordt hij "Zoektekst wissen".
+  await expect(input).toHaveValue('')
+  await expect(page.getByRole('button', { name: 'Zoeken sluiten' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Zoektekst wissen' })).toHaveCount(0)
+  await input.fill('Utr')
   await page.getByRole('button', { name: 'Zoektekst wissen' }).click()
   await expect(input).toHaveValue('')
   await page.getByRole('button', { name: 'Zoeken sluiten' }).click()

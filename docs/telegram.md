@@ -1,25 +1,28 @@
 # Telegram
 
 De bot `@motregen_bot` opent “motregen.nl -- Regenradar en Weersverwachting”
-als Mini App en deelt nationale kaarten. `/regen` en `/gevoel` plaatsen
-een foto; `/loop regen`, `/loop gevoel` en `/wind` plaatsen een
-video die automatisch afspeelt en herhaalt. `/loop` kiest standaard Regen.
-Wind bestaat uitsluitend als loop, nooit als still.
+als Mini App en deelt nationale kaarten. `/regen`, `/temperatuur` (alias `/hitte`) en `/wind`
+plaatsen een video die automatisch afspeelt en herhaalt: de loop is het standaardantwoord van elk
+commando (PO 2026-10-07, U58). Een stilstaand beeld komt via de tijdknoppen onder het bericht.
+Het commando `/loop` is vervallen. `/gevoel`, de naam van `/temperatuur` tot U58, blijft werken maar
+staat niet meer in het commandomenu of de starttekst. Wind bestaat uitsluitend als loop, nooit als still.
 
-De modusrij bevat Regen, Gevoel en Wind. De tijdrij bevat −1u, −10m, nu,
-+10m, +1u en Loop; bij Wind staat alleen Loop. Deltaknoppen stappen vanaf de
+De modusrij bevat Regen, Temperatuur en Wind (de tab in de app heet Gevoel; in de bot volgt de knop het commando). De tijdrij bevat −1u, −10m, nu,
++10m, +1u en Loop; bij Wind staat alleen Loop. Vanuit de loop geven de deltaknoppen een still
+ten opzichte van nu; vanuit een still stappen ze vanaf de
 getoonde tijd, nu kiest de nieuwste generatie. Aan de rand van −2…+12 uur
-verdwijnen stappen buiten het bereik. De knoppen verversen hetzelfde bericht,
+verdwijnen stappen buiten het bereik. De set tijdknoppen staat per modus in `STILL_MODES` (`deltaMinutes` in
+`bot/stills.ts`, veelvouden van tien minuten); regen en temperatuur hebben nu dezelfde set. De knoppen verversen hetzelfde bericht,
 ook bij wisselen tussen foto en video. Opnieuw dezelfde selectie aantikken geeft
 de toast “Al in beeld” zonder nieuwe render of edit. Niet meer bewerkbare of
 verlopen berichten geven “Verlopen, stuur /regen opnieuw”. Onder het beeld staat
 alleen een klikbare `motregen.nl`-link; er is geen aparte app-knop. Inline: typ `@motregen_bot `
-in een chat, filter met `regen` of kies alleen video's met `loop regen`.
+in een chat, filter met `regen`, `temperatuur`, `hitte` of `wind`, of kies alleen video's met `loop regen`.
 
 ## BotFather (PO)
 
-1. Kies `@motregen_bot` bij `/setinline` en geef bijvoorbeeld `Regen
-   of gevoel; loop of wind` als placeholder. Locatietoegang voor inline blijft uit.
+1. Kies `@motregen_bot` bij `/setinline` en geef bijvoorbeeld `Regen,
+   temperatuur of wind` als placeholder. Locatietoegang voor inline blijft uit.
 2. Open **Bot Settings → Configure Mini App** en zet de Main Mini App aan met
    URL `https://motregen.nl/?tg=1`. Hierdoor werkt ook de `startapp`-deeplink
    vanuit inlineberichten en groepen.
@@ -70,7 +73,7 @@ gecachete lege kaart. De nationale uitsnede is 640×848 CSS-pixels met
 | modus | framereeks | loop | stills uit dezelfde reeks |
 | --- | --- | --- | --- |
 | Regen | −2…+2 u, elke 5 minuten; extra tienminutenframes tot +12 u | 49 frames op 10 fps; extra toekomstframes buiten de video | 85 frames, −2…+12 u elke 10 minuten |
-| Gevoel | uurframes nu…+12 u; aanvullende tienminutenframes −2…+12 u | 13 frames op 4 fps | 85 frames, −2…+12 u elke 10 minuten |
+| Temperatuur | tienminutenframes −2…+12 u (interpolatie tussen de uurvelden) | 73 frames nu…+12 u op 10 fps (sinds U58; was 13 uurframes op 4 fps) | 85 frames, −2…+12 u elke 10 minuten |
 | Wind | nu…+12 u, elke 15 minuten | 49 frames op 4 fps | geen |
 
 Windparticles krijgen een vaste simulatieklok, met tussenstappen op 30 Hz en
@@ -168,6 +171,17 @@ nu pakt steeds de nieuwste matrix. Niet meer bekende generaties en Telegrams
 Een verlopen callback-query kan Telegram niet meer beantwoorden; die wordt
 stil afgehandeld, zonder `update-failed 400`. Andere API-fouten blijven zichtbaar.
 
+## Beeldmaat
+
+Stills en loops zijn staand, 960×1272 (`FRAME` in `bot/config.ts`). Een liggende proef (1280×800 met de klok
+in een paneel naast de kaart) is door de PO afgewezen (2026-10-08) en weer verwijderd. De klok in het beeld
+is een maat groter dan in de app. Bij het uploaden van een loop geeft de bot `width`, `height` en
+`duration` expliciet mee en zet ffmpeg vierkante pixels (`setsar=1`), naast yuv420p en faststart:
+de PO zag de mp4 kleiner in de bubbel dan een foto van dezelfde maat. Of dat het verhelpt is nog niet op
+een echt bericht bevestigd; Telegram-clients kunnen animaties ook uit zichzelf kleiner tonen dan foto's.
+`web/scripts/still-shot.ts` rendert het still-beeld om zelf te bekijken;
+`TG_BOT_KEY=x pnpm render --mode=weather` (in `bot/`) maakt een echte loop zonder Telegram aan te raken.
+
 ## Productie
 
 `services.motregen.bot.enable = true` staat aan op de productiehost. De
@@ -236,10 +250,10 @@ bot; de test leest dat chat-id uitsluitend in het geheugen. Een expliciet
 `MOTREGEN_SMOKE_CHAT_ID` kan ook. De test rendert en uploadt eerst de volledige
 13-media-matrix naar de geconfigureerde cachechat. Vervolgens verstuurt hij uitleg en
 een regenfoto en ververst hetzelfde bericht naar
-Gevoel +10m met het vooraf verkregen file_id. Daarna gaat hij terug naar Regen en
-opnieuw naar Gevoel. Hij rapporteert berichtnummer, manifestversie en beide
+Temperatuur +10m met het vooraf verkregen file_id. Daarna gaat hij terug naar Regen en
+opnieuw naar Temperatuur. Hij rapporteert berichtnummer, manifestversie en beide
 cached edit-responstijden; de eerste edit moet al fileIdCached=true zijn.
-Gevoel +20m controleert vervolgens het luie pad: JPEG uit bestaande PNG, één
+Temperatuur +20m controleert vervolgens het luie pad: JPEG uit bestaande PNG, één
 cache-upload en hergebruik van hetzelfde id bij de volgende edit.
 Daarna verstuurt de test iedere modus als animation, wisselt hetzelfde bericht
 naar een still en terug naar de loop met file_id. Per modus rapporteert hij

@@ -1,9 +1,19 @@
 import type { TelegramApi, TelegramMessage } from './api.js'
 import type { FileIdCache } from './file-ids.js'
-import type { RenderedMedia } from './render.js'
+import type { RenderedLoop, RenderedMedia } from './render.js'
+import { FRAME_PIXELS } from './config.js'
 import { TelegramApiError } from './api.js'
 import { setTimeout as delay } from 'node:timers/promises'
 import { CachePosts } from './cache-posts.js'
+
+/**
+ * Afmetingen en duur van een loop, expliciet bij het uploaden: zonder kan een client de bubbel anders
+ * schalen dan een foto van dezelfde maat (PO 2026-10-08: de mp4 stond kleiner dan de stills). De loop eindigt
+ * met één seconde stilstaand beeld (encode.ts).
+ */
+function animationSize(loop: RenderedLoop): { width: number; height: number; duration: number } {
+  return { ...FRAME_PIXELS, duration: Math.round(loop.frames / loop.fps + 1) }
+}
 
 export class StillPhotos {
   private queue: Promise<void> = Promise.resolve()
@@ -82,7 +92,7 @@ export class StillPhotos {
   private async upload(still: RenderedMedia, fields: Record<string, unknown>): Promise<TelegramMessage> {
     const animation = still.kind === 'animation'
     return animation
-      ? this.api.upload<TelegramMessage>('sendAnimation', { ...fields, parse_mode: 'HTML' }, still.path, { name: 'animation', mime: 'video/mp4', filename: 'motregen.mp4' })
+      ? this.api.upload<TelegramMessage>('sendAnimation', { ...fields, ...animationSize(still), parse_mode: 'HTML' }, still.path, { name: 'animation', mime: 'video/mp4', filename: 'motregen.mp4' })
       : this.api.uploadPhoto({ ...fields, parse_mode: 'HTML' }, still.path)
   }
 
@@ -112,7 +122,7 @@ export class StillPhotos {
       const fileId = await this.fileIds.get(still)
       const inline = Boolean(fields.inline_message_id)
       const name = still.kind === 'animation' ? 'animation' : 'photo'
-      const media = { type: still.kind, media: fileId ?? (inline ? still.url : `attach://${name}`), caption: still.caption, parse_mode: 'HTML' }
+      const media = { type: still.kind, media: fileId ?? (inline ? still.url : `attach://${name}`), caption: still.caption, parse_mode: 'HTML', ...still.kind === 'animation' && !fileId ? animationSize(still) : {} }
       const request = { ...fields, media }
       try {
         if (fileId || inline) {

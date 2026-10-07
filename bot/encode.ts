@@ -20,7 +20,7 @@ export async function encodeLoop(directory: string, destination: string, plan: S
   const frames = plan.loopFrames + plan.fps
   const duration = frames / plan.fps
   const input = ['-hide_banner', '-loglevel', 'error', '-y', '-framerate', String(plan.fps), '-i', join(directory, 'frame-%03d.png')]
-  const output = ['-vf', `trim=end_frame=${plan.loopFrames},setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop_duration=1`, '-frames:v', String(frames), '-c:v', 'libx264', '-threads', '2', '-preset', 'veryfast', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', '-f', 'mp4', destination]
+  const output = ['-vf', `trim=end_frame=${plan.loopFrames},setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop_duration=1,setsar=1`, '-frames:v', String(frames), '-c:v', 'libx264', '-threads', '2', '-preset', 'veryfast', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', '-f', 'mp4', destination]
   await run('ffmpeg', [...input, '-crf', '25', ...output])
   let bytes = (await stat(destination)).size
   if (bytes > MAX_LOOP_BYTES) {
