@@ -19,7 +19,7 @@ interface ScenarioStep {
   playing?: boolean
   mode?: 'Weer' | 'Lucht' | 'Gevoel' | 'Wind'
 }
-interface Scenario { durationMs: number; description: string; steps: ScenarioStep[]; autoplay?: boolean }
+interface Scenario { durationMs: number; description: string; steps: ScenarioStep[]; autoplay?: boolean; devStorage?: Record<string, string> }
 interface RigOptions { profiles: string[]; scenarios: string[]; repeat: number; cpuRate?: number }
 const options = JSON.parse(process.env.MOTREGEN_MOBILE_OPTIONS ?? '{"profiles":["mobile-4g"],"scenarios":["koud"],"repeat":1,"cpuRate":4}') as RigOptions
 const scenarios = JSON.parse(readFileSync('perf/scenarios.json', 'utf8')) as Record<string, Scenario>
@@ -72,11 +72,12 @@ for (const profileId of options.profiles) {
           Object.defineProperty(navigator, 'deviceMemory', { get: () => 4 })
           performance.setResourceTimingBufferSize(10_000)
         })
+        if (scenario.devStorage) await page.addInitScript((entries) => { for (const [key, value] of Object.entries(entries)) localStorage.setItem(key, value) }, scenario.devStorage)
         await page.addInitScript(installMobileProbe)
         const network = recordPlaywrightNetwork(page)
         const capturedAt = new Date().toISOString()
         // Een ?t-preset zet de tijdlijn stil; zonder preset speelt de app vanzelf, zoals bij een gewone bezoeker.
-        await page.goto(scenario.autoplay ? '/?perf=1&modus=weer' : '/?perf=1&t=%2B0u&modus=weer', { waitUntil: 'commit' })
+        await page.goto(`${scenario.autoplay ? '/?perf=1&modus=weer' : '/?perf=1&t=%2B0u&modus=weer'}${scenario.devStorage ? '&dev' : ''}`, { waitUntil: 'commit' })
         await page.waitForFunction(() => window.__motregenPerf?.snapshot().firstRainMs !== null && window.__motregenPerf?.snapshot().firstRainMs !== undefined)
         if (!scenario.autoplay) await expect(page.getByRole('slider', { name: 'Tijd' })).not.toHaveAttribute('data-playing', '')
 

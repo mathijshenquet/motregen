@@ -48,6 +48,9 @@ Gebruikersstaat (blijft bij reset): `theme`, `saved-places`, `last-saved-place`,
 `expressive` (standaard aan; hemel en streken in de grafiek plus dag/nacht-kleuring in de tabel, U58 — de
 oude `table-day-night` wordt bij het laden gemigreerd: uit → expressief uit) en `sky-diary` (tijd, vijfklassenlabel en gekozen locatie
 afgerond op 0,1°; U46).
+Rig-schakelaar zonder knop: `dev-speelregel` = `venster` zet onder `?dev` de oude speelregel terug
+(spelen pas na laadfase "window"), zodat de mobiele laadrig oud en nieuw uit één build meet
+(`koud-spelend-vensterregel`). Eigenaar U54; vervalt zodra de PO de speelregel heeft bevestigd.
 Tuning/debug: `wind-tuning-v4` (v3 wordt bij het laden gemigreerd), `clock-jog` (U56), `perf` en de eenmalige
 `perf-cold`. Oude sleutels (`wind-tuning`, `-v2`, `-v3`, `splash-slowdown`, `scrubber-view`) wist
 "Reset alle instellingen".

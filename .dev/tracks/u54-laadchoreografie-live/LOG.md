@@ -157,3 +157,27 @@ naar loadavg 18). Genoeg voor "zelfde rangorde van kosten", niet voor procenten.
 
 Volgende: main mergen (U58 is binnen), iteratie 1 opnieuw meten op po-android ×3, dan de
 speelregel (cursorframe + volgend frame) als lus-item.
+
+## 2026-10-07 21:50 — main (U58) gemerged; iteratie 2: speelregel ingeschakeld, meting loopt
+
+Merge 4ca6bd3: U58 had de wolkenpublisher al tot één getemporiseerd kanaal gemaakt; daaroverheen
+blijft uit iteratie 1 over dat het effect de cursor niet meer volgt (`untrack(selectedEpoch)`).
+Typecheck exit 0, unit exit 0 (470 tests).
+
+Iteratie 2 (orkestrator: niet-waarneembaar in de zin dat spelen alleen eerder begint):
+- `App.tsx`: de poort "spelen pas na laadfase window" is weg. De afspeellus vraagt per beeld
+  `playbackReach` (cursorframe + aaneengesloten geladen frames vooruit) en zet de cursor niet
+  voorbij het eerste ontbrekende frame; dat frame wordt direct met hoge prioriteit gevraagd.
+- `MrfClient.hasFrame`: aanwezigheid zonder URL-parse per aanroep.
+- Keuzes die ik zelf maakte en die de PO mag omgooien:
+  1. Wachtlimiet 3 s per ontbrekend frame (`PLAYBACK_FRAME_WAIT_MS`); daarna loopt de cursor
+     door zoals vroeger, zodat een frame dat nooit komt de tijdlijn niet voorgoed stilzet.
+  2. Tijdens het wachten staat de cursor stil zónder melding. De laadmelding op het slot is
+     de PO-stap (kader); tot die er is, is dit precies de "stille pauze" uit MIP-19, alleen
+     korter en nu met de kaart en de cursor in de pas.
+- Rig: `?dev`-schakelaar `motregen-dev-speelregel=venster` zet de oude regel terug; scenario's
+  `koud-spelend-dev` (nieuw) en `koud-spelend-vensterregel` (oud) meten beide uit één build.
+  Eigenaar/vervaldatum in docs/dev-opties.md.
+
+Nog niet gemeten: de host staat op loadavg 30–36. De A/B-run (po-android, ×3 per variant)
+staat klaar en wacht per run op loadavg ≤ 8.

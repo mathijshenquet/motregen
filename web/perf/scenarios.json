@@ -10,6 +10,20 @@
     "autoplay": true,
     "steps": []
   },
+  "koud-spelend-vensterregel": {
+    "durationMs": 30000,
+    "description": "Als koud-spelend, maar met de oude speelregel (spelen pas na laadfase window) via de ?dev-schakelaar: vergelijking uit dezelfde build",
+    "autoplay": true,
+    "devStorage": { "motregen-dev-speelregel": "venster" },
+    "steps": []
+  },
+  "koud-spelend-dev": {
+    "durationMs": 30000,
+    "description": "Als koud-spelend met ?dev maar zonder schakelaar: de eerlijke tegenhanger van koud-spelend-vensterregel",
+    "autoplay": true,
+    "devStorage": {},
+    "steps": []
+  },
   "journey": {
     "durationMs": 30000,
     "description": "Koude start, twee uur vooruit, tien seconden afspelen, wind, terug naar Weer",

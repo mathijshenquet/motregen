@@ -20,7 +20,7 @@ for (let index = 0; index < args.length; index++) {
     const value = inline ?? args[++index]
     if (!value || value.startsWith('--')) throw new Error(`${flag} vereist een waarde`)
     if (flag === '--profile') options.profiles = value === 'all' ? ['mobile-4g', 'mobile-fast-3g'] : [value]
-    if (flag === '--scenario') options.scenarios = value === 'all' ? ['koud', 'journey', 'modus-wissel-storm'] : [value]
+    if (flag === '--scenario') options.scenarios = value === 'all' ? ['koud', 'journey', 'modus-wissel-storm'] : value.split(',')
     if (flag === '--repeat') options.repeat = Number(value)
     if (flag === '--cpu-rate') options.cpuRate = Number(value)
     if (flag === '--load-wait') options.loadWaitMinutes = Number(value)

@@ -37,6 +37,7 @@ import { MrfClient, type MotionField } from './core/mrf'
 import { selectPairMotion } from './core/motion-selection'
 import { nearestPlace } from './core/places'
 import { startFrameLoop } from './core/playback'
+import { clampPlaybackCursor, playbackReach } from './core/playback-gate'
 import { configurePerfMode, consumeColdProfile, installPerfMonitor, measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer } from './core/perf'
 import type { ProfileRecording } from './core/profile-recorder'
 import { prepareRainTexture, RainLayer } from './core/rain-layer'
@@ -173,6 +174,11 @@ const PRESSURE_MATCH_KM = 300
 // Afspelen tikt op 30 Hz: regen-tween, isolijnsnede en klok zijn traag genoeg; alleen de
 // windpartikels animeren op WIND_MAX_FPS in hun eigen lus (U41).
 const PLAYBACK_MAX_FPS = 30
+// Zo lang wacht afspelen op één ontbrekend frame; daarna loopt de cursor door zoals vóór de
+// speelregel, zodat een frame dat nooit komt de tijdlijn niet voorgoed stilzet.
+const PLAYBACK_FRAME_WAIT_MS = 3_000
+// Rig-schakelaar (?dev): 'venster' zet de oude regel terug (spelen pas na laadfase "window").
+const PLAY_RULE_STORAGE_KEY = 'motregen-dev-speelregel'
 // Stil op de achtergrond (U41): na een minuut zonder invoer tekent de wind op halve snelheid.
 const IDLE_AFTER_MS = 60_000
 const WIND_IDLE_FPS = 30
@@ -277,6 +283,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let rainReadyPending = false
   let scrubPrefetch = false
   let initialPickStarted = false
+  const playRuleWaitsForWindow = devMode && localStorage.getItem(PLAY_RULE_STORAGE_KEY) === 'venster'
   let pointLoad: PointLoadState | undefined
   const windFrameCache = new Map<string, Promise<Float32Array>>()
   const media = matchMedia('(prefers-color-scheme: dark)')
@@ -968,8 +975,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (pressureIsolines.active()) updatePressureMarks()
   }
   createEffect(() => {
-    const loadStage = pointLoadStage()
-    if (!playing() || !mapRendering() || !mapReady() || (initialPickStarted && (loadStage === 'initial' || loadStage === 'direct'))) return
+    // Speelregel (MIP-19 §De lat): spelen zodra het cursorframe en het volgende er zijn. De oude
+    // regel wachtte op laadfase "window" van de puntreeks.
+    const waitsForWindow = playRuleWaitsForWindow && initialPickStarted && (pointLoadStage() === 'initial' || pointLoadStage() === 'direct')
+    if (!playing() || !mapRendering() || !mapReady() || waitsForWindow) return
     const horizonHours = timeHorizonHours()
     const frames = timeline()
     if (frames.length < 2) return
@@ -983,6 +992,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     let rewind: { from: number; startedAt: number } | undefined
     // Aan het eind even stilstaan voordat het terugglijdt (PO 2026-09-25 live).
     let holdUntil: number | undefined
+    let waiting: { frame: number; since: number } | undefined
+    const framePresent = (index: number) => client.hasFrame(frames[index]!.chunk, frames[index]!.frameIndex)
     frameLoopDrives = true
     const stop = startFrameLoop((now) => {
       const elapsed = now - previous
@@ -1013,8 +1024,19 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         holdUntil = now + PLAYBACK_END_HOLD_MS
         return
       }
+      let nextCursor = timelineCursorAtEpoch(frames, nextEpoch)
+      if (!playRuleWaitsForWindow) {
+        const reach = playbackReach(cursor(), 1, frames.length, framePresent)
+        if (reach.waitingFor === null) waiting = undefined
+        else if (waiting?.frame !== reach.waitingFor) {
+          waiting = { frame: reach.waitingFor, since: now }
+          void load(frames[reach.waitingFor]!).catch(() => undefined)
+        }
+        if (!waiting || now - waiting.since < PLAYBACK_FRAME_WAIT_MS) nextCursor = clampPlaybackCursor(nextCursor, reach, 1)
+        if (nextCursor <= cursor()) { setGlideRate(0); return }
+      }
       batch(() => {
-        setCursor(timelineCursorAtEpoch(frames, nextEpoch))
+        setCursor(nextCursor)
         setGlideRate(playbackRate)
       })
       drawLayers()
