@@ -300,3 +300,19 @@ geen lek, het gemiddelde komt van het rendervolume (13 media per generatie, soft
 `bot/render.ts` sluit de pagina al in een `finally`, dus er is geen één-regel-fix te doen. Alleen
 `docs/telegram.md` §Rendering en cache aangevuld (≈ 4 cores × 60 s per generatie, cadans is de knop, metingen
 tijdens een generatie zijn onbetrouwbaar). De cijfers in die alinea zijn van de orkestrator, niet door mij gemeten.
+
+## 2026-10-07 22:25 — main gemerged (deel 1 staat op main als e7466e4), stap 2 klaargezet voor de PO-keuze
+
+- Orkestrator: PO bevestigt de scroll-fix op Android; branch t/m `563135b` gemerged op main als `e7466e4`.
+  Main in de branch gemerged (alleen U59-proposal/spec erbij, geen conflict).
+- Stap 2 (klokpil-jog): de `?dev`-knop Klok › Jog-schaal had alleen de schaal; nu vier standen zodat de PO
+  richting én schaal live kan kiezen: `vast` (rechts = later, 2 min/px — huidige default), `scrubber`
+  (rechts = later, 8 u over de plotbreedte), `vast-omgekeerd` en `scrubber-omgekeerd` (rechts = vroeger, zoals
+  de scrubber zelf sleept). Eigenaar/verval bijgewerkt in `docs/dev-opties.md` (vervalt bij de keuze, uiterlijk
+  bij de afsluiting van U58). Bewust klein gehouden in `Freshness.tsx`/`clock-timeline.ts` (U54 werkt in
+  App/HistogramScrubber).
+- Zelf nagemeten op 4320 (`?dev`, klokpil 60 px naar rechts gesleept, verschil in kaarttijd):
+  1280 px: vast +120 min, scrubber +62 min, vast-omgekeerd −120 min, scrubber-omgekeerd −61 min;
+  390 px: vast +120, scrubber +73, vast-omgekeerd −120, scrubber-omgekeerd −73.
+- Receipts (synchroon): `pnpm typecheck` 0; `pnpm test` 0 (455 tests); `pnpm build` 0.
+- Volgende: PO kiest → constante + knop weg; intussen stap 3 (dev-panel.spec rood op main).

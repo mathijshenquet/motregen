@@ -85,9 +85,10 @@ export default function Freshness(props: Props) {
   onCleanup(() => window.clearTimeout(resumeTimer))
 
   function jogMsPerPx(): number {
-    if (props.jogScale !== 'scrubber') return CLOCK_JOG_MS_PER_PX
+    const direction = props.jogScale?.endsWith('-omgekeerd') ? -1 : 1
+    if (!props.jogScale?.startsWith('scrubber')) return direction * CLOCK_JOG_MS_PER_PX
     const plotWidth = document.querySelector('.scrub-surface .chart-plot')?.clientWidth
-    return plotWidth ? SCRUBBER_VIEW_HOURS * HOUR_MS / plotWidth : CLOCK_JOG_MS_PER_PX
+    return direction * (plotWidth ? SCRUBBER_VIEW_HOURS * HOUR_MS / plotWidth : CLOCK_JOG_MS_PER_PX)
   }
 
   function pauseForJog(): void {

@@ -21,7 +21,7 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Wind | Lijnbreedte | dikte van de streepjes | U3 | idem |
 | Wind | Tempo | snelheid van de streepjes | U3b | idem |
 | Wind | Kopieer wind als JSON | de vier waarden naar het klembord (PO-terugkoppelweg) | U20 | blijft zolang de windknoppen er zijn |
-| Klok | Jog-schaal | slepen op de klokpil: vast 2 min/px of de schaal van de scrubber (8 u over de plotbreedte) | U56 | na PO-keuze van de schaal (dan een constante) |
+| Klok | Jog-schaal | slepen op de klokpil: vast 2 min/px of de schaal van de scrubber (8 u over de plotbreedte), elk ook omgekeerd (rechts = vroeger) | U56 / U58 | U58 stap 2: zodra de PO richting en schaal kiest (dan een constante, uiterlijk bij de afsluiting van U58) |
 | Lucht nu | strakblauw · mooie wolkenlucht · melkachtig · grijs · Mordor | tijd, klasse en gekozen locatie op 0,1° als menselijk anker voor de wolkenanalyse | U46 | na de analyse |
 | Lucht nu | Kopieer dagboek | alle lokale luchtmetingen als JSON naar het klembord | U46 | na de analyse |
 | Diagnose | Perf-HUD | meetpaneel aan/uit (ook: drie tikken op het logo) | T5 / U30 | blijft (diagnose) |

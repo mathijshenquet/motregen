@@ -98,7 +98,7 @@ export default function DevPanel(props: Props) {
       <Action label={windCopied() ? 'Gekopieerd' : 'Kopieer wind als JSON'} hint="Zet de vier windwaarden op het klembord, om terug te sturen." onClick={() => void copyWind()} />
     </Group>
     <Group title="Klok">
-      <Control label="Jog-schaal" output={props.clockJogScale} hint="Slepen op de klokpil: vast 2 minuten per pixel, of dezelfde schaal als de scrubber (8 uur over de breedte).">
+      <Control label="Jog-schaal" output={props.clockJogScale} hint="Slepen op de klokpil: vast 2 minuten per pixel, of dezelfde schaal als de scrubber (8 uur over de breedte). Omgekeerd: naar rechts is vroeger, zoals de scrubber zelf.">
         <select value={props.clockJogScale} onChange={(event) => props.onClockJogScale(event.currentTarget.value as ClockJogScale)}>
           <For each={CLOCK_JOG_SCALES}>{(scale) => <option value={scale}>{scale}</option>}</For>
         </select>
