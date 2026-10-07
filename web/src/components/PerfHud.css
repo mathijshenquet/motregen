@@ -21,7 +21,8 @@
 .perf-hud dl { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 12px; margin: 0 0 8px; }
 .perf-hud dl div { min-width: 0; }
 .perf-hud dt { color: var(--muted); font-size: 9px; }
-.perf-hud dd { margin: 1px 0 0; font-weight: 700; white-space: nowrap; }
+/* Lange meetregels (isolijnen, regen·wind) liepen over de rand; wikkelen in plaats van nowrap (PO 2026-10-07). */
+.perf-hud dd { margin: 1px 0 0; font-weight: 700; overflow-wrap: anywhere; }
 .perf-hud table { width: 100%; margin-bottom: 8px; }
 .perf-hud th, .perf-hud td { position: static; padding: 2px 3px; border: 0; background: transparent; font-size: 9px; text-align: right; text-transform: none; }
 .perf-hud th:first-child { text-align: left; }
