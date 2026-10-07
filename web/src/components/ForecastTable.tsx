@@ -67,7 +67,13 @@ export default function ForecastTable(props: Props) {
   let leaveTimer: number | undefined
   onCleanup(() => window.clearTimeout(leaveTimer))
   const hover = (mode: FocusKind, event: PointerEvent, active: boolean) => {
-    if (event.pointerType === 'touch') return
+    if (event.pointerType === 'touch') {
+      window.clearTimeout(leaveTimer)
+      const previous = hovered()
+      if (previous) props.focus.onFocus(previous, 'table', false)
+      setHovered(undefined)
+      return
+    }
     window.clearTimeout(leaveTimer)
     if (active) {
       const previous = hovered()

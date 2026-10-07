@@ -132,6 +132,9 @@ describe('forecast table headings', () => {
     const cell = document.querySelector('.air-cell')!
     fireEvent.pointerEnter(cell, { pointerType: 'mouse' })
     expect(onFocus).toHaveBeenLastCalledWith('air', 'table', true)
+    fireEvent.pointerEnter(cell, { pointerType: 'touch' })
+    expect(document.querySelector('.forecast-table')!.getAttribute('data-hover')).toBeNull()
+    expect(onFocus).toHaveBeenLastCalledWith('air', 'table', false)
   })
 
   it('pin the weather mode and keep it pinned on a second click', () => {

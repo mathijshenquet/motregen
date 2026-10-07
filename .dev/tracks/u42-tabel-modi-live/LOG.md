@@ -361,3 +361,15 @@
   `pnpm test` 59 bestanden / 385 tests groen. Build: 107 modules, `index-BrX4MYMK.js`,
   `index-DwZCoSeX.css`, PWA + workers. Preview `http://ageq-dev2:4320/` serveert de nieuwe assets.
   Geen e2e uitgevoerd vóór PO-signaal “klaar”.
+
+## 2026-10-07 11:53 UTC
+
+- Sticky kolomhover na mobiele taps was niet alleen een emulatorartefact: touchbrowsers mogen de
+  CSS-`:hover`-toestand na een tap vasthouden. Alle kop- en kolomhovervisuals vallen nu onder
+  `(hover: hover) and (pointer: fine)`. Een touch-pointer wist daarnaast expliciet een eventueel
+  eerder opgebouwde `data-hover`/focus-mode, terwijl `aria-pressed` voor de echte selectie gelijk
+  blijft. De componenttest dekt het wissen van hoverstate door touch.
+- Synchrone receipts: `git diff --check`, `pnpm typecheck` en `pnpm build` exit 0; volledige
+  `pnpm test` 59 bestanden / 385 tests groen. Build: 107 modules, `index-BnMd4Cvt.js`,
+  `index-BCs1V726.css`, PWA + workers. Preview `http://ageq-dev2:4320/` serveert de nieuwe assets.
+  Geen e2e uitgevoerd vóór PO-signaal “klaar”.
