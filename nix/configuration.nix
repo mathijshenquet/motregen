@@ -61,4 +61,5 @@
   };
 
   services.motregen.enable = true;
+  services.motregen.bot.enable = true;
 }
