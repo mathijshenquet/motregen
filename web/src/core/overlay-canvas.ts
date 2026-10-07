@@ -20,6 +20,7 @@ export class LayerOverlay {
   private delay?: number
   private drawnAt = -Infinity
   private drawnCamera = ''
+  private manual = false
   private readonly afterDraw: Array<() => void> = []
   private readonly mapRendered = () => { if (this.camera() !== this.drawnCamera) this.draw() }
   private readonly resized = () => this.draw()
@@ -45,6 +46,7 @@ export class LayerOverlay {
   }
 
   triggerRepaint(): void {
+    if (this.manual) return
     if (this.frame !== undefined || this.delay !== undefined) return
     // Te vroeg voor maxFps: wachten met een timer i.p.v. lege rAF-ticks, die de refresh driver
     // op 120 Hz laten draaien (PO-heropname). Vier ms speling voor de vsync-fase.
@@ -63,6 +65,17 @@ export class LayerOverlay {
   once(callback: () => void): void {
     this.afterDraw.push(callback)
     this.triggerRepaint()
+  }
+
+  pause(): void {
+    this.manual = true
+    if (this.frame !== undefined) cancelAnimationFrame(this.frame)
+    window.clearTimeout(this.delay)
+    this.frame = this.delay = undefined
+  }
+
+  drawNow(): void {
+    this.draw()
   }
 
   remove(): void {

@@ -1,15 +1,20 @@
-import type { TelegramApi, TelegramMessage, TelegramUpdate } from './api.js'
+import { TelegramApiError, type TelegramApi, type TelegramMessage, type TelegramUpdate } from './api.js'
 import type { BotConfig } from './config.js'
-import type { RenderedStill, StillRenderer } from './render.js'
-import { cacheKey, keyboard, matchingModes, parseCallback, STILL_MODES, type StillManifest, type StillSelection } from './stills.js'
+import type { RenderedMedia, StillRenderer } from './render.js'
+import type { StillPhotos } from './photos.js'
+import type { MessageSelections } from './selections.js'
+import { cacheKey, keyboard, matchingModes, parseCallback, LOOP_MODES, STILL_MODES, STILL_MINUTES, type MediaSelection, type StillManifest } from './stills.js'
 
 export interface BotRuntime {
   api: TelegramApi
   config: BotConfig
   renderer: StillRenderer
+  photos: StillPhotos
+  selections: MessageSelections
   username: string
   currentManifest(): Promise<StillManifest>
-  availableStill(selection: StillSelection): RenderedStill | undefined
+  manifestForGeneration?(generated: number): StillManifest | undefined
+  availableStill(selection: MediaSelection): RenderedMedia | undefined
 }
 
 /** Alleen voor een poke-test door de PO: logt wat één opgegeven chat doet. Nooit in productie gezet. */
@@ -36,7 +41,15 @@ export async function handleUpdate(update: TelegramUpdate, runtime: BotRuntime):
     await handleInline(update.inline_query, runtime)
     return
   }
-  if (update.message?.text) await handleCommand(update.message, runtime)
+  if (update.message?.text) {
+    try {
+      await handleCommand(update.message, runtime)
+    } catch (error) {
+      if (!(error instanceof TelegramApiError) || !error.invalidFile) throw error
+      await runtime.api.call('sendMessage', { chat_id: update.message.chat.id, text: 'Beeld kon niet laden, probeer opnieuw' })
+      console.info(JSON.stringify({ event: 'media-unavailable', description: error.description }))
+    }
+  }
 }
 
 async function handleCommand(message: TelegramMessage, runtime: BotRuntime): Promise<void> {
@@ -51,66 +64,135 @@ async function handleCommand(message: TelegramMessage, runtime: BotRuntime): Pro
     const useLaunch = message.chat.type === 'private' && runtime.config.origin.startsWith('https:')
     await runtime.api.call('sendMessage', {
       chat_id: message.chat.id,
-      text: 'Regen en weer voor Nederland en Vlaanderen. Open de app voor jouw plek, of gebruik /regen, /lucht, /gevoel en /wind voor een weerkaart. Inline: @' + runtime.username + ' wind.',
+      text: 'motregen.nl -- Regenradar en Weersverwachting\n/regen, /lucht en /gevoel geven een kaart. /loop regen, /loop lucht, /loop gevoel en /wind geven een bewegende kaart. Open de app voor jouw plek. Inline: @' + runtime.username + ' regen.',
       reply_markup: { inline_keyboard: [[useLaunch ? launch : link]] },
     })
     return
   }
-  const definition = STILL_MODES.find((entry) => entry.command === command)
+  const argument = (message.text ?? '').trim().split(/\s+/).slice(1).join(' ')
+  const mode = command === 'loop' ? matchingModes(argument)[0] : LOOP_MODES.find((entry) => entry.command === command)?.mode
+  const definition = LOOP_MODES.find((entry) => entry.mode === mode)
   if (!definition) return
   const manifest = await runtime.currentManifest()
-  const selection: StillSelection = { mode: definition.mode, hour: 0 }
+  const selection: MediaSelection = command === 'loop' || definition.mode === 'wind' ? { mode: definition.mode, hour: 'loop' } : { mode: definition.mode, hour: 0 }
   const still = await runtime.renderer.render(selection, manifest)
-  const reply = await runtime.api.uploadPhoto({
+  const reply = await runtime.photos.send(still, {
     chat_id: message.chat.id,
     caption: still.caption,
-    reply_markup: keyboard(selection, still.epoch, runtime.config.origin, runtime.username, message.chat.type === 'private'),
-  }, still.path)
+    reply_markup: keyboard(selection, still.epoch, still.generated),
+  })
+  runtime.selections.remember(`chat:${message.chat.id}:${reply.message_id}`, still.key)
   console.info(JSON.stringify({ event: 'chat-still', messageId: reply.message_id, milliseconds: still.milliseconds, cached: still.cached }))
 }
 
 async function handleInline(query: NonNullable<TelegramUpdate['inline_query']>, runtime: BotRuntime): Promise<void> {
   const results = []
-  for (const mode of matchingModes(query.query)) {
-    const selection: StillSelection = { mode, hour: 0 }
+  const loopsOnly = /^loop(?:\s|$)/i.test(query.query.trim())
+  const filter = loopsOnly ? query.query.trim().replace(/^loop\s*/i, '') : query.query
+  for (const mode of matchingModes(filter)) {
+    const loopSelection: MediaSelection = { mode, hour: 'loop' }
+    const loop = runtime.availableStill(loopSelection)
+    const loopFileId = loop ? await runtime.photos.fileIds.get(loop) : undefined
+    const definition = LOOP_MODES.find((entry) => entry.mode === mode)!
+    if (loop && loopFileId) results.push({
+      type: 'mpeg4_gif', id: loop.key, mpeg4_file_id: loopFileId,
+      title: `${definition.label} · Loop`, caption: loop.caption,
+      parse_mode: 'HTML',
+      reply_markup: keyboard(loopSelection, loop.epoch, loop.generated),
+    })
+    if (loopsOnly || mode === 'wind') continue
+    const selection: MediaSelection = { mode, hour: 0 }
     const still = runtime.availableStill(selection)
     if (!still) continue
-    const definition = STILL_MODES.find((entry) => entry.mode === mode)!
+    const fileId = await runtime.photos.fileIds.get(still)
+    if (!fileId && !runtime.config.origin.startsWith('https:')) continue
     results.push({
       type: 'photo',
-      id: new URL(still.url).pathname.split('/').at(-1)!.replace('.jpg', ''),
-      photo_url: still.url,
-      thumbnail_url: still.url,
-      photo_width: 1800,
-      photo_height: 2400,
+      id: still.key,
+      ...(fileId ? { photo_file_id: fileId } : { photo_url: still.url, thumbnail_url: still.url, photo_width: 960, photo_height: 1272 }),
       title: definition.label,
-      description: still.caption,
+      description: definition.label,
       caption: still.caption,
-      reply_markup: keyboard(selection, still.epoch, runtime.config.origin, runtime.username),
+      parse_mode: 'HTML',
+      reply_markup: keyboard(selection, still.epoch, still.generated),
     })
   }
   await runtime.api.call('answerInlineQuery', { inline_query_id: query.id, results, cache_time: 5 })
 }
 
 async function handleCallback(query: NonNullable<TelegramUpdate['callback_query']>, runtime: BotRuntime): Promise<void> {
-  const selection = parseCallback(query.data)
-  await runtime.api.call('answerCallbackQuery', { callback_query_id: query.id, text: selection ? undefined : 'Deze knop is niet meer geldig.' })
-  if (!selection || (!query.inline_message_id && !query.message)) return
-  const manifest = await runtime.currentManifest()
-  const still = await runtime.renderer.render(selection, manifest)
-  const markup = keyboard(selection, still.epoch, runtime.config.origin, runtime.username, !query.inline_message_id && query.message?.chat.type === 'private')
-  const media = { type: 'photo', media: query.inline_message_id ? still.url : 'attach://photo', caption: still.caption }
-  if (query.inline_message_id) {
-    await runtime.api.call('editMessageMedia', { inline_message_id: query.inline_message_id, media, reply_markup: markup })
-  } else {
-    await runtime.api.upload('editMessageMedia', {
-      chat_id: query.message!.chat.id,
-      message_id: query.message!.message_id,
-      media,
-      reply_markup: markup,
-    }, still.path)
+  const started = performance.now()
+  const requested = parseCallback(query.data)
+  if (!requested || (!query.inline_message_id && !query.message)) {
+    await answerCallback(runtime, query.id, 'Verlopen, stuur /regen opnieuw')
+    return
   }
-  console.info(JSON.stringify({ event: 'still-edit', mode: selection.mode, hour: selection.hour, milliseconds: still.milliseconds, cached: still.cached, key: cacheKey(selection, manifest) }))
+  const message = query.inline_message_id ? `inline:${query.inline_message_id}` : `chat:${query.message!.chat.id}:${query.message!.message_id}`
+  if (runtime.selections.has(message, 'expired')) {
+    await answerCallback(runtime, query.id, 'Verlopen, stuur /regen opnieuw')
+    return
+  }
+  const current = await runtime.currentManifest()
+  const manifest = requested.generated === undefined || requested.generated === Date.parse(current.generated) ? current : runtime.manifestForGeneration?.(requested.generated)
+  if (!manifest) {
+    await answerCallback(runtime, query.id, 'Verlopen, stuur /regen opnieuw')
+    return
+  }
+  let selection: MediaSelection
+  if (requested.hour === 'at') {
+    const minute = Math.round((requested.epoch - Date.parse(manifest.now)) / 60_000)
+    if (!STILL_MINUTES.includes(minute)) {
+      await answerCallback(runtime, query.id, 'Verlopen, stuur /regen opnieuw')
+      return
+    }
+    selection = { mode: requested.mode, hour: minute / 60 }
+  } else if (requested.hour === 'loop') selection = { mode: requested.mode, hour: 'loop' }
+  else selection = { mode: requested.mode, hour: requested.hour }
+  const key = cacheKey(selection, manifest)
+  if (runtime.selections.has(message, key)) {
+    await answerCallback(runtime, query.id, 'Al in beeld')
+    console.info(JSON.stringify({ event: 'still-no-op', mode: selection.mode, hour: selection.hour }))
+    return
+  }
+  const target = query.inline_message_id ? { inline_message_id: query.inline_message_id } : {
+    chat_id: query.message!.chat.id,
+    message_id: query.message!.message_id,
+  }
+  try {
+    const still = await runtime.renderer.render(selection, manifest)
+    const result = await runtime.photos.edit(still, {
+      ...target,
+      reply_markup: keyboard(selection, still.epoch, still.generated),
+    })
+    runtime.selections.remember(message, key)
+    await answerCallback(runtime, query.id)
+    console.info(JSON.stringify({ event: 'still-edit', mode: selection.mode, hour: selection.hour, milliseconds: still.milliseconds, callbackMs: Math.round(performance.now() - started), cached: still.cached, fileIdCached: result.fileIdCached, key }))
+  } catch (error) {
+    if (error instanceof TelegramApiError && error.messageUnavailable) {
+      runtime.selections.remember(message, 'expired')
+      await answerCallback(runtime, query.id, 'Verlopen, stuur /regen opnieuw')
+      console.info(JSON.stringify({ event: 'message-expired', mode: selection.mode, description: error.description }))
+    } else if (error instanceof TelegramApiError && error.notModified) {
+      runtime.selections.remember(message, key)
+      await answerCallback(runtime, query.id, 'Al in beeld')
+      console.info(JSON.stringify({ event: 'still-no-op', mode: selection.mode, hour: selection.hour }))
+    } else if (error instanceof TelegramApiError && error.invalidFile) {
+      await answerCallback(runtime, query.id, 'Beeld kon niet laden, probeer opnieuw')
+      console.info(JSON.stringify({ event: 'media-unavailable', mode: selection.mode, description: error.description }))
+    } else {
+      await answerCallback(runtime, query.id)
+      throw error
+    }
+  }
+}
+
+async function answerCallback(runtime: BotRuntime, id: string, text?: string): Promise<void> {
+  try {
+    await runtime.api.call('answerCallbackQuery', { callback_query_id: id, text })
+  } catch (error) {
+    if (!(error instanceof TelegramApiError) || !error.callbackExpired) throw error
+    console.info(JSON.stringify({ event: 'callback-expired', description: error.description }))
+  }
 }
 
 export async function configureBot(runtime: BotRuntime): Promise<void> {
@@ -122,6 +204,8 @@ export async function configureBot(runtime: BotRuntime): Promise<void> {
     commands: [
       { command: 'start', description: 'Open de motregen Mini App' },
       ...STILL_MODES.map((entry) => ({ command: entry.command, description: entry.label })),
+      { command: 'wind', description: 'Wind als bewegende kaart' },
+      { command: 'loop', description: 'Bewegende kaart: regen, lucht, gevoel of wind' },
     ],
   })
 }

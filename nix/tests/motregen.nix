@@ -9,11 +9,14 @@
       botPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-bot;
       botTestProgram = pkgs.writeText "motregen-bot-test.mjs" ''
         import { setTimeout as delay } from 'node:timers/promises';
+        import { execFileSync } from 'node:child_process';
         import { readConfig } from '${botPackage}/lib/motregen-bot/dist/bot/config.js';
         import { chromium } from '${botPackage}/lib/motregen-bot/node_modules/playwright/index.mjs';
         readConfig();
         const browser = await chromium.launch({ executablePath: process.env.MOTREGEN_CHROMIUM_PATH, args: ['--use-angle=swiftshader'] });
         await browser.close();
+        execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'color=size=32x48:rate=4:duration=1', '-c:v', 'libx264', '-threads', '1', '-pix_fmt', 'yuv420p', '-an', '-y', '/var/cache/motregen-bot/probe.mp4']);
+        console.info('bot-test-ffmpeg-ready');
         console.info('bot-test-chromium-ready');
         await delay(3_600_000);
       '';
@@ -81,6 +84,7 @@
     machine.wait_for_unit("motregen-bot.service")
     machine.succeed("systemctl is-active motregen-ingest.service caddy.service motregen-bot.service")
     machine.wait_until_succeeds("journalctl -u motregen-bot --no-pager | grep -F bot-test-chromium-ready", timeout=60)
+    machine.wait_until_succeeds("journalctl -u motregen-bot --no-pager | grep -F bot-test-ffmpeg-ready", timeout=60)
     machine.fail("ss -H -lnt | grep -F ':8090'")
 
     validation_status = machine.succeed("curl -sS -X POST --output /dev/null --write-out '%{http_code}' http://localhost/telegram/validate")
@@ -94,6 +98,14 @@
     assert "x-robots-tag: noindex" in still_headers, still_headers
     missing_still = machine.succeed("curl -sS -D - -o /dev/null http://localhost/telegram/stills/missing.jpg").lower()
     assert "404" in missing_still, missing_still
+    machine.succeed("cp /var/cache/motregen-bot/probe.mp4 /var/cache/motregen-bot/stills/test.mp4; printf private > /var/cache/motregen-bot/stills/test.jpg.file-id.json")
+    loop_headers = machine.succeed("curl -sS -D - -o /dev/null http://localhost/telegram/stills/test.mp4").lower()
+    assert "200 ok" in loop_headers, loop_headers
+    assert "content-type: video/mp4" in loop_headers, loop_headers
+    assert "cache-control: public, max-age=7200, immutable" in loop_headers, loop_headers
+    assert "x-robots-tag: noindex" in loop_headers, loop_headers
+    private_sidecar = machine.succeed("curl -sS -o /dev/null -w '%{http_code}' http://localhost/telegram/stills/test.jpg.file-id.json")
+    assert private_sidecar == "404", private_sidecar
 
     manifest_headers = machine.succeed(
       "curl --silent --show-error --dump-header - --output /tmp/manifest http://localhost/data/manifest.json"
