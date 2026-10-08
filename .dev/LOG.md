@@ -237,6 +237,12 @@
   poller (CPUQuota 25 %, MemoryMax 256 M). Gate: 84 bot-tests, typecheck, build, flake. Uitrol: lokale
   combined-bot gestopt, renderer vanaf main op ageq-dev2 tegen motregen.nl gestart; VM-deploy naar
   poller volgt zodra het eerste register staat.
+- **Bot-rollen live** (17:45): renderer op ageq-dev2 (main, nice 15, tegen motregen.nl): generatie 13:57Z
+  = 173 media, render 53 s + prime 127 s = 179 s (budget 210 s, krap); register gepind. VM gedeployed
+  naar poller-rol (`bot-started role=poller`, `register-refreshed 13:57Z`), runtime-overrides verwijderd
+  zodat nix-grenzen gelden; web 0,16 s. U67-workspace gesloten. Renderer draait als achtergrondshell van
+  deze sessie (log `~/motregen-telegram-cache/renderer-main.log`) — bij sessie-herstart opnieuw starten
+  of als user-unit (open: nix-renderer-unit op ageq-dev2).
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
