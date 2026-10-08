@@ -249,6 +249,11 @@
   (PO kiest nog; B "clean"), splash-proef verwijderd. Gate 506 unit, 23+10 e2e, build; 4330 herbouwd.
   U62 nu op: regen-blending in Wind/Lucht (PO-screenshots in zijn trackmap, ?dev-varianten). U63: z4 op
   de hoofdlijn, preview 4340 voor de PO-telefoon. U64: shaders-van-hoofddraad −17 % ttfr gepaard, LH-paren.
+- **U64 gemerged** (ff19077f, 20:50; 10,7 u lus, gpt-6.1-sol): vroege stijl/font/manifest-aanvragen, lazy
+  modules, map-start-helper; gepaard op main: koud ttfr −33 % (−571 ms)/ttfp −8 %, warm −14 %/−4,5 %, alle
+  zes paren positief; shader-, GPU-worker- en manifest-SWR-proeven afgewezen; LH 63→62 (TBT/SI blijven).
+  Gate 511 unit, 32+9 e2e, build; 4330 herbouwd. U63 merged main; meldt "klaar voor merge" met z4 + cijfers.
+  U63-proef kaart-eerst: ttfr −1,2 s maar ttfp +1,6 s → CPU-gebonden, werk verschuift; niet op hoofdlijn.
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
