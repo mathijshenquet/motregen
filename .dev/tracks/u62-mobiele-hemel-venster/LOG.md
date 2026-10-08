@@ -210,3 +210,37 @@ Leerpunt: `pkill -f <naam>` in een opdracht die die naam ook elders bevat doodt 
   sky-window table dev-panel freshness presets`: 18 groen / 1 rood (dev-panel: het filter `hasText: 'Wind'`
   ving ook de nieuwe groep Mobiel) → locator op de groepstitel → `dev-panel.spec` 0 (2 groen, incl. de
   nieuwe telefoontest) · mobile-4g `cloud-section sky-window table` 0 (7 groen, 1 overgeslagen).
+
+## 14:10 — laagvarianten scrubber onder de perf-lock (po-android, 3 ronden door elkaar): NIETS overgenomen
+`rig/run-perf.sh` → `rig/paint-cost.ts`, touch-sleep ~7 uur op 390 px, renderer-cgroup 40 %. ms per frame,
+drie ronden en mediaan. Ronde 1 op de build van vóór de merge met main, ronde 2–3 erna (U57 raakt de
+scrubber niet).
+| variant | Layerize (r1/r2/r3 → med) | Paint | PrePaint | Commit | Raster | RunTask totaal (med) | frame p95 | LoAF |
+| nu | 2,06 / 2,02 / 1,78 → 2,02 | 0,39 | 0,15 | 0,54 | 0,18 | 14,7 / 11,6 / 10,6 → 11,6 | 33 / 17 / 17 | 2 / 3 / 3 |
+| `.scrub-surface { contain: paint }` | 0,76 / 0,84 / 0,79 → 0,79 | 0,55 | 0,22 | 0,72 | 0,23 | 15,0 / 13,3 / 12,8 → 13,3 | 33 / 17 / 17 | 3 / 5 / 3 |
+| `.chart-track { will-change: auto }` | 2,26 / 1,94 / 2,22 → 2,22 | 0,54 | 0,21 | 0,72 | 0,20 | 17,1 / 10,6 / 14,5 → 14,5 | 33 / 17 / 33 | 6 / 1 / 0 |
+- `contain: paint` verlaagt Layerize met 61 % (−1,2 ms/frame), herhaalbaar; Paint, PrePaint en Commit
+  stijgen samen +0,4 ms. Op frameniveau is er niets te zien: p95 gelijk, lange frames niet minder, totaal
+  hoofddraadwerk niet lager. Plus een (onzichtbaar maar niet-nul) pixelverschil op 390 px.
+  Besluit volgens de opdracht "winnaar alleen als hij meetbaar beter is": niet overgenomen.
+- `will-change` weghalen maakt niets beter; de bestaande laag blijft.
+- Blokken van 6 uur niet gebouwd: wat ze kunnen besparen is Paint + raster ≈ 0,57 ms van 11,6 ms per frame.
+- Kanttekening bij de betrouwbaarheid: elke run startte onder loadavg 8, maar de host liep tijdens de
+  meeste runs op tot 8–17 (andere tracks). De Layerize-verhouding is daar ongevoelig voor; p95, LoAF en
+  RunTask-totaal zijn dat niet (de contain-runs troffen telkens de hogere load).
+
+## 14:20 — stap 4: frametijd wind uit vs meer (po-android, onder de lock)
+`rig/wind-frames.ts`: 25 s laten laden, daarna 20 s afspelen in Weer; eigen rig in plaats van het
+soepel-scenario van `perf:mobile`, omdat een extra scenario in `perf/scenarios.json` het contract van de
+bestaande baselines verandert. Drie geldige runs per niveau (vier runs vielen af op de eigen load-check ≥ 8).
+| niveau | frames | gemiddeld | p50 | p95 | max | frames > 34 ms | LoAF |
+| uit | 1192 / 1187 / 1193 | 16,8 / 16,9 / 16,8 | 16,7 | 16,8 / 16,7 / 16,8 | 67 / 117 / 50 | 3 / 3 / 2 | 0 / 3 / 0 |
+| meer | 1197 / 1190 / 1188 | 16,7 / 16,8 / 16,8 | 16,7 | 16,7 / 16,8 / 16,8 | 50 / 67 / 50 | 1 / 1 / 4 | 0 / 0 / 0 |
+Geen stijging. Grens van de meting: de rig tekent met SwiftShader, geen telefoon-GPU; bredere lijnen
+kosten vulwerk op de GPU dat hier niet zichtbaar wordt. De PO-telefoon is de echte toets.
+
+## Open
+- MET PO: stap 2 op Firefox Android; stap 3 (donkere koppenrij 's nachts, klokpil wit/mee-tinten);
+  stap 4 niveau kiezen op de telefoon (`?dev` → Mobiel → Windstreepjes) en letten op haperen.
+- VOOR AGENT: na de PO-keuzes de dev-knoppen Klokpil en Windstreepjes vastzetten of weghalen
+  (docs/dev-opties.md); eventueel donker randje boven zee als "meer" niet volstaat.
