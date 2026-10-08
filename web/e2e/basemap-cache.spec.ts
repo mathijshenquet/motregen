@@ -24,7 +24,7 @@ for (const width of [390, 1280]) {
       basemapDurationsMs: window.__motregenPerf.traceSlice().measures.filter(entry => entry.phase === 'basemap-tile').map(entry => entry.duration),
     }))
     await page.evaluate(async () => { await navigator.serviceWorker.ready })
-    await page.goto(page.url())
+    await page.reload()
     await page.waitForFunction(() => navigator.serviceWorker.controller !== null)
     await expect(page.locator('.map-splash.ready')).toBeAttached()
     await expect.poll(() => page.evaluate(async () => (await (await caches.open('motregen-basemap-ranges-v1')).keys()).length)).toBeGreaterThan(1).catch(async (error) => {
@@ -43,7 +43,7 @@ for (const width of [390, 1280]) {
       if (response.url().endsWith('.pmtiles')) ranges.push({ status: response.status(), cached: response.fromServiceWorker() })
     })
     await cdp.send('Network.clearBrowserCache')
-    await page.goto(page.url())
+    await page.reload()
     await expect(page.locator('.map-splash.ready')).toBeAttached()
     await page.waitForTimeout(1_000)
     const warm = await page.evaluate(() => ({

@@ -40,7 +40,10 @@ try {
         await page.goto(`${origin}${pathname}?${query}`)
         await page.waitForFunction(() => window.__motregenPerf?.snapshot().ttfpMs != null)
         await page.evaluate(async () => { await navigator.serviceWorker.ready })
+        await page.reload()
         await page.waitForFunction(() => navigator.serviceWorker.controller !== null)
+        await page.waitForFunction(() => window.__motregenPerf?.snapshot().basemapReadyMs != null)
+        await page.waitForFunction(async () => (await (await caches.open('motregen-basemap-ranges-v1')).keys()).length > 1)
         await page.waitForTimeout(2_000)
       }
       const requests: Array<Record<string, unknown>> = []
@@ -49,12 +52,12 @@ try {
         const response = await request.response()
         const timing = request.timing()
         const sizes = await request.sizes()
-        requests.push({ url: request.url(), range: request.headers().range ?? null, ...timing, ...sizes, status: response?.status(), fromServiceWorker: response?.fromServiceWorker() ?? false })
+        requests.push({ url: request.url(), range: request.headers().range ?? null, ...timing, ...sizes, status: response?.status(), fromServiceWorker: response?.fromServiceWorker() ?? false, serviceWorkerRequest: request.serviceWorker() !== null })
       }
-      page.on('requestfinished', (request) => { pending.push(record(request)) })
+      context.on('requestfinished', (request) => { pending.push(record(request)) })
       const cdp = await context.newCDPSession(page)
       await cdp.send('Network.enable')
-      await cdp.send('Network.setCacheDisabled', { cacheDisabled: !warm })
+      await cdp.send('Network.setCacheDisabled', { cacheDisabled: true })
       const events: unknown[] = []
       cdp.on('Tracing.dataCollected', (chunk) => events.push(...chunk.value))
       await cdp.send('Tracing.start', { categories: 'devtools.timeline,disabled-by-default-devtools.timeline,disabled-by-default-v8.compile,v8,blink.user_timing,loading', transferMode: 'ReportEvents' })
