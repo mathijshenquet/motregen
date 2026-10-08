@@ -55,3 +55,26 @@ afbeeldingscache heb ik daarom niet gebouwd; zie open punt A1.
   kost decodes (U49-budget) — niet gedaan.
 - Stap 2 (tabelrijen tweenen niet bij handmatig seeken), stap 3 (contextgevoelig chrome), stap 4
   (windstreepjes mobiel): nog te doen, in die volgorde.
+
+## 08:45 — stap 1 gecommit (4e0094e), gepusht, draft-PR #89
+https://github.com/mathijshenquet/motregen/pull/89. Preview 4320 serveert deze build.
+
+## 09:10 — stap 2 (tabelpiep tweent niet bij handmatig seeken): NIET gereproduceerd
+Rig `rig/table-follow.ts` (390 px, touch; args: baseURL label stappen cpu-rem): legt per frame de scrollTop
+van `.table-scroll` vast en elke `scrollTo` met gedrag, bij afspelen en bij een touch-sleep van ~3,5 uur.
+| build | sleep | scrollTo bij seek | verloop per uurstap |
+| main 9289cd6 | 4,8 s, CPU 1× | 4× smooth (+5× auto zonder verplaatsing) | 8 posities, ~130 ms |
+| main | 1,2 s, CPU 4× | idem | 8 posities |
+| main | 0,5 s, CPU 4× | 4× smooth (+4× auto) | 7–8 posities |
+| fix 4e0094e | 1,2 s / 0,5 s, CPU 4× | idem | 7–8 posities |
+Afspelen in dezelfde runs: 1× smooth, 8 posities. Code: afspelen en seeken lopen door hetzelfde effect
+(`tablePreviewEpoch` → `queueTablePreview(…, 'smooth')`); er is geen aparte afspeeltik. De `auto`-aanroepen
+komen van `scrollend`/ResizeObserver (`correct`) en verplaatsen in de rig niets.
+Kandidaat-oorzaken die de rig niet kan uitsluiten: (a) Android Chrome behandelt een programmatische
+smooth-scroll anders terwijl er een vinger op het scherm ligt; (b) `correct` (auto) valt op het toestel
+midden in een lopende tween wanneer rijen bijladen en de tabel van hoogte verandert.
+Niet blind omgebouwd. Voorstel als de PO het bevestigt: eigen tween op gecachte rij-offsets (één meting
+per tabel-layout via de bestaande ResizeObserver, daarna geen layout-reads per uurstap), waardoor seeken
+en afspelen per constructie gelijk zijn en `correct` een lopende tween niet meer kan afkappen.
+Vraag aan de PO: welk gebaar (slepen met vinger erop, fling na loslaten, of tik) en springt de rij dan
+in één keer of blijft hij staan tot je loslaat?
