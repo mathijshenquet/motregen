@@ -48,17 +48,32 @@ wordt tegen dezelfde U62-startsituatie gemeten.
 | kandidaat, verschil binnen A/B-paren | koud ttfr / ttfp | warm ttfr / ttfp | paren koud / warm |
 | --- | --- | --- | --- |
 | volledige regen/windshaderbatch | +7,17% / −14,66% | +1,98% / +0,064% | 3 / 3; afgewezen |
-| alleen regenshaders | −7,95% / +0,93% | pending | 3 / 0; besluit wacht op warm |
-| GPU-worker op regenvariant | pending | pending | 0 / 0 |
-| manifest-SWR op regenvariant | pending | pending | 0 / 0 |
-| totale U64 versus main | pending | pending | 0 / 0 |
+| alleen regenshaders | −7,95% / +0,93% | +12,81% / +23,81% | 3 / 3; afgewezen |
+| GPU-worker zonder shaderwijziging | pending | pending | 0 / 0 |
+| manifest-SWR zonder shaderwijziging | pending | pending | 0 / 0 |
+| totale U64 zonder shaders versus main | pending | −17,16% / −1,75% | 0 / 3 |
 
 Medianen van verschillen binnen paren, geen absolute baseline. Regen-only
 koud heeft deltas +115,9 / −531,0 / −101,0 ms ttfr en +129,9 / −240,7 /
 +7,3 ms ttfp. Het tweede paar heeft startload 15,86/14,20 en gemiddelde
 opnameload 15,85/13,62; de grote winst is daardoor onzeker. Het derde paar
-heeft vrijwel gelijke opnameload 15,52/15,67 en ttfr −101 ms. Warm en
-de totale vergelijking met main volgen vóór een behoudsbesluit.
+heeft vrijwel gelijke opnameload 15,52/15,67 en ttfr −101 ms. Warm geeft
+deltas −3,2 / +168,5 / +347,8 ms ttfr en −40,1 / +176,7 / +224,1 ms ttfp.
+Daarom is ook regencompile teruggezet naar main en is de helper verwijderd.
+De GPU-/manifestproeven zijn opnieuw gebouwd zonder shaderwijziging;
+de totale U64-versus-mainvergelijking begint met warm ×3.
+
+Warm main→U64 geeft ttfr 1253,6→1240,4 / 1499,6→1242,3 /
+1790,6→1091,6 ms, ttfp 737,4→808,9 / 786,4→772,6 / 926,3→746,1 ms.
+De mediaan van de drie gepaarde verschillen is −257,3 ms ttfr en −13,8 ms
+ttfp. Startloads A/B zijn 14,58/14,77;15,56/14,57;13,04/14,91.
+Volledige post-ttfp LoAF-maxima A/B: 431,9/368,1;514,3/435,9;526,0/440,2 ms;
+grote frames blijven aanwezig. Warm pair1-serverlogs hebben aan beide kanten
+slechts manifest200 (36.513 bodybytes) en SW304; geen kaart-, font-, JS-,
+plaatsen- of weer-Ranges-netwerk. Font en manifest starten vroeger in U64,
+maar het eerste regenframe kan nog later komen; koud ×3 volgt vóór de
+definitieve beoordeling. De drie warme main-opnames zijn referenties voor
+deze paarvergelijking, geen absolute ≤8-baseline voor docs/perf.md.
 
 De nieuwe, ongewijzigde main-referentie heeft 424.978 B gzip hoofd-JS;
 U64 na merge, vóór shaderbatching: 411.280 B; met shaderbatching: 411.362 B.
@@ -108,13 +123,13 @@ decode-/byteaantallen ervan leveren geen baseline of snelheidsvergelijking.
 De volledige shaderbatch is afgewezen: de mediaan van drie koude paren
 verslechtert ttfr met 80,3 ms (+7,17%), terwijl ttfp 136,9 ms (14,66%) verbetert.
 Warm geeft mediaan ttfr +21,8 ms (+1,98%), ttfp +0,5 ms (+0,064%).
-Wind is daarom teruggezet naar main. De nieuwe kandidaat compileert alleen
-beide regenshaders vóór de linkquery; koud en warm ×3 zijn pending.
+Wind is daarom teruggezet naar main. De afzonderlijke regencandidate liet
+ook warm regressie zien en is eveneens teruggedraaid.
 Shaderbronnen en tekenvolgorde blijven gelijk; linkfouten houden hun logs en
 ruimen resources op. Dit volgt de algemene
 [Khronos-best practice](https://registry.khronos.org/webgl/extensions/KHR_parallel_shader_compile/),
 zonder de extensie te vereisen. Verwachte winst is minder geserialiseerd
-GPU-wachten; behoud van de regenvariant hangt af van ttfr/ttfp.
+GPU-wachten; de gepaarde ttfr/ttfp-meting rechtvaardigt hier geen behoud.
 
 | volledige shaderbatch | koud ttfr / ttfp: verschil B−A | warm ttfr / ttfp: verschil B−A |
 | --- | --- | --- |
@@ -135,10 +150,16 @@ gevulde caches werken; GPU-initialisatie in een verse browser blijft relevant.
 De manifestheader in de rig is daarna afgestemd op productie: sessionmanifest
 `?s=1` krijgt `no-store`, zodat nieuwe A/B-paren dezelfde verse aanvraag doen.
 
-De regenvariant heeft 411.429 B gzip hoofd-JS, 2.573 B HTML-gzip;
+De historische regenvariant heeft 411.429 B gzip hoofd-JS, 2.573 B HTML-gzip;
 met GPU-worker 3.197 B HTML-gzip. Alle drie nieuwe frozen builds,
 typecheck, 511 units en vijf gerichte desktop-e2e zijn geslaagd; één bestaande
 windzoom-fixme blijft overgeslagen. GPU- en manifestproef blijven standaard uit.
+Na terugdraaien heeft de control-build weer 411.280 B gzip hoofd-JS;
+JS, HTML en SW zijn bytegelijk aan de frozen vóór-shaders-build.
+De nieuwe GPU-/manifestbuilds gebruiken diezelfde JS, met respectievelijk
+3.197 / 2.573 B HTML-gzip. Typecheck, 511 units en de drie builds zijn groen.
+Een enkel voltooid GPU-paar op de afgewezen regenbasis blijft historisch
+(ttfr −46,3 ms, ttfp +50,3 ms) en telt niet bij de nieuwe proef mee.
 
 Een offline functiediagnose van de U65-volgordecapture, met ook MapLibre's
 eigen sourcemap, toont 141 self-samples in diens programmaconstructor:

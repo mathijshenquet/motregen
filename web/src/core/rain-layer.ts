@@ -4,7 +4,6 @@ import type { Grid } from './contract'
 import type { MotionField } from './mrf'
 import { measurePerfPhase } from './perf'
 import { rainColormap } from './rain-chart'
-import { linkProgram } from './gl-program'
 
 export { rainColormap }
 
@@ -115,7 +114,7 @@ export class RainLayer implements CustomLayerInterface {
     const gl = context as WebGL2RenderingContext
     this.gl = gl
     this.leftData = this.rightData = this.motionData = undefined
-    this.program = linkProgram(gl, vertexSource, fragmentSource)
+    this.program = link(gl, vertexSource, fragmentSource)
     this.buffer = gl.createBuffer()!
     const west = this.grid.x0
     const east = west + this.grid.dx * this.grid.width
@@ -236,6 +235,19 @@ function uploadMotion(gl: WebGL2RenderingContext, target: WebGLTexture, maskTarg
   gl.activeTexture(gl.TEXTURE4)
   gl.bindTexture(gl.TEXTURE_2D, maskTarget)
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, motion.width, motion.height, 0, gl.RED, gl.UNSIGNED_BYTE, encoded.mask)
+}
+
+function link(gl: WebGL2RenderingContext, vertex: string, fragment: string): WebGLProgram {
+  const compile = (type: number, source: string) => {
+    const shader = gl.createShader(type)!
+    gl.shaderSource(shader, source); gl.compileShader(shader)
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader) ?? 'Shaderfout')
+    return shader
+  }
+  const program = gl.createProgram()!
+  gl.attachShader(program, compile(gl.VERTEX_SHADER, vertex)); gl.attachShader(program, compile(gl.FRAGMENT_SHADER, fragment)); gl.linkProgram(program)
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program) ?? 'Shader-linkfout')
+  return program
 }
 
 export function neutralizeNoData(data: Uint8Array): Uint8Array {
