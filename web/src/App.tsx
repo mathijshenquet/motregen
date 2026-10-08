@@ -16,6 +16,7 @@ import { chunkField, type Grid, type Manifest, type ManifestChunk, type MrfHeade
 import { DayNightLayer } from './core/day-night-layer'
 
 const PerfHud = lazy(() => import('./components/PerfHud'))
+const ViewportDiagnose = lazy(() => import('./components/ViewportDiagnose'))
 const ForecastTable = lazy(() => import('./components/ForecastTable'))
 const DevPanel = lazy(() => import('./components/DevPanel'))
 
@@ -190,6 +191,9 @@ const FIRST_RAIN_STORAGE_KEY = 'motregen-dev-eerste-regen'
 // PO-vergelijking (?dev): het lege scrubber-kader neemt de hemelkleur van het uur aan.
 // Tijdelijke proef (U62, ?dev): scheiding tussen kaart en zijpaneel op desktop; vervalt na de PO-keuze.
 const PANEL_EDGE_STORAGE_KEY = 'motregen-dev-rand'
+const VIEWPORT_DIAGNOSE_STORAGE_KEY = 'motregen-dev-viewport'
+// Zoveel mag het tabelpaneel hooguit worden verlengd als de pagina eindigt vóór het paneel bovenaan staat.
+const TABLE_PANEL_SHORTFALL_MAX_PX = 200
 const PANEL_EDGES = ['oud', 'geen', 'a', 'b'] as const
 type PanelEdge = typeof PANEL_EDGES[number]
 // De kaart mengt in zoveel stappen van dag naar nacht; MapLibre tweent elke stap zelf (300 ms). Vier stappen
@@ -456,6 +460,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let tableViewResizeTimer: number | undefined
   let tableViewSettleTimer: number | undefined
   let tableTouchActive = false
+  // Sommige browsers (Firefox voor Android met de adresbalk in beeld) laten de pagina eindigen terwijl het
+  // paneel van 100dvh nog niet bovenaan staat: de schermhoogte waarmee ze de scroll begrenzen is dan groter
+  // dan 100dvh. Dat tekort wordt gemeten en bij de paneelhoogte opgeteld, in plaats van te raden welke
+  // eenheid de browser bedoelt (PO 2026-10-08: strook scrubber boven de open tabel).
+  const [tablePanelShortfall, setTablePanelShortfall] = createSignal(0)
+  let lastViewportHeight = window.visualViewport?.height ?? window.innerHeight
+  const [viewportDiagnose, setViewportDiagnose] = createSignal(devMode && localStorage.getItem(VIEWPORT_DIAGNOSE_STORAGE_KEY) === 'aan')
   function applyTableScrollOpen(open: boolean): void {
     if (tableScrollOpen() === open) return
     setTableScrollOpen(open)
@@ -482,6 +493,16 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (tableViewFrame !== undefined) cancelAnimationFrame(tableViewFrame)
     syncTableViewPosition()
     const panelTop = forecastPanelElement.getBoundingClientRect().top
+    if (tableSnappedAtPageEnd(panelTop) && tablePanelShortfall() + panelTop <= TABLE_PANEL_SHORTFALL_MAX_PX) {
+      // De pagina is op en het paneel staat nog niet bovenaan: het paneel is zoveel te kort. Verlengen en
+      // het laatste stukje scrollen; de stijl staat er direct op, zodat de scroll de nieuwe hoogte ziet.
+      const shortfall = tablePanelShortfall() + Math.ceil(panelTop)
+      setTablePanelShortfall(shortfall)
+      forecastPanelElement.style.setProperty('--table-panel-shortfall', `${shortfall}px`)
+      window.scrollBy({ top: Math.ceil(panelTop), behavior: 'auto' })
+      scheduleTableViewSettlement()
+      return
+    }
     const atTable = Math.abs(panelTop) <= 2 || tableSnappedAtPageEnd(panelTop)
     const atMap = window.scrollY <= 2
     if (!atTable && !atMap) {
@@ -512,6 +533,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function settleTableViewAfterResize(): void {
     // Mobiele browserbalken sturen tijdens hun animatie iedere frame een resize-event.
     window.clearTimeout(tableViewResizeTimer)
+    // Wordt het scherm hoger (de adresbalk verdwijnt), dan groeit 100dvh mee en is de verlenging niet meer nodig.
+    const viewportHeight = window.visualViewport?.height ?? window.innerHeight
+    if (viewportHeight > lastViewportHeight + 1 && tablePanelShortfall() > 0) {
+      setTablePanelShortfall(0)
+      forecastPanelElement?.style.removeProperty('--table-panel-shortfall')
+    }
+    lastViewportHeight = viewportHeight
     tableViewResizeTimer = window.setTimeout(() => {
       queueTableViewSync()
       scheduleTableViewSettlement()
@@ -2639,6 +2667,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setIsolineTuning({ ...DEFAULT_ISOLINE_TUNING })
       setFirstRainLate(false)
       setPanelEdge('oud')
+      setViewportDiagnose(false)
       setRainWindBlend('alfa')
       setRainAirBlend('nu')
       focusMode.pin(DEFAULT_FOCUS_MODE)
@@ -3219,6 +3248,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             onPanelEdge={(edge) => { setPanelEdge(edge); localStorage.setItem(PANEL_EDGE_STORAGE_KEY, edge) }}
             windTuning={windTuning()}
             onWindTuning={tuneWind}
+            viewportDiagnose={viewportDiagnose()}
+            onViewportDiagnose={(enabled) => { setViewportDiagnose(enabled); localStorage.setItem(VIEWPORT_DIAGNOSE_STORAGE_KEY, enabled ? 'aan' : 'uit') }}
             perfVisible={perfVisible()}
             onPerfVisible={setPerfVisible}
             profileRecording={profileState() === 'recording'}
@@ -3305,6 +3336,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         </section>
       </aside>
     </Show>
+    <Show when={!stillMode && viewportDiagnose()}><ViewportDiagnose shortfallPx={tablePanelShortfall} /></Show>
     <Show when={!stillMode && perfVisible()}><PerfHud
       monitor={perf}
       isolines={isolineCounters}

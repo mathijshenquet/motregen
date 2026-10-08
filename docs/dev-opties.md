@@ -27,6 +27,7 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Chrome | Rand kaart/zijpaneel | tijdelijke proef op desktop: oud (zoals het was: `border-left` + lichte schaduw op `.dashboard`) / geen (`.app-shell.edge-none`) / A (alleen een lijn van 1 px, `.edge-line`) / B (alleen een zachte schaduw, `.edge-shadow`); waarden als `--edge-line-color` en `--edge-shadow` op `.app-shell` | U62 | na PO-keuze: winnaar vast, knop weg |
 | Lucht nu | strakblauw · mooie wolkenlucht · melkachtig · grijs · Mordor | tijd, klasse en gekozen locatie op 0,1° als menselijk anker voor de wolkenanalyse | U46 | na de analyse |
 | Lucht nu | Kopieer dagboek | alle lokale luchtmetingen als JSON naar het klembord | U46 | na de analyse |
+| Diagnose | Scherm en scroll | overlay met live schermhoogtes (innerHeight, visualViewport, 100dvh/svh/lvh), scrollstand, snappunt en plek van het tabelpaneel, voor een schermbeeld in een bugtoestand | U62 | zodra de adresbalkbug op Firefox Android is opgelost |
 | Diagnose | Perf-HUD | meetpaneel aan/uit (ook: drie tikken op het logo) | T5 / U30 | blijft (diagnose) |
 | Diagnose | Opname 30 s | stacks, fasen en lange frames als Chrome Trace opnemen | U43 | blijft (diagnose) |
 | Diagnose | Koude start | herlaadt en neemt de eerste 30 s vanaf `timeOrigin` op | U43 | blijft (diagnose) |
@@ -59,6 +60,7 @@ Rig-schakelaar zonder knop: `dev-speelregel` = `venster` zet onder `?dev` de oud
 (spelen pas na laadfase "window"), zodat de mobiele laadrig oud en nieuw uit één build meet
 (`koud-spelend-vensterregel`). Eigenaar U54; vervalt zodra de PO de speelregel heeft bevestigd.
 De knoppen "Regen in Wind" en "Regen in Lucht" schrijven `dev-regen-wind` (`alfa`/`vermenigvuldigen`/`gedempt`) en `dev-regen-lucht` (`nu`/`voorstel`), U62.
+De knop "Scherm en scroll" schrijft `dev-viewport` (`aan`/`uit`, U62).
 De knop "Rand kaart/zijpaneel" schrijft `dev-rand` (`oud`/`geen`/`a`/`b`, U62).
 De knop "Eerste regen" schrijft `dev-eerste-regen`; de rig zet dezelfde sleutel in `koud-spelend-regen-laat`.
 Tuning/debug: `wind-tuning-v4` (v3 wordt bij het laden gemigreerd), `perf` en de eenmalige

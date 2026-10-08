@@ -20,6 +20,8 @@ interface Props {
   onFirstRainLate: (late: boolean) => void
   windTuning: WindTuning
   onWindTuning: (tuning: WindTuning) => void
+  viewportDiagnose: boolean
+  onViewportDiagnose: (enabled: boolean) => void
   perfVisible: boolean
   onPerfVisible: (visible: boolean) => void
   profileRecording: boolean
@@ -146,6 +148,9 @@ export default function DevPanel(props: Props) {
     <Group title="Diagnose">
       <Control label="Perf-HUD" output={props.perfVisible ? 'Aan' : 'Uit'} toggle hint="Meetpaneel met laadtijd, fps en netwerk; ook drie tikken op het logo.">
         <input type="checkbox" checked={props.perfVisible} onChange={(event) => props.onPerfVisible(event.currentTarget.checked)} />
+      </Control>
+      <Control label="Scherm en scroll" output={props.viewportDiagnose ? 'Aan' : 'Uit'} toggle hint="Toont live schermhoogtes (innerHeight, visualViewport, 100dvh/svh/lvh), scrollstand, het snappunt en de plek van het tabelpaneel. Voor een schermbeeld in een bugtoestand.">
+        <input type="checkbox" checked={props.viewportDiagnose} onChange={(event) => props.onViewportDiagnose(event.currentTarget.checked)} />
       </Control>
       <Action label={props.profileRecording ? 'Opname loopt…' : 'Opname 30 s'} hint="Neemt stacks, fasen en lange frames dertig seconden op." onClick={props.onProfileRecord} disabled={props.profileRecording} />
       <Action label="Koude start" hint="Herlaadt en neemt de eerste dertig seconden vanaf de start op." onClick={props.onColdProfile} disabled={props.profileRecording} />
