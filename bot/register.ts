@@ -26,10 +26,21 @@ export function registerSelections(): MediaSelection[] {
 
 export function validateRegister(value: unknown, botId: number): MediaRegister {
   const register = value as MediaRegister | undefined
-  if (!register || register.version !== 1 || register.botId !== botId || !Number.isFinite(Date.parse(register.generated)) || !Number.isFinite(Date.parse(register.now)) || !Array.isArray(register.entries)) throw new Error('Ongeldig mediaregister of andere bot')
+  if (!register || register.version !== 1 || register.botId !== botId || !Number.isSafeInteger(botId) || botId <= 0) {
+    throw new Error('Ongeldig mediaregister of andere bot')
+  }
+  if (typeof register.generated !== 'string' || !Number.isFinite(Date.parse(register.generated)) || typeof register.now !== 'string' || !Number.isFinite(Date.parse(register.now)) || !Array.isArray(register.entries)) {
+    throw new Error('Ongeldige registergeneratie')
+  }
   const expected = new Set(registerSelections().map(selectionKey))
   for (const entry of register.entries) {
-    if (!entry || !entry.selection || typeof entry.fileId !== 'string' || !entry.fileId.trim() || !expected.delete(selectionKey(entry.selection))) throw new Error('Ongeldige registerselectie')
+    if (!entry?.selection || typeof entry.fileId !== 'string' || !entry.fileId.trim()) {
+      throw new Error('Ongeldige registerselectie')
+    }
+    const hour = entry.selection.hour
+    if ((typeof hour !== 'number' && hour !== 'loop') || !expected.delete(selectionKey(entry.selection))) {
+      throw new Error('Ongeldige registerselectie')
+    }
   }
   if (expected.size) throw new Error('Onvolledige registergeneratie')
   return register

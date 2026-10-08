@@ -175,6 +175,8 @@ Koude U67-proef op ageq-dev2 (2026-10-08, generatie `13:32:34Z`, app op 4330): *
 65535 ms**, plus **83 ms dry-run-prime** met mockuploads en uitgeschakelde tussenruimte. Alle drie
 loops hebben 169 frames op 10 fps; Regen render/encode 55164/794 ms, Temperatuur 60512/999 ms,
 Wind 55307/1001 ms. Register gelezen en file_id-antwoord gecontroleerd. Geen echte uploadtijd gemeten.
+De warme herhaling met een niet-bestaand Chromium-pad leverde 173 cachehits in 253 ms, plus 77 ms
+dry-run-prime, zonder browserstart.
 
 ## Rendering en cache
 
@@ -306,7 +308,7 @@ Het grootste foto-file_id
 of het animation-file_id uit de Telegram-respons komt atomair in
 `<kaart>.jpg.file-id.json` of `<loop>.mp4.file-id.json` naast het mediabestand
 en blijft ook in geheugen. Vervolgverzendingen en edits sturen alleen dat id.
-De sidecar bevat renderkey en botnaam: een nieuwe manifestgeneratie, andere
+De sidecar bevat renderkey en botscope (botnaam in combined, bot-id in renderer): een nieuwe manifestgeneratie, andere
 selectie of andere bot kan geen oud id hergebruiken. Ids vervallen met de
 twee-uurs-mediacache; sidecars worden ook opgeruimd.
 Een specifiek `wrong file identifier`, `wrong remote file identifier` of

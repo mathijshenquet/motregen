@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TelegramApi } from './api.js'
 import { REGISTER_FILENAME, RegisterMedia, TelegramRegister, registerSelections, validateRegister, writeRegister, type MediaRegister } from './register.js'
 
-export function fixtureRegister(generated = '2026-10-08T12:00:00Z'): MediaRegister {
+function fixtureRegister(generated = '2026-10-08T12:00:00Z'): MediaRegister {
   return { version: 1, botId: 42, generated, now: generated, entries: registerSelections().map((selection, index) => ({ selection, fileId: `file-${generated}-${index}` })) }
 }
 
@@ -20,6 +20,7 @@ describe('atomic media register', () => {
     expect(() => validateRegister({ ...register, entries: register.entries.slice(1) }, 42)).toThrow('Onvolledige')
     expect(() => validateRegister({ ...register, entries: [...register.entries, register.entries[0]] }, 42)).toThrow('registerselectie')
     expect(() => validateRegister({ ...register, entries: register.entries.map((entry) => ({ ...entry, fileId: '' })) }, 42)).toThrow('registerselectie')
+    expect(() => validateRegister({ ...register, entries: register.entries.map((entry) => ({ ...entry, selection: { ...entry.selection, hour: String(entry.selection.hour) } })) }, 42)).toThrow('registerselectie')
   })
 
   it('keeps the old generation when an incomplete write is rejected', async () => {

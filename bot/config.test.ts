@@ -26,6 +26,11 @@ describe('cache destination validation', () => {
     const call = vi.fn().mockResolvedValueOnce({ type: 'supergroup' }).mockResolvedValueOnce(member)
     await expect(validateCacheChat({ call } as unknown as TelegramApi, '-100123', 1)).rejects.toThrow('verwijderrechten')
   })
+
+  it.each(['supergroup', 'channel'])('requires renderer pin or edit permissions in a %s', async (type) => {
+    const call = vi.fn().mockResolvedValueOnce({ type }).mockResolvedValueOnce({ status: 'administrator', can_delete_messages: true })
+    await expect(validateCacheChat({ call } as unknown as TelegramApi, '-100123', 1, true)).rejects.toThrow('pinrechten')
+  })
 })
 
 describe('frame size', () => {
