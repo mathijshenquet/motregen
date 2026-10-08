@@ -428,3 +428,10 @@ b1a706752174bbd7f1cb2453ce3a740929d73775	refs/pull/91/head
 - Actieve-placeholder-Lighthouse afgerond vóór het SVG-besluit: devreferentie 66, SVG 71, tegel 65. Geen verdere SVG-optimalisatie of activatie.
 - Lighthouse finale build 68 komt uit subscores FCP/LCP/CLS ieder 100, TBT 13 (728 ms), Speed Index 37 (2655 ms). Zwaarste main-thread-taken 375/638 ms; 1,81 s script evaluation tegen 1,7 ms main-thread parse. Ongebruikte JS ~212 kB, waarvan ~179 kB MapLibre; CSS-audit berekent hier nul FCP/LCP-winst. Onderzoek vervolgt op uitvoer/shaders die ttfr/ttfp raken, niet op LCP-score die al maximaal is.
 - Nieuwe Lighthouse-diagnose heeft CPU-/DevTools-assets geschreven; daaropvolgende runner eindigde exit 141. Waarschijnlijke oorzaak lockdetectie: awk verliet lslocks-pipe vroeg, SIGPIPE onder pipefail. Wrapper leest nu de volledige stroom zonder vroeg exit. Verificatie/herstart van warme capture en Telegram-e2e nog pending; geen nieuwe groene receipt geclaimd.
+
+## 2026-10-08 08:40 UTC — WIP regenverzoeken vóór manifestreacties
+
+- Kandidaat zet de eerste twee frameaanvragen vóór setManifest, zodat reactieve tabel-/puntreeksenverwerking die dispatch niet ophoudt. Native kandidaatbuild, typecheck en 73 bestanden / 485 unittests synchroon exit 0; timingwinst nog niet gemeten.
+- Capture heeft een optionele --cpu-profile, uitsluitend voor aparte diagnose. Lighthouse-subscores vóór/na en de SVG-/tegelbeslissing verwerkt in RESULTATEN.md. Geen SVG-code teruggezet, tegel standaard uit.
+- Eén eigen seriële runner wacht op de gedeelde perf-lock voor de aangescherpte warmcapture; CPU-/kandidaatmetingen starten erna. De leeftijd van U63’s eerdere e2e-lockproces bevatte wachttijd, geen bewijs voor een 19 minuten durende test. Huidige eigenaar doet U63’s placeholdermeting. Geen andere trackprocessen gestopt.
+- WIP wordt nu gecommit/pushed ondanks de meetwachtrij; nieuwe perf/e2e-receipts blijven pending. Repro kandidaat: tmp/u64/rain-priority-runs.sh (lokale runner); permanente capture: cd web && bash scripts/desktop-rig.sh ../tmp/u64/cpu --repeat=1 --cpu-profile.

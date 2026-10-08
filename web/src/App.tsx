@@ -753,7 +753,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const frames = buildTimeline(data)
       if (!frames.length) throw new Error('De tijdlijn is leeg')
       const presets = parsePresets(initialUrl.search, Date.parse(data.now), initialUrl.pathname, initialUrl.hash)
-      setManifest(data)
       let nowIndex = 0
       for (let index = 0; index < frames.length; index++) if (frames[index]!.epoch <= Date.parse(data.now)) nowIndex = index
       const presetCursor = presets.epoch === undefined ? undefined : cursorForPresetEpoch(frames, presets.epoch)
@@ -764,6 +763,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         const firstIndex = Math.floor(presetCursor ?? nowIndex)
         for (const frame of frames.slice(firstIndex, firstIndex + 2)) void load(frame).catch(() => undefined)
       }
+      setManifest(data)
       void Promise.all(data.chunks.filter(eagerHeader).map((chunk) => client.getHeader(chunk))).catch(() => undefined)
       if (!stillMode) stopManifestRefresh = scheduleManifestRefresh(refreshManifest, {
         setTimeout: (callback, delay) => window.setTimeout(callback, delay),

@@ -22,9 +22,9 @@ terwijl de tijdlijn speelt. Dat onderscheid blijft behouden.
 | finale build, tabelobserver hersteld | 638 ms | 359 ms | 289 ms | 10/430 · 1/60 · 0/0 | 68 |
 | referentie warm | 654 ms | 324 ms | 275 ms | 0/0 · 0/0 · 0/0 | — |
 | inline + lazy warm | 658 ms | 305 ms | 252 ms | 3/60 · 0/0 · 0/0 | — |
-| referentie met devpaneel | 674 ms | 354 ms | 282 ms | 8/520 · 2/76 · 0/0 | volgt |
-| SVG, met devpaneel | 694 ms | 368 ms | 290 ms | 10/631 · 3/66 · 1/55 | volgt |
-| inline z4-tegel, met devpaneel | 690 ms | 360 ms | 284 ms | 9/563 · 4/68 · 2/77 | volgt |
+| referentie met devpaneel | 674 ms | 354 ms | 282 ms | 8/520 · 2/76 · 0/0 | 66 |
+| SVG, met devpaneel (vervallen) | 694 ms | 368 ms | 290 ms | 10/631 · 3/66 · 1/55 | 71 |
+| inline z4-tegel, met devpaneel | 690 ms | 360 ms | 284 ms | 9/563 · 4/68 · 2/77 | 65 |
 
 LoAF telt volledige frames die ná ttfp beginnen en binnen het venster van
 12 seconden eindigen; geen beperking tot de vijf zwaarste HUD-frames.
@@ -91,10 +91,35 @@ De SVG-kust is grof en bevat geometrische vereenvoudigingsartefacten;
 de native tegel oogt vollediger maar voegt veel meer HTML toe. Beide
 varianten hebben in deze reeksen hogere mediane volledige kaart-ttfr en ttfp
 dan dezelfde devreferentie. Voorstel: geen standaardactivatie op dit bewijs.
-Beide blijven uitsluitend reviewbaar via bijpassende `VITE_MAP_START=svg|tegel`
-en `?dev&kaartstart=svg|tegel`, eigenaar U64, verval 2026-10-15.
-Screenshotvoorstel wordt volgens de trackspecificatie aan de orkestrator
-geleverd vóór eventuele activatie.
+Het screenshotvoorstel is vóór activatie via herdr aan de orkestrator geleverd.
+Zijn besluit: SVG-code/asset verwijderen, geen verdere optimalisatie; native
+z4-tegel visueel akkoord maar op desktop standaard uit. Alleen die tegel
+blijft reviewbaar via `VITE_MAP_START=tegel` en `?dev&kaartstart=tegel`, eigenaar
+U64, verval 2026-10-15. U63 meet de mobiele waarde. Onderstaande SVG-beelden
+blijven historisch meetbewijs.
+
+## Lighthouse-oorzaak
+
+| metriek | referentie: waarde / subscore | finale lazy: waarde / subscore |
+| --- | --- | --- |
+| FCP | 354 ms / 100 | 344 ms / 100 |
+| LCP (splash) | 354 ms / 100 | 344 ms / 100 |
+| TBT | 1165 ms / 3 | 728 ms / 13 |
+| Speed Index | 2559 ms / 40 | 2655 ms / 37 |
+| CLS | 0,017 / 100 | 0,017 / 100 |
+
+De Lighthouse-score is 60 punten uit FCP/LCP/CLS, plus 3,9 punten uit TBT
+en 3,7 uit Speed Index, afgerond 68. TBT en Speed Index drukken de score;
+ongebruikte JS en renderblokkerende CSS hebben geen rechtstreeks gewicht.
+De CSS-audit schat hier nul FCP/LCP-winst. Ongebruikte JS ~212 kB,
+waarvan ~179 kB MapLibre; de kaart is wel nodig voor het eerste regenbeeld.
+
+Een extra Lighthouse-diagnose op dezelfde bevroren build scoort 67:
+FCP/LCP 366 ms (100), TBT 776 ms (11), Speed Index 2774 ms (33), CLS
+0,017 (100). Hoofddraad-taken van 370 ms op t=161 en 634 ms op t=857;
+de latere bevat een MapLibre-call van 209 ms. Script evaluation is dominant,
+geen grote parse-/compilepost. Verdere kandidaten richten zich daarom op
+de eerste regenaanvraag vóór overige manifestreacties en kaart/shaderwerk.
 
 | review | licht vóór / na netwerkkaart | donker vóór / na netwerkkaart |
 | --- | --- | --- |

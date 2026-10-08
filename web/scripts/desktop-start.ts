@@ -10,6 +10,7 @@ const repeat = Number(flags.find((flag) => flag.startsWith('--repeat='))?.split(
 const query = flags.find((flag) => flag.startsWith('--query='))?.slice('--query='.length) ?? 'perf=1'
 const pathname = flags.find((flag) => flag.startsWith('--path='))?.slice('--path='.length) ?? '/weer'
 const warm = flags.includes('--warm')
+const cpuProfile = flags.includes('--cpu-profile')
 if (!Number.isInteger(repeat) || repeat < 1 || repeat > 10) throw new Error('--repeat moet 1…10 zijn')
 mkdirSync(dirname(output), { recursive: true })
 const browser = await chromium.launch({ args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
@@ -60,6 +61,11 @@ try {
       const cdp = await context.newCDPSession(page)
       await cdp.send('Network.enable')
       await cdp.send('Network.setCacheDisabled', { cacheDisabled: true })
+      if (cpuProfile) {
+        await cdp.send('Profiler.enable')
+        await cdp.send('Profiler.setSamplingInterval', { interval: 1000 })
+        await cdp.send('Profiler.start')
+      }
       const events: unknown[] = []
       cdp.on('Tracing.dataCollected', (chunk) => events.push(...chunk.value))
       await cdp.send('Tracing.start', { categories: 'devtools.timeline,disabled-by-default-devtools.timeline,disabled-by-default-v8.compile,v8,blink.user_timing,loading', transferMode: 'ReportEvents' })
@@ -81,6 +87,10 @@ try {
       await Promise.all(pending)
       if (errors.length) throw new Error(errors.join('\n'))
       const prefix = `${output}-${warm ? 'warm' : 'cold'}-run${run}`
+      if (cpuProfile) {
+        const { profile } = await cdp.send('Profiler.stop')
+        writeFileSync(`${prefix}.cpuprofile`, JSON.stringify(profile))
+      }
       writeFileSync(`${prefix}.json`, JSON.stringify({ capturedAt: new Date().toISOString(), origin, pathname, query, warm, loadAverage, ...captured, requests }, null, 2))
       writeFileSync(`${prefix}.trace.json`, JSON.stringify({ traceEvents: events }))
       console.log(`${prefix}: ${JSON.stringify(captured.snapshot)}`)
