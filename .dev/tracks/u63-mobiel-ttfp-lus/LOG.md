@@ -55,3 +55,29 @@ Receipt: po-android/koud-spelend ×3 --baseline exit 0. Loadavg 6,00 / 7,94 / 5,
 Getallen zijn medianen van ×3; het verschil tussen eerste twee regels is meetspreiding, geen productwinst. Herstelde ttfp 1730/1729/2031, ttfh 4278/4253/5131: kleine tijdverschillen vragen terughoudendheid. Decodespreiding 2,679%, bytes 0,303%. Baseline expliciet nieuw wegens ontbrekend po-android-nulpunt én veranderd bytecontract; reden in docs/perf.md. Overige bestaande rig-baselines gebruiken het oude contract en worden later in deze track opnieuw gemeten, met afzonderlijke vergelijking van aantallen/bytes.
 
 Rig-gates: pnpm typecheck exit 0; pnpm test exit 0 (479); pnpm build exit 0; eigen geraakte rig/e2e desktop ×3 exit 0; expliciete nieuwe baseline exit 0. Geen productcode gewijzigd.
+
+## 2026-10-08 06:10 UTC — kandidaat 1: vroeg manifest, één gedeeld request
+
+Na complete nulmeting alleen het manifest naar een kleine HTML-module verplaatst (web/src/startup.ts). HTML laadt die naast de appbundel; App consumeert dezelfde initialManifest-Promise en behoudt de bestaande refreshfunctie. sessionManifestUrls blijft één eigenaar; still=1 krijgt geen sessievlag, skywatch-render start geen weerrequest. Een afwijzing wordt vroeg geobserveerd en blijft voor App beschikbaar om de bestaande fout te tonen. Eerste Range schuift via de bestaande dynamische manifest/headerketen mee; geen vaste generatie-URL/Early Hint toegevoegd.
+
+Meting: po-android/koud-spelend ×3 --compare, session 38574, tmp/u63/kandidaat1.txt. Nieuwe startup.spec controleert het vroege request terwijl de appbundel wordt vastgehouden, exact één sessievlag en de still-uitzondering. Gerichte desktop-gate: startup.spec + usage.spec + presets.spec + decode-budget.spec (nog te draaien). Typecheck/unit opnieuw gestart; normale build apart van rig-dist. Geen waarneembaar nieuw element toegevoegd.
+
+## 2026-10-08 06:13 UTC — kandidaat 1 gecorrigeerd voor de productie-bundelaar
+
+De eerste proefvariant bleek in de productie-HTML slechts één script te hebben: Vite voegde de twee HTML-modules samen. Daardoor geen preload vóór de bundel. Die proef is expliciet afgebroken (session 38574, exit 130); geen winst of groen geclaimd, ruwe eerste run in web/tmp/u63/kandidaat1-samengevoegd. Correctie binnen dezelfde kandidaat: eigen Rollup-input startup + post-HTML-hook die de gegenereerde module vóór het app-script zet. In de gebouwde HTML geverifieerd: afzonderlijke startup-entry, 1,9 kB / 1,1 kB gzip. De dev-HTML blijft twee reguliere modules gebruiken.
+
+Gecorrigeerde ×3-vergelijking: session 42826, tmp/u63/kandidaat1-entry.txt; build gereed, wacht op loadavg <8. Geen verdere productkandidaat gewijzigd.
+
+## 2026-10-08 06:16 UTC — kandidaat 1 checks groen; gerichte e2e gestart
+
+Definitieve entryvariant: pnpm typecheck, pnpm test (479) en pnpm build opeenvolgend onder set -e, synchrone exit 0. Extra skywatch-e2e bewaakt dat de offline renderer geen vroeg weerrequest krijgt. Gerichte gate gestart via eigen tweede poortpaar 4394/8394: pnpm --dir web e2e e2e/startup.spec.ts e2e/usage.spec.ts e2e/presets.spec.ts e2e/decode-budget.spec.ts --project desktop. Uitvoer tmp/u63/e2e-kandidaat1.txt; receipt nog niet binnen. Perf session 42826 wacht op rustige host; externe U57-Chromium en main-botbrowser verklaren de belasting, geen achtergebleven eigen browser na de abort.
+
+## 2026-10-08 06:17 UTC — e2e-poortcorrectie vóór serverstart
+
+4394/8394 blijkt het toegewezen U64-paar te zijn. De eigen nog wachtende e2e-aanroep vóór serverstart afgebroken (exit 130) en herstart met vooraf gecontroleerde vrije 4593/8593; perf blijft op toegewezen 4393/8393. Dit is uitsluitend de tweede eigen e2e-server, geen wijziging van het perf-meetcontract.
+
+## 2026-10-08 06:25 UTC — hostlock, PO-prioriteit en kandidaat-1-gates
+
+Orkestrator geeft U63 eerst het rustige meetvenster en verplicht alle perf-opnames tot flock -w 7200 /home/mathijs/motregen-perf.lock. Nieuw track-runscript run-perf.sh past de lock en eigen 4393/8393 toe; de bestaande loadavg <8 blijft. Vanaf nu elke iteratie ttfr vóór ttfp rapporteren; ttfh/blank secundair. LoAF na ttfp als bewaker (geen optimalisatiedoel). Kandidatenvolgorde op verwachte ttfr-winst: vroege manifest/Range, basiskaartketen, worker/WebGL-warmte, textuurupload.
+
+Receipt gerichte desktop-gate: startup.spec + usage.spec + presets.spec + decode-budget.spec, poorten 4593/8593, exit 0 (9 tests). Correcte perf-entrypoging exit 1 vóór opnames door eigen Caddy-poorten bezet na eerdere Ctrl-C. /proc/cwd bevestigt beide overgebleven Caddy-processen als deze worktree; alleen die beëindigd. Geen uitslag of winst uit de mislukte poging. Kandidatenvergelijking herstart via run-perf.sh; nieuwe hostload 23,74 vereist wachten.
