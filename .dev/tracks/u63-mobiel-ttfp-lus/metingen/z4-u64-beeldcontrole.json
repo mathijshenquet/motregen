@@ -1,0 +1,837 @@
+{
+  "productBase": "82fa4bd, inclusief U64/U62deel2/U65/U67",
+  "viewport": {
+    "width": 390,
+    "height": 844,
+    "deviceScaleFactor": 2
+  },
+  "expressive": true,
+  "timingProof": false,
+  "review": [
+    {
+      "theme": "light",
+      "path": "http://127.0.0.1:4693/weer/de-bilt?perf=1&dev=",
+      "cursorOffsetHours": 0,
+      "placeholder": {
+        "capturedAt": "2026-08-28T15:00:00.000Z",
+        "ttfrMs": null,
+        "firstRainMs": 2210.1,
+        "basemapReadyMs": null,
+        "ttfhMs": null,
+        "ttfpMs": null,
+        "blankVisibleMs": 1950,
+        "blankSlotSeconds": 123.1,
+        "blankShareSeconds": 1.87,
+        "firstBarMs": 2104.7,
+        "scrub": {
+          "samples": 0,
+          "p50Ms": null,
+          "p95Ms": null
+        },
+        "fps": 9,
+        "network": {
+          "manifest": {
+            "requests": 1,
+            "bytes": 36813
+          },
+          "chunks": {
+            "requests": 84,
+            "bytes": 3268235
+          },
+          "tiles": {
+            "requests": 3,
+            "bytes": 90884
+          },
+          "other": {
+            "requests": 16,
+            "bytes": 560391
+          },
+          "total": {
+            "requests": 104,
+            "bytes": 3956323
+          }
+        },
+        "manifestAgeMs": 0,
+        "phases": {
+          "frame-decode": {
+            "count": 30,
+            "p50Ms": 0.5,
+            "p95Ms": 99.7
+          },
+          "texture-upload": {
+            "count": 1,
+            "p50Ms": 30.9,
+            "p95Ms": 30.9
+          },
+          "wind-step": {
+            "count": 3,
+            "p50Ms": 5.2,
+            "p95Ms": 6.7
+          },
+          "scrubber-paint": {
+            "count": 50,
+            "p50Ms": 0.1,
+            "p95Ms": 14.5
+          },
+          "table-render": {
+            "count": 5,
+            "p50Ms": 0.1,
+            "p95Ms": 5.5
+          }
+        },
+        "windowReadyMs": {
+          "cloud_mid": 3149,
+          "cloud_high": 3915
+        },
+        "longFrames": [
+          {
+            "startTime": 264.39999997615814,
+            "duration": 616,
+            "blockingDuration": 563.8,
+            "scripts": [
+              {
+                "duration": 483.5,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js"
+              },
+              {
+                "duration": 65.5,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "ResizeObserverCallback"
+              },
+              {
+                "duration": 40.799999952316284,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              }
+            ]
+          },
+          {
+            "startTime": 1910.2999999523163,
+            "duration": 455.5,
+            "blockingDuration": 347.3,
+            "scripts": [
+              {
+                "duration": 340.5,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 41,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-CCE519rw.js",
+                "sourceFunctionName": "",
+                "invoker": "Worker.onmessage"
+              },
+              {
+                "duration": 10.100000023841858,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "IntersectionObserverCallback"
+              },
+              {
+                "duration": 10,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-CCE519rw.js",
+                "sourceFunctionName": "",
+                "invoker": "Worker.onmessage"
+              },
+              {
+                "duration": 9.100000023841858,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-CCE519rw.js",
+                "sourceFunctionName": "",
+                "invoker": "PerformanceObserverCallback"
+              }
+            ]
+          },
+          {
+            "startTime": 895.2000000476837,
+            "duration": 290.89999997615814,
+            "blockingDuration": 160.3,
+            "scripts": [
+              {
+                "duration": 191.10000002384186,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 15.399999976158142,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "TimerHandler:setTimeout"
+              },
+              {
+                "duration": 5.100000023841858,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "Permissions.query.then"
+              }
+            ]
+          },
+          {
+            "startTime": 1191.2999999523163,
+            "duration": 198.80000007152557,
+            "blockingDuration": 78.3,
+            "scripts": [
+              {
+                "duration": 60.799999952316284,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 38,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-CCE519rw.js",
+                "sourceFunctionName": "",
+                "invoker": "ReadableStreamDefaultReader.read.then"
+              },
+              {
+                "duration": 9.899999976158142,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-CCE519rw.js",
+                "sourceFunctionName": "",
+                "invoker": "ReadableStreamDefaultReader.read.then"
+              },
+              {
+                "duration": 9.600000023841858,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-CCE519rw.js",
+                "sourceFunctionName": "frameTick",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 6.100000023841858,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-CCE519rw.js",
+                "sourceFunctionName": "",
+                "invoker": "Window.fetch.then"
+              }
+            ]
+          },
+          {
+            "startTime": 1565,
+            "duration": 170.10000002384186,
+            "blockingDuration": 80.9,
+            "scripts": [
+              {
+                "duration": 55.699999928474426,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "import.then"
+              },
+              {
+                "duration": 35.800000071525574,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 6.100000023841858,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "import.then"
+              }
+            ]
+          }
+        ]
+      },
+      "full": {
+        "capturedAt": "2026-08-28T15:00:00.000Z",
+        "ttfrMs": 7507.5,
+        "firstRainMs": 2210.1,
+        "basemapReadyMs": 7507.5,
+        "ttfhMs": 5104.5,
+        "ttfpMs": null,
+        "blankVisibleMs": 5260,
+        "blankSlotSeconds": 235.1,
+        "blankShareSeconds": 3.56,
+        "firstBarMs": 2104.7,
+        "scrub": {
+          "samples": 0,
+          "p50Ms": null,
+          "p95Ms": null
+        },
+        "fps": 21.6,
+        "network": {
+          "manifest": {
+            "requests": 1,
+            "bytes": 36813
+          },
+          "chunks": {
+            "requests": 88,
+            "bytes": 3899983
+          },
+          "tiles": {
+            "requests": 5,
+            "bytes": 153040
+          },
+          "other": {
+            "requests": 16,
+            "bytes": 560391
+          },
+          "total": {
+            "requests": 110,
+            "bytes": 4650227
+          }
+        },
+        "manifestAgeMs": 0,
+        "phases": {
+          "frame-decode": {
+            "count": 131,
+            "p50Ms": 19.9,
+            "p95Ms": 100.9
+          },
+          "texture-upload": {
+            "count": 1,
+            "p50Ms": 30.9,
+            "p95Ms": 30.9
+          },
+          "wind-step": {
+            "count": 68,
+            "p50Ms": 0.3,
+            "p95Ms": 15.8
+          },
+          "scrubber-paint": {
+            "count": 123,
+            "p50Ms": 0.1,
+            "p95Ms": 14.5
+          },
+          "table-render": {
+            "count": 5,
+            "p50Ms": 0.1,
+            "p95Ms": 5.5
+          },
+          "basemap-tile": {
+            "count": 1,
+            "p50Ms": 1824.6,
+            "p95Ms": 1824.6
+          }
+        },
+        "windowReadyMs": {
+          "cloud_mid": 3149,
+          "cloud_high": 3915,
+          "cloud_low": 4415,
+          "uv": 4870,
+          "feels_like_c": 4945,
+          "wind_u": 4945,
+          "wind_v": 4945,
+          "rain_rate": 5105,
+          "temp_c": 5295,
+          "cloud_frac": 5295,
+          "gust_ms": 5295
+        },
+        "longFrames": [
+          {
+            "startTime": 264.39999997615814,
+            "duration": 616,
+            "blockingDuration": 563.8,
+            "scripts": [
+              {
+                "duration": 483.5,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js"
+              },
+              {
+                "duration": 65.5,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "ResizeObserverCallback"
+              },
+              {
+                "duration": 40.799999952316284,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              }
+            ]
+          },
+          {
+            "startTime": 1910.2999999523163,
+            "duration": 455.5,
+            "blockingDuration": 347.3,
+            "scripts": [
+              {
+                "duration": 340.5,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 41,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-CCE519rw.js",
+                "sourceFunctionName": "",
+                "invoker": "Worker.onmessage"
+              },
+              {
+                "duration": 10.100000023841858,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "IntersectionObserverCallback"
+              },
+              {
+                "duration": 10,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-CCE519rw.js",
+                "sourceFunctionName": "",
+                "invoker": "Worker.onmessage"
+              },
+              {
+                "duration": 9.100000023841858,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-CCE519rw.js",
+                "sourceFunctionName": "",
+                "invoker": "PerformanceObserverCallback"
+              }
+            ]
+          },
+          {
+            "startTime": 4049.600000023842,
+            "duration": 319.7999999523163,
+            "blockingDuration": 183.6,
+            "scripts": [
+              {
+                "duration": 120,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "c",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 34.5,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 15,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-CCE519rw.js",
+                "sourceFunctionName": "",
+                "invoker": "ReadableStreamDefaultReader.read.then"
+              }
+            ]
+          },
+          {
+            "startTime": 895.2000000476837,
+            "duration": 290.89999997615814,
+            "blockingDuration": 160.3,
+            "scripts": [
+              {
+                "duration": 191.10000002384186,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 15.399999976158142,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "TimerHandler:setTimeout"
+              },
+              {
+                "duration": 5.100000023841858,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "Permissions.query.then"
+              }
+            ]
+          },
+          {
+            "startTime": 3722,
+            "duration": 218.70000004768372,
+            "blockingDuration": 160.1,
+            "scripts": [
+              {
+                "duration": 179.60000002384186,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-CCE519rw.js",
+                "sourceFunctionName": "",
+                "invoker": "Response.json.then"
+              },
+              {
+                "duration": 5.299999952316284,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 5.200000047683716,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              }
+            ]
+          }
+        ]
+      },
+      "errors": [],
+      "heldRanges": true,
+      "timingProof": false
+    },
+    {
+      "theme": "dark",
+      "path": "http://127.0.0.1:4693/weer/de-bilt?perf=1&dev=",
+      "cursorOffsetHours": 6,
+      "placeholder": {
+        "capturedAt": "2026-08-28T15:00:00.000Z",
+        "ttfrMs": null,
+        "firstRainMs": 2187,
+        "basemapReadyMs": null,
+        "ttfhMs": null,
+        "ttfpMs": null,
+        "blankVisibleMs": 2085,
+        "blankSlotSeconds": 12.8,
+        "blankShareSeconds": 1.42,
+        "firstBarMs": 2122.2,
+        "scrub": {
+          "samples": 0,
+          "p50Ms": null,
+          "p95Ms": null
+        },
+        "fps": 7.8,
+        "network": {
+          "manifest": {
+            "requests": 1,
+            "bytes": 36813
+          },
+          "chunks": {
+            "requests": 68,
+            "bytes": 905841
+          },
+          "tiles": {
+            "requests": 3,
+            "bytes": 90884
+          },
+          "other": {
+            "requests": 16,
+            "bytes": 560391
+          },
+          "total": {
+            "requests": 88,
+            "bytes": 1593929
+          }
+        },
+        "manifestAgeMs": 0,
+        "phases": {
+          "frame-decode": {
+            "count": 32,
+            "p50Ms": 0.5,
+            "p95Ms": 125.7
+          },
+          "texture-upload": {
+            "count": 1,
+            "p50Ms": 34.8,
+            "p95Ms": 34.8
+          },
+          "wind-step": {
+            "count": 5,
+            "p50Ms": 0.5,
+            "p95Ms": 9.8
+          },
+          "scrubber-paint": {
+            "count": 61,
+            "p50Ms": 0.2,
+            "p95Ms": 15.6
+          },
+          "table-render": {
+            "count": 5,
+            "p50Ms": 0.3,
+            "p95Ms": 5
+          }
+        },
+        "windowReadyMs": {},
+        "longFrames": [
+          {
+            "startTime": 252.5,
+            "duration": 536.2999999523163,
+            "blockingDuration": 485.9,
+            "scripts": [
+              {
+                "duration": 390.3000000715256,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js"
+              },
+              {
+                "duration": 66.39999997615814,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "ResizeObserverCallback"
+              },
+              {
+                "duration": 57.300000071525574,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              }
+            ]
+          },
+          {
+            "startTime": 1957.1999999284744,
+            "duration": 375.90000009536743,
+            "blockingDuration": 325.8,
+            "scripts": [
+              {
+                "duration": 323.7999999523163,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 35.39999997615814,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-CCE519rw.js",
+                "sourceFunctionName": "",
+                "invoker": "Worker.onmessage"
+              }
+            ]
+          },
+          {
+            "startTime": 3058.5,
+            "duration": 259.60000002384186,
+            "blockingDuration": 197.5,
+            "scripts": [
+              {
+                "duration": 166.39999997615814,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "Uh",
+                "invoker": "IdleRequestCallback"
+              },
+              {
+                "duration": 16,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "c",
+                "invoker": "FrameRequestCallback"
+              }
+            ]
+          },
+          {
+            "startTime": 802.6999999284744,
+            "duration": 234.90000009536743,
+            "blockingDuration": 69.7,
+            "scripts": [
+              {
+                "duration": 99.29999995231628,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 19.5,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "TimerHandler:setTimeout"
+              },
+              {
+                "duration": 9.399999976158142,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-CCE519rw.js",
+                "sourceFunctionName": "",
+                "invoker": "ReadableStreamDefaultReader.read.then"
+              }
+            ]
+          },
+          {
+            "startTime": 1053.1999999284744,
+            "duration": 231.20000004768372,
+            "blockingDuration": 102.8,
+            "scripts": [
+              {
+                "duration": 130.19999992847443,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-CCE519rw.js",
+                "sourceFunctionName": "",
+                "invoker": "ReadableStreamDefaultReader.read.then"
+              },
+              {
+                "duration": 15.200000047683716,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              }
+            ]
+          }
+        ]
+      },
+      "full": {
+        "capturedAt": "2026-08-28T15:00:00.000Z",
+        "ttfrMs": 6083.5,
+        "firstRainMs": 2187,
+        "basemapReadyMs": 6083.5,
+        "ttfhMs": null,
+        "ttfpMs": null,
+        "blankVisibleMs": 2981,
+        "blankSlotSeconds": 15.8,
+        "blankShareSeconds": 1.75,
+        "firstBarMs": 2122.2,
+        "scrub": {
+          "samples": 0,
+          "p50Ms": null,
+          "p95Ms": null
+        },
+        "fps": 58,
+        "network": {
+          "manifest": {
+            "requests": 1,
+            "bytes": 36813
+          },
+          "chunks": {
+            "requests": 68,
+            "bytes": 905841
+          },
+          "tiles": {
+            "requests": 5,
+            "bytes": 153040
+          },
+          "other": {
+            "requests": 16,
+            "bytes": 560391
+          },
+          "total": {
+            "requests": 90,
+            "bytes": 1656085
+          }
+        },
+        "manifestAgeMs": 0,
+        "phases": {
+          "frame-decode": {
+            "count": 63,
+            "p50Ms": 0.5,
+            "p95Ms": 135.3
+          },
+          "texture-upload": {
+            "count": 1,
+            "p50Ms": 34.8,
+            "p95Ms": 34.8
+          },
+          "wind-step": {
+            "count": 72,
+            "p50Ms": 0.3,
+            "p95Ms": 5.5
+          },
+          "scrubber-paint": {
+            "count": 102,
+            "p50Ms": 0.2,
+            "p95Ms": 14.9
+          },
+          "table-render": {
+            "count": 5,
+            "p50Ms": 0.3,
+            "p95Ms": 5
+          },
+          "basemap-tile": {
+            "count": 1,
+            "p50Ms": 936.5,
+            "p95Ms": 936.5
+          }
+        },
+        "windowReadyMs": {},
+        "longFrames": [
+          {
+            "startTime": 252.5,
+            "duration": 536.2999999523163,
+            "blockingDuration": 485.9,
+            "scripts": [
+              {
+                "duration": 390.3000000715256,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js"
+              },
+              {
+                "duration": 66.39999997615814,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "ResizeObserverCallback"
+              },
+              {
+                "duration": 57.300000071525574,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              }
+            ]
+          },
+          {
+            "startTime": 1957.1999999284744,
+            "duration": 375.90000009536743,
+            "blockingDuration": 325.8,
+            "scripts": [
+              {
+                "duration": 323.7999999523163,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 35.39999997615814,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-CCE519rw.js",
+                "sourceFunctionName": "",
+                "invoker": "Worker.onmessage"
+              }
+            ]
+          },
+          {
+            "startTime": 3058.5,
+            "duration": 259.60000002384186,
+            "blockingDuration": 197.5,
+            "scripts": [
+              {
+                "duration": 166.39999997615814,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "Uh",
+                "invoker": "IdleRequestCallback"
+              },
+              {
+                "duration": 16,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "c",
+                "invoker": "FrameRequestCallback"
+              }
+            ]
+          },
+          {
+            "startTime": 802.6999999284744,
+            "duration": 234.90000009536743,
+            "blockingDuration": 69.7,
+            "scripts": [
+              {
+                "duration": 99.29999995231628,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 19.5,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "TimerHandler:setTimeout"
+              },
+              {
+                "duration": 9.399999976158142,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-CCE519rw.js",
+                "sourceFunctionName": "",
+                "invoker": "ReadableStreamDefaultReader.read.then"
+              }
+            ]
+          },
+          {
+            "startTime": 1053.1999999284744,
+            "duration": 231.20000004768372,
+            "blockingDuration": 102.8,
+            "scripts": [
+              {
+                "duration": 130.19999992847443,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-CCE519rw.js",
+                "sourceFunctionName": "",
+                "invoker": "ReadableStreamDefaultReader.read.then"
+              },
+              {
+                "duration": 15.200000047683716,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-BtZuJYh2.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              }
+            ]
+          }
+        ]
+      },
+      "errors": [],
+      "heldRanges": true,
+      "timingProof": false
+    }
+  ]
+}

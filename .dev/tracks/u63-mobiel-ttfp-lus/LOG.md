@@ -678,3 +678,30 @@ Main022e68d inclusief U64ff19077 samengevoegd. Conflicten in App/helper/Vite en 
 Absolute-v2-master10536 heeft main koud/warm×3 en z4 koud×3/warm×2 voltooid; laatste warme opname wacht buiten lock≤8. Vastgezette productbasis4038d55 versuscd0d63e vóór U64, geen actuele U64-baselineclaim. Geen builds gestart tijdens dit rustige venster. Nieuw U64-gate typecheck/unit/build+basemapdesktop pending; kaart-eerst/temperatuur blijven proefbranches. Preview4340 blijft vaste313a976. Volgend checkpoint legt de integratie reviewbaar vast; gepaarde losse-z4-cijfers en vier v2-beelden staan al gecommit.
 
 Typecheck na U64-conflictoplossing13026 SYNCHRONE exit0. Exact repro: pnpm --dir web typecheck; output tmp/u63/u64-merge-typecheck.txt. Unit/build en gerichte desktopgates volgen; geen groenclaim daarvoor op dit checkpoint.
+
+## 2026-10-08 16:44 UTC — U64-gate groen; absolute v2 volledig
+
+Unit/build97603 SYNCHRONE exit0:524tests/79bestanden, losse gate-dist web/tmp/u63/u64-merge-gate-dist. Desktop24708 SYNCHRONE exit0,15tests/58,7s: MOTREGEN_E2E_PORT=4893 MOTREGEN_E2E_DATA_PORT=8893 MOTREGEN_MOBILE_BASEMAP=own MOTREGEN_SYNTH_GRID_SCALE=6 pnpm --dir web e2e e2e/basemap.spec.ts e2e/startup.spec.ts e2e/map-startup.spec.ts e2e/dev-panel.spec.ts --project desktop. Basemap9 inclusief z4 licht/donker; bootstrap/still/skywatch/sessie en vroege kaartheader ook groen. Alleen de7eigen gegenereerde public/data-fixtures teruggezet naar de vooraf schone bron; meetfixtures staan in tmp.
+
+Absolute-v2-master10536 SYNCHRONE exit0 waargenomen:12opnames≤8,0wirebevindingen,plaatsen na ttfp. Gecommitteerde compacte bron absolute-v2-koud-warm.json bevat scenario/profiel/eigenkaart/cache/load en waterval per run; basissen4038d55 versuscd0d63e vóór U64. Main koudttfr3823/ttfp2013ms, warm3417/2429; z4koud4570/2130/eerstekaart2105, warm4585/2455/eerstekaart2386. Dit is geen afwisselend paar en bewijst geen actuele U64-winst. Rustige mainwarm wint406ms ttfr maar verliest416ms ttfp: CPU-dominantie blijft, exacte nul is basisafhankelijk. docs/perf.md bijgewerkt plus koude/warme U62deel2-budgetbaseline. Contractgecontroleerde replay van de zes absolute z4-opnames met compareBaseline exit0:bytes koud+0,51%,warm0%,decodes0%. De oude afzonderlijke kaartfase≤1000ms-lat is niet gehaald; geen perf:mobile--compare-groenclaim.
+
+Nieuwe gepaarde A/B-koud/warm×3 op product82fa4bd mét U64, z4-uit versus directe z4, master2709 op4863/8863. Bevroren aparte bundels/fixture, per-run slot→flock en load≤16; nog pending. De twee eerdere helperdefinities zijn samengebracht; geen inline z4-data op de HTML-lijn. Preview4340 blijft vaste313a976.
+
+## 2026-10-08 16:46 UTC — z4-beeldparen na U64
+
+Beeldbatch16037 SYNCHRONE exit0. Vier390×844/DSF2-bestanden metingen/z4-u64-{light,dark}-{placeholder,echt}-390.png plus z4-u64-beeldcontrole.json, product82fa4bd inclusief U64. Zelf visueel alle vier gecontroleerd: water/landcover/grenzen behouden hun tint, echte tegels voegen geometrie/labels toe. Expressief aan, licht+0u/donker+6u; regen en wind/pointdata mogen ondertussen verder laden. PMTiles opzettelijk vastgehouden; placeholder basemapReady null, echte kaart nonnull,0pageerrors; geen timingbewijs. Apart Caddy4693/8693 gestopt door EXITtrap. Preview4340 blijft draaien.
+
+## 2026-10-08 16:57 UTC — z4 na U64 koud/warm×3; klaar voor merge
+
+Master2709 SYNCHRONE exit0. Twaalf geldige opnames op product82fa4bd, eigen U60, po-android/quota40/GRID6, afwisselend A/B en startload≤16; warm volledig nieuw browserproces met gevuld HTTP+SW-diskprofiel. Compact metingen/z4-u64-gepaard.json bewaart scenario/profiel/cache/basis/bundel/load, waterval en paarverschil per run. Docs bevatten dezelfde actuele tabel; oudere basissen blijven apart.
+
+| Cache / variant | ttfr ms | ttfp ms | Eerste kaart ms | Body bytes | Regen-decodes | LoAF ná ttfp max ms / >250ms | Startloads |
+| --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| Koud / zonder z4 | 3806.2 | 1922.9 | 3806 | 5025856 | 223 | 261.2 / 1 | 7.06 / 9.69 / 15.94 |
+| Koud / losse z4 | 4336.6 | 2262.4 | 2197.8 | 5043927 | 220 | 269.8 / 1 | 10.5 / 11.86 / 13.77 |
+| Warm / zonder z4 | 4261.9 | 2299.2 | 4261.8 | 36513 | 226 | 304.7 / 3 | 13.01 / 15.71 / 15.33 |
+| Warm / losse z4 | 4558.8 | 2416.2 | 2353.8 | 36513 | 226 | 284.6 / 2 | 11.93 / 12.2 / 15.2 |
+
+Eerste kaartbeeld koud1608ms en warm1908ms eerder; ttfp koud339ms en warm117ms later. ttfr behoudt de volledige-kaartvoorwaarde en is koud530ms en warm297ms later. De100ms-ttfp-lat is niet gehaald; de PO accepteert de reststraf. Warm is nog niet duidelijk onder koud. De LoAF-bewaker blijft open: medianen269,8/284,6ms na ttfp en1/2frames>250ms. Eerste-kaartwinst is in elk afzonderlijk paar aanwezig; ttfp varieert per paar (koud−192 tot+809ms, warm−499 tot+238ms), dus geen kleine kostenwinst ten opzichte van eerdere basissen claimen. Warm alleen36513 sessiemanifestbytes, nul kaartnetwerkbytes. Alle wirebevindingen0 en plaatsenlijst na ttfp.
+
+Klaar voor merge volgens de expliciete PO-gate voor z4: typecheck13026,unit/build97603,desktop24708 allen SYNCHRONE exit0 na main/U64;524tests,15desktoptests met basemap9. Beeldbatch16037 exit0 en vierfoto's zelf gecontroleerd, gelijke tinting in licht/donker. Laatste proefcode niet toegevoegd: kaart-eerst9fa317e en temperatuurc8f21ef blijven geïsoleerd, net als kale stijl/na-regendraw/na-spelen. Nieuwe absolute budgetbaselines hebben benoemde reden U62deel2+warmcontract, vóór U64; geen actuele absolute starttijdclaim. De oude kaarttijdlat≤1000ms en Buienradar-warmreferentie blijven open, geen volledige perf:mobile--compare-groenclaim. GitHub heeft geen gerapporteerde checks; lokale receipts zijn de gate. Geen merge uitgevoerd. Alle eigen meet/build/beeldshells zijn klaar; alleen de expliciet gevraagde telefoonpreview69910/4340 blijft draaien op313a976.

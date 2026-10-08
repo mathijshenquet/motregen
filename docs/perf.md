@@ -1441,9 +1441,7 @@ Meetrecept: `pnpm perf:mobile --profile po-android --scenario koud-spelend,warm-
 --basemap own --repeat 3 --baseline`. De overeenkomstige Buienradar-referentie is
 `--scenario referentie-buienradar,referentie-buienradar-warm --repeat 3`; toestemming
 en diskcache komen uit het eerste bezoek, alle browserprocessen worden daarna gesloten.
-**Nieuwe koude/warme referenties en watervallen zijn nog pending**: alleen loadavg <8
-onder één lock per opname is geldig. De warme lat is duidelijk lager dan koud én
-Buienradar warm op dezelfde rig.
+**Nieuwe koude/warme referenties op U62 deel 2 zijn voltooid**; zie het absolute v2-anker hieronder. De basis is vóór U64; ze claimen geen absolute starttijd voor de latere integratie. De warme lat blijft duidelijk lager dan koud én Buienradar warm op dezelfde rig; de gekalibreerde Buienradar-warmnavigatie faalt nog met ERR_HTTP2_PROTOCOL_ERROR, dus daarvan is geen timinggetal beschikbaar.
 
 De oude tabel van 2026-08-31 (4G 13,00/2,95 s, desktop 1,20/1,43 s) komt uit
 commit `b2d830b`. Daar volgt warm direct op koud plus HUD-controle, vóór scrubben
@@ -1474,3 +1472,33 @@ De losse uitvoering is op 2026-10-08 gepaard A/B om en om gemeten, po-android/qu
 Eerste kaartbeeld wint koud1655ms en warm1738ms; ttfp kost438/521ms. Het volledige-kaartvereiste van ttfr blijft gelijk: koud325ms later, warm254ms eerder. Deze uitvoering haalt de eerdere100ms-lat voor ttfp niet; PO accepteert de resterende straf. Warme ttfp/ttfr blijven boven koud, dus de warmelat is niet gehaald. LoAF na ttfp is geen opgelost probleem: er blijven frames van ongeveer300ms. De plaatsenlijst begint in alle twaalf opnames pas na ttfp; er zijn geen wirebevindingen. Beide z4-gzipdecodes gebeuren buiten de hoofddraad. Warm heeft nul kaartnetwerkbytes; de36513 bytes zijn het sessiemanifest. Dit zijn gepaarde cijfers en vervangen de absolute≤8-baselines niet.
 
 Compacte bron met load, cache, scenario, bundelURL en tijden per opname: `.dev/tracks/u63-mobiel-ttfp-lus/metingen/z4-los-gepaard.json`. Vier390px-toestandsbeelden licht/donker staan daarnaast als `z4-{light,dark}-{placeholder,echt}-390.png`; die netwerkgestuurde beeldcontrole is geen timingmeting.
+
+### U63 absolute referentie na U62 deel 2, vóór U64
+
+Op 2026-10-08 is main4038d55 (alleen actuele rigoverlay) tegenover U63cd0d63e gemeten op po-android/quota40/GRID6/eigen U60; iedere cache/variant driemaal met werkelijke startload≤8. Dit zijn afzonderlijke absolute reeksen, geen afwisselend A/B-paar. Reden voor de nieuwe baseline: U62 Kaderhemel/tinting, U65 lazy plaatsenlijst en het gecorrigeerde warme contract met HTTP+SW-diskcache en volledig nieuw browserproces. Beide varianten gebruiken dezelfde rig; een CPU-profiel of drukke opname is uitgesloten.
+
+| Cache / variant / basis | ttfr ms | ttfp ms | Eerste kaart ms | Body bytes | Regen-decodes | LoAF ná ttfp max ms / >250ms | Startloads |
+| --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| Koud / main4038d55 | 3823,0 | 2012,9 | niet apart gemarkeerd | 5047534 | 220 | 216,3 / 0 | 7,35 / 7,91 / 7,76 |
+| Warm / main4038d55 | 3417,2 | 2428,8 | niet apart gemarkeerd | 36513 | 220 | 190,9 / 0 | 7,85 / 7,60 / 6,01 |
+| Koud / z4 cd0d63e | 4569,6 | 2130,1 | 2105,4 | 5073254 | 220 | 365,4 / 2 | 6,31 / 7,54 / 6,87 |
+| Warm / z4 cd0d63e | 4585,1 | 2455,1 | 2386,1 | 36513 | 220 | 319,2 / 2 | 5,50 / 7,18 / 7,31 |
+
+In deze rustige mainreeks wint warm406ms ttfr, maar verliest416ms ttfp. Met z4 blijft warme ttfr vrijwel gelijk aan koud. De eerdere conclusie over de dominante CPU-/quotakosten blijft daarmee relevant, maar 'cache koopt niets' is geen universele exacte nul: de winst hangt af van de productbasis en fase. Warm heeft alleen36513 sessiemanifestbytes; nul kaartnetwerkbytes. Baselines: `web/perf/baselines/po-android-{koud,warm}-spelend-own-u62-part2.json`. Alle z4-budgetvergelijkingen tegen die referentie blijven onder10% (koud ongeveer+0,51% bytes, warm0%; decodes0%). De afzonderlijke oude U59-kaartfase-totaallat≤1000ms is op deze U60/quota-basis niet gehaald; een groene byte/decodevergelijking is geen groene kaarttijdlat.
+
+Compacte bron en eerste6s-watervallen per opname: `.dev/tracks/u63-mobiel-ttfp-lus/metingen/absolute-v2-koud-warm.json`. Nieuwe gepaarde U64/z4-opnames rapporteren hun eigen actuele basis afzonderlijk.
+
+### U63 z4 na U64 — actuele gepaarde PO-gate
+
+Product82fa4bd inclusief U64/U62deel2/U65/U67: z4 uit versus losse z4, dezelfde bevroren bron en eigen U60-kaart, po-android/quota40/GRID6. A1/B1/A2/B2/A3/B3 per koud/warm-scenario, werkelijke startload≤16 per opname. Warm gevuld HTTP+SW-diskprofiel, volledig nieuw browserproces zonder app-/worker-/WebGL-geheugen. Medianen×3, geen absolute baseline:
+
+| Cache / variant | ttfr ms | ttfp ms | Eerste kaart ms | Body bytes | Regen-decodes | LoAF ná ttfp max ms / >250ms | Startloads |
+| --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| Koud / zonder z4 | 3806.2 | 1922.9 | 3806 | 5025856 | 223 | 261.2 / 1 | 7.06 / 9.69 / 15.94 |
+| Koud / losse z4 | 4336.6 | 2262.4 | 2197.8 | 5043927 | 220 | 269.8 / 1 | 10.5 / 11.86 / 13.77 |
+| Warm / zonder z4 | 4261.9 | 2299.2 | 4261.8 | 36513 | 226 | 304.7 / 3 | 13.01 / 15.71 / 15.33 |
+| Warm / losse z4 | 4558.8 | 2416.2 | 2353.8 | 36513 | 226 | 284.6 / 2 | 11.93 / 12.2 / 15.2 |
+
+Eerste kaartbeeld koud1608ms en warm1908ms eerder; ttfp koud339ms en warm117ms later. ttfr behoudt de volledige-kaartvoorwaarde en is koud530ms en warm297ms later. De100ms-ttfp-lat is niet gehaald; de PO accepteert de reststraf. Warm is nog niet duidelijk onder koud. De LoAF-bewaker blijft open: medianen269,8/284,6ms na ttfp en1/2frames>250ms. Eerste-kaartwinst is in elk afzonderlijk paar aanwezig; ttfp varieert per paar (koud−192 tot+809ms, warm−499 tot+238ms), dus geen kleine kostenwinst ten opzichte van eerdere basissen claimen. Warm alleen36513 sessiemanifestbytes, nul kaartnetwerkbytes. Alle wirebevindingen0 en plaatsenlijst na ttfp.
+
+Klaar voor merge volgens de expliciete z4-PO-gate: typecheck,524unittests,productiebuild en15gerichte desktoptests waaronder basemap9 groen na de integratie. Vier390px-toestandsbeelden op dezelfde basis: `.dev/tracks/u63-mobiel-ttfp-lus/metingen/z4-u64-{light,dark}-{placeholder,echt}-390.png`; PMTiles opzettelijk tegengehouden, dus geen tijden aan de screenshots ontlenen. Compacte per-runbron, watervallen en afzonderlijke paarverschillen: `metingen/z4-u64-gepaard.json` in dezelfde trackmap. Kaart-eerst en temperatuur blijven proefbranches.
