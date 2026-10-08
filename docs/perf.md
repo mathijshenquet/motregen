@@ -1221,11 +1221,25 @@ geen perf-lock. Bevroren builds kunnen met `MOTREGEN_RIG_PREBUILT=1` en
 `MOTREGEN_RIG_DIST=/pad/naar/build` worden hergebruikt; de gecombineerde
 lus staat in `scripts/desktop-loop.sh`. Nieuwe captures starten op `/weer`.
 
-Koud wist de HTTP-cache en blokkeert de SW. Warm primeert de SW en bekeken
-kaartbereiken via een echte reload en wist daarna de HTTP-cache. Het is
-geen meting van de eerste heropening vóór cachevulling. Weer blijft
-NetworkOnly; een SW-response of nul Resource-Timing-bytes bewijst geen
-gecachte weerdata. Capturelogs onderscheiden interne SW-netwerkrequests.
+Koud wist de HTTP-cache en blokkeert de SW. Warm vult HTTP- en SW-
+schijfcaches, sluit de seedbrowser en opent een nieuwe browser/context met
+hetzelfde tijdelijke profiel, zonder appgeheugen. De capture registreert
+cache-inventaris, SW-controller en HTML/SW-hash. Bij drukte blijven alleen
+de schijfcaches bewaard; de browser sluit en de loadwacht gebeurt buiten
+de lock. Het profiel vervalt na die ene run. Weer blijft NetworkOnly in de
+SW; de HTTP-cache kan de immutable Ranges leveren. Capturelogs
+onderscheiden interne SW-netwerkrequests. Een SW-response of nul Resource-
+Timing-bytes bewijst op zichzelf geen gecachte weerdata.
+
+Op de host met 32 kernen zijn expliciete gepaarde kandidaten toegestaan bij
+startload ≤16 (`--paired --pair=naam --role=A|B`), in de volgorde A B A B A B.
+Rapporteer koud en warm samen, met ttfr/ttfp en verschillen binnen paren.
+Paar-ID, rol, toegepaste loadgrens en load tijdens de opname staan in metadata;
+deze runs leveren geen absolute baseline. Absolute baselines blijven ≤8.
+Lighthouse gebruikt dezelfde lock/grens en bewaart de load in een sidecar.
+`scripts/start-upstream.ts CAPTURE.json` telt serverlogevents tot 12 s na
+navigatie: responsbodybytes, zonder headers/TCP-overhead. Resource Timing-
+bodybytes uit SW/cache bewijzen geen netwerktransfer.
 
 Productbuilds bevatten standaard beide native stijlen inline, een glyph-
 preload en vroege manifestfetch; `VITE_START_ASSETS=none` maakt een

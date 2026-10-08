@@ -51,7 +51,7 @@ wordt tegen dezelfde U62-startsituatie gemeten.
 | alleen regenshaders | −7,95% / +0,93% | +12,81% / +23,81% | 3 / 3; afgewezen |
 | GPU-worker zonder shaderwijziging | pending | pending | 0 / 0 |
 | manifest-SWR zonder shaderwijziging | pending | pending | 0 / 0 |
-| totale U64 zonder shaders versus main | pending | −17,16% / −1,75% | 0 / 3 |
+| totale U64 zonder shaders versus main | −17,37% / +3,24% | −17,16% / −1,75% | 3 / 3 |
 
 Medianen van verschillen binnen paren, geen absolute baseline. Regen-only
 koud heeft deltas +115,9 / −531,0 / −101,0 ms ttfr en +129,9 / −240,7 /
@@ -62,6 +62,17 @@ deltas −3,2 / +168,5 / +347,8 ms ttfr en −40,1 / +176,7 / +224,1 ms ttfp.
 Daarom is ook regencompile teruggezet naar main en is de helper verwijderd.
 De GPU-/manifestproeven zijn opnieuw gebouwd zonder shaderwijziging;
 de totale U64-versus-mainvergelijking begint met warm ×3.
+
+Koud main→U64 geeft ttfr 1420,1→1173,4 / 1436,4→1163,8 /
+1213,8→1134,6 ms, ttfp 766,5→791,3 / 771,8→793,4 / 763,4→788,3 ms.
+Mediaan van de gepaarde verschillen: ttfr −246,7 ms (−17,37%), ttfp
++24,8 ms (+3,24%). Startloads A/B 15,51/14,91;15,77/14,98;14,91/15,60;
+tijdgaps157,9/115,6/85,7s. De eerste poging van paar1 is afgewezen door
+3,32 loadverschil, ondanks gunstige ttfr. LoAF-max A/B koud542,9/475,8;
+484,0/394,8;407,4/394,9ms. Alle zes koude/warme paren verbeteren ttfr;
+de geringe koude ttfp-regressie blijft zichtbaar. De HTML-assets/lazy-
+wijzigingen blijven op deze primaire ttfr-winst in de track; GPU/manifest
+en Lighthouse volgen nog, absolute ≤8-gate blijft pending.
 
 Warm main→U64 geeft ttfr 1253,6→1240,4 / 1499,6→1242,3 /
 1790,6→1091,6 ms, ttfp 737,4→808,9 / 786,4→772,6 / 926,3→746,1 ms.
