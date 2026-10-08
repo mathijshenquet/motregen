@@ -624,3 +624,32 @@ en de rig mengt in software — wat een mengmodus op de GPU-compositor van een t
 Dat moet de PO-telefoon uitwijzen.
 - Gate (web/): typecheck 0 · `pnpm test` 0 (509) · build 0 · desktop `dev-panel focus cloud-section` 0
   (11 groen, 2 overgeslagen); `dev-panel.spec` controleert de Wind-knop (dekking 0,50 → 0,90, multiply).
+
+## Main gemerged (U64, U63: z4-placeholder, vroege manifestpijplijn, lazy modules) — 4e5ac7e
+typecheck 0 · `pnpm test` 0 (79 bestanden, 527 tests) · build 0 · desktop `dev-panel focus cloud-section
+sky-window table` 0 (18 groen, 4 overgeslagen). Preview 4320 herstart op de gemergde build.
+
+## PO-bug (mobiel Firefox): strook scrubber boven de open tabel als de adresbalk terugkomt
+Screenshot PO: `po-histogram-rest-firefox-adresbalk.png` (tabel open, ~35 px scrubber + twee regenbalkjes
+boven de tab-rij).
+- Nagebootst zoals gevraagd met een hoogtewissel ná het openscrollen (`rig/toolbar-resize.ts`, 390 px,
+  844 ↔ 788): in Chromium blijft het paneel in beide richtingen op 0 px — de CSS-scroll-snap van de
+  browser zet de pagina na de layoutwissel zelf terug. Zo is het dus NIET te reproduceren.
+- Wat de screenshot laat zien is een pagina die ~35 px naast het snappunt tot rust is gekomen. De app
+  corrigeerde dat nergens: `settleTableView` keek alleen óf de pagina op de tabel of op de kaart stond en
+  deed anders niets. Aanname (niet op het toestel bevestigd): Firefox voor Android laat de pagina daar
+  staan wanneer de adresbalk terugkomt, waar Chromium opnieuw snapt.
+- Fix (`App.tsx`, `settleTableView`): staat de pagina na een scroll of een schermwissel binnen
+  `TABLE_SNAP_SLACK_PX` (120 px) van het tabel-snappunt, dan `window.scrollBy(panelTop)`; binnen 120 px
+  van de bovenkant, dan terug naar 0. Verder weg niets (dat is een gebaar dat nog loopt). Loopt via de
+  bestaande afhandeling van scroll/scrollend/resize/visualViewport; geen vaste hoogtes.
+- e2e `table.spec` "a page left just beside the table snap point is pulled back…": CSS-snap uitgezet (zo
+  laat Firefox haar staan), tabel open, 35 px teruggeschoven → paneel terug op 0 en de tabel blijft open;
+  hetzelfde aan de kaartkant. Zonder de fix ROOD (paneel blijft op 35), met de fix groen.
+- Beelden: `adresbalk/voor-zonder-fix.png` (de strook, zoals bij de PO) en `adresbalk/na-met-fix.png`
+  (`rig/snap-after.ts`: direct na het verschuiven 35 px, een halve seconde later 0 px).
+- Gate (web/): typecheck 0 · `pnpm test` 0 (527) · build 0 · `table.spec --project desktop --project
+  mobile-4g` 0 (14 groen, 4 overgeslagen).
+- Niet getest: Firefox zelf (geen Playwright-Firefox op deze host). Als de strook daar blijft, is de
+  oorzaak een andere (bv. het paneel dat korter is dan het scherm) en heb ik een opname nodig van
+  `scrollY`, `innerHeight` en de paneelhoogte op het toestel.
