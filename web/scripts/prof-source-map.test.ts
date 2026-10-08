@@ -22,6 +22,11 @@ function build(file = 'app-12345678.js', sourceContent = 'function calculate(val
 const frame = { functionName: 'a', url: 'http://preview/assets/app-12345678.js', lineNumber: 0, columnNumber: 0 }
 
 describe('profile sourcemaps', () => {
+  it('preserves inline HTML frames while still checking JavaScript build hashes', () => {
+    const inline = { ...frame, url: 'http://preview/', functionName: 'placeholder' }
+    expect(createSourceMapResolver(build())(inline)).toEqual(inline)
+    expect(() => createSourceMapResolver(build())({ ...frame, url: 'http://preview/assets/missing.js' })).toThrow(/buildhash komt niet overeen/)
+  })
   it('resolves zero-based Chrome positions and recovers the function rather than a parameter name', () => {
     const resolve = createSourceMapResolver(build())
     expect(resolve(frame)).toEqual({ functionName: 'calculate', url: 'src/example.ts', lineNumber: 0, columnNumber: 0 })

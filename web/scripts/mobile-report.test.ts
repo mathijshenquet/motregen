@@ -1,10 +1,52 @@
 import { describe, expect, it } from 'vitest'
-import { compareBaseline, completedBytesBefore, reconcileWire, repetitionSpread, resourceKind, smoothness, summarizePhases, type MobileBaseline, type WireRequest } from './mobile-report'
+import { compareBaseline, completedBytesBefore, reconcileWire, repetitionSpread, requestsStartedWithin, resourceKind, smoothness, summarizePhases, wireWindow, type MobileBaseline, type WireRequest } from './mobile-report'
 
 const baseline: MobileBaseline = { schema: 1, profile: 'mobile-4g', scenario: 'koud', sourceSha: 'abc', capturedAt: '2026-10-07', contractHash: 'fixed', regressionLimitPercent: 10, wireBytes: 1_000, decodes: 100 }
 const request: WireRequest = { url: '/data/chunks/rain.mrf', startMs: 10, endMs: 100, encodedBodyBytes: 1_000, range: 'bytes=0-999', status: 206, failure: null }
 
 describe('mobiele rapportage', () => {
+  it('weigert negatieve bodybytes ook wanneer de procentformule daardoor geen afwijking ziet', () => {
+    expect(reconcileWire([{ ...request, encodedBodyBytes: -538 }], [{ ...request, endMs: 100, encodedBodyBytes: 0 }]).findings).toContain('Ongeldige negatieve bodygrootte: /data/chunks/rain.mrf')
+  })
+  it('koppelt SW-netwerkfetch en gecachte paginaresponse apart, ook bij omgekeerde netwerkstart', () => {
+    const client = { ...request, owner: 'client' as const, fromServiceWorker: true, startMs: 20, encodedBodyBytes: 0 }
+    const worker = { ...request, owner: 'service-worker' as const, startMs: 15, encodedBodyBytes: 1_000 }
+    const clientTiming = { ...client, startMs: 10, endMs: 100 }
+    const workerTiming = { ...worker, startMs: 11, endMs: 99 }
+    const selected = wireWindow([client, worker], [clientTiming, workerTiming], 30_000)
+    const result = reconcileWire(selected.requests, selected.timing)
+    expect(result.findings).toEqual([])
+    expect(result.playwright.total.bytes).toBe(1_000)
+    expect(result.playwright.total.requests).toBe(2)
+    expect(reconcileWire([client, worker], [clientTiming]).findings.length).toBeGreaterThan(0)
+  })
+  it('accepteert een volledige SW-bodyabort zonder netwerkbytes maar weigert een onvolledige', () => {
+    const cached = { ...request, fromServiceWorker: true, encodedBodyBytes: 0, playwrightBodySize: 1_000, contentLength: 1_000, failure: 'net::ERR_ABORTED' }
+    const timing = { ...cached, endMs: 100 }
+    expect(reconcileWire([cached], [timing]).findings).toEqual([])
+    expect(reconcileWire([{ ...cached, playwrightBodySize: 999 }], [timing]).findings).toContain('Onvolledige response: /data/chunks/rain.mrf (net::ERR_ABORTED)')
+  })
+  it('selecteert dezelfde requests als native fetch-start vóór de netwerk-start op de grens ligt', () => {
+    const inside = { ...request, startMs: 29_980, endMs: 30_040 }
+    const outside = { ...request, startMs: 30_010, endMs: 30_050 }
+    const nativeInside = { ...inside, startMs: 29_960, encodedBodyBytes: 1_000 }
+    const nativeOutside = { ...outside, startMs: 29_993, encodedBodyBytes: 1_000 }
+    const selected = wireWindow([inside, outside], [nativeInside, nativeOutside], 30_000)
+    expect(selected).toEqual({ requests: [inside], timing: [nativeInside] })
+    expect(reconcileWire(selected.requests, selected.timing).findings).toEqual([])
+    const missing = wireWindow([inside], [nativeInside, nativeOutside], 30_000)
+    expect(reconcileWire(missing.requests, missing.timing).findings.length).toBeGreaterThan(0)
+    const missingBody = wireWindow([{ ...inside, encodedBodyBytes: null }], [nativeInside], 30_000)
+    expect(reconcileWire(missingBody.requests, missingBody.timing).findings).toContain('Onvolledige response: /data/chunks/rain.mrf (bodygrootte onbekend)')
+  })
+  it('meet de hele body van een request dat binnen de meetduur begint en erna eindigt', () => {
+    const crossing = { ...request, startMs: 29_990, endMs: 30_040, encodedBodyBytes: 1_000 }
+    const selected = requestsStartedWithin([crossing, { ...request, startMs: 30_001 }, { ...request, startMs: -1 }], 30_000)
+    expect(selected).toEqual([crossing])
+    expect(reconcileWire(selected, [crossing]).findings).toEqual([])
+    expect(completedBytesBefore(selected, 30_000)).toBe(0)
+    expect(reconcileWire([{ ...crossing, encodedBodyBytes: null }], [crossing]).findings).toContain('Onvolledige response: /data/chunks/rain.mrf (bodygrootte onbekend)')
+  })
   it('telt PMTiles-ranges bij kaartbytes', () => {
     expect(resourceKind('/data/basemap/nl-0123456789abcdef.pmtiles')).toBe('tiles')
   })

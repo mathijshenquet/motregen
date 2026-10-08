@@ -44,6 +44,7 @@ function caddyRoutes(): string {
   const lowercase = Array.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ', (letter) => `      plaats ${letter} ${letter.toLowerCase()}`).join('\n')
   return `route {
 header /plaatsen-*.json Cache-Control "public, max-age=31536000, immutable"
+header /assets/* Cache-Control "public, max-age=31536000, immutable"
 @legacyPreset {
   path /
   method GET HEAD

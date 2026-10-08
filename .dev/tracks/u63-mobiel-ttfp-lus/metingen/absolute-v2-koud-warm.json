@@ -1,0 +1,2993 @@
+{
+  "status": "Absolute koude en warme referentie ×3 per variant, startload≤8; productbasis vóór U64.",
+  "order": "main koud×3, main warm×3, z4 koud×3, z4 warm×3; geen A/B-paar",
+  "variants": {
+    "main": "4038d55, uitsluitend actuele rigoverlay",
+    "z4": "cd0d63e"
+  },
+  "medians": [
+    {
+      "variant": "main",
+      "profile": "po-android",
+      "scenario": "koud-spelend",
+      "basemap": "eigen U60 nl-91e2043db5c73799",
+      "cache": "cold",
+      "ttfrMs": 3823,
+      "ttfpMs": 2012.9,
+      "firstMapImageMs": null,
+      "decodes": 220,
+      "wireBytes": 5047534,
+      "loafAfterTtfpMaxMs": 216.3,
+      "loafAfterTtfpOver250": 0,
+      "loads": [
+        7.35,
+        7.91,
+        7.76
+      ]
+    },
+    {
+      "variant": "main",
+      "profile": "po-android",
+      "scenario": "warm-spelend",
+      "basemap": "eigen U60 nl-91e2043db5c73799",
+      "cache": "warm-disk-new-browser",
+      "ttfrMs": 3417.2,
+      "ttfpMs": 2428.8,
+      "firstMapImageMs": null,
+      "decodes": 220,
+      "wireBytes": 36513,
+      "loafAfterTtfpMaxMs": 190.9,
+      "loafAfterTtfpOver250": 0,
+      "loads": [
+        7.85,
+        7.6,
+        6.01
+      ]
+    },
+    {
+      "variant": "z4",
+      "profile": "po-android",
+      "scenario": "koud-spelend",
+      "basemap": "eigen U60 nl-91e2043db5c73799",
+      "cache": "cold",
+      "ttfrMs": 4569.6,
+      "ttfpMs": 2130.1,
+      "firstMapImageMs": 2105.4,
+      "decodes": 220,
+      "wireBytes": 5073254,
+      "loafAfterTtfpMaxMs": 365.4,
+      "loafAfterTtfpOver250": 2,
+      "loads": [
+        6.31,
+        7.54,
+        6.87
+      ]
+    },
+    {
+      "variant": "z4",
+      "profile": "po-android",
+      "scenario": "warm-spelend",
+      "basemap": "eigen U60 nl-91e2043db5c73799",
+      "cache": "warm-disk-new-browser",
+      "ttfrMs": 4585.1,
+      "ttfpMs": 2455.1,
+      "firstMapImageMs": 2386.1,
+      "decodes": 220,
+      "wireBytes": 36513,
+      "loafAfterTtfpMaxMs": 319.2,
+      "loafAfterTtfpOver250": 2,
+      "loads": [
+        5.5,
+        7.18,
+        7.31
+      ]
+    }
+  ],
+  "captures": [
+    {
+      "variant": "main",
+      "scenario": "koud-spelend",
+      "runs": [
+        {
+          "repetition": 1,
+          "sourceSha": "4038d5599f19e8b784dd3670aae8fc949b71d8da",
+          "capturedAt": "2026-10-08T16:09:53.617Z",
+          "profile": "po-android",
+          "scenario": "koud-spelend",
+          "productPath": "/weer",
+          "basemap": "eigen U60 nl-91e2043db5c73799",
+          "cache": "cold",
+          "load": 7.35,
+          "contractHash": "1ffead84f1ac723dd15067fbf824b53ae874891d0521b0fe7b6180f08b9fee29",
+          "basemapContractHash": "5667393f58d3a8afb60bb9204e851c0af8390f864613fad60de89f646f648c8c",
+          "ttfrMs": 3823,
+          "ttfpMs": 1950.6,
+          "firstMapImageMs": null,
+          "decodes": 220,
+          "wireBytes": 5047534,
+          "wireFindings": [],
+          "placesAfterTtfp": true,
+          "loafAfterTtfpMaxMs": 279,
+          "loafAfterTtfpOver250": 1,
+          "waterfall": [
+            {
+              "path": "/basemap/licht.json",
+              "startMs": 417.807861328125,
+              "endMs": 457.528861328125,
+              "bodyBytes": 15859,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/manifest.json",
+              "startMs": 417.884033203125,
+              "endMs": 463.989033203125,
+              "bodyBytes": 36513,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "no-store"
+            },
+            {
+              "path": "/basemap/fonts/Noto%20Sans%20Regular/0-255.pbf",
+              "startMs": 552.090087890625,
+              "endMs": 597.932087890625,
+              "bodyBytes": 76580,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 718.717041015625,
+              "endMs": 790.957041015625,
+              "bodyBytes": 4475,
+              "range": "bytes=0-4474",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1200.mrf",
+              "startMs": 734.718017578125,
+              "endMs": 825.594017578125,
+              "bodyBytes": 3192,
+              "range": "bytes=0-3191",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1300.mrf",
+              "startMs": 734.799072265625,
+              "endMs": 821.520072265625,
+              "bodyBytes": 3192,
+              "range": "bytes=0-3191",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1400.mrf",
+              "startMs": 734.864013671875,
+              "endMs": 818.384013671875,
+              "bodyBytes": 3192,
+              "range": "bytes=0-3191",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/seamless-20260828T1500.mrf",
+              "startMs": 734.89794921875,
+              "endMs": 820.84794921875,
+              "bodyBytes": 2237,
+              "range": "bytes=0-2236",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/harmonie-20260828T1200.mrf",
+              "startMs": 734.93603515625,
+              "endMs": 823.27103515625,
+              "bodyBytes": 6673,
+              "range": "bytes=0-6672",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv-20260828.mrf",
+              "startMs": 734.968994140625,
+              "endMs": 822.859994140625,
+              "bodyBytes": 4182,
+              "range": "bytes=0-4181",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv_clear-20260828.mrf",
+              "startMs": 735.0087890625,
+              "endMs": 837.6747890624999,
+              "bodyBytes": 4914,
+              "range": "bytes=0-4913",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T1200.mrf",
+              "startMs": 735.052001953125,
+              "endMs": 841.941001953125,
+              "bodyBytes": 2644,
+              "range": "bytes=0-2643",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T1200-l25-48.mrf",
+              "startMs": 735.1708984375,
+              "endMs": 839.9218984375,
+              "bodyBytes": 2644,
+              "range": "bytes=0-2643",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T0800-hist4.mrf",
+              "startMs": 735.202880859375,
+              "endMs": 839.751880859375,
+              "bodyBytes": 1504,
+              "range": "bytes=0-1503",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/temp_c-20260828T1200.mrf",
+              "startMs": 735.23193359375,
+              "endMs": 842.20493359375,
+              "bodyBytes": 3629,
+              "range": "bytes=0-3628",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 1033.406982421875,
+              "endMs": 1071.7099824218749,
+              "bodyBytes": 16384,
+              "range": "bytes=0-16383",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 1582.101806640625,
+              "endMs": 1622.922806640625,
+              "bodyBytes": 45172,
+              "range": "bytes=39939-85110",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/donker.json",
+              "startMs": 1825.22802734375,
+              "endMs": 2051.26202734375,
+              "bodyBytes": 15656,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": null
+            },
+            {
+              "path": "/plaatsen-4d18b8790eecd5af.json",
+              "startMs": 3177.803955078125,
+              "endMs": 3218.101955078125,
+              "bodyBytes": 60946,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            }
+          ],
+          "basemapPhases": [
+            {
+              "phase": "basemap-tile",
+              "startTime": 1470.8999999761581,
+              "duration": 2289.8000000715256,
+              "detail": {
+                "tile": "basemap:9c55"
+              }
+            }
+          ],
+          "omittedWeatherRequests": 78
+        },
+        {
+          "repetition": 2,
+          "sourceSha": "4038d5599f19e8b784dd3670aae8fc949b71d8da",
+          "capturedAt": "2026-10-08T16:14:03.233Z",
+          "profile": "po-android",
+          "scenario": "koud-spelend",
+          "productPath": "/weer",
+          "basemap": "eigen U60 nl-91e2043db5c73799",
+          "cache": "cold",
+          "load": 7.91,
+          "contractHash": "1ffead84f1ac723dd15067fbf824b53ae874891d0521b0fe7b6180f08b9fee29",
+          "basemapContractHash": "5667393f58d3a8afb60bb9204e851c0af8390f864613fad60de89f646f648c8c",
+          "ttfrMs": 3833.2,
+          "ttfpMs": 2012.9,
+          "firstMapImageMs": null,
+          "decodes": 220,
+          "wireBytes": 5047534,
+          "wireFindings": [],
+          "placesAfterTtfp": true,
+          "loafAfterTtfpMaxMs": 176.10000002384186,
+          "loafAfterTtfpOver250": 0,
+          "waterfall": [
+            {
+              "path": "/basemap/licht.json",
+              "startMs": 453.29296875,
+              "endMs": 504.56496875,
+              "bodyBytes": 15859,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/manifest.json",
+              "startMs": 453.325927734375,
+              "endMs": 510.974927734375,
+              "bodyBytes": 36513,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "no-store"
+            },
+            {
+              "path": "/basemap/fonts/Noto%20Sans%20Regular/0-255.pbf",
+              "startMs": 598.89208984375,
+              "endMs": 648.17008984375,
+              "bodyBytes": 76580,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 745.287109375,
+              "endMs": 791.968109375,
+              "bodyBytes": 4475,
+              "range": "bytes=0-4474",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1200.mrf",
+              "startMs": 769.465087890625,
+              "endMs": 838.5830878906249,
+              "bodyBytes": 3192,
+              "range": "bytes=0-3191",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1300.mrf",
+              "startMs": 765.192138671875,
+              "endMs": 830.737138671875,
+              "bodyBytes": 3192,
+              "range": "bytes=0-3191",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1400.mrf",
+              "startMs": 765.27099609375,
+              "endMs": 831.16599609375,
+              "bodyBytes": 3192,
+              "range": "bytes=0-3191",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/seamless-20260828T1500.mrf",
+              "startMs": 765.313232421875,
+              "endMs": 829.963232421875,
+              "bodyBytes": 2237,
+              "range": "bytes=0-2236",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/harmonie-20260828T1200.mrf",
+              "startMs": 765.360107421875,
+              "endMs": 833.812107421875,
+              "bodyBytes": 6673,
+              "range": "bytes=0-6672",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv-20260828.mrf",
+              "startMs": 765.4033203125,
+              "endMs": 833.7093203125,
+              "bodyBytes": 4182,
+              "range": "bytes=0-4181",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv_clear-20260828.mrf",
+              "startMs": 765.4453125,
+              "endMs": 856.4083125,
+              "bodyBytes": 4914,
+              "range": "bytes=0-4913",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T1200.mrf",
+              "startMs": 765.51318359375,
+              "endMs": 854.32018359375,
+              "bodyBytes": 2644,
+              "range": "bytes=0-2643",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T1200-l25-48.mrf",
+              "startMs": 765.567138671875,
+              "endMs": 856.240138671875,
+              "bodyBytes": 2644,
+              "range": "bytes=0-2643",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T0800-hist4.mrf",
+              "startMs": 765.60986328125,
+              "endMs": 854.85086328125,
+              "bodyBytes": 1504,
+              "range": "bytes=0-1503",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/temp_c-20260828T1200.mrf",
+              "startMs": 765.653076171875,
+              "endMs": 857.857076171875,
+              "bodyBytes": 3629,
+              "range": "bytes=0-3628",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 1070.391845703125,
+              "endMs": 1115.155845703125,
+              "bodyBytes": 16384,
+              "range": "bytes=0-16383",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 1669.656982421875,
+              "endMs": 1706.019982421875,
+              "bodyBytes": 45172,
+              "range": "bytes=39939-85110",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/donker.json",
+              "startMs": 1917.316162109375,
+              "endMs": 2142.228162109375,
+              "bodyBytes": 15656,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": null
+            },
+            {
+              "path": "/plaatsen-4d18b8790eecd5af.json",
+              "startMs": 3224.754150390625,
+              "endMs": 3290.915150390625,
+              "bodyBytes": 60946,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            }
+          ],
+          "basemapPhases": [
+            {
+              "phase": "basemap-tile",
+              "startTime": 1557.8000000715256,
+              "duration": 2214.7999999523163,
+              "detail": {
+                "tile": "basemap:9c55"
+              }
+            }
+          ],
+          "omittedWeatherRequests": 78
+        },
+        {
+          "repetition": 3,
+          "sourceSha": "4038d5599f19e8b784dd3670aae8fc949b71d8da",
+          "capturedAt": "2026-10-08T16:15:57.014Z",
+          "profile": "po-android",
+          "scenario": "koud-spelend",
+          "productPath": "/weer",
+          "basemap": "eigen U60 nl-91e2043db5c73799",
+          "cache": "cold",
+          "load": 7.76,
+          "contractHash": "1ffead84f1ac723dd15067fbf824b53ae874891d0521b0fe7b6180f08b9fee29",
+          "basemapContractHash": "5667393f58d3a8afb60bb9204e851c0af8390f864613fad60de89f646f648c8c",
+          "ttfrMs": 3485,
+          "ttfpMs": 2131.8,
+          "firstMapImageMs": null,
+          "decodes": 220,
+          "wireBytes": 5047534,
+          "wireFindings": [],
+          "placesAfterTtfp": true,
+          "loafAfterTtfpMaxMs": 216.29999995231628,
+          "loafAfterTtfpOver250": 0,
+          "waterfall": [
+            {
+              "path": "/basemap/licht.json",
+              "startMs": 446.116943359375,
+              "endMs": 491.930943359375,
+              "bodyBytes": 15859,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/manifest.json",
+              "startMs": 446.155029296875,
+              "endMs": 497.854029296875,
+              "bodyBytes": 36513,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "no-store"
+            },
+            {
+              "path": "/basemap/fonts/Noto%20Sans%20Regular/0-255.pbf",
+              "startMs": 560.802978515625,
+              "endMs": 604.667978515625,
+              "bodyBytes": 76580,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 713.791015625,
+              "endMs": 759.788015625,
+              "bodyBytes": 4475,
+              "range": "bytes=0-4474",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1200.mrf",
+              "startMs": 728.420166015625,
+              "endMs": 788.002166015625,
+              "bodyBytes": 3192,
+              "range": "bytes=0-3191",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1300.mrf",
+              "startMs": 728.528076171875,
+              "endMs": 790.560076171875,
+              "bodyBytes": 3192,
+              "range": "bytes=0-3191",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1400.mrf",
+              "startMs": 728.6220703125,
+              "endMs": 791.1280703125,
+              "bodyBytes": 3192,
+              "range": "bytes=0-3191",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/seamless-20260828T1500.mrf",
+              "startMs": 728.681884765625,
+              "endMs": 791.069884765625,
+              "bodyBytes": 2237,
+              "range": "bytes=0-2236",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/harmonie-20260828T1200.mrf",
+              "startMs": 728.7451171875,
+              "endMs": 792.9621171875,
+              "bodyBytes": 6673,
+              "range": "bytes=0-6672",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv-20260828.mrf",
+              "startMs": 728.7919921875,
+              "endMs": 797.6109921875,
+              "bodyBytes": 4182,
+              "range": "bytes=0-4181",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv_clear-20260828.mrf",
+              "startMs": 728.841064453125,
+              "endMs": 814.141064453125,
+              "bodyBytes": 4914,
+              "range": "bytes=0-4913",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T1200.mrf",
+              "startMs": 728.889892578125,
+              "endMs": 814.326892578125,
+              "bodyBytes": 2644,
+              "range": "bytes=0-2643",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T1200-l25-48.mrf",
+              "startMs": 728.94384765625,
+              "endMs": 815.44484765625,
+              "bodyBytes": 2644,
+              "range": "bytes=0-2643",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T0800-hist4.mrf",
+              "startMs": 729.0439453125,
+              "endMs": 805.8219453125,
+              "bodyBytes": 1504,
+              "range": "bytes=0-1503",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/temp_c-20260828T1200.mrf",
+              "startMs": 729.096923828125,
+              "endMs": 808.425923828125,
+              "bodyBytes": 3629,
+              "range": "bytes=0-3628",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 933.357177734375,
+              "endMs": 986.254177734375,
+              "bodyBytes": 16384,
+              "range": "bytes=0-16383",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 1357.94384765625,
+              "endMs": 1393.39484765625,
+              "bodyBytes": 45172,
+              "range": "bytes=39939-85110",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/donker.json",
+              "startMs": 1749.153076171875,
+              "endMs": 1995.873076171875,
+              "bodyBytes": 15656,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": null
+            },
+            {
+              "path": "/plaatsen-4d18b8790eecd5af.json",
+              "startMs": 3278.240966796875,
+              "endMs": 3346.238966796875,
+              "bodyBytes": 60946,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            }
+          ],
+          "basemapPhases": [
+            {
+              "phase": "basemap-tile",
+              "startTime": 1307.3999999761581,
+              "duration": 2089.1999999284744,
+              "detail": {
+                "tile": "basemap:9c55"
+              }
+            }
+          ],
+          "omittedWeatherRequests": 78
+        }
+      ]
+    },
+    {
+      "variant": "main",
+      "scenario": "warm-spelend",
+      "runs": [
+        {
+          "repetition": 1,
+          "sourceSha": "4038d5599f19e8b784dd3670aae8fc949b71d8da",
+          "capturedAt": "2026-10-08T16:18:48.652Z",
+          "profile": "po-android",
+          "scenario": "warm-spelend",
+          "productPath": "/weer",
+          "basemap": "eigen U60 nl-91e2043db5c73799",
+          "cache": "warm-disk-new-browser",
+          "load": 7.85,
+          "contractHash": "219e3d513e99f444694cbbb2c6647d321e3a03f94b7202b12eb67f242cc43b18",
+          "basemapContractHash": "3e9bb33b3d3ea1c06a40a1791424e6e4705cef399a9a30c03027f478ba0775df",
+          "ttfrMs": 3374.2,
+          "ttfpMs": 2460.4,
+          "firstMapImageMs": null,
+          "decodes": 220,
+          "wireBytes": 36513,
+          "wireFindings": [],
+          "placesAfterTtfp": true,
+          "loafAfterTtfpMaxMs": 184.10000002384186,
+          "loafAfterTtfpOver250": 0,
+          "waterfall": [
+            {
+              "path": "/data/manifest.json",
+              "startMs": 367.27685546875,
+              "endMs": 399.95285546875,
+              "bodyBytes": 36513,
+              "range": null,
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "no-store"
+            },
+            {
+              "path": "/basemap/licht.json",
+              "startMs": 366.462890625,
+              "endMs": 367.681890625,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/manifest.json",
+              "startMs": 366.5869140625,
+              "endMs": 400.1079140625,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "no-store"
+            },
+            {
+              "path": "/basemap/fonts/Noto%20Sans%20Regular/0-255.pbf",
+              "startMs": 520.40185546875,
+              "endMs": 525.16285546875,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 664.275146484375,
+              "endMs": 675.156146484375,
+              "bodyBytes": 0,
+              "range": "bytes=0-4474",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1200.mrf",
+              "startMs": 660.517822265625,
+              "endMs": 661.775822265625,
+              "bodyBytes": 0,
+              "range": "bytes=0-3191",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1300.mrf",
+              "startMs": 660.7099609375,
+              "endMs": 661.9039609375,
+              "bodyBytes": 0,
+              "range": "bytes=0-3191",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1400.mrf",
+              "startMs": 675.1357421875,
+              "endMs": 690.6957421875,
+              "bodyBytes": 0,
+              "range": "bytes=0-3191",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/seamless-20260828T1500.mrf",
+              "startMs": 675.40087890625,
+              "endMs": 676.24687890625,
+              "bodyBytes": 0,
+              "range": "bytes=0-2236",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/harmonie-20260828T1200.mrf",
+              "startMs": 675.78369140625,
+              "endMs": 676.84369140625,
+              "bodyBytes": 0,
+              "range": "bytes=0-6672",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv-20260828.mrf",
+              "startMs": 680.06298828125,
+              "endMs": 684.79798828125,
+              "bodyBytes": 0,
+              "range": "bytes=0-4181",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv_clear-20260828.mrf",
+              "startMs": 680.345947265625,
+              "endMs": 681.355947265625,
+              "bodyBytes": 0,
+              "range": "bytes=0-4913",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T1200.mrf",
+              "startMs": 680.393798828125,
+              "endMs": 681.453798828125,
+              "bodyBytes": 0,
+              "range": "bytes=0-2643",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T1200-l25-48.mrf",
+              "startMs": 680.616943359375,
+              "endMs": 681.761943359375,
+              "bodyBytes": 0,
+              "range": "bytes=0-2643",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T0800-hist4.mrf",
+              "startMs": 680.676025390625,
+              "endMs": 681.767025390625,
+              "bodyBytes": 0,
+              "range": "bytes=0-1503",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/temp_c-20260828T1200.mrf",
+              "startMs": 680.739990234375,
+              "endMs": 681.844990234375,
+              "bodyBytes": 0,
+              "range": "bytes=0-3628",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 920.097900390625,
+              "endMs": 930.445900390625,
+              "bodyBytes": 0,
+              "range": "bytes=0-16383",
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 1295.53369140625,
+              "endMs": 1340.64669140625,
+              "bodyBytes": 0,
+              "range": "bytes=39939-85110",
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/donker.json",
+              "startMs": 1580.7548828125,
+              "endMs": 1635.1638828125,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": null
+            },
+            {
+              "path": "/plaatsen-4d18b8790eecd5af.json",
+              "startMs": 3495.700927734375,
+              "endMs": 3500.769927734375,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            }
+          ],
+          "basemapPhases": [
+            {
+              "phase": "basemap-tile",
+              "startTime": 1235.5,
+              "duration": 2091.100000023842,
+              "detail": {
+                "tile": "basemap:9c55"
+              }
+            }
+          ],
+          "omittedWeatherRequests": 168
+        },
+        {
+          "repetition": 2,
+          "sourceSha": "4038d5599f19e8b784dd3670aae8fc949b71d8da",
+          "capturedAt": "2026-10-08T16:20:22.544Z",
+          "profile": "po-android",
+          "scenario": "warm-spelend",
+          "productPath": "/weer",
+          "basemap": "eigen U60 nl-91e2043db5c73799",
+          "cache": "warm-disk-new-browser",
+          "load": 7.6,
+          "contractHash": "219e3d513e99f444694cbbb2c6647d321e3a03f94b7202b12eb67f242cc43b18",
+          "basemapContractHash": "3e9bb33b3d3ea1c06a40a1791424e6e4705cef399a9a30c03027f478ba0775df",
+          "ttfrMs": 3417.2,
+          "ttfpMs": 2428.8,
+          "firstMapImageMs": null,
+          "decodes": 220,
+          "wireBytes": 36513,
+          "wireFindings": [],
+          "placesAfterTtfp": true,
+          "loafAfterTtfpMaxMs": 190.89999997615814,
+          "loafAfterTtfpOver250": 0,
+          "waterfall": [
+            {
+              "path": "/data/manifest.json",
+              "startMs": 379.633056640625,
+              "endMs": 412.204056640625,
+              "bodyBytes": 36513,
+              "range": null,
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "no-store"
+            },
+            {
+              "path": "/basemap/licht.json",
+              "startMs": 378.817138671875,
+              "endMs": 380.186138671875,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/manifest.json",
+              "startMs": 378.9638671875,
+              "endMs": 413.5028671875,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "no-store"
+            },
+            {
+              "path": "/basemap/fonts/Noto%20Sans%20Regular/0-255.pbf",
+              "startMs": 524.40185546875,
+              "endMs": 525.40685546875,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 668.796142578125,
+              "endMs": 670.363142578125,
+              "bodyBytes": 0,
+              "range": "bytes=0-4474",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1200.mrf",
+              "startMs": 673.68017578125,
+              "endMs": 674.65017578125,
+              "bodyBytes": 0,
+              "range": "bytes=0-3191",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1300.mrf",
+              "startMs": 683.643798828125,
+              "endMs": 690.500798828125,
+              "bodyBytes": 0,
+              "range": "bytes=0-3191",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1400.mrf",
+              "startMs": 684.112060546875,
+              "endMs": 685.899060546875,
+              "bodyBytes": 0,
+              "range": "bytes=0-3191",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/seamless-20260828T1500.mrf",
+              "startMs": 684.37109375,
+              "endMs": 685.90709375,
+              "bodyBytes": 0,
+              "range": "bytes=0-2236",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/harmonie-20260828T1200.mrf",
+              "startMs": 684.701904296875,
+              "endMs": 686.358904296875,
+              "bodyBytes": 0,
+              "range": "bytes=0-6672",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv-20260828.mrf",
+              "startMs": 684.880126953125,
+              "endMs": 686.386126953125,
+              "bodyBytes": 0,
+              "range": "bytes=0-4181",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv_clear-20260828.mrf",
+              "startMs": 688.669921875,
+              "endMs": 689.380921875,
+              "bodyBytes": 0,
+              "range": "bytes=0-4913",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T1200.mrf",
+              "startMs": 698.47802734375,
+              "endMs": 703.67702734375,
+              "bodyBytes": 0,
+              "range": "bytes=0-2643",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T1200-l25-48.mrf",
+              "startMs": 698.76708984375,
+              "endMs": 699.33508984375,
+              "bodyBytes": 0,
+              "range": "bytes=0-2643",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T0800-hist4.mrf",
+              "startMs": 703.572021484375,
+              "endMs": 704.134021484375,
+              "bodyBytes": 0,
+              "range": "bytes=0-1503",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/temp_c-20260828T1200.mrf",
+              "startMs": 703.7939453125,
+              "endMs": 704.3259453125,
+              "bodyBytes": 0,
+              "range": "bytes=0-3628",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 1090.25,
+              "endMs": 1100.454,
+              "bodyBytes": 0,
+              "range": "bytes=0-16383",
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 1534.201904296875,
+              "endMs": 1544.026904296875,
+              "bodyBytes": 0,
+              "range": "bytes=39939-85110",
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/donker.json",
+              "startMs": 1673.68017578125,
+              "endMs": 1703.66317578125,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": null
+            },
+            {
+              "path": "/plaatsen-4d18b8790eecd5af.json",
+              "startMs": 3454.41015625,
+              "endMs": 3455.87015625,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            }
+          ],
+          "basemapPhases": [
+            {
+              "phase": "basemap-tile",
+              "startTime": 1495.5999999046326,
+              "duration": 1863.1000000238419,
+              "detail": {
+                "tile": "basemap:9c55"
+              }
+            }
+          ],
+          "omittedWeatherRequests": 168
+        },
+        {
+          "repetition": 3,
+          "sourceSha": "4038d5599f19e8b784dd3670aae8fc949b71d8da",
+          "capturedAt": "2026-10-08T16:22:56.790Z",
+          "profile": "po-android",
+          "scenario": "warm-spelend",
+          "productPath": "/weer",
+          "basemap": "eigen U60 nl-91e2043db5c73799",
+          "cache": "warm-disk-new-browser",
+          "load": 6.01,
+          "contractHash": "219e3d513e99f444694cbbb2c6647d321e3a03f94b7202b12eb67f242cc43b18",
+          "basemapContractHash": "3e9bb33b3d3ea1c06a40a1791424e6e4705cef399a9a30c03027f478ba0775df",
+          "ttfrMs": 3784.6,
+          "ttfpMs": 2015.1,
+          "firstMapImageMs": null,
+          "decodes": 220,
+          "wireBytes": 36513,
+          "wireFindings": [],
+          "placesAfterTtfp": true,
+          "loafAfterTtfpMaxMs": 236.39999997615814,
+          "loafAfterTtfpOver250": 0,
+          "waterfall": [
+            {
+              "path": "/data/manifest.json",
+              "startMs": 386.919921875,
+              "endMs": 417.889921875,
+              "bodyBytes": 36513,
+              "range": null,
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "no-store"
+            },
+            {
+              "path": "/basemap/licht.json",
+              "startMs": 386.1630859375,
+              "endMs": 389.2630859375,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/manifest.json",
+              "startMs": 386.27099609375,
+              "endMs": 417.80299609375,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "no-store"
+            },
+            {
+              "path": "/basemap/fonts/Noto%20Sans%20Regular/0-255.pbf",
+              "startMs": 544.35400390625,
+              "endMs": 554.27300390625,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 660.233154296875,
+              "endMs": 661.778154296875,
+              "bodyBytes": 0,
+              "range": "bytes=0-4474",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1200.mrf",
+              "startMs": 660.360107421875,
+              "endMs": 661.535107421875,
+              "bodyBytes": 0,
+              "range": "bytes=0-3191",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1300.mrf",
+              "startMs": 664.27490234375,
+              "endMs": 665.03090234375,
+              "bodyBytes": 0,
+              "range": "bytes=0-3191",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1400.mrf",
+              "startMs": 669.197998046875,
+              "endMs": 674.738998046875,
+              "bodyBytes": 0,
+              "range": "bytes=0-3191",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/seamless-20260828T1500.mrf",
+              "startMs": 679.244140625,
+              "endMs": 679.864140625,
+              "bodyBytes": 0,
+              "range": "bytes=0-2236",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/harmonie-20260828T1200.mrf",
+              "startMs": 684.194091796875,
+              "endMs": 685.095091796875,
+              "bodyBytes": 0,
+              "range": "bytes=0-6672",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv-20260828.mrf",
+              "startMs": 684.35107421875,
+              "endMs": 684.97807421875,
+              "bodyBytes": 0,
+              "range": "bytes=0-4181",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv_clear-20260828.mrf",
+              "startMs": 689.322021484375,
+              "endMs": 689.900021484375,
+              "bodyBytes": 0,
+              "range": "bytes=0-4913",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T1200.mrf",
+              "startMs": 694.296142578125,
+              "endMs": 694.900142578125,
+              "bodyBytes": 0,
+              "range": "bytes=0-2643",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T1200-l25-48.mrf",
+              "startMs": 694.725830078125,
+              "endMs": 695.410830078125,
+              "bodyBytes": 0,
+              "range": "bytes=0-2643",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T0800-hist4.mrf",
+              "startMs": 694.982177734375,
+              "endMs": 695.757177734375,
+              "bodyBytes": 0,
+              "range": "bytes=0-1503",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/temp_c-20260828T1200.mrf",
+              "startMs": 695.067138671875,
+              "endMs": 695.842138671875,
+              "bodyBytes": 0,
+              "range": "bytes=0-3628",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 1094.569091796875,
+              "endMs": 1099.824091796875,
+              "bodyBytes": 0,
+              "range": "bytes=0-16383",
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 1490.8427734375,
+              "endMs": 1529.4447734375,
+              "bodyBytes": 0,
+              "range": "bytes=39939-85110",
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/donker.json",
+              "startMs": 1614.68212890625,
+              "endMs": 1615.70112890625,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": null
+            },
+            {
+              "path": "/plaatsen-4d18b8790eecd5af.json",
+              "startMs": 3254.715087890625,
+              "endMs": 3259.326087890625,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            }
+          ],
+          "basemapPhases": [
+            {
+              "phase": "basemap-tile",
+              "startTime": 1404.2999999523163,
+              "duration": 2304.7999999523163,
+              "detail": {
+                "tile": "basemap:9c55"
+              }
+            }
+          ],
+          "omittedWeatherRequests": 168
+        }
+      ]
+    },
+    {
+      "variant": "z4",
+      "scenario": "koud-spelend",
+      "runs": [
+        {
+          "repetition": 1,
+          "sourceSha": "cd0d63e8afa14043f968af72bf86833980e10863",
+          "capturedAt": "2026-10-08T16:23:47.842Z",
+          "profile": "po-android",
+          "scenario": "koud-spelend",
+          "productPath": "/weer",
+          "basemap": "eigen U60 nl-91e2043db5c73799",
+          "cache": "cold",
+          "load": 6.31,
+          "contractHash": "1ffead84f1ac723dd15067fbf824b53ae874891d0521b0fe7b6180f08b9fee29",
+          "basemapContractHash": "5667393f58d3a8afb60bb9204e851c0af8390f864613fad60de89f646f648c8c",
+          "ttfrMs": 4569.6,
+          "ttfpMs": 2125.7,
+          "firstMapImageMs": 2105.399999976158,
+          "decodes": 220,
+          "wireBytes": 5073254,
+          "wireFindings": [],
+          "placesAfterTtfp": true,
+          "loafAfterTtfpMaxMs": 375.5,
+          "loafAfterTtfpOver250": 2,
+          "waterfall": [
+            {
+              "path": "/data/manifest.json",
+              "startMs": 135.227783203125,
+              "endMs": 182.143783203125,
+              "bodyBytes": 36513,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "no-store"
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 178.552978515625,
+              "endMs": 202.365978515625,
+              "bodyBytes": 4475,
+              "range": "bytes=0-4474",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 206.052978515625,
+              "endMs": 244.389978515625,
+              "bodyBytes": 55714,
+              "range": "bytes=4475-60188",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/assets/4-7-5.pbf-jT1FmndY.gz",
+              "startMs": 553.85888671875,
+              "endMs": 695.3618867187499,
+              "bodyBytes": 3578,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/assets/4-8-5.pbf-D3FcnUSW.gz",
+              "startMs": 553.913818359375,
+              "endMs": 707.431818359375,
+              "bodyBytes": 20493,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/licht.json",
+              "startMs": 553.962890625,
+              "endMs": 705.768890625,
+              "bodyBytes": 15859,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1200.mrf",
+              "startMs": 554.06982421875,
+              "endMs": 616.63382421875,
+              "bodyBytes": 3192,
+              "range": "bytes=0-3191",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1300.mrf",
+              "startMs": 554.114990234375,
+              "endMs": 634.447990234375,
+              "bodyBytes": 3192,
+              "range": "bytes=0-3191",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1400.mrf",
+              "startMs": 554.14013671875,
+              "endMs": 635.51313671875,
+              "bodyBytes": 3192,
+              "range": "bytes=0-3191",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/seamless-20260828T1500.mrf",
+              "startMs": 554.17578125,
+              "endMs": 635.14678125,
+              "bodyBytes": 2237,
+              "range": "bytes=0-2236",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/harmonie-20260828T1200.mrf",
+              "startMs": 554.203857421875,
+              "endMs": 639.449857421875,
+              "bodyBytes": 6673,
+              "range": "bytes=0-6672",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv-20260828.mrf",
+              "startMs": 554.2958984375,
+              "endMs": 643.6138984375,
+              "bodyBytes": 4182,
+              "range": "bytes=0-4181",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv_clear-20260828.mrf",
+              "startMs": 554.327880859375,
+              "endMs": 645.127880859375,
+              "bodyBytes": 4914,
+              "range": "bytes=0-4913",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T1200.mrf",
+              "startMs": 554.363037109375,
+              "endMs": 659.661037109375,
+              "bodyBytes": 2644,
+              "range": "bytes=0-2643",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T1200-l25-48.mrf",
+              "startMs": 554.39208984375,
+              "endMs": 659.60408984375,
+              "bodyBytes": 2644,
+              "range": "bytes=0-2643",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T0800-hist4.mrf",
+              "startMs": 554.4189453125,
+              "endMs": 657.9769453125,
+              "bodyBytes": 1504,
+              "range": "bytes=0-1503",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/fonts/Noto%20Sans%20Regular/0-255.pbf",
+              "startMs": 1065.777099609375,
+              "endMs": 1299.520099609375,
+              "bodyBytes": 76580,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 1156.516845703125,
+              "endMs": 1222.691845703125,
+              "bodyBytes": 16384,
+              "range": "bytes=0-16383",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/donker.json",
+              "startMs": 1987.0419921875,
+              "endMs": 2246.9309921875,
+              "bodyBytes": 15656,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 2001.048828125,
+              "endMs": 2067.116828125,
+              "bodyBytes": 45172,
+              "range": "bytes=39939-85110",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/plaatsen-4d18b8790eecd5af.json",
+              "startMs": 3171.789794921875,
+              "endMs": 3227.303794921875,
+              "bodyBytes": 60946,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            }
+          ],
+          "basemapPhases": [
+            {
+              "phase": "basemap-tile",
+              "startTime": 1589.7999999523163,
+              "duration": 2485.7000000476837,
+              "detail": {
+                "tile": "basemap:9c55"
+              }
+            }
+          ],
+          "omittedWeatherRequests": 78
+        },
+        {
+          "repetition": 2,
+          "sourceSha": "cd0d63e8afa14043f968af72bf86833980e10863",
+          "capturedAt": "2026-10-08T16:31:02.189Z",
+          "profile": "po-android",
+          "scenario": "koud-spelend",
+          "productPath": "/weer",
+          "basemap": "eigen U60 nl-91e2043db5c73799",
+          "cache": "cold",
+          "load": 7.54,
+          "contractHash": "1ffead84f1ac723dd15067fbf824b53ae874891d0521b0fe7b6180f08b9fee29",
+          "basemapContractHash": "5667393f58d3a8afb60bb9204e851c0af8390f864613fad60de89f646f648c8c",
+          "ttfrMs": 5077.7,
+          "ttfpMs": 2962.5,
+          "firstMapImageMs": 2893.100000023842,
+          "decodes": 220,
+          "wireBytes": 5073254,
+          "wireFindings": [],
+          "placesAfterTtfp": true,
+          "loafAfterTtfpMaxMs": 365.39999997615814,
+          "loafAfterTtfpOver250": 4,
+          "waterfall": [
+            {
+              "path": "/data/manifest.json",
+              "startMs": 176.919921875,
+              "endMs": 214.904921875,
+              "bodyBytes": 36513,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "no-store"
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 237.88818359375,
+              "endMs": 267.78818359375,
+              "bodyBytes": 4475,
+              "range": "bytes=0-4474",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/assets/4-7-5.pbf-jT1FmndY.gz",
+              "startMs": 622.562255859375,
+              "endMs": 814.841255859375,
+              "bodyBytes": 3578,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/assets/4-8-5.pbf-D3FcnUSW.gz",
+              "startMs": 622.687255859375,
+              "endMs": 824.6172558593751,
+              "bodyBytes": 20493,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/licht.json",
+              "startMs": 622.741943359375,
+              "endMs": 822.497943359375,
+              "bodyBytes": 15859,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1200.mrf",
+              "startMs": 622.93017578125,
+              "endMs": 702.27617578125,
+              "bodyBytes": 3192,
+              "range": "bytes=0-3191",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1300.mrf",
+              "startMs": 622.95703125,
+              "endMs": 720.17503125,
+              "bodyBytes": 3192,
+              "range": "bytes=0-3191",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1400.mrf",
+              "startMs": 622.9970703125,
+              "endMs": 721.9620703125,
+              "bodyBytes": 3192,
+              "range": "bytes=0-3191",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/seamless-20260828T1500.mrf",
+              "startMs": 623.037109375,
+              "endMs": 721.061109375,
+              "bodyBytes": 2237,
+              "range": "bytes=0-2236",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/harmonie-20260828T1200.mrf",
+              "startMs": 623.07421875,
+              "endMs": 724.76221875,
+              "bodyBytes": 6673,
+              "range": "bytes=0-6672",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv-20260828.mrf",
+              "startMs": 623.1201171875,
+              "endMs": 727.3801171875,
+              "bodyBytes": 4182,
+              "range": "bytes=0-4181",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv_clear-20260828.mrf",
+              "startMs": 623.16796875,
+              "endMs": 729.03496875,
+              "bodyBytes": 4914,
+              "range": "bytes=0-4913",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T1200.mrf",
+              "startMs": 623.2109375,
+              "endMs": 743.3389375,
+              "bodyBytes": 2644,
+              "range": "bytes=0-2643",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T1200-l25-48.mrf",
+              "startMs": 623.256103515625,
+              "endMs": 743.853103515625,
+              "bodyBytes": 2644,
+              "range": "bytes=0-2643",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T0800-hist4.mrf",
+              "startMs": 623.30517578125,
+              "endMs": 739.87117578125,
+              "bodyBytes": 1504,
+              "range": "bytes=0-1503",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/temp_c-20260828T1200.mrf",
+              "startMs": 623.33984375,
+              "endMs": 743.27984375,
+              "bodyBytes": 3629,
+              "range": "bytes=0-3628",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/fonts/Noto%20Sans%20Regular/0-255.pbf",
+              "startMs": 1274.657958984375,
+              "endMs": 1589.719958984375,
+              "bodyBytes": 76580,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 1358.243896484375,
+              "endMs": 1424.769896484375,
+              "bodyBytes": 16384,
+              "range": "bytes=0-16383",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/donker.json",
+              "startMs": 2718.525146484375,
+              "endMs": 3089.6691464843752,
+              "bodyBytes": 15656,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 2730.150146484375,
+              "endMs": 2790.695146484375,
+              "bodyBytes": 45172,
+              "range": "bytes=39939-85110",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/plaatsen-4d18b8790eecd5af.json",
+              "startMs": 4220.552001953125,
+              "endMs": 4293.691001953125,
+              "bodyBytes": 60946,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            }
+          ],
+          "basemapPhases": [
+            {
+              "phase": "basemap-tile",
+              "startTime": 2162.600000023842,
+              "duration": 2805.2000000476837,
+              "detail": {
+                "tile": "basemap:9c55"
+              }
+            }
+          ],
+          "omittedWeatherRequests": 73
+        },
+        {
+          "repetition": 3,
+          "sourceSha": "cd0d63e8afa14043f968af72bf86833980e10863",
+          "capturedAt": "2026-10-08T16:32:36.090Z",
+          "profile": "po-android",
+          "scenario": "koud-spelend",
+          "productPath": "/weer",
+          "basemap": "eigen U60 nl-91e2043db5c73799",
+          "cache": "cold",
+          "load": 6.87,
+          "contractHash": "1ffead84f1ac723dd15067fbf824b53ae874891d0521b0fe7b6180f08b9fee29",
+          "basemapContractHash": "5667393f58d3a8afb60bb9204e851c0af8390f864613fad60de89f646f648c8c",
+          "ttfrMs": 4046.3,
+          "ttfpMs": 2130.1,
+          "firstMapImageMs": 2072.2000000476837,
+          "decodes": 220,
+          "wireBytes": 5073254,
+          "wireFindings": [],
+          "placesAfterTtfp": true,
+          "loafAfterTtfpMaxMs": 280.7000000476837,
+          "loafAfterTtfpOver250": 1,
+          "waterfall": [
+            {
+              "path": "/data/manifest.json",
+              "startMs": 137.06689453125,
+              "endMs": 181.21689453125,
+              "bodyBytes": 36513,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "no-store"
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 186.56201171875,
+              "endMs": 215.92201171875,
+              "bodyBytes": 4475,
+              "range": "bytes=0-4474",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 211.85888671875,
+              "endMs": 250.96788671875,
+              "bodyBytes": 55714,
+              "range": "bytes=4475-60188",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/assets/4-7-5.pbf-jT1FmndY.gz",
+              "startMs": 538.22802734375,
+              "endMs": 679.7830273437501,
+              "bodyBytes": 3578,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/assets/4-8-5.pbf-D3FcnUSW.gz",
+              "startMs": 538.306884765625,
+              "endMs": 690.316884765625,
+              "bodyBytes": 20493,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/licht.json",
+              "startMs": 538.364013671875,
+              "endMs": 688.279013671875,
+              "bodyBytes": 15859,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1200.mrf",
+              "startMs": 538.551025390625,
+              "endMs": 597.192025390625,
+              "bodyBytes": 3192,
+              "range": "bytes=0-3191",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1300.mrf",
+              "startMs": 538.593017578125,
+              "endMs": 609.812017578125,
+              "bodyBytes": 3192,
+              "range": "bytes=0-3191",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1400.mrf",
+              "startMs": 545.22607421875,
+              "endMs": 612.93407421875,
+              "bodyBytes": 3192,
+              "range": "bytes=0-3191",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/seamless-20260828T1500.mrf",
+              "startMs": 545.302978515625,
+              "endMs": 612.493978515625,
+              "bodyBytes": 2237,
+              "range": "bytes=0-2236",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/harmonie-20260828T1200.mrf",
+              "startMs": 545.35986328125,
+              "endMs": 624.79286328125,
+              "bodyBytes": 6673,
+              "range": "bytes=0-6672",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv-20260828.mrf",
+              "startMs": 545.408935546875,
+              "endMs": 624.585935546875,
+              "bodyBytes": 4182,
+              "range": "bytes=0-4181",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv_clear-20260828.mrf",
+              "startMs": 545.530029296875,
+              "endMs": 624.652029296875,
+              "bodyBytes": 4914,
+              "range": "bytes=0-4913",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T1200.mrf",
+              "startMs": 545.5810546875,
+              "endMs": 634.1650546875001,
+              "bodyBytes": 2644,
+              "range": "bytes=0-2643",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T1200-l25-48.mrf",
+              "startMs": 545.658935546875,
+              "endMs": 631.738935546875,
+              "bodyBytes": 2644,
+              "range": "bytes=0-2643",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T0800-hist4.mrf",
+              "startMs": 545.73193359375,
+              "endMs": 630.40493359375,
+              "bodyBytes": 1504,
+              "range": "bytes=0-1503",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/fonts/Noto%20Sans%20Regular/0-255.pbf",
+              "startMs": 1051.510009765625,
+              "endMs": 1236.637009765625,
+              "bodyBytes": 76580,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 1126.724853515625,
+              "endMs": 1177.930853515625,
+              "bodyBytes": 16384,
+              "range": "bytes=0-16383",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/donker.json",
+              "startMs": 1930.18798828125,
+              "endMs": 2209.81098828125,
+              "bodyBytes": 15656,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 1944.42724609375,
+              "endMs": 2016.09824609375,
+              "bodyBytes": 45172,
+              "range": "bytes=39939-85110",
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/plaatsen-4d18b8790eecd5af.json",
+              "startMs": 3425.85888671875,
+              "endMs": 3498.48788671875,
+              "bodyBytes": 60946,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            }
+          ],
+          "basemapPhases": [
+            {
+              "phase": "basemap-tile",
+              "startTime": 1655,
+              "duration": 2319.600000023842,
+              "detail": {
+                "tile": "basemap:9c55"
+              }
+            }
+          ],
+          "omittedWeatherRequests": 78
+        }
+      ]
+    },
+    {
+      "variant": "z4",
+      "scenario": "warm-spelend",
+      "runs": [
+        {
+          "repetition": 1,
+          "sourceSha": "cd0d63e8afa14043f968af72bf86833980e10863",
+          "capturedAt": "2026-10-08T16:35:30.008Z",
+          "profile": "po-android",
+          "scenario": "warm-spelend",
+          "productPath": "/weer",
+          "basemap": "eigen U60 nl-91e2043db5c73799",
+          "cache": "warm-disk-new-browser",
+          "load": 5.5,
+          "contractHash": "219e3d513e99f444694cbbb2c6647d321e3a03f94b7202b12eb67f242cc43b18",
+          "basemapContractHash": "3e9bb33b3d3ea1c06a40a1791424e6e4705cef399a9a30c03027f478ba0775df",
+          "ttfrMs": 4459.4,
+          "ttfpMs": 2399.9,
+          "firstMapImageMs": 2321.600000023842,
+          "decodes": 220,
+          "wireBytes": 36513,
+          "wireFindings": [],
+          "placesAfterTtfp": true,
+          "loafAfterTtfpMaxMs": 365,
+          "loafAfterTtfpOver250": 2,
+          "waterfall": [
+            {
+              "path": "/data/manifest.json",
+              "startMs": 111.6689453125,
+              "endMs": 144.4839453125,
+              "bodyBytes": 36513,
+              "range": null,
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "no-store"
+            },
+            {
+              "path": "/data/manifest.json",
+              "startMs": 110.63623046875,
+              "endMs": 149.79323046874998,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "no-store"
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 184.591796875,
+              "endMs": 194.471796875,
+              "bodyBytes": 0,
+              "range": "bytes=0-4474",
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 189.248046875,
+              "endMs": 194.814046875,
+              "bodyBytes": 0,
+              "range": "bytes=0-4474",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 200.3759765625,
+              "endMs": 209.5079765625,
+              "bodyBytes": 0,
+              "range": "bytes=4475-60188",
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 204.199951171875,
+              "endMs": 205.426951171875,
+              "bodyBytes": 0,
+              "range": "bytes=4475-60188",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1200.mrf",
+              "startMs": 495.019775390625,
+              "endMs": 496.431775390625,
+              "bodyBytes": 0,
+              "range": "bytes=0-3191",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1300.mrf",
+              "startMs": 495.138916015625,
+              "endMs": 496.486916015625,
+              "bodyBytes": 0,
+              "range": "bytes=0-3191",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1400.mrf",
+              "startMs": 499.7119140625,
+              "endMs": 500.9289140625,
+              "bodyBytes": 0,
+              "range": "bytes=0-3191",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/seamless-20260828T1500.mrf",
+              "startMs": 499.945068359375,
+              "endMs": 501.047068359375,
+              "bodyBytes": 0,
+              "range": "bytes=0-2236",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/harmonie-20260828T1200.mrf",
+              "startMs": 500.253173828125,
+              "endMs": 501.347173828125,
+              "bodyBytes": 0,
+              "range": "bytes=0-6672",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv-20260828.mrf",
+              "startMs": 509.330810546875,
+              "endMs": 510.171810546875,
+              "bodyBytes": 0,
+              "range": "bytes=0-4181",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv_clear-20260828.mrf",
+              "startMs": 514.265869140625,
+              "endMs": 515.284869140625,
+              "bodyBytes": 0,
+              "range": "bytes=0-4913",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T1200.mrf",
+              "startMs": 514.546142578125,
+              "endMs": 515.518142578125,
+              "bodyBytes": 0,
+              "range": "bytes=0-2643",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/assets/4-7-5.pbf-jT1FmndY.gz",
+              "startMs": 401.123046875,
+              "endMs": 404.522046875,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/assets/4-8-5.pbf-D3FcnUSW.gz",
+              "startMs": 401.171875,
+              "endMs": 404.473875,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/licht.json",
+              "startMs": 401.44091796875,
+              "endMs": 404.53391796875,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": null
+            },
+            {
+              "path": "/basemap/fonts/Noto%20Sans%20Regular/0-255.pbf",
+              "startMs": 959.43603515625,
+              "endMs": 964.53103515625,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 1175.184814453125,
+              "endMs": 1180.031814453125,
+              "bodyBytes": 0,
+              "range": "bytes=0-16383",
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/donker.json",
+              "startMs": 1874.132080078125,
+              "endMs": 1884.337080078125,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 2194.96875,
+              "endMs": 2209.47975,
+              "bodyBytes": 0,
+              "range": "bytes=39939-85110",
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/plaatsen-4d18b8790eecd5af.json",
+              "startMs": 3494.558837890625,
+              "endMs": 3514.164837890625,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            }
+          ],
+          "basemapPhases": [
+            {
+              "phase": "basemap-tile",
+              "startTime": 1704.3999999761581,
+              "duration": 2635.7000000476837,
+              "detail": {
+                "tile": "basemap:9c55"
+              }
+            }
+          ],
+          "omittedWeatherRequests": 168
+        },
+        {
+          "repetition": 2,
+          "sourceSha": "cd0d63e8afa14043f968af72bf86833980e10863",
+          "capturedAt": "2026-10-08T16:37:03.909Z",
+          "profile": "po-android",
+          "scenario": "warm-spelend",
+          "productPath": "/weer",
+          "basemap": "eigen U60 nl-91e2043db5c73799",
+          "cache": "warm-disk-new-browser",
+          "load": 7.18,
+          "contractHash": "219e3d513e99f444694cbbb2c6647d321e3a03f94b7202b12eb67f242cc43b18",
+          "basemapContractHash": "3e9bb33b3d3ea1c06a40a1791424e6e4705cef399a9a30c03027f478ba0775df",
+          "ttfrMs": 4801,
+          "ttfpMs": 2455.1,
+          "firstMapImageMs": 2386.100000023842,
+          "decodes": 220,
+          "wireBytes": 36513,
+          "wireFindings": [],
+          "placesAfterTtfp": true,
+          "loafAfterTtfpMaxMs": 274.6999999284744,
+          "loafAfterTtfpOver250": 2,
+          "waterfall": [
+            {
+              "path": "/data/manifest.json",
+              "startMs": 136.1376953125,
+              "endMs": 179.7796953125,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "no-store"
+            },
+            {
+              "path": "/data/manifest.json",
+              "startMs": 136.9619140625,
+              "endMs": 169.85791406250002,
+              "bodyBytes": 36513,
+              "range": null,
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "no-store"
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 189.705810546875,
+              "endMs": 199.380810546875,
+              "bodyBytes": 0,
+              "range": "bytes=0-4474",
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 190.1201171875,
+              "endMs": 191.6841171875,
+              "bodyBytes": 0,
+              "range": "bytes=0-4474",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 201.9228515625,
+              "endMs": 205.9108515625,
+              "bodyBytes": 0,
+              "range": "bytes=4475-60188",
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 204.841064453125,
+              "endMs": 205.894064453125,
+              "bodyBytes": 0,
+              "range": "bytes=4475-60188",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1200.mrf",
+              "startMs": 520.1689453125,
+              "endMs": 521.7139453125,
+              "bodyBytes": 0,
+              "range": "bytes=0-3191",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1300.mrf",
+              "startMs": 529.098876953125,
+              "endMs": 534.431876953125,
+              "bodyBytes": 0,
+              "range": "bytes=0-3191",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1400.mrf",
+              "startMs": 529.669921875,
+              "endMs": 535.276921875,
+              "bodyBytes": 0,
+              "range": "bytes=0-3191",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/seamless-20260828T1500.mrf",
+              "startMs": 534.82861328125,
+              "endMs": 535.94161328125,
+              "bodyBytes": 0,
+              "range": "bytes=0-2236",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/harmonie-20260828T1200.mrf",
+              "startMs": 544.68310546875,
+              "endMs": 550.58210546875,
+              "bodyBytes": 0,
+              "range": "bytes=0-6672",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv-20260828.mrf",
+              "startMs": 544.811767578125,
+              "endMs": 545.819767578125,
+              "bodyBytes": 0,
+              "range": "bytes=0-4181",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv_clear-20260828.mrf",
+              "startMs": 544.931884765625,
+              "endMs": 545.978884765625,
+              "bodyBytes": 0,
+              "range": "bytes=0-4913",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/radiation-20260828T1200.mrf",
+              "startMs": 545.3251953125,
+              "endMs": 546.2931953125,
+              "bodyBytes": 0,
+              "range": "bytes=0-2643",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/assets/4-7-5.pbf-jT1FmndY.gz",
+              "startMs": 420.417724609375,
+              "endMs": 425.213724609375,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/assets/4-8-5.pbf-D3FcnUSW.gz",
+              "startMs": 420.4580078125,
+              "endMs": 425.1630078125,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/licht.json",
+              "startMs": 420.73779296875,
+              "endMs": 425.45479296875,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": null
+            },
+            {
+              "path": "/basemap/fonts/Noto%20Sans%20Regular/0-255.pbf",
+              "startMs": 959.8369140625,
+              "endMs": 979.8079140625,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 1176.186767578125,
+              "endMs": 1185.284767578125,
+              "bodyBytes": 0,
+              "range": "bytes=0-16383",
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/donker.json",
+              "startMs": 1904.7919921875,
+              "endMs": 1929.2569921875,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 2210.4560546875,
+              "endMs": 2224.7760546875,
+              "bodyBytes": 0,
+              "range": "bytes=39939-85110",
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/plaatsen-4d18b8790eecd5af.json",
+              "startMs": 3574.078857421875,
+              "endMs": 3598.441857421875,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            }
+          ],
+          "basemapPhases": [
+            {
+              "phase": "basemap-tile",
+              "startTime": 1714.7000000476837,
+              "duration": 2680,
+              "detail": {
+                "tile": "basemap:9c55"
+              }
+            }
+          ],
+          "omittedWeatherRequests": 168
+        },
+        {
+          "repetition": 3,
+          "sourceSha": "cd0d63e8afa14043f968af72bf86833980e10863",
+          "capturedAt": "2026-10-08T16:39:19.275Z",
+          "profile": "po-android",
+          "scenario": "warm-spelend",
+          "productPath": "/weer",
+          "basemap": "eigen U60 nl-91e2043db5c73799",
+          "cache": "warm-disk-new-browser",
+          "load": 7.31,
+          "contractHash": "219e3d513e99f444694cbbb2c6647d321e3a03f94b7202b12eb67f242cc43b18",
+          "basemapContractHash": "3e9bb33b3d3ea1c06a40a1791424e6e4705cef399a9a30c03027f478ba0775df",
+          "ttfrMs": 4585.1,
+          "ttfpMs": 2471,
+          "firstMapImageMs": 2399.399999976158,
+          "decodes": 220,
+          "wireBytes": 36513,
+          "wireFindings": [],
+          "placesAfterTtfp": true,
+          "loafAfterTtfpMaxMs": 319.1999999284744,
+          "loafAfterTtfpOver250": 3,
+          "waterfall": [
+            {
+              "path": "/data/manifest.json",
+              "startMs": 125.48876953125,
+              "endMs": 170.91476953125,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "no-store"
+            },
+            {
+              "path": "/data/manifest.json",
+              "startMs": 130.955810546875,
+              "endMs": 163.094810546875,
+              "bodyBytes": 36513,
+              "range": null,
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "no-store"
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 188.10302734375,
+              "endMs": 189.50002734375,
+              "bodyBytes": 0,
+              "range": "bytes=0-4474",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 187.60595703125,
+              "endMs": 190.56895703125,
+              "bodyBytes": 0,
+              "range": "bytes=0-4474",
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 196.56201171875,
+              "endMs": 201.97301171875,
+              "bodyBytes": 0,
+              "range": "bytes=4475-60188",
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 200.5,
+              "endMs": 201.999,
+              "bodyBytes": 0,
+              "range": "bytes=4475-60188",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 210.240966796875,
+              "endMs": 211.687966796875,
+              "bodyBytes": 0,
+              "range": "bytes=60189-117451",
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/nowcast-20260828T1500.mrf",
+              "startMs": 210.58984375,
+              "endMs": 211.72784375,
+              "bodyBytes": 0,
+              "range": "bytes=60189-117451",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1200.mrf",
+              "startMs": 700.85888671875,
+              "endMs": 702.69088671875,
+              "bodyBytes": 0,
+              "range": "bytes=0-3191",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1300.mrf",
+              "startMs": 701.01611328125,
+              "endMs": 702.82411328125,
+              "bodyBytes": 0,
+              "range": "bytes=0-3191",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/rtcor-20260828T1400.mrf",
+              "startMs": 701.177001953125,
+              "endMs": 702.968001953125,
+              "bodyBytes": 0,
+              "range": "bytes=0-3191",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/seamless-20260828T1500.mrf",
+              "startMs": 701.407958984375,
+              "endMs": 702.952958984375,
+              "bodyBytes": 0,
+              "range": "bytes=0-2236",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/harmonie-20260828T1200.mrf",
+              "startMs": 701.635986328125,
+              "endMs": 703.088986328125,
+              "bodyBytes": 0,
+              "range": "bytes=0-6672",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/data/chunks/uv-20260828.mrf",
+              "startMs": 720.337890625,
+              "endMs": 721.110890625,
+              "bodyBytes": 0,
+              "range": "bytes=0-4181",
+              "owner": "service-worker",
+              "fromServiceWorker": false,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/assets/4-7-5.pbf-jT1FmndY.gz",
+              "startMs": 604.256103515625,
+              "endMs": 605.117103515625,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/assets/4-8-5.pbf-D3FcnUSW.gz",
+              "startMs": 604.31298828125,
+              "endMs": 605.17198828125,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/licht.json",
+              "startMs": 605.43603515625,
+              "endMs": 606.28603515625,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": null
+            },
+            {
+              "path": "/basemap/fonts/Noto%20Sans%20Regular/0-255.pbf",
+              "startMs": 1101.0458984375,
+              "endMs": 1102.0338984375,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 1391.294189453125,
+              "endMs": 1411.237189453125,
+              "bodyBytes": 0,
+              "range": "bytes=0-16383",
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/basemap/donker.json",
+              "startMs": 1990.246826171875,
+              "endMs": 2005.051826171875,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": null
+            },
+            {
+              "path": "/data/basemap/nl-91e2043db5c73799.pmtiles",
+              "startMs": 2285.885986328125,
+              "endMs": 2315.616986328125,
+              "bodyBytes": 0,
+              "range": "bytes=39939-85110",
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            },
+            {
+              "path": "/plaatsen-4d18b8790eecd5af.json",
+              "startMs": 3795.205078125,
+              "endMs": 3815.029078125,
+              "bodyBytes": 0,
+              "range": null,
+              "owner": "client",
+              "fromServiceWorker": true,
+              "cacheControl": "public, max-age=31536000, immutable"
+            }
+          ],
+          "basemapPhases": [
+            {
+              "phase": "basemap-tile",
+              "startTime": 1955.3999999761581,
+              "duration": 2505,
+              "detail": {
+                "tile": "basemap:9c55"
+              }
+            }
+          ],
+          "omittedWeatherRequests": 168
+        }
+      ]
+    }
+  ],
+  "waterfallSelection": "Kaart/stijl/fonts/manifest/plaatsen tot6s plus eerste12 weerrequests; latere weerrequests geteld als omittedWeatherRequests."
+}

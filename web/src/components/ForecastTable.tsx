@@ -218,11 +218,14 @@ export default function ForecastTable(props: Props) {
     nowElement = element
     if (pinning || !props.historyInline || typeof ResizeObserver === 'undefined') return
     pinning = true
-    // De ref vuurt vóór de rij in de DOM hangt: een frame later bestaat de scroller.
+    // De ref vuurt vóór de DOM; vóór het volgende frame kan de nu-rij vervangen zijn.
     requestAnimationFrame(() => {
-      const scroller = element.closest<HTMLElement>('.table-scroll')
-      const table = element.closest('table')
-      if (!scroller || !table) return
+      const scroller = nowElement?.closest<HTMLElement>('.table-scroll')
+      const table = nowElement?.closest('table')
+      if (!scroller || !table) {
+        pinning = false
+        return
+      }
       const pin = () => {
         if (!nowElement?.isConnected) return
         const head = table.tHead?.getBoundingClientRect().height ?? 0

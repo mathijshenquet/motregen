@@ -1,0 +1,65 @@
+{
+  "meta": {
+    "profile": "po-android",
+    "scenario": "koud-spelend",
+    "sourceSha": "f21cba824c153afd5609aea3a368b1c91cd4613c",
+    "capturedAt": "2026-10-08T10:05:32.319Z",
+    "cpuThrottleRate": 1,
+    "contractHash": "c05b38bd82b0f7ea923b53f746e8c7ee00ce407598b14d78fa1d58e08cdd9231",
+    "fixtureHash": "30dd137d6cd31cad5f56c2199d88fa315ed69cdf15f02756d52c10db75f78ed7",
+    "basemapContractHash": "743f65539f6f09635465f95e44e42708db9cb99df66308e0168a81567d7fc248",
+    "network": {
+      "label": "wifi via dev-host (30 Mbps, 20 ms RTT)",
+      "downloadThroughput": 3750000,
+      "uploadThroughput": 1250000,
+      "latency": 20,
+      "connectionType": "cellular4g"
+    },
+    "hardwareConcurrency": 4,
+    "loadAverage": 18.97,
+    "synthGridScale": 6,
+    "rendererCpuQuotaPercent": 40,
+    "requestOrderOnly": true
+  },
+  "ttfpMs": 2659,
+  "catalogueAfterTtfpMs": 1248.8999999761581,
+  "rows": [
+    {
+      "label": "manifest",
+      "url": "http://127.0.0.1:4693/data/manifest.json?s=1",
+      "startMs": 193.39999997615814,
+      "endMs": 237.79999995231628,
+      "encodedBodyBytes": 36513
+    },
+    {
+      "label": "stijl",
+      "url": "http://127.0.0.1:8693/style-light.json",
+      "startMs": 558.1000000238419,
+      "endMs": 748.6000000238419,
+      "encodedBodyBytes": 5809
+    },
+    {
+      "label": "eerste regen-Range",
+      "url": "http://127.0.0.1:4693/data/chunks/nowcast-20260828T1500.mrf",
+      "startMs": 247.5,
+      "endMs": 283.2000000476837,
+      "encodedBodyBytes": 4475,
+      "range": "bytes=0-4474"
+    },
+    {
+      "label": "eerste regenframe-Range",
+      "url": "http://127.0.0.1:4693/data/chunks/nowcast-20260828T1500.mrf",
+      "startMs": 928.5,
+      "endMs": 970.7999999523163,
+      "encodedBodyBytes": 55714,
+      "range": "bytes=4475-60188"
+    },
+    {
+      "label": "plaatsenlijst",
+      "url": "http://127.0.0.1:4693/plaatsen-4d18b8790eecd5af.json",
+      "startMs": 3907.899999976158,
+      "endMs": 3989.7000000476837,
+      "encodedBodyBytes": 60946
+    }
+  ]
+}

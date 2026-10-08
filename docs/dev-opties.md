@@ -45,11 +45,7 @@ Buiten het paneel: `?perf` is de profielmodus (MIP-16, U43): toont de perf-HUD e
 meting aan, blijft via `localStorage` staan tot `?perf=0`; geen knop, blijft (diagnose). `?skywatch-render` (U46) rendert alleen de wolkendoorsnede voor De Bilt als
 still voor de grading-pijplijn; geen knop, vervalt na de analyse.
 
-Kaartstart-proef: alleen in een build met `VITE_MAP_START=tegel`, via
-`?dev&kaartstart=tegel`. Toont de eigen z4-tegels met water/bebouwing/grenzen
-vóór de volledige kaart; geen opslag. Eigenaar U64; vervalt 2026-10-15 of eerder bij PO-keuze.
-Desktop blijft standaard uit na screenshotreview door de orkestrator (MIP-23 Track B).
-U63 meet de mobiele waarde; de SVG-proef is wegens geometrieartefacten vervallen.
+De U64-kaartstartproef (`VITE_MAP_START=tegel`, `?dev&kaartstart=tegel`) is vervangen door de PO-goedgekeurde progressieve z4-kaart van U63. De losse cachebare tegels en workerdecode staan standaard aan; de historische inlineproef blijft op de U64/U63-proefbranches.
 
 ## Opslag (`localStorage`, prefix `motregen-`)
 
@@ -65,3 +61,5 @@ De knop "Eerste regen" schrijft `dev-eerste-regen`; de rig zet dezelfde sleutel 
 Tuning/debug: `wind-tuning-v4` (v3 wordt bij het laden gemigreerd), `perf` en de eenmalige
 `perf-cold`. Oude sleutels (`wind-tuning`, `-v2`, `-v3`, `splash-slowdown`, `scrubber-view`, `clock-jog`) wist
 "Reset alle instellingen".
+
+Tijdelijke U63-meetbuild: `VITE_MAP_START=off` schakelt uitsluitend met `?dev` de progressieve z4-startkaart uit voor de gepaarde controle. Gewone bezoeken houden de startkaart aan. Eigenaar U63; vervalt2026-10-09; geen paneelknop of opslagsleutel.
