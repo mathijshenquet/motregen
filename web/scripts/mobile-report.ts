@@ -172,6 +172,7 @@ export function renderMobileReport(report: MobileReport): string {
     `# Mobiele laadrig: ${report.meta.profile} / ${report.meta.scenario}`,
     '',
     `Commit ${report.meta.sourceSha}, ${report.meta.capturedAt}. CPU ${report.meta.cpuThrottleRate}×; renderer-quota ${report.meta.rendererCpuQuotaPercent === null ? 'geen (workers op hostsnelheid)' : `${report.meta.rendererCpuQuotaPercent} % van één kern`}; synthraster ×${report.meta.synthGridScale}. Loadavg host bij start ${report.meta.loadAverage}.`,
+    ...(report.meta.requestOrderOnly ? ['', 'Alleen aanvraagvolgorde onder hostdrukte: deze tijden zijn geen performancebaseline.'] : []),
     '',
     '| maat | waarde |',
     '| --- | ---: |',
@@ -228,6 +229,7 @@ export interface MobileReport {
     network: unknown; hardwareConcurrency: number
     /** 1-minuut-loadavg van de host bij de start van de run; boven MAX_LOAD_AVERAGE telt de run niet mee. */
     loadAverage: number
+    requestOrderOnly?: boolean
     synthGridScale: number
     /** null: geen quota, workers op hostsnelheid. */
     rendererCpuQuotaPercent: number | null
@@ -247,6 +249,7 @@ export interface MobileReport {
 }
 
 export function compactBaseline(report: MobileReport): MobileBaseline {
+  if (report.meta.requestOrderOnly) throw new Error('Een aanvraagvolgordecapture is geen performancebaseline')
   return {
     schema: 1,
     profile: report.meta.profile,

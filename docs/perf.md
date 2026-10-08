@@ -1191,3 +1191,12 @@ request- of bytebudgetten toe. Na iedere run schrijft hij
 manifestversheid `<15 min`, de MIP-3 CORS/cache/ETag/Range-headers en een echte
 `Range: bytes=0-7` → 206. Het script is alleen een handmatig/timerklaar target;
 deze track activeert geen systemd-timer.
+
+Een aanvraagvolgorde kan ook op een drukke host worden gecontroleerd met
+`pnpm perf:mobile --profile desktop --scenario koud-spelend --basemap own --request-order`.
+Gebruik `--profile po-android` voor het gekalibreerde Android-profiel. Deze modus houdt native
+Resource Timing, de netwerkregistratie, renderer-quota en het profiel intact, maar zet of vergelijkt
+geen performancebaseline (`--baseline`/`--compare` worden geweigerd). De rapporten dragen dat kenmerk;
+een capture onder load bewijst alleen volgorde. `pnpm exec tsx scripts/place-waterfall.ts
+tmp/perf-mobile/desktop-koud-spelend-run1.raw.json` controleert de catalogusstart ten opzichte van
+`milestone:ttfp`, manifest, stijl en eerste regen-Range, en schrijft een compacte JSON en SVG-waterval.
