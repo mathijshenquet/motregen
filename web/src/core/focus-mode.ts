@@ -64,7 +64,7 @@ export interface RainPresentation {
 /**
  * Hoe de regen getekend wordt bij deze focuswaarden. In Wind dimt `alfa` de regen tot de helft, wat op de
  * lichte kaart verbleekt (geel wordt crème); `vermenigvuldigen` en `gedempt` houden de tint. In Lucht laat
- * `voorstel` de regen iets terugtreden boven de sluier, overdag donkerder en 's nachts gedempt.
+ * `voorstel` de regen overdag met de witte sluier vermenigvuldigen en 's nachts gedempt terugtreden.
  */
 export function rainPresentation(input: { temperatureFocus: number; windFocus: number; airFocus: number; night: boolean; windBlend: RainWindBlend; airBlend: RainAirBlend }): RainPresentation {
   const { windFocus, airFocus, night } = input
@@ -84,9 +84,15 @@ export function rainPresentation(input: { temperatureFocus: number; windFocus: n
     brightness *= 1 - 0.1 * windFocus
   }
   if (input.airBlend === 'voorstel') {
-    opacity *= 1 - (night ? 0.3 : 0.2) * airFocus
-    saturation *= 1 - (night ? 0.3 : 0) * airFocus
-    brightness *= 1 - (night ? 0.15 : 0.12) * airFocus
+    if (night) {
+      opacity *= 1 - 0.3 * airFocus
+      saturation *= 1 - 0.3 * airFocus
+      brightness *= 1 - 0.15 * airFocus
+    } else {
+      // Overdag is de sluier wit: eroverheen leggen verbleekt de regen, vermenigvuldigen geeft het palet zelf.
+      // (Eerste proef, regen op 0,8 en donkerder, maakte het beeld alleen maar bleker.)
+      multiply ||= airFocus >= 0.5
+    }
   }
   return { opacity, saturation, brightness, multiply }
 }

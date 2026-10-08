@@ -179,14 +179,14 @@ describe('rain presentation (U62 proef)', () => {
     expect(rainPresentation({ ...base, windFocus: 1, night: true, windBlend: 'vermenigvuldigen' })).toEqual(rainPresentation({ ...base, windFocus: 1, night: true, windBlend: 'gedempt' }))
   })
 
-  it('lets the rain step back above the cloud veil, more so at night', () => {
+  it('multiplies the rain with the white veil by day and lets it step back at night', () => {
     const day = rainPresentation({ ...base, airFocus: 1, airBlend: 'voorstel' })
     const night = rainPresentation({ ...base, airFocus: 1, night: true, airBlend: 'voorstel' })
-    expect(day.opacity).toBeCloseTo(0.8, 5)
-    expect(day.saturation).toBe(1)
+    expect(day).toEqual({ opacity: 1, saturation: 1, brightness: 1, multiply: true })
     expect(night.opacity).toBeCloseTo(0.7, 5)
     expect(night.saturation).toBeCloseTo(0.7, 5)
-    expect(night.brightness).toBeLessThan(day.brightness)
+    expect(night.brightness).toBeCloseTo(0.85, 5)
+    expect(night.multiply).toBe(false)
     // Buiten Lucht verandert er niets.
     expect(rainPresentation({ ...base, airBlend: 'voorstel' })).toEqual(rainPresentation(base))
   })

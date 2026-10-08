@@ -117,7 +117,7 @@ export default function DevPanel(props: Props) {
           <For each={RAIN_WIND_BLENDS}>{(blend) => <option value={blend}>{blend}</option>}</For>
         </select>
       </Control>
-      <Control label="Regen in Lucht" output={props.rainAirBlend} hint="Nu: volle regen boven de sluier. Voorstel: overdag de regen op 0,8 met een donkerder palet; 's nachts de sluier als lichte grijsblauwe waas op 0,3 en de regen op 0,7 met een gedempt palet.">
+      <Control label="Regen in Lucht" output={props.rainAirBlend} hint="Nu: volle regen boven de sluier. Voorstel: overdag vermenigvuldigt de regen met de witte sluier (het palet zelf, niet verbleekt); 's nachts de sluier als lichte grijsblauwe waas op 0,3 en de regen op 0,7 met een gedempt palet.">
         <select aria-label="Regen in Lucht" value={props.rainAirBlend} onChange={(event) => props.onRainAirBlend(event.currentTarget.value as RainAirBlend)}>
           <For each={RAIN_AIR_BLENDS}>{(blend) => <option value={blend}>{blend}</option>}</For>
         </select>
