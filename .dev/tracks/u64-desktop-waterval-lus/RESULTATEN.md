@@ -1,5 +1,20 @@
 # U64 — desktoplus
 
+Huidige basis: main `4038d55` met U62 deel 2 en U67. Drie A/B-paren
+per scenario, startload maximaal16; medianen van verschillen binnen paren:
+
+| scenario | ttfr | ttfp | paren |
+| --- | --- | --- | --- |
+| koud | −571,3 ms / −33,06% | −68,1 ms / −8,34% | 3 |
+| warm | −238,2 ms / −14,12% | −36,1 ms / −4,50% | 3 |
+
+Alle zes paren verbeteren ttfr. De vroege stijl/font/manifestaanvragen en
+lazy modules blijven behouden; shader-, GPU-worker- en manifest-SWR-proeven
+zijn afgewezen voor standaardgebruik. Lighthouse-scoremediaan63→62;
+TBT en Speed Index blijven beperkingen. Grote LoAF na ttfp blijven aanwezig.
+De absolute ≤8-baseline/compare is groen; onderstaande gepaarde cijfers
+zijn geen absolute desktop-MacBook-baseline.
+
 [Stap 0](STAP-0.md) is vóór productwijzigingen vastgelegd. De eerdere reeksen
 gebruiken dezelfde U57-basis en bevroren builds, onder de gedeelde hostlock.
 Desktop Chrome, 1280×800, DPR 1, 8 cores/8 GB, CPU 1×, SwiftShader,
@@ -35,7 +50,8 @@ herlaadt het manifest, volgens
 [Workbox SWR](https://developer.chrome.com/docs/workbox/modules/workbox-strategies).
 511 units, bestaande offline/Range-cache-e2e en een echte SW-versheidstest
 zijn groen: verse inhoud offline, expliciete verversing netwerk, inhoud
-na 15 s niet bruikbaar. Koude/warme timings en browserherstart nog pending.
+na 15 s niet bruikbaar. De koude/warme metingen staan hieronder; SWR is
+afgewezen voor standaardgebruik.
 
 ## Vervolg na U62/Kaderhemel en U65
 
@@ -50,7 +66,7 @@ wordt tegen dezelfde U62-startsituatie gemeten.
 | volledige regen/windshaderbatch | +7,17% / −14,66% | +1,98% / +0,064% | 3 / 3; afgewezen |
 | alleen regenshaders | −7,95% / +0,93% | +12,81% / +23,81% | 3 / 3; afgewezen |
 | GPU-worker zonder shaderwijziging | −11,98% / +3,04% | +15,66% / +18,14% | 3 / 3; afgewezen voor standaardgebruik |
-| manifest-SWR zonder shaderwijziging | −3,33% / −1,63%; inactieve controle | pending | 3 / 0 |
+| manifest-SWR zonder shaderwijziging | −3,33% / −1,63%; inactieve controle | +14,73% / +5,07% | 3 / 3; afgewezen voor standaardgebruik |
 | totale U64 zonder shaders versus main | −17,37% / +3,24% | −17,16% / −1,75% | 3 / 3 |
 
 Medianen van verschillen binnen paren, geen absolute baseline. Regen-only
@@ -72,8 +88,8 @@ tijdgaps157,9/115,6/85,7s. De eerste poging van paar1 is afgewezen door
 484,0/394,8;407,4/394,9ms. Alle zes koude/warme paren verbeteren ttfr;
 de geringe koude ttfp-regressie blijft zichtbaar. De HTML-assets/lazy-
 wijzigingen blijven op deze primaire ttfr-winst in de track. De GPU-proef
-is afgewezen; manifest volgt nog. Lighthouse ×3 staat hieronder,
-absolute ≤8-gate blijft pending.
+en manifest-SWR zijn afgewezen. Lighthouse ×3 en de groene absolute
+≤8-gate staan hieronder.
 
 Warm main→U64 geeft ttfr 1253,6→1240,4 / 1499,6→1242,3 /
 1790,6→1091,6 ms, ttfp 737,4→808,9 / 786,4→772,6 / 926,3→746,1 ms.
@@ -93,7 +109,7 @@ De eerdere U62-builds (422.475 / 409.063 B) zijn niet gemeten vóór U65.
 Bevroren builds gebruiken
 dezelfde fixture en native-desktopcapture. De vergelijking van main met
 U64 zonder shaders is koud ×3, warm ×3 en Lighthouse ×3 compleet;
-Manifest-SWR en de absolute ≤8-gate zijn nog open.
+De absolute ≤8-gate is groen, hieronder met baseline-reden en receipt.
 
 GPU-worker koud ×3: ttfr-deltas +91,6/−371,8/−151,1ms, mediaan
 −151,1ms (−11,98%); ttfp +23,6/+101,7/−47,5ms, mediaan
@@ -109,8 +125,15 @@ De bouwproef blijft reproduceerbaar, standaard uit en met verval2026-10-15.
 Manifest-SWR koud heeft dezelfde HTML/app-JS en een geblokkeerde SW.
 De deltas −100,3/−41,4/−19,5ms ttfr (mediaan−41,4ms) en
 −5,5/−35,4/−12,3ms ttfp (mediaan−12,3ms) bewijzen daarom geen
-cachewinst; ze tonen meetvariatie bij een inactieve proef. Warm ×3 en
-daadwerkelijke manifestcachehits zijn nodig voor het kandidaatbesluit.
+cachewinst; ze tonen meetvariatie bij een inactieve proef.
+Warm ×3 is compleet, met in iedere kandidaatopname een echte manifestcachehit.
+Ttfr-deltas +19,2/+176,1/+203,6ms: mediaan+176,1ms (+14,73%).
+Ttfp-deltas +37,5/+195,6/+7,5ms: mediaan+37,5ms (+5,07%).
+Alle drie vertragen beide metrics. Gemiddelde loadverschillen B−A:
+−0,335/−0,187/−0,321, dus geen hogere kandidaatload als verklaring.
+LoAF-max na ttfp A/B390/443,379/445,400/428ms.
+SWR is afgewezen voor standaardgebruik; de bouwproef blijft uit en
+reproduceerbaar tot verval2026-10-15. App-shell/kaartassets waren al gecachet.
 
 ### Main na U62 deel 2
 
@@ -128,7 +151,7 @@ gesloten (exit143); hij had nog geen baseline geproduceerd. De nieuwe
 gate gebruikt `desktop-koud-spelend-own-u62-part2.json`, met U62's
 standaard kaartkleuring als extra reden naast Kaderhemel, U65 en de verse
 browser per run. Startload maximaal8 blijft verplicht. Nieuwe native
-koud/warm-paren en Lighthouse op deze basis volgen afzonderlijk.
+koud/warm-paren en Lighthouse op deze basis staan afzonderlijk hieronder.
 
 Lighthouse op deze basis is ×3 compleet: scores60→62,63→61,63→62;
 mediaan63→62. Startloads A/B15,40/15,01;14,32/15,61;15,42/13,64,
@@ -145,11 +168,20 @@ Geen Lighthouse-winst. Onderstaande waarden zijn de medianen per kant.
 
 Binnen paren: FCP/LCP mediaan−34,6ms, TBT+147,5ms,
 Speed Index+247ms, CLS+0,00544. De nieuwe native ttfr/ttfp-reeks
-is gestart, warm ×3 eerst en daarna koud ×3. Retentie van de huidige
-productwijzigingen wordt daarmee op de gewijzigde start gecontroleerd;
-de eerdere primaire winst blijft tot dan bewijs op de ec3-basis.
+is voltooid, warm ×3 eerst en daarna koud ×3. Retentie van de huidige
+productwijzigingen is daarmee op de gewijzigde start gecontroleerd;
+de eerdere primaire winst blijft afzonderlijk bewijs op de ec3-basis.
 
-Nieuwe native stand: koud0/3, warm3/3 geldige paren. Warm ttfr:
+Nieuwe native stand: koud3/3, warm3/3 geldige paren. Koud ttfr:
+1894,2→1267,9 /1587,7→1088,6 /1403,5→832,2ms;
+mediaan binnen paren−571,3ms (−33,06%). Koud ttfp:
+1696,9→898,2 /816,7→748,6 /767,3→795,9ms;
+mediaan binnen paren−68,1ms (−8,34%). Het laatste paar vertraagt
+ttfp28,6ms terwijl ttfr571,3ms verbetert. Startloads15,91/15,42;
+14,84/14,36;15,05/14,47, gemiddelde loadverschillen−1,035/+0,259/−0,511,
+gaps60,9/48,1/15,2s. LoAF-max na ttfp A/B462/525,682/388,553/370ms.
+
+Warm ttfr:
 1685,3→1447,1 /1697,0→1457,3 /1558,4→1444,8ms;
 mediaan binnen paren−238,2ms (−14,12%). Warm ttfp:
 840,2→745,5 /802,2→766,1 /750,4→739,8ms;
@@ -160,16 +192,25 @@ gaps157,8/417,0/132,8s. LoAF-max na ttfp A/B:
 799,7/626,0;797,5/579,3;695,4/565,3ms: grote frames blijven.
 De serverlogs van het eerste paar hebben aan beide kanten alleen
 manifest200 (36.513 bodybytes) en SW304; geen upstream voor
-kaart/fonts/app/plaatsen/weer-Ranges. De koude reeks en de absolute
-≤8-gate blijven open; nog geen definitieve koud/warm-retentieconclusie.
-Koud en warm, nieuwe ronde (geen volledige medianen):
+kaart/fonts/app/plaatsen/weer-Ranges. De native koud/warm-reeksen zijn
+compleet en ondersteunen retentie; de absolute ≤8-gate is groen.
+
+Warm blijft in deze rig trager op ttfr: U64-mediaan1447,1ms tegen
+koud1088,6ms. Het eerste regenbeeld is warm juist eerder (634–660ms,
+koud688–806ms). De vijf kaart-Ranges kosten per aanvraag warm1–4ms en
+koud1–5ms; fonts zijn vóór10ms binnen. Warm eindigen kaartresponses op
+674–698ms, maar basemapReady volgt pas op1445–1457ms. Het resterende
+verschil zit dus ná levering van de kaartdata, in verwerking/tekenen;
+de trace splitst worker-/GPU-wacht en scheduling niet betrouwbaar verder.
+Extra precache of manifest-SWR lost die staart in deze rig niet op.
+Historische eerste absolute poging op ec3 (niet afgerond, niet hervat):
 
 | variant | koud ttfr / ttfp | warm ttfr / ttfp | geldige runs koud / warm |
 | --- | --- | --- | --- |
-| main U65 | 1617,3 / 775,1; 1669,1 / 842,6 ms | pending | 2 / 0 |
-| U64 + shaderbatch | 1135,2 / 783,2 ms | pending | 1 / 0 |
-| U64 + GPU-worker | pending | pending | 0 / 0 |
-| U64 + manifest-SWR | pending | pending | 0 / 0 |
+| main U65 | 1617,3 / 775,1; 1669,1 / 842,6 ms | niet uitgevoerd | 2 / 0 |
+| U64 + shaderbatch | 1135,2 / 783,2 ms | niet uitgevoerd | 1 / 0 |
+| U64 + GPU-worker | niet uitgevoerd | niet uitgevoerd | 0 / 0 |
+| U64 + manifest-SWR | niet uitgevoerd | niet uitgevoerd | 0 / 0 |
 
 Eerste twee gewone koude referentieruns: ttfr 1617,3 / 1669,1 ms,
 ttfp 775,1 / 842,6 ms bij startload 7,98 / 7,97. Nog geen reeks van drie en
@@ -265,12 +306,14 @@ De herziene worker dient clear/finish in vóór ready en kost 3195 B HTML-gzip
 (tegen 2571 B zonder proef). Oude context-only-opname en nieuwe GPU-proef
 hebben aparte builds/bestandsnamen en worden niet als één variant gemiddeld.
 Typecheck, 509 units, proefbuild en 13 gerichte WebGL-e2e zijn geslaagd;
-ttfr/ttfp, LoAF-bewaker en Lighthouse voor de proef blijven pending.
+Deze opname hoort bij de inmiddels afgewezen shaderbasis. De latere
+shaderloze GPU-proef is hierboven koud/warm beoordeeld en afgewezen.
 
-De nieuwe gate-baseline wordt uit drie ongewijzigde main-runs geschreven
-naar `desktop-koud-spelend-own-u65.json`. Reden: U62/Kaderhemel, U65's
-plaatsenaanvraag na ttfp en aparte browserprocessen per herhaling,
-niet een verruimd perf-budget. De originele
+De voorgenomen `desktop-koud-spelend-own-u65.json` is niet geschreven:
+U62 deel 2 veranderde opnieuw de start. De afgeronde nieuwe baseline heet
+`desktop-koud-spelend-own-u62-part2.json`. Reden: U62/Kaderhemel, U65's
+plaatsenaanvraag na ttfp, standaard kaartkleuring in U62 deel 2 en aparte
+browserprocessen per herhaling, niet een verruimd perf-budget. De originele
 pre-U62-baseline blijft bewaard. Mergechecks: typecheck, 497 unittests,
 build en 23 gerichte desktop-e2e geslaagd (twee mobiel-only overgeslagen).
 Na U65 zijn typecheck, 509 unittests, beide kandidaatbuilds en 21 gerichte
@@ -353,15 +396,16 @@ aangescherpte capture verlaat daarna de prime-renderloop via about:blank
 en registreert de load direct vóór de meetnavigatie. Is de load dan >8,
 dan sluit de browser en komt de lock vrij; opnieuw wachten gebeurt buiten
 de lock vóór een nieuwe poging, inclusief nieuwe priming.
-Die extra warme herhaling is nog pending.
+Deze historische warmmethode is vervangen door de browserherstart met
+HTTP/SW-schijfcaches; de nieuwe reeksen staan bovenaan.
 
 ## Kandidaten op verwachte regenstartwinst
 
 | volgorde | kandidaat | onderbouwing / stand |
 | ---: | --- | --- |
 | 1 | stijl, font en manifest vanuit HTML | manifest 75→9 ms, font 97→4 ms; uitgevoerd, default aan |
-| 2 | eerste regenaanvragen vóór overige manifestreacties | voorkomt dat reactieve verwerking de dispatch ophoudt; gebouwd, meting pending |
-| 3 | kaart-/overlayshaderwerk tijdens de koude start | lange kaarttaken aangetoond; CPU-profiel moet oorzaak en tijd vóór/na ttfp bepalen voordat de uitvoering verandert |
+| 2 | eerste regenaanvragen vóór overige manifestreacties | voorkomt dat reactieve verwerking de dispatch ophoudt; behouden met HTML/lazy op de totale koud/warm-ttfr-winst |
+| 3 | kaart-/overlayshaderwerk tijdens de koude start | lange kaarttaken aangetoond; shaderbatching en GPU-worker gemeten en afgewezen, walltime/threadtijd onderscheiden |
 | 4 | aanvullende Caddy Link/103 | HTML start font al op ~4 ms en manifest op ~9 ms; vermoedelijk weinig extra lokale winst, productie-RTT kan anders zijn; nog geen gemeten 103-winst |
 | 5 | verdere bundelsplitsing | bestaande lazy-entry −12,8 kB, werkelijk vóór regen −2,8 kB; parsewinst klein |
 
@@ -429,8 +473,8 @@ Main heeft taken703/372ms; U64 heeft761/499/374ms. TBT blijft de grootste
 scorebeperking. Ongebruikte JS213→208KiB, waarvan MapLibre ongeveer176KiB;
 ongebruikte CSS12→11KiB. CSS staat als renderblokkerend gemeld, terwijl
 FCP/LCP al100 scoren. De eerste kleine scoredaling is geen reden om de
-consistente native ttfr-winst uit zes paren te verbergen; de GPU- en
-manifestkandidaten volgen. Eén sourcemapwaarschuwing
+consistente native ttfr-winst uit zes paren te verbergen; GPU- en
+manifestkandidaten zijn inmiddels afzonderlijk afgewezen. Eén sourcemapwaarschuwing
 bij de main-entry is geregistreerd; runtimeError ontbreekt in beide reports.
 
 De trace nuanceert de scriptuitvoering: U64-taken761/499/374ms hebben
@@ -470,6 +514,30 @@ de eerste regenaanvraag vóór overige manifestreacties en kaart/shaderwerk.
 | SVG | [vóór](screenshots/svg-light-voor-tegels.png) / [na](screenshots/svg-light-na-tegels.png) | [vóór](screenshots/svg-dark-voor-tegels.png) / [na](screenshots/svg-dark-na-tegels.png) |
 | z4-tegel | [vóór](screenshots/tegel-light-voor-tegels.png) / [na](screenshots/tegel-light-na-tegels.png) | [vóór](screenshots/tegel-dark-voor-tegels.png) / [na](screenshots/tegel-dark-na-tegels.png) |
 
+## Absolute gate en eindvalidatie
+
+Nieuwe baseline op main4038d55, drie runs met startload7,93/7,90/7,24:
+1.760.209 bodybytes in alle drie;298/297/297 decodes, spreiding
+0%bytes en0,336%decodes. Bestand:
+[desktop-koud-spelend-own-u62-part2.json](../../../web/perf/baselines/desktop-koud-spelend-own-u62-part2.json).
+De oorspronkelijke baseline blijft intact; de bestaande grens10% is
+ongewijzigd. De reden is Kaderhemel/U65, verse browser per run en de
+standaard kaartkleuring van U62 deel2.
+
+Kandidaatcompare bij load7,50:1.757.816 bodybytes (−0,136%),297 decodes
+(0%),nul netwerkbevindingen; synchroonexit0. Deze regressierig heeft het
+bestaande Pixel-profiel met4cores/4GB en een expliciete stijl-URL; native
+watervallen gebruiken8cores/8GB met inline stijl. Tijdgetallen niet mengen.
+De gate bewaakt bytes/decodes; desktop-tijden zijn informatief.
+
+Typecheck,77unitbestanden/511tests,referentie- en productbuilds en
+12gerichte desktop-e2e zijn groen (twee mobiele scenario's overgeslagen).
+De probe-e2e voor SW-versheid/offline/Range-cache en WebGL zijn eerder
+afzonderlijk geslaagd; de proeven blijven standaarduit. Alle native,
+Lighthouse- en absolute campagnes zijn afgesloten met waargenomenexit0.
+Exacte commando's en receipts staan in[LOG.md](LOG.md). Geen eigen
+achtergrond-meetbrowser of meetshell blijft lopen.
+
 ## Reproduceren
 
 Alle browser-perf neemt `flock -w 7200 /home/mathijs/motregen-perf.lock`
@@ -489,7 +557,7 @@ MOTREGEN_RIG_PREBUILT=1 MOTREGEN_RIG_DIST=/pad/naar/bevroren-dist \
   --paired --pair=voorbeeld-cold-1 --role=A
 MOTREGEN_E2E_PORT=4394 MOTREGEN_E2E_DATA_PORT=8394 pnpm perf:mobile \
   --profile desktop --scenario koud-spelend --basemap own --compare \
-  --baseline-file perf/baselines/desktop-koud-spelend-own.json
+  --baseline-file perf/baselines/desktop-koud-spelend-own-u62-part2.json
 MOTREGEN_E2E_PORT=4365 MOTREGEN_E2E_DATA_PORT=8365 pnpm e2e \
   e2e/basemap.spec.ts e2e/basemap-cache.spec.ts e2e/dev-panel.spec.ts \
   e2e/table.spec.ts e2e/usage.spec.ts e2e/presets.spec.ts e2e/seo.spec.ts \

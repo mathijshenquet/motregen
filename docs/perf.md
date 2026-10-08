@@ -1248,6 +1248,24 @@ stijl en fonts behouden. Manifestrefresh hergebruikt de startupfetch niet;
 still en Skywatch starten geen normale sessiebootstrap. De kaartplaceholder
 blijft een afzonderlijke devproef volgens [dev-opties.md](dev-opties.md).
 
+De absolute U64-gate op main `4038d55` gebruikt
+`web/perf/baselines/desktop-koud-spelend-own-u62-part2.json`. De nieuwe
+baseline heeft als reden Kaderhemel/U65, een verse browser per herhaling
+en de standaard kaartkleuring onder Expressief in U62 deel 2. De oudere
+baseline en de bestaande regressiegrens van 10% blijven ongewijzigd.
+Drie referentieruns bij startload7,93/7,90/7,24 hadden elk1.760.209
+bodybytes en298/297/297 decodes:0%bytespreiding en0,336%decodespreiding.
+De kandidaatcompare bij load7,50 is groen:1.757.816 bodybytes (−0,136%),
+297 decodes (0%) en geen netwerkbevindingen. Dit zijn de byte-/decode-
+budgetten van de regressierig; native Desktop Chrome-tijden en de
+gepaarde koud/warm-resultaten staan afzonderlijk in het U64-verslag.
+
+```sh
+MOTREGEN_E2E_PORT=4394 MOTREGEN_E2E_DATA_PORT=8394 pnpm perf:mobile \
+  --profile desktop --scenario koud-spelend --basemap own --compare \
+  --baseline-file perf/baselines/desktop-koud-spelend-own-u62-part2.json
+```
+
 Een aanvraagvolgorde kan ook op een drukke host worden gecontroleerd met
 `pnpm perf:mobile --profile desktop --scenario koud-spelend --basemap own --request-order`.
 Gebruik `--profile po-android` voor het gekalibreerde Android-profiel. Deze modus houdt native
