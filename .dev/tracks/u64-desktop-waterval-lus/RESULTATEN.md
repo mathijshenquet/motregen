@@ -356,6 +356,15 @@ consistente native ttfr-winst uit zes paren te verbergen; de overige
 Lighthouse-paren en nieuwe kandidaten volgen. Eén sourcemapwaarschuwing
 bij de main-entry is geregistreerd; runtimeError ontbreekt in beide reports.
 
+De trace nuanceert de scriptuitvoering: U64-taken761/499/374ms hebben
+respectievelijk44/18/14ms threadtijd. De eerste bevat een callback van250ms
+met6ms threadtijd; de tweede493ms met12ms threadtijd. Veel verstreken tijd
+wordt dus buiten actieve hoofddraaduitvoering besteed. GPU-/commandbuffer-
+wacht of scheduling is een inference; deze trace bewijst de verdeling niet.
+De sourcemapketen levert voor die callback een shaderliteral op en wordt
+daarom niet als betrouwbare functie-attributie gebruikt. Ongebruikte JS
+verwijderen alleen verklaart dit TBT-probleem niet.
+
 Onderstaande Lighthouse-reeks hoort bij de eerdere U57-basis:
 
 | metriek | referentie: waarde / subscore | finale lazy: waarde / subscore |
