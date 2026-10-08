@@ -1,11 +1,37 @@
 # U64 — desktoplus
 
-[Stap 0](STAP-0.md) is vóór productwijzigingen vastgelegd. De volgende reeksen
+[Stap 0](STAP-0.md) is vóór productwijzigingen vastgelegd. De eerdere reeksen
 gebruiken dezelfde U57-basis en bevroren builds, onder de gedeelde hostlock.
 Desktop Chrome, 1280×800, DPR 1, 8 cores/8 GB, CPU 1×, SwiftShader,
 synthetische data; drie runs per variant. Koud: verse context, HTTP-cache uit,
 SW geblokkeerd. Het browserproces wordt binnen een reeks gedeeld; de eerste
 run bevat extra browser/GPU-initialisatie. Geen MacBook-benchmark.
+
+## Vervolg na U62/Kaderhemel
+
+Main `43b92d6`, inclusief U62 `8d75754f` en U66, is samengevoegd. Kaderhemel
+staat nu altijd aan en de tabel/scrubber hebben andere hemelverwerking.
+De onderstaande oudere U57-tijden blijven historisch; nieuwe timingwinst
+wordt tegen dezelfde U62-startsituatie gemeten.
+
+De nieuwe, ongewijzigde main-referentie heeft 422.475 B gzip hoofd-JS;
+U64 na merge, vóór shaderbatching: 409.063 B. Bevroren builds gebruiken
+dezelfde fixture en native-desktopcapture. Koud ×3, warm ×3 en Lighthouse
+staan nog in de meetwachtrij. Er zijn nog geen nieuwe ttfr/ttfp-subscores.
+
+De shaderkandidaat start alle vier windprogramma's vóór de eerste linkquery
+en vraagt geen tussentijdse compile-status van regen-/windshaders.
+Shaderbronnen en tekenvolgorde zijn gelijk; linkfouten houden hun logs en
+ruimen aangemaakte resources op. Dit volgt de algemene
+[Khronos-best practice](https://registry.khronos.org/webgl/extensions/KHR_parallel_shader_compile/),
+zonder de extensie te vereisen. Verwachte winst is minder geserialiseerd
+GPU-wachten; omvang en invloed op ttfr/ttfp/LoAF zijn nog ongemeten.
+
+De nieuwe gate-baseline wordt uit drie ongewijzigde main-runs geschreven
+naar `desktop-koud-spelend-own-u62.json`. Reden: de gewijzigde U62-
+startsituatie met Kaderhemel, niet een verruimd perf-budget. De originele
+pre-U62-baseline blijft bewaard. Mergechecks: typecheck, 497 unittests,
+build en 23 gerichte desktop-e2e geslaagd (twee mobiel-only overgeslagen).
 
 ## Starttijden
 

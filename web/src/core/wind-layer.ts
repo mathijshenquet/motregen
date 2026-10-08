@@ -2,6 +2,7 @@ import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap,
 import type { MapTheme } from './basemap'
 import type { Grid } from './contract'
 import { measurePerfPhase } from './perf'
+import { linkPrograms } from './gl-program'
 import { loadedWaterTiles, WaterTileCache, waterMaskNeedsRebuild, waterTileKey, type WaterMaskView, type WaterTile, type WaterMaskRequest, type WaterMaskReply } from './wind-water-mask'
 
 export const WIND_PARTICLES_PER_MEGAPIXEL = 620
@@ -483,9 +484,16 @@ export class WindLayer implements CustomLayerInterface {
   onAdd(map: MapLibreMap, context: WebGLRenderingContext | WebGL2RenderingContext): void {
     this.map = map
     const gl = this.gl = context as WebGL2RenderingContext
-    const segment = this.segmentProgram = link(gl, segmentVertexSource, segmentFragmentSource)
-    const fade = this.fadeProgram = link(gl, screenVertexSource, fadeFragmentSource)
-    const composite = this.compositeProgram = link(gl, screenVertexSource, compositeFragmentSource)
+    const programs = linkPrograms(gl, [
+      [segmentVertexSource, segmentFragmentSource],
+      [screenVertexSource, fadeFragmentSource],
+      [screenVertexSource, compositeFragmentSource],
+      [markVertexSource, markFragmentSource],
+    ])
+    const segment = this.segmentProgram = programs[0]!
+    const fade = this.fadeProgram = programs[1]!
+    const composite = this.compositeProgram = programs[2]!
+    this.markProgram = programs[3]!
     this.segmentUniforms = uniforms(gl, segment, {
       matrix: 'u_matrix', target: 'u_target', extent: 'u_extent', halfWidth: 'u_half_width', head: 'u_head', visibility: 'u_visibility', contrast: 'u_contrast',
       uvScale: 'u_uv_scale', uvOffset: 'u_uv_offset',
@@ -511,7 +519,6 @@ export class WindLayer implements CustomLayerInterface {
     this.screenBuffer = gl.createBuffer()!
     this.fadeArray = screenArray(gl, fade, this.screenBuffer, true)
     this.compositeArray = screenArray(gl, composite, this.screenBuffer, false)
-    this.markProgram = link(gl, markVertexSource, markFragmentSource)
     this.markArray = gl.createVertexArray()!
     gl.bindVertexArray(this.markArray)
     this.markBuffer = gl.createBuffer()!
@@ -1965,20 +1972,4 @@ function markAtlas(gl: WebGL2RenderingContext, theme: MapTheme): WebGLTexture | 
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
   return texture
-}
-
-function link(gl: WebGL2RenderingContext, vertex: string, fragment: string): WebGLProgram {
-  const compile = (type: number, source: string) => {
-    const shader = gl.createShader(type)!
-    gl.shaderSource(shader, source)
-    gl.compileShader(shader)
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader) ?? 'Wind-shaderfout')
-    return shader
-  }
-  const program = gl.createProgram()!
-  gl.attachShader(program, compile(gl.VERTEX_SHADER, vertex))
-  gl.attachShader(program, compile(gl.FRAGMENT_SHADER, fragment))
-  gl.linkProgram(program)
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program) ?? 'Wind-shader-linkfout')
-  return program
 }
