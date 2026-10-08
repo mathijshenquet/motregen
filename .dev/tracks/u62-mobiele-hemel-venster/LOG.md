@@ -557,3 +557,24 @@ staat; na een stijlwissel wordt dat gewist.
 - Opgeruimd: de previews op 4321/4322 zijn gestopt en de tijdelijke worktree is weg.
 - Gate na het ontdubbelen (web/): typecheck 0 · `pnpm test` 0 (506) · build 0 · desktop `dev-panel
   cloud-section sky-window` 0 (4 groen); kaart nagekeken op 19:10 (nacht 0,80) en 23:00 (1,00).
+
+## MIP-24 optie (b): vier mengstappen, tijdens afspelen hooguit één per seconde — criterium nu WEL gehaald
+- Orkestrator: (b) uitvoeren; PO-aanvulling: "dat mengen kan sowieso ook snel", weinig stappen (4–8) is
+  prima als het niet knippert → ruim aan de goedkope kant gekozen: `MAP_NIGHT_STEPS = 4` (0 / 0,25 / 0,5 /
+  0,75 / 1) met de gewone 300 ms-overgang van MapLibre, en `MAP_NIGHT_PLAYING_INTERVAL_MS = 1000`: tijdens
+  afspelen hooguit één stap per seconde (de laatste waarde wordt na de wachttijd alsnog gezet); bij
+  stilstand of een sprong direct naar de eindwaarde. Default blijft: kaart volgt de tijd onder Expressief.
+- Eigen fout onderweg: de eenmalige "tween uit"-build voor de meting zette ik terug met `git checkout --
+  src/App.tsx`, wat ook de nog niet gecommitte wijziging wegnam. Opnieuw aangebracht en meteen gecommit
+  (7b9b31d, e9644be). Les: eerst committen, dan pas een tijdelijke variant bouwen.
+- Meting, zelfde rig en opzet als hierboven (gepaard ×3, om en om, lock per run, load bij start ≤ 16;
+  `kaart-kosten/4-zonder-tegen-met-vier-stappen.log`):
+  | | frames in 20 s | p95 | frames > 34 ms | lange frames (totaal ms) | heapgroei |
+  | zonder tween | 1146 / 1183 / 1181 | 16,8 / 16,8 / 16,8 | 11 / 3 / 4 | 6 / 1 / 2 (508 / 101 / 155) | 1,18 / 1,23 / 1,18 MB |
+  | met (4 stappen, 1/s) | 1148 / 1182 / 1178 | 16,8 / 16,8 / 16,8 | 10 / 4 / 5 | 6 / 1 / 2 (395 / 84 / 145) | 1,34 / 1,33 / 1,13 MB |
+  Geen meetbaar verschil meer: p95 gelijk, frames binnen 0,3 %, lange frames gelijk. (Was met 20 stappen
+  zonder rem: ~11 % minder frames en p95 33 ms in twee van de drie paren.)
+- Niet te beoordelen in de rig: of de vier stappen tijdens afspelen als "knipperen" ogen. Stilstaande
+  standen nagekeken (18:50 / 19:05 / 19:20 → nacht 0,25–1,00). De PO beoordeelt het op zijn telefoon.
+- Gate (web/): typecheck 0 · `pnpm test` 0 (506) · build 0 · desktop `dev-panel cloud-section` 0 (3 groen).
+- Vanaf hier wijzigt er niets meer op de branch tot de merge; de rand-schakelaar staat er nog.
