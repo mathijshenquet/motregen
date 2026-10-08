@@ -790,6 +790,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setCursor(presetCursor ?? nowIndex)
       if (presetCursor !== undefined) setPlaying(false)
       if (presets.mode) applyPresetMode(presets.mode)
+      if (import.meta.env.VITE_START_PRIORITY === 'rain' && devMode) await load(frames[Math.floor(presetCursor ?? nowIndex)]!)
       const firstHeader = client.getHeader(frames[0]!.chunk)
       const initialTheme = mapTheme()
       const style = await loadBasemapStyle(initialTheme)
@@ -827,6 +828,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (key) basemapTiles.set(key, performance.now())
       })
       map.on('sourcedata', (event) => {
+        if (event.sourceId === 'basemap' && event.tile) window.dispatchEvent(new Event('motregen-first-map-bucket'))
         const key = basemapTileKey(event)
         if (!key) return
         const started = basemapTiles.get(key)

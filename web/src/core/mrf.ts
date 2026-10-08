@@ -169,6 +169,12 @@ export class MrfClient {
     private readonly trace?: LoadTrace,
     private readonly budget: Pick<DecodeBudget, 'workers' | 'requests' | 'rangeBytes'> = decodeBudget(browserDeviceHints()),
   ) {
+    if (import.meta.env.VITE_START_PRIORITY === 'map' && typeof window !== 'undefined' && new URLSearchParams(location.search).has('dev')) {
+      this.startBlocked = true
+      const release = () => { this.startBlocked = false; this.dispatch() }
+      window.addEventListener('motregen-first-map-bucket', release, { once: true })
+      window.setTimeout(release, 10_000)
+    }
     this.planner = new FetchPlanner(Math.max(1, budget.requests))
     this.workers = Array.from({ length: Math.max(1, budget.workers) }, () => new Worker(new URL('./zstd.worker.ts', import.meta.url), { type: 'module' }))
     this.idleWorkers = this.workers.map((_, index) => index)
@@ -514,7 +520,10 @@ export class MrfClient {
 
   // Eén decode per worker tegelijk; de rest wacht hier, zodat een frame dichter bij de cursor dat
   // later binnenkomt nog voor kan gaan en een afgebroken vraag de worker nooit bereikt.
+  private startBlocked = false
+
   private dispatch(): void {
+    if (this.startBlocked) return
     while (this.idleWorkers.length) {
       const job = this.queue.take()
       if (!job) return
