@@ -75,3 +75,8 @@
 - Laatste zoeknaamcorrectie geverifieerd: `pnpm typecheck` en `pnpm build` exit 0; `MOTREGEN_E2E_PORT=4397 MOTREGEN_E2E_DATA_PORT=8397 pnpm --filter motregen-web e2e e2e/flanders.spec.ts --project desktop` 1/1 exit 0. Test controleert Gent-URL én de direct opgeslagen exacte pin met Gent-zone, naast de markerprojectie.
 - De laatste wijziging raakt alleen expliciete zoekkeuze; het opstartpad uit beide watervallen blijft gelijk. Typecheck na de definitieve extractor met header- én frame-Range exit 0. Volledige unitreceipt 506 web/60 bot, desktop trackgate 22/22 en aanvullende gerichte receipts hierboven blijven expliciet onderscheiden.
 - Alle check-sessies afgesloten met geobserveerde exitstatus. git diff --check exit 0. Eindcommit bevat JSON/SVG-bewijs, LOG en zoek-snapshotcorrectie; push en PR #93 bijwerken met native watervaltabel, bewijslinks en hostloadbeperking. Preview blijft bewust als user-service voor review beschikbaar; niet gemerged.
+
+## 2026-10-08 09:54:23 UTC — slotentry, track klaar
+- Orkestrator meldt U65 gemerged op main als 0fb247ecef5229efe0a8ee3205f98290a1e9a9bb (0fb247ec), na onafhankelijke gate: typecheck exit 0, 506 unitchecks, build exit 0 en 27 gerichte desktop-e2e groen. Mergecommit na fetch gecontroleerd; behoort tot origin/main.
+- Preview motregen-u65-preview.service gestopt met systemctl --user stop (exit 0). Service niet actief; ss toont geen listener meer op poort 4345. Alle checks afgerond, geen lopende checksessies.
+- Slotentry append-only; commit + push naar track/u65-plaatsen-en-pin. Track klaar, geen open werk.
