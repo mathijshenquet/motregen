@@ -484,7 +484,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const panelTop = forecastPanelElement.getBoundingClientRect().top
     const atTable = Math.abs(panelTop) <= 2 || tableSnappedAtPageEnd(panelTop)
     const atMap = window.scrollY <= 2
-    if (!atTable && !atMap) return
+    if (!atTable && !atMap) {
+      // De pagina is tot rust gekomen vlak naast een snappunt en de browser heeft haar daar gelaten: Firefox
+      // voor Android doet dat als de adresbalk terugkomt (PO 2026-10-08: een strook scrubber bleef boven de
+      // tabel staan). Zelf het laatste stukje afmaken; verder weg is het een gebaar dat nog loopt.
+      if (Math.abs(panelTop) <= TABLE_SNAP_SLACK_PX) window.scrollBy({ top: panelTop, behavior: 'auto' })
+      else if (window.scrollY <= TABLE_SNAP_SLACK_PX) window.scrollTo({ top: 0, behavior: 'auto' })
+      return
+    }
     const open = atTable
     setTableCoversViewport(open)
     setTableOpen(open)
