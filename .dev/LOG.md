@@ -243,6 +243,12 @@
   zodat nix-grenzen gelden; web 0,16 s. U67-workspace gesloten. Renderer draait als achtergrondshell van
   deze sessie (log `~/motregen-telegram-cache/renderer-main.log`) — bij sessie-herstart opnieuw starten
   of als user-unit (open: nix-renderer-unit op ageq-dev2).
+- **U62 deel 2 gemerged** (768d0761, 19:05): klokpil/zoekbalk/druppel tinten mee, kaart volgt de tijd onder
+  Expressief (MIP-24; 4 mengstappen, 1/s: gemeten kostenvrij, p95 16,8 ms), wind "iets", koppen wisselen bij
+  de zon-rij, één lijnensysteem dag/nacht (contrast ~1,3/1,6), rand-schakelaar oud/geen/A/B achter ?dev
+  (PO kiest nog; B "clean"), splash-proef verwijderd. Gate 506 unit, 23+10 e2e, build; 4330 herbouwd.
+  U62 nu op: regen-blending in Wind/Lucht (PO-screenshots in zijn trackmap, ?dev-varianten). U63: z4 op
+  de hoofdlijn, preview 4340 voor de PO-telefoon. U64: shaders-van-hoofddraad −17 % ttfr gepaard, LH-paren.
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
