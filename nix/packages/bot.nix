@@ -6,7 +6,6 @@
   pnpm_10,
   pnpmConfigHook,
   makeWrapper,
-  ffmpeg,
 }:
 
 stdenvNoCC.mkDerivation {
@@ -26,7 +25,6 @@ stdenvNoCC.mkDerivation {
     pnpm --offline --filter motregen-bot --config.inject-workspace-packages=true deploy --prod "$out/lib/motregen-bot"
     mkdir -p "$out/bin"
     makeWrapper ${lib.getExe nodejs} "$out/bin/motregen-bot" \
-      --prefix PATH : ${lib.makeBinPath [ ffmpeg ]} \
       --add-flags "$out/lib/motregen-bot/dist/bot/main.js"
     runHook postInstall
   '';

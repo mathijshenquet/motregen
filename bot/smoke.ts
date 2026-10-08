@@ -7,6 +7,7 @@ import { startText } from './handlers.js'
 import { StillRenderer, StillRenderError, type RenderedMedia } from './render.js'
 import { keyboard, PREWARM_HOURS, STILL_HOURS, LOOP_MODES, validateManifest, type StillManifest } from './stills.js'
 import { readFile } from 'node:fs/promises'
+import { dryRunPrime } from './dry-run.js'
 
 async function smoke(): Promise<void> {
   const config = readConfig()
@@ -23,6 +24,8 @@ async function smoke(): Promise<void> {
     }
     if (renderOnly) {
       const modeFilter = process.argv.find((argument) => argument.startsWith('--mode='))?.slice(7)
+      const dryRunPath = process.argv.find((argument) => argument.startsWith('--dry-run-prime='))?.slice('--dry-run-prime='.length)
+      if (dryRunPath && modeFilter) throw new Error('Dry-run-prime vereist de volledige matrix')
       const definitions = LOOP_MODES.filter((definition) => !modeFilter || modeFilter === definition.mode)
       const matrixStarted = performance.now()
       const renders = await Promise.allSettled(definitions.map(async (definition) => {
@@ -31,7 +34,7 @@ async function smoke(): Promise<void> {
         console.info(JSON.stringify({ event: 'loop-render-receipt', mode: definition.mode, path: loop.path, frames: loop.frames, fps: loop.fps, renderMs: loop.renderMs, encodeMs: loop.encodeMs, bytes: loop.bytes, cached: loop.cached }))
         if (definition.mode === 'wind') return media
         let hours: readonly number[] = [0]
-        if (process.argv.includes('--matrix')) {
+        if (process.argv.includes('--matrix') || dryRunPath) {
           hours = STILL_HOURS
         } else if (process.argv.includes('--prewarm')) {
           hours = PREWARM_HOURS
@@ -49,6 +52,7 @@ async function smoke(): Promise<void> {
         media.push(...result.value)
       }
       console.info(JSON.stringify({ event: 'generation-render-receipt', generated: manifest.generated, count: media.length, milliseconds: Math.round(performance.now() - matrixStarted), cached: media.every((item) => item.cached) }))
+      if (dryRunPath) await dryRunPrime(manifest, media, dryRunPath)
       return
     }
     const api = new TelegramApi(config.token)

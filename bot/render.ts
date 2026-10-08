@@ -7,6 +7,8 @@ import { STILL_CACHE_TTL } from './file-ids.js'
 import { encodeLoop, encodeStill, framePath } from './encode.js'
 import { sequencePlan } from './sequences.js'
 import { openRenderPage } from './render-open.js'
+import { StillRenderError } from './render-error.js'
+export { StillRenderError } from './render-error.js'
 import { cacheKey, caption, stillEpoch, STILL_HOURS, validateManifest, type LoopMode, type LoopSelection, type MediaSelection, type StillManifest, type StillSelection } from './stills.js'
 
 interface RenderedBase {
@@ -33,14 +35,6 @@ export interface RenderedLoop extends RenderedBase {
 export type RenderedMedia = RenderedStill | RenderedLoop
 interface RenderedSequence { loop: RenderedLoop; stills: RenderedStill[] }
 interface SequenceMetrics { key: string; frames: number; fps: number; bytes: number; renderMs: number; encodeMs: number; openMs?: number }
-
-export class StillRenderError extends Error {
-  readonly timeout: boolean
-  constructor(readonly mode: LoopMode, readonly phase: string, readonly frame: number | undefined, cause: unknown) {
-    super(`Renderer ${mode} mislukt bij ${phase}`, { cause })
-    this.timeout = cause instanceof Error && cause.name === 'TimeoutError'
-  }
-}
 
 export class StillRenderer {
   private browser?: Browser

@@ -49,7 +49,7 @@ async function setup() {
   const api = new TelegramApi('test-token', request as typeof fetch)
   const runtime: BotRuntime = {
     api,
-    config: { origin: 'http://localhost:4365', cacheDirectory: directory, token: 'test-token' },
+    config: { role: 'combined', origin: 'http://localhost:4365', cacheDirectory: directory, token: 'test-token' },
     renderer: { render } as unknown as StillRenderer,
     username: 'motregen_bot',
     photos: new StillPhotos(api, new FileIdCache('motregen_bot')),

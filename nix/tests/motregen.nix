@@ -50,6 +50,7 @@
         basemapPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-basemap;
         bot = {
           enable = true;
+          role = "combined";
           package = fakeBot;
         };
       };

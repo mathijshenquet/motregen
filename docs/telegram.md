@@ -60,9 +60,127 @@ in de browser zoals in [het privacycontract](analytics.md). De HMAC-module in
 `bot/auth.ts` blijft unit-getest maar wordt nergens in de draaiende app of bot
 aangeroepen.
 
+## Rollen en gedeeld register (MIP-25, U67)
+
+Eén `motregen-bot` heeft drie rollen, gekozen met `--role=poller`, `--role=renderer` of
+`--role=combined`. De vlag gaat vóór `MOTREGEN_BOT_ROLE`. Zonder beide blijft lokaal `combined`
+de standaard; de Nix-module kiest standaard `poller`.
+
+| rol | werk | vereisten |
+| --- | --- | --- |
+| `renderer` | Manifest elke 15 s na voltooiing controleren; alle 173 selecties renderen, naar de cachechat primen en het register publiceren. Geen updates of bot-menuwijzigingen. | Chromium, ffmpeg, `TG_BOT_KEY`, `MOTREGEN_CACHE_CHAT_ID`; beheerder met verwijder- en pinrechten (kanaal: editrechten). |
+| `poller` | Long polling en handlers; uitsluitend bestaande file_ids versturen. Geen browser, encoder, uploads of publieke media-URL-fallback. | Hetzelfde token en dezelfde cachechat. |
+| `combined` | Bestaande lokale combinatie: 13 prewarm-media, overige stills op aanvraag. | Chromium, ffmpeg, token; cachechat optioneel. |
+
+Het register is een **vastgepind JSON-document** `motregen-register.json` in de bestaande cachechat.
+Een tekstbericht is te klein voor 173 file_ids. Het document bevat formaatversie, bot-id,
+manifestgeneratie, `now` en per selectie een file_id: drie loops en 85 stills voor zowel Regen als
+Temperatuur. De renderer primet de volledige generatie voordat hij het bestaande gepinde document
+met één `editMessageMedia` vervangt. De eerste publicatie gebruikt `sendDocument` en
+`pinChatMessage`; pas daarna ruimt hij oude media-cacheposts op. Een mislukte render, upload of
+registerpublicatie laat de vorige volledige generatie beschikbaar. Deze cachechat is voor de bot;
+pin er geen andere berichten naast het register.
+
+De poller leest `getChat.pinned_message.document`, haalt een gewijzigd document op via `getFile`
+en accepteert alleen een complete matrix van de eigen bot. Hij wisselt de hele generatie tegelijk,
+controleert elke 15 s en bewaart de laatste volledige matrix ook lokaal voor herstarts en
+netwerkstoringen. Oudere registers kunnen die matrix niet terugzetten. Bekende oudere generaties
+blijven twee uur bruikbaar; bij een onbekende/verlopen selectie toont hij de nieuwste beschikbare
+generatie met “Nieuwste beschikbare generatie getoond.” Een absolute tijd wordt daarbij afgerond
+op de dichtstbijzijnde beschikbare tienminutenpositie binnen het bereik. Zonder enig register is
+het antwoord “Beeld wordt klaargezet, probeer zo opnieuw.” Een ongeldig Telegram-id geeft een korte
+foutmelding; alleen de renderer kan nieuwe media aanleveren.
+
+Renderer en poller gebruiken hetzelfde token omdat [file_ids botspecifiek zijn](https://core.telegram.org/bots/api#sending-files).
+Alleen de poller roept `getUpdates` aan; de renderer gebruikt verzend-, edit- en chatmethoden.
+De [update-exclusiviteit](https://core.telegram.org/bots/api#getting-updates) geldt voor `getUpdates`
+tegenover webhooks, niet voor deze verzendmethoden. Dit is de grondslag voor twee processen met
+één token; twee pollers blijven verboden. Zie ook [getChat](https://core.telegram.org/bots/api#getchat),
+[getFile](https://core.telegram.org/bots/api#getfile), [editMessageMedia](https://core.telegram.org/bots/api#editmessagemedia)
+en [pinrechten](https://core.telegram.org/bots/api#pinchatmessage).
+
+De volledige matrix vraagt meer uploads dan de gecombineerde modus. Telegram noemt
+[20 berichten per minuut in groepen](https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this).
+De bestaande seriële uploader volgt `retry_after` en bewaart al verkregen ids voor een volgende
+poging. Een echte prime-meting is nodig om de cadans met deze cachegroep vast te stellen;
+de dry-run hieronder bewijst het transport en antwoordpad, niet dat render plus upload binnen 210 s past.
+
+### Starten
+
+Op ageq-dev2, vanuit de bijgewerkte main-checkout, met de bestaande `.env` en devomgeving:
+
+```bash
+cd /home/mathijs/motregen
+set -a
+source .env
+set +a
+export MOTREGEN_ORIGIN=https://motregen.nl
+export MOTREGEN_RENDER_CACHE="$PWD/tmp/telegram-renderer"
+export MOTREGEN_CHROMIUM_PATH=/nix/store/j8hc3kdypr2gaa2w3dq0a370lwfzbasf-chromium-151.0.7922.137/bin/chromium
+pnpm -C bot dev --role=renderer
+```
+
+Het concrete Chromium-pad is dat van de U67-proef op ageq-dev2; bij een nieuwe Nix-versie gebruik je
+het nieuwe pad of de module hieronder. Het token en de cachechat blijven in het environmentbestand.
+Start de VM-poller pas nadat de orkestrator de bestaande poller op ageq-dev2 heeft gestopt.
+Na deployment van de bijgewerkte Nix-configuratie en secrets op de VM:
+
+```bash
+sudo systemctl unmask --runtime motregen-bot.service
+sudo systemctl start motregen-bot.service
+```
+
+De VM-configuratie stelt `services.motregen.bot.role = "poller"` in. De unit gebruikt
+`motregen-bot --role=poller`, 25% CPU, 192 MB MemoryHigh en 256 MB MemoryMax. Zijn closure bevat
+geen Chromium en zijn packagewrapper trekt ffmpeg niet mee. Voor een renderhost kan dezelfde
+NixOS-module zelfstandig een system-unit leveren, zonder lokale ingest of Caddy:
+
+```nix
+{
+  imports = [ inputs.motregen.nixosModules.motregen ];
+  services.motregen.bot = {
+    enable = true;
+    role = "renderer";
+    origin = "https://motregen.nl";
+    secretsFile = "/var/lib/motregen-renderer/secrets.env";
+  };
+}
+```
+
+Na activering start ook daar `sudo systemctl start motregen-bot.service` de renderer. Alleen
+`renderer` en `combined` krijgen Chromium en ffmpeg; de renderer heeft 400% CPU als bovengrens.
+`MOTREGEN_REGISTER_PATH` kiest voor offline proeven een lokaal register als pollerbron;
+in productie blijft deze variabele weg zodat de poller de cachechat leest.
+
+### Proef zonder Telegram
+
+`--dry-run-prime=<pad>` rendert de volledige matrix, primet via een lokale mock van de upload-API,
+schrijft atomair het register, controleert de documentpublicatie en laat de echte pollerhandlers
+met een gelezen file_id antwoorden. Hij leest geen updates en maakt geen Telegram-verzoeken.
+De fake ids staan uitsluitend in het expliciete proefregister, niet in productie-file_id-sidecars.
+Gebruik een eigen cachemap en de hostbrede perf-lock:
+
+```bash
+mkdir -p tmp/u67
+curl -fsS http://127.0.0.1:4330/data/manifest.json -o tmp/u67/manifest.json
+flock ~/motregen-perf.lock bash -c '
+  TG_BOT_KEY=x MOTREGEN_BOT_ROLE=combined MOTREGEN_ORIGIN=http://127.0.0.1:4330 \
+  MOTREGEN_CHROMIUM_PATH=/nix/store/j8hc3kdypr2gaa2w3dq0a370lwfzbasf-chromium-151.0.7922.137/bin/chromium \
+  MOTREGEN_RENDER_CACHE=../tmp/u67/cold-cache \
+  pnpm -C bot render --manifest=../tmp/u67/manifest.json --dry-run-prime=../tmp/u67/register.json
+'
+```
+
+Koude U67-proef op ageq-dev2 (2026-10-08, generatie `13:32:34Z`, app op 4330): **173 media in
+65535 ms**, plus **83 ms dry-run-prime** met mockuploads en uitgeschakelde tussenruimte. Alle drie
+loops hebben 169 frames op 10 fps; Regen render/encode 55164/794 ms, Temperatuur 60512/999 ms,
+Wind 55307/1001 ms. Register gelezen en file_id-antwoord gecontroleerd. Geen echte uploadtijd gemeten.
+De warme herhaling met een niet-bestaand Chromium-pad leverde 173 cachehits in 253 ms, plus 77 ms
+dry-run-prime, zonder browserstart.
+
 ## Rendering en cache
 
-De renderer draait in dezelfde unit als de poller, met Chromium uit
+De rendererrol (of de gecombineerde lokale rol) draait met Chromium uit
 `pkgs.playwright-driver.browsers` en ffmpeg uit nixpkgs. Per modus opent hij één
 pagina van de echte app op `?modus=...&t=<ISO>&still=1`, zonder bediening,
 locatiepin, service worker of manifestpolling. De renderhook zet de tijd per
@@ -103,11 +221,12 @@ Chromiums HTTP-cache voor tiles en chunks actief blijft. De cachekey bevat
 renderer-versie, modus, tijdstap, absolute tijd en manifest-`generated`.
 Bestanden worden atomair gepubliceerd; een receipt verschijnt pas nadat de
 hele reeks compleet is. De drie modusreeksen delen één Chromium;
-gelijke verzoeken delen een renderpass. Per generatie worden 3 loops en 10 JPEGs
+gelijke verzoeken delen een renderpass. In de gecombineerde modus worden per generatie 3 loops en 10 JPEGs
 vooraf klaargezet: nu/−10m/+10m/−1u/+1u per niet-Wind-modus. Alleen deze **13 media**
 worden vooraf naar Telegram geüpload. De overige tienminutenposities blijven
 beschikbaar als PNG in dezelfde reeks; JPEG en eenmalige upload volgen bij aanvraag.
-Daarna gebruikt ook die selectie file_id. Doel voor render+prime is <90 seconden;
+Daarna gebruikt ook die selectie file_id. De aparte rendererrol maakt en primet alle 173 selecties.
+Het eerdere doel voor render+prime van de 13 prewarm-media is <90 seconden;
 de gemeten tijden staan in het track-LOG.
 Rekenlast vóór U66: een generatie kostte op de dev-host ongeveer 4 cores × 60 seconden
 (13 media in software-GL; inclusief Telegram-prime).
@@ -133,7 +252,7 @@ De ingest controleert elke 60 seconden (`radar_cadence` in `crates/ingest/src/ma
 alleen bij gewijzigde bronbestanden; verschillende bronnen kunnen kort na elkaar een manifest publiceren.
 Het budget per generatie is daarom maximaal 210 seconden: 30% marge onder de nominale broncadans van
 300 seconden. De 15-seconden-manifestcheck en Telegram-prime moeten ook binnen die marge passen.
-De renderer meet hieronder alleen de drie loops en tien prewarm-JPEGs, zonder Telegram; de werkelijke
+De U66-rendererproef hieronder meet alleen de drie loops en tien prewarm-JPEGs, zonder Telegram; de werkelijke
 prime-/uploadduur blijft zichtbaar in `media-generation-primed` en `stills-refresh` van de actieve bot.
 
 Voor een vergelijkbare vóór/ná-meting in `bot/`: sla één manifest op en gebruik per meting een lege
@@ -164,13 +283,14 @@ De Telegram-upload is in deze render-only meting niet uitgevoerd. Alle loops bli
 langste horizon en 10 fps passen daarmee in het renderbudget. Hostbelasting beïnvloedt deze eenmalige
 metingen; dit zijn geen geïsoleerde CPU-benchmarks. Exacte repro en receipts staan in het U66-track-LOG.
 
-Caddy serveert uitsluitend `/telegram/stills/*.jpg` en `*.mp4` met twee uur
+In de gecombineerde modus serveert Caddy uitsluitend `/telegram/stills/*.jpg` en `*.mp4` met twee uur
 cacheduur en `noindex`; sidecars en receipts geven 404. Cachebestanden ouder
 dan twee uur, inclusief PNG-directories, verdwijnen bij een manifestcheck, ook als het renderen van een
 nieuwe matrix mislukt.
 
-Met `MOTREGEN_CACHE_CHAT_ID` uploadt de bot vóór publicatie de maximaal 10 ontbrekende prewarm-JPEGs in albums van maximaal tien
+Met `MOTREGEN_CACHE_CHAT_ID` uploadt de bot vóór publicatie de ontbrekende JPEGs in albums van maximaal tien
 via `sendMediaGroup` en MP4s via `sendAnimation` naar `MOTREGEN_CACHE_CHAT_ID`.
+Dat zijn maximaal tien prewarm-JPEGs in de gecombineerde modus en 170 JPEGs in de rendererrol.
 Uploads zijn stil, serieel met tussenruimte, en volgen Telegram `retry_after`.
 Gelijke aanvragen delen de upload. De huidige generatie blijft in het aparte
 privékanaal of de privégroep. Pas als de nieuwe generatie volledig geprimed is,
@@ -188,7 +308,7 @@ Het grootste foto-file_id
 of het animation-file_id uit de Telegram-respons komt atomair in
 `<kaart>.jpg.file-id.json` of `<loop>.mp4.file-id.json` naast het mediabestand
 en blijft ook in geheugen. Vervolgverzendingen en edits sturen alleen dat id.
-De sidecar bevat renderkey en botnaam: een nieuwe manifestgeneratie, andere
+De sidecar bevat renderkey en botscope (botnaam in combined, bot-id in renderer): een nieuwe manifestgeneratie, andere
 selectie of andere bot kan geen oud id hergebruiken. Ids vervallen met de
 twee-uurs-mediacache; sidecars worden ook opgeruimd.
 Een specifiek `wrong file identifier`, `wrong remote file identifier` of
@@ -198,6 +318,9 @@ worden vervangen. Bij een cachechat gaat de her-upload daarheen, ook voor inline
 In luie modus gaat een chat-her-upload rechtstreeks naar de gebruiker; inline
 kan bij een ontbrekend id de publieke URL gebruiken. Als het herstel ook faalt,
 krijgt de gebruiker “Beeld kon niet laden, probeer opnieuw”, geen API-fouttekst.
+
+De poller gebruikt altijd de ids uit het register. De onderstaande sidecars, herupload en publieke
+URL-fallback horen bij de gecombineerde modus en het renderen/primen, niet bij de poller.
 
 Inline gebruikt `InlineQueryResultCachedPhoto` of
 `InlineQueryResultCachedMpeg4Gif` zodra het file_id bekend is, ook lokaal;
