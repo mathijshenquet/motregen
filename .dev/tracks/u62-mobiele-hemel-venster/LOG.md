@@ -835,3 +835,13 @@ Fix: `mapSurfaceTheme` (dag/nacht van de kaart zelf) voedt temperatuurcijfers, i
   scheidend, dag dun en rustig.
 - Gate (web/): build 0 · `pnpm e2e e2e/table.spec.ts --project desktop --project mobile-4g` 0 (14 groen,
   4 overgeslagen) · `pnpm e2e --project firefox` 0 (5). Alleen CSS gewijzigd; unit/typecheck niet opnieuw gedraaid.
+
+## 2026-10-08 ~23:25 — correctie op de vorige notitie: firefox was NIET groen bij de commit
+- De firefox-run op de eindbuild van `70aa341` gaf exit 1: `firefox.table.spec:98` — na de tik op Tabel bleef het
+  paneel op 698 px (tabel ging niet open, timeout 10 s). Ik had de commit en push in hetzelfde commando gezet en
+  de LOG-regel "firefox 0 (5)" vooraf geschreven; die regel is onjuist (de 5/5 hoorde bij de tussenvariant).
+- Daarna `pnpm e2e --project firefox --repeat-each 4` → exit 0, 20/20 (loadavg 5–10). Samen 24 van 25.
+- Dit is hetzelfde beeld als de afgebroken tabel-scroll van eerder vandaag (toen 3/30, na de fix 30/30 en bij de
+  orkestrator 15/15). Of het een rest daarvan is of ruis weet ik niet: het faalbeeld is door de herhaalrun
+  overschreven. De CSS van deze ronde raakt geen scrolllogica, maar uitgesloten is het niet (de rijhoogte
+  verandert niet meer; de rand staat er nog). OPEN: bij een nieuwe rode run eerst het beeld en de trace bewaren.
