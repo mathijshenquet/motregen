@@ -44,13 +44,6 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   await expect(page.locator('.map-shell')).toHaveClass(/sky-(day|night)/)
   await expect(page.locator('.map')).toHaveAttribute('data-map-night', /^[01]\.\d\d$/)
 
-  // Proef (U62): hoe dekkend de sluier van de splash is.
-  await groups.locator('> summary', { hasText: 'Laden' }).click()
-  await panel.getByLabel('Splash-achtergrond').selectOption('glas')
-  await expect(page.locator('.map-splash')).toHaveClass(/veil-glass/)
-  await panel.getByLabel('Splash-achtergrond').selectOption('dekkend')
-  await expect(page.locator('.map-splash')).not.toHaveClass(/veil-/)
-
   // Tijdelijke proef (U62): rand tussen kaart en zijpaneel. "oud" is de stand van vóór de proef.
   const dashboard = page.locator('.dashboard')
   const leftBorder = () => dashboard.evaluate((element) => getComputedStyle(element).borderLeftWidth)

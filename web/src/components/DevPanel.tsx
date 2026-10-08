@@ -11,8 +11,6 @@ interface Props {
   onIsolineTuning: (patch: Partial<IsolineTuning>) => void
   panelEdge: 'oud' | 'geen' | 'a' | 'b'
   onPanelEdge: (edge: 'oud' | 'geen' | 'a' | 'b') => void
-  splashVeil: 'dekkend' | '70' | '40' | 'glas'
-  onSplashVeil: (veil: 'dekkend' | '70' | '40' | 'glas') => void
   firstRainLate: boolean
   onFirstRainLate: (late: boolean) => void
   windTuning: WindTuning
@@ -105,14 +103,6 @@ export default function DevPanel(props: Props) {
         <select value={props.firstRainLate ? 'laat' : 'vroeg'} onChange={(event) => props.onFirstRainLate(event.currentTarget.value === 'laat')}>
           <option value="vroeg">vroeg</option>
           <option value="laat">laat</option>
-        </select>
-      </Control>
-      <Control label="Splash-achtergrond" output={props.splashVeil === 'dekkend' || props.splashVeil === 'glas' ? props.splashVeil : `${props.splashVeil} %`} hint="Hoe dekkend de sluier achter het druppelmerk is tijdens het laden. Dekkend: zoals het was. 70 % en 40 %: de kaart en de eerste regen laden zichtbaar eronder. Glas: 40 % met vervaging (duurder op een telefoon). Herlaad of gebruik Herhaal splash om het te zien.">
-        <select aria-label="Splash-achtergrond" value={props.splashVeil} onChange={(event) => props.onSplashVeil(event.currentTarget.value as 'dekkend' | '70' | '40' | 'glas')}>
-          <option value="dekkend">dekkend</option>
-          <option value="70">70 %</option>
-          <option value="40">40 %</option>
-          <option value="glas">glas (40 % + vervaging)</option>
         </select>
       </Control>
     </Group>

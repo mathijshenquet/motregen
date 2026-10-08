@@ -511,3 +511,10 @@ kleurstrook gaat nu zonder tussenlijn over in de nachtrij (214,64,101 → 54,29,
   hooguit dat blur hier geen orde van grootte kost. Een geldige meting wacht op een rustige host.
 - Gate (web/): typecheck 0 · unit 0 (506) · build 0 · desktop `dev-panel cloud-section usage` 0 (6 groen);
   `dev-panel.spec` controleert de nieuwe knop.
+
+## Splash-proef gecommit (d7e8fbc) — en weer weggehaald (PO: "werkt niet echt voor mij")
+Knop "Splash-achtergrond", sleutel `dev-splash`, de CSS-standen en de halo zijn weg; de sluier is weer
+`background: var(--surface)`. De opnames (`splash/`) en de conclusie hierboven blijven: een doorzichtige
+sluier toont niets eerder omdat de tegels pas rond het einde van de splash komen — eerder een kaart is een
+kwestie van tegels eerder (U63). Gate: typecheck 0 · unit 0 (506) · build 0 · `dev-panel.spec` desktop 0.
+De rand-schakelaar blijft staan.

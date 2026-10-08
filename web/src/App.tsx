@@ -187,10 +187,6 @@ const PLAYBACK_WAIT_AHEAD_FRAMES = 2
 const PLAY_RULE_STORAGE_KEY = 'motregen-dev-speelregel'
 // Rig-schakelaar (?dev): 'laat' vraagt het eerste regenframe weer pas na de kaart-opzet.
 const FIRST_RAIN_STORAGE_KEY = 'motregen-dev-eerste-regen'
-// Proef (U62, ?dev): hoe dekkend de sluier van de splash is; vervalt na de PO-keuze.
-const SPLASH_VEIL_STORAGE_KEY = 'motregen-dev-splash'
-const SPLASH_VEILS = ['dekkend', '70', '40', 'glas'] as const
-type SplashVeil = typeof SPLASH_VEILS[number]
 // PO-vergelijking (?dev): het lege scrubber-kader neemt de hemelkleur van het uur aan.
 // Tijdelijke proef (U62, ?dev): scheiding tussen kaart en zijpaneel op desktop; vervalt na de PO-keuze.
 const PANEL_EDGE_STORAGE_KEY = 'motregen-dev-rand'
@@ -311,8 +307,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [firstRainLate, setFirstRainLate] = createSignal(devMode && localStorage.getItem(FIRST_RAIN_STORAGE_KEY) === 'laat')
   // Bij het laden vastgelegd: de knop werkt pas na herladen.
   const firstRainEarly = !firstRainLate()
-  const storedSplashVeil = devMode ? localStorage.getItem(SPLASH_VEIL_STORAGE_KEY) : null
-  const [splashVeil, setSplashVeil] = createSignal<SplashVeil>(SPLASH_VEILS.find((veil) => veil === storedSplashVeil) ?? 'dekkend')
   let pointLoad: PointLoadState | undefined
   const windFrameCache = new Map<string, Promise<Float32Array>>()
   const media = matchMedia('(prefers-color-scheme: dark)')
@@ -2609,7 +2603,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setWindTuning({ ...DEFAULT_WIND_TUNING })
       setIsolineTuning({ ...DEFAULT_ISOLINE_TUNING })
       setFirstRainLate(false)
-      setSplashVeil('dekkend')
       setPanelEdge('oud')
       focusMode.pin(DEFAULT_FOCUS_MODE)
       setFocusPinned(DEFAULT_FOCUS_MODE)
@@ -3108,7 +3101,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       style={chromeSky() ? { '--day-overcast': chromeSky()!.overcast.toFixed(2) } : undefined}
       aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainFocusOpacity(focus(), windFocus()).toFixed(2)} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
       <div ref={mapElement} class="map" />
-      <div ref={splashElement} class="map-splash" classList={{ ready: mapReady(), 'veil-70': splashVeil() === '70', 'veil-40': splashVeil() === '40', 'veil-glass': splashVeil() === 'glas' }} aria-hidden={mapReady()}>
+      <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() }} aria-hidden={mapReady()}>
         <div class="map-splash-veil" />
         <div class="map-splash-mark">
           <img src="/droplet.svg" alt="" />
@@ -3143,8 +3136,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           <DevPanel
             isolineTuning={isolineTuning()}
             onIsolineTuning={(patch) => setIsolineTuning((current) => ({ ...current, ...patch }))}
-            splashVeil={splashVeil()}
-            onSplashVeil={(veil) => { setSplashVeil(veil); localStorage.setItem(SPLASH_VEIL_STORAGE_KEY, veil) }}
             firstRainLate={firstRainLate()}
             onFirstRainLate={(late) => { setFirstRainLate(late); localStorage.setItem(FIRST_RAIN_STORAGE_KEY, late ? 'laat' : 'vroeg') }}
             panelEdge={panelEdge()}
