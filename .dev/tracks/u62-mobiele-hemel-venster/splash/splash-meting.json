@@ -1,0 +1,85 @@
+{
+ "momentsMs": [
+  0,
+  500,
+  1000,
+  2000,
+  2500,
+  3000,
+  3500
+ ],
+ "report": {
+  "390-dekkend": {
+   "frames": 109,
+   "p50Ms": 33,
+   "p95Ms": 133,
+   "maxMs": 383,
+   "over50Ms": 21,
+   "markContrast": null,
+   "splashKlaarMs": 4878
+  },
+  "390-70": {
+   "frames": 86,
+   "p50Ms": 17,
+   "p95Ms": 120,
+   "maxMs": 417,
+   "over50Ms": 14,
+   "markContrast": 14.08,
+   "splashKlaarMs": 3789
+  },
+  "390-40": {
+   "frames": 92,
+   "p50Ms": 17,
+   "p95Ms": 117,
+   "maxMs": 400,
+   "over50Ms": 14,
+   "markContrast": 12.67,
+   "splashKlaarMs": 3848
+  },
+  "390-glas": {
+   "frames": 92,
+   "p50Ms": 33,
+   "p95Ms": 121,
+   "maxMs": 367,
+   "over50Ms": 15,
+   "markContrast": 12.67,
+   "splashKlaarMs": 3900
+  },
+  "desktop-dekkend": {
+   "frames": 174,
+   "p50Ms": 17,
+   "p95Ms": 67,
+   "maxMs": 167,
+   "over50Ms": 18,
+   "markContrast": 13.69,
+   "splashKlaarMs": 4638
+  },
+  "desktop-70": {
+   "frames": 205,
+   "p50Ms": 17,
+   "p95Ms": 50,
+   "maxMs": 83,
+   "over50Ms": 7,
+   "markContrast": 15.27,
+   "splashKlaarMs": 4569
+  },
+  "desktop-40": {
+   "frames": 190,
+   "p50Ms": 17,
+   "p95Ms": 50,
+   "maxMs": 117,
+   "over50Ms": 10,
+   "markContrast": null,
+   "splashKlaarMs": 4404
+  },
+  "desktop-glas": {
+   "frames": 207,
+   "p50Ms": 17,
+   "p95Ms": 50,
+   "maxMs": 100,
+   "over50Ms": 8,
+   "markContrast": 14.8,
+   "splashKlaarMs": 4533
+  }
+ }
+}

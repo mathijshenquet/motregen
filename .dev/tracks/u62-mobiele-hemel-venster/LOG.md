@@ -481,3 +481,33 @@ kleurstrook gaat nu zonder tussenlijn over in de nachtrij (214,64,101 → 54,29,
 - Gate (web/): typecheck 0 · unit 0 (75 bestanden, 506 tests, vitest met `--exclude 'tmp/**'`) · build 0 ·
   desktop `table dev-panel cloud-section freshness` 0 (12 groen, 2 overgeslagen) · mobile-4g `table` 0.
 - De rand-schakelaar staat er nog (wacht op de PO-keuze).
+
+## Lijnensysteem gecommit en gepusht (94037cc)
+
+## Proef (PO, prioriteit): splash met doorzichtige achtergrond — achter ?dev, niets standaard
+- `?dev` → Laden → "Splash-achtergrond": dekkend (zoals het was) / 70 % / 40 % / glas (40 % +
+  `backdrop-filter: blur(12px)`). Sleutel `motregen-dev-splash`, eigenaar U62, vervalt na de PO-keuze.
+  Herladen om het te zien (of Diagnose → Herhaal splash).
+- De dekking zit in de kleur van `.map-splash-veil` (`--splash-veil-cover`), niet in `opacity`: die
+  blijft van het wegvloeien bij het onthullen. Bij een doorzichtige sluier krijgt het merk een zachte halo
+  (`.map-splash-mark::after`, in een eigen stapelcontext zodat hij vóór de sluier ligt).
+- Opnames (`rig/splash-frames.ts`, `splash/`): per stand een strook op 0 / 0,5 / 1 / 2 / 2,5 / 3 / 3,5 s na de
+  navigatie; 390 px met het mobile-4g-profiel (9 Mbps, 60 ms, CPU 4×), desktop zonder rem.
+  Bestanden `splash-390-{dekkend,70,40,glas}.png`, `splash-desktop-*.png`.
+- Wat de beelden laten zien (zelf bekeken), en dat is de kern voor de PO:
+  1. Tot ~2 s staat er onder de sluier nog GEEN kaart: alleen de lege kaartachtergrond. De tegels komen
+     rond 2–2,5 s, ongeveer wanneer de splash toch al weggaat (de splash wacht op kaart + eerste regen).
+  2. Wat je wél eerder ziet: de knoppen en de klok vanaf het eerste beeld, en de eerste regenvlekken
+     (rond 2 s) vóórdat de basiskaart er is — regen op een lege ondergrond.
+  3. "Glas" is tijdens het laden niet van 40 % te onderscheiden: er is nog niets om te vervagen.
+  De winst zit dus niet in "eerder een kaart zien" maar in "minder wit en eerder beweging"; echt eerder
+  een kaart vraagt dat de tegels eerder komen (E8/PMTiles, of een stilstaand voorbeeld onder de splash).
+- Onthulling (`rig/splash-reveal.ts`, `splash-onthulling-{dekkend,40}.png`): op +150 / +500 / +1000 ms na
+  "ready" zijn dekkend en 40 % gelijk — het druppelgat is binnen 150 ms al schermvullend. Geen restanten.
+- Contrast woordmerk tegen de slechtste pixel direct boven/onder de regel: 12,7–15,3 (390 px en desktop,
+  standen 70/40/glas). Voor "dekkend" op 390 px gaf de rig geen waarde; niet nagezocht.
+- Frametijd van de eerste 6 s per stand: p95 117–133 ms op 390 px bij alle standen, glas niet zichtbaar
+  duurder — maar dit is één run per stand bij loadavg 18–23 en NIET onder de perf-lock gemeten; het zegt
+  hooguit dat blur hier geen orde van grootte kost. Een geldige meting wacht op een rustige host.
+- Gate (web/): typecheck 0 · unit 0 (506) · build 0 · desktop `dev-panel cloud-section usage` 0 (6 groen);
+  `dev-panel.spec` controleert de nieuwe knop.

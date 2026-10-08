@@ -219,7 +219,8 @@ button { color: inherit; cursor: pointer; }
 .map-splash-veil {
   position: absolute;
   inset: 0;
-  background: var(--surface);
+  /* De dekking zit in de kleur, niet in `opacity`: die is van het wegvloeien bij het onthullen. */
+  background: color-mix(in srgb, var(--surface) var(--splash-veil-cover, 100%), transparent);
   opacity: 1;
   -webkit-mask-image: linear-gradient(#000, #000), url('/droplet.svg');
   -webkit-mask-position: center, center;
@@ -234,6 +235,20 @@ button { color: inherit; cursor: pointer; }
   transition: mask-size var(--splash-reveal-duration) cubic-bezier(.22, .7, .2, 1), opacity var(--splash-outer-duration) ease-out var(--splash-outer-delay);
   will-change: mask-size, opacity;
 }
+/* Proef achter ?dev (U62, PO: "het voelt sneller als je een kaart ziet"): een doorzichtige sluier laat de
+   kaart en de eerste regen eronder zichtbaar laden. Het merk krijgt dan een zachte halo, anders staat het
+   op de kaartlabels. */
+.map-splash.veil-70 { --splash-veil-cover: 70%; }
+.map-splash:is(.veil-40, .veil-glass) { --splash-veil-cover: 40%; }
+.map-splash.veil-glass .map-splash-veil { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+/* Eigen stapelcontext: de halo hoort achter het merk maar vóór de sluier. */
+.map-splash:is(.veil-70, .veil-40, .veil-glass) .map-splash-mark { isolation: isolate; }
+.map-splash:is(.veil-70, .veil-40, .veil-glass) .map-splash-mark::after {
+  position: absolute; inset: -34px -56px; z-index: -1; border-radius: 50%; content: '';
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--surface) 86%, transparent) 46%, transparent);
+  opacity: 1; transition: opacity var(--splash-mark-duration) ease-out; pointer-events: none;
+}
+.map-splash.ready .map-splash-mark::after { opacity: 0; }
 .map-splash.ready .map-splash-veil { opacity: 0; -webkit-mask-size: 100% 100%, 320vmax 320vmax; mask-size: 100% 100%, 320vmax 320vmax; }
 .map-splash-mark { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .map-splash-mark img { width: 139px; height: 139px; transform: translateY(0); transition: transform var(--splash-mark-duration) cubic-bezier(.333333, 0, .666667, .333333); will-change: transform; }
