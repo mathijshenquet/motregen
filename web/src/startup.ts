@@ -1,5 +1,6 @@
 import type { Manifest } from './core/contract'
 import { browserDeviceHints, decodeBudget } from './core/decode-budget'
+import { fetchInitialManifest } from './core/initial-manifest'
 import { MrfClient } from './core/mrf'
 import { configurePerfMode, consumeColdProfile, installPerfMonitor } from './core/perf'
 import { cursorForPresetEpoch, parsePresets } from './core/presets'
@@ -18,7 +19,7 @@ const stillMode = params.get('still') === '1'
 export const initialClient = params.has('skywatch-render') ? undefined : new MrfClient(manifestUrl, perf.loads, decode)
 
 export async function fetchManifest(cache: RequestCache = 'default'): Promise<Manifest> {
-  const response = await fetch(stillMode ? manifestUrl : nextManifestUrl(), { cache })
+  const response = await fetchInitialManifest(stillMode ? manifestUrl : nextManifestUrl(), cache)
   if (!response.ok) throw new Error(`Manifest laden mislukt (${response.status})`)
   return response.json() as Promise<Manifest>
 }

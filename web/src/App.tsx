@@ -1,4 +1,4 @@
-import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show, untrack, type Accessor, type Setter } from 'solid-js'
+import { batch, createEffect, createMemo, createSignal, lazy, onCleanup, onMount, Show, untrack, type Accessor, type Setter } from 'solid-js'
 import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
 import { registerSW } from 'virtual:pwa-register'
 import About, { type ThemeChoice } from './components/About'
@@ -8,15 +8,16 @@ import LocationSearch from './components/LocationSearch'
 import Freshness from './components/Freshness'
 import ClockFace from './components/ClockFace'
 import { formatTime, formatWeekdayShort } from './core/locale'
-import PerfHud from './components/PerfHud'
 import type { IsolineCounters } from './core/perf'
-import ForecastTable from './components/ForecastTable'
 import UvBar, { uvBarLabel } from './components/UvBar'
-import DevPanel from './components/DevPanel'
 import { loadBasemapStyle, temperatureLayerBeforeId, type MapTheme } from './core/basemap'
 import { createMapStart, mapStartSource } from './core/map-start'
 import { chunkField, type Grid, type Manifest, type ManifestChunk, type MrfHeader, type TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
+
+const PerfHud = lazy(() => import('./components/PerfHud'))
+const ForecastTable = lazy(() => import('./components/ForecastTable'))
+const DevPanel = lazy(() => import('./components/DevPanel'))
 
 const DAY_NIGHT_ENABLED = false
 import { buildHourlyForecast, hourDarkness, isPassiveRow, PASSIVE_FORECAST_HOURS, skyRadiationRows, type HourSky } from './core/forecast'
@@ -414,12 +415,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // Portrait mobile keeps history mounted above Nu so switching views only changes scrolling,
   // never the table's contents; other layouts still load it on demand.
   const [historyRowsWanted, setHistoryRowsWanted] = createSignal(false)
-  let forecastPanel: HTMLElement | undefined
+  const [forecastTable, setForecastTable] = createSignal<HTMLTableElement>()
   const [tableInView, setTableInView] = createSignal(!inViewOnly)
-  onMount(() => {
+  createEffect(() => {
     // De rijen, niet het paneel: op een telefoon staat de kolomkop al in beeld terwijl de rijen
     // nog onder de vouw liggen.
-    const rows = forecastPanel?.querySelector('tbody')
+    const rows = forecastTable()?.tBodies[0]
     if (!inViewOnly || !rows) return
     const observer = new IntersectionObserver((entries) => setTableInView(entries.some((entry) => entry.isIntersecting)), { rootMargin: `0px 0px -${TABLE_PEEK_PX}px 0px` })
     observer.observe(rows)
@@ -775,7 +776,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const frames = buildTimeline(data)
       if (!frames.length) throw new Error('De tijdlijn is leeg')
       const presets = parsePresets(initialUrl.search, Date.parse(data.now), initialUrl.pathname, initialUrl.hash)
-      setManifest(data)
       let nowIndex = 0
       for (let index = 0; index < frames.length; index++) if (frames[index]!.epoch <= Date.parse(data.now)) nowIndex = index
       const presetCursor = presets.epoch === undefined ? undefined : cursorForPresetEpoch(frames, presets.epoch)
@@ -786,6 +786,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         const firstIndex = Math.floor(presetCursor ?? nowIndex)
         for (const frame of frames.slice(firstIndex, firstIndex + 2)) void load(frame).catch(() => undefined)
       }
+      setManifest(data)
       void Promise.all(data.chunks.filter(eagerHeader).map((chunk) => client.getHeader(chunk))).catch(() => undefined)
       if (!stillMode) stopManifestRefresh = scheduleManifestRefresh(refreshManifest, {
         setTimeout: (callback, delay) => window.setTimeout(callback, delay),
@@ -3083,10 +3084,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (!tableViewAvailable() || tableScrollOpen()) return
     queueTablePreview(epoch, tablePreviewPositioned && !reducedMotion.matches)
   })
-  onMount(() => {
+  createEffect(() => {
+    const table = forecastTable()
+    if (!table) return
     const scroller = forecastPanelElement.querySelector<HTMLElement>('.table-scroll')
-    const table = forecastPanelElement.querySelector<HTMLElement>('.forecast-table')
-    if (!scroller || !table || typeof ResizeObserver === 'undefined') return
+    if (!scroller || typeof ResizeObserver === 'undefined') return
     const reposition = (animate: boolean) => {
       if (!tableViewAvailable() || tableScrollOpen()) return
       queueTablePreview(untrack(tablePreviewEpoch), animate)
@@ -3224,13 +3226,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           temperature={{ timeline: feelsLikeTimeline(), values: feelsLikeSeries(), airTimeline: tempTimeline(), air: temperatureSeries(), stops: temperatureRange() && paletteStops(temperatureRange()!) }}
         />
         <section
-          ref={(element) => { forecastPanelElement = element; forecastPanel = element }}
+          ref={forecastPanelElement}
           id="forecast-table-view"
           class="forecast-panel"
           onClick={openTableFromPeek}
         >
           <div class="table-scroll">
             <ForecastTable
+              onMountTable={setForecastTable}
               rows={forecast()}
               series={{
                 rain: rainSeries(), uv: uvSeries(), uvClear: uvClearSeries(), radiation: radiationSeries(), temperature: temperatureSeries(),

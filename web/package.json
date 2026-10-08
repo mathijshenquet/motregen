@@ -14,7 +14,7 @@
     "prof:top": "tsx scripts/prof-top.ts",
     "prof:import": "tsx scripts/prof-import.ts",
     "prof:sink": "tsx scripts/prof-sink.ts",
-    "prof:capture": "tsx scripts/record-profile.ts",
+    "prof:capture": "bash scripts/perf-lock.sh scripts/e2e-slot.sh tsx scripts/record-profile.ts",
     "prof:firefox": "tsx scripts/firefox-profile.ts",
     "perf:mobile": "tsx scripts/perf-mobile.ts",
     "synthgen": "tsx scripts/synthgen.ts",

@@ -34,5 +34,41 @@ build, `perf:mobile --profile desktop --compare` (baseline mét reden bij bedoel
 gerichte e2e desktop; Lighthouse-score als extra kolom. Draft-PR vroeg.
 
 ## Bar
+Kaartstart-proef achter `?dev&kaartstart=tegel`, alleen in een `VITE_MAP_START=tegel`-build.
+Eigenaar U64; vervalt 2026-10-15 of bij eerdere PO-keuze. Geen standaardactivatie vóór screenshotreview.
+
+Screenshotbesluit orkestrator 2026-10-08: SVG vervalt wegens geometrieartefacten;
+inline z4-tegel blijft op desktop uit, U63 meet hem op po-android. Desktoplus gaat
+door op Lighthouse-oorzaken die ttfr/ttfp raken; subscores vóór/ná rapporteren.
+
 Geen één-letternamen, geen slimme one-liners, commentaar alleen voor het waarom; niets versoepelen
 zonder benoemde oorzaak.
+
+## PO-bijsturing warm — 2026-10-08
+
+Warm is een volwaardig scenario, prioriteit direct na de shader/TBT-kandidaat.
+Rapporteer koud en warm samen, met ttfr vóór ttfp. Warm gebruikt een nieuwe
+pagina-context met gevulde HTTP- en SW-cache, zonder in-memory appstaat.
+U64 sluit hiervoor de seedbrowser en heropent hetzelfde tijdelijke schijfprofiel;
+drie warme main-referenties vormen de baseline. Een drukke herpoging bewaart
+alleen de schijfcaches, wacht buiten de lock en heropent een nieuwe browser.
+Seedtijd en cache-/SW-herkomst blijven in de capturemetadata staan.
+
+Onderzoek manifest/stijlrevalidatie, GL/shaderinitialisatie en weer-Ranges.
+App-shell/stijl/glyphs zijn al precached, PMTiles-Ranges hebben een eigen SW-cache.
+De volledige plaatsenlijst blijft ná ttfp en buiten precache. Afzonderlijke
+onzichtbare buildproeven VITE_WEBGL_PREWARM=worker en VITE_WARM_CACHE=manifest
+blijven standaard uit tot de gepaarde metingen ze rechtvaardigen. Eigenaar U64;
+vervallen 2026-10-15 of bij het eerdere kandidaatbesluit. De manifestproef gebruikt
+maximaal 15 s oude inhoud; expliciet verversen gaat naar netwerk.
+
+Orkestrator 2026-10-08: geen gegarandeerd rustig hostvenster door hydra/rustc
+van andere projecten. Relatieve kandidaten daarom A B A B A B met load per run,
+beoordeling binnen paren en startload maximaal 12. Absolute baselines voor
+docs/perf.md blijven maximaal 8. Gepaarde runs zijn expliciet gemarkeerd en
+leveren geen absolute baseline. Meetbrowsers sluiten na iedere run.
+
+Aanvulling orkestrator 2026-10-08: deze host heeft 32 kernen; gepaarde runs
+mogen vanaf nu starten bij load maximaal 16, in plaats van 12. Absolute
+baselines blijven maximaal 8. De capture bewaart de toegepaste startgrens;
+oudere paren houden hun oorspronkelijke grens. Loadwacht blijft buiten flock.

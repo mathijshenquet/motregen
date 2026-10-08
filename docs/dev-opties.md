@@ -45,6 +45,8 @@ Buiten het paneel: `?perf` is de profielmodus (MIP-16, U43): toont de perf-HUD e
 meting aan, blijft via `localStorage` staan tot `?perf=0`; geen knop, blijft (diagnose). `?skywatch-render` (U46) rendert alleen de wolkendoorsnede voor De Bilt als
 still voor de grading-pijplijn; geen knop, vervalt na de analyse.
 
+De U64-kaartstartproef (`VITE_MAP_START=tegel`, `?dev&kaartstart=tegel`) is vervangen door de PO-goedgekeurde progressieve z4-kaart van U63. De losse cachebare tegels en workerdecode staan standaard aan; de historische inlineproef blijft op de U64/U63-proefbranches.
+
 ## Opslag (`localStorage`, prefix `motregen-`)
 
 Gebruikersstaat (blijft bij reset): `theme`, `saved-places`, `last-saved-place`, `map-view`,

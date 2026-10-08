@@ -13,6 +13,25 @@ const require = createRequire(import.meta.url)
 const { validateStyleMin } = require(require.resolve('@maplibre/maplibre-gl-style-spec', { paths: [dirname(require.resolve('maplibre-gl'))] }))
 
 describe('eigen basiskaart', () => {
+  it('leest beide inline thema’s met dezelfde bron- en glyphresolutie, zonder stijlverzoek', async () => {
+    vi.resetModules()
+    const request = vi.fn(async () => new Response(new Uint8Array([0, 255])))
+    vi.stubGlobal('fetch', request)
+    vi.stubGlobal('location', { origin: 'https://app.example.test', href: 'https://app.example.test/weer/utrecht' })
+    vi.stubGlobal('document', { getElementById: (id: string) => ({ textContent: JSON.stringify(styles[id === 'basemap-licht' ? 0 : 1]) }) })
+    try {
+      const { loadBasemapStyle: loadInline } = await import('./basemap')
+      for (const theme of ['light', 'dark'] as const) {
+        const prepared = await loadInline(theme)
+        expect(prepared.sources.basemap).toMatchObject({ url: expect.stringMatching(/^pmtiles:\/\/https:\/\/app\.example\.test\/data\/basemap\//) })
+        expect(prepared.glyphs).toBe('motregen-glyphs://https://app.example.test/basemap/fonts/{fontstack}/{range}.pbf')
+      }
+      expect(request).toHaveBeenCalledExactlyOnceWith('https://app.example.test/basemap/fonts/Noto%20Sans%20Regular/0-255.pbf')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   for (const [index, name] of ['licht', 'donker'].entries()) {
     it(`${name} gebruikt alleen ons schema met leesbare plaatsnamen en provinciegrenzen`, () => {
       const style = styles[index]!
@@ -71,7 +90,7 @@ describe('eigen basiskaart', () => {
     try {
       const style = await loadBasemapStyle('light')
       expect(style.glyphs).toBe('motregen-glyphs://https://app.example.test/basemap/fonts/{fontstack}/{range}.pbf')
-      const protocol = vi.mocked(addProtocol).mock.calls.find(([name]) => name === 'motregen-glyphs')![1]
+      const protocol = vi.mocked(addProtocol).mock.calls.filter(([name]) => name === 'motregen-glyphs').at(-1)![1]
       const request = { url: style.glyphs!.replace('{fontstack}', 'Noto%20Sans%20Regular').replace('{range}', '0-255') }
       const first = await protocol(request, new AbortController())
       expect(new Uint8Array(first.data as ArrayBuffer)).toEqual(bytes)

@@ -4,10 +4,13 @@ import { loadavg } from 'node:os'
 
 export const MAX_LOAD_AVERAGE = 8
 export const PAIRED_MAX_LOAD_AVERAGE = 16
+export const MAX_PAIRED_LOAD_AVERAGE = PAIRED_MAX_LOAD_AVERAGE
 
 export function startLoadLimit(): number {
-  return process.env.MOTREGEN_RIG_PAIRED === '1' ? PAIRED_MAX_LOAD_AVERAGE : MAX_LOAD_AVERAGE
+  return process.env.MOTREGEN_RIG_PAIRED === '1' || process.env.MOTREGEN_PERF_PAIRED_RUN === '1' ? PAIRED_MAX_LOAD_AVERAGE : MAX_LOAD_AVERAGE
 }
+
+export const runLoadLimit = startLoadLimit
 
 export function permittedStartLoad(loadAverage: number): boolean {
   return loadAverage <= startLoadLimit()
@@ -41,7 +44,7 @@ export async function waitForQuietHost(maxWaitMs: number, log: (message: string)
   while (!permittedStartLoad(hostLoadAverage())) {
     if (Date.now() >= deadline) return false
     log(`loadavg ${hostLoadAverage()} > ${startLoadLimit()}: wachten met meten`)
-    await new Promise((resolve) => setTimeout(resolve, 20_000))
+    await new Promise((resolve) => setTimeout(resolve, 5_000))
   }
   return true
 }
