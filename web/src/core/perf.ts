@@ -495,8 +495,9 @@ export class PerfMonitor {
    * `shown` is het linker regenframe van dit getekende beeld. Wisselt dat tijdens afspelen, dan
    * loopt de tijdlijn ook echt op het scherm: een bewegende cursor boven een stilstaande kaart telt niet.
    */
-  markRainFrameCommitted(shown?: { frameEpoch: number; playing: boolean }): void {
+  markRainFrameCommitted(shown?: { frameEpoch: number; playing: boolean }): boolean {
     const now = this.environment.now()
+    let firstPlayback = false
     if (this.firstRainMs === null) {
       this.firstRainMs = now
       this.markMilestone('first-rain', now)
@@ -506,14 +507,16 @@ export class PerfMonitor {
       if (shown.playing && this.ttfpMs === null && this.shownRainFrame !== undefined && shown.frameEpoch !== this.shownRainFrame) {
         this.ttfpMs = now
         this.markMilestone('ttfp', now)
+        firstPlayback = true
       }
       this.shownRainFrame = shown.frameEpoch
     }
-    if (this.pendingScrubAt === null) return
+    if (this.pendingScrubAt === null) return firstPlayback
     this.scrubSamples[this.scrubSampleCursor] = Math.max(0, now - this.pendingScrubAt)
     this.scrubSampleCursor = (this.scrubSampleCursor + 1) % sampleCapacity
     this.scrubSampleCount = Math.min(sampleCapacity, this.scrubSampleCount + 1)
     this.pendingScrubAt = null
+    return firstPlayback
   }
 
   snapshot(): PerfSnapshot {

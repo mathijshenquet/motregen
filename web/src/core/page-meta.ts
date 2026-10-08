@@ -7,10 +7,10 @@ export const modeTitles: Record<PresetMode, string> = {
 export const defaultTitle = 'motregen.nl — Regenradar en weersverwachting'
 
 export function pageMetadata(pathname: string): { title: string; canonical: string; place?: string } {
-  const { mode, place } = parsePresetPath(pathname)
+  const { mode, place, placeSlug } = parsePresetPath(pathname)
   return {
     title: mode ? `${modeTitles[mode]}${place ? ` ${place}` : ''} — motregen.nl` : defaultTitle,
-    canonical: `https://motregen.nl${mode ? presetPath(mode, place) : '/'}`,
+    canonical: `https://motregen.nl${mode ? presetPath(mode, place, placeSlug) : '/'}`,
     place,
   }
 }

@@ -24,7 +24,7 @@ interface ScenarioStep {
   mode?: 'Weer' | 'Lucht' | 'Gevoel' | 'Wind'
 }
 interface Scenario { durationMs: number; description: string; steps: ScenarioStep[]; autoplay?: boolean; devStorage?: Record<string, string>; windows?: SmoothnessWindow[]; requireFilledTemperature?: boolean }
-interface RigOptions { profiles: string[]; scenarios: string[]; repeat: number; cpuRate?: number; basemap?: string }
+interface RigOptions { profiles: string[]; scenarios: string[]; repeat: number; cpuRate?: number; basemap?: string; requestOrderOnly?: boolean }
 const options = JSON.parse(process.env.MOTREGEN_MOBILE_OPTIONS ?? '{"profiles":["mobile-4g"],"scenarios":["koud"],"repeat":1,"cpuRate":4}') as RigOptions
 const scenarios = JSON.parse(readFileSync('perf/scenarios.json', 'utf8')) as Record<string, Scenario>
 const QUIET_HOST_WAIT_MS = 15 * 60_000
@@ -40,7 +40,7 @@ for (const profileId of options.profiles) {
         const scenario = scenarios[scenarioId]!
         // Ook tussen de herhalingen kan de host druk worden; een run die druk begint is weggegooid werk.
         test.setTimeout(60_000 + QUIET_HOST_WAIT_MS)
-        await waitForQuietHost(QUIET_HOST_WAIT_MS, (message) => console.log(message))
+        if (!options.requestOrderOnly) await waitForQuietHost(QUIET_HOST_WAIT_MS, (message) => console.log(message))
         const loadAverage = hostLoadAverage()
         if (profileId === 'desktop') await page.setViewportSize({ width: 1280, height: 800 })
         const calibrated = performanceProfile(profileId)
@@ -48,6 +48,7 @@ for (const profileId of options.profiles) {
         const actions: MobileReport['actions'] = []
         const errors: string[] = []
         const findings: string[] = []
+        if (options.requestOrderOnly) findings.push('Alleen aanvraagvolgorde onder hostdrukte; tijden niet gebruiken als performancebaseline of snelheidsvergelijking')
         const externalRequests: string[] = []
         page.on('pageerror', (error) => errors.push(error.message))
         page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
@@ -209,7 +210,7 @@ for (const profileId of options.profiles) {
         if (!Object.keys(captured.milestones.windowReadyMs).length) findings.push('U52 window-ready-meetpunten ontbreken op deze main; ttfh komt uit de loadtrace')
         if (scenario.steps.some((step) => step.mode === 'Lucht') && !actions.some((action) => action.detail === 'modus Lucht')) findings.push('Deze main heeft nog geen Lucht-knop: bestaande Weer-wolkenfocus gebruikt en expliciet geregistreerd')
         const report: MobileReport = {
-          meta: { profile: profileId, scenario: scenarioId, sourceSha, capturedAt, cpuThrottleRate: profile.cpuThrottleRate, contractHash, fixtureHash, basemapContractHash, network: profile.network, hardwareConcurrency: captured.hardwareConcurrency, loadAverage, synthGridScale, rendererCpuQuotaPercent },
+          meta: { profile: profileId, scenario: scenarioId, sourceSha, capturedAt, cpuThrottleRate: profile.cpuThrottleRate, contractHash, fixtureHash, basemapContractHash, network: profile.network, hardwareConcurrency: captured.hardwareConcurrency, loadAverage, synthGridScale, rendererCpuQuotaPercent, requestOrderOnly: options.requestOrderOnly ?? false },
           milestones: captured.milestones,
           decode,
           wire: { ...wire, rangeRequests: requests.filter((request) => request.range !== null).length, beforeTtfrBytes: completedBytesBefore(requests, captured.milestones.ttfrMs), beforeTtfhBytes: completedBytesBefore(requests, captured.milestones.ttfhMs) },

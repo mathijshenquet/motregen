@@ -10,12 +10,13 @@ const REFERENCE_SCENARIO = 'referentie-buienradar'
 
 const args = process.argv.slice(2)
 // Zonder --cpu-rate geldt de page-throttle van het profiel zelf.
-const options: { profiles: string[]; scenarios: string[]; repeat: number; baseline: boolean; compare: boolean; cpuRate?: number; gridScale?: number; rendererQuota?: number; loadWaitMinutes: number; basemap: string } = { profiles: ['mobile-4g'], scenarios: ['koud'], repeat: 1, baseline: false, compare: false, loadWaitMinutes: 20, basemap: process.env.MOTREGEN_MOBILE_BASEMAP ?? 'fixture' }
+const options: { profiles: string[]; scenarios: string[]; repeat: number; baseline: boolean; compare: boolean; requestOrderOnly: boolean; cpuRate?: number; gridScale?: number; rendererQuota?: number; loadWaitMinutes: number; basemap: string } = { profiles: ['mobile-4g'], scenarios: ['koud'], repeat: 1, baseline: false, compare: false, requestOrderOnly: false, loadWaitMinutes: 20, basemap: process.env.MOTREGEN_MOBILE_BASEMAP ?? 'fixture' }
 for (let index = 0; index < args.length; index++) {
   const argument = args[index]!
   const [flag, inline] = argument.split('=')
   if (flag === '--baseline') options.baseline = true
   else if (flag === '--compare') options.compare = true
+  else if (flag === '--request-order') options.requestOrderOnly = true
   else if (['--profile', '--scenario', '--repeat', '--cpu-rate', '--grid-scale', '--renderer-quota', '--load-wait', '--basemap'].includes(flag!)) {
     const value = inline ?? args[++index]
     if (!value || value.startsWith('--')) throw new Error(`${flag} vereist een waarde`)
@@ -30,6 +31,7 @@ for (let index = 0; index < args.length; index++) {
   } else throw new Error(`Onbekende optie: ${argument}`)
 }
 if (options.baseline && options.compare) throw new Error('--baseline en --compare sluiten elkaar uit')
+if (options.requestOrderOnly && (options.baseline || options.compare)) throw new Error('--request-order controleert alleen de aanvraagvolgorde en kan geen performancebaseline zetten of vergelijken')
 if (options.baseline && options.basemap === 'own') throw new Error('Meet het basemap-nulpunt met --basemap openfreemap; --basemap own gebruikt --compare')
 if (!Number.isInteger(options.repeat) || options.repeat < 1 || options.repeat > 10) throw new Error('--repeat moet 1…10 zijn')
 if (options.cpuRate !== undefined && (!Number.isFinite(options.cpuRate) || options.cpuRate < 1 || options.cpuRate > 32)) throw new Error('--cpu-rate moet 1…32 zijn')
@@ -38,6 +40,7 @@ const scenarios = JSON.parse(readFileSync('perf/scenarios.json', 'utf8')) as Rec
 if (options.profiles.some((profile) => !['desktop', 'mobile-4g', 'mobile-fast-3g', 'po-android'].includes(profile))) throw new Error('Onbekend profiel')
 if (!['fixture', 'openfreemap', 'own'].includes(options.basemap)) throw new Error('Onbekende basemap')
 if (options.scenarios.some((scenario) => scenario !== REFERENCE_SCENARIO && !(scenario in scenarios))) throw new Error('Onbekend scenario')
+if (options.requestOrderOnly && options.scenarios.includes(REFERENCE_SCENARIO)) throw new Error('--request-order is alleen voor de eigen fixture, niet voor de referentiebenchmark')
 
 const ports = process.env.MOTREGEN_E2E_PORT && process.env.MOTREGEN_E2E_DATA_PORT
   ? { port: Number(process.env.MOTREGEN_E2E_PORT), dataPort: Number(process.env.MOTREGEN_E2E_DATA_PORT) }
@@ -66,11 +69,12 @@ if (!options.scenarios.includes(REFERENCE_SCENARIO)) {
   if (build.status !== 0) throw new Error('Rig-build mislukt')
   rigEnvironment.MOTREGEN_RIG_PREBUILT = '1'
 }
-if (!await waitForQuietHost(options.loadWaitMinutes * 60_000, (message) => console.log(message))) {
+if (!options.requestOrderOnly && !await waitForQuietHost(options.loadWaitMinutes * 60_000, (message) => console.log(message))) {
   console.error(`Host blijft te druk (loadavg ${hostLoadAverage()} > ${MAX_LOAD_AVERAGE}); geen meting`)
   process.exit(1)
 }
 console.log(`Rig: loadavg ${hostLoadAverage()}, poorten ${ports.port}/${ports.dataPort}`)
+if (options.requestOrderOnly) console.log('Alleen aanvraagvolgorde: hostdrukte toegestaan, tijden zijn geen performancebaseline')
 
 if (options.scenarios.includes(REFERENCE_SCENARIO)) {
   if (options.scenarios.length > 1 || options.baseline || options.compare) throw new Error(`${REFERENCE_SCENARIO} draait los, zonder baseline of vergelijking`)
@@ -103,6 +107,14 @@ const run = spawnSync('pnpm', ['exec', 'playwright', 'test', '--config', 'playwr
 })
 if (run.error) throw run.error
 if (run.status !== 0) process.exit(run.status ?? 1)
+if (options.requestOrderOnly) {
+  for (const profile of options.profiles) {
+    for (const scenario of options.scenarios) {
+      console.log(`${profile}/${scenario}: aanvraagvolgordecapture opgeslagen; geen performancebaseline of timinggate`)
+    }
+  }
+  process.exit(0)
+}
 
 let failed = false
 const summary: string[] = ['| profiel | scenario | decodes | bodybytes | spreiding decodes / bytes | ttfp | ttfr | ttfh | blank-visible | LoAF 12 s | loadavg | weggegooid (load) |', '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |']

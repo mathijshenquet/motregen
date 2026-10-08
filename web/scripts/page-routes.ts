@@ -43,6 +43,7 @@ function caddyPageHtml(html: string): string {
 function caddyRoutes(): string {
   const lowercase = Array.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ', (letter) => `      plaats ${letter} ${letter.toLowerCase()}`).join('\n')
   return `route {
+header /plaatsen-*.json Cache-Control "public, max-age=31536000, immutable"
 @legacyPreset {
   path /
   method GET HEAD
@@ -92,7 +93,9 @@ route @weatherPage {
   }
 }
 try_files {path} /index.html
-file_server
+file_server {
+  precompressed gzip
+}
 }
 `
 }
