@@ -227,3 +227,36 @@ Daarom zuivere detached checkout /home/mathijs/worktrees/motregen/u63-nulpunt-or
 Kandidaat 6 eigen-kaart receipt exit 0: ttfr 4420 ms versus vaste controle 3596; ttfp 1607 versus 1652; eerste regencommit 1137 versus 1316; bewaker max 326 ms mediaan (465/326/205). Bronnen sluiten, loads 6,57/7,85/7,13. Hoofdlijnregel: po-android / koud-spelend / koud / eigen PMTiles / ttfr 4420 / ttfp 1607 / verworpen. Alle tien pixelvergelijkingen exact gelijk (max 0/255, desktop+mobile op +0/+2,5/+32,5/+61/+180 min), gerichte desktopgate 17 tests exit 0. Archive web/tmp/u63/own-zero-frame. Nulgewichtsproef is ondanks correcte pixels geen ttfr-winst en blijft verworpen.
 
 Nieuwe opdracht orkestrator: U64 z4-tegelplaceholder uit 67c9f28+ alleen in afzonderlijke proefbranch, po-android koud eigen kaart; eerste kaartbeeld ≥100 ms winst zonder ttfp-verlies is zichtbaar PO-voorstel met screenshot. Geen placeholder op de hoofdlijn vóór winst en beeldgoedkeuring. Na meetgrensherstel en nieuwe baseline eerst deze aanvullende kandidaat isoleren.
+
+## 2026-10-08 08:13 UTC — kandidaat 7: temperatuuropwarming na eerste basiskaart
+
+De grote LoAF in eigen-kaartcontrole run 2 is IdleRequestCallback Vl (265 ms). De bewaarde normale vóór-bundel identificeert Vl als preloadTemperatureAtCursor: dezelfde frameBlend/isolineLayerIndices/preparedIsolineField-keten. Een afzonderlijke kleine proef laat die bestaande cacheopwarming pas na MapLibre-idle starten wanneer de tegels nog niet geladen zijn; kaartgereed = dezelfde idleplanning als voorheen. Regen, afspelen en directe/gevraagde temperatuurdata blijven direct; alleen ongevraagde vooruitberekening schuift. Daarmee volgt het werk de ttfr-prioriteit en de post-ttfp-bewaker. Hostlocked --checks + eigen kaart ×3 start in de lockrij; fixture-compare volgt op het oorspronkelijke nieuwe nulpunt. Placeholderproef wordt onafhankelijk klaargezet; nooit gelijktijdige perf.
+
+## 2026-10-08 08:21 UTC — waterval bepaalt verschil fixture / eigen kaart
+
+Oorspronkelijk nulpunt op bb0792b met gecorrigeerde netwerkselectie: --checks receipt exit 0 (typecheck, 480 unit, build, rig ×3 --baseline). Afzonderlijke fixture-reeks: po-android / koud-spelend / koud / synthetische 73 B kaart; ttfr 1397 ms, ttfp 1737 ms, decodes 223 mediaan, bytes 4816768; loads 7,07/6,98/6,48, 0 bronbevindingen. Bron-SHA blijft bb0792b; geen baseline op een kandidaat. Oude nulpuntkosten 4824523 B/226 decodes zijn dus niet omhoog herijkt (−0,161% bytes / −1,327% decodes). Archive web/tmp/u63/nulpunt-netwerkstart.
+
+De volgende tabel gebruikt de bestaande vaste eigen-kaartcontrole, geen nieuwe productvariant. Alle starts/ends in ms sinds navigatie; netwerkrijen uit Playwright, kaartfase uit sourcerequest→sourcedata. De kaartfase is géén zuivere parse-CPU: hij omvat workerverwerking, wachten en overdracht terug. Elke run is po-android / koud-spelend / koud / eigen PMTiles, SW geblokkeerd, HTTP-cache uit, 1× page-CPU plus 40% quota op hoofddraad én workers, regenraster schaal 6.
+
+| stap | run 1 start→einde ms | run 2 start→einde ms | run 3 start→einde ms | bodybytes / betekenis |
+| --- | --- | --- | --- | --- |
+| manifest | 111→155 | 114→158 | 121→169 | 36513 B |
+| stijl-light.json | 558→693 | 436→557 | 433→557 | 5809 B; fixture-stijl slechts 383 B |
+| Noto Sans Regular 0–255 glyphs | 884→1079 | 749→885 | 752→855 | 76580 B; fixture heeft geen labels/glyphs |
+| PMTiles-header/root Range | 960→1021 | 830→890 | 812→863 | 16384 B, bytes=0-16383 |
+| PMTiles-tegelpayload Range | 1599→1638 | 1243→1280 | 1212→1248 | 45172 B, bytes=39939-85110 |
+| volledige kaartfase | 1417→3808 | 1206→3336 | 1140→3385 | 2391 / 2130 / 2245 ms wall-clock |
+| basiskaart/ttfr render | 4248 | 3546 | 3596 | mediaan ttfr 3596 ms |
+| eerste regencommit / ttfp | 1233 / 1598 | 1316 / 1652 | 1336 / 1710 | mediaan 1316 / 1652 ms |
+
+Dus: de extra ~2,4 s zitten vooral ná de tegelbytes (bijvoorbeeld run 2: payload klaar 1280 ms, worker/source klaar 3336 ms, render klaar 3546 ms). Geen lange seriële netwerkketen: twee PMTiles-ranges en één gewone Latin-glyphrange; fonts al klaar vóór de tegelpayload. Er zit wél 353–578 ms tussen headerantwoord en tweede Range-start; dat is niet netwerkoverdracht alleen. Totale kaartbody 138136 B, tegenover 73 B fixturetegel. De synthetische kaartfase was slechts 145/159/156 ms, mediaan ttfr 1220 ms.
+
+U59 mobile-4g is een ander remcontract: 4× CDP-hoofddraad, workers zonder renderer-quota, regenraster schaal 1, 9 Mbps/60 ms RTT en Pixel-5-viewport; po-android hier is 1× CDP + 40% gezamenlijke renderer/workerquota, raster schaal 6, 30 Mbps/20 ms RTT, 390×844. Beide koude rigs blokkeren SW en zetten HTTP-cache uit, dus SW-warmte is geen verklaring voor het verschil. De 2,2-s-kaartfase mag daarom niet als 4×-parse of echte telefoontijd worden gepresenteerd. Een aparte quota-/U59-contractcontrole volgt; tot die tijd is CPU-concurrentie de onderbouwde kandidaat, nog geen volledig geïsoleerde oorzaak.
+
+Kandidaat 7 verplaatst uitsluitend de bewezen 265-ms-temperatuuropwarming achter het eerste volledige kaartbeeld; andere request-/decode-kandidaten volgen pas op bovenstaande waterval. De fixture-compare was vóór start geannuleerd (receipt 143) om gedeelde rapportnamen niet vóór archivering van de eigen-kaartproef te wissen; geen opname weggegooid. Hostload 10–19 houdt kandidaat 7 momenteel tussen de opnames tegen, drempel blijft <8.
+
+## 2026-10-08 08:24 UTC — U59-vergelijking: rem én archief verschillen
+
+web/perf/basemap-comparison.json bewaart U59 met nl-0aa536ff364f7cce.pmtiles (3.536.092 B totaal). De huidige eigen kaart is U60 nl-91e2043db5c73799.pmtiles (24.301.762 B totaal, ruimere landcover/detail). Hele archiefgrootte is geen koude download: U59 mobile-4g kaartbody 133345 B, huidige PO-kaartbody 138136 B (+3,59%). Dat kleine byteverschil verklaart op zichzelf geen +2,4 s. U59 eigen mobile-4g-fase 438/500/503 ms; onafhankelijke hercontrole 605/255/223 ms. Ze zijn bovendien gemeten vóór U58 (297 weerdecodes op raster schaal 1), terwijl huidige PO 223 decodes op schaal 6 telt. Niet alleen het kaarttype labelen: bronhash, raster en gezamenlijke workerquota maken deze historische tijdreeksen onvergelijkbaar als één productwinst.
+
+De huidige hostload stijgt boven 30 door aanvullende Chromium-/Nix-C++-werkzaamheden; onze wachtlog blijft drempel <8 toepassen. Alleen de eerste kandidaat-7-opname heeft al een receipt; de volgende start nog niet. Geen vreemde processen beëindigen of hoogbelaste metingen als valide presenteren. Proefbranch track/u63-placeholder-proef bestaat afzonderlijk; U64-cherry-pick c9de7a0 had integratieconflicten en is geïsoleerd tot alleen map-start-assets/plugin/helpers en overeenkomstige App-opzet. U64 lazy-table/inline-manifest-wijzigingen zijn bewust niet meegenomen, zodat er één placeholderkandidaat wordt gemeten.
