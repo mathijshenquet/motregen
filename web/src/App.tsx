@@ -600,6 +600,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
   })
   const [mapReady, setMapReady] = createSignal(false)
+  const deferTemperaturePreload = devMode && import.meta.env.VITE_TEMPERATURE_START === 'after-map'
+  let firstFullMapPaint = false
+  let temperaturePreloadPending = false
   const [resetNotice, setResetNotice] = createSignal(false)
   let resetNoticeTimer: number | undefined
   const [updateReady, setUpdateReady] = createSignal(false)
@@ -835,7 +838,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           if (perfPhasesEnabled()) perf.recordPhase({ phase: 'milestone:first-map-image', startTime: 0, duration: performance.now(), detail: { source } })
           mapElement.dataset.firstMapImage = source
         }
-        if (map?.isStyleLoaded() && map.areTilesLoaded()) perf.markBasemapReady()
+        if (map?.isStyleLoaded() && map.areTilesLoaded()) {
+          firstFullMapPaint = true
+          perf.markBasemapReady()
+          if (temperaturePreloadPending) {
+            temperaturePreloadPending = false
+            scheduleIdle(preloadTemperatureAtCursor, 1_000)
+          }
+        }
       })
       map.on('sourcedataloading', (event) => {
         if (!perfPhasesEnabled()) return
@@ -1313,7 +1323,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (stillMode) void prepareStill()
         else {
           void attachWindLayer()
-          scheduleIdle(preloadTemperatureAtCursor, 1_000)
+          if (deferTemperaturePreload && !firstFullMapPaint) temperaturePreloadPending = true
+          else scheduleIdle(preloadTemperatureAtCursor, 1_000)
         }
         if (!stillMode && !initialPickStarted) {
           initialPickStarted = true
