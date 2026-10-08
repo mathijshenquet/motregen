@@ -1,0 +1,158 @@
+{
+  "purpose": "Functioneel cachecontract; geen performancebaseline of tijdwinst",
+  "profile": "po-android",
+  "path": "/weer/de-bilt",
+  "basemap": "own nl-91e2043db5c73799.pmtiles",
+  "runs": [
+    {
+      "scenario": "koud-spelend",
+      "capturedAt": "2026-10-08T12:10:14.178Z",
+      "sourceSha": "c1911e8559617a39de6f1c6311d04b8cd52ea377",
+      "contractHash": "b3df8857b9bf0f7e522d8bd0773db1be5ec4c6cdbb7c524fe5b4c8eb49927aeb",
+      "requestOrderOnly": true,
+      "loadAverage": 26.59,
+      "cacheState": "cold",
+      "wireFindings": [],
+      "bytes": {
+        "manifest": {
+          "requests": 1,
+          "bytes": 36513,
+          "meanRequestBytes": 36513
+        },
+        "chunks": {
+          "requests": 125,
+          "bytes": 4297672,
+          "meanRequestBytes": 34381.376
+        },
+        "tiles": {
+          "requests": 4,
+          "bytes": 151290,
+          "meanRequestBytes": 37822.5
+        },
+        "other": {
+          "requests": 12,
+          "bytes": 547034,
+          "meanRequestBytes": 45586.166666666664
+        },
+        "total": {
+          "requests": 142,
+          "bytes": 5032509,
+          "meanRequestBytes": 35440.204225352114
+        }
+      },
+      "resourceTimingBytes": {
+        "manifest": {
+          "requests": 1,
+          "bytes": 36513,
+          "meanRequestBytes": 36513
+        },
+        "chunks": {
+          "requests": 125,
+          "bytes": 4297672,
+          "meanRequestBytes": 34381.376
+        },
+        "tiles": {
+          "requests": 4,
+          "bytes": 151290,
+          "meanRequestBytes": 37822.5
+        },
+        "other": {
+          "requests": 12,
+          "bytes": 547034,
+          "meanRequestBytes": 45586.166666666664
+        },
+        "total": {
+          "requests": 142,
+          "bytes": 5032509,
+          "meanRequestBytes": 35440.204225352114
+        }
+      },
+      "negativeBodies": 0,
+      "verifiedHttpCacheHits": 0,
+      "serviceWorkerResponses": 0
+    },
+    {
+      "scenario": "warm-spelend",
+      "capturedAt": "2026-10-08T12:09:40.423Z",
+      "sourceSha": "415ff7f8b295859b20ade9eb69440a090df6cfef",
+      "contractHash": "79f6ac0013a19e9ba45e425661f99a18384a2ca7e897558f5b432954a07ad4b9",
+      "requestOrderOnly": true,
+      "loadAverage": 19.86,
+      "cacheState": "warm-disk-new-browser",
+      "wireFindings": [],
+      "bytes": {
+        "manifest": {
+          "requests": 2,
+          "bytes": 36513,
+          "meanRequestBytes": 18256.5
+        },
+        "chunks": {
+          "requests": 250,
+          "bytes": 0,
+          "meanRequestBytes": 0
+        },
+        "tiles": {
+          "requests": 4,
+          "bytes": 0,
+          "meanRequestBytes": 0
+        },
+        "other": {
+          "requests": 12,
+          "bytes": 0,
+          "meanRequestBytes": 0
+        },
+        "total": {
+          "requests": 268,
+          "bytes": 36513,
+          "meanRequestBytes": 136.24253731343285
+        }
+      },
+      "resourceTimingBytes": {
+        "manifest": {
+          "requests": 2,
+          "bytes": 36513,
+          "meanRequestBytes": 18256.5
+        },
+        "chunks": {
+          "requests": 250,
+          "bytes": 0,
+          "meanRequestBytes": 0
+        },
+        "tiles": {
+          "requests": 4,
+          "bytes": 0,
+          "meanRequestBytes": 0
+        },
+        "other": {
+          "requests": 12,
+          "bytes": 0,
+          "meanRequestBytes": 0
+        },
+        "total": {
+          "requests": 268,
+          "bytes": 36513,
+          "meanRequestBytes": 136.24253731343285
+        }
+      },
+      "negativeBodies": 0,
+      "verifiedHttpCacheHits": 125,
+      "serviceWorkerResponses": 142,
+      "seedPlayingMs": 35000,
+      "workerNetwork": [
+        {
+          "url": "http://127.0.0.1:4693/sw.js",
+          "configured": true
+        }
+      ],
+      "transfers": [
+        {
+          "path": "/data/manifest.json",
+          "startMs": 190,
+          "bytes": 36513,
+          "cacheControl": "no-store",
+          "owner": "service-worker"
+        }
+      ]
+    }
+  ]
+}

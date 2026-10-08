@@ -59,4 +59,3 @@ for (const directory of process.argv.slice(2)) {
   console.table(paired)
   if (!groups.some(group => group.includes('-warm-'))) console.log('Warm: niet gemeten in deze historische reeks')
 }
-

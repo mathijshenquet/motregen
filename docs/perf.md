@@ -1351,9 +1351,11 @@ en diskcache komen uit het eerste bezoek, alle browserprocessen worden daarna ge
 onder één lock per opname is geldig. De warme lat is duidelijk lager dan koud én
 Buienradar warm op dezelfde rig.
 
-De oude tabel van 2026-08-31 (4G 13,00/2,95 s, desktop 1,20/1,43 s) meet een
-andere journey, ingeststand en kaartversie; warm volgt daar ná scrubben,
-locatiewissel en manifestrefresh in hetzelfde browserproces. Hij meet geen warme
-ttfp en is geen nulmeting voor deze lus. Een koud/warm verschil bewijst daarmee
-geen SW-revalidatie- of shaderkosten. Die oorzaak moet uit het nieuwe identieke
+De oude tabel van 2026-08-31 (4G 13,00/2,95 s, desktop 1,20/1,43 s) komt uit
+commit `b2d830b`. Daar volgt warm direct op koud plus HUD-controle, vóór scrubben
+en plaatswissel, in hetzelfde browserproces. De toenmalige ttfr is uitsluitend
+`markRainFrameCommitted()`, zonder de huidige kaartvoorwaarde; ttfp ontbreekt.
+De tabel bevat één run per profiel op een oudere ingest-/kaart-/decoderstand,
+geen po-android ×3 met hostloadgate. Het desktopverschil van 222 ms bewijst geen
+actuele SW-revalidatie- of shaderkosten. Die oorzaak moet uit het nieuwe identieke
 kaart-/data-/profielpaar en de netwerk-/hoofddraadwaterval volgen.

@@ -102,8 +102,7 @@ for (const profileId of options.profiles) {
           console.log('Cache gevuld; browser wordt volledig gesloten, geen performancecijfers geschreven')
           return
         }
-        const warmCache = warmVisit ? { seed: seedEvidence(), visit: await cacheInventory(page) } : undefined
-        if (warmVisit) expect(warmCache?.visit.controlled, 'tweede bezoek gebruikt de geïnstalleerde SW').toBe(true)
+        if (warmVisit) expect(await page.evaluate(() => navigator.serviceWorker.controller !== null), 'tweede bezoek gebruikt de geïnstalleerde SW').toBe(true)
         await page.waitForFunction(() => window.__motregenPerf?.snapshot().firstRainMs !== null && window.__motregenPerf?.snapshot().firstRainMs !== undefined, undefined, { timeout: 30_000 }).catch((error) => { throw new Error(`${error}\n${errors.join('\n')}\n${externalRequests.join('\n')}`) })
         if (!scenario.autoplay) await expect(page.getByRole('slider', { name: 'Tijd' })).not.toHaveAttribute('data-playing', '')
 
@@ -177,7 +176,7 @@ for (const profileId of options.profiles) {
         const selectedWire = wireWindow(observedRequests, [...pageResources, ...workerResources], scenario.durationMs)
         const requests = selectedWire.requests
         const wire = reconcileWire(requests, selectedWire.timing)
-        if (warmCache) Object.assign(warmCache, { workerNetwork: workerNetwork(context)?.evidence() })
+        const warmCache = warmVisit ? { seed: seedEvidence(), visit: await cacheInventory(page), workerNetwork: workerNetwork(context)?.evidence() } : undefined
         const decode = summarizePhases(captured.entries.measures, scenario.durationMs)
         const longFrames = captured.entries.longFrames.filter((frame) => frame.startTime + frame.duration <= scenario.durationMs)
         const longSources = new Map<string, number>()
