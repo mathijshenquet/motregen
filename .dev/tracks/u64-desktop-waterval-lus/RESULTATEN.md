@@ -45,6 +45,21 @@ andere hemelverwerking. U65 haalt de volledige plaatsenlijst pas ná ttfp.
 De onderstaande oudere U57-tijden blijven historisch; nieuwe timingwinst
 wordt tegen dezelfde U62-startsituatie gemeten.
 
+| kandidaat, verschil binnen A/B-paren | koud ttfr / ttfp | warm ttfr / ttfp | paren koud / warm |
+| --- | --- | --- | --- |
+| volledige regen/windshaderbatch | +7,17% / −14,66% | +1,98% / +0,064% | 3 / 3; afgewezen |
+| alleen regenshaders | −7,95% / +0,93% | pending | 3 / 0; besluit wacht op warm |
+| GPU-worker op regenvariant | pending | pending | 0 / 0 |
+| manifest-SWR op regenvariant | pending | pending | 0 / 0 |
+| totale U64 versus main | pending | pending | 0 / 0 |
+
+Medianen van verschillen binnen paren, geen absolute baseline. Regen-only
+koud heeft deltas +115,9 / −531,0 / −101,0 ms ttfr en +129,9 / −240,7 /
++7,3 ms ttfp. Het tweede paar heeft startload 15,86/14,20 en gemiddelde
+opnameload 15,85/13,62; de grote winst is daardoor onzeker. Het derde paar
+heeft vrijwel gelijke opnameload 15,52/15,67 en ttfr −101 ms. Warm en
+de totale vergelijking met main volgen vóór een behoudsbesluit.
+
 De nieuwe, ongewijzigde main-referentie heeft 424.978 B gzip hoofd-JS;
 U64 na merge, vóór shaderbatching: 411.280 B; met shaderbatching: 411.362 B.
 De eerdere U62-builds (422.475 / 409.063 B) zijn niet gemeten vóór U65.
@@ -92,8 +107,7 @@ decode-/byteaantallen ervan leveren geen baseline of snelheidsvergelijking.
 
 De volledige shaderbatch is afgewezen: de mediaan van drie koude paren
 verslechtert ttfr met 80,3 ms (+7,17%), terwijl ttfp 136,9 ms (14,66%) verbetert.
-De eerste twee warme paren verslechteren ttfr met 113,3 en 21,8 ms;
-ttfp verandert met −0,3 en +29,9 ms. Het derde warme paar volgt nog.
+Warm geeft mediaan ttfr +21,8 ms (+1,98%), ttfp +0,5 ms (+0,064%).
 Wind is daarom teruggezet naar main. De nieuwe kandidaat compileert alleen
 beide regenshaders vóór de linkquery; koud en warm ×3 zijn pending.
 Shaderbronnen en tekenvolgorde blijven gelijk; linkfouten houden hun logs en
@@ -106,9 +120,13 @@ GPU-wachten; behoud van de regenvariant hangt af van ttfr/ttfp.
 | --- | --- | --- |
 | paar 1 | −172,8 / −136,9 ms | +113,3 / −0,3 ms |
 | paar 2 | +80,3 / −242,9 ms | +21,8 / +29,9 ms |
-| paar 3 | +97,2 / −19,1 ms | pending |
+| paar 3 | +97,2 / −19,1 ms | −223,0 / +0,5 ms |
 
-Alle vijf paren gebruiken startload ≤12 en houden hun raw-opnames.
+De eerste vijf paren gebruiken startload ≤12; warm paar3 gebruikt de later
+toegestane grens ≤16, met startload15,60/15,17 en tijdgap65,0s. Raw blijft
+ongewijzigd. De eerste poging van warm3 had een tijdgap804s en is afgewezen.
+Bij warm1/2 gebruikt de rig manifestrevalidatie; warm3 de gecorrigeerde
+productieheader no-store. Per paar zijn de headers aan beide kanten gelijk.
 Volledige LoAF na ttfp heeft maxima 384–528 ms koud en 411–458 ms warm;
 de bewaker is daarmee nog niet opgelost. Eén warme kandidaatcapture heeft
 serverbewijs: alleen manifest- en SW-revalidatie (304, nul bodybytes), geen
@@ -320,6 +338,10 @@ cd web
 bash scripts/desktop-rig.sh ../tmp/u64/herhaal --repeat=3
 bash scripts/desktop-rig.sh ../tmp/u64/warm-herhaal --repeat=3 --warm
 pnpm exec tsx scripts/start-waterfall.ts ../tmp/u64/herhaal-cold-run*.json
+pnpm exec tsx scripts/start-upstream.ts ../tmp/u64/herhaal-cold-run1.json
+MOTREGEN_RIG_PREBUILT=1 MOTREGEN_RIG_DIST=/pad/naar/bevroren-dist \
+  bash scripts/desktop-rig.sh ../tmp/u64/paar-A --repeat=1 \
+  --paired --pair=voorbeeld-cold-1 --role=A
 MOTREGEN_E2E_PORT=4394 MOTREGEN_E2E_DATA_PORT=8394 pnpm perf:mobile \
   --profile desktop --scenario koud-spelend --basemap own --compare \
   --baseline-file perf/baselines/desktop-koud-spelend-own.json
@@ -333,6 +355,6 @@ De eigen koud-spelend-baseline is vóór de productwijzigingen opgebouwd uit
 drie ongewijzigde runs: die combinatie had geen bestaande baseline. Geen
 budgetgrens verruimd. Definitieve checks en synchrone exitstatussen staan
 append-only in [LOG.md](LOG.md).
-Koude varianten volgen per ronde referentie, WebGL-worker, shaderbatch,
-vóór shaderbatch. Bestaande geldige captures blijven bij hervatten behouden
+Gepaarde varianten volgen A B A B A B, eerst shaderisolatie koud/warm,
+daarna warme-cache/GPU-proeven en vergelijking met main. Bestaande geldige captures blijven bij hervatten behouden
 na controle van load, browser/clock/query, profilerstatus en entryhash.

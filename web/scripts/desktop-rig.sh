@@ -59,7 +59,7 @@ done
 if [[ ${MOTREGEN_DESKTOP_REVIEW:-0} == 1 ]]; then
   bash scripts/perf-lock.sh scripts/e2e-slot.sh pnpm exec tsx scripts/map-start-review.ts "http://127.0.0.1:$MOTREGEN_E2E_PORT" "$output_prefix" "$@"
 elif [[ ${MOTREGEN_DESKTOP_LIGHTHOUSE:-0} == 1 ]]; then
-  bash scripts/desktop-lighthouse.sh "http://127.0.0.1:$MOTREGEN_E2E_PORT/weer${MOTREGEN_DESKTOP_QUERY:+?$MOTREGEN_DESKTOP_QUERY}" "$output_prefix"
+  bash scripts/desktop-lighthouse.sh "http://127.0.0.1:$MOTREGEN_E2E_PORT/weer${MOTREGEN_DESKTOP_QUERY:+?$MOTREGEN_DESKTOP_QUERY}" "$output_prefix" "$@"
 else
   bash scripts/perf-lock.sh scripts/e2e-slot.sh pnpm exec tsx scripts/desktop-start.ts "http://127.0.0.1:$MOTREGEN_E2E_PORT" "$output_prefix" "$@"
 fi
