@@ -37,3 +37,7 @@
 - Desktop-e2e: `cd web && MOTREGEN_E2E_PORT=4395 MOTREGEN_E2E_DATA_PORT=8395 pnpm e2e e2e/location.spec.ts e2e/presets.spec.ts e2e/seo.spec.ts e2e/freshness.spec.ts e2e/telegram.spec.ts --project desktop` → 28/28, exit 0, 1,7 min. Output `web/tmp/u57-e2e.log`; eigen build `web/tmp/e2e-dist`, Caddy-fixture 8396.
 - Vite-dev-smoke op 4397: GET `/wind/utrecht?dev` geeft Wind Utrecht, canonical zonder query en noscript-Utrecht. Tijdelijke smoke-services gestopt; track-preview 4325 blijft als `motregen-u57-preview.service` met echte data-origin.
 - Klaar voor onafhankelijke orkestrator-gate/review op draft-PR https://github.com/mathijshenquet/motregen/pull/92. Geen open implementatiepunten; niet gemerged. Geen perf-meting gedaan.
+
+## 2026-10-08 06:29 UTC
+- Orkestrator bevestigt merge op main: `4b14eab7`, na onafhankelijke gate (typecheck exit 0, 482 unit-tests, build exit 0, bot exit 0, 25 gerichte desktop-e2e groen, flake check groen).
+- Track-preview `motregen-u57-preview.service` gestopt; poort 4325 vrij. Track afgerond, geen open punten. Slotentry committen en pushen volgens orkestratoropdracht.
