@@ -22,7 +22,6 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Wind | Tempo | snelheid van de streepjes | U3b | idem |
 | Wind | Kopieer wind als JSON | de vier waarden naar het klembord (PO-terugkoppelweg) | U20 | blijft zolang de windknoppen er zijn |
 | Laden | Eerste regen | het eerste regenframe direct na het manifest vragen (vroeg) of pas na de kaart-opzet (laat; herladen) | U54 | zodra een telefoonopname de winst heeft vastgelegd of weerlegd |
-| Laden | Kaderhemel | het lege scrubber-kader krijgt tijdens het laden al de hemelkleur van het uur (uit/aan; herladen) | U54 | na PO-keuze (dan vast aan of weg) |
 | Mobiel | Windstreepjes | wind op de achtergrond op een telefoon/smal scherm: uit (zoals nu), iets (1,25× sterkte, lijn 0,72 i.p.v. 0,6, zee-demping 0,2) of meer (1,5×, 0,84, 0,08); aantal streepjes ongewijzigd | U62 | na PO-keuze op zijn telefoon (dan vaste mobiele waarden of weg) |
 | Chrome | Klokpil | de klok boven de kaart blijft wit of neemt de hemelkleur van het cursoruur aan, zoals de tabelkop (wit/mee-tinten; alleen onder Expressief) | U62 | na PO-keuze (dan vast wit of vast mee-tinten) |
 | Lucht nu | strakblauw · mooie wolkenlucht · melkachtig · grijs · Mordor | tijd, klasse en gekozen locatie op 0,1° als menselijk anker voor de wolkenanalyse | U46 | na de analyse |
@@ -35,7 +34,7 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 
 Weggesnoeid in U30 (nu constanten met herkomstregel): Vulling (0,35, PO-keuze na U25b), Label-afstand
 (90 px, U8b), Focus dim (0,25, U8), Min. breedte (20 km, T3g), plus de 19 knoppen uit MIP-12. Sinds U58 (PO-keuze 2026-10-07 live): Klok › Jog-schaal → vast 2 min/px, naar rechts is later
-(`CLOCK_JOG_MS_PER_PX`); de scrubberschaal en de omgekeerde richting zijn afgevallen. Sinds U37 (PO-keuze 2026-09-25): Scrubber regen/wolken → de
+(`CLOCK_JOG_MS_PER_PX`); de scrubberschaal en de omgekeerde richting zijn afgevallen. Sinds U62 (PO-keuze 2026-10-08, "veel beter"): Laden › Kaderhemel → vast aan (`FRAME_SKY_ASSUMED_COVER` in `HistogramScrubber.tsx`); de oude sleutel `dev-kaderhemel` wist "Reset alle instellingen". Sinds U37 (PO-keuze 2026-09-25): Scrubber regen/wolken → de
 wolkendoorsnede (variant A) is vast de weermodus-scrubber; variant B (strook) is weg.
 
 De overige elf windparameters (Afstand per leven, Fade-in/-out, Max. leeftijd, Spawn-jitter,

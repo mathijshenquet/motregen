@@ -310,9 +310,14 @@ describe('histogram scrubber', () => {
       mix={{ wind: 0, air: 0, temperature: 0 }}
     />)
     const skyStrength = () => container.querySelector<SVGSVGElement>('.chart-track svg')!.style.getPropertyValue('--sky')
-    // Zonder wolkenlagen zou de lucht als onbewolkt beginnen.
-    expect(container.querySelector('[data-testid=sky]')).toBeNull()
+    // Kaderhemel (vast aan sinds U62): vóór de wolkenlagen er zijn staat de hemel er al, op een aangenomen
+    // halve bewolking in plaats van onbewolkt.
+    expect(container.querySelector('[data-testid=sky]')).not.toBeNull()
+    const darknessOfFirstStop = () => container.querySelector<SVGStopElement>('.sky-gradient stop')!.style.getPropertyValue('--dark')
+    const assumedDarkness = darknessOfFirstStop()
+    expect(Number(assumedDarkness)).toBeGreaterThan(0)
     setClouds(loaded)
+    expect(darknessOfFirstStop()).not.toBe(assumedDarkness)
     expect(container.querySelector('[data-testid=sky]')).not.toBeNull()
     expect(container.querySelector('.sky-grain')).not.toBeNull()
     expect(skyStrength()).toBe('1')

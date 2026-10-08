@@ -263,3 +263,21 @@ kosten vulwerk op de GPU dat hier niet zichtbaar wordt. De PO-telefoon is de ech
   in de test → `table.spec --project desktop` 0 (5 groen, 2 overgeslagen) · mobile-4g `table sky-window` 0
   (6 groen, 2 overgeslagen).
 - De ?dev-varianten Klokpil en Windstreepjes blijven staan tot de PO kiest.
+
+## 15:35 — stap 3b gecommit en gepusht (bdf5321)
+
+## 16:00 — PO-besluit: Kaderhemel vast aan, dev-knop weg (MIP-12)
+- `HistogramScrubber.tsx`: de prop `frameSky` is weg; de hemel staat er altijd vóór de wolkenlagen, op
+  `FRAME_SKY_ASSUMED_COVER` (constante met herkomstregel). `DevPanel`/`App`: knop, signaal en sleutel
+  `motregen-dev-kaderhemel` verwijderd. Er was geen migratiecode voor die sleutel; een achtergebleven
+  waarde wordt nergens meer gelezen en "Reset alle instellingen" wist hem (staat zo in docs/dev-opties.md).
+  "Eerste regen" blijft staan (U63).
+- Bijvangst: "Reset alle instellingen" zette de nieuwe knoppen Klokpil en Windstreepjes niet terug in de
+  lopende pagina (wel in de opslag); dat doet hij nu.
+- Eigen beelden bekeken: `stap3b/kaderhemel-{390,desktop}.png` (`rig/frame-sky-shot.ts`: chunks 8 s
+  vertraagd) — kader met hemel en liniaal, melding "regen laden…", nog geen balken.
+- Gate (web/): typecheck 0 · `pnpm test` 0 (488; scrubbertest aangepast: hemel staat er vóór de
+  wolkenlagen en verandert als ze komen) · build 0 · desktop `table dev-panel cloud-section sky-window` 0
+  (9 groen, 2 overgeslagen) · mobile-4g `cloud-section sky-window` 0 (2 groen).
+- Niet gemeten: het effect van de altijd-aan-hemel op ttfp/laadtijd (dat was de vraag van de knop in
+  U54; de PO heeft op het oog gekozen). Als U63 laadmetingen doet, is dit een gewijzigde uitgangssituatie.

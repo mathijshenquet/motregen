@@ -39,8 +39,6 @@ interface Props {
    * (die nog wel meedonkeren met het licht).
    */
   expressive?: boolean
-  /** Dev-schakelaar (U54): het lege kader krijgt al de hemelkleur van het uur, vóór de wolkenlagen er zijn. */
-  frameSky?: boolean
   sky?: { radiation: { timeline: TimelineFrame[]; values: Array<number | null> }; sinElevation: (epoch: number) => number }
   /** Totale bewolking als één band boven het regenhistogram, in de weermodus (PO 2026-09-25 live, U34). */
   cloudCover?: { timeline: TimelineFrame[]; values: Array<number | null> }
@@ -70,6 +68,8 @@ const DUSK_RADIUS_SHARE = 0.62
 // Gedeeld met het laadvenster in App (U49), dat alleen laadt wat hier in beeld is.
 const VIEW_HOURS = SCRUBBER_VIEW_HOURS
 const PROVISIONAL_STEP_MS = 5 * 60_000
+// Kaderhemel (U54; PO 2026-10-08: "veel beter", vast aan): vóór de wolkenlagen er zijn rekent de hemel met
+// deze bewolking, zodat het lege kader al de kleur van het uur heeft.
 const FRAME_SKY_ASSUMED_COVER = 0.5
 const PROVISIONAL_PAST_HOURS = 3
 const PROVISIONAL_AHEAD_HOURS = 48
@@ -219,10 +219,9 @@ export default function HistogramScrubber(props: Props) {
     const clouds = props.clouds
     const inputs = props.sky
     if (!clouds || !inputs) return []
-    // Zonder wolkenlagen zou de lucht als strakblauw of sterrenhemel beginnen en bij het laden omslaan.
-    // Met de kaderhemel begint hij wel, op een aangenomen halve bewolking, zodat die omslag klein blijft.
+    // Zonder wolkenlagen zou de lucht als strakblauw of sterrenhemel beginnen en bij het laden omslaan;
+    // op een aangenomen halve bewolking blijft die omslag klein.
     const cloudsKnown = CLOUD_LAYERS.some((layer) => clouds.values[layer].length)
-    if (!props.frameSky && (!props.timeline.length || !cloudsKnown)) return []
     const coverOf = (layer: CloudLayer, epoch: number) => cloudsKnown
       ? (seriesValueAt(clouds.timeline[layer], clouds.values[layer], epoch, 30 * 60_000) ?? 0) / 100
       : FRAME_SKY_ASSUMED_COVER

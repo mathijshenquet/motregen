@@ -11,8 +11,6 @@ interface Props {
   onIsolineTuning: (patch: Partial<IsolineTuning>) => void
   firstRainLate: boolean
   onFirstRainLate: (late: boolean) => void
-  frameSky: boolean
-  onFrameSky: (enabled: boolean) => void
   clockSkyTint: boolean
   onClockSkyTint: (enabled: boolean) => void
   mobileWind: MobileWindLevel
@@ -107,12 +105,6 @@ export default function DevPanel(props: Props) {
         <select value={props.firstRainLate ? 'laat' : 'vroeg'} onChange={(event) => props.onFirstRainLate(event.currentTarget.value === 'laat')}>
           <option value="vroeg">vroeg</option>
           <option value="laat">laat</option>
-        </select>
-      </Control>
-      <Control label="Kaderhemel" output={props.frameSky ? 'aan' : 'uit'} hint="Het lege scrubber-kader krijgt tijdens het laden al de hemelkleur van het uur (halve bewolking aangenomen). Herlaad om het te zien.">
-        <select value={props.frameSky ? 'aan' : 'uit'} onChange={(event) => props.onFrameSky(event.currentTarget.value === 'aan')}>
-          <option value="uit">uit</option>
-          <option value="aan">aan</option>
         </select>
       </Control>
     </Group>

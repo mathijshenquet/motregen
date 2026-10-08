@@ -186,7 +186,6 @@ const PLAY_RULE_STORAGE_KEY = 'motregen-dev-speelregel'
 // Rig-schakelaar (?dev): 'laat' vraagt het eerste regenframe weer pas na de kaart-opzet.
 const FIRST_RAIN_STORAGE_KEY = 'motregen-dev-eerste-regen'
 // PO-vergelijking (?dev): het lege scrubber-kader neemt de hemelkleur van het uur aan.
-const FRAME_SKY_STORAGE_KEY = 'motregen-dev-kaderhemel'
 const CLOCK_SKY_TINT_STORAGE_KEY = 'motregen-dev-klokpil'
 const MOBILE_WIND_STORAGE_KEY = 'motregen-dev-wind-mobiel'
 // Stil op de achtergrond (U41): na een minuut zonder invoer tekent de wind op halve snelheid.
@@ -501,7 +500,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
   const [windTuning, setWindTuning] = createSignal<WindTuning>(loadWindTuning())
   const [isolineTuning, setIsolineTuning] = createSignal<IsolineTuning>({ ...DEFAULT_ISOLINE_TUNING })
-  const [frameSky, setFrameSky] = createSignal(devMode && localStorage.getItem(FRAME_SKY_STORAGE_KEY) === 'aan')
   const [clockSkyTint, setClockSkyTint] = createSignal(devMode && localStorage.getItem(CLOCK_SKY_TINT_STORAGE_KEY) === 'mee-tinten')
   const storedMobileWind = devMode ? localStorage.getItem(MOBILE_WIND_STORAGE_KEY) : null
   const [mobileWind, setMobileWind] = createSignal<MobileWindLevel>(storedMobileWind === 'iets' || storedMobileWind === 'meer' ? storedMobileWind : 'uit')
@@ -2494,7 +2492,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     batch(() => {
       setWindTuning({ ...DEFAULT_WIND_TUNING })
       setIsolineTuning({ ...DEFAULT_ISOLINE_TUNING })
-      setFrameSky(false)
+      setClockSkyTint(false)
+      setMobileWind('uit')
       setFirstRainLate(false)
       focusMode.pin(DEFAULT_FOCUS_MODE)
       setFocusPinned(DEFAULT_FOCUS_MODE)
@@ -2976,8 +2975,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             onIsolineTuning={(patch) => setIsolineTuning((current) => ({ ...current, ...patch }))}
             firstRainLate={firstRainLate()}
             onFirstRainLate={(late) => { setFirstRainLate(late); localStorage.setItem(FIRST_RAIN_STORAGE_KEY, late ? 'laat' : 'vroeg') }}
-            frameSky={frameSky()}
-            onFrameSky={(enabled) => { setFrameSky(enabled); localStorage.setItem(FRAME_SKY_STORAGE_KEY, enabled ? 'aan' : 'uit') }}
             mobileWind={mobileWind()}
             onMobileWind={(level) => { setMobileWind(level); localStorage.setItem(MOBILE_WIND_STORAGE_KEY, level) }}
             clockSkyTint={clockSkyTint()}
@@ -3024,7 +3021,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           sky={{ radiation: { timeline: radiationTimeline(), values: radiationSeries() }, sinElevation: sunElevationAt() }}
           wind={{ timeline: windUFrames(), speed: windSpeedSeries(), gustTimeline: gustTimeline(), gust: gustSeries(), unit: windUnit() }}
           expressive={expressive()}
-          frameSky={frameSky()}
           mix={{ wind: windFocus(), air: airFocus(), temperature: focus() }}
           temperature={{ timeline: feelsLikeTimeline(), values: feelsLikeSeries(), airTimeline: tempTimeline(), air: temperatureSeries(), stops: temperatureRange() && paletteStops(temperatureRange()!) }}
         />
