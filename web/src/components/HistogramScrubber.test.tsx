@@ -305,7 +305,7 @@ describe('histogram scrubber', () => {
       onCursor={() => undefined}
       onPlaying={() => undefined}
       clouds={clouds()}
-      sky={{ radiation: { timeline, values: [] }, sinElevation: () => 0.6 }}
+      sky={{ radiation: { timeline, values: [] }, sinElevation: (epoch) => epoch < timeline[2]!.epoch ? 0.6 : -0.6 }}
       expressive={expressive()}
       mix={{ wind: 0, air: 0, temperature: 0 }}
     />)
@@ -316,11 +316,19 @@ describe('histogram scrubber', () => {
     expect(container.querySelector('[data-testid=sky]')).not.toBeNull()
     expect(container.querySelector('.sky-grain')).not.toBeNull()
     expect(skyStrength()).toBe('1')
+    // De hemel loopt door achter de tijdliniaal; inkt en sluier volgen per uur dag of nacht (U62).
+    expect(container.querySelector('.chart-plot')!.classList.contains('sky-ruler')).toBe(true)
+    expect(container.querySelector('.ruler-sky')!.getAttribute('y')).toBe('-26')
+    const hourLabels = [...container.querySelectorAll<HTMLElement>('.x-axis span:not(.now-tick)')]
+    expect(hourLabels.map((label) => label.classList.contains('night'))).toEqual([false, true, true, true])
+    expect([...container.querySelectorAll('.ruler-veil-gradient stop')].map((stop) => stop.classList.contains('night'))).toEqual([false, false, true, true, true])
     // In Weer staan de lagen zelf niet in beeld.
     expect(container.querySelector<SVGGElement>('.cloud-section .scrub-view:last-child')!.style.opacity).toBe('0')
     setExpressive(false)
     expect(container.querySelector('[data-testid=sky]')).toBeNull()
     expect(container.querySelector('.sky-grain')).toBeNull()
+    expect(container.querySelector('.chart-plot')!.classList.contains('sky-ruler')).toBe(false)
+    expect(container.querySelector('.x-axis span.night')).toBeNull()
     expect(skyStrength()).toBe('0')
   })
 

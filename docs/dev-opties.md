@@ -23,6 +23,7 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Wind | Kopieer wind als JSON | de vier waarden naar het klembord (PO-terugkoppelweg) | U20 | blijft zolang de windknoppen er zijn |
 | Laden | Eerste regen | het eerste regenframe direct na het manifest vragen (vroeg) of pas na de kaart-opzet (laat; herladen) | U54 | zodra een telefoonopname de winst heeft vastgelegd of weerlegd |
 | Laden | Kaderhemel | het lege scrubber-kader krijgt tijdens het laden al de hemelkleur van het uur (uit/aan; herladen) | U54 | na PO-keuze (dan vast aan of weg) |
+| Chrome | Klokpil | de klok boven de kaart blijft wit of neemt de hemelkleur van het cursoruur aan, zoals de tabelkop (wit/mee-tinten; alleen onder Expressief) | U62 | na PO-keuze (dan vast wit of vast mee-tinten) |
 | Lucht nu | strakblauw · mooie wolkenlucht · melkachtig · grijs · Mordor | tijd, klasse en gekozen locatie op 0,1° als menselijk anker voor de wolkenanalyse | U46 | na de analyse |
 | Lucht nu | Kopieer dagboek | alle lokale luchtmetingen als JSON naar het klembord | U46 | na de analyse |
 | Diagnose | Perf-HUD | meetpaneel aan/uit (ook: drie tikken op het logo) | T5 / U30 | blijft (diagnose) |
@@ -54,6 +55,7 @@ afgerond op 0,1°; U46).
 Rig-schakelaar zonder knop: `dev-speelregel` = `venster` zet onder `?dev` de oude speelregel terug
 (spelen pas na laadfase "window"), zodat de mobiele laadrig oud en nieuw uit één build meet
 (`koud-spelend-vensterregel`). Eigenaar U54; vervalt zodra de PO de speelregel heeft bevestigd.
+De knop "Klokpil" schrijft `dev-klokpil` (`wit`/`mee-tinten`, U62).
 De knop "Eerste regen" schrijft `dev-eerste-regen`; de rig zet dezelfde sleutel in `koud-spelend-regen-laat`.
 Tuning/debug: `wind-tuning-v4` (v3 wordt bij het laden gemigreerd), `perf` en de eenmalige
 `perf-cold`. Oude sleutels (`wind-tuning`, `-v2`, `-v3`, `splash-slowdown`, `scrubber-view`, `clock-jog`) wist

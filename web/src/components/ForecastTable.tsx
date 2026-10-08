@@ -1,10 +1,9 @@
 import { createEffect, createMemo, createSignal, createUniqueId, For, onCleanup, Show } from 'solid-js'
-import { lightDarkness } from '../core/cloud-section'
 import type { FocusKind } from '../core/focus-mode'
-import type { HourlyForecastRow } from '../core/forecast'
+import { hourDarkness, type HourSky, type HourlyForecastRow } from '../core/forecast'
 import { moonHorizonAngle, moonLitPath, moonPhase } from '../core/moon'
 import { isSunUp, solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
-import { cloudModification, dailyClearSkyUvMax, uvReading } from '../core/uv'
+import { dailyClearSkyUvMax, uvReading } from '../core/uv'
 import { deriveWeatherIcon, summarizeWind, WIND_UNIT_LABELS, type WindSummary, type WindUnit } from '../core/weather'
 import { ArrowUp, BUTTON_ICON, Clock, CloudRain, CloudSun, Table2, Thermometer, Wind } from './icons'
 import UvBar from './UvBar'
@@ -33,6 +32,8 @@ interface Props {
   columns: { weather: boolean; air: boolean; temperature: boolean; wind: boolean }
   windUnit: WindUnit
   dayNight?: boolean
+  /** Hemel van het cursoruur: de koppenrij (modusbalk) kleurt mee zoals de rijen (U62). Alleen onder Expressief. */
+  headSky?: HourSky
   // Rows after this epoch have not been fetched yet; scrolling near them asks for them.
   loadedUntil: number
   // Desktop (inline) keeps history above now; portrait mobile reveals it when table mode opens.
@@ -206,7 +207,10 @@ export default function ForecastTable(props: Props) {
   const columnCount = () => 1 + Number(props.columns.weather) + Number(props.columns.air) + Number(props.columns.temperature) + Number(props.columns.wind)
 
   return <table class="forecast-table" classList={{ 'day-night-table': props.dayNight !== false }} data-mode={props.focus.pinned} data-hover={hovered()}>
-    <thead><tr>
+    <thead><tr
+      classList={{ 'sky-head': !!props.headSky, 'day-hour': props.headSky?.daylight === true, 'night-hour': props.headSky?.daylight === false }}
+      style={props.headSky ? { '--day-overcast': props.headSky.overcast.toFixed(2), '--day-overcast-next': props.headSky.overcast.toFixed(2) } : undefined}
+    >
       {/* Weer is de vaste standaardmodus: regen op de kaart en in de grafiek. */}
       <th class="time-heading"><Show when={props.onOpenMobileTable} fallback={<span class="column-mode"><ColumnLabel icon={Clock} text="Uur" /></span>}>
         <button
@@ -253,14 +257,7 @@ export default function ForecastTable(props: Props) {
       const daylight = createMemo(() => sunEvent()?.kind === 'set' || (sunEvent() === undefined && isSunUp(row.epoch, props.location.lng, props.location.lat)))
       const radiationBefore = createMemo(() => value(props.series.radiation, row.radiationIndex))
       const radiationAfter = createMemo(() => value(props.series.radiation, row.radiationNextIndex))
-      const darknessFor = (target: HourlyForecastRow) => {
-        const cover = value(props.series.cloud, target.cloudIndex)
-        // U47 gebruikt CMF op een perceptuele schaal; zonder straling volgt 100% bewolking 25% licht.
-        const fallbackLight = cover == null ? 1 : 1 - 0.75 * Math.max(0, Math.min(1, cover / 100))
-        return lightDarkness(cloudModification(target.epoch,
-          value(props.series.radiation, target.radiationIndex),
-          value(props.series.radiation, target.radiationNextIndex), elevation) ?? fallbackLight)
-      }
+      const darknessFor = (target: HourlyForecastRow) => hourDarkness(target, props.series.radiation, props.series.cloud, elevation)
       const dayDarkness = createMemo(() => darknessFor(row))
       const nextDayDarkness = createMemo(() => {
         const next = visibleRows()[rowIndex() + 1]

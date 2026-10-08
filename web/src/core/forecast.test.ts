@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TimelineFrame } from './contract'
-import { buildHourlyForecast, isPassiveRow, skyRadiationRows } from './forecast'
+import { buildHourlyForecast, hourDarkness, isPassiveRow, skyRadiationRows } from './forecast'
 import { scrubberViewWindow, SCRUBBER_CURSOR_FRACTION, SCRUBBER_VIEW_HOURS } from './time-model'
 
 const start = Date.parse('2026-08-28T15:20:00Z')
@@ -91,5 +91,18 @@ describe('sky radiation rows (U62)', () => {
     expect(fed.length).toBeGreaterThan(0)
     expect(fed.every((row) => row.epoch >= window.start - hourMs && row.epoch <= window.end + hourMs)).toBe(true)
     expect(skyRadiationRows(rows, scrubberViewWindow(now))[0]!.epoch).toBe(currentHour)
+  })
+})
+
+describe('hour darkness (U62)', () => {
+  const row = { epoch: Date.parse('2026-08-28T12:00:00Z'), radiationIndex: 0, radiationNextIndex: 1, cloudIndex: 0 }
+  const highSun = () => 0.8
+
+  it('follows the radiation when it is known and the cloud cover otherwise', () => {
+    expect(hourDarkness(row, [900, 900], [100], highSun)).toBe(0)
+    expect(hourDarkness(row, [40, 40], [0], highSun)).toBe(1)
+    expect(hourDarkness(row, [], [0], highSun)).toBe(0)
+    // Zonder straling laat een gesloten dek een kwart van het licht door: twee halveringen van drie.
+    expect(hourDarkness(row, [], [100], highSun)).toBeCloseTo(2 / 3, 5)
   })
 })

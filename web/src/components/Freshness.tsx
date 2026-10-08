@@ -2,6 +2,7 @@ import { createMemo, createSignal, For, onCleanup, Show } from 'solid-js'
 import { Portal } from 'solid-js/web'
 import { clockKeyCursor, jogCursor, sourceStrip, STRIP_ZONES, stripEpochAtPosition, stripPositionAtEpoch, type SourceStripZone } from '../core/clock-timeline'
 import type { Manifest, Source, TimelineFrame } from '../core/contract'
+import type { HourSky } from '../core/forecast'
 import { ageMs, expectedNext, formatAge, formatAgeShort, formatClock, freshnessStatus, latestRadarEpoch, sourceFreshness, STATUS_LABELS, type RefreshState } from '../core/freshness'
 import { sourceZone, timelineCursorAtEpoch, timelineEpochAtCursor } from '../core/time-model'
 import { BUTTON_ICON, INLINE_ICON, Play, X } from './icons'
@@ -29,6 +30,8 @@ interface Props {
   timeline?: TimelineFrame[]
   cursor?: number
   onCursor?: (cursor: number) => void
+  /** Dev-variant (U62): de pil neemt de hemel van het cursoruur aan in plaats van wit te blijven. */
+  sky?: HourSky
 }
 
 const TICK_MS = 15_000
@@ -242,7 +245,12 @@ export default function Freshness(props: Props) {
     }
   }
 
-  return <div class="map-clock" data-freshness={status()}>
+  return <div
+    class="map-clock"
+    classList={{ 'sky-day': props.sky?.daylight === true, 'sky-night': props.sky?.daylight === false }}
+    style={props.sky ? { '--day-overcast': props.sky.overcast.toFixed(2) } : undefined}
+    data-freshness={status()}
+  >
     <Show when={props.paused && !jogPaused()}>
       <button type="button" class="clock-play" aria-label="Afspelen" title="Afspelen" onClick={() => props.onPlay?.()}><Play {...INLINE_ICON} fill="currentColor" /></button>
     </Show>

@@ -18,7 +18,7 @@ import { chunkField, type Grid, type Manifest, type ManifestChunk, type MrfHeade
 import { DayNightLayer } from './core/day-night-layer'
 
 const DAY_NIGHT_ENABLED = false
-import { buildHourlyForecast, isPassiveRow, PASSIVE_FORECAST_HOURS, skyRadiationRows } from './core/forecast'
+import { buildHourlyForecast, hourDarkness, isPassiveRow, PASSIVE_FORECAST_HOURS, skyRadiationRows, type HourSky } from './core/forecast'
 import { contextOpacity, DEFAULT_FOCUS_MODE, FOCUS_DIM, FocusMode, mapSaturation, rainFocusOpacity, type FocusKind, windFocusIntensity } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import { latestRadarEpoch, type RefreshState } from './core/freshness'
@@ -45,7 +45,7 @@ import { grantedStartFix, loadLastSavedPlaceId, loadMapView, resolveStartLocatio
 import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGestures } from './core/pin-navigation'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
-import { solarElevationSin } from './core/solar'
+import { isSunUp, solarElevationSin } from './core/solar'
 import { paletteRange, paletteStops, type PaletteRange } from './core/temperature-palette'
 import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
 import { buildTimeline, epochInWindow, frameBlend, scrubberViewWindow, seriesValueAt, timelineCoverage, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelineIndexesInWindow, timelinePlaybackRate, type EpochWindow } from './core/time-model'
@@ -183,6 +183,7 @@ const PLAY_RULE_STORAGE_KEY = 'motregen-dev-speelregel'
 const FIRST_RAIN_STORAGE_KEY = 'motregen-dev-eerste-regen'
 // PO-vergelijking (?dev): het lege scrubber-kader neemt de hemelkleur van het uur aan.
 const FRAME_SKY_STORAGE_KEY = 'motregen-dev-kaderhemel'
+const CLOCK_SKY_TINT_STORAGE_KEY = 'motregen-dev-klokpil'
 // Stil op de achtergrond (U41): na een minuut zonder invoer tekent de wind op halve snelheid.
 const IDLE_AFTER_MS = 60_000
 const WIND_IDLE_FPS = 30
@@ -493,6 +494,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [windTuning, setWindTuning] = createSignal<WindTuning>(loadWindTuning())
   const [isolineTuning, setIsolineTuning] = createSignal<IsolineTuning>({ ...DEFAULT_ISOLINE_TUNING })
   const [frameSky, setFrameSky] = createSignal(devMode && localStorage.getItem(FRAME_SKY_STORAGE_KEY) === 'aan')
+  const [clockSkyTint, setClockSkyTint] = createSignal(devMode && localStorage.getItem(CLOCK_SKY_TINT_STORAGE_KEY) === 'mee-tinten')
   const [temperatureRange, setTemperatureRange] = createSignal<PaletteRange | undefined>()
   let temperatureRangeKey = ''
   const [focus, setFocus] = createSignal(0)
@@ -2640,6 +2642,17 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       return elevation
     }
   })
+  // Het chrome (koppenrij van de tabel, klokpil) neemt de hemel van het cursoruur aan, uit dezelfde bron
+  // als de dag/nacht-kleuring van de rijen (U42); zonder Expressief blijft het zoals het was (U62).
+  const chromeSky = createMemo<HourSky | undefined>(() => {
+    if (!expressive() || !manifest()) return undefined
+    const point = location()
+    const daylight = isSunUp(cursorMinute(), point.lng, point.lat)
+    const hourEpoch = tablePreviewEpoch()
+    const row = daylight ? forecast().find((candidate) => candidate.epoch === hourEpoch) : undefined
+    const overcast = row ? hourDarkness(row, radiationSeries(), cloudSeries(), sunElevationAt()) : 0
+    return { daylight, overcast: Math.round(overcast * 100) / 100 }
+  }, undefined, { equals: (left, right) => left?.daylight === right?.daylight && left?.overcast === right?.overcast })
   const cloudTimelines = createMemo(() => Object.fromEntries(CLOUD_LAYERS.map((layer) =>
     [layer, manifest() ? buildTimeline(manifest()!, `cloud_${layer}`) : []])) as Record<CloudLayer, TimelineFrame[]>)
   const [cloudValues, setCloudValues] = createSignal<Record<CloudLayer, Array<number | null>>>({ high: [], mid: [], low: [] })
@@ -2843,6 +2856,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             onFirstRainLate={(late) => { setFirstRainLate(late); localStorage.setItem(FIRST_RAIN_STORAGE_KEY, late ? 'laat' : 'vroeg') }}
             frameSky={frameSky()}
             onFrameSky={(enabled) => { setFrameSky(enabled); localStorage.setItem(FRAME_SKY_STORAGE_KEY, enabled ? 'aan' : 'uit') }}
+            clockSkyTint={clockSkyTint()}
+            onClockSkyTint={(enabled) => { setClockSkyTint(enabled); localStorage.setItem(CLOCK_SKY_TINT_STORAGE_KEY, enabled ? 'mee-tinten' : 'wit') }}
             windTuning={windTuning()}
             onWindTuning={tuneWind}
             perfVisible={perfVisible()}
@@ -2858,7 +2873,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         </Show>
         <Freshness mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness} onShare={shareCurrentState} shareNotice={shareNotice()}
           paused={!playing()} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
-          timeline={timeline()} cursor={cursor()} onCursor={clockScrub} />
+          timeline={timeline()} cursor={cursor()} onCursor={clockScrub} sky={clockSkyTint() ? chromeSky() : undefined} />
       </Show>
     </section>
     <Show when={!stillMode}>
@@ -2905,6 +2920,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
               location={location()}
               windUnit={windUnit()}
               dayNight={expressive()}
+              headSky={chromeSky()}
               onVisibleRows={inViewOnly ? (epochs) => setPeekRows(new Set(epochs)) : undefined}
               columns={{ weather: hasWeatherIcons(), air: hasWeatherIcons() || uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), wind: hasWind() }}
               loadedUntil={pointLoadStage() === 'complete' ? Number.POSITIVE_INFINITY : manifestNow() + PASSIVE_FORECAST_HOURS * 3_600_000}

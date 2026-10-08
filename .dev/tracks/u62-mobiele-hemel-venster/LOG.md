@@ -78,3 +78,41 @@ per tabel-layout via de bestaande ResizeObserver, daarna geen layout-reads per u
 en afspelen per constructie gelijk zijn en `correct` een lopende tween niet meer kan afkappen.
 Vraag aan de PO: welk gebaar (slepen met vinger erop, fling na loslaten, of tik) en springt de rij dan
 in één keer of blijft hij staan tot je loslaat?
+
+## 09:25 — orkestrator: preview stierf met het einde van de turn
+Opnieuw gestart als losgekoppeld proces vanuit web/:
+`MOTREGEN_DATA_ORIGIN=https://motregen.nl/data setsid nohup pnpm preview --host 0.0.0.0 --port 4320
+--strictPort > tmp/u62/preview-4320.log 2>&1 < /dev/null &` (buiten de sandbox). Serveert web/dist; een
+nieuwe `pnpm build` is direct zichtbaar.
+
+## 10:20 — stap 3: contextgevoelig chrome
+- (a) Tijdliniaal op de hemel: de hemel-gradient loopt 26 px door boven het plot (`.ruler-sky` + dezelfde
+  zenittint als de bovenrand van het plot, anders een naad), met een sluier-gradient op dezelfde uurstops.
+  Per uur dag of nacht (grens: daglicht 0,5): overdag lichte sluier + donkere inkt, 's nachts donkere
+  sluier + lichte inkt; donker thema altijd donkere sluier + lichte inkt. Het vaste daglabel kiest zijn
+  ondergrond naar de hemel waar het op dat moment boven staat. Zonder hemel (Expressief uit, vóór het
+  laden) blijft de liniaal wit zoals hij was.
+- (b) Koppenrij (= tabelkop én modusbalk, één `<thead>`): `headSky` uit `chromeSky` in App — daglicht op
+  de cursorminuut, donkerte van het cursoruur via `hourDarkness` (uit ForecastTable naar core/forecast
+  getild, zelfde bron als de rijen). CSS hergebruikt `tr.day-hour`/`tr.night-hour`; overdag donkerder
+  inkt (`--muted #3a525c`, `--accent #0b607e`) omdat de kleine kopletters anders onder 4,5:1 zakken.
+- (c) Klokpil: `?dev` → groep Chrome → Klokpil wit/mee-tinten (`motregen-dev-klokpil`, eigenaar U62,
+  vervalt na PO-keuze; docs/dev-opties.md bijgewerkt). Standaard wit = ongewijzigd.
+- Contrast gemeten (`rig/chrome.ts`: inkt uit computed style tegen de slechtste pixel van de ondergrond
+  achter elk label, 18 scènes = 390/desktop × licht/donker × dag/schemer/nacht × klokvariant):
+  laagste waarden uurlabel 5,76 · daglabel 7,8 · koppenrij 5,29 · klokpil 5,42 (mee-tinten, schemer).
+  Volledige tabel: `stap3/contrast.json`. Eerste meting had de koppenrij in donker thema overdag op 3,07
+  (specificiteit van de donker-thema-regel); gerepareerd en opnieuw gemeten.
+- Eigen beelden bekeken: `stap3/*.png` (390 dag/schemer/nacht, donker thema, desktop dag/nacht).
+- Gate (web/, synchrone exit-statussen): typecheck 0 · `pnpm test` 0 (72 bestanden, 482 tests) · build 0 ·
+  desktop `cloud-section sky-window table dev-panel freshness`: eerste run 9 groen / 1 rood (dev-panel:
+  groepenlijst kende "Chrome" nog niet) → spec bijgewerkt + klokpil-check toegevoegd → dev-panel 0;
+  mobile-4g `cloud-section sky-window` 0 (2 groen). De andere negen desktop-tests zijn na de
+  spec-aanpassing niet opnieuw gedraaid (er veranderde alleen dev-panel.spec).
+- Open voor de PO: de koppenrij wordt 's nachts een donkere balk tussen hemel en rijen (ook als de
+  eerste zichtbare rij al dag is, bv. 07:45 vlak voor zonsopkomst) — bewust zo gelaten, PO-oordeel.
+
+## 10:25 — stap 2: antwoord van de PO
+Firefox Android, alleen zolang de vinger op het scherm ligt; na loslaten en in Chrome tweent het wel.
+Dus kandidaat (a). Volgende: eigen tween op gecachte rij-offsets, zonder scrollTo tijdens een actieve
+touch. Daarna in de wachtrij: compositorlaag/blokken-meting op po-android, stap 4 windstreepjes.

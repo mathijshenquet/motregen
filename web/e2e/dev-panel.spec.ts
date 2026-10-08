@@ -13,9 +13,9 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   const panel = page.getByTestId('dev-panel')
   await expect(panel).toBeVisible()
   const groups = panel.locator('.dev-group')
-  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wind', 'Laden', 'Lucht nu', 'Diagnose'])
+  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wind', 'Laden', 'Chrome', 'Lucht nu', 'Diagnose'])
   // Alleen de eerste groep start open.
-  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false])
+  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false, false])
   await expect(panel).not.toContainText('Wolkrand')
 
   const controls = panel.locator('.dev-control')
@@ -37,6 +37,13 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   await wind.getByLabel('Intensiteit').fill('0.8')
   await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-wind-tuning-v4'))).toBe('{"intensity":0.8}')
   await expect(page.locator('.map-shell')).toHaveAttribute('data-wind-intensity', '0.80')
+
+  // Klokpil (U62): wit blijft zoals het was; mee-tinten neemt de hemel van het cursoruur aan.
+  await expect(page.locator('.map-clock')).not.toHaveClass(/sky-(day|night)/)
+  await groups.locator('> summary', { hasText: 'Chrome' }).click()
+  await panel.getByLabel('Klokpil').selectOption('mee-tinten')
+  await expect(page.locator('.map-clock')).toHaveClass(/sky-(day|night)/)
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-dev-klokpil'))).toBe('mee-tinten')
 
   await groups.locator('> summary', { hasText: 'Diagnose' }).click()
   const perfToggle = panel.getByRole('checkbox', { name: /Perf-HUD/ })

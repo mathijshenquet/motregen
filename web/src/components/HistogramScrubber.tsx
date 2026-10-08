@@ -101,6 +101,10 @@ const FLING_MIN_SPEED = 0.02
 // Afspelen schuift de baan met één compositor-animatie; wijkt de cursor meer af, dan opnieuw ingezet.
 const SLIDE_TOLERANCE_PX = 2
 const SLIDE_DURATION_MS = 120_000
+// Hoogte van de tijdliniaal boven het plot; gelijk aan `top` van .chart-plot in styles.css.
+const RULER_HEIGHT_PX = 26
+// Onder dit daglicht krijgt de liniaal lichte inkt op een donkere sluier (U62).
+const RULER_NIGHT_DAYLIGHT = 0.5
 
 export function hourLabelStep(spanHours: number, plotWidthPx: number): number {
   const fit = Math.max(1, plotWidthPx / minimumHourLabelSpacingPx)
@@ -238,6 +242,8 @@ export default function HistogramScrubber(props: Props) {
   const skyStrength = () => sky().length && props.expressive !== false ? 1 : 0
   const skyVisible = createMemo(() => skyStrength() > 0)
   const skyPxPerHour = () => HOUR * pxPerMs()
+  /** Staat de liniaal op deze baan-x boven nachthemel? Bepaalt inkt en sluier van het label daar. */
+  const rulerNightAt = (trackX: number) => skyVisible() && skyAt(sky(), Math.max(0, Math.min(1, trackX / cloudWidth()))).daylight < RULER_NIGHT_DAYLIGHT
   const strokes = createMemo<SkyStroke[]>((previous) => measurePerfPhase('scrubber-paint', () =>
     stableByIndex(previous, skyVisible() ? skyStrokes(cloudWidth(), plotHeight(), skyPxPerHour(), sky()) : []), { memo: 'hemelstreken' }), [])
   // Een ster die dooft of opkomt verschuift alle posities erna; met dezelfde objecten voor ongewijzigde
@@ -604,7 +610,7 @@ export default function HistogramScrubber(props: Props) {
         resumeAfterPointerInteraction()
       }}
     >
-      <div class="chart-plot" ref={plotElement}>
+      <div class="chart-plot" classList={{ 'sky-ruler': skyVisible() }} ref={plotElement}>
         <div ref={trackElement} class="chart-track" classList={{ tween: tween() }} style={{ width: `${trackWidth()}px`, transform: `translateX(${shownOffset()}px)` }} aria-hidden="true">
           {/* Buiten de tijdlijn: gestreept "geen data" (PO 2026-09-25 live, U34), schuift mee met de baan. */}
           <div class="past-shade" style={{ width: `${nowX()}px` }} />
@@ -624,6 +630,10 @@ export default function HistogramScrubber(props: Props) {
                 <circle cx={dusk().x + dusk().side * dusk().radius * 0.35} cy={plotHeight()} r={dusk().radius * 1.25} fill={`url(#${cloudId}-dusk-rose)`} />
                 <circle cx={dusk().x} cy={plotHeight()} r={dusk().radius} fill={`url(#${cloudId}-dusk-amber)`} />
               </g>}</Index>
+              {/* De hemel loopt door achter de tijdliniaal (U62), met een sluier die de uurlabels leesbaar houdt. */}
+              <rect class="ruler-sky" y={-RULER_HEIGHT_PX} width={cloudWidth()} height={RULER_HEIGHT_PX} fill={`url(#${cloudId}-sky)`} />
+              <rect class="ruler-depth" y={-RULER_HEIGHT_PX} width={cloudWidth()} height={RULER_HEIGHT_PX} />
+              <rect class="ruler-veil" y={-RULER_HEIGHT_PX} width={cloudWidth()} height={RULER_HEIGHT_PX} fill={`url(#${cloudId}-veil)`} />
               <Index each={strokes()}>{(stroke) => <path class="sky-stroke" classList={{ light: stroke().light }} d={stroke().path} style={{ '--strength': stroke().strength }} />}</Index>
               <For each={stars()}>{(star) => <circle class="sky-star" cx={star.x} cy={star.y} r={star.radius} opacity={star.brightness} />}</For>
             </g></Show>
@@ -644,7 +654,10 @@ export default function HistogramScrubber(props: Props) {
                 <linearGradient id={`${cloudId}-haze`} class="sky-haze-gradient" gradientUnits="userSpaceOnUse" x1="0" x2={cloudWidth()} y1="0" y2="0">
                   <Index each={sky()}>{(stop) => <stop offset={stop().offset} stop-opacity={(HAZE_OPACITY * stop().daylight * (1 - stop().darkness)).toFixed(3)} />}</Index>
                 </linearGradient>
-                <clipPath id={`${cloudId}-plot`}><rect width={cloudWidth()} height={plotHeight()} /></clipPath>
+                <linearGradient id={`${cloudId}-veil`} class="ruler-veil-gradient" gradientUnits="userSpaceOnUse" x1="0" x2={cloudWidth()} y1="0" y2="0">
+                  <Index each={sky()}>{(stop) => <stop offset={stop().offset} classList={{ night: stop().daylight < RULER_NIGHT_DAYLIGHT }} />}</Index>
+                </linearGradient>
+                <clipPath id={`${cloudId}-plot`}><rect y={-RULER_HEIGHT_PX} width={cloudWidth()} height={plotHeight() + RULER_HEIGHT_PX} /></clipPath>
                 <For each={['amber', 'rose', 'purple']}>{(tint) => <radialGradient id={`${cloudId}-dusk-${tint}`} class={`dusk-gradient dusk-${tint}`}><stop offset="0" /><stop offset="1" /></radialGradient>}</For>
                 {/* Schaduw aan de basis van elke wolk: volume in plaats van een vlak silhouet. */}
                 <linearGradient id={`${cloudId}-shadow`} class="cloud-shadow-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0.25" /><stop offset="1" /></linearGradient>
@@ -694,12 +707,12 @@ export default function HistogramScrubber(props: Props) {
           {/* "Nu" staat in de urenbalk (PO 2026-09-25 live); het uurlabel eronder wijkt. */}
           <div class="x-axis">
             {/* Middernacht krijgt geen uurlabel: het (sticky) daglabel markeert de dagwissel. */}
-            <For each={xTicks().filter((tick) => Math.abs(tick.x - nowX()) > NOW_LABEL_CLEARANCE_PX && new Date(tick.epoch).getHours() !== 0)}>{(tick) => <span classList={{ midnight: new Date(tick.epoch).getHours() === 0 }} style={{ left: `${tick.x}px` }}>{hourLabel(tick.epoch)}</span>}</For>
+            <For each={xTicks().filter((tick) => Math.abs(tick.x - nowX()) > NOW_LABEL_CLEARANCE_PX && new Date(tick.epoch).getHours() !== 0)}>{(tick) => <span classList={{ midnight: new Date(tick.epoch).getHours() === 0, night: rulerNightAt(tick.x) }} style={{ left: `${tick.x}px` }}>{hourLabel(tick.epoch)}</span>}</For>
             <span class="now-tick" style={{ left: `${nowX()}px` }}>Nu</span>
           </div>
         </div>
         <div class="day-labels" aria-hidden="true"><For each={daySegments()}>{(segment, index) =>
-          <span ref={(element) => { dayLabelElements[index()] = element }} style={{ transform: `translateX(${stickyLeft(segment, shownOffset())}px)` }}>{segment.label}</span>
+          <span ref={(element) => { dayLabelElements[index()] = element }} classList={{ night: rulerNightAt(stickyLeft(segment, shownOffset()) - shownOffset()) }} style={{ transform: `translateX(${stickyLeft(segment, shownOffset())}px)` }}>{segment.label}</span>
         }</For></div>
         {/* Waarden bij de cursor i.p.v. een y-as (PO 2026-09-25 live). */}
         <Show when={!props.loading && airMix() > 0 && baseOpacity() > 0}>

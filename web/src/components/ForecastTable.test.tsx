@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@solidjs/testing-library'
 import { createSignal } from 'solid-js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { FocusKind } from '../core/focus-mode'
-import type { HourlyForecastRow } from '../core/forecast'
+import type { HourlyForecastRow, HourSky } from '../core/forecast'
 import type { WindUnit } from '../core/weather'
 import ForecastTable, { type ForecastSeries } from './ForecastTable'
 
@@ -21,7 +21,7 @@ const series: ForecastSeries = {
 }
 const allColumns = { weather: true, air: true, temperature: true, wind: true }
 
-function renderTable(options: { pinned?: FocusKind; weather?: boolean; dayNight?: boolean; forecastSeries?: ForecastSeries; onSelectTime?: (epoch: number) => void; mobileTableOpen?: boolean; onOpenMobileTable?: () => void; onSelectMobileMode?: () => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
+function renderTable(options: { headSky?: HourSky; pinned?: FocusKind; weather?: boolean; dayNight?: boolean; forecastSeries?: ForecastSeries; onSelectTime?: (epoch: number) => void; mobileTableOpen?: boolean; onOpenMobileTable?: () => void; onSelectMobileMode?: () => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
   const [pinned, setPinned] = createSignal<FocusKind>(options.pinned ?? 'weather')
   const onPin = vi.fn((mode: FocusKind) => setPinned(mode))
   const onFocus = vi.fn()
@@ -32,6 +32,7 @@ function renderTable(options: { pinned?: FocusKind; weather?: boolean; dayNight?
     columns={{ ...allColumns, weather: options.weather ?? true }}
     windUnit={options.windUnit?.() ?? 'bft'}
     dayNight={options.dayNight}
+    headSky={options.headSky}
     loadedUntil={Number.POSITIVE_INFINITY}
     historyInline={options.historyInline ?? false}
     historyOpen={false}
@@ -204,6 +205,20 @@ describe('forecast table cells', () => {
     expect(sunset.previousElementSibling?.classList.contains('night-hour')).toBe(false)
     expect(sunrise.nextElementSibling?.classList.contains('day-hour')).toBe(true)
     expect(sunset.nextElementSibling?.classList.contains('night-hour')).toBe(true)
+  })
+
+  it('colours the heading row with the sky of the cursor hour (U62)', () => {
+    renderTable({ headSky: { daylight: true, overcast: 0.4 } })
+    const heading = document.querySelector<HTMLTableRowElement>('thead tr')!
+    expect(heading.classList.contains('sky-head')).toBe(true)
+    expect(heading.classList.contains('day-hour')).toBe(true)
+    expect(heading.style.getPropertyValue('--day-overcast')).toBe('0.40')
+    cleanup()
+    renderTable({ headSky: { daylight: false, overcast: 0 } })
+    expect(document.querySelector('thead tr')!.classList.contains('night-hour')).toBe(true)
+    cleanup()
+    renderTable()
+    expect(document.querySelector('thead tr')!.className).toBe('')
   })
 
   it('can turn the complete table day/night treatment off', () => {

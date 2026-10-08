@@ -13,6 +13,8 @@ interface Props {
   onFirstRainLate: (late: boolean) => void
   frameSky: boolean
   onFrameSky: (enabled: boolean) => void
+  clockSkyTint: boolean
+  onClockSkyTint: (enabled: boolean) => void
   windTuning: WindTuning
   onWindTuning: (tuning: WindTuning) => void
   perfVisible: boolean
@@ -109,6 +111,14 @@ export default function DevPanel(props: Props) {
         <select value={props.frameSky ? 'aan' : 'uit'} onChange={(event) => props.onFrameSky(event.currentTarget.value === 'aan')}>
           <option value="uit">uit</option>
           <option value="aan">aan</option>
+        </select>
+      </Control>
+    </Group>
+    <Group title="Chrome">
+      <Control label="Klokpil" output={props.clockSkyTint ? 'mee-tinten' : 'wit'} hint="Wit: de klok boven de kaart blijft zoals hij was. Mee-tinten: hij neemt de hemelkleur van het cursoruur aan, zoals de tabelkop (alleen onder Expressief).">
+        <select value={props.clockSkyTint ? 'mee-tinten' : 'wit'} onChange={(event) => props.onClockSkyTint(event.currentTarget.value === 'mee-tinten')}>
+          <option value="wit">wit</option>
+          <option value="mee-tinten">mee-tinten</option>
         </select>
       </Control>
     </Group>
