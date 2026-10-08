@@ -1,3 +1,6 @@
+import { placeName, placeSlug } from './place-slug.js'
+import { nearestPlace } from './places.js'
+
 export type PresetMode = 'weather' | 'air' | 'feels' | 'wind'
 
 export interface PresetPoint {
@@ -18,6 +21,7 @@ export interface ShareState {
   point: PresetPoint
   /** Label van de gekozen plek (zoekresultaat of dichtstbijzijnde plaats). */
   place?: string
+  savedPlace?: boolean
 }
 
 /** URL-termen blijven los van de interne focusnamen; de focusnamen staan hier als losse literals zodat de
@@ -31,7 +35,7 @@ const modeNames = {
   wind: 'wind',
 } as const satisfies Record<string, PresetMode>
 
-const queryModes = {
+export const pathModes = {
   weather: 'weer',
   air: 'lucht',
   feels: 'gevoel',
@@ -79,12 +83,24 @@ function parseLocalTime(value: string): number | undefined {
   return undefined
 }
 
-export function parsePresets(search: string | URLSearchParams, now = Date.now()): UrlPresets {
+export function parsePresetPath(pathname: string): UrlPresets {
+  const segments = pathname.replace(/^\/|\/$/g, '').split('/')
+  if (segments.length > 2 || (segments.length === 2 && !segments[1])) return {}
+  const mode = modeNames[segments[0]?.toLowerCase() as keyof typeof modeNames]
+  if (!mode) return {}
+  try {
+    const place = segments[1] ? placeName(decodeURIComponent(segments[1])) : undefined
+    return segments[1] && !place ? {} : { mode, ...(place && { place }) }
+  } catch { return {} }
+}
+
+export function parsePresets(search: string | URLSearchParams, now = Date.now(), pathname = '/', hash = ''): UrlPresets {
   const params = typeof search === 'string' ? new URLSearchParams(search) : search
+  const path = parsePresetPath(pathname)
   const point = parsePoint(params)
-  const place = point ? undefined : parsePlace(params.get('plaats'))
-  const mode = modeNames[params.get('modus') as keyof typeof modeNames]
-  const epoch = parseEpoch(params.get('t'), now)
+  const place = point ? undefined : parsePlace(params.get('plaats')) ?? path.place
+  const mode = modeNames[params.get('modus') as keyof typeof modeNames] ?? path.mode
+  const epoch = parseEpoch(new URLSearchParams(hash.replace(/^#/, '')).get('t') ?? params.get('t'), now)
   return { ...(mode && { mode }), ...(epoch !== undefined && { epoch }), ...(place && { place }), ...(point && { point }) }
 }
 
@@ -96,35 +112,42 @@ export function modeForActiveFocus(focus: string | undefined): PresetMode {
   return (Object.entries(focusModes).find(([, value]) => value === focus)?.[0] as PresetMode | undefined) ?? 'weather'
 }
 
-/** Schrijft modus, plek en (optioneel) tijdstip in bestaande zoekparameters; andere parameters (dev, perf, tg) blijven. */
 /** Een plaatsnaam in de link leest beter en lekt minder dan een pin (PO 2026-10-07); generieke labels tellen niet. */
 export function shareablePlace(label: string | undefined): string | undefined {
   const place = label?.trim()
-  if (!place || place === 'Mijn locatie' || /^-?\d/.test(place)) return undefined
+  if (!place || /^(mijn locatie|thuis|werk)$/i.test(place) || /^-?\d/.test(place)) return undefined
   return place
 }
 
-export function applyPresetParams(params: URLSearchParams, state: ShareState, includeTime: boolean): URLSearchParams {
-  params.set('modus', queryModes[state.mode])
-  if (includeTime) params.set('t', formatLocalTime(Math.round(state.epoch / 60_000) * 60_000))
-  else params.delete('t')
-  const place = shareablePlace(state.place)
-  if (place) {
-    params.set('plaats', place)
-    params.delete('lat')
-    params.delete('lon')
-  } else {
-    params.set('lat', state.point.lat.toFixed(3))
-    params.set('lon', state.point.lng.toFixed(3))
-    params.delete('plaats')
-  }
+export function presetPath(mode: PresetMode, place?: string): string {
+  const slug = place && placeSlug(place)
+  return `/${pathModes[mode]}${slug ? `/${slug}` : ''}`
+}
+
+export function sharePlace(state: ShareState): string | undefined {
+  return (!state.savedPlace && shareablePlace(state.place)) || nearestPlace(state.point.lng, state.point.lat).name
+}
+
+/** Andere queryparameters (dev, perf, tg) blijven behouden; modus en plek staan in het pad. */
+export function applyPresetParams(params: URLSearchParams): URLSearchParams {
+  for (const key of ['modus', 'plaats', 'lat', 'lon', 't']) params.delete(key)
   return params
+}
+
+export function applyPresetUrl(url: URL, state: ShareState, includeTime: boolean): URL {
+  url.pathname = presetPath(state.mode, sharePlace(state))
+  applyPresetParams(url.searchParams)
+  const fragment = new URLSearchParams(url.hash.replace(/^#/, ''))
+  if (includeTime) fragment.set('t', formatLocalTime(Math.round(state.epoch / 60_000) * 60_000))
+  else fragment.delete('t')
+  url.hash = fragment.toString()
+  return url
 }
 
 /** Maakt altijd een productie-link: gedeelde previews horen naar de publieke app te wijzen. */
 export function shareUrl(state: ShareState): string {
   const url = new URL('https://motregen.nl/')
-  applyPresetParams(url.searchParams, state, true)
+  applyPresetUrl(url, state, true)
   return url.href
 }
 

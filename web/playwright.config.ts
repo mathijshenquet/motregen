@@ -40,5 +40,11 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120_000,
     },
+    {
+      command: `MOTREGEN_E2E_ROUTE_PORT=${dataPort + 1} caddy run --config e2e/Caddyfile.routes`,
+      url: `http://127.0.0.1:${dataPort + 1}`,
+      reuseExistingServer: false,
+      timeout: 30_000,
+    },
   ],
 })

@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, onCleanup, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, For, onCleanup, Show } from 'solid-js'
 import { Portal } from 'solid-js/web'
 import { clockKeyCursor, jogCursor, sourceStrip, STRIP_ZONES, stripEpochAtPosition, stripPositionAtEpoch, type SourceStripZone } from '../core/clock-timeline'
 import type { Manifest, Source, TimelineFrame } from '../core/contract'
@@ -19,6 +19,7 @@ interface Props {
   onRefresh: () => Promise<void>
   onOpen?: () => void
   onClose?: () => void
+  open?: boolean
   /** Kopieert of deelt de permalink van dit moment (modus, tijdstip, plek), U44/U56 (feedback Maarten). */
   onShare?: () => Promise<void>
   shareNotice?: string
@@ -48,6 +49,11 @@ function LiveAge(props: { ms: number; short?: boolean; title?: string }) {
 export default function Freshness(props: Props) {
   let dialog!: HTMLDialogElement
   let trigger!: HTMLButtonElement
+  createEffect(() => {
+    if (props.open === undefined) return
+    if (props.open && !dialog.open) openPanel()
+    else if (!props.open && dialog.open) dialog.close()
+  })
   const [clock, setClock] = createSignal(Date.now())
   const [refreshing, setRefreshing] = createSignal(false)
   const timer = window.setInterval(() => setClock(Date.now()), TICK_MS)
