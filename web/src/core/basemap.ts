@@ -35,11 +35,14 @@ export function loadBasemapStyle(theme: MapTheme): Promise<StyleSpecification> {
   let pending = cache.get(theme)
   if (!pending) {
     const url = import.meta.env.VITE_BASEMAP_STYLE_URL?.replace('{theme}', theme) ?? `/basemap/${styleNames[theme]}.json`
-    pending = fetch(url)
+    const inline = !import.meta.env.VITE_BASEMAP_STYLE_URL && typeof document !== 'undefined'
+      ? document.getElementById(`basemap-${styleNames[theme]}`)?.textContent
+      : undefined
+    pending = (inline ? Promise.resolve(JSON.parse(inline) as StyleSpecification) : fetch(url)
       .then((response) => {
         if (!response.ok) throw new Error(`Kaartstijl laden mislukt (${response.status})`)
         return response.json() as Promise<StyleSpecification>
-      })
+      }))
       .then((style) => {
         const prepared = prepareBasemapStyle(style, import.meta.env.VITE_DATA_ORIGIN ?? location.origin, new URL(url, location.href).href)
         if (prepared.glyphs && Object.values(prepared.sources).some((source) => source.type === 'vector' && source.url?.startsWith('pmtiles://'))) {

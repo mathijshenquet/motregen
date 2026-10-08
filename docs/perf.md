@@ -762,8 +762,11 @@ De rapportmaten betekenen:
 - Bytes vóór TTFR/ttfh tellen bodies waarvan het response-einde vóór die
   mijlpaal ligt. Een nog lopende body kan Resource Timing niet tussentijds
   meten; dit is een expliciete ondergrens op verkeer tot die mijlpaal.
-  De 30-s-totalen bevatten uitsluitend in die periode beëindigde responses;
-  nog lopende requests blijven als onbekend in raw/rapport.
+  Sinds U63 tellen de 30-s-totalen alle requests die binnen die periode **beginnen**, inclusief
+  hun volledige body als die vlak na de grens eindigt. De rig laat de waargenomen requests
+  maximaal 10 s uitlopen en selecteert Playwright en Resource Timing beide op starttijd. Hij
+  verzint geen bodygrootte bij de grens; onvolledige bodies, ontbrekende starttijden of requests
+  die niet uitlopen blijven rood. De ruwe bronnen bewaren de echte eindtijd, ook boven 30 s.
 - LoAF telt lange frames, totale duur, blokkeertijd en de drie grootste
   scriptbronnen. Hoofddraadbezetting is het aandeel Self-Profiling-samples met
   een stack, inclusief idle samples in de noemer. De top-3 gebruikt dezelfde
@@ -869,7 +872,7 @@ pnpm exec tsx scripts/po-reference.ts compare perf/po-android-reference.json tmp
 
 ### Wanneer een rig-meting telt
 
-- **Loadavg ≤ 8** (1 minuut, `scripts/rig-host.ts`). `perf:mobile` wacht vóór de run tot de host
+- **Absolute baseline: loadavg ≤8; gepaarde proef: loadavg ≤16** (1 minuut, `scripts/rig-host.ts`, orkestrator/PO 2026-10-08 12:38). Gepaard betekent A/B om en om, dezelfde po-android-cgroupquota, load per run vastgelegd; `--paired` kan geen `--baseline` schrijven. Absolute referentiewaarden voor deze documentatie blijven voor een rustig venster. `perf:mobile` wacht vóór de run tot de host
   zo rustig is (`--load-wait <minuten>`, standaard 20) en schrijft de loadavg bij de start van
   elke run in het rapport. Runs boven de drempel doen niet mee in de mediaan en staan als
   weggegooid in de samenvatting. Op 2026-10-07 draaiden drie tracks tegelijk rigs (loadavg
@@ -880,6 +883,91 @@ pnpm exec tsx scripts/po-reference.ts compare perf/po-android-reference.json tmp
   `MOTREGEN_E2E_DATA_PORT` gaan nog steeds voor.
 - De rig en `synthgen` draaien via `tsx`, dat een IPC-socket opent; binnen een sandbox zonder
   socketrechten faalt dat met `listen EPERM`.
+
+### perf-lock
+
+Neem locks altijd in dezelfde volgorde: eerst het e2e-slot, daarna de perf-lock.
+Ook losse screenshot-/profielharnesses gebruiken `scripts/e2e-slot.sh flock -w 7200 -o
+/home/mathijs/motregen-perf.lock <één opname>`. Met de omgekeerde volgorde kan een
+harness de perf-lock vasthouden terwijl beide slots op diezelfde lock wachten.
+Wacht op load buiten beide locks; na het verkrijgen van de perf-lock controleert
+de opname de load opnieuw en geeft hij de locks bij overschrijding direct vrij.
+
+Iedere perf-opname gebruikt `/home/mathijs/motregen-perf.lock`. Wachten op loadavg ≤8 (absolute baseline) of ≤16 (`--paired`, A/B om en om) gebeurt
+**buiten** de lock, ook tussen herhalingen. De lock omvat één opname en wordt direct daarna
+vrijgegeven. Builds, typecheck, unit-tests en wachten horen buiten dit meetvenster.
+
+Het hostbrede patroon voor een commando dat precies één opname maakt:
+
+```bash
+until node --input-type=module -e 'import { loadavg } from "node:os"; process.exit(loadavg()[0] <= 8 ? 0 : 1)'; do
+  sleep 30
+done
+web/scripts/e2e-slot.sh flock -w 7200 -o /home/mathijs/motregen-perf.lock "$@"
+```
+
+Na het verkrijgen van de lock wordt de load opnieuw gecontroleerd. Is hij inmiddels boven de gekozen grens,
+dan geeft de runner de lock onmiddellijk vrij en wacht hij opnieuw erbuiten. Exit 75 is
+uitsluitend die herhaalbare loadweigering vóór een opname; meetfouten houden hun echte exitstatus.
+`-o` voorkomt dat achtergebleven browser- of serverprocessen de lock erven.
+
+`pnpm perf:mobile` bouwt één keer en voert dit patroon zelf per profiel/scenario/herhaling uit;
+roep de CLI rechtstreeks aan. De U63-runner stelt alleen de eigen poorten in en doet eventuele
+codechecks vooraf. Iedere Playwright-aanroep selecteert precies één `run N` en gebruikt een
+e2e-slot. De drie rapporten worden daarna samen gecontroleerd met dezelfde 2%/5%/10%-grenzen.
+
+### U63: meetgrens en nieuw po-android-nulpunt (2026-10-08)
+
+**Hoofdbevinding 2026-10-08: warme cache koopt op po-android vrijwel geen starttijd.**
+In de afwisselende eigen-kaartcontrole (productbasis98ae6a6 vóór U62/U65, koud/warm elk×3,
+quota40%, startload≤16) is warm ttfr3825/ttfp1942ms tegenover koud3816/1819ms.
+Netwerkbody daalt van4971712 naar36513B; warm haalt alleen manifest?s=1 nog over de lijn.
+Dit zijn gepaarde proefcijfers, geen nieuwe absolute baseline voor deze documentatie.
+De CPU-diagnose laat in2204ms wall878ms renderer-CPU zien: vrijwel de volledige40%-quota.
+MapLibre-geometrie/buckets, shader/paintersetup, weersdecode en vroege temperatuurblur
+concurreren om dat budget. Profiler-tijden blijven afzonderlijke diagnostiek. Daarom komen
+kandidaten die werk verminderen of de volgorde verbeteren vóór caching: kale eerste stijl,
+minder werkelijk benodigde lagen/features, kaart-/weerworker-volgorde, uitgestelde shaders.
+Z4 blijft een zichtbare PO-smaakkeuze: eerste kaart~1,7s eerder, ttfp~0,3s later; proefbranch
+en gepaarde koud/warm-cijfers blijven behouden.
+
+
+De U63-lus rapporteert eerst **ttfr**, daarna **ttfp**. Lange frames ná ttfp zijn een bewaker:
+`.dev/tracks/u63-mobiel-ttfp-lus/summarize.mjs <rapportmap>` leest de oorspronkelijke LoAF-entries
+van drie rustige opnames en telt frames die vanaf ttfp starten en vóór 30 s eindigen, inclusief
+blocking, langste frame en aantallen boven 100/250 ms. Het verandert het rig-meetcontract niet.
+Alle trackopnames lopen via `.dev/tracks/u63-mobiel-ttfp-lus/run-perf.sh`: dezelfde loadavg-grens,
+eigen poorten en `flock -w 7200 /home/mathijs/motregen-perf.lock` voor hostbrede serialisatie.
+
+De eerste ongewijzigde nulmeting (`bb0792b`, po-android, koud-spelend ×3, loadavg 6,62–7,39)
+gaf mediaan ttfp 1728 ms, ttfr 1352 ms en ttfh 4632 ms. De bytegate was rood: in iedere run
+begon een feels_like_c-Range vlak vóór 30 s en eindigde erna. Playwright telde die als een
+onbekende body terwijl Resource Timing alleen voltooide responses had. Eén nog lopend request
+had bovendien tijdelijk `startTime=0`, wat de koppeling van herhaalde requests op dezelfde URL
+verschoof en fictieve bodyverschillen gaf. De voltooide byte-totalen waren gelijk in beide bronnen.
+
+U63 laat daarom requests uitlopen en meet hun volledige kosten op request-start binnen het
+venster. Dit verandert uitsluitend de byteboekhouding; mijlpalen, decodevenster en LoAF blijven
+op 30 s begrensd. De oude 2%-broncontrole, 5%-spreidingsgrens en 10%-regressiegrens blijven
+gelijk. Het gewijzigde meetcontract vereist nieuwe baselines; voor po-android/koud-spelend
+bestond nog geen baseline. Het nieuwe nulpunt is gemeten vóór productwijzigingen, met dezelfde
+fixture en renderer-quota: ×3, loadavg 6,00 / 7,94 / 5,88, alle bronnen sluitend, exit 0.
+
+| maat | run 1 | run 2 | run 3 | mediaan |
+| --- | ---: | ---: | ---: | ---: |
+| ttfp | 1730 | 1729 | 2031 | 1730 ms |
+| ttfr | 1334 | 1364 | 1606 | 1364 ms |
+| ttfh | 4278 | 4253 | 5131 | 4278 ms |
+| blank-visible-oppervlak | 168,1 | 157,1 | 193,8 | 168,1 slot-s |
+| blank-visible, volledig-leeg-equivalent | 2,63 | 2,46 | 3,04 | 2,63 s |
+| LoAF eerste 12 s | 3183 | 2993 | 3724 | 3183 ms |
+| decodes / bodybytes | 226 / 4824523 | 226 / 4824523 | 220 / 4809911 | 226 / 4824523 |
+
+Spreiding decodes 2,679%, bytes 0,303%; baseline `po-android-koud-spelend.json` houdt de
+bestaande 10%-regressiegrens. Nieuwe Buienradar-referentie op hetzelfde profiel: ttfp-ref
+3074 / 2640 / 2664 ms (mediaan 2664 ms), loadavg 7,40 / 6,61 / 7,87, exit 0. De verhouding
+van het herstelde nulpunt is 0,65×. De spreiding van ttfh binnen ongewijzigde runs (4253–5131 ms)
+begrenst kleine winstclaims; de rig blijft dichter bij de warme telefoon dan de koude.
 
 ### Vóór-meting main, 2026-10-07 (mobile-4g, CPU 4×, rig 621576e, loadavg 5,9–7,5)
 
@@ -1192,6 +1280,129 @@ manifestversheid `<15 min`, de MIP-3 CORS/cache/ETag/Range-headers en een echte
 `Range: bytes=0-7` → 206. Het script is alleen een handmatig/timerklaar target;
 deze track activeert geen systemd-timer.
 
+U63 kaartopzet parallel aan de regenheader (actuele main-controle versus kandidaat, po-android ×3):
+**ttfr 1409→1371 ms, ttfp 1781→1745 ms**. De basiskaart begint eerder met laden; de regenlaag
+wacht op header én de eerste `style.load`. Het tijdverschil is klein ten opzichte van de eerder
+geobserveerde spreiding en bewijst geen koude PO-telefoonwinst. Na ttfp: LoAF-totaal 2027→1483 ms,
+langste frame 185→175 ms, geen frame >250 ms. Decodes blijven 226, bodybytes 4825675→4825746.
+Typecheck, 483 tests, build, ×3 perf-compare en 15 gerichte desktoptests slagen. De offline
+fixturekaart blijft veel eenvoudiger dan de echte kaart; de volledige basiskaart vraagt nog
+aparte verificatie.
+
+U63 gedeelde vroege regenpipeline (na bovenstaande kaartopzet): **ttfr 1371→1220 ms,
+ttfp 1745→1562 ms** (po-android ×3). De aparte startup-entry vraagt het manifest, warmt hetzelfde
+workerpaar en laadt het eerste regenpaar; App gebruikt dezelfde client en caches. Het eerste
+regenbereik start in run 1 op 228 ms tegenover 622 ms. Decodes 226→224 (mediaan), bodybytes
+4825746→4818713. LoAF na ttfp: totaal 1483→1859 ms doordat het spelen eerder begint tijdens laden,
+langste 175→187 ms, geen >250 ms. Eén run laat nauwelijks tijdwinst zien; de koude PO-telefoon
+blijft de verificatie voor de representativiteit. Typecheck, 483 tests, build, ×3 perf-compare en
+19 gerichte desktoptests slagen.
+
+U63 aanvullende controle met de volledige eigen basiskaart (po-android/koud-spelend ×3,
+`--basemap own`, dezelfde regenpipeline): **ttfr 3596 ms, ttfp 1652 ms**; eerste
+regencommit 1316 ms. De huidige `ttfr` wacht op zowel die regencommit als een render waarbij
+`isStyleLoaded()` en `areTilesLoaded()` waar zijn. Hij meet dus ook het afronden van de
+basiskaart; `firstRainMs` alleen bewijst nog niet dat regen door de splash heen zichtbaar is.
+De eenvoudige 73-byte-fixture dekt die kaartkosten niet. De volledige kaart had na ttfp
+maximale LoAF's van 360/375/289 ms; de bewaker is daar nog niet gehaald. Vroege gedeelde
+stijl/font-assets leverden op dezelfde kaart ttfr 3737 ms en ttfp 1861 ms op en zijn verworpen.
+Dit verandert geen mijlpaaldefinitie of baseline en bewijst geen winst op de koude PO-telefoon.
+
+Aanvulling op de meetgrens: native Resource Timing begint bij het aanroepen van `fetch`,
+Playwright meet de latere netwerk-start. Een fetch op 29993 ms kan dus pas na 30000 ms
+het netwerk op gaan. Beide bytebronnen selecteren nu dezelfde request op Playwright-netwerkstart,
+met native records chronologisch per URL gekoppeld vóór de grensselectie. Ongekoppelde native
+records binnen het venster blijven een bronbevinding; onbekende of onvolledige bodies blijven rood.
+De 2%-broncontrole, exact gelijke requestcounts, 5%-spreiding en 10%-regressiegrens veranderen niet.
+Het PO-nulpunt wordt hiervoor opnieuw op de oorspronkelijke productcode vastgelegd; de acht overige
+baselines krijgen daarna een expliciete contractmigratie met vergelijking tegen hun oude kosten.
+De raw-opname bewaart hiervoor ook alle `observedRequests` (vóór vensterselectie) en
+`selectedResourceTiming`. Daarmee kan een reviewer de koppeling en beide bytebronnen opnieuw
+berekenen, ook wanneer native fetch-start en netwerk-start aan verschillende kanten van de grens liggen.
+De rig gebruikt `--load-wait` ook tussen herhalingen en weigert een opname wanneer die wachttijd
+verloopt. Alleen startloadavg **≤8** telt als rustig voor absolute baselines; een drukke opname mag geen baseline schrijven.
+Na integratie van U62/U65/U66 wordt het definitieve PO-fixture-nulpunt op main `ec3ca02`
+zonder U63-productcode gemeten. U62 zet Kaderhemel altijd aan en vraagt straling voor het
+scrubbervenster; U65 voegt de lazy plaatsenlijst ná ttfp toe. Deze gewijzigde startsituatie is de expliciete reden voor een nieuw nulpunt.
+De hierboven genoemde eigen-kaartreeks blijft gelabeld als vóór U62. Een apart main/U63-paar
+op de eigen kaart voorkomt dat main-wijzigingen als U63-winst worden gerapporteerd.
+De lock per opname start ook een nieuw Chromium-proces per herhaling. De historische reeks
+gebruikte één browserproces met drie koude contexten; procesgebonden caches kunnen daardoor
+verschillen. Het nieuwe main/U63-paar gebruikt aan beide kanten dezelfde nieuwe runner.
+
+## Desktopstart-waterval (U64)
+
+De koude regressierig blijft `perf:mobile --profile desktop`: die gebruikt
+het bestaande Pixel-profiel met 4 cores/4 GB. Aanvullende desktopcaptures
+gebruiken Desktop Chrome, DPR 1, 1280×800 en 8 cores/8 GB, met V8-traces
+voor parse/compile. SwiftShader en synthetische data maken dit geen
+MacBook-benchmark. De waterval en oorspronkelijke PO-profielen zijn
+uitgewerkt in [U64 stap 0](../.dev/tracks/u64-desktop-waterval-lus/STAP-0.md);
+[kandidaatresultaten](../.dev/tracks/u64-desktop-waterval-lus/RESULTATEN.md)
+rapporteren ttfr, ttfp en LoAF ná ttfp naast bytes en CPU-tijd.
+
+```sh
+cd web
+bash scripts/desktop-rig.sh ../tmp/desktop-koud --repeat=3
+bash scripts/desktop-rig.sh ../tmp/desktop-warm --repeat=3 --warm
+pnpm exec tsx scripts/start-waterfall.ts ../tmp/desktop-koud-cold-run*.json
+```
+
+De wrapper bouwt en wacht op load ≤8 vóór de lock; één browserrun neemt
+`flock -w 7200 /home/mathijs/motregen-perf.lock`. Elke herhaling krijgt een
+eigen browserproces en lockperiode. Bij drukte na lockverkrijging komt de
+lock meteen vrij; ook slotwachttijd blijft erbuiten. `perf:mobile` en
+`prof:capture` gebruiken dezelfde lock. Een handmatige buitenlock wordt
+herkend voor één run, zodat geneste wrappers niet vastlopen. Zet geen hele
+lus onder een buitenlock. Gewone e2e/builds nemen
+geen perf-lock. Bevroren builds kunnen met `MOTREGEN_RIG_PREBUILT=1` en
+`MOTREGEN_RIG_DIST=/pad/naar/build` worden hergebruikt; de gecombineerde
+lus staat in `scripts/desktop-loop.sh`. Nieuwe captures starten op `/weer`.
+
+Koud wist de HTTP-cache en blokkeert de SW. Warm vult HTTP- en SW-
+schijfcaches, sluit de seedbrowser en opent een nieuwe browser/context met
+hetzelfde tijdelijke profiel, zonder appgeheugen. De capture registreert
+cache-inventaris, SW-controller en HTML/SW-hash. Bij drukte blijven alleen
+de schijfcaches bewaard; de browser sluit en de loadwacht gebeurt buiten
+de lock. Het profiel vervalt na die ene run. Weer blijft NetworkOnly in de
+SW; de HTTP-cache kan de immutable Ranges leveren. Capturelogs
+onderscheiden interne SW-netwerkrequests. Een SW-response of nul Resource-
+Timing-bytes bewijst op zichzelf geen gecachte weerdata.
+
+Op de host met 32 kernen zijn expliciete gepaarde kandidaten toegestaan bij
+startload ≤16 (`--paired --pair=naam --role=A|B`), in de volgorde A B A B A B.
+Rapporteer koud en warm samen, met ttfr/ttfp en verschillen binnen paren.
+Paar-ID, rol, toegepaste loadgrens en load tijdens de opname staan in metadata;
+deze runs leveren geen absolute baseline. Absolute baselines blijven ≤8.
+Lighthouse gebruikt dezelfde lock/grens en bewaart de load in een sidecar.
+`scripts/start-upstream.ts CAPTURE.json` telt serverlogevents tot 12 s na
+navigatie: responsbodybytes, zonder headers/TCP-overhead. Resource Timing-
+bodybytes uit SW/cache bewijzen geen netwerktransfer.
+
+Productbuilds bevatten standaard beide native stijlen inline, een glyph-
+preload en vroege manifestfetch; `VITE_START_ASSETS=none` maakt een
+referentiebuild. Bij een expliciete `VITE_BASEMAP_STYLE_URL` blijven die
+stijl en fonts behouden. Manifestrefresh hergebruikt de startupfetch niet;
+still en Skywatch starten geen normale sessiebootstrap. U63 vervangt de kaartplaceholder-proef door de hieronder beschreven progressieve z4-startkaart; de oude inline-uitvoering blijft uitsluitend op de proefbranches.
+
+De absolute U64-gate op main `4038d55` gebruikt
+`web/perf/baselines/desktop-koud-spelend-own-u62-part2.json`. De nieuwe
+baseline heeft als reden Kaderhemel/U65, een verse browser per herhaling
+en de standaard kaartkleuring onder Expressief in U62 deel 2. De oudere
+baseline en de bestaande regressiegrens van 10% blijven ongewijzigd.
+Drie referentieruns bij startload7,93/7,90/7,24 hadden elk1.760.209
+bodybytes en298/297/297 decodes:0%bytespreiding en0,336%decodespreiding.
+De kandidaatcompare bij load7,50 is groen:1.757.816 bodybytes (−0,136%),
+297 decodes (0%) en geen netwerkbevindingen. Dit zijn de byte-/decode-
+budgetten van de regressierig; native Desktop Chrome-tijden en de
+gepaarde koud/warm-resultaten staan afzonderlijk in het U64-verslag.
+
+```sh
+MOTREGEN_E2E_PORT=4394 MOTREGEN_E2E_DATA_PORT=8394 pnpm perf:mobile \
+  --profile desktop --scenario koud-spelend --basemap own --compare \
+  --baseline-file perf/baselines/desktop-koud-spelend-own-u62-part2.json
+```
+
 Een aanvraagvolgorde kan ook op een drukke host worden gecontroleerd met
 `pnpm perf:mobile --profile desktop --scenario koud-spelend --basemap own --request-order`.
 Gebruik `--profile po-android` voor het gekalibreerde Android-profiel. Deze modus houdt native
@@ -1200,3 +1411,94 @@ geen performancebaseline (`--baseline`/`--compare` worden geweigerd). De rapport
 een capture onder load bewijst alleen volgorde. `pnpm exec tsx scripts/place-waterfall.ts
 tmp/perf-mobile/desktop-koud-spelend-run1.raw.json` controleert de catalogusstart ten opzichte van
 `milestone:ttfp`, manifest, stijl en eerste regen-Range, en schrijft een compacte JSON en SVG-waterval.
+
+### U63 koud en warm op dezelfde eigen kaart
+
+Sinds PO-bijsturing 2026-10-08 tellen koud en warm samen: ttfr voorop, ttfp daarna,
+met LoAF ná ttfp als bewaker. `warm-spelend` is het tweede appbezoek met gevulde
+HTTP-diskcache en SW-cache, in een nieuw Chromium-proces en nieuwe pagina. De
+cachevulling installeert eerst de gewone productie-SW op een lege bootstrap-pagina;
+het eerste appbezoek staat daardoor onder SW-controle en vult de bestaande cachepaden.
+Daarna sluit de hele browser. Geen pagina-, decode-worker-, MapLibre- of WebGL-staat
+wordt hergebruikt. Cache Storage-inventarissen staan in de raw/meta; een ontbrekende
+manifestcache is een bevinding, geen reden om hem kunstmatig vooraf te vullen.
+De seed speelt vanaf zijn ttfp minstens 35 s voor een opname van 30 s; zo blijven
+tail-ranges gevuld als het warme bezoek eerder speelt. HTTP-cachehits worden via
+CDP `requestServedFromCache`/`fromDiskCache` én een voltooide response aangetoond.
+SW-fetch en paginaantwoord worden apart gekoppeld aan native Resource Timing;
+de SW krijgt dezelfde netwerkrem als de pagina. Negatieve bodygroottes zijn ongeldig.
+De cachevulling gebruikt één e2e-slot buiten de perf-lock en levert geen perfgetal.
+Vervolgens wacht de runner buiten de lock op loadavg <8 en neemt één bezoek op.
+
+De eigen kaart gebruikt nu de productie-URL's `/basemap/licht.json` en
+`/data/basemap/nl-*.pmtiles`. De oude rig herschreef die naar de datapoort en
+`/basemap/nl-*.pmtiles`; dat omzeilt respectievelijk de SW-precache en rangecacheroute.
+Manifestheaders volgen productie: het eerste `?s=1`-verzoek krijgt `no-store` voor
+de sessietelling (MIP-13), de gedeelde URL `max-age=15, stale-while-revalidate=60`.
+Deze contractcorrecties vragen opnieuw gemeten main/U63-baselines, koud én warm.
+
+Meetrecept: `pnpm perf:mobile --profile po-android --scenario koud-spelend,warm-spelend
+--basemap own --repeat 3 --baseline`. De overeenkomstige Buienradar-referentie is
+`--scenario referentie-buienradar,referentie-buienradar-warm --repeat 3`; toestemming
+en diskcache komen uit het eerste bezoek, alle browserprocessen worden daarna gesloten.
+**Nieuwe koude/warme referenties op U62 deel 2 zijn voltooid**; zie het absolute v2-anker hieronder. De basis is vóór U64; ze claimen geen absolute starttijd voor de latere integratie. De warme lat blijft duidelijk lager dan koud én Buienradar warm op dezelfde rig; de gekalibreerde Buienradar-warmnavigatie faalt nog met ERR_HTTP2_PROTOCOL_ERROR, dus daarvan is geen timinggetal beschikbaar.
+
+De oude tabel van 2026-08-31 (4G 13,00/2,95 s, desktop 1,20/1,43 s) komt uit
+commit `b2d830b`. Daar volgt warm direct op koud plus HUD-controle, vóór scrubben
+en plaatswissel, in hetzelfde browserproces. De toenmalige ttfr is uitsluitend
+`markRainFrameCommitted()`, zonder de huidige kaartvoorwaarde; ttfp ontbreekt.
+De tabel bevat één run per profiel op een oudere ingest-/kaart-/decoderstand,
+geen po-android ×3 met hostloadgate. Het desktopverschil van 222 ms bewijst geen
+actuele SW-revalidatie- of shaderkosten. Die oorzaak moet uit het nieuwe identieke
+kaart-/data-/profielpaar en de netwerk-/hoofddraadwaterval volgen.
+
+### U63 progressieve z4-kaart (PO-besluit 2026-10-08)
+
+De eigen kaart krijgt eerst twee grove z4-tegels uit hetzelfde PMTiles-archief. Ze staan als losse gehashte assets buiten de HTML, starten naast stijl/manifest en worden in een worker met DecompressionStream gedecomprimeerd. MapLibre verwerkt de vectorbuckets in zijn worker. HTTP en SW cachen beide assets; `pnpm --dir web exec tsx ../tools/basemap/start-tiles.mts` regenereert ze byte-identiek bij dezelfde kaartbron.
+
+Dezelfde landcover-/water-/grenslagen geven licht en donker dezelfde kleuren, filters en opacity als de volledige kaart. Tijdgestuurde kaartkleuren worden ook op z4 toegepast. Zodra MapLibre de eerste echte tile-data meldt, verdwijnen de z4-lagen vóór de volgende render. Deze nul-ms wissel blijft binnen de PO-grens van300ms en vermijdt twee transparante landcoverlagen over elkaar.
+
+De eerdere inline-proef blijft als afzonderlijke historische reeks: po-android/eigen U60 op basis98ae6a6 vóór U62/U65, gepaard load≤16, koud én warm×3. Eerste kaartbeeld koud3767→2074ms en warm3746→2059ms; ttfr3816→4041 en3825→4351ms, ttfp1819→2141 en1942→2216ms. PO accepteert die productafweging; de losse uitvoering op actuele U62/U65-basis wordt opnieuw gepaard gemeten. Geen absolute≤8-baseline uit deze cijfers afleiden. Compact per-run bron: `.dev/tracks/u63-mobiel-ttfp-lus/metingen/placeholder-gepaard.json`.
+
+De losse uitvoering is op 2026-10-08 gepaard A/B om en om gemeten, po-android/quota40/GRID6, eigen U60, basis7a6b420 inclusief U62/U65, startload≤16 per run. Warm herstart de gehele browser met gevulde HTTP- en SW-diskcache. Medianen van drie opnames per variant/scenario:
+
+| Scenario / profiel / kaart | Variant | ttfr ms | ttfp ms | Eerste kaart ms | Netwerkbody bytes | Regen-decodes | LoAF na ttfp: max ms / aantal >250 ms |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| po-android koud, eigen U60 | Zonder z4 | 3963,5 | 1905,1 | 3963,3 | 5033334 | 220 | 364,9 / 2 |
+| po-android koud, eigen U60 | Losse z4 | 4288,8 | 2342,7 | 2308,1 | 5057646 | 220 | 288,9 / 3 |
+| po-android warm, eigen U60 | Zonder z4 | 4788,6 | 2098,1 | 4294,0 | 36513 | 220 | 340,2 / 3 |
+| po-android warm, eigen U60 | Losse z4 | 4534,2 | 2619,1 | 2556,2 | 36513 | 220 | 299,6 / 2 |
+
+Eerste kaartbeeld wint koud1655ms en warm1738ms; ttfp kost438/521ms. Het volledige-kaartvereiste van ttfr blijft gelijk: koud325ms later, warm254ms eerder. Deze uitvoering haalt de eerdere100ms-lat voor ttfp niet; PO accepteert de resterende straf. Warme ttfp/ttfr blijven boven koud, dus de warmelat is niet gehaald. LoAF na ttfp is geen opgelost probleem: er blijven frames van ongeveer300ms. De plaatsenlijst begint in alle twaalf opnames pas na ttfp; er zijn geen wirebevindingen. Beide z4-gzipdecodes gebeuren buiten de hoofddraad. Warm heeft nul kaartnetwerkbytes; de36513 bytes zijn het sessiemanifest. Dit zijn gepaarde cijfers en vervangen de absolute≤8-baselines niet.
+
+Compacte bron met load, cache, scenario, bundelURL en tijden per opname: `.dev/tracks/u63-mobiel-ttfp-lus/metingen/z4-los-gepaard.json`. Vier390px-toestandsbeelden licht/donker staan daarnaast als `z4-{light,dark}-{placeholder,echt}-390.png`; die netwerkgestuurde beeldcontrole is geen timingmeting.
+
+### U63 absolute referentie na U62 deel 2, vóór U64
+
+Op 2026-10-08 is main4038d55 (alleen actuele rigoverlay) tegenover U63cd0d63e gemeten op po-android/quota40/GRID6/eigen U60; iedere cache/variant driemaal met werkelijke startload≤8. Dit zijn afzonderlijke absolute reeksen, geen afwisselend A/B-paar. Reden voor de nieuwe baseline: U62 Kaderhemel/tinting, U65 lazy plaatsenlijst en het gecorrigeerde warme contract met HTTP+SW-diskcache en volledig nieuw browserproces. Beide varianten gebruiken dezelfde rig; een CPU-profiel of drukke opname is uitgesloten.
+
+| Cache / variant / basis | ttfr ms | ttfp ms | Eerste kaart ms | Body bytes | Regen-decodes | LoAF ná ttfp max ms / >250ms | Startloads |
+| --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| Koud / main4038d55 | 3823,0 | 2012,9 | niet apart gemarkeerd | 5047534 | 220 | 216,3 / 0 | 7,35 / 7,91 / 7,76 |
+| Warm / main4038d55 | 3417,2 | 2428,8 | niet apart gemarkeerd | 36513 | 220 | 190,9 / 0 | 7,85 / 7,60 / 6,01 |
+| Koud / z4 cd0d63e | 4569,6 | 2130,1 | 2105,4 | 5073254 | 220 | 365,4 / 2 | 6,31 / 7,54 / 6,87 |
+| Warm / z4 cd0d63e | 4585,1 | 2455,1 | 2386,1 | 36513 | 220 | 319,2 / 2 | 5,50 / 7,18 / 7,31 |
+
+In deze rustige mainreeks wint warm406ms ttfr, maar verliest416ms ttfp. Met z4 blijft warme ttfr vrijwel gelijk aan koud. De eerdere conclusie over de dominante CPU-/quotakosten blijft daarmee relevant, maar 'cache koopt niets' is geen universele exacte nul: de winst hangt af van de productbasis en fase. Warm heeft alleen36513 sessiemanifestbytes; nul kaartnetwerkbytes. Baselines: `web/perf/baselines/po-android-{koud,warm}-spelend-own-u62-part2.json`. Alle z4-budgetvergelijkingen tegen die referentie blijven onder10% (koud ongeveer+0,51% bytes, warm0%; decodes0%). De afzonderlijke oude U59-kaartfase-totaallat≤1000ms is op deze U60/quota-basis niet gehaald; een groene byte/decodevergelijking is geen groene kaarttijdlat.
+
+Compacte bron en eerste6s-watervallen per opname: `.dev/tracks/u63-mobiel-ttfp-lus/metingen/absolute-v2-koud-warm.json`. Nieuwe gepaarde U64/z4-opnames rapporteren hun eigen actuele basis afzonderlijk.
+
+### U63 z4 na U64 — actuele gepaarde PO-gate
+
+Product82fa4bd inclusief U64/U62deel2/U65/U67: z4 uit versus losse z4, dezelfde bevroren bron en eigen U60-kaart, po-android/quota40/GRID6. A1/B1/A2/B2/A3/B3 per koud/warm-scenario, werkelijke startload≤16 per opname. Warm gevuld HTTP+SW-diskprofiel, volledig nieuw browserproces zonder app-/worker-/WebGL-geheugen. Medianen×3, geen absolute baseline:
+
+| Cache / variant | ttfr ms | ttfp ms | Eerste kaart ms | Body bytes | Regen-decodes | LoAF ná ttfp max ms / >250ms | Startloads |
+| --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| Koud / zonder z4 | 3806.2 | 1922.9 | 3806 | 5025856 | 223 | 261.2 / 1 | 7.06 / 9.69 / 15.94 |
+| Koud / losse z4 | 4336.6 | 2262.4 | 2197.8 | 5043927 | 220 | 269.8 / 1 | 10.5 / 11.86 / 13.77 |
+| Warm / zonder z4 | 4261.9 | 2299.2 | 4261.8 | 36513 | 226 | 304.7 / 3 | 13.01 / 15.71 / 15.33 |
+| Warm / losse z4 | 4558.8 | 2416.2 | 2353.8 | 36513 | 226 | 284.6 / 2 | 11.93 / 12.2 / 15.2 |
+
+Eerste kaartbeeld koud1608ms en warm1908ms eerder; ttfp koud339ms en warm117ms later. ttfr behoudt de volledige-kaartvoorwaarde en is koud530ms en warm297ms later. De100ms-ttfp-lat is niet gehaald; de PO accepteert de reststraf. Warm is nog niet duidelijk onder koud. De LoAF-bewaker blijft open: medianen269,8/284,6ms na ttfp en1/2frames>250ms. Eerste-kaartwinst is in elk afzonderlijk paar aanwezig; ttfp varieert per paar (koud−192 tot+809ms, warm−499 tot+238ms), dus geen kleine kostenwinst ten opzichte van eerdere basissen claimen. Warm alleen36513 sessiemanifestbytes, nul kaartnetwerkbytes. Alle wirebevindingen0 en plaatsenlijst na ttfp.
+
+Klaar voor merge volgens de expliciete z4-PO-gate: typecheck,524unittests,productiebuild en15gerichte desktoptests waaronder basemap9 groen na de integratie. Vier390px-toestandsbeelden op dezelfde basis: `.dev/tracks/u63-mobiel-ttfp-lus/metingen/z4-u64-{light,dark}-{placeholder,echt}-390.png`; PMTiles opzettelijk tegengehouden, dus geen tijden aan de screenshots ontlenen. Compacte per-runbron, watervallen en afzonderlijke paarverschillen: `metingen/z4-u64-gepaard.json` in dezelfde trackmap. Kaart-eerst en temperatuur blijven proefbranches.

@@ -1,4 +1,4 @@
-import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show, untrack, type Accessor, type Setter } from 'solid-js'
+import { batch, createEffect, createMemo, createSignal, lazy, onCleanup, onMount, Show, untrack, type Accessor, type Setter } from 'solid-js'
 import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
 import { registerSW } from 'virtual:pwa-register'
 import About, { type ThemeChoice } from './components/About'
@@ -8,14 +8,16 @@ import LocationSearch from './components/LocationSearch'
 import Freshness from './components/Freshness'
 import ClockFace from './components/ClockFace'
 import { formatTime, formatWeekdayShort } from './core/locale'
-import PerfHud from './components/PerfHud'
 import type { IsolineCounters } from './core/perf'
-import ForecastTable from './components/ForecastTable'
 import UvBar, { uvBarLabel } from './components/UvBar'
-import DevPanel from './components/DevPanel'
 import { loadBasemapStyle, temperatureLayerBeforeId, type MapTheme } from './core/basemap'
+import { createMapStart, mapStartSource } from './core/map-start'
 import { chunkField, type Grid, type Manifest, type ManifestChunk, type MrfHeader, type TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
+
+const PerfHud = lazy(() => import('./components/PerfHud'))
+const ForecastTable = lazy(() => import('./components/ForecastTable'))
+const DevPanel = lazy(() => import('./components/DevPanel'))
 
 const DAY_NIGHT_ENABLED = false
 import { buildHourlyForecast, hourDarkness, isPassiveRow, PASSIVE_FORECAST_HOURS, skyRadiationRows, type HourSky } from './core/forecast'
@@ -32,14 +34,13 @@ import { cursorAfterTimelineRefresh, isNewerManifest, nextManifestRefreshDelay, 
 import { constrainView, containView, containZoom, MAP_CONTAIN_BOUNDS, type Viewport } from './core/map-constraint'
 import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS } from './core/map-frame'
 import { basemapBlendTargets, blendedPaintValue, nightShare, type BlendTarget } from './core/basemap-blend'
-import { browserDeviceHints, decodeBudget } from './core/decode-budget'
 import { MrfClient, type MotionField } from './core/mrf'
 import { selectPairMotion } from './core/motion-selection'
 import { findCataloguePlace, isInPlaceZone, loadPlaces, namedCataloguePlace, nearestPlace, places, rememberPlace, rememberSearchedPlace } from './core/places'
 import type { PlaceIdentity, PlaceMemory } from './core/place-memory'
 import { startFrameLoop } from './core/playback'
 import { clampPlaybackCursor, playbackReach } from './core/playback-gate'
-import { configurePerfMode, consumeColdProfile, installPerfMonitor, measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer } from './core/perf'
+import { measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer } from './core/perf'
 import type { ProfileRecording } from './core/profile-recorder'
 import { RainLayer } from './core/rain-layer'
 import { LayerOverlay } from './core/overlay-canvas'
@@ -58,7 +59,7 @@ import { DEFAULT_WIND_TUNING, loadWindTuning, MOBILE_WIND, storeWindTuning, WIND
 import { clearTuningStorage } from './core/dev-settings'
 import { watchIdle } from './core/activity'
 import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
-import { browserUsageEnvironment, createUsageTracker, installUsageBeacon, sessionManifestUrls } from './core/usage'
+import { browserUsageEnvironment, createUsageTracker, installUsageBeacon } from './core/usage'
 import { copyText } from './core/clipboard'
 import { resolveLocation, suggestLocations } from './core/geocoder'
 import { applyPresetUrl, cursorForPresetEpoch, modeForActiveFocus, modeForFocus, parsePresets, sharePlace, shareUrl } from './core/presets'
@@ -70,13 +71,7 @@ import { sameFields } from './core/stable'
 import { READY_WINDOW_MS, windowReady } from './core/window-ready'
 import { visibleSlotStates } from './core/screen-truth'
 import type { Intent } from './core/intent'
-
-const manifestUrl = new URL('/data/manifest.json', location.href)
-const manifestRequestUrl = sessionManifestUrls(manifestUrl)
-const profileMode = configurePerfMode(new URL(location.href), localStorage)
-const coldProfileRequested = consumeColdProfile(localStorage)
-const perf = installPerfMonitor()
-perf.setDetailedEnabled(profileMode)
+import { coldProfileRequested, decode, fetchManifest, initialClient, initialManifest, manifestUrl, perf, profileMode } from './startup'
 const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
 // Intent (MIP-20): velden die de kaart of de scrubber in een van de modi tekent; de straling hoort
 // erbij omdat ze de hemel achter de scrubber kleurt (U62). Na deze rust geldt de scrubber als stilstaand.
@@ -251,6 +246,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let shownSunRequest = 0
   let frameLoopDrives = false
   let mapRepaints = 0
+  let firstMapImage = false
+  let mapStart: ReturnType<typeof createMapStart>
   const basemapTiles = new Map<string, number>()
   const isolineCounters = (): IsolineCounters => ({
     ...temperatureIsolines.layer?.stats,
@@ -320,10 +317,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const windFrameCache = new Map<string, Promise<Float32Array>>()
   const media = matchMedia('(prefers-color-scheme: dark)')
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
-  const decode = decodeBudget(browserDeviceHints())
   // Krap apparaat (U49): puntreeksen alleen voor wat scrubber en tabel nu tonen, niet vooruit.
   const inViewOnly = decode.pointSeries === 'in-view'
-  const client = new MrfClient(manifestUrl, perf.loads, decode)
+  const client = initialClient ?? new MrfClient(manifestUrl, perf.loads, decode)
   const [manifest, setManifest] = createSignal<Manifest>()
   const [manifestRefresh, setManifestRefresh] = createSignal<RefreshState>()
   const timeline = createMemo(() => manifest() ? buildTimeline(manifest()!) : [])
@@ -424,12 +420,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // Portrait mobile keeps history mounted above Nu so switching views only changes scrolling,
   // never the table's contents; other layouts still load it on demand.
   const [historyRowsWanted, setHistoryRowsWanted] = createSignal(false)
-  let forecastPanel: HTMLElement | undefined
+  const [forecastTable, setForecastTable] = createSignal<HTMLTableElement>()
   const [tableInView, setTableInView] = createSignal(!inViewOnly)
-  onMount(() => {
+  createEffect(() => {
     // De rijen, niet het paneel: op een telefoon staat de kolomkop al in beeld terwijl de rijen
     // nog onder de vouw liggen.
-    const rows = forecastPanel?.querySelector('tbody')
+    const rows = forecastTable()?.tBodies[0]
     if (!inViewOnly || !rows) return
     const observer = new IntersectionObserver((entries) => setTableInView(entries.some((entry) => entry.isIntersecting)), { rootMargin: `0px 0px -${TABLE_PEEK_PX}px 0px` })
     observer.observe(rows)
@@ -779,16 +775,16 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
     tableViewMedia.addEventListener('change', tableViewChanged)
     onCleanup(() => tableViewMedia.removeEventListener('change', tableViewChanged))
+    mapStart = createMapStart()
     maplibregl.prewarm()
     void loadBasemapStyle(mapTheme()).catch(() => undefined)
     try {
-      const data = await fetchManifest()
+      const data = await (initialManifest ?? fetchManifest())
       perf.setManifestGenerated(data.generated)
       setManifestRefresh({ checkedAt: Date.now() })
       const frames = buildTimeline(data)
       if (!frames.length) throw new Error('De tijdlijn is leeg')
       const presets = parsePresets(initialUrl.search, Date.parse(data.now), initialUrl.pathname, initialUrl.hash)
-      setManifest(data)
       let nowIndex = 0
       for (let index = 0; index < frames.length; index++) if (frames[index]!.epoch <= Date.parse(data.now)) nowIndex = index
       const presetCursor = presets.epoch === undefined ? undefined : cursorForPresetEpoch(frames, presets.epoch)
@@ -799,6 +795,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         const firstIndex = Math.floor(presetCursor ?? nowIndex)
         for (const frame of frames.slice(firstIndex, firstIndex + 2)) void load(frame).catch(() => undefined)
       }
+      setManifest(data)
       void Promise.all(data.chunks.filter(eagerHeader).map((chunk) => client.getHeader(chunk))).catch(() => undefined)
       if (!stillMode) stopManifestRefresh = scheduleManifestRefresh(refreshManifest, {
         setTimeout: (callback, delay) => window.setTimeout(callback, delay),
@@ -813,7 +810,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setCursor(presetCursor ?? nowIndex)
       if (presetCursor !== undefined) setPlaying(false)
       if (presets.mode) applyPresetMode(presets.mode)
-      const header = await client.getHeader(frames[0]!.chunk)
+      const firstHeader = client.getHeader(frames[0]!.chunk)
       const initialTheme = mapTheme()
       const style = await loadBasemapStyle(initialTheme)
       appliedMapTheme = initialTheme
@@ -822,7 +819,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         : initialMapView ?? containView(MAP_CONTAIN_BOUNDS, mapViewport()), MAP_CONTAIN_BOUNDS, mapViewport())
       map = new maplibregl.Map({
         container: mapElement,
-        style,
+        style: mapStart?.style(style) ?? style,
         center: [initialView.lng, initialView.lat],
         zoom: initialView.zoom,
         transformConstrain: constrainMapView,
@@ -839,9 +836,15 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       applyMapContainLimit()
       map.on('resize', applyMapContainLimit)
       syncSavedMarkers(savedPlaces())
-      map.on('style.load', () => attachMapLayers(header.grid))
+      const firstStyleReady = new Promise<void>((resolve) => map!.once('style.load', () => resolve()))
       map.on('render', () => {
         mapRepaints++
+        const source = map?.getSource(mapStartSource) ? mapStartSource : 'basemap'
+        if (!firstMapImage && map?.getSource(source) && map.isSourceLoaded(source)) {
+          firstMapImage = true
+          if (perfPhasesEnabled()) perf.recordPhase({ phase: 'milestone:first-map-image', startTime: 0, duration: performance.now(), detail: { source } })
+          mapElement.dataset.firstMapImage = source
+        }
         if (map?.isStyleLoaded() && map.areTilesLoaded()) perf.markBasemapReady()
       })
       map.on('sourcedataloading', (event) => {
@@ -850,6 +853,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (key) basemapTiles.set(key, performance.now())
       })
       map.on('sourcedata', (event) => {
+        if (event.sourceId === 'basemap' && event.tile && map?.getSource(mapStartSource)) {
+          mapStart?.replace(map)
+          mapElement.dataset.mapStart = 'ready'
+        }
         const key = basemapTileKey(event)
         if (!key) return
         const started = basemapTiles.get(key)
@@ -867,6 +874,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         usage.mark('pin')
         pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name)
       })
+      // Tegels en WebGL kunnen opwarmen terwijl de header voor de regenlaag nog onderweg is.
+      const header = await firstHeader
+      await firstStyleReady
+      map.on('style.load', () => attachMapLayers(header.grid))
+      attachMapLayers(header.grid)
       if (mapTheme() !== appliedMapTheme) void applyMapTheme(mapTheme())
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error))
@@ -887,14 +899,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     rainOverlay?.remove()
     windOverlay?.remove()
     for (const set of isolineSets) set.overlay?.remove()
+    mapStart?.dispose()
     map?.remove()
   })
-
-  async function fetchManifest(cache: RequestCache = 'default'): Promise<Manifest> {
-    const response = await fetch(stillMode ? manifestUrl : manifestRequestUrl(), { cache })
-    if (!response.ok) throw new Error(`Manifest laden mislukt (${response.status})`)
-    return response.json() as Promise<Manifest>
-  }
 
   async function refreshManifest(): Promise<void> {
     const current = manifest()
@@ -2888,13 +2895,15 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (!map || !basemapBlend) return
     if (fresh) basemapBlendOnMap.clear()
     for (const target of [...basemapBlend, ...GRID_OUTSIDE_BLEND]) {
-      if (!map.getLayer(target.layer)) continue
       const value = blendedPaintValue(target, night)
-      const key = `${target.layer}|${target.property}`
       const serialized = JSON.stringify(value)
-      if (basemapBlendOnMap.get(key) === serialized) continue
-      basemapBlendOnMap.set(key, serialized)
-      map.setPaintProperty(target.layer, target.property, value)
+      for (const layer of [target.layer, `${mapStartSource}-${target.layer}`]) {
+        if (!map.getLayer(layer)) continue
+        const key = `${layer}|${target.property}`
+        if (basemapBlendOnMap.get(key) === serialized) continue
+        basemapBlendOnMap.set(key, serialized)
+        map.setPaintProperty(layer, target.property, value)
+      }
     }
     const windTheme: MapTheme = night < 0.5 ? 'light' : 'dark'
     if (fresh || windTheme !== basemapBlendWindTheme) {
@@ -3101,10 +3110,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (!tableViewAvailable() || tableScrollOpen()) return
     queueTablePreview(epoch, tablePreviewPositioned && !reducedMotion.matches)
   })
-  onMount(() => {
+  createEffect(() => {
+    const table = forecastTable()
+    if (!table) return
     const scroller = forecastPanelElement.querySelector<HTMLElement>('.table-scroll')
-    const table = forecastPanelElement.querySelector<HTMLElement>('.forecast-table')
-    if (!scroller || !table || typeof ResizeObserver === 'undefined') return
+    if (!scroller || typeof ResizeObserver === 'undefined') return
     const reposition = (animate: boolean) => {
       if (!tableViewAvailable() || tableScrollOpen()) return
       queueTablePreview(untrack(tablePreviewEpoch), animate)
@@ -3246,13 +3256,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           temperature={{ timeline: feelsLikeTimeline(), values: feelsLikeSeries(), airTimeline: tempTimeline(), air: temperatureSeries(), stops: temperatureRange() && paletteStops(temperatureRange()!) }}
         />
         <section
-          ref={(element) => { forecastPanelElement = element; forecastPanel = element }}
+          ref={forecastPanelElement}
           id="forecast-table-view"
           class="forecast-panel"
           onClick={openTableFromPeek}
         >
           <div class="table-scroll">
             <ForecastTable
+              onMountTable={setForecastTable}
               rows={forecast()}
               series={{
                 rain: rainSeries(), uv: uvSeries(), uvClear: uvClearSeries(), radiation: radiationSeries(), temperature: temperatureSeries(),

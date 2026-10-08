@@ -33,6 +33,25 @@ for (const width of [1280, 390]) {
 }
 
 if (process.env.MOTREGEN_MOBILE_BASEMAP === 'own') {
+  for (const theme of ['light', 'dark'] as const) {
+    test(`z4 wordt vervangen zonder dubbele tint ${theme}`, async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 844 })
+      await page.addInitScript((theme) => localStorage.setItem('motregen-theme', theme), theme)
+      await useOwnBasemap(page, theme)
+      let release!: () => void
+      const firstTile = new Promise<void>((resolve) => { release = resolve })
+      await page.route('**/*.pmtiles', async (route) => { await firstTile; await route.continue() })
+      try {
+        await page.goto('/weer/de-bilt?perf=1#t=%2B0u')
+        await expect(page.locator('.map')).toHaveAttribute('data-first-map-image', 'motregen-map-start')
+        await expect.poll(() => page.evaluate(() => window.__motregenPerf.snapshot().basemapReadyMs)).toBeNull()
+      } finally {
+        release()
+      }
+      await expect(page.locator('.map')).toHaveAttribute('data-map-start', 'ready')
+      await expect.poll(() => page.evaluate(() => window.__motregenPerf.snapshot().basemapReadyMs)).not.toBeNull()
+    })
+  }
   for (const width of [390, 1280, 3840]) {
     test(`maximale kaartzoom ${width}px`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: width === 390 ? 844 : 800 })

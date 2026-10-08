@@ -2,11 +2,19 @@ import { createHash } from 'node:crypto'
 import { createServer } from 'node:net'
 import { loadavg } from 'node:os'
 
-/**
- * Boven deze 1-minuut-loadavg is een rig-meting ruis: de dev-host draait dan meerdere rigs of
- * builds tegelijk en tijden schuiven tientallen procenten (gezien 2026-10-07 bij loadavg 18).
- */
 export const MAX_LOAD_AVERAGE = 8
+export const PAIRED_MAX_LOAD_AVERAGE = 16
+export const MAX_PAIRED_LOAD_AVERAGE = PAIRED_MAX_LOAD_AVERAGE
+
+export function startLoadLimit(): number {
+  return process.env.MOTREGEN_RIG_PAIRED === '1' || process.env.MOTREGEN_PERF_PAIRED_RUN === '1' ? PAIRED_MAX_LOAD_AVERAGE : MAX_LOAD_AVERAGE
+}
+
+export const runLoadLimit = startLoadLimit
+
+export function permittedStartLoad(loadAverage: number): boolean {
+  return loadAverage <= startLoadLimit()
+}
 
 /**
  * Fixture en client van de laadrig, per poortpaar in een eigen map: zo raakt een rig-run de
@@ -16,7 +24,8 @@ export const MAX_LOAD_AVERAGE = 8
 export function rigBuild(port: number, dataPort: number, basemap: string) {
   const fixtureDir = `tmp/perf-mobile/fixture-${dataPort}`
   const distDir = `tmp/perf-mobile/dist-${port}`
-  const styleOverride = `VITE_BASEMAP_STYLE_URL=http://127.0.0.1:${dataPort}/${basemap === 'fixture' ? 'style' : 'style-{theme}'}.json`
+  // De eigen kaart gebruikt productie-URL's, zodat de SW-precache en rangecache ook echt gelden.
+  const styleOverride = basemap === 'own' ? '' : `VITE_BASEMAP_STYLE_URL=http://127.0.0.1:${dataPort}/${basemap === 'fixture' ? 'style' : 'style-{theme}'}.json`
   return {
     fixtureDir,
     distDir,
@@ -32,10 +41,10 @@ export function hostLoadAverage(): number {
 /** Wacht tot de host rustig genoeg is; false als dat binnen de wachttijd niet lukt. */
 export async function waitForQuietHost(maxWaitMs: number, log: (message: string) => void): Promise<boolean> {
   const deadline = Date.now() + maxWaitMs
-  while (hostLoadAverage() > MAX_LOAD_AVERAGE) {
+  while (!permittedStartLoad(hostLoadAverage())) {
     if (Date.now() >= deadline) return false
-    log(`loadavg ${hostLoadAverage()} > ${MAX_LOAD_AVERAGE}: wachten met meten`)
-    await new Promise((resolve) => setTimeout(resolve, 20_000))
+    log(`loadavg ${hostLoadAverage()} > ${startLoadLimit()}: wachten met meten`)
+    await new Promise((resolve) => setTimeout(resolve, 5_000))
   }
   return true
 }

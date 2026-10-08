@@ -127,6 +127,18 @@ test('mobile previews the heading and current row, then scrolls smoothly between
   await expect(page.locator('.map-shell')).toHaveAttribute('data-rendering', 'true')
 })
 
+test('a constrained device loads the visible lazy table after it mounts', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 4 })
+    Object.defineProperty(navigator, 'deviceMemory', { get: () => 4 })
+  })
+  await page.goto('/weer')
+  const current = page.locator('tr.current-hour')
+  await expect(current.locator('.air-temperature')).toHaveText(/^\d+°$/, { timeout: 20_000 })
+  await expect(current.locator('.wind-gust')).toHaveText(/^\d+ Bft$/)
+  await expect(current.locator('.weather-icon')).toBeVisible()
+})
+
 test('wind column shows the gust and follows the unit setting across reloads', async ({ page }) => {
   await page.goto('/')
   const reading = page.locator('tr.current-hour .wind-reading')

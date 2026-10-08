@@ -8,7 +8,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 import solid from 'vite-plugin-solid'
 import { configDefaults } from 'vitest/config'
 import { basemapRangeCache } from './scripts/basemap-range-cache'
+import { manifestStartCache } from './scripts/manifest-start-cache'
 import { pageRoutes } from './scripts/page-routes'
+import { startAssets } from './scripts/start-assets-plugin'
+import { startWebgl } from './scripts/start-webgl-plugin'
 
 // dev/preview draait op de dev-host (ageq-mthq, sinds 2026-10-07 ageq-dev2) en wordt via het tailnet bekeken (MIP-1 §5)
 const allowedHosts = ['ageq-mthq', 'ageq-dev2']
@@ -21,6 +24,22 @@ const profileProxy = { '/prof': { target: process.env.MOTREGEN_PROF_ORIGIN ?? 'h
 const proxy = { ...process.env.MOTREGEN_SYNTH ? {} : dataProxy(dataOrigin ?? 'http://localhost:8080'), ...profileProxy }
 const previewProxy = { ...dataOrigin ? dataProxy(dataOrigin) : {}, ...profileProxy }
 const profilingHeaders = { 'Document-Policy': 'js-profiling' }
+
+function earlyManifestEntry(): Plugin {
+  return {
+    name: 'motregen-early-manifest',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, context) {
+        const entry = Object.values(context.bundle ?? {}).find((output) => output.type === 'chunk' && output.isEntry && output.name === 'startup')
+        if (!entry) throw new Error('Vroege manifest-entry ontbreekt in de build')
+        // Vite voegt HTML-modules samen; een eigen Rollup-entry moet ook vóór de app worden uitgevoerd.
+        return { html, tags: [{ tag: 'script', attrs: { type: 'module', crossorigin: true, src: `/${entry.fileName}` }, injectTo: 'head-prepend' }] }
+      },
+    },
+  }
+}
 
 // De PMTiles-basiskaart staat in prod onder /data/basemap/ (Caddy, Nix-package). dev/preview proxyen
 // /data naar een origin die het archief nog niet hoeft te hebben; serveer het daarom lokaal uit
@@ -83,7 +102,7 @@ function usageBeaconEndpoint(): Plugin {
 
 export default defineConfig({
   appType: 'spa',
-  plugins: [solid(), tailwindcss(), usageBeaconEndpoint(), localBasemapArchive(), pageRoutes(), VitePWA({
+  plugins: [earlyManifestEntry(), solid(), tailwindcss(), usageBeaconEndpoint(), localBasemapArchive(), pageRoutes(), startAssets(process.env.VITE_START_ASSETS ?? 'inline'), startWebgl(process.env.VITE_WEBGL_PREWARM), VitePWA({
     injectRegister: false,
     registerType: 'prompt',
     includeAssets: ['droplet.svg'],
@@ -100,11 +119,20 @@ export default defineConfig({
       background_color: '#eaf1f3',
     },
     workbox: {
-      globPatterns: ['**/*.{js,css,html,ico,png,svg}', 'basemap/**/*.{json,pbf}'],
+      globPatterns: ['**/*.{js,css,html,ico,png,svg}', 'basemap/**/*.{json,pbf}', 'assets/*.pbf-*.gz'],
       globIgnores: ['**/data/**', '**/perf-mobile/**', 'route.html'],
       navigateFallback: '/index.html',
       navigateFallbackDenylist: [/^\/(?:data|telegram)(?:\/|$)/, /^\/(?:hit|sw\.js|sitemap\.xml|robots\.txt)$/],
       runtimeCaching: [
+        ...process.env.VITE_WARM_CACHE === 'manifest' ? [{
+          urlPattern: ({ url }: { url: URL }) => url.pathname === '/data/manifest.json' && url.search === '?s=1',
+          handler: 'StaleWhileRevalidate' as const,
+          options: {
+            cacheName: 'motregen-start-manifest-v1',
+            plugins: [manifestStartCache],
+            expiration: { maxEntries: 1, maxAgeSeconds: 15 },
+          },
+        }] : [],
         {
           urlPattern: ({ url }) => /^\/plaatsen-[0-9a-f]{16}\.json$/.test(url.pathname),
           handler: 'CacheFirst',
@@ -124,7 +152,11 @@ export default defineConfig({
       ],
     },
   })],
-  build: { sourcemap: true },
+  build: {
+    assetsInlineLimit: (filePath) => filePath.endsWith('.pbf.gz') ? false : undefined,
+    sourcemap: true,
+    rollupOptions: { input: { index: resolve(__dirname, 'index.html'), startup: resolve(__dirname, 'src/startup.ts') } },
+  },
   server: { allowedHosts, proxy, headers: profilingHeaders },
   preview: { allowedHosts, proxy: previewProxy, headers: profilingHeaders },
   test: { environment: 'node', exclude: [...configDefaults.exclude, 'e2e/**'] },

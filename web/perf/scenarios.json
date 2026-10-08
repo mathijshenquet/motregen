@@ -81,5 +81,20 @@
       { "atMs": 11000, "action": "mode", "mode": "Wind" },
       { "atMs": 13000, "action": "mode", "mode": "Weer" }
     ]
+  },
+  "warm-spelend": {
+    "durationMs": 30000,
+    "description": "Tweede bezoek met disk-HTTP-cache en SW-cache; volledig nieuw Chromium-proces, zonder pagina/worker/WebGL-staat",
+    "autoplay": true,
+    "steps": [],
+    "cache": "warm"
+  },
+  "warm-spelend-dev": {
+    "durationMs": 30000,
+    "description": "Tweede bezoek met disk-HTTP-cache en SW-cache; volledig nieuw Chromium-proces, zonder pagina/worker/WebGL-staat",
+    "autoplay": true,
+    "steps": [],
+    "cache": "warm",
+    "devStorage": {}
   }
 }
