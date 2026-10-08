@@ -31,3 +31,9 @@ PO 2026-10-08 (laptop, na het ?dev-experiment van U62): **de kaart gaat mee onde
 dag/nacht-tween is de default zolang Expressief aan staat; Expressief uit houdt het vaste thema (licht/
 donker, systeemvoorkeur). Daarbij tinten ook de klokpil, de zoekbalk en het druppelmenu mee met het
 cursoruur. Eén nuance open: een subtiele scheiding tussen kaart en zijpaneel (voorstel U62, twee varianten).
+
+## Aanvulling (PO 2026-10-08 22:10): regen-blending in Wind en Lucht
+PO: "beide veel beter". Wind: regen niet meer via alfa 0,5 (bleekte uit, "solarized") maar op 0,9
+vermenigvuldigd met de kaart ('s nachts terugval op gedempt: 0,8 dekking, 70 % verzadiging). Lucht:
+overdag regen vermenigvuldigd met de witte sluier; 's nachts grijsblauwe sluier 0,30, regen 0,70 gedempt.
+Gemeten kostenvrij tegenover alfa in de rig (p95 gelijk). Vastgezet door U62; knoppen weg.
