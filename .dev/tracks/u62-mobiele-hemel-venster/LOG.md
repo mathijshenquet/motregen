@@ -437,3 +437,47 @@ rustige host, dus mét de lock; het breekt nu direct af als de load ≥ 8 is.
   rand 1px / 0px / 0px / 0px en per stand een andere box-shadow. `dev-panel.spec` controleert border en
   schaduw per stand → 0 (2 groen). typecheck 0, build 0; unit niet opnieuw gedraaid (alleen CSS, de knop
   en de spec gewijzigd).
+
+## Rand-schakelaar gecorrigeerd en gepusht (0abc5e7)
+
+## Eén lijnensysteem voor dag en nacht (PO: "rijdividers 's nachts harder dan overdag; maak alles consistent")
+### Meting vooraf (`rig/line-contrast.mjs`, WCAG-ratio lijn tegen vlak, berekend uit de CSS-waarden)
+| ondergrond | --line | --line-strong | rijlijn zoals getekend |
+| dag, wit vlak (#d5e1e5 / #b7cbd2 op #fff) | 1,33 | 1,68 | 1,19 |
+| dag, hemelrij helder | 1,00 | 1,27 | 1,12 |
+| dag, hemelrij bewolkt | 1,07 | 1,18 | 1,20 |
+| nacht, nachtrij (#25404b / #3b5a66 op #0a1820) | 1,64 | 2,44 | 2,66 |
+| donker thema, vlak | 1,57 | 2,33 | 4,71 |
+Gemeten uit de pixels van de oude build (`rig/lines.ts`, 4321): rijlijn dag 1,10–1,14, nacht 4,96.
+De rijlijn was een menging met wit (`color-mix(#fff 38 %/16 %, var(--line))`): overdag bijna de kleur van
+het vlak, 's nachts een lichte streep.
+### Keuze
+Lijn = de tekstkleur met een beetje dekking. Eén α geeft GEEN gelijk contrast (α 0,14 → 1,30–1,32 overdag,
+1,48 's nachts): dezelfde dekking oogt op donker harder. Daarom per ondergrond een eigen dekking, gekozen
+op gelijk contrast: lijn ~1,3, sterke lijn ~1,6.
+- `--line-on-light: rgba(16,38,48,.14)` · `--line-strong-on-light: rgba(16,38,48,.24)`
+- `--line-on-dark: rgba(237,248,252,.10)` · `--line-strong-on-dark: rgba(237,248,252,.16)`
+- `--line` / `--line-strong` verwijzen daarnaar, overal waar `--text` wisselt (licht/donker thema, nachtrijen,
+  dagrijen in donker thema, koppenrij, klokpil/zoekbalk/druppel). Geen losse lijnkleuren meer in die regels.
+### Toegepast op
+- rijlijnen: de twee wit-mengregels zijn weg; `td { border-bottom: 1px solid var(--line) }` geldt overal;
+- lijn onder de koppenrij (`th` inset shadow) en grafiekrand (`.chart-plot::after`): gebruikten al
+  `--line-strong`, gaan dus vanzelf mee; de bovenrand van het plot op de hemel is nu `var(--line)`;
+- zon-op/onder-rij: de eigen randen zijn WEG (`border-block: 0`). Een rand op die cel werd over het witte
+  tabelvlak getekend in plaats van over de kleurstrook en gaf daardoor altijd een harde lichte streep
+  (pixels: 255,239,225 oud; ook met het nieuwe token nog 252,254,255). De kleurstrook is zelf de scheiding;
+- kaart/paneel-rand stand A: `--edge-line-color` = `var(--line-on-light)` / `var(--line-on-dark)`;
+- klokstrip (bronstrook in het versheidspaneel): de scheiding daar is een uitsparing in de vlakkleur
+  (`box-shadow: -1px 0 0 var(--surface)`), geen lijn; niet aangepast.
+- Bereik: `--line`/`--line-strong` worden op 51 plekken gebruikt (randen, hulplijnen, schuifbalk); die
+  krijgen allemaal de nieuwe waarden. Bekeken heb ik de tabel, de koppenrij, de scrubber en de kaartpillen;
+  dialogen (Over, dataversheid) en het dev-paneel niet apart.
+### Meting achteraf (pixels uit de nieuwe build, 390 px en 1280 px, licht en donker app-thema)
+rijlijn dag 1,30–1,32 · rijlijn nacht 1,31 · lijn onder de koppenrij 1,59 (was 1,28).
+De zon-rij is met deze methode niet te meten (twee verschillende vlakken raken elkaar); pixelcontrole: de
+kleurstrook gaat nu zonder tussenlijn over in de nachtrij (214,64,101 → 54,29,53).
+- Beelden (zelf bekeken): `lijnen/oud-*.png` en `lijnen/nieuw-*.png` — dezelfde rijen rond zonsondergang
+  (dagrijen boven, nachtrijen onder), 390 px en 1280 px, licht en donker.
+- Gate (web/): typecheck 0 · unit 0 (75 bestanden, 506 tests, vitest met `--exclude 'tmp/**'`) · build 0 ·
+  desktop `table dev-panel cloud-section freshness` 0 (12 groen, 2 overgeslagen) · mobile-4g `table` 0.
+- De rand-schakelaar staat er nog (wacht op de PO-keuze).
