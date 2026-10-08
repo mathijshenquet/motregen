@@ -227,6 +227,10 @@
   swap → MemoryMax 2,6 GB (runtime + nix, 18937b4c). U63: warm op po-android ≈ koud (ttfr 3,8 s, ttfp
   1,9 s) → CPU-gebonden, lus herricht op werk-vermindering; z4-placeholder: eerste kaart 1,7 s eerder
   maar ttfp +0,3 s → PO-smaakkeuze, proef bewaard, screenshot naar PO. U62: splash-proef weg (10698d7).
+- **Loops 40 min achter op prod → bot terug naar ageq-dev2** (16:25, PO "ja doe dat maar"): `motregen-bot`
+  op de VM gestopt + runtime-mask; lokale bot vanaf main (nice 15) tegen 4330 pollt weer (bot-started,
+  generatie 13:17Z). U67 gestart (gpt-6.1-sol, w1Z): renderer los van de poller, MIP-25 optie 1. Later:
+  renderwerk goedkoper maken zodat de VM het zelf kan (PO: optimalisatiepass).
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
