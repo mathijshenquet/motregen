@@ -254,6 +254,11 @@
   zes paren positief; shader-, GPU-worker- en manifest-SWR-proeven afgewezen; LH 63→62 (TBT/SI blijven).
   Gate 511 unit, 32+9 e2e, build; 4330 herbouwd. U63 merged main; meldt "klaar voor merge" met z4 + cijfers.
   U63-proef kaart-eerst: ttfr −1,2 s maar ttfp +1,6 s → CPU-gebonden, werk verschuift; niet op hoofdlijn.
+- **U63 gemerged** (abb23823, 21:30; 11 u lus, gpt-6.1-sol): z4-placeholder als progressieve eerste trap
+  met gelijke tinting — po-android eerste kaartbeeld 3,8→2,2 s koud / 4,3→2,4 s warm, maar ttfr +0,5/+0,3 s
+  en ttfp +0,3/+0,1 s (PO-keuze "gewoon proberen"; ttfr-prijs expliciet aan PO gemeld). Bewezen: warm ≈ koud
+  op de telefoon (CPU-gebonden); kaart-eerst-volgorde verschuift alleen werk (ttfr −1,2 s, ttfp +1,6 s) →
+  proefbranch. Gate 524 unit, 32+15 e2e, build; 4330 herbouwd. Nu alleen U62 nog open (blending + rand).
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
