@@ -63,3 +63,5 @@ De knop "Eerste regen" schrijft `dev-eerste-regen`; de rig zet dezelfde sleutel 
 Tuning/debug: `wind-tuning-v4` (v3 wordt bij het laden gemigreerd), `perf` en de eenmalige
 `perf-cold`. Oude sleutels (`wind-tuning`, `-v2`, `-v3`, `splash-slowdown`, `scrubber-view`, `clock-jog`) wist
 "Reset alle instellingen".
+
+Tijdelijke U63-meetbuild: `VITE_MAP_START=off` schakelt uitsluitend met `?dev` de progressieve z4-startkaart uit voor de gepaarde controle. Gewone bezoeken houden de startkaart aan. Eigenaar U63; vervalt2026-10-09; geen paneelknop of opslagsleutel.

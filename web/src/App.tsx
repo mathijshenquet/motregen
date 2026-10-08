@@ -837,7 +837,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (key) basemapTiles.set(key, performance.now())
       })
       map.on('sourcedata', (event) => {
-        if (event.sourceId === 'basemap' && event.tile && event.sourceDataType === 'content' && map?.getSource(mapStartSource)) {
+        if (event.sourceId === 'basemap' && event.tile && map?.getSource(mapStartSource)) {
           mapStart?.replace(map)
           mapElement.dataset.mapStart = 'ready'
         }
@@ -2849,7 +2849,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function applyBasemapBlend(night: number): void {
     if (!map || !basemapBlend) return
     for (const target of basemapBlend) {
-      if (map.getLayer(target.layer)) map.setPaintProperty(target.layer, target.property, blendedPaintValue(target, night))
+      const value = blendedPaintValue(target, night)
+      if (map.getLayer(target.layer)) map.setPaintProperty(target.layer, target.property, value)
+      const startLayer = `${mapStartSource}-${target.layer}`
+      if (map.getLayer(startLayer)) map.setPaintProperty(startLayer, target.property, value)
     }
     if (map.getLayer('motregen-grid-outside')) {
       const outside: BlendTarget[] = [

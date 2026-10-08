@@ -1373,3 +1373,11 @@ De tabel bevat één run per profiel op een oudere ingest-/kaart-/decoderstand,
 geen po-android ×3 met hostloadgate. Het desktopverschil van 222 ms bewijst geen
 actuele SW-revalidatie- of shaderkosten. Die oorzaak moet uit het nieuwe identieke
 kaart-/data-/profielpaar en de netwerk-/hoofddraadwaterval volgen.
+
+### U63 progressieve z4-kaart (PO-besluit 2026-10-08)
+
+De eigen kaart krijgt eerst twee grove z4-tegels uit hetzelfde PMTiles-archief. Ze staan als losse gehashte assets buiten de HTML, starten naast stijl/manifest en worden in een worker met DecompressionStream gedecomprimeerd. MapLibre verwerkt de vectorbuckets in zijn worker. HTTP en SW cachen beide assets; `pnpm --dir web exec tsx ../tools/basemap/start-tiles.mts` regenereert ze byte-identiek bij dezelfde kaartbron.
+
+Dezelfde landcover-/water-/grenslagen geven licht en donker dezelfde kleuren, filters en opacity als de volledige kaart. Tijdgestuurde kaartkleuren worden ook op z4 toegepast. Zodra MapLibre de eerste echte tile-data meldt, verdwijnen de z4-lagen vóór de volgende render. Deze nul-ms wissel blijft binnen de PO-grens van300ms en vermijdt twee transparante landcoverlagen over elkaar.
+
+De eerdere inline-proef blijft als afzonderlijke historische reeks: po-android/eigen U60 op basis98ae6a6 vóór U62/U65, gepaard load≤16, koud én warm×3. Eerste kaartbeeld koud3767→2074ms en warm3746→2059ms; ttfr3816→4041 en3825→4351ms, ttfp1819→2141 en1942→2216ms. PO accepteert die productafweging; de losse uitvoering op actuele U62/U65-basis wordt opnieuw gepaard gemeten. Geen absolute≤8-baseline uit deze cijfers afleiden. Compact per-run bron: `.dev/tracks/u63-mobiel-ttfp-lus/metingen/placeholder-gepaard.json`.

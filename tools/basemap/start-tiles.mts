@@ -13,6 +13,6 @@ const archive = new PMTiles(new FileSource(new File([readFileSync(resolve(direct
 for (const x of [7, 8]) {
   const tile = await archive.getZxy(4, x, 5)
   if (!tile) throw new Error(`Z4-tegel ${x}/5 ontbreekt in ${manifest.filename}`)
-  writeFileSync(resolve(root, `web/src/assets/map-start/4-${x}-5.pbf.gz`), gzipSync(Buffer.from(tile.data), { level: 9 }))
+  writeFileSync(resolve(root, `web/src/assets/map-start/4-${x}-5.pbf.gz`), gzipSync(Buffer.from(tile.data), { level: 6 }))
 }
 console.log(`Progressieve z4-tegels uit ${manifest.filename}`)

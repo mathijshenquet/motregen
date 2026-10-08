@@ -59,4 +59,5 @@ gzip --decompress --stdout tools/basemap/ocean.geojson.gz > "$scratch/build/ocea
   pmtiles verify nl.pmtiles
 )
 pnpm --filter motregen-web exec tsx ../tools/basemap/publish.mts "$scratch/build/nl.pmtiles"
+pnpm --filter motregen-web exec tsx ../tools/basemap/start-tiles.mts
 pnpm --filter motregen-web exec tsx ../tools/basemap/places.mts "$scratch/build/nl.pmtiles"

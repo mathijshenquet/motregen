@@ -1,0 +1,32 @@
+{
+  "source": "150f032 + eerste-tegelwissel/Kaderhemelcorrectie",
+  "viewport": {
+    "width": 390,
+    "height": 844,
+    "deviceScaleFactor": 2
+  },
+  "heldRanges": true,
+  "timingProof": false,
+  "rows": [
+    {
+      "theme": "light",
+      "errors": [],
+      "placeholderBasemapReady": null,
+      "fullBasemapReady": 7311.5,
+      "images": [
+        "z4-light-placeholder-390.png",
+        "z4-light-echt-390.png"
+      ]
+    },
+    {
+      "theme": "dark",
+      "errors": [],
+      "placeholderBasemapReady": null,
+      "fullBasemapReady": 6937.4,
+      "images": [
+        "z4-dark-placeholder-390.png",
+        "z4-dark-echt-390.png"
+      ]
+    }
+  ]
+}
