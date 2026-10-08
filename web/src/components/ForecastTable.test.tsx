@@ -206,6 +206,52 @@ describe('forecast table cells', () => {
     expect(sunset.nextElementSibling?.classList.contains('night-hour')).toBe(true)
   })
 
+  it('colours the heading row with the sky of the top visible row (U62)', () => {
+    // jsdom kent geen IntersectionObserver: deze meldt wat de test als zichtbaar aanwijst.
+    let report: IntersectionObserverCallback = () => undefined
+    let observerOptions: IntersectionObserverInit | undefined
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) { report = callback; observerOptions = options }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    })
+    let headResized: ResizeObserverCallback = () => undefined
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: ResizeObserverCallback) { headResized = callback }
+      observe() {}
+      disconnect() {}
+    })
+    try {
+      renderTable()
+      const heading = document.querySelector<HTMLTableRowElement>('thead tr')!
+      // Zolang niets gemeld is blijft de kop neutraal.
+      expect(heading.className).toBe('')
+      headResized([{ contentRect: { height: 42 } } as ResizeObserverEntry], {} as ResizeObserver)
+      expect(observerOptions?.rootMargin).toBe('-42px 0px 0px 0px')
+      const rowAt = (hour: number) => document.querySelector<HTMLTableRowElement>(`tr[data-epoch="${start + hour * 3_600_000}"]`)!
+      const show = (shares: Record<number, number>) => report(Object.entries(shares).map(([hour, share]) =>
+        ({ target: rowAt(Number(hour)), isIntersecting: share > 0, intersectionRatio: share }) as unknown as IntersectionObserverEntry), {} as IntersectionObserver)
+
+      // Nachtrij bovenaan, dag eronder: de kop volgt de bovenste.
+      show({ 2: 1, 3: 1, 14: 1 })
+      expect(heading.classList.contains('sky-head')).toBe(true)
+      expect(heading.classList.contains('night-hour')).toBe(true)
+      // De nachtrijen schuiven voor meer dan de helft onder de kop: de dagrij is nu de bovenste.
+      show({ 2: 0, 3: 0.3 })
+      expect(heading.classList.contains('day-hour')).toBe(true)
+      expect(heading.classList.contains('night-hour')).toBe(false)
+      expect(heading.style.getPropertyValue('--day-overcast')).toBe(rowAt(14).style.getPropertyValue('--day-overcast').slice(0, 4))
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('leaves the heading row neutral without the day/night treatment', () => {
+    renderTable({ dayNight: false })
+    expect(document.querySelector('thead tr')!.className).toBe('')
+  })
+
   it('can turn the complete table day/night treatment off', () => {
     renderTable({ dayNight: false })
     expect(document.querySelector('.forecast-table')?.classList.contains('day-night-table')).toBe(false)
