@@ -19,13 +19,19 @@ fi
 
 if [[ ${MOTREGEN_PERF_LOCK_HELD:-0} != 1 ]]; then
   desktop_repeat=3
+  desktop_first_run=1
   if [[ ${MOTREGEN_DESKTOP_REVIEW:-0} == 1 || ${MOTREGEN_DESKTOP_LIGHTHOUSE:-0} == 1 ]]; then desktop_repeat=1; fi
   desktop_flags=()
   for desktop_flag in "$@"; do
-    if [[ $desktop_flag == --repeat=* ]]; then desktop_repeat=${desktop_flag#--repeat=}; else desktop_flags+=("$desktop_flag"); fi
+    case $desktop_flag in
+      --repeat=*) desktop_repeat=${desktop_flag#--repeat=} ;;
+      --run=*) desktop_first_run=${desktop_flag#--run=} ;;
+      *) desktop_flags+=("$desktop_flag") ;;
+    esac
   done
   if [[ ! $desktop_repeat =~ ^([1-9]|10)$ ]]; then printf '%s\n' '--repeat moet 1…10 zijn' >&2; exit 2; fi
-  for ((desktop_run=1; desktop_run<=desktop_repeat; desktop_run++)); do
+  if [[ ! $desktop_first_run =~ ^([1-9]|10)$ ]] || ((desktop_first_run + desktop_repeat - 1 > 10)); then printf '%s\n' 'runbereik moet binnen 1…10 liggen' >&2; exit 2; fi
+  for ((desktop_run=desktop_first_run; desktop_run<desktop_first_run+desktop_repeat; desktop_run++)); do
     bash scripts/perf-lock.sh env MOTREGEN_RIG_PREBUILT=1 bash scripts/desktop-rig.sh "$output_prefix" "${desktop_flags[@]}" --repeat=1 --run="$desktop_run"
   done
   exit 0

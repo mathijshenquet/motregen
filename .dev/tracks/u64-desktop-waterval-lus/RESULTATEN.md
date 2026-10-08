@@ -20,7 +20,14 @@ U64 na merge, vóór shaderbatching: 411.280 B; met shaderbatching: 411.362 B.
 De eerdere U62-builds (422.475 / 409.063 B) zijn niet gemeten vóór U65.
 Bevroren builds gebruiken
 dezelfde fixture en native-desktopcapture. Koud ×3, warm ×3 en Lighthouse
-staan nog in de meetwachtrij. Er zijn nog geen nieuwe ttfr/ttfp-subscores.
+zijn nog niet volledig gemeten. Er zijn nog geen volledige nieuwe
+ttfr/ttfp-vergelijkingen of Lighthouse-subscores.
+Eerste gewone koude referentierun: ttfr 1617,3 ms, ttfp 775,1 ms,
+eerste regen 686,8 ms bij startload 7,98. Nog geen reeks van drie en
+geen vergelijkingsclaim. Een aparte cpuProfile-opname op U64 vóór shaders
+heeft startload 7,89; de grootste RunTask is 236 ms met circa 225 ms in
+MapLibre's `_setupPainter`, vóór eerste regen. Die diagnostische opname
+wordt niet als gewone kandidaatbenchmark gebruikt.
 
 Na de lockinstructie van 09:40 wacht elke run buiten de lock op load ≤8.
 Elke herhaling krijgt een eigen lockperiode en browserproces; na verkrijgen
@@ -48,7 +55,17 @@ eigen sourcemap, toont 141 self-samples in diens programmaconstructor:
 blijven onbekend. De bron vraagt tweemaal compile-status vóór link.
 Dit ondersteunt onderzoek naar shaders in de ttfr-keten, maar geeft onder
 load 41,34 geen bruikbare CPU-duur of snelheidswinst. Er is geen
-MapLibre-patch toegepast; de schone native CPU-opname blijft pending.
+MapLibre-patch toegepast. De schone native CPU-opname wijst vooral op
+`_setupPainter` als grote taak vóór eerste regen; dat is de basis voor
+de afzonderlijke workerproef.
+
+Daaruit volgt een nieuwe proef: `VITE_WEBGL_PREWARM=worker`, standaard uit,
+maakt vroeg een WebGL2-context in een OffscreenCanvas-worker, voor brede
+desktops met ≥8 cores. Initialisatie kan dan met JS/data overlappen.
+De tijdelijke context/worker wordt opgeruimd; still/Skywatch slaan hem over.
+Dezelfde shaderbatch-JS blijft 411.362 B gzip; HTML 2571→3143 B gzip.
+Typecheck, 509 units, proefbuild en 13 gerichte WebGL-e2e zijn geslaagd;
+ttfr/ttfp, LoAF-bewaker en Lighthouse voor de proef blijven pending.
 
 De nieuwe gate-baseline wordt uit drie ongewijzigde main-runs geschreven
 naar `desktop-koud-spelend-own-u65.json`. Reden: U62/Kaderhemel, U65's

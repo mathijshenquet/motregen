@@ -13,6 +13,7 @@ const query = flags.find((flag) => flag.startsWith('--query='))?.slice('--query=
 const pathname = flags.find((flag) => flag.startsWith('--path='))?.slice('--path='.length) ?? '/weer'
 const warm = flags.includes('--warm')
 const cpuProfile = flags.includes('--cpu-profile')
+const expectWebglPrewarm = flags.includes('--expect-webgl-prewarm')
 if (repeat !== 1) throw new Error('Eén capture per lock; gebruik desktop-rig.sh voor --repeat')
 if (!Number.isInteger(runNumber) || runNumber < 1 || runNumber > 10) throw new Error('--run moet 1…10 zijn')
 mkdirSync(dirname(output), { recursive: true })
@@ -80,7 +81,7 @@ try {
       await page.waitForFunction(() => performance.now() >= 12_000)
       const captured = await page.evaluate(() => {
         const monitor = window.__motregenPerf as PerfMonitor
-        return { timeOrigin: performance.timeOrigin, snapshot: monitor.snapshot(), loads: monitor.loads.snapshot(), entries: monitor.traceSlice(0, 12_000), resources: [...performance.getEntriesByType('navigation'), ...performance.getEntriesByType('resource')].map((entry) => entry.toJSON()) }
+        return { timeOrigin: performance.timeOrigin, snapshot: monitor.snapshot(), loads: monitor.loads.snapshot(), entries: monitor.traceSlice(0, 12_000), webglPrewarm: performance.getEntriesByName('webgl-prewarm').map((entry) => entry.toJSON()), resources: [...performance.getEntriesByType('navigation'), ...performance.getEntriesByType('resource')].map((entry) => entry.toJSON()) }
       })
       const complete = new Promise<void>((resolve) => cdp.once('Tracing.tracingComplete', () => resolve()))
       await cdp.send('Tracing.end')
@@ -92,6 +93,7 @@ try {
       }
       await Promise.all(pending)
       if (errors.length) throw new Error(errors.join('\n'))
+      if (expectWebglPrewarm && captured.webglPrewarm.length !== 1) throw new Error('WebGL-workerproef heeft geen geslaagde prewarm gemeten')
       const catalogue = captured.resources.find((entry) => new URL(entry.name).pathname === placesUrl)
       if (!catalogue || catalogue.startTime <= (captured.snapshot.ttfpMs ?? Infinity)) throw new Error('Plaatsenlijst ontbreekt of begint vóór ttfp')
       const prefix = `${output}-${warm ? 'warm' : 'cold'}-run${runNumber}`
