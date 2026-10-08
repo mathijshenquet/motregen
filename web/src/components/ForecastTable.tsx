@@ -123,9 +123,10 @@ export default function ForecastTable(props: Props) {
   const elevation = (epoch: number) => solarElevationSin(epoch, props.location.lng, props.location.lat)
 
   const rowElements = new Map<number, HTMLTableRowElement>()
-  // De koppenrij (modusbalk) neemt de hemel aan van de bovenste rij die eronder zichtbaar is, zodat hij bij
-  // scrollen meekleurt met wat eronder staat (PO 2026-10-08, U62). Een IntersectionObserver met de kop van de
-  // bovenrand afgetrokken meldt welke rijen in beeld zijn; er wordt per frame niets uit de layout gelezen.
+  // De koppenrij (modusbalk) is dag of nacht naar wat eronder staat, en wisselt op het moment dat de
+  // zonsopkomst- of zonsondergangrij de bovenste zichtbare rij wordt; tussen twee van die rijen blijft hij
+  // gelijk (PO 2026-10-08, U62). Een IntersectionObserver met de kop van de bovenrand afgetrokken meldt welke
+  // uurrijen nog in beeld zijn; er wordt per frame niets uit de layout gelezen.
   let tableElement!: HTMLTableElement
   const rowSkies = new Map<number, () => HourSky>()
   const rowShares = new Map<number, number>()
@@ -134,14 +135,10 @@ export default function ForecastTable(props: Props) {
   const [topRowEpoch, setTopRowEpoch] = createSignal<number>()
   let headObserver: IntersectionObserver | undefined
   const pickTopRow = () => {
-    let halfShown: number | undefined
-    let anyShown: number | undefined
-    for (const [epoch, share] of rowShares) {
-      if (share >= 0.5 && (halfShown === undefined || epoch < halfShown)) halfShown = epoch
-      if (share > 0 && (anyShown === undefined || epoch < anyShown)) anyShown = epoch
-    }
-    // Een rij die voor meer dan de helft onder de kop is verdwenen telt niet meer als bovenste.
-    const top = halfShown ?? anyShown
+    // De vroegste uurrij waarvan nog iets onder de kop uitsteekt. De zon-rij staat tussen twee uurrijen: zodra
+    // de uurrij erboven helemaal weg is, is de zon-rij de bovenste en hoort de kop bij het uur erna.
+    let top: number | undefined
+    for (const [epoch, share] of rowShares) if (share > 0 && (top === undefined || epoch < top)) top = epoch
     if (top !== undefined) setTopRowEpoch(top)
   }
   onMount(() => {
@@ -159,7 +156,7 @@ export default function ForecastTable(props: Props) {
           if (epoch !== undefined) rowShares.set(epoch, entry.isIntersecting ? entry.intersectionRatio : 0)
         }
         pickTopRow()
-      }, { root: tableScrolls ? scroller : null, rootMargin: `-${Math.ceil(headHeight)}px 0px 0px 0px`, threshold: [0, 0.5, 1] })
+      }, { root: tableScrolls ? scroller : null, rootMargin: `-${Math.ceil(headHeight)}px 0px 0px 0px`, threshold: 0 })
       for (const element of rowElements.values()) headObserver.observe(element)
     }
     // De kophoogte bepaalt de bovenrand; ze verandert alleen bij een andere layout.
@@ -310,7 +307,8 @@ export default function ForecastTable(props: Props) {
       const radiationAfter = createMemo(() => value(props.series.radiation, row.radiationNextIndex))
       const darknessFor = (target: HourlyForecastRow) => hourDarkness(target, props.series.radiation, props.series.cloud, elevation)
       const dayDarkness = createMemo(() => darknessFor(row))
-      rowSkies.set(row.epoch, () => ({ daylight: daylight(), overcast: Math.round(dayDarkness() * 100) / 100 }))
+      // Alleen dag of nacht: de bewolking van de rij kleurt de kop niet mee, anders verspringt hij per rij.
+      rowSkies.set(row.epoch, () => ({ daylight: daylight(), overcast: 0 }))
       setRowSkiesVersion((version) => version + 1)
       onCleanup(() => rowSkies.delete(row.epoch))
       const nextDayDarkness = createMemo(() => {

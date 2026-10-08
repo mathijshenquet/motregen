@@ -1,0 +1,26 @@
+{
+ "390-light": {
+  "rijlijn dag": 1.31,
+  "rijlijn nacht": 1.31,
+  "onder de koppenrij": 1.59,
+  "zon-rij (bovenrand)": 3.27
+ },
+ "390-dark": {
+  "rijlijn dag": 1.31,
+  "rijlijn nacht": 1.31,
+  "onder de koppenrij": 1.59,
+  "zon-rij (bovenrand)": 3.27
+ },
+ "1280-light": {
+  "rijlijn dag": 1.32,
+  "rijlijn nacht": 1.31,
+  "onder de koppenrij": 1.59,
+  "zon-rij (bovenrand)": 3.44
+ },
+ "1280-dark": {
+  "rijlijn dag": 1.32,
+  "rijlijn nacht": 1.31,
+  "onder de koppenrij": 1.59,
+  "zon-rij (bovenrand)": 3.44
+ }
+}

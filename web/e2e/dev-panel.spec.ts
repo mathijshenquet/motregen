@@ -13,9 +13,9 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   const panel = page.getByTestId('dev-panel')
   await expect(panel).toBeVisible()
   const groups = panel.locator('.dev-group')
-  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wind', 'Laden', 'Mobiel', 'Chrome', 'Lucht nu', 'Diagnose'])
+  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wind', 'Laden', 'Chrome', 'Lucht nu', 'Diagnose'])
   // Alleen de eerste groep start open.
-  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false, false, false])
+  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false, false])
   await expect(panel).not.toContainText('Wolkrand')
 
   const controls = panel.locator('.dev-control')
@@ -30,7 +30,7 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
 
   // Wind: de vier MIP-12-knoppen, opgeslagen als v4 (alleen afwijkingen).
   await groups.locator('> summary', { hasText: 'Wind' }).click()
-  // Op de groepstitel, niet op de inhoud: de groep Mobiel heeft ook een windknop (U62).
+  // Op de groepstitel, niet op de inhoud.
   const wind = groups.filter({ has: page.locator('summary', { hasText: /^Wind$/ }) })
   await expect(wind.locator('input[type=range]')).toHaveCount(4)
   await expect(wind.locator('.dev-control label > span')).toHaveText(['Dichtheid', 'Intensiteit', 'Lijnbreedte', 'Tempo'])
@@ -39,19 +39,30 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-wind-tuning-v4'))).toBe('{"intensity":0.8}')
   await expect(page.locator('.map-shell')).toHaveAttribute('data-wind-intensity', '0.80')
 
-  // Klokpil (U62): wit blijft zoals het was; mee-tinten neemt de hemel van het cursoruur aan.
-  await expect(page.locator('.map-clock')).not.toHaveClass(/sky-(day|night)/)
+  // Sinds de PO-keuzes van 2026-10-08 geen knoppen meer: onder Expressief tinten klokpil, zoekbalk en
+  // merkdruppel mee met het cursoruur en volgt de basiskaart de kaarttijd.
+  await expect(page.locator('.map-shell')).toHaveClass(/sky-(day|night)/)
+  await expect(page.locator('.map')).toHaveAttribute('data-map-night', /^[01]\.\d\d$/)
+
+  // Tijdelijke proef (U62): rand tussen kaart en zijpaneel. "oud" is de stand van vóór de proef.
+  const dashboard = page.locator('.dashboard')
+  const leftBorder = () => dashboard.evaluate((element) => getComputedStyle(element).borderLeftWidth)
+  const shadow = () => dashboard.evaluate((element) => getComputedStyle(element).boxShadow)
+  expect(await leftBorder()).toBe('1px')
   await groups.locator('> summary', { hasText: 'Chrome' }).click()
-  // Kaart (U62-experiment): automatisch mengt de basiskaart met de kaarttijd; thema zet hem terug.
-  const mapCanvas = page.locator('.map')
-  await expect(mapCanvas).not.toHaveAttribute('data-map-night', /.*/)
-  await panel.getByLabel('Kaart', { exact: true }).selectOption('automatisch')
-  await expect(mapCanvas).toHaveAttribute('data-map-night', /^[01]\.\d\d$/)
-  await panel.getByLabel('Kaart', { exact: true }).selectOption('thema')
-  await expect(mapCanvas).not.toHaveAttribute('data-map-night', /.*/)
-  await panel.getByLabel('Klokpil').selectOption('mee-tinten')
-  await expect(page.locator('.map-clock')).toHaveClass(/sky-(day|night)/)
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-dev-klokpil'))).toBe('mee-tinten')
+  const edge = panel.getByLabel('Rand kaart/zijpaneel')
+  await edge.selectOption('geen')
+  await expect(page.locator('.app-shell')).toHaveClass(/edge-none/)
+  expect(await leftBorder()).toBe('0px')
+  expect(await shadow()).toBe('none')
+  await edge.selectOption('a')
+  expect(await leftBorder()).toBe('0px')
+  expect(await shadow()).toMatch(/-1px 0px 0px 0px$/)
+  await edge.selectOption('b')
+  expect(await leftBorder()).toBe('0px')
+  expect(await shadow()).toMatch(/-\d+px 0px \d+px -\d+px$/)
+  await edge.selectOption('oud')
+  expect(await leftBorder()).toBe('1px')
 
   await groups.locator('> summary', { hasText: 'Diagnose' }).click()
   const perfToggle = panel.getByRole('checkbox', { name: /Perf-HUD/ })
@@ -71,18 +82,11 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
 test.describe('telefoon', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
-  // U62: de proefniveaus voor de windstreepjes gelden alleen op een telefoon of smal scherm.
-  test('the mobile wind levels raise the ambient wind without touching the wind focus', async ({ page }) => {
+  // U62 (PO 2026-10-08): op een telefoon of smal scherm staat de wind op de achtergrond een stap sterker.
+  test('the ambient wind is one step stronger on a phone, without a dev control', async ({ page }) => {
     await page.goto('/?dev')
     await expect(page.locator('.map-splash.ready')).toBeAttached()
-    const map = page.locator('.map-shell')
-    await expect(map).toHaveAttribute('data-wind-intensity', '0.50')
-    const panel = page.getByTestId('dev-panel')
-    await panel.locator('details.dev-group > summary', { hasText: 'Mobiel' }).click()
-    await panel.getByLabel('Windstreepjes').selectOption('iets')
-    await expect(map).toHaveAttribute('data-wind-intensity', '0.63')
-    await panel.getByLabel('Windstreepjes').selectOption('meer')
-    await expect(map).toHaveAttribute('data-wind-intensity', '0.75')
-    await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-dev-wind-mobiel'))).toBe('meer')
+    await expect(page.locator('.map-shell')).toHaveAttribute('data-wind-intensity', '0.63')
+    await expect(page.getByTestId('dev-panel').getByLabel('Windstreepjes')).toHaveCount(0)
   })
 })
