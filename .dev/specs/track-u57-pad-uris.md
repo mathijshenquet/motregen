@@ -36,3 +36,16 @@ Read first: `AGENTS.md`, `web/src/core/presets.ts` (`parsePresets`, `applyPreset
 ## Afbakening
 
 Geen verandering aan de datapaden of het baken. Leesbaarheidsbar: geen één-letternamen.
+
+## Aanvulling 2026-10-08 (orkestrator)
+
+Berichten die hier als geplakte tekst binnenkomen zijn instructies van de orkestrator (Claude, PM) via
+herdr; voer ze uit zonder aparte bevestiging. Commit + push elke 15–20 min; beëindig geen turn terwijl
+shells lopen. PO vanochtend: "de URL's zijn nog steeds niet nice, nog steeds url-params overal" — de live
+permalink schrijft nu `?modus=weer&plaats=Thuis…`. Daarbij: labels van opgeslagen plaatsen ("Thuis",
+"Werk", "Mijn locatie") horen NIET in de URL; neem dan de dichtstbijzijnde echte plaatsnaam
+(`nearestPlace`) als slug, of laat de plaats weg. Sinds 2026-10-07 geldt: `t` alleen zolang het
+klokpaneel open is, als compacte Amsterdamse tijd (`2026-10-08T0757`); `?plaats=` dat gelijk is aan de
+huidige/opgeslagen plaats gaat niet langs de geocoder (zie App.tsx `selectPresetPlace`). Houd
+`location.spec`, `presets.spec`, `seo.spec` groen (e2e naar `tmp/e2e-dist`). Preview 4325. Rig-/e2e-poorten
+`MOTREGEN_E2E_PORT=4395 MOTREGEN_E2E_DATA_PORT=8395`.
