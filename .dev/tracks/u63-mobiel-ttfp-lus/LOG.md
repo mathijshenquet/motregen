@@ -1,3 +1,11 @@
+## 2026-10-08 13:19 UTC — hoofdconclusie: warm bespaart bytes, geen mobiele starttijd
+
+**Po-android, eigen U60-kaart, koude/warme controle ×3: warm ttfr3825ms/ttfp1942ms tegenover koud3816ms/1819ms. De warme cache reduceert netwerkbody van4971712 naar36513B (alleen manifest), maar koopt op deze telefoonrig vrijwel geen ttfr/ttfp. De resterende start is CPU-/rendererwerk onder de40%-quota: geometrie/buckets, stijl/shaders/painter, weersdecode en vroege temperatuurblur.** Gepaard≤16, productbasis98ae6a6 vóór U62/U65; geen nieuwe absolute docs-baseline (die≤8 blijft pending). Bestaande cgroup/profilediagnostiek ondersteunt CPU-binding; de trace zelf is afzonderlijk geprofileerd×1 en geen timingbaseline.
+
+Prioriteit op expliciet orkestratorverzoek: werk verminderen vóór cache-optimalisatie. Kale eerste stijl; minder lagen/features op werkelijk gevraagde zoom; kaart-/weerworker-volgorde beide richtingen; shader/painterwerk uitstellen tot na eerste tegel. Header/Range/cache daarna. Z4 niet verwijderen: bewaar branch track/u63-placeholder-proef en volledige A/B als PO-smaakkeuze (eerste kaart~1,7s eerder, ttfp~0,3s later). Gevraagd390px A/B-paar op1,0s en2,0s na navigatie wordt toegevoegd; geen hoofdlijnintegratie zonder PO-besluit. Mijn eerdere 'verwerpen' is vervangen door 'technische snelheidsgate faalt, zichtbare trade-off aan PO'.
+
+Deze nieuwe conclusie staat bovenaan op expliciete nieuwe opdracht; bestaande LOG-regels zijn ongewijzigd. Nieuwe voortgang blijft timestamped append-only.
+
 # U63 mobiele laadtijd-lus — LOG (append-only)
 
 ## 2026-10-08 07:40 UTC — start; nulmeting vóór wijzigingen
@@ -488,3 +496,13 @@ Besluit: verwerpen. Koud eerste kaart1693ms eerder, warm1686ms, maar koud ttfr+2
 Standaard CPU-paar85776 SYNCHRONE exit0, alleen diagnostiek×1: quota40 ttfr5822/ttfp2963, quota0 1469/871. In vaste1300→3500ms: hoofddraad240ms CPU, MapLibre70ms, weersdecodeworkers120ms; complete rendererusage878ms over2204ms wall = vrijwel alle40%-quota. Tegelantwoord2557→basemap5822ms: main320/map170/weer100ms CPU (CPUticks/circa100ms observatie); MapLibre-RunTask-wall2289ms, dus wall is geen pure parse. Mainstack via twee sourcemaps opgelost: MapLibre Program in src/webgl/program.ts (shadercompile/link), plus src/core/isolines.ts blurField. Mapworker: vectorgeometrie/buckets/triangulatie, geen aanwijzing voor lange seriële glyphnetwerkketen. Compact bewijs/limieten in metingen/cpu-kaart-quota.json; volledige trace ignored. Cpu.scope.throttled_usec niet als wall-ms gebruiken; quota0 erft de gedeelde herdr-scope en die CPUstat is daarom uitgesloten.
 
 Kale-stijlmaster9779 loopt nu op huidige U62/U65-basis, vóór/ná koud/warm×3, zelfde aanvraagbron/quota/loadbeleid. Na typecorrectie van de afzonderlijke LoadMilestone-union derde gerichte rebuild receipt0; eerste twee koude A/B-paren geven nog geen winst, niet voortijdig als kandidaat behouden. Geen profiler op de stijlmetingen. Buienradar cache-repro opnieuw functioneel gestart; eerdere HTTP2-fout blijft vermeld tot concrete receipt.
+
+## 2026-10-08 13:19 UTC — PO-sturing opgenomen; warm CPU, z4 als smaakkeuze
+
+Nieuwe hoofdconclusie op expliciet verzoek bovenaan toegevoegd zonder bestaande logregels te wijzigen; docs/perf.md zet dezelfde gepaarde bevinding vóór de kandidaatdetails, apart gelabeld van absolute≤8-baselines. Z4-cijfers/branch/ruwe opnames blijven intact; technisch ttfp-nadeel is geen productveto meer. Volgende screenshotbatch reproduceert A/B390px op1,0/2,0s met vaste Date/gelijke regenfixture/echte quota40/netwerkrem, zonder vertraagde PMTiles. Deze screenshots zijn zichtbare tijdmomenten, niet een nieuwe timingmediaan.
+
+## 2026-10-08 13:30 UTC — kale stijl compleet; PO keurt progressieve z4-trap goed
+
+Kale-stijlmaster9779 SYNCHRONE exit0, 12 captures: A/B om en om koud×3 én warm×3, po-android/quota40/GRID6/eigen U60 op actuele U62/U65-basis a1796ea. Compact per-run bewijs met exacte loads/LoAF: metingen/kale-stijl-gepaard.json. Koud ttfr4001,2→3643,2 ms, ttfp1980,7→2173,4 ms; koude winst358ms maar ttfp+193ms. LoAF ná ttfp blijft een bewaker, extra lange frames in de volledige-laagopbouw verhinderen een onvoorwaardelijke winstclaim. Proef blijft geïsoleerd; geen kale-stijlcode op hoofdlijn.
+
+Nieuw expliciet PO-besluit heeft voorrang: z4-placeholder wordt progressieve eerste trap op deze hoofdbranch; resterende ttfp-straf accepteert PO. De uitvoeringsvariant gebruikt twee losse cachebare z4-tegels, fetch+gzipdecode in een worker, geen inline24kB op HTML. Exacte landcover-/water-/grenslagen komen uit dezelfde volledige kaartstijl, zonder extra shading of opacity. Fade200ms; verwijderen zodra de eerste echte basemap-tegel rendert. Volgende receipts: gepaard koud/warm×3 plus390px licht/donker placeholder→echte kaart, typecheck/unit/build/basemap.spec desktop. Het oude 'verwerpen'-besluit van13:09 is hiermee achterhaald, oude regels/cijfers blijven intact. Absolute≤8-nulpunten en Buienradarwarm blijven pending; dit checkpoint claimt nog geen mergegate.

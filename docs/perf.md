@@ -911,6 +911,20 @@ e2e-slot. De drie rapporten worden daarna samen gecontroleerd met dezelfde 2%/5%
 
 ### U63: meetgrens en nieuw po-android-nulpunt (2026-10-08)
 
+**Hoofdbevinding 2026-10-08: warme cache koopt op po-android vrijwel geen starttijd.**
+In de afwisselende eigen-kaartcontrole (productbasis98ae6a6 vóór U62/U65, koud/warm elk×3,
+quota40%, startload≤16) is warm ttfr3825/ttfp1942ms tegenover koud3816/1819ms.
+Netwerkbody daalt van4971712 naar36513B; warm haalt alleen manifest?s=1 nog over de lijn.
+Dit zijn gepaarde proefcijfers, geen nieuwe absolute baseline voor deze documentatie.
+De CPU-diagnose laat in2204ms wall878ms renderer-CPU zien: vrijwel de volledige40%-quota.
+MapLibre-geometrie/buckets, shader/paintersetup, weersdecode en vroege temperatuurblur
+concurreren om dat budget. Profiler-tijden blijven afzonderlijke diagnostiek. Daarom komen
+kandidaten die werk verminderen of de volgorde verbeteren vóór caching: kale eerste stijl,
+minder werkelijk benodigde lagen/features, kaart-/weerworker-volgorde, uitgestelde shaders.
+Z4 blijft een zichtbare PO-smaakkeuze: eerste kaart~1,7s eerder, ttfp~0,3s later; proefbranch
+en gepaarde koud/warm-cijfers blijven behouden.
+
+
 De U63-lus rapporteert eerst **ttfr**, daarna **ttfp**. Lange frames ná ttfp zijn een bewaker:
 `.dev/tracks/u63-mobiel-ttfp-lus/summarize.mjs <rapportmap>` leest de oorspronkelijke LoAF-entries
 van drie rustige opnames en telt frames die vanaf ttfp starten en vóór 30 s eindigen, inclusief

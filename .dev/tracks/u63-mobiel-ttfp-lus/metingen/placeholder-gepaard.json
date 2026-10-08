@@ -1,7 +1,7 @@
 {
   "productBase": "98ae6a6 vóór U62/U65; proef heeft hetzelfde cache-/runnercontract voor A/B. Geen actuele hoofdlijnbaseline.",
   "order": "A1/B1/A2/B2/A3/B3 per koud/warm-scenario; bronfouten uitgesloten, ontbrekende B2 hervat na resolvercorrectie.",
-  "outcome": "verworpen: eerste kaartbeeld wint ruim100ms, maar ttfr/ttfp verslechteren koud en warm; geen integratie/PO-winvoorstel.",
+  "outcome": "PO-besluit 13:29: progressieve z4-trap integreren; eerdere inline-ttfp-straf geaccepteerd, uitvoering wordt los/cachebaar en kleurvast. Originele A/B-branch en cijfers behouden.",
   "extraMapDecodes": 2,
   "inlineHtmlGzipBytes": 24368,
   "captures": [
