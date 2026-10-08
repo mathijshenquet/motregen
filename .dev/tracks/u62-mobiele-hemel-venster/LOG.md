@@ -818,3 +818,20 @@ Fix: `mapSurfaceTheme` (dag/nacht van de kaart zelf) voedt temperatuurcijfers, i
 - Gate (web/, loadavg ~55): typecheck 0 · `pnpm test` 0 (529) · build 0 ·
   `MOTREGEN_E2E_PORT=4196 MOTREGEN_E2E_DATA_PORT=8196 pnpm e2e e2e/dev-panel.spec.ts e2e/focus.spec.ts e2e/table.spec.ts e2e/sky-window.spec.ts --project desktop` 0 (18 groen, 4 overgeslagen).
   mobile-4g en firefox niet opnieuw gedraaid.
+
+## 2026-10-08 ~23:15 — rijlijnen altijd donkerder dan de rij, 1 apparaatpixel (PO: "veel te harsh")
+- PO-screenshot `po-regressies/nacht-tabelrijlijnen-te-hard-4330-2051.png`: lichte lijnen op de nachtrijen. Mijn
+  rekencontrast (1,26 gelijk voor dag en nacht) zei niets over de waarneming: licht op donker oogt veel harder,
+  en bij dpr 2 was de lijn 2 apparaatpixels dik.
+- Nieuwe regel: dagrijen houden de tekst-mix (11 %); nachtrijen krijgen de rijkleur verdonkerd met 30 % zwart
+  (#0a1820 → ±rgb 3,10,15). Nooit lichter dan de rij.
+- 1 apparaatpixel bij dpr ≥ 2: `border-bottom-width: .5px` werkt niet (samengevoegde tabelrand rondt af op hele
+  px, gemeten 2 px); `background-size … .5px` rondt af naar niets. Wat werkt: de cel tekent de onderste helft
+  van een strook van 1 px (hard verloop 50 %). De rand blijft staan in de rijkleur (onzichtbaar): hem weghalen
+  verschoof de rijhoogte een halve px en brak drie mobiele tabeltests (previewOffset −0).
+- Gemeten in de screenshots (dpr 2, kolom x=60): nachtlijn 1 px hoog, rgb 3,10,15, op 390 en 1280.
+- Beeld: `po-regressies/rijlijnen-donker-overzicht.png` (dpr 2 op ware grootte: 390 donker thema · 1280 donker ·
+  390 licht · 1280 licht; boven dagrijen, onder nachtrijen). Zelf bekeken: nacht nauwelijks zichtbaar maar
+  scheidend, dag dun en rustig.
+- Gate (web/): build 0 · `pnpm e2e e2e/table.spec.ts --project desktop --project mobile-4g` 0 (14 groen,
+  4 overgeslagen) · `pnpm e2e --project firefox` 0 (5). Alleen CSS gewijzigd; unit/typecheck niet opnieuw gedraaid.
