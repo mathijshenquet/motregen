@@ -1,0 +1,398 @@
+{
+ "390-light-wit-dag": {
+  "uurlabel": {
+   "labels": 8,
+   "worst": 6.52,
+   "worstText": "18u"
+  },
+  "daglabel": {
+   "labels": 1,
+   "worst": 7.8,
+   "worstText": "Vandaag"
+  },
+  "koppenrij": {
+   "labels": 5,
+   "worst": 5.29,
+   "worstText": "Weer"
+  },
+  "klokpil": {
+   "labels": 1,
+   "worst": 12.48,
+   "worstText": "12:45"
+  }
+ },
+ "390-light-wit-schemer": {
+  "uurlabel": {
+   "labels": 7,
+   "worst": 7.57,
+   "worstText": "9u"
+  },
+  "daglabel": {
+   "labels": 1,
+   "worst": 12.88,
+   "worstText": "Vandaag"
+  },
+  "koppenrij": {
+   "labels": 5,
+   "worst": 5.92,
+   "worstText": "Weer"
+  },
+  "klokpil": {
+   "labels": 1,
+   "worst": 12.35,
+   "worstText": "07:50"
+  }
+ },
+ "390-light-wit-nacht": {
+  "uurlabel": {
+   "labels": 7,
+   "worst": 12.73,
+   "worstText": "22u"
+  },
+  "daglabel": {
+   "labels": 2,
+   "worst": 12.71,
+   "worstText": "Vandaag"
+  },
+  "koppenrij": {
+   "labels": 5,
+   "worst": 5.92,
+   "worstText": "Weer"
+  },
+  "klokpil": {
+   "labels": 1,
+   "worst": 12.2,
+   "worstText": "22:50"
+  }
+ },
+ "390-light-mee-tinten-dag": {
+  "uurlabel": {
+   "labels": 8,
+   "worst": 5.76,
+   "worstText": "18u"
+  },
+  "daglabel": {
+   "labels": 1,
+   "worst": 7.87,
+   "worstText": "Vandaag"
+  },
+  "koppenrij": {
+   "labels": 5,
+   "worst": 5.29,
+   "worstText": "Weer"
+  },
+  "klokpil": {
+   "labels": 1,
+   "worst": 10.24,
+   "worstText": "12:50"
+  }
+ },
+ "390-light-mee-tinten-schemer": {
+  "uurlabel": {
+   "labels": 7,
+   "worst": 7.57,
+   "worstText": "9u"
+  },
+  "daglabel": {
+   "labels": 1,
+   "worst": 12.88,
+   "worstText": "Vandaag"
+  },
+  "koppenrij": {
+   "labels": 5,
+   "worst": 5.92,
+   "worstText": "Weer"
+  },
+  "klokpil": {
+   "labels": 1,
+   "worst": 5.42,
+   "worstText": "07:50"
+  }
+ },
+ "390-light-mee-tinten-nacht": {
+  "uurlabel": {
+   "labels": 7,
+   "worst": 12.73,
+   "worstText": "22u"
+  },
+  "daglabel": {
+   "labels": 2,
+   "worst": 12.71,
+   "worstText": "Vandaag"
+  },
+  "koppenrij": {
+   "labels": 5,
+   "worst": 5.92,
+   "worstText": "Weer"
+  },
+  "klokpil": {
+   "labels": 1,
+   "worst": 5.56,
+   "worstText": "22:50"
+  }
+ },
+ "390-dark-mee-tinten-dag": {
+  "uurlabel": {
+   "labels": 8,
+   "worst": 9.09,
+   "worstText": "16u"
+  },
+  "daglabel": {
+   "labels": 1,
+   "worst": 9.2,
+   "worstText": "Vandaag"
+  },
+  "koppenrij": {
+   "labels": 5,
+   "worst": 5.29,
+   "worstText": "Weer"
+  },
+  "klokpil": {
+   "labels": 1,
+   "worst": 6.33,
+   "worstText": "12:50"
+  }
+ },
+ "390-dark-mee-tinten-schemer": {
+  "uurlabel": {
+   "labels": 7,
+   "worst": 9.18,
+   "worstText": "13u"
+  },
+  "daglabel": {
+   "labels": 1,
+   "worst": 13.99,
+   "worstText": "Vandaag"
+  },
+  "koppenrij": {
+   "labels": 5,
+   "worst": 5.92,
+   "worstText": "Weer"
+  },
+  "klokpil": {
+   "labels": 1,
+   "worst": 6.94,
+   "worstText": "07:50"
+  }
+ },
+ "390-dark-mee-tinten-nacht": {
+  "uurlabel": {
+   "labels": 7,
+   "worst": 13.99,
+   "worstText": "1u"
+  },
+  "daglabel": {
+   "labels": 2,
+   "worst": 13.97,
+   "worstText": "Morgen"
+  },
+  "koppenrij": {
+   "labels": 5,
+   "worst": 5.92,
+   "worstText": "Weer"
+  },
+  "klokpil": {
+   "labels": 1,
+   "worst": 9.13,
+   "worstText": "22:50"
+  }
+ },
+ "desktop-light-wit-dag": {
+  "uurlabel": {
+   "labels": 8,
+   "worst": 5.76,
+   "worstText": "18u"
+  },
+  "daglabel": {
+   "labels": 1,
+   "worst": 7.99,
+   "worstText": "Vandaag"
+  },
+  "koppenrij": {
+   "labels": 5,
+   "worst": 5.29,
+   "worstText": "Weer"
+  },
+  "klokpil": {
+   "labels": 1,
+   "worst": 12.25,
+   "worstText": "12:50"
+  }
+ },
+ "desktop-light-wit-schemer": {
+  "uurlabel": {
+   "labels": 7,
+   "worst": 7.63,
+   "worstText": "9u"
+  },
+  "daglabel": {
+   "labels": 1,
+   "worst": 13.21,
+   "worstText": "Vandaag"
+  },
+  "koppenrij": {
+   "labels": 5,
+   "worst": 5.92,
+   "worstText": "Weer"
+  },
+  "klokpil": {
+   "labels": 1,
+   "worst": 12.16,
+   "worstText": "07:50"
+  }
+ },
+ "desktop-light-wit-nacht": {
+  "uurlabel": {
+   "labels": 7,
+   "worst": 12.73,
+   "worstText": "22u"
+  },
+  "daglabel": {
+   "labels": 2,
+   "worst": 12.73,
+   "worstText": "Vandaag"
+  },
+  "koppenrij": {
+   "labels": 5,
+   "worst": 5.92,
+   "worstText": "Weer"
+  },
+  "klokpil": {
+   "labels": 1,
+   "worst": 12.61,
+   "worstText": "22:50"
+  }
+ },
+ "desktop-light-mee-tinten-dag": {
+  "uurlabel": {
+   "labels": 8,
+   "worst": 5.76,
+   "worstText": "18u"
+  },
+  "daglabel": {
+   "labels": 1,
+   "worst": 7.99,
+   "worstText": "Vandaag"
+  },
+  "koppenrij": {
+   "labels": 5,
+   "worst": 5.29,
+   "worstText": "Weer"
+  },
+  "klokpil": {
+   "labels": 1,
+   "worst": 10.28,
+   "worstText": "12:50"
+  }
+ },
+ "desktop-light-mee-tinten-schemer": {
+  "uurlabel": {
+   "labels": 7,
+   "worst": 7.63,
+   "worstText": "9u"
+  },
+  "daglabel": {
+   "labels": 1,
+   "worst": 13.21,
+   "worstText": "Vandaag"
+  },
+  "koppenrij": {
+   "labels": 5,
+   "worst": 5.92,
+   "worstText": "Weer"
+  },
+  "klokpil": {
+   "labels": 1,
+   "worst": 5.46,
+   "worstText": "07:50"
+  }
+ },
+ "desktop-light-mee-tinten-nacht": {
+  "uurlabel": {
+   "labels": 7,
+   "worst": 12.73,
+   "worstText": "22u"
+  },
+  "daglabel": {
+   "labels": 2,
+   "worst": 12.73,
+   "worstText": "Vandaag"
+  },
+  "koppenrij": {
+   "labels": 5,
+   "worst": 5.92,
+   "worstText": "Weer"
+  },
+  "klokpil": {
+   "labels": 1,
+   "worst": 5.56,
+   "worstText": "22:50"
+  }
+ },
+ "desktop-dark-mee-tinten-dag": {
+  "uurlabel": {
+   "labels": 8,
+   "worst": 9.09,
+   "worstText": "16u"
+  },
+  "daglabel": {
+   "labels": 1,
+   "worst": 9.12,
+   "worstText": "Vandaag"
+  },
+  "koppenrij": {
+   "labels": 5,
+   "worst": 5.29,
+   "worstText": "Weer"
+  },
+  "klokpil": {
+   "labels": 1,
+   "worst": 6.33,
+   "worstText": "12:50"
+  }
+ },
+ "desktop-dark-mee-tinten-schemer": {
+  "uurlabel": {
+   "labels": 7,
+   "worst": 9.2,
+   "worstText": "13u"
+  },
+  "daglabel": {
+   "labels": 1,
+   "worst": 13.99,
+   "worstText": "Vandaag"
+  },
+  "koppenrij": {
+   "labels": 5,
+   "worst": 5.92,
+   "worstText": "Weer"
+  },
+  "klokpil": {
+   "labels": 1,
+   "worst": 6.9,
+   "worstText": "07:50"
+  }
+ },
+ "desktop-dark-mee-tinten-nacht": {
+  "uurlabel": {
+   "labels": 7,
+   "worst": 13.99,
+   "worstText": "1u"
+  },
+  "daglabel": {
+   "labels": 2,
+   "worst": 13.99,
+   "worstText": "Morgen"
+  },
+  "koppenrij": {
+   "labels": 5,
+   "worst": 5.92,
+   "worstText": "Weer"
+  },
+  "klokpil": {
+   "labels": 1,
+   "worst": 8.69,
+   "worstText": "22:50"
+  }
+ }
+}

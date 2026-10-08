@@ -137,6 +137,9 @@ test('fresh radar reads as current, with the scan time and its age', async ({ pa
   const centred = Math.min(Math.max(pillBox.x + pillBox.width / 2, 16 + panel.width / 2), viewport.width - 16 - panel.width / 2)
   expect(Math.abs(panel.x + panel.width / 2 - centred)).toBeLessThanOrEqual(8)
   await page.keyboard.press('Escape')
+  // Zolang het paneel open is staat de tijd in het adres (U57), en een adres met een tijd opent het paneel.
+  // Pas herladen als het dicht is; anders komt het na de herlaad terug en vangt het de tik op het zoekveld af.
+  await expect(dialog).toBeHidden()
 
   // U34/U58: in rust staat alleen het zoekicoon; het uitgevouwen veld vult de smalle kaartbreedte.
   if (testInfo.project.use.hasTouch) {

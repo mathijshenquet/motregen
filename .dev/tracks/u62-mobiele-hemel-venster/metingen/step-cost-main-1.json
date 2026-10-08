@@ -1,0 +1,21 @@
+{
+ "label": "main-1",
+ "dragHours": 7.17948717948718,
+ "longFrames": 2,
+ "longFrameTotalMs": 118,
+ "longFrameMaxMs": 65,
+ "frames": 797,
+ "frameP50Ms": 17,
+ "frameP95Ms": 17,
+ "frameMaxMs": 50,
+ "framesOver50Ms": 0,
+ "rebuilt": {
+  "schemergloed": 6,
+  "nevelstop": 37,
+  "hemelstop": 40,
+  "wolktintstop": 120,
+  "streek": 598,
+  "wolkpad": 20,
+  "ster": 4
+ }
+}

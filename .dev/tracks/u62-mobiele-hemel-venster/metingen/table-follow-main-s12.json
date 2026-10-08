@@ -1,0 +1,51 @@
+{
+ "label": "main-s12",
+ "playback": {
+  "calls": 2,
+  "behaviors": {
+   "smooth": 1,
+   "auto": 1
+  },
+  "moves": [
+   {
+    "from": 454,
+    "to": 518,
+    "behavior": "smooth",
+    "distinctPositions": 8
+   }
+  ]
+ },
+ "seek": {
+  "calls": 8,
+  "behaviors": {
+   "smooth": 4,
+   "auto": 4
+  },
+  "moves": [
+   {
+    "from": 518,
+    "to": 583,
+    "behavior": "smooth",
+    "distinctPositions": 8
+   },
+   {
+    "from": 583,
+    "to": 643,
+    "behavior": "smooth",
+    "distinctPositions": 7
+   },
+   {
+    "from": 643,
+    "to": 703,
+    "behavior": "smooth",
+    "distinctPositions": 8
+   },
+   {
+    "from": 703,
+    "to": 763,
+    "behavior": "smooth",
+    "distinctPositions": 8
+   }
+  ]
+ }
+}

@@ -16,7 +16,7 @@ export const LEGACY_WIND_TUNING_STORAGE_KEY = 'motregen-wind-tuning-v3'
 // zodat snelheid tempo wordt en niet de hoeveelheid inkt per particle.
 // lineWidth is sinds U34 in CSS-px, net als de rest: in device-px (U3) was hij op een retina-scherm
 // half zo dik als op een 1×-monitor (PO 2026-09-25 live). Smalle schermen (telefoon) krijgen
-// WIND_NARROW_LINE_FACTOR, zodat mobiel fijn blijft zoals de PO het in U3 wilde.
+// `narrowLineFactor`, zodat mobiel fijn blijft zoals de PO het in U3 wilde.
 export interface WindParameters {
   particlesPerMegapixel: number
   trailDistance: number
@@ -34,6 +34,10 @@ export interface WindParameters {
   visibility: number
   /** Bovengrens voor wind-, regen- en afspeelframes (120 Hz-schermen tekenen anders alles dubbel). */
   maxFps: number
+  /** Deel van de kopsterkte dat boven water wegvalt (0 = zee even sterk als land). */
+  seaPenalty: number
+  /** Lijnbreedte op een smal scherm als deel van `lineWidth`. */
+  narrowLineFactor: number
 }
 
 /**
@@ -63,6 +67,21 @@ export const WIND_PARAMETERS: WindParameters = {
   intensity: 0.5,
   visibility: 1, // Contrast (U3); App vermenigvuldigt met de focusdemping
   maxFps: 60, // Max. fps (U8c)
+  // PO 2026-09-25 live (U34): koppen boven water (de `water`-laag van de basemap) een derde zachter.
+  seaPenalty: 0.33,
+  // Onder NARROW_VIEWPORT_PX is de lijn dunner; 0,6 × 2,5 = 1,5 CSS-px.
+  narrowLineFactor: 0.6,
+}
+
+/**
+ * Windstreepjes op mobiel, twee proefniveaus achter ?dev (U62, PO: te subtiel, vooral boven zee). Alleen
+ * breedte, sterkte en de zee-demping; het aantal streepjes blijft gelijk, dus het tekenwerk ook.
+ */
+export type MobileWindLevel = 'uit' | 'iets' | 'meer'
+export const MOBILE_WIND_LEVELS: Record<MobileWindLevel, { intensityGain: number; narrowLineFactor: number; seaPenalty: number }> = {
+  uit: { intensityGain: 1, narrowLineFactor: WIND_PARAMETERS.narrowLineFactor, seaPenalty: WIND_PARAMETERS.seaPenalty },
+  iets: { intensityGain: 1.25, narrowLineFactor: 0.72, seaPenalty: 0.2 },
+  meer: { intensityGain: 1.5, narrowLineFactor: 0.84, seaPenalty: 0.08 },
 }
 
 export type WindTuning = Pick<WindParameters, 'particlesPerMegapixel' | 'intensity' | 'lineWidth' | 'speed'>
@@ -96,9 +115,8 @@ export const WIND_TUNING_CONTROLS: readonly WindTuningControl[] = [
   { key: 'speed', label: 'Tempo', min: 0.2, max: 3, step: 0.05, unit: '×' },
 ]
 
-// Onder deze CSS-breedte (de mobiele layout) is de lijn dunner; 0,6 × 2,5 = 1,5 CSS-px.
+// Onder deze CSS-breedte (de mobiele layout) is de lijn dunner (`narrowLineFactor`).
 const NARROW_VIEWPORT_PX = 430
-const WIND_NARROW_LINE_FACTOR = 0.6
 const MIN_PARTICLES = 96
 // Herstel van het budget al onder 1,10× de frametijd (was 1,03×): met af en toe een gemist frame bleef
 // het gemiddelde net boven 1,03× hangen en kwam de dichtheid na één dip nooit meer terug (U34).
@@ -138,8 +156,6 @@ const SPAWN_CANDIDATES = 6
 // PO 2026-09-25 live (U34): koppen die dichter dan dit (CSS-px) bij elkaar komen, klonteren; de oudste
 // van het paar dooft uit en wordt elders geboren.
 const DECLUMP_PX = 10
-// PO 2026-09-25 live (U34): koppen boven water (de `water`-laag van de basemap) een derde zachter.
-const SEA_PENALTY = 0.33
 // Maskercel in CSS-px; dezelfde zee-penalty als de PO-keuze in U34.
 const WATER_MASK_PX = 4
 const WATER_REBUILD_MS = 200
@@ -770,7 +786,7 @@ export class WindLayer implements CustomLayerInterface {
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     // lineWidth in CSS-px van het huidige beeld, omgerekend naar pixels van de verankerde buffer.
     const cssWidth = Math.max(1, this.cssSize().width)
-    const lineWidth = this.tuning.lineWidth * (cssWidth <= NARROW_VIEWPORT_PX ? WIND_NARROW_LINE_FACTOR : 1)
+    const lineWidth = this.tuning.lineWidth * (cssWidth <= NARROW_VIEWPORT_PX ? this.tuning.narrowLineFactor : 1)
     const halfWidth = lineWidth / 2 * bufferTransform.scaleX * this.trailWidth / cssWidth
     gl.useProgram(this.segmentProgram!)
     gl.bindVertexArray(this.segmentArray!)
@@ -1061,7 +1077,7 @@ export class WindLayer implements CustomLayerInterface {
     const column = Math.floor((x - bounds.west) / (bounds.east - bounds.west) * this.waterColumns)
     const row = Math.floor((y - bounds.north) / (bounds.south - bounds.north) * this.waterRows)
     if (column < 0 || row < 0 || column >= this.waterColumns || row >= this.waterRows) return 1
-    return 1 - SEA_PENALTY * mask[row * this.waterColumns + column]! / 255
+    return 1 - this.tuning.seaPenalty * mask[row * this.waterColumns + column]! / 255
   }
 
   private scheduleWaterMask(): void {

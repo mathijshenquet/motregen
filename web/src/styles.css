@@ -37,6 +37,16 @@
   --cloud-storm: #262f35;
   --cloud-night: #4a5964;
   --sky-bright: #4fb0f7;
+  /* Tijdliniaal op de hemel (U62): sluier en inkt, overdag en 's nachts. */
+  --ruler-day-veil: #fff;
+  --ruler-day-veil-strength: .5;
+  --ruler-day-ink: #17313b;
+  --ruler-night-veil: #06121a;
+  --ruler-night-veil-strength: .4;
+  --ruler-night-ink: #e3f1f6;
+  /* Ondergrond van het vaste daglabel: dekkend genoeg om de uurlabels eronder te laten vervagen. */
+  --ruler-day-chip: #d3ebfa;
+  --ruler-night-chip: #14222f;
   --sky-dull: #5c7084;
   --sky-haze: #fff1cf;
   --dusk-amber: #ffb85c;
@@ -83,6 +93,10 @@
   --cloud-storm: #141a1e;
   --cloud-night: #2b3a44;
   --sky-bright: #2489e0;
+  --ruler-day-veil: #06121a;
+  --ruler-day-veil-strength: .45;
+  --ruler-day-ink: #edf8fc;
+  --ruler-day-chip: #14405f;
   --sky-dull: #36485a;
   --sky-haze: #ffe3a8;
   --dusk-amber: #ffab52;
@@ -609,6 +623,15 @@ button { color: inherit; cursor: pointer; }
 .sky-depth-gradient stop:nth-child(2) { stop-color: var(--sky-zenith); stop-opacity: 0; }
 .sky-depth-gradient stop:nth-child(3) { stop-color: var(--sky-zenith); stop-opacity: 0; }
 .sky-haze-gradient stop { stop-color: var(--sky-haze); }
+/* Tijdliniaal op de hemel (U62): de hemel loopt door tot boven; de sluier en de inkt volgen per uur dag of nacht. */
+.ruler-depth { fill: var(--sky-zenith); fill-opacity: .3; }
+.ruler-veil-gradient stop { stop-color: var(--ruler-day-veil); stop-opacity: var(--ruler-day-veil-strength); }
+.ruler-veil-gradient stop.night { stop-color: var(--ruler-night-veil); stop-opacity: var(--ruler-night-veil-strength); }
+.chart-plot.sky-ruler::after { border-top-color: color-mix(in srgb, var(--ruler-day-ink) 16%, transparent); }
+.sky-ruler .x-axis span:not(.now-tick) { color: var(--ruler-day-ink); font-weight: 600; }
+.sky-ruler .x-axis span.night:not(.now-tick) { color: var(--ruler-night-ink); }
+.sky-ruler .day-labels span { color: var(--ruler-day-ink); background: linear-gradient(to right, transparent, var(--ruler-day-chip) 7px, var(--ruler-day-chip) calc(100% - 14px), transparent); }
+.sky-ruler .day-labels span.night { color: var(--ruler-night-ink); background: linear-gradient(to right, transparent, var(--ruler-night-chip) 7px, var(--ruler-night-chip) calc(100% - 14px), transparent); }
 /* Lucht en wolken kleuren per uur mee met het licht (U47, MIP-18). --dark en --day staan per stop,
    --sky (0–1) op de svg: zonder hemel houden de wolken hun rustige grijzen, met hemel worden ze wit
    tegen blauw of zwaar tegen lood. --weight: hoe sterk een laag meedonkert (cirrus blijft licht). */
@@ -756,6 +779,12 @@ button.column-mode { width: 100%; cursor: pointer; }
     linear-gradient(180deg, var(--day-sky-start), var(--day-sky-end));
 }
 .forecast-table.day-night-table tr.day-hour td { background: transparent; }
+/* De koppenrij (modusbalk) neemt de hemel van het cursoruur aan (U62); de inkt is donkerder dan in de
+   rijen omdat de kleine kopletters anders onder 4,5:1 zakken. */
+.forecast-table.day-night-table thead tr.sky-head th { background: var(--surface); transition: background-color .3s ease, color .3s ease; }
+.forecast-table.day-night-table thead tr.sky-head.day-hour,
+:root[data-theme="dark"] .forecast-table.day-night-table thead tr.sky-head.day-hour { --muted: #3a525c; --accent: #0b607e; background: none; }
+.forecast-table.day-night-table thead tr.sky-head.day-hour th { background: var(--day-sky-start); }
 :root[data-theme="dark"] .forecast-table.day-night-table tr.day-hour .weather-icon .weather-cloud { fill: #e7eef1; stroke: #8399a3; }
 .forecast-table tbody tr:not(.sun-row):not(.history-toggle-row) td { border-bottom-color: color-mix(in srgb, #fff 38%, var(--line)); }
 .forecast-table.day-night-table tr.night-hour td { border-bottom-color: color-mix(in srgb, #fff 16%, var(--line)); }
@@ -973,6 +1002,13 @@ td small { color: var(--muted); font-size: 9px; }
   white-space: nowrap;
 }
 .map-clock:hover, .map-clock:focus-within { background: var(--surface-raised); }
+/* Dev-variant "mee-tinten" (U62): de pil neemt de hemel van het cursoruur aan, zoals de koppenrij. */
+.map-clock:is(.sky-day, .sky-night) { transition: background-color .3s ease, color .3s ease; }
+.map-clock.sky-night { --surface-raised: rgba(10, 24, 32, .96); --text: #edf8fc; --muted: #91aab5; --accent: #48c4e9; --accent-soft: #123b49; --line-strong: #3b5a66; }
+.map-clock.sky-day {
+  --surface-raised: color-mix(in oklab, color-mix(in oklab, var(--table-day-dull) calc(var(--day-overcast) * 74%), var(--table-day-bright)) 44%, #fff);
+  --text: #102630; --muted: #3a525c; --accent: #0b607e; --accent-soft: #d9f1f8; --line-strong: #b7cbd2;
+}
 .map-clock { display: flex; align-items: stretch; }
 .clock-play { display: grid; place-items: center; width: 34px; padding: calc(env(safe-area-inset-top) + 4px) 0 4px 6px; border: 0; color: var(--accent); background: none; cursor: pointer; }
 .clock-play:hover, .clock-play:focus-visible { color: var(--text); outline: none; }
