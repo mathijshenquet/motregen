@@ -868,3 +868,24 @@ Fix: `mapSurfaceTheme` (dag/nacht van de kaart zelf) voedt temperatuurcijfers, i
   `panelTop` 698 na de tik op Tabel — de tabel gaat niet open, 10 s lang. Dat kan een productfout zijn
   (tik op Tabel in Firefox doet soms niets) en geen testruis; retries verbergen dat. Bewijs bewaard in
   `firefox-flaky/` (twee faalbeelden, twee traces, runlog).
+
+## 2026-10-08 ~23:55 — slotentry van de dag
+Geland vandaag (deel 3 en 4 op main; de laatste twee commits wachten op de orkestrator-gate van `358eef3`):
+- Regen-blending als standaard: Wind = vermenigvuldigen (nacht gedempt), Lucht = voorstel; knoppen weg.
+- Adresbalkbug Firefox Android: paneelstand t.o.v. de zichtbare viewport + vangnetstrook; PO: "gebeurt nog
+  wel maar corrigeert zich op tijd" → goedgekeurd. Tabelcorrectie alleen in rust, kaartkant-correctie weg.
+- firefox-project in Playwright (5 tests), nu met `retries: 2`.
+- Kaartoverlays volgen de kaartstand i.p.v. het app-thema (waterrand/tegelranden, cijferhalo, isobaren,
+  isothermen, labels, zon); kaart dag/nacht in één stap (PO).
+- Rand kaart/zijpaneel = oud; schakelaar weg.
+- Tabelrijlijnen: werkelijke rijkleur verdonkerd met zwart (dagrij 6 %, nachtrij 30 %), 1 apparaatpixel;
+  matrix door de orkestrator op screenshots goedgekeurd, PO-blik staat nog uit.
+Open:
+1. `firefox.table.spec` deterministisch maken, en daarbij EERST uitzoeken of "tabel gaat niet open na tik op
+   Tabel" (panelTop 698, 10 s) een productfout in Firefox is; bewijs in `firefox-flaky/`. Daarna retries weg.
+2. Diagnose-overlay "Scherm en scroll" (`?dev` → Diagnose, sleutel `motregen-dev-viewport`,
+   `ViewportDiagnose.tsx`) verwijderen zodra de PO de adresbalk definitief goedkeurt; docs/dev-opties.md bij.
+3. Rijlijnen-overzichtsbeeld overdag opnieuw maken (het huidige toont maar twee dagrijen).
+4. Nacht-cijferhalo: PO zag de fix nog niet bevestigd op een verse bundel.
+5. "u63 vraag" (lege queue-melding eerder vandaag) is nooit ingevuld.
+Preview 4320 gestopt bij het afsluiten.
