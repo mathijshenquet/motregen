@@ -194,15 +194,18 @@ test.describe('telefoon met ingeklapte adresbalk', () => {
     await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
 
     // De terugkerende adresbalk schuift de pagina een stukje terug: 35 px scrubber boven de tabel.
-    await page.evaluate(() => window.scrollBy(0, -35))
-    expect(await panelTop()).toBe(35)
+    // In dezelfde tik teruglezen: de app zet de pagina al bij het einde van de scroll terug.
+    expect(await page.evaluate(() => {
+      window.scrollBy(0, -35)
+      return Math.round(document.querySelector('.forecast-panel')!.getBoundingClientRect().top)
+    })).toBe(35)
     await expect.poll(panelTop).toBe(0)
     await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
 
     // Hetzelfde aan de kaartkant: net niet bovenaan wordt bovenaan.
     await page.getByRole('button', { name: 'Tabel' }).click()
     await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(0)
-    await page.evaluate(() => window.scrollBy(0, 30))
+    expect(await page.evaluate(() => { window.scrollBy(0, 30); return Math.round(window.scrollY) })).toBe(30)
     await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(0)
     await expect(page.locator('.app-shell')).not.toHaveClass(/table-view-open/)
   })
