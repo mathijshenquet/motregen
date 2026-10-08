@@ -395,3 +395,7 @@ Root is schoon behalve deze docs/LOG-aanvulling; de oude tijdelijke baselinekopi
 ## 2026-10-08 10:54 UTC — WIP-cadence, nog geen rustig meetvenster
 
 Volgend checkpoint met de expliciete browserproces-/cachevergelijkbaarheid in docs/perf.md. Code en gerichte functionele gates onveranderd sinds 035883a; geen onnodige herhaling van tests. Meetwachtrij sessie 85883 blijft actief vóór de eerste placeholderopname, zonder hostlock. Load 9,14 op 10:50 UTC en 10,70 op 10:53 UTC: beide ongeldig. Geen nieuwe ttfr/ttfp of baseline; oorspronkelijke en nieuwe reeks blijven gescheiden. Wachtrijvolgorde blijft placeholder vóór/ná, quota40/0, nieuw main/U63-fixture/eigen-kaartpaar, acht baselinecontracten met oude kostengate.
+
+## 2026-10-08 11:15 UTC — WIP, wachtrij zonder hostlock
+
+Geen nieuwe opname of productwijziging sinds b14ec18. Load 8,14 op 11:02 UTC bleef boven de strikte grens; daarna 12,10 / 16,10 / 15,68. Eerste placeholder-output nog leeg, meetmaster 85883 actief in de buitenste loadwacht, hostlock vrij. Code-/beeldreceipts hierboven blijven de laatste afgeronde verificatie. Commit/push van dit timestamped checkpoint; volgende stap blijft de eerste rustige ×3-controle van het placeholderpaar, geen nieuwe planningvraag.
