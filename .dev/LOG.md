@@ -212,6 +212,11 @@
   prod-tg-bot aan (commando in chat, secrets via ssh); daarna lokale bot stoppen bij 409. Achtergrond-
   shells van deze sessie (preview 4330, prof-sink 4331, bot, watchers) vervallen bij herstart: 4330 en de
   bot opnieuw starten vanuit main; hydra-soak staat uit.
+- **tg-bot op prod** (15:05): sleutel van ageq-dev2 via ageq-mthq (mthq-sleutel) op root@57.129.47.17 gezet
+  én in `nix/authorized-keys.nix` (1c3ef810); `TG_BOT_KEY` + `MOTREGEN_CACHE_CHAT_ID` uit de lokale .env
+  in prod `secrets.env`; `motregen-bot` actief, `bot-started`, eerste drie loops renderen (VM: 2 kernen,
+  3,8 GB, Chromium ~150 %). Lokale bot gestopt; 4330 + prof-sink 4331 opnieuw gestart na de sessie-
+  herstart. Orkestrator mag prod nu zelf muteren (PO 2026-10-08).
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
