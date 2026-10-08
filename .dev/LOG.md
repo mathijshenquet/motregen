@@ -194,6 +194,13 @@
   36 e2e desktop+mobile-4g. Open bij PO: klokpil-variant, windniveau, MIP-24. U65 klaar (PR #93, 6.997
   plaatsen, pin-zone), gate loopt; PO-vraag "61 kB op het kritieke pad?" → U65 bewijst lazy-na-ttfp en
   slaat zone op bij kiezen; server-side inlijnen = YAGNI tot meting.
+- **U65 gemerged** (0fb247ec, 11:55): 6.997 plaatsen (61 kB gzip) lazy ná ttfp (desktop +0,8 s, po-android
+  +1,0 s erna; bewezen met watervallen), pin/plaatsnaam/zone lokaal bij kiezen, `/weer/<plaats>` houdt de pin
+  in dezelfde zone, 69-lijst fallback; server-side inlijnen = YAGNI tot meting. Gate: 506 unit, 27 e2e.
+  PO-keuzes vandaag via U62: klokpil/zoekbalk/druppel tinten mee; kaart gaat mee onder Expressief
+  (MIP-24 accepted); wind "iets" op mobiel; koppen tweenen alleen bij de zon-op/onder-rij; rand
+  kaart/zijpaneel: A (1 px hemelkleur) geadviseerd, PO beslist. Perf-lock-discipline: wachten op load
+  BUITEN de flock (U63 hield hem > 1 u).
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
