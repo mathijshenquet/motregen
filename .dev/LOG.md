@@ -159,6 +159,27 @@
   (de budgetten vóór herijking) / 75 skips, daarna perf.spec mobiel 4 groen → **main is vannacht
   volledig groen**. Alle workers gesloten; 4330 draait main; bot vanaf main tegen 4330 (staand).
 
+## 2026-10-08 — ochtend: prod gedeployed door de PO; U62 live; lussen U63/U64; U57 pad-URI's gemerged
+
+- **Prod** draait sinds vannacht main (zelfde bundel als 4330); de lokale bot ziet geen 409 → prod-bot nog
+  niet actief (secrets). PO-oordeel op prod: kaart "voelt zeer snappy".
+- **U62 live-pane** (opus 5.5, 4320): hemelbug mobiel — oorzaak gemeten: de stralingsreeks werd alleen voor
+  de getoonde tabelrijen gelezen en elke lezing verving de reeks, zodat uurstops van bron wisselden bij
+  elke uurrij (mijn index-hypothese weerlegd); fix: hemel krijgt het scrubbervenster ± 1 u, waarden blijven
+  staan; venster-stap van 598 → ~80 streken, LoAF 2 → 0. Stap 2 tabelpiep: Firefox-only tijdens vinger-
+  down (PO) → eigen tween op gecachte rij-offsets. Stap 3 contextgevoelig chrome (liniaal op de hemel,
+  koppen in hemelkleur, klokpil ?dev-varianten) staat voor PO-akkoord. Open: laag-varianten onder de
+  perf-lock, wind op mobiel (stap 4).
+- **MIP-23 (draft, PO-akkoord in chat)**: U63 mobiele ttfp-lus en U64 desktop-waterval-lus, beide
+  gpt-6.1-sol; PO-prioriteit ttfr > ttfp, ttfh secundair, LoAF na start als bewaker. Nulpunt U63:
+  ttfp 1,73 s / ttfh 4,3 s (rig). Host-brede perf-lock (`flock ~/motregen-perf.lock`) voor alle tracks.
+- **U57 gemerged** (4b14eab7): pad-URI's, #t=-fragment (PO: semantisch correcter), 301's, sitemap 209
+  URL's, geen opgeslagen-plaatslabels in de URL. Gate: 482 unit, 25 e2e, flake groen. Op 4330.
+- **Lessen**: codex 0.161 heeft `--no-daemon` nodig in herdr-panes (anders sterft hij direct; herdr meldt
+  toch agent_started); codex-keuzevragen beantwoorden via `send-keys shift+left`/enter.
+- **Open MET PO**: akkoord U62 stap 2/3 op 4320; Buienradar op de telefoon meten; prod-secrets voor de bot
+  (dan lokale bot stoppen); MIP-19/20/21/23 adoptie.
+
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
   (afspeelrondje glijdt terug; horizon +8 u blijft, PO: "afspelen ziet er goed uit"), windlijnbreedte in
