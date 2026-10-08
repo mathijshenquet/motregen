@@ -186,7 +186,6 @@ const PLAYBACK_WAIT_AHEAD_FRAMES = 2
 const PLAY_RULE_STORAGE_KEY = 'motregen-dev-speelregel'
 // Rig-schakelaar (?dev): 'laat' vraagt het eerste regenframe weer pas na de kaart-opzet.
 const FIRST_RAIN_STORAGE_KEY = 'motregen-dev-eerste-regen'
-// PO-vergelijking (?dev): het lege scrubber-kader neemt de hemelkleur van het uur aan.
 const VIEWPORT_DIAGNOSE_STORAGE_KEY = 'motregen-dev-viewport'
 // Zoveel mag het tabelpaneel hooguit worden verlengd als de pagina eindigt vóór het paneel bovenaan staat.
 const TABLE_PANEL_SHORTFALL_MAX_PX = 200
