@@ -52,7 +52,7 @@ import { buildTimeline, epochInWindow, frameBlend, scrubberViewWindow, seriesVal
 import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
 import { WIND_UNITS, type WindUnit } from './core/weather'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
-import { DEFAULT_WIND_TUNING, loadWindTuning, storeWindTuning, WIND_MAX_FPS, WIND_PARAMETERS, WindLayer, type WindTuning } from './core/wind-layer'
+import { DEFAULT_WIND_TUNING, loadWindTuning, MOBILE_WIND_LEVELS, storeWindTuning, WIND_MAX_FPS, WIND_PARAMETERS, WindLayer, type MobileWindLevel, type WindTuning } from './core/wind-layer'
 import { clearTuningStorage } from './core/dev-settings'
 import { watchIdle } from './core/activity'
 import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
@@ -186,6 +186,7 @@ const FIRST_RAIN_STORAGE_KEY = 'motregen-dev-eerste-regen'
 // PO-vergelijking (?dev): het lege scrubber-kader neemt de hemelkleur van het uur aan.
 const FRAME_SKY_STORAGE_KEY = 'motregen-dev-kaderhemel'
 const CLOCK_SKY_TINT_STORAGE_KEY = 'motregen-dev-klokpil'
+const MOBILE_WIND_STORAGE_KEY = 'motregen-dev-wind-mobiel'
 // Stil op de achtergrond (U41): na een minuut zonder invoer tekent de wind op halve snelheid.
 const IDLE_AFTER_MS = 60_000
 const WIND_IDLE_FPS = 30
@@ -497,6 +498,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [isolineTuning, setIsolineTuning] = createSignal<IsolineTuning>({ ...DEFAULT_ISOLINE_TUNING })
   const [frameSky, setFrameSky] = createSignal(devMode && localStorage.getItem(FRAME_SKY_STORAGE_KEY) === 'aan')
   const [clockSkyTint, setClockSkyTint] = createSignal(devMode && localStorage.getItem(CLOCK_SKY_TINT_STORAGE_KEY) === 'mee-tinten')
+  const storedMobileWind = devMode ? localStorage.getItem(MOBILE_WIND_STORAGE_KEY) : null
+  const [mobileWind, setMobileWind] = createSignal<MobileWindLevel>(storedMobileWind === 'iets' || storedMobileWind === 'meer' ? storedMobileWind : 'uit')
+  // De proefniveaus gelden alleen waar de PO de streepjes te subtiel vond: vinger als aanwijsmiddel of een smal scherm.
+  const mobileWindDevice = matchMedia('(pointer: coarse), (max-width: 499px)').matches
   const [temperatureRange, setTemperatureRange] = createSignal<PaletteRange | undefined>()
   let temperatureRangeKey = ''
   const [focus, setFocus] = createSignal(0)
@@ -558,12 +563,18 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [pageVisible, setPageVisible] = createSignal(document.visibilityState !== 'hidden')
   const mapRendering = createMemo(() => pageVisible() && !(tableViewAvailable() && tableCoversViewport()))
   const [userIdle, setUserIdle] = createSignal(false)
-  const focusedWindTuning = createMemo(() => ({
-    ...windTuning(),
-    intensity: windFocusIntensity(windTuning().intensity, windFocus()),
-    visibility: mapRendering() ? WIND_PARAMETERS.visibility * contextOpacity(focus(), FOCUS_DIM) : 0,
-    maxFps: userIdle() ? WIND_IDLE_FPS : WIND_MAX_FPS,
-  }))
+  const focusedWindTuning = createMemo(() => {
+    const mobile = MOBILE_WIND_LEVELS[mobileWindDevice ? mobileWind() : 'uit']
+    return {
+      ...windTuning(),
+      // De versterking geldt voor de wind op de achtergrond; bij volle windfocus staat hij al voluit.
+      intensity: windFocusIntensity(windTuning().intensity, windFocus()) * (1 + (mobile.intensityGain - 1) * (1 - windFocus())),
+      narrowLineFactor: mobile.narrowLineFactor,
+      seaPenalty: mobile.seaPenalty,
+      visibility: mapRendering() ? WIND_PARAMETERS.visibility * contextOpacity(focus(), FOCUS_DIM) : 0,
+      maxFps: userIdle() ? WIND_IDLE_FPS : WIND_MAX_FPS,
+    }
+  })
   const [mapReady, setMapReady] = createSignal(false)
   const [resetNotice, setResetNotice] = createSignal(false)
   let resetNoticeTimer: number | undefined
@@ -2912,6 +2923,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             onFirstRainLate={(late) => { setFirstRainLate(late); localStorage.setItem(FIRST_RAIN_STORAGE_KEY, late ? 'laat' : 'vroeg') }}
             frameSky={frameSky()}
             onFrameSky={(enabled) => { setFrameSky(enabled); localStorage.setItem(FRAME_SKY_STORAGE_KEY, enabled ? 'aan' : 'uit') }}
+            mobileWind={mobileWind()}
+            onMobileWind={(level) => { setMobileWind(level); localStorage.setItem(MOBILE_WIND_STORAGE_KEY, level) }}
             clockSkyTint={clockSkyTint()}
             onClockSkyTint={(enabled) => { setClockSkyTint(enabled); localStorage.setItem(CLOCK_SKY_TINT_STORAGE_KEY, enabled ? 'mee-tinten' : 'wit') }}
             windTuning={windTuning()}

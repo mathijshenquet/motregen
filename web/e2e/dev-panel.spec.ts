@@ -13,9 +13,9 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   const panel = page.getByTestId('dev-panel')
   await expect(panel).toBeVisible()
   const groups = panel.locator('.dev-group')
-  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wind', 'Laden', 'Chrome', 'Lucht nu', 'Diagnose'])
+  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wind', 'Laden', 'Mobiel', 'Chrome', 'Lucht nu', 'Diagnose'])
   // Alleen de eerste groep start open.
-  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false, false])
+  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false, false, false])
   await expect(panel).not.toContainText('Wolkrand')
 
   const controls = panel.locator('.dev-control')
@@ -58,4 +58,23 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
     if (!await summary.evaluate((element) => (element.parentElement as HTMLDetailsElement).open)) await summary.click()
   }
   await panel.screenshot({ path: testInfo.outputPath('dev-panel.png') })
+})
+
+test.describe('telefoon', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+  // U62: de proefniveaus voor de windstreepjes gelden alleen op een telefoon of smal scherm.
+  test('the mobile wind levels raise the ambient wind without touching the wind focus', async ({ page }) => {
+    await page.goto('/?dev')
+    await expect(page.locator('.map-splash.ready')).toBeAttached()
+    const map = page.locator('.map-shell')
+    await expect(map).toHaveAttribute('data-wind-intensity', '0.50')
+    const panel = page.getByTestId('dev-panel')
+    await panel.locator('details.dev-group > summary', { hasText: 'Mobiel' }).click()
+    await panel.getByLabel('Windstreepjes').selectOption('iets')
+    await expect(map).toHaveAttribute('data-wind-intensity', '0.63')
+    await panel.getByLabel('Windstreepjes').selectOption('meer')
+    await expect(map).toHaveAttribute('data-wind-intensity', '0.75')
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-dev-wind-mobiel'))).toBe('meer')
+  })
 })

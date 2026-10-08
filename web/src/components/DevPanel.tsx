@@ -2,7 +2,7 @@ import { createSignal, For, type JSX } from 'solid-js'
 import { copyText } from '../core/clipboard'
 import { appendSkyDiaryEntry, SKY_DIARY_CLASSES, skyDiaryJson, type SkyDiaryClass } from '../core/dev-settings'
 import { ISOLINE_FADES, ISOLINE_FILL_STYLES, ISOLINE_STEPS, type IsolineFade, type IsolineFillStyle, type IsolineStep, type IsolineTuning } from '../core/isolines'
-import { sanitizeWindTuning, WIND_TUNING_CONTROLS, type WindTuning } from '../core/wind-layer'
+import { sanitizeWindTuning, WIND_TUNING_CONTROLS, type MobileWindLevel, type WindTuning } from '../core/wind-layer'
 
 // Alleen via ?dev; hooguit 3–4 knoppen per groep (PO 2026-09-25). Elke knop staat in
 // docs/dev-opties.md met eigenaar en vervaldatum (MIP-12).
@@ -15,6 +15,8 @@ interface Props {
   onFrameSky: (enabled: boolean) => void
   clockSkyTint: boolean
   onClockSkyTint: (enabled: boolean) => void
+  mobileWind: MobileWindLevel
+  onMobileWind: (level: MobileWindLevel) => void
   windTuning: WindTuning
   onWindTuning: (tuning: WindTuning) => void
   perfVisible: boolean
@@ -111,6 +113,15 @@ export default function DevPanel(props: Props) {
         <select value={props.frameSky ? 'aan' : 'uit'} onChange={(event) => props.onFrameSky(event.currentTarget.value === 'aan')}>
           <option value="uit">uit</option>
           <option value="aan">aan</option>
+        </select>
+      </Control>
+    </Group>
+    <Group title="Mobiel">
+      <Control label="Windstreepjes" output={props.mobileWind} hint="Alleen op een telefoon of smal scherm: de wind op de achtergrond iets (of meer) breder en sterker, en boven zee minder gedempt. Het aantal streepjes blijft gelijk.">
+        <select aria-label="Windstreepjes" value={props.mobileWind} onChange={(event) => props.onMobileWind(event.currentTarget.value as MobileWindLevel)}>
+          <option value="uit">uit</option>
+          <option value="iets">iets</option>
+          <option value="meer">meer</option>
         </select>
       </Control>
     </Group>
