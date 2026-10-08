@@ -382,3 +382,18 @@ b1a706752174bbd7f1cb2453ce3a740929d73775	refs/pull/91/head
 - Warmcapture doet een echte gecontroleerde prime-reload en wacht op de PMTiles-rangecache. De gemeten warmstart zet HTTP-cache uit; app-shell/glyphs/kaart moeten aantoonbaar uit SW/CacheStorage komen. Contextverzoeken worden ook voor de SW bijgehouden, zodat een NetworkOnly-weerfetch via een SW niet met een cachehit wordt verward. Warm betekent volledig geprimede SW, niet de allereerste heropening vóór rangecaching.
 - Lockwrapper herkent nu ook een werkelijk lockhoudende `flock` in de voorouderketen, zonder env-marker: het voorgeschreven handmatige `flock -w 7200 /home/mathijs/motregen-perf.lock <commando>` veroorzaakt dus geen geneste deadlock. Wachtende WRITE*-processen tellen niet als eigenaar. Bash-syntaxcontrole en nieuwe typecheck exit 0.
 - Eerste gelockte referentie ×3 klaar: ttfr 950 / 733 / 570 ms; ttfp 617 / 364 / 352 ms; eerste regen 542 / 285 / 279 ms. LoAF na ttfp: eerste browserstart 9 frames, max 436 ms; runs 2/3 nul. Inline eerste twee runs: ttfr 1016 / 688 ms, ttfp 608 / 333 ms, eerste regen 536 / 264 ms; manifeststart 9,8 / 8,7 ms tegenover 76,7 / 75,0 ms. Derde run/mediane conclusie nog pending. Eerste browser/GPU-start blijft apart herkenbaar; geen lange-frame-nulclaim over alle runs.
+
+## 2026-10-08 07:18 UTC — koude/warme reeksen binnen; parsemeting zonder dubbeltelling
+
+| kandidaat, drie runs (mediaan) | ttfr regen + basiskaart | ttfp | eerste regen (`firstRainMs`) | LoAF na ttfp (aantal / max ms per run) |
+| --- | ---: | ---: | ---: | --- |
+| referentie koud | 733 ms | 364 ms | 285 ms | 9/436 · 0/0 · 0/0 |
+| inline koud | 709 ms | 351 ms | 274 ms | 9/347 · 0/0 · 0/0 |
+| inline + lazy koud | 747 ms | 339 ms | 269 ms | 8/339 · 1/52 · 0/0 |
+| referentie warm | 654 ms | 324 ms | 275 ms | 0/0 · 0/0 · 0/0 |
+| inline + lazy warm | 658 ms | 305 ms | 252 ms | 3/60 · 0/0 · 0/0 |
+
+- Elke reeks onder de gedeelde meetlock, alle geregistreerde loadavg ≤8. ttfr inclusief volledige basiskaart varieert meer dan de eerste regentekenbeurt; daarom geen sterke claim op kaart-ttfr-winst voor lazy. Inline haalt het manifest 75 → 9 ms en het font 97 → 4 ms naar voren; het font wordt per run eenmaal gevraagd. Eerste regen-Range in de vergelijkbare tweede run 144 → 140 → 126 ms (referentie/inline/lazy).
+- Warmsteekproeven bewijzen in alle zes captures nul interne SW-netwerkverzoeken voor app-shell/kaartassets en 70 verse weerverzoeken (1.058.723 B per run). Het HUD toont door SW-ResourceTiming nul bytes; dat betekent hier niet nul weernetwerk. Deze bestaande SW-opzet hoeft niet gewijzigd te worden.
+- CPU-parser had bij één nieuwe V8-trace een genest parse-event dubbel geteld: 22,173 ms inclusief versus 14,800 ms genest. Summarizer telt nu alleen buitenste spans per thread; compile idem. Oude stap-0-CPU-waarden blijven gelijk. Correcte mediane hoofd-JS-parse: 23,3 / 23,4 / 22,8 ms voor referentie/inline/lazy, dus slechts ~0,5 ms parsewinst. Ruwe tracevensters en overdrachtsbytes zijn ongewijzigd.
+- Placeholder- en dev-referentiemetingen lopen nog; screenshots en Lighthouse volgen. Reviewscript gebruikt nu dezelfde fixtureklok en klapt diagnosepanelen via de UI dicht, zodat de kaartvergelijking leesbaar is. Geen normale e2e of builds tegelijk met deze eigen perf-reeks gestart.

@@ -11,6 +11,12 @@ interface TraceEvent {
   tdur?: number
   args?: { data?: { url?: string; documentLoaderURL?: string }; fileName?: string }
 }
+function outerSpans(events: TraceEvent[]): TraceEvent[] {
+  return events.filter((event) => !events.some((parent) => parent !== event
+    && parent.pid === event.pid && parent.tid === event.tid
+    && parent.ts <= event.ts && parent.ts + (parent.dur ?? 0) >= event.ts + (event.dur ?? 0)
+    && (parent.ts < event.ts || (parent.dur ?? 0) > (event.dur ?? 0))))
+}
 interface StartCapture {
   timeOrigin: number
   loadAverage: number
@@ -60,8 +66,8 @@ for (const file of files) {
   const urls = [...new Set(events.flatMap((event) => event.args?.data?.url?.includes('/assets/') ? [event.args.data.url] : []))]
   for (const url of urls) {
     const parseParents = events.filter((event) => event.name === 'v8.parseOnBackground' && event.args?.data?.url === url)
-    const parsing = events.filter((event) => event.name === 'v8.parseOnBackgroundParsing' && parseParents.some((parent) => parent.pid === event.pid && parent.tid === event.tid && event.ts >= parent.ts && event.ts + (event.dur ?? 0) <= parent.ts + (parent.dur ?? 0)))
-    const compile = events.filter((event) => ['v8.compileModule', 'v8.compile'].includes(event.name) && event.args?.data?.url === url)
+    const parsing = outerSpans(events.filter((event) => event.name === 'v8.parseOnBackgroundParsing' && parseParents.some((parent) => parent.pid === event.pid && parent.tid === event.tid && event.ts >= parent.ts && event.ts + (event.dur ?? 0) <= parent.ts + (parent.dur ?? 0))))
+    const compile = outerSpans(events.filter((event) => ['v8.compileModule', 'v8.compile'].includes(event.name) && event.args?.data?.url === url))
     const spans = [...parsing, ...compile]
     if (!spans.length) continue
     cpuRows.push(`| ${url.split('/').at(-1)} | ${shown(parsing.reduce((sum, event) => sum + (event.tdur ?? event.dur ?? 0), 0) / 1000)} / ${shown(compile.reduce((sum, event) => sum + (event.tdur ?? event.dur ?? 0), 0) / 1000)} | ${shown((Math.min(...spans.map((event) => event.ts)) - navigation.ts) / 1000)} → ${shown((Math.max(...spans.map((event) => event.ts + (event.dur ?? 0))) - navigation.ts) / 1000)} |`)

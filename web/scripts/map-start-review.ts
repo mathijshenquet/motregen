@@ -11,13 +11,26 @@ try {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block', colorScheme: theme as 'light' | 'dark' })
     try {
       const page = await context.newPage()
+      await page.addInitScript({ content: `
+        const NativeDate = Date;
+        const fixedEpoch = NativeDate.parse('2026-08-28T15:00:00Z');
+        globalThis.Date = new Proxy(NativeDate, {
+          construct: (target, args) => Reflect.construct(target, args.length ? args : [fixedEpoch]),
+          apply: () => new NativeDate(fixedEpoch).toString(),
+          get: (target, property, receiver) => property === 'now' ? () => fixedEpoch : Reflect.get(target, property, receiver),
+        });
+      ` })
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       let releaseTiles!: () => void
       const tilesReady = new Promise<void>((resolve) => { releaseTiles = resolve })
       await page.route('**/*.pmtiles', async (route) => { await tilesReady; await route.continue() })
       await page.goto(`${origin}/weer?perf=1&dev&kaartstart=${mode}`, { waitUntil: 'domcontentloaded' })
+      await page.locator('.dev-group > summary', { hasText: 'Diagnose' }).click()
+      await page.getByTestId('dev-panel').getByRole('checkbox', { name: /Perf-HUD/ }).uncheck()
+      await page.locator('.dev-panel > summary').click()
       await page.waitForFunction(() => window.__motregenPerf?.snapshot().firstRainMs != null)
+      await page.waitForTimeout(300)
       await page.screenshot({ path: `${prefix}-${theme}-voor-tegels.png` })
       releaseTiles()
       await page.waitForFunction(() => window.__motregenPerf?.snapshot().basemapReadyMs != null)
