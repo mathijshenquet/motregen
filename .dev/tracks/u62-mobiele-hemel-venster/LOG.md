@@ -728,3 +728,37 @@ Een open tabblad houdt door de service worker de oude versie tot de update-toast
   toestel moet het bevestigen ("scrollTop / max" tegenover "paneel top" en "100dvh").
 - Gate (web/): typecheck 0 · `pnpm test` 0 (527) · build 0 · `--project firefox` 0 (4 groen) · `table
   dev-panel` op desktop én mobile-4g 0 (18 groen, 4 overgeslagen).
+
+## Adresbalkbug ronde 3 gepusht (9f053f3) — PO: nog steeds triggerbaar; nu MET overlay-beelden
+
+## Adresbalkbug, ronde 4: gemeten oorzaak (PO-overlay, Firefox Android)
+`adresbalk/po-overlay-bugtoestand-post.png` (zelf nagelezen): innerHeight 925 · visualViewport h/top/pageTop
+925,2 / −63,7 / 715,5 · 100dvh = 100svh 925,2 · 100lvh 989,1 · scrollTop/max 779,2/780 · snappunt 779,2 ·
+paneel top/hoogte 0/925,2 · tekort 0 · tabel open.
+- Dus: de LAYOUT klopt (paneel top 0, scrollTop = snappunt = max). Firefox toont na de terugkerende adresbalk
+  63,7 px BOVEN de layout-viewport (`visualViewport.offsetTop` negatief) en kan niet verder scrollen. Mijn
+  rondes 1–3 keken naar de layoutpositie van het paneel (0) en zagen dus niets; de aannames "naast het
+  snappunt" en "innerHeight wijkt af" waren voor dit toestel allebei fout (ronde 3 dichtte wel een echt gat
+  in de code, maar niet dit).
+- Laag 1 (`visibleTablePanelTop` in `App.tsx`): de paneelstand wordt gemeten ten opzichte van het zichtbare
+  scherm (`rect.top − visualViewport.offsetTop`, alleen zonder knijpzoom). Steekt er iets boven uit, dan
+  scrollen; kan dat niet, dan het tekort bij de paneelhoogte optellen en doorscrollen (bestaande
+  `pullTablePanelToTop`). Hercontrole ook op `visualViewport` `scroll`. Hooguit 4 correcties per gebaar,
+  voor het geval de browser de verschuiving terugneemt zodra er weer gescrold kan worden.
+- Laag 2, vangnet (CSS): zolang het tabelpaneel het scherm dekt (`.table-covers-viewport`) ligt er een strook
+  van 120 px boven het paneel in de kleur van de koppenrij (`.forecast-panel::before`, dag/nacht via
+  `head-day`/`head-night` uit de tabel), boven de scrubber. Wat de browser daar ook onthult: geen scrubber.
+  De strook verdwijnt zodra het paneel meer dan 24 px van de bovenkant staat (bestaande hysterese), zodat
+  terugscrollen naar de kaart de scrubber niet afdekt.
+- Overlay: extra regel "paneel top op het scherm".
+- e2e firefox-project (nu 5 tests): `visualViewport.offsetTop`/`pageTop` nagebootst op −64 → zichtbare
+  paneelstand 64 → 0, tekort 64 px, layout 64 px doorgescrold, tabel open; daarna verschuiving weg en hoger
+  scherm → verlenging weg, paneel bovenaan. Plus de vangnetstrook: 120 px, kleur gelijk aan de koppenrij.
+  Op de vorige code rood.
+- Beelden: `adresbalk/ronde4-vangnetstrook.png` (vinger op het scherm, pagina 20 px teruggeschoven: boven de
+  tab-rij staat de kleur van de koppenrij), `ronde4-na-correctie-firefox.png`.
+- NIET na te bootsen op deze host: dat Firefox werkelijk bóven de layout-viewport tekent en wat het met
+  `offsetTop` doet zodra de pagina verder kan scrollen. Laag 2 is er juist voor het geval laag 1 op het
+  toestel anders uitpakt.
+- Gate (web/): typecheck 0 · `pnpm test` 0 (527) · build 0 · `--project firefox` 0 (5 groen) · `table dev-panel
+  cloud-section sky-window` op desktop én mobile-4g 0 (22 groen, 4 overgeslagen).
