@@ -10,7 +10,7 @@ function median(values) {
 
 if (process.argv.length < 3) throw new Error('Geef één of meer mappen met rapporten en raw.json op')
 for (const directory of process.argv.slice(2)) {
-  const runs = readdirSync(directory).filter((name) => /^po-android-koud-spelend-run\d+\.json$/.test(name)).map((name) => {
+  const runs = readdirSync(directory).filter((name) => /^po-android-koud-spelend(?:-dev)?-run\d+\.json$/.test(name)).map((name) => {
     const report = JSON.parse(readFileSync(join(directory, name), 'utf8'))
     const raw = JSON.parse(readFileSync(join(directory, name.replace('.json', '.raw.json')), 'utf8'))
     if (report.meta.loadAverage >= 8 || report.wire.findings.length) throw new Error(`${name}: ongeldige meetbron of loadavg`)
@@ -21,6 +21,7 @@ for (const directory of process.argv.slice(2)) {
       run: name.match(/run\d+/)[0],
       ttfrMs: report.milestones.ttfrMs,
       ttfpMs: startedPlaying,
+      firstMapImageMs: report.decode.phases['milestone:first-map-image']?.p50Ms ?? null,
       firstRainMs: report.milestones.firstRainMs,
       basemapReadyMs: report.milestones.basemapReadyMs,
       ttfhMs: report.milestones.ttfhMs,
@@ -38,5 +39,8 @@ for (const directory of process.argv.slice(2)) {
   if (runs.length !== 3) throw new Error(`${directory}: verwacht drie geldige opnames`)
   console.log(basename(directory))
   console.table(runs)
-  console.log('Mediaan:', JSON.stringify(Object.fromEntries(Object.keys(runs[0]).filter((key) => key !== 'run').map((key) => [key, Math.round(median(runs.map((run) => run[key])) * 10) / 10]))))
+  console.log('Mediaan:', JSON.stringify(Object.fromEntries(Object.keys(runs[0]).filter((key) => key !== 'run').map((key) => {
+    const value = median(runs.map((run) => run[key]))
+    return [key, value === null ? null : Math.round(value * 10) / 10]
+  }))))
 }
