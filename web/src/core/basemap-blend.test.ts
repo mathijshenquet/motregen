@@ -19,7 +19,7 @@ describe('basemap day/night blend (U62)', () => {
 
   it('finds only paint colours that differ, on layers both styles share', () => {
     expect(targets.length).toBeGreaterThan(10)
-    expect(new Set(targets.map((target) => target.property))).toEqual(new Set(['background-color', 'fill-color', 'line-color', 'text-color', 'text-halo-color']))
+    expect(new Set(targets.map((target) => target.property))).toEqual(new Set(['background-color', 'fill-color', 'fill-outline-color', 'line-color', 'text-color', 'text-halo-color']))
     expect(targets.find((target) => target.layer === 'water')).toMatchObject({ property: 'fill-color', light: 'rgb(158,189,255)', dark: '#183746' })
   })
 
@@ -32,6 +32,16 @@ describe('basemap day/night blend (U62)', () => {
         expect(parseColor(value)!.map(Math.round), `${target.layer} ${target.property} bij ${night}`).toEqual(parseColor(expected)!.map(Math.round))
       }
     }
+  })
+
+  it('drops the dark style\'s own water outline as soon as the map is day (PO 2026-10-08: tile edges over sea)', () => {
+    const outline = targets.find((target) => target.layer === 'water' && target.property === 'fill-outline-color')!
+    expect(outline).toMatchObject({ light: undefined, dark: '#183746' })
+    // Overdag de standaard van MapLibre (rand in de vulkleur), 's nachts de rand van de donkere stijl.
+    expect(blendedPaintValue(outline, 0)).toBeUndefined()
+    expect(blendedPaintValue(outline, 0.25)).toBeUndefined()
+    expect(blendedPaintValue(outline, 0.75)).toBe('#183746')
+    expect(blendedPaintValue(outline, 1)).toBe('#183746')
   })
 
   it('blends a zoom ramp against a single colour stop by stop', () => {

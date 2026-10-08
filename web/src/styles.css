@@ -972,18 +972,6 @@ td small { color: var(--muted); font-size: 9px; }
 
 /* Desktop met muis: de scrubber blijft staan en alleen de tabel scrolt, zodat hij op de nu-rij kan openen
    met de historie erboven. Touch houdt de doorlopende pagina (sticky scrubber) en de uitklaprij. */
-/* Tijdelijke proef achter ?dev (U62): scheiding tussen kaart en zijpaneel. Zonder klasse geldt de oude stand
-   (border-left + lichte schaduw op .dashboard); elke proefstand haalt die weg en zet er hooguit één ding voor
-   terug. De waarden staan als variabelen op .app-shell, zodat ze in devtools te verstellen zijn; 's nachts
-   (hemel van het cursoruur) eigen waarden. */
-@media (min-width: 960px) {
-  .app-shell { --edge-line-color: var(--line-on-light); --edge-shadow: -18px 0 34px -20px rgba(6, 20, 28, .38); }
-  .app-shell:has(.map-shell.sky-night) { --edge-line-color: var(--line-on-dark); --edge-shadow: -20px 0 36px -18px rgba(0, 0, 0, .6); }
-  .app-shell:is(.edge-none, .edge-line, .edge-shadow) .dashboard { border-left: none; box-shadow: none; }
-  .app-shell.edge-line .dashboard { box-shadow: -1px 0 0 var(--edge-line-color); }
-  .app-shell.edge-shadow .dashboard { box-shadow: var(--edge-shadow); }
-}
-
 @media (min-width: 960px) and (pointer: fine) {
   .dashboard { display: flex; flex-direction: column; overflow: hidden; }
   .dashboard > * { flex: none; }

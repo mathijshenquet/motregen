@@ -13,9 +13,9 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   const panel = page.getByTestId('dev-panel')
   await expect(panel).toBeVisible()
   const groups = panel.locator('.dev-group')
-  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wind', 'Laden', 'Chrome', 'Lucht nu', 'Diagnose'])
+  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wind', 'Laden', 'Lucht nu', 'Diagnose'])
   // Alleen de eerste groep start open.
-  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false, false])
+  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false])
   await expect(panel).not.toContainText('Wolkrand')
 
   const controls = panel.locator('.dev-control')
@@ -44,29 +44,6 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   // merkdruppel mee met het cursoruur en volgt de basiskaart de kaarttijd.
   await expect(page.locator('.map-shell')).toHaveClass(/sky-(day|night)/)
   await expect(page.locator('.map')).toHaveAttribute('data-map-night', /^[01]\.\d\d$/)
-
-  // De rand bestaat alleen in de desktopindeling (kaart naast zijpaneel).
-  if (!testInfo.project.use.hasTouch) {
-    // Tijdelijke proef (U62): rand tussen kaart en zijpaneel. "oud" is de stand van vóór de proef.
-    const dashboard = page.locator('.dashboard')
-    const leftBorder = () => dashboard.evaluate((element) => getComputedStyle(element).borderLeftWidth)
-    const shadow = () => dashboard.evaluate((element) => getComputedStyle(element).boxShadow)
-    expect(await leftBorder()).toBe('1px')
-    await groups.locator('> summary', { hasText: 'Chrome' }).click()
-    const edge = panel.getByLabel('Rand kaart/zijpaneel')
-    await edge.selectOption('geen')
-    await expect(page.locator('.app-shell')).toHaveClass(/edge-none/)
-    expect(await leftBorder()).toBe('0px')
-    expect(await shadow()).toBe('none')
-    await edge.selectOption('a')
-    expect(await leftBorder()).toBe('0px')
-    expect(await shadow()).toMatch(/-1px 0px 0px 0px$/)
-    await edge.selectOption('b')
-    expect(await leftBorder()).toBe('0px')
-    expect(await shadow()).toMatch(/-\d+px 0px \d+px -\d+px$/)
-    await edge.selectOption('oud')
-    expect(await leftBorder()).toBe('1px')
-  }
 
   await groups.locator('> summary', { hasText: 'Diagnose' }).click()
   const perfToggle = panel.getByRole('checkbox', { name: /Perf-HUD/ })
