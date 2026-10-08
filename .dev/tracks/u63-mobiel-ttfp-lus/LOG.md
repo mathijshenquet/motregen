@@ -506,3 +506,26 @@ Nieuwe hoofdconclusie op expliciet verzoek bovenaan toegevoegd zonder bestaande 
 Kale-stijlmaster9779 SYNCHRONE exit0, 12 captures: A/B om en om koud×3 én warm×3, po-android/quota40/GRID6/eigen U60 op actuele U62/U65-basis a1796ea. Compact per-run bewijs met exacte loads/LoAF: metingen/kale-stijl-gepaard.json. Koud ttfr4001,2→3643,2 ms, ttfp1980,7→2173,4 ms; koude winst358ms maar ttfp+193ms. LoAF ná ttfp blijft een bewaker, extra lange frames in de volledige-laagopbouw verhinderen een onvoorwaardelijke winstclaim. Proef blijft geïsoleerd; geen kale-stijlcode op hoofdlijn.
 
 Nieuw expliciet PO-besluit heeft voorrang: z4-placeholder wordt progressieve eerste trap op deze hoofdbranch; resterende ttfp-straf accepteert PO. De uitvoeringsvariant gebruikt twee losse cachebare z4-tegels, fetch+gzipdecode in een worker, geen inline24kB op HTML. Exacte landcover-/water-/grenslagen komen uit dezelfde volledige kaartstijl, zonder extra shading of opacity. Fade200ms; verwijderen zodra de eerste echte basemap-tegel rendert. Volgende receipts: gepaard koud/warm×3 plus390px licht/donker placeholder→echte kaart, typecheck/unit/build/basemap.spec desktop. Het oude 'verwerpen'-besluit van13:09 is hiermee achterhaald, oude regels/cijfers blijven intact. Absolute≤8-nulpunten en Buienradarwarm blijven pending; dit checkpoint claimt nog geen mergegate.
+
+## 2026-10-08 13:38 UTC — losse z4-trap geïmplementeerd; receipts onderweg
+
+Productvariant zonder inlineHTML: twee gehashte .pbf.gz-assets (3578/20493B), fetches naast stijl/manifest, compressed ArrayBuffers naar aparte moduleworker met native DecompressionStream, daarna MapLibre-buckets in zijn worker. Assets expliciet niet inline ondanks kleine westtegel; productie routes.caddy én rig geven immutable jaarcache, SW precachet beide hashassets. Alleen landcover/water/grenzen uit dezelfde actuele licht/donker-stijl, zonder symbolen/glyphkosten. Bij eerste echte basemap-content verdwijnen de z4-lagen vóór de volgende paint (0ms, ≤300ms); zo geen dubbele opacity/tint. Geen oude SVG/rasterkleuren toegepast. Eerste-kaartbeeld apart gemeten; ttfr houdt zijn volledige-kaartvoorwaarde.
+
+Gerichte stijltests3 SYNCHRONE exit0, typecheck voor de eerste implementatie exit0. Eerste voorbouwmaster89496 vóór navigatie bewust gestopt (SYNCHRONE exit143): workerfetch→mainfetch gecorrigeerd, omdat de rig na30s geen native Resource Timing uit al beëindigde workers kan ophalen. Decode blijft buiten de hoofddraad, netwerkrem/bytebron blijven bewijsbaar. Geen opname uit die eerste build gebruikt. SW-glob gecorrigeerd op Vite-naam .pbf-HASH.gz vóór herbouw. Definitieve A/B-master23996 nu actief op dezelfde actuele bron, A VITE_MAP_START=off+?dev, B productie z4; koud/warm om en om×3. Volledige unit en basemap.spec desktop gestart, nog geen groene hoofdgateclaim.
+
+## 2026-10-08 13:38 UTC — kale-stijlproef warme tabel
+
+| profiel/scenario/basiskaart | variant | ttfr ms | ttfp ms | eerste kaart ms | LoAF ná ttfp max ms / >250 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| po-android koud/eigen U60 | A volledig | 4001,2 | 1980,7 | 4001,1 | 280,5 / 2 |
+| po-android koud/eigen U60 | B kaal→volledig | 3643,2 | 2173,4 | 3643,0 | 368,5 / 2 |
+| po-android warm/eigen U60 | A volledig | 4100,0 | 2199,0 | 4099,9 | 311,4 / 1 |
+| po-android warm/eigen U60 | B kaal→volledig | 3917,5 | 2127,1 | 3917,4 | 350,3 / 5 |
+
+Warme ttfr−183/ttfp−72ms, maar post-ttfp >250ms mediaan1→5. Daarom geïsoleerd onderzoeksresultaat, geen onvoorwaardelijke prestatieverbetering. Alle regels cache/load/basis a1796ea gedocumenteerd in kale-stijl-gepaard.json. PO-z4-besluit krijgt voorrang.
+
+## 2026-10-08 13:42 UTC — hoofdbranch gate receipts en beeldbatch
+
+`pnpm --dir web test` SYNCHRONE exit0: 77 bestanden,519 tests. `MOTREGEN_E2E_PORT=4893 MOTREGEN_E2E_DATA_PORT=8893 MOTREGEN_MOBILE_BASEMAP=own pnpm --dir web e2e e2e/basemap.spec.ts --project desktop` SYNCHRONE exit0:7 passed, inclusief390px licht/donker en maximale zoom. Gerichte stijlkleurtest3 behoudt alle originele paints/filters, externe/synthetische stijl intact. Afzonderlijke gewone build gestart, receipt nog afwachten. Paarmaster23996 A1 geldig, B1 wacht buiten lock op load≤16; geen placeholdermediaan claimen.
+
+Beeldbatch84266 gebruikt eigen servers4693/8693 en dezelfde fixture8393/after-build.390×844, licht/donker, quota40/netwerkrem; PMTiles alleen voor expliciete placeholder→echt-foto vastgehouden, geen timings uit die opname. Na afloop foto's en functiecontrole naar metingen; eerdere gevraagde1s/2s-momenten blijven afzonderlijke timingillustraties. Regeneratiescript tools/basemap/start-tiles.mts legt de z4-herkomst vast uit het eigen PMTiles-manifest, geen ander kaartbeeld of AI-raster.

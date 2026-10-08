@@ -14,6 +14,7 @@ import ForecastTable from './components/ForecastTable'
 import UvBar, { uvBarLabel } from './components/UvBar'
 import DevPanel from './components/DevPanel'
 import { loadBasemapStyle, temperatureLayerBeforeId, type MapTheme } from './core/basemap'
+import { createMapStart, mapStartSource } from './core/map-start'
 import { chunkField, type Grid, type Manifest, type ManifestChunk, type MrfHeader, type TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
 
@@ -234,6 +235,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let shownSunRequest = 0
   let frameLoopDrives = false
   let mapRepaints = 0
+  let firstMapImage = false
+  let mapStart: ReturnType<typeof createMapStart>
   const basemapTiles = new Map<string, number>()
   const isolineCounters = (): IsolineCounters => ({
     ...temperatureIsolines.layer?.stats,
@@ -756,6 +759,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
     tableViewMedia.addEventListener('change', tableViewChanged)
     onCleanup(() => tableViewMedia.removeEventListener('change', tableViewChanged))
+    mapStart = createMapStart()
     maplibregl.prewarm()
     void loadBasemapStyle(mapTheme()).catch(() => undefined)
     try {
@@ -799,7 +803,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         : initialMapView ?? containView(MAP_CONTAIN_BOUNDS, mapViewport()), MAP_CONTAIN_BOUNDS, mapViewport())
       map = new maplibregl.Map({
         container: mapElement,
-        style,
+        style: mapStart?.style(style) ?? style,
         center: [initialView.lng, initialView.lat],
         zoom: initialView.zoom,
         transformConstrain: constrainMapView,
@@ -819,6 +823,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const firstStyleReady = new Promise<void>((resolve) => map!.once('style.load', () => resolve()))
       map.on('render', () => {
         mapRepaints++
+        const source = map?.getSource(mapStartSource) ? mapStartSource : 'basemap'
+        if (!firstMapImage && map?.getSource(source) && map.isSourceLoaded(source)) {
+          firstMapImage = true
+          if (perfPhasesEnabled()) perf.recordPhase({ phase: 'milestone:first-map-image', startTime: 0, duration: performance.now(), detail: { source } })
+          mapElement.dataset.firstMapImage = source
+        }
         if (map?.isStyleLoaded() && map.areTilesLoaded()) perf.markBasemapReady()
       })
       map.on('sourcedataloading', (event) => {
@@ -827,6 +837,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (key) basemapTiles.set(key, performance.now())
       })
       map.on('sourcedata', (event) => {
+        if (event.sourceId === 'basemap' && event.tile && event.sourceDataType === 'content' && map?.getSource(mapStartSource)) {
+          mapStart?.replace(map)
+          mapElement.dataset.mapStart = 'ready'
+        }
         const key = basemapTileKey(event)
         if (!key) return
         const started = basemapTiles.get(key)
@@ -869,6 +883,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     rainOverlay?.remove()
     windOverlay?.remove()
     for (const set of isolineSets) set.overlay?.remove()
+    mapStart?.dispose()
     map?.remove()
   })
 

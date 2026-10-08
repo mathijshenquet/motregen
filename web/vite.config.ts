@@ -116,7 +116,7 @@ export default defineConfig({
       background_color: '#eaf1f3',
     },
     workbox: {
-      globPatterns: ['**/*.{js,css,html,ico,png,svg}', 'basemap/**/*.{json,pbf}'],
+      globPatterns: ['**/*.{js,css,html,ico,png,svg}', 'basemap/**/*.{json,pbf}', 'assets/*.pbf-*.gz'],
       globIgnores: ['**/data/**', '**/perf-mobile/**', 'route.html'],
       navigateFallback: '/index.html',
       navigateFallbackDenylist: [/^\/(?:data|telegram)(?:\/|$)/, /^\/(?:hit|sw\.js|sitemap\.xml|robots\.txt)$/],
@@ -141,6 +141,7 @@ export default defineConfig({
     },
   })],
   build: {
+    assetsInlineLimit: (filePath) => filePath.endsWith('.pbf.gz') ? false : undefined,
     sourcemap: true,
     rollupOptions: { input: { index: resolve(__dirname, 'index.html'), startup: resolve(__dirname, 'src/startup.ts') } },
   },

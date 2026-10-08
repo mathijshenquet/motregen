@@ -28,3 +28,9 @@ in docs/perf.md), gerichte e2e `--project desktop` voor geraakte specs. Draft-PR
 ## Bar
 Geen één-letternamen, geen slimme one-liners, commentaar alleen voor het niet-voor-de-hand-liggende
 waarom; geen asserties versoepelen zonder benoemde oorzaak.
+
+## PO-besluit 2026-10-08 — progressieve z4-kaart
+
+De z4-placeholder wordt op deze branch de eerste trap van de eigen kaart; PO accepteert een resterende ttfp-straf. Twee losse gehashte/cachebare z4-tegels, fetch/gzipdecode in een worker, kleuren/filter/opacity uit de volledige kaartstijl. Bij eerste echte basemap-bucket worden z4-lagen vóór de paint verwijderd: nul-ms wissel voorkomt dubbele transparante landcover. Geen extra hillshade/schaduw. Koud/warm gepaard×3 op po-android met load≤16 per opname; absolute baselines houden≤8. Gate: typecheck/unit/build en basemap.spec desktop, 390px licht/donker placeholder→echt, ms-tabel en 'klaar voor merge'.
+
+Tijdelijke meetoptie: eigenaar U63, vervalt 2026-10-09. VITE_MAP_START=off schakelt alleen met ?dev de eerste z4-trap uit voor de gepaarde controle; gewone productbezoeken houden de progressieve kaart aan. Geen productbediening.
