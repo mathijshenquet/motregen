@@ -14,6 +14,7 @@ export interface TelegramMessage {
   text?: string
   photo?: Array<{ file_id: string }>
   animation?: { file_id: string }
+  document?: { file_id: string; file_name?: string }
 }
 
 export interface TelegramUpdate {
@@ -49,6 +50,22 @@ export class TelegramApi {
 
   async uploadPhoto(fields: Record<string, unknown>, path: string): Promise<TelegramMessage> {
     return this.upload<TelegramMessage>('sendPhoto', fields, path)
+  }
+
+  async downloadJson(fileId: string): Promise<unknown> {
+    const file = await this.call<{ file_path?: string }>('getFile', { file_id: fileId })
+    const segments = file.file_path?.split('/')
+    if (!segments?.length || segments.some((segment) => !segment || segment === '.' || segment === '..')) {
+      throw new TelegramApiError('getFile', 0)
+    }
+    const path = segments.map(encodeURIComponent).join('/')
+    try {
+      const response = await this.request(`https://api.telegram.org/file/bot${this.token}/${path}`, { signal: AbortSignal.timeout(45_000) })
+      if (!response.ok) throw new Error('Registerdownload mislukt')
+      return await response.json()
+    } catch {
+      throw new TelegramApiError('downloadRegister', 0)
+    }
   }
 
   async upload<Result>(method: string, fields: Record<string, unknown>, path: string, attachment = { name: 'photo', mime: 'image/jpeg', filename: 'motregen.jpg' }): Promise<Result> {

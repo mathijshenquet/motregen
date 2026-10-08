@@ -2,21 +2,17 @@ import { createSignal, For, type JSX } from 'solid-js'
 import { copyText } from '../core/clipboard'
 import { appendSkyDiaryEntry, SKY_DIARY_CLASSES, skyDiaryJson, type SkyDiaryClass } from '../core/dev-settings'
 import { ISOLINE_FADES, ISOLINE_FILL_STYLES, ISOLINE_STEPS, type IsolineFade, type IsolineFillStyle, type IsolineStep, type IsolineTuning } from '../core/isolines'
-import { sanitizeWindTuning, WIND_TUNING_CONTROLS, type MobileWindLevel, type WindTuning } from '../core/wind-layer'
+import { sanitizeWindTuning, WIND_TUNING_CONTROLS, type WindTuning } from '../core/wind-layer'
 
 // Alleen via ?dev; hooguit 3–4 knoppen per groep (PO 2026-09-25). Elke knop staat in
 // docs/dev-opties.md met eigenaar en vervaldatum (MIP-12).
 interface Props {
   isolineTuning: IsolineTuning
   onIsolineTuning: (patch: Partial<IsolineTuning>) => void
+  panelEdge: 'oud' | 'geen' | 'a' | 'b'
+  onPanelEdge: (edge: 'oud' | 'geen' | 'a' | 'b') => void
   firstRainLate: boolean
   onFirstRainLate: (late: boolean) => void
-  clockSkyTint: boolean
-  onClockSkyTint: (enabled: boolean) => void
-  mapFollowsTime: boolean
-  onMapFollowsTime: (enabled: boolean) => void
-  mobileWind: MobileWindLevel
-  onMobileWind: (level: MobileWindLevel) => void
   windTuning: WindTuning
   onWindTuning: (tuning: WindTuning) => void
   perfVisible: boolean
@@ -110,26 +106,13 @@ export default function DevPanel(props: Props) {
         </select>
       </Control>
     </Group>
-    <Group title="Mobiel">
-      <Control label="Windstreepjes" output={props.mobileWind} hint="Alleen op een telefoon of smal scherm: de wind op de achtergrond iets (of meer) breder en sterker, en boven zee minder gedempt. Het aantal streepjes blijft gelijk.">
-        <select aria-label="Windstreepjes" value={props.mobileWind} onChange={(event) => props.onMobileWind(event.currentTarget.value as MobileWindLevel)}>
-          <option value="uit">uit</option>
-          <option value="iets">iets</option>
-          <option value="meer">meer</option>
-        </select>
-      </Control>
-    </Group>
     <Group title="Chrome">
-      <Control label="Kaart" output={props.mapFollowsTime ? 'automatisch' : 'thema'} hint="Thema: de kaart is licht of donker zoals ingesteld. Automatisch: de basiskaart tweent van dag naar nacht met de kaarttijd (zonnestand op de gekozen plek); regen en wind houden hun kleuren.">
-        <select aria-label="Kaart" value={props.mapFollowsTime ? 'automatisch' : 'thema'} onChange={(event) => props.onMapFollowsTime(event.currentTarget.value === 'automatisch')}>
-          <option value="thema">thema</option>
-          <option value="automatisch">automatisch (volgt de kaarttijd)</option>
-        </select>
-      </Control>
-      <Control label="Klokpil" output={props.clockSkyTint ? 'mee-tinten' : 'wit'} hint="Wit: de klok boven de kaart blijft zoals hij was. Mee-tinten: hij neemt de hemelkleur van het cursoruur aan, zoals de tabelkop (alleen onder Expressief).">
-        <select value={props.clockSkyTint ? 'mee-tinten' : 'wit'} onChange={(event) => props.onClockSkyTint(event.currentTarget.value === 'mee-tinten')}>
-          <option value="wit">wit</option>
-          <option value="mee-tinten">mee-tinten</option>
+      <Control label="Rand kaart/zijpaneel" output={props.panelEdge === 'a' || props.panelEdge === 'b' ? props.panelEdge.toUpperCase() : props.panelEdge} hint="Desktop: scheiding tussen kaart en zijpaneel. Oud: zoals het was (harde lijn van 1 px, border-left, plus een lichte schaduw). Geen: niets. A: alleen een lijn van 1 px in de hemelkleur van het cursoruur. B: alleen een zachte schaduw de kaart in. A en B staan als --edge-line-color en --edge-shadow op .app-shell.">
+        <select aria-label="Rand kaart/zijpaneel" value={props.panelEdge} onChange={(event) => props.onPanelEdge(event.currentTarget.value as 'oud' | 'geen' | 'a' | 'b')}>
+          <option value="oud">oud (lijn + lichte schaduw)</option>
+          <option value="geen">geen</option>
+          <option value="a">A: lijn</option>
+          <option value="b">B: schaduw</option>
         </select>
       </Control>
     </Group>

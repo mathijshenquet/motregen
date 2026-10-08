@@ -23,3 +23,34 @@ describe('Telegram API errors', () => {
     }
   })
 })
+
+describe('register downloads', () => {
+  it.each(['documents/register', 'documents/weer radar.json'])('downloads the opaque Telegram file path %s', async (path) => {
+    const urls: string[] = []
+    const api = new TelegramApi('test', (async (url) => {
+      urls.push(String(url))
+      if (String(url).endsWith('/getFile')) return Response.json({ ok: true, result: { file_path: path } })
+      return Response.json({ version: 1 })
+    }) as typeof fetch)
+    expect(await api.downloadJson('file-id')).toEqual({ version: 1 })
+    expect(urls[1]).toBe(`https://api.telegram.org/file/bottest/${path.split('/').map(encodeURIComponent).join('/')}`)
+  })
+
+  it.each(['/documents/register.json', '../register.json', 'documents/../register.json'])('rejects an unsafe file path %s before download', async (path) => {
+    let requests = 0
+    const api = new TelegramApi('test', (async () => {
+      requests++
+      return Response.json({ ok: true, result: { file_path: path } })
+    }) as typeof fetch)
+    await expect(api.downloadJson('file-id')).rejects.toThrow('Telegram getFile mislukt (0)')
+    expect(requests).toBe(1)
+  })
+
+  it('keeps the token and upstream download exception out of errors', async () => {
+    const api = new TelegramApi('secret', (async (url) => {
+      if (String(url).endsWith('/getFile')) return Response.json({ ok: true, result: { file_path: 'documents/register.json' } })
+      throw new Error(String(url))
+    }) as typeof fetch)
+    await expect(api.downloadJson('file-id')).rejects.toThrow('Telegram downloadRegister mislukt (0)')
+  })
+})

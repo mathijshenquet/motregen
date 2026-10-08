@@ -32,3 +32,8 @@ PO 2026-10-08 15:40: "maakt niet uit zolang het niet de main server impact" — 
 harde eis is dat de web-server en de ingest er niets van merken. Uitvoering: de rem staat nu vast in
 `nix/modules/motregen.nix` (Nice 10, CPUWeight 20, CPUQuota 150 %, MemoryMax 1,5 GB). Optie 1 blijft open
 voor later; geen track nu.
+
+Aanvulling PO 2026-10-08 16:20 ("loops lopen 40 m achter!?"): optie 1 NU als track U67 (renderer los van
+de poller, renderen op ageq-dev2, bot op de VM); tot die landt pollt de bot weer vanaf ageq-dev2 en staat
+`motregen-bot` op de VM gestopt (runtime-mask). Later: "op den duur wil ik die filmpjes wel op de VM
+maken, dat is dus een optimalisatiepass" — het renderwerk zelf goedkoper maken is een aparte track.

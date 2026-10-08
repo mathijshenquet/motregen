@@ -57,7 +57,7 @@ import { buildTimeline, epochInWindow, frameBlend, scrubberViewWindow, seriesVal
 import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
 import { WIND_UNITS, type WindUnit } from './core/weather'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
-import { DEFAULT_WIND_TUNING, loadWindTuning, MOBILE_WIND_LEVELS, storeWindTuning, WIND_MAX_FPS, WIND_PARAMETERS, WindLayer, type MobileWindLevel, type WindTuning } from './core/wind-layer'
+import { DEFAULT_WIND_TUNING, loadWindTuning, MOBILE_WIND, storeWindTuning, WIND_MAX_FPS, WIND_PARAMETERS, WindLayer, type WindTuning } from './core/wind-layer'
 import { clearTuningStorage } from './core/dev-settings'
 import { watchIdle } from './core/activity'
 import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
@@ -191,11 +191,16 @@ const PLAY_RULE_STORAGE_KEY = 'motregen-dev-speelregel'
 // Rig-schakelaar (?dev): 'laat' vraagt het eerste regenframe weer pas na de kaart-opzet.
 const FIRST_RAIN_STORAGE_KEY = 'motregen-dev-eerste-regen'
 // PO-vergelijking (?dev): het lege scrubber-kader neemt de hemelkleur van het uur aan.
-const CLOCK_SKY_TINT_STORAGE_KEY = 'motregen-dev-klokpil'
-const MOBILE_WIND_STORAGE_KEY = 'motregen-dev-wind-mobiel'
-const MAP_FOLLOWS_TIME_STORAGE_KEY = 'motregen-dev-kaart-automatisch'
-// De kaart mengt in zoveel stappen van dag naar nacht; MapLibre tweent elke stap zelf (300 ms).
-const MAP_NIGHT_STEPS = 20
+// Tijdelijke proef (U62, ?dev): scheiding tussen kaart en zijpaneel op desktop; vervalt na de PO-keuze.
+const PANEL_EDGE_STORAGE_KEY = 'motregen-dev-rand'
+const PANEL_EDGES = ['oud', 'geen', 'a', 'b'] as const
+type PanelEdge = typeof PANEL_EDGES[number]
+// De kaart mengt in zoveel stappen van dag naar nacht; MapLibre tweent elke stap zelf (300 ms). Vier stappen
+// en tijdens afspelen hooguit één per seconde (PO 2026-10-08: "dat mengen kan sowieso ook snel", als het maar
+// niet knippert): met twintig stappen zonder rem kostte de schemering op de telefoonmeting ~11 % van de
+// frames (MIP-24).
+const MAP_NIGHT_STEPS = 4
+const MAP_NIGHT_PLAYING_INTERVAL_MS = 1_000
 // De rand buiten het rooster is geen laag van de basisstijl maar kleurt wel mee met het thema.
 const GRID_OUTSIDE_PAINT = { light: { color: '#84969b', opacity: 0.48 }, dark: { color: '#071319', opacity: 0.58 } } as const
 // Stil op de achtergrond (U41): na een minuut zonder invoer tekent de wind op halve snelheid.
@@ -523,11 +528,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
   const [windTuning, setWindTuning] = createSignal<WindTuning>(loadWindTuning())
   const [isolineTuning, setIsolineTuning] = createSignal<IsolineTuning>({ ...DEFAULT_ISOLINE_TUNING })
-  const [clockSkyTint, setClockSkyTint] = createSignal(devMode && localStorage.getItem(CLOCK_SKY_TINT_STORAGE_KEY) === 'mee-tinten')
-  const [mapFollowsTime, setMapFollowsTime] = createSignal(devMode && localStorage.getItem(MAP_FOLLOWS_TIME_STORAGE_KEY) === 'aan')
-  const storedMobileWind = devMode ? localStorage.getItem(MOBILE_WIND_STORAGE_KEY) : null
-  const [mobileWind, setMobileWind] = createSignal<MobileWindLevel>(storedMobileWind === 'iets' || storedMobileWind === 'meer' ? storedMobileWind : 'uit')
-  // De proefniveaus gelden alleen waar de PO de streepjes te subtiel vond: vinger als aanwijsmiddel of een smal scherm.
+  const storedPanelEdge = devMode ? localStorage.getItem(PANEL_EDGE_STORAGE_KEY) : null
+  const [panelEdge, setPanelEdge] = createSignal<PanelEdge>(PANEL_EDGES.find((edge) => edge === storedPanelEdge) ?? 'oud')
+  // De basiskaart volgt de zonnestand van de kaarttijd zolang Expressief aan staat (PO 2026-10-08, MIP-24);
+  // stills houden het vaste thema.
+  const mapFollowsTime = () => expressive() && !stillMode
+  // Waar de PO de streepjes te subtiel vond: vinger als aanwijsmiddel of een smal scherm (zie MOBILE_WIND).
   const mobileWindDevice = matchMedia('(pointer: coarse), (max-width: 499px)').matches
   const [temperatureRange, setTemperatureRange] = createSignal<PaletteRange | undefined>()
   let temperatureRangeKey = ''
@@ -591,13 +597,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const mapRendering = createMemo(() => pageVisible() && !(tableViewAvailable() && tableCoversViewport()))
   const [userIdle, setUserIdle] = createSignal(false)
   const focusedWindTuning = createMemo(() => {
-    const mobile = MOBILE_WIND_LEVELS[mobileWindDevice ? mobileWind() : 'uit']
+    const intensityGain = mobileWindDevice ? MOBILE_WIND.intensityGain : 1
     return {
       ...windTuning(),
       // De versterking geldt voor de wind op de achtergrond; bij volle windfocus staat hij al voluit.
-      intensity: windFocusIntensity(windTuning().intensity, windFocus()) * (1 + (mobile.intensityGain - 1) * (1 - windFocus())),
-      narrowLineFactor: mobile.narrowLineFactor,
-      seaPenalty: mobile.seaPenalty,
+      intensity: windFocusIntensity(windTuning().intensity, windFocus()) * (1 + (intensityGain - 1) * (1 - windFocus())),
+      narrowLineFactor: mobileWindDevice ? MOBILE_WIND.narrowLineFactor : WIND_PARAMETERS.narrowLineFactor,
+      seaPenalty: mobileWindDevice ? MOBILE_WIND.seaPenalty : WIND_PARAMETERS.seaPenalty,
       visibility: mapRendering() ? WIND_PARAMETERS.visibility * contextOpacity(focus(), FOCUS_DIM) : 0,
       maxFps: userIdle() ? WIND_IDLE_FPS : WIND_MAX_FPS,
     }
@@ -1231,7 +1237,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     void showFrame()
     // Een stijlwissel zet de kleuren van het thema terug; de menging met de kaarttijd moet er opnieuw overheen.
     const night = untrack(() => mapFollowsTime() ? basemapBlendApplied : undefined)
-    if (night !== undefined) applyBasemapBlend(night)
+    if (night !== undefined) applyBasemapBlend(night, true)
     if (mapReady()) {
       void showWind()
       void showTemperature()
@@ -2612,10 +2618,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     batch(() => {
       setWindTuning({ ...DEFAULT_WIND_TUNING })
       setIsolineTuning({ ...DEFAULT_ISOLINE_TUNING })
-      setClockSkyTint(false)
-      setMobileWind('uit')
-      setMapFollowsTime(false)
       setFirstRainLate(false)
+      setPanelEdge('oud')
       focusMode.pin(DEFAULT_FOCUS_MODE)
       setFocusPinned(DEFAULT_FOCUS_MODE)
     })
@@ -2832,10 +2836,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       return elevation
     }
   })
-  // De klokpil kan (dev-variant) de hemel van het cursoruur aannemen, uit dezelfde bron als de dag/nacht-
-  // kleuring van de rijen (U42). De koppenrij van de tabel volgt haar eigen bovenste rij (U62).
+  // Klokpil, zoekbalk en merkdruppel op de kaart nemen de hemel van het cursoruur aan (PO 2026-10-08), uit
+  // dezelfde bron als de dag/nacht-kleuring van de rijen (U42); zonder Expressief blijven ze zoals ze waren.
+  // De koppenrij van de tabel volgt haar eigen bovenste rij (U62).
   const chromeSky = createMemo<HourSky | undefined>(() => {
-    if (!expressive() || !manifest()) return undefined
+    // Stills (Telegram) houden hun vaste, lichte kader.
+    if (!expressive() || !manifest() || stillMode) return undefined
     const point = location()
     const daylight = isSunUp(cursorMinute(), point.lng, point.lat)
     const hourEpoch = tablePreviewEpoch()
@@ -2843,7 +2849,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const overcast = row ? hourDarkness(row, radiationSeries(), cloudSeries(), sunElevationAt()) : 0
     return { daylight, overcast: Math.round(overcast * 100) / 100 }
   }, undefined, { equals: (left, right) => left?.daylight === right?.daylight && left?.overcast === right?.overcast })
-  // Experiment (U62, ?dev): de basiskaart tweent van dag naar nacht met de kaarttijd, uit dezelfde zonnestand
+  // De basiskaart tweent van dag naar nacht met de kaarttijd (U62, MIP-24), uit dezelfde zonnestand
   // als de hemel. Eén stijl, de verschillende paint-kleuren gemengd; de overlays houden hun eigen kleuren,
   // alleen de wind wisselt halverwege van thema omdat zijn streepjes anders wegvallen tegen de kaart.
   const mapNight = createMemo(() => {
@@ -2852,20 +2858,37 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   })
   let basemapBlend: BlendTarget[] | undefined
   let basemapBlendApplied: number | undefined
-  function applyBasemapBlend(night: number): void {
+  // Wat er per laag en eigenschap al op de kaart staat. De labelkleuren wisselen maar één keer per schemering;
+  // ze bij elke stap opnieuw zetten kostte op de telefoonmeting frames (MIP-24, 2026-10-08).
+  const basemapBlendOnMap = new Map<string, string>()
+  let basemapBlendAppliedAt = Number.NEGATIVE_INFINITY
+  let basemapBlendTimer: number | undefined
+  onCleanup(() => window.clearTimeout(basemapBlendTimer))
+  let basemapBlendWindTheme: MapTheme | undefined
+  const GRID_OUTSIDE_BLEND: BlendTarget[] = [
+    { layer: 'motregen-grid-outside', property: 'fill-color', light: GRID_OUTSIDE_PAINT.light.color, dark: GRID_OUTSIDE_PAINT.dark.color },
+    { layer: 'motregen-grid-outside', property: 'fill-opacity', light: GRID_OUTSIDE_PAINT.light.opacity, dark: GRID_OUTSIDE_PAINT.dark.opacity },
+  ]
+  /** `fresh`: de stijl is net (opnieuw) geladen, dus niets van wat eerder gezet is staat er nog. */
+  function applyBasemapBlend(night: number, fresh = false): void {
     if (!map || !basemapBlend) return
-    for (const target of basemapBlend) {
-      if (map.getLayer(target.layer)) map.setPaintProperty(target.layer, target.property, blendedPaintValue(target, night))
+    if (fresh) basemapBlendOnMap.clear()
+    for (const target of [...basemapBlend, ...GRID_OUTSIDE_BLEND]) {
+      if (!map.getLayer(target.layer)) continue
+      const value = blendedPaintValue(target, night)
+      const key = `${target.layer}|${target.property}`
+      const serialized = JSON.stringify(value)
+      if (basemapBlendOnMap.get(key) === serialized) continue
+      basemapBlendOnMap.set(key, serialized)
+      map.setPaintProperty(target.layer, target.property, value)
     }
-    if (map.getLayer('motregen-grid-outside')) {
-      const outside: BlendTarget[] = [
-        { layer: 'motregen-grid-outside', property: 'fill-color', light: GRID_OUTSIDE_PAINT.light.color, dark: GRID_OUTSIDE_PAINT.dark.color },
-        { layer: 'motregen-grid-outside', property: 'fill-opacity', light: GRID_OUTSIDE_PAINT.light.opacity, dark: GRID_OUTSIDE_PAINT.dark.opacity },
-      ]
-      for (const target of outside) map.setPaintProperty(target.layer, target.property, blendedPaintValue(target, night))
+    const windTheme: MapTheme = night < 0.5 ? 'light' : 'dark'
+    if (fresh || windTheme !== basemapBlendWindTheme) {
+      basemapBlendWindTheme = windTheme
+      windLayer?.setTheme(windTheme)
     }
-    windLayer?.setTheme(night < 0.5 ? 'light' : 'dark')
     basemapBlendApplied = night
+    basemapBlendAppliedAt = performance.now()
     mapElement.dataset.mapNight = night.toFixed(2)
   }
   createEffect(() => {
@@ -2874,15 +2897,24 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (!mapReady()) return
     if (night === undefined) {
       // Uitgezet: terug naar de kleuren van het gekozen thema.
+      window.clearTimeout(basemapBlendTimer)
       if (basemapBlendApplied !== undefined) {
         applyBasemapBlend(themeNight)
         windLayer?.setTheme(mapTheme())
+        basemapBlendWindTheme = undefined
         basemapBlendApplied = undefined
         delete mapElement.dataset.mapNight
       }
       return
     }
-    if (basemapBlend) { applyBasemapBlend(night); return }
+    if (basemapBlend) {
+      // Stilstand of een sprong: direct naar de eindwaarde. Tijdens afspelen gedoseerd.
+      window.clearTimeout(basemapBlendTimer)
+      const wait = playing() ? basemapBlendAppliedAt + MAP_NIGHT_PLAYING_INTERVAL_MS - performance.now() : 0
+      if (wait <= 0) applyBasemapBlend(night)
+      else basemapBlendTimer = window.setTimeout(() => { const latest = untrack(mapNight); if (latest !== undefined) applyBasemapBlend(latest) }, wait)
+      return
+    }
     void Promise.all([loadBasemapStyle('light'), loadBasemapStyle('dark')]).then(([light, dark]) => {
       basemapBlend = basemapBlendTargets(light, dark)
       const current = untrack(mapNight)
@@ -3105,8 +3137,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     scrollToTable()
   }
 
-  return <main class="app-shell" classList={{ 'still-view': stillMode, 'table-view-open': tableViewOpen(), 'table-scroll-open': tableViewAvailable() && tableScrollOpen() }} data-generated={manifest()?.generated} data-epoch={cursorMinute()}>
-    <section class="map-shell" aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainFocusOpacity(focus(), windFocus()).toFixed(2)} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
+  return <main class="app-shell" classList={{ 'edge-none': panelEdge() === 'geen', 'edge-line': panelEdge() === 'a', 'edge-shadow': panelEdge() === 'b', 'still-view': stillMode, 'table-view-open': tableViewOpen(), 'table-scroll-open': tableViewAvailable() && tableScrollOpen() }} data-generated={manifest()?.generated} data-epoch={cursorMinute()}>
+    <section
+      class="map-shell"
+      classList={{ 'sky-day': chromeSky()?.daylight === true, 'sky-night': chromeSky()?.daylight === false }}
+      style={chromeSky() ? { '--day-overcast': chromeSky()!.overcast.toFixed(2) } : undefined}
+      aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainFocusOpacity(focus(), windFocus()).toFixed(2)} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
       <div ref={mapElement} class="map" />
       <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() }} aria-hidden={mapReady()}>
         <div class="map-splash-veil" />
@@ -3145,12 +3181,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             onIsolineTuning={(patch) => setIsolineTuning((current) => ({ ...current, ...patch }))}
             firstRainLate={firstRainLate()}
             onFirstRainLate={(late) => { setFirstRainLate(late); localStorage.setItem(FIRST_RAIN_STORAGE_KEY, late ? 'laat' : 'vroeg') }}
-            mobileWind={mobileWind()}
-            onMobileWind={(level) => { setMobileWind(level); localStorage.setItem(MOBILE_WIND_STORAGE_KEY, level) }}
-            mapFollowsTime={mapFollowsTime()}
-            onMapFollowsTime={(enabled) => { setMapFollowsTime(enabled); localStorage.setItem(MAP_FOLLOWS_TIME_STORAGE_KEY, enabled ? 'aan' : 'uit') }}
-            clockSkyTint={clockSkyTint()}
-            onClockSkyTint={(enabled) => { setClockSkyTint(enabled); localStorage.setItem(CLOCK_SKY_TINT_STORAGE_KEY, enabled ? 'mee-tinten' : 'wit') }}
+            panelEdge={panelEdge()}
+            onPanelEdge={(edge) => { setPanelEdge(edge); localStorage.setItem(PANEL_EDGE_STORAGE_KEY, edge) }}
             windTuning={windTuning()}
             onWindTuning={tuneWind}
             perfVisible={perfVisible()}
@@ -3166,7 +3198,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         </Show>
         <Freshness open={freshnessOpen()} mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness} onShare={shareCurrentState} shareNotice={shareNotice()}
           paused={!playing()} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
-          timeline={timeline()} cursor={cursor()} onCursor={clockScrub} sky={clockSkyTint() ? chromeSky() : undefined} />
+          timeline={timeline()} cursor={cursor()} onCursor={clockScrub} />
       </Show>
     </section>
     <Show when={!stillMode}>

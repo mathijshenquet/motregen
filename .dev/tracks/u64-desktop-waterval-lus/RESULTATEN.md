@@ -49,7 +49,7 @@ wordt tegen dezelfde U62-startsituatie gemeten.
 | --- | --- | --- | --- |
 | volledige regen/windshaderbatch | +7,17% / −14,66% | +1,98% / +0,064% | 3 / 3; afgewezen |
 | alleen regenshaders | −7,95% / +0,93% | +12,81% / +23,81% | 3 / 3; afgewezen |
-| GPU-worker zonder shaderwijziging | twee paren; reeks onvolledig | pending | 2 / 0 |
+| GPU-worker zonder shaderwijziging | −11,98% / +3,04% | twee paren; reeks onvolledig | 3 / 2 |
 | manifest-SWR zonder shaderwijziging | pending | pending | 0 / 0 |
 | totale U64 zonder shaders versus main | −17,37% / +3,24% | −17,16% / −1,75% | 3 / 3 |
 
@@ -93,6 +93,24 @@ Bevroren builds gebruiken
 dezelfde fixture en native-desktopcapture. De vergelijking van main met
 U64 zonder shaders is koud ×3, warm ×3 en Lighthouse ×3 compleet;
 GPU-worker, manifest-SWR en de absolute ≤8-gate zijn nog open.
+
+### Main na U62 deel 2
+
+Main `4038d55` bevat U62 deel 2 en U67. De kaart volgt onder Expressief
+nu standaard de zonnestand, met vier mengstappen en maximaal één stap
+per seconde tijdens afspelen. De bovenstaande cijfers blijven gekoppeld
+aan `ec3ca02`; ze gelden nog niet als bewijs voor deze gewijzigde start.
+De merge had geen conflicten in App.tsx of de lazy tabel. Typecheck,
+511 units, referentie-/U64-builds en gerichte desktop-e2e zijn groen:
+12 geslaagd, twee uitsluitend mobiele scenario's overgeslagen.
+
+Nieuwe bevroren entrygzip: main423.597 B, U64410.171 B (−13.426 B).
+De oude absolute-gaterunner is tijdens het wachten zonder meetbrowser
+gesloten (exit143); hij had nog geen baseline geproduceerd. De nieuwe
+gate gebruikt `desktop-koud-spelend-own-u62-part2.json`, met U62's
+standaard kaartkleuring als extra reden naast Kaderhemel, U65 en de verse
+browser per run. Startload maximaal8 blijft verplicht. Nieuwe native
+koud/warm-paren en Lighthouse op deze basis volgen afzonderlijk.
 Koud en warm, nieuwe ronde (geen volledige medianen):
 
 | variant | koud ttfr / ttfp | warm ttfr / ttfp | geldige runs koud / warm |
