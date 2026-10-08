@@ -463,3 +463,11 @@ Buienradarwarme functionele controle: eerste cachevulbezoek SYNCHRONE exit0; twe
 ## 2026-10-08 12:41 UTC — paired-load gates geverifieerd; eerste proef terecht rood
 
 `pnpm --dir web typecheck` SYNCHRONE exit0; `pnpm --dir web exec vitest run scripts/rig-host.test.ts scripts/mobile-report.test.ts` SYNCHRONE exit0, 19 tests. Grens8/16 inclusief en weigering daarboven getest; 2%-wiretests ongewijzigd. Voorgebouwde proef-A/B typecheck/build beide exit0 binnen master. Eerste koude A-opname daadwerkelijk gestart load14,22, maar master26795 SYNCHRONE exit1 wegens eigen PMTiles404. Oorzaak in mijn tijdelijke voorbouwscript: MOTREGEN_MOBILE_BASEMAP=own ontbrak bij mobile-fixture.ts, dus kaartarchief niet gekopieerd. Foute capture apart ignored bewaard, niet als nulpunt/timing gebruiken (de fout triggert kaart-fallback). Export hersteld; gekoppelde reeks opnieuw vanaf A1, bronasserties intact.
+
+## 2026-10-08 13:40 UTC — z4 unitgate groen
+
+`pnpm --dir web test > tmp/u63/placeholder-main-unit.txt` SYNCHRONE exit0; exacte count staat in receiptbestand. Type/build via beide A/B-voorbouwen binnen actieve batch geslaagd; screenshot- en basemapdesktopgate lopen. Verschilbron/toon wordt functioneel vastgelegd met PMTiles tijdelijk gehouden, zonder die foto's als performancebewijs te labelen. Performanceparen blijven normale netwerkkaart, geen gehouden Range.
+
+## 2026-10-08 13:40 UTC — geïsoleerde kale-stijlproef bewaard
+
+Koud/warm×3 afgerond exit0; bronpoortpaar4593/8593, before/after-builds apart, artefact metingen/kale-stijl-gepaard.json op de hoofdtrack. Deze branch krijgt de vier experimentele bronnen plus spec; geen integratiebesluit. Volledige type/build receipt0 in meetbatch; extra unit/e2e van deze verworpen proef niet geclaimd.

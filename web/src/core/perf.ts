@@ -134,7 +134,7 @@ export interface PerfPhaseSummary {
 export type WindowReadyMeasure = `window-ready:${string}`
 
 /** Mijlpalen van de koude start (MIP-19), elk van timeOrigin tot het moment zelf. */
-export type LoadMilestone = 'first-rain' | 'basemap-ready' | 'ttfr' | 'ttfp' | 'first-bar'
+export type LoadMilestone = 'first-map-image' | 'first-rain' | 'basemap-ready' | 'ttfr' | 'ttfp' | 'first-bar'
 
 export interface PerfMeasure {
   phase: PerfPhase | WindowReadyMeasure | `milestone:${LoadMilestone}` | 'blank-visible'

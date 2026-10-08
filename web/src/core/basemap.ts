@@ -24,6 +24,14 @@ function loadGlyph(url: string): Promise<ArrayBuffer> {
   return pending
 }
 
+export function stagedBasemapStart(): boolean {
+  return import.meta.env.VITE_BASEMAP_START === 'simple' && new URLSearchParams(location.search).has('dev')
+}
+
+export function firstPaintBasemapStyle(style: StyleSpecification): StyleSpecification {
+  return { ...style, layers: style.layers.filter(layer => layer.type === 'background' || ('source-layer' in layer && ['water', 'boundary'].includes(layer['source-layer'] ?? '')) || layer.id === 'motregen-province-boundaries') }
+}
+
 export function loadBasemapStyle(theme: MapTheme): Promise<StyleSpecification> {
   if (!protocolInstalled) {
     addProtocol('pmtiles', new Protocol().tile)
@@ -44,7 +52,7 @@ export function loadBasemapStyle(theme: MapTheme): Promise<StyleSpecification> {
         const prepared = prepareBasemapStyle(style, import.meta.env.VITE_DATA_ORIGIN ?? location.origin, new URL(url, location.href).href)
         if (prepared.glyphs && Object.values(prepared.sources).some((source) => source.type === 'vector' && source.url?.startsWith('pmtiles://'))) {
           // Haal het gewone Latijnse font op voordat een worker zijn eerste labels terugstuurt.
-          void loadGlyph(prepared.glyphs.replace('{fontstack}', 'Noto%20Sans%20Regular').replace('{range}', '0-255')).catch(() => undefined)
+          if (!stagedBasemapStart()) void loadGlyph(prepared.glyphs.replace('{fontstack}', 'Noto%20Sans%20Regular').replace('{range}', '0-255')).catch(() => undefined)
           return { ...prepared, glyphs: `motregen-glyphs://${prepared.glyphs}` }
         }
         return prepared

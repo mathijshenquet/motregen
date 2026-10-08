@@ -13,7 +13,7 @@ import type { IsolineCounters } from './core/perf'
 import ForecastTable from './components/ForecastTable'
 import UvBar, { uvBarLabel } from './components/UvBar'
 import DevPanel from './components/DevPanel'
-import { loadBasemapStyle, temperatureLayerBeforeId, type MapTheme } from './core/basemap'
+import { loadBasemapStyle, stagedBasemapStart, firstPaintBasemapStyle, temperatureLayerBeforeId, type MapTheme } from './core/basemap'
 import { chunkField, type Grid, type Manifest, type ManifestChunk, type MrfHeader, type TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
 
@@ -799,7 +799,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         : initialMapView ?? containView(MAP_CONTAIN_BOUNDS, mapViewport()), MAP_CONTAIN_BOUNDS, mapViewport())
       map = new maplibregl.Map({
         container: mapElement,
-        style,
+        style: stagedBasemapStart() ? firstPaintBasemapStyle(style) : style,
         center: [initialView.lng, initialView.lat],
         zoom: initialView.zoom,
         transformConstrain: constrainMapView,
@@ -817,8 +817,23 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       map.on('resize', applyMapContainLimit)
       syncSavedMarkers(savedPlaces())
       const firstStyleReady = new Promise<void>((resolve) => map!.once('style.load', () => resolve()))
+      let firstMapPainted = false
       map.on('render', () => {
         mapRepaints++
+        if (!firstMapPainted && map?.getSource('basemap') && map.isSourceLoaded('basemap')) {
+          firstMapPainted = true
+          perf.recordPhase({ phase: 'milestone:first-map-image', startTime: 0, duration: performance.now(), detail: { source: 'basemap' } })
+          if (stagedBasemapStart()) requestAnimationFrame(() => {
+            if (!map) return
+            for (let position = style.layers.length - 1; position >= 0; position--) {
+              const layer = style.layers[position]!
+              if (!map.getLayer(layer.id)) {
+                const next = style.layers.slice(position + 1).find(candidate => map!.getLayer(candidate.id))
+                map.addLayer(layer, next?.id)
+              }
+            }
+          })
+        }
         if (map?.isStyleLoaded() && map.areTilesLoaded()) perf.markBasemapReady()
       })
       map.on('sourcedataloading', (event) => {
