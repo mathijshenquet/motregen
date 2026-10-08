@@ -222,6 +222,11 @@
   169 frames ≈ 40 min per generatie, VM rendert fulltime (PO: "gaat die vm nu fulltime webpagina's
   renderen 😆"). Runtime-rem gezet (CPUQuota 150 %, CPUWeight 20, MemoryMax 1,5 GB); MIP-25 (draft):
   renderer los van de poller (render-only op ageq-dev2 → cache-groep) met loops-elke-15-min als overbrugging.
+- **Prod op main (gen. 14 + nix-rem)**, 16:00: eerste 169-frameloop op de VM = 705 s renderen (weer), dus
+  ≈ 40 min per generatie zoals MIP-25 voorspelde; web blijft 0,11–0,14 s. Bot-geheugenpiek 1,9 GB + 0,5 GB
+  swap → MemoryMax 2,6 GB (runtime + nix, 18937b4c). U63: warm op po-android ≈ koud (ttfr 3,8 s, ttfp
+  1,9 s) → CPU-gebonden, lus herricht op werk-vermindering; z4-placeholder: eerste kaart 1,7 s eerder
+  maar ttfp +0,3 s → PO-smaakkeuze, proef bewaard, screenshot naar PO. U62: splash-proef weg (10698d7).
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
