@@ -154,3 +154,23 @@ Typecheck/unit/build plus hostlocked po-android ×3 --compare gestart, tmp/u63/{
 ## 2026-10-08 07:21 UTC — kandidaat 4 verworpen: vroeg derde frame vertraagt de renderer
 
 Receipts alle gates exit 0: typecheck/unit (483)/build, po-android ×3 --compare, 12 gerichte desktoptests. Toch slechtere primaire mediaan: ttfr 1220→1338 ms, ttfp 1562→1641 ms. Het derde vroege decodeframe legt meer werk vóór de app onder dezelfde 40%-rendererquota; vroegere bytes zijn geen eerdere kaart. Daarom primingselectie en bijbehorende extra radarassertie exact teruggezet naar de gepushte kandidaat-3-versie, geen productwijziging behouden. Opnames web/tmp/u63/startpaar; bewaker in tmp/u63/guard-startpaar.txt. Volgende kandidaat richt het vroege werk op stijl/fonts vóór de app: kaart kan dan eerder opzetten terwijl de twee benodigde start-/speelframes decoderen.
+
+## 2026-10-08 07:29 UTC — kandidaat 5: stijl/font-assets vroeg, gedeelde cache
+
+Kaart-assets uit basemap.ts naar lichte basemap-assets.ts gehaald: dezelfde voorbereiding van bron- en glyph-URL's, dezelfde Promise-caches, dezelfde fout-/retrylogica en bufferkopie voor workertransfer. Startup vraagt het effectieve thema (still licht; opgeslagen/system verder zoals App) en gewone Latijnse glyphs vroeg; Telegram wacht op SDK-thema en offline renderer vraagt geen kaart. MapLibre/protocolinstallatie blijft bij App, de vroege module importeert alleen het assetsdeel. Unitglyphtest controleert nu gedeelde vroege/app-cache; startup-e2e houdt App vast op de eigen kaart en verlangt stijl, font en eerste regen-Range vóór vrijgave. Nog geen winstclaim.
+
+Runscript --checks houdt typecheck/unit/normale build én daaropvolgende rig onder één hostlock, zodat ook onze builds een andere perf-opname niet verstoren. Command: run-perf.sh --checks --profile po-android --scenario koud-spelend --repeat 3 --compare, tmp/u63/basemap-vroeg.txt; gerichte desktop-e2e startup/map-startup/presets/usage/basemap in dezelfde lockrij, tmp/u63/e2e-basemap-vroeg.txt. Alle losse shell-statussen blijven open tot een synchrone receipt.
+
+De oorzaakformulering bij kandidaat 4 is een hypothese op basis van meer vroeg werk onder de gedeelde quota; de harde keuze om hem te verwerpen berust op de gemeten ttfr/ttfp-regressie. Push e7b46c3 met ls-remote exact bevestigd.
+
+## 2026-10-08 07:38 UTC — kaart-assets fixture groen, nog geen primaire winst; eigen kaart controle
+
+Receipts kandidaat 5 fixture: --checks (typecheck/unit 483/normale build/po-android ×3 --compare) exit 0; gerichte desktopgate exit 0 (18 tests). Mediaan ttfr 1344 ms, ttfp 1700 ms, ttfh 4378 ms; 220/227/226 decodes, 0 bronbevindingen, spreiding 3,120%/0,316%, loads 7,49/7,26/7,37. Geen winst tegenover kandidaat 3 (1220/1562). De eerste run 1816/2210 is een grote uitschieter, maar de oorspronkelijke medianeregel blijft.
+
+Omdat deze fixture geen glyphs heeft, eerst volledig eigen-kaartpaar als aanvullende representativiteitscontrole. Kandidaat-5-bronnen in tmp/u63/basemap-vroeg-state bewaard, productcode exact terug naar gepushte kandidaat 3; ongebruikte nieuwe helper blijft buiten de bundel. run-perf.sh --profile po-android --scenario koud-spelend --basemap own --repeat 3 (zonder compare: voor deze aanvullende kaart/PO-combinatie bestaat geen eigen nulbaseline; productgate blijft de fixture-compare). Daarna dezelfde eigen kaart met assets-proef en identieke parameters. Geen bestaande baseline overschreven.
+
+## 2026-10-08 07:43 UTC — volledige basiskaart nulcontrole; lock-checkpoint
+
+Receipt eigen-kaartcontrole kandidaat 3: --basemap own po-android/koud-spelend ×3 exit 0. Mediaan ttfr 3596 ms, ttfp 1652 ms, ttfh 5311 ms; loads 6,52/7,98/6,84, alle bronnen sluiten, decodespreiding 0,449%, bytes 0,012%. De volledige kaart is dus bepalend voor zichtbare ttfr en was door de 73-byte-fixture niet representatief gemeten. In deze kaartcontrole valt ttfr ná ttfp; mijlpaaldefinities worden nu nagelezen voordat er een conclusie over het zichtbare eerste regenbeeld volgt. Opnames web/tmp/u63/own-control.
+
+Checkpoint commit/push met --checks-lock en append-only meetstand, geen ongeverifieerde assets-proef in productcode. De assets-proef op deze volledige kaart volgt onder dezelfde parameters, zonder baselineoverschrijving. Acht oude baselinecontracten blijven expliciet open.
