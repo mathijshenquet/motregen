@@ -61,7 +61,8 @@ export const performanceProfiles: readonly PerformanceProfile[] = [
     passiveChunkByteBudget: 686_000,
     // U61: inclusief de zes bedoelde U42/U58-previewrij-ranges (24.320 B).
     scrubTransferBudget: 16,
-    sessionByteBudget: 1_345_000,
+    // +40 kB sinds de z4-startkaart (U63, MIP-23 aanvulling 2026-10-08): twee z4-tegels + tiles.json ≈ 32 kB gzip.
+    sessionByteBudget: 1_385_000,
   },
   {
     id: 'mobile-fast-3g',
@@ -80,7 +81,7 @@ export const performanceProfiles: readonly PerformanceProfile[] = [
     passiveChunkByteBudget: 686_000,
     // U61: inclusief de zes bedoelde U42/U58-previewrij-ranges (24.320 B).
     scrubTransferBudget: 16,
-    sessionByteBudget: 1_355_000,
+    sessionByteBudget: 1_395_000,
   },
   {
     // De telefoon van de PO (Android Chrome, opnames 2026-10-07). Kalibratie en afwijking per
@@ -105,7 +106,7 @@ export const performanceProfiles: readonly PerformanceProfile[] = [
     warmChunkByteBudget: 0,
     passiveChunkByteBudget: 686_000,
     scrubTransferBudget: 11,
-    sessionByteBudget: 1_345_000,
+    sessionByteBudget: 1_385_000,
     device: {
       viewport: { width: 390, height: 844 },
       userAgent: 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Mobile Safari/537.36',
