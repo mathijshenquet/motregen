@@ -1,0 +1,43 @@
+{
+ "label": "tween-s120",
+ "playback": {
+  "nativeScrollTo": {},
+  "moves": [
+   {
+    "from": 394,
+    "to": 458,
+    "positions": 8,
+    "durationMs": 157
+   },
+   {
+    "from": 458,
+    "to": 518,
+    "positions": 9,
+    "durationMs": 219
+   }
+  ]
+ },
+ "seek": {
+  "nativeScrollTo": {},
+  "moves": [
+   {
+    "from": 518,
+    "to": 578,
+    "positions": 9,
+    "durationMs": 168
+   },
+   {
+    "from": 578,
+    "to": 638,
+    "positions": 8,
+    "durationMs": 189
+   },
+   {
+    "from": 638,
+    "to": 703,
+    "positions": 10,
+    "durationMs": 194
+   }
+  ]
+ }
+}

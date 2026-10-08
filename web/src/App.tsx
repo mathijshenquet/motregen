@@ -77,6 +77,8 @@ const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
 // erbij omdat ze de hemel achter de scrubber kleurt (U62). Na deze rust geldt de scrubber als stilstaand.
 const SHOWN_FIELDS: ReadonlySet<string> = new Set(['rain_rate', 'motion', 'uv', 'uv_clear', 'radiation', 'cloud_low', 'cloud_mid', 'cloud_high', 'cloud_frac', 'wind_u_ms', 'wind_v_ms', 'gust_ms', 'pressure_hpa', 'feels_like_c', 'temp_c'])
 const SCRUB_REST_MS = 250
+// Duur van de tween waarmee de tabelpiep onder de kaart naar het cursoruur schuift.
+const TABLE_FOLLOW_MS = 220
 // Puntreeksen komen per frame binnen; elke publicatie loopt door scrubber, tabel en hemel. Per animatieframe
 // publiceren gaf tijdens het laden lange frames van ~0,8 s per seconde (prof:capture mobile-4g 2026-10-07);
 // vier keer per seconde vult de grafiek nog zichtbaar aan.
@@ -2758,39 +2760,93 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     scroller.scrollTo({ top, behavior })
     return true
   }
+  // De tabelpiep onder de kaart volgt de cursor met een eigen tween op scrollTop (U62). Een native
+  // `scrollTo({ behavior: 'smooth' })` doet in Firefox voor Android niets zolang er een vinger op het
+  // scherm ligt (PO 2026-10-08: de rij sprong bij slepen en tweende alleen bij afspelen en na een fling);
+  // met eigen frames zijn slepen, fling en afspelen per constructie gelijk.
   let tablePreviewFrame: number | undefined
   let tablePreviewPositioned = false
-  function queueTablePreview(epoch: number, behavior: ScrollBehavior): void {
+  let tableFollowFrame: number | undefined
+  // Doel-scrollTop per uurrij: één meting per tabel-layout, daarna leest volgen niets meer uit de layout.
+  let tableRowTops: Map<number, number> | undefined
+  function measureTableRowTops(scroller: HTMLElement): Map<number, number> | undefined {
+    const heading = forecastPanelElement.querySelector<HTMLElement>('thead')
+    if (!heading) return undefined
+    const scrollerTop = scroller.getBoundingClientRect().top
+    const headingHeight = heading.getBoundingClientRect().height
+    const tops = new Map<number, number>()
+    for (const row of forecastPanelElement.querySelectorAll<HTMLElement>('tr[data-epoch]')) {
+      tops.set(Number(row.dataset.epoch), scroller.scrollTop + row.getBoundingClientRect().top - scrollerTop - headingHeight)
+    }
+    return tops
+  }
+  function stopTableFollow(): void {
+    if (tableFollowFrame !== undefined) cancelAnimationFrame(tableFollowFrame)
+    tableFollowFrame = undefined
+  }
+  function followTableToEpoch(epoch: number, animate: boolean): boolean {
+    const scroller = forecastPanelElement.querySelector<HTMLElement>('.table-scroll')
+    if (!scroller) return false
+    tableRowTops ??= measureTableRowTops(scroller)
+    if (!tableRowTops?.size) return false
+    const nearestEpoch = tableRowTops.has(epoch) ? epoch : [...tableRowTops.keys()].reduce((nearest, candidate) =>
+      Math.abs(candidate - epoch) < Math.abs(nearest - epoch) ? candidate : nearest)
+    const target = tableRowTops.get(nearestEpoch)!
+    stopTableFollow()
+    const from = scroller.scrollTop
+    if (!animate || Math.abs(target - from) < 1) {
+      scroller.scrollTop = target
+      return true
+    }
+    const startedAt = performance.now()
+    const step = (time: number) => {
+      const progress = Math.min(1, Math.max(0, (time - startedAt) / TABLE_FOLLOW_MS))
+      scroller.scrollTop = from + (target - from) * (1 - (1 - progress) ** 3)
+      tableFollowFrame = progress < 1 ? requestAnimationFrame(step) : undefined
+    }
+    tableFollowFrame = requestAnimationFrame(step)
+    return true
+  }
+  function queueTablePreview(epoch: number, animate: boolean): void {
     if (tablePreviewFrame !== undefined) cancelAnimationFrame(tablePreviewFrame)
     tablePreviewFrame = requestAnimationFrame(() => {
       tablePreviewFrame = undefined
       if (!tableViewAvailable() || tableScrollOpen()) return
-      const positioned = scrollTableToEpoch(epoch, behavior)
+      const positioned = followTableToEpoch(epoch, animate)
       if (positioned) tablePreviewPositioned = true
     })
   }
   createEffect(() => {
     const epoch = tablePreviewEpoch()
     if (!tableViewAvailable() || tableScrollOpen()) return
-    queueTablePreview(epoch, tablePreviewPositioned && !reducedMotion.matches ? 'smooth' : 'auto')
+    queueTablePreview(epoch, tablePreviewPositioned && !reducedMotion.matches)
   })
   onMount(() => {
     const scroller = forecastPanelElement.querySelector<HTMLElement>('.table-scroll')
     const table = forecastPanelElement.querySelector<HTMLElement>('.forecast-table')
     if (!scroller || !table || typeof ResizeObserver === 'undefined') return
-    const correct = () => {
+    const reposition = (animate: boolean) => {
       if (!tableViewAvailable() || tableScrollOpen()) return
-      queueTablePreview(untrack(tablePreviewEpoch), 'auto')
+      queueTablePreview(untrack(tablePreviewEpoch), animate)
     }
-    const observer = new ResizeObserver(correct)
+    // Rijen die bijladen veranderen de tabelhoogte: opnieuw meten, en een lopende tween loopt door naar
+    // het nieuwe doel in plaats van te verspringen.
+    const resized = () => {
+      tableRowTops = undefined
+      reposition(tableFollowFrame !== undefined && !reducedMotion.matches)
+    }
+    // Onze eigen frames eindigen elk als scroll; alleen een scroll van buitenaf wordt rechtgezet.
+    const scrollEnded = () => { if (tableFollowFrame === undefined) reposition(false) }
+    const observer = new ResizeObserver(resized)
     observer.observe(scroller)
     observer.observe(table)
-    scroller.addEventListener('scrollend', correct, { passive: true })
+    scroller.addEventListener('scrollend', scrollEnded, { passive: true })
     onCleanup(() => {
       observer.disconnect()
-      scroller.removeEventListener('scrollend', correct)
+      scroller.removeEventListener('scrollend', scrollEnded)
     })
   })
+  onCleanup(stopTableFollow)
   onCleanup(() => { if (tablePreviewFrame !== undefined) cancelAnimationFrame(tablePreviewFrame) })
 
   function selectTableTime(epoch: number): void {

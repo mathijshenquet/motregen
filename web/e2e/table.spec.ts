@@ -142,4 +142,58 @@ test.describe('telefoon met ingeklapte adresbalk', () => {
     await expect(page.locator('.app-shell')).not.toHaveClass(/table-view-open/)
     await expect(page.locator('.map-shell')).toHaveAttribute('data-rendering', 'true')
   })
+
+  test('the table preview tweens to the cursor hour while a finger drags the scrubber (U62)', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.locator('tr.current-hour')).toBeAttached()
+    await expect(page.locator('.map-splash.ready')).toBeAttached()
+    const slider = page.getByRole('slider', { name: 'Tijd' })
+    if (await slider.getAttribute('data-playing') !== null) await slider.press(' ')
+    await expect.poll(() => previewOffset(page)).toBe(0)
+
+    // Firefox voor Android voert een native smooth scroll niet uit zolang er een vinger op het scherm ligt
+    // (PO 2026-10-08); de piep mag er dus niet van afhangen. Leg elke native aanroep en elke positie vast.
+    await page.evaluate(() => {
+      const scroller = document.querySelector<HTMLElement>('.table-scroll')!
+      const trace = { smoothCalls: 0, tops: [] as number[], running: true }
+      ;(window as unknown as { tableTrace: typeof trace }).tableTrace = trace
+      const nativeScrollTo = scroller.scrollTo.bind(scroller)
+      scroller.scrollTo = ((options?: ScrollToOptions | number, y?: number) => {
+        if (typeof options === 'object' && options.behavior === 'smooth') trace.smoothCalls++
+        if (typeof options === 'number') nativeScrollTo(options, y ?? 0)
+        else nativeScrollTo(options)
+      }) as typeof scroller.scrollTo
+      const sample = () => {
+        trace.tops.push(Math.round(scroller.scrollTop))
+        if (trace.running) requestAnimationFrame(sample)
+      }
+      requestAnimationFrame(sample)
+    })
+
+    const box = (await page.locator('.scrub-surface').boundingBox())!
+    const touchY = box.y + box.height / 2
+    const startX = box.x + box.width - 30
+    const cdp = await page.context().newCDPSession(page)
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: startX, y: touchY }] })
+    // Anderhalf uur naar links slepen: de cursor passeert minstens één uurgrens.
+    const dragPx = -box.width / 8 * 1.5
+    for (let step = 1; step <= 20; step++) {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: startX + dragPx * step / 20, y: touchY }] })
+      await page.waitForTimeout(30)
+    }
+    // De vinger ligt er nog op: de rij van het nieuwe cursoruur moet nu al op zijn plek komen.
+    await expect.poll(() => previewOffset(page)).toBe(0)
+    const trace = await page.evaluate(() => {
+      const recorded = (window as unknown as { tableTrace: { smoothCalls: number; tops: number[]; running: boolean } }).tableTrace
+      recorded.running = false
+      return recorded
+    })
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+
+    expect(trace.smoothCalls).toBe(0)
+    const distinctPositions = new Set(trace.tops)
+    expect(Math.max(...trace.tops) - Math.min(...trace.tops)).toBeGreaterThan(20)
+    // Een sprong geeft twee posities; een tween een reeks.
+    expect(distinctPositions.size).toBeGreaterThan(4)
+  })
 })

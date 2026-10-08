@@ -116,3 +116,30 @@ nieuwe `pnpm build` is direct zichtbaar.
 Firefox Android, alleen zolang de vinger op het scherm ligt; na loslaten en in Chrome tweent het wel.
 Dus kandidaat (a). Volgende: eigen tween op gecachte rij-offsets, zonder scrollTo tijdens een actieve
 touch. Daarna in de wachtrij: compositorlaag/blokken-meting op po-android, stap 4 windstreepjes.
+
+## 10:28 — stap 3 gecommit en gepusht (0c486c4)
+
+## 11:00 — stap 2: eigen tween voor de tabelpiep
+- `App.tsx`: `followTableToEpoch` — rAF-tween op `scrollTop` (220 ms, ease-out) naar een doel uit
+  `tableRowTops` (epoch → scrollTop, één meting per tabel-layout; de ResizeObserver maakt hem ongeldig).
+  Geen `scrollTo({behavior:'smooth'})` meer voor het volgen, dus niets wat Firefox tijdens een actieve
+  touch kan weigeren; slepen, fling en afspelen lopen door hetzelfde pad. Een resize tijdens een tween
+  laat hem doorlopen naar het nieuwe doel; `scrollend` van onze eigen frames wordt genegeerd.
+  `scrollTableToEpoch` (native smooth) blijft alleen voor de tik op een rij in de open tabel.
+- Gekozen voor scrollTop-frames in plaats van een transform op de rij-container: één mechanisme, geen
+  overdracht transform → scrollTop aan het eind (naad-risico) en de IntersectionObserver van de
+  gluur-rijen blijft kloppen. Als Firefox ook scrollTop-schrijven tijdens een touch tegenhoudt (niet
+  verwacht: de sprong die de PO zag ís zo'n schrijfactie), is de transform-variant het vervolg.
+- Rig `rig/table-follow.ts` (leest nu bewegingen uit de frames): CPU 4×, geen native scrollTo meer;
+  afspelen 8–11 posities / 157–219 ms per uurstap; langzaam slepen 8–10 posities / 168–194 ms; snel
+  slepen (3,5 u in 0,5 s) één doorlopende beweging van 17 posities / 392 ms.
+- e2e `table.spec` "the table preview tweens to the cursor hour while a finger drags the scrubber (U62)":
+  vinger blijft liggen, 0 native smooth-aanroepen, > 4 posities, rij staat op zijn plek.
+- Gate (web/): typecheck 0 · `pnpm test` 0 (482) · build 0 · `table.spec --project desktop` 0 (4 groen,
+  2 mobiele overgeslagen) · `table.spec sky-window.spec --project mobile-4g` 0 (6 groen, 1 overgeslagen).
+- Niet te testen op deze host: Firefox (geen Playwright-Firefox aanwezig). De PO verifieert op zijn toestel.
+- Eigen beelden bekeken: `metingen/stap2-na.png` (390), `metingen/stap2-desktop.png`.
+
+## Wachtrij (orkestrator)
+1. Scrubber-SVG op po-android: paint/composite per frame, varianten compositorlaag en blokken van 6 uur.
+2. Stap 4: windstreepjes mobiel (twee niveaus achter ?dev, soepel-scenario po-android).

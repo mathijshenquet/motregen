@@ -49,18 +49,31 @@ async function stopTrace(): Promise<Trace> {
   })
 }
 
-/** Per scrollTo-aanroep: over hoeveel frames bewoog de tabel daarna (1 = sprong, meer = tween). */
+/**
+ * Bewegingen van de tabel uit de frames zelf (los van hoe er gescrold wordt): een beweging eindigt na
+ * 80 ms stilstand. Eén positie = sprong, meer = tween.
+ */
 function summarise(trace: Trace) {
-  const moves = trace.calls.filter((call) => call.top !== call.from)
-  const framesPerMove = moves.map((call, index) => {
-    const until = moves[index + 1]?.at ?? Infinity
-    const tops = trace.samples.filter((sample) => sample.at >= call.at && sample.at < until).map((sample) => sample.top)
-    return new Set(tops.map((top) => Math.round(top))).size
-  })
+  const moves: Array<{ from: number; to: number; positions: number; durationMs: number }> = []
+  let current: { from: number; startedAt: number; lastChangeAt: number; tops: Set<number> } | undefined
+  let previousTop = Math.round(trace.samples[0]?.top ?? 0)
+  const close = (to: number) => {
+    if (current) moves.push({ from: current.from, to, positions: current.tops.size, durationMs: Math.round(current.lastChangeAt - current.startedAt) })
+    current = undefined
+  }
+  for (const sample of trace.samples) {
+    const top = Math.round(sample.top)
+    if (top !== previousTop) {
+      current ??= { from: previousTop, startedAt: sample.at, lastChangeAt: sample.at, tops: new Set() }
+      current.tops.add(top)
+      current.lastChangeAt = sample.at
+      previousTop = top
+    } else if (current && sample.at - current.lastChangeAt > 80) close(previousTop)
+  }
+  close(previousTop)
   return {
-    calls: trace.calls.length,
-    behaviors: trace.calls.reduce<Record<string, number>>((count, call) => ({ ...count, [call.behavior]: (count[call.behavior] ?? 0) + 1 }), {}),
-    moves: moves.map((call, index) => ({ from: call.from, to: call.top, behavior: call.behavior, distinctPositions: framesPerMove[index] })),
+    nativeScrollTo: trace.calls.reduce<Record<string, number>>((count, call) => ({ ...count, [call.behavior]: (count[call.behavior] ?? 0) + 1 }), {}),
+    moves,
   }
 }
 
