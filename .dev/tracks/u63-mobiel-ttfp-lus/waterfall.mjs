@@ -9,6 +9,7 @@ for (const directory of process.argv.slice(2)) {
   for (const name of reports.sort()) {
     const report = JSON.parse(readFileSync(join(directory, name), 'utf8'))
     const raw = JSON.parse(readFileSync(join(directory, name.replace('.json', '.raw.json')), 'utf8'))
+    if (report.meta.requestOrderOnly) throw new Error(`${name}: gebruik place-waterfall.ts voor een niet-perf-capture`)
     if (report.meta.loadAverage >= 8 || report.wire.findings.length) throw new Error(`${name}: load of bytebronnen ongeldig`)
     const requests = raw.requests.filter((request) => request.startMs < 6_000)
     const archive = requests.find((request) => request.url.includes('.pmtiles'))

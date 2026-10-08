@@ -13,6 +13,7 @@ for (const directory of process.argv.slice(2)) {
   const runs = readdirSync(directory).filter((name) => /^po-android-koud-spelend(?:-dev)?-run\d+\.json$/.test(name)).map((name) => {
     const report = JSON.parse(readFileSync(join(directory, name), 'utf8'))
     const raw = JSON.parse(readFileSync(join(directory, name.replace('.json', '.raw.json')), 'utf8'))
+    if (report.meta.requestOrderOnly) throw new Error(`${name}: aanvraagvolgorde is geen perf-meting`)
     if (report.meta.loadAverage >= 8 || report.wire.findings.length) throw new Error(`${name}: ongeldige meetbron of loadavg`)
     const startedPlaying = report.milestones.ttfpMs
     if (startedPlaying === null) throw new Error(`${name}: ttfp ontbreekt`)
