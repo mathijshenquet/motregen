@@ -790,3 +790,31 @@ herstart op 0c134e1 (hoofdbundel en stylesheet bevatten `table-covers-viewport`,
   desktop én mobile-4g 0 (18 groen, 10 overgeslagen).
 - Les: een correctie die de scrollstand verzet hoort alleen in aantoonbare rust te draaien; en een nieuwe
   spec eerst herhaald draaien vóór "groen" te melden — de eerste keer groen zei hier te weinig.
+
+## 2026-10-08 ~22:45 — PO-regressies (desktop 4330) + kaart in één stap
+Eén oorzaak achter punt 1, 2 en 4: sinds "kaart volgt de tijd" (deel 2) is de kaart dag of nacht naar de
+kaarttijd, maar alles wat erop getekend wordt las nog het APP-thema. In het donkere thema overdag dus:
+- (1) tegelranden boven zee: `donker.json` geeft `water` een `fill-outline-color` (#183746) die `licht.json`
+  niet heeft; de menging nam alleen eigenschappen mee die in beide stijlen staan, dus de donkere rand bleef op
+  de dagkaart staan en tekende elke waterrand en tegelgrens. Niet de z4-startkaart. Nu gaan eenzijdige
+  eigenschappen mee (`undefined` = MapLibre-standaard terug), unit-test erbij.
+- (2) cijferhalo: de halo zelf is sinds september niet gewijzigd (git log `temperature.ts`); het was het
+  verkeerde paar (lichte cijfers + donkere halo op een dagkaart, en omgekeerd 's nachts in licht thema).
+- (4) isobaren/isothermen en hun labels: lichte lijnkleur op een lichte kaart. Dekking 0,27 is ongewijzigd.
+Fix: `mapSurfaceTheme` (dag/nacht van de kaart zelf) voedt temperatuurcijfers, isolijnen + labels
+(`IsolineLabels.setTheme`), zon en wolkensluier. Het lijnensysteem (--line) raakte de kaart niet.
+- PO-nachtscreenshot 22:29 (donker cijfer, dikke witte halo op nachtkaart): die combinatie kan de nieuwe
+  build niet maken (nacht → licht cijfer + donkere halo); build stond 22:28:16 op schijf, de pagina had dus
+  nog de oude bundel. Beeld nieuw: `po-regressies/halo-dichtbij.png` (donker thema dag|nacht, licht thema dag|nacht).
+- (3) rand = oud: schakelaar, sleutel `motregen-dev-rand`, klassen en varianten weg; docs/dev-opties.md bij.
+- (5) rijlijnen: `--line` per rij = `color-mix(in oklab, var(--text) 11%, var(--row-ground))`, rijgrond =
+  onderkant van het hemelverloop (dag) of het nachtvlak. `rig/row-line-contrast.ts`: 11 % → heldere dag 1,26 ·
+  betrokken dag 1,25 · nacht 1,26 (was 1,30/1,31 met vaste dekking, maar op een aangenomen grond).
+  Beeld: `po-regressies/rijlijnen-overzicht.png` (390 licht|donker, 1280 licht|donker).
+- Kaart dag/nacht in ÉÉN stap (PO: "in één stap i.p.v. 4"): `mapNightStep` (omslag bij nacht ≥ 0,5),
+  alleen MapLibre's eigen 300 ms-overgang; `MAP_NIGHT_STEPS` en de 1/s-rem tijdens afspelen zijn weg (er valt
+  niets meer te doseren). Unit-test op de omslag.
+- Beelden kaart: `po-regressies/kaartstand-1280.png` en `-390.png` (Wind; donker thema dag|nacht, licht thema dag|nacht).
+- Gate (web/, loadavg ~55): typecheck 0 · `pnpm test` 0 (529) · build 0 ·
+  `MOTREGEN_E2E_PORT=4196 MOTREGEN_E2E_DATA_PORT=8196 pnpm e2e e2e/dev-panel.spec.ts e2e/focus.spec.ts e2e/table.spec.ts e2e/sky-window.spec.ts --project desktop` 0 (18 groen, 4 overgeslagen).
+  mobile-4g en firefox niet opnieuw gedraaid.

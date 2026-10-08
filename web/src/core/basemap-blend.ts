@@ -19,6 +19,15 @@ export function nightShare(sinElevation: number): number {
   return 1 - twilight * twilight * (3 - 2 * twilight)
 }
 
+/**
+ * De stand van de kaart bij een aandeel nacht: dag (0) of nacht (1), omslag halverwege de schemering.
+ * Eén stap, geen tussenstanden (PO 2026-10-08: "in één stap i.p.v. 4"); MapLibre's eigen overgang per
+ * eigenschap maakt de omslag zacht.
+ */
+export function mapNightStep(share: number): 0 | 1 {
+  return share >= 0.5 ? 1 : 0
+}
+
 /** Paint-eigenschappen die tussen de lichte en de donkere stijl verschillen (`undefined` = staat niet in die stijl). */
 export function basemapBlendTargets(light: StyleSpecification, dark: StyleSpecification): BlendTarget[] {
   const darkLayers = new Map(dark.layers.map((layer) => [layer.id, layer]))

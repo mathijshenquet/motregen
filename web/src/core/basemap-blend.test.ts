@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import type { StyleSpecification } from 'maplibre-gl'
 import { describe, expect, it } from 'vitest'
-import { basemapBlendTargets, blendedPaintValue, contrastRatio, formatColor, mixColors, nightShare, parseColor, type Rgba } from './basemap-blend'
+import { basemapBlendTargets, blendedPaintValue, contrastRatio, formatColor, mapNightStep, mixColors, nightShare, parseColor, type Rgba } from './basemap-blend'
 
 const style = (name: string) => JSON.parse(readFileSync(new URL(`../../public/basemap/${name}.json`, import.meta.url), 'utf8')) as StyleSpecification
 const targets = basemapBlendTargets(style('licht'), style('donker'))
@@ -61,6 +61,13 @@ describe('basemap day/night blend (U62)', () => {
         expect(contrastRatio(valueOf('text-color'), valueOf('text-halo-color')), `${layer} bij nacht ${night}`).toBeGreaterThanOrEqual(4.5)
       }
     }
+  })
+
+  it('turns the map from day to night in one step, halfway through twilight (PO 2026-10-08)', () => {
+    const sinElevations = [0.3, 0.1, 0.05, 0.001, 0, -0.001, -0.05, -0.1, -0.3]
+    expect(sinElevations.map((sinElevation) => mapNightStep(nightShare(sinElevation)))).toEqual([0, 0, 0, 0, 1, 1, 1, 1, 1])
+    expect(mapNightStep(0.49)).toBe(0)
+    expect(mapNightStep(0.5)).toBe(1)
   })
 
   it('mixes in linear light and follows the same twilight as the scrubber sky', () => {
