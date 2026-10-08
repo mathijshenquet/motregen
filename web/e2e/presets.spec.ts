@@ -51,16 +51,22 @@ test('query place wins over the path and moves time to a fragment while keeping 
   expect([...url.searchParams.keys()].sort()).toEqual(['dev', 'tg'])
   expect(url.hash).toMatch(/^#t=\d{4}-\d{2}-\d{2}T\d{4}$/)
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://motregen.nl/gevoel/groningen')
-  await page.getByRole('button', { name: 'Sluiten' }).click()
+  await page.locator('.freshness-dialog .about-close').click()
   await expect.poll(() => new URL(page.url()).hash).toBe('')
 })
 
 test('coordinates win over a place path and normalize before the map becomes ready', async ({ page }) => {
+  await page.route('**/data/manifest.json*', async (route) => {
+    const response = await route.fetch()
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    await route.fulfill({ response })
+  })
   await page.addInitScript(() => {
     const replace = history.replaceState.bind(history)
     history.replaceState = (...args) => {
       const root = document.documentElement
       if (!document.querySelector('.map-splash.ready')) root.dataset.urlBeforeMap = String(args[2])
+      if (!document.querySelector('.maplibregl-canvas')) root.dataset.urlBeforeCanvas = String(args[2])
       replace(...args)
     }
   })
@@ -68,6 +74,7 @@ test('coordinates win over a place path and normalize before the map becomes rea
   await expect(page.locator('.map-splash.ready')).toBeAttached()
   await expect(page).toHaveURL(/\/wind\/utrecht#t=/)
   await expect(page.locator('html')).toHaveAttribute('data-url-before-map', /\/wind\/utrecht#t=/)
+  await expect(page.locator('html')).toHaveAttribute('data-url-before-canvas', /\/wind\/utrecht#t=/)
   await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor Utrecht$/)
 })
 
@@ -97,9 +104,9 @@ test('a compact fragment time opens the clock and disappears when it closes', as
   await mockPlaces(page)
   await page.goto('/weer/utrecht#t=2026-10-07T1200')
   await expect(page.locator('.map-splash.ready')).toBeAttached()
-  await expect(page.locator('.freshness-panel')).toBeVisible()
+  await expect(page.locator('.freshness-dialog')).toBeVisible()
   await expect(page.locator('.scrubber')).not.toHaveAttribute('data-playing', '')
-  await page.getByRole('button', { name: 'Sluiten' }).click()
+  await page.locator('.freshness-dialog .about-close').click()
   await expect(page).toHaveURL(/\/weer\/utrecht$/)
 })
 

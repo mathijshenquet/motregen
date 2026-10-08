@@ -42,8 +42,10 @@ function caddyPageHtml(html: string): string {
 
 function caddyRoutes(): string {
   const lowercase = Array.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ', (letter) => `      plaats ${letter} ${letter.toLowerCase()}`).join('\n')
-  return `@legacyPreset {
+  return `route {
+@legacyPreset {
   path /
+  method GET HEAD
   expression \`{query.modus} in ['', 'weer', 'lucht', 'gevoel', 'wind'] && {query.lat} == '' && {query.lon} == '' && ({query.modus} != '' || {query.plaats} != '') && !({query.plaats}.lowerAscii() in ['thuis', 'werk', 'mijn locatie'])\`
 }
 route @legacyPreset {
@@ -78,7 +80,7 @@ ${lowercase}
       "" ""
       default ?{http.request.uri.query}
     }
-    redir /{http.vars.legacyTargetMode}{http.vars.legacyTargetPlace}{legacyQuery}{http.vars.legacyTargetTime} 301
+    redir * /{http.vars.legacyTargetMode}{http.vars.legacyTargetPlace}{legacyQuery}{http.vars.legacyTargetTime} 301
   }
 }
 @weatherPage path_regexp weatherPage (?i)^/(weer|lucht|gevoel|wind)(/[a-z0-9]+(-[a-z0-9]+)*)?/?$
@@ -91,6 +93,7 @@ route @weatherPage {
 }
 try_files {path} /index.html
 file_server
+}
 `
 }
 
@@ -100,10 +103,12 @@ export function pageRoutes(): Plugin {
     name: 'motregen-page-routes',
     configResolved(resolved) { config = resolved },
     transformIndexHtml(html, context) {
-      return context.path && parsePresetPath(context.path).mode ? renderPageHtml(html, context.path) : html
+      const pathname = new URL(context.originalUrl ?? context.path, 'http://localhost').pathname
+      return parsePresetPath(pathname).mode ? renderPageHtml(html, pathname) : html
     },
     configurePreviewServer(server) {
       server.middlewares.use((request, response, next) => {
+        if (request.method !== 'GET' && request.method !== 'HEAD') { next(); return }
         const pathname = new URL(request.url ?? '/', 'http://localhost').pathname
         if (!parsePresetPath(pathname).mode) { next(); return }
         const html = readFileSync(resolve(config.root, config.build.outDir, 'index.html'), 'utf8')

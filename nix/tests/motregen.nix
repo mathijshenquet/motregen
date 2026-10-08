@@ -170,7 +170,7 @@
     ]:
       headers = machine.succeed(f"curl --silent --show-error --dump-header - --output /dev/null 'http://localhost/?{query}'")
       assert "301" in headers, headers
-      assert f"location: {target}" in headers.lower(), headers
+      assert f"location: {target}".lower() in headers.lower(), headers
 
     sitemap = machine.succeed("curl --silent --show-error --fail http://localhost/sitemap.xml")
     for mode in ["weer", "lucht", "gevoel", "wind"]:
