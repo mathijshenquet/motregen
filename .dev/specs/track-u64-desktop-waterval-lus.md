@@ -43,3 +43,21 @@ door op Lighthouse-oorzaken die ttfr/ttfp raken; subscores vóór/ná rapportere
 
 Geen één-letternamen, geen slimme one-liners, commentaar alleen voor het waarom; niets versoepelen
 zonder benoemde oorzaak.
+
+## PO-bijsturing warm — 2026-10-08
+
+Warm is een volwaardig scenario, prioriteit direct na de shader/TBT-kandidaat.
+Rapporteer koud en warm samen, met ttfr vóór ttfp. Warm gebruikt een nieuwe
+pagina-context met gevulde HTTP- en SW-cache, zonder in-memory appstaat.
+U64 sluit hiervoor de seedbrowser en heropent hetzelfde tijdelijke schijfprofiel;
+drie warme main-referenties vormen de baseline. Een drukke herpoging bewaart
+alleen de schijfcaches, wacht buiten de lock en heropent een nieuwe browser.
+Seedtijd en cache-/SW-herkomst blijven in de capturemetadata staan.
+
+Onderzoek manifest/stijlrevalidatie, GL/shaderinitialisatie en weer-Ranges.
+App-shell/stijl/glyphs zijn al precached, PMTiles-Ranges hebben een eigen SW-cache.
+De volledige plaatsenlijst blijft ná ttfp en buiten precache. Afzonderlijke
+onzichtbare buildproeven VITE_WEBGL_PREWARM=worker en VITE_WARM_CACHE=manifest
+blijven standaard uit tot de gepaarde metingen ze rechtvaardigen. Eigenaar U64;
+vervallen 2026-10-15 of bij het eerdere kandidaatbesluit. De manifestproef gebruikt
+maximaal 15 s oude inhoud; expliciet verversen gaat naar netwerk.

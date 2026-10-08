@@ -29,11 +29,18 @@ if [[ ${MOTREGEN_PERF_LOCK_HELD:-0} != 1 ]]; then
       *) desktop_flags+=("$desktop_flag") ;;
     esac
   done
-  if [[ " ${desktop_flags[*]} " == *' --warm '* ]]; then export MOTREGEN_PERF_START_MAX_LOAD=6.5; fi
+  if [[ " ${desktop_flags[*]} " == *' --paired '* ]]; then export MOTREGEN_PERF_PAIRED_RUN=1; fi
   if [[ ! $desktop_repeat =~ ^([1-9]|10)$ ]]; then printf '%s\n' '--repeat moet 1…10 zijn' >&2; exit 2; fi
   if [[ ! $desktop_first_run =~ ^([1-9]|10)$ ]] || ((desktop_first_run + desktop_repeat - 1 > 10)); then printf '%s\n' 'runbereik moet binnen 1…10 liggen' >&2; exit 2; fi
+  desktop_warm_profile=''
+  trap 'if [[ -n $desktop_warm_profile ]]; then rm -rf -- "$desktop_warm_profile"; fi' EXIT
   for ((desktop_run=desktop_first_run; desktop_run<desktop_first_run+desktop_repeat; desktop_run++)); do
+    if [[ " ${desktop_flags[*]} " == *' --warm '* ]]; then
+      desktop_warm_profile=$(mktemp -d /tmp/motregen-desktop-warm.XXXXXXXX)
+      export MOTREGEN_DESKTOP_WARM_PROFILE="$desktop_warm_profile"
+    fi
     bash scripts/perf-lock.sh env MOTREGEN_RIG_PREBUILT=1 bash scripts/desktop-rig.sh "$output_prefix" "${desktop_flags[@]}" --repeat=1 --run="$desktop_run"
+    if [[ -n $desktop_warm_profile ]]; then rm -rf -- "$desktop_warm_profile"; desktop_warm_profile=''; unset MOTREGEN_DESKTOP_WARM_PROFILE; fi
   done
   exit 0
 fi

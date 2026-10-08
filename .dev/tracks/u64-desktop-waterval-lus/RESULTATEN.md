@@ -33,8 +33,9 @@ oude cache-inhoud. Een expliciete no-cache/reload/no-store-aanvraag slaat
 de opgeslagen respons over; fouten worden niet gecachet. De achtergrond
 herlaadt het manifest, volgens
 [Workbox SWR](https://developer.chrome.com/docs/workbox/modules/workbox-strategies).
-Units en bestaande offline/Range-cache-e2e zijn groen; koude/warme timings
-en de nieuwe browserherstart worden nog gemeten.
+511 units, bestaande offline/Range-cache-e2e en een echte SW-versheidstest
+zijn groen: verse inhoud offline, expliciete verversing netwerk, inhoud
+na 15 s niet bruikbaar. Koude/warme timings en browserherstart nog pending.
 
 ## Vervolg na U62/Kaderhemel en U65
 
@@ -51,6 +52,15 @@ Bevroren builds gebruiken
 dezelfde fixture en native-desktopcapture. Koud ×3, warm ×3 en Lighthouse
 zijn nog niet volledig gemeten. Er zijn nog geen volledige nieuwe
 ttfr/ttfp-vergelijkingen of Lighthouse-subscores.
+Koud en warm, nieuwe ronde (geen volledige medianen):
+
+| variant | koud ttfr / ttfp | warm ttfr / ttfp | geldige runs koud / warm |
+| --- | --- | --- | --- |
+| main U65 | 1617,3 / 775,1; 1669,1 / 842,6 ms | pending | 2 / 0 |
+| U64 + shaderbatch | 1135,2 / 783,2 ms | pending | 1 / 0 |
+| U64 + GPU-worker | pending | pending | 0 / 0 |
+| U64 + manifest-SWR | pending | pending | 0 / 0 |
+
 Eerste twee gewone koude referentieruns: ttfr 1617,3 / 1669,1 ms,
 ttfp 775,1 / 842,6 ms bij startload 7,98 / 7,97. Nog geen reeks van drie en
 geen vergelijkingsclaim. Een aparte cpuProfile-opname op U64 vóór shaders

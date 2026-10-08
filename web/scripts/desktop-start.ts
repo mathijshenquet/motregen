@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { chromium, devices, type Request } from '@playwright/test'
 import type { PerfMonitor } from '../src/core/perf'
 import { placesUrl } from '../src/core/places-asset'
-import { MAX_LOAD_AVERAGE, hostLoadAverage } from './rig-host'
+import { hostLoadAverage, runLoadLimit } from './rig-host'
 
 const [origin, output, ...flags] = process.argv.slice(2)
 if (!origin || !output) throw new Error('Gebruik: desktop-start.ts ORIGIN UITVOERPREFIX [--warm] [--run=1] [--query=...]; herhalingen via desktop-rig.sh')
@@ -16,6 +16,11 @@ const pathname = flags.find((flag) => flag.startsWith('--path='))?.slice('--path
 const warm = flags.includes('--warm')
 const cpuProfile = flags.includes('--cpu-profile')
 const expectWebglPrewarm = flags.includes('--expect-webgl-prewarm')
+const pairedRun = flags.includes('--paired')
+const pair = flags.find((flag) => flag.startsWith('--pair='))?.slice('--pair='.length) ?? null
+const pairRole = flags.find((flag) => flag.startsWith('--role='))?.slice('--role='.length) ?? null
+if (pairedRun !== (process.env.MOTREGEN_PERF_PAIRED_RUN === '1')) throw new Error('--paired en MOTREGEN_PERF_PAIRED_RUN moeten samen gebruikt worden')
+if (pairedRun && (!pair || !/^[a-z0-9-]+$/.test(pair) || (pairRole !== 'A' && pairRole !== 'B'))) throw new Error('Gepaarde capture vereist --pair=naam en --role=A|B')
 if (repeat !== 1) throw new Error('Eén capture per lock; gebruik desktop-rig.sh voor --repeat')
 if (!Number.isInteger(runNumber) || runNumber < 1 || runNumber > 10) throw new Error('--run moet 1…10 zijn')
 mkdirSync(dirname(output), { recursive: true })
@@ -23,7 +28,8 @@ const htmlHash = process.env.MOTREGEN_RIG_DIST ? createHash('sha256').update(rea
 const serviceWorkerHash = process.env.MOTREGEN_RIG_DIST ? createHash('sha256').update(readFileSync(`${process.env.MOTREGEN_RIG_DIST}/sw.js`)).digest('hex') : null
 const launchOptions = { args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] }
 const contextOptions = { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 }, serviceWorkers: warm ? 'allow' as const : 'block' as const }
-const warmProfile = warm ? mkdtempSync(join(tmpdir(), 'motregen-desktop-warm-')) : null
+const warmProfile = warm ? process.env.MOTREGEN_DESKTOP_WARM_PROFILE ?? mkdtempSync(join(tmpdir(), 'motregen-desktop-warm-')) : null
+const warmSeedPath = warmProfile ? join(warmProfile, 'motregen-warm-seed.json') : null
 const browser = warm ? null : await chromium.launch(launchOptions)
 try {
   for (let run = 1; run <= repeat; run++) {
@@ -50,7 +56,12 @@ try {
       const initScript = { content: `globalThis.__name = (value) => value; (${initialize.toString()})();` }
       await context.addInitScript(initScript)
       let warmCaches: Array<{ name: string; entries: number }> = []
-      if (warm) {
+      let warmSeededAt: string | null = null
+      if (warmSeedPath && existsSync(warmSeedPath)) {
+        const seed = JSON.parse(readFileSync(warmSeedPath, 'utf8')) as { caches: typeof warmCaches; seededAt: string }
+        warmCaches = seed.caches
+        warmSeededAt = seed.seededAt
+      } else if (warm) {
         await page.goto(`${origin}${pathname}?${query}`)
         await page.waitForFunction(() => window.__motregenPerf?.snapshot().ttfpMs != null)
         await page.evaluate(async () => { await navigator.serviceWorker.ready })
@@ -61,14 +72,16 @@ try {
         await page.waitForTimeout(2_000)
         warmCaches = await page.evaluate(async () => Promise.all((await caches.keys()).map(async (name) => ({ name, entries: (await (await caches.open(name)).keys()).length }))))
         await context.close()
+        warmSeededAt = new Date().toISOString()
+        writeFileSync(warmSeedPath!, JSON.stringify({ caches: warmCaches, seededAt: warmSeededAt }))
         context = await chromium.launchPersistentContext(warmProfile!, { ...launchOptions, ...contextOptions })
         await context.addInitScript(initScript)
         page = await context.newPage()
         page.on('pageerror', (error) => errors.push(error.message))
       }
       const loadAverage = hostLoadAverage()
-      if (loadAverage > MAX_LOAD_AVERAGE) {
-        console.error(`loadavg ${loadAverage} > ${MAX_LOAD_AVERAGE}: capture afbreken en lock vrijgeven`)
+      if (loadAverage > runLoadLimit()) {
+        console.error(`loadavg ${loadAverage} > ${runLoadLimit()}: capture afbreken en lock vrijgeven`)
         process.exitCode = 76
         break
       }
@@ -120,7 +133,7 @@ try {
         const { profile } = await cdp.send('Profiler.stop')
         writeFileSync(`${prefix}.cpuprofile`, JSON.stringify(profile))
       }
-      writeFileSync(`${prefix}.json`, JSON.stringify({ capturedAt: new Date().toISOString(), origin, pathname, finalUrl: page.url(), query, warm, warmMethod: warm ? 'persistent-profile-browser-restart' : null, warmCaches, httpCacheEnabled: warm, cpuProfile, browserPerRun: true, htmlHash, serviceWorkerHash, loadAverage, ...captured, requests, networkResponses }, null, 2))
+      writeFileSync(`${prefix}.json`, JSON.stringify({ capturedAt: new Date().toISOString(), origin, pathname, finalUrl: page.url(), query, warm, warmMethod: warm ? 'persistent-profile-browser-restart' : null, warmSeededAt, warmCaches, httpCacheEnabled: warm, pairedRun, pair, pairRole, absoluteBaselineEligible: !pairedRun, cpuProfile, browserPerRun: true, htmlHash, serviceWorkerHash, loadAverage, ...captured, requests, networkResponses }, null, 2))
       writeFileSync(`${prefix}.trace.json`, JSON.stringify({ traceEvents: events }))
       console.log(`${prefix}: ${JSON.stringify(captured.snapshot)}`)
     } finally {
@@ -129,5 +142,5 @@ try {
   }
 } finally {
   await browser?.close()
-  if (warmProfile) rmSync(warmProfile, { recursive: true, force: true })
+  if (warmProfile && !process.env.MOTREGEN_DESKTOP_WARM_PROFILE) rmSync(warmProfile, { recursive: true, force: true })
 }

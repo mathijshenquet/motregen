@@ -18,11 +18,15 @@ function outerSpans(events: TraceEvent[]): TraceEvent[] {
     && (parent.ts < event.ts || (parent.dur ?? 0) > (event.dur ?? 0))))
 }
 interface StartCapture {
+  warm?: boolean
+  warmMethod?: string
+  httpCacheEnabled?: boolean
+  serviceWorkerControlled?: boolean
   timeOrigin: number
   loadAverage: number
   snapshot: PerfSnapshot
   resources: Array<{ name: string; startTime: number; responseEnd: number; encodedBodySize: number; decodedBodySize: number; entryType: string }>
-  requests: Array<{ url: string; range: string | null; startTime: number; requestStart: number; responseEnd: number; responseBodySize: number; fromServiceWorker: boolean }>
+  requests: Array<{ url: string; range: string | null; startTime: number; requestStart: number; responseEnd: number; responseBodySize: number; fromServiceWorker: boolean; serviceWorkerRequest?: boolean }>
   entries: PerfTraceSlice
 }
 const files = process.argv.slice(2).filter((file) => !file.endsWith('.trace.json'))
@@ -50,10 +54,13 @@ for (const file of files) {
   resource('manifest', /\/manifest\.json/)
   resource('plaatsenlijst (na ttfp)', /\/plaatsen-[0-9a-f]+\.json$/)
   const network = (label: string, requests: StartCapture['requests']) => {
-    rows.push(`| ${label} (${requests.length}) | ${requests.length ? `${shown(Math.min(...requests.map((request) => request.startTime + request.requestStart - capture.timeOrigin)))} → ${shown(Math.max(...requests.map((request) => request.startTime + request.responseEnd - capture.timeOrigin)))}` : 'niet gezien'} | ${shown(requests.reduce((sum, request) => sum + request.responseBodySize, 0) / 1000)} / — |`)
+    const unknownSizes = requests.filter((request) => request.responseBodySize < 0).length
+    const knownBytes = requests.reduce((sum, request) => sum + Math.max(0, request.responseBodySize), 0)
+    rows.push(`| ${label} (${requests.length}) | ${requests.length ? `${shown(Math.min(...requests.map((request) => request.startTime + request.requestStart - capture.timeOrigin)))} → ${shown(Math.max(...requests.map((request) => request.startTime + request.responseEnd - capture.timeOrigin)))}` : 'niet gezien'} | ${shown(knownBytes / 1000)}${unknownSizes ? ` + onbekend (${unknownSizes} cache-responses)` : ''} / — |`)
   }
-  network('header-Ranges', capture.requests.filter((request) => /\/chunks\//.test(request.url) && request.range?.startsWith('bytes=0-')))
-  network('eerste regen-Range', capture.requests.filter((request) => /\/chunks\/(?:rtcor|nowcast|harmonie|seamless)/.test(request.url) && request.range && !request.range.startsWith('bytes=0-')).sort((left, right) => left.startTime - right.startTime).slice(0, 1))
+  const pageRequests = capture.requests.filter((request) => !request.serviceWorkerRequest)
+  network('header-Ranges', pageRequests.filter((request) => /\/chunks\//.test(request.url) && request.range?.startsWith('bytes=0-')))
+  network('eerste regen-Range', pageRequests.filter((request) => /\/chunks\/(?:rtcor|nowcast|harmonie|seamless)/.test(request.url) && request.range && !request.range.startsWith('bytes=0-')).sort((left, right) => left.startTime - right.startTime).slice(0, 1))
   for (const [label, phase] of [['eerste regendecode', 'frame-decode'], ['eerste textuur', 'texture-upload']] as const) {
     const entry = capture.entries.measures.find((candidate) => candidate.phase === phase && (phase !== 'frame-decode' || candidate.detail?.field === 'rain_rate'))
     rows.push(`| ${label} | ${entry ? `${shown(entry.startTime)} → ${shown(entry.startTime + entry.duration)}` : 'niet gezien'} | — |`)
@@ -73,7 +80,8 @@ for (const file of files) {
     if (!spans.length) continue
     cpuRows.push(`| ${url.split('/').at(-1)} | ${shown(parsing.reduce((sum, event) => sum + (event.tdur ?? event.dur ?? 0), 0) / 1000)} / ${shown(compile.reduce((sum, event) => sum + (event.tdur ?? event.dur ?? 0), 0) / 1000)} | ${shown((Math.min(...spans.map((event) => event.ts)) - navigation.ts) / 1000)} → ${shown((Math.max(...spans.map((event) => event.ts + (event.dur ?? 0))) - navigation.ts) / 1000)} |`)
   }
-  const markdown = `# ${file}\n\n${priorities}Loadavg ${capture.loadAverage}; desktop 1280×800, 8 cores/8 GB, CPU 1×, SwiftShader. Trace-overhead aanwezig. Decodetijd is workerduur teruggeteld vanaf het antwoord op de hoofddraad; exacte start in de worker ontbreekt. Textuurduur meet CPU-aanroep, geen GPU-fence.\n\n${rows.join('\n')}\n\n${cpuRows.join('\n')}\n`
+  const cacheState = capture.warm ? `Warm: ${capture.warmMethod ?? 'historische methode'}; HTTP-cache ${capture.httpCacheEnabled ? 'aan' : 'uit of onbekend'}; SW-controller ${capture.serviceWorkerControlled ?? 'onbekend'}. Resource-bodybytes zijn geleverde bytes, geen wireclaim. Range-rijen tellen paginaverzoeken zonder hun SW-upstreamdubbel; negatieve Playwright-cachegroottes blijven onbekend.\n\n` : ''
+  const markdown = `# ${file}\n\n${priorities}${cacheState}Loadavg ${capture.loadAverage}; desktop 1280×800, 8 cores/8 GB, CPU 1×, SwiftShader. Trace-overhead aanwezig. Decodetijd is workerduur teruggeteld vanaf het antwoord op de hoofddraad; exacte start in de worker ontbreekt. Textuurduur meet CPU-aanroep, geen GPU-fence.\n\n${rows.join('\n')}\n\n${cpuRows.join('\n')}\n`
   writeFileSync(file.replace(/\.json$/, '.md'), markdown)
   console.log(markdown)
 }
