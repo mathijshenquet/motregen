@@ -19,6 +19,12 @@ U64 na merge, vóór shaderbatching: 409.063 B. Bevroren builds gebruiken
 dezelfde fixture en native-desktopcapture. Koud ×3, warm ×3 en Lighthouse
 staan nog in de meetwachtrij. Er zijn nog geen nieuwe ttfr/ttfp-subscores.
 
+Na de lockinstructie van 09:40 wacht elke run buiten de lock op load ≤8.
+Elke herhaling krijgt een eigen lockperiode en browserproces; na verkrijgen
+wordt de load opnieuw gecontroleerd. Bij drukte wordt de lock vrijgegeven.
+De nieuwe U62-referentie en kandidaten gebruiken beide deze methode;
+oude reeksen met een gedeeld browserproces zijn geen directe vergelijking.
+
 De shaderkandidaat start alle vier windprogramma's vóór de eerste linkquery
 en vraagt geen tussentijdse compile-status van regen-/windshaders.
 Shaderbronnen en tekenvolgorde zijn gelijk; linkfouten houden hun logs en
@@ -106,8 +112,10 @@ SW-netwerkrequests voor app-shell/kaartassets; 70 verse weerrequests,
 1.058.723 B. Resource Timing/HUD toont door de SW nul bytes; dat is geen
 bewijs dat weerdata gecacht werd. Geen wijziging aan de bestaande SW nodig.
 In deze eerste warme reeksen is de load vóór priming vastgelegd. De
-aangescherpte capture verlaat daarna de prime-renderloop via about:blank,
-wacht opnieuw op load ≤8 en registreert de load direct vóór de meetnavigatie.
+aangescherpte capture verlaat daarna de prime-renderloop via about:blank
+en registreert de load direct vóór de meetnavigatie. Is de load dan >8,
+dan sluit de browser en komt de lock vrij; opnieuw wachten gebeurt buiten
+de lock vóór een nieuwe poging, inclusief nieuwe priming.
 Die extra warme herhaling is nog pending.
 
 ## Kandidaten op verwachte regenstartwinst
@@ -174,9 +182,11 @@ de eerste regenaanvraag vóór overige manifestreacties en kaart/shaderwerk.
 
 ## Reproduceren
 
-Alle browser-perf neemt `flock -w 7200 /home/mathijs/motregen-perf.lock`;
-wrappers herkennen een handmatige buitenlock. Builds en gewone e2e blijven
-buiten de lock. Rapporten/traces staan lokaal onder gitignored `tmp/u64/`.
+Alle browser-perf neemt `flock -w 7200 /home/mathijs/motregen-perf.lock`
+voor één run. Load- en slotwachttijd blijven buiten de lock. Wrappers
+herkennen een handmatige buitenlock voor één run; plaats geen hele lus
+onder flock. Builds en gewone e2e blijven buiten de lock.
+Rapporten/traces staan lokaal onder gitignored `tmp/u64/`.
 
 ```sh
 cd web

@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { compactBaseline, compareBaseline, repetitionSpread, type MobileReport, type MobileBaseline } from './mobile-report'
 import { median, type ReferenceReport } from './reference-report'
 import { performanceProfile } from '../e2e/profiles'
-import { MAX_LOAD_AVERAGE, hostLoadAverage, rigBuild, rigPorts, waitForQuietHost } from './rig-host'
+import { MAX_LOAD_AVERAGE, rigBuild, rigPorts } from './rig-host'
 
 // Geen scenario op onze fixture maar dezelfde meting op de site van de concurrent, over het echte netwerk.
 const REFERENCE_SCENARIO = 'referentie-buienradar'
@@ -68,19 +68,30 @@ if (!options.scenarios.includes(REFERENCE_SCENARIO)) {
   if (build.status !== 0) throw new Error('Rig-build mislukt')
   rigEnvironment.MOTREGEN_RIG_PREBUILT = '1'
 }
-if (!await waitForQuietHost(options.loadWaitMinutes * 60_000, (message) => console.log(message))) {
-  console.error(`Host blijft te druk (loadavg ${hostLoadAverage()} > ${MAX_LOAD_AVERAGE}); geen meting`)
-  process.exit(1)
+rigEnvironment.MOTREGEN_PERF_LOAD_WAIT_MINUTES = String(options.loadWaitMinutes)
+console.log(`Rig: poorten ${ports.port}/${ports.dataPort}; elke run wacht buiten de perf-lock`)
+
+function runMeasurements(config: string): number {
+  for (const profile of options.profiles) {
+    for (const scenario of options.scenarios) {
+      for (let repetition = 1; repetition <= options.repeat; repetition++) {
+        const title = `${profile} / ${scenario} / run ${repetition}`
+        const grep = `${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`
+        const run = spawnSync('bash', ['scripts/perf-lock.sh', 'scripts/e2e-slot.sh', 'pnpm', 'exec', 'playwright', 'test', '--config', config, '--project', 'desktop', '--grep', grep], {
+          stdio: 'inherit',
+          env: rigEnvironment,
+        })
+        if (run.error) throw run.error
+        if (run.status !== 0) return run.status ?? 1
+      }
+    }
+  }
+  return 0
 }
-console.log(`Rig: loadavg ${hostLoadAverage()}, poorten ${ports.port}/${ports.dataPort}`)
 
 if (options.scenarios.includes(REFERENCE_SCENARIO)) {
   if (options.scenarios.length > 1 || options.baseline || options.compare) throw new Error(`${REFERENCE_SCENARIO} draait los, zonder baseline of vergelijking`)
-  const reference = spawnSync('bash', ['scripts/perf-lock.sh', 'scripts/e2e-slot.sh', 'pnpm', 'exec', 'playwright', 'test', '--config', 'playwright.reference.config.ts', '--project', 'desktop'], {
-    stdio: 'inherit',
-    env: rigEnvironment,
-  })
-  if (reference.error) throw reference.error
+  const referenceStatus = runMeasurements('playwright.reference.config.ts')
   const rows = ['| profiel | ttfp-ref per run | mediaan | eerste radarbeeld (mediaan) | loadavg per run | weggegooid (load) |', '| --- | ---: | ---: | ---: | ---: | ---: |']
   for (const profile of options.profiles) {
     const reports: ReferenceReport[] = []
@@ -96,15 +107,11 @@ if (options.scenarios.includes(REFERENCE_SCENARIO)) {
   const referenceSummary = `${rows.join('\n')}\n`
   writeFileSync('tmp/perf-mobile/reference-summary.md', referenceSummary)
   console.log(referenceSummary)
-  process.exit(reference.status ?? 1)
+  process.exit(referenceStatus)
 }
 
-const run = spawnSync('bash', ['scripts/perf-lock.sh', 'scripts/e2e-slot.sh', 'pnpm', 'exec', 'playwright', 'test', '--config', 'playwright.mobile.config.ts', '--project', 'desktop'], {
-  stdio: 'inherit',
-  env: rigEnvironment,
-})
-if (run.error) throw run.error
-if (run.status !== 0) process.exit(run.status ?? 1)
+const runStatus = runMeasurements('playwright.mobile.config.ts')
+if (runStatus !== 0) process.exit(runStatus)
 
 let failed = false
 const summary: string[] = ['| profiel | scenario | decodes | bodybytes | spreiding decodes / bytes | ttfp | ttfr | ttfh | blank-visible | LoAF 12 s | loadavg | weggegooid (load) |', '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |']

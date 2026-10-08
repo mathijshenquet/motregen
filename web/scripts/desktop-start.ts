@@ -2,21 +2,22 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { chromium, devices, type Request } from '@playwright/test'
 import type { PerfMonitor } from '../src/core/perf'
-import { hostLoadAverage, waitForQuietHost } from './rig-host'
+import { MAX_LOAD_AVERAGE, hostLoadAverage } from './rig-host'
 
 const [origin, output, ...flags] = process.argv.slice(2)
 if (!origin || !output) throw new Error('Gebruik: scripts/e2e-slot.sh pnpm exec tsx scripts/desktop-start.ts ORIGIN UITVOERPREFIX [--warm] [--repeat=3] [--query=...]')
-const repeat = Number(flags.find((flag) => flag.startsWith('--repeat='))?.split('=')[1] ?? 3)
+const repeat = Number(flags.find((flag) => flag.startsWith('--repeat='))?.split('=')[1] ?? 1)
+const runNumber = Number(flags.find((flag) => flag.startsWith('--run='))?.split('=')[1] ?? 1)
 const query = flags.find((flag) => flag.startsWith('--query='))?.slice('--query='.length) ?? 'perf=1'
 const pathname = flags.find((flag) => flag.startsWith('--path='))?.slice('--path='.length) ?? '/weer'
 const warm = flags.includes('--warm')
 const cpuProfile = flags.includes('--cpu-profile')
-if (!Number.isInteger(repeat) || repeat < 1 || repeat > 10) throw new Error('--repeat moet 1…10 zijn')
+if (repeat !== 1) throw new Error('Eén capture per lock; gebruik desktop-rig.sh voor --repeat')
+if (!Number.isInteger(runNumber) || runNumber < 1 || runNumber > 10) throw new Error('--run moet 1…10 zijn')
 mkdirSync(dirname(output), { recursive: true })
 const browser = await chromium.launch({ args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
 try {
   for (let run = 1; run <= repeat; run++) {
-    if (!await waitForQuietHost(20 * 60_000, console.log)) throw new Error('Host blijft te druk om te meten')
     const context = await browser.newContext({ ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 }, serviceWorkers: warm ? 'allow' : 'block' })
     try {
       const page = await context.newPage()
@@ -46,9 +47,13 @@ try {
         await page.waitForFunction(async () => (await (await caches.open('motregen-basemap-ranges-v1')).keys()).length > 1)
         await page.waitForTimeout(2_000)
         await page.goto('about:blank')
-        if (!await waitForQuietHost(20 * 60_000, console.log)) throw new Error('Host blijft na SW-priming te druk om te meten')
       }
       const loadAverage = hostLoadAverage()
+      if (loadAverage > MAX_LOAD_AVERAGE) {
+        console.error(`loadavg ${loadAverage} > ${MAX_LOAD_AVERAGE}: capture afbreken en lock vrijgeven`)
+        process.exitCode = 76
+        break
+      }
       const requests: Array<Record<string, unknown>> = []
       const pending: Promise<void>[] = []
       const record = async (request: Request) => {
@@ -86,7 +91,7 @@ try {
       }
       await Promise.all(pending)
       if (errors.length) throw new Error(errors.join('\n'))
-      const prefix = `${output}-${warm ? 'warm' : 'cold'}-run${run}`
+      const prefix = `${output}-${warm ? 'warm' : 'cold'}-run${runNumber}`
       if (cpuProfile) {
         const { profile } = await cdp.send('Profiler.stop')
         writeFileSync(`${prefix}.cpuprofile`, JSON.stringify(profile))
