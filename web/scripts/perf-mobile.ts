@@ -34,6 +34,7 @@ for (let index = 0; index < args.length; index++) {
     if (flag === '--basemap') options.basemap = value
   } else throw new Error(`Onbekende optie: ${argument}`)
 }
+if ((options.baseline || options.compare) && process.env.MOTREGEN_RIG_CPU_TRACE === '1') throw new Error('CPU-profiel is een afzonderlijke diagnose, geen baseline/compare')
 if (options.baseline && options.compare) throw new Error('--baseline en --compare sluiten elkaar uit')
 if (options.baseline && process.env.MOTREGEN_RIG_PAIRED === '1') throw new Error('--paired mag geen absolute baseline schrijven')
 if (options.requestOrderOnly && (options.baseline || options.compare)) throw new Error('--request-order controleert alleen de aanvraagvolgorde en kan geen performancebaseline zetten of vergelijken')

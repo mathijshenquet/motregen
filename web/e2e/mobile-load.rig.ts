@@ -9,6 +9,7 @@ import { installMobileProbe } from './mobile-probe'
 import { buildChromeTrace, type SelfProfilerTrace } from '../src/core/profile-recorder'
 import { createSourceMapResolver } from '../scripts/prof-source-map'
 import { profileTop } from '../scripts/prof-top'
+import { startRigCpuTrace } from '../scripts/rig-cpu-trace'
 import { hostLoadAverage, permittedStartLoad, startLoadLimit, waitForQuietHost } from '../scripts/rig-host'
 import { completedBytesBefore, reconcileWire, renderMobileReport, wireWindow, smoothness, summarizePhases, type MobileReport, type SmoothnessWindow, type WireRequest } from '../scripts/mobile-report'
 import type { PerfMonitor } from '../src/core/perf'
@@ -94,8 +95,11 @@ for (const profileId of options.profiles) {
         const network = recordPlaywrightNetwork(warmVisit ? context : page, warmVisit, context)
         const capturedAt = new Date().toISOString()
         if (warmingCache) await installSeedWorker(page, baseURL!)
+        const cpuTrace = process.env.MOTREGEN_RIG_CPU_TRACE === '1' && !warmingCache
+          ? await startRigCpuTrace(cdp, await context.browser()!.newBrowserCDPSession()) : null
         // Een ?t-preset zet de tijdlijn stil; zonder preset speelt de app vanzelf, zoals bij een gewone bezoeker.
         await page.goto(`${scenario.autoplay ? '/?perf=1&modus=weer' : '/?perf=1&t=%2B0u&modus=weer'}${scenario.devStorage ? '&dev' : ''}`, { waitUntil: 'commit' })
+        const cpuCapturePending = cpuTrace ? new Promise(resolve => setTimeout(resolve, 6_000)).then(() => cpuTrace.stop()) : null
         if (warmingCache) {
           await completeCacheSeed(page, scenario.durationMs)
           expect(externalRequests, 'geen live-netwerk bij cachevulling').toEqual([])
@@ -114,6 +118,7 @@ for (const profileId of options.profiles) {
           if (step.action !== 'seek' && actualMs - step.atMs > 250) findings.push(`Scenarioactie ${step.action} ${Math.round(actualMs - step.atMs)} ms later dan gepland`)
         }
         await waitUntil(page, scenario.durationMs)
+        const cpuCapture = await cpuCapturePending
         const captured = await page.evaluate(async (durationMs) => {
           const monitor = window.__motregenPerf as PerfMonitor
           const sample = monitor.snapshot() as ReturnType<PerfMonitor['snapshot']> & { windowReadyMs?: Record<string, number> }
@@ -233,7 +238,7 @@ for (const profileId of options.profiles) {
         if (!Object.keys(captured.milestones.windowReadyMs).length) findings.push('U52 window-ready-meetpunten ontbreken op deze main; ttfh komt uit de loadtrace')
         if (scenario.steps.some((step) => step.mode === 'Lucht') && !actions.some((action) => action.detail === 'modus Lucht')) findings.push('Deze main heeft nog geen Lucht-knop: bestaande Weer-wolkenfocus gebruikt en expliciet geregistreerd')
         const report: MobileReport = {
-          meta: { profile: profileId, scenario: scenarioId, sourceSha, capturedAt, cpuThrottleRate: profile.cpuThrottleRate, contractHash, fixtureHash, basemapContractHash, network: profile.network, hardwareConcurrency: captured.hardwareConcurrency, loadAverage, measurementKind: process.env.MOTREGEN_RIG_PAIRED === '1' ? 'paired' : 'absolute', maxStartLoadAverage: startLoadLimit(), synthGridScale, rendererCpuQuotaPercent, requestOrderOnly: options.requestOrderOnly ?? false, cacheState: warmVisit ? 'warm-disk-new-browser' : 'cold', warmCache },
+          meta: { profile: profileId, scenario: scenarioId, sourceSha, capturedAt, cpuThrottleRate: profile.cpuThrottleRate, contractHash, fixtureHash, basemapContractHash, network: profile.network, hardwareConcurrency: captured.hardwareConcurrency, loadAverage, measurementKind: process.env.MOTREGEN_RIG_PAIRED === '1' ? 'paired' : 'absolute', maxStartLoadAverage: startLoadLimit(), synthGridScale, rendererCpuQuotaPercent, cpuProfiled: Boolean(cpuTrace), requestOrderOnly: options.requestOrderOnly ?? false, cacheState: warmVisit ? 'warm-disk-new-browser' : 'cold', warmCache },
           milestones: captured.milestones,
           decode,
           wire: { ...wire, rangeRequests: requests.filter((request) => request.range !== null).length, beforeTtfrBytes: completedBytesBefore(requests, captured.milestones.ttfrMs), beforeTtfhBytes: completedBytesBefore(requests, captured.milestones.ttfhMs) },
@@ -249,6 +254,7 @@ for (const profileId of options.profiles) {
         mkdirSync('tmp/perf-mobile', { recursive: true })
         const output = `tmp/perf-mobile/${profileId}-${scenarioId}-run${repetition}`
         writeFileSync(`${output}.json`, `${JSON.stringify(report, null, 2)}\n`)
+        if (cpuCapture) writeFileSync(`${output}.cpu.json`, JSON.stringify(cpuCapture))
         writeFileSync(`${output}.md`, renderMobileReport(report))
         writeFileSync(`${output}.trace.json`, JSON.stringify(trace))
         writeFileSync(`${output}.raw.json`, JSON.stringify({ requests, observedRequests, selectedResourceTiming: selectedWire.timing, pageResourceTiming: pageResources, workerResourceTiming: workerResources, actions, loads: captured.loads, selfProfile: self, entries: captured.entries }))

@@ -49,6 +49,7 @@ export function createSourceMapResolver(dist: string): (frame: ProfileCallFrame)
     const cached = frames.get(frameKey)
     if (cached) return cached
     const pathname = decodeURIComponent(new URL(frame.url, 'http://trace.invalid').pathname)
+    if (pathname === '/' || pathname.endsWith('.html')) return frame
     const filename = basename(pathname)
     let map = maps.get(pathname)
     if (!map) {

@@ -264,6 +264,7 @@ export interface MobileReport {
     loadAverage: number
     measurementKind?: 'paired' | 'absolute'
     maxStartLoadAverage?: number
+    cpuProfiled?: boolean
     requestOrderOnly?: boolean
     cacheState?: 'cold' | 'warm-disk-new-browser'
     warmCache?: unknown
