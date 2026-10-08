@@ -7,6 +7,35 @@ synthetische data; drie runs per variant. Koud: verse context, HTTP-cache uit,
 SW geblokkeerd. Het browserproces wordt binnen een reeks gedeeld; de eerste
 run bevat extra browser/GPU-initialisatie. Geen MacBook-benchmark.
 
+## Warm: nieuwe PO-prioriteit en meetdefinitie
+
+Koud en warm worden vanaf deze ronde naast elkaar beoordeeld: ttfr eerst,
+ttfp daarna; volledige LoAF na ttfp bewaakt regressies. De oude warme rig
+hergebruikte een pagina, schakelde HTTP-cache uit en serveerde frontendassets
+met no-store. Die opnames zijn geen baseline voor de nieuwe definitie.
+
+Warm primet een nieuw schijfprofiel, wacht op SW/kaartcache, sluit de browser
+volledig en start een nieuwe browser/pagina met dat profiel. HTTP-cache is
+aan, SW blijft actief; geen app- of GPU-geheugen uit de seedpagina. Cache-
+inventaris, SW-controller, HTTP/SW-responseherkomst, HTML-SHA en uiteindelijke
+pad-URI worden opgeslagen. Referentie warm ×3 komt vóór conclusies.
+[Playwright persistent context](https://playwright.dev/docs/api/class-browsertype#browser-type-launch-persistent-context)
+bewaart het profiel tussen browserstarts.
+
+App-shell, stijl-JSON en glyphs staan al in Workbox-precache. Exacte PMTiles-
+Ranges hebben een eigen SW-cache; weer-Ranges gebruiken NetworkOnly en de
+HTTP-cache. Dat wordt per verzoek gecontroleerd. Geen extra volledige
+plaatsenlijst in precache: de normale aanvraag moet ná ttfp blijven.
+
+Nieuwe afzonderlijke proef VITE_WARM_CACHE=manifest, standaard uit:
+slechts /data/manifest.json?s=1 krijgt stale-while-revalidate, maximaal 15 s
+oude cache-inhoud. Een expliciete no-cache/reload/no-store-aanvraag slaat
+de opgeslagen respons over; fouten worden niet gecachet. De achtergrond
+herlaadt het manifest, volgens
+[Workbox SWR](https://developer.chrome.com/docs/workbox/modules/workbox-strategies).
+Units en bestaande offline/Range-cache-e2e zijn groen; koude/warme timings
+en de nieuwe browserherstart worden nog gemeten.
+
 ## Vervolg na U62/Kaderhemel en U65
 
 Main `ec3ca02`, inclusief U62 `8d75754f`, U65 `0fb247ec` en U66, is
@@ -63,7 +92,11 @@ Daaruit volgt een nieuwe proef: `VITE_WEBGL_PREWARM=worker`, standaard uit,
 maakt vroeg een WebGL2-context in een OffscreenCanvas-worker, voor brede
 desktops met ≥8 cores. Initialisatie kan dan met JS/data overlappen.
 De tijdelijke context/worker wordt opgeruimd; still/Skywatch slaan hem over.
-Dezelfde shaderbatch-JS blijft 411.362 B gzip; HTML 2571→3143 B gzip.
+Dezelfde shaderbatch-JS blijft 411.362 B gzip. De eerste context-only-proef
+voegde 572 B HTML-gzip toe maar liet een main-task van circa 241 ms staan.
+De herziene worker dient clear/finish in vóór ready en kost 3195 B HTML-gzip
+(tegen 2571 B zonder proef). Oude context-only-opname en nieuwe GPU-proef
+hebben aparte builds/bestandsnamen en worden niet als één variant gemiddeld.
 Typecheck, 509 units, proefbuild en 13 gerichte WebGL-e2e zijn geslaagd;
 ttfr/ttfp, LoAF-bewaker en Lighthouse voor de proef blijven pending.
 

@@ -8,6 +8,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 import solid from 'vite-plugin-solid'
 import { configDefaults } from 'vitest/config'
 import { basemapRangeCache } from './scripts/basemap-range-cache'
+import { manifestStartCache } from './scripts/manifest-start-cache'
 import { pageRoutes } from './scripts/page-routes'
 import { mapStartPreview } from './scripts/map-start-plugin'
 import { startAssets } from './scripts/start-assets-plugin'
@@ -108,6 +109,15 @@ export default defineConfig({
       navigateFallback: '/index.html',
       navigateFallbackDenylist: [/^\/(?:data|telegram)(?:\/|$)/, /^\/(?:hit|sw\.js|sitemap\.xml|robots\.txt)$/],
       runtimeCaching: [
+        ...process.env.VITE_WARM_CACHE === 'manifest' ? [{
+          urlPattern: ({ url }: { url: URL }) => url.pathname === '/data/manifest.json' && url.search === '?s=1',
+          handler: 'StaleWhileRevalidate' as const,
+          options: {
+            cacheName: 'motregen-start-manifest-v1',
+            plugins: [manifestStartCache],
+            expiration: { maxEntries: 1, maxAgeSeconds: 15 },
+          },
+        }] : [],
         {
           urlPattern: ({ url }) => /^\/plaatsen-[0-9a-f]{16}\.json$/.test(url.pathname),
           handler: 'CacheFirst',

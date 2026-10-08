@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
 import { chromium, devices, type Request } from '@playwright/test'
 import type { PerfMonitor } from '../src/core/perf'
 import { placesUrl } from '../src/core/places-asset'
@@ -19,12 +20,18 @@ if (repeat !== 1) throw new Error('Eén capture per lock; gebruik desktop-rig.sh
 if (!Number.isInteger(runNumber) || runNumber < 1 || runNumber > 10) throw new Error('--run moet 1…10 zijn')
 mkdirSync(dirname(output), { recursive: true })
 const htmlHash = process.env.MOTREGEN_RIG_DIST ? createHash('sha256').update(readFileSync(`${process.env.MOTREGEN_RIG_DIST}/index.html`)).digest('hex') : null
-const browser = await chromium.launch({ args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
+const serviceWorkerHash = process.env.MOTREGEN_RIG_DIST ? createHash('sha256').update(readFileSync(`${process.env.MOTREGEN_RIG_DIST}/sw.js`)).digest('hex') : null
+const launchOptions = { args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] }
+const contextOptions = { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 }, serviceWorkers: warm ? 'allow' as const : 'block' as const }
+const warmProfile = warm ? mkdtempSync(join(tmpdir(), 'motregen-desktop-warm-')) : null
+const browser = warm ? null : await chromium.launch(launchOptions)
 try {
   for (let run = 1; run <= repeat; run++) {
-    const context = await browser.newContext({ ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 }, serviceWorkers: warm ? 'allow' : 'block' })
+    let context = warmProfile
+      ? await chromium.launchPersistentContext(warmProfile, { ...launchOptions, ...contextOptions })
+      : await browser!.newContext(contextOptions)
     try {
-      const page = await context.newPage()
+      let page = await context.newPage()
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       const initialize = () => {
@@ -40,7 +47,9 @@ try {
         performance.setResourceTimingBufferSize(10_000)
       }
       // tsx bewaart functienamen met __name, ook binnen de naar Chromium geserialiseerde callback.
-      await page.addInitScript({ content: `globalThis.__name = (value) => value; (${initialize.toString()})();` })
+      const initScript = { content: `globalThis.__name = (value) => value; (${initialize.toString()})();` }
+      await context.addInitScript(initScript)
+      let warmCaches: Array<{ name: string; entries: number }> = []
       if (warm) {
         await page.goto(`${origin}${pathname}?${query}`)
         await page.waitForFunction(() => window.__motregenPerf?.snapshot().ttfpMs != null)
@@ -50,7 +59,12 @@ try {
         await page.waitForFunction(() => window.__motregenPerf?.snapshot().basemapReadyMs != null)
         await page.waitForFunction(async () => (await (await caches.open('motregen-basemap-ranges-v1')).keys()).length > 1)
         await page.waitForTimeout(2_000)
-        await page.goto('about:blank')
+        warmCaches = await page.evaluate(async () => Promise.all((await caches.keys()).map(async (name) => ({ name, entries: (await (await caches.open(name)).keys()).length }))))
+        await context.close()
+        context = await chromium.launchPersistentContext(warmProfile!, { ...launchOptions, ...contextOptions })
+        await context.addInitScript(initScript)
+        page = await context.newPage()
+        page.on('pageerror', (error) => errors.push(error.message))
       }
       const loadAverage = hostLoadAverage()
       if (loadAverage > MAX_LOAD_AVERAGE) {
@@ -69,7 +83,9 @@ try {
       context.on('requestfinished', (request) => { pending.push(record(request)) })
       const cdp = await context.newCDPSession(page)
       await cdp.send('Network.enable')
-      await cdp.send('Network.setCacheDisabled', { cacheDisabled: true })
+      await cdp.send('Network.setCacheDisabled', { cacheDisabled: !warm })
+      const networkResponses: Array<Record<string, unknown>> = []
+      cdp.on('Network.responseReceived', ({ response }) => networkResponses.push({ url: response.url, fromDiskCache: response.fromDiskCache ?? false, fromServiceWorker: response.fromServiceWorker ?? false, protocol: response.protocol, status: response.status }))
       if (cpuProfile) {
         await cdp.send('Profiler.enable')
         await cdp.send('Profiler.setSamplingInterval', { interval: 1000 })
@@ -83,7 +99,7 @@ try {
       await page.waitForFunction(() => performance.now() >= 12_000)
       const captured = await page.evaluate(() => {
         const monitor = window.__motregenPerf as PerfMonitor
-        return { timeOrigin: performance.timeOrigin, snapshot: monitor.snapshot(), loads: monitor.loads.snapshot(), entries: monitor.traceSlice(0, 12_000), webglPrewarm: performance.getEntriesByName('webgl-prewarm').map((entry) => entry.toJSON()), resources: [...performance.getEntriesByType('navigation'), ...performance.getEntriesByType('resource')].map((entry) => entry.toJSON()) }
+        return { timeOrigin: performance.timeOrigin, snapshot: monitor.snapshot(), loads: monitor.loads.snapshot(), entries: monitor.traceSlice(0, 12_000), serviceWorkerControlled: Boolean(navigator.serviceWorker?.controller), webglPrewarm: performance.getEntriesByName('webgl-prewarm').map((entry) => entry.toJSON()), resources: [...performance.getEntriesByType('navigation'), ...performance.getEntriesByType('resource')].map((entry) => entry.toJSON()) }
       })
       const complete = new Promise<void>((resolve) => cdp.once('Tracing.tracingComplete', () => resolve()))
       await cdp.send('Tracing.end')
@@ -95,6 +111,7 @@ try {
       }
       await Promise.all(pending)
       if (errors.length) throw new Error(errors.join('\n'))
+      if (warm && !captured.serviceWorkerControlled) throw new Error('Warme nieuwe context mist SW-controller')
       if (expectWebglPrewarm && captured.webglPrewarm.length !== 1) throw new Error('WebGL-workerproef heeft geen geslaagde prewarm gemeten')
       const catalogue = captured.resources.find((entry) => new URL(entry.name).pathname === placesUrl)
       if (!catalogue || catalogue.startTime <= (captured.snapshot.ttfpMs ?? Infinity)) throw new Error('Plaatsenlijst ontbreekt of begint vóór ttfp')
@@ -103,7 +120,7 @@ try {
         const { profile } = await cdp.send('Profiler.stop')
         writeFileSync(`${prefix}.cpuprofile`, JSON.stringify(profile))
       }
-      writeFileSync(`${prefix}.json`, JSON.stringify({ capturedAt: new Date().toISOString(), origin, pathname, query, warm, cpuProfile, browserPerRun: true, htmlHash, loadAverage, ...captured, requests }, null, 2))
+      writeFileSync(`${prefix}.json`, JSON.stringify({ capturedAt: new Date().toISOString(), origin, pathname, finalUrl: page.url(), query, warm, warmMethod: warm ? 'persistent-profile-browser-restart' : null, warmCaches, httpCacheEnabled: warm, cpuProfile, browserPerRun: true, htmlHash, serviceWorkerHash, loadAverage, ...captured, requests, networkResponses }, null, 2))
       writeFileSync(`${prefix}.trace.json`, JSON.stringify({ traceEvents: events }))
       console.log(`${prefix}: ${JSON.stringify(captured.snapshot)}`)
     } finally {
@@ -111,5 +128,6 @@ try {
     }
   }
 } finally {
-  await browser.close()
+  await browser?.close()
+  if (warmProfile) rmSync(warmProfile, { recursive: true, force: true })
 }

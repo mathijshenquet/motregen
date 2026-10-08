@@ -30,11 +30,12 @@ export function hostLoadAverage(): number {
 }
 
 /** Wacht tot de host rustig genoeg is; false als dat binnen de wachttijd niet lukt. */
-export async function waitForQuietHost(maxWaitMs: number, log: (message: string) => void): Promise<boolean> {
+export async function waitForQuietHost(maxWaitMs: number, log: (message: string) => void, startMaxLoad = MAX_LOAD_AVERAGE): Promise<boolean> {
+  if (!Number.isFinite(startMaxLoad) || startMaxLoad <= 0 || startMaxLoad > MAX_LOAD_AVERAGE) throw new Error('Startload moet positief zijn en mag de meetgrens niet verruimen')
   const deadline = Date.now() + maxWaitMs
-  while (hostLoadAverage() > MAX_LOAD_AVERAGE) {
+  while (hostLoadAverage() > startMaxLoad) {
     if (Date.now() >= deadline) return false
-    log(`loadavg ${hostLoadAverage()} > ${MAX_LOAD_AVERAGE}: wachten met meten`)
+    log(`loadavg ${hostLoadAverage()} > ${startMaxLoad}: wachten met meten`)
     await new Promise((resolve) => setTimeout(resolve, 5_000))
   }
   return true

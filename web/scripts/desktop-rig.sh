@@ -29,6 +29,7 @@ if [[ ${MOTREGEN_PERF_LOCK_HELD:-0} != 1 ]]; then
       *) desktop_flags+=("$desktop_flag") ;;
     esac
   done
+  if [[ " ${desktop_flags[*]} " == *' --warm '* ]]; then export MOTREGEN_PERF_START_MAX_LOAD=6.5; fi
   if [[ ! $desktop_repeat =~ ^([1-9]|10)$ ]]; then printf '%s\n' '--repeat moet 1…10 zijn' >&2; exit 2; fi
   if [[ ! $desktop_first_run =~ ^([1-9]|10)$ ]] || ((desktop_first_run + desktop_repeat - 1 > 10)); then printf '%s\n' 'runbereik moet binnen 1…10 liggen' >&2; exit 2; fi
   for ((desktop_run=desktop_first_run; desktop_run<desktop_first_run+desktop_repeat; desktop_run++)); do
