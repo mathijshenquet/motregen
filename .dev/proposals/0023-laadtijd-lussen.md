@@ -33,3 +33,11 @@ Metrics: desktop rig koud/warm (ttfr, ttfp, LCP), waterval per iteratie, MacBook
 
 ## Decision
 (open — in uitvoering op PO-akkoord in chat)
+
+## Aanvulling (PO 2026-10-08 13:30): warm is een volwaardig scenario
+Beide lussen meten en optimaliseren naast koud ook WARM (tweede bezoek in een nieuwe pagina-context met
+gevulde HTTP- en SW-cache, geen in-memory staat), en rapporteren koud en warm altijd samen. Aanleiding:
+de laatste rig-cijfers (docs/perf.md) tonen desktop warm ttfr 1,43 s tegen koud 1,20 s en mobile-4g
+warm 2,95 s; warm hoort duidelijk onder koud én onder Buienradar warm te liggen. Eerste stap in beide
+lussen: uitzoeken wat warm nog over het netwerk of de hoofddraad gaat dat niet hoeft (SW-revalidatie,
+manifest, shadercompilatie in een verse context, PMTiles-header, plaatsenlijst).
