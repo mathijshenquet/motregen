@@ -1,18 +1,37 @@
 // U62-meetrig: waar gaat de frametijd heen tijdens het slepen van de mobiele scrubber? Neemt een Chrome-trace
 // op tijdens een touch-sleep over ~7 uur (CPU 4×) en telt per soort renderwerk de duur op de hoofddraad van
 // de renderer en de rastertaken. Een variant is CSS die vóór de meting wordt ingespoten.
-// Gebruik: pnpm exec tsx tmp/u62/paint-cost.ts <baseURL> <label> [css]
+// Gebruik (altijd onder de perf-lock, zie run-layer-variants.sh):
+//   pnpm exec tsx tmp/u62/paint-cost.ts <baseURL> <label> [css]
+// U62_PROFILE=po-android (standaard): renderer in een cgroup met 40 % CPU-quota (hoofddraad en workers), zoals
+// het po-android-profiel van de laadrig; U62_PROFILE=cpu4 gebruikt de CDP-throttle 4× op de hoofddraad.
 import { chromium, devices } from '@playwright/test'
 import { mkdirSync, writeFileSync } from 'node:fs'
+import { loadavg } from 'node:os'
+import { performanceProfile } from '../../e2e/profiles'
 
 const [baseURL = 'http://127.0.0.1:4320', label = 'run', variantCss = ''] = process.argv.slice(2)
 const outputDir = new URL('./out/', import.meta.url).pathname
 mkdirSync(outputDir, { recursive: true })
 
+const profileName = process.env.U62_PROFILE ?? 'po-android'
+const poAndroid = performanceProfile('po-android')
+const MAX_LOAD_AVERAGE = 8
+// Boven deze load is een meting ruis; wacht tot de host rustig is (hooguit een uur).
+const waitDeadline = Date.now() + 120_000
+while (loadavg()[0]! >= MAX_LOAD_AVERAGE) {
+  if (Date.now() > waitDeadline) throw new Error(`loadavg blijft ≥ ${MAX_LOAD_AVERAGE}`)
+  await new Promise((resolve) => setTimeout(resolve, 20_000))
+}
+const loadAtStart = Math.round(loadavg()[0]! * 100) / 100
+
 const RENDER_EVENTS = ['UpdateLayoutTree', 'Layout', 'PrePaint', 'Paint', 'Layerize', 'Commit', 'RasterTask', 'FunctionCall', 'RunTask'] as const
 
-const browser = await chromium.launch({ args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
-const context = await browser.newContext({ ...devices['Pixel 5'], viewport: { width: 390, height: 844 } })
+const quotaPrefix = profileName === 'po-android'
+  ? [`--renderer-cmd-prefix=systemd-run --user --scope --quiet -p CPUQuota=${poAndroid.rendererCpuQuotaPercent}% -p CPUQuotaPeriodSec=5ms --`]
+  : []
+const browser = await chromium.launch({ args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader', ...quotaPrefix] })
+const context = await browser.newContext({ ...devices['Pixel 5'], ...(profileName === 'po-android' ? poAndroid.device : { viewport: { width: 390, height: 844 } }) })
 const page = await context.newPage()
 const cdp = await context.newCDPSession(page)
 await page.goto(baseURL)
@@ -21,8 +40,8 @@ await page.getByTestId('sky').waitFor({ state: 'attached', timeout: 60_000 })
 const slider = page.getByRole('slider', { name: 'Tijd' })
 if (await slider.getAttribute('data-playing') !== null) await slider.press(' ')
 if (variantCss) await page.addStyleTag({ content: variantCss })
-await page.waitForTimeout(8_000)
-await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 })
+await page.waitForTimeout(profileName === 'po-android' ? 20_000 : 8_000)
+await cdp.send('Emulation.setCPUThrottlingRate', { rate: profileName === 'po-android' ? poAndroid.cpuThrottleRate : 4 })
 
 await page.evaluate('globalThis.__name = (target) => target')
 await page.evaluate(() => {
@@ -68,6 +87,9 @@ const frames = record.frameDeltas.length
 const sorted = [...record.frameDeltas].sort((left, right) => left - right)
 const summary = {
   label,
+  profile: profileName,
+  loadAtStart,
+  loadAtEnd: Math.round(loadavg()[0]! * 100) / 100,
   variantCss,
   frames,
   frameP95Ms: Math.round(sorted[Math.floor(sorted.length * 0.95)] ?? 0),
@@ -78,4 +100,4 @@ const summary = {
   totals: Object.fromEntries(Object.entries(totals).map(([name, entry]) => [name, { count: entry.count, totalMs: Math.round(entry.totalMs), maxMs: Math.round(entry.maxMs * 10) / 10 }])),
 }
 writeFileSync(`${outputDir}paint-cost-${label}.json`, JSON.stringify(summary, null, 1))
-console.log(JSON.stringify({ label, frames, frameP95Ms: summary.frameP95Ms, frameMaxMs: summary.frameMaxMs, longFrames: summary.longFrames, perFrameMs: summary.perFrameMs, maxMs: Object.fromEntries(Object.entries(summary.totals).map(([name, entry]) => [name, entry.maxMs])) }))
+console.log(JSON.stringify({ label, load: [summary.loadAtStart, summary.loadAtEnd], frames, frameP95Ms: summary.frameP95Ms, frameMaxMs: summary.frameMaxMs, longFrames: summary.longFrames, perFrameMs: summary.perFrameMs, maxMs: Object.fromEntries(Object.entries(summary.totals).map(([name, entry]) => [name, entry.maxMs])) }))

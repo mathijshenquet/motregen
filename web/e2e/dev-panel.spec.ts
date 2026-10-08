@@ -30,7 +30,8 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
 
   // Wind: de vier MIP-12-knoppen, opgeslagen als v4 (alleen afwijkingen).
   await groups.locator('> summary', { hasText: 'Wind' }).click()
-  const wind = groups.filter({ hasText: 'Wind' })
+  // Op de groepstitel, niet op de inhoud: de groep Mobiel heeft ook een windknop (U62).
+  const wind = groups.filter({ has: page.locator('summary', { hasText: /^Wind$/ }) })
   await expect(wind.locator('input[type=range]')).toHaveCount(4)
   await expect(wind.locator('.dev-control label > span')).toHaveText(['Dichtheid', 'Intensiteit', 'Lijnbreedte', 'Tempo'])
   // Alleen afwijkingen worden opgeslagen; 0,5 is sinds de live windtuning (U34) zelf de default.
