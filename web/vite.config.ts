@@ -85,7 +85,7 @@ function usageBeaconEndpoint(): Plugin {
 
 export default defineConfig({
   appType: 'spa',
-  plugins: [solid(), tailwindcss(), usageBeaconEndpoint(), localBasemapArchive(), pageRoutes(), mapStartPreview(process.env.VITE_MAP_START), startAssets(process.env.VITE_START_ASSETS), VitePWA({
+  plugins: [solid(), tailwindcss(), usageBeaconEndpoint(), localBasemapArchive(), pageRoutes(), mapStartPreview(process.env.VITE_MAP_START), startAssets(process.env.VITE_START_ASSETS ?? 'inline'), VitePWA({
     injectRegister: false,
     registerType: 'prompt',
     includeAssets: ['droplet.svg'],

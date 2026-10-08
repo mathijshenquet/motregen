@@ -1,0 +1,114 @@
+# U64 — desktoplus
+
+[Stap 0](STAP-0.md) is vóór productwijzigingen vastgelegd. De volgende reeksen
+gebruiken dezelfde U57-basis en bevroren builds, onder de gedeelde hostlock.
+Desktop Chrome, 1280×800, DPR 1, 8 cores/8 GB, CPU 1×, SwiftShader,
+synthetische data; drie runs per variant. Koud: verse context, HTTP-cache uit,
+SW geblokkeerd. Het browserproces wordt binnen een reeks gedeeld; de eerste
+run bevat extra browser/GPU-initialisatie. Geen MacBook-benchmark.
+
+## Starttijden
+
+Mediaan per kolom. `firstRainMs` meet de eerste regentekenbeurt; bestaand
+`ttfrMs` vereist ook een gereedgemelde basiskaart. Een splash of placeholder
+kan een regentekenbeurt nog bedekken. `ttfpMs` vereist een volgende regenframe
+terwijl de tijdlijn speelt. Dat onderscheid blijft behouden.
+
+| variant | ttfr regen + basiskaart | ttfp | eerste regen | LoAF na ttfp: aantal / max ms per run | Lighthouse |
+| --- | ---: | ---: | ---: | --- | ---: |
+| referentie koud | 733 ms | 364 ms | 285 ms | 9/436 · 0/0 · 0/0 | 65 |
+| stijl/font/manifest inline | 709 ms | 351 ms | 274 ms | 9/347 · 0/0 · 0/0 | 63 |
+| inline + lazy | 747 ms | 339 ms | 269 ms | 8/339 · 1/52 · 0/0 | 65 |
+| referentie warm | 654 ms | 324 ms | 275 ms | 0/0 · 0/0 · 0/0 | — |
+| inline + lazy warm | 658 ms | 305 ms | 252 ms | 3/60 · 0/0 · 0/0 | — |
+| referentie met devpaneel | 674 ms | 354 ms | 282 ms | 8/520 · 2/76 · 0/0 | volgt |
+| SVG, met devpaneel | 694 ms | 368 ms | 290 ms | 10/631 · 3/66 · 1/55 | volgt |
+| inline z4-tegel, met devpaneel | 690 ms | 360 ms | 284 ms | 9/563 · 4/68 · 2/77 | volgt |
+
+LoAF telt volledige frames die ná ttfp beginnen en binnen het venster van
+12 seconden eindigen; geen beperking tot de vijf zwaarste HUD-frames.
+De eerste koude browserstart heeft ook na ttfp nog grote lange frames.
+Inline/lazy verhoogt de maximale duur niet, maar dit is geen nulclaim.
+Drie runs tonen kleine verschillen met aanzienlijke kaartvariatie:
+inline/lazy eerste regen −5,7%, ttfp −6,9%, volledige kaart-ttfr +2,0%.
+
+Lighthouse 13.0.1: desktop, 1280×800, bestaande throttling, SwiftShader,
+één run per build. Referentie/inline/lazy TBT: 1165/1154/1019 ms.
+FCP/LCP zijn de splash, niet het eerste regenframe. De eerste SVG/tegel-LH-runs
+zonder devactivatie waren 65/66; die meten uitsluitend de extra buildkosten
+en worden niet als score van de actieve placeholder gebruikt.
+
+## Wat veranderde
+
+| schakel | referentie | inline | inline + lazy |
+| --- | ---: | ---: | ---: |
+| hoofd-JS raw / gzip | 1434,9 / 419,2 kB | 1434,9 / 419,2 kB | 1396,6 / 406,4 kB |
+| alle JS ontvangen vóór eerste regen, inclusief `?perf` en vier workers | 439,4 kB | 439,4 kB | 436,6 kB |
+| HTML gzip | 1,0 kB | 2,6 kB | 2,6 kB |
+| hoofd-JS parse CPU, mediaan | 23,3 ms | 23,4 ms | 22,8 ms |
+| manifeststart, tweede run | 75 ms | 9 ms | 9 ms |
+| fontstart, tweede run | 97 ms | 4 ms | 4 ms |
+| eerste regen-Range, tweede run | 144 ms | 140 ms | 126 ms |
+| eerste regendecode, tweede run | 243→244 ms | 233→235 ms | 221→223 ms |
+| textuurupload, tweede run | 267 ms | 245 ms | 235 ms |
+
+Beide native stijlen staan inline in HTML; de Latijnse glyph-range krijgt
+een fetch-preload en wordt eenmaal gevraagd. Manifestfetch begint in HTML
+en wordt eenmaal overgenomen; refresh haalt verse data. Still/Skywatch
+starten geen normale sessiefetch. Eerste regen-Range blijft afhankelijk van
+manifest en MRF-header: blind preloaden kan een hele chunk of dubbele Range
+ophalen. De bestaande vroege eerste twee regenframes blijven de verbruiker.
+
+ForecastTable, PerfHud, DevPanel inclusief wind-tuning, AboutDialog en
+SkywatchRender hebben aparte chunks. De zichtbare desktoptabel en aangezette
+HUD laden meteen: de entrydaling van 12,8 kB betekent daarom slechts 2,8 kB
+minder JS vóór de eerste regentekenbeurt in deze opname. De profielrecorder
+en Telegram-SDK waren al conditioneel; Telegram-still deelt de noodzakelijke
+kaartlagen. V8-parse telt buitenste spans, zonder dubbele geneste events.
+
+Warme reeksen meten een volledig geprimede, gecontroleerde SW na echte
+reload, met HTTP-cache uit. Alle zes warmcaptures: nul interne
+SW-netwerkrequests voor app-shell/kaartassets; 70 verse weerrequests,
+1.058.723 B. Resource Timing/HUD toont door de SW nul bytes; dat is geen
+bewijs dat weerdata gecacht werd. Geen wijziging aan de bestaande SW nodig.
+
+## Kaartvoorstel
+
+SVG: 10.631 B, gzip 3.652 B. Twee eigen z4-tegels: JSON 32.169 B,
+gzip 24.368 B. Beide volgen de kaartcamera; overgang naar netwerkkaart
+zonder witte tussenlaag. De kaartreview blokkeert PMTiles bewust totdat
+regen getekend is en legt licht/donker vóór en na vrijgave vast.
+
+De SVG-kust is grof en bevat geometrische vereenvoudigingsartefacten;
+de native tegel oogt vollediger maar voegt veel meer HTML toe. Beide
+varianten hebben in deze reeksen hogere mediane volledige kaart-ttfr en ttfp
+dan dezelfde devreferentie. Voorstel: geen standaardactivatie op dit bewijs.
+Beide blijven uitsluitend reviewbaar via bijpassende `VITE_MAP_START=svg|tegel`
+en `?dev&kaartstart=svg|tegel`, eigenaar U64, verval 2026-10-15.
+Screenshotvoorstel wordt volgens de trackspecificatie aan de orkestrator
+geleverd vóór eventuele activatie.
+
+## Reproduceren
+
+Alle browser-perf neemt `flock -w 7200 /home/mathijs/motregen-perf.lock`;
+wrappers herkennen een handmatige buitenlock. Builds en gewone e2e blijven
+buiten de lock. Rapporten/traces staan lokaal onder gitignored `tmp/u64/`.
+
+```sh
+cd web
+bash scripts/desktop-rig.sh ../tmp/u64/herhaal --repeat=3
+bash scripts/desktop-rig.sh ../tmp/u64/warm-herhaal --repeat=3 --warm
+pnpm exec tsx scripts/start-waterfall.ts ../tmp/u64/herhaal-cold-run*.json
+MOTREGEN_E2E_PORT=4394 MOTREGEN_E2E_DATA_PORT=8394 pnpm perf:mobile \
+  --profile desktop --scenario koud-spelend --basemap own --compare \
+  --baseline-file perf/baselines/desktop-koud-spelend-own.json
+MOTREGEN_E2E_PORT=4365 MOTREGEN_E2E_DATA_PORT=8365 pnpm e2e \
+  e2e/basemap.spec.ts e2e/basemap-cache.spec.ts e2e/dev-panel.spec.ts \
+  e2e/table.spec.ts e2e/usage.spec.ts e2e/presets.spec.ts e2e/seo.spec.ts \
+  --project desktop
+```
+
+De eigen koud-spelend-baseline is vóór de productwijzigingen opgebouwd uit
+drie ongewijzigde runs: die combinatie had geen bestaande baseline. Geen
+budgetgrens verruimd. Definitieve checks en synchrone exitstatussen staan
+append-only in [LOG.md](LOG.md).

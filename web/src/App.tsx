@@ -397,12 +397,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // Portrait mobile keeps history mounted above Nu so switching views only changes scrolling,
   // never the table's contents; other layouts still load it on demand.
   const [historyRowsWanted, setHistoryRowsWanted] = createSignal(false)
-  let forecastPanel: HTMLElement | undefined
+  const [forecastTable, setForecastTable] = createSignal<HTMLTableElement>()
   const [tableInView, setTableInView] = createSignal(!inViewOnly)
-  onMount(() => {
+  createEffect(() => {
     // De rijen, niet het paneel: op een telefoon staat de kolomkop al in beeld terwijl de rijen
     // nog onder de vouw liggen.
-    const rows = forecastPanel?.querySelector('tbody')
+    const rows = forecastTable()?.tBodies[0]
     if (!inViewOnly || !rows) return
     const observer = new IntersectionObserver((entries) => setTableInView(entries.some((entry) => entry.isIntersecting)), { rootMargin: `0px 0px -${TABLE_PEEK_PX}px 0px` })
     observer.observe(rows)
@@ -2833,10 +2833,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (!tableViewAvailable() || tableScrollOpen()) return
     queueTablePreview(epoch, tablePreviewPositioned && !reducedMotion.matches ? 'smooth' : 'auto')
   })
-  onMount(() => {
+  createEffect(() => {
+    const table = forecastTable()
+    if (!table) return
     const scroller = forecastPanelElement.querySelector<HTMLElement>('.table-scroll')
-    const table = forecastPanelElement.querySelector<HTMLElement>('.forecast-table')
-    if (!scroller || !table || typeof ResizeObserver === 'undefined') return
+    if (!scroller || typeof ResizeObserver === 'undefined') return
     const correct = () => {
       if (!tableViewAvailable() || tableScrollOpen()) return
       queueTablePreview(untrack(tablePreviewEpoch), 'auto')
@@ -2962,13 +2963,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           temperature={{ timeline: feelsLikeTimeline(), values: feelsLikeSeries(), airTimeline: tempTimeline(), air: temperatureSeries(), stops: temperatureRange() && paletteStops(temperatureRange()!) }}
         />
         <section
-          ref={(element) => { forecastPanelElement = element; forecastPanel = element }}
+          ref={forecastPanelElement}
           id="forecast-table-view"
           class="forecast-panel"
           onClick={openTableFromPeek}
         >
           <div class="table-scroll">
             <ForecastTable
+              onMountTable={setForecastTable}
               rows={forecast()}
               series={{
                 rain: rainSeries(), uv: uvSeries(), uvClear: uvClearSeries(), radiation: radiationSeries(), temperature: temperatureSeries(),

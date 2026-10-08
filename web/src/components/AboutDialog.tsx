@@ -12,14 +12,19 @@ const THEME_CHOICES: Record<ThemeChoice, { icon: typeof Sun; label: string }> = 
   dark: { icon: Moon, label: 'Donker' },
 }
 const WIND_UNIT_CHOICES: Record<WindUnit, string> = { bft: 'Bft', kn: 'knopen', kmh: 'km/u', ms: 'm/s' }
-
-
-interface Props extends Omit<AboutProps, 'onTripleTap' | 'sourcePrefix'> { onClose: () => void }
+interface Props extends Omit<AboutProps, 'onTripleTap' | 'sourcePrefix'> {
+  onClose: () => void
+}
 
 export default function AboutDialog(props: Props) {
   let dialog!: HTMLDialogElement
-  onMount(() => { dialog.showModal(); props.onOpen?.() })
-  function close(): void { dialog.close() }
+  onMount(() => {
+    dialog.showModal()
+    props.onOpen?.()
+  })
+  function close(): void {
+    dialog.close()
+  }
   return <dialog
       ref={dialog}
       class="about-dialog"

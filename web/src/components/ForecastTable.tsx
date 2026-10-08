@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, createUniqueId, For, onCleanup, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, createUniqueId, For, onCleanup, onMount, Show } from 'solid-js'
 import { lightDarkness } from '../core/cloud-section'
 import type { FocusKind } from '../core/focus-mode'
 import type { HourlyForecastRow } from '../core/forecast'
@@ -27,6 +27,7 @@ export interface ForecastSeries {
 }
 
 interface Props {
+  onMountTable?: (element: HTMLTableElement) => void
   rows: HourlyForecastRow[]
   series: ForecastSeries
   location: { lng: number; lat: number }
@@ -205,7 +206,9 @@ export default function ForecastTable(props: Props) {
 
   const columnCount = () => 1 + Number(props.columns.weather) + Number(props.columns.air) + Number(props.columns.temperature) + Number(props.columns.wind)
 
-  return <table class="forecast-table" classList={{ 'day-night-table': props.dayNight !== false }} data-mode={props.focus.pinned} data-hover={hovered()}>
+  let table!: HTMLTableElement
+  onMount(() => props.onMountTable?.(table))
+  return <table ref={table} class="forecast-table" classList={{ 'day-night-table': props.dayNight !== false }} data-mode={props.focus.pinned} data-hover={hovered()}>
     <thead><tr>
       {/* Weer is de vaste standaardmodus: regen op de kaart en in de grafiek. */}
       <th class="time-heading"><Show when={props.onOpenMobileTable} fallback={<span class="column-mode"><ColumnLabel icon={Clock} text="Uur" /></span>}>

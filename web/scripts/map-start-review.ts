@@ -19,6 +19,7 @@ try {
           apply: () => new NativeDate(fixedEpoch).toString(),
           get: (target, property, receiver) => property === 'now' ? () => fixedEpoch : Reflect.get(target, property, receiver),
         });
+        localStorage.setItem('motregen-theme', '${theme}');
       ` })
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))

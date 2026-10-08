@@ -33,13 +33,15 @@ for desktop_mode in svg tegel; do
   MOTREGEN_RIG_DIST="$desktop_dist" MOTREGEN_DESKTOP_REVIEW=1 bash scripts/desktop-rig.sh "$desktop_output/$desktop_mode-review" "$desktop_mode" > "$desktop_output/$desktop_mode-review.txt" 2>&1
 done
 
-for desktop_name in reference inline lazy svg tegel; do
+for desktop_name in reference inline lazy reference-dev svg tegel; do
+  desktop_query=''
   case $desktop_name in
     reference) desktop_dist=$desktop_reference ;;
     inline) desktop_dist=$desktop_inline ;;
     lazy) desktop_dist=$desktop_lazy ;;
-    svg) desktop_dist=$desktop_svg ;;
-    tegel) desktop_dist=$desktop_tile ;;
+    reference-dev) desktop_dist=$desktop_reference; desktop_query='dev' ;;
+    svg) desktop_dist=$desktop_svg; desktop_query='dev&kaartstart=svg' ;;
+    tegel) desktop_dist=$desktop_tile; desktop_query='dev&kaartstart=tegel' ;;
   esac
-  MOTREGEN_RIG_DIST="$desktop_dist" MOTREGEN_DESKTOP_LIGHTHOUSE=1 bash scripts/desktop-rig.sh "$desktop_output/$desktop_name-lighthouse" > "$desktop_output/$desktop_name-lighthouse.txt" 2>&1
+  MOTREGEN_RIG_DIST="$desktop_dist" MOTREGEN_DESKTOP_LIGHTHOUSE=1 MOTREGEN_DESKTOP_QUERY="$desktop_query" bash scripts/desktop-rig.sh "$desktop_output/$desktop_name-lighthouse" > "$desktop_output/$desktop_name-lighthouse.txt" 2>&1
 done
