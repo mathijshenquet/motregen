@@ -324,3 +324,12 @@ kosten vulwerk op de GPU dat hier niet zichtbaar wordt. De PO-telefoon is de ech
   erbij. Daarna `freshness.spec --project mobile-4g` → 0 (4 groen) en `--project desktop` → zie commit.
 - Productvraag voor de PO/orkestrator (niet aangepast): wie het paneel sluit en binnen de sluitanimatie
   herlaadt, krijgt het paneel terug. Klein, maar het is gedrag van U57.
+
+## 19:30 — deel 1 op main (8d75754f); branch bijgetrokken naar main (43b92d6, fast-forward)
+- typecheck 0 · `pnpm test` 0 (494) · build 0 op de bijgetrokken boom; preview 4320 herstart als losgekoppeld
+  proces op de normale build (`/`, `/weer`, `/weer?dev` → 200).
+- Live-pane blijft open voor de PO-keuzes: klokpil (wit/mee-tinten), windniveau (uit/iets/meer),
+  kaart-tween (MIP-24).
+- Nog open VOOR AGENT: kostenmeting van de kaart-tween (`rig/run-map-night.sh`, onder de perf-lock) heeft
+  nog niet gedraaid: de host staat sinds de start op loadavg 10–37, de runner wacht op < 7 en schrijft
+  naar `web/tmp/u62/map-night-run.log`. Zonder die cijfers is "wat het kost" voor MIP-24 onbekend.
