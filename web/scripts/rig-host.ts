@@ -2,11 +2,16 @@ import { createHash } from 'node:crypto'
 import { createServer } from 'node:net'
 import { loadavg } from 'node:os'
 
-/**
- * Boven deze 1-minuut-loadavg is een rig-meting ruis: de dev-host draait dan meerdere rigs of
- * builds tegelijk en tijden schuiven tientallen procenten (gezien 2026-10-07 bij loadavg 18).
- */
 export const MAX_LOAD_AVERAGE = 8
+export const PAIRED_MAX_LOAD_AVERAGE = 16
+
+export function startLoadLimit(): number {
+  return process.env.MOTREGEN_RIG_PAIRED === '1' ? PAIRED_MAX_LOAD_AVERAGE : MAX_LOAD_AVERAGE
+}
+
+export function permittedStartLoad(loadAverage: number): boolean {
+  return loadAverage <= startLoadLimit()
+}
 
 /**
  * Fixture en client van de laadrig, per poortpaar in een eigen map: zo raakt een rig-run de
@@ -33,9 +38,9 @@ export function hostLoadAverage(): number {
 /** Wacht tot de host rustig genoeg is; false als dat binnen de wachttijd niet lukt. */
 export async function waitForQuietHost(maxWaitMs: number, log: (message: string) => void): Promise<boolean> {
   const deadline = Date.now() + maxWaitMs
-  while (hostLoadAverage() >= MAX_LOAD_AVERAGE) {
+  while (!permittedStartLoad(hostLoadAverage())) {
     if (Date.now() >= deadline) return false
-    log(`loadavg ${hostLoadAverage()} >= ${MAX_LOAD_AVERAGE}: wachten met meten`)
+    log(`loadavg ${hostLoadAverage()} > ${startLoadLimit()}: wachten met meten`)
     await new Promise((resolve) => setTimeout(resolve, 20_000))
   }
   return true

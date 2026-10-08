@@ -262,6 +262,8 @@ export interface MobileReport {
     network: unknown; hardwareConcurrency: number
     /** 1-minuut-loadavg van de host bij de start van de run; boven MAX_LOAD_AVERAGE telt de run niet mee. */
     loadAverage: number
+    measurementKind?: 'paired' | 'absolute'
+    maxStartLoadAverage?: number
     requestOrderOnly?: boolean
     cacheState?: 'cold' | 'warm-disk-new-browser'
     warmCache?: unknown

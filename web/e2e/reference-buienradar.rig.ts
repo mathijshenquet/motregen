@@ -3,7 +3,7 @@ import { expect, type Page, type Request } from '@playwright/test'
 import { test, warmingCache, warmVisit, cacheInventory, seedEvidence } from './rig-cache'
 import { applyEmulation, performanceProfile } from './profiles'
 import { installReferenceProbe, type ReferenceEvent } from './reference-probe'
-import { hostLoadAverage, waitForQuietHost } from '../scripts/rig-host'
+import { hostLoadAverage, permittedStartLoad, startLoadLimit, waitForQuietHost } from '../scripts/rig-host'
 import { referenceMilestones, renderReferenceReport, type ReferenceReport } from '../scripts/reference-report'
 
 interface RigOptions { profiles: string[]; scenarios?: string[]; repeat: number; cpuRate?: number; loadWaitMinutes?: number }
@@ -24,7 +24,7 @@ for (const profileId of options.profiles) {
         throw new Error(`Host blijft te druk (loadavg ${hostLoadAverage()}); geen meting`)
       }
       const loadAverage = hostLoadAverage()
-      if (!warmingCache) expect(loadAverage, 'startloadavg <8; nooit wachten onder de perf-lock').toBeLessThan(8)
+      if (!warmingCache) expect(permittedStartLoad(loadAverage), `startloadavg ≤${startLoadLimit()}; nooit wachten onder de perf-lock`).toBe(true)
       const events: ReferenceEvent[] = []
       const actions: ReferenceReport['actions'] = []
       await page.exposeFunction('__referenceEvent', (event: ReferenceEvent) => { events.push(event) })

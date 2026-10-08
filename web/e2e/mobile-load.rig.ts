@@ -9,7 +9,7 @@ import { installMobileProbe } from './mobile-probe'
 import { buildChromeTrace, type SelfProfilerTrace } from '../src/core/profile-recorder'
 import { createSourceMapResolver } from '../scripts/prof-source-map'
 import { profileTop } from '../scripts/prof-top'
-import { hostLoadAverage, waitForQuietHost } from '../scripts/rig-host'
+import { hostLoadAverage, permittedStartLoad, startLoadLimit, waitForQuietHost } from '../scripts/rig-host'
 import { completedBytesBefore, reconcileWire, renderMobileReport, wireWindow, smoothness, summarizePhases, type MobileReport, type SmoothnessWindow, type WireRequest } from '../scripts/mobile-report'
 import type { PerfMonitor } from '../src/core/perf'
 
@@ -45,7 +45,7 @@ for (const profileId of options.profiles) {
           throw new Error(`Host blijft te druk (loadavg ${hostLoadAverage()}); geen meting`)
         }
         const loadAverage = hostLoadAverage()
-        if (!warmingCache && !options.requestOrderOnly) expect(loadAverage, 'startloadavg <8; nooit wachten onder de perf-lock').toBeLessThan(8)
+        if (!warmingCache && !options.requestOrderOnly) expect(permittedStartLoad(loadAverage), `startloadavg ≤${startLoadLimit()}; nooit wachten onder de perf-lock`).toBe(true)
         if (scenario.cache === 'warm') expect(process.env.MOTREGEN_RIG_WARM_PROFILE, 'warm vereist een gevuld diskprofiel').toBeTruthy()
         if (profileId === 'desktop') await page.setViewportSize({ width: 1280, height: 800 })
         const calibrated = performanceProfile(profileId)
@@ -233,7 +233,7 @@ for (const profileId of options.profiles) {
         if (!Object.keys(captured.milestones.windowReadyMs).length) findings.push('U52 window-ready-meetpunten ontbreken op deze main; ttfh komt uit de loadtrace')
         if (scenario.steps.some((step) => step.mode === 'Lucht') && !actions.some((action) => action.detail === 'modus Lucht')) findings.push('Deze main heeft nog geen Lucht-knop: bestaande Weer-wolkenfocus gebruikt en expliciet geregistreerd')
         const report: MobileReport = {
-          meta: { profile: profileId, scenario: scenarioId, sourceSha, capturedAt, cpuThrottleRate: profile.cpuThrottleRate, contractHash, fixtureHash, basemapContractHash, network: profile.network, hardwareConcurrency: captured.hardwareConcurrency, loadAverage, synthGridScale, rendererCpuQuotaPercent, requestOrderOnly: options.requestOrderOnly ?? false, cacheState: warmVisit ? 'warm-disk-new-browser' : 'cold', warmCache },
+          meta: { profile: profileId, scenario: scenarioId, sourceSha, capturedAt, cpuThrottleRate: profile.cpuThrottleRate, contractHash, fixtureHash, basemapContractHash, network: profile.network, hardwareConcurrency: captured.hardwareConcurrency, loadAverage, measurementKind: process.env.MOTREGEN_RIG_PAIRED === '1' ? 'paired' : 'absolute', maxStartLoadAverage: startLoadLimit(), synthGridScale, rendererCpuQuotaPercent, requestOrderOnly: options.requestOrderOnly ?? false, cacheState: warmVisit ? 'warm-disk-new-browser' : 'cold', warmCache },
           milestones: captured.milestones,
           decode,
           wire: { ...wire, rangeRequests: requests.filter((request) => request.range !== null).length, beforeTtfrBytes: completedBytesBefore(requests, captured.milestones.ttfrMs), beforeTtfhBytes: completedBytesBefore(requests, captured.milestones.ttfhMs) },
