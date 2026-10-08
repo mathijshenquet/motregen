@@ -37,3 +37,9 @@ PO: "beide veel beter". Wind: regen niet meer via alfa 0,5 (bleekte uit, "solari
 vermenigvuldigd met de kaart ('s nachts terugval op gedempt: 0,8 dekking, 70 % verzadiging). Lucht:
 overdag regen vermenigvuldigd met de witte sluier; 's nachts grijsblauwe sluier 0,30, regen 0,70 gedempt.
 Gemeten kostenvrij tegenover alfa in de rig (p95 gelijk). Vastgezet door U62; knoppen weg.
+
+## Aanvulling (PO 2026-10-08 22:50): rand kaart/zijpaneel = oud
+Na het ?dev-experiment (oud / geen / A lijn / B schaduw): "over die rand ben ik nog niet helemaal happy,
+ik denk dat oud er op dit moment het beste uitziet" → de bestaande border + lichte schaduw blijft; schakelaar
+en varianten gaan weg. De Firefox-adresbalkfix is door de PO goedgekeurd ("gebeurt nog wel maar corrigeert
+zich op tijd").
