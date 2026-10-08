@@ -1,0 +1,16 @@
+// U62: de diagnose-overlay "Scherm en scroll" zoals de PO hem ziet, 390 px, met de tabel open.
+import { chromium, devices } from '@playwright/test'
+const [baseURL = 'http://127.0.0.1:4320'] = process.argv.slice(2)
+const browser = await chromium.launch({ args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
+const context = await browser.newContext({ ...devices['Pixel 5'], viewport: { width: 390, height: 844 } })
+await context.addInitScript(() => localStorage.setItem('motregen-dev-viewport', 'aan'))
+const page = await context.newPage()
+await page.goto(`${baseURL}/weer?dev`)
+await page.locator('.map-splash.ready').waitFor({ state: 'attached', timeout: 60_000 })
+await page.evaluate(() => document.querySelector('.dev-panel')?.removeAttribute('open'))
+await page.getByTestId('viewport-diagnose').waitFor({ state: 'attached', timeout: 10_000 })
+await page.getByRole('button', { name: 'Tabel' }).click()
+await page.waitForTimeout(2_000)
+await page.screenshot({ path: new URL('./out/diagnose-390.png', import.meta.url).pathname })
+console.log(await page.getByTestId('viewport-diagnose').innerText())
+await browser.close()

@@ -653,3 +653,51 @@ boven de tab-rij).
 - Niet getest: Firefox zelf (geen Playwright-Firefox op deze host). Als de strook daar blijft, is de
   oorzaak een andere (bv. het paneel dat korter is dan het scherm) en heb ik een opname nodig van
   `scrollY`, `innerHeight` en de paneelhoogte op het toestel.
+
+## Adresbalkbug, ronde 2 (PO op Firefox Android: "helaas niet gefixt")
+- CORRECTIE op eerdere entries: er ís een Playwright-Firefox op deze host (`$PLAYWRIGHT_BROWSERS_PATH/firefox-1532`,
+  via nix). Ik had alleen in `~/.cache/ms-playwright` gekeken en ten onrechte gemeld dat hij ontbrak. Een
+  firefox-project in `playwright.config.ts` bestond niet; dat is er nu.
+- Reproductie in Gecko (`rig/firefox-toolbar.ts`, 390 px, touch, software-WebGL; de kaart komt in headless
+  Firefox niet klaar, de tabel wel): hoogtewissel 844 ↔ 788 ná het openscrollen → paneel blijft in beide
+  richtingen op 0 px; innerHeight, visualViewport en 100dvh/svh/lvh bewegen samen mee. Desktop-Gecko heeft
+  geen meebewegende adresbalk, dus de toestand van de PO-telefoon (waar die eenheden uiteenlopen) is zo
+  NIET na te bootsen. Geen sticky/fixed-element van de scrubber gevonden dat op een oude hoogte blijft staan:
+  de scrubber is op mobiel `position: static`.
+- Afleiding uit de code (geen meting op het toestel): de fix van ronde 1 zet elke stand binnen 120 px terug,
+  BEHALVE als de pagina aan haar einde staat — dan gold de strook sinds U58 als "verder komt hij niet"
+  (`tableSnappedAtPageEnd`). Dat is dus de toestand van de PO: de pagina is op terwijl het paneel van
+  100dvh nog niet bovenaan staat, m.a.w. de browser begrenst de scroll met een hoger scherm dan 100dvh.
+- Fix (zonder te raden welke eenheid Firefox bedoelt): in die toestand wordt het tekort gemeten (`panelTop`)
+  en bij de paneelhoogte opgeteld (`--table-panel-shortfall` op `.forecast-panel`: `height: calc(100dvh + …)`),
+  daarna het laatste stukje gescrold; de tabel krijgt dezelfde maat als onderruimte zodat de laatste rijen
+  niet achter de adresbalk blijven. Begrensd op 200 px; vervalt zodra het scherm hoger wordt. Geen vaste
+  hoogtes, loopt via scroll/scrollend/resize/visualViewport.
+- Diagnose achter ?dev: Diagnose → "Scherm en scroll" (`motregen-dev-viewport`, eigenaar U62, vervalt zodra de
+  bug op Firefox Android weg is): overlay met innerHeight, clientHeight, visualViewport (h/top/pageTop),
+  100dvh/svh/lvh/vh, scrollTop/max, scrollHeight, snappunt van de tabel, paneel top/hoogte, scrubber
+  top/onder, het gemeten tekort en de tabelstand; ververst op scroll/resize/visualViewport en elke 0,5 s.
+  Beeld: `adresbalk/diagnose-overlay-390.png`.
+- e2e, nieuw project `--project firefox` (alleen `e2e/firefox.*.spec.ts`; de Chromium-profielen slaan die
+  over): `firefox.table.spec` — (1) paneel 56 px te kort gemaakt → komt bovenaan, tekort 56 px, vervalt als
+  het scherm hoger wordt; (2) pagina 35 px naast het snappunt → teruggezet; (3) hoogtewissel na scrollen →
+  paneel blijft op 0. Alle drie groen in Gecko.
+- Bijvangst: `dev-panel.spec` was op mobile-4g rood sinds de wind op "iets" staat (verwachtte 0,80, is op
+  een telefoon 1,00) en door de rand-controle (alleen desktop). Die spec draaide tot nu toe alleen op
+  desktop; nu profielbewust.
+- NIET bevestigd op het toestel. Als de strook blijft: schermbeeld met de overlay in de bugtoestand — de
+  regels "scrollTop / max", "paneel top / hoogte", "100dvh" en "tekort paneel" zeggen dan wat er werkelijk
+  gebeurt.
+
+## Regen-blending vastgezet (PO: "beide veel beter") — 39d2656
+- Wind = vermenigvuldigen overdag (dekking 0,9), 's nachts gedempt (0,8 / verzadiging 0,7 / helderheid 0,9);
+  Lucht = vermenigvuldigd met de sluier overdag, 's nachts grijsblauwe sluier op 0,3 en regen 0,7 / 0,7 /
+  0,85. `rainPresentation` kent geen standen meer; `rainFocusOpacity` is weg. Dev-knoppen "Regen in Wind" en
+  "Regen in Lucht", de groep Kaart en de sleutels `dev-regen-wind` / `dev-regen-lucht` zijn weg; docs bij.
+- Unit: `focus-mode.test` "rain presentation (U62)" op de nieuwe standaard (weer/temperatuur, wind dag,
+  lucht dag, nacht). e2e: `focus.spec` verwacht bij windfocus nu dekking 0,90 + multiply (was 0,50);
+  `dev-panel.spec` zonder de groep Kaart.
+- Eigen beelden bekeken: `blending/blend-vast-{390,1280}.png` (Wind dag · Wind nacht · Lucht dag · Lucht nacht).
+- Gate (web/, na beide wijzigingen): typecheck 0 · `pnpm test` 0 (79 bestanden, 527 tests) · build 0 ·
+  `dev-panel focus cloud-section table` op desktop én mobile-4g 0 (30 groen, 14 overgeslagen) ·
+  `--project firefox` 0 (3 groen).
