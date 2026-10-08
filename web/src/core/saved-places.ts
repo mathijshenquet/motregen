@@ -1,9 +1,12 @@
+import { readPlaceMemory, type PlaceMemory } from './place-memory.js'
+
 export interface SavedPlace {
   id: string
   name: string
   sourceLabel: string
   lng: number
   lat: number
+  place?: PlaceMemory
 }
 
 const storageKey = 'motregen-saved-places'
@@ -12,7 +15,12 @@ export function loadSavedPlaces(storage: Pick<Storage, 'getItem'> = localStorage
   try {
     const parsed = JSON.parse(storage.getItem(storageKey) ?? '[]') as unknown
     if (!Array.isArray(parsed)) return []
-    return parsed.flatMap((value) => isSavedPlace(value) ? [value] : []).slice(0, 20)
+    return parsed.flatMap((value) => {
+      if (!isSavedPlace(value)) return []
+      const place = readPlaceMemory(value.place)
+      const { place: _oldPlace, ...saved } = value
+      return [{ ...saved, ...(place && { place }) }]
+    }).slice(0, 20)
   } catch {
     return []
   }

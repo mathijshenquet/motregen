@@ -34,14 +34,15 @@ import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS } from './core/map-frame'
 import { basemapBlendTargets, blendedPaintValue, nightShare, type BlendTarget } from './core/basemap-blend'
 import { MrfClient, type MotionField } from './core/mrf'
 import { selectPairMotion } from './core/motion-selection'
-import { nearestPlace } from './core/places'
+import { findCataloguePlace, isInPlaceZone, loadPlaces, namedCataloguePlace, nearestPlace, places, rememberPlace, rememberSearchedPlace } from './core/places'
+import type { PlaceIdentity, PlaceMemory } from './core/place-memory'
 import { startFrameLoop } from './core/playback'
 import { clampPlaybackCursor, playbackReach } from './core/playback-gate'
 import { measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer } from './core/perf'
 import type { ProfileRecording } from './core/profile-recorder'
 import { RainLayer } from './core/rain-layer'
 import { LayerOverlay } from './core/overlay-canvas'
-import { grantedStartFix, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastSavedPlaceId, storeMapView } from './core/location-memory'
+import { grantedStartFix, loadLastLocation, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastLocation, storeLastSavedPlaceId, storeMapView, type StartLocation } from './core/location-memory'
 import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGestures } from './core/pin-navigation'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
@@ -338,12 +339,21 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [timeHorizonHours] = createSignal<number | null>(null)
   const initialSavedPlaces = stillMode ? [] : loadSavedPlaces()
   const initialMapView = stillMode || initialPresets.point ? undefined : loadMapView()
-  let startLocation = initialPresets.point
+  const initialLastLocation = stillMode ? undefined : loadLastLocation()
+  const initialSavedPlaceId = loadLastSavedPlaceId()
+  let hasPickedLocation = Boolean(initialPresets.point || initialLastLocation || initialMapView
+    || initialSavedPlaces.some((saved) => saved.id === initialSavedPlaceId))
+  let startLocation: StartLocation = initialPresets.point
     ? { ...initialPresets.point, label: nearestPlace(initialPresets.point.lng, initialPresets.point.lat).name }
-    : resolveStartLocation(initialSavedPlaces, loadLastSavedPlaceId(), initialMapView, defaultLocation)
+    : resolveStartLocation(initialSavedPlaces, initialSavedPlaceId, initialMapView, defaultLocation, initialLastLocation)
+  let locationPlaceMemory = startLocation.place
+  let placesIdle: number | undefined
+  let placesScheduled = false
+  const [catalogueReady, setCatalogueReady] = createSignal(false)
   let startFromFix = false
   const [location, setLocation] = createSignal({ lng: startLocation.lng, lat: startLocation.lat })
   const [locationLabel, setLocationLabel] = createSignal(startLocation.label)
+  const [urlPlace, setUrlPlace] = createSignal<{ name: string; slug: string }>()
   // Verleende locatietoestemming gaat vóór de onthouden plaats (U26); tot de fix er is staat die er.
   void grantedStartFix({ permissions: navigator.permissions, geolocation: navigator.geolocation }, MAP_CONTAIN_BOUNDS).then((fix) => {
     if (stillMode) return
@@ -356,9 +366,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (current.lng !== startLocation.lng || current.lat !== startLocation.lat) return
     if (!initialPickStarted) {
       startLocation = fix
+      hasPickedLocation = true
       startFromFix = true
       setLocation({ lng: fix.lng, lat: fix.lat })
       setLocationLabel(fix.label)
+      locationPlaceMemory = rememberPlace(fix)
+      rememberPickedLocation()
       return
     }
     pick(fix.lng, fix.lat, fix.label)
@@ -717,7 +730,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   })
 
   onMount(async () => {
-    const placeSelection = !stillMode && initialPresets.place ? selectPresetPlace(initialPresets.place) : Promise.resolve()
+    const placeSelection = !stillMode && initialPresets.place
+      ? selectPresetPlace(initialPresets.place, initialPresets.placeSlug)
+      : Promise.resolve()
+    onCleanup(() => { if (placesIdle !== undefined) cancelIdle(placesIdle) })
     void placeSelection.then(() => setPermalinkReady(true))
     const mediaChanged = (event: MediaQueryListEvent) => setSystemDark(event.matches)
     media.addEventListener('change', mediaChanged)
@@ -774,7 +790,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setCursor(presetCursor ?? nowIndex)
       if (presetCursor !== undefined) setPlaying(false)
       if (presets.mode) applyPresetMode(presets.mode)
-      await placeSelection
       const firstHeader = client.getHeader(frames[0]!.chunk)
       const initialTheme = mapTheme()
       const style = await loadBasemapStyle(initialTheme)
@@ -943,10 +958,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   })
 
   createEffect(() => {
-    const places = savedPlaces()
-    if (!stillMode) storeSavedPlaces(places)
-    syncSavedMarkers(places)
+    const ready = catalogueReady()
+    const saved = savedPlaces()
+    if (!stillMode) storeSavedPlaces(ready ? saved.map((place) => ({ ...place, place: rememberPlace(place) })) : saved)
   })
+
+  createEffect(() => syncSavedMarkers(savedPlaces()))
 
   createEffect(() => {
     const tuning = focusedWindTuning()
@@ -1280,12 +1297,15 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (!stillMode && !initialPickStarted) {
           initialPickStarted = true
           setPointLoadsStarted(true)
-          pick(startLocation.lng, startLocation.lat, startLocation.label)
+          pick(startLocation.lng, startLocation.lat, startLocation.label, true)
           if (startFromFix) revealPoint(startLocation.lng, startLocation.lat)
         }
       })
     }
-    afterRainDraw(() => perf.markRainFrameCommitted({ frameEpoch: leftFrame.epoch, playing: playing() }))
+    afterRainDraw(() => {
+      const firstPlayback = perf.markRainFrameCommitted({ frameEpoch: leftFrame.epoch, playing: playing() })
+      if (firstPlayback || !playing()) schedulePlaces()
+    })
     if (!rainOverlay) map.triggerRepaint()
     // De eerste locatiereeks haalt dezelfde chunks direct in bulk op. Losse,
     // overlappende Range-prefetches maken Chromiums sparse HTTP-cache instabiel.
@@ -1958,11 +1978,44 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return client.getFrame(frame.chunk, frame.frameIndex)
   }
 
-  function pick(lng: number, lat: number, label: string): void {
+  function schedulePlaces(): void {
+    if (stillMode || placesScheduled) return
+    placesScheduled = true
+    placesIdle = scheduleIdle(() => {
+      placesIdle = undefined
+      void loadPlaces().then((loaded) => {
+        if (!loaded) return
+        const point = location()
+        const requested = urlPlace()
+        const requestedPlace = requested && findCataloguePlace(requested.slug)
+        if (requestedPlace) setUrlPlace({ name: requestedPlace.name, slug: requestedPlace.slug })
+        if (!requested && !savedPlaces().some((saved) => samePlace(saved, point)) && locationLabel() !== 'Mijn locatie') {
+          setLocationLabel(nearestPlace(point.lng, point.lat).name)
+        }
+        locationPlaceMemory = rememberPlace(point, urlPlace())
+        if (hasPickedLocation) rememberPickedLocation()
+        setCatalogueReady(true)
+      })
+    }, 1_000)
+  }
+
+  function rememberPickedLocation(selected?: PlaceIdentity): void {
+    locationPlaceMemory ??= rememberPlace(location())
+    if (selected && !locationPlaceMemory.zones.some((zone) => zone.slug === selected.slug)) {
+      locationPlaceMemory = { ...locationPlaceMemory, zones: [...locationPlaceMemory.zones, selected] }
+    }
+    storeLastLocation({ ...location(), label: locationLabel(), place: locationPlaceMemory })
+  }
+
+  function pick(lng: number, lat: number, label: string, initial = false, rememberedPlace?: PlaceMemory): void {
     presetPlaceRequest++
+    if (!initial) hasPickedLocation = true
+    if (!initial) setUrlPlace(undefined)
     if (!initialPickStarted) startLocation = { lng, lat, label }
     const point = { lng, lat }
     batch(() => { setLocation(point); setLocationLabel(label) })
+    if (!initial) locationPlaceMemory = rememberedPlace ?? rememberPlace(point)
+    if (!stillMode && (!initial || hasPickedLocation)) rememberPickedLocation()
     if (!initialPickStarted && !stillMode) return
     if (map && !marker) {
       marker = new Marker({ color: '#1688ad' }).setLngLat([lng, lat]).addTo(map)
@@ -2366,15 +2419,56 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function chooseSearch(point: { lng: number; lat: number }, label: string): void {
     usage.mark('search')
     map?.easeTo({ center: [point.lng, point.lat], duration: 450 })
-    pick(point.lng, point.lat, label)
+    const place = namedCataloguePlace(label, point)
+    pick(point.lng, point.lat, label, false, rememberSearchedPlace(point, label))
+    setUrlPlace({ name: place?.name ?? label, slug: place?.slug ?? placeSlug(label) })
   }
 
-  async function selectPresetPlace(place: string): Promise<void> {
+  async function selectPresetPlace(place: string, explicitSlug?: string): Promise<void> {
     // De live permalink verwijst naar elke plaats die je kiest; na een herlaad is dat meestal de plaats
     // waar je al staat of een opgeslagen plaats. Die hoeven niet langs de geocoder (die kan anders winnen
     // van de onthouden plaats). Alleen een onbekende naam wordt opgezocht.
     const request = ++presetPlaceRequest
-    const wanted = placeSlug(place)
+    const wanted = explicitSlug ?? placeSlug(place)
+    const cataloguePlace = findCataloguePlace(wanted)
+    if (cataloguePlace) {
+      const point = location()
+      if (!hasPickedLocation || !isInPlaceZone(point, cataloguePlace)) {
+        const saved = savedPlaces().find((candidate) => isInPlaceZone(candidate, cataloguePlace))
+        if (saved) chooseSaved(saved)
+        else pick(cataloguePlace.lng, cataloguePlace.lat, cataloguePlace.name)
+      }
+      setUrlPlace({ name: cataloguePlace.name, slug: cataloguePlace.slug })
+      rememberPickedLocation(urlPlace())
+      revealPoint(location().lng, location().lat)
+      return
+    }
+    const rememberedZone = locationPlaceMemory?.zones.find((zone) => zone.slug === wanted)
+    if (hasPickedLocation && rememberedZone) {
+      setUrlPlace(rememberedZone)
+      revealPoint(location().lng, location().lat)
+      return
+    }
+    const savedZone = savedPlaces().find((saved) => saved.place?.zones.some((zone) => zone.slug === wanted)
+      || (!saved.place && placeSlug(saved.sourceLabel) === wanted))
+    if (savedZone) {
+      chooseSaved(savedZone)
+      setUrlPlace(savedZone.place?.zones.find((zone) => zone.slug === wanted) ?? { name: savedZone.sourceLabel, slug: wanted })
+      rememberPickedLocation(urlPlace())
+      revealPoint(savedZone.lng, savedZone.lat)
+      return
+    }
+    const fallbackPlace = places.find((candidate) => placeSlug(candidate.name) === wanted)
+    if (fallbackPlace) {
+      const point = location()
+      const legacyMatch = !locationPlaceMemory && hasPickedLocation
+        && placeSlug(nearestPlace(point.lng, point.lat, places).name) === wanted
+      if (!legacyMatch) pick(fallbackPlace.lng, fallbackPlace.lat, fallbackPlace.name)
+      setUrlPlace({ name: fallbackPlace.name, slug: wanted })
+      rememberPickedLocation(urlPlace())
+      revealPoint(location().lng, location().lat)
+      return
+    }
     if (placeSlug(locationLabel()) === wanted || placeSlug(currentSharePlace() ?? '') === wanted) return
     const saved = savedPlaces().find((candidate) => placeSlug(candidate.name) === wanted)
     if (saved) { chooseSaved(saved); revealPoint(saved.lng, saved.lat); return }
@@ -2386,6 +2480,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const point = await resolveLocation(suggestion, controller.signal)
       if (request !== presetPlaceRequest) return
       pick(point.lng, point.lat, suggestion.label)
+      setUrlPlace({ name: place, slug: wanted })
+      rememberPickedLocation(urlPlace())
       revealPoint(point.lng, point.lat)
     } catch {
       // Een gedeelde plaats mag de kaart niet onbruikbaar maken wanneer een geocoder tijdelijk uitvalt.
@@ -2394,7 +2490,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
   function chooseSaved(place: SavedPlace): void {
     storeLastSavedPlaceId(place.id)
-    pick(place.lng, place.lat, place.name)
+    pick(place.lng, place.lat, place.name, false, catalogueReady() ? rememberPlace(place) : place.place)
   }
 
   function rememberMapView(): void {
@@ -2409,10 +2505,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function saveCurrentPlace(name: string): void {
     const point = location()
     const sourceLabel = locationLabel()
-    const saved: SavedPlace = { id: savedPlaceId(point.lng, point.lat), name, sourceLabel, ...point }
+    const saved: SavedPlace = { id: savedPlaceId(point.lng, point.lat), name, sourceLabel, ...point, place: rememberPlace(point, urlPlace()) }
     usage.mark('fav')
     setSavedPlaces((places) => [saved, ...places.filter((place) => !samePlace(place, point))].slice(0, 20))
     setLocationLabel(name)
+    rememberPickedLocation(urlPlace())
   }
 
   function removeSavedPlace(id: string): void {
@@ -2550,7 +2647,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function currentShareState() {
     const point = location()
     const place = locationLabel()
-    return { mode: currentShareMode(), epoch: untrack(selectedEpoch), point, place,
+    const requestedPlace = urlPlace()
+    return { mode: currentShareMode(), epoch: untrack(selectedEpoch), point, place: requestedPlace?.name ?? place,
+      ...(requestedPlace && { placeSlug: requestedPlace.slug }),
       savedPlace: savedPlaces().some((saved) => samePlace(saved, point) && saved.name === place) }
   }
 
@@ -2571,7 +2670,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       if (nextCursor !== undefined) { setCursor(nextCursor); setPlaying(false) }
       if (presets.point) pick(presets.point.lng, presets.point.lat, nearestPlace(presets.point.lng, presets.point.lat).name)
     })
-    if (presets.place) await selectPresetPlace(presets.place)
+    if (presets.place) await selectPresetPlace(presets.place, presets.placeSlug)
     if (navigation !== urlNavigation) return
     revealPoint(location().lng, location().lat)
     setPermalinkReady(true)

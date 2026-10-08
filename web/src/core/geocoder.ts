@@ -1,5 +1,5 @@
 import { lookupLocation, suggestLocations as suggestDutchLocations } from './pdok'
-import { nearestPlace } from './places'
+import { nearestPlace, places } from './places'
 
 // Vlaamse geolocatiedienst (Digitaal Vlaanderen): gratis, zonder sleutel, CORS open.
 // Zie docs/geocoding.md voor URL en gebruiksbeleid.
@@ -49,7 +49,8 @@ export async function resolveLocation(suggestion: LocationSuggestion, signal?: A
 }
 
 export function viewportCountry(center: { lng: number; lat: number }): Country {
-  return nearestPlace(center.lng, center.lat).country ?? 'NL'
+  // De volledige catalogus heeft geen landcodes; de bestaande stedenlijst bepaalt de bronvolgorde.
+  return nearestPlace(center.lng, center.lat, places).country ?? 'NL'
 }
 
 // Bron van het kaartcentrum eerst, de andere houdt een paar plaatsen; een exacte naamtreffer

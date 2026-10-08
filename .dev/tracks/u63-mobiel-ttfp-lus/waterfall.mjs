@@ -21,12 +21,18 @@ for (const directory of process.argv.slice(2)) {
     }))
     console.log('| stap | start ms | einde ms | bodybytes | Range |')
     console.log('| --- | ---: | ---: | ---: | --- |')
-    for (const request of requests.filter((request) => /style|\.pbf|\.pmtiles|manifest/.test(request.url))) {
+    for (const request of requests.filter((request) => /style|\.pbf|\.pmtiles|manifest|plaatsen-[0-9a-f]+\.json/.test(request.url))) {
       console.log(`| ${new URL(request.url).pathname} | ${Math.round(request.startMs)} | ${Math.round(request.endMs)} | ${request.encodedBodyBytes} | ${request.range ?? '—'} |`)
     }
     for (const phase of raw.entries.measures.filter((phase) => phase.phase === 'basemap-tile')) {
       console.log(`| kaartfase request→sourcedata | ${Math.round(phase.startTime)} | ${Math.round(phase.startTime + phase.duration)} | — | — |`)
     }
     console.log(`| basiskaart/ttfr render | — | ${report.milestones.basemapReadyMs} | — | — |`)
+    const catalogueRequests = raw.requests.filter((request) => /\/plaatsen-[0-9a-f]+\.json/.test(request.url))
+    const firstPlay = raw.entries.measures.find((phase) => phase.phase === 'milestone:ttfp')?.duration ?? report.milestones.ttfpMs
+    if (report.meta.scenario.startsWith('koud-spelend') && firstPlay !== null && catalogueRequests.some((request) => request.startMs < firstPlay)) {
+      throw new Error(`${name}: plaatsenlijst vóór ttfp aangevraagd`)
+    }
+    console.log(JSON.stringify({ ttfpMs: firstPlay, catalogueRequests: catalogueRequests.map((request) => ({ path: new URL(request.url).pathname, startMs: request.startMs, afterTtfpMs: firstPlay === null ? null : request.startMs - firstPlay, bytes: request.encodedBodyBytes })) }))
   }
 }

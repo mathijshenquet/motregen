@@ -1,8 +1,15 @@
+import { decodePlaces, type CompactPlaces } from './place-data.js'
+import { belongsToPlace, PlaceIndex, type CataloguePlace } from './place-index.js'
+import { placesUrl } from './places-asset.js'
+import type { PlaceIdentity, PlaceMemory } from './place-memory.js'
+import { placeSlug } from './slugify.js'
+
 export interface Place {
   name: string
   lng: number
   lat: number
   country?: 'BE'
+  slug?: string
 }
 
 export const places: readonly Place[] = [
@@ -75,7 +82,48 @@ export const places: readonly Place[] = [
   { name: 'Zwolle', lng: 6.09, lat: 52.52 },
 ]
 
-export function nearestPlace(lng: number, lat: number, candidates: readonly Place[] = places): Place {
+let catalogue: PlaceIndex | undefined
+let catalogueRequest: Promise<boolean> | undefined
+
+export function loadPlaces(): Promise<boolean> {
+  catalogueRequest ??= fetch(placesUrl, { signal: AbortSignal.timeout(5000) })
+    .then(async (response) => {
+      if (!response.ok) throw new Error('Plaatsenlijst niet beschikbaar')
+      const data = await response.json() as CompactPlaces
+      catalogue = new PlaceIndex(decodePlaces(data))
+      return true
+    }).catch(() => false)
+  return catalogueRequest
+}
+
+export function findCataloguePlace(slug: string): CataloguePlace | undefined {
+  return catalogue?.find(slug)
+}
+
+export function namedCataloguePlace(name: string, point: { lng: number; lat: number }): CataloguePlace | undefined {
+  return catalogue?.named(name, point)
+}
+
+export function isInPlaceZone(point: { lng: number; lat: number }, place: CataloguePlace): boolean {
+  return catalogue !== undefined && belongsToPlace(point, place, catalogue)
+}
+
+export function rememberPlace(point: { lng: number; lat: number }, selected?: PlaceIdentity): PlaceMemory {
+  const nearest = nearestPlace(point.lng, point.lat)
+  const identity = { name: nearest.name, slug: nearest.slug ?? placeSlug(nearest.name) }
+  const zones = catalogue?.zones(point).map(({ name, slug }) => ({ name, slug })) ?? [identity]
+  if (selected && !zones.some((zone) => zone.slug === selected.slug)) zones.push(selected)
+  return { ...identity, zones }
+}
+
+export function rememberSearchedPlace(point: { lng: number; lat: number }, name: string): PlaceMemory {
+  const place = namedCataloguePlace(name, point)
+  return rememberPlace(point, { name: place?.name ?? name, slug: place?.slug ?? placeSlug(name) })
+}
+
+export function nearestPlace(lng: number, lat: number, candidates?: readonly Place[]): Place {
+  if (!candidates && catalogue) return catalogue.nearest(lng, lat)
+  candidates ??= places
   if (!candidates.length) throw new Error('Plaatsenlijst is leeg')
   const latitude = lat * Math.PI / 180
   let nearest = candidates[0]!

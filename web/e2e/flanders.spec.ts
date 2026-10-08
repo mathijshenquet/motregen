@@ -27,6 +27,11 @@ test('searching "Gent" offers the Belgian city and puts the pin there', async ({
 
   await expect(scrubber).toHaveAttribute('aria-label', /voor Gent$/)
   await expect(input).toHaveValue('Gent')
+  await expect(page).toHaveURL(/\/weer\/gent$/)
+  const remembered = await page.evaluate(() => JSON.parse(localStorage.getItem('motregen-last-location') ?? 'null'))
+  expect(remembered.lng).toBe(gent.lng)
+  expect(remembered.lat).toBe(gent.lat)
+  expect(remembered.place.zones.some((zone: { slug: string }) => zone.slug === 'gent')).toBe(true)
   // De pin staat op Gent: marker-punt (onderkant midden) tegen de projectie van de kaart zelf.
   await page.waitForTimeout(800)
   const map = (await page.locator('.map').boundingBox())!

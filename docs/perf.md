@@ -1300,8 +1300,17 @@ De raw-opname bewaart hiervoor ook alle `observedRequests` (vóór vensterselect
 berekenen, ook wanneer native fetch-start en netwerk-start aan verschillende kanten van de grens liggen.
 De rig gebruikt `--load-wait` ook tussen herhalingen en weigert een opname wanneer die wachttijd
 verloopt. Alleen startloadavg **<8** telt als rustig; een drukke opname mag geen baseline schrijven.
-Na integratie van U62/U66 wordt het definitieve PO-fixture-nulpunt op main `43b92d6`
+Na integratie van U62/U65/U66 wordt het definitieve PO-fixture-nulpunt op main `ec3ca02`
 zonder U63-productcode gemeten. U62 zet Kaderhemel altijd aan en vraagt straling voor het
-scrubbervenster; deze gewijzigde startsituatie is de expliciete reden voor een nieuw nulpunt.
+scrubbervenster; U65 voegt de lazy plaatsenlijst ná ttfp toe. Deze gewijzigde startsituatie is de expliciete reden voor een nieuw nulpunt.
 De hierboven genoemde eigen-kaartreeks blijft gelabeld als vóór U62. Een apart main/U63-paar
 op de eigen kaart voorkomt dat main-wijzigingen als U63-winst worden gerapporteerd.
+
+Een aanvraagvolgorde kan ook op een drukke host worden gecontroleerd met
+`pnpm perf:mobile --profile desktop --scenario koud-spelend --basemap own --request-order`.
+Gebruik `--profile po-android` voor het gekalibreerde Android-profiel. Deze modus houdt native
+Resource Timing, de netwerkregistratie, renderer-quota en het profiel intact, maar zet of vergelijkt
+geen performancebaseline (`--baseline`/`--compare` worden geweigerd). De rapporten dragen dat kenmerk;
+een capture onder load bewijst alleen volgorde. `pnpm exec tsx scripts/place-waterfall.ts
+tmp/perf-mobile/desktop-koud-spelend-run1.raw.json` controleert de catalogusstart ten opzichte van
+`milestone:ttfp`, manifest, stijl en eerste regen-Range, en schrijft een compacte JSON en SVG-waterval.
