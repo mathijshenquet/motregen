@@ -522,3 +522,25 @@ b1a706752174bbd7f1cb2453ce3a740929d73775	refs/pull/91/head
 - Laatste rapportwijziging typecheck synchroon exit 0. CLI zet ttfr/ttfp vooraan; native capture-/gatecontracten en drempels gelijk. U65-builds en 509 units / 21 desktop-e2e zijn reeds groen; geen onnodige volledige suite herhaald.
 - Nieuwe tijden/LH/U65-baseline nog pending. Eén eigen runner 554213, node perf-quiet wacht vóór flock. Hostload varieert ~11–45. Zware Chrome-processen 245236/245255 hebben cwd /home/mathijs/motregen, niet deze worktree; geen andermans processen beëindigd. Lockdiscipline geverifieerd, geen eigen browser actief of lock gehouden tijdens loadwachten.
 - WIP nu commit/push, ook zonder timingreceipt. Volgende stap blijft CPU-diagnose plus referentie/kandidaat koud/warm zodra load ≤8, vervolgens Lighthouse en geldige main-baseline/compare. Shaderproef blijft ongemeten hypothese.
+
+## 2026-10-08 10:19:01 UTC — U65 aanvraagvolgorde functioneel bewezen onder load
+
+- Volgordecapture + controle synchroon exit 0: cd web && MOTREGEN_E2E_PORT=4394 MOTREGEN_E2E_DATA_PORT=8394 pnpm perf:mobile --profile desktop --scenario koud-spelend --basemap own --request-order; daarna pnpm exec tsx scripts/place-waterfall.ts ../tmp/u64/u65-request-order/desktop-koud-spelend-run1.raw.json. Eén gerichte run, 34,7 s suite; lock na run vrij. Build buiten lock, capture onder één lock. Geen andere perfmeting tegelijk.
+- Plaatsencatalogus native start +1448,7 ms ná milestone:ttfp, 60.946 bodybytes. Native manifest/stijl en eerste regen-/frame-Range aanwezig; geen netwerkbevindingen of paginafouten. Capture/report requestOrderOnly=true; uitsluitend volgorde bewezen, geen ttfr/ttfp-winst, decode-/bytebaseline of LoAF-gate uit deze drukke run afgeleid.
+- Alle raw/report/trace/plaatsen-JSON/SVG lokaal gekopieerd naar tmp/u64/u65-request-order vóór een toekomstige echte baseline/compare de generieke bestandsnamen vervangt. Timingrunner blijft apart buiten de lock op load ≤8 wachten.
+
+## 2026-10-08 10:21:10 UTC — rustige-host-timeout, wachttijd verlengd buiten lock
+
+- Seriële timingrunner 75441 synchroon exit 1: eerste loadwacht na twintig minuten verlopen, met expliciete 'Host blijft te druk; geen meting'. Geen CPU-/native-/warme/LH-capture gestart, geen baseline geschreven. Alle eigen request-order-/bouw-/checkterminals reeds met eindreceipt gesloten; geen restbrowser.
+- Alleen maximale wachttijd vóór flock verhoogd naar 120 minuten voor deze lokale runner; loadgrens 8 en perf-budgetten gelijk. Geen lock vast tijdens die wachttijd. Zelfde drie bevroren U65-builds, geen nieuwe productmutatie of baselineverschuiving. Herstart volgt nu; volgende reguliere WIP-commit/push blijft op cadans.
+
+## 2026-10-08 10:28:13 UTC — bestaande volgordecapture als functiediagnose
+
+- Geen nieuwe browsermeting: offline analyse van de reeds onder lock opgenomen U65-volgordecapture. Officiële prof:top --dist stopte terecht exit 1 op unmappable module-startpositie index-C3hKyTWq.js:1:1. Geen productparser of mapvalidatie versoepeld. Lokale diagnostische helper bewaart onbekende frames en meldt ze apart; eerste helperaanroep had een cwd-padfout, gecorrigeerde aanroepen synchroon exit 0.
+- Tweede sourcemaplaag gebruikt de geïnstalleerde MapLibre 5.24.0-map. 141 self-samples wijzen naar src/webgl/program.ts constructor: 34 vóór eerste regendraw, 107 ná ttfp maar vóór kaart-ttfr, nul later. Vier drukke samples blijven onopgelost. Geen CPU-ms of snelheidsclaim: profiel liep onder load 41,34 en grote samplegaten laten gewogen tijdsattributie onbetrouwbaar lijken.
+- Bibliotheekbron bevestigt twee COMPILE_STATUS-vragen vóór link per programma. Dat wijst naast de eigen shaderbatch op een vervolgkandidaat in MapLibre; nog geen dependency patch toegepast en geen win geclaimd. De rustige native CPU-diagnose moet dit bevestigen. Load ondertussen opnieuw dalend, maar nog >8; runner wacht buiten lock.
+
+## 2026-10-08 10:30:15 UTC — WIP-checkpoint met volgordebewijs, timings pending
+
+- Commit/push op 15–20-minutencadans. Nieuwe inhoud uitsluitend verslag/LOG: geslaagde expliciet gemarkeerde U65-aanvraagvolgorde, rustige-host-timeout/herstart, offline functiediagnose met onbekende samples behouden. Geen productmutatie of aangepaste gates sinds de groene U65-checks; geen onnodige unit/e2e-herhaling.
+- Timingrunner nog buiten de lock, actuele load ~14–16. Geen native/LH/U65-baseline-receipt. Eerst schone CPU-diagnose, daarna koude/warme referentie+kandidaten, LH-subscores en main-gate/compare; shaderkandidaat kan pas daarna behouden/verworpen worden. PR blijft draft/WIP.

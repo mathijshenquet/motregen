@@ -29,6 +29,10 @@ De nieuwe U65-referentie en kandidaten gebruiken beide deze methode;
 oude reeksen met een gedeeld browserproces zijn geen directe vergelijking.
 Elke native capture eist een plaatsenaanvraag ná ttfp en vermeldt die in
 de waterval; een ontbrekende of te vroege aanvraag maakt de capture ongeldig.
+Een afzonderlijke U65-aanvraagvolgordecapture op deze branch is geslaagd:
+plaatsenlijst +1448,7 ms ná ttfp, 60.946 bodybytes. Die expliciet gemarkeerde
+capture liep onder hostdrukte en bewijst alleen volgorde. De tijden en
+decode-/byteaantallen ervan leveren geen baseline of snelheidsvergelijking.
 
 De shaderkandidaat start alle vier windprogramma's vóór de eerste linkquery
 en vraagt geen tussentijdse compile-status van regen-/windshaders.
@@ -37,6 +41,14 @@ ruimen aangemaakte resources op. Dit volgt de algemene
 [Khronos-best practice](https://registry.khronos.org/webgl/extensions/KHR_parallel_shader_compile/),
 zonder de extensie te vereisen. Verwachte winst is minder geserialiseerd
 GPU-wachten; omvang en invloed op ttfr/ttfp/LoAF zijn nog ongemeten.
+
+Een offline functiediagnose van de U65-volgordecapture, met ook MapLibre's
+eigen sourcemap, toont 141 self-samples in diens programmaconstructor:
+34 vóór eerste regen, 107 ná ttfp maar vóór kaart-ttfr. Vier drukke samples
+blijven onbekend. De bron vraagt tweemaal compile-status vóór link.
+Dit ondersteunt onderzoek naar shaders in de ttfr-keten, maar geeft onder
+load 41,34 geen bruikbare CPU-duur of snelheidswinst. Er is geen
+MapLibre-patch toegepast; de schone native CPU-opname blijft pending.
 
 De nieuwe gate-baseline wordt uit drie ongewijzigde main-runs geschreven
 naar `desktop-koud-spelend-own-u65.json`. Reden: U62/Kaderhemel, U65's
