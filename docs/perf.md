@@ -872,7 +872,7 @@ pnpm exec tsx scripts/po-reference.ts compare perf/po-android-reference.json tmp
 
 ### Wanneer een rig-meting telt
 
-- **Loadavg < 8** (1 minuut, `scripts/rig-host.ts`). `perf:mobile` wacht vóór de run tot de host
+- **Absolute baseline: loadavg ≤8; gepaarde proef: loadavg ≤16** (1 minuut, `scripts/rig-host.ts`, orkestrator/PO 2026-10-08 12:38). Gepaard betekent A/B om en om, dezelfde po-android-cgroupquota, load per run vastgelegd; `--paired` kan geen `--baseline` schrijven. Absolute referentiewaarden voor deze documentatie blijven voor een rustig venster. `perf:mobile` wacht vóór de run tot de host
   zo rustig is (`--load-wait <minuten>`, standaard 20) en schrijft de loadavg bij de start van
   elke run in het rapport. Runs boven de drempel doen niet mee in de mediaan en staan als
   weggegooid in de samenvatting. Op 2026-10-07 draaiden drie tracks tegelijk rigs (loadavg
@@ -886,20 +886,20 @@ pnpm exec tsx scripts/po-reference.ts compare perf/po-android-reference.json tmp
 
 ### perf-lock
 
-Iedere perf-opname gebruikt `/home/mathijs/motregen-perf.lock`. Wachten op loadavg <8 gebeurt
+Iedere perf-opname gebruikt `/home/mathijs/motregen-perf.lock`. Wachten op loadavg ≤8 (absolute baseline) of ≤16 (`--paired`, A/B om en om) gebeurt
 **buiten** de lock, ook tussen herhalingen. De lock omvat één opname en wordt direct daarna
 vrijgegeven. Builds, typecheck, unit-tests en wachten horen buiten dit meetvenster.
 
 Het hostbrede patroon voor een commando dat precies één opname maakt:
 
 ```bash
-until node --input-type=module -e 'import { loadavg } from "node:os"; process.exit(loadavg()[0] < 8 ? 0 : 1)'; do
+until node --input-type=module -e 'import { loadavg } from "node:os"; process.exit(loadavg()[0] <= 8 ? 0 : 1)'; do
   sleep 30
 done
 flock -w 7200 -o /home/mathijs/motregen-perf.lock "$@"
 ```
 
-Na het verkrijgen van de lock wordt de load opnieuw gecontroleerd. Is hij inmiddels ≥8,
+Na het verkrijgen van de lock wordt de load opnieuw gecontroleerd. Is hij inmiddels boven de gekozen grens,
 dan geeft de runner de lock onmiddellijk vrij en wacht hij opnieuw erbuiten. Exit 75 is
 uitsluitend die herhaalbare loadweigering vóór een opname; meetfouten houden hun echte exitstatus.
 `-o` voorkomt dat achtergebleven browser- of serverprocessen de lock erven.
@@ -1299,7 +1299,7 @@ De raw-opname bewaart hiervoor ook alle `observedRequests` (vóór vensterselect
 `selectedResourceTiming`. Daarmee kan een reviewer de koppeling en beide bytebronnen opnieuw
 berekenen, ook wanneer native fetch-start en netwerk-start aan verschillende kanten van de grens liggen.
 De rig gebruikt `--load-wait` ook tussen herhalingen en weigert een opname wanneer die wachttijd
-verloopt. Alleen startloadavg **<8** telt als rustig; een drukke opname mag geen baseline schrijven.
+verloopt. Alleen startloadavg **≤8** telt als rustig voor absolute baselines; een drukke opname mag geen baseline schrijven.
 Na integratie van U62/U65/U66 wordt het definitieve PO-fixture-nulpunt op main `ec3ca02`
 zonder U63-productcode gemeten. U62 zet Kaderhemel altijd aan en vraagt straling voor het
 scrubbervenster; U65 voegt de lazy plaatsenlijst ná ttfp toe. Deze gewijzigde startsituatie is de expliciete reden voor een nieuw nulpunt.
