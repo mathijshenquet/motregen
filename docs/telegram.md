@@ -72,9 +72,14 @@ gecachete lege kaart. De nationale uitsnede is 640×848 CSS-pixels met
 
 | modus | framereeks | loop | stills uit dezelfde reeks |
 | --- | --- | --- | --- |
-| Regen | −2…+2 u, elke 5 minuten; extra tienminutenframes tot +12 u | 49 frames op 10 fps; extra toekomstframes buiten de video | 85 frames, −2…+12 u elke 10 minuten |
-| Temperatuur | tienminutenframes −2…+12 u (interpolatie tussen de uurvelden) | 73 frames nu…+12 u op 10 fps (sinds U58; was 13 uurframes op 4 fps) | 85 frames, −2…+12 u elke 10 minuten |
-| Wind | nu…+12 u, elke 15 minuten | 49 frames op 4 fps | geen |
+| Regen | −2…+12 u, elke 5 minuten | 169 frames op 10 fps | 85 frames, −2…+12 u elke 10 minuten |
+| Temperatuur | −2…+12 u, elke 5 minuten (interpolatie tussen de uurvelden) | 169 frames op 10 fps | 85 frames, −2…+12 u elke 10 minuten |
+| Wind | −2…+12 u, elke 5 minuten (interpolatie tussen de uur- en kwartiervelden) | 169 frames op 10 fps | geen |
+
+De drie loops hebben dezelfde klok: begin, eind, vijfminutenstap en fps (PO 2026-10-08, U66).
+Het gezamenlijke bereik behoudt de twee uur radarhistorie en de twaalf uur verwachting. Elke loop duurt
+17,9 seconden inclusief de eindhold. Stills en deltaknoppen behouden hun tienminutenraster; hun PNGs
+komen uit dezelfde loopreeks, zodat die tijdstippen geen tweede render krijgen.
 
 Windparticles krijgen een vaste simulatieklok, met tussenstappen op 30 Hz en
 een seconde opwarming voor het eerste frame. Wandkloktijd en screenshots
@@ -104,7 +109,8 @@ worden vooraf naar Telegram geüpload. De overige tienminutenposities blijven
 beschikbaar als PNG in dezelfde reeks; JPEG en eenmalige upload volgen bij aanvraag.
 Daarna gebruikt ook die selectie file_id. Doel voor render+prime is <90 seconden;
 de gemeten tijden staan in het track-LOG.
-Rekenlast: een generatie kost op de dev-host ongeveer 4 cores × 60 seconden (13 media in software-GL).
+Rekenlast vóór U66: een generatie kostte op de dev-host ongeveer 4 cores × 60 seconden
+(13 media in software-GL; inclusief Telegram-prime).
 Tussen twee generaties staat de Chromium-boom van de bot op 0 % CPU (gemeten via /proc over 20 s,
 orkestrator 2026-10-07); de pagina sluit ook bij een fout (`finally` in `bot/render.ts`). Een hoog
 gemiddelde komt dus van het rendervolume zelf: de cadans van de generaties is de knop, niet een lek.
@@ -121,6 +127,42 @@ generatie blijft beschikbaar tijdens verversing. Cache-hits en inline
 antwoorden wachten niet achter nieuwe Chromium-renders. De bot meet per modus
 frames, render- en encodetijd en bytes, en de hele matrix in milliseconden.
 De manifestcheck loopt elke 15 seconden na voltooiing van een matrix.
+
+De broncadans van radar en nowcast is vijf minuten (`cadenceMs` in `web/src/core/freshness.ts`).
+De ingest controleert elke 60 seconden (`radar_cadence` in `crates/ingest/src/main.rs`), maar publiceert
+alleen bij gewijzigde bronbestanden; verschillende bronnen kunnen kort na elkaar een manifest publiceren.
+Het budget per generatie is daarom maximaal 210 seconden: 30% marge onder de nominale broncadans van
+300 seconden. De 15-seconden-manifestcheck en Telegram-prime moeten ook binnen die marge passen.
+De renderer meet hieronder alleen de drie loops en tien prewarm-JPEGs, zonder Telegram; de werkelijke
+prime-/uploadduur blijft zichtbaar in `media-generation-primed` en `stills-refresh` van de actieve bot.
+
+Voor een vergelijkbare vóór/ná-meting in `bot/`: sla één manifest op en gebruik per meting een lege
+cachemap. `--prewarm` rendert dezelfde 13 media parallel als de actieve bot; `--manifest` zet hun
+generatie vast. De afsluitende `generation-render-receipt` geeft de totale renderduur, naast de
+frameaantallen, render-/encodetijd en bytes per modus:
+
+```bash
+curl -fsS http://127.0.0.1:4330/data/manifest.json -o ../tmp/u66-manifest.json
+TG_BOT_KEY=x MOTREGEN_ORIGIN=http://127.0.0.1:4330 \
+  MOTREGEN_RENDER_CACHE=../tmp/u66-render \
+  pnpm render --prewarm --manifest=../tmp/u66-manifest.json
+```
+
+Gemeten op de dev-host op 2026-10-08, met dezelfde generatie `08:37:54Z`, dezelfde app op 4330,
+lege caches en drie parallelle modi. Render-ms omvat openen en alle PNGs; encode-ms betreft de MP4.
+Vóór → ná U66:
+
+| modus | loopframes | PNGs | fps | render-ms | encode-ms | MP4-bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Regen | 49 → 169 | 109 → 169 | 10 → 10 | 33348 → 54914 | 441 → 877 | 1214393 → 2199369 |
+| Temperatuur | 73 → 169 | 85 → 169 | 10 → 10 | 34257 → 63381 | 510 → 811 | 1289173 → 2637842 |
+| Wind | 49 → 169 | 49 → 169 | 4 → 10 | 20070 → 55096 | 426 → 1043 | 1625285 → 2923484 |
+
+De totale rendergeneratie van 13 media kostte **34999 → 64413 ms**, inclusief de tien JPEG-conversies.
+Met de 15-seconden-manifestcheck resteert **130587 ms** binnen het 210-secondenbudget voor Telegram-prime.
+De Telegram-upload is in deze render-only meting niet uitgevoerd. Alle loops blijven onder 3 MB; de
+langste horizon en 10 fps passen daarmee in het renderbudget. Hostbelasting beïnvloedt deze eenmalige
+metingen; dit zijn geen geïsoleerde CPU-benchmarks. Exacte repro en receipts staan in het U66-track-LOG.
 
 Caddy serveert uitsluitend `/telegram/stills/*.jpg` en `*.mp4` met twee uur
 cacheduur en `noindex`; sidecars en receipts geven 404. Cachebestanden ouder

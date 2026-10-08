@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { TimelineFrame } from './contract'
-import { buildHourlyForecast, isPassiveRow } from './forecast'
+import { buildHourlyForecast, hourDarkness, isPassiveRow, skyRadiationRows } from './forecast'
+import { scrubberViewWindow, SCRUBBER_CURSOR_FRACTION, SCRUBBER_VIEW_HOURS } from './time-model'
 
 const start = Date.parse('2026-08-28T15:20:00Z')
 
@@ -55,3 +56,53 @@ describe('hourly forecast', () => {
 function timelines(overrides: Partial<Parameters<typeof buildHourlyForecast>[0]>): Parameters<typeof buildHourlyForecast>[0] {
   return { rain: [], uv: [], uvClear: [], radiation: [], temperature: [], feelsLike: [], cloud: [], windU: [], windV: [], gust: [], ...overrides }
 }
+
+describe('sky radiation rows (U62)', () => {
+  const hourMs = 3_600_000
+  const now = Date.parse('2026-10-08T05:18:00Z')
+  const currentHour = Math.floor(now / hourMs) * hourMs
+  const rows = Array.from({ length: 48 }, (_, index) => {
+    const epoch = currentHour - 6 * hourMs + index * hourMs
+    return { epoch, kind: epoch < currentHour ? 'past' as const : epoch === currentHour ? 'now' as const : 'future' as const }
+  })
+  // Wat de scrubber bij deze cursor toont: de cursor staat op een vast deel van de breedte.
+  const visibleHours = (cursorEpoch: number) => {
+    const from = cursorEpoch - SCRUBBER_VIEW_HOURS * hourMs * SCRUBBER_CURSOR_FRACTION
+    const to = cursorEpoch + SCRUBBER_VIEW_HOURS * hourMs * (1 - SCRUBBER_CURSOR_FRACTION)
+    return rows.filter((row) => row.kind !== 'past' && row.epoch >= from && row.epoch <= to).map((row) => row.epoch)
+  }
+
+  it('feeds every visible hour stop and the one just outside, wherever the cursor is', () => {
+    const futureHours = new Set(rows.filter((row) => row.kind !== 'past').map((row) => row.epoch))
+    for (let minutes = 0; minutes <= 30 * 60; minutes += 7) {
+      const cursorEpoch = now + minutes * 60_000
+      const fed = new Set(skyRadiationRows(rows, scrubberViewWindow(cursorEpoch)).map((row) => row.epoch))
+      for (const visible of visibleHours(cursorEpoch)) {
+        for (const epoch of [visible - hourMs, visible, visible + hourMs]) {
+          if (futureHours.has(epoch)) expect(fed.has(epoch), `${new Date(epoch).toISOString()} bij cursor +${minutes} min`).toBe(true)
+        }
+      }
+    }
+  })
+
+  it('leaves the past to the layer estimate and stays near the window', () => {
+    const window = scrubberViewWindow(now + 12 * hourMs)
+    const fed = skyRadiationRows(rows, window)
+    expect(fed.length).toBeGreaterThan(0)
+    expect(fed.every((row) => row.epoch >= window.start - hourMs && row.epoch <= window.end + hourMs)).toBe(true)
+    expect(skyRadiationRows(rows, scrubberViewWindow(now))[0]!.epoch).toBe(currentHour)
+  })
+})
+
+describe('hour darkness (U62)', () => {
+  const row = { epoch: Date.parse('2026-08-28T12:00:00Z'), radiationIndex: 0, radiationNextIndex: 1, cloudIndex: 0 }
+  const highSun = () => 0.8
+
+  it('follows the radiation when it is known and the cloud cover otherwise', () => {
+    expect(hourDarkness(row, [900, 900], [100], highSun)).toBe(0)
+    expect(hourDarkness(row, [40, 40], [0], highSun)).toBe(1)
+    expect(hourDarkness(row, [], [0], highSun)).toBe(0)
+    // Zonder straling laat een gesloten dek een kwart van het licht door: twee halveringen van drie.
+    expect(hourDarkness(row, [], [100], highSun)).toBeCloseTo(2 / 3, 5)
+  })
+})

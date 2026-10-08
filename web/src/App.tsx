@@ -18,7 +18,7 @@ import { chunkField, type Grid, type Manifest, type ManifestChunk, type MrfHeade
 import { DayNightLayer } from './core/day-night-layer'
 
 const DAY_NIGHT_ENABLED = false
-import { buildHourlyForecast, isPassiveRow, PASSIVE_FORECAST_HOURS } from './core/forecast'
+import { buildHourlyForecast, hourDarkness, isPassiveRow, PASSIVE_FORECAST_HOURS, skyRadiationRows, type HourSky } from './core/forecast'
 import { contextOpacity, DEFAULT_FOCUS_MODE, FOCUS_DIM, FocusMode, mapSaturation, rainFocusOpacity, type FocusKind, windFocusIntensity } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import { latestRadarEpoch, type RefreshState } from './core/freshness'
@@ -31,6 +31,7 @@ import { hexColor, IsolineLayer, isolineLayerIndices, type IsolineStyle } from '
 import { cursorAfterTimelineRefresh, isNewerManifest, nextManifestRefreshDelay, reconcileTimelineSeries, scheduleManifestRefresh } from './core/manifest-refresh'
 import { constrainView, containView, containZoom, MAP_CONTAIN_BOUNDS, type Viewport } from './core/map-constraint'
 import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS } from './core/map-frame'
+import { basemapBlendTargets, blendedPaintValue, nightShare, type BlendTarget } from './core/basemap-blend'
 import { MrfClient, type MotionField } from './core/mrf'
 import { selectPairMotion } from './core/motion-selection'
 import { nearestPlace } from './core/places'
@@ -44,14 +45,14 @@ import { grantedStartFix, loadLastSavedPlaceId, loadMapView, resolveStartLocatio
 import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGestures } from './core/pin-navigation'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
-import { solarElevationSin } from './core/solar'
+import { isSunUp, solarElevationSin } from './core/solar'
 import { paletteRange, paletteStops, type PaletteRange } from './core/temperature-palette'
 import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
 import { buildTimeline, epochInWindow, frameBlend, scrubberViewWindow, seriesValueAt, timelineCoverage, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelineIndexesInWindow, timelinePlaybackRate, type EpochWindow } from './core/time-model'
 import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
 import { WIND_UNITS, type WindUnit } from './core/weather'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
-import { DEFAULT_WIND_TUNING, loadWindTuning, storeWindTuning, WIND_MAX_FPS, WIND_PARAMETERS, WindLayer, type WindTuning } from './core/wind-layer'
+import { DEFAULT_WIND_TUNING, loadWindTuning, MOBILE_WIND_LEVELS, storeWindTuning, WIND_MAX_FPS, WIND_PARAMETERS, WindLayer, type MobileWindLevel, type WindTuning } from './core/wind-layer'
 import { clearTuningStorage } from './core/dev-settings'
 import { watchIdle } from './core/activity'
 import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
@@ -68,11 +69,12 @@ import { visibleSlotStates } from './core/screen-truth'
 import type { Intent } from './core/intent'
 import { coldProfileRequested, decode, fetchManifest, initialClient, initialManifest, manifestUrl, perf, profileMode } from './startup'
 const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
-// Intent (MIP-20): velden die de kaart of de scrubber in een van de modi tekent, en velden die
-// alleen de tabel voedt. Na deze rust geldt de scrubber als stilstaand.
-const ALWAYS_SHOWN_FIELDS = ['rain_rate', 'motion', 'uv', 'uv_clear', 'cloud_low', 'cloud_mid', 'cloud_high', 'cloud_frac', 'wind_u_ms', 'wind_v_ms', 'gust_ms', 'pressure_hpa', 'feels_like_c', 'temp_c']
-const TABLE_ONLY_FIELDS = ['radiation']
+// Intent (MIP-20): velden die de kaart of de scrubber in een van de modi tekent; de straling hoort
+// erbij omdat ze de hemel achter de scrubber kleurt (U62). Na deze rust geldt de scrubber als stilstaand.
+const SHOWN_FIELDS: ReadonlySet<string> = new Set(['rain_rate', 'motion', 'uv', 'uv_clear', 'radiation', 'cloud_low', 'cloud_mid', 'cloud_high', 'cloud_frac', 'wind_u_ms', 'wind_v_ms', 'gust_ms', 'pressure_hpa', 'feels_like_c', 'temp_c'])
 const SCRUB_REST_MS = 250
+// Duur van de tween waarmee de tabelpiep onder de kaart naar het cursoruur schuift.
+const TABLE_FOLLOW_MS = 220
 // Puntreeksen komen per frame binnen; elke publicatie loopt door scrubber, tabel en hemel. Per animatieframe
 // publiceren gaf tijdens het laden lange frames van ~0,8 s per seconde (prof:capture mobile-4g 2026-10-07);
 // vier keer per seconde vult de grafiek nog zichtbaar aan.
@@ -178,7 +180,13 @@ const PLAY_RULE_STORAGE_KEY = 'motregen-dev-speelregel'
 // Rig-schakelaar (?dev): 'laat' vraagt het eerste regenframe weer pas na de kaart-opzet.
 const FIRST_RAIN_STORAGE_KEY = 'motregen-dev-eerste-regen'
 // PO-vergelijking (?dev): het lege scrubber-kader neemt de hemelkleur van het uur aan.
-const FRAME_SKY_STORAGE_KEY = 'motregen-dev-kaderhemel'
+const CLOCK_SKY_TINT_STORAGE_KEY = 'motregen-dev-klokpil'
+const MOBILE_WIND_STORAGE_KEY = 'motregen-dev-wind-mobiel'
+const MAP_FOLLOWS_TIME_STORAGE_KEY = 'motregen-dev-kaart-automatisch'
+// De kaart mengt in zoveel stappen van dag naar nacht; MapLibre tweent elke stap zelf (300 ms).
+const MAP_NIGHT_STEPS = 20
+// De rand buiten het rooster is geen laag van de basisstijl maar kleurt wel mee met het thema.
+const GRID_OUTSIDE_PAINT = { light: { color: '#84969b', opacity: 0.48 }, dark: { color: '#071319', opacity: 0.58 } } as const
 // Stil op de achtergrond (U41): na een minuut zonder invoer tekent de wind op halve snelheid.
 const IDLE_AFTER_MS = 60_000
 const WIND_IDLE_FPS = 30
@@ -490,7 +498,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
   const [windTuning, setWindTuning] = createSignal<WindTuning>(loadWindTuning())
   const [isolineTuning, setIsolineTuning] = createSignal<IsolineTuning>({ ...DEFAULT_ISOLINE_TUNING })
-  const [frameSky, setFrameSky] = createSignal(devMode && localStorage.getItem(FRAME_SKY_STORAGE_KEY) === 'aan')
+  const [clockSkyTint, setClockSkyTint] = createSignal(devMode && localStorage.getItem(CLOCK_SKY_TINT_STORAGE_KEY) === 'mee-tinten')
+  const [mapFollowsTime, setMapFollowsTime] = createSignal(devMode && localStorage.getItem(MAP_FOLLOWS_TIME_STORAGE_KEY) === 'aan')
+  const storedMobileWind = devMode ? localStorage.getItem(MOBILE_WIND_STORAGE_KEY) : null
+  const [mobileWind, setMobileWind] = createSignal<MobileWindLevel>(storedMobileWind === 'iets' || storedMobileWind === 'meer' ? storedMobileWind : 'uit')
+  // De proefniveaus gelden alleen waar de PO de streepjes te subtiel vond: vinger als aanwijsmiddel of een smal scherm.
+  const mobileWindDevice = matchMedia('(pointer: coarse), (max-width: 499px)').matches
   const [temperatureRange, setTemperatureRange] = createSignal<PaletteRange | undefined>()
   let temperatureRangeKey = ''
   const [focus, setFocus] = createSignal(0)
@@ -506,13 +519,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     location()
     if (previous) queueMicrotask(() => previous.abort())
     return new AbortController()
-  })
-  // Velden die nu ergens getekend worden. Alles wat de kaart of de scrubber kan tonen telt mee; wat
-  // alleen de tabel voedt valt weg zolang de tabelrijen niet in beeld zijn.
-  const shownFields = createMemo<ReadonlySet<string>>(() => {
-    const fields = new Set(ALWAYS_SHOWN_FIELDS)
-    if (tableInView()) for (const field of TABLE_ONLY_FIELDS) fields.add(field)
-    return fields
   })
   // Tijdlijn-ms per ms tijdens slepen of toetsen; valt terug naar 0 zodra de scrubber stilstaat.
   const [scrubVelocity, setScrubVelocity] = createSignal(0)
@@ -559,12 +565,18 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [pageVisible, setPageVisible] = createSignal(document.visibilityState !== 'hidden')
   const mapRendering = createMemo(() => pageVisible() && !(tableViewAvailable() && tableCoversViewport()))
   const [userIdle, setUserIdle] = createSignal(false)
-  const focusedWindTuning = createMemo(() => ({
-    ...windTuning(),
-    intensity: windFocusIntensity(windTuning().intensity, windFocus()),
-    visibility: mapRendering() ? WIND_PARAMETERS.visibility * contextOpacity(focus(), FOCUS_DIM) : 0,
-    maxFps: userIdle() ? WIND_IDLE_FPS : WIND_MAX_FPS,
-  }))
+  const focusedWindTuning = createMemo(() => {
+    const mobile = MOBILE_WIND_LEVELS[mobileWindDevice ? mobileWind() : 'uit']
+    return {
+      ...windTuning(),
+      // De versterking geldt voor de wind op de achtergrond; bij volle windfocus staat hij al voluit.
+      intensity: windFocusIntensity(windTuning().intensity, windFocus()) * (1 + (mobile.intensityGain - 1) * (1 - windFocus())),
+      narrowLineFactor: mobile.narrowLineFactor,
+      seaPenalty: mobile.seaPenalty,
+      visibility: mapRendering() ? WIND_PARAMETERS.visibility * contextOpacity(focus(), FOCUS_DIM) : 0,
+      maxFps: userIdle() ? WIND_IDLE_FPS : WIND_MAX_FPS,
+    }
+  })
   const [mapReady, setMapReady] = createSignal(false)
   const [resetNotice, setResetNotice] = createSignal(false)
   let resetNoticeTimer: number | undefined
@@ -1072,7 +1084,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     window: viewWindow(),
     playback: playing() ? 1 : 0,
     scrubVelocity: scrubVelocity(),
-    fields: shownFields(),
+    fields: SHOWN_FIELDS,
   }))
   createEffect(() => {
     if (timeline().length) client.setIntent(intent())
@@ -1179,6 +1191,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     // Na een stijlwissel met vastgezette focus loopt het isolijn-effect niet vanzelf opnieuw.
     for (const set of isolineSets) if (set.active() && mapReady()) { void showIsolineField(set); void showIsolines(set) }
     void showFrame()
+    // Een stijlwissel zet de kleuren van het thema terug; de menging met de kaarttijd moet er opnieuw overheen.
+    const night = untrack(() => mapFollowsTime() ? basemapBlendApplied : undefined)
+    if (night !== undefined) applyBasemapBlend(night)
     if (mapReady()) {
       void showWind()
       void showTemperature()
@@ -1192,13 +1207,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const frame = mapFrameFromGrid(grid)
     map.addSource('motregen-grid-frame', { type: 'geojson', data: frame.mask })
     const dark = mapTheme() === 'dark'
+    const outside = GRID_OUTSIDE_PAINT[mapTheme()]
     map.addLayer({
       id: 'motregen-grid-outside',
       type: 'fill',
       source: 'motregen-grid-frame',
       paint: {
-        'fill-color': dark ? '#071319' : '#84969b',
-        'fill-opacity': dark ? 0.58 : 0.48,
+        'fill-color': outside.color,
+        'fill-opacity': outside.opacity,
       },
     })
     map.addLayer({
@@ -2478,7 +2494,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     batch(() => {
       setWindTuning({ ...DEFAULT_WIND_TUNING })
       setIsolineTuning({ ...DEFAULT_ISOLINE_TUNING })
-      setFrameSky(false)
+      setClockSkyTint(false)
+      setMobileWind('uit')
+      setMapFollowsTime(false)
       setFirstRainLate(false)
       focusMode.pin(DEFAULT_FOCUS_MODE)
       setFocusPinned(DEFAULT_FOCUS_MODE)
@@ -2619,22 +2637,30 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     windV: windVFrames(),
     gust: gustTimeline(),
   }, manifest() ? Date.parse(manifest()!.now) : 0), { memo: 'uurindeling' }))
-  let radiationRequest = 0
+  // De straling voedt de tabel (weericoon, UV-schatting) en de hemel achter de scrubber. Gelezen waarden
+  // blijven staan zolang locatie en tijdlijn dezelfde zijn: een uurstop van de hemel mag niet terugvallen
+  // op de wolkenlaagschatting omdat de tabel of het venster is doorgeschoven (U62).
+  let radiationRead: { point: object; frames: object; values: Array<number | null> } | undefined
   createEffect(() => {
     const point = location()
     const frames = radiationTimeline()
     const all = pointLoadStage() === 'complete'
     const now = manifestNow()
-    const indexes = forecast().flatMap((row) => {
-      if (row.kind === 'past' || (!all && !isPassiveRow(row, now)) || !tableRowShown(row)) return []
+    const rows = forecast()
+    // Krap apparaat: de hemel vraagt precies het venster dat de scrubber toont, wat de tabel ook toont.
+    const skyRows = new Set(inViewOnly && pointLoadsStarted() ? skyRadiationRows(rows, viewWindow()) : [])
+    const indexes = rows.flatMap((row) => {
+      const tableRow = row.kind !== 'past' && (all || isPassiveRow(row, now)) && tableRowShown(row)
+      if (!tableRow && !skyRows.has(row)) return []
       if (solarElevationSin(row.epoch, point.lng, point.lat) <= 0) return []
       return [row.radiationIndex, row.radiationNextIndex].filter((index): index is number => index != null)
     })
-    const request = ++radiationRequest
-    // De straling voedt alleen de tabel (weericoon, UV-schatting).
-    if (!indexes.length) return
-    void readPointSeries(frames, point, indexes, 'low', undefined, undefined, 'L0').then((values) => {
-      if (request === radiationRequest) setRadiationSeries(values)
+    if (radiationRead?.point !== point || radiationRead.frames !== frames) radiationRead = { point, frames, values: new Array<number | null>(frames.length).fill(null) }
+    const read = radiationRead
+    const missing = indexes.filter((index) => read.values[index] == null)
+    if (!missing.length) return
+    void readPointSeries(frames, point, missing, 'low', read.values, undefined, 'L0').then((values) => {
+      if (read === radiationRead) setRadiationSeries([...values])
     }).catch(() => undefined)
   })
   // Heldere-hemel-UV reist als eigen veld mee; net als de straling alleen de uurframes van de tabelrijen
@@ -2685,6 +2711,63 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       }
       return elevation
     }
+  })
+  // De klokpil kan (dev-variant) de hemel van het cursoruur aannemen, uit dezelfde bron als de dag/nacht-
+  // kleuring van de rijen (U42). De koppenrij van de tabel volgt haar eigen bovenste rij (U62).
+  const chromeSky = createMemo<HourSky | undefined>(() => {
+    if (!expressive() || !manifest()) return undefined
+    const point = location()
+    const daylight = isSunUp(cursorMinute(), point.lng, point.lat)
+    const hourEpoch = tablePreviewEpoch()
+    const row = daylight ? forecast().find((candidate) => candidate.epoch === hourEpoch) : undefined
+    const overcast = row ? hourDarkness(row, radiationSeries(), cloudSeries(), sunElevationAt()) : 0
+    return { daylight, overcast: Math.round(overcast * 100) / 100 }
+  }, undefined, { equals: (left, right) => left?.daylight === right?.daylight && left?.overcast === right?.overcast })
+  // Experiment (U62, ?dev): de basiskaart tweent van dag naar nacht met de kaarttijd, uit dezelfde zonnestand
+  // als de hemel. Eén stijl, de verschillende paint-kleuren gemengd; de overlays houden hun eigen kleuren,
+  // alleen de wind wisselt halverwege van thema omdat zijn streepjes anders wegvallen tegen de kaart.
+  const mapNight = createMemo(() => {
+    if (!mapFollowsTime()) return undefined
+    return Math.round(nightShare(sunElevationAt()(cursorMinute())) * MAP_NIGHT_STEPS) / MAP_NIGHT_STEPS
+  })
+  let basemapBlend: BlendTarget[] | undefined
+  let basemapBlendApplied: number | undefined
+  function applyBasemapBlend(night: number): void {
+    if (!map || !basemapBlend) return
+    for (const target of basemapBlend) {
+      if (map.getLayer(target.layer)) map.setPaintProperty(target.layer, target.property, blendedPaintValue(target, night))
+    }
+    if (map.getLayer('motregen-grid-outside')) {
+      const outside: BlendTarget[] = [
+        { layer: 'motregen-grid-outside', property: 'fill-color', light: GRID_OUTSIDE_PAINT.light.color, dark: GRID_OUTSIDE_PAINT.dark.color },
+        { layer: 'motregen-grid-outside', property: 'fill-opacity', light: GRID_OUTSIDE_PAINT.light.opacity, dark: GRID_OUTSIDE_PAINT.dark.opacity },
+      ]
+      for (const target of outside) map.setPaintProperty(target.layer, target.property, blendedPaintValue(target, night))
+    }
+    windLayer?.setTheme(night < 0.5 ? 'light' : 'dark')
+    basemapBlendApplied = night
+    mapElement.dataset.mapNight = night.toFixed(2)
+  }
+  createEffect(() => {
+    const night = mapNight()
+    const themeNight = mapTheme() === 'dark' ? 1 : 0
+    if (!mapReady()) return
+    if (night === undefined) {
+      // Uitgezet: terug naar de kleuren van het gekozen thema.
+      if (basemapBlendApplied !== undefined) {
+        applyBasemapBlend(themeNight)
+        windLayer?.setTheme(mapTheme())
+        basemapBlendApplied = undefined
+        delete mapElement.dataset.mapNight
+      }
+      return
+    }
+    if (basemapBlend) { applyBasemapBlend(night); return }
+    void Promise.all([loadBasemapStyle('light'), loadBasemapStyle('dark')]).then(([light, dark]) => {
+      basemapBlend = basemapBlendTargets(light, dark)
+      const current = untrack(mapNight)
+      if (current !== undefined) applyBasemapBlend(current)
+    }).catch(() => undefined)
   })
   const cloudTimelines = createMemo(() => Object.fromEntries(CLOUD_LAYERS.map((layer) =>
     [layer, manifest() ? buildTimeline(manifest()!, `cloud_${layer}`) : []])) as Record<CloudLayer, TimelineFrame[]>)
@@ -2791,39 +2874,93 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     scroller.scrollTo({ top, behavior })
     return true
   }
+  // De tabelpiep onder de kaart volgt de cursor met een eigen tween op scrollTop (U62). Een native
+  // `scrollTo({ behavior: 'smooth' })` doet in Firefox voor Android niets zolang er een vinger op het
+  // scherm ligt (PO 2026-10-08: de rij sprong bij slepen en tweende alleen bij afspelen en na een fling);
+  // met eigen frames zijn slepen, fling en afspelen per constructie gelijk.
   let tablePreviewFrame: number | undefined
   let tablePreviewPositioned = false
-  function queueTablePreview(epoch: number, behavior: ScrollBehavior): void {
+  let tableFollowFrame: number | undefined
+  // Doel-scrollTop per uurrij: één meting per tabel-layout, daarna leest volgen niets meer uit de layout.
+  let tableRowTops: Map<number, number> | undefined
+  function measureTableRowTops(scroller: HTMLElement): Map<number, number> | undefined {
+    const heading = forecastPanelElement.querySelector<HTMLElement>('thead')
+    if (!heading) return undefined
+    const scrollerTop = scroller.getBoundingClientRect().top
+    const headingHeight = heading.getBoundingClientRect().height
+    const tops = new Map<number, number>()
+    for (const row of forecastPanelElement.querySelectorAll<HTMLElement>('tr[data-epoch]')) {
+      tops.set(Number(row.dataset.epoch), scroller.scrollTop + row.getBoundingClientRect().top - scrollerTop - headingHeight)
+    }
+    return tops
+  }
+  function stopTableFollow(): void {
+    if (tableFollowFrame !== undefined) cancelAnimationFrame(tableFollowFrame)
+    tableFollowFrame = undefined
+  }
+  function followTableToEpoch(epoch: number, animate: boolean): boolean {
+    const scroller = forecastPanelElement.querySelector<HTMLElement>('.table-scroll')
+    if (!scroller) return false
+    tableRowTops ??= measureTableRowTops(scroller)
+    if (!tableRowTops?.size) return false
+    const nearestEpoch = tableRowTops.has(epoch) ? epoch : [...tableRowTops.keys()].reduce((nearest, candidate) =>
+      Math.abs(candidate - epoch) < Math.abs(nearest - epoch) ? candidate : nearest)
+    const target = tableRowTops.get(nearestEpoch)!
+    stopTableFollow()
+    const from = scroller.scrollTop
+    if (!animate || Math.abs(target - from) < 1) {
+      scroller.scrollTop = target
+      return true
+    }
+    const startedAt = performance.now()
+    const step = (time: number) => {
+      const progress = Math.min(1, Math.max(0, (time - startedAt) / TABLE_FOLLOW_MS))
+      scroller.scrollTop = from + (target - from) * (1 - (1 - progress) ** 3)
+      tableFollowFrame = progress < 1 ? requestAnimationFrame(step) : undefined
+    }
+    tableFollowFrame = requestAnimationFrame(step)
+    return true
+  }
+  function queueTablePreview(epoch: number, animate: boolean): void {
     if (tablePreviewFrame !== undefined) cancelAnimationFrame(tablePreviewFrame)
     tablePreviewFrame = requestAnimationFrame(() => {
       tablePreviewFrame = undefined
       if (!tableViewAvailable() || tableScrollOpen()) return
-      const positioned = scrollTableToEpoch(epoch, behavior)
+      const positioned = followTableToEpoch(epoch, animate)
       if (positioned) tablePreviewPositioned = true
     })
   }
   createEffect(() => {
     const epoch = tablePreviewEpoch()
     if (!tableViewAvailable() || tableScrollOpen()) return
-    queueTablePreview(epoch, tablePreviewPositioned && !reducedMotion.matches ? 'smooth' : 'auto')
+    queueTablePreview(epoch, tablePreviewPositioned && !reducedMotion.matches)
   })
   onMount(() => {
     const scroller = forecastPanelElement.querySelector<HTMLElement>('.table-scroll')
     const table = forecastPanelElement.querySelector<HTMLElement>('.forecast-table')
     if (!scroller || !table || typeof ResizeObserver === 'undefined') return
-    const correct = () => {
+    const reposition = (animate: boolean) => {
       if (!tableViewAvailable() || tableScrollOpen()) return
-      queueTablePreview(untrack(tablePreviewEpoch), 'auto')
+      queueTablePreview(untrack(tablePreviewEpoch), animate)
     }
-    const observer = new ResizeObserver(correct)
+    // Rijen die bijladen veranderen de tabelhoogte: opnieuw meten, en een lopende tween loopt door naar
+    // het nieuwe doel in plaats van te verspringen.
+    const resized = () => {
+      tableRowTops = undefined
+      reposition(tableFollowFrame !== undefined && !reducedMotion.matches)
+    }
+    // Onze eigen frames eindigen elk als scroll; alleen een scroll van buitenaf wordt rechtgezet.
+    const scrollEnded = () => { if (tableFollowFrame === undefined) reposition(false) }
+    const observer = new ResizeObserver(resized)
     observer.observe(scroller)
     observer.observe(table)
-    scroller.addEventListener('scrollend', correct, { passive: true })
+    scroller.addEventListener('scrollend', scrollEnded, { passive: true })
     onCleanup(() => {
       observer.disconnect()
-      scroller.removeEventListener('scrollend', correct)
+      scroller.removeEventListener('scrollend', scrollEnded)
     })
   })
+  onCleanup(stopTableFollow)
   onCleanup(() => { if (tablePreviewFrame !== undefined) cancelAnimationFrame(tablePreviewFrame) })
 
   function selectTableTime(epoch: number): void {
@@ -2887,8 +3024,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             onIsolineTuning={(patch) => setIsolineTuning((current) => ({ ...current, ...patch }))}
             firstRainLate={firstRainLate()}
             onFirstRainLate={(late) => { setFirstRainLate(late); localStorage.setItem(FIRST_RAIN_STORAGE_KEY, late ? 'laat' : 'vroeg') }}
-            frameSky={frameSky()}
-            onFrameSky={(enabled) => { setFrameSky(enabled); localStorage.setItem(FRAME_SKY_STORAGE_KEY, enabled ? 'aan' : 'uit') }}
+            mobileWind={mobileWind()}
+            onMobileWind={(level) => { setMobileWind(level); localStorage.setItem(MOBILE_WIND_STORAGE_KEY, level) }}
+            mapFollowsTime={mapFollowsTime()}
+            onMapFollowsTime={(enabled) => { setMapFollowsTime(enabled); localStorage.setItem(MAP_FOLLOWS_TIME_STORAGE_KEY, enabled ? 'aan' : 'uit') }}
+            clockSkyTint={clockSkyTint()}
+            onClockSkyTint={(enabled) => { setClockSkyTint(enabled); localStorage.setItem(CLOCK_SKY_TINT_STORAGE_KEY, enabled ? 'mee-tinten' : 'wit') }}
             windTuning={windTuning()}
             onWindTuning={tuneWind}
             perfVisible={perfVisible()}
@@ -2904,7 +3045,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         </Show>
         <Freshness open={freshnessOpen()} mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness} onShare={shareCurrentState} shareNotice={shareNotice()}
           paused={!playing()} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
-          timeline={timeline()} cursor={cursor()} onCursor={clockScrub} />
+          timeline={timeline()} cursor={cursor()} onCursor={clockScrub} sky={clockSkyTint() ? chromeSky() : undefined} />
       </Show>
     </section>
     <Show when={!stillMode}>
@@ -2931,7 +3072,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           sky={{ radiation: { timeline: radiationTimeline(), values: radiationSeries() }, sinElevation: sunElevationAt() }}
           wind={{ timeline: windUFrames(), speed: windSpeedSeries(), gustTimeline: gustTimeline(), gust: gustSeries(), unit: windUnit() }}
           expressive={expressive()}
-          frameSky={frameSky()}
           mix={{ wind: windFocus(), air: airFocus(), temperature: focus() }}
           temperature={{ timeline: feelsLikeTimeline(), values: feelsLikeSeries(), airTimeline: tempTimeline(), air: temperatureSeries(), stops: temperatureRange() && paletteStops(temperatureRange()!) }}
         />

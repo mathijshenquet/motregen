@@ -1,0 +1,70 @@
+{
+ "label": "lock-geenlaag-2",
+ "profile": "po-android",
+ "loadAtStart": 6.28,
+ "loadAtEnd": 10.02,
+ "variantCss": ".chart-track { will-change: auto; }",
+ "frames": 843,
+ "frameP95Ms": 17,
+ "frameMaxMs": 133,
+ "longFrames": 1,
+ "longFrameTotalMs": 145,
+ "perFrameMs": {
+  "RunTask": 10.63,
+  "FunctionCall": 1.97,
+  "UpdateLayoutTree": 0.28,
+  "PrePaint": 0.12,
+  "Layerize": 1.94,
+  "Commit": 0.44,
+  "Layout": 0.13,
+  "Paint": 0.45,
+  "RasterTask": 0.18
+ },
+ "totals": {
+  "RunTask": {
+   "count": 26664,
+   "totalMs": 8962,
+   "maxMs": 109.8
+  },
+  "FunctionCall": {
+   "count": 5842,
+   "totalMs": 1660,
+   "maxMs": 68.4
+  },
+  "UpdateLayoutTree": {
+   "count": 682,
+   "totalMs": 233,
+   "maxMs": 12.4
+  },
+  "PrePaint": {
+   "count": 643,
+   "totalMs": 98,
+   "maxMs": 10.3
+  },
+  "Layerize": {
+   "count": 604,
+   "totalMs": 1632,
+   "maxMs": 24.5
+  },
+  "Commit": {
+   "count": 639,
+   "totalMs": 368,
+   "maxMs": 9.9
+  },
+  "Layout": {
+   "count": 196,
+   "totalMs": 108,
+   "maxMs": 14.1
+  },
+  "Paint": {
+   "count": 1188,
+   "totalMs": 381,
+   "maxMs": 9.2
+  },
+  "RasterTask": {
+   "count": 549,
+   "totalMs": 150,
+   "maxMs": 10
+  }
+ }
+}
