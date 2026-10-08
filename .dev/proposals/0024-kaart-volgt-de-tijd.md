@@ -1,6 +1,6 @@
 # MIP-24 — Kaart volgt de tijd: dag/nacht als tween i.p.v. als stand
 
-Status: draft · 2026-10-08 · aanzet PO ("kan de kaart ook tweenen van dag naar nacht? dan hebben we
+Status: accepted (PO 2026-10-08 11:20) · 2026-10-08 · aanzet PO ("kan de kaart ook tweenen van dag naar nacht? dan hebben we
 niet echt meer een dag- en nachtmodus; moet nadenken hoe we dat coherent terughalen")
 
 ## Waarom
@@ -27,4 +27,7 @@ crossfaden (geheugen/parse op mobiel). Regen- en windlagen ongewijzigd; labelcon
 tussenstand. Experiment via U62 achter `?dev` (meting frametijd/geheugen op po-android rond zonsondergang).
 
 ## Decision
-(open — PO denkt na; experiment loopt)
+PO 2026-10-08 (laptop, na het ?dev-experiment van U62): **de kaart gaat mee onder Expressief** — de
+dag/nacht-tween is de default zolang Expressief aan staat; Expressief uit houdt het vaste thema (licht/
+donker, systeemvoorkeur). Daarbij tinten ook de klokpil, de zoekbalk en het druppelmenu mee met het
+cursoruur. Eén nuance open: een subtiele scheiding tussen kaart en zijpaneel (voorstel U62, twee varianten).
