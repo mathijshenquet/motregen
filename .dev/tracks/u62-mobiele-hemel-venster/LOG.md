@@ -762,3 +762,8 @@ paneel top/hoogte 0/925,2 · tekort 0 · tabel open.
   toestel anders uitpakt.
 - Gate (web/): typecheck 0 · `pnpm test` 0 (527) · build 0 · `--project firefox` 0 (5 groen) · `table dev-panel
   cloud-section sky-window` op desktop én mobile-4g 0 (22 groen, 4 overgeslagen).
+
+## Correctie op de vorige entry
+`adresbalk/ronde4-na-correctie-firefox.png` bestaat niet: de testmap was al overschreven door de volgende run
+toen ik het beeld wilde kopiëren. Het enige beeld van ronde 4 is `ronde4-vangnetstrook.png`. 4320 herbouwd en
+herstart op 0c134e1 (hoofdbundel en stylesheet bevatten `table-covers-viewport`, nagelopen over HTTP).
