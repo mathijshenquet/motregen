@@ -231,6 +231,12 @@
   op de VM gestopt + runtime-mask; lokale bot vanaf main (nice 15) tegen 4330 pollt weer (bot-started,
   generatie 13:17Z). U67 gestart (gpt-6.1-sol, w1Z): renderer los van de poller, MIP-25 optie 1. Later:
   renderwerk goedkoper maken zodat de VM het zelf kan (PO: optimalisatiepass).
+- **U67 gemerged** (5f511116, 17:20; 35 min werk, gpt-6.1-sol): bot-rollen renderer/poller/combined,
+  register = vastgepind JSON-document in de cachegroep (atomair per generatie, gevalideerd, lokaal
+  bewaard), nix-rol met flake-check die de poller-closure Chromium-/ffmpeg-vrij bewijst; prod =
+  poller (CPUQuota 25 %, MemoryMax 256 M). Gate: 84 bot-tests, typecheck, build, flake. Uitrol: lokale
+  combined-bot gestopt, renderer vanaf main op ageq-dev2 tegen motregen.nl gestart; VM-deploy naar
+  poller volgt zodra het eerste register staat.
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
