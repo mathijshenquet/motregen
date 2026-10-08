@@ -496,3 +496,29 @@ b1a706752174bbd7f1cb2453ce3a740929d73775	refs/pull/91/head
 - Native capture controleert aanwezigheid van de plaatsen-asset en start strikt ná ttfp; start-waterfall toont de aanvraag. Iedere nieuwe native run krijgt browserPerRun=true in metadata. U65-productlogica behouden, geen vervroegde catalogusfetch toegevoegd.
 - Merge-typecheck synchroon exit 0. Unitrapport 76 bestanden / 509 geslaagd; gerichte desktop-e2e basemap-cache/location/seo/table nog lopend, dus hele runnerreceipt pending. Ongewijzigde nieuwe main-referentiebuild/gzip op ec3ca02 synchroon exit 0; alleen meetinstrumentatie overgenomen in de detached referentieworktree.
 - Nieuwe baseline zal desktop-koud-spelend-own-u65.json heten. Reden: U62/Kaderhemel plus U65's plaatsenlijst na ttfp, en herhalingen nu elk in een eigen browserproces. De nooit gemeten U62-vervolgbaseline wordt niet aangemaakt; oorspronkelijke pre-U62-baseline blijft bewaard. Nieuwe referentie/kandidaatbuilds volgen, shaderwinst blijft hypothese.
+
+## 2026-10-08 10:03 UTC — U65-builds en functionele gates groen; timing wacht buiten lock
+
+- Merge 86b9753 push synchroon exit 0; remote 86b9753766b8b73a749e365a85ca9209f14f84f5 bevestigd. PR 91 bijgewerkt met U65, lockprotocol, actuele verificatie en pending timing.
+- U65-merge runner synchroon exit 0: 509 unit-tests en cd web && MOTREGEN_E2E_PORT=4365 MOTREGEN_E2E_DATA_PORT=8365 pnpm e2e e2e/basemap-cache.spec.ts e2e/location.spec.ts e2e/seo.spec.ts e2e/table.spec.ts --project desktop. 21 geslaagd, twee mobiel-only overgeslagen; geprikte plaats/padherladen, warme kaart en lazy tabel behouden.
+- Drie bevroren U65-native builds/gzip synchroon exit 0: main ec3ca02 424.978 B gzip entry; U64 vóór shaderbatch 411.280 B; U64 met shaderbatch 411.362 B. Voor de middelste build alleen de twee shaderimplementaties tijdelijk door main-versies vervangen; daarna eigen bronbestanden hersteld en git diff --exit-code daarvoor exit 0. Geen andere productvariatie tussen de twee kandidaten.
+- Tweede geïsoleerde lockcheck synchroon exit 0: tijdens daadwerkelijk loadwachten in de wrapper kon een andere aanroep dezelfde lokale testlock niet-blokkerend nemen; testproces daarna met receipt 143 opgeruimd. Geen hostmeting of perf-resultaat; test gebruikt een eigen tijdelijke lock en loadmock.
+- Enige lange eigen runner: bash tmp/u64/u65-measurements.sh. Eerst CPU-diagnose, dan native koud ×3 per variant, warm ×3 referentie/kandidaat, LH per build, main-gate-baseline en compare. Geen buitenste batchlock. Huidige hostload ~20–28; eerste node perf-quiet wacht zonder perf-lock. Geen loadgrens veranderd, nog geen nieuwe timing geclaimd.
+
+## 2026-10-08 10:07 UTC — Early Hints-meetcontract onderzocht
+
+- Officiële bronnen geraadpleegd: Caddy respond ondersteunt 103 met voortzetting van de handlerketen (https://caddyserver.com/docs/caddyfile/directives/respond); Chromium negeert 103 via HTTP/1.1 (https://chromium.googlesource.com/chromium/src/+/master/docs/early-hints.md); Chrome beschrijft vertrouwd HTTPS en ingeschakelde HTTP-cache voor preload (https://developer.chrome.com/docs/web-platform/early-hints). Huidige rig: HTTP/1.1 in native Resource Timing, cache expliciet uit. Een Caddy-header toevoegen aan deze rig zou geen valide 103-benchmark opleveren.
+- Productieconfig toont no-store voor /data/manifest.json?s=1. 103-preload gebruikt cache en kan bij no-store dubbel ophalen: ook dubbele sessietelling. Geen manifest-103 toegevoegd. Huidige HTML-fetch deelt exact één response, glyphpreload blijft aan. Aanvullende font/asset-103 blijft als HTTPS/HTTP2-proef op de lijst; geen gemeten winst gefabriceerd of productieconfig aangepast.
+- Eerste U65-capture blijft buiten de lock op load wachten; geen eigen Chromium gestart. Nieuwe ttfr/ttfp en LH-subscores pending.
+
+## 2026-10-08 10:09:36 UTC — aanvullende lockcheck en rapportvolgorde
+
+- Geïsoleerde child-codecheck synchroon exit 0: busy-code 76 van een reeds begonnen capture keert meteen terug; geen tweede poging onder dezelfde held-lock. Slot-bezet-code 75 blijft daarvan onderscheiden. Overige geïsoleerde lockchecks op de bijgewerkte wrapper opnieuw synchroon exit 0, inclusief echte loadwachttijd zonder lock en opruimreceipt 143.
+- CLI-samenvatting toont nu ttfr en ttfp als eerste metrieken, conform PO-prioriteit; geen schema/gate/budgetwijziging. Native rawcapture-gebruikhulp verwijst voor herhalingen naar desktop-rig.sh. U65-referentie-CLI krijgt dezelfde rapportvolgorde.
+- Koppen bij 10:00/10:03/10:07 waren handmatig afgerond (acties respectievelijk ~09:59/~10:02/~10:06); nieuwe koppen gebruiken rechtstreeks UTC-clock. Geen historische entries gewijzigd.
+
+## 2026-10-08 10:14:19 UTC — WIP-checkpoint op cadans, metingen nog pending
+
+- Laatste rapportwijziging typecheck synchroon exit 0. CLI zet ttfr/ttfp vooraan; native capture-/gatecontracten en drempels gelijk. U65-builds en 509 units / 21 desktop-e2e zijn reeds groen; geen onnodige volledige suite herhaald.
+- Nieuwe tijden/LH/U65-baseline nog pending. Eén eigen runner 554213, node perf-quiet wacht vóór flock. Hostload varieert ~11–45. Zware Chrome-processen 245236/245255 hebben cwd /home/mathijs/motregen, niet deze worktree; geen andermans processen beëindigd. Lockdiscipline geverifieerd, geen eigen browser actief of lock gehouden tijdens loadwachten.
+- WIP nu commit/push, ook zonder timingreceipt. Volgende stap blijft CPU-diagnose plus referentie/kandidaat koud/warm zodra load ≤8, vervolgens Lighthouse en geldige main-baseline/compare. Shaderproef blijft ongemeten hypothese.

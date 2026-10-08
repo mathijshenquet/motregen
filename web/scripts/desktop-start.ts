@@ -6,7 +6,7 @@ import { placesUrl } from '../src/core/places-asset'
 import { MAX_LOAD_AVERAGE, hostLoadAverage } from './rig-host'
 
 const [origin, output, ...flags] = process.argv.slice(2)
-if (!origin || !output) throw new Error('Gebruik: scripts/e2e-slot.sh pnpm exec tsx scripts/desktop-start.ts ORIGIN UITVOERPREFIX [--warm] [--repeat=3] [--query=...]')
+if (!origin || !output) throw new Error('Gebruik: desktop-start.ts ORIGIN UITVOERPREFIX [--warm] [--run=1] [--query=...]; herhalingen via desktop-rig.sh')
 const repeat = Number(flags.find((flag) => flag.startsWith('--repeat='))?.split('=')[1] ?? 1)
 const runNumber = Number(flags.find((flag) => flag.startsWith('--run='))?.split('=')[1] ?? 1)
 const query = flags.find((flag) => flag.startsWith('--query='))?.slice('--query='.length) ?? 'perf=1'

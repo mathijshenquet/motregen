@@ -7,23 +7,28 @@ synthetische data; drie runs per variant. Koud: verse context, HTTP-cache uit,
 SW geblokkeerd. Het browserproces wordt binnen een reeks gedeeld; de eerste
 run bevat extra browser/GPU-initialisatie. Geen MacBook-benchmark.
 
-## Vervolg na U62/Kaderhemel
+## Vervolg na U62/Kaderhemel en U65
 
-Main `43b92d6`, inclusief U62 `8d75754f` en U66, is samengevoegd. Kaderhemel
-staat nu altijd aan en de tabel/scrubber hebben andere hemelverwerking.
+Main `ec3ca02`, inclusief U62 `8d75754f`, U65 `0fb247ec` en U66, is
+samengevoegd. Kaderhemel staat nu altijd aan en de tabel/scrubber hebben
+andere hemelverwerking. U65 haalt de volledige plaatsenlijst pas ná ttfp.
 De onderstaande oudere U57-tijden blijven historisch; nieuwe timingwinst
 wordt tegen dezelfde U62-startsituatie gemeten.
 
-De nieuwe, ongewijzigde main-referentie heeft 422.475 B gzip hoofd-JS;
-U64 na merge, vóór shaderbatching: 409.063 B. Bevroren builds gebruiken
+De nieuwe, ongewijzigde main-referentie heeft 424.978 B gzip hoofd-JS;
+U64 na merge, vóór shaderbatching: 411.280 B; met shaderbatching: 411.362 B.
+De eerdere U62-builds (422.475 / 409.063 B) zijn niet gemeten vóór U65.
+Bevroren builds gebruiken
 dezelfde fixture en native-desktopcapture. Koud ×3, warm ×3 en Lighthouse
 staan nog in de meetwachtrij. Er zijn nog geen nieuwe ttfr/ttfp-subscores.
 
 Na de lockinstructie van 09:40 wacht elke run buiten de lock op load ≤8.
 Elke herhaling krijgt een eigen lockperiode en browserproces; na verkrijgen
 wordt de load opnieuw gecontroleerd. Bij drukte wordt de lock vrijgegeven.
-De nieuwe U62-referentie en kandidaten gebruiken beide deze methode;
+De nieuwe U65-referentie en kandidaten gebruiken beide deze methode;
 oude reeksen met een gedeeld browserproces zijn geen directe vergelijking.
+Elke native capture eist een plaatsenaanvraag ná ttfp en vermeldt die in
+de waterval; een ontbrekende of te vroege aanvraag maakt de capture ongeldig.
 
 De shaderkandidaat start alle vier windprogramma's vóór de eerste linkquery
 en vraagt geen tussentijdse compile-status van regen-/windshaders.
@@ -34,10 +39,13 @@ zonder de extensie te vereisen. Verwachte winst is minder geserialiseerd
 GPU-wachten; omvang en invloed op ttfr/ttfp/LoAF zijn nog ongemeten.
 
 De nieuwe gate-baseline wordt uit drie ongewijzigde main-runs geschreven
-naar `desktop-koud-spelend-own-u62.json`. Reden: de gewijzigde U62-
-startsituatie met Kaderhemel, niet een verruimd perf-budget. De originele
+naar `desktop-koud-spelend-own-u65.json`. Reden: U62/Kaderhemel, U65's
+plaatsenaanvraag na ttfp en aparte browserprocessen per herhaling,
+niet een verruimd perf-budget. De originele
 pre-U62-baseline blijft bewaard. Mergechecks: typecheck, 497 unittests,
 build en 23 gerichte desktop-e2e geslaagd (twee mobiel-only overgeslagen).
+Na U65 zijn typecheck, 509 unittests, beide kandidaatbuilds en 21 gerichte
+desktop-e2e geslaagd (twee mobiel-only overgeslagen).
 
 ## Starttijden
 
@@ -133,6 +141,19 @@ de geïnstalleerde 5.24.0-main zou ~27,6 kB gzip kleiner worden, maar de
 aparte worker kost ~124,3 kB gzip en een extra aanvraag. Minder entrybytes
 alleen rechtvaardigen dat niet voor een snellere eerste regenframe. Warm
 blijft een aparte cachemeting; de bestaande SW vermijdt al kaartnetwerk.
+
+Voor aanvullende 103 is eerst een passend meetcontract nodig. De huidige
+rig gebruikt HTTP/1.1 en schakelt HTTP-cache uit. Chromium negeert
+[Early Hints via HTTP/1.1](https://chromium.googlesource.com/chromium/src/+/master/docs/early-hints.md);
+Chrome noemt voor de preloadmeting een vertrouwd HTTPS-certificaat en
+[ingeschakelde cache](https://developer.chrome.com/docs/web-platform/early-hints).
+Caddy kan met [respond 103](https://caddyserver.com/docs/caddyfile/directives/respond)
+wel een voorlopige response sturen, maar dat alleen bewijst geen browserwinst.
+Het productie-sessiemanifest heeft `Cache-Control: no-store` en is geen
+geschikte cachepreload: dubbel ophalen kan ook de sessieteller verdubbelen.
+HTML start die fetch eenmaal en deelt de response. Een vervolgproef richt
+zich op cachebare fonts/assets via HTTPS/HTTP2, met dezelfde cachecondities
+voor referentie en kandidaat; geen ongefundeerde 103-winst of productiehint.
 
 ## Kaartvoorstel
 
