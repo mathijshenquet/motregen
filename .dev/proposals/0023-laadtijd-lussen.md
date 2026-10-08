@@ -33,3 +33,18 @@ Metrics: desktop rig koud/warm (ttfr, ttfp, LCP), waterval per iteratie, MacBook
 
 ## Decision
 (open — in uitvoering op PO-akkoord in chat)
+
+## Aanvulling (PO 2026-10-08 13:30): warm is een volwaardig scenario
+Beide lussen meten en optimaliseren naast koud ook WARM (tweede bezoek in een nieuwe pagina-context met
+gevulde HTTP- en SW-cache, geen in-memory staat), en rapporteren koud en warm altijd samen. Aanleiding:
+de laatste rig-cijfers (docs/perf.md) tonen desktop warm ttfr 1,43 s tegen koud 1,20 s en mobile-4g
+warm 2,95 s; warm hoort duidelijk onder koud én onder Buienradar warm te liggen. Eerste stap in beide
+lussen: uitzoeken wat warm nog over het netwerk of de hoofddraad gaat dat niet hoeft (SW-revalidatie,
+manifest, shadercompilatie in een verse context, PMTiles-header, plaatsenlijst).
+
+## Aanvulling (PO 2026-10-08 16:40): z4-placeholder op de hoofdlijn
+PO: "ik zou die low-quality tiles gewoon even proberen, zeker als het zo'n heftige verbetering geeft" —
+de z4-tegels als progressieve eerste trap (eerste kaartbeeld 1,7 s eerder op po-android, koud én warm)
+gaan op de hoofdlijn van U63; een rest-straf op ttfp (gemeten +0,3 s in de ingelijnde uitvoering) is
+aanvaard, maar U63 maakt hem eerst zo kostenneutraal mogelijk. Beeld-eis: de z4-laag krijgt dezelfde
+kleuren/schaduw als de echte kaart (de "wonky" shading uit de proef wordt gecorrigeerd), crossfade ≤ 300 ms.

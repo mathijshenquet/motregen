@@ -74,15 +74,12 @@ export const WIND_PARAMETERS: WindParameters = {
 }
 
 /**
- * Windstreepjes op mobiel, twee proefniveaus achter ?dev (U62, PO: te subtiel, vooral boven zee). Alleen
- * breedte, sterkte en de zee-demping; het aantal streepjes blijft gelijk, dus het tekenwerk ook.
+ * Windstreepjes op een telefoon of smal scherm (U62). De PO vond ze daar te subtiel, vooral boven zee, en
+ * koos uit drie beproefde niveaus het middelste, "iets" (2026-10-08); het zwaardere was 1,5× sterkte,
+ * lijnfactor 0,84, zee-demping 0,08. Alleen breedte, sterkte en zee-demping; het aantal streepjes en dus
+ * het tekenwerk is gelijk.
  */
-export type MobileWindLevel = 'uit' | 'iets' | 'meer'
-export const MOBILE_WIND_LEVELS: Record<MobileWindLevel, { intensityGain: number; narrowLineFactor: number; seaPenalty: number }> = {
-  uit: { intensityGain: 1, narrowLineFactor: WIND_PARAMETERS.narrowLineFactor, seaPenalty: WIND_PARAMETERS.seaPenalty },
-  iets: { intensityGain: 1.25, narrowLineFactor: 0.72, seaPenalty: 0.2 },
-  meer: { intensityGain: 1.5, narrowLineFactor: 0.84, seaPenalty: 0.08 },
-}
+export const MOBILE_WIND = { intensityGain: 1.25, narrowLineFactor: 0.72, seaPenalty: 0.2 } as const
 
 export type WindTuning = Pick<WindParameters, 'particlesPerMegapixel' | 'intensity' | 'lineWidth' | 'speed'>
 

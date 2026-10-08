@@ -201,6 +201,54 @@
   (MIP-24 accepted); wind "iets" op mobiel; koppen tweenen alleen bij de zon-op/onder-rij; rand
   kaart/zijpaneel: A (1 px hemelkleur) geadviseerd, PO beslist. Perf-lock-discipline: wachten op load
   BUITEN de flock (U63 hield hem > 1 u).
+- **Sessie-herstart 14:55** (PO). Stand: U62 live-pane (w1K, opus-5.5, 4320) heeft op zijn branch ONGEMERGED:
+  klokpil/zoekbalk/druppel tinten mee, kaart-tween onder Expressief (kostenmeting nog open), wind "iets",
+  koppen wisselen bij de zon-rij, lijnensysteem dag/nacht (94037cc), rand-schakelaar oud/geen/A/B (PO kiest
+  nog; B "clean", lijnen te hard → opgelost door lijnensysteem), splash-sluierproef (d7e8fbc, PO: "werkt niet",
+  knop mag weg). U63 (w1M) en U64 (w1N), gpt-6.1-sol: warm = volwaardig scenario (MIP-23-aanvulling),
+  gepaarde A/B tot load 16, absolute baselines ≤ 8; U63 kreeg "waarom duurt de kaart 2 s ná de bytes" +
+  uitgeklede-stijl-eerste-paint + z4-placeholder gepaard als opdracht; U64: shaderbatch gepaard ttfp −14 %
+  maar ttfr +7 % (nee), vroege WebGL-worker in proef. Lokale tg-bot (nice 15) rendert loops; PO zet de
+  prod-tg-bot aan (commando in chat, secrets via ssh); daarna lokale bot stoppen bij 409. Achtergrond-
+  shells van deze sessie (preview 4330, prof-sink 4331, bot, watchers) vervallen bij herstart: 4330 en de
+  bot opnieuw starten vanuit main; hydra-soak staat uit.
+- **tg-bot op prod** (15:05): sleutel van ageq-dev2 via ageq-mthq (mthq-sleutel) op root@57.129.47.17 gezet
+  én in `nix/authorized-keys.nix` (1c3ef810); `TG_BOT_KEY` + `MOTREGEN_CACHE_CHAT_ID` uit de lokale .env
+  in prod `secrets.env`; `motregen-bot` actief, `bot-started`, eerste drie loops renderen (VM: 2 kernen,
+  3,8 GB, Chromium ~150 %). Lokale bot gestopt; 4330 + prof-sink 4331 opnieuw gestart na de sessie-
+  herstart. Orkestrator mag prod nu zelf muteren (PO 2026-10-08).
+- **Prod-upgrade naar main gestart** (15:25, flake check groen; brengt U66-loops, U62 deel 1, U65, U57,
+  U61, nieuwe sleutel). Ontdekt: prod-bot draaide de oude 49-frameloop: 231 s renderen op 2 kernen → met
+  169 frames ≈ 40 min per generatie, VM rendert fulltime (PO: "gaat die vm nu fulltime webpagina's
+  renderen 😆"). Runtime-rem gezet (CPUQuota 150 %, CPUWeight 20, MemoryMax 1,5 GB); MIP-25 (draft):
+  renderer los van de poller (render-only op ageq-dev2 → cache-groep) met loops-elke-15-min als overbrugging.
+- **Prod op main (gen. 14 + nix-rem)**, 16:00: eerste 169-frameloop op de VM = 705 s renderen (weer), dus
+  ≈ 40 min per generatie zoals MIP-25 voorspelde; web blijft 0,11–0,14 s. Bot-geheugenpiek 1,9 GB + 0,5 GB
+  swap → MemoryMax 2,6 GB (runtime + nix, 18937b4c). U63: warm op po-android ≈ koud (ttfr 3,8 s, ttfp
+  1,9 s) → CPU-gebonden, lus herricht op werk-vermindering; z4-placeholder: eerste kaart 1,7 s eerder
+  maar ttfp +0,3 s → PO-smaakkeuze, proef bewaard, screenshot naar PO. U62: splash-proef weg (10698d7).
+- **Loops 40 min achter op prod → bot terug naar ageq-dev2** (16:25, PO "ja doe dat maar"): `motregen-bot`
+  op de VM gestopt + runtime-mask; lokale bot vanaf main (nice 15) tegen 4330 pollt weer (bot-started,
+  generatie 13:17Z). U67 gestart (gpt-6.1-sol, w1Z): renderer los van de poller, MIP-25 optie 1. Later:
+  renderwerk goedkoper maken zodat de VM het zelf kan (PO: optimalisatiepass).
+- **U67 gemerged** (5f511116, 17:20; 35 min werk, gpt-6.1-sol): bot-rollen renderer/poller/combined,
+  register = vastgepind JSON-document in de cachegroep (atomair per generatie, gevalideerd, lokaal
+  bewaard), nix-rol met flake-check die de poller-closure Chromium-/ffmpeg-vrij bewijst; prod =
+  poller (CPUQuota 25 %, MemoryMax 256 M). Gate: 84 bot-tests, typecheck, build, flake. Uitrol: lokale
+  combined-bot gestopt, renderer vanaf main op ageq-dev2 tegen motregen.nl gestart; VM-deploy naar
+  poller volgt zodra het eerste register staat.
+- **Bot-rollen live** (17:45): renderer op ageq-dev2 (main, nice 15, tegen motregen.nl): generatie 13:57Z
+  = 173 media, render 53 s + prime 127 s = 179 s (budget 210 s, krap); register gepind. VM gedeployed
+  naar poller-rol (`bot-started role=poller`, `register-refreshed 13:57Z`), runtime-overrides verwijderd
+  zodat nix-grenzen gelden; web 0,16 s. U67-workspace gesloten. Renderer draait als achtergrondshell van
+  deze sessie (log `~/motregen-telegram-cache/renderer-main.log`) — bij sessie-herstart opnieuw starten
+  of als user-unit (open: nix-renderer-unit op ageq-dev2).
+- **U62 deel 2 gemerged** (768d0761, 19:05): klokpil/zoekbalk/druppel tinten mee, kaart volgt de tijd onder
+  Expressief (MIP-24; 4 mengstappen, 1/s: gemeten kostenvrij, p95 16,8 ms), wind "iets", koppen wisselen bij
+  de zon-rij, één lijnensysteem dag/nacht (contrast ~1,3/1,6), rand-schakelaar oud/geen/A/B achter ?dev
+  (PO kiest nog; B "clean"), splash-proef verwijderd. Gate 506 unit, 23+10 e2e, build; 4330 herbouwd.
+  U62 nu op: regen-blending in Wind/Lucht (PO-screenshots in zijn trackmap, ?dev-varianten). U63: z4 op
+  de hoofdlijn, preview 4340 voor de PO-telefoon. U64: shaders-van-hoofddraad −17 % ttfr gepaard, LH-paren.
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix

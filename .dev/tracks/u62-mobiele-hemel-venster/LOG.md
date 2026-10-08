@@ -324,3 +324,257 @@ kosten vulwerk op de GPU dat hier niet zichtbaar wordt. De PO-telefoon is de ech
   erbij. Daarna `freshness.spec --project mobile-4g` → 0 (4 groen) en `--project desktop` → zie commit.
 - Productvraag voor de PO/orkestrator (niet aangepast): wie het paneel sluit en binnen de sluitanimatie
   herlaadt, krijgt het paneel terug. Klein, maar het is gedrag van U57.
+
+## 19:30 — deel 1 op main (8d75754f); branch bijgetrokken naar main (43b92d6, fast-forward)
+- typecheck 0 · `pnpm test` 0 (494) · build 0 op de bijgetrokken boom; preview 4320 herstart als losgekoppeld
+  proces op de normale build (`/`, `/weer`, `/weer?dev` → 200).
+- Live-pane blijft open voor de PO-keuzes: klokpil (wit/mee-tinten), windniveau (uit/iets/meer),
+  kaart-tween (MIP-24).
+- Nog open VOOR AGENT: kostenmeting van de kaart-tween (`rig/run-map-night.sh`, onder de perf-lock) heeft
+  nog niet gedraaid: de host staat sinds de start op loadavg 10–37, de runner wacht op < 7 en schrijft
+  naar `web/tmp/u62/map-night-run.log`. Zonder die cijfers is "wat het kost" voor MIP-24 onbekend.
+
+## 2026-10-08 avond — PO-keuzes vastgezet (klokpil/zoekbalk/druppel, kaart-tween, wind "iets")
+- (1) Klokpil = mee-tinten, en de zoekbalk (dichte pil én open veld met resultaten) en de merkdruppel
+  doen hetzelfde: klassen `sky-day`/`sky-night` + `--day-overcast` op `.map-shell` uit `chromeSky`
+  (cursoruur); de CSS zet het palet alleen op `.map-clock`, `.search` en `.map-brand`, dus dialogen
+  (dataversheid, Over) houden het app-thema. Dev-knop Klokpil + sleutel `dev-klokpil` weg.
+- (2) Kaart volgt de kaarttijd zolang Expressief aan staat (`mapFollowsTime = expressive && !stillMode`);
+  Expressief uit → vast licht/donker zoals voorheen. Dev-knop Kaart + sleutel `dev-kaart-automatisch` weg.
+  Eigen keuze, niet gevraagd: stills (Telegram, `?still=1`) houden het vaste thema en de ongetinte klok,
+  anders veranderen de botbeelden 's nachts ongemerkt. Zeg het als de PO dat anders wil.
+- (4) Wind mobiel: de PO koos "iets" → `MOBILE_WIND` (sterkte ×1,25, lijnfactor 0,72, zee-demping 0,2) vast
+  bij `(pointer: coarse)` of breedte < 500 px; knop + sleutel `dev-wind-mobiel` weg. (Ik had eerst zelf
+  dit niveau gekozen op een verkeerd doorgegeven "kies zelf"; de waarden zijn dezelfde.)
+- docs/dev-opties.md bijgewerkt (drie knoppen naar "Weggesnoeid", oude sleutels genoemd bij reset).
+- Eigen beelden bekeken (`po-keuzes/`, `rig/map-chrome.ts`): klok/zoek/druppel dag (13:00), schemer (19:10)
+  en nacht (23:00), 390 px en desktop, licht en donker app-thema, zoekbalk dicht en open.
+- Contrast gemeten (slechtste pixel achter de tekst, 12 scènes): klokpil 6,39–11,79 · zoekresultaat
+  11,12–11,86 · detailtekst in de resultaten 4,93–6,26. Het invoerveld zelf is niet apart gemeten (de
+  tekst van een `<input>` laat zich niet verbergen voor de ondergrondmeting); het gebruikt dezelfde inkt
+  en ondergrond als de resultaatrijen.
+- Gate (web/): typecheck 0 · `pnpm test` 0 (73 bestanden, 494 tests) · build 0 · desktop `dev-panel
+  freshness location cloud-section sky-window table presets telegram` 0 (32 groen, 2 overgeslagen) en na de
+  windwijziging `dev-panel focus` 0 (10 groen, 2 overgeslagen) · mobile-4g `freshness location table
+  sky-window cloud-section focus` 0 (17 groen, 11 overgeslagen).
+- NOG OPEN: (2b) kostenmeting kaart-tween onder de perf-lock; (3) voorstel rand tussen kaart en zijpaneel.
+
+## PO-keuzes gecommit en gepusht (15cf73c)
+
+## Voorstel (3): rand tussen kaart en zijpaneel op desktop — NIETS vastgezet, wacht op PO-akkoord
+`rig/border-proposal.ts` spuit de varianten als CSS in; het product is ongewijzigd. Beelden in
+`voorstel-rand/` (1280 px; per beeld links nu, midden A, rechts B, gescheiden door een magenta streep):
+`rand-dag-overzicht.png`, `rand-dag-naad.png` (3× vergroot), `rand-nacht-overzicht.png`, `rand-nacht-naad.png`.
+De tabel is naar rijen van dezelfde toon als de kaart gescrold, want daar ontbreekt de rand: lichte kaart
+naast dagrijen, nachtkaart naast nachtrijen. Waar de tonen verschillen is de naad al scherp.
+- A — lijn van 1 px in de hemelkleur van het cursoruur: overdag `rgba(16,38,48,.2)`, 's nachts
+  `rgba(237,248,252,.22)`, als `box-shadow: -1px 0 0` op `.dashboard` (geen layoutverschuiving).
+- B — zachte schaduw de kaart in: overdag `-16px 0 30px -18px rgba(6,20,28,.5)`; 's nachts zwaarder
+  plus een haarlijntje, omdat een schaduw op een donkere kaart anders niet te zien is.
+- Wat ik zie: overdag doen beide hun werk; A leest als een rustige scheidslijn in de taal van de
+  rijlijnen, B tilt het paneel op en maakt de kaartrand grijzer. 's Nachts is B bijna onzichtbaar en leunt
+  hij toch op een lijn. Mijn voorkeur: A. Bijvangst: 's nachts staat er nu al een lichte verticale lijn op
+  de naad (de linkerrand van de nachtrijen); A maakt dat over de volle hoogte en overdag consequent.
+
+## Voorstel rand gecommit (fcc55d1)
+
+## Lock-discipline (orkestrator)
+Mijn runners (`rig/run-perf.sh`, `rig/run-map-night.sh`) wachten buiten de `flock` op de load en nemen de
+lock per run. Eén uitzondering gevonden en verholpen: `rig/paint-cost.ts` wachtte intern tot 2 min op een
+rustige host, dus mét de lock; het breekt nu direct af als de load ≥ 8 is.
+
+## Stap 3c (PO-bijsturing): koppenrij wisselt op de zon-rij, niet per rij
+- De kop is dag of nacht en wisselt wanneer de "Zon op/onder"-rij de bovenste zichtbare rij wordt;
+  daartussen is hij constant. Twee wijzigingen in `ForecastTable.tsx`:
+  1. bovenste rij = de vroegste uurrij waarvan nog iets onder de kop uitsteekt (was: voor minstens de
+     helft). De zon-rij staat tussen twee uurrijen, dus "de uurrij erboven is helemaal weg" is precies
+     "de zon-rij is de bovenste". Daardoor hoeven de zon-rijen zelf niet geobserveerd te worden; dezelfde
+     IntersectionObserver, nu met alleen drempel 0.
+  2. de bewolking van de rij kleurt de kop niet meer (`overcast: 0`): overdag één vaste hemeltint.
+     Eigen keuze: de heldere tint als vaste dagkleur; op een grijze dag is de kop dus blauwer dan de
+     rijen eronder. Alternatief is één vaste grijzere tint — PO-oordeel.
+- Eigen beelden bekeken (`stap3c/`, `rig/head-transition.ts`), 390 px en desktop: `voor` = nog 6 px van de
+  laatste nachtrij boven "Zon op 07:53" → kop nacht; `na` = de zon-rij bovenaan → kop dag.
+  Rig-les: de laatste zonsopkomstrij staat te dicht bij het einde van de tabel om onder de kop te scrollen;
+  de rig neemt de eerste na de nu-rij.
+- Gate (web/): typecheck 0 · unit 0 (494; gedraaid als `pnpm synthgen && pnpm exec vitest run --exclude
+  'tmp/**'`, omdat er voor de kostenmeting een tweede worktree in web/tmp staat die vitest anders meeneemt) ·
+  build 0 · desktop `table dev-panel` 0 (7 groen, 2 overgeslagen) · mobile-4g `table` 0 (5 groen, 2 overgeslagen).
+
+## Stap 3c gecommit (5fcb152); main gemerged (U65)
+
+## Tijdelijke ?dev-schakelaar voor de rand (orkestrator, na twee keer heen en weer: hij komt er)
+- `?dev` → Chrome → "Rand kaart/zijpaneel": geen / A: lijn / B: schaduw (`motregen-dev-rand`; eigenaar U62,
+  vervalt na PO-keuze; docs/dev-opties.md bijgewerkt). Alleen desktop (≥ 960 px).
+- Voor devtools: klasse op `main.app-shell` — `edge-line` (A) of `edge-shadow` (B); het effect is een
+  `box-shadow` op `.dashboard`. De waarden zijn variabelen op `.app-shell`:
+  `--edge-line-color` (dag `rgba(16,38,48,.14)`, nacht `rgba(237,248,252,.16)`) en `--edge-shadow`
+  (dag `-18px 0 34px -20px rgba(6,20,28,.38)`, nacht `-20px 0 36px -18px rgba(0,0,0,.6)`); "nacht" =
+  `.app-shell:has(.map-shell.sky-night)`. B is zachter gemaakt dan in de eerste beelden en heeft 's nachts
+  geen haarlijn meer (PO: "schaduw is clean, borders te hard"); A is ook lichter (.2 → .14).
+- Gevonden: `.dashboard` hééft op desktop al een schaduw (`-8px 0 24px rgba(21,51,63,.07)`), maar die
+  valt achter de kaart weg omdat het paneel geen eigen stapelvolgorde heeft. De varianten geven het
+  paneel `position: relative; z-index: 2`. Een derde optie is dus: alleen de bestaande schaduw zichtbaar
+  maken (en eventueel iets aanzetten).
+- Voor een zachtere versie van de bestaande lijnen: rijlijnen = `td { border-bottom: 1px solid var(--line) }`
+  (in dag/nacht-rijen `color-mix(#fff 38%/16%, var(--line))`), de lijn onder de koppenrij =
+  `th { box-shadow: inset 0 -1px 0 var(--line-strong) }`, de rand om het plot = `.chart-plot::after`.
+- Eigen beeld bekeken: `voorstel-rand/rand-live.png` (geen | A | B, desktop, uit de live build).
+- Gate (web/, gemergde boom): typecheck 0 · unit 0 (75 bestanden, 506 tests) · build 0 · desktop
+  `dev-panel location`: 8 groen / 1 rood (`location.spec:88` time-out op de optie "Werk" bij loadavg 31)
+  → die test alleen herdraaid: 0 (8,9 s). Als load-flake genoteerd, niet verder onderzocht.
+
+## Rand-schakelaar gecorrigeerd (PO: "de lijn verandert nooit per setting")
+- De orkestrator had gelijk en mijn vorige entry was op één punt FOUT: `.dashboard` heeft op desktop
+  `border-left: 1px solid var(--line)` + `box-shadow: -8px 0 24px rgba(21,51,63,.07)` + `z-index: 2`, en
+  als grid-item werkt die z-index wél — de bestaande schaduw viel dus niet "achter de kaart weg". Mijn
+  schakelaar verving alleen de box-shadow en liet de border in alle standen staan; "geen" was niet geen.
+- Nu vier standen (`motregen-dev-rand`: `oud`/`geen`/`a`/`b`, standaard `oud` = product ongewijzigd):
+  oud = border + lichte schaduw zoals het was; geen (`.edge-none`) = `border-left: none; box-shadow: none`;
+  A (`.edge-line`) = alleen `box-shadow: -1px 0 0 var(--edge-line-color)`; B (`.edge-shadow`) = alleen
+  `box-shadow: var(--edge-shadow)`. De hint in het ?dev-paneel beschrijft "oud".
+- Gecontroleerd in de live build (`rig/edge-live.ts`, `voorstel-rand/rand-live.png`: oud | geen | A | B):
+  rand 1px / 0px / 0px / 0px en per stand een andere box-shadow. `dev-panel.spec` controleert border en
+  schaduw per stand → 0 (2 groen). typecheck 0, build 0; unit niet opnieuw gedraaid (alleen CSS, de knop
+  en de spec gewijzigd).
+
+## Rand-schakelaar gecorrigeerd en gepusht (0abc5e7)
+
+## Eén lijnensysteem voor dag en nacht (PO: "rijdividers 's nachts harder dan overdag; maak alles consistent")
+### Meting vooraf (`rig/line-contrast.mjs`, WCAG-ratio lijn tegen vlak, berekend uit de CSS-waarden)
+| ondergrond | --line | --line-strong | rijlijn zoals getekend |
+| dag, wit vlak (#d5e1e5 / #b7cbd2 op #fff) | 1,33 | 1,68 | 1,19 |
+| dag, hemelrij helder | 1,00 | 1,27 | 1,12 |
+| dag, hemelrij bewolkt | 1,07 | 1,18 | 1,20 |
+| nacht, nachtrij (#25404b / #3b5a66 op #0a1820) | 1,64 | 2,44 | 2,66 |
+| donker thema, vlak | 1,57 | 2,33 | 4,71 |
+Gemeten uit de pixels van de oude build (`rig/lines.ts`, 4321): rijlijn dag 1,10–1,14, nacht 4,96.
+De rijlijn was een menging met wit (`color-mix(#fff 38 %/16 %, var(--line))`): overdag bijna de kleur van
+het vlak, 's nachts een lichte streep.
+### Keuze
+Lijn = de tekstkleur met een beetje dekking. Eén α geeft GEEN gelijk contrast (α 0,14 → 1,30–1,32 overdag,
+1,48 's nachts): dezelfde dekking oogt op donker harder. Daarom per ondergrond een eigen dekking, gekozen
+op gelijk contrast: lijn ~1,3, sterke lijn ~1,6.
+- `--line-on-light: rgba(16,38,48,.14)` · `--line-strong-on-light: rgba(16,38,48,.24)`
+- `--line-on-dark: rgba(237,248,252,.10)` · `--line-strong-on-dark: rgba(237,248,252,.16)`
+- `--line` / `--line-strong` verwijzen daarnaar, overal waar `--text` wisselt (licht/donker thema, nachtrijen,
+  dagrijen in donker thema, koppenrij, klokpil/zoekbalk/druppel). Geen losse lijnkleuren meer in die regels.
+### Toegepast op
+- rijlijnen: de twee wit-mengregels zijn weg; `td { border-bottom: 1px solid var(--line) }` geldt overal;
+- lijn onder de koppenrij (`th` inset shadow) en grafiekrand (`.chart-plot::after`): gebruikten al
+  `--line-strong`, gaan dus vanzelf mee; de bovenrand van het plot op de hemel is nu `var(--line)`;
+- zon-op/onder-rij: de eigen randen zijn WEG (`border-block: 0`). Een rand op die cel werd over het witte
+  tabelvlak getekend in plaats van over de kleurstrook en gaf daardoor altijd een harde lichte streep
+  (pixels: 255,239,225 oud; ook met het nieuwe token nog 252,254,255). De kleurstrook is zelf de scheiding;
+- kaart/paneel-rand stand A: `--edge-line-color` = `var(--line-on-light)` / `var(--line-on-dark)`;
+- klokstrip (bronstrook in het versheidspaneel): de scheiding daar is een uitsparing in de vlakkleur
+  (`box-shadow: -1px 0 0 var(--surface)`), geen lijn; niet aangepast.
+- Bereik: `--line`/`--line-strong` worden op 51 plekken gebruikt (randen, hulplijnen, schuifbalk); die
+  krijgen allemaal de nieuwe waarden. Bekeken heb ik de tabel, de koppenrij, de scrubber en de kaartpillen;
+  dialogen (Over, dataversheid) en het dev-paneel niet apart.
+### Meting achteraf (pixels uit de nieuwe build, 390 px en 1280 px, licht en donker app-thema)
+rijlijn dag 1,30–1,32 · rijlijn nacht 1,31 · lijn onder de koppenrij 1,59 (was 1,28).
+De zon-rij is met deze methode niet te meten (twee verschillende vlakken raken elkaar); pixelcontrole: de
+kleurstrook gaat nu zonder tussenlijn over in de nachtrij (214,64,101 → 54,29,53).
+- Beelden (zelf bekeken): `lijnen/oud-*.png` en `lijnen/nieuw-*.png` — dezelfde rijen rond zonsondergang
+  (dagrijen boven, nachtrijen onder), 390 px en 1280 px, licht en donker.
+- Gate (web/): typecheck 0 · unit 0 (75 bestanden, 506 tests, vitest met `--exclude 'tmp/**'`) · build 0 ·
+  desktop `table dev-panel cloud-section freshness` 0 (12 groen, 2 overgeslagen) · mobile-4g `table` 0.
+- De rand-schakelaar staat er nog (wacht op de PO-keuze).
+
+## Lijnensysteem gecommit en gepusht (94037cc)
+
+## Proef (PO, prioriteit): splash met doorzichtige achtergrond — achter ?dev, niets standaard
+- `?dev` → Laden → "Splash-achtergrond": dekkend (zoals het was) / 70 % / 40 % / glas (40 % +
+  `backdrop-filter: blur(12px)`). Sleutel `motregen-dev-splash`, eigenaar U62, vervalt na de PO-keuze.
+  Herladen om het te zien (of Diagnose → Herhaal splash).
+- De dekking zit in de kleur van `.map-splash-veil` (`--splash-veil-cover`), niet in `opacity`: die
+  blijft van het wegvloeien bij het onthullen. Bij een doorzichtige sluier krijgt het merk een zachte halo
+  (`.map-splash-mark::after`, in een eigen stapelcontext zodat hij vóór de sluier ligt).
+- Opnames (`rig/splash-frames.ts`, `splash/`): per stand een strook op 0 / 0,5 / 1 / 2 / 2,5 / 3 / 3,5 s na de
+  navigatie; 390 px met het mobile-4g-profiel (9 Mbps, 60 ms, CPU 4×), desktop zonder rem.
+  Bestanden `splash-390-{dekkend,70,40,glas}.png`, `splash-desktop-*.png`.
+- Wat de beelden laten zien (zelf bekeken), en dat is de kern voor de PO:
+  1. Tot ~2 s staat er onder de sluier nog GEEN kaart: alleen de lege kaartachtergrond. De tegels komen
+     rond 2–2,5 s, ongeveer wanneer de splash toch al weggaat (de splash wacht op kaart + eerste regen).
+  2. Wat je wél eerder ziet: de knoppen en de klok vanaf het eerste beeld, en de eerste regenvlekken
+     (rond 2 s) vóórdat de basiskaart er is — regen op een lege ondergrond.
+  3. "Glas" is tijdens het laden niet van 40 % te onderscheiden: er is nog niets om te vervagen.
+  De winst zit dus niet in "eerder een kaart zien" maar in "minder wit en eerder beweging"; echt eerder
+  een kaart vraagt dat de tegels eerder komen (E8/PMTiles, of een stilstaand voorbeeld onder de splash).
+- Onthulling (`rig/splash-reveal.ts`, `splash-onthulling-{dekkend,40}.png`): op +150 / +500 / +1000 ms na
+  "ready" zijn dekkend en 40 % gelijk — het druppelgat is binnen 150 ms al schermvullend. Geen restanten.
+- Contrast woordmerk tegen de slechtste pixel direct boven/onder de regel: 12,7–15,3 (390 px en desktop,
+  standen 70/40/glas). Voor "dekkend" op 390 px gaf de rig geen waarde; niet nagezocht.
+- Frametijd van de eerste 6 s per stand: p95 117–133 ms op 390 px bij alle standen, glas niet zichtbaar
+  duurder — maar dit is één run per stand bij loadavg 18–23 en NIET onder de perf-lock gemeten; het zegt
+  hooguit dat blur hier geen orde van grootte kost. Een geldige meting wacht op een rustige host.
+- Gate (web/): typecheck 0 · unit 0 (506) · build 0 · desktop `dev-panel cloud-section usage` 0 (6 groen);
+  `dev-panel.spec` controleert de nieuwe knop.
+
+## Splash-proef gecommit (d7e8fbc) — en weer weggehaald (PO: "werkt niet echt voor mij")
+Knop "Splash-achtergrond", sleutel `dev-splash`, de CSS-standen en de halo zijn weg; de sluier is weer
+`background: var(--surface)`. De opnames (`splash/`) en de conclusie hierboven blijven: een doorzichtige
+sluier toont niets eerder omdat de tegels pas rond het einde van de splash komen — eerder een kaart is een
+kwestie van tegels eerder (U63). Gate: typecheck 0 · unit 0 (506) · build 0 · `dev-panel.spec` desktop 0.
+De rand-schakelaar blijft staan.
+
+## Kostenmeting kaart-tween (MIP-24) — AFGEROND; het criterium "≤ de huidige p95" wordt NIET gehaald
+Rig `rig/map-night-frames.ts`: po-android (renderer-cgroup 40 %), 25 s laten laden, dan 20 s afspelen vanaf
+18:40 (de afspeelsnelheid brengt de cursor in 20 s naar ~21:48; de schemering — 17 mengstappen, nacht 0,20 →
+1,00 — valt in de eerste ~7 s). Gepaard en om en om, load bij de start ≤ 16 (orkestrator), de perf-lock per
+run, wachten op de load buiten de lock. Ruwe regels in `kaart-kosten/`. De host liep tijdens de runs op tot
+10–21; dat staat per run in de logs.
+### 1. Oude build (e267f6d, tween uit) tegen de nieuwe (tween aan) — 4 paren
+| | frames in 20 s | p95 | frames > 34 ms | lange frames (totaal ms) | heap vóór | heapgroei |
+| oud | 1181 / 1186 / 1168 / 1181 | 16,8 ×4 | 2 / 3 / 3 / 4 | 1 / 2 / 3 / 2 (119–232) | 12,5 MB | 1,13–1,19 MB |
+| nieuw | 1126 / 1156 / 1148 / 1087 | 33,2 / 16,8 / 16,8 / 33,3 | 8 / 6 / 12 / 16 | 6 / 2 / 5 / 5 (163–447) | 14,4 MB | 1,56–1,70 MB |
+Niet zuiver: tussen die commits zit ook het meetintende chrome, de wind op "iets", het lijnensysteem en U65.
+### 2. Zelfde code, tween uit (eenmalige build `mapFollowsTime = false`, 4322) tegen tween aan — 3,5 paar
+| | frames | p95 | > 34 ms | lange frames (totaal ms) | heapgroei |
+| zonder | 1140 / 975 / 1180 | 16,8 / 33,4 / 16,7 | 13 / 43 / 4 | 7 / 13 / 2 (206–913) | 0,67–1,05 MB |
+| met | 1050 / 995 / 1008 / 1034 | 33,4 / 50 / 33,4 / 33,4 | 28 / 53 / 44 / 32 | 10 / 33 / 21 / 13 (683–2300) | 1,47–1,58 MB |
+De heap vóór het afspelen is gelijk (14,4–14,7 MB): de +1,9 MB uit meting 1 komt dus niet van de tween.
+### 3. Na ontdubbelen (alleen nog zetten wat verandert) — 3 paren
+Aanleiding: ik zette bij elke stap alle 21 waarden opnieuw, ook de 8 labelkleuren die maar één keer per
+schemering wisselen, en riep elke stap `windLayer.setTheme` aan. Nu houdt `basemapBlendOnMap` bij wat er
+staat; na een stijlwissel wordt dat gewist.
+| | frames | p95 | > 34 ms | lange frames (totaal ms) | heapgroei |
+| zonder | 1161 / 1185 / 1191 | 16,8 / 16,7 / 16,8 | 7 / 2 / 1 | 4 / 2 / 1 (75–438) | 1,09–1,22 MB |
+| met | 1140 / 1051 / 1048 | 16,8 / 33,4 / 33,4 | 9 / 28 / 33 | 2 / 10 / 14 (166–998) | 1,37–1,58 MB |
+### Conclusie
+- De tween kost in deze rig frames zolang de schemering voorbijkomt: in twee van de drie paren ~11 % minder
+  frames en p95 33 ms tegenover 16,8 ms; in het derde paar (load 9) is er geen verschil. Het ontdubbelen
+  heeft dat niet opgelost. Heap: ~0,3–0,5 MB extra groei in 20 s, geen hogere basis.
+- Buiten de schemering kost het niets (er wordt dan niets gezet).
+- Kanttekeningen: de rig tekent de kaart met SwiftShader op een CPU-quota; het herschilderen van de
+  basiskaart tijdens de 300 ms-overgangen van MapLibre is daar duur en op een telefoon-GPU waarschijnlijk
+  niet. En de rig perst de hele schemering in ~7 s omdat afspelen 3 uur in 20 s doorloopt.
+- Volgens de afspraak ("geen blokkade als ≤ de huidige p95") is dit dus WEL een punt: p95 33 ms > 16,8 ms.
+  Niet zelf teruggedraaid — de default is een PO-besluit. Opties: (a) laten staan en op de PO-telefoon
+  beoordelen (echte GPU); (b) minder mengstappen (20 → ~8) en/of hooguit één stap per seconde; (c) tijdens
+  afspelen niet mengen maar pas bij stilstand. (b) is klein en zou ik als eerste proberen.
+- Opgeruimd: de previews op 4321/4322 zijn gestopt en de tijdelijke worktree is weg.
+- Gate na het ontdubbelen (web/): typecheck 0 · `pnpm test` 0 (506) · build 0 · desktop `dev-panel
+  cloud-section sky-window` 0 (4 groen); kaart nagekeken op 19:10 (nacht 0,80) en 23:00 (1,00).
+
+## MIP-24 optie (b): vier mengstappen, tijdens afspelen hooguit één per seconde — criterium nu WEL gehaald
+- Orkestrator: (b) uitvoeren; PO-aanvulling: "dat mengen kan sowieso ook snel", weinig stappen (4–8) is
+  prima als het niet knippert → ruim aan de goedkope kant gekozen: `MAP_NIGHT_STEPS = 4` (0 / 0,25 / 0,5 /
+  0,75 / 1) met de gewone 300 ms-overgang van MapLibre, en `MAP_NIGHT_PLAYING_INTERVAL_MS = 1000`: tijdens
+  afspelen hooguit één stap per seconde (de laatste waarde wordt na de wachttijd alsnog gezet); bij
+  stilstand of een sprong direct naar de eindwaarde. Default blijft: kaart volgt de tijd onder Expressief.
+- Eigen fout onderweg: de eenmalige "tween uit"-build voor de meting zette ik terug met `git checkout --
+  src/App.tsx`, wat ook de nog niet gecommitte wijziging wegnam. Opnieuw aangebracht en meteen gecommit
+  (7b9b31d, e9644be). Les: eerst committen, dan pas een tijdelijke variant bouwen.
+- Meting, zelfde rig en opzet als hierboven (gepaard ×3, om en om, lock per run, load bij start ≤ 16;
+  `kaart-kosten/4-zonder-tegen-met-vier-stappen.log`):
+  | | frames in 20 s | p95 | frames > 34 ms | lange frames (totaal ms) | heapgroei |
+  | zonder tween | 1146 / 1183 / 1181 | 16,8 / 16,8 / 16,8 | 11 / 3 / 4 | 6 / 1 / 2 (508 / 101 / 155) | 1,18 / 1,23 / 1,18 MB |
+  | met (4 stappen, 1/s) | 1148 / 1182 / 1178 | 16,8 / 16,8 / 16,8 | 10 / 4 / 5 | 6 / 1 / 2 (395 / 84 / 145) | 1,34 / 1,33 / 1,13 MB |
+  Geen meetbaar verschil meer: p95 gelijk, frames binnen 0,3 %, lange frames gelijk. (Was met 20 stappen
+  zonder rem: ~11 % minder frames en p95 33 ms in twee van de drie paren.)
+- Niet te beoordelen in de rig: of de vier stappen tijdens afspelen als "knipperen" ogen. Stilstaande
+  standen nagekeken (18:50 / 19:05 / 19:20 → nacht 0,25–1,00). De PO beoordeelt het op zijn telefoon.
+- Gate (web/): typecheck 0 · `pnpm test` 0 (506) · build 0 · desktop `dev-panel cloud-section` 0 (3 groen).
+- Vanaf hier wijzigt er niets meer op de branch tot de merge; de rand-schakelaar staat er nog.

@@ -17,12 +17,9 @@ mkdirSync(outputDir, { recursive: true })
 const profileName = process.env.U62_PROFILE ?? 'po-android'
 const poAndroid = performanceProfile('po-android')
 const MAX_LOAD_AVERAGE = 8
-// Boven deze load is een meting ruis; wacht tot de host rustig is (hooguit een uur).
-const waitDeadline = Date.now() + 120_000
-while (loadavg()[0]! >= MAX_LOAD_AVERAGE) {
-  if (Date.now() > waitDeadline) throw new Error(`loadavg blijft ≥ ${MAX_LOAD_AVERAGE}`)
-  await new Promise((resolve) => setTimeout(resolve, 20_000))
-}
+// Boven deze load is een meting ruis. Niet hier wachten: dit script draait onder de perf-lock; de runner wacht
+// vóór de lock op een rustige host en herhaalt een run die hierop strandt.
+if (loadavg()[0]! >= MAX_LOAD_AVERAGE) throw new Error(`loadavg ${loadavg()[0]} ≥ ${MAX_LOAD_AVERAGE}: geen meting`)
 const loadAtStart = Math.round(loadavg()[0]! * 100) / 100
 
 const RENDER_EVENTS = ['UpdateLayoutTree', 'Layout', 'PrePaint', 'Paint', 'Layerize', 'Commit', 'RasterTask', 'FunctionCall', 'RunTask'] as const

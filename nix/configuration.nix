@@ -62,4 +62,5 @@
 
   services.motregen.enable = true;
   services.motregen.bot.enable = true;
+  services.motregen.bot.role = "poller";
 }

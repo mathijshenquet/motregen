@@ -1,0 +1,146 @@
+{
+ "390-light-1300": {
+  "shell": "map-shell sky-day",
+  "night": "0.00",
+  "closed": {
+   "klok": 10.35
+  },
+  "open": {
+   "zoekveld": 1.89,
+   "zoekresultaat": 11.86,
+   "zoekdetail": 6.26
+  }
+ },
+ "390-light-1910": {
+  "shell": "map-shell sky-night",
+  "night": "0.75",
+  "closed": {
+   "klok": 10.31
+  },
+  "open": {
+   "zoekveld": 2.25,
+   "zoekresultaat": 11.12,
+   "zoekdetail": 4.93
+  }
+ },
+ "390-light-2300": {
+  "shell": "map-shell sky-night",
+  "night": "1.00",
+  "closed": {
+   "klok": 8.36
+  },
+  "open": {
+   "zoekveld": 2.25,
+   "zoekresultaat": 11.12,
+   "zoekdetail": 4.93
+  }
+ },
+ "390-dark-1300": {
+  "shell": "map-shell sky-day",
+  "night": "0.00",
+  "closed": {
+   "klok": 9.42
+  },
+  "open": {
+   "zoekveld": 1.89,
+   "zoekresultaat": 11.86,
+   "zoekdetail": 6.26
+  }
+ },
+ "390-dark-1910": {
+  "shell": "map-shell sky-night",
+  "night": "0.80",
+  "closed": {
+   "klok": 10.97
+  },
+  "open": {
+   "zoekveld": 2.25,
+   "zoekresultaat": 11.12,
+   "zoekdetail": 4.93
+  }
+ },
+ "390-dark-2300": {
+  "shell": "map-shell sky-night",
+  "night": "1.00",
+  "closed": {
+   "klok": 8.36
+  },
+  "open": {
+   "zoekveld": 2.25,
+   "zoekresultaat": 11.12,
+   "zoekdetail": 4.93
+  }
+ },
+ "desktop-light-1300": {
+  "shell": "map-shell sky-day",
+  "night": "0.00",
+  "closed": {
+   "klok": 10.57
+  },
+  "open": {
+   "zoekveld": 1.89,
+   "zoekresultaat": 11.86,
+   "zoekdetail": 6.26
+  }
+ },
+ "desktop-light-1910": {
+  "shell": "map-shell sky-night",
+  "night": "0.80",
+  "closed": {
+   "klok": 10.64
+  },
+  "open": {
+   "zoekveld": 2.25,
+   "zoekresultaat": 11.12,
+   "zoekdetail": 4.93
+  }
+ },
+ "desktop-light-2300": {
+  "shell": "map-shell sky-night",
+  "night": "1.00",
+  "closed": {
+   "klok": 8.37
+  },
+  "open": {
+   "zoekveld": 2.25,
+   "zoekresultaat": 11.12,
+   "zoekdetail": 4.93
+  }
+ },
+ "desktop-dark-1300": {
+  "shell": "map-shell sky-day",
+  "night": "0.00",
+  "closed": {
+   "klok": 6.39
+  },
+  "open": {
+   "zoekveld": 1.89,
+   "zoekresultaat": 11.86,
+   "zoekdetail": 6.26
+  }
+ },
+ "desktop-dark-1910": {
+  "shell": "map-shell sky-night",
+  "night": "0.80",
+  "closed": {
+   "klok": 10.6
+  },
+  "open": {
+   "zoekveld": 2.25,
+   "zoekresultaat": 11.12,
+   "zoekdetail": 4.93
+  }
+ },
+ "desktop-dark-2300": {
+  "shell": "map-shell sky-night",
+  "night": "1.00",
+  "closed": {
+   "klok": 8.37
+  },
+  "open": {
+   "zoekveld": 2.25,
+   "zoekresultaat": 11.12,
+   "zoekdetail": 4.93
+  }
+ }
+}

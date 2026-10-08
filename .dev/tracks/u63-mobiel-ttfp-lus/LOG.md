@@ -592,3 +592,22 @@ Meetmaster67842 SYNCHRONE exit0, twaalf geldige opnames, A1/B1/A2/B2/A3/B3 per s
 Eerste kaart1655/1738ms eerder; ttfr koud+325/warm−254ms, ttfp+438/+521ms. Geen kostenneutrale claim: PO accepteert resterende ttfp-straf,100ms-lat niet gehaald. Warm nog niet onder koud; LoAF-bewaker blijft circa300ms melden. Alle twaalf startloads≤16, alle wirebevindingen leeg, plaatsenlijst uitsluitend ná ttfp; twee extra off-main gzipdecodes. Volledige-kaartvoorwaarde van ttfr behouden. Compact metingen/z4-los-gepaard.json nu volledig; docs/perf.md bijgewerkt. Productgate eerder SYNCHRONE typecheck/unit519/build/basemapdesktop9 groen, vier390px-toestandsbeelden licht/donker gecommit. Z4-productvoorstel daarmee klaar voor merge volgens de PO-gate; absolute≤8-baselines en Buienradarwarm-lat blijven afzonderlijk pending en worden niet als groen aangemerkt.
 
 Overige afgeronde masters5559 (worker-volgorde) en6973 (z4 ná eerste regen) SYNCHRONE exit0 gezien14:49; tabellen worden nog uitgewerkt. Kaart-eerst10s-failsafe is geen geldige kandidaat door eerder genoemde verkeerde tile-content-guard. Buienradar diagnose77148 SYNCHRONE exit0: netwerk-emulatie alléén en mobieleUA alléén beide200/h2; gecombineerde foutoorzaak nog niet vastgesteld. Geen planningvraag: absolute queue77831 wacht buiten locks≤8.
+
+## 2026-10-08 15:04 UTC — main U62deel2/U67 geïntegreerd; twee kandidaattabellen
+
+Merge origin/main4038d55 (U62deel2/U67), één conflict applyBasemapBlend. Behoud van U62 vier mengstappen/max1stap/s en alleen gewijzigde eigenschappen zetten; de registratie krijgt aparte keys per echte/z4-laag zodat geen placeholderkleur wordt overgeslagen. SYNCHRONE receipts65085 exit0: typecheck, unit519/77, aparte productiebuild web/tmp/u63/main-deel2-gate-dist. E2e22282 SYNCHRONE exit0: `MOTREGEN_E2E_PORT=4893 MOTREGEN_E2E_DATA_PORT=8893 MOTREGEN_MOBILE_BASEMAP=own MOTREGEN_SYNTH_GRID_SCALE=6 pnpm --dir web e2e e2e/basemap.spec.ts e2e/dev-panel.spec.ts --project desktop`,11 passed (9basemap+2devpanel). De draaiende telefoonpreview4340 blijft ongewijzigde313a976; niet opnieuw gebouwd of onderbroken. Nieuwe bron verandert Expressief/tinting: eerdere getallen blijven vóór U62deel2 gelabeld, nieuwe absolute baseline met die reden vereist.
+
+Alle onderstaande rijen: po-android quota40/GRID6, eigen U60, U62/U65 vóór deel2, gepaard load≤16 per run, medianen×3; cache koud of warm-disk-new-browser. Volledige per-run bron in metingen/z4-na-regendraw-gepaard.json en regen-voor-kaart-gepaard.json.
+
+| Proef / cache | Variant | ttfr ms | ttfp ms | Eerste kaart ms | LoAF ná ttfp max ms / >250ms |
+| --- | --- | ---: | ---: | ---: | --- |
+| z4 ná regendraw / koud | Zonder z4 | 3944,7 | 2000,4 | 3944,6 | 304,4 / 2 |
+| z4 ná regendraw / koud | Z4 decode na draw | 4647,7 | 2503,2 | 2972,7 | 315,6 / 1 |
+| z4 ná regendraw / warm | Zonder z4 | 4280,5 | 2325,4 | 4137,7 | 292,2 / 1 |
+| z4 ná regendraw / warm | Z4 decode na draw | 4598,5 | 2446,6 | 2660,8 | 274,2 / 4 |
+| Regendecode vóór MapLibre / koud | Parallel | 3867,9 | 1913,1 | Niet apart opgenomen | 274,4 / 1 |
+| Regendecode vóór MapLibre / koud | Regen eerst | 3927,1 | 1996,6 | Niet apart opgenomen | 359,7 / 3 |
+| Regendecode vóór MapLibre / warm | Parallel | 4522,4 | 2253,2 | Niet apart opgenomen | 296,4 / 3 |
+| Regendecode vóór MapLibre / warm | Regen eerst | 4307,2 | 2032,0 | Niet apart opgenomen | 279,4 / 1 |
+
+Z4 ná eerste regendraw haalt de ttfp-straf niet weg: koud+503ms/warm+121ms versus eigen controle; volledigekaart+703/+318ms, kaartwinst kleiner dan direct-z4. Afzonderlijke controles/reeksen, dus niet als direct gepaard onderling verschil verkopen. Geïsoleerde branch track/u63-placeholder-regen-proef82b955b gepusht, typecheck2440 exit0; niet op hoofdbranch. Regen-eerst is koud+59ms ttfr/+84ms ttfp, warm−215/−221ms; koude LoAF verslechtert. Geen consistente koud/warm-winst, blijft proef. Branch track/u63-worker-volgorde-proef9fa317e gepusht, typecheck5133 exit0. Deze commit repareert ook kaart-eerst-vrijgave op event.tile zonder niet-bestaand sourceDataType=content; gecorrigeerd kaart-eerst-A/B begint aparte v2-archieven, oude10s-failsafecijfers blijven uitgesloten. Beide proeven twaalf captures,0wirebevindingen, plaatsenlijst na ttfp.
