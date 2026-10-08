@@ -217,6 +217,11 @@
   in prod `secrets.env`; `motregen-bot` actief, `bot-started`, eerste drie loops renderen (VM: 2 kernen,
   3,8 GB, Chromium ~150 %). Lokale bot gestopt; 4330 + prof-sink 4331 opnieuw gestart na de sessie-
   herstart. Orkestrator mag prod nu zelf muteren (PO 2026-10-08).
+- **Prod-upgrade naar main gestart** (15:25, flake check groen; brengt U66-loops, U62 deel 1, U65, U57,
+  U61, nieuwe sleutel). Ontdekt: prod-bot draaide de oude 49-frameloop: 231 s renderen op 2 kernen → met
+  169 frames ≈ 40 min per generatie, VM rendert fulltime (PO: "gaat die vm nu fulltime webpagina's
+  renderen 😆"). Runtime-rem gezet (CPUQuota 150 %, CPUWeight 20, MemoryMax 1,5 GB); MIP-25 (draft):
+  renderer los van de poller (render-only op ageq-dev2 → cache-groep) met loops-elke-15-min als overbrugging.
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
