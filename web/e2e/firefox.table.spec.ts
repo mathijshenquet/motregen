@@ -94,3 +94,46 @@ test('the strip of scrubber does not stay above the table when the address bar r
   await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
   expect(await page.locator('.forecast-panel').evaluate((element) => (element as HTMLElement).style.getPropertyValue('--table-panel-shortfall'))).toBe('56px')
 })
+
+test('a strip the browser shows above the layout viewport is closed, and shows panel colour until then', async ({ page }, testInfo) => {
+  // PO-overlay (Firefox voor Android, 2026-10-08) in de bugtoestand: paneel top 0, scrollTop = max, maar
+  // visualViewport.offsetTop −63,7 — de browser toont 64 px boven de layout-viewport, met daarin de scrubber.
+  await openTable(page)
+  await expect.poll(() => panelTop(page)).toBe(0)
+  await expect(page.locator('.app-shell')).toHaveClass(/table-covers-viewport/)
+
+  // Vangnet: boven het paneel ligt een strook in de kleur van de koppenrij, over de scrubber heen.
+  const strip = await page.locator('.forecast-panel').evaluate((panel) => {
+    const before = getComputedStyle(panel, '::before')
+    return { top: before.top, height: before.height, background: before.backgroundColor, head: getComputedStyle(panel.querySelector('thead th')!).backgroundColor }
+  })
+  expect(strip.top).toBe('-120px')
+  expect(strip.height).toBe('120px')
+  expect(strip.background).toBe(strip.head)
+
+  // De adresbalk komt terug: het zichtbare scherm schuift 64 px boven de layout-viewport.
+  await page.evaluate(() => {
+    const visual = window.visualViewport!
+    Object.defineProperty(visual, 'offsetTop', { configurable: true, get: () => -64 })
+    Object.defineProperty(visual, 'pageTop', { configurable: true, get: () => window.scrollY - 64 })
+    visual.dispatchEvent(new Event('resize'))
+  })
+  const visibleTop = () => page.evaluate(() => Math.round(document.querySelector('.forecast-panel')!.getBoundingClientRect().top - window.visualViewport!.offsetTop))
+  expect(await visibleTop()).toBe(64)
+  await expect.poll(visibleTop, { timeout: 5_000 }).toBe(0)
+  // De pagina kon niet verder: het paneel is 64 px verlengd en de layout is 64 px doorgescrold.
+  expect(await page.locator('.forecast-panel').evaluate((element) => (element as HTMLElement).style.getPropertyValue('--table-panel-shortfall'))).toBe('64px')
+  expect(await panelTop(page)).toBe(-64)
+  await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
+  await page.screenshot({ path: testInfo.outputPath('na-correctie.png') })
+
+  // De balk verdwijnt weer: geen verschuiving meer en een hoger scherm → verlenging weg, paneel bovenaan.
+  await page.evaluate(() => {
+    const visual = window.visualViewport!
+    Object.defineProperty(visual, 'offsetTop', { configurable: true, get: () => 0 })
+    Object.defineProperty(visual, 'pageTop', { configurable: true, get: () => window.scrollY })
+  })
+  await page.setViewportSize({ width: 390, height: 900 })
+  await expect.poll(visibleTop, { timeout: 5_000 }).toBe(0)
+  await expect.poll(() => page.locator('.forecast-panel').evaluate((element) => (element as HTMLElement).style.getPropertyValue('--table-panel-shortfall'))).toBe('')
+})
