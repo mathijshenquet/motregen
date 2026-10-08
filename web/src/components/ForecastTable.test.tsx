@@ -206,7 +206,7 @@ describe('forecast table cells', () => {
     expect(sunset.nextElementSibling?.classList.contains('night-hour')).toBe(true)
   })
 
-  it('colours the heading row with the sky of the top visible row (U62)', () => {
+  it('switches the heading row between day and night when the sun row becomes the top visible row (U62)', () => {
     // jsdom kent geen IntersectionObserver: deze meldt wat de test als zichtbaar aanwijst.
     let report: IntersectionObserverCallback = () => undefined
     let observerOptions: IntersectionObserverInit | undefined
@@ -229,19 +229,29 @@ describe('forecast table cells', () => {
       expect(heading.className).toBe('')
       headResized([{ contentRect: { height: 42 } } as ResizeObserverEntry], {} as ResizeObserver)
       expect(observerOptions?.rootMargin).toBe('-42px 0px 0px 0px')
-      const rowAt = (hour: number) => document.querySelector<HTMLTableRowElement>(`tr[data-epoch="${start + hour * 3_600_000}"]`)!
-      const show = (shares: Record<number, number>) => report(Object.entries(shares).map(([hour, share]) =>
-        ({ target: rowAt(Number(hour)), isIntersecting: share > 0, intersectionRatio: share }) as unknown as IntersectionObserverEntry), {} as IntersectionObserver)
+      const sunrise = [...document.querySelectorAll<HTMLTableRowElement>('.sun-row')].find((row) => row.textContent?.includes('Zon op'))!
+      const lastNightRow = sunrise.previousElementSibling as HTMLTableRowElement
+      const firstDayRow = sunrise.nextElementSibling as HTMLTableRowElement
+      const show = (rows: Array<[HTMLTableRowElement, number]>) => report(rows.map(([target, share]) =>
+        ({ target, isIntersecting: share > 0, intersectionRatio: share }) as unknown as IntersectionObserverEntry), {} as IntersectionObserver)
 
-      // Nachtrij bovenaan, dag eronder: de kop volgt de bovenste.
-      show({ 2: 1, 3: 1, 14: 1 })
+      // Van de laatste nachtrij steekt nog een randje onder de kop uit: de zon-rij is nog niet de bovenste.
+      show([[lastNightRow, 0.05], [firstDayRow, 1]])
       expect(heading.classList.contains('sky-head')).toBe(true)
       expect(heading.classList.contains('night-hour')).toBe(true)
-      // De nachtrijen schuiven voor meer dan de helft onder de kop: de dagrij is nu de bovenste.
-      show({ 2: 0, 3: 0.3 })
+      // De nachtrij is weg: de zon-rij is nu de bovenste zichtbare rij en de kop wordt dag.
+      show([[lastNightRow, 0]])
       expect(heading.classList.contains('day-hour')).toBe(true)
       expect(heading.classList.contains('night-hour')).toBe(false)
-      expect(heading.style.getPropertyValue('--day-overcast')).toBe(rowAt(14).style.getPropertyValue('--day-overcast').slice(0, 4))
+      // Tussen twee zon-rijen blijft de kop gelijk, hoe bewolkt de rijen ook zijn.
+      expect(heading.style.getPropertyValue('--day-overcast')).toBe('0.00')
+      const laterDayRow = firstDayRow.nextElementSibling as HTMLTableRowElement
+      show([[firstDayRow, 0], [laterDayRow, 0.4]])
+      expect(heading.classList.contains('day-hour')).toBe(true)
+      expect(heading.style.getPropertyValue('--day-overcast')).toBe('0.00')
+      // Terugscrollen: zodra de nachtrij weer onder de kop verschijnt is de kop nacht.
+      show([[lastNightRow, 0.05], [firstDayRow, 1]])
+      expect(heading.classList.contains('night-hour')).toBe(true)
     } finally {
       vi.unstubAllGlobals()
     }

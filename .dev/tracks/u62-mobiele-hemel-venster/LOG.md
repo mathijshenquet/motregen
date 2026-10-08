@@ -375,3 +375,28 @@ naast dagrijen, nachtkaart naast nachtrijen. Waar de tonen verschillen is de naa
   rijlijnen, B tilt het paneel op en maakt de kaartrand grijzer. 's Nachts is B bijna onzichtbaar en leunt
   hij toch op een lijn. Mijn voorkeur: A. Bijvangst: 's nachts staat er nu al een lichte verticale lijn op
   de naad (de linkerrand van de nachtrijen); A maakt dat over de volle hoogte en overdag consequent.
+
+## Voorstel rand gecommit (fcc55d1)
+
+## Lock-discipline (orkestrator)
+Mijn runners (`rig/run-perf.sh`, `rig/run-map-night.sh`) wachten buiten de `flock` op de load en nemen de
+lock per run. Eén uitzondering gevonden en verholpen: `rig/paint-cost.ts` wachtte intern tot 2 min op een
+rustige host, dus mét de lock; het breekt nu direct af als de load ≥ 8 is.
+
+## Stap 3c (PO-bijsturing): koppenrij wisselt op de zon-rij, niet per rij
+- De kop is dag of nacht en wisselt wanneer de "Zon op/onder"-rij de bovenste zichtbare rij wordt;
+  daartussen is hij constant. Twee wijzigingen in `ForecastTable.tsx`:
+  1. bovenste rij = de vroegste uurrij waarvan nog iets onder de kop uitsteekt (was: voor minstens de
+     helft). De zon-rij staat tussen twee uurrijen, dus "de uurrij erboven is helemaal weg" is precies
+     "de zon-rij is de bovenste". Daardoor hoeven de zon-rijen zelf niet geobserveerd te worden; dezelfde
+     IntersectionObserver, nu met alleen drempel 0.
+  2. de bewolking van de rij kleurt de kop niet meer (`overcast: 0`): overdag één vaste hemeltint.
+     Eigen keuze: de heldere tint als vaste dagkleur; op een grijze dag is de kop dus blauwer dan de
+     rijen eronder. Alternatief is één vaste grijzere tint — PO-oordeel.
+- Eigen beelden bekeken (`stap3c/`, `rig/head-transition.ts`), 390 px en desktop: `voor` = nog 6 px van de
+  laatste nachtrij boven "Zon op 07:53" → kop nacht; `na` = de zon-rij bovenaan → kop dag.
+  Rig-les: de laatste zonsopkomstrij staat te dicht bij het einde van de tabel om onder de kop te scrollen;
+  de rig neemt de eerste na de nu-rij.
+- Gate (web/): typecheck 0 · unit 0 (494; gedraaid als `pnpm synthgen && pnpm exec vitest run --exclude
+  'tmp/**'`, omdat er voor de kostenmeting een tweede worktree in web/tmp staat die vitest anders meeneemt) ·
+  build 0 · desktop `table dev-panel` 0 (7 groen, 2 overgeslagen) · mobile-4g `table` 0 (5 groen, 2 overgeslagen).
