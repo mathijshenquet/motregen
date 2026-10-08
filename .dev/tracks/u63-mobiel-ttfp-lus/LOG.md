@@ -304,3 +304,20 @@ Nieuwe expliciete orkestratorinstructie uitgevoerd: origin/main 43b92d6 omvat U6
 Baseline-reden: U62 wijzigt de startsituatie (hemelkader en stralingsvenster), naast de definitieve netwerkgrenscorrectie. De controlecheckout is daarom nu zuiver main 43b92d6, zonder U63-productcode, met alleen dezelfde rig-overlay. Finale batch meet eerst deze main-fixture ×3 --baseline en bewaart u62-main-fixture; vervolgens main eigen kaart ×3 in u62-main-own. Pas daarna behouden U63-stand fixture ×3 --compare en eigen kaart ×3, met afzonderlijke archives final-fixture/final-own. De eerdere vóór-U62 eigen-controle 3596/1652 blijft de historische vaste hoofdlijn en wordt niet door nieuwe main-cijfers overschreven. De nieuwe matched-main-reeks komt apart in de tabel; verschillen door U62 zijn geen U63-winst.
 
 Gerichte desktopgate uitgebreid met de daadwerkelijk geraakte U62-integratiebestanden sky-window/table/dev-panel naast startup/map-startup/presets/decode-budget/basemap/focus; exacte command staat in tmp/u63/final-gates.sh. Placeholderpaar en quota-paar blijven beide coherent op de afzonderlijke vóór-U62-proefcode, expliciet labelen; een eventuele winnaar moet op de geïntegreerde startsituatie opnieuw worden bevestigd vóór hoofdlijn/PO-voorstel. Alle vier eigen batches wachten volgens beleid, load 20,03 op 09:05 UTC.
+
+## 2026-10-08 09:09 UTC — complete historische eigen-kaarttabel vóór U62
+
+De eerder pending kandidaat 6 en afgeronde kandidaat 7 staan hieronder volledig naast dezelfde vaste controle. Mediane cijfers ×3 opnieuw uit de gearchiveerde report/raw via `node .dev/tracks/u63-mobiel-ttfp-lus/summarize.mjs web/tmp/u63/own-control web/tmp/u63/own-assets web/tmp/u63/own-zero-frame web/tmp/u63/own-temp-idle`, receipt exit 0. Dit zijn geen nieuwe opnames. Elke regel gebruikt U60 nl-91e2043db5c73799, raster6, page-CPU1× plus renderer/workerquota40%, netwerk30Mbps/20ms, /weer/de-bilt, vóór U62.
+
+| referentie / kandidaat | profiel | scenario | cache | basiskaart | ttfr ms | ttfp ms | eerste regencommit ms | decodes | bodybytes | LoAF na ttfp max ms | LoAF >250 ms | keuze |
+| --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| vaste controle kandidaat 3 | po-android | koud-spelend | koud | eigen PMTiles U60 | 3596 | 1652 | 1316 | 223 | 4961590 | 360 | 1 | historische referentie |
+| kandidaat 5 stijl/fonts vroeg | po-android | koud-spelend | koud | eigen PMTiles U60 | 3737 | 1861 | 1466 | 223 | 4961721 | 276 | 1 | verworpen |
+| kandidaat 6 nulgewichtsframe | po-android | koud-spelend | koud | eigen PMTiles U60 | 4420 | 1607 | 1137 | 221 | 4963645 | 326 | 1 | verworpen, ttfr zwaarder dan ttfp |
+| kandidaat 7 temp na kaart-idle | po-android | koud-spelend | koud | eigen PMTiles U60 | 3834 | 1789 | 1423 | 223 | 4961613 | 269 | 2 | verworpen, geen gemeten winst |
+
+De lange frames blijven een open bewaker; kleinere max-frames rechtvaardigen geen ttfr-regressie. Textuurupload gebruikt al R8 en hergebruikte framebuffers; GPU/SwiftShader blijft buiten de telefoonrem. Placeholder en quotadiagnose zijn de volgende afzonderlijke metingen, nog geen resultaat terwijl hostload te hoog is.
+
+## 2026-10-08 09:20 UTC — wachtrecept gecorrigeerd vóór eerste opname
+
+Eigen voorbereidingsfout gevonden: placeholder-pair.sh was al door Bash tot zijn eerste wachtlus gelezen toen de extra rustige minuut werd toegevoegd. Een andere bestandslengte zou de vervolgcommando's op de verkeerde leespositie laten hervatten. Vóór enige opname/check de oorspronkelijke prefix exact uit de eigen launchcommand hersteld; /proc/186089/fdinfo/255 bevestigt positie 283 (direct na de wachtlus). Daar begint nu de aanvullende wait-quiet-helper, gevolgd door alle oorspronkelijke checks en beide ×3-opnames. Proces/lock niet beëindigd en geen nieuwe planningvraag; de wachtende jobs blijven staan. Andere batches zijn nog niet door Bash gestart en hebben dit probleem niet. Alle outputfiles nog leeg, geen vermeende receipt of perfresultaat. Load 43,99 op 09:19 UTC.
