@@ -264,6 +264,14 @@
   → budget +40 kB met herkomst (gecommit, verificatie 4/4 groen); dev-panel.spec mobiel ×2 (wind 0,80 →
   "iets" 1,00) → al gefixt op U62's branch (pre-gate groen: 527 unit, 26+10 e2e, 3 Firefox). Uitslag:
   `~/motregen-profiles/nightly-e2e-2026-10-08.txt`.
+- **U62 deel 3 gemerged** (c95b6375, 22:35): regen-blending Wind=vermenigvuldigen / Lucht=voorstel als
+  default (PO "beide veel beter"); Firefox-Android-adresbalkbug ronde 4: gemeten oorzaak via PO-overlay
+  (`visualViewport.offsetTop −63,7` bij scrollTop = max; layout klopte), fix = paneelstand t.o.v. de
+  zichtbare viewport + vangnetstrook (120 px, koppenrij-kleur) boven het open paneel — OP TOESTEL NOG NIET
+  BEVESTIGD; bijvangst: afgebroken tabel-scroll (3/30) door eigen correcties → correctie alleen na 300 ms
+  rust, kaartkant-correctie weg; firefox-e2e-project (5 tests, 15/15 bij ×3); dev-panel.spec op wind
+  "iets". Gate 527 unit, 33+24+15 e2e, build; 4330 herbouwd. Open bij PO: adresbalk-test op 4330/4320,
+  rand-stand (?dev). U62 blijft open als live-pane.
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
