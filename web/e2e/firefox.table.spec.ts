@@ -52,3 +52,43 @@ test('the table panel stays at the top when the viewport height changes after sc
     expect(await panelTop(page)).toBe(0)
   }
 })
+
+test('the strip of scrubber does not stay above the table when the address bar returns during a touch scroll', async ({ page }) => {
+  // Het recept van de PO (Firefox voor Android, 2026-10-08): tabel bijna tot het einde scrollen, een korte veeg
+  // terug zodat de adresbalk terugkomt, loslaten. De balk maakt het zichtbare scherm lager terwijl de vinger er
+  // nog op ligt; de browser begrenst de scroll daarna met een hoger scherm dan `innerHeight` meldt.
+  await openTable(page)
+  await expect.poll(() => panelTop(page)).toBe(0)
+  await expect(page.locator('.app-shell')).toHaveClass(/table-scroll-open/)
+  const scroller = page.locator('.table-scroll')
+  await scroller.evaluate((element) => { element.scrollTop = element.scrollHeight - element.clientHeight - 40 })
+
+  const touch = (type: 'touchstart' | 'touchmove' | 'touchend', held: boolean) => page.evaluate(([eventType, active]) => {
+    const target = document.querySelector('.table-scroll')!
+    const finger = new Touch({ identifier: 1, target, clientX: 190, clientY: 400 })
+    target.dispatchEvent(new TouchEvent(eventType as string, { bubbles: true, cancelable: true, touches: active ? [finger] : [], changedTouches: [finger] }))
+  }, [type, held] as const)
+
+  await touch('touchstart', true)
+  await scroller.evaluate((element) => { element.scrollTop -= 30 })
+  await touch('touchmove', true)
+  // De adresbalk komt terug: 56 px minder zichtbaar scherm. 100dvh (en dus het paneel) krimpt mee en
+  // `innerHeight` ook, maar de scroll van de pagina blijft begrensd door het hogere scherm.
+  await page.evaluate(() => {
+    const realInnerHeight = window.innerHeight
+    Object.defineProperty(window, 'innerHeight', { configurable: true, get: () => realInnerHeight - 56 })
+    const style = document.createElement('style')
+    style.textContent = '.forecast-panel { height: calc(100dvh - 56px + var(--table-panel-shortfall, 0px)) !important; min-height: 0 !important; }'
+    document.head.append(style)
+    window.dispatchEvent(new Event('resize'))
+    window.visualViewport?.dispatchEvent(new Event('resize'))
+  })
+  // Zolang de vinger ligt blijft de app eraf: de strook staat er.
+  await page.waitForTimeout(500)
+  expect(await panelTop(page)).toBe(56)
+
+  await touch('touchend', false)
+  await expect.poll(() => panelTop(page), { timeout: 5_000 }).toBe(0)
+  await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
+  expect(await page.locator('.forecast-panel').evaluate((element) => (element as HTMLElement).style.getPropertyValue('--table-panel-shortfall'))).toBe('56px')
+})
