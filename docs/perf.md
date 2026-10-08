@@ -1328,6 +1328,11 @@ het eerste appbezoek staat daardoor onder SW-controle en vult de bestaande cache
 Daarna sluit de hele browser. Geen pagina-, decode-worker-, MapLibre- of WebGL-staat
 wordt hergebruikt. Cache Storage-inventarissen staan in de raw/meta; een ontbrekende
 manifestcache is een bevinding, geen reden om hem kunstmatig vooraf te vullen.
+De seed speelt vanaf zijn ttfp minstens 35 s voor een opname van 30 s; zo blijven
+tail-ranges gevuld als het warme bezoek eerder speelt. HTTP-cachehits worden via
+CDP `requestServedFromCache`/`fromDiskCache` én een voltooide response aangetoond.
+SW-fetch en paginaantwoord worden apart gekoppeld aan native Resource Timing;
+de SW krijgt dezelfde netwerkrem als de pagina. Negatieve bodygroottes zijn ongeldig.
 De cachevulling gebruikt één e2e-slot buiten de perf-lock en levert geen perfgetal.
 Vervolgens wacht de runner buiten de lock op loadavg <8 en neemt één bezoek op.
 

@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, type Page, type Request, type BrowserContext } from '@playwright/test'
-import { test, warmingCache, warmVisit, installSeedWorker, completeCacheSeed, seedEvidence, cacheInventory } from './rig-cache'
+import { test, warmingCache, warmVisit, installSeedWorker, completeCacheSeed, seedEvidence, cacheInventory, workerNetwork } from './rig-cache'
 import { applyEmulation, performanceProfile } from './profiles'
 import { installMobileProbe } from './mobile-probe'
 import { buildChromeTrace, type SelfProfilerTrace } from '../src/core/profile-recorder'
@@ -91,7 +91,7 @@ for (const profileId of options.profiles) {
         })
         if (scenario.devStorage) await page.addInitScript((entries) => { for (const [key, value] of Object.entries(entries)) localStorage.setItem(key, value) }, scenario.devStorage)
         await page.addInitScript(installMobileProbe)
-        const network = recordPlaywrightNetwork(warmVisit ? context : page, warmVisit)
+        const network = recordPlaywrightNetwork(warmVisit ? context : page, warmVisit, context)
         const capturedAt = new Date().toISOString()
         if (warmingCache) await installSeedWorker(page, baseURL!)
         // Een ?t-preset zet de tijdlijn stil; zonder preset speelt de app vanzelf, zoals bij een gewone bezoeker.
@@ -177,6 +177,7 @@ for (const profileId of options.profiles) {
         const selectedWire = wireWindow(observedRequests, [...pageResources, ...workerResources], scenario.durationMs)
         const requests = selectedWire.requests
         const wire = reconcileWire(requests, selectedWire.timing)
+        if (warmCache) Object.assign(warmCache, { workerNetwork: workerNetwork(context)?.evidence() })
         const decode = summarizePhases(captured.entries.measures, scenario.durationMs)
         const longFrames = captured.entries.longFrames.filter((frame) => frame.startTime + frame.duration <= scenario.durationMs)
         const longSources = new Map<string, number>()
@@ -327,6 +328,7 @@ function filterSelfProfile(trace: SelfProfilerTrace | null, durationMs: number):
 }
 
 interface NetworkRecord {
+  fromHttpCache?: boolean
   fromServiceWorker?: boolean
   cacheControl?: string | null
   range: string | null
@@ -340,7 +342,7 @@ interface NetworkRecord {
   finish: () => void
 }
 
-function recordPlaywrightNetwork(page: Page | BrowserContext, warm = false) {
+function recordPlaywrightNetwork(page: Page | BrowserContext, warm = false, context?: BrowserContext) {
   const requests = new Map<Request, NetworkRecord>()
   page.on('request', (request) => {
     if (!/^https?:/.test(request.url())) return
@@ -360,8 +362,9 @@ function recordPlaywrightNetwork(page: Page | BrowserContext, warm = false) {
       const declared = response?.headers()['content-length']
       record.playwrightBodySize = sizes.responseBodySize
       record.contentLength = declared === undefined ? null : Number(declared)
+      record.fromHttpCache = Boolean(warm && request.serviceWorker() && context && workerNetwork(context)?.cached(request.url(), record.range, request.timing().startTime))
       record.bodySizeSource = !warm && sizes.responseBodySize === 0 && record.contentLength !== null && record.failure === null ? 'completed-content-length' : 'playwright-sizes'
-      record.bytes = warm && response?.fromServiceWorker() ? 0 : record.bodySizeSource === 'completed-content-length' ? record.contentLength : sizes.responseBodySize
+      record.bytes = warm && (response?.fromServiceWorker() || record.fromHttpCache) ? 0 : record.bodySizeSource === 'completed-content-length' ? record.contentLength : sizes.responseBodySize
     }
     catch (error) { record.failure = String(error) }
     finally { record.finish() }
@@ -387,10 +390,15 @@ function recordPlaywrightNetwork(page: Page | BrowserContext, warm = false) {
       const result: WireRequest[] = []
       for (const [request, record] of observed) {
         const timing = request.timing()
+        // De onafhankelijke CDP-socket kan loadingFinished later bezorgen dan Playwright.
+        if (warm && request.serviceWorker() && context && workerNetwork(context)?.cached(request.url(), record.range, timing.startTime)) {
+          record.fromHttpCache = true
+          record.bytes = 0
+        }
         const startMs = timing.startTime - timeOrigin
         const endMs = timing.responseEnd < 0 ? null : startMs + timing.responseEnd
         if (startMs < 0) throw new Error(`Playwright heeft geen geldige request-starttijd: ${request.url()}`)
-        result.push({ url: request.url(), startMs, endMs, encodedBodyBytes: record.bytes, range: record.range, status: record.status, failure: record.failure, bodySizeSource: record.bodySizeSource, playwrightBodySize: record.playwrightBodySize, contentLength: record.contentLength, fromServiceWorker: record.fromServiceWorker, cacheControl: record.cacheControl, owner: request.serviceWorker() ? 'service-worker' : 'client' })
+        result.push({ url: request.url(), startMs, endMs, encodedBodyBytes: record.bytes, range: record.range, status: record.status, failure: record.failure, bodySizeSource: record.bodySizeSource, playwrightBodySize: record.playwrightBodySize, contentLength: record.contentLength, fromServiceWorker: record.fromServiceWorker, fromHttpCache: record.fromHttpCache, cacheControl: record.cacheControl, owner: request.serviceWorker() ? 'service-worker' : 'client' })
       }
       return result
     },

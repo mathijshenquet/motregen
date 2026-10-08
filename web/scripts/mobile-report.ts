@@ -14,6 +14,7 @@ export interface WireRequest {
   contentLength?: number | null
   owner?: 'client' | 'service-worker'
   fromServiceWorker?: boolean
+  fromHttpCache?: boolean
   cacheControl?: string | null
 }
 export interface TimingRequest {
@@ -108,6 +109,7 @@ export function reconcileWire(requests: WireRequest[], timing: TimingRequest[]) 
     }
   }
   for (const request of requests) {
+    if (request.encodedBodyBytes !== null && request.encodedBodyBytes < 0) findings.push(`Ongeldige negatieve bodygrootte: ${request.url}`)
     const completeBodyAbort = completedBodyAbort(request)
     if ((request.failure && !completeBodyAbort) || request.encodedBodyBytes === null) findings.push(`Onvolledige response: ${request.url} (${request.failure ?? 'bodygrootte onbekend'})`)
   }
@@ -207,8 +209,8 @@ export function renderMobileReport(report: MobileReport): string {
     '',
     '| maat | waarde |',
     '| --- | ---: |',
-    `| ttfp (eerste frame-wissel tijdens afspelen) | ${report.milestones.ttfpMs ?? 'niet bereikt'} ms |`,
     `| ttfr (eerste regen én basemap-tiles) | ${report.milestones.ttfrMs ?? 'onbekend'} ms |`,
+    `| ttfp (eerste frame-wissel tijdens afspelen) | ${report.milestones.ttfpMs ?? 'niet bereikt'} ms |`,
     `| eerste regenframe / basemap-tiles | ${report.milestones.firstRainMs ?? 'onbekend'} / ${report.milestones.basemapReadyMs ?? 'onbekend'} ms |`,
     `| eerste balk | ${report.milestones.firstBarMs ?? 'onbekend'} ms |`,
     `| blank-visible: laatste zichtbare balk binnen na | ${report.milestones.blankVisibleMs} ms |`,

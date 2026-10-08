@@ -5,9 +5,12 @@ const baseline: MobileBaseline = { schema: 1, profile: 'mobile-4g', scenario: 'k
 const request: WireRequest = { url: '/data/chunks/rain.mrf', startMs: 10, endMs: 100, encodedBodyBytes: 1_000, range: 'bytes=0-999', status: 206, failure: null }
 
 describe('mobiele rapportage', () => {
+  it('weigert negatieve bodybytes ook wanneer de procentformule daardoor geen afwijking ziet', () => {
+    expect(reconcileWire([{ ...request, encodedBodyBytes: -538 }], [{ ...request, endMs: 100, encodedBodyBytes: 0 }]).findings).toContain('Ongeldige negatieve bodygrootte: /data/chunks/rain.mrf')
+  })
   it('koppelt SW-netwerkfetch en gecachte paginaresponse apart, ook bij omgekeerde netwerkstart', () => {
     const client = { ...request, owner: 'client' as const, fromServiceWorker: true, startMs: 20, encodedBodyBytes: 0 }
-    const worker = { ...request, owner: 'service-worker' as const, startMs: 15 }
+    const worker = { ...request, owner: 'service-worker' as const, startMs: 15, encodedBodyBytes: 1_000 }
     const clientTiming = { ...client, startMs: 10, endMs: 100 }
     const workerTiming = { ...worker, startMs: 11, endMs: 99 }
     const selected = wireWindow([client, worker], [clientTiming, workerTiming], 30_000)

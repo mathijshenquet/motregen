@@ -1,6 +1,10 @@
 import { readFileSync } from 'node:fs'
 import type { PerformanceProfile } from '../e2e/profiles'
 
+export interface WorkerNetworkRequest {
+  url: string; range: string | null; startEpochMs: number; cached: boolean; finished: boolean
+}
+
 export async function emulateWorkerNetwork(profileDirectory: string, network: PerformanceProfile['network']) {
   const [port, path] = readFileSync(`${profileDirectory}/DevToolsActivePort`, 'utf8').trim().split('\n')
   const socket = new WebSocket(`ws://127.0.0.1:${port}${path}`)
@@ -13,6 +17,7 @@ export async function emulateWorkerNetwork(profileDirectory: string, network: Pe
   const targets: Array<{ url: string; configured: boolean }> = []
   const errors: string[] = []
   const configuring: Promise<void>[] = []
+  const requests = new Map<string, WorkerNetworkRequest>()
   function send(method: string, params: unknown = {}, sessionId?: string): Promise<void> {
     const id = ++nextId
     return new Promise((resolve, reject) => {
@@ -47,12 +52,26 @@ export async function emulateWorkerNetwork(profileDirectory: string, network: Pe
         } catch (error) { errors.push(String(error)) }
         finally { await send('Runtime.runIfWaitingForDebugger', {}, sessionId).catch(error => errors.push(String(error))) }
       })())
+    } else if (message.method === 'Network.requestWillBeSent') {
+      const { requestId, request, wallTime } = message.params
+      const range = Object.entries(request.headers as Record<string, string>).find(([name]) => name.toLowerCase() === 'range')?.[1] ?? null
+      requests.set(`${message.sessionId}/${requestId}`, { url: request.url, range, startEpochMs: wallTime * 1_000, cached: false, finished: false })
+    } else if (message.method === 'Network.requestServedFromCache') {
+      const request = requests.get(`${message.sessionId}/${message.params.requestId}`)
+      if (request) request.cached = true
+    } else if (message.method === 'Network.responseReceived') {
+      const request = requests.get(`${message.sessionId}/${message.params.requestId}`)
+      if (request && message.params.response.fromDiskCache) request.cached = true
+    } else if (message.method === 'Network.loadingFinished') {
+      const request = requests.get(`${message.sessionId}/${message.params.requestId}`)
+      if (request) request.finished = true
     }
   })
   // Page-CDP remt fetches in een serviceworker niet; attach vóór de eerste SW-fetch.
   await send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: true, flatten: true, filter: [{ type: 'service_worker' }, { exclude: true }] })
   return {
-    evidence: () => ({ network, targets, errors }),
+    evidence: () => ({ network, targets, errors, requests: [...requests.values()] }),
+    cached: (url: string, range: string | null, epochMs: number) => [...requests.values()].some(request => request.cached && request.finished && request.url === url && request.range === range && Math.abs(request.startEpochMs - epochMs) < 250),
     close: async () => { await Promise.all(configuring); socket.close() },
   }
 }

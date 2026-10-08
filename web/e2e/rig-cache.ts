@@ -1,7 +1,10 @@
 import { readFileSync, writeFileSync } from 'node:fs'
-import { test as base, expect, type Page } from '@playwright/test'
+import { test as base, expect, type Page, type BrowserContext } from '@playwright/test'
 import { emulateWorkerNetwork } from '../scripts/rig-worker-network'
 import { performanceProfile } from './profiles'
+
+const workerNetworks = new WeakMap<BrowserContext, Awaited<ReturnType<typeof emulateWorkerNetwork>>>()
+export function workerNetwork(context: BrowserContext) { return workerNetworks.get(context) }
 
 export const test = base.extend({
   context: async ({ playwright, browserName, headless, contextOptions, launchOptions, baseURL, viewport, userAgent, deviceScaleFactor, isMobile, hasTouch, serviceWorkers, colorScheme }, use) => {
@@ -10,7 +13,10 @@ export const test = base.extend({
     const profile = process.env.MOTREGEN_RIG_WARM_PROFILE
     if (profile) {
       const context = await browserType.launchPersistentContext(profile, { headless, ...launchOptions, args: [...launchOptions.args ?? [], '--remote-debugging-port=0'], ...settings, serviceWorkers: 'allow' })
+      await Promise.all(context.pages().map(page => page.close()))
       const network = await emulateWorkerNetwork(profile, performanceProfile(process.env.MOTREGEN_RIG_ACTIVE_PROFILE!).network)
+        .catch(async error => { await context.close(); throw error })
+      workerNetworks.set(context, network)
       try { await use(context) }
       finally {
         const evidence = network.evidence()
@@ -53,13 +59,14 @@ export async function installSeedWorker(page: Page, origin: string): Promise<voi
 export async function completeCacheSeed(page: Page, durationMs: number): Promise<void> {
   await expect(page.getByRole('slider', { name: 'Tijd' })).toHaveAttribute('data-load-stage', 'window', { timeout: 120_000 })
   await page.waitForFunction(() => window.__motregenPerf?.snapshot().basemapReadyMs !== null && window.__motregenPerf?.snapshot().ttfpMs !== null)
-  const remaining = durationMs - await page.evaluate(() => performance.now())
+  // Vijf seconden speelruimte voorkomt ongevulde tail-ranges door een eerdere warme ttfp.
+  const remaining = await page.evaluate(duration => window.__motregenPerf!.snapshot().ttfpMs! + duration + 5_000 - performance.now(), durationMs)
   if (remaining > 0) await page.waitForTimeout(remaining)
   await page.waitForLoadState('networkidle')
   const inventory = await cacheInventory(page)
   expect(inventory.controlled, 'cachevulbezoek heeft een actieve SW').toBe(true)
   const profile = process.env.MOTREGEN_RIG_WARM_PROFILE!
-  writeFileSync(`${profile}/cache-seed.json`, JSON.stringify({ completedAt: new Date().toISOString(), ...inventory }, null, 2))
+  writeFileSync(`${profile}/cache-seed.json`, JSON.stringify({ completedAt: new Date().toISOString(), playingDurationMs: durationMs + 5_000, ...inventory }, null, 2))
 }
 
 export function seedEvidence() {
