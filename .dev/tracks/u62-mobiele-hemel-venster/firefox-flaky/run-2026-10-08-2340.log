@@ -1,0 +1,132 @@
+$ scripts/e2e-slot.sh playwright test --project firefox --repeat-each 3
+[WebServer] $ tsx scripts/synthgen.ts
+[WebServer] {"level":"info","ts":1791493763.299017,"msg":"maxprocs: Leaving GOMAXPROCS=32: CPU quota undefined"}
+[WebServer] {"level":"info","ts":1791493763.2990475,"msg":"GOMEMLIMIT is updated","GOMEMLIMIT":121190860800,"previous":9223372036854775807}
+[WebServer] {"level":"info","ts":1791493763.2990513,"msg":"using config from file","file":"e2e/Caddyfile"}
+[WebServer] {"level":"info","ts":1791493763.2990541,"msg":"adapted config to JSON","adapter":"caddyfile"}
+[WebServer] {"level":"warn","ts":1791493763.299058,"logger":"admin","msg":"admin endpoint disabled"}
+[WebServer] {"level":"info","ts":1791493763.299249,"logger":"http.auto_https","msg":"automatic HTTPS is completely disabled for server","server_name":"srv0"}
+[WebServer] {"level":"info","ts":1791493763.299338,"logger":"tls.cache.maintenance","msg":"started background certificate maintenance","cache":"0x2e8cdf26d600"}
+[WebServer] {"level":"warn","ts":1791493763.3004196,"logger":"http","msg":"HTTP/2 skipped because it requires TLS","network":"tcp","addr":":8196"}
+[WebServer] {"level":"warn","ts":1791493763.3004296,"logger":"http","msg":"HTTP/3 skipped because it requires TLS","network":"tcp","addr":":8196"}
+[WebServer] {"level":"info","ts":1791493763.300433,"logger":"http.log","msg":"server running","name":"srv0","protocols":["h1","h2","h3"]}
+[WebServer] {"level":"info","ts":1791493763.3010247,"msg":"autosaved config (load with --resume flag)","file":"/home/mathijs/.config/caddy/autosave.json"}
+[WebServer] {"level":"info","ts":1791493763.3010368,"msg":"serving initial configuration"}
+[WebServer] {"level":"info","ts":1791493763.3015902,"logger":"tls","msg":"storage cleaning happened too recently; skipping for now","storage":"FileStorage:/home/mathijs/.local/share/caddy","instance":"540b6ce5-db5b-4d1a-ad92-81a205e49df0","try_again":1791580163.3015878,"try_again_in":86399.999999349}
+[WebServer] {"level":"info","ts":1791493763.3017144,"logger":"tls","msg":"finished cleaning storage units"}
+[WebServer] 
+[WebServer] (!) Some chunks are larger than 500 kB after minification. Consider:
+[WebServer] - Using dynamic import() to code-split the application
+[WebServer] - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+[WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[WebServer] $ vite preview --outDir tmp/e2e-dist --host 127.0.0.1 --port 4196
+[WebServer] {"level":"info","ts":1791493785.4493876,"msg":"maxprocs: Leaving GOMAXPROCS=32: CPU quota undefined"}
+[WebServer] {"level":"info","ts":1791493785.4494202,"msg":"GOMEMLIMIT is updated","GOMEMLIMIT":121190860800,"previous":9223372036854775807}
+[WebServer] {"level":"info","ts":1791493785.449424,"msg":"using config from file","file":"e2e/Caddyfile.routes"}
+[WebServer] {"level":"info","ts":1791493785.449427,"msg":"adapted config to JSON","adapter":"caddyfile"}
+[WebServer] {"level":"warn","ts":1791493785.4494305,"logger":"admin","msg":"admin endpoint disabled"}
+[WebServer] {"level":"info","ts":1791493785.4495895,"logger":"http.auto_https","msg":"automatic HTTPS is completely disabled for server","server_name":"srv0"}
+[WebServer] {"level":"info","ts":1791493785.4497824,"logger":"tls.cache.maintenance","msg":"started background certificate maintenance","cache":"0x284189a33b00"}
+[WebServer] {"level":"warn","ts":1791493785.455199,"logger":"http","msg":"HTTP/2 skipped because it requires TLS","network":"tcp","addr":":8197"}
+[WebServer] {"level":"warn","ts":1791493785.4553373,"logger":"http","msg":"HTTP/3 skipped because it requires TLS","network":"tcp","addr":":8197"}
+[WebServer] {"level":"info","ts":1791493785.4553437,"logger":"http.log","msg":"server running","name":"srv0","protocols":["h1","h2","h3"]}
+[WebServer] {"level":"info","ts":1791493785.4559948,"msg":"autosaved config (load with --resume flag)","file":"/home/mathijs/.config/caddy/autosave.json"}
+[WebServer] {"level":"info","ts":1791493785.4560122,"msg":"serving initial configuration"}
+[WebServer] {"level":"info","ts":1791493785.4564784,"logger":"tls","msg":"storage cleaning happened too recently; skipping for now","storage":"FileStorage:/home/mathijs/.local/share/caddy","instance":"540b6ce5-db5b-4d1a-ad92-81a205e49df0","try_again":1791580185.456474,"try_again_in":86399.999998898}
+[WebServer] {"level":"info","ts":1791493785.4566202,"logger":"tls","msg":"finished cleaning storage units"}
+
+Running 15 tests using 1 worker
+
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  ✓   1 [firefox] › e2e/firefox.table.spec.ts:15:1 › the table panel makes up its own shortfall when the page ends before the panel reaches the top (5.1s)
+  ✓   2 [firefox] › e2e/firefox.table.spec.ts:32:1 › a page left just beside the table snap point is pulled back (3.5s)
+  ✓   3 [firefox] › e2e/firefox.table.spec.ts:46:1 › the table panel stays at the top when the viewport height changes after scrolling (3.8s)
+  ✓   4 [firefox] › e2e/firefox.table.spec.ts:56:1 › the strip of scrubber does not stay above the table when the address bar returns during a touch scroll (3.7s)
+  ✓   5 [firefox] › e2e/firefox.table.spec.ts:98:1 › a strip the browser shows above the layout viewport is closed, and shows panel colour until then (3.4s)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  ✓   6 [firefox] › e2e/firefox.table.spec.ts:15:1 › the table panel makes up its own shortfall when the page ends before the panel reaches the top (3.9s)
+  ✓   7 [firefox] › e2e/firefox.table.spec.ts:32:1 › a page left just beside the table snap point is pulled back (2.8s)
+  ✓   8 [firefox] › e2e/firefox.table.spec.ts:46:1 › the table panel stays at the top when the viewport height changes after scrolling (3.2s)
+  ✓   9 [firefox] › e2e/firefox.table.spec.ts:56:1 › the strip of scrubber does not stay above the table when the address bar returns during a touch scroll (2.8s)
+  ✓  10 [firefox] › e2e/firefox.table.spec.ts:98:1 › a strip the browser shows above the layout viewport is closed, and shows panel colour until then (2.8s)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  ✘  11 [firefox] › e2e/firefox.table.spec.ts:15:1 › the table panel makes up its own shortfall when the page ends before the panel reaches the top (10.8s)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  ✘  12 [firefox] › e2e/firefox.table.spec.ts:15:1 › the table panel makes up its own shortfall when the page ends before the panel reaches the top (retry #1) (10.5s)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  ✓  13 [firefox] › e2e/firefox.table.spec.ts:15:1 › the table panel makes up its own shortfall when the page ends before the panel reaches the top (retry #2) (4.2s)
+  ✓  14 [firefox] › e2e/firefox.table.spec.ts:32:1 › a page left just beside the table snap point is pulled back (3.4s)
+  ✓  15 [firefox] › e2e/firefox.table.spec.ts:46:1 › the table panel stays at the top when the viewport height changes after scrolling (3.6s)
+  ✓  16 [firefox] › e2e/firefox.table.spec.ts:56:1 › the strip of scrubber does not stay above the table when the address bar returns during a touch scroll (3.9s)
+  ✓  17 [firefox] › e2e/firefox.table.spec.ts:98:1 › a strip the browser shows above the layout viewport is closed, and shows panel colour until then (4.0s)
+
+
+  1) [firefox] › e2e/firefox.table.spec.ts:15:1 › the table panel makes up its own shortfall when the page ends before the panel reaches the top 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 0
+    Received: 698
+
+    Call Log:
+    - Timeout 10000ms exceeded while waiting on the predicate
+
+      19 |   const shortPanel = await page.addStyleTag({ content: '.forecast-panel { height: calc(100dvh - 56px + var(--table-panel-shortfall, 0px)) !important; min-height: 0 !important; }' })
+      20 |   await page.getByRole('button', { name: 'Tabel' }).click()
+    > 21 |   await expect.poll(() => panelTop(page), { timeout: 10_000 }).toBe(0)
+         |                                                                ^
+      22 |   await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
+      23 |   expect(await page.locator('.forecast-panel').evaluate((element) => (element as HTMLElement).style.getPropertyValue('--table-panel-shortfall'))).toBe('56px')
+      24 |
+        at /home/mathijs/worktrees/motregen/track-u62-mobiele-hemel-venster/web/e2e/firefox.table.spec.ts:21:64
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    tmp/playwright-results/firefox.table-the-table-pa-e1734-e-the-panel-reaches-the-top-firefox-repeat2/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: tmp/playwright-results/firefox.table-the-table-pa-e1734-e-the-panel-reaches-the-top-firefox-repeat2/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    tmp/playwright-results/firefox.table-the-table-pa-e1734-e-the-panel-reaches-the-top-firefox-repeat2/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace tmp/playwright-results/firefox.table-the-table-pa-e1734-e-the-panel-reaches-the-top-firefox-repeat2/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 0
+    Received: 698
+
+    Call Log:
+    - Timeout 10000ms exceeded while waiting on the predicate
+
+      19 |   const shortPanel = await page.addStyleTag({ content: '.forecast-panel { height: calc(100dvh - 56px + var(--table-panel-shortfall, 0px)) !important; min-height: 0 !important; }' })
+      20 |   await page.getByRole('button', { name: 'Tabel' }).click()
+    > 21 |   await expect.poll(() => panelTop(page), { timeout: 10_000 }).toBe(0)
+         |                                                                ^
+      22 |   await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
+      23 |   expect(await page.locator('.forecast-panel').evaluate((element) => (element as HTMLElement).style.getPropertyValue('--table-panel-shortfall'))).toBe('56px')
+      24 |
+        at /home/mathijs/worktrees/motregen/track-u62-mobiele-hemel-venster/web/e2e/firefox.table.spec.ts:21:64
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    tmp/playwright-results/firefox.table-the-table-pa-e1734-e-the-panel-reaches-the-top-firefox-retry1-repeat2/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: tmp/playwright-results/firefox.table-the-table-pa-e1734-e-the-panel-reaches-the-top-firefox-retry1-repeat2/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    tmp/playwright-results/firefox.table-the-table-pa-e1734-e-the-panel-reaches-the-top-firefox-retry1-repeat2/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace tmp/playwright-results/firefox.table-the-table-pa-e1734-e-the-panel-reaches-the-top-firefox-retry1-repeat2/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 flaky
+    [firefox] › e2e/firefox.table.spec.ts:15:1 › the table panel makes up its own shortfall when the page ends before the panel reaches the top 
+  14 passed (1.9m)

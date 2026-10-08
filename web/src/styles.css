@@ -787,10 +787,14 @@ button.column-mode { width: 100%; cursor: pointer; }
     linear-gradient(180deg, var(--day-sky-start), var(--day-sky-end));
   --row-ground: var(--day-sky-end);
 }
-/* De rijlijn is altijd DONKERDER dan de rij waar hij op ligt, nooit lichter: een lichte lijn op een donkere
-   rij oogt veel harder dan zijn rekencontrast doet vermoeden (PO 2026-10-08: "veel te harsh"). Dagrijen: de
-   inkt van de rij gemengd met de werkelijke rijkleur; nachtrijen: de rijkleur verdonkerd met zwart. */
-.forecast-table.day-night-table tbody tr.day-hour { --line: color-mix(in oklab, var(--text) 11%, var(--row-ground)); }
+/* De rijlijn is de WERKELIJKE rijkleur, verdonkerd met zwart: nooit lichter dan de rij (een lichte lijn op
+   een donkere rij, of inkt op een lichte rij, oogt harder dan zijn rekencontrast; PO 2026-10-08). Het aandeel
+   zwart hangt af van de helderheid van de rij, niet van het app-thema:
+                      licht thema        donker thema
+     dagrij (licht)    6 % zwart          6 % zwart      (de dagrij blijft ook in donker thema licht)
+     nachtrij (donker) 30 % zwart         30 % zwart     (de nachtrij is ook in licht thema donker)
+   Het thema kiest dus geen tak; de rijklasse zegt welke kleur de rij heeft. */
+.forecast-table.day-night-table tbody tr.day-hour { --line: color-mix(in oklab, #000 6%, var(--row-ground)); }
 .forecast-table.day-night-table tbody tr.night-hour { --line: color-mix(in oklab, #000 30%, var(--row-ground)); }
 /* Eén apparaatpixel: op een scherm met dubbele dichtheid is 1 px twee pixels dik. Een samengevoegde
    tabelrand rondt af op hele px, dus daar tekent de cel zijn lijn zelf: de onderste helft van een strook van 1 px. */

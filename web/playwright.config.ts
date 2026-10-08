@@ -25,6 +25,9 @@ export default defineConfig({
     {
       name: 'firefox',
       testMatch: FIREFOX_ONLY,
+      // De nabootsing van visualViewport is timing-gevoelig (2 van 15 rood in de orkestrator-gate, 2026-10-08);
+      // tot firefox.table.spec deterministisch is mag een test twee keer opnieuw.
+      retries: 2,
       use: {
         ...devices['Desktop Firefox'],
         viewport: { width: 390, height: 844 },

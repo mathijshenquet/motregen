@@ -845,3 +845,26 @@ Fix: `mapSurfaceTheme` (dag/nacht van de kaart zelf) voedt temperatuurcijfers, i
   orkestrator 15/15). Of het een rest daarvan is of ruis weet ik niet: het faalbeeld is door de herhaalrun
   overschreven. De CSS van deze ronde raakt geen scrolllogica, maar uitgesloten is het niet (de rijhoogte
   verandert niet meer; de rand staat er nog). OPEN: bij een nieuwe rode run eerst het beeld en de trace bewaren.
+
+## 2026-10-08 ~23:45 — rijlijnen: 2×2-matrix (PO: dagrijen te harsh) + firefox-retries
+- Eén regel voor alle cellen: lijn = de werkelijke rijkleur, verdonkerd met zwart, nooit lichter.
+  |                    | licht thema | donker thema |
+  | dagrij (licht)     | 6 % zwart   | 6 % zwart    |
+  | nachtrij (donker)  | 30 % zwart  | 30 % zwart   |
+  Het thema kiest geen tak: in deze tabel blijft een dagrij ook in donker thema licht (regel
+  `:root[data-theme="dark"] … tr.day-hour` zet hem op wit/hemel) en is een nachtrij ook in licht thema donker.
+  "Donker thema overdag heeft donkere dagrijen" klopt dus niet voor de dag/nacht-tabel; de rijklasse
+  (`day-hour`/`night-hour`) ís de rijkleur. Dagrij was: tekstkleur 11 %.
+- Gemeten in de screenshots (dpr 2): dagrij lijn rgb 181,206,217 op 196,223,236 (390) en 176,212,231 op
+  191,230,250 (1280); nachtrij 4,10,16 op 10,24,32. 1 apparaatpixel blijft.
+- Beeld: `po-regressies/rijlijnen-matrix-overzicht.png` (390 licht · 390 donker · 1280 licht · 1280 donker).
+  Opgenomen om ±23:30, dus maar twee dagrijen boven de zonsondergang in beeld.
+- `playwright.config.ts`: firefox-project `retries: 2` (opdracht orkestrator).
+- Gate (web/): build 0 · typecheck 0 · `table.spec` desktop + mobile-4g 0 (14 groen, 4 overgeslagen) ·
+  firefox `--repeat-each 3` vóór de retries 15/15; mét retries exit 0 maar 1 flaky: `spec:15` twee keer rood
+  (eerste poging + retry 1), derde poging groen.
+- OPEN (morgen): firefox.table.spec deterministisch maken. LET OP, afwijkend van de aanname "nabootsing is
+  timing-gevoelig": mijn rode runs (vanavond 3×) falen NIET op de nagebootste viewport-waarde maar op
+  `panelTop` 698 na de tik op Tabel — de tabel gaat niet open, 10 s lang. Dat kan een productfout zijn
+  (tik op Tabel in Firefox doet soms niets) en geen testruis; retries verbergen dat. Bewijs bewaard in
+  `firefox-flaky/` (twee faalbeelden, twee traces, runlog).
