@@ -168,7 +168,22 @@ in
     };
 
     bot = {
-      enable = lib.mkEnableOption "Telegram long polling and still renderer";
+      enable = lib.mkEnableOption "Telegram bot role (also independent of ingest and Caddy)";
+      role = lib.mkOption {
+        type = lib.types.enum [ "poller" "renderer" "combined" ];
+        default = "poller";
+        description = "Poller answers from Telegram file_ids; renderer publishes the complete media register.";
+      };
+      origin = lib.mkOption {
+        type = lib.types.str;
+        default = "https://${cfg.domain}";
+        description = "App origin opened by the renderer and linked by the poller.";
+      };
+      secretsFile = lib.mkOption {
+        type = lib.types.str;
+        default = cfg.secretsFile;
+        description = "Environment file with TG_BOT_KEY and MOTREGEN_CACHE_CHAT_ID shared by both roles.";
+      };
       package = lib.mkOption {
         type = lib.types.package;
         default = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-bot;
@@ -177,7 +192,7 @@ in
     };
   };
 
-  config = lib.mkIf cfg.enable {
+  config = lib.mkMerge [ (lib.mkIf cfg.enable {
     systemd.tmpfiles.rules = [
       "d ${cfg.dataDir}/basemap 0755 root root -"
       "d ${cfg.dataDir} 0755 root root -"
@@ -359,48 +374,6 @@ in
       };
     };
 
-    users.users.motregen-bot = lib.mkIf cfg.bot.enable {
-      isSystemUser = true;
-      group = "motregen-bot";
-    };
-    users.groups.motregen-bot = lib.mkIf cfg.bot.enable { };
-
-    systemd.services.motregen-bot = lib.mkIf cfg.bot.enable {
-      path = [ pkgs.ffmpeg ];
-      description = "Telegram bot and national still renderer for motregen.nl";
-      wantedBy = [ "multi-user.target" ];
-      wants = [ "network-online.target" ];
-      after = [ "network-online.target" "caddy.service" ];
-      environment = {
-        MOTREGEN_ORIGIN = "https://${cfg.domain}";
-        MOTREGEN_RENDER_CACHE = "/var/cache/motregen-bot/stills";
-        PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
-        MOTREGEN_CHROMIUM_PATH = "${pkgs.playwright-driver.browsers}/chromium_headless_shell-${pkgs.playwright-driver.browsersJSON."chromium-headless-shell".revision}/chrome-headless-shell-linux64/chrome-headless-shell";
-        PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
-      };
-      serviceConfig = hardening // {
-        ExecStart = lib.getExe cfg.bot.package;
-        EnvironmentFile = cfg.secretsFile;
-        User = "motregen-bot";
-        Group = "motregen-bot";
-        CacheDirectory = "motregen-bot";
-        CacheDirectoryMode = "0755";
-        UMask = "0022";
-        Restart = "on-failure";
-        RestartSec = "15s";
-        # De loops renderen minutenlang op 2 kernen (MIP-25); de web-server en de ingest houden voorrang.
-        Nice = 10;
-        CPUWeight = 20;
-        CPUQuota = "150%";
-        MemoryHigh = "2200M";
-        MemoryMax = "2600M";
-        TimeoutStopSec = "90s";
-        LimitCORE = 0;
-        PrivateNetwork = false;
-        RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" "AF_NETLINK" ];
-      };
-    };
-
     services.caddy = {
       enable = true;
       globalConfig = lib.optionalString (!cfg.enableTls) "auto_https off";
@@ -517,7 +490,7 @@ in
             respond 404
           }
 
-          ${lib.optionalString cfg.bot.enable ''
+          ${lib.optionalString (cfg.bot.enable && cfg.bot.role == "combined") ''
             @telegramMedia path /telegram/stills/*.jpg /telegram/stills/*.mp4
             handle @telegramMedia {
               root * /var/cache/motregen-bot/stills
@@ -553,5 +526,49 @@ in
       };
     };
 
-  };
+  }) (lib.mkIf cfg.bot.enable {
+    users.users.motregen-bot = {
+      isSystemUser = true;
+      group = "motregen-bot";
+    };
+    users.groups.motregen-bot = { };
+
+    systemd.services.motregen-bot = {
+      path = lib.optionals (cfg.bot.role != "poller") [ pkgs.ffmpeg ];
+      description = "motregen.nl Telegram ${cfg.bot.role}";
+      wantedBy = [ "multi-user.target" ];
+      wants = [ "network-online.target" ];
+      after = [ "network-online.target" ] ++ lib.optional cfg.enable "caddy.service";
+      environment = {
+        MOTREGEN_BOT_ROLE = cfg.bot.role;
+        MOTREGEN_ORIGIN = cfg.bot.origin;
+        MOTREGEN_RENDER_CACHE = "/var/cache/motregen-bot/stills";
+      } // lib.optionalAttrs (cfg.bot.role != "poller") {
+        PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
+        MOTREGEN_CHROMIUM_PATH = "${pkgs.playwright-driver.browsers}/chromium_headless_shell-${pkgs.playwright-driver.browsersJSON."chromium-headless-shell".revision}/chrome-headless-shell-linux64/chrome-headless-shell";
+        PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
+      };
+      serviceConfig = hardening // {
+        ExecStart = "${lib.getExe cfg.bot.package} --role=${cfg.bot.role}";
+        EnvironmentFile = cfg.bot.secretsFile;
+        User = "motregen-bot";
+        Group = "motregen-bot";
+        CacheDirectory = "motregen-bot";
+        CacheDirectoryMode = "0755";
+        UMask = "0022";
+        Restart = "on-failure";
+        RestartSec = "15s";
+        # MIP-25: rendering draait op een andere host; de VM hoeft alleen file_ids te versturen.
+        Nice = 10;
+        CPUWeight = 20;
+        CPUQuota = if cfg.bot.role == "poller" then "25%" else if cfg.bot.role == "renderer" then "400%" else "150%";
+        MemoryHigh = if cfg.bot.role == "poller" then "192M" else "2200M";
+        MemoryMax = if cfg.bot.role == "poller" then "256M" else "2600M";
+        TimeoutStopSec = "90s";
+        LimitCORE = 0;
+        PrivateNetwork = false;
+        RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" "AF_NETLINK" ];
+      };
+    };
+  }) ];
 }

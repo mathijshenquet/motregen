@@ -2,6 +2,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { TelegramApi, TelegramMessage } from './api.js'
 import type { RenderedMedia } from './render.js'
+import { sequencePlan } from './sequences.js'
 import { cacheKey, caption, LOOP_MODES, STILL_HOURS, stillEpoch, type MediaSelection, type StillManifest } from './stills.js'
 
 export const REGISTER_FILENAME = 'motregen-register.json'
@@ -96,14 +97,15 @@ export class RegisterMedia {
 
   constructor(private readonly botId: number) {}
 
-  accept(value: unknown): void {
+  accept(value: unknown): boolean {
     const register = validateRegister(value, this.botId)
-    if (this.latest && Date.parse(register.generated) < Date.parse(this.latest.generated)) return
+    if (this.latest && Date.parse(register.generated) < Date.parse(this.latest.generated)) return false
     this.generations.set(register.generated, register)
     this.latest = register
     for (const [generated] of this.generations) {
       if (generated !== register.generated && Date.parse(generated) + 2 * 3_600_000 <= Date.now()) this.generations.delete(generated)
     }
+    return true
   }
 
   currentManifest(): StillManifest {
@@ -113,7 +115,8 @@ export class RegisterMedia {
 
   manifestForGeneration(generated: number): StillManifest | undefined {
     const register = [...this.generations.values()].find((entry) => Date.parse(entry.generated) === generated)
-    return register && registerManifest(register)
+    if (!register || (register !== this.latest && generated + 2 * 3_600_000 <= Date.now())) return undefined
+    return registerManifest(register)
   }
 
   available(selection: MediaSelection): RenderedMedia | undefined {
@@ -135,7 +138,10 @@ export class RegisterMedia {
     const animation = entry.selection.hour === 'loop'
     const epoch = animation ? Date.parse(current.now) : stillEpoch(current, entry.selection.hour as number)
     const base = { key: cacheKey(entry.selection, current), path: '', url: '', epoch, generated: register.generated, caption: caption(entry.selection.mode, epoch) + (fallback ? `\n${REGISTER_NOTICE}` : ''), milliseconds: 0, cached: true }
-    if (animation) return { ...base, kind: 'animation', frames: 169, fps: 10, bytes: 0, renderMs: 0, encodeMs: 0 }
+    if (animation) {
+      const plan = sequencePlan(entry.selection.mode, current)
+      return { ...base, kind: 'animation', frames: plan.loopFrames, fps: plan.fps, bytes: 0, renderMs: 0, encodeMs: 0 }
+    }
     return { ...base, kind: 'photo' }
   }
 

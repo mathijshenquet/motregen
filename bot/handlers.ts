@@ -1,15 +1,17 @@
 import { TelegramApiError, type TelegramApi, type TelegramMessage, type TelegramUpdate } from './api.js'
 import { FRAME_PIXELS, type BotConfig } from './config.js'
-import type { RenderedMedia, StillRenderer } from './render.js'
+import type { RenderedMedia } from './render.js'
 import type { StillPhotos } from './photos.js'
+import type { FileIdCache } from './file-ids.js'
+import { MediaUnavailableError, REGISTER_NOTICE } from './register.js'
 import type { MessageSelections } from './selections.js'
 import { cacheKey, keyboard, matchingModes, modeForCommand, parseCallback, LOOP_MODES, STILL_MINUTES, type MediaSelection, type StillManifest } from './stills.js'
 
 export interface BotRuntime {
   api: TelegramApi
   config: BotConfig
-  renderer: StillRenderer
-  photos: StillPhotos
+  renderer: { render(selection: MediaSelection, manifest: StillManifest): Promise<RenderedMedia> }
+  photos: Pick<StillPhotos, 'send' | 'edit'> & { fileIds: Pick<FileIdCache, 'get'> }
   selections: MessageSelections
   username: string
   currentManifest(): Promise<StillManifest>
@@ -33,6 +35,17 @@ function logDebugChat(update: TelegramUpdate): void {
 
 export async function handleUpdate(update: TelegramUpdate, runtime: BotRuntime): Promise<void> {
   logDebugChat(update)
+  try {
+    await dispatchUpdate(update, runtime)
+  } catch (error) {
+    if (!(error instanceof MediaUnavailableError)) throw error
+    if (update.callback_query) await answerCallback(runtime, update.callback_query.id, error.message)
+    else if (update.inline_query) await runtime.api.call('answerInlineQuery', { inline_query_id: update.inline_query.id, results: [], cache_time: 5 })
+    else if (update.message) await runtime.api.call('sendMessage', { chat_id: update.message.chat.id, text: error.message })
+  }
+}
+
+async function dispatchUpdate(update: TelegramUpdate, runtime: BotRuntime): Promise<void> {
   if (update.callback_query) {
     await handleCallback(update.callback_query, runtime)
     return
@@ -109,7 +122,7 @@ async function handleInline(query: NonNullable<TelegramUpdate['inline_query']>, 
     const still = runtime.availableStill(selection)
     if (!still) continue
     const fileId = await runtime.photos.fileIds.get(still)
-    if (!fileId && !runtime.config.origin.startsWith('https:')) continue
+    if (!fileId && (runtime.config.role === 'poller' || !runtime.config.origin.startsWith('https:'))) continue
     results.push({
       type: 'photo',
       id: still.key,
@@ -137,14 +150,17 @@ async function handleCallback(query: NonNullable<TelegramUpdate['callback_query'
     return
   }
   const current = await runtime.currentManifest()
-  const manifest = requested.generated === undefined || requested.generated === Date.parse(current.generated) ? current : runtime.manifestForGeneration?.(requested.generated)
+  let manifest = requested.generated === undefined || requested.generated === Date.parse(current.generated) ? current : runtime.manifestForGeneration?.(requested.generated)
+  const fallback = !manifest && runtime.config.role === 'poller'
+  if (fallback) manifest = current
   if (!manifest) {
     await answerCallback(runtime, query.id, 'Verlopen, stuur /regen opnieuw')
     return
   }
   let selection: MediaSelection
   if (requested.hour === 'at') {
-    const minute = Math.round((requested.epoch - Date.parse(manifest.now)) / 60_000)
+    let minute = Math.round((requested.epoch - Date.parse(manifest.now)) / 60_000)
+    if (fallback) minute = Math.max(STILL_MINUTES[0]!, Math.min(STILL_MINUTES.at(-1)!, Math.round(minute / 10) * 10))
     if (!STILL_MINUTES.includes(minute)) {
       await answerCallback(runtime, query.id, 'Verlopen, stuur /regen opnieuw')
       return
@@ -164,12 +180,13 @@ async function handleCallback(query: NonNullable<TelegramUpdate['callback_query'
   }
   try {
     const still = await runtime.renderer.render(selection, manifest)
+    if (fallback) still.caption += `\n${REGISTER_NOTICE}`
     const result = await runtime.photos.edit(still, {
       ...target,
       reply_markup: keyboard(selection, still.epoch, still.generated),
     })
-    runtime.selections.remember(message, key)
-    await answerCallback(runtime, query.id)
+    runtime.selections.remember(message, still.key)
+    await answerCallback(runtime, query.id, fallback || still.generated !== manifest.generated ? REGISTER_NOTICE : undefined)
     console.info(JSON.stringify({ event: 'still-edit', mode: selection.mode, hour: selection.hour, milliseconds: still.milliseconds, callbackMs: Math.round(performance.now() - started), cached: still.cached, fileIdCached: result.fileIdCached, key }))
   } catch (error) {
     if (error instanceof TelegramApiError && error.messageUnavailable) {

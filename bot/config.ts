@@ -20,12 +20,13 @@ export interface BotConfig {
   registerPath?: string
 }
 
-export async function validateCacheChat(api: TelegramApi, chatId: string | undefined, botId: number): Promise<void> {
+export async function validateCacheChat(api: TelegramApi, chatId: string | undefined, botId: number, requirePin = false): Promise<void> {
   if (!chatId) return
   const chat = await api.call<{ type: string }>('getChat', { chat_id: chatId })
   if (!['channel', 'group', 'supergroup'].includes(chat.type)) throw new Error('Cache-uploaddoel moet een privékanaal of -groep zijn')
-  const member = await api.call<{ status: string; can_delete_messages?: boolean }>('getChatMember', { chat_id: chatId, user_id: botId })
+  const member = await api.call<{ status: string; can_delete_messages?: boolean; can_pin_messages?: boolean; can_edit_messages?: boolean }>('getChatMember', { chat_id: chatId, user_id: botId })
   if (member.status !== 'creator' && !(member.status === 'administrator' && member.can_delete_messages)) throw new Error('Bot moet beheerder met verwijderrechten zijn in de cachechat')
+  if (requirePin && member.status !== 'creator' && !(chat.type === 'channel' ? member.can_edit_messages : member.can_pin_messages)) throw new Error('Renderer heeft pinrechten nodig in de cachechat')
 }
 
 export function readConfig(environment: NodeJS.ProcessEnv = process.env, arguments_: string[] = []): BotConfig {

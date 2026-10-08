@@ -21,7 +21,7 @@ export class StillPhotos {
   private lastUpload = 0
   private readonly posts?: CachePosts
 
-  constructor(private readonly api: TelegramApi, readonly fileIds: FileIdCache, private readonly cacheChatId?: string, cacheDirectory?: string) {
+  constructor(private readonly api: TelegramApi, readonly fileIds: Pick<FileIdCache, 'bot' | 'get' | 'remember' | 'forget'>, private readonly cacheChatId?: string, cacheDirectory?: string, private readonly uploadSpacingMs = 1100) {
     if (cacheChatId) this.posts = new CachePosts(api, cacheChatId, fileIds.bot, cacheDirectory)
   }
 
@@ -31,8 +31,12 @@ export class StillPhotos {
     if (media.some((item) => item.generated !== generated)) throw new Error('Cachematrix bevat meerdere generaties')
     const started = performance.now()
     await this.prime(media)
-    const counts = await this.posts.retain(generated)
+    const counts = await this.retainGeneration(generated)
     console.info(JSON.stringify({ event: 'media-generation-primed', generated, count: media.length, ...counts, primeMs: Math.round(performance.now() - started) }))
+  }
+
+  async retainGeneration(generated: string): Promise<{ posts: number; removed: number }> {
+    return this.posts ? this.posts.retain(generated) : { posts: 0, removed: 0 }
   }
 
   async prime(media: RenderedMedia[]): Promise<void> {
@@ -56,7 +60,7 @@ export class StillPhotos {
       const missing: RenderedMedia[] = []
       for (const item of pending) if (!await this.fileIds.get(item)) missing.push(item)
       if (!missing.length) return
-      await delay(Math.max(0, this.lastUpload + 1100 - Date.now()))
+      await delay(Math.max(0, this.lastUpload + this.uploadSpacingMs - Date.now()))
       const started = performance.now()
       const messages = await this.uploadCached(missing)
       const uploadMs = Math.round(performance.now() - started)
