@@ -9,7 +9,7 @@ import { buildChromeTrace, type SelfProfilerTrace } from '../src/core/profile-re
 import { createSourceMapResolver } from '../scripts/prof-source-map'
 import { profileTop } from '../scripts/prof-top'
 import { hostLoadAverage, waitForQuietHost } from '../scripts/rig-host'
-import { completedBytesBefore, reconcileWire, renderMobileReport, smoothness, summarizePhases, type MobileReport, type SmoothnessWindow, type WireRequest } from '../scripts/mobile-report'
+import { completedBytesBefore, reconcileWire, renderMobileReport, requestsStartedWithin, smoothness, summarizePhases, type MobileReport, type SmoothnessWindow, type WireRequest } from '../scripts/mobile-report'
 import type { PerfMonitor } from '../src/core/perf'
 
 interface ScenarioStep {
@@ -101,7 +101,6 @@ for (const profileId of options.profiles) {
           const monitor = window.__motregenPerf as PerfMonitor
           const sample = monitor.snapshot() as ReturnType<PerfMonitor['snapshot']> & { windowReadyMs?: Record<string, number> }
           const self = await window.__mobileProbe.stop()
-          const resourceEntries = [...performance.getEntriesByType('navigation'), ...performance.getEntriesByType('resource')] as PerformanceResourceTiming[]
           return {
             self,
             snapshot: sample,
@@ -121,10 +120,6 @@ for (const profileId of options.profiles) {
               windowReadyMs: sample.windowReadyMs ?? {},
               histogramSource: window.__mobileProbe.histogramSource,
             },
-            resources: resourceEntries.filter((entry) => entry.responseEnd <= durationMs).map((entry) => ({
-              url: entry.name, startMs: entry.startTime, endMs: entry.responseEnd,
-              encodedBodyBytes: entry.transferSize === 0 ? 0 : entry.encodedBodySize,
-            })),
             frameTimes: window.__mobileProbe.frameTimes,
             temperatureBlankDraws: (() => {
               const settled = (window as unknown as { __blankDrawsAtSettle?: number }).__blankDrawsAtSettle
@@ -137,6 +132,14 @@ for (const profileId of options.profiles) {
             hardwareConcurrency: navigator.hardwareConcurrency,
           }
         }, scenario.durationMs)
+        // Laat requests die vlak vóór de meetgrens begonnen uitlopen; beide bytebronnen meten
+        // dezelfde requests op starttijd, zonder een halve response als ontbrekende body te melden.
+        const requests = await network.snapshot(captured.timeOrigin, scenario.durationMs)
+        const pageResources = requestsStartedWithin(await page.evaluate(() =>
+          ([...performance.getEntriesByType('navigation'), ...performance.getEntriesByType('resource')] as PerformanceResourceTiming[]).map((entry) => ({
+            url: entry.name, startMs: entry.startTime, endMs: entry.responseEnd,
+            encodedBodyBytes: entry.transferSize === 0 ? 0 : entry.encodedBodySize,
+          }))), scenario.durationMs)
         const workerResources = []
         for (const worker of page.workers()) {
           const entries = await worker.evaluate(() => ({
@@ -148,11 +151,11 @@ for (const profileId of options.profiles) {
           }))
           for (const entry of entries.resources) {
             const offset = entries.timeOrigin - captured.timeOrigin
-            if (entry.endMs + offset <= scenario.durationMs) workerResources.push({ ...entry, startMs: entry.startMs + offset, endMs: entry.endMs + offset })
+            const normalized = { ...entry, startMs: entry.startMs + offset, endMs: entry.endMs + offset }
+            workerResources.push(...requestsStartedWithin([normalized], scenario.durationMs))
           }
         }
-        const requests = await network.snapshot(captured.timeOrigin, scenario.durationMs)
-        const wire = reconcileWire(requests, [...captured.resources, ...workerResources])
+        const wire = reconcileWire(requests, [...pageResources, ...workerResources])
         const decode = summarizePhases(captured.entries.measures, scenario.durationMs)
         const longFrames = captured.entries.longFrames.filter((frame) => frame.startTime + frame.duration <= scenario.durationMs)
         const longSources = new Map<string, number>()
@@ -227,7 +230,7 @@ for (const profileId of options.profiles) {
         writeFileSync(`${output}.json`, `${JSON.stringify(report, null, 2)}\n`)
         writeFileSync(`${output}.md`, renderMobileReport(report))
         writeFileSync(`${output}.trace.json`, JSON.stringify(trace))
-        writeFileSync(`${output}.raw.json`, JSON.stringify({ requests, pageResourceTiming: captured.resources, workerResourceTiming: workerResources, actions, loads: captured.loads, selfProfile: self, entries: captured.entries }))
+        writeFileSync(`${output}.raw.json`, JSON.stringify({ requests, pageResourceTiming: pageResources, workerResourceTiming: workerResources, actions, loads: captured.loads, selfProfile: self, entries: captured.entries }))
         console.log(`${profileId}/${scenarioId}: ${decode.phases['frame-decode']?.count} decodes, ${wire.playwright.total.bytes} bodybytes, ${wire.findings.length} netwerkbevindingen → ${output}.md`)
         for (const window of report.smoothness) console.log(`  ${window.name}: frame-tijd p95 ${window.p95Ms} ms, ${window.over50Ms} beelden > 50 ms, ${window.frames} beelden, LoAF ${window.longFrames.totalMs} ms`)
         if (scenario.requireFilledTemperature) expect(captured.temperatureBlankDraws, `temperatuurlaag nooit leeg na de eerste 300 ms; oorzaken ${JSON.stringify(captured.temperatureBlankReasons)}`).toBe(0)
@@ -300,47 +303,68 @@ function filterSelfProfile(trace: SelfProfilerTrace | null, durationMs: number):
   return trace ? { ...trace, samples: trace.samples.filter((sample) => sample.timestamp <= durationMs) } : null
 }
 
+interface NetworkRecord {
+  range: string | null
+  bytes: number | null
+  status: number | null
+  failure: string | null
+  bodySizeSource: 'playwright-sizes' | 'completed-content-length'
+  playwrightBodySize: number | null
+  contentLength: number | null
+  completed: Promise<void>
+  finish: () => void
+}
+
 function recordPlaywrightNetwork(page: Page) {
-  const requests = new Map<Request, { range: string | null; bytes: number | null; status: number | null; failure: string | null; bodySizeSource: 'playwright-sizes' | 'completed-content-length'; playwrightBodySize: number | null; contentLength: number | null }>()
-  const pending = new Set<Promise<void>>()
-  page.on('request', (request) => requests.set(request, { range: request.headers().range ?? null, bytes: null, status: null, failure: null, bodySizeSource: 'playwright-sizes', playwrightBodySize: null, contentLength: null }))
-  const collect = (request: Request) => {
-    const task = (async () => {
-      const record = requests.get(request)
-      if (!record) return
+  const requests = new Map<Request, NetworkRecord>()
+  page.on('request', (request) => {
+    let finish!: () => void
+    const completed = new Promise<void>((resolve) => { finish = resolve })
+    requests.set(request, { range: request.headers().range ?? null, bytes: null, status: null, failure: null, bodySizeSource: 'playwright-sizes', playwrightBodySize: null, contentLength: null, completed, finish })
+  })
+  const collect = async (request: Request) => {
+    const record = requests.get(request)
+    if (!record) return
+    try {
       const response = await request.response()
       record.status = response?.status() ?? null
-      try {
-        const sizes = await request.sizes()
-        const declared = response?.headers()['content-length']
-        record.playwrightBodySize = sizes.responseBodySize
-        record.contentLength = declared === undefined ? null : Number(declared)
-        record.bodySizeSource = sizes.responseBodySize === 0 && record.contentLength !== null && record.failure === null ? 'completed-content-length' : 'playwright-sizes'
-        record.bytes = record.bodySizeSource === 'completed-content-length' ? record.contentLength : sizes.responseBodySize
-      }
-      catch (error) { record.failure = String(error) }
-    })()
-    pending.add(task)
-    void task.finally(() => pending.delete(task))
+      const sizes = await request.sizes()
+      const declared = response?.headers()['content-length']
+      record.playwrightBodySize = sizes.responseBodySize
+      record.contentLength = declared === undefined ? null : Number(declared)
+      record.bodySizeSource = sizes.responseBodySize === 0 && record.contentLength !== null && record.failure === null ? 'completed-content-length' : 'playwright-sizes'
+      record.bytes = record.bodySizeSource === 'completed-content-length' ? record.contentLength : sizes.responseBodySize
+    }
+    catch (error) { record.failure = String(error) }
+    finally { record.finish() }
   }
-  page.on('requestfinished', collect)
+  page.on('requestfinished', (request) => { void collect(request) })
   page.on('requestfailed', (request) => {
     const record = requests.get(request)
     if (record) record.failure = request.failure()?.errorText ?? 'request mislukt'
-    collect(request)
+    void collect(request)
   })
   return {
     snapshot: async (timeOrigin: number, durationMs: number): Promise<WireRequest[]> => {
-      await Promise.all(pending)
+      const observed = [...requests]
+      let deadline: ReturnType<typeof setTimeout> | undefined
+      try {
+        await Promise.race([
+          Promise.all(observed.map(([, record]) => record.completed)),
+          new Promise<never>((_, reject) => { deadline = setTimeout(() => reject(new Error('Netwerkrequests lopen niet binnen 10 s na de meetgrens uit')), 10_000) }),
+        ])
+      } finally {
+        clearTimeout(deadline)
+      }
       const result: WireRequest[] = []
-      for (const [request, record] of requests) {
+      for (const [request, record] of observed) {
         const timing = request.timing()
         const startMs = timing.startTime - timeOrigin
         const endMs = timing.responseEnd < 0 ? null : startMs + timing.responseEnd
-        if (startMs > durationMs) continue
-        result.push({ url: request.url(), startMs, endMs: endMs !== null && endMs <= durationMs ? endMs : null, encodedBodyBytes: endMs !== null && endMs <= durationMs ? record.bytes : null, range: record.range, status: record.status, failure: record.failure, bodySizeSource: record.bodySizeSource, playwrightBodySize: record.playwrightBodySize, contentLength: record.contentLength })
+        if (startMs < 0) throw new Error(`Playwright heeft geen geldige request-starttijd: ${request.url()}`)
+        result.push({ url: request.url(), startMs, endMs, encodedBodyBytes: record.bytes, range: record.range, status: record.status, failure: record.failure, bodySizeSource: record.bodySizeSource, playwrightBodySize: record.playwrightBodySize, contentLength: record.contentLength })
       }
-      return result
+      return requestsStartedWithin(result, durationMs)
     },
   }
 }
@@ -371,7 +395,7 @@ function hashWeatherFixture(): string {
 
 function hashContract(measurement: unknown): string {
   const hash = createHash('sha256').update(JSON.stringify(measurement))
-  for (const path of ['perf/scenarios.json', 'perf/Caddyfile', 'perf/Preview.Caddyfile', 'scripts/synthgen.ts', 'scripts/mobile-fixture.ts', 'scripts/mobile-assets.ts', 'e2e/mobile-load.rig.ts', 'e2e/mobile-probe.ts', 'playwright.mobile.config.ts']) hash.update(readFileSync(path))
+  for (const path of ['perf/scenarios.json', 'perf/Caddyfile', 'perf/Preview.Caddyfile', 'scripts/synthgen.ts', 'scripts/mobile-fixture.ts', 'scripts/mobile-assets.ts', 'scripts/mobile-report.ts', 'e2e/mobile-load.rig.ts', 'e2e/mobile-probe.ts', 'playwright.mobile.config.ts']) hash.update(readFileSync(path))
   return hash.digest('hex')
 }
 

@@ -28,6 +28,10 @@ export interface PhaseEntry {
 export interface Totals { requests: number; bytes: number; meanRequestBytes: number }
 export type WireTotals = Record<ResourceKind | 'total', Totals>
 
+export function requestsStartedWithin<Entry extends { startMs: number }>(requests: Entry[], durationMs: number): Entry[] {
+  return requests.filter((request) => request.startMs >= 0 && request.startMs <= durationMs)
+}
+
 export function resourceKind(url: string): ResourceKind {
   const path = new URL(url, 'http://localhost').pathname
   if (path.endsWith('/manifest.json')) return 'manifest'

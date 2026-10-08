@@ -762,8 +762,11 @@ De rapportmaten betekenen:
 - Bytes vóór TTFR/ttfh tellen bodies waarvan het response-einde vóór die
   mijlpaal ligt. Een nog lopende body kan Resource Timing niet tussentijds
   meten; dit is een expliciete ondergrens op verkeer tot die mijlpaal.
-  De 30-s-totalen bevatten uitsluitend in die periode beëindigde responses;
-  nog lopende requests blijven als onbekend in raw/rapport.
+  Sinds U63 tellen de 30-s-totalen alle requests die binnen die periode **beginnen**, inclusief
+  hun volledige body als die vlak na de grens eindigt. De rig laat de waargenomen requests
+  maximaal 10 s uitlopen en selecteert Playwright en Resource Timing beide op starttijd. Hij
+  verzint geen bodygrootte bij de grens; onvolledige bodies, ontbrekende starttijden of requests
+  die niet uitlopen blijven rood. De ruwe bronnen bewaren de echte eindtijd, ook boven 30 s.
 - LoAF telt lange frames, totale duur, blokkeertijd en de drie grootste
   scriptbronnen. Hoofddraadbezetting is het aandeel Self-Profiling-samples met
   een stack, inclusief idle samples in de noemer. De top-3 gebruikt dezelfde
@@ -880,6 +883,38 @@ pnpm exec tsx scripts/po-reference.ts compare perf/po-android-reference.json tmp
   `MOTREGEN_E2E_DATA_PORT` gaan nog steeds voor.
 - De rig en `synthgen` draaien via `tsx`, dat een IPC-socket opent; binnen een sandbox zonder
   socketrechten faalt dat met `listen EPERM`.
+
+### U63: meetgrens en nieuw po-android-nulpunt (2026-10-08)
+
+De eerste ongewijzigde nulmeting (`bb0792b`, po-android, koud-spelend ×3, loadavg 6,62–7,39)
+gaf mediaan ttfp 1728 ms, ttfr 1352 ms en ttfh 4632 ms. De bytegate was rood: in iedere run
+begon een feels_like_c-Range vlak vóór 30 s en eindigde erna. Playwright telde die als een
+onbekende body terwijl Resource Timing alleen voltooide responses had. Eén nog lopend request
+had bovendien tijdelijk `startTime=0`, wat de koppeling van herhaalde requests op dezelfde URL
+verschoof en fictieve bodyverschillen gaf. De voltooide byte-totalen waren gelijk in beide bronnen.
+
+U63 laat daarom requests uitlopen en meet hun volledige kosten op request-start binnen het
+venster. Dit verandert uitsluitend de byteboekhouding; mijlpalen, decodevenster en LoAF blijven
+op 30 s begrensd. De oude 2%-broncontrole, 5%-spreidingsgrens en 10%-regressiegrens blijven
+gelijk. Het gewijzigde meetcontract vereist nieuwe baselines; voor po-android/koud-spelend
+bestond nog geen baseline. Het nieuwe nulpunt is gemeten vóór productwijzigingen, met dezelfde
+fixture en renderer-quota: ×3, loadavg 6,00 / 7,94 / 5,88, alle bronnen sluitend, exit 0.
+
+| maat | run 1 | run 2 | run 3 | mediaan |
+| --- | ---: | ---: | ---: | ---: |
+| ttfp | 1730 | 1729 | 2031 | 1730 ms |
+| ttfr | 1334 | 1364 | 1606 | 1364 ms |
+| ttfh | 4278 | 4253 | 5131 | 4278 ms |
+| blank-visible-oppervlak | 168,1 | 157,1 | 193,8 | 168,1 slot-s |
+| blank-visible, volledig-leeg-equivalent | 2,63 | 2,46 | 3,04 | 2,63 s |
+| LoAF eerste 12 s | 3183 | 2993 | 3724 | 3183 ms |
+| decodes / bodybytes | 226 / 4824523 | 226 / 4824523 | 220 / 4809911 | 226 / 4824523 |
+
+Spreiding decodes 2,679%, bytes 0,303%; baseline `po-android-koud-spelend.json` houdt de
+bestaande 10%-regressiegrens. Nieuwe Buienradar-referentie op hetzelfde profiel: ttfp-ref
+3074 / 2640 / 2664 ms (mediaan 2664 ms), loadavg 7,40 / 6,61 / 7,87, exit 0. De verhouding
+van het herstelde nulpunt is 0,65×. De spreiding van ttfh binnen ongewijzigde runs (4253–5131 ms)
+begrensst kleine winstclaims; de rig blijft dichter bij de warme telefoon dan de koude.
 
 ### Vóór-meting main, 2026-10-07 (mobile-4g, CPU 4×, rig 621576e, loadavg 5,9–7,5)
 

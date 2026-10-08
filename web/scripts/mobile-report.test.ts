@@ -1,10 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { compareBaseline, completedBytesBefore, reconcileWire, repetitionSpread, resourceKind, smoothness, summarizePhases, type MobileBaseline, type WireRequest } from './mobile-report'
+import { compareBaseline, completedBytesBefore, reconcileWire, repetitionSpread, requestsStartedWithin, resourceKind, smoothness, summarizePhases, type MobileBaseline, type WireRequest } from './mobile-report'
 
 const baseline: MobileBaseline = { schema: 1, profile: 'mobile-4g', scenario: 'koud', sourceSha: 'abc', capturedAt: '2026-10-07', contractHash: 'fixed', regressionLimitPercent: 10, wireBytes: 1_000, decodes: 100 }
 const request: WireRequest = { url: '/data/chunks/rain.mrf', startMs: 10, endMs: 100, encodedBodyBytes: 1_000, range: 'bytes=0-999', status: 206, failure: null }
 
 describe('mobiele rapportage', () => {
+  it('meet de hele body van een request dat binnen de meetduur begint en erna eindigt', () => {
+    const crossing = { ...request, startMs: 29_990, endMs: 30_040, encodedBodyBytes: 1_000 }
+    const selected = requestsStartedWithin([crossing, { ...request, startMs: 30_001 }, { ...request, startMs: -1 }], 30_000)
+    expect(selected).toEqual([crossing])
+    expect(reconcileWire(selected, [crossing]).findings).toEqual([])
+    expect(completedBytesBefore(selected, 30_000)).toBe(0)
+    expect(reconcileWire([{ ...crossing, encodedBodyBytes: null }], [crossing]).findings).toContain('Onvolledige response: /data/chunks/rain.mrf (bodygrootte onbekend)')
+  })
   it('telt PMTiles-ranges bij kaartbytes', () => {
     expect(resourceKind('/data/basemap/nl-0123456789abcdef.pmtiles')).toBe('tiles')
   })
