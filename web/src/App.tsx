@@ -192,10 +192,11 @@ const FIRST_RAIN_STORAGE_KEY = 'motregen-dev-eerste-regen'
 const PANEL_EDGE_STORAGE_KEY = 'motregen-dev-rand'
 const PANEL_EDGES = ['oud', 'geen', 'a', 'b'] as const
 type PanelEdge = typeof PANEL_EDGES[number]
-// De kaart mengt in zoveel stappen van dag naar nacht; MapLibre tweent elke stap zelf (300 ms). Acht stappen
-// en tijdens afspelen hooguit één per seconde: met twintig stappen zonder rem kostte de schemering op de
-// telefoonmeting ~11 % van de frames (MIP-24, 2026-10-08).
-const MAP_NIGHT_STEPS = 8
+// De kaart mengt in zoveel stappen van dag naar nacht; MapLibre tweent elke stap zelf (300 ms). Vier stappen
+// en tijdens afspelen hooguit één per seconde (PO 2026-10-08: "dat mengen kan sowieso ook snel", als het maar
+// niet knippert): met twintig stappen zonder rem kostte de schemering op de telefoonmeting ~11 % van de
+// frames (MIP-24).
+const MAP_NIGHT_STEPS = 4
 const MAP_NIGHT_PLAYING_INTERVAL_MS = 1_000
 // De rand buiten het rooster is geen laag van de basisstijl maar kleurt wel mee met het thema.
 const GRID_OUTSIDE_PAINT = { light: { color: '#84969b', opacity: 0.48 }, dark: { color: '#071319', opacity: 0.58 } } as const
