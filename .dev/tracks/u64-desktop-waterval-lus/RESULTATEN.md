@@ -114,8 +114,12 @@ orkestratorinstructie worden relatieve kandidaatverschillen afzonderlijk
 gepaard A B A B A B gemeten bij load ≤16; load staat per run genoteerd.
 De oorspronkelijke shaderparen startten met de toen geldende grens ≤12.
 Paarmetadata sluit die opnames uit van absolute baselines. Dezelfde
-fixtures/builds/browsermethoden blijven gelden. Alleen paren met ≤5 min
-tussen starttijden en ≤2 loadverschil tellen mee; anders blijven de raw-
+fixtures/builds/browsermethoden blijven gelden. De eerste reeksen houden ≤5 min
+tussen starttijden en ≤2 loadverschil aan. Na drie afwijzingen door de
+gedeelde wachtrij is voor nieuwe paren vooraf ≤10 min vastgelegd, met
+aanvullend ≤2 verschil tussen de gemiddelde opnameloads. De capture-/paar-
+metadata bewaart de gebruikte criteria. Oude afwijzingen blijven afgewezen.
+Bij een ongeldig venster blijven de raw-
 opnames bewaard en wordt een nieuw volledig paar gestart. Koud en warm
 worden per kandidaat samen gerapporteerd, met mediaan van de verschillen
 binnen drie geldige paren. De shaderisolatie loopt eerst, daarna de
@@ -330,6 +334,29 @@ U64, verval 2026-10-15. U63 meet de mobiele waarde. Onderstaande SVG-beelden
 blijven historisch meetbewijs.
 
 ## Lighthouse-oorzaak
+
+Nieuwe main/U64-paarreeks na U62/U65: eerste paar geldig, twee nog pending.
+Startloads14,37/15,23, tijdgap264,2s; score63→62. Dit zijn relatieve gegevens
+bij de toegestane startgrens16, geen absolute ≤8-baseline.
+
+| metriek | main U65: waarde / subscore | U64 zonder shaders: waarde / subscore |
+| --- | --- | --- |
+| FCP | 462 ms / 100 | 365 ms / 100 |
+| LCP (splash) | 462 ms / 100 | 365 ms / 100 |
+| TBT | 1151 ms / 3 | 1314 ms / 2 |
+| Speed Index | 3108 ms / 24 | 3019 ms / 26 |
+| CLS | 0,0586 / 98 | 0,0663 / 97 |
+
+Script evaluation2548→2517ms domineert; hoofd-entry parse/compile1,38→1,18ms.
+Main heeft taken703/372ms; U64 heeft761/499/374ms. TBT blijft de grootste
+scorebeperking. Ongebruikte JS213→208KiB, waarvan MapLibre ongeveer176KiB;
+ongebruikte CSS12→11KiB. CSS staat als renderblokkerend gemeld, terwijl
+FCP/LCP al100 scoren. De eerste kleine scoredaling is geen reden om de
+consistente native ttfr-winst uit zes paren te verbergen; de overige
+Lighthouse-paren en nieuwe kandidaten volgen. Eén sourcemapwaarschuwing
+bij de main-entry is geregistreerd; runtimeError ontbreekt in beide reports.
+
+Onderstaande Lighthouse-reeks hoort bij de eerdere U57-basis:
 
 | metriek | referentie: waarde / subscore | finale lazy: waarde / subscore |
 | --- | --- | --- |
