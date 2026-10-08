@@ -388,6 +388,12 @@ in
         UMask = "0022";
         Restart = "on-failure";
         RestartSec = "15s";
+        # De loops renderen minutenlang op 2 kernen (MIP-25); de web-server en de ingest houden voorrang.
+        Nice = 10;
+        CPUWeight = 20;
+        CPUQuota = "150%";
+        MemoryHigh = "2200M";
+        MemoryMax = "2600M";
         TimeoutStopSec = "90s";
         LimitCORE = 0;
         PrivateNetwork = false;
