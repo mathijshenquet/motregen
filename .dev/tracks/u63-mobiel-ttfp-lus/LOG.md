@@ -106,3 +106,22 @@ Naderende 20-minutencadans: commit bevat de opgedragen integratie van reeds op m
 | vroeg manifest ×3 | 1433 | 1782 | 1948 / 170 | 223 | 4816721 | geen gemeten winst; prototype buiten productcode |
 
 Parallelle-kaartproef: typecheck/test (483)/build opeenvolgend exit 0. Alleen de volgorde verandert: WebGL/tegelopzet overlapt de eerste header; regenlagen wachten op header én eerste style.load. Nog geen perf- of gerichte e2e-receipt. OpenFreeMap-snapshot exit 0 (50 bestanden, tileset 20261004); genegeerde fixture gereed voor herijking van de twee kaartbaselines naast de zes gewone baselines. PR-beschrijving bijgewerkt, exit 0.
+
+## 2026-10-08 06:50 UTC — U57-controle ×3 sluit; parallelle kaartopzet meten
+
+Main-control receipt exit 0: run-perf.sh --profile po-android --scenario koud-spelend --repeat 3 --compare. Mediaan ttfr 1409 ms, ttfp 1781 ms; ttfh 4653 ms; decodes 226/226/223, wire 4825675/4826288/4817307 B, 0 bronbevindingen, 1,333%/0,186% spreiding. Loads 6,07/7,76/6,08. Vergeleken met de manifestproef 1433/1782 ms ontbreekt nog steeds meetbare tijdwinst: prototype blijft verworpen. U57-integratie heeft nu ook de volledige extra rig-receipt.
+
+Parallelle-kaartproef start via hetzelfde hostlocked runscript; uitvoer tmp/u63/kaart-parallel.txt. Normale checks typecheck/test/build al exit 0 op deze variant; gerichte desktop-e2e volgt onder dezelfde hostlock om eigen interferentie te voorkomen. Push e375374 is met ls-remote exact bevestigd. Ruwe controlerapporten in web/tmp/u63/control-main.
+
+## 2026-10-08 06:54 UTC — kandidaat 2: kaartopzet parallel, alle gates groen
+
+Receipts: typecheck/test (483)/build exit 0; hostlocked po-android/koud-spelend ×3 --compare exit 0; hostlocked gerichte desktop-e2e map-startup/presets/usage/basemap exit 0 (15 tests). De nieuwe test houdt alle regenheaders vast en ziet al een PMTiles-Range, daarna een spelklaar kaartbeeld op /weer/de-bilt. Bestaande stijl- en regenlagen blijven gelijk; alleen de opzet overlapt. Eén gedeelde firstStyleReady-Promise voorkomt dat een vroeg style.load-event verloren gaat terwijl de header nog binnenkomt.
+
+| stand | ttfr ms | ttfp ms | ttfh ms | LoAF na ttfp ms / max ms | decodes | bodybytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| actuele main, controle ×3 | 1409 | 1781 | 4653 | 2027 / 185 | 226 | 4825675 |
+| kaartopzet parallel ×3 | 1371 | 1745 | 4470 | 1483 / 175 | 226 | 4825746 |
+
+Getallen zijn medianen. Primair verschil slechts −38 ms ttfr / −36 ms ttfp, binnen de eerdere tijdspreiding: bescheiden waarneming, geen bewezen koude telefoonwinst. Causale waterval: eerste tegel in eerste proefrun start op 708 ms tegenover ~827 ms in het oorspronkelijke nulpunt; basiskaart hoeft niet meer op regenheader te wachten. Decodes 226/226/226; bytespreiding 0,013%; loads 7,58/7,30/7,61; alle bronnen sluiten. Geen LoAF na ttfp boven 250 ms. Prototype behouden als kleine overlapwijziging; volgende grotere kandidaat: hetzelfde MRF-client-/workerpaar en eerste regenpaar vóór de grote appbundel, zonder tweede netwerk- of decodecache. Volle basiskaart nog afzonderlijk toetsen omdat de fixture slechts een 73-byte tegel heeft.
+
+Nieuwe compare-baselines.mjs bewaakt bij de herijking alle acht bestaande niet-PO-baselines: nieuwe contracthash én oorspronkelijke 10%-byte/decodegrens. Eerste aanroep exit 1 zoals verwacht: nog acht oude contracten, geen voltooide herijking. Dit is een aanvullende controle, geen versoepeling.

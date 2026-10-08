@@ -886,6 +886,13 @@ pnpm exec tsx scripts/po-reference.ts compare perf/po-android-reference.json tmp
 
 ### U63: meetgrens en nieuw po-android-nulpunt (2026-10-08)
 
+De U63-lus rapporteert eerst **ttfr**, daarna **ttfp**. Lange frames ná ttfp zijn een bewaker:
+`.dev/tracks/u63-mobiel-ttfp-lus/summarize.mjs <rapportmap>` leest de oorspronkelijke LoAF-entries
+van drie rustige opnames en telt frames die vanaf ttfp starten en vóór 30 s eindigen, inclusief
+blocking, langste frame en aantallen boven 100/250 ms. Het verandert het rig-meetcontract niet.
+Alle trackopnames lopen via `.dev/tracks/u63-mobiel-ttfp-lus/run-perf.sh`: dezelfde loadavg-grens,
+eigen poorten en `flock -w 7200 /home/mathijs/motregen-perf.lock` voor hostbrede serialisatie.
+
 De eerste ongewijzigde nulmeting (`bb0792b`, po-android, koud-spelend ×3, loadavg 6,62–7,39)
 gaf mediaan ttfp 1728 ms, ttfr 1352 ms en ttfh 4632 ms. De bytegate was rood: in iedere run
 begon een feels_like_c-Range vlak vóór 30 s en eindigde erna. Playwright telde die als een
@@ -1226,3 +1233,12 @@ request- of bytebudgetten toe. Na iedere run schrijft hij
 manifestversheid `<15 min`, de MIP-3 CORS/cache/ETag/Range-headers en een echte
 `Range: bytes=0-7` → 206. Het script is alleen een handmatig/timerklaar target;
 deze track activeert geen systemd-timer.
+
+U63 kaartopzet parallel aan de regenheader (actuele main-controle versus kandidaat, po-android ×3):
+**ttfr 1409→1371 ms, ttfp 1781→1745 ms**. De basiskaart begint eerder met laden; de regenlaag
+wacht op header én de eerste `style.load`. Het tijdverschil is klein ten opzichte van de eerder
+geobserveerde spreiding en bewijst geen koude PO-telefoonwinst. Na ttfp: LoAF-totaal 2027→1483 ms,
+langste frame 185→175 ms, geen frame >250 ms. Decodes blijven 226, bodybytes 4825675→4825746.
+Typecheck, 483 tests, build, ×3 perf-compare en 15 gerichte desktoptests slagen. De offline
+fixturekaart blijft veel eenvoudiger dan de echte kaart; de volledige basiskaart vraagt nog
+aparte verificatie.

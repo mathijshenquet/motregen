@@ -771,7 +771,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       if (presetCursor !== undefined) setPlaying(false)
       if (presets.mode) applyPresetMode(presets.mode)
       await placeSelection
-      const header = await client.getHeader(frames[0]!.chunk)
+      const firstHeader = client.getHeader(frames[0]!.chunk)
       const initialTheme = mapTheme()
       const style = await loadBasemapStyle(initialTheme)
       appliedMapTheme = initialTheme
@@ -797,7 +797,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       applyMapContainLimit()
       map.on('resize', applyMapContainLimit)
       syncSavedMarkers(savedPlaces())
-      map.on('style.load', () => attachMapLayers(header.grid))
+      const firstStyleReady = new Promise<void>((resolve) => map!.once('style.load', () => resolve()))
       map.on('render', () => {
         mapRepaints++
         if (map?.isStyleLoaded() && map.areTilesLoaded()) perf.markBasemapReady()
@@ -825,6 +825,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         usage.mark('pin')
         pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name)
       })
+      // Tegels en WebGL kunnen opwarmen terwijl de header voor de regenlaag nog onderweg is.
+      const header = await firstHeader
+      await firstStyleReady
+      map.on('style.load', () => attachMapLayers(header.grid))
+      attachMapLayers(header.grid)
       if (mapTheme() !== appliedMapTheme) void applyMapTheme(mapTheme())
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error))
