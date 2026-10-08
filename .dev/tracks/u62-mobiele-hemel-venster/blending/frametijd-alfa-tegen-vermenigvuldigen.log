@@ -1,0 +1,7 @@
+{"label":"alfa-1","blend":"alfa","rain":"0.50 normal → 0.50 normal","load":[12.78,12.89],"frames":632,"p50Ms":16.8,"p95Ms":66.7,"maxMs":183.3,"over34Ms":137,"longFrames":30,"longFrameTotalMs":2589}
+{"label":"vermenigvuldigen-1","blend":"vermenigvuldigen","rain":"0.90 multiply → 0.90 multiply","load":[10.98,14.7],"frames":725,"p50Ms":16.7,"p95Ms":66.6,"maxMs":200,"over34Ms":112,"longFrames":26,"longFrameTotalMs":2047}
+{"label":"vermenigvuldigen-2","blend":"vermenigvuldigen","rain":"0.90 multiply → 0.90 multiply","load":[14.3,13.78],"frames":697,"p50Ms":16.7,"p95Ms":66.7,"maxMs":266.6,"over34Ms":121,"longFrames":31,"longFrameTotalMs":2458}
+{"label":"alfa-2","blend":"alfa","rain":"0.50 normal → 0.50 normal","load":[13.08,11.27],"frames":659,"p50Ms":16.7,"p95Ms":66.7,"maxMs":250.1,"over34Ms":112,"longFrames":35,"longFrameTotalMs":3281}
+{"label":"alfa-3","blend":"alfa","rain":"0.50 normal → 0.50 normal","load":[11.3,19.81],"frames":506,"p50Ms":33.3,"p95Ms":99.9,"maxMs":216.8,"over34Ms":178,"longFrames":56,"longFrameTotalMs":4645}
+{"label":"vermenigvuldigen-3","blend":"vermenigvuldigen","rain":"0.90 multiply → 0.90 multiply","load":[11.78,21.52],"frames":409,"p50Ms":33.4,"p95Ms":116.7,"maxMs":266.7,"over34Ms":190,"longFrames":78,"longFrameTotalMs":6617}
+U62-BLEND-KLAAR

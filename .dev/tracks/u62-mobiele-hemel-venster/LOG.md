@@ -578,3 +578,49 @@ staat; na een stijlwissel wordt dat gewist.
   standen nagekeken (18:50 / 19:05 / 19:20 → nacht 0,25–1,00). De PO beoordeelt het op zijn telefoon.
 - Gate (web/): typecheck 0 · `pnpm test` 0 (506) · build 0 · desktop `dev-panel cloud-section` 0 (3 groen).
 - Vanaf hier wijzigt er niets meer op de branch tot de merge; de rand-schakelaar staat er nog.
+
+## Deel 2 op main (768d076); branch bijgetrokken
+
+## Proef regen-blending in Wind en Lucht — achter ?dev (groep Kaart, eigenaar U62, vervalt 2026-10-15)
+PO-beelden: `po-blending/`. Geen productwijziging: de standaardstanden (`alfa`, `nu`) zijn het bestaande gedrag
+(unit-test: `rainPresentation` met de standaardvarianten == `rainFocusOpacity`, toon 1, geen vermenigvuldiging).
+### Wat er was
+- Wind: de regen wordt via alfa op 0,5 gezet → mengt met de lichte kaart en verbleekt ("solarized").
+- Lucht: de regen ligt al BOVEN de sluier (DOM-volgorde: kaart < isolijnen/sluier < wind < regen), op volle
+  dekking; de sluier is 0,55 wit-ish (licht thema) of grijs (donker thema), ongeacht dag of nacht op de kaart.
+### Gebouwd
+- Regenshader: `u_saturation` / `u_brightness` (`RainLayer.setTone`) — rustiger zonder verbleken.
+- `core/focus-mode.ts` `rainPresentation(...)` → dekking, verzadiging, helderheid, vermenigvuldigen.
+- Vermenigvuldigen = `mix-blend-mode: multiply` op de regencanvas (`.map-overlay-motregen-rain.blend-multiply`).
+- Nachtsluier (`CLOUD_VEIL_NIGHT`): kleur [0,62 0,70 0,80], dekking 0,30. "Nacht" = kaart volgt de tijd ≥ 0,5,
+  anders donker thema.
+### Standen en getallen
+| knop | stand | overdag | 's nachts |
+| Regen in Wind | alfa (was) | dekking 0,50 | dekking 0,50 |
+| | vermenigvuldigen | dekking 0,90, vermenigvuldigd met de kaart | valt terug op gedempt (op donker verdwijnt de regen anders) |
+| | gedempt | dekking 0,80 · verzadiging 0,70 · helderheid 0,90 | idem |
+| Regen in Lucht | nu (was) | dekking 1,00 boven sluier 0,55 | idem |
+| | voorstel | dekking 1,00, vermenigvuldigd (met de witte sluier geeft dat het palet zelf) | sluier grijsblauw 0,30 · regen 0,70 · verzadiging 0,70 · helderheid 0,85 |
+### Beelden (zelf bekeken): `blending/blend-{wind,lucht}-{dag,nacht}-{390,1280}.png`, varianten naast elkaar in
+de volgorde van de tabel (13:00 morgen en 23:00 vandaag, live data).
+- Wind overdag: vermenigvuldigen haalt het pastel weg — geel blijft geel, de kaartlabels blijven leesbaar;
+  waar oranje regen boven zee ligt wordt het wat modderig. Gedempt is een milde verbetering op alfa.
+- Wind 's nachts: de drie standen liggen dicht bij elkaar; gedempt is iets voller dan alfa.
+- Lucht 's nachts: het voorstel is duidelijk rustiger (blauwe waas, regen gedempt, kaart leesbaar).
+- Lucht overdag: mijn EERSTE voorstel (regen 0,8 en 12 % donkerder, `blending/eerste-dagvoorstel-lucht/`)
+  maakte het beeld bleker en is vervangen door vermenigvuldigen: vollere kleuren, en de kaart (labels,
+  grenzen) schemert weer door de regen heen. Niet gebouwd: sluier alleen waar geen regen is (regenmasker
+  in de sluiershader).
+### Mijn keuze (voorstel, niets vastgezet)
+Wind = vermenigvuldigen; Lucht = voorstel.
+### Frametijd vermenigvuldigen tegen alfa (Wind, overdag, 20 s afspelen, po-android, onder de lock, load ≤ 16)
+`rig/blend-frames.ts`, `blending/frametijd-alfa-tegen-vermenigvuldigen.log`.
+| | frames in 20 s | p95 | lange frames |
+| alfa | 632 / 659 / 506 | 66,7 / 66,7 / 99,9 | 30 / 35 / 56 |
+| vermenigvuldigen | 725 / 697 / 409 | 66,6 / 66,7 / 116,7 | 26 / 31 / 78 |
+Paar 3 liep terwijl de host naar loadavg 20–21 opliep en is onbruikbaar. In paar 1 en 2 is vermenigvuldigen
+niet trager. Twee kanttekeningen: Wind-afspelen is in deze rig sowieso zwaar (p95 67 ms in beide standen),
+en de rig mengt in software — wat een mengmodus op de GPU-compositor van een telefoon kost, zegt dit niet.
+Dat moet de PO-telefoon uitwijzen.
+- Gate (web/): typecheck 0 · `pnpm test` 0 (509) · build 0 · desktop `dev-panel focus cloud-section` 0
+  (11 groen, 2 overgeslagen); `dev-panel.spec` controleert de Wind-knop (dekking 0,50 → 0,90, multiply).
