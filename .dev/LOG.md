@@ -259,6 +259,11 @@
   en ttfp +0,3/+0,1 s (PO-keuze "gewoon proberen"; ttfr-prijs expliciet aan PO gemeld). Bewezen: warm ≈ koud
   op de telefoon (CPU-gebonden); kaart-eerst-volgorde verschuift alleen werk (ttfr −1,2 s, ttfp +1,6 s) →
   proefbranch. Gate 524 unit, 32+15 e2e, build; 4330 herbouwd. Nu alleen U62 nog open (blending + rand).
+- **Nachtelijke volledige suite op main** (abb23823+, 21:40, 13 min): 171 groen, 80 overgeslagen, 4 rood:
+  perf.spec mobiel ×2 (sessie-bytes 1.377/1.382 kB > budget 1.345/1.355 kB door de z4-startkaart ≈ 32 kB)
+  → budget +40 kB met herkomst (gecommit, verificatie 4/4 groen); dev-panel.spec mobiel ×2 (wind 0,80 →
+  "iets" 1,00) → al gefixt op U62's branch (pre-gate groen: 527 unit, 26+10 e2e, 3 Firefox). Uitslag:
+  `~/motregen-profiles/nightly-e2e-2026-10-08.txt`.
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
