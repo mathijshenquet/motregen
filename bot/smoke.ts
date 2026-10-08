@@ -5,7 +5,7 @@ import { FileIdCache } from './file-ids.js'
 import { StillPhotos } from './photos.js'
 import { startText } from './handlers.js'
 import { StillRenderer, StillRenderError, type RenderedMedia } from './render.js'
-import { keyboard, PREWARM_HOURS, STILL_HOURS, LOOP_MODES, validateManifest } from './stills.js'
+import { keyboard, PREWARM_HOURS, STILL_HOURS, LOOP_MODES, validateManifest, type StillManifest } from './stills.js'
 import { readFile } from 'node:fs/promises'
 
 async function smoke(): Promise<void> {
@@ -13,8 +13,14 @@ async function smoke(): Promise<void> {
   const renderer = new StillRenderer(config.origin, config.cacheDirectory)
   try {
     const renderOnly = process.argv.includes('--render-only')
-    const manifestPath = renderOnly ? process.argv.find((argument) => argument.startsWith('--manifest='))?.slice(11) : undefined
-    const manifest = manifestPath ? validateManifest(JSON.parse(await readFile(manifestPath, 'utf8'))) : await renderer.manifest()
+    const manifestArgument = process.argv.find((argument) => argument.startsWith('--manifest='))
+    const manifestPath = manifestArgument?.slice('--manifest='.length)
+    let manifest: StillManifest
+    if (renderOnly && manifestPath) {
+      manifest = validateManifest(JSON.parse(await readFile(manifestPath, 'utf8')))
+    } else {
+      manifest = await renderer.manifest()
+    }
     if (renderOnly) {
       const modeFilter = process.argv.find((argument) => argument.startsWith('--mode='))?.slice(7)
       const definitions = LOOP_MODES.filter((definition) => !modeFilter || modeFilter === definition.mode)
@@ -24,7 +30,12 @@ async function smoke(): Promise<void> {
         const media: RenderedMedia[] = [loop]
         console.info(JSON.stringify({ event: 'loop-render-receipt', mode: definition.mode, path: loop.path, frames: loop.frames, fps: loop.fps, renderMs: loop.renderMs, encodeMs: loop.encodeMs, bytes: loop.bytes, cached: loop.cached }))
         if (definition.mode === 'wind') return media
-        const hours = process.argv.includes('--matrix') ? STILL_HOURS : process.argv.includes('--prewarm') ? PREWARM_HOURS : [0] as const
+        let hours: readonly number[] = [0]
+        if (process.argv.includes('--matrix')) {
+          hours = STILL_HOURS
+        } else if (process.argv.includes('--prewarm')) {
+          hours = PREWARM_HOURS
+        }
         for (const hour of hours) {
           const still = await renderer.render({ mode: definition.mode, hour }, manifest)
           media.push(still)
