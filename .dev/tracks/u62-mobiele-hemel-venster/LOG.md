@@ -767,3 +767,26 @@ paneel top/hoogte 0/925,2 · tekort 0 · tabel open.
 `adresbalk/ronde4-na-correctie-firefox.png` bestaat niet: de testmap was al overschreven door de volgende run
 toen ik het beeld wilde kopiëren. Het enige beeld van ronde 4 is `ronde4-vangnetstrook.png`. 4320 herbouwd en
 herstart op 0c134e1 (hoofdbundel en stylesheet bevatten `table-covers-viewport`, nagelopen over HTTP).
+
+## Flaky firefox-test (orkestrator) → een echte fout van mij gevonden en hersteld
+- Orkestrator: `firefox.table.spec` "strip…" 1 op 3 rood (Expected 64, Received 0). Oorzaak: de test las de
+  beginstand in een aparte stap; een al geplande hercontrole van de app had de strook dan soms al gedicht.
+  Nu wordt de beginstand in dezelfde tik als de nabootsing gelezen en wordt op de tekortwaarde gepold.
+- Bij het herhalen (`--repeat-each 6`) kwam iets ergers boven: 3 van 30 keer ging de tabel na de tik op Tabel
+  niet open (paneel bleef op 698 px), en bij loadavg 50–68 ook `table.spec:94` (tik op Tabel "niet stabiel")
+  en `:63`. Dat was geen ruis maar mijn eigen code:
+  1. de kaartkant-correctie uit ronde 1 (binnen 120 px van de bovenkant → terug naar 0) kon, samen met de
+     hercontrole van ronde 3, midden in de vloeiende scroll naar de tabel afgaan en die afbreken;
+  2. een haperend frame (> 120 ms zonder scroll-event) telde als "rust".
+- Hersteld (`f501060`): de kaartkant-correctie is WEG (niet gevraagd, de PO-bug zit alleen aan de tabelkant);
+  de tabelcorrectie grijpt alleen in na 300 ms rust (`TABLE_REST_MS`), nooit binnen 1,5 s na een
+  tik-navigatie (`tableNavigationUntil`) en nooit als de kaart het doel is; het bepalen van open/dicht
+  gebeurt weer direct zoals vóór U62 (inclusief de U58-acceptatie aan het pagina-einde), alleen de correctie
+  wacht. De bijbehorende kaartkant-controle is uit `table.spec` gehaald.
+- Herhaald na de fix: `--project firefox --repeat-each 6` → 30/30 groen (loadavg 15–17); `table.spec --project
+  desktop --project mobile-4g --repeat-each 3` → 42 groen, 12 overgeslagen (loadavg 14–24).
+  (De run vóór de fix: firefox 29/30 en table 40/42, bij loadavg tot 68.)
+- Gate (web/): typecheck 0 · `pnpm test` 0 (527) · build 0 · `dev-panel cloud-section sky-window focus` op
+  desktop én mobile-4g 0 (18 groen, 10 overgeslagen).
+- Les: een correctie die de scrollstand verzet hoort alleen in aantoonbare rust te draaien; en een nieuwe
+  spec eerst herhaald draaien vóór "groen" te melden — de eerste keer groen zei hier te weinig.
