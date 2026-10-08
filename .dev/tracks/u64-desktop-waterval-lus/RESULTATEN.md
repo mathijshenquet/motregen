@@ -49,7 +49,7 @@ wordt tegen dezelfde U62-startsituatie gemeten.
 | --- | --- | --- | --- |
 | volledige regen/windshaderbatch | +7,17% / −14,66% | +1,98% / +0,064% | 3 / 3; afgewezen |
 | alleen regenshaders | −7,95% / +0,93% | +12,81% / +23,81% | 3 / 3; afgewezen |
-| GPU-worker zonder shaderwijziging | pending | pending | 0 / 0 |
+| GPU-worker zonder shaderwijziging | twee paren; reeks onvolledig | pending | 2 / 0 |
 | manifest-SWR zonder shaderwijziging | pending | pending | 0 / 0 |
 | totale U64 zonder shaders versus main | −17,37% / +3,24% | −17,16% / −1,75% | 3 / 3 |
 
@@ -72,7 +72,7 @@ tijdgaps157,9/115,6/85,7s. De eerste poging van paar1 is afgewezen door
 484,0/394,8;407,4/394,9ms. Alle zes koude/warme paren verbeteren ttfr;
 de geringe koude ttfp-regressie blijft zichtbaar. De HTML-assets/lazy-
 wijzigingen blijven op deze primaire ttfr-winst in de track; GPU/manifest
-en Lighthouse volgen nog, absolute ≤8-gate blijft pending.
+volgen nog; Lighthouse ×3 staat hieronder, absolute ≤8-gate blijft pending.
 
 Warm main→U64 geeft ttfr 1253,6→1240,4 / 1499,6→1242,3 /
 1790,6→1091,6 ms, ttfp 737,4→808,9 / 786,4→772,6 / 926,3→746,1 ms.
@@ -82,17 +82,17 @@ Volledige post-ttfp LoAF-maxima A/B: 431,9/368,1;514,3/435,9;526,0/440,2 ms;
 grote frames blijven aanwezig. Warm pair1-serverlogs hebben aan beide kanten
 slechts manifest200 (36.513 bodybytes) en SW304; geen kaart-, font-, JS-,
 plaatsen- of weer-Ranges-netwerk. Font en manifest starten vroeger in U64,
-maar het eerste regenframe kan nog later komen; koud ×3 volgt vóór de
-definitieve beoordeling. De drie warme main-opnames zijn referenties voor
+maar het eerste regenframe kan nog later komen. Koud ×3 staat hierboven.
+De drie warme main-opnames zijn referenties voor
 deze paarvergelijking, geen absolute ≤8-baseline voor docs/perf.md.
 
 De nieuwe, ongewijzigde main-referentie heeft 424.978 B gzip hoofd-JS;
 U64 na merge, vóór shaderbatching: 411.280 B; met shaderbatching: 411.362 B.
 De eerdere U62-builds (422.475 / 409.063 B) zijn niet gemeten vóór U65.
 Bevroren builds gebruiken
-dezelfde fixture en native-desktopcapture. Koud ×3, warm ×3 en Lighthouse
-zijn nog niet volledig gemeten. Er zijn nog geen volledige nieuwe
-ttfr/ttfp-vergelijkingen of Lighthouse-subscores.
+dezelfde fixture en native-desktopcapture. De vergelijking van main met
+U64 zonder shaders is koud ×3, warm ×3 en Lighthouse ×3 compleet;
+GPU-worker, manifest-SWR en de absolute ≤8-gate zijn nog open.
 Koud en warm, nieuwe ronde (geen volledige medianen):
 
 | variant | koud ttfr / ttfp | warm ttfr / ttfp | geldige runs koud / warm |
@@ -335,25 +335,33 @@ blijven historisch meetbewijs.
 
 ## Lighthouse-oorzaak
 
-Nieuwe main/U64-paarreeks na U62/U65: eerste paar geldig, twee nog pending.
-Startloads14,37/15,23, tijdgap264,2s; score63→62. Dit zijn relatieve gegevens
+Nieuwe main/U64-paarreeks na U62/U65: drie geldige paren, scores
+63→62, 63→63 en 63→63. Startloads A/B:14,37/15,23;15,73/15,40;
+12,64/11,72, tijdgaps264,2/145,8/193,5s. Dit zijn relatieve gegevens
 bij de toegestane startgrens16, geen absolute ≤8-baseline.
+Onderstaande waarden en subscores zijn de medianen van drie runs per kant.
 
 | metriek | main U65: waarde / subscore | U64 zonder shaders: waarde / subscore |
 | --- | --- | --- |
-| FCP | 462 ms / 100 | 365 ms / 100 |
-| LCP (splash) | 462 ms / 100 | 365 ms / 100 |
+| FCP | 462 ms / 100 | 378 ms / 100 |
+| LCP (splash) | 462 ms / 100 | 378 ms / 100 |
 | TBT | 1151 ms / 3 | 1314 ms / 2 |
-| Speed Index | 3108 ms / 24 | 3019 ms / 26 |
+| Speed Index | 2972 ms / 27 | 2967 ms / 28 |
 | CLS | 0,0586 / 98 | 0,0663 / 97 |
 
-Script evaluation2548→2517ms domineert; hoofd-entry parse/compile1,38→1,18ms.
+Binnen paren is de mediane FCP/LCP-delta −88,5ms, TBT +90,0ms,
+Speed Index −71ms en CLS +0,00770. De scoremediaan blijft63→63;
+deze reeks bewijst geen Lighthouse-winst. De derde eerste poging is
+afgewezen ondanks score62→64: de gemiddelde opnameload verschilde3,83.
+
+In het eerste paar domineert script evaluation2548→2517ms;
+hoofd-entry parse/compile1,38→1,18ms.
 Main heeft taken703/372ms; U64 heeft761/499/374ms. TBT blijft de grootste
 scorebeperking. Ongebruikte JS213→208KiB, waarvan MapLibre ongeveer176KiB;
 ongebruikte CSS12→11KiB. CSS staat als renderblokkerend gemeld, terwijl
 FCP/LCP al100 scoren. De eerste kleine scoredaling is geen reden om de
-consistente native ttfr-winst uit zes paren te verbergen; de overige
-Lighthouse-paren en nieuwe kandidaten volgen. Eén sourcemapwaarschuwing
+consistente native ttfr-winst uit zes paren te verbergen; de GPU- en
+manifestkandidaten volgen. Eén sourcemapwaarschuwing
 bij de main-entry is geregistreerd; runtimeError ontbreekt in beide reports.
 
 De trace nuanceert de scriptuitvoering: U64-taken761/499/374ms hebben
