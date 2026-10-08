@@ -806,3 +806,9 @@ b1a706752174bbd7f1cb2453ce3a740929d73775	refs/pull/91/head
 
 - Exacte baseline-repro met geldige spaties: cd /home/mathijs/worktrees/motregen/u64-u62-reference/web; MOTREGEN_E2E_PORT=4394 MOTREGEN_E2E_DATA_PORT=8394 pnpm exec tsx scripts/perf-mobile.ts --load-wait 120 --profile desktop --scenario koud-spelend --basemap own --repeat 3 --baseline --baseline-file /home/mathijs/worktrees/motregen/track-u64-desktop-waterval-lus/web/perf/baselines/desktop-koud-spelend-own-u62-part2.json. Productreferentie4038d55; alleen rig-instrumentatie lokaal toegevoegd.
 - Correctie op voorgaande verkorte afsluitzin: alle voltooide meetcampagnes exit0; bewust gesloten historische loadwachtgroepen exit143 zoals eerder gelogd. Alle eigen shells zijn inmiddels gesloten. Eindwijzigingen alleen verslag/docs en nieuwe absolute baseline; diffcheckexit0, geen applicatiewijziging na de groene productchecks.
+
+## 2026-10-08 16:33:38 UTC — slotentry: op main gemerged, track klaar
+
+- Orkestrator bevestigt merge ff19077fc16df1668f3e4f934ea516fc37c78332 (ff19077f); zelfstandig gecontroleerd op origin/main en bevestigd dat de track-head daarin is opgenomen. Onafhankelijke gate door de orkestrator gemeld: 511 unit-tests, 32 desktop-e2e, 9 mobiele e2e en build groen.
+- Finale gepaarde winst koud/warm: ttfr −33,06%/−14,12%, ttfp −8,34%/−4,50%. Shader-, GPU-worker- en manifest-SWR-proeven afgewezen; Lighthouse 63→62 en grote LoAF na ttfp blijven transparant beschreven in RESULTATEN.md.
+- Alle eigen meetcampagnes en shells beëindigd; afsluitcontrole vindt geen resterende trackprocessen en previewpoort 4360 heeft geen listener. Geen werk meer open voor U64. Deze append-only slotentry wordt gecommit en naar de trackbranch gepusht; daarna klaar.
