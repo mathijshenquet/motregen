@@ -25,7 +25,7 @@ it('makes only requested JPEGs from persisted PNGs, shares concurrent conversion
     const plan = sequencePlan('weather', manifest)
     await Promise.all(plan.epochs.slice(1).map((_epoch, index) => writeFile(framePath(frames, index + 1), png)))
     await writeFile(join(directory, `${key}.mp4`), 'cached-loop')
-    await writeFile(join(directory, `${key}.sequence.json`), JSON.stringify({ key, frames: 49, fps: 10, bytes: 11, renderMs: 10, encodeMs: 10 }))
+    await writeFile(join(directory, `${key}.sequence.json`), JSON.stringify({ key, frames: plan.loopFrames, fps: plan.fps, bytes: 11, renderMs: 10, encodeMs: 10 }))
     expect((await readdir(directory)).filter((name) => name.endsWith('.jpg'))).toHaveLength(0)
     const selection = { mode: 'weather', hour: 1 / 3 } as const
     const [first, shared] = await Promise.all([renderer.render(selection, manifest), renderer.render(selection, manifest)])
@@ -34,7 +34,7 @@ it('makes only requested JPEGs from persisted PNGs, shares concurrent conversion
     expect((await readFile(first.path)).subarray(0, 2)).toEqual(Buffer.from([0xff, 0xd8]))
     expect((await readdir(directory)).filter((name) => name.endsWith('.jpg'))).toHaveLength(1)
     expect(await renderer.render(selection, manifest)).toMatchObject({ cached: true, milliseconds: 0, path: first.path })
-    expect((await readdir(frames))).toHaveLength(109)
+    expect((await readdir(frames))).toHaveLength(plan.epochs.length)
     expect(await renderer.render({ mode: 'weather', hour: 'loop' }, manifest)).toMatchObject({ cached: true })
     const ledger = join(directory, '.cache-posts-keep.json')
     await writeFile(ledger, 'post-register')
