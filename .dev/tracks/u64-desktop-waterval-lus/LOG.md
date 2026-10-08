@@ -734,3 +734,20 @@ b1a706752174bbd7f1cb2453ce3a740929d73775	refs/pull/91/head
 - Validatie synchroonexit0: pnpm typecheck; pnpm test (77bestanden/511units); pnpm build --outDir ../tmp/u64/u62-part2-control-dist; referencebuild; MOTREGEN_E2E_PORT=4365 MOTREGEN_E2E_DATA_PORT=8365 pnpm e2e e2e/basemap.spec.ts e2e/dev-panel.spec.ts e2e/table.spec.ts --project desktop (12pass,2mobileonlyskip). Logs tmp/u64/u62-part2-{typecheck,unit,build,reference-build,e2e}.txt. Gewone e2e/builds buitenperf-lock.
 - GPUcold op oude shaderloze basis ×3 compleet: ttfrdeltas+91,6/−371,8/−151,1ms, mediaan−151,1ms/−11,98%;ttfp+23,6/+101,7/−47,5ms, mediaan+23,6ms/+3,04%. BasemapReady bepaalt ttfr in deze paren; firstRain wordt niet overal vroeger. LoAFmaxA/B492,8/478,2;420,3/557,8;507,2/582,2ms. Warm tweeparen, derde pending; geen retentiebesluit. Native20199 loopt op onveranderde frozen ec3builds, manifest volgt. OfflinecoldwatervallenCLI synchroonexit0.
 - Checkpoint11609e5pushsynchroonexit0, remote11609e53de357c6cd3ef9f2fcd8bde3ce007851b bevestigd, PR91updatedexit0. Deze mainmerge nu commit/push; volgende cadans15–20min.
+
+## 2026-10-08 15:06:52 UTC — GPU koud/warm compleet, standaardactivatie afgewezen
+
+- GPU-worker op ec3/shaderloze U64basis koud/warm ieder3geldigeparen. Koud ttfr−151,1ms/−11,98%,ttfp+23,6ms/+3,04% mediaan binnenpaar. Warm ttfr−544,5/+357,6/+254,4ms,mediaan+254,4ms/+15,66%;ttfp+91,4/+428,2/+182,3ms,mediaan+182,3ms/+18,14%. Warmstartloads15,95/15,05;14,30/14,87;15,56/15,57, gemiddelde-loadverschillen−1,36/−0,33/+0,81. Allewarmttfp slechter; standaardactivatie afgewezen. Bouwproef blijft uit/reproduceerbaar totverval2026-10-15. LoAFmaxwarmA/B403/427,448/428,600/631ms.
+- Nativecampaign20199 gaat door met manifest-SWR koud/warm3 op onveranderde oude frozenbasis. Nieuwe hoofdcompare na U62 deel2 wordt apart gemeten; scripts voorbereid en syntaxexit0, nog niet gestart zolang huidige ronde loopt. Absolute gate76563 wacht buitenlock≤8; host piek27,63, geen grensverhoging. PR91mainmergestatus bijgewerkt synchroonexit0.
+- Mainmerge95d9c35push synchroonexit0 en remote95d9c359c46480c09db24f730be76b41044b684c bevestigd. Volgende checkpoint uiterlijk15:23UTC.
+
+## 2026-10-08 15:12:10 UTC — nieuwe LH-reeks op U62 deel 2 gestart
+
+- Nieuwe bevroren main4038d55->U64-control LH13.0.1 ×3, aparte prefixes u62-part2-lighthouse en metadata; oudere ec3reports blijven intact. Command:MOTREGEN_PERF_LOAD_WAIT_MINUTES=120 bash tmp/u64/u62-part2-lighthouse-pairs.sh. Gewone builds/e2e afgerond, drie noodzakelijke meetwachtrijen (nativeec3manifest,LHnieuwebasis,absolute≤8gate), hooguit één werkelijkemeetbrowser onder dezelfde hostlock. Startloadpaired16, absolute8; geen groterecriteria.
+- Hostload wisselt16–30; manifestcold0/warm0 en absolute gate geenbaseline tot nu. Wacht buitenlock; geen eigen browser zonder actieve opname/seed. Nieuwe native maincoldwarmmeting voorbereid, start na afronden bestaande manifestreeks.
+
+## 2026-10-08 15:18:34 UTC — WIP-checkpoint met GPU-besluit en nieuwe LH
+
+- Nieuwe U62deel2LHpair1 geldig:60→62;FCP/LCP491,424→425,433ms/sub100→100,TBT1576,054→1399,635ms/sub1→1,SI3236→3073ms/sub21→25,CLS0,09053→0,06862/sub92→96. Startloads15,40/15,01,gap175,562s,meanΔ−0,04786. Twee volgende paren pending, geen scorewinstclaim. Native maincoldwarmnieuwebasis nogpending; oorspronkelijke ec3TTFRwinst−17,37/−17,16% geen nieuwebaselineclaim.
+- Manifestcold1A geproduceerd:ttfr1209/ttfp767,6ms,load12,29. B/3paren nogpending; warmeSWRhits worden straks expliciet gecontroleerd, max15s-geldigheid geen stilleTTLverruiming. Absolute≤8gate geenbaseline. Runners20199/38160/76563 synchroon gepolld, nogrunning; tijdens wachten geen Chromium, alleen werkelijkerun/seed onderlock.
+- GPU-besluit koud−11,98%ttfr/warm+15,66%,ttfp+3,04/+18,14% en groteLoAF nu inRESULTATEN en PR; proef standaarduit. WIP commit/push op15mincadans, geen nieuweproductcode of extra testclaim.

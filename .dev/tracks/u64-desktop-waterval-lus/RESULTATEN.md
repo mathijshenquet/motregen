@@ -49,7 +49,7 @@ wordt tegen dezelfde U62-startsituatie gemeten.
 | --- | --- | --- | --- |
 | volledige regen/windshaderbatch | +7,17% / −14,66% | +1,98% / +0,064% | 3 / 3; afgewezen |
 | alleen regenshaders | −7,95% / +0,93% | +12,81% / +23,81% | 3 / 3; afgewezen |
-| GPU-worker zonder shaderwijziging | −11,98% / +3,04% | twee paren; reeks onvolledig | 3 / 2 |
+| GPU-worker zonder shaderwijziging | −11,98% / +3,04% | +15,66% / +18,14% | 3 / 3; afgewezen voor standaardgebruik |
 | manifest-SWR zonder shaderwijziging | pending | pending | 0 / 0 |
 | totale U64 zonder shaders versus main | −17,37% / +3,24% | −17,16% / −1,75% | 3 / 3 |
 
@@ -71,8 +71,9 @@ tijdgaps157,9/115,6/85,7s. De eerste poging van paar1 is afgewezen door
 3,32 loadverschil, ondanks gunstige ttfr. LoAF-max A/B koud542,9/475,8;
 484,0/394,8;407,4/394,9ms. Alle zes koude/warme paren verbeteren ttfr;
 de geringe koude ttfp-regressie blijft zichtbaar. De HTML-assets/lazy-
-wijzigingen blijven op deze primaire ttfr-winst in de track; GPU/manifest
-volgen nog; Lighthouse ×3 staat hieronder, absolute ≤8-gate blijft pending.
+wijzigingen blijven op deze primaire ttfr-winst in de track. De GPU-proef
+is afgewezen; manifest volgt nog. Lighthouse ×3 staat hieronder,
+absolute ≤8-gate blijft pending.
 
 Warm main→U64 geeft ttfr 1253,6→1240,4 / 1499,6→1242,3 /
 1790,6→1091,6 ms, ttfp 737,4→808,9 / 786,4→772,6 / 926,3→746,1 ms.
@@ -92,7 +93,18 @@ De eerdere U62-builds (422.475 / 409.063 B) zijn niet gemeten vóór U65.
 Bevroren builds gebruiken
 dezelfde fixture en native-desktopcapture. De vergelijking van main met
 U64 zonder shaders is koud ×3, warm ×3 en Lighthouse ×3 compleet;
-GPU-worker, manifest-SWR en de absolute ≤8-gate zijn nog open.
+Manifest-SWR en de absolute ≤8-gate zijn nog open.
+
+GPU-worker koud ×3: ttfr-deltas +91,6/−371,8/−151,1ms, mediaan
+−151,1ms (−11,98%); ttfp +23,6/+101,7/−47,5ms, mediaan
++23,6ms (+3,04%). Warm ×3: ttfr −544,5/+357,6/+254,4ms,
+mediaan +254,4ms (+15,66%); ttfp +91,4/+428,2/+182,3ms,
+mediaan +182,3ms (+18,14%). Alle warme paren vertragen ttfp.
+De basiskaart bepaalt hier ttfr; de eerste regentekenbeurt wordt koud
+niet in ieder paar vroeger. LoAF-max na ttfp A/B koud:
+493/478,420/558,507/582ms; warm:403/427,448/428,600/631ms.
+De koude primaire winst weegt niet op tegen de warme regressie.
+De bouwproef blijft reproduceerbaar, standaard uit en met verval2026-10-15.
 
 ### Main na U62 deel 2
 
@@ -111,6 +123,12 @@ gate gebruikt `desktop-koud-spelend-own-u62-part2.json`, met U62's
 standaard kaartkleuring als extra reden naast Kaderhemel, U65 en de verse
 browser per run. Startload maximaal8 blijft verplicht. Nieuwe native
 koud/warm-paren en Lighthouse op deze basis volgen afzonderlijk.
+
+Eerste geldig Lighthouse-paar op deze basis: score60→62, startload
+15,40/15,01, gap175,6s, gemiddeld loadverschil−0,048. FCP/LCP491→425ms
+(sub100→100), TBT1576→1400ms (sub1→1), Speed Index3236→3073ms
+(sub21→25), CLS0,0905→0,0686 (sub92→96). Nog twee paren nodig;
+geen afgeronde scorewinst of nieuwe native ttfr/ttfp-claim.
 Koud en warm, nieuwe ronde (geen volledige medianen):
 
 | variant | koud ttfr / ttfp | warm ttfr / ttfp | geldige runs koud / warm |
