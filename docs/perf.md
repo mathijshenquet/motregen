@@ -914,7 +914,7 @@ Spreiding decodes 2,679%, bytes 0,303%; baseline `po-android-koud-spelend.json` 
 bestaande 10%-regressiegrens. Nieuwe Buienradar-referentie op hetzelfde profiel: ttfp-ref
 3074 / 2640 / 2664 ms (mediaan 2664 ms), loadavg 7,40 / 6,61 / 7,87, exit 0. De verhouding
 van het herstelde nulpunt is 0,65×. De spreiding van ttfh binnen ongewijzigde runs (4253–5131 ms)
-begrensst kleine winstclaims; de rig blijft dichter bij de warme telefoon dan de koude.
+begrenst kleine winstclaims; de rig blijft dichter bij de warme telefoon dan de koude.
 
 ### Vóór-meting main, 2026-10-07 (mobile-4g, CPU 4×, rig 621576e, loadavg 5,9–7,5)
 

@@ -7,6 +7,10 @@ De lat uit MIP-19 §De lat (spelende tijdlijn op mobiel ≤ Buienradar) halen é
 achterstand wegwerken, met twee autonome lussen onder het PO-mandaat van 2026-10-07: wat niet
 waarneembaar is gaat door met vóór/ná per commit; wat zichtbaar is wordt een stap met de PO.
 
+## Prioriteit (PO 2026-10-08 08:50)
+`ttfr` voorop, dan `ttfp`; `ttfh`/blank-visible secundair zolang er ná de start geen grote lange
+frames meer zijn (LoAF ná ttfp is een bewaker, geen doel). Geldt voor beide tracks.
+
 ## Track A — mobiel (U63)
 Stand (PO-telefoon koud): ttfp 3,65 s, eerste regenframe 1,9–2,5 s, ttfh 5,5 s. Kandidaten:
 1. manifest + eerste regen-Range als preload/Early Hints (nu pas op ~0,8 s gevraagd);

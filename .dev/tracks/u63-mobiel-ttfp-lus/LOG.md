@@ -81,3 +81,28 @@ Definitieve entryvariant: pnpm typecheck, pnpm test (479) en pnpm build opeenvol
 Orkestrator geeft U63 eerst het rustige meetvenster en verplicht alle perf-opnames tot flock -w 7200 /home/mathijs/motregen-perf.lock. Nieuw track-runscript run-perf.sh past de lock en eigen 4393/8393 toe; de bestaande loadavg <8 blijft. Vanaf nu elke iteratie ttfr vóór ttfp rapporteren; ttfh/blank secundair. LoAF na ttfp als bewaker (geen optimalisatiedoel). Kandidatenvolgorde op verwachte ttfr-winst: vroege manifest/Range, basiskaartketen, worker/WebGL-warmte, textuurupload.
 
 Receipt gerichte desktop-gate: startup.spec + usage.spec + presets.spec + decode-budget.spec, poorten 4593/8593, exit 0 (9 tests). Correcte perf-entrypoging exit 1 vóór opnames door eigen Caddy-poorten bezet na eerdere Ctrl-C. /proc/cwd bevestigt beide overgebleven Caddy-processen als deze worktree; alleen die beëindigd. Geen uitslag of winst uit de mislukte poging. Kandidatenvergelijking herstart via run-perf.sh; nieuwe hostload 23,74 vereist wachten.
+
+## 2026-10-08 06:32 UTC — U57 integratie voorbereid; LoAF-bewaker uit ruwe bron
+
+Main f70754c (met U57-merge 4b14eab7) opgehaald en merge --no-commit gestart op instructie orkestrator. Eigen kandidaat tijdelijk gestasht, teruggelegd; Vite-conflict opgelost met beide plugins (vroege manifest-entry én pageRoutes/sitemap). Paden en #t-fragment blijven U57-eigenaar. Voor de lopende perf-aanroep is de build vóór deze merge bevroren: die uitslag is apart van de integratiemeting te lezen. Alle codegates volgen opnieuw op de geïntegreerde variant.
+
+Nieuwe summarize.mjs leest bestaande ruwe LoAF-entries, zonder meetcontract of drempels te wijzigen. Bewaker: frames gestart vanaf ttfp én voltooid vóór 30 s. Nulpunt ×3 mediaan: ttfr 1364 ms, ttfp 1730 ms; daarna 23 LoAF / 2018 ms totaal / 591 ms blocking / 181 ms langste frame. Per run langste 175 / 215 / 181 ms: ook het nulpunt is na de start nog niet volledig soepel. Repro: node .dev/tracks/u63-mobiel-ttfp-lus/summarize.mjs web/tmp/u63/nulpunt.
+
+Lock/LOG-commit 8ec7be0 gepusht; git ls-remote bevestigt de exacte branchtip. Productkandidaat nog niet gecommit. Stash blijft als herstelpunt tot de integratie groen is.
+
+## 2026-10-08 06:33 UTC — kandidaat 1 ×3 groen, tijdwinst ontbreekt; controle na U57
+
+Receipt run-perf.sh --profile po-android --scenario koud-spelend --repeat 3 --compare exit 0; loads 6,23 / 5,85 / 6,26, alle bytes sluitend. Mediaan ttfr 1433 ms (+69), ttfp 1782 ms (+51), ttfh 4801 ms (+523) t.o.v. hersteld nulpunt. Geen gemeten tijdwinst. Wel manifest op 85–127 ms tegenover voorheen ~343–386 ms; de eerste Range schuift niet overtuigend mee doordat app/kaart/worker-opzet later loopt. Geen timingverbetering geclaimd.
+
+Ruwe opnames in web/tmp/u63/kandidaat1-lock. Omdat U57 juist tussendoor integreert, eerst controle ×3 op actuele main zonder productkandidaat: eigen wijzigingen als patch + nieuwe bestanden in tmp/u63/kandidaat1-state bewaard; App/index/Vite terug naar origin/main. Zo worden main-verschil en kandidaatwinst niet op één hoop gezet. Daarna behouden of verwerpen op gepaarde tijden. Een kop 06:32 hierboven is ~30 seconden vóór die UTC-tijd geschreven; inhoud ongewijzigd.
+
+## 2026-10-08 06:46 UTC — meetstatus-checkpoint en U57-merge
+
+Naderende 20-minutencadans: commit bevat de opgedragen integratie van reeds op main gegate U57 plus log/meetbewaker; geen productkandidaat. App/Vite/index in de index zijn exact origin/main. De parallelle-kaartproef staat alleen in de werkboom. Main-control heeft één sluitende opname (ttfr 1409 ms, ttfp 1794 ms, 226 decodes, 4.825.675 B); overige opnames wachten sinds ~06:36 bij loadavg 10–23. Die extra controle is nog niet groen verklaard. Eigen rig-compare met ongewijzigd meetcontract was in de voorgaande manifestproef ×3 groen; main is opnieuw typecheck/unit (483)/build groen. Gehele integratie/perf-controle blijft in de draft-PR open totdat receipts volgen.
+
+| iteratie | ttfr ms | ttfp ms | LoAF na ttfp ms / max ms | decodes | bodybytes | keuze |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| hersteld nulpunt | 1364 | 1730 | 2018 / 181 | 226 | 4824523 | referentie vóór productwerk |
+| vroeg manifest ×3 | 1433 | 1782 | 1948 / 170 | 223 | 4816721 | geen gemeten winst; prototype buiten productcode |
+
+Parallelle-kaartproef: typecheck/test (483)/build opeenvolgend exit 0. Alleen de volgorde verandert: WebGL/tegelopzet overlapt de eerste header; regenlagen wachten op header én eerste style.load. Nog geen perf- of gerichte e2e-receipt. OpenFreeMap-snapshot exit 0 (50 bestanden, tileset 20261004); genegeerde fixture gereed voor herijking van de twee kaartbaselines naast de zes gewone baselines. PR-beschrijving bijgewerkt, exit 0.

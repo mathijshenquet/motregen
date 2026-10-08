@@ -8,6 +8,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 import solid from 'vite-plugin-solid'
 import { configDefaults } from 'vitest/config'
 import { basemapRangeCache } from './scripts/basemap-range-cache'
+import { pageRoutes } from './scripts/page-routes'
 
 // dev/preview draait op de dev-host (ageq-mthq, sinds 2026-10-07 ageq-dev2) en wordt via het tailnet bekeken (MIP-1 §5)
 const allowedHosts = ['ageq-mthq', 'ageq-dev2']
@@ -81,7 +82,8 @@ function usageBeaconEndpoint(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [solid(), tailwindcss(), usageBeaconEndpoint(), localBasemapArchive(), VitePWA({
+  appType: 'spa',
+  plugins: [solid(), tailwindcss(), usageBeaconEndpoint(), localBasemapArchive(), pageRoutes(), VitePWA({
     injectRegister: false,
     registerType: 'prompt',
     includeAssets: ['droplet.svg'],
@@ -99,8 +101,9 @@ export default defineConfig({
     },
     workbox: {
       globPatterns: ['**/*.{js,css,html,ico,png,svg}', 'basemap/**/*.{json,pbf}'],
-      globIgnores: ['**/data/**', '**/perf-mobile/**'],
+      globIgnores: ['**/data/**', '**/perf-mobile/**', 'route.html'],
       navigateFallback: '/index.html',
+      navigateFallbackDenylist: [/^\/(?:data|telegram)(?:\/|$)/, /^\/(?:hit|sw\.js|sitemap\.xml|robots\.txt)$/],
       runtimeCaching: [
         {
           urlPattern: ({ url }) => /^\/data\/basemap\/nl-[0-9a-f]{16}\.pmtiles$/.test(url.pathname),
