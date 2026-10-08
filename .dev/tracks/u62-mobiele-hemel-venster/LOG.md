@@ -312,3 +312,15 @@ kosten vulwerk op de GPU dat hier niet zichtbaar wordt. De PO-telefoon is de ech
   hier niet mee).
 - Kostenmeting (po-android, onder de lock): `rig/run-map-night.sh` staat klaar en wacht op loadavg < 7
   (host op 19–37 door andere tracks). Resultaat volgt in de volgende entry.
+
+## 18:20 — orkestrator: `freshness.spec:108` rood op mobile-4g — NIET van U62, test gerepareerd
+- Los gedraaid: `MOTREGEN_E2E_PORT=4196 MOTREGEN_E2E_DATA_PORT=8196 pnpm e2e e2e/freshness.spec.ts --project
+  mobile-4g` → 1 (test 108 time-out: `locator.tap` op "Zoek plaats", `.freshness-clock` vangt de tik af).
+- Dezelfde test op onaangeroerde main (8853c0d, tijdelijke worktree): ook 1, zelfde afvangende dialoog. De
+  oorzaak is U57: zolang het versheidspaneel open is staat de tijd in het adres, en een adres met een
+  tijd opent het paneel. De test drukt Escape en herlaadt direct (alleen in het touch-blok, daarom is
+  desktop groen); het paneel was nog niet dicht, dus na de herlaad stond het er weer.
+- Fix in de test (geen productwijziging): `await expect(dialog).toBeHidden()` vóór de herlaad, met reden
+  erbij. Daarna `freshness.spec --project mobile-4g` → 0 (4 groen) en `--project desktop` → zie commit.
+- Productvraag voor de PO/orkestrator (niet aangepast): wie het paneel sluit en binnen de sluitanimatie
+  herlaadt, krijgt het paneel terug. Klein, maar het is gedrag van U57.
