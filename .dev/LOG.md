@@ -188,6 +188,12 @@
   1,65 s op po-android; de 1,2 s-reeks was de fixture-stijl); waterval in uitvoering; U64: Lighthouse 68
   = TBT 728 ms + Speed Index 2,7 s, FCP/LCP/CLS 100; placeholder-proeven: SVG afgekeurd, z4-tegel
   achter vlag (U63 meet mobiel). Perf-lock `~/motregen-perf.lock` host-breed.
+- **U62 deel 1 gemerged** (8d75754f, 11:10): hemelbug, tabelpiep-tween, contextgevoelig chrome (koppen
+  volgen de bovenste zichtbare tabelrij), Kaderhemel vast aan, ?dev-varianten (klokpil, wind, kaart-
+  dag/nacht-tween = MIP-24-experiment), freshness.spec mobiel gefixt (rood sinds U57). Gate: 494 unit,
+  36 e2e desktop+mobile-4g. Open bij PO: klokpil-variant, windniveau, MIP-24. U65 klaar (PR #93, 6.997
+  plaatsen, pin-zone), gate loopt; PO-vraag "61 kB op het kritieke pad?" → U65 bewijst lazy-na-ttfp en
+  slaat zone op bij kiezen; server-side inlijnen = YAGNI tot meting.
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
