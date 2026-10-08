@@ -192,8 +192,11 @@ const FIRST_RAIN_STORAGE_KEY = 'motregen-dev-eerste-regen'
 const PANEL_EDGE_STORAGE_KEY = 'motregen-dev-rand'
 const PANEL_EDGES = ['oud', 'geen', 'a', 'b'] as const
 type PanelEdge = typeof PANEL_EDGES[number]
-// De kaart mengt in zoveel stappen van dag naar nacht; MapLibre tweent elke stap zelf (300 ms).
-const MAP_NIGHT_STEPS = 20
+// De kaart mengt in zoveel stappen van dag naar nacht; MapLibre tweent elke stap zelf (300 ms). Acht stappen
+// en tijdens afspelen hooguit één per seconde: met twintig stappen zonder rem kostte de schemering op de
+// telefoonmeting ~11 % van de frames (MIP-24, 2026-10-08).
+const MAP_NIGHT_STEPS = 8
+const MAP_NIGHT_PLAYING_INTERVAL_MS = 1_000
 // De rand buiten het rooster is geen laag van de basisstijl maar kleurt wel mee met het thema.
 const GRID_OUTSIDE_PAINT = { light: { color: '#84969b', opacity: 0.48 }, dark: { color: '#071319', opacity: 0.58 } } as const
 // Stil op de achtergrond (U41): na een minuut zonder invoer tekent de wind op halve snelheid.
@@ -2845,6 +2848,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // Wat er per laag en eigenschap al op de kaart staat. De labelkleuren wisselen maar één keer per schemering;
   // ze bij elke stap opnieuw zetten kostte op de telefoonmeting frames (MIP-24, 2026-10-08).
   const basemapBlendOnMap = new Map<string, string>()
+  let basemapBlendAppliedAt = Number.NEGATIVE_INFINITY
+  let basemapBlendTimer: number | undefined
+  onCleanup(() => window.clearTimeout(basemapBlendTimer))
   let basemapBlendWindTheme: MapTheme | undefined
   const GRID_OUTSIDE_BLEND: BlendTarget[] = [
     { layer: 'motregen-grid-outside', property: 'fill-color', light: GRID_OUTSIDE_PAINT.light.color, dark: GRID_OUTSIDE_PAINT.dark.color },
@@ -2869,6 +2875,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       windLayer?.setTheme(windTheme)
     }
     basemapBlendApplied = night
+    basemapBlendAppliedAt = performance.now()
     mapElement.dataset.mapNight = night.toFixed(2)
   }
   createEffect(() => {
@@ -2877,6 +2884,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (!mapReady()) return
     if (night === undefined) {
       // Uitgezet: terug naar de kleuren van het gekozen thema.
+      window.clearTimeout(basemapBlendTimer)
       if (basemapBlendApplied !== undefined) {
         applyBasemapBlend(themeNight)
         windLayer?.setTheme(mapTheme())
@@ -2886,7 +2894,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       }
       return
     }
-    if (basemapBlend) { applyBasemapBlend(night); return }
+    if (basemapBlend) {
+      // Stilstand of een sprong: direct naar de eindwaarde. Tijdens afspelen gedoseerd.
+      window.clearTimeout(basemapBlendTimer)
+      const wait = playing() ? basemapBlendAppliedAt + MAP_NIGHT_PLAYING_INTERVAL_MS - performance.now() : 0
+      if (wait <= 0) applyBasemapBlend(night)
+      else basemapBlendTimer = window.setTimeout(() => { const latest = untrack(mapNight); if (latest !== undefined) applyBasemapBlend(latest) }, wait)
+      return
+    }
     void Promise.all([loadBasemapStyle('light'), loadBasemapStyle('dark')]).then(([light, dark]) => {
       basemapBlend = basemapBlendTargets(light, dark)
       const current = untrack(mapNight)
