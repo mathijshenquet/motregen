@@ -26,6 +26,7 @@ export interface ForecastSeries {
 }
 
 interface Props {
+  onMountTable?: (element: HTMLTableElement) => void
   rows: HourlyForecastRow[]
   series: ForecastSeries
   location: { lng: number; lat: number }
@@ -142,6 +143,7 @@ export default function ForecastTable(props: Props) {
     if (top !== undefined) setTopRowEpoch(top)
   }
   onMount(() => {
+    props.onMountTable?.(tableElement)
     const head = tableElement.tHead
     if (!head || typeof IntersectionObserver === 'undefined' || typeof ResizeObserver === 'undefined') return
     const scroller = tableElement.closest<HTMLElement>('.table-scroll')

@@ -7,6 +7,11 @@ import { loadavg } from 'node:os'
  * builds tegelijk en tijden schuiven tientallen procenten (gezien 2026-10-07 bij loadavg 18).
  */
 export const MAX_LOAD_AVERAGE = 8
+export const MAX_PAIRED_LOAD_AVERAGE = 16
+
+export function runLoadLimit(): number {
+  return process.env.MOTREGEN_PERF_PAIRED_RUN === '1' ? MAX_PAIRED_LOAD_AVERAGE : MAX_LOAD_AVERAGE
+}
 
 /**
  * Fixture en client van de laadrig, per poortpaar in een eigen map: zo raakt een rig-run de
@@ -32,10 +37,10 @@ export function hostLoadAverage(): number {
 /** Wacht tot de host rustig genoeg is; false als dat binnen de wachttijd niet lukt. */
 export async function waitForQuietHost(maxWaitMs: number, log: (message: string) => void): Promise<boolean> {
   const deadline = Date.now() + maxWaitMs
-  while (hostLoadAverage() > MAX_LOAD_AVERAGE) {
+  while (hostLoadAverage() > runLoadLimit()) {
     if (Date.now() >= deadline) return false
-    log(`loadavg ${hostLoadAverage()} > ${MAX_LOAD_AVERAGE}: wachten met meten`)
-    await new Promise((resolve) => setTimeout(resolve, 20_000))
+    log(`loadavg ${hostLoadAverage()} > ${runLoadLimit()}: wachten met meten`)
+    await new Promise((resolve) => setTimeout(resolve, 5_000))
   }
   return true
 }

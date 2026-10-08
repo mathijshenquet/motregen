@@ -1192,6 +1192,80 @@ manifestversheid `<15 min`, de MIP-3 CORS/cache/ETag/Range-headers en een echte
 `Range: bytes=0-7` → 206. Het script is alleen een handmatig/timerklaar target;
 deze track activeert geen systemd-timer.
 
+## Desktopstart-waterval (U64)
+
+De koude regressierig blijft `perf:mobile --profile desktop`: die gebruikt
+het bestaande Pixel-profiel met 4 cores/4 GB. Aanvullende desktopcaptures
+gebruiken Desktop Chrome, DPR 1, 1280×800 en 8 cores/8 GB, met V8-traces
+voor parse/compile. SwiftShader en synthetische data maken dit geen
+MacBook-benchmark. De waterval en oorspronkelijke PO-profielen zijn
+uitgewerkt in [U64 stap 0](../.dev/tracks/u64-desktop-waterval-lus/STAP-0.md);
+[kandidaatresultaten](../.dev/tracks/u64-desktop-waterval-lus/RESULTATEN.md)
+rapporteren ttfr, ttfp en LoAF ná ttfp naast bytes en CPU-tijd.
+
+```sh
+cd web
+bash scripts/desktop-rig.sh ../tmp/desktop-koud --repeat=3
+bash scripts/desktop-rig.sh ../tmp/desktop-warm --repeat=3 --warm
+pnpm exec tsx scripts/start-waterfall.ts ../tmp/desktop-koud-cold-run*.json
+```
+
+De wrapper bouwt en wacht op load ≤8 vóór de lock; één browserrun neemt
+`flock -w 7200 /home/mathijs/motregen-perf.lock`. Elke herhaling krijgt een
+eigen browserproces en lockperiode. Bij drukte na lockverkrijging komt de
+lock meteen vrij; ook slotwachttijd blijft erbuiten. `perf:mobile` en
+`prof:capture` gebruiken dezelfde lock. Een handmatige buitenlock wordt
+herkend voor één run, zodat geneste wrappers niet vastlopen. Zet geen hele
+lus onder een buitenlock. Gewone e2e/builds nemen
+geen perf-lock. Bevroren builds kunnen met `MOTREGEN_RIG_PREBUILT=1` en
+`MOTREGEN_RIG_DIST=/pad/naar/build` worden hergebruikt; de gecombineerde
+lus staat in `scripts/desktop-loop.sh`. Nieuwe captures starten op `/weer`.
+
+Koud wist de HTTP-cache en blokkeert de SW. Warm vult HTTP- en SW-
+schijfcaches, sluit de seedbrowser en opent een nieuwe browser/context met
+hetzelfde tijdelijke profiel, zonder appgeheugen. De capture registreert
+cache-inventaris, SW-controller en HTML/SW-hash. Bij drukte blijven alleen
+de schijfcaches bewaard; de browser sluit en de loadwacht gebeurt buiten
+de lock. Het profiel vervalt na die ene run. Weer blijft NetworkOnly in de
+SW; de HTTP-cache kan de immutable Ranges leveren. Capturelogs
+onderscheiden interne SW-netwerkrequests. Een SW-response of nul Resource-
+Timing-bytes bewijst op zichzelf geen gecachte weerdata.
+
+Op de host met 32 kernen zijn expliciete gepaarde kandidaten toegestaan bij
+startload ≤16 (`--paired --pair=naam --role=A|B`), in de volgorde A B A B A B.
+Rapporteer koud en warm samen, met ttfr/ttfp en verschillen binnen paren.
+Paar-ID, rol, toegepaste loadgrens en load tijdens de opname staan in metadata;
+deze runs leveren geen absolute baseline. Absolute baselines blijven ≤8.
+Lighthouse gebruikt dezelfde lock/grens en bewaart de load in een sidecar.
+`scripts/start-upstream.ts CAPTURE.json` telt serverlogevents tot 12 s na
+navigatie: responsbodybytes, zonder headers/TCP-overhead. Resource Timing-
+bodybytes uit SW/cache bewijzen geen netwerktransfer.
+
+Productbuilds bevatten standaard beide native stijlen inline, een glyph-
+preload en vroege manifestfetch; `VITE_START_ASSETS=none` maakt een
+referentiebuild. Bij een expliciete `VITE_BASEMAP_STYLE_URL` blijven die
+stijl en fonts behouden. Manifestrefresh hergebruikt de startupfetch niet;
+still en Skywatch starten geen normale sessiebootstrap. De kaartplaceholder
+blijft een afzonderlijke devproef volgens [dev-opties.md](dev-opties.md).
+
+De absolute U64-gate op main `4038d55` gebruikt
+`web/perf/baselines/desktop-koud-spelend-own-u62-part2.json`. De nieuwe
+baseline heeft als reden Kaderhemel/U65, een verse browser per herhaling
+en de standaard kaartkleuring onder Expressief in U62 deel 2. De oudere
+baseline en de bestaande regressiegrens van 10% blijven ongewijzigd.
+Drie referentieruns bij startload7,93/7,90/7,24 hadden elk1.760.209
+bodybytes en298/297/297 decodes:0%bytespreiding en0,336%decodespreiding.
+De kandidaatcompare bij load7,50 is groen:1.757.816 bodybytes (−0,136%),
+297 decodes (0%) en geen netwerkbevindingen. Dit zijn de byte-/decode-
+budgetten van de regressierig; native Desktop Chrome-tijden en de
+gepaarde koud/warm-resultaten staan afzonderlijk in het U64-verslag.
+
+```sh
+MOTREGEN_E2E_PORT=4394 MOTREGEN_E2E_DATA_PORT=8394 pnpm perf:mobile \
+  --profile desktop --scenario koud-spelend --basemap own --compare \
+  --baseline-file perf/baselines/desktop-koud-spelend-own-u62-part2.json
+```
+
 Een aanvraagvolgorde kan ook op een drukke host worden gecontroleerd met
 `pnpm perf:mobile --profile desktop --scenario koud-spelend --basemap own --request-order`.
 Gebruik `--profile po-android` voor het gekalibreerde Android-profiel. Deze modus houdt native

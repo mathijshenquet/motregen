@@ -8,7 +8,7 @@ import { installMobileProbe } from './mobile-probe'
 import { buildChromeTrace, type SelfProfilerTrace } from '../src/core/profile-recorder'
 import { createSourceMapResolver } from '../scripts/prof-source-map'
 import { profileTop } from '../scripts/prof-top'
-import { hostLoadAverage, waitForQuietHost } from '../scripts/rig-host'
+import { MAX_LOAD_AVERAGE, hostLoadAverage } from '../scripts/rig-host'
 import { completedBytesBefore, reconcileWire, renderMobileReport, smoothness, summarizePhases, type MobileReport, type SmoothnessWindow, type WireRequest } from '../scripts/mobile-report'
 import type { PerfMonitor } from '../src/core/perf'
 
@@ -27,7 +27,6 @@ interface Scenario { durationMs: number; description: string; steps: ScenarioSte
 interface RigOptions { profiles: string[]; scenarios: string[]; repeat: number; cpuRate?: number; basemap?: string; requestOrderOnly?: boolean }
 const options = JSON.parse(process.env.MOTREGEN_MOBILE_OPTIONS ?? '{"profiles":["mobile-4g"],"scenarios":["koud"],"repeat":1,"cpuRate":4}') as RigOptions
 const scenarios = JSON.parse(readFileSync('perf/scenarios.json', 'utf8')) as Record<string, Scenario>
-const QUIET_HOST_WAIT_MS = 15 * 60_000
 const synthGridScale = Number(process.env.MOTREGEN_SYNTH_GRID_SCALE ?? 1)
 const rendererCpuQuotaPercent = Number(process.env.MOTREGEN_RIG_RENDERER_QUOTA ?? 0) || null
 const fixtureRoot = process.env.MOTREGEN_MOBILE_FIXTURE_DIR ?? 'public/perf-mobile'
@@ -38,10 +37,8 @@ for (const profileId of options.profiles) {
     for (let repetition = 1; repetition <= options.repeat; repetition++) {
       test(`${profileId} / ${scenarioId} / run ${repetition}`, async ({ page, context, baseURL }) => {
         const scenario = scenarios[scenarioId]!
-        // Ook tussen de herhalingen kan de host druk worden; een run die druk begint is weggegooid werk.
-        test.setTimeout(60_000 + QUIET_HOST_WAIT_MS)
-        if (!options.requestOrderOnly) await waitForQuietHost(QUIET_HOST_WAIT_MS, (message) => console.log(message))
         const loadAverage = hostLoadAverage()
+        if (!options.requestOrderOnly) expect(loadAverage, 'load gestegen na lock; run ongeldig, opnieuw buiten lock wachten').toBeLessThanOrEqual(MAX_LOAD_AVERAGE)
         if (profileId === 'desktop') await page.setViewportSize({ width: 1280, height: 800 })
         const calibrated = performanceProfile(profileId)
         const profile = { ...calibrated, cpuThrottleRate: profileId === 'desktop' ? 1 : options.cpuRate ?? calibrated.cpuThrottleRate }
