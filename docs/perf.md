@@ -1242,3 +1242,12 @@ langste frame 185→175 ms, geen frame >250 ms. Decodes blijven 226, bodybytes 4
 Typecheck, 483 tests, build, ×3 perf-compare en 15 gerichte desktoptests slagen. De offline
 fixturekaart blijft veel eenvoudiger dan de echte kaart; de volledige basiskaart vraagt nog
 aparte verificatie.
+
+U63 gedeelde vroege regenpipeline (na bovenstaande kaartopzet): **ttfr 1371→1220 ms,
+ttfp 1745→1562 ms** (po-android ×3). De aparte startup-entry vraagt het manifest, warmt hetzelfde
+workerpaar en laadt het eerste regenpaar; App gebruikt dezelfde client en caches. Het eerste
+regenbereik start in run 1 op 228 ms tegenover 622 ms. Decodes 226→224 (mediaan), bodybytes
+4825746→4818713. LoAF na ttfp: totaal 1483→1859 ms doordat het spelen eerder begint tijdens laden,
+langste 175→187 ms, geen >250 ms. Eén run laat nauwelijks tijdwinst zien; de koude PO-telefoon
+blijft de verificatie voor de representativiteit. Typecheck, 483 tests, build, ×3 perf-compare en
+19 gerichte desktoptests slagen.

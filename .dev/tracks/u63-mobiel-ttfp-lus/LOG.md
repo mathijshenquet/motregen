@@ -125,3 +125,22 @@ Receipts: typecheck/test (483)/build exit 0; hostlocked po-android/koud-spelend 
 Getallen zijn medianen. Primair verschil slechts −38 ms ttfr / −36 ms ttfp, binnen de eerdere tijdspreiding: bescheiden waarneming, geen bewezen koude telefoonwinst. Causale waterval: eerste tegel in eerste proefrun start op 708 ms tegenover ~827 ms in het oorspronkelijke nulpunt; basiskaart hoeft niet meer op regenheader te wachten. Decodes 226/226/226; bytespreiding 0,013%; loads 7,58/7,30/7,61; alle bronnen sluiten. Geen LoAF na ttfp boven 250 ms. Prototype behouden als kleine overlapwijziging; volgende grotere kandidaat: hetzelfde MRF-client-/workerpaar en eerste regenpaar vóór de grote appbundel, zonder tweede netwerk- of decodecache. Volle basiskaart nog afzonderlijk toetsen omdat de fixture slechts een 73-byte tegel heeft.
 
 Nieuwe compare-baselines.mjs bewaakt bij de herijking alle acht bestaande niet-PO-baselines: nieuwe contracthash én oorspronkelijke 10%-byte/decodegrens. Eerste aanroep exit 1 zoals verwacht: nog acht oude contracten, geen voltooide herijking. Dit is een aanvullende controle, geen versoepeling.
+
+## 2026-10-08 06:59 UTC — kandidaat 3: vroege gedeelde regenpipeline
+
+Afzonderlijke HTML/Rollup-entry opnieuw als kandidaat, nu met het bestaande MRF-client-/workerpaar en twee eerste regenframes vóór de grote app. App gebruikt exact dezelfde client, decodebudget, manifest-Promise, perfmonitor en caches; geen tweede fetch/decodeimplementatie of vaste generatie-URL. Startpaar volgt dezelfde buildTimeline + presets/#t-logica; dev-eerste-regen=laat behoudt de late tegenproef. Telegram primeert geen paar vóór het SDK zijn tijdpreset heeft geleverd. Skywatch start geen client/weerrequest; still behoudt geen sessievlag. E2e houdt de appbundel vast en verlangt al een eerste regen-Range; geen winstclaim vooraf.
+
+Gates + po-android ×3 --compare gestart, tmp/u63/{typecheck,test,build,regen}-vroeg.txt (preciese bestandsnamen typecheck-regen-vroeg.txt, test-regen-vroeg.txt, build-regen-vroeg.txt, regen-vroeg.txt). Definitieve gerichte startup/map-startup/usage/presets/decode-budget/basemap desktopgate volgt na de opnames. Push 072e909 met ls-remote exact bevestigd.
+
+## 2026-10-08 07:11 UTC — kandidaat 3 groen: eerste Range veel eerder, ttfr/ttfp winnen
+
+Receipts: typecheck/test (483)/build exit 0; run-perf.sh po-android/koud-spelend ×3 --compare exit 0; hostlocked gerichte startup/map-startup/presets/usage/decode-budget/basemap desktop-e2e exit 0 (19 tests). Eerste Range verschijnt terwijl de grote appbundel vastgehouden is. still heeft geen sessievlag; offline skywatch geen manifest of worker. Eén client voorkomt dubbele header/frame/decode-cache.
+
+| stand | ttfr ms | ttfp ms | ttfh ms | LoAF na ttfp ms / max ms | decodes | bodybytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| kaartopzet parallel ×3 | 1371 | 1745 | 4470 | 1483 / 175 | 226 | 4825746 |
+| vroege gedeelde regenpipeline ×3 | 1220 | 1562 | 4205 | 1859 / 187 | 224 | 4818713 |
+
+ttfr −151 ms (11,0%), ttfp −183 ms (10,5%). Runs ttfr 1220/1383/1199, ttfp 1562/1739/1546; één run wint nauwelijks, dus geen koude telefoonclaim. Bewaker: langste LoAF na ttfp 187 ms mediaan, geen >250 ms; totaal stijgt 376 ms omdat afspelen vroeger begint tijdens laden. Decodes 224/226/224, bytes 4818713/4826468/4818713 B, spreiding 0,890%/0,161%, alle bronnen sluiten, loads 6,46/7,63/7,24. Waterval run 1: manifest 150–194 ms, worker start 147 ms, eerste nowcast-Range 228–268 ms (vorige stand 622–801 ms). App-entry 406 kB gzip + startup 13,7 kB; vrijwel hetzelfde totaal.
+
+Vervolgkandidaat vanuit waterval: op exact nu geeft frameBlend vorig+huidig met mix=1; showFrame wacht nog op het vorig radarframe (817–866 ms), hoewel de shader daarvoor nul gewicht gebruikt. Onderzoeken of het exacte beeld dezelfde pixels met één frame kan tonen; tussenliggende tijden houden hun bestaande interpolatie/motion. Daarna vroege kaartstijl/fontketen en volledige basiskaart; texture-pack/upload is al R8 en wisselt hergebruikte textures, GPU-kosten blijven rig-beperking. Alle acht oude rig-baselines nog expliciet herijken voordat de track afrondt.

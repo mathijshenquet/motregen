@@ -22,6 +22,22 @@ const proxy = { ...process.env.MOTREGEN_SYNTH ? {} : dataProxy(dataOrigin ?? 'ht
 const previewProxy = { ...dataOrigin ? dataProxy(dataOrigin) : {}, ...profileProxy }
 const profilingHeaders = { 'Document-Policy': 'js-profiling' }
 
+function earlyManifestEntry(): Plugin {
+  return {
+    name: 'motregen-early-manifest',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, context) {
+        const entry = Object.values(context.bundle ?? {}).find((output) => output.type === 'chunk' && output.isEntry && output.name === 'startup')
+        if (!entry) throw new Error('Vroege manifest-entry ontbreekt in de build')
+        // Vite voegt HTML-modules samen; een eigen Rollup-entry moet ook vóór de app worden uitgevoerd.
+        return { html, tags: [{ tag: 'script', attrs: { type: 'module', crossorigin: true, src: `/${entry.fileName}` }, injectTo: 'head-prepend' }] }
+      },
+    },
+  }
+}
+
 // De PMTiles-basiskaart staat in prod onder /data/basemap/ (Caddy, Nix-package). dev/preview proxyen
 // /data naar een origin die het archief nog niet hoeft te hebben; serveer het daarom lokaal uit
 // tools/basemap/tiles, met Range-ondersteuning zoals de pmtiles-client verwacht.
@@ -83,7 +99,7 @@ function usageBeaconEndpoint(): Plugin {
 
 export default defineConfig({
   appType: 'spa',
-  plugins: [solid(), tailwindcss(), usageBeaconEndpoint(), localBasemapArchive(), pageRoutes(), VitePWA({
+  plugins: [earlyManifestEntry(), solid(), tailwindcss(), usageBeaconEndpoint(), localBasemapArchive(), pageRoutes(), VitePWA({
     injectRegister: false,
     registerType: 'prompt',
     includeAssets: ['droplet.svg'],
@@ -119,7 +135,10 @@ export default defineConfig({
       ],
     },
   })],
-  build: { sourcemap: true },
+  build: {
+    sourcemap: true,
+    rollupOptions: { input: { index: resolve(__dirname, 'index.html'), startup: resolve(__dirname, 'src/startup.ts') } },
+  },
   server: { allowedHosts, proxy, headers: profilingHeaders },
   preview: { allowedHosts, proxy: previewProxy, headers: profilingHeaders },
   test: { environment: 'node', exclude: [...configDefaults.exclude, 'e2e/**'] },

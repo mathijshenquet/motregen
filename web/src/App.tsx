@@ -31,13 +31,12 @@ import { hexColor, IsolineLayer, isolineLayerIndices, type IsolineStyle } from '
 import { cursorAfterTimelineRefresh, isNewerManifest, nextManifestRefreshDelay, reconcileTimelineSeries, scheduleManifestRefresh } from './core/manifest-refresh'
 import { constrainView, containView, containZoom, MAP_CONTAIN_BOUNDS, type Viewport } from './core/map-constraint'
 import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS } from './core/map-frame'
-import { browserDeviceHints, decodeBudget } from './core/decode-budget'
 import { MrfClient, type MotionField } from './core/mrf'
 import { selectPairMotion } from './core/motion-selection'
 import { nearestPlace } from './core/places'
 import { startFrameLoop } from './core/playback'
 import { clampPlaybackCursor, playbackReach } from './core/playback-gate'
-import { configurePerfMode, consumeColdProfile, installPerfMonitor, measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer } from './core/perf'
+import { measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer } from './core/perf'
 import type { ProfileRecording } from './core/profile-recorder'
 import { RainLayer } from './core/rain-layer'
 import { LayerOverlay } from './core/overlay-canvas'
@@ -56,7 +55,7 @@ import { DEFAULT_WIND_TUNING, loadWindTuning, storeWindTuning, WIND_MAX_FPS, WIN
 import { clearTuningStorage } from './core/dev-settings'
 import { watchIdle } from './core/activity'
 import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
-import { browserUsageEnvironment, createUsageTracker, installUsageBeacon, sessionManifestUrls } from './core/usage'
+import { browserUsageEnvironment, createUsageTracker, installUsageBeacon } from './core/usage'
 import { copyText } from './core/clipboard'
 import { resolveLocation, suggestLocations } from './core/geocoder'
 import { applyPresetUrl, cursorForPresetEpoch, modeForActiveFocus, modeForFocus, parsePresets, sharePlace, shareUrl } from './core/presets'
@@ -67,13 +66,7 @@ import { loadExpressive, storeExpressive } from './core/expressive'
 import { READY_WINDOW_MS, windowReady } from './core/window-ready'
 import { visibleSlotStates } from './core/screen-truth'
 import type { Intent } from './core/intent'
-
-const manifestUrl = new URL('/data/manifest.json', location.href)
-const manifestRequestUrl = sessionManifestUrls(manifestUrl)
-const profileMode = configurePerfMode(new URL(location.href), localStorage)
-const coldProfileRequested = consumeColdProfile(localStorage)
-const perf = installPerfMonitor()
-perf.setDetailedEnabled(profileMode)
+import { coldProfileRequested, decode, fetchManifest, initialClient, initialManifest, manifestUrl, perf, profileMode } from './startup'
 const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
 // Intent (MIP-20): velden die de kaart of de scrubber in een van de modi tekent, en velden die
 // alleen de tabel voedt. Na deze rust geldt de scrubber als stilstaand.
@@ -301,10 +294,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const windFrameCache = new Map<string, Promise<Float32Array>>()
   const media = matchMedia('(prefers-color-scheme: dark)')
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
-  const decode = decodeBudget(browserDeviceHints())
   // Krap apparaat (U49): puntreeksen alleen voor wat scrubber en tabel nu tonen, niet vooruit.
   const inViewOnly = decode.pointSeries === 'in-view'
-  const client = new MrfClient(manifestUrl, perf.loads, decode)
+  const client = initialClient ?? new MrfClient(manifestUrl, perf.loads, decode)
   const [manifest, setManifest] = createSignal<Manifest>()
   const [manifestRefresh, setManifestRefresh] = createSignal<RefreshState>()
   const timeline = createMemo(() => manifest() ? buildTimeline(manifest()!) : [])
@@ -739,7 +731,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     maplibregl.prewarm()
     void loadBasemapStyle(mapTheme()).catch(() => undefined)
     try {
-      const data = await fetchManifest()
+      const data = await (initialManifest ?? fetchManifest())
       perf.setManifestGenerated(data.generated)
       setManifestRefresh({ checkedAt: Date.now() })
       const frames = buildTimeline(data)
@@ -852,12 +844,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     for (const set of isolineSets) set.overlay?.remove()
     map?.remove()
   })
-
-  async function fetchManifest(cache: RequestCache = 'default'): Promise<Manifest> {
-    const response = await fetch(stillMode ? manifestUrl : manifestRequestUrl(), { cache })
-    if (!response.ok) throw new Error(`Manifest laden mislukt (${response.status})`)
-    return response.json() as Promise<Manifest>
-  }
 
   async function refreshManifest(): Promise<void> {
     const current = manifest()
