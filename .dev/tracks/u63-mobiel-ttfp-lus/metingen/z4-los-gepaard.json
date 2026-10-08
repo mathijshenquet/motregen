@@ -1,0 +1,175 @@
+{
+  "productBase": "150f032 + gecorrigeerde eerste-tegelwissel/kaarttijdkleuren = 7a6b420, inclusief U62/U65",
+  "sourceNote": "Git-SHA kan tijdens de queue door docs-checkpoints verschuiven; onveranderde JS-buildrequests per variant opgenomen.",
+  "order": "A1/B1/A2/B2/A3/B3 per koud/warm-scenario",
+  "status": "Koud compleet; warm ×3 onderweg. Nog geen eindmedianen of mergeclaim.",
+  "gzipTileBytes": [
+    3578,
+    20493
+  ],
+  "extraMapDecodes": 2,
+  "captures": [
+    {
+      "variant": "before",
+      "scenario": "koud-spelend-dev",
+      "runs": [
+        {
+          "repetition": 1,
+          "sourceSha": "7a6b420fea52575c27fdd5e52f742e3f8fba48f4",
+          "capturedAt": "2026-10-08T13:58:11.382Z",
+          "profile": "po-android",
+          "scenario": "koud-spelend-dev",
+          "productPath": "/weer",
+          "basemap": "eigen U60",
+          "cache": "cold",
+          "measurementKind": "paired",
+          "maxStartLoadAverage": 16,
+          "load": 10.6,
+          "ttfrMs": 4764.7,
+          "ttfpMs": 2394.4,
+          "firstMapImageMs": 4764.5,
+          "decodes": 220,
+          "wireBytes": 5033334,
+          "wireFindings": [],
+          "buildRequests": [
+            "/assets/index-Dr2onah2.js"
+          ],
+          "placesAfterTtfp": true,
+          "loafAfterTtfpMaxMs": 421.5,
+          "loafAfterTtfpOver250": 3
+        },
+        {
+          "repetition": 2,
+          "sourceSha": "7a6b420fea52575c27fdd5e52f742e3f8fba48f4",
+          "capturedAt": "2026-10-08T14:02:28.951Z",
+          "profile": "po-android",
+          "scenario": "koud-spelend-dev",
+          "productPath": "/weer",
+          "basemap": "eigen U60",
+          "cache": "cold",
+          "measurementKind": "paired",
+          "maxStartLoadAverage": 16,
+          "load": 10,
+          "ttfrMs": 3963.5,
+          "ttfpMs": 1852,
+          "firstMapImageMs": 3963.3000000715256,
+          "decodes": 223,
+          "wireBytes": 5039578,
+          "wireFindings": [],
+          "buildRequests": [
+            "/assets/index-Dr2onah2.js"
+          ],
+          "placesAfterTtfp": true,
+          "loafAfterTtfpMaxMs": 324.7999999523163,
+          "loafAfterTtfpOver250": 2
+        },
+        {
+          "repetition": 3,
+          "sourceSha": "55dd35beb4c4befc82d8dadd0376dacad2b78963",
+          "capturedAt": "2026-10-08T14:17:41.982Z",
+          "profile": "po-android",
+          "scenario": "koud-spelend-dev",
+          "productPath": "/weer",
+          "basemap": "eigen U60",
+          "cache": "cold",
+          "measurementKind": "paired",
+          "maxStartLoadAverage": 16,
+          "load": 11.08,
+          "ttfrMs": 3956.7,
+          "ttfpMs": 1905.1,
+          "firstMapImageMs": 3956.7000000476837,
+          "decodes": 220,
+          "wireBytes": 5033334,
+          "wireFindings": [],
+          "buildRequests": [
+            "/assets/index-Dr2onah2.js"
+          ],
+          "placesAfterTtfp": true,
+          "loafAfterTtfpMaxMs": 364.89999997615814,
+          "loafAfterTtfpOver250": 2
+        }
+      ]
+    },
+    {
+      "variant": "after",
+      "scenario": "koud-spelend-dev",
+      "runs": [
+        {
+          "repetition": 1,
+          "sourceSha": "7a6b420fea52575c27fdd5e52f742e3f8fba48f4",
+          "capturedAt": "2026-10-08T13:59:37.523Z",
+          "profile": "po-android",
+          "scenario": "koud-spelend-dev",
+          "productPath": "/weer",
+          "basemap": "eigen U60",
+          "cache": "cold",
+          "measurementKind": "paired",
+          "maxStartLoadAverage": 16,
+          "load": 13.97,
+          "ttfrMs": 4288.8,
+          "ttfpMs": 2342.7,
+          "firstMapImageMs": 2308.100000023842,
+          "decodes": 220,
+          "wireBytes": 5057646,
+          "wireFindings": [],
+          "buildRequests": [
+            "/assets/index-CJNSevs6.js"
+          ],
+          "placesAfterTtfp": true,
+          "loafAfterTtfpMaxMs": 288.90000009536743,
+          "loafAfterTtfpOver250": 3
+        },
+        {
+          "repetition": 2,
+          "sourceSha": "7a6b420fea52575c27fdd5e52f742e3f8fba48f4",
+          "capturedAt": "2026-10-08T14:13:50.558Z",
+          "profile": "po-android",
+          "scenario": "koud-spelend-dev",
+          "productPath": "/weer",
+          "basemap": "eigen U60",
+          "cache": "cold",
+          "measurementKind": "paired",
+          "maxStartLoadAverage": 16,
+          "load": 12.46,
+          "ttfrMs": 4286.2,
+          "ttfpMs": 2334.2,
+          "firstMapImageMs": 2267.899999976158,
+          "decodes": 220,
+          "wireBytes": 5057646,
+          "wireFindings": [],
+          "buildRequests": [
+            "/assets/index-CJNSevs6.js"
+          ],
+          "placesAfterTtfp": true,
+          "loafAfterTtfpMaxMs": 270.1999999284744,
+          "loafAfterTtfpOver250": 1
+        },
+        {
+          "repetition": 3,
+          "sourceSha": "55dd35beb4c4befc82d8dadd0376dacad2b78963",
+          "capturedAt": "2026-10-08T14:19:05.205Z",
+          "profile": "po-android",
+          "scenario": "koud-spelend-dev",
+          "productPath": "/weer",
+          "basemap": "eigen U60",
+          "cache": "cold",
+          "measurementKind": "paired",
+          "maxStartLoadAverage": 16,
+          "load": 14.71,
+          "ttfrMs": 5136.2,
+          "ttfpMs": 2857.8,
+          "firstMapImageMs": 2712.6999999284744,
+          "decodes": 220,
+          "wireBytes": 5057646,
+          "wireFindings": [],
+          "buildRequests": [
+            "/assets/index-CJNSevs6.js"
+          ],
+          "placesAfterTtfp": true,
+          "loafAfterTtfpMaxMs": 394.89999997615814,
+          "loafAfterTtfpOver250": 4
+        }
+      ]
+    }
+  ]
+}

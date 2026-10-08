@@ -903,7 +903,7 @@ Het hostbrede patroon voor een commando dat precies één opname maakt:
 until node --input-type=module -e 'import { loadavg } from "node:os"; process.exit(loadavg()[0] <= 8 ? 0 : 1)'; do
   sleep 30
 done
-flock -w 7200 -o /home/mathijs/motregen-perf.lock "$@"
+web/scripts/e2e-slot.sh flock -w 7200 -o /home/mathijs/motregen-perf.lock "$@"
 ```
 
 Na het verkrijgen van de lock wordt de load opnieuw gecontroleerd. Is hij inmiddels boven de gekozen grens,

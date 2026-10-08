@@ -1,0 +1,49 @@
+{
+  "note": "Originele inline-proef. Geplande1s/2s, vastgelegde screenshotaanvraag/antwoordvensters zijn breder onder quota40. Geen exact1s/2s-paint of performancebaseline claimen.",
+  "captures": [
+    {
+      "variant": "before",
+      "profile": "po-android",
+      "cache": "cold",
+      "basis": "98ae6a6 vóór U62/U65, originele inlineproef",
+      "actualStartLoad": 15.67,
+      "shots": [
+        {
+          "plannedMs": 1000,
+          "beforeMs": 1097.2999999523163,
+          "afterMs": 1697.3999999761581
+        },
+        {
+          "plannedMs": 2000,
+          "beforeMs": 2287.5,
+          "afterMs": 2842.5
+        }
+      ],
+      "errors": [],
+      "heldRanges": false,
+      "timingProof": false
+    },
+    {
+      "variant": "after",
+      "profile": "po-android",
+      "cache": "cold",
+      "basis": "98ae6a6 vóór U62/U65, originele inlineproef",
+      "actualStartLoad": 15.17,
+      "shots": [
+        {
+          "plannedMs": 1000,
+          "beforeMs": 1027.6999999284744,
+          "afterMs": 1678.2999999523163
+        },
+        {
+          "plannedMs": 2000,
+          "beforeMs": 2193.2999999523163,
+          "afterMs": 2918.399999976158
+        }
+      ],
+      "errors": [],
+      "heldRanges": false,
+      "timingProof": false
+    }
+  ]
+}
