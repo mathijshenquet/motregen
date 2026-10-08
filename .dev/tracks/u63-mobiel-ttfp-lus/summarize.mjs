@@ -18,6 +18,7 @@ for (const directory of process.argv.slice(2)) {
     const runs = names.filter(name => name.startsWith(group + '-run')).map((name) => {
       const report = JSON.parse(readFileSync(join(directory, name), 'utf8'))
       const raw = JSON.parse(readFileSync(join(directory, name.replace('.json', '.raw.json')), 'utf8'))
+      if (report.meta.cpuProfiled) throw new Error(`${name}: CPU-profiel is afzonderlijke diagnostiek`)
       if (report.meta.requestOrderOnly) throw new Error(`${name}: aanvraagvolgorde is geen perf-meting`)
       if (report.meta.loadAverage > (report.meta.measurementKind === 'paired' && report.meta.maxStartLoadAverage === 16 ? 16 : 8) || report.wire.findings.length) throw new Error(`${name}: ongeldige meetbron of loadavg`)
       const startedPlaying = report.milestones.ttfpMs

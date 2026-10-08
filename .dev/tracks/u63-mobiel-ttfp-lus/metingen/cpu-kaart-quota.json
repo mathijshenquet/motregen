@@ -1,0 +1,181 @@
+{
+  "note": "Diagnostiek ×1, profiler beïnvloedt tijden. ThreadCPU: Linux 10ms-ticks, observatie circa100ms. Taak-wall overlapt tussen threads; throttled_usec telt over CPUs en is geen walltijd. Quota0 erft herdr-cgroup, dus die scopewaarden zijn geen eigendom van deze browser en zijn uitgesloten.",
+  "captures": [
+    {
+      "quota": 40,
+      "sourceSha": "a1796ea98027b953e129cacba1ef194ac41efbfb",
+      "profile": "po-android",
+      "scenario": "koud-spelend",
+      "basemap": "eigen U60",
+      "cache": "cold",
+      "measurementKind": "paired diagnostic",
+      "cpuProfiled": true,
+      "load": 15.93,
+      "ttfrMs": 5821.6,
+      "ttfpMs": 2962.6,
+      "wireFindings": [],
+      "windows": [
+        {
+          "startMs": 1300,
+          "endMs": 3500,
+          "observedStartMs": 1300.642776966095,
+          "observedEndMs": 3504.811488032341,
+          "rows": [
+            {
+              "thread": "hoofddraad",
+              "cpuTicksMs": 240,
+              "taskWallMs": 1548
+            },
+            {
+              "thread": "zstd.worker-DyQKI1dV.js",
+              "cpuTicksMs": 50,
+              "taskWallMs": 528
+            },
+            {
+              "thread": "zstd.worker-DyQKI1dV.js",
+              "cpuTicksMs": 70,
+              "taskWallMs": 592
+            },
+            {
+              "thread": "MapLibre",
+              "cpuTicksMs": 70,
+              "taskWallMs": 862
+            },
+            {
+              "thread": "wind-water-mask.worker-CF9kMZb7.js",
+              "cpuTicksMs": 0,
+              "taskWallMs": 139
+            }
+          ],
+          "scope": {
+            "usageMs": 877.571,
+            "throttledCpuSumMs": 9497.66,
+            "throttledPeriods": 430
+          }
+        },
+        {
+          "startMs": 2556.546984375,
+          "endMs": 5821.6,
+          "observedStartMs": 2604.028344988823,
+          "observedEndMs": 5807.049768924713,
+          "rows": [
+            {
+              "thread": "hoofddraad",
+              "cpuTicksMs": 320,
+              "taskWallMs": 2347
+            },
+            {
+              "thread": "zstd.worker-DyQKI1dV.js",
+              "cpuTicksMs": 50,
+              "taskWallMs": 454
+            },
+            {
+              "thread": "zstd.worker-DyQKI1dV.js",
+              "cpuTicksMs": 50,
+              "taskWallMs": 506
+            },
+            {
+              "thread": "MapLibre",
+              "cpuTicksMs": 170,
+              "taskWallMs": 2289
+            },
+            {
+              "thread": "wind-water-mask.worker-CF9kMZb7.js",
+              "cpuTicksMs": 10,
+              "taskWallMs": 335
+            }
+          ],
+          "scope": {
+            "usageMs": 1269.103,
+            "throttledCpuSumMs": 14425.413,
+            "throttledPeriods": 641
+          }
+        }
+      ]
+    },
+    {
+      "quota": 0,
+      "sourceSha": "a1796ea98027b953e129cacba1ef194ac41efbfb",
+      "profile": "po-android",
+      "scenario": "koud-spelend",
+      "basemap": "eigen U60",
+      "cache": "cold",
+      "measurementKind": "paired diagnostic",
+      "cpuProfiled": true,
+      "load": 10.96,
+      "ttfrMs": 1468.5,
+      "ttfpMs": 871.1,
+      "wireFindings": [],
+      "windows": [
+        {
+          "startMs": 1300,
+          "endMs": 3500,
+          "observedStartMs": 1304.164687037468,
+          "observedEndMs": 3508.819536089897,
+          "rows": [
+            {
+              "thread": "hoofddraad",
+              "cpuTicksMs": 360,
+              "taskWallMs": 457
+            },
+            {
+              "thread": "zstd.worker-DyQKI1dV.js",
+              "cpuTicksMs": 150,
+              "taskWallMs": 117
+            },
+            {
+              "thread": "zstd.worker-DyQKI1dV.js",
+              "cpuTicksMs": 120,
+              "taskWallMs": 83
+            },
+            {
+              "thread": "MapLibre",
+              "cpuTicksMs": 40,
+              "taskWallMs": 6
+            },
+            {
+              "thread": "wind-water-mask.worker-CF9kMZb7.js",
+              "cpuTicksMs": 40,
+              "taskWallMs": 0
+            }
+          ],
+          "scope": null
+        },
+        {
+          "startMs": 953.4239453125,
+          "endMs": 1468.5,
+          "observedStartMs": 1002.3306300640106,
+          "observedEndMs": 1504.784019112587,
+          "rows": [
+            {
+              "thread": "hoofddraad",
+              "cpuTicksMs": 150,
+              "taskWallMs": 376
+            },
+            {
+              "thread": "zstd.worker-DyQKI1dV.js",
+              "cpuTicksMs": 30,
+              "taskWallMs": 55
+            },
+            {
+              "thread": "zstd.worker-DyQKI1dV.js",
+              "cpuTicksMs": 50,
+              "taskWallMs": 43
+            },
+            {
+              "thread": "MapLibre",
+              "cpuTicksMs": 70,
+              "taskWallMs": 119
+            },
+            {
+              "thread": "wind-water-mask.worker-CF9kMZb7.js",
+              "cpuTicksMs": 0,
+              "taskWallMs": 132
+            }
+          ],
+          "scope": null
+        }
+      ]
+    }
+  ]
+}
