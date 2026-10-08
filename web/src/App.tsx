@@ -18,7 +18,7 @@ import { chunkField, type Grid, type Manifest, type ManifestChunk, type MrfHeade
 import { DayNightLayer } from './core/day-night-layer'
 
 const DAY_NIGHT_ENABLED = false
-import { buildHourlyForecast, isPassiveRow, PASSIVE_FORECAST_HOURS } from './core/forecast'
+import { buildHourlyForecast, isPassiveRow, PASSIVE_FORECAST_HOURS, skyRadiationRows } from './core/forecast'
 import { contextOpacity, DEFAULT_FOCUS_MODE, FOCUS_DIM, FocusMode, mapSaturation, rainFocusOpacity, type FocusKind, windFocusIntensity } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import { latestRadarEpoch, type RefreshState } from './core/freshness'
@@ -73,10 +73,9 @@ const coldProfileRequested = consumeColdProfile(localStorage)
 const perf = installPerfMonitor()
 perf.setDetailedEnabled(profileMode)
 const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
-// Intent (MIP-20): velden die de kaart of de scrubber in een van de modi tekent, en velden die
-// alleen de tabel voedt. Na deze rust geldt de scrubber als stilstaand.
-const ALWAYS_SHOWN_FIELDS = ['rain_rate', 'motion', 'uv', 'uv_clear', 'cloud_low', 'cloud_mid', 'cloud_high', 'cloud_frac', 'wind_u_ms', 'wind_v_ms', 'gust_ms', 'pressure_hpa', 'feels_like_c', 'temp_c']
-const TABLE_ONLY_FIELDS = ['radiation']
+// Intent (MIP-20): velden die de kaart of de scrubber in een van de modi tekent; de straling hoort
+// erbij omdat ze de hemel achter de scrubber kleurt (U62). Na deze rust geldt de scrubber als stilstaand.
+const SHOWN_FIELDS: ReadonlySet<string> = new Set(['rain_rate', 'motion', 'uv', 'uv_clear', 'radiation', 'cloud_low', 'cloud_mid', 'cloud_high', 'cloud_frac', 'wind_u_ms', 'wind_v_ms', 'gust_ms', 'pressure_hpa', 'feels_like_c', 'temp_c'])
 const SCRUB_REST_MS = 250
 // Puntreeksen komen per frame binnen; elke publicatie loopt door scrubber, tabel en hemel. Per animatieframe
 // publiceren gaf tijdens het laden lange frames van ~0,8 s per seconde (prof:capture mobile-4g 2026-10-07);
@@ -509,13 +508,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     location()
     if (previous) queueMicrotask(() => previous.abort())
     return new AbortController()
-  })
-  // Velden die nu ergens getekend worden. Alles wat de kaart of de scrubber kan tonen telt mee; wat
-  // alleen de tabel voedt valt weg zolang de tabelrijen niet in beeld zijn.
-  const shownFields = createMemo<ReadonlySet<string>>(() => {
-    const fields = new Set(ALWAYS_SHOWN_FIELDS)
-    if (tableInView()) for (const field of TABLE_ONLY_FIELDS) fields.add(field)
-    return fields
   })
   // Tijdlijn-ms per ms tijdens slepen of toetsen; valt terug naar 0 zodra de scrubber stilstaat.
   const [scrubVelocity, setScrubVelocity] = createSignal(0)
@@ -1074,7 +1066,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     window: viewWindow(),
     playback: playing() ? 1 : 0,
     scrubVelocity: scrubVelocity(),
-    fields: shownFields(),
+    fields: SHOWN_FIELDS,
   }))
   createEffect(() => {
     if (timeline().length) client.setIntent(intent())
@@ -2573,22 +2565,30 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     windV: windVFrames(),
     gust: gustTimeline(),
   }, manifest() ? Date.parse(manifest()!.now) : 0), { memo: 'uurindeling' }))
-  let radiationRequest = 0
+  // De straling voedt de tabel (weericoon, UV-schatting) en de hemel achter de scrubber. Gelezen waarden
+  // blijven staan zolang locatie en tijdlijn dezelfde zijn: een uurstop van de hemel mag niet terugvallen
+  // op de wolkenlaagschatting omdat de tabel of het venster is doorgeschoven (U62).
+  let radiationRead: { point: object; frames: object; values: Array<number | null> } | undefined
   createEffect(() => {
     const point = location()
     const frames = radiationTimeline()
     const all = pointLoadStage() === 'complete'
     const now = manifestNow()
-    const indexes = forecast().flatMap((row) => {
-      if (row.kind === 'past' || (!all && !isPassiveRow(row, now)) || !tableRowShown(row)) return []
+    const rows = forecast()
+    // Krap apparaat: de hemel vraagt precies het venster dat de scrubber toont, wat de tabel ook toont.
+    const skyRows = new Set(inViewOnly && pointLoadsStarted() ? skyRadiationRows(rows, viewWindow()) : [])
+    const indexes = rows.flatMap((row) => {
+      const tableRow = row.kind !== 'past' && (all || isPassiveRow(row, now)) && tableRowShown(row)
+      if (!tableRow && !skyRows.has(row)) return []
       if (solarElevationSin(row.epoch, point.lng, point.lat) <= 0) return []
       return [row.radiationIndex, row.radiationNextIndex].filter((index): index is number => index != null)
     })
-    const request = ++radiationRequest
-    // De straling voedt alleen de tabel (weericoon, UV-schatting).
-    if (!indexes.length) return
-    void readPointSeries(frames, point, indexes, 'low', undefined, undefined, 'L0').then((values) => {
-      if (request === radiationRequest) setRadiationSeries(values)
+    if (radiationRead?.point !== point || radiationRead.frames !== frames) radiationRead = { point, frames, values: new Array<number | null>(frames.length).fill(null) }
+    const read = radiationRead
+    const missing = indexes.filter((index) => read.values[index] == null)
+    if (!missing.length) return
+    void readPointSeries(frames, point, missing, 'low', read.values, undefined, 'L0').then((values) => {
+      if (read === radiationRead) setRadiationSeries([...values])
     }).catch(() => undefined)
   })
   // Heldere-hemel-UV reist als eigen veld mee; net als de straling alleen de uurframes van de tabelrijen

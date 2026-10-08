@@ -98,3 +98,15 @@ function nearestFrame(frames: TimelineFrame[], epoch: number, tolerance = hour /
   }
   return distance <= tolerance ? nearest : null
 }
+
+/**
+ * Uurrijen waarvan de hemel in de scrubber de straling nodig heeft: elke uurstop leest het uurgemiddelde
+ * dat op dat uur eindigt en het volgende (`radiationIndex`, `radiationNextIndex`). Het venster is wat de
+ * scrubber toont, dus dezelfde uurstop krijgt bij elke cursor dezelfde invoer (U62: hing aan de
+ * tabelrijen bij de cursor, waardoor de hemel per cursor tussen straling en wolkenlaagschatting
+ * wisselde). Eén uur buiten het venster hoort erbij: het verloop aan de rand loopt naar die stop toe.
+ * Het verleden schat de hemel altijd uit de lagen.
+ */
+export function skyRadiationRows<Row extends Pick<HourlyForecastRow, 'epoch' | 'kind'>>(rows: Row[], window: { start: number; end: number }): Row[] {
+  return rows.filter((row) => row.kind !== 'past' && row.epoch >= window.start - hour && row.epoch <= window.end + hour)
+}
