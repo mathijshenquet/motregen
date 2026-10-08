@@ -49,6 +49,10 @@ for (const file of files) {
     rows.push(`| ${label} | ${entry ? `${shown(entry.startTime)} → ${shown(entry.startTime + entry.duration)}` : 'niet gezien'} | — |`)
   }
   for (const [label, value] of Object.entries(capture.snapshot).filter(([name]) => ['firstRainMs', 'basemapReadyMs', 'ttfrMs', 'ttfpMs', 'ttfhMs'].includes(name))) rows.push(`| ${label} | ${value === null ? 'ontbreekt' : value} | — |`)
+  for (const name of ['firstContentfulPaint', 'largestContentfulPaint::Candidate']) {
+    const paint = events.filter((event) => event.name === name && event.pid === navigation.pid).at(-1)
+    rows.push(`| ${name} | ${paint ? shown((paint.ts - navigation.ts) / 1000) : 'niet gezien'} | — |`)
+  }
   const cpuRows = ['| JS-bestand | parse CPU / compile CPU (ms) | parse/compile venster (ms) |', '| --- | ---: | ---: |']
   const urls = [...new Set(events.flatMap((event) => event.args?.data?.url?.includes('/assets/') ? [event.args.data.url] : []))]
   for (const url of urls) {

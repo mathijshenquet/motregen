@@ -21,7 +21,7 @@ try {
       const page = await context.newPage()
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
-      await page.addInitScript(() => {
+      const initialize = () => {
         const NativeDate = Date
         const fixedEpoch = NativeDate.parse('2026-08-28T15:00:00Z')
         globalThis.Date = new Proxy(NativeDate, {
@@ -32,7 +32,9 @@ try {
         Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 })
         Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 })
         performance.setResourceTimingBufferSize(10_000)
-      })
+      }
+      // tsx bewaart functienamen met __name, ook binnen de naar Chromium geserialiseerde callback.
+      await page.addInitScript({ content: `globalThis.__name = (value) => value; (${initialize.toString()})();` })
       if (warm) {
         await page.goto(`${origin}/?${query}`)
         await page.waitForFunction(() => window.__motregenPerf?.snapshot().ttfpMs != null)
@@ -60,11 +62,16 @@ try {
       await page.waitForFunction(() => performance.now() >= 12_000)
       const captured = await page.evaluate(() => {
         const monitor = window.__motregenPerf as PerfMonitor
-        return { timeOrigin: performance.timeOrigin, snapshot: monitor.snapshot(), entries: monitor.traceSlice(0, 12_000), resources: [...performance.getEntriesByType('navigation'), ...performance.getEntriesByType('resource')].map((entry) => entry.toJSON()) }
+        return { timeOrigin: performance.timeOrigin, snapshot: monitor.snapshot(), loads: monitor.loads.snapshot(), entries: monitor.traceSlice(0, 12_000), resources: [...performance.getEntriesByType('navigation'), ...performance.getEntriesByType('resource')].map((entry) => entry.toJSON()) }
       })
       const complete = new Promise<void>((resolve) => cdp.once('Tracing.tracingComplete', () => resolve()))
       await cdp.send('Tracing.end')
       await complete
+      for (const worker of page.workers()) {
+        const capturedWorker = await worker.evaluate(() => ({ timeOrigin: performance.timeOrigin, resources: performance.getEntriesByType('resource').map((entry) => entry.toJSON()) }))
+        const offset = capturedWorker.timeOrigin - captured.timeOrigin
+        captured.resources.push(...capturedWorker.resources.map((entry) => ({ ...entry, startTime: entry.startTime + offset, responseEnd: entry.responseEnd + offset })))
+      }
       await Promise.all(pending)
       if (errors.length) throw new Error(errors.join('\n'))
       const prefix = `${output}-${warm ? 'warm' : 'cold'}-run${run}`

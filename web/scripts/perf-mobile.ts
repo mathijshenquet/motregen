@@ -10,18 +10,19 @@ const REFERENCE_SCENARIO = 'referentie-buienradar'
 
 const args = process.argv.slice(2)
 // Zonder --cpu-rate geldt de page-throttle van het profiel zelf.
-const options: { profiles: string[]; scenarios: string[]; repeat: number; baseline: boolean; compare: boolean; cpuRate?: number; gridScale?: number; rendererQuota?: number; loadWaitMinutes: number; basemap: string } = { profiles: ['mobile-4g'], scenarios: ['koud'], repeat: 1, baseline: false, compare: false, loadWaitMinutes: 20, basemap: process.env.MOTREGEN_MOBILE_BASEMAP ?? 'fixture' }
+const options: { profiles: string[]; scenarios: string[]; repeat: number; baseline: boolean; compare: boolean; baselineFile?: string; cpuRate?: number; gridScale?: number; rendererQuota?: number; loadWaitMinutes: number; basemap: string } = { profiles: ['mobile-4g'], scenarios: ['koud'], repeat: 1, baseline: false, compare: false, loadWaitMinutes: 20, basemap: process.env.MOTREGEN_MOBILE_BASEMAP ?? 'fixture' }
 for (let index = 0; index < args.length; index++) {
   const argument = args[index]!
   const [flag, inline] = argument.split('=')
   if (flag === '--baseline') options.baseline = true
   else if (flag === '--compare') options.compare = true
-  else if (['--profile', '--scenario', '--repeat', '--cpu-rate', '--grid-scale', '--renderer-quota', '--load-wait', '--basemap'].includes(flag!)) {
+  else if (['--profile', '--scenario', '--repeat', '--baseline-file', '--cpu-rate', '--grid-scale', '--renderer-quota', '--load-wait', '--basemap'].includes(flag!)) {
     const value = inline ?? args[++index]
     if (!value || value.startsWith('--')) throw new Error(`${flag} vereist een waarde`)
     if (flag === '--profile') options.profiles = value === 'all' ? ['mobile-4g', 'mobile-fast-3g'] : [value]
     if (flag === '--scenario') options.scenarios = value === 'all' ? ['koud', 'journey', 'modus-wissel-storm'] : value.split(',')
     if (flag === '--repeat') options.repeat = Number(value)
+    if (flag === '--baseline-file') options.baselineFile = value
     if (flag === '--cpu-rate') options.cpuRate = Number(value)
     if (flag === '--load-wait') options.loadWaitMinutes = Number(value)
     if (flag === '--grid-scale') options.gridScale = Number(value)
@@ -30,7 +31,8 @@ for (let index = 0; index < args.length; index++) {
   } else throw new Error(`Onbekende optie: ${argument}`)
 }
 if (options.baseline && options.compare) throw new Error('--baseline en --compare sluiten elkaar uit')
-if (options.baseline && options.basemap === 'own') throw new Error('Meet het basemap-nulpunt met --basemap openfreemap; --basemap own gebruikt --compare')
+if (options.baseline && options.basemap === 'own' && !options.baselineFile) throw new Error('Meet het basemap-nulpunt met --basemap openfreemap; een eigen vervolgbaseline vereist --baseline-file')
+if (options.baselineFile && (options.profiles.length !== 1 || options.scenarios.length !== 1)) throw new Error('--baseline-file vereist één profiel en één scenario')
 if (!Number.isInteger(options.repeat) || options.repeat < 1 || options.repeat > 10) throw new Error('--repeat moet 1…10 zijn')
 if (options.cpuRate !== undefined && (!Number.isFinite(options.cpuRate) || options.cpuRate < 1 || options.cpuRate > 32)) throw new Error('--cpu-rate moet 1…32 zijn')
 if (options.baseline && options.repeat < 3) throw new Error('--baseline vereist --repeat 3 (of meer) om determinisme te verifiëren')
@@ -74,7 +76,7 @@ console.log(`Rig: loadavg ${hostLoadAverage()}, poorten ${ports.port}/${ports.da
 
 if (options.scenarios.includes(REFERENCE_SCENARIO)) {
   if (options.scenarios.length > 1 || options.baseline || options.compare) throw new Error(`${REFERENCE_SCENARIO} draait los, zonder baseline of vergelijking`)
-  const reference = spawnSync('pnpm', ['exec', 'playwright', 'test', '--config', 'playwright.reference.config.ts', '--project', 'desktop'], {
+  const reference = spawnSync('bash', ['scripts/perf-lock.sh', 'scripts/e2e-slot.sh', 'pnpm', 'exec', 'playwright', 'test', '--config', 'playwright.reference.config.ts', '--project', 'desktop'], {
     stdio: 'inherit',
     env: rigEnvironment,
   })
@@ -97,7 +99,7 @@ if (options.scenarios.includes(REFERENCE_SCENARIO)) {
   process.exit(reference.status ?? 1)
 }
 
-const run = spawnSync('pnpm', ['exec', 'playwright', 'test', '--config', 'playwright.mobile.config.ts', '--project', 'desktop'], {
+const run = spawnSync('bash', ['scripts/perf-lock.sh', 'scripts/e2e-slot.sh', 'pnpm', 'exec', 'playwright', 'test', '--config', 'playwright.mobile.config.ts', '--project', 'desktop'], {
   stdio: 'inherit',
   env: rigEnvironment,
 })
@@ -123,7 +125,7 @@ for (const profile of options.profiles) {
       failed = true
       continue
     }
-    const baselinePath = `perf/baselines/${profile}-${scenario}${options.basemap === 'fixture' ? '' : '-openfreemap'}.json`
+    const baselinePath = options.baselineFile ?? `perf/baselines/${profile}-${scenario}${options.basemap === 'fixture' ? '' : '-openfreemap'}.json`
     if (options.baseline) {
       mkdirSync('perf/baselines', { recursive: true })
       const medianBytes = [...baselines].sort((left, right) => left.wireBytes - right.wireBytes)[Math.floor(baselines.length / 2)]!
@@ -136,7 +138,7 @@ for (const profile of options.profiles) {
         if (options.basemap !== 'fixture') {
           if (!actual.metrics?.basemapContractHash || actual.metrics.basemapContractHash !== expected.metrics?.basemapContractHash) throw new Error('Basemap-nulpunt heeft een ander weer-/viewport-/throttle-/rigcontract; meet opnieuw')
         }
-        const comparison = compareBaseline(options.basemap === 'fixture' ? actual : { ...actual, contractHash: expected.contractHash }, expected)
+        const comparison = compareBaseline(options.basemap === 'fixture' || options.baselineFile ? actual : { ...actual, contractHash: expected.contractHash }, expected)
         console.log(`${profile}/${scenario}: wire ${comparison.wireDeltaPercent.toFixed(3)} %, decodes ${comparison.decodeDeltaPercent.toFixed(3)} %, ${comparison.passed ? 'groen' : 'REGRESSIE'}`)
         if (!comparison.passed) failed = true
         if (options.basemap === 'own') {
