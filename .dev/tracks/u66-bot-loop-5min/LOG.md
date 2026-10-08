@@ -35,3 +35,9 @@
 - Warme 13-media-render met de finale CLI SYNCHRONE EXIT 0, alle media cached=true en geen Chromium-open/render-events (tmp/u66/warm-render.log). Repro identiek aan nameting met dezelfde `after-cache`; geen nieuwe koude generatie of upload.
 - Klaar voor herstart door orkestrator na review/merge: drie uniforme vijfminutenloops, −2…+12 u, 10 fps; 64,413 s render voor 13 media en ruimte voor prime binnen 210 s. Bij herstart wordt eenmalig opnieuw gerenderd door rendererkey 13. Er is geen eigen poller gestart, geen bot herstart en geen Telegram-bericht verstuurd.
 - Laatste stap: finale CLI/LOG-commit pushen, PR-verificatiestatus bijwerken en huidige remote-head controleren. Alle gestarte shells zijn beëindigd met waargenomen exits.
+
+## 2026-10-08 08:48 UTC — publicatie afgerond
+
+- Finale CLI/verificatiecommit `2891bb4` gepusht: SYNCHRONE EXIT 0. Warme renderreceipt: 13 media, 27 ms, cached=true.
+- Draft PR #94 bijgewerkt met finale typecheck/build/tests, ffprobe-/visuele controle, warme cache en klaar-voor-herstartmelding. Voor de laatste LOG-commit staan lokaal, remote en PR op dezelfde 2891bb4-head; werkboom schoon en geen gekoppelde GitHub-checks.
+- Deze afsluitentry wordt als laatste LOG-commit gepusht; daarna uitsluitend head-/werkboomcontrole. Geen verdere code of metingen nodig. Telegram-prime moet na herstart in de actieve bot worden afgelezen; uploadtijd is hier niet gemeten.
