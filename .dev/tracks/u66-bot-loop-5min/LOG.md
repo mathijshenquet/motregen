@@ -41,3 +41,9 @@
 - Finale CLI/verificatiecommit `2891bb4` gepusht: SYNCHRONE EXIT 0. Warme renderreceipt: 13 media, 27 ms, cached=true.
 - Draft PR #94 bijgewerkt met finale typecheck/build/tests, ffprobe-/visuele controle, warme cache en klaar-voor-herstartmelding. Voor de laatste LOG-commit staan lokaal, remote en PR op dezelfde 2891bb4-head; werkboom schoon en geen gekoppelde GitHub-checks.
 - Deze afsluitentry wordt als laatste LOG-commit gepusht; daarna uitsluitend head-/werkboomcontrole. Geen verdere code of metingen nodig. Telegram-prime moet na herstart in de actieve bot worden afgelezen; uploadtijd is hier niet gemeten.
+
+## 2026-10-08 08:51 UTC — slot: gemerged en bot herstart
+
+- Orkestrator meldt U66 gemerged op main als `32b82bad` na de onafhankelijke gate: bot typecheck/tests/build elk exit 0, web typecheck/build elk exit 0 en `telegram.spec` 7 groen. Deze receipts zijn door de orkestrator waargenomen; hier niet opnieuw uitgevoerd.
+- De orkestrator heeft de bot vanaf main herstart. Geen eigen poller of herstart vanuit deze worktree.
+- Track afgesloten; deze append-only LOG-slotentry wordt gecommit en naar `track/u66-bot-loop-5min` gepusht. Geen open implementatiepunten.
