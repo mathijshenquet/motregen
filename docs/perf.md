@@ -1317,3 +1317,38 @@ geen performancebaseline (`--baseline`/`--compare` worden geweigerd). De rapport
 een capture onder load bewijst alleen volgorde. `pnpm exec tsx scripts/place-waterfall.ts
 tmp/perf-mobile/desktop-koud-spelend-run1.raw.json` controleert de catalogusstart ten opzichte van
 `milestone:ttfp`, manifest, stijl en eerste regen-Range, en schrijft een compacte JSON en SVG-waterval.
+
+### U63 koud en warm op dezelfde eigen kaart
+
+Sinds PO-bijsturing 2026-10-08 tellen koud en warm samen: ttfr voorop, ttfp daarna,
+met LoAF ná ttfp als bewaker. `warm-spelend` is het tweede appbezoek met gevulde
+HTTP-diskcache en SW-cache, in een nieuw Chromium-proces en nieuwe pagina. De
+cachevulling installeert eerst de gewone productie-SW op een lege bootstrap-pagina;
+het eerste appbezoek staat daardoor onder SW-controle en vult de bestaande cachepaden.
+Daarna sluit de hele browser. Geen pagina-, decode-worker-, MapLibre- of WebGL-staat
+wordt hergebruikt. Cache Storage-inventarissen staan in de raw/meta; een ontbrekende
+manifestcache is een bevinding, geen reden om hem kunstmatig vooraf te vullen.
+De cachevulling gebruikt één e2e-slot buiten de perf-lock en levert geen perfgetal.
+Vervolgens wacht de runner buiten de lock op loadavg <8 en neemt één bezoek op.
+
+De eigen kaart gebruikt nu de productie-URL's `/basemap/licht.json` en
+`/data/basemap/nl-*.pmtiles`. De oude rig herschreef die naar de datapoort en
+`/basemap/nl-*.pmtiles`; dat omzeilt respectievelijk de SW-precache en rangecacheroute.
+Manifestheaders volgen productie: het eerste `?s=1`-verzoek krijgt `no-store` voor
+de sessietelling (MIP-13), de gedeelde URL `max-age=15, stale-while-revalidate=60`.
+Deze contractcorrecties vragen opnieuw gemeten main/U63-baselines, koud én warm.
+
+Meetrecept: `pnpm perf:mobile --profile po-android --scenario koud-spelend,warm-spelend
+--basemap own --repeat 3 --baseline`. De overeenkomstige Buienradar-referentie is
+`--scenario referentie-buienradar,referentie-buienradar-warm --repeat 3`; toestemming
+en diskcache komen uit het eerste bezoek, alle browserprocessen worden daarna gesloten.
+**Nieuwe koude/warme referenties en watervallen zijn nog pending**: alleen loadavg <8
+onder één lock per opname is geldig. De warme lat is duidelijk lager dan koud én
+Buienradar warm op dezelfde rig.
+
+De oude tabel van 2026-08-31 (4G 13,00/2,95 s, desktop 1,20/1,43 s) meet een
+andere journey, ingeststand en kaartversie; warm volgt daar ná scrubben,
+locatiewissel en manifestrefresh in hetzelfde browserproces. Hij meet geen warme
+ttfp en is geen nulmeting voor deze lus. Een koud/warm verschil bewijst daarmee
+geen SW-revalidatie- of shaderkosten. Die oorzaak moet uit het nieuwe identieke
+kaart-/data-/profielpaar en de netwerk-/hoofddraadwaterval volgen.

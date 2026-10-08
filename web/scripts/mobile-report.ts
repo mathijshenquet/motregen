@@ -12,13 +12,18 @@ export interface WireRequest {
   bodySizeSource?: 'playwright-sizes' | 'completed-content-length'
   playwrightBodySize?: number | null
   contentLength?: number | null
+  owner?: 'client' | 'service-worker'
+  fromServiceWorker?: boolean
+  cacheControl?: string | null
 }
 export interface TimingRequest {
   url: string
   startMs: number
   endMs: number
   encodedBodyBytes: number
+  owner?: 'client' | 'service-worker'
 }
+function wireKey(entry: { url: string; owner?: string }): string { return `${entry.owner ?? 'client'} ${entry.url}` }
 export interface PhaseEntry {
   phase: string
   startTime: number
@@ -35,13 +40,13 @@ export function requestsStartedWithin<Entry extends { startMs: number }>(request
 export function wireWindow(requests: WireRequest[], timing: TimingRequest[], durationMs: number): { requests: WireRequest[]; timing: TimingRequest[] } {
   const timingByUrl = new Map<string, TimingRequest[]>()
   for (const entry of [...timing].sort((left, right) => left.startMs - right.startMs)) {
-    const entries = timingByUrl.get(entry.url) ?? []
+    const entries = timingByUrl.get(wireKey(entry)) ?? []
     entries.push(entry)
-    timingByUrl.set(entry.url, entries)
+    timingByUrl.set(wireKey(entry), entries)
   }
   const selectedTiming: TimingRequest[] = []
   for (const request of [...requests].sort((left, right) => left.startMs - right.startMs)) {
-    const entry = timingByUrl.get(request.url)?.shift()
+    const entry = timingByUrl.get(wireKey(request))?.shift()
     // Native fetch-start kan vóór netwerk-start liggen; beide bronnen volgen dezelfde netwerkrequest.
     if (entry && request.startMs >= 0 && request.startMs <= durationMs) selectedTiming.push(entry)
   }
@@ -90,12 +95,12 @@ export function reconcileWire(requests: WireRequest[], timing: TimingRequest[]) 
     .map((difference) => `Netwerkbronnen verschillen voor ${difference.kind}: ${difference.differencePercent.toFixed(3)} % bytes, ${difference.requestDifference} requests`)
   const timingByUrl = new Map<string, TimingRequest[]>()
   for (const entry of [...timing].sort((left, right) => left.startMs - right.startMs)) {
-    const entries = timingByUrl.get(entry.url) ?? []
+    const entries = timingByUrl.get(wireKey(entry)) ?? []
     entries.push(entry)
-    timingByUrl.set(entry.url, entries)
+    timingByUrl.set(wireKey(entry), entries)
   }
   for (const request of [...requests].sort((left, right) => left.startMs - right.startMs)) {
-    const entry = timingByUrl.get(request.url)?.shift()
+    const entry = timingByUrl.get(wireKey(request))?.shift()
     if (entry && request.encodedBodyBytes !== null) {
       const actual = request.encodedBodyBytes
       const differencePercent = actual === 0 ? (entry.encodedBodyBytes === 0 ? 0 : 100) : 100 * Math.abs(actual - entry.encodedBodyBytes) / actual
@@ -103,12 +108,17 @@ export function reconcileWire(requests: WireRequest[], timing: TimingRequest[]) 
     }
   }
   for (const request of requests) {
-    const completeBodyAbort = request.failure === 'net::ERR_ABORTED' && request.contentLength !== null && request.contentLength !== undefined && request.encodedBodyBytes === request.contentLength
+    const completeBodyAbort = completedBodyAbort(request)
     if ((request.failure && !completeBodyAbort) || request.encodedBodyBytes === null) findings.push(`Onvolledige response: ${request.url} (${request.failure ?? 'bodygrootte onbekend'})`)
   }
-  const completeBodyAborts = requests.filter((request) => request.failure === 'net::ERR_ABORTED' && request.contentLength !== null && request.contentLength !== undefined && request.encodedBodyBytes === request.contentLength).length
+  const completeBodyAborts = requests.filter(completedBodyAbort).length
   const contentLengthFallbacks = requests.filter((request) => request.bodySizeSource === 'completed-content-length').length
   return { playwright, resourceTiming, differences, completeBodyAborts, contentLengthFallbacks, findings }
+}
+
+function completedBodyAbort(request: WireRequest): boolean {
+  return request.failure === 'net::ERR_ABORTED' && request.contentLength !== null && request.contentLength !== undefined
+    && (request.encodedBodyBytes === request.contentLength || (request.fromServiceWorker === true && request.playwrightBodySize === request.contentLength))
 }
 
 export interface SmoothnessWindow { name: string; fromMs: number; toMs: number }
@@ -251,6 +261,8 @@ export interface MobileReport {
     /** 1-minuut-loadavg van de host bij de start van de run; boven MAX_LOAD_AVERAGE telt de run niet mee. */
     loadAverage: number
     requestOrderOnly?: boolean
+    cacheState?: 'cold' | 'warm-disk-new-browser'
+    warmCache?: unknown
     synthGridScale: number
     /** null: geen quota, workers op hostsnelheid. */
     rendererCpuQuotaPercent: number | null

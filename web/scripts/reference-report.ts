@@ -15,7 +15,7 @@ export interface ReferenceMilestones {
 }
 
 export interface ReferenceReport {
-  meta: { profile: string; origin: string; capturedAt: string; cpuThrottleRate: number; network: unknown; observeAfterFirstFrameMs: number; loadAverage: number; rendererCpuQuotaPercent: number | null }
+  meta: { profile: string; origin: string; capturedAt: string; cpuThrottleRate: number; network: unknown; observeAfterFirstFrameMs: number; loadAverage: number; rendererCpuQuotaPercent: number | null; cacheState?: 'cold' | 'warm-disk-new-browser' }
   milestones: ReferenceMilestones
   actions: ReferenceAction[]
   events: ReferenceTimedEvent[]
@@ -50,7 +50,7 @@ export function renderReferenceReport(report: ReferenceReport): string {
   const lines = [
     `# Referentie: ${report.meta.origin} / ${report.meta.profile}`,
     '',
-    `${report.meta.capturedAt}. CPU ${report.meta.cpuThrottleRate}×; koud (verse context, cache uit). Loadavg host bij start ${report.meta.loadAverage}.`,
+    `${report.meta.capturedAt}. CPU ${report.meta.cpuThrottleRate}×; ${report.meta.cacheState === 'warm-disk-new-browser' ? 'warm (gevulde diskcache/SW, nieuw Chromium-proces)' : 'koud (verse context, cache uit)'}. Loadavg host bij start ${report.meta.loadAverage}.`,
     '',
     '| maat | waarde |',
     '| --- | ---: |',
