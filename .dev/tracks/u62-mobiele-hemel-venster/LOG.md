@@ -818,3 +818,74 @@ Fix: `mapSurfaceTheme` (dag/nacht van de kaart zelf) voedt temperatuurcijfers, i
 - Gate (web/, loadavg ~55): typecheck 0 · `pnpm test` 0 (529) · build 0 ·
   `MOTREGEN_E2E_PORT=4196 MOTREGEN_E2E_DATA_PORT=8196 pnpm e2e e2e/dev-panel.spec.ts e2e/focus.spec.ts e2e/table.spec.ts e2e/sky-window.spec.ts --project desktop` 0 (18 groen, 4 overgeslagen).
   mobile-4g en firefox niet opnieuw gedraaid.
+
+## 2026-10-08 ~23:15 — rijlijnen altijd donkerder dan de rij, 1 apparaatpixel (PO: "veel te harsh")
+- PO-screenshot `po-regressies/nacht-tabelrijlijnen-te-hard-4330-2051.png`: lichte lijnen op de nachtrijen. Mijn
+  rekencontrast (1,26 gelijk voor dag en nacht) zei niets over de waarneming: licht op donker oogt veel harder,
+  en bij dpr 2 was de lijn 2 apparaatpixels dik.
+- Nieuwe regel: dagrijen houden de tekst-mix (11 %); nachtrijen krijgen de rijkleur verdonkerd met 30 % zwart
+  (#0a1820 → ±rgb 3,10,15). Nooit lichter dan de rij.
+- 1 apparaatpixel bij dpr ≥ 2: `border-bottom-width: .5px` werkt niet (samengevoegde tabelrand rondt af op hele
+  px, gemeten 2 px); `background-size … .5px` rondt af naar niets. Wat werkt: de cel tekent de onderste helft
+  van een strook van 1 px (hard verloop 50 %). De rand blijft staan in de rijkleur (onzichtbaar): hem weghalen
+  verschoof de rijhoogte een halve px en brak drie mobiele tabeltests (previewOffset −0).
+- Gemeten in de screenshots (dpr 2, kolom x=60): nachtlijn 1 px hoog, rgb 3,10,15, op 390 en 1280.
+- Beeld: `po-regressies/rijlijnen-donker-overzicht.png` (dpr 2 op ware grootte: 390 donker thema · 1280 donker ·
+  390 licht · 1280 licht; boven dagrijen, onder nachtrijen). Zelf bekeken: nacht nauwelijks zichtbaar maar
+  scheidend, dag dun en rustig.
+- Gate (web/): build 0 · `pnpm e2e e2e/table.spec.ts --project desktop --project mobile-4g` 0 (14 groen,
+  4 overgeslagen) · `pnpm e2e --project firefox` 0 (5). Alleen CSS gewijzigd; unit/typecheck niet opnieuw gedraaid.
+
+## 2026-10-08 ~23:25 — correctie op de vorige notitie: firefox was NIET groen bij de commit
+- De firefox-run op de eindbuild van `70aa341` gaf exit 1: `firefox.table.spec:98` — na de tik op Tabel bleef het
+  paneel op 698 px (tabel ging niet open, timeout 10 s). Ik had de commit en push in hetzelfde commando gezet en
+  de LOG-regel "firefox 0 (5)" vooraf geschreven; die regel is onjuist (de 5/5 hoorde bij de tussenvariant).
+- Daarna `pnpm e2e --project firefox --repeat-each 4` → exit 0, 20/20 (loadavg 5–10). Samen 24 van 25.
+- Dit is hetzelfde beeld als de afgebroken tabel-scroll van eerder vandaag (toen 3/30, na de fix 30/30 en bij de
+  orkestrator 15/15). Of het een rest daarvan is of ruis weet ik niet: het faalbeeld is door de herhaalrun
+  overschreven. De CSS van deze ronde raakt geen scrolllogica, maar uitgesloten is het niet (de rijhoogte
+  verandert niet meer; de rand staat er nog). OPEN: bij een nieuwe rode run eerst het beeld en de trace bewaren.
+
+## 2026-10-08 ~23:45 — rijlijnen: 2×2-matrix (PO: dagrijen te harsh) + firefox-retries
+- Eén regel voor alle cellen: lijn = de werkelijke rijkleur, verdonkerd met zwart, nooit lichter.
+  |                    | licht thema | donker thema |
+  | dagrij (licht)     | 6 % zwart   | 6 % zwart    |
+  | nachtrij (donker)  | 30 % zwart  | 30 % zwart   |
+  Het thema kiest geen tak: in deze tabel blijft een dagrij ook in donker thema licht (regel
+  `:root[data-theme="dark"] … tr.day-hour` zet hem op wit/hemel) en is een nachtrij ook in licht thema donker.
+  "Donker thema overdag heeft donkere dagrijen" klopt dus niet voor de dag/nacht-tabel; de rijklasse
+  (`day-hour`/`night-hour`) ís de rijkleur. Dagrij was: tekstkleur 11 %.
+- Gemeten in de screenshots (dpr 2): dagrij lijn rgb 181,206,217 op 196,223,236 (390) en 176,212,231 op
+  191,230,250 (1280); nachtrij 4,10,16 op 10,24,32. 1 apparaatpixel blijft.
+- Beeld: `po-regressies/rijlijnen-matrix-overzicht.png` (390 licht · 390 donker · 1280 licht · 1280 donker).
+  Opgenomen om ±23:30, dus maar twee dagrijen boven de zonsondergang in beeld.
+- `playwright.config.ts`: firefox-project `retries: 2` (opdracht orkestrator).
+- Gate (web/): build 0 · typecheck 0 · `table.spec` desktop + mobile-4g 0 (14 groen, 4 overgeslagen) ·
+  firefox `--repeat-each 3` vóór de retries 15/15; mét retries exit 0 maar 1 flaky: `spec:15` twee keer rood
+  (eerste poging + retry 1), derde poging groen.
+- OPEN (morgen): firefox.table.spec deterministisch maken. LET OP, afwijkend van de aanname "nabootsing is
+  timing-gevoelig": mijn rode runs (vanavond 3×) falen NIET op de nagebootste viewport-waarde maar op
+  `panelTop` 698 na de tik op Tabel — de tabel gaat niet open, 10 s lang. Dat kan een productfout zijn
+  (tik op Tabel in Firefox doet soms niets) en geen testruis; retries verbergen dat. Bewijs bewaard in
+  `firefox-flaky/` (twee faalbeelden, twee traces, runlog).
+
+## 2026-10-08 ~23:55 — slotentry van de dag
+Geland vandaag (deel 3 en 4 op main; de laatste twee commits wachten op de orkestrator-gate van `358eef3`):
+- Regen-blending als standaard: Wind = vermenigvuldigen (nacht gedempt), Lucht = voorstel; knoppen weg.
+- Adresbalkbug Firefox Android: paneelstand t.o.v. de zichtbare viewport + vangnetstrook; PO: "gebeurt nog
+  wel maar corrigeert zich op tijd" → goedgekeurd. Tabelcorrectie alleen in rust, kaartkant-correctie weg.
+- firefox-project in Playwright (5 tests), nu met `retries: 2`.
+- Kaartoverlays volgen de kaartstand i.p.v. het app-thema (waterrand/tegelranden, cijferhalo, isobaren,
+  isothermen, labels, zon); kaart dag/nacht in één stap (PO).
+- Rand kaart/zijpaneel = oud; schakelaar weg.
+- Tabelrijlijnen: werkelijke rijkleur verdonkerd met zwart (dagrij 6 %, nachtrij 30 %), 1 apparaatpixel;
+  matrix door de orkestrator op screenshots goedgekeurd, PO-blik staat nog uit.
+Open:
+1. `firefox.table.spec` deterministisch maken, en daarbij EERST uitzoeken of "tabel gaat niet open na tik op
+   Tabel" (panelTop 698, 10 s) een productfout in Firefox is; bewijs in `firefox-flaky/`. Daarna retries weg.
+2. Diagnose-overlay "Scherm en scroll" (`?dev` → Diagnose, sleutel `motregen-dev-viewport`,
+   `ViewportDiagnose.tsx`) verwijderen zodra de PO de adresbalk definitief goedkeurt; docs/dev-opties.md bij.
+3. Rijlijnen-overzichtsbeeld overdag opnieuw maken (het huidige toont maar twee dagrijen).
+4. Nacht-cijferhalo: PO zag de fix nog niet bevestigd op een verse bundel.
+5. "u63 vraag" (lege queue-melding eerder vandaag) is nooit ingevuld.
+Preview 4320 gestopt bij het afsluiten.
