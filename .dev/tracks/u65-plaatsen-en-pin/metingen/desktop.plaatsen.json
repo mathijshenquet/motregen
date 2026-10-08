@@ -1,0 +1,59 @@
+{
+  "meta": {
+    "profile": "desktop",
+    "scenario": "koud-spelend",
+    "sourceSha": "a071653267a814cf6fadf0495b99fdbe4d685268",
+    "capturedAt": "2026-10-08T09:23:48.586Z",
+    "cpuThrottleRate": 1,
+    "contractHash": "41580e14d01689bca39ac72344632c6a9d6442b101762c592d18431ef491f60b",
+    "fixtureHash": "eeec78360fa999928f34cca8d4d90f2dee88ccc9e6c350dd77bfd5e690b32e0a",
+    "basemapContractHash": "c705345739e48b917a1c8acaadf0d521ee972f7a71ac5cfb3bc51f2deb66eb8d",
+    "network": null,
+    "hardwareConcurrency": 4,
+    "loadAverage": 45.89,
+    "synthGridScale": 1,
+    "rendererCpuQuotaPercent": null,
+    "requestOrderOnly": true
+  },
+  "ttfpMs": 2349.100000023842,
+  "catalogueAfterTtfpMs": 772.2999999523163,
+  "rows": [
+    {
+      "label": "manifest",
+      "url": "http://127.0.0.1:4397/data/manifest.json?s=1",
+      "startMs": 149.70000004768372,
+      "endMs": 167.70000004768372,
+      "encodedBodyBytes": 36513
+    },
+    {
+      "label": "stijl",
+      "url": "http://127.0.0.1:8397/style-light.json",
+      "startMs": 149.5,
+      "endMs": 162.20000004768372,
+      "encodedBodyBytes": 5809
+    },
+    {
+      "label": "eerste regen-Range",
+      "url": "http://127.0.0.1:4397/data/chunks/nowcast-20260828T1500.mrf",
+      "startMs": 247.60000002384186,
+      "endMs": 282.89999997615814,
+      "encodedBodyBytes": 4396,
+      "range": "bytes=0-4395"
+    },
+    {
+      "label": "eerste regenframe-Range",
+      "url": "http://127.0.0.1:4397/data/chunks/nowcast-20260828T1500.mrf",
+      "startMs": 285.3000000715256,
+      "endMs": 334.3000000715256,
+      "encodedBodyBytes": 4513,
+      "range": "bytes=4396-8908"
+    },
+    {
+      "label": "plaatsenlijst",
+      "url": "http://127.0.0.1:4397/plaatsen-4d18b8790eecd5af.json",
+      "startMs": 3121.399999976158,
+      "endMs": 3128,
+      "encodedBodyBytes": 60946
+    }
+  ]
+}

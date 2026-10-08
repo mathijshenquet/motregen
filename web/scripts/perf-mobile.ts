@@ -40,6 +40,7 @@ const scenarios = JSON.parse(readFileSync('perf/scenarios.json', 'utf8')) as Rec
 if (options.profiles.some((profile) => !['desktop', 'mobile-4g', 'mobile-fast-3g', 'po-android'].includes(profile))) throw new Error('Onbekend profiel')
 if (!['fixture', 'openfreemap', 'own'].includes(options.basemap)) throw new Error('Onbekende basemap')
 if (options.scenarios.some((scenario) => scenario !== REFERENCE_SCENARIO && !(scenario in scenarios))) throw new Error('Onbekend scenario')
+if (options.requestOrderOnly && options.scenarios.includes(REFERENCE_SCENARIO)) throw new Error('--request-order is alleen voor de eigen fixture, niet voor de referentiebenchmark')
 
 const ports = process.env.MOTREGEN_E2E_PORT && process.env.MOTREGEN_E2E_DATA_PORT
   ? { port: Number(process.env.MOTREGEN_E2E_PORT), dataPort: Number(process.env.MOTREGEN_E2E_DATA_PORT) }
@@ -106,6 +107,14 @@ const run = spawnSync('pnpm', ['exec', 'playwright', 'test', '--config', 'playwr
 })
 if (run.error) throw run.error
 if (run.status !== 0) process.exit(run.status ?? 1)
+if (options.requestOrderOnly) {
+  for (const profile of options.profiles) {
+    for (const scenario of options.scenarios) {
+      console.log(`${profile}/${scenario}: aanvraagvolgordecapture opgeslagen; geen performancebaseline of timinggate`)
+    }
+  }
+  process.exit(0)
+}
 
 let failed = false
 const summary: string[] = ['| profiel | scenario | decodes | bodybytes | spreiding decodes / bytes | ttfp | ttfr | ttfh | blank-visible | LoAF 12 s | loadavg | weggegooid (load) |', '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |']
@@ -114,10 +123,6 @@ for (const profile of options.profiles) {
     const reports: MobileReport[] = []
     for (let repetition = 1; repetition <= options.repeat; repetition++) {
       reports.push(JSON.parse(readFileSync(`tmp/perf-mobile/${profile}-${scenario}-run${repetition}.json`, 'utf8')))
-    }
-    if (options.requestOrderOnly) {
-      console.log(`${profile}/${scenario}: aanvraagvolgordecapture opgeslagen; geen performancebaseline of timinggate`)
-      continue
     }
     const baselines = reports.map(compactBaseline)
     const bytesSpread = repetitionSpread(baselines.map((report) => report.wireBytes))

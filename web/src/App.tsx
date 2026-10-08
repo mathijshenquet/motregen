@@ -35,7 +35,7 @@ import { basemapBlendTargets, blendedPaintValue, nightShare, type BlendTarget } 
 import { browserDeviceHints, decodeBudget } from './core/decode-budget'
 import { MrfClient, type MotionField } from './core/mrf'
 import { selectPairMotion } from './core/motion-selection'
-import { findCataloguePlace, isInPlaceZone, loadPlaces, nearestPlace, places, rememberPlace } from './core/places'
+import { findCataloguePlace, isInPlaceZone, loadPlaces, namedCataloguePlace, nearestPlace, places, rememberPlace, rememberSearchedPlace } from './core/places'
 import type { PlaceIdentity, PlaceMemory } from './core/place-memory'
 import { startFrameLoop } from './core/playback'
 import { clampPlaybackCursor, playbackReach } from './core/playback-gate'
@@ -2428,7 +2428,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function chooseSearch(point: { lng: number; lat: number }, label: string): void {
     usage.mark('search')
     map?.easeTo({ center: [point.lng, point.lat], duration: 450 })
-    pick(point.lng, point.lat, label, false, rememberPlace(point, { name: label, slug: placeSlug(label) }))
+    const place = namedCataloguePlace(label, point)
+    pick(point.lng, point.lat, label, false, rememberSearchedPlace(point, label))
+    setUrlPlace({ name: place?.name ?? label, slug: place?.slug ?? placeSlug(label) })
   }
 
   async function selectPresetPlace(place: string, explicitSlug?: string): Promise<void> {

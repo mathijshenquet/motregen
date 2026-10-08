@@ -116,6 +116,11 @@ export function rememberPlace(point: { lng: number; lat: number }, selected?: Pl
   return { ...identity, zones }
 }
 
+export function rememberSearchedPlace(point: { lng: number; lat: number }, name: string): PlaceMemory {
+  const place = namedCataloguePlace(name, point)
+  return rememberPlace(point, { name: place?.name ?? name, slug: place?.slug ?? placeSlug(name) })
+}
+
 export function nearestPlace(lng: number, lat: number, candidates?: readonly Place[]): Place {
   if (!candidates && catalogue) return catalogue.nearest(lng, lat)
   candidates ??= places

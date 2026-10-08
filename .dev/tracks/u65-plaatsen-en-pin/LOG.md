@@ -49,3 +49,29 @@
 - Laatste typecheck en build exit 0; profiler/rapportage-unitcheck 20/20 exit 0: `pnpm --filter motregen-web exec vitest run scripts/mobile-report.test.ts src/core/perf.test.ts`.
 - Hostload bleef bij parallelle bot-/Chromium-taken oplopen (loadavg 19–59). Voor deze PO-vraag is de causale aanvraagvolgorde controleerbaar onder load. Rigmodus --request-order behoudt het profiel, quota, koude cache en native Resource Timing, labelt de capture expliciet als volgorde en weigert baseline/compare (ook compactBaseline weigert zo'n capture). Normale perf-rig houdt zijn rustige-host-gate. Geen oude timingbaseline vergelijken of overschrijven; nieuwe U65-watervallen gebruiken main met Kaderhemel aan en documenteren de hostload.
 - Volgende stap: desktop/po-android captures, extractor + ingecheckte compacte JSON/SVG, PR met tabel en bewijslinks bijwerken. Preview is uit de huidige werkboom opnieuw gebouwd.
+
+## 2026-10-08 09:40 UTC — Resource Timing-bewijs desktop en po-android
+- Beide captures SYNCHROON exit 0 (1/1 per profiel): `MOTREGEN_E2E_PORT=4397 MOTREGEN_E2E_DATA_PORT=8397 pnpm --filter motregen-web perf:mobile --profile desktop --scenario koud-spelend --basemap own --repeat 1 --request-order`, daarna hetzelfde met `--profile po-android`. Broncommit a071653 bevat U62/U66 + de volledige laadvolgorde- en opslagfix; Kaderhemel staat aan. Koude HTTP-cache, SW geblokkeerd, geen live-netwerk, beide nul netwerkbevindingen.
+- De desktop gebruikt het bestaande desktopprofiel (raster ×1); po-android gebruikt 390×844, wifi 30 Mbps/20 ms, renderer + workers op 40% kernquota met 5 ms-periode, raster ×6. Hostload bij start 45,89/38,60: uitsluitend bewijs van aanvraagvolgorde, geen performancebaseline of snelheidsvergelijking. Geen eerdere baseline overschreven.
+- Native tijden vanaf navigation timeOrigin (ms), inclusief worker-entries naar dezelfde origin omgerekend:
+
+| gebeurtenis | desktop | po-android |
+| --- | ---: | ---: |
+| manifeststart | 149,7 | 489,9 |
+| stijlstart | 149,5 | 489,7 |
+| eerste regen-Range (header) | 247,6 | 839,7 |
+| eerste regenframe-Range | 285,3 | 1009,4 |
+| milestone:ttfp | 2349,1 | 3029,9 |
+| plaatsen-4d18b8790eecd5af.json start | 3121,4 | 4075,0 |
+| plaatsenstart − ttfp | +772,3 | +1045,1 |
+| catalogus gzip-bodybytes | 60.946 | 60.946 |
+
+- Extractor receipt exit 0: `pnpm --filter motregen-web exec tsx scripts/place-waterfall.ts tmp/perf-mobile/desktop-koud-spelend-run1.raw.json tmp/perf-mobile/po-android-koud-spelend-run1.raw.json`. Het manifest heeft een ?s=1 query; de extractor gebruikt pathname. Playwright-netwerkstart wijkt af van native fetchstart, daarom koppelt hij bevestigde 206-Ranges via URL + bodygrootte aan native entries. Alle getoonde starts blijven native Resource Timing, ttfp is de echte user-timingmeasure.
+- Compacte JSON + SVG ingecheckt onder metingen/desktop.plaatsen.* en metingen/po-android.plaatsen.*; volledige .raw.json/.trace.json/.md blijven in web/tmp/perf-mobile/. SVG visueel gecontroleerd. Beide assertions eisen lijst ná ttfp, manifest, stijl, eerste header-Range én eerste frame-Range. Rechtstreekse guardcheck op de echte capture bevestigt dat compactBaseline hem weigert.
+- Laatste codecontrole corrigeerde de zoek-snapshot voor dubbele namen: de catalogus kiest de juiste naam-slug bij het punt, geen extra korte slug van de andere plaats. De expliciet gekozen zoeknaam/slug blijft ook bij late catalogusverrijking staan. Catalogus/geheugen/profiler/rapportage 30/30 exit 0; herhaalde location/flanders desktop 8/8 exit 0; daarna volledige units opnieuw web 506/506 + bot 60/60 exit 0. Laatste typecheck/build en zoekbrowsercheck worden na deze entry nog afgesloten.
+- Preview 4345 actief; HTTP /weer/amsterdam levert huidige bundle index-CUGmmm59.js vóór de laatste zoeknaamcorrectie. Een laatste normale build vernieuwt de preview ook voor die correctie. Geen server-side plaatsdata toegevoegd; kleine lijst, thermolabels en sitemap blijven behouden.
+
+## 2026-10-08 09:41 UTC — eindreceipt en PR-bewijs
+- Laatste zoeknaamcorrectie geverifieerd: `pnpm typecheck` en `pnpm build` exit 0; `MOTREGEN_E2E_PORT=4397 MOTREGEN_E2E_DATA_PORT=8397 pnpm --filter motregen-web e2e e2e/flanders.spec.ts --project desktop` 1/1 exit 0. Test controleert Gent-URL én de direct opgeslagen exacte pin met Gent-zone, naast de markerprojectie.
+- De laatste wijziging raakt alleen expliciete zoekkeuze; het opstartpad uit beide watervallen blijft gelijk. Typecheck na de definitieve extractor met header- én frame-Range exit 0. Volledige unitreceipt 506 web/60 bot, desktop trackgate 22/22 en aanvullende gerichte receipts hierboven blijven expliciet onderscheiden.
+- Alle check-sessies afgesloten met geobserveerde exitstatus. git diff --check exit 0. Eindcommit bevat JSON/SVG-bewijs, LOG en zoek-snapshotcorrectie; push en PR #93 bijwerken met native watervaltabel, bewijslinks en hostloadbeperking. Preview blijft bewust als user-service voor review beschikbaar; niet gemerged.

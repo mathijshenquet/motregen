@@ -28,7 +28,7 @@ describe('generated place catalogue', () => {
     const fetch = vi.fn(async () => new Response(json))
     vi.stubGlobal('fetch', fetch)
     try {
-      const { loadPlaces, nearestPlace, places } = await import('./places')
+      const { loadPlaces, nearestPlace, places, rememberSearchedPlace } = await import('./places')
       const { parsePresetPath, shareUrl } = await import('./presets')
       const { viewportCountry } = await import('./geocoder')
       const request = loadPlaces()
@@ -41,6 +41,9 @@ describe('generated place catalogue', () => {
       expect(viewportCountry({ lng: 3.73, lat: 51.06 })).toBe('BE')
       expect(viewportCountry({ lng: 5.12, lat: 52.09 })).toBe('NL')
       const repeated = catalogue.find((place) => place.name === 'Bergen' && place.slug !== 'bergen')!
+      const remembered = rememberSearchedPlace(repeated, repeated.name)
+      expect(remembered.zones.some((zone) => zone.slug === repeated.slug)).toBe(true)
+      expect(remembered.zones.some((zone) => zone.slug === 'bergen')).toBe(false)
       expect(parsePresetPath(`/weer/${repeated.slug}`)).toEqual({ mode: 'weather', place: repeated.name, placeSlug: repeated.slug })
       const url = new URL(shareUrl({ mode: 'weather', epoch: 0, point: repeated, place: 'Bij oma', savedPlace: true }))
       expect(url.pathname).toBe(`/weer/${repeated.slug}`)
