@@ -16,7 +16,7 @@ export function startWebgl(mode: string | undefined): Plugin {
                 && innerWidth >= 900 && navigator.hardwareConcurrency >= 8
                 && typeof Worker === 'function' && typeof OffscreenCanvas === 'function') {
               const source = new Blob([
-                'try { const canvas = new OffscreenCanvas(1, 1); const context = canvas.getContext("webgl2", { alpha: true, depth: true, stencil: true, antialias: false, preserveDrawingBuffer: false, powerPreference: "high-performance" }); postMessage(Boolean(context)); context?.getExtension("WEBGL_lose_context")?.loseContext(); } catch { postMessage(false); } close();'
+                'try { const canvas = new OffscreenCanvas(1, 1); const context = canvas.getContext("webgl2", { alpha: true, depth: true, stencil: true, antialias: false, preserveDrawingBuffer: false, powerPreference: "high-performance" }); if (context) { context.clear(context.COLOR_BUFFER_BIT); context.finish(); } postMessage(Boolean(context) && !context.isContextLost()); context?.getExtension("WEBGL_lose_context")?.loseContext(); } catch { postMessage(false); } close();'
               ], { type: 'text/javascript' });
               const url = URL.createObjectURL(source);
               let worker;

@@ -1,4 +1,5 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { chromium, devices, type Request } from '@playwright/test'
 import type { PerfMonitor } from '../src/core/perf'
@@ -17,6 +18,7 @@ const expectWebglPrewarm = flags.includes('--expect-webgl-prewarm')
 if (repeat !== 1) throw new Error('Eén capture per lock; gebruik desktop-rig.sh voor --repeat')
 if (!Number.isInteger(runNumber) || runNumber < 1 || runNumber > 10) throw new Error('--run moet 1…10 zijn')
 mkdirSync(dirname(output), { recursive: true })
+const htmlHash = process.env.MOTREGEN_RIG_DIST ? createHash('sha256').update(readFileSync(`${process.env.MOTREGEN_RIG_DIST}/index.html`)).digest('hex') : null
 const browser = await chromium.launch({ args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
 try {
   for (let run = 1; run <= repeat; run++) {
@@ -101,7 +103,7 @@ try {
         const { profile } = await cdp.send('Profiler.stop')
         writeFileSync(`${prefix}.cpuprofile`, JSON.stringify(profile))
       }
-      writeFileSync(`${prefix}.json`, JSON.stringify({ capturedAt: new Date().toISOString(), origin, pathname, query, warm, cpuProfile, browserPerRun: true, loadAverage, ...captured, requests }, null, 2))
+      writeFileSync(`${prefix}.json`, JSON.stringify({ capturedAt: new Date().toISOString(), origin, pathname, query, warm, cpuProfile, browserPerRun: true, htmlHash, loadAverage, ...captured, requests }, null, 2))
       writeFileSync(`${prefix}.trace.json`, JSON.stringify({ traceEvents: events }))
       console.log(`${prefix}: ${JSON.stringify(captured.snapshot)}`)
     } finally {

@@ -22,8 +22,8 @@ Bevroren builds gebruiken
 dezelfde fixture en native-desktopcapture. Koud ×3, warm ×3 en Lighthouse
 zijn nog niet volledig gemeten. Er zijn nog geen volledige nieuwe
 ttfr/ttfp-vergelijkingen of Lighthouse-subscores.
-Eerste gewone koude referentierun: ttfr 1617,3 ms, ttfp 775,1 ms,
-eerste regen 686,8 ms bij startload 7,98. Nog geen reeks van drie en
+Eerste twee gewone koude referentieruns: ttfr 1617,3 / 1669,1 ms,
+ttfp 775,1 / 842,6 ms bij startload 7,98 / 7,97. Nog geen reeks van drie en
 geen vergelijkingsclaim. Een aparte cpuProfile-opname op U64 vóór shaders
 heeft startload 7,89; de grootste RunTask is 236 ms met circa 225 ms in
 MapLibre's `_setupPainter`, vóór eerste regen. Die diagnostische opname
@@ -256,3 +256,6 @@ De eigen koud-spelend-baseline is vóór de productwijzigingen opgebouwd uit
 drie ongewijzigde runs: die combinatie had geen bestaande baseline. Geen
 budgetgrens verruimd. Definitieve checks en synchrone exitstatussen staan
 append-only in [LOG.md](LOG.md).
+Koude varianten volgen per ronde referentie, WebGL-worker, shaderbatch,
+vóór shaderbatch. Bestaande geldige captures blijven bij hervatten behouden
+na controle van load, browser/clock/query, profilerstatus en entryhash.

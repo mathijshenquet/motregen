@@ -569,3 +569,16 @@ b1a706752174bbd7f1cb2453ce3a740929d73775	refs/pull/91/head
 
 - Runbereikguard (run10 met repeat3 -> exit2 vóór browser/lock) en hervatvalidator met verkeerde entryhash (-> exit1, bestand niet als geldig hergebruikt) synchroon geverifieerd, overkoepelende check exit0. Bestaande correcte CPU/ref1 blijven behouden. Geen vergelijkingsbudget of metadata-loadgrens aangepast.
 - WIP nu commit/push incl. standaard-uit-WebGL-workerproef, captureregistratie en --run-ondersteuning. Typecheck/509 units/proefbuild+gzip/13 desktop-WebGL-e2e reeds synchroon groen; native prototypewinst en finale U65-gate pending. Eén seriële runner, huidige load ~14, rustig-host-wacht buiten lock.
+
+## 2026-10-08 11:11:07 UTC — koude rondevolgorde aangepast, referentie 1/2 behouden
+
+- WIP e74d3c5 push synchroon exit0; remote e74d3c5a760ade3f048f40d11993143a3aa226f1 bevestigd. PR91 met standaard-uit-workerproef en pending vergelijking bijgewerkt, exit0.
+- Inmiddels referentie run2 binnen; run3 stond buiten de lock te wachten. Eigen groep 753836 gecontroleerd en beëindigd, sessie exit143. Twee geldige referenties en CPU-diagnose blijven ongewijzigd bewaard.
+- Lokale koude campagne nu per ronde referentie -> WebGL-worker -> shaderbatch -> vóór shaderbatch. Dit spreidt varianten over de meetperiode en levert eerder bewijs voor de nieuwe kandidaat. Het is een volgordewijziging, geen andere browser/fixture/clock/load- of gatevoorwaarden. Hervatvalidator slaat bestaande geldige referenties over; drie gewone runs per variant blijven vereist. Warm en LH daarna; één lock per run, wachten buiten lock.
+
+## 2026-10-08 11:30:09 UTC — context-only-proef onderscheiden, GPU-werk toegevoegd
+
+- Eerste context-only-workeropname geldig: ttfr1530,5/ttfp803,9 ms bij load8,00; prewarm-marker 17,2->25,0 ms. Er is een GL-context gemaakt, maar geen GPU-werk ingediend; main RunTask blijft ~241 ms. Post-ttfp LoAF 10/max435,6 ms. Shaderbatch run1 ook binnen: ttfr1135,2/ttfp783,2 ms. Eén per variant, nog geen winstclaim.
+- Correctie van de proef: vóór ready-message daadwerkelijk clear + finish in de worker. Dat wacht alleen op de worker op GPU-completion; hoofdthread blijft asynchroon. Standaard uit. Oude context-only-HTML/build/opname blijven als aparte historische variant; nieuwe gpu-worker gebruikt andere dist/prefix zodat één oude opname niet in een nieuwe mediaan belandt.
+- Native metadata krijgt HTML-SHA naast JS-entrycontrole: beide workerproeven delen dezelfde JS en verschillen juist in HTML. Hiermee kan hervatten die bronvariatie onderscheiden. Reeds geldige oudere captures blijven apart behouden via bekende frozen bron en navigation-size, niet herschreven.
+- Alleen de gecontroleerde eigen loadwachtgroep779533 beëindigd vóór nieuwe build; sessie exit143. CPU, twee referenties, context-only-worker1 en shaderbatch1 bewaard. Nieuwe typecheck/build/gerichte WebGL-e2e volgen; WIP nu commit/push op cadans, nieuwe proefmetingen/gates pending.
