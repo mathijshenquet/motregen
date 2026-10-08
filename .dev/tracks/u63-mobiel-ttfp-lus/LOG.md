@@ -182,3 +182,48 @@ Receipt eigen-kaart assets-proef exit 0: run-perf.sh --profile po-android --scen
 Definitie nagelezen in core/perf.ts: ttfr wacht op zowel firstRainMs (renderercommit) als basemapReadyMs (style én alle tegels geladen). Eerste regencommit is geen afzonderlijk bewezen zichtbaarheid; splash/kaart kunnen nog bezig zijn. Rigcontract niet aangepast; companion-summary rapporteert voortaan firstRainMs en basemapReadyMs naast ttfr/ttfp. Volledige-kaartcontrole heeft na ttfp in elk van drie runs één LoAF >250 ms (maxima 360/375/289 ms); assets-proef 276/336/219 ms. De volledige kaart haalt de bewaker dus nog niet, hoewel de eenvoudige fixture geen >250 ms had. Geen succesclaim op de echte koude telefoon.
 
 Vervolg: exacte tijdstippen mogen hun nulgewichtsframe overslaan als dat pixelgelijk bewezen kan worden, met bestaande logische ttfp-anker behouden. Daarna resterende kaartrenderkosten en alle acht oude baselinecontracten expliciet afsluiten. Opnames web/tmp/u63/own-assets. Vorige push 64b94f7 exact bevestigd om 07:42 UTC (09:42 lokaal); commit/pushcadans blijft 15–20 minuten.
+
+## 2026-10-08 07:53 UTC — kandidaat 6: nulgewichtsframe overslaan
+
+Bij mix=1 laadt showFrame alleen rechts, bij mix=0 alleen links; het geldige frame gaat naar beide textures. Tussenliggende menging/motion blijft gelijk. Het logische linker tijdpaar blijft het bestaande perf-anker voor ttfp, onafhankelijk van de fysieke texturekeuze. E2e houdt radar-payloads vast maar verlangt het exacte nu-beeld; headers mogen door. Normale voor-build vastgelegd in web/tmp/u63/zero-before-dist na hostlocked build receipt exit 0. Alle codegates + fixture-compare ×3 starten onder één flock, daarna gerichte desktopgate en afzonderlijke pixelvergelijking exact/tussenliggende tijdstippen in desktop/mobile. Geen winstclaim vooraf.
+
+## 2026-10-08 07:55 UTC — vaste hoofdlijn en expliciete meetlabels
+
+Orkestrator: vaste hoofdlijn voortaan po-android / koud-spelend / koud / eigen basiskaart. Referentiestand is de volledige-kaartcontrole van kandidaat 3 (3596/1652 ms), vast gehouden voor volgende iteraties. Die controle kwam ná eerdere productwijzigingen: geen fictieve retrospectieve nulmeting. De echte voorafgaande nulmeting was de eenvoudige fixture en staat daarom uitsluitend in de afzonderlijke reeks. Elke nieuwe productkandidaat krijgt eigen-kaart ×3 naast de bestaande fixture-compare-gate. Pad van de koude start: /weer/de-bilt (legacy root wordt naar dit pad genormaliseerd). Alle onderstaande tijden zijn medianen ×3, behalve waar expliciet origineel/meetonvolledig staat.
+
+Hoofdlijn — dezelfde po-android CPU-/netwerk-/regenfixture, volledige eigen basiskaart, koud:
+
+| iteratie / referentie | profiel | scenario | cache | basiskaart | ttfr ms | ttfp ms | eerste regencommit ms | LoAF na ttfp max ms | keuze |
+| --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- |
+| vaste controle kandidaat 3 | po-android | koud-spelend | koud | eigen PMTiles | 3596 | 1652 | 1316 | 360 | vaste referentie; bewaker nog niet gehaald |
+| kandidaat 5 assets vroeg | po-android | koud-spelend | koud | eigen PMTiles | 3737 | 1861 | 1466 | 276 | verworpen; slechter dan vaste controle |
+| kandidaat 6 nulgewichtsframe | po-android | koud-spelend | koud | eigen PMTiles | pending | pending | pending | pending | meten vóór keuze |
+
+Afwijkende fixture-reeks — alleen ondersteunende gates en historische vergelijking, geen eigen-kaart-hoofdlijn:
+
+| iteratie / referentie | profiel | scenario | cache | basiskaart | ttfr ms | ttfp ms | LoAF na ttfp max ms | keuze |
+| --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |
+| oorspronkelijk nulpunt, bronfout grens | po-android | koud-spelend | koud | synthetische 73 B vectorfixture | 1352 | 1728 | n.v.t. | exit 1, meetgrens hersteld |
+| hersteld nulpunt vóór product | po-android | koud-spelend | koud | synthetische 73 B vectorfixture | 1364 | 1730 | 181 | oorspronkelijke PO-compare-baseline |
+| kandidaat 1 alleen manifest vroeg | po-android | koud-spelend | koud | synthetische 73 B vectorfixture | 1433 | 1782 | 170 | verworpen |
+| main + U57 controle | po-android | koud-spelend | koud | synthetische 73 B vectorfixture | 1409 | 1781 | 185 | integratiecontrole |
+| kandidaat 2 parallelle kaart | po-android | koud-spelend | koud | synthetische 73 B vectorfixture | 1371 | 1745 | 175 | behouden, klein verschil binnen spreiding |
+| kandidaat 3 regenpipeline vroeg | po-android | koud-spelend | koud | synthetische 73 B vectorfixture | 1220 | 1562 | 187 | behouden; eigen-kaart-controle hierboven |
+| kandidaat 4 derde frame vroeg | po-android | koud-spelend | koud | synthetische 73 B vectorfixture | 1338 | 1641 | 174 | verworpen |
+| kandidaat 5 assets vroeg | po-android | koud-spelend | koud | synthetische 73 B vectorfixture | 1344 | 1700 | 165 | verworpen; eigen-kaart-controle hierboven |
+
+Buienradar is apart: po-android / referentie-buienradar / koude nieuwe context / externe Buienradar-kaart, ttfp-ref mediaan 2664 ms. Nog geen U63-productmeting op OpenFreeMap of warm in deze lus; herijking van bestaande OpenFreeMap-baselines blijft afzonderlijk gelabelde rig-migratie.
+
+## 2026-10-08 07:58 UTC — kandidaat 6 fixture rood: bronselectie op meetgrens
+
+--checks receipt exit 1: typecheck/unit483/build groen, rig ×3 heeft in run 2 twee bronbevindingen en blijft terecht rood. Bewijs raw: native fetch-start voor harmonie-motion/wind-u/wind-v ligt op 29993 ms, netwerk-start in Playwright nét na 30000 ms. De huidige rig past dezelfde grens onafhankelijk op twee verschillende startbegrippen toe en selecteert daardoor drie extra native records (slechts 0,13% bytes, maar requestcount blijft strikt rood). Geen assertiegrens gewijzigd of run verwijderd. Archive web/tmp/u63/zero-frame. Eigen-kaartmeting en pixels staan al onder hostlock klaar; de kleine tijdgrensverschillen moeten daarna met een gedeelde requestselectie worden gerepareerd en de vergelijking opnieuw groen worden geverifieerd. PO-nulpuntkosten vóór product blijven leidend, geen herbaselining op de kandidaat om regressies te verbergen.
+
+## 2026-10-08 08:08 UTC — gedeeld netwerkvenster; oorspronkelijk nulpunt in aparte checkout
+
+wireWindow koppelt native records chronologisch per URL aan alle geobserveerde netwerkrequests vóór vensterselectie. Beide geselecteerde bronnen volgen Playwright-netwerk-start; ongekoppelde native records binnen de periode blijven rood, ontbrekende bodies ook. Nieuwe betekenisvolle grens-test bewaakt beide fouten. Geen tolerantie gewijzigd. Twee voorbereidende --checks-pogingen exit 1/2: eerst testtype gecorrigeerd, daarna oorspronkelijke App bleek niet tegen de U57-presets-API te compileren. Dat is geen meetreceipt.
+
+Daarom zuivere detached checkout /home/mathijs/worktrees/motregen/u63-nulpunt-original op bb0792b, alleen de drie rig-/rapportagebestanden erbovenop en bestaande node_modules gedeeld. Nieuwe --checks + po-android/koud-spelend ×3 --baseline onder dezelfde hostlock/4393/8393 gestart, tmp/u63/nulpunt-netwerkstart-original.txt. Hoofdwerkboom intussen exact terug naar behouden kandidaat 3, zonder nulgewichtsoptimalisatie. Geen tijdelijke oude productcode committen.
+
+Kandidaat 6 eigen-kaart receipt exit 0: ttfr 4420 ms versus vaste controle 3596; ttfp 1607 versus 1652; eerste regencommit 1137 versus 1316; bewaker max 326 ms mediaan (465/326/205). Bronnen sluiten, loads 6,57/7,85/7,13. Hoofdlijnregel: po-android / koud-spelend / koud / eigen PMTiles / ttfr 4420 / ttfp 1607 / verworpen. Alle tien pixelvergelijkingen exact gelijk (max 0/255, desktop+mobile op +0/+2,5/+32,5/+61/+180 min), gerichte desktopgate 17 tests exit 0. Archive web/tmp/u63/own-zero-frame. Nulgewichtsproef is ondanks correcte pixels geen ttfr-winst en blijft verworpen.
+
+Nieuwe opdracht orkestrator: U64 z4-tegelplaceholder uit 67c9f28+ alleen in afzonderlijke proefbranch, po-android koud eigen kaart; eerste kaartbeeld ≥100 ms winst zonder ttfp-verlies is zichtbaar PO-voorstel met screenshot. Geen placeholder op de hoofdlijn vóór winst en beeldgoedkeuring. Na meetgrensherstel en nieuwe baseline eerst deze aanvullende kandidaat isoleren.
