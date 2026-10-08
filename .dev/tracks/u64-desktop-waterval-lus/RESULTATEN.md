@@ -149,13 +149,19 @@ is gestart, warm ×3 eerst en daarna koud ×3. Retentie van de huidige
 productwijzigingen wordt daarmee op de gewijzigde start gecontroleerd;
 de eerdere primaire winst blijft tot dan bewijs op de ec3-basis.
 
-Nieuwe native stand: koud0/3, warm1/3 geldige paren. Het eerste warme
-paar geeft ttfr1685,3→1447,1ms (−14,13%) en ttfp840,2→745,5ms
-(−11,27%); startload13,50/13,91 en gemiddelde loadverschil+1,734.
-LoAF-max na ttfp799,7→626,0ms: grote frames blijven. De serverlogs
-hebben aan beide kanten alleen manifest200 (36.513 bodybytes) en SW304;
-geen upstream voor kaart/fonts/app/plaatsen/weer-Ranges. De vervolgparen
-en de absolute ≤8-gate blijven open; één paar is geen retentieconclusie.
+Nieuwe native stand: koud0/3, warm3/3 geldige paren. Warm ttfr:
+1685,3→1447,1 /1697,0→1457,3 /1558,4→1444,8ms;
+mediaan binnen paren−238,2ms (−14,12%). Warm ttfp:
+840,2→745,5 /802,2→766,1 /750,4→739,8ms;
+mediaan binnen paren−36,1ms (−4,50%). Alle drie verbeteren beide metrics.
+Startloads13,50/13,91;12,22/11,11;15,00/15,83,
+gemiddelde loadverschillen+1,734/−1,141/+1,476,
+gaps157,8/417,0/132,8s. LoAF-max na ttfp A/B:
+799,7/626,0;797,5/579,3;695,4/565,3ms: grote frames blijven.
+De serverlogs van het eerste paar hebben aan beide kanten alleen
+manifest200 (36.513 bodybytes) en SW304; geen upstream voor
+kaart/fonts/app/plaatsen/weer-Ranges. De koude reeks en de absolute
+≤8-gate blijven open; nog geen definitieve koud/warm-retentieconclusie.
 Koud en warm, nieuwe ronde (geen volledige medianen):
 
 | variant | koud ttfr / ttfp | warm ttfr / ttfp | geldige runs koud / warm |

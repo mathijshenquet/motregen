@@ -769,3 +769,15 @@ b1a706752174bbd7f1cb2453ce3a740929d73775	refs/pull/91/head
 - Nieuwemain4038d55 nativewarmpair1 geldig:ttfr1685,3→1447,1ms (−238,2/−14,13%),ttfp840,2→745,5ms (−94,7/−11,27%). Load13,50/13,91,meanΔ+1,734,gap157,8s. LoAFmax799,7→626ms,groteframesaanwezig. Warm2attempt1 afgewezen load11,14/15,88/meanΔ4,516, vervolgloopt. Warm1/3/koud0/3 geen finale retentieconclusie.
 - UpstreamCLI opnewwarm1 synchroonexit0: beidealleenmanifest20036513bodybytes+SW3040body, geenkaart/fonts/app/plaatsen/weerRangeupstream in12s. Warm gebruikt cache; resterendettfr geen onnodig netwerk voor die assets. Log:tmp/u64/u62-part2-pairs/warm1-upstream.md. Absolute8gate76563noggeenbaseline.
 - Checkpointd0be8dfpushsynchroonexit0, remoted0be8df8d4b5496fb0e64c7f58f59802e41c4821 bevestigd, PR91updateexit0. WIP nu op15–20mincadans metdeze deelstand; productcode sinds mainmerge ongewijzigd.
+
+## 2026-10-08 16:01:39 UTC — huidige main warm ×3 compleet
+
+- Main4038d55->U64control warm3geldigeparen: ttfr1685,3→1447,1;1697,0→1457,3;1558,4→1444,8ms,mediaan binnenparen−238,2ms/−14,12%. Ttfp840,2→745,5;802,2→766,1;750,4→739,8ms,mediaan−36,1ms/−4,50%. Alle3paren beidebeter. Load13,50/13,91;12,22/11,11;15,00/15,83,meanΔ+1,734/−1,141/+1,476,gaps157,8/417,0/132,8s. Warm3attempt1 afgewezen startΔ2,15; attempt2 bleef eveneensafgewezen; poging3geldig. Koud0/3loopt nu; geen definitievegecombineerdeconclusie.
+- LoAFpostttfpmaxA/B799,7/626,0;797,5/579,3;695,4/565,3ms: verbeterdemaxima maar groteframesnietopgelost. AllecapturedloadLimit16/absoluteBaselineEligiblefalse; geenabsolute8claim.
+- SWRwarm2/3, beideBwerkelijkéénmanifestcachehit; paren ttfr+19,2/+176,1ms,ttfp+37,5/+195,6ms. Standaarduit, derdeparen/cacheherkomst nogpending. OudeNative20199/nieuw93830/absolute76563lopen; geen extraidleChromium.
+- Checkpoint4b03b88push synchroonexit0, remote4b03b88acd219fe1a45bf729055b10cfb02baec3bevestigd. Volgendecheckpoint16:05–16:10UTC.
+
+## 2026-10-08 16:05:30 UTC — WIP tijdens resterende koud/SWR-runs
+
+- Checkpointmetnieuwemainwarm3ttfr−14,12%/ttfp−4,50% samenmetkoudpending inRESULTATEN/PR91. SWRwarm2van3 werkelijkecachehits maarbeidetrager; eerst derdeafronden. Nativekoud0van3, absolute8geenbaseline. Geen productwijziging, geen herhaling van reedsgegroendeunit/e2echecks nodig.
+- Eigen noodzakelijke meetrunners20199/93830/76563 blijven gecontroleerdrunning. Eénrunperhostlock, loadwacht buitenlock, grenspaired16/absolute8 ongewijzigd. WIPcommit/push nu15minnavoorafgaandcheckpoint; geenperf-groenclaim zolang gateopen.
