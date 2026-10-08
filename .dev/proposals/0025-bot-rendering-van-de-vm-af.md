@@ -1,6 +1,6 @@
 # MIP-25 — Bot-rendering van de prod-VM af
 
-Status: draft · 2026-10-08 · auteur: orkestrator
+Status: accepted (PO 2026-10-08) · 2026-10-08 · auteur: orkestrator
 
 ## Probleem
 De tg-bot rendert per nieuwe KNMI-generatie (elke 3–5 min) drie loops van 169 frames plus tien
@@ -28,4 +28,7 @@ Optie 1 als richting, optie 2 (loops elke 15 min) als overbrugging tot U67 er is
 vandaag bruikbaar blijft. Beslissing bij de PO.
 
 ## Decision
-(open)
+PO 2026-10-08 15:40: "maakt niet uit zolang het niet de main server impact" — de VM mag fulltime renderen;
+harde eis is dat de web-server en de ingest er niets van merken. Uitvoering: de rem staat nu vast in
+`nix/modules/motregen.nix` (Nice 10, CPUWeight 20, CPUQuota 150 %, MemoryMax 1,5 GB). Optie 1 blijft open
+voor later; geen track nu.
