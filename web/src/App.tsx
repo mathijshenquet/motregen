@@ -786,7 +786,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const initialView = constrainView(!stillMode && initialPresets.point
         ? { ...initialPresets.point, zoom: 7 }
         : initialMapView ?? containView(MAP_CONTAIN_BOUNDS, mapViewport()), MAP_CONTAIN_BOUNDS, mapViewport())
-      mapStart?.align(initialView, mapViewport())
       map = new maplibregl.Map({
         container: mapElement,
         style: mapStart?.style(style) ?? style,
@@ -813,10 +812,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           perf.markBasemapReady()
           mapStart?.ready(map)
         }
-      })
-      if (mapStart) map.on('move', () => {
-        const center = map!.getCenter()
-        mapStart?.align({ lng: center.lng, lat: center.lat, zoom: map!.getZoom() }, mapViewport())
       })
       map.on('sourcedataloading', (event) => {
         if (!perfPhasesEnabled()) return

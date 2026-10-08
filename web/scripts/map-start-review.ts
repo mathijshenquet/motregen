@@ -3,7 +3,7 @@ import { dirname } from 'node:path'
 import { chromium } from '@playwright/test'
 
 const [origin, prefix, mode] = process.argv.slice(2)
-if (!origin || !prefix || !['svg', 'tegel'].includes(mode ?? '')) throw new Error('Gebruik: map-start-review.ts ORIGIN PREFIX svg|tegel')
+if (!origin || !prefix || mode !== 'tegel') throw new Error('Gebruik: map-start-review.ts ORIGIN PREFIX tegel')
 mkdirSync(dirname(prefix), { recursive: true })
 const browser = await chromium.launch({ args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
 try {

@@ -6,7 +6,7 @@ if [[ ${MOTREGEN_PERF_LOCK_HELD:-0} == 1 ]]; then
 fi
 
 # Een handmatige buitenste flock zonder onze env-marker mag geen tweede, blokkerende lock nemen.
-perf_owner=$(lslocks --noheadings --notruncate --output PID,PATH,MODE | awk '$2 == "/home/mathijs/motregen-perf.lock" && $3 == "WRITE" { print $1; exit }')
+perf_owner=$(lslocks --noheadings --notruncate --output PID,PATH,MODE | awk '$2 == "/home/mathijs/motregen-perf.lock" && $3 == "WRITE" && !found { print $1; found = 1 }')
 perf_ancestor=$PPID
 while [[ -n $perf_owner && $perf_ancestor -gt 1 ]]; do
   if [[ $perf_ancestor == "$perf_owner" ]]; then

@@ -9,4 +9,4 @@ bash scripts/perf-lock.sh scripts/e2e-slot.sh pnpm dlx lighthouse@13.0.1 "$deskt
   --preset=desktop --throttling-method=provided --only-categories=performance \
   --screenEmulation.width=1280 --screenEmulation.height=800 \
   --chrome-flags="--headless --no-sandbox --enable-webgl --ignore-gpu-blocklist --use-angle=swiftshader" \
-  --output=json --output=html --output-path="$desktop_output" --quiet
+  --output=json --output=html --output-path="$desktop_output" --save-assets --quiet

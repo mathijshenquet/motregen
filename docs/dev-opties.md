@@ -45,10 +45,11 @@ Buiten het paneel: `?perf` is de profielmodus (MIP-16, U43): toont de perf-HUD e
 meting aan, blijft via `localStorage` staan tot `?perf=0`; geen knop, blijft (diagnose). `?skywatch-render` (U46) rendert alleen de wolkendoorsnede voor De Bilt als
 still voor de grading-pijplijn; geen knop, vervalt na de analyse.
 
-Kaartstart-proef: alleen in een build met `VITE_MAP_START=svg` of `VITE_MAP_START=tegel`, via
-`?dev&kaartstart=svg` respectievelijk `?dev&kaartstart=tegel`. Toont de Nederlandse kust/water/grenzen
+Kaartstart-proef: alleen in een build met `VITE_MAP_START=tegel`, via
+`?dev&kaartstart=tegel`. Toont de eigen z4-tegels met water/bebouwing/grenzen
 vóór de volledige kaart; geen opslag. Eigenaar U64; vervalt 2026-10-15 of eerder bij PO-keuze.
-Productactivatie wacht op screenshotreview door de orkestrator (MIP-23 Track B).
+Desktop blijft standaard uit na screenshotreview door de orkestrator (MIP-23 Track B).
+U63 meet de mobiele waarde; de SVG-proef is wegens geometrieartefacten vervallen.
 
 ## Opslag (`localStorage`, prefix `motregen-`)
 

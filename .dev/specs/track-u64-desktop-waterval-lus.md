@@ -34,8 +34,12 @@ build, `perf:mobile --profile desktop --compare` (baseline mét reden bij bedoel
 gerichte e2e desktop; Lighthouse-score als extra kolom. Draft-PR vroeg.
 
 ## Bar
-Kaartstart-proef achter `?dev&kaartstart=svg|tegel`, alleen in een bijpassende `VITE_MAP_START`-build.
+Kaartstart-proef achter `?dev&kaartstart=tegel`, alleen in een `VITE_MAP_START=tegel`-build.
 Eigenaar U64; vervalt 2026-10-15 of bij eerdere PO-keuze. Geen standaardactivatie vóór screenshotreview.
+
+Screenshotbesluit orkestrator 2026-10-08: SVG vervalt wegens geometrieartefacten;
+inline z4-tegel blijft op desktop uit, U63 meet hem op po-android. Desktoplus gaat
+door op Lighthouse-oorzaken die ttfr/ttfp raken; subscores vóór/ná rapporteren.
 
 Geen één-letternamen, geen slimme one-liners, commentaar alleen voor het waarom; niets versoepelen
 zonder benoemde oorzaak.
