@@ -837,7 +837,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (key) basemapTiles.set(key, performance.now())
       })
       map.on('sourcedata', (event) => {
-        if (event.sourceId === 'basemap' && event.tile && event.sourceDataType === 'content' && map?.getSource(mapStartSource)) {
+        if (event.sourceId === 'basemap' && event.tile && map?.getSource(mapStartSource)) {
           mapStart?.replace(map)
           mapElement.dataset.mapStart = 'ready'
         }
@@ -1319,6 +1319,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
     afterRainDraw(() => {
       const firstPlayback = perf.markRainFrameCommitted({ frameEpoch: leftFrame.epoch, playing: playing() })
+      mapStart?.rainDrawn()
       if (firstPlayback || !playing()) schedulePlaces()
     })
     if (!rainOverlay) map.triggerRepaint()

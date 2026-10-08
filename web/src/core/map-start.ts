@@ -22,11 +22,18 @@ export function mapStartStyle(style: StyleSpecification): StyleSpecification {
   }
 }
 
-export function createMapStart(): { style: typeof mapStartStyle; replace: (map: MapLibreMap) => void; dispose: () => void } | undefined {
+export function createMapStart(): { style: typeof mapStartStyle; rainDrawn: () => void; replace: (map: MapLibreMap) => void; dispose: () => void } | undefined {
   if (import.meta.env.VITE_MAP_START === 'off' && new URLSearchParams(location.search).has('dev')) return undefined
   const worker = new Worker(new URL('./map-start.worker.ts', import.meta.url), { type: 'module' })
   const data = new Map<string, Promise<ArrayBuffer>>()
   const complete = new Map<string, (data: ArrayBuffer) => void>()
+  const waiting = new Map<string, ArrayBuffer>()
+  let rainDrawn = import.meta.env.VITE_MAP_START !== 'after-rain'
+  function dispatch(key: string, compressed: ArrayBuffer) {
+    if (!complete.has(key)) return
+    if (rainDrawn) worker.postMessage({ key, data: compressed }, [compressed])
+    else waiting.set(key, compressed)
+  }
   for (const key of ['4/7/5', '4/8/5']) data.set(key, new Promise((resolve) => complete.set(key, resolve)))
   worker.onmessage = (event: MessageEvent<{ key: string; data: ArrayBuffer }>) => {
     complete.get(event.data.key)?.(event.data.data)
@@ -42,7 +49,7 @@ export function createMapStart(): { style: typeof mapStartStyle; replace: (map: 
     void fetch(url!).then(async (response) => {
       if (!response.ok) throw new Error(`Z4-tegel laden mislukt (${response.status})`)
       const compressed = await response.arrayBuffer()
-      if (complete.has(key!)) worker.postMessage({ key, data: compressed }, [compressed])
+      dispatch(key!, compressed)
     }).catch(() => {
       complete.get(key!)?.(new ArrayBuffer(0))
       complete.delete(key!)
@@ -52,6 +59,11 @@ export function createMapStart(): { style: typeof mapStartStyle; replace: (map: 
   addProtocol(protocol, async (request) => ({ data: (await data.get(request.url.slice(`${protocol}://`.length)) ?? new ArrayBuffer(0)).slice(0) }))
   return {
     style: mapStartStyle,
+    rainDrawn() {
+      rainDrawn = true
+      for (const [key, compressed] of waiting) dispatch(key, compressed)
+      waiting.clear()
+    },
     replace(map) {
       // Transparante landcover over dezelfde echte lagen verdubbelt de tint. Wissel vóór de volgende paint.
       for (const layer of map.getStyle().layers) if (layer.id.startsWith(`${mapStartSource}-`)) map.removeLayer(layer.id)
