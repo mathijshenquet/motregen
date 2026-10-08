@@ -32,6 +32,23 @@ export function requestsStartedWithin<Entry extends { startMs: number }>(request
   return requests.filter((request) => request.startMs >= 0 && request.startMs <= durationMs)
 }
 
+export function wireWindow(requests: WireRequest[], timing: TimingRequest[], durationMs: number): { requests: WireRequest[]; timing: TimingRequest[] } {
+  const timingByUrl = new Map<string, TimingRequest[]>()
+  for (const entry of [...timing].sort((left, right) => left.startMs - right.startMs)) {
+    const entries = timingByUrl.get(entry.url) ?? []
+    entries.push(entry)
+    timingByUrl.set(entry.url, entries)
+  }
+  const selectedTiming: TimingRequest[] = []
+  for (const request of [...requests].sort((left, right) => left.startMs - right.startMs)) {
+    const entry = timingByUrl.get(request.url)?.shift()
+    // Native fetch-start kan vóór netwerk-start liggen; beide bronnen volgen dezelfde netwerkrequest.
+    if (entry && request.startMs >= 0 && request.startMs <= durationMs) selectedTiming.push(entry)
+  }
+  for (const unmatched of timingByUrl.values()) selectedTiming.push(...requestsStartedWithin(unmatched, durationMs))
+  return { requests: requestsStartedWithin(requests, durationMs), timing: selectedTiming }
+}
+
 export function resourceKind(url: string): ResourceKind {
   const path = new URL(url, 'http://localhost').pathname
   if (path.endsWith('/manifest.json')) return 'manifest'

@@ -872,7 +872,7 @@ pnpm exec tsx scripts/po-reference.ts compare perf/po-android-reference.json tmp
 
 ### Wanneer een rig-meting telt
 
-- **Loadavg ≤ 8** (1 minuut, `scripts/rig-host.ts`). `perf:mobile` wacht vóór de run tot de host
+- **Loadavg < 8** (1 minuut, `scripts/rig-host.ts`). `perf:mobile` wacht vóór de run tot de host
   zo rustig is (`--load-wait <minuten>`, standaard 20) en schrijft de loadavg bij de start van
   elke run in het rapport. Runs boven de drempel doen niet mee in de mediaan en staan als
   weggegooid in de samenvatting. Op 2026-10-07 draaiden drie tracks tegelijk rigs (loadavg
@@ -883,6 +883,31 @@ pnpm exec tsx scripts/po-reference.ts compare perf/po-android-reference.json tmp
   `MOTREGEN_E2E_DATA_PORT` gaan nog steeds voor.
 - De rig en `synthgen` draaien via `tsx`, dat een IPC-socket opent; binnen een sandbox zonder
   socketrechten faalt dat met `listen EPERM`.
+
+### perf-lock
+
+Iedere perf-opname gebruikt `/home/mathijs/motregen-perf.lock`. Wachten op loadavg <8 gebeurt
+**buiten** de lock, ook tussen herhalingen. De lock omvat één opname en wordt direct daarna
+vrijgegeven. Builds, typecheck, unit-tests en wachten horen buiten dit meetvenster.
+
+Het hostbrede patroon voor een commando dat precies één opname maakt:
+
+```bash
+until node --input-type=module -e 'import { loadavg } from "node:os"; process.exit(loadavg()[0] < 8 ? 0 : 1)'; do
+  sleep 30
+done
+flock -w 7200 -o /home/mathijs/motregen-perf.lock "$@"
+```
+
+Na het verkrijgen van de lock wordt de load opnieuw gecontroleerd. Is hij inmiddels ≥8,
+dan geeft de runner de lock onmiddellijk vrij en wacht hij opnieuw erbuiten. Exit 75 is
+uitsluitend die herhaalbare loadweigering vóór een opname; meetfouten houden hun echte exitstatus.
+`-o` voorkomt dat achtergebleven browser- of serverprocessen de lock erven.
+
+`pnpm perf:mobile` bouwt één keer en voert dit patroon zelf per profiel/scenario/herhaling uit;
+roep de CLI rechtstreeks aan. De U63-runner stelt alleen de eigen poorten in en doet eventuele
+codechecks vooraf. Iedere Playwright-aanroep selecteert precies één `run N` en gebruikt een
+e2e-slot. De drie rapporten worden daarna samen gecontroleerd met dezelfde 2%/5%/10%-grenzen.
 
 ### U63: meetgrens en nieuw po-android-nulpunt (2026-10-08)
 
@@ -1251,3 +1276,32 @@ regenbereik start in run 1 op 228 ms tegenover 622 ms. Decodes 226→224 (mediaa
 langste 175→187 ms, geen >250 ms. Eén run laat nauwelijks tijdwinst zien; de koude PO-telefoon
 blijft de verificatie voor de representativiteit. Typecheck, 483 tests, build, ×3 perf-compare en
 19 gerichte desktoptests slagen.
+
+U63 aanvullende controle met de volledige eigen basiskaart (po-android/koud-spelend ×3,
+`--basemap own`, dezelfde regenpipeline): **ttfr 3596 ms, ttfp 1652 ms**; eerste
+regencommit 1316 ms. De huidige `ttfr` wacht op zowel die regencommit als een render waarbij
+`isStyleLoaded()` en `areTilesLoaded()` waar zijn. Hij meet dus ook het afronden van de
+basiskaart; `firstRainMs` alleen bewijst nog niet dat regen door de splash heen zichtbaar is.
+De eenvoudige 73-byte-fixture dekt die kaartkosten niet. De volledige kaart had na ttfp
+maximale LoAF's van 360/375/289 ms; de bewaker is daar nog niet gehaald. Vroege gedeelde
+stijl/font-assets leverden op dezelfde kaart ttfr 3737 ms en ttfp 1861 ms op en zijn verworpen.
+Dit verandert geen mijlpaaldefinitie of baseline en bewijst geen winst op de koude PO-telefoon.
+
+Aanvulling op de meetgrens: native Resource Timing begint bij het aanroepen van `fetch`,
+Playwright meet de latere netwerk-start. Een fetch op 29993 ms kan dus pas na 30000 ms
+het netwerk op gaan. Beide bytebronnen selecteren nu dezelfde request op Playwright-netwerkstart,
+met native records chronologisch per URL gekoppeld vóór de grensselectie. Ongekoppelde native
+records binnen het venster blijven een bronbevinding; onbekende of onvolledige bodies blijven rood.
+De 2%-broncontrole, exact gelijke requestcounts, 5%-spreiding en 10%-regressiegrens veranderen niet.
+Het PO-nulpunt wordt hiervoor opnieuw op de oorspronkelijke productcode vastgelegd; de acht overige
+baselines krijgen daarna een expliciete contractmigratie met vergelijking tegen hun oude kosten.
+De raw-opname bewaart hiervoor ook alle `observedRequests` (vóór vensterselectie) en
+`selectedResourceTiming`. Daarmee kan een reviewer de koppeling en beide bytebronnen opnieuw
+berekenen, ook wanneer native fetch-start en netwerk-start aan verschillende kanten van de grens liggen.
+De rig gebruikt `--load-wait` ook tussen herhalingen en weigert een opname wanneer die wachttijd
+verloopt. Alleen startloadavg **<8** telt als rustig; een drukke opname mag geen baseline schrijven.
+Na integratie van U62/U66 wordt het definitieve PO-fixture-nulpunt op main `43b92d6`
+zonder U63-productcode gemeten. U62 zet Kaderhemel altijd aan en vraagt straling voor het
+scrubbervenster; deze gewijzigde startsituatie is de expliciete reden voor een nieuw nulpunt.
+De hierboven genoemde eigen-kaartreeks blijft gelabeld als vóór U62. Een apart main/U63-paar
+op de eigen kaart voorkomt dat main-wijzigingen als U63-winst worden gerapporteerd.

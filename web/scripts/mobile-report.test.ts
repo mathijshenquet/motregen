@@ -1,10 +1,23 @@
 import { describe, expect, it } from 'vitest'
-import { compareBaseline, completedBytesBefore, reconcileWire, repetitionSpread, requestsStartedWithin, resourceKind, smoothness, summarizePhases, type MobileBaseline, type WireRequest } from './mobile-report'
+import { compareBaseline, completedBytesBefore, reconcileWire, repetitionSpread, requestsStartedWithin, resourceKind, smoothness, summarizePhases, wireWindow, type MobileBaseline, type WireRequest } from './mobile-report'
 
 const baseline: MobileBaseline = { schema: 1, profile: 'mobile-4g', scenario: 'koud', sourceSha: 'abc', capturedAt: '2026-10-07', contractHash: 'fixed', regressionLimitPercent: 10, wireBytes: 1_000, decodes: 100 }
 const request: WireRequest = { url: '/data/chunks/rain.mrf', startMs: 10, endMs: 100, encodedBodyBytes: 1_000, range: 'bytes=0-999', status: 206, failure: null }
 
 describe('mobiele rapportage', () => {
+  it('selecteert dezelfde requests als native fetch-start vóór de netwerk-start op de grens ligt', () => {
+    const inside = { ...request, startMs: 29_980, endMs: 30_040 }
+    const outside = { ...request, startMs: 30_010, endMs: 30_050 }
+    const nativeInside = { ...inside, startMs: 29_960, encodedBodyBytes: 1_000 }
+    const nativeOutside = { ...outside, startMs: 29_993, encodedBodyBytes: 1_000 }
+    const selected = wireWindow([inside, outside], [nativeInside, nativeOutside], 30_000)
+    expect(selected).toEqual({ requests: [inside], timing: [nativeInside] })
+    expect(reconcileWire(selected.requests, selected.timing).findings).toEqual([])
+    const missing = wireWindow([inside], [nativeInside, nativeOutside], 30_000)
+    expect(reconcileWire(missing.requests, missing.timing).findings.length).toBeGreaterThan(0)
+    const missingBody = wireWindow([{ ...inside, encodedBodyBytes: null }], [nativeInside], 30_000)
+    expect(reconcileWire(missingBody.requests, missingBody.timing).findings).toContain('Onvolledige response: /data/chunks/rain.mrf (bodygrootte onbekend)')
+  })
   it('meet de hele body van een request dat binnen de meetduur begint en erna eindigt', () => {
     const crossing = { ...request, startMs: 29_990, endMs: 30_040, encodedBodyBytes: 1_000 }
     const selected = requestsStartedWithin([crossing, { ...request, startMs: 30_001 }, { ...request, startMs: -1 }], 30_000)

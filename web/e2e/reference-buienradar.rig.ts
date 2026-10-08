@@ -5,9 +5,9 @@ import { installReferenceProbe, type ReferenceEvent } from './reference-probe'
 import { hostLoadAverage, waitForQuietHost } from '../scripts/rig-host'
 import { referenceMilestones, renderReferenceReport, type ReferenceReport } from '../scripts/reference-report'
 
-interface RigOptions { profiles: string[]; repeat: number; cpuRate?: number }
+interface RigOptions { profiles: string[]; repeat: number; cpuRate?: number; loadWaitMinutes?: number }
 const options = JSON.parse(process.env.MOTREGEN_MOBILE_OPTIONS ?? '{"profiles":["mobile-4g"],"repeat":3,"cpuRate":4}') as RigOptions
-const QUIET_HOST_WAIT_MS = 15 * 60_000
+const QUIET_HOST_WAIT_MS = (options.loadWaitMinutes ?? 20) * 60_000
 const origin = 'https://www.buienradar.nl'
 const observeAfterFirstFrameMs = 15_000
 const selectors = { radarImage: 'img.leaflet-image-layer', mapContainer: '.leaflet-container', timeLabel: '[class*="time" i]' }
@@ -18,8 +18,11 @@ for (const profileId of options.profiles) {
       const calibrated = performanceProfile(profileId)
       const profile = { ...calibrated, cpuThrottleRate: options.cpuRate ?? calibrated.cpuThrottleRate }
       test.setTimeout(240_000 + QUIET_HOST_WAIT_MS)
-      await waitForQuietHost(QUIET_HOST_WAIT_MS, (message) => console.log(message))
+      if (process.env.MOTREGEN_PERF_LOCK_HELD !== '1' && !await waitForQuietHost(QUIET_HOST_WAIT_MS, (message) => console.log(message))) {
+        throw new Error(`Host blijft te druk (loadavg ${hostLoadAverage()}); geen meting`)
+      }
       const loadAverage = hostLoadAverage()
+      expect(loadAverage, 'startloadavg <8; nooit wachten onder de perf-lock').toBeLessThan(8)
       const events: ReferenceEvent[] = []
       const actions: ReferenceReport['actions'] = []
       await page.exposeFunction('__referenceEvent', (event: ReferenceEvent) => { events.push(event) })
