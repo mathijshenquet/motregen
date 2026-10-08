@@ -649,3 +649,24 @@ Master78793 SYNCHRONE exit0: gecorrigeerde event.tile-vrijgave, twaalf geldige A
 | Warm / kaartbucket vóór regendecode | 3370,1 | 3665,6 | 220 | 36513 | 204,9 / 0 |
 
 CPUvolgorde koopt ttfr1196ms koud/844ms warm en verlaagt latere LoAF, maar schuift ttfp1603/1332ms achteruit. Dit verplaatst opstartwerk naar vóór spelen en is geen gratis verbetering. De eerste regendecode wacht bewust mee: ongeschikt om de PO-goedgekeurde vroegere regen+grove-kaart te vervangen. Blijft geïsoleerde proef, niet op hoofdbranch. Temperatuurvoorwerk warmB3 en z4-na-spelen warm×3 lopen nog. Een tweede functionele Buienradar-cachevulling46038 gebruikt een vers diskprofiel plus de gecombineerde netwerk/UA-diagnose om oude-cache/stale-cookie als oorzaak te begrenzen; expliciet geen perf-opname of getal. Absolutequeue blijft zonder eerste opname buiten lock≤8 wachten; GitHubPR90 heeft geen gerapporteerde checks, dus alleen de genoemde lokale receipts zijn groen. Geen merge uitgevoerd. Preview4340 HTTP200/listenerPID1341343 opnieuw bevestigd.
+
+## 2026-10-08 16:18 UTC — twee proeven volledig; rustige absolute main-koud binnen
+
+Temperatuurmaster41099 en z4-na-spelenmaster79832 beide SYNCHRONE exit0 waargenomen; ieder twaalf geldige opnames. Onderstaande rijen po-android/quota40/GRID6/eigenU60, basiscd0d63e mét U62deel2/U67, gepaard≤16, mediaan×3. Temperatuurproef heeft directe z4 in A én B; spelenproef heeft A zonder z4 en B uitgesteld. Eigen controle per proef, geen dwarsvergelijking. Compact metingen/temperatuur-na-kaart-gepaard.json en z4-na-spelen-gepaard.json; alle wirebevindingen0, plaatsenlijst na ttfp.
+
+| Proef / cache / variant | ttfr ms | ttfp ms | Eerste kaart ms | LoAF ná ttfp max ms / >250ms |
+| --- | ---: | ---: | ---: | --- |
+| Temperatuur / koud / normaal | 4428,2 | 2239,5 | 2185,4 | 336,9 / 2 |
+| Temperatuur / koud / voorwerk na kaart | 4582,3 | 2519,4 | 2466,0 | 349,6 / 1 |
+| Temperatuur / warm / normaal | 4654,6 | 2679,5 | 2549,8 | 296,7 / 2 |
+| Temperatuur / warm / voorwerk na kaart | 4476,3 | 2463,8 | 2393,4 | 333,8 / 2 |
+| Z4 na spelen / koud / zonder z4 | 3925,8 | 1929,9 | 3925,6 | 266,5 / 2 |
+| Z4 na spelen / koud / uitgesteld | 4261,9 | 2040,6 | 4099,3 | 415,8 / 3 |
+| Z4 na spelen / warm / zonder z4 | 4173,2 | 2304,4 | 4173,1 | 335,7 / 1 |
+| Z4 na spelen / warm / uitgesteld | 4513,8 | 2181,4 | 4292,5 | 334,9 / 2 |
+
+Temperatuurvoorwerk koud+154ms ttfr/+280ms ttfp, warm−178/−216ms, LoAFmax beide slechter: geen consistente winst, c8f21ef blijft proef. Z4 na spelen koud+336/+111ms, warm+341/−123ms; kaartbeeld koud174ms en warm119ms later dan zonderz4. Worker/bucketwerk pas na spelen komt te laat voor de visuele eerste trap; koud ook langere LoAF.20edaf7 blijft proef, directe z4 blijft hoofdbranch. Beide gzipassets starten wel vroeg; in B1 eerstekaart4099ms nog motregen-map-start, volledigekaart4262ms. Geen neutralekostenclaim door alleen de trigger uit te stellen.
+
+Vers Buienradar-vulbezoek46038 SYNCHRONE exit0 (radar/consent correct, browser gesloten); daarop gecombineerde netwerk/UA-navigatie opnieuw ERR_HTTP2_PROTOCOL_ERROR vóór document. Aanvullende functionele HTTP-cache-uit-diagnose SYNCHRONE exit0 als diagnoseproces, navigatie óók dezelfde protocolfout. Dus lang verouderde cache en een gewone HTTP-cachehit zijn geen afdoende verklaringen; oorzaak niet vastgesteld. Geen HTTP2 uitgeschakeld, cookies niet aangepast, geen performancegetallen uit beide diagnoses. Warm×3-referentie blijft onbeschikbaar.
+
+Absolute main4038d55 koud×3 inmiddels binnen op≤8; eerste geldige startload7,35, eerste ttfr3823/ttfp1951ms. Mainwarm×3 loopt, daarna U63cd0d63e. Nog geen baseline uit één cachehelft; volledige koud/warm-bron wordt samen vastgelegd. Geen andere meet- of bouwjobs gestart tijdens dit rustige venster. Broninspectie MapLibre5.24 verklaart een afvallende hypothese: getWorkerCount standaard1 op Chrome, dus geen overtollige tweede MapLibre-worker om te schrappen. De vaste313a976-telefoonpreview blijft op4340 draaien.
