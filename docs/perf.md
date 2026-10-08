@@ -1388,3 +1388,16 @@ De eigen kaart krijgt eerst twee grove z4-tegels uit hetzelfde PMTiles-archief. 
 Dezelfde landcover-/water-/grenslagen geven licht en donker dezelfde kleuren, filters en opacity als de volledige kaart. Tijdgestuurde kaartkleuren worden ook op z4 toegepast. Zodra MapLibre de eerste echte tile-data meldt, verdwijnen de z4-lagen vóór de volgende render. Deze nul-ms wissel blijft binnen de PO-grens van300ms en vermijdt twee transparante landcoverlagen over elkaar.
 
 De eerdere inline-proef blijft als afzonderlijke historische reeks: po-android/eigen U60 op basis98ae6a6 vóór U62/U65, gepaard load≤16, koud én warm×3. Eerste kaartbeeld koud3767→2074ms en warm3746→2059ms; ttfr3816→4041 en3825→4351ms, ttfp1819→2141 en1942→2216ms. PO accepteert die productafweging; de losse uitvoering op actuele U62/U65-basis wordt opnieuw gepaard gemeten. Geen absolute≤8-baseline uit deze cijfers afleiden. Compact per-run bron: `.dev/tracks/u63-mobiel-ttfp-lus/metingen/placeholder-gepaard.json`.
+
+De losse uitvoering is op 2026-10-08 gepaard A/B om en om gemeten, po-android/quota40/GRID6, eigen U60, basis7a6b420 inclusief U62/U65, startload≤16 per run. Warm herstart de gehele browser met gevulde HTTP- en SW-diskcache. Medianen van drie opnames per variant/scenario:
+
+| Scenario / profiel / kaart | Variant | ttfr ms | ttfp ms | Eerste kaart ms | Netwerkbody bytes | Regen-decodes | LoAF na ttfp: max ms / aantal >250 ms |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| po-android koud, eigen U60 | Zonder z4 | 3963,5 | 1905,1 | 3963,3 | 5033334 | 220 | 364,9 / 2 |
+| po-android koud, eigen U60 | Losse z4 | 4288,8 | 2342,7 | 2308,1 | 5057646 | 220 | 288,9 / 3 |
+| po-android warm, eigen U60 | Zonder z4 | 4788,6 | 2098,1 | 4294,0 | 36513 | 220 | 340,2 / 3 |
+| po-android warm, eigen U60 | Losse z4 | 4534,2 | 2619,1 | 2556,2 | 36513 | 220 | 299,6 / 2 |
+
+Eerste kaartbeeld wint koud1655ms en warm1738ms; ttfp kost438/521ms. Het volledige-kaartvereiste van ttfr blijft gelijk: koud325ms later, warm254ms eerder. Deze uitvoering haalt de eerdere100ms-lat voor ttfp niet; PO accepteert de resterende straf. Warme ttfp/ttfr blijven boven koud, dus de warmelat is niet gehaald. LoAF na ttfp is geen opgelost probleem: er blijven frames van ongeveer300ms. De plaatsenlijst begint in alle twaalf opnames pas na ttfp; er zijn geen wirebevindingen. Beide z4-gzipdecodes gebeuren buiten de hoofddraad. Warm heeft nul kaartnetwerkbytes; de36513 bytes zijn het sessiemanifest. Dit zijn gepaarde cijfers en vervangen de absolute≤8-baselines niet.
+
+Compacte bron met load, cache, scenario, bundelURL en tijden per opname: `.dev/tracks/u63-mobiel-ttfp-lus/metingen/z4-los-gepaard.json`. Vier390px-toestandsbeelden licht/donker staan daarnaast als `z4-{light,dark}-{placeholder,echt}-390.png`; die netwerkgestuurde beeldcontrole is geen timingmeting.
