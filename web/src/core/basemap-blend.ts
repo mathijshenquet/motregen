@@ -19,7 +19,16 @@ export function nightShare(sinElevation: number): number {
   return 1 - twilight * twilight * (3 - 2 * twilight)
 }
 
-/** Paint-eigenschappen die tussen de lichte en de donkere stijl verschillen. */
+/**
+ * De stand van de kaart bij een aandeel nacht: dag (0) of nacht (1), omslag halverwege de schemering.
+ * Eén stap, geen tussenstanden (PO 2026-10-08: "in één stap i.p.v. 4"); MapLibre's eigen overgang per
+ * eigenschap maakt de omslag zacht.
+ */
+export function mapNightStep(share: number): 0 | 1 {
+  return share >= 0.5 ? 1 : 0
+}
+
+/** Paint-eigenschappen die tussen de lichte en de donkere stijl verschillen (`undefined` = staat niet in die stijl). */
 export function basemapBlendTargets(light: StyleSpecification, dark: StyleSpecification): BlendTarget[] {
   const darkLayers = new Map(dark.layers.map((layer) => [layer.id, layer]))
   const targets: BlendTarget[] = []
@@ -28,8 +37,10 @@ export function basemapBlendTargets(light: StyleSpecification, dark: StyleSpecif
     const darkLayer = darkLayers.get(layer.id)
     const darkPaint = (darkLayer && 'paint' in darkLayer ? darkLayer.paint : undefined) as Record<string, unknown> | undefined
     if (!lightPaint || !darkPaint) continue
-    for (const property of Object.keys(lightPaint)) {
-      if (!(property in darkPaint) || JSON.stringify(lightPaint[property]) === JSON.stringify(darkPaint[property])) continue
+    // Ook wat maar in één stijl staat: de donkere stijl geeft water een eigen randkleur. Bleef die staan op een
+    // kaart die naar dag was gemengd, dan tekende elke waterrand en elke tegelgrens een donkere lijn (PO 2026-10-08).
+    for (const property of new Set([...Object.keys(lightPaint), ...Object.keys(darkPaint)])) {
+      if (JSON.stringify(lightPaint[property]) === JSON.stringify(darkPaint[property])) continue
       targets.push({ layer: layer.id, property, light: lightPaint[property], dark: darkPaint[property] })
     }
   }
@@ -45,6 +56,8 @@ const LABEL_PROPERTIES = new Set(['text-color', 'text-halo-color'])
  */
 export function blendedPaintValue(target: BlendTarget, night: number): unknown {
   if (LABEL_PROPERTIES.has(target.property)) return night < 0.5 ? target.light : target.dark
+  // Ontbreekt de eigenschap in één stijl, dan is er niets te mengen: `undefined` zet de standaard van MapLibre terug.
+  if (target.light === undefined || target.dark === undefined) return night < 0.5 ? target.light : target.dark
   return mixPaint(target.light, target.dark, Math.max(0, Math.min(1, night)))
 }
 

@@ -771,21 +771,26 @@ button.column-mode { width: 100%; cursor: pointer; }
 .rain-amount { color: var(--accent); font-size: 11px; font-weight: 720; line-height: 1.1; }
 .rain-amount small { font-size: 8.5px; font-weight: 600; }
 .time-label span { color: var(--muted); font-size: 10px; text-transform: capitalize; }
-.forecast-table.day-night-table tr.night-hour { --surface: #0a1820; --surface-soft: #112832; --text: #edf8fc; --muted: #91aab5; --line: var(--line-on-dark); --line-strong: var(--line-strong-on-dark); --accent: #48c4e9; --accent-soft: #123b49; color: var(--text); }
+.forecast-table.day-night-table tr.night-hour { --surface: #0a1820; --surface-soft: #112832; --text: #edf8fc; --muted: #91aab5; --row-ground: var(--surface); --line-strong: var(--line-strong-on-dark); --accent: #48c4e9; --accent-soft: #123b49; color: var(--text); }
 .forecast-table.day-night-table tr.night-hour td { background: var(--surface); }
 .forecast-table.day-night-table tr.night-hour .weather-icon .weather-cloud { fill: #607780; stroke: #adc2ca; }
 .forecast-table.day-night-table tr.night-hour .weather-moon { fill: #cbddeb; }
 .forecast-table.day-night-table tr.night-hour .moon-night-core { stop-color: #2c3a41; }
 .forecast-table.day-night-table tr.night-hour .moon-night-edge { stop-color: #1b262c; }
 .forecast-table.day-night-table tr.night-hour .moon-earthshine { opacity: .25; }
-:root[data-theme="dark"] .forecast-table.day-night-table tr.day-hour { --surface: #fff; --surface-soft: #f2f7f8; --text: #102630; --muted: #637b85; --line: var(--line-on-light); --line-strong: var(--line-strong-on-light); --accent: #1688ad; --accent-soft: #d9f1f8; color: var(--text); }
+:root[data-theme="dark"] .forecast-table.day-night-table tr.day-hour { --surface: #fff; --surface-soft: #f2f7f8; --text: #102630; --muted: #637b85; --line-strong: var(--line-strong-on-light); --accent: #1688ad; --accent-soft: #d9f1f8; color: var(--text); }
 .forecast-table.day-night-table tr.day-hour {
   --day-sky-start: color-mix(in oklab, color-mix(in oklab, var(--table-day-dull) calc(var(--day-overcast) * 74%), var(--table-day-bright)) 44%, var(--surface));
   --day-sky-end: color-mix(in oklab, color-mix(in oklab, var(--table-day-dull) calc(var(--day-overcast-next) * 74%), var(--table-day-bright)) 44%, var(--surface));
   background:
     radial-gradient(ellipse 82% 95% at 76% 115%, color-mix(in srgb, #fff8df 12%, transparent), transparent 72%),
     linear-gradient(180deg, var(--day-sky-start), var(--day-sky-end));
+  --row-ground: var(--day-sky-end);
 }
+/* De rijlijn is de inkt van de rij, voor een vast aandeel gemengd met de kleur waar hij werkelijk op ligt
+   (heldere dag, betrokken dag, nacht): overal hetzelfde contrast, 1,25–1,26 (rig/row-line-contrast.ts).
+   Per dag/nacht-klasse een vaste dekking oogde in de ene toestand zwaarder dan in de andere (PO 2026-10-08). */
+.forecast-table.day-night-table tbody tr:is(.day-hour, .night-hour) { --line: color-mix(in oklab, var(--text) 11%, var(--row-ground)); }
 .forecast-table.day-night-table tr.day-hour td { background: transparent; }
 /* De koppenrij (modusbalk) neemt de hemel van het cursoruur aan (U62); de inkt is donkerder dan in de
    rijen omdat de kleine kopletters anders onder 4,5:1 zakken. */
@@ -972,18 +977,6 @@ td small { color: var(--muted); font-size: 9px; }
 
 /* Desktop met muis: de scrubber blijft staan en alleen de tabel scrolt, zodat hij op de nu-rij kan openen
    met de historie erboven. Touch houdt de doorlopende pagina (sticky scrubber) en de uitklaprij. */
-/* Tijdelijke proef achter ?dev (U62): scheiding tussen kaart en zijpaneel. Zonder klasse geldt de oude stand
-   (border-left + lichte schaduw op .dashboard); elke proefstand haalt die weg en zet er hooguit één ding voor
-   terug. De waarden staan als variabelen op .app-shell, zodat ze in devtools te verstellen zijn; 's nachts
-   (hemel van het cursoruur) eigen waarden. */
-@media (min-width: 960px) {
-  .app-shell { --edge-line-color: var(--line-on-light); --edge-shadow: -18px 0 34px -20px rgba(6, 20, 28, .38); }
-  .app-shell:has(.map-shell.sky-night) { --edge-line-color: var(--line-on-dark); --edge-shadow: -20px 0 36px -18px rgba(0, 0, 0, .6); }
-  .app-shell:is(.edge-none, .edge-line, .edge-shadow) .dashboard { border-left: none; box-shadow: none; }
-  .app-shell.edge-line .dashboard { box-shadow: -1px 0 0 var(--edge-line-color); }
-  .app-shell.edge-shadow .dashboard { box-shadow: var(--edge-shadow); }
-}
-
 @media (min-width: 960px) and (pointer: fine) {
   .dashboard { display: flex; flex-direction: column; overflow: hidden; }
   .dashboard > * { flex: none; }

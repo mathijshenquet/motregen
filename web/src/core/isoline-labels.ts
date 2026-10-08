@@ -50,10 +50,22 @@ export class IsolineLabels {
   constructor(
     private readonly map: MapLibreMap,
     private readonly grid: Grid,
-    private readonly theme: MapTheme,
+    private theme: MapTheme,
     private readonly reducedMotion: () => boolean,
     private readonly kind: IsolineKind = 'temperature',
   ) {}
+
+  /** De kaart eronder is van licht naar donker gegaan (of terug): bestaande labels kleuren mee. */
+  setTheme(theme: MapTheme): void {
+    if (theme === this.theme) return
+    const previous = this.theme
+    this.theme = theme
+    for (const anchor of this.anchors) {
+      const element = anchor.marker.getElement()
+      element.classList.replace(`isoline-label-${previous}`, `isoline-label-${theme}`)
+      element.style.color = isolineColor(theme, this.kind)
+    }
+  }
 
   get count(): number {
     return this.anchors.filter((anchor) => !anchor.dying).length
