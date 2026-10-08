@@ -636,3 +636,16 @@ Koude tussentabel, elk mediaan×3 op po-android/quota40/GRID6/eigenU60, load≤1
 Temperatuurvoorwerk levert koud geen winst; kaart-eerst wint ttfr1196ms maar kost ttfp1603ms. Deze bronnen hebben verschillende productbasissen; geen vergelijking dwars door de tabel. Wirebevindingen in alle koude runs0; loadspreiding staat expliciet naast de getallen.
 
 De oorspronkelijke na-regendraw-branch82b955b blijft bewaard. Zelfde eigen worktree hergebruikt voor nieuwe branch track/u63-placeholder-spelen-proef20edaf7 op cd0d63e: fetch beide cachebare gzipassets vroeg, workerconstructie/decode/vectorbucket/paint pas vrij na markRainFrameCommitted de eerste werkelijk spelende framewissel meldt; gepauzeerde start vrij bij eerste regencommit. Echte tegel eerder klaar = resterend z4-werk stoppen. Tijdelijke ?dev/VITE_MAP_START=after-play, eigenaar/vervaldatum in proefspecificatie. Typecheck/commit/push37012 SYNCHRONE exit0. Afzonderlijke A=zonderz4/B=after-play koude+warme×3, master79832 op4493/8493, per-run slot vóór flock en load≤16. Doel: eerdere kaart met hooguit100ms ttfp-straf; huidig PO-geaccepteerde directe z4 staat op hoofdbranch totdat de volledige proef wint. Absolutequeue10536 blijft buiten lock wachten≤8.
+
+## 2026-10-08 15:56 UTC — kaart-eerst koud én warm voltooid
+
+Master78793 SYNCHRONE exit0: gecorrigeerde event.tile-vrijgave, twaalf geldige A/B-opnames. Oud foutief content-guard/failsafe-archief blijft uitgesloten. Alle rijen po-android/quota40/GRID6/eigenU60, c682bb6+9fa317e vóór U62deel2, geen z4; gepaard≤16, medianen×3. Warm nieuw volledig browserproces met gevulde HTTP+SW-diskcache. Compact metingen/kaart-voor-regen-gepaard.json bevat per-run loads/bundelURLs/wire;0wirebevindingen en plaatsen uitsluitend na ttfp.
+
+| Cache / variant | ttfr ms | ttfp ms | Regen-decodes | Body bytes | LoAF ná ttfp max ms / >250ms |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Koud / parallel | 5069,0 | 2612,8 | 220 | 5032570 | 315,0 / 2 |
+| Koud / kaartbucket vóór regendecode | 3872,8 | 4215,3 | 220 | 5027631 | 245,4 / 0 |
+| Warm / parallel | 4214,3 | 2333,4 | 220 | 36513 | 274,7 / 2 |
+| Warm / kaartbucket vóór regendecode | 3370,1 | 3665,6 | 220 | 36513 | 204,9 / 0 |
+
+CPUvolgorde koopt ttfr1196ms koud/844ms warm en verlaagt latere LoAF, maar schuift ttfp1603/1332ms achteruit. Dit verplaatst opstartwerk naar vóór spelen en is geen gratis verbetering. De eerste regendecode wacht bewust mee: ongeschikt om de PO-goedgekeurde vroegere regen+grove-kaart te vervangen. Blijft geïsoleerde proef, niet op hoofdbranch. Temperatuurvoorwerk warmB3 en z4-na-spelen warm×3 lopen nog. Een tweede functionele Buienradar-cachevulling46038 gebruikt een vers diskprofiel plus de gecombineerde netwerk/UA-diagnose om oude-cache/stale-cookie als oorzaak te begrenzen; expliciet geen perf-opname of getal. Absolutequeue blijft zonder eerste opname buiten lock≤8 wachten; GitHubPR90 heeft geen gerapporteerde checks, dus alleen de genoemde lokale receipts zijn groen. Geen merge uitgevoerd. Preview4340 HTTP200/listenerPID1341343 opnieuw bevestigd.
