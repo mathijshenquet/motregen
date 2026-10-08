@@ -179,6 +179,15 @@
   toch agent_started); codex-keuzevragen beantwoorden via `send-keys shift+left`/enter.
 - **Open MET PO**: akkoord U62 stap 2/3 op 4320; Buienradar op de telefoon meten; prod-secrets voor de bot
   (dan lokale bot stoppen); MIP-19/20/21/23 adoptie.
+- **Late ochtend**: U66 gemerged (32b82bad): alle Telegram-loops op één 5-minutenklok (−2…+12 u,
+  169 frames, 10 fps), generatie 35 → 64 s binnen budget; bot herstart vanaf main. U65 (volledige
+  plaatsenlijst uit de basiskaart-pijplijn + pad-URL respecteert de pin in dezelfde zone) loopt.
+  U62: koppenrij volgt de bovenste zichtbare tabelrij (PO), Kaderhemel vast aan (PO: "veel beter"),
+  dag/nacht-kaarttween als ?dev-experiment (MIP-24 draft: thema Licht/Donker/Automatisch); laatste
+  gate-punt: freshness.spec mobile-4g. U63: hoofdlijn nu de eigen-kaartreeks (koud ttfr 3,6 s / ttfp
+  1,65 s op po-android; de 1,2 s-reeks was de fixture-stijl); waterval in uitvoering; U64: Lighthouse 68
+  = TBT 728 ms + Speed Index 2,7 s, FCP/LCP/CLS 100; placeholder-proeven: SVG afgekeurd, z4-tegel
+  achter vlag (U63 meet mobiel). Perf-lock `~/motregen-perf.lock` host-breed.
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
