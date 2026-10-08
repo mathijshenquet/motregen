@@ -33,6 +33,8 @@ interface Props {
   columns: { weather: boolean; air: boolean; temperature: boolean; wind: boolean }
   windUnit: WindUnit
   dayNight?: boolean
+  /** Meldt de hemel van de koppenrij, zodat het paneel eromheen dezelfde kleur kan voeren (U62). */
+  onHeadSky?: (sky: HourSky | undefined) => void
   // Rows after this epoch have not been fetched yet; scrolling near them asks for them.
   loadedUntil: number
   // Desktop (inline) keeps history above now; portrait mobile reveals it when table mode opens.
@@ -175,6 +177,7 @@ export default function ForecastTable(props: Props) {
     rowSkiesVersion()
     return rowSkies.get(epoch)?.()
   }, undefined, { equals: sameFields })
+  createEffect(() => props.onHeadSky?.(headSky()))
   const observer = typeof IntersectionObserver === 'undefined' ? undefined : new IntersectionObserver((entries) => {
     if (entries.some((entry) => entry.isIntersecting)) props.onNeedRows()
   }, { rootMargin: '0px 0px 320px 0px' })

@@ -466,6 +466,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // eenheid de browser bedoelt (PO 2026-10-08: strook scrubber boven de open tabel).
   const [tablePanelShortfall, setTablePanelShortfall] = createSignal(0)
   let tablePullsSinceGesture = 0
+  // Dag of nacht van de koppenrij: de vangnetstrook boven het open tabelpaneel voert dezelfde kleur.
+  const [tableHeadSky, setTableHeadSky] = createSignal<HourSky>()
   let lastViewportHeight = window.visualViewport?.height ?? window.innerHeight
   const [viewportDiagnose, setViewportDiagnose] = createSignal(devMode && localStorage.getItem(VIEWPORT_DIAGNOSE_STORAGE_KEY) === 'aan')
   function applyTableScrollOpen(open: boolean): void {
@@ -3335,6 +3337,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           ref={forecastPanelElement}
           id="forecast-table-view"
           class="forecast-panel"
+          classList={{ 'head-day': tableHeadSky()?.daylight === true, 'head-night': tableHeadSky()?.daylight === false }}
           onClick={openTableFromPeek}
         >
           <div class="table-scroll">
@@ -3348,6 +3351,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
               location={location()}
               windUnit={windUnit()}
               dayNight={expressive()}
+              onHeadSky={setTableHeadSky}
               onVisibleRows={inViewOnly ? (epochs) => setPeekRows(new Set(epochs)) : undefined}
               columns={{ weather: hasWeatherIcons(), air: hasWeatherIcons() || uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), wind: hasWind() }}
               loadedUntil={pointLoadStage() === 'complete' ? Number.POSITIVE_INFINITY : manifestNow() + PASSIVE_FORECAST_HOURS * 3_600_000}

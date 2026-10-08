@@ -36,6 +36,7 @@ export default function ViewportDiagnose(props: Props) {
       ['scrollHeight', px(scroller.scrollHeight)],
       ['snappunt tabel (offsetTop)', px(panel ? panel.getBoundingClientRect().top + scroller.scrollTop : undefined)],
       ['paneel top / hoogte', `${px(panelBounds?.top)} / ${px(panelBounds?.height)}`],
+      ['paneel top op het scherm', px(panelBounds && visual ? panelBounds.top - visual.offsetTop : panelBounds?.top)],
       ['scrubber top / onder', `${px(scrubberBounds?.top)} / ${px(scrubberBounds?.bottom)}`],
       ['tekort paneel', `${px(props.shortfallPx())}`],
       ['tabel', [shell?.classList.contains('table-view-open') ? 'open' : 'dicht', shell?.classList.contains('table-scroll-open') ? 'scrolt' : 'vast'].join(', ')],
