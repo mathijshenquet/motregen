@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync, rmSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
+import { resolve } from 'node:path'
 import { compactBaseline, compareBaseline, repetitionSpread, type MobileReport, type MobileBaseline } from './mobile-report'
 import { median, type ReferenceReport } from './reference-report'
 import { performanceProfile } from '../e2e/profiles'
@@ -7,6 +8,8 @@ import { MAX_LOAD_AVERAGE, hostLoadAverage, rigBuild, rigPorts, waitForQuietHost
 
 // Geen scenario op onze fixture maar dezelfde meting op de site van de concurrent, over het echte netwerk.
 const REFERENCE_SCENARIO = 'referentie-buienradar'
+const WARM_REFERENCE_SCENARIO = 'referentie-buienradar-warm'
+function referenceScenario(scenario: string) { return scenario === REFERENCE_SCENARIO || scenario === WARM_REFERENCE_SCENARIO }
 
 const args = process.argv.slice(2)
 // Zonder --cpu-rate geldt de page-throttle van het profiel zelf.
@@ -32,15 +35,14 @@ for (let index = 0; index < args.length; index++) {
 }
 if (options.baseline && options.compare) throw new Error('--baseline en --compare sluiten elkaar uit')
 if (options.requestOrderOnly && (options.baseline || options.compare)) throw new Error('--request-order controleert alleen de aanvraagvolgorde en kan geen performancebaseline zetten of vergelijken')
-if (options.baseline && options.basemap === 'own') throw new Error('Meet het basemap-nulpunt met --basemap openfreemap; --basemap own gebruikt --compare')
 if (!Number.isInteger(options.repeat) || options.repeat < 1 || options.repeat > 10) throw new Error('--repeat moet 1…10 zijn')
 if (options.cpuRate !== undefined && (!Number.isFinite(options.cpuRate) || options.cpuRate < 1 || options.cpuRate > 32)) throw new Error('--cpu-rate moet 1…32 zijn')
 if (options.baseline && options.repeat < 3) throw new Error('--baseline vereist --repeat 3 (of meer) om determinisme te verifiëren')
 const scenarios = JSON.parse(readFileSync('perf/scenarios.json', 'utf8')) as Record<string, unknown>
 if (options.profiles.some((profile) => !['desktop', 'mobile-4g', 'mobile-fast-3g', 'po-android'].includes(profile))) throw new Error('Onbekend profiel')
 if (!['fixture', 'openfreemap', 'own'].includes(options.basemap)) throw new Error('Onbekende basemap')
-if (options.scenarios.some((scenario) => scenario !== REFERENCE_SCENARIO && !(scenario in scenarios))) throw new Error('Onbekend scenario')
-if (options.requestOrderOnly && options.scenarios.includes(REFERENCE_SCENARIO)) throw new Error('--request-order is alleen voor de eigen fixture, niet voor de referentiebenchmark')
+if (options.scenarios.some((scenario) => !referenceScenario(scenario) && !(scenario in scenarios))) throw new Error('Onbekend scenario')
+if (options.requestOrderOnly && options.scenarios.some(referenceScenario)) throw new Error('--request-order is alleen voor de eigen fixture, niet voor de referentiebenchmark')
 
 const ports = process.env.MOTREGEN_E2E_PORT && process.env.MOTREGEN_E2E_DATA_PORT
   ? { port: Number(process.env.MOTREGEN_E2E_PORT), dataPort: Number(process.env.MOTREGEN_E2E_DATA_PORT) }
@@ -61,7 +63,7 @@ if (existsSync('tmp/perf-mobile')) {
 }
 // Eerst bouwen, dan pas wachten op een rustige host: zo meet de run de werkboom van het moment
 // van de aanroep, ook als er tijdens het wachten verder wordt gewerkt.
-if (!options.scenarios.includes(REFERENCE_SCENARIO)) {
+if (!options.scenarios.some(referenceScenario)) {
   const commands = rigBuild(ports.port, ports.dataPort, options.basemap)
   rigEnvironment.MOTREGEN_MOBILE_FIXTURE_DIR = commands.fixtureDir
   rigEnvironment.MOTREGEN_RIG_DIST = commands.distDir
@@ -93,6 +95,20 @@ async function runMeasurements(config: string): Promise<number> {
   for (const profile of options.profiles) {
     for (const scenario of options.scenarios) {
       for (let repetition = 1; repetition <= options.repeat; repetition++) {
+        rigEnvironment.MOTREGEN_RIG_ACTIVE_PROFILE = profile
+        const warm = scenario.startsWith('warm-') || scenario === WARM_REFERENCE_SCENARIO
+        if (warm) {
+          const profileDirectory = resolve(`tmp/perf-mobile/cache-${profile}-${scenario}-run${repetition}`)
+          rmSync(profileDirectory, { recursive: true, force: true })
+          mkdirSync(profileDirectory, { recursive: true })
+          rigEnvironment.MOTREGEN_RIG_WARM_PROFILE = profileDirectory
+          const exactTitle = `${profile} / ${scenario} / run ${repetition}`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          console.log(`Cachevoorbereiding ${profile}/${scenario}/run${repetition}; geen perf-opname, buiten hostlock`)
+          const seed = spawnSync('bash', ['scripts/e2e-slot.sh', 'pnpm', 'exec', 'playwright', 'test', '--config', config, '--project', 'desktop', '--grep', `${exactTitle}$`], {
+            stdio: 'inherit', env: { ...rigEnvironment, MOTREGEN_RIG_WARM_SEED: '1' },
+          })
+          if (seed.status !== 0) return seed.status ?? 1
+        } else delete rigEnvironment.MOTREGEN_RIG_WARM_PROFILE
         const status = await runMeasurement(config, `${profile} / ${scenario} / run ${repetition}`)
         if (status !== 0) return status
       }
@@ -103,20 +119,22 @@ async function runMeasurements(config: string): Promise<number> {
 console.log(`Rig: loadavg ${hostLoadAverage()}, poorten ${ports.port}/${ports.dataPort}`)
 if (options.requestOrderOnly) console.log('Alleen aanvraagvolgorde: hostdrukte toegestaan, tijden zijn geen performancebaseline')
 
-if (options.scenarios.includes(REFERENCE_SCENARIO)) {
-  if (options.scenarios.length > 1 || options.baseline || options.compare) throw new Error(`${REFERENCE_SCENARIO} draait los, zonder baseline of vergelijking`)
+if (options.scenarios.some(referenceScenario)) {
+  if (!options.scenarios.every(referenceScenario) || options.baseline || options.compare) throw new Error(`${REFERENCE_SCENARIO} draait los van eigen scenario's, zonder baseline of vergelijking`)
   const referenceStatus = await runMeasurements('playwright.reference.config.ts')
   const rows = ['| profiel | ttfp-ref per run | mediaan | eerste radarbeeld (mediaan) | loadavg per run | weggegooid (load) |', '| --- | ---: | ---: | ---: | ---: | ---: |']
   for (const profile of options.profiles) {
+    for (const scenario of options.scenarios) {
     const reports: ReferenceReport[] = []
     for (let repetition = 1; repetition <= options.repeat; repetition++) {
-      const path = `tmp/perf-mobile/${profile}-${REFERENCE_SCENARIO}-run${repetition}.json`
+      const path = `tmp/perf-mobile/${profile}-${scenario}-run${repetition}.json`
       if (existsSync(path)) reports.push(JSON.parse(readFileSync(path, 'utf8')))
     }
     const quiet = reports.filter((report) => report.meta.loadAverage < MAX_LOAD_AVERAGE)
     const playTimes = quiet.flatMap((report) => report.milestones.ttfpRefMs ?? [])
     const radarTimes = quiet.flatMap((report) => report.milestones.firstRadarMs ?? [])
-    rows.push(`| ${profile} | ${playTimes.join(' / ') || 'geen'} ms | ${median(playTimes) ?? '—'} ms | ${median(radarTimes) ?? '—'} ms | ${reports.map((report) => report.meta.loadAverage).join(' / ')} | ${reports.length - quiet.length} |`)
+    rows.push(`| ${profile}/${scenario} | ${playTimes.join(' / ') || 'geen'} ms | ${median(playTimes) ?? '—'} ms | ${median(radarTimes) ?? '—'} ms | ${reports.map((report) => report.meta.loadAverage).join(' / ')} | ${reports.length - quiet.length} |`)
+    }
   }
   const referenceSummary = `${rows.join('\n')}\n`
   writeFileSync('tmp/perf-mobile/reference-summary.md', referenceSummary)
@@ -136,7 +154,7 @@ if (options.requestOrderOnly) {
 }
 
 let failed = false
-const summary: string[] = ['| profiel | scenario | decodes | bodybytes | spreiding decodes / bytes | ttfp | ttfr | ttfh | blank-visible | LoAF 12 s | loadavg | weggegooid (load) |', '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |']
+const summary: string[] = ['| profiel | scenario | ttfr | ttfp | decodes | bodybytes | spreiding decodes / bytes | ttfh | blank-visible | LoAF 12 s | loadavg | weggegooid (load) |', '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |']
 for (const profile of options.profiles) {
   for (const scenario of options.scenarios) {
     const reports: MobileReport[] = []
@@ -148,13 +166,13 @@ for (const profile of options.profiles) {
     const decodeSpread = repetitionSpread(baselines.map((report) => report.decodes))
     const stable = bytesSpread < 5 && decodeSpread < 5
     const valid = reports.every((report) => report.meta.loadAverage < MAX_LOAD_AVERAGE && report.wire.findings.length === 0 && report.milestones.ttfrMs !== null && report.milestones.ttfhMs !== null)
-    summary.push(`| ${profile} | ${scenario} | ${baselines.map((report) => report.decodes).join(' / ')} | ${baselines.map((report) => report.wireBytes).join(' / ')} | ${decodeSpread.toFixed(3)} / ${bytesSpread.toFixed(3)} % | ${perRun(reports, (report) => report.milestones.ttfpMs)} | ${perRun(reports, (report) => report.milestones.ttfrMs)} | ${perRun(reports, (report) => report.milestones.ttfhMs)} | ${perRun(reports, (report) => report.milestones.blankVisibleMs)} | ${perRun(reports, (report) => report.longFrames.first12s.totalMs)} | ${reports.map((report) => report.meta.loadAverage).join(' / ')} | ${reports.filter((report) => report.meta.loadAverage >= MAX_LOAD_AVERAGE).length} |`)
+    summary.push(`| ${profile} | ${scenario} | ${perRun(reports, (report) => report.milestones.ttfrMs)} | ${perRun(reports, (report) => report.milestones.ttfpMs)} | ${baselines.map((report) => report.decodes).join(' / ')} | ${baselines.map((report) => report.wireBytes).join(' / ')} | ${decodeSpread.toFixed(3)} / ${bytesSpread.toFixed(3)} % | ${perRun(reports, (report) => report.milestones.ttfhMs)} | ${perRun(reports, (report) => report.milestones.blankVisibleMs)} | ${perRun(reports, (report) => report.longFrames.first12s.totalMs)} | ${reports.map((report) => report.meta.loadAverage).join(' / ')} | ${reports.filter((report) => report.meta.loadAverage >= MAX_LOAD_AVERAGE).length} |`)
     if (!stable || !valid) {
       console.error(`${profile}/${scenario}: ${stable ? 'meetbron onvolledig' : 'spreiding ≥5 %'}; baseline wordt niet geschreven`)
       failed = true
       continue
     }
-    const baselinePath = `perf/baselines/${profile}-${scenario}${options.basemap === 'fixture' ? '' : '-openfreemap'}.json`
+    const baselinePath = `perf/baselines/${profile}-${scenario}${options.basemap === 'fixture' ? '' : `-${options.basemap}`}.json`
     if (options.baseline) {
       mkdirSync('perf/baselines', { recursive: true })
       const medianBytes = [...baselines].sort((left, right) => left.wireBytes - right.wireBytes)[Math.floor(baselines.length / 2)]!

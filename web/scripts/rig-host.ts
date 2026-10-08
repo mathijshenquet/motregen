@@ -16,7 +16,8 @@ export const MAX_LOAD_AVERAGE = 8
 export function rigBuild(port: number, dataPort: number, basemap: string) {
   const fixtureDir = `tmp/perf-mobile/fixture-${dataPort}`
   const distDir = `tmp/perf-mobile/dist-${port}`
-  const styleOverride = `VITE_BASEMAP_STYLE_URL=http://127.0.0.1:${dataPort}/${basemap === 'fixture' ? 'style' : 'style-{theme}'}.json`
+  // De eigen kaart gebruikt productie-URL's, zodat de SW-precache en rangecache ook echt gelden.
+  const styleOverride = basemap === 'own' ? '' : `VITE_BASEMAP_STYLE_URL=http://127.0.0.1:${dataPort}/${basemap === 'fixture' ? 'style' : 'style-{theme}'}.json`
   return {
     fixtureDir,
     distDir,

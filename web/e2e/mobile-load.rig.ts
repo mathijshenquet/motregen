@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { expect, test, type Page, type Request } from '@playwright/test'
+import { expect, type Page, type Request, type BrowserContext } from '@playwright/test'
+import { test, warmingCache, warmVisit, installSeedWorker, completeCacheSeed, seedEvidence, cacheInventory, workerNetwork } from './rig-cache'
 import { applyEmulation, performanceProfile } from './profiles'
 import { installMobileProbe } from './mobile-probe'
 import { buildChromeTrace, type SelfProfilerTrace } from '../src/core/profile-recorder'
@@ -23,7 +24,7 @@ interface ScenarioStep {
   playing?: boolean
   mode?: 'Weer' | 'Lucht' | 'Gevoel' | 'Wind'
 }
-interface Scenario { durationMs: number; description: string; steps: ScenarioStep[]; autoplay?: boolean; devStorage?: Record<string, string>; windows?: SmoothnessWindow[]; requireFilledTemperature?: boolean }
+interface Scenario { durationMs: number; description: string; steps: ScenarioStep[]; autoplay?: boolean; cache?: 'warm'; devStorage?: Record<string, string>; windows?: SmoothnessWindow[]; requireFilledTemperature?: boolean }
 interface RigOptions { profiles: string[]; scenarios: string[]; repeat: number; cpuRate?: number; basemap?: string; loadWaitMinutes?: number; requestOrderOnly?: boolean }
 const options = JSON.parse(process.env.MOTREGEN_MOBILE_OPTIONS ?? '{"profiles":["mobile-4g"],"scenarios":["koud"],"repeat":1,"cpuRate":4}') as RigOptions
 const scenarios = JSON.parse(readFileSync('perf/scenarios.json', 'utf8')) as Record<string, Scenario>
@@ -39,12 +40,13 @@ for (const profileId of options.profiles) {
       test(`${profileId} / ${scenarioId} / run ${repetition}`, async ({ page, context, baseURL }) => {
         const scenario = scenarios[scenarioId]!
         // Ook tussen de herhalingen kan de host druk worden; een run die druk begint is weggegooid werk.
-        test.setTimeout(60_000 + QUIET_HOST_WAIT_MS)
-        if (!options.requestOrderOnly && process.env.MOTREGEN_PERF_LOCK_HELD !== '1' && !await waitForQuietHost(QUIET_HOST_WAIT_MS, (message) => console.log(message))) {
+        test.setTimeout(120_000 + QUIET_HOST_WAIT_MS)
+        if (!warmingCache && !options.requestOrderOnly && process.env.MOTREGEN_PERF_LOCK_HELD !== '1' && !await waitForQuietHost(QUIET_HOST_WAIT_MS, (message) => console.log(message))) {
           throw new Error(`Host blijft te druk (loadavg ${hostLoadAverage()}); geen meting`)
         }
         const loadAverage = hostLoadAverage()
-        if (!options.requestOrderOnly) expect(loadAverage, 'startloadavg <8; nooit wachten onder de perf-lock').toBeLessThan(8)
+        if (!warmingCache && !options.requestOrderOnly) expect(loadAverage, 'startloadavg <8; nooit wachten onder de perf-lock').toBeLessThan(8)
+        if (scenario.cache === 'warm') expect(process.env.MOTREGEN_RIG_WARM_PROFILE, 'warm vereist een gevuld diskprofiel').toBeTruthy()
         if (profileId === 'desktop') await page.setViewportSize({ width: 1280, height: 800 })
         const calibrated = performanceProfile(profileId)
         const profile = { ...calibrated, cpuThrottleRate: profileId === 'desktop' ? 1 : options.cpuRate ?? calibrated.cpuThrottleRate }
@@ -58,18 +60,21 @@ for (const profileId of options.profiles) {
         page.on('response', (response) => { if (response.status() >= 400) errors.push(`HTTP ${response.status()}: ${response.url()}`) })
         const cdp = await context.newCDPSession(page)
         await applyEmulation(cdp, profile)
-        await cdp.send('Network.setCacheDisabled', { cacheDisabled: true })
+        await cdp.send('Network.setCacheDisabled', { cacheDisabled: !process.env.MOTREGEN_RIG_WARM_PROFILE })
         if (profile.device) {
           await page.setViewportSize(profile.device.viewport)
           await cdp.send('Emulation.setUserAgentOverride', { userAgent: profile.device.userAgent })
         }
         const allowedOrigins = new Set([baseURL!, `http://127.0.0.1:${process.env.MOTREGEN_E2E_DATA_PORT ?? 8392}`])
-        await context.route(/^https?:\/\//, async (route) => {
+        if (!process.env.MOTREGEN_RIG_WARM_PROFILE) await context.route(/^https?:\/\//, async (route) => {
           if (allowedOrigins.has(new URL(route.request().url()).origin)) await route.continue()
           else {
             externalRequests.push(route.request().url())
             await route.abort('blockedbyclient')
           }
+        })
+        else context.on('request', request => {
+          if (/^https?:/.test(request.url()) && !allowedOrigins.has(new URL(request.url()).origin)) externalRequests.push(request.url())
         })
         await page.addInitScript(() => {
           const NativeDate = Date
@@ -86,10 +91,18 @@ for (const profileId of options.profiles) {
         })
         if (scenario.devStorage) await page.addInitScript((entries) => { for (const [key, value] of Object.entries(entries)) localStorage.setItem(key, value) }, scenario.devStorage)
         await page.addInitScript(installMobileProbe)
-        const network = recordPlaywrightNetwork(page)
+        const network = recordPlaywrightNetwork(warmVisit ? context : page, warmVisit, context)
         const capturedAt = new Date().toISOString()
+        if (warmingCache) await installSeedWorker(page, baseURL!)
         // Een ?t-preset zet de tijdlijn stil; zonder preset speelt de app vanzelf, zoals bij een gewone bezoeker.
         await page.goto(`${scenario.autoplay ? '/?perf=1&modus=weer' : '/?perf=1&t=%2B0u&modus=weer'}${scenario.devStorage ? '&dev' : ''}&kaartstart=tegel`, { waitUntil: 'commit' })
+        if (warmingCache) {
+          await completeCacheSeed(page, scenario.durationMs)
+          expect(externalRequests, 'geen live-netwerk bij cachevulling').toEqual([])
+          console.log('Cache gevuld; browser wordt volledig gesloten, geen performancecijfers geschreven')
+          return
+        }
+        if (warmVisit) expect(await page.evaluate(() => navigator.serviceWorker.controller !== null), 'tweede bezoek gebruikt de geïnstalleerde SW').toBe(true)
         await page.waitForFunction(() => window.__motregenPerf?.snapshot().firstRainMs !== null && window.__motregenPerf?.snapshot().firstRainMs !== undefined, undefined, { timeout: 30_000 }).catch((error) => { throw new Error(`${error}\n${errors.join('\n')}\n${externalRequests.join('\n')}`) })
         if (!scenario.autoplay) await expect(page.getByRole('slider', { name: 'Tijd' })).not.toHaveAttribute('data-playing', '')
 
@@ -145,7 +158,8 @@ for (const profileId of options.profiles) {
             encodedBodyBytes: entry.transferSize === 0 ? 0 : entry.encodedBodySize,
           })))
         const workerResources = []
-        for (const worker of page.workers()) {
+        for (const worker of [...page.workers(), ...(warmVisit ? context.serviceWorkers() : [])]) {
+          const owner = context.serviceWorkers().includes(worker) ? 'service-worker' as const : 'client' as const
           const entries = await worker.evaluate(() => ({
             timeOrigin: performance.timeOrigin,
             resources: (performance.getEntriesByType('resource') as PerformanceResourceTiming[]).map((entry) => ({
@@ -155,13 +169,14 @@ for (const profileId of options.profiles) {
           }))
           for (const entry of entries.resources) {
             const offset = entries.timeOrigin - captured.timeOrigin
-            const normalized = { ...entry, startMs: entry.startMs + offset, endMs: entry.endMs + offset }
+            const normalized = { ...entry, owner, startMs: entry.startMs + offset, endMs: entry.endMs + offset }
             workerResources.push(normalized)
           }
         }
         const selectedWire = wireWindow(observedRequests, [...pageResources, ...workerResources], scenario.durationMs)
         const requests = selectedWire.requests
         const wire = reconcileWire(requests, selectedWire.timing)
+        const warmCache = warmVisit ? { seed: seedEvidence(), visit: await cacheInventory(page), workerNetwork: workerNetwork(context)?.evidence() } : undefined
         const decode = summarizePhases(captured.entries.measures, scenario.durationMs)
         const longFrames = captured.entries.longFrames.filter((frame) => frame.startTime + frame.duration <= scenario.durationMs)
         const longSources = new Map<string, number>()
@@ -218,7 +233,7 @@ for (const profileId of options.profiles) {
         if (!Object.keys(captured.milestones.windowReadyMs).length) findings.push('U52 window-ready-meetpunten ontbreken op deze main; ttfh komt uit de loadtrace')
         if (scenario.steps.some((step) => step.mode === 'Lucht') && !actions.some((action) => action.detail === 'modus Lucht')) findings.push('Deze main heeft nog geen Lucht-knop: bestaande Weer-wolkenfocus gebruikt en expliciet geregistreerd')
         const report: MobileReport = {
-          meta: { profile: profileId, scenario: scenarioId, sourceSha, capturedAt, cpuThrottleRate: profile.cpuThrottleRate, contractHash, fixtureHash, basemapContractHash, network: profile.network, hardwareConcurrency: captured.hardwareConcurrency, loadAverage, synthGridScale, rendererCpuQuotaPercent, requestOrderOnly: options.requestOrderOnly ?? false },
+          meta: { profile: profileId, scenario: scenarioId, sourceSha, capturedAt, cpuThrottleRate: profile.cpuThrottleRate, contractHash, fixtureHash, basemapContractHash, network: profile.network, hardwareConcurrency: captured.hardwareConcurrency, loadAverage, synthGridScale, rendererCpuQuotaPercent, requestOrderOnly: options.requestOrderOnly ?? false, cacheState: warmVisit ? 'warm-disk-new-browser' : 'cold', warmCache },
           milestones: captured.milestones,
           decode,
           wire: { ...wire, rangeRequests: requests.filter((request) => request.range !== null).length, beforeTtfrBytes: completedBytesBefore(requests, captured.milestones.ttfrMs), beforeTtfhBytes: completedBytesBefore(requests, captured.milestones.ttfhMs) },
@@ -243,8 +258,10 @@ for (const profileId of options.profiles) {
         expect(externalRequests, 'geen live-netwerk').toEqual([])
         expect(errors, 'geen pagina-/consolefouten').toEqual([])
         expect(captured.milestones.ttfrMs).not.toBeNull()
-        expect(wire.playwright.manifest.bytes, 'Playwright observeert een echte manifestbody').toBeGreaterThan(0)
-        expect(wire.resourceTiming.manifest.bytes, 'native Resource Timing blijft actief').toBeGreaterThan(0)
+        if (!warmVisit) {
+          expect(wire.playwright.manifest.bytes, 'Playwright observeert een echte manifestbody').toBeGreaterThan(0)
+          expect(wire.resourceTiming.manifest.bytes, 'native Resource Timing blijft actief').toBeGreaterThan(0)
+        }
       })
     }
   }
@@ -310,6 +327,9 @@ function filterSelfProfile(trace: SelfProfilerTrace | null, durationMs: number):
 }
 
 interface NetworkRecord {
+  fromHttpCache?: boolean
+  fromServiceWorker?: boolean
+  cacheControl?: string | null
   range: string | null
   bytes: number | null
   status: number | null
@@ -321,9 +341,10 @@ interface NetworkRecord {
   finish: () => void
 }
 
-function recordPlaywrightNetwork(page: Page) {
+function recordPlaywrightNetwork(page: Page | BrowserContext, warm = false, context?: BrowserContext) {
   const requests = new Map<Request, NetworkRecord>()
   page.on('request', (request) => {
+    if (!/^https?:/.test(request.url())) return
     let finish!: () => void
     const completed = new Promise<void>((resolve) => { finish = resolve })
     requests.set(request, { range: request.headers().range ?? null, bytes: null, status: null, failure: null, bodySizeSource: 'playwright-sizes', playwrightBodySize: null, contentLength: null, completed, finish })
@@ -334,12 +355,15 @@ function recordPlaywrightNetwork(page: Page) {
     try {
       const response = await request.response()
       record.status = response?.status() ?? null
+      record.fromServiceWorker = response?.fromServiceWorker() ?? false
+      record.cacheControl = response?.headers()['cache-control'] ?? null
       const sizes = await request.sizes()
       const declared = response?.headers()['content-length']
       record.playwrightBodySize = sizes.responseBodySize
       record.contentLength = declared === undefined ? null : Number(declared)
-      record.bodySizeSource = sizes.responseBodySize === 0 && record.contentLength !== null && record.failure === null ? 'completed-content-length' : 'playwright-sizes'
-      record.bytes = record.bodySizeSource === 'completed-content-length' ? record.contentLength : sizes.responseBodySize
+      record.fromHttpCache = Boolean(warm && request.serviceWorker() && context && workerNetwork(context)?.cached(request.url(), record.range, request.timing().startTime))
+      record.bodySizeSource = !warm && sizes.responseBodySize === 0 && record.contentLength !== null && record.failure === null ? 'completed-content-length' : 'playwright-sizes'
+      record.bytes = warm && (response?.fromServiceWorker() || record.fromHttpCache) ? 0 : record.bodySizeSource === 'completed-content-length' ? record.contentLength : sizes.responseBodySize
     }
     catch (error) { record.failure = String(error) }
     finally { record.finish() }
@@ -365,10 +389,15 @@ function recordPlaywrightNetwork(page: Page) {
       const result: WireRequest[] = []
       for (const [request, record] of observed) {
         const timing = request.timing()
+        // De onafhankelijke CDP-socket kan loadingFinished later bezorgen dan Playwright.
+        if (warm && request.serviceWorker() && context && workerNetwork(context)?.cached(request.url(), record.range, timing.startTime)) {
+          record.fromHttpCache = true
+          record.bytes = 0
+        }
         const startMs = timing.startTime - timeOrigin
         const endMs = timing.responseEnd < 0 ? null : startMs + timing.responseEnd
         if (startMs < 0) throw new Error(`Playwright heeft geen geldige request-starttijd: ${request.url()}`)
-        result.push({ url: request.url(), startMs, endMs, encodedBodyBytes: record.bytes, range: record.range, status: record.status, failure: record.failure, bodySizeSource: record.bodySizeSource, playwrightBodySize: record.playwrightBodySize, contentLength: record.contentLength })
+        result.push({ url: request.url(), startMs, endMs, encodedBodyBytes: record.bytes, range: record.range, status: record.status, failure: record.failure, bodySizeSource: record.bodySizeSource, playwrightBodySize: record.playwrightBodySize, contentLength: record.contentLength, fromServiceWorker: record.fromServiceWorker, fromHttpCache: record.fromHttpCache, cacheControl: record.cacheControl, owner: request.serviceWorker() ? 'service-worker' : 'client' })
       }
       return result
     },
@@ -401,7 +430,7 @@ function hashWeatherFixture(): string {
 
 function hashContract(measurement: unknown): string {
   const hash = createHash('sha256').update(JSON.stringify(measurement))
-  for (const path of ['perf/scenarios.json', 'perf/Caddyfile', 'perf/Preview.Caddyfile', 'scripts/synthgen.ts', 'scripts/mobile-fixture.ts', 'scripts/mobile-assets.ts', 'scripts/mobile-report.ts', 'scripts/perf-mobile.ts', 'scripts/perf-run.ts', 'scripts/rig-host.ts', 'e2e/mobile-load.rig.ts', 'e2e/mobile-probe.ts', 'playwright.mobile.config.ts']) hash.update(readFileSync(path))
+  for (const path of ['perf/scenarios.json', 'perf/Caddyfile', 'perf/Preview.Caddyfile', 'scripts/synthgen.ts', 'scripts/mobile-fixture.ts', 'scripts/mobile-assets.ts', 'scripts/mobile-report.ts', 'scripts/perf-mobile.ts', 'scripts/perf-run.ts', 'scripts/rig-host.ts', 'scripts/rig-worker-network.ts', 'e2e/mobile-load.rig.ts', 'e2e/rig-cache.ts', 'e2e/mobile-probe.ts', 'playwright.mobile.config.ts']) hash.update(readFileSync(path))
   return hash.digest('hex')
 }
 

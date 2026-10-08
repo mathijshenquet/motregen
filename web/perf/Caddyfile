@@ -11,8 +11,18 @@
 		Access-Control-Expose-Headers "Accept-Ranges, Content-Length, Content-Range, ETag"
 		Accept-Ranges "bytes"
 	}
-	header /manifest.json Cache-Control "public, max-age=0, must-revalidate"
+	@session {
+		path /manifest.json
+		query s=1
+	}
+	@shared {
+		path /manifest.json
+		not query s=1
+	}
+	header @session Cache-Control "no-store"
+	header @shared Cache-Control "public, max-age=15, stale-while-revalidate=60"
 	header /chunks/* Cache-Control "public, max-age=31536000, immutable"
+	header /basemap/* Cache-Control "public, max-age=31536000, immutable"
 	handle /tiles/* {
 		rewrite * /tile.pbf
 		file_server
