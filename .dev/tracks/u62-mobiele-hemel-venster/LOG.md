@@ -358,3 +358,20 @@ kosten vulwerk op de GPU dat hier niet zichtbaar wordt. De PO-telefoon is de ech
   windwijziging `dev-panel focus` 0 (10 groen, 2 overgeslagen) · mobile-4g `freshness location table
   sky-window cloud-section focus` 0 (17 groen, 11 overgeslagen).
 - NOG OPEN: (2b) kostenmeting kaart-tween onder de perf-lock; (3) voorstel rand tussen kaart en zijpaneel.
+
+## PO-keuzes gecommit en gepusht (15cf73c)
+
+## Voorstel (3): rand tussen kaart en zijpaneel op desktop — NIETS vastgezet, wacht op PO-akkoord
+`rig/border-proposal.ts` spuit de varianten als CSS in; het product is ongewijzigd. Beelden in
+`voorstel-rand/` (1280 px; per beeld links nu, midden A, rechts B, gescheiden door een magenta streep):
+`rand-dag-overzicht.png`, `rand-dag-naad.png` (3× vergroot), `rand-nacht-overzicht.png`, `rand-nacht-naad.png`.
+De tabel is naar rijen van dezelfde toon als de kaart gescrold, want daar ontbreekt de rand: lichte kaart
+naast dagrijen, nachtkaart naast nachtrijen. Waar de tonen verschillen is de naad al scherp.
+- A — lijn van 1 px in de hemelkleur van het cursoruur: overdag `rgba(16,38,48,.2)`, 's nachts
+  `rgba(237,248,252,.22)`, als `box-shadow: -1px 0 0` op `.dashboard` (geen layoutverschuiving).
+- B — zachte schaduw de kaart in: overdag `-16px 0 30px -18px rgba(6,20,28,.5)`; 's nachts zwaarder
+  plus een haarlijntje, omdat een schaduw op een donkere kaart anders niet te zien is.
+- Wat ik zie: overdag doen beide hun werk; A leest als een rustige scheidslijn in de taal van de
+  rijlijnen, B tilt het paneel op en maakt de kaartrand grijzer. 's Nachts is B bijna onzichtbaar en leunt
+  hij toch op een lijn. Mijn voorkeur: A. Bijvangst: 's nachts staat er nu al een lichte verticale lijn op
+  de naad (de linkerrand van de nachtrijen); A maakt dat over de volle hoogte en overdag consequent.
