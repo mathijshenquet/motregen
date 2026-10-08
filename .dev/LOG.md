@@ -201,6 +201,17 @@
   (MIP-24 accepted); wind "iets" op mobiel; koppen tweenen alleen bij de zon-op/onder-rij; rand
   kaart/zijpaneel: A (1 px hemelkleur) geadviseerd, PO beslist. Perf-lock-discipline: wachten op load
   BUITEN de flock (U63 hield hem > 1 u).
+- **Sessie-herstart 14:55** (PO). Stand: U62 live-pane (w1K, opus-5.5, 4320) heeft op zijn branch ONGEMERGED:
+  klokpil/zoekbalk/druppel tinten mee, kaart-tween onder Expressief (kostenmeting nog open), wind "iets",
+  koppen wisselen bij de zon-rij, lijnensysteem dag/nacht (94037cc), rand-schakelaar oud/geen/A/B (PO kiest
+  nog; B "clean", lijnen te hard → opgelost door lijnensysteem), splash-sluierproef (d7e8fbc, PO: "werkt niet",
+  knop mag weg). U63 (w1M) en U64 (w1N), gpt-6.1-sol: warm = volwaardig scenario (MIP-23-aanvulling),
+  gepaarde A/B tot load 16, absolute baselines ≤ 8; U63 kreeg "waarom duurt de kaart 2 s ná de bytes" +
+  uitgeklede-stijl-eerste-paint + z4-placeholder gepaard als opdracht; U64: shaderbatch gepaard ttfp −14 %
+  maar ttfr +7 % (nee), vroege WebGL-worker in proef. Lokale tg-bot (nice 15) rendert loops; PO zet de
+  prod-tg-bot aan (commando in chat, secrets via ssh); daarna lokale bot stoppen bij 409. Achtergrond-
+  shells van deze sessie (preview 4330, prof-sink 4331, bot, watchers) vervallen bij herstart: 4330 en de
+  bot opnieuw starten vanuit main; hydra-soak staat uit.
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
