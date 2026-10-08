@@ -37,7 +37,8 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   // Alleen afwijkingen worden opgeslagen; 0,5 is sinds de live windtuning (U34) zelf de default.
   await wind.getByLabel('Intensiteit').fill('0.8')
   await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-wind-tuning-v4'))).toBe('{"intensity":0.8}')
-  await expect(page.locator('.map-shell')).toHaveAttribute('data-wind-intensity', '0.80')
+  // Op een telefoon staat de wind op de achtergrond een stap sterker (U62: ×1,25).
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-wind-intensity', testInfo.project.use.hasTouch ? '1.00' : '0.80')
 
   // Sinds de PO-keuzes van 2026-10-08 geen knoppen meer: onder Expressief tinten klokpil, zoekbalk en
   // merkdruppel mee met het cursoruur en volgt de basiskaart de kaarttijd.
@@ -55,25 +56,28 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-blend', 'normal')
   await page.getByRole('button', { name: 'Weer', exact: true }).click()
 
-  // Tijdelijke proef (U62): rand tussen kaart en zijpaneel. "oud" is de stand van vóór de proef.
-  const dashboard = page.locator('.dashboard')
-  const leftBorder = () => dashboard.evaluate((element) => getComputedStyle(element).borderLeftWidth)
-  const shadow = () => dashboard.evaluate((element) => getComputedStyle(element).boxShadow)
-  expect(await leftBorder()).toBe('1px')
-  await groups.locator('> summary', { hasText: 'Chrome' }).click()
-  const edge = panel.getByLabel('Rand kaart/zijpaneel')
-  await edge.selectOption('geen')
-  await expect(page.locator('.app-shell')).toHaveClass(/edge-none/)
-  expect(await leftBorder()).toBe('0px')
-  expect(await shadow()).toBe('none')
-  await edge.selectOption('a')
-  expect(await leftBorder()).toBe('0px')
-  expect(await shadow()).toMatch(/-1px 0px 0px 0px$/)
-  await edge.selectOption('b')
-  expect(await leftBorder()).toBe('0px')
-  expect(await shadow()).toMatch(/-\d+px 0px \d+px -\d+px$/)
-  await edge.selectOption('oud')
-  expect(await leftBorder()).toBe('1px')
+  // De rand bestaat alleen in de desktopindeling (kaart naast zijpaneel).
+  if (!testInfo.project.use.hasTouch) {
+    // Tijdelijke proef (U62): rand tussen kaart en zijpaneel. "oud" is de stand van vóór de proef.
+    const dashboard = page.locator('.dashboard')
+    const leftBorder = () => dashboard.evaluate((element) => getComputedStyle(element).borderLeftWidth)
+    const shadow = () => dashboard.evaluate((element) => getComputedStyle(element).boxShadow)
+    expect(await leftBorder()).toBe('1px')
+    await groups.locator('> summary', { hasText: 'Chrome' }).click()
+    const edge = panel.getByLabel('Rand kaart/zijpaneel')
+    await edge.selectOption('geen')
+    await expect(page.locator('.app-shell')).toHaveClass(/edge-none/)
+    expect(await leftBorder()).toBe('0px')
+    expect(await shadow()).toBe('none')
+    await edge.selectOption('a')
+    expect(await leftBorder()).toBe('0px')
+    expect(await shadow()).toMatch(/-1px 0px 0px 0px$/)
+    await edge.selectOption('b')
+    expect(await leftBorder()).toBe('0px')
+    expect(await shadow()).toMatch(/-\d+px 0px \d+px -\d+px$/)
+    await edge.selectOption('oud')
+    expect(await leftBorder()).toBe('1px')
+  }
 
   await groups.locator('> summary', { hasText: 'Diagnose' }).click()
   const perfToggle = panel.getByRole('checkbox', { name: /Perf-HUD/ })
