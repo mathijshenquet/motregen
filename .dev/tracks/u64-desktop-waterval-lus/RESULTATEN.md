@@ -124,11 +124,24 @@ standaard kaartkleuring als extra reden naast Kaderhemel, U65 en de verse
 browser per run. Startload maximaal8 blijft verplicht. Nieuwe native
 koud/warm-paren en Lighthouse op deze basis volgen afzonderlijk.
 
-Eerste geldig Lighthouse-paar op deze basis: score60→62, startload
-15,40/15,01, gap175,6s, gemiddeld loadverschil−0,048. FCP/LCP491→425ms
-(sub100→100), TBT1576→1400ms (sub1→1), Speed Index3236→3073ms
-(sub21→25), CLS0,0905→0,0686 (sub92→96). Nog twee paren nodig;
-geen afgeronde scorewinst of nieuwe native ttfr/ttfp-claim.
+Lighthouse op deze basis is ×3 compleet: scores60→62,63→61,63→62;
+mediaan63→62. Startloads A/B15,40/15,01;14,32/15,61;15,42/13,64,
+gaps175,6/240,3/261,2s, gemiddelde loadverschillen−0,048/+1,928/−0,513.
+Geen Lighthouse-winst. Onderstaande waarden zijn de medianen per kant.
+
+| metriek | main U62 deel 2: waarde / subscore | U64: waarde / subscore |
+| --- | --- | --- |
+| FCP | 481 ms / 100 | 437 ms / 100 |
+| LCP (splash) | 481 ms / 100 | 437 ms / 100 |
+| TBT | 1223 ms / 2 | 1400 ms / 1 |
+| Speed Index | 3062 ms / 25 | 3211 ms / 22 |
+| CLS | 0,0603 / 98 | 0,0663 / 97 |
+
+Binnen paren: FCP/LCP mediaan−34,6ms, TBT+147,5ms,
+Speed Index+247ms, CLS+0,00544. De nieuwe native ttfr/ttfp-reeks
+is gestart, warm ×3 eerst en daarna koud ×3. Retentie van de huidige
+productwijzigingen wordt daarmee op de gewijzigde start gecontroleerd;
+de eerdere primaire winst blijft tot dan bewijs op de ec3-basis.
 Koud en warm, nieuwe ronde (geen volledige medianen):
 
 | variant | koud ttfr / ttfp | warm ttfr / ttfp | geldige runs koud / warm |

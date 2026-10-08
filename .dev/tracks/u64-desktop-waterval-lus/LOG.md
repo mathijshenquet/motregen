@@ -751,3 +751,14 @@ b1a706752174bbd7f1cb2453ce3a740929d73775	refs/pull/91/head
 - Nieuwe U62deel2LHpair1 geldig:60→62;FCP/LCP491,424→425,433ms/sub100→100,TBT1576,054→1399,635ms/sub1→1,SI3236→3073ms/sub21→25,CLS0,09053→0,06862/sub92→96. Startloads15,40/15,01,gap175,562s,meanΔ−0,04786. Twee volgende paren pending, geen scorewinstclaim. Native maincoldwarmnieuwebasis nogpending; oorspronkelijke ec3TTFRwinst−17,37/−17,16% geen nieuwebaselineclaim.
 - Manifestcold1A geproduceerd:ttfr1209/ttfp767,6ms,load12,29. B/3paren nogpending; warmeSWRhits worden straks expliciet gecontroleerd, max15s-geldigheid geen stilleTTLverruiming. Absolute≤8gate geenbaseline. Runners20199/38160/76563 synchroon gepolld, nogrunning; tijdens wachten geen Chromium, alleen werkelijkerun/seed onderlock.
 - GPU-besluit koud−11,98%ttfr/warm+15,66%,ttfp+3,04/+18,14% en groteLoAF nu inRESULTATEN en PR; proef standaarduit. WIP commit/push op15mincadans, geen nieuweproductcode of extra testclaim.
+
+## 2026-10-08 15:31:11 UTC — LH nieuwe basis compleet, native koud/warm gestart
+
+- LH-campagne38160 synchroonexit0, alle3paren op main4038d55 enU64control. Scores60→62,63→61,63→62; medianen63→62, geen LH-winst. Volledige subscores worden inRESULTATEN vastgelegd. Geen product-/budgetwijziging hieruit.
+- Nieuwe native main4038d55->U64control warm3 eerst, koud3 daarna: MOTREGEN_PERF_LOAD_WAIT_MINUTES=120 bash tmp/u64/u62-part2-paired-runs.sh. Afzonderlijke current-main-prefixes/buildhashes, geen mixmetec3. Maximaaldrie noodzakelijke wachtrijen na LHsluiting: oude manifestprobe, native nieuwe basis, absolute8gate. Alleactualruns dezelfde flock, loadwacht buitenlock; geen eigen nietmetende Chromium.
+
+## 2026-10-08 15:34:33 UTC — U62 deel2 LH-subscores compleet, checkpoint
+
+- Nieuwe LH3paren volledig:60→62,63→61,63→62;scoremediaan63→62. Medianenperkant FCP/LCP480,547→437,070ms/sub100→100,TBT1223,182→1399,635ms/sub2→1,SI3062→3211ms/sub25→22,CLS0,06030→0,06626/sub98→97. Mediaan binnenparen FCP/LCP−34,596ms,TBT+147,456ms,SI+247ms,CLS+0,005438. Geen LH-winst; TBT/SI blijven beperking. RESULTATEN laat beide mainbasissen afzonderlijk zien.
+- Native current-mainwarm/koud nieuwesessie93830 loopt, nog0/0geldigeparen. Oude manifestprobe20199cold1/warm0; een cold2poging afgewezen bijstartload15,35/11,23 enmeanΔ−4,349, nietmeegeteld. Zonder actieveSW zijncoldSWRappJS/HTMLidentiek: eventuelecoldverschillen alsruis behandelen. Warmhits/leeftijd straks uitmetadata. Absolute8gate76563 noggeenbaseline.
+- Eigen runners gecontroleerd/gepolld:geenhangende shell; globaleflockhouder kortdurendeanderrun, wachtersWRITE* onderscheidenvanWRITE. NoodzakelijkeChromiums alleen actualcapture/seed, geeneigendidlebrowser. WIPcommit/push15minnaae6c5a1; geen nieuweproductwijziging of testclaim.
