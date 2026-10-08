@@ -31,6 +31,7 @@ import { hexColor, IsolineLayer, isolineLayerIndices, type IsolineStyle } from '
 import { cursorAfterTimelineRefresh, isNewerManifest, nextManifestRefreshDelay, reconcileTimelineSeries, scheduleManifestRefresh } from './core/manifest-refresh'
 import { constrainView, containView, containZoom, MAP_CONTAIN_BOUNDS, type Viewport } from './core/map-constraint'
 import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS } from './core/map-frame'
+import { basemapBlendTargets, blendedPaintValue, nightShare, type BlendTarget } from './core/basemap-blend'
 import { browserDeviceHints, decodeBudget } from './core/decode-budget'
 import { MrfClient, type MotionField } from './core/mrf'
 import { selectPairMotion } from './core/motion-selection'
@@ -188,6 +189,11 @@ const FIRST_RAIN_STORAGE_KEY = 'motregen-dev-eerste-regen'
 // PO-vergelijking (?dev): het lege scrubber-kader neemt de hemelkleur van het uur aan.
 const CLOCK_SKY_TINT_STORAGE_KEY = 'motregen-dev-klokpil'
 const MOBILE_WIND_STORAGE_KEY = 'motregen-dev-wind-mobiel'
+const MAP_FOLLOWS_TIME_STORAGE_KEY = 'motregen-dev-kaart-automatisch'
+// De kaart mengt in zoveel stappen van dag naar nacht; MapLibre tweent elke stap zelf (300 ms).
+const MAP_NIGHT_STEPS = 20
+// De rand buiten het rooster is geen laag van de basisstijl maar kleurt wel mee met het thema.
+const GRID_OUTSIDE_PAINT = { light: { color: '#84969b', opacity: 0.48 }, dark: { color: '#071319', opacity: 0.58 } } as const
 // Stil op de achtergrond (U41): na een minuut zonder invoer tekent de wind op halve snelheid.
 const IDLE_AFTER_MS = 60_000
 const WIND_IDLE_FPS = 30
@@ -501,6 +507,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [windTuning, setWindTuning] = createSignal<WindTuning>(loadWindTuning())
   const [isolineTuning, setIsolineTuning] = createSignal<IsolineTuning>({ ...DEFAULT_ISOLINE_TUNING })
   const [clockSkyTint, setClockSkyTint] = createSignal(devMode && localStorage.getItem(CLOCK_SKY_TINT_STORAGE_KEY) === 'mee-tinten')
+  const [mapFollowsTime, setMapFollowsTime] = createSignal(devMode && localStorage.getItem(MAP_FOLLOWS_TIME_STORAGE_KEY) === 'aan')
   const storedMobileWind = devMode ? localStorage.getItem(MOBILE_WIND_STORAGE_KEY) : null
   const [mobileWind, setMobileWind] = createSignal<MobileWindLevel>(storedMobileWind === 'iets' || storedMobileWind === 'meer' ? storedMobileWind : 'uit')
   // De proefniveaus gelden alleen waar de PO de streepjes te subtiel vond: vinger als aanwijsmiddel of een smal scherm.
@@ -1193,6 +1200,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     // Na een stijlwissel met vastgezette focus loopt het isolijn-effect niet vanzelf opnieuw.
     for (const set of isolineSets) if (set.active() && mapReady()) { void showIsolineField(set); void showIsolines(set) }
     void showFrame()
+    // Een stijlwissel zet de kleuren van het thema terug; de menging met de kaarttijd moet er opnieuw overheen.
+    const night = untrack(() => mapFollowsTime() ? basemapBlendApplied : undefined)
+    if (night !== undefined) applyBasemapBlend(night)
     if (mapReady()) {
       void showWind()
       void showTemperature()
@@ -1206,13 +1216,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const frame = mapFrameFromGrid(grid)
     map.addSource('motregen-grid-frame', { type: 'geojson', data: frame.mask })
     const dark = mapTheme() === 'dark'
+    const outside = GRID_OUTSIDE_PAINT[mapTheme()]
     map.addLayer({
       id: 'motregen-grid-outside',
       type: 'fill',
       source: 'motregen-grid-frame',
       paint: {
-        'fill-color': dark ? '#071319' : '#84969b',
-        'fill-opacity': dark ? 0.58 : 0.48,
+        'fill-color': outside.color,
+        'fill-opacity': outside.opacity,
       },
     })
     map.addLayer({
@@ -2494,6 +2505,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setIsolineTuning({ ...DEFAULT_ISOLINE_TUNING })
       setClockSkyTint(false)
       setMobileWind('uit')
+      setMapFollowsTime(false)
       setFirstRainLate(false)
       focusMode.pin(DEFAULT_FOCUS_MODE)
       setFocusPinned(DEFAULT_FOCUS_MODE)
@@ -2720,6 +2732,52 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const overcast = row ? hourDarkness(row, radiationSeries(), cloudSeries(), sunElevationAt()) : 0
     return { daylight, overcast: Math.round(overcast * 100) / 100 }
   }, undefined, { equals: (left, right) => left?.daylight === right?.daylight && left?.overcast === right?.overcast })
+  // Experiment (U62, ?dev): de basiskaart tweent van dag naar nacht met de kaarttijd, uit dezelfde zonnestand
+  // als de hemel. Eén stijl, de verschillende paint-kleuren gemengd; de overlays houden hun eigen kleuren,
+  // alleen de wind wisselt halverwege van thema omdat zijn streepjes anders wegvallen tegen de kaart.
+  const mapNight = createMemo(() => {
+    if (!mapFollowsTime()) return undefined
+    return Math.round(nightShare(sunElevationAt()(cursorMinute())) * MAP_NIGHT_STEPS) / MAP_NIGHT_STEPS
+  })
+  let basemapBlend: BlendTarget[] | undefined
+  let basemapBlendApplied: number | undefined
+  function applyBasemapBlend(night: number): void {
+    if (!map || !basemapBlend) return
+    for (const target of basemapBlend) {
+      if (map.getLayer(target.layer)) map.setPaintProperty(target.layer, target.property, blendedPaintValue(target, night))
+    }
+    if (map.getLayer('motregen-grid-outside')) {
+      const outside: BlendTarget[] = [
+        { layer: 'motregen-grid-outside', property: 'fill-color', light: GRID_OUTSIDE_PAINT.light.color, dark: GRID_OUTSIDE_PAINT.dark.color },
+        { layer: 'motregen-grid-outside', property: 'fill-opacity', light: GRID_OUTSIDE_PAINT.light.opacity, dark: GRID_OUTSIDE_PAINT.dark.opacity },
+      ]
+      for (const target of outside) map.setPaintProperty(target.layer, target.property, blendedPaintValue(target, night))
+    }
+    windLayer?.setTheme(night < 0.5 ? 'light' : 'dark')
+    basemapBlendApplied = night
+    mapElement.dataset.mapNight = night.toFixed(2)
+  }
+  createEffect(() => {
+    const night = mapNight()
+    const themeNight = mapTheme() === 'dark' ? 1 : 0
+    if (!mapReady()) return
+    if (night === undefined) {
+      // Uitgezet: terug naar de kleuren van het gekozen thema.
+      if (basemapBlendApplied !== undefined) {
+        applyBasemapBlend(themeNight)
+        windLayer?.setTheme(mapTheme())
+        basemapBlendApplied = undefined
+        delete mapElement.dataset.mapNight
+      }
+      return
+    }
+    if (basemapBlend) { applyBasemapBlend(night); return }
+    void Promise.all([loadBasemapStyle('light'), loadBasemapStyle('dark')]).then(([light, dark]) => {
+      basemapBlend = basemapBlendTargets(light, dark)
+      const current = untrack(mapNight)
+      if (current !== undefined) applyBasemapBlend(current)
+    }).catch(() => undefined)
+  })
   const cloudTimelines = createMemo(() => Object.fromEntries(CLOUD_LAYERS.map((layer) =>
     [layer, manifest() ? buildTimeline(manifest()!, `cloud_${layer}`) : []])) as Record<CloudLayer, TimelineFrame[]>)
   const [cloudValues, setCloudValues] = createSignal<Record<CloudLayer, Array<number | null>>>({ high: [], mid: [], low: [] })
@@ -2977,6 +3035,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             onFirstRainLate={(late) => { setFirstRainLate(late); localStorage.setItem(FIRST_RAIN_STORAGE_KEY, late ? 'laat' : 'vroeg') }}
             mobileWind={mobileWind()}
             onMobileWind={(level) => { setMobileWind(level); localStorage.setItem(MOBILE_WIND_STORAGE_KEY, level) }}
+            mapFollowsTime={mapFollowsTime()}
+            onMapFollowsTime={(enabled) => { setMapFollowsTime(enabled); localStorage.setItem(MAP_FOLLOWS_TIME_STORAGE_KEY, enabled ? 'aan' : 'uit') }}
             clockSkyTint={clockSkyTint()}
             onClockSkyTint={(enabled) => { setClockSkyTint(enabled); localStorage.setItem(CLOCK_SKY_TINT_STORAGE_KEY, enabled ? 'mee-tinten' : 'wit') }}
             windTuning={windTuning()}

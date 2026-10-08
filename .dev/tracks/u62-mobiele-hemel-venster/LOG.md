@@ -281,3 +281,34 @@ kosten vulwerk op de GPU dat hier niet zichtbaar wordt. De PO-telefoon is de ech
   (9 groen, 2 overgeslagen) · mobile-4g `cloud-section sky-window` 0 (2 groen).
 - Niet gemeten: het effect van de altijd-aan-hemel op ttfp/laadtijd (dat was de vraag van de knop in
   U54; de PO heeft op het oog gekozen). Als U63 laadmetingen doet, is dit een gewijzigde uitgangssituatie.
+
+## 16:05 — Kaderhemel vast aan gecommit en gepusht (d6b7eb8)
+
+## 17:10 — experiment (PO-wens): de kaart tweent van dag naar nacht met de kaarttijd — achter ?dev, niets standaard
+- `?dev` → Chrome → Kaart → "automatisch (volgt de kaarttijd)". Gebouwd als dev-knop in plaats van als derde
+  stand in de themakiezer van Over: het app-thema (chrome, rijen) blijft wat het is; alleen de basiskaart
+  volgt de zon. Promotie tot themastand is een PO-besluit.
+- Goedkope route, zoals gevraagd: de lichte en de donkere stijl hebben dezelfde 14 lagen en maar 19
+  verschillende paint-waarden (18 kleuren, 1 zoom-verloop tegenover één kleur). `core/basemap-blend.ts`
+  mengt die in lineair licht; App zet ze met `setPaintProperty` op de ene geladen stijl, in 20 stappen
+  (`MAP_NIGHT_STEPS`), MapLibre tweent elke stap zelf (300 ms). Aandeel nacht = dezelfde schemering als de
+  hemel in de scrubber (`nightShare(sinElevation)` van de cursorminuut op de gekozen plek). De rand buiten
+  het rooster mengt mee; de wind wisselt bij 0,5 van thema (anders vallen de streepjes weg).
+- Labels: tekst en halo wisselen samen bij 0,5 van paar in plaats van te mengen — gemengd naderen ze
+  elkaar rond de schemering. Unit-test: elk label ≥ 4,5:1 tegen zijn halo op alle 21 standen.
+  Niet gemeten: label tegen de gemengde ondergrond achter de halo (de halo is 1 px).
+- Eigen beelden bekeken (`kaart-experiment/`, `rig/map-night-shots.ts`), 390 px en desktop:
+  18:00 nacht 0,00 · 19:00 0,55–0,60 · 19:20 0,90 · 20:00 / 23:00 / 06:00 1,00 · 07:40 0,85.
+  Afwijking van de gevraagde tijden: in oktober gaat de zon om 19:01 onder, dus 20:00 is al volle nacht en
+  21:00 is geen schemer; de schemerbeelden zijn 19:00, 19:20 en 07:40.
+- Wat ik zie en de PO moet weten:
+  1. De schemerstanden zijn een neutraal grijs (warm lichtbeige × donker blauwgroen gemengd), geen
+     "avondkleur". Mooier kan met een eigen schemerpalet als derde anker; dat is niet de goedkope route.
+  2. Wat het app-thema volgt en dus niet meetweent: temperatuurlabels op de kaart (donkere cijfers met
+     witte halo, ook op de nachtkaart), isolijnen, de klokpil/knoppen en de attributie.
+  3. Met donker app-thema overdag wordt de kaart licht in een donkere app (omgekeerd geval van 2).
+- Gate (web/): typecheck 0 · `pnpm test` 0 (73 bestanden, 494 tests) · build 0 · desktop `dev-panel
+  cloud-section sky-window` 0 (8 groen; `basemap.spec` hoort bij een andere Playwright-config en draaide
+  hier niet mee).
+- Kostenmeting (po-android, onder de lock): `rig/run-map-night.sh` staat klaar en wacht op loadavg < 7
+  (host op 19–37 door andere tracks). Resultaat volgt in de volgende entry.

@@ -13,6 +13,8 @@ interface Props {
   onFirstRainLate: (late: boolean) => void
   clockSkyTint: boolean
   onClockSkyTint: (enabled: boolean) => void
+  mapFollowsTime: boolean
+  onMapFollowsTime: (enabled: boolean) => void
   mobileWind: MobileWindLevel
   onMobileWind: (level: MobileWindLevel) => void
   windTuning: WindTuning
@@ -118,6 +120,12 @@ export default function DevPanel(props: Props) {
       </Control>
     </Group>
     <Group title="Chrome">
+      <Control label="Kaart" output={props.mapFollowsTime ? 'automatisch' : 'thema'} hint="Thema: de kaart is licht of donker zoals ingesteld. Automatisch: de basiskaart tweent van dag naar nacht met de kaarttijd (zonnestand op de gekozen plek); regen en wind houden hun kleuren.">
+        <select aria-label="Kaart" value={props.mapFollowsTime ? 'automatisch' : 'thema'} onChange={(event) => props.onMapFollowsTime(event.currentTarget.value === 'automatisch')}>
+          <option value="thema">thema</option>
+          <option value="automatisch">automatisch (volgt de kaarttijd)</option>
+        </select>
+      </Control>
       <Control label="Klokpil" output={props.clockSkyTint ? 'mee-tinten' : 'wit'} hint="Wit: de klok boven de kaart blijft zoals hij was. Mee-tinten: hij neemt de hemelkleur van het cursoruur aan, zoals de tabelkop (alleen onder Expressief).">
         <select value={props.clockSkyTint ? 'mee-tinten' : 'wit'} onChange={(event) => props.onClockSkyTint(event.currentTarget.value === 'mee-tinten')}>
           <option value="wit">wit</option>

@@ -42,6 +42,13 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   // Klokpil (U62): wit blijft zoals het was; mee-tinten neemt de hemel van het cursoruur aan.
   await expect(page.locator('.map-clock')).not.toHaveClass(/sky-(day|night)/)
   await groups.locator('> summary', { hasText: 'Chrome' }).click()
+  // Kaart (U62-experiment): automatisch mengt de basiskaart met de kaarttijd; thema zet hem terug.
+  const mapCanvas = page.locator('.map')
+  await expect(mapCanvas).not.toHaveAttribute('data-map-night', /.*/)
+  await panel.getByLabel('Kaart', { exact: true }).selectOption('automatisch')
+  await expect(mapCanvas).toHaveAttribute('data-map-night', /^[01]\.\d\d$/)
+  await panel.getByLabel('Kaart', { exact: true }).selectOption('thema')
+  await expect(mapCanvas).not.toHaveAttribute('data-map-night', /.*/)
   await panel.getByLabel('Klokpil').selectOption('mee-tinten')
   await expect(page.locator('.map-clock')).toHaveClass(/sky-(day|night)/)
   await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-dev-klokpil'))).toBe('mee-tinten')

@@ -23,6 +23,7 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Wind | Kopieer wind als JSON | de vier waarden naar het klembord (PO-terugkoppelweg) | U20 | blijft zolang de windknoppen er zijn |
 | Laden | Eerste regen | het eerste regenframe direct na het manifest vragen (vroeg) of pas na de kaart-opzet (laat; herladen) | U54 | zodra een telefoonopname de winst heeft vastgelegd of weerlegd |
 | Mobiel | Windstreepjes | wind op de achtergrond op een telefoon/smal scherm: uit (zoals nu), iets (1,25× sterkte, lijn 0,72 i.p.v. 0,6, zee-demping 0,2) of meer (1,5×, 0,84, 0,08); aantal streepjes ongewijzigd | U62 | na PO-keuze op zijn telefoon (dan vaste mobiele waarden of weg) |
+| Chrome | Kaart | experiment: de basiskaart tweent van dag naar nacht met de kaarttijd (thema/automatisch); één stijl, de 19 verschillende paint-kleuren gemengd; regen houdt zijn kleuren, de wind wisselt halverwege van thema | U62 | na PO-besluit (dan derde themastand in Over, of weg) |
 | Chrome | Klokpil | de klok boven de kaart blijft wit of neemt de hemelkleur van het cursoruur aan, zoals de tabelkop (wit/mee-tinten; alleen onder Expressief) | U62 | na PO-keuze (dan vast wit of vast mee-tinten) |
 | Lucht nu | strakblauw · mooie wolkenlucht · melkachtig · grijs · Mordor | tijd, klasse en gekozen locatie op 0,1° als menselijk anker voor de wolkenanalyse | U46 | na de analyse |
 | Lucht nu | Kopieer dagboek | alle lokale luchtmetingen als JSON naar het klembord | U46 | na de analyse |
@@ -55,6 +56,7 @@ afgerond op 0,1°; U46).
 Rig-schakelaar zonder knop: `dev-speelregel` = `venster` zet onder `?dev` de oude speelregel terug
 (spelen pas na laadfase "window"), zodat de mobiele laadrig oud en nieuw uit één build meet
 (`koud-spelend-vensterregel`). Eigenaar U54; vervalt zodra de PO de speelregel heeft bevestigd.
+De knop "Kaart" schrijft `dev-kaart-automatisch` (`aan`/`uit`, U62).
 De knop "Klokpil" schrijft `dev-klokpil` (`wit`/`mee-tinten`, U62).
 De knop "Windstreepjes" schrijft `dev-wind-mobiel` (`uit`/`iets`/`meer`, U62).
 De knop "Eerste regen" schrijft `dev-eerste-regen`; de rig zet dezelfde sleutel in `koud-spelend-regen-laat`.
