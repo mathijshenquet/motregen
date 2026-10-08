@@ -44,6 +44,53 @@ export function rainFocusOpacity(temperatureFocus: number, windFocus: number): n
   return (1 - temperatureFocus) * (1 - 0.5 * windFocus)
 }
 
+// Proef achter ?dev (U62, eigenaar U62, vervalt 2026-10-15): hoe de regen zich mengt met de kaart in Wind en
+// met de bewolkingssluier in Lucht. `alfa` en `nu` zijn het bestaande gedrag.
+export const RAIN_WIND_BLENDS = ['alfa', 'vermenigvuldigen', 'gedempt'] as const
+export type RainWindBlend = typeof RAIN_WIND_BLENDS[number]
+export const RAIN_AIR_BLENDS = ['nu', 'voorstel'] as const
+export type RainAirBlend = typeof RAIN_AIR_BLENDS[number]
+
+export interface RainPresentation {
+  opacity: number
+  /** 1 = het palet zoals het is; lager is grijzer bij gelijke helderheid. */
+  saturation: number
+  /** 1 = het palet zoals het is; lager is donkerder bij gelijke tint. */
+  brightness: number
+  /** De regen vermenigvuldigt met de kaart in plaats van eroverheen te liggen (alleen op een lichte kaart). */
+  multiply: boolean
+}
+
+/**
+ * Hoe de regen getekend wordt bij deze focuswaarden. In Wind dimt `alfa` de regen tot de helft, wat op de
+ * lichte kaart verbleekt (geel wordt crème); `vermenigvuldigen` en `gedempt` houden de tint. In Lucht laat
+ * `voorstel` de regen iets terugtreden boven de sluier, overdag donkerder en 's nachts gedempt.
+ */
+export function rainPresentation(input: { temperatureFocus: number; windFocus: number; airFocus: number; night: boolean; windBlend: RainWindBlend; airBlend: RainAirBlend }): RainPresentation {
+  const { windFocus, airFocus, night } = input
+  let opacity = 1 - input.temperatureFocus
+  let saturation = 1
+  let brightness = 1
+  let multiply = false
+  // Op een donkere kaart maakt vermenigvuldigen de regen onzichtbaar; daar geldt de gedempte variant.
+  const windBlend = input.windBlend === 'vermenigvuldigen' && night ? 'gedempt' : input.windBlend
+  if (windBlend === 'alfa') opacity *= 1 - 0.5 * windFocus
+  else if (windBlend === 'vermenigvuldigen') {
+    opacity *= 1 - 0.1 * windFocus
+    multiply = windFocus >= 0.5
+  } else {
+    opacity *= 1 - 0.2 * windFocus
+    saturation *= 1 - 0.3 * windFocus
+    brightness *= 1 - 0.1 * windFocus
+  }
+  if (input.airBlend === 'voorstel') {
+    opacity *= 1 - (night ? 0.3 : 0.2) * airFocus
+    saturation *= 1 - (night ? 0.3 : 0) * airFocus
+    brightness *= 1 - (night ? 0.15 : 0.12) * airFocus
+  }
+  return { opacity, saturation, brightness, multiply }
+}
+
 /** Verzadiging van de basiskaart tijdens volle temperatuurfocus (PO U25b). */
 export const MAP_FOCUS_SATURATION = 0.55
 

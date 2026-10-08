@@ -2,6 +2,7 @@ import { createSignal, For, type JSX } from 'solid-js'
 import { copyText } from '../core/clipboard'
 import { appendSkyDiaryEntry, SKY_DIARY_CLASSES, skyDiaryJson, type SkyDiaryClass } from '../core/dev-settings'
 import { ISOLINE_FADES, ISOLINE_FILL_STYLES, ISOLINE_STEPS, type IsolineFade, type IsolineFillStyle, type IsolineStep, type IsolineTuning } from '../core/isolines'
+import { RAIN_AIR_BLENDS, RAIN_WIND_BLENDS, type RainAirBlend, type RainWindBlend } from '../core/focus-mode'
 import { sanitizeWindTuning, WIND_TUNING_CONTROLS, type WindTuning } from '../core/wind-layer'
 
 // Alleen via ?dev; hooguit 3–4 knoppen per groep (PO 2026-09-25). Elke knop staat in
@@ -9,6 +10,10 @@ import { sanitizeWindTuning, WIND_TUNING_CONTROLS, type WindTuning } from '../co
 interface Props {
   isolineTuning: IsolineTuning
   onIsolineTuning: (patch: Partial<IsolineTuning>) => void
+  rainWindBlend: RainWindBlend
+  onRainWindBlend: (blend: RainWindBlend) => void
+  rainAirBlend: RainAirBlend
+  onRainAirBlend: (blend: RainAirBlend) => void
   panelEdge: 'oud' | 'geen' | 'a' | 'b'
   onPanelEdge: (edge: 'oud' | 'geen' | 'a' | 'b') => void
   firstRainLate: boolean
@@ -103,6 +108,18 @@ export default function DevPanel(props: Props) {
         <select value={props.firstRainLate ? 'laat' : 'vroeg'} onChange={(event) => props.onFirstRainLate(event.currentTarget.value === 'laat')}>
           <option value="vroeg">vroeg</option>
           <option value="laat">laat</option>
+        </select>
+      </Control>
+    </Group>
+    <Group title="Kaart">
+      <Control label="Regen in Wind" output={props.rainWindBlend} hint="Alfa: de regen dimt tot de helft, zoals het was (verbleekt op de lichte kaart). Vermenigvuldigen: de regen kleurt de kaart donkerder, geel blijft geel; 's nachts valt dit terug op gedempt. Gedempt: bijna volle dekking met een rustiger, iets donkerder palet.">
+        <select aria-label="Regen in Wind" value={props.rainWindBlend} onChange={(event) => props.onRainWindBlend(event.currentTarget.value as RainWindBlend)}>
+          <For each={RAIN_WIND_BLENDS}>{(blend) => <option value={blend}>{blend}</option>}</For>
+        </select>
+      </Control>
+      <Control label="Regen in Lucht" output={props.rainAirBlend} hint="Nu: volle regen boven de sluier. Voorstel: overdag de regen op 0,8 met een donkerder palet; 's nachts de sluier als lichte grijsblauwe waas op 0,3 en de regen op 0,7 met een gedempt palet.">
+        <select aria-label="Regen in Lucht" value={props.rainAirBlend} onChange={(event) => props.onRainAirBlend(event.currentTarget.value as RainAirBlend)}>
+          <For each={RAIN_AIR_BLENDS}>{(blend) => <option value={blend}>{blend}</option>}</For>
         </select>
       </Control>
     </Group>

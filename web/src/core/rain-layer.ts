@@ -30,6 +30,8 @@ uniform sampler2D u_motion;
 uniform sampler2D u_motion_mask;
 uniform float u_mix;
 uniform float u_opacity;
+uniform float u_saturation;
+uniform float u_brightness;
 uniform float u_has_motion;
 uniform float u_interval_minutes;
 uniform vec2 u_grid_size;
@@ -81,6 +83,10 @@ void main() {
   vec2 right = rainSample(u_right, rightUv);
   float value = mix(left.r * left.g, right.r * right.g, weight);
   color = texture(u_lut, vec2(value, 0.5));
+  // Toon (proef U62): rustiger maken zonder te verbleken. Minder verzadiging houdt de helderheid van de
+  // kleur, minder helderheid houdt de tint; dimmen via alfa mengt met de kaart en maakt geel crème.
+  float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
+  color.rgb = mix(vec3(luma), color.rgb, u_saturation) * u_brightness;
   color.a *= u_opacity;
 }`
 
@@ -105,6 +111,8 @@ export class RainLayer implements CustomLayerInterface {
   uploads = 0
   private mix = 0
   private opacity = 1
+  private saturation = 1
+  private brightness = 1
   private hasMotion = false
   private intervalMinutes = 0
 
@@ -167,6 +175,12 @@ export class RainLayer implements CustomLayerInterface {
     this.opacity = opacity
   }
 
+  /** Verzadiging en helderheid van het regenpalet (1 = ongewijzigd). */
+  setTone(saturation: number, brightness: number): void {
+    this.saturation = saturation
+    this.brightness = brightness
+  }
+
   render(context: WebGLRenderingContext | WebGL2RenderingContext, options: CustomRenderMethodInput): void {
     const gl = context as WebGL2RenderingContext
     if (!this.program || !this.buffer || this.opacity <= 0) return
@@ -181,6 +195,8 @@ export class RainLayer implements CustomLayerInterface {
     gl.uniformMatrix4fv(gl.getUniformLocation(this.program, 'u_matrix'), false, options.defaultProjectionData.mainMatrix)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_mix'), this.mix)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_opacity'), this.opacity)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_saturation'), this.saturation)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_brightness'), this.brightness)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_has_motion'), this.hasMotion ? 1 : 0)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_interval_minutes'), this.intervalMinutes)
     gl.uniform2f(gl.getUniformLocation(this.program, 'u_grid_size'), this.grid.width, this.grid.height)

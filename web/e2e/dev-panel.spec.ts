@@ -13,9 +13,9 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   const panel = page.getByTestId('dev-panel')
   await expect(panel).toBeVisible()
   const groups = panel.locator('.dev-group')
-  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wind', 'Laden', 'Chrome', 'Lucht nu', 'Diagnose'])
+  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wind', 'Laden', 'Kaart', 'Chrome', 'Lucht nu', 'Diagnose'])
   // Alleen de eerste groep start open.
-  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false, false])
+  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false, false, false])
   await expect(panel).not.toContainText('Wolkrand')
 
   const controls = panel.locator('.dev-control')
@@ -43,6 +43,17 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   // merkdruppel mee met het cursoruur en volgt de basiskaart de kaarttijd.
   await expect(page.locator('.map-shell')).toHaveClass(/sky-(day|night)/)
   await expect(page.locator('.map')).toHaveAttribute('data-map-night', /^[01]\.\d\d$/)
+
+  // Proef (U62): regen in Wind zonder te verbleken.
+  await groups.locator('> summary', { hasText: 'Kaart' }).click()
+  await page.getByRole('button', { name: 'Wind', exact: true }).click()
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-opacity', '0.50')
+  await panel.getByLabel('Regen in Wind').selectOption('vermenigvuldigen')
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-opacity', '0.90')
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-blend', 'multiply')
+  await panel.getByLabel('Regen in Wind').selectOption('alfa')
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-blend', 'normal')
+  await page.getByRole('button', { name: 'Weer', exact: true }).click()
 
   // Tijdelijke proef (U62): rand tussen kaart en zijpaneel. "oud" is de stand van vóór de proef.
   const dashboard = page.locator('.dashboard')

@@ -1152,6 +1152,8 @@ td small { color: var(--muted); font-size: 9px; }
   left: 0;
   pointer-events: none;
 }
+/* Proef achter ?dev (U62, vervalt 2026-10-15): regen in Wind vermenigvuldigt met de lichte kaart. */
+.map-overlay-motregen-rain.blend-multiply { mix-blend-mode: multiply; }
 
 .isoline-label {
   pointer-events: none;
