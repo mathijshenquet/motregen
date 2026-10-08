@@ -9,6 +9,8 @@ import { sanitizeWindTuning, WIND_TUNING_CONTROLS, type WindTuning } from '../co
 interface Props {
   isolineTuning: IsolineTuning
   onIsolineTuning: (patch: Partial<IsolineTuning>) => void
+  panelEdge: 'geen' | 'a' | 'b'
+  onPanelEdge: (edge: 'geen' | 'a' | 'b') => void
   firstRainLate: boolean
   onFirstRainLate: (late: boolean) => void
   windTuning: WindTuning
@@ -101,6 +103,15 @@ export default function DevPanel(props: Props) {
         <select value={props.firstRainLate ? 'laat' : 'vroeg'} onChange={(event) => props.onFirstRainLate(event.currentTarget.value === 'laat')}>
           <option value="vroeg">vroeg</option>
           <option value="laat">laat</option>
+        </select>
+      </Control>
+    </Group>
+    <Group title="Chrome">
+      <Control label="Rand kaart/zijpaneel" output={props.panelEdge === 'geen' ? 'geen' : props.panelEdge.toUpperCase()} hint="Desktop: scheiding tussen kaart en zijpaneel. A: lijn van 1 px in de hemelkleur van het cursoruur. B: zachte schaduw de kaart in. De waarden staan als --edge-line-color en --edge-shadow op .app-shell.">
+        <select aria-label="Rand kaart/zijpaneel" value={props.panelEdge} onChange={(event) => props.onPanelEdge(event.currentTarget.value as 'geen' | 'a' | 'b')}>
+          <option value="geen">geen</option>
+          <option value="a">A: lijn</option>
+          <option value="b">B: schaduw</option>
         </select>
       </Control>
     </Group>

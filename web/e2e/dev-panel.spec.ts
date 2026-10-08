@@ -13,9 +13,9 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   const panel = page.getByTestId('dev-panel')
   await expect(panel).toBeVisible()
   const groups = panel.locator('.dev-group')
-  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wind', 'Laden', 'Lucht nu', 'Diagnose'])
+  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wind', 'Laden', 'Chrome', 'Lucht nu', 'Diagnose'])
   // Alleen de eerste groep start open.
-  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false])
+  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false, false])
   await expect(panel).not.toContainText('Wolkrand')
 
   const controls = panel.locator('.dev-control')
@@ -43,6 +43,14 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   // merkdruppel mee met het cursoruur en volgt de basiskaart de kaarttijd.
   await expect(page.locator('.map-shell')).toHaveClass(/sky-(day|night)/)
   await expect(page.locator('.map')).toHaveAttribute('data-map-night', /^[01]\.\d\d$/)
+
+  // Tijdelijke proef (U62): rand tussen kaart en zijpaneel.
+  await groups.locator('> summary', { hasText: 'Chrome' }).click()
+  await panel.getByLabel('Rand kaart/zijpaneel').selectOption('b')
+  await expect(page.locator('.app-shell')).toHaveClass(/edge-shadow/)
+  await panel.getByLabel('Rand kaart/zijpaneel').selectOption('a')
+  await expect(page.locator('.app-shell')).toHaveClass(/edge-line/)
+  await expect(page.locator('.app-shell')).not.toHaveClass(/edge-shadow/)
 
   await groups.locator('> summary', { hasText: 'Diagnose' }).click()
   const perfToggle = panel.getByRole('checkbox', { name: /Perf-HUD/ })

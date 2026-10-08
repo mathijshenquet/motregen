@@ -400,3 +400,26 @@ rustige host, dus mét de lock; het breekt nu direct af als de load ≥ 8 is.
 - Gate (web/): typecheck 0 · unit 0 (494; gedraaid als `pnpm synthgen && pnpm exec vitest run --exclude
   'tmp/**'`, omdat er voor de kostenmeting een tweede worktree in web/tmp staat die vitest anders meeneemt) ·
   build 0 · desktop `table dev-panel` 0 (7 groen, 2 overgeslagen) · mobile-4g `table` 0 (5 groen, 2 overgeslagen).
+
+## Stap 3c gecommit (5fcb152); main gemerged (U65)
+
+## Tijdelijke ?dev-schakelaar voor de rand (orkestrator, na twee keer heen en weer: hij komt er)
+- `?dev` → Chrome → "Rand kaart/zijpaneel": geen / A: lijn / B: schaduw (`motregen-dev-rand`; eigenaar U62,
+  vervalt na PO-keuze; docs/dev-opties.md bijgewerkt). Alleen desktop (≥ 960 px).
+- Voor devtools: klasse op `main.app-shell` — `edge-line` (A) of `edge-shadow` (B); het effect is een
+  `box-shadow` op `.dashboard`. De waarden zijn variabelen op `.app-shell`:
+  `--edge-line-color` (dag `rgba(16,38,48,.14)`, nacht `rgba(237,248,252,.16)`) en `--edge-shadow`
+  (dag `-18px 0 34px -20px rgba(6,20,28,.38)`, nacht `-20px 0 36px -18px rgba(0,0,0,.6)`); "nacht" =
+  `.app-shell:has(.map-shell.sky-night)`. B is zachter gemaakt dan in de eerste beelden en heeft 's nachts
+  geen haarlijn meer (PO: "schaduw is clean, borders te hard"); A is ook lichter (.2 → .14).
+- Gevonden: `.dashboard` hééft op desktop al een schaduw (`-8px 0 24px rgba(21,51,63,.07)`), maar die
+  valt achter de kaart weg omdat het paneel geen eigen stapelvolgorde heeft. De varianten geven het
+  paneel `position: relative; z-index: 2`. Een derde optie is dus: alleen de bestaande schaduw zichtbaar
+  maken (en eventueel iets aanzetten).
+- Voor een zachtere versie van de bestaande lijnen: rijlijnen = `td { border-bottom: 1px solid var(--line) }`
+  (in dag/nacht-rijen `color-mix(#fff 38%/16%, var(--line))`), de lijn onder de koppenrij =
+  `th { box-shadow: inset 0 -1px 0 var(--line-strong) }`, de rand om het plot = `.chart-plot::after`.
+- Eigen beeld bekeken: `voorstel-rand/rand-live.png` (geen | A | B, desktop, uit de live build).
+- Gate (web/, gemergde boom): typecheck 0 · unit 0 (75 bestanden, 506 tests) · build 0 · desktop
+  `dev-panel location`: 8 groen / 1 rood (`location.spec:88` time-out op de optie "Werk" bij loadavg 31)
+  → die test alleen herdraaid: 0 (8,9 s). Als load-flake genoteerd, niet verder onderzocht.

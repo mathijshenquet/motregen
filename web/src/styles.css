@@ -964,6 +964,16 @@ td small { color: var(--muted); font-size: 9px; }
 
 /* Desktop met muis: de scrubber blijft staan en alleen de tabel scrolt, zodat hij op de nu-rij kan openen
    met de historie erboven. Touch houdt de doorlopende pagina (sticky scrubber) en de uitklaprij. */
+/* Tijdelijke proef achter ?dev (U62): scheiding tussen kaart en zijpaneel. De waarden staan als variabelen
+   op .app-shell, zodat ze in devtools te verstellen zijn; 's nachts (hemel van het cursoruur) eigen waarden. */
+@media (min-width: 960px) {
+  .app-shell { --edge-line-color: rgba(16, 38, 48, .14); --edge-shadow: -18px 0 34px -20px rgba(6, 20, 28, .38); }
+  .app-shell:has(.map-shell.sky-night) { --edge-line-color: rgba(237, 248, 252, .16); --edge-shadow: -20px 0 36px -18px rgba(0, 0, 0, .6); }
+  .app-shell:is(.edge-line, .edge-shadow) .dashboard { position: relative; z-index: 2; }
+  .app-shell.edge-line .dashboard { box-shadow: -1px 0 0 var(--edge-line-color); }
+  .app-shell.edge-shadow .dashboard { box-shadow: var(--edge-shadow); }
+}
+
 @media (min-width: 960px) and (pointer: fine) {
   .dashboard { display: flex; flex-direction: column; overflow: hidden; }
   .dashboard > * { flex: none; }
