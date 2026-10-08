@@ -43,3 +43,6 @@ Na het ?dev-experiment (oud / geen / A lijn / B schaduw): "over die rand ben ik 
 ik denk dat oud er op dit moment het beste uitziet" → de bestaande border + lichte schaduw blijft; schakelaar
 en varianten gaan weg. De Firefox-adresbalkfix is door de PO goedgekeurd ("gebeurt nog wel maar corrigeert
 zich op tijd").
+
+Aanvulling PO 2026-10-08 22:35: de dag/nacht-overgang van de kaart in ÉÉN stap (op het omslagpunt, met
+MapLibre's 300 ms-overgang) in plaats van vier mengstappen.
