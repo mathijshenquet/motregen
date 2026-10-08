@@ -13,7 +13,8 @@ Het artefact van 2026-10-08 bevat 6.997 plaatsen: 132.509 bytes JSON, 60.946 byt
 De export schrijft ook `.json.gz`; de gegenereerde Caddy-route serveert die variant met gzip en
 een immutable cacheheader, zodat het gemeten budget ook voor het netwerk geldt.
 De generator weigert meer dan 60 KiB gzip. De loader haalt het bestand eenmaal op; bij een fout
-blijft de oude lijst beschikbaar. De service worker neemt de catalogus mee voor offline gebruik.
+blijft de oude lijst beschikbaar. De service worker bewaart de latere aanvraag voor offline gebruik
+in `motregen-plaatsen-v1`; de catalogus zit niet in zijn precache.
 
 JSON bevat de namen, vier base64-kolommen met unsigned varints, gemeente-suffixen per rij en de
 coördinatenschaal. Longitude en latitude zijn delta-gecodeerde gehele getallen met zigzag voor het
