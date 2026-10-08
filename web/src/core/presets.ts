@@ -1,5 +1,5 @@
 import { placeName, placeSlug } from './place-slug.js'
-import { nearestPlace } from './places.js'
+import { findCataloguePlace, namedCataloguePlace, nearestPlace } from './places.js'
 
 export type PresetMode = 'weather' | 'air' | 'feels' | 'wind'
 
@@ -12,6 +12,7 @@ export interface UrlPresets {
   mode?: PresetMode
   epoch?: number
   place?: string
+  placeSlug?: string
   point?: PresetPoint
 }
 
@@ -22,6 +23,7 @@ export interface ShareState {
   /** Label van de gekozen plek (zoekresultaat of dichtstbijzijnde plaats). */
   place?: string
   savedPlace?: boolean
+  placeSlug?: string
 }
 
 /** URL-termen blijven los van de interne focusnamen; de focusnamen staan hier als losse literals zodat de
@@ -89,8 +91,11 @@ export function parsePresetPath(pathname: string): UrlPresets {
   const mode = modeNames[segments[0]?.toLowerCase() as keyof typeof modeNames]
   if (!mode) return {}
   try {
+    const slug = segments[1] ? placeSlug(decodeURIComponent(segments[1])) : undefined
     const place = segments[1] ? placeName(decodeURIComponent(segments[1])) : undefined
-    return segments[1] && !place ? {} : { mode, ...(place && { place }) }
+    const cataloguePlace = slug && findCataloguePlace(slug)
+    const distinctSlug = cataloguePlace && cataloguePlace.slug !== placeSlug(cataloguePlace.name) ? cataloguePlace.slug : undefined
+    return segments[1] && !place ? {} : { mode, ...(place && { place }), ...(distinctSlug && { placeSlug: distinctSlug }) }
   } catch { return {} }
 }
 
@@ -98,10 +103,12 @@ export function parsePresets(search: string | URLSearchParams, now = Date.now(),
   const params = typeof search === 'string' ? new URLSearchParams(search) : search
   const path = parsePresetPath(pathname)
   const point = parsePoint(params)
-  const place = point ? undefined : parsePlace(params.get('plaats')) ?? path.place
+  const queryPlace = parsePlace(params.get('plaats'))
+  const place = point ? undefined : queryPlace ?? path.place
+  const slug = !point && !queryPlace ? path.placeSlug : undefined
   const mode = modeNames[params.get('modus') as keyof typeof modeNames] ?? path.mode
   const epoch = parseEpoch(new URLSearchParams(hash.replace(/^#/, '')).get('t') ?? params.get('t'), now)
-  return { ...(mode && { mode }), ...(epoch !== undefined && { epoch }), ...(place && { place }), ...(point && { point }) }
+  return { ...(mode && { mode }), ...(epoch !== undefined && { epoch }), ...(place && { place }), ...(slug && { placeSlug: slug }), ...(point && { point }) }
 }
 
 export function modeForFocus(mode: PresetMode): FocusName {
@@ -119,12 +126,13 @@ export function shareablePlace(label: string | undefined): string | undefined {
   return place
 }
 
-export function presetPath(mode: PresetMode, place?: string): string {
-  const slug = place && placeSlug(place)
+export function presetPath(mode: PresetMode, place?: string, explicitSlug?: string): string {
+  const slug = explicitSlug ?? (place && placeSlug(place))
   return `/${pathModes[mode]}${slug ? `/${slug}` : ''}`
 }
 
 export function sharePlace(state: ShareState): string | undefined {
+  if (state.placeSlug) return findCataloguePlace(state.placeSlug)?.name ?? state.place
   return (!state.savedPlace && shareablePlace(state.place)) || nearestPlace(state.point.lng, state.point.lat).name
 }
 
@@ -135,7 +143,10 @@ export function applyPresetParams(params: URLSearchParams): URLSearchParams {
 }
 
 export function applyPresetUrl(url: URL, state: ShareState, includeTime: boolean): URL {
-  url.pathname = presetPath(state.mode, sharePlace(state))
+  const name = sharePlace(state)
+  const cataloguePlace = name ? namedCataloguePlace(name, state.point) : undefined
+  const slug = state.placeSlug ?? cataloguePlace?.slug
+  url.pathname = presetPath(state.mode, name, slug)
   applyPresetParams(url.searchParams)
   const fragment = new URLSearchParams(url.hash.replace(/^#/, ''))
   if (includeTime) fragment.set('t', formatLocalTime(Math.round(state.epoch / 60_000) * 60_000))

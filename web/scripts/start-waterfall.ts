@@ -48,6 +48,7 @@ for (const file of files) {
   resource('glyphs', /\/fonts\//)
   resource('basemap-Ranges', /\.pmtiles$/)
   resource('manifest', /\/manifest\.json/)
+  resource('plaatsenlijst (na ttfp)', /\/plaatsen-[0-9a-f]+\.json$/)
   const network = (label: string, requests: StartCapture['requests']) => {
     rows.push(`| ${label} (${requests.length}) | ${requests.length ? `${shown(Math.min(...requests.map((request) => request.startTime + request.requestStart - capture.timeOrigin)))} → ${shown(Math.max(...requests.map((request) => request.startTime + request.responseEnd - capture.timeOrigin)))}` : 'niet gezien'} | ${shown(requests.reduce((sum, request) => sum + request.responseBodySize, 0) / 1000)} / — |`)
   }

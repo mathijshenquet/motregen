@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { chromium, devices, type Request } from '@playwright/test'
 import type { PerfMonitor } from '../src/core/perf'
+import { placesUrl } from '../src/core/places-asset'
 import { MAX_LOAD_AVERAGE, hostLoadAverage } from './rig-host'
 
 const [origin, output, ...flags] = process.argv.slice(2)
@@ -91,12 +92,14 @@ try {
       }
       await Promise.all(pending)
       if (errors.length) throw new Error(errors.join('\n'))
+      const catalogue = captured.resources.find((entry) => new URL(entry.name).pathname === placesUrl)
+      if (!catalogue || catalogue.startTime <= (captured.snapshot.ttfpMs ?? Infinity)) throw new Error('Plaatsenlijst ontbreekt of begint vóór ttfp')
       const prefix = `${output}-${warm ? 'warm' : 'cold'}-run${runNumber}`
       if (cpuProfile) {
         const { profile } = await cdp.send('Profiler.stop')
         writeFileSync(`${prefix}.cpuprofile`, JSON.stringify(profile))
       }
-      writeFileSync(`${prefix}.json`, JSON.stringify({ capturedAt: new Date().toISOString(), origin, pathname, query, warm, cpuProfile, loadAverage, ...captured, requests }, null, 2))
+      writeFileSync(`${prefix}.json`, JSON.stringify({ capturedAt: new Date().toISOString(), origin, pathname, query, warm, cpuProfile, browserPerRun: true, loadAverage, ...captured, requests }, null, 2))
       writeFileSync(`${prefix}.trace.json`, JSON.stringify({ traceEvents: events }))
       console.log(`${prefix}: ${JSON.stringify(captured.snapshot)}`)
     } finally {

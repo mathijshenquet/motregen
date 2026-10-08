@@ -1210,10 +1210,13 @@ bash scripts/desktop-rig.sh ../tmp/desktop-warm --repeat=3 --warm
 pnpm exec tsx scripts/start-waterfall.ts ../tmp/desktop-koud-cold-run*.json
 ```
 
-De wrapper bouwt vóór de lock; de browserfase neemt
-`flock -w 7200 /home/mathijs/motregen-perf.lock`. `perf:mobile` en
+De wrapper bouwt en wacht op load ≤8 vóór de lock; één browserrun neemt
+`flock -w 7200 /home/mathijs/motregen-perf.lock`. Elke herhaling krijgt een
+eigen browserproces en lockperiode. Bij drukte na lockverkrijging komt de
+lock meteen vrij; ook slotwachttijd blijft erbuiten. `perf:mobile` en
 `prof:capture` gebruiken dezelfde lock. Een handmatige buitenlock wordt
-herkend, zodat geneste wrappers niet vastlopen. Gewone e2e/builds nemen
+herkend voor één run, zodat geneste wrappers niet vastlopen. Zet geen hele
+lus onder een buitenlock. Gewone e2e/builds nemen
 geen perf-lock. Bevroren builds kunnen met `MOTREGEN_RIG_PREBUILT=1` en
 `MOTREGEN_RIG_DIST=/pad/naar/build` worden hergebruikt; de gecombineerde
 lus staat in `scripts/desktop-loop.sh`. Nieuwe captures starten op `/weer`.
@@ -1230,3 +1233,12 @@ referentiebuild. Bij een expliciete `VITE_BASEMAP_STYLE_URL` blijven die
 stijl en fonts behouden. Manifestrefresh hergebruikt de startupfetch niet;
 still en Skywatch starten geen normale sessiebootstrap. De kaartplaceholder
 blijft een afzonderlijke devproef volgens [dev-opties.md](dev-opties.md).
+
+Een aanvraagvolgorde kan ook op een drukke host worden gecontroleerd met
+`pnpm perf:mobile --profile desktop --scenario koud-spelend --basemap own --request-order`.
+Gebruik `--profile po-android` voor het gekalibreerde Android-profiel. Deze modus houdt native
+Resource Timing, de netwerkregistratie, renderer-quota en het profiel intact, maar zet of vergelijkt
+geen performancebaseline (`--baseline`/`--compare` worden geweigerd). De rapporten dragen dat kenmerk;
+een capture onder load bewijst alleen volgorde. `pnpm exec tsx scripts/place-waterfall.ts
+tmp/perf-mobile/desktop-koud-spelend-run1.raw.json` controleert de catalogusstart ten opzichte van
+`milestone:ttfp`, manifest, stijl en eerste regen-Range, en schrijft een compacte JSON en SVG-waterval.

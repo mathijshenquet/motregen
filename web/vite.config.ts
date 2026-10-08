@@ -108,6 +108,11 @@ export default defineConfig({
       navigateFallbackDenylist: [/^\/(?:data|telegram)(?:\/|$)/, /^\/(?:hit|sw\.js|sitemap\.xml|robots\.txt)$/],
       runtimeCaching: [
         {
+          urlPattern: ({ url }) => /^\/plaatsen-[0-9a-f]{16}\.json$/.test(url.pathname),
+          handler: 'CacheFirst',
+          options: { cacheName: 'motregen-plaatsen-v1', expiration: { maxEntries: 2, maxAgeSeconds: 31_536_000 } },
+        },
+        {
           urlPattern: ({ url }) => /^\/data\/basemap\/nl-[0-9a-f]{16}\.pmtiles$/.test(url.pathname),
           handler: 'CacheFirst',
           options: {

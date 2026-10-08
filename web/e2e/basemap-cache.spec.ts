@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
 import { applyEmulation, performanceProfile } from './profiles'
 import { useOwnBasemap } from './basemap-fixture'
+import { placesUrl } from '../src/core/places-asset'
 
 for (const width of [390, 1280]) {
   test(`warme basiskaart zonder netwerk ${width}px`, async ({ page, context }, testInfo) => {
@@ -27,6 +28,17 @@ for (const width of [390, 1280]) {
     await page.reload()
     await page.waitForFunction(() => navigator.serviceWorker.controller !== null)
     await expect(page.locator('.map-splash.ready')).toBeAttached()
+    await expect.poll(() => page.evaluate(async (url) => {
+      const cache = await caches.open('motregen-plaatsen-v1')
+      return (await cache.keys()).some((request) => request.url === new URL(url, location.href).href)
+    }, placesUrl)).toBe(true)
+    const cataloguePrecached = await page.evaluate(async (url) => {
+      for (const name of (await caches.keys()).filter((name) => name.startsWith('workbox-precache'))) {
+        if ((await (await caches.open(name)).keys()).some((request) => new URL(request.url).pathname === url)) return true
+      }
+      return false
+    }, placesUrl)
+    expect(cataloguePrecached).toBe(false)
     await expect.poll(() => page.evaluate(async () => (await (await caches.open('motregen-basemap-ranges-v1')).keys()).length)).toBeGreaterThan(1).catch(async (error) => {
       await testInfo.attach('rangecache', { body: diagnostics.join('\n'), contentType: 'text/plain' })
       console.log(diagnostics.join('\n'))
@@ -65,6 +77,12 @@ for (const width of [390, 1280]) {
     mkdirSync('tmp/basemap', { recursive: true })
     writeFileSync(`tmp/basemap/cache-${width}.json`, JSON.stringify({ network, ranges, cache, cold, warm }, null, 2))
     await context.setOffline(true)
+    const cachedPlaces = await page.evaluate(async (url) => {
+      const response = await fetch(url)
+      return { status: response.status, names: (await response.json()).names.length }
+    }, placesUrl)
+    expect(cachedPlaces.status).toBe(200)
+    expect(cachedPlaces.names).toBeGreaterThan(6900)
     const cachedStyle = await page.evaluate(async () => (await fetch('/basemap/licht.json')).status)
     expect(cachedStyle).toBe(200)
     const cachedRange = await page.evaluate(async () => {
