@@ -1,0 +1,829 @@
+{
+  "sourceSha": "cd0d63e8afa14043f968af72bf86833980e10863",
+  "includes": "U62deel2/U67",
+  "functionalOnly": true,
+  "timingProof": false,
+  "heldPmtilesRanges": true,
+  "captures": [
+    {
+      "theme": "light",
+      "path": "http://127.0.0.1:4693/weer/de-bilt?perf=1&dev=",
+      "cursorOffsetHours": 0,
+      "placeholder": {
+        "capturedAt": "2026-08-28T15:00:00.000Z",
+        "ttfrMs": null,
+        "firstRainMs": 3310.7,
+        "basemapReadyMs": null,
+        "ttfhMs": null,
+        "ttfpMs": null,
+        "blankVisibleMs": 2436,
+        "blankSlotSeconds": 154.1,
+        "blankShareSeconds": 2.33,
+        "firstBarMs": 3130.8,
+        "scrub": {
+          "samples": 0,
+          "p50Ms": null,
+          "p95Ms": null
+        },
+        "fps": 7.9,
+        "network": {
+          "manifest": {
+            "requests": 1,
+            "bytes": 36813
+          },
+          "chunks": {
+            "requests": 83,
+            "bytes": 3267935
+          },
+          "tiles": {
+            "requests": 3,
+            "bytes": 90884
+          },
+          "other": {
+            "requests": 14,
+            "bytes": 1765563
+          },
+          "total": {
+            "requests": 101,
+            "bytes": 5161195
+          }
+        },
+        "manifestAgeMs": 0,
+        "phases": {
+          "frame-decode": {
+            "count": 35,
+            "p50Ms": 3.8,
+            "p95Ms": 199.4
+          },
+          "texture-upload": {
+            "count": 1,
+            "p50Ms": 66.2,
+            "p95Ms": 66.2
+          },
+          "wind-step": {
+            "count": 1,
+            "p50Ms": 0.2,
+            "p95Ms": 0.2
+          },
+          "scrubber-paint": {
+            "count": 49,
+            "p50Ms": 0.2,
+            "p95Ms": 28
+          },
+          "table-render": {
+            "count": 7,
+            "p50Ms": 0.1,
+            "p95Ms": 2.9
+          }
+        },
+        "windowReadyMs": {
+          "cloud_low": 5285,
+          "cloud_high": 5286,
+          "cloud_mid": 5286
+        },
+        "longFrames": [
+          {
+            "startTime": 2810.7999999523163,
+            "duration": 700,
+            "blockingDuration": 641.3,
+            "scripts": [
+              {
+                "duration": 590.5,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 71.20000004768372,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-B65gzRFg.js",
+                "sourceFunctionName": "",
+                "invoker": "Worker.onmessage"
+              }
+            ]
+          },
+          {
+            "startTime": 621,
+            "duration": 680.7000000476837,
+            "blockingDuration": 617.7,
+            "scripts": [
+              {
+                "duration": 425.60000002384186,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js"
+              },
+              {
+                "duration": 139.5,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "ResizeObserverCallback"
+              },
+              {
+                "duration": 25.899999976158142,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "ResizeObserverCallback"
+              }
+            ]
+          },
+          {
+            "startTime": 1440.8999999761581,
+            "duration": 664.5,
+            "blockingDuration": 474.3,
+            "scripts": [
+              {
+                "duration": 374.60000002384186,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "Response.json.then"
+              },
+              {
+                "duration": 145.10000002384186,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              }
+            ]
+          },
+          {
+            "startTime": 2111.2999999523163,
+            "duration": 354,
+            "blockingDuration": 225,
+            "scripts": [
+              {
+                "duration": 199.60000002384186,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 50,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "TimerHandler:setInterval"
+              },
+              {
+                "duration": 39.5,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "TimerHandler:setTimeout"
+              },
+              {
+                "duration": 10,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              }
+            ]
+          },
+          {
+            "startTime": 4651.700000047684,
+            "duration": 258.7999999523163,
+            "blockingDuration": 166,
+            "scripts": [
+              {
+                "duration": 210.79999995231628,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-B65gzRFg.js",
+                "sourceFunctionName": "",
+                "invoker": "Response.json.then"
+              }
+            ]
+          }
+        ]
+      },
+      "full": {
+        "capturedAt": "2026-08-28T15:00:00.000Z",
+        "ttfrMs": 8885.6,
+        "firstRainMs": 3310.7,
+        "basemapReadyMs": 8885.6,
+        "ttfhMs": 6515.7,
+        "ttfpMs": null,
+        "blankVisibleMs": 5846,
+        "blankSlotSeconds": 261.6,
+        "blankShareSeconds": 3.96,
+        "firstBarMs": 3130.8,
+        "scrub": {
+          "samples": 0,
+          "p50Ms": null,
+          "p95Ms": null
+        },
+        "fps": 14.1,
+        "network": {
+          "manifest": {
+            "requests": 1,
+            "bytes": 36813
+          },
+          "chunks": {
+            "requests": 87,
+            "bytes": 3899683
+          },
+          "tiles": {
+            "requests": 5,
+            "bytes": 153040
+          },
+          "other": {
+            "requests": 14,
+            "bytes": 1765563
+          },
+          "total": {
+            "requests": 107,
+            "bytes": 5855099
+          }
+        },
+        "manifestAgeMs": 0,
+        "phases": {
+          "frame-decode": {
+            "count": 131,
+            "p50Ms": 20.6,
+            "p95Ms": 111.2
+          },
+          "texture-upload": {
+            "count": 1,
+            "p50Ms": 66.2,
+            "p95Ms": 66.2
+          },
+          "wind-step": {
+            "count": 72,
+            "p50Ms": 0.4,
+            "p95Ms": 13.7
+          },
+          "scrubber-paint": {
+            "count": 111,
+            "p50Ms": 0.2,
+            "p95Ms": 10.8
+          },
+          "table-render": {
+            "count": 7,
+            "p50Ms": 0.1,
+            "p95Ms": 2.9
+          },
+          "basemap-tile": {
+            "count": 1,
+            "p50Ms": 1810.2,
+            "p95Ms": 1810.2
+          }
+        },
+        "windowReadyMs": {
+          "cloud_low": 5285,
+          "cloud_high": 5286,
+          "cloud_mid": 5286,
+          "uv": 6110,
+          "feels_like_c": 6201,
+          "wind_u": 6201,
+          "wind_v": 6201,
+          "temp_c": 6466,
+          "cloud_frac": 6466,
+          "gust_ms": 6466,
+          "rain_rate": 6516
+        },
+        "longFrames": [
+          {
+            "startTime": 2810.7999999523163,
+            "duration": 700,
+            "blockingDuration": 641.3,
+            "scripts": [
+              {
+                "duration": 590.5,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 71.20000004768372,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-B65gzRFg.js",
+                "sourceFunctionName": "",
+                "invoker": "Worker.onmessage"
+              }
+            ]
+          },
+          {
+            "startTime": 621,
+            "duration": 680.7000000476837,
+            "blockingDuration": 617.7,
+            "scripts": [
+              {
+                "duration": 425.60000002384186,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js"
+              },
+              {
+                "duration": 139.5,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "ResizeObserverCallback"
+              },
+              {
+                "duration": 25.899999976158142,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "ResizeObserverCallback"
+              }
+            ]
+          },
+          {
+            "startTime": 1440.8999999761581,
+            "duration": 664.5,
+            "blockingDuration": 474.3,
+            "scripts": [
+              {
+                "duration": 374.60000002384186,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "Response.json.then"
+              },
+              {
+                "duration": 145.10000002384186,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              }
+            ]
+          },
+          {
+            "startTime": 2111.2999999523163,
+            "duration": 354,
+            "blockingDuration": 225,
+            "scripts": [
+              {
+                "duration": 199.60000002384186,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 50,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "TimerHandler:setInterval"
+              },
+              {
+                "duration": 39.5,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "TimerHandler:setTimeout"
+              },
+              {
+                "duration": 10,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              }
+            ]
+          },
+          {
+            "startTime": 8450.299999952316,
+            "duration": 290,
+            "blockingDuration": 113.9,
+            "scripts": [
+              {
+                "duration": 39.700000047683716,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "u",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 35.09999990463257,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-B65gzRFg.js",
+                "sourceFunctionName": "",
+                "invoker": "Worker.onmessage"
+              },
+              {
+                "duration": 35,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-B65gzRFg.js",
+                "sourceFunctionName": "",
+                "invoker": "Worker.onmessage"
+              },
+              {
+                "duration": 20.40000009536743,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "u",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 10.099999904632568,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "u",
+                "invoker": "FrameRequestCallback"
+              }
+            ]
+          }
+        ]
+      },
+      "errors": [],
+      "heldRanges": true,
+      "timingProof": false
+    },
+    {
+      "theme": "dark",
+      "path": "http://127.0.0.1:4693/weer/de-bilt?perf=1&dev=",
+      "cursorOffsetHours": 6,
+      "placeholder": {
+        "capturedAt": "2026-08-28T15:00:00.000Z",
+        "ttfrMs": null,
+        "firstRainMs": 2647.1,
+        "basemapReadyMs": null,
+        "ttfhMs": null,
+        "ttfpMs": null,
+        "blankVisibleMs": 2175,
+        "blankSlotSeconds": 13.6,
+        "blankShareSeconds": 1.51,
+        "firstBarMs": 2512.5,
+        "scrub": {
+          "samples": 0,
+          "p50Ms": null,
+          "p95Ms": null
+        },
+        "fps": 5.8,
+        "network": {
+          "manifest": {
+            "requests": 1,
+            "bytes": 36813
+          },
+          "chunks": {
+            "requests": 61,
+            "bytes": 594731
+          },
+          "tiles": {
+            "requests": 3,
+            "bytes": 90884
+          },
+          "other": {
+            "requests": 14,
+            "bytes": 1765563
+          },
+          "total": {
+            "requests": 79,
+            "bytes": 2487991
+          }
+        },
+        "manifestAgeMs": 0,
+        "phases": {
+          "frame-decode": {
+            "count": 27,
+            "p50Ms": 4.7,
+            "p95Ms": 164.4
+          },
+          "texture-upload": {
+            "count": 1,
+            "p50Ms": 35,
+            "p95Ms": 35
+          },
+          "wind-step": {
+            "count": 2,
+            "p50Ms": 0.2,
+            "p95Ms": 14.8
+          },
+          "scrubber-paint": {
+            "count": 57,
+            "p50Ms": 0.2,
+            "p95Ms": 24.6
+          },
+          "table-render": {
+            "count": 7,
+            "p50Ms": 0.1,
+            "p95Ms": 6
+          }
+        },
+        "windowReadyMs": {},
+        "longFrames": [
+          {
+            "startTime": 582.1000000238419,
+            "duration": 632.1000000238419,
+            "blockingDuration": 572.8,
+            "scripts": [
+              {
+                "duration": 415.2999999523163,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js"
+              },
+              {
+                "duration": 102.79999995231628,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "ResizeObserverCallback"
+              },
+              {
+                "duration": 21,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "ResizeObserverCallback"
+              }
+            ]
+          },
+          {
+            "startTime": 2267.600000023842,
+            "duration": 514.8999999761581,
+            "blockingDuration": 460.4,
+            "scripts": [
+              {
+                "duration": 450.89999997615814,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 39.89999997615814,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-B65gzRFg.js",
+                "sourceFunctionName": "",
+                "invoker": "Worker.onmessage"
+              }
+            ]
+          },
+          {
+            "startTime": 1492.2000000476837,
+            "duration": 280,
+            "blockingDuration": 178.7,
+            "scripts": [
+              {
+                "duration": 123.10000002384186,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 100.10000002384186,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "Response.json.then"
+              }
+            ]
+          },
+          {
+            "startTime": 3413.600000023842,
+            "duration": 248.70000004768372,
+            "blockingDuration": 164.2,
+            "scripts": [
+              {
+                "duration": 159.30000007152557,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "ic",
+                "invoker": "IdleRequestCallback"
+              },
+              {
+                "duration": 24.100000023841858,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "u",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 15.200000047683716,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-B65gzRFg.js",
+                "sourceFunctionName": "",
+                "invoker": "ReadableStreamDefaultReader.read.then"
+              },
+              {
+                "duration": 10.600000023841858,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "u",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 9,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-B65gzRFg.js",
+                "sourceFunctionName": "",
+                "invoker": "Worker.onmessage"
+              }
+            ]
+          },
+          {
+            "startTime": 3873.399999976158,
+            "duration": 219.40000009536743,
+            "blockingDuration": 169.3,
+            "scripts": [
+              {
+                "duration": 178.80000007152557,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-B65gzRFg.js",
+                "sourceFunctionName": "",
+                "invoker": "Response.json.then"
+              },
+              {
+                "duration": 15,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "u",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 6,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "u",
+                "invoker": "FrameRequestCallback"
+              }
+            ]
+          }
+        ]
+      },
+      "full": {
+        "capturedAt": "2026-08-28T15:00:00.000Z",
+        "ttfrMs": 6937.5,
+        "firstRainMs": 2647.1,
+        "basemapReadyMs": 6937.5,
+        "ttfhMs": null,
+        "ttfpMs": null,
+        "blankVisibleMs": 3376,
+        "blankSlotSeconds": 19.1,
+        "blankShareSeconds": 2.12,
+        "firstBarMs": 2512.5,
+        "scrub": {
+          "samples": 0,
+          "p50Ms": null,
+          "p95Ms": null
+        },
+        "fps": 34,
+        "network": {
+          "manifest": {
+            "requests": 1,
+            "bytes": 36813
+          },
+          "chunks": {
+            "requests": 64,
+            "bytes": 904641
+          },
+          "tiles": {
+            "requests": 5,
+            "bytes": 153040
+          },
+          "other": {
+            "requests": 14,
+            "bytes": 1765563
+          },
+          "total": {
+            "requests": 84,
+            "bytes": 2860057
+          }
+        },
+        "manifestAgeMs": 0,
+        "phases": {
+          "frame-decode": {
+            "count": 63,
+            "p50Ms": 2.1,
+            "p95Ms": 164.4
+          },
+          "texture-upload": {
+            "count": 1,
+            "p50Ms": 35,
+            "p95Ms": 35
+          },
+          "wind-step": {
+            "count": 68,
+            "p50Ms": 0.3,
+            "p95Ms": 14.8
+          },
+          "scrubber-paint": {
+            "count": 104,
+            "p50Ms": 0.2,
+            "p95Ms": 19.3
+          },
+          "table-render": {
+            "count": 7,
+            "p50Ms": 0.1,
+            "p95Ms": 6
+          },
+          "basemap-tile": {
+            "count": 1,
+            "p50Ms": 991.6,
+            "p95Ms": 991.6
+          }
+        },
+        "windowReadyMs": {},
+        "longFrames": [
+          {
+            "startTime": 582.1000000238419,
+            "duration": 632.1000000238419,
+            "blockingDuration": 572.8,
+            "scripts": [
+              {
+                "duration": 415.2999999523163,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js"
+              },
+              {
+                "duration": 102.79999995231628,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "ResizeObserverCallback"
+              },
+              {
+                "duration": 21,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "ResizeObserverCallback"
+              }
+            ]
+          },
+          {
+            "startTime": 2267.600000023842,
+            "duration": 514.8999999761581,
+            "blockingDuration": 460.4,
+            "scripts": [
+              {
+                "duration": 450.89999997615814,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 39.89999997615814,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-B65gzRFg.js",
+                "sourceFunctionName": "",
+                "invoker": "Worker.onmessage"
+              }
+            ]
+          },
+          {
+            "startTime": 1492.2000000476837,
+            "duration": 280,
+            "blockingDuration": 178.7,
+            "scripts": [
+              {
+                "duration": 123.10000002384186,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 100.10000002384186,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "Response.json.then"
+              }
+            ]
+          },
+          {
+            "startTime": 3413.600000023842,
+            "duration": 248.70000004768372,
+            "blockingDuration": 164.2,
+            "scripts": [
+              {
+                "duration": 159.30000007152557,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "ic",
+                "invoker": "IdleRequestCallback"
+              },
+              {
+                "duration": 24.100000023841858,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "u",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 15.200000047683716,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-B65gzRFg.js",
+                "sourceFunctionName": "",
+                "invoker": "ReadableStreamDefaultReader.read.then"
+              },
+              {
+                "duration": 10.600000023841858,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "u",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 9,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-B65gzRFg.js",
+                "sourceFunctionName": "",
+                "invoker": "Worker.onmessage"
+              }
+            ]
+          },
+          {
+            "startTime": 5637.800000071526,
+            "duration": 224.79999995231628,
+            "blockingDuration": 120.1,
+            "scripts": [
+              {
+                "duration": 119.5,
+                "sourceURL": "http://127.0.0.1:4693/assets/startup-B65gzRFg.js",
+                "sourceFunctionName": "",
+                "invoker": "Worker.onmessage"
+              },
+              {
+                "duration": 15.199999928474426,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "u",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 15,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "u",
+                "invoker": "FrameRequestCallback"
+              },
+              {
+                "duration": 9.600000023841858,
+                "sourceURL": "http://127.0.0.1:4693/assets/index-2NrPn-eo.js",
+                "sourceFunctionName": "",
+                "invoker": "FrameRequestCallback"
+              }
+            ]
+          }
+        ]
+      },
+      "errors": [],
+      "heldRanges": true,
+      "timingProof": false
+    }
+  ]
+}
