@@ -34,3 +34,22 @@ describe('frame size', () => {
     expect(readConfig({ TG_BOT_KEY: 'test-token', MOTREGEN_RENDER_CACHE: 'tmp/frame-test' }).cacheDirectory).toBe(resolve('tmp/frame-test'))
   })
 })
+
+describe('bot roles', () => {
+  it('keeps combined mode as the local default', () => {
+    expect(readConfig({ TG_BOT_KEY: 'test' }).role).toBe('combined')
+  })
+
+  it('lets the command line override the environment', () => {
+    expect(readConfig({ TG_BOT_KEY: 'test', MOTREGEN_BOT_ROLE: 'poller', MOTREGEN_CACHE_CHAT_ID: '-100123' }, ['--role=renderer']).role).toBe('renderer')
+  })
+
+  it('accepts a poller with a local register and no Chromium configuration', () => {
+    expect(readConfig({ TG_BOT_KEY: 'test', MOTREGEN_BOT_ROLE: 'poller', MOTREGEN_REGISTER_PATH: 'register.json' })).toMatchObject({ role: 'poller', registerPath: resolve('register.json') })
+  })
+
+  it('rejects unknown roles and missing split-role transport', () => {
+    expect(() => readConfig({ TG_BOT_KEY: 'test', MOTREGEN_BOT_ROLE: 'unknown' })).toThrow('ROLE')
+    expect(() => readConfig({ TG_BOT_KEY: 'test', MOTREGEN_BOT_ROLE: 'renderer' })).toThrow('CACHE_CHAT_ID')
+  })
+})
