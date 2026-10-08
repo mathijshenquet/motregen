@@ -22,45 +22,64 @@ export function mapStartStyle(style: StyleSpecification): StyleSpecification {
   }
 }
 
-export function createMapStart(): { style: typeof mapStartStyle; replace: (map: MapLibreMap) => void; dispose: () => void } | undefined {
+export function createMapStart(): { style: typeof mapStartStyle; playbackReady: () => void; replace: (map: MapLibreMap) => void; dispose: () => void } | undefined {
   if (import.meta.env.VITE_MAP_START === 'off' && new URLSearchParams(location.search).has('dev')) return undefined
-  const worker = new Worker(new URL('./map-start.worker.ts', import.meta.url), { type: 'module' })
+  let ready = !(import.meta.env.VITE_MAP_START === 'after-play' && new URLSearchParams(location.search).has('dev'))
+  let worker: Worker | undefined
   const data = new Map<string, Promise<ArrayBuffer>>()
   const complete = new Map<string, (data: ArrayBuffer) => void>()
+  const waiting = new Map<string, ArrayBuffer>()
   for (const key of ['4/7/5', '4/8/5']) data.set(key, new Promise((resolve) => complete.set(key, resolve)))
-  worker.onmessage = (event: MessageEvent<{ key: string; data: ArrayBuffer }>) => {
-    complete.get(event.data.key)?.(event.data.data)
-    complete.delete(event.data.key)
-    if (!complete.size) worker.terminate()
-  }
-  worker.onerror = () => {
+  function stop(): void {
     for (const resolve of complete.values()) resolve(new ArrayBuffer(0))
     complete.clear()
-    worker.terminate()
+    waiting.clear()
+    worker?.terminate()
+    worker = undefined
   }
+  function startWorker(): Worker {
+    if (worker) return worker
+    worker = new Worker(new URL('./map-start.worker.ts', import.meta.url), { type: 'module' })
+    worker.onmessage = (event: MessageEvent<{ key: string; data: ArrayBuffer }>) => {
+      complete.get(event.data.key)?.(event.data.data)
+      complete.delete(event.data.key)
+      if (!complete.size) { worker?.terminate(); worker = undefined }
+    }
+    worker.onerror = stop
+    return worker
+  }
+  if (ready) startWorker()
   for (const [key, url] of [['4/7/5', westTile], ['4/8/5', eastTile]]) {
     void fetch(url!).then(async (response) => {
       if (!response.ok) throw new Error(`Z4-tegel laden mislukt (${response.status})`)
       const compressed = await response.arrayBuffer()
-      if (complete.has(key!)) worker.postMessage({ key, data: compressed }, [compressed])
+      if (!complete.has(key!)) return
+      if (ready) startWorker().postMessage({ key, data: compressed }, [compressed])
+      else waiting.set(key!, compressed)
     }).catch(() => {
       complete.get(key!)?.(new ArrayBuffer(0))
       complete.delete(key!)
-      if (!complete.size) worker.terminate()
+      if (!complete.size) stop()
     })
   }
   addProtocol(protocol, async (request) => ({ data: (await data.get(request.url.slice(`${protocol}://`.length)) ?? new ArrayBuffer(0)).slice(0) }))
   return {
     style: mapStartStyle,
+    playbackReady() {
+      ready = true
+      for (const [key, compressed] of waiting) {
+        if (complete.has(key)) startWorker().postMessage({ key, data: compressed }, [compressed])
+      }
+      waiting.clear()
+    },
     replace(map) {
       // Transparante landcover over dezelfde echte lagen verdubbelt de tint. Wissel vóór de volgende paint.
       for (const layer of map.getStyle().layers) if (layer.id.startsWith(`${mapStartSource}-`)) map.removeLayer(layer.id)
       if (map.getSource(mapStartSource)) map.removeSource(mapStartSource)
+      stop()
     },
     dispose() {
-      for (const resolve of complete.values()) resolve(new ArrayBuffer(0))
-      complete.clear()
-      worker.terminate()
+      stop()
       removeProtocol(protocol)
     },
   }

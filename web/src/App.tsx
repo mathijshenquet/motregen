@@ -1325,7 +1325,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
     afterRainDraw(() => {
       const firstPlayback = perf.markRainFrameCommitted({ frameEpoch: leftFrame.epoch, playing: playing() })
-      if (firstPlayback || !playing()) schedulePlaces()
+      if (firstPlayback || !playing()) {
+        mapStart?.playbackReady()
+        schedulePlaces()
+      }
     })
     if (!rainOverlay) map.triggerRepaint()
     // De eerste locatiereeks haalt dezelfde chunks direct in bulk op. Losse,
