@@ -181,6 +181,28 @@ test.describe('telefoon met ingeklapte adresbalk', () => {
     await expect(page.locator('.map-shell')).toHaveAttribute('data-rendering', 'true')
   })
 
+  test('a page left just beside the table snap point is pulled back, without a strip of scrubber above the table (U62)', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.locator('tr.current-hour')).toBeAttached()
+    await expect(page.locator('.map-splash.ready')).toBeAttached()
+    // Firefox voor Android laat de pagina naast het snappunt staan als de adresbalk terugkomt (PO 2026-10-08).
+    // Chromium zet haar zelf terug; zonder CSS-snap moet de app het doen.
+    await page.addStyleTag({ content: 'html { scroll-snap-type: none !important; }' })
+    await page.getByRole('button', { name: 'Tabel' }).click()
+    const panelTop = () => page.locator('.forecast-panel').evaluate((element) => Math.round(element.getBoundingClientRect().top))
+    await expect.poll(panelTop).toBe(0)
+    await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
+
+    // De terugkerende adresbalk schuift de pagina een stukje terug: 35 px scrubber boven de tabel.
+    // In dezelfde tik teruglezen: de app zet de pagina al bij het einde van de scroll terug.
+    expect(await page.evaluate(() => {
+      window.scrollBy(0, -35)
+      return Math.round(document.querySelector('.forecast-panel')!.getBoundingClientRect().top)
+    })).toBe(35)
+    await expect.poll(panelTop).toBe(0)
+    await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
+  })
+
   test('the table preview tweens to the cursor hour while a finger drags the scrubber (U62)', async ({ page }) => {
     await page.goto('/')
     await expect(page.locator('tr.current-hour')).toBeAttached()

@@ -578,3 +578,215 @@ staat; na een stijlwissel wordt dat gewist.
   standen nagekeken (18:50 / 19:05 / 19:20 → nacht 0,25–1,00). De PO beoordeelt het op zijn telefoon.
 - Gate (web/): typecheck 0 · `pnpm test` 0 (506) · build 0 · desktop `dev-panel cloud-section` 0 (3 groen).
 - Vanaf hier wijzigt er niets meer op de branch tot de merge; de rand-schakelaar staat er nog.
+
+## Deel 2 op main (768d076); branch bijgetrokken
+
+## Proef regen-blending in Wind en Lucht — achter ?dev (groep Kaart, eigenaar U62, vervalt 2026-10-15)
+PO-beelden: `po-blending/`. Geen productwijziging: de standaardstanden (`alfa`, `nu`) zijn het bestaande gedrag
+(unit-test: `rainPresentation` met de standaardvarianten == `rainFocusOpacity`, toon 1, geen vermenigvuldiging).
+### Wat er was
+- Wind: de regen wordt via alfa op 0,5 gezet → mengt met de lichte kaart en verbleekt ("solarized").
+- Lucht: de regen ligt al BOVEN de sluier (DOM-volgorde: kaart < isolijnen/sluier < wind < regen), op volle
+  dekking; de sluier is 0,55 wit-ish (licht thema) of grijs (donker thema), ongeacht dag of nacht op de kaart.
+### Gebouwd
+- Regenshader: `u_saturation` / `u_brightness` (`RainLayer.setTone`) — rustiger zonder verbleken.
+- `core/focus-mode.ts` `rainPresentation(...)` → dekking, verzadiging, helderheid, vermenigvuldigen.
+- Vermenigvuldigen = `mix-blend-mode: multiply` op de regencanvas (`.map-overlay-motregen-rain.blend-multiply`).
+- Nachtsluier (`CLOUD_VEIL_NIGHT`): kleur [0,62 0,70 0,80], dekking 0,30. "Nacht" = kaart volgt de tijd ≥ 0,5,
+  anders donker thema.
+### Standen en getallen
+| knop | stand | overdag | 's nachts |
+| Regen in Wind | alfa (was) | dekking 0,50 | dekking 0,50 |
+| | vermenigvuldigen | dekking 0,90, vermenigvuldigd met de kaart | valt terug op gedempt (op donker verdwijnt de regen anders) |
+| | gedempt | dekking 0,80 · verzadiging 0,70 · helderheid 0,90 | idem |
+| Regen in Lucht | nu (was) | dekking 1,00 boven sluier 0,55 | idem |
+| | voorstel | dekking 1,00, vermenigvuldigd (met de witte sluier geeft dat het palet zelf) | sluier grijsblauw 0,30 · regen 0,70 · verzadiging 0,70 · helderheid 0,85 |
+### Beelden (zelf bekeken): `blending/blend-{wind,lucht}-{dag,nacht}-{390,1280}.png`, varianten naast elkaar in
+de volgorde van de tabel (13:00 morgen en 23:00 vandaag, live data).
+- Wind overdag: vermenigvuldigen haalt het pastel weg — geel blijft geel, de kaartlabels blijven leesbaar;
+  waar oranje regen boven zee ligt wordt het wat modderig. Gedempt is een milde verbetering op alfa.
+- Wind 's nachts: de drie standen liggen dicht bij elkaar; gedempt is iets voller dan alfa.
+- Lucht 's nachts: het voorstel is duidelijk rustiger (blauwe waas, regen gedempt, kaart leesbaar).
+- Lucht overdag: mijn EERSTE voorstel (regen 0,8 en 12 % donkerder, `blending/eerste-dagvoorstel-lucht/`)
+  maakte het beeld bleker en is vervangen door vermenigvuldigen: vollere kleuren, en de kaart (labels,
+  grenzen) schemert weer door de regen heen. Niet gebouwd: sluier alleen waar geen regen is (regenmasker
+  in de sluiershader).
+### Mijn keuze (voorstel, niets vastgezet)
+Wind = vermenigvuldigen; Lucht = voorstel.
+### Frametijd vermenigvuldigen tegen alfa (Wind, overdag, 20 s afspelen, po-android, onder de lock, load ≤ 16)
+`rig/blend-frames.ts`, `blending/frametijd-alfa-tegen-vermenigvuldigen.log`.
+| | frames in 20 s | p95 | lange frames |
+| alfa | 632 / 659 / 506 | 66,7 / 66,7 / 99,9 | 30 / 35 / 56 |
+| vermenigvuldigen | 725 / 697 / 409 | 66,6 / 66,7 / 116,7 | 26 / 31 / 78 |
+Paar 3 liep terwijl de host naar loadavg 20–21 opliep en is onbruikbaar. In paar 1 en 2 is vermenigvuldigen
+niet trager. Twee kanttekeningen: Wind-afspelen is in deze rig sowieso zwaar (p95 67 ms in beide standen),
+en de rig mengt in software — wat een mengmodus op de GPU-compositor van een telefoon kost, zegt dit niet.
+Dat moet de PO-telefoon uitwijzen.
+- Gate (web/): typecheck 0 · `pnpm test` 0 (509) · build 0 · desktop `dev-panel focus cloud-section` 0
+  (11 groen, 2 overgeslagen); `dev-panel.spec` controleert de Wind-knop (dekking 0,50 → 0,90, multiply).
+
+## Main gemerged (U64, U63: z4-placeholder, vroege manifestpijplijn, lazy modules) — 4e5ac7e
+typecheck 0 · `pnpm test` 0 (79 bestanden, 527 tests) · build 0 · desktop `dev-panel focus cloud-section
+sky-window table` 0 (18 groen, 4 overgeslagen). Preview 4320 herstart op de gemergde build.
+
+## PO-bug (mobiel Firefox): strook scrubber boven de open tabel als de adresbalk terugkomt
+Screenshot PO: `po-histogram-rest-firefox-adresbalk.png` (tabel open, ~35 px scrubber + twee regenbalkjes
+boven de tab-rij).
+- Nagebootst zoals gevraagd met een hoogtewissel ná het openscrollen (`rig/toolbar-resize.ts`, 390 px,
+  844 ↔ 788): in Chromium blijft het paneel in beide richtingen op 0 px — de CSS-scroll-snap van de
+  browser zet de pagina na de layoutwissel zelf terug. Zo is het dus NIET te reproduceren.
+- Wat de screenshot laat zien is een pagina die ~35 px naast het snappunt tot rust is gekomen. De app
+  corrigeerde dat nergens: `settleTableView` keek alleen óf de pagina op de tabel of op de kaart stond en
+  deed anders niets. Aanname (niet op het toestel bevestigd): Firefox voor Android laat de pagina daar
+  staan wanneer de adresbalk terugkomt, waar Chromium opnieuw snapt.
+- Fix (`App.tsx`, `settleTableView`): staat de pagina na een scroll of een schermwissel binnen
+  `TABLE_SNAP_SLACK_PX` (120 px) van het tabel-snappunt, dan `window.scrollBy(panelTop)`; binnen 120 px
+  van de bovenkant, dan terug naar 0. Verder weg niets (dat is een gebaar dat nog loopt). Loopt via de
+  bestaande afhandeling van scroll/scrollend/resize/visualViewport; geen vaste hoogtes.
+- e2e `table.spec` "a page left just beside the table snap point is pulled back…": CSS-snap uitgezet (zo
+  laat Firefox haar staan), tabel open, 35 px teruggeschoven → paneel terug op 0 en de tabel blijft open;
+  hetzelfde aan de kaartkant. Zonder de fix ROOD (paneel blijft op 35), met de fix groen.
+- Beelden: `adresbalk/voor-zonder-fix.png` (de strook, zoals bij de PO) en `adresbalk/na-met-fix.png`
+  (`rig/snap-after.ts`: direct na het verschuiven 35 px, een halve seconde later 0 px).
+- Gate (web/): typecheck 0 · `pnpm test` 0 (527) · build 0 · `table.spec --project desktop --project
+  mobile-4g` 0 (14 groen, 4 overgeslagen).
+- Niet getest: Firefox zelf (geen Playwright-Firefox op deze host). Als de strook daar blijft, is de
+  oorzaak een andere (bv. het paneel dat korter is dan het scherm) en heb ik een opname nodig van
+  `scrollY`, `innerHeight` en de paneelhoogte op het toestel.
+
+## Adresbalkbug, ronde 2 (PO op Firefox Android: "helaas niet gefixt")
+- CORRECTIE op eerdere entries: er ís een Playwright-Firefox op deze host (`$PLAYWRIGHT_BROWSERS_PATH/firefox-1532`,
+  via nix). Ik had alleen in `~/.cache/ms-playwright` gekeken en ten onrechte gemeld dat hij ontbrak. Een
+  firefox-project in `playwright.config.ts` bestond niet; dat is er nu.
+- Reproductie in Gecko (`rig/firefox-toolbar.ts`, 390 px, touch, software-WebGL; de kaart komt in headless
+  Firefox niet klaar, de tabel wel): hoogtewissel 844 ↔ 788 ná het openscrollen → paneel blijft in beide
+  richtingen op 0 px; innerHeight, visualViewport en 100dvh/svh/lvh bewegen samen mee. Desktop-Gecko heeft
+  geen meebewegende adresbalk, dus de toestand van de PO-telefoon (waar die eenheden uiteenlopen) is zo
+  NIET na te bootsen. Geen sticky/fixed-element van de scrubber gevonden dat op een oude hoogte blijft staan:
+  de scrubber is op mobiel `position: static`.
+- Afleiding uit de code (geen meting op het toestel): de fix van ronde 1 zet elke stand binnen 120 px terug,
+  BEHALVE als de pagina aan haar einde staat — dan gold de strook sinds U58 als "verder komt hij niet"
+  (`tableSnappedAtPageEnd`). Dat is dus de toestand van de PO: de pagina is op terwijl het paneel van
+  100dvh nog niet bovenaan staat, m.a.w. de browser begrenst de scroll met een hoger scherm dan 100dvh.
+- Fix (zonder te raden welke eenheid Firefox bedoelt): in die toestand wordt het tekort gemeten (`panelTop`)
+  en bij de paneelhoogte opgeteld (`--table-panel-shortfall` op `.forecast-panel`: `height: calc(100dvh + …)`),
+  daarna het laatste stukje gescrold; de tabel krijgt dezelfde maat als onderruimte zodat de laatste rijen
+  niet achter de adresbalk blijven. Begrensd op 200 px; vervalt zodra het scherm hoger wordt. Geen vaste
+  hoogtes, loopt via scroll/scrollend/resize/visualViewport.
+- Diagnose achter ?dev: Diagnose → "Scherm en scroll" (`motregen-dev-viewport`, eigenaar U62, vervalt zodra de
+  bug op Firefox Android weg is): overlay met innerHeight, clientHeight, visualViewport (h/top/pageTop),
+  100dvh/svh/lvh/vh, scrollTop/max, scrollHeight, snappunt van de tabel, paneel top/hoogte, scrubber
+  top/onder, het gemeten tekort en de tabelstand; ververst op scroll/resize/visualViewport en elke 0,5 s.
+  Beeld: `adresbalk/diagnose-overlay-390.png`.
+- e2e, nieuw project `--project firefox` (alleen `e2e/firefox.*.spec.ts`; de Chromium-profielen slaan die
+  over): `firefox.table.spec` — (1) paneel 56 px te kort gemaakt → komt bovenaan, tekort 56 px, vervalt als
+  het scherm hoger wordt; (2) pagina 35 px naast het snappunt → teruggezet; (3) hoogtewissel na scrollen →
+  paneel blijft op 0. Alle drie groen in Gecko.
+- Bijvangst: `dev-panel.spec` was op mobile-4g rood sinds de wind op "iets" staat (verwachtte 0,80, is op
+  een telefoon 1,00) en door de rand-controle (alleen desktop). Die spec draaide tot nu toe alleen op
+  desktop; nu profielbewust.
+- NIET bevestigd op het toestel. Als de strook blijft: schermbeeld met de overlay in de bugtoestand — de
+  regels "scrollTop / max", "paneel top / hoogte", "100dvh" en "tekort paneel" zeggen dan wat er werkelijk
+  gebeurt.
+
+## Regen-blending vastgezet (PO: "beide veel beter") — 39d2656
+- Wind = vermenigvuldigen overdag (dekking 0,9), 's nachts gedempt (0,8 / verzadiging 0,7 / helderheid 0,9);
+  Lucht = vermenigvuldigd met de sluier overdag, 's nachts grijsblauwe sluier op 0,3 en regen 0,7 / 0,7 /
+  0,85. `rainPresentation` kent geen standen meer; `rainFocusOpacity` is weg. Dev-knoppen "Regen in Wind" en
+  "Regen in Lucht", de groep Kaart en de sleutels `dev-regen-wind` / `dev-regen-lucht` zijn weg; docs bij.
+- Unit: `focus-mode.test` "rain presentation (U62)" op de nieuwe standaard (weer/temperatuur, wind dag,
+  lucht dag, nacht). e2e: `focus.spec` verwacht bij windfocus nu dekking 0,90 + multiply (was 0,50);
+  `dev-panel.spec` zonder de groep Kaart.
+- Eigen beelden bekeken: `blending/blend-vast-{390,1280}.png` (Wind dag · Wind nacht · Lucht dag · Lucht nacht).
+- Gate (web/, na beide wijzigingen): typecheck 0 · `pnpm test` 0 (79 bestanden, 527 tests) · build 0 ·
+  `dev-panel focus cloud-section table` op desktop én mobile-4g 0 (30 groen, 14 overgeslagen) ·
+  `--project firefox` 0 (3 groen).
+
+## 4320 herbouwd op verzoek (67d25d7)
+De build was al actueel; "Scherm en scroll" staat in de lazy chunk van het dev-paneel, niet in `index-*.js`.
+Een open tabblad houdt door de service worker de oude versie tot de update-toast of een harde herlaad.
+
+## Adresbalkbug, ronde 3 (PO: "nog steeds triggerbaar" — tabel bijna tot het einde, korte veeg terug, loslaten)
+- Oorzaak in mijn eigen logica gevonden (code-analyse, bevestigd met een test): `tableSnappedAtPageEnd`
+  rekent "de pagina is op" uit met `window.innerHeight`. Begrenst de browser de scroll met een hoger scherm
+  dan `innerHeight` meldt, dan is die test onwaar; de code viel terug op "scroll het laatste stukje"
+  (`scrollBy(panelTop)`), en dat kán niet omdat de pagina echt op is → er gebeurde niets, elke keer opnieuw.
+  De tekort-tak van ronde 2 werd in dat pad dus nooit bereikt.
+- Fix (`pullTablePanelToTop` in `App.tsx`): niet meer uitrekenen maar de proef op de som — scrollen, meten wat
+  er nog boven het paneel uitsteekt, dat als tekort bij de paneelhoogte optellen en opnieuw scrollen; helpt
+  verlengen niet (hoogte ligt elders vast), dan terugdraaien en de stand als tabelview accepteren (U58).
+  Geldt voor elke rusttoestand binnen 120 px van het snappunt, hoe de pagina daar ook kwam.
+- Tijdens het gebaar blijft de app eraf (`tableTouchActive`); na `touchend` en na elke schermwissel wordt nu
+  ook 700 ms later nog eens gekeken (`scheduleTableViewRecheck`), omdat de adresbalk dan nog schuift.
+- e2e in het firefox-project, het recept van de PO: tabel bijna tot het einde, touchstart, 30 px terug,
+  tijdens het gebaar de adresbalk terug (paneel 56 px korter, `innerHeight` 56 lager, scroll begrensd door
+  het hogere scherm), touchend → paneel op 0, tabel open, tekort 56 px.
+  Op de vorige code (67d25d7) ROOD: paneel blijft op 56 (`adresbalk/ronde3-vorige-code-na-loslaten.png`);
+  nu groen (`ronde3-tijdens-het-gebaar.png` → `ronde3-na-loslaten.png`).
+- Wat ik NIET weet: of Firefox voor Android zich werkelijk zo gedraagt (innerHeight lager, scroll begrensd door
+  het hogere scherm). De nabootsing is de toestand waarin mijn code aantoonbaar vastliep; de overlay op het
+  toestel moet het bevestigen ("scrollTop / max" tegenover "paneel top" en "100dvh").
+- Gate (web/): typecheck 0 · `pnpm test` 0 (527) · build 0 · `--project firefox` 0 (4 groen) · `table
+  dev-panel` op desktop én mobile-4g 0 (18 groen, 4 overgeslagen).
+
+## Adresbalkbug ronde 3 gepusht (9f053f3) — PO: nog steeds triggerbaar; nu MET overlay-beelden
+
+## Adresbalkbug, ronde 4: gemeten oorzaak (PO-overlay, Firefox Android)
+`adresbalk/po-overlay-bugtoestand-post.png` (zelf nagelezen): innerHeight 925 · visualViewport h/top/pageTop
+925,2 / −63,7 / 715,5 · 100dvh = 100svh 925,2 · 100lvh 989,1 · scrollTop/max 779,2/780 · snappunt 779,2 ·
+paneel top/hoogte 0/925,2 · tekort 0 · tabel open.
+- Dus: de LAYOUT klopt (paneel top 0, scrollTop = snappunt = max). Firefox toont na de terugkerende adresbalk
+  63,7 px BOVEN de layout-viewport (`visualViewport.offsetTop` negatief) en kan niet verder scrollen. Mijn
+  rondes 1–3 keken naar de layoutpositie van het paneel (0) en zagen dus niets; de aannames "naast het
+  snappunt" en "innerHeight wijkt af" waren voor dit toestel allebei fout (ronde 3 dichtte wel een echt gat
+  in de code, maar niet dit).
+- Laag 1 (`visibleTablePanelTop` in `App.tsx`): de paneelstand wordt gemeten ten opzichte van het zichtbare
+  scherm (`rect.top − visualViewport.offsetTop`, alleen zonder knijpzoom). Steekt er iets boven uit, dan
+  scrollen; kan dat niet, dan het tekort bij de paneelhoogte optellen en doorscrollen (bestaande
+  `pullTablePanelToTop`). Hercontrole ook op `visualViewport` `scroll`. Hooguit 4 correcties per gebaar,
+  voor het geval de browser de verschuiving terugneemt zodra er weer gescrold kan worden.
+- Laag 2, vangnet (CSS): zolang het tabelpaneel het scherm dekt (`.table-covers-viewport`) ligt er een strook
+  van 120 px boven het paneel in de kleur van de koppenrij (`.forecast-panel::before`, dag/nacht via
+  `head-day`/`head-night` uit de tabel), boven de scrubber. Wat de browser daar ook onthult: geen scrubber.
+  De strook verdwijnt zodra het paneel meer dan 24 px van de bovenkant staat (bestaande hysterese), zodat
+  terugscrollen naar de kaart de scrubber niet afdekt.
+- Overlay: extra regel "paneel top op het scherm".
+- e2e firefox-project (nu 5 tests): `visualViewport.offsetTop`/`pageTop` nagebootst op −64 → zichtbare
+  paneelstand 64 → 0, tekort 64 px, layout 64 px doorgescrold, tabel open; daarna verschuiving weg en hoger
+  scherm → verlenging weg, paneel bovenaan. Plus de vangnetstrook: 120 px, kleur gelijk aan de koppenrij.
+  Op de vorige code rood.
+- Beelden: `adresbalk/ronde4-vangnetstrook.png` (vinger op het scherm, pagina 20 px teruggeschoven: boven de
+  tab-rij staat de kleur van de koppenrij), `ronde4-na-correctie-firefox.png`.
+- NIET na te bootsen op deze host: dat Firefox werkelijk bóven de layout-viewport tekent en wat het met
+  `offsetTop` doet zodra de pagina verder kan scrollen. Laag 2 is er juist voor het geval laag 1 op het
+  toestel anders uitpakt.
+- Gate (web/): typecheck 0 · `pnpm test` 0 (527) · build 0 · `--project firefox` 0 (5 groen) · `table dev-panel
+  cloud-section sky-window` op desktop én mobile-4g 0 (22 groen, 4 overgeslagen).
+
+## Correctie op de vorige entry
+`adresbalk/ronde4-na-correctie-firefox.png` bestaat niet: de testmap was al overschreven door de volgende run
+toen ik het beeld wilde kopiëren. Het enige beeld van ronde 4 is `ronde4-vangnetstrook.png`. 4320 herbouwd en
+herstart op 0c134e1 (hoofdbundel en stylesheet bevatten `table-covers-viewport`, nagelopen over HTTP).
+
+## Flaky firefox-test (orkestrator) → een echte fout van mij gevonden en hersteld
+- Orkestrator: `firefox.table.spec` "strip…" 1 op 3 rood (Expected 64, Received 0). Oorzaak: de test las de
+  beginstand in een aparte stap; een al geplande hercontrole van de app had de strook dan soms al gedicht.
+  Nu wordt de beginstand in dezelfde tik als de nabootsing gelezen en wordt op de tekortwaarde gepold.
+- Bij het herhalen (`--repeat-each 6`) kwam iets ergers boven: 3 van 30 keer ging de tabel na de tik op Tabel
+  niet open (paneel bleef op 698 px), en bij loadavg 50–68 ook `table.spec:94` (tik op Tabel "niet stabiel")
+  en `:63`. Dat was geen ruis maar mijn eigen code:
+  1. de kaartkant-correctie uit ronde 1 (binnen 120 px van de bovenkant → terug naar 0) kon, samen met de
+     hercontrole van ronde 3, midden in de vloeiende scroll naar de tabel afgaan en die afbreken;
+  2. een haperend frame (> 120 ms zonder scroll-event) telde als "rust".
+- Hersteld (`f501060`): de kaartkant-correctie is WEG (niet gevraagd, de PO-bug zit alleen aan de tabelkant);
+  de tabelcorrectie grijpt alleen in na 300 ms rust (`TABLE_REST_MS`), nooit binnen 1,5 s na een
+  tik-navigatie (`tableNavigationUntil`) en nooit als de kaart het doel is; het bepalen van open/dicht
+  gebeurt weer direct zoals vóór U62 (inclusief de U58-acceptatie aan het pagina-einde), alleen de correctie
+  wacht. De bijbehorende kaartkant-controle is uit `table.spec` gehaald.
+- Herhaald na de fix: `--project firefox --repeat-each 6` → 30/30 groen (loadavg 15–17); `table.spec --project
+  desktop --project mobile-4g --repeat-each 3` → 42 groen, 12 overgeslagen (loadavg 14–24).
+  (De run vóór de fix: firefox 29/30 en table 40/42, bij loadavg tot 68.)
+- Gate (web/): typecheck 0 · `pnpm test` 0 (527) · build 0 · `dev-panel cloud-section sky-window focus` op
+  desktop én mobile-4g 0 (18 groen, 10 overgeslagen).
+- Les: een correctie die de scrollstand verzet hoort alleen in aantoonbare rust te draaien; en een nieuwe
+  spec eerst herhaald draaien vóór "groen" te melden — de eerste keer groen zei hier te weinig.

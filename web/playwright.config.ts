@@ -1,5 +1,9 @@
-import { defineConfig } from '@playwright/test'
+import { defineConfig, devices } from '@playwright/test'
 import { performanceProjects } from './e2e/profiles'
+
+// Specs die alleen in Gecko iets zeggen (gedrag van Firefox voor Android dat Chromium niet heeft); de
+// Chromium-profielen slaan ze over en het firefox-project draait alleen deze.
+const FIREFOX_ONLY = /firefox\.[^/]*\.spec\.ts$/
 
 // Instelbaar zodat parallelle tracks op één host elkaars e2e-servers niet raken.
 const port = Number(process.env.MOTREGEN_E2E_PORT ?? 4185)
@@ -16,7 +20,20 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 10_000 },
   reporter: [['list']],
-  projects: performanceProjects,
+  projects: [
+    ...performanceProjects.map((project) => ({ ...project, testIgnore: FIREFOX_ONLY })),
+    {
+      name: 'firefox',
+      testMatch: FIREFOX_ONLY,
+      use: {
+        ...devices['Desktop Firefox'],
+        viewport: { width: 390, height: 844 },
+        hasTouch: true,
+        // De Chromium-vlaggen hieronder gelden hier niet; WebGL loopt via de softwarerenderer.
+        launchOptions: { firefoxUserPrefs: { 'webgl.force-enabled': true, 'gfx.webrender.software': true } },
+      },
+    },
+  ],
   use: {
     baseURL: `http://127.0.0.1:${port}`,
     trace: 'retain-on-failure',

@@ -1153,6 +1153,8 @@ td small { color: var(--muted); font-size: 9px; }
   left: 0;
   pointer-events: none;
 }
+/* Overdag vermenigvuldigt de regen in Wind met de kaart en in Lucht met de sluier, in plaats van te verbleken (U62). */
+.map-overlay-motregen-rain.blend-multiply { mix-blend-mode: multiply; }
 
 .isoline-label {
   pointer-events: none;
@@ -1207,13 +1209,22 @@ td small { color: var(--muted); font-size: 9px; }
   .dashboard { overflow: visible; }
   /* dvh, niet svh: klapt de adresbalk in (Android Chrome), dan is het scherm hoger dan 100svh en kan de pagina
      niet ver genoeg scrollen om het paneel bovenaan te laten snappen (PO 2026-10-07: strook histogram bleef staan). */
-  .forecast-panel { position: relative; height: 100dvh; min-height: 100svh; display: flex; flex-direction: column; padding: 0 0 env(safe-area-inset-bottom); overflow: visible; scroll-snap-align: start; touch-action: pan-y; }
+  /* --table-panel-shortfall: gemeten tekort als de pagina eindigt vóór het paneel bovenaan staat (U62). */
+  .forecast-panel { position: relative; height: calc(100dvh + var(--table-panel-shortfall, 0px)); min-height: calc(100svh + var(--table-panel-shortfall, 0px)); display: flex; flex-direction: column; padding: 0 0 env(safe-area-inset-bottom); overflow: visible; scroll-snap-align: start; touch-action: pan-y; }
   .table-scroll { min-height: 0; flex: 1 1 auto; overflow-y: hidden; overscroll-behavior-y: auto; touch-action: pan-y; }
   .table-scroll th { top: 0; }
   .forecast-table :is(.time-cell, .time-heading) { width: 20%; padding-right: 3px; }
   .forecast-table .time-heading { padding-left: 2px; }
   .app-shell:not(.table-view-open) .history-toggle-row { display: none; }
   .table-scroll-open .table-scroll { overflow-y: auto; }
+  /* Vangnet (U62): toont de browser toch een strook boven het open tabelpaneel (Firefox voor Android, adresbalk
+     terug), dan staat daar de kleur van de koppenrij en niet de onderkant van de scrubber. Alleen zolang het
+     paneel het scherm dekt; bij het terugscrollen naar de kaart mag de scrubber niet afgedekt blijven. */
+  .table-covers-viewport .forecast-panel::before { position: absolute; top: -120px; right: 0; left: 0; z-index: 6; height: 120px; background: var(--surface); content: ''; pointer-events: none; }
+  .table-covers-viewport .forecast-panel.head-night::before { background: #0a1820; }
+  .table-covers-viewport .forecast-panel.head-day::before { background: color-mix(in oklab, var(--table-day-bright) 44%, #fff); }
+  /* Het verlengde stuk van het paneel valt achter de adresbalk: de laatste rijen moeten erboven uit kunnen komen. */
+  .forecast-panel .table-scroll { scroll-padding-bottom: var(--table-panel-shortfall, 0px); padding-bottom: var(--table-panel-shortfall, 0px); }
 }
 
 /* Telefoon liggend: kaart en paneel naast elkaar, zoals desktop; de scrubber schuift mee weg
@@ -1250,3 +1261,8 @@ td small { color: var(--muted); font-size: 9px; }
   .freshness-trigger { padding-inline: 10px; }
   .search { max-width: calc(50% - var(--clock-half) - 16px - env(safe-area-inset-left)); }
 }
+
+/* Diagnose achter ?dev (U62): schermhoogtes en scrollstand, rechtsboven, klikt nergens op. */
+.viewport-diagnose { position: fixed; top: calc(env(safe-area-inset-top) + 64px); right: 6px; z-index: 40; display: grid; grid-template-columns: auto auto; gap: 1px 8px; margin: 0; padding: 6px 8px; border-radius: 8px; color: #eaf6fb; background: rgba(6, 18, 26, .82); font: 600 10px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; pointer-events: none; }
+.viewport-diagnose dt { color: #9fc3d1; font-weight: 500; }
+.viewport-diagnose dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
