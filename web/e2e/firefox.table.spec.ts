@@ -53,7 +53,7 @@ test('the table panel stays at the top when the viewport height changes after sc
   }
 })
 
-test('the strip of scrubber does not stay above the table when the address bar returns during a touch scroll', async ({ page }) => {
+test('the strip of scrubber does not stay above the table when the address bar returns during a touch scroll', async ({ page }, testInfo) => {
   // Het recept van de PO (Firefox voor Android, 2026-10-08): tabel bijna tot het einde scrollen, een korte veeg
   // terug zodat de adresbalk terugkomt, loslaten. De balk maakt het zichtbare scherm lager terwijl de vinger er
   // nog op ligt; de browser begrenst de scroll daarna met een hoger scherm dan `innerHeight` meldt.
@@ -87,8 +87,10 @@ test('the strip of scrubber does not stay above the table when the address bar r
   await page.waitForTimeout(500)
   expect(await panelTop(page)).toBe(56)
 
+  await page.screenshot({ path: testInfo.outputPath('strook-tijdens-het-gebaar.png') })
   await touch('touchend', false)
   await expect.poll(() => panelTop(page), { timeout: 5_000 }).toBe(0)
+  await page.screenshot({ path: testInfo.outputPath('na-loslaten.png') })
   await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
   expect(await page.locator('.forecast-panel').evaluate((element) => (element as HTMLElement).style.getPropertyValue('--table-panel-shortfall'))).toBe('56px')
 })

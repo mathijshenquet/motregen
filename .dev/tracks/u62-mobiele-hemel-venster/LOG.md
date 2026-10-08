@@ -701,3 +701,30 @@ boven de tab-rij).
 - Gate (web/, na beide wijzigingen): typecheck 0 · `pnpm test` 0 (79 bestanden, 527 tests) · build 0 ·
   `dev-panel focus cloud-section table` op desktop én mobile-4g 0 (30 groen, 14 overgeslagen) ·
   `--project firefox` 0 (3 groen).
+
+## 4320 herbouwd op verzoek (67d25d7)
+De build was al actueel; "Scherm en scroll" staat in de lazy chunk van het dev-paneel, niet in `index-*.js`.
+Een open tabblad houdt door de service worker de oude versie tot de update-toast of een harde herlaad.
+
+## Adresbalkbug, ronde 3 (PO: "nog steeds triggerbaar" — tabel bijna tot het einde, korte veeg terug, loslaten)
+- Oorzaak in mijn eigen logica gevonden (code-analyse, bevestigd met een test): `tableSnappedAtPageEnd`
+  rekent "de pagina is op" uit met `window.innerHeight`. Begrenst de browser de scroll met een hoger scherm
+  dan `innerHeight` meldt, dan is die test onwaar; de code viel terug op "scroll het laatste stukje"
+  (`scrollBy(panelTop)`), en dat kán niet omdat de pagina echt op is → er gebeurde niets, elke keer opnieuw.
+  De tekort-tak van ronde 2 werd in dat pad dus nooit bereikt.
+- Fix (`pullTablePanelToTop` in `App.tsx`): niet meer uitrekenen maar de proef op de som — scrollen, meten wat
+  er nog boven het paneel uitsteekt, dat als tekort bij de paneelhoogte optellen en opnieuw scrollen; helpt
+  verlengen niet (hoogte ligt elders vast), dan terugdraaien en de stand als tabelview accepteren (U58).
+  Geldt voor elke rusttoestand binnen 120 px van het snappunt, hoe de pagina daar ook kwam.
+- Tijdens het gebaar blijft de app eraf (`tableTouchActive`); na `touchend` en na elke schermwissel wordt nu
+  ook 700 ms later nog eens gekeken (`scheduleTableViewRecheck`), omdat de adresbalk dan nog schuift.
+- e2e in het firefox-project, het recept van de PO: tabel bijna tot het einde, touchstart, 30 px terug,
+  tijdens het gebaar de adresbalk terug (paneel 56 px korter, `innerHeight` 56 lager, scroll begrensd door
+  het hogere scherm), touchend → paneel op 0, tabel open, tekort 56 px.
+  Op de vorige code (67d25d7) ROOD: paneel blijft op 56 (`adresbalk/ronde3-vorige-code-na-loslaten.png`);
+  nu groen (`ronde3-tijdens-het-gebaar.png` → `ronde3-na-loslaten.png`).
+- Wat ik NIET weet: of Firefox voor Android zich werkelijk zo gedraagt (innerHeight lager, scroll begrensd door
+  het hogere scherm). De nabootsing is de toestand waarin mijn code aantoonbaar vastliep; de overlay op het
+  toestel moet het bevestigen ("scrollTop / max" tegenover "paneel top" en "100dvh").
+- Gate (web/): typecheck 0 · `pnpm test` 0 (527) · build 0 · `--project firefox` 0 (4 groen) · `table
+  dev-panel` op desktop én mobile-4g 0 (18 groen, 4 overgeslagen).
