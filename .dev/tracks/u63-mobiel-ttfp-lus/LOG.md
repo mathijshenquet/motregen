@@ -399,3 +399,11 @@ Volgend checkpoint met de expliciete browserproces-/cachevergelijkbaarheid in do
 ## 2026-10-08 11:15 UTC — WIP, wachtrij zonder hostlock
 
 Geen nieuwe opname of productwijziging sinds b14ec18. Load 8,14 op 11:02 UTC bleef boven de strikte grens; daarna 12,10 / 16,10 / 15,68. Eerste placeholder-output nog leeg, meetmaster 85883 actief in de buitenste loadwacht, hostlock vrij. Code-/beeldreceipts hierboven blijven de laatste afgeronde verificatie. Commit/push van dit timestamped checkpoint; volgende stap blijft de eerste rustige ×3-controle van het placeholderpaar, geen nieuwe planningvraag.
+
+## 2026-10-08 11:33 UTC — kort onder de grens; referentie ook met nieuwe runner
+
+WIP-cadence voortgezet. Eerste buitenste wachtlus is gepasseerd: load 7,92 op 11:26 UTC, maar de aanvullende rustige minuut werd door 8,40 onderbroken. Daarna weer 12–15; nog geen build/opname van het nieuwe meetpaar. Deze rustige minuut geldt alleen voor batchvoorbereiding, buiten de lock; de CLI blijft per opname de strikte <8-grens controleren. Hostlock vrij.
+
+Read-only 5 s hostdiagnose: twee bekende achtergrondprocessen gebruiken samen 6,14 CPU-kernen, de eerder drukke Chromium gebruikt in die steekproef 0. Geen bron/proces van een ander project gewijzigd of gestopt; ruwe details alleen ignored tmp/u63/host-floor-diagnostic.json. Dit verklaart geen perf-tijd en is geen belastingcorrectie op de meting.
+
+Omdat de nieuwe runner ook de Buienradar-referentie in afzonderlijke Chromium-processen laat draaien, volgt na de acht baseline-migraties een nieuwe po-android/referentie-buienradar ×3 met --load-wait 120, onder dezelfde per-opname-lock/loadregels. Archive web/tmp/u63/reference-per-run. De historische 2664 ms blijft afzonderlijk gelabeld als de eerdere runner; geen nieuwe referentiewaarde claimen. Alleen het nog niet gestarte migratiescript aangevuld, geen actief Bash-bestand herschreven en geen bestaande codechecks herhaald.
