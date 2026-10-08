@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_WIND_TUNING } from './wind-layer'
-import { contextOpacity, DEFAULT_FOCUS_MODE, easeOutCubic, FocusMode, focusValue, rainFocusOpacity, rainPresentation, retargetFocus, windFocusIntensity, type FocusKind } from './focus-mode'
+import { contextOpacity, DEFAULT_FOCUS_MODE, easeOutCubic, FocusMode, focusValue, rainPresentation, retargetFocus, windFocusIntensity, type FocusKind } from './focus-mode'
 
 describe('focus tween math', () => {
   it('eases out and clamps', () => {
@@ -39,12 +39,6 @@ describe('focus tween math', () => {
     expect(contextOpacity(0, 0.25)).toBe(1)
     expect(contextOpacity(1, 0.25)).toBe(0.25)
     expect(contextOpacity(0.5, 0.25)).toBeCloseTo(0.625)
-  })
-
-  it('keeps rain in weather, halves it in wind and hides it in temperature', () => {
-    expect(rainFocusOpacity(0, 0)).toBe(1)
-    expect(rainFocusOpacity(0, 1)).toBe(0.5)
-    expect(rainFocusOpacity(1, 0)).toBe(0)
   })
 
   it('brings the damped wind back to full at full wind focus', () => {
@@ -157,37 +151,38 @@ describe('focus mode sources', () => {
   })
 })
 
-describe('rain presentation (U62 proef)', () => {
-  const base = { temperatureFocus: 0, windFocus: 0, airFocus: 0, night: false, windBlend: 'alfa', airBlend: 'nu' } as const
+describe('rain presentation (U62)', () => {
+  const base = { temperatureFocus: 0, windFocus: 0, airFocus: 0, night: false }
 
-  it('keeps the existing look with the default variants', () => {
-    for (const temperatureFocus of [0, 0.4, 1]) for (const windFocus of [0, 0.5, 1]) for (const airFocus of [0, 1]) for (const night of [false, true]) {
-      expect(rainPresentation({ ...base, temperatureFocus, windFocus, airFocus, night })).toEqual({
-        opacity: rainFocusOpacity(temperatureFocus, windFocus), saturation: 1, brightness: 1, multiply: false,
-      })
+  it('draws the rain untouched in weather and hides it in temperature, day and night', () => {
+    for (const night of [false, true]) {
+      expect(rainPresentation({ ...base, night })).toEqual({ opacity: 1, saturation: 1, brightness: 1, multiply: false })
+      expect(rainPresentation({ ...base, night, temperatureFocus: 1 }).opacity).toBe(0)
+      expect(rainPresentation({ ...base, night, temperatureFocus: 0.5 }).opacity).toBe(0.5)
     }
   })
 
-  it('calms the rain in wind without fading it out', () => {
-    const multiplied = rainPresentation({ ...base, windFocus: 1, windBlend: 'vermenigvuldigen' })
-    expect(multiplied).toMatchObject({ opacity: 0.9, multiply: true, saturation: 1 })
-    const muted = rainPresentation({ ...base, windFocus: 1, windBlend: 'gedempt' })
-    expect(muted.opacity).toBeCloseTo(0.8, 5)
-    expect(muted.saturation).toBeCloseTo(0.7, 5)
-    expect(muted.multiply).toBe(false)
-    // Op een donkere kaart zou vermenigvuldigen de regen laten verdwijnen.
-    expect(rainPresentation({ ...base, windFocus: 1, night: true, windBlend: 'vermenigvuldigen' })).toEqual(rainPresentation({ ...base, windFocus: 1, night: true, windBlend: 'gedempt' }))
+  it('multiplies the rain with the light map in wind instead of fading it', () => {
+    expect(rainPresentation({ ...base, windFocus: 1 })).toEqual({ opacity: 0.9, saturation: 1, brightness: 1, multiply: true })
+    // De mengmodus wisselt halverwege de focus-tween.
+    expect(rainPresentation({ ...base, windFocus: 0.4 }).multiply).toBe(false)
+    expect(rainPresentation({ ...base, windFocus: 0.5 }).multiply).toBe(true)
   })
 
-  it('multiplies the rain with the white veil by day and lets it step back at night', () => {
-    const day = rainPresentation({ ...base, airFocus: 1, airBlend: 'voorstel' })
-    const night = rainPresentation({ ...base, airFocus: 1, night: true, airBlend: 'voorstel' })
-    expect(day).toEqual({ opacity: 1, saturation: 1, brightness: 1, multiply: true })
-    expect(night.opacity).toBeCloseTo(0.7, 5)
-    expect(night.saturation).toBeCloseTo(0.7, 5)
-    expect(night.brightness).toBeCloseTo(0.85, 5)
-    expect(night.multiply).toBe(false)
-    // Buiten Lucht verandert er niets.
-    expect(rainPresentation({ ...base, airBlend: 'voorstel' })).toEqual(rainPresentation(base))
+  it('multiplies the rain with the white cloud veil by day', () => {
+    expect(rainPresentation({ ...base, airFocus: 1 })).toEqual({ opacity: 1, saturation: 1, brightness: 1, multiply: true })
+  })
+
+  it('mutes the rain at night, where multiplying would make it disappear on the dark map', () => {
+    const wind = rainPresentation({ ...base, night: true, windFocus: 1 })
+    expect(wind.multiply).toBe(false)
+    expect(wind.opacity).toBeCloseTo(0.8, 5)
+    expect(wind.saturation).toBeCloseTo(0.7, 5)
+    expect(wind.brightness).toBeCloseTo(0.9, 5)
+    const air = rainPresentation({ ...base, night: true, airFocus: 1 })
+    expect(air.multiply).toBe(false)
+    expect(air.opacity).toBeCloseTo(0.7, 5)
+    expect(air.saturation).toBeCloseTo(0.7, 5)
+    expect(air.brightness).toBeCloseTo(0.85, 5)
   })
 })

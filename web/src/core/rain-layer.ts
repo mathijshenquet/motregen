@@ -83,7 +83,7 @@ void main() {
   vec2 right = rainSample(u_right, rightUv);
   float value = mix(left.r * left.g, right.r * right.g, weight);
   color = texture(u_lut, vec2(value, 0.5));
-  // Toon (proef U62): rustiger maken zonder te verbleken. Minder verzadiging houdt de helderheid van de
+  // Toon (U62): rustiger maken zonder te verbleken. Minder verzadiging houdt de helderheid van de
   // kleur, minder helderheid houdt de tint; dimmen via alfa mengt met de kaart en maakt geel crème.
   float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
   color.rgb = mix(vec3(luma), color.rgb, u_saturation) * u_brightness;
