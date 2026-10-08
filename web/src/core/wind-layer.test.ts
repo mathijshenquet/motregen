@@ -383,17 +383,13 @@ function memoryStorage(values: Map<string, string>) {
   }
 }
 
-describe('mobile wind levels (U62)', () => {
-  it('keeps "uit" at the shipped values and only strengthens from there', async () => {
-    const { MOBILE_WIND_LEVELS, WIND_PARAMETERS } = await import('./wind-layer')
-    expect(MOBILE_WIND_LEVELS.uit).toEqual({ intensityGain: 1, narrowLineFactor: WIND_PARAMETERS.narrowLineFactor, seaPenalty: WIND_PARAMETERS.seaPenalty })
-    const order = [MOBILE_WIND_LEVELS.uit, MOBILE_WIND_LEVELS.iets, MOBILE_WIND_LEVELS.meer]
-    for (let index = 1; index < order.length; index++) {
-      expect(order[index]!.intensityGain).toBeGreaterThan(order[index - 1]!.intensityGain)
-      expect(order[index]!.narrowLineFactor).toBeGreaterThan(order[index - 1]!.narrowLineFactor)
-      expect(order[index]!.seaPenalty).toBeLessThan(order[index - 1]!.seaPenalty)
-    }
-    // Smaller dan de desktoplijn blijven: mobiel hoort fijn te blijven (PO, U3).
-    expect(MOBILE_WIND_LEVELS.meer.narrowLineFactor).toBeLessThan(1)
+describe('mobile wind (U62)', () => {
+  it('is stronger and less damped over sea than the default, but stays finer than the desktop line', async () => {
+    const { MOBILE_WIND, WIND_PARAMETERS } = await import('./wind-layer')
+    expect(MOBILE_WIND.intensityGain).toBeGreaterThan(1)
+    expect(MOBILE_WIND.narrowLineFactor).toBeGreaterThan(WIND_PARAMETERS.narrowLineFactor)
+    expect(MOBILE_WIND.seaPenalty).toBeLessThan(WIND_PARAMETERS.seaPenalty)
+    // Mobiel hoort fijn te blijven (PO, U3).
+    expect(MOBILE_WIND.narrowLineFactor).toBeLessThan(1)
   })
 })

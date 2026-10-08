@@ -333,3 +333,28 @@ kosten vulwerk op de GPU dat hier niet zichtbaar wordt. De PO-telefoon is de ech
 - Nog open VOOR AGENT: kostenmeting van de kaart-tween (`rig/run-map-night.sh`, onder de perf-lock) heeft
   nog niet gedraaid: de host staat sinds de start op loadavg 10–37, de runner wacht op < 7 en schrijft
   naar `web/tmp/u62/map-night-run.log`. Zonder die cijfers is "wat het kost" voor MIP-24 onbekend.
+
+## 2026-10-08 avond — PO-keuzes vastgezet (klokpil/zoekbalk/druppel, kaart-tween, wind "iets")
+- (1) Klokpil = mee-tinten, en de zoekbalk (dichte pil én open veld met resultaten) en de merkdruppel
+  doen hetzelfde: klassen `sky-day`/`sky-night` + `--day-overcast` op `.map-shell` uit `chromeSky`
+  (cursoruur); de CSS zet het palet alleen op `.map-clock`, `.search` en `.map-brand`, dus dialogen
+  (dataversheid, Over) houden het app-thema. Dev-knop Klokpil + sleutel `dev-klokpil` weg.
+- (2) Kaart volgt de kaarttijd zolang Expressief aan staat (`mapFollowsTime = expressive && !stillMode`);
+  Expressief uit → vast licht/donker zoals voorheen. Dev-knop Kaart + sleutel `dev-kaart-automatisch` weg.
+  Eigen keuze, niet gevraagd: stills (Telegram, `?still=1`) houden het vaste thema en de ongetinte klok,
+  anders veranderen de botbeelden 's nachts ongemerkt. Zeg het als de PO dat anders wil.
+- (4) Wind mobiel: de PO koos "iets" → `MOBILE_WIND` (sterkte ×1,25, lijnfactor 0,72, zee-demping 0,2) vast
+  bij `(pointer: coarse)` of breedte < 500 px; knop + sleutel `dev-wind-mobiel` weg. (Ik had eerst zelf
+  dit niveau gekozen op een verkeerd doorgegeven "kies zelf"; de waarden zijn dezelfde.)
+- docs/dev-opties.md bijgewerkt (drie knoppen naar "Weggesnoeid", oude sleutels genoemd bij reset).
+- Eigen beelden bekeken (`po-keuzes/`, `rig/map-chrome.ts`): klok/zoek/druppel dag (13:00), schemer (19:10)
+  en nacht (23:00), 390 px en desktop, licht en donker app-thema, zoekbalk dicht en open.
+- Contrast gemeten (slechtste pixel achter de tekst, 12 scènes): klokpil 6,39–11,79 · zoekresultaat
+  11,12–11,86 · detailtekst in de resultaten 4,93–6,26. Het invoerveld zelf is niet apart gemeten (de
+  tekst van een `<input>` laat zich niet verbergen voor de ondergrondmeting); het gebruikt dezelfde inkt
+  en ondergrond als de resultaatrijen.
+- Gate (web/): typecheck 0 · `pnpm test` 0 (73 bestanden, 494 tests) · build 0 · desktop `dev-panel
+  freshness location cloud-section sky-window table presets telegram` 0 (32 groen, 2 overgeslagen) en na de
+  windwijziging `dev-panel focus` 0 (10 groen, 2 overgeslagen) · mobile-4g `freshness location table
+  sky-window cloud-section focus` 0 (17 groen, 11 overgeslagen).
+- NOG OPEN: (2b) kostenmeting kaart-tween onder de perf-lock; (3) voorstel rand tussen kaart en zijpaneel.

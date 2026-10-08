@@ -1002,12 +1002,19 @@ td small { color: var(--muted); font-size: 9px; }
   white-space: nowrap;
 }
 .map-clock:hover, .map-clock:focus-within { background: var(--surface-raised); }
-/* Dev-variant "mee-tinten" (U62): de pil neemt de hemel van het cursoruur aan, zoals de koppenrij. */
-.map-clock:is(.sky-day, .sky-night) { transition: background-color .3s ease, color .3s ease; }
-.map-clock.sky-night { --surface-raised: rgba(10, 24, 32, .96); --text: #edf8fc; --muted: #91aab5; --accent: #48c4e9; --accent-soft: #123b49; --line-strong: #3b5a66; }
-.map-clock.sky-day {
-  --surface-raised: color-mix(in oklab, color-mix(in oklab, var(--table-day-dull) calc(var(--day-overcast) * 74%), var(--table-day-bright)) 44%, #fff);
-  --text: #102630; --muted: #3a525c; --accent: #0b607e; --accent-soft: #d9f1f8; --line-strong: #b7cbd2;
+/* Klokpil, zoekbalk en merkdruppel nemen de hemel van het cursoruur aan, zoals de koppenrij (U62, PO
+   2026-10-08). De klassen staan op de kaartschil; dialogen staan erbuiten en houden het app-thema. */
+.map-shell:is(.sky-day, .sky-night) :is(.map-clock, .search-box, .map-brand) { transition: background-color .3s ease, border-color .3s ease, color .3s ease; }
+.map-shell.sky-night :is(.map-clock, .search, .map-brand) {
+  --surface: #0a1820; --surface-soft: #112832; --surface-raised: rgba(10, 24, 32, .96);
+  --text: #edf8fc; --muted: #91aab5; --accent: #48c4e9; --accent-soft: #123b49; --line: #25404b; --line-strong: #3b5a66;
+  color: var(--text);
+}
+.map-shell.sky-day :is(.map-clock, .search, .map-brand) {
+  --day-sky: color-mix(in oklab, color-mix(in oklab, var(--table-day-dull) calc(var(--day-overcast) * 74%), var(--table-day-bright)) 44%, #fff);
+  --surface: var(--day-sky); --surface-soft: color-mix(in oklab, var(--day-sky) 82%, #fff); --surface-raised: var(--day-sky);
+  --text: #102630; --muted: #3a525c; --accent: #0b607e; --accent-soft: #d9f1f8; --line: #b9d3de; --line-strong: #9fbfcc;
+  color: var(--text);
 }
 .map-clock { display: flex; align-items: stretch; }
 .clock-play { display: grid; place-items: center; width: 34px; padding: calc(env(safe-area-inset-top) + 4px) 0 4px 6px; border: 0; color: var(--accent); background: none; cursor: pointer; }
