@@ -5,26 +5,39 @@ import { FileIdCache } from './file-ids.js'
 import { StillPhotos } from './photos.js'
 import { startText } from './handlers.js'
 import { StillRenderer, StillRenderError, type RenderedMedia } from './render.js'
-import { keyboard, PREWARM_HOURS, STILL_HOURS, LOOP_MODES } from './stills.js'
+import { keyboard, PREWARM_HOURS, STILL_HOURS, LOOP_MODES, validateManifest } from './stills.js'
+import { readFile } from 'node:fs/promises'
 
 async function smoke(): Promise<void> {
   const config = readConfig()
   const renderer = new StillRenderer(config.origin, config.cacheDirectory)
   try {
-    const manifest = await renderer.manifest()
-    if (process.argv.includes('--render-only')) {
+    const renderOnly = process.argv.includes('--render-only')
+    const manifestPath = renderOnly ? process.argv.find((argument) => argument.startsWith('--manifest='))?.slice(11) : undefined
+    const manifest = manifestPath ? validateManifest(JSON.parse(await readFile(manifestPath, 'utf8'))) : await renderer.manifest()
+    if (renderOnly) {
       const modeFilter = process.argv.find((argument) => argument.startsWith('--mode='))?.slice(7)
-      for (const definition of LOOP_MODES) {
-        if (modeFilter && modeFilter !== definition.mode) continue
+      const definitions = LOOP_MODES.filter((definition) => !modeFilter || modeFilter === definition.mode)
+      const matrixStarted = performance.now()
+      const renders = await Promise.allSettled(definitions.map(async (definition) => {
         const loop = await renderer.render({ mode: definition.mode, hour: 'loop' }, manifest)
+        const media: RenderedMedia[] = [loop]
         console.info(JSON.stringify({ event: 'loop-render-receipt', mode: definition.mode, path: loop.path, frames: loop.frames, fps: loop.fps, renderMs: loop.renderMs, encodeMs: loop.encodeMs, bytes: loop.bytes, cached: loop.cached }))
-        if (definition.mode === 'wind') continue
-        const hours = process.argv.includes('--matrix') ? STILL_HOURS : [0] as const
+        if (definition.mode === 'wind') return media
+        const hours = process.argv.includes('--matrix') ? STILL_HOURS : process.argv.includes('--prewarm') ? PREWARM_HOURS : [0] as const
         for (const hour of hours) {
           const still = await renderer.render({ mode: definition.mode, hour }, manifest)
+          media.push(still)
           console.info(JSON.stringify({ event: 'render-receipt', mode: definition.mode, hour, path: still.path, milliseconds: still.milliseconds, cached: still.cached }))
         }
+        return media
+      }))
+      const media: RenderedMedia[] = []
+      for (const result of renders) {
+        if (result.status === 'rejected') throw result.reason
+        media.push(...result.value)
       }
+      console.info(JSON.stringify({ event: 'generation-render-receipt', generated: manifest.generated, count: media.length, milliseconds: Math.round(performance.now() - matrixStarted), cached: media.every((item) => item.cached) }))
       return
     }
     const api = new TelegramApi(config.token)

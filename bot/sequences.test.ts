@@ -6,35 +6,34 @@ const manifest: StillManifest = { version: 0, generated: '2026-10-07T12:00:00Z',
 const now = Date.parse(manifest.now)
 
 describe('one frame sequence per mode', () => {
-  it('uses two radar hours and two nowcast hours, plus future still frames outside the loop', () => {
-    const plan = sequencePlan('weather', manifest)
-    expect(plan.fps).toBe(10)
-    expect(plan.loopFrames).toBe(49)
-    expect(plan.epochs).toHaveLength(109)
-    expect(plan.epochs[0]).toBe(now - 2 * 3_600_000)
-    expect(plan.epochs[plan.loopFrames - 1]).toBe(now + 2 * 3_600_000)
-    expect(new Set(plan.epochs).size).toBe(plan.epochs.length)
-    for (const frame of plan.stillFrames) expect(plan.epochs[frame.index]).toBe(now + frame.hour * 3_600_000)
-    expect(plan.stillFrames).toHaveLength(85)
-    expect(plan.stillFrames.find((frame) => frame.hour === 0)?.index).toBe(24)
-    expect(plan.stillFrames.find((frame) => frame.hour === 12)?.index).toBe(108)
+  it('runs every loop on the same five-minute clock from two hours ago through twelve hours ahead', () => {
+    const weather = sequencePlan('weather', manifest)
+    for (const definition of LOOP_MODES) {
+      const plan = sequencePlan(definition.mode, manifest)
+      expect(plan).toMatchObject({ fps: 10, loopFrames: 169 })
+      expect(plan.epochs).toHaveLength(plan.loopFrames)
+      expect(plan.epochs).toEqual(weather.epochs)
+      expect(plan.epochs[0]).toBe(now - 2 * 3_600_000)
+      expect(plan.epochs.at(-1)).toBe(now + 12 * 3_600_000)
+      for (const [index, epoch] of plan.epochs.entries()) {
+        expect(epoch).toBe(now + (-120 + index * 5) * 60_000)
+      }
+      expect(new Set(plan.epochs).size).toBe(plan.epochs.length)
+    }
   })
 
-  it('runs the feels loop on the ten-minute frames the stills already need, and never renders wind stills', () => {
-    for (const mode of ['feels'] as const) {
+  it('reuses the loop frames for all ten-minute stills without making wind stills', () => {
+    for (const mode of ['weather', 'feels'] as const) {
       const plan = sequencePlan(mode, manifest)
-      expect(plan).toMatchObject({ fps: 10, loopFrames: 73 })
-      expect(plan.epochs[1] - plan.epochs[0]).toBe(10 * 60_000)
-      expect(plan.epochs[plan.loopFrames - 1]).toBe(now + 12 * 3_600_000)
-      // Geen frame extra ten opzichte van de uurloop: de stills vroegen deze tijdstippen al.
-      expect(plan.epochs).toHaveLength(85)
       expect(plan.stillFrames).toHaveLength(85)
-      for (const frame of plan.stillFrames) expect(plan.epochs[frame.index]).toBe(now + Math.round(frame.hour * 3_600_000))
+      for (const frame of plan.stillFrames) {
+        expect(plan.epochs[frame.index]).toBe(now + Math.round(frame.hour * 3_600_000))
+        expect(frame.index).toBe(Math.round(frame.hour * 12) + 24)
+      }
+      expect(plan.stillFrames.find((frame) => frame.hour === 0)?.index).toBe(24)
+      expect(plan.stillFrames.find((frame) => frame.hour === 12)?.index).toBe(168)
     }
-    const wind = sequencePlan('wind', manifest)
-    expect(wind).toMatchObject({ fps: 4, loopFrames: 49, stillFrames: [] })
-    expect(wind.epochs.at(-1)).toBe(now + 12 * 3_600_000)
-    expect(wind.epochs[1] - wind.epochs[0]).toBe(15 * 60_000)
+    expect(sequencePlan('wind', manifest).stillFrames).toEqual([])
   })
 
   it('isolates loop ids from still ids and all 173 artifacts from a new generation', () => {
