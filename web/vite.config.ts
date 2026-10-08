@@ -9,6 +9,8 @@ import solid from 'vite-plugin-solid'
 import { configDefaults } from 'vitest/config'
 import { basemapRangeCache } from './scripts/basemap-range-cache'
 import { pageRoutes } from './scripts/page-routes'
+import { mapStartPreview } from './scripts/map-start-plugin'
+import { startAssets } from './scripts/start-assets-plugin'
 
 // dev/preview draait op de dev-host (ageq-mthq, sinds 2026-10-07 ageq-dev2) en wordt via het tailnet bekeken (MIP-1 §5)
 const allowedHosts = ['ageq-mthq', 'ageq-dev2']
@@ -83,7 +85,7 @@ function usageBeaconEndpoint(): Plugin {
 
 export default defineConfig({
   appType: 'spa',
-  plugins: [solid(), tailwindcss(), usageBeaconEndpoint(), localBasemapArchive(), pageRoutes(), VitePWA({
+  plugins: [solid(), tailwindcss(), usageBeaconEndpoint(), localBasemapArchive(), pageRoutes(), mapStartPreview(process.env.VITE_MAP_START), startAssets(process.env.VITE_START_ASSETS), VitePWA({
     injectRegister: false,
     registerType: 'prompt',
     includeAssets: ['droplet.svg'],

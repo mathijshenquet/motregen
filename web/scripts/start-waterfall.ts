@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs'
+import type { PerfSnapshot, PerfTraceSlice } from '../src/core/perf'
 
 interface TraceEvent {
   name: string
@@ -13,18 +14,20 @@ interface TraceEvent {
 interface StartCapture {
   timeOrigin: number
   loadAverage: number
-  snapshot: { firstRainMs: number | null; basemapReadyMs: number | null; ttfrMs: number | null; ttfpMs: number | null; ttfhMs: number | null }
+  snapshot: PerfSnapshot
   resources: Array<{ name: string; startTime: number; responseEnd: number; encodedBodySize: number; decodedBodySize: number; entryType: string }>
   requests: Array<{ url: string; range: string | null; startTime: number; requestStart: number; responseEnd: number; responseBodySize: number; fromServiceWorker: boolean }>
-  entries: { measures: Array<{ phase: string; startTime: number; duration: number; detail?: Record<string, unknown> }> }
+  entries: PerfTraceSlice
 }
-const files = process.argv.slice(2).filter((file) => !file.endsWith(".trace.json"))
+const files = process.argv.slice(2).filter((file) => !file.endsWith('.trace.json'))
 if (!files.length) throw new Error('Gebruik: pnpm exec tsx scripts/start-waterfall.ts UITVOERPREFIX-cold-run1.json [...]')
 for (const file of files) {
   const capture = JSON.parse(readFileSync(file, 'utf8')) as StartCapture
   const { traceEvents: events } = JSON.parse(readFileSync(file.replace(/\.json$/, '.trace.json'), 'utf8')) as { traceEvents: TraceEvent[] }
   const navigation = events.find((event) => event.name === 'navigationStart' && event.args?.data?.documentLoaderURL?.startsWith('http'))
   if (!navigation) throw new Error(`${file}: navigatiestart ontbreekt in de CPU-trace`)
+  const afterPlay = capture.entries.longFrames.filter((frame) => frame.startTime >= (capture.snapshot.ttfpMs ?? Infinity) && frame.startTime + frame.duration <= 12_000)
+  const priorities = `ttfr ${capture.snapshot.ttfrMs} ms; ttfp ${capture.snapshot.ttfpMs} ms; eerste regentekenbeurt ${capture.snapshot.firstRainMs} ms. LoAF na ttfp tot 12 s: ${afterPlay.length} frames, totaal ${Math.round(afterPlay.reduce((total, frame) => total + frame.duration, 0))} ms, max ${Math.round(Math.max(0, ...afterPlay.map((frame) => frame.duration)))} ms.\n\n`
   const rows = ['| schakel | begin → eind (ms) | encoded kB / decoded kB |', '| --- | ---: | ---: |']
   const shown = (value: number) => value.toFixed(1)
   const resource = (label: string, pattern: RegExp) => {
@@ -63,7 +66,7 @@ for (const file of files) {
     if (!spans.length) continue
     cpuRows.push(`| ${url.split('/').at(-1)} | ${shown(parsing.reduce((sum, event) => sum + (event.tdur ?? event.dur ?? 0), 0) / 1000)} / ${shown(compile.reduce((sum, event) => sum + (event.tdur ?? event.dur ?? 0), 0) / 1000)} | ${shown((Math.min(...spans.map((event) => event.ts)) - navigation.ts) / 1000)} → ${shown((Math.max(...spans.map((event) => event.ts + (event.dur ?? 0))) - navigation.ts) / 1000)} |`)
   }
-  const markdown = `# ${file}\n\nLoadavg ${capture.loadAverage}; desktop 1280×800, 8 cores/8 GB, CPU 1×, SwiftShader. Trace-overhead aanwezig. Decodetijd is workerduur teruggeteld vanaf het antwoord op de hoofddraad; exacte start in de worker ontbreekt. Textuurduur meet CPU-aanroep, geen GPU-fence.\n\n${rows.join('\n')}\n\n${cpuRows.join('\n')}\n`
+  const markdown = `# ${file}\n\n${priorities}Loadavg ${capture.loadAverage}; desktop 1280×800, 8 cores/8 GB, CPU 1×, SwiftShader. Trace-overhead aanwezig. Decodetijd is workerduur teruggeteld vanaf het antwoord op de hoofddraad; exacte start in de worker ontbreekt. Textuurduur meet CPU-aanroep, geen GPU-fence.\n\n${rows.join('\n')}\n\n${cpuRows.join('\n')}\n`
   writeFileSync(file.replace(/\.json$/, '.md'), markdown)
   console.log(markdown)
 }

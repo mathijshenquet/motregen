@@ -7,7 +7,8 @@ import { hostLoadAverage, waitForQuietHost } from './rig-host'
 const [origin, output, ...flags] = process.argv.slice(2)
 if (!origin || !output) throw new Error('Gebruik: scripts/e2e-slot.sh pnpm exec tsx scripts/desktop-start.ts ORIGIN UITVOERPREFIX [--warm] [--repeat=3] [--query=...]')
 const repeat = Number(flags.find((flag) => flag.startsWith('--repeat='))?.split('=')[1] ?? 3)
-const query = flags.find((flag) => flag.startsWith('--query='))?.slice('--query='.length) ?? 'perf=1&modus=weer'
+const query = flags.find((flag) => flag.startsWith('--query='))?.slice('--query='.length) ?? 'perf=1'
+const pathname = flags.find((flag) => flag.startsWith('--path='))?.slice('--path='.length) ?? '/weer'
 const warm = flags.includes('--warm')
 if (!Number.isInteger(repeat) || repeat < 1 || repeat > 10) throw new Error('--repeat moet 1…10 zijn')
 mkdirSync(dirname(output), { recursive: true })
@@ -36,7 +37,7 @@ try {
       // tsx bewaart functienamen met __name, ook binnen de naar Chromium geserialiseerde callback.
       await page.addInitScript({ content: `globalThis.__name = (value) => value; (${initialize.toString()})();` })
       if (warm) {
-        await page.goto(`${origin}/?${query}`)
+        await page.goto(`${origin}${pathname}?${query}`)
         await page.waitForFunction(() => window.__motregenPerf?.snapshot().ttfpMs != null)
         await page.evaluate(async () => { await navigator.serviceWorker.ready })
         await page.waitForFunction(() => navigator.serviceWorker.controller !== null)
@@ -57,7 +58,7 @@ try {
       const events: unknown[] = []
       cdp.on('Tracing.dataCollected', (chunk) => events.push(...chunk.value))
       await cdp.send('Tracing.start', { categories: 'devtools.timeline,disabled-by-default-devtools.timeline,disabled-by-default-v8.compile,v8,blink.user_timing,loading', transferMode: 'ReportEvents' })
-      await page.goto(`${origin}/?${query}`, { waitUntil: 'commit' })
+      await page.goto(`${origin}${pathname}?${query}`, { waitUntil: 'commit' })
       await page.waitForFunction(() => window.__motregenPerf?.snapshot().ttfpMs != null, undefined, { timeout: 30_000 })
       await page.waitForFunction(() => performance.now() >= 12_000)
       const captured = await page.evaluate(() => {
@@ -75,7 +76,7 @@ try {
       await Promise.all(pending)
       if (errors.length) throw new Error(errors.join('\n'))
       const prefix = `${output}-${warm ? 'warm' : 'cold'}-run${run}`
-      writeFileSync(`${prefix}.json`, JSON.stringify({ capturedAt: new Date().toISOString(), origin, query, warm, loadAverage, ...captured, requests }, null, 2))
+      writeFileSync(`${prefix}.json`, JSON.stringify({ capturedAt: new Date().toISOString(), origin, pathname, query, warm, loadAverage, ...captured, requests }, null, 2))
       writeFileSync(`${prefix}.trace.json`, JSON.stringify({ traceEvents: events }))
       console.log(`${prefix}: ${JSON.stringify(captured.snapshot)}`)
     } finally {

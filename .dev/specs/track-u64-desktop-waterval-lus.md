@@ -34,5 +34,8 @@ build, `perf:mobile --profile desktop --compare` (baseline mét reden bij bedoel
 gerichte e2e desktop; Lighthouse-score als extra kolom. Draft-PR vroeg.
 
 ## Bar
+Kaartstart-proef achter `?dev&kaartstart=svg|tegel`, alleen in een bijpassende `VITE_MAP_START`-build.
+Eigenaar U64; vervalt 2026-10-15 of bij eerdere PO-keuze. Geen standaardactivatie vóór screenshotreview.
+
 Geen één-letternamen, geen slimme one-liners, commentaar alleen voor het waarom; niets versoepelen
 zonder benoemde oorzaak.
