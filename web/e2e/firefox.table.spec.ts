@@ -89,10 +89,10 @@ test('the strip of scrubber does not stay above the table when the address bar r
 
   await page.screenshot({ path: testInfo.outputPath('strook-tijdens-het-gebaar.png') })
   await touch('touchend', false)
-  await expect.poll(() => panelTop(page), { timeout: 5_000 }).toBe(0)
+  await expect.poll(() => panelTop(page), { timeout: 10_000 }).toBe(0)
   await page.screenshot({ path: testInfo.outputPath('na-loslaten.png') })
   await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
-  expect(await page.locator('.forecast-panel').evaluate((element) => (element as HTMLElement).style.getPropertyValue('--table-panel-shortfall'))).toBe('56px')
+  await expect.poll(() => page.locator('.forecast-panel').evaluate((element) => (element as HTMLElement).style.getPropertyValue('--table-panel-shortfall')), { timeout: 10_000 }).toBe('56px')
 })
 
 test('a strip the browser shows above the layout viewport is closed, and shows panel colour until then', async ({ page }, testInfo) => {
@@ -112,18 +112,22 @@ test('a strip the browser shows above the layout viewport is closed, and shows p
   expect(strip.background).toBe(strip.head)
 
   // De adresbalk komt terug: het zichtbare scherm schuift 64 px boven de layout-viewport.
-  await page.evaluate(() => {
+  // In dezelfde tik teruglezen: een al geplande hercontrole van de app kan de strook anders al gedicht hebben
+  // vóór de test kijkt (onder load gezien: 0 in plaats van 64).
+  const visibleTop = () => page.evaluate(() => Math.round(document.querySelector('.forecast-panel')!.getBoundingClientRect().top - window.visualViewport!.offsetTop))
+  expect(await page.evaluate(() => {
     const visual = window.visualViewport!
     Object.defineProperty(visual, 'offsetTop', { configurable: true, get: () => -64 })
     Object.defineProperty(visual, 'pageTop', { configurable: true, get: () => window.scrollY - 64 })
+    const shown = Math.round(document.querySelector('.forecast-panel')!.getBoundingClientRect().top - visual.offsetTop)
     visual.dispatchEvent(new Event('resize'))
-  })
-  const visibleTop = () => page.evaluate(() => Math.round(document.querySelector('.forecast-panel')!.getBoundingClientRect().top - window.visualViewport!.offsetTop))
-  expect(await visibleTop()).toBe(64)
-  await expect.poll(visibleTop, { timeout: 5_000 }).toBe(0)
+    return shown
+  })).toBe(64)
+  await expect.poll(visibleTop, { timeout: 10_000 }).toBe(0)
   // De pagina kon niet verder: het paneel is 64 px verlengd en de layout is 64 px doorgescrold.
-  expect(await page.locator('.forecast-panel').evaluate((element) => (element as HTMLElement).style.getPropertyValue('--table-panel-shortfall'))).toBe('64px')
-  expect(await panelTop(page)).toBe(-64)
+  const shortfall = () => page.locator('.forecast-panel').evaluate((element) => (element as HTMLElement).style.getPropertyValue('--table-panel-shortfall'))
+  await expect.poll(shortfall, { timeout: 10_000 }).toBe('64px')
+  await expect.poll(() => panelTop(page), { timeout: 10_000 }).toBe(-64)
   await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
   await page.screenshot({ path: testInfo.outputPath('na-correctie.png') })
 
