@@ -1,0 +1,17 @@
+{
+ "label": "meer-3",
+ "level": "meer",
+ "intensity": "0.75",
+ "load": [
+  7.15,
+  8.96
+ ],
+ "frames": 1197,
+ "meanMs": 16.7,
+ "p50Ms": 16.7,
+ "p95Ms": 16.7,
+ "maxMs": 50,
+ "over34Ms": 1,
+ "longFrames": 0,
+ "longFrameTotalMs": 0
+}

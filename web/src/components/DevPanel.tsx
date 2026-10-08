@@ -2,7 +2,7 @@ import { createSignal, For, type JSX } from 'solid-js'
 import { copyText } from '../core/clipboard'
 import { appendSkyDiaryEntry, SKY_DIARY_CLASSES, skyDiaryJson, type SkyDiaryClass } from '../core/dev-settings'
 import { ISOLINE_FADES, ISOLINE_FILL_STYLES, ISOLINE_STEPS, type IsolineFade, type IsolineFillStyle, type IsolineStep, type IsolineTuning } from '../core/isolines'
-import { sanitizeWindTuning, WIND_TUNING_CONTROLS, type WindTuning } from '../core/wind-layer'
+import { sanitizeWindTuning, WIND_TUNING_CONTROLS, type MobileWindLevel, type WindTuning } from '../core/wind-layer'
 
 // Alleen via ?dev; hooguit 3–4 knoppen per groep (PO 2026-09-25). Elke knop staat in
 // docs/dev-opties.md met eigenaar en vervaldatum (MIP-12).
@@ -11,8 +11,12 @@ interface Props {
   onIsolineTuning: (patch: Partial<IsolineTuning>) => void
   firstRainLate: boolean
   onFirstRainLate: (late: boolean) => void
-  frameSky: boolean
-  onFrameSky: (enabled: boolean) => void
+  clockSkyTint: boolean
+  onClockSkyTint: (enabled: boolean) => void
+  mapFollowsTime: boolean
+  onMapFollowsTime: (enabled: boolean) => void
+  mobileWind: MobileWindLevel
+  onMobileWind: (level: MobileWindLevel) => void
   windTuning: WindTuning
   onWindTuning: (tuning: WindTuning) => void
   perfVisible: boolean
@@ -105,10 +109,27 @@ export default function DevPanel(props: Props) {
           <option value="laat">laat</option>
         </select>
       </Control>
-      <Control label="Kaderhemel" output={props.frameSky ? 'aan' : 'uit'} hint="Het lege scrubber-kader krijgt tijdens het laden al de hemelkleur van het uur (halve bewolking aangenomen). Herlaad om het te zien.">
-        <select value={props.frameSky ? 'aan' : 'uit'} onChange={(event) => props.onFrameSky(event.currentTarget.value === 'aan')}>
+    </Group>
+    <Group title="Mobiel">
+      <Control label="Windstreepjes" output={props.mobileWind} hint="Alleen op een telefoon of smal scherm: de wind op de achtergrond iets (of meer) breder en sterker, en boven zee minder gedempt. Het aantal streepjes blijft gelijk.">
+        <select aria-label="Windstreepjes" value={props.mobileWind} onChange={(event) => props.onMobileWind(event.currentTarget.value as MobileWindLevel)}>
           <option value="uit">uit</option>
-          <option value="aan">aan</option>
+          <option value="iets">iets</option>
+          <option value="meer">meer</option>
+        </select>
+      </Control>
+    </Group>
+    <Group title="Chrome">
+      <Control label="Kaart" output={props.mapFollowsTime ? 'automatisch' : 'thema'} hint="Thema: de kaart is licht of donker zoals ingesteld. Automatisch: de basiskaart tweent van dag naar nacht met de kaarttijd (zonnestand op de gekozen plek); regen en wind houden hun kleuren.">
+        <select aria-label="Kaart" value={props.mapFollowsTime ? 'automatisch' : 'thema'} onChange={(event) => props.onMapFollowsTime(event.currentTarget.value === 'automatisch')}>
+          <option value="thema">thema</option>
+          <option value="automatisch">automatisch (volgt de kaarttijd)</option>
+        </select>
+      </Control>
+      <Control label="Klokpil" output={props.clockSkyTint ? 'mee-tinten' : 'wit'} hint="Wit: de klok boven de kaart blijft zoals hij was. Mee-tinten: hij neemt de hemelkleur van het cursoruur aan, zoals de tabelkop (alleen onder Expressief).">
+        <select value={props.clockSkyTint ? 'mee-tinten' : 'wit'} onChange={(event) => props.onClockSkyTint(event.currentTarget.value === 'mee-tinten')}>
+          <option value="wit">wit</option>
+          <option value="mee-tinten">mee-tinten</option>
         </select>
       </Control>
     </Group>

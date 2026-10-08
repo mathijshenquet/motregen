@@ -1,0 +1,67 @@
+{
+ "label": "contain-1",
+ "variantCss": ".scrub-surface { contain: paint; } .chart-track { transform-style: flat; }",
+ "frames": 827,
+ "frameP95Ms": 17,
+ "frameMaxMs": 33,
+ "longFrames": 0,
+ "longFrameTotalMs": 0,
+ "perFrameMs": {
+  "RunTask": 10.38,
+  "FunctionCall": 2.42,
+  "UpdateLayoutTree": 0.66,
+  "PrePaint": 0.34,
+  "Layerize": 1.18,
+  "Commit": 0.7,
+  "Layout": 0.28,
+  "Paint": 0.76,
+  "RasterTask": 0.06
+ },
+ "totals": {
+  "RunTask": {
+   "count": 25240,
+   "totalMs": 8583,
+   "maxMs": 47.2
+  },
+  "FunctionCall": {
+   "count": 4596,
+   "totalMs": 1999,
+   "maxMs": 20.8
+  },
+  "UpdateLayoutTree": {
+   "count": 671,
+   "totalMs": 546,
+   "maxMs": 6.1
+  },
+  "PrePaint": {
+   "count": 632,
+   "totalMs": 283,
+   "maxMs": 3.4
+  },
+  "Layerize": {
+   "count": 609,
+   "totalMs": 977,
+   "maxMs": 7.3
+  },
+  "Commit": {
+   "count": 627,
+   "totalMs": 577,
+   "maxMs": 4.9
+  },
+  "Layout": {
+   "count": 198,
+   "totalMs": 228,
+   "maxMs": 4.9
+  },
+  "Paint": {
+   "count": 1319,
+   "totalMs": 632,
+   "maxMs": 5.5
+  },
+  "RasterTask": {
+   "count": 574,
+   "totalMs": 52,
+   "maxMs": 1.3
+  }
+ }
+}

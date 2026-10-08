@@ -1,0 +1,17 @@
+{
+ "label": "uit-3",
+ "level": "uit",
+ "intensity": "0.50",
+ "load": [
+  7.88,
+  9.89
+ ],
+ "frames": 1187,
+ "meanMs": 16.9,
+ "p50Ms": 16.7,
+ "p95Ms": 16.7,
+ "maxMs": 116.7,
+ "over34Ms": 3,
+ "longFrames": 3,
+ "longFrameTotalMs": 255
+}

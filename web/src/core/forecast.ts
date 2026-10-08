@@ -1,4 +1,6 @@
+import { lightDarkness } from './cloud-section'
 import type { TimelineFrame } from './contract'
+import { cloudModification } from './uv'
 
 export type HourlyRowKind = 'past' | 'now' | 'future'
 
@@ -97,4 +99,39 @@ function nearestFrame(frames: TimelineFrame[], epoch: number, tolerance = hour /
     }
   }
   return distance <= tolerance ? nearest : null
+}
+
+/**
+ * Uurrijen waarvan de hemel in de scrubber de straling nodig heeft: elke uurstop leest het uurgemiddelde
+ * dat op dat uur eindigt en het volgende (`radiationIndex`, `radiationNextIndex`). Het venster is wat de
+ * scrubber toont, dus dezelfde uurstop krijgt bij elke cursor dezelfde invoer (U62: hing aan de
+ * tabelrijen bij de cursor, waardoor de hemel per cursor tussen straling en wolkenlaagschatting
+ * wisselde). Eén uur buiten het venster hoort erbij: het verloop aan de rand loopt naar die stop toe.
+ * Het verleden schat de hemel altijd uit de lagen.
+ */
+export function skyRadiationRows<Row extends Pick<HourlyForecastRow, 'epoch' | 'kind'>>(rows: Row[], window: { start: number; end: number }): Row[] {
+  return rows.filter((row) => row.kind !== 'past' && row.epoch >= window.start - hour && row.epoch <= window.end + hour)
+}
+
+/** Hemel van één uur voor de dag/nacht-kleuring van rijen, tabelkop en klokpil. */
+export interface HourSky {
+  daylight: boolean
+  /** 0 = stralend, 1 = zwaar bewolkt; alleen overdag van betekenis. */
+  overcast: number
+}
+
+/**
+ * Donkerte (0–1) van een daguur: de bewolkingsfactor uit de straling op een perceptuele schaal (U47);
+ * zonder straling laat 100 % bewolking 25 % licht door.
+ */
+export function hourDarkness(
+  row: Pick<HourlyForecastRow, 'epoch' | 'radiationIndex' | 'radiationNextIndex' | 'cloudIndex'>,
+  radiation: Array<number | null>,
+  cloud: Array<number | null>,
+  sinElevation: (epoch: number) => number,
+): number {
+  const valueAt = (series: Array<number | null>, index: number | null) => index == null ? null : series[index] ?? null
+  const cover = valueAt(cloud, row.cloudIndex)
+  const fallbackLight = cover == null ? 1 : 1 - 0.75 * Math.max(0, Math.min(1, cover / 100))
+  return lightDarkness(cloudModification(row.epoch, valueAt(radiation, row.radiationIndex), valueAt(radiation, row.radiationNextIndex), sinElevation) ?? fallbackLight)
 }
