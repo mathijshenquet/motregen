@@ -544,3 +544,15 @@ b1a706752174bbd7f1cb2453ce3a740929d73775	refs/pull/91/head
 
 - Commit/push op 15–20-minutencadans. Nieuwe inhoud uitsluitend verslag/LOG: geslaagde expliciet gemarkeerde U65-aanvraagvolgorde, rustige-host-timeout/herstart, offline functiediagnose met onbekende samples behouden. Geen productmutatie of aangepaste gates sinds de groene U65-checks; geen onnodige unit/e2e-herhaling.
 - Timingrunner nog buiten de lock, actuele load ~14–16. Geen native/LH/U65-baseline-receipt. Eerst schone CPU-diagnose, daarna koude/warme referentie+kandidaten, LH-subscores en main-gate/compare; shaderkandidaat kan pas daarna behouden/verworpen worden. PR blijft draft/WIP.
+
+## 2026-10-08 10:41:03 UTC — rustig-host-poll responsiever, grens gelijk
+
+- Eerste capture bleef ongestart terwijl de host telkens richting 8 daalde en weer steeg. Pollperiode van de loadwachter 20 -> 5 seconden; geen verandering aan loadgrens, hercontrole na lockverkrijging, tijdvensters of meetbudgetten. Referentie krijgt dezelfde helper. Dit helpt een beschikbaar rustig venster eerder te zien; het is geen TTFR-optimalisatie.
+- Gecontroleerde eigen runnergroep 668336 gestopt om uitsluitend de nieuwe wachtpoll te laden; sessie synchroon exit 143. Geen capture kwijt of oudere/andermans browser gesloten. Zelfde bevroren builds en 120-minuten maximale loadwachttijd worden opnieuw gestart buiten flock.
+
+## 2026-10-08 10:49:32 UTC — eerste schone CPU-diagnose en één koude referentie
+
+- Pollwijziging typecheck synchroon exit 0. Na vijfsecondenpoll daadwerkelijk eerste schone CPU-capture gestart: load 7,89, plaatsenlijst 877,2 ms na ttfp 786,3 ms; ttfr 1185,4 ms. cpuProfile=true: diagnostisch, niet opnemen in gewone benchmarkmedianen. Capture afgerond en lock daarna vrij; seriële runner nog actief.
+- Offline merge CDP-profiel/trace, devtools-trace en watervaltabel synchroon exit 0. Vier RunTasks ≥50 ms, samen 423 ms. Grootste 236 ms vanaf ~173 ms, ~225 ms samples in MapLibre _setupPainter vóór eerste regen. Volledige LoAF na ttfp 12 frames / max419 ms; GPU-/schedulergaten zijn geen gelijk aantal lange hoofddraadtaken. Dit zijn één diagnostische opname en lokale SwiftShader, geen MacBook-winst.
+- Eerste gewone koude main-referentie met eigen browser binnen; run 2 wacht buiten de lock. Geen mediaan/vergelijking uit één run geclaimd. Bestaande bestanden blijven bewaard; nieuwe kandidaat voorbereiden op basis van de CPU-diagnose: WebGL vroeg in OffscreenCanvas-worker, standaard uit tot gemeten, mogelijk overlap van driverinitialisatie en manifest/JS/data. Officiële contextconformantie: https://registry.khronos.org/webgl/sdk/tests/conformance2/offscreencanvas/context-creation-worker.html. Nog geen implementatie of winst van deze proef in dit checkpoint.
+- WIP-checkpoint nu op cadans; warme reeks, LH-subscores en U65-main-baseline/compare blijven pending. Geen load- of perf-budget versoepeld.

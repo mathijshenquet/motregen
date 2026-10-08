@@ -35,7 +35,7 @@ export async function waitForQuietHost(maxWaitMs: number, log: (message: string)
   while (hostLoadAverage() > MAX_LOAD_AVERAGE) {
     if (Date.now() >= deadline) return false
     log(`loadavg ${hostLoadAverage()} > ${MAX_LOAD_AVERAGE}: wachten met meten`)
-    await new Promise((resolve) => setTimeout(resolve, 20_000))
+    await new Promise((resolve) => setTimeout(resolve, 5_000))
   }
   return true
 }
