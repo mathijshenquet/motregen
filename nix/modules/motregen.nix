@@ -527,8 +527,7 @@ in
 
           handle {
             root * ${cfg.frontendPackage}
-            try_files {path} /index.html
-            file_server
+            import ${cfg.frontendPackage}/routes.caddy
           }
         '';
       };

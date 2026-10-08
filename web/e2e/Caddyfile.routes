@@ -1,0 +1,15 @@
+{
+	auto_https off
+	admin off
+}
+
+:{$MOTREGEN_E2E_ROUTE_PORT:8186} {
+	root * tmp/e2e-dist
+	@reserved path /data/* /telegram/* /hit
+	handle @reserved {
+		respond 404
+	}
+	handle {
+		import ../tmp/e2e-dist/routes.caddy
+	}
+}

@@ -59,7 +59,9 @@ import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
 import { browserUsageEnvironment, createUsageTracker, installUsageBeacon, sessionManifestUrls } from './core/usage'
 import { copyText } from './core/clipboard'
 import { resolveLocation, suggestLocations } from './core/geocoder'
-import { applyPresetParams, cursorForPresetEpoch, modeForActiveFocus, modeForFocus, parsePresets, shareUrl } from './core/presets'
+import { applyPresetUrl, cursorForPresetEpoch, modeForActiveFocus, modeForFocus, parsePresets, sharePlace, shareUrl } from './core/presets'
+import { placeSlug } from './core/place-slug'
+import { updatePageMetadata } from './core/page-meta'
 import { applyTelegramColors, type TelegramWebApp } from './core/telegram'
 import { loadExpressive, storeExpressive } from './core/expressive'
 import { READY_WINDOW_MS, windowReady } from './core/window-ready'
@@ -199,9 +201,12 @@ function basemapTileKey(event: { sourceId?: string; tile?: { tileID?: { key?: st
 export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const devMode = new URLSearchParams(window.location.search).has('dev')
   const stillMode = new URLSearchParams(window.location.search).get('still') === '1'
-  // De adresbalk wordt later live bijgeschreven (permalink); de presets komen uit de zoekstring van het begin.
-  const initialSearch = window.location.search
-  const initialPresets = parsePresets(initialSearch)
+  // Bewaar de invoer voordat de live permalink de adresbalk normaliseert.
+  const initialUrl = new URL(window.location.href)
+  const initialPresets = parsePresets(initialUrl.search, Date.now(), initialUrl.pathname, initialUrl.hash)
+  const [permalinkReady, setPermalinkReady] = createSignal(false)
+  let presetPlaceRequest = 0
+  let urlNavigation = 0
   let mapElement!: HTMLDivElement
   let splashElement!: HTMLDivElement
   let forecastPanelElement!: HTMLElement
@@ -326,7 +331,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     state.rainPublisher?.schedule()
   }
   const [cursor, setCursor] = createSignal(0)
-  const [playing, setPlaying] = createSignal(!stillMode)
+  const [playing, setPlaying] = createSignal(!stillMode && initialPresets.epoch === undefined)
   // Tempo van gelijkmatig afspelen (epoch-ms per ms) voor de scrubberbaan; 0 tijdens terugglijden.
   const [glideRate, setGlideRate] = createSignal(0)
   // Afspelen loopt door de hele tijdlijn (PO 2026-09-25 live; was +8 u, restant van de bereikknoppen).
@@ -343,9 +348,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   void grantedStartFix({ permissions: navigator.permissions, geolocation: navigator.geolocation }, MAP_CONTAIN_BOUNDS).then((fix) => {
     if (stillMode) return
     // Een gedeeld punt of een andere plaats dan waar we al staan gaat vóór de locatiefix; de eigen
-    // permalink (?plaats= van de huidige plaats) niet.
+    // permalink van de huidige plaats niet.
     if (initialPresets.point) return
-    if (initialPresets.place && initialPresets.place.trim().toLowerCase() !== startLocation.label.trim().toLowerCase()) return
+    if (initialPresets.place && placeSlug(initialPresets.place) !== placeSlug(startLocation.label)) return
     if (!fix) return
     const current = location()
     if (current.lng !== startLocation.lng || current.lat !== startLocation.lat) return
@@ -530,7 +535,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return keys
   }, undefined, { equals: (left, right) => left.size === right.size && [...left].every((key) => right.has(key)) })
   const [isolineCount, setIsolineCount] = createSignal(0)
-  const focusMode = new FocusMode<FocusKind>(['weather', 'air', 'temperature', 'wind'], DEFAULT_FOCUS_MODE, (mode, value) => {
+  const focusMode = new FocusMode<FocusKind>(['weather', 'air', 'temperature', 'wind'], initialPresets.mode ? modeForFocus(initialPresets.mode) : DEFAULT_FOCUS_MODE, (mode, value) => {
     if (mode === 'air') setAirFocus(value)
     else if (mode === 'wind') setWindFocus(value)
     else if (mode === 'temperature') setFocus(value)
@@ -708,6 +713,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   })
 
   onMount(async () => {
+    const placeSelection = !stillMode && initialPresets.place ? selectPresetPlace(initialPresets.place) : Promise.resolve()
+    void placeSelection.then(() => setPermalinkReady(true))
     const mediaChanged = (event: MediaQueryListEvent) => setSystemDark(event.matches)
     media.addEventListener('change', mediaChanged)
     onCleanup(() => media.removeEventListener('change', mediaChanged))
@@ -737,7 +744,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setManifestRefresh({ checkedAt: Date.now() })
       const frames = buildTimeline(data)
       if (!frames.length) throw new Error('De tijdlijn is leeg')
-      const presets = parsePresets(initialSearch, Date.parse(data.now))
+      const presets = parsePresets(initialUrl.search, Date.parse(data.now), initialUrl.pathname, initialUrl.hash)
       setManifest(data)
       let nowIndex = 0
       for (let index = 0; index < frames.length; index++) if (frames[index]!.epoch <= Date.parse(data.now)) nowIndex = index
@@ -763,6 +770,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setCursor(presetCursor ?? nowIndex)
       if (presetCursor !== undefined) setPlaying(false)
       if (presets.mode) applyPresetMode(presets.mode)
+      await placeSelection
       const header = await client.getHeader(frames[0]!.chunk)
       const initialTheme = mapTheme()
       const style = await loadBasemapStyle(initialTheme)
@@ -817,7 +825,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         usage.mark('pin')
         pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name)
       })
-      if (!stillMode && presets.place) void selectPresetPlace(presets.place)
       if (mapTheme() !== appliedMapTheme) void applyMapTheme(mapTheme())
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error))
@@ -1129,7 +1136,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
   // Zolang het versheidspaneel open is staat de klok stil (PO 2026-09-25 live).
   let playingBeforeFreshness = false
-  const [freshnessOpen, setFreshnessOpen] = createSignal(false)
+  const [freshnessOpen, setFreshnessOpen] = createSignal(initialPresets.epoch !== undefined && !stillMode)
   function pauseForFreshness(): void {
     usage.mark('fresh')
     setFreshnessOpen(true)
@@ -1945,9 +1952,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   function pick(lng: number, lat: number, label: string): void {
+    presetPlaceRequest++
+    if (!initialPickStarted) startLocation = { lng, lat, label }
     const point = { lng, lat }
-    setLocation(point)
-    setLocationLabel(label)
+    batch(() => { setLocation(point); setLocationLabel(label) })
+    if (!initialPickStarted && !stillMode) return
     if (map && !marker) {
       marker = new Marker({ color: '#1688ad' }).setLngLat([lng, lat]).addTo(map)
       detachPinNavigation = attachPinNavigation({
@@ -2354,22 +2363,26 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   async function selectPresetPlace(place: string): Promise<void> {
-    // De live permalink zet ?plaats= op elke plaats die je kiest; na een herlaad is dat meestal de plaats
+    // De live permalink verwijst naar elke plaats die je kiest; na een herlaad is dat meestal de plaats
     // waar je al staat of een opgeslagen plaats. Die hoeven niet langs de geocoder (die kan anders winnen
     // van de onthouden plaats). Alleen een onbekende naam wordt opgezocht.
-    const wanted = place.trim().toLowerCase()
-    if (locationLabel().trim().toLowerCase() === wanted) return
-    const saved = savedPlaces().find((candidate) => candidate.name.trim().toLowerCase() === wanted)
+    const request = ++presetPlaceRequest
+    const wanted = placeSlug(place)
+    if (placeSlug(locationLabel()) === wanted || placeSlug(currentSharePlace() ?? '') === wanted) return
+    const saved = savedPlaces().find((candidate) => placeSlug(candidate.name) === wanted)
     if (saved) { chooseSaved(saved); revealPoint(saved.lng, saved.lat); return }
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), 5_000)
     try {
-      const [suggestion] = await suggestLocations(place, map?.getCenter() ?? location())
-      if (!suggestion) return
-      const point = await resolveLocation(suggestion)
+      const [suggestion] = await suggestLocations(place, map?.getCenter() ?? location(), controller.signal)
+      if (!suggestion || request !== presetPlaceRequest) return
+      const point = await resolveLocation(suggestion, controller.signal)
+      if (request !== presetPlaceRequest) return
       pick(point.lng, point.lat, suggestion.label)
       revealPoint(point.lng, point.lat)
     } catch {
       // Een gedeelde plaats mag de kaart niet onbruikbaar maken wanneer een geocoder tijdelijk uitvalt.
-    }
+    } finally { window.clearTimeout(timeout) }
   }
 
   function chooseSaved(place: SavedPlace): void {
@@ -2525,19 +2538,61 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return modeForActiveFocus(focusPinned() ?? focusMode.active())
   }
 
+  function currentShareState() {
+    const point = location()
+    const place = locationLabel()
+    return { mode: currentShareMode(), epoch: untrack(selectedEpoch), point, place,
+      savedPlace: savedPlaces().some((saved) => samePlace(saved, point) && saved.name === place) }
+  }
+
+  function currentSharePlace(): string | undefined {
+    return sharePlace(currentShareState())
+  }
+
+  async function applyBrowserUrl(): Promise<void> {
+    if (stillMode) return
+    const navigation = ++urlNavigation
+    const url = new URL(window.location.href)
+    const presets = parsePresets(url.search, manifestNow() || Date.now(), url.pathname, url.hash)
+    setPermalinkReady(false)
+    batch(() => {
+      applyPresetMode(presets.mode ?? 'weather')
+      const nextCursor = presets.epoch === undefined ? undefined : cursorForPresetEpoch(timeline(), presets.epoch)
+      setFreshnessOpen(nextCursor !== undefined)
+      if (nextCursor !== undefined) { setCursor(nextCursor); setPlaying(false) }
+      if (presets.point) pick(presets.point.lng, presets.point.lat, nearestPlace(presets.point.lng, presets.point.lat).name)
+    })
+    if (presets.place) await selectPresetPlace(presets.place)
+    if (navigation !== urlNavigation) return
+    revealPoint(location().lng, location().lat)
+    setPermalinkReady(true)
+  }
+
+  onMount(() => {
+    const navigate = () => { void applyBrowserUrl() }
+    window.addEventListener('popstate', navigate)
+    window.addEventListener('hashchange', navigate)
+    onCleanup(() => {
+      window.removeEventListener('popstate', navigate)
+      window.removeEventListener('hashchange', navigate)
+    })
+  })
+
   // De adresbalk is de permalink (PO 2026-10-07): modus en plek volgen live; het tijdstip staat er alleen
   // zolang het klokpaneel open is ("dit moment"), anders verandert de URL constant.
   createEffect(() => {
-    if (stillMode) return
+    if (stillMode || !permalinkReady()) return
     const url = new URL(window.location.href)
     // Het tijdstip telt alleen mee zolang het in de URL staat; anders liep dit effect bij elke afspeeltik.
     const withTime = freshnessOpen()
-    applyPresetParams(url.searchParams, { mode: currentShareMode(), epoch: withTime ? selectedEpoch() : untrack(selectedEpoch), point: location(), place: locationLabel() }, withTime)
+    const epoch = withTime && timeline().length ? selectedEpoch() : initialPresets.epoch ?? Date.now()
+    applyPresetUrl(url, { ...currentShareState(), epoch }, withTime)
     if (url.href !== window.location.href) history.replaceState(history.state, '', url)
+    updatePageMetadata(url.pathname)
   })
 
   async function shareCurrentState(): Promise<void> {
-    const url = shareUrl({ mode: currentShareMode(), epoch: selectedEpoch(), point: location(), place: locationLabel() })
+    const url = shareUrl({ ...currentShareState(), epoch: selectedEpoch() })
     const touch = matchMedia('(pointer: coarse)').matches
     if (touch && typeof navigator.share === 'function') {
       try {
@@ -2856,7 +2911,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             usageBody={usageBody()}
           />
         </Show>
-        <Freshness mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness} onShare={shareCurrentState} shareNotice={shareNotice()}
+        <Freshness open={freshnessOpen()} mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness} onShare={shareCurrentState} shareNotice={shareNotice()}
           paused={!playing()} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
           timeline={timeline()} cursor={cursor()} onCursor={clockScrub} />
       </Show>

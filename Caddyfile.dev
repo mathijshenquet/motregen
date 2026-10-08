@@ -2,6 +2,22 @@
 	auto_https off
 }
 
+:{$MOTREGEN_WEB_PORT:8081} {
+	root * {$MOTREGEN_FRONTEND_DIR:web/dist}
+	handle_path /data/* {
+		reverse_proxy localhost:8080
+	}
+	handle /telegram/* {
+		respond 404
+	}
+	handle /hit {
+		respond 404
+	}
+	handle {
+		import {$MOTREGEN_FRONTEND_DIR:web/dist}/routes.caddy
+	}
+}
+
 :8080 {
 	root * {$MOTREGEN_DATA_DIR:data}
 

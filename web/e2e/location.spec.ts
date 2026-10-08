@@ -22,14 +22,30 @@ test('start location remembers saved places and the last map view', async ({ pag
   await page.getByRole('option', { name: /Werk/ }).click()
   await expect(scrubber).toHaveAttribute('aria-label', /voor Werk$/)
   await page.waitForTimeout(1_000)
+  await expect(page).toHaveURL(/\/weer\/maastricht$/)
   expect(await page.evaluate(() => localStorage.getItem('motregen-map-view'))).toBe(viewBefore)
 
   await page.goto('/') // verse navigatie: de live permalink (?plaats=) hoort bij de vorige pagina, de onthouden plaats wint
   await expect(scrubber).toHaveAttribute('aria-label', /voor Werk$/)
+  await expect(page).toHaveURL(/\/weer\/maastricht$/)
+  await page.route('https://api.pdok.nl/**', () => { throw new Error('De eigen permalink mag niet langs de geocoder') })
+  await page.route('https://geo.api.vlaanderen.be/**', () => { throw new Error('De eigen permalink mag niet langs de geocoder') })
+  await page.reload()
+  await expect(scrubber).toHaveAttribute('aria-label', /voor Werk$/)
+  await expect(page).toHaveURL(/\/weer\/maastricht$/)
 
   await setStorage(page, { 'motregen-last-saved-place': 'removed', 'motregen-map-view': '{' })
   await page.goto('/') // verse navigatie: de live permalink (?plaats=) hoort bij de vorige pagina, de onthouden plaats wint
   await expect(scrubber).toHaveAttribute('aria-label', /voor De Bilt$/)
+})
+
+test('an old query for a saved label normalizes without a geocoder or exposing the label', async ({ page }) => {
+  await page.addInitScript((places) => localStorage.setItem('motregen-saved-places', JSON.stringify(places)), [home, work])
+  await page.route('https://api.pdok.nl/**', () => { throw new Error('Een opgeslagen plaats heeft al coördinaten') })
+  await page.route('https://geo.api.vlaanderen.be/**', () => { throw new Error('Een opgeslagen plaats heeft al coördinaten') })
+  await page.goto('/?modus=wind&plaats=Thuis')
+  await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor Thuis$/)
+  await expect(page).toHaveURL(/\/wind\/groningen$/)
 })
 
 test('removing a favorite asks inline and keeps the list open', async ({ page }, testInfo) => {
