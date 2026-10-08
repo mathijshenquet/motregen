@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, createUniqueId, For, onCleanup, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, createUniqueId, For, onCleanup, onMount, Show } from 'solid-js'
 import type { FocusKind } from '../core/focus-mode'
 import { hourDarkness, type HourSky, type HourlyForecastRow } from '../core/forecast'
 import { moonHorizonAngle, moonLitPath, moonPhase } from '../core/moon'
@@ -32,8 +32,6 @@ interface Props {
   columns: { weather: boolean; air: boolean; temperature: boolean; wind: boolean }
   windUnit: WindUnit
   dayNight?: boolean
-  /** Hemel van het cursoruur: de koppenrij (modusbalk) kleurt mee zoals de rijen (U62). Alleen onder Expressief. */
-  headSky?: HourSky
   // Rows after this epoch have not been fetched yet; scrolling near them asks for them.
   loadedUntil: number
   // Desktop (inline) keeps history above now; portrait mobile reveals it when table mode opens.
@@ -125,6 +123,59 @@ export default function ForecastTable(props: Props) {
   const elevation = (epoch: number) => solarElevationSin(epoch, props.location.lng, props.location.lat)
 
   const rowElements = new Map<number, HTMLTableRowElement>()
+  // De koppenrij (modusbalk) neemt de hemel aan van de bovenste rij die eronder zichtbaar is, zodat hij bij
+  // scrollen meekleurt met wat eronder staat (PO 2026-10-08, U62). Een IntersectionObserver met de kop van de
+  // bovenrand afgetrokken meldt welke rijen in beeld zijn; er wordt per frame niets uit de layout gelezen.
+  let tableElement!: HTMLTableElement
+  const rowSkies = new Map<number, () => HourSky>()
+  const rowShares = new Map<number, number>()
+  // Telt op bij elke (her)opbouw van een rij: de kop leest dan de hemel van de nieuwe rij.
+  const [rowSkiesVersion, setRowSkiesVersion] = createSignal(0)
+  const [topRowEpoch, setTopRowEpoch] = createSignal<number>()
+  let headObserver: IntersectionObserver | undefined
+  const pickTopRow = () => {
+    let halfShown: number | undefined
+    let anyShown: number | undefined
+    for (const [epoch, share] of rowShares) {
+      if (share >= 0.5 && (halfShown === undefined || epoch < halfShown)) halfShown = epoch
+      if (share > 0 && (anyShown === undefined || epoch < anyShown)) anyShown = epoch
+    }
+    // Een rij die voor meer dan de helft onder de kop is verdwenen telt niet meer als bovenste.
+    const top = halfShown ?? anyShown
+    if (top !== undefined) setTopRowEpoch(top)
+  }
+  onMount(() => {
+    const head = tableElement.tHead
+    if (!head || typeof IntersectionObserver === 'undefined' || typeof ResizeObserver === 'undefined') return
+    const scroller = tableElement.closest<HTMLElement>('.table-scroll')
+    const observeRows = (headHeight: number) => {
+      headObserver?.disconnect()
+      rowShares.clear()
+      // Scrolt de pagina in plaats van de tabel (smal, liggend), dan is het beeldscherm de wortel.
+      const tableScrolls = scroller !== null && /auto|scroll|hidden/.test(getComputedStyle(scroller).overflowY)
+      headObserver = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          const epoch = rowEpochs.get(entry.target)
+          if (epoch !== undefined) rowShares.set(epoch, entry.isIntersecting ? entry.intersectionRatio : 0)
+        }
+        pickTopRow()
+      }, { root: tableScrolls ? scroller : null, rootMargin: `-${Math.ceil(headHeight)}px 0px 0px 0px`, threshold: [0, 0.5, 1] })
+      for (const element of rowElements.values()) headObserver.observe(element)
+    }
+    // De kophoogte bepaalt de bovenrand; ze verandert alleen bij een andere layout.
+    const headSized = new ResizeObserver(([entry]) => { if (entry) observeRows(entry.contentRect.height) })
+    headSized.observe(head)
+    onCleanup(() => {
+      headSized.disconnect()
+      headObserver?.disconnect()
+    })
+  })
+  const headSky = createMemo<HourSky | undefined>(() => {
+    const epoch = topRowEpoch()
+    if (props.dayNight === false || epoch === undefined) return undefined
+    rowSkiesVersion()
+    return rowSkies.get(epoch)?.()
+  }, undefined, { equals: sameFields })
   const observer = typeof IntersectionObserver === 'undefined' ? undefined : new IntersectionObserver((entries) => {
     if (entries.some((entry) => entry.isIntersecting)) props.onNeedRows()
   }, { rootMargin: '0px 0px 320px 0px' })
@@ -206,10 +257,10 @@ export default function ForecastTable(props: Props) {
 
   const columnCount = () => 1 + Number(props.columns.weather) + Number(props.columns.air) + Number(props.columns.temperature) + Number(props.columns.wind)
 
-  return <table class="forecast-table" classList={{ 'day-night-table': props.dayNight !== false }} data-mode={props.focus.pinned} data-hover={hovered()}>
+  return <table ref={tableElement} class="forecast-table" classList={{ 'day-night-table': props.dayNight !== false }} data-mode={props.focus.pinned} data-hover={hovered()}>
     <thead><tr
-      classList={{ 'sky-head': !!props.headSky, 'day-hour': props.headSky?.daylight === true, 'night-hour': props.headSky?.daylight === false }}
-      style={props.headSky ? { '--day-overcast': props.headSky.overcast.toFixed(2), '--day-overcast-next': props.headSky.overcast.toFixed(2) } : undefined}
+      classList={{ 'sky-head': !!headSky(), 'day-hour': headSky()?.daylight === true, 'night-hour': headSky()?.daylight === false }}
+      style={headSky() ? { '--day-overcast': headSky()!.overcast.toFixed(2), '--day-overcast-next': headSky()!.overcast.toFixed(2) } : undefined}
     >
       {/* Weer is de vaste standaardmodus: regen op de kaart en in de grafiek. */}
       <th class="time-heading"><Show when={props.onOpenMobileTable} fallback={<span class="column-mode"><ColumnLabel icon={Clock} text="Uur" /></span>}>
@@ -259,6 +310,9 @@ export default function ForecastTable(props: Props) {
       const radiationAfter = createMemo(() => value(props.series.radiation, row.radiationNextIndex))
       const darknessFor = (target: HourlyForecastRow) => hourDarkness(target, props.series.radiation, props.series.cloud, elevation)
       const dayDarkness = createMemo(() => darknessFor(row))
+      rowSkies.set(row.epoch, () => ({ daylight: daylight(), overcast: Math.round(dayDarkness() * 100) / 100 }))
+      setRowSkiesVersion((version) => version + 1)
+      onCleanup(() => rowSkies.delete(row.epoch))
       const nextDayDarkness = createMemo(() => {
         const next = visibleRows()[rowIndex() + 1]
         if (!next || !isSunUp(next.epoch, props.location.lng, props.location.lat)) return dayDarkness()
@@ -287,10 +341,13 @@ export default function ForecastTable(props: Props) {
             rowElements.set(row.epoch, element)
             rowEpochs.set(element, row.epoch)
             shownObserver?.observe(element)
+            headObserver?.observe(element)
             onCleanup(() => {
               rowElements.delete(row.epoch)
               shownObserver?.unobserve(element)
               shownEpochs.delete(row.epoch)
+              headObserver?.unobserve(element)
+              rowShares.delete(row.epoch)
             })
             if (row.kind === 'now') pinNow(element)
           }}

@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@solidjs/testing-library'
 import { createSignal } from 'solid-js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { FocusKind } from '../core/focus-mode'
-import type { HourlyForecastRow, HourSky } from '../core/forecast'
+import type { HourlyForecastRow } from '../core/forecast'
 import type { WindUnit } from '../core/weather'
 import ForecastTable, { type ForecastSeries } from './ForecastTable'
 
@@ -21,7 +21,7 @@ const series: ForecastSeries = {
 }
 const allColumns = { weather: true, air: true, temperature: true, wind: true }
 
-function renderTable(options: { headSky?: HourSky; pinned?: FocusKind; weather?: boolean; dayNight?: boolean; forecastSeries?: ForecastSeries; onSelectTime?: (epoch: number) => void; mobileTableOpen?: boolean; onOpenMobileTable?: () => void; onSelectMobileMode?: () => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
+function renderTable(options: { pinned?: FocusKind; weather?: boolean; dayNight?: boolean; forecastSeries?: ForecastSeries; onSelectTime?: (epoch: number) => void; mobileTableOpen?: boolean; onOpenMobileTable?: () => void; onSelectMobileMode?: () => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
   const [pinned, setPinned] = createSignal<FocusKind>(options.pinned ?? 'weather')
   const onPin = vi.fn((mode: FocusKind) => setPinned(mode))
   const onFocus = vi.fn()
@@ -32,7 +32,6 @@ function renderTable(options: { headSky?: HourSky; pinned?: FocusKind; weather?:
     columns={{ ...allColumns, weather: options.weather ?? true }}
     windUnit={options.windUnit?.() ?? 'bft'}
     dayNight={options.dayNight}
-    headSky={options.headSky}
     loadedUntil={Number.POSITIVE_INFINITY}
     historyInline={options.historyInline ?? false}
     historyOpen={false}
@@ -207,17 +206,49 @@ describe('forecast table cells', () => {
     expect(sunset.nextElementSibling?.classList.contains('night-hour')).toBe(true)
   })
 
-  it('colours the heading row with the sky of the cursor hour (U62)', () => {
-    renderTable({ headSky: { daylight: true, overcast: 0.4 } })
-    const heading = document.querySelector<HTMLTableRowElement>('thead tr')!
-    expect(heading.classList.contains('sky-head')).toBe(true)
-    expect(heading.classList.contains('day-hour')).toBe(true)
-    expect(heading.style.getPropertyValue('--day-overcast')).toBe('0.40')
-    cleanup()
-    renderTable({ headSky: { daylight: false, overcast: 0 } })
-    expect(document.querySelector('thead tr')!.classList.contains('night-hour')).toBe(true)
-    cleanup()
-    renderTable()
+  it('colours the heading row with the sky of the top visible row (U62)', () => {
+    // jsdom kent geen IntersectionObserver: deze meldt wat de test als zichtbaar aanwijst.
+    let report: IntersectionObserverCallback = () => undefined
+    let observerOptions: IntersectionObserverInit | undefined
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) { report = callback; observerOptions = options }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    })
+    let headResized: ResizeObserverCallback = () => undefined
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: ResizeObserverCallback) { headResized = callback }
+      observe() {}
+      disconnect() {}
+    })
+    try {
+      renderTable()
+      const heading = document.querySelector<HTMLTableRowElement>('thead tr')!
+      // Zolang niets gemeld is blijft de kop neutraal.
+      expect(heading.className).toBe('')
+      headResized([{ contentRect: { height: 42 } } as ResizeObserverEntry], {} as ResizeObserver)
+      expect(observerOptions?.rootMargin).toBe('-42px 0px 0px 0px')
+      const rowAt = (hour: number) => document.querySelector<HTMLTableRowElement>(`tr[data-epoch="${start + hour * 3_600_000}"]`)!
+      const show = (shares: Record<number, number>) => report(Object.entries(shares).map(([hour, share]) =>
+        ({ target: rowAt(Number(hour)), isIntersecting: share > 0, intersectionRatio: share }) as unknown as IntersectionObserverEntry), {} as IntersectionObserver)
+
+      // Nachtrij bovenaan, dag eronder: de kop volgt de bovenste.
+      show({ 2: 1, 3: 1, 14: 1 })
+      expect(heading.classList.contains('sky-head')).toBe(true)
+      expect(heading.classList.contains('night-hour')).toBe(true)
+      // De nachtrijen schuiven voor meer dan de helft onder de kop: de dagrij is nu de bovenste.
+      show({ 2: 0, 3: 0.3 })
+      expect(heading.classList.contains('day-hour')).toBe(true)
+      expect(heading.classList.contains('night-hour')).toBe(false)
+      expect(heading.style.getPropertyValue('--day-overcast')).toBe(rowAt(14).style.getPropertyValue('--day-overcast').slice(0, 4))
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('leaves the heading row neutral without the day/night treatment', () => {
+    renderTable({ dayNight: false })
     expect(document.querySelector('thead tr')!.className).toBe('')
   })
 

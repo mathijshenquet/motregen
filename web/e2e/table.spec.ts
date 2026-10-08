@@ -34,6 +34,32 @@ test('desktop opens the table on the now-row and fetches history only when scrol
   expect(history.length).toBeGreaterThan(passive)
 })
 
+test('the heading row takes the sky of the top visible table row while scrolling (U62)', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'De open tabel op mobiel heeft een eigen test; hier het desktoppaneel')
+  await page.goto('/')
+  await expect(page.locator('tr.current-hour')).toBeAttached()
+  const heading = page.locator('.forecast-table thead tr')
+  const scrollRowUnderHeading = (rowClass: string) => page.evaluate((wanted) => {
+    const scroller = document.querySelector<HTMLElement>('.table-scroll')!
+    // De cellen zijn sticky; de koprij zelf scrolt mee.
+    const headBottom = document.querySelector('.forecast-table thead th')!.getBoundingClientRect().bottom
+    const rows = [...document.querySelectorAll<HTMLElement>(`tbody tr.${wanted}[data-epoch]`)].filter((row) => row.getBoundingClientRect().height > 0)
+    const row = rows[Math.min(rows.length - 1, 2)]!
+    scroller.scrollTop += row.getBoundingClientRect().top - headBottom
+  }, rowClass)
+
+  // Desktop houdt de nu-rij vastgepind tot de gebruiker de tabel aanraakt; een wieltik laat hem los.
+  const tableBox = (await page.locator('.table-scroll').boundingBox())!
+  await page.mouse.move(tableBox.x + tableBox.width / 2, tableBox.y + tableBox.height / 2)
+  await page.mouse.wheel(0, 40)
+  await scrollRowUnderHeading('night-hour')
+  await expect(heading).toHaveClass(/sky-head/)
+  await expect(heading).toHaveClass(/night-hour/)
+  await scrollRowUnderHeading('day-hour')
+  await expect(heading).toHaveClass(/day-hour/)
+  await expect(heading).not.toHaveClass(/night-hour/)
+})
+
 test('portrait mobile keeps history mounted and unlocks the same table offset', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile-4g', 'portrait-scrollroute op het mobiele profiel')
   await page.goto('/')

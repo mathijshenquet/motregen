@@ -244,3 +244,22 @@ kosten vulwerk op de GPU dat hier niet zichtbaar wordt. De PO-telefoon is de ech
   stap 4 niveau kiezen op de telefoon (`?dev` → Mobiel → Windstreepjes) en letten op haperen.
 - VOOR AGENT: na de PO-keuzes de dev-knoppen Klokpil en Windstreepjes vastzetten of weghalen
   (docs/dev-opties.md); eventueel donker randje boven zee als "meer" niet volstaat.
+
+## 15:30 — stap 3b (PO: "1 is top", één wijziging): koppenrij volgt de TABELSCROLL
+- `ForecastTable.tsx`: de koppenrij neemt de hemel van de bovenste zichtbare rij aan. Een
+  IntersectionObserver (wortel: de tabelscroller, of het scherm als de pagina scrolt; bovenrand min de
+  kophoogte uit één ResizeObserver op de kop) meldt per rij het zichtbare deel; de bovenste is de vroegste
+  rij die voor minstens de helft onder de kop uitsteekt. Geen layout-reads per frame. De hemel per rij komt
+  uit de memo's die de rij al had (`daylight`, `dayDarkness`). Kleurwissel: de bestaande 0,3 s-transitie.
+- De prop `headSky` (cursoruur) is weg; `chromeSky` in App voedt alleen nog de klokpil-variant. De
+  liniaal blijft aan de scrubbertijd.
+- Eigen beelden bekeken: `stap3b/kop-{390,desktop}-{nacht,dag}.png` (`rig/head-scroll.ts`): bovenste rij
+  07:00 nacht → donkere kop; 11:00 dag → dagtint; op 390 px in de open tabel en op desktop.
+  Rig-les: `thead tr` scrolt mee, alleen de `th`-cellen zijn sticky — de plek van de kop is die van een cel.
+- Unit: `ForecastTable.test` "colours the heading row with the sky of the top visible row" (gestubde
+  observers). e2e: `table.spec` "the heading row takes the sky of the top visible table row while scrolling".
+- Gate (web/): typecheck 0 · `pnpm test` 0 (488) · build 0 · desktop `table dev-panel cloud-section
+  sky-window`: 8 groen / 1 rood (mijn nieuwe test: de nu-rij-pin van desktop zette de scroll terug) → wieltik
+  in de test → `table.spec --project desktop` 0 (5 groen, 2 overgeslagen) · mobile-4g `table sky-window` 0
+  (6 groen, 2 overgeslagen).
+- De ?dev-varianten Klokpil en Windstreepjes blijven staan tot de PO kiest.

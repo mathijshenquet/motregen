@@ -2710,8 +2710,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       return elevation
     }
   })
-  // Het chrome (koppenrij van de tabel, klokpil) neemt de hemel van het cursoruur aan, uit dezelfde bron
-  // als de dag/nacht-kleuring van de rijen (U42); zonder Expressief blijft het zoals het was (U62).
+  // De klokpil kan (dev-variant) de hemel van het cursoruur aannemen, uit dezelfde bron als de dag/nacht-
+  // kleuring van de rijen (U42). De koppenrij van de tabel volgt haar eigen bovenste rij (U62).
   const chromeSky = createMemo<HourSky | undefined>(() => {
     if (!expressive() || !manifest()) return undefined
     const point = location()
@@ -3044,7 +3044,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
               location={location()}
               windUnit={windUnit()}
               dayNight={expressive()}
-              headSky={chromeSky()}
               onVisibleRows={inViewOnly ? (epochs) => setPeekRows(new Set(epochs)) : undefined}
               columns={{ weather: hasWeatherIcons(), air: hasWeatherIcons() || uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), wind: hasWind() }}
               loadedUntil={pointLoadStage() === 'complete' ? Number.POSITIVE_INFINITY : manifestNow() + PASSIVE_FORECAST_HOURS * 3_600_000}
