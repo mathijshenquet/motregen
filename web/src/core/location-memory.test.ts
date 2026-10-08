@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { grantedStartFix, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastSavedPlaceId, storeMapView } from './location-memory'
+import { grantedStartFix, loadLastLocation, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastLocation, storeLastSavedPlaceId, storeMapView } from './location-memory'
 import type { SavedPlace } from './saved-places'
 
 function memoryStorage(initial: Record<string, string> = {}) {
@@ -15,6 +15,14 @@ const deBilt = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
 const home: SavedPlace = { id: 'home', name: 'Thuis', sourceLabel: 'Utrecht', lng: 5.12142, lat: 52.09074 }
 
 describe('location memory', () => {
+  it('keeps a dropped pin apart from the camera and the previous favorite', () => {
+    const pin = { lng: 4.923456, lat: 52.402345, label: 'Amsterdam' }
+    const storage = memoryStorage()
+    storeLastLocation(pin, storage)
+    expect(loadLastLocation(storage)).toEqual(pin)
+    expect(resolveStartLocation([home], 'home', { lng: 5.1, lat: 52.1, zoom: 7 }, deBilt, pin)).toBe(pin)
+  })
+
   it('prefers the last clicked saved place, then the last map view, then De Bilt', () => {
     const view = { lng: 6.57, lat: 53.21, zoom: 8.5 }
     expect(resolveStartLocation([home], 'home', view, deBilt)).toEqual({ lng: home.lng, lat: home.lat, label: 'Thuis' })
@@ -38,8 +46,13 @@ describe('location memory', () => {
     const broken = { getItem: () => { throw new Error('denied') }, setItem: () => { throw new Error('denied') } }
     expect(loadMapView(broken)).toBeUndefined()
     expect(loadLastSavedPlaceId(broken)).toBeUndefined()
+    expect(loadLastLocation(broken)).toBeUndefined()
     expect(() => storeMapView({ lng: 5, lat: 52, zoom: 7 }, broken)).not.toThrow()
     expect(() => storeLastSavedPlaceId('home', broken)).not.toThrow()
+    expect(() => storeLastLocation(deBilt, broken)).not.toThrow()
+    for (const corrupt of ['{', '[]', '{"lng":4.9,"lat":52.4}', '{"lng":4.9,"lat":91,"label":"Amsterdam"}']) {
+      expect(loadLastLocation(memoryStorage({ 'motregen-last-location': corrupt }))).toBeUndefined()
+    }
   })
 })
 

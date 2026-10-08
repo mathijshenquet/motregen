@@ -45,3 +45,29 @@ basis als eerste beeld nog steeds te laat komt.
 ## Decision
 
 (open)
+
+## Uitwerking U65 — plaatsnamen en onthouden pin (2026-10-08)
+
+Opdracht van de PO via track U65: de basiskaart is ook de bron voor de volledige plaatsencatalogus;
+de URL houdt een precieze eigen pin vast wanneer die bij de gevraagde plaats hoort. Deze technische
+uitwerking verandert de adoptie-status van MIP-21 niet.
+
+- Een bekende plaats in het pad kiest eerst de huidige/laatste onthouden locatie wanneer die in de
+  zone ligt, daarna de eerste passende opgeslagen plaats, anders het plaatscentrum. De standaard
+  De Bilt zonder locatiegeheugen telt niet als onthouden pin. Ook browser-terug/vooruit volgt dit.
+- Een zone matcht als de kd-tree dezelfde slug als dichtstbijzijnde plaats vindt **of** als de
+  haversine-afstand tot het centrum maximaal 8 km (OSM city), 5 km (town) of 3 km (village) is.
+  De straal voorkomt dat een Amsterdamse pin aan de stadsrand door een dichterbij gelegen dorp
+  wordt weggedrukt. Dit is een praktische zone, geen officiële gemeentegrens.
+- De gevraagde slug blijft in adresbalk en deellink zolang de pin niet opnieuw wordt gekozen,
+  ook als een buurdorp dichterbij ligt. Coördinaten en eigen favorietlabels komen niet in de link.
+- Bij dubbele genormaliseerde namen houdt de plaats met laagste kaartrang de korte slug; bij
+  gelijke rang wint de hoogste bevolking, daarna het westelijkste en zuidelijkste centrum.
+  De overige krijgen `naam-gemeente`. Meerdere plaatsen in dezelfde gemeente krijgen zo nodig
+  `naam-gemeente-2`, `-3`, enzovoort in dezelfde vaste volgorde; bestaande korte plaatsnamen blijven
+  gereserveerd. Namen zonder duplicaten blijven bijvoorbeeld `/weer/woerden`.
+- Een losse pin krijgt eigen lokale opslag (`motregen-last-location`), los van de kaartcamera.
+  Bij migratie blijft de oude volgorde laatstgekozen favoriet → kaartcamera → De Bilt beschikbaar.
+  De kaartcamera bepaalt uitsluitend de startweergave zodra een pin is opgeslagen.
+
+Reproduceerbare export, bron en compact formaat: `docs/plaatsen.md`.

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { placesUrl } from '../src/core/places-asset'
 
 test('robots.txt allows the site and excludes /data/', async ({ request }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'gedrag, geen performance: één profiel volstaat')
@@ -36,6 +37,15 @@ test('index.html carries title, description, canonical, social cards and noscrip
 })
 
 const caddyOrigin = `http://127.0.0.1:${Number(process.env.MOTREGEN_E2E_DATA_PORT ?? 8185) + 1}`
+
+test('Caddy serves the hashed place catalogue as immutable gzip within 60 KiB', async ({ request }) => {
+  const response = await request.get(`${caddyOrigin}${placesUrl}`, { headers: { 'Accept-Encoding': 'gzip' } })
+  expect(response.status()).toBe(200)
+  expect(response.headers()['content-encoding']).toBe('gzip')
+  expect(response.headers()['cache-control']).toBe('public, max-age=31536000, immutable')
+  expect(Number(response.headers()['content-length'])).toBeLessThanOrEqual(61_440)
+  expect((await response.json()).names.length).toBeGreaterThan(6900)
+})
 
 test('Caddy serves page titles, canonical and place text without JavaScript', async ({ request }) => {
   for (const [path, title, place] of [

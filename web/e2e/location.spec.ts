@@ -3,6 +3,56 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 const home = { id: 'home', name: 'Thuis', sourceLabel: 'Groningen', lng: 6.5665, lat: 53.2194 }
 const work = { id: 'work', name: 'Werk', sourceLabel: 'Maastricht', lng: 5.6909, lat: 50.8514 }
 
+test('a dropped Amsterdam-Noord pin survives its city path, while Haarlem selects its centre', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (localStorage.getItem('u65-initialized')) return
+    localStorage.setItem('u65-initialized', 'yes')
+    localStorage.setItem('motregen-map-view', JSON.stringify({ lng: 4.9, lat: 52.39, zoom: 9 }))
+    localStorage.setItem('motregen-last-location', JSON.stringify({ lng: 4.9, lat: 52.372, label: 'Amsterdam' }))
+  })
+  await page.route('https://api.pdok.nl/**', () => { throw new Error('De volledige plaatsenlijst bevat deze plaats') })
+  await page.route('https://geo.api.vlaanderen.be/**', () => { throw new Error('De volledige plaatsenlijst bevat deze plaats') })
+  await page.goto('/weer/amsterdam')
+  await expect(page.locator('.map-splash.ready')).toBeAttached()
+  const map = (await page.locator('.map').boundingBox())!
+  const positions = await page.evaluate(() => {
+    const project = (window as unknown as { __motregenProject: (lng: number, lat: number) => { x: number; y: number } }).__motregenProject
+    return { start: project(4.9, 52.372), noord: project(4.92, 52.405) }
+  })
+  await page.mouse.move(map.x + positions.start.x, map.y + positions.start.y - 20)
+  await page.mouse.down()
+  await page.mouse.move(map.x + positions.noord.x, map.y + positions.noord.y - 20, { steps: 12 })
+  await expect(page.locator('.location-pin.dragging')).toHaveCount(1)
+  await page.mouse.up()
+  await expect.poll(async () => (await pickedPoint(page)).lat).toBeCloseTo(52.405, 4)
+  const dropped = await pickedPoint(page)
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('motregen-last-location') ?? 'null'))
+  expect(stored.lng).toBe(dropped.lng)
+  expect(stored.lat).toBe(dropped.lat)
+
+  await page.goto('/weer/amsterdam')
+  await expect(page.locator('.map-splash.ready')).toBeAttached()
+  expect(await pickedPoint(page)).toEqual(dropped)
+  await expect(page).toHaveURL(/\/weer\/amsterdam$/)
+  await page.reload()
+  await expect(page.locator('.map-splash.ready')).toBeAttached()
+  expect(await pickedPoint(page)).toEqual(dropped)
+  await expect(page).toHaveURL(/\/weer\/amsterdam$/)
+
+  await page.goto('/weer/haarlem')
+  await expect(page.locator('.map-splash.ready')).toBeAttached()
+  const haarlem = await pickedPoint(page)
+  expect(haarlem.lng).toBeCloseTo(4.639, 4)
+  expect(haarlem.lat).toBeCloseTo(52.389, 4)
+  await expect(page).toHaveURL(/\/weer\/haarlem$/)
+})
+
+async function pickedPoint(page: Page): Promise<{ lng: number; lat: number }> {
+  return page.evaluate(() => (window as unknown as {
+    __motregenCamera: () => { location: { lng: number; lat: number } }
+  }).__motregenCamera().location)
+}
+
 test('start location remembers saved places and the last map view', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'gedrag, geen performance: één profiel volstaat')
   const scrubber = page.locator('.scrubber')
@@ -34,7 +84,7 @@ test('start location remembers saved places and the last map view', async ({ pag
   await expect(scrubber).toHaveAttribute('aria-label', /voor Werk$/)
   await expect(page).toHaveURL(/\/weer\/maastricht$/)
 
-  await setStorage(page, { 'motregen-last-saved-place': 'removed', 'motregen-map-view': '{' })
+  await setStorage(page, { 'motregen-last-saved-place': 'removed', 'motregen-map-view': '{', 'motregen-last-location': '{' })
   await page.goto('/') // verse navigatie: de live permalink (?plaats=) hoort bij de vorige pagina, de onthouden plaats wint
   await expect(scrubber).toHaveAttribute('aria-label', /voor De Bilt$/)
 })

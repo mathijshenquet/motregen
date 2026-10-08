@@ -17,3 +17,11 @@
 - Indexcheck vergelijkt 100 verspreide punten tegen een onafhankelijke lineaire referentie met 5.000 kandidaten; radiusgrenzen en Amsterdam-Noord/Haarlem expliciet getest.
 - Eerste commit bevat de zelfstandig bruikbare index/zoneregel; lijstexport en App-integratie zijn nog in uitvoering. Overpass levert gemeenten met tussentijdse 429/504; lookup wordt per batch veilig opgeslagen.
 - Volgende stap: draft-PR openen, gemeenten/export afronden en volledige trackgate uitvoeren.
+
+## 2026-10-08 08:43 UTC — complete implementatie, gate gestart
+- Draft-PR #93: https://github.com/mathijshenquet/motregen/pull/93; eerste push bevestigd met `git ls-remote origin track/u65-plaatsen-en-pin`.
+- Export herkent Point én MultiPoint, alle 6.997 plaatsen binnen MAP_CONTAIN_BOUNDS. Asset plaatsen-4d18b8790eecd5af.json: 132.509 bytes, gzip 60.946 bytes ≤ 60 KiB. Offline generator twee keer byte-identiek, exit 0 gezien (`pnpm basemap:places`). Lookup teruggebracht tot de 290 benodigde gemeentevermeldingen.
+- Lazy loader, kd-tree, exacte losse pinopslag, voorkeur laatste locatie/favoriet/centrum, privacy-slug en browsernavigatie geïntegreerd. Standaard De Bilt telt zonder geheugen niet als onthouden pin.
+- U65-regels vastgelegd in MIP-21 (adoptiestatus niet veranderd), bron/formaat in docs/plaatsen.md. Temperatuurlabels en sitemap blijven bij de originele 67 handmatige plaatsen (spec noemde 69; werkelijk 67).
+- Typecheck exit 0. Eerste volledige unit-run: 490 groen, nieuwe catalogustest viel om door mijn onjuist relatieve pad; gecorrigeerd, gerichte catalogusrun 2/2 exit 0. Volledige run herhalen voor schoon receipt.
+- Build exit 0 gezien vóór laatste Caddy-uitbreiding. Precompressed JSON + immutable header en gerichte SEO-check toegevoegd; nieuwe build en desktop location/presets/seo volgen nu. PR blijft draft zolang die checks lopen.
