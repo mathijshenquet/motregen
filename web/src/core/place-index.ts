@@ -81,10 +81,31 @@ export class PlaceIndex {
     visit(this.root)
     return nearest
   }
+
+  zones(point: { lng: number; lat: number }): CataloguePlace[] {
+    const nearest = this.nearest(point.lng, point.lat)
+    const zones = [nearest]
+    // Een 8 km-cirkel past ruim in deze zoekbox binnen de kaartbounds (50–54° NB).
+    const latitudeMargin = 8 / 110
+    const longitudeMargin = 8 / (110 * Math.cos(54 * Math.PI / 180))
+    const visit = (node: PlaceNode | undefined): void => {
+      if (!node) return
+      if (node.place.slug !== nearest.slug && withinPlaceRadius(point, node.place)) zones.push(node.place)
+      const margin = node.axis === 'lng' ? longitudeMargin : latitudeMargin
+      if (point[node.axis] - margin <= node.place[node.axis]) visit(node.left)
+      if (point[node.axis] + margin >= node.place[node.axis]) visit(node.right)
+    }
+    visit(this.root)
+    return zones
+  }
 }
 
 export function belongsToPlace(point: { lng: number; lat: number }, place: CataloguePlace, index: Pick<PlaceIndex, 'nearest'>): boolean {
   if (index.nearest(point.lng, point.lat).slug === place.slug) return true
+  return withinPlaceRadius(point, place)
+}
+
+function withinPlaceRadius(point: { lng: number; lat: number }, place: CataloguePlace): boolean {
   const radiusKm = place.kind === 'city' ? 8 : place.kind === 'town' ? 5 : 3
   const radians = Math.PI / 180
   const latitudeDifference = (point.lat - place.lat) * radians

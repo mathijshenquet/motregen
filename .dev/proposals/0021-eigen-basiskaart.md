@@ -71,3 +71,19 @@ uitwerking verandert de adoptie-status van MIP-21 niet.
   De kaartcamera bepaalt uitsluitend de startweergave zodra een pin is opgeslagen.
 
 Reproduceerbare export, bron en compact formaat: `docs/plaatsen.md`.
+
+### Laadvolgorde en lokaal zonegeheugen (PO-vraag 2026-10-08)
+
+- De volledige JSON-lijst begint bij automatisch afspelen pas in een idle-callback na
+  `milestone:ttfp` (de eerste werkelijk getekende regenframe-wissel). Een expliciet gepauzeerde
+  tijdpreset heeft geen ttfp; daar start de idle-callback na de eerste regen-tekenbeurt. Manifest,
+  stijl en eerste regen-Range gaan in beide gevallen voor. De serviceworker precachet de lijst
+  niet; hij bewaart uitsluitend de latere aanvraag in een runtime-cache.
+- Bij iedere locatiekeuze worden de exacte pin, het label, de dichtstbijzijnde plaatsnaam/slug
+  en alle passende zones onmiddellijk samen opgeslagen. Favorieten krijgen hetzelfde zonegeheugen.
+  Een herlaad beslist direct uit deze lokale snapshot; de catalogusverrijking verplaatst de pin niet.
+  Bij oude opslag zonder zones blijven de handmatige plaatsen en de bronnaam van een favoriet
+  de migratiefallback. Een onbekende nieuwe plaats kan nog via de geocoder komen, zonder de
+  kaartopbouw daarop te laten wachten.
+- De bestaande handmatige lijst (feitelijk 67 plaatsen; in U27/U65 aangeduid als 69) blijft de
+  directe labelfallback. Server-side plaatsdata in de HTML blijft buiten deze track (PO: YAGNI).

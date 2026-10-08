@@ -1,6 +1,8 @@
 import { decodePlaces, type CompactPlaces } from './place-data.js'
 import { belongsToPlace, PlaceIndex, type CataloguePlace } from './place-index.js'
 import { placesUrl } from './places-asset.js'
+import type { PlaceIdentity, PlaceMemory } from './place-memory.js'
+import { placeSlug } from './slugify.js'
 
 export interface Place {
   name: string
@@ -104,6 +106,14 @@ export function namedCataloguePlace(name: string, point: { lng: number; lat: num
 
 export function isInPlaceZone(point: { lng: number; lat: number }, place: CataloguePlace): boolean {
   return catalogue !== undefined && belongsToPlace(point, place, catalogue)
+}
+
+export function rememberPlace(point: { lng: number; lat: number }, selected?: PlaceIdentity): PlaceMemory {
+  const nearest = nearestPlace(point.lng, point.lat)
+  const identity = { name: nearest.name, slug: nearest.slug ?? placeSlug(nearest.name) }
+  const zones = catalogue?.zones(point).map(({ name, slug }) => ({ name, slug })) ?? [identity]
+  if (selected && !zones.some((zone) => zone.slug === selected.slug)) zones.push(selected)
+  return { ...identity, zones }
 }
 
 export function nearestPlace(lng: number, lat: number, candidates?: readonly Place[]): Place {

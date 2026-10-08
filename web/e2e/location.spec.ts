@@ -1,4 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { placesUrl } from '../src/core/places-asset'
+
+test.use({ serviceWorkers: 'block' })
 
 const home = { id: 'home', name: 'Thuis', sourceLabel: 'Groningen', lng: 6.5665, lat: 53.2194 }
 const work = { id: 'work', name: 'Werk', sourceLabel: 'Maastricht', lng: 5.6909, lat: 50.8514 }
@@ -14,6 +17,7 @@ test('a dropped Amsterdam-Noord pin survives its city path, while Haarlem select
   await page.route('https://geo.api.vlaanderen.be/**', () => { throw new Error('De volledige plaatsenlijst bevat deze plaats') })
   await page.goto('/weer/amsterdam')
   await expect(page.locator('.map-splash.ready')).toBeAttached()
+  await expect.poll(() => page.evaluate((url) => performance.getEntriesByName(new URL(url, location.href).href).length, placesUrl)).toBeGreaterThan(0)
   const map = (await page.locator('.map').boundingBox())!
   const positions = await page.evaluate(() => {
     const project = (window as unknown as { __motregenProject: (lng: number, lat: number) => { x: number; y: number } }).__motregenProject
@@ -29,11 +33,17 @@ test('a dropped Amsterdam-Noord pin survives its city path, while Haarlem select
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('motregen-last-location') ?? 'null'))
   expect(stored.lng).toBe(dropped.lng)
   expect(stored.lat).toBe(dropped.lat)
+  expect(stored.place.zones.some((zone: { slug: string }) => zone.slug === 'amsterdam')).toBe(true)
+
+  // Houd de catalogus onafgemaakt: splash en zonebesluit moeten zonder de response klaar zijn.
+  let pendingPlaces = 0
+  await page.route(`**${placesUrl}`, () => { pendingPlaces++ })
 
   await page.goto('/weer/amsterdam')
   await expect(page.locator('.map-splash.ready')).toBeAttached()
   expect(await pickedPoint(page)).toEqual(dropped)
   await expect(page).toHaveURL(/\/weer\/amsterdam$/)
+  await expect.poll(() => pendingPlaces).toBeGreaterThan(0)
   await page.reload()
   await expect(page.locator('.map-splash.ready')).toBeAttached()
   expect(await pickedPoint(page)).toEqual(dropped)
@@ -42,11 +52,31 @@ test('a dropped Amsterdam-Noord pin survives its city path, while Haarlem select
   await page.goto('/weer/haarlem')
   await expect(page.locator('.map-splash.ready')).toBeAttached()
   const haarlem = await pickedPoint(page)
-  expect(haarlem.lng).toBeCloseTo(4.639, 4)
-  expect(haarlem.lat).toBeCloseTo(52.389, 4)
+  expect(haarlem.lng).toBeCloseTo(4.64, 4)
+  expect(haarlem.lat).toBeCloseTo(52.38, 4)
   await expect(page).toHaveURL(/\/weer\/haarlem$/)
   const remembered = await page.evaluate(() => JSON.parse(localStorage.getItem('motregen-last-location') ?? 'null'))
-  expect(remembered).toEqual({ ...haarlem, label: 'Haarlem' })
+  expect(remembered).toMatchObject({ ...haarlem, label: 'Haarlem', place: { name: 'Haarlem', slug: 'haarlem' } })
+})
+
+test('an unlisted village reloads its exact pin from local zones while the catalogue is blocked', async ({ page }) => {
+  const pin = { lng: 4.89321, lat: 52.08234 }
+  await page.addInitScript((point) => {
+    localStorage.setItem('motregen-last-location', JSON.stringify({
+      ...point, label: 'Bij oma', place: { name: 'Woerden', slug: 'woerden', zones: [{ name: 'Woerden', slug: 'woerden' }] },
+    }))
+  }, pin)
+  await page.route(`**${placesUrl}`, () => {})
+  await page.route('https://api.pdok.nl/**', () => { throw new Error('De lokale zone heeft de plaatsnaam al') })
+  await page.route('https://geo.api.vlaanderen.be/**', () => { throw new Error('De lokale zone heeft de plaatsnaam al') })
+  await page.goto('/weer/woerden')
+  await expect(page.locator('.map-splash.ready')).toBeAttached()
+  expect(await pickedPoint(page)).toEqual(pin)
+  await expect(page).toHaveURL(/\/weer\/woerden$/)
+  await page.reload()
+  await expect(page.locator('.map-splash.ready')).toBeAttached()
+  expect(await pickedPoint(page)).toEqual(pin)
+  await expect(page).toHaveURL(/\/weer\/woerden$/)
 })
 
 async function pickedPoint(page: Page): Promise<{ lng: number; lat: number }> {

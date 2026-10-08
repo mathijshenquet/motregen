@@ -26,6 +26,11 @@ describe('place zones', () => {
   it('also accepts the same nearest slug beyond the radius', () => {
     expect(belongsToPlace({ lng: 5.2, lat: 52.37 }, amsterdam, { nearest: () => amsterdam })).toBe(true)
   })
+
+  it('remembers every matching zone, including a larger city around a nearer village', () => {
+    const noord = { lng: 4.92, lat: 52.409 }
+    expect(index.zones(noord).map((place) => place.slug).sort()).toEqual(['amsterdam', 'landsmeer'])
+  })
 })
 
 describe('place index', () => {
@@ -41,6 +46,10 @@ describe('place index', () => {
       const distance = (place: CataloguePlace) => ((place.lng - point.lng) * scale) ** 2 + (place.lat - point.lat) ** 2
       const nearest = places.reduce((nearest, place) => distance(place) < distance(nearest) ? place : nearest)
       expect(index.nearest(point.lng, point.lat).slug).toBe(nearest.slug)
+      if (point.lat >= 50 && point.lat <= 54) {
+        const zones = places.filter((place) => belongsToPlace(point, place, { nearest: () => nearest }))
+        expect(index.zones(point).map((place) => place.slug).sort()).toEqual(zones.map((place) => place.slug).sort())
+      }
     }
   })
 

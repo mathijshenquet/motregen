@@ -30,6 +30,20 @@ describe('location memory', () => {
     expect(resolveStartLocation([], undefined, undefined, deBilt)).toBe(deBilt)
   })
 
+  it('restores city membership without loading a catalogue, and ignores damaged zone metadata', () => {
+    const pin = {
+      lng: 4.923456, lat: 52.402345, label: 'Thuis',
+      place: { name: 'Landsmeer', slug: 'landsmeer', zones: [{ name: 'Landsmeer', slug: 'landsmeer' }, { name: 'Amsterdam', slug: 'amsterdam' }] },
+    }
+    const storage = memoryStorage()
+    storeLastLocation(pin, storage)
+    expect(loadLastLocation(storage)).toEqual(pin)
+    expect(loadLastLocation(storage)?.place?.zones.find((zone) => zone.slug === 'amsterdam')?.name).toBe('Amsterdam')
+    storeLastLocation({ ...pin, place: { ...pin.place, zones: ['damaged' as never] } }, storage)
+    expect(loadLastLocation(storage)).toEqual({ lng: pin.lng, lat: pin.lat, label: pin.label })
+    expect(resolveStartLocation([{ ...home, place: pin.place }], 'home', undefined, deBilt).place).toEqual(pin.place)
+  })
+
   it('round-trips motregen-prefixed keys', () => {
     const storage = memoryStorage()
     storeLastSavedPlaceId('home', storage)

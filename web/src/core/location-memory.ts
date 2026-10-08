@@ -1,5 +1,6 @@
 import { nearestPlace } from './places'
 import type { SavedPlace } from './saved-places'
+import { readPlaceMemory, type PlaceMemory } from './place-memory.js'
 
 export interface MapView {
   lng: number
@@ -11,6 +12,7 @@ export interface StartLocation {
   lng: number
   lat: number
   label: string
+  place?: PlaceMemory
 }
 
 const lastSavedPlaceKey = 'motregen-last-saved-place'
@@ -22,7 +24,8 @@ export function loadLastLocation(storage: Pick<Storage, 'getItem'> = localStorag
     const value = JSON.parse(storage.getItem(lastLocationKey) ?? 'null') as Partial<StartLocation> | null
     if (!value || !isFiniteIn(value.lng, -180, 180) || !isFiniteIn(value.lat, -85, 85)
       || typeof value.label !== 'string' || !value.label.trim() || value.label.length > 120) return undefined
-    return { lng: value.lng, lat: value.lat, label: value.label }
+    const place = readPlaceMemory(value.place)
+    return { lng: value.lng, lat: value.lat, label: value.label, ...(place && { place }) }
   } catch { return undefined }
 }
 
@@ -68,7 +71,7 @@ export function resolveStartLocation(
 ): StartLocation {
   if (lastLocation) return lastLocation
   const saved = lastSavedPlaceId === undefined ? undefined : savedPlaces.find((place) => place.id === lastSavedPlaceId)
-  if (saved) return { lng: saved.lng, lat: saved.lat, label: saved.name }
+  if (saved) return { lng: saved.lng, lat: saved.lat, label: saved.name, ...(saved.place && { place: saved.place }) }
   if (mapView) return { lng: mapView.lng, lat: mapView.lat, label: nearestPlace(mapView.lng, mapView.lat).name }
   return fallback
 }
