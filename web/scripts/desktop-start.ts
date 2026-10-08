@@ -91,7 +91,7 @@ try {
         const { profile } = await cdp.send('Profiler.stop')
         writeFileSync(`${prefix}.cpuprofile`, JSON.stringify(profile))
       }
-      writeFileSync(`${prefix}.json`, JSON.stringify({ capturedAt: new Date().toISOString(), origin, pathname, query, warm, loadAverage, ...captured, requests }, null, 2))
+      writeFileSync(`${prefix}.json`, JSON.stringify({ capturedAt: new Date().toISOString(), origin, pathname, query, warm, cpuProfile, loadAverage, ...captured, requests }, null, 2))
       writeFileSync(`${prefix}.trace.json`, JSON.stringify({ traceEvents: events }))
       console.log(`${prefix}: ${JSON.stringify(captured.snapshot)}`)
     } finally {

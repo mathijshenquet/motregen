@@ -435,3 +435,10 @@ b1a706752174bbd7f1cb2453ce3a740929d73775	refs/pull/91/head
 - Capture heeft een optionele --cpu-profile, uitsluitend voor aparte diagnose. Lighthouse-subscores vóór/na en de SVG-/tegelbeslissing verwerkt in RESULTATEN.md. Geen SVG-code teruggezet, tegel standaard uit.
 - Eén eigen seriële runner wacht op de gedeelde perf-lock voor de aangescherpte warmcapture; CPU-/kandidaatmetingen starten erna. De leeftijd van U63’s eerdere e2e-lockproces bevatte wachttijd, geen bewijs voor een 19 minuten durende test. Huidige eigenaar doet U63’s placeholdermeting. Geen andere trackprocessen gestopt.
 - WIP wordt nu gecommit/pushed ondanks de meetwachtrij; nieuwe perf/e2e-receipts blijven pending. Repro kandidaat: tmp/u64/rain-priority-runs.sh (lokale runner); permanente capture: cd web && bash scripts/desktop-rig.sh ../tmp/u64/cpu --repeat=1 --cpu-profile.
+
+## 2026-10-08 08:56 UTC — meetwachtrij en rangschikking expliciet
+
+- WIP 22728e2 commit/push en PR-update synchroon exit 0; remote 22728e2c3ee7f0f0ecc70c5cda8967540e600fa4 bevestigd. Nieuwe checkpoint volgt op de 15–20-minutencadans.
+- RESULTATEN zet kandidaten op verwachte regenstartwinst en markeert de oude warm-loadmethode expliciet. Nieuwe capture schrijft cpuProfile in metadata; diagnostische profileringsopnames mogen geen gewone voor/na-reeks worden.
+- Nog één eigen runner: warm-corrected staat achter U63’s placeholder-paar. Lockeigenaar wacht op rustige host voordat hij meet; huidige load schommelt ~10–16, grens blijft 8. Geen eigen browser of extra meting naast die wachtrij gestart. Onderzoeks-/kandidaatrunner ligt klaar voor daarna.
+- PO-Chrome-profiel heeft één lange taak van 71 ms tegenover honderden ms in lokale SwiftShader-Lighthouse; geen claim dat de lokale TBT gelijk is aan MacBook-gedrag. Aanvullende 103 staat lager dan regen-dispatch/shaderdiagnose: de HTML-aanpak start font/manifest lokaal al op ~4/~9 ms. Externe CSP-worker statisch afgewezen wegens extra totale JS-overdracht; geen ongeteste implementatie daarvan toegevoegd.

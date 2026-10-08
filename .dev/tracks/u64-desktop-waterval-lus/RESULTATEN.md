@@ -79,6 +79,26 @@ reload, met HTTP-cache uit. Alle zes warmcaptures: nul interne
 SW-netwerkrequests voor app-shell/kaartassets; 70 verse weerrequests,
 1.058.723 B. Resource Timing/HUD toont door de SW nul bytes; dat is geen
 bewijs dat weerdata gecacht werd. Geen wijziging aan de bestaande SW nodig.
+In deze eerste warme reeksen is de load vóór priming vastgelegd. De
+aangescherpte capture verlaat daarna de prime-renderloop via about:blank,
+wacht opnieuw op load ≤8 en registreert de load direct vóór de meetnavigatie.
+Die extra warme herhaling is nog pending.
+
+## Kandidaten op verwachte regenstartwinst
+
+| volgorde | kandidaat | onderbouwing / stand |
+| ---: | --- | --- |
+| 1 | stijl, font en manifest vanuit HTML | manifest 75→9 ms, font 97→4 ms; uitgevoerd, default aan |
+| 2 | eerste regenaanvragen vóór overige manifestreacties | voorkomt dat reactieve verwerking de dispatch ophoudt; gebouwd, meting pending |
+| 3 | kaart-/overlayshaderwerk tijdens de koude start | lange kaarttaken aangetoond; CPU-profiel moet oorzaak en tijd vóór/na ttfp bepalen voordat de uitvoering verandert |
+| 4 | aanvullende Caddy Link/103 | HTML start font al op ~4 ms en manifest op ~9 ms; vermoedelijk weinig extra lokale winst, productie-RTT kan anders zijn; nog geen gemeten 103-winst |
+| 5 | verdere bundelsplitsing | bestaande lazy-entry −12,8 kB, werkelijk vóór regen −2,8 kB; parsewinst klein |
+
+De externe MapLibre-CSP-worker is statisch beoordeeld en niet gebouwd:
+de geïnstalleerde 5.24.0-main zou ~27,6 kB gzip kleiner worden, maar de
+aparte worker kost ~124,3 kB gzip en een extra aanvraag. Minder entrybytes
+alleen rechtvaardigen dat niet voor een snellere eerste regenframe. Warm
+blijft een aparte cachemeting; de bestaande SW vermijdt al kaartnetwerk.
 
 ## Kaartvoorstel
 
