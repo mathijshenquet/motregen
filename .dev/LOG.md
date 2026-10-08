@@ -272,6 +272,12 @@
   rust, kaartkant-correctie weg; firefox-e2e-project (5 tests, 15/15 bij ×3); dev-panel.spec op wind
   "iets". Gate 527 unit, 33+24+15 e2e, build; 4330 herbouwd. Open bij PO: adresbalk-test op 4330/4320,
   rand-stand (?dev). U62 blijft open als live-pane.
+- **U62 deel 4 gemerged** (d061fd5e, 23:05): PO-regressies op desktop hadden één oorzaak — kaartoverlays
+  (waterrand, cijferhalo, isobaren/isothermen, labels) lazen het app-thema terwijl de kaart de kaarttijd
+  volgde (nacht-inkt op een dagkaart → "tegelranden boven zee", heftige halo, onzichtbare isobaren); nu
+  volgen ze de kaartstand. Rand = oud (schakelaar weg), tabelrijlijnen gemengd met de echte rijkleur
+  (~1,25), kaart dag/nacht in één stap. Adresbalkfix door PO goedgekeurd. Gate 529 unit, 27+14+5 e2e;
+  4330 herbouwd. Open: laatste PO-blik op 4330 (nacht-halo, rijlijnen); U62 blijft open.
 
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
