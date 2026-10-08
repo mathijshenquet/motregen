@@ -9,7 +9,7 @@ import { buildChromeTrace, type SelfProfilerTrace } from '../src/core/profile-re
 import { createSourceMapResolver } from '../scripts/prof-source-map'
 import { profileTop } from '../scripts/prof-top'
 import { hostLoadAverage, waitForQuietHost } from '../scripts/rig-host'
-import { completedBytesBefore, reconcileWire, renderMobileReport, requestsStartedWithin, smoothness, summarizePhases, type MobileReport, type SmoothnessWindow, type WireRequest } from '../scripts/mobile-report'
+import { completedBytesBefore, reconcileWire, renderMobileReport, wireWindow, smoothness, summarizePhases, type MobileReport, type SmoothnessWindow, type WireRequest } from '../scripts/mobile-report'
 import type { PerfMonitor } from '../src/core/perf'
 
 interface ScenarioStep {
@@ -24,10 +24,10 @@ interface ScenarioStep {
   mode?: 'Weer' | 'Lucht' | 'Gevoel' | 'Wind'
 }
 interface Scenario { durationMs: number; description: string; steps: ScenarioStep[]; autoplay?: boolean; devStorage?: Record<string, string>; windows?: SmoothnessWindow[]; requireFilledTemperature?: boolean }
-interface RigOptions { profiles: string[]; scenarios: string[]; repeat: number; cpuRate?: number; basemap?: string }
+interface RigOptions { profiles: string[]; scenarios: string[]; repeat: number; cpuRate?: number; basemap?: string; loadWaitMinutes?: number; requestOrderOnly?: boolean }
 const options = JSON.parse(process.env.MOTREGEN_MOBILE_OPTIONS ?? '{"profiles":["mobile-4g"],"scenarios":["koud"],"repeat":1,"cpuRate":4}') as RigOptions
 const scenarios = JSON.parse(readFileSync('perf/scenarios.json', 'utf8')) as Record<string, Scenario>
-const QUIET_HOST_WAIT_MS = 15 * 60_000
+const QUIET_HOST_WAIT_MS = (options.loadWaitMinutes ?? 20) * 60_000
 const synthGridScale = Number(process.env.MOTREGEN_SYNTH_GRID_SCALE ?? 1)
 const rendererCpuQuotaPercent = Number(process.env.MOTREGEN_RIG_RENDERER_QUOTA ?? 0) || null
 const fixtureRoot = process.env.MOTREGEN_MOBILE_FIXTURE_DIR ?? 'public/perf-mobile'
@@ -40,14 +40,18 @@ for (const profileId of options.profiles) {
         const scenario = scenarios[scenarioId]!
         // Ook tussen de herhalingen kan de host druk worden; een run die druk begint is weggegooid werk.
         test.setTimeout(60_000 + QUIET_HOST_WAIT_MS)
-        await waitForQuietHost(QUIET_HOST_WAIT_MS, (message) => console.log(message))
+        if (!options.requestOrderOnly && process.env.MOTREGEN_PERF_LOCK_HELD !== '1' && !await waitForQuietHost(QUIET_HOST_WAIT_MS, (message) => console.log(message))) {
+          throw new Error(`Host blijft te druk (loadavg ${hostLoadAverage()}); geen meting`)
+        }
         const loadAverage = hostLoadAverage()
+        if (!options.requestOrderOnly) expect(loadAverage, 'startloadavg <8; nooit wachten onder de perf-lock').toBeLessThan(8)
         if (profileId === 'desktop') await page.setViewportSize({ width: 1280, height: 800 })
         const calibrated = performanceProfile(profileId)
         const profile = { ...calibrated, cpuThrottleRate: profileId === 'desktop' ? 1 : options.cpuRate ?? calibrated.cpuThrottleRate }
         const actions: MobileReport['actions'] = []
         const errors: string[] = []
         const findings: string[] = []
+        if (options.requestOrderOnly) findings.push('Alleen aanvraagvolgorde onder hostdrukte; tijden niet gebruiken als performancebaseline of snelheidsvergelijking')
         const externalRequests: string[] = []
         page.on('pageerror', (error) => errors.push(error.message))
         page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
@@ -85,7 +89,7 @@ for (const profileId of options.profiles) {
         const network = recordPlaywrightNetwork(page)
         const capturedAt = new Date().toISOString()
         // Een ?t-preset zet de tijdlijn stil; zonder preset speelt de app vanzelf, zoals bij een gewone bezoeker.
-        await page.goto(`${scenario.autoplay ? '/?perf=1&modus=weer' : '/?perf=1&t=%2B0u&modus=weer'}${scenario.devStorage ? '&dev' : ''}`, { waitUntil: 'commit' })
+        await page.goto(`${scenario.autoplay ? '/?perf=1&modus=weer' : '/?perf=1&t=%2B0u&modus=weer'}${scenario.devStorage ? '&dev' : ''}&kaartstart=tegel`, { waitUntil: 'commit' })
         await page.waitForFunction(() => window.__motregenPerf?.snapshot().firstRainMs !== null && window.__motregenPerf?.snapshot().firstRainMs !== undefined, undefined, { timeout: 30_000 }).catch((error) => { throw new Error(`${error}\n${errors.join('\n')}\n${externalRequests.join('\n')}`) })
         if (!scenario.autoplay) await expect(page.getByRole('slider', { name: 'Tijd' })).not.toHaveAttribute('data-playing', '')
 
@@ -134,12 +138,12 @@ for (const profileId of options.profiles) {
         }, scenario.durationMs)
         // Laat requests die vlak vóór de meetgrens begonnen uitlopen; beide bytebronnen meten
         // dezelfde requests op starttijd, zonder een halve response als ontbrekende body te melden.
-        const requests = await network.snapshot(captured.timeOrigin, scenario.durationMs)
-        const pageResources = requestsStartedWithin(await page.evaluate(() =>
+        const observedRequests = await network.snapshot(captured.timeOrigin)
+        const pageResources = await page.evaluate(() =>
           ([...performance.getEntriesByType('navigation'), ...performance.getEntriesByType('resource')] as PerformanceResourceTiming[]).map((entry) => ({
             url: entry.name, startMs: entry.startTime, endMs: entry.responseEnd,
             encodedBodyBytes: entry.transferSize === 0 ? 0 : entry.encodedBodySize,
-          }))), scenario.durationMs)
+          })))
         const workerResources = []
         for (const worker of page.workers()) {
           const entries = await worker.evaluate(() => ({
@@ -152,10 +156,12 @@ for (const profileId of options.profiles) {
           for (const entry of entries.resources) {
             const offset = entries.timeOrigin - captured.timeOrigin
             const normalized = { ...entry, startMs: entry.startMs + offset, endMs: entry.endMs + offset }
-            workerResources.push(...requestsStartedWithin([normalized], scenario.durationMs))
+            workerResources.push(normalized)
           }
         }
-        const wire = reconcileWire(requests, [...pageResources, ...workerResources])
+        const selectedWire = wireWindow(observedRequests, [...pageResources, ...workerResources], scenario.durationMs)
+        const requests = selectedWire.requests
+        const wire = reconcileWire(requests, selectedWire.timing)
         const decode = summarizePhases(captured.entries.measures, scenario.durationMs)
         const longFrames = captured.entries.longFrames.filter((frame) => frame.startTime + frame.duration <= scenario.durationMs)
         const longSources = new Map<string, number>()
@@ -212,7 +218,7 @@ for (const profileId of options.profiles) {
         if (!Object.keys(captured.milestones.windowReadyMs).length) findings.push('U52 window-ready-meetpunten ontbreken op deze main; ttfh komt uit de loadtrace')
         if (scenario.steps.some((step) => step.mode === 'Lucht') && !actions.some((action) => action.detail === 'modus Lucht')) findings.push('Deze main heeft nog geen Lucht-knop: bestaande Weer-wolkenfocus gebruikt en expliciet geregistreerd')
         const report: MobileReport = {
-          meta: { profile: profileId, scenario: scenarioId, sourceSha, capturedAt, cpuThrottleRate: profile.cpuThrottleRate, contractHash, fixtureHash, basemapContractHash, network: profile.network, hardwareConcurrency: captured.hardwareConcurrency, loadAverage, synthGridScale, rendererCpuQuotaPercent },
+          meta: { profile: profileId, scenario: scenarioId, sourceSha, capturedAt, cpuThrottleRate: profile.cpuThrottleRate, contractHash, fixtureHash, basemapContractHash, network: profile.network, hardwareConcurrency: captured.hardwareConcurrency, loadAverage, synthGridScale, rendererCpuQuotaPercent, requestOrderOnly: options.requestOrderOnly ?? false },
           milestones: captured.milestones,
           decode,
           wire: { ...wire, rangeRequests: requests.filter((request) => request.range !== null).length, beforeTtfrBytes: completedBytesBefore(requests, captured.milestones.ttfrMs), beforeTtfhBytes: completedBytesBefore(requests, captured.milestones.ttfhMs) },
@@ -230,7 +236,7 @@ for (const profileId of options.profiles) {
         writeFileSync(`${output}.json`, `${JSON.stringify(report, null, 2)}\n`)
         writeFileSync(`${output}.md`, renderMobileReport(report))
         writeFileSync(`${output}.trace.json`, JSON.stringify(trace))
-        writeFileSync(`${output}.raw.json`, JSON.stringify({ requests, pageResourceTiming: pageResources, workerResourceTiming: workerResources, actions, loads: captured.loads, selfProfile: self, entries: captured.entries }))
+        writeFileSync(`${output}.raw.json`, JSON.stringify({ requests, observedRequests, selectedResourceTiming: selectedWire.timing, pageResourceTiming: pageResources, workerResourceTiming: workerResources, actions, loads: captured.loads, selfProfile: self, entries: captured.entries }))
         console.log(`${profileId}/${scenarioId}: ${decode.phases['frame-decode']?.count} decodes, ${wire.playwright.total.bytes} bodybytes, ${wire.findings.length} netwerkbevindingen → ${output}.md`)
         for (const window of report.smoothness) console.log(`  ${window.name}: frame-tijd p95 ${window.p95Ms} ms, ${window.over50Ms} beelden > 50 ms, ${window.frames} beelden, LoAF ${window.longFrames.totalMs} ms`)
         if (scenario.requireFilledTemperature) expect(captured.temperatureBlankDraws, `temperatuurlaag nooit leeg na de eerste 300 ms; oorzaken ${JSON.stringify(captured.temperatureBlankReasons)}`).toBe(0)
@@ -345,7 +351,7 @@ function recordPlaywrightNetwork(page: Page) {
     void collect(request)
   })
   return {
-    snapshot: async (timeOrigin: number, durationMs: number): Promise<WireRequest[]> => {
+    snapshot: async (timeOrigin: number): Promise<WireRequest[]> => {
       const observed = [...requests]
       let deadline: ReturnType<typeof setTimeout> | undefined
       try {
@@ -364,7 +370,7 @@ function recordPlaywrightNetwork(page: Page) {
         if (startMs < 0) throw new Error(`Playwright heeft geen geldige request-starttijd: ${request.url()}`)
         result.push({ url: request.url(), startMs, endMs, encodedBodyBytes: record.bytes, range: record.range, status: record.status, failure: record.failure, bodySizeSource: record.bodySizeSource, playwrightBodySize: record.playwrightBodySize, contentLength: record.contentLength })
       }
-      return requestsStartedWithin(result, durationMs)
+      return result
     },
   }
 }
@@ -395,7 +401,7 @@ function hashWeatherFixture(): string {
 
 function hashContract(measurement: unknown): string {
   const hash = createHash('sha256').update(JSON.stringify(measurement))
-  for (const path of ['perf/scenarios.json', 'perf/Caddyfile', 'perf/Preview.Caddyfile', 'scripts/synthgen.ts', 'scripts/mobile-fixture.ts', 'scripts/mobile-assets.ts', 'scripts/mobile-report.ts', 'e2e/mobile-load.rig.ts', 'e2e/mobile-probe.ts', 'playwright.mobile.config.ts']) hash.update(readFileSync(path))
+  for (const path of ['perf/scenarios.json', 'perf/Caddyfile', 'perf/Preview.Caddyfile', 'scripts/synthgen.ts', 'scripts/mobile-fixture.ts', 'scripts/mobile-assets.ts', 'scripts/mobile-report.ts', 'scripts/perf-mobile.ts', 'scripts/perf-run.ts', 'scripts/rig-host.ts', 'e2e/mobile-load.rig.ts', 'e2e/mobile-probe.ts', 'playwright.mobile.config.ts']) hash.update(readFileSync(path))
   return hash.digest('hex')
 }
 

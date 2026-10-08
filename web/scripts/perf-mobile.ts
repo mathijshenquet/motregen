@@ -10,12 +10,13 @@ const REFERENCE_SCENARIO = 'referentie-buienradar'
 
 const args = process.argv.slice(2)
 // Zonder --cpu-rate geldt de page-throttle van het profiel zelf.
-const options: { profiles: string[]; scenarios: string[]; repeat: number; baseline: boolean; compare: boolean; cpuRate?: number; gridScale?: number; rendererQuota?: number; loadWaitMinutes: number; basemap: string } = { profiles: ['mobile-4g'], scenarios: ['koud'], repeat: 1, baseline: false, compare: false, loadWaitMinutes: 20, basemap: process.env.MOTREGEN_MOBILE_BASEMAP ?? 'fixture' }
+const options: { profiles: string[]; scenarios: string[]; repeat: number; baseline: boolean; compare: boolean; requestOrderOnly: boolean; cpuRate?: number; gridScale?: number; rendererQuota?: number; loadWaitMinutes: number; basemap: string } = { profiles: ['mobile-4g'], scenarios: ['koud'], repeat: 1, baseline: false, compare: false, requestOrderOnly: false, loadWaitMinutes: 20, basemap: process.env.MOTREGEN_MOBILE_BASEMAP ?? 'fixture' }
 for (let index = 0; index < args.length; index++) {
   const argument = args[index]!
   const [flag, inline] = argument.split('=')
   if (flag === '--baseline') options.baseline = true
   else if (flag === '--compare') options.compare = true
+  else if (flag === '--request-order') options.requestOrderOnly = true
   else if (['--profile', '--scenario', '--repeat', '--cpu-rate', '--grid-scale', '--renderer-quota', '--load-wait', '--basemap'].includes(flag!)) {
     const value = inline ?? args[++index]
     if (!value || value.startsWith('--')) throw new Error(`${flag} vereist een waarde`)
@@ -30,6 +31,7 @@ for (let index = 0; index < args.length; index++) {
   } else throw new Error(`Onbekende optie: ${argument}`)
 }
 if (options.baseline && options.compare) throw new Error('--baseline en --compare sluiten elkaar uit')
+if (options.requestOrderOnly && (options.baseline || options.compare)) throw new Error('--request-order controleert alleen de aanvraagvolgorde en kan geen performancebaseline zetten of vergelijken')
 if (options.baseline && options.basemap === 'own') throw new Error('Meet het basemap-nulpunt met --basemap openfreemap; --basemap own gebruikt --compare')
 if (!Number.isInteger(options.repeat) || options.repeat < 1 || options.repeat > 10) throw new Error('--repeat moet 1…10 zijn')
 if (options.cpuRate !== undefined && (!Number.isFinite(options.cpuRate) || options.cpuRate < 1 || options.cpuRate > 32)) throw new Error('--cpu-rate moet 1…32 zijn')
@@ -38,6 +40,7 @@ const scenarios = JSON.parse(readFileSync('perf/scenarios.json', 'utf8')) as Rec
 if (options.profiles.some((profile) => !['desktop', 'mobile-4g', 'mobile-fast-3g', 'po-android'].includes(profile))) throw new Error('Onbekend profiel')
 if (!['fixture', 'openfreemap', 'own'].includes(options.basemap)) throw new Error('Onbekende basemap')
 if (options.scenarios.some((scenario) => scenario !== REFERENCE_SCENARIO && !(scenario in scenarios))) throw new Error('Onbekend scenario')
+if (options.requestOrderOnly && options.scenarios.includes(REFERENCE_SCENARIO)) throw new Error('--request-order is alleen voor de eigen fixture, niet voor de referentiebenchmark')
 
 const ports = process.env.MOTREGEN_E2E_PORT && process.env.MOTREGEN_E2E_DATA_PORT
   ? { port: Number(process.env.MOTREGEN_E2E_PORT), dataPort: Number(process.env.MOTREGEN_E2E_DATA_PORT) }
@@ -66,19 +69,43 @@ if (!options.scenarios.includes(REFERENCE_SCENARIO)) {
   if (build.status !== 0) throw new Error('Rig-build mislukt')
   rigEnvironment.MOTREGEN_RIG_PREBUILT = '1'
 }
-if (!await waitForQuietHost(options.loadWaitMinutes * 60_000, (message) => console.log(message))) {
-  console.error(`Host blijft te druk (loadavg ${hostLoadAverage()} > ${MAX_LOAD_AVERAGE}); geen meting`)
-  process.exit(1)
+async function runMeasurement(config: string, title: string): Promise<number> {
+  for (;;) {
+    if (!options.requestOrderOnly && !await waitForQuietHost(options.loadWaitMinutes * 60_000, (message) => console.log(message))) {
+      throw new Error(`Host blijft te druk (loadavg ${hostLoadAverage()}); geen meting`)
+    }
+    const exactTitle = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    console.log(`Rig: ${title}, loadavg ${hostLoadAverage()}, poorten ${ports.port}/${ports.dataPort}`)
+    const measurementCommand = ['pnpm', 'exec', 'playwright', 'test', '--config', config, '--project', 'desktop', '--grep', `${exactTitle}$`]
+    const protectedCommand = options.requestOrderOnly
+      ? ['env', 'MOTREGEN_PERF_LOCK_HELD=1', ...measurementCommand]
+      : ['pnpm', 'exec', 'tsx', 'scripts/perf-run.ts', ...measurementCommand]
+    const run = spawnSync('bash', ['scripts/e2e-slot.sh', 'flock', '-w', '7200', '-o', '/home/mathijs/motregen-perf.lock', ...protectedCommand], {
+      stdio: 'inherit', env: rigEnvironment,
+    })
+    if (run.error) throw run.error
+    if (run.status === 75) continue
+    return run.status ?? 1
+  }
+}
+
+async function runMeasurements(config: string): Promise<number> {
+  for (const profile of options.profiles) {
+    for (const scenario of options.scenarios) {
+      for (let repetition = 1; repetition <= options.repeat; repetition++) {
+        const status = await runMeasurement(config, `${profile} / ${scenario} / run ${repetition}`)
+        if (status !== 0) return status
+      }
+    }
+  }
+  return 0
 }
 console.log(`Rig: loadavg ${hostLoadAverage()}, poorten ${ports.port}/${ports.dataPort}`)
+if (options.requestOrderOnly) console.log('Alleen aanvraagvolgorde: hostdrukte toegestaan, tijden zijn geen performancebaseline')
 
 if (options.scenarios.includes(REFERENCE_SCENARIO)) {
   if (options.scenarios.length > 1 || options.baseline || options.compare) throw new Error(`${REFERENCE_SCENARIO} draait los, zonder baseline of vergelijking`)
-  const reference = spawnSync('pnpm', ['exec', 'playwright', 'test', '--config', 'playwright.reference.config.ts', '--project', 'desktop'], {
-    stdio: 'inherit',
-    env: rigEnvironment,
-  })
-  if (reference.error) throw reference.error
+  const referenceStatus = await runMeasurements('playwright.reference.config.ts')
   const rows = ['| profiel | ttfp-ref per run | mediaan | eerste radarbeeld (mediaan) | loadavg per run | weggegooid (load) |', '| --- | ---: | ---: | ---: | ---: | ---: |']
   for (const profile of options.profiles) {
     const reports: ReferenceReport[] = []
@@ -86,7 +113,7 @@ if (options.scenarios.includes(REFERENCE_SCENARIO)) {
       const path = `tmp/perf-mobile/${profile}-${REFERENCE_SCENARIO}-run${repetition}.json`
       if (existsSync(path)) reports.push(JSON.parse(readFileSync(path, 'utf8')))
     }
-    const quiet = reports.filter((report) => report.meta.loadAverage <= MAX_LOAD_AVERAGE)
+    const quiet = reports.filter((report) => report.meta.loadAverage < MAX_LOAD_AVERAGE)
     const playTimes = quiet.flatMap((report) => report.milestones.ttfpRefMs ?? [])
     const radarTimes = quiet.flatMap((report) => report.milestones.firstRadarMs ?? [])
     rows.push(`| ${profile} | ${playTimes.join(' / ') || 'geen'} ms | ${median(playTimes) ?? '—'} ms | ${median(radarTimes) ?? '—'} ms | ${reports.map((report) => report.meta.loadAverage).join(' / ')} | ${reports.length - quiet.length} |`)
@@ -94,15 +121,19 @@ if (options.scenarios.includes(REFERENCE_SCENARIO)) {
   const referenceSummary = `${rows.join('\n')}\n`
   writeFileSync('tmp/perf-mobile/reference-summary.md', referenceSummary)
   console.log(referenceSummary)
-  process.exit(reference.status ?? 1)
+  process.exit(referenceStatus)
 }
 
-const run = spawnSync('pnpm', ['exec', 'playwright', 'test', '--config', 'playwright.mobile.config.ts', '--project', 'desktop'], {
-  stdio: 'inherit',
-  env: rigEnvironment,
-})
-if (run.error) throw run.error
-if (run.status !== 0) process.exit(run.status ?? 1)
+const runStatus = await runMeasurements('playwright.mobile.config.ts')
+if (runStatus !== 0) process.exit(runStatus)
+if (options.requestOrderOnly) {
+  for (const profile of options.profiles) {
+    for (const scenario of options.scenarios) {
+      console.log(`${profile}/${scenario}: aanvraagvolgordecapture opgeslagen; geen performancebaseline of timinggate`)
+    }
+  }
+  process.exit(0)
+}
 
 let failed = false
 const summary: string[] = ['| profiel | scenario | decodes | bodybytes | spreiding decodes / bytes | ttfp | ttfr | ttfh | blank-visible | LoAF 12 s | loadavg | weggegooid (load) |', '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |']
@@ -116,8 +147,8 @@ for (const profile of options.profiles) {
     const bytesSpread = repetitionSpread(baselines.map((report) => report.wireBytes))
     const decodeSpread = repetitionSpread(baselines.map((report) => report.decodes))
     const stable = bytesSpread < 5 && decodeSpread < 5
-    const valid = reports.every((report) => report.wire.findings.length === 0 && report.milestones.ttfrMs !== null && report.milestones.ttfhMs !== null)
-    summary.push(`| ${profile} | ${scenario} | ${baselines.map((report) => report.decodes).join(' / ')} | ${baselines.map((report) => report.wireBytes).join(' / ')} | ${decodeSpread.toFixed(3)} / ${bytesSpread.toFixed(3)} % | ${perRun(reports, (report) => report.milestones.ttfpMs)} | ${perRun(reports, (report) => report.milestones.ttfrMs)} | ${perRun(reports, (report) => report.milestones.ttfhMs)} | ${perRun(reports, (report) => report.milestones.blankVisibleMs)} | ${perRun(reports, (report) => report.longFrames.first12s.totalMs)} | ${reports.map((report) => report.meta.loadAverage).join(' / ')} | ${reports.filter((report) => report.meta.loadAverage > MAX_LOAD_AVERAGE).length} |`)
+    const valid = reports.every((report) => report.meta.loadAverage < MAX_LOAD_AVERAGE && report.wire.findings.length === 0 && report.milestones.ttfrMs !== null && report.milestones.ttfhMs !== null)
+    summary.push(`| ${profile} | ${scenario} | ${baselines.map((report) => report.decodes).join(' / ')} | ${baselines.map((report) => report.wireBytes).join(' / ')} | ${decodeSpread.toFixed(3)} / ${bytesSpread.toFixed(3)} % | ${perRun(reports, (report) => report.milestones.ttfpMs)} | ${perRun(reports, (report) => report.milestones.ttfrMs)} | ${perRun(reports, (report) => report.milestones.ttfhMs)} | ${perRun(reports, (report) => report.milestones.blankVisibleMs)} | ${perRun(reports, (report) => report.longFrames.first12s.totalMs)} | ${reports.map((report) => report.meta.loadAverage).join(' / ')} | ${reports.filter((report) => report.meta.loadAverage >= MAX_LOAD_AVERAGE).length} |`)
     if (!stable || !valid) {
       console.error(`${profile}/${scenario}: ${stable ? 'meetbron onvolledig' : 'spreiding ≥5 %'}; baseline wordt niet geschreven`)
       failed = true
@@ -153,7 +184,7 @@ for (const profile of options.profiles) {
 // Tijden per run plus de mediaan over de runs die op een rustige host liepen; een drukke run is ruis.
 function perRun(reports: MobileReport[], pick: (report: MobileReport) => number | null): string {
   const shown = reports.map((report) => { const value = pick(report); return value === null ? '—' : String(Math.round(value)) }).join(' / ')
-  const quiet = reports.filter((report) => report.meta.loadAverage <= MAX_LOAD_AVERAGE).flatMap((report) => pick(report) ?? [])
+  const quiet = reports.filter((report) => report.meta.loadAverage < MAX_LOAD_AVERAGE).flatMap((report) => pick(report) ?? [])
   const middle = median(quiet)
   return `${shown} (med ${middle === null ? '—' : Math.round(middle)})`
 }

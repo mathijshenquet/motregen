@@ -14,6 +14,7 @@ import ForecastTable from './components/ForecastTable'
 import UvBar, { uvBarLabel } from './components/UvBar'
 import DevPanel from './components/DevPanel'
 import { loadBasemapStyle, temperatureLayerBeforeId, type MapTheme } from './core/basemap'
+import type { MapStartPlaceholder } from './core/map-start'
 import { chunkField, type Grid, type Manifest, type ManifestChunk, type MrfHeader, type TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
 
@@ -204,6 +205,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let splashElement!: HTMLDivElement
   let forecastPanelElement!: HTMLElement
   let map: maplibregl.Map | undefined
+  let mapStart: MapStartPlaceholder | undefined
+  let firstMapImage = false
   let marker: Marker | undefined
   let detachPinNavigation: (() => void) | undefined
   let savedMarkers: Marker[] = []
@@ -728,6 +731,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
     tableViewMedia.addEventListener('change', tableViewChanged)
     onCleanup(() => tableViewMedia.removeEventListener('change', tableViewChanged))
+    if (import.meta.env.VITE_MAP_START) {
+      const { createMapStart } = await import('./core/map-start')
+      mapStart = createMapStart(mapElement)
+    }
     maplibregl.prewarm()
     void loadBasemapStyle(mapTheme()).catch(() => undefined)
     try {
@@ -770,9 +777,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const initialView = constrainView(!stillMode && initialPresets.point
         ? { ...initialPresets.point, zoom: 7 }
         : initialMapView ?? containView(MAP_CONTAIN_BOUNDS, mapViewport()), MAP_CONTAIN_BOUNDS, mapViewport())
+      mapStart?.align(initialView, mapViewport())
       map = new maplibregl.Map({
         container: mapElement,
-        style,
+        style: mapStart?.style(style) ?? style,
         center: [initialView.lng, initialView.lat],
         zoom: initialView.zoom,
         transformConstrain: constrainMapView,
@@ -792,7 +800,20 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const firstStyleReady = new Promise<void>((resolve) => map!.once('style.load', () => resolve()))
       map.on('render', () => {
         mapRepaints++
-        if (map?.isStyleLoaded() && map.areTilesLoaded()) perf.markBasemapReady()
+        const source = map?.getSource('motregen-map-start') ? 'motregen-map-start' : 'basemap'
+        if (!firstMapImage && map?.getSource(source) && map.isSourceLoaded(source)) {
+          firstMapImage = true
+          const now = performance.now()
+          if (perfPhasesEnabled()) perf.recordPhase({ phase: 'milestone:first-map-image', startTime: 0, duration: now, detail: { source } })
+        }
+        if (map?.isStyleLoaded() && map.areTilesLoaded()) {
+          perf.markBasemapReady()
+          mapStart?.ready(map)
+        }
+      })
+      if (mapStart) map.on('move', () => {
+        const center = map!.getCenter()
+        mapStart?.align({ lng: center.lng, lat: center.lat, zoom: map!.getZoom() }, mapViewport())
       })
       map.on('sourcedataloading', (event) => {
         if (!perfPhasesEnabled()) return
@@ -842,6 +863,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     rainOverlay?.remove()
     windOverlay?.remove()
     for (const set of isolineSets) set.overlay?.remove()
+    mapStart?.dispose()
     map?.remove()
   })
 

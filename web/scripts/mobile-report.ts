@@ -32,6 +32,23 @@ export function requestsStartedWithin<Entry extends { startMs: number }>(request
   return requests.filter((request) => request.startMs >= 0 && request.startMs <= durationMs)
 }
 
+export function wireWindow(requests: WireRequest[], timing: TimingRequest[], durationMs: number): { requests: WireRequest[]; timing: TimingRequest[] } {
+  const timingByUrl = new Map<string, TimingRequest[]>()
+  for (const entry of [...timing].sort((left, right) => left.startMs - right.startMs)) {
+    const entries = timingByUrl.get(entry.url) ?? []
+    entries.push(entry)
+    timingByUrl.set(entry.url, entries)
+  }
+  const selectedTiming: TimingRequest[] = []
+  for (const request of [...requests].sort((left, right) => left.startMs - right.startMs)) {
+    const entry = timingByUrl.get(request.url)?.shift()
+    // Native fetch-start kan vóór netwerk-start liggen; beide bronnen volgen dezelfde netwerkrequest.
+    if (entry && request.startMs >= 0 && request.startMs <= durationMs) selectedTiming.push(entry)
+  }
+  for (const unmatched of timingByUrl.values()) selectedTiming.push(...requestsStartedWithin(unmatched, durationMs))
+  return { requests: requestsStartedWithin(requests, durationMs), timing: selectedTiming }
+}
+
 export function resourceKind(url: string): ResourceKind {
   const path = new URL(url, 'http://localhost').pathname
   if (path.endsWith('/manifest.json')) return 'manifest'
@@ -176,6 +193,7 @@ export function renderMobileReport(report: MobileReport): string {
     `# Mobiele laadrig: ${report.meta.profile} / ${report.meta.scenario}`,
     '',
     `Commit ${report.meta.sourceSha}, ${report.meta.capturedAt}. CPU ${report.meta.cpuThrottleRate}×; renderer-quota ${report.meta.rendererCpuQuotaPercent === null ? 'geen (workers op hostsnelheid)' : `${report.meta.rendererCpuQuotaPercent} % van één kern`}; synthraster ×${report.meta.synthGridScale}. Loadavg host bij start ${report.meta.loadAverage}.`,
+    ...(report.meta.requestOrderOnly ? ['', 'Alleen aanvraagvolgorde onder hostdrukte: deze tijden zijn geen performancebaseline.'] : []),
     '',
     '| maat | waarde |',
     '| --- | ---: |',
@@ -232,6 +250,7 @@ export interface MobileReport {
     network: unknown; hardwareConcurrency: number
     /** 1-minuut-loadavg van de host bij de start van de run; boven MAX_LOAD_AVERAGE telt de run niet mee. */
     loadAverage: number
+    requestOrderOnly?: boolean
     synthGridScale: number
     /** null: geen quota, workers op hostsnelheid. */
     rendererCpuQuotaPercent: number | null
@@ -251,6 +270,7 @@ export interface MobileReport {
 }
 
 export function compactBaseline(report: MobileReport): MobileBaseline {
+  if (report.meta.requestOrderOnly) throw new Error('Een aanvraagvolgordecapture is geen performancebaseline')
   return {
     schema: 1,
     profile: report.meta.profile,
