@@ -279,6 +279,29 @@
   (~1,25), kaart dag/nacht in één stap. Adresbalkfix door PO goedgekeurd. Gate 529 unit, 27+14+5 e2e;
   4330 herbouwd. Open: laatste PO-blik op 4330 (nacht-halo, rijlijnen); U62 blijft open.
 
+## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
+- **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
+  U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
+- **Beslissingen PO** (allemaal in MIP-23/24/25 + specs): kaart gaat mee onder Expressief (één stap);
+  klokpil/zoekbalk/druppel tinten mee; wind "iets"; koppen wisselen bij de zon-rij; lijnensysteem +
+  rijlijnen 2×2-matrix (dagrij 6 % zwart, nachtrij 30 %); rand kaart/zijpaneel = oud; regen-blending
+  Wind = vermenigvuldigen, Lucht = voorstel; z4-startkaart op de hoofdlijn (ttfr-prijs gemeld); warm =
+  volwaardig scenario; prod-rendering van de VM af (U67: renderer ageq-dev2 → cachegroep, poller op VM);
+  orkestrator mag prod muteren; perf-lussen gepaard tot load 16.
+- **Perf-stand** (po-android koud, mediaan): ttfp 1,9–2,3 s (Buienradar 2,66 s) ✓; eerste kaartbeeld 2,2 s
+  (z4); ttfr volledige kaart 3,8–4,3 s (Buienradar ≈ 2,7 s) ✗; warm ≈ koud (CPU-gebonden). Desktop:
+  U64 koud ttfr −33 %. Volgende stap voor ttfr: minder werk per tegel bij lage zoom / lichtere eerste
+  stijl (U63-proef kale stijl −0,36 s) — voorstel morgen.
+- **Lessen**: orkestrator kijkt ZELF naar visuele wijzigingen vóór de PO (memory); perf-lock alleen om
+  één run; worker-greens blijven claims (firefox-flake → echte scroll-bug gevonden).
+- **Open MET PO**: adresbalk-fix definitief goedkeuren op prod (dan diagnose-overlay weg); rijlijnen nog
+  één keer bekijken op 4330 (matrix); MIP-19/20/21 adoptie; lat ttfr: voorstel lichtere eerste kaart.
+  **VOOR AGENTS**: firefox.table.spec deterministisch maken (retries 2 nu); renderer op ageq-dev2 als
+  nix-user-unit (draait nu als sessie-shell, log `~/motregen-telegram-cache/renderer-main.log`; bij
+  sessie-herstart opnieuw starten: zie U67-recept in docs/telegram.md); proefbranches U63 (kaart-eerst,
+  temperatuur-later, kale stijl) staan op origin; overlay-patch `~/motregen-profiles/proof-overlays/`.
+- **Draaiend na afsluiting**: 4330 (main), prof-sink 4331, renderer (nice 15). Alle herdr-workspaces dicht.
+
 ## 2026-09-25 (laat) — U35/U36/U37/U34/U39 gemerged; workers uitgevallen op usage-limiet
 - **Vervolg (22:00–01:00, PO live in de U34-pane)**: gemerged op main t/m `ea23512`: snap-back-fix
   (afspeelrondje glijdt terug; horizon +8 u blijft, PO: "afspelen ziet er goed uit"), windlijnbreedte in
