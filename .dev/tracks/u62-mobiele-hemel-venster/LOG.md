@@ -179,3 +179,34 @@ posities) zijn load-ongevoelig, de ms-waarden niet.
   klokpil wit of mee-tinten).
 - VOOR AGENT: `contain: paint` opnieuw meten onder de lock op po-android en dan pas beslissen; stap 4
   windstreepjes mobiel (soepel-scenario po-android, ook onder de lock).
+
+## 12:10 — orkestrator: laagvarianten onder de lock herhalen, daarna stap 4
+Runner `rig/run-perf.sh` (vanuit web/, rigs in web/tmp/u62/): wacht eerst op loadavg < 8 en neemt dán
+`flock -w 7200 /home/mathijs/motregen-perf.lock` per run (wachten mét de lock zou andere tracks blokkeren).
+`paint-cost.ts` draait nu op het po-android-profiel (renderer-cgroup 40 % via `--renderer-cmd-prefix=
+systemd-run --user --scope -p CPUQuota=40%`, viewport/UA van het profiel).
+Leerpunt: `pkill -f <naam>` in een opdracht die die naam ook elders bevat doodt de eigen shell (2×).
+
+## 12:40 — main gemerged (U57 pad-URI's, 65181e6), geen conflicten
+- Adressen in mijn rigs: `/?lat=52.1&lon=3.7` (sky-window.spec) werkt nog; de app normaliseert naar
+  `/weer/<plaats>`; `?dev` blijft `?dev=`. Een tijd in het adres (`#t=` of het oude `?t=`) opent sinds U57
+  de dataversheid-dialoog: `rig/chrome.ts` (gebruikt `?t=`) moet bij hergebruik eerst Escape sturen, zoals
+  `rig/wind-shots.ts` nu doet (`rig/dialog-probe.ts` legt het vast).
+- Preview herstart (nieuwe vite-config): `/`, `/weer`, `/wind/amsterdam`, `/?dev` → 200.
+
+## 12:50 — stap 4: windstreepjes mobiel (cfc85c3)
+- Oorzaken in de code bevestigd: lijn op smal scherm 0,6 × 2,5 = 1,5 px; achtergrondsterkte 0,5 in Weer;
+  koppen boven water een derde zachter (U34).
+- `?dev` → Mobiel → Windstreepjes: uit (zoals nu) / iets (sterkte ×1,25, lijnfactor 0,72, zee-demping
+  0,2) / meer (×1,5, 0,84, 0,08). Alleen bij `(pointer: coarse)` of breedte < 500 px; de versterking
+  geldt voor de achtergrondwind en loopt terug naar 1 bij volle windfocus. Aantal streepjes ongewijzigd.
+  `seaPenalty` en `narrowLineFactor` zijn windparameters geworden (waren constanten).
+- Niet gedaan: lichtere streepjes of een donker randje boven water (shaderwerk); de zee-demping
+  verlagen pakt hetzelfde punt aan met de bestaande middelen. Als "meer" boven zee nog te zwak is, is
+  dat het vervolg.
+- Eigen beelden bekeken: `stap4/wind-390-{uit,iets,meer}.png` (zichtbaar oplopend, vooral boven zee),
+  desktop ongewijzigd (`data-wind-intensity` 0,50 in alle drie).
+- Gate (web/, op de gemergde boom): typecheck 0 · `pnpm test` 0 (487) · build 0 · desktop `cloud-section
+  sky-window table dev-panel freshness presets`: 18 groen / 1 rood (dev-panel: het filter `hasText: 'Wind'`
+  ving ook de nieuwe groep Mobiel) → locator op de groepstitel → `dev-panel.spec` 0 (2 groen, incl. de
+  nieuwe telefoontest) · mobile-4g `cloud-section sky-window table` 0 (7 groen, 1 overgeslagen).
