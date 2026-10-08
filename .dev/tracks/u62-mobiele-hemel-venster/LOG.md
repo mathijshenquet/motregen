@@ -143,3 +143,39 @@ touch. Daarna in de wachtrij: compositorlaag/blokken-meting op po-android, stap 
 ## Wachtrij (orkestrator)
 1. Scrubber-SVG op po-android: paint/composite per frame, varianten compositorlaag en blokken van 6 uur.
 2. Stap 4: windstreepjes mobiel (twee niveaus achter ?dev, soepel-scenario po-android).
+
+## 11:10 — stap 2 gecommit en gepusht (e9f1d17); PR #89 bijgewerkt
+
+## 11:40 — scrubber-SVG: opbouw van de frametijd (VOORLOPIG, niet onder de perf-lock)
+`rig/paint-cost.ts`: Chrome-trace tijdens een touch-sleep over ~7 uur, 390 px, CPU 4× (CDP-throttle, NIET het
+po-android-profiel met renderer-quota). ms per frame op de trace (dus inclusief de 4×-rem), 2 runs:
+| variant | Layerize | Paint | PrePaint | Commit | RasterTask | RunTask totaal | frame p95 | LoAF |
+| nu | 2,64 / 2,84 (max 15,7) | 0,64 / 0,67 | 0,25 / 0,27 | 0,60 | 0,05 | 10,1 / 10,9 | 17 ms | 0 |
+| `.scrub-surface { contain: paint }` | 1,18 / 1,14 (max 7,3) | 0,76 / 0,69 | 0,34 / 0,28 | 0,70 / 0,66 | 0,06 | 10,4 / 9,4 | 17 ms | 0 |
+- De baan (`.chart-track`) heeft al `will-change: transform` (styles.css): een venster-stap ís al een
+  transform op een eigen laag. Variant (a) is dus voor de helft de huidige toestand; wat rest is `contain: paint`.
+- Paint (0,65 ms) en raster (0,05 ms) zijn klein; Layerize is de grootste renderpost en halveert met
+  `contain: paint`. Frame-p95 en LoAF veranderen niet. De `frame max 33 ms` uit stap 1 is één gemist
+  60 Hz-frame onder 4×-rem, geen paint-tijd.
+- Variant (b) (baan in blokken van 6 uur) zou Paint/raster verkleinen, de posten die al verwaarloosbaar
+  zijn; niet gebouwd.
+- Beeld (`rig/contain-diff.ts`): desktop gelijk aan de ruis; 390 px 590 van 2,09 M bytes anders (grootste
+  kanaalverschil 33), verspreid over de onderste ~46 px van het plot (randen van de regenbalken:
+  anti-aliasing door andere laagindeling). Niet met het oog te zien, wel niet-nul.
+- NIET overgenomen. Reden: gemeten zonder de perf-lock (regel kwam daarna) bij loadavg tot 33, en niet op
+  po-android. Opnieuw meten onder de lock is de voorwaarde:
+  `flock -w 7200 /home/mathijs/motregen-perf.lock pnpm exec tsx tmp/u62/paint-cost.ts http://127.0.0.1:4320 <label> '<css>'`
+  (rigs staan in `rig/`; kopieer ze naar `web/tmp/u62/` — ze importeren uit web/node_modules).
+
+## 11:45 — perf-lock (orkestrator)
+Alle perf-metingen op deze host voortaan onder `flock -w 7200 /home/mathijs/motregen-perf.lock <commando>`;
+e2e en builds niet. Het lockbestand bestond nog niet toen ik hem probeerde (`flock -w 5 … true` → 0, en
+maakte hem daarmee aan). De metingen van stap 1 (`step-cost`), stap 2 (`table-follow`) en hierboven
+(`paint-cost`) zijn vóór deze regel en zonder lock genomen; de tellingen (herbouwde streken, aantal
+posities) zijn load-ongevoelig, de ms-waarden niet.
+
+## Open
+- MET PO: stap 2 op Firefox Android verifiëren; stap 3 beoordelen (o.a. donkere koppenrij 's nachts,
+  klokpil wit of mee-tinten).
+- VOOR AGENT: `contain: paint` opnieuw meten onder de lock op po-android en dan pas beslissen; stap 4
+  windstreepjes mobiel (soepel-scenario po-android, ook onder de lock).
