@@ -30,6 +30,7 @@ describe('generated place catalogue', () => {
     try {
       const { loadPlaces, nearestPlace, places } = await import('./places')
       const { parsePresetPath, shareUrl } = await import('./presets')
+      const { viewportCountry } = await import('./geocoder')
       const request = loadPlaces()
       expect(loadPlaces()).toBe(request)
       expect(await request).toBe(true)
@@ -37,6 +38,8 @@ describe('generated place catalogue', () => {
       expect(fetch).toHaveBeenCalledWith(placesUrl, expect.anything())
       expect(places).toHaveLength(67)
       expect(nearestPlace(4.86, 52.303).name).toBe('Amstelveen')
+      expect(viewportCountry({ lng: 3.73, lat: 51.06 })).toBe('BE')
+      expect(viewportCountry({ lng: 5.12, lat: 52.09 })).toBe('NL')
       const repeated = catalogue.find((place) => place.name === 'Bergen' && place.slug !== 'bergen')!
       expect(parsePresetPath(`/weer/${repeated.slug}`)).toEqual({ mode: 'weather', place: repeated.name, placeSlug: repeated.slug })
       const url = new URL(shareUrl({ mode: 'weather', epoch: 0, point: repeated, place: 'Bij oma', savedPlace: true }))

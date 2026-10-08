@@ -25,3 +25,11 @@
 - U65-regels vastgelegd in MIP-21 (adoptiestatus niet veranderd), bron/formaat in docs/plaatsen.md. Temperatuurlabels en sitemap blijven bij de originele 67 handmatige plaatsen (spec noemde 69; werkelijk 67).
 - Typecheck exit 0. Eerste volledige unit-run: 490 groen, nieuwe catalogustest viel om door mijn onjuist relatieve pad; gecorrigeerd, gerichte catalogusrun 2/2 exit 0. Volledige run herhalen voor schoon receipt.
 - Build exit 0 gezien vóór laatste Caddy-uitbreiding. Precompressed JSON + immutable header en gerichte SEO-check toegevoegd; nieuwe build en desktop location/presets/seo volgen nu. PR blijft draft zolang die checks lopen.
+
+## 2026-10-08 08:53 UTC — eindcontrole en overdracht
+- Complete gate exit 0 geobserveerd: `pnpm typecheck`; `pnpm test` (web 492/492, bot 60/60); `pnpm build`.
+- Desktop receipt, 19/19 exit 0: `MOTREGEN_E2E_PORT=4397 MOTREGEN_E2E_DATA_PORT=8397 pnpm --filter motregen-web e2e e2e/location.spec.ts e2e/presets.spec.ts e2e/seo.spec.ts --project desktop`. Hiermee zijn pin slepen in Amsterdam-Noord, /weer/amsterdam herladen, Haarlem-centrum, URL/time/popstate, sitemap en Caddy gzip + immutable header gecontroleerd.
+- Laatste correctie: ook een vóór de eerste kaart gekozen URL-centrum direct opslaan. Gerichte herhaling location/presets 13/13 exit 0, exact command als boven met alleen die twee bestanden; nieuwe assert controleert de onthouden Haarlem-coördinaten.
+- Codecontrole vond dat de catalogus geen landcodes heeft: geocoderbronvoorkeur daarom expliciet uit de bestaande lijst behouden. Catalogus/geocoder 8/8 exit 0, daarna volledige unit/typecheck/build opnieuw exit 0; de overige e2e-paden zijn hierdoor niet veranderd.
+- Preview http://ageq-dev2:4345/ draait als user-unit motregen-u65-preview.service (bewust blijvend; geen lopende checks). MOTREGEN_DATA_ORIGIN=https://motregen.nl/data, lokale PMTiles met Range. HTTP-verificatie: Amsterdam-title correct; live manifest generated 2026-10-08T08:48:38Z met 42 chunks; PMTiles-header 206/127 bytes. Eerste preview-origin zonder /data gaf SPA-HTML, vóór overdracht hersteld en opnieuw gecontroleerd.
+- `git diff --check` exit 0. Regels en bron beschreven, dataset en gzip eingecheckt, thermolabels/sitemap ongewijzigd. Laatste commit/push + PR-status bijwerken; gereed voor onafhankelijke orkestrator-gate en merge, niet gemerged.

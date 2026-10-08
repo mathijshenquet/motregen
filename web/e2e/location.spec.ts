@@ -45,6 +45,8 @@ test('a dropped Amsterdam-Noord pin survives its city path, while Haarlem select
   expect(haarlem.lng).toBeCloseTo(4.639, 4)
   expect(haarlem.lat).toBeCloseTo(52.389, 4)
   await expect(page).toHaveURL(/\/weer\/haarlem$/)
+  const remembered = await page.evaluate(() => JSON.parse(localStorage.getItem('motregen-last-location') ?? 'null'))
+  expect(remembered).toEqual({ ...haarlem, label: 'Haarlem' })
 })
 
 async function pickedPoint(page: Page): Promise<{ lng: number; lat: number }> {

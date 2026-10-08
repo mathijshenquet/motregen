@@ -1978,8 +1978,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (!initialPickStarted) startLocation = { lng, lat, label }
     const point = { lng, lat }
     batch(() => { setLocation(point); setLocationLabel(label) })
-    if (!initialPickStarted && !stillMode) return
     if (!stillMode && !initial) storeLastLocation({ lng, lat, label })
+    if (!initialPickStarted && !stillMode) return
     if (map && !marker) {
       marker = new Marker({ color: '#1688ad' }).setLngLat([lng, lat]).addTo(map)
       detachPinNavigation = attachPinNavigation({

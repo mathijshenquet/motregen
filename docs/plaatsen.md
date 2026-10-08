@@ -4,6 +4,7 @@ De catalogus komt uit de `place`-laag op z10 van de eigen basiskaart: alle OSM-p
 `place=city|town|village` binnen `MAP_CONTAIN_BOUNDS`, inclusief de Vlaamse en Duitse rand.
 Multipoints worden uitgepakt en tegelbufferduplicaten verdwijnen op naam + centrumcoördinaten.
 De oorspronkelijke lijst in `web/src/core/places.ts` blijft de temperatuurlabels en sitemap voeden.
+Ook de bestaande landvoorkeur van de geocoder gebruikt deze lijst, omdat de catalogus geen landcodes bevat.
 
 `pnpm basemap:places` maakt de catalogus uit het ingecheckte PMTiles-archief; een volledige
 `pnpm basemap:build` voert dezelfde export na publicatie uit. Beide schrijven
