@@ -392,8 +392,8 @@ in
         Nice = 10;
         CPUWeight = 20;
         CPUQuota = "150%";
-        MemoryHigh = "1200M";
-        MemoryMax = "1500M";
+        MemoryHigh = "2200M";
+        MemoryMax = "2600M";
         TimeoutStopSec = "90s";
         LimitCORE = 0;
         PrivateNetwork = false;
