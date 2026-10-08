@@ -321,3 +321,13 @@ De lange frames blijven een open bewaker; kleinere max-frames rechtvaardigen gee
 ## 2026-10-08 09:20 UTC — wachtrecept gecorrigeerd vóór eerste opname
 
 Eigen voorbereidingsfout gevonden: placeholder-pair.sh was al door Bash tot zijn eerste wachtlus gelezen toen de extra rustige minuut werd toegevoegd. Een andere bestandslengte zou de vervolgcommando's op de verkeerde leespositie laten hervatten. Vóór enige opname/check de oorspronkelijke prefix exact uit de eigen launchcommand hersteld; /proc/186089/fdinfo/255 bevestigt positie 283 (direct na de wachtlus). Daar begint nu de aanvullende wait-quiet-helper, gevolgd door alle oorspronkelijke checks en beide ×3-opnames. Proces/lock niet beëindigd en geen nieuwe planningvraag; de wachtende jobs blijven staan. Andere batches zijn nog niet door Bash gestart en hebben dit probleem niet. Alle outputfiles nog leeg, geen vermeende receipt of perfresultaat. Load 43,99 op 09:19 UTC.
+
+## 2026-10-08 09:29 UTC — placeholderkosten vooraf expliciet
+
+Offline assetcontrole (geen tijdmeting): tiles.json 32169 B, los gecomprimeerd 24368 B gzip. Twee z4-tegels: 4/7/5 3578→5769 B en 4/8/5 20493→38620 B gzip→uitgepakt. Helper maakt dus twee extra DecompressionStream-bewerkingen; de bestaande frame-decode-kolom telt uitsluitend weerframes en mag deze niet verbergen of als kaartdecodes presenteren. De rig telt de daadwerkelijke gecomprimeerde HTML-body in beide varianten; die wire-delta is leidend boven de losse assetgrootte. Bron: U64 67c9f28, twee tegels uit eigen U60-archief, geïsoleerde proefbranch.
+
+Alle vier eigen outputfiles nog leeg, geen nieuwe opname sinds de eerdere rustige series. Hostload 26,94 op 09:27 UTC. De strikte <8-grens en het beleid na de externe builds blijven staan; volgende WIP-cadence vanaf 09:21 UTC.
+
+## 2026-10-08 09:36 UTC — WIP-checkpoint tijdens externe builds
+
+Commit/push-cadence voortgezet; geen nieuwe perfwaarde claimen. Laatste hostload 17,23 om 09:35 UTC, outputfiles van placeholder/quota/finale gate/migratie nog leeg. Eerste batch houdt de hostlock en wacht; de andere drie eigen batches wachten op dezelfde lock. Alleen rustige opnames zijn toegestaan. Geen processen van andere tracks/projecten gepauzeerd. Typecheck/unit498/build van U62-integratie blijven de laatst afgeronde code-receipts; laatste gerichte desktopreceipt vóór U62 was 24 geslaagd/2 bestaande touch-skips. De queued finale gate moet de nieuwe geïntegreerde stand nog verifiëren.
