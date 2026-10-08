@@ -22,7 +22,7 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Wind | Tempo | snelheid van de streepjes | U3b | idem |
 | Wind | Kopieer wind als JSON | de vier waarden naar het klembord (PO-terugkoppelweg) | U20 | blijft zolang de windknoppen er zijn |
 | Laden | Eerste regen | het eerste regenframe direct na het manifest vragen (vroeg) of pas na de kaart-opzet (laat; herladen) | U54 | zodra een telefoonopname de winst heeft vastgelegd of weerlegd |
-| Chrome | Rand kaart/zijpaneel | tijdelijke proef op desktop: geen / A (lijn van 1 px, `.app-shell.edge-line`) / B (zachte schaduw, `.app-shell.edge-shadow`); waarden als `--edge-line-color` en `--edge-shadow` op `.app-shell` | U62 | na PO-keuze: winnaar vast, knop weg |
+| Chrome | Rand kaart/zijpaneel | tijdelijke proef op desktop: oud (zoals het was: `border-left` + lichte schaduw op `.dashboard`) / geen (`.app-shell.edge-none`) / A (alleen een lijn van 1 px, `.edge-line`) / B (alleen een zachte schaduw, `.edge-shadow`); waarden als `--edge-line-color` en `--edge-shadow` op `.app-shell` | U62 | na PO-keuze: winnaar vast, knop weg |
 | Lucht nu | strakblauw · mooie wolkenlucht · melkachtig · grijs · Mordor | tijd, klasse en gekozen locatie op 0,1° als menselijk anker voor de wolkenanalyse | U46 | na de analyse |
 | Lucht nu | Kopieer dagboek | alle lokale luchtmetingen als JSON naar het klembord | U46 | na de analyse |
 | Diagnose | Perf-HUD | meetpaneel aan/uit (ook: drie tikken op het logo) | T5 / U30 | blijft (diagnose) |
@@ -54,7 +54,7 @@ afgerond op 0,1°; U46).
 Rig-schakelaar zonder knop: `dev-speelregel` = `venster` zet onder `?dev` de oude speelregel terug
 (spelen pas na laadfase "window"), zodat de mobiele laadrig oud en nieuw uit één build meet
 (`koud-spelend-vensterregel`). Eigenaar U54; vervalt zodra de PO de speelregel heeft bevestigd.
-De knop "Rand kaart/zijpaneel" schrijft `dev-rand` (`geen`/`a`/`b`, U62).
+De knop "Rand kaart/zijpaneel" schrijft `dev-rand` (`oud`/`geen`/`a`/`b`, U62).
 De knop "Eerste regen" schrijft `dev-eerste-regen`; de rig zet dezelfde sleutel in `koud-spelend-regen-laat`.
 Tuning/debug: `wind-tuning-v4` (v3 wordt bij het laden gemigreerd), `perf` en de eenmalige
 `perf-cold`. Oude sleutels (`wind-tuning`, `-v2`, `-v3`, `splash-slowdown`, `scrubber-view`, `clock-jog`) wist

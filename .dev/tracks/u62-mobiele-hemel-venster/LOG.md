@@ -423,3 +423,17 @@ rustige host, dus mét de lock; het breekt nu direct af als de load ≥ 8 is.
 - Gate (web/, gemergde boom): typecheck 0 · unit 0 (75 bestanden, 506 tests) · build 0 · desktop
   `dev-panel location`: 8 groen / 1 rood (`location.spec:88` time-out op de optie "Werk" bij loadavg 31)
   → die test alleen herdraaid: 0 (8,9 s). Als load-flake genoteerd, niet verder onderzocht.
+
+## Rand-schakelaar gecorrigeerd (PO: "de lijn verandert nooit per setting")
+- De orkestrator had gelijk en mijn vorige entry was op één punt FOUT: `.dashboard` heeft op desktop
+  `border-left: 1px solid var(--line)` + `box-shadow: -8px 0 24px rgba(21,51,63,.07)` + `z-index: 2`, en
+  als grid-item werkt die z-index wél — de bestaande schaduw viel dus niet "achter de kaart weg". Mijn
+  schakelaar verving alleen de box-shadow en liet de border in alle standen staan; "geen" was niet geen.
+- Nu vier standen (`motregen-dev-rand`: `oud`/`geen`/`a`/`b`, standaard `oud` = product ongewijzigd):
+  oud = border + lichte schaduw zoals het was; geen (`.edge-none`) = `border-left: none; box-shadow: none`;
+  A (`.edge-line`) = alleen `box-shadow: -1px 0 0 var(--edge-line-color)`; B (`.edge-shadow`) = alleen
+  `box-shadow: var(--edge-shadow)`. De hint in het ?dev-paneel beschrijft "oud".
+- Gecontroleerd in de live build (`rig/edge-live.ts`, `voorstel-rand/rand-live.png`: oud | geen | A | B):
+  rand 1px / 0px / 0px / 0px en per stand een andere box-shadow. `dev-panel.spec` controleert border en
+  schaduw per stand → 0 (2 groen). typecheck 0, build 0; unit niet opnieuw gedraaid (alleen CSS, de knop
+  en de spec gewijzigd).

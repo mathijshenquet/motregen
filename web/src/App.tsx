@@ -190,7 +190,7 @@ const FIRST_RAIN_STORAGE_KEY = 'motregen-dev-eerste-regen'
 // PO-vergelijking (?dev): het lege scrubber-kader neemt de hemelkleur van het uur aan.
 // Tijdelijke proef (U62, ?dev): scheiding tussen kaart en zijpaneel op desktop; vervalt na de PO-keuze.
 const PANEL_EDGE_STORAGE_KEY = 'motregen-dev-rand'
-const PANEL_EDGES = ['geen', 'a', 'b'] as const
+const PANEL_EDGES = ['oud', 'geen', 'a', 'b'] as const
 type PanelEdge = typeof PANEL_EDGES[number]
 // De kaart mengt in zoveel stappen van dag naar nacht; MapLibre tweent elke stap zelf (300 ms).
 const MAP_NIGHT_STEPS = 20
@@ -521,7 +521,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [windTuning, setWindTuning] = createSignal<WindTuning>(loadWindTuning())
   const [isolineTuning, setIsolineTuning] = createSignal<IsolineTuning>({ ...DEFAULT_ISOLINE_TUNING })
   const storedPanelEdge = devMode ? localStorage.getItem(PANEL_EDGE_STORAGE_KEY) : null
-  const [panelEdge, setPanelEdge] = createSignal<PanelEdge>(PANEL_EDGES.find((edge) => edge === storedPanelEdge) ?? 'geen')
+  const [panelEdge, setPanelEdge] = createSignal<PanelEdge>(PANEL_EDGES.find((edge) => edge === storedPanelEdge) ?? 'oud')
   // De basiskaart volgt de zonnestand van de kaarttijd zolang Expressief aan staat (PO 2026-10-08, MIP-24);
   // stills houden het vaste thema.
   const mapFollowsTime = () => expressive() && !stillMode
@@ -2603,7 +2603,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setWindTuning({ ...DEFAULT_WIND_TUNING })
       setIsolineTuning({ ...DEFAULT_ISOLINE_TUNING })
       setFirstRainLate(false)
-      setPanelEdge('geen')
+      setPanelEdge('oud')
       focusMode.pin(DEFAULT_FOCUS_MODE)
       setFocusPinned(DEFAULT_FOCUS_MODE)
     })
@@ -3094,7 +3094,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     scrollToTable()
   }
 
-  return <main class="app-shell" classList={{ 'edge-line': panelEdge() === 'a', 'edge-shadow': panelEdge() === 'b', 'still-view': stillMode, 'table-view-open': tableViewOpen(), 'table-scroll-open': tableViewAvailable() && tableScrollOpen() }} data-generated={manifest()?.generated} data-epoch={cursorMinute()}>
+  return <main class="app-shell" classList={{ 'edge-none': panelEdge() === 'geen', 'edge-line': panelEdge() === 'a', 'edge-shadow': panelEdge() === 'b', 'still-view': stillMode, 'table-view-open': tableViewOpen(), 'table-scroll-open': tableViewAvailable() && tableScrollOpen() }} data-generated={manifest()?.generated} data-epoch={cursorMinute()}>
     <section
       class="map-shell"
       classList={{ 'sky-day': chromeSky()?.daylight === true, 'sky-night': chromeSky()?.daylight === false }}
