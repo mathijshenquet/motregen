@@ -16,7 +16,6 @@ const browser = await chromium.launch({ args: ['--enable-webgl', '--ignore-gpu-b
 try {
   for (let run = 1; run <= repeat; run++) {
     if (!await waitForQuietHost(20 * 60_000, console.log)) throw new Error('Host blijft te druk om te meten')
-    const loadAverage = hostLoadAverage()
     const context = await browser.newContext({ ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 }, serviceWorkers: warm ? 'allow' : 'block' })
     try {
       const page = await context.newPage()
@@ -45,7 +44,10 @@ try {
         await page.waitForFunction(() => window.__motregenPerf?.snapshot().basemapReadyMs != null)
         await page.waitForFunction(async () => (await (await caches.open('motregen-basemap-ranges-v1')).keys()).length > 1)
         await page.waitForTimeout(2_000)
+        await page.goto('about:blank')
+        if (!await waitForQuietHost(20 * 60_000, console.log)) throw new Error('Host blijft na SW-priming te druk om te meten')
       }
+      const loadAverage = hostLoadAverage()
       const requests: Array<Record<string, unknown>> = []
       const pending: Promise<void>[] = []
       const record = async (request: Request) => {

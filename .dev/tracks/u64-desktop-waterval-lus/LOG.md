@@ -407,3 +407,16 @@ b1a706752174bbd7f1cb2453ce3a740929d73775	refs/pull/91/head
 - Frisse screenshotreview synchroon exit 0, UI-diagnosepanelen dicht en fixtureklok correct. Dark-context bleek door productdefault light dezelfde lichte stijl te tonen; review zet nu expliciet motregen-theme per variant. Nieuwe echte donkere screenshots volgen; eerdere dark-labels zijn geen donkere kaartreview.
 - Kaartproef koud: devreferentie ttfr/ttfp 674/354 ms, SVG 694/368 ms, inline tegel 690/360 ms (medianen ×3). LoAF na ttfp max per reeks 520/631/563 ms. Voorstel zal geen standaardactivatie aanbevelen: geen bewezen startwinst en SVG-geometrie is grof. Screenshotpakket naar orkestrator na correcte themareview.
 - Correctie vorige tijdkop: entry met 07:18 is daadwerkelijk rond 07:24 geschreven en toen in a1038af gecommit/push; remote SHA gecontroleerd. Huidige WIP neemt de observercorrectie mee; nog geen finale-groenclaim.
+
+## 2026-10-08 07:44 UTC — observercorrectie groen, finale runner gestart
+
+- WIP cc36c7f commit/push synchroon exit 0; remote SHA cc36c7fc8bb400981d991377eb6ad48f872cc0a5 bevestigd. PR #91 bijgewerkt met de meetresultaten en resterende verificatie.
+- Na observercorrectie: `pnpm typecheck` en `pnpm test` exit 0 (73 bestanden / 485 tests); `MOTREGEN_E2E_PORT=4365 MOTREGEN_E2E_DATA_PORT=8365 pnpm e2e e2e/table.spec.ts --project desktop` exit 0, vier geslaagd en twee uitsluitend mobiele tests overgeslagen. Nieuwe krap-apparaat-test controleert echte temperatuur/vlaag/weericoon, geen implementatiemock.
+- Eén finale seriële runner gestart (lokaal tmp/u64/finish-runs.sh): nieuwe native defaultbuild buiten lock, koud/warm ×3, gecorrigeerde light/dark-reviews, Lighthouse voor finale kandidaat + actieve SVG/tegel + devreferentie, daarna compare ×3 en geneste handmatige-lockcheck. Geen eigen gelijktijdige e2e/perf.
+
+## 2026-10-08 08:01 UTC — screenshotpakket en finale koude herhaling
+
+- Acht screenshots met expliciete producttheme in licht/donker, vóór en na netwerkkaart, opgenomen onder screenshots/. Fixtures bevatten geen PO-profieldata. Beide reviews eindigen zonder pageerrors; geen standaardactivatie. Screenshotvoorstel wordt na push aan de orkestrator geleverd.
+- Finale koude native reeks ×3: ttfr 1313/556/638 ms, ttfp 735/359/345 ms, eerste regen 649/289/270 ms; medianen 638/359/289 ms. LoAF na ttfp 10/430, 1/60, 0/0. Finale Lighthouse 68 / TBT 728 ms. Herhaling toont variatie tegenover eerdere lazy-reeks 747/339/269 ms; RESULTATEN rapporteert beide, geen grote starttijdwinstclaim. Hoofd-JS-parse mediaan 23,2 ms.
+- Warmcapture loadmeting verder aangescherpt: na SW-priming naar about:blank (cache behouden, prime-renderloop weg), dan opnieuw rustige host eisen en load direct vóór navigatie vastleggen. Lopende reeksen gestart met de eerdere capture blijven bewaard; een extra warme reeks op de aangescherpte methode volgt. Geen loadgrens versoepeld.
+- Actieve-placeholder-Lighthouse en finale compare ×3 staan nog in dezelfde seriële runner; geen finale-groenclaim. Documentatie bevat koude/warme repro en de default inline-assets met opt-out referentiebuild.

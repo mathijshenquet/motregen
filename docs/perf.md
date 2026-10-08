@@ -1191,3 +1191,42 @@ request- of bytebudgetten toe. Na iedere run schrijft hij
 manifestversheid `<15 min`, de MIP-3 CORS/cache/ETag/Range-headers en een echte
 `Range: bytes=0-7` → 206. Het script is alleen een handmatig/timerklaar target;
 deze track activeert geen systemd-timer.
+
+## Desktopstart-waterval (U64)
+
+De koude regressierig blijft `perf:mobile --profile desktop`: die gebruikt
+het bestaande Pixel-profiel met 4 cores/4 GB. Aanvullende desktopcaptures
+gebruiken Desktop Chrome, DPR 1, 1280×800 en 8 cores/8 GB, met V8-traces
+voor parse/compile. SwiftShader en synthetische data maken dit geen
+MacBook-benchmark. De waterval en oorspronkelijke PO-profielen zijn
+uitgewerkt in [U64 stap 0](../.dev/tracks/u64-desktop-waterval-lus/STAP-0.md);
+[kandidaatresultaten](../.dev/tracks/u64-desktop-waterval-lus/RESULTATEN.md)
+rapporteren ttfr, ttfp en LoAF ná ttfp naast bytes en CPU-tijd.
+
+```sh
+cd web
+bash scripts/desktop-rig.sh ../tmp/desktop-koud --repeat=3
+bash scripts/desktop-rig.sh ../tmp/desktop-warm --repeat=3 --warm
+pnpm exec tsx scripts/start-waterfall.ts ../tmp/desktop-koud-cold-run*.json
+```
+
+De wrapper bouwt vóór de lock; de browserfase neemt
+`flock -w 7200 /home/mathijs/motregen-perf.lock`. `perf:mobile` en
+`prof:capture` gebruiken dezelfde lock. Een handmatige buitenlock wordt
+herkend, zodat geneste wrappers niet vastlopen. Gewone e2e/builds nemen
+geen perf-lock. Bevroren builds kunnen met `MOTREGEN_RIG_PREBUILT=1` en
+`MOTREGEN_RIG_DIST=/pad/naar/build` worden hergebruikt; de gecombineerde
+lus staat in `scripts/desktop-loop.sh`. Nieuwe captures starten op `/weer`.
+
+Koud wist de HTTP-cache en blokkeert de SW. Warm primeert de SW en bekeken
+kaartbereiken via een echte reload en wist daarna de HTTP-cache. Het is
+geen meting van de eerste heropening vóór cachevulling. Weer blijft
+NetworkOnly; een SW-response of nul Resource-Timing-bytes bewijst geen
+gecachte weerdata. Capturelogs onderscheiden interne SW-netwerkrequests.
+
+Productbuilds bevatten standaard beide native stijlen inline, een glyph-
+preload en vroege manifestfetch; `VITE_START_ASSETS=none` maakt een
+referentiebuild. Bij een expliciete `VITE_BASEMAP_STYLE_URL` blijven die
+stijl en fonts behouden. Manifestrefresh hergebruikt de startupfetch niet;
+still en Skywatch starten geen normale sessiebootstrap. De kaartplaceholder
+blijft een afzonderlijke devproef volgens [dev-opties.md](dev-opties.md).

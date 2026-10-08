@@ -19,6 +19,7 @@ terwijl de tijdlijn speelt. Dat onderscheid blijft behouden.
 | referentie koud | 733 ms | 364 ms | 285 ms | 9/436 · 0/0 · 0/0 | 65 |
 | stijl/font/manifest inline | 709 ms | 351 ms | 274 ms | 9/347 · 0/0 · 0/0 | 63 |
 | inline + lazy | 747 ms | 339 ms | 269 ms | 8/339 · 1/52 · 0/0 | 65 |
+| finale build, tabelobserver hersteld | 638 ms | 359 ms | 289 ms | 10/430 · 1/60 · 0/0 | 68 |
 | referentie warm | 654 ms | 324 ms | 275 ms | 0/0 · 0/0 · 0/0 | — |
 | inline + lazy warm | 658 ms | 305 ms | 252 ms | 3/60 · 0/0 · 0/0 | — |
 | referentie met devpaneel | 674 ms | 354 ms | 282 ms | 8/520 · 2/76 · 0/0 | volgt |
@@ -30,10 +31,17 @@ LoAF telt volledige frames die ná ttfp beginnen en binnen het venster van
 De eerste koude browserstart heeft ook na ttfp nog grote lange frames.
 Inline/lazy verhoogt de maximale duur niet, maar dit is geen nulclaim.
 Drie runs tonen kleine verschillen met aanzienlijke kaartvariatie:
-inline/lazy eerste regen −5,7%, ttfp −6,9%, volledige kaart-ttfr +2,0%.
+De eerdere inline/lazy-reeks gaf eerste regen −5,7%, ttfp −6,9%, volledige
+kaart-ttfr +2,0%. De finale herhaling geeft +1,6% / −1,3% / −12,9%.
+Die variatie onder dezelfde lock en loadgrens is geen overtuigend bewijs
+voor een grote starttijdwinst. Manifest/font worden wel aantoonbaar vroeger
+gevraagd. Alle JS vóór regen is in de finale build 436,6 kB; hoofd-JS-parse
+mediaan 23,2 ms. De observercorrectie herstelt krap-apparaat-functionaliteit;
+de native desktopcaptures gebruiken 8 cores/8 GB en eager puntreeksen.
 
 Lighthouse 13.0.1: desktop, 1280×800, bestaande throttling, SwiftShader,
 één run per build. Referentie/inline/lazy TBT: 1165/1154/1019 ms.
+Finale build: score 68, TBT 728 ms.
 FCP/LCP zijn de splash, niet het eerste regenframe. De eerste SVG/tegel-LH-runs
 zonder devactivatie waren 65/66; die meten uitsluitend de extra buildkosten
 en worden niet als score van de actieve placeholder gebruikt.
@@ -87,6 +95,11 @@ Beide blijven uitsluitend reviewbaar via bijpassende `VITE_MAP_START=svg|tegel`
 en `?dev&kaartstart=svg|tegel`, eigenaar U64, verval 2026-10-15.
 Screenshotvoorstel wordt volgens de trackspecificatie aan de orkestrator
 geleverd vóór eventuele activatie.
+
+| review | licht vóór / na netwerkkaart | donker vóór / na netwerkkaart |
+| --- | --- | --- |
+| SVG | [vóór](screenshots/svg-light-voor-tegels.png) / [na](screenshots/svg-light-na-tegels.png) | [vóór](screenshots/svg-dark-voor-tegels.png) / [na](screenshots/svg-dark-na-tegels.png) |
+| z4-tegel | [vóór](screenshots/tegel-light-voor-tegels.png) / [na](screenshots/tegel-light-na-tegels.png) | [vóór](screenshots/tegel-dark-voor-tegels.png) / [na](screenshots/tegel-dark-na-tegels.png) |
 
 ## Reproduceren
 
