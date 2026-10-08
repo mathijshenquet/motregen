@@ -201,13 +201,6 @@ test.describe('telefoon met ingeklapte adresbalk', () => {
     })).toBe(35)
     await expect.poll(panelTop).toBe(0)
     await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
-
-    // Hetzelfde aan de kaartkant: net niet bovenaan wordt bovenaan.
-    await page.getByRole('button', { name: 'Tabel' }).click()
-    await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(0)
-    expect(await page.evaluate(() => { window.scrollBy(0, 30); return Math.round(window.scrollY) })).toBe(30)
-    await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(0)
-    await expect(page.locator('.app-shell')).not.toHaveClass(/table-view-open/)
   })
 
   test('the table preview tweens to the cursor hour while a finger drags the scrubber (U62)', async ({ page }) => {

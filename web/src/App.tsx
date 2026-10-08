@@ -194,8 +194,10 @@ const VIEWPORT_DIAGNOSE_STORAGE_KEY = 'motregen-dev-viewport'
 const TABLE_PANEL_SHORTFALL_MAX_PX = 200
 const TABLE_VIEW_RECHECK_MS = 700
 const TABLE_PULLS_PER_GESTURE = 4
-// Zo lang na de laatste scrollbeweging geldt de pagina als in rust.
-const TABLE_REST_MS = 120
+// Zo lang na de laatste scrollbeweging geldt de pagina als in rust. Ruim: de correctie is voor een pagina die
+// blijft hangen, en een haperend frame midden in een scroll mag niet voor rust doorgaan.
+const TABLE_REST_MS = 300
+const TABLE_NAVIGATION_MS = 1_500
 const PANEL_EDGES = ['oud', 'geen', 'a', 'b'] as const
 type PanelEdge = typeof PANEL_EDGES[number]
 // De kaart mengt in zoveel stappen van dag naar nacht; MapLibre tweent elke stap zelf (300 ms). Vier stappen
@@ -469,6 +471,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [tablePanelShortfall, setTablePanelShortfall] = createSignal(0)
   let tablePullsSinceGesture = 0
   let lastPageScrollAt = Number.NEGATIVE_INFINITY
+  // Tot dit moment loopt een tik-navigatie (Tabel ↔ kaart) met haar eigen vloeiende scroll.
+  let tableNavigationUntil = Number.NEGATIVE_INFINITY
   // Dag of nacht van de koppenrij: de vangnetstrook boven het open tabelpaneel voert dezelfde kleur.
   const [tableHeadSky, setTableHeadSky] = createSignal<HourSky>()
   let lastViewportHeight = window.visualViewport?.height ?? window.innerHeight
@@ -535,32 +539,30 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (tableTouchActive || !tableViewAvailable() || !forecastPanelElement) return
     if (tableViewFrame !== undefined) cancelAnimationFrame(tableViewFrame)
     syncTableViewPosition()
-    // Alleen in rust ingrijpen. Een hercontrole kan midden in een scroll vallen (de vloeiende scroll na een tik
-    // op Tabel, of momentum); de pagina dan "terugzetten" brak die scroll af en liet de tabel dicht.
-    if (performance.now() - lastPageScrollAt < TABLE_REST_MS) {
-      scheduleTableViewSettlement()
-      return
-    }
     let panelTop = visibleTablePanelTop()
     // De pagina is tot rust gekomen vlak naast het tabel-snappunt (PO 2026-10-08, Firefox voor Android: na een
     // korte veeg terug komt de adresbalk terug en bleef er een strook scrubber boven de tabel staan). Zelf
     // afmaken; verder weg is het een gebaar dat nog loopt.
-    let pageEndsAbovePanel = false
-    // Hooguit een paar keer achter elkaar: verschuift de browser het zichtbare scherm terug zodra er weer
-    // gescrold kan worden, dan mag dit niet heen en weer blijven gaan. Een nieuw gebaar zet de teller terug.
-    if (Math.abs(panelTop) > 2 && Math.abs(panelTop) <= TABLE_SNAP_SLACK_PX && tableViewTarget() !== 'map' && tablePullsSinceGesture < TABLE_PULLS_PER_GESTURE) {
-      tablePullsSinceGesture++
-      panelTop = pullTablePanelToTop(panelTop)
-      // Lukt het ook met verlengen niet, dan is dit de tabelview: verder komt hij niet (U58).
-      pageEndsAbovePanel = panelTop > 2
+    let pageEndsAbovePanel = tableSnappedAtPageEnd(panelTop)
+    if (Math.abs(panelTop) > 2 && Math.abs(panelTop) <= TABLE_SNAP_SLACK_PX && tableViewTarget() !== 'map') {
+      // Alleen in rust ingrijpen, en niet tijdens een tik-navigatie met haar eigen vloeiende scroll: een
+      // hercontrole die midden in een scroll viel brak die af en liet de tabel dicht. Later opnieuw kijken.
+      const now = performance.now()
+      if (now - lastPageScrollAt < TABLE_REST_MS || now < tableNavigationUntil) scheduleTableViewSettlement(TABLE_REST_MS)
+      // Hooguit een paar keer achter elkaar: verschuift de browser het zichtbare scherm terug zodra er weer
+      // gescrold kan worden, dan mag dit niet heen en weer blijven gaan. Een nieuw gebaar zet de teller terug.
+      else if (tablePullsSinceGesture < TABLE_PULLS_PER_GESTURE) {
+        tablePullsSinceGesture++
+        panelTop = pullTablePanelToTop(panelTop)
+        // Lukt het ook met verlengen niet, dan is dit de tabelview: verder komt hij niet (U58).
+        pageEndsAbovePanel = panelTop > 2
+      }
     }
     const atTable = Math.abs(panelTop) <= 2 || pageEndsAbovePanel
     const atMap = window.scrollY <= 2
-    if (!atTable && !atMap) {
-      // Vlak onder de bovenkant blijven hangen: terug naar de kaart, tenzij de tabel juist het doel is.
-      if (window.scrollY <= TABLE_SNAP_SLACK_PX && tableViewTarget() !== 'table') window.scrollTo({ top: 0, behavior: 'auto' })
-      return
-    }
+    // Aan de kaartkant wordt niets teruggezet: een correctie daar brak onder haperende frames de vloeiende
+    // scroll naar de tabel af (herhaalde e2e bij zware load, 2026-10-08), en de PO-bug zit alleen aan de tabelkant.
+    if (!atTable && !atMap) return
     const open = atTable
     setTableCoversViewport(open)
     setTableOpen(open)
@@ -3236,11 +3238,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   function scrollToTable(): void {
+    tableNavigationUntil = performance.now() + TABLE_NAVIGATION_MS
     setTableViewTarget('table')
     forecastPanelElement.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' })
   }
 
   function scrollToMap(): void {
+    tableNavigationUntil = performance.now() + TABLE_NAVIGATION_MS
     setTableViewTarget('map')
     window.scrollTo({ top: 0, behavior: reducedMotion.matches ? 'auto' : 'smooth' })
   }
