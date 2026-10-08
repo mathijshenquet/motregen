@@ -518,3 +518,42 @@ Knop "Splash-achtergrond", sleutel `dev-splash`, de CSS-standen en de halo zijn 
 sluier toont niets eerder omdat de tegels pas rond het einde van de splash komen — eerder een kaart is een
 kwestie van tegels eerder (U63). Gate: typecheck 0 · unit 0 (506) · build 0 · `dev-panel.spec` desktop 0.
 De rand-schakelaar blijft staan.
+
+## Kostenmeting kaart-tween (MIP-24) — AFGEROND; het criterium "≤ de huidige p95" wordt NIET gehaald
+Rig `rig/map-night-frames.ts`: po-android (renderer-cgroup 40 %), 25 s laten laden, dan 20 s afspelen vanaf
+18:40 (de afspeelsnelheid brengt de cursor in 20 s naar ~21:48; de schemering — 17 mengstappen, nacht 0,20 →
+1,00 — valt in de eerste ~7 s). Gepaard en om en om, load bij de start ≤ 16 (orkestrator), de perf-lock per
+run, wachten op de load buiten de lock. Ruwe regels in `kaart-kosten/`. De host liep tijdens de runs op tot
+10–21; dat staat per run in de logs.
+### 1. Oude build (e267f6d, tween uit) tegen de nieuwe (tween aan) — 4 paren
+| | frames in 20 s | p95 | frames > 34 ms | lange frames (totaal ms) | heap vóór | heapgroei |
+| oud | 1181 / 1186 / 1168 / 1181 | 16,8 ×4 | 2 / 3 / 3 / 4 | 1 / 2 / 3 / 2 (119–232) | 12,5 MB | 1,13–1,19 MB |
+| nieuw | 1126 / 1156 / 1148 / 1087 | 33,2 / 16,8 / 16,8 / 33,3 | 8 / 6 / 12 / 16 | 6 / 2 / 5 / 5 (163–447) | 14,4 MB | 1,56–1,70 MB |
+Niet zuiver: tussen die commits zit ook het meetintende chrome, de wind op "iets", het lijnensysteem en U65.
+### 2. Zelfde code, tween uit (eenmalige build `mapFollowsTime = false`, 4322) tegen tween aan — 3,5 paar
+| | frames | p95 | > 34 ms | lange frames (totaal ms) | heapgroei |
+| zonder | 1140 / 975 / 1180 | 16,8 / 33,4 / 16,7 | 13 / 43 / 4 | 7 / 13 / 2 (206–913) | 0,67–1,05 MB |
+| met | 1050 / 995 / 1008 / 1034 | 33,4 / 50 / 33,4 / 33,4 | 28 / 53 / 44 / 32 | 10 / 33 / 21 / 13 (683–2300) | 1,47–1,58 MB |
+De heap vóór het afspelen is gelijk (14,4–14,7 MB): de +1,9 MB uit meting 1 komt dus niet van de tween.
+### 3. Na ontdubbelen (alleen nog zetten wat verandert) — 3 paren
+Aanleiding: ik zette bij elke stap alle 21 waarden opnieuw, ook de 8 labelkleuren die maar één keer per
+schemering wisselen, en riep elke stap `windLayer.setTheme` aan. Nu houdt `basemapBlendOnMap` bij wat er
+staat; na een stijlwissel wordt dat gewist.
+| | frames | p95 | > 34 ms | lange frames (totaal ms) | heapgroei |
+| zonder | 1161 / 1185 / 1191 | 16,8 / 16,7 / 16,8 | 7 / 2 / 1 | 4 / 2 / 1 (75–438) | 1,09–1,22 MB |
+| met | 1140 / 1051 / 1048 | 16,8 / 33,4 / 33,4 | 9 / 28 / 33 | 2 / 10 / 14 (166–998) | 1,37–1,58 MB |
+### Conclusie
+- De tween kost in deze rig frames zolang de schemering voorbijkomt: in twee van de drie paren ~11 % minder
+  frames en p95 33 ms tegenover 16,8 ms; in het derde paar (load 9) is er geen verschil. Het ontdubbelen
+  heeft dat niet opgelost. Heap: ~0,3–0,5 MB extra groei in 20 s, geen hogere basis.
+- Buiten de schemering kost het niets (er wordt dan niets gezet).
+- Kanttekeningen: de rig tekent de kaart met SwiftShader op een CPU-quota; het herschilderen van de
+  basiskaart tijdens de 300 ms-overgangen van MapLibre is daar duur en op een telefoon-GPU waarschijnlijk
+  niet. En de rig perst de hele schemering in ~7 s omdat afspelen 3 uur in 20 s doorloopt.
+- Volgens de afspraak ("geen blokkade als ≤ de huidige p95") is dit dus WEL een punt: p95 33 ms > 16,8 ms.
+  Niet zelf teruggedraaid — de default is een PO-besluit. Opties: (a) laten staan en op de PO-telefoon
+  beoordelen (echte GPU); (b) minder mengstappen (20 → ~8) en/of hooguit één stap per seconde; (c) tijdens
+  afspelen niet mengen maar pas bij stilstand. (b) is klein en zou ik als eerste proberen.
+- Opgeruimd: de previews op 4321/4322 zijn gestopt en de tijdelijke worktree is weg.
+- Gate na het ontdubbelen (web/): typecheck 0 · `pnpm test` 0 (506) · build 0 · desktop `dev-panel
+  cloud-section sky-window` 0 (4 groen); kaart nagekeken op 19:10 (nacht 0,80) en 23:00 (1,00).

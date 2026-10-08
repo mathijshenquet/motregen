@@ -1221,7 +1221,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     void showFrame()
     // Een stijlwissel zet de kleuren van het thema terug; de menging met de kaarttijd moet er opnieuw overheen.
     const night = untrack(() => mapFollowsTime() ? basemapBlendApplied : undefined)
-    if (night !== undefined) applyBasemapBlend(night)
+    if (night !== undefined) applyBasemapBlend(night, true)
     if (mapReady()) {
       void showWind()
       void showTemperature()
@@ -2842,19 +2842,32 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   })
   let basemapBlend: BlendTarget[] | undefined
   let basemapBlendApplied: number | undefined
-  function applyBasemapBlend(night: number): void {
+  // Wat er per laag en eigenschap al op de kaart staat. De labelkleuren wisselen maar één keer per schemering;
+  // ze bij elke stap opnieuw zetten kostte op de telefoonmeting frames (MIP-24, 2026-10-08).
+  const basemapBlendOnMap = new Map<string, string>()
+  let basemapBlendWindTheme: MapTheme | undefined
+  const GRID_OUTSIDE_BLEND: BlendTarget[] = [
+    { layer: 'motregen-grid-outside', property: 'fill-color', light: GRID_OUTSIDE_PAINT.light.color, dark: GRID_OUTSIDE_PAINT.dark.color },
+    { layer: 'motregen-grid-outside', property: 'fill-opacity', light: GRID_OUTSIDE_PAINT.light.opacity, dark: GRID_OUTSIDE_PAINT.dark.opacity },
+  ]
+  /** `fresh`: de stijl is net (opnieuw) geladen, dus niets van wat eerder gezet is staat er nog. */
+  function applyBasemapBlend(night: number, fresh = false): void {
     if (!map || !basemapBlend) return
-    for (const target of basemapBlend) {
-      if (map.getLayer(target.layer)) map.setPaintProperty(target.layer, target.property, blendedPaintValue(target, night))
+    if (fresh) basemapBlendOnMap.clear()
+    for (const target of [...basemapBlend, ...GRID_OUTSIDE_BLEND]) {
+      if (!map.getLayer(target.layer)) continue
+      const value = blendedPaintValue(target, night)
+      const key = `${target.layer}|${target.property}`
+      const serialized = JSON.stringify(value)
+      if (basemapBlendOnMap.get(key) === serialized) continue
+      basemapBlendOnMap.set(key, serialized)
+      map.setPaintProperty(target.layer, target.property, value)
     }
-    if (map.getLayer('motregen-grid-outside')) {
-      const outside: BlendTarget[] = [
-        { layer: 'motregen-grid-outside', property: 'fill-color', light: GRID_OUTSIDE_PAINT.light.color, dark: GRID_OUTSIDE_PAINT.dark.color },
-        { layer: 'motregen-grid-outside', property: 'fill-opacity', light: GRID_OUTSIDE_PAINT.light.opacity, dark: GRID_OUTSIDE_PAINT.dark.opacity },
-      ]
-      for (const target of outside) map.setPaintProperty(target.layer, target.property, blendedPaintValue(target, night))
+    const windTheme: MapTheme = night < 0.5 ? 'light' : 'dark'
+    if (fresh || windTheme !== basemapBlendWindTheme) {
+      basemapBlendWindTheme = windTheme
+      windLayer?.setTheme(windTheme)
     }
-    windLayer?.setTheme(night < 0.5 ? 'light' : 'dark')
     basemapBlendApplied = night
     mapElement.dataset.mapNight = night.toFixed(2)
   }
@@ -2867,6 +2880,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       if (basemapBlendApplied !== undefined) {
         applyBasemapBlend(themeNight)
         windLayer?.setTheme(mapTheme())
+        basemapBlendWindTheme = undefined
         basemapBlendApplied = undefined
         delete mapElement.dataset.mapNight
       }

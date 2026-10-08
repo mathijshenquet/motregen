@@ -12,7 +12,9 @@ const outputDir = new URL('./out/', import.meta.url).pathname
 mkdirSync(outputDir, { recursive: true })
 const poAndroid = performanceProfile('po-android')
 const loadAtStart = Math.round(loadavg()[0]! * 100) / 100
-if (loadAtStart >= 8) throw new Error(`loadavg ${loadAtStart} ≥ 8: geen meting`)
+// Grens instelbaar: de orkestrator stond voor deze gepaarde meting load ≤ 16 toe (2026-10-08).
+const maxLoad = Number(process.env.U62_MAX_LOAD ?? 8)
+if (loadAtStart > maxLoad) throw new Error(`loadavg ${loadAtStart} > ${maxLoad}: geen meting`)
 
 const browser = await chromium.launch({ args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader', '--enable-precise-memory-info',
   `--renderer-cmd-prefix=systemd-run --user --scope --quiet -p CPUQuota=${poAndroid.rendererCpuQuotaPercent}% -p CPUQuotaPeriodSec=5ms --`] })
