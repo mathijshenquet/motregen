@@ -19,6 +19,7 @@ function outerSpans(events: TraceEvent[]): TraceEvent[] {
 }
 interface StartCapture {
   pairedRun?: boolean
+  loadLimit?: number
   pair?: string
   pairRole?: string
   warm?: boolean
@@ -84,7 +85,7 @@ for (const file of files) {
     cpuRows.push(`| ${url.split('/').at(-1)} | ${shown(parsing.reduce((sum, event) => sum + (event.tdur ?? event.dur ?? 0), 0) / 1000)} / ${shown(compile.reduce((sum, event) => sum + (event.tdur ?? event.dur ?? 0), 0) / 1000)} | ${shown((Math.min(...spans.map((event) => event.ts)) - navigation.ts) / 1000)} → ${shown((Math.max(...spans.map((event) => event.ts + (event.dur ?? 0))) - navigation.ts) / 1000)} |`)
   }
   const cacheState = capture.warm ? `Warm: ${capture.warmMethod ?? 'historische methode'}; HTTP-cache ${capture.httpCacheEnabled ? 'aan' : 'uit of onbekend'}; SW-controller ${capture.serviceWorkerControlled ?? 'onbekend'}. Resource-bodybytes zijn geleverde bytes, geen wireclaim. Range-rijen tellen paginaverzoeken zonder hun SW-upstreamdubbel; negatieve Playwright-cachegroottes blijven onbekend.\n\n` : ''
-  const pairState = capture.pairedRun ? `Gepaarde capture ${capture.pair} / ${capture.pairRole}, startgrens load ≤12. Alleen voor verschil binnen het paar; geen absolute baseline.\n\n` : ''
+  const pairState = capture.pairedRun ? `Gepaarde capture ${capture.pair} / ${capture.pairRole}, startgrens load ≤${capture.loadLimit ?? 12}. Alleen voor verschil binnen het paar; geen absolute baseline.\n\n` : ''
   const markdown = `# ${file}\n\n${priorities}${pairState}${cacheState}Loadavg ${capture.loadAverage}; desktop 1280×800, 8 cores/8 GB, CPU 1×, SwiftShader. Trace-overhead aanwezig. Decodetijd is workerduur teruggeteld vanaf het antwoord op de hoofddraad; exacte start in de worker ontbreekt. Textuurduur meet CPU-aanroep, geen GPU-fence.\n\n${rows.join('\n')}\n\n${cpuRows.join('\n')}\n`
   writeFileSync(file.replace(/\.json$/, '.md'), markdown)
   console.log(markdown)

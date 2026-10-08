@@ -7,7 +7,7 @@ import { loadavg } from 'node:os'
  * builds tegelijk en tijden schuiven tientallen procenten (gezien 2026-10-07 bij loadavg 18).
  */
 export const MAX_LOAD_AVERAGE = 8
-export const MAX_PAIRED_LOAD_AVERAGE = 12
+export const MAX_PAIRED_LOAD_AVERAGE = 16
 
 export function runLoadLimit(): number {
   return process.env.MOTREGEN_PERF_PAIRED_RUN === '1' ? MAX_PAIRED_LOAD_AVERAGE : MAX_LOAD_AVERAGE

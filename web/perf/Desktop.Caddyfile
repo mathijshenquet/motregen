@@ -11,6 +11,14 @@
 	header Document-Policy "js-profiling"
 	@pwa path /sw.js /manifest.webmanifest
 	header @pwa Cache-Control "no-cache"
+	@sessionManifest {
+		path /data/manifest.json
+		query s=1
+	}
+	header @sessionManifest {
+		Cache-Control "no-store"
+		defer
+	}
 	handle_path /data/* {
 		reverse_proxy 127.0.0.1:{$MOTREGEN_E2E_DATA_PORT:8392}
 	}

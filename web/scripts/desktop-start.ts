@@ -137,7 +137,7 @@ try {
         const { profile } = await cdp.send('Profiler.stop')
         writeFileSync(`${prefix}.cpuprofile`, JSON.stringify(profile))
       }
-      writeFileSync(`${prefix}.json`, JSON.stringify({ capturedAt: new Date().toISOString(), origin, pathname, finalUrl: page.url(), query, warm, warmMethod: warm ? 'persistent-profile-browser-restart' : null, warmSeededAt, warmCaches, httpCacheEnabled: warm, pairedRun, pair, pairRole, absoluteBaselineEligible: !pairedRun, cpuProfile, browserPerRun: true, htmlHash, serviceWorkerHash, accessLog: process.env.MOTREGEN_DESKTOP_ACCESS_LOG ?? null, loadAverage, loadSamples, ...captured, requests, networkResponses }, null, 2))
+      writeFileSync(`${prefix}.json`, JSON.stringify({ capturedAt: new Date().toISOString(), origin, pathname, finalUrl: page.url(), query, warm, warmMethod: warm ? 'persistent-profile-browser-restart' : null, warmSeededAt, warmCaches, httpCacheEnabled: warm, pairedRun, pair, pairRole, loadLimit: runLoadLimit(), absoluteBaselineEligible: !pairedRun, cpuProfile, browserPerRun: true, htmlHash, serviceWorkerHash, accessLog: process.env.MOTREGEN_DESKTOP_ACCESS_LOG ?? null, loadAverage, loadSamples, ...captured, requests, networkResponses }, null, 2))
       writeFileSync(`${prefix}.trace.json`, JSON.stringify({ traceEvents: events }))
       console.log(`${prefix}: ${JSON.stringify(captured.snapshot)}`)
     } finally {

@@ -67,3 +67,8 @@ van andere projecten. Relatieve kandidaten daarom A B A B A B met load per run,
 beoordeling binnen paren en startload maximaal 12. Absolute baselines voor
 docs/perf.md blijven maximaal 8. Gepaarde runs zijn expliciet gemarkeerd en
 leveren geen absolute baseline. Meetbrowsers sluiten na iedere run.
+
+Aanvulling orkestrator 2026-10-08: deze host heeft 32 kernen; gepaarde runs
+mogen vanaf nu starten bij load maximaal 16, in plaats van 12. Absolute
+baselines blijven maximaal 8. De capture bewaart de toegepaste startgrens;
+oudere paren houden hun oorspronkelijke grens. Loadwacht blijft buiten flock.

@@ -4,7 +4,7 @@ import type { Grid } from './contract'
 import type { MotionField } from './mrf'
 import { measurePerfPhase } from './perf'
 import { rainColormap } from './rain-chart'
-import { linkPrograms } from './gl-program'
+import { linkProgram } from './gl-program'
 
 export { rainColormap }
 
@@ -115,7 +115,7 @@ export class RainLayer implements CustomLayerInterface {
     const gl = context as WebGL2RenderingContext
     this.gl = gl
     this.leftData = this.rightData = this.motionData = undefined
-    this.program = linkPrograms(gl, [[vertexSource, fragmentSource]])[0]!
+    this.program = linkProgram(gl, vertexSource, fragmentSource)
     this.buffer = gl.createBuffer()!
     const west = this.grid.x0
     const east = west + this.grid.dx * this.grid.width

@@ -70,7 +70,8 @@ wordt niet als gewone kandidaatbenchmark gebruikt.
 
 Absolute runs wachten buiten de lock op load ≤8. Na de nieuwste
 orkestratorinstructie worden relatieve kandidaatverschillen afzonderlijk
-gepaard A B A B A B gemeten bij load ≤12; load staat per run genoteerd.
+gepaard A B A B A B gemeten bij load ≤16; load staat per run genoteerd.
+De oorspronkelijke shaderparen startten met de toen geldende grens ≤12.
 Paarmetadata sluit die opnames uit van absolute baselines. Dezelfde
 fixtures/builds/browsermethoden blijven gelden. Alleen paren met ≤5 min
 tussen starttijden en ≤2 loadverschil tellen mee; anders blijven de raw-
@@ -89,13 +90,37 @@ plaatsenlijst +1448,7 ms ná ttfp, 60.946 bodybytes. Die expliciet gemarkeerde
 capture liep onder hostdrukte en bewijst alleen volgorde. De tijden en
 decode-/byteaantallen ervan leveren geen baseline of snelheidsvergelijking.
 
-De shaderkandidaat start alle vier windprogramma's vóór de eerste linkquery
-en vraagt geen tussentijdse compile-status van regen-/windshaders.
-Shaderbronnen en tekenvolgorde zijn gelijk; linkfouten houden hun logs en
-ruimen aangemaakte resources op. Dit volgt de algemene
+De volledige shaderbatch is afgewezen: de mediaan van drie koude paren
+verslechtert ttfr met 80,3 ms (+7,17%), terwijl ttfp 136,9 ms (14,66%) verbetert.
+De eerste twee warme paren verslechteren ttfr met 113,3 en 21,8 ms;
+ttfp verandert met −0,3 en +29,9 ms. Het derde warme paar volgt nog.
+Wind is daarom teruggezet naar main. De nieuwe kandidaat compileert alleen
+beide regenshaders vóór de linkquery; koud en warm ×3 zijn pending.
+Shaderbronnen en tekenvolgorde blijven gelijk; linkfouten houden hun logs en
+ruimen resources op. Dit volgt de algemene
 [Khronos-best practice](https://registry.khronos.org/webgl/extensions/KHR_parallel_shader_compile/),
 zonder de extensie te vereisen. Verwachte winst is minder geserialiseerd
-GPU-wachten; omvang en invloed op ttfr/ttfp/LoAF zijn nog ongemeten.
+GPU-wachten; behoud van de regenvariant hangt af van ttfr/ttfp.
+
+| volledige shaderbatch | koud ttfr / ttfp: verschil B−A | warm ttfr / ttfp: verschil B−A |
+| --- | --- | --- |
+| paar 1 | −172,8 / −136,9 ms | +113,3 / −0,3 ms |
+| paar 2 | +80,3 / −242,9 ms | +21,8 / +29,9 ms |
+| paar 3 | +97,2 / −19,1 ms | pending |
+
+Alle vijf paren gebruiken startload ≤12 en houden hun raw-opnames.
+Volledige LoAF na ttfp heeft maxima 384–528 ms koud en 411–458 ms warm;
+de bewaker is daarmee nog niet opgelost. Eén warme kandidaatcapture heeft
+serverbewijs: alleen manifest- en SW-revalidatie (304, nul bodybytes), geen
+netwerkrequests voor tegels, fonts, app-JS, plaatsen of weer-Ranges. De
+gevulde caches werken; GPU-initialisatie in een verse browser blijft relevant.
+De manifestheader in de rig is daarna afgestemd op productie: sessionmanifest
+`?s=1` krijgt `no-store`, zodat nieuwe A/B-paren dezelfde verse aanvraag doen.
+
+De regenvariant heeft 411.429 B gzip hoofd-JS, 2.573 B HTML-gzip;
+met GPU-worker 3.197 B HTML-gzip. Alle drie nieuwe frozen builds,
+typecheck, 511 units en vijf gerichte desktop-e2e zijn geslaagd; één bestaande
+windzoom-fixme blijft overgeslagen. GPU- en manifestproef blijven standaard uit.
 
 Een offline functiediagnose van de U65-volgordecapture, met ook MapLibre's
 eigen sourcemap, toont 141 self-samples in diens programmaconstructor:
