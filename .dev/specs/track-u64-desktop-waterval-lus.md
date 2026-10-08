@@ -61,3 +61,9 @@ onzichtbare buildproeven VITE_WEBGL_PREWARM=worker en VITE_WARM_CACHE=manifest
 blijven standaard uit tot de gepaarde metingen ze rechtvaardigen. Eigenaar U64;
 vervallen 2026-10-15 of bij het eerdere kandidaatbesluit. De manifestproef gebruikt
 maximaal 15 s oude inhoud; expliciet verversen gaat naar netwerk.
+
+Orkestrator 2026-10-08: geen gegarandeerd rustig hostvenster door hydra/rustc
+van andere projecten. Relatieve kandidaten daarom A B A B A B met load per run,
+beoordeling binnen paren en startload maximaal 12. Absolute baselines voor
+docs/perf.md blijven maximaal 8. Gepaarde runs zijn expliciet gemarkeerd en
+leveren geen absolute baseline. Meetbrowsers sluiten na iedere run.

@@ -17,7 +17,7 @@ met no-store. Die opnames zijn geen baseline voor de nieuwe definitie.
 Warm primet een nieuw schijfprofiel, wacht op SW/kaartcache, sluit de browser
 volledig en start een nieuwe browser/pagina met dat profiel. HTTP-cache is
 aan, SW blijft actief; geen app- of GPU-geheugen uit de seedpagina. Cache-
-inventaris, SW-controller, HTTP/SW-responseherkomst, HTML-SHA en uiteindelijke
+inventaris, SW-controller, HTTP/SW-responseherkomst, HTML/SW-SHA en uiteindelijke
 pad-URI worden opgeslagen. Referentie warm ×3 komt vóór conclusies.
 [Playwright persistent context](https://playwright.dev/docs/api/class-browsertype#browser-type-launch-persistent-context)
 bewaart het profiel tussen browserstarts.
@@ -68,7 +68,16 @@ heeft startload 7,89; de grootste RunTask is 236 ms met circa 225 ms in
 MapLibre's `_setupPainter`, vóór eerste regen. Die diagnostische opname
 wordt niet als gewone kandidaatbenchmark gebruikt.
 
-Na de lockinstructie van 09:40 wacht elke run buiten de lock op load ≤8.
+Absolute runs wachten buiten de lock op load ≤8. Na de nieuwste
+orkestratorinstructie worden relatieve kandidaatverschillen afzonderlijk
+gepaard A B A B A B gemeten bij load ≤12; load staat per run genoteerd.
+Paarmetadata sluit die opnames uit van absolute baselines. Dezelfde
+fixtures/builds/browsermethoden blijven gelden. Alleen paren met ≤5 min
+tussen starttijden en ≤2 loadverschil tellen mee; anders blijven de raw-
+opnames bewaard en wordt een nieuw volledig paar gestart. Koud en warm
+worden per kandidaat samen gerapporteerd, met mediaan van de verschillen
+binnen drie geldige paren. De shaderisolatie loopt eerst, daarna de
+GPU-worker, manifestproef en totale U64 versus main.
 Elke herhaling krijgt een eigen lockperiode en browserproces; na verkrijgen
 wordt de load opnieuw gecontroleerd. Bij drukte wordt de lock vrijgegeven.
 De nieuwe U65-referentie en kandidaten gebruiken beide deze methode;

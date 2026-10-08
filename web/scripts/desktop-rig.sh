@@ -45,6 +45,7 @@ if [[ ${MOTREGEN_PERF_LOCK_HELD:-0} != 1 ]]; then
   exit 0
 fi
 
+export MOTREGEN_DESKTOP_ACCESS_LOG="$(realpath -m "$output_prefix-access.jsonl")"
 caddy run --config perf/Caddyfile > "$output_prefix-data-server.txt" 2>&1 &
 desktop_data_pid=$!
 caddy run --config perf/Desktop.Caddyfile > "$output_prefix-preview-server.txt" 2>&1 &

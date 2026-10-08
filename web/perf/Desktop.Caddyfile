@@ -4,6 +4,10 @@
 }
 
 :{$MOTREGEN_E2E_PORT:4392} {
+	log {
+		output file {$MOTREGEN_DESKTOP_ACCESS_LOG:/tmp/motregen-desktop-access.jsonl}
+		format json
+	}
 	header Document-Policy "js-profiling"
 	@pwa path /sw.js /manifest.webmanifest
 	header @pwa Cache-Control "no-cache"

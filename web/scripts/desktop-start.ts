@@ -36,6 +36,7 @@ try {
     let context = warmProfile
       ? await chromium.launchPersistentContext(warmProfile, { ...launchOptions, ...contextOptions })
       : await browser!.newContext(contextOptions)
+    let loadTimer: ReturnType<typeof setInterval> | undefined
     try {
       let page = await context.newPage()
       const errors: string[] = []
@@ -98,7 +99,7 @@ try {
       await cdp.send('Network.enable')
       await cdp.send('Network.setCacheDisabled', { cacheDisabled: !warm })
       const networkResponses: Array<Record<string, unknown>> = []
-      cdp.on('Network.responseReceived', ({ response }) => networkResponses.push({ url: response.url, fromDiskCache: response.fromDiskCache ?? false, fromServiceWorker: response.fromServiceWorker ?? false, protocol: response.protocol, status: response.status }))
+      cdp.on('Network.responseReceived', ({ response }) => networkResponses.push({ url: response.url, fromDiskCache: response.fromDiskCache ?? false, fromServiceWorker: response.fromServiceWorker ?? false, cachedManifestAt: response.headers['X-Motregen-Cached-At'] ?? response.headers['x-motregen-cached-at'] ?? null, protocol: response.protocol, status: response.status }))
       if (cpuProfile) {
         await cdp.send('Profiler.enable')
         await cdp.send('Profiler.setSamplingInterval', { interval: 1000 })
@@ -107,6 +108,8 @@ try {
       const events: unknown[] = []
       cdp.on('Tracing.dataCollected', (chunk) => events.push(...chunk.value))
       await cdp.send('Tracing.start', { categories: 'devtools.timeline,disabled-by-default-devtools.timeline,disabled-by-default-v8.compile,v8,blink.user_timing,loading', transferMode: 'ReportEvents' })
+      const loadSamples = [{ timestamp: Date.now(), load: loadAverage }]
+      loadTimer = setInterval(() => loadSamples.push({ timestamp: Date.now(), load: hostLoadAverage() }), 1_000)
       await page.goto(`${origin}${pathname}?${query}`, { waitUntil: 'commit' })
       await page.waitForFunction(() => window.__motregenPerf?.snapshot().ttfpMs != null, undefined, { timeout: 30_000 })
       await page.waitForFunction(() => performance.now() >= 12_000)
@@ -123,6 +126,7 @@ try {
         captured.resources.push(...capturedWorker.resources.map((entry) => ({ ...entry, startTime: entry.startTime + offset, responseEnd: entry.responseEnd + offset })))
       }
       await Promise.all(pending)
+      clearInterval(loadTimer)
       if (errors.length) throw new Error(errors.join('\n'))
       if (warm && !captured.serviceWorkerControlled) throw new Error('Warme nieuwe context mist SW-controller')
       if (expectWebglPrewarm && captured.webglPrewarm.length !== 1) throw new Error('WebGL-workerproef heeft geen geslaagde prewarm gemeten')
@@ -133,10 +137,11 @@ try {
         const { profile } = await cdp.send('Profiler.stop')
         writeFileSync(`${prefix}.cpuprofile`, JSON.stringify(profile))
       }
-      writeFileSync(`${prefix}.json`, JSON.stringify({ capturedAt: new Date().toISOString(), origin, pathname, finalUrl: page.url(), query, warm, warmMethod: warm ? 'persistent-profile-browser-restart' : null, warmSeededAt, warmCaches, httpCacheEnabled: warm, pairedRun, pair, pairRole, absoluteBaselineEligible: !pairedRun, cpuProfile, browserPerRun: true, htmlHash, serviceWorkerHash, loadAverage, ...captured, requests, networkResponses }, null, 2))
+      writeFileSync(`${prefix}.json`, JSON.stringify({ capturedAt: new Date().toISOString(), origin, pathname, finalUrl: page.url(), query, warm, warmMethod: warm ? 'persistent-profile-browser-restart' : null, warmSeededAt, warmCaches, httpCacheEnabled: warm, pairedRun, pair, pairRole, absoluteBaselineEligible: !pairedRun, cpuProfile, browserPerRun: true, htmlHash, serviceWorkerHash, accessLog: process.env.MOTREGEN_DESKTOP_ACCESS_LOG ?? null, loadAverage, loadSamples, ...captured, requests, networkResponses }, null, 2))
       writeFileSync(`${prefix}.trace.json`, JSON.stringify({ traceEvents: events }))
       console.log(`${prefix}: ${JSON.stringify(captured.snapshot)}`)
     } finally {
+      clearInterval(loadTimer)
       await context.close()
     }
   }
