@@ -153,6 +153,29 @@
     assert "x-robots-tag" not in frontend_headers, frontend_headers
     machine.succeed("grep -F '<div id=\"root\"></div>' /tmp/index")
 
+    for path, title, place in [
+      ("/wind/utrecht", "Wind Utrecht", "Utrecht"),
+      ("/weer/nieuw-vennep", "Regenradar Nieuw Vennep", "Nieuw Vennep"),
+    ]:
+      html = machine.succeed(f"curl --silent --show-error --fail http://localhost{path}")
+      assert f"<title>{title} — motregen.nl</title>" in html, html
+      assert f'href="https://motregen.nl{path}"' in html, html
+      assert f"Het weer voor {place}." in html, html
+      assert "{{" not in html, html
+
+    for query, target in [
+      ("modus=wind", "/wind"),
+      ("modus=wind&plaats=Utrecht", "/wind/utrecht"),
+      ("modus=weer&plaats=Utrecht&t=2026-10-08T0757&tg=1", "/weer/utrecht?tg=1#t=2026-10-08T0757"),
+    ]:
+      headers = machine.succeed(f"curl --silent --show-error --dump-header - --output /dev/null 'http://localhost/?{query}'")
+      assert "301" in headers, headers
+      assert f"location: {target}" in headers.lower(), headers
+
+    sitemap = machine.succeed("curl --silent --show-error --fail http://localhost/sitemap.xml")
+    for mode in ["weer", "lucht", "gevoel", "wind"]:
+      assert f"https://motregen.nl/{mode}/utrecht" in sitemap, sitemap
+
     for path in ["sw.js", "manifest.webmanifest"]:
       pwa_headers = machine.succeed(
         f"curl --silent --show-error --dump-header - --output /dev/null http://localhost/{path}"
