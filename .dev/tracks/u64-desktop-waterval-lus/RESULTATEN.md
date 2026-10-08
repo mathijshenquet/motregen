@@ -50,7 +50,7 @@ wordt tegen dezelfde U62-startsituatie gemeten.
 | volledige regen/windshaderbatch | +7,17% / −14,66% | +1,98% / +0,064% | 3 / 3; afgewezen |
 | alleen regenshaders | −7,95% / +0,93% | +12,81% / +23,81% | 3 / 3; afgewezen |
 | GPU-worker zonder shaderwijziging | −11,98% / +3,04% | +15,66% / +18,14% | 3 / 3; afgewezen voor standaardgebruik |
-| manifest-SWR zonder shaderwijziging | pending | pending | 0 / 0 |
+| manifest-SWR zonder shaderwijziging | −3,33% / −1,63%; inactieve controle | pending | 3 / 0 |
 | totale U64 zonder shaders versus main | −17,37% / +3,24% | −17,16% / −1,75% | 3 / 3 |
 
 Medianen van verschillen binnen paren, geen absolute baseline. Regen-only
@@ -106,6 +106,12 @@ niet in ieder paar vroeger. LoAF-max na ttfp A/B koud:
 De koude primaire winst weegt niet op tegen de warme regressie.
 De bouwproef blijft reproduceerbaar, standaard uit en met verval2026-10-15.
 
+Manifest-SWR koud heeft dezelfde HTML/app-JS en een geblokkeerde SW.
+De deltas −100,3/−41,4/−19,5ms ttfr (mediaan−41,4ms) en
+−5,5/−35,4/−12,3ms ttfp (mediaan−12,3ms) bewijzen daarom geen
+cachewinst; ze tonen meetvariatie bij een inactieve proef. Warm ×3 en
+daadwerkelijke manifestcachehits zijn nodig voor het kandidaatbesluit.
+
 ### Main na U62 deel 2
 
 Main `4038d55` bevat U62 deel 2 en U67. De kaart volgt onder Expressief
@@ -142,6 +148,14 @@ Speed Index+247ms, CLS+0,00544. De nieuwe native ttfr/ttfp-reeks
 is gestart, warm ×3 eerst en daarna koud ×3. Retentie van de huidige
 productwijzigingen wordt daarmee op de gewijzigde start gecontroleerd;
 de eerdere primaire winst blijft tot dan bewijs op de ec3-basis.
+
+Nieuwe native stand: koud0/3, warm1/3 geldige paren. Het eerste warme
+paar geeft ttfr1685,3→1447,1ms (−14,13%) en ttfp840,2→745,5ms
+(−11,27%); startload13,50/13,91 en gemiddelde loadverschil+1,734.
+LoAF-max na ttfp799,7→626,0ms: grote frames blijven. De serverlogs
+hebben aan beide kanten alleen manifest200 (36.513 bodybytes) en SW304;
+geen upstream voor kaart/fonts/app/plaatsen/weer-Ranges. De vervolgparen
+en de absolute ≤8-gate blijven open; één paar is geen retentieconclusie.
 Koud en warm, nieuwe ronde (geen volledige medianen):
 
 | variant | koud ttfr / ttfp | warm ttfr / ttfp | geldige runs koud / warm |
