@@ -1305,6 +1305,9 @@ zonder U63-productcode gemeten. U62 zet Kaderhemel altijd aan en vraagt straling
 scrubbervenster; U65 voegt de lazy plaatsenlijst ná ttfp toe. Deze gewijzigde startsituatie is de expliciete reden voor een nieuw nulpunt.
 De hierboven genoemde eigen-kaartreeks blijft gelabeld als vóór U62. Een apart main/U63-paar
 op de eigen kaart voorkomt dat main-wijzigingen als U63-winst worden gerapporteerd.
+De lock per opname start ook een nieuw Chromium-proces per herhaling. De historische reeks
+gebruikte één browserproces met drie koude contexten; procesgebonden caches kunnen daardoor
+verschillen. Het nieuwe main/U63-paar gebruikt aan beide kanten dezelfde nieuwe runner.
 
 Een aanvraagvolgorde kan ook op een drukke host worden gecontroleerd met
 `pnpm perf:mobile --profile desktop --scenario koud-spelend --basemap own --request-order`.
