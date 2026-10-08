@@ -886,6 +886,13 @@ pnpm exec tsx scripts/po-reference.ts compare perf/po-android-reference.json tmp
 
 ### perf-lock
 
+Neem locks altijd in dezelfde volgorde: eerst het e2e-slot, daarna de perf-lock.
+Ook losse screenshot-/profielharnesses gebruiken `scripts/e2e-slot.sh flock -w 7200 -o
+/home/mathijs/motregen-perf.lock <één opname>`. Met de omgekeerde volgorde kan een
+harness de perf-lock vasthouden terwijl beide slots op diezelfde lock wachten.
+Wacht op load buiten beide locks; na het verkrijgen van de perf-lock controleert
+de opname de load opnieuw en geeft hij de locks bij overschrijding direct vrij.
+
 Iedere perf-opname gebruikt `/home/mathijs/motregen-perf.lock`. Wachten op loadavg ≤8 (absolute baseline) of ≤16 (`--paired`, A/B om en om) gebeurt
 **buiten** de lock, ook tussen herhalingen. De lock omvat één opname en wordt direct daarna
 vrijgegeven. Builds, typecheck, unit-tests en wachten horen buiten dit meetvenster.
