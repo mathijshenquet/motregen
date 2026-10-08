@@ -21,6 +21,8 @@ for (const directory of process.argv.slice(2)) {
       run: name.match(/run\d+/)[0],
       ttfrMs: report.milestones.ttfrMs,
       ttfpMs: startedPlaying,
+      firstRainMs: report.milestones.firstRainMs,
+      basemapReadyMs: report.milestones.basemapReadyMs,
       ttfhMs: report.milestones.ttfhMs,
       loafAfterPlayCount: afterPlay.length,
       loafAfterPlayOver100: afterPlay.filter((frame) => frame.duration > 100).length,
