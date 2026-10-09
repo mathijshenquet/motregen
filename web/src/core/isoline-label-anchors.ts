@@ -1,4 +1,6 @@
+/** Minimale afstand tussen twee labels in CSS-px (Label-afstand, U8b; knop weg in U30). */
 export const LABEL_MIN_DISTANCE_PX = 90
+/** Afstand langs een lijn tussen kandidaat-ankers bij het spawnen (Label-spatiëring, U7/U30). */
 export const LABEL_SPACING_PX = 260
 export const MAX_LABEL_ANCHORS = 60
 

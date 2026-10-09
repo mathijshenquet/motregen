@@ -1,0 +1,99 @@
+{
+  "generated": "2026-10-09T12:18:21Z",
+  "loopFrames": 241,
+  "metric": "CIELAB D65 ΔE76",
+  "referenceOrigin": "http://127.0.0.1:4361",
+  "limits": {
+    "mean": 0.5,
+    "maximum": 20,
+    "mapMean": 0.35,
+    "mapMaximum": 8
+  },
+  "results": [
+    {
+      "mode": "weather",
+      "sample": "historie",
+      "epoch": "2026-10-09T11:20:00.000Z",
+      "theme": "light",
+      "total": {
+        "mean": 0.09912318406022787,
+        "maximum": 15.315643588360624,
+        "pixels": 1221120
+      },
+      "map": {
+        "mean": 0.07106394741405508,
+        "maximum": 1.6128062938987595,
+        "pixels": 1024320
+      },
+      "passed": true
+    },
+    {
+      "mode": "weather",
+      "sample": "voor-loop",
+      "epoch": "2026-10-09T10:15:00.000Z",
+      "theme": "light",
+      "total": {
+        "mean": 0.13621021078192957,
+        "maximum": 14.123104970767692,
+        "pixels": 1221120
+      },
+      "map": {
+        "mean": 0.09556982668250906,
+        "maximum": 1.8954469093229214,
+        "pixels": 1024320
+      },
+      "passed": true
+    },
+    {
+      "mode": "weather",
+      "sample": "nu",
+      "epoch": "2026-10-09T12:15:00.000Z",
+      "theme": "light",
+      "total": {
+        "mean": 0.0615735832280176,
+        "maximum": 2.0841164284443243,
+        "pixels": 1221120
+      },
+      "map": {
+        "mean": 0.06335932736823023,
+        "maximum": 2.0841164284443243,
+        "pixels": 1024320
+      },
+      "passed": true
+    },
+    {
+      "mode": "weather",
+      "sample": "verwachting",
+      "epoch": "2026-10-09T13:50:00.000Z",
+      "theme": "light",
+      "total": {
+        "mean": 0.0225809448636452,
+        "maximum": 1.5747566189305422,
+        "pixels": 1221120
+      },
+      "map": {
+        "mean": 0.025398078758445044,
+        "maximum": 1.5747566189305422,
+        "pixels": 1024320
+      },
+      "passed": true
+    },
+    {
+      "mode": "weather",
+      "sample": "nacht",
+      "epoch": "2026-10-10T00:15:00.000Z",
+      "theme": "dark",
+      "total": {
+        "mean": 0.19984289814321735,
+        "maximum": 6.232087766578557,
+        "pixels": 1221120
+      },
+      "map": {
+        "mean": 0.17267940656139097,
+        "maximum": 1.63662558117921,
+        "pixels": 1024320
+      },
+      "passed": true
+    }
+  ]
+}

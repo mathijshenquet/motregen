@@ -9,11 +9,6 @@ import { projectToLevel, smoothstep, type FieldSlice, type SliceSample } from '.
 
 const EARTH_RADIUS = 6378137
 
-/** Minimale afstand tussen twee labels in CSS-px (Label-afstand, U8b; knop weg in U30). */
-
-/** Afstand langs een lijn tussen kandidaat-ankers bij het spawnen (Label-spatiëring, U7/U30). */
-
-
 const FADE_MS = 300
 
 const SPAWN_INTERVAL_MS = 750

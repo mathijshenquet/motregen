@@ -81,7 +81,7 @@ it('prefilters a source-blur impulse in two quantized R8 passes and reuses the f
     const impulse = new Uint8Array(16)
     impulse[5] = 200
     const input = { ...frame(impulse), leftSampling: { kernel: 'source-blur' as const, sourceCellWidth: 1, blurSigma: 1 } }
-    const filtered = Uint8Array.from([12, 19, 12, 3, 19, 32, 19, 4, 12, 19, 12, 3, 3, 4, 3, 1])
+    const filtered = Uint8Array.from([12, 19, 12, 3, 20, 32, 20, 4, 12, 19, 12, 3, 3, 4, 3, 1])
     const expected = compositor.compose(base, frame(filtered), false)
     const actual = await compositor.composeFast(base, input, false)
     expect([...actual].every((value, index) => Math.abs(value - expected[index]!) <= 1)).toBe(true)

@@ -1,0 +1,73 @@
+$ scripts/e2e-slot.sh playwright test e2e/telegram.spec.ts --project desktop
+[WebServer] (node:3883902) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ tsx scripts/synthgen.ts
+[WebServer] (node:3883923) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3883939) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3884058) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3884069) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3884085) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] {"level":"info","ts":1791562413.2694266,"msg":"maxprocs: Leaving GOMAXPROCS=32: CPU quota undefined"}
+[WebServer] {"level":"info","ts":1791562413.2694404,"msg":"GOMEMLIMIT is updated","GOMEMLIMIT":121190860800,"previous":9223372036854775807}
+[WebServer] {"level":"info","ts":1791562413.2694428,"msg":"using config from file","file":"e2e/Caddyfile"}
+[WebServer] {"level":"info","ts":1791562413.2694445,"msg":"adapted config to JSON","adapter":"caddyfile"}
+[WebServer] {"level":"warn","ts":1791562413.2694466,"logger":"admin","msg":"admin endpoint disabled"}
+[WebServer] {"level":"info","ts":1791562413.2695243,"logger":"http.auto_https","msg":"automatic HTTPS is completely disabled for server","server_name":"srv0"}
+[WebServer] {"level":"info","ts":1791562413.2695956,"logger":"tls.cache.maintenance","msg":"started background certificate maintenance","cache":"0x3e3d53185500"}
+[WebServer] {"level":"warn","ts":1791562413.269733,"logger":"http","msg":"HTTP/2 skipped because it requires TLS","network":"tcp","addr":":8185"}
+[WebServer] {"level":"warn","ts":1791562413.2697372,"logger":"http","msg":"HTTP/3 skipped because it requires TLS","network":"tcp","addr":":8185"}
+[WebServer] {"level":"info","ts":1791562413.2697384,"logger":"http.log","msg":"server running","name":"srv0","protocols":["h1","h2","h3"]}
+[WebServer] {"level":"info","ts":1791562413.269843,"msg":"autosaved config (load with --resume flag)","file":"/home/mathijs/.config/caddy/autosave.json"}
+[WebServer] {"level":"info","ts":1791562413.269848,"msg":"serving initial configuration"}
+[WebServer] {"level":"info","ts":1791562413.2701426,"logger":"tls","msg":"storage cleaning happened too recently; skipping for now","storage":"FileStorage:/home/mathijs/.local/share/caddy","instance":"540b6ce5-db5b-4d1a-ad92-81a205e49df0","try_again":1791648813.2701416,"try_again_in":86399.99999974}
+[WebServer] {"level":"info","ts":1791562413.2701826,"logger":"tls","msg":"finished cleaning storage units"}
+[WebServer] (node:3884124) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3884203) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3884215) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 
+[WebServer] (!) Some chunks are larger than 500 kB after minification. Consider:
+[WebServer] - Using dynamic import() to code-split the application
+[WebServer] - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+[WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[WebServer] (node:3884123) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ vite preview --outDir tmp/e2e-dist --host 127.0.0.1 --port 4185
+[WebServer] (node:3884459) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] {"level":"info","ts":1791562424.6793761,"msg":"maxprocs: Leaving GOMAXPROCS=32: CPU quota undefined"}
+[WebServer] {"level":"info","ts":1791562424.6793895,"msg":"GOMEMLIMIT is updated","GOMEMLIMIT":121190860800,"previous":9223372036854775807}
+[WebServer] {"level":"info","ts":1791562424.6793926,"msg":"using config from file","file":"e2e/Caddyfile.routes"}
+[WebServer] {"level":"info","ts":1791562424.6793942,"msg":"adapted config to JSON","adapter":"caddyfile"}
+[WebServer] {"level":"warn","ts":1791562424.6793966,"logger":"admin","msg":"admin endpoint disabled"}
+[WebServer] {"level":"info","ts":1791562424.6794825,"logger":"http.auto_https","msg":"automatic HTTPS is completely disabled for server","server_name":"srv0"}
+[WebServer] {"level":"info","ts":1791562424.6795597,"logger":"tls.cache.maintenance","msg":"started background certificate maintenance","cache":"0x3b615a74b900"}
+[WebServer] {"level":"warn","ts":1791562424.682172,"logger":"http","msg":"HTTP/2 skipped because it requires TLS","network":"tcp","addr":":8186"}
+[WebServer] {"level":"warn","ts":1791562424.6821783,"logger":"http","msg":"HTTP/3 skipped because it requires TLS","network":"tcp","addr":":8186"}
+[WebServer] {"level":"info","ts":1791562424.68218,"logger":"http.log","msg":"server running","name":"srv0","protocols":["h1","h2","h3"]}
+[WebServer] {"level":"info","ts":1791562424.6824408,"msg":"autosaved config (load with --resume flag)","file":"/home/mathijs/.config/caddy/autosave.json"}
+[WebServer] {"level":"info","ts":1791562424.682519,"msg":"serving initial configuration"}
+[WebServer] {"level":"info","ts":1791562424.682883,"logger":"tls","msg":"storage cleaning happened too recently; skipping for now","storage":"FileStorage:/home/mathijs/.local/share/caddy","instance":"540b6ce5-db5b-4d1a-ad92-81a205e49df0","try_again":1791648824.6828697,"try_again_in":86399.999999429}
+[WebServer] {"level":"info","ts":1791562424.6830819,"logger":"tls","msg":"finished cleaning storage units"}
+
+Running 7 tests using 1 worker
+
+(node:3884512) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+  ✓  1 [desktop] › e2e/telegram.spec.ts:3:1 › Telegram launch applies presets and follows the host theme without sending identifiers (2.8s)
+  ✓  2 [desktop] › e2e/telegram.spec.ts:39:1 › skywatch rendering keeps its own route alongside the Telegram bootstrap (222ms)
+  ✓  3 [desktop] › e2e/telegram.spec.ts:56:1 › ordinary visits never load the Telegram SDK (1.1s)
+  ✓  4 [desktop] › e2e/telegram.spec.ts:67:3 › national weer still waits for its layers, has no controls and sends no usage beacon (992ms)
+  ✓  5 [desktop] › e2e/telegram.spec.ts:67:3 › national lucht still waits for its layers, has no controls and sends no usage beacon (724ms)
+  ✓  6 [desktop] › e2e/telegram.spec.ts:67:3 › national gevoel still waits for its layers, has no controls and sends no usage beacon (745ms)
+  ✓  7 [desktop] › e2e/telegram.spec.ts:92:1 › wind loop frames advance only with the fixed simulation clock (1.5s)
+
+  7 passed (25.3s)

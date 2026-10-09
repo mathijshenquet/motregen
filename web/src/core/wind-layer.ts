@@ -66,9 +66,6 @@ const WATER_REBUILD_MS = 200
 const DECLUMP_NEIGHBOURS = [[0, 0], [1, 0], [-1, 1], [0, 1], [1, 1]] as const
 const SPAWN_ATTEMPTS = 32
 const EMPTIEST_SAMPLES = 48
-// Boven deze windsnelheid (m/s) dimt speedDamping de kop.
-// PO 2026-09-25 live (U34): onder deze windsnelheid (m/s) krijgt de beweging extra tempo, tot
-// WEAK_WIND_MAX_BOOST×; de staart is ~snelheid × fadetijd en was bij zwakke wind een stip.
 
 // Eén instance per particle: het segment dat de kop deze frame aflegt, als
 // quad met stompe uiteinden (opeenvolgende segmenten overlappen dan niet en
@@ -238,8 +235,6 @@ export interface TrailView {
   width: number
   height: number
 }
-
-
 
 type UniformMap<Name extends string> = Record<Name, WebGLUniformLocation | null>
 
@@ -1424,27 +1419,11 @@ export class WindLayer implements CustomLayerInterface {
 }
 
 /**
- * Leeftijdsstap van één particle. Hij sterft zodra hij `life.distance` heeft
- * afgelegd of `maxAge` bereikt; `remaining` is de afstand die hem nog rest,
- * voor maxAge geschat met de huidige snelheid. Geeft false als hij dood is.
- */
-
-
-/** Kopintensiteit: loopt op over de eerste fadeInPx en af over de laatste fadeOutPx; de buffer doet de rest. */
-
-
-
-
-/**
  * Kopdemping voor harde wind. Iedere particle legt ~dezelfde inkt per leven
  * neer, en bij gelijkmatige koppendichtheid respawnen snelle particles vaker:
  * inkt per oppervlak ∝ snelheid. Demping (v_ref/v)^γ boven v_ref heft dat bij
  * γ = 1 op; zeestrepen worden zachter in plaats van schaarser.
  */
-/** Tempofactor voor zwakke wind: (v₀/v)^½ onder WEAK_WIND_SPEED, begrensd; kleur en demping houden de echte snelheid. */
-
-
-
 
 /**
  * Neemt de eerste kandidaat die `acceptance` (kans 0–1) haalt; na `attempts`
@@ -1591,9 +1570,6 @@ export function cellDispersion(xs: ArrayLike<number>, ys: ArrayLike<number>, cou
   return variance / cells.length / mean
 }
 
-/** Framefactor van de buffer-fade: `restPerSecond` blijft na één seconde over, ongeacht de framerate. */
-
-
 // Per frame minstens 0,6/255 zodat v·d − vloer ook bij 120 Hz nog onder v − ½/255
 // uitkomt en afronding een pixel nooit op zijn waarde laat hangen.
 export function trailFloor(seconds: number): number {
@@ -1682,15 +1658,6 @@ export function sanitizeWindTuning(value: unknown): WindTuning {
   return tuning
 }
 
-
-
-/** Schermsnelheid in CSS-px/s van `windSpeed` m/s; zoomonafhankelijk door windZoomCompensation. */
-
-
-
-
-
-
 /**
  * Deel van de overlevers dat mag blijven: nieuwe over oude dichtheid (particles per
  * gridoppervlak), hooguit 1. Uitzoomen ×2 laat een kwart; een resize die het budget
@@ -1702,10 +1669,6 @@ export function viewportParticleRetention(previous: ParticleBounds, current: Par
   if (previousArea <= 0 || currentArea <= 0 || previousCount <= 0) return 1
   return Math.min(1, currentCount / currentArea / (previousCount / previousArea))
 }
-
-
-
-
 
 function createTrailTarget(gl: WebGL2RenderingContext, width: number, height: number, halfFloat: boolean): TrailTarget {
   const texture = gl.createTexture()!

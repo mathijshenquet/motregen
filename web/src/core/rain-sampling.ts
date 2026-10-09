@@ -23,6 +23,7 @@ export interface RainWarpLimit {
   fadeEndCells: number
 }
 
+// Het venster van de Gauss reikt tot minstens 2,6 sigma; daar is hij op 3 % van zijn top.
 export function kernelTaps(kernel: Exclude<RainKernel, 'nearest' | 'bilinear'>, sigma: number): number {
   if (kernel === 'source-linear') return 2
   if (kernel === 'source-cubic') return 4

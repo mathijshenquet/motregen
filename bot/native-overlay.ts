@@ -64,7 +64,7 @@ export class NativeOverlay {
     if (!response.ok) throw new Error('App-stijl voor klok ontbreekt')
     const html = await response.text()
     const styles = [...html.matchAll(/<link\b[^>]*href="([^"]+\.css)"[^>]*>/g)].map((match) => match[1])
-    const key = createHash('sha256').update(JSON.stringify({ version: 5, styles, frame: FRAME, ...(this.mode === 'weather' ? {} : { mode: this.mode, title: this.title }) })).digest('hex').slice(0, 24)
+    const key = createHash('sha256').update(JSON.stringify({ version: 7, styles, frame: FRAME, ...(this.mode === 'weather' ? {} : { mode: this.mode, title: this.title }) })).digest('hex').slice(0, 24)
     const path = join(this.directory, `overlay-${key}.json`)
     let metadata: AtlasMetadata
     try { metadata = JSON.parse(await readFile(path, 'utf8')) as AtlasMetadata } catch (error) {
@@ -132,10 +132,12 @@ export class NativeOverlay {
             const cell = document.createElement('div')
             // Integer physical cell sizes preserve the app's subpixel text placement.
             cell.style.cssText = 'height:52px;position:relative'
+            if (text === '00:00' && title === 'Gevoelstemperatuur') cell.style.gridColumn = 'span 2'
             const clock = document.createElement('div')
             clock.className = 'map-clock still-clock'
-            clock.style.left = '64px'
+            clock.style.left = text === '00:00' && title === 'Gevoelstemperatuur' ? '104px' : '64px'
             clock.innerHTML = '<div class="freshness-trigger"><span class="clock-main"><strong class="clock-map-time">'+text+'</strong><small class="clock-day">'+day+'</small></span><small class="clock-day">'+title+'</small></div>'
+            if (text !== '00:00') for (const small of clock.querySelectorAll<HTMLElement>('.clock-day')) small.style.visibility = 'hidden'
             cell.append(clock); atlas.append(cell)
           }
           const elements = [...atlas.querySelectorAll<HTMLElement>('.clock-map-time'), ...atlas.querySelector('.still-clock')!.querySelectorAll<HTMLElement>('.clock-day')]

@@ -3,7 +3,6 @@ import { frameBlend } from '../web/src/core/time-model.js'
 import { nativeTextAtlas } from './native-text-atlas.js'
 import { NativeText } from './native-text.js'
 import { writeFile } from 'node:fs/promises'
-import sharp from 'sharp'
 import type { BrowserContext } from 'playwright'
 import { MAP_FOCUS_SATURATION } from '../web/src/core/map-presentation.js'
 import { FRAME_PIXELS } from './config.js'
@@ -54,12 +53,14 @@ export class NativeModesRenderer {
     await raster?.prepare()
     const mutedMaps = new Map<string, Buffer>()
     if (mode === 'feels') {
-      const luminance = [0.2126, 0.7152, 0.0722]
-      const channelWeight = (row: number, column: number) => luminance[column]! * (1 - MAP_FOCUS_SATURATION) + (row === column ? MAP_FOCUS_SATURATION : 0)
-      const matrix: [[number, number, number], [number, number, number], [number, number, number]] = [0, 1, 2].map((row) => [channelWeight(row, 0), channelWeight(row, 1), channelWeight(row, 2)]) as typeof matrix
       for (const theme of new Set(plan.epochs.map(rainTheme))) {
         const plate = await maps.get(theme, firstRain.grid)
-        mutedMaps.set(theme, await sharp(plate.rgb, { raw: { ...FRAME_PIXELS, channels: 3 } }).recomb(matrix).raw().toBuffer())
+        const muted = Buffer.alloc(plate.rgb.length)
+        for (let offset = 0; offset < muted.length; offset += 3) {
+          const gray = plate.rgb[offset]! * 0.213 + plate.rgb[offset + 1]! * 0.715 + plate.rgb[offset + 2]! * 0.072
+          for (let channel = 0; channel < 3; channel++) muted[offset + channel] = Math.round(gray + (plate.rgb[offset + channel]! - gray) * MAP_FOCUS_SATURATION)
+        }
+        mutedMaps.set(theme, muted)
       }
     }
     const stillIndexes = new Set(plan.stillFrames.map((frame) => frame.index))

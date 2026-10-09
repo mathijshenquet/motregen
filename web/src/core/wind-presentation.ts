@@ -92,6 +92,11 @@ export const WIND_MAX_FPS = WIND_PARAMETERS.maxFps
 /** Intensiteit bij volle windfocus met de default-tuning (PO 2026-09-25 live, U34; was 1,905). */
 export const WIND_FOCUS_INTENSITY = 0.8
 
+/**
+ * Leeftijdsstap van één particle. Hij sterft zodra hij `life.distance` heeft
+ * afgelegd of `maxAge` bereikt; `remaining` is de afstand die hem nog rest,
+ * voor maxAge geschat met de huidige snelheid. Geeft false als hij dood is.
+ */
 export function advanceLife(life: ParticleLife, stepPx: number, seconds: number, tuning: Pick<WindParameters, 'maxAge'>): boolean {
   life.age += seconds
   if (life.age <= 0) {
@@ -104,6 +109,7 @@ export function advanceLife(life: ParticleLife, stepPx: number, seconds: number,
   return life.remaining > 0
 }
 
+/** Kopintensiteit: loopt op over de eerste fadeInPx en af over de laatste fadeOutPx; de buffer doet de rest. */
 export function headAlpha(life: ParticleLife, tuning: Pick<WindParameters, 'fadeInPx' | 'fadeOutPx'>): number {
   if (life.age <= 0 || life.remaining <= 0) return 0
   const fadeIn = tuning.fadeInPx > 0 ? Math.min(1, life.travelled / tuning.fadeInPx) : 1
@@ -115,6 +121,7 @@ export function expectedLifetime(speedPx: number, tuning: Pick<WindParameters, '
   return speedPx > 0 ? Math.min(tuning.maxAge, tuning.trailDistance / speedPx) : tuning.maxAge
 }
 
+/** Tempofactor voor zwakke wind: (v₀/v)^½ onder WEAK_WIND_SPEED, begrensd; kleur en demping houden de echte snelheid. */
 export function weakWindTempo(windSpeed: number): number {
   return windSpeed >= WEAK_WIND_SPEED ? 1 : Math.min(WEAK_WIND_MAX_BOOST, Math.sqrt(WEAK_WIND_SPEED / Math.max(1e-3, windSpeed)))
 }
@@ -123,6 +130,7 @@ export function speedDamping(windSpeed: number, gamma: number): number {
   return windSpeed > DAMPING_REFERENCE_SPEED ? (DAMPING_REFERENCE_SPEED / windSpeed) ** gamma : 1
 }
 
+/** Framefactor van de buffer-fade: `restPerSecond` blijft na één seconde over, ongeacht de framerate. */
 export function bufferDecay(restPerSecond: number, seconds: number): number {
   return Math.max(0, restPerSecond) ** Math.max(0, seconds)
 }
@@ -133,6 +141,7 @@ export function windColor(speed: number, theme: MapTheme): [number, number, numb
   return [color[0]!, color[1]!, color[2]!]
 }
 
+/** Schermsnelheid in CSS-px/s van `windSpeed` m/s; zoomonafhankelijk door windZoomCompensation. */
 export function windScreenSpeed(windSpeed: number, speedScale = 1): number {
   return windSpeed * ADVECTION_SCALE * speedScale * MERCATOR_SCALE * WORLD_TILE_SIZE * 2 ** WIND_REFERENCE_ZOOM
 }
@@ -172,8 +181,11 @@ export const ADVECTION_SCALE = 7_000
 
 export const WORLD_TILE_SIZE = 512
 
+// Boven deze windsnelheid (m/s) dimt speedDamping de kop.
 export const DAMPING_REFERENCE_SPEED = 3
 
+// PO 2026-09-25 live (U34): onder deze windsnelheid (m/s) krijgt de beweging extra tempo, tot
+// WEAK_WIND_MAX_BOOST×; de staart is ~snelheid × fadetijd en was bij zwakke wind een stip.
 export const WEAK_WIND_SPEED = 6
 
 export const WEAK_WIND_MAX_BOOST = 2.5

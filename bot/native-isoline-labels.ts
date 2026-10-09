@@ -46,12 +46,14 @@ export class NativeIsolineLabels {
     for (const anchor of live) {
       const projected = projectToLevel(fieldSlice, anchor.column, anchor.row, anchor.level, slice.step)
       if (!projected) continue
+      anchor.column = projected.column
+      anchor.row = projected.row
       const [screenX, screenY] = projection.point(anchor.column, anchor.row)
       let angle = Math.atan2(projected.sample.gy, projected.sample.gx) * 180 / Math.PI + 90
       if (angle > 90) angle -= 180
       if (angle <= -90) angle += 180
       const label = slice.kind === 'pressure' ? String(anchor.level) : `${anchor.level}°`
-      await this.text.draw(rgb, label, screenX, screenY, angle, isolineColor(theme, slice.kind), theme, slice.opacity * ringFadeAt(rings, anchor.level, anchor.column, anchor.row))
+      await this.text.draw(rgb, label, Math.round(screenX / FRAME.scale) * FRAME.scale, Math.round(screenY / FRAME.scale) * FRAME.scale, angle, isolineColor(theme, slice.kind), theme, slice.opacity * ringFadeAt(rings, anchor.level, anchor.column, anchor.row))
     }
     return rgb
   }

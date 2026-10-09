@@ -90,7 +90,7 @@ export class NativeFieldRaster {
     header.writeFloatLE(profile.halfWidth, 28)
     const color = Number.parseInt(isolineColor(night ? 'dark' : 'light', slice.kind).slice(1), 16)
     for (let channel = 0; channel < 3; channel++) header.writeFloatLE((color >> ((2 - channel) * 8)) & 255, 32 + channel * 4)
-    header.writeFloatLE(ISOLINE_FILL_RESOLUTION, 44)
+    header.writeFloatLE(ISOLINE_FILL_RESOLUTION / FRAME.scale, 44)
     await this.write(header); await this.write(base)
     for (const field of [slice.field.values, slice.field.valid, slice.colors, slice.segments, ...(slice.rings ? [slice.rings] : [])]) await this.write(Buffer.from(field.buffer, field.byteOffset, field.byteLength))
     await Promise.race([received, this.completed!.then(() => { throw new Error('Veldworker mist uitvoer') })])

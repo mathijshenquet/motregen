@@ -20,7 +20,6 @@ export { WARP_CAP_CELLS, WARP_FADE_END_CELLS, FLOW_BLEND_CURVE } from './rain-mo
  */
 type SourceKernel = Exclude<RainKernel, 'nearest' | 'bilinear'>
 const SOURCE_KERNEL_IDS: Record<SourceKernel, number> = { 'source-linear': 0, 'source-cubic': 1, 'source-blur': 2 }
-// Het venster van de Gauss reikt tot minstens 2,6 sigma; daar is hij op 3 % van zijn top.
 
 const DEFAULT_SAMPLING: RainSampling = { kernel: 'bilinear', sourceCellWidth: 1 }
 const DEFAULT_WARP_LIMIT: RainWarpLimit = { capCells: WARP_CAP_CELLS, fadeEndCells: WARP_FADE_END_CELLS }

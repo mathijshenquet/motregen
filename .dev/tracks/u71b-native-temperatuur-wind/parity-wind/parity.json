@@ -1,0 +1,99 @@
+{
+  "generated": "2026-10-09T12:18:21Z",
+  "loopFrames": 169,
+  "metric": "CIELAB D65 ΔE76",
+  "referenceOrigin": "http://127.0.0.1:4361",
+  "limits": {
+    "mean": 0.5,
+    "maximum": 20,
+    "mapMean": 0.35,
+    "mapMaximum": 8
+  },
+  "results": [
+    {
+      "mode": "wind",
+      "sample": "historie",
+      "epoch": "2026-10-09T11:20:00.000Z",
+      "theme": "light",
+      "total": {
+        "mean": 0.627049840877107,
+        "maximum": 80.59356962343809,
+        "pixels": 1221120
+      },
+      "map": {
+        "mean": 0.6436666851086054,
+        "maximum": 80.59356962343809,
+        "pixels": 1024320
+      },
+      "passed": false
+    },
+    {
+      "mode": "wind",
+      "sample": "voor-loop",
+      "epoch": "2026-10-09T10:15:00.000Z",
+      "theme": "light",
+      "total": {
+        "mean": 0.6657108346854603,
+        "maximum": 68.23529457538483,
+        "pixels": 1221120
+      },
+      "map": {
+        "mean": 0.6622097552578213,
+        "maximum": 68.23529457538483,
+        "pixels": 1024320
+      },
+      "passed": false
+    },
+    {
+      "mode": "wind",
+      "sample": "nu",
+      "epoch": "2026-10-09T12:15:00.000Z",
+      "theme": "light",
+      "total": {
+        "mean": 0.59656350178015,
+        "maximum": 78.06566565683276,
+        "pixels": 1221120
+      },
+      "map": {
+        "mean": 0.6249346782930856,
+        "maximum": 78.06566565683276,
+        "pixels": 1024320
+      },
+      "passed": false
+    },
+    {
+      "mode": "wind",
+      "sample": "verwachting",
+      "epoch": "2026-10-09T13:50:00.000Z",
+      "theme": "light",
+      "total": {
+        "mean": 0.5445459238002628,
+        "maximum": 73.6925923458982,
+        "pixels": 1221120
+      },
+      "map": {
+        "mean": 0.5666211960724137,
+        "maximum": 73.6925923458982,
+        "pixels": 1024320
+      },
+      "passed": false
+    },
+    {
+      "mode": "wind",
+      "sample": "nacht",
+      "epoch": "2026-10-10T00:15:00.000Z",
+      "theme": "dark",
+      "total": {
+        "mean": 0.9883554154475482,
+        "maximum": 72.85553357621642,
+        "pixels": 1221120
+      },
+      "map": {
+        "mean": 1.0260237568668689,
+        "maximum": 72.85553357621642,
+        "pixels": 1024320
+      },
+      "passed": false
+    }
+  ]
+}
