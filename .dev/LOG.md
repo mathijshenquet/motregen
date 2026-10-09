@@ -362,6 +362,14 @@
   file_id-cache) maar de client-tween tussen dia's is niet uit te zetten; collage "nog slechter". Conclusie: /regen
   met knoppen (editMessageMedia, wisselt zonder tween) blijft. VM-poller weer actief, lokale poller gestopt.
 
+- **U69 deel 2 gemerged** (17:45, aa518aab, PR #98): wind na de eerste tik met fade-in; grootste lange frame
+  eerste 5 s desktop 981→841 ms, po-android 1589→435 ms; resterende opstarttaken (decoder 370, plaatsen 190,
+  reeks 115 ms, 803 ms onbenoemd desktop) in docs/perf.md als open punten. 4330 herbouwd.
+- /regen_maf (proef, niet gecommit): rich "pagina" met schakelknoppen modus/tijd via editMessageText; PO heeft
+  gewisseld (log), oordeel open. Lokale poller draait ervoor, VM-poller uit.
+- U72: PO 16:50 "radar+nowcast 5×5 al nice; AROME kan nog meer; meebewegen veel beter dan crossfade"; ronde 2:
+  separabele Gaussische blur, 7×7/9×9, voorfilterkosten meten; tijd-blur gedegradeerd ("mogelijk giga onnodig").
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
