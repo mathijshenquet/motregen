@@ -191,12 +191,12 @@ gecachete lege kaart. De nationale uitsnede is 640×848 CSS-pixels met
 
 | modus | framereeks | loop | stills uit dezelfde reeks |
 | --- | --- | --- | --- |
-| Regen | −1…+2 u elke 5 minuten; daarnaast stills elke 10 minuten van −2 u tot +12 u | 37 frames op 10 fps | 19 loopframes −1…+2 u; 66 aparte frames (85 stills) |
+| Regen | −1…+2 u elke 45 seconden kaarttijd (native getweend tussen de 5-minutenframes); daarnaast stills elke 10 minuten van −2 u tot +12 u | 241 frames op 10 fps | 7 loopframes (halve uren) ; 78 aparte frames (85 stills) |
 | Temperatuur | −2…+12 u, elke 5 minuten (interpolatie tussen de uurvelden) | 169 frames op 10 fps | 85 frames, −2…+12 u elke 10 minuten |
 | Wind | −2…+12 u, elke 5 minuten (interpolatie tussen de uur- en kwartiervelden) | 169 frames op 10 fps | geen |
 
 De drie loops gebruiken dezelfde vijfminutenstap en 10 fps (U66). Regen loopt van −1 tot +2 uur (PO 2026-10-09;
-U70 had −2…+3) en duurt 4,7 seconden inclusief de eindhold; temperatuur en wind beginnen twee uur geleden.
+U70 had −2…+3) op het tempo van de app (≈7,5 min kaarttijd per seconde) en duurt 25,1 seconden inclusief de eindhold; temperatuur en wind beginnen twee uur geleden.
 Temperatuur en Wind eindigen op +12 uur en duren 17,9 seconden inclusief de eindhold.
 Stills en deltaknoppen behouden het bereik −2…+12 uur op het tienminutenraster. Binnen de loophorizon
 delen stills dezelfde renderpass; zes eerdere en zestig latere regenstills krijgen elk één extra frame.
