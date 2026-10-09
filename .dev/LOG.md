@@ -325,6 +325,18 @@
   blijven. Filmstrips + 48 gepaarde metingen in docs/perf.md §U68. Gate 529 unit, 28+14+6 e2e, build;
   4330 herbouwd; prod-upgrade gestart.
 
+- **Middagronde met PO op 4330** (12:30–14:00, orkestrator, zelf gecontroleerd met Firefox-software-GL en
+  Chromium-probes; GEEN prod-uitrol op PO-verzoek tot het itereren klaar is): (1) z4-startkaart ontbrak op
+  4330 in alle browsers: vite preview serveert `.pbf.gz` met `Content-Encoding: gzip`, de worker zag "incorrect
+  header check" → gzip-magic-check (7dd9b1de); prod (Caddy, `application/gzip`) had dit niet. (2) Splash wacht op
+  eerste regen én eerste kaartbeeld, 2 s-terugval als er geen kaartbeeld komt; U68's regel die de sluier bij
+  het eerste kaartbeeld direct transparant maakte is weg → weer dekkend met 300 ms wit→transparant.
+  (3) z4 zonder landcover (grijze bebouwde kom flikkerde). (4) Volgorde z4 → regen → echte kaart: de wissel
+  wacht ook op mapReady (PO: "het is regenradar"). (5) e2e-fixture heeft geen 'basemap'-bron → eerste render
+  telt als kaartbeeld, anders brak focus.spec (bisect: 55da1e73 groen, 7dd9b1de rood). Gate op main
+  (c.q. HEAD): 529 unit, build, 6 Firefox, 50 desktop+mobiel. U69 gestart (gpt-6.1-sol): kaartregen moet vanaf
+  de eerste kloktik animeren (meting: klokstart 1694 ms, eerste framewissel op de kaart 2229 ms).
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).

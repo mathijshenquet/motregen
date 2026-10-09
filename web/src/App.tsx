@@ -963,12 +963,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       map.on('render', () => {
         mapRepaints++
         if (perfPhasesEnabled()) mapElement.dataset.tilesLoaded = String(map?.areTilesLoaded())
-        const source = map?.getSource(mapStartSource) ? mapStartSource : 'basemap'
-        if (!firstMapImage && map?.getSource(source) && map.isSourceLoaded(source)) {
+        // Eerste kaartbeeld: de z4-startkaart, anders de echte basiskaart; een stijl zonder beide (e2e-fixture,
+        // externe stijl) telt zijn eerste render als kaartbeeld, anders wacht de splash daar nodeloos op.
+        const source = map?.getSource(mapStartSource) ? mapStartSource : map?.getSource('basemap') ? 'basemap' : null
+        if (!firstMapImage && map && (source === null || map.isSourceLoaded(source))) {
           firstMapImage = true
           setFirstMapImageShown(true)
-          if (perfPhasesEnabled()) perf.recordPhase({ phase: 'milestone:first-map-image', startTime: 0, duration: performance.now(), detail: { source } })
-          mapElement.dataset.firstMapImage = source
+          if (perfPhasesEnabled()) perf.recordPhase({ phase: 'milestone:first-map-image', startTime: 0, duration: performance.now(), detail: { source: source ?? 'style' } })
+          mapElement.dataset.firstMapImage = source ?? 'style'
         }
         if (map?.isStyleLoaded() && map.areTilesLoaded()) perf.markBasemapReady()
       })
