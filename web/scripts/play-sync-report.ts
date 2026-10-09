@@ -36,11 +36,20 @@ const compact = readdirSync(directory).filter((name) => name.endsWith('.json')).
   const weatherHeaders = capture.loads.requests.filter((request) => request.layer === 'header' && !/\/(?:rtcor|nowcast|seamless|uv|uv_clear)-/.test(request.url))
   const queue = header && header.requestStart > 0 ? header.requestStart - header.startTime : null
   const firstMapImage = capture.entries.measures.find((measure) => measure.phase === 'milestone:first-map-image')
+  const rainDraws = capture.entries.measures.filter((measure) => measure.phase === 'rain-frame-committed')
+  const firstRainEpoch = rainDraws[0]?.detail?.epoch
+  const firstRainMotion = rainDraws.find((measure) => measure.detail?.epoch !== firstRainEpoch)
+  const cursorRainGaps = rainDraws.flatMap((measure) => {
+    const detail = measure.detail
+    if (typeof detail?.cursor !== 'number' || typeof detail.left !== 'number' || typeof detail.right !== 'number' || typeof detail.mix !== 'number') return []
+    return [Math.abs(detail.cursor - (detail.left + (detail.right - detail.left) * detail.mix))]
+  })
   const milestoneKeys = ['ttfrMs', 'ttfpMs', 'styleReadyMs', 'firstRainMs', 'firstCursorMs', 'firstBasemapTileMs', 'basemapReadyMs', 'mapRevealedMs', 'ttfhMs'] as const
   const milestones: Record<string, number | null | undefined> = Object.fromEntries(
     milestoneKeys.map((key) => [key, capture.snapshot[key]]),
   )
   milestones.firstMapImageMs = rounded(firstMapImage?.duration)
+  milestones.firstRainMotionMs = rounded(firstRainMotion?.startTime)
   return {
     name: name.replace('.json', ''), origin: capture.origin, profile: capture.profile,
     warm: capture.warm, fixture: capture.fixture ?? capture.manifestGenerated.startsWith('2026-08-28'), screenshotOverhead: capture.screenshotOverhead,
@@ -49,6 +58,8 @@ const compact = readdirSync(directory).filter((name) => name.endsWith('.json')).
     startLoad: capture.loadSamples[0]!.load,
     meanLoad: rounded(capture.loadSamples.reduce((sum, sample) => sum + sample.load, 0) / capture.loadSamples.length),
     milestones,
+    clockToRainMotionMs: rounded(firstRainMotion && capture.snapshot.firstCursorMs != null ? firstRainMotion.startTime - capture.snapshot.firstCursorMs : null),
+    cursorRainGap: { maxFrames: rounded(Math.max(0, ...cursorRainGaps)), samples: cursorRainGaps.length },
     firstMapImageSource: firstMapImage?.detail?.source ?? null,
     pmtilesHeader: header ? { startMs: rounded(header.startTime), endMs: rounded(header.responseEnd), queueMs: rounded(queue) } : null,
     harmonieHeaderStartMs: rounded(Math.min(...weatherHeaders.map((request) => request.startMs))),

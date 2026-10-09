@@ -943,6 +943,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       }))
       map.on('render', () => {
         mapRepaints++
+        if (perfPhasesEnabled()) mapElement.dataset.tilesLoaded = String(map?.areTilesLoaded())
         const source = map?.getSource(mapStartSource) ? mapStartSource : 'basemap'
         if (!firstMapImage && map?.getSource(source) && map.isSourceLoaded(source)) {
           firstMapImage = true
@@ -1448,7 +1449,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     layer.setFrames(left, right, blend.mix, motion, (rightFrame.epoch - leftFrame.epoch) / 60_000)
     const afterRainDraw = (callback: () => void) => rainOverlay ? rainOverlay.once(callback) : map!.once('render', callback)
     afterRainDraw(() => {
-      if (perfPhasesEnabled()) mapElement.dataset.rainEpoch = String(epoch)
+      if (perfPhasesEnabled()) {
+        mapElement.dataset.rainEpoch = String(epoch)
+        mapElement.dataset.rainCursor = String(blend.left + (blend.right - blend.left) * blend.mix)
+        perf.recordPhase({ phase: 'rain-frame-committed', startTime: performance.now(), duration: 0, detail: { epoch, left: blend.left, right: blend.right, mix: blend.mix, cursor: cursor(), request, uploads: layer?.uploads, tilesLoaded: map?.areTilesLoaded(), mapStart: mapElement.dataset.mapStart ?? 'z4' } })
+      }
       const firstPlayback = perf.markRainFrameCommitted({ frameEpoch: leftFrame.epoch, playing: playing() })
       if (firstPlayback || !playing()) schedulePlaces()
     })

@@ -94,7 +94,8 @@ try {
       const track = document.querySelector('.chart-track')
       const splash = document.querySelector('.map-splash')
       const veil = document.querySelector('.map-splash-veil')
-      samples.push({ ms: performance.now(), cursorIndex: slider?.getAttribute('aria-valuenow'), cursorLeft: cursor?.getBoundingClientRect().left, playing: slider?.hasAttribute('data-playing'), cursorMinute: document.querySelector<HTMLElement>('.app-shell')?.dataset.epoch, rainEpoch: document.querySelector<HTMLElement>('.map')?.dataset.rainEpoch, trackTransform: track && getComputedStyle(track).transform, mapReady: splash?.classList.contains('ready'), splashVisibility: splash && getComputedStyle(splash).visibility, veilOpacity: veil && getComputedStyle(veil).opacity, perf: window.__motregenPerf?.snapshot() })
+      const map = document.querySelector<HTMLElement>('.map')
+      samples.push({ ms: performance.now(), cursorIndex: slider?.getAttribute('aria-valuenow'), cursorLeft: cursor?.getBoundingClientRect().left, playing: slider?.hasAttribute('data-playing'), cursorMinute: document.querySelector<HTMLElement>('.app-shell')?.dataset.epoch, rainEpoch: map?.dataset.rainEpoch, rainCursor: map?.dataset.rainCursor, tilesLoaded: map?.dataset.tilesLoaded, mapStart: map?.dataset.mapStart ?? 'z4', trackTransform: track && getComputedStyle(track).transform, mapReady: splash?.classList.contains('ready'), splashVisibility: splash && getComputedStyle(splash).visibility, veilOpacity: veil && getComputedStyle(veil).opacity, perf: window.__motregenPerf?.snapshot() })
     }
     const timer = setInterval(sample, 250)
     setTimeout(() => clearInterval(timer), 12_000)
@@ -114,7 +115,9 @@ try {
       const targetMs = index * 250
       const frame = frames.filter((frame) => frame.timestamp - captured.timeOrigin <= targetMs).at(-1)
       if (frame) writeFileSync(`${output}/${String(index).padStart(2, '0')}.jpg`, Buffer.from(frame.data, 'base64'))
-      return { targetMs, frameMs: frame ? frame.timestamp - captured.timeOrigin : null }
+      const sample = (captured.samples as Array<{ ms: number }>).filter((sample) => sample.ms <= targetMs).at(-1)
+      const rainDraw = captured.entries.measures.filter((measure) => measure.phase === 'rain-frame-committed' && measure.startTime <= targetMs).at(-1)
+      return { targetMs, frameMs: frame ? frame.timestamp - captured.timeOrigin : null, sample, rainDraw }
     }) : []
     if (warm && !captured.serviceWorkerControlled) throw new Error('Warme browser mist SW-controller')
     if (errors.length) throw new Error(errors.join('\n'))
