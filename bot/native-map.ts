@@ -23,6 +23,8 @@ export class NativeMaps {
   private readonly plates = new Map<NativeTheme, Promise<MapPlate>>()
   constructor(private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>) {}
 
+  clear(): void { this.plates.clear() }
+
   get(theme: NativeTheme, grid: Grid): Promise<MapPlate> {
     let pending = this.plates.get(theme)
     if (!pending) {

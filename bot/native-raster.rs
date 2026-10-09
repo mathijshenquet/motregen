@@ -319,7 +319,34 @@ fn compose(
     }
 }
 
+fn release_file_cache(path: &std::ffi::OsStr) -> io::Result<()> {
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::fd::AsRawFd;
+        unsafe extern "C" {
+            fn posix_fadvise(fd: i32, offset: i64, length: i64, advice: i32) -> i32;
+        }
+        let file = std::fs::File::open(path)?;
+        // DONTNEED only releases clean pages; PPM bytes remain available for still encoding.
+        file.sync_data()?;
+        let error = unsafe { posix_fadvise(file.as_raw_fd(), 0, 0, 4) };
+        if error != 0 {
+            return Err(io::Error::from_raw_os_error(error));
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = path;
+    Ok(())
+}
+
 fn main() -> io::Result<()> {
+    let mut arguments = std::env::args_os().skip(1);
+    if arguments.next().as_deref() == Some(std::ffi::OsStr::new("--release-file-cache")) {
+        let path = arguments
+            .next()
+            .ok_or_else(|| io::Error::other("missing file path"))?;
+        return release_file_cache(&path);
+    }
     let mut input = BufReader::new(io::stdin().lock());
     let mut output = io::stdout().lock();
     let width = integer(&mut input)?;

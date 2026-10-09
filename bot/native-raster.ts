@@ -1,9 +1,9 @@
 import { kernelTaps, type RainSampling } from '../web/src/core/rain-sampling.js'
 import { rainWarpLimit } from '../web/src/core/rain-smoothing.js'
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import { writeStream } from './write-stream.js'
-import { access, mkdir, readFile, rename } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, readFile, rename, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -27,15 +27,21 @@ async function executable(): Promise<string> {
       await mkdir(directory, { recursive: true })
       const path = join(directory, key)
       try { await access(path) } catch {
-        const temporary = `${path}.${randomUUID()}`
-        await run('rustc', [source, '-O', '-o', temporary])
-        await rename(temporary, path)
+        const temporary = await mkdtemp(join(directory, `${key}-`))
+        try {
+          await run('rustc', [source, '-O', '-o', join(temporary, 'worker')])
+          await rename(join(temporary, 'worker'), path)
+        } finally { await rm(temporary, { recursive: true, force: true }) }
       }
       return path
     })()
     executables.set(key, pending)
   }
   return pending
+}
+
+export async function releaseFileCache(path: string): Promise<void> {
+  await run(await executable(), ['--release-file-cache', path])
 }
 
 export class NativeRaster {

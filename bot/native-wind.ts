@@ -33,6 +33,7 @@ export class NativeWindData {
     if (this.eastwardData.timeline.length !== this.northwardData.timeline.length || this.eastwardData.timeline.some((entry, index) => entry.epoch !== this.northwardData.timeline[index]!.epoch)) throw new Error('Windcomponenten hebben verschillende tijdlijnen')
   }
   async prepare(epochs: readonly number[]): Promise<void> { await Promise.all([this.eastwardData.prefetch(epochs), this.northwardData.prefetch(epochs)]) }
+  clear(): void { this.eastwardData.clear(); this.northwardData.clear() }
   async draw(base: Buffer, epoch: number, simulationMs: number, theme: NativeTheme, water: WaterMask, coverage?: Uint8Array): Promise<Buffer> {
     const [eastwardData, northwardData] = await Promise.all([this.eastwardData.frame(epoch), this.northwardData.frame(epoch)])
     if (JSON.stringify(eastwardData.grid) !== JSON.stringify(northwardData.grid)) throw new Error('Windcomponenten hebben verschillende roosters')
@@ -41,7 +42,7 @@ export class NativeWindData {
     const columns = Math.ceil(Math.sqrt(count * FRAME.width / FRAME.height)), rows = Math.ceil(count / columns)
     let randomState = 0x71b
     const random = () => { randomState = (Math.imul(1664525, randomState) + 1013904223) >>> 0; return randomState / 4294967296 }
-    const rgb = Buffer.from(base)
+    const rgb = base
     for (let particle = 0; particle < count; particle++) {
       const screenX = ((particle % columns) + 0.5 + (random() - 0.5) * WIND_PARAMETERS.spawnJitter) / columns * FRAME_PIXELS.width
       const screenY = (Math.floor(particle / columns) + 0.5 + (random() - 0.5) * WIND_PARAMETERS.spawnJitter) / rows * FRAME_PIXELS.height

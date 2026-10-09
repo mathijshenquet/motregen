@@ -1,8 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { access, mkdir, rename, writeFile } from 'node:fs/promises'
+import { access, mkdir, rename } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { BrowserContext } from 'playwright'
-import sharp from 'sharp'
+import sharp, { type OverlayOptions } from 'sharp'
 import { FRAME } from './config.js'
 import { prepareNativeAsset } from './native-assets.js'
 import { textPlacementKey, type TextPlacement, type Glyph } from './native-text.js'
@@ -42,31 +42,47 @@ export async function nativeTextAtlas(origin: string, directory: string, context
         }
         await document.fonts.ready
       }, variants)
-      const png = await prepareNativeAsset(() => page.screenshot({ omitBackground: true, fullPage: true }))
+      const batches: OverlayOptions[] = []
+      await prepareNativeAsset(async () => {
+        for (let row = 0; row < Math.ceil(variants.length / columns); row += 16) {
+          const height = Math.min(16, Math.ceil(variants.length / columns) - row) * 48
+          const png = await page.screenshot({ omitBackground: true, fullPage: true, clip: { x: 0, y: row * 48, width: columns * 48, height } })
+          batches.push({ input: png, left: 0, top: row * cell.height })
+        }
+      })
+      await page.close()
       await mkdir(directory, { recursive: true })
       const temporary = `${path}.${randomUUID()}.tmp`
-      await writeFile(temporary, png); await rename(temporary, path)
+      await sharp({ create: { width: columns * cell.width, height: Math.ceil(variants.length / columns) * cell.height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).composite(batches).png().toFile(temporary)
+      await rename(temporary, path)
       console.info(JSON.stringify({ event: 'native-isoline-text-created', key, glyphs: variants.length }))
     } finally { await page.close() }
   }
   await preparePng()
-  const sheet = await sharp(path).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
-  if (sheet.info.width !== cell.width * columns) throw new Error('Isolijntekst heeft verkeerde schaal')
-  return new Map(variants.map((variant, index) => {
-    const left = (index % columns) * cell.width, top = Math.floor(index / columns) * cell.height
-    let west = cell.width, east = 0, north = cell.height, south = 0
-    for (let row = 0; row < cell.height; row++) for (let column = 0; column < cell.width; column++) {
-      if (!sheet.data[((top + row) * sheet.info.width + left + column) * 4 + 3]) continue
-      west = Math.min(west, column); east = Math.max(east, column + 1)
-      north = Math.min(north, row); south = Math.max(south, row + 1)
+  const metadata = await sharp(path).metadata()
+  if (metadata.width !== cell.width * columns) throw new Error('Isolijntekst heeft verkeerde schaal')
+  const glyphs = new Map<string, Glyph>()
+  const batchSize = columns * 16
+  for (let offset = 0; offset < variants.length; offset += batchSize) {
+    const batch = variants.slice(offset, offset + batchSize)
+    const sheet = await sharp(path, { sequentialRead: true }).extract({ left: 0, top: offset / columns * cell.height, width: metadata.width, height: Math.ceil(batch.length / columns) * cell.height }).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+    for (const [index, variant] of batch.entries()) {
+      const left = (index % columns) * cell.width, top = Math.floor(index / columns) * cell.height
+      let west = cell.width, east = 0, north = cell.height, south = 0
+      for (let row = 0; row < cell.height; row++) for (let column = 0; column < cell.width; column++) {
+        if (!sheet.data[((top + row) * sheet.info.width + left + column) * 4 + 3]) continue
+        west = Math.min(west, column); east = Math.max(east, column + 1)
+        north = Math.min(north, row); south = Math.max(south, row + 1)
+      }
+      const width = Math.max(0, east - west), height = Math.max(0, south - north)
+      if (!width || !height) throw new Error(`Isolijntekst ontbreekt in atlas: ${variant.key}`)
+      const rgba = Buffer.alloc(width * height * 4)
+      for (let row = 0; row < height; row++) {
+        const start = ((top + north + row) * sheet.info.width + left + west) * 4
+        sheet.data.copy(rgba, row * width * 4, start, start + width * 4)
+      }
+      glyphs.set(variant.key, { rgba, width, height, centerX: (24 + variant.phaseX * 2) * FRAME.scale - west, centerY: (24 + variant.phaseY * 2) * FRAME.scale - north })
     }
-    const width = Math.max(0, east - west), height = Math.max(0, south - north)
-    if (!width || !height) throw new Error(`Isolijntekst ontbreekt in atlas: ${variant.key}`)
-    const rgba = Buffer.alloc(width * height * 4)
-    for (let row = 0; row < height; row++) {
-      const start = ((top + north + row) * sheet.info.width + left + west) * 4
-      sheet.data.copy(rgba, row * width * 4, start, start + width * 4)
-    }
-    return [variant.key, { rgba, width, height, centerX: (24 + variant.phaseX * 2) * FRAME.scale - west, centerY: (24 + variant.phaseY * 2) * FRAME.scale - north }]
-  }))
+  }
+  return glyphs
 }

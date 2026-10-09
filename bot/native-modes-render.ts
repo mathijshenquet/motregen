@@ -9,7 +9,7 @@ import { FRAME_PIXELS } from './config.js'
 import { encodeRgbLoop } from './encode.js'
 import type { SequencePlan } from './sequences.js'
 import type { LoopMode, StillManifest } from './stills.js'
-import { NativeMaps } from './native-map.js'
+import { NativeMaps, type NativeTheme } from './native-map.js'
 import { NativeRainData, RainCompositor, rainTheme } from './native-rain.js'
 import { drawTemperatureLabels } from './native-labels.js'
 import { NativeOverlay } from './native-overlay.js'
@@ -22,6 +22,7 @@ import { NativeFieldRaster } from './native-field-raster.js'
 import { NativeWindData } from './native-wind.js'
 import { NativeIsolineLabels } from './native-isoline-labels.js'
 import { nativeFramePath } from './native-render.js'
+import { releaseFileCache } from './native-raster.js'
 
 export class NativeModesRenderer {
   constructor(private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>, private readonly sharedMaps?: NativeMaps, private readonly assetsReady?: () => Promise<void>) {}
@@ -36,7 +37,7 @@ export class NativeModesRenderer {
     const temperature = new NativeTemperatureData(this.origin, manifest, mode === 'feels' ? 'temperature' : 'pressure')
     const wind = mode === 'wind' ? new NativeWindData(this.origin, manifest) : undefined
     const firstRain = await rain.frame(Date.parse(manifest.now))
-    await Promise.all([temperatures?.prefetch(plan.epochs.map(temperatureEpoch)), temperature.prepare(plan.epochs), wind?.prepare(plan.epochs), ...[...new Set(plan.epochs.map(rainTheme))].map(async (theme) => { await maps.get(theme, firstRain.grid) })])
+    await Promise.all([temperatures?.prefetch(plan.epochs.map(temperatureEpoch)), temperature.prepare(), wind?.prepare(plan.epochs), ...[...new Set(plan.epochs.map(rainTheme))].map(async (theme) => { await maps.get(theme, firstRain.grid) })])
     await overlay.prepare(manifest)
     const geometries: RasterGeometry[] = []
     const placements: TextPlacement[][] = []
@@ -46,17 +47,15 @@ export class NativeModesRenderer {
       placements.push(labelAnchors.place(slice, rainTheme(epoch)))
       geometries.push({ kind: slice.kind, grid: slice.grid, segments: slice.segments, opacity: slice.opacity, rings: shortRings(slice.contours, slice.kind === 'pressure' ? 0 : ISOLINE_RING_KM) })
     }
+    // Reclaim temporary contour arrays before the atlas browser shares this memory budget.
+    global.gc?.()
     const firstSlice = geometries[0]!
     const raster = new NativeFieldRaster(firstSlice.grid)
-    const rainCompositors = new Map<string, RainCompositor>()
+    let rainCompositor: RainCompositor | undefined
+    let compositorTheme: NativeTheme | undefined
     try {
       if (wind) {
         await rain.prefetch(plan.epochs)
-        for (const theme of new Set(plan.epochs.map(rainTheme))) {
-          const compositor = new RainCompositor(firstRain.grid, FRAME_PIXELS, NATIVE_VIEW, rainPresentation({ temperatureFocus: 0, windFocus: 1, airFocus: 0, night: theme === 'dark' }))
-          await compositor.prepare()
-          rainCompositors.set(theme, compositor)
-        }
       }
       const pressureMarks = wind ? await NativePressureMarks.prepare(this.directory, this.context) : undefined
       const text = new NativeText(await nativeTextAtlas(this.origin, this.directory, this.context, placements.flat()))
@@ -91,11 +90,20 @@ export class NativeModesRenderer {
           rgb = await wind!.draw(rgb, epoch, 1000 + index * 1000 / plan.fps, theme, plate.water)
           const pressureBlend = frameBlend(temperature.data.timeline, epoch)
           await pressureMarks!.draw(rgb, slice.grid, await temperature.field(pressureBlend.left), await temperature.field(pressureBlend.right), pressureBlend.mix, theme, slice.opacity)
-          rgb = await rainCompositors.get(theme)!.composeFast(rgb, await rain.frame(epoch), theme === 'dark')
+          if (compositorTheme !== theme) {
+            await rainCompositor?.close()
+            rainCompositor = new RainCompositor(firstRain.grid, FRAME_PIXELS, NATIVE_VIEW, rainPresentation({ temperatureFocus: 0, windFocus: 1, airFocus: 0, night: theme === 'dark' }))
+            compositorTheme = theme
+          }
+          rgb = await rainCompositor!.composeFast(rgb, await rain.frame(epoch), theme === 'dark')
           for (const label of placements[index]!) await text.draw(rgb, label.text, label.screenX, label.screenY, label.angle, label.color, label.theme, label.opacity)
         }
         rgb = await overlay.draw(rgb, epoch, Date.parse(manifest.now))
-        if (stillIndexes.has(index)) await writeFile(nativeFramePath(directory, index), [header, rgb])
+        if (stillIndexes.has(index)) {
+          const path = nativeFramePath(directory, index)
+          await writeFile(path, [header, rgb])
+          await releaseFileCache(path)
+        }
         const milliseconds = performance.now() - frameStarted
         renderMs += milliseconds
         if (stillIndexes.has(index)) console.info(JSON.stringify({ event: 'native-still-frame', mode, epoch, milliseconds: Math.round(milliseconds) }))
@@ -108,6 +116,10 @@ export class NativeModesRenderer {
       console.info(JSON.stringify({ event: 'native-loop-profile', mode, preparationMs, loopMs, renderMs: loopRenderMs }))
       for (let index = plan.loopFrames; index < plan.epochs.length; index++) await render(index)
       return { renderMs: Math.round(renderMs + preparationMs), encodeMs: Math.max(0, Math.round(performance.now() - started - renderMs - preparationMs)), preparationMs, loopMs, loopRenderMs, bytes: encoded.bytes }
-    } finally { await raster.close(); await Promise.all([...rainCompositors.values()].map((compositor) => compositor.close())) }
+    } finally {
+      await raster.close()
+      await rainCompositor?.close()
+      rain.clear(); temperatures?.clear(); temperature.clear(); wind?.clear(); maps.clear()
+    }
   }
 }

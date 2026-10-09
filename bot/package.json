@@ -7,10 +7,10 @@
     "dist"
   ],
   "scripts": {
-    "start": "node dist/bot/main.js",
-    "dev": "tsx main.ts",
-    "smoke": "tsx smoke.ts",
-    "render": "tsx smoke.ts --render-only",
+    "start": "node --max-old-space-size=192 --expose-gc dist/bot/main.js",
+    "dev": "node --max-old-space-size=192 --expose-gc --import tsx main.ts",
+    "smoke": "node --max-old-space-size=192 --expose-gc --import tsx smoke.ts",
+    "render": "node --max-old-space-size=192 --expose-gc --import tsx smoke.ts --render-only",
     "parity": "tsx parity.ts",
     "typecheck": "tsc --noEmit",
     "pretest": "pnpm --dir ../web synthgen",

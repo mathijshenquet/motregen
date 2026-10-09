@@ -249,7 +249,7 @@ export class StillRenderer {
       return this.results(mode, manifest, metrics, false)
     } catch (error) {
       throw new StillRenderError(mode, 'native', undefined, error)
-    } finally { await rm(directory, { recursive: true, force: true }) }
+    } finally { await rm(directory, { recursive: true, force: true }); global.gc?.() }
   }
 
   private async renderSequence(mode: LoopMode, manifest: StillManifest, key: string): Promise<RenderedSequence> {

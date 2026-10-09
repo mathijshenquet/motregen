@@ -35,19 +35,15 @@ export class NativeTemperatureData {
         const grid = frames[0]!.grid
         return prepareField(blurField(blendFrames(frames.map((frame, position) => ({ data: frame.mix === 1 ? frame.right : frame.left, quant: (frame.mix === 1 ? frame.rightHeader : frame.leftHeader).quant, weight: weights[position]!.weight })), grid.width, grid.height), isolineBlurPasses(this.kind)))
       })()
-      this.prepared.set(index, pending)
       void pending.catch(() => this.prepared.delete(index))
     }
+    this.prepared.delete(index)
+    this.prepared.set(index, pending)
+    while (this.prepared.size > 4) this.prepared.delete(this.prepared.keys().next().value!)
     return pending
   }
 
-  async prepare(epochs: readonly number[]): Promise<void> {
-    const required = new Set<number>()
-    for (const epoch of epochs) {
-      const blend = frameBlend(this.data.timeline, epoch)
-      for (const weight of sliceWeights(blend.left + blend.mix, this.data.timeline.length, ISOLINE_WINDOW)) required.add(weight.index)
-    }
-    for (const index of required) await this.field(index)
+  async prepare(): Promise<void> {
     if (this.kind === 'pressure') { this.colors = new Float32Array(256 * 3); return }
     let min = Infinity, max = -Infinity
     const now = Date.parse(this.manifest.now)
@@ -64,6 +60,8 @@ export class NativeTemperatureData {
     const stops = paletteStops(range)
     this.colors = Float32Array.from({ length: 256 * 3 }, (_, index) => bandColor(Math.floor(index / 3) - 128, 1, stops)[index % 3]!)
   }
+
+  clear(): void { this.prepared.clear(); this.labelLines.clear(); this.data.clear() }
 
   private async blendedField(epoch: number) {
     const blend = frameBlend(this.data.timeline, epoch)
@@ -104,6 +102,7 @@ export class NativeTemperatureData {
       const values = Float32Array.from(labelField.values, (value, index) => labelField.valid[index]! > 0.5 ? value : NaN)
       labelLines = isolineFeatures({ width: grid.width, height: grid.height, values }, grid, this.step, ISOLINE_RING_KM, this.kind)
       this.labelLines.set(labelKey, labelLines)
+      while (this.labelLines.size > 2) this.labelLines.delete(this.labelLines.keys().next().value!)
     }
     return { grid, field, labelSlice: { width: grid.width, height: grid.height, fields, weights: weights.map(({ weight }) => weight) }, segments, contours, labelLines, labelKey, kind: this.kind, step: this.step, rings: options.rasterizeRings !== false && this.kind === 'temperature' ? ringFadeRaster(shortRings(contours, ISOLINE_RING_KM), grid.width, grid.height) : undefined, colors: this.colors!, opacity: timelineCoverage(this.data.timeline, epoch, ISOLINE_EDGE_FADE_MS) }
   }

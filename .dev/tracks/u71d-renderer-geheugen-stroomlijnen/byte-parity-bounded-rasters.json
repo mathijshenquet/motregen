@@ -1,0 +1,8 @@
+{
+  "source": "tmp/u71d-baseline",
+  "target": "tmp/u71d-bounded-rasters",
+  "compared": 343,
+  "missingFiles": [],
+  "extraFiles": [],
+  "differences": []
+}

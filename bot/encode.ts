@@ -7,6 +7,7 @@ import { promisify } from 'node:util'
 import type { SequencePlan } from './sequences.js'
 import sharp from 'sharp'
 import { FRAME_PIXELS } from './config.js'
+import { releaseFileCache } from './native-raster.js'
 
 const run = promisify(execFile)
 const MAX_LOOP_BYTES = 3_000_000
@@ -21,6 +22,7 @@ export async function encodeStill(frame: string, destination: string): Promise<v
     const header = Buffer.from(`P6\n${FRAME_PIXELS.width} ${FRAME_PIXELS.height}\n255\n`)
     if (!bytes.subarray(0, header.length).equals(header) || bytes.length !== header.length + FRAME_PIXELS.width * FRAME_PIXELS.height * 3) throw new Error('Ongeldig native stillframe')
     await sharp(bytes.subarray(header.length), { raw: { ...FRAME_PIXELS, channels: 3 } }).jpeg({ quality: 95, chromaSubsampling: '4:4:4' }).toFile(destination)
+    await releaseFileCache(frame)
     return
   }
   await run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', frame, '-frames:v', '1', '-threads', '2', '-q:v', '3', '-f', 'image2', destination])

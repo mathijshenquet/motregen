@@ -1,7 +1,7 @@
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import { writeStream } from './write-stream.js'
-import { access, mkdir, readFile, rename } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, readFile, rename, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -27,9 +27,11 @@ async function executable(): Promise<string> {
     await mkdir(cache, { recursive: true })
     const path = join(cache, hash)
     try { await access(path) } catch {
-      const temporary = `${path}.${randomUUID()}`
-      await run('rustc', [source, '-O', '-o', temporary])
-      await rename(temporary, path)
+      const temporary = await mkdtemp(join(cache, `${hash}-`))
+      try {
+        await run('rustc', [source, '-O', '-o', join(temporary, 'worker')])
+        await rename(join(temporary, 'worker'), path)
+      } finally { await rm(temporary, { recursive: true, force: true }) }
     }
     return path
   })()

@@ -117,7 +117,7 @@ export class NativeRainData {
     if (retainRaster) {
       this.rasters.delete(key)
       this.rasters.set(key, raster)
-      // A smoothed hour field needs three adjacent pairs; rendering retains no older rasters.
+      // Pressure smoothing reads five hours and their preceding interpolation frame.
       while (this.rasters.size > 6) this.rasters.delete(this.rasters.keys().next().value!)
     }
     return { grid: chunk.header.grid, raster, header: chunk.header }

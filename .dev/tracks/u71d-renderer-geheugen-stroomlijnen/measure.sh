@@ -41,10 +41,10 @@ writeFileSync(process.argv[1], JSON.stringify({ patch: readFileSync(0, "utf8") }
 cat /proc/loadavg >> "$measure_track/$measure_label-host.txt"
 if flock /home/mathijs/motregen-perf.lock systemd-run --user --wait --pipe \
   --unit="motregen-u71d-$measure_label" --working-directory="$PWD" \
-  -p MemoryHigh="$measure_high" -p MemoryMax="$measure_max" -p CPUQuota=200% \
-  "$(command -v env)" "PATH=$PATH" "TG_BOT_KEY=x" "MOTREGEN_ORIGIN=$MOTREGEN_ORIGIN" \
+  -p MemoryHigh="$measure_high" -p MemoryMax="$measure_max" -p MemorySwapMax=0 -p CPUQuota=200% \
+  "$(command -v env)" "PATH=$PATH" "MALLOC_ARENA_MAX=2" "MALLOC_MMAP_THRESHOLD_=131072" "TG_BOT_KEY=x" "MOTREGEN_ORIGIN=$MOTREGEN_ORIGIN" \
   "MOTREGEN_RENDER_CACHE=$MOTREGEN_RENDER_CACHE" "MOTREGEN_CHROMIUM_PATH=$MOTREGEN_CHROMIUM_PATH" \
-  "MOTREGEN_TIME_PATH=$MOTREGEN_TIME_PATH" \
+  "MOTREGEN_TIME_PATH=$MOTREGEN_TIME_PATH" "MOTREGEN_NODE_HEAP=${MOTREGEN_NODE_HEAP:-}" \
   "$(command -v node)" "$measure_track/profile.mjs" "$measure_label" "$measure_runtime" \
   > "$measure_track/$measure_label.log" 2>&1; then
   measure_status=0

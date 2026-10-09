@@ -9,6 +9,7 @@ import { NativeMaps } from './native-map.js'
 import { NativeRainData, RainCompositor, rainTheme } from './native-rain.js'
 import { drawTemperatureLabels } from './native-labels.js'
 import { NativeOverlay } from './native-overlay.js'
+import { releaseFileCache } from './native-raster.js'
 
 export function nativeFramePath(directory: string, index: number): string { return join(directory, `frame-${String(index).padStart(3, '0')}.ppm`) }
 
@@ -51,7 +52,11 @@ export class NativeWeatherRenderer {
         const composed = performance.now()
         const rgb = await overlay.draw(rain, epoch, now)
         const overlaid = performance.now()
-        if (stillIndexes.has(index)) await writeFile(nativeFramePath(directory, index), [header, rgb])
+        if (stillIndexes.has(index)) {
+          const path = nativeFramePath(directory, index)
+          await writeFile(path, [header, rgb])
+          await releaseFileCache(path)
+        }
         const finished = performance.now()
         phases.dataMs += loaded - frameStarted
         phases.labelsMs += labelled - loaded
@@ -72,6 +77,6 @@ export class NativeWeatherRenderer {
       loopComplete()
       for (let index = plan.loopFrames; index < plan.epochs.length; index++) await render(index)
       return { renderMs: Math.round(renderMs + loopStarted - started), encodeMs: Math.max(0, Math.round(performance.now() - started - renderMs - (loopStarted - started))), preparationMs, loopMs, loopRenderMs, bytes: encoded.bytes }
-    } finally { await compositor.close() }
+    } finally { await compositor.close(); data.clear(); temperatures?.clear(); maps.clear() }
   }
 }
