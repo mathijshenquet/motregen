@@ -26,7 +26,7 @@ for (const [variant, { prefix, capture }] of captures.entries()) {
     const top = (Math.floor(index / columns) * 2 + variant) * (thumbnailHeight + labelHeight)
     if (existsSync(imagePath)) composites.push({ input: await sharp(imagePath).resize(thumbnailWidth, thumbnailHeight, { fit: 'contain', background: '#f4f4f4' }).toBuffer(), left, top })
     const label = [
-      `${variant === 0 ? 'A' : 'B'} doel ${shot.targetMs} / beeld ${number(shot.frameMs)} ms`,
+      `${variant === 0 ? 'A' : 'B'} doel ${number(shot.targetMs)} / beeld ${number(shot.frameMs)} ms`,
       `sample ${number(shot.sample?.ms)} ms · klok ${shot.sample?.cursorIndex ?? '—'}`,
       `regen ${shot.sample?.rainCursor === undefined ? '—' : Number(shot.sample.rainCursor).toFixed(2)} · ${shot.sample?.mapStart ?? '—'}`,
       `tegels ${shot.sample?.tilesLoaded ?? '—'}`,

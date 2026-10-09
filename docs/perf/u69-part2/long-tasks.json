@@ -1,0 +1,4030 @@
+{
+  "window": "Frames >100 ms die de eerste 5 s vanaf klokstart overlappen; scriptduur is geen duur van de volledige frame.",
+  "runs": [
+    {
+      "name": "h1-desktop-cold-candidate-1.json",
+      "profile": "desktop",
+      "side": "candidate",
+      "frames": [
+        {
+          "startAfterClockMs": 168.9,
+          "durationMs": 644.4,
+          "beforeRenderMs": 619.3,
+          "renderingMs": 25.1,
+          "scripts": [
+            {
+              "durationMs": 27.3,
+              "invoker": "Response.json.then",
+              "functionName": "(anonymous)",
+              "source": "src/core/places.ts",
+              "line": 92
+            },
+            {
+              "durationMs": 9.7,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 17.5,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 11.1,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1079.1,
+          "durationMs": 200.1,
+          "beforeRenderMs": 197.1,
+          "renderingMs": 3,
+          "scripts": [
+            {
+              "durationMs": 14.5,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "h1-desktop-cold-candidate-2.json",
+      "profile": "desktop",
+      "side": "candidate",
+      "frames": [
+        {
+          "startAfterClockMs": 133,
+          "durationMs": 474.6,
+          "beforeRenderMs": 456.1,
+          "renderingMs": 18.5,
+          "scripts": [
+            {
+              "durationMs": 26,
+              "invoker": "Response.json.then",
+              "functionName": "(anonymous)",
+              "source": "src/core/places.ts",
+              "line": 92
+            },
+            {
+              "durationMs": 19.6,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 7.8,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 10.7,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 12.6,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 8,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 11.2,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 902.1,
+          "durationMs": 145.9,
+          "beforeRenderMs": 143.9,
+          "renderingMs": 2,
+          "scripts": []
+        },
+        {
+          "startAfterClockMs": 765.1,
+          "durationMs": 128.6,
+          "beforeRenderMs": 109.7,
+          "renderingMs": 18.9,
+          "scripts": []
+        }
+      ]
+    },
+    {
+      "name": "h1-desktop-cold-candidate-3.json",
+      "profile": "desktop",
+      "side": "candidate",
+      "frames": [
+        {
+          "startAfterClockMs": 258.3,
+          "durationMs": 840.8,
+          "beforeRenderMs": 802.6,
+          "renderingMs": 38.2,
+          "scripts": [
+            {
+              "durationMs": 32.4,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 9.6,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 5.7,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 12.8,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 12.6,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 9.5,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 7.6,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 18.6,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 12,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 7.1,
+              "invoker": "TimerHandler:setInterval",
+              "functionName": "TimerHandler:setInterval",
+              "source": "",
+              "line": null
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1369.2,
+          "durationMs": 110.9,
+          "beforeRenderMs": 107.5,
+          "renderingMs": 3.4,
+          "scripts": []
+        },
+        {
+          "startAfterClockMs": 1653.9,
+          "durationMs": 141.8,
+          "beforeRenderMs": 137.5,
+          "renderingMs": 4.3,
+          "scripts": []
+        },
+        {
+          "startAfterClockMs": 2036.2,
+          "durationMs": 277.6,
+          "beforeRenderMs": 276.4,
+          "renderingMs": 1.2,
+          "scripts": []
+        },
+        {
+          "startAfterClockMs": 2317.3,
+          "durationMs": 348.8,
+          "beforeRenderMs": 345.9,
+          "renderingMs": 2.9,
+          "scripts": []
+        }
+      ]
+    },
+    {
+      "name": "h1-desktop-cold-reference-1.json",
+      "profile": "desktop",
+      "side": "reference",
+      "frames": [
+        {
+          "startAfterClockMs": 148.7,
+          "durationMs": 967.2,
+          "beforeRenderMs": 963.6,
+          "renderingMs": 3.6,
+          "scripts": [
+            {
+              "durationMs": 958.1,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1461.2,
+          "durationMs": 152.1,
+          "beforeRenderMs": 137.1,
+          "renderingMs": 15,
+          "scripts": []
+        },
+        {
+          "startAfterClockMs": 2108.2,
+          "durationMs": 132.9,
+          "beforeRenderMs": 129.6,
+          "renderingMs": 3.3,
+          "scripts": []
+        },
+        {
+          "startAfterClockMs": 2514.5,
+          "durationMs": 149.4,
+          "beforeRenderMs": 146.1,
+          "renderingMs": 3.3,
+          "scripts": []
+        }
+      ]
+    },
+    {
+      "name": "h1-desktop-cold-reference-2.json",
+      "profile": "desktop",
+      "side": "reference",
+      "frames": [
+        {
+          "startAfterClockMs": 129.5,
+          "durationMs": 793.4,
+          "beforeRenderMs": 787.8,
+          "renderingMs": 5.6,
+          "scripts": [
+            {
+              "durationMs": 779.2,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 927.2,
+          "durationMs": 226.4,
+          "beforeRenderMs": 206.8,
+          "renderingMs": 19.6,
+          "scripts": [
+            {
+              "durationMs": 28,
+              "invoker": "Response.json.then",
+              "functionName": "(anonymous)",
+              "source": "src/core/places.ts",
+              "line": 92
+            },
+            {
+              "durationMs": 8,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 23,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 6.3,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 14,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 5.1,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 8,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 17,
+              "invoker": "TimerHandler:setTimeout",
+              "functionName": "(anonymous)",
+              "source": "src/core/wind-layer.ts",
+              "line": 1104
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1351.2,
+          "durationMs": 117.8,
+          "beforeRenderMs": 89.5,
+          "renderingMs": 28.3,
+          "scripts": [
+            {
+              "durationMs": 7.4,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 5.5,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 6.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 2057.7,
+          "durationMs": 233.1,
+          "beforeRenderMs": 231.7,
+          "renderingMs": 1.4,
+          "scripts": []
+        }
+      ]
+    },
+    {
+      "name": "h1-desktop-cold-reference-3.json",
+      "profile": "desktop",
+      "side": "reference",
+      "frames": [
+        {
+          "startAfterClockMs": 183.9,
+          "durationMs": 981.1,
+          "beforeRenderMs": 976.1,
+          "renderingMs": 5,
+          "scripts": [
+            {
+              "durationMs": 957.6,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1168.8,
+          "durationMs": 112.4,
+          "beforeRenderMs": 107.3,
+          "renderingMs": 5.1,
+          "scripts": [
+            {
+              "durationMs": 31.5,
+              "invoker": "Response.json.then",
+              "functionName": "(anonymous)",
+              "source": "src/core/places.ts",
+              "line": 92
+            },
+            {
+              "durationMs": 8.9,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 7.9,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 12.4,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1524,
+          "durationMs": 117.4,
+          "beforeRenderMs": 100.4,
+          "renderingMs": 17,
+          "scripts": []
+        },
+        {
+          "startAfterClockMs": 2063,
+          "durationMs": 134.9,
+          "beforeRenderMs": 130.2,
+          "renderingMs": 4.7,
+          "scripts": []
+        },
+        {
+          "startAfterClockMs": 2548.5,
+          "durationMs": 104.6,
+          "beforeRenderMs": 101.7,
+          "renderingMs": 2.9,
+          "scripts": []
+        },
+        {
+          "startAfterClockMs": 2663.8,
+          "durationMs": 243.1,
+          "beforeRenderMs": 240.4,
+          "renderingMs": 2.7,
+          "scripts": []
+        }
+      ]
+    },
+    {
+      "name": "h1-po-android-cold-candidate-1.json",
+      "profile": "po-android",
+      "side": "candidate",
+      "frames": [
+        {
+          "startAfterClockMs": -164.8,
+          "durationMs": 214.5,
+          "beforeRenderMs": 109.9,
+          "renderingMs": 104.6,
+          "scripts": [
+            {
+              "durationMs": 22.9,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 10.3,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 5.2,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 49.4,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 59.3,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 6.7,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 70.2,
+          "durationMs": 110,
+          "beforeRenderMs": 85.2,
+          "renderingMs": 24.8,
+          "scripts": [
+            {
+              "durationMs": 15.2,
+              "invoker": "IdleRequestCallback",
+              "functionName": "preloadTemperatureAtCursor",
+              "source": "src/App.tsx",
+              "line": 1934
+            },
+            {
+              "durationMs": 5.5,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 15.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 196.7,
+          "durationMs": 153.5,
+          "beforeRenderMs": 53.7,
+          "renderingMs": 99.8,
+          "scripts": [
+            {
+              "durationMs": 15.1,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 10.1,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 8,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 49.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 380.5,
+          "durationMs": 160,
+          "beforeRenderMs": 129.2,
+          "renderingMs": 30.8,
+          "scripts": [
+            {
+              "durationMs": 10.1,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 39.2,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 30.2,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 20,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 711.2,
+          "durationMs": 144.7,
+          "beforeRenderMs": 49.2,
+          "renderingMs": 95.5,
+          "scripts": [
+            {
+              "durationMs": 7.8,
+              "invoker": "PerformanceObserverCallback",
+              "functionName": "PerformanceObserverCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 45.7,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 34.3,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 871,
+          "durationMs": 435.4,
+          "beforeRenderMs": 380,
+          "renderingMs": 55.4,
+          "scripts": [
+            {
+              "durationMs": 5.6,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 369.5,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 35.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 9.5,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1451.7,
+          "durationMs": 139.8,
+          "beforeRenderMs": 78.3,
+          "renderingMs": 61.5,
+          "scripts": [
+            {
+              "durationMs": 31.2,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 9,
+              "invoker": "Window.fetch.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 618
+            },
+            {
+              "durationMs": 23.8,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
+            },
+            {
+              "durationMs": 58.5,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1606.5,
+          "durationMs": 134.3,
+          "beforeRenderMs": 28.5,
+          "renderingMs": 105.8,
+          "scripts": [
+            {
+              "durationMs": 39.7,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 16.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            },
+            {
+              "durationMs": 24.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1751.3,
+          "durationMs": 203.8,
+          "beforeRenderMs": 179.7,
+          "renderingMs": 24.1,
+          "scripts": [
+            {
+              "durationMs": 176.2,
+              "invoker": "Response.json.then",
+              "functionName": "(anonymous)",
+              "source": "src/core/places.ts",
+              "line": 92
+            },
+            {
+              "durationMs": 14.6,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1965.6,
+          "durationMs": 126.7,
+          "beforeRenderMs": 104.6,
+          "renderingMs": 22.1,
+          "scripts": [
+            {
+              "durationMs": 99.4,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 2495.5,
+          "durationMs": 104.2,
+          "beforeRenderMs": 75.3,
+          "renderingMs": 28.9,
+          "scripts": [
+            {
+              "durationMs": 19.3,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 18.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 2629.7,
+          "durationMs": 226.7,
+          "beforeRenderMs": 45.2,
+          "renderingMs": 181.5,
+          "scripts": [
+            {
+              "durationMs": 9,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 25.2,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 9.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 44.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 45.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 59.7,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 3671.7,
+          "durationMs": 104.2,
+          "beforeRenderMs": 53.9,
+          "renderingMs": 50.3,
+          "scripts": [
+            {
+              "durationMs": 37.9,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 10.2,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 25.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 4020.1,
+          "durationMs": 310.3,
+          "beforeRenderMs": 49.7,
+          "renderingMs": 260.6,
+          "scripts": [
+            {
+              "durationMs": 20.8,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 14.8,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 70,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 50.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 90.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 4360.7,
+          "durationMs": 164.6,
+          "beforeRenderMs": 129.4,
+          "renderingMs": 35.2,
+          "scripts": [
+            {
+              "durationMs": 29.6,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 84.9,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 8.6,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 5.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "src/App.tsx",
+              "line": 3359
+            },
+            {
+              "durationMs": 11.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 4730.2,
+          "durationMs": 264.6,
+          "beforeRenderMs": 34.6,
+          "renderingMs": 230,
+          "scripts": [
+            {
+              "durationMs": 9.4,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
+            },
+            {
+              "durationMs": 9.6,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 10,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 50.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 80.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 10,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 30.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "h1-po-android-cold-candidate-2.json",
+      "profile": "po-android",
+      "side": "candidate",
+      "frames": [
+        {
+          "startAfterClockMs": 205.1,
+          "durationMs": 240,
+          "beforeRenderMs": 160.1,
+          "renderingMs": 79.9,
+          "scripts": [
+            {
+              "durationMs": 25.3,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 14.8,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 35.2,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 509.9,
+          "durationMs": 169.5,
+          "beforeRenderMs": 61.1,
+          "renderingMs": 108.4,
+          "scripts": [
+            {
+              "durationMs": 9.8,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 9.1,
+              "invoker": "Window.fetch.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 618
+            },
+            {
+              "durationMs": 10.4,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 14.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 50.6,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 704.6,
+          "durationMs": 115,
+          "beforeRenderMs": 104.7,
+          "renderingMs": 10.3,
+          "scripts": [
+            {
+              "durationMs": 24.8,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 15.4,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 844.8,
+          "durationMs": 180.2,
+          "beforeRenderMs": 34.5,
+          "renderingMs": 145.7,
+          "scripts": [
+            {
+              "durationMs": 9.4,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 49.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 75.5,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1039.9,
+          "durationMs": 109.8,
+          "beforeRenderMs": 35.1,
+          "renderingMs": 74.7,
+          "scripts": [
+            {
+              "durationMs": 8.2,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 9.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 20.7,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1170,
+          "durationMs": 314.9,
+          "beforeRenderMs": 254.6,
+          "renderingMs": 60.3,
+          "scripts": [
+            {
+              "durationMs": 229.4,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 29.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 14.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1590.1,
+          "durationMs": 196.9,
+          "beforeRenderMs": 189.9,
+          "renderingMs": 7,
+          "scripts": [
+            {
+              "durationMs": 185.6,
+              "invoker": "Response.json.then",
+              "functionName": "(anonymous)",
+              "source": "src/core/places.ts",
+              "line": 92
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1874.9,
+          "durationMs": 150.6,
+          "beforeRenderMs": 94.5,
+          "renderingMs": 56.1,
+          "scripts": [
+            {
+              "durationMs": 19.1,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 9.7,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 10.9,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 34.2,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
+            },
+            {
+              "durationMs": 11,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 29.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 2135.4,
+          "durationMs": 124.1,
+          "beforeRenderMs": 89.5,
+          "renderingMs": 34.6,
+          "scripts": [
+            {
+              "durationMs": 69.3,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 10.3,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            },
+            {
+              "durationMs": 10,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 2460.1,
+          "durationMs": 134.5,
+          "beforeRenderMs": 64.2,
+          "renderingMs": 70.3,
+          "scripts": [
+            {
+              "durationMs": 9.6,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 5.6,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            },
+            {
+              "durationMs": 29.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 2610.2,
+          "durationMs": 139.6,
+          "beforeRenderMs": 84.5,
+          "renderingMs": 55.1,
+          "scripts": [
+            {
+              "durationMs": 20.5,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 9.3,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 9.8,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 20,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 5.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 3805,
+          "durationMs": 194.7,
+          "beforeRenderMs": 19.7,
+          "renderingMs": 175,
+          "scripts": [
+            {
+              "durationMs": 19.5,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 30.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 115.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "h1-po-android-cold-candidate-3.json",
+      "profile": "po-android",
+      "side": "candidate",
+      "frames": [
+        {
+          "startAfterClockMs": -84.7,
+          "durationMs": 130,
+          "beforeRenderMs": 74.7,
+          "renderingMs": 55.3,
+          "scripts": [
+            {
+              "durationMs": 9.4,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 19.9,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 29.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 85.1,
+          "durationMs": 190.2,
+          "beforeRenderMs": 90.1,
+          "renderingMs": 100.1,
+          "scripts": [
+            {
+              "durationMs": 9.8,
+              "invoker": "Window.fetch.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 618
+            },
+            {
+              "durationMs": 15.2,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 10.1,
+              "invoker": "IdleRequestCallback",
+              "functionName": "preloadTemperatureAtCursor",
+              "source": "src/App.tsx",
+              "line": 1934
+            },
+            {
+              "durationMs": 5.3,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 5.3,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 10,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 14.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 49.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 401,
+          "durationMs": 125,
+          "beforeRenderMs": 84.3,
+          "renderingMs": 40.7,
+          "scripts": [
+            {
+              "durationMs": 10.2,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
+            },
+            {
+              "durationMs": 9.8,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 5.1,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 14.9,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 5,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 10.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 15.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 550.1,
+          "durationMs": 211,
+          "beforeRenderMs": 76,
+          "renderingMs": 135,
+          "scripts": [
+            {
+              "durationMs": 61.1,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
+            },
+            {
+              "durationMs": 34.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 86.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 775.1,
+          "durationMs": 410.4,
+          "beforeRenderMs": 370,
+          "renderingMs": 40.4,
+          "scripts": [
+            {
+              "durationMs": 5.2,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 339.6,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 15.6,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            },
+            {
+              "durationMs": 8.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1330.9,
+          "durationMs": 230.9,
+          "beforeRenderMs": 199.2,
+          "renderingMs": 31.7,
+          "scripts": [
+            {
+              "durationMs": 189.6,
+              "invoker": "Response.json.then",
+              "functionName": "(anonymous)",
+              "source": "src/core/places.ts",
+              "line": 92
+            },
+            {
+              "durationMs": 13.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 9.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1801.3,
+          "durationMs": 106,
+          "beforeRenderMs": 18.9,
+          "renderingMs": 87.1,
+          "scripts": [
+            {
+              "durationMs": 5.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 15,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 21.5,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 8.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 14.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 2095.6,
+          "durationMs": 159.9,
+          "beforeRenderMs": 55.2,
+          "renderingMs": 104.7,
+          "scripts": [
+            {
+              "durationMs": 10,
+              "invoker": "TimerHandler:setInterval",
+              "functionName": "(anonymous)",
+              "source": "src/components/PerfHud.tsx",
+              "line": 32
+            },
+            {
+              "durationMs": 9.4,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 14,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 35,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 14.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 3095.3,
+          "durationMs": 110.2,
+          "beforeRenderMs": 85.6,
+          "renderingMs": 24.6,
+          "scripts": [
+            {
+              "durationMs": 24.9,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 48.2,
+              "invoker": "TimerHandler:setInterval",
+              "functionName": "TimerHandler:setInterval",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 5.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 3547,
+          "durationMs": 238,
+          "beforeRenderMs": 93.1,
+          "renderingMs": 144.9,
+          "scripts": [
+            {
+              "durationMs": 11.4,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 10.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 20,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 95.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 3865.3,
+          "durationMs": 141.5,
+          "beforeRenderMs": 130.3,
+          "renderingMs": 11.2,
+          "scripts": [
+            {
+              "durationMs": 128.9,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 5.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 4111,
+          "durationMs": 114.8,
+          "beforeRenderMs": 11.3,
+          "renderingMs": 103.5,
+          "scripts": [
+            {
+              "durationMs": 5.5,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 5.6,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 19.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 35,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 4580.6,
+          "durationMs": 114.9,
+          "beforeRenderMs": 34.7,
+          "renderingMs": 80.2,
+          "scripts": [
+            {
+              "durationMs": 5.1,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 5,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 5.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 25.5,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 9.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "h1-po-android-cold-reference-1.json",
+      "profile": "po-android",
+      "side": "reference",
+      "frames": [
+        {
+          "startAfterClockMs": -104.3,
+          "durationMs": 128.7,
+          "beforeRenderMs": 83.4,
+          "renderingMs": 45.3,
+          "scripts": [
+            {
+              "durationMs": 18.7,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 19.3,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 9.4,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 35.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 64.6,
+          "durationMs": 105,
+          "beforeRenderMs": 50,
+          "renderingMs": 55,
+          "scripts": [
+            {
+              "durationMs": 14.5,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 14.1,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 5.1,
+              "invoker": "Window.fetch.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 618
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 219.9,
+          "durationMs": 144.6,
+          "beforeRenderMs": 105.3,
+          "renderingMs": 39.3,
+          "scripts": [
+            {
+              "durationMs": 29.4,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 29.1,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 20.2,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 15.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 454.3,
+          "durationMs": 245,
+          "beforeRenderMs": 145.3,
+          "renderingMs": 99.7,
+          "scripts": [
+            {
+              "durationMs": 10,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 14.1,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 34.5,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 70.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 769.2,
+          "durationMs": 145.5,
+          "beforeRenderMs": 80.6,
+          "renderingMs": 64.9,
+          "scripts": [
+            {
+              "durationMs": 14.1,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 15.2,
+              "invoker": "Window.fetch.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 618
+            },
+            {
+              "durationMs": 19.9,
+              "invoker": "TimerHandler:setInterval",
+              "functionName": "(anonymous)",
+              "source": "src/components/PerfHud.tsx",
+              "line": 32
+            },
+            {
+              "durationMs": 9.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 29.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 944.2,
+          "durationMs": 125.3,
+          "beforeRenderMs": 50.8,
+          "renderingMs": 74.5,
+          "scripts": [
+            {
+              "durationMs": 10.7,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 25.5,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 24.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1094.8,
+          "durationMs": 404.9,
+          "beforeRenderMs": 379.6,
+          "renderingMs": 25.3,
+          "scripts": [
+            {
+              "durationMs": 23.7,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 353.6,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 19.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1505.1,
+          "durationMs": 114.9,
+          "beforeRenderMs": 109,
+          "renderingMs": 5.9,
+          "scripts": [
+            {
+              "durationMs": 10.2,
+              "invoker": "IdleRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "src/App.tsx",
+              "line": 2253
+            },
+            {
+              "durationMs": 39.3,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
+            },
+            {
+              "durationMs": 23.6,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1620.2,
+          "durationMs": 346.9,
+          "beforeRenderMs": 250.9,
+          "renderingMs": 96,
+          "scripts": [
+            {
+              "durationMs": 14.8,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 165.6,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
+            },
+            {
+              "durationMs": 11.7,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 68.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1980.9,
+          "durationMs": 204.2,
+          "beforeRenderMs": 163.9,
+          "renderingMs": 40.3,
+          "scripts": [
+            {
+              "durationMs": 134.6,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 9.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 9.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            },
+            {
+              "durationMs": 10.6,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 2194.6,
+          "durationMs": 184.8,
+          "beforeRenderMs": 171,
+          "renderingMs": 13.8,
+          "scripts": [
+            {
+              "durationMs": 5,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 165,
+              "invoker": "Response.json.then",
+              "functionName": "(anonymous)",
+              "source": "src/core/places.ts",
+              "line": 92
+            },
+            {
+              "durationMs": 5.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 2379.6,
+          "durationMs": 165.2,
+          "beforeRenderMs": 140.5,
+          "renderingMs": 24.7,
+          "scripts": [
+            {
+              "durationMs": 31.3,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 55.7,
+              "invoker": "TimerHandler:setTimeout",
+              "functionName": "(anonymous)",
+              "source": "src/core/wind-layer.ts",
+              "line": 1104
+            },
+            {
+              "durationMs": 9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 2554.4,
+          "durationMs": 180.8,
+          "beforeRenderMs": 170.1,
+          "renderingMs": 10.7,
+          "scripts": [
+            {
+              "durationMs": 165.2,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 2745.1,
+          "durationMs": 114,
+          "beforeRenderMs": 69.2,
+          "renderingMs": 44.8,
+          "scripts": [
+            {
+              "durationMs": 8.8,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
+            },
+            {
+              "durationMs": 9.8,
+              "invoker": "TimerHandler:setInterval",
+              "functionName": "(anonymous)",
+              "source": "src/components/PerfHud.tsx",
+              "line": 32
+            },
+            {
+              "durationMs": 10,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 5.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 2950.1,
+          "durationMs": 279.3,
+          "beforeRenderMs": 94.9,
+          "renderingMs": 184.4,
+          "scripts": [
+            {
+              "durationMs": 5.1,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 10.1,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 15,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 39,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 19.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 59.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 15.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 3245.8,
+          "durationMs": 239.2,
+          "beforeRenderMs": 144.3,
+          "renderingMs": 94.9,
+          "scripts": [
+            {
+              "durationMs": 120.3,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 28.7,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 25.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            },
+            {
+              "durationMs": 30.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 3525.8,
+          "durationMs": 114.9,
+          "beforeRenderMs": 78.3,
+          "renderingMs": 36.6,
+          "scripts": [
+            {
+              "durationMs": 20.3,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 9.1,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 19.6,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "src/core/overlay-canvas.ts",
+              "line": 58
+            },
+            {
+              "durationMs": 14.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 4020,
+          "durationMs": 119.7,
+          "beforeRenderMs": 59.4,
+          "renderingMs": 60.3,
+          "scripts": [
+            {
+              "durationMs": 5,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 5.7,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 44.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 4149.9,
+          "durationMs": 105,
+          "beforeRenderMs": 15.1,
+          "renderingMs": 89.9,
+          "scripts": [
+            {
+              "durationMs": 13.7,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 44.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            },
+            {
+              "durationMs": 20.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 4576.5,
+          "durationMs": 182.6,
+          "beforeRenderMs": 107.8,
+          "renderingMs": 74.8,
+          "scripts": [
+            {
+              "durationMs": 20.1,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 25.1,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 5,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 14.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 4809.2,
+          "durationMs": 185.1,
+          "beforeRenderMs": 91.8,
+          "renderingMs": 93.3,
+          "scripts": [
+            {
+              "durationMs": 50.5,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 20.1,
+              "invoker": "TimerHandler:setInterval",
+              "functionName": "(anonymous)",
+              "source": "src/components/PerfHud.tsx",
+              "line": 32
+            },
+            {
+              "durationMs": 5.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 14.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 14.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 20.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "h1-po-android-cold-reference-2.json",
+      "profile": "po-android",
+      "side": "reference",
+      "frames": [
+        {
+          "startAfterClockMs": -105.2,
+          "durationMs": 169.9,
+          "beforeRenderMs": 89.8,
+          "renderingMs": 80.1,
+          "scripts": [
+            {
+              "durationMs": 5.4,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 5,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 5.2,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 10.6,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 149.5,
+          "durationMs": 235.1,
+          "beforeRenderMs": 115.1,
+          "renderingMs": 120,
+          "scripts": [
+            {
+              "durationMs": 10.1,
+              "invoker": "Window.fetch.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 618
+            },
+            {
+              "durationMs": 23.8,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 9.6,
+              "invoker": "Window.fetch.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 618
+            },
+            {
+              "durationMs": 9.8,
+              "invoker": "Window.fetch.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 618
+            },
+            {
+              "durationMs": 10.1,
+              "invoker": "IdleRequestCallback",
+              "functionName": "preloadTemperatureAtCursor",
+              "source": "src/App.tsx",
+              "line": 1921
+            },
+            {
+              "durationMs": 19.7,
+              "invoker": "TimerHandler:setInterval",
+              "functionName": "(anonymous)",
+              "source": "src/components/PerfHud.tsx",
+              "line": 32
+            },
+            {
+              "durationMs": 14.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 65.3,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 409.7,
+          "durationMs": 185.5,
+          "beforeRenderMs": 94.9,
+          "renderingMs": 90.6,
+          "scripts": [
+            {
+              "durationMs": 5,
+              "invoker": "TimerHandler:setInterval",
+              "functionName": "TimerHandler:setInterval",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 15.1,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 5.1,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 5.8,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 9.1,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 15,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 20.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 49.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 616,
+          "durationMs": 118.7,
+          "beforeRenderMs": 89.7,
+          "renderingMs": 29,
+          "scripts": [
+            {
+              "durationMs": 5.7,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 14,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 6,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 944.7,
+          "durationMs": 156.2,
+          "beforeRenderMs": 15.7,
+          "renderingMs": 140.5,
+          "scripts": [
+            {
+              "durationMs": 8.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 80.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 39.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1145,
+          "durationMs": 241.2,
+          "beforeRenderMs": 181,
+          "renderingMs": 60.2,
+          "scripts": [
+            {
+              "durationMs": 150.5,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
+            },
+            {
+              "durationMs": 54.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1390,
+          "durationMs": 229.8,
+          "beforeRenderMs": 200,
+          "renderingMs": 29.8,
+          "scripts": [
+            {
+              "durationMs": 199.7,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 10.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            },
+            {
+              "durationMs": 9.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1740.9,
+          "durationMs": 141.1,
+          "beforeRenderMs": 114,
+          "renderingMs": 27.1,
+          "scripts": [
+            {
+              "durationMs": 74.2,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 9.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 14.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 1956,
+          "durationMs": 179.3,
+          "beforeRenderMs": 170.5,
+          "renderingMs": 8.8,
+          "scripts": [
+            {
+              "durationMs": 160,
+              "invoker": "Response.json.then",
+              "functionName": "(anonymous)",
+              "source": "src/core/places.ts",
+              "line": 92
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 2150.8,
+          "durationMs": 165.1,
+          "beforeRenderMs": 120,
+          "renderingMs": 45.1,
+          "scripts": [
+            {
+              "durationMs": 115.3,
+              "invoker": "TimerHandler:setTimeout",
+              "functionName": "(anonymous)",
+              "source": "src/core/wind-layer.ts",
+              "line": 1104
+            },
+            {
+              "durationMs": 5.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 9.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 5.7,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 2329.7,
+          "durationMs": 180.2,
+          "beforeRenderMs": 165.2,
+          "renderingMs": 15,
+          "scripts": [
+            {
+              "durationMs": 9.8,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 129.6,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 2549.7,
+          "durationMs": 110.9,
+          "beforeRenderMs": 40.2,
+          "renderingMs": 70.7,
+          "scripts": [
+            {
+              "durationMs": 5,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 9.3,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
+            },
+            {
+              "durationMs": 10,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 6.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            },
+            {
+              "durationMs": 8.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 2954.9,
+          "durationMs": 119.9,
+          "beforeRenderMs": 44.8,
+          "renderingMs": 75.1,
+          "scripts": [
+            {
+              "durationMs": 10,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 9.9,
+              "invoker": "TimerHandler:setTimeout",
+              "functionName": "(anonymous)",
+              "source": "src/components/ForecastTable.tsx",
+              "line": 202
+            },
+            {
+              "durationMs": 15.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 9.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 30.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 3109.7,
+          "durationMs": 175.1,
+          "beforeRenderMs": 60,
+          "renderingMs": 115.1,
+          "scripts": [
+            {
+              "durationMs": 20.4,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 14.7,
+              "invoker": "TimerHandler:setInterval",
+              "functionName": "(anonymous)",
+              "source": "src/components/PerfHud.tsx",
+              "line": 32
+            },
+            {
+              "durationMs": 14.5,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 25.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 44.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 5.7,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "src/core/overlay-canvas.ts",
+              "line": 58
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 3784.7,
+          "durationMs": 115.9,
+          "beforeRenderMs": 11.2,
+          "renderingMs": 104.7,
+          "scripts": [
+            {
+              "durationMs": 9.3,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 5,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 10.6,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 50.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 4080,
+          "durationMs": 149.8,
+          "beforeRenderMs": 40.8,
+          "renderingMs": 109,
+          "scripts": [
+            {
+              "durationMs": 5.9,
+              "invoker": "TimerHandler:setInterval",
+              "functionName": "(anonymous)",
+              "source": "src/components/PerfHud.tsx",
+              "line": 32
+            },
+            {
+              "durationMs": 15.3,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 48.7,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 5.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "src/core/overlay-canvas.ts",
+              "line": 58
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 4261,
+          "durationMs": 143.8,
+          "beforeRenderMs": 73.8,
+          "renderingMs": 70,
+          "scripts": [
+            {
+              "durationMs": 16.4,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 13.6,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 9.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 25,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 4555,
+          "durationMs": 109.8,
+          "beforeRenderMs": 64.8,
+          "renderingMs": 45,
+          "scripts": [
+            {
+              "durationMs": 49.9,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 4.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 10.3,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 10.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 4680,
+          "durationMs": 245.4,
+          "beforeRenderMs": 29.7,
+          "renderingMs": 215.7,
+          "scripts": [
+            {
+              "durationMs": 9.7,
+              "invoker": "TimerHandler:setInterval",
+              "functionName": "TimerHandler:setInterval",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 19.6,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 40,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 140.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "h1-po-android-cold-reference-3.json",
+      "profile": "po-android",
+      "side": "reference",
+      "frames": [
+        {
+          "startAfterClockMs": -124.5,
+          "durationMs": 344.5,
+          "beforeRenderMs": 69.1,
+          "renderingMs": 275.4,
+          "scripts": [
+            {
+              "durationMs": 45.4,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
+            },
+            {
+              "durationMs": 5.6,
+              "invoker": "TimerHandler:setInterval",
+              "functionName": "(anonymous)",
+              "source": "src/components/PerfHud.tsx",
+              "line": 32
+            },
+            {
+              "durationMs": 75.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 19.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "src/App.tsx",
+              "line": 3246
+            },
+            {
+              "durationMs": 85.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 19.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 280.5,
+          "durationMs": 219.8,
+          "beforeRenderMs": 104.3,
+          "renderingMs": 115.5,
+          "scripts": [
+            {
+              "durationMs": 40.4,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
+            },
+            {
+              "durationMs": 5.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 102.5,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 520.2,
+          "durationMs": 190.1,
+          "beforeRenderMs": 104.7,
+          "renderingMs": 85.4,
+          "scripts": [
+            {
+              "durationMs": 5,
+              "invoker": "TimerHandler:setInterval",
+              "functionName": "(anonymous)",
+              "source": "src/components/PerfHud.tsx",
+              "line": 32
+            },
+            {
+              "durationMs": 5.2,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 5.2,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 5.4,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 5.1,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 9.6,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 750,
+          "durationMs": 190.6,
+          "beforeRenderMs": 85.3,
+          "renderingMs": 105.3,
+          "scripts": [
+            {
+              "durationMs": 5.6,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 9.2,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 35.7,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            },
+            {
+              "durationMs": 58.5,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 970.8,
+          "durationMs": 1589.3,
+          "beforeRenderMs": 1509.8,
+          "renderingMs": 79.5,
+          "scripts": [
+            {
+              "durationMs": 9,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 9.4,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 5.2,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 5.1,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 31.9,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 23.3,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 19.1,
+              "invoker": "Window.fetch.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 618
+            },
+            {
+              "durationMs": 89.1,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 20.4,
+              "invoker": "TimerHandler:setInterval",
+              "functionName": "TimerHandler:setInterval",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 19.4,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 5.5,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 9.6,
+              "invoker": "Promise.resolve",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 633
+            },
+            {
+              "durationMs": 235,
+              "invoker": "Response.json.then",
+              "functionName": "(anonymous)",
+              "source": "src/core/places.ts",
+              "line": 92
+            },
+            {
+              "durationMs": 725.6,
+              "invoker": "IdleRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "src/App.tsx",
+              "line": 1602
+            },
+            {
+              "durationMs": 21.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 23.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 5,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 2589.6,
+          "durationMs": 425.3,
+          "beforeRenderMs": 365.5,
+          "renderingMs": 59.8,
+          "scripts": [
+            {
+              "durationMs": 365,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 25.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 3025,
+          "durationMs": 300.3,
+          "beforeRenderMs": 254.9,
+          "renderingMs": 45.4,
+          "scripts": [
+            {
+              "durationMs": 10.5,
+              "invoker": "TimerHandler:setInterval",
+              "functionName": "(anonymous)",
+              "source": "src/components/PerfHud.tsx",
+              "line": 32
+            },
+            {
+              "durationMs": 13.9,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 180.6,
+              "invoker": "TimerHandler:setTimeout",
+              "functionName": "(anonymous)",
+              "source": "src/core/wind-layer.ts",
+              "line": 1104
+            },
+            {
+              "durationMs": 24.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 3345.4,
+          "durationMs": 109.3,
+          "beforeRenderMs": 44.9,
+          "renderingMs": 64.4,
+          "scripts": [
+            {
+              "durationMs": 13.7,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 16.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 9.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 3499.8,
+          "durationMs": 170.6,
+          "beforeRenderMs": 55.7,
+          "renderingMs": 114.9,
+          "scripts": [
+            {
+              "durationMs": 20.4,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 54.3,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 3750,
+          "durationMs": 150.1,
+          "beforeRenderMs": 100,
+          "renderingMs": 50.1,
+          "scripts": [
+            {
+              "durationMs": 6,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 5.5,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 54.5,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 9.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "FrameRequestCallback",
+              "source": "",
+              "line": null
+            },
+            {
+              "durationMs": 19.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 9.4,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 4050.7,
+          "durationMs": 135.2,
+          "beforeRenderMs": 59.3,
+          "renderingMs": 75.9,
+          "scripts": [
+            {
+              "durationMs": 23.8,
+              "invoker": "TimerHandler:setInterval",
+              "functionName": "(anonymous)",
+              "source": "src/components/PerfHud.tsx",
+              "line": 32
+            },
+            {
+              "durationMs": 10.2,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 14.8,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 15.2,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 27,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            },
+            {
+              "durationMs": 8.1,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "src/core/overlay-canvas.ts",
+              "line": 58
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 4201.3,
+          "durationMs": 154.3,
+          "beforeRenderMs": 78.5,
+          "renderingMs": 75.8,
+          "scripts": [
+            {
+              "durationMs": 5,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 45.1,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 38.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 15,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 4460.4,
+          "durationMs": 184.2,
+          "beforeRenderMs": 65.4,
+          "renderingMs": 118.8,
+          "scripts": [
+            {
+              "durationMs": 9.8,
+              "invoker": "Worker.onmessage",
+              "functionName": "(anonymous)",
+              "source": "src/core/mrf.ts",
+              "line": 176
+            },
+            {
+              "durationMs": 9.6,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 41,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 14,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "src/core/overlay-canvas.ts",
+              "line": 58
+            }
+          ]
+        },
+        {
+          "startAfterClockMs": 4661.3,
+          "durationMs": 169.3,
+          "beforeRenderMs": 89.5,
+          "renderingMs": 79.8,
+          "scripts": [
+            {
+              "durationMs": 19.6,
+              "invoker": "ReadableStreamDefaultReader.read.then",
+              "functionName": "fetchRangeBody",
+              "source": "src/core/mrf.ts",
+              "line": 635
+            },
+            {
+              "durationMs": 34.1,
+              "invoker": "TimerHandler:setTimeout",
+              "functionName": "(anonymous)",
+              "source": "src/components/ForecastTable.tsx",
+              "line": 202
+            },
+            {
+              "durationMs": 7.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "tick",
+              "source": "src/core/playback.ts",
+              "line": 8
+            },
+            {
+              "durationMs": 10.9,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 24,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            },
+            {
+              "durationMs": 5.6,
+              "invoker": "FrameRequestCallback",
+              "functionName": "(anonymous)",
+              "source": "src/core/overlay-canvas.ts",
+              "line": 58
+            },
+            {
+              "durationMs": 10.3,
+              "invoker": "FrameRequestCallback",
+              "functionName": "onFrame",
+              "source": "src/core/frame-batcher.ts",
+              "line": 19
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

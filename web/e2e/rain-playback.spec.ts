@@ -62,3 +62,43 @@ for (const fallback of [false, true]) {
     if (fallback) await expect(page.locator('.map-overlay-motregen-rain')).toHaveCount(0)
   })
 }
+
+for (const fallback of [false, true]) {
+  test(`regen speelt voordat wind zonder parallelle shadercompile opkomt${fallback ? ' via de kaartlaag' : ''}`, async ({ page }) => {
+    await page.addInitScript((fallback) => {
+      const getExtension = WebGL2RenderingContext.prototype.getExtension
+      WebGL2RenderingContext.prototype.getExtension = function (name: string) {
+        return name === 'KHR_parallel_shader_compile' ? null : getExtension.call(this, name)
+      }
+      if (fallback) {
+        const getContext = HTMLCanvasElement.prototype.getContext
+        HTMLCanvasElement.prototype.getContext = function (...args: Parameters<typeof getContext>) {
+          if (this.classList.contains('map-overlay-motregen-wind')) return null
+          return getContext.apply(this, args)
+        } as typeof getContext
+      }
+    }, fallback)
+    await page.goto('/?perf=1', { waitUntil: 'commit' })
+    await page.waitForFunction(() => window.__motregenPerf?.snapshot().firstCursorMs != null)
+    await page.waitForFunction(() => performance.now() - window.__motregenPerf!.snapshot().firstCursorMs! > 3_000)
+    expect(await page.evaluate(() => Boolean((globalThis as { __motregenWind?: unknown }).__motregenWind))).toBe(false)
+    await expect(page.locator('.map-overlay-motregen-wind')).toHaveCount(0)
+    await page.waitForFunction(() => (globalThis as { __motregenWind?: { dispersion: () => { particles: number } } }).__motregenWind?.dispersion().particles! > 0)
+    const { start, draws } = await page.evaluate(() => {
+      const trace = window.__motregenPerf!.traceSlice(0, performance.now())
+      const clock = window.__motregenPerf!.snapshot().firstCursorMs!
+      return {
+        start: trace.measures.find((measure) => measure.phase === 'wind-initialize')!.startTime - clock,
+        draws: trace.measures.filter((measure) => measure.phase === 'rain-frame-committed' && measure.startTime > clock && measure.startTime < clock + 5_000),
+      }
+    })
+    expect(start).toBeGreaterThanOrEqual(5_000)
+    expect(draws.length).toBeGreaterThan(5)
+    expect(draws.at(-1)!.detail!.epoch).toBeGreaterThan(draws[0]!.detail!.epoch as number)
+    for (const draw of draws) {
+      const detail = draw.detail!
+      expect(detail.cursor).toBeCloseTo(Number(detail.left) + (Number(detail.right) - Number(detail.left)) * Number(detail.mix), 8)
+    }
+    await expect(page.locator('.map-overlay-motregen-wind')).toHaveCount(fallback ? 0 : 1)
+  })
+}
