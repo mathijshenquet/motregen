@@ -62,5 +62,6 @@
 
   services.motregen.enable = true;
   services.motregen.bot.enable = true;
-  services.motregen.bot.role = "poller";
+  # MIP-26 slot (PO 2026-10-09): de VM rendert zijn eigen loops; renderer + poller in één proces.
+  services.motregen.bot.role = "combined";
 }

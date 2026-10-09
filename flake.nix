@@ -68,7 +68,15 @@
       checks.${system} = motregenPackages // {
         bot-roles =
           let
-            poller = self.nixosConfigurations.motregen.config.systemd.services.motregen-bot;
+            # Prod draait "combined" (MIP-26 slot); de rolspecifieke asserts gebruiken losse configuraties.
+            combined = self.nixosConfigurations.motregen.config.systemd.services.motregen-bot;
+            poller = (nixpkgs.lib.nixosSystem {
+              inherit system;
+              modules = [ self.nixosModules.motregen {
+                services.motregen.bot.enable = true;
+                services.motregen.bot.role = "poller";
+              } ];
+            }).config.systemd.services.motregen-bot;
             renderer = (nixpkgs.lib.nixosSystem {
               inherit system;
               modules = [ self.nixosModules.motregen {
@@ -82,6 +90,12 @@
           assert !(poller.environment ? PLAYWRIGHT_BROWSERS_PATH);
           assert !(builtins.any (package: package == pkgs.ffmpeg) poller.path);
           assert poller.serviceConfig.MemoryMax == "512M";
+          assert combined.environment.MOTREGEN_BOT_ROLE == "combined";
+          assert combined.environment ? MOTREGEN_CHROMIUM_PATH;
+          assert combined.serviceConfig.CPUQuota == "200%";
+          assert combined.serviceConfig.MemoryHigh == "1100M";
+          assert combined.serviceConfig.MemoryMax == "1300M";
+          assert combined.serviceConfig.MemorySwapMax == "0";
           assert renderer.systemd.services.motregen-bot.environment ? MOTREGEN_CHROMIUM_PATH;
           assert renderer.systemd.services.motregen-bot.environment.MOTREGEN_ORIGIN == "https://motregen.nl";
           assert renderer.systemd.services.motregen-bot.serviceConfig.CPUQuota == "200%";

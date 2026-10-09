@@ -612,10 +612,11 @@ in
         # U71d begrenst renderbuffers; rolkeuze blijft een aparte uitrolstap.
         Nice = 10;
         CPUWeight = 20;
-        CPUQuota = if cfg.bot.role == "poller" then "25%" else if cfg.bot.role == "renderer" then "200%" else "150%";
-        MemoryHigh = if cfg.bot.role == "poller" then "384M" else if cfg.bot.role == "renderer" then "900M" else "2200M";
-        MemoryMax = if cfg.bot.role == "poller" then "512M" else if cfg.bot.role == "renderer" then "1100M" else "2600M";
-        MemorySwapMax = lib.mkIf (cfg.bot.role == "renderer") "0";
+        CPUQuota = if cfg.bot.role == "poller" then "25%" else "200%";
+        # combined = renderer-budget (U71d: piek 768 MiB koud) + poller-marge (~160 MiB) op de 3,8 GB-VM.
+        MemoryHigh = if cfg.bot.role == "poller" then "384M" else if cfg.bot.role == "renderer" then "900M" else "1100M";
+        MemoryMax = if cfg.bot.role == "poller" then "512M" else if cfg.bot.role == "renderer" then "1100M" else "1300M";
+        MemorySwapMax = lib.mkIf (cfg.bot.role != "poller") "0";
         TimeoutStopSec = "90s";
         LimitCORE = 0;
         PrivateNetwork = false;
