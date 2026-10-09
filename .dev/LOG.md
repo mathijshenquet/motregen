@@ -452,6 +452,19 @@
   renderpad < 120 s (wind 83 s is de uitschieter; profiel op de VM zelf, isolijnen per uur cachen, wind goedkoper),
   of (b) renderer terug naar de dev-host.
 
+## 2026-10-10 — tg-bot op prod vastgelopen (13:00)
+- Symptoom (PO): bot antwoordt niet. Laatste generatie 05:57; daarna `refresh-failed … TimeoutError` (07:16) en
+  `poll-failed getUpdates` — proces actief, NRestarts 0.
+- Oorzaak: **geheugenlek in het combined-proces**: Node `arrayBuffers` 17 MB (23:06) → 741 MB (05:52), ~100 MB/uur,
+  RSS 300 → 1046 MB. Met de Chromium-atlascapture erbij raakt de cgroup MemoryHigh 1600M (memory.events high 53,9 mln,
+  oom 0): reclaim-remming, load 10, capture haalt zijn timeout niet en de poller in hetzelfde proces verhongert.
+  U71c/d maten één generatie per proces; een lek over generaties viel buiten die rig.
+- Herstel: `systemctl restart motregen-bot` 12:58 → assets 38 s, rendert weer. Lek zit er nog: zonder fix loopt hij
+  na ~7 uur opnieuw vast. Bron nog niet gevonden (NativeRainData is per manifest; kandidaten: rasterworker-frames-map
+  `native-raster.ts`, atlas/glyph-buffers, sharp).
+- Bijvangst: nachtelijke `nixos-upgrade` 03:21 mislukt op de build van `motregen-bot` (tijdens het vastlopen); prod
+  draait de build van gisteravond.
+
 ## 2026-10-09 — sessieafsluiting (23:30): native bot, smoothing, /weer, weer ok?, VM rendert zelf
 - **Gemerged en op prod** (main 08f37ad8): U69 d2 (wind na eerste tik), U70 + app-tempo regenloop −1…+2 u, U71a–d
   (alle loops native, geheugen 448/768 MiB), U72 (regenveld-smoothing 5×5→9×9, meebewegen, bronovergang), U73 (/weer
