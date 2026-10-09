@@ -3609,10 +3609,7 @@ function readCachedPointSeries(
 
 function samplePoint(header: MrfHeader, frame: Uint8Array, point: { lng: number; lat: number }): number | null {
   const [x, y] = project(point.lng, point.lat)
-  const column = Math.floor((x - header.grid.x0) / header.grid.dx)
-  const row = Math.floor((y - header.grid.y0) / header.grid.dy)
-  if (column < 0 || row < 0 || column >= header.grid.width || row >= header.grid.height) return null
-  return header.quant[frame[row * header.grid.width + column]!] ?? null
+  return pointValue(header, frame, x, y)
 }
 function directRainIndexes(frames: TimelineFrame[], now: number): number[] {
   if (!frames.length) return []

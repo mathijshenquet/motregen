@@ -32,7 +32,7 @@ const maxResults = 6
 const reservedForSecondary = 2
 
 export async function suggestLocations(query: string, center: { lng: number; lat: number }, signal?: AbortSignal): Promise<LocationSuggestion[]> {
-  const catalogue = searchCatalogue(query).map((place): LocationSuggestion => ({ id: `catalogue:${place.slug}`, label: place.name, type: 'plaats', country: 'NL', location: place }))
+  const catalogue = searchCatalogue(query).map((place): LocationSuggestion => ({ id: `catalogue:${place.slug}`, label: place.name, type: 'plaats', country: viewportCountry(place), location: place }))
   query = expandPlaceQuery(query)
   const [dutch, flemish] = await Promise.allSettled([
     suggestDutchLocations(query, signal).then((results) => results.map((result): LocationSuggestion => ({ ...result, country: 'NL' }))),

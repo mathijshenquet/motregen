@@ -13,7 +13,9 @@ export async function onceWeer(args: string[], env: NodeJS.ProcessEnv): Promise<
   const directory = resolve(value('output') ?? '.dev/tracks/u73-weer-per-plaats/beelden')
   await mkdir(directory, { recursive: true })
   const places = new WeatherPlaces(origin)
+  const lookupStarted = performance.now()
   const found = await places.find(query)
+  const lookupMs = performance.now() - lookupStarted
   if (!found.place) {
     await writeFile(join(directory, 'suggesties.json'), JSON.stringify(found.suggestions, null, 2))
     console.info(JSON.stringify({ event: 'weer-suggestions', suggestions: found.suggestions.map((place) => place.name) }))
@@ -27,7 +29,8 @@ export async function onceWeer(args: string[], env: NodeJS.ProcessEnv): Promise<
     const result = await renderer.render(found.place, manifest)
     if (result.media) await copyFile(result.media.path, join(directory, `${found.place.slug}.png`))
     await writeFile(join(directory, `${found.place.slug}.txt`), result.caption)
-    const receipt = { event: 'weer-receipt', pass, place: found.place.name, generated: result.media?.generated, image: Boolean(result.media), cached: result.cached, renderMs: result.milliseconds, totalMs: performance.now() - started }
+    const memory = process.memoryUsage()
+    const receipt = { event: 'weer-receipt', pass, place: found.place.name, generated: result.media?.generated, image: Boolean(result.media), cached: result.cached, lookupMs, renderMs: result.milliseconds, totalMs: performance.now() - started, rssMiB: memory.rss / 1024 ** 2, externalMiB: memory.external / 1024 ** 2 }
     console.info(JSON.stringify(receipt))
     await writeFile(join(directory, `${found.place.slug}-${pass}.json`), JSON.stringify(receipt, null, 2))
     if (!result.media) process.exitCode = 1

@@ -43,7 +43,7 @@ export class NativeRainData {
     const [x, y] = projectPoint(point.lng, point.lat)
     const values: Array<number | null> = []
     for (const frame of timeline) {
-      const { header, raster } = await this.load(frame)
+      const { header, raster } = await this.load(frame, false)
       values.push(pointValue(header, raster, x, y))
     }
     return { timeline, values }
@@ -73,7 +73,7 @@ export class NativeRainData {
     return { grid: left.grid, left: left.raster, right: right.raster, mix: blend.mix, leftHeader: left.header, rightHeader: right.header, motion, intervalMinutes: (rightFrame.epoch - leftFrame.epoch) / 60_000 }
   }
 
-  private async load(frame: TimelineFrame): Promise<{ grid: Grid; raster: Uint8Array; header: MrfHeader }> {
+  private async load(frame: TimelineFrame, retainRaster = true): Promise<{ grid: Grid; raster: Uint8Array; header: MrfHeader }> {
     let pending = this.chunks.get(frame.chunk.url)
     if (!pending) {
       pending = (async () => {
@@ -95,8 +95,10 @@ export class NativeRainData {
       if (!index || index.time !== frame.time) throw new Error('Regenchunk wijkt af van manifest')
       const start = chunk.headerLength + index.offset
       const { width, height } = chunk.header.grid
-      raster = decodeFrame(chunk.bytes.subarray(start, start + index.len), width * height, chunk.header.pred ? { width, height } : undefined, zstdDecompressSync)
-      chunk.frames.set(frame.frameIndex, raster)
+      const compressed = chunk.bytes.subarray(start, start + index.len)
+      const pred = chunk.header.pred ? { width, height } : undefined
+      raster = decodeFrame(compressed, width * height, pred, zstdDecompressSync)
+      if (retainRaster) chunk.frames.set(frame.frameIndex, raster)
     }
     return { grid: chunk.header.grid, raster, header: chunk.header }
   }
