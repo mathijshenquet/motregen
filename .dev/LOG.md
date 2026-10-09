@@ -279,15 +279,15 @@
   (~1,25), kaart dag/nacht in één stap. Adresbalkfix door PO goedgekeurd. Gate 529 unit, 27+14+5 e2e;
   4330 herbouwd. Open: laatste PO-blik op 4330 (nacht-halo, rijlijnen); U62 blijft open.
 
-## 2026-10-09 — nacht: alles op prod, z4-startkaart blijft tot alle tegels er zijn
-- PO 00:05: "het laden is echt super snappy" — maar de z4-kaart verdween na < 10 ms: één echte tegel + wit tot
+## 2026-10-09 — ochtend: alles op prod, z4-startkaart blijft tot alle tegels er zijn
+- PO ~09:20: "het laden is echt super snappy" — maar de z4-kaart verdween na < 10 ms: één echte tegel + wit tot
   ~1 s. Oorzaak: `replace()` bij de EERSTE basemap-tegel (sourcedata). Fix (55da1e73, orkestrator, micro-
   fix): wisselen zodra `map.areTilesLoaded()`, `idle` als vangnet; startlagen liggen onder de echte lagen,
   dus korte dubbele landcover-tint in al geladen tegels is de prijs. Gate: 529 unit, build, 20 e2e
   (basemap/perf/freshness, desktop + mobiel); 4330 herbouwd; prod-upgrade gestart.
-- Prod stond al om 23:30 op main (`index-DdXphFfb.js`, PO: "merge nu maar alles"); bot-poller actief.
+- Prod stond al om 23:30 (gisteravond) op main (`index-DdXphFfb.js`, PO: "merge nu maar alles"); bot-poller actief.
 
-- 00:30–01:10, PO-ronde op prod/4330 (orkestrator, micro-fixes, elk zelf gecontroleerd met Firefox/Chromium-
+- 09:35–09:50, PO-ronde op prod/4330 (orkestrator, micro-fixes, elk zelf gecontroleerd met Firefox/Chromium-
   screenshots op dpr 2,2): scrubber mobiel zonder 2 px padding-top en zonder onderrand (12f9811b, 0555ce17);
   koppenrij-lijn als inset box-shadow i.p.v. collapsed border + tabel `border-collapse: separate; border-spacing: 0`
   (Firefox: sticky kop liet een naad zien; 0555ce17, 3d7afaf3); `.column-mode` vertical-align top (koppenrij was
@@ -296,7 +296,7 @@
   sticky thead, semantiek); de problemen zaten in collapse+sticky en themalijnen, nu verholpen. Prod: derde upgrade
   gestart zodat alles erop staat.
 
-- 01:45: z4-wissel was op 4330 "flaky" (PO): kaal `idle` kon vóór de eerste basiskaart-tegel vallen. Nu: wissel
+- 09:55: z4-wissel was op 4330 "flaky" (PO): kaal `idle` kon vóór de eerste basiskaart-tegel vallen. Nu: wissel
   pas na een geleverde basemap-tegel + `isSourceLoaded('basemap')` + `areTilesLoaded()`, idle controleert hetzelfde,
   harde terugval na 15 s. Proef 4× snel + 1× traag op 4330: kaart compleet op het wisselmoment (screenshots). Prod:
   vierde upgrade gestart. **Nieuw PO-punt (eerste voor morgen)**: "het histogram loopt al, de kaart begint pas laat
@@ -305,7 +305,7 @@
   pas als de kaart kan tekenen, of de kaart tweent naar de cursor i.p.v. springen); meet het effect op "spelende
   tijdlijn"-ttfr. Als voorstel/track uitwerken, niet als nachtfix.
 
-- 02:45, PO-Firefox-profiel (`/tmp/Firefox 2026-10-09 09.55 profile.json.gz`, 4330, bundel k6xSTVkX) gelezen met
+- 10:05, PO-Firefox-profiel (`/tmp/Firefox 2026-10-09 09.55 profile.json.gz`, 4330, bundel k6xSTVkX) gelezen met
   screenshots + netwerk: (1) "één tegel + wit" was de z4-startkaart ZELF: de westtegel (zee, 3,5 kB) was eerder
   gedecodeerd dan de oosttegel (NL, 20 kB) → beide tegels nu tegelijk vrijgegeven (6f903333). (2) De regen op de
   kaart start pas bij MapLibre `style.load` (rain layer wordt in attachMapLayers gemount), en die wacht op de
@@ -314,7 +314,8 @@
   kaart niet nodig en loopt eerder → PO ziet "histogram loopt, kaart haakt later aan". Richting voor de dag:
   (a) één klok (PO: pas spelen als alles klaar is — scrubber wacht op mapReady), (b) HARMONIE-flood ná de
   kaartheader/eerste tegels (prioriteit), (c) rain overlay niet aan style.load binden. Prod: vijfde upgrade
-  na de gate van 6f903333.
+  na de gate van 6f903333 (klaar 10:20, index-DD5Z2UVN). U68 gestart 10:05 (één klok + kaart vóór de
+  HARMONIE-flood + splash geen gate; MIP-19-aanvulling).
 
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
