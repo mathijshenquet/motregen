@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { chromium, devices } from '@playwright/test'
@@ -6,11 +6,13 @@ import { applyEmulation, performanceProfile } from '../e2e/profiles'
 import { hostLoadAverage, runLoadLimit } from './rig-host'
 
 const [origin, output, ...flags] = process.argv.slice(2)
-if (!origin || !output) throw new Error('Gebruik: play-sync.ts ORIGIN UITVOER [--warm] [--filmstrip] [--profile=desktop|po-android] [--fixture] [--now=ISO] [--proxy=URL]')
+if (!origin || !output) throw new Error('Gebruik: play-sync.ts ORIGIN UITVOER [--warm] [--filmstrip] [--cpu-profile] [--profile=desktop|po-android] [--fixture] [--now=ISO] [--manifest=PAD] [--proxy=URL]')
 const warm = flags.includes('--warm')
 const filmstrip = flags.includes('--filmstrip')
+const cpuProfile = flags.includes('--cpu-profile')
 const profile = performanceProfile(flags.find((flag) => flag.startsWith('--profile='))?.slice(10) ?? 'desktop')
 const proxy = flags.find((flag) => flag.startsWith('--proxy='))?.slice(8)
+const manifestPath = flags.find((flag) => flag.startsWith('--manifest='))?.slice(11)
 const fixedClock = flags.includes('--fixture') ? '2026-08-28T15:00:00Z' : flags.find((flag) => flag.startsWith('--now='))?.slice(6)
 const fixedEpoch = fixedClock ? Date.parse(fixedClock) : undefined
 if (fixedClock && !Number.isFinite(fixedEpoch)) throw new Error('Ongeldig tijdstip voor --now')
@@ -30,6 +32,7 @@ const options = {
 let context = await chromium.launchPersistentContext(directory, options)
 const prepareContext = async () => {
   await context.addInitScript({ content: 'globalThis.__name = (value) => value;' })
+  if (manifestPath) await context.route('**/data/manifest.json*', (route) => route.fulfill({ contentType: 'application/json', body: readFileSync(manifestPath, 'utf8') }))
   await context.addInitScript(({ fixedEpoch, desktop }) => {
     if (fixedEpoch !== undefined) {
       const NativeDate = Date
@@ -73,6 +76,10 @@ try {
   await cdp.send('Network.enable')
   await applyEmulation(cdp, profile)
   await cdp.send('Network.setCacheDisabled', { cacheDisabled: !warm })
+  if (cpuProfile) {
+    await cdp.send('Profiler.enable')
+    await cdp.send('Profiler.start')
+  }
   const requests: Array<Record<string, unknown>> = []
   cdp.on('Network.responseReceived', ({ response, timestamp }) => requests.push({ url: response.url, protocol: response.protocol, timestamp, status: response.status, fromDiskCache: response.fromDiskCache, fromServiceWorker: response.fromServiceWorker }))
   const frames: Array<{ timestamp: number; data: string }> = []
@@ -109,6 +116,10 @@ try {
       await page.addStyleTag({ content: '.perf-hud { display: none !important; }' })
     }
     await page.waitForFunction(() => performance.now() >= 12_000)
+    if (cpuProfile) {
+      const { profile: cpu } = await cdp.send('Profiler.stop')
+      writeFileSync(`${output}.cpuprofile`, JSON.stringify(cpu))
+    }
     if (filmstrip) await cdp.send('Page.stopScreencast')
     const captured = await page.evaluate(() => ({ timeOrigin: performance.timeOrigin, manifestGenerated: document.querySelector<HTMLElement>('.app-shell')?.dataset.generated, snapshot: window.__motregenPerf!.snapshot(), entries: window.__motregenPerf!.traceSlice(0, 12_000), loads: window.__motregenPerf!.loads.snapshot(), samples: (window as unknown as { playSyncSamples: object[] }).playSyncSamples, resources: performance.getEntriesByType('resource').map((entry) => entry.toJSON()), serviceWorkerControlled: Boolean(navigator.serviceWorker.controller) }))
     const shots = filmstrip ? Array.from({ length: 24 }, (_, index) => {
@@ -121,7 +132,7 @@ try {
     }) : []
     if (warm && !captured.serviceWorkerControlled) throw new Error('Warme browser mist SW-controller')
     if (errors.length) throw new Error(errors.join('\n'))
-    writeFileSync(`${output}.json`, JSON.stringify({ origin, profile: profile.id, warm, fixture: flags.includes('--fixture'), fixedClock, warmMethod: warm ? 'nieuw browserproces met gevulde HTTP- en SW-diskcache' : null, filmstrip, screenshotOverhead: filmstrip, shots, loadLimit: runLoadLimit(), loadSamples: loads, capturedAt: new Date().toISOString(), requests, ...captured }, null, 2))
+    writeFileSync(`${output}.json`, JSON.stringify({ origin, profile: profile.id, warm, fixture: flags.includes('--fixture'), fixedClock, manifestPath, warmMethod: warm ? 'nieuw browserproces met gevulde HTTP- en SW-diskcache' : null, filmstrip, cpuProfile, screenshotOverhead: filmstrip, shots, loadLimit: runLoadLimit(), loadSamples: loads, capturedAt: new Date().toISOString(), requests, ...captured }, null, 2))
     console.log(JSON.stringify({ output, load, ...captured.snapshot }))
   } finally {
     clearInterval(loadTimer)

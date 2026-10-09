@@ -141,7 +141,7 @@ export type WindowReadyMeasure = `window-ready:${string}`
 export type LoadMilestone = 'first-rain' | 'basemap-ready' | 'style-ready' | 'first-basemap-tile' | 'map-revealed' | 'first-cursor' | 'ttfr' | 'ttfp' | 'first-bar' | 'first-map-image'
 
 export interface PerfMeasure {
-  phase: PerfPhase | WindowReadyMeasure | `milestone:${LoadMilestone}` | 'blank-visible' | 'rain-frame-committed'
+  phase: PerfPhase | WindowReadyMeasure | `milestone:${LoadMilestone}` | 'blank-visible' | 'rain-frame-committed' | 'wind-initialize'
   startTime: number
   duration: number
   detail?: Record<string, unknown>

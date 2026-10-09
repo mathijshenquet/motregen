@@ -75,6 +75,9 @@ export class LayerOverlay {
   }
 
   drawNow(): void {
+    if (this.frame !== undefined) cancelAnimationFrame(this.frame)
+    window.clearTimeout(this.delay)
+    this.frame = this.delay = undefined
     this.draw()
   }
 
