@@ -1,0 +1,10 @@
+2026-10-09T20:04:21Z
+21ae9242d1f0bb4aafb67c708049ccdb4b2f1b0a
+ bot/native-overlay.ts    |  3 ++-
+ bot/render.test.ts       | 29 ++++++++++++++++++++++++++++-
+ flake.nix                |  4 ++--
+ nix/modules/motregen.nix |  4 ++--
+ 4 files changed, 34 insertions(+), 6 deletions(-)
+3.45 4.38 4.45 15/2250 338853
+3.21 4.61 4.71 4/2143 349547
+systemd-run exit=0

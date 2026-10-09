@@ -217,15 +217,13 @@ NixOS-module zelfstandig een system-unit leveren, zonder lokale ingest of Caddy:
 
 Na activering start ook daar `sudo systemctl start motregen-bot.service` de renderer. Alleen
 `renderer` en `combined` krijgen Chromium en ffmpeg. De productie-VM heeft twee kernen en
-3,8 GB geheugen. U71c stelt voor de renderer `CPUQuota=200%`, `MemoryHigh=1800M` en
-`MemoryMax=2200M` in; Nice 10 en CPUWeight 20 blijven gelden. De gebouwde renderer maakt
-173 nieuwe media in 58,282 s bij 1,547 GiB gezamenlijke cgroup-piek, inclusief de
-meethelper en bestandscache, onder de nieuwe 1800M/2200M-grenzen. Er waren geen
-MemoryHigh-events of OOM's. De meetgegevens staan in
-[vm-warm-quiet.json](../.dev/tracks/u71c-renderer-geheugen/vm-warm-quiet.json). Ook nieuwe isolijntekst
-past onder de nieuwe grenzen: 76,009 s, 1,758 GiB piek, 124 MemoryHigh-events en geen OOM
-([vm-cold-text.json](../.dev/tracks/u71c-renderer-geheugen/vm-cold-text.json)). `combined` houdt 150% CPU en 2200M/2600M;
-de rolkeuze blijft ongewijzigd. Deze lokale proef is geen productie-uitrol.
+3,8 GB geheugen. U71d stelt voor de renderer `CPUQuota=200%`, `MemoryHigh=900M`,
+`MemoryMax=1100M` en `MemorySwapMax=0` in; Nice 10 en CPUWeight 20 blijven gelden.
+De warme generatie blijft onder 600 MiB. Een nieuwe tekstatlas vereist meer browsergeheugen;
+de oorspronkelijke pixels blijven behouden. De metingen en de niet gehaalde koude
+600-MiB-lat staan bij [U71d](#renderergeheugen-per-fase-mip-26-u71d).
+`combined` houdt 150% CPU en 2200M/2600M; de rolkeuze blijft ongewijzigd.
+Deze lokale proef is geen productie-uitrol.
 `MOTREGEN_REGISTER_PATH` kiest voor offline proeven een lokaal register als pollerbron;
 in productie blijft deze variabele weg zodat de poller de cachechat leest.
 
@@ -932,3 +930,98 @@ maar een wrapper-exit 2 doordat de meethelper tijdens de lopende shell werd gewi
 die telt niet als groene receipt. `cold-batches` faalt op afgesneden glyphs. De aangepaste
 batchcapture (`cold-batches-fixed`) eindigt met exit 0 en 1,762 GiB, maar andere atlaspixels;
 deze aanpak is teruggedraaid. De definitieve renderer behoudt de bestaande atlascapture.
+
+
+### Renderergeheugen per fase (MIP-26, U71d)
+
+De rastercache decodeert op aanvraag en bewaart hoogstens zes frames; prefetch haalt alleen
+gecomprimeerde chunks op. Voorbereide temperatuurvelden blijven in een venster van vier,
+isolijncollecties in een venster van twee. Iedere reeks geeft data, kaartplaten en workers
+vrij. Wind houdt één regenworker voor het actieve thema aan en tekent op zijn bestaande
+RGB-buffer. De encoder behoudt zijn bestaande backpressure en één frame tegelijk.
+
+`sharp.cache(false)` en `sharp.concurrency(1)` begrenzen libvips. Klokglyphs worden alleen
+voor de gekozen tijden gedecodeerd, PNG-atlassen per strook. Linux geeft de schone PPM-pagina's
+na schrijven en JPEG-lezen met `posix_fadvise(..., DONTNEED)` vrij; de bestanden blijven
+beschikbaar. Dit voorkomt ongeveer 600 MiB aan tussenframebestandscache.
+De wrapper begrenst de oude Node-heap op 192 MiB en iedere jonge semispace op 4 MiB;
+`--expose-gc`, twee allocatorarena's en een mmap-drempel van 128 KiB ondersteunen de
+vrijgave tussen fasen. De heaplimieten vervangen de cgroup-grenzen niet.
+
+Voor browserassets is richting **b** gekozen: bestaande persistente caches op stijl,
+variant en maat behouden, cachemisses serieel vóór de eerste mediareeks uitvoeren.
+De tijdelijke contourdata wordt eerst vrijgegeven. Kaarten, klokken en isolijntekst zijn
+klaar en Chromium is afgesloten voordat rasterworker of ffmpeg starten. Warme assets
+vereisen helemaal geen browser; de warme meetrig wijst bewust naar een ongeldig browserpad.
+Een nieuwe generatie berekent tekstplaatsingen tijdens voorbereiding en rendering opnieuw,
+zodat de geometrie niet gedurende de browsercapture hoeft te blijven leven.
+
+De volledige oorspronkelijke Chromium-capture, CSS, fonts, GPU-instelling en pixelschaal
+blijven behouden. CPU-rendering en kleinere DOM-atlassen haalden wel een lagere piek,
+maar veranderden glyphpixels; die varianten zijn verworpen. De grote volledige atlascapture
+vormt de koude vloer. Onder 600M/800M overschrijdt die stap de zachte grens en loopt zij
+vast; meerdere proeven overschrijden tevens 90 seconden. U71d gebruikt daarom de expliciete
+uitzondering in de trackspec: het laagste succesvolle getal rapporteren en de pariteitsgate
+behouden. **De koude 600-MiB-lat is niet gehaald.**
+
+Alle runs maken 173 nieuwe media met het pinned U71b-manifest en een lege mediacache,
+onder 200% CPU op twee vastgezette kernen. De cgroup-piek omvat Node, Chromium, Rust,
+ffmpeg, meethelper en bestandscache. U71d schakelt swap uit. `cold-text` betekent zoals
+in U71c: kaarten en klokassets aanwezig, isolijntekst opnieuw gecaptured.
+Een volledig lege assetcache is een afzonderlijke eerste-installatieproef.
+
+| Meting | Gezamenlijke piek | Procestijd | MemoryHigh / Max | Exit |
+| --- | ---: | ---: | --- | ---: |
+| U71c, warm | 1,547 GiB | 58,282 s | 1800M / 2200M | 0 |
+| **U71d, definitief warm** | **448,0 MiB** | **81,241 s** | **600M / 800M** | **0** |
+| U71c, nieuwe isolijntekst | 1,758 GiB | 76,009 s | 1800M / 2200M | 0 |
+| **U71d, definitieve U71c-koud-rig** | **767,7 MiB** | **85,224 s** | **750M / 950M** | **0** |
+| U71d, eerste installatie: alle assets leeg, aanvullende proef | 963,3 MiB | 311,731 s | 900M / 1100M | 0 |
+
+Definitief warm heeft nul high/max/oom-events. De definitieve koude gate heeft 1766
+high-events, nul max/oom-events en nul swap; de eerste installatie 40018 high-events,
+eveneens zonder max/oom of swap. De eerdere service-koude run haalde 765,8 MiB in 86,100 s;
+de laatste herhaling na de klokvoorbereidingsfix hierboven is het definitieve bewijs.
+Het servicebudget van 900M/1100M geeft marge boven de koude generatiepiek en laat ook de
+eerste installatie toe. De standaardrol blijft `poller`.
+
+De definitieve gate is **343/343 byte-identiek**, warm én met nieuwe isolijntekst:
+[warm](../.dev/tracks/u71d-renderer-geheugen-stroomlijnen/byte-parity-verified-warm.json) en
+[koud](../.dev/tracks/u71d-renderer-geheugen-stroomlijnen/byte-parity-verified-text.json).
+Het gaat om 173 media plus 170 PPM-tussenframes. Paletten, interpolatie, kloklayout,
+fontglyphs, video- en JPEG-parameters zijn behouden. De eerdere U71b/c-beeldpariteitsrig
+is niet opnieuw gedraaid; deze gate vergelijkt de uiteindelijke bytes met ongewijzigde
+U71c-code op hetzelfde pinned manifest.
+
+Per orkestratorbevestiging van 2026-10-09 is de volledig lege eerste installatie **geen gate**:
+zij komt één keer voor en heeft geen zichtbaar verschil. Daar verschillen 143 bestanden
+([vergelijking](../.dev/tracks/u71d-renderer-geheugen-stroomlijnen/byte-parity-cold-assets.json))
+door enkele schaduwpixels van de Temperatuurklok. Beide kaartplaten, de klokglyphs en de
+isolijnatlassen zijn exact gelijk; tien van de veertien Temperatuurklokachtergronden wijken
+in hun zachte schaduw af. Deze afwijking is afzonderlijk gerapporteerd en niet meegerekend
+als groene bytepariteit. De eerste installatie kost bovendien meer dan 90 s;
+233,248 s daarvan is assetvoorbereiding, vóór de eerste rasterworker of ffmpeg.
+
+De volledige receipts, geheugenevents, GNU-timegegevens en 200-ms-procesprofielen staan bij
+[definitief warm](../.dev/tracks/u71d-renderer-geheugen-stroomlijnen/verified-warm.json),
+[definitief koud](../.dev/tracks/u71d-renderer-geheugen-stroomlijnen/verified-text.json) en
+[eerste installatie](../.dev/tracks/u71d-renderer-geheugen-stroomlijnen/cold-assets.json).
+De mislukkingen onder 600M en de verworpen atlasvarianten blijven in de trackmap bewaard.
+De baselinebytes zijn gereconstrueerd met ongewijzigde U71c-code; die workload was exit 0,
+maar haar wrapper exit 2 door een wijziging van het draaiende meetscript. Dit is geen groene
+baseline-meetreceipt; de vóór-cijfers komen daarom uit de bestaande U71c-receipts.
+Alle proeven zijn lokaal; uploads en pollerantwoorden gebruiken uitsluitend de offline mock.
+
+Reproduceer vanuit de projectroot, met bestaande U71c-assets en steeds een nieuwe meetnaam:
+
+```bash
+pnpm -C bot build
+MOTREGEN_NODE_HEAP=192 bash .dev/tracks/u71d-renderer-geheugen-stroomlijnen/measure.sh \
+  eigen-warm tmp/u71d-baseline 600M 800M warm built
+MOTREGEN_NODE_HEAP=192 MOTREGEN_CHROMIUM_PATH=/pad/naar/chrome-headless-shell \
+  bash .dev/tracks/u71d-renderer-geheugen-stroomlijnen/measure.sh \
+  eigen-koud tmp/u71d-baseline 750M 950M cold-text built
+node .dev/tracks/u71d-renderer-geheugen-stroomlijnen/compare.mjs \
+  tmp/u71d-baseline tmp/u71d-eigen-koud tmp/eigen-byte-parity.json
+```
+

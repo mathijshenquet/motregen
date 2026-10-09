@@ -31,6 +31,7 @@ export class NativeOverlay {
 
   async prepare(manifest: StillManifest, epochs: readonly number[] = [Date.parse(manifest.now)]): Promise<void> {
     this.atlas ??= this.load(manifest).catch((error) => { this.atlas = undefined; throw error })
+    const atlas = await this.atlas
     const days = new Map<string, Set<string>>()
     for (const epoch of epochs) {
       const day = dayFormat.format(epoch)
@@ -38,7 +39,7 @@ export class NativeOverlay {
       texts.add(timeFormat.format(epoch))
       days.set(day, texts)
     }
-    for (const [day, texts] of days) await this.loadGlyphs(await this.atlas, day, [...texts])
+    for (const [day, texts] of days) await this.loadGlyphs(atlas, day, [...texts])
   }
 
   async draw(rgb: Buffer, epoch: number, now: number): Promise<Buffer> {
