@@ -397,6 +397,10 @@
   testfout in de gate (mrf.test, byte-identiek) bleek load-flaky: 26/26 in isolatie en 539/539 bij herhaling.
   Prod blijft bevroren; de lokale poller (main) blijft draaien zodat /weer werkt tot de uitrol.
 
+- 22:15: **MIP-28 accepted** (PO): branding "weer ok?" (weerok.nl geregistreerd bij TransIP), motregen.nl blijft,
+  beide domeinen serveren. U74 (opus-5.5 live-pane, 4320) gestart: zichtbare naam + nix `domains` + Caddy-vhost.
+  DNS weerok.nl via TransIP-API geblokkeerd: "The API is not enabled for this customer" (401) → PO zet de API aan.
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
