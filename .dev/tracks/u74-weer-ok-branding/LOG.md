@@ -116,3 +116,13 @@ Open:
 1. De e2e-suite draait alleen tegen de standaardbuild; de weerok-variant is gedekt door de build-test en de VM-test.
 2. `og:image:alt` zegt in beide builds "met de motregen-druppel".
 3. `pnpm dev` serveert geen robots.txt/og-image.png meer (alleen build/preview); niemand gebruikt dat.
+
+## 2026-10-09 18:01 (hostklok) — slot: gemerged op main
+U74 is door de orkestrator op main gemerged als 30fae9a, na een onafhankelijke gate (542 units, build, 28
+desktop-e2e, bot typecheck, prod-nix-build); branch-tip 10de0ea zit in main. Preview op 4320 gestopt (poort vrij,
+geverifieerd met `ss`). Prod-uitrol en DNS voor weerok.nl liggen bij de orkestrator.
+
+Blijft open (niet door deze track opgelost):
+1. `location.spec.ts:88` — vermoedelijke flake onder load, niet op main geverifieerd.
+2. De e2e-suite dekt alleen de standaardbuild; weerok loopt via `brand-build.test.ts` en de VM-test.
+3. `og:image:alt` zegt in beide builds "met de motregen-druppel".
