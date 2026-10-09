@@ -370,6 +370,10 @@
 - U72: PO 16:50 "radar+nowcast 5×5 al nice; AROME kan nog meer; meebewegen veel beter dan crossfade"; ronde 2:
   separabele Gaussische blur, 7×7/9×9, voorfilterkosten meten; tijd-blur gedegradeerd ("mogelijk giga onnodig").
 
+- 18:20: /regen_maf verwijderd (6760d8e5), VM-poller terug. **MIP-27 accepted** (PO "ja bouw maar"): /weer <plaats>
+  met wolkendoorsnede + regenhistogram, native (SVG+sharp) in de poller-rol; U73 gestart (gpt-6.1-sol), bouwt op
+  de gedeelde decode van U71a (PR #100).
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
