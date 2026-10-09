@@ -44,7 +44,7 @@ import { clampPlaybackCursor, playbackReach } from './core/playback-gate'
 import { measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer } from './core/perf'
 import type { ProfileRecording } from './core/profile-recorder'
 import { RainLayer, type RainFilterPass } from './core/rain-layer'
-import { DEFAULT_RAIN_FIELD_TUNING, loadRainFieldTuning, RAIN_FIELD_STORAGE_KEYS, RAIN_FILTER_MEASURE_STORAGE_KEY, rainSampling, rainTimeBlend, type RainFieldTuning } from './core/rain-smoothing'
+import { DEFAULT_RAIN_FIELD_TUNING, loadRainFieldTuning, RAIN_FIELD_STORAGE_KEYS, RAIN_FILTER_MEASURE_STORAGE_KEY, rainSampling, rainWarpLimit, type RainFieldTuning } from './core/rain-smoothing'
 import { LayerOverlay } from './core/overlay-canvas'
 import { grantedStartFix, loadLastLocation, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastLocation, storeLastSavedPlaceId, storeMapView, type StartLocation } from './core/location-memory'
 import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGestures } from './core/pin-navigation'
@@ -1567,12 +1567,15 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   function applyRainFieldTuning(pair: RainPair): void {
-    if (!devMode || !layer) return
+    if (!layer) return
     const tuning = untrack(rainFieldTuning)
+    // De data-nu van het manifest, niet de klok: de straal van een frame blijft zo gelijk tot er nieuwe data is.
+    const data = untrack(manifest)
+    const now = data ? Date.parse(data.now) : pair.leftFrame.epoch
     const leftSource = pair.leftFrame.source, rightSource = pair.rightFrame.source
-    layer.setSampling(rainSampling(leftSource, tuning), rainSampling(rightSource, tuning))
-    layer.setTimeBlend(rainTimeBlend(leftSource, rightSource, tuning))
-    mapElement.dataset.rainSources = `${leftSource} ${rightSource}`
+    layer.setSampling(rainSampling(leftSource, pair.leftFrame.epoch - now, tuning), rainSampling(rightSource, pair.rightFrame.epoch - now, tuning))
+    layer.setWarpLimit(rainWarpLimit((pair.rightFrame.epoch - pair.leftFrame.epoch) / 60_000))
+    if (devMode) mapElement.dataset.rainSources = `${leftSource} ${rightSource}`
   }
 
   function changeRainFieldTuning(patch: Partial<RainFieldTuning>): void {

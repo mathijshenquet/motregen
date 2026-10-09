@@ -166,3 +166,61 @@ voorfilter; geen warp over een bronovergang of het eerste/laatste frame van een 
 `pnpm typecheck` 0 · `pnpm test` 0 (80 bestanden, 534 tests) · `pnpm build` 0 ·
 `MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts --project desktop` 0 (5 groen).
 Preview 4320 serveert deze build (controlebeeld `eind-harmonie-dag-390` na de build genomen en bekeken).
+
+## 16:20 — ronde 3: PO-keuzes vastgezet als standaard (PO 19:05/19:15/19:20 via orkestrator)
+### Standaard (ook zonder `?dev`)
+- Regenveld `auto`: elk frame krijgt een Gaussische vervaging waarvan sigma afhangt van de frametijd t.o.v. de
+  data-nu van het manifest (niet de klok: zo houdt een frame dezelfde straal tot er nieuwe data is en hoeft het
+  niet opnieuw gefilterd). ≤ +2 u → "5×5", ≥ +3 u → "9×9", daartussen lineair in sigma (`autoBlurSigma`).
+  Het verleden (radar) valt onder ≤ +2 u.
+- De shader neemt sigma als uniform; taps = ceil(2,6·sigma)·2+1. Voor de vaste standen betekent dat meer taps
+  dan de naam zegt (het venster is nu de echte Gauss tot 2,6 sigma): 5×5 → sigma 0,95 → 7 taps per pass (was 5),
+  9×9 → sigma 1,71 → 11 taps per pass (was 9). De sigma, en dus het beeld, is gelijk aan ronde 2.
+- INTERPRETATIE, graag bevestigen: sigma is in BRONcellen, zoals de standen waarop de PO koos. "9×9" is op de
+  blend (+3…+6 u, broncel ~1,6 rastercel) dus ~2,7 rastercel en op HARMONIE (broncel ~3,25) ~5,6 rastercel.
+  De vervaging op de grond verdubbelt daarmee rond +6 u, uitgesmeerd over het overgangspaar van ~55 min.
+  Alternatief is één grondmaat voor alle bronnen; dat geeft de blend een veel zwaardere blur dan de PO ooit
+  heeft gezien, dus niet zonder zijn blik gedaan.
+- Tijdmenging: de schakelaar is weg, met `u_blend_eased` en de standen kruisfade/vloeiend. Meebewegen is gedrag.
+- Dev: Kaart › Regenveld radar/nowcast en Regenveld HARMONIE blijven als override (standaard `auto`).
+- Geldt ook voor wat de bot via de still-modus van de app rendert: zelfde laag, dus zelfde beeld. Aan de botcode
+  is niets gewijzigd.
+- NIET opnieuw gemeten na deze ronde: voorfilter-kosten met de bredere vensters (7 en 11 taps) en de frametijd
+  van de standaard. Uit ronde 2: 14 taps kostte ~35 ms en 18 taps ~50 ms per frame in de software-rig; `auto`
+  zit op 14 (≤ +2 u) tot 22 taps (≥ +3 u).
+
+### Bronovergang (PO 19:15: "meebewegen werkt daar niet, de kern springt of vervaagt op de grens")
+`rig/seam-probe.mjs` (manifest + headers, live data ~16:10):
+| overgang | framepaar | stap | bewegingsveld |
+| --- | --- | --- | --- |
+| radar → nowcast (nu) | rtcor#35 → nowcast#1 | 5 min | van het rechterframe (nowcast#1), aanwezig |
+| nowcast → blend (+2 u) | nowcast#24 → seamless#1 | 5 min | van het rechterframe (seamless#1), aanwezig |
+| blend → HARMONIE (~+6 u) | seamless#47 → harmonie#10 | 55 min | van het rechterframe (harmonie#10), aanwezig |
+- Elk frame behalve het eerste van een chunk heeft een bewegingsveld (`-mmm…`), en `selectPairMotion` neemt dat
+  van het rechterframe. Bij geen van de overgangen ontbreekt het veld; een veld lenen en schalen was niet nodig.
+  (Het veld is in cellen per minuut; de shader vermenigvuldigt met de werkelijke stap, dus 55 min klopt vanzelf.)
+- De fout zat in de KAP. De ruime kap (120 cellen) gold alleen voor een paar van twee HARMONIE-frames. Het
+  overgangspaar blend → HARMONIE is 55 minuten lang maar kreeg de 5-minutenkap van 15 cellen; daarboven schakelt
+  de shader het meebewegen uit. Resultaat: bijna een uur kruisfade tussen het laatste blendframe en het eerste
+  HARMONIE-frame — precies het "vervagen op de grens".
+- Fix: de kap volgt de lengte van de stap, niet de bronnen (`rainWarpLimit(intervalMinutes)`: ≥ 30 min → 120/240).
+- De twee 5-minutenovergangen (radar → nowcast, nowcast → blend) hebben een veld en de gewone kap; daar vond ik
+  niets mis en heb ik niets gewijzigd. Ik heb ze niet als filmstrip bekeken.
+- Filmstrips, zelf bekeken (`rig/time-strip.ts`, stad 390 px, 21:55 … 23:30, zelfde tijden en data; vóór = de
+  build van ronde 2 op 9×9 + meebewegen, tijdelijk op poort 4390): `beelden/naad-voor.webp`, `beelden/naad-na.webp`.
+  Vóór: tussen 22:05 en 23:00 kleurt het hele vlak gelijkmatig op (twee stilstaande beelden die in elkaar
+  overvloeien). Ná: de zwaardere regen komt als front vanuit het westen binnen (22:27: geel links, nog groen rechts)
+  en sluit aan op het HARMONIE-frame van 23:00. Voorbehoud: het is hier een groot aaneengesloten regengebied; hoe een
+  losse buikern over de overgang loopt heb ik niet gezien, en de twee bronnen zijn het onderling niet eens over de
+  intensiteit — dat verschil blijft een fade, alleen de verplaatsing is nu goed.
+
+### Beelden standaard (zelf bekeken): `beelden/auto-nu-2u-2u30-6u.webp`
+Stad, 390 px, zonder override: 16:19 (radar → nowcast), 18:19 (+2 u, nowcast → blend), 18:49 (+2,5 u, halverwege de
+oploop), 22:19 (+6 u, blend → HARMONIE). "Dag" lukt voor +6 u niet (22:19 is nacht; de kaart volgt de kaarttijd).
+Geen blokken of kartels in een van de vier; de overgang van sigma tussen +2 u en +3 u geeft geen zichtbare stap.
+
+### Gate (web/), 16:21
+`pnpm typecheck` 0 · `pnpm test` 0 (80 bestanden, 534 tests) · `pnpm build` 0 ·
+`MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts --project desktop` 0 (5 groen).
+De eerste e2e-poging gaf exit 1: mijn eigen tijdelijke preview van de oude build hield 4390 nog bezet (geen
+testfout); gestopt en opnieuw gedraaid. Preview 4320 serveert deze build.
