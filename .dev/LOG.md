@@ -381,6 +381,12 @@
   tijd-blur overgeslagen (PO: "mogelijk giga onnodig"). Overrides in ?dev Kaart › Regenveld (auto). 4330 herbouwd.
 - bot: regenloop −1…+2 u (ea30771d; PO), renderer herstart. U71a en U73 lopen.
 
+- **U71a gemerged** (20:45, b60be661, PR #100, gpt-6.1-sol 2,5 u): native regenloop — basiskaartplaat één keer,
+  gedeelde mrf-decode (bot+web), rasterworker (Rust) + één ffmpeg; regenfilm 1,8 s op 2 kernen (was 31,7 s),
+  generatie 173 media 164 s op 2 kernen (marge 16 s; temperatuur/wind nog Playwright → U71b/c); pariteit ΔE 0,1
+  (zelf bekeken); rollback MOTREGEN_RAIN_RENDERER=playwright. Opvolgpunt: HARMONIE-blur (U72) ook in de native
+  compositor. U73 (/weer <plaats>, PR #101) klaar en live getest vanuit zijn worktree; gate tegen nieuwe main loopt.
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
