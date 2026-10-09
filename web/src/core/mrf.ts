@@ -162,6 +162,7 @@ export class MrfClient {
   private readonly workers: Worker[]
   private readonly idleWorkers: number[]
   private requestId = 0
+  private dispatchFrame?: number
   onFrameDecoded?: (url: string, frameIndex: number, frame: Uint8Array) => void
 
   constructor(
@@ -180,7 +181,7 @@ export class MrfClient {
         this.idleWorkers.push(request.worker)
         if (data.duration !== undefined) recordPerfPhase('frame-decode', data.duration, { codec: 'zstd/mrf', ...request.job.detail, waitMs: request.job.waitMs })
         if (data.error) request.job.reject(new Error(data.error)); else request.job.resolve(new Uint8Array(data.frame!))
-        this.dispatch()
+        this.scheduleDispatch()
       }
     }
   }
@@ -515,6 +516,7 @@ export class MrfClient {
   // Eén decode per worker tegelijk; de rest wacht hier, zodat een frame dichter bij de cursor dat
   // later binnenkomt nog voor kan gaan en een afgebroken vraag de worker nooit bereikt.
   private dispatch(): void {
+    if (this.dispatchFrame !== undefined) return
     while (this.idleWorkers.length) {
       const job = this.queue.take()
       if (!job) return
@@ -531,6 +533,16 @@ export class MrfClient {
         : job.compressed.slice().buffer
       this.workers[worker]!.postMessage({ id, bytes, expectedLength: job.expectedLength, pred: job.pred }, [bytes])
     }
+  }
+
+  private scheduleDispatch(): void {
+    if (typeof requestAnimationFrame === 'undefined') { this.dispatch(); return }
+    if (this.dispatchFrame !== undefined) return
+    // Een continue stroom worker-antwoorden mag de renderbeurt niet uit de eventloop verdringen.
+    this.dispatchFrame = requestAnimationFrame(() => {
+      this.dispatchFrame = undefined
+      this.dispatch()
+    })
   }
 }
 
@@ -623,6 +635,7 @@ async function fetchRangeBody(
   const sourceEnd = sourceStart + wantedLength
   let sourceOffset = 0
   let received = 0
+  let yieldedAt = performance.now()
 
   if (!response.body) {
     const bytes = new Uint8Array(await response.arrayBuffer())
@@ -644,6 +657,10 @@ async function fetchRangeBody(
         received += selected.length
       }
       sourceOffset = chunkEnd
+      if (received < wantedLength && performance.now() - yieldedAt > 4 && typeof requestAnimationFrame !== 'undefined') {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+        yieldedAt = performance.now()
+      }
     }
   }
   if (received !== wantedLength) throw new Error(`Onvolledig bereik (${received}/${wantedLength} bytes)`)

@@ -9,6 +9,7 @@ const [origin, output, ...flags] = process.argv.slice(2)
 if (!origin || !output) throw new Error('Gebruik: play-sync.ts ORIGIN UITVOER [--warm] [--filmstrip] [--cpu-profile] [--profile=desktop|po-android] [--fixture] [--now=ISO] [--manifest=PAD] [--proxy=URL]')
 const warm = flags.includes('--warm')
 const filmstrip = flags.includes('--filmstrip')
+const playWindow = flags.includes('--play-window')
 const cpuProfile = flags.includes('--cpu-profile')
 const profile = performanceProfile(flags.find((flag) => flag.startsWith('--profile='))?.slice(10) ?? 'desktop')
 const proxy = flags.find((flag) => flag.startsWith('--proxy='))?.slice(8)
@@ -94,6 +95,9 @@ try {
   }
   await page.addInitScript(() => {
     const samples: object[] = []
+    const rawLongFrames: object[] = []
+    ;(window as unknown as { playSyncLongFrames: object[] }).playSyncLongFrames = rawLongFrames
+    new PerformanceObserver(list => rawLongFrames.push(...list.getEntries().map(entry => entry.toJSON()))).observe({ type: 'long-animation-frame', buffered: true })
     ;(window as unknown as { playSyncSamples: object[] }).playSyncSamples = samples
     const sample = () => {
       const slider = document.querySelector('[role=slider][aria-label=Tijd]')
@@ -102,10 +106,10 @@ try {
       const splash = document.querySelector('.map-splash')
       const veil = document.querySelector('.map-splash-veil')
       const map = document.querySelector<HTMLElement>('.map')
-      samples.push({ ms: performance.now(), cursorIndex: slider?.getAttribute('aria-valuenow'), cursorLeft: cursor?.getBoundingClientRect().left, playing: slider?.hasAttribute('data-playing'), cursorMinute: document.querySelector<HTMLElement>('.app-shell')?.dataset.epoch, rainEpoch: map?.dataset.rainEpoch, rainCursor: map?.dataset.rainCursor, tilesLoaded: map?.dataset.tilesLoaded, mapStart: map?.dataset.mapStart ?? 'z4', trackTransform: track && getComputedStyle(track).transform, mapReady: splash?.classList.contains('ready'), splashVisibility: splash && getComputedStyle(splash).visibility, veilOpacity: veil && getComputedStyle(veil).opacity, perf: window.__motregenPerf?.snapshot() })
+      samples.push({ ms: performance.now(), cursorIndex: slider?.getAttribute('aria-valuenow'), cursorLeft: cursor?.getBoundingClientRect().left, playing: slider?.hasAttribute('data-playing'), cursorMinute: document.querySelector<HTMLElement>('.app-shell')?.dataset.epoch, rainEpoch: map?.dataset.rainEpoch, rainCursor: map?.dataset.rainCursor, tilesLoaded: map?.dataset.tilesLoaded, mapStart: map?.dataset.mapStart ?? 'z4', trackTransform: track && getComputedStyle(track).transform, mapReady: splash?.classList.contains('ready'), splashVisibility: splash && getComputedStyle(splash).visibility, veilOpacity: veil && getComputedStyle(veil).opacity })
     }
     const timer = setInterval(sample, 250)
-    setTimeout(() => clearInterval(timer), 12_000)
+    setTimeout(() => clearInterval(timer), 30_000)
   })
   const loads = [{ ms: 0, load }]
   const loadTimer = setInterval(() => loads.push({ ms: loads.length * 1_000, load: hostLoadAverage() }), 1_000)
@@ -115,15 +119,18 @@ try {
       await page.waitForLoadState('domcontentloaded')
       await page.addStyleTag({ content: '.perf-hud { display: none !important; }' })
     }
-    await page.waitForFunction(() => performance.now() >= 12_000)
+    await page.waitForFunction(() => {
+      const started = window.__motregenPerf?.snapshot().firstCursorMs
+      return started != null && performance.now() >= Math.max(12_000, started + 5_500)
+    })
     if (cpuProfile) {
       const { profile: cpu } = await cdp.send('Profiler.stop')
       writeFileSync(`${output}.cpuprofile`, JSON.stringify(cpu))
     }
     if (filmstrip) await cdp.send('Page.stopScreencast')
-    const captured = await page.evaluate(() => ({ timeOrigin: performance.timeOrigin, manifestGenerated: document.querySelector<HTMLElement>('.app-shell')?.dataset.generated, snapshot: window.__motregenPerf!.snapshot(), entries: window.__motregenPerf!.traceSlice(0, 12_000), loads: window.__motregenPerf!.loads.snapshot(), samples: (window as unknown as { playSyncSamples: object[] }).playSyncSamples, resources: performance.getEntriesByType('resource').map((entry) => entry.toJSON()), serviceWorkerControlled: Boolean(navigator.serviceWorker.controller), graphics: Array.from(document.querySelectorAll<HTMLCanvasElement>('canvas.map-overlay, canvas.maplibregl-canvas')).map(canvas => ({ canvas: canvas.className, parallelShaderCompile: Boolean(canvas.getContext('webgl2')?.getExtension('KHR_parallel_shader_compile')) })) }))
+    const captured = await page.evaluate(() => ({ timeOrigin: performance.timeOrigin, manifestGenerated: document.querySelector<HTMLElement>('.app-shell')?.dataset.generated, snapshot: window.__motregenPerf!.snapshot(), entries: window.__motregenPerf!.traceSlice(0, 12_000), loads: window.__motregenPerf!.loads.snapshot(), samples: (window as unknown as { playSyncSamples: object[] }).playSyncSamples, rawLongFrames: (window as unknown as { playSyncLongFrames: object[] }).playSyncLongFrames, resources: performance.getEntriesByType('resource').map((entry) => entry.toJSON()), serviceWorkerControlled: Boolean(navigator.serviceWorker.controller), graphics: Array.from(document.querySelectorAll<HTMLCanvasElement>('canvas.map-overlay, canvas.maplibregl-canvas')).map(canvas => ({ canvas: canvas.className, parallelShaderCompile: Boolean(canvas.getContext('webgl2')?.getExtension('KHR_parallel_shader_compile')) })) }))
     const shots = filmstrip ? Array.from({ length: 24 }, (_, index) => {
-      const targetMs = index * 250
+      const targetMs = index * 250 + (playWindow ? captured.snapshot.firstCursorMs! : 0)
       const frame = frames.filter((frame) => frame.timestamp - captured.timeOrigin <= targetMs).at(-1)
       if (frame) writeFileSync(`${output}/${String(index).padStart(2, '0')}.jpg`, Buffer.from(frame.data, 'base64'))
       const sample = (captured.samples as Array<{ ms: number }>).filter((sample) => sample.ms <= targetMs).at(-1)
