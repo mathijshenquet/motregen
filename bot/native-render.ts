@@ -38,7 +38,7 @@ export class NativeWeatherRenderer {
       const map = await maps.get(theme, frame.grid)
       const temperatureEpoch = Math.round(epoch / 600_000) * 600_000
       const base = temperatures ? drawTemperatureLabels(map.rgb, map.labels, await temperatures.frame(Math.max(temperatures.timeline[0]!.epoch, Math.min(temperatures.timeline.at(-1)!.epoch, temperatureEpoch)))) : map.rgb
-      const rgb = await overlay.draw(compositor.compose(base, frame, theme === 'dark'), epoch, now)
+      const rgb = await overlay.draw(await compositor.composeFast(base, frame, theme === 'dark'), epoch, now)
       if (stillIndexes.has(index)) await writeFile(nativeFramePath(directory, index), [header, rgb])
       renderMs += performance.now() - frameStarted
       return rgb

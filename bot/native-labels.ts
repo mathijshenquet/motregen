@@ -21,6 +21,7 @@ export async function captureLabelAtlas(page: Page, theme: NativeTheme, base: Bu
     return places.map((place) => ({ name: place.name, ...map.project([place.lng, place.lat]) }))
   }, { layerJson: JSON.stringify(layer), places })
   const atlas: LabelAtlas = {}
+  // Covers the ingest feels_like_c quantisation (−31.2…45 °C), with room at both ends.
   for (let value = -50; value <= 60; value++) {
     await page.evaluate(async ({ value, places }) => {
       const map = (window as unknown as { nativeMap: MapLibreMap }).nativeMap

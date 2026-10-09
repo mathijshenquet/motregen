@@ -33,7 +33,7 @@ it('fetches each pinned chunk once, uses the shared decoder and rejects mismatch
   vi.stubGlobal('fetch', fetchMock)
   const manifest: StillManifest = { version: 0, generated: now, now, chunks: [{ url: 'chunks/rain.mrf', field: 'rain_rate', times: [now], ...{ source: 'rtcor', run: now, header_len: prefix.length + json.length } }] }
   const data = new NativeRainData('https://motregen.nl', manifest)
-  expect((await data.frame(Date.parse(now))).left).toEqual(new Uint8Array(16).fill(100))
+  expect(Array.from((await data.frame(Date.parse(now))).left)).toEqual(Array(16).fill(100))
   await data.frame(Date.parse(now))
   expect(fetchMock).toHaveBeenCalledTimes(1)
   expect(fetchMock.mock.calls[0]?.[0]).toBeInstanceOf(URL)
@@ -52,4 +52,17 @@ it('chooses the map time’s day/night theme and isolates the fallback cache', (
   expect(cacheKey({ mode: 'weather', hour: 'loop' }, manifest)).not.toBe(native)
   vi.stubEnv('MOTREGEN_RAIN_RENDERER', 'invalid')
   expect(() => rainRenderer()).toThrow('native of playwright')
+})
+
+
+it('matches the scalar compositor with native bilinear projection, including no-data and fractional times', async () => {
+  const compositor = new RainCompositor(grid, { width: 4, height: 4 })
+  const base = new Uint8Array(48).fill(100)
+  const left = Uint8Array.from([0, 0, 0, 0, 0, 80, 100, 140, 0, 100, 255, 190, 0, 140, 190, 220])
+  const right = new Uint8Array(16).fill(80)
+  for (const mix of [0, 0.25, 0.5, 1]) {
+    const input = frame(left, right, mix)
+    const expected = compositor.compose(base, input, false), actual = await compositor.composeFast(base, input, false)
+    expect([...actual].every((value, index) => Math.abs(value - expected[index]!) <= 1)).toBe(true)
+  }
 })

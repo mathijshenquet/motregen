@@ -25,8 +25,9 @@ function validateHeader(header: MrfHeader): void {
   if (header.frames.some((frame) => frame.motion && (!Number.isInteger(frame.motion.offset) || !Number.isInteger(frame.motion.len) || frame.motion.offset < 0 || frame.motion.len < 1))) throw new Error('Ongeldige motion-verwijzing')
 }
 
-export function decodeFrame(bytes: Uint8Array, expectedLength: number, pred?: PredFrameSpec): Uint8Array {
-  const decoded = pred ? decodePredFrame(decompress(bytes), pred) : decompress(bytes)
+export function decodeFrame(bytes: Uint8Array, expectedLength: number, pred?: PredFrameSpec, decompressFrame: (bytes: Uint8Array) => Uint8Array = decompress): Uint8Array {
+  const raw = decompressFrame(bytes)
+  const decoded = pred ? decodePredFrame(raw, pred) : raw
   if (decoded.length !== expectedLength) throw new Error(`Frame heeft ${decoded.length} bytes; verwacht ${expectedLength}`)
   return decoded
 }

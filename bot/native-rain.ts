@@ -1,3 +1,5 @@
+import sharp from 'sharp'
+import { zstdDecompressSync } from 'node:zlib'
 import type { Field, Grid, Manifest, MrfHeader, TimelineFrame } from '../web/src/core/contract.js'
 import { decodeFrame, parseMrfHeader } from '../web/src/core/mrf-codec.js'
 import { buildTimeline, frameBlend } from '../web/src/core/time-model.js'
@@ -38,7 +40,7 @@ export class NativeRainData {
       const size = chunk.header.motion_grid
       if (index && size) {
         const start = chunk.headerLength + index.offset
-        const vectors = decodeFrame(chunk.bytes.subarray(start, start + index.len), size.bw * size.bh * 2)
+        const vectors = decodeFrame(chunk.bytes.subarray(start, start + index.len), size.bw * size.bh * 2, undefined, zstdDecompressSync)
         motion = { width: size.bw, height: size.bh, vectors: new Int8Array(vectors.buffer, vectors.byteOffset, vectors.byteLength) }
       }
     }
@@ -64,7 +66,7 @@ export class NativeRainData {
       if (!index || index.time !== frame.time) throw new Error('Regenchunk wijkt af van manifest')
       const start = chunk.headerLength + index.offset
       const { width, height } = chunk.header.grid
-      raster = decodeFrame(chunk.bytes.subarray(start, start + index.len), width * height, chunk.header.pred ? { width, height } : undefined)
+      raster = decodeFrame(chunk.bytes.subarray(start, start + index.len), width * height, chunk.header.pred ? { width, height } : undefined, zstdDecompressSync)
       chunk.frames.set(frame.frameIndex, raster)
     }
     return { grid: chunk.header.grid, raster, header: chunk.header }
@@ -79,6 +81,9 @@ export class RainCompositor {
   private readonly columns: Float64Array
   private readonly rows: Float64Array
   private readonly colors = new Float32Array(65536 * 4)
+  private readonly projected = new Map<Uint8Array, Promise<{ values: Uint16Array; valid: Uint8Array }>>()
+  private readonly sourcePixels: Int32Array
+  private readonly crop: { left: number; top: number; width: number; height: number; scaleX: number; scaleY: number }
   private readonly motionSample = new Float64Array(2)
   private readonly motionIndexes = new Int32Array(4)
   private readonly motionWeights = new Float64Array(4)
@@ -97,12 +102,76 @@ export class RainCompositor {
     const centerY = Math.log(Math.tan(Math.PI / 4 + view.lat * Math.PI / 360)) * 6378137
     this.columns = Float64Array.from({ length: size.width }, (_, column) => (centerX + (column + 0.5 - size.width / 2) * metersPerPixel - grid.x0) / grid.dx - 0.5)
     this.rows = Float64Array.from({ length: size.height }, (_, row) => (centerY - (row + 0.5 - size.height / 2) * metersPerPixel - grid.y0) / grid.dy - 0.5)
+    const left = Math.floor(this.columns[0]!) - 1, top = Math.floor(this.rows[0]!) - 1
+    const width = Math.ceil(this.columns.at(-1)!) - left + 2, height = Math.ceil(this.rows.at(-1)!) - top + 2
+    this.crop = { left, top, width, height, scaleX: grid.dx / metersPerPixel, scaleY: -grid.dy / metersPerPixel }
+    this.sourcePixels = new Int32Array(size.width * size.height).fill(-1)
+    for (let row = 0; row < size.height; row++) for (let column = 0; column < size.width; column++) {
+      const sourceX = this.columns[column]!, sourceY = this.rows[row]!
+      if (sourceX >= 0 && sourceY >= 0 && sourceX <= grid.width - 1 && sourceY <= grid.height - 1) this.sourcePixels[row * size.width + column] = (Math.floor(sourceY) - top) * width + Math.floor(sourceX) - left
+    }
+  }
+
+  async composeFast(base: Uint8Array, frame: RainFrame, night: boolean): Promise<Buffer> {
+    this.validatePresentation(night)
+    if (frame.motion && frame.mix > 0 && frame.mix < 1) return this.compose(base, frame, night)
+    const [left, right] = await Promise.all([this.project(frame.mix === 1 ? frame.right : frame.left), this.project(frame.mix === 0 ? frame.left : frame.right)])
+    const leftWeight = (1 - frame.mix) ** FLOW_BLEND_CURVE, rightWeight = frame.mix ** FLOW_BLEND_CURVE
+    const mix = rightWeight / Math.max(0.0001, leftWeight + rightWeight)
+    const rgb = Buffer.from(base)
+    for (let pixel = 0; pixel < this.sourcePixels.length; pixel++) {
+      const source = this.sourcePixels[pixel]!
+      if (source < 0) continue
+      const value = (left.valid[source] ? left.values[pixel]! : 0) * (1 - mix) + (right.valid[source] ? right.values[pixel]! : 0) * mix
+      if (value <= 0) continue
+      const color = Math.min(65535, Math.round(value)) * 4
+      const coverage = this.colors[color + 3]!
+      const offset = pixel * 3
+      rgb[offset] = Math.min(255, Math.round(this.colors[color]! + rgb[offset]! * coverage))
+      rgb[offset + 1] = Math.min(255, Math.round(this.colors[color + 1]! + rgb[offset + 1]! * coverage))
+      rgb[offset + 2] = Math.min(255, Math.round(this.colors[color + 2]! + rgb[offset + 2]! * coverage))
+    }
+    return rgb
+  }
+
+  private project(frame: Uint8Array): Promise<{ values: Uint16Array; valid: Uint8Array }> {
+    const cached = this.projected.get(frame)
+    if (cached) return cached
+    const pending = (async () => {
+      const { left, top, width, height, scaleX, scaleY } = this.crop
+      const samples = new Uint16Array(width * height)
+      const valid = new Uint8Array(width * height)
+      for (let row = 0; row < height; row++) for (let column = 0; column < width; column++) {
+        const gridColumn = left + column, gridRow = top + row
+        if (gridColumn < 0 || gridRow < 0 || gridColumn >= this.grid.width || gridRow >= this.grid.height) continue
+        const west = gridRow * this.grid.width + gridColumn
+        const east = gridRow * this.grid.width + Math.min(this.grid.width - 1, gridColumn + 1)
+        const southWest = Math.min(this.grid.height - 1, gridRow + 1) * this.grid.width + gridColumn
+        const southEast = Math.min(this.grid.height - 1, gridRow + 1) * this.grid.width + Math.min(this.grid.width - 1, gridColumn + 1)
+        const value = frame[west]!
+        samples[row * width + column] = value === 255 ? 0 : value * 256
+        valid[row * width + column] = Number(value !== 255 && frame[east] !== 255 && frame[southWest] !== 255 && frame[southEast] !== 255)
+      }
+      // A 16-bit scalar retains 1/256 of a rain code during native bilinear projection.
+      const output = await sharp(samples, { raw: { width, height, channels: 1 } })
+        .pipelineColourspace('grey16')
+        .affine([[scaleX, 0], [0, scaleY]], { odx: -(this.columns[0]! - left) * scaleX, ody: -(this.rows[0]! - top) * scaleY, interpolator: sharp.interpolators.bilinear })
+        .toColourspace('grey16').raw({ depth: 'ushort' }).toBuffer({ resolveWithObject: true })
+      const cropped = Buffer.alloc(this.size.width * this.size.height * 2)
+      for (let row = 0; row < this.size.height; row++) {
+        const start = row * output.info.width * 2
+        output.data.copy(cropped, row * this.size.width * 2, start, start + this.size.width * 2)
+      }
+      return { values: new Uint16Array(cropped.buffer, cropped.byteOffset, cropped.byteLength / 2), valid }
+    })()
+    this.projected.set(frame, pending)
+    if (this.projected.size > 4) this.projected.delete(this.projected.keys().next().value!)
+    return pending
   }
 
   compose(base: Uint8Array, frame: RainFrame, night: boolean): Buffer {
     const rgb = Buffer.from(base)
-    const presentation = rainPresentation({ temperatureFocus: 0, windFocus: 0, airFocus: 0, night })
-    if (presentation.opacity !== 1 || presentation.saturation !== 1 || presentation.brightness !== 1 || presentation.multiply) throw new Error('Regencompositor verwacht volledige Weer-modus')
+    this.validatePresentation(night)
     const leftWeight = (1 - frame.mix) ** FLOW_BLEND_CURVE, rightWeight = frame.mix ** FLOW_BLEND_CURVE
     const mix = rightWeight / Math.max(0.0001, leftWeight + rightWeight)
     for (let row = 0; row < this.size.height; row++) {
@@ -132,6 +201,11 @@ export class RainCompositor {
       }
     }
     return rgb
+  }
+
+  private validatePresentation(night: boolean): void {
+    const presentation = rainPresentation({ temperatureFocus: 0, windFocus: 0, airFocus: 0, night })
+    if (presentation.opacity !== 1 || presentation.saturation !== 1 || presentation.brightness !== 1 || presentation.multiply) throw new Error('Regencompositor verwacht volledige Weer-modus')
   }
 
   private displacement(frame: RainFrame, column: number, row: number): Float64Array {
