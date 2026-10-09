@@ -22,8 +22,16 @@ lichte regen tot 19:30") plus een knop naar de app op die plek (`presetUrl` + pl
    omweg — alleen de frames moeten lokaal zijn (de poller haalt nu al de manifest; chunks erbij is ~2 MB per
    generatie). Fallback als een chunk mist: tekst zonder beeld.
 
+## Wolken erbij (PO 2026-10-09: "met wolkjes en regen histogram ook?")
+Ja: dezelfde wolkendoorsnede als boven de scrubber in de app (`core/cloud-section.ts`: drie lagen hoog/
+midden/laag uit HARMONIE, losse wolken met lucht ertussen, gesloten band vanaf 0,9), plus het regenhistogram
+eronder — één beeld, zoals het venster in de app. De wolkenreeksen zijn per plaats dezelfde `seriesValueAt`-
+aflezing als de regen; de tekencode is puur (spans → rechthoeken) en gaat één-op-één naar SVG. Kosten blijven
+in de orde van ms. Alleen voor de HARMONIE-uren (radar/nowcast hebben geen wolken): links blijft die band leeg,
+net als in de app.
+
 ## Afbakening
-Alleen regen (temperatuur/wind per plaats later). Geen stills/kaartuitsnede per plaats (dat is de app). Geen
+Regen + wolken (temperatuur/wind per plaats later). Geen stills/kaartuitsnede per plaats (dat is de app). Geen
 pushmeldingen (MIP-22). Pariteit: dezelfde cijfers als de app op dezelfde plek/tijd, getest met één plaats.
 
 ## Decision
