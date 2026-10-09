@@ -401,6 +401,9 @@
   beide domeinen serveren. U74 (opus-5.5 live-pane, 4320) gestart: zichtbare naam + nix `domains` + Caddy-vhost.
   DNS weerok.nl via TransIP-API geblokkeerd: "The API is not enabled for this customer" (401) → PO zet de API aan.
 
+- 22:30: PO: na U74 prod uitrollen (met weerok.nl); @motregen_bot houdt motregen-branding (alleen de web-naam).
+  U71b gestart (gpt-6.1-sol): temperatuur + wind native, doel generatie < 60 s op 2 kernen → renderer terug naar VM.
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
