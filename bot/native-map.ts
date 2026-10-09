@@ -5,16 +5,17 @@ import { dirname, join, resolve } from 'node:path'
 import type { BrowserContext } from 'playwright'
 import type { Map as MapLibreMap, StyleSpecification } from 'maplibre-gl'
 import sharp from 'sharp'
-import { containView, MAP_CONTAIN_BOUNDS } from '../web/src/core/map-constraint.js'
+import { NATIVE_VIEW } from './native-view.js'
+export { NATIVE_VIEW } from './native-view.js'
 import { mapFrameFromGrid } from '../web/src/core/map-frame.js'
 import type { Grid } from '../web/src/core/contract.js'
+import { captureLabelAtlas, type LabelAtlas } from './native-labels.js'
 import { FRAME } from './config.js'
 
 export type NativeTheme = 'light' | 'dark'
-export const NATIVE_VIEW = containView(MAP_CONTAIN_BOUNDS, FRAME)
 const require = createRequire(import.meta.url)
 
-export interface MapPlate { rgb: Buffer; key: string; path: string }
+export interface MapPlate { rgb: Buffer; key: string; path: string; labels: LabelAtlas }
 
 export class NativeMaps {
   private readonly plates = new Map<NativeTheme, Promise<MapPlate>>()
@@ -42,9 +43,9 @@ export class NativeMaps {
       }
     }
     if (style.glyphs) style.glyphs = new URL(style.glyphs, styleUrl).href.replaceAll('%7B', '{').replaceAll('%7D', '}')
-    const key = createHash('sha256').update(JSON.stringify({ version: 1, style, theme, frame: FRAME, view: NATIVE_VIEW, grid })).digest('hex').slice(0, 24)
+    const key = createHash('sha256').update(JSON.stringify({ version: 2, style, theme, frame: FRAME, view: NATIVE_VIEW, grid })).digest('hex').slice(0, 24)
     const path = join(this.directory, `basemap-${theme}-${key}.png`)
-    try { return { rgb: await sharp(await readFile(path)).removeAlpha().raw().toBuffer(), key, path } } catch (error) {
+    try { return { rgb: await sharp(await readFile(path)).removeAlpha().raw().toBuffer(), key, path, labels: JSON.parse(await readFile(`${path}.labels.json`, 'utf8')) as LabelAtlas } } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     }
     await mkdir(this.directory, { recursive: true })
@@ -72,10 +73,14 @@ export class NativeMaps {
         await new Promise<void>((resolve) => map.once('idle', () => resolve()))
       }, { styleJson: JSON.stringify(style), view: NATIVE_VIEW, mask, theme })
       const png = await page.screenshot()
+      const rgb = await sharp(png).removeAlpha().raw().toBuffer()
+      const labels = await captureLabelAtlas(page, theme, rgb)
+      await writeFile(`${path}.labels.json.tmp`, JSON.stringify(labels))
+      await rename(`${path}.labels.json.tmp`, `${path}.labels.json`)
       await writeFile(`${path}.tmp`, png)
       await rename(`${path}.tmp`, path)
-      console.info(JSON.stringify({ event: 'native-basemap-created', theme, key, milliseconds: Math.round(performance.now() - started) }))
-      return { rgb: await sharp(png).removeAlpha().raw().toBuffer(), key, path }
+      console.info(JSON.stringify({ event: 'native-basemap-created', theme, key, labelVariants: 111, milliseconds: Math.round(performance.now() - started) }))
+      return { rgb, key, path, labels }
     } finally { await page.close() }
   }
 }
