@@ -1,0 +1,2421 @@
+{
+  "sourceSha": "29f9bee9e21835643f60092fcfbf42d00e82c620",
+  "referenceSha": "d0420ea",
+  "captureOverhead": true,
+  "selectionMs": 250,
+  "compositorEveryNthFrame": 4,
+  "captures": [
+    {
+      "profile": "desktop",
+      "variant": "reference",
+      "origin": "http://127.0.0.1:4351",
+      "capturedAt": "2026-10-09T09:39:13.180Z",
+      "startLoad": 12.81,
+      "manifestGenerated": "2026-10-09T09:38:51Z",
+      "screenshotOverhead": true,
+      "milestones": {
+        "styleReadyMs": 401.1,
+        "firstRainMs": 1405.9,
+        "firstCursorMs": 1457.2,
+        "mapRevealedMs": 3271.1,
+        "firstBasemapTileMs": 933.5,
+        "basemapReadyMs": 1405.6,
+        "ttfrMs": 1457.2,
+        "ttfpMs": 1877.8
+      },
+      "shots": [
+        {
+          "targetMs": 0,
+          "frameMs": -2.6
+        },
+        {
+          "targetMs": 250,
+          "frameMs": -2.6
+        },
+        {
+          "targetMs": 500,
+          "frameMs": -2.6
+        },
+        {
+          "targetMs": 750,
+          "frameMs": 747.9
+        },
+        {
+          "targetMs": 1000,
+          "frameMs": 747.9
+        },
+        {
+          "targetMs": 1250,
+          "frameMs": 747.9
+        },
+        {
+          "targetMs": 1500,
+          "frameMs": 1426.6
+        },
+        {
+          "targetMs": 1750,
+          "frameMs": 1642.7
+        },
+        {
+          "targetMs": 2000,
+          "frameMs": 1846.9
+        },
+        {
+          "targetMs": 2250,
+          "frameMs": 2123.2
+        },
+        {
+          "targetMs": 2500,
+          "frameMs": 2266.2
+        },
+        {
+          "targetMs": 2750,
+          "frameMs": 2655.2
+        },
+        {
+          "targetMs": 3000,
+          "frameMs": 2655.2
+        },
+        {
+          "targetMs": 3250,
+          "frameMs": 3197.2
+        },
+        {
+          "targetMs": 3500,
+          "frameMs": 3441.7
+        },
+        {
+          "targetMs": 3750,
+          "frameMs": 3736.8
+        },
+        {
+          "targetMs": 4000,
+          "frameMs": 3959.8
+        },
+        {
+          "targetMs": 4250,
+          "frameMs": 4243.8
+        },
+        {
+          "targetMs": 4500,
+          "frameMs": 4443.5
+        },
+        {
+          "targetMs": 4750,
+          "frameMs": 4710
+        },
+        {
+          "targetMs": 5000,
+          "frameMs": 4909.9
+        },
+        {
+          "targetMs": 5250,
+          "frameMs": 5226.5
+        },
+        {
+          "targetMs": 5500,
+          "frameMs": 5493.4
+        },
+        {
+          "targetMs": 5750,
+          "frameMs": 5693.6
+        }
+      ],
+      "samples": [
+        {
+          "ms": 416.8,
+          "cursorIndex": "35",
+          "cursorMinute": "1791538500000",
+          "rainEpoch": null,
+          "trackTransform": "matrix(1, 0, 0, 1, -18.6707, 0)",
+          "mapReady": false,
+          "playing": true,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 701.8,
+          "cursorIndex": "35",
+          "cursorMinute": "1791538500000",
+          "rainEpoch": null,
+          "trackTransform": "matrix(1, 0, 0, 1, -18.6707, 0)",
+          "mapReady": false,
+          "playing": true,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 772.6,
+          "cursorIndex": "35",
+          "cursorMinute": "1791538500000",
+          "rainEpoch": null,
+          "trackTransform": "matrix(1, 0, 0, 1, -18.6707, 0)",
+          "mapReady": false,
+          "playing": true,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 1008.7,
+          "cursorIndex": "35",
+          "cursorMinute": "1791538500000",
+          "rainEpoch": null,
+          "trackTransform": "matrix(1, 0, 0, 1, -18.6707, 0)",
+          "mapReady": false,
+          "playing": true,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 1258.8,
+          "cursorIndex": "35",
+          "cursorMinute": "1791538500000",
+          "rainEpoch": null,
+          "trackTransform": "matrix(1, 0, 0, 1, -18.6707, 0)",
+          "mapReady": false,
+          "playing": true,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 1541.7,
+          "cursorIndex": "35",
+          "cursorMinute": "1791538500000",
+          "rainEpoch": "1791538500000",
+          "trackTransform": "matrix(1, 0, 0, 1, -19.1749, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 1758.7,
+          "cursorIndex": "36",
+          "cursorMinute": "1791538620000",
+          "rainEpoch": "1791538500000",
+          "trackTransform": "matrix(1, 0, 0, 1, -20.4631, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 2008.7,
+          "cursorIndex": "36",
+          "cursorMinute": "1791538800000",
+          "rainEpoch": "1791538760429.5303",
+          "trackTransform": "matrix(1, 0, 0, 1, -22.3589, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 2262.6,
+          "cursorIndex": "37",
+          "cursorMinute": "1791538920000",
+          "rainEpoch": "1791538957072.3713",
+          "trackTransform": "matrix(1, 0, 0, 1, -24.3401, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 2508.7,
+          "cursorIndex": "37",
+          "cursorMinute": "1791539040000",
+          "rainEpoch": "1791539060142.6687",
+          "trackTransform": "matrix(1, 0, 0, 1, -25.4227, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0.8796",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 2758.7,
+          "cursorIndex": "37",
+          "cursorMinute": "1791539160000",
+          "rainEpoch": "1791539219356.4922",
+          "trackTransform": "matrix(1, 0, 0, 1, -27.5317, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0.465226",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 3008.8,
+          "cursorIndex": "38",
+          "cursorMinute": "1791539280000",
+          "rainEpoch": "1791539312985.2356",
+          "trackTransform": "matrix(1, 0, 0, 1, -28.8112, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0.257902",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 3258.7,
+          "cursorIndex": "38",
+          "cursorMinute": "1791539460000",
+          "rainEpoch": "1791539519069.6309",
+          "trackTransform": "matrix(1, 0, 0, 1, -31.7299, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0.000638133",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 3508.7,
+          "cursorIndex": "39",
+          "cursorMinute": "1791539640000",
+          "rainEpoch": "1791539668954.3003",
+          "trackTransform": "matrix(1, 0, 0, 1, -33.941, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 3765.9,
+          "cursorIndex": "39",
+          "cursorMinute": "1791539760000",
+          "rainEpoch": "1791539800012.0615",
+          "trackTransform": "matrix(1, 0, 0, 1, -36.2258, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 4008.7,
+          "cursorIndex": "40",
+          "cursorMinute": "1791539940000",
+          "rainEpoch": "1791539949896.731",
+          "trackTransform": "matrix(1, 0, 0, 1, -38.2862, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 4266.1,
+          "cursorIndex": "40",
+          "cursorMinute": "1791540060000",
+          "rainEpoch": "1791540081066.8916",
+          "trackTransform": "matrix(1, 0, 0, 1, -40.7082, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 4508.7,
+          "cursorIndex": "41",
+          "cursorMinute": "1791540180000",
+          "rainEpoch": "1791540230895.3613",
+          "trackTransform": "matrix(1, 0, 0, 1, -42.9962, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 4765.8,
+          "cursorIndex": "41",
+          "cursorMinute": "1791540360000",
+          "rainEpoch": "1791540362065.522",
+          "trackTransform": "matrix(1, 0, 0, 1, -45.2842, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 5015.5,
+          "cursorIndex": "42",
+          "cursorMinute": "1791540480000",
+          "rainEpoch": "1791540511893.9917",
+          "trackTransform": "matrix(1, 0, 0, 1, -47.5722, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 5265.9,
+          "cursorIndex": "42",
+          "cursorMinute": "1791540660000",
+          "rainEpoch": "1791540643007.9526",
+          "trackTransform": "matrix(1, 0, 0, 1, -49.8593, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 5508.7,
+          "cursorIndex": "43",
+          "cursorMinute": "1791540780000",
+          "rainEpoch": "1791540792836.4224",
+          "trackTransform": "matrix(1, 0, 0, 1, -52.1482, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 5765.8,
+          "cursorIndex": "43",
+          "cursorMinute": "1791540900000",
+          "rainEpoch": "1791540924062.7827",
+          "trackTransform": "matrix(1, 0, 0, 1, -54.4353, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 6008.8,
+          "cursorIndex": "44",
+          "cursorMinute": "1791541020000",
+          "rainEpoch": "1791541073891.2524",
+          "trackTransform": "matrix(1, 0, 0, 1, -56.7233, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 6265.6,
+          "cursorIndex": "44",
+          "cursorMinute": "1791541200000",
+          "rainEpoch": "1791541205005.2134",
+          "trackTransform": "matrix(1, 0, 0, 1, -59.0113, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 6515.3,
+          "cursorIndex": "45",
+          "cursorMinute": "1791541320000",
+          "rainEpoch": "1791541354833.683",
+          "trackTransform": "matrix(1, 0, 0, 1, -61.2993, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 6766.6,
+          "cursorIndex": "45",
+          "cursorMinute": "1791541500000",
+          "rainEpoch": "1791541486003.8438",
+          "trackTransform": "matrix(1, 0, 0, 1, -63.5873, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 7008.7,
+          "cursorIndex": "45",
+          "cursorMinute": "1791541620000",
+          "rainEpoch": "1791541635832.3135",
+          "trackTransform": "matrix(1, 0, 0, 1, -65.8752, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 7265.4,
+          "cursorIndex": "46",
+          "cursorMinute": "1791541740000",
+          "rainEpoch": "1791541766946.2744",
+          "trackTransform": "matrix(1, 0, 0, 1, -68.1632, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 7508.7,
+          "cursorIndex": "46",
+          "cursorMinute": "1791541860000",
+          "rainEpoch": "1791541916830.9438",
+          "trackTransform": "matrix(1, 0, 0, 1, -70.4512, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 7765.7,
+          "cursorIndex": "47",
+          "cursorMinute": "1791542040000",
+          "rainEpoch": "1791542047944.9048",
+          "trackTransform": "matrix(1, 0, 0, 1, -72.7392, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 8008.7,
+          "cursorIndex": "47",
+          "cursorMinute": "1791542160000",
+          "rainEpoch": "1791542197829.5742",
+          "trackTransform": "matrix(1, 0, 0, 1, -75.0272, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 8265.6,
+          "cursorIndex": "48",
+          "cursorMinute": "1791542340000",
+          "rainEpoch": "1791542328943.5352",
+          "trackTransform": "matrix(1, 0, 0, 1, -77.3143, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 8508.7,
+          "cursorIndex": "48",
+          "cursorMinute": "1791542460000",
+          "rainEpoch": "1791542478828.2046",
+          "trackTransform": "matrix(1, 0, 0, 1, -79.6023, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 8765.5,
+          "cursorIndex": "49",
+          "cursorMinute": "1791542580000",
+          "rainEpoch": "1791542609942.1655",
+          "trackTransform": "matrix(1, 0, 0, 1, -81.8903, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 9008.7,
+          "cursorIndex": "49",
+          "cursorMinute": "1791542700000",
+          "rainEpoch": "1791542759770.6353",
+          "trackTransform": "matrix(1, 0, 0, 1, -84.1783, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 9265.7,
+          "cursorIndex": "50",
+          "cursorMinute": "1791542880000",
+          "rainEpoch": "1791542890940.796",
+          "trackTransform": "matrix(1, 0, 0, 1, -86.4663, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 9508.7,
+          "cursorIndex": "50",
+          "cursorMinute": "1791543000000",
+          "rainEpoch": "1791543040825.4653",
+          "trackTransform": "matrix(1, 0, 0, 1, -88.7543, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 9765.7,
+          "cursorIndex": "51",
+          "cursorMinute": "1791543180000",
+          "rainEpoch": "1791543171939.4263",
+          "trackTransform": "matrix(1, 0, 0, 1, -91.0422, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 10008.7,
+          "cursorIndex": "51",
+          "cursorMinute": "1791543300000",
+          "rainEpoch": "1791543321767.896",
+          "trackTransform": "matrix(1, 0, 0, 1, -93.3302, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 10265.6,
+          "cursorIndex": "52",
+          "cursorMinute": "1791543420000",
+          "rainEpoch": "1791543452881.857",
+          "trackTransform": "matrix(1, 0, 0, 1, -95.6182, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 10508.7,
+          "cursorIndex": "52",
+          "cursorMinute": "1791543600000",
+          "rainEpoch": "1791543602766.5264",
+          "trackTransform": "matrix(1, 0, 0, 1, -97.9053, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 10765.6,
+          "cursorIndex": "53",
+          "cursorMinute": "1791543720000",
+          "rainEpoch": "1791543733880.4873",
+          "trackTransform": "matrix(1, 0, 0, 1, -100.194, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 11008.8,
+          "cursorIndex": "53",
+          "cursorMinute": "1791543840000",
+          "rainEpoch": "1791543883708.957",
+          "trackTransform": "matrix(1, 0, 0, 1, -102.481, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 11265.6,
+          "cursorIndex": "53",
+          "cursorMinute": "1791544020000",
+          "rainEpoch": "1791544014879.1177",
+          "trackTransform": "matrix(1, 0, 0, 1, -104.769, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 11514.8,
+          "cursorIndex": "54",
+          "cursorMinute": "1791544140000",
+          "rainEpoch": "1791544164763.787",
+          "trackTransform": "matrix(1, 0, 0, 1, -107.057, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 11765.1,
+          "cursorIndex": "54",
+          "cursorMinute": "1791544260000",
+          "rainEpoch": "1791544295877.748",
+          "trackTransform": "matrix(1, 0, 0, 1, -109.345, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        }
+      ]
+    },
+    {
+      "profile": "desktop",
+      "variant": "candidate",
+      "origin": "http://127.0.0.1:4350",
+      "capturedAt": "2026-10-09T09:39:39.442Z",
+      "startLoad": 11.3,
+      "manifestGenerated": "2026-10-09T09:39:09Z",
+      "screenshotOverhead": true,
+      "milestones": {
+        "styleReadyMs": 372.8,
+        "firstRainMs": 856.4,
+        "firstCursorMs": 1504.7,
+        "mapRevealedMs": 1695.2,
+        "firstBasemapTileMs": 916.9,
+        "basemapReadyMs": 1564.9,
+        "ttfrMs": 1504.7,
+        "ttfpMs": 1698.5
+      },
+      "shots": [
+        {
+          "targetMs": 0,
+          "frameMs": -2.3
+        },
+        {
+          "targetMs": 250,
+          "frameMs": -2.3
+        },
+        {
+          "targetMs": 500,
+          "frameMs": -2.3
+        },
+        {
+          "targetMs": 750,
+          "frameMs": 695.4
+        },
+        {
+          "targetMs": 1000,
+          "frameMs": 695.4
+        },
+        {
+          "targetMs": 1250,
+          "frameMs": 695.4
+        },
+        {
+          "targetMs": 1500,
+          "frameMs": 1417
+        },
+        {
+          "targetMs": 1750,
+          "frameMs": 1516.3
+        },
+        {
+          "targetMs": 2000,
+          "frameMs": 1915.4
+        },
+        {
+          "targetMs": 2250,
+          "frameMs": 2179.5
+        },
+        {
+          "targetMs": 2500,
+          "frameMs": 2300.2
+        },
+        {
+          "targetMs": 2750,
+          "frameMs": 2717.1
+        },
+        {
+          "targetMs": 3000,
+          "frameMs": 2854.9
+        },
+        {
+          "targetMs": 3250,
+          "frameMs": 3179.8
+        },
+        {
+          "targetMs": 3500,
+          "frameMs": 3460
+        },
+        {
+          "targetMs": 3750,
+          "frameMs": 3587.6
+        },
+        {
+          "targetMs": 4000,
+          "frameMs": 3960.4
+        },
+        {
+          "targetMs": 4250,
+          "frameMs": 4226.9
+        },
+        {
+          "targetMs": 4500,
+          "frameMs": 4493.4
+        },
+        {
+          "targetMs": 4750,
+          "frameMs": 4693.9
+        },
+        {
+          "targetMs": 5000,
+          "frameMs": 4959.8
+        },
+        {
+          "targetMs": 5250,
+          "frameMs": 5226.6
+        },
+        {
+          "targetMs": 5500,
+          "frameMs": 5493.6
+        },
+        {
+          "targetMs": 5750,
+          "frameMs": 5683.2
+        }
+      ],
+      "samples": [
+        {
+          "ms": 381.7,
+          "cursorIndex": "35",
+          "cursorMinute": "1791538500000",
+          "rainEpoch": null,
+          "trackTransform": "matrix(1, 0, 0, 1, -18.6707, 0)",
+          "mapReady": false,
+          "playing": false,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 674.5,
+          "cursorIndex": "35",
+          "cursorMinute": "1791538500000",
+          "rainEpoch": null,
+          "trackTransform": "matrix(1, 0, 0, 1, -18.6707, 0)",
+          "mapReady": false,
+          "playing": false,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 771.1,
+          "cursorIndex": "35",
+          "cursorMinute": "1791538500000",
+          "rainEpoch": null,
+          "trackTransform": "matrix(1, 0, 0, 1, -18.6707, 0)",
+          "mapReady": false,
+          "playing": false,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 1530.1,
+          "cursorIndex": "35",
+          "cursorMinute": "1791538500000",
+          "rainEpoch": "1791538500000",
+          "trackTransform": "matrix(1, 0, 0, 1, -18.8797, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 1759.1,
+          "cursorIndex": "36",
+          "cursorMinute": "1791538740000",
+          "rainEpoch": "1791538734146.7913",
+          "trackTransform": "matrix(1, 0, 0, 1, -21.5899, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 2008,
+          "cursorIndex": "36",
+          "cursorMinute": "1791538860000",
+          "rainEpoch": "1791538893360.6152",
+          "trackTransform": "matrix(1, 0, 0, 1, -23.3036, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 2258,
+          "cursorIndex": "37",
+          "cursorMinute": "1791538980000",
+          "rainEpoch": "1791539024474.576",
+          "trackTransform": "matrix(1, 0, 0, 1, -24.9618, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 2508,
+          "cursorIndex": "37",
+          "cursorMinute": "1791539040000",
+          "rainEpoch": "1791539090059.6562",
+          "trackTransform": "matrix(1, 0, 0, 1, -25.8126, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 2765.8,
+          "cursorIndex": "38",
+          "cursorMinute": "1791539280000",
+          "rainEpoch": "1791539267987.9888",
+          "trackTransform": "matrix(1, 0, 0, 1, -29.0965, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 3015.8,
+          "cursorIndex": "38",
+          "cursorMinute": "1791539460000",
+          "rainEpoch": "1791539455357.875",
+          "trackTransform": "matrix(1, 0, 0, 1, -31.0806, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 3258,
+          "cursorIndex": "39",
+          "cursorMinute": "1791539580000",
+          "rainEpoch": "1791539605186.3447",
+          "trackTransform": "matrix(1, 0, 0, 1, -32.9912, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 3514.9,
+          "cursorIndex": "39",
+          "cursorMinute": "1791539700000",
+          "rainEpoch": "1791539736356.5054",
+          "trackTransform": "matrix(1, 0, 0, 1, -35.2451, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 3764.8,
+          "cursorIndex": "40",
+          "cursorMinute": "1791539880000",
+          "rainEpoch": "1791539886184.975",
+          "trackTransform": "matrix(1, 0, 0, 1, -37.2778, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 4011.1,
+          "cursorIndex": "40",
+          "cursorMinute": "1791540000000",
+          "rainEpoch": "1791540017298.936",
+          "trackTransform": "matrix(1, 0, 0, 1, -39.6714, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 4258,
+          "cursorIndex": "41",
+          "cursorMinute": "1791540120000",
+          "rainEpoch": "1791540167183.6055",
+          "trackTransform": "matrix(1, 0, 0, 1, -41.9587, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 4508,
+          "cursorIndex": "41",
+          "cursorMinute": "1791540300000",
+          "rainEpoch": "1791540298297.5664",
+          "trackTransform": "matrix(1, 0, 0, 1, -44.2458, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 4758,
+          "cursorIndex": "41",
+          "cursorMinute": "1791540420000",
+          "rainEpoch": "1791540448182.2358",
+          "trackTransform": "matrix(1, 0, 0, 1, -46.5347, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 5015.6,
+          "cursorIndex": "42",
+          "cursorMinute": "1791540540000",
+          "rainEpoch": "1791540579296.1968",
+          "trackTransform": "matrix(1, 0, 0, 1, -48.8218, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 5258,
+          "cursorIndex": "42",
+          "cursorMinute": "1791540720000",
+          "rainEpoch": "1791540729180.8662",
+          "trackTransform": "matrix(1, 0, 0, 1, -51.1098, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 5515.6,
+          "cursorIndex": "43",
+          "cursorMinute": "1791540840000",
+          "rainEpoch": "1791540860294.8271",
+          "trackTransform": "matrix(1, 0, 0, 1, -53.3978, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 5765.5,
+          "cursorIndex": "43",
+          "cursorMinute": "1791540960000",
+          "rainEpoch": "1791541010123.2969",
+          "trackTransform": "matrix(1, 0, 0, 1, -55.6857, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 6015.6,
+          "cursorIndex": "44",
+          "cursorMinute": "1791541140000",
+          "rainEpoch": "1791541141293.4575",
+          "trackTransform": "matrix(1, 0, 0, 1, -57.9737, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 6258,
+          "cursorIndex": "44",
+          "cursorMinute": "1791541260000",
+          "rainEpoch": "1791541291121.9272",
+          "trackTransform": "matrix(1, 0, 0, 1, -60.2617, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 6515.9,
+          "cursorIndex": "45",
+          "cursorMinute": "1791541440000",
+          "rainEpoch": "1791541422292.088",
+          "trackTransform": "matrix(1, 0, 0, 1, -62.5488, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 6757.9,
+          "cursorIndex": "45",
+          "cursorMinute": "1791541560000",
+          "rainEpoch": "1791541572120.5576",
+          "trackTransform": "matrix(1, 0, 0, 1, -64.8368, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 7015.3,
+          "cursorIndex": "46",
+          "cursorMinute": "1791541680000",
+          "rainEpoch": "1791541703234.5186",
+          "trackTransform": "matrix(1, 0, 0, 1, -67.1257, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 7258,
+          "cursorIndex": "46",
+          "cursorMinute": "1791541800000",
+          "rainEpoch": "1791541853062.9883",
+          "trackTransform": "matrix(1, 0, 0, 1, -69.4128, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 7515.5,
+          "cursorIndex": "47",
+          "cursorMinute": "1791541980000",
+          "rainEpoch": "1791541984233.149",
+          "trackTransform": "matrix(1, 0, 0, 1, -71.7008, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 7757.9,
+          "cursorIndex": "47",
+          "cursorMinute": "1791542100000",
+          "rainEpoch": "1791542134117.8184",
+          "trackTransform": "matrix(1, 0, 0, 1, -73.9888, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 8015.3,
+          "cursorIndex": "48",
+          "cursorMinute": "1791542280000",
+          "rainEpoch": "1791542265175.5796",
+          "trackTransform": "matrix(1, 0, 0, 1, -76.2768, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 8257.9,
+          "cursorIndex": "48",
+          "cursorMinute": "1791542400000",
+          "rainEpoch": "1791542415060.249",
+          "trackTransform": "matrix(1, 0, 0, 1, -78.5648, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 8515.5,
+          "cursorIndex": "49",
+          "cursorMinute": "1791542520000",
+          "rainEpoch": "1791542546174.21",
+          "trackTransform": "matrix(1, 0, 0, 1, -80.8528, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 8757.9,
+          "cursorIndex": "49",
+          "cursorMinute": "1791542640000",
+          "rainEpoch": "1791542696058.8794",
+          "trackTransform": "matrix(1, 0, 0, 1, -83.1398, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 9015.5,
+          "cursorIndex": "49",
+          "cursorMinute": "1791542820000",
+          "rainEpoch": "1791542827172.8403",
+          "trackTransform": "matrix(1, 0, 0, 1, -85.4287, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 9258,
+          "cursorIndex": "50",
+          "cursorMinute": "1791542940000",
+          "rainEpoch": "1791542977057.5098",
+          "trackTransform": "matrix(1, 0, 0, 1, -87.7158, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 9515.3,
+          "cursorIndex": "50",
+          "cursorMinute": "1791543120000",
+          "rainEpoch": "1791543108171.4707",
+          "trackTransform": "matrix(1, 0, 0, 1, -90.0038, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 9758,
+          "cursorIndex": "51",
+          "cursorMinute": "1791543240000",
+          "rainEpoch": "1791543257999.9404",
+          "trackTransform": "matrix(1, 0, 0, 1, -92.2918, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 10015.2,
+          "cursorIndex": "51",
+          "cursorMinute": "1791543360000",
+          "rainEpoch": "1791543389170.101",
+          "trackTransform": "matrix(1, 0, 0, 1, -94.5798, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 10258,
+          "cursorIndex": "52",
+          "cursorMinute": "1791543480000",
+          "rainEpoch": "1791543538998.5708",
+          "trackTransform": "matrix(1, 0, 0, 1, -96.8678, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 10515.3,
+          "cursorIndex": "52",
+          "cursorMinute": "1791543660000",
+          "rainEpoch": "1791543670168.7314",
+          "trackTransform": "matrix(1, 0, 0, 1, -99.1558, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 10758,
+          "cursorIndex": "53",
+          "cursorMinute": "1791543780000",
+          "rainEpoch": "1791543820053.401",
+          "trackTransform": "matrix(1, 0, 0, 1, -101.444, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 11015.7,
+          "cursorIndex": "53",
+          "cursorMinute": "1791543960000",
+          "rainEpoch": "1791543951111.162",
+          "trackTransform": "matrix(1, 0, 0, 1, -103.732, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 11258,
+          "cursorIndex": "54",
+          "cursorMinute": "1791544080000",
+          "rainEpoch": "1791544100995.8315",
+          "trackTransform": "matrix(1, 0, 0, 1, -106.019, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 11515.3,
+          "cursorIndex": "54",
+          "cursorMinute": "1791544200000",
+          "rainEpoch": "1791544232165.9922",
+          "trackTransform": "matrix(1, 0, 0, 1, -108.308, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 11758,
+          "cursorIndex": "55",
+          "cursorMinute": "1791544380000",
+          "rainEpoch": "1791544381994.462",
+          "trackTransform": "matrix(1, 0, 0, 1, -110.596, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        }
+      ]
+    },
+    {
+      "profile": "po-android",
+      "variant": "reference",
+      "origin": "http://127.0.0.1:4351",
+      "capturedAt": "2026-10-09T09:40:18.524Z",
+      "startLoad": 9.17,
+      "manifestGenerated": "2026-10-09T09:39:09Z",
+      "screenshotOverhead": true,
+      "milestones": {
+        "styleReadyMs": 555.2,
+        "firstRainMs": 1700.4,
+        "firstCursorMs": 2254.9,
+        "mapRevealedMs": 4115.5,
+        "firstBasemapTileMs": 3601.4,
+        "basemapReadyMs": 3690.7,
+        "ttfrMs": 2254.9,
+        "ttfpMs": 3620.1
+      },
+      "shots": [
+        {
+          "targetMs": 0,
+          "frameMs": -1.8
+        },
+        {
+          "targetMs": 250,
+          "frameMs": -1.8
+        },
+        {
+          "targetMs": 500,
+          "frameMs": -1.8
+        },
+        {
+          "targetMs": 750,
+          "frameMs": -1.8
+        },
+        {
+          "targetMs": 1000,
+          "frameMs": -1.8
+        },
+        {
+          "targetMs": 1250,
+          "frameMs": -1.8
+        },
+        {
+          "targetMs": 1500,
+          "frameMs": 1486.2
+        },
+        {
+          "targetMs": 1750,
+          "frameMs": 1523.1
+        },
+        {
+          "targetMs": 2000,
+          "frameMs": 1523.1
+        },
+        {
+          "targetMs": 2250,
+          "frameMs": 2226.5
+        },
+        {
+          "targetMs": 2500,
+          "frameMs": 2432.9
+        },
+        {
+          "targetMs": 2750,
+          "frameMs": 2655.6
+        },
+        {
+          "targetMs": 3000,
+          "frameMs": 2990.6
+        },
+        {
+          "targetMs": 3250,
+          "frameMs": 3203.7
+        },
+        {
+          "targetMs": 3500,
+          "frameMs": 3454.1
+        },
+        {
+          "targetMs": 3750,
+          "frameMs": 3587.5
+        },
+        {
+          "targetMs": 4000,
+          "frameMs": 3972.2
+        },
+        {
+          "targetMs": 4250,
+          "frameMs": 4249.6
+        },
+        {
+          "targetMs": 4500,
+          "frameMs": 4416.3
+        },
+        {
+          "targetMs": 4750,
+          "frameMs": 4733.4
+        },
+        {
+          "targetMs": 5000,
+          "frameMs": 4851.7
+        },
+        {
+          "targetMs": 5250,
+          "frameMs": 5073.3
+        },
+        {
+          "targetMs": 5500,
+          "frameMs": 5073.3
+        },
+        {
+          "targetMs": 5750,
+          "frameMs": 5520.4
+        }
+      ],
+      "samples": [
+        {
+          "ms": 665.2,
+          "cursorIndex": "35",
+          "cursorMinute": "1791538500000",
+          "rainEpoch": null,
+          "trackTransform": "matrix(1, 0, 0, 1, -17.0221, 0)",
+          "mapReady": false,
+          "playing": true,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 935,
+          "cursorIndex": "35",
+          "cursorMinute": "1791538500000",
+          "rainEpoch": null,
+          "trackTransform": "matrix(1, 0, 0, 1, -17.0221, 0)",
+          "mapReady": false,
+          "playing": true,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 1180.1,
+          "cursorIndex": "35",
+          "cursorMinute": "1791538500000",
+          "rainEpoch": null,
+          "trackTransform": "matrix(1, 0, 0, 1, -17.0221, 0)",
+          "mapReady": false,
+          "playing": true,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 1296,
+          "cursorIndex": "35",
+          "cursorMinute": "1791538500000",
+          "rainEpoch": null,
+          "trackTransform": "matrix(1, 0, 0, 1, -17.0221, 0)",
+          "mapReady": false,
+          "playing": true,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 1544.8,
+          "cursorIndex": "35",
+          "cursorMinute": "1791538500000",
+          "rainEpoch": null,
+          "trackTransform": "matrix(1, 0, 0, 1, -17.0221, 0)",
+          "mapReady": false,
+          "playing": true,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 2239.8,
+          "cursorIndex": "35",
+          "cursorMinute": "1791538500000",
+          "rainEpoch": "1791538500000",
+          "trackTransform": "matrix(1, 0, 0, 1, -17.0221, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 2485.3,
+          "cursorIndex": "36",
+          "cursorMinute": "1791538800000",
+          "rainEpoch": "1791538500000",
+          "trackTransform": "matrix(1, 0, 0, 1, -19.7754, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 2540.2,
+          "cursorIndex": "36",
+          "cursorMinute": "1791538800000",
+          "rainEpoch": "1791538500000",
+          "trackTransform": "matrix(1, 0, 0, 1, -19.7754, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 3361,
+          "cursorIndex": "36",
+          "cursorMinute": "1791538800000",
+          "rainEpoch": "1791538500000",
+          "trackTransform": "matrix(1, 0, 0, 1, -19.7754, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0.909035",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 3590.4,
+          "cursorIndex": "37",
+          "cursorMinute": "1791538920000",
+          "rainEpoch": "1791538500000",
+          "trackTransform": "matrix(1, 0, 0, 1, -21.5064, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0.420335",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 3966.5,
+          "cursorIndex": "37",
+          "cursorMinute": "1791539040000",
+          "rainEpoch": "1791539034184.2578",
+          "trackTransform": "matrix(1, 0, 0, 1, -22.7326, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0.171766",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 4095.8,
+          "cursorIndex": "38",
+          "cursorMinute": "1791539220000",
+          "rainEpoch": "1791539099769.338",
+          "trackTransform": "matrix(1, 0, 0, 1, -24.4858, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0.000643512",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 4375.3,
+          "cursorIndex": "38",
+          "cursorMinute": "1791539400000",
+          "rainEpoch": "1791539315182.8875",
+          "trackTransform": "matrix(1, 0, 0, 1, -25.997, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 4585.4,
+          "cursorIndex": "38",
+          "cursorMinute": "1791539520000",
+          "rainEpoch": "1791539474396.711",
+          "trackTransform": "matrix(1, 0, 0, 1, -27.2385, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 4989.9,
+          "cursorIndex": "39",
+          "cursorMinute": "1791539700000",
+          "rainEpoch": "1791539680424.9062",
+          "trackTransform": "matrix(1, 0, 0, 1, -29.4809, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 5085.1,
+          "cursorIndex": "39",
+          "cursorMinute": "1791539760000",
+          "rainEpoch": "1791539680424.9062",
+          "trackTransform": "matrix(1, 0, 0, 1, -30.5801, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 5351.2,
+          "cursorIndex": "40",
+          "cursorMinute": "1791539940000",
+          "rainEpoch": "1791539914609.1643",
+          "trackTransform": "matrix(1, 0, 0, 1, -32.2663, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 5650.3,
+          "cursorIndex": "40",
+          "cursorMinute": "1791540120000",
+          "rainEpoch": "1791540101979.0508",
+          "trackTransform": "matrix(1, 0, 0, 1, -34.5847, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 5834.8,
+          "cursorIndex": "41",
+          "cursorMinute": "1791540240000",
+          "rainEpoch": "1791540186222.44",
+          "trackTransform": "matrix(1, 0, 0, 1, -36.0145, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 6095.2,
+          "cursorIndex": "41",
+          "cursorMinute": "1791540360000",
+          "rainEpoch": "1791540364206.9722",
+          "trackTransform": "matrix(1, 0, 0, 1, -37.8424, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 6365.2,
+          "cursorIndex": "42",
+          "cursorMinute": "1791540540000",
+          "rainEpoch": "1791540429792.0525",
+          "trackTransform": "matrix(1, 0, 0, 1, -39.8416, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 6605.5,
+          "cursorIndex": "42",
+          "cursorMinute": "1791540660000",
+          "rainEpoch": "1791540673305.4653",
+          "trackTransform": "matrix(1, 0, 0, 1, -41.744, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 6881.3,
+          "cursorIndex": "43",
+          "cursorMinute": "1791540780000",
+          "rainEpoch": "1791540795034.0715",
+          "trackTransform": "matrix(1, 0, 0, 1, -43.2661, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 7094.8,
+          "cursorIndex": "43",
+          "cursorMinute": "1791540900000",
+          "rainEpoch": "1791540851233.7974",
+          "trackTransform": "matrix(1, 0, 0, 1, -45.295, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 7360,
+          "cursorIndex": "44",
+          "cursorMinute": "1791541020000",
+          "rainEpoch": "1791540851233.7974",
+          "trackTransform": "matrix(1, 0, 0, 1, -46.9442, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 7615.4,
+          "cursorIndex": "44",
+          "cursorMinute": "1791541200000",
+          "rainEpoch": "1791541179102.9983",
+          "trackTransform": "matrix(1, 0, 0, 1, -49.2273, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 7825.1,
+          "cursorIndex": "45",
+          "cursorMinute": "1791541320000",
+          "rainEpoch": "1791541347645.9766",
+          "trackTransform": "matrix(1, 0, 0, 1, -51.0028, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 8045.4,
+          "cursorIndex": "45",
+          "cursorMinute": "1791541500000",
+          "rainEpoch": "1791541497530.646",
+          "trackTransform": "matrix(1, 0, 0, 1, -53.0325, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 8290.8,
+          "cursorIndex": "46",
+          "cursorMinute": "1791541620000",
+          "rainEpoch": "1791541637973.7615",
+          "trackTransform": "matrix(1, 0, 0, 1, -54.9343, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 8591.5,
+          "cursorIndex": "46",
+          "cursorMinute": "1791541740000",
+          "rainEpoch": "1791541741044.059",
+          "trackTransform": "matrix(1, 0, 0, 1, -56.7106, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 8778.5,
+          "cursorIndex": "46",
+          "cursorMinute": "1791541860000",
+          "rainEpoch": "1791541900257.8823",
+          "trackTransform": "matrix(1, 0, 0, 1, -58.4868, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 9034.8,
+          "cursorIndex": "47",
+          "cursorMinute": "1791542040000",
+          "rainEpoch": "1791542031371.8433",
+          "trackTransform": "matrix(1, 0, 0, 1, -60.3887, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 9305.4,
+          "cursorIndex": "47",
+          "cursorMinute": "1791542220000",
+          "rainEpoch": "1791542199971.0215",
+          "trackTransform": "matrix(1, 0, 0, 1, -62.6718, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 9640.4,
+          "cursorIndex": "48",
+          "cursorMinute": "1791542400000",
+          "rainEpoch": "1791542359184.8452",
+          "trackTransform": "matrix(1, 0, 0, 1, -65.2083, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 9820.2,
+          "cursorIndex": "48",
+          "cursorMinute": "1791542460000",
+          "rainEpoch": "1791542471640.4968",
+          "trackTransform": "matrix(1, 0, 0, 1, -66.2236, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 10032.7,
+          "cursorIndex": "49",
+          "cursorMinute": "1791542640000",
+          "rainEpoch": "1791542640183.4753",
+          "trackTransform": "matrix(1, 0, 0, 1, -68.3788, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 10278.5,
+          "cursorIndex": "49",
+          "cursorMinute": "1791542760000",
+          "rainEpoch": "1791542771353.636",
+          "trackTransform": "matrix(1, 0, 0, 1, -70.1551, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 10532.6,
+          "cursorIndex": "50",
+          "cursorMinute": "1791542880000",
+          "rainEpoch": "1791542921182.1057",
+          "trackTransform": "matrix(1, 0, 0, 1, -72.184, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 10778.5,
+          "cursorIndex": "50",
+          "cursorMinute": "1791543000000",
+          "rainEpoch": "1791543052296.0667",
+          "trackTransform": "matrix(1, 0, 0, 1, -73.9603, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 11032.3,
+          "cursorIndex": "51",
+          "cursorMinute": "1791543180000",
+          "rainEpoch": "1791543202180.736",
+          "trackTransform": "matrix(1, 0, 0, 1, -75.9892, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 11281.5,
+          "cursorIndex": "51",
+          "cursorMinute": "1791543300000",
+          "rainEpoch": "1791543333294.697",
+          "trackTransform": "matrix(1, 0, 0, 1, -77.7655, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 11532,
+          "cursorIndex": "52",
+          "cursorMinute": "1791543480000",
+          "rainEpoch": "1791543483179.3665",
+          "trackTransform": "matrix(1, 0, 0, 1, -79.7944, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 11778.5,
+          "cursorIndex": "52",
+          "cursorMinute": "1791543600000",
+          "rainEpoch": "1791543614237.1277",
+          "trackTransform": "matrix(1, 0, 0, 1, -81.5699, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        }
+      ]
+    },
+    {
+      "profile": "po-android",
+      "variant": "candidate",
+      "origin": "http://127.0.0.1:4350",
+      "capturedAt": "2026-10-09T09:40:58.086Z",
+      "startLoad": 9.19,
+      "manifestGenerated": "2026-10-09T09:39:09Z",
+      "screenshotOverhead": true,
+      "milestones": {
+        "styleReadyMs": 788.6,
+        "firstRainMs": 1783.6,
+        "firstCursorMs": 2214,
+        "mapRevealedMs": 2613.5,
+        "firstBasemapTileMs": 3273.5,
+        "basemapReadyMs": 3554.9,
+        "ttfrMs": 2214,
+        "ttfpMs": 4333.8
+      },
+      "shots": [
+        {
+          "targetMs": 0,
+          "frameMs": -2.2
+        },
+        {
+          "targetMs": 250,
+          "frameMs": -2.2
+        },
+        {
+          "targetMs": 500,
+          "frameMs": -2.2
+        },
+        {
+          "targetMs": 750,
+          "frameMs": -2.2
+        },
+        {
+          "targetMs": 1000,
+          "frameMs": -2.2
+        },
+        {
+          "targetMs": 1250,
+          "frameMs": -2.2
+        },
+        {
+          "targetMs": 1500,
+          "frameMs": 1481.1
+        },
+        {
+          "targetMs": 1750,
+          "frameMs": 1481.1
+        },
+        {
+          "targetMs": 2000,
+          "frameMs": 1910.7
+        },
+        {
+          "targetMs": 2250,
+          "frameMs": 2248
+        },
+        {
+          "targetMs": 2500,
+          "frameMs": 2437.8
+        },
+        {
+          "targetMs": 2750,
+          "frameMs": 2709.9
+        },
+        {
+          "targetMs": 3000,
+          "frameMs": 2970.8
+        },
+        {
+          "targetMs": 3250,
+          "frameMs": 3237.5
+        },
+        {
+          "targetMs": 3500,
+          "frameMs": 3437.6
+        },
+        {
+          "targetMs": 3750,
+          "frameMs": 3728.5
+        },
+        {
+          "targetMs": 4000,
+          "frameMs": 3812.7
+        },
+        {
+          "targetMs": 4250,
+          "frameMs": 4237.1
+        },
+        {
+          "targetMs": 4500,
+          "frameMs": 4237.1
+        },
+        {
+          "targetMs": 4750,
+          "frameMs": 4652.4
+        },
+        {
+          "targetMs": 5000,
+          "frameMs": 4982
+        },
+        {
+          "targetMs": 5250,
+          "frameMs": 5204.1
+        },
+        {
+          "targetMs": 5500,
+          "frameMs": 5406.2
+        },
+        {
+          "targetMs": 5750,
+          "frameMs": 5733.4
+        }
+      ],
+      "samples": [
+        {
+          "ms": 519.8,
+          "cursorIndex": "0",
+          "cursorMinute": "0",
+          "rainEpoch": null,
+          "trackTransform": "matrix(1, 0, 0, 1, -19.7754, 0)",
+          "mapReady": false,
+          "playing": false,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 1068.7,
+          "cursorIndex": "35",
+          "cursorMinute": "1791538500000",
+          "rainEpoch": null,
+          "trackTransform": "matrix(1, 0, 0, 1, -17.0221, 0)",
+          "mapReady": false,
+          "playing": false,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 1328.5,
+          "cursorIndex": "35",
+          "cursorMinute": "1791538500000",
+          "rainEpoch": null,
+          "trackTransform": "matrix(1, 0, 0, 1, -17.0221, 0)",
+          "mapReady": false,
+          "playing": false,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 1588.4,
+          "cursorIndex": "35",
+          "cursorMinute": "1791538500000",
+          "rainEpoch": null,
+          "trackTransform": "matrix(1, 0, 0, 1, -17.0221, 0)",
+          "mapReady": false,
+          "playing": false,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 2193.7,
+          "cursorIndex": "35",
+          "cursorMinute": "1791538500000",
+          "rainEpoch": "1791538500000",
+          "trackTransform": "matrix(1, 0, 0, 1, -17.0221, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "1",
+          "splashVisibility": "visible"
+        },
+        {
+          "ms": 2688.7,
+          "cursorIndex": "36",
+          "cursorMinute": "1791538680000",
+          "rainEpoch": "1791538500000",
+          "trackTransform": "matrix(1, 0, 0, 1, -18.8915, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 2873.8,
+          "cursorIndex": "36",
+          "cursorMinute": "1791538800000",
+          "rainEpoch": "1791538500000",
+          "trackTransform": "matrix(1, 0, 0, 1, -19.7754, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 3104.1,
+          "cursorIndex": "36",
+          "cursorMinute": "1791538860000",
+          "rainEpoch": "1791538500000",
+          "trackTransform": "matrix(1, 0, 0, 1, -20.8601, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 3590.1,
+          "cursorIndex": "37",
+          "cursorMinute": "1791538980000",
+          "rainEpoch": "1791538500000",
+          "trackTransform": "matrix(1, 0, 0, 1, -21.8796, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 3894.7,
+          "cursorIndex": "38",
+          "cursorMinute": "1791539340000",
+          "rainEpoch": "1791538500000",
+          "trackTransform": "matrix(1, 0, 0, 1, -25.3871, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 4278.8,
+          "cursorIndex": "38",
+          "cursorMinute": "1791539400000",
+          "rainEpoch": "1791538500000",
+          "trackTransform": "matrix(1, 0, 0, 1, -26.5106, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 4554.9,
+          "cursorIndex": "39",
+          "cursorMinute": "1791539640000",
+          "rainEpoch": "1791539699139.4158",
+          "trackTransform": "matrix(1, 0, 0, 1, -29.2631, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 4910.3,
+          "cursorIndex": "40",
+          "cursorMinute": "1791539880000",
+          "rainEpoch": "1791539858353.2393",
+          "trackTransform": "matrix(1, 0, 0, 1, -31.8113, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 5064.1,
+          "cursorIndex": "40",
+          "cursorMinute": "1791539940000",
+          "rainEpoch": "1791539961423.5366",
+          "trackTransform": "matrix(1, 0, 0, 1, -32.7224, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 5299,
+          "cursorIndex": "41",
+          "cursorMinute": "1791540120000",
+          "rainEpoch": "1791540158122.5776",
+          "trackTransform": "matrix(1, 0, 0, 1, -34.8207, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 5665.1,
+          "cursorIndex": "41",
+          "cursorMinute": "1791540240000",
+          "rainEpoch": "1791540251751.3213",
+          "trackTransform": "matrix(1, 0, 0, 1, -36.2553, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 5888.7,
+          "cursorIndex": "42",
+          "cursorMinute": "1791540420000",
+          "rainEpoch": "1791540467221.0703",
+          "trackTransform": "matrix(1, 0, 0, 1, -38.8356, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 6154.9,
+          "cursorIndex": "42",
+          "cursorMinute": "1791540540000",
+          "rainEpoch": "1791540542079.1055",
+          "trackTransform": "matrix(1, 0, 0, 1, -40.3483, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 6343.9,
+          "cursorIndex": "42",
+          "cursorMinute": "1791540660000",
+          "rainEpoch": "1791540579564.3228",
+          "trackTransform": "matrix(1, 0, 0, 1, -41.8703, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 6543.8,
+          "cursorIndex": "43",
+          "cursorMinute": "1791540840000",
+          "rainEpoch": "1791540841792.244",
+          "trackTransform": "matrix(1, 0, 0, 1, -44.1535, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 6833.9,
+          "cursorIndex": "43",
+          "cursorMinute": "1791540960000",
+          "rainEpoch": "1791540991733.113",
+          "trackTransform": "matrix(1, 0, 0, 1, -45.9297, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 7173.7,
+          "cursorIndex": "44",
+          "cursorMinute": "1791541140000",
+          "rainEpoch": "1791541197761.3083",
+          "trackTransform": "matrix(1, 0, 0, 1, -48.7197, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 7413.9,
+          "cursorIndex": "44",
+          "cursorMinute": "1791541260000",
+          "rainEpoch": "1791541282060.8975",
+          "trackTransform": "matrix(1, 0, 0, 1, -49.8612, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 7554.1,
+          "cursorIndex": "45",
+          "cursorMinute": "1791541380000",
+          "rainEpoch": "1791541413174.858",
+          "trackTransform": "matrix(1, 0, 0, 1, -51.8902, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 7823.7,
+          "cursorIndex": "45",
+          "cursorMinute": "1791541560000",
+          "rainEpoch": "1791541534959.6643",
+          "trackTransform": "matrix(1, 0, 0, 1, -53.6657, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 8058.7,
+          "cursorIndex": "46",
+          "cursorMinute": "1791541680000",
+          "rainEpoch": "1791541666073.625",
+          "trackTransform": "matrix(1, 0, 0, 1, -55.6954, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 8301,
+          "cursorIndex": "46",
+          "cursorMinute": "1791541800000",
+          "rainEpoch": "1791541787802.2314",
+          "trackTransform": "matrix(1, 0, 0, 1, -57.598, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 8538.6,
+          "cursorIndex": "46",
+          "cursorMinute": "1791541920000",
+          "rainEpoch": "1791541947016.055",
+          "trackTransform": "matrix(1, 0, 0, 1, -58.8658, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 8798.6,
+          "cursorIndex": "47",
+          "cursorMinute": "1791542100000",
+          "rainEpoch": "1791542096900.7244",
+          "trackTransform": "matrix(1, 0, 0, 1, -61.2761, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 9093.8,
+          "cursorIndex": "47",
+          "cursorMinute": "1791542160000",
+          "rainEpoch": "1791542171814.959",
+          "trackTransform": "matrix(1, 0, 0, 1, -62.5447, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 9280.9,
+          "cursorIndex": "48",
+          "cursorMinute": "1791542340000",
+          "rainEpoch": "1791542396613.863",
+          "trackTransform": "matrix(1, 0, 0, 1, -65.0812, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 9533.4,
+          "cursorIndex": "48",
+          "cursorMinute": "1791542520000",
+          "rainEpoch": "1791542527727.824",
+          "trackTransform": "matrix(1, 0, 0, 1, -66.9838, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 9828.5,
+          "cursorIndex": "49",
+          "cursorMinute": "1791542640000",
+          "rainEpoch": "1791542677612.4934",
+          "trackTransform": "matrix(1, 0, 0, 1, -68.7593, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 10039.6,
+          "cursorIndex": "49",
+          "cursorMinute": "1791542760000",
+          "rainEpoch": "1791542780626.591",
+          "trackTransform": "matrix(1, 0, 0, 1, -70.4077, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 10293.9,
+          "cursorIndex": "50",
+          "cursorMinute": "1791542940000",
+          "rainEpoch": "1791542958611.1233",
+          "trackTransform": "matrix(1, 0, 0, 1, -72.5645, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 10528.7,
+          "cursorIndex": "50",
+          "cursorMinute": "1791543060000",
+          "rainEpoch": "1791543099110.4385",
+          "trackTransform": "matrix(1, 0, 0, 1, -74.5942, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 10783.5,
+          "cursorIndex": "51",
+          "cursorMinute": "1791543240000",
+          "rainEpoch": "1791543248938.9082",
+          "trackTransform": "matrix(1, 0, 0, 1, -76.6231, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 11031.8,
+          "cursorIndex": "51",
+          "cursorMinute": "1791543360000",
+          "rainEpoch": "1791543380109.0688",
+          "trackTransform": "matrix(1, 0, 0, 1, -78.3986, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 11283,
+          "cursorIndex": "52",
+          "cursorMinute": "1791543480000",
+          "rainEpoch": "1791543529937.5386",
+          "trackTransform": "matrix(1, 0, 0, 1, -80.4283, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 11528.7,
+          "cursorIndex": "52",
+          "cursorMinute": "1791543660000",
+          "rainEpoch": "1791543661051.4995",
+          "trackTransform": "matrix(1, 0, 0, 1, -82.2038, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        },
+        {
+          "ms": 11783.1,
+          "cursorIndex": "53",
+          "cursorMinute": "1791543780000",
+          "rainEpoch": "1791543810936.169",
+          "trackTransform": "matrix(1, 0, 0, 1, -84.2335, 0)",
+          "mapReady": true,
+          "playing": true,
+          "veilOpacity": "0",
+          "splashVisibility": "hidden"
+        }
+      ]
+    }
+  ]
+}

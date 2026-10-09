@@ -686,6 +686,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
   })
   const [mapReady, setMapReady] = createSignal(false)
+  const playbackReady = createMemo(() => mapRendering() && mapReady())
+  const playbackActive = createMemo(() => playing() && playbackReady())
   const [resetNotice, setResetNotice] = createSignal(false)
   let resetNoticeTimer: number | undefined
   const [updateReady, setUpdateReady] = createSignal(false)
@@ -858,7 +860,22 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     onCleanup(() => tableViewMedia.removeEventListener('change', tableViewChanged))
     mapStart = createMapStart()
     maplibregl.prewarm()
-    void loadBasemapStyle(mapTheme()).catch(() => undefined)
+    let initialData: Manifest | undefined
+    let eagerHeadersAllowed = false
+    let eagerHeadersStarted = false
+    const startEagerHeaders = () => {
+      if (!eagerHeadersAllowed || !initialData || eagerHeadersStarted) return
+      eagerHeadersStarted = true
+      void Promise.all(initialData.chunks.filter(eagerHeader).map((chunk) => client.getHeader(chunk))).catch(() => undefined)
+    }
+    void loadBasemapStyle(mapTheme()).then((style) => {
+      const source = style.sources.basemap
+      // Stijlen zonder onze PMTiles-bron hebben geen kaartheader om voorrang te geven.
+      if (source?.type !== 'vector' || !source.url?.startsWith('pmtiles://')) {
+        eagerHeadersAllowed = true
+        startEagerHeaders()
+      }
+    }).catch(() => undefined)
     try {
       const data = await (initialManifest ?? fetchManifest())
       perf.setManifestGenerated(data.generated)
@@ -877,7 +894,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         for (const frame of frames.slice(firstIndex, firstIndex + 2)) void load(frame).catch(() => undefined)
       }
       setManifest(data)
-      void Promise.all(data.chunks.filter(eagerHeader).map((chunk) => client.getHeader(chunk))).catch(() => undefined)
+      initialData = data
+      startEagerHeaders()
       if (!stillMode) stopManifestRefresh = scheduleManifestRefresh(refreshManifest, {
         setTimeout: (callback, delay) => window.setTimeout(callback, delay),
         clearTimeout: (handle) => window.clearTimeout(handle),
@@ -917,7 +935,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       applyMapContainLimit()
       map.on('resize', applyMapContainLimit)
       syncSavedMarkers(savedPlaces())
-      const firstStyleReady = new Promise<void>((resolve) => map!.once('style.load', () => resolve()))
+      const firstStyleReady = new Promise<void>((resolve) => map!.once('style.load', () => {
+        perf.markStyleReady()
+        resolve()
+      }))
       map.on('render', () => {
         mapRepaints++
         const source = map?.getSource(mapStartSource) ? mapStartSource : 'basemap'
@@ -950,6 +971,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       window.setTimeout(replaceMapStart, 15_000)
       map.on('sourcedata', (event) => {
         if (event.sourceId === 'basemap' && event.tile) {
+          if (!basemapTileSeen) {
+            perf.markFirstBasemapTile()
+            // De kaartheader en eerste tegels gaan vóór de ongebruikte HARMONIE-headers.
+            eagerHeadersAllowed = true
+            startEagerHeaders()
+          }
           basemapTileSeen = true
           replaceMapStartWhenComplete()
         }
@@ -1152,7 +1179,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     // Speelregel (MIP-19 §De lat): spelen zodra het cursorframe en het volgende er zijn. De oude
     // regel wachtte op laadfase "window" van de puntreeks.
     const waitsForWindow = playRuleWaitsForWindow && initialPickStarted && (pointLoadStage() === 'initial' || pointLoadStage() === 'direct')
-    if (!playing() || !mapRendering() || !mapReady() || waitsForWindow) return
+    if (!playbackActive() || waitsForWindow) return
     const horizonHours = timeHorizonHours()
     const frames = timeline()
     if (frames.length < 2) return
@@ -1161,6 +1188,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     // Tempo zoals toen afspelen tot +8 u liep (PO 2026-09-25 live); het loopt nu wel door tot het eind.
     const playbackRate = timelinePlaybackRate(frames, nowEpoch, PLAYBACK_TEMPO_HOURS)
     let previous = performance.now()
+    let firstPlaybackTick = true
     // Aan het eind van een rondje glijdt de tijdlijn terug naar het begin i.p.v. in één frame te springen:
     // in de schuivende scrubber (U34) oogde die sprong als "de tijdlijn springt telkens terug".
     let rewind: { from: number; startedAt: number } | undefined
@@ -1192,7 +1220,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       // Voorbij de afspeelhorizon (daar neergezet en daarna hervat): terugglijden naar het begin en
       // verder spelen, nooit voorgoed stilstaan — er is geen afspeelknop (PO 2026-09-25 live).
       if (!(epoch < lastEpoch)) { rewind = { from: epoch, startedAt: now }; return }
-      const nextEpoch = epoch + elapsed * playbackRate
+      // De eerste tik haalt tijd besteed aan kaartopzet niet in als een cursorsprong.
+      const playbackElapsed = firstPlaybackTick ? Math.min(elapsed, 1_000 / PLAYBACK_MAX_FPS) : elapsed
+      const nextEpoch = epoch + playbackElapsed * playbackRate
       if (!Number.isFinite(nextEpoch) || nextEpoch >= lastEpoch) {
         setCursor(timelineCursorAtEpoch(frames, lastEpoch))
         holdUntil = now + PLAYBACK_END_HOLD_MS
@@ -1213,7 +1243,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (!waiting || now - waiting.since < PLAYBACK_FRAME_WAIT_MS) nextCursor = clampPlaybackCursor(nextCursor, reach, 1)
         if (nextCursor <= cursor()) { setGlideRate(0); return }
       }
+      firstPlaybackTick = false
       batch(() => {
+        perf.markFirstCursorMove()
         setCursor(nextCursor)
         setGlideRate(playbackRate)
       })
@@ -1409,6 +1441,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (request !== shownFrameRequest || !layer || !map) return
     layer.setFrames(left, right, blend.mix, motion, (rightFrame.epoch - leftFrame.epoch) / 60_000)
     const afterRainDraw = (callback: () => void) => rainOverlay ? rainOverlay.once(callback) : map!.once('render', callback)
+    afterRainDraw(() => {
+      if (perfPhasesEnabled()) mapElement.dataset.rainEpoch = String(epoch)
+      const firstPlayback = perf.markRainFrameCommitted({ frameEpoch: leftFrame.epoch, playing: playing() })
+      if (firstPlayback || !playing()) schedulePlaces()
+    })
     if (!mapReady() && !rainReadyPending) {
       const renderedMap = map
       rainReadyPending = true
@@ -1429,10 +1466,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         }
       })
     }
-    afterRainDraw(() => {
-      const firstPlayback = perf.markRainFrameCommitted({ frameEpoch: leftFrame.epoch, playing: playing() })
-      if (firstPlayback || !playing()) schedulePlaces()
-    })
     if (!rainOverlay) map.triggerRepaint()
     // De eerste locatiereeks haalt dezelfde chunks direct in bulk op. Losse,
     // overlappende Range-prefetches maken Chromiums sparse HTTP-cache instabiel.
@@ -3106,6 +3139,17 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       reportWindowReady(series.field, withFrame.map((row) => row.epoch), (index) => series.values()[withFrame[index]![series.key]!] != null)
     }
   })
+  createEffect(() => {
+    if (!mapReady()) return
+    let cancelled = false
+    const frame = requestAnimationFrame(() => {
+      void Promise.all(splashElement.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined))).then(() => {
+        if (cancelled) return
+        perf.markMapRevealed()
+      })
+    })
+    onCleanup(() => { cancelled = true; cancelAnimationFrame(frame) })
+  })
   // Schermwaarheid (MIP-19): de scrubber tekent nog geen fog, dus elk zichtbaar regenslot zonder waarde is leeg.
   createEffect(() => {
     if (mapReady()) perf.markSplashGone()
@@ -3338,6 +3382,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           cursor={cursor()}
           now={manifest() ? Date.parse(manifest()!.now) : 0}
           playing={playing()}
+          playbackReady={playbackReady()}
           loading={pointSeriesLoading()}
           loadStage={pointLoadStage()}
           locationLabel={status()}

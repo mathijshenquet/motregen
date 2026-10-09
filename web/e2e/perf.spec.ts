@@ -207,6 +207,7 @@ test('user journey measures performance and cache behaviour', async ({ page, con
     await expect(warmScrubber).toHaveAttribute('data-load-stage', 'window', { timeout: live ? 180_000 : 20_000 })
     await page.waitForLoadState('networkidle')
     warm = await perfSnapshot(page)
+    await testInfo.attach('warm-perf', { body: JSON.stringify(warm), contentType: 'application/json' })
     const warmChunkResources = await transferredResources(page, '/data/chunks/')
     if (warmChunkResources.length) console.log(`${profile.label}: warm chunk resources ${JSON.stringify(warmChunkResources)}`)
     if (!live) {
@@ -276,6 +277,7 @@ function expectedLoadStage(profile: ReturnType<typeof performanceProfile>): 'com
 }
 
 async function waitForTtfr(page: Page): Promise<PerfSnapshot> {
+  // U68: TTFR meet de gezamenlijke klokstart, onafhankelijk van de onthullingsanimatie.
   try {
     await page.waitForFunction(() => (window as typeof window & { __motregenPerf?: unknown }).__motregenPerf !== undefined, undefined, { timeout: 30_000 })
   } catch {

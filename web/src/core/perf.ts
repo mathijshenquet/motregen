@@ -79,10 +79,14 @@ export interface PerfResourceTotals {
 
 export interface PerfSnapshot {
   capturedAt: string
-  /** Splash-eerlijk (MIP-19): eerste regenframe én de basemap-tiles van het eerste beeld getekend. */
+  /** Start van de gezamenlijke afspeelklok; bij een gepauzeerde start de eerste regentekening. */
   ttfrMs: number | null
   firstRainMs: number | null
   basemapReadyMs: number | null
+  styleReadyMs: number | null
+  firstBasemapTileMs: number | null
+  mapRevealedMs: number | null
+  firstCursorMs: number | null
   /** Histogram nu ± 1 u compleet (`window-ready:rain_rate`). */
   ttfhMs: number | null
   /** Eerste frame-wissel van de regenlaag terwijl de tijdlijn afspeelt (MIP-19 §De lat). */
@@ -134,7 +138,7 @@ export interface PerfPhaseSummary {
 export type WindowReadyMeasure = `window-ready:${string}`
 
 /** Mijlpalen van de koude start (MIP-19), elk van timeOrigin tot het moment zelf. */
-export type LoadMilestone = 'first-rain' | 'basemap-ready' | 'ttfr' | 'ttfp' | 'first-bar' | 'first-map-image'
+export type LoadMilestone = 'first-rain' | 'basemap-ready' | 'style-ready' | 'first-basemap-tile' | 'map-revealed' | 'first-cursor' | 'ttfr' | 'ttfp' | 'first-bar' | 'first-map-image'
 
 export interface PerfMeasure {
   phase: PerfPhase | WindowReadyMeasure | `milestone:${LoadMilestone}` | 'blank-visible'
@@ -336,6 +340,10 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
 export class PerfMonitor {
   private firstRainMs: number | null = null
   private basemapReadyMs: number | null = null
+  private styleReadyMs: number | null = null
+  private firstBasemapTileMs: number | null = null
+  private mapRevealedMs: number | null = null
+  private firstCursorMs: number | null = null
   private ttfrMs: number | null = null
   private ttfpMs: number | null = null
   private shownRainFrame: number | undefined
@@ -436,19 +444,43 @@ export class PerfMonitor {
     this.recordPhase({ phase: `milestone:${milestone}`, startTime: 0, duration: now })
   }
 
-  private settleFirstRender(now: number): void {
-    if (this.ttfrMs !== null || this.firstRainMs === null || this.basemapReadyMs === null) return
-    this.ttfrMs = now
-    this.markMilestone('ttfr', now)
-  }
-
   /** De basemap-tiles van het eerste beeld zijn getekend. */
   markBasemapReady(): void {
     if (this.basemapReadyMs !== null) return
     const now = this.environment.now()
     this.basemapReadyMs = now
     this.markMilestone('basemap-ready', now)
-    this.settleFirstRender(now)
+  }
+
+  markStyleReady(): void {
+    if (this.styleReadyMs !== null) return
+    this.styleReadyMs = this.environment.now()
+    this.markMilestone('style-ready', this.styleReadyMs)
+  }
+
+  markFirstBasemapTile(): void {
+    if (this.firstBasemapTileMs !== null) return
+    this.firstBasemapTileMs = this.environment.now()
+    this.markMilestone('first-basemap-tile', this.firstBasemapTileMs)
+  }
+
+  markMapRevealed(): void {
+    if (this.mapRevealedMs !== null) return
+    this.mapRevealedMs = this.environment.now()
+    this.markMilestone('map-revealed', this.mapRevealedMs)
+  }
+
+  markFirstCursorMove(): void {
+    if (this.firstCursorMs !== null) return
+    this.firstCursorMs = this.environment.now()
+    this.markMilestone('first-cursor', this.firstCursorMs)
+    this.markFirstRender(this.firstCursorMs)
+  }
+
+  private markFirstRender(now: number): void {
+    if (this.ttfrMs !== null) return
+    this.ttfrMs = now
+    this.markMilestone('ttfr', now)
   }
 
   markSplashGone(): void {
@@ -501,7 +533,7 @@ export class PerfMonitor {
     if (this.firstRainMs === null) {
       this.firstRainMs = now
       this.markMilestone('first-rain', now)
-      this.settleFirstRender(now)
+      if (!shown?.playing) this.markFirstRender(now)
     }
     if (shown) {
       if (shown.playing && this.ttfpMs === null && this.shownRainFrame !== undefined && shown.frameEpoch !== this.shownRainFrame) {
@@ -532,6 +564,10 @@ export class PerfMonitor {
     return {
       capturedAt: new Date(this.environment.wallNow()).toISOString(),
       ttfrMs: rounded(this.ttfrMs),
+      styleReadyMs: rounded(this.styleReadyMs),
+      firstBasemapTileMs: rounded(this.firstBasemapTileMs),
+      mapRevealedMs: rounded(this.mapRevealedMs),
+      firstCursorMs: rounded(this.firstCursorMs),
       firstRainMs: rounded(this.firstRainMs),
       basemapReadyMs: rounded(this.basemapReadyMs),
       ttfhMs: rounded(this.windowReady.get('rain_rate') ?? null),

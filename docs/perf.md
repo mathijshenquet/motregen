@@ -173,10 +173,11 @@ zijn gekalibreerd terwijl de client omvattende Ranges gebruikte, onderschatten d
   MIP-19. Elke `frame-decode`-fase draagt daarnaast `waitMs`: hoe lang het frame op een vrije
   worker wachtte.
 
-- **TTFR** (time to first rain) loopt vanaf `navigationStart`
-  (`performance.timeOrigin`) tot de eerste MapLibre-`render` nadat het eerste
-  niet-verouderde regenframe naar de WebGL-laag is geüpload. Een fetch- of
-  `triggerRepaint`-moment telt dus nog niet als zichtbaar frame.
+- **TTFR** loopt vanaf `navigationStart` (`performance.timeOrigin`) tot de eerste
+  beweging van de gezamenlijke afspeelklok (`firstCursorMs`), na `mapReady`.
+  Bij een gepauzeerde start telt de eerste regentekenbeurt (`firstRainMs`). De
+  splash-onthulling is geen voorwaarde. `styleReadyMs`, `firstBasemapTileMs`,
+  `basemapReadyMs` en `mapRevealedMs` meten de kaartopzet en onthulling apart.
 - **Scrub-latency** loopt vanaf de laatste expliciete histograminput tot de
   MapLibre-`render` van het bijbehorende niet-verouderde regenframe. De HUD
   bewaart maximaal 256 samples en toont p50/p95.
@@ -346,8 +347,8 @@ suite de tijdslider, gaat met Home en twaalf toetsen vooruit, speelt met spatie
 af en kiest Utrecht via de zoekpil. De daaropvolgende sliderintentie moet op
 desktop `complete` bereiken; mobiel hoeft uitsluitend het zichtbare `window` te
 vullen. De warmbyte-snapshot wacht opnieuw op het L1-stadium en netwerk-idle.
-TTFR zelf behoudt zijn oorspronkelijke eerste-rendermeetpunt; passief, intentie
-en warm cachegebruik zijn daardoor drie afzonderlijke meetfasen.
+Deze historische reeks gebruikt het toenmalige eerste-rendermeetpunt van TTFR;
+passief, intentie en warm cachegebruik zijn drie afzonderlijke meetfasen.
 
 ### Progressieve laadbaseline
 
@@ -736,7 +737,8 @@ maar zijn ene kleine body representeert geen OpenFreeMap-kaart.
 
 De rapportmaten betekenen:
 
-- TTFR is de eerste regen-draw uit de bestaande perf-monitor. Splash-weg is
+- TTFR volgt de definitie onder Meetpunten; de oudere baselines hieronder gebruiken
+  de toenmalige eerste-renderdefinitie. Splash-weg is
   de werkelijk verborgen splash na de CSS-reveal, bemonsterd per DOM-mutatie
   en met een timerinterval van 100 ms.
 - Ttfh is het eerste complete regenhistogram voor nu ±1 u. De rig gebruikt
@@ -850,6 +852,14 @@ De maat is `ttfp` (time to first play): van navigatiestart tot de kaart een rege
 in een getekend beeld terwijl `playing` aan staat (`PerfMonitor.markRainFrameCommitted`); een
 bewegende cursor boven een stilstaande kaart telt dus niet. Doel: `ttfp ≤ ttfp-ref`.
 
+Sinds U68 start de gedeelde afspeelklok na de eerste regentekenbeurt (`mapReady`): cursor,
+histogram-glide en kaartregen starten vanaf hetzelfde stilstaande moment. De sluier vloeit
+onafhankelijk weg en is geen speelpoort (PO 2026-10-09). De speelregel blijft cursorframe +
+volgend frame; uurvelden zijn geen voorwaarde. `ttfr` meet bij autoplay de eerste cursorbeweging
+(`firstCursorMs`); bij een bewust gepauzeerde start de eerste regentekening. `ttfp` blijft de
+eerste daadwerkelijk getekende wissel van het linker regenframe.
+`styleReadyMs`, `firstBasemapTileMs` en `mapRevealedMs` maken kaartopzet en onthulling apart zichtbaar.
+
 ```sh
 pnpm perf:mobile --scenario koud-spelend --repeat 3            # ttfp, ttfr, ttfh, blank-visible, LoAF 12 s
 pnpm perf:mobile --scenario referentie-buienradar --repeat 3   # ttfp-ref
@@ -864,8 +874,10 @@ pnpm exec tsx scripts/po-reference.ts compare perf/po-android-reference.json tmp
   het tijdlabel dient als tweede getuige. De rig klikt de toestemmingsmuur weg zodra de knop er
   staat. Dat is sneller dan een mens, dus de referentie valt eerder gunstig uit voor Buienradar.
   `ttfp-ref zonder iets over de kaart` telt pas vanaf het eerste beeld waar niets overheen ligt.
-- De overige meetpunten: `ttfr` is het eerste regenframe én de basemap-tiles van het eerste
-  beeld (`map.areTilesLoaded()` na een render); `ttfh` is `window-ready:rain_rate`;
+- De volledige-kaartgereedheid blijft apart meetbaar als `basemapReadyMs`
+  (`map.areTilesLoaded()` na een render); historische TTFR-getallen van vóór U68 maten dat
+  samen met de eerste regen, en zijn dus niet rechtstreeks vergelijkbaar met de klokstart.
+  `ttfh` is `window-ready:rain_rate`;
   `blank-visible-ms` is de tijd na de splash waarin een zichtbaar regenslot van de scrubber geen
   waarde had en ook niet als "komt nog" getekend was (`core/screen-truth.ts`). Main tekent nog
   geen fog, dus daar telt elk ontbrekend slot als leeg. Tabelrijen tellen nog niet mee.
@@ -1300,7 +1312,7 @@ blijft de verificatie voor de representativiteit. Typecheck, 483 tests, build, �
 
 U63 aanvullende controle met de volledige eigen basiskaart (po-android/koud-spelend ×3,
 `--basemap own`, dezelfde regenpipeline): **ttfr 3596 ms, ttfp 1652 ms**; eerste
-regencommit 1316 ms. De huidige `ttfr` wacht op zowel die regencommit als een render waarbij
+regencommit 1316 ms. De in die meting gebruikte `ttfr` wacht op zowel die regencommit als een render waarbij
 `isStyleLoaded()` en `areTilesLoaded()` waar zijn. Hij meet dus ook het afronden van de
 basiskaart; `firstRainMs` alleen bewijst nog niet dat regen door de splash heen zichtbaar is.
 De eenvoudige 73-byte-fixture dekt die kaartkosten niet. De volledige kaart had na ttfp
@@ -1502,3 +1514,125 @@ Product82fa4bd inclusief U64/U62deel2/U65/U67: z4 uit versus losse z4, dezelfde 
 Eerste kaartbeeld koud1608ms en warm1908ms eerder; ttfp koud339ms en warm117ms later. ttfr behoudt de volledige-kaartvoorwaarde en is koud530ms en warm297ms later. De100ms-ttfp-lat is niet gehaald; de PO accepteert de reststraf. Warm is nog niet duidelijk onder koud. De LoAF-bewaker blijft open: medianen269,8/284,6ms na ttfp en1/2frames>250ms. Eerste-kaartwinst is in elk afzonderlijk paar aanwezig; ttfp varieert per paar (koud−192 tot+809ms, warm−499 tot+238ms), dus geen kleine kostenwinst ten opzichte van eerdere basissen claimen. Warm alleen36513 sessiemanifestbytes, nul kaartnetwerkbytes. Alle wirebevindingen0 en plaatsenlijst na ttfp.
 
 Klaar voor merge volgens de expliciete z4-PO-gate: typecheck,524unittests,productiebuild en15gerichte desktoptests waaronder basemap9 groen na de integratie. Vier390px-toestandsbeelden op dezelfde basis: `.dev/tracks/u63-mobiel-ttfp-lus/metingen/z4-u64-{light,dark}-{placeholder,echt}-390.png`; PMTiles opzettelijk tegengehouden, dus geen tijden aan de screenshots ontlenen. Compacte per-runbron, watervallen en afzonderlijke paarverschillen: `metingen/z4-u64-gepaard.json` in dezelfde trackmap. Kaart-eerst en temperatuur blijven proefbranches.
+
+## Eén klok en kaartvoorrang (U68, 2026-10-09)
+
+De gedeelde gereedheid is `mapReady`: vóór de eerste regentekenbeurt blijven cursor en
+histogram-glide stil. Een vroege pauzekeuze blijft geldig; de eerste afspeeltik haalt
+kaartopzet-tijd niet in als een cursorsprong. De PMTiles-header wordt vroeg via dezelfde
+`Protocol`/`PMTiles`-instance geladen. De ongebruikte weerheaders van de eigen kaart wachten
+op de eerste basemap-tegel; benodigde regen- en tabeldata blijven op aanvraag beschikbaar.
+Stijlen zonder deze PMTiles-bron behouden hun gewone headerstart. De z4-wissel is ongewijzigd.
+
+De splash vloeit in 300 ms weg, onafhankelijk van de klok. De onderstaande filmstrip heeft
+opname-overhead en gebruikt productiegegevens op de PO-preview; dit zijn diagnostische
+tijden, geen performancebaseline. De onthullingsmarker is de waargenomen voltooiing van
+alle splash-animaties; drukte op de hoofddraad kan die melding vertragen. Elke cel vermeldt
+het 250ms-doelmoment en de daadwerkelijke compositorframetijd. Herhaalde beelden zijn geen
+nieuwe tekenbeurten. De cursorindex komt uit onafhankelijke DOM-sampling met de echte sampletijd.
+
+| opname | style.load | mapReady / regen-draw | eerste cursorbeweging / TTFR | volledige onthulling |
+| --- | ---: | ---: | ---: | ---: |
+| desktop A | 401 ms | 1406 ms | 1457 ms | 3271 ms |
+| desktop B | 373 ms | 856 ms | 1505 ms | 1695 ms |
+| po-android A | 555 ms | 1700 ms | 2255 ms | 4116 ms |
+| po-android B | 789 ms | 1784 ms | 2214 ms | 2614 ms |
+
+De oude onthulling blijft 1,8–2,4 s na mapReady aanwezig, terwijl de scrubber al zichtbaar is.
+Bij B begint de klok vóór de volledige onthulling. De onafhankelijke regressietest verlengt
+de onthulling tot vijf seconden en bevestigt dezelfde volgorde in Chromium en Firefox.
+
+[Desktopfilmstrip](perf/u68/filmstrip-desktop.jpg), [Androidfilmstrip](perf/u68/filmstrip-po-android.jpg)
+en [milestones en cursor-/regenposities](../web/perf/baselines/u68-filmstrip.json).
+De meetcode staat in `web/scripts/play-sync.ts`; `--filmstrip` schakelt de compositoropname aan.
+De PNG/JPEG-readback en HUD-verberging van die modus zijn uitgesloten van de timingruns.
+
+```sh
+MOTREGEN_PERF_PAIRED_RUN=1 bash scripts/perf-lock.sh scripts/e2e-slot.sh pnpm exec tsx scripts/play-sync.ts http://127.0.0.1:4350 tmp/u68/film --profile=po-android --filmstrip
+pnpm exec tsx scripts/play-sync-report.ts tmp/u68/captures tmp/u68/rapport
+```
+
+Gate op de productwijziging: typecheck, 529 units en productiebuild groen; 52 gerichte
+desktop/mobile-4g-tests groen met vier toepasselijke skips; zes Firefox-tests groen, waarvan
+één bestaande viewport-test op herhaling. Perf-gate: vier tests groen, desktop TTFR koud
+425/warm408 ms, mobile-4g koud1945/warm1330 ms tegen de bestaande warme grens1545 ms.
+Beide warme journeys hebben nul chunktransfer. Eerdere mobiele misses (1934,1624,1574 ms)
+en de rustige referentiecontrole (warm1341 ms) staan in het lokale tracklog; geen budget aangepast.
+
+### Gepaard koud/warm op productiegegevens
+
+A is d0420ea met uitsluitend dezelfde meetinstrumentatie als B; B is product 29f9bee.
+A1/B1/A2/B2/A3/B3 per scenario, 48 opnames zonder screencast, werkelijk startload ≤ 16
+(maximum 15,64), één hostlock per run en wachten buiten de lock. Manifest en Date.now staan
+voor alle runs op 2026-10-09T09:33:28Z; performance.now loopt echt door. Zo varieert de
+leeftijdsbanner niet tijdens de reeks. Warm herstart het gehele browserproces met gevuld
+HTTP-/SW-diskprofiel; alle warme runs hebben een SW-controller. De po-android-rig gebruikt
+30 Mbps/20 ms, vier cores/4 GB en rendererquota 40% van één core met een 5 ms-periode.
+
+HTTP/1.1 is de eigen Vite-preview 4392, met echte productiegegevens en hetzelfde eigen
+PMTiles-archief. HTTP/2 is een lokale TLS-reviewproxy op https://motregen.nl: de A/B-frontend
+is lokaal, de weerdata komt van productie. Er is niets gedeployd. CDP bevestigt h2 voor de
+netwerkresponses; sommige warme PMTiles-antwoorden uit de SW dragen http/1.1-cachemetadata.
+Een afzonderlijke directe productiecontrole zonder proxy bevestigt h2/h3, maar gebruikt
+een andere gedeployde bundel met de oude TTFR-definitie en telt niet als A/B-tijdvergelijking.
+
+Hieronder staan medianen van drie opnames per variant. De laatste kolom is de mediaan van
+de drie afzonderlijke B−A-paarverschillen, niet het verschil tussen beide medianen.
+Die twee berekeningen kunnen bij deze kleine, drukke steekproef uiteenlopen. TTFR meet
+in beide varianten de cursorstart; een gewijzigde definitie is geen snelheidswinst.
+TTFP blijft de eerste getekende wissel van het linker regenframe. De begrensde eerste tik
+voorkomt een opstartsprong, waardoor die framegrens later kan worden bereikt.
+
+| transport / profiel / cache | A→B klokstart ms | A→B framewissel ms | A→B style.load ms | A→B eerste tegel ms | A→B volledige kaart ms | mediane Δ klok / framewissel |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| h1 / desktop / cold (3/3) | 886→901.9 | 1114.3→1025.8 | 145.4→142.3 | 1001.2→1034.6 | 1113.5→1676.8 | -19.9 / -133.3 ms |
+| h1 / desktop / warm (3/3) | 803.1→856.2 | 913.1→937.5 | 133.5→125.8 | 1067.3→1094.3 | 1554.1→1815.3 | 53.1 / 24.4 ms |
+| h1 / po-android / cold (3/3) | 1902.6→1983.2 | 4387→3848.1 | 590.3→558.8 | 4126.5→2931.7 | 4467.9→3031.4 | -187.2 / -463.8 ms |
+| h1 / po-android / warm (3/3) | 2363.6→2061.9 | 4749.5→5291.7 | 642.5→721.9 | 4514.4→4447.1 | 4702.7→4576.4 | -172.4 / -221.6 ms |
+| h2 / desktop / cold (3/3) | 936.9→979.7 | 1532.6→1591 | 220→212.5 | 808.3→767.4 | 880.3→870.2 | 46.2 / 33.8 ms |
+| h2 / desktop / warm (3/3) | 921→902.4 | 1505.4→1553.4 | 404.3→417.8 | 1031.3→977.6 | 1495.7→1462 | -10.4 / 48 ms |
+| h2 / po-android / cold (3/3) | 2468.1→2342.7 | 4756.2→4971.9 | 1093→1051.8 | 4792.8→4797 | 5153.2→4971.6 | -95.8 / 501.4 ms |
+| h2 / po-android / warm (3/3) | 2527.9→2013.4 | 4959.7→5012.5 | 618.6→593.4 | 4273.7→4103.6 | 4325.3→4238.5 | -181.2 / -29.1 ms |
+
+De PMTiles-header start in alle 24 B-runs vóór de ongebruikte HARMONIE-headers; bij A gaan
+er steeds 34 voor. De koude HTTP/1.1-headerqueue daalt op desktop mediaan 58,5→0,6 ms en
+op po-android 45,6→0,3 ms. Op koude po-android/HTTP1 komt de eerste echte tegel 1195 ms en
+de volledige kaart 1437 ms eerder. Warme mobiele klokstart wint in de medianen 302 ms
+(HTTP1) en 515 ms (HTTP2). Koude mobiele HTTP2-klokstart wint 125 ms, maar TTFP kost 216 ms;
+het mediane afzonderlijke paarverschil voor TTFP is +501 ms. Dit is geen algemene speedup.
+De volledige desktopkaart/HTTP1 is koud 563 ms en warm 261 ms later klaar. Het eerste
+progressieve z4-kaartbeeld blijft daar vrijwel gelijk. De z4-wissel zelf is niet veranderd.
+
+| transport / profiel / cache | A→B eerste kaartbeeld ms | A→B max LoAF na TTFP ms | A→B aantal >250 ms |
+| --- | ---: | ---: | ---: |
+| h1 / desktop / cold | 764.6→760.2 | 425.2→656 | 2→1 |
+| h1 / desktop / warm | 741.6→725.7 | 512.5→742.9 | 1→2 |
+| h1 / po-android / cold | 1687.4→1554.4 | 210.2→198.9 | 0→0 |
+| h1 / po-android / warm | 1794.1→1771.9 | 314.1→230.7 | 1→0 |
+| h2 / desktop / cold | 880.2→870.1 | 377.1→301.7 | 1→1 |
+| h2 / desktop / warm | 832.9→819.8 | 303.4→247.8 | 1→0 |
+| h2 / po-android / cold | 2554.7→2423.8 | 231.1→156.6 | 0→0 |
+| h2 / po-android / warm | 2108.5→2232.7 | 170.7→189.8 | 0→0 |
+
+LoAF is geen opgelost probleem: HTTP1-desktop heeft na TTFP mediane maximale frames
+van 656/743 ms, tegen 425/513 ms in A. HTTP2-desktop verbetert in deze reeks; de mobiele
+maxima blijven meestal onder 250 ms. Deze load ≤ 16-cijfers zijn geen rustige absolute
+baseline en bewijzen niet dat de bredere MIP-19/Buienradar- of MIP-23-warmelat is gehaald.
+De bestaande load ≤ 8-perf-gate hierboven is afzonderlijk groen zonder budgetwijziging.
+
+[Compacte bron met alle 48 runs, loads, cache/protocol, milestones en paarverschillen](../web/perf/baselines/u68-startup-paired.json).
+Watervallen tonen de eerste 6 s van koud paar 1: groen PMTiles, blauw MRF, grijs overige
+resources. ResourceTiming-transferSize is een observatie en geen wire-budgetclaim.
+
+| transport / profiel | referentie | kandidaat |
+| --- | --- | --- |
+| HTTP1 desktop | [A](perf/u68/waterval-h1-desktop-cold-reference-1.svg) | [B](perf/u68/waterval-h1-desktop-cold-candidate-1.svg) |
+| HTTP1 po-android | [A](perf/u68/waterval-h1-po-android-cold-reference-1.svg) | [B](perf/u68/waterval-h1-po-android-cold-candidate-1.svg) |
+| HTTP2 desktop | [A](perf/u68/waterval-h2-desktop-cold-reference-1.svg) | [B](perf/u68/waterval-h2-desktop-cold-candidate-1.svg) |
+| HTTP2 po-android | [A](perf/u68/waterval-h2-po-android-cold-reference-1.svg) | [B](perf/u68/waterval-h2-po-android-cold-candidate-1.svg) |
+
+De vroege gedeelde header plus uitstel van ongebruikte headers geven aantoonbare
+kaartvoorrang zonder afhankelijkheid van fetch-priority-hints. Regen eerder mounten
+buiten style.load is daarom voor deze synchronisatie niet nodig. De afzonderlijke
+prewarm/uitstel-probes op de synthetische fixture waren verkennend; bovenstaande finale
+reeks meet de gekozen combinatie op echte data.
