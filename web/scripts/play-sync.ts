@@ -77,6 +77,8 @@ try {
   cdp.on('Network.responseReceived', ({ response, timestamp }) => requests.push({ url: response.url, protocol: response.protocol, timestamp, status: response.status, fromDiskCache: response.fromDiskCache, fromServiceWorker: response.fromServiceWorker }))
   const frames: Array<{ timestamp: number; data: string }> = []
   if (filmstrip) {
+    const initialFrame = await page.screenshot({ type: 'jpeg', quality: 60, scale: 'css' })
+    frames.push({ timestamp: Date.now(), data: initialFrame.toString('base64') })
     cdp.on('Page.screencastFrame', ({ data, metadata, sessionId }) => {
       void cdp.send('Page.screencastFrameAck', { sessionId })
       if (metadata.timestamp !== undefined) frames.push({ timestamp: metadata.timestamp * 1_000, data })
@@ -110,7 +112,7 @@ try {
     const captured = await page.evaluate(() => ({ timeOrigin: performance.timeOrigin, manifestGenerated: document.querySelector<HTMLElement>('.app-shell')?.dataset.generated, snapshot: window.__motregenPerf!.snapshot(), entries: window.__motregenPerf!.traceSlice(0, 12_000), loads: window.__motregenPerf!.loads.snapshot(), samples: (window as unknown as { playSyncSamples: object[] }).playSyncSamples, resources: performance.getEntriesByType('resource').map((entry) => entry.toJSON()), serviceWorkerControlled: Boolean(navigator.serviceWorker.controller) }))
     const shots = filmstrip ? Array.from({ length: 24 }, (_, index) => {
       const targetMs = index * 250
-      const frame = frames.filter((frame) => frame.timestamp - captured.timeOrigin <= targetMs).at(-1) ?? frames[0]
+      const frame = frames.filter((frame) => frame.timestamp - captured.timeOrigin <= targetMs).at(-1)
       if (frame) writeFileSync(`${output}/${String(index).padStart(2, '0')}.jpg`, Buffer.from(frame.data, 'base64'))
       return { targetMs, frameMs: frame ? frame.timestamp - captured.timeOrigin : null }
     }) : []

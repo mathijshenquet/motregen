@@ -9,6 +9,8 @@ interface Capture {
   fixture?: boolean
   screenshotOverhead: boolean
   manifestGenerated: string
+  capturedAt: string
+  fixedClock?: string
   loadSamples: Array<{ ms: number; load: number }>
   snapshot: PerfSnapshot
   entries: PerfTraceSlice
@@ -22,7 +24,9 @@ if (!directory || !output) throw new Error('Gebruik: play-sync-report.ts CAPTURE
 mkdirSync(dirname(output), { recursive: true })
 const median = (values: number[]) => {
   const sorted = [...values].sort((left, right) => left - right)
-  return sorted.length ? sorted[Math.floor(sorted.length / 2)]! : null
+  if (!sorted.length) return null
+  const middle = Math.floor(sorted.length / 2)
+  return sorted.length % 2 ? sorted[middle]! : (sorted[middle - 1]! + sorted[middle]!) / 2
 }
 const rounded = (value: number | null | undefined) => value == null ? null : Math.round(value * 10) / 10
 const compact = readdirSync(directory).filter((name) => name.endsWith('.json')).map((name) => {
@@ -35,6 +39,7 @@ const compact = readdirSync(directory).filter((name) => name.endsWith('.json')).
     name: name.replace('.json', ''), origin: capture.origin, profile: capture.profile,
     warm: capture.warm, fixture: capture.fixture ?? capture.manifestGenerated.startsWith('2026-08-28'), screenshotOverhead: capture.screenshotOverhead,
     manifestGenerated: capture.manifestGenerated,
+    capturedAt: capture.capturedAt, fixedClock: capture.fixedClock,
     startLoad: capture.loadSamples[0]!.load,
     meanLoad: rounded(capture.loadSamples.reduce((sum, sample) => sum + sample.load, 0) / capture.loadSamples.length),
     milestones: Object.fromEntries(['ttfrMs', 'ttfpMs', 'styleReadyMs', 'firstRainMs', 'firstCursorMs', 'firstBasemapTileMs', 'basemapReadyMs', 'mapRevealedMs', 'ttfhMs'].map((key) => [key, capture.snapshot[key as keyof PerfSnapshot]])),
