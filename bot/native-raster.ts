@@ -92,10 +92,11 @@ export class NativeRaster {
     if (frame.motion) await this.write(new Uint8Array(frame.motion.vectors.buffer, frame.motion.vectors.byteOffset, frame.motion.vectors.byteLength))
     const length = this.size.width * this.size.height * 3
     const rgb = Buffer.allocUnsafe(length)
+    const worker = this.worker!
     let offset = 0
     while (offset < length) {
-      const bytes = this.worker.stdout.read() as Buffer | null
-      if (!bytes) { await Promise.race([once(this.worker.stdout, 'readable'), this.completed!.then(() => { throw new Error('Native raster mist uitvoer') })]); continue }
+      const bytes = worker.stdout.read() as Buffer | null
+      if (!bytes) { await Promise.race([once(worker.stdout, 'readable'), this.completed!.then(() => { throw new Error('Native raster mist uitvoer') })]); continue }
       bytes.copy(rgb, offset); offset += bytes.length
     }
     return rgb

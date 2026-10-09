@@ -23,6 +23,18 @@ export class NativeRainData {
     if (!this.timeline.length) throw new Error('Regen ontbreekt in manifest')
   }
 
+  async prefetch(epochs: readonly number[]): Promise<void> {
+    const chunks = new Map<string, TimelineFrame>()
+    for (const epoch of epochs) {
+      const blend = frameBlend(this.timeline, epoch)
+      for (const index of [blend.left, blend.right]) {
+        const frame = this.timeline[index]!
+        if (!chunks.has(frame.chunk.url)) chunks.set(frame.chunk.url, frame)
+      }
+    }
+    await Promise.all([...chunks.values()].map((frame) => this.load(frame)))
+  }
+
   async frame(epoch: number): Promise<RainFrame> {
     if (epoch < this.timeline[0]!.epoch || epoch > this.timeline.at(-1)!.epoch) throw new Error('Frame valt buiten de beschikbare tijdlijn')
     const blend = frameBlend(this.timeline, epoch)

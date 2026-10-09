@@ -26,7 +26,7 @@ export class NativeWeatherRenderer {
     const compositor = new RainCompositor(first.grid)
     try {
       const themes = [...new Set(plan.epochs.map(rainTheme))]
-      await Promise.all([...themes.map((theme) => maps.get(theme, first.grid)), overlay.prepare(manifest), compositor.prepare()])
+      await Promise.all([...themes.map((theme) => maps.get(theme, first.grid)), overlay.prepare(manifest), compositor.prepare(), data.prefetch(plan.epochs), temperatures?.prefetch(plan.epochs.map((epoch) => Math.max(temperatures.timeline[0]!.epoch, Math.min(temperatures.timeline.at(-1)!.epoch, Math.round(epoch / 600_000) * 600_000))))])
       let renderMs = 0
       const phases = { dataMs: 0, labelsMs: 0, rainMs: 0, overlayMs: 0, writeMs: 0 }
       const now = Date.parse(manifest.now)

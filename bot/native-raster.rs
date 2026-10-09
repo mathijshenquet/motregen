@@ -13,6 +13,7 @@ fn decimal(reader: &mut impl Read) -> io::Result<f64> {
     Ok(f64::from_le_bytes(bytes))
 }
 
+#[inline(always)]
 fn sample(raster: &[u8], width: usize, height: usize, column: f64, row: f64) -> f64 {
     if column < 0.0 || row < 0.0 || column > (width - 1) as f64 || row > (height - 1) as f64 {
         return 0.0;
@@ -23,6 +24,7 @@ fn sample(raster: &[u8], width: usize, height: usize, column: f64, row: f64) -> 
     let south = (north + 1).min(height - 1);
     let values = [raster[north * width + west], raster[north * width + east], raster[south * width + west], raster[south * width + east]];
     if values.contains(&255) { return 0.0; }
+    if values[0] == values[1] && values[0] == values[2] && values[0] == values[3] { return values[0] as f64; }
     let horizontal = column - west as f64;
     let vertical = row - north as f64;
     let northern = values[0] as f64 + (values[1] as f64 - values[0] as f64) * horizontal;
@@ -61,6 +63,28 @@ impl Motion<'_> {
         let strength = if validity < 0.999 || distance >= self.fade { 0.0 } else if distance <= self.cap { 1.0 } else { { let position = (distance - self.cap) / (self.fade - self.cap); self.cap / distance * (1.0 - position * position * (3.0 - 2.0 * position)) } };
         (displacement_x * strength, displacement_y * strength)
     }
+}
+
+fn compose(rgb: &mut [u8], columns: &[f64], rows: &[f64], grid_width: usize, grid_height: usize, left: &[u8], right: &[u8], colors: &[f32], mix: f64, motion: Option<&Motion<'_>>) {
+    let width = columns.len();
+    for (row, &cell_y) in rows.iter().enumerate() {
+            if cell_y < 0.0 || cell_y > (grid_height - 1) as f64 { continue; }
+            for (column, &cell_x) in columns.iter().enumerate() {
+                if cell_x < 0.0 || cell_x > (grid_width - 1) as f64 { continue; }
+                let value = if mix == 0.0 { sample(left, grid_width, grid_height, cell_x, cell_y) }
+                    else if mix == 1.0 { sample(right, grid_width, grid_height, cell_x, cell_y) }
+                    else {
+                        let (eastward, southward) = motion.map_or((0.0, 0.0), |field| field.displacement(cell_x, cell_y, grid_width, grid_height));
+                        sample(left, grid_width, grid_height, cell_x - eastward * mix, cell_y - southward * mix) * (1.0 - mix)
+                            + sample(right, grid_width, grid_height, cell_x + eastward * (1.0 - mix), cell_y + southward * (1.0 - mix)) * mix
+                    };
+                if value <= 0.0 { continue; }
+                let color = ((value * 256.0).round() as usize).min(65535) * 4;
+                let coverage = colors[color + 3] as f64;
+                let offset = (row * width + column) * 3;
+                for channel in 0..3 { rgb[offset + channel] = (colors[color + channel] as f64 + rgb[offset + channel] as f64 * coverage).round().min(255.0) as u8; }
+            }
+        }
 }
 
 fn main() -> io::Result<()> {
@@ -103,24 +127,13 @@ fn main() -> io::Result<()> {
         let mut vectors = vec![0; motion_width * motion_height * 2];
         input.read_exact(&mut vectors)?;
         let motion = if vectors.is_empty() { None } else { Some(Motion { vectors: &vectors, width: motion_width, height: motion_height, interval, cap, fade }) };
-        for (row, &cell_y) in rows.iter().enumerate() {
-            if cell_y < 0.0 || cell_y > (grid_height - 1) as f64 { continue; }
-            for (column, &cell_x) in columns.iter().enumerate() {
-                if cell_x < 0.0 || cell_x > (grid_width - 1) as f64 { continue; }
-                let value = if mix == 0.0 { sample(&left, grid_width, grid_height, cell_x, cell_y) }
-                    else if mix == 1.0 { sample(right, grid_width, grid_height, cell_x, cell_y) }
-                    else {
-                        let (eastward, southward) = motion.as_ref().map_or((0.0, 0.0), |field| field.displacement(cell_x, cell_y, grid_width, grid_height));
-                        sample(&left, grid_width, grid_height, cell_x - eastward * mix, cell_y - southward * mix) * (1.0 - mix)
-                            + sample(right, grid_width, grid_height, cell_x + eastward * (1.0 - mix), cell_y + southward * (1.0 - mix)) * mix
-                    };
-                if value <= 0.0 { continue; }
-                let color = ((value * 256.0).round() as usize).min(65535) * 4;
-                let coverage = colors[color + 3] as f64;
-                let offset = (row * width + column) * 3;
-                for channel in 0..3 { rgb[offset + channel] = (colors[color + channel] as f64 + rgb[offset + channel] as f64 * coverage).round().min(255.0) as u8; }
-            }
-        }
+        let split = height / 2;
+        let (upper, lower) = rgb.split_at_mut(split * width * 3);
+        let (upper_rows, lower_rows) = rows.split_at(split);
+        std::thread::scope(|scope| {
+            scope.spawn(|| compose(upper, &columns, upper_rows, grid_width, grid_height, left, right, &colors, mix, motion.as_ref()));
+            compose(lower, &columns, lower_rows, grid_width, grid_height, left, right, &colors, mix, motion.as_ref());
+        });
         output.write_all(&rgb)?;
         output.flush()?;
         frames.retain(|id, _| *id == left_id || *id == right_id);

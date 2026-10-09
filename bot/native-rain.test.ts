@@ -33,6 +33,7 @@ it('fetches each pinned chunk once, uses the shared decoder and rejects mismatch
   vi.stubGlobal('fetch', fetchMock)
   const manifest: StillManifest = { version: 0, generated: now, now, chunks: [{ url: 'chunks/rain.mrf', field: 'rain_rate', times: [now], ...{ source: 'rtcor', run: now, header_len: prefix.length + json.length } }] }
   const data = new NativeRainData('https://motregen.nl', manifest)
+  await data.prefetch([Date.parse(now), Date.parse(now)])
   expect(Array.from((await data.frame(Date.parse(now))).left)).toEqual(Array(16).fill(100))
   await data.frame(Date.parse(now))
   expect(fetchMock).toHaveBeenCalledTimes(1)
