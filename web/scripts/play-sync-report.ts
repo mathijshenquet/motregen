@@ -35,6 +35,12 @@ const compact = readdirSync(directory).filter((name) => name.endsWith('.json')).
   const header = capture.resources.find((entry) => entry.name.endsWith('.pmtiles'))
   const weatherHeaders = capture.loads.requests.filter((request) => request.layer === 'header' && !/\/(?:rtcor|nowcast|seamless|uv|uv_clear)-/.test(request.url))
   const queue = header && header.requestStart > 0 ? header.requestStart - header.startTime : null
+  const firstMapImage = capture.entries.measures.find((measure) => measure.phase === 'milestone:first-map-image')
+  const milestoneKeys = ['ttfrMs', 'ttfpMs', 'styleReadyMs', 'firstRainMs', 'firstCursorMs', 'firstBasemapTileMs', 'basemapReadyMs', 'mapRevealedMs', 'ttfhMs'] as const
+  const milestones: Record<string, number | null | undefined> = Object.fromEntries(
+    milestoneKeys.map((key) => [key, capture.snapshot[key]]),
+  )
+  milestones.firstMapImageMs = rounded(firstMapImage?.duration)
   return {
     name: name.replace('.json', ''), origin: capture.origin, profile: capture.profile,
     warm: capture.warm, fixture: capture.fixture ?? capture.manifestGenerated.startsWith('2026-08-28'), screenshotOverhead: capture.screenshotOverhead,
@@ -42,7 +48,8 @@ const compact = readdirSync(directory).filter((name) => name.endsWith('.json')).
     capturedAt: capture.capturedAt, fixedClock: capture.fixedClock,
     startLoad: capture.loadSamples[0]!.load,
     meanLoad: rounded(capture.loadSamples.reduce((sum, sample) => sum + sample.load, 0) / capture.loadSamples.length),
-    milestones: Object.fromEntries(['ttfrMs', 'ttfpMs', 'styleReadyMs', 'firstRainMs', 'firstCursorMs', 'firstBasemapTileMs', 'basemapReadyMs', 'mapRevealedMs', 'ttfhMs'].map((key) => [key, capture.snapshot[key as keyof PerfSnapshot]])),
+    milestones,
+    firstMapImageSource: firstMapImage?.detail?.source ?? null,
     pmtilesHeader: header ? { startMs: rounded(header.startTime), endMs: rounded(header.responseEnd), queueMs: rounded(queue) } : null,
     harmonieHeaderStartMs: rounded(Math.min(...weatherHeaders.map((request) => request.startMs))),
     harmonieHeadersBeforeMap: header ? weatherHeaders.filter((request) => request.startMs < header.startTime).length : null,

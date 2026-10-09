@@ -1558,3 +1558,81 @@ desktop/mobile-4g-tests groen met vier toepasselijke skips; zes Firefox-tests gr
 425/warm408 ms, mobile-4g koud1945/warm1330 ms tegen de bestaande warme grens1545 ms.
 Beide warme journeys hebben nul chunktransfer. Eerdere mobiele misses (1934,1624,1574 ms)
 en de rustige referentiecontrole (warm1341 ms) staan in het lokale tracklog; geen budget aangepast.
+
+### Gepaard koud/warm op productiegegevens
+
+A is d0420ea met uitsluitend dezelfde meetinstrumentatie als B; B is product 29f9bee.
+A1/B1/A2/B2/A3/B3 per scenario, 48 opnames zonder screencast, werkelijk startload ≤ 16
+(maximum 15,64), één hostlock per run en wachten buiten de lock. Manifest en Date.now staan
+voor alle runs op 2026-10-09T09:33:28Z; performance.now loopt echt door. Zo varieert de
+leeftijdsbanner niet tijdens de reeks. Warm herstart het gehele browserproces met gevuld
+HTTP-/SW-diskprofiel; alle warme runs hebben een SW-controller. De po-android-rig gebruikt
+30 Mbps/20 ms, vier cores/4 GB en rendererquota 40% van één core met een 5 ms-periode.
+
+HTTP/1.1 is de eigen Vite-preview 4392, met echte productiegegevens en hetzelfde eigen
+PMTiles-archief. HTTP/2 is een lokale TLS-reviewproxy op https://motregen.nl: de A/B-frontend
+is lokaal, de weerdata komt van productie. Er is niets gedeployd. CDP bevestigt h2 voor de
+netwerkresponses; sommige warme PMTiles-antwoorden uit de SW dragen http/1.1-cachemetadata.
+Een afzonderlijke directe productiecontrole zonder proxy bevestigt h2/h3, maar gebruikt
+een andere gedeployde bundel met de oude TTFR-definitie en telt niet als A/B-tijdvergelijking.
+
+Hieronder staan medianen van drie opnames per variant. De laatste kolom is de mediaan van
+de drie afzonderlijke B−A-paarverschillen, niet het verschil tussen beide medianen.
+Die twee berekeningen kunnen bij deze kleine, drukke steekproef uiteenlopen. TTFR meet
+in beide varianten de cursorstart; een gewijzigde definitie is geen snelheidswinst.
+TTFP blijft de eerste getekende wissel van het linker regenframe. De begrensde eerste tik
+voorkomt een opstartsprong, waardoor die framegrens later kan worden bereikt.
+
+| transport / profiel / cache | A→B klokstart ms | A→B framewissel ms | A→B style.load ms | A→B eerste tegel ms | A→B volledige kaart ms | mediane Δ klok / framewissel |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| h1 / desktop / cold (3/3) | 886→901.9 | 1114.3→1025.8 | 145.4→142.3 | 1001.2→1034.6 | 1113.5→1676.8 | -19.9 / -133.3 ms |
+| h1 / desktop / warm (3/3) | 803.1→856.2 | 913.1→937.5 | 133.5→125.8 | 1067.3→1094.3 | 1554.1→1815.3 | 53.1 / 24.4 ms |
+| h1 / po-android / cold (3/3) | 1902.6→1983.2 | 4387→3848.1 | 590.3→558.8 | 4126.5→2931.7 | 4467.9→3031.4 | -187.2 / -463.8 ms |
+| h1 / po-android / warm (3/3) | 2363.6→2061.9 | 4749.5→5291.7 | 642.5→721.9 | 4514.4→4447.1 | 4702.7→4576.4 | -172.4 / -221.6 ms |
+| h2 / desktop / cold (3/3) | 936.9→979.7 | 1532.6→1591 | 220→212.5 | 808.3→767.4 | 880.3→870.2 | 46.2 / 33.8 ms |
+| h2 / desktop / warm (3/3) | 921→902.4 | 1505.4→1553.4 | 404.3→417.8 | 1031.3→977.6 | 1495.7→1462 | -10.4 / 48 ms |
+| h2 / po-android / cold (3/3) | 2468.1→2342.7 | 4756.2→4971.9 | 1093→1051.8 | 4792.8→4797 | 5153.2→4971.6 | -95.8 / 501.4 ms |
+| h2 / po-android / warm (3/3) | 2527.9→2013.4 | 4959.7→5012.5 | 618.6→593.4 | 4273.7→4103.6 | 4325.3→4238.5 | -181.2 / -29.1 ms |
+
+De PMTiles-header start in alle 24 B-runs vóór de ongebruikte HARMONIE-headers; bij A gaan
+er steeds 34 voor. De koude HTTP/1.1-headerqueue daalt op desktop mediaan 58,5→0,6 ms en
+op po-android 45,6→0,3 ms. Op koude po-android/HTTP1 komt de eerste echte tegel 1195 ms en
+de volledige kaart 1437 ms eerder. Warme mobiele klokstart wint in de medianen 302 ms
+(HTTP1) en 515 ms (HTTP2). Koude mobiele HTTP2-klokstart wint 125 ms, maar TTFP kost 216 ms;
+het mediane afzonderlijke paarverschil voor TTFP is +501 ms. Dit is geen algemene speedup.
+De volledige desktopkaart/HTTP1 is koud 563 ms en warm 261 ms later klaar. Het eerste
+progressieve z4-kaartbeeld blijft daar vrijwel gelijk. De z4-wissel zelf is niet veranderd.
+
+| transport / profiel / cache | A→B eerste kaartbeeld ms | A→B max LoAF na TTFP ms | A→B aantal >250 ms |
+| --- | ---: | ---: | ---: |
+| h1 / desktop / cold | 764.6→760.2 | 425.2→656 | 2→1 |
+| h1 / desktop / warm | 741.6→725.7 | 512.5→742.9 | 1→2 |
+| h1 / po-android / cold | 1687.4→1554.4 | 210.2→198.9 | 0→0 |
+| h1 / po-android / warm | 1794.1→1771.9 | 314.1→230.7 | 1→0 |
+| h2 / desktop / cold | 880.2→870.1 | 377.1→301.7 | 1→1 |
+| h2 / desktop / warm | 832.9→819.8 | 303.4→247.8 | 1→0 |
+| h2 / po-android / cold | 2554.7→2423.8 | 231.1→156.6 | 0→0 |
+| h2 / po-android / warm | 2108.5→2232.7 | 170.7→189.8 | 0→0 |
+
+LoAF is geen opgelost probleem: HTTP1-desktop heeft na TTFP mediane maximale frames
+van 656/743 ms, tegen 425/513 ms in A. HTTP2-desktop verbetert in deze reeks; de mobiele
+maxima blijven meestal onder 250 ms. Deze load ≤ 16-cijfers zijn geen rustige absolute
+baseline en bewijzen niet dat de bredere MIP-19/Buienradar- of MIP-23-warmelat is gehaald.
+De bestaande load ≤ 8-perf-gate hierboven is afzonderlijk groen zonder budgetwijziging.
+
+[Compacte bron met alle 48 runs, loads, cache/protocol, milestones en paarverschillen](../web/perf/baselines/u68-startup-paired.json).
+Watervallen tonen de eerste 6 s van koud paar 1: groen PMTiles, blauw MRF, grijs overige
+resources. ResourceTiming-transferSize is een observatie en geen wire-budgetclaim.
+
+| transport / profiel | referentie | kandidaat |
+| --- | --- | --- |
+| HTTP1 desktop | [A](perf/u68/waterval-h1-desktop-cold-reference-1.svg) | [B](perf/u68/waterval-h1-desktop-cold-candidate-1.svg) |
+| HTTP1 po-android | [A](perf/u68/waterval-h1-po-android-cold-reference-1.svg) | [B](perf/u68/waterval-h1-po-android-cold-candidate-1.svg) |
+| HTTP2 desktop | [A](perf/u68/waterval-h2-desktop-cold-reference-1.svg) | [B](perf/u68/waterval-h2-desktop-cold-candidate-1.svg) |
+| HTTP2 po-android | [A](perf/u68/waterval-h2-po-android-cold-reference-1.svg) | [B](perf/u68/waterval-h2-po-android-cold-candidate-1.svg) |
+
+De vroege gedeelde header plus uitstel van ongebruikte headers geven aantoonbare
+kaartvoorrang zonder afhankelijkheid van fetch-priority-hints. Regen eerder mounten
+buiten style.load is daarom voor deze synchronisatie niet nodig. De afzonderlijke
+prewarm/uitstel-probes op de synthetische fixture waren verkennend; bovenstaande finale
+reeks meet de gekozen combinatie op echte data.
