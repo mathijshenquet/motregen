@@ -247,9 +247,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let windInitializationScheduled = false
   let windInitializationFrame: number | undefined
   let windInitializationIdle: number | undefined
+  let windInitializationTimer: number | undefined
+  let windParallelCompilation = false
   onCleanup(() => {
     if (windInitializationFrame !== undefined) cancelAnimationFrame(windInitializationFrame)
     if (windInitializationIdle !== undefined) cancelIdle(windInitializationIdle)
+    window.clearTimeout(windInitializationTimer)
   })
   let shownWindRequest = 0
   let shownTemperatureRequest = 0
@@ -1029,6 +1032,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       // Tegels en WebGL kunnen opwarmen terwijl de header voor de regenlaag nog onderweg is.
       const header = await firstHeader
       await firstStyleReady
+      windParallelCompilation = Boolean(map.getCanvas().getContext('webgl2')?.getExtension('KHR_parallel_shader_compile'))
       map.on('style.load', () => attachMapLayers(header.grid))
       attachMapLayers(header.grid)
       if (!stillMode && mapTheme() !== appliedMapTheme) void applyMapTheme(mapTheme())
@@ -1589,21 +1593,27 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     await discoverWindGrid()
     if (!map || !windGrid || !windTimeline().length || windLayer) return
     const started = performance.now()
-    mountWind(windGrid)
-    if (perfPhasesEnabled()) perf.recordPhase({ phase: 'wind-initialize', startTime: started, duration: performance.now() - started })
+    const wind = mountWind(windGrid)
+    const submitMs = performance.now() - started
+    await wind?.ready.catch(() => {})
+    if (perfPhasesEnabled()) perf.recordPhase({ phase: 'wind-initialize', startTime: started, duration: performance.now() - started, detail: { submitMs, parallel: windParallelCompilation } })
     await showWind()
   }
 
   function scheduleWindInitialization(): void {
     if (windInitializationScheduled) return
     windInitializationScheduled = true
-    // De synchrone wind-shaderopzet blokkeert de hoofddraad; geef de eerste regenwisseling eerst een geschilderd beeld.
+    // Geef de eerste regenwisseling eerst een geschilderd beeld voordat de windopzet begint.
     windInitializationFrame = requestAnimationFrame(() => {
       windInitializationFrame = undefined
-      windInitializationIdle = scheduleIdle(() => {
-        windInitializationIdle = undefined
-        void attachWindLayer()
-      }, 1_000)
+      // Ook contextopzet kan synchroniseren; zonder KHR begint die pas na vijf seconden spelen.
+      windInitializationTimer = window.setTimeout(() => {
+        windInitializationTimer = undefined
+        windInitializationIdle = scheduleIdle(() => {
+          windInitializationIdle = undefined
+          void attachWindLayer()
+        }, 1_000)
+      }, windParallelCompilation ? 1_000 : 5_000)
     })
   }
 
@@ -1674,7 +1684,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
   }
 
-  function mountWind(grid: Grid): void {
+  function mountWind(grid: Grid): WindLayer | undefined {
     if (!map) return
     const wind = new WindLayer(grid, mapTheme(), focusedWindTuning())
     windLayer = wind
@@ -1689,6 +1699,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       windOverlay = undefined
       map.addLayer(wind, map.getLayer('motregen-rain') ? 'motregen-rain' : undefined)
     }
+    void wind.ready.catch(() => { if (windLayer === wind) unmountWind() })
+    return wind
   }
 
   /**
@@ -1735,7 +1747,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const request = ++shownWindRequest
     const blend = frameBlend(windUFrames(), selectedEpoch())
     try {
-      const [left, right] = await Promise.all([loadWind(frames[blend.left]!), loadWind(frames[blend.right]!)])
+      const wind = windLayer
+      const [left, right] = await Promise.all([loadWind(frames[blend.left]!), loadWind(frames[blend.right]!), wind.ready])
       if (request !== shownWindRequest || !windLayer || !map) return
       windLayer.setFrames(left, right, blend.mix)
       if (windOverlay) windOverlay.triggerRepaint()

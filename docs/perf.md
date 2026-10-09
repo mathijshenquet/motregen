@@ -1701,3 +1701,90 @@ vertraagde eerste tik en de MapLibre-terugval. De oorspronkelijke focus-rusttest
 na de fixture-fix van main.
 Zes Firefox-tests zijn zonder herhaling groen. De perf-gate heeft vier groene tests:
 mobile-4g TTFR koud 1906/warm 1414 ms, warme chunktransfer 0 B en scrub-p95 25 ms.
+
+## Windopzet na de vroege klokstart (U69 deel 2, 2026-10-09)
+
+De windshader-opzet wordt uit de eerste speelseconden gehaald. De klok houdt dezelfde
+regenpaar-gereedheid als deel 1; er is geen extra GPU-opwarmgate. De windprogramma's worden
+zonder tussentijdse compilestatusvragen ingediend. Met `KHR_parallel_shader_compile` wordt
+`COMPLETION_STATUS_KHR` over renderbeurten gepolld; de linkstatus wordt pas daarna gelezen.
+Dit volgt de [WebGL-extensiespecificatie](https://registry.khronos.org/webgl/extensions/KHR_parallel_shader_compile/).
+Op deze SwiftShader-rig ontbreekt KHR op alle drie de contexten. Daarom begint daar de
+volledige windopzet, inclusief het maken van de context, pas bij idle na vijf seconden spelen.
+Zonder KHR krijgt elke linkstatusvraag een eigen renderbeurt; zo'n vraag kan nog op de driver
+wachten. Met KHR begint de idle-opzet na één seconde. De wind en zijn H/L-markeringen faden
+vanaf hun eerste tekening in 400 ms in, op beide renderpaden. Stillbeelden en verminderde
+bewegingsvoorkeur slaan de fade over. Een verwijderde laag annuleert de voorbereiding en
+ruimt de ingediende programma's op.
+
+De keuze is onderzocht in de volledige app. Alleen statusvragen uitstellen liet de vroege
+contextopzet nog een frame van 579 ms veroorzaken. Twee andere verkenningen, met dezelfde
+experimentele achtergrondplanning onderling, gaven maximale LoAFs in de eerste vijf seconden
+van 362/330 ms (desktop/po-android) bij synchrone opzet op idle na één seconde en 362/240 ms
+bij programma's verdelen over frames. Die achtergrondplanning is niet meegeleverd. De gekozen
+fallback stelt de hele opzet uit; het KHR-pad is door lifecycle-tests afgedekt en is op deze
+rig niet als hardwareprestatie gemeten. Een GPU-fence vóór de klokstart is verworpen: die
+maakte desktop-TTFR ongeveer 3053 ms en hield nog frames van 179 ms over. De orkestrator koos
+daarop expliciet voor vroege klokstart en aparte opvolging van overige opstartpieken.
+
+De definitieve A/B-reeks gebruikt deel 1 (`12d8b0f`) als referentie en de windwijziging
+(`182a103`, main meegenomen tot `4e87add`) als kandidaat. Manifest en browserklok staan vast
+op 2026-10-09T11:54:00Z, manifestleeftijd 74 s. Per profiel zijn drie koude paren afwisselend
+gemeten, met één hostlock per run en startload 12,13–16,00. De eerste vijf seconden worden
+vanaf `firstCursorMs` beoordeeld, inclusief overlappende frames. Alle twaalf vensters zijn
+volledig opgenomen. Films en CPU-profielen tellen niet mee in de timingparen.
+
+| profiel | mediane klokstart A→B | mediane klok→regen A→B | mediane windstart vanaf klok A→B | mediane windopzet, verstreken A→B | mediane LoAF-max eerste 5 s A→B | grootste LoAF over alle drie A→B |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| desktop | 888→962 ms | 0,4→0,5 ms | 154→5052 ms | 957→70 ms | 967→644 ms | 981→841 ms |
+| po-android | 3147→3203 ms | 14,6→9,7 ms | 1781→5691 ms | 124→369 ms | 405→410 ms | 1589→435 ms |
+
+De synchrone indiening, inclusief contextopzet, kost bij B desktop 7–12 ms en po-android
+44–85 ms. De langere Android-voorbereiding omvat wachten tussen frames; het is geen
+aaneengesloten hoofddraadtaak. Windopzet valt in alle zes kandidaten buiten de eerste vijf
+seconden. De ingediende regenstand en cursor blijven gelijk (frameverschil <10⁻⁸). De mediane
+gepaarde TTFR-delta is +74 ms op desktop en −1066 ms op po-android; door de ruime spreiding
+op de gedeelde host is dit geen claim van structurele mobiele TTFR-winst.
+De aparte Androidfilm meet 115 ms indiening bij +6,49 s; ook latere contextopzet is dus
+niet gegarandeerd onder 100 ms. Deze opname telt vanwege screencast-overhead niet in de timingparen.
+
+De desktopfilm laat de lange windblokkade bij A rond één seconde zien; bij B ontstaat de
+wind later. Beide films houden ook herhaalde compositorbeelden door overige opstartwerkzaamheden.
+Een geheel ononderbroken animatie of een algemene grens van 100 ms is daarmee niet bewezen.
+Dit zijn de afgesproken open punten, zonder extra klokvertraging of decode-aanpassingen:
+
+| open punt bij B, eerste 5 s | langste gemeten script | sourcemap-bron |
+| --- | ---: | --- |
+| decoder-antwoorden en vervolgwerk | 369,5 ms po-android / 32,4 ms desktop | `MrfClient.worker.onmessage`, `src/core/mrf.ts:176` |
+| plaatsenlijst decoderen en indexeren | 189,6 ms po-android / 27,3 ms desktop | `loadPlaces` na `Response.json`, `src/core/places.ts:92` |
+| geladen reeksen publiceren | 115,1 ms po-android | `FrameBatcher.onFrame`, `src/core/frame-batcher.ts:19` |
+| MapLibre-framecallback en berichten | 86,1 / 61,1 ms po-android | `maplibre-gl/src/util/browser.ts:23` / `src/util/actor.ts:83` |
+| afspeeltik en range-streamverwerking | 59,3 / 49,4 ms po-android | `src/core/playback.ts:8` / `src/core/mrf.ts:635` |
+| tijd vóór rendering zonder lang JS-script | 802,6 ms binnen desktop-LoAF 840,8 ms; ook scriptloze frames tot 348,8 ms | geen JS-sourcemap; oorzaak nog niet vastgesteld |
+
+De scriptduren zijn afzonderlijke callbackduren, geen volledige LoAF-duren. Bronloze
+callbacks bereiken ook 70 ms voor rAF en 48 ms voor een interval; een JS-sourcemap ontbreekt.
+De meetprobe voegt onder meer DOM-sampling en polling toe. Deze bronloze callbacks worden
+niet aan een productfunctie toegeschreven. De bronrapportage volgt voor MapLibre ook
+zijn tweede sourcemap, met controle van de dependencyversie. De volledige frame- en
+scriptlijst staat in [long-tasks.json](perf/u69-part2/long-tasks.json) en als open punten
+in de lokale track-LOG.
+
+[Gepaarde meetgegevens](../web/perf/baselines/u69-part2-play-sync.json),
+[desktopfilmstrip](perf/u69-part2/filmstrip-desktop.jpg) met [metadata](perf/u69-part2/filmstrip-desktop.json),
+[po-androidfilmstrip](perf/u69-part2/filmstrip-po-android.jpg) met [metadata](perf/u69-part2/filmstrip-po-android.json).
+De films hebben 40 beelden om de 250 ms vanaf de klokstart, inclusief het latere verschijnen
+van wind. De echte compositorbeeldtijd en DOM-sampletijd staan afzonderlijk in de metadata.
+
+```sh
+MOTREGEN_PERF_PAIRED_RUN=1 bash scripts/perf-lock.sh scripts/e2e-slot.sh pnpm exec tsx scripts/play-sync.ts http://127.0.0.1:4351 tmp/u69-part2/capture --profile=po-android --now=2026-10-09T11:54:00Z --manifest=tmp/u69-part2/manifest.json
+MOTREGEN_PERF_PAIRED_RUN=1 bash scripts/perf-lock.sh scripts/e2e-slot.sh pnpm exec tsx scripts/play-sync.ts http://127.0.0.1:4351 tmp/u69-part2/film --profile=po-android --filmstrip --play-window --now=2026-10-09T11:54:00Z --manifest=tmp/u69-part2/manifest.json
+pnpm exec tsx scripts/play-sync-report.ts tmp/u69-part2/final-captures tmp/u69-part2/final-report
+pnpm exec tsx scripts/play-sync-tasks.ts tmp/u69-part2/final-captures tmp/u69-part2/reference-dist tmp/u69/candidate-dist tmp/u69-part2/final-tasks.json
+```
+
+Typecheck, productiebuild en 533 units zijn groen. De gerichte desktopgate is groen met
+16 tests en 3 profiel-/bestaande skips: rain-playback, focus, dev-panel en wind-zoom, inclusief
+nieuwe regressies voor wind later op eigen canvas en via MapLibre. Zes Firefox-tests slagen
+zonder herhaling. De perf-gate heeft vier groene tests: mobile-4g TTFR koud 2383/warm 1621 ms,
+warme chunktransfer 0 B en scrub-p95 25,8 ms. Preview blijft op 4351; geen prod-uitrol.

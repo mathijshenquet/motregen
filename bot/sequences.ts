@@ -11,8 +11,9 @@ export function sequencePlan(mode: LoopMode, manifest: StillManifest): SequenceP
   const now = Date.parse(manifest.now)
   const fps = 10
   const stepMinutes = 5
-  const startMinutes = -120
-  const endMinutes = mode === 'weather' ? 180 : 720
+  // Regen −1…+2 u (PO 2026-10-09); temperatuur en wind −2…+12 u.
+  const startMinutes = mode === 'weather' ? -60 : -120
+  const endMinutes = mode === 'weather' ? 120 : 720
   const epochs: number[] = []
   for (let minute = startMinutes; minute <= endMinutes; minute += stepMinutes) epochs.push(now + minute * 60_000)
   const loopFrames = epochs.length
