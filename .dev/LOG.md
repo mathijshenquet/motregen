@@ -391,6 +391,12 @@
   −1…+2 u (25 s film), native getweend; Playwright-fallback zou 241 frames renderen. Renderer herstart. PO-wensen
   /weer (queue U73 ronde 2): Expressief-stijl, wolkjes alleen vanaf nu.
 
+- **U73 gemerged** (21:50, PR #101, gpt-6.1-sol ~1 u incl. ronde 2): /weer <plaats> en /regen <plaats> — Expressief-
+  lucht (dag→nacht, sterren, gloed), wolkjes vanaf nu, regenhistogram, plaatszoeker met 3 suggestieknoppen, native
+  SVG→PNG in de poller-rol (837 ms koud, 0,5 ms cache; past in 384/512 MiB). Live getest door de PO. Eén web-
+  testfout in de gate (mrf.test, byte-identiek) bleek load-flaky: 26/26 in isolatie en 539/539 bij herhaling.
+  Prod blijft bevroren; de lokale poller (main) blijft draaien zodat /weer werkt tot de uitrol.
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
