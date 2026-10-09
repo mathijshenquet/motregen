@@ -337,6 +337,14 @@
   (c.q. HEAD): 529 unit, build, 6 Firefox, 50 desktop+mobiel. U69 gestart (gpt-6.1-sol): kaartregen moet vanaf
   de eerste kloktik animeren (meting: klokstart 1694 ms, eerste framewissel op de kaart 2229 ms).
 
+- **U69 deel 1 gemerged** (5a24209e, 14:20; 1 u, gpt-6.1-sol, PR #97): oorzaak van "klok loopt, regen staat
+  stil" = windshader-compile (746 ms, 588 ms compile) direct na de eerste regentekenbeurt; nu regenpijplijn
+  klaar vóór de klok en windopzet pas na de eerste beweging. Klok→eerste framewissel desktop 898→0,5 ms,
+  po-android 3005→0,5 ms; ttfp desktop −0,9 s / po-android −2,7 s; mobiele klokstart +0,3 s. Gate: 529 unit,
+  6 Firefox, 53/54 e2e — het warme mobiele ttfr-budget (1545) brak op 1617/1673 ms onder load 17 → +155 ms
+  met de één-klok-reden (57363c7e). 4330 herbouwd; GEEN prod (PO). U69 deel 2 loopt: windcompile van de
+  hoofddraad (restpost ~0,85 s hapering na de start).
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
