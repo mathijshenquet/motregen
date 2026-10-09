@@ -5,7 +5,7 @@ import type { StillPhotos } from './photos.js'
 import type { FileIdCache } from './file-ids.js'
 import { MediaUnavailableError, REGISTER_NOTICE } from './register.js'
 import type { MessageSelections } from './selections.js'
-import { cacheKey, keyboard, matchingModes, modeForCommand, parseCallback, LOOP_MODES, STILL_MINUTES, type MediaSelection, type StillManifest } from './stills.js'
+import { cacheKey, keyboard, matchingModes, modeForCommand, parseCallback, LOOP_MODES, STILL_MINUTES, STILL_MODES, stillTime, type LoopMode, type StillMode, type MediaSelection, type StillManifest } from './stills.js'
 
 export interface BotRuntime {
   api: TelegramApi
@@ -90,6 +90,10 @@ async function handleCommand(message: TelegramMessage, runtime: BotRuntime): Pro
     await sendRainSlideshow(message, runtime)
     return
   }
+  if (command === 'regen_maf') {
+    await sendRichPage(message.chat.id, runtime)
+    return
+  }
   const mode = modeForCommand(command!)
   if (!mode) return
   const manifest = await runtime.currentManifest()
@@ -143,6 +147,10 @@ async function handleInline(query: NonNullable<TelegramUpdate['inline_query']>, 
 
 async function handleCallback(query: NonNullable<TelegramUpdate['callback_query']>, runtime: BotRuntime): Promise<void> {
   const started = performance.now()
+  if (query.data?.startsWith('rich:') && query.message) {
+    await editRichPage(query, runtime)
+    return
+  }
   const requested = parseCallback(query.data)
   if (!requested || (!query.inline_message_id && !query.message)) {
     await answerCallback(runtime, query.id, 'Verlopen, stuur /regen opnieuw')
@@ -255,4 +263,60 @@ async function sendRainSlideshow(message: TelegramMessage, runtime: BotRuntime):
     rich_message: { blocks: [{ type: 'slideshow', blocks: slides }] },
   })
   console.info(JSON.stringify({ event: 'chat-rich-slideshow', messageId: reply.message_id, slides: slides.length }))
+}
+
+// Proef (PO 2026-10-09): één rich "pagina" (Bot API 10.3) met schakelknoppen voor modus en tijd; een druk vervangt de
+// hele inhoud via editMessageText zonder overgang. Media komen uit de file_id-cache (callback_data: rich:<modus>:<minuten|loop>).
+const RICH_MINUTES = [-60, 0, 60, 180, 360] as const
+
+async function richPage(mode: LoopMode, minute: number | 'loop', runtime: BotRuntime): Promise<unknown[] | undefined> {
+  const manifest = await runtime.currentManifest()
+  const selection: MediaSelection = minute === 'loop' ? { mode, hour: 'loop' } : { mode: mode as StillMode, hour: minute / 60 }
+  const media = await runtime.renderer.render(selection, manifest)
+  const fileId = await runtime.photos.fileIds.get(media)
+  if (!fileId) return undefined
+  const definition = LOOP_MODES.find((entry) => entry.mode === mode)!
+  const hasStills = STILL_MODES.some((entry) => entry.mode === mode)
+  const timeLabel = (candidate: number | 'loop') => candidate === 'loop' ? 'Film' : candidate === 0 ? 'Nu' : `${candidate > 0 ? '+' : '−'}${Math.abs(candidate) / 60} u`
+  const button = (text: string, data: string, active: boolean) => ({ text, callback_data: data, ...(active ? { style: 'primary' } : {}) })
+  const title = minute === 'loop' ? `${definition.label} · −2 u tot ${mode === 'weather' ? '+3' : '+12'} u` : `${definition.label} · ${stillTime(media.epoch)}`
+  return [
+    { type: 'heading', size: 3, text: title },
+    minute === 'loop'
+      ? { type: 'animation', animation: { type: 'animation', media: fileId } }
+      : { type: 'photo', photo: { type: 'photo', media: fileId } },
+    { type: 'buttons', align: 'center', buttons: LOOP_MODES.map((entry) => button(entry.label, `rich:${entry.mode}:${hasStills && STILL_MODES.some((still) => still.mode === entry.mode) ? minute : 'loop'}`, entry.mode === mode)) },
+    ...(hasStills ? [{ type: 'buttons', align: 'center', buttons: (['loop', ...RICH_MINUTES] as const).map((candidate) => button(timeLabel(candidate), `rich:${mode}:${candidate}`, candidate === minute)) }] : []),
+    { type: 'buttons', align: 'center', buttons: [{ text: 'Open motregen.nl', style: 'link', url: `${runtime.config.origin}/?tg=1` }] },
+  ]
+}
+
+function parseRichCallback(data: string): { mode: LoopMode; minute: number | 'loop' } | undefined {
+  const [, mode, minuteText] = data.split(':')
+  if (!LOOP_MODES.some((entry) => entry.mode === mode)) return undefined
+  if (minuteText === 'loop') return { mode: mode as LoopMode, minute: 'loop' }
+  const minute = Number(minuteText)
+  return STILL_MINUTES.includes(minute) ? { mode: mode as LoopMode, minute } : undefined
+}
+
+async function sendRichPage(chatId: number, runtime: BotRuntime): Promise<void> {
+  const blocks = await richPage('weather', 'loop', runtime)
+  if (!blocks) {
+    await runtime.api.call('sendMessage', { chat_id: chatId, text: 'Nog geen beelden in de cache; probeer het over een paar minuten.' })
+    return
+  }
+  const reply = await runtime.api.call<{ message_id: number }>('sendRichMessage', { chat_id: chatId, rich_message: { blocks } })
+  console.info(JSON.stringify({ event: 'chat-rich-page', messageId: reply.message_id }))
+}
+
+async function editRichPage(query: NonNullable<TelegramUpdate['callback_query']>, runtime: BotRuntime): Promise<void> {
+  const requested = parseRichCallback(query.data ?? '')
+  const blocks = requested && await richPage(requested.mode, requested.minute, runtime)
+  if (!blocks) {
+    await answerCallback(runtime, query.id, 'Nog niet beschikbaar')
+    return
+  }
+  await runtime.api.call('editMessageText', { chat_id: query.message!.chat.id, message_id: query.message!.message_id, rich_message: { blocks } })
+  await answerCallback(runtime, query.id)
+  console.info(JSON.stringify({ event: 'chat-rich-page-edit', messageId: query.message!.message_id, mode: requested!.mode, minute: requested!.minute }))
 }
