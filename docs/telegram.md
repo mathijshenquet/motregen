@@ -190,22 +190,24 @@ gecachete lege kaart. De nationale uitsnede is 640×848 CSS-pixels met
 
 | modus | framereeks | loop | stills uit dezelfde reeks |
 | --- | --- | --- | --- |
-| Regen | −2…+12 u, elke 5 minuten | 169 frames op 10 fps | 85 frames, −2…+12 u elke 10 minuten |
+| Regen | −2…+3 u elke 5 minuten; daarna stills elke 10 minuten tot +12 u | 61 frames op 10 fps | 31 loopframes t/m +3 u; 54 aparte frames daarna (85 stills) |
 | Temperatuur | −2…+12 u, elke 5 minuten (interpolatie tussen de uurvelden) | 169 frames op 10 fps | 85 frames, −2…+12 u elke 10 minuten |
 | Wind | −2…+12 u, elke 5 minuten (interpolatie tussen de uur- en kwartiervelden) | 169 frames op 10 fps | geen |
 
-De drie loops hebben dezelfde klok: begin, eind, vijfminutenstap en fps (PO 2026-10-08, U66).
-Het gezamenlijke bereik behoudt de twee uur radarhistorie en de twaalf uur verwachting. Elke loop duurt
-17,9 seconden inclusief de eindhold. Stills en deltaknoppen behouden hun tienminutenraster; hun PNGs
-komen uit dezelfde loopreeks, zodat die tijdstippen geen tweede render krijgen.
+De drie loops beginnen twee uur geleden en gebruiken dezelfde vijfminutenstap en 10 fps (U66).
+Regen eindigt op +3 uur (PO 2026-10-09, U70) en duurt 7,1 seconden inclusief de eindhold.
+Temperatuur en Wind eindigen op +12 uur en duren 17,9 seconden inclusief de eindhold.
+Stills en deltaknoppen behouden het bereik −2…+12 uur op het tienminutenraster. Binnen de loophorizon
+delen stills de loop-PNGs; de 54 latere regenstills krijgen elk één extra PNG in dezelfde renderpass.
+De regenreeks kost zo 115 PNGs in plaats van 169, zonder een aparte pagina per still te openen.
 
 Windparticles krijgen een vaste simulatieklok, met tussenstappen op 30 Hz en
 een seconde opwarming voor het eerste frame. Wandkloktijd en screenshots
 drijven de simulatie niet aan. FFmpeg maakt een geluidloze H.264-MP4 met
 `yuv420p`, `faststart` en een seconde eindhold. CRF 25 is de eerste keuze;
 een bitratefallback begrenst te grote video's tot maximaal 3 MB. JPEGs komen
-met ffmpeg `-q:v 3` rechtstreeks uit de betreffende PNG-frames: er zijn geen
-afzonderlijke still-renders. De PNG-reeks blijft in `<loop-key>.frames` twee uur
+met ffmpeg `-q:v 3` rechtstreeks uit de betreffende PNG-frames. Frames voor regenstills na +3 uur
+staan achter de loopframes in dezelfde reeks en komen niet in de MP4. De PNG-reeks blijft in `<loop-key>.frames` twee uur
 op schijf. Alleen aangevraagde JPEGs worden gemaakt; gelijke aanvragen delen
 die conversie. PNGs en receipts zijn privé en worden niet door Caddy geserveerd.
 
@@ -282,6 +284,39 @@ Met de 15-seconden-manifestcheck resteert **130587 ms** binnen het 210-secondenb
 De Telegram-upload is in deze render-only meting niet uitgevoerd. Alle loops blijven onder 3 MB; de
 langste horizon en 10 fps passen daarmee in het renderbudget. Hostbelasting beïnvloedt deze eenmalige
 metingen; dit zijn geen geïsoleerde CPU-benchmarks. Exacte repro en receipts staan in het U66-track-LOG.
+
+U70 is op 2026-10-09 tegen `https://motregen.nl` gemeten met één vastgepind manifest
+(`generated=2026-10-09T12:08:02Z`, `now=12:05Z`). Twee koude volledige matrices zijn direct achter
+elkaar onder de hostbrede perf-lock gerenderd. Render-ms omvat ook de PNGs voor latere stills:
+
+| modus | loopframes | PNGs | fps | render-ms | encode-ms | MP4-bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Regen | 169 → 61 | 169 → 115 | 10 → 10 | 56334 → 31701 | 1236 → 552 | 2882649 → 1206270 |
+| Temperatuur | 169 → 169 | 169 → 169 | 10 → 10 | 65581 → 57549 | 1884 → 2116 | 2189211 → 2229636 |
+| Wind | 169 → 169 | 169 → 169 | 10 → 10 | 56363 → 44020 | 2522 → 2272 | 2157700 → 2205536 |
+
+De 173-media-rendergeneratie kostte **71301 → 63590 ms**; dry-run-prime met mockuploads en zonder
+tussenruimte kostte **84 → 78 ms**, samen **71385 → 63668 ms**. De complete matrix en het
+file_id-antwoord via het register zijn gecontroleerd. Met de 15-seconden-manifestcheck blijft
+**131410 ms** binnen het 210-secondenbudget beschikbaar voor echte Telegram-prime. Die uploadtijd
+is niet gemeten. Regen is 7,1 s inclusief eindhold; de overige loops blijven 17,9 s en alle MP4s <3 MB.
+
+Een eerdere koude vergelijking gaf 69658 → 97692 ms inclusief mockprime, terwijl de hostbelasting
+van circa 12 naar 27 steeg en ook de ongewijzigde modi fors vertraagden. Daarom is de vergelijking
+herhaald; ook de bovenstaande tijden zijn metingen op een gedeelde host, geen geïsoleerde benchmark.
+Temperatuur en Wind hebben dezelfde frameplannen als vóór U70; hun tijd- en byteverschillen zijn
+meetvariatie. Gebruik voor de volledige rendererrol `--dry-run-prime`, met een eigen lege cachemap:
+
+```bash
+mkdir -p tmp/u70
+curl -fsS https://motregen.nl/data/manifest.json -o tmp/u70/manifest.json
+flock ~/motregen-perf.lock bash -c '
+  TG_BOT_KEY=x MOTREGEN_BOT_ROLE=combined MOTREGEN_ORIGIN=https://motregen.nl \
+  MOTREGEN_CHROMIUM_PATH=/nix/store/j8hc3kdypr2gaa2w3dq0a370lwfzbasf-chromium-151.0.7922.137/bin/chromium \
+  MOTREGEN_RENDER_CACHE=../tmp/u70/cold-cache \
+  pnpm -C bot render --manifest=../tmp/u70/manifest.json --dry-run-prime=../tmp/u70/register.json
+'
+```
 
 In de gecombineerde modus serveert Caddy uitsluitend `/telegram/stills/*.jpg` en `*.mp4` met twee uur
 cacheduur en `noindex`; sidecars en receipts geven 404. Cachebestanden ouder

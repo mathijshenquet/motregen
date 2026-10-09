@@ -86,6 +86,10 @@ async function handleCommand(message: TelegramMessage, runtime: BotRuntime): Pro
     })
     return
   }
+  if (command === 'regen_rich') {
+    await sendRainSlideshow(message, runtime)
+    return
+  }
   const mode = modeForCommand(command!)
   if (!mode) return
   const manifest = await runtime.currentManifest()
@@ -230,4 +234,25 @@ export async function configureBot(runtime: BotRuntime): Promise<void> {
       ]),
     ],
   })
+}
+
+// Proef (PO 2026-10-09): één rich message met de regen-stills als slideshow (Bot API 10.2, InputRichBlockSlideshow),
+// uit de bestaande file_id-cache; nog zonder knoppen of klokonderschrift.
+async function sendRainSlideshow(message: TelegramMessage, runtime: BotRuntime): Promise<void> {
+  const manifest = await runtime.currentManifest()
+  const slides: Array<{ type: 'photo'; photo: { type: 'photo'; media: string } }> = []
+  for (const minute of STILL_MINUTES.filter((candidate) => [-60, -30, -10, 0, 10, 30, 60].includes(candidate))) {
+    const still = await runtime.renderer.render({ mode: 'weather', hour: minute / 60 }, manifest)
+    const fileId = await runtime.photos.fileIds.get(still)
+    if (fileId) slides.push({ type: 'photo', photo: { type: 'photo', media: fileId } })
+  }
+  if (!slides.length) {
+    await runtime.api.call('sendMessage', { chat_id: message.chat.id, text: 'Nog geen regenbeelden in de cache; probeer het over een paar minuten.' })
+    return
+  }
+  const reply = await runtime.api.call<{ message_id: number }>('sendRichMessage', {
+    chat_id: message.chat.id,
+    rich_message: { blocks: [{ type: 'slideshow', blocks: slides }] },
+  })
+  console.info(JSON.stringify({ event: 'chat-rich-slideshow', messageId: reply.message_id, slides: slides.length }))
 }
