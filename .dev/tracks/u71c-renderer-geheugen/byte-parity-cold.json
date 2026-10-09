@@ -1,0 +1,6 @@
+{
+  "compared": 343,
+  "differences": [],
+  "source": "tmp/u71c-baseline",
+  "target": "tmp/u71c-vm-cold-text"
+}

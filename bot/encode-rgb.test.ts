@@ -21,6 +21,10 @@ it('streams RGB with the correct dimensions, clock and end hold', async () => {
     expect(JSON.parse(probe.stdout).streams[0]).toMatchObject({ width: 32, height: 48, nb_frames: '13', duration: '1.300000', pix_fmt: 'yuv420p' })
     async function* incomplete() { yield new Uint8Array(32 * 48 * 3) }
     await expect(encodeRgbLoop(incomplete(), path, plan, { width: 32, height: 48 })).rejects.toThrow('verwacht 3')
+    async function* manyFrames() {
+      for (let index = 0; index < 1000; index++) yield new Uint8Array(32 * 48 * 3)
+    }
+    await expect(encodeRgbLoop(manyFrames(), join(directory, 'missing', 'loop.mp4'), { ...plan, loopFrames: 1000 }, { width: 32, height: 48 })).rejects.toThrow()
   } finally {
     await rm(directory, { recursive: true, force: true })
   }

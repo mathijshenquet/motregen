@@ -8,6 +8,9 @@ import { FRAME, FRAME_PIXELS } from './config.js'
 import { openRenderPage } from './render-open.js'
 import type { LoopMode, StillManifest } from './stills.js'
 
+// libvips' operation cache otherwise retains the raw full-frame inputs between renders.
+sharp.cache(false)
+
 interface Box { left: number; top: number; width: number; height: number }
 interface Glyph { target: { left: number; top: number } }
 interface ClockLayout { time: Glyph['target']; day: Glyph['target']; title: Glyph['target']; backgrounds: Record<string, string> }
@@ -74,15 +77,15 @@ export class NativeOverlay {
       await writeFile(temporary, JSON.stringify(metadata))
       await rename(temporary, path)
     }
-    const backgrounds = Object.fromEntries(await Promise.all(Object.values(metadata.clocks).flatMap((layout) => Object.values(layout.backgrounds)).map(async (name) => [name, await sharp(await readFile(join(this.directory, name))).ensureAlpha().raw().toBuffer()])))
-    return { metadata, glyphs: new Map(), backgrounds, footer: await sharp(await readFile(join(this.directory, metadata.footer))).ensureAlpha().raw().toBuffer() }
+    const backgrounds = Object.fromEntries(await Promise.all(Object.values(metadata.clocks).flatMap((layout) => Object.values(layout.backgrounds)).map(async (name) => [name, await sharp(join(this.directory, name)).ensureAlpha().raw().toBuffer()])))
+    return { metadata, glyphs: new Map(), backgrounds, footer: await sharp(join(this.directory, metadata.footer)).ensureAlpha().raw().toBuffer() }
   }
 
   private loadGlyphs(atlas: Atlas, day: string): Promise<Record<string, GlyphPatch>> {
     let pending = atlas.glyphs.get(day)
     if (!pending) {
       pending = (async () => {
-        const sheet = await sharp(await readFile(join(this.directory, `overlay-${atlas.metadata.key}-${day}-glyphs.png`))).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+        const sheet = await sharp(join(this.directory, `overlay-${atlas.metadata.key}-${day}-glyphs.png`)).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
         return Object.fromEntries(Object.entries(atlas.metadata.glyphs[day]!).map(([text, box]) => {
           const rgba = Buffer.alloc(box.width * box.height * 4)
           for (let row = 0; row < box.height; row++) {

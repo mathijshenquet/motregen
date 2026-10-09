@@ -1,0 +1,23 @@
+	Command being timed: "taskset -c 0,1 pnpm -C bot render --matrix --manifest=../.dev/tracks/u71b-native-temperatuur-wind/manifest.json --dry-run-prime=../.dev/tracks/u71c-renderer-geheugen/bounded-writes-register.json"
+	User time (seconds): 73.43
+	System time (seconds): 3.43
+	Percent of CPU this job got: 126%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:00.81
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 934788
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 1633728
+	Voluntary context switches: 173901
+	Involuntary context switches: 84198
+	Swaps: 0
+	File system inputs: 45544
+	File system outputs: 1363432
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

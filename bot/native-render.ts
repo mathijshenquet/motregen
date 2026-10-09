@@ -13,7 +13,7 @@ import { NativeOverlay } from './native-overlay.js'
 export function nativeFramePath(directory: string, index: number): string { return join(directory, `frame-${String(index).padStart(3, '0')}.ppm`) }
 
 export class NativeWeatherRenderer {
-  constructor(private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>, private readonly sharedMaps?: NativeMaps) {}
+  constructor(private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>, private readonly sharedMaps?: NativeMaps, private readonly assetsReady?: () => Promise<void>) {}
 
   async render(manifest: StillManifest, plan: SequencePlan, directory: string, destination: string, loopComplete: () => void): Promise<{ renderMs: number; encodeMs: number; preparationMs: number; loopMs: number; loopRenderMs: number; bytes: number }> {
     const started = performance.now()
@@ -32,6 +32,7 @@ export class NativeWeatherRenderer {
       const themes = [...new Set(plan.epochs.map(rainTheme))]
       const preparation = [...themes.map(async (theme) => { await maps.get(theme, first.grid) }), compositor.prepare()]
       await Promise.all(preparation)
+      await this.assetsReady?.()
       let renderMs = 0
       const phases = { dataMs: 0, labelsMs: 0, rainMs: 0, overlayMs: 0, writeMs: 0 }
       const now = Date.parse(manifest.now)

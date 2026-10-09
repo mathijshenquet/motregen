@@ -1,0 +1,15 @@
+2026-10-09T17:47:40Z
+ecff14a086c4115fb2bfbe9705df80c8e88c4945
+ bot/encode.ts                  |  4 ++--
+ bot/native-field-raster.ts     | 15 ++++++++++-----
+ bot/native-map.ts              |  4 ++--
+ bot/native-modes-render.ts     |  2 +-
+ bot/native-overlay.ts          |  6 +++---
+ bot/native-raster.ts           | 15 ++++++++++-----
+ bot/native-temperature.test.ts |  2 +-
+ bot/native-temperature.ts      |  4 ++--
+ bot/native-text-atlas.ts       | 11 +++++------
+ 9 files changed, 36 insertions(+), 27 deletions(-)
+2.10 2.78 3.58 7/2146 4065211
+2.25 2.75 3.52 1/2123 4067195
+systemd-run exit=0

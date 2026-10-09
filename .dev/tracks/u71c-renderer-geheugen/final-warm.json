@@ -1,0 +1,79 @@
+{
+  "code": 0,
+  "signal": null,
+  "runtime": "built",
+  "elapsedSeconds": 58.734339515,
+  "memoryPeakBytes": 1743101952,
+  "memoryHigh": "2306867200",
+  "memoryMax": "2726297600",
+  "cpuMax": "200000 100000",
+  "memoryEvents": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+  "processes": [
+    {
+      "pid": 4098566,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 69193728
+    },
+    {
+      "pid": 4098577,
+      "name": "time",
+      "executable": "/nix/store/y51431wmnm7vli4l347dpn44nyhmcrw7-time-1.10/bin/time",
+      "maxRssBytes": 1810432
+    },
+    {
+      "pid": 4098578,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 936714240
+    },
+    {
+      "pid": 4098603,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71c-renderer-geheugen/bot/dist/bot/native-raster",
+      "maxRssBytes": 78786560
+    },
+    {
+      "pid": 4098623,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 83353600
+    },
+    {
+      "pid": 4099152,
+      "name": "native-field-ra",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71c-renderer-geheugen/bot/dist/bot/native-field-raster",
+      "maxRssBytes": 13406208
+    },
+    {
+      "pid": 4099153,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 90611712
+    },
+    {
+      "pid": 4099259,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71c-renderer-geheugen/bot/dist/bot/native-raster",
+      "maxRssBytes": 16834560
+    },
+    {
+      "pid": 4099260,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71c-renderer-geheugen/bot/dist/bot/native-raster",
+      "maxRssBytes": 57712640
+    },
+    {
+      "pid": 4099261,
+      "name": "native-field-ra",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71c-renderer-geheugen/bot/dist/bot/native-field-raster",
+      "maxRssBytes": 11382784
+    },
+    {
+      "pid": 4099262,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 87011328
+    }
+  ]
+}

@@ -609,12 +609,12 @@ in
         UMask = "0022";
         Restart = "on-failure";
         RestartSec = "15s";
-        # Nationale loops blijven elders; native plaatsbeelden hebben kort extra decodegeheugen nodig (MIP-27).
+        # U71c meet 173 media op twee kernen; rolkeuze blijft een aparte uitrolstap.
         Nice = 10;
         CPUWeight = 20;
-        CPUQuota = if cfg.bot.role == "poller" then "25%" else if cfg.bot.role == "renderer" then "400%" else "150%";
-        MemoryHigh = if cfg.bot.role == "poller" then "384M" else "2200M";
-        MemoryMax = if cfg.bot.role == "poller" then "512M" else "2600M";
+        CPUQuota = if cfg.bot.role == "poller" then "25%" else if cfg.bot.role == "renderer" then "200%" else "150%";
+        MemoryHigh = if cfg.bot.role == "poller" then "384M" else if cfg.bot.role == "renderer" then "1800M" else "2200M";
+        MemoryMax = if cfg.bot.role == "poller" then "512M" else if cfg.bot.role == "renderer" then "2200M" else "2600M";
         TimeoutStopSec = "90s";
         LimitCORE = 0;
         PrivateNetwork = false;

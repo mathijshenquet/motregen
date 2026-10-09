@@ -1,0 +1,8 @@
+{
+  "source": "tmp/u71c-baseline",
+  "target": "tmp/u71c-vm-warm-quiet",
+  "compared": 343,
+  "missingFiles": [],
+  "extraFiles": [],
+  "differences": []
+}

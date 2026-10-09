@@ -1,5 +1,5 @@
 import { execFile, spawn } from 'node:child_process'
-import { once } from 'node:events'
+import { writeStream } from './write-stream.js'
 import { readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { availableParallelism } from 'node:os'
@@ -70,7 +70,7 @@ export async function encodeRgbLoop(
   try {
     for await (const frame of frames) {
       if (frame.length !== size.width * size.height * 3) throw new Error('Ongeldige RGB-framemaat')
-      if (!encoder.stdin.write(frame)) await Promise.race([once(encoder.stdin, 'drain'), completed.then(() => { throw new Error('RGB-encoder vroegtijdig gesloten') })])
+      await writeStream(encoder.stdin, frame)
       count++
     }
     if (count !== plan.loopFrames) throw new Error(`RGB-reeks heeft ${count} frames; verwacht ${plan.loopFrames}`)

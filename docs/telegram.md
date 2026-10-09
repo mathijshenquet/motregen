@@ -216,7 +216,16 @@ NixOS-module zelfstandig een system-unit leveren, zonder lokale ingest of Caddy:
 ```
 
 Na activering start ook daar `sudo systemctl start motregen-bot.service` de renderer. Alleen
-`renderer` en `combined` krijgen Chromium en ffmpeg; de renderer heeft 400% CPU als bovengrens.
+`renderer` en `combined` krijgen Chromium en ffmpeg. De productie-VM heeft twee kernen en
+3,8 GB geheugen. U71c stelt voor de renderer `CPUQuota=200%`, `MemoryHigh=1800M` en
+`MemoryMax=2200M` in; Nice 10 en CPUWeight 20 blijven gelden. De gebouwde renderer maakt
+173 nieuwe media in 58,282 s bij 1,547 GiB gezamenlijke cgroup-piek, inclusief de
+meethelper en bestandscache, onder de nieuwe 1800M/2200M-grenzen. Er waren geen
+MemoryHigh-events of OOM's. De meetgegevens staan in
+[vm-warm-quiet.json](../.dev/tracks/u71c-renderer-geheugen/vm-warm-quiet.json). Ook nieuwe isolijntekst
+past onder de nieuwe grenzen: 76,009 s, 1,758 GiB piek, 124 MemoryHigh-events en geen OOM
+([vm-cold-text.json](../.dev/tracks/u71c-renderer-geheugen/vm-cold-text.json)). `combined` houdt 150% CPU en 2200M/2600M;
+de rolkeuze blijft ongewijzigd. Deze lokale proef is geen productie-uitrol.
 `MOTREGEN_REGISTER_PATH` kiest voor offline proeven een lokaal register als pollerbron;
 in productie blijft deze variabele weg zodat de poller de cachechat leest.
 
@@ -823,3 +832,103 @@ bash .dev/tracks/u71b-native-temperatuur-wind/measure.sh eigen-tekst tmp/u71b-2c
 De helper bewaart de exitstatus, hostbelasting, GNU-timegegevens, alle per-modus/per-stillreceipts
 en een mockregister in de trackmap. Het pinned manifest moet nog beschikbare prod-chunks
 aanwijzen; neem een actueel manifest wanneer ingest deze generatie heeft opgeruimd.
+
+### Renderergeheugen binnen de VM-maat (MIP-26, U71c)
+
+De drie native reeksen delen één wachtrij. Temperatuur bewaart vooraf alleen isolijngeometrie,
+korte ringen en tekstplaatsingen; het gemengde veld en ringraster worden per frame gemaakt.
+Chunk-prefetch loopt per twee, voorbereide uurvelden worden achtereenvolgens opgebouwd en
+raster-id's gebruiken zwakke referenties. PNG-assets gaan rechtstreeks vanuit bestanden naar
+`sharp`; de libvips-operationcache staat uit. Chromium sluit zodra de assets klaar zijn wanneer
+alle modi native zijn. Hybride rendering behoudt zijn browser.
+
+De belangrijkste resterende ophoping zat in de streamafhandeling: iedere write/frame-race hing
+nieuwe callbacks aan dezelfde proceslange afsluitbelofte. De writes wachten nu op hun eigen
+callback, en een workerfout/sluiting wijst de actuele framebelofte af. Er staat maximaal één
+frame-write tegelijk uit naar een encoder/worker. Rollen, register, paletten, atlaslayout en
+encodering blijven gelijk.
+
+Alle runs gebruiken dezelfde pinned generatie `2026-10-09T12:18:21Z`, 173 nieuwe media, een
+verse mediacache, CPU-affiniteit 0,1 en `CPUQuota=200%`. `systemd-run --user --wait` geeft een
+synchroon waargenomen exitstatus; de profiler leest `memory.peak` vóór de cgroup verdwijnt en
+samplet elke 200 ms de RSS van Node, rasterworkers, ffmpeg en eventuele browserprocessen.
+De cgroup-piek omvat alle processen, de meethelper én de bestandscache; hij is geen som van
+afzonderlijke max-RSS-metingen. Uploads en registerpublicatie zijn uitsluitend lokaal gemockt.
+
+| Run | Gezamenlijke piek | Heel proces incl. mock-prime | Renderer | MemoryHigh/Max | Exit |
+| --- | ---: | ---: | ---: | --- | ---: |
+| U71c-baseline, U71b-code via pnpm/tsx | 4,651 GiB | 49,500 s | 48,348 s | 8G / 10G | 0 |
+| Alleen compacte temperatuurgeometrie | 4,469 GiB | 48,179 s | 47,230 s | 8G / 10G | 0 |
+| Seriële reeksen, begrensde voorbereiding | 2,808 GiB | 62,935 s | 61,908 s | 8G / 10G | 0 |
+| Operationcache uit | 2,150 GiB | 60,787 s | 59,764 s | 2200M / 2600M | 0 |
+| Writes vrijgegeven, pnpm/tsx | 1,750 GiB | 60,820 s | 59,624 s | 2200M / 2600M | 0 |
+| **Definitief gebouwd, warme assets** | **1,623 GiB** | **58,734 s** | **58,337 s** | **2200M / 2600M** | **0** |
+| Gebouwd, warm, Nix-budget en cache-misscorrectie | 1,503 GiB | 65,702 s | 65,254 s | 1800M / 2200M | 0 |
+| **Gebouwd, warm, rustige herhaling Nix-budget** | **1,547 GiB** | **58,282 s** | **57,872 s** | **1800M / 2200M** | **0** |
+| Gebouwd, nieuwe tekst, oude grenzen | 1,916 GiB | 73,059 s | 72,466 s | 2200M / 2600M | 0 |
+| **Definitief gebouwd, nieuwe tekst, Nix-budget** | **1,758 GiB** | **76,009 s** | **75,561 s** | **1800M / 2200M** | **0** |
+
+De definitieve warme run kost 18,7% meer procestijd dan de nieuwe baseline en 11,8% meer dan
+de 52,53 s van U71b. De gezamenlijke piek daalt 65%. Warm blijven high/max/oom-events op nul;
+de tekstasset-run heeft 124 high-events, maar geen max- of OOM-events. De kleinere
+MemoryHigh laat de kernel bestandscache terugwinnen tijdens atlasopbouw. Beide definitieve
+runs blijven onder 1,8 GiB en 90 s. Kaart- en klokassets waren vooraf aanwezig; een volledig
+koude eerste installatie en echte Telegram-uploadtijd vallen buiten dit bewijs. De host is
+gedeeld; dit is een lokale proef met VM-limieten, geen meting op de productie-VM.
+De afsluitende warme budgetrun had 65,702 s procestijd terwijl de Nix-build tegelijk liep;
+ook daar blijven alle geheugenevents op nul. Deze variatie blijft in de bewijsgegevens staan.
+Eén herhaling na alle builds haalt 58,282 s en 1,547 GiB, 17,7% meer tijd dan de baseline;
+ook deze run heeft nul high/max/oom-events.
+
+| Proces, `final-warm` | Max-RSS uit 200-ms-samples |
+| --- | ---: |
+| Node-renderer | 893,3 MiB |
+| Meethelper (Node) | 66,0 MiB |
+| Regenworker, grootste instantie | 75,1 MiB |
+| Temperatuur/drukworker, grootste instantie | 12,8 MiB |
+| ffmpeg, grootste instantie | 86,4 MiB |
+
+Alle exacte proceswaarden, piekbytes, geheugen-events en CPUQuota staan in
+[final-warm.json](../.dev/tracks/u71c-renderer-geheugen/final-warm.json) en
+[vm-cold-text.json](../.dev/tracks/u71c-renderer-geheugen/vm-cold-text.json). De RSS-tijdreeksen
+staan in [final-warm-samples.csv](../.dev/tracks/u71c-renderer-geheugen/final-warm-samples.csv)
+en [vm-cold-text-samples.csv](../.dev/tracks/u71c-renderer-geheugen/vm-cold-text-samples.csv).
+GNU-timegegevens en alle frame/conversiereceipts staan naast deze bestanden.
+De rustige budgetherhaling staat in
+[vm-warm-quiet.json](../.dev/tracks/u71c-renderer-geheugen/vm-warm-quiet.json), met zijn
+[RSS-tijdreeks](../.dev/tracks/u71c-renderer-geheugen/vm-warm-quiet-samples.csv).
+
+De ongewijzigde U71b-rig is opnieuw groen voor alle vijf momenten per modus: **15/15**,
+zonder ruimere ΔE- of windgrenzen. Zie
+[Regen](../.dev/tracks/u71c-renderer-geheugen/parity-weather.json),
+[Temperatuur](../.dev/tracks/u71c-renderer-geheugen/parity-feels.json) en
+[Wind](../.dev/tracks/u71c-renderer-geheugen/parity-wind.json).
+Daarnaast zijn alle **343 bestanden** (173 media en 170 PPM-tussenframes) byte-identiek
+aan de baseline, zowel met warme assets als na nieuwe tekstcapture:
+[warm](../.dev/tracks/u71c-renderer-geheugen/byte-parity-final.json) en
+[nieuwe tekst](../.dev/tracks/u71c-renderer-geheugen/byte-parity-cold.json).
+Ook de laatste budgetherhaling is byte-identiek
+([receipt](../.dev/tracks/u71c-renderer-geheugen/byte-parity-vm-quiet.json)).
+
+Reproduceer vanuit de projectroot na `pnpm -C bot build`, steeds met een nieuwe meetnaam:
+
+```bash
+bash .dev/tracks/u71c-renderer-geheugen/measure.sh eigen-warm tmp/u71c-baseline 2200M 2600M warm built
+MOTREGEN_CHROMIUM_PATH=/pad/naar/chromium \
+  bash .dev/tracks/u71c-renderer-geheugen/measure.sh eigen-tekst tmp/u71c-baseline 1800M 2200M cold-text built
+node .dev/tracks/u71c-renderer-geheugen/compare.mjs \
+  tmp/u71c-baseline tmp/u71c-eigen-warm tmp/eigen-byte-parity.json
+```
+
+De helper kopieert alleen assets, geen media of sequence-receipts; `cold-text` slaat
+isolijntekst over. De snapshot moet nog beschikbare chunks aanwijzen. Gebruik dezelfde
+assets/generatie voor vóór/ná en bouw bronassets vooraf met een renderer-dry-run.
+De gemeten runtime is `b01a119`, in de laatste budgetruns met de afsluitende cache-misscorrectie;
+bronverschillen worden als JSON-diffveld bewaard.
+[validation.md](../.dev/tracks/u71c-renderer-geheugen/validation.md) bevat de gatecommando's.
+
+Ook de mislukte tussenproeven blijven zichtbaar. `cold-release` heeft een renderer-exit 0,
+maar een wrapper-exit 2 doordat de meethelper tijdens de lopende shell werd gewijzigd;
+die telt niet als groene receipt. `cold-batches` faalt op afgesneden glyphs. De aangepaste
+batchcapture (`cold-batches-fixed`) eindigt met exit 0 en 1,762 GiB, maar andere atlaspixels;
+deze aanpak is teruggedraaid. De definitieve renderer behoudt de bestaande atlascapture.

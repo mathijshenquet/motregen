@@ -1,0 +1,99 @@
+{
+  "generated": "2026-10-09T12:18:21Z",
+  "loopFrames": 169,
+  "metric": "CIELAB D65 ΔE76",
+  "referenceOrigin": "http://127.0.0.1:4362",
+  "limits": {
+    "mean": 0.5,
+    "maximum": 20,
+    "mapMean": 0.35,
+    "mapMaximum": 8
+  },
+  "results": [
+    {
+      "mode": "feels",
+      "sample": "historie",
+      "epoch": "2026-10-09T11:20:00.000Z",
+      "theme": "light",
+      "total": {
+        "mean": 0.03532488857774267,
+        "maximum": 7.0170143719719364,
+        "pixels": 1221120
+      },
+      "map": {
+        "mean": 0.032976812080888,
+        "maximum": 5.178621109349455,
+        "pixels": 1024320
+      },
+      "passed": true
+    },
+    {
+      "mode": "feels",
+      "sample": "voor-loop",
+      "epoch": "2026-10-09T10:15:00.000Z",
+      "theme": "light",
+      "total": {
+        "mean": 0.034496145614276115,
+        "maximum": 7.0170143719719364,
+        "pixels": 1221120
+      },
+      "map": {
+        "mean": 0.03211225238198031,
+        "maximum": 5.337148754919225,
+        "pixels": 1024320
+      },
+      "passed": true
+    },
+    {
+      "mode": "feels",
+      "sample": "nu",
+      "epoch": "2026-10-09T12:15:00.000Z",
+      "theme": "light",
+      "total": {
+        "mean": 0.0377211305103945,
+        "maximum": 7.0170143719719364,
+        "pixels": 1221120
+      },
+      "map": {
+        "mean": 0.03570527708947468,
+        "maximum": 5.914769958252057,
+        "pixels": 1024320
+      },
+      "passed": true
+    },
+    {
+      "mode": "feels",
+      "sample": "verwachting",
+      "epoch": "2026-10-09T13:50:00.000Z",
+      "theme": "light",
+      "total": {
+        "mean": 0.03864886453177076,
+        "maximum": 7.0170143719719364,
+        "pixels": 1221120
+      },
+      "map": {
+        "mean": 0.03580321319181866,
+        "maximum": 5.708701560423545,
+        "pixels": 1024320
+      },
+      "passed": true
+    },
+    {
+      "mode": "feels",
+      "sample": "nacht",
+      "epoch": "2026-10-10T00:15:00.000Z",
+      "theme": "dark",
+      "total": {
+        "mean": 0.04522714335119864,
+        "maximum": 7.16628909021849,
+        "pixels": 1221120
+      },
+      "map": {
+        "mean": 0.038463773943468255,
+        "maximum": 5.662486313820068,
+        "pixels": 1024320
+      },
+      "passed": true
+    }
+  ]
+}

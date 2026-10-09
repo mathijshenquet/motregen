@@ -84,6 +84,9 @@
           assert poller.serviceConfig.MemoryMax == "512M";
           assert renderer.systemd.services.motregen-bot.environment ? MOTREGEN_CHROMIUM_PATH;
           assert renderer.systemd.services.motregen-bot.environment.MOTREGEN_ORIGIN == "https://motregen.nl";
+          assert renderer.systemd.services.motregen-bot.serviceConfig.CPUQuota == "200%";
+          assert renderer.systemd.services.motregen-bot.serviceConfig.MemoryHigh == "1800M";
+          assert renderer.systemd.services.motregen-bot.serviceConfig.MemoryMax == "2200M";
           assert !(renderer.systemd.services ? motregen-ingest);
           assert !renderer.services.caddy.enable;
           pkgs.runCommand "motregen-bot-roles" { } "touch $out";

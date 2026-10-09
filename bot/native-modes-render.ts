@@ -15,36 +15,38 @@ import { drawTemperatureLabels } from './native-labels.js'
 import { NativeOverlay } from './native-overlay.js'
 import { rainPresentation } from '../web/src/core/rain-presentation.js'
 import { NATIVE_VIEW } from './native-view.js'
-import { NativeTemperatureData, type RasterSlice } from './native-temperature.js'
+import { NativeTemperatureData, type RasterGeometry } from './native-temperature.js'
+import { shortRings } from '../web/src/core/isoline-contours.js'
+import { ISOLINE_RING_KM } from '../web/src/core/isolines.js'
 import { NativeFieldRaster } from './native-field-raster.js'
 import { NativeWindData } from './native-wind.js'
 import { NativeIsolineLabels } from './native-isoline-labels.js'
 import { nativeFramePath } from './native-render.js'
 
 export class NativeModesRenderer {
-  constructor(private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>, private readonly sharedMaps?: NativeMaps) {}
+  constructor(private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>, private readonly sharedMaps?: NativeMaps, private readonly assetsReady?: () => Promise<void>) {}
 
   async render(mode: Exclude<LoopMode, 'weather'>, manifest: StillManifest, plan: SequencePlan, directory: string, destination: string) {
     const started = performance.now()
     const maps = this.sharedMaps ?? new NativeMaps(this.origin, this.directory, this.context)
     const overlay = new NativeOverlay(this.origin, this.directory, this.context, mode)
     const rain = new NativeRainData(this.origin, manifest)
-    const temperatures = new NativeRainData(this.origin, manifest, 'feels_like_c')
-    const temperatureEpoch = (epoch: number) => Math.max(temperatures.timeline[0]!.epoch, Math.min(temperatures.timeline.at(-1)!.epoch, Math.round(epoch / 600_000) * 600_000))
+    const temperatures = mode === 'wind' ? new NativeRainData(this.origin, manifest, 'feels_like_c') : undefined
+    const temperatureEpoch = (epoch: number) => Math.max(temperatures!.timeline[0]!.epoch, Math.min(temperatures!.timeline.at(-1)!.epoch, Math.round(epoch / 600_000) * 600_000))
     const temperature = new NativeTemperatureData(this.origin, manifest, mode === 'feels' ? 'temperature' : 'pressure')
     const wind = mode === 'wind' ? new NativeWindData(this.origin, manifest) : undefined
     const firstRain = await rain.frame(Date.parse(manifest.now))
-    await Promise.all([temperatures.prefetch(plan.epochs.map(temperatureEpoch)), temperature.prepare(plan.epochs), wind?.prepare(plan.epochs), ...[...new Set(plan.epochs.map(rainTheme))].map(async (theme) => { await maps.get(theme, firstRain.grid) })])
+    await Promise.all([temperatures?.prefetch(plan.epochs.map(temperatureEpoch)), temperature.prepare(plan.epochs), wind?.prepare(plan.epochs), ...[...new Set(plan.epochs.map(rainTheme))].map(async (theme) => { await maps.get(theme, firstRain.grid) })])
     await overlay.prepare(manifest)
-    const slices: RasterSlice[] = []
+    const geometries: RasterGeometry[] = []
     const placements: TextPlacement[][] = []
     const labelAnchors = new NativeIsolineLabels()
     for (const epoch of plan.epochs) {
-      const slice = await temperature.slice(epoch)
+      const slice = await temperature.slice(epoch, { rasterizeRings: false })
       placements.push(labelAnchors.place(slice, rainTheme(epoch)))
-      slices.push(slice.kind === 'pressure' ? { kind: 'pressure', grid: slice.grid, segments: slice.segments, opacity: slice.opacity } : { kind: 'temperature', grid: slice.grid, segments: slice.segments, opacity: slice.opacity, field: slice.field, rings: slice.rings, colors: slice.colors })
+      geometries.push({ kind: slice.kind, grid: slice.grid, segments: slice.segments, opacity: slice.opacity, rings: shortRings(slice.contours, slice.kind === 'pressure' ? 0 : ISOLINE_RING_KM) })
     }
-    const firstSlice = slices[0]!
+    const firstSlice = geometries[0]!
     const raster = new NativeFieldRaster(firstSlice.grid)
     const rainCompositors = new Map<string, RainCompositor>()
     try {
@@ -71,6 +73,7 @@ export class NativeModesRenderer {
           mutedMaps.set(theme, muted)
         }
       }
+      await this.assetsReady?.()
       const stillIndexes = new Set(plan.stillFrames.map((frame) => frame.index))
       const header = Buffer.from(`P6\n${FRAME_PIXELS.width} ${FRAME_PIXELS.height}\n255\n`)
       let renderMs = 0
@@ -78,13 +81,12 @@ export class NativeModesRenderer {
         const frameStarted = performance.now(), epoch = plan.epochs[index]!
         const theme = rainTheme(epoch)
         const plate = await maps.get(theme, firstRain.grid)
-        let rgb = mode === 'feels' ? Buffer.from(mutedMaps.get(theme)!) : drawTemperatureLabels(plate.rgb, plate.labels, await temperatures.frame(temperatureEpoch(epoch)))
+        const slice = await temperature.rasterSlice(epoch, geometries[index]!)
+        let rgb = mode === 'feels' ? Buffer.from(mutedMaps.get(theme)!) : drawTemperatureLabels(plate.rgb, plate.labels, await temperatures!.frame(temperatureEpoch(epoch)))
         if (mode === 'feels') {
-          const slice = slices[index]!
           rgb = await raster.compose(rgb, slice, theme === 'dark')
           for (const label of placements[index]!) await text.draw(rgb, label.text, label.screenX, label.screenY, label.angle, label.color, label.theme, label.opacity)
         } else {
-          const slice = slices[index]!
           rgb = await raster.compose(rgb, slice, theme === 'dark')
           rgb = await wind!.draw(rgb, epoch, 1000 + index * 1000 / plan.fps, theme, plate.water)
           const pressureBlend = frameBlend(temperature.data.timeline, epoch)

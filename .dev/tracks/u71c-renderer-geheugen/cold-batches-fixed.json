@@ -1,0 +1,199 @@
+{
+  "code": 0,
+  "signal": null,
+  "runtime": "built",
+  "elapsedSeconds": 70.022840712,
+  "memoryPeakBytes": 1892139008,
+  "memoryHigh": "2306867200",
+  "memoryMax": "2726297600",
+  "cpuMax": "200000 100000",
+  "memoryEvents": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+  "processes": [
+    {
+      "pid": 4084262,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 72962048
+    },
+    {
+      "pid": 4084273,
+      "name": "time",
+      "executable": "/nix/store/y51431wmnm7vli4l347dpn44nyhmcrw7-time-1.10/bin/time",
+      "maxRssBytes": 1810432
+    },
+    {
+      "pid": 4084274,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 923447296
+    },
+    {
+      "pid": 4084315,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71c-renderer-geheugen/bot/dist/bot/native-raster",
+      "maxRssBytes": 78766080
+    },
+    {
+      "pid": 4084318,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 86962176
+    },
+    {
+      "pid": 4085016,
+      "name": "chrome_crashpad",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chrome_crashpad_handler",
+      "maxRssBytes": 4296704
+    },
+    {
+      "pid": 4085018,
+      "name": "chrome_crashpad",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chrome_crashpad_handler",
+      "maxRssBytes": 3809280
+    },
+    {
+      "pid": 4085021,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 72798208
+    },
+    {
+      "pid": 4085022,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 72232960
+    },
+    {
+      "pid": 4085050,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 242872320
+    },
+    {
+      "pid": 4085051,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 106512384
+    },
+    {
+      "pid": 4085077,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 47665152
+    },
+    {
+      "pid": 4085105,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 159305728
+    },
+    {
+      "pid": 4085112,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 70995968
+    },
+    {
+      "pid": 4085113,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 239120384
+    },
+    {
+      "pid": 4085171,
+      "name": "native-field-ra",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71c-renderer-geheugen/bot/dist/bot/native-field-raster",
+      "maxRssBytes": 13389824
+    },
+    {
+      "pid": 4085174,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 86982656
+    },
+    {
+      "pid": 4085375,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71c-renderer-geheugen/bot/dist/bot/native-raster",
+      "maxRssBytes": 16830464
+    },
+    {
+      "pid": 4085376,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71c-renderer-geheugen/bot/dist/bot/native-raster",
+      "maxRssBytes": 57753600
+    },
+    {
+      "pid": 4085384,
+      "name": "chrome_crashpad",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chrome_crashpad_handler",
+      "maxRssBytes": 4317184
+    },
+    {
+      "pid": 4085386,
+      "name": "chrome_crashpad",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chrome_crashpad_handler",
+      "maxRssBytes": 3813376
+    },
+    {
+      "pid": 4085389,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 72863744
+    },
+    {
+      "pid": 4085390,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 72871936
+    },
+    {
+      "pid": 4085410,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 246448128
+    },
+    {
+      "pid": 4085412,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 105766912
+    },
+    {
+      "pid": 4085448,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 48238592
+    },
+    {
+      "pid": 4085467,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 160202752
+    },
+    {
+      "pid": 4085476,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 70414336
+    },
+    {
+      "pid": 4085477,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 201752576
+    },
+    {
+      "pid": 4085566,
+      "name": "native-field-ra",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71c-renderer-geheugen/bot/dist/bot/native-field-raster",
+      "maxRssBytes": 11444224
+    },
+    {
+      "pid": 4085568,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 83329024
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+2026-10-09T17:45:26Z
+7e2f99288c8712a02c7a15b2cd83c508136869dd
+ bot/native-modes-render.ts     | 15 ++++++++-------
+ bot/native-overlay.ts          |  3 +++
+ bot/native-rain.ts             |  5 ++++-
+ bot/native-raster.ts           |  7 +++++--
+ bot/native-temperature.test.ts | 10 ++++++++--
+ bot/native-temperature.ts      | 20 ++++++++++++++++----
+ bot/render.test.ts             | 37 ++++++++++++++++++++++++++++++++++++-
+ bot/render.ts                  |  7 +++++++
+ 8 files changed, 87 insertions(+), 17 deletions(-)
+2.58 2.92 3.74 1/2156 4061817
+3.81 3.17 3.77 2/2153 4064261
+systemd-run exit=0

@@ -1,0 +1,674 @@
+{
+  "generated": "2026-10-09T12:18:21Z",
+  "loopFrames": 169,
+  "metric": "CIELAB D65 ΔE76",
+  "referenceOrigin": "http://127.0.0.1:4362",
+  "limits": {
+    "mean": 0.5,
+    "maximum": 20,
+    "mapMean": 0.35,
+    "mapMaximum": 8
+  },
+  "results": [
+    {
+      "mode": "wind",
+      "sample": "historie",
+      "epoch": "2026-10-09T11:20:00.000Z",
+      "theme": "light",
+      "total": {
+        "mean": 0.4014100478551728,
+        "maximum": 48.54167044725958,
+        "pixels": 1221120
+      },
+      "map": {
+        "mean": 0.38675952643720085,
+        "maximum": 48.54167044725958,
+        "pixels": 1024320
+      },
+      "wind": {
+        "limits": {
+          "components": 0.1,
+          "meanLength": 0.1,
+          "meanWidth": 0.1,
+          "ink": 0.2
+        },
+        "phases": [
+          {
+            "simulationMs": 1000,
+            "browser": {
+              "components": 147,
+              "meanLength": 26.12970106671714,
+              "meanWidth": 2.559514197344933,
+              "ink": 1156.5612200436294
+            },
+            "native": {
+              "components": 149,
+              "meanLength": 29.492859972033,
+              "meanWidth": 2.557134798135614,
+              "ink": 1253.929411764723
+            }
+          },
+          {
+            "simulationMs": 3000,
+            "browser": {
+              "components": 334,
+              "meanLength": 33.49306516087105,
+              "meanWidth": 2.5560883377325854,
+              "ink": 3340.3416121982086
+            },
+            "native": {
+              "components": 348,
+              "meanLength": 33.52138720446254,
+              "meanWidth": 2.5100229364118736,
+              "ink": 3218.921132896335
+            }
+          },
+          {
+            "simulationMs": 5000,
+            "browser": {
+              "components": 350,
+              "meanLength": 31.064766689652092,
+              "meanWidth": 2.5224943832051845,
+              "ink": 3244.8993464032155
+            },
+            "native": {
+              "components": 363,
+              "meanLength": 31.553100064167275,
+              "meanWidth": 2.4866981850300633,
+              "ink": 3209.8108932447817
+            }
+          },
+          {
+            "simulationMs": 7000,
+            "browser": {
+              "components": 338,
+              "meanLength": 32.563696209115236,
+              "meanWidth": 2.5299206281867885,
+              "ink": 3238.197821348655
+            },
+            "native": {
+              "components": 370,
+              "meanLength": 31.36857009374429,
+              "meanWidth": 2.4852637724113196,
+              "ink": 3249.6313725476266
+            }
+          },
+          {
+            "simulationMs": 9000,
+            "browser": {
+              "components": 340,
+              "meanLength": 32.76702357429994,
+              "meanWidth": 2.526797926495539,
+              "ink": 3251.281917209135
+            },
+            "native": {
+              "components": 357,
+              "meanLength": 32.57441672987604,
+              "meanWidth": 2.490231305458764,
+              "ink": 3274.5952069701484
+            }
+          }
+        ],
+        "browser": {
+          "components": 301.8,
+          "meanLength": 31.84077898996654,
+          "meanWidth": 2.5361693792377875,
+          "ink": 2846.2563834405687
+        },
+        "native": {
+          "components": 317.4,
+          "meanLength": 31.97800372623172,
+          "meanWidth": 2.4988863766858342,
+          "ink": 2841.377603484723
+        },
+        "relative": {
+          "components": 0.05168986083498994,
+          "meanLength": 0.004309716678364551,
+          "meanWidth": 0.014700517582606485,
+          "ink": 0.0017141041770623504
+        },
+        "excludedFraction": 0.09258958988469601,
+        "total": {
+          "mean": 0.09287869293266694,
+          "maximum": 10.521571376326454,
+          "pixels": 1108057
+        },
+        "map": {
+          "mean": 0.08042632332750553,
+          "maximum": 1.9922049884049733,
+          "pixels": 935065
+        },
+        "passed": true
+      },
+      "passed": true
+    },
+    {
+      "mode": "wind",
+      "sample": "voor-loop",
+      "epoch": "2026-10-09T10:15:00.000Z",
+      "theme": "light",
+      "total": {
+        "mean": 0.4297779741222845,
+        "maximum": 55.366616745825795,
+        "pixels": 1221120
+      },
+      "map": {
+        "mean": 0.4058421292631455,
+        "maximum": 55.366616745825795,
+        "pixels": 1024320
+      },
+      "wind": {
+        "limits": {
+          "components": 0.1,
+          "meanLength": 0.1,
+          "meanWidth": 0.1,
+          "ink": 0.2
+        },
+        "phases": [
+          {
+            "simulationMs": 1000,
+            "browser": {
+              "components": 148,
+              "meanLength": 26.34826059136773,
+              "meanWidth": 2.5746686781982095,
+              "ink": 1172.0366013072353
+            },
+            "native": {
+              "components": 152,
+              "meanLength": 29.44239717136061,
+              "meanWidth": 2.5598445237328247,
+              "ink": 1263.7437908496895
+            }
+          },
+          {
+            "simulationMs": 3000,
+            "browser": {
+              "components": 334,
+              "meanLength": 33.13215825805641,
+              "meanWidth": 2.5519650874787647,
+              "ink": 3307.2034858367037
+            },
+            "native": {
+              "components": 349,
+              "meanLength": 33.60993582217418,
+              "meanWidth": 2.516428023450124,
+              "ink": 3224.7424836588075
+            }
+          },
+          {
+            "simulationMs": 5000,
+            "browser": {
+              "components": 345,
+              "meanLength": 32.849607361785054,
+              "meanWidth": 2.5300026321066733,
+              "ink": 3310.1263616535625
+            },
+            "native": {
+              "components": 350,
+              "meanLength": 32.1312751198201,
+              "meanWidth": 2.5105499598391616,
+              "ink": 3256.315468407987
+            }
+          },
+          {
+            "simulationMs": 7000,
+            "browser": {
+              "components": 352,
+              "meanLength": 31.45168932163459,
+              "meanWidth": 2.498866826835652,
+              "ink": 3214.56034858172
+            },
+            "native": {
+              "components": 357,
+              "meanLength": 33.59741075642868,
+              "meanWidth": 2.5113509822874733,
+              "ink": 3334.502832242491
+            }
+          },
+          {
+            "simulationMs": 9000,
+            "browser": {
+              "components": 332,
+              "meanLength": 33.01848287199752,
+              "meanWidth": 2.5281490932093136,
+              "ink": 3272.0034858366803
+            },
+            "native": {
+              "components": 363,
+              "meanLength": 33.25128467852443,
+              "meanWidth": 2.486829340696607,
+              "ink": 3342.562091501886
+            }
+          }
+        ],
+        "browser": {
+          "components": 302.2,
+          "meanLength": 31.986716691097065,
+          "meanWidth": 2.531571696664253,
+          "ink": 2855.18605664318
+        },
+        "native": {
+          "components": 314.2,
+          "meanLength": 32.79156603581925,
+          "meanWidth": 2.5113262794937525,
+          "ink": 2884.3733333321725
+        },
+        "relative": {
+          "components": 0.03970880211780278,
+          "meanLength": 0.025161986848940998,
+          "meanWidth": 0.007997173138401327,
+          "ink": 0.010222548061651583
+        },
+        "excludedFraction": 0.09307357180293496,
+        "total": {
+          "mean": 0.12460460662686056,
+          "maximum": 9.663096748360141,
+          "pixels": 1107466
+        },
+        "map": {
+          "mean": 0.10249863209579313,
+          "maximum": 2.0425077350892726,
+          "pixels": 933994
+        },
+        "passed": true
+      },
+      "passed": true
+    },
+    {
+      "mode": "wind",
+      "sample": "nu",
+      "epoch": "2026-10-09T12:15:00.000Z",
+      "theme": "light",
+      "total": {
+        "mean": 0.37273993867169175,
+        "maximum": 53.1235772636534,
+        "pixels": 1221120
+      },
+      "map": {
+        "mean": 0.37346467489500274,
+        "maximum": 53.1235772636534,
+        "pixels": 1024320
+      },
+      "wind": {
+        "limits": {
+          "components": 0.1,
+          "meanLength": 0.1,
+          "meanWidth": 0.1,
+          "ink": 0.2
+        },
+        "phases": [
+          {
+            "simulationMs": 1000,
+            "browser": {
+              "components": 144,
+              "meanLength": 26.207892140237092,
+              "meanWidth": 2.5862494566155667,
+              "ink": 1163.396949891121
+            },
+            "native": {
+              "components": 150,
+              "meanLength": 29.153908158057742,
+              "meanWidth": 2.547780274276479,
+              "ink": 1254.8270152505625
+            }
+          },
+          {
+            "simulationMs": 3000,
+            "browser": {
+              "components": 340,
+              "meanLength": 32.81292121887892,
+              "meanWidth": 2.548490303356043,
+              "ink": 3380.090631806187
+            },
+            "native": {
+              "components": 357,
+              "meanLength": 32.662401688938616,
+              "meanWidth": 2.4864563252667953,
+              "ink": 3222.8618736370886
+            }
+          },
+          {
+            "simulationMs": 5000,
+            "browser": {
+              "components": 354,
+              "meanLength": 32.01053798323594,
+              "meanWidth": 2.500216338212781,
+              "ink": 3291.858823527332
+            },
+            "native": {
+              "components": 354,
+              "meanLength": 32.775163090329784,
+              "meanWidth": 2.5041370351176244,
+              "ink": 3230.980392155524
+            }
+          },
+          {
+            "simulationMs": 7000,
+            "browser": {
+              "components": 344,
+              "meanLength": 32.93453540981612,
+              "meanWidth": 2.4842272435001633,
+              "ink": 3284.0697167737144
+            },
+            "native": {
+              "components": 347,
+              "meanLength": 33.52403772803367,
+              "meanWidth": 2.5063231720674324,
+              "ink": 3214.3965141597496
+            }
+          },
+          {
+            "simulationMs": 9000,
+            "browser": {
+              "components": 350,
+              "meanLength": 31.484974418980407,
+              "meanWidth": 2.5231885490818047,
+              "ink": 3264.7093681897504
+            },
+            "native": {
+              "components": 351,
+              "meanLength": 33.239685048304416,
+              "meanWidth": 2.5254970791457034,
+              "ink": 3291.886710238238
+            }
+          }
+        ],
+        "browser": {
+          "components": 306.4,
+          "meanLength": 31.73060140750547,
+          "meanWidth": 2.5206745251721334,
+          "ink": 2876.8250980376206
+        },
+        "native": {
+          "components": 311.8,
+          "meanLength": 32.67218852098719,
+          "meanWidth": 2.509583114291788,
+          "ink": 2842.9905010882326
+        },
+        "relative": {
+          "components": 0.017624020887728572,
+          "meanLength": 0.0296744174933602,
+          "meanWidth": 0.004400175734543851,
+          "ink": 0.011761089324640464
+        },
+        "excludedFraction": 0.09255601415094339,
+        "total": {
+          "mean": 0.06836892050974801,
+          "maximum": 2.1870398522746823,
+          "pixels": 1108098
+        },
+        "map": {
+          "mean": 0.07052227234473081,
+          "maximum": 2.1870398522746823,
+          "pixels": 935573
+        },
+        "passed": true
+      },
+      "passed": true
+    },
+    {
+      "mode": "wind",
+      "sample": "verwachting",
+      "epoch": "2026-10-09T13:50:00.000Z",
+      "theme": "light",
+      "total": {
+        "mean": 0.3421812632240408,
+        "maximum": 52.74782101908399,
+        "pixels": 1221120
+      },
+      "map": {
+        "mean": 0.34366686108855243,
+        "maximum": 52.74782101908399,
+        "pixels": 1024320
+      },
+      "wind": {
+        "limits": {
+          "components": 0.1,
+          "meanLength": 0.1,
+          "meanWidth": 0.1,
+          "ink": 0.2
+        },
+        "phases": [
+          {
+            "simulationMs": 1000,
+            "browser": {
+              "components": 145,
+              "meanLength": 25.868288936458377,
+              "meanWidth": 2.5863421516046663,
+              "ink": 1178.7102396514638
+            },
+            "native": {
+              "components": 151,
+              "meanLength": 28.937171960793233,
+              "meanWidth": 2.5485713648463073,
+              "ink": 1261.0579520697434
+            }
+          },
+          {
+            "simulationMs": 3000,
+            "browser": {
+              "components": 353,
+              "meanLength": 32.537455142617425,
+              "meanWidth": 2.518765544667918,
+              "ink": 3438.447058821495
+            },
+            "native": {
+              "components": 356,
+              "meanLength": 33.00965957636659,
+              "meanWidth": 2.4897497397023693,
+              "ink": 3228.681481480272
+            }
+          },
+          {
+            "simulationMs": 5000,
+            "browser": {
+              "components": 350,
+              "meanLength": 32.421607295052176,
+              "meanWidth": 2.485944859624115,
+              "ink": 3304.801742917404
+            },
+            "native": {
+              "components": 354,
+              "meanLength": 32.94533328613811,
+              "meanWidth": 2.5009897859787946,
+              "ink": 3225.5058823515637
+            }
+          },
+          {
+            "simulationMs": 7000,
+            "browser": {
+              "components": 351,
+              "meanLength": 31.49080775188651,
+              "meanWidth": 2.5088440320671004,
+              "ink": 3218.9716775580823
+            },
+            "native": {
+              "components": 343,
+              "meanLength": 33.52777625361394,
+              "meanWidth": 2.5277978548334676,
+              "ink": 3247.8832243993943
+            }
+          },
+          {
+            "simulationMs": 9000,
+            "browser": {
+              "components": 357,
+              "meanLength": 30.960397083730243,
+              "meanWidth": 2.4864432300292147,
+              "ink": 3196.550762525187
+            },
+            "native": {
+              "components": 358,
+              "meanLength": 31.257588351610373,
+              "meanWidth": 2.51185447626154,
+              "ink": 3202.6230936803468
+            }
+          }
+        ],
+        "browser": {
+          "components": 311.2,
+          "meanLength": 31.29198033046436,
+          "meanWidth": 2.5080263743540323,
+          "ink": 2867.4962962947266
+        },
+        "native": {
+          "components": 312.4,
+          "meanLength": 32.31360028388302,
+          "meanWidth": 2.511404695500538,
+          "ink": 2833.150326796264
+        },
+        "relative": {
+          "components": 0.003856041131105362,
+          "meanLength": 0.03264798017350346,
+          "meanWidth": 0.0013470038357852648,
+          "ink": 0.011977685740289616
+        },
+        "excludedFraction": 0.09319231525157234,
+        "total": {
+          "mean": 0.03058883115434626,
+          "maximum": 2.1491882377243026,
+          "pixels": 1107321
+        },
+        "map": {
+          "mean": 0.03402150186927863,
+          "maximum": 2.1491882377243026,
+          "pixels": 934484
+        },
+        "passed": true
+      },
+      "passed": true
+    },
+    {
+      "mode": "wind",
+      "sample": "nacht",
+      "epoch": "2026-10-10T00:15:00.000Z",
+      "theme": "dark",
+      "total": {
+        "mean": 0.5838478850730303,
+        "maximum": 71.1552221682804,
+        "pixels": 1221120
+      },
+      "map": {
+        "mean": 0.5756473566065043,
+        "maximum": 71.1552221682804,
+        "pixels": 1024320
+      },
+      "wind": {
+        "limits": {
+          "components": 0.1,
+          "meanLength": 0.1,
+          "meanWidth": 0.1,
+          "ink": 0.2
+        },
+        "phases": [
+          {
+            "simulationMs": 1000,
+            "browser": {
+              "components": 151,
+              "meanLength": 21.169308505363997,
+              "meanWidth": 2.591624576663675,
+              "ink": 1251.086710239676
+            },
+            "native": {
+              "components": 151,
+              "meanLength": 26.150789418715778,
+              "meanWidth": 2.6018283739842,
+              "ink": 1414.0810457516498
+            }
+          },
+          {
+            "simulationMs": 3000,
+            "browser": {
+              "components": 352,
+              "meanLength": 31.23117228654287,
+              "meanWidth": 2.567278022239699,
+              "ink": 4142.928104573455
+            },
+            "native": {
+              "components": 327,
+              "meanLength": 34.25979049570659,
+              "meanWidth": 2.5926660801406847,
+              "ink": 3923.362091502498
+            }
+          },
+          {
+            "simulationMs": 5000,
+            "browser": {
+              "components": 344,
+              "meanLength": 29.900689270585968,
+              "meanWidth": 2.564169978851182,
+              "ink": 3702.868845313944
+            },
+            "native": {
+              "components": 341,
+              "meanLength": 31.790049761812124,
+              "meanWidth": 2.5902121423421898,
+              "ink": 3927.417864922781
+            }
+          },
+          {
+            "simulationMs": 7000,
+            "browser": {
+              "components": 359,
+              "meanLength": 29.384371254015097,
+              "meanWidth": 2.5353985864836672,
+              "ink": 3729.7307189522976
+            },
+            "native": {
+              "components": 335,
+              "meanLength": 31.256104664124695,
+              "meanWidth": 2.619110232158992,
+              "ink": 3792.8261437896535
+            }
+          },
+          {
+            "simulationMs": 9000,
+            "browser": {
+              "components": 347,
+              "meanLength": 30.653118915024912,
+              "meanWidth": 2.5518321926210668,
+              "ink": 3820.8662309350884
+            },
+            "native": {
+              "components": 335,
+              "meanLength": 32.56039043483945,
+              "meanWidth": 2.5641668849084316,
+              "ink": 3709.307189541486
+            }
+          }
+        ],
+        "browser": {
+          "components": 310.6,
+          "meanLength": 29.402058520257366,
+          "meanWidth": 2.558136195116898,
+          "ink": 3329.4961220028918
+        },
+        "native": {
+          "components": 297.8,
+          "meanLength": 31.813736414542017,
+          "meanWidth": 2.5925708982094635,
+          "ink": 3353.3988671016136
+        },
+        "relative": {
+          "components": 0.041210560206052835,
+          "meanLength": 0.08202411721012862,
+          "meanWidth": 0.013460856055395452,
+          "ink": 0.007179087832768805
+        },
+        "excludedFraction": 0.07622756158280919,
+        "total": {
+          "mean": 0.1954001233169063,
+          "maximum": 11.15005595483446,
+          "pixels": 1128037
+        },
+        "map": {
+          "mean": 0.17591514058245408,
+          "maximum": 2.2712555853659486,
+          "pixels": 951180
+        },
+        "passed": true
+      },
+      "passed": true
+    }
+  ]
+}
