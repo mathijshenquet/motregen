@@ -743,7 +743,7 @@ td:first-child { padding-left: 0; text-align: left; }
 .forecast-table { table-layout: fixed; border-collapse: separate; border-spacing: 0; }
 .forecast-table th { padding: 6px 2px 5px; vertical-align: bottom; letter-spacing: 0; text-align: center; text-transform: none; }
 .forecast-table th:first-child { padding-left: 0; text-align: left; }
-.column-mode { display: inline-flex; min-width: 44px; flex-direction: column; align-items: center; gap: 3px; padding: 6px 6px 5px; border: 0; border-radius: 10px; background: none; color: var(--muted); font: inherit; font-size: 12px; font-weight: 700; line-height: 1; }
+.column-mode { display: inline-flex; vertical-align: top; min-width: 44px; flex-direction: column; align-items: center; gap: 3px; padding: 6px 6px 5px; border: 0; border-radius: 10px; background: none; color: var(--muted); font: inherit; font-size: 12px; font-weight: 700; line-height: 1; }
 .column-mode svg { flex: none; }
 button.column-mode { width: 100%; cursor: pointer; }
 .default-mode { align-items: center; }
