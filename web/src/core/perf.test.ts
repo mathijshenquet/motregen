@@ -27,6 +27,7 @@ describe('performance monitor', () => {
     test.monitor.start()
     test.advance(180)
     test.monitor.markBasemapReady()
+    test.monitor.markMapRevealed()
     test.monitor.markRainFrameCommitted()
     for (const latency of [10, 20, 30, 100]) {
       test.monitor.markScrubInput()
@@ -44,16 +45,18 @@ describe('performance monitor', () => {
     expect(snapshot.manifestAgeMs).toBe(900_340)
   })
 
-  it('lets ttfr wait for both the first rain frame and the basemap tiles', () => {
+  it('lets ttfr wait for the first rain frame, basemap tiles and visible reveal', () => {
     const test = harness()
     test.advance(120)
     test.monitor.markRainFrameCommitted()
     expect(test.monitor.snapshot()).toMatchObject({ firstRainMs: 120, basemapReadyMs: null, ttfrMs: null })
     test.advance(300)
     test.monitor.markBasemapReady()
+    expect(test.monitor.snapshot().ttfrMs).toBeNull()
     test.advance(50)
+    test.monitor.markMapRevealed()
     test.monitor.markBasemapReady()
-    expect(test.monitor.snapshot()).toMatchObject({ firstRainMs: 120, basemapReadyMs: 420, ttfrMs: 420 })
+    expect(test.monitor.snapshot()).toMatchObject({ firstRainMs: 120, basemapReadyMs: 420, mapRevealedMs: 470, ttfrMs: 470 })
   })
 
   it('reaches ttfp at the first rain frame change while playing, not while paused or on a repeated frame', () => {

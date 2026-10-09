@@ -1,5 +1,5 @@
 import { addProtocol, type LayerSpecification, type StyleSpecification } from 'maplibre-gl'
-import { Protocol } from 'pmtiles'
+import { PMTiles, Protocol } from 'pmtiles'
 
 export type MapTheme = 'light' | 'dark'
 
@@ -7,6 +7,7 @@ const styleNames: Record<MapTheme, string> = { light: 'licht', dark: 'donker' }
 const cache = new Map<MapTheme, Promise<StyleSpecification>>()
 const glyphs = new Map<string, Promise<ArrayBuffer>>()
 let protocolInstalled = false
+const tileProtocol = new Protocol()
 
 function loadGlyph(url: string): Promise<ArrayBuffer> {
   url = new URL(url).href
@@ -26,7 +27,7 @@ function loadGlyph(url: string): Promise<ArrayBuffer> {
 
 export function loadBasemapStyle(theme: MapTheme): Promise<StyleSpecification> {
   if (!protocolInstalled) {
-    addProtocol('pmtiles', new Protocol().tile)
+    addProtocol('pmtiles', tileProtocol.tile)
     addProtocol('motregen-glyphs', async (request) => ({
       data: (await loadGlyph(request.url.slice('motregen-glyphs://'.length))).slice(0),
     }))
@@ -45,6 +46,15 @@ export function loadBasemapStyle(theme: MapTheme): Promise<StyleSpecification> {
       }))
       .then((style) => {
         const prepared = prepareBasemapStyle(style, import.meta.env.VITE_DATA_ORIGIN ?? location.origin, new URL(url, location.href).href)
+        for (const source of Object.values(prepared.sources)) {
+          if (source.type !== 'vector' || !source.url?.startsWith('pmtiles://')) continue
+          const url = source.url.slice('pmtiles://'.length)
+          if (tileProtocol.get(url)) continue
+          const archive = new PMTiles(url)
+          tileProtocol.add(archive)
+          // Dezelfde headerpromise gaat later naar MapLibre; geen tweede Range of eigen parser.
+          void archive.getHeader().catch(() => undefined)
+        }
         if (prepared.glyphs && Object.values(prepared.sources).some((source) => source.type === 'vector' && source.url?.startsWith('pmtiles://'))) {
           // Haal het gewone Latijnse font op voordat een worker zijn eerste labels terugstuurt.
           void loadGlyph(prepared.glyphs.replace('{fontstack}', 'Noto%20Sans%20Regular').replace('{range}', '0-255')).catch(() => undefined)

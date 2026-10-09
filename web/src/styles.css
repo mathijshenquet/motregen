@@ -201,11 +201,10 @@ button { color: inherit; cursor: pointer; }
 }
 .map-brand img { width: 20px; height: 24px; }
 .map-splash {
-  /* 1,5× de basisduur 1200/300/600/600 ms (Splash ×, U7; knop weg in U30). */
-  --splash-reveal-duration: 1800ms;
-  --splash-mark-duration: 450ms;
-  --splash-outer-delay: 900ms;
-  --splash-outer-duration: 900ms;
+  --splash-reveal-duration: 300ms;
+  --splash-mark-duration: 300ms;
+  --splash-outer-delay: 0ms;
+  --splash-outer-duration: 300ms;
   position: absolute;
   inset: 0;
   z-index: 9;

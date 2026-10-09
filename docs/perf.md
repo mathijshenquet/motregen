@@ -850,6 +850,13 @@ De maat is `ttfp` (time to first play): van navigatiestart tot de kaart een rege
 in een getekend beeld terwijl `playing` aan staat (`PerfMonitor.markRainFrameCommitted`); een
 bewegende cursor boven een stilstaande kaart telt dus niet. Doel: `ttfp ≤ ttfp-ref`.
 
+Sinds U68 start de gedeelde afspeelklok pas na de eerste regentekenbeurt (`mapReady`) én de
+voltooide splash-onthulling. De scrubber staat buiten die sluier en wacht daarom mee: cursor,
+histogram-glide en kaartregen starten vanaf hetzelfde stilstaande moment. De speelregel blijft
+cursorframe + volgend frame; uurvelden zijn geen voorwaarde. `firstCursorMs` meet de eerste
+cursorbeweging; `ttfp` blijft de eerste daadwerkelijk getekende wissel van het linker regenframe.
+`styleReadyMs`, `firstBasemapTileMs` en `mapRevealedMs` maken kaartopzet en onthulling apart zichtbaar.
+
 ```sh
 pnpm perf:mobile --scenario koud-spelend --repeat 3            # ttfp, ttfr, ttfh, blank-visible, LoAF 12 s
 pnpm perf:mobile --scenario referentie-buienradar --repeat 3   # ttfp-ref
@@ -865,7 +872,8 @@ pnpm exec tsx scripts/po-reference.ts compare perf/po-android-reference.json tmp
   staat. Dat is sneller dan een mens, dus de referentie valt eerder gunstig uit voor Buienradar.
   `ttfp-ref zonder iets over de kaart` telt pas vanaf het eerste beeld waar niets overheen ligt.
 - De overige meetpunten: `ttfr` is het eerste regenframe én de basemap-tiles van het eerste
-  beeld (`map.areTilesLoaded()` na een render); `ttfh` is `window-ready:rain_rate`;
+  beeld (`map.areTilesLoaded()` na een render), met de onthulling voltooid (`mapRevealedMs`);
+  `ttfh` is `window-ready:rain_rate`;
   `blank-visible-ms` is de tijd na de splash waarin een zichtbaar regenslot van de scrubber geen
   waarde had en ook niet als "komt nog" getekend was (`core/screen-truth.ts`). Main tekent nog
   geen fog, dus daar telt elk ontbrekend slot als leeg. Tabelrijen tellen nog niet mee.

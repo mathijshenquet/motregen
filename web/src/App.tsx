@@ -686,6 +686,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
   })
   const [mapReady, setMapReady] = createSignal(false)
+  const [mapRevealed, setMapRevealed] = createSignal(false)
+  const playbackActive = createMemo(() => playing() && mapRendering() && mapReady() && mapRevealed())
   const [resetNotice, setResetNotice] = createSignal(false)
   let resetNoticeTimer: number | undefined
   const [updateReady, setUpdateReady] = createSignal(false)
@@ -877,7 +879,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         for (const frame of frames.slice(firstIndex, firstIndex + 2)) void load(frame).catch(() => undefined)
       }
       setManifest(data)
-      void Promise.all(data.chunks.filter(eagerHeader).map((chunk) => client.getHeader(chunk))).catch(() => undefined)
       if (!stillMode) stopManifestRefresh = scheduleManifestRefresh(refreshManifest, {
         setTimeout: (callback, delay) => window.setTimeout(callback, delay),
         clearTimeout: (handle) => window.clearTimeout(handle),
@@ -917,7 +918,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       applyMapContainLimit()
       map.on('resize', applyMapContainLimit)
       syncSavedMarkers(savedPlaces())
-      const firstStyleReady = new Promise<void>((resolve) => map!.once('style.load', () => resolve()))
+      const firstStyleReady = new Promise<void>((resolve) => map!.once('style.load', () => {
+        perf.markStyleReady()
+        resolve()
+      }))
       map.on('render', () => {
         mapRepaints++
         const source = map?.getSource(mapStartSource) ? mapStartSource : 'basemap'
@@ -950,6 +954,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       window.setTimeout(replaceMapStart, 15_000)
       map.on('sourcedata', (event) => {
         if (event.sourceId === 'basemap' && event.tile) {
+          if (!basemapTileSeen) {
+            perf.markFirstBasemapTile()
+            // De kaartheader en eerste tegels gaan vóór de ongebruikte HARMONIE-headers.
+            void Promise.all(data.chunks.filter(eagerHeader).map((chunk) => client.getHeader(chunk))).catch(() => undefined)
+          }
           basemapTileSeen = true
           replaceMapStartWhenComplete()
         }
@@ -973,6 +982,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       // Tegels en WebGL kunnen opwarmen terwijl de header voor de regenlaag nog onderweg is.
       const header = await firstHeader
       await firstStyleReady
+      if (!map.getSource('basemap')) void Promise.all(data.chunks.filter(eagerHeader).map((chunk) => client.getHeader(chunk))).catch(() => undefined)
       map.on('style.load', () => attachMapLayers(header.grid))
       attachMapLayers(header.grid)
       if (mapTheme() !== appliedMapTheme) void applyMapTheme(mapTheme())
@@ -1152,7 +1162,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     // Speelregel (MIP-19 §De lat): spelen zodra het cursorframe en het volgende er zijn. De oude
     // regel wachtte op laadfase "window" van de puntreeks.
     const waitsForWindow = playRuleWaitsForWindow && initialPickStarted && (pointLoadStage() === 'initial' || pointLoadStage() === 'direct')
-    if (!playing() || !mapRendering() || !mapReady() || waitsForWindow) return
+    if (!playbackActive() || waitsForWindow) return
     const horizonHours = timeHorizonHours()
     const frames = timeline()
     if (frames.length < 2) return
@@ -1214,6 +1224,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (nextCursor <= cursor()) { setGlideRate(0); return }
       }
       batch(() => {
+        perf.markFirstCursorMove()
         setCursor(nextCursor)
         setGlideRate(playbackRate)
       })
@@ -1430,7 +1441,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       })
     }
     afterRainDraw(() => {
-      const firstPlayback = perf.markRainFrameCommitted({ frameEpoch: leftFrame.epoch, playing: playing() })
+      const firstPlayback = perf.markRainFrameCommitted({ frameEpoch: leftFrame.epoch, playing: playbackActive() })
       if (firstPlayback || !playing()) schedulePlaces()
     })
     if (!rainOverlay) map.triggerRepaint()
@@ -3106,9 +3117,22 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       reportWindowReady(series.field, withFrame.map((row) => row.epoch), (index) => series.values()[withFrame[index]![series.key]!] != null)
     }
   })
+  createEffect(() => {
+    if (!mapReady()) { setMapRevealed(false); return }
+    let cancelled = false
+    const frame = requestAnimationFrame(() => {
+      // De scrubber ligt buiten de sluier: ook zijn klok wacht tot de onthulling echt klaar is.
+      void Promise.all(splashElement.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined))).then(() => {
+        if (cancelled) return
+        perf.markMapRevealed()
+        setMapRevealed(true)
+      })
+    })
+    onCleanup(() => { cancelled = true; cancelAnimationFrame(frame) })
+  })
   // Schermwaarheid (MIP-19): de scrubber tekent nog geen fog, dus elk zichtbaar regenslot zonder waarde is leeg.
   createEffect(() => {
-    if (mapReady()) perf.markSplashGone()
+    if (mapRevealed()) perf.markSplashGone()
     const loaded = rainLoaded()
     const slots = timeline().map((frame, index) => ({ epoch: frame.epoch, loaded: loaded[index] === true, fogDrawn: false }))
     const states = visibleSlotStates(slots, viewWindow())
@@ -3337,7 +3361,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           loaded={rainLoaded()}
           cursor={cursor()}
           now={manifest() ? Date.parse(manifest()!.now) : 0}
-          playing={playing()}
+          playing={playbackActive()}
           loading={pointSeriesLoading()}
           loadStage={pointLoadStage()}
           locationLabel={status()}

@@ -206,7 +206,8 @@ test.describe('telefoon met ingeklapte adresbalk', () => {
   test('the table preview tweens to the cursor hour while a finger drags the scrubber (U62)', async ({ page }) => {
     await page.goto('/')
     await expect(page.locator('tr.current-hour')).toBeAttached()
-    await expect(page.locator('.map-splash.ready')).toBeAttached()
+    // U68: de kaartgereedheid gaat vooraf aan de onthulling; pauzeren pas bij werkelijk afspelen.
+    await expect(page.locator('.map-splash')).toBeHidden()
     const slider = page.getByRole('slider', { name: 'Tijd' })
     if (await slider.getAttribute('data-playing') !== null) await slider.press(' ')
     await expect.poll(() => previewOffset(page)).toBe(0)

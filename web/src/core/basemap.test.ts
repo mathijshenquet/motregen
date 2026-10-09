@@ -15,7 +15,7 @@ const { validateStyleMin } = require(require.resolve('@maplibre/maplibre-gl-styl
 describe('eigen basiskaart', () => {
   it('leest beide inline thema’s met dezelfde bron- en glyphresolutie, zonder stijlverzoek', async () => {
     vi.resetModules()
-    const request = vi.fn(async () => new Response(new Uint8Array([0, 255])))
+    const request = vi.fn(async (_url: string) => new Response(new Uint8Array([0, 255])))
     vi.stubGlobal('fetch', request)
     vi.stubGlobal('location', { origin: 'https://app.example.test', href: 'https://app.example.test/weer/utrecht' })
     vi.stubGlobal('document', { getElementById: (id: string) => ({ textContent: JSON.stringify(styles[id === 'basemap-licht' ? 0 : 1]) }) })
@@ -26,7 +26,8 @@ describe('eigen basiskaart', () => {
         expect(prepared.sources.basemap).toMatchObject({ url: expect.stringMatching(/^pmtiles:\/\/https:\/\/app\.example\.test\/data\/basemap\//) })
         expect(prepared.glyphs).toBe('motregen-glyphs://https://app.example.test/basemap/fonts/{fontstack}/{range}.pbf')
       }
-      expect(request).toHaveBeenCalledExactlyOnceWith('https://app.example.test/basemap/fonts/Noto%20Sans%20Regular/0-255.pbf')
+      expect(request.mock.calls.filter(([url]) => url === 'https://app.example.test/basemap/fonts/Noto%20Sans%20Regular/0-255.pbf')).toHaveLength(1)
+      expect(request.mock.calls.filter(([url]) => String(url).endsWith('.pmtiles'))).toHaveLength(1)
     } finally {
       vi.unstubAllGlobals()
     }
