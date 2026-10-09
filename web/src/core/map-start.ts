@@ -12,7 +12,9 @@ export function mapStartStyle(style: StyleSpecification): StyleSpecification {
   for (const layer of style.layers) {
     if (!('source' in layer) || layer.source !== 'basemap' || !('source-layer' in layer)) continue
     if (layer.type !== 'fill' && layer.type !== 'line') continue
-    if (!['landcover', 'water', 'boundary'].includes(layer['source-layer'] ?? '')) continue
+    // Geen landcover in de startkaart: de grijze bebouwde kom op z4 flikkerde bij de wissel; nu komt bij de
+    // overgang alleen bebouwing en groen bíj (PO 2026-10-09).
+    if (!['water', 'boundary'].includes(layer['source-layer'] ?? '')) continue
     layers.push({ ...layer, id: `${mapStartSource}-${layer.id}`, source: mapStartSource })
   }
   return {
