@@ -1,0 +1,82 @@
+{
+  "code": 0,
+  "signal": null,
+  "runtime": "built",
+  "nodeHeapMiB": "",
+  "maxAnonBytes": 852938752,
+  "maxFileBytes": 730763264,
+  "elapsedSeconds": 69.64049088700001,
+  "memoryPeakBytes": 1600651264,
+  "memoryHigh": "2306867200",
+  "memoryMax": "2726297600",
+  "cpuMax": "200000 100000",
+  "memoryEvents": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+  "processes": [
+    {
+      "pid": 205515,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 70803456
+    },
+    {
+      "pid": 205528,
+      "name": "time",
+      "executable": "/nix/store/y51431wmnm7vli4l347dpn44nyhmcrw7-time-1.10/bin/time",
+      "maxRssBytes": 1810432
+    },
+    {
+      "pid": 205529,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 785272832
+    },
+    {
+      "pid": 206665,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 78807040
+    },
+    {
+      "pid": 207860,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 83251200
+    },
+    {
+      "pid": 215694,
+      "name": "native-field-ra",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-field-raster",
+      "maxRssBytes": 13250560
+    },
+    {
+      "pid": 215695,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 83243008
+    },
+    {
+      "pid": 215960,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 16846848
+    },
+    {
+      "pid": 215961,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 57716736
+    },
+    {
+      "pid": 215963,
+      "name": "native-field-ra",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-field-raster",
+      "maxRssBytes": 11444224
+    },
+    {
+      "pid": 215964,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 83189760
+    }
+  ]
+}

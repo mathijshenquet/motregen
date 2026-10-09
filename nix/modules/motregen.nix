@@ -609,12 +609,13 @@ in
         UMask = "0022";
         Restart = "on-failure";
         RestartSec = "15s";
-        # U71c meet 173 media op twee kernen; rolkeuze blijft een aparte uitrolstap.
+        # U71d begrenst renderbuffers; rolkeuze blijft een aparte uitrolstap.
         Nice = 10;
         CPUWeight = 20;
         CPUQuota = if cfg.bot.role == "poller" then "25%" else if cfg.bot.role == "renderer" then "200%" else "150%";
-        MemoryHigh = if cfg.bot.role == "poller" then "384M" else if cfg.bot.role == "renderer" then "1800M" else "2200M";
-        MemoryMax = if cfg.bot.role == "poller" then "512M" else if cfg.bot.role == "renderer" then "2200M" else "2600M";
+        MemoryHigh = if cfg.bot.role == "poller" then "384M" else if cfg.bot.role == "renderer" then "900M" else "2200M";
+        MemoryMax = if cfg.bot.role == "poller" then "512M" else if cfg.bot.role == "renderer" then "1100M" else "2600M";
+        MemorySwapMax = lib.mkIf (cfg.bot.role == "renderer") "0";
         TimeoutStopSec = "90s";
         LimitCORE = 0;
         PrivateNetwork = false;

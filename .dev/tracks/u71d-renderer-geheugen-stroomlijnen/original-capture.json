@@ -1,0 +1,291 @@
+{
+  "code": 0,
+  "signal": null,
+  "runtime": "built",
+  "nodeHeapMiB": "192",
+  "nodeSemiSpaceMiB": 4,
+  "maxAnonBytes": 810840064,
+  "maxFileBytes": 97148928,
+  "elapsedSeconds": 82.732456274,
+  "memoryPeakBytes": 840400896,
+  "memorySwapPeakBytes": 0,
+  "memorySwapMax": "0",
+  "mallocArenaMax": "2",
+  "mallocMmapThreshold": "131072",
+  "memoryHigh": "838860800",
+  "memoryMax": "1048576000",
+  "cpuMax": "200000 100000",
+  "memoryEvents": "low 0\nhigh 256\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+  "processes": [
+    {
+      "pid": 326066,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 71467008
+    },
+    {
+      "pid": 326078,
+      "name": "time",
+      "executable": "/nix/store/y51431wmnm7vli4l347dpn44nyhmcrw7-time-1.10/bin/time",
+      "maxRssBytes": 1810432
+    },
+    {
+      "pid": 326079,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 365326336
+    },
+    {
+      "pid": 326173,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 129622016
+    },
+    {
+      "pid": 326180,
+      "name": "chrome_crashpad",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chrome_crashpad_handler",
+      "maxRssBytes": 4304896
+    },
+    {
+      "pid": 326182,
+      "name": "chrome_crashpad",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chrome_crashpad_handler",
+      "maxRssBytes": 3825664
+    },
+    {
+      "pid": 326185,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 72024064
+    },
+    {
+      "pid": 326186,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 73052160
+    },
+    {
+      "pid": 326208,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 379285504
+    },
+    {
+      "pid": 326210,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 106373120
+    },
+    {
+      "pid": 326243,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 48259072
+    },
+    {
+      "pid": 326262,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 160378880
+    },
+    {
+      "pid": 326271,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 70967296
+    },
+    {
+      "pid": 326272,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 345804800
+    },
+    {
+      "pid": 326415,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 9355264
+    },
+    {
+      "pid": 326422,
+      "name": "chrome_crashpad",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chrome_crashpad_handler",
+      "maxRssBytes": 4276224
+    },
+    {
+      "pid": 326424,
+      "name": "chrome_crashpad",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chrome_crashpad_handler",
+      "maxRssBytes": 3948544
+    },
+    {
+      "pid": 326427,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 70647808
+    },
+    {
+      "pid": 326428,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 71438336
+    },
+    {
+      "pid": 326449,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 388399104
+    },
+    {
+      "pid": 326450,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 106143744
+    },
+    {
+      "pid": 326476,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 47378432
+    },
+    {
+      "pid": 326506,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 159453184
+    },
+    {
+      "pid": 326515,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 70279168
+    },
+    {
+      "pid": 326516,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 279085056
+    },
+    {
+      "pid": 326586,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 52113408
+    },
+    {
+      "pid": 326588,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 67227648
+    },
+    {
+      "pid": 327183,
+      "name": "MainThread",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 12288
+    },
+    {
+      "pid": 327212,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2772992
+    },
+    {
+      "pid": 327289,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2740224
+    },
+    {
+      "pid": 327314,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2732032
+    },
+    {
+      "pid": 327329,
+      "name": "native-field-ra",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-field-raster",
+      "maxRssBytes": 12480512
+    },
+    {
+      "pid": 327330,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 68579328
+    },
+    {
+      "pid": 327378,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2666496
+    },
+    {
+      "pid": 327416,
+      "name": "MainThread",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 12288
+    },
+    {
+      "pid": 327432,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2723840
+    },
+    {
+      "pid": 327514,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2764800
+    },
+    {
+      "pid": 327518,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2674688
+    },
+    {
+      "pid": 327600,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2658304
+    },
+    {
+      "pid": 327626,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 24576
+    },
+    {
+      "pid": 327640,
+      "name": "native-field-ra",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-field-raster",
+      "maxRssBytes": 9797632
+    },
+    {
+      "pid": 327641,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 65085440
+    },
+    {
+      "pid": 327646,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 15228928
+    },
+    {
+      "pid": 327686,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 1245184
+    },
+    {
+      "pid": 327876,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 42840064
+    }
+  ]
+}

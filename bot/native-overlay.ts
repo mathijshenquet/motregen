@@ -10,6 +10,7 @@ import type { LoopMode, StillManifest } from './stills.js'
 
 // libvips' operation cache otherwise retains the raw full-frame inputs between renders.
 sharp.cache(false)
+sharp.concurrency(1)
 
 interface Box { left: number; top: number; width: number; height: number }
 interface Glyph { target: { left: number; top: number } }
@@ -28,16 +29,24 @@ export class NativeOverlay {
 
   private get title(): string { return this.mode === 'feels' ? 'Gevoelstemperatuur' : this.mode === 'wind' ? 'Wind' : 'Regen' }
 
-  async prepare(manifest: StillManifest): Promise<void> {
+  async prepare(manifest: StillManifest, epochs: readonly number[] = [Date.parse(manifest.now)]): Promise<void> {
     this.atlas ??= this.load(manifest).catch((error) => { this.atlas = undefined; throw error })
-    await this.loadGlyphs(await this.atlas, dayFormat.format(Date.parse(manifest.now)))
+    const atlas = await this.atlas
+    const days = new Map<string, Set<string>>()
+    for (const epoch of epochs) {
+      const day = dayFormat.format(epoch)
+      const texts = days.get(day) ?? new Set([day, this.title])
+      texts.add(timeFormat.format(epoch))
+      days.set(day, texts)
+    }
+    for (const [day, texts] of days) await this.loadGlyphs(atlas, day, [...texts])
   }
 
   async draw(rgb: Buffer, epoch: number, now: number): Promise<Buffer> {
     const atlas = await this.atlas!
     const day = dayFormat.format(epoch), time = timeFormat.format(epoch)
     const layout = atlas.metadata.clocks[day]!
-    const glyphs = await this.loadGlyphs(atlas, day)
+    const glyphs = await this.loadGlyphs(atlas, day, [time, day, this.title])
     const background = atlas.backgrounds[layout.backgrounds[epoch > now ? 'forecast' : 'history']!]!
     const blurred = await sharp(rgb, { raw: { ...FRAME_PIXELS, channels: 3 } }).extract(clockBox).blur(15).raw().toBuffer()
     this.blit(rgb, background, clockBox, blurred)
@@ -81,22 +90,38 @@ export class NativeOverlay {
     return { metadata, glyphs: new Map(), backgrounds, footer: await sharp(join(this.directory, metadata.footer)).ensureAlpha().raw().toBuffer() }
   }
 
-  private loadGlyphs(atlas: Atlas, day: string): Promise<Record<string, GlyphPatch>> {
-    let pending = atlas.glyphs.get(day)
-    if (!pending) {
-      pending = (async () => {
-        const sheet = await sharp(join(this.directory, `overlay-${atlas.metadata.key}-${day}-glyphs.png`)).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
-        return Object.fromEntries(Object.entries(atlas.metadata.glyphs[day]!).map(([text, box]) => {
+  private async loadGlyphs(atlas: Atlas, day: string, texts: readonly string[]): Promise<Record<string, GlyphPatch>> {
+    const prior = await atlas.glyphs.get(day) ?? {}
+    const missing = texts.filter((text) => !prior[text])
+    if (!missing.length) return prior
+    const pending = (async () => {
+      const path = join(this.directory, `overlay-${atlas.metadata.key}-${day}-glyphs.png`)
+      const metadata = await sharp(path).metadata()
+      const bands = new Map<number, Array<[string, Box]>>()
+      for (const text of missing) {
+        const entry: [string, Box] = [text, atlas.metadata.glyphs[day]![text]!]
+        const band = Math.floor(entry[1].top / 1024)
+        const entries = bands.get(band) ?? []
+        entries.push(entry)
+        bands.set(band, entries)
+      }
+      const glyphs: Record<string, GlyphPatch> = { ...prior }
+      for (const entries of bands.values()) {
+        const top = Math.min(...entries.map(([, box]) => box.top))
+        const bottom = Math.max(...entries.map(([, box]) => box.top + box.height))
+        const sheet = await sharp(path, { sequentialRead: true }).extract({ left: 0, top, width: metadata.width!, height: bottom - top }).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+        for (const [text, box] of entries) {
           const rgba = Buffer.alloc(box.width * box.height * 4)
           for (let row = 0; row < box.height; row++) {
-            const start = ((box.top + row) * sheet.info.width + box.left) * 4
+            const start = ((box.top - top + row) * sheet.info.width + box.left) * 4
             sheet.data.copy(rgba, row * box.width * 4, start, start + box.width * 4)
           }
-          return [text, { box, rgba }]
-        }))
-      })()
-      atlas.glyphs.set(day, pending)
-    }
+          glyphs[text] = { box, rgba }
+        }
+      }
+      return glyphs
+    })()
+    atlas.glyphs.set(day, pending)
     return pending
   }
 

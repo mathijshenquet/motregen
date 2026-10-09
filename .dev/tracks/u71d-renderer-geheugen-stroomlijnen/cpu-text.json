@@ -1,0 +1,146 @@
+{
+  "code": 1,
+  "signal": null,
+  "runtime": "built",
+  "nodeHeapMiB": "192",
+  "maxAnonBytes": 647630848,
+  "maxFileBytes": 53129216,
+  "elapsedSeconds": 106.09960648,
+  "memoryPeakBytes": 673968128,
+  "memorySwapPeakBytes": 0,
+  "memorySwapMax": "0",
+  "mallocArenaMax": "2",
+  "mallocMmapThreshold": "131072",
+  "memoryHigh": "629145600",
+  "memoryMax": "838860800",
+  "cpuMax": "200000 100000",
+  "memoryEvents": "low 0\nhigh 22163\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+  "processes": [
+    {
+      "pid": 250538,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 73887744
+    },
+    {
+      "pid": 250549,
+      "name": "time",
+      "executable": "/nix/store/y51431wmnm7vli4l347dpn44nyhmcrw7-time-1.10/bin/time",
+      "maxRssBytes": 1810432
+    },
+    {
+      "pid": 250550,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 420478976
+    },
+    {
+      "pid": 250566,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 52408320
+    },
+    {
+      "pid": 250588,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 68640768
+    },
+    {
+      "pid": 255531,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 655360
+    },
+    {
+      "pid": 258707,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 24576
+    },
+    {
+      "pid": 258961,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 133029888
+    },
+    {
+      "pid": 258969,
+      "name": "chrome_crashpad",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chrome_crashpad_handler",
+      "maxRssBytes": 4300800
+    },
+    {
+      "pid": 258971,
+      "name": "chrome_crashpad",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chrome_crashpad_handler",
+      "maxRssBytes": 3768320
+    },
+    {
+      "pid": 258974,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 72056832
+    },
+    {
+      "pid": 258975,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 72523776
+    },
+    {
+      "pid": 258996,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 88281088
+    },
+    {
+      "pid": 258998,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 107347968
+    },
+    {
+      "pid": 259033,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 48070656
+    },
+    {
+      "pid": 259056,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 185184256
+    },
+    {
+      "pid": 259063,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 303132672
+    },
+    {
+      "pid": 259070,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 285859840
+    },
+    {
+      "pid": 259094,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 20480
+    },
+    {
+      "pid": 261624,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 185573376
+    },
+    {
+      "pid": 261633,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 70463488
+    }
+  ]
+}

@@ -22,7 +22,7 @@ it('uses the right raster at an exact hour and applies the app’s temporal spli
     return { grid, left: new Uint8Array(16).fill(Math.max(0, index - 1)), right: new Uint8Array(16).fill(index), mix: index === 0 ? 0 : 1, leftHeader: header, rightHeader: header, intervalMinutes: 60 }
   })
   const data = new NativeTemperatureData('https://fixture.test', manifest)
-  await data.prepare([Date.parse(now), Date.parse(now) + 1800000])
+  await data.prepare()
   expect(Array.from((await data.slice(Date.parse(now))).field.values)).toEqual(new Array(16).fill(20))
   const epoch = Date.parse(now) + 1800000
   const eager = await data.slice(epoch)
@@ -42,6 +42,6 @@ it('starts pressure hysteresis at the app’s four-hPa step', async () => {
   vi.spyOn(data, 'field').mockResolvedValue(prepareField({ width: 4, height: 4, values: Float32Array.from(codes, (code) => pressureHeader.quant[code]!) }))
   expect(adaptiveIsobarStep(1001, 1013)).toBe(2)
   expect(adaptiveIsobarStep(1001, 1013, 4)).toBe(4)
-  await data.prepare([Date.parse(now)])
+  await data.prepare()
   expect((await data.slice(Date.parse(now))).step).toBe(4)
 })

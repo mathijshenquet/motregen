@@ -9,11 +9,24 @@ import { NativeMaps } from './native-map.js'
 import { NativeRainData, RainCompositor, rainTheme } from './native-rain.js'
 import { drawTemperatureLabels } from './native-labels.js'
 import { NativeOverlay } from './native-overlay.js'
+import { releaseFileCache } from './native-raster.js'
 
 export function nativeFramePath(directory: string, index: number): string { return join(directory, `frame-${String(index).padStart(3, '0')}.ppm`) }
 
 export class NativeWeatherRenderer {
   constructor(private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>, private readonly sharedMaps?: NativeMaps, private readonly assetsReady?: () => Promise<void>) {}
+
+  async prepareAssets(manifest: StillManifest, plan: SequencePlan): Promise<void> {
+    const maps = this.sharedMaps ?? new NativeMaps(this.origin, this.directory, this.context)
+    const data = new NativeRainData(this.origin, manifest)
+    const grid = (await data.frame(plan.epochs[0]!)).grid
+    data.clear()
+    global.gc?.()
+    try {
+      await new NativeOverlay(this.origin, this.directory, this.context).prepare(manifest, [])
+      for (const theme of new Set(plan.epochs.map(rainTheme))) await maps.get(theme, grid)
+    } finally { maps.clear() }
+  }
 
   async render(manifest: StillManifest, plan: SequencePlan, directory: string, destination: string, loopComplete: () => void): Promise<{ renderMs: number; encodeMs: number; preparationMs: number; loopMs: number; loopRenderMs: number; bytes: number }> {
     const started = performance.now()
@@ -24,7 +37,7 @@ export class NativeWeatherRenderer {
     const temperatures = hasTemperature ? new NativeRainData(this.origin, manifest, 'feels_like_c') : undefined
     const temperatureEpoch = (epoch: number) => Math.max(temperatures!.timeline[0]!.epoch, Math.min(temperatures!.timeline.at(-1)!.epoch, Math.round(epoch / 600_000) * 600_000))
     const [first] = await Promise.all([
-      data.frame(plan.epochs[0]!), data.prefetch(plan.epochs), overlay.prepare(manifest),
+      data.frame(plan.epochs[0]!), data.prefetch(plan.epochs), overlay.prepare(manifest, plan.epochs),
       ...(temperatures ? [temperatures.prefetch(plan.epochs.map(temperatureEpoch))] : []),
     ])
     const compositor = new RainCompositor(first.grid)
@@ -51,7 +64,11 @@ export class NativeWeatherRenderer {
         const composed = performance.now()
         const rgb = await overlay.draw(rain, epoch, now)
         const overlaid = performance.now()
-        if (stillIndexes.has(index)) await writeFile(nativeFramePath(directory, index), [header, rgb])
+        if (stillIndexes.has(index)) {
+          const path = nativeFramePath(directory, index)
+          await writeFile(path, [header, rgb])
+          await releaseFileCache(path)
+        }
         const finished = performance.now()
         phases.dataMs += loaded - frameStarted
         phases.labelsMs += labelled - loaded
@@ -72,6 +89,6 @@ export class NativeWeatherRenderer {
       loopComplete()
       for (let index = plan.loopFrames; index < plan.epochs.length; index++) await render(index)
       return { renderMs: Math.round(renderMs + loopStarted - started), encodeMs: Math.max(0, Math.round(performance.now() - started - renderMs - (loopStarted - started))), preparationMs, loopMs, loopRenderMs, bytes: encoded.bytes }
-    } finally { await compositor.close() }
+    } finally { await compositor.close(); data.clear(); temperatures?.clear(); maps.clear() }
   }
 }

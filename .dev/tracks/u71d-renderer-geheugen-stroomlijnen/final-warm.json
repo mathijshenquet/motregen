@@ -1,0 +1,141 @@
+{
+  "code": 0,
+  "signal": null,
+  "runtime": "built",
+  "nodeHeapMiB": "192",
+  "nodeSemiSpaceMiB": 4,
+  "maxAnonBytes": 353013760,
+  "maxFileBytes": 96825344,
+  "elapsedSeconds": 73.44369775999999,
+  "memoryPeakBytes": 471916544,
+  "memorySwapPeakBytes": 0,
+  "memorySwapMax": "0",
+  "mallocArenaMax": "2",
+  "mallocMmapThreshold": "131072",
+  "memoryHigh": "629145600",
+  "memoryMax": "838860800",
+  "cpuMax": "200000 100000",
+  "memoryEvents": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+  "processes": [
+    {
+      "pid": 331735,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 70119424
+    },
+    {
+      "pid": 331747,
+      "name": "time",
+      "executable": "/nix/store/y51431wmnm7vli4l347dpn44nyhmcrw7-time-1.10/bin/time",
+      "maxRssBytes": 1802240
+    },
+    {
+      "pid": 331748,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 369786880
+    },
+    {
+      "pid": 331839,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 49401856
+    },
+    {
+      "pid": 331840,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 65646592
+    },
+    {
+      "pid": 332233,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2732032
+    },
+    {
+      "pid": 332245,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2760704
+    },
+    {
+      "pid": 332334,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2715648
+    },
+    {
+      "pid": 332510,
+      "name": "native-field-ra",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-field-raster",
+      "maxRssBytes": 12500992
+    },
+    {
+      "pid": 332511,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 68636672
+    },
+    {
+      "pid": 332567,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2666496
+    },
+    {
+      "pid": 332591,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2760704
+    },
+    {
+      "pid": 332605,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2772992
+    },
+    {
+      "pid": 332745,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2736128
+    },
+    {
+      "pid": 332768,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2752512
+    },
+    {
+      "pid": 332899,
+      "name": "native-field-ra",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-field-raster",
+      "maxRssBytes": 9592832
+    },
+    {
+      "pid": 332900,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 68677632
+    },
+    {
+      "pid": 332909,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 15069184
+    },
+    {
+      "pid": 332960,
+      "name": "MainThread",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 12288
+    },
+    {
+      "pid": 333170,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 42135552
+    }
+  ]
+}

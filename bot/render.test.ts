@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { expect, it, vi } from 'vitest'
-import { StillRenderer } from './render.js'
+import { StillRenderer, StillRenderError } from './render.js'
 import { NativeWeatherRenderer } from './native-render.js'
 import { NativeModesRenderer } from './native-modes-render.js'
 import { sequencePlan } from './sequences.js'
@@ -21,8 +21,12 @@ it('serializes native modes and continues after a failed sequence', async () => 
   let active = 0
   let maximum = 0
   const order: string[] = []
+  const prepared: string[] = []
+  vi.spyOn(NativeWeatherRenderer.prototype, 'prepareAssets').mockImplementation(async () => { prepared.push('weather') })
+  vi.spyOn(NativeModesRenderer.prototype, 'prepareAssets').mockImplementation(async (mode) => { prepared.push(mode) })
   const metrics = { renderMs: 1, encodeMs: 1, preparationMs: 1, loopMs: 1, loopRenderMs: 1, bytes: 4 }
   vi.spyOn(NativeWeatherRenderer.prototype, 'render').mockImplementation(async () => {
+    expect(prepared).toEqual(['weather', 'feels', 'wind'])
     order.push('weather')
     throw new Error('Fixture render failed')
   })
@@ -39,7 +43,35 @@ it('serializes native modes and continues after a failed sequence', async () => 
     const results = await Promise.allSettled(['weather', 'feels', 'wind'].map((mode) => renderer.render({ mode: mode as 'weather' | 'feels' | 'wind', hour: 'loop' }, manifest)))
     expect(results.map((result) => result.status)).toEqual(['rejected', 'fulfilled', 'fulfilled'])
     expect(order).toEqual(['weather', 'feels', 'wind'])
+    expect(prepared).toEqual(['weather', 'feels', 'wind'])
     expect(maximum).toBe(1)
+  } finally {
+    await renderer.close()
+    vi.restoreAllMocks()
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
+it('retries failed asset preparation before starting a native sequence and removes temporary frames', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'motregen-native-assets-'))
+  const renderer = new StillRenderer('https://fixture.test', directory)
+  const manifest: StillManifest = { version: 0, generated: '2026-10-07T12:00:00Z', now: '2026-10-07T12:00:00Z', chunks: [] }
+  const weatherAssets = vi.spyOn(NativeWeatherRenderer.prototype, 'prepareAssets').mockRejectedValueOnce(new Error('Fixture asset failed')).mockResolvedValue(undefined)
+  const modeAssets = vi.spyOn(NativeModesRenderer.prototype, 'prepareAssets').mockResolvedValue(undefined)
+  const weatherRender = vi.spyOn(NativeWeatherRenderer.prototype, 'render')
+  const modeRender = vi.spyOn(NativeModesRenderer.prototype, 'render').mockImplementation(async (_mode, _manifest, _plan, _directory, destination) => {
+    expect(modeAssets.mock.calls.map(([mode]) => mode)).toEqual(['feels', 'wind'])
+    await writeFile(destination, 'loop')
+    return { renderMs: 1, encodeMs: 1, preparationMs: 1, loopMs: 1, loopRenderMs: 1, bytes: 4 }
+  })
+  try {
+    await expect(renderer.render({ mode: 'weather', hour: 'loop' }, manifest)).rejects.toBeInstanceOf(StillRenderError)
+    expect(weatherRender).not.toHaveBeenCalled()
+    expect(modeRender).not.toHaveBeenCalled()
+    expect((await readdir(directory)).filter((name) => name.startsWith('.frames-'))).toEqual([])
+    await expect(renderer.render({ mode: 'feels', hour: 'loop' }, manifest)).resolves.toMatchObject({ cached: false, backend: 'native' })
+    expect(weatherAssets).toHaveBeenCalledTimes(2)
+    expect(modeRender).toHaveBeenCalledTimes(1)
   } finally {
     await renderer.close()
     vi.restoreAllMocks()

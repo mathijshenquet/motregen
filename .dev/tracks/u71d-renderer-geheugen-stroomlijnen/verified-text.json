@@ -1,0 +1,195 @@
+{
+  "code": 0,
+  "signal": null,
+  "runtime": "built",
+  "nodeHeapMiB": "192",
+  "nodeSemiSpaceMiB": 4,
+  "maxAnonBytes": 788140032,
+  "maxFileBytes": 97144832,
+  "elapsedSeconds": 85.22391146700001,
+  "memoryPeakBytes": 804990976,
+  "memorySwapPeakBytes": 0,
+  "memorySwapMax": "0",
+  "mallocArenaMax": "2",
+  "mallocMmapThreshold": "131072",
+  "memoryHigh": "786432000",
+  "memoryMax": "996147200",
+  "cpuMax": "200000 100000",
+  "memoryEvents": "low 0\nhigh 1766\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+  "processes": [
+    {
+      "pid": 349549,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 70049792
+    },
+    {
+      "pid": 349560,
+      "name": "time",
+      "executable": "/nix/store/y51431wmnm7vli4l347dpn44nyhmcrw7-time-1.10/bin/time",
+      "maxRssBytes": 1810432
+    },
+    {
+      "pid": 349561,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 365293568
+    },
+    {
+      "pid": 349674,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 227749888
+    },
+    {
+      "pid": 349676,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 42397696
+    },
+    {
+      "pid": 349677,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 42631168
+    },
+    {
+      "pid": 349694,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 399847424
+    },
+    {
+      "pid": 349696,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 74076160
+    },
+    {
+      "pid": 349735,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 305086464
+    },
+    {
+      "pid": 349847,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 221143040
+    },
+    {
+      "pid": 349849,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 42459136
+    },
+    {
+      "pid": 349850,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 42582016
+    },
+    {
+      "pid": 349867,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 395231232
+    },
+    {
+      "pid": 349869,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 73928704
+    },
+    {
+      "pid": 349897,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 241180672
+    },
+    {
+      "pid": 350088,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 45043712
+    },
+    {
+      "pid": 350093,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 68247552
+    },
+    {
+      "pid": 350654,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2768896
+    },
+    {
+      "pid": 350965,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2678784
+    },
+    {
+      "pid": 351081,
+      "name": "MainThread",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 12288
+    },
+    {
+      "pid": 351085,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 126304256
+    },
+    {
+      "pid": 351179,
+      "name": "native-field-ra",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-field-raster",
+      "maxRssBytes": 12476416
+    },
+    {
+      "pid": 351180,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 66904064
+    },
+    {
+      "pid": 351419,
+      "name": "MainThread",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 12288
+    },
+    {
+      "pid": 351650,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 364544
+    },
+    {
+      "pid": 351991,
+      "name": "native-field-ra",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-field-raster",
+      "maxRssBytes": 9617408
+    },
+    {
+      "pid": 351992,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 68657152
+    },
+    {
+      "pid": 351994,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 15208448
+    },
+    {
+      "pid": 352304,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 34787328
+    }
+  ]
+}

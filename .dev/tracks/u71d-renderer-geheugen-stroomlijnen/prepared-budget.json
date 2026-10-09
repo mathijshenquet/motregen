@@ -1,0 +1,231 @@
+{
+  "code": 137,
+  "signal": null,
+  "runtime": "built",
+  "nodeHeapMiB": "192",
+  "nodeSemiSpaceMiB": 4,
+  "maxAnonBytes": 756502528,
+  "maxFileBytes": 47292416,
+  "elapsedSeconds": 77.57196594999999,
+  "memoryPeakBytes": 782319616,
+  "memorySwapPeakBytes": 0,
+  "memorySwapMax": "0",
+  "mallocArenaMax": "2",
+  "mallocMmapThreshold": "131072",
+  "memoryHigh": "734003200",
+  "memoryMax": "943718400",
+  "cpuMax": "200000 100000",
+  "memoryEvents": "low 0\nhigh 11724\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+  "processes": [
+    {
+      "pid": 323357,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 71925760
+    },
+    {
+      "pid": 323368,
+      "name": "time",
+      "executable": "/nix/store/y51431wmnm7vli4l347dpn44nyhmcrw7-time-1.10/bin/time",
+      "maxRssBytes": 1810432
+    },
+    {
+      "pid": 323369,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 258637824
+    },
+    {
+      "pid": 323470,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 128991232
+    },
+    {
+      "pid": 323477,
+      "name": "chrome_crashpad",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chrome_crashpad_handler",
+      "maxRssBytes": 4358144
+    },
+    {
+      "pid": 323479,
+      "name": "chrome_crashpad",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chrome_crashpad_handler",
+      "maxRssBytes": 3813376
+    },
+    {
+      "pid": 323482,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 72069120
+    },
+    {
+      "pid": 323483,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 72699904
+    },
+    {
+      "pid": 323502,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 333275136
+    },
+    {
+      "pid": 323505,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 106201088
+    },
+    {
+      "pid": 323539,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 47374336
+    },
+    {
+      "pid": 323560,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 160169984
+    },
+    {
+      "pid": 323573,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 70610944
+    },
+    {
+      "pid": 323578,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 340586496
+    },
+    {
+      "pid": 324462,
+      "name": "chrome_crashpad",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chrome_crashpad_handler",
+      "maxRssBytes": 4292608
+    },
+    {
+      "pid": 324464,
+      "name": "chrome_crashpad",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chrome_crashpad_handler",
+      "maxRssBytes": 3854336
+    },
+    {
+      "pid": 324467,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 71258112
+    },
+    {
+      "pid": 324468,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 70832128
+    },
+    {
+      "pid": 324491,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 319602688
+    },
+    {
+      "pid": 324492,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 105693184
+    },
+    {
+      "pid": 324512,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 47353856
+    },
+    {
+      "pid": 324545,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 158593024
+    },
+    {
+      "pid": 324563,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 70836224
+    },
+    {
+      "pid": 324573,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 360828928
+    },
+    {
+      "pid": 325850,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 70578176
+    },
+    {
+      "pid": 325857,
+      "name": "chrome_crashpad",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chrome_crashpad_handler",
+      "maxRssBytes": 4325376
+    },
+    {
+      "pid": 325859,
+      "name": "chrome_crashpad",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chrome_crashpad_handler",
+      "maxRssBytes": 3747840
+    },
+    {
+      "pid": 325862,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 72257536
+    },
+    {
+      "pid": 325863,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 72159232
+    },
+    {
+      "pid": 325885,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 153862144
+    },
+    {
+      "pid": 325886,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 106414080
+    },
+    {
+      "pid": 325889,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 47439872
+    },
+    {
+      "pid": 325941,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 159252480
+    },
+    {
+      "pid": 325950,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 70807552
+    },
+    {
+      "pid": 325951,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 276893696
+    }
+  ]
+}

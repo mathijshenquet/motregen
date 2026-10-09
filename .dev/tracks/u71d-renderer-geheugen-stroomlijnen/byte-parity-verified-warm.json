@@ -1,0 +1,8 @@
+{
+  "source": "tmp/u71d-baseline",
+  "target": "tmp/u71d-verified-warm",
+  "compared": 343,
+  "missingFiles": [],
+  "extraFiles": [],
+  "differences": []
+}

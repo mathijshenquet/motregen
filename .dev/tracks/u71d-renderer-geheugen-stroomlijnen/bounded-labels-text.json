@@ -1,0 +1,152 @@
+{
+  "code": 1,
+  "signal": null,
+  "runtime": "built",
+  "nodeHeapMiB": "192",
+  "maxAnonBytes": 653836288,
+  "maxFileBytes": 38588416,
+  "elapsedSeconds": 87.981437975,
+  "memoryPeakBytes": 679178240,
+  "memorySwapPeakBytes": 0,
+  "memorySwapMax": "0",
+  "mallocArenaMax": "2",
+  "mallocMmapThreshold": "131072",
+  "memoryHigh": "629145600",
+  "memoryMax": "838860800",
+  "cpuMax": "200000 100000",
+  "memoryEvents": "low 0\nhigh 19054\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+  "processes": [
+    {
+      "pid": 242209,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 72884224
+    },
+    {
+      "pid": 242220,
+      "name": "time",
+      "executable": "/nix/store/y51431wmnm7vli4l347dpn44nyhmcrw7-time-1.10/bin/time",
+      "maxRssBytes": 1810432
+    },
+    {
+      "pid": 242221,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 412213248
+    },
+    {
+      "pid": 242284,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 50040832
+    },
+    {
+      "pid": 242293,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 68481024
+    },
+    {
+      "pid": 244196,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2740224
+    },
+    {
+      "pid": 244264,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2674688
+    },
+    {
+      "pid": 244275,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2732032
+    },
+    {
+      "pid": 244642,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 20480
+    },
+    {
+      "pid": 244695,
+      "name": "chromium",
+      "executable": "/nix/store/rzl7zd3zx56vl7m55x1l49sr4xx2bb7y-bash-5.3p9/bin/bash",
+      "maxRssBytes": 3739648
+    },
+    {
+      "pid": 244704,
+      "name": "chrome_crashpad",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chrome_crashpad_handler",
+      "maxRssBytes": 4235264
+    },
+    {
+      "pid": 244706,
+      "name": "chrome_crashpad",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chrome_crashpad_handler",
+      "maxRssBytes": 3887104
+    },
+    {
+      "pid": 244710,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 72970240
+    },
+    {
+      "pid": 244711,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 72749056
+    },
+    {
+      "pid": 244735,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 162578432
+    },
+    {
+      "pid": 244736,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 106688512
+    },
+    {
+      "pid": 244759,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 48295936
+    },
+    {
+      "pid": 244809,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 159789056
+    },
+    {
+      "pid": 244824,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 263069696
+    },
+    {
+      "pid": 244826,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 274968576
+    },
+    {
+      "pid": 245610,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 159358976
+    },
+    {
+      "pid": 245618,
+      "name": "chromium",
+      "executable": "/nix/store/4c3z7jbrfryrsc340kc2ydawnl24mifq-chromium-unwrapped-151.0.7922.137/libexec/chromium/chromium",
+      "maxRssBytes": 70279168
+    }
+  ]
+}

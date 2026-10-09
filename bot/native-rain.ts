@@ -15,13 +15,14 @@ import { FRAME_PIXELS } from './config.js'
 import { NATIVE_VIEW, type NativeTheme } from './native-map.js'
 import type { StillManifest } from './stills.js'
 
-interface RainChunk { header: MrfHeader; bytes: Uint8Array; headerLength: number; frames: Map<number, Uint8Array> }
+interface RainChunk { header: MrfHeader; bytes: Uint8Array; headerLength: number }
 export interface RainFrame { grid: Grid; left: Uint8Array; right: Uint8Array; mix: number; leftHeader: MrfHeader; rightHeader: MrfHeader; motion?: { width: number; height: number; vectors: Int8Array }; intervalMinutes: number; leftSampling?: RainSampling; rightSampling?: RainSampling }
 
 export class NativeRainData {
   readonly timeline: TimelineFrame[]
   private readonly now: number
   private readonly chunks = new Map<string, Promise<RainChunk>>()
+  private readonly rasters = new Map<string, Uint8Array>()
   constructor(private readonly origin: string, manifest: StillManifest, private readonly field: Field = 'rain_rate') {
     this.now = Date.parse(manifest.now)
     this.timeline = buildTimeline(manifest as Manifest, field)
@@ -39,7 +40,7 @@ export class NativeRainData {
     }
     const frames = [...chunks.values()]
     for (let offset = 0; offset < frames.length; offset += 2) {
-      await Promise.all(frames.slice(offset, offset + 2).map((frame) => this.load(frame)))
+      await Promise.all(frames.slice(offset, offset + 2).map((frame) => this.loadChunk(frame)))
     }
   }
 
@@ -80,7 +81,9 @@ export class NativeRainData {
     return { grid: left.grid, left: left.raster, right: right.raster, mix: blend.mix, leftHeader: left.header, rightHeader: right.header, motion, ...(this.field === 'rain_rate' ? { leftSampling: rainSampling(leftFrame.source, leftFrame.epoch - this.now, DEFAULT_RAIN_FIELD_TUNING), rightSampling: rainSampling(rightFrame.source, rightFrame.epoch - this.now, DEFAULT_RAIN_FIELD_TUNING) } : {}), intervalMinutes: (rightFrame.epoch - leftFrame.epoch) / 60_000 }
   }
 
-  private async load(frame: TimelineFrame, retainRaster = true): Promise<{ grid: Grid; raster: Uint8Array; header: MrfHeader }> {
+  clear(): void { this.rasters.clear(); this.chunks.clear() }
+
+  private async loadChunk(frame: TimelineFrame): Promise<RainChunk> {
     let pending = this.chunks.get(frame.chunk.url)
     if (!pending) {
       pending = (async () => {
@@ -88,15 +91,20 @@ export class NativeRainData {
         if (!response.ok) throw new Error(`Regenchunk laden mislukt (${response.status})`)
         const bytes = new Uint8Array(await response.arrayBuffer())
         const headerLength = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(4, true) + 8
-        return { header: parseMrfHeader(bytes.subarray(0, headerLength)), bytes, headerLength, frames: new Map<number, Uint8Array>() }
+        return { header: parseMrfHeader(bytes.subarray(0, headerLength)), bytes, headerLength }
       })().catch((error) => {
         this.chunks.delete(frame.chunk.url)
         throw error
       })
       this.chunks.set(frame.chunk.url, pending)
     }
-    const chunk = await pending
-    let raster = chunk.frames.get(frame.frameIndex)
+    return pending
+  }
+
+  private async load(frame: TimelineFrame, retainRaster = true): Promise<{ grid: Grid; raster: Uint8Array; header: MrfHeader }> {
+    const chunk = await this.loadChunk(frame)
+    const key = `${frame.chunk.url}:${frame.frameIndex}`
+    let raster = this.rasters.get(key)
     if (!raster) {
       const index = chunk.header.frames[frame.frameIndex]
       if (!index || index.time !== frame.time) throw new Error('Regenchunk wijkt af van manifest')
@@ -105,7 +113,12 @@ export class NativeRainData {
       const compressed = chunk.bytes.subarray(start, start + index.len)
       const pred = chunk.header.pred ? { width, height } : undefined
       raster = decodeFrame(compressed, width * height, pred, zstdDecompressSync)
-      if (retainRaster) chunk.frames.set(frame.frameIndex, raster)
+    }
+    if (retainRaster) {
+      this.rasters.delete(key)
+      this.rasters.set(key, raster)
+      // Pressure smoothing reads five hours and their preceding interpolation frame.
+      while (this.rasters.size > 6) this.rasters.delete(this.rasters.keys().next().value!)
     }
     return { grid: chunk.header.grid, raster, header: chunk.header }
   }

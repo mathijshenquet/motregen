@@ -1,0 +1,110 @@
+{
+  "code": null,
+  "signal": "SIGTERM",
+  "runtime": "built",
+  "nodeHeapMiB": "192",
+  "maxAnonBytes": 618999808,
+  "maxFileBytes": 141131776,
+  "elapsedSeconds": 135.59909619900003,
+  "memoryPeakBytes": 648105984,
+  "memorySwapPeakBytes": 0,
+  "memorySwapMax": "0",
+  "mallocArenaMax": "2",
+  "mallocMmapThreshold": "131072",
+  "memoryHigh": "629145600",
+  "memoryMax": "838860800",
+  "cpuMax": "200000 100000",
+  "memoryEvents": "low 0\nhigh 418143\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+  "processes": [
+    {
+      "pid": 312612,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 78999552
+    },
+    {
+      "pid": 312623,
+      "name": "time",
+      "executable": "/nix/store/y51431wmnm7vli4l347dpn44nyhmcrw7-time-1.10/bin/time",
+      "maxRssBytes": 1806336
+    },
+    {
+      "pid": 312625,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 279404544
+    },
+    {
+      "pid": 312758,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 133070848
+    },
+    {
+      "pid": 312760,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 40804352
+    },
+    {
+      "pid": 312761,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 41472000
+    },
+    {
+      "pid": 312777,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 170803200
+    },
+    {
+      "pid": 312779,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 74006528
+    },
+    {
+      "pid": 312806,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 279425024
+    },
+    {
+      "pid": 315498,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 131563520
+    },
+    {
+      "pid": 315500,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 41820160
+    },
+    {
+      "pid": 315501,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 41840640
+    },
+    {
+      "pid": 315521,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 154746880
+    },
+    {
+      "pid": 315523,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 73830400
+    },
+    {
+      "pid": 315555,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 259362816
+    }
+  ]
+}
