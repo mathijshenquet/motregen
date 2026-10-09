@@ -345,6 +345,14 @@
   met de één-klok-reden (57363c7e). 4330 herbouwd; GEEN prod (PO). U69 deel 2 loopt: windcompile van de
   hoofddraad (restpost ~0,85 s hapering na de start).
 
+- 15:00: PO-feature "regenfilmpje −2…+3 u" → U70 (gpt-6.1-sol, alleen mode weather; stills blijven −2…+12).
+  Telegram rich messages (Bot API 10.1/10.2: sendRichMessage, InputRichMessage.blocks, InputRichBlockSlideshow
+  {blocks, caption}, foto/animatie/video-blokken, 1–8 knoppen) opgezocht en aan PO gemeld; slideshow van
+  stills past op onze file_id-cache (voorstel later samen met MIP-22). **MIP-26 accepted**: bot-loops zonder
+  browser (basiskaart één keer, weerlagen als eigen compositor, ffmpeg); PO-doel: de prod-VM maakt zijn eigen
+  filmpjes zonder achter te lopen; WASM voor isolijnen = YAGNI (gemeten ms-werk). U71a gestart (regen native,
+  pariteitstest, meting op 2 kernen). U69 deel 2 (windcompile van de hoofddraad) loopt.
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
