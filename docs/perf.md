@@ -1694,8 +1694,10 @@ Ook na de start kan de gezamenlijke animatie dus haperen. Er is geen wire-budget
 [po-androidfilmstrip](perf/u69/filmstrip-po-android.jpg) met [metadata](perf/u69/filmstrip-po-android.json).
 De filmstrips zijn afzonderlijke diagnostische opnames en tellen niet mee in bovenstaande medianen.
 
-Typecheck, 529 units en productiebuild zijn groen. Gerichte desktop/mobile-4g-regressies
-zijn groen, inclusief tegengehouden volgend frame, vroege pauze, vertraagde eerste tik en
-de MapLibre-terugval; de oorspronkelijke focus-rusttest is behouden na de fixture-fix van main.
+Typecheck, 529 units en productiebuild zijn groen. De finale volledige run van de geraakte
+desktop/mobile-4g-specs heeft 42 geslaagde tests en 10 profielskips (3,2 min), inclusief
+basemap, focus, dev-panel, decode-budget, tegengehouden volgend frame, vroege pauze,
+vertraagde eerste tik en de MapLibre-terugval. De oorspronkelijke focus-rusttest is behouden
+na de fixture-fix van main.
 Zes Firefox-tests zijn zonder herhaling groen. De perf-gate heeft vier groene tests:
 mobile-4g TTFR koud 1906/warm 1414 ms, warme chunktransfer 0 B en scrub-p95 25 ms.
