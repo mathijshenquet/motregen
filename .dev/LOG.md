@@ -441,6 +441,11 @@
   CPU 200 %, MemoryHigh 1100M / Max 1300M, swap uit; bot-roles-check per rol. Dev-host-renderer gestopt; prod-uitrol
   gestart. MIP-26 daarmee afgerond zodra de eerste VM-generaties binnen zijn.
 
+- 22:57: **VM rendert zelf** (combined): generatie 1 koud 591 s (eenmalige installatie, piek 1,10 GB = MemoryHigh, geen
+  OOM/herstart), daarna 208 / 201 / 189 s render + ~10 s prime per generatie (regen 26 s, gevoel 39 s, wind 83 s;
+  op de dev-host was dit 81–85 s: de VM-vCPU's zijn ~2× trager en memory.high remde). Houdt het KNMI-ritme (3–5 min)
+  nog net bij; wind is de uitschieter → kandidaat U71e (windloop sneller / minder frames) als het achter gaat lopen.
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
