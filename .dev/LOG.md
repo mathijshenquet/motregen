@@ -353,55 +353,55 @@
   filmpjes zonder achter te lopen; WASM voor isolijnen = YAGNI (gemeten ms-werk). U71a gestart (regen native,
   pariteitstest, meting op 2 kernen). U69 deel 2 (windcompile van de hoofddraad) loopt.
 
-- **U70 gemerged** (16:35; 13 min, gpt-6.1-sol, PR #99): regenloop −2…+3 u (61 frames, 7,1 s), stills/knoppen
+- **U70 gemerged** (14:25; 13 min, gpt-6.1-sol, PR #99): regenloop −2…+3 u (61 frames, 7,1 s), stills/knoppen
   tot +12 u, generatie 71→64 s. Renderer op ageq-dev2 draait nog de oude dist (herstart na U71a).
   /regen_rich-proef (7efd1a79): lokale poller draait tijdelijk i.p.v. de VM-poller (gestopt 16:05) voor de
   live test; terugzetten na de PO-test. U72 (opus-5.5 live-pane, 4320): smoothing/upsampling regenveld.
 
-- 17:10: /regen_rich-proef afgerond en verwijderd (b3e9587d): slideshow werkt (sendRichMessage, 7 dia's uit de
+- 15:00: /regen_rich-proef afgerond en verwijderd (b3e9587d): slideshow werkt (sendRichMessage, 7 dia's uit de
   file_id-cache) maar de client-tween tussen dia's is niet uit te zetten; collage "nog slechter". Conclusie: /regen
   met knoppen (editMessageMedia, wisselt zonder tween) blijft. VM-poller weer actief, lokale poller gestopt.
 
-- **U69 deel 2 gemerged** (17:45, aa518aab, PR #98): wind na de eerste tik met fade-in; grootste lange frame
+- **U69 deel 2 gemerged** (15:40, aa518aab, PR #98): wind na de eerste tik met fade-in; grootste lange frame
   eerste 5 s desktop 981→841 ms, po-android 1589→435 ms; resterende opstarttaken (decoder 370, plaatsen 190,
   reeks 115 ms, 803 ms onbenoemd desktop) in docs/perf.md als open punten. 4330 herbouwd.
 - /regen_maf (proef, niet gecommit): rich "pagina" met schakelknoppen modus/tijd via editMessageText; PO heeft
   gewisseld (log), oordeel open. Lokale poller draait ervoor, VM-poller uit.
-- U72: PO 16:50 "radar+nowcast 5×5 al nice; AROME kan nog meer; meebewegen veel beter dan crossfade"; ronde 2:
+- U72: PO 14:50 "radar+nowcast 5×5 al nice; AROME kan nog meer; meebewegen veel beter dan crossfade"; ronde 2:
   separabele Gaussische blur, 7×7/9×9, voorfilterkosten meten; tijd-blur gedegradeerd ("mogelijk giga onnodig").
 
-- 18:20: /regen_maf verwijderd (6760d8e5), VM-poller terug. **MIP-27 accepted** (PO "ja bouw maar"): /weer <plaats>
+- 16:00: /regen_maf verwijderd (6760d8e5), VM-poller terug. **MIP-27 accepted** (PO "ja bouw maar"): /weer <plaats>
   met wolkendoorsnede + regenhistogram, native (SVG+sharp) in de poller-rol; U73 gestart (gpt-6.1-sol), bouwt op
   de gedeelde decode van U71a (PR #100).
 
-- **U72 gemerged** (19:50, 5d246a59; opus-5.5 live-pane, 3 rondes): regenveld-smoothing als separabel Gaussisch
+- **U72 gemerged** (16:25, 5d246a59; opus-5.5 live-pane, 3 rondes): regenveld-smoothing als separabel Gaussisch
   voorfilter per geüpload frame (tekenshader blijft 4 texels); standaard blur 5×5 tot +2 u, oplopend naar 9×9 bij
   +3 u (PO: "5 tot +2 uur, vanaf daar 9"); HARMONIE meebewegen vast, tijdmenging-schakelaar weg; bronovergang
   blend→HARMONIE gefixt (warp-kap volgde de bron i.p.v. de staplengte → een uur kruisfade; PO had het goed gezien);
   tijd-blur overgeslagen (PO: "mogelijk giga onnodig"). Overrides in ?dev Kaart › Regenveld (auto). 4330 herbouwd.
 - bot: regenloop −1…+2 u (ea30771d; PO), renderer herstart. U71a en U73 lopen.
 
-- **U71a gemerged** (20:45, b60be661, PR #100, gpt-6.1-sol 2,5 u): native regenloop — basiskaartplaat één keer,
+- **U71a gemerged** (16:50, b60be661, PR #100, gpt-6.1-sol 2,5 u): native regenloop — basiskaartplaat één keer,
   gedeelde mrf-decode (bot+web), rasterworker (Rust) + één ffmpeg; regenfilm 1,8 s op 2 kernen (was 31,7 s),
   generatie 173 media 164 s op 2 kernen (marge 16 s; temperatuur/wind nog Playwright → U71b/c); pariteit ΔE 0,1
   (zelf bekeken); rollback MOTREGEN_RAIN_RENDERER=playwright. Opvolgpunt: HARMONIE-blur (U72) ook in de native
   compositor. U73 (/weer <plaats>, PR #101) klaar en live getest vanuit zijn worktree; gate tegen nieuwe main loopt.
 
-- 21:15: bot-regenloop op app-tempo (cd64f3a7; PO): 45 s kaarttijd per frame bij 10 fps ≈ 7,5 min/s, 241 frames
+- 16:55: bot-regenloop op app-tempo (cd64f3a7; PO): 45 s kaarttijd per frame bij 10 fps ≈ 7,5 min/s, 241 frames
   −1…+2 u (25 s film), native getweend; Playwright-fallback zou 241 frames renderen. Renderer herstart. PO-wensen
   /weer (queue U73 ronde 2): Expressief-stijl, wolkjes alleen vanaf nu.
 
-- **U73 gemerged** (21:50, PR #101, gpt-6.1-sol ~1 u incl. ronde 2): /weer <plaats> en /regen <plaats> — Expressief-
+- **U73 gemerged** (17:05, PR #101, gpt-6.1-sol ~1 u incl. ronde 2): /weer <plaats> en /regen <plaats> — Expressief-
   lucht (dag→nacht, sterren, gloed), wolkjes vanaf nu, regenhistogram, plaatszoeker met 3 suggestieknoppen, native
   SVG→PNG in de poller-rol (837 ms koud, 0,5 ms cache; past in 384/512 MiB). Live getest door de PO. Eén web-
   testfout in de gate (mrf.test, byte-identiek) bleek load-flaky: 26/26 in isolatie en 539/539 bij herhaling.
   Prod blijft bevroren; de lokale poller (main) blijft draaien zodat /weer werkt tot de uitrol.
 
-- 22:15: **MIP-28 accepted** (PO): branding "weer ok?" (weerok.nl geregistreerd bij TransIP), motregen.nl blijft,
+- 17:20: **MIP-28 accepted** (PO): branding "weer ok?" (weerok.nl geregistreerd bij TransIP), motregen.nl blijft,
   beide domeinen serveren. U74 (opus-5.5 live-pane, 4320) gestart: zichtbare naam + nix `domains` + Caddy-vhost.
   DNS weerok.nl via TransIP-API geblokkeerd: "The API is not enabled for this customer" (401) → PO zet de API aan.
 
-- 22:30: PO: na U74 prod uitrollen (met weerok.nl); @motregen_bot houdt motregen-branding (alleen de web-naam).
+- 17:20: PO: na U74 prod uitrollen (met weerok.nl); @motregen_bot houdt motregen-branding (alleen de web-naam).
   U71b gestart (gpt-6.1-sol): temperatuur + wind native, doel generatie < 60 s op 2 kernen → renderer terug naar VM.
 
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond

@@ -1,6 +1,6 @@
 # MIP-28 — Branding "weer ok?" naast motregen.nl
 
-Status: accepted (PO 2026-10-09 22:15) · auteur: orkestrator (PM)
+Status: accepted (PO 2026-10-09 17:20) · auteur: orkestrator (PM)
 
 ## Wat
 De PO heeft weerok.nl geregistreerd (TransIP). De productnaam wordt **"weer ok?"** (zo geschreven: kleine
@@ -15,7 +15,7 @@ botnaam @motregen_bot) blijven ongewijzigd; alleen wat de gebruiker ziet verande
 2. **Serveren** (nix): `services.motregen.domain` → `domains` (lijst; eerste = canonical/origin), Caddy-vhost met
    alle hostnamen (`motregen.nl, www.motregen.nl, weerok.nl, www.weerok.nl`), ACME per naam; `www.` → apex 308.
 3. **DNS** weerok.nl: A/AAAA apex + www → prod (57.129.47.17), via de TransIP-API (`TRANSIP_TOKEN` in `.env`).
-   Blokkade 2026-10-09 22:20: de API antwoordt `The API is not enabled for this customer` (401) — de PO moet in het
+   Blokkade 2026-10-09 17:25: de API antwoordt `The API is not enabled for this customer` (401) — de PO moet in het
    TransIP-controlepaneel de API aanzetten (en whitelist/IP-restrictie van het token controleren).
 
 ## Decision

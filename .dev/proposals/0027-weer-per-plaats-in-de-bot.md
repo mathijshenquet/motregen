@@ -1,6 +1,6 @@
 # MIP-27 — /weer <plaats>: het histogram van één plek in de Telegram-bot, zonder browser
 
-Status: accepted (PO 2026-10-09 18:20) · 2026-10-09 · auteur: orkestrator (PM) · PO-idee 2026-10-09 ("/weer ams|amsterdam die het
+Status: accepted (PO 2026-10-09 16:00) · 2026-10-09 · auteur: orkestrator (PM) · PO-idee 2026-10-09 ("/weer ams|amsterdam die het
 histogram laat zien… liefst niet met Playwright-onzin")
 
 ## Wat
