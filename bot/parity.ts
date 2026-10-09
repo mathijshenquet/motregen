@@ -9,6 +9,7 @@ import { drawTemperatureLabels } from './native-labels.js'
 import { NativeMaps } from './native-map.js'
 import { NativeRainData, RainCompositor, rainTheme } from './native-rain.js'
 import { validateManifest } from './stills.js'
+import { sequencePlan } from './sequences.js'
 import { colorDifference } from './color-difference.js'
 
 const manifestPath = process.argv[2]
@@ -30,7 +31,7 @@ try {
   const maps = new NativeMaps(origin, cache, async () => context)
   const overlay = new NativeOverlay(origin, cache, async () => context)
   await overlay.prepare(manifest)
-  const samples = [{ name: 'historie', minutes: -55 }, { name: 'nu', minutes: 0 }, { name: 'verwachting', minutes: 95 }, { name: 'nacht', minutes: 720 }]
+  const samples = [{ name: 'historie', minutes: -55 }, { name: 'voor-loop', minutes: -120 }, { name: 'nu', minutes: 0 }, { name: 'verwachting', minutes: 95 }, { name: 'nacht', minutes: 720 }]
   const results = []
   await openRenderPage(page, referenceOrigin, 'weather', manifest, now + samples[0]!.minutes * 60_000)
   for (const sample of samples) {
@@ -59,6 +60,6 @@ try {
     await writeFile(join(outputDirectory, `${sample.name}-native.png`), native)
     await sharp({ create: { width: FRAME_PIXELS.width * 2, height: FRAME_PIXELS.height, channels: 3, background: '#ffffff' } }).composite([{ input: reference, left: 0, top: 0 }, { input: native, left: FRAME_PIXELS.width, top: 0 }]).png().toFile(join(outputDirectory, `${sample.name}-naast-elkaar.png`))
   }
-  await writeFile(join(outputDirectory, 'parity.json'), JSON.stringify({ generated: manifest.generated, metric: 'CIELAB D65 ΔE76', referenceOrigin, limits, results }, null, 2) + '\n')
+  await writeFile(join(outputDirectory, 'parity.json'), JSON.stringify({ generated: manifest.generated, loopFrames: sequencePlan('weather', manifest).loopFrames, metric: 'CIELAB D65 ΔE76', referenceOrigin, limits, results }, null, 2) + '\n')
   if (results.some((result) => !result.passed)) process.exitCode = 1
 } finally { await browser.close() }

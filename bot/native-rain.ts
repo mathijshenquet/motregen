@@ -134,6 +134,7 @@ export class RainCompositor {
 
   async composeFast(base: Uint8Array, frame: RainFrame, night: boolean): Promise<Buffer> {
     this.validatePresentation(night)
+    if (JSON.stringify(frame.grid) !== JSON.stringify(this.grid)) throw new Error('Regenrooster wisselt binnen de reeks')
     return this.native.compose(base, frame)
   }
 
