@@ -15,18 +15,21 @@ export function nativeFramePath(directory: string, index: number): string { retu
 export class NativeWeatherRenderer {
   constructor(private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>) {}
 
-  async render(manifest: StillManifest, plan: SequencePlan, directory: string, destination: string, loopComplete: () => void): Promise<{ renderMs: number; encodeMs: number; loopMs: number; bytes: number }> {
+  async render(manifest: StillManifest, plan: SequencePlan, directory: string, destination: string, loopComplete: () => void): Promise<{ renderMs: number; encodeMs: number; loopMs: number; loopRenderMs: number; bytes: number }> {
     const started = performance.now()
     const maps = new NativeMaps(this.origin, this.directory, this.context)
     const overlay = new NativeOverlay(this.origin, this.directory, this.context)
     const data = new NativeRainData(this.origin, manifest)
     const hasTemperature = manifest.chunks.some((chunk) => chunk.field === 'feels_like_c')
     const temperatures = hasTemperature ? new NativeRainData(this.origin, manifest, 'feels_like_c') : undefined
+    const temperatureEpoch = (epoch: number) => Math.max(temperatures!.timeline[0]!.epoch, Math.min(temperatures!.timeline.at(-1)!.epoch, Math.round(epoch / 600_000) * 600_000))
     const first = await data.frame(plan.epochs[0]!)
     const compositor = new RainCompositor(first.grid)
     try {
       const themes = [...new Set(plan.epochs.map(rainTheme))]
-      await Promise.all([...themes.map((theme) => maps.get(theme, first.grid)), overlay.prepare(manifest), compositor.prepare(), data.prefetch(plan.epochs), temperatures?.prefetch(plan.epochs.map((epoch) => Math.max(temperatures.timeline[0]!.epoch, Math.min(temperatures.timeline.at(-1)!.epoch, Math.round(epoch / 600_000) * 600_000))))])
+      const preparation = [...themes.map(async (theme) => { await maps.get(theme, first.grid) }), overlay.prepare(manifest), compositor.prepare(), data.prefetch(plan.epochs)]
+      if (temperatures) preparation.push(temperatures.prefetch(plan.epochs.map(temperatureEpoch)))
+      await Promise.all(preparation)
       let renderMs = 0
       const phases = { dataMs: 0, labelsMs: 0, rainMs: 0, overlayMs: 0, writeMs: 0 }
       const now = Date.parse(manifest.now)
@@ -39,8 +42,7 @@ export class NativeWeatherRenderer {
         const theme = rainTheme(epoch)
         const map = await maps.get(theme, frame.grid)
         const loaded = performance.now()
-        const temperatureEpoch = Math.round(epoch / 600_000) * 600_000
-        const base = temperatures ? drawTemperatureLabels(map.rgb, map.labels, await temperatures.frame(Math.max(temperatures.timeline[0]!.epoch, Math.min(temperatures.timeline.at(-1)!.epoch, temperatureEpoch)))) : map.rgb
+        const base = temperatures ? drawTemperatureLabels(map.rgb, map.labels, await temperatures.frame(temperatureEpoch(epoch))) : map.rgb
         const labelled = performance.now()
         const rain = await compositor.composeFast(base, frame, theme === 'dark')
         const composed = performance.now()
@@ -61,10 +63,11 @@ export class NativeWeatherRenderer {
       const loopStarted = performance.now()
       const encoded = await encodeRgbLoop(frames(), destination, plan, FRAME_PIXELS)
       const loopMs = Math.round(performance.now() - loopStarted)
-      console.info(JSON.stringify({ event: 'native-loop-profile', loopMs, renderMs: Math.round(renderMs), ...Object.fromEntries(Object.entries(phases).map(([key, value]) => [key, Math.round(value)])) }))
+      const loopRenderMs = Math.round(renderMs)
+      console.info(JSON.stringify({ event: 'native-loop-profile', loopMs, renderMs: loopRenderMs, ...Object.fromEntries(Object.entries(phases).map(([key, value]) => [key, Math.round(value)])) }))
       loopComplete()
       for (let index = plan.loopFrames; index < plan.epochs.length; index++) await render(index)
-      return { renderMs: Math.round(renderMs + loopStarted - started), encodeMs: Math.max(0, Math.round(performance.now() - started - renderMs - (loopStarted - started))), loopMs, bytes: encoded.bytes }
+      return { renderMs: Math.round(renderMs + loopStarted - started), encodeMs: Math.max(0, Math.round(performance.now() - started - renderMs - (loopStarted - started))), loopMs, loopRenderMs, bytes: encoded.bytes }
     } finally { await compositor.close() }
   }
 }

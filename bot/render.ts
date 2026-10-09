@@ -35,10 +35,11 @@ export interface RenderedLoop extends RenderedBase {
   openMs?: number
   backend?: 'native' | 'playwright'
   loopMs?: number
+  loopRenderMs?: number
 }
 export type RenderedMedia = RenderedStill | RenderedLoop
 interface RenderedSequence { loop: RenderedLoop; stills: RenderedStill[] }
-interface SequenceMetrics { key: string; frames: number; fps: number; bytes: number; renderMs: number; encodeMs: number; openMs?: number; backend?: 'native' | 'playwright'; loopMs?: number }
+interface SequenceMetrics { key: string; frames: number; fps: number; bytes: number; renderMs: number; encodeMs: number; openMs?: number; backend?: 'native' | 'playwright'; loopMs?: number; loopRenderMs?: number }
 
 export class StillRenderer {
   private readonly nativeLoops = new Map<string, { ready: Promise<void>; finish: () => void }>()

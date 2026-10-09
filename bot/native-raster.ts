@@ -41,6 +41,7 @@ export class NativeRaster {
   private completed?: Promise<void>
   private readonly frames = new Map<Uint8Array, number>()
   private resident = new Set<number>()
+  private output?: { bytes: Buffer; offset: number; finish: () => void; fail: (error: Error) => void }
   constructor(private readonly size: { width: number; height: number }, private readonly grid: { width: number; height: number }, private readonly columns: Float64Array, private readonly rows: Float64Array, private readonly colors: Float32Array) {}
 
   private async write(bytes: Uint8Array): Promise<void> {
@@ -54,6 +55,17 @@ export class NativeRaster {
       let diagnostic = ''
       worker.stderr.on('data', (bytes: Buffer) => { diagnostic = (diagnostic + bytes.toString()).slice(-2000) })
       worker.stdin.on('error', () => undefined)
+      worker.stdout.on('data', (bytes: Buffer) => {
+        const output = this.output
+        if (!output || output.offset + bytes.length > output.bytes.length) {
+          output?.fail(new Error('Native raster heeft te veel uitvoer'))
+          worker.kill('SIGKILL')
+          return
+        }
+        bytes.copy(output.bytes, output.offset)
+        output.offset += bytes.length
+        if (output.offset === output.bytes.length) { this.output = undefined; output.finish() }
+      })
       this.completed = new Promise<void>((resolve, reject) => {
         worker.once('error', reject)
         worker.once('close', (code) => code === 0 ? resolve() : reject(new Error(`Native raster mislukt (${code}): ${diagnostic}`)))
@@ -70,6 +82,9 @@ export class NativeRaster {
   async compose(base: Uint8Array, frame: RainFrame): Promise<Buffer> {
     await this.prepare()
     const leftWeight = (1 - frame.mix) ** FLOW_BLEND_CURVE, rightWeight = frame.mix ** FLOW_BLEND_CURVE
+    const rgb = Buffer.allocUnsafe(this.size.width * this.size.height * 3)
+    const received = new Promise<void>((finish, fail) => { this.output = { bytes: rgb, offset: 0, finish, fail } })
+    void received.catch(() => undefined)
     const left = frame.mix === 1 ? frame.right : frame.left
     const right = frame.mix === 0 ? frame.left : frame.right
     const identify = (raster: Uint8Array) => {
@@ -90,15 +105,7 @@ export class NativeRaster {
     if (sendRight) await this.write(right)
     this.resident = new Set([leftId, rightId])
     if (frame.motion) await this.write(new Uint8Array(frame.motion.vectors.buffer, frame.motion.vectors.byteOffset, frame.motion.vectors.byteLength))
-    const length = this.size.width * this.size.height * 3
-    const rgb = Buffer.allocUnsafe(length)
-    const worker = this.worker!
-    let offset = 0
-    while (offset < length) {
-      const bytes = worker.stdout.read() as Buffer | null
-      if (!bytes) { await Promise.race([once(worker.stdout, 'readable'), this.completed!.then(() => { throw new Error('Native raster mist uitvoer') })]); continue }
-      bytes.copy(rgb, offset); offset += bytes.length
-    }
+    await Promise.race([received, this.completed!.then(() => { throw new Error('Native raster mist uitvoer') })])
     return rgb
   }
 
