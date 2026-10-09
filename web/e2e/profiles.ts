@@ -56,7 +56,10 @@ export const performanceProfiles: readonly PerformanceProfile[] = [
       connectionType: 'cellular4g',
     },
     coldTtfrBudgetMs: 4_915,
-    warmTtfrBudgetMs: 1_545,
+    // Eén klok (U68/U69, MIP-19-aanvulling 2026-10-09): ttfr = klokstart mét volgend regenframe gedecodeerd en
+    // geüpload; op mobiel +0,3 s t.o.v. de oude definitie. Budget +155 ms; U69 deel 2 (windcompile van de
+    // hoofddraad) kan het weer omlaag brengen.
+    warmTtfrBudgetMs: 1_700,
     warmChunkByteBudget: 0,
     passiveChunkByteBudget: 686_000,
     // U61: inclusief de zes bedoelde U42/U58-previewrij-ranges (24.320 B).
@@ -76,7 +79,7 @@ export const performanceProfiles: readonly PerformanceProfile[] = [
       connectionType: 'cellular3g',
     },
     coldTtfrBudgetMs: 5_360,
-    warmTtfrBudgetMs: 1_690,
+    warmTtfrBudgetMs: 1_850,
     warmChunkByteBudget: 0,
     passiveChunkByteBudget: 686_000,
     // U61: inclusief de zes bedoelde U42/U58-previewrij-ranges (24.320 B).
@@ -102,7 +105,7 @@ export const performanceProfiles: readonly PerformanceProfile[] = [
       connectionType: 'cellular4g',
     },
     coldTtfrBudgetMs: 4_915,
-    warmTtfrBudgetMs: 1_545,
+    warmTtfrBudgetMs: 1_700,
     warmChunkByteBudget: 0,
     passiveChunkByteBudget: 686_000,
     scrubTransferBudget: 11,
