@@ -32,3 +32,5 @@ De CPU-meting haalt de 60-secondenbar. Geheugen is GNU-time-RSS, geen gezamenlij
 de VM-geheugenlimieten zijn hier niet opgelegd. PO-beeldgoedkeuring en onafhankelijke
 orkestratorverificatie blijven mergevoorwaarden. Geen Telegram-poller, echte uploads of
 productie-uitrol uitgevoerd.
+
+Afgesloten op 2026-10-09T17:39:33.680Z: U71b is op main gemerged als `d101de28163844ea32f90e976611efa8cdc2df9c` (`d101de2`). De orkestrator bevestigt een onafhankelijke groene gate met 110 bot-tests, 543 web-tests, builds en Nix. De hierboven genoemde mergevoorwaarden zijn daarmee afgehandeld; de track is klaar.
