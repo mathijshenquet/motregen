@@ -426,6 +426,11 @@
   U71c (geheugen ≤ 1,8 GiB piek, bewijs onder systemd-limieten), daarna renderer-rol terug naar de VM.
   Renderer op ageq-dev2 herstart vanaf main (alle modi native).
 
+- **U71c gemerged** (20:17, b60e3f0a, PR #104, gpt-6.1-sol 37 min): renderergeheugen 4,65→1,55 GiB warm / 1,76 GiB koud,
+  58/76 s op 2 kernen onder systemd-limieten (synchrone exit 0), media byte-identiek; nix renderer-budget CPU 200 %,
+  MemoryHigh 1800M / Max 2200M. MIP-26 technisch rond. **Open voor PO**: rolwissel — renderer-rol (combined) op de
+  VM en de dev-host-renderer uit; vraagt een uitrol en raakt prod-gedrag.
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
