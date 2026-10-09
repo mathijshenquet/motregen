@@ -966,10 +966,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         mapStart?.replace(map)
         mapElement.dataset.mapStart = 'ready'
       }
+      // Volgorde (PO 2026-10-09): z4-kaart → regenlaag → pas dan de echte tegels inwisselen; de wissel wacht
+      // dus óók op de eerste regentekenbeurt (mapReady), zodat de z4-kaart met regen altijd even te zien is.
       const replaceMapStartWhenComplete = () => {
-        if (!map || !basemapTileSeen || !map.isSourceLoaded('basemap') || !map.areTilesLoaded()) return
+        if (!map || !basemapTileSeen || !untrack(mapReady) || !map.isSourceLoaded('basemap') || !map.areTilesLoaded()) return
         replaceMapStart()
       }
+      createEffect(() => { if (mapReady()) replaceMapStartWhenComplete() })
       map.on('idle', replaceMapStartWhenComplete)
       window.setTimeout(replaceMapStart, 15_000)
       map.on('sourcedata', (event) => {
