@@ -21,6 +21,9 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Wind | Lijnbreedte | dikte van de streepjes | U3 | idem |
 | Wind | Tempo | snelheid van de streepjes | U3b | idem |
 | Wind | Kopieer wind als JSON | de vier waarden naar het klembord (PO-terugkoppelweg) | U20 | blijft zolang de windknoppen er zijn |
+| Kaart | Regenveld radar/nowcast | hoe radar, nowcast en blend tussen de cellen worden ingevuld: blokken / bilineair (nu) / bronlineair / glad / blur 3×3 / blur 5×5; de laatste vier wegen broncellen (~1,6 rastercel) | U72 | 2026-10-16, of eerder bij de PO-keuze |
+| Kaart | Regenveld HARMONIE | dezelfde standen voor het weermodel (broncel ~3,25 rastercel; vanaf ruim 6 uur vooruit) | U72 | idem |
+| Kaart | Tijdmenging HARMONIE | tussen twee uurframes: kruisfade (nu) / vloeiend (S-curve) / meebewegen (bewegingsveld ook bij uurframes) | U72 | idem |
 | Laden | Eerste regen | het eerste regenframe direct na het manifest vragen (vroeg) of pas na de kaart-opzet (laat; herladen) | U54 | zodra een telefoonopname de winst heeft vastgelegd of weerlegd |
 | Lucht nu | strakblauw · mooie wolkenlucht · melkachtig · grijs · Mordor | tijd, klasse en gekozen locatie op 0,1° als menselijk anker voor de wolkenanalyse | U46 | na de analyse |
 | Lucht nu | Kopieer dagboek | alle lokale luchtmetingen als JSON naar het klembord | U46 | na de analyse |
@@ -57,6 +60,7 @@ Rig-schakelaar zonder knop: `dev-speelregel` = `venster` zet onder `?dev` de oud
 (spelen pas na laadfase "window"), zodat de mobiele laadrig oud en nieuw uit één build meet
 (`koud-spelend-vensterregel`). Eigenaar U54; vervalt zodra de PO de speelregel heeft bevestigd.
 De knop "Scherm en scroll" schrijft `dev-viewport` (`aan`/`uit`, U62).
+De Regenveld-knoppen schrijven `dev-regenveld-radar`, `dev-regenveld-harmonie` en `dev-regenveld-tijd` (U72); zonder `?dev` worden ze niet gelezen.
 De knop "Eerste regen" schrijft `dev-eerste-regen`; de rig zet dezelfde sleutel in `koud-spelend-regen-laat`.
 Tuning/debug: `wind-tuning-v4` (v3 wordt bij het laden gemigreerd), `perf` en de eenmalige
 `perf-cold`. Oude sleutels (`wind-tuning`, `-v2`, `-v3`, `splash-slowdown`, `scrubber-view`, `clock-jog`) wist

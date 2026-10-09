@@ -15,7 +15,7 @@ Append-only. Spec: `.dev/specs/track-u72-regenveld-smoothing-live.md`. Preview: 
 - De blend (`seamless`, +2…+6 u) heeft een bronraster van ~1 km en hoort bij de groep radar/nowcast. HARMONIE
   begint in de tijdlijn pas ruim 6 uur vooruit; "+6 u" uit de spec is nog blend. Beelden daarom op +9 u en +23 u.
 
-## 14:45 — gebouwd
+## 14:28 — gebouwd
 - `web/src/core/rain-layer.ts`: per frame een kern (`u_left_kernel`/`u_right_kernel` + breedte van de broncel);
   de standaard `bilinear` loopt door de ongewijzigde `rainSample`. Nieuw: `nearestSample` en `sourceSample`
   (knopen op een rooster met de maat van één broncel, elk één texelFetch; gewogen op de byte vóór de paletlookup).
@@ -24,7 +24,7 @@ Append-only. Spec: `.dev/specs/track-u72-regenveld-smoothing-live.md`. Preview: 
 - `?dev` › Kaart: "Regenveld radar/nowcast", "Regenveld HARMONIE", "Tijdmenging HARMONIE". Zonder `?dev`
   wordt er niets gezet: het product tekent exact als voorheen.
 
-| stand | wat | texels per frame per pixel |
+| stand | wat | texels per pixel (eerste versie, in de tekenshader) |
 | --- | --- | --- |
 | blokken | dichtste rastercel (referentie: zo ziet de data eruit) | 1 |
 | bilineair | NU: vier rastercellen | 4 |
@@ -33,7 +33,7 @@ Append-only. Spec: `.dev/specs/track-u72-regenveld-smoothing-live.md`. Preview: 
 | blur 3×3 | klokvormige weging over 3×3 broncellen | 9 |
 | blur 5×5 | idem over 5×5 broncellen | 25 |
 
-## 15:00 — beelden (zelf bekeken), `beelden/{nl,stad}-{radar,harmonie}-{dag,nacht,nacht-vast}-{1280,390}.webp`
+## 14:35 — beelden (zelf bekeken), `beelden/{nl,stad}-{radar,harmonie}-{dag,nacht,nacht-vast}-{1280,390}.webp`
 Rig `rig/field-shots.ts` + `rig/run-field-shots.sh` (kopieer naar `web/tmp/u72/`, draai vanuit `web/`): één
 pagina per beeld, de stand wisselt via de dev-knop, dus elke cel is hetzelfde frame en dezelfde uitsnede.
 `nl` = startbeeld, `stad` = zoom 9 rond de Veluwe. Radar = nu (14:30, bronnen rtcor/nowcast); HARMONIE nacht =

@@ -2,25 +2,34 @@
 // wisselt via de dev-knop zelf, dus de data, de tijd en de uitsnede zijn per cel gelijk. Magenta scheidt de cellen.
 // De PNG's uit out/ gaan als WebP (kwaliteit 92) naar beelden/; verliesvrij is 29 MB.
 // Gebruik (vanuit web/, rig gekopieerd naar tmp/u72/):
-//   pnpm exec tsx tmp/u72/field-shots.ts <baseURL> <label> <390|1280> <dag|nacht> <radar|harmonie> <uren vooruit> [lng,lat,zoom] [standen, komma's]
+//   pnpm exec tsx tmp/u72/field-shots.ts <baseURL> <label> <390|1280> <dag|nacht|nacht-vast> <radar|harmonie|tijd> <uren vooruit> [lng,lat,zoom] [standen, komma's]
+// Groep `tijd` wisselt Tijdmenging HARMONIE. U72_TIME=2026-10-09T2330 zet een vaste kaarttijd (Amsterdam) in plaats
+// van uren vooruit; U72_HARMONIE=<stand> zet vooraf het regenveld van HARMONIE.
 import { chromium, devices } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import sharp from 'sharp'
 
 const [baseURL = 'http://127.0.0.1:4320', label = 'veld', device = '1280', scene = 'dag', group = 'harmonie', hoursAhead = '8', view = '', variantList = ''] = process.argv.slice(2)
-const ALL_VARIANTS = ['blokken', 'bilineair', 'bronlineair', 'glad', 'blur 3×3', 'blur 5×5']
-const variants = variantList ? variantList.split(',') : ALL_VARIANTS
+const CONTROLS: Record<string, { label: string; variants: string[] }> = {
+  radar: { label: 'Regenveld radar/nowcast', variants: ['blokken', 'bilineair', 'bronlineair', 'glad', 'blur 3×3', 'blur 5×5'] },
+  harmonie: { label: 'Regenveld HARMONIE', variants: ['blokken', 'bilineair', 'bronlineair', 'glad', 'blur 3×3', 'blur 5×5'] },
+  tijd: { label: 'Tijdmenging HARMONIE', variants: ['kruisfade', 'vloeiend', 'meebewegen'] },
+}
+const control = CONTROLS[group]
+if (!control) throw new Error(`Onbekende groep ${group}`)
+const variants = variantList ? variantList.split(',') : control.variants
 const outputDir = new URL('./out/', import.meta.url).pathname
 mkdirSync(outputDir, { recursive: true })
 
 const target = new Date(Date.now() + Number(hoursAhead) * 3_600_000)
 const amsterdam = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Amsterdam', dateStyle: 'short', timeStyle: 'short' }).format(target)
-const timeParameter = amsterdam.replace(' ', 'T').replace(':', '')
+const timeParameter = process.env.U72_TIME ?? amsterdam.replace(' ', 'T').replace(':', '')
 
 const browser = await chromium.launch({ args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
 const mobile = device === '390'
 const context = await browser.newContext(mobile ? { ...devices['Pixel 5'], viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 } : { viewport: { width: 1280, height: 800 } })
-await context.addInitScript(([storedView, theme]) => {
+await context.addInitScript(([storedView, theme, harmonie]) => {
+  if (harmonie) localStorage.setItem('motregen-dev-regenveld-harmonie', harmonie)
   if (storedView) {
     const [lng, lat, zoom] = storedView.split(',').map(Number)
     localStorage.setItem('motregen-map-view', JSON.stringify({ lng, lat, zoom }))
@@ -29,7 +38,7 @@ await context.addInitScript(([storedView, theme]) => {
   // een vast donker thema met Expressief uit.
   if (theme === 'nacht-vast') { localStorage.setItem('motregen-theme', 'dark'); localStorage.setItem('motregen-expressive', 'off') }
   addEventListener('DOMContentLoaded', () => { const style = document.createElement('style'); style.textContent = '.dev-panel { opacity: 0 !important; pointer-events: none !important; }'; document.head.append(style) })
-}, [view, scene === 'nacht-vast' ? 'nacht-vast' : ''])
+}, [view, scene === 'nacht-vast' ? 'nacht-vast' : '', process.env.U72_HARMONIE ?? ''])
 const page = await context.newPage()
 await page.goto(`${baseURL}/?dev#t=${timeParameter}`)
 await page.locator('.map-splash.ready').waitFor({ state: 'attached', timeout: 60_000 })
@@ -42,7 +51,7 @@ await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur()
 await page.waitForTimeout(8_000)
 
 const shell = page.locator('.map-shell')
-const controlLabel = group === 'radar' ? 'Regenveld radar/nowcast' : 'Regenveld HARMONIE'
+const controlLabel = control.label
 const cells: Buffer[] = []
 let sources = ''
 for (const variant of variants) {
@@ -74,4 +83,4 @@ const file = `${outputDir}${label}-${group}-${scene}-${device}.png`
 await sharp({ create: { width: (cellWidth + gap) * columns - gap, height: (cellHeight + gap) * rows - gap, channels: 3, background: '#ff00ff' } })
   .composite(cells.map((input, index) => ({ input, left: (index % columns) * (cellWidth + gap), top: Math.floor(index / columns) * (cellHeight + gap) })))
   .png().toFile(file)
-console.log(`${file} · ${amsterdam} · bronnen ${sources} · ${variants.join(' | ')}`)
+console.log(`${file} · ${process.env.U72_TIME ?? amsterdam} · bronnen ${sources} · ${variants.join(' | ')}`)

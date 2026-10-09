@@ -31,7 +31,8 @@ export interface RainTimeBlend {
   warpFadeEndCells: number
 }
 
-const KERNEL_IDS: Record<RainKernel, number> = { 'nearest': 0, 'bilinear': 1, 'source-linear': 2, 'source-cubic': 3, 'source-blur-3': 4, 'source-blur-5': 5 }
+type SourceKernel = Exclude<RainKernel, 'nearest' | 'bilinear'>
+const SOURCE_KERNEL_IDS: Record<SourceKernel, number> = { 'source-linear': 0, 'source-cubic': 1, 'source-blur-3': 2, 'source-blur-5': 3 }
 const DEFAULT_SAMPLING: RainSampling = { kernel: 'bilinear', sourceCellWidth: 1 }
 const DEFAULT_TIME_BLEND: RainTimeBlend = { eased: false, warpCapCells: WARP_CAP_CELLS, warpFadeEndCells: WARP_FADE_END_CELLS }
 
@@ -59,21 +60,14 @@ uniform float u_brightness;
 uniform float u_has_motion;
 uniform float u_interval_minutes;
 uniform vec2 u_grid_size;
-uniform int u_left_kernel;
-uniform int u_right_kernel;
-uniform float u_left_source_cell;
-uniform float u_right_source_cell;
+uniform float u_left_nearest;
+uniform float u_right_nearest;
 uniform float u_blend_eased;
 uniform float u_warp_cap_cells;
 uniform float u_warp_fade_end_cells;
 in vec2 v_uv;
 out vec4 color;
 
-const int KERNEL_NEAREST = ${KERNEL_IDS['nearest']};
-const int KERNEL_BILINEAR = ${KERNEL_IDS['bilinear']};
-const int KERNEL_SOURCE_LINEAR = ${KERNEL_IDS['source-linear']};
-const int KERNEL_SOURCE_CUBIC = ${KERNEL_IDS['source-cubic']};
-const int KERNEL_SOURCE_BLUR_3 = ${KERNEL_IDS['source-blur-3']};
 const float FLOW_BLEND_CURVE = ${FLOW_BLEND_CURVE.toFixed(1)};
 
 float blendWeight(float value) {
@@ -111,6 +105,55 @@ vec2 nearestSample(sampler2D frame, vec2 uv) {
   return vec2(value, (inside ? 1.0 : 0.0) * (1.0 - step(0.999, value)));
 }
 
+vec2 kernelSample(sampler2D frame, vec2 uv, float nearest) {
+  return nearest > 0.5 ? nearestSample(frame, uv) : rainSample(frame, uv);
+}
+
+void main() {
+  float weight = blendWeight(u_mix);
+  vec2 velocity = (texture(u_motion, v_uv).rg * 255.0 - 128.0) * 0.1;
+  float motionValid = step(0.999, texture(u_motion_mask, v_uv).r) * u_has_motion;
+  float totalDisplacement = length(velocity) * u_interval_minutes;
+  float capScale = min(1.0, u_warp_cap_cells / max(totalDisplacement, 0.0001));
+  float crossfadeFallback = 1.0 - smoothstep(u_warp_cap_cells, u_warp_fade_end_cells, totalDisplacement);
+  vec2 intervalUv = velocity * u_interval_minutes / u_grid_size;
+  vec2 leftUv = v_uv - intervalUv * weight * capScale * crossfadeFallback * motionValid;
+  vec2 rightUv = v_uv + intervalUv * (1.0 - weight) * capScale * crossfadeFallback * motionValid;
+  vec2 left = kernelSample(u_left, leftUv, u_left_nearest);
+  vec2 right = kernelSample(u_right, rightUv, u_right_nearest);
+  float value = mix(left.r * left.g, right.r * right.g, weight);
+  color = texture(u_lut, vec2(value, 0.5));
+  // Toon (U62): rustiger maken zonder te verbleken. Minder verzadiging houdt de helderheid van de
+  // kleur, minder helderheid houdt de tint; dimmen via alfa mengt met de kaart en maakt geel crème.
+  float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
+  color.rgb = mix(vec3(luma), color.rgb, u_saturation) * u_brightness;
+  color.a *= u_opacity;
+}`
+
+// Voorfilter (U72): weegt één keer per geüpload frame de broncellen en schrijft het resultaat als een nieuw
+// R8-frame met dezelfde betekenis (255 = geen data). De hoofdshader tekent dat frame daarna bilineair, zodat
+// een vervaging per getekend beeld niets extra kost.
+const filterVertexSource = `#version 300 es
+out vec2 v_uv;
+void main() {
+  vec2 corner = vec2(float(gl_VertexID & 1), float(gl_VertexID >> 1));
+  v_uv = corner;
+  gl_Position = vec4(corner * 2.0 - 1.0, 0.0, 1.0);
+}`
+
+const filterFragmentSource = `#version 300 es
+precision highp float;
+uniform sampler2D u_frame;
+uniform vec2 u_grid_size;
+uniform int u_kernel;
+uniform float u_source_cell;
+in vec2 v_uv;
+out vec4 color;
+
+const int KERNEL_SOURCE_LINEAR = ${SOURCE_KERNEL_IDS['source-linear']};
+const int KERNEL_SOURCE_CUBIC = ${SOURCE_KERNEL_IDS['source-cubic']};
+const int KERNEL_SOURCE_BLUR_3 = ${SOURCE_KERNEL_IDS['source-blur-3']};
+
 int kernelTaps(int kernel) {
   if (kernel == KERNEL_SOURCE_LINEAR) return 2;
   if (kernel == KERNEL_SOURCE_CUBIC) return 4;
@@ -133,10 +176,8 @@ float kernelWeight(int kernel, float signedDistance) {
 }
 
 // Weegt broncellen in plaats van rastercellen. De knopen liggen op een rooster met de maat van één broncel
-// en lezen elk één rastercel: binnen een roostervak liggen ze vast, dus dichtste-buur volstaat en de stand
-// "bronlineair" kost evenveel texels als het bilineaire product.
+// en lezen elk één rastercel: binnen een roostervak liggen ze vast, dus dichtste-buur volstaat per knoop.
 vec2 sourceSample(sampler2D frame, vec2 uv, int kernel, float sourceCell) {
-  bool inside = all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)));
   int taps = kernelTaps(kernel);
   bool evenTaps = taps % 2 == 0;
   vec2 position = uv * u_grid_size / sourceCell - 0.5;
@@ -160,34 +201,13 @@ vec2 sourceSample(sampler2D frame, vec2 uv, int kernel, float sourceCell) {
   // De kubische kern schiet bij een scherpe rand door; onder nul en boven de hoogste geldige byte bestaat niet.
   float value = clamp(weightedValue / max(validWeight, 0.0001), 0.0, 254.0 / 255.0);
   float valid = step(0.5, validWeight / max(totalWeight, 0.0001));
-  return vec2(value, (inside ? 1.0 : 0.0) * valid);
+  return vec2(value, valid);
 }
 
-vec2 kernelSample(sampler2D frame, vec2 uv, int kernel, float sourceCell) {
-  if (kernel == KERNEL_BILINEAR) return rainSample(frame, uv);
-  if (kernel == KERNEL_NEAREST) return nearestSample(frame, uv);
-  return sourceSample(frame, uv, kernel, sourceCell);
-}
 
 void main() {
-  float weight = blendWeight(u_mix);
-  vec2 velocity = (texture(u_motion, v_uv).rg * 255.0 - 128.0) * 0.1;
-  float motionValid = step(0.999, texture(u_motion_mask, v_uv).r) * u_has_motion;
-  float totalDisplacement = length(velocity) * u_interval_minutes;
-  float capScale = min(1.0, u_warp_cap_cells / max(totalDisplacement, 0.0001));
-  float crossfadeFallback = 1.0 - smoothstep(u_warp_cap_cells, u_warp_fade_end_cells, totalDisplacement);
-  vec2 intervalUv = velocity * u_interval_minutes / u_grid_size;
-  vec2 leftUv = v_uv - intervalUv * weight * capScale * crossfadeFallback * motionValid;
-  vec2 rightUv = v_uv + intervalUv * (1.0 - weight) * capScale * crossfadeFallback * motionValid;
-  vec2 left = kernelSample(u_left, leftUv, u_left_kernel, u_left_source_cell);
-  vec2 right = kernelSample(u_right, rightUv, u_right_kernel, u_right_source_cell);
-  float value = mix(left.r * left.g, right.r * right.g, weight);
-  color = texture(u_lut, vec2(value, 0.5));
-  // Toon (U62): rustiger maken zonder te verbleken. Minder verzadiging houdt de helderheid van de
-  // kleur, minder helderheid houdt de tint; dimmen via alfa mengt met de kaart en maakt geel crème.
-  float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
-  color.rgb = mix(vec3(luma), color.rgb, u_saturation) * u_brightness;
-  color.a *= u_opacity;
+  vec2 filtered = sourceSample(u_frame, v_uv, u_kernel, u_source_cell);
+  color = vec4(filtered.g > 0.5 ? filtered.r : 1.0, 0.0, 0.0, 1.0);
 }`
 
 const encodedMotion = new WeakMap<Uint8Array, { vectors: Uint8Array; mask: Uint8Array }>()
@@ -209,6 +229,8 @@ export class RainLayer implements CustomLayerInterface {
   private motionData?: MotionField
   /** Texture-uploads (regenframes + motion); tijdens afspelen alleen bij een nieuw framepaar. */
   uploads = 0
+  /** Voorfilter-passes (U72): één per frame dat met een bronkern getoond wordt. */
+  filters = 0
   private mix = 0
   private opacity = 1
   private saturation = 1
@@ -218,6 +240,11 @@ export class RainLayer implements CustomLayerInterface {
   private leftSampling = DEFAULT_SAMPLING
   private rightSampling = DEFAULT_SAMPLING
   private timeBlend = DEFAULT_TIME_BLEND
+  private filterProgram?: WebGLProgram
+  private filterTarget?: WebGLFramebuffer
+  private filterVertexArray?: WebGLVertexArrayObject
+  /** Hooguit twee: één per getoond frame. */
+  private filteredFrames: FilteredFrame[] = []
 
   constructor(private readonly grid: Grid) {}
 
@@ -226,6 +253,8 @@ export class RainLayer implements CustomLayerInterface {
     this.gl = gl
     this.leftData = this.rightData = this.motionData = undefined
     this.program = link(gl, vertexSource, fragmentSource)
+    this.filterProgram = this.filterTarget = this.filterVertexArray = undefined
+    this.filteredFrames = []
     this.buffer = gl.createBuffer()!
     const west = this.grid.x0
     const east = west + this.grid.dx * this.grid.width
@@ -297,6 +326,8 @@ export class RainLayer implements CustomLayerInterface {
   render(context: WebGLRenderingContext | WebGL2RenderingContext, options: CustomRenderMethodInput): void {
     const gl = context as WebGL2RenderingContext
     if (!this.program || !this.buffer || this.opacity <= 0) return
+    const leftTexture = this.sampledTexture(gl, this.left!, this.leftData, this.leftSampling, this.rightData)
+    const rightTexture = this.sampledTexture(gl, this.right!, this.rightData, this.rightSampling, this.leftData)
     gl.useProgram(this.program)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer)
     const position = gl.getAttribLocation(this.program, 'a_pos')
@@ -313,15 +344,13 @@ export class RainLayer implements CustomLayerInterface {
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_has_motion'), this.hasMotion ? 1 : 0)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_interval_minutes'), this.intervalMinutes)
     gl.uniform2f(gl.getUniformLocation(this.program, 'u_grid_size'), this.grid.width, this.grid.height)
-    gl.uniform1i(gl.getUniformLocation(this.program, 'u_left_kernel'), KERNEL_IDS[this.leftSampling.kernel])
-    gl.uniform1i(gl.getUniformLocation(this.program, 'u_right_kernel'), KERNEL_IDS[this.rightSampling.kernel])
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_left_source_cell'), this.leftSampling.sourceCellWidth)
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_right_source_cell'), this.rightSampling.sourceCellWidth)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_left_nearest'), this.leftSampling.kernel === 'nearest' ? 1 : 0)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_right_nearest'), this.rightSampling.kernel === 'nearest' ? 1 : 0)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_blend_eased'), this.timeBlend.eased ? 1 : 0)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_warp_cap_cells'), this.timeBlend.warpCapCells)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_warp_fade_end_cells'), this.timeBlend.warpFadeEndCells)
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.left!); gl.uniform1i(gl.getUniformLocation(this.program, 'u_left'), 0)
-    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.right!); gl.uniform1i(gl.getUniformLocation(this.program, 'u_right'), 1)
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, leftTexture); gl.uniform1i(gl.getUniformLocation(this.program, 'u_left'), 0)
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, rightTexture); gl.uniform1i(gl.getUniformLocation(this.program, 'u_right'), 1)
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, this.lut!); gl.uniform1i(gl.getUniformLocation(this.program, 'u_lut'), 2)
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, this.motion!); gl.uniform1i(gl.getUniformLocation(this.program, 'u_motion'), 3)
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, this.motionMask!); gl.uniform1i(gl.getUniformLocation(this.program, 'u_motion_mask'), 4)
@@ -329,6 +358,76 @@ export class RainLayer implements CustomLayerInterface {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   }
+
+  /** De textuur die de hoofdshader voor dit frame leest: het ruwe frame, of de voorgefilterde versie ervan. */
+  private sampledTexture(gl: WebGL2RenderingContext, raw: WebGLTexture, data: Uint8Array | undefined, sampling: RainSampling, otherData: Uint8Array | undefined): WebGLTexture {
+    const kernel = sampling.kernel
+    if (!data || !isSourceKernel(kernel)) return raw
+    const matches = (frame: FilteredFrame) => frame.data === data && frame.kernel === kernel && frame.sourceCellWidth === sampling.sourceCellWidth
+    const ready = this.filteredFrames.find(matches)
+    if (ready) return ready.texture
+    // Hergebruik de textuur van een frame dat niet meer getoond wordt; die van het andere getoonde frame blijft.
+    let target = this.filteredFrames.length < 2 ? undefined : this.filteredFrames.find((frame) => frame.data !== otherData) ?? this.filteredFrames[0]
+    if (!target) {
+      const created = texture(gl, gl.NEAREST)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, this.grid.width, this.grid.height, 0, gl.RED, gl.UNSIGNED_BYTE, null)
+      target = { texture: created, data, kernel, sourceCellWidth: sampling.sourceCellWidth }
+      this.filteredFrames.push(target)
+    }
+    target.data = data
+    target.kernel = kernel
+    target.sourceCellWidth = sampling.sourceCellWidth
+    this.filterFrame(gl, raw, target)
+    return target.texture
+  }
+
+  private filterFrame(gl: WebGL2RenderingContext, raw: WebGLTexture, target: FilteredFrame): void {
+    this.filterProgram ??= link(gl, filterVertexSource, filterFragmentSource)
+    this.filterTarget ??= gl.createFramebuffer()!
+    this.filterVertexArray ??= gl.createVertexArray()!
+    // De laag tekent ook als gewone kaartlaag midden in een MapLibre-beeld; alles wat deze pass verzet gaat terug.
+    const previousFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
+    const previousVertexArray = gl.getParameter(gl.VERTEX_ARRAY_BINDING) as WebGLVertexArrayObject | null
+    const previousViewport = gl.getParameter(gl.VIEWPORT) as Int32Array
+    const previousColorMask = gl.getParameter(gl.COLOR_WRITEMASK) as boolean[]
+    const blending = gl.isEnabled(gl.BLEND)
+    const scissoring = gl.isEnabled(gl.SCISSOR_TEST)
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.filterTarget)
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, target.texture, 0)
+    gl.viewport(0, 0, this.grid.width, this.grid.height)
+    gl.disable(gl.BLEND)
+    gl.disable(gl.SCISSOR_TEST)
+    gl.colorMask(true, true, true, true)
+    gl.useProgram(this.filterProgram)
+    gl.bindVertexArray(this.filterVertexArray)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, raw)
+    gl.uniform1i(gl.getUniformLocation(this.filterProgram, 'u_frame'), 0)
+    gl.uniform2f(gl.getUniformLocation(this.filterProgram, 'u_grid_size'), this.grid.width, this.grid.height)
+    gl.uniform1i(gl.getUniformLocation(this.filterProgram, 'u_kernel'), SOURCE_KERNEL_IDS[target.kernel])
+    gl.uniform1f(gl.getUniformLocation(this.filterProgram, 'u_source_cell'), target.sourceCellWidth)
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+
+    gl.bindVertexArray(previousVertexArray)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, previousFramebuffer)
+    gl.viewport(previousViewport[0]!, previousViewport[1]!, previousViewport[2]!, previousViewport[3]!)
+    gl.colorMask(previousColorMask[0]!, previousColorMask[1]!, previousColorMask[2]!, previousColorMask[3]!)
+    if (blending) gl.enable(gl.BLEND)
+    if (scissoring) gl.enable(gl.SCISSOR_TEST)
+    this.filters++
+  }
+}
+
+interface FilteredFrame {
+  texture: WebGLTexture
+  data: Uint8Array
+  kernel: SourceKernel
+  sourceCellWidth: number
+}
+
+function isSourceKernel(kernel: RainKernel): kernel is SourceKernel {
+  return kernel in SOURCE_KERNEL_IDS
 }
 
 /** Welke regentextures opnieuw moeten; `swap` als het nieuwe linkerframe het oude rechter is. */
