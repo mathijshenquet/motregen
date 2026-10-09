@@ -446,6 +446,12 @@
   op de dev-host was dit 81–85 s: de VM-vCPU's zijn ~2× trager en memory.high remde). Houdt het KNMI-ritme (3–5 min)
   nog net bij; wind is de uitschieter → kandidaat U71e (windloop sneller / minder frames) als het achter gaat lopen.
 
+- 23:12: combined-budget 1600M/1800M uitgerold (8ba5a9ea): memory.high-events 0, maar render blijft 212–224 s per
+  generatie → niet het geheugen maar de VM-vCPU (~2,5× trager dan de dev-host-kernen). De VM pakt steeds de nieuwste
+  generatie (gaten 3–7 min), dus hij loopt tot ~4 min achter op het radarritme. **Open voor PO**: (a) U71e — VM-
+  renderpad < 120 s (wind 83 s is de uitschieter; profiel op de VM zelf, isolijnen per uur cachen, wind goedkoper),
+  of (b) renderer terug naar de dev-host.
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
