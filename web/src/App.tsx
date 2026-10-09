@@ -248,17 +248,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let windInitializationIdle: number | undefined
   let windInitializationTimer: number | undefined
   let windParallelCompilation = false
-  let playbackStartupTimer: number | undefined
-  let playbackStartupCancelled = false
-  let finishPlaybackStartup: () => void = () => {}
-  const playbackStartup = new Promise<void>((resolve) => { finishPlaybackStartup = resolve })
-  if (stillMode) finishPlaybackStartup()
   onCleanup(() => {
     if (windInitializationFrame !== undefined) cancelAnimationFrame(windInitializationFrame)
     if (windInitializationIdle !== undefined) cancelIdle(windInitializationIdle)
     window.clearTimeout(windInitializationTimer)
-    window.clearTimeout(playbackStartupTimer)
-    playbackStartupCancelled = true
   })
   let shownWindRequest = 0
   let shownTemperatureRequest = 0
@@ -719,7 +712,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const playbackReady = createMemo(() => mapRendering() && mapReady())
   const playbackActive = createMemo(() => playing() && playbackReady())
   createEffect(() => { if (!stillMode && mapReady() && !playing()) scheduleWindInitialization() })
-  createEffect(() => { if (mapReady() && !playing()) finishPlaybackStartup() })
   const [resetNotice, setResetNotice] = createSignal(false)
   let resetNoticeTimer: number | undefined
   const [updateReady, setUpdateReady] = createSignal(false)
@@ -1549,7 +1541,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         perf.recordPhase({ phase: 'rain-frame-committed', startTime: performance.now(), duration: 0, detail: { epoch, left: blend.left, right: blend.right, mix: blend.mix, cursor: cursor(), request, uploads: layer?.uploads, tilesLoaded: map?.areTilesLoaded(), mapStart: mapElement.dataset.mapStart ?? 'z4' } })
       }
       const firstPlayback = perf.markRainFrameCommitted({ frameEpoch: drawn.frameEpoch, playing: playing() })
-      if (firstPlayback) playbackStartupTimer = window.setTimeout(finishPlaybackStartup, 5_000)
       if (firstPlayback || !playing()) schedulePlaces()
       if (!stillMode && (firstPlayback || !playing())) scheduleWindInitialization()
     })
@@ -1562,7 +1553,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         setMapReady(true)
         if (stillMode) void prepareStill()
         else {
-          void playbackStartup.then(() => { if (!playbackStartupCancelled) scheduleIdle(preloadTemperatureAtCursor, 1_000) })
+          scheduleIdle(preloadTemperatureAtCursor, 1_000)
         }
         if (!stillMode && !initialPickStarted) {
           initialPickStarted = true
@@ -2270,9 +2261,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function schedulePlaces(): void {
     if (stillMode || placesScheduled) return
     placesScheduled = true
-    void playbackStartup.then(() => {
-      if (playbackStartupCancelled) return
-      placesIdle = scheduleIdle(() => {
+    placesIdle = scheduleIdle(() => {
       placesIdle = undefined
       void loadPlaces().then((loaded) => {
         if (!loaded) return
@@ -2287,8 +2276,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (hasPickedLocation) rememberPickedLocation()
         setCatalogueReady(true)
       })
-      }, 1_000)
-    })
+    }, 1_000)
   }
 
   function rememberPickedLocation(selected?: PlaceIdentity): void {
@@ -2382,11 +2370,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     state.direct = (async () => {
       // De fase "direct" wacht alleen op de rijen rond nu; de rest van de tabel en het venster is
       // tegelijk gevraagd en groeit per frame aan (publishLoadedSeries), het verst van de cursor het laatst.
-      // De zichtbare rijen rond nu gaan direct; ongebruikte tabelrijen mogen de eerste speelseconden niet verdringen.
-      void playbackStartup.then(() => {
-        if (playbackStartupCancelled || request !== pointRequest) return
-        for (const series of tableSeries) void readForecastPointSeries(series.frames(), point, series.key, 'L0', state)
-      })
+      for (const series of tableSeries) void readForecastPointSeries(series.frames(), point, series.key, 'L0', state)
       const [uv, temperature, feelsLike, cloud, windU, windV, gust] = await Promise.all([
         readForecastPointSeries(uvTimeline(), point, 'uvIndex', 'L0', state, 'near-now'),
         readForecastPointSeries(tempTimeline(), point, 'temperatureIndex', 'L0', state, 'near-now'),

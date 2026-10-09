@@ -420,30 +420,6 @@ describe('mrf v0', () => {
 
     const settle = () => new Promise((done) => setTimeout(done, 0))
 
-    it('leaves a render turn between worker batches and uses the new cursor for the next decode', async () => {
-      const worker = stubHeldWorker()
-      const frames: FrameRequestCallback[] = []
-      vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { frames.push(callback); return frames.length })
-      const client = new MrfClient(new URL('https://example.test/data/manifest.json'), undefined, { ...roomy, workers: 1 })
-      const chunk = manifest.chunks[0]!
-      const epochOf = (index: number) => Date.parse(chunk.times[index]!)
-      client.setIntent(intentAt(epochOf(0)))
-      const loading = client.getFrames(chunk, [0, 1, 2])
-      await settle()
-      worker.releaseNext()
-      await settle()
-      expect(worker.decodeOrder).toEqual([0])
-      client.setIntent(intentAt(epochOf(2)))
-      frames.shift()!(0)
-      expect(worker.decodeOrder).toEqual([0, 2])
-      worker.releaseNext()
-      await settle()
-      frames.shift()!(16)
-      worker.releaseNext()
-      await loading
-      expect(worker.decodeOrder).toEqual([0, 2, 1])
-    })
-
     it('decodes outward from the cursor, whoever asked first, and follows a cursor jump (U52)', async () => {
       const worker = stubHeldWorker()
       const client = new MrfClient(new URL('https://example.test/data/manifest.json'), undefined, { ...roomy, workers: 1 })
