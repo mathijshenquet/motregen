@@ -420,6 +420,12 @@
   weersverwachting". Cloudflare-zone nog "pending" (proxy pas actief na activatie; records resolven nu direct naar
   de VM). U71b-sessie herstart met reasoning xhigh (pane stond op low; WIP 48c81b0, PR #102).
 
+- **U71b gemerged** (19:39, d101de28, PR #102, gpt-6.1-sol ~2,5 u incl. herstart op xhigh): temperatuur en wind native
+  (isolijnen+labels, windstreepjes, isobaren), pariteit 15/15 (zelf bekeken), generatie 173 media 52 s warm / 58 s
+  koud op 2 kernen zonder browser in het framepad (was 164 s). Voorbehoud: max-RSS 3,86 GiB > VM-limiet 2,6 GB →
+  U71c (geheugen ≤ 1,8 GiB piek, bewijs onder systemd-limieten), daarna renderer-rol terug naar de VM.
+  Renderer op ageq-dev2 herstart vanaf main (alle modi native).
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
