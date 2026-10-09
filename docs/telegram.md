@@ -285,6 +285,39 @@ De Telegram-upload is in deze render-only meting niet uitgevoerd. Alle loops bli
 langste horizon en 10 fps passen daarmee in het renderbudget. Hostbelasting beïnvloedt deze eenmalige
 metingen; dit zijn geen geïsoleerde CPU-benchmarks. Exacte repro en receipts staan in het U66-track-LOG.
 
+U70 is op 2026-10-09 tegen `https://motregen.nl` gemeten met één vastgepind manifest
+(`generated=2026-10-09T12:08:02Z`, `now=12:05Z`). Twee koude volledige matrices zijn direct achter
+elkaar onder de hostbrede perf-lock gerenderd. Render-ms omvat ook de PNGs voor latere stills:
+
+| modus | loopframes | PNGs | fps | render-ms | encode-ms | MP4-bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Regen | 169 → 61 | 169 → 115 | 10 → 10 | 56334 → 31701 | 1236 → 552 | 2882649 → 1206270 |
+| Temperatuur | 169 → 169 | 169 → 169 | 10 → 10 | 65581 → 57549 | 1884 → 2116 | 2189211 → 2229636 |
+| Wind | 169 → 169 | 169 → 169 | 10 → 10 | 56363 → 44020 | 2522 → 2272 | 2157700 → 2205536 |
+
+De 173-media-rendergeneratie kostte **71301 → 63590 ms**; dry-run-prime met mockuploads en zonder
+tussenruimte kostte **84 → 78 ms**, samen **71385 → 63668 ms**. De complete matrix en het
+file_id-antwoord via het register zijn gecontroleerd. Met de 15-seconden-manifestcheck blijft
+**131410 ms** binnen het 210-secondenbudget beschikbaar voor echte Telegram-prime. Die uploadtijd
+is niet gemeten. Regen is 7,1 s inclusief eindhold; de overige loops blijven 17,9 s en alle MP4s <3 MB.
+
+Een eerdere koude vergelijking gaf 69658 → 97692 ms inclusief mockprime, terwijl de hostbelasting
+van circa 12 naar 27 steeg en ook de ongewijzigde modi fors vertraagden. Daarom is de vergelijking
+herhaald; ook de bovenstaande tijden zijn metingen op een gedeelde host, geen geïsoleerde benchmark.
+Temperatuur en Wind hebben dezelfde frameplannen als vóór U70; hun tijd- en byteverschillen zijn
+meetvariatie. Gebruik voor de volledige rendererrol `--dry-run-prime`, met een eigen lege cachemap:
+
+```bash
+mkdir -p tmp/u70
+curl -fsS https://motregen.nl/data/manifest.json -o tmp/u70/manifest.json
+flock ~/motregen-perf.lock bash -c '
+  TG_BOT_KEY=x MOTREGEN_BOT_ROLE=combined MOTREGEN_ORIGIN=https://motregen.nl \
+  MOTREGEN_CHROMIUM_PATH=/nix/store/j8hc3kdypr2gaa2w3dq0a370lwfzbasf-chromium-151.0.7922.137/bin/chromium \
+  MOTREGEN_RENDER_CACHE=../tmp/u70/cold-cache \
+  pnpm -C bot render --manifest=../tmp/u70/manifest.json --dry-run-prime=../tmp/u70/register.json
+'
+```
+
 In de gecombineerde modus serveert Caddy uitsluitend `/telegram/stills/*.jpg` en `*.mp4` met twee uur
 cacheduur en `noindex`; sidecars en receipts geven 404. Cachebestanden ouder
 dan twee uur, inclusief PNG-directories, verdwijnen bij een manifestcheck, ook als het renderen van een
