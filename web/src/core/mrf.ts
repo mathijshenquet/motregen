@@ -6,7 +6,7 @@ import { FrameCache } from './frame-cache'
 import { intentDistance, type FrameTiming, type Intent } from './intent'
 import { recordPerfPhase, type LoadLayer, type LoadTrace } from './perf'
 import type { PredFrameSpec } from './pred'
-import { decodeFrame, parseMrfHeader } from './mrf-codec.js'
+import { parseMrfHeader } from './mrf-codec.js'
 export { decodeFrame, parseMrfHeader } from './mrf-codec.js'
 
 function predSpec(header: MrfHeader): PredFrameSpec | undefined {
