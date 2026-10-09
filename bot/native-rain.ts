@@ -82,7 +82,10 @@ export class NativeRainData {
         const bytes = new Uint8Array(await response.arrayBuffer())
         const headerLength = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(4, true) + 8
         return { header: parseMrfHeader(bytes.subarray(0, headerLength)), bytes, headerLength, frames: new Map<number, Uint8Array>() }
-      })()
+      })().catch((error) => {
+        this.chunks.delete(frame.chunk.url)
+        throw error
+      })
       this.chunks.set(frame.chunk.url, pending)
     }
     const chunk = await pending

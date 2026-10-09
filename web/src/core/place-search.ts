@@ -9,6 +9,10 @@ export function placeQuery(query: string): string {
   return aliases[normalized] ?? normalized
 }
 
+export function expandPlaceQuery(query: string): string {
+  return aliases[placeSlug(query)]?.replaceAll('-', ' ') ?? query
+}
+
 export function searchPlaces<T extends SearchPlace>(query: string, places: readonly T[]): { place?: T; suggestions: T[] } {
   const normalized = placeQuery(query)
   const ranked = places.map((place) => {

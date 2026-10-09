@@ -5,6 +5,7 @@ import type { BotConfig } from './config.js'
 import type { BotRuntime } from './handlers.js'
 import type { RenderedMedia } from './render.js'
 import { MessageSelections } from './selections.js'
+import { createPlaceWeather } from './place-weather.js'
 import { MediaUnavailableError, REGISTER_FILENAME, RegisterMedia, TelegramRegister, writeRegister } from './register.js'
 
 export async function createPoller(config: BotConfig, api: TelegramApi, identity: { id: number; username: string }): Promise<{ runtime: BotRuntime; refresh(): Promise<void> }> {
@@ -26,6 +27,7 @@ export async function createPoller(config: BotConfig, api: TelegramApi, identity
   const fileIds = { get: (item: RenderedMedia) => media.fileId(item) }
   const runtime: BotRuntime = {
     api, config, username: identity.username,
+    weather: createPlaceWeather(config, api, identity.id),
     selections: new MessageSelections(),
     currentManifest: async () => media.currentManifest(),
     manifestForGeneration: (generated) => media.manifestForGeneration(generated),

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { decodePlaces, type CompactPlaces } from '../web/src/core/place-data.js'
-import { placeQuery, searchPlaces, type SearchPlace } from '../web/src/core/place-search.js'
+import { expandPlaceQuery, placeQuery, searchPlaces, type SearchPlace } from '../web/src/core/place-search.js'
 import { places } from '../web/src/core/places.js'
 import { placesUrl } from '../web/src/core/places-asset.js'
 import { resolveLocation, suggestLocations } from '../web/src/core/geocoder.js'
@@ -28,7 +28,7 @@ export class WeatherPlaces {
     if (local.place || !query.trim()) return local
     try {
       const signal = AbortSignal.timeout(5000)
-      const external = await suggestLocations(placeQuery(query).replaceAll('-', ' '), { lng: 5.18, lat: 52.1 }, signal)
+      const external = await suggestLocations(expandPlaceQuery(query), { lng: 5.18, lat: 52.1 }, signal)
       const suggestions = await Promise.all(external.slice(0, 3).map(async (suggestion) => ({
         name: suggestion.label, slug: placeSlug(suggestion.label), ...await resolveLocation(suggestion, signal),
       })))

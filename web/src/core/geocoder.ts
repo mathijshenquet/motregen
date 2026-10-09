@@ -1,6 +1,6 @@
 import { lookupLocation, suggestLocations as suggestDutchLocations } from './pdok.js'
 import { nearestPlace, places, searchCatalogue } from './places.js'
-import { placeQuery } from './place-search.js'
+import { expandPlaceQuery } from './place-search.js'
 
 // Vlaamse geolocatiedienst (Digitaal Vlaanderen): gratis, zonder sleutel, CORS open.
 // Zie docs/geocoding.md voor URL en gebruiksbeleid.
@@ -33,7 +33,7 @@ const reservedForSecondary = 2
 
 export async function suggestLocations(query: string, center: { lng: number; lat: number }, signal?: AbortSignal): Promise<LocationSuggestion[]> {
   const catalogue = searchCatalogue(query).map((place): LocationSuggestion => ({ id: `catalogue:${place.slug}`, label: place.name, type: 'plaats', country: 'NL', location: place }))
-  query = placeQuery(query).replaceAll('-', ' ')
+  query = expandPlaceQuery(query)
   const [dutch, flemish] = await Promise.allSettled([
     suggestDutchLocations(query, signal).then((results) => results.map((result): LocationSuggestion => ({ ...result, country: 'NL' }))),
     suggestFlemishLocations(query, signal),
