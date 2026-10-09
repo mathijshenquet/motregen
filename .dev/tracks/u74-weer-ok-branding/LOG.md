@@ -24,3 +24,46 @@ Bewust NIET gewijzigd:
 
 Functioneel meegenomen voor "beide domeinen serveren": de service-worker-allowlist in `App.tsx` kende alleen
 motregen.nl; weerok.nl zou anders zijn SW steeds deregistreren (geen PWA/offline op het tweede domein).
+
+## 2026-10-09 — uitgevoerd, gates groen, klaar voor PO-blik (HEAD 839273f + deze LOG-commit)
+Web:
+- `brandName = 'weer ok?'` in `web/src/core/page-meta.ts`; gebruikt door titel/paginatitels, PWA-manifest, splash,
+  About-kop, merkknop-label, deel-titel en het Caddy-template van de padpagina's. `index.html` (statisch) letterlijk.
+- `SERVICE_WORKER_HOSTNAMES` in `App.tsx` kent nu ook weerok.nl en www.weerok.nl.
+- `og-image.png` opnieuw gegenereerd (`pnpm exec tsx scripts/og-image.ts http://127.0.0.1:4320/`). De westrand van
+  het radardomein viel als grijze strook in beeld (de oude afbeelding dateert van vóór dat masker); slepen helpt
+  niet (kaartgrens), het script zoomt nu één tik in. Zelf bekeken: schoon.
+- Woordmerk: het bestaande tekstlogo (splash `<strong>`, About `<h2>`) toont nu "weer ok?" in dezelfde stijl;
+  druppel en PWA-iconen bevatten geen tekst en zijn ongewijzigd.
+
+nix (`nix/modules/motregen.nix`):
+- `services.motregen.domains` (nonEmptyListOf str, default `[ "motregen.nl" "weerok.nl" ]`); eerste = canonical
+  en bot-origin. `domain` geeft via `mkRemovedOptionModule` een duidelijke foutmelding.
+- Hoofd-vhost: eerste naam + `serverAliases` voor de rest; per naam een `www.`-vhost met `redir … 308` naar de
+  eigen apex (www.weerok.nl → weerok.nl), zonder access-log (MIP-13).
+- Geëvalueerd op prod: `motregen.nl` (alias `weerok.nl`), `www.motregen.nl` → `https://motregen.nl{uri}`,
+  `www.weerok.nl` → `https://weerok.nl{uri}`; `MOTREGEN_ORIGIN` blijft `https://motregen.nl`.
+- VM-test uitgebreid: `Host: www.<naam>` geeft 308 met pad+query naar de apex; `Host: <naam>` geeft 200.
+
+Receipts (synchroon waargenomen exit-statussen):
+- `cd web && pnpm typecheck` → 0; `pnpm test` → 0 (82 bestanden, 539 tests); `pnpm build` → 0.
+- `cd web && MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/presets.spec.ts e2e/seo.spec.ts
+  e2e/freshness.spec.ts e2e/location.spec.ts e2e/usage.spec.ts e2e/table.spec.ts --project desktop` → 0
+  (34 passed, 2 skipped). Er is geen `about.spec.ts`; dit zijn de specs die kop/About/titel/manifest raken.
+- `cd bot && pnpm typecheck` → 0; `pnpm test` → 0 (99 tests). bot/ heeft geen diff.
+- `nix build .#nixosConfigurations.motregen.config.system.build.toplevel .#checks.x86_64-linux.bot-roles
+  .#checks.x86_64-linux.nixos-vm --no-link -L` → 0 op 839273f.
+
+Beelden (`beelden/`, WebP q92, rig `rig/shots.ts`, gekopieerd naar `web/tmp/u74/` en gedraaid met
+`pnpm exec tsx tmp/u74/shots.ts`): splash/kaart/about × dag/nacht × 1280/390. Zelf bekeken. Het kaartbeeld heeft
+geen tekstkop (alleen de druppelknop), dus daar verandert visueel niets.
+
+Preview: http://ageq-dev2:4320/ serveert 839273f (`scripts/track-preview.sh 4320`).
+
+Open, voor de orkestrator/PO:
+1. `shareUrl` (presets.ts) en canonical geven altijd `https://motregen.nl/...`, ook wanneer iemand op weerok.nl
+   deelt — conform "canonical blijft motregen.nl", maar een bewuste keuze om te bevestigen.
+2. Na uitrol probeert Caddy ACME voor weerok.nl/www.weerok.nl; zolang DNS nog niet wijst faalt dat (met backoff,
+   zonder effect op motregen.nl). Als motregen.nl achter Cloudflare zit, moet weerok.nl daar ook langs of direct.
+3. Bestaande PWA-installaties houden hun oude naam tot herinstallatie/manifest-update (platformgedrag).
+4. `README.md`, nix-unitbeschrijvingen en de basemap-stijlnaam zeggen nog "motregen" (niet gebruikerszichtbaar).
