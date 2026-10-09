@@ -287,6 +287,15 @@
   (basemap/perf/freshness, desktop + mobiel); 4330 herbouwd; prod-upgrade gestart.
 - Prod stond al om 23:30 op main (`index-DdXphFfb.js`, PO: "merge nu maar alles"); bot-poller actief.
 
+- 00:30–01:10, PO-ronde op prod/4330 (orkestrator, micro-fixes, elk zelf gecontroleerd met Firefox/Chromium-
+  screenshots op dpr 2,2): scrubber mobiel zonder 2 px padding-top en zonder onderrand (12f9811b, 0555ce17);
+  koppenrij-lijn als inset box-shadow i.p.v. collapsed border + tabel `border-collapse: separate; border-spacing: 0`
+  (Firefox: sticky kop liet een naad zien; 0555ce17, 3d7afaf3); `.column-mode` vertical-align top (koppenrij was
+  55,5 px op de PO-telefoon door baseline-ruimte; 7100ae8d); tabelachtergrond volgt head-day/head-night zodat een
+  rest-naad rijkleur toont (PO-idee; 06134ad7). PO-vraag "geen table gebruiken?" → advies: houden (kolomuitlijning,
+  sticky thead, semantiek); de problemen zaten in collapse+sticky en themalijnen, nu verholpen. Prod: derde upgrade
+  gestart zodat alles erop staat.
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
