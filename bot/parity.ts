@@ -29,7 +29,7 @@ const browser = await chromium.launch({ executablePath: process.env.MOTREGEN_CHR
 try {
   await mkdir(outputDirectory, { recursive: true })
   const context = await browser.newContext({ viewport: FRAME, deviceScaleFactor: FRAME.scale, locale: 'nl-NL', timezoneId: 'Europe/Amsterdam', reducedMotion: 'reduce', serviceWorkers: 'block' })
-  const page = await context.newPage()
+  let page = await context.newPage()
   const cache = process.env.MOTREGEN_RENDER_CACHE ?? '../tmp/u71a-parity'
   const data = new NativeRainData(origin, manifest)
   const temperatures = new NativeRainData(origin, manifest, 'feels_like_c')
@@ -37,17 +37,22 @@ try {
   const overlay = new NativeOverlay(origin, cache, async () => context, mode)
   await overlay.prepare(manifest)
   const samples = [{ name: 'historie', minutes: -55 }, { name: 'voor-loop', minutes: -120 }, { name: 'nu', minutes: 0 }, { name: 'verwachting', minutes: 95 }, { name: 'nacht', minutes: 720 }]
-  if (mode !== 'weather') {
-    const renderer = new NativeModesRenderer(origin, cache, async () => context)
-    await renderer.render(mode, manifest, { epochs: samples.map((sample) => now + sample.minutes * 60_000), loopFrames: samples.length, fps: 10, stillFrames: samples.map((_sample, index) => ({ hour: 0, index })) }, outputDirectory, join(outputDirectory, 'native-samples.mp4'))
-  }
   const results = []
-  await openRenderPage(page, referenceOrigin, mode, manifest, now + samples[0]!.minutes * 60_000)
-  for (const [sampleIndex, sample] of samples.entries()) {
+  if (mode === 'weather') await openRenderPage(page, referenceOrigin, mode, manifest, now + samples[0]!.minutes * 60_000)
+  for (const sample of samples) {
     const epoch = now + sample.minutes * 60_000
+    const sampleDirectory = join(outputDirectory, sample.name)
+    if (mode !== 'weather') {
+      await page.close()
+      page = await context.newPage()
+      await mkdir(sampleDirectory, { recursive: true })
+      const renderer = new NativeModesRenderer(origin, cache, async () => context)
+      await renderer.render(mode, manifest, { epochs: [epoch], loopFrames: 1, fps: 10, stillFrames: [{ hour: 0, index: 0 }] }, sampleDirectory, join(sampleDirectory, 'native-sample.mp4'))
+      await openRenderPage(page, referenceOrigin, mode, manifest, epoch)
+    }
     await page.evaluate(async ({ epoch, simulationMs }) => {
       await (window as unknown as { __motregenRenderFrame: (epoch: number, simulationMs: number) => Promise<void> }).__motregenRenderFrame(epoch, simulationMs)
-    }, { epoch, simulationMs: mode === 'wind' ? 1000 + sampleIndex * 100 : 0 })
+    }, { epoch, simulationMs: mode === 'wind' ? 1000 : 0 })
     const reference = await page.screenshot()
     const referenceRgb = await sharp(reference).removeAlpha().raw().toBuffer()
     let rgb: Buffer
@@ -61,7 +66,7 @@ try {
     rgb = await overlay.draw(await compositor.composeFast(base, rain, theme === 'dark'), epoch, now)
     await compositor.close()
     } else {
-      const ppm = await readFile(nativeFramePath(outputDirectory, sampleIndex))
+      const ppm = await readFile(nativeFramePath(sampleDirectory, 0))
       rgb = ppm.subarray(Buffer.from(`P6\n${FRAME_PIXELS.width} ${FRAME_PIXELS.height}\n255\n`).length)
     }
     const native = await sharp(rgb, { raw: { ...FRAME_PIXELS, channels: 3 } }).png().toBuffer()

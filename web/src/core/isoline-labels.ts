@@ -1,3 +1,4 @@
+import { lineLabelCandidates, LABEL_MIN_DISTANCE_PX, LABEL_SPACING_PX, MAX_LABEL_ANCHORS } from './isoline-label-anchors.js'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import { Marker } from 'maplibre-gl'
 import type { Grid } from './contract'
@@ -9,12 +10,12 @@ import { projectToLevel, smoothstep, type FieldSlice, type SliceSample } from '.
 const EARTH_RADIUS = 6378137
 
 /** Minimale afstand tussen twee labels in CSS-px (Label-afstand, U8b; knop weg in U30). */
-const LABEL_MIN_DISTANCE_PX = 90
+
 /** Afstand langs een lijn tussen kandidaat-ankers bij het spawnen (Label-spatiëring, U7/U30). */
-const LABEL_SPACING_PX = 260
+
 
 const FADE_MS = 300
-const MAX_ANCHORS = 60
+
 const SPAWN_INTERVAL_MS = 750
 
 interface Anchor {
@@ -138,22 +139,13 @@ export class IsolineLabels {
     const living = () => this.anchors.filter((anchor) => !anchor.dying)
     for (const feature of this.lines!.features) {
       const points = feature.geometry.coordinates.map(([lng, lat]) => this.toCell(lng, lat))
-      // Eerste kandidaat een halve spatiëring in, zodat korte lijnen er één in het midden krijgen.
-      let until = spacing / 2
-      for (let index = 1; index < points.length && living().length < MAX_ANCHORS; index++) {
-        const [ax, ay] = points[index - 1]!, [bx, by] = points[index]!
-        const length = Math.hypot(bx - ax, by - ay)
-        while (until <= length) {
-          const t = until / length
-          const column = ax + (bx - ax) * t, row = ay + (by - ay) * t
-          until += spacing
-          if (column < view.left || column > view.right || row < view.top || row > view.bottom) continue
-          if (living().some((anchor) => Math.hypot(anchor.column - column, anchor.row - row) < minCells)) continue
-          const projected = projectToLevel(slice, column, row, feature.properties.level, this.step)
-          if (!projected || ringFadeAt(this.rings, feature.properties.level, projected.column, projected.row) <= 0) continue
-          this.add(feature.properties.level, projected.column, projected.row, projected.sample, now)
-        }
-        until -= length
+      for (const [column, row] of lineLabelCandidates(points, spacing)) {
+        if (living().length >= MAX_LABEL_ANCHORS) break
+        if (column < view.left || column > view.right || row < view.top || row > view.bottom) continue
+        if (living().some((anchor) => Math.hypot(anchor.column - column, anchor.row - row) < minCells)) continue
+        const projected = projectToLevel(slice, column, row, feature.properties.level, this.step)
+        if (!projected || ringFadeAt(this.rings, feature.properties.level, projected.column, projected.row) <= 0) continue
+        this.add(feature.properties.level, projected.column, projected.row, projected.sample, now)
       }
     }
   }

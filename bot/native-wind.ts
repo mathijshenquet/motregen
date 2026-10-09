@@ -1,4 +1,4 @@
-import sharp from 'sharp'
+import { drawStroke } from './native-strokes.js'
 import { NativeRainData, type RainFrame } from './native-rain.js'
 import { nativeProjection } from './native-projection.js'
 import { FRAME, FRAME_PIXELS } from './config.js'
@@ -41,7 +41,7 @@ export class NativeWindData {
     const columns = Math.ceil(Math.sqrt(count * FRAME.width / FRAME.height)), rows = Math.ceil(count / columns)
     let randomState = 0x71b
     const random = () => { randomState = (Math.imul(1664525, randomState) + 1013904223) >>> 0; return randomState / 4294967296 }
-    const paths: string[] = []
+    const rgb = Buffer.from(base)
     for (let particle = 0; particle < count; particle++) {
       const x = ((particle % columns) + 0.5 + (random() - 0.5) * WIND_PARAMETERS.spawnJitter) / columns * FRAME_PIXELS.width
       const y = (Math.floor(particle / columns) + 0.5 + (random() - 0.5) * WIND_PARAMETERS.spawnJitter) / rows * FRAME_PIXELS.height
@@ -61,10 +61,8 @@ export class NativeWindData {
       const color = windColor(speed, theme).map((channel) => Math.round(channel * 255))
       const opacity = WIND_FOCUS_INTENSITY * WIND_PARAMETERS.headIntensity * speedDamping(speed, WIND_PARAMETERS.speedDamping)
       const tailX = headX - directionX * length, tailY = headY - directionY * length
-      const id = `wind-${particle}`
-      paths.push(`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${tailX}" y1="${tailY}" x2="${headX}" y2="${headY}"><stop stop-color="rgb(${color.join(',')})" stop-opacity="0"/><stop offset="1" stop-color="rgb(${color.join(',')})" stop-opacity="${opacity}"/></linearGradient><path d="M${tailX},${tailY}L${headX},${headY}" stroke="url(#${id})" stroke-width="${WIND_PARAMETERS.lineWidth * FRAME.scale}"/>`)
+      drawStroke(rgb, FRAME_PIXELS, [tailX, tailY], [headX, headY], WIND_PARAMETERS.lineWidth * FRAME.scale, color, opacity)
     }
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${FRAME_PIXELS.width}" height="${FRAME_PIXELS.height}">${paths.join('')}</svg>`
-    return sharp(base, { raw: { ...FRAME_PIXELS, channels: 3 } }).composite([{ input: Buffer.from(svg) }]).removeAlpha().raw().toBuffer()
+    return rgb
   }
 }

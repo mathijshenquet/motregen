@@ -1,6 +1,9 @@
+import { nativeTextAtlas } from './native-text-atlas.js'
+import { NativeText } from './native-text.js'
 import { writeFile } from 'node:fs/promises'
 import sharp from 'sharp'
 import type { BrowserContext } from 'playwright'
+import { MAP_FOCUS_SATURATION } from '../web/src/core/map-presentation.js'
 import { FRAME_PIXELS } from './config.js'
 import { encodeRgbLoop } from './encode.js'
 import type { SequencePlan } from './sequences.js'
@@ -18,11 +21,11 @@ import { NativeIsolineLabels } from './native-isoline-labels.js'
 import { nativeFramePath } from './native-render.js'
 
 export class NativeModesRenderer {
-  constructor(private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>) {}
+  constructor(private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>, private readonly sharedMaps?: NativeMaps) {}
 
   async render(mode: Exclude<LoopMode, 'weather'>, manifest: StillManifest, plan: SequencePlan, directory: string, destination: string) {
     const started = performance.now()
-    const maps = new NativeMaps(this.origin, this.directory, this.context)
+    const maps = this.sharedMaps ?? new NativeMaps(this.origin, this.directory, this.context)
     const overlay = new NativeOverlay(this.origin, this.directory, this.context, mode)
     const rain = new NativeRainData(this.origin, manifest)
     const temperatures = new NativeRainData(this.origin, manifest, 'feels_like_c')
@@ -43,8 +46,18 @@ export class NativeModesRenderer {
         rainCompositors.set(theme, compositor)
       }
     }
-    const labels = new NativeIsolineLabels()
+    const labels = new NativeIsolineLabels(new NativeText(await nativeTextAtlas(this.origin, this.directory, this.context)))
     await raster?.prepare()
+    const mutedMaps = new Map<string, Buffer>()
+    if (mode === 'feels') {
+      const luminance = [0.2126, 0.7152, 0.0722]
+      const channelWeight = (row: number, column: number) => luminance[column]! * (1 - MAP_FOCUS_SATURATION) + (row === column ? MAP_FOCUS_SATURATION : 0)
+      const matrix: [[number, number, number], [number, number, number], [number, number, number]] = [0, 1, 2].map((row) => [channelWeight(row, 0), channelWeight(row, 1), channelWeight(row, 2)]) as typeof matrix
+      for (const theme of new Set(plan.epochs.map(rainTheme))) {
+        const plate = await maps.get(theme, firstRain.grid)
+        mutedMaps.set(theme, await sharp(plate.rgb, { raw: { ...FRAME_PIXELS, channels: 3 } }).recomb(matrix).raw().toBuffer())
+      }
+    }
     const stillIndexes = new Set(plan.stillFrames.map((frame) => frame.index))
     const header = Buffer.from(`P6\n${FRAME_PIXELS.width} ${FRAME_PIXELS.height}\n255\n`)
     let renderMs = 0
@@ -53,9 +66,8 @@ export class NativeModesRenderer {
         const frameStarted = performance.now(), epoch = plan.epochs[index]!
         const theme = rainTheme(epoch)
         const plate = await maps.get(theme, firstRain.grid)
-        let rgb = drawTemperatureLabels(plate.rgb, plate.labels, await temperatures.frame(temperatureEpoch(epoch)))
+        let rgb = mode === 'feels' ? Buffer.from(mutedMaps.get(theme)!) : drawTemperatureLabels(plate.rgb, plate.labels, await temperatures.frame(temperatureEpoch(epoch)))
         if (mode === 'feels') {
-          rgb = await sharp(rgb, { raw: { ...FRAME_PIXELS, channels: 3 } }).modulate({ saturation: 0.55 }).raw().toBuffer()
           const slice = index === 0 ? firstSlice! : await temperature.slice(epoch)
           rgb = await raster!.compose(rgb, slice, theme === 'dark')
           rgb = await labels.draw(rgb, slice, theme)

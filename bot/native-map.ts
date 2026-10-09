@@ -1,3 +1,4 @@
+import { prepareNativeAsset } from './native-assets.js'
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
@@ -24,7 +25,7 @@ export class NativeMaps {
   get(theme: NativeTheme, grid: Grid): Promise<MapPlate> {
     let pending = this.plates.get(theme)
     if (!pending) {
-      pending = this.load(theme, grid).catch((error) => { this.plates.delete(theme); throw error })
+      pending = prepareNativeAsset(() => this.load(theme, grid)).catch((error) => { this.plates.delete(theme); throw error })
       this.plates.set(theme, pending)
     }
     return pending

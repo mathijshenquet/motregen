@@ -130,7 +130,7 @@ export class RainCompositor {
         const offset = index * 4
         const gray = this.colors[offset]! * 0.2126 + this.colors[offset + 1]! * 0.7152 + this.colors[offset + 2]! * 0.0722
         for (let channel = 0; channel < 3; channel++) this.colors[offset + channel] = (gray + (this.colors[offset + channel]! - gray) * presentation.saturation) * presentation.brightness * presentation.opacity
-        this.colors[offset + 3] = 1 - (1 - this.colors[offset + 3]!) * presentation.opacity
+        this.colors[offset + 3] = 1 - (1 - this.colors[offset + 3]!) * presentation.opacity ** 2
       }
     }
     const worldMeters = 2 * Math.PI * 6378137

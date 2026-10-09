@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import type { Grid } from '../web/src/core/contract.js'
-import { ISOLINE_FILL_OPACITY, isolineColor } from '../web/src/core/isolines.js'
+import { ISOLINE_FILL_OPACITY, ISOLINE_FILL_RESOLUTION, isolineColor } from '../web/src/core/isolines.js'
 import { TEMPERATURE_LINE_OPACITY, ISOBAR_LINE_OPACITY, isolineWidthCss, lineProfile } from '../web/src/core/map-presentation.js'
 import { NATIVE_VIEW } from './native-view.js'
 import { FRAME, FRAME_PIXELS } from './config.js'
@@ -89,6 +89,7 @@ export class NativeFieldRaster {
     header.writeFloatLE(profile.halfWidth, 28)
     const color = Number.parseInt(isolineColor(night ? 'dark' : 'light', slice.kind).slice(1), 16)
     for (let channel = 0; channel < 3; channel++) header.writeFloatLE((color >> ((2 - channel) * 8)) & 255, 32 + channel * 4)
+    header.writeFloatLE(ISOLINE_FILL_RESOLUTION, 44)
     await this.write(header); await this.write(base)
     for (const field of [slice.field.values, slice.field.valid, slice.colors, slice.segments, ...(slice.rings ? [slice.rings] : [])]) await this.write(Buffer.from(field.buffer, field.byteOffset, field.byteLength))
     await Promise.race([received, this.completed!.then(() => { throw new Error('Veldworker mist uitvoer') })])

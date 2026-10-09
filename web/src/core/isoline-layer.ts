@@ -380,6 +380,11 @@ export class IsolineLayer implements CustomLayerInterface {
     return this.shownDominant?.time ?? this.time
   }
 
+  readyAtTime(time: number): boolean {
+    const slice = this.shownDominant
+    return Boolean(slice?.passed && Math.abs(slice.time - time) < 1e-6 && (this.style.fill <= 0 || slice.filled))
+  }
+
   frameKey(index: number): string | undefined {
     return this.frameKeys[index]
   }

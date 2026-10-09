@@ -1661,6 +1661,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           throw new Error(`Kaartlaag ${set.kind} is niet geladen`)
         }
       }
+      const traceStarted = performance.now()
+      while (isolineSets.some((set) => set.active() && set.coverage() > 0 && !set.layer?.readyAtTime(set.time))) {
+        if (performance.now() - traceStarted > 15_000) throw new Error('Isolijnsnede is niet klaar')
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      }
       if (windFocus() > 0 && !windLayer) throw new Error('Wind is niet geladen')
       if (hasTemperature() && !temperatureInput) throw new Error('Temperatuurlabels zijn niet geladen')
       const overlays = [rainOverlay, ...isolineSets.map((set) => set.overlay)]

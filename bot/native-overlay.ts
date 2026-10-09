@@ -1,3 +1,4 @@
+import { prepareNativeAsset } from './native-assets.js'
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -22,7 +23,7 @@ export class NativeOverlay {
   private atlas?: Promise<Atlas>
   constructor(private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>, private readonly mode: LoopMode = 'weather') {}
 
-  private get title(): string { return this.mode === 'feels' ? 'Temperatuur' : this.mode === 'wind' ? 'Wind' : 'Regen' }
+  private get title(): string { return this.mode === 'feels' ? 'Gevoelstemperatuur' : this.mode === 'wind' ? 'Wind' : 'Regen' }
 
   async prepare(manifest: StillManifest): Promise<void> {
     this.atlas ??= this.load(manifest).catch((error) => { this.atlas = undefined; throw error })
@@ -63,12 +64,12 @@ export class NativeOverlay {
     if (!response.ok) throw new Error('App-stijl voor klok ontbreekt')
     const html = await response.text()
     const styles = [...html.matchAll(/<link\b[^>]*href="([^"]+\.css)"[^>]*>/g)].map((match) => match[1])
-    const key = createHash('sha256').update(JSON.stringify({ version: 5, styles, frame: FRAME, ...(this.mode === 'weather' ? {} : { mode: this.mode }) })).digest('hex').slice(0, 24)
+    const key = createHash('sha256').update(JSON.stringify({ version: 5, styles, frame: FRAME, ...(this.mode === 'weather' ? {} : { mode: this.mode, title: this.title }) })).digest('hex').slice(0, 24)
     const path = join(this.directory, `overlay-${key}.json`)
     let metadata: AtlasMetadata
     try { metadata = JSON.parse(await readFile(path, 'utf8')) as AtlasMetadata } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-      metadata = await this.capture(manifest, key)
+      metadata = await prepareNativeAsset(() => this.capture(manifest, key))
       const temporary = `${path}.${randomUUID()}.tmp`
       await writeFile(temporary, JSON.stringify(metadata))
       await rename(temporary, path)

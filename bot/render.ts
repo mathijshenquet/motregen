@@ -1,3 +1,4 @@
+import { NativeMaps } from './native-map.js'
 import { FRAME } from './config.js'
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright'
 import { access, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, unlink, writeFile } from 'node:fs/promises'
@@ -56,8 +57,9 @@ export class StillRenderer {
   private pendingStills = new Map<string, Promise<RenderedStill>>()
 
   constructor(private readonly origin: string, private readonly cacheDirectory: string) {
-    this.native = new NativeWeatherRenderer(origin, cacheDirectory, () => this.browserContext())
-    this.nativeModes = new NativeModesRenderer(origin, cacheDirectory, () => this.browserContext())
+    const maps = new NativeMaps(origin, cacheDirectory, () => this.browserContext())
+    this.native = new NativeWeatherRenderer(origin, cacheDirectory, () => this.browserContext(), maps)
+    this.nativeModes = new NativeModesRenderer(origin, cacheDirectory, () => this.browserContext(), maps)
   }
 
   async manifest(): Promise<StillManifest> {
