@@ -1,3 +1,4 @@
+import { rainRenderer } from './native-settings.js'
 import { createHash } from 'node:crypto'
 import type { PresetMode } from '../web/src/core/presets.js'
 import { telegramStartParameter } from '../web/src/core/telegram-presets.js'
@@ -67,7 +68,7 @@ export function caption(mode: LoopMode, epoch: number): string {
 
 export function cacheKey(selection: MediaSelection, manifest: StillManifest): string {
   const epoch = selection.hour === 'loop' ? Date.parse(manifest.now) : stillEpoch(manifest, selection.hour)
-  const identity = JSON.stringify({ renderer: selection.mode === 'weather' ? process.env.MOTREGEN_RAIN_RENDERER === 'playwright' ? 14 : 15 : 14, mode: selection.mode, kind: selection.hour === 'loop' ? 'loop' : 'photo', epoch, generated: Date.parse(manifest.generated) })
+  const identity = JSON.stringify({ renderer: selection.mode === 'weather' ? rainRenderer() === 'playwright' ? 14 : 15 : 14, mode: selection.mode, kind: selection.hour === 'loop' ? 'loop' : 'photo', epoch, generated: Date.parse(manifest.generated) })
   const digest = createHash('sha256').update(identity).digest('hex').slice(0, 24)
   return `${selection.mode}-${selection.hour === 'loop' ? 'loop' : epoch}-${digest}`
 }

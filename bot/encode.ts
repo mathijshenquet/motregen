@@ -2,6 +2,7 @@ import { execFile, spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { stat } from 'node:fs/promises'
 import { join } from 'node:path'
+import { availableParallelism } from 'node:os'
 import { promisify } from 'node:util'
 import type { SequencePlan } from './sequences.js'
 
@@ -41,10 +42,10 @@ export async function encodeRgbLoop(
   const duration = (plan.loopFrames + plan.fps) / plan.fps
   const bitrate = Math.floor(2_500_000 * 8 / duration)
   const encoder = spawn('ffmpeg', [
-    '-hide_banner', '-loglevel', 'error', '-y', '-f', 'rawvideo', '-pixel_format', 'rgb24',
+    '-hide_banner', '-loglevel', 'error', '-y', '-filter_threads', '1', '-f', 'rawvideo', '-pixel_format', 'rgb24',
     '-video_size', `${size.width}x${size.height}`, '-framerate', String(plan.fps), '-i', 'pipe:0',
     '-vf', `tpad=stop_mode=clone:stop_duration=1,setsar=1`, '-frames:v', String(plan.loopFrames + plan.fps),
-    '-c:v', 'libx264', '-threads', '2', '-preset', 'veryfast', '-crf', '25',
+    '-c:v', 'libx264', '-threads', availableParallelism() <= 2 ? '1' : '2', '-preset', 'veryfast', '-crf', '25',
     '-maxrate', String(bitrate), '-bufsize', String(bitrate), '-pix_fmt', 'yuv420p',
     '-movflags', '+faststart', '-an', '-f', 'mp4', destination,
   ], { stdio: ['pipe', 'ignore', 'pipe'] })

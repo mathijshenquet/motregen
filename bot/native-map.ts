@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
@@ -50,6 +50,7 @@ export class NativeMaps {
     }
     await mkdir(this.directory, { recursive: true })
     const started = performance.now()
+    const temporary = `${path}.${randomUUID()}.tmp`
     const page = await (await this.context()).newPage()
     try {
       await page.route('**/__native-map', (route) => route.fulfill({ contentType: 'text/html', body: '<html><body style="margin:0"><div id="map" style="width:100vw;height:100vh"></div></body></html>' }))
@@ -75,10 +76,10 @@ export class NativeMaps {
       const png = await page.screenshot()
       const rgb = await sharp(png).removeAlpha().raw().toBuffer()
       const labels = await captureLabelAtlas(page, theme, rgb)
-      await writeFile(`${path}.labels.json.tmp`, JSON.stringify(labels))
-      await rename(`${path}.labels.json.tmp`, `${path}.labels.json`)
-      await writeFile(`${path}.tmp`, png)
-      await rename(`${path}.tmp`, path)
+      await writeFile(`${temporary}.labels.json`, JSON.stringify(labels))
+      await rename(`${temporary}.labels.json`, `${path}.labels.json`)
+      await writeFile(temporary, png)
+      await rename(temporary, path)
       console.info(JSON.stringify({ event: 'native-basemap-created', theme, key, labelVariants: 111, milliseconds: Math.round(performance.now() - started) }))
       return { rgb, key, path, labels }
     } finally { await page.close() }

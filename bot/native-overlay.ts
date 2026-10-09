@@ -68,8 +68,15 @@ export class NativeOverlay {
       await writeFile(`${path}.tmp`, JSON.stringify(metadata))
       await rename(`${path}.tmp`, path)
     }
-    const sheet = await readFile(join(this.directory, `overlay-${key}.png`))
-    const glyphs = Object.fromEntries(await Promise.all(Object.entries(metadata.glyphs).map(async ([text, box]) => [text, { box, rgba: await sharp(sheet).extract(box).ensureAlpha().raw().toBuffer() }])))
+    const sheet = await sharp(await readFile(join(this.directory, `overlay-${key}.png`))).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+    const glyphs = Object.fromEntries(Object.entries(metadata.glyphs).map(([text, box]) => {
+      const rgba = Buffer.alloc(box.width * box.height * 4)
+      for (let row = 0; row < box.height; row++) {
+        const start = ((box.top + row) * sheet.info.width + box.left) * 4
+        sheet.data.copy(rgba, row * box.width * 4, start, start + box.width * 4)
+      }
+      return [text, { box, rgba }]
+    }))
     const backgrounds = Object.fromEntries(await Promise.all(Object.values(metadata.clocks).flatMap((layout) => Object.values(layout.backgrounds)).map(async (name) => [name, await sharp(await readFile(join(this.directory, name))).ensureAlpha().raw().toBuffer()])))
     return { metadata, glyphs, backgrounds, footer: await sharp(await readFile(join(this.directory, metadata.footer))).ensureAlpha().raw().toBuffer() }
   }

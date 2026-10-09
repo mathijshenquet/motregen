@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { STILL_CACHE_TTL } from './file-ids.js'
 import { encodeLoop, encodeStill, framePath } from './encode.js'
+import { rainRenderer } from './native-settings.js'
 import { NativeWeatherRenderer, nativeFramePath } from './native-render.js'
 import { sequencePlan } from './sequences.js'
 import { openRenderPage } from './render-open.js'
@@ -40,6 +41,7 @@ interface RenderedSequence { loop: RenderedLoop; stills: RenderedStill[] }
 interface SequenceMetrics { key: string; frames: number; fps: number; bytes: number; renderMs: number; encodeMs: number; openMs?: number; backend?: 'native' | 'playwright'; loopMs?: number }
 
 export class StillRenderer {
+  private readonly nativeLoops = new Map<string, { ready: Promise<void>; finish: () => void }>()
   private readonly native: NativeWeatherRenderer
   private browser?: Browser
   private context?: BrowserContext
@@ -79,6 +81,12 @@ export class StillRenderer {
     const key = cacheKey({ mode, hour: 'loop' }, manifest)
     const existing = this.pending.get(key)
     if (existing) return existing
+    const nativeLoopKey = cacheKey({ mode: 'weather', hour: 'loop' }, manifest)
+    if (mode === 'weather' && rainRenderer() === 'native') {
+      let finish!: () => void
+      const ready = new Promise<void>((resolve) => { finish = resolve })
+      this.nativeLoops.set(nativeLoopKey, { ready, finish })
+    }
     // Cache-hits hoeven niet achter een nieuwe Chromium-render te wachten.
     const task = this.readCachedSequence(mode, manifest, key).then((cached) => {
       if (cached) return cached
@@ -88,7 +96,10 @@ export class StillRenderer {
       return render
     })
     this.pending.set(key, task)
-    void task.finally(() => this.pending.delete(key)).catch(() => undefined)
+    void task.finally(() => {
+      this.pending.delete(key)
+      if (mode === 'weather') { this.nativeLoops.get(nativeLoopKey)?.finish(); this.nativeLoops.delete(nativeLoopKey) }
+    }).catch(() => undefined)
     return task
   }
 
@@ -203,7 +214,7 @@ export class StillRenderer {
     const loop = this.media({ mode: 'weather', hour: 'loop' }, manifest)
     try {
       const plan = sequencePlan('weather', manifest)
-      const rendered = await this.native.render(manifest, plan, directory, `${loop.path}.tmp`)
+      const rendered = await this.native.render(manifest, plan, directory, `${loop.path}.tmp`, () => this.nativeLoops.get(key)?.finish())
       await rename(`${loop.path}.tmp`, loop.path)
       const publishedFrames = this.frameDirectory(key)
       await rm(publishedFrames, { recursive: true, force: true })
@@ -220,7 +231,9 @@ export class StillRenderer {
   }
 
   private async renderSequence(mode: LoopMode, manifest: StillManifest, key: string): Promise<RenderedSequence> {
-    if (mode === 'weather' && process.env.MOTREGEN_RAIN_RENDERER !== 'playwright') return this.renderNativeSequence(manifest, key)
+    if (mode === 'weather' && rainRenderer() === 'native') return this.renderNativeSequence(manifest, key)
+    // SwiftShader deelt de twee VM-kernen; laat de korte native loop eerst afmaken.
+    await this.nativeLoops.get(cacheKey({ mode: 'weather', hour: 'loop' }, manifest))?.ready
     const started = performance.now()
     await mkdir(this.cacheDirectory, { recursive: true })
     const directory = await mkdtemp(join(this.cacheDirectory, `.frames-${key}-`))
