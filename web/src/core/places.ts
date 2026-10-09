@@ -3,6 +3,7 @@ import { belongsToPlace, PlaceIndex, type CataloguePlace } from './place-index.j
 import { placesUrl } from './places-asset.js'
 import type { PlaceIdentity, PlaceMemory } from './place-memory.js'
 import { placeSlug } from './slugify.js'
+import { searchPlaces } from './place-search.js'
 
 export interface Place {
   name: string
@@ -84,13 +85,15 @@ export const places: readonly Place[] = [
 
 let catalogue: PlaceIndex | undefined
 let catalogueRequest: Promise<boolean> | undefined
+let cataloguePlaces: CataloguePlace[] = []
 
 export function loadPlaces(): Promise<boolean> {
   catalogueRequest ??= fetch(placesUrl, { signal: AbortSignal.timeout(5000) })
     .then(async (response) => {
       if (!response.ok) throw new Error('Plaatsenlijst niet beschikbaar')
       const data = await response.json() as CompactPlaces
-      catalogue = new PlaceIndex(decodePlaces(data))
+      cataloguePlaces = decodePlaces(data)
+      catalogue = new PlaceIndex(cataloguePlaces)
       return true
     }).catch(() => false)
   return catalogueRequest
@@ -98,6 +101,10 @@ export function loadPlaces(): Promise<boolean> {
 
 export function findCataloguePlace(slug: string): CataloguePlace | undefined {
   return catalogue?.find(slug)
+}
+
+export function searchCatalogue(query: string): CataloguePlace[] {
+  return cataloguePlaces.length ? searchPlaces(query, cataloguePlaces).suggestions : []
 }
 
 export function namedCataloguePlace(name: string, point: { lng: number; lat: number }): CataloguePlace | undefined {

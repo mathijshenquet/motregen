@@ -1,5 +1,6 @@
-import { lookupLocation, suggestLocations as suggestDutchLocations } from './pdok'
-import { nearestPlace, places } from './places'
+import { lookupLocation, suggestLocations as suggestDutchLocations } from './pdok.js'
+import { nearestPlace, places, searchCatalogue } from './places.js'
+import { placeQuery } from './place-search.js'
 
 // Vlaamse geolocatiedienst (Digitaal Vlaanderen): gratis, zonder sleutel, CORS open.
 // Zie docs/geocoding.md voor URL en gebruiksbeleid.
@@ -31,17 +32,20 @@ const maxResults = 6
 const reservedForSecondary = 2
 
 export async function suggestLocations(query: string, center: { lng: number; lat: number }, signal?: AbortSignal): Promise<LocationSuggestion[]> {
+  const catalogue = searchCatalogue(query).map((place): LocationSuggestion => ({ id: `catalogue:${place.slug}`, label: place.name, type: 'plaats', country: 'NL', location: place }))
+  query = placeQuery(query).replaceAll('-', ' ')
   const [dutch, flemish] = await Promise.allSettled([
     suggestDutchLocations(query, signal).then((results) => results.map((result): LocationSuggestion => ({ ...result, country: 'NL' }))),
     suggestFlemishLocations(query, signal),
   ])
   // Eén bron die faalt verbergt de andere niet; alleen als beide falen is zoeken onbeschikbaar.
-  if (dutch.status === 'rejected' && flemish.status === 'rejected') throw dutch.reason
-  return mergeSuggestions(
+  if (dutch.status === 'rejected' && flemish.status === 'rejected' && !catalogue.length) throw dutch.reason
+  const external = mergeSuggestions(
     dutch.status === 'fulfilled' ? dutch.value : [],
     flemish.status === 'fulfilled' ? flemish.value : [],
     { belgianFirst: viewportCountry(center) === 'BE', query },
   )
+  return [...catalogue, ...external.filter((suggestion) => !catalogue.some((place) => normalized(place.label) === normalized(suggestion.label)))].slice(0, maxResults)
 }
 
 export async function resolveLocation(suggestion: LocationSuggestion, signal?: AbortSignal): Promise<{ lng: number; lat: number }> {

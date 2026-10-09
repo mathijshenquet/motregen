@@ -3,6 +3,7 @@ import { zstdDecompressSync } from 'node:zlib'
 import type { Field, Grid, Manifest, MrfHeader, TimelineFrame } from '../web/src/core/contract.js'
 import { decodeFrame, parseMrfHeader } from '../web/src/core/mrf-codec.js'
 import { buildTimeline, frameBlend } from '../web/src/core/time-model.js'
+import { pointValue, projectPoint } from '../web/src/core/point-value.js'
 import { rainColormap } from '../web/src/core/rain-chart.js'
 import { rainPresentation } from '../web/src/core/rain-presentation.js'
 import { stillMapTheme } from '../web/src/core/still-theme.js'
@@ -33,6 +34,19 @@ export class NativeRainData {
       }
     }
     await Promise.all([...chunks.values()].map((frame) => this.load(frame)))
+  }
+
+  async pointSeries(point: { lng: number; lat: number }, start: number, end: number): Promise<{ timeline: TimelineFrame[]; values: Array<number | null> }> {
+    const first = frameBlend(this.timeline, start).left
+    const last = frameBlend(this.timeline, end).right
+    const timeline = this.timeline.slice(first, last + 1)
+    const [x, y] = projectPoint(point.lng, point.lat)
+    const values: Array<number | null> = []
+    for (const frame of timeline) {
+      const { header, raster } = await this.load(frame)
+      values.push(pointValue(header, raster, x, y))
+    }
+    return { timeline, values }
   }
 
   async frame(epoch: number): Promise<RainFrame> {

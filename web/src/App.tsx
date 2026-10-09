@@ -36,6 +36,7 @@ import { constrainView, containView, containZoom, MAP_CONTAIN_BOUNDS, type Viewp
 import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS } from './core/map-frame'
 import { basemapBlendTargets, blendedPaintValue, mapNightStep, nightShare, type BlendTarget } from './core/basemap-blend'
 import { MrfClient, type MotionField } from './core/mrf'
+import { pointValue, projectPoint as project } from './core/point-value'
 import { selectPairMotion } from './core/motion-selection'
 import { findCataloguePlace, isInPlaceZone, loadPlaces, namedCataloguePlace, nearestPlace, places, rememberPlace, rememberSearchedPlace } from './core/places'
 import type { PlaceIdentity, PlaceMemory } from './core/place-memory'
@@ -2590,14 +2591,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
     await Promise.all([...chunks].map(async ([chunk, entries]) => {
       const header = await client.getHeader(chunk)
-      const column = Math.floor((x - header.grid.x0) / header.grid.dx)
-      const row = Math.floor((y - header.grid.y0) / header.grid.dy)
-      const inside = column >= 0 && row >= 0 && column < header.grid.width && row < header.grid.height
       const positions = new Map<number, number[]>()
       for (const entry of entries) positions.set(entry.frameIndex, [...(positions.get(entry.frameIndex) ?? []), entry.position])
       await client.getFrames(chunk, entries.map((entry) => entry.frameIndex), priority, (frameIndex, decoded) => {
         const loaded = positions.get(frameIndex) ?? []
-        if (inside) for (const position of loaded) values[position] = header.quant[decoded[row * header.grid.width + column]!] ?? null
+        for (const position of loaded) values[position] = pointValue(header, decoded, x, y)
         progress?.(values, loaded)
       }, layer, signal)
     }))
@@ -3637,7 +3635,3 @@ function cancelIdle(handle: number): void {
 // Zoomgrens: nooit minder dan deze breedte in beeld (Min. breedte, T3g; knop weg in U30).
 const MINIMUM_MAP_WIDTH_KM = 20
 
-function project(lng: number, lat: number): [number, number] {
-  const radius = 6378137
-  return [lng * Math.PI / 180 * radius, Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) * radius]
-}
