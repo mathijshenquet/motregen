@@ -353,6 +353,11 @@
   filmpjes zonder achter te lopen; WASM voor isolijnen = YAGNI (gemeten ms-werk). U71a gestart (regen native,
   pariteitstest, meting op 2 kernen). U69 deel 2 (windcompile van de hoofddraad) loopt.
 
+- **U70 gemerged** (16:35; 13 min, gpt-6.1-sol, PR #99): regenloop −2…+3 u (61 frames, 7,1 s), stills/knoppen
+  tot +12 u, generatie 71→64 s. Renderer op ageq-dev2 draait nog de oude dist (herstart na U71a).
+  /regen_rich-proef (7efd1a79): lokale poller draait tijdelijk i.p.v. de VM-poller (gestopt 16:05) voor de
+  live test; terugzetten na de PO-test. U72 (opus-5.5 live-pane, 4320): smoothing/upsampling regenveld.
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
