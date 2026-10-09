@@ -236,8 +236,8 @@ export async function configureBot(runtime: BotRuntime): Promise<void> {
   })
 }
 
-// Proef (PO 2026-10-09): één rich message met de regen-stills als slideshow (Bot API 10.2, InputRichBlockSlideshow),
-// uit de bestaande file_id-cache; nog zonder knoppen of klokonderschrift.
+// Proef (PO 2026-10-09): één rich message met de regen-stills als collage (Bot API 10.2, InputRichBlockCollage) uit de
+// bestaande file_id-cache; de slideshow-variant had een client-tween tussen de dia's die niet uit te zetten is.
 async function sendRainSlideshow(message: TelegramMessage, runtime: BotRuntime): Promise<void> {
   const manifest = await runtime.currentManifest()
   const slides: Array<{ type: 'photo'; photo: { type: 'photo'; media: string } }> = []
@@ -252,7 +252,7 @@ async function sendRainSlideshow(message: TelegramMessage, runtime: BotRuntime):
   }
   const reply = await runtime.api.call<{ message_id: number }>('sendRichMessage', {
     chat_id: message.chat.id,
-    rich_message: { blocks: [{ type: 'slideshow', blocks: slides }] },
+    rich_message: { blocks: [{ type: 'collage', blocks: slides }] },
   })
   console.info(JSON.stringify({ event: 'chat-rich-slideshow', messageId: reply.message_id, slides: slides.length }))
 }
