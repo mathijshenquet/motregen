@@ -18,7 +18,8 @@ describe('rain smoothing', () => {
   it('samples each source group with its own kernel and source cell', () => {
     const tuning: RainFieldTuning = { radar: 'glad', harmonie: 'blur 3×3', harmonieTime: 'meebewegen' }
     const radar = rainSampling('nowcast', tuning), harmonie = rainSampling('harmonie', tuning)
-    expect([radar.kernel, harmonie.kernel]).toEqual(['source-cubic', 'source-blur-3'])
+    expect([radar.kernel, harmonie.kernel, harmonie.blurTaps]).toEqual(['source-cubic', 'source-blur', 3])
+    expect(rainSampling('harmonie', { ...tuning, harmonie: 'blur 9×9' }).blurTaps).toBe(9)
     expect(harmonie.sourceCellWidth).toBeGreaterThan(radar.sourceCellWidth)
   })
 

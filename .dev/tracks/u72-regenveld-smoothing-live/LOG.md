@@ -102,3 +102,67 @@ kaarttijd). `blokken` blijft een schakelaar in de tekenshader (één texel).
 `pnpm typecheck` 0 · `pnpm test` 0 (80 bestanden, 534 tests) · `pnpm build` 0 ·
 `MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts --project desktop` 0 (5 groen).
 Preview 4320 draait op deze build (`MOTREGEN_DATA_ORIGIN=https://motregen.nl/data pnpm preview --host 0.0.0.0 --port 4320 --strictPort`, los van de sessie gestart).
+
+## 16:10 — ronde 2 (PO ~16:50 via orkestrator: "radar+nowcast blur 5×5 al nice; AROME kan nog meer; meebewegen veel beter dan de crossfade")
+Voorlopige PO-keuze, NIET als standaard vastgezet (dat doet de orkestrator bij de merge): radar/nowcast
+`blur 5×5`, HARMONIE-tijd `meebewegen`; de HARMONIE-blur schroeft de PO zelf verder op (nu tot 9×9).
+
+### Snel blur-algoritme: separabel, Gaussisch
+Het voorfilter loopt nu in twee passes van N taps (eerst langs x naar een tussentextuur, dan langs y) in plaats
+van één pass van N×N. Dat geldt voor alle bronkernen, want elk is een product van een x- en een y-gewicht.
+De blur weegt Gaussisch (sigma = 0,19 × N broncellen, dus het venster eindigt op ~2,6 sigma; verlaagd met de
+randwaarde zodat een tap die erbij komt op nul begint). Nieuwe standen: `blur 7×7`, `blur 9×9` (beide groepen).
+Het beeld van 3×3 en 5×5 is vrijwel gelijk aan ronde 1 (toen een klokvorm met dezelfde spreiding).
+| stand | taps per rastercel vóór (N×N) | ná (2 × N) |
+| --- | --- | --- |
+| bronlineair | 4 | 4 |
+| glad | 16 | 8 |
+| blur 3×3 | 9 | 6 |
+| blur 5×5 | 25 | 10 |
+| blur 7×7 | (49) | 14 |
+| blur 9×9 | (81) | 18 |
+Per getekend beeld blijft het 4 texels per frame, ongeacht de stand.
+
+### Voorfilter-kosten per frame (`rig/filter-cost.ts`, `metingen/voorfilter-kosten-per-pass.log`)
+po-android (renderer-cgroup 40 %), 25 s laden + 20 s afspelen, perf-lock per run, load bij start ≤ 16. Elke pass
+is gemeten tot de GPU klaar is (een pixel teruglezen; `gl.finish()` wacht in Chromium niet — de eerste poging gaf
+0,0 ms per pass en is weggegooid). Raster 1250×1350. SwiftShader rekent dit op de CPU: bovengrens voor een telefoon.
+| bron · stand | gefilterde frames | x-pass mediaan / max | y-pass mediaan / max | per frame (x+y, mediaan) |
+| --- | --- | --- | --- | --- |
+| HARMONIE · blur 3×3 | 5 | 8,3 / 25,6 ms | 10,4 / 12,7 ms | ~19 ms |
+| HARMONIE · blur 5×5 | 5 | 19,3 / 30,0 | 16,0 / 21,0 | ~35 ms |
+| HARMONIE · blur 7×7 | 6 | 16,6 / 31,7 | 18,4 / 20,2 | ~35 ms |
+| HARMONIE · blur 9×9 | 6 | 25,4 / 37,3 | 24,7 / 35,6 | ~50 ms |
+| HARMONIE · glad | 6 | 10,9 / 25,5 | 12,0 / 14,4 | ~23 ms |
+| radar/nowcast/blend · blur 5×5 | 37 | 15,8 / 31,1 | 16,5 / 21,2 | ~32 ms |
+| radar/nowcast/blend · glad | 37 | 9,8 / 27,7 | 10,7 / 16,0 | ~21 ms |
+- HARMONIE filtert in zo'n sessie 5–6 frames (één per uur kaarttijd): verwaarloosbaar, ook op 9×9.
+- Radar/nowcast filtert elk nieuw 5-minutenframe: 37 frames in ~45 s, bij blur 5×5 samen ~1,2 s rekenwerk in de
+  software-rig. Dat is de post om op de PO-telefoon in de gaten te houden.
+- Kanttekeningen: één run per stand, 5–6 metingen per HARMONIE-rij (5×5 en 7×7 zijn daardoor niet te
+  onderscheiden); drie runs eindigden op load 18–22. De meting zelf wacht per pass op de GPU en is dus trager
+  dan het product, waar de pass asynchroon loopt.
+- Frametijd radar `blur 5×5` tegen nu, gepaard ×2 (`metingen/frametijd-separabel-radar-blur5.log`): rustige runs
+  1144 frames / p95 16,8 ms (nu) tegen 1163 / 16,8 (blur 5×5); de twee andere runs eindigden op load 19–25
+  (1046 / 33 ms met blur, 901 / 50 ms zonder) en zeggen niets over de stand. Geen meetbaar verschil, bij n = 1 geldig paar.
+
+### Beelden (zelf bekeken), `beelden/sep-{nl,stad}-harmonie-dag-{1280,390}.webp`, `beelden/sep-stad-radar-dag-390.webp`
+Cellen: bilineair | glad | blur 3×3 | 5×5 | 7×7 | 9×9, HARMONIE morgen 13:30.
+- 7×7: banen en kernen staan er nog, randen zijn wolkig; landelijk leest het als een rustige verwachting.
+- 9×9: smalle banen (Breda–Eindhoven) versmelten en de gele kernen verbleken naar groen: de piekintensiteit zakt
+  zichtbaar. Ingezoomd (zoom 9) is er tussen 7×7 en 9×9 nauwelijks structuur meer over.
+- Mijn oordeel: 5×5 of 7×7 voor HARMONIE; 9×9 kost pieken en dat is informatie (hoe hard regent het), niet ruis.
+- Radar op 7×7/9×9: kleine buien en droge gaten verdwijnen; boven 5×5 niet doen.
+
+### Tijd-blur langs het bewegingsveld: OVERGESLAGEN
+Door de orkestrator in de wachtrij gezet (16:55) en daarna gedegradeerd (PO: "mogelijk giga onnodig"; alleen bij
+zichtbaar restpulseren of ruis). Niet gebouwd. Reden: in de stills houdt `meebewegen` de buikern tussen twee
+uurframes op sterkte (het pulseren kwam van de kruisfade, niet van ruis), en radar op blur 5×5 toont geen korrel
+die een tijdfilter vraagt. Wat ik NIET heb gedaan: afspelend beoordelen; flikkering per 5 minuten is in stills
+niet te zien. Als de PO die op 4320 wel ziet, is dit de volgende stap (twee extra gewarpte reads per frame in het
+voorfilter; geen warp over een bronovergang of het eerste/laatste frame van een bron).
+
+### Gate (web/), 16:08
+`pnpm typecheck` 0 · `pnpm test` 0 (80 bestanden, 534 tests) · `pnpm build` 0 ·
+`MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts --project desktop` 0 (5 groen).
+Preview 4320 serveert deze build (controlebeeld `eind-harmonie-dag-390` na de build genomen en bekeken).

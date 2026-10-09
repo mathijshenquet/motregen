@@ -16,12 +16,23 @@ export const FLOW_BLEND_CURVE = 1
  * De `source-`kernen wegen broncellen (de blokken die de dichtste-buur-regrid van de ingest achterlaat)
  * in plaats van rastercellen, zodat dezelfde stand op het grove HARMONIE-raster evenveel gladstrijkt.
  */
-export type RainKernel = 'nearest' | 'bilinear' | 'source-linear' | 'source-cubic' | 'source-blur-3' | 'source-blur-5'
+export type RainKernel = 'nearest' | 'bilinear' | 'source-linear' | 'source-cubic' | 'source-blur'
 
 export interface RainSampling {
   kernel: RainKernel
   /** Breedte van één broncel in rastercellen; alleen de `source-`kernen gebruiken hem. */
   sourceCellWidth: number
+  /** Alleen `source-blur`: broncellen per richting waarover de vervaging weegt (3 = "blur 3×3"). */
+  blurTaps?: number
+}
+
+/** Eén pass van het voorfilter, gemeten tot de GPU klaar is (alleen als iemand luistert). */
+export interface RainFilterPass {
+  kernel: RainKernel
+  taps: number
+  sourceCellWidth: number
+  axis: 'x' | 'y'
+  milliseconds: number
 }
 
 export interface RainTimeBlend {
@@ -32,7 +43,9 @@ export interface RainTimeBlend {
 }
 
 type SourceKernel = Exclude<RainKernel, 'nearest' | 'bilinear'>
-const SOURCE_KERNEL_IDS: Record<SourceKernel, number> = { 'source-linear': 0, 'source-cubic': 1, 'source-blur-3': 2, 'source-blur-5': 3 }
+const SOURCE_KERNEL_IDS: Record<SourceKernel, number> = { 'source-linear': 0, 'source-cubic': 1, 'source-blur': 2 }
+// Bij deze verhouding ligt de rand van het venster op ~2,6 sigma en valt de Gauss daar vrijwel weg.
+const BLUR_SIGMA_PER_TAP = 0.19
 const DEFAULT_SAMPLING: RainSampling = { kernel: 'bilinear', sourceCellWidth: 1 }
 const DEFAULT_TIME_BLEND: RainTimeBlend = { eased: false, warpCapCells: WARP_CAP_CELLS, warpFadeEndCells: WARP_FADE_END_CELLS }
 
@@ -132,12 +145,11 @@ void main() {
 
 // Voorfilter (U72): weegt één keer per geüpload frame de broncellen en schrijft het resultaat als een nieuw
 // R8-frame met dezelfde betekenis (255 = geen data). De hoofdshader tekent dat frame daarna bilineair, zodat
-// een vervaging per getekend beeld niets extra kost.
+// een vervaging per getekend beeld niets extra kost. Elke kern is een product van een x- en een y-gewicht, dus
+// het filter loopt in twee passes van N taps (eerst langs x, dan langs y) in plaats van één van N×N.
 const filterVertexSource = `#version 300 es
-out vec2 v_uv;
 void main() {
   vec2 corner = vec2(float(gl_VertexID & 1), float(gl_VertexID >> 1));
-  v_uv = corner;
   gl_Position = vec4(corner * 2.0 - 1.0, 0.0, 1.0);
 }`
 
@@ -146,68 +158,59 @@ precision highp float;
 uniform sampler2D u_frame;
 uniform vec2 u_grid_size;
 uniform int u_kernel;
+uniform int u_taps;
 uniform float u_source_cell;
-in vec2 v_uv;
+uniform float u_along_x;
 out vec4 color;
 
 const int KERNEL_SOURCE_LINEAR = ${SOURCE_KERNEL_IDS['source-linear']};
 const int KERNEL_SOURCE_CUBIC = ${SOURCE_KERNEL_IDS['source-cubic']};
-const int KERNEL_SOURCE_BLUR_3 = ${SOURCE_KERNEL_IDS['source-blur-3']};
+const float BLUR_SIGMA_PER_TAP = ${BLUR_SIGMA_PER_TAP.toFixed(2)};
 
-int kernelTaps(int kernel) {
-  if (kernel == KERNEL_SOURCE_LINEAR) return 2;
-  if (kernel == KERNEL_SOURCE_CUBIC) return 4;
-  return kernel == KERNEL_SOURCE_BLUR_3 ? 3 : 5;
-}
-
-float kernelWeight(int kernel, float signedDistance) {
+float kernelWeight(float signedDistance) {
   float distance = abs(signedDistance);
-  if (kernel == KERNEL_SOURCE_LINEAR) return max(0.0, 1.0 - distance);
-  if (kernel == KERNEL_SOURCE_CUBIC) {
+  if (u_kernel == KERNEL_SOURCE_LINEAR) return max(0.0, 1.0 - distance);
+  if (u_kernel == KERNEL_SOURCE_CUBIC) {
     // Catmull-Rom: gaat door de bronwaarden zelf, dus maakt glad zonder te vervagen.
     if (distance < 1.0) return 1.5 * distance * distance * distance - 2.5 * distance * distance + 1.0;
     if (distance < 2.0) return -0.5 * distance * distance * distance + 2.5 * distance * distance - 4.0 * distance + 2.0;
     return 0.0;
   }
-  // Klokvorm die op de rand van het venster nul is: een tap die erbij komt of wegvalt geeft dan geen sprong.
-  float radius = float(kernelTaps(kernel)) * 0.5;
-  float falloff = max(0.0, 1.0 - (distance * distance) / (radius * radius));
-  return falloff * falloff;
+  // Gauss, verlaagd met zijn waarde op de rand van het venster: een tap die erbij komt of wegvalt begint
+  // dan op nul en geeft geen sprong.
+  float radius = float(u_taps) * 0.5;
+  float sigma = float(u_taps) * BLUR_SIGMA_PER_TAP;
+  float atEdge = exp(-(radius * radius) / (2.0 * sigma * sigma));
+  return max(0.0, exp(-(distance * distance) / (2.0 * sigma * sigma)) - atEdge);
 }
 
 // Weegt broncellen in plaats van rastercellen. De knopen liggen op een rooster met de maat van één broncel
 // en lezen elk één rastercel: binnen een roostervak liggen ze vast, dus dichtste-buur volstaat per knoop.
-vec2 sourceSample(sampler2D frame, vec2 uv, int kernel, float sourceCell) {
-  int taps = kernelTaps(kernel);
-  bool evenTaps = taps % 2 == 0;
-  vec2 position = uv * u_grid_size / sourceCell - 0.5;
-  vec2 anchor = evenTaps ? floor(position) : floor(position + 0.5);
-  int firstOffset = evenTaps ? 1 - taps / 2 : -(taps - 1) / 2;
+void main() {
+  bool alongX = u_along_x > 0.5;
+  ivec2 ownCell = ivec2(gl_FragCoord.xy);
+  int lastCell = int(alongX ? u_grid_size.x : u_grid_size.y) - 1;
+  float position = (alongX ? gl_FragCoord.x : gl_FragCoord.y) / u_source_cell - 0.5;
+  bool evenTaps = u_taps % 2 == 0;
+  float anchor = evenTaps ? floor(position) : floor(position + 0.5);
+  int firstOffset = evenTaps ? 1 - u_taps / 2 : -(u_taps - 1) / 2;
   float weightedValue = 0.0;
   float validWeight = 0.0;
   float totalWeight = 0.0;
-  for (int row = 0; row < taps; row++) {
-    for (int column = 0; column < taps; column++) {
-      vec2 node = anchor + vec2(float(firstOffset + column), float(firstOffset + row));
-      float tapWeight = kernelWeight(kernel, node.x - position.x) * kernelWeight(kernel, node.y - position.y);
-      ivec2 cell = clamp(ivec2(floor((node + 0.5) * sourceCell)), ivec2(0), ivec2(u_grid_size) - 1);
-      float tapValue = texelFetch(frame, cell, 0).r;
-      float tapValid = 1.0 - step(0.999, tapValue);
-      weightedValue += tapWeight * tapValue * tapValid;
-      validWeight += tapWeight * tapValid;
-      totalWeight += tapWeight;
-    }
+  for (int tap = 0; tap < u_taps; tap++) {
+    float node = anchor + float(firstOffset + tap);
+    float tapWeight = kernelWeight(node - position);
+    int cellAlong = clamp(int(floor((node + 0.5) * u_source_cell)), 0, lastCell);
+    float tapValue = texelFetch(u_frame, alongX ? ivec2(cellAlong, ownCell.y) : ivec2(ownCell.x, cellAlong), 0).r;
+    float tapValid = 1.0 - step(0.999, tapValue);
+    weightedValue += tapWeight * tapValue * tapValid;
+    validWeight += tapWeight * tapValid;
+    totalWeight += tapWeight;
   }
   // De kubische kern schiet bij een scherpe rand door; onder nul en boven de hoogste geldige byte bestaat niet.
   float value = clamp(weightedValue / max(validWeight, 0.0001), 0.0, 254.0 / 255.0);
-  float valid = step(0.5, validWeight / max(totalWeight, 0.0001));
-  return vec2(value, valid);
-}
-
-
-void main() {
-  vec2 filtered = sourceSample(u_frame, v_uv, u_kernel, u_source_cell);
-  color = vec4(filtered.g > 0.5 ? filtered.r : 1.0, 0.0, 0.0, 1.0);
+  bool valid = validWeight / max(totalWeight, 0.0001) >= 0.5;
+  color = vec4(valid ? value : 1.0, 0.0, 0.0, 1.0);
 }`
 
 const encodedMotion = new WeakMap<Uint8Array, { vectors: Uint8Array; mask: Uint8Array }>()
@@ -243,6 +246,10 @@ export class RainLayer implements CustomLayerInterface {
   private filterProgram?: WebGLProgram
   private filterTarget?: WebGLFramebuffer
   private filterVertexArray?: WebGLVertexArrayObject
+  /** Tussenresultaat na de x-pass. */
+  private filterScratch?: WebGLTexture
+  /** Zet de meting van het voorfilter aan; elke pass wacht dan op de GPU, dus alleen voor een meetrig. */
+  onFilterPass?: (pass: RainFilterPass) => void
   /** Hooguit twee: één per getoond frame. */
   private filteredFrames: FilteredFrame[] = []
 
@@ -253,7 +260,7 @@ export class RainLayer implements CustomLayerInterface {
     this.gl = gl
     this.leftData = this.rightData = this.motionData = undefined
     this.program = link(gl, vertexSource, fragmentSource)
-    this.filterProgram = this.filterTarget = this.filterVertexArray = undefined
+    this.filterProgram = this.filterTarget = this.filterVertexArray = this.filterScratch = undefined
     this.filteredFrames = []
     this.buffer = gl.createBuffer()!
     const west = this.grid.x0
@@ -363,28 +370,48 @@ export class RainLayer implements CustomLayerInterface {
   private sampledTexture(gl: WebGL2RenderingContext, raw: WebGLTexture, data: Uint8Array | undefined, sampling: RainSampling, otherData: Uint8Array | undefined): WebGLTexture {
     const kernel = sampling.kernel
     if (!data || !isSourceKernel(kernel)) return raw
-    const matches = (frame: FilteredFrame) => frame.data === data && frame.kernel === kernel && frame.sourceCellWidth === sampling.sourceCellWidth
+    const taps = kernelTaps(kernel, sampling.blurTaps)
+    const matches = (frame: FilteredFrame) => frame.data === data && frame.kernel === kernel && frame.taps === taps && frame.sourceCellWidth === sampling.sourceCellWidth
     const ready = this.filteredFrames.find(matches)
     if (ready) return ready.texture
     // Hergebruik de textuur van een frame dat niet meer getoond wordt; die van het andere getoonde frame blijft.
     let target = this.filteredFrames.length < 2 ? undefined : this.filteredFrames.find((frame) => frame.data !== otherData) ?? this.filteredFrames[0]
     if (!target) {
-      const created = texture(gl, gl.NEAREST)
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, this.grid.width, this.grid.height, 0, gl.RED, gl.UNSIGNED_BYTE, null)
-      target = { texture: created, data, kernel, sourceCellWidth: sampling.sourceCellWidth }
+      target = { texture: this.gridTexture(gl), data, kernel, taps, sourceCellWidth: sampling.sourceCellWidth }
       this.filteredFrames.push(target)
     }
     target.data = data
     target.kernel = kernel
+    target.taps = taps
     target.sourceCellWidth = sampling.sourceCellWidth
     this.filterFrame(gl, raw, target)
     return target.texture
+  }
+
+  private filterPass(gl: WebGL2RenderingContext, input: WebGLTexture, output: WebGLTexture, frame: FilteredFrame, axis: 'x' | 'y'): void {
+    const measure = this.onFilterPass
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, output, 0)
+    if (measure) waitForGpu(gl)
+    const startedAt = performance.now()
+    gl.bindTexture(gl.TEXTURE_2D, input)
+    gl.uniform1f(gl.getUniformLocation(this.filterProgram!, 'u_along_x'), axis === 'x' ? 1 : 0)
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+    if (!measure) return
+    waitForGpu(gl)
+    measure({ kernel: frame.kernel, taps: frame.taps, sourceCellWidth: frame.sourceCellWidth, axis, milliseconds: performance.now() - startedAt })
+  }
+
+  private gridTexture(gl: WebGL2RenderingContext): WebGLTexture {
+    const created = texture(gl, gl.NEAREST)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, this.grid.width, this.grid.height, 0, gl.RED, gl.UNSIGNED_BYTE, null)
+    return created
   }
 
   private filterFrame(gl: WebGL2RenderingContext, raw: WebGLTexture, target: FilteredFrame): void {
     this.filterProgram ??= link(gl, filterVertexSource, filterFragmentSource)
     this.filterTarget ??= gl.createFramebuffer()!
     this.filterVertexArray ??= gl.createVertexArray()!
+    this.filterScratch ??= this.gridTexture(gl)
     // De laag tekent ook als gewone kaartlaag midden in een MapLibre-beeld; alles wat deze pass verzet gaat terug.
     const previousFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
     const previousVertexArray = gl.getParameter(gl.VERTEX_ARRAY_BINDING) as WebGLVertexArrayObject | null
@@ -394,7 +421,6 @@ export class RainLayer implements CustomLayerInterface {
     const scissoring = gl.isEnabled(gl.SCISSOR_TEST)
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.filterTarget)
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, target.texture, 0)
     gl.viewport(0, 0, this.grid.width, this.grid.height)
     gl.disable(gl.BLEND)
     gl.disable(gl.SCISSOR_TEST)
@@ -402,12 +428,13 @@ export class RainLayer implements CustomLayerInterface {
     gl.useProgram(this.filterProgram)
     gl.bindVertexArray(this.filterVertexArray)
     gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, raw)
     gl.uniform1i(gl.getUniformLocation(this.filterProgram, 'u_frame'), 0)
     gl.uniform2f(gl.getUniformLocation(this.filterProgram, 'u_grid_size'), this.grid.width, this.grid.height)
     gl.uniform1i(gl.getUniformLocation(this.filterProgram, 'u_kernel'), SOURCE_KERNEL_IDS[target.kernel])
+    gl.uniform1i(gl.getUniformLocation(this.filterProgram, 'u_taps'), target.taps)
     gl.uniform1f(gl.getUniformLocation(this.filterProgram, 'u_source_cell'), target.sourceCellWidth)
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+    this.filterPass(gl, raw, this.filterScratch, target, 'x')
+    this.filterPass(gl, this.filterScratch, target.texture, target, 'y')
 
     gl.bindVertexArray(previousVertexArray)
     gl.bindFramebuffer(gl.FRAMEBUFFER, previousFramebuffer)
@@ -423,7 +450,19 @@ interface FilteredFrame {
   texture: WebGLTexture
   data: Uint8Array
   kernel: SourceKernel
+  taps: number
   sourceCellWidth: number
+}
+
+// `gl.finish()` keert in Chromium terug zonder op het GPU-proces te wachten (gemeten: elke pass 0,0 ms);
+// een pixel teruglezen wacht wel tot al het werk voor het gebonden doel klaar is.
+function waitForGpu(gl: WebGL2RenderingContext): void {
+  gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4))
+}
+
+function kernelTaps(kernel: SourceKernel, blurTaps = 3): number {
+  if (kernel === 'source-linear') return 2
+  return kernel === 'source-cubic' ? 4 : blurTaps
 }
 
 function isSourceKernel(kernel: RainKernel): kernel is SourceKernel {

@@ -37,7 +37,7 @@ const WIND_HINTS: Record<keyof WindTuning, string> = {
   speed: 'Hoe snel de windstreepjes bewegen.',
 }
 
-const RAIN_SMOOTHING_HINT = 'Blokken: elke rastercel hard. Bilineair: nu. Bronlineair, glad en blur wegen de cellen van de bron zelf: lineair, bicubisch (scherp) of als vervaging over 3×3 of 5×5 broncellen.'
+const RAIN_SMOOTHING_HINT = 'Blokken: elke rastercel hard. Bilineair: nu. Bronlineair, glad en blur wegen de cellen van de bron zelf: lineair, bicubisch (scherp) of als Gaussische vervaging over 3×3 tot 9×9 broncellen.'
 
 export default function DevPanel(props: Props) {
   const [windCopied, setWindCopied] = createSignal(false)

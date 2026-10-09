@@ -2,7 +2,7 @@ import type { Source } from './contract'
 import { WARP_CAP_CELLS, WARP_FADE_END_CELLS, type RainKernel, type RainSampling, type RainTimeBlend } from './rain-layer'
 
 // U72-proef (?dev, Kaart › Regenveld; vervalt 2026-10-16): hoe het regenveld tussen de cellen wordt ingevuld.
-export const RAIN_SMOOTHINGS = ['blokken', 'bilineair', 'bronlineair', 'glad', 'blur 3×3', 'blur 5×5'] as const
+export const RAIN_SMOOTHINGS = ['blokken', 'bilineair', 'bronlineair', 'glad', 'blur 3×3', 'blur 5×5', 'blur 7×7', 'blur 9×9'] as const
 export type RainSmoothing = typeof RAIN_SMOOTHINGS[number]
 export const DEFAULT_RAIN_SMOOTHING: RainSmoothing = 'bilineair'
 
@@ -29,6 +29,8 @@ export const RAIN_FIELD_STORAGE_KEYS: Record<keyof RainFieldTuning, string> = {
   harmonie: 'motregen-dev-regenveld-harmonie',
   harmonieTime: 'motregen-dev-regenveld-tijd',
 }
+/** Rig-schakelaar zonder knop: `aan` meet elke voorfilter-pass (wacht op de GPU) in `window.__motregenRainFilterPasses`. */
+export const RAIN_FILTER_MEASURE_STORAGE_KEY = 'motregen-dev-regenveld-meet'
 
 /** De blend (seamless) staat net als radar en nowcast op een bronraster van ~1 km en hoort dus bij die groep. */
 export function rainSourceGroup(source: Source): RainSourceGroup {
@@ -40,18 +42,20 @@ export function rainSourceGroup(source: Source): RainSourceGroup {
 // radar/nowcast/blend ~1 km op de grond = ~1,6 cel, HARMONIE-AROME 0,029° × 0,018° = ~3,25 cel.
 const SOURCE_CELL_WIDTH: Record<RainSourceGroup, number> = { radar: 1.56, harmonie: 3.25 }
 
-const KERNELS: Record<RainSmoothing, RainKernel> = {
-  'blokken': 'nearest',
-  'bilineair': 'bilinear',
-  'bronlineair': 'source-linear',
-  'glad': 'source-cubic',
-  'blur 3×3': 'source-blur-3',
-  'blur 5×5': 'source-blur-5',
+const KERNELS: Record<RainSmoothing, { kernel: RainKernel; blurTaps?: number }> = {
+  'blokken': { kernel: 'nearest' },
+  'bilineair': { kernel: 'bilinear' },
+  'bronlineair': { kernel: 'source-linear' },
+  'glad': { kernel: 'source-cubic' },
+  'blur 3×3': { kernel: 'source-blur', blurTaps: 3 },
+  'blur 5×5': { kernel: 'source-blur', blurTaps: 5 },
+  'blur 7×7': { kernel: 'source-blur', blurTaps: 7 },
+  'blur 9×9': { kernel: 'source-blur', blurTaps: 9 },
 }
 
 export function rainSampling(source: Source, tuning: RainFieldTuning): RainSampling {
   const group = rainSourceGroup(source)
-  return { kernel: KERNELS[tuning[group]], sourceCellWidth: SOURCE_CELL_WIDTH[group] }
+  return { ...KERNELS[tuning[group]], sourceCellWidth: SOURCE_CELL_WIDTH[group] }
 }
 
 // Bij uurframes verplaatst een bui zich tientallen cellen; de gewone kap (15 cellen) zet het meebewegen dan

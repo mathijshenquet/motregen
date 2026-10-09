@@ -43,8 +43,8 @@ import { startFrameLoop } from './core/playback'
 import { clampPlaybackCursor, playbackReach } from './core/playback-gate'
 import { measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer } from './core/perf'
 import type { ProfileRecording } from './core/profile-recorder'
-import { RainLayer } from './core/rain-layer'
-import { DEFAULT_RAIN_FIELD_TUNING, loadRainFieldTuning, RAIN_FIELD_STORAGE_KEYS, rainSampling, rainTimeBlend, type RainFieldTuning } from './core/rain-smoothing'
+import { RainLayer, type RainFilterPass } from './core/rain-layer'
+import { DEFAULT_RAIN_FIELD_TUNING, loadRainFieldTuning, RAIN_FIELD_STORAGE_KEYS, RAIN_FILTER_MEASURE_STORAGE_KEY, rainSampling, rainTimeBlend, type RainFieldTuning } from './core/rain-smoothing'
 import { LayerOverlay } from './core/overlay-canvas'
 import { grantedStartFix, loadLastLocation, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastLocation, storeLastSavedPlaceId, storeMapView, type StartLocation } from './core/location-memory'
 import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGestures } from './core/pin-navigation'
@@ -1681,6 +1681,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function mountRain(grid: Grid): void {
     if (!map) return
     layer = new RainLayer(grid)
+    if (devMode && localStorage.getItem(RAIN_FILTER_MEASURE_STORAGE_KEY) === 'aan') {
+      const passes: RainFilterPass[] = []
+      ;(window as unknown as { __motregenRainFilterPasses: RainFilterPass[] }).__motregenRainFilterPasses = passes
+      layer.onFilterPass = (pass) => passes.push(pass)
+    }
     try {
       rainOverlay = new LayerOverlay(map, layer, windOverlay?.canvas ?? map.getCanvas(), () => WIND_MAX_FPS)
     } catch {

@@ -11,8 +11,8 @@ import sharp from 'sharp'
 
 const [baseURL = 'http://127.0.0.1:4320', label = 'veld', device = '1280', scene = 'dag', group = 'harmonie', hoursAhead = '8', view = '', variantList = ''] = process.argv.slice(2)
 const CONTROLS: Record<string, { label: string; variants: string[] }> = {
-  radar: { label: 'Regenveld radar/nowcast', variants: ['blokken', 'bilineair', 'bronlineair', 'glad', 'blur 3×3', 'blur 5×5'] },
-  harmonie: { label: 'Regenveld HARMONIE', variants: ['blokken', 'bilineair', 'bronlineair', 'glad', 'blur 3×3', 'blur 5×5'] },
+  radar: { label: 'Regenveld radar/nowcast', variants: ['blokken', 'bilineair', 'bronlineair', 'glad', 'blur 3×3', 'blur 5×5', 'blur 7×7', 'blur 9×9'] },
+  harmonie: { label: 'Regenveld HARMONIE', variants: ['blokken', 'bilineair', 'bronlineair', 'glad', 'blur 3×3', 'blur 5×5', 'blur 7×7', 'blur 9×9'] },
   tijd: { label: 'Tijdmenging HARMONIE', variants: ['kruisfade', 'vloeiend', 'meebewegen'] },
 }
 const control = CONTROLS[group]
