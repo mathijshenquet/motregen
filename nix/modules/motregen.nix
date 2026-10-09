@@ -592,6 +592,8 @@ in
         MOTREGEN_BOT_ROLE = cfg.bot.role;
         MOTREGEN_ORIGIN = cfg.bot.origin;
         MOTREGEN_RENDER_CACHE = "/var/cache/motregen-bot/stills";
+        # Fontconfig (sharp/librsvg voor /weer, MIP-27) wil een schrijfbare cache; anders "No writable cache directories".
+        XDG_CACHE_HOME = "/var/cache/motregen-bot";
       } // lib.optionalAttrs (cfg.bot.role != "poller") {
         PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
         MOTREGEN_CHROMIUM_PATH = "${pkgs.playwright-driver.browsers}/chromium_headless_shell-${pkgs.playwright-driver.browsersJSON."chromium-headless-shell".revision}/chrome-headless-shell-linux64/chrome-headless-shell";
