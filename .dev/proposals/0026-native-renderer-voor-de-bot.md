@@ -1,6 +1,6 @@
 # MIP-26 — Bot-loops zonder browser: basiskaart één keer, lagen als eigen compositor
 
-Status: draft · 2026-10-09 · auteur: orkestrator · aanleiding: PO ("kunnen wij dat renderen 10–100× sneller
+Status: accepted (PO 2026-10-09 15:00) · 2026-10-09 · auteur: orkestrator · aanleiding: PO ("kunnen wij dat renderen 10–100× sneller
 maken? 1× de kaart renderen en de lagen die we toch al los renderen er in een los proces bovenop, dan
 hannes je niet meer met Playwright")
 
@@ -44,4 +44,7 @@ en ageq-dev2 vrij. Prime (uploads naar Telegram, ≈ 120 s) blijft de ondergrens
 slimmer doen (MIP-22).
 
 ## Decision
-(open — PO)
+PO 2026-10-09: "ok top, bouw dan maar; in principe is het doel dat de VM-prodbox zijn eigen filmpjes kan maken
+zonder achter te gaan lopen." Doelstelling dus: generatie (3 loops + stills) op 2 kernen ruim binnen de
+3–5 minuten tussen KNMI-generaties, zodat de renderer-rol terug naar de VM kan. WASM voor de isolijnen: niet
+(gemeten ms-werk, YAGNI). Volgorde U71a regen → U71b temperatuur → U71c wind.
