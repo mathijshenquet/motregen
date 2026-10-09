@@ -1,0 +1,56 @@
+{
+  "measurement": "verified-text",
+  "note": "Fasegrenzen benaderd uit rendererduur, plus 0,5 s opstart; 200-ms-samples, geen vervanging voor memory.peak. MainThread omvat ook meethelper. RSS van verschillende processen niet optellen wegens gedeelde paginas.",
+  "phases": [
+    {
+      "phase": "Assets",
+      "approximateStartSeconds": 0,
+      "approximateEndSeconds": 14.729,
+      "maxCgroupSampleBytes": 804732928,
+      "maxRssByProcessName": {
+        "MainThread": 249511936,
+        "time": 1810432,
+        "taskset": 2351104,
+        "chrome-headless": 399847424
+      }
+    },
+    {
+      "phase": "Regen",
+      "approximateStartSeconds": 14.729,
+      "approximateEndSeconds": 32.81,
+      "maxCgroupSampleBytes": 376700928,
+      "maxRssByProcessName": {
+        "MainThread": 348454912,
+        "time": 1810432,
+        "native-raster": 45043712,
+        "ffmpeg": 68247552
+      }
+    },
+    {
+      "phase": "Temperatuur",
+      "approximateStartSeconds": 32.81,
+      "approximateEndSeconds": 51.298,
+      "maxCgroupSampleBytes": 409444352,
+      "maxRssByProcessName": {
+        "MainThread": 365293568,
+        "time": 1810432,
+        "native-raster": 2678784,
+        "native-field-ra": 12476416,
+        "ffmpeg": 66904064
+      }
+    },
+    {
+      "phase": "Wind/einde",
+      "approximateStartSeconds": 51.298,
+      "approximateEndSeconds": 85.143,
+      "maxCgroupSampleBytes": 478048256,
+      "maxRssByProcessName": {
+        "MainThread": 363061248,
+        "time": 1810432,
+        "native-field-ra": 9617408,
+        "ffmpeg": 68657152,
+        "native-raster": 34787328
+      }
+    }
+  ]
+}
