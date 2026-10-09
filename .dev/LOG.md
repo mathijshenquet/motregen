@@ -305,6 +305,17 @@
   pas als de kaart kan tekenen, of de kaart tweent naar de cursor i.p.v. springen); meet het effect op "spelende
   tijdlijn"-ttfr. Als voorstel/track uitwerken, niet als nachtfix.
 
+- 02:45, PO-Firefox-profiel (`/tmp/Firefox 2026-10-09 09.55 profile.json.gz`, 4330, bundel k6xSTVkX) gelezen met
+  screenshots + netwerk: (1) "één tegel + wit" was de z4-startkaart ZELF: de westtegel (zee, 3,5 kB) was eerder
+  gedecodeerd dan de oosttegel (NL, 20 kB) → beide tegels nu tegelijk vrijgegeven (6f903333). (2) De regen op de
+  kaart start pas bij MapLibre `style.load` (rain layer wordt in attachMapLayers gemount), en die wacht op de
+  PMTiles-header; op 4330 (vite preview = HTTP/1.1, 6 verbindingen) stond die header 600 ms in de rij achter
+  ~37 HARMONIE-.mrf-aanvragen die om 205 ms allemaal starten; prod is HTTP/2. De histogram-scrubber heeft de
+  kaart niet nodig en loopt eerder → PO ziet "histogram loopt, kaart haakt later aan". Richting voor de dag:
+  (a) één klok (PO: pas spelen als alles klaar is — scrubber wacht op mapReady), (b) HARMONIE-flood ná de
+  kaartheader/eerste tegels (prioriteit), (c) rain overlay niet aan style.load binden. Prod: vijfde upgrade
+  na de gate van 6f903333.
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
