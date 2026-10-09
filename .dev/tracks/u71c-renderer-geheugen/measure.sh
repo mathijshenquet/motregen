@@ -32,8 +32,11 @@ export MOTREGEN_CHROMIUM_PATH=${MOTREGEN_CHROMIUM_PATH:-/niet-bestaand/u71c-chro
 export MOTREGEN_TIME_PATH=${MOTREGEN_TIME_PATH:-/nix/store/y51431wmnm7vli4l347dpn44nyhmcrw7-time-1.10/bin/time}
 date -u +%FT%TZ > "$measure_track/$measure_label-host.txt"
 git rev-parse HEAD >> "$measure_track/$measure_label-host.txt"
-git diff --stat >> "$measure_track/$measure_label-host.txt"
-git diff HEAD -- bot nix/modules/motregen.nix flake.nix > "$measure_track/$measure_label.patch"
+git diff --stat -- bot nix/modules/motregen.nix flake.nix >> "$measure_track/$measure_label-host.txt"
+git diff HEAD -- bot nix/modules/motregen.nix flake.nix | node --input-type=module -e '
+import { readFileSync, writeFileSync } from "node:fs"
+writeFileSync(process.argv[1], JSON.stringify({ patch: readFileSync(0, "utf8") }, null, 2) + "\n")
+' "$measure_track/$measure_label-source.json"
 cat /proc/loadavg >> "$measure_track/$measure_label-host.txt"
 if flock /home/mathijs/motregen-perf.lock systemd-run --user --wait --pipe \
   --unit="motregen-u71c-$measure_label" --working-directory="$PWD" \
