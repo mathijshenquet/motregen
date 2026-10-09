@@ -435,6 +435,12 @@
   ≤ 600 MiB piek (frames streamen, één loop tegelijk, atlassen lazy, sharp-cache uit), media byte-identiek; daarna
   rolwissel (PO: "daarna kan de filmpjes renderen naar de vm").
 
+- **U71d gemerged** (22:31, 7e9a0f81, PR #105, gpt-6.1-sol 1,5 u): renderergeheugen 1,55/1,76 GiB → 448 MiB warm / 768 MiB
+  koud (atlassen persistent, Chromium vóór de rasterfase dicht), 81–85 s, byte-identiek; eerste installatie apart
+  (963 MiB, 312 s, enkele klokschaduwpixels; geen gate). **Rolwissel** (b93735b9): prod-bot op combined, budget
+  CPU 200 %, MemoryHigh 1100M / Max 1300M, swap uit; bot-roles-check per rol. Dev-host-renderer gestopt; prod-uitrol
+  gestart. MIP-26 daarmee afgerond zodra de eerste VM-generaties binnen zijn.
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
