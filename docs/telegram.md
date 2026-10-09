@@ -3,7 +3,7 @@
 De bot `@motregen_bot` opent “motregen.nl -- Regenradar en Weersverwachting”
 als Mini App en deelt nationale kaarten. `/regen`, `/temperatuur` (alias `/hitte`) en `/wind`
 plaatsen een video die automatisch afspeelt en herhaalt: de loop is het standaardantwoord van elk
-commando (PO 2026-10-07, U58). Een stilstaand beeld komt via de tijdknoppen onder het bericht.
+kaartcommando (PO 2026-10-07, U58). Een stilstaand beeld komt via de tijdknoppen onder het bericht.
 Het commando `/loop` is vervallen. `/gevoel`, de naam van `/temperatuur` tot U58, blijft werken maar
 staat niet meer in het commandomenu of de starttekst. Wind bestaat uitsluitend als loop, nooit als still.
 
@@ -60,6 +60,12 @@ los; bij een nieuwe plaats blijven alleen de chunks staan. De oude pollerlimiet 
 voor tijdelijke decoderbuffers te krap bij meerdere plaatsvragen. Daarom staat het pollerbudget in
 de Nix-module op `MemoryHigh=384M`, `MemoryMax=512M`; `CPUQuota=25%` blijft gelden. Dit is een wijziging
 van de configuratie in de repository, zonder productie-uitrol.
+
+Een lokale `systemd-run --user`-proef met dezelfde CPUQuota/MemoryHigh/MemoryMax heeft tien opeenvolgende
+puntbeelden voor Amsterdam/Utrecht zonder OOM verwerkt (exit 0), piek-RSS 270 MiB. Koud kostte dit 3,32 s,
+vervolgbeelden zonder PNG-cache 1,11–1,69 s door de 25%-CPUQuota. Binnen die generatie werden zeven chunks
+(17,3 MB) één keer opgehaald. Deze proef bewijst de native render binnen het servicebudget; het is geen
+meting op de productie-VM en omvat geen Telegram-verzending.
 
 De modusrij bevat Regen, Temperatuur en Wind (de tab in de app heet Gevoel; in de bot volgt de knop het commando). De tijdrij bevat −1u, −10m, nu,
 +10m, +1u en Loop; bij Wind staat alleen Loop. Vanuit de loop geven de deltaknoppen een still

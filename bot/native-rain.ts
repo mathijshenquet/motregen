@@ -40,11 +40,11 @@ export class NativeRainData {
     const first = frameBlend(this.timeline, start).left
     const last = frameBlend(this.timeline, end).right
     const timeline = this.timeline.slice(first, last + 1)
-    const [x, y] = projectPoint(point.lng, point.lat)
+    const [projectedX, projectedY] = projectPoint(point.lng, point.lat)
     const values: Array<number | null> = []
     for (const frame of timeline) {
       const { header, raster } = await this.load(frame, false)
-      values.push(pointValue(header, raster, x, y))
+      values.push(pointValue(header, raster, projectedX, projectedY))
     }
     return { timeline, values }
   }

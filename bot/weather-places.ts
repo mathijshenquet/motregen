@@ -30,7 +30,7 @@ export class WeatherPlaces {
       const signal = AbortSignal.timeout(5000)
       const external = await suggestLocations(expandPlaceQuery(query), { lng: 5.18, lat: 52.1 }, signal)
       const suggestions = await Promise.all(external.slice(0, 3).map(async (suggestion) => ({
-        name: suggestion.label, slug: placeSlug(suggestion.label), ...await resolveLocation(suggestion, signal),
+        name: suggestion.label, slug: placeSlug(suggestion.label), detail: suggestion.detail ?? (suggestion.country === 'BE' ? 'BE' : undefined), ...await resolveLocation(suggestion, signal),
       })))
       const exact = suggestions.filter((place) => placeQuery(place.name) === placeQuery(query))
       if (exact.length === 1) return { place: exact[0], suggestions }
@@ -44,7 +44,9 @@ export class WeatherPlaces {
     const key = createHash('sha256').update(JSON.stringify([place.slug, place.lng, place.lat])).digest('hex').slice(0, 20)
     this.callbacks.set(key, { place, expires: Date.now() + 2 * 3_600_000 })
     if (this.callbacks.size > 1000) this.callbacks.delete(this.callbacks.keys().next().value!)
-    return { text: place.name, callback_data: `weer:${key}` }
+    const suffix = place.slug.startsWith(`${placeSlug(place.name)}-`) ? place.slug.slice(placeSlug(place.name).length + 1) : undefined
+    const detail = place.detail ?? suffix
+    return { text: detail ? `${place.name} (${detail})` : place.name, callback_data: `weer:${key}` }
   }
 
   fromCallback(data: string): SearchPlace | undefined {

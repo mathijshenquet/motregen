@@ -43,10 +43,10 @@ it('matches app rain and all cloud fractions at one place/time using the web MRF
       const header = parseMrfHeader(bytes.subarray(0, frame.chunk.header_len))
       const entry = header.frames[frame.frameIndex]!
       const raster = decodeFrame(bytes.subarray(frame.chunk.header_len + entry.offset, frame.chunk.header_len + entry.offset + entry.len), header.grid.width * header.grid.height)
-      const x = place.lng * Math.PI / 180 * 6378137
-      const y = Math.log(Math.tan(Math.PI / 4 + place.lat * Math.PI / 360)) * 6378137
-      const column = Math.floor((x - header.grid.x0) / header.grid.dx)
-      const row = Math.floor((y - header.grid.y0) / header.grid.dy)
+      const projectedX = place.lng * Math.PI / 180 * 6378137
+      const projectedY = Math.log(Math.tan(Math.PI / 4 + place.lat * Math.PI / 360)) * 6378137
+      const column = Math.floor((projectedX - header.grid.x0) / header.grid.dx)
+      const row = Math.floor((projectedY - header.grid.y0) / header.grid.dy)
       values[index] = header.quant[raster[row * header.grid.width + column]!] ?? null
     }
     const expected = seriesValueAt(timeline, values, epoch, 0)

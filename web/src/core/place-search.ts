@@ -1,6 +1,6 @@
 import { placeSlug } from './slugify.js'
 
-export interface SearchPlace { name: string; slug: string; lng: number; lat: number; population?: number }
+export interface SearchPlace { name: string; slug: string; lng: number; lat: number; population?: number; detail?: string }
 
 const aliases: Record<string, string> = { ams: 'amsterdam', adam: 'amsterdam', rdam: 'rotterdam', rtm: 'rotterdam', dh: 'den-haag', ut: 'utrecht', utr: 'utrecht', eind: 'eindhoven', gron: 'groningen', sgravenhage: 'den-haag' }
 
