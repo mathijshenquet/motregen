@@ -5,7 +5,7 @@ import { applyEmulation, performanceProfile } from './profiles'
 const shell = (page: Page) => page.locator('.map-shell')
 const heading = (page: Page) => page.locator('.temperature-focus')
 const windHeading = (page: Page) => page.locator('.wind-focus')
-const weatherHeading = (page: Page) => page.getByRole('button', { name: 'Weer' })
+const weatherHeading = (page: Page) => page.getByRole('button', { name: 'Weer', exact: true })
 const windIntensity = async (page: Page) => Number(await shell(page).getAttribute('data-wind-intensity'))
 
 async function ready(page: Page): Promise<void> {
