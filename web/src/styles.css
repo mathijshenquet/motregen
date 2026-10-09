@@ -1233,6 +1233,10 @@ td small { color: var(--muted); font-size: 9px; }
   .table-covers-viewport .forecast-panel::before { position: absolute; top: -120px; right: 0; left: 0; z-index: 6; height: 120px; background: var(--surface); content: ''; pointer-events: none; }
   .table-covers-viewport .forecast-panel.head-night::before { background: #0a1820; }
   .table-covers-viewport .forecast-panel.head-day::before { background: color-mix(in oklab, var(--table-day-bright) 44%, #fff); }
+  /* Tabelachtergrond volgt de bovenste zichtbare rij: een subpixel-naad tussen koppenrij en eerste rij toont dan
+     rijkleur in plaats van wit (PO 2026-10-09). */
+  .forecast-panel.head-night .forecast-table { background: #0a1820; }
+  .forecast-panel.head-day .forecast-table { background: color-mix(in oklab, var(--table-day-bright) 44%, #fff); }
   /* Het verlengde stuk van het paneel valt achter de adresbalk: de laatste rijen moeten erboven uit kunnen komen. */
   .forecast-panel .table-scroll { scroll-padding-bottom: var(--table-panel-shortfall, 0px); padding-bottom: var(--table-panel-shortfall, 0px); }
 }
