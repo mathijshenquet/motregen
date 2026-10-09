@@ -5,6 +5,8 @@ import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { STILL_CACHE_TTL } from './file-ids.js'
 import { encodeLoop, encodeStill, framePath } from './encode.js'
+import { rainRenderer } from './native-settings.js'
+import { NativeWeatherRenderer, nativeFramePath } from './native-render.js'
 import { sequencePlan } from './sequences.js'
 import { openRenderPage } from './render-open.js'
 import { StillRenderError } from './render-error.js'
@@ -31,12 +33,16 @@ export interface RenderedLoop extends RenderedBase {
   renderMs: number
   encodeMs: number
   openMs?: number
+  backend?: 'native' | 'playwright'
+  loopMs?: number
 }
 export type RenderedMedia = RenderedStill | RenderedLoop
 interface RenderedSequence { loop: RenderedLoop; stills: RenderedStill[] }
-interface SequenceMetrics { key: string; frames: number; fps: number; bytes: number; renderMs: number; encodeMs: number; openMs?: number }
+interface SequenceMetrics { key: string; frames: number; fps: number; bytes: number; renderMs: number; encodeMs: number; openMs?: number; backend?: 'native' | 'playwright'; loopMs?: number }
 
 export class StillRenderer {
+  private readonly nativeLoops = new Map<string, { ready: Promise<void>; finish: () => void }>()
+  private readonly native: NativeWeatherRenderer
   private browser?: Browser
   private context?: BrowserContext
   private queues: Promise<unknown>[] = Array.from({ length: 4 }, () => Promise.resolve())
@@ -45,7 +51,9 @@ export class StillRenderer {
   private pending = new Map<string, Promise<RenderedSequence>>()
   private pendingStills = new Map<string, Promise<RenderedStill>>()
 
-  constructor(private readonly origin: string, private readonly cacheDirectory: string) {}
+  constructor(private readonly origin: string, private readonly cacheDirectory: string) {
+    this.native = new NativeWeatherRenderer(origin, cacheDirectory, () => this.browserContext())
+  }
 
   async manifest(): Promise<StillManifest> {
     const response = await fetch(new URL('/data/manifest.json', this.origin), { cache: 'no-store', signal: AbortSignal.timeout(15_000) })
@@ -65,13 +73,20 @@ export class StillRenderer {
     const frame = sequencePlan(selection.mode, manifest).stillFrames.find((candidate) => candidate.hour === selection.hour)
     if (!frame) throw new Error('Stillframe ontbreekt in de framereeks')
     const loopKey = cacheKey({ mode: selection.mode, hour: 'loop' }, manifest)
-    return this.convertStill(still, framePath(this.frameDirectory(loopKey), frame.index))
+    const path = sequence.loop.backend === 'native' ? nativeFramePath(this.frameDirectory(loopKey), frame.index) : framePath(this.frameDirectory(loopKey), frame.index)
+    return this.convertStill(still, path)
   }
 
   private sequence(mode: LoopMode, manifest: StillManifest): Promise<RenderedSequence> {
     const key = cacheKey({ mode, hour: 'loop' }, manifest)
     const existing = this.pending.get(key)
     if (existing) return existing
+    const nativeLoopKey = cacheKey({ mode: 'weather', hour: 'loop' }, manifest)
+    if (mode === 'weather' && rainRenderer() === 'native') {
+      let finish!: () => void
+      const ready = new Promise<void>((resolve) => { finish = resolve })
+      this.nativeLoops.set(nativeLoopKey, { ready, finish })
+    }
     // Cache-hits hoeven niet achter een nieuwe Chromium-render te wachten.
     const task = this.readCachedSequence(mode, manifest, key).then((cached) => {
       if (cached) return cached
@@ -81,7 +96,10 @@ export class StillRenderer {
       return render
     })
     this.pending.set(key, task)
-    void task.finally(() => this.pending.delete(key)).catch(() => undefined)
+    void task.finally(() => {
+      this.pending.delete(key)
+      if (mode === 'weather') { this.nativeLoops.get(nativeLoopKey)?.finish(); this.nativeLoops.delete(nativeLoopKey) }
+    }).catch(() => undefined)
     return task
   }
 
@@ -181,14 +199,41 @@ export class StillRenderer {
       const sequence = this.results(mode, manifest, metrics, true)
       await access(sequence.loop.path)
       const directory = this.frameDirectory(key)
-      await Promise.all(sequencePlan(mode, manifest).epochs.map((_epoch, index) => access(framePath(directory, index))))
+      const plan = sequencePlan(mode, manifest)
+      const indexes = metrics.backend === 'native' ? plan.stillFrames.map((frame) => frame.index) : plan.epochs.map((_epoch, index) => index)
+      await Promise.all(indexes.map((index) => access(metrics.backend === 'native' ? nativeFramePath(directory, index) : framePath(directory, index))))
       return sequence
     } catch {
       return undefined
     }
   }
 
+  private async renderNativeSequence(manifest: StillManifest, key: string): Promise<RenderedSequence> {
+    await mkdir(this.cacheDirectory, { recursive: true })
+    const directory = await mkdtemp(join(this.cacheDirectory, `.frames-${key}-`))
+    const loop = this.media({ mode: 'weather', hour: 'loop' }, manifest)
+    try {
+      const plan = sequencePlan('weather', manifest)
+      const rendered = await this.native.render(manifest, plan, directory, `${loop.path}.tmp`, () => this.nativeLoops.get(key)?.finish())
+      await rename(`${loop.path}.tmp`, loop.path)
+      const publishedFrames = this.frameDirectory(key)
+      await rm(publishedFrames, { recursive: true, force: true })
+      await rename(directory, publishedFrames)
+      const metrics: SequenceMetrics = { key, frames: plan.loopFrames, fps: plan.fps, ...rendered, backend: 'native' }
+      const receipt = join(this.cacheDirectory, `${key}.sequence.json`)
+      await writeFile(`${receipt}.tmp`, JSON.stringify(metrics))
+      await rename(`${receipt}.tmp`, receipt)
+      console.info(JSON.stringify({ event: 'sequence-render', mode: 'weather', generated: manifest.generated, renderedFrames: plan.epochs.length, ...metrics }))
+      return this.results('weather', manifest, metrics, false)
+    } catch (error) {
+      throw new StillRenderError('weather', 'native', undefined, error)
+    } finally { await rm(directory, { recursive: true, force: true }) }
+  }
+
   private async renderSequence(mode: LoopMode, manifest: StillManifest, key: string): Promise<RenderedSequence> {
+    if (mode === 'weather' && rainRenderer() === 'native') return this.renderNativeSequence(manifest, key)
+    // SwiftShader deelt de twee VM-kernen; laat de korte native loop eerst afmaken.
+    await this.nativeLoops.get(cacheKey({ mode: 'weather', hour: 'loop' }, manifest))?.ready
     const started = performance.now()
     await mkdir(this.cacheDirectory, { recursive: true })
     const directory = await mkdtemp(join(this.cacheDirectory, `.frames-${key}-`))

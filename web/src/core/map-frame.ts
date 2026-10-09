@@ -1,4 +1,4 @@
-import type { Grid } from './contract'
+import type { Grid } from './contract.js'
 
 export interface GeographicBounds {
   west: number

@@ -49,6 +49,7 @@ import { grantedStartFix, loadLastLocation, loadLastSavedPlaceId, loadMapView, r
 import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGestures } from './core/pin-navigation'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
+import { DEFAULT_LOCATION, stillMapTheme } from './core/still-theme.js'
 import { isSunUp, solarElevationSin } from './core/solar'
 import { paletteRange, paletteStops, type PaletteRange } from './core/temperature-palette'
 import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
@@ -73,7 +74,7 @@ import { READY_WINDOW_MS, windowReady } from './core/window-ready'
 import { visibleSlotStates } from './core/screen-truth'
 import type { Intent } from './core/intent'
 import { coldProfileRequested, decode, fetchManifest, initialClient, initialManifest, manifestUrl, perf, profileMode } from './startup'
-const defaultLocation = { lng: 5.18, lat: 52.1, label: 'De Bilt' }
+const defaultLocation = DEFAULT_LOCATION
 // Intent (MIP-20): velden die de kaart of de scrubber in een van de modi tekent; de straling hoort
 // erbij omdat ze de hemel achter de scrubber kleurt (U62). Na deze rust geldt de scrubber als stilstaand.
 const SHOWN_FIELDS: ReadonlySet<string> = new Set(['rain_rate', 'motion', 'uv', 'uv_clear', 'radiation', 'cloud_low', 'cloud_mid', 'cloud_high', 'cloud_frac', 'wind_u_ms', 'wind_v_ms', 'gust_ms', 'pressure_hpa', 'feels_like_c', 'temp_c'])
@@ -934,7 +935,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       if (presetCursor !== undefined) setPlaying(false)
       if (presets.mode) applyPresetMode(presets.mode)
       const firstHeader = client.getHeader(frames[0]!.chunk)
-      const initialTheme = mapTheme()
+      const initialTheme = stillMode ? stillMapTheme(selectedEpoch()) : mapTheme()
       const style = await loadBasemapStyle(initialTheme)
       appliedMapTheme = initialTheme
       const initialView = constrainView(!stillMode && initialPresets.point
@@ -942,7 +943,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         : initialMapView ?? containView(MAP_CONTAIN_BOUNDS, mapViewport()), MAP_CONTAIN_BOUNDS, mapViewport())
       map = new maplibregl.Map({
         container: mapElement,
-        style: mapStart?.style(style) ?? style,
+        style: stillMode ? { ...style, transition: { duration: 0, delay: 0 } } : mapStart?.style(style) ?? style,
         center: [initialView.lng, initialView.lat],
         zoom: initialView.zoom,
         transformConstrain: constrainMapView,
@@ -1034,7 +1035,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       windParallelCompilation = Boolean(map.getCanvas().getContext('webgl2')?.getExtension('KHR_parallel_shader_compile'))
       map.on('style.load', () => attachMapLayers(header.grid))
       attachMapLayers(header.grid)
-      if (mapTheme() !== appliedMapTheme) void applyMapTheme(mapTheme())
+      if (!stillMode && mapTheme() !== appliedMapTheme) void applyMapTheme(mapTheme())
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error))
     }
@@ -1432,8 +1433,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (!map || map.getLayer('motregen-grid-frame')) return
     const frame = mapFrameFromGrid(grid)
     map.addSource('motregen-grid-frame', { type: 'geojson', data: frame.mask })
-    const dark = mapTheme() === 'dark'
-    const outside = GRID_OUTSIDE_PAINT[mapTheme()]
+    const dark = mapSurfaceTheme() === 'dark'
+    const outside = GRID_OUTSIDE_PAINT[mapSurfaceTheme()]
     map.addLayer({
       id: 'motregen-grid-outside',
       type: 'fill',
@@ -1650,6 +1651,15 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const nextCursor = cursorForPresetEpoch(timeline(), epoch)
     if (nextCursor === undefined) throw new Error('Frame valt buiten de beschikbare tijdlijn')
     setCursor(nextCursor)
+    const stillTheme = stillMapTheme(epoch)
+    if (map && appliedMapTheme !== stillTheme) {
+      const style = await loadBasemapStyle(stillTheme)
+      appliedMapTheme = stillTheme
+      const loaded = new Promise<void>((resolve) => map!.once('idle', () => resolve()))
+      map.setStyle({ ...style, transition: { duration: 0, delay: 0 } })
+      await loaded
+      windLayer?.setTheme(stillTheme)
+    }
     await showFrame()
     await prepareStill()
     if (mapElement.dataset.stillError) throw new Error(mapElement.dataset.stillError)
@@ -3112,7 +3122,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return mapNightStep(nightShare(sunElevationAt()(cursorMinute())))
   })
   // Is de kaart onder de regen donker? Met "kaart volgt de tijd" beslist de zonnestand, anders het thema.
-  const mapIsNight = () => (mapNight() ?? (mapTheme() === 'dark' ? 1 : 0)) >= 0.5
+  const mapIsNight = () => stillMode ? stillMapTheme(cursorMinute()) === 'dark' : (mapNight() ?? (mapTheme() === 'dark' ? 1 : 0)) >= 0.5
   // Het thema van alles wat óp de kaart getekend wordt (temperatuurcijfers, isolijnen en hun labels, zon,
   // wind): dat volgt de kaart zelf, niet het app-thema. Volgde het de app, dan stonden er in het donkere
   // thema overdag lichte lijnen en zwaar omrande cijfers op een lichte kaart (PO 2026-10-08).
@@ -3435,7 +3445,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         </div>
       </div>
       <Show when={stillMode}>
-        <div class="map-clock still-clock">
+        <div class="map-clock still-clock" data-regime={selectedEpoch() > Date.parse(manifest()?.now ?? '') ? 'forecast' : 'history'}>
           <div class="freshness-trigger">
             <ClockFace time={formatTime(cursorMinute())} day={formatWeekdayShort(cursorMinute())} />
             <small class="clock-day">{{ weather: 'Regen', air: 'Lucht', feels: 'Gevoelstemperatuur', wind: 'Wind' }[initialPresets.mode ?? 'weather']}</small>

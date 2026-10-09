@@ -3,18 +3,25 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "start": "node dist/bot/main.js",
     "dev": "tsx main.ts",
     "smoke": "tsx smoke.ts",
     "render": "tsx smoke.ts --render-only",
+    "parity": "tsx parity.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "build": "tsc"
+    "build": "tsc && rustc native-raster.rs -O -o dist/bot/native-raster"
   },
   "dependencies": {
-    "playwright": "^1.61.1"
+    "fzstd": "^0.1.1",
+    "maplibre-gl": "^5.24.0",
+    "playwright": "^1.61.1",
+    "pmtiles": "^4.5.0",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@types/node": "^24.5.2",
