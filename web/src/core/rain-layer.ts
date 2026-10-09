@@ -1,3 +1,6 @@
+import type { RainKernel, RainSampling, RainFilterPass, RainWarpLimit } from './rain-sampling.js'
+import { kernelTaps } from './rain-sampling.js'
+export type { RainKernel, RainSampling, RainFilterPass, RainWarpLimit } from './rain-sampling.js'
 import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap } from 'maplibre-gl'
 import { MercatorCoordinate } from 'maplibre-gl'
 import type { Grid } from './contract'
@@ -15,35 +18,9 @@ export { WARP_CAP_CELLS, WARP_FADE_END_CELLS, FLOW_BLEND_CURVE } from './rain-mo
  * De `source-`kernen wegen broncellen (de blokken die de dichtste-buur-regrid van de ingest achterlaat)
  * in plaats van rastercellen, zodat dezelfde stand op het grove HARMONIE-raster evenveel gladstrijkt.
  */
-export type RainKernel = 'nearest' | 'bilinear' | 'source-linear' | 'source-cubic' | 'source-blur'
-
-export interface RainSampling {
-  kernel: RainKernel
-  /** Breedte van één broncel in rastercellen; alleen de `source-`kernen gebruiken hem. */
-  sourceCellWidth: number
-  /** Alleen `source-blur`: sigma van de Gauss, in broncellen. */
-  blurSigma?: number
-}
-
-/** Eén pass van het voorfilter, gemeten tot de GPU klaar is (alleen als iemand luistert). */
-export interface RainFilterPass {
-  kernel: RainKernel
-  taps: number
-  sourceCellWidth: number
-  axis: 'x' | 'y'
-  milliseconds: number
-}
-
-/** Tot welke verplaatsing per framepaar de regen met het bewegingsveld meeschuift; daarboven wordt het een kruisfade. */
-export interface RainWarpLimit {
-  capCells: number
-  fadeEndCells: number
-}
-
 type SourceKernel = Exclude<RainKernel, 'nearest' | 'bilinear'>
 const SOURCE_KERNEL_IDS: Record<SourceKernel, number> = { 'source-linear': 0, 'source-cubic': 1, 'source-blur': 2 }
-// Het venster van de Gauss reikt tot minstens 2,6 sigma; daar is hij op 3 % van zijn top.
-const BLUR_WINDOW_SIGMAS = 2.6
+
 const DEFAULT_SAMPLING: RainSampling = { kernel: 'bilinear', sourceCellWidth: 1 }
 const DEFAULT_WARP_LIMIT: RainWarpLimit = { capCells: WARP_CAP_CELLS, fadeEndCells: WARP_FADE_END_CELLS }
 
@@ -459,11 +436,6 @@ function waitForGpu(gl: WebGL2RenderingContext): void {
   gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4))
 }
 
-function kernelTaps(kernel: SourceKernel, sigma: number): number {
-  if (kernel === 'source-linear') return 2
-  if (kernel === 'source-cubic') return 4
-  return Math.ceil(BLUR_WINDOW_SIGMAS * sigma) * 2 + 1
-}
 
 function isSourceKernel(kernel: RainKernel): kernel is SourceKernel {
   return kernel in SOURCE_KERNEL_IDS

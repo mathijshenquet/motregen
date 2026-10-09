@@ -1,7 +1,8 @@
 import { addProtocol, type LayerSpecification, type StyleSpecification } from 'maplibre-gl'
 import { PMTiles, Protocol } from 'pmtiles'
 
-export type MapTheme = 'light' | 'dark'
+import type { MapTheme } from './map-theme.js'
+export type { MapTheme } from './map-theme.js'
 
 const styleNames: Record<MapTheme, string> = { light: 'licht', dark: 'donker' }
 const cache = new Map<MapTheme, Promise<StyleSpecification>>()

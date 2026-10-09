@@ -1,3 +1,5 @@
+import { rainSampling, DEFAULT_RAIN_FIELD_TUNING } from '../web/src/core/rain-smoothing.js'
+import type { RainSampling } from '../web/src/core/rain-sampling.js'
 import { NativeRaster } from './native-raster.js'
 import { zstdDecompressSync } from 'node:zlib'
 import type { Field, Grid, Manifest, MrfHeader, TimelineFrame } from '../web/src/core/contract.js'
@@ -5,7 +7,7 @@ import { decodeFrame, parseMrfHeader } from '../web/src/core/mrf-codec.js'
 import { buildTimeline, frameBlend } from '../web/src/core/time-model.js'
 import { pointValue, projectPoint } from '../web/src/core/point-value.js'
 import { rainColormap } from '../web/src/core/rain-chart.js'
-import { rainPresentation } from '../web/src/core/rain-presentation.js'
+import { rainPresentation, type RainPresentation } from '../web/src/core/rain-presentation.js'
 import { stillMapTheme } from '../web/src/core/still-theme.js'
 import { selectPairMotion } from '../web/src/core/motion-selection.js'
 import { FLOW_BLEND_CURVE, motionWarpStrength } from '../web/src/core/rain-motion.js'
@@ -14,12 +16,14 @@ import { NATIVE_VIEW, type NativeTheme } from './native-map.js'
 import type { StillManifest } from './stills.js'
 
 interface RainChunk { header: MrfHeader; bytes: Uint8Array; headerLength: number; frames: Map<number, Uint8Array> }
-export interface RainFrame { grid: Grid; left: Uint8Array; right: Uint8Array; mix: number; leftHeader: MrfHeader; rightHeader: MrfHeader; motion?: { width: number; height: number; vectors: Int8Array }; intervalMinutes: number }
+export interface RainFrame { grid: Grid; left: Uint8Array; right: Uint8Array; mix: number; leftHeader: MrfHeader; rightHeader: MrfHeader; motion?: { width: number; height: number; vectors: Int8Array }; intervalMinutes: number; leftSampling?: RainSampling; rightSampling?: RainSampling }
 
 export class NativeRainData {
   readonly timeline: TimelineFrame[]
+  private readonly now: number
   private readonly chunks = new Map<string, Promise<RainChunk>>()
-  constructor(private readonly origin: string, manifest: StillManifest, field: Field = 'rain_rate') {
+  constructor(private readonly origin: string, manifest: StillManifest, private readonly field: Field = 'rain_rate') {
+    this.now = Date.parse(manifest.now)
     this.timeline = buildTimeline(manifest as Manifest, field)
     if (!this.timeline.length) throw new Error('Regen ontbreekt in manifest')
   }
@@ -70,7 +74,7 @@ export class NativeRainData {
         motion = { width: size.bw, height: size.bh, vectors: new Int8Array(vectors.buffer, vectors.byteOffset, vectors.byteLength) }
       }
     }
-    return { grid: left.grid, left: left.raster, right: right.raster, mix: blend.mix, leftHeader: left.header, rightHeader: right.header, motion, intervalMinutes: (rightFrame.epoch - leftFrame.epoch) / 60_000 }
+    return { grid: left.grid, left: left.raster, right: right.raster, mix: blend.mix, leftHeader: left.header, rightHeader: right.header, motion, ...(this.field === 'rain_rate' ? { leftSampling: rainSampling(leftFrame.source, leftFrame.epoch - this.now, DEFAULT_RAIN_FIELD_TUNING), rightSampling: rainSampling(rightFrame.source, rightFrame.epoch - this.now, DEFAULT_RAIN_FIELD_TUNING) } : {}), intervalMinutes: (rightFrame.epoch - leftFrame.epoch) / 60_000 }
   }
 
   private async load(frame: TimelineFrame, retainRaster = true): Promise<{ grid: Grid; raster: Uint8Array; header: MrfHeader }> {
@@ -116,7 +120,7 @@ export class RainCompositor {
   private readonly motionSample = new Float64Array(2)
   private readonly motionIndexes = new Int32Array(4)
   private readonly motionWeights = new Float64Array(4)
-  constructor(private readonly grid: Grid, private readonly size = FRAME_PIXELS, view = NATIVE_VIEW) {
+  constructor(private readonly grid: Grid, private readonly size = FRAME_PIXELS, view = NATIVE_VIEW, private readonly presentation?: RainPresentation) {
     const palette = rainColormap()
     for (let index = 0; index < 65536; index++) {
       const position = Math.max(0, Math.min(255, index / 255 - 0.5))
@@ -125,17 +129,25 @@ export class RainCompositor {
       for (let channel = 0; channel < 3; channel++) this.colors[index * 4 + channel] = (palette[lower * 4 + channel]! * (1 - weight) + palette[upper * 4 + channel]! * weight) * alpha
       this.colors[index * 4 + 3] = 1 - alpha * alpha
     }
+    if (presentation) {
+      for (let index = 0; index < 65536; index++) {
+        const offset = index * 4
+        const gray = this.colors[offset]! * 0.2126 + this.colors[offset + 1]! * 0.7152 + this.colors[offset + 2]! * 0.0722
+        for (let channel = 0; channel < 3; channel++) this.colors[offset + channel] = (gray + (this.colors[offset + channel]! - gray) * presentation.saturation) * presentation.brightness * presentation.opacity
+        this.colors[offset + 3] = 1 - (1 - this.colors[offset + 3]!) * presentation.opacity ** 2
+      }
+    }
     const worldMeters = 2 * Math.PI * 6378137
     const metersPerPixel = worldMeters / (512 * 2 ** view.zoom * (size.width / 640))
     const centerX = view.lng * Math.PI / 180 * 6378137
     const centerY = Math.log(Math.tan(Math.PI / 4 + view.lat * Math.PI / 360)) * 6378137
     this.columns = Float64Array.from({ length: size.width }, (_, column) => (centerX + (column + 0.5 - size.width / 2) * metersPerPixel - grid.x0) / grid.dx - 0.5)
     this.rows = Float64Array.from({ length: size.height }, (_, row) => (centerY - (row + 0.5 - size.height / 2) * metersPerPixel - grid.y0) / grid.dy - 0.5)
-    this.native = new NativeRaster(size, grid, this.columns, this.rows, this.colors)
+    this.native = new NativeRaster(size, grid, this.columns, this.rows, this.colors, presentation?.multiply)
   }
 
   async composeFast(base: Uint8Array, frame: RainFrame, night: boolean): Promise<Buffer> {
-    this.validatePresentation(night)
+    if (!this.presentation) this.validatePresentation(night)
     if (JSON.stringify(frame.grid) !== JSON.stringify(this.grid)) throw new Error('Regenrooster wisselt binnen de reeks')
     return this.native.compose(base, frame)
   }
@@ -146,7 +158,7 @@ export class RainCompositor {
 
   compose(base: Uint8Array, frame: RainFrame, night: boolean): Buffer {
     const rgb = Buffer.from(base)
-    this.validatePresentation(night)
+    if (!this.presentation) this.validatePresentation(night)
     const leftWeight = (1 - frame.mix) ** FLOW_BLEND_CURVE, rightWeight = frame.mix ** FLOW_BLEND_CURVE
     const mix = rightWeight / Math.max(0.0001, leftWeight + rightWeight)
     for (let row = 0; row < this.size.height; row++) {
@@ -170,9 +182,9 @@ export class RainCompositor {
         const coverage = this.colors[colorOffset + 3]!
         const offset = (row * this.size.width + column) * 3
         // SRC_ALPHA on the app's transparent canvas premultiplies RGB and squares alpha.
-        rgb[offset] = Math.min(255, Math.round(this.colors[colorOffset]! + rgb[offset]! * coverage))
-        rgb[offset + 1] = Math.min(255, Math.round(this.colors[colorOffset + 1]! + rgb[offset + 1]! * coverage))
-        rgb[offset + 2] = Math.min(255, Math.round(this.colors[colorOffset + 2]! + rgb[offset + 2]! * coverage))
+        rgb[offset] = Math.min(255, Math.round((this.presentation?.multiply ? rgb[offset]! * this.colors[colorOffset]! / 255 : this.colors[colorOffset]!) + rgb[offset]! * coverage))
+        rgb[offset + 1] = Math.min(255, Math.round((this.presentation?.multiply ? rgb[offset + 1]! * this.colors[colorOffset + 1]! / 255 : this.colors[colorOffset + 1]!) + rgb[offset + 1]! * coverage))
+        rgb[offset + 2] = Math.min(255, Math.round((this.presentation?.multiply ? rgb[offset + 2]! * this.colors[colorOffset + 2]! / 255 : this.colors[colorOffset + 2]!) + rgb[offset + 2]! * coverage))
       }
     }
     return rgb

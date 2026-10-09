@@ -1,0 +1,922 @@
+{
+  "generated": "2026-10-09T12:18:21Z",
+  "metric": "rendererreceipt + GNU time -v; maximum RSS is geen cgroup-geheugenpiek",
+  "baseline": {
+    "path": "../u71a-native-regenloop/measurements.json",
+    "generationSeconds": 164.349,
+    "weatherLoopFrames": 37,
+    "note": "U71b heeft 241 regenloopframes, dus geen identieke hoeveelheid framewerk"
+  },
+  "runs": [
+    {
+      "name": "2core",
+      "stage": "initial-wip",
+      "assets": "warm",
+      "source": "48c81b0; vóór definitieve tekstpariteit",
+      "affinity": [
+        0,
+        1
+      ],
+      "exitCode": 0,
+      "generation": {
+        "event": "generation-render-receipt",
+        "generated": "2026-10-09T12:18:21Z",
+        "count": 173,
+        "milliseconds": 47980,
+        "cached": false
+      },
+      "elapsedSeconds": 49.11,
+      "cpuSeconds": 87.75,
+      "maximumRssKiB": 3894412,
+      "modes": [
+        {
+          "mode": "weather",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "weather",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 319,
+            "key": "weather-loop-d4e255891e28448bbe006d68",
+            "frames": 241,
+            "fps": 10,
+            "renderMs": 42540,
+            "encodeMs": 3379,
+            "preparationMs": 946,
+            "loopMs": 35517,
+            "loopRenderMs": 32143,
+            "bytes": 2574346,
+            "backend": "native"
+          },
+          "stillFrames": {
+            "count": 85,
+            "meanMs": 118.3529411764706,
+            "medianMs": 109,
+            "maximumMs": 290
+          },
+          "jpegEncoding": {
+            "count": 85,
+            "meanMs": 19.576470588235296,
+            "medianMs": 17,
+            "maximumMs": 48
+          }
+        },
+        {
+          "mode": "feels",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "feels",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 169,
+            "key": "feels-loop-07ee0680820ae6cbed16f131",
+            "frames": 169,
+            "fps": 10,
+            "renderMs": 38186,
+            "encodeMs": 2023,
+            "preparationMs": 1543,
+            "loopMs": 38666,
+            "loopRenderMs": 36643,
+            "bytes": 2588942,
+            "backend": "native"
+          },
+          "stillFrames": {
+            "count": 85,
+            "meanMs": 227.61176470588236,
+            "medianMs": 226,
+            "maximumMs": 349
+          },
+          "jpegEncoding": {
+            "count": 85,
+            "meanMs": 32.023529411764706,
+            "medianMs": 27,
+            "maximumMs": 88
+          }
+        },
+        {
+          "mode": "wind",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "wind",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 169,
+            "key": "wind-loop-45afb272ec2c327bec02db9a",
+            "frames": 169,
+            "fps": 10,
+            "renderMs": 39255,
+            "encodeMs": 1946,
+            "preparationMs": 1775,
+            "loopMs": 39426,
+            "loopRenderMs": 37480,
+            "bytes": 2587510,
+            "backend": "native"
+          }
+        }
+      ],
+      "mockPrime": {
+        "event": "generation-dry-run-prime-receipt",
+        "generated": "2026-10-09T12:18:21Z",
+        "count": 173,
+        "primeMs": 148,
+        "registerPath": "../.dev/tracks/u71b-native-temperatuur-wind/2core-register.json",
+        "uploads": "mocked",
+        "pacing": "disabled",
+        "pollerRead": true,
+        "pollerFileIdReply": true
+      },
+      "createdTextAtlases": []
+    },
+    {
+      "name": "2core2",
+      "stage": "label-parity",
+      "assets": "warm",
+      "source": "d6e7676",
+      "affinity": [
+        0,
+        1
+      ],
+      "exitCode": 0,
+      "generation": {
+        "event": "generation-render-receipt",
+        "generated": "2026-10-09T12:18:21Z",
+        "count": 173,
+        "milliseconds": 54291,
+        "cached": false
+      },
+      "elapsedSeconds": 55.35,
+      "cpuSeconds": 89.08999999999999,
+      "maximumRssKiB": 4050688,
+      "modes": [
+        {
+          "mode": "weather",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "weather",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 319,
+            "key": "weather-loop-696838615bd0dea2f0e5dc73",
+            "frames": 241,
+            "fps": 10,
+            "renderMs": 46519,
+            "encodeMs": 5606,
+            "preparationMs": 494,
+            "loopMs": 43450,
+            "loopRenderMs": 37848,
+            "bytes": 2574346,
+            "backend": "native"
+          },
+          "stillFrames": {
+            "count": 85,
+            "meanMs": 105.85882352941177,
+            "medianMs": 88,
+            "maximumMs": 308
+          },
+          "jpegEncoding": {
+            "count": 85,
+            "meanMs": 20.894117647058824,
+            "medianMs": 18,
+            "maximumMs": 51
+          }
+        },
+        {
+          "mode": "feels",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "feels",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 169,
+            "key": "feels-loop-9754f0db34492cc285570abe",
+            "frames": 169,
+            "fps": 10,
+            "renderMs": 41494,
+            "encodeMs": 2693,
+            "preparationMs": 4130,
+            "loopMs": 40057,
+            "loopRenderMs": 37364,
+            "bytes": 2586004,
+            "backend": "native"
+          },
+          "stillFrames": {
+            "count": 85,
+            "meanMs": 234.30588235294118,
+            "medianMs": 240,
+            "maximumMs": 459
+          },
+          "jpegEncoding": {
+            "count": 85,
+            "meanMs": 43.35294117647059,
+            "medianMs": 32,
+            "maximumMs": 131
+          }
+        },
+        {
+          "mode": "wind",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "wind",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 169,
+            "key": "wind-loop-ace42590958510fd795ec7ea",
+            "frames": 169,
+            "fps": 10,
+            "renderMs": 46821,
+            "encodeMs": 1163,
+            "preparationMs": 4516,
+            "loopMs": 43468,
+            "loopRenderMs": 42305,
+            "bytes": 2588141,
+            "backend": "native"
+          }
+        }
+      ],
+      "mockPrime": {
+        "event": "generation-dry-run-prime-receipt",
+        "generated": "2026-10-09T12:18:21Z",
+        "count": 173,
+        "primeMs": 167,
+        "registerPath": "../.dev/tracks/u71b-native-temperatuur-wind/2core2-register.json",
+        "uploads": "mocked",
+        "pacing": "disabled",
+        "pollerRead": true,
+        "pollerFileIdReply": true
+      },
+      "createdTextAtlases": []
+    },
+    {
+      "name": "2core3",
+      "stage": "pressure-protocol",
+      "assets": "warm",
+      "source": "d6e7676 + compact drukprotocol; vóór motioncache",
+      "affinity": [
+        0,
+        1
+      ],
+      "exitCode": 0,
+      "generation": {
+        "event": "generation-render-receipt",
+        "generated": "2026-10-09T12:18:21Z",
+        "count": 173,
+        "milliseconds": 63249,
+        "cached": false
+      },
+      "elapsedSeconds": 64.29,
+      "cpuSeconds": 99.42,
+      "maximumRssKiB": 3702672,
+      "modes": [
+        {
+          "mode": "weather",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "weather",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 319,
+            "key": "weather-loop-696838615bd0dea2f0e5dc73",
+            "frames": 241,
+            "fps": 10,
+            "renderMs": 56479,
+            "encodeMs": 4699,
+            "preparationMs": 1042,
+            "loopMs": 52695,
+            "loopRenderMs": 48001,
+            "bytes": 2574346,
+            "backend": "native"
+          },
+          "stillFrames": {
+            "count": 85,
+            "meanMs": 96.2235294117647,
+            "medianMs": 79,
+            "maximumMs": 254
+          },
+          "jpegEncoding": {
+            "count": 85,
+            "meanMs": 18.58823529411765,
+            "medianMs": 15,
+            "maximumMs": 47
+          }
+        },
+        {
+          "mode": "feels",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "feels",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 169,
+            "key": "feels-loop-9754f0db34492cc285570abe",
+            "frames": 169,
+            "fps": 10,
+            "renderMs": 45767,
+            "encodeMs": 3094,
+            "preparationMs": 4153,
+            "loopMs": 44708,
+            "loopRenderMs": 41614,
+            "bytes": 2586004,
+            "backend": "native"
+          },
+          "stillFrames": {
+            "count": 85,
+            "meanMs": 266.6235294117647,
+            "medianMs": 273,
+            "maximumMs": 527
+          },
+          "jpegEncoding": {
+            "count": 85,
+            "meanMs": 69.45882352941176,
+            "medianMs": 52,
+            "maximumMs": 199
+          }
+        },
+        {
+          "mode": "wind",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "wind",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 169,
+            "key": "wind-loop-ace42590958510fd795ec7ea",
+            "frames": 169,
+            "fps": 10,
+            "renderMs": 54704,
+            "encodeMs": 1475,
+            "preparationMs": 4461,
+            "loopMs": 51718,
+            "loopRenderMs": 50243,
+            "bytes": 2588141,
+            "backend": "native"
+          }
+        }
+      ],
+      "mockPrime": {
+        "event": "generation-dry-run-prime-receipt",
+        "generated": "2026-10-09T12:18:21Z",
+        "count": 173,
+        "primeMs": 162,
+        "registerPath": "../.dev/tracks/u71b-native-temperatuur-wind/2core3-register.json",
+        "uploads": "mocked",
+        "pacing": "disabled",
+        "pollerRead": true,
+        "pollerFileIdReply": true
+      },
+      "createdTextAtlases": []
+    },
+    {
+      "name": "2core4",
+      "stage": "motion-cache",
+      "assets": "cold-text",
+      "source": "d6e7676 + compact drukprotocol en motioncache",
+      "affinity": [
+        0,
+        1
+      ],
+      "exitCode": 0,
+      "generation": {
+        "event": "generation-render-receipt",
+        "generated": "2026-10-09T12:18:21Z",
+        "count": 173,
+        "milliseconds": 62197,
+        "cached": false
+      },
+      "elapsedSeconds": 63.43,
+      "cpuSeconds": 90.32,
+      "maximumRssKiB": 3564056,
+      "modes": [
+        {
+          "mode": "weather",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "weather",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 319,
+            "key": "weather-loop-696838615bd0dea2f0e5dc73",
+            "frames": 241,
+            "fps": 10,
+            "renderMs": 41803,
+            "encodeMs": 2249,
+            "preparationMs": 926,
+            "loopMs": 26905,
+            "loopRenderMs": 24661,
+            "bytes": 2574346,
+            "backend": "native"
+          },
+          "stillFrames": {
+            "count": 85,
+            "meanMs": 196.8,
+            "medianMs": 213,
+            "maximumMs": 627
+          },
+          "jpegEncoding": {
+            "count": 85,
+            "meanMs": 63.51764705882353,
+            "medianMs": 45,
+            "maximumMs": 195
+          }
+        },
+        {
+          "mode": "feels",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "feels",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 169,
+            "key": "feels-loop-9754f0db34492cc285570abe",
+            "frames": 169,
+            "fps": 10,
+            "renderMs": 47331,
+            "encodeMs": 2888,
+            "preparationMs": 14979,
+            "loopMs": 35239,
+            "loopRenderMs": 32352,
+            "bytes": 2586004,
+            "backend": "native"
+          },
+          "stillFrames": {
+            "count": 85,
+            "meanMs": 197.30588235294118,
+            "medianMs": 208,
+            "maximumMs": 376
+          },
+          "jpegEncoding": {
+            "count": 85,
+            "meanMs": 62.64705882352941,
+            "medianMs": 40,
+            "maximumMs": 172
+          }
+        },
+        {
+          "mode": "wind",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "wind",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 169,
+            "key": "wind-loop-ace42590958510fd795ec7ea",
+            "frames": 169,
+            "fps": 10,
+            "renderMs": 61048,
+            "encodeMs": 1111,
+            "preparationMs": 22603,
+            "loopMs": 39556,
+            "loopRenderMs": 38445,
+            "bytes": 2588141,
+            "backend": "native"
+          }
+        }
+      ],
+      "mockPrime": {
+        "event": "generation-dry-run-prime-receipt",
+        "generated": "2026-10-09T12:18:21Z",
+        "count": 173,
+        "primeMs": 202,
+        "registerPath": "../.dev/tracks/u71b-native-temperatuur-wind/2core4-register.json",
+        "uploads": "mocked",
+        "pacing": "disabled",
+        "pollerRead": true,
+        "pollerFileIdReply": true
+      },
+      "createdTextAtlases": [
+        {
+          "event": "native-isoline-text-created",
+          "key": "48039a467c1d819def454be5",
+          "glyphs": 3955
+        },
+        {
+          "event": "native-isoline-text-created",
+          "key": "e47bbb611c33bebe11a1a1c4",
+          "glyphs": 2499
+        }
+      ]
+    },
+    {
+      "name": "2core5",
+      "stage": "motion-cache",
+      "assets": "warm",
+      "source": "d6e7676 + compact drukprotocol en motioncache; ongeldig Chromium-pad",
+      "affinity": [
+        0,
+        1
+      ],
+      "exitCode": 0,
+      "generation": {
+        "event": "generation-render-receipt",
+        "generated": "2026-10-09T12:18:21Z",
+        "count": 173,
+        "milliseconds": 49677,
+        "cached": false
+      },
+      "elapsedSeconds": 50.61,
+      "cpuSeconds": 78.75,
+      "maximumRssKiB": 3986860,
+      "modes": [
+        {
+          "mode": "weather",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "weather",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 319,
+            "key": "weather-loop-696838615bd0dea2f0e5dc73",
+            "frames": 241,
+            "fps": 10,
+            "renderMs": 44155,
+            "encodeMs": 3794,
+            "preparationMs": 868,
+            "loopMs": 36951,
+            "loopRenderMs": 33162,
+            "bytes": 2574346,
+            "backend": "native"
+          },
+          "stillFrames": {
+            "count": 85,
+            "meanMs": 130.05882352941177,
+            "medianMs": 116,
+            "maximumMs": 356
+          },
+          "jpegEncoding": {
+            "count": 85,
+            "meanMs": 16.847058823529412,
+            "medianMs": 14,
+            "maximumMs": 41
+          }
+        },
+        {
+          "mode": "feels",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "feels",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 169,
+            "key": "feels-loop-9754f0db34492cc285570abe",
+            "frames": 169,
+            "fps": 10,
+            "renderMs": 38802,
+            "encodeMs": 2530,
+            "preparationMs": 3895,
+            "loopMs": 37437,
+            "loopRenderMs": 34907,
+            "bytes": 2586004,
+            "backend": "native"
+          },
+          "stillFrames": {
+            "count": 85,
+            "meanMs": 218.7764705882353,
+            "medianMs": 218,
+            "maximumMs": 406
+          },
+          "jpegEncoding": {
+            "count": 85,
+            "meanMs": 50.68235294117647,
+            "medianMs": 33,
+            "maximumMs": 180
+          }
+        },
+        {
+          "mode": "wind",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "wind",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 169,
+            "key": "wind-loop-ace42590958510fd795ec7ea",
+            "frames": 169,
+            "fps": 10,
+            "renderMs": 44599,
+            "encodeMs": 1153,
+            "preparationMs": 4330,
+            "loopMs": 41423,
+            "loopRenderMs": 40269,
+            "bytes": 2588141,
+            "backend": "native"
+          }
+        }
+      ],
+      "mockPrime": {
+        "event": "generation-dry-run-prime-receipt",
+        "generated": "2026-10-09T12:18:21Z",
+        "count": 173,
+        "primeMs": 116,
+        "registerPath": "../.dev/tracks/u71b-native-temperatuur-wind/2core5-register.json",
+        "uploads": "mocked",
+        "pacing": "disabled",
+        "pollerRead": true,
+        "pollerFileIdReply": true
+      },
+      "createdTextAtlases": []
+    },
+    {
+      "name": "2core6",
+      "stage": "parallel-capture-rejected",
+      "assets": "cold-text",
+      "source": "afgebroken experiment: gelijktijdige screenshots",
+      "affinity": [
+        0,
+        1
+      ],
+      "exitCode": 1,
+      "elapsedSeconds": 47.71,
+      "cpuSeconds": 63.73,
+      "maximumRssKiB": 3340152,
+      "modes": [
+        {
+          "mode": "weather",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "weather",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 319,
+            "key": "weather-loop-696838615bd0dea2f0e5dc73",
+            "frames": 241,
+            "fps": 10,
+            "renderMs": 38232,
+            "encodeMs": 1930,
+            "preparationMs": 1075,
+            "loopMs": 25988,
+            "loopRenderMs": 24063,
+            "bytes": 2574346,
+            "backend": "native"
+          },
+          "stillFrames": {
+            "count": 85,
+            "meanMs": 161.3764705882353,
+            "medianMs": 178,
+            "maximumMs": 547
+          },
+          "jpegEncoding": {
+            "count": 85,
+            "meanMs": 58.411764705882355,
+            "medianMs": 33,
+            "maximumMs": 175
+          }
+        },
+        {
+          "mode": "feels"
+        },
+        {
+          "mode": "wind",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "wind",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 169,
+            "key": "wind-loop-ace42590958510fd795ec7ea",
+            "frames": 169,
+            "fps": 10,
+            "renderMs": 46032,
+            "encodeMs": 725,
+            "preparationMs": 12577,
+            "loopMs": 34179,
+            "loopRenderMs": 33455,
+            "bytes": 2588141,
+            "backend": "native"
+          }
+        }
+      ],
+      "createdTextAtlases": [
+        {
+          "event": "native-isoline-text-created",
+          "key": "e47bbb611c33bebe11a1a1c4",
+          "glyphs": 2499
+        }
+      ]
+    },
+    {
+      "name": "2core7",
+      "stage": "overlapping-text-preparation",
+      "assets": "cold-text",
+      "source": "compact drukprotocol, motioncache, overlappende DOM/fontvoorbereiding; screenshots geserialiseerd",
+      "affinity": [
+        0,
+        1
+      ],
+      "exitCode": 0,
+      "generation": {
+        "event": "generation-render-receipt",
+        "generated": "2026-10-09T12:18:21Z",
+        "count": 173,
+        "milliseconds": 56790,
+        "cached": false
+      },
+      "elapsedSeconds": 58,
+      "cpuSeconds": 82.84,
+      "maximumRssKiB": 4129444,
+      "modes": [
+        {
+          "mode": "weather",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "weather",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 319,
+            "key": "weather-loop-696838615bd0dea2f0e5dc73",
+            "frames": 241,
+            "fps": 10,
+            "renderMs": 45774,
+            "encodeMs": 3463,
+            "preparationMs": 1234,
+            "loopMs": 31768,
+            "loopRenderMs": 28309,
+            "bytes": 2574346,
+            "backend": "native"
+          },
+          "stillFrames": {
+            "count": 85,
+            "meanMs": 201.95294117647057,
+            "medianMs": 225,
+            "maximumMs": 475
+          },
+          "jpegEncoding": {
+            "count": 85,
+            "meanMs": 58.49411764705882,
+            "medianMs": 43,
+            "maximumMs": 180
+          }
+        },
+        {
+          "mode": "feels",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "feels",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 169,
+            "key": "feels-loop-9754f0db34492cc285570abe",
+            "frames": 169,
+            "fps": 10,
+            "renderMs": 52416,
+            "encodeMs": 2658,
+            "preparationMs": 18367,
+            "loopMs": 36706,
+            "loopRenderMs": 34049,
+            "bytes": 2586004,
+            "backend": "native"
+          },
+          "stillFrames": {
+            "count": 85,
+            "meanMs": 211.51764705882354,
+            "medianMs": 227,
+            "maximumMs": 486
+          },
+          "jpegEncoding": {
+            "count": 85,
+            "meanMs": 16.71764705882353,
+            "medianMs": 13,
+            "maximumMs": 51
+          }
+        },
+        {
+          "mode": "wind",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "wind",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 169,
+            "key": "wind-loop-ace42590958510fd795ec7ea",
+            "frames": 169,
+            "fps": 10,
+            "renderMs": 53373,
+            "encodeMs": 1416,
+            "preparationMs": 12438,
+            "loopMs": 42351,
+            "loopRenderMs": 40935,
+            "bytes": 2588141,
+            "backend": "native"
+          }
+        }
+      ],
+      "mockPrime": {
+        "event": "generation-dry-run-prime-receipt",
+        "generated": "2026-10-09T12:18:21Z",
+        "count": 173,
+        "primeMs": 142,
+        "registerPath": "../.dev/tracks/u71b-native-temperatuur-wind/2core7-register.json",
+        "uploads": "mocked",
+        "pacing": "disabled",
+        "pollerRead": true,
+        "pollerFileIdReply": true
+      },
+      "createdTextAtlases": [
+        {
+          "event": "native-isoline-text-created",
+          "key": "e47bbb611c33bebe11a1a1c4",
+          "glyphs": 2499
+        },
+        {
+          "event": "native-isoline-text-created",
+          "key": "48039a467c1d819def454be5",
+          "glyphs": 3955
+        }
+      ]
+    },
+    {
+      "name": "2core8",
+      "stage": "final",
+      "assets": "warm",
+      "source": "finale code; ongeldig Chromium-pad",
+      "affinity": [
+        0,
+        1
+      ],
+      "exitCode": 0,
+      "generation": {
+        "event": "generation-render-receipt",
+        "generated": "2026-10-09T12:18:21Z",
+        "count": 173,
+        "milliseconds": 51492,
+        "cached": false
+      },
+      "elapsedSeconds": 52.53,
+      "cpuSeconds": 81.78999999999999,
+      "maximumRssKiB": 4052452,
+      "modes": [
+        {
+          "mode": "weather",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "weather",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 319,
+            "key": "weather-loop-696838615bd0dea2f0e5dc73",
+            "frames": 241,
+            "fps": 10,
+            "renderMs": 46227,
+            "encodeMs": 3208,
+            "preparationMs": 998,
+            "loopMs": 34386,
+            "loopRenderMs": 31187,
+            "bytes": 2574346,
+            "backend": "native"
+          },
+          "stillFrames": {
+            "count": 85,
+            "meanMs": 170.7764705882353,
+            "medianMs": 184,
+            "maximumMs": 450
+          },
+          "jpegEncoding": {
+            "count": 85,
+            "meanMs": 19.729411764705883,
+            "medianMs": 17,
+            "maximumMs": 46
+          }
+        },
+        {
+          "mode": "feels",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "feels",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 169,
+            "key": "feels-loop-9754f0db34492cc285570abe",
+            "frames": 169,
+            "fps": 10,
+            "renderMs": 40707,
+            "encodeMs": 2898,
+            "preparationMs": 4182,
+            "loopMs": 39423,
+            "loopRenderMs": 36525,
+            "bytes": 2586004,
+            "backend": "native"
+          },
+          "stillFrames": {
+            "count": 85,
+            "meanMs": 228.21176470588236,
+            "medianMs": 233,
+            "maximumMs": 487
+          },
+          "jpegEncoding": {
+            "count": 85,
+            "meanMs": 48.88235294117647,
+            "medianMs": 38,
+            "maximumMs": 157
+          }
+        },
+        {
+          "mode": "wind",
+          "sequence": {
+            "event": "sequence-render",
+            "mode": "wind",
+            "generated": "2026-10-09T12:18:21Z",
+            "renderedFrames": 169,
+            "key": "wind-loop-ace42590958510fd795ec7ea",
+            "frames": 169,
+            "fps": 10,
+            "renderMs": 45799,
+            "encodeMs": 1615,
+            "preparationMs": 4288,
+            "loopMs": 43127,
+            "loopRenderMs": 41511,
+            "bytes": 2588141,
+            "backend": "native"
+          }
+        }
+      ],
+      "mockPrime": {
+        "event": "generation-dry-run-prime-receipt",
+        "generated": "2026-10-09T12:18:21Z",
+        "count": 173,
+        "primeMs": 156,
+        "registerPath": "../.dev/tracks/u71b-native-temperatuur-wind/2core8-register.json",
+        "uploads": "mocked",
+        "pacing": "disabled",
+        "pollerRead": true,
+        "pollerFileIdReply": true
+      },
+      "createdTextAtlases": []
+    }
+  ]
+}

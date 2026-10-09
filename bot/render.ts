@@ -1,3 +1,4 @@
+import { NativeMaps } from './native-map.js'
 import { FRAME } from './config.js'
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright'
 import { access, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, unlink, writeFile } from 'node:fs/promises'
@@ -5,7 +6,8 @@ import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { STILL_CACHE_TTL } from './file-ids.js'
 import { encodeLoop, encodeStill, framePath } from './encode.js'
-import { rainRenderer } from './native-settings.js'
+import { nativeRenderer } from './native-settings.js'
+import { NativeModesRenderer } from './native-modes-render.js'
 import { NativeWeatherRenderer, nativeFramePath } from './native-render.js'
 import { sequencePlan } from './sequences.js'
 import { openRenderPage } from './render-open.js'
@@ -45,6 +47,7 @@ interface SequenceMetrics { key: string; frames: number; fps: number; bytes: num
 export class StillRenderer {
   private readonly nativeLoops = new Map<string, { ready: Promise<void>; finish: () => void }>()
   private readonly native: NativeWeatherRenderer
+  private readonly nativeModes: NativeModesRenderer
   private browser?: Browser
   private context?: BrowserContext
   private queues: Promise<unknown>[] = Array.from({ length: 4 }, () => Promise.resolve())
@@ -54,7 +57,9 @@ export class StillRenderer {
   private pendingStills = new Map<string, Promise<RenderedStill>>()
 
   constructor(private readonly origin: string, private readonly cacheDirectory: string) {
-    this.native = new NativeWeatherRenderer(origin, cacheDirectory, () => this.browserContext())
+    const maps = new NativeMaps(origin, cacheDirectory, () => this.browserContext())
+    this.native = new NativeWeatherRenderer(origin, cacheDirectory, () => this.browserContext(), maps)
+    this.nativeModes = new NativeModesRenderer(origin, cacheDirectory, () => this.browserContext(), maps)
   }
 
   async manifest(): Promise<StillManifest> {
@@ -84,7 +89,7 @@ export class StillRenderer {
     const existing = this.pending.get(key)
     if (existing) return existing
     const nativeLoopKey = cacheKey({ mode: 'weather', hour: 'loop' }, manifest)
-    if (mode === 'weather' && rainRenderer() === 'native') {
+    if (mode === 'weather' && nativeRenderer(mode) === 'native') {
       let finish!: () => void
       const ready = new Promise<void>((resolve) => { finish = resolve })
       this.nativeLoops.set(nativeLoopKey, { ready, finish })
@@ -119,7 +124,8 @@ export class StillRenderer {
     for (const name of await readdir(this.cacheDirectory)) {
       const temporaryFrames = /^\.frames-(weather|air|feels|wind)-loop-[a-f0-9]{24}-[a-zA-Z0-9]+$/.test(name)
       const storedFrames = /^(weather|air|feels|wind)-loop-[a-f0-9]{24}\.frames$/.test(name)
-      if (!temporaryFrames && !storedFrames && !/^(weather|air|feels|wind)-(?:\d+|loop)-[a-f0-9]{24}\.(?:jpg|mp4|sequence\.json)(?:\.file-id\.json)?(?:\.tmp)?$/.test(name)) continue
+      const fieldText = /^isoline-text-[a-f0-9]{24}\.png$/.test(name)
+      if (!temporaryFrames && !storedFrames && !fieldText && !/^(weather|air|feels|wind)-(?:\d+|loop)-[a-f0-9]{24}\.(?:jpg|mp4|sequence\.json)(?:\.file-id\.json)?(?:\.tmp)?$/.test(name)) continue
       const path = join(this.cacheDirectory, name)
       try {
         const metadata = await stat(path)
@@ -210,13 +216,13 @@ export class StillRenderer {
     }
   }
 
-  private async renderNativeSequence(manifest: StillManifest, key: string): Promise<RenderedSequence> {
+  private async renderNativeSequence(mode: LoopMode, manifest: StillManifest, key: string): Promise<RenderedSequence> {
     await mkdir(this.cacheDirectory, { recursive: true })
     const directory = await mkdtemp(join(this.cacheDirectory, `.frames-${key}-`))
-    const loop = this.media({ mode: 'weather', hour: 'loop' }, manifest)
+    const loop = this.media({ mode: mode, hour: 'loop' }, manifest)
     try {
-      const plan = sequencePlan('weather', manifest)
-      const rendered = await this.native.render(manifest, plan, directory, `${loop.path}.tmp`, () => this.nativeLoops.get(key)?.finish())
+      const plan = sequencePlan(mode, manifest)
+      const rendered = mode === 'weather' ? await this.native.render(manifest, plan, directory, `${loop.path}.tmp`, () => this.nativeLoops.get(key)?.finish()) : await this.nativeModes.render(mode, manifest, plan, directory, `${loop.path}.tmp`)
       await rename(`${loop.path}.tmp`, loop.path)
       const publishedFrames = this.frameDirectory(key)
       await rm(publishedFrames, { recursive: true, force: true })
@@ -225,15 +231,15 @@ export class StillRenderer {
       const receipt = join(this.cacheDirectory, `${key}.sequence.json`)
       await writeFile(`${receipt}.tmp`, JSON.stringify(metrics))
       await rename(`${receipt}.tmp`, receipt)
-      console.info(JSON.stringify({ event: 'sequence-render', mode: 'weather', generated: manifest.generated, renderedFrames: plan.epochs.length, ...metrics }))
-      return this.results('weather', manifest, metrics, false)
+      console.info(JSON.stringify({ event: 'sequence-render', mode: mode, generated: manifest.generated, renderedFrames: plan.epochs.length, ...metrics }))
+      return this.results(mode, manifest, metrics, false)
     } catch (error) {
-      throw new StillRenderError('weather', 'native', undefined, error)
+      throw new StillRenderError(mode, 'native', undefined, error)
     } finally { await rm(directory, { recursive: true, force: true }) }
   }
 
   private async renderSequence(mode: LoopMode, manifest: StillManifest, key: string): Promise<RenderedSequence> {
-    if (mode === 'weather' && rainRenderer() === 'native') return this.renderNativeSequence(manifest, key)
+    if (nativeRenderer(mode) === 'native') return this.renderNativeSequence(mode, manifest, key)
     // SwiftShader deelt de twee VM-kernen; laat de korte native loop eerst afmaken.
     await this.nativeLoops.get(cacheKey({ mode: 'weather', hour: 'loop' }, manifest))?.ready
     const started = performance.now()

@@ -10,11 +10,13 @@ import type { IsolineFeatureCollection } from './isolines'
 vi.mock('maplibre-gl', () => ({
   Marker: class {
     private readonly element: HTMLElement
+    private opacity = '1'
     constructor({ element }: { element: HTMLElement }) { this.element = element }
     getElement() { return this.element }
     setLngLat() { return this }
     setRotation() { return this }
-    addTo() { document.body.append(this.element); return this }
+    setOpacity(opacity: number) { this.opacity = String(opacity); this.element.style.opacity = this.opacity; return this }
+    addTo() { this.element.style.opacity = this.opacity; document.body.append(this.element); return this }
     remove() { this.element.remove() }
   },
 }))
@@ -47,6 +49,18 @@ function ringLines(km: number, level = 17): IsolineFeatureCollection {
 }
 
 describe('isoline labels follow the length fade of their ring', () => {
+  it('retains the layer opacity when MapLibre attaches a new marker', () => {
+    const labels = new IsolineLabels(map, grid, 'light', () => true)
+    labels.setOpacity(0.4)
+    labels.setLines(ringLines(70), 1)
+    const ring = slice(70)
+    labels.update(ring.slice, ring.rings, 0)
+    const elements = [...document.querySelectorAll<HTMLElement>('.isoline-label')]
+    expect(elements.length).toBeGreaterThan(0)
+    expect(elements.every((element) => Number(element.style.opacity) === 0.4)).toBe(true)
+    labels.clear()
+  })
+
   it('fades a label on a shrinking ring and despawns it below ½·L_min', () => {
     vi.useFakeTimers()
     const labels = new IsolineLabels(map, grid, 'light', () => true)

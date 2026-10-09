@@ -1,7 +1,7 @@
-import type { Grid } from './contract'
-import type { PreparedField } from './isoline-field'
-import { smoothstep } from './isoline-spline'
-import { marchingSquares, workspace, type ScalarField } from './isolines'
+import type { Grid } from './contract.js'
+import type { PreparedField } from './isoline-field.js'
+import { smoothstep } from './isoline-spline.js'
+import { marchingSquares, workspace, type ScalarField } from './isolines.js'
 
 /** Een isolijn van de snede op het exacte B-spline-oppervlak, in roostercoördinaten (celcentra). */
 export interface Contour {

@@ -1,3 +1,4 @@
+import { prepareNativeAsset } from './native-assets.js'
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
@@ -15,7 +16,8 @@ import { FRAME } from './config.js'
 export type NativeTheme = 'light' | 'dark'
 const require = createRequire(import.meta.url)
 
-export interface MapPlate { rgb: Buffer; key: string; path: string; labels: LabelAtlas }
+export interface WaterMask { values: Buffer; width: number; height: number }
+export interface MapPlate { water: WaterMask; rgb: Buffer; key: string; path: string; labels: LabelAtlas }
 
 export class NativeMaps {
   private readonly plates = new Map<NativeTheme, Promise<MapPlate>>()
@@ -24,7 +26,7 @@ export class NativeMaps {
   get(theme: NativeTheme, grid: Grid): Promise<MapPlate> {
     let pending = this.plates.get(theme)
     if (!pending) {
-      pending = this.load(theme, grid).catch((error) => { this.plates.delete(theme); throw error })
+      pending = prepareNativeAsset(() => this.load(theme, grid)).catch((error) => { this.plates.delete(theme); throw error })
       this.plates.set(theme, pending)
     }
     return pending
@@ -45,7 +47,12 @@ export class NativeMaps {
     if (style.glyphs) style.glyphs = new URL(style.glyphs, styleUrl).href.replaceAll('%7B', '{').replaceAll('%7D', '}')
     const key = createHash('sha256').update(JSON.stringify({ version: 2, style, theme, frame: FRAME, view: NATIVE_VIEW, grid })).digest('hex').slice(0, 24)
     const path = join(this.directory, `basemap-${theme}-${key}.png`)
-    try { return { rgb: await sharp(await readFile(path)).removeAlpha().raw().toBuffer(), key, path, labels: JSON.parse(await readFile(`${path}.labels.json`, 'utf8')) as LabelAtlas } } catch (error) {
+    let cached: Omit<MapPlate, 'water'> | undefined
+    try {
+      cached = { rgb: await sharp(await readFile(path)).removeAlpha().raw().toBuffer(), key, path, labels: JSON.parse(await readFile(`${path}.labels.json`, 'utf8')) as LabelAtlas }
+      const water = await sharp(await readFile(`${path}.water.png`)).ensureAlpha().extractChannel(3).raw().toBuffer({ resolveWithObject: true })
+      return { ...cached, water: { values: water.data, width: water.info.width, height: water.info.height } }
+    } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     }
     await mkdir(this.directory, { recursive: true })
@@ -73,15 +80,50 @@ export class NativeMaps {
         map.addLayer({ id: 'motregen-grid-frame', type: 'line', source: 'motregen-grid-frame', paint: { 'line-color': theme === 'dark' ? '#8da6af' : '#405b64', 'line-opacity': 0.85, 'line-width': 1.5 } })
         await new Promise<void>((resolve) => map.once('idle', () => resolve()))
       }, { styleJson: JSON.stringify(style), view: NATIVE_VIEW, mask, theme })
-      const png = await page.screenshot()
-      const rgb = await sharp(png).removeAlpha().raw().toBuffer()
-      const labels = await captureLabelAtlas(page, theme, rgb)
-      await writeFile(`${temporary}.labels.json`, JSON.stringify(labels))
-      await rename(`${temporary}.labels.json`, `${path}.labels.json`)
-      await writeFile(temporary, png)
-      await rename(temporary, path)
-      console.info(JSON.stringify({ event: 'native-basemap-created', theme, key, labelVariants: 111, milliseconds: Math.round(performance.now() - started) }))
-      return { rgb, key, path, labels }
+      const waterData = await page.evaluate(() => {
+        const map = (window as unknown as { nativeMap: MapLibreMap }).nativeMap
+        const layer = map.getStyle().layers.find((candidate) => 'source-layer' in candidate && candidate['source-layer'] === 'water')
+        if (!layer || !('source' in layer) || typeof layer.source !== 'string') throw new Error('Waterbron ontbreekt')
+        const canvas = document.createElement('canvas')
+        const viewport = map.getCanvas()
+        canvas.width = Math.ceil(viewport.clientWidth / 6)
+        canvas.height = Math.ceil(viewport.clientHeight / 6)
+        const context = canvas.getContext('2d')!
+        context.fillStyle = '#fff'
+        for (const feature of map.querySourceFeatures(layer.source, { sourceLayer: 'water' })) {
+          const geometry = feature.geometry
+          const polygons = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.type === 'MultiPolygon' ? geometry.coordinates : []
+          for (const polygon of polygons as number[][][][]) {
+            context.beginPath()
+            for (const ring of polygon) ring.forEach(([longitude, latitude], index) => {
+              const point = map.project([longitude!, latitude!])
+              const screenX = point.x / viewport.clientWidth * canvas.width
+              const screenY = point.y / viewport.clientHeight * canvas.height
+              if (index === 0) context.moveTo(screenX, screenY)
+              else context.lineTo(screenX, screenY)
+            })
+            context.fill('evenodd')
+          }
+        }
+        return canvas.toDataURL('image/png').split(',')[1]!
+      })
+      const waterPng = Buffer.from(waterData, 'base64')
+      await writeFile(`${temporary}.water.png`, waterPng)
+      await rename(`${temporary}.water.png`, `${path}.water.png`)
+      const water = await sharp(waterPng).ensureAlpha().extractChannel(3).raw().toBuffer({ resolveWithObject: true })
+      let plate = cached
+      if (!plate) {
+        const png = await page.screenshot()
+        const rgb = await sharp(png).removeAlpha().raw().toBuffer()
+        const labels = await captureLabelAtlas(page, theme, rgb)
+        await writeFile(`${temporary}.labels.json`, JSON.stringify(labels))
+        await rename(`${temporary}.labels.json`, `${path}.labels.json`)
+        await writeFile(temporary, png)
+        await rename(temporary, path)
+        plate = { rgb, key, path, labels }
+      }
+      console.info(JSON.stringify({ event: cached ? 'native-water-created' : 'native-basemap-created', theme, key, labelVariants: cached ? 0 : 111, milliseconds: Math.round(performance.now() - started) }))
+      return { ...plate, water: { values: water.data, width: water.info.width, height: water.info.height } }
     } finally { await page.close() }
   }
 }

@@ -13,11 +13,11 @@ import { NativeOverlay } from './native-overlay.js'
 export function nativeFramePath(directory: string, index: number): string { return join(directory, `frame-${String(index).padStart(3, '0')}.ppm`) }
 
 export class NativeWeatherRenderer {
-  constructor(private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>) {}
+  constructor(private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>, private readonly sharedMaps?: NativeMaps) {}
 
   async render(manifest: StillManifest, plan: SequencePlan, directory: string, destination: string, loopComplete: () => void): Promise<{ renderMs: number; encodeMs: number; preparationMs: number; loopMs: number; loopRenderMs: number; bytes: number }> {
     const started = performance.now()
-    const maps = new NativeMaps(this.origin, this.directory, this.context)
+    const maps = this.sharedMaps ?? new NativeMaps(this.origin, this.directory, this.context)
     const overlay = new NativeOverlay(this.origin, this.directory, this.context)
     const data = new NativeRainData(this.origin, manifest)
     const hasTemperature = manifest.chunks.some((chunk) => chunk.field === 'feels_like_c')

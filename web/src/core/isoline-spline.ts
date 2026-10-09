@@ -1,5 +1,5 @@
-import type { PreparedField } from './isoline-field'
-import type { FrameWeight } from './isolines'
+import type { PreparedField } from './isoline-field.js'
+import type { FrameWeight } from './isolines.js'
 
 /** De snede op tijd t: uurvelden met hun (temporele) gewichten, zoals de shader ze mengt. */
 export interface FieldSlice {

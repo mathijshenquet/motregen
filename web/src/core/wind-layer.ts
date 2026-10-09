@@ -1,101 +1,13 @@
+import { WIND_REFERENCE_ZOOM, WIND_TUNING_STORAGE_KEY, LEGACY_WIND_TUNING_STORAGE_KEY, WIND_PARAMETERS, DEFAULT_WIND_TUNING, MIN_PARTICLES, MAX_PARTICLES, ADVECTION_SCALE, WORLD_TILE_SIZE, MERCATOR_SCALE, advanceLife, headAlpha, weakWindTempo, speedDamping, bufferDecay, particleCountForViewport, windZoomCompensation, smooth, setWindColor, type WindParameters, type WindTuning, type ParticleLife } from './wind-presentation.js'
+export { WIND_PARTICLES_PER_MEGAPIXEL, WIND_REFERENCE_ZOOM, WIND_TUNING_STORAGE_KEY, LEGACY_WIND_TUNING_STORAGE_KEY, WIND_PARAMETERS, MOBILE_WIND, DEFAULT_WIND_TUNING, WIND_MAX_FPS, WIND_FOCUS_INTENSITY, advanceLife, headAlpha, expectedLifetime, weakWindTempo, speedDamping, bufferDecay, windColor, windScreenSpeed, particleCountForViewport, windZoomCompensation, type WindParameters, type WindTuning, type ParticleLife, BEAUFORT_STOPS } from './wind-presentation.js'
 import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap, MapSourceDataEvent, GeoJSONFeature } from 'maplibre-gl'
 import type { MapTheme } from './basemap'
 import type { Grid } from './contract'
 import { measurePerfPhase } from './perf'
 import { prepareShaderPrograms } from './shader-programs'
 import { loadedWaterTiles, WaterTileCache, waterMaskNeedsRebuild, waterTileKey, type WaterMaskView, type WaterTile, type WaterMaskRequest, type WaterMaskReply } from './wind-water-mask'
-
-export const WIND_PARTICLES_PER_MEGAPIXEL = 620
-export const WIND_REFERENCE_ZOOM = 6.4
-// v3 (U20): alleen afwijkingen van de default worden bewaard. v4 (U30/MIP-12): alleen de vier
-// knoppen van WindTuning; v3 wordt eenmalig gemigreerd, de rest van v3 (nu constanten) valt weg.
-export const WIND_TUNING_STORAGE_KEY = 'motregen-wind-tuning-v4'
-export const LEGACY_WIND_TUNING_STORAGE_KEY = 'motregen-wind-tuning-v3'
-
-// De staart ontstaat in een trailbuffer die per seconde vervaagt; de particle
-// zelf stempelt alleen zijn kop. Leven en fades zijn schermafstanden (CSS-px),
-// zodat snelheid tempo wordt en niet de hoeveelheid inkt per particle.
-// lineWidth is sinds U34 in CSS-px, net als de rest: in device-px (U3) was hij op een retina-scherm
-// half zo dik als op een 1×-monitor (PO 2026-09-25 live). Smalle schermen (telefoon) krijgen
-// `narrowLineFactor`, zodat mobiel fijn blijft zoals de PO het in U3 wilde.
-export interface WindParameters {
-  particlesPerMegapixel: number
-  trailDistance: number
-  fadeInPx: number
-  fadeOutPx: number
-  maxAge: number
-  spawnJitter: number
-  speedDamping: number
-  bufferFade: number
-  bufferDpr: number
-  headIntensity: number
-  lineWidth: number
-  speed: number
-  intensity: number
-  visibility: number
-  /** Bovengrens voor wind-, regen- en afspeelframes (120 Hz-schermen tekenen anders alles dubbel). */
-  maxFps: number
-  /** Deel van de kopsterkte dat boven water wegvalt (0 = zee even sterk als land). */
-  seaPenalty: number
-  /** Lijnbreedte op een smal scherm als deel van `lineWidth`. */
-  narrowLineFactor: number
-}
-
-/**
- * Alle windparameters. Instelbaar (?dev, JSON-export) zijn alleen Dichtheid, Intensiteit,
- * Lijnbreedte en Tempo; de rest is sinds U30 constant op de waarde van U3–U24.
- * `visibility` zet App per frame voor de focusdemping (vroeger ook de knop Contrast).
- */
-export const WIND_PARAMETERS: WindParameters = {
-  particlesPerMegapixel: WIND_PARTICLES_PER_MEGAPIXEL,
-  trailDistance: 90, // Afstand per leven (U3/U3b)
-  fadeInPx: 15, // Fade-in (U3b)
-  fadeOutPx: 30, // Fade-out (U3b)
-  maxAge: 6, // Max. leeftijd (U3)
-  spawnJitter: 0.6, // Spawn-jitter (U3b)
-  speedDamping: 1, // Snelheidsdemping; PO 2026-09-25 live (U34): zee rustiger, was 0,7 (U3b)
-  // 0,955 per frame bij 60 Hz, de fade van vóór U3.
-  bufferFade: 0.063,
-  // Buffer nooit fijner dan 2 device-px per CSS-px: op een Pixel 5 (DPR 2,75) kostten fade +
-  // composite op volle resolutie ~1 s warme TTFR in de 4G-gate. 1,5 (U3b) gaf een 2×-Mac een
-  // 0,75×-buffer die LINEAR opgeschaald korrelig/zacht oogt (U24).
-  bufferDpr: 2,
-  headIntensity: 0.95, // Kopintensiteit (U3b)
-  lineWidth: 2.5,
-  speed: 1,
-  // PO 2026-09-25 live (U34): default subtieler dan U24 (0,75); windfocus (U19) tweent naar
-  // WIND_FOCUS_INTENSITY.
-  intensity: 0.5,
-  visibility: 1, // Contrast (U3); App vermenigvuldigt met de focusdemping
-  maxFps: 60, // Max. fps (U8c)
-  // PO 2026-09-25 live (U34): koppen boven water (de `water`-laag van de basemap) een derde zachter.
-  seaPenalty: 0.33,
-  // Onder NARROW_VIEWPORT_PX is de lijn dunner; 0,6 × 2,5 = 1,5 CSS-px.
-  narrowLineFactor: 0.6,
-}
-
-/**
- * Windstreepjes op een telefoon of smal scherm (U62). De PO vond ze daar te subtiel, vooral boven zee, en
- * koos uit drie beproefde niveaus het middelste, "iets" (2026-10-08); het zwaardere was 1,5× sterkte,
- * lijnfactor 0,84, zee-demping 0,08. Alleen breedte, sterkte en zee-demping; het aantal streepjes en dus
- * het tekenwerk is gelijk.
- */
-export const MOBILE_WIND = { intensityGain: 1.25, narrowLineFactor: 0.72, seaPenalty: 0.2 } as const
-
-export type WindTuning = Pick<WindParameters, 'particlesPerMegapixel' | 'intensity' | 'lineWidth' | 'speed'>
-
-export const DEFAULT_WIND_TUNING: WindTuning = {
-  particlesPerMegapixel: WIND_PARAMETERS.particlesPerMegapixel,
-  intensity: WIND_PARAMETERS.intensity,
-  lineWidth: WIND_PARAMETERS.lineWidth,
-  speed: WIND_PARAMETERS.speed,
-}
-
-/** Bovengrens voor wind-, regen-, isolijn- en afspeelframes (Max. fps; knop weg in U30). */
-export const WIND_MAX_FPS = WIND_PARAMETERS.maxFps
-
-/** Intensiteit bij volle windfocus met de default-tuning (PO 2026-09-25 live, U34; was 1,905). */
-export const WIND_FOCUS_INTENSITY = 0.8
+import { WIND_INITIAL_STAGGER_SECONDS, windLifeScale, trailFloor, halfFloatTrailFloor } from './wind-presentation.js'
+export { WIND_SIMULATION_FPS, trailFloor, halfFloatTrailFloor } from './wind-presentation.js'
 
 export interface WindTuningControl {
   key: keyof WindTuning
@@ -115,15 +27,10 @@ export const WIND_TUNING_CONTROLS: readonly WindTuningControl[] = [
 
 // Onder deze CSS-breedte (de mobiele layout) is de lijn dunner (`narrowLineFactor`).
 const NARROW_VIEWPORT_PX = 430
-const MIN_PARTICLES = 96
 // Herstel van het budget al onder 1,10× de frametijd (was 1,03×): met af en toe een gemist frame bleef
 // het gemiddelde net boven 1,03× hangen en kwam de dichtheid na één dip nooit meer terug (U34).
 const BUDGET_RECOVER_FACTOR = 1.1
-const MAX_PARTICLES = 2_400
 const INSTANCE_BYTES = 20
-const ADVECTION_SCALE = 7_000
-const WORLD_TILE_SIZE = 512
-const INITIAL_STAGGER_SECONDS = 2
 // Zoom/pan/resize (U12): aanvullers komen direct midden in hun leven binnen en faden in de
 // tijd in; overtal (uitzoomen, kleiner budget) faded in de tijd uit. Nooit een lege kaart.
 const FILL_FADE_SECONDS = 0.25
@@ -160,20 +67,6 @@ const WATER_REBUILD_MS = 200
 const DECLUMP_NEIGHBOURS = [[0, 0], [1, 0], [-1, 1], [0, 1], [1, 1]] as const
 const SPAWN_ATTEMPTS = 32
 const EMPTIEST_SAMPLES = 48
-// Boven deze windsnelheid (m/s) dimt speedDamping de kop.
-const DAMPING_REFERENCE_SPEED = 3
-// PO 2026-09-25 live (U34): onder deze windsnelheid (m/s) krijgt de beweging extra tempo, tot
-// WEAK_WIND_MAX_BOOST×; de staart is ~snelheid × fadetijd en was bij zwakke wind een stip.
-const WEAK_WIND_SPEED = 6
-const WEAK_WIND_MAX_BOOST = 2.5
-const MERCATOR_SCALE = 1 / (2 * Math.PI * 6_378_137)
-export const BEAUFORT_STOPS = [0, 3.4, 8, 13.9, 20.8, 32.7] as const
-const LIGHT_RAMP = [
-  [3, 48, 102], [0, 76, 108], [9, 91, 44], [119, 73, 0], [162, 39, 8], [108, 15, 73],
-] as const
-const DARK_RAMP = [
-  [255, 255, 255], [255, 255, 255], [255, 255, 255], [255, 255, 255], [255, 255, 255], [255, 255, 255],
-] as const
 
 // Eén instance per particle: het segment dat de kop deze frame aflegt, als
 // quad met stompe uiteinden (opeenvolgende segmenten overlappen dan niet en
@@ -344,13 +237,6 @@ export interface TrailView {
   height: number
 }
 
-export interface ParticleLife {
-  age: number
-  travelled: number
-  distance: number
-  remaining: number
-}
-
 type UniformMap<Name extends string> = Record<Name, WebGLUniformLocation | null>
 
 export class WindLayer implements CustomLayerInterface {
@@ -479,7 +365,7 @@ export class WindLayer implements CustomLayerInterface {
   constructor(private readonly grid: Grid, private theme: MapTheme, tuning: Partial<WindParameters> = {}) {
     this.tuning = { ...WIND_PARAMETERS, ...tuning }
     this.budgetFps = this.tuning.maxFps
-    for (let index = 0; index < MAX_PARTICLES; index++) this.respawn(index, this.random() * INITIAL_STAGGER_SECONDS)
+    for (let index = 0; index < MAX_PARTICLES; index++) this.respawn(index, this.random() * WIND_INITIAL_STAGGER_SECONDS)
   }
 
   onAdd(map: MapLibreMap, context: WebGLRenderingContext | WebGL2RenderingContext): void {
@@ -712,7 +598,8 @@ export class WindLayer implements CustomLayerInterface {
     const seconds = stepping ? elapsed / 1_000 : 0
     if (stepping) {
       this.previousTime = now
-      this.adjustBudget(elapsed)
+      // The renderer's synthetic clock does not measure device performance.
+      if (this.simulationTime === undefined) this.adjustBudget(elapsed)
       const worldPx = WORLD_TILE_SIZE * 2 ** this.map.getZoom()
       this.advance(seconds, worldPx)
       this.declump(worldPx)
@@ -1021,7 +908,7 @@ export class WindLayer implements CustomLayerInterface {
   // compenseert dat in de kopintensiteit.
   private respawn(index: number, delaySeconds: number, fill = false): void {
     // ±20 %: anders sterft een homogeen zeeveld in synchrone golven.
-    const lifeScale = 0.8 + this.random() * 0.4
+    const lifeScale = windLifeScale(this.random())
     this.lifeScales[index] = lifeScale
     this.distances[index] = this.tuning.trailDistance * lifeScale
     if (fill) {
@@ -1285,7 +1172,7 @@ export class WindLayer implements CustomLayerInterface {
       this.active = this.budget
       this.retiring = 0
       this.countCells()
-      for (let index = 0; index < this.active; index++) this.respawn(index, this.random() * INITIAL_STAGGER_SECONDS)
+      for (let index = 0; index < this.active; index++) this.respawn(index, this.random() * WIND_INITIAL_STAGGER_SECONDS)
       this.clearTrails()
       return
     }
@@ -1534,48 +1421,11 @@ export class WindLayer implements CustomLayerInterface {
 }
 
 /**
- * Leeftijdsstap van één particle. Hij sterft zodra hij `life.distance` heeft
- * afgelegd of `maxAge` bereikt; `remaining` is de afstand die hem nog rest,
- * voor maxAge geschat met de huidige snelheid. Geeft false als hij dood is.
- */
-export function advanceLife(life: ParticleLife, stepPx: number, seconds: number, tuning: Pick<WindParameters, 'maxAge'>): boolean {
-  life.age += seconds
-  if (life.age <= 0) {
-    life.remaining = life.distance
-    return true
-  }
-  life.travelled += stepPx
-  const speed = seconds > 0 ? stepPx / seconds : 0
-  life.remaining = Math.min(life.distance - life.travelled, speed * Math.max(0, tuning.maxAge - life.age))
-  return life.remaining > 0
-}
-
-/** Kopintensiteit: loopt op over de eerste fadeInPx en af over de laatste fadeOutPx; de buffer doet de rest. */
-export function headAlpha(life: ParticleLife, tuning: Pick<WindParameters, 'fadeInPx' | 'fadeOutPx'>): number {
-  if (life.age <= 0 || life.remaining <= 0) return 0
-  const fadeIn = tuning.fadeInPx > 0 ? Math.min(1, life.travelled / tuning.fadeInPx) : 1
-  const fadeOut = tuning.fadeOutPx > 0 ? Math.min(1, life.remaining / tuning.fadeOutPx) : 1
-  return smooth(fadeIn) * smooth(fadeOut)
-}
-
-export function expectedLifetime(speedPx: number, tuning: Pick<WindParameters, 'trailDistance' | 'maxAge'>): number {
-  return speedPx > 0 ? Math.min(tuning.maxAge, tuning.trailDistance / speedPx) : tuning.maxAge
-}
-
-/**
  * Kopdemping voor harde wind. Iedere particle legt ~dezelfde inkt per leven
  * neer, en bij gelijkmatige koppendichtheid respawnen snelle particles vaker:
  * inkt per oppervlak ∝ snelheid. Demping (v_ref/v)^γ boven v_ref heft dat bij
  * γ = 1 op; zeestrepen worden zachter in plaats van schaarser.
  */
-/** Tempofactor voor zwakke wind: (v₀/v)^½ onder WEAK_WIND_SPEED, begrensd; kleur en demping houden de echte snelheid. */
-export function weakWindTempo(windSpeed: number): number {
-  return windSpeed >= WEAK_WIND_SPEED ? 1 : Math.min(WEAK_WIND_MAX_BOOST, Math.sqrt(WEAK_WIND_SPEED / Math.max(1e-3, windSpeed)))
-}
-
-export function speedDamping(windSpeed: number, gamma: number): number {
-  return windSpeed > DAMPING_REFERENCE_SPEED ? (DAMPING_REFERENCE_SPEED / windSpeed) ** gamma : 1
-}
 
 /**
  * Neemt de eerste kandidaat die `acceptance` (kans 0–1) haalt; na `attempts`
@@ -1722,22 +1572,6 @@ export function cellDispersion(xs: ArrayLike<number>, ys: ArrayLike<number>, cou
   return variance / cells.length / mean
 }
 
-/** Framefactor van de buffer-fade: `restPerSecond` blijft na één seconde over, ongeacht de framerate. */
-export function bufferDecay(restPerSecond: number, seconds: number): number {
-  return Math.max(0, restPerSecond) ** Math.max(0, seconds)
-}
-
-// Per frame minstens 0,6/255 zodat v·d − vloer ook bij 120 Hz nog onder v − ½/255
-// uitkomt en afronding een pixel nooit op zijn waarde laat hangen.
-export function trailFloor(seconds: number): number {
-  return Math.max(0.6, seconds * 60) / 255
-}
-
-/** Vloer voor de RGBA16F-buffer: geen afrondingsghosts, alleen onzichtbare rest opruimen. */
-export function halfFloatTrailFloor(seconds: number): number {
-  return seconds * 2 / 255
-}
-
 export function trailTargetSize(canvasWidth: number, canvasHeight: number, maxTextureSize: number, scale = 1): [number, number] {
   const width = Math.max(1, Math.round(canvasWidth * scale))
   const height = Math.max(1, Math.round(canvasHeight * scale))
@@ -1815,26 +1649,6 @@ export function sanitizeWindTuning(value: unknown): WindTuning {
   return tuning
 }
 
-export function windColor(speed: number, theme: MapTheme): [number, number, number] {
-  const color = new Float32Array(3)
-  setWindColor(speed, theme, color)
-  return [color[0]!, color[1]!, color[2]!]
-}
-
-/** Schermsnelheid in CSS-px/s van `windSpeed` m/s; zoomonafhankelijk door windZoomCompensation. */
-export function windScreenSpeed(windSpeed: number, speedScale = 1): number {
-  return windSpeed * ADVECTION_SCALE * speedScale * MERCATOR_SCALE * WORLD_TILE_SIZE * 2 ** WIND_REFERENCE_ZOOM
-}
-
-export function particleCountForViewport(width: number, height: number, particlesPerMegapixel = WIND_PARTICLES_PER_MEGAPIXEL): number {
-  const count = Math.round(Math.max(0, width) * Math.max(0, height) / 1_000_000 * particlesPerMegapixel)
-  return Math.max(MIN_PARTICLES, Math.min(MAX_PARTICLES, count))
-}
-
-export function windZoomCompensation(zoom: number): number {
-  return 2 ** (WIND_REFERENCE_ZOOM - zoom)
-}
-
 /**
  * Deel van de overlevers dat mag blijven: nieuwe over oude dichtheid (particles per
  * gridoppervlak), hooguit 1. Uitzoomen ×2 laat een kwart; een resize die het budget
@@ -1845,24 +1659,6 @@ export function viewportParticleRetention(previous: ParticleBounds, current: Par
   const currentArea = Math.max(0, current.east - current.west) * Math.max(0, current.south - current.north)
   if (previousArea <= 0 || currentArea <= 0 || previousCount <= 0) return 1
   return Math.min(1, currentCount / currentArea / (previousCount / previousArea))
-}
-
-function smooth(value: number): number {
-  return value * value * (3 - 2 * value)
-}
-
-function setWindColor(speed: number, theme: MapTheme, color: Float32Array): void {
-  let upper = 1
-  while (upper < BEAUFORT_STOPS.length - 1 && speed > BEAUFORT_STOPS[upper]!) upper++
-  const lowerSpeed = BEAUFORT_STOPS[upper - 1]!
-  const upperSpeed = BEAUFORT_STOPS[upper]!
-  const mix = Math.max(0, Math.min(1, (speed - lowerSpeed) / (upperSpeed - lowerSpeed)))
-  const ramp = theme === 'dark' ? DARK_RAMP : LIGHT_RAMP
-  const left = ramp[upper - 1]!
-  const right = ramp[upper]!
-  color[0] = (left[0] + (right[0] - left[0]) * mix) / 255
-  color[1] = (left[1] + (right[1] - left[1]) * mix) / 255
-  color[2] = (left[2] + (right[2] - left[2]) * mix) / 255
 }
 
 function createTrailTarget(gl: WebGL2RenderingContext, width: number, height: number, halfFloat: boolean): TrailTarget {

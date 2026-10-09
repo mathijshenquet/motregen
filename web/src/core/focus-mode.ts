@@ -1,3 +1,4 @@
+import { MAP_FOCUS_SATURATION } from './map-presentation.js'
 import { DEFAULT_WIND_TUNING, WIND_FOCUS_INTENSITY } from './wind-layer'
 
 /** Zichtbaarheid van regen, wind en zon tijdens volle temperatuurfocus (Focus dim, U8; knop weg in U30). */
@@ -42,7 +43,7 @@ export function contextOpacity(focus: number, dim: number): number {
 export { rainPresentation, type RainPresentation } from './rain-presentation.js'
 
 /** Verzadiging van de basiskaart tijdens volle temperatuurfocus (PO U25b). */
-export const MAP_FOCUS_SATURATION = 0.55
+export { MAP_FOCUS_SATURATION } from './map-presentation.js'
 
 /** Verzadiging van de basiskaart bij temperatuurfocus `focus`. */
 export function mapSaturation(focus: number): number {

@@ -1,3 +1,4 @@
+import { TEMPERATURE_LINE_OPACITY, ISOBAR_LINE_OPACITY } from './core/map-presentation.js'
 import { batch, createEffect, createMemo, createSignal, lazy, onCleanup, onMount, Show, untrack, type Accessor, type Setter } from 'solid-js'
 import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
 import { registerSW } from 'virtual:pwa-register'
@@ -59,7 +60,7 @@ import { buildTimeline, epochInWindow, frameBlend, scrubberViewWindow, seriesVal
 import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
 import { WIND_UNITS, type WindUnit } from './core/weather'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
-import { DEFAULT_WIND_TUNING, loadWindTuning, MOBILE_WIND, storeWindTuning, WIND_MAX_FPS, WIND_PARAMETERS, WindLayer, type WindTuning } from './core/wind-layer'
+import { DEFAULT_WIND_TUNING, loadWindTuning, MOBILE_WIND, storeWindTuning, WIND_MAX_FPS, WIND_PARAMETERS, WIND_SIMULATION_FPS, WindLayer, type WindTuning } from './core/wind-layer'
 import { clearTuningStorage } from './core/dev-settings'
 import { watchIdle } from './core/activity'
 import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
@@ -162,9 +163,9 @@ const CLOUD_VEIL_RANGE = [15, 95] as const
 const CLOUD_VEIL_STEP = 25
 const CITY_TEMPERATURE_STEP_MS = 10 * 60_000
 // Isobaren op een derde van ISOLINE_LINE_OPACITY (0,8) (PO 2026-09-25, MIP-14).
-const ISOBAR_LINE_OPACITY = 0.27
+
 // Temperatuurlijnen half zo zichtbaar als ISOLINE_LINE_OPACITY (0,8) (PO 2026-09-25 live, U34).
-const TEMPERATURE_LINE_OPACITY = 0.4
+
 // Terugglijden aan het eind van een afspeelrondje (PO 2026-09-25 live, U34).
 const PLAYBACK_REWIND_MS = 700
 const PLAYBACK_END_HOLD_MS = 2_000
@@ -299,9 +300,19 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const stillWindow = window as unknown as {
       __motregenStillMapLoaded: () => boolean
       __motregenRenderFrame: (epoch: number, simulationMs?: number) => Promise<void>
+      __motregenWindImage: () => string
     }
     stillWindow.__motregenStillMapLoaded = () => Boolean(map?.loaded())
     stillWindow.__motregenRenderFrame = renderStillFrame
+    stillWindow.__motregenWindImage = () => {
+      if (!windLayer || !windOverlay) throw new Error('Windlaag ontbreekt')
+      windLayer.setPressureMarks([])
+      windOverlay.drawNow()
+      const image = windOverlay.canvas.toDataURL('image/png')
+      updatePressureMarks()
+      windOverlay.drawNow()
+      return image
+    }
   }
   // Meetpunt voor de kostenmeting (track-LOGs U8b/U8c): repaints, contour-passes, blits, label-rondes.
   ;(window as unknown as { __motregenIsolines: () => object }).__motregenIsolines = () => ({
@@ -1649,6 +1660,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     })
   }
 
+  let stillLabelsPrepared = false
   async function prepareStill(): Promise<void> {
     try {
       if (initialPresets.mode === 'wind') await attachWindLayer()
@@ -1662,6 +1674,20 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (!set.layer || required.some((index) => !set.layer!.hasLayer(index))) {
           throw new Error(`Kaartlaag ${set.kind} is niet geladen`)
         }
+      }
+      const traceStarted = performance.now()
+      while (isolineSets.some((set) => set.active() && set.coverage() > 0 && !set.layer?.readyAtTime(set.time))) {
+        if (performance.now() - traceStarted > 15_000) throw new Error('Isolijnsnede is niet klaar')
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      }
+      if (!stillLabelsPrepared) {
+        for (const set of isolineSets) {
+          if (!set.active() || !set.labels) continue
+          set.labels.clear()
+          set.key = ''
+          await showIsolines(set)
+        }
+        stillLabelsPrepared = true
       }
       if (windFocus() > 0 && !windLayer) throw new Error('Wind is niet geladen')
       if (hasTemperature() && !temperatureInput) throw new Error('Temperatuurlabels zijn niet geladen')
@@ -1694,10 +1720,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
     await showFrame()
     await prepareStill()
+    windLayer?.setTheme(stillTheme)
     if (mapElement.dataset.stillError) throw new Error(mapElement.dataset.stillError)
     if (windLayer && windOverlay) {
       while (stillSimulationMs < simulationMs) {
-        stillSimulationMs = Math.min(simulationMs, stillSimulationMs + 1_000 / 30)
+        stillSimulationMs = Math.min(simulationMs, stillSimulationMs + 1_000 / WIND_SIMULATION_FPS)
         windLayer.setSimulationTime(stillSimulationMs)
         windOverlay.drawNow()
       }

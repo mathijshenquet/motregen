@@ -1,5 +1,5 @@
-import type { MapTheme } from './basemap'
-import type { Grid } from './contract'
+import type { MapTheme } from './map-theme.js'
+import type { Grid } from './contract.js'
 
 export const ISOLINE_STEPS = [1, 2, 5] as const
 export type IsolineStep = typeof ISOLINE_STEPS[number]
