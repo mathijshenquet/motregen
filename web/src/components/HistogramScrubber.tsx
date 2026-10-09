@@ -18,6 +18,7 @@ interface Props {
   cursor: number
   now: number
   playing: boolean
+  playbackReady?: boolean
   loading: boolean
   loadStage?: 'initial' | 'direct' | 'window' | 'complete'
   locationLabel: string
@@ -415,6 +416,7 @@ export default function HistogramScrubber(props: Props) {
   // Alleen toetsstappen en tikken krijgen een korte glijbeweging; slepen en afspelen volgen direct.
   const [gliding, setGliding] = createSignal(false)
   const tween = () => gliding() && !props.playing
+  const playbackActive = () => props.playing && (props.playbackReady ?? true)
   // Een transform per afspeeltik kostte Chromium per tik een Layerize van de hele pagina (U41, ~40 %
   // van de hoofddraad). Afspelen loopt lineair in de tijd, dus de compositor kan de baan schuiven;
   // de inline transform staat dan stil en volgt pas weer bij pauze, slepen of terugglijden.
@@ -422,7 +424,7 @@ export default function HistogramScrubber(props: Props) {
   const [sliding, setSliding] = createSignal(false)
   const shownOffset = createMemo(() => sliding() ? untrack(offset) : offset())
   createEffect(() => {
-    const speed = props.playing && !tween() ? (props.glideRate ?? 0) * pxPerMs() : 0
+    const speed = playbackActive() && !tween() ? (props.glideRate ?? 0) * pxPerMs() : 0
     const current = offset()
     const now = Number(document.timeline?.currentTime ?? performance.now())
     const segments = daySegments()
@@ -563,7 +565,7 @@ export default function HistogramScrubber(props: Props) {
       aria-disabled={props.loading}
       aria-busy={props.loadStage !== undefined && props.loadStage !== 'complete'}
       data-load-stage={props.loadStage}
-      data-playing={props.playing ? '' : undefined}
+      data-playing={playbackActive() ? '' : undefined}
       data-scrubber-view={view()}
       aria-valuetext={props.timeline.length ? valueText() : undefined}
       title="Sleep of scroll door de tijd · tik om naar dat moment te gaan"

@@ -45,6 +45,55 @@ test('de afspeelklok wacht niet op een langzame splash-onthulling', async ({ pag
   await expect(page.locator('.map-splash.ready')).toBeVisible()
 })
 
+test('een pauzekeuze tijdens het laden blijft geldig zodra de kaart klaar is', async ({ page }) => {
+  let releaseHeader!: () => void
+  const headerGate = new Promise<void>((resolve) => { releaseHeader = resolve })
+  await page.route('**/*.mrf', async (route) => {
+    if (route.request().headers().range?.startsWith('bytes=0-')) await headerGate
+    await route.continue()
+  })
+  await page.goto('/?perf=1', { waitUntil: 'commit' })
+  const slider = page.getByRole('slider', { name: 'Tijd' })
+  try {
+    await expect(slider).toHaveAttribute('aria-valuemax', /[1-9]\d*/)
+    await slider.press('Space')
+  } finally {
+    releaseHeader()
+  }
+  await expect(page.locator('.map-splash.ready')).toBeAttached()
+  const cursor = await slider.getAttribute('aria-valuenow')
+  await page.waitForTimeout(500)
+  await expect(slider).not.toHaveAttribute('data-playing', '')
+  await expect(slider).toHaveAttribute('aria-valuenow', cursor!)
+  expect(await page.evaluate(() => window.__motregenPerf!.snapshot().firstCursorMs)).toBeNull()
+  await slider.press('Space')
+  await page.waitForFunction(() => window.__motregenPerf?.snapshot().firstCursorMs != null)
+})
+
+test('een vertraagde eerste afspeeltik haalt de kaartopzet niet in als cursorsprong', async ({ page }) => {
+  await page.addInitScript(() => {
+    let initialEpoch: number | undefined
+    let firstAdvance: number | undefined
+    const observer = new MutationObserver(() => {
+      const epoch = Number(document.querySelector<HTMLElement>('.app-shell')?.dataset.epoch)
+      if (initialEpoch === undefined && document.querySelector('.map-splash.ready')) {
+        initialEpoch = epoch
+        const until = performance.now() + 500
+        while (performance.now() < until) { /* vertraagde hoofddraad bij de kaartopzet */ }
+      } else if (initialEpoch !== undefined && epoch > initialEpoch && firstAdvance === undefined) {
+        firstAdvance = epoch - initialEpoch
+        ;(window as unknown as { firstPlaybackAdvance: number }).firstPlaybackAdvance = firstAdvance
+        observer.disconnect()
+      }
+    })
+    document.addEventListener('DOMContentLoaded', () => observer.observe(document.documentElement, { attributes: true, subtree: true, childList: true }))
+  })
+  await page.goto('/?perf=1', { waitUntil: 'commit' })
+  await page.waitForFunction(() => (window as unknown as { firstPlaybackAdvance?: number }).firstPlaybackAdvance !== undefined)
+  const firstAdvance = await page.evaluate(() => (window as unknown as { firstPlaybackAdvance: number }).firstPlaybackAdvance)
+  expect(firstAdvance).toBeLessThan(5 * 60_000)
+})
+
 test('de PMTiles-header begint vóór de HARMONIE-headerreeks', async ({ page }) => {
   await useOwnBasemap(page)
   const order: string[] = []

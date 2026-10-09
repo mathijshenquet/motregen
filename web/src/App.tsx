@@ -686,7 +686,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
   })
   const [mapReady, setMapReady] = createSignal(false)
-  const playbackActive = createMemo(() => playing() && mapRendering() && mapReady())
+  const playbackReady = createMemo(() => mapRendering() && mapReady())
+  const playbackActive = createMemo(() => playing() && playbackReady())
   const [resetNotice, setResetNotice] = createSignal(false)
   let resetNoticeTimer: number | undefined
   const [updateReady, setUpdateReady] = createSignal(false)
@@ -1170,6 +1171,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     // Tempo zoals toen afspelen tot +8 u liep (PO 2026-09-25 live); het loopt nu wel door tot het eind.
     const playbackRate = timelinePlaybackRate(frames, nowEpoch, PLAYBACK_TEMPO_HOURS)
     let previous = performance.now()
+    let firstPlaybackTick = true
     // Aan het eind van een rondje glijdt de tijdlijn terug naar het begin i.p.v. in één frame te springen:
     // in de schuivende scrubber (U34) oogde die sprong als "de tijdlijn springt telkens terug".
     let rewind: { from: number; startedAt: number } | undefined
@@ -1201,7 +1203,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       // Voorbij de afspeelhorizon (daar neergezet en daarna hervat): terugglijden naar het begin en
       // verder spelen, nooit voorgoed stilstaan — er is geen afspeelknop (PO 2026-09-25 live).
       if (!(epoch < lastEpoch)) { rewind = { from: epoch, startedAt: now }; return }
-      const nextEpoch = epoch + elapsed * playbackRate
+      // De eerste tik haalt tijd besteed aan kaartopzet niet in als een cursorsprong.
+      const playbackElapsed = firstPlaybackTick ? Math.min(elapsed, 1_000 / PLAYBACK_MAX_FPS) : elapsed
+      const nextEpoch = epoch + playbackElapsed * playbackRate
       if (!Number.isFinite(nextEpoch) || nextEpoch >= lastEpoch) {
         setCursor(timelineCursorAtEpoch(frames, lastEpoch))
         holdUntil = now + PLAYBACK_END_HOLD_MS
@@ -1222,6 +1226,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (!waiting || now - waiting.since < PLAYBACK_FRAME_WAIT_MS) nextCursor = clampPlaybackCursor(nextCursor, reach, 1)
         if (nextCursor <= cursor()) { setGlideRate(0); return }
       }
+      firstPlaybackTick = false
       batch(() => {
         perf.markFirstCursorMove()
         setCursor(nextCursor)
@@ -3359,7 +3364,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           loaded={rainLoaded()}
           cursor={cursor()}
           now={manifest() ? Date.parse(manifest()!.now) : 0}
-          playing={playbackActive()}
+          playing={playing()}
+          playbackReady={playbackReady()}
           loading={pointSeriesLoading()}
           loadStage={pointLoadStage()}
           locationLabel={status()}

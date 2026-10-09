@@ -6,6 +6,7 @@ interface Capture {
   origin: string
   profile: string
   warm: boolean
+  fixture?: boolean
   screenshotOverhead: boolean
   manifestGenerated: string
   loadSamples: Array<{ ms: number; load: number }>
@@ -32,7 +33,7 @@ const compact = readdirSync(directory).filter((name) => name.endsWith('.json')).
   const queue = header && header.requestStart > 0 ? header.requestStart - header.startTime : null
   return {
     name: name.replace('.json', ''), origin: capture.origin, profile: capture.profile,
-    warm: capture.warm, screenshotOverhead: capture.screenshotOverhead,
+    warm: capture.warm, fixture: capture.fixture ?? capture.manifestGenerated.startsWith('2026-08-28'), screenshotOverhead: capture.screenshotOverhead,
     manifestGenerated: capture.manifestGenerated,
     startLoad: capture.loadSamples[0]!.load,
     meanLoad: rounded(capture.loadSamples.reduce((sum, sample) => sum + sample.load, 0) / capture.loadSamples.length),
@@ -64,7 +65,8 @@ for (const transport of ['h1', 'h2']) for (const profile of ['desktop', 'po-andr
   pairs.push({ transport, profile, cache, paired })
 }
 writeFileSync(`${output}.json`, JSON.stringify({ captures: compact, pairs }, null, 2))
-writeFileSync(`${output}.md`, `${rows.join('\n')}\n\nAlle tijden uit gelijke instrumentatie. HTTP1.1: eigen GRID6-fixture op Vite-preview; HTTP2: lokale TLS-reviewproxy op https://motregen.nl, frontend A/B lokaal en weerdata van prod met vastgezet manifest. Geen deploy. Warm = nieuw browserproces met gevulde HTTP- en SW-diskcache. Resource-transferbytes zijn observaties, geen wire-budgetclaim.\n`)
+const fixture = compact.some((capture) => capture.fixture)
+writeFileSync(`${output}.md`, `${rows.join('\n')}\n\nAlle tijden uit gelijke instrumentatie. HTTP1.1: Vite-preview met ${fixture ? 'GRID6-fixture' : 'productiegegevens en vastgezet manifest'}; HTTP2: lokale TLS-reviewproxy op https://motregen.nl, frontend A/B lokaal en weerdata van prod met vastgezet manifest. Geen deploy. Warm = nieuw browserproces met gevulde HTTP- en SW-diskcache. Resource-transferbytes zijn observaties, geen wire-budgetclaim.\n`)
 for (const name of readdirSync(directory).filter((name) => name.endsWith('.json'))) {
   const capture = JSON.parse(readFileSync(join(directory, name), 'utf8')) as Capture
   const resources = capture.resources.filter((entry) => entry.startTime < 6_000).sort((left, right) => left.startTime - right.startTime)

@@ -6,11 +6,14 @@ import { applyEmulation, performanceProfile } from '../e2e/profiles'
 import { hostLoadAverage, runLoadLimit } from './rig-host'
 
 const [origin, output, ...flags] = process.argv.slice(2)
-if (!origin || !output) throw new Error('Gebruik: play-sync.ts ORIGIN UITVOER [--warm] [--filmstrip] [--profile=desktop|po-android] [--fixture] [--proxy=URL]')
+if (!origin || !output) throw new Error('Gebruik: play-sync.ts ORIGIN UITVOER [--warm] [--filmstrip] [--profile=desktop|po-android] [--fixture] [--now=ISO] [--proxy=URL]')
 const warm = flags.includes('--warm')
 const filmstrip = flags.includes('--filmstrip')
 const profile = performanceProfile(flags.find((flag) => flag.startsWith('--profile='))?.slice(10) ?? 'desktop')
 const proxy = flags.find((flag) => flag.startsWith('--proxy='))?.slice(8)
+const fixedClock = flags.includes('--fixture') ? '2026-08-28T15:00:00Z' : flags.find((flag) => flag.startsWith('--now='))?.slice(6)
+const fixedEpoch = fixedClock ? Date.parse(fixedClock) : undefined
+if (fixedClock && !Number.isFinite(fixedEpoch)) throw new Error('Ongeldig tijdstip voor --now')
 const directory = mkdtempSync(join(tmpdir(), 'motregen-play-sync-'))
 mkdirSync(dirname(output), { recursive: true })
 if (filmstrip) mkdirSync(output, { recursive: true })
@@ -27,10 +30,9 @@ const options = {
 let context = await chromium.launchPersistentContext(directory, options)
 const prepareContext = async () => {
   await context.addInitScript({ content: 'globalThis.__name = (value) => value;' })
-  await context.addInitScript(({ fixture, desktop }) => {
-    if (fixture) {
+  await context.addInitScript(({ fixedEpoch, desktop }) => {
+    if (fixedEpoch !== undefined) {
       const NativeDate = Date
-      const fixedEpoch = NativeDate.parse('2026-08-28T15:00:00Z')
       globalThis.Date = new Proxy(NativeDate, {
         construct: (target, args) => Reflect.construct(target, args.length ? args : [fixedEpoch]),
         apply: () => new NativeDate(fixedEpoch).toString(),
@@ -40,7 +42,7 @@ const prepareContext = async () => {
     Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => desktop ? 8 : 4 })
     Object.defineProperty(navigator, 'deviceMemory', { get: () => desktop ? 8 : 4 })
     performance.setResourceTimingBufferSize(10_000)
-  }, { fixture: flags.includes('--fixture'), desktop: profile.id === 'desktop' })
+  }, { fixedEpoch, desktop: profile.id === 'desktop' })
 }
 try {
   await prepareContext()
@@ -110,7 +112,7 @@ try {
     }) : []
     if (warm && !captured.serviceWorkerControlled) throw new Error('Warme browser mist SW-controller')
     if (errors.length) throw new Error(errors.join('\n'))
-    writeFileSync(`${output}.json`, JSON.stringify({ origin, profile: profile.id, warm, warmMethod: warm ? 'nieuw browserproces met gevulde HTTP- en SW-diskcache' : null, filmstrip, screenshotOverhead: filmstrip, shots, loadLimit: runLoadLimit(), loadSamples: loads, capturedAt: new Date().toISOString(), requests, ...captured }, null, 2))
+    writeFileSync(`${output}.json`, JSON.stringify({ origin, profile: profile.id, warm, fixture: flags.includes('--fixture'), fixedClock, warmMethod: warm ? 'nieuw browserproces met gevulde HTTP- en SW-diskcache' : null, filmstrip, screenshotOverhead: filmstrip, shots, loadLimit: runLoadLimit(), loadSamples: loads, capturedAt: new Date().toISOString(), requests, ...captured }, null, 2))
     console.log(JSON.stringify({ output, load, ...captured.snapshot }))
   } finally {
     clearInterval(loadTimer)
