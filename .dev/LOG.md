@@ -374,6 +374,13 @@
   met wolkendoorsnede + regenhistogram, native (SVG+sharp) in de poller-rol; U73 gestart (gpt-6.1-sol), bouwt op
   de gedeelde decode van U71a (PR #100).
 
+- **U72 gemerged** (19:50, 5d246a59; opus-5.5 live-pane, 3 rondes): regenveld-smoothing als separabel Gaussisch
+  voorfilter per geüpload frame (tekenshader blijft 4 texels); standaard blur 5×5 tot +2 u, oplopend naar 9×9 bij
+  +3 u (PO: "5 tot +2 uur, vanaf daar 9"); HARMONIE meebewegen vast, tijdmenging-schakelaar weg; bronovergang
+  blend→HARMONIE gefixt (warp-kap volgde de bron i.p.v. de staplengte → een uur kruisfade; PO had het goed gezien);
+  tijd-blur overgeslagen (PO: "mogelijk giga onnodig"). Overrides in ?dev Kaart › Regenveld (auto). 4330 herbouwd.
+- bot: regenloop −1…+2 u (ea30771d; PO), renderer herstart. U71a en U73 lopen.
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
