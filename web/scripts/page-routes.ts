@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { Plugin, ResolvedConfig } from 'vite'
+import type { Brand } from '../src/core/brand'
 import { defaultTitle, modeTitles, pageMetadata } from '../src/core/page-meta'
 import { slugNames } from '../src/core/place-slug'
 import { places } from '../src/core/places'
@@ -10,34 +11,45 @@ function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!)
 }
 
-function replaceMetadata(html: string, title: string, canonical: string, place: string): string {
-  return html.replaceAll(defaultTitle, title)
-    .replaceAll('https://motregen.nl/"', `${canonical}"`)
-    .replace('<p>motregen.nl toont', `<p>${place}motregen.nl toont`)
+/** Vult de merknaam en canonical-origin van deze build in op de plaatshouders van index.html. */
+export function applyBrand(html: string, brand: Brand): string {
+  return html.replaceAll('%BRAND_NAME%', escapeHtml(brand.name)).replaceAll('%CANONICAL_ORIGIN%', escapeHtml(brand.canonicalOrigin))
 }
 
-export function renderPageHtml(html: string, pathname: string): string {
-  const { title, canonical, place } = pageMetadata(pathname)
-  return replaceMetadata(html, escapeHtml(title), escapeHtml(canonical), place ? `Het weer voor ${escapeHtml(place)}. ` : '')
+function replaceMetadata(html: string, brand: Brand, title: string, canonical: string, place: string): string {
+  const brandName = escapeHtml(brand.name)
+  return html.replaceAll(escapeHtml(defaultTitle(brand)), title)
+    .replaceAll(`${escapeHtml(brand.canonicalOrigin)}/"`, `${canonical}"`)
+    .replace(`<p>${brandName} toont`, `<p>${place}${brandName} toont`)
 }
 
-export function sitemapXml(): string {
+/** Verwacht html waarin `applyBrand` de plaatshouders al heeft ingevuld. */
+export function renderPageHtml(html: string, pathname: string, brand: Brand): string {
+  const { title, canonical, place } = pageMetadata(pathname, brand)
+  return replaceMetadata(html, brand, escapeHtml(title), escapeHtml(canonical), place ? `Het weer voor ${escapeHtml(place)}. ` : '')
+}
+
+export function robotsTxt(brand: Brand): string {
+  return `User-agent: *\nAllow: /\nDisallow: /data/\nSitemap: ${brand.canonicalOrigin}/sitemap.xml\n`
+}
+
+export function sitemapXml(brand: Brand): string {
   const paths = ['/', ...Object.values(pathModes).map((mode) => `/${mode}`),
     ...places.filter((place) => !place.country).flatMap((place) => Object.keys(pathModes).map((mode) => presetPath(mode as keyof typeof pathModes, place.name)))]
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${paths.map((path) => `  <url><loc>https://motregen.nl${path}</loc></url>`).join('\n')}\n</urlset>\n`
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${paths.map((path) => `  <url><loc>${brand.canonicalOrigin}${path}</loc></url>`).join('\n')}\n</urlset>\n`
 }
 
-function caddyPageHtml(html: string): string {
+function caddyPageHtml(html: string, brand: Brand): string {
   const dictionary = (entries: Record<string, string>) => `dict ${Object.entries(entries).map(([key, value]) => `${JSON.stringify(key)} ${JSON.stringify(value)}`).join(' ')}`
   const titles = Object.fromEntries(Object.entries(pathModes).map(([mode, path]) => [path, modeTitles[mode as keyof typeof pathModes]]))
   const preamble = `{{ $parts := splitList "/" (trimAll "/" .OriginalReq.URL.Path) }}
 {{ $mode := index $parts 0 | lower }}
 {{ $slug := "" }}{{ $place := "" }}
 {{ if gt (len $parts) 1 }}{{ $slug = index $parts 1 | lower }}{{ $place = default ($slug | replace "-" " " | title) (get (${dictionary({ ...slugNames })}) $slug) }}{{ end }}
-{{ $title := printf "%s%s — motregen.nl" (get (${dictionary(titles)}) $mode) (ternary (printf " %s" $place) "" (ne $place "")) }}
-{{ $canonical := printf "https://motregen.nl/%s%s" $mode (ternary (printf "/%s" $slug) "" (ne $slug "")) }}
+{{ $title := printf "%s%s — %s" (get (${dictionary(titles)}) $mode) (ternary (printf " %s" $place) "" (ne $place "")) ${JSON.stringify(brand.name)} }}
+{{ $canonical := printf "%s/%s%s" ${JSON.stringify(brand.canonicalOrigin)} $mode (ternary (printf "/%s" $slug) "" (ne $slug "")) }}
 `
-  return preamble + replaceMetadata(html, '{{ $title | html }}', '{{ $canonical | html }}', '{{ if $place }}Het weer voor {{ $place | html }}. {{ end }}')
+  return preamble + replaceMetadata(html, brand, '{{ $title | html }}', '{{ $canonical | html }}', '{{ if $place }}Het weer voor {{ $place | html }}. {{ end }}')
 }
 
 function caddyRoutes(): string {
@@ -101,14 +113,15 @@ file_server {
 `
 }
 
-export function pageRoutes(): Plugin {
+export function pageRoutes(brand: Brand): Plugin {
   let config: ResolvedConfig
   return {
     name: 'motregen-page-routes',
     configResolved(resolved) { config = resolved },
     transformIndexHtml(html, context) {
       const pathname = new URL(context.originalUrl ?? context.path, 'http://localhost').pathname
-      return parsePresetPath(pathname).mode ? renderPageHtml(html, pathname) : html
+      const branded = applyBrand(html, brand)
+      return parsePresetPath(pathname).mode ? renderPageHtml(branded, pathname, brand) : branded
     },
     configurePreviewServer(server) {
       server.middlewares.use((request, response, next) => {
@@ -117,15 +130,19 @@ export function pageRoutes(): Plugin {
         if (!parsePresetPath(pathname).mode) { next(); return }
         const html = readFileSync(resolve(config.root, config.build.outDir, 'index.html'), 'utf8')
         response.setHeader('Content-Type', 'text/html; charset=utf-8')
-        response.end(renderPageHtml(html, pathname))
+        response.end(renderPageHtml(html, pathname, brand))
       })
     },
     generateBundle: { order: 'post', handler(_options, bundle) {
       const html = bundle['index.html']
       if (!html || html.type !== 'asset') throw new Error('index.html ontbreekt voor de padpagina’s')
-      this.emitFile({ type: 'asset', fileName: 'route.html', source: caddyPageHtml(String(html.source)) })
+      this.emitFile({ type: 'asset', fileName: 'route.html', source: caddyPageHtml(String(html.source), brand) })
       this.emitFile({ type: 'asset', fileName: 'routes.caddy', source: caddyRoutes() })
-      this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: sitemapXml() })
+      this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: sitemapXml(brand) })
+      this.emitFile({ type: 'asset', fileName: 'robots.txt', source: robotsTxt(brand) })
+      // De deelkaart draagt de merknaam als tekst en hoort dus bij het domein van deze build.
+      const brandAssets = resolve(config.root, 'brand-assets', new URL(brand.canonicalOrigin).hostname)
+      this.emitFile({ type: 'asset', fileName: 'og-image.png', source: readFileSync(resolve(brandAssets, 'og-image.png')) })
     } },
   }
 }

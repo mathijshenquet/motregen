@@ -36,6 +36,11 @@
         motregen-basemap = pkgs.callPackage ./nix/packages/basemap.nix { };
         motregen-ingest = pkgs.callPackage ./nix/packages/ingest.nix { inherit rustPlatform; };
         motregen-web = pkgs.callPackage ./nix/packages/web.nix { };
+        motregen-web-weerok = pkgs.callPackage ./nix/packages/web.nix {
+          pname = "motregen-web-weerok";
+          brandName = "weer ok?";
+          canonicalOrigin = "https://weerok.nl";
+        };
         motregen-bot = pkgs.callPackage ./nix/packages/bot.nix { };
       };
     in

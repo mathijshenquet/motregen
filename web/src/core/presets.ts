@@ -155,9 +155,9 @@ export function applyPresetUrl(url: URL, state: ShareState, includeTime: boolean
   return url
 }
 
-/** Maakt altijd een productie-link: gedeelde previews horen naar de publieke app te wijzen. */
-export function shareUrl(state: ShareState): string {
-  const url = new URL('https://motregen.nl/')
+/** Maakt altijd een productie-link: gedeelde previews horen naar de publieke app (de canonical-origin van deze build) te wijzen. */
+export function shareUrl(state: ShareState, canonicalOrigin: string): string {
+  const url = new URL(`${canonicalOrigin}/`)
   applyPresetUrl(url, state, true)
   return url.href
 }

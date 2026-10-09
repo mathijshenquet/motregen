@@ -47,6 +47,7 @@
         ingestPackage = fakeIngest;
         camsPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-ingest;
         frontendPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-web;
+        frontendPackages."weerok.nl" = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-web-weerok;
         basemapPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-basemap;
         bot = {
           enable = true;
@@ -224,6 +225,28 @@
       "curl --silent --output /dev/null --write-out '%{http_code}' http://localhost/data/cams.json"
     )
     assert sidecar_status == "404", sidecar_status
+
+    for domain in ["motregen.nl", "weerok.nl"]:
+      redirect = machine.succeed(
+        f"curl --silent --show-error --dump-header - --output /dev/null --header 'Host: www.{domain}' 'http://localhost/weer/utrecht?x=1'"
+      ).lower()
+      assert " 308 " in redirect.splitlines()[0], redirect
+      assert f"location: http://{domain}/weer/utrecht?x=1" in redirect, redirect
+
+    # Per domein een eigen bundle: naam en canonical volgen de hostnaam, /data is gedeeld.
+    for domain, name in [("motregen.nl", "motregen.nl"), ("weerok.nl", "weer ok?")]:
+      index = machine.succeed(f"curl --silent --show-error --fail --header 'Host: {domain}' http://localhost/")
+      assert f"<title>{name} — Regenradar en weersverwachting</title>" in index, index
+      assert f'<link rel="canonical" href="https://{domain}/"' in index, index
+      place_page = machine.succeed(f"curl --silent --show-error --fail --header 'Host: {domain}' http://localhost/wind/utrecht")
+      assert f"<title>Wind Utrecht — {name}</title>" in place_page, place_page
+      assert f'href="https://{domain}/wind/utrecht"' in place_page, place_page
+      domain_robots = machine.succeed(f"curl --silent --show-error --fail --header 'Host: {domain}' http://localhost/robots.txt")
+      assert f"Sitemap: https://{domain}/sitemap.xml" in domain_robots, domain_robots
+      shared_manifest = machine.succeed(
+        f"curl --silent --output /dev/null --write-out '%{{http_code}}' --header 'Host: {domain}' http://localhost/data/manifest.json"
+      )
+      assert shared_manifest == "200", shared_manifest
 
     robots = machine.succeed("curl --silent --show-error --fail http://localhost/robots.txt")
     assert "Disallow: /data/" in robots, robots

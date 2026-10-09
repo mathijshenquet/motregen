@@ -1,10 +1,13 @@
 /// <reference lib="dom" />
-// Maakt public/og-image.png (1200×630) uit een screenshot van de kaart.
-// Gebruik: pnpm tsx scripts/og-image.ts [url]   (default https://motregen.nl/)
+// Maakt brand-assets/<domein>/og-image.png (1200×630) uit een screenshot van de kaart.
+// Gebruik: pnpm exec tsx scripts/og-image.ts <domein> <merknaam> [url]
+//   pnpm exec tsx scripts/og-image.ts motregen.nl motregen.nl
+//   pnpm exec tsx scripts/og-image.ts weerok.nl 'weer ok?'
 import { chromium } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 
-const url = process.argv[2] ?? 'https://motregen.nl/'
+const [domain, brandName, url = 'https://motregen.nl/'] = process.argv.slice(2)
+if (!domain || !brandName) throw new Error('Gebruik: og-image.ts <domein> <merknaam> [url]')
 const droplet = readFileSync(new URL('../public/droplet.svg', import.meta.url), 'utf8')
 
 const browser = await chromium.launch({ args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
@@ -21,13 +24,19 @@ await page.addStyleTag({ content: `
   .og-card b { display: block; font-size: 50px; line-height: 1; letter-spacing: -.02em; }
   .og-card span { display: block; margin-top: 10px; font-size: 22px; color: #3d5a64; }
 ` })
-await page.evaluate((svg) => {
+await page.evaluate(({ svg, name }) => {
   const card = document.createElement('div')
   card.className = 'og-card'
-  card.innerHTML = `${svg}<div><b>motregen.nl</b><span>Regenradar en verwachting voor Nederland en Vlaanderen</span></div>`
+  card.innerHTML = `${svg}<div><b></b><span>Regenradar en verwachting voor Nederland en Vlaanderen</span></div>`
+  card.querySelector('b')!.textContent = name
   document.querySelector('.map-shell')!.append(card)
-}, droplet)
+}, { svg: droplet, name: brandName })
 // Kaart laten herschalen naar de volle breedte en de windsporen laten opbouwen.
 await page.waitForTimeout(5_000)
-await page.screenshot({ path: new URL('../public/og-image.png', import.meta.url).pathname })
+// De westrand van het radardomein valt op deze breedte net in beeld (de kaart zit daar tegen
+// zijn grens, slepen helpt niet); iets inzoomen rond Utrecht haalt hem eruit.
+await page.mouse.move(640, 300)
+await page.mouse.wheel(0, -120)
+await page.waitForTimeout(4_000)
+await page.screenshot({ path: new URL(`../brand-assets/${domain}/og-image.png`, import.meta.url).pathname })
 await browser.close()

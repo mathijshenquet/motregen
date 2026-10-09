@@ -47,7 +47,7 @@ test('air shows the cloud layers under the rain and adds the map veil', async ({
   await expect(surface).toHaveAttribute('data-scrubber-view', 'temperature')
   await expect(page.getByTestId('sky')).toBeAttached()
 
-  await page.getByRole('button', { name: 'Weer' }).click()
+  await page.getByRole('button', { name: 'Weer', exact: true }).click()
   await page.mouse.move(5, 5)
   await expect(surface).toHaveAttribute('data-scrubber-view', 'rain')
   await expect(section).toBeAttached()

@@ -8,6 +8,15 @@
 
 let
   cfg = config.services.motregen;
+  canonicalDomain = builtins.head cfg.domains;
+  aliasDomains = builtins.tail cfg.domains;
+  publicScheme = if cfg.enableTls then "https" else "http";
+  frontendFor = domain: cfg.frontendPackages.${domain} or cfg.frontendPackage;
+  frontendMatcher = domain: "@frontend-${builtins.replaceStrings [ "." ] [ "-" ] domain}";
+  frontendRoot = package: ''
+    root * ${package}
+    import ${package}/routes.caddy
+  '';
   caddyDataDir = "/run/motregen-data";
   dataHeaders = ''
     header {
@@ -98,15 +107,36 @@ let
       mv -- "$stats/.stats.html.tmp" "$stats/stats.html"
     '';
   };
+
+  wwwRedirectHost = domain: {
+    name = "www.${domain}";
+    value = {
+      hostName = if cfg.enableTls then "www.${domain}" else "http://www.${domain}";
+      # MIP-13: ook hier geen access-log met IP of headers.
+      logFormat = null;
+      extraConfig = "redir ${publicScheme}://${domain}{uri} 308";
+    };
+  };
 in
 {
+  imports = [
+    (lib.mkRemovedOptionModule [ "services" "motregen" "domain" ]
+      "Use services.motregen.domains (a list; the first entry is canonical).")
+  ];
+
   options.services.motregen = {
     enable = lib.mkEnableOption "motregen ingest and web serving";
 
-    domain = lib.mkOption {
-      type = lib.types.str;
-      default = "motregen.nl";
-      description = "Public hostname served by Caddy.";
+    domains = lib.mkOption {
+      type = lib.types.nonEmptyListOf lib.types.str;
+      default = [
+        "motregen.nl"
+        "weerok.nl"
+      ];
+      description = ''
+        Public apex hostnames served by Caddy. The first is canonical and the default bot
+        origin; every name also gets a `www.` host that redirects (308) to its apex.
+      '';
     };
 
     enableTls = lib.mkOption {
@@ -164,7 +194,16 @@ in
       type = lib.types.package;
       default = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-web;
       defaultText = lib.literalExpression "self.packages.\${pkgs.stdenv.hostPlatform.system}.motregen-web";
-      description = "Vite dist tree served by Caddy.";
+      description = "Vite dist tree served by Caddy for every domain without its own entry in frontendPackages.";
+    };
+
+    frontendPackages = lib.mkOption {
+      type = lib.types.attrsOf lib.types.package;
+      default = {
+        "weerok.nl" = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-web-weerok;
+      };
+      defaultText = lib.literalExpression ''{ "weerok.nl" = self.packages.''${pkgs.stdenv.hostPlatform.system}.motregen-web-weerok; }'';
+      description = "Per-domain Vite dist trees: each bundle carries its own name and canonical origin. /data is shared.";
     };
 
     bot = {
@@ -176,7 +215,7 @@ in
       };
       origin = lib.mkOption {
         type = lib.types.str;
-        default = "https://${cfg.domain}";
+        default = "https://${canonicalDomain}";
         description = "App origin opened by the renderer and linked by the poller.";
       };
       secretsFile = lib.mkOption {
@@ -385,8 +424,9 @@ in
           }
         }
       '';
-      virtualHosts.${cfg.domain} = {
-        hostName = if cfg.enableTls then cfg.domain else ":80";
+      virtualHosts.${canonicalDomain} = {
+        hostName = if cfg.enableTls then canonicalDomain else ":80";
+        serverAliases = lib.optionals cfg.enableTls aliasDomains;
         # MIP-13: geen access-log met IP of headers; alleen het usage-log hieronder.
         logFormat = null;
         extraConfig = ''
@@ -505,8 +545,15 @@ in
           ''}
 
           handle {
-            root * ${cfg.frontendPackage}
-            import ${cfg.frontendPackage}/routes.caddy
+            ${lib.concatMapStrings (domain: ''
+              ${frontendMatcher domain} host ${domain}
+              handle ${frontendMatcher domain} {
+                ${frontendRoot (frontendFor domain)}
+              }
+            '') aliasDomains}
+            handle {
+              ${frontendRoot (frontendFor canonicalDomain)}
+            }
           }
         '';
       };
@@ -526,6 +573,8 @@ in
       };
     };
 
+  }) (lib.mkIf cfg.enable {
+    services.caddy.virtualHosts = builtins.listToAttrs (map wwwRedirectHost cfg.domains);
   }) (lib.mkIf cfg.bot.enable {
     users.users.motregen-bot = {
       isSystemUser = true;

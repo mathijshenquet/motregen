@@ -119,7 +119,7 @@ test('mobile previews the heading and current row, then scrolls smoothly between
   await expect.poll(() => panel.evaluate((element) => Math.round(element.getBoundingClientRect().top))).toBeLessThanOrEqual(1)
   await expect(page.locator('.map-shell')).toBeVisible()
   await expect(page.locator('.map-shell')).toHaveAttribute('data-rendering', 'false')
-  await page.getByRole('button', { name: 'Weer' }).tap()
+  await page.getByRole('button', { name: 'Weer', exact: true }).tap()
   await expect(page.locator('.app-shell')).not.toHaveClass(/table-view-open/)
   await expect(page.locator('.app-shell')).not.toHaveClass(/table-scroll-open/)
   await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBeLessThanOrEqual(1)
