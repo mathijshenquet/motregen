@@ -387,6 +387,10 @@
   (zelf bekeken); rollback MOTREGEN_RAIN_RENDERER=playwright. Opvolgpunt: HARMONIE-blur (U72) ook in de native
   compositor. U73 (/weer <plaats>, PR #101) klaar en live getest vanuit zijn worktree; gate tegen nieuwe main loopt.
 
+- 21:15: bot-regenloop op app-tempo (cd64f3a7; PO): 45 s kaarttijd per frame bij 10 fps ≈ 7,5 min/s, 241 frames
+  −1…+2 u (25 s film), native getweend; Playwright-fallback zou 241 frames renderen. Renderer herstart. PO-wensen
+  /weer (queue U73 ronde 2): Expressief-stijl, wolkjes alleen vanaf nu.
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
