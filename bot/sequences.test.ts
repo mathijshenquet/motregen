@@ -6,17 +6,17 @@ const manifest: StillManifest = { version: 0, generated: '2026-10-07T12:00:00Z',
 const now = Date.parse(manifest.now)
 
 describe('one frame sequence per mode', () => {
-  it('runs five-minute loops from two hours ago through three hours ahead for rain and twelve for temperature and wind', () => {
+  it('runs five-minute loops from one hour ago through two hours ahead for rain and twelve for temperature and wind', () => {
     for (const definition of LOOP_MODES) {
       const plan = sequencePlan(definition.mode, manifest)
       const rain = definition.mode === 'weather'
-      expect(plan).toMatchObject({ fps: 10, loopFrames: rain ? 61 : 169 })
-      expect(plan.epochs).toHaveLength(rain ? 115 : 169)
+      expect(plan).toMatchObject({ fps: 10, loopFrames: rain ? 37 : 169 })
+      expect(plan.epochs).toHaveLength(rain ? 103 : 169)
       const loopEpochs = plan.epochs.slice(0, plan.loopFrames)
-      expect(loopEpochs[0]).toBe(now - 2 * 3_600_000)
-      expect(loopEpochs.at(-1)).toBe(now + (rain ? 3 : 12) * 3_600_000)
+      expect(loopEpochs[0]).toBe(now - (rain ? 1 : 2) * 3_600_000)
+      expect(loopEpochs.at(-1)).toBe(now + (rain ? 2 : 12) * 3_600_000)
       for (const [index, epoch] of loopEpochs.entries()) {
-        expect(epoch).toBe(now + (-120 + index * 5) * 60_000)
+        expect(epoch).toBe(now + ((rain ? -60 : -120) + index * 5) * 60_000)
       }
       expect(new Set(plan.epochs).size).toBe(plan.epochs.length)
     }
@@ -29,19 +29,22 @@ describe('one frame sequence per mode', () => {
       for (const frame of plan.stillFrames) {
         expect(plan.epochs[frame.index]).toBe(now + Math.round(frame.hour * 3_600_000))
         expect(frame.index).toBeGreaterThanOrEqual(0)
-        if (mode === 'feels' || frame.hour <= 3) {
-          expect(frame.index).toBe(Math.round(frame.hour * 12) + 24)
+        const inLoop = mode === 'feels' ? true : frame.hour >= -1 && frame.hour <= 2
+        if (inLoop) {
+          expect(frame.index).toBe(Math.round(frame.hour * 12) + (mode === 'feels' ? 24 : 12))
           expect(frame.index).toBeLessThan(plan.loopFrames)
         } else {
           expect(frame.index).toBeGreaterThanOrEqual(plan.loopFrames)
         }
       }
-      expect(plan.stillFrames.find((frame) => frame.hour === 0)?.index).toBe(24)
-      expect(plan.stillFrames.find((frame) => frame.hour === 12)?.index).toBe(mode === 'weather' ? 114 : 168)
+      expect(plan.stillFrames.find((frame) => frame.hour === 0)?.index).toBe(mode === 'weather' ? 12 : 24)
+      expect(plan.stillFrames.find((frame) => frame.hour === 12)?.index).toBe(mode === 'weather' ? 102 : 168)
     }
     const rain = sequencePlan('weather', manifest)
-    expect(rain.stillFrames.filter((frame) => frame.index < rain.loopFrames)).toHaveLength(31)
-    expect(rain.epochs.slice(rain.loopFrames)).toEqual(Array.from({ length: 54 }, (_, index) => now + (190 + index * 10) * 60_000))
+    expect(rain.stillFrames.filter((frame) => frame.index < rain.loopFrames)).toHaveLength(19)
+    // Buiten de loop: eerst −2 u…−1 u 10 min (6), dan +2 u 10 min…+12 u (60), in STILL_HOURS-volgorde.
+    const outside = [...Array.from({ length: 6 }, (_, index) => -120 + index * 10), ...Array.from({ length: 60 }, (_, index) => 130 + index * 10)]
+    expect(rain.epochs.slice(rain.loopFrames)).toEqual(outside.map((minute) => now + minute * 60_000))
     expect(sequencePlan('wind', manifest).stillFrames).toEqual([])
   })
 

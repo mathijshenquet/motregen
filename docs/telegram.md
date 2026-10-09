@@ -190,12 +190,12 @@ gecachete lege kaart. De nationale uitsnede is 640×848 CSS-pixels met
 
 | modus | framereeks | loop | stills uit dezelfde reeks |
 | --- | --- | --- | --- |
-| Regen | −2…+3 u elke 5 minuten; daarna stills elke 10 minuten tot +12 u | 61 frames op 10 fps | 31 loopframes t/m +3 u; 54 aparte frames daarna (85 stills) |
+| Regen | −1…+2 u elke 5 minuten; daarnaast stills elke 10 minuten van −2 u tot +12 u | 37 frames op 10 fps | 19 loopframes −1…+2 u; 66 aparte frames (85 stills) |
 | Temperatuur | −2…+12 u, elke 5 minuten (interpolatie tussen de uurvelden) | 169 frames op 10 fps | 85 frames, −2…+12 u elke 10 minuten |
 | Wind | −2…+12 u, elke 5 minuten (interpolatie tussen de uur- en kwartiervelden) | 169 frames op 10 fps | geen |
 
-De drie loops beginnen twee uur geleden en gebruiken dezelfde vijfminutenstap en 10 fps (U66).
-Regen eindigt op +3 uur (PO 2026-10-09, U70) en duurt 7,1 seconden inclusief de eindhold.
+De drie loops gebruiken dezelfde vijfminutenstap en 10 fps (U66). Regen loopt van −1 tot +2 uur (PO 2026-10-09;
+U70 had −2…+3) en duurt 4,7 seconden inclusief de eindhold; temperatuur en wind beginnen twee uur geleden.
 Temperatuur en Wind eindigen op +12 uur en duren 17,9 seconden inclusief de eindhold.
 Stills en deltaknoppen behouden het bereik −2…+12 uur op het tienminutenraster. Binnen de loophorizon
 delen stills de loop-PNGs; de 54 latere regenstills krijgen elk één extra PNG in dezelfde renderpass.
@@ -299,7 +299,7 @@ De 173-media-rendergeneratie kostte **71301 → 63590 ms**; dry-run-prime met mo
 tussenruimte kostte **84 → 78 ms**, samen **71385 → 63668 ms**. De complete matrix en het
 file_id-antwoord via het register zijn gecontroleerd. Met de 15-seconden-manifestcheck blijft
 **131410 ms** binnen het 210-secondenbudget beschikbaar voor echte Telegram-prime. Die uploadtijd
-is niet gemeten. Regen is 7,1 s inclusief eindhold; de overige loops blijven 17,9 s en alle MP4s <3 MB.
+is niet gemeten. Regen is 4,7 s inclusief eindhold (−1…+2 u); de overige loops blijven 17,9 s en alle MP4s <3 MB.
 
 Een eerdere koude vergelijking gaf 69658 → 97692 ms inclusief mockprime, terwijl de hostbelasting
 van circa 12 naar 27 steeg en ook de ongewijzigde modi fors vertraagden. Daarom is de vergelijking
