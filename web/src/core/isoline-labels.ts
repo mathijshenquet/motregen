@@ -150,6 +150,7 @@ export class IsolineLabels {
     element.className = `isoline-label isoline-label-${this.theme}${this.kind === 'pressure' ? ' isobar-label' : ''}`
     element.style.color = isolineColor(this.theme, this.kind)
     element.style.opacity = '0'
+    if (this.reducedMotion()) element.style.transition = 'none'
     const text = document.createElement('span')
     text.textContent = isolineLabelText(this.kind, level)
     text.style.opacity = '0'
@@ -186,7 +187,7 @@ export class IsolineLabels {
   }
 
   private applyOpacity(anchor: Anchor): void {
-    anchor.marker.getElement().style.opacity = String(this.opacity * anchor.fade * anchor.ringFade)
+    anchor.marker.setOpacity(this.opacity * anchor.fade * anchor.ringFade)
   }
 
   /** Het rooster is Web Mercator: een cel is op breedte φ dx·cos φ echte meters. */

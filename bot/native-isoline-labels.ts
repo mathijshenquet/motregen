@@ -1,5 +1,5 @@
 import { lineLabelCandidates, LABEL_MIN_DISTANCE_PX, LABEL_SPACING_PX, MAX_LABEL_ANCHORS } from '../web/src/core/isoline-label-anchors.js'
-import { NativeText } from './native-text.js'
+import { NativeText, type TextPlacement } from './native-text.js'
 import { FRAME, FRAME_PIXELS } from './config.js'
 import { nativeProjection } from './native-projection.js'
 import { projectToLevel, type SliceSample } from '../web/src/core/isoline-spline.js'
@@ -17,6 +17,11 @@ export class NativeIsolineLabels {
   private step?: number
   constructor(private readonly text = new NativeText()) {}
   async draw(rgb: Buffer, slice: TemperatureSlice, theme: NativeTheme): Promise<Buffer> {
+    for (const label of this.place(slice, theme)) await this.text.draw(rgb, label.text, label.screenX, label.screenY, label.angle, label.color, label.theme, label.opacity)
+    return rgb
+  }
+
+  place(slice: TemperatureSlice, theme: NativeTheme): TextPlacement[] {
     if (slice.step !== this.step) { this.anchors = []; this.step = slice.step }
     const projection = nativeProjection(slice.grid)
     const fieldSlice = slice.labelSlice ?? { width: slice.grid.width, height: slice.grid.height, fields: [slice.field], weights: [1] }
@@ -44,14 +49,15 @@ export class NativeIsolineLabels {
       }
     }
     this.anchors = live
+    const placements: TextPlacement[] = []
     for (const anchor of live) {
       const [screenX, screenY] = projection.point(anchor.column, anchor.row)
       let angle = Math.atan2(anchor.sample.gy, anchor.sample.gx) * 180 / Math.PI + 90
       if (angle > 90) angle -= 180
       if (angle <= -90) angle += 180
       const label = slice.kind === 'pressure' ? String(anchor.level) : `${anchor.level}°`
-      await this.text.draw(rgb, label, Math.round(screenX / FRAME.scale) * FRAME.scale, Math.round(screenY / FRAME.scale) * FRAME.scale, angle, isolineColor(theme, slice.kind), theme, slice.opacity * ringFadeAt(rings, anchor.level, anchor.column, anchor.row))
+      placements.push({ text: label, screenX: Math.round(screenX / FRAME.scale) * FRAME.scale, screenY: Math.round(screenY / FRAME.scale) * FRAME.scale, angle, color: isolineColor(theme, slice.kind), theme, opacity: slice.opacity * ringFadeAt(rings, anchor.level, anchor.column, anchor.row) })
     }
-    return rgb
+    return placements
   }
 }

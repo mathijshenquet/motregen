@@ -297,9 +297,19 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const stillWindow = window as unknown as {
       __motregenStillMapLoaded: () => boolean
       __motregenRenderFrame: (epoch: number, simulationMs?: number) => Promise<void>
+      __motregenWindImage: () => string
     }
     stillWindow.__motregenStillMapLoaded = () => Boolean(map?.loaded())
     stillWindow.__motregenRenderFrame = renderStillFrame
+    stillWindow.__motregenWindImage = () => {
+      if (!windLayer || !windOverlay) throw new Error('Windlaag ontbreekt')
+      windLayer.setPressureMarks([])
+      windOverlay.drawNow()
+      const image = windOverlay.canvas.toDataURL('image/png')
+      updatePressureMarks()
+      windOverlay.drawNow()
+      return image
+    }
   }
   // Meetpunt voor de kostenmeting (track-LOGs U8b/U8c): repaints, contour-passes, blits, label-rondes.
   ;(window as unknown as { __motregenIsolines: () => object }).__motregenIsolines = () => ({

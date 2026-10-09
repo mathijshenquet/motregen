@@ -597,7 +597,8 @@ export class WindLayer implements CustomLayerInterface {
     const seconds = stepping ? elapsed / 1_000 : 0
     if (stepping) {
       this.previousTime = now
-      this.adjustBudget(elapsed)
+      // The renderer's synthetic clock does not measure device performance.
+      if (this.simulationTime === undefined) this.adjustBudget(elapsed)
       const worldPx = WORLD_TILE_SIZE * 2 ** this.map.getZoom()
       this.advance(seconds, worldPx)
       this.declump(worldPx)

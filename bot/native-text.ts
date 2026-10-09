@@ -2,7 +2,12 @@ import sharp from 'sharp'
 import { FRAME, FRAME_PIXELS } from './config.js'
 import type { NativeTheme } from './native-map.js'
 
-interface Glyph { rgba: Buffer; width: number; height: number }
+export interface TextPlacement { text: string; screenX: number; screenY: number; angle: number; color: string; theme: NativeTheme; opacity: number }
+export interface Glyph { rgba: Buffer; width: number; height: number; centerX?: number; centerY?: number }
+
+export function textPlacementKey(placement: Pick<TextPlacement, 'text' | 'theme' | 'color' | 'angle' | 'screenX' | 'screenY'>): string {
+  return `${placement.theme}:${placement.color}:${placement.text}:${placement.angle.toFixed(4)}:${placement.screenX % 1}:${placement.screenY % 1}`
+}
 
 export class NativeText {
   constructor(private readonly atlas?: Map<string, Glyph>) {}
@@ -27,6 +32,19 @@ export class NativeText {
   }
 
   async draw(rgb: Buffer, text: string, screenX: number, screenY: number, angle: number, color: string, theme: NativeTheme, opacity = 1, scale = 1): Promise<void> {
+    const placed = this.atlas?.get(textPlacementKey({ text, screenX, screenY, angle, color, theme }))
+    if (placed && scale === 1) {
+      const left = Math.round(screenX - placed.centerX!), top = Math.round(screenY - placed.centerY!)
+      for (let row = 0; row < placed.height; row++) for (let column = 0; column < placed.width; column++) {
+        if (left + column < 0 || left + column >= FRAME_PIXELS.width || top + row < 0 || top + row >= FRAME_PIXELS.height) continue
+        const source = (row * placed.width + column) * 4
+        const alpha = placed.rgba[source + 3]! / 255 * opacity
+        if (!alpha) continue
+        const destination = ((top + row) * FRAME_PIXELS.width + left + column) * 3
+        for (let channel = 0; channel < 3; channel++) rgb[destination + channel] = Math.round(rgb[destination + channel]! * (1 - alpha) + placed.rgba[source + channel]! * alpha)
+      }
+      return
+    }
     const glyph = await this.glyph(text, color, theme)
     const cosine = Math.cos(angle * Math.PI / 180), sine = Math.sin(angle * Math.PI / 180)
     const horizontal = (Math.abs(cosine) * glyph.width + Math.abs(sine) * glyph.height) / 2 * scale

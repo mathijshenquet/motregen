@@ -2,7 +2,7 @@ import { drawStroke } from './native-strokes.js'
 import { NativeRainData, type RainFrame } from './native-rain.js'
 import { nativeProjection } from './native-projection.js'
 import { FRAME, FRAME_PIXELS } from './config.js'
-import { WIND_PARAMETERS, WIND_FOCUS_INTENSITY, windColor, windScreenSpeed, weakWindTempo, speedDamping, particleCountForViewport, headAlpha } from '../web/src/core/wind-presentation.js'
+import { WIND_PARAMETERS, WIND_FOCUS_INTENSITY, windColor, windScreenSpeed, weakWindTempo, speedDamping, particleCountForViewport, headAlpha, expectedLifetime } from '../web/src/core/wind-presentation.js'
 import type { StillManifest } from './stills.js'
 import type { NativeTheme, WaterMask } from './native-map.js'
 
@@ -33,7 +33,7 @@ export class NativeWindData {
     if (this.eastwardData.timeline.length !== this.northwardData.timeline.length || this.eastwardData.timeline.some((entry, index) => entry.epoch !== this.northwardData.timeline[index]!.epoch)) throw new Error('Windcomponenten hebben verschillende tijdlijnen')
   }
   async prepare(epochs: readonly number[]): Promise<void> { await Promise.all([this.eastwardData.prefetch(epochs), this.northwardData.prefetch(epochs)]) }
-  async draw(base: Buffer, epoch: number, simulationMs: number, theme: NativeTheme, water: WaterMask): Promise<Buffer> {
+  async draw(base: Buffer, epoch: number, simulationMs: number, theme: NativeTheme, water: WaterMask, coverage?: Uint8Array): Promise<Buffer> {
     const [eastwardData, northwardData] = await Promise.all([this.eastwardData.frame(epoch), this.northwardData.frame(epoch)])
     if (JSON.stringify(eastwardData.grid) !== JSON.stringify(northwardData.grid)) throw new Error('Windcomponenten hebben verschillende roosters')
     const projection = nativeProjection(eastwardData.grid)
@@ -52,8 +52,13 @@ export class NativeWindData {
       const speed = Math.hypot(east, north)
       if (speed < 0.01) continue
       const screenSpeed = windScreenSpeed(speed) * weakWindTempo(speed)
-      const phase = (random() + simulationMs / 1000 / WIND_PARAMETERS.maxAge) % 1
-      const lifeDistance = Math.min(WIND_PARAMETERS.trailDistance, screenSpeed * WIND_PARAMETERS.maxAge)
+      const lifeScale = 0.8 + random() * 0.4
+      const delay = random() * 2
+      const age = simulationMs / 1000 - delay
+      if (age <= 0) continue
+      const duration = expectedLifetime(screenSpeed, { trailDistance: WIND_PARAMETERS.trailDistance * lifeScale, maxAge: WIND_PARAMETERS.maxAge * lifeScale })
+      const phase = (age % duration) / duration
+      const lifeDistance = Math.min(WIND_PARAMETERS.trailDistance * lifeScale, screenSpeed * WIND_PARAMETERS.maxAge * lifeScale)
       const distance = (phase - 0.5) * lifeDistance * FRAME.scale
       const decayLength = screenSpeed / -Math.log(WIND_PARAMETERS.bufferFade) * FRAME.scale
       const travelled = phase * lifeDistance
@@ -61,13 +66,29 @@ export class NativeWindData {
       const directionX = east / speed, directionY = -north / speed
       const headX = screenX + directionX * distance, headY = screenY + directionY * distance
       const color = windColor(speed, theme).map((channel) => Math.round(channel * 255))
-      const life = { age: phase * WIND_PARAMETERS.maxAge, travelled, distance: lifeDistance, remaining: lifeDistance - travelled }
+      const life = { age: phase * duration, travelled, distance: lifeDistance, remaining: lifeDistance - travelled }
       const waterColumn = Math.max(0, Math.min(water.width - 1, Math.floor(headX / FRAME_PIXELS.width * water.width)))
       const waterRow = Math.max(0, Math.min(water.height - 1, Math.floor(headY / FRAME_PIXELS.height * water.height)))
       const waterFactor = 1 - WIND_PARAMETERS.seaPenalty * water.values[waterRow * water.width + waterColumn]! / 255
-      const opacity = waterFactor * headAlpha(life, WIND_PARAMETERS) * WIND_FOCUS_INTENSITY * WIND_PARAMETERS.headIntensity * speedDamping(speed, WIND_PARAMETERS.speedDamping)
+      const opacity = waterFactor * WIND_FOCUS_INTENSITY * WIND_PARAMETERS.headIntensity * speedDamping(speed, WIND_PARAMETERS.speedDamping)
+      const strength = (behind: number) => {
+        const pastTravelled = travelled - behind / FRAME.scale
+        return headAlpha({ ...life, age: pastTravelled / screenSpeed, travelled: pastTravelled, remaining: lifeDistance - pastTravelled }, WIND_PARAMETERS)
+      }
       const tailX = headX - directionX * length, tailY = headY - directionY * length
-      drawStroke(rgb, FRAME_PIXELS, [tailX, tailY], [headX, headY], WIND_PARAMETERS.lineWidth * FRAME.scale, color, opacity, decayLength)
+      drawStroke(rgb, FRAME_PIXELS, [tailX, tailY], [headX, headY], WIND_PARAMETERS.lineWidth * FRAME.scale, color, opacity, decayLength, coverage, strength)
+      if (age >= duration) {
+        const sinceRespawn = age % duration
+        const previousOpacity = opacity * WIND_PARAMETERS.bufferFade ** sinceRespawn
+        const previousLength = Math.min(lifeDistance, 3 * decayLength / FRAME.scale) * FRAME.scale
+        const previousHeadX = screenX + directionX * lifeDistance * FRAME.scale / 2
+        const previousHeadY = screenY + directionY * lifeDistance * FRAME.scale / 2
+        const previousStrength = (behind: number) => {
+          const pastTravelled = lifeDistance - behind / FRAME.scale
+          return headAlpha({ ...life, age: pastTravelled / screenSpeed, travelled: pastTravelled, remaining: lifeDistance - pastTravelled }, WIND_PARAMETERS)
+        }
+        drawStroke(rgb, FRAME_PIXELS, [previousHeadX - directionX * previousLength, previousHeadY - directionY * previousLength], [previousHeadX, previousHeadY], WIND_PARAMETERS.lineWidth * FRAME.scale, color, previousOpacity, decayLength, coverage, previousStrength)
+      }
     }
     return rgb
   }

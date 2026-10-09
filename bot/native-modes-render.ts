@@ -1,7 +1,7 @@
 import { NativePressureMarks } from './native-pressure-marks.js'
 import { frameBlend } from '../web/src/core/time-model.js'
 import { nativeTextAtlas } from './native-text-atlas.js'
-import { NativeText } from './native-text.js'
+import { NativeText, type TextPlacement } from './native-text.js'
 import { writeFile } from 'node:fs/promises'
 import type { BrowserContext } from 'playwright'
 import { MAP_FOCUS_SATURATION } from '../web/src/core/map-presentation.js'
@@ -15,7 +15,7 @@ import { drawTemperatureLabels } from './native-labels.js'
 import { NativeOverlay } from './native-overlay.js'
 import { rainPresentation } from '../web/src/core/rain-presentation.js'
 import { NATIVE_VIEW } from './native-view.js'
-import { NativeTemperatureData } from './native-temperature.js'
+import { NativeTemperatureData, type TemperatureSlice } from './native-temperature.js'
 import { NativeFieldRaster } from './native-field-raster.js'
 import { NativeWindData } from './native-wind.js'
 import { NativeIsolineLabels } from './native-isoline-labels.js'
@@ -36,7 +36,15 @@ export class NativeModesRenderer {
     const firstRain = await rain.frame(Date.parse(manifest.now))
     await Promise.all([temperatures.prefetch(plan.epochs.map(temperatureEpoch)), temperature?.prepare(plan.epochs), wind?.prepare(plan.epochs), ...[...new Set(plan.epochs.map(rainTheme))].map(async (theme) => { await maps.get(theme, firstRain.grid) })])
     await overlay.prepare(manifest)
-    const firstSlice = await temperature.slice(plan.epochs[0]!)
+    const slices: TemperatureSlice[] = []
+    const placements: TextPlacement[][] = []
+    const labelAnchors = new NativeIsolineLabels()
+    for (const epoch of plan.epochs) {
+      const slice = await temperature.slice(epoch)
+      slices.push(slice)
+      placements.push(labelAnchors.place(slice, rainTheme(epoch)))
+    }
+    const firstSlice = slices[0]!
     const raster = new NativeFieldRaster(firstSlice.grid)
     const rainCompositors = new Map<string, RainCompositor>()
     try {
@@ -49,7 +57,7 @@ export class NativeModesRenderer {
       }
     }
     const pressureMarks = wind ? await NativePressureMarks.prepare(this.directory, this.context) : undefined
-    const labels = new NativeIsolineLabels(new NativeText(await nativeTextAtlas(this.origin, this.directory, this.context)))
+    const text = new NativeText(await nativeTextAtlas(this.origin, this.directory, this.context, placements.flat()))
     await raster?.prepare()
     const mutedMaps = new Map<string, Buffer>()
     if (mode === 'feels') {
@@ -72,13 +80,13 @@ export class NativeModesRenderer {
         const plate = await maps.get(theme, firstRain.grid)
         let rgb = mode === 'feels' ? Buffer.from(mutedMaps.get(theme)!) : drawTemperatureLabels(plate.rgb, plate.labels, await temperatures.frame(temperatureEpoch(epoch)))
         if (mode === 'feels') {
-          const slice = index === 0 ? firstSlice! : await temperature.slice(epoch)
+          const slice = slices[index]!
           rgb = await raster!.compose(rgb, slice, theme === 'dark')
-          rgb = await labels.draw(rgb, slice, theme)
+          for (const label of placements[index]!) await text.draw(rgb, label.text, label.screenX, label.screenY, label.angle, label.color, label.theme, label.opacity)
         } else {
-          const slice = index === 0 ? firstSlice : await temperature.slice(epoch)
+          const slice = slices[index]!
           rgb = await raster.compose(rgb, slice, theme === 'dark')
-          rgb = await labels.draw(rgb, slice, theme)
+          for (const label of placements[index]!) await text.draw(rgb, label.text, label.screenX, label.screenY, label.angle, label.color, label.theme, label.opacity)
           rgb = await wind!.draw(rgb, epoch, 1000 + index * 1000 / plan.fps, theme, plate.water)
           const pressureBlend = frameBlend(temperature.data.timeline, epoch)
           await pressureMarks!.draw(rgb, slice.grid, await temperature.field(pressureBlend.left), await temperature.field(pressureBlend.right), pressureBlend.mix, theme, slice.opacity)
