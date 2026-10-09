@@ -224,3 +224,13 @@ Geen blokken of kartels in een van de vier; de overgang van sigma tussen +2 u en
 `MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts --project desktop` 0 (5 groen).
 De eerste e2e-poging gaf exit 1: mijn eigen tijdelijke preview van de oude build hield 4390 nog bezet (geen
 testfout); gestopt en opnieuw gedraaid. Preview 4320 serveert deze build.
+
+## 16:27 — afgesloten: gemerged op main (5d246a5)
+Orkestrator: U72 is op main gemerged als `5d246a5`, na een onafhankelijke gate (typecheck, 538 units, build,
+15 desktop-e2e). Trackbranch stond op `427754b`.
+- Preview 4320 gestopt (vite preview uit deze worktree); geen rigs of tijdelijke previews meer actief, 4390 vrij.
+- Open bij de orkestrator/PO (zie ronde 3): (1) sigma in broncellen of in één grondmaat — de blur verdubbelt nu op
+  de grond rond +6 u; (2) voorfilter-kosten en frametijd van de standaard `auto` (14–22 taps) zijn niet opnieuw
+  gemeten, de PO-telefoon is de toets; (3) een losse buikern over de overgang blend → HARMONIE is niet bekeken;
+  (4) de dev-overrides Kaart › Regenveld vervallen 2026-10-16.
+- Niet gedaan: tijd-blur langs het bewegingsveld (gedegradeerd door de PO, zie ronde 2).
