@@ -1,6 +1,6 @@
 # MIP-27 — /weer <plaats>: het histogram van één plek in de Telegram-bot, zonder browser
 
-Status: draft · 2026-10-09 · auteur: orkestrator (PM) · PO-idee 2026-10-09 ("/weer ams|amsterdam die het
+Status: accepted (PO 2026-10-09 18:20) · 2026-10-09 · auteur: orkestrator (PM) · PO-idee 2026-10-09 ("/weer ams|amsterdam die het
 histogram laat zien… liefst niet met Playwright-onzin")
 
 ## Wat
@@ -35,4 +35,5 @@ Regen + wolken (temperatuur/wind per plaats later). Geen stills/kaartuitsnede pe
 pushmeldingen (MIP-22). Pariteit: dezelfde cijfers als de app op dezelfde plek/tijd, getest met één plaats.
 
 ## Decision
-(open — PO)
+PO 2026-10-09: "ja bouw maar". Track U73; start parallel aan U71a, bouwt op diens gedeelde decode (`track/u71a-native-regenloop`
+mergen zodra die op main staat).
