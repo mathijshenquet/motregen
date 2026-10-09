@@ -461,7 +461,11 @@
   < 120 s; wind 83 s) of terug naar dev-host; (2) MIP-22 (push) nog niet geschreven; (3) PO-blik op prod-stand.
 - **Open voor agents**: og:image:alt "motregen-druppel" in weerok-build; firefox.table.spec deterministisch; U72-blur
   ook in de native bot-regenfilm; U69-opstarttaken (docs/perf.md); eerste installatie van de bot-assets 312 s.
-- Nachtelijke volledige e2e (drie profielen) op main gestart bij afsluiting; uitslag morgen in de LOG.
+- Nachtelijke volledige e2e op main 38853645 (`~/motregen-profiles/nightly-e2e-2026-10-09.txt`): 209 groen, 80 skipped,
+  **5 rood** — isobars.spec ×2 (desktop: wind-focus tekent lijnen / donker thema), telegram.spec "wind loop frames
+  advance only with the fixed simulation clock" (mobile-4g + mobile-fast-3g, toHaveCount), flanders.spec Gent-pin
+  (desktop). Vermoeden: U71b raakte gedeelde wind/isobaar-code (laagvolgorde, 4 hPa-hysterese) en U71d het
+  telegram-framepad; Gent mogelijk flaky. **Eerste actie morgen**: bisect U71b/U71d op deze vier specs.
 - Lessen: tijden alleen uit `date` (memory); codex-pane kan op reasoning low vallen → footer checken (memory);
   jj `new` laat ongecommitte werkkopie als wees achter — eerst committen vóór een merge-`jj new`.
 
