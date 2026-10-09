@@ -246,6 +246,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let firstMapImage = false
   // De splash wacht óók op het eerste kaartbeeld (z4 of echte tegels), niet alleen op de eerste regen (PO 2026-10-09).
   const [firstMapImageShown, setFirstMapImageShown] = createSignal(false)
+  // Komt er geen kaartbeeld (basiskaart geblokkeerd/offline/fixture), dan houdt de splash de regen niet eeuwig
+  // tegen: 2 s na de eerste regentekenbeurt gaat hij hoe dan ook open.
+  createEffect(() => {
+    if (!mapReady() || untrack(firstMapImageShown)) return
+    const release = window.setTimeout(() => setFirstMapImageShown(true), 2_000)
+    onCleanup(() => window.clearTimeout(release))
+  })
   let mapStart: ReturnType<typeof createMapStart>
   const basemapTiles = new Map<string, number>()
   const isolineCounters = (): IsolineCounters => ({
