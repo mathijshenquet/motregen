@@ -81,7 +81,7 @@ try {
       void cdp.send('Page.screencastFrameAck', { sessionId })
       if (metadata.timestamp !== undefined) frames.push({ timestamp: metadata.timestamp * 1_000, data })
     })
-    await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 70, maxWidth: options.viewport.width, maxHeight: options.viewport.height })
+    await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 60, maxWidth: Math.min(960, options.viewport.width), maxHeight: options.viewport.height, everyNthFrame: 4 })
   }
   await page.addInitScript(() => {
     const samples: object[] = []
@@ -101,6 +101,10 @@ try {
   const loadTimer = setInterval(() => loads.push({ ms: loads.length * 1_000, load: hostLoadAverage() }), 1_000)
   try {
     await page.goto(`${origin}/weer/utrecht?perf=1`, { waitUntil: 'commit' })
+    if (filmstrip) {
+      await page.waitForLoadState('domcontentloaded')
+      await page.addStyleTag({ content: '.perf-hud { display: none !important; }' })
+    }
     await page.waitForFunction(() => performance.now() >= 12_000)
     if (filmstrip) await cdp.send('Page.stopScreencast')
     const captured = await page.evaluate(() => ({ timeOrigin: performance.timeOrigin, manifestGenerated: document.querySelector<HTMLElement>('.app-shell')?.dataset.generated, snapshot: window.__motregenPerf!.snapshot(), entries: window.__motregenPerf!.traceSlice(0, 12_000), loads: window.__motregenPerf!.loads.snapshot(), samples: (window as unknown as { playSyncSamples: object[] }).playSyncSamples, resources: performance.getEntriesByType('resource').map((entry) => entry.toJSON()), serviceWorkerControlled: Boolean(navigator.serviceWorker.controller) }))

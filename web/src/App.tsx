@@ -860,7 +860,22 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     onCleanup(() => tableViewMedia.removeEventListener('change', tableViewChanged))
     mapStart = createMapStart()
     maplibregl.prewarm()
-    void loadBasemapStyle(mapTheme()).catch(() => undefined)
+    let initialData: Manifest | undefined
+    let eagerHeadersAllowed = false
+    let eagerHeadersStarted = false
+    const startEagerHeaders = () => {
+      if (!eagerHeadersAllowed || !initialData || eagerHeadersStarted) return
+      eagerHeadersStarted = true
+      void Promise.all(initialData.chunks.filter(eagerHeader).map((chunk) => client.getHeader(chunk))).catch(() => undefined)
+    }
+    void loadBasemapStyle(mapTheme()).then((style) => {
+      const source = style.sources.basemap
+      // Stijlen zonder onze PMTiles-bron hebben geen kaartheader om voorrang te geven.
+      if (source?.type !== 'vector' || !source.url?.startsWith('pmtiles://')) {
+        eagerHeadersAllowed = true
+        startEagerHeaders()
+      }
+    }).catch(() => undefined)
     try {
       const data = await (initialManifest ?? fetchManifest())
       perf.setManifestGenerated(data.generated)
@@ -879,6 +894,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         for (const frame of frames.slice(firstIndex, firstIndex + 2)) void load(frame).catch(() => undefined)
       }
       setManifest(data)
+      initialData = data
+      startEagerHeaders()
       if (!stillMode) stopManifestRefresh = scheduleManifestRefresh(refreshManifest, {
         setTimeout: (callback, delay) => window.setTimeout(callback, delay),
         clearTimeout: (handle) => window.clearTimeout(handle),
@@ -957,7 +974,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           if (!basemapTileSeen) {
             perf.markFirstBasemapTile()
             // De kaartheader en eerste tegels gaan vóór de ongebruikte HARMONIE-headers.
-            void Promise.all(data.chunks.filter(eagerHeader).map((chunk) => client.getHeader(chunk))).catch(() => undefined)
+            eagerHeadersAllowed = true
+            startEagerHeaders()
           }
           basemapTileSeen = true
           replaceMapStartWhenComplete()
@@ -982,7 +1000,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       // Tegels en WebGL kunnen opwarmen terwijl de header voor de regenlaag nog onderweg is.
       const header = await firstHeader
       await firstStyleReady
-      if (!map.getSource('basemap')) void Promise.all(data.chunks.filter(eagerHeader).map((chunk) => client.getHeader(chunk))).catch(() => undefined)
       map.on('style.load', () => attachMapLayers(header.grid))
       attachMapLayers(header.grid)
       if (mapTheme() !== appliedMapTheme) void applyMapTheme(mapTheme())
@@ -1424,6 +1441,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (request !== shownFrameRequest || !layer || !map) return
     layer.setFrames(left, right, blend.mix, motion, (rightFrame.epoch - leftFrame.epoch) / 60_000)
     const afterRainDraw = (callback: () => void) => rainOverlay ? rainOverlay.once(callback) : map!.once('render', callback)
+    afterRainDraw(() => {
+      if (perfPhasesEnabled()) mapElement.dataset.rainEpoch = String(epoch)
+      const firstPlayback = perf.markRainFrameCommitted({ frameEpoch: leftFrame.epoch, playing: playing() })
+      if (firstPlayback || !playing()) schedulePlaces()
+    })
     if (!mapReady() && !rainReadyPending) {
       const renderedMap = map
       rainReadyPending = true
@@ -1444,11 +1466,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         }
       })
     }
-    afterRainDraw(() => {
-      if (perfPhasesEnabled()) mapElement.dataset.rainEpoch = String(epoch)
-      const firstPlayback = perf.markRainFrameCommitted({ frameEpoch: leftFrame.epoch, playing: playing() })
-      if (firstPlayback || !playing()) schedulePlaces()
-    })
     if (!rainOverlay) map.triggerRepaint()
     // De eerste locatiereeks haalt dezelfde chunks direct in bulk op. Losse,
     // overlappende Range-prefetches maken Chromiums sparse HTTP-cache instabiel.
