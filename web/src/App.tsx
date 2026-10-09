@@ -44,6 +44,7 @@ import { clampPlaybackCursor, playbackReach } from './core/playback-gate'
 import { measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer } from './core/perf'
 import type { ProfileRecording } from './core/profile-recorder'
 import { RainLayer } from './core/rain-layer'
+import { DEFAULT_RAIN_FIELD_TUNING, loadRainFieldTuning, RAIN_FIELD_STORAGE_KEYS, rainSampling, rainTimeBlend, type RainFieldTuning } from './core/rain-smoothing'
 import { LayerOverlay } from './core/overlay-canvas'
 import { grantedStartFix, loadLastLocation, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastLocation, storeLastSavedPlaceId, storeMapView, type StartLocation } from './core/location-memory'
 import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGestures } from './core/pin-navigation'
@@ -485,6 +486,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // Dag of nacht van de koppenrij: de vangnetstrook boven het open tabelpaneel voert dezelfde kleur.
   const [tableHeadSky, setTableHeadSky] = createSignal<HourSky>()
   let lastViewportHeight = window.visualViewport?.height ?? window.innerHeight
+  const [rainFieldTuning, setRainFieldTuning] = createSignal(devMode ? loadRainFieldTuning() : DEFAULT_RAIN_FIELD_TUNING)
   const [viewportDiagnose, setViewportDiagnose] = createSignal(devMode && localStorage.getItem(VIEWPORT_DIAGNOSE_STORAGE_KEY) === 'aan')
   function applyTableScrollOpen(open: boolean): void {
     if (tableScrollOpen() === open) return
@@ -1520,6 +1522,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
   function drawRainFrame(pair: RainPair, blend: ReturnType<typeof frameBlend>, epoch: number, request: number, committed?: (current: boolean) => void, immediate = false): void {
     if (!layer || !map) return
+    applyRainFieldTuning(pair)
     layer.setFrames(pair.left, pair.right, blend.mix, pair.motion, (pair.rightFrame.epoch - pair.leftFrame.epoch) / 60_000)
     uploadedRainFrame = { epoch, blend, frameEpoch: pair.leftFrame.epoch, request }
     const afterRainDraw = (callback: () => void) => rainOverlay ? rainOverlay.once(callback) : map!.once('render', callback)
@@ -1561,6 +1564,28 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
     if (!rainOverlay) map.triggerRepaint()
     else if (immediate) rainOverlay.drawNow()
+  }
+
+  function applyRainFieldTuning(pair: RainPair): void {
+    if (!devMode || !layer) return
+    const tuning = untrack(rainFieldTuning)
+    const leftSource = pair.leftFrame.source, rightSource = pair.rightFrame.source
+    layer.setSampling(rainSampling(leftSource, tuning), rainSampling(rightSource, tuning))
+    layer.setTimeBlend(rainTimeBlend(leftSource, rightSource, tuning))
+    mapElement.dataset.rainSources = `${leftSource} ${rightSource}`
+  }
+
+  function changeRainFieldTuning(patch: Partial<RainFieldTuning>): void {
+    for (const [name, value] of Object.entries(patch)) localStorage.setItem(RAIN_FIELD_STORAGE_KEYS[name as keyof RainFieldTuning], value)
+    showRainFieldTuning({ ...rainFieldTuning(), ...patch })
+  }
+
+  function showRainFieldTuning(tuning: RainFieldTuning): void {
+    setRainFieldTuning(tuning)
+    if (!rainPair) return
+    applyRainFieldTuning(rainPair)
+    if (rainOverlay) rainOverlay.triggerRepaint()
+    else map?.triggerRepaint()
   }
 
   async function loadPairMotion(left: TimelineFrame, right: TimelineFrame): Promise<MotionField | undefined> {
@@ -2862,6 +2887,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setIsolineTuning({ ...DEFAULT_ISOLINE_TUNING })
       setFirstRainLate(false)
       setViewportDiagnose(false)
+      showRainFieldTuning(DEFAULT_RAIN_FIELD_TUNING)
       focusMode.pin(DEFAULT_FOCUS_MODE)
       setFocusPinned(DEFAULT_FOCUS_MODE)
     })
@@ -3453,6 +3479,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             onFirstRainLate={(late) => { setFirstRainLate(late); localStorage.setItem(FIRST_RAIN_STORAGE_KEY, late ? 'laat' : 'vroeg') }}
             windTuning={windTuning()}
             onWindTuning={tuneWind}
+            rainFieldTuning={rainFieldTuning()}
+            onRainFieldTuning={changeRainFieldTuning}
             viewportDiagnose={viewportDiagnose()}
             onViewportDiagnose={(enabled) => { setViewportDiagnose(enabled); localStorage.setItem(VIEWPORT_DIAGNOSE_STORAGE_KEY, enabled ? 'aan' : 'uit') }}
             perfVisible={perfVisible()}

@@ -2,6 +2,7 @@ import { createSignal, For, type JSX } from 'solid-js'
 import { copyText } from '../core/clipboard'
 import { appendSkyDiaryEntry, SKY_DIARY_CLASSES, skyDiaryJson, type SkyDiaryClass } from '../core/dev-settings'
 import { ISOLINE_FADES, ISOLINE_FILL_STYLES, ISOLINE_STEPS, type IsolineFade, type IsolineFillStyle, type IsolineStep, type IsolineTuning } from '../core/isolines'
+import { RAIN_SMOOTHINGS, RAIN_TIME_BLENDS, type RainFieldTuning, type RainSmoothing, type RainTimeBlendChoice } from '../core/rain-smoothing'
 import { sanitizeWindTuning, WIND_TUNING_CONTROLS, type WindTuning } from '../core/wind-layer'
 
 // Alleen via ?dev; hooguit 3–4 knoppen per groep (PO 2026-09-25). Elke knop staat in
@@ -13,6 +14,8 @@ interface Props {
   onFirstRainLate: (late: boolean) => void
   windTuning: WindTuning
   onWindTuning: (tuning: WindTuning) => void
+  rainFieldTuning: RainFieldTuning
+  onRainFieldTuning: (patch: Partial<RainFieldTuning>) => void
   viewportDiagnose: boolean
   onViewportDiagnose: (enabled: boolean) => void
   perfVisible: boolean
@@ -33,6 +36,8 @@ const WIND_HINTS: Record<keyof WindTuning, string> = {
   lineWidth: 'Dikte van de windstreepjes.',
   speed: 'Hoe snel de windstreepjes bewegen.',
 }
+
+const RAIN_SMOOTHING_HINT = 'Blokken: elke rastercel hard. Bilineair: nu. Bronlineair, glad en blur wegen de cellen van de bron zelf: lineair, bicubisch (scherp) of als vervaging over 3×3 of 5×5 broncellen.'
 
 export default function DevPanel(props: Props) {
   const [windCopied, setWindCopied] = createSignal(false)
@@ -97,6 +102,23 @@ export default function DevPanel(props: Props) {
         </Control>
       }</For>
       <Action label={windCopied() ? 'Gekopieerd' : 'Kopieer wind als JSON'} hint="Zet de vier windwaarden op het klembord, om terug te sturen." onClick={() => void copyWind()} />
+    </Group>
+    <Group title="Kaart">
+      <Control label="Regenveld radar/nowcast" output={props.rainFieldTuning.radar} hint={`Hoe radar, nowcast en blend tussen de cellen worden ingevuld. ${RAIN_SMOOTHING_HINT}`}>
+        <select value={props.rainFieldTuning.radar} onChange={(event) => props.onRainFieldTuning({ radar: event.currentTarget.value as RainSmoothing })}>
+          <For each={RAIN_SMOOTHINGS}>{(smoothing) => <option value={smoothing}>{smoothing}</option>}</For>
+        </select>
+      </Control>
+      <Control label="Regenveld HARMONIE" output={props.rainFieldTuning.harmonie} hint={`Hoe het weermodel (vanaf ruim 6 uur vooruit) tussen de cellen wordt ingevuld. ${RAIN_SMOOTHING_HINT}`}>
+        <select value={props.rainFieldTuning.harmonie} onChange={(event) => props.onRainFieldTuning({ harmonie: event.currentTarget.value as RainSmoothing })}>
+          <For each={RAIN_SMOOTHINGS}>{(smoothing) => <option value={smoothing}>{smoothing}</option>}</For>
+        </select>
+      </Control>
+      <Control label="Tijdmenging HARMONIE" output={props.rainFieldTuning.harmonieTime} hint="Tussen twee uurframes van het weermodel. Kruisfade: het ene beeld vervaagt in het andere (nu). Vloeiend: dezelfde fade met een S-curve. Meebewegen: de buien schuiven mee met het bewegingsveld.">
+        <select value={props.rainFieldTuning.harmonieTime} onChange={(event) => props.onRainFieldTuning({ harmonieTime: event.currentTarget.value as RainTimeBlendChoice })}>
+          <For each={RAIN_TIME_BLENDS}>{(blend) => <option value={blend}>{blend}</option>}</For>
+        </select>
+      </Control>
     </Group>
     <Group title="Laden">
       <Control label="Eerste regen" output={props.firstRainLate ? 'laat' : 'vroeg'} hint="Vroeg: het regenframe op de cursor en het volgende gaan direct na het manifest de lijn op. Laat: pas na de kaart-opzet, zoals voorheen. Herlaad met ?perf=1 om ttfp te vergelijken.">

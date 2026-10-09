@@ -11,6 +11,30 @@ export const WARP_CAP_CELLS = 15
 export const WARP_FADE_END_CELLS = 30
 export const FLOW_BLEND_CURVE = 1
 
+/**
+ * Hoe een frame tussen de cellen wordt ingevuld. `bilinear` is het product; de rest is de U72-proef.
+ * De `source-`kernen wegen broncellen (de blokken die de dichtste-buur-regrid van de ingest achterlaat)
+ * in plaats van rastercellen, zodat dezelfde stand op het grove HARMONIE-raster evenveel gladstrijkt.
+ */
+export type RainKernel = 'nearest' | 'bilinear' | 'source-linear' | 'source-cubic' | 'source-blur-3' | 'source-blur-5'
+
+export interface RainSampling {
+  kernel: RainKernel
+  /** Breedte van één broncel in rastercellen; alleen de `source-`kernen gebruiken hem. */
+  sourceCellWidth: number
+}
+
+export interface RainTimeBlend {
+  /** De menging tussen twee frames loopt met een S-curve in plaats van lineair. */
+  eased: boolean
+  warpCapCells: number
+  warpFadeEndCells: number
+}
+
+const KERNEL_IDS: Record<RainKernel, number> = { 'nearest': 0, 'bilinear': 1, 'source-linear': 2, 'source-cubic': 3, 'source-blur-3': 4, 'source-blur-5': 5 }
+const DEFAULT_SAMPLING: RainSampling = { kernel: 'bilinear', sourceCellWidth: 1 }
+const DEFAULT_TIME_BLEND: RainTimeBlend = { eased: false, warpCapCells: WARP_CAP_CELLS, warpFadeEndCells: WARP_FADE_END_CELLS }
+
 const vertexSource = `#version 300 es
 in vec2 a_pos;
 in vec2 a_uv;
@@ -35,15 +59,26 @@ uniform float u_brightness;
 uniform float u_has_motion;
 uniform float u_interval_minutes;
 uniform vec2 u_grid_size;
+uniform int u_left_kernel;
+uniform int u_right_kernel;
+uniform float u_left_source_cell;
+uniform float u_right_source_cell;
+uniform float u_blend_eased;
+uniform float u_warp_cap_cells;
+uniform float u_warp_fade_end_cells;
 in vec2 v_uv;
 out vec4 color;
 
-const float WARP_CAP_CELLS = ${WARP_CAP_CELLS.toFixed(1)};
-const float WARP_FADE_END_CELLS = ${WARP_FADE_END_CELLS.toFixed(1)};
+const int KERNEL_NEAREST = ${KERNEL_IDS['nearest']};
+const int KERNEL_BILINEAR = ${KERNEL_IDS['bilinear']};
+const int KERNEL_SOURCE_LINEAR = ${KERNEL_IDS['source-linear']};
+const int KERNEL_SOURCE_CUBIC = ${KERNEL_IDS['source-cubic']};
+const int KERNEL_SOURCE_BLUR_3 = ${KERNEL_IDS['source-blur-3']};
 const float FLOW_BLEND_CURVE = ${FLOW_BLEND_CURVE.toFixed(1)};
 
 float blendWeight(float value) {
   float clamped = clamp(value, 0.0, 1.0);
+  clamped = mix(clamped, smoothstep(0.0, 1.0, clamped), u_blend_eased);
   float left = pow(1.0 - clamped, FLOW_BLEND_CURVE);
   float right = pow(clamped, FLOW_BLEND_CURVE);
   return right / max(left + right, 0.0001);
@@ -69,18 +104,83 @@ vec2 rainSample(sampler2D frame, vec2 uv) {
   return vec2(value, (inside ? 1.0 : 0.0) * valid);
 }
 
+vec2 nearestSample(sampler2D frame, vec2 uv) {
+  bool inside = all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)));
+  ivec2 cell = clamp(ivec2(floor(uv * u_grid_size)), ivec2(0), ivec2(u_grid_size) - 1);
+  float value = texelFetch(frame, cell, 0).r;
+  return vec2(value, (inside ? 1.0 : 0.0) * (1.0 - step(0.999, value)));
+}
+
+int kernelTaps(int kernel) {
+  if (kernel == KERNEL_SOURCE_LINEAR) return 2;
+  if (kernel == KERNEL_SOURCE_CUBIC) return 4;
+  return kernel == KERNEL_SOURCE_BLUR_3 ? 3 : 5;
+}
+
+float kernelWeight(int kernel, float signedDistance) {
+  float distance = abs(signedDistance);
+  if (kernel == KERNEL_SOURCE_LINEAR) return max(0.0, 1.0 - distance);
+  if (kernel == KERNEL_SOURCE_CUBIC) {
+    // Catmull-Rom: gaat door de bronwaarden zelf, dus maakt glad zonder te vervagen.
+    if (distance < 1.0) return 1.5 * distance * distance * distance - 2.5 * distance * distance + 1.0;
+    if (distance < 2.0) return -0.5 * distance * distance * distance + 2.5 * distance * distance - 4.0 * distance + 2.0;
+    return 0.0;
+  }
+  // Klokvorm die op de rand van het venster nul is: een tap die erbij komt of wegvalt geeft dan geen sprong.
+  float radius = float(kernelTaps(kernel)) * 0.5;
+  float falloff = max(0.0, 1.0 - (distance * distance) / (radius * radius));
+  return falloff * falloff;
+}
+
+// Weegt broncellen in plaats van rastercellen. De knopen liggen op een rooster met de maat van één broncel
+// en lezen elk één rastercel: binnen een roostervak liggen ze vast, dus dichtste-buur volstaat en de stand
+// "bronlineair" kost evenveel texels als het bilineaire product.
+vec2 sourceSample(sampler2D frame, vec2 uv, int kernel, float sourceCell) {
+  bool inside = all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)));
+  int taps = kernelTaps(kernel);
+  bool evenTaps = taps % 2 == 0;
+  vec2 position = uv * u_grid_size / sourceCell - 0.5;
+  vec2 anchor = evenTaps ? floor(position) : floor(position + 0.5);
+  int firstOffset = evenTaps ? 1 - taps / 2 : -(taps - 1) / 2;
+  float weightedValue = 0.0;
+  float validWeight = 0.0;
+  float totalWeight = 0.0;
+  for (int row = 0; row < taps; row++) {
+    for (int column = 0; column < taps; column++) {
+      vec2 node = anchor + vec2(float(firstOffset + column), float(firstOffset + row));
+      float tapWeight = kernelWeight(kernel, node.x - position.x) * kernelWeight(kernel, node.y - position.y);
+      ivec2 cell = clamp(ivec2(floor((node + 0.5) * sourceCell)), ivec2(0), ivec2(u_grid_size) - 1);
+      float tapValue = texelFetch(frame, cell, 0).r;
+      float tapValid = 1.0 - step(0.999, tapValue);
+      weightedValue += tapWeight * tapValue * tapValid;
+      validWeight += tapWeight * tapValid;
+      totalWeight += tapWeight;
+    }
+  }
+  // De kubische kern schiet bij een scherpe rand door; onder nul en boven de hoogste geldige byte bestaat niet.
+  float value = clamp(weightedValue / max(validWeight, 0.0001), 0.0, 254.0 / 255.0);
+  float valid = step(0.5, validWeight / max(totalWeight, 0.0001));
+  return vec2(value, (inside ? 1.0 : 0.0) * valid);
+}
+
+vec2 kernelSample(sampler2D frame, vec2 uv, int kernel, float sourceCell) {
+  if (kernel == KERNEL_BILINEAR) return rainSample(frame, uv);
+  if (kernel == KERNEL_NEAREST) return nearestSample(frame, uv);
+  return sourceSample(frame, uv, kernel, sourceCell);
+}
+
 void main() {
   float weight = blendWeight(u_mix);
   vec2 velocity = (texture(u_motion, v_uv).rg * 255.0 - 128.0) * 0.1;
   float motionValid = step(0.999, texture(u_motion_mask, v_uv).r) * u_has_motion;
   float totalDisplacement = length(velocity) * u_interval_minutes;
-  float capScale = min(1.0, WARP_CAP_CELLS / max(totalDisplacement, 0.0001));
-  float crossfadeFallback = 1.0 - smoothstep(WARP_CAP_CELLS, WARP_FADE_END_CELLS, totalDisplacement);
+  float capScale = min(1.0, u_warp_cap_cells / max(totalDisplacement, 0.0001));
+  float crossfadeFallback = 1.0 - smoothstep(u_warp_cap_cells, u_warp_fade_end_cells, totalDisplacement);
   vec2 intervalUv = velocity * u_interval_minutes / u_grid_size;
   vec2 leftUv = v_uv - intervalUv * weight * capScale * crossfadeFallback * motionValid;
   vec2 rightUv = v_uv + intervalUv * (1.0 - weight) * capScale * crossfadeFallback * motionValid;
-  vec2 left = rainSample(u_left, leftUv);
-  vec2 right = rainSample(u_right, rightUv);
+  vec2 left = kernelSample(u_left, leftUv, u_left_kernel, u_left_source_cell);
+  vec2 right = kernelSample(u_right, rightUv, u_right_kernel, u_right_source_cell);
   float value = mix(left.r * left.g, right.r * right.g, weight);
   color = texture(u_lut, vec2(value, 0.5));
   // Toon (U62): rustiger maken zonder te verbleken. Minder verzadiging houdt de helderheid van de
@@ -115,6 +215,9 @@ export class RainLayer implements CustomLayerInterface {
   private brightness = 1
   private hasMotion = false
   private intervalMinutes = 0
+  private leftSampling = DEFAULT_SAMPLING
+  private rightSampling = DEFAULT_SAMPLING
+  private timeBlend = DEFAULT_TIME_BLEND
 
   constructor(private readonly grid: Grid) {}
 
@@ -171,6 +274,16 @@ export class RainLayer implements CustomLayerInterface {
     this.intervalMinutes = intervalMinutes
   }
 
+  /** Per frame, want een paar op de naad tussen twee bronnen heeft twee bronrasters. */
+  setSampling(left: RainSampling, right: RainSampling): void {
+    this.leftSampling = left
+    this.rightSampling = right
+  }
+
+  setTimeBlend(timeBlend: RainTimeBlend): void {
+    this.timeBlend = timeBlend
+  }
+
   setOpacity(opacity: number): void {
     this.opacity = opacity
   }
@@ -200,6 +313,13 @@ export class RainLayer implements CustomLayerInterface {
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_has_motion'), this.hasMotion ? 1 : 0)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_interval_minutes'), this.intervalMinutes)
     gl.uniform2f(gl.getUniformLocation(this.program, 'u_grid_size'), this.grid.width, this.grid.height)
+    gl.uniform1i(gl.getUniformLocation(this.program, 'u_left_kernel'), KERNEL_IDS[this.leftSampling.kernel])
+    gl.uniform1i(gl.getUniformLocation(this.program, 'u_right_kernel'), KERNEL_IDS[this.rightSampling.kernel])
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_left_source_cell'), this.leftSampling.sourceCellWidth)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_right_source_cell'), this.rightSampling.sourceCellWidth)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_blend_eased'), this.timeBlend.eased ? 1 : 0)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_warp_cap_cells'), this.timeBlend.warpCapCells)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_warp_fade_end_cells'), this.timeBlend.warpFadeEndCells)
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.left!); gl.uniform1i(gl.getUniformLocation(this.program, 'u_left'), 0)
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.right!); gl.uniform1i(gl.getUniformLocation(this.program, 'u_right'), 1)
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, this.lut!); gl.uniform1i(gl.getUniformLocation(this.program, 'u_lut'), 2)
