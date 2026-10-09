@@ -33,6 +33,8 @@ const rounded = (value: number | null | undefined) => value == null ? null : Mat
 const compact = readdirSync(directory).filter((name) => name.endsWith('.json')).map((name) => {
   const capture = JSON.parse(readFileSync(join(directory, name), 'utf8')) as Capture
   const afterPlay = capture.entries.longFrames.filter((frame) => frame.startTime >= (capture.snapshot.ttfpMs ?? Infinity) && frame.startTime + frame.duration <= 12_000)
+  const playStart = capture.snapshot.firstCursorMs ?? Infinity
+  const firstFiveSeconds = capture.entries.longFrames.filter((frame) => frame.startTime + frame.duration > playStart && frame.startTime < playStart + 5_000)
   const header = capture.resources.find((entry) => entry.name.endsWith('.pmtiles'))
   const weatherHeaders = capture.loads.requests.filter((request) => request.layer === 'header' && !/\/(?:rtcor|nowcast|seamless|uv|uv_clear)-/.test(request.url))
   const queue = header && header.requestStart > 0 ? header.requestStart - header.startTime : null
@@ -74,6 +76,7 @@ const compact = readdirSync(directory).filter((name) => name.endsWith('.json')).
     decodes: capture.loads.frames.filter((frame) => frame.decodedMs !== undefined).length,
     resourceTransferBytes: capture.resources.reduce((sum, entry) => sum + entry.transferSize, 0),
     afterPlay: { count: afterPlay.length, over250: afterPlay.filter((frame) => frame.duration > 250).length, maxMs: rounded(Math.max(0, ...afterPlay.map((frame) => frame.duration))), totalMs: rounded(afterPlay.reduce((sum, frame) => sum + frame.duration, 0)) },
+    firstFiveSeconds: { startMs: rounded(playStart), endMs: rounded(playStart + 5_000), over100: firstFiveSeconds.filter(frame => frame.duration > 100).length, maxMs: rounded(Math.max(0, ...firstFiveSeconds.map(frame => frame.duration))), frames: firstFiveSeconds.map(frame => ({ startMs: rounded(frame.startTime), durationMs: rounded(frame.duration), blockingMs: rounded(frame.blockingDuration), scripts: frame.scripts })) },
   }
 })
 const rows = ['| transport / profiel / cache | A→B klokstart ms | A→B framewissel ms | A→B style.load ms | A→B eerste tegel ms | A→B volledige kaart ms | mediane Δ klok / framewissel |', '| --- | ---: | ---: | ---: | ---: | ---: | ---: |']

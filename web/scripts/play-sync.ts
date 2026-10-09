@@ -121,7 +121,7 @@ try {
       writeFileSync(`${output}.cpuprofile`, JSON.stringify(cpu))
     }
     if (filmstrip) await cdp.send('Page.stopScreencast')
-    const captured = await page.evaluate(() => ({ timeOrigin: performance.timeOrigin, manifestGenerated: document.querySelector<HTMLElement>('.app-shell')?.dataset.generated, snapshot: window.__motregenPerf!.snapshot(), entries: window.__motregenPerf!.traceSlice(0, 12_000), loads: window.__motregenPerf!.loads.snapshot(), samples: (window as unknown as { playSyncSamples: object[] }).playSyncSamples, resources: performance.getEntriesByType('resource').map((entry) => entry.toJSON()), serviceWorkerControlled: Boolean(navigator.serviceWorker.controller) }))
+    const captured = await page.evaluate(() => ({ timeOrigin: performance.timeOrigin, manifestGenerated: document.querySelector<HTMLElement>('.app-shell')?.dataset.generated, snapshot: window.__motregenPerf!.snapshot(), entries: window.__motregenPerf!.traceSlice(0, 12_000), loads: window.__motregenPerf!.loads.snapshot(), samples: (window as unknown as { playSyncSamples: object[] }).playSyncSamples, resources: performance.getEntriesByType('resource').map((entry) => entry.toJSON()), serviceWorkerControlled: Boolean(navigator.serviceWorker.controller), graphics: Array.from(document.querySelectorAll<HTMLCanvasElement>('canvas.map-overlay, canvas.maplibregl-canvas')).map(canvas => ({ canvas: canvas.className, parallelShaderCompile: Boolean(canvas.getContext('webgl2')?.getExtension('KHR_parallel_shader_compile')) })) }))
     const shots = filmstrip ? Array.from({ length: 24 }, (_, index) => {
       const targetMs = index * 250
       const frame = frames.filter((frame) => frame.timestamp - captured.timeOrigin <= targetMs).at(-1)
