@@ -77,6 +77,7 @@ const compact = readdirSync(directory).filter((name) => name.endsWith('.json')).
   }
 })
 const rows = ['| transport / profiel / cache | A→B klokstart ms | A→B framewissel ms | A→B style.load ms | A→B eerste tegel ms | A→B volledige kaart ms | mediane Δ klok / framewissel |', '| --- | ---: | ---: | ---: | ---: | ---: | ---: |']
+const syncRows = ['| transport / profiel / cache | A→B eerste bewegende regen ms | A→B klok→regen ms | A→B maximale frameachterstand | A→B langste LoAF na TTFP ms |', '| --- | ---: | ---: | ---: | ---: |']
 const pairs: object[] = []
 for (const transport of ['h1', 'h2']) for (const profile of ['desktop', 'po-android']) for (const cache of ['cold', 'warm']) {
   const paired = [1, 2, 3].flatMap((index) => {
@@ -90,11 +91,23 @@ for (const transport of ['h1', 'h2']) for (const profile of ['desktop', 'po-andr
   const delta = (key: string) => median(paired.map((pair) => (pair.candidate.milestones[key] as number) - (pair.reference.milestones[key] as number)))
   const shown = (key: string) => `${rounded(milestone('reference', key))}→${rounded(milestone('candidate', key))}`
   rows.push(`| ${transport} / ${profile} / ${cache} (${paired.length}/3) | ${shown('ttfrMs')} | ${shown('ttfpMs')} | ${shown('styleReadyMs')} | ${shown('firstBasemapTileMs')} | ${shown('basemapReadyMs')} | ${rounded(delta('ttfrMs'))} / ${rounded(delta('ttfpMs'))} ms |`)
+  const comparison = (read: (run: typeof paired[number]['reference']) => number | null) => {
+    const value = (side: 'reference' | 'candidate') => rounded(median(paired.flatMap((pair) => {
+      const observed = read(pair[side])
+      return observed === null ? [] : [observed]
+    })))
+    return `${value('reference')}→${value('candidate')}`
+  }
+  syncRows.push(`| ${transport} / ${profile} / ${cache} (${paired.length}/3) | ${shown('firstRainMotionMs')} | ${comparison((run) => run.clockToRainMotionMs)} | ${comparison((run) => run.cursorRainGap.maxFrames)} | ${comparison((run) => run.afterPlay.maxMs)} |`)
   pairs.push({ transport, profile, cache, paired })
 }
 writeFileSync(`${output}.json`, JSON.stringify({ captures: compact, pairs }, null, 2))
 const fixture = compact.some((capture) => capture.fixture)
-writeFileSync(`${output}.md`, `${rows.join('\n')}\n\nAlle tijden uit gelijke instrumentatie. HTTP1.1: Vite-preview met ${fixture ? 'GRID6-fixture' : 'productiegegevens en vastgezet manifest'}; HTTP2: lokale TLS-reviewproxy op https://motregen.nl, frontend A/B lokaal en weerdata van prod met vastgezet manifest. Geen deploy. Warm = nieuw browserproces met gevulde HTTP- en SW-diskcache. Resource-transferbytes zijn observaties, geen wire-budgetclaim.\n`)
+const transports = [
+  ...(compact.some((capture) => capture.name.startsWith('h1-')) ? [`HTTP1.1: Vite-preview met ${fixture ? 'GRID6-fixture' : 'productiegegevens en vastgezet manifest'}.`] : []),
+  ...(compact.some((capture) => capture.name.startsWith('h2-')) ? ['HTTP2: lokale TLS-reviewproxy op https://motregen.nl, frontend A/B lokaal en weerdata van prod met vastgezet manifest.'] : []),
+]
+writeFileSync(`${output}.md`, `${rows.join('\n')}\n\n${syncRows.join('\n')}\n\nAlle tijden uit gelijke instrumentatie. ${transports.join(' ')} Geen deploy. ${compact.some((capture) => capture.warm) ? 'Warm = nieuw browserproces met gevulde HTTP- en SW-diskcache. ' : ''}Resource-transferbytes zijn observaties, geen wire-budgetclaim.\n`)
 for (const name of readdirSync(directory).filter((name) => name.endsWith('.json'))) {
   const capture = JSON.parse(readFileSync(join(directory, name), 'utf8')) as Capture
   const resources = capture.resources.filter((entry) => entry.startTime < 6_000).sort((left, right) => left.startTime - right.startTime)
@@ -111,3 +124,4 @@ for (const name of readdirSync(directory).filter((name) => name.endsWith('.json'
   writeFileSync(join(directory, name.replace('.json', '.svg')), `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${resources.length * 18 + 65}" font-family="sans-serif"><rect width="100%" height="100%" fill="white"/><text x="8" y="20">${escape(name)}</text>${ticks.join('')}${bars.join('')}</svg>`)
 }
 console.log(rows.join('\n'))
+console.log(syncRows.join('\n'))

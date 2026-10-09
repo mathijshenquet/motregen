@@ -1,0 +1,1358 @@
+{
+  "captures": [
+    {
+      "name": "h1-desktop-cold-candidate-1",
+      "origin": "http://127.0.0.1:4351",
+      "profile": "desktop",
+      "warm": false,
+      "fixture": false,
+      "screenshotOverhead": false,
+      "cpuProfile": false,
+      "manifestGenerated": "2026-10-09T10:50:48Z",
+      "capturedAt": "2026-10-09T11:31:21.621Z",
+      "fixedClock": "2026-10-09T10:50:48Z",
+      "startLoad": 10.02,
+      "meanLoad": 9.7,
+      "milestones": {
+        "ttfrMs": 830.9,
+        "ttfpMs": 831.3,
+        "styleReadyMs": 142.2,
+        "firstRainMs": 784.9,
+        "firstCursorMs": 830.9,
+        "firstBasemapTileMs": 663.4,
+        "basemapReadyMs": 784.6,
+        "mapRevealedMs": 1825.4,
+        "ttfhMs": 2259.4,
+        "firstMapImageMs": 784.5,
+        "firstRainMotionMs": 831.3,
+        "windInitializeStartMs": 1009.6,
+        "windInitializeDurationMs": 815.1
+      },
+      "clockToRainMotionMs": 0.4,
+      "cursorRainGap": {
+        "maxFrames": 0,
+        "samples": 284
+      },
+      "firstMapImageSource": "motregen-map-start",
+      "pmtilesHeader": {
+        "startMs": 97.2,
+        "endMs": 140.8,
+        "queueMs": 40.6
+      },
+      "harmonieHeaderStartMs": 104.4,
+      "harmonieHeadersBeforeMap": 0,
+      "protocols": [
+        "http/1.1",
+        "data"
+      ],
+      "cacheResponses": 0,
+      "decodes": 435,
+      "resourceTransferBytes": 24541446,
+      "afterPlay": {
+        "count": 5,
+        "over250": 1,
+        "maxMs": 853.7,
+        "totalMs": 1222.2
+      }
+    },
+    {
+      "name": "h1-desktop-cold-candidate-2",
+      "origin": "http://127.0.0.1:4351",
+      "profile": "desktop",
+      "warm": false,
+      "fixture": false,
+      "screenshotOverhead": false,
+      "cpuProfile": false,
+      "manifestGenerated": "2026-10-09T10:50:48Z",
+      "capturedAt": "2026-10-09T11:31:48.106Z",
+      "fixedClock": "2026-10-09T10:50:48Z",
+      "startLoad": 12.25,
+      "meanLoad": 13.3,
+      "milestones": {
+        "ttfrMs": 1016.3,
+        "ttfpMs": 1016.8,
+        "styleReadyMs": 173,
+        "firstRainMs": 962.7,
+        "firstCursorMs": 1016.3,
+        "firstBasemapTileMs": 812.2,
+        "basemapReadyMs": 962.3,
+        "mapRevealedMs": 2007.5,
+        "ttfhMs": 2312.7,
+        "firstMapImageMs": 962.2,
+        "firstRainMotionMs": 1016.8,
+        "windInitializeStartMs": 1171.9,
+        "windInitializeDurationMs": 780.7
+      },
+      "clockToRainMotionMs": 0.5,
+      "cursorRainGap": {
+        "maxFrames": 0,
+        "samples": 258
+      },
+      "firstMapImageSource": "motregen-map-start",
+      "pmtilesHeader": {
+        "startMs": 117.1,
+        "endMs": 172.6,
+        "queueMs": 52.3
+      },
+      "harmonieHeaderStartMs": 125,
+      "harmonieHeadersBeforeMap": 0,
+      "protocols": [
+        "http/1.1",
+        "data"
+      ],
+      "cacheResponses": 0,
+      "decodes": 435,
+      "resourceTransferBytes": 24541446,
+      "afterPlay": {
+        "count": 7,
+        "over250": 2,
+        "maxMs": 787.7,
+        "totalMs": 1906.1
+      }
+    },
+    {
+      "name": "h1-desktop-cold-candidate-3",
+      "origin": "http://127.0.0.1:4351",
+      "profile": "desktop",
+      "warm": false,
+      "fixture": false,
+      "screenshotOverhead": false,
+      "cpuProfile": false,
+      "manifestGenerated": "2026-10-09T10:50:48Z",
+      "capturedAt": "2026-10-09T11:32:14.610Z",
+      "fixedClock": "2026-10-09T10:50:48Z",
+      "startLoad": 14.81,
+      "meanLoad": 15,
+      "milestones": {
+        "ttfrMs": 977.6,
+        "ttfpMs": 978.1,
+        "styleReadyMs": 163.3,
+        "firstRainMs": 920.7,
+        "firstCursorMs": 977.6,
+        "firstBasemapTileMs": 780,
+        "basemapReadyMs": 920.3,
+        "mapRevealedMs": 2012.8,
+        "ttfhMs": 2574.1,
+        "firstMapImageMs": 920.2,
+        "firstRainMotionMs": 978.1,
+        "windInitializeStartMs": 1104.9,
+        "windInitializeDurationMs": 890.2
+      },
+      "clockToRainMotionMs": 0.5,
+      "cursorRainGap": {
+        "maxFrames": 0,
+        "samples": 261
+      },
+      "firstMapImageSource": "motregen-map-start",
+      "pmtilesHeader": {
+        "startMs": 115,
+        "endMs": 163.1,
+        "queueMs": 45
+      },
+      "harmonieHeaderStartMs": 123.6,
+      "harmonieHeadersBeforeMap": 0,
+      "protocols": [
+        "http/1.1",
+        "data"
+      ],
+      "cacheResponses": 0,
+      "decodes": 435,
+      "resourceTransferBytes": 24541446,
+      "afterPlay": {
+        "count": 7,
+        "over250": 3,
+        "maxMs": 905.7,
+        "totalMs": 1941.4
+      }
+    },
+    {
+      "name": "h1-desktop-cold-reference-1",
+      "origin": "http://127.0.0.1:4391",
+      "profile": "desktop",
+      "warm": false,
+      "fixture": false,
+      "screenshotOverhead": false,
+      "cpuProfile": false,
+      "manifestGenerated": "2026-10-09T10:50:48Z",
+      "capturedAt": "2026-10-09T11:31:08.536Z",
+      "fixedClock": "2026-10-09T10:50:48Z",
+      "startLoad": 11.65,
+      "meanLoad": 11.3,
+      "milestones": {
+        "ttfrMs": 840.9,
+        "ttfpMs": 1738.8,
+        "styleReadyMs": 155.6,
+        "firstRainMs": 801.3,
+        "firstCursorMs": 840.9,
+        "firstBasemapTileMs": 675.2,
+        "basemapReadyMs": 800.9,
+        "mapRevealedMs": 1667.7,
+        "ttfhMs": 2004.2,
+        "firstMapImageMs": 800.9,
+        "firstRainMotionMs": 1738.8,
+        "windInitializeStartMs": 1030.4,
+        "windInitializeDurationMs": 593.9
+      },
+      "clockToRainMotionMs": 897.9,
+      "cursorRainGap": {
+        "maxFrames": 0.1,
+        "samples": 282
+      },
+      "firstMapImageSource": "motregen-map-start",
+      "pmtilesHeader": {
+        "startMs": 113.1,
+        "endMs": 155.4,
+        "queueMs": 39.2
+      },
+      "harmonieHeaderStartMs": 119.5,
+      "harmonieHeadersBeforeMap": 0,
+      "protocols": [
+        "http/1.1",
+        "data"
+      ],
+      "cacheResponses": 0,
+      "decodes": 435,
+      "resourceTransferBytes": 24546394,
+      "afterPlay": {
+        "count": 6,
+        "over250": 0,
+        "maxMs": 197.5,
+        "totalMs": 811.2
+      }
+    },
+    {
+      "name": "h1-desktop-cold-reference-2",
+      "origin": "http://127.0.0.1:4391",
+      "profile": "desktop",
+      "warm": false,
+      "fixture": false,
+      "screenshotOverhead": false,
+      "cpuProfile": false,
+      "manifestGenerated": "2026-10-09T10:50:48Z",
+      "capturedAt": "2026-10-09T11:31:34.794Z",
+      "fixedClock": "2026-10-09T10:50:48Z",
+      "startLoad": 9.36,
+      "meanLoad": 10.9,
+      "milestones": {
+        "ttfrMs": 1092.1,
+        "ttfpMs": 2207,
+        "styleReadyMs": 174.4,
+        "firstRainMs": 1037.1,
+        "firstCursorMs": 1092.1,
+        "firstBasemapTileMs": 888.2,
+        "basemapReadyMs": 1036.5,
+        "mapRevealedMs": 2118.9,
+        "ttfhMs": 2648.6,
+        "firstMapImageMs": 1036.4,
+        "firstRainMotionMs": 2206.9,
+        "windInitializeStartMs": 1249,
+        "windInitializeDurationMs": 814.7
+      },
+      "clockToRainMotionMs": 1114.8,
+      "cursorRainGap": {
+        "maxFrames": 0.1,
+        "samples": 255
+      },
+      "firstMapImageSource": "motregen-map-start",
+      "pmtilesHeader": {
+        "startMs": 110.3,
+        "endMs": 175.4,
+        "queueMs": 61.3
+      },
+      "harmonieHeaderStartMs": 119.2,
+      "harmonieHeadersBeforeMap": 0,
+      "protocols": [
+        "http/1.1",
+        "data"
+      ],
+      "cacheResponses": 0,
+      "decodes": 435,
+      "resourceTransferBytes": 24546394,
+      "afterPlay": {
+        "count": 7,
+        "over250": 1,
+        "maxMs": 258.2,
+        "totalMs": 1224.7
+      }
+    },
+    {
+      "name": "h1-desktop-cold-reference-3",
+      "origin": "http://127.0.0.1:4391",
+      "profile": "desktop",
+      "warm": false,
+      "fixture": false,
+      "screenshotOverhead": false,
+      "cpuProfile": false,
+      "manifestGenerated": "2026-10-09T10:50:48Z",
+      "capturedAt": "2026-10-09T11:32:01.340Z",
+      "fixedClock": "2026-10-09T10:50:48Z",
+      "startLoad": 14,
+      "meanLoad": 14.2,
+      "milestones": {
+        "ttfrMs": 1014.3,
+        "ttfpMs": 1730.7,
+        "styleReadyMs": 177.5,
+        "firstRainMs": 971,
+        "firstCursorMs": 1014.3,
+        "firstBasemapTileMs": 814.5,
+        "basemapReadyMs": 970.4,
+        "mapRevealedMs": 1647.9,
+        "ttfhMs": 1660.9,
+        "firstMapImageMs": 970.4,
+        "firstRainMotionMs": 1730.7,
+        "windInitializeStartMs": 1124.2,
+        "windInitializeDurationMs": 22.7
+      },
+      "clockToRainMotionMs": 716.4,
+      "cursorRainGap": {
+        "maxFrames": 0,
+        "samples": 264
+      },
+      "firstMapImageSource": "motregen-map-start",
+      "pmtilesHeader": {
+        "startMs": 123.1,
+        "endMs": 175.5,
+        "queueMs": 51.2
+      },
+      "harmonieHeaderStartMs": 132.1,
+      "harmonieHeadersBeforeMap": 0,
+      "protocols": [
+        "http/1.1",
+        "data"
+      ],
+      "cacheResponses": 0,
+      "decodes": 435,
+      "resourceTransferBytes": 24546394,
+      "afterPlay": {
+        "count": 8,
+        "over250": 2,
+        "maxMs": 430.1,
+        "totalMs": 1179.8
+      }
+    },
+    {
+      "name": "h1-po-android-cold-candidate-1",
+      "origin": "http://127.0.0.1:4351",
+      "profile": "po-android",
+      "warm": false,
+      "fixture": false,
+      "screenshotOverhead": false,
+      "cpuProfile": false,
+      "manifestGenerated": "2026-10-09T10:50:48Z",
+      "capturedAt": "2026-10-09T11:33:08.396Z",
+      "fixedClock": "2026-10-09T10:50:48Z",
+      "startLoad": 13.31,
+      "meanLoad": 12.8,
+      "milestones": {
+        "ttfrMs": 2121.7,
+        "ttfpMs": 2122.2,
+        "styleReadyMs": 553.2,
+        "firstRainMs": 1657.2,
+        "firstCursorMs": 2121.7,
+        "firstBasemapTileMs": 4171.8,
+        "basemapReadyMs": 4243.4,
+        "mapRevealedMs": 2102,
+        "ttfhMs": 6681.6,
+        "firstMapImageMs": 2072,
+        "firstRainMotionMs": 2122.2,
+        "windInitializeStartMs": 3852,
+        "windInitializeDurationMs": 70.4
+      },
+      "clockToRainMotionMs": 0.5,
+      "cursorRainGap": {
+        "maxFrames": 0,
+        "samples": 128
+      },
+      "firstMapImageSource": "motregen-map-start",
+      "pmtilesHeader": {
+        "startMs": 437,
+        "endMs": 584.2,
+        "queueMs": 117.9
+      },
+      "harmonieHeaderStartMs": 1667.2,
+      "harmonieHeadersBeforeMap": 0,
+      "protocols": [
+        "http/1.1",
+        "data"
+      ],
+      "cacheResponses": 0,
+      "decodes": 177,
+      "resourceTransferBytes": 17095747,
+      "afterPlay": {
+        "count": 38,
+        "over250": 2,
+        "maxMs": 359.8,
+        "totalMs": 4179.9
+      }
+    },
+    {
+      "name": "h1-po-android-cold-candidate-2",
+      "origin": "http://127.0.0.1:4351",
+      "profile": "po-android",
+      "warm": false,
+      "fixture": false,
+      "screenshotOverhead": false,
+      "cpuProfile": false,
+      "manifestGenerated": "2026-10-09T10:50:48Z",
+      "capturedAt": "2026-10-09T11:33:35.162Z",
+      "fixedClock": "2026-10-09T10:50:48Z",
+      "startLoad": 12.88,
+      "meanLoad": 12.7,
+      "milestones": {
+        "ttfrMs": 2725.1,
+        "ttfpMs": 2730.5,
+        "styleReadyMs": 555.2,
+        "firstRainMs": 2055.2,
+        "firstCursorMs": 2725.1,
+        "firstBasemapTileMs": 3175.1,
+        "basemapReadyMs": 3285.6,
+        "mapRevealedMs": 2830.1,
+        "ttfhMs": 6975.8,
+        "firstMapImageMs": 1615.1,
+        "firstRainMotionMs": 2730.5,
+        "windInitializeStartMs": 3876.1,
+        "windInitializeDurationMs": 40.9
+      },
+      "clockToRainMotionMs": 5.4,
+      "cursorRainGap": {
+        "maxFrames": 0,
+        "samples": 126
+      },
+      "firstMapImageSource": "motregen-map-start",
+      "pmtilesHeader": {
+        "startMs": 426.8,
+        "endMs": 563.8,
+        "queueMs": 110
+      },
+      "harmonieHeaderStartMs": 1845,
+      "harmonieHeadersBeforeMap": 0,
+      "protocols": [
+        "http/1.1",
+        "data"
+      ],
+      "cacheResponses": 0,
+      "decodes": 174,
+      "resourceTransferBytes": 17095447,
+      "afterPlay": {
+        "count": 39,
+        "over250": 1,
+        "maxMs": 390.8,
+        "totalMs": 3838
+      }
+    },
+    {
+      "name": "h1-po-android-cold-candidate-3",
+      "origin": "http://127.0.0.1:4351",
+      "profile": "po-android",
+      "warm": false,
+      "fixture": false,
+      "screenshotOverhead": false,
+      "cpuProfile": false,
+      "manifestGenerated": "2026-10-09T10:50:48Z",
+      "capturedAt": "2026-10-09T11:34:01.906Z",
+      "fixedClock": "2026-10-09T10:50:48Z",
+      "startLoad": 12.09,
+      "meanLoad": 11.6,
+      "milestones": {
+        "ttfrMs": 2241.6,
+        "ttfpMs": 2242.1,
+        "styleReadyMs": 557.2,
+        "firstRainMs": 1897.4,
+        "firstCursorMs": 2241.6,
+        "firstBasemapTileMs": 4161.4,
+        "basemapReadyMs": 4247.3,
+        "mapRevealedMs": 2536.2,
+        "ttfhMs": 7112.2,
+        "firstMapImageMs": 1897.1,
+        "firstRainMotionMs": 2242.1,
+        "windInitializeStartMs": 4271.9,
+        "windInitializeDurationMs": 36.9
+      },
+      "clockToRainMotionMs": 0.5,
+      "cursorRainGap": {
+        "maxFrames": 0,
+        "samples": 122
+      },
+      "firstMapImageSource": "motregen-map-start",
+      "pmtilesHeader": {
+        "startMs": 437.1,
+        "endMs": 575.1,
+        "queueMs": 107.3
+      },
+      "harmonieHeaderStartMs": 1677.1,
+      "harmonieHeadersBeforeMap": 0,
+      "protocols": [
+        "http/1.1",
+        "data"
+      ],
+      "cacheResponses": 0,
+      "decodes": 177,
+      "resourceTransferBytes": 17096047,
+      "afterPlay": {
+        "count": 41,
+        "over250": 2,
+        "maxMs": 308.3,
+        "totalMs": 4514.2
+      }
+    },
+    {
+      "name": "h1-po-android-cold-reference-1",
+      "origin": "http://127.0.0.1:4391",
+      "profile": "po-android",
+      "warm": false,
+      "fixture": false,
+      "screenshotOverhead": false,
+      "cpuProfile": false,
+      "manifestGenerated": "2026-10-09T10:50:48Z",
+      "capturedAt": "2026-10-09T11:32:54.701Z",
+      "fixedClock": "2026-10-09T10:50:48Z",
+      "startLoad": 14.61,
+      "meanLoad": 13.4,
+      "milestones": {
+        "ttfrMs": 1958.3,
+        "ttfpMs": 4852.8,
+        "styleReadyMs": 548.2,
+        "firstRainMs": 1824.1,
+        "firstCursorMs": 1958.3,
+        "firstBasemapTileMs": 3820,
+        "basemapReadyMs": 3994.1,
+        "mapRevealedMs": 2478.2,
+        "ttfhMs": 7653.6,
+        "firstMapImageMs": 1803.8,
+        "firstRainMotionMs": 4852.8,
+        "windInitializeStartMs": 2067.9,
+        "windInitializeDurationMs": 205
+      },
+      "clockToRainMotionMs": 2894.5,
+      "cursorRainGap": {
+        "maxFrames": 0.3,
+        "samples": 105
+      },
+      "firstMapImageSource": "motregen-map-start",
+      "pmtilesHeader": {
+        "startMs": 428.5,
+        "endMs": 566.7,
+        "queueMs": 105.7
+      },
+      "harmonieHeaderStartMs": 1747.6,
+      "harmonieHeadersBeforeMap": 0,
+      "protocols": [
+        "http/1.1",
+        "data"
+      ],
+      "cacheResponses": 0,
+      "decodes": 181,
+      "resourceTransferBytes": 17281861,
+      "afterPlay": {
+        "count": 26,
+        "over250": 0,
+        "maxMs": 211.4,
+        "totalMs": 2180.6
+      }
+    },
+    {
+      "name": "h1-po-android-cold-reference-2",
+      "origin": "http://127.0.0.1:4391",
+      "profile": "po-android",
+      "warm": false,
+      "fixture": false,
+      "screenshotOverhead": false,
+      "cpuProfile": false,
+      "manifestGenerated": "2026-10-09T10:50:48Z",
+      "capturedAt": "2026-10-09T11:33:21.774Z",
+      "fixedClock": "2026-10-09T10:50:48Z",
+      "startLoad": 13.35,
+      "meanLoad": 13.6,
+      "milestones": {
+        "ttfrMs": 1910.6,
+        "ttfpMs": 5159.8,
+        "styleReadyMs": 564.4,
+        "firstRainMs": 1629.9,
+        "firstCursorMs": 1910.6,
+        "firstBasemapTileMs": 4029.4,
+        "basemapReadyMs": 4135.3,
+        "mapRevealedMs": 2089.5,
+        "ttfhMs": 8139.5,
+        "firstMapImageMs": 2044.3,
+        "firstRainMotionMs": 5159.8,
+        "windInitializeStartMs": 2129.6,
+        "windInitializeDurationMs": 51.2
+      },
+      "clockToRainMotionMs": 3249.2,
+      "cursorRainGap": {
+        "maxFrames": 0.5,
+        "samples": 96
+      },
+      "firstMapImageSource": "motregen-map-start",
+      "pmtilesHeader": {
+        "startMs": 445.6,
+        "endMs": 582.1,
+        "queueMs": 104.9
+      },
+      "harmonieHeaderStartMs": 1639.6,
+      "harmonieHeadersBeforeMap": 0,
+      "protocols": [
+        "http/1.1",
+        "data"
+      ],
+      "cacheResponses": 0,
+      "decodes": 184,
+      "resourceTransferBytes": 17309556,
+      "afterPlay": {
+        "count": 28,
+        "over250": 1,
+        "maxMs": 250.3,
+        "totalMs": 2413.7
+      }
+    },
+    {
+      "name": "h1-po-android-cold-reference-3",
+      "origin": "http://127.0.0.1:4391",
+      "profile": "po-android",
+      "warm": false,
+      "fixture": false,
+      "screenshotOverhead": false,
+      "cpuProfile": false,
+      "manifestGenerated": "2026-10-09T10:50:48Z",
+      "capturedAt": "2026-10-09T11:33:48.522Z",
+      "fixedClock": "2026-10-09T10:50:48Z",
+      "startLoad": 12.7,
+      "meanLoad": 12.1,
+      "milestones": {
+        "ttfrMs": 1916.4,
+        "ttfpMs": 4921.6,
+        "styleReadyMs": 565.9,
+        "firstRainMs": 1660.5,
+        "firstCursorMs": 1916.4,
+        "firstBasemapTileMs": 3946.5,
+        "basemapReadyMs": 4159.6,
+        "mapRevealedMs": 2031.2,
+        "ttfhMs": 7191.1,
+        "firstMapImageMs": 2000,
+        "firstRainMotionMs": 4921.6,
+        "windInitializeStartMs": 2036.5,
+        "windInitializeDurationMs": 49.2
+      },
+      "clockToRainMotionMs": 3005.2,
+      "cursorRainGap": {
+        "maxFrames": 0.3,
+        "samples": 104
+      },
+      "firstMapImageSource": "motregen-map-start",
+      "pmtilesHeader": {
+        "startMs": 430,
+        "endMs": 578.6,
+        "queueMs": 121.8
+      },
+      "harmonieHeaderStartMs": 1661.1,
+      "harmonieHeadersBeforeMap": 0,
+      "protocols": [
+        "http/1.1",
+        "data"
+      ],
+      "cacheResponses": 0,
+      "decodes": 180,
+      "resourceTransferBytes": 17158492,
+      "afterPlay": {
+        "count": 27,
+        "over250": 0,
+        "maxMs": 236.7,
+        "totalMs": 2546.7
+      }
+    }
+  ],
+  "pairs": [
+    {
+      "transport": "h1",
+      "profile": "desktop",
+      "cache": "cold",
+      "paired": [
+        {
+          "index": 1,
+          "reference": {
+            "name": "h1-desktop-cold-reference-1",
+            "origin": "http://127.0.0.1:4391",
+            "profile": "desktop",
+            "warm": false,
+            "fixture": false,
+            "screenshotOverhead": false,
+            "cpuProfile": false,
+            "manifestGenerated": "2026-10-09T10:50:48Z",
+            "capturedAt": "2026-10-09T11:31:08.536Z",
+            "fixedClock": "2026-10-09T10:50:48Z",
+            "startLoad": 11.65,
+            "meanLoad": 11.3,
+            "milestones": {
+              "ttfrMs": 840.9,
+              "ttfpMs": 1738.8,
+              "styleReadyMs": 155.6,
+              "firstRainMs": 801.3,
+              "firstCursorMs": 840.9,
+              "firstBasemapTileMs": 675.2,
+              "basemapReadyMs": 800.9,
+              "mapRevealedMs": 1667.7,
+              "ttfhMs": 2004.2,
+              "firstMapImageMs": 800.9,
+              "firstRainMotionMs": 1738.8,
+              "windInitializeStartMs": 1030.4,
+              "windInitializeDurationMs": 593.9
+            },
+            "clockToRainMotionMs": 897.9,
+            "cursorRainGap": {
+              "maxFrames": 0.1,
+              "samples": 282
+            },
+            "firstMapImageSource": "motregen-map-start",
+            "pmtilesHeader": {
+              "startMs": 113.1,
+              "endMs": 155.4,
+              "queueMs": 39.2
+            },
+            "harmonieHeaderStartMs": 119.5,
+            "harmonieHeadersBeforeMap": 0,
+            "protocols": [
+              "http/1.1",
+              "data"
+            ],
+            "cacheResponses": 0,
+            "decodes": 435,
+            "resourceTransferBytes": 24546394,
+            "afterPlay": {
+              "count": 6,
+              "over250": 0,
+              "maxMs": 197.5,
+              "totalMs": 811.2
+            }
+          },
+          "candidate": {
+            "name": "h1-desktop-cold-candidate-1",
+            "origin": "http://127.0.0.1:4351",
+            "profile": "desktop",
+            "warm": false,
+            "fixture": false,
+            "screenshotOverhead": false,
+            "cpuProfile": false,
+            "manifestGenerated": "2026-10-09T10:50:48Z",
+            "capturedAt": "2026-10-09T11:31:21.621Z",
+            "fixedClock": "2026-10-09T10:50:48Z",
+            "startLoad": 10.02,
+            "meanLoad": 9.7,
+            "milestones": {
+              "ttfrMs": 830.9,
+              "ttfpMs": 831.3,
+              "styleReadyMs": 142.2,
+              "firstRainMs": 784.9,
+              "firstCursorMs": 830.9,
+              "firstBasemapTileMs": 663.4,
+              "basemapReadyMs": 784.6,
+              "mapRevealedMs": 1825.4,
+              "ttfhMs": 2259.4,
+              "firstMapImageMs": 784.5,
+              "firstRainMotionMs": 831.3,
+              "windInitializeStartMs": 1009.6,
+              "windInitializeDurationMs": 815.1
+            },
+            "clockToRainMotionMs": 0.4,
+            "cursorRainGap": {
+              "maxFrames": 0,
+              "samples": 284
+            },
+            "firstMapImageSource": "motregen-map-start",
+            "pmtilesHeader": {
+              "startMs": 97.2,
+              "endMs": 140.8,
+              "queueMs": 40.6
+            },
+            "harmonieHeaderStartMs": 104.4,
+            "harmonieHeadersBeforeMap": 0,
+            "protocols": [
+              "http/1.1",
+              "data"
+            ],
+            "cacheResponses": 0,
+            "decodes": 435,
+            "resourceTransferBytes": 24541446,
+            "afterPlay": {
+              "count": 5,
+              "over250": 1,
+              "maxMs": 853.7,
+              "totalMs": 1222.2
+            }
+          }
+        },
+        {
+          "index": 2,
+          "reference": {
+            "name": "h1-desktop-cold-reference-2",
+            "origin": "http://127.0.0.1:4391",
+            "profile": "desktop",
+            "warm": false,
+            "fixture": false,
+            "screenshotOverhead": false,
+            "cpuProfile": false,
+            "manifestGenerated": "2026-10-09T10:50:48Z",
+            "capturedAt": "2026-10-09T11:31:34.794Z",
+            "fixedClock": "2026-10-09T10:50:48Z",
+            "startLoad": 9.36,
+            "meanLoad": 10.9,
+            "milestones": {
+              "ttfrMs": 1092.1,
+              "ttfpMs": 2207,
+              "styleReadyMs": 174.4,
+              "firstRainMs": 1037.1,
+              "firstCursorMs": 1092.1,
+              "firstBasemapTileMs": 888.2,
+              "basemapReadyMs": 1036.5,
+              "mapRevealedMs": 2118.9,
+              "ttfhMs": 2648.6,
+              "firstMapImageMs": 1036.4,
+              "firstRainMotionMs": 2206.9,
+              "windInitializeStartMs": 1249,
+              "windInitializeDurationMs": 814.7
+            },
+            "clockToRainMotionMs": 1114.8,
+            "cursorRainGap": {
+              "maxFrames": 0.1,
+              "samples": 255
+            },
+            "firstMapImageSource": "motregen-map-start",
+            "pmtilesHeader": {
+              "startMs": 110.3,
+              "endMs": 175.4,
+              "queueMs": 61.3
+            },
+            "harmonieHeaderStartMs": 119.2,
+            "harmonieHeadersBeforeMap": 0,
+            "protocols": [
+              "http/1.1",
+              "data"
+            ],
+            "cacheResponses": 0,
+            "decodes": 435,
+            "resourceTransferBytes": 24546394,
+            "afterPlay": {
+              "count": 7,
+              "over250": 1,
+              "maxMs": 258.2,
+              "totalMs": 1224.7
+            }
+          },
+          "candidate": {
+            "name": "h1-desktop-cold-candidate-2",
+            "origin": "http://127.0.0.1:4351",
+            "profile": "desktop",
+            "warm": false,
+            "fixture": false,
+            "screenshotOverhead": false,
+            "cpuProfile": false,
+            "manifestGenerated": "2026-10-09T10:50:48Z",
+            "capturedAt": "2026-10-09T11:31:48.106Z",
+            "fixedClock": "2026-10-09T10:50:48Z",
+            "startLoad": 12.25,
+            "meanLoad": 13.3,
+            "milestones": {
+              "ttfrMs": 1016.3,
+              "ttfpMs": 1016.8,
+              "styleReadyMs": 173,
+              "firstRainMs": 962.7,
+              "firstCursorMs": 1016.3,
+              "firstBasemapTileMs": 812.2,
+              "basemapReadyMs": 962.3,
+              "mapRevealedMs": 2007.5,
+              "ttfhMs": 2312.7,
+              "firstMapImageMs": 962.2,
+              "firstRainMotionMs": 1016.8,
+              "windInitializeStartMs": 1171.9,
+              "windInitializeDurationMs": 780.7
+            },
+            "clockToRainMotionMs": 0.5,
+            "cursorRainGap": {
+              "maxFrames": 0,
+              "samples": 258
+            },
+            "firstMapImageSource": "motregen-map-start",
+            "pmtilesHeader": {
+              "startMs": 117.1,
+              "endMs": 172.6,
+              "queueMs": 52.3
+            },
+            "harmonieHeaderStartMs": 125,
+            "harmonieHeadersBeforeMap": 0,
+            "protocols": [
+              "http/1.1",
+              "data"
+            ],
+            "cacheResponses": 0,
+            "decodes": 435,
+            "resourceTransferBytes": 24541446,
+            "afterPlay": {
+              "count": 7,
+              "over250": 2,
+              "maxMs": 787.7,
+              "totalMs": 1906.1
+            }
+          }
+        },
+        {
+          "index": 3,
+          "reference": {
+            "name": "h1-desktop-cold-reference-3",
+            "origin": "http://127.0.0.1:4391",
+            "profile": "desktop",
+            "warm": false,
+            "fixture": false,
+            "screenshotOverhead": false,
+            "cpuProfile": false,
+            "manifestGenerated": "2026-10-09T10:50:48Z",
+            "capturedAt": "2026-10-09T11:32:01.340Z",
+            "fixedClock": "2026-10-09T10:50:48Z",
+            "startLoad": 14,
+            "meanLoad": 14.2,
+            "milestones": {
+              "ttfrMs": 1014.3,
+              "ttfpMs": 1730.7,
+              "styleReadyMs": 177.5,
+              "firstRainMs": 971,
+              "firstCursorMs": 1014.3,
+              "firstBasemapTileMs": 814.5,
+              "basemapReadyMs": 970.4,
+              "mapRevealedMs": 1647.9,
+              "ttfhMs": 1660.9,
+              "firstMapImageMs": 970.4,
+              "firstRainMotionMs": 1730.7,
+              "windInitializeStartMs": 1124.2,
+              "windInitializeDurationMs": 22.7
+            },
+            "clockToRainMotionMs": 716.4,
+            "cursorRainGap": {
+              "maxFrames": 0,
+              "samples": 264
+            },
+            "firstMapImageSource": "motregen-map-start",
+            "pmtilesHeader": {
+              "startMs": 123.1,
+              "endMs": 175.5,
+              "queueMs": 51.2
+            },
+            "harmonieHeaderStartMs": 132.1,
+            "harmonieHeadersBeforeMap": 0,
+            "protocols": [
+              "http/1.1",
+              "data"
+            ],
+            "cacheResponses": 0,
+            "decodes": 435,
+            "resourceTransferBytes": 24546394,
+            "afterPlay": {
+              "count": 8,
+              "over250": 2,
+              "maxMs": 430.1,
+              "totalMs": 1179.8
+            }
+          },
+          "candidate": {
+            "name": "h1-desktop-cold-candidate-3",
+            "origin": "http://127.0.0.1:4351",
+            "profile": "desktop",
+            "warm": false,
+            "fixture": false,
+            "screenshotOverhead": false,
+            "cpuProfile": false,
+            "manifestGenerated": "2026-10-09T10:50:48Z",
+            "capturedAt": "2026-10-09T11:32:14.610Z",
+            "fixedClock": "2026-10-09T10:50:48Z",
+            "startLoad": 14.81,
+            "meanLoad": 15,
+            "milestones": {
+              "ttfrMs": 977.6,
+              "ttfpMs": 978.1,
+              "styleReadyMs": 163.3,
+              "firstRainMs": 920.7,
+              "firstCursorMs": 977.6,
+              "firstBasemapTileMs": 780,
+              "basemapReadyMs": 920.3,
+              "mapRevealedMs": 2012.8,
+              "ttfhMs": 2574.1,
+              "firstMapImageMs": 920.2,
+              "firstRainMotionMs": 978.1,
+              "windInitializeStartMs": 1104.9,
+              "windInitializeDurationMs": 890.2
+            },
+            "clockToRainMotionMs": 0.5,
+            "cursorRainGap": {
+              "maxFrames": 0,
+              "samples": 261
+            },
+            "firstMapImageSource": "motregen-map-start",
+            "pmtilesHeader": {
+              "startMs": 115,
+              "endMs": 163.1,
+              "queueMs": 45
+            },
+            "harmonieHeaderStartMs": 123.6,
+            "harmonieHeadersBeforeMap": 0,
+            "protocols": [
+              "http/1.1",
+              "data"
+            ],
+            "cacheResponses": 0,
+            "decodes": 435,
+            "resourceTransferBytes": 24541446,
+            "afterPlay": {
+              "count": 7,
+              "over250": 3,
+              "maxMs": 905.7,
+              "totalMs": 1941.4
+            }
+          }
+        }
+      ]
+    },
+    {
+      "transport": "h1",
+      "profile": "po-android",
+      "cache": "cold",
+      "paired": [
+        {
+          "index": 1,
+          "reference": {
+            "name": "h1-po-android-cold-reference-1",
+            "origin": "http://127.0.0.1:4391",
+            "profile": "po-android",
+            "warm": false,
+            "fixture": false,
+            "screenshotOverhead": false,
+            "cpuProfile": false,
+            "manifestGenerated": "2026-10-09T10:50:48Z",
+            "capturedAt": "2026-10-09T11:32:54.701Z",
+            "fixedClock": "2026-10-09T10:50:48Z",
+            "startLoad": 14.61,
+            "meanLoad": 13.4,
+            "milestones": {
+              "ttfrMs": 1958.3,
+              "ttfpMs": 4852.8,
+              "styleReadyMs": 548.2,
+              "firstRainMs": 1824.1,
+              "firstCursorMs": 1958.3,
+              "firstBasemapTileMs": 3820,
+              "basemapReadyMs": 3994.1,
+              "mapRevealedMs": 2478.2,
+              "ttfhMs": 7653.6,
+              "firstMapImageMs": 1803.8,
+              "firstRainMotionMs": 4852.8,
+              "windInitializeStartMs": 2067.9,
+              "windInitializeDurationMs": 205
+            },
+            "clockToRainMotionMs": 2894.5,
+            "cursorRainGap": {
+              "maxFrames": 0.3,
+              "samples": 105
+            },
+            "firstMapImageSource": "motregen-map-start",
+            "pmtilesHeader": {
+              "startMs": 428.5,
+              "endMs": 566.7,
+              "queueMs": 105.7
+            },
+            "harmonieHeaderStartMs": 1747.6,
+            "harmonieHeadersBeforeMap": 0,
+            "protocols": [
+              "http/1.1",
+              "data"
+            ],
+            "cacheResponses": 0,
+            "decodes": 181,
+            "resourceTransferBytes": 17281861,
+            "afterPlay": {
+              "count": 26,
+              "over250": 0,
+              "maxMs": 211.4,
+              "totalMs": 2180.6
+            }
+          },
+          "candidate": {
+            "name": "h1-po-android-cold-candidate-1",
+            "origin": "http://127.0.0.1:4351",
+            "profile": "po-android",
+            "warm": false,
+            "fixture": false,
+            "screenshotOverhead": false,
+            "cpuProfile": false,
+            "manifestGenerated": "2026-10-09T10:50:48Z",
+            "capturedAt": "2026-10-09T11:33:08.396Z",
+            "fixedClock": "2026-10-09T10:50:48Z",
+            "startLoad": 13.31,
+            "meanLoad": 12.8,
+            "milestones": {
+              "ttfrMs": 2121.7,
+              "ttfpMs": 2122.2,
+              "styleReadyMs": 553.2,
+              "firstRainMs": 1657.2,
+              "firstCursorMs": 2121.7,
+              "firstBasemapTileMs": 4171.8,
+              "basemapReadyMs": 4243.4,
+              "mapRevealedMs": 2102,
+              "ttfhMs": 6681.6,
+              "firstMapImageMs": 2072,
+              "firstRainMotionMs": 2122.2,
+              "windInitializeStartMs": 3852,
+              "windInitializeDurationMs": 70.4
+            },
+            "clockToRainMotionMs": 0.5,
+            "cursorRainGap": {
+              "maxFrames": 0,
+              "samples": 128
+            },
+            "firstMapImageSource": "motregen-map-start",
+            "pmtilesHeader": {
+              "startMs": 437,
+              "endMs": 584.2,
+              "queueMs": 117.9
+            },
+            "harmonieHeaderStartMs": 1667.2,
+            "harmonieHeadersBeforeMap": 0,
+            "protocols": [
+              "http/1.1",
+              "data"
+            ],
+            "cacheResponses": 0,
+            "decodes": 177,
+            "resourceTransferBytes": 17095747,
+            "afterPlay": {
+              "count": 38,
+              "over250": 2,
+              "maxMs": 359.8,
+              "totalMs": 4179.9
+            }
+          }
+        },
+        {
+          "index": 2,
+          "reference": {
+            "name": "h1-po-android-cold-reference-2",
+            "origin": "http://127.0.0.1:4391",
+            "profile": "po-android",
+            "warm": false,
+            "fixture": false,
+            "screenshotOverhead": false,
+            "cpuProfile": false,
+            "manifestGenerated": "2026-10-09T10:50:48Z",
+            "capturedAt": "2026-10-09T11:33:21.774Z",
+            "fixedClock": "2026-10-09T10:50:48Z",
+            "startLoad": 13.35,
+            "meanLoad": 13.6,
+            "milestones": {
+              "ttfrMs": 1910.6,
+              "ttfpMs": 5159.8,
+              "styleReadyMs": 564.4,
+              "firstRainMs": 1629.9,
+              "firstCursorMs": 1910.6,
+              "firstBasemapTileMs": 4029.4,
+              "basemapReadyMs": 4135.3,
+              "mapRevealedMs": 2089.5,
+              "ttfhMs": 8139.5,
+              "firstMapImageMs": 2044.3,
+              "firstRainMotionMs": 5159.8,
+              "windInitializeStartMs": 2129.6,
+              "windInitializeDurationMs": 51.2
+            },
+            "clockToRainMotionMs": 3249.2,
+            "cursorRainGap": {
+              "maxFrames": 0.5,
+              "samples": 96
+            },
+            "firstMapImageSource": "motregen-map-start",
+            "pmtilesHeader": {
+              "startMs": 445.6,
+              "endMs": 582.1,
+              "queueMs": 104.9
+            },
+            "harmonieHeaderStartMs": 1639.6,
+            "harmonieHeadersBeforeMap": 0,
+            "protocols": [
+              "http/1.1",
+              "data"
+            ],
+            "cacheResponses": 0,
+            "decodes": 184,
+            "resourceTransferBytes": 17309556,
+            "afterPlay": {
+              "count": 28,
+              "over250": 1,
+              "maxMs": 250.3,
+              "totalMs": 2413.7
+            }
+          },
+          "candidate": {
+            "name": "h1-po-android-cold-candidate-2",
+            "origin": "http://127.0.0.1:4351",
+            "profile": "po-android",
+            "warm": false,
+            "fixture": false,
+            "screenshotOverhead": false,
+            "cpuProfile": false,
+            "manifestGenerated": "2026-10-09T10:50:48Z",
+            "capturedAt": "2026-10-09T11:33:35.162Z",
+            "fixedClock": "2026-10-09T10:50:48Z",
+            "startLoad": 12.88,
+            "meanLoad": 12.7,
+            "milestones": {
+              "ttfrMs": 2725.1,
+              "ttfpMs": 2730.5,
+              "styleReadyMs": 555.2,
+              "firstRainMs": 2055.2,
+              "firstCursorMs": 2725.1,
+              "firstBasemapTileMs": 3175.1,
+              "basemapReadyMs": 3285.6,
+              "mapRevealedMs": 2830.1,
+              "ttfhMs": 6975.8,
+              "firstMapImageMs": 1615.1,
+              "firstRainMotionMs": 2730.5,
+              "windInitializeStartMs": 3876.1,
+              "windInitializeDurationMs": 40.9
+            },
+            "clockToRainMotionMs": 5.4,
+            "cursorRainGap": {
+              "maxFrames": 0,
+              "samples": 126
+            },
+            "firstMapImageSource": "motregen-map-start",
+            "pmtilesHeader": {
+              "startMs": 426.8,
+              "endMs": 563.8,
+              "queueMs": 110
+            },
+            "harmonieHeaderStartMs": 1845,
+            "harmonieHeadersBeforeMap": 0,
+            "protocols": [
+              "http/1.1",
+              "data"
+            ],
+            "cacheResponses": 0,
+            "decodes": 174,
+            "resourceTransferBytes": 17095447,
+            "afterPlay": {
+              "count": 39,
+              "over250": 1,
+              "maxMs": 390.8,
+              "totalMs": 3838
+            }
+          }
+        },
+        {
+          "index": 3,
+          "reference": {
+            "name": "h1-po-android-cold-reference-3",
+            "origin": "http://127.0.0.1:4391",
+            "profile": "po-android",
+            "warm": false,
+            "fixture": false,
+            "screenshotOverhead": false,
+            "cpuProfile": false,
+            "manifestGenerated": "2026-10-09T10:50:48Z",
+            "capturedAt": "2026-10-09T11:33:48.522Z",
+            "fixedClock": "2026-10-09T10:50:48Z",
+            "startLoad": 12.7,
+            "meanLoad": 12.1,
+            "milestones": {
+              "ttfrMs": 1916.4,
+              "ttfpMs": 4921.6,
+              "styleReadyMs": 565.9,
+              "firstRainMs": 1660.5,
+              "firstCursorMs": 1916.4,
+              "firstBasemapTileMs": 3946.5,
+              "basemapReadyMs": 4159.6,
+              "mapRevealedMs": 2031.2,
+              "ttfhMs": 7191.1,
+              "firstMapImageMs": 2000,
+              "firstRainMotionMs": 4921.6,
+              "windInitializeStartMs": 2036.5,
+              "windInitializeDurationMs": 49.2
+            },
+            "clockToRainMotionMs": 3005.2,
+            "cursorRainGap": {
+              "maxFrames": 0.3,
+              "samples": 104
+            },
+            "firstMapImageSource": "motregen-map-start",
+            "pmtilesHeader": {
+              "startMs": 430,
+              "endMs": 578.6,
+              "queueMs": 121.8
+            },
+            "harmonieHeaderStartMs": 1661.1,
+            "harmonieHeadersBeforeMap": 0,
+            "protocols": [
+              "http/1.1",
+              "data"
+            ],
+            "cacheResponses": 0,
+            "decodes": 180,
+            "resourceTransferBytes": 17158492,
+            "afterPlay": {
+              "count": 27,
+              "over250": 0,
+              "maxMs": 236.7,
+              "totalMs": 2546.7
+            }
+          },
+          "candidate": {
+            "name": "h1-po-android-cold-candidate-3",
+            "origin": "http://127.0.0.1:4351",
+            "profile": "po-android",
+            "warm": false,
+            "fixture": false,
+            "screenshotOverhead": false,
+            "cpuProfile": false,
+            "manifestGenerated": "2026-10-09T10:50:48Z",
+            "capturedAt": "2026-10-09T11:34:01.906Z",
+            "fixedClock": "2026-10-09T10:50:48Z",
+            "startLoad": 12.09,
+            "meanLoad": 11.6,
+            "milestones": {
+              "ttfrMs": 2241.6,
+              "ttfpMs": 2242.1,
+              "styleReadyMs": 557.2,
+              "firstRainMs": 1897.4,
+              "firstCursorMs": 2241.6,
+              "firstBasemapTileMs": 4161.4,
+              "basemapReadyMs": 4247.3,
+              "mapRevealedMs": 2536.2,
+              "ttfhMs": 7112.2,
+              "firstMapImageMs": 1897.1,
+              "firstRainMotionMs": 2242.1,
+              "windInitializeStartMs": 4271.9,
+              "windInitializeDurationMs": 36.9
+            },
+            "clockToRainMotionMs": 0.5,
+            "cursorRainGap": {
+              "maxFrames": 0,
+              "samples": 122
+            },
+            "firstMapImageSource": "motregen-map-start",
+            "pmtilesHeader": {
+              "startMs": 437.1,
+              "endMs": 575.1,
+              "queueMs": 107.3
+            },
+            "harmonieHeaderStartMs": 1677.1,
+            "harmonieHeadersBeforeMap": 0,
+            "protocols": [
+              "http/1.1",
+              "data"
+            ],
+            "cacheResponses": 0,
+            "decodes": 177,
+            "resourceTransferBytes": 17096047,
+            "afterPlay": {
+              "count": 41,
+              "over250": 2,
+              "maxMs": 308.3,
+              "totalMs": 4514.2
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

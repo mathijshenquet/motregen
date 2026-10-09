@@ -246,10 +246,9 @@ test('pinned focus at rest does no contour or worker work', async ({ page }, tes
   await pausePlayback(page)
   await heading(page).click()
   await expect(shell(page)).toHaveAttribute('data-focus', '1.00')
-  const counters = () => page.evaluate(() => (window as typeof window & { __motregenIsolines: () => { passes: number; fillPasses: number; labelRounds: number } }).__motregenIsolines())
-  // Bij sommige pauzetijden liggen de labels buiten beeld; een getekende contoursnede is de gereedheid.
-  await expect.poll(async () => (await counters()).fillPasses).toBeGreaterThan(0)
+  await expect.poll(() => page.locator('.isoline-label').count()).toBeGreaterThan(0)
   await page.waitForTimeout(1_000)
+  const counters = () => page.evaluate(() => (window as typeof window & { __motregenIsolines: () => { passes: number; fillPasses: number; labelRounds: number } }).__motregenIsolines())
   const before = await counters()
   expect(before.fillPasses).toBeGreaterThan(0)
   await page.waitForTimeout(2_000)

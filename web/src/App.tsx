@@ -1596,7 +1596,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function scheduleWindInitialization(): void {
     if (windInitializationScheduled) return
     windInitializationScheduled = true
-    // De wind-shaders blokkeerden de eerste regenwisseling ~740 ms; geef die eerst een geschilderd beeld.
+    // De synchrone wind-shaderopzet blokkeert de hoofddraad; geef de eerste regenwisseling eerst een geschilderd beeld.
     windInitializationFrame = requestAnimationFrame(() => {
       windInitializationFrame = undefined
       windInitializationIdle = scheduleIdle(() => {

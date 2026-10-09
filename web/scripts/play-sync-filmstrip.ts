@@ -28,7 +28,7 @@ for (const [variant, { prefix, capture }] of captures.entries()) {
     const label = [
       `${variant === 0 ? 'A' : 'B'} doel ${shot.targetMs} / beeld ${number(shot.frameMs)} ms`,
       `sample ${number(shot.sample?.ms)} ms · klok ${shot.sample?.cursorIndex ?? '—'}`,
-      `regen ${Number(shot.sample?.rainCursor ?? NaN).toFixed(2)} · ${shot.sample?.mapStart ?? '—'}`,
+      `regen ${shot.sample?.rainCursor === undefined ? '—' : Number(shot.sample.rainCursor).toFixed(2)} · ${shot.sample?.mapStart ?? '—'}`,
       `tegels ${shot.sample?.tilesLoaded ?? '—'}`,
     ]
     const text = label.map((line, row) => `<text x="5" y="${14 + row * 14}" font-size="11">${line}</text>`).join('')
@@ -37,5 +37,13 @@ for (const [variant, { prefix, capture }] of captures.entries()) {
 }
 mkdirSync(dirname(output), { recursive: true })
 await sharp({ create: { width: thumbnailWidth * columns, height: (thumbnailHeight + labelHeight) * rows, channels: 3, background: 'white' } }).composite(composites).jpeg({ quality: 85 }).toFile(output)
-writeFileSync(output.replace(/\.jpg$/, '.json'), JSON.stringify(captures.map(({ capture }) => capture), null, 2))
+const metadata = captures.map(({ capture }) => ({
+  profile: capture.profile,
+  snapshot: capture.snapshot,
+  shots: capture.shots.map(({ targetMs, frameMs, sample, rainDraw }) => ({
+    targetMs, frameMs, rainDraw,
+    sample: sample && { ms: sample.ms, cursorIndex: sample.cursorIndex, rainCursor: sample.rainCursor, mapStart: sample.mapStart, tilesLoaded: sample.tilesLoaded },
+  })),
+}))
+writeFileSync(output.replace(/\.jpg$/, '.json'), JSON.stringify(metadata, null, 2))
 console.log(output)
