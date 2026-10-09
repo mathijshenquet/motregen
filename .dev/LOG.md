@@ -404,6 +404,12 @@
 - 17:20: PO: na U74 prod uitrollen (met weerok.nl); @motregen_bot houdt motregen-branding (alleen de web-naam).
   U71b gestart (gpt-6.1-sol): temperatuur + wind native, doel generatie < 60 s op 2 kernen → renderer terug naar VM.
 
+- **U74 gemerged** (18:01, 30fae9a0, PR #103, opus-5.5 live-pane ~1,5 u): branding per domein — motregen.nl blijft
+  motregen.nl, weerok.nl = "weer ok?" (VITE_BRAND_NAME/VITE_CANONICAL_ORIGIN; twee web-pakketten; Caddy-root per
+  hostnaam; www→apex 308; brand-build-test). Focus-spec-"regressie" was een locatorbotsing met de nieuwe About-knop
+  (exact: true). Cloudflare: zone weerok.nl aangemaakt via API (A/AAAA/www proxied, SSL strict); PO heeft de
+  nameservers bij TransIP omgezet (bayan/venus), zone nog pending. Prod-uitrol gestart (nixos-upgrade).
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
