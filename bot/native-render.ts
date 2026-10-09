@@ -23,12 +23,14 @@ export class NativeWeatherRenderer {
     const hasTemperature = manifest.chunks.some((chunk) => chunk.field === 'feels_like_c')
     const temperatures = hasTemperature ? new NativeRainData(this.origin, manifest, 'feels_like_c') : undefined
     const temperatureEpoch = (epoch: number) => Math.max(temperatures!.timeline[0]!.epoch, Math.min(temperatures!.timeline.at(-1)!.epoch, Math.round(epoch / 600_000) * 600_000))
-    const first = await data.frame(plan.epochs[0]!)
+    const [first] = await Promise.all([
+      data.frame(plan.epochs[0]!), data.prefetch(plan.epochs), overlay.prepare(manifest),
+      ...(temperatures ? [temperatures.prefetch(plan.epochs.map(temperatureEpoch))] : []),
+    ])
     const compositor = new RainCompositor(first.grid)
     try {
       const themes = [...new Set(plan.epochs.map(rainTheme))]
-      const preparation = [...themes.map(async (theme) => { await maps.get(theme, first.grid) }), overlay.prepare(manifest), compositor.prepare(), data.prefetch(plan.epochs)]
-      if (temperatures) preparation.push(temperatures.prefetch(plan.epochs.map(temperatureEpoch)))
+      const preparation = [...themes.map(async (theme) => { await maps.get(theme, first.grid) }), compositor.prepare()]
       await Promise.all(preparation)
       let renderMs = 0
       const phases = { dataMs: 0, labelsMs: 0, rainMs: 0, overlayMs: 0, writeMs: 0 }
