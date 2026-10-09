@@ -1193,7 +1193,7 @@ td small { color: var(--muted); font-size: 9px; }
     height: var(--scrubber-mobile);
     display: flex;
     flex-direction: column;
-    padding: 2px max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+    padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
   }
   .table-scroll { overflow-x: clip; }
   th { position: sticky; top: env(safe-area-inset-top); z-index: 3; background: var(--surface); box-shadow: inset 0 -1px 0 var(--line-strong); }
