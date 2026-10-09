@@ -1,10 +1,12 @@
 import { execFile, spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { stat } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { availableParallelism } from 'node:os'
 import { promisify } from 'node:util'
 import type { SequencePlan } from './sequences.js'
+import sharp from 'sharp'
+import { FRAME_PIXELS } from './config.js'
 
 const run = promisify(execFile)
 const MAX_LOOP_BYTES = 3_000_000
@@ -14,6 +16,13 @@ export function framePath(directory: string, index: number): string {
 }
 
 export async function encodeStill(frame: string, destination: string): Promise<void> {
+  if (frame.endsWith('.ppm')) {
+    const bytes = await readFile(frame)
+    const header = Buffer.from(`P6\n${FRAME_PIXELS.width} ${FRAME_PIXELS.height}\n255\n`)
+    if (!bytes.subarray(0, header.length).equals(header) || bytes.length !== header.length + FRAME_PIXELS.width * FRAME_PIXELS.height * 3) throw new Error('Ongeldig native stillframe')
+    await sharp(bytes.subarray(header.length), { raw: { ...FRAME_PIXELS, channels: 3 } }).jpeg({ quality: 95, chromaSubsampling: '4:4:4' }).toFile(destination)
+    return
+  }
   await run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', frame, '-frames:v', '1', '-threads', '2', '-q:v', '3', '-f', 'image2', destination])
 }
 
@@ -45,7 +54,7 @@ export async function encodeRgbLoop(
     '-hide_banner', '-loglevel', 'error', '-y', '-filter_threads', '1', '-f', 'rawvideo', '-pixel_format', 'rgb24',
     '-video_size', `${size.width}x${size.height}`, '-framerate', String(plan.fps), '-i', 'pipe:0',
     '-vf', `tpad=stop_mode=clone:stop_duration=1,setsar=1`, '-frames:v', String(plan.loopFrames + plan.fps),
-    '-c:v', 'libx264', '-threads', availableParallelism() <= 2 ? '1' : '2', '-preset', 'superfast', '-crf', '25',
+    '-c:v', 'libx264', '-threads', availableParallelism() <= 2 ? '1' : '2', '-preset', 'ultrafast', '-crf', '25',
     '-maxrate', String(bitrate), '-bufsize', String(bitrate), '-pix_fmt', 'yuv420p',
     '-movflags', '+faststart', '-an', '-f', 'mp4', destination,
   ], { stdio: ['pipe', 'ignore', 'pipe'] })

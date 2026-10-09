@@ -57,8 +57,8 @@ it('chooses the map time’s day/night theme and isolates the fallback cache', (
 
 
 it('matches the scalar compositor with native bilinear projection, including no-data and fractional times', async () => {
-  const compositor = new RainCompositor(grid, { width: 4, height: 4 })
-  const base = new Uint8Array(48).fill(100)
+  const compositor = new RainCompositor(grid, { width: 64, height: 64 })
+  const base = new Uint8Array(64 * 64 * 3).fill(100)
   const left = Uint8Array.from([0, 0, 0, 0, 0, 80, 100, 140, 0, 100, 255, 190, 0, 140, 190, 220])
   const right = new Uint8Array(16).fill(80)
   for (const mix of [0, 0.25, 0.5, 1]) {
