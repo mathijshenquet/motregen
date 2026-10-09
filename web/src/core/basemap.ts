@@ -53,7 +53,10 @@ export function loadBasemapStyle(theme: MapTheme): Promise<StyleSpecification> {
           const archive = new PMTiles(url)
           tileProtocol.add(archive)
           // Dezelfde headerpromise gaat later naar MapLibre; geen tweede Range of eigen parser.
-          void archive.getHeader().catch(() => undefined)
+          void archive.getHeader().catch(() => {
+            // Een mislukte prefetch mag de gedeelde headercache niet blijvend vergiftigen.
+            if (tileProtocol.get(url) === archive) tileProtocol.add(new PMTiles(url))
+          })
         }
         if (prepared.glyphs && Object.values(prepared.sources).some((source) => source.type === 'vector' && source.url?.startsWith('pmtiles://'))) {
           // Haal het gewone Latijnse font op voordat een worker zijn eerste labels terugstuurt.

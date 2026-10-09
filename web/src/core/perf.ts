@@ -79,7 +79,7 @@ export interface PerfResourceTotals {
 
 export interface PerfSnapshot {
   capturedAt: string
-  /** Eerste regenframe en volledige basiskaart getekend, met de splash-onthulling voltooid. */
+  /** Start van de gezamenlijke afspeelklok; bij een gepauzeerde start de eerste regentekening. */
   ttfrMs: number | null
   firstRainMs: number | null
   basemapReadyMs: number | null
@@ -444,19 +444,12 @@ export class PerfMonitor {
     this.recordPhase({ phase: `milestone:${milestone}`, startTime: 0, duration: now })
   }
 
-  private settleFirstRender(now: number): void {
-    if (this.ttfrMs !== null || this.firstRainMs === null || this.basemapReadyMs === null || this.mapRevealedMs === null) return
-    this.ttfrMs = now
-    this.markMilestone('ttfr', now)
-  }
-
   /** De basemap-tiles van het eerste beeld zijn getekend. */
   markBasemapReady(): void {
     if (this.basemapReadyMs !== null) return
     const now = this.environment.now()
     this.basemapReadyMs = now
     this.markMilestone('basemap-ready', now)
-    this.settleFirstRender(now)
   }
 
   markStyleReady(): void {
@@ -475,13 +468,19 @@ export class PerfMonitor {
     if (this.mapRevealedMs !== null) return
     this.mapRevealedMs = this.environment.now()
     this.markMilestone('map-revealed', this.mapRevealedMs)
-    this.settleFirstRender(this.mapRevealedMs)
   }
 
   markFirstCursorMove(): void {
     if (this.firstCursorMs !== null) return
     this.firstCursorMs = this.environment.now()
     this.markMilestone('first-cursor', this.firstCursorMs)
+    this.markFirstRender(this.firstCursorMs)
+  }
+
+  private markFirstRender(now: number): void {
+    if (this.ttfrMs !== null) return
+    this.ttfrMs = now
+    this.markMilestone('ttfr', now)
   }
 
   markSplashGone(): void {
@@ -534,7 +533,7 @@ export class PerfMonitor {
     if (this.firstRainMs === null) {
       this.firstRainMs = now
       this.markMilestone('first-rain', now)
-      this.settleFirstRender(now)
+      if (!shown?.playing) this.markFirstRender(now)
     }
     if (shown) {
       if (shown.playing && this.ttfpMs === null && this.shownRainFrame !== undefined && shown.frameEpoch !== this.shownRainFrame) {

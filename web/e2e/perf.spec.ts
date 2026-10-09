@@ -276,7 +276,7 @@ function expectedLoadStage(profile: ReturnType<typeof performanceProfile>): 'com
 }
 
 async function waitForTtfr(page: Page): Promise<PerfSnapshot> {
-  // U68: TTFR telt de voltooide onthulling mee, zodat de journey op een zichtbare kaart begint.
+  // U68: TTFR meet de gezamenlijke klokstart, onafhankelijk van de onthullingsanimatie.
   try {
     await page.waitForFunction(() => (window as typeof window & { __motregenPerf?: unknown }).__motregenPerf !== undefined, undefined, { timeout: 30_000 })
   } catch {

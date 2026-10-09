@@ -850,11 +850,12 @@ De maat is `ttfp` (time to first play): van navigatiestart tot de kaart een rege
 in een getekend beeld terwijl `playing` aan staat (`PerfMonitor.markRainFrameCommitted`); een
 bewegende cursor boven een stilstaande kaart telt dus niet. Doel: `ttfp ≤ ttfp-ref`.
 
-Sinds U68 start de gedeelde afspeelklok pas na de eerste regentekenbeurt (`mapReady`) én de
-voltooide splash-onthulling. De scrubber staat buiten die sluier en wacht daarom mee: cursor,
-histogram-glide en kaartregen starten vanaf hetzelfde stilstaande moment. De speelregel blijft
-cursorframe + volgend frame; uurvelden zijn geen voorwaarde. `firstCursorMs` meet de eerste
-cursorbeweging; `ttfp` blijft de eerste daadwerkelijk getekende wissel van het linker regenframe.
+Sinds U68 start de gedeelde afspeelklok na de eerste regentekenbeurt (`mapReady`): cursor,
+histogram-glide en kaartregen starten vanaf hetzelfde stilstaande moment. De sluier vloeit
+onafhankelijk weg en is geen speelpoort (PO 2026-10-09). De speelregel blijft cursorframe +
+volgend frame; uurvelden zijn geen voorwaarde. `ttfr` meet bij autoplay de eerste cursorbeweging
+(`firstCursorMs`); bij een bewust gepauzeerde start de eerste regentekening. `ttfp` blijft de
+eerste daadwerkelijk getekende wissel van het linker regenframe.
 `styleReadyMs`, `firstBasemapTileMs` en `mapRevealedMs` maken kaartopzet en onthulling apart zichtbaar.
 
 ```sh
@@ -871,8 +872,9 @@ pnpm exec tsx scripts/po-reference.ts compare perf/po-android-reference.json tmp
   het tijdlabel dient als tweede getuige. De rig klikt de toestemmingsmuur weg zodra de knop er
   staat. Dat is sneller dan een mens, dus de referentie valt eerder gunstig uit voor Buienradar.
   `ttfp-ref zonder iets over de kaart` telt pas vanaf het eerste beeld waar niets overheen ligt.
-- De overige meetpunten: `ttfr` is het eerste regenframe én de basemap-tiles van het eerste
-  beeld (`map.areTilesLoaded()` na een render), met de onthulling voltooid (`mapRevealedMs`);
+- De volledige-kaartgereedheid blijft apart meetbaar als `basemapReadyMs`
+  (`map.areTilesLoaded()` na een render); historische TTFR-getallen van vóór U68 maten dat
+  samen met de eerste regen, en zijn dus niet rechtstreeks vergelijkbaar met de klokstart.
   `ttfh` is `window-ready:rain_rate`;
   `blank-visible-ms` is de tijd na de splash waarin een zichtbaar regenslot van de scrubber geen
   waarde had en ook niet als "komt nog" getekend was (`core/screen-truth.ts`). Main tekent nog

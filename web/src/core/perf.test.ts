@@ -45,18 +45,20 @@ describe('performance monitor', () => {
     expect(snapshot.manifestAgeMs).toBe(900_340)
   })
 
-  it('lets ttfr wait for the first rain frame, basemap tiles and visible reveal', () => {
+  it('measures the autoplay clock start without waiting for tiles or the splash reveal', () => {
     const test = harness()
     test.advance(120)
-    test.monitor.markRainFrameCommitted()
+    test.monitor.markRainFrameCommitted({ frameEpoch: 1_000, playing: true })
     expect(test.monitor.snapshot()).toMatchObject({ firstRainMs: 120, basemapReadyMs: null, ttfrMs: null })
+    test.advance(50)
+    test.monitor.markFirstCursorMove()
+    expect(test.monitor.snapshot()).toMatchObject({ firstRainMs: 120, basemapReadyMs: null, mapRevealedMs: null, firstCursorMs: 170, ttfrMs: 170 })
     test.advance(300)
     test.monitor.markBasemapReady()
-    expect(test.monitor.snapshot().ttfrMs).toBeNull()
-    test.advance(50)
+    test.advance(1_800)
     test.monitor.markMapRevealed()
-    test.monitor.markBasemapReady()
-    expect(test.monitor.snapshot()).toMatchObject({ firstRainMs: 120, basemapReadyMs: 420, mapRevealedMs: 470, ttfrMs: 470 })
+    test.monitor.markFirstCursorMove()
+    expect(test.monitor.snapshot()).toMatchObject({ firstRainMs: 120, basemapReadyMs: 470, mapRevealedMs: 2_270, firstCursorMs: 170, ttfrMs: 170 })
   })
 
   it('reaches ttfp at the first rain frame change while playing, not while paused or on a repeated frame', () => {
