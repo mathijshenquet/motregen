@@ -4,6 +4,8 @@ import type { RenderedMedia } from './render.js'
 import type { StillPhotos } from './photos.js'
 import type { FileIdCache } from './file-ids.js'
 import { MediaUnavailableError, REGISTER_NOTICE } from './register.js'
+import type { PlaceWeather } from './place-weather.js'
+import type { SearchPlace } from '../web/src/core/place-search.js'
 import type { MessageSelections } from './selections.js'
 import { cacheKey, keyboard, matchingModes, modeForCommand, parseCallback, LOOP_MODES, STILL_MINUTES, type MediaSelection, type StillManifest } from './stills.js'
 
@@ -14,6 +16,7 @@ export interface BotRuntime {
   photos: Pick<StillPhotos, 'send' | 'edit'> & { fileIds: Pick<FileIdCache, 'get'> }
   selections: MessageSelections
   username: string
+  weather?: PlaceWeather
   currentManifest(): Promise<StillManifest>
   manifestForGeneration?(generated: number): StillManifest | undefined
   availableStill(selection: MediaSelection): RenderedMedia | undefined
@@ -66,14 +69,26 @@ async function dispatchUpdate(update: TelegramUpdate, runtime: BotRuntime): Prom
 }
 
 export function startText(username: string): string {
-  return 'motregen.nl -- Regenradar en Weersverwachting\n/regen, /temperatuur (of /hitte) en /wind geven een bewegende kaart; met de knoppen eronder kies je een stilstaand moment. Open de app voor jouw plek. Inline: @' + username + ' regen.'
+  return 'motregen.nl -- Regenradar en Weersverwachting\n/weer amsterdam toont wolken en regen voor die plek; /regen ams werkt ook. /regen, /temperatuur (of /hitte) en /wind geven een bewegende kaart; met de knoppen eronder kies je een stilstaand moment. Inline: @' + username + ' regen.'
 }
 
 async function handleCommand(message: TelegramMessage, runtime: BotRuntime): Promise<void> {
   const commandMatch = /^\/(\w+)(?:@([\w]+))?(?:\s|$)/.exec(message.text ?? '')
   if (!commandMatch) return
   if (commandMatch[2] && commandMatch[2].toLowerCase() !== runtime.username.toLowerCase()) return
-  const command = commandMatch[1]
+  const command = commandMatch[1]!.toLowerCase()
+  const argument = message.text!.slice(commandMatch[0].length).trim().slice(0, 200)
+  if (command === 'weer' || command === 'regen' && argument) {
+    if (!runtime.weather) return
+    const found = await runtime.weather.places.find(argument)
+    if (found.place) await sendPlaceWeather(message.chat.id, found.place, runtime)
+    else await runtime.api.call('sendMessage', {
+      chat_id: message.chat.id,
+      text: argument ? 'Welke plaats bedoel je?' : 'Voor welke plaats wil je het weer zien?',
+      reply_markup: { inline_keyboard: found.suggestions.map((place) => [runtime.weather!.places.button(place)]) },
+    })
+    return
+  }
   if (command === 'start') {
     const launch = { text: 'Open motregen.nl', web_app: { url: `${runtime.config.origin}/?tg=1` } }
     const link = { text: 'Open motregen.nl', url: `https://t.me/${runtime.username}?startapp` }
@@ -142,6 +157,16 @@ async function handleInline(query: NonNullable<TelegramUpdate['inline_query']>, 
 }
 
 async function handleCallback(query: NonNullable<TelegramUpdate['callback_query']>, runtime: BotRuntime): Promise<void> {
+  if (query.data?.startsWith('weer:')) {
+    const place = runtime.weather?.places.fromCallback(query.data)
+    if (!place || !query.message) {
+      await answerCallback(runtime, query.id, 'Verlopen, stuur /weer opnieuw')
+      return
+    }
+    await answerCallback(runtime, query.id)
+    await sendPlaceWeather(query.message.chat.id, place, runtime)
+    return
+  }
   const started = performance.now()
   const requested = parseCallback(query.data)
   if (!requested || (!query.inline_message_id && !query.message)) {
@@ -228,12 +253,22 @@ export async function configureBot(runtime: BotRuntime): Promise<void> {
   await runtime.api.call('setMyCommands', {
     commands: [
       { command: 'start', description: 'Open de motregen Mini App' },
+      { command: 'weer', description: 'Wolken en regen voor een plaats: /weer ams' },
       ...LOOP_MODES.flatMap((entry) => [
         { command: entry.command, description: `${entry.label} als bewegende kaart` },
         ...entry.listed.map((alias) => ({ command: alias, description: `Zelfde als /${entry.command}` })),
       ]),
     ],
   })
+}
+
+async function sendPlaceWeather(chatId: number, place: SearchPlace, runtime: BotRuntime): Promise<void> {
+  const weather = runtime.weather!
+  const result = await weather.renderer.render(place)
+  const replyMarkup = { inline_keyboard: [[{ text: 'Open in de app', url: result.url }]] }
+  if (result.media) await weather.photos.send(result.media, { chat_id: chatId, caption: result.caption, reply_markup: replyMarkup })
+  else await runtime.api.call('sendMessage', { chat_id: chatId, text: result.caption, parse_mode: 'HTML', reply_markup: replyMarkup })
+  console.info(JSON.stringify({ event: 'chat-weather', milliseconds: Math.round(result.milliseconds), cached: result.cached, image: Boolean(result.media) }))
 }
 
 // Proef (PO 2026-10-09): één rich message met de regen-stills als slideshow (Bot API 10.2, InputRichBlockSlideshow),

@@ -3,6 +3,7 @@ import { zstdDecompressSync } from 'node:zlib'
 import type { Field, Grid, Manifest, MrfHeader, TimelineFrame } from '../web/src/core/contract.js'
 import { decodeFrame, parseMrfHeader } from '../web/src/core/mrf-codec.js'
 import { buildTimeline, frameBlend } from '../web/src/core/time-model.js'
+import { pointValue, projectPoint } from '../web/src/core/point-value.js'
 import { rainColormap } from '../web/src/core/rain-chart.js'
 import { rainPresentation } from '../web/src/core/rain-presentation.js'
 import { stillMapTheme } from '../web/src/core/still-theme.js'
@@ -35,6 +36,19 @@ export class NativeRainData {
     await Promise.all([...chunks.values()].map((frame) => this.load(frame)))
   }
 
+  async pointSeries(point: { lng: number; lat: number }, start: number, end: number): Promise<{ timeline: TimelineFrame[]; values: Array<number | null> }> {
+    const first = frameBlend(this.timeline, start).left
+    const last = frameBlend(this.timeline, end).right
+    const timeline = this.timeline.slice(first, last + 1)
+    const [projectedX, projectedY] = projectPoint(point.lng, point.lat)
+    const values: Array<number | null> = []
+    for (const frame of timeline) {
+      const { header, raster } = await this.load(frame, false)
+      values.push(pointValue(header, raster, projectedX, projectedY))
+    }
+    return { timeline, values }
+  }
+
   async frame(epoch: number): Promise<RainFrame> {
     if (epoch < this.timeline[0]!.epoch || epoch > this.timeline.at(-1)!.epoch) throw new Error('Frame valt buiten de beschikbare tijdlijn')
     const blend = frameBlend(this.timeline, epoch)
@@ -59,7 +73,7 @@ export class NativeRainData {
     return { grid: left.grid, left: left.raster, right: right.raster, mix: blend.mix, leftHeader: left.header, rightHeader: right.header, motion, intervalMinutes: (rightFrame.epoch - leftFrame.epoch) / 60_000 }
   }
 
-  private async load(frame: TimelineFrame): Promise<{ grid: Grid; raster: Uint8Array; header: MrfHeader }> {
+  private async load(frame: TimelineFrame, retainRaster = true): Promise<{ grid: Grid; raster: Uint8Array; header: MrfHeader }> {
     let pending = this.chunks.get(frame.chunk.url)
     if (!pending) {
       pending = (async () => {
@@ -68,7 +82,10 @@ export class NativeRainData {
         const bytes = new Uint8Array(await response.arrayBuffer())
         const headerLength = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(4, true) + 8
         return { header: parseMrfHeader(bytes.subarray(0, headerLength)), bytes, headerLength, frames: new Map<number, Uint8Array>() }
-      })()
+      })().catch((error) => {
+        this.chunks.delete(frame.chunk.url)
+        throw error
+      })
       this.chunks.set(frame.chunk.url, pending)
     }
     const chunk = await pending
@@ -78,8 +95,10 @@ export class NativeRainData {
       if (!index || index.time !== frame.time) throw new Error('Regenchunk wijkt af van manifest')
       const start = chunk.headerLength + index.offset
       const { width, height } = chunk.header.grid
-      raster = decodeFrame(chunk.bytes.subarray(start, start + index.len), width * height, chunk.header.pred ? { width, height } : undefined, zstdDecompressSync)
-      chunk.frames.set(frame.frameIndex, raster)
+      const compressed = chunk.bytes.subarray(start, start + index.len)
+      const pred = chunk.header.pred ? { width, height } : undefined
+      raster = decodeFrame(compressed, width * height, pred, zstdDecompressSync)
+      if (retainRaster) chunk.frames.set(frame.frameIndex, raster)
     }
     return { grid: chunk.header.grid, raster, header: chunk.header }
   }

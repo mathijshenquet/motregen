@@ -1,5 +1,5 @@
-import type { TimelineFrame } from './contract'
-import { seriesValueAt } from './time-model'
+import type { TimelineFrame } from './contract.js'
+import { seriesValueAt } from './time-model.js'
 
 // Wolkendoorsnede in de scrubber (U37, hersteek U47/MIP-18): de bedekking van een laag wordt getekend als
 // losse wolken met lucht ertussen, niet als doorzichtigheid; pas vanaf CLOSED_FRACTION sluit de laag.

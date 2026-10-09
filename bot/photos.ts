@@ -95,6 +95,7 @@ export class StillPhotos {
 
   private async upload(still: RenderedMedia, fields: Record<string, unknown>): Promise<TelegramMessage> {
     const animation = still.kind === 'animation'
+    if (still.path.endsWith('.png')) return this.api.upload<TelegramMessage>('sendPhoto', { ...fields, parse_mode: 'HTML' }, still.path, { name: 'photo', mime: 'image/png', filename: 'motregen.png' })
     return animation
       ? this.api.upload<TelegramMessage>('sendAnimation', { ...fields, ...animationSize(still), parse_mode: 'HTML' }, still.path, { name: 'animation', mime: 'video/mp4', filename: 'motregen.mp4' })
       : this.api.uploadPhoto({ ...fields, parse_mode: 'HTML' }, still.path)

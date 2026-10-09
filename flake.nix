@@ -76,7 +76,7 @@
           assert !(poller.environment ? MOTREGEN_CHROMIUM_PATH);
           assert !(poller.environment ? PLAYWRIGHT_BROWSERS_PATH);
           assert !(builtins.any (package: package == pkgs.ffmpeg) poller.path);
-          assert poller.serviceConfig.MemoryMax == "256M";
+          assert poller.serviceConfig.MemoryMax == "512M";
           assert renderer.systemd.services.motregen-bot.environment ? MOTREGEN_CHROMIUM_PATH;
           assert renderer.systemd.services.motregen-bot.environment.MOTREGEN_ORIGIN == "https://motregen.nl";
           assert !(renderer.systemd.services ? motregen-ingest);

@@ -10,6 +10,7 @@ import { StillPhotos } from './photos.js'
 import { MessageSelections } from './selections.js'
 import { PREWARM_HOURS, STILL_HOURS, LOOP_MODES, type StillManifest, type MediaSelection } from './stills.js'
 import { createPoller } from './poller.js'
+import { createPlaceWeather } from './place-weather.js'
 import { createRegister, REGISTER_FILENAME, TelegramRegister, writeRegister } from './register.js'
 
 export async function runBot(config: BotConfig, api = new TelegramApi(config.token), signal?: AbortSignal): Promise<void> {
@@ -76,6 +77,7 @@ function combinedRuntime(config: BotConfig, api: TelegramApi, identity: { id: nu
   }
   const runtime: BotRuntime = {
     api, config, renderer, username: identity.username,
+    weather: createPlaceWeather(config, api, identity.id),
     photos,
     selections: new MessageSelections(),
     currentManifest: async () => {

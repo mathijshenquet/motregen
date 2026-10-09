@@ -558,12 +558,12 @@ in
         UMask = "0022";
         Restart = "on-failure";
         RestartSec = "15s";
-        # MIP-25: rendering draait op een andere host; de VM hoeft alleen file_ids te versturen.
+        # Nationale loops blijven elders; native plaatsbeelden hebben kort extra decodegeheugen nodig (MIP-27).
         Nice = 10;
         CPUWeight = 20;
         CPUQuota = if cfg.bot.role == "poller" then "25%" else if cfg.bot.role == "renderer" then "400%" else "150%";
-        MemoryHigh = if cfg.bot.role == "poller" then "192M" else "2200M";
-        MemoryMax = if cfg.bot.role == "poller" then "256M" else "2600M";
+        MemoryHigh = if cfg.bot.role == "poller" then "384M" else "2200M";
+        MemoryMax = if cfg.bot.role == "poller" then "512M" else "2600M";
         TimeoutStopSec = "90s";
         LimitCORE = 0;
         PrivateNetwork = false;

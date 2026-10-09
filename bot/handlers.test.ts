@@ -1,18 +1,19 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TelegramApi, TelegramApiError, type TelegramUpdate } from './api.js'
 import { FileIdCache } from './file-ids.js'
 import { handleUpdate, type BotRuntime } from './handlers.js'
 import { StillPhotos } from './photos.js'
+import { createPlaceWeather } from './place-weather.js'
 import { MessageSelections } from './selections.js'
 import type { RenderedMedia, StillRenderer } from './render.js'
 import { cacheKey, caption, stillEpoch, type MediaSelection, type StillManifest } from './stills.js'
 
 let directory: string
 beforeEach(async () => { directory = await mkdtemp(join(tmpdir(), 'motregen-handlers-')) })
-afterEach(async () => { vi.restoreAllMocks(); await rm(directory, { recursive: true, force: true }) })
+afterEach(async () => { vi.restoreAllMocks(); vi.unstubAllGlobals(); await rm(directory, { recursive: true, force: true }) })
 
 async function setup() {
   let manifest: StillManifest = { version: 0, generated: '2026-10-07T12:00:00Z', now: '2026-10-07T12:00:00Z', chunks: [] }
@@ -253,5 +254,63 @@ describe('still delivery and callbacks', () => {
     expect((calls.at(-1)!.fields.results as unknown[]).length).toBe(1)
     await handleUpdate({ update_id: 8, message: { message_id: 1, chat: { id: 99, type: 'private' }, text: '/wind' } }, runtime)
     expect(calls.at(-1)).toMatchObject({ method: 'sendAnimation', multipart: false, fields: { animation: 'uploaded-1' } })
+  })
+})
+
+describe('native weather per place', () => {
+  async function weatherSetup(missing = false) {
+    const setupResult = await setup()
+    setupResult.runtime.config = { ...setupResult.runtime.config, role: 'poller', origin: 'https://fixture.test', cacheChatId: '-10099' }
+    setupResult.runtime.weather = createPlaceWeather(setupResult.runtime.config, setupResult.runtime.api, 77)
+    vi.stubGlobal('fetch', vi.fn(async (input: URL | string) => {
+      const url = new URL(String(input))
+      if (url.hostname !== 'fixture.test') return Response.json({})
+      if (missing && url.pathname.endsWith('.mrf')) return new Response('missing', { status: 404 })
+      return new Response(await readFile(resolve('../web/public', `.${url.pathname}`)))
+    }))
+    return setupResult
+  }
+
+  const command = (text: string): TelegramUpdate => ({ update_id: 1, message: { message_id: 1, chat: { id: 99, type: 'private' }, text } })
+
+  it('uploads a native PNG to the requesting chat in poller mode, then uses file_id for the alias', async () => {
+    const { runtime, calls, render } = await weatherSetup()
+    await handleUpdate(command('/weer ams'), runtime)
+    await handleUpdate(command('/regen Amsterdam'), runtime)
+    expect(render).not.toHaveBeenCalled()
+    expect(calls.map((call) => [call.method, call.multipart])).toEqual([['sendPhoto', true], ['sendPhoto', false]])
+    const upload = calls[0].fields.photo as File
+    expect(upload.type).toBe('image/png')
+    expect(calls.every((call) => Number(call.fields.chat_id) === 99)).toBe(true)
+    expect(calls[0].fields.caption).toContain('Amsterdam')
+    const markup = JSON.parse(String(calls[0].fields.reply_markup))
+    expect(markup.inline_keyboard[0][0]).toMatchObject({ text: 'Open in de app', url: expect.stringContaining('/weer/amsterdam') })
+    await handleUpdate(command('/regen'), runtime)
+    expect(render).toHaveBeenCalledWith({ mode: 'weather', hour: 'loop' }, expect.anything())
+  })
+
+  it('offers at most three places, resolves a suggestion callback and expires unknown callbacks gracefully', async () => {
+    const { runtime, calls } = await weatherSetup()
+    await handleUpdate(command('/weer onbekende-plaats-xyz'), runtime)
+    const markup = calls[0].fields.reply_markup as { inline_keyboard: Array<Array<{ callback_data: string }>> }
+    expect(calls[0].method).toBe('sendMessage')
+    expect(markup.inline_keyboard.length).toBeGreaterThan(0)
+    expect(markup.inline_keyboard.length).toBeLessThanOrEqual(3)
+    const data = markup.inline_keyboard[0][0].callback_data
+    expect(Buffer.byteLength(data)).toBeLessThanOrEqual(64)
+    await handleUpdate(callback(data), runtime)
+    expect(calls[1].method).toBe('answerCallbackQuery')
+    expect(calls[2].method).toBe('sendPhoto')
+    await handleUpdate(callback('weer:unknown'), runtime)
+    expect(calls.at(-1)?.fields.text).toContain('Verlopen')
+  })
+
+  it('sends useful text and an app link when a chunk is missing, and ignores another bot’s command', async () => {
+    const { runtime, calls } = await weatherSetup(true)
+    await handleUpdate(command('/weer@andere_bot ams'), runtime)
+    expect(calls).toHaveLength(0)
+    await handleUpdate(command('/weer ams'), runtime)
+    expect(calls).toHaveLength(1)
+    expect(calls[0]).toMatchObject({ method: 'sendMessage', fields: { parse_mode: 'HTML', text: expect.stringContaining('tijdelijk niet compleet') } })
   })
 })

@@ -3,9 +3,76 @@
 De bot `@motregen_bot` opent “motregen.nl -- Regenradar en Weersverwachting”
 als Mini App en deelt nationale kaarten. `/regen`, `/temperatuur` (alias `/hitte`) en `/wind`
 plaatsen een video die automatisch afspeelt en herhaalt: de loop is het standaardantwoord van elk
-commando (PO 2026-10-07, U58). Een stilstaand beeld komt via de tijdknoppen onder het bericht.
+kaartcommando (PO 2026-10-07, U58). Een stilstaand beeld komt via de tijdknoppen onder het bericht.
 Het commando `/loop` is vervallen. `/gevoel`, de naam van `/temperatuur` tot U58, blijft werken maar
 staat niet meer in het commandomenu of de starttekst. Wind bestaat uitsluitend als loop, nooit als still.
+
+`/weer ams` of `/regen Amsterdam` toont wolken en regen voor die plaats. Zonder plaats blijft `/regen`
+de nationale regenloop. De volledige plaatsencatalogus, afkortingen (`ams`, `rdam`, `utr`) en fuzzy
+zoeker zijn gedeeld met de app; wijken en deelgemeenten kunnen via dezelfde PDOK/Vlaanderen-zoeklaag
+worden gevonden. Een onduidelijke naam geeft maximaal drie suggestieknoppen. Het bijschrift bevat de
+plaatsnaam, één regenzin voor de komende twee uur en de plaatslink; **Open in de app** opent dat punt
+op `/weer/<slug>` met de tijdpreset. Suggestiecallbacks verlopen na twee uur of een bot-herstart.
+
+Het plaatshistogram blijft **−2…+12 uur**, onafhankelijk van de kortere nationale regenloop. De bot
+leest per frame dezelfde rastercel/kwantisatietabel als `App.readPointSeries` en interpoleert in de
+tijd met `seriesValueAt`. De drie HARMONIE-wolkenlagen gebruiken rechtstreeks `cloudBand` (losse
+wolken, gesloten dek vanaf 0,9); het historische deel blijft leeg omdat dit geen wolkenobservaties
+zijn. Het histogram gebruikt de schaal, balkmaten en kleuren uit de app en markeert radar, nowcast,
+naadloos (seamless) en HARMONIE. Het beeld gebruikt **Expressief** (MIP-24): de kop en het kader nemen
+de dag/nacht-kleuren van het cursoruur over, op de zonnestand van de gekozen plaats. De hemel achter
+wolken én regen, de tijdliniaal en de wolkentinten volgen elk uur van de tijdlijn, met dezelfde
+OKLab-kleuren, sterren, hemelstreken en schemergloed als de app. De lichtdoorlating wordt uit de drie
+wolkenlagen geschat met de gedeelde `layerTransmission`-fallback; er worden geen extra stralingsvelden
+opgehaald. Wolkengeometrie begint bij **nu** en wordt na vervaging afgeknipt: links van de cursor staan
+geen wolken, ook niet bij een gesloten dek. Renderkey-versie 2 voorkomt hergebruik van oude sobere PNGs.
+SVG → `sharp` levert 640×400 CSS-pixels
+op 2× resolutie (1280×800 PNG), zonder browser of rastercompositorproces.
+
+De poller en combined-rol halen het manifest op aanvraag op (maximaal 15 s manifestcache). Gecomprimeerde
+chunks worden binnen één generatie gedeeld tussen plaatsen; puntreeksen bewaren geen gedecodeerde
+rasters. De PNG-cache staat in
+`MOTREGEN_RENDER_CACHE/weer` en bewaart twee uur per generatie/plaats/coördinaat. Gelijke aanvragen
+delen de render. Het eerste beeld wordt rechtstreeks naar de vragende chat geüpload, daarna wordt
+het file_id hergebruikt met dezelfde botscope, vervaldatum en begrensde herstelpoging als bij stills.
+Deze beelden worden niet naar de cachegroep geprimed en gebruiken het nationale register niet.
+Ontbrekende chunks/velden leveren tekst met app-link; een volgende aanvraag kan de chunk opnieuw
+ophalen. Reeksen met onvolledige dekking geven geen stellige claim dat de komende uren droog zijn.
+
+Dry-run vanuit de repositoryroot, zonder Telegram-token, poller of upload:
+
+```bash
+pnpm -C bot build
+MOTREGEN_RENDER_CACHE=tmp/weer-cache node bot/dist/bot/main.js --once-weer ams \
+  --output=.dev/tracks/u73-weer-per-plaats/beelden
+```
+
+`--manifest=<bestand>` pinnt de generatie. PNG, HTML-bijschrift en cold/warm-receipts komen in de
+outputmap. Gemeten op ageq-dev2 onder `~/motregen-perf.lock`, 2026-10-09, Amsterdam en generatie
+`2026-10-09T14:14:07Z`, tegen `https://motregen.nl`:
+
+| aanvraag | ms |
+| --- | ---: |
+| koude chunks/decode + puntreeksen + SVG/PNG | 837,1 |
+| bestaand PNG op schijf | 0,49 |
+
+Dit is een end-to-end render op een gedeelde host; catalogusophalen en Telegram-upload zitten er
+niet in (de cataloguszoekactie kostte 237 ms). Het verwachte <20 ms uit MIP-27 is dus geen gehaald koud totaalbudget. De waarden en
+wolkenfracties zijn exact vergeleken met dezelfde MRF-fixtures als de webtests; handlers controleren
+ook het PNG-MIME-type, file_id-hergebruik en tekstfallback in de poller-rol. De PNG is lokaal bekeken;
+de live Telegram-test doet de orkestrator.
+
+De oorspronkelijke rastercache kwam op 417 MiB RSS voor één plaats. Puntreeksen laten de rasters nu
+los; bij een nieuwe plaats blijven alleen de chunks staan. De oude pollerlimiet van 256 MiB is ook
+voor tijdelijke decoderbuffers te krap bij meerdere plaatsvragen. Daarom staat het pollerbudget in
+de Nix-module op `MemoryHigh=384M`, `MemoryMax=512M`; `CPUQuota=25%` blijft gelden. Dit is een wijziging
+van de configuratie in de repository, zonder productie-uitrol.
+
+Een lokale `systemd-run --user`-proef met dezelfde CPUQuota/MemoryHigh/MemoryMax heeft tien opeenvolgende
+puntbeelden voor Amsterdam/Utrecht zonder OOM verwerkt (exit 0), piek-RSS 270 MiB. Koud kostte dit 3,32 s,
+vervolgbeelden zonder PNG-cache 1,11–1,69 s door de 25%-CPUQuota. Binnen die generatie werden zeven chunks
+(17,3 MB) één keer opgehaald. Deze proef bewijst de native render binnen het servicebudget; het is geen
+meting op de productie-VM en omvat geen Telegram-verzending.
 
 De modusrij bevat Regen, Temperatuur en Wind (de tab in de app heet Gevoel; in de bot volgt de knop het commando). De tijdrij bevat −1u, −10m, nu,
 +10m, +1u en Loop; bij Wind staat alleen Loop. Vanuit de loop geven de deltaknoppen een still
@@ -27,7 +94,7 @@ in een chat, filter met `regen`, `temperatuur`, `hitte` of `wind`, of kies allee
    URL `https://motregen.nl/?tg=1`. Hierdoor werkt ook de `startapp`-deeplink
    vanuit inlineberichten en groepen.
 3. De service stelt de menuknop met `setChatMenuButton` in op **motregen.nl**
-   met dezelfde URL en registreert de vijf chatcommando's. `/start` geeft uitleg
+   met dezelfde URL en registreert de chatcommando's, inclusief `/weer`. `/start` geeft uitleg
    en een `web_app`-knop in een privéchat.
 
 Het korte bijschrift opent de app met dezelfde modus en absolute tijd via
@@ -47,8 +114,9 @@ cacheposts worden verwijderd nadat hun ids zijn opgeslagen. Journallogs
 bevatten alleen gebeurtenisnamen, modi, stappen, manifestversies, rendertijden,
 foutcodes en eventueel het berichtnummer van een verzonden foto; geen chat-id,
 gebruiker, querytekst, token of upstream fouttekst. De cache bevat uitsluitend
-nationale PNG-/PPM-frames, JPEG-kaarten, MP4-loops, renderreceipts en Telegram-file_id's zonder
-locatie of persoonsgegevens. De renderroute stuurt geen sessieteller of
+nationale PNG-/PPM-frames, JPEG-kaarten, MP4-loops, renderreceipts en Telegram-file_id's, plus
+plaats-PNGs met naam/verwachting/bijschrift. Er wordt geen gebruiker of chat aan een gekozen plaats
+gekoppeld; suggesties bevatten plaatscentra, geen browsergeolocatie. De renderroute stuurt geen sessieteller of
 gebruiksbaken. Alleen een expliciete lokale `MOTREGEN_DEBUG_CHAT_ID` logt daarnaast
 acties uit de aangewezen testchat; die opt-in staat niet in de productie-unit.
 
@@ -69,7 +137,7 @@ de standaard; de Nix-module kiest standaard `poller`.
 | rol | werk | vereisten |
 | --- | --- | --- |
 | `renderer` | Manifest elke 15 s na voltooiing controleren; alle 173 selecties renderen, naar de cachechat primen en het register publiceren. Geen updates of bot-menuwijzigingen. | Chromium, ffmpeg, `TG_BOT_KEY`, `MOTREGEN_CACHE_CHAT_ID`; beheerder met verwijder- en pinrechten (kanaal: editrechten). |
-| `poller` | Long polling en handlers; uitsluitend bestaande file_ids versturen. Geen browser, encoder, uploads of publieke media-URL-fallback. | Hetzelfde token en dezelfde cachechat. |
+| `poller` | Long polling en handlers; nationale kaarten uit bestaande file_ids. `/weer <plaats>` rendert native en uploadt lui naar de vragende chat. Geen browser of videocoder. | Hetzelfde token en dezelfde cachechat; `sharp` en chunks voor plaatsbeelden. |
 | `combined` | Bestaande lokale combinatie: 13 prewarm-media, overige stills op aanvraag. | Chromium, ffmpeg, token; cachechat optioneel. |
 
 Het register is een **vastgepind JSON-document** `motregen-register.json` in de bestaande cachechat.
@@ -131,7 +199,7 @@ sudo systemctl start motregen-bot.service
 ```
 
 De VM-configuratie stelt `services.motregen.bot.role = "poller"` in. De unit gebruikt
-`motregen-bot --role=poller`, 25% CPU, 192 MB MemoryHigh en 256 MB MemoryMax. Zijn closure bevat
+`motregen-bot --role=poller`, 25% CPU, 384 MB MemoryHigh en 512 MB MemoryMax. Zijn closure bevat
 geen Chromium en zijn packagewrapper trekt ffmpeg niet mee. Voor een renderhost kan dezelfde
 NixOS-module zelfstandig een system-unit leveren, zonder lokale ingest of Caddy:
 
@@ -357,8 +425,9 @@ In luie modus gaat een chat-her-upload rechtstreeks naar de gebruiker; inline
 kan bij een ontbrekend id de publieke URL gebruiken. Als het herstel ook faalt,
 krijgt de gebruiker “Beeld kon niet laden, probeer opnieuw”, geen API-fouttekst.
 
-De poller gebruikt altijd de ids uit het register. De onderstaande sidecars, herupload en publieke
-URL-fallback horen bij de gecombineerde modus en het renderen/primen, niet bij de poller.
+Voor nationale kaarten gebruikt de poller altijd de ids uit het register. De onderstaande publieke
+URL-fallback hoort bij de gecombineerde modus en het renderen/primen. De plaats-PNGs van `/weer`
+hebben ook in de poller-rol eigen file_id-sidecars en een begrensde herupload.
 
 Inline gebruikt `InlineQueryResultCachedPhoto` of
 `InlineQueryResultCachedMpeg4Gif` zodra het file_id bekend is, ook lokaal;
