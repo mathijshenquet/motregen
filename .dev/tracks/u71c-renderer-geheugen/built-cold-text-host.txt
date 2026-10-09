@@ -1,0 +1,18 @@
+2026-10-09T17:51:41Z
+ecff14a086c4115fb2bfbe9705df80c8e88c4945
+ .dev/tracks/u71c-renderer-geheugen/measure.sh  |  4 +++-
+ .dev/tracks/u71c-renderer-geheugen/profile.mjs | 14 ++++++++------
+ bot/encode-rgb.test.ts                         |  4 ++++
+ bot/encode.ts                                  |  4 ++--
+ bot/native-field-raster.ts                     | 15 ++++++++++-----
+ bot/native-map.ts                              |  4 ++--
+ bot/native-modes-render.ts                     | 10 +++++-----
+ bot/native-overlay.ts                          |  6 +++---
+ bot/native-raster.ts                           | 15 ++++++++++-----
+ bot/native-temperature.test.ts                 |  2 +-
+ bot/native-temperature.ts                      |  4 ++--
+ bot/native-text-atlas.ts                       | 11 +++++------
+ 12 files changed, 55 insertions(+), 38 deletions(-)
+1.48 2.22 3.18 2/2159 4069904
+4.78 3.21 3.45 2/2173 4076819
+systemd-run exit=0

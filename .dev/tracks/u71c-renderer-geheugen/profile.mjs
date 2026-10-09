@@ -1,8 +1,9 @@
 import { spawn } from 'node:child_process'
-import { readFile, writeFile } from 'node:fs/promises'
+import { readFile, readlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 const label = process.argv[2]
+const runtime = process.argv[3] ?? 'source'
 const track = '.dev/tracks/u71c-renderer-geheugen'
 const group = (await readFile('/proc/self/cgroup', 'utf8')).trim().split('::')[1]
 const directory = join('/sys/fs/cgroup', group)
@@ -20,17 +21,18 @@ async function sample() {
       const name = status.match(/^Name:\s*(.+)$/m)?.[1]
       const rss = Number(status.match(/^VmRSS:\s*(\d+) kB$/m)?.[1] ?? 0) * 1024
       const prior = processes.get(pid)
-      if (!prior || prior.maxRssBytes < rss) processes.set(pid, { pid: Number(pid), name, maxRssBytes: rss })
+      if (!prior || prior.maxRssBytes < rss) processes.set(pid, { pid: Number(pid), name, executable: await readlink(`/proc/${pid}/exe`), maxRssBytes: rss })
       samples.push(`${elapsed},${memory},${pid},${name},${rss}`)
     } catch (error) { if (error.code !== 'ENOENT' && error.code !== 'ESRCH') throw error }
   }
 }
+const command = runtime === 'built' ? ['node', 'dist/bot/smoke.js', '--render-only'] : ['pnpm', 'render']
 const child = spawn(process.env.MOTREGEN_TIME_PATH, [
-  '-v', '-o', `${track}/${label}-resource.txt`, 'taskset', '-c', '0,1',
-  'pnpm', '-C', 'bot', 'render', '--matrix',
+  '-v', '-o', `../${track}/${label}-resource.txt`, 'taskset', '-c', '0,1',
+  ...command, '--matrix',
   '--manifest=../.dev/tracks/u71b-native-temperatuur-wind/manifest.json',
   `--dry-run-prime=../${track}/${label}-register.json`,
-], { stdio: 'inherit' })
+], { stdio: 'inherit', cwd: 'bot' })
 let finished = false
 const completed = new Promise((resolve, reject) => {
   child.once('error', reject)
@@ -42,7 +44,7 @@ while (!finished) {
 }
 const result = await completed
 const summary = {
-  ...result, elapsedSeconds: (performance.now() - started) / 1000,
+  ...result, runtime, elapsedSeconds: (performance.now() - started) / 1000,
   memoryPeakBytes: await readNumber('memory.peak'),
   memoryHigh: (await readFile(join(directory, 'memory.high'), 'utf8')).trim(),
   memoryMax: (await readFile(join(directory, 'memory.max'), 'utf8')).trim(),

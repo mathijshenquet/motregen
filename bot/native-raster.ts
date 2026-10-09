@@ -2,7 +2,7 @@ import { kernelTaps, type RainSampling } from '../web/src/core/rain-sampling.js'
 import { rainWarpLimit } from '../web/src/core/rain-smoothing.js'
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
-import { once } from 'node:events'
+import { writeStream } from './write-stream.js'
 import { access, mkdir, readFile, rename } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -48,7 +48,7 @@ export class NativeRaster {
   constructor(private readonly size: { width: number; height: number }, private readonly grid: { width: number; height: number }, private readonly columns: Float64Array, private readonly rows: Float64Array, private readonly colors: Float32Array, private readonly multiply = false) {}
 
   private async write(bytes: Uint8Array): Promise<void> {
-    if (!this.worker!.stdin.write(bytes)) await Promise.race([once(this.worker!.stdin, 'drain'), this.completed!.then(() => { throw new Error('Native raster vroegtijdig gesloten') })])
+    await writeStream(this.worker!.stdin, bytes)
   }
 
   async prepare(): Promise<void> {
@@ -70,8 +70,13 @@ export class NativeRaster {
         if (output.offset === output.bytes.length) { this.output = undefined; output.finish() }
       })
       this.completed = new Promise<void>((resolve, reject) => {
-        worker.once('error', reject)
-        worker.once('close', (code) => code === 0 ? resolve() : reject(new Error(`Native raster mislukt (${code}): ${diagnostic}`)))
+        worker.once('error', (error) => { this.output?.fail(error); reject(error) })
+        worker.once('close', (code) => {
+          const error = new Error(`Native raster gesloten (${code}): ${diagnostic}`)
+          this.output?.fail(error)
+          if (code === 0) resolve()
+          else reject(error)
+        })
       })
       void this.completed.catch(() => undefined)
       const header = Buffer.alloc(36)
@@ -124,7 +129,7 @@ export class NativeRaster {
     if (sendRight) await this.write(right)
     this.resident = new Set([leftId, rightId])
     if (frame.motion) await this.write(new Uint8Array(frame.motion.vectors.buffer, frame.motion.vectors.byteOffset, frame.motion.vectors.byteLength))
-    await Promise.race([received, this.completed!.then(() => { throw new Error('Native raster mist uitvoer') })])
+    await received
     return rgb
   }
 

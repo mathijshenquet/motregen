@@ -1,6 +1,6 @@
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
-import { once } from 'node:events'
+import { writeStream } from './write-stream.js'
 import { access, mkdir, readFile, rename } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -43,7 +43,7 @@ export class NativeFieldRaster {
   constructor(private readonly grid: Grid, private readonly size: { width: number; height: number } = FRAME_PIXELS) {}
 
   private async write(bytes: Uint8Array): Promise<void> {
-    if (!this.worker!.stdin.write(bytes)) await Promise.race([once(this.worker!.stdin, 'drain'), this.completed!.then(() => { throw new Error('Veldworker vroegtijdig gesloten') })])
+    await writeStream(this.worker!.stdin, bytes)
   }
 
   async prepare(): Promise<void> {
@@ -62,8 +62,13 @@ export class NativeFieldRaster {
       if (output.offset === output.bytes.length) { this.output = undefined; output.finish() }
     })
     this.completed = new Promise<void>((resolve, reject) => {
-      worker.once('error', reject)
-      worker.once('close', (code) => code === 0 ? resolve() : reject(new Error(`Veldworker mislukt (${code}): ${diagnostic}`)))
+      worker.once('error', (error) => { this.output?.fail(error); reject(error) })
+      worker.once('close', (code) => {
+        const error = new Error(`Veldworker gesloten (${code}): ${diagnostic}`)
+        this.output?.fail(error)
+        if (code === 0) resolve()
+        else reject(error)
+      })
     })
     void this.completed.catch(() => undefined)
     const header = Buffer.alloc(16)
@@ -94,7 +99,7 @@ export class NativeFieldRaster {
     await this.write(header); await this.write(base)
     const fields = slice.kind === 'temperature' ? [slice.field.values, slice.field.valid, slice.colors, slice.segments, ...(slice.rings ? [slice.rings] : [])] : [slice.segments]
     for (const field of fields) await this.write(Buffer.from(field.buffer, field.byteOffset, field.byteLength))
-    await Promise.race([received, this.completed!.then(() => { throw new Error('Veldworker mist uitvoer') })])
+    await received
     return rgb
   }
 

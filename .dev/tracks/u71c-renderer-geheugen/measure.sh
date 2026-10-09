@@ -6,6 +6,7 @@ measure_assets=${2:?Geef een warme assetmap}
 measure_high=${3:-2200M}
 measure_max=${4:-2600M}
 measure_text=${5:-warm}
+measure_runtime=${6:-source}
 measure_track=.dev/tracks/u71c-renderer-geheugen
 measure_cache=tmp/u71c-$measure_label
 if [[ -e $measure_cache || -e $measure_track/$measure_label.json ]]; then
@@ -13,6 +14,7 @@ if [[ -e $measure_cache || -e $measure_track/$measure_label.json ]]; then
   exit 1
 fi
 if [[ $measure_text != warm && $measure_text != cold-text ]]; then exit 1; fi
+if [[ $measure_runtime != source && $measure_runtime != built ]]; then exit 1; fi
 git check-ignore "$measure_cache/LOG.md" >/dev/null
 node --input-type=module - "$measure_assets" "$measure_cache" "$measure_text" <<'JS'
 import { mkdir, readdir, copyFile } from 'node:fs/promises'
@@ -31,6 +33,7 @@ export MOTREGEN_TIME_PATH=${MOTREGEN_TIME_PATH:-/nix/store/y51431wmnm7vli4l347dp
 date -u +%FT%TZ > "$measure_track/$measure_label-host.txt"
 git rev-parse HEAD >> "$measure_track/$measure_label-host.txt"
 git diff --stat >> "$measure_track/$measure_label-host.txt"
+git diff HEAD -- bot nix/modules/motregen.nix flake.nix > "$measure_track/$measure_label.patch"
 cat /proc/loadavg >> "$measure_track/$measure_label-host.txt"
 if flock /home/mathijs/motregen-perf.lock systemd-run --user --wait --pipe \
   --unit="motregen-u71c-$measure_label" --working-directory="$PWD" \
@@ -38,7 +41,7 @@ if flock /home/mathijs/motregen-perf.lock systemd-run --user --wait --pipe \
   "$(command -v env)" "PATH=$PATH" "TG_BOT_KEY=x" "MOTREGEN_ORIGIN=$MOTREGEN_ORIGIN" \
   "MOTREGEN_RENDER_CACHE=$MOTREGEN_RENDER_CACHE" "MOTREGEN_CHROMIUM_PATH=$MOTREGEN_CHROMIUM_PATH" \
   "MOTREGEN_TIME_PATH=$MOTREGEN_TIME_PATH" \
-  "$(command -v node)" "$measure_track/profile.mjs" "$measure_label" \
+  "$(command -v node)" "$measure_track/profile.mjs" "$measure_label" "$measure_runtime" \
   > "$measure_track/$measure_label.log" 2>&1; then
   measure_status=0
 else

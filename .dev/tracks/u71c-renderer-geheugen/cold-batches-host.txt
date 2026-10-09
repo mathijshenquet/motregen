@@ -1,0 +1,23 @@
+2026-10-09T17:56:50Z
+ecff14a086c4115fb2bfbe9705df80c8e88c4945
+ .dev/tracks/u71c-renderer-geheugen/measure.sh  |  5 ++++-
+ .dev/tracks/u71c-renderer-geheugen/profile.mjs | 14 ++++++++------
+ bot/encode-rgb.test.ts                         |  4 ++++
+ bot/encode.ts                                  |  4 ++--
+ bot/native-field-raster.ts                     | 15 ++++++++++-----
+ bot/native-map.ts                              |  4 ++--
+ bot/native-modes-render.ts                     | 13 +++++++------
+ bot/native-overlay.ts                          |  6 +++---
+ bot/native-raster.ts                           | 15 ++++++++++-----
+ bot/native-render.ts                           |  3 ++-
+ bot/native-temperature.test.ts                 |  2 +-
+ bot/native-temperature.ts                      |  4 ++--
+ bot/native-text-atlas.ts                       | 26 ++++++++++++++++----------
+ bot/render.ts                                  | 13 ++++++++++---
+ docs/telegram.md                               | 10 +++++++++-
+ flake.nix                                      |  3 +++
+ nix/modules/motregen.nix                       |  8 ++++----
+ 17 files changed, 97 insertions(+), 52 deletions(-)
+2.58 3.45 3.53 2/2189 4082241
+2.89 3.46 3.53 2/2164 4082931
+systemd-run exit=1

@@ -216,7 +216,15 @@ NixOS-module zelfstandig een system-unit leveren, zonder lokale ingest of Caddy:
 ```
 
 Na activering start ook daar `sudo systemctl start motregen-bot.service` de renderer. Alleen
-`renderer` en `combined` krijgen Chromium en ffmpeg; de renderer heeft 400% CPU als bovengrens.
+`renderer` en `combined` krijgen Chromium en ffmpeg. De productie-VM heeft twee kernen en
+3,8 GB geheugen. U71c stelt voor de renderer `CPUQuota=200%`, `MemoryHigh=1800M` en
+`MemoryMax=2200M` in; Nice 10 en CPUWeight 20 blijven gelden. De gebouwde renderer maakt
+173 nieuwe media in 59,858 s bij 1,597 GiB gezamenlijke cgroup-piek, inclusief de
+meethelper en bestandscache, onder de oorspronkelijke 2200M/2600M-grenzen. Er waren geen
+MemoryHigh-events of OOM's. De meetgegevens staan in
+[built-warm.json](../.dev/tracks/u71c-renderer-geheugen/built-warm.json); de nieuwe grenzen
+worden afzonderlijk getoetst in de U71c-sectie. `combined` houdt 150% CPU en 2200M/2600M;
+de rolkeuze blijft ongewijzigd. Deze lokale proef is geen productie-uitrol.
 `MOTREGEN_REGISTER_PATH` kiest voor offline proeven een lokaal register als pollerbron;
 in productie blijft deze variabele weg zodat de poller de cachechat leest.
 

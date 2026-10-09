@@ -13,7 +13,7 @@ import { sequencePlan } from './sequences.js'
 import { openRenderPage } from './render-open.js'
 import { StillRenderError } from './render-error.js'
 export { StillRenderError } from './render-error.js'
-import { cacheKey, caption, stillEpoch, STILL_HOURS, validateManifest, type LoopMode, type LoopSelection, type MediaSelection, type StillManifest, type StillSelection } from './stills.js'
+import { cacheKey, caption, stillEpoch, STILL_HOURS, LOOP_MODES, validateManifest, type LoopMode, type LoopSelection, type MediaSelection, type StillManifest, type StillSelection } from './stills.js'
 
 interface RenderedBase {
   key: string
@@ -59,8 +59,8 @@ export class StillRenderer {
 
   constructor(private readonly origin: string, private readonly cacheDirectory: string) {
     const maps = new NativeMaps(origin, cacheDirectory, () => this.browserContext())
-    this.native = new NativeWeatherRenderer(origin, cacheDirectory, () => this.browserContext(), maps)
-    this.nativeModes = new NativeModesRenderer(origin, cacheDirectory, () => this.browserContext(), maps)
+    this.native = new NativeWeatherRenderer(origin, cacheDirectory, () => this.browserContext(), maps, () => this.releaseAssetBrowser())
+    this.nativeModes = new NativeModesRenderer(origin, cacheDirectory, () => this.browserContext(), maps, () => this.releaseAssetBrowser())
   }
 
   async manifest(): Promise<StillManifest> {
@@ -187,6 +187,13 @@ export class StillRenderer {
     })()
     this.opening = opening
     try { return await opening } finally { this.opening = undefined }
+  }
+
+  private async releaseAssetBrowser(): Promise<void> {
+    if (LOOP_MODES.some(({ mode }) => nativeRenderer(mode) === 'playwright')) return
+    await this.browser?.close()
+    this.browser = undefined
+    this.context = undefined
   }
 
   private media(selection: MediaSelection, manifest: StillManifest): RenderedBase {

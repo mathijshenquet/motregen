@@ -49,8 +49,8 @@ export class NativeMaps {
     const path = join(this.directory, `basemap-${theme}-${key}.png`)
     let cached: Omit<MapPlate, 'water'> | undefined
     try {
-      cached = { rgb: await sharp(await readFile(path)).removeAlpha().raw().toBuffer(), key, path, labels: JSON.parse(await readFile(`${path}.labels.json`, 'utf8')) as LabelAtlas }
-      const water = await sharp(await readFile(`${path}.water.png`)).ensureAlpha().extractChannel(3).raw().toBuffer({ resolveWithObject: true })
+      cached = { rgb: await sharp(path).removeAlpha().raw().toBuffer(), key, path, labels: JSON.parse(await readFile(`${path}.labels.json`, 'utf8')) as LabelAtlas }
+      const water = await sharp(`${path}.water.png`).ensureAlpha().extractChannel(3).raw().toBuffer({ resolveWithObject: true })
       return { ...cached, water: { values: water.data, width: water.info.width, height: water.info.height } }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error

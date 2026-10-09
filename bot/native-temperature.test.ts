@@ -27,7 +27,7 @@ it('uses the right raster at an exact hour and applies the app’s temporal spli
   const epoch = Date.parse(now) + 1800000
   const eager = await data.slice(epoch)
   for (const value of eager.field.values) expect(value).toBeCloseTo(25, 5)
-  const compact = await data.slice(epoch, false)
+  const compact = await data.slice(epoch, { rasterizeRings: false })
   const deferred = await data.rasterSlice(epoch, { grid: compact.grid, kind: compact.kind, segments: compact.segments, opacity: compact.opacity, rings: shortRings(compact.contours, ISOLINE_RING_KM) })
   expect(deferred).toMatchObject({ field: eager.field, rings: eager.rings, colors: eager.colors, segments: eager.segments, opacity: eager.opacity })
   expect((await data.slice(Date.parse(times[0]!) - 1200000)).opacity).toBe(0)
