@@ -93,8 +93,8 @@
           assert combined.environment.MOTREGEN_BOT_ROLE == "combined";
           assert combined.environment ? MOTREGEN_CHROMIUM_PATH;
           assert combined.serviceConfig.CPUQuota == "200%";
-          assert combined.serviceConfig.MemoryHigh == "1100M";
-          assert combined.serviceConfig.MemoryMax == "1300M";
+          assert combined.serviceConfig.MemoryHigh == "1600M";
+          assert combined.serviceConfig.MemoryMax == "1800M";
           assert combined.serviceConfig.MemorySwapMax == "0";
           assert renderer.systemd.services.motregen-bot.environment ? MOTREGEN_CHROMIUM_PATH;
           assert renderer.systemd.services.motregen-bot.environment.MOTREGEN_ORIGIN == "https://motregen.nl";
