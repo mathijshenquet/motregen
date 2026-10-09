@@ -1,4 +1,5 @@
 import { NativeMaps } from './native-map.js'
+import type { NativeAssetContext } from './native-assets.js'
 import { FRAME } from './config.js'
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright'
 import { access, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, unlink, writeFile } from 'node:fs/promises'
@@ -50,6 +51,8 @@ export class StillRenderer {
   private readonly nativeModes: NativeModesRenderer
   private browser?: Browser
   private context?: BrowserContext
+  private webgl?: boolean
+  private nativeAssetGeneration?: { generated: string; ready: Promise<void> }
   private queues: Promise<unknown>[] = Array.from({ length: 4 }, () => Promise.resolve())
   private nativeQueue: Promise<unknown> = Promise.resolve()
   private nextQueue = 0
@@ -58,9 +61,10 @@ export class StillRenderer {
   private pendingStills = new Map<string, Promise<RenderedStill>>()
 
   constructor(private readonly origin: string, private readonly cacheDirectory: string) {
-    const maps = new NativeMaps(origin, cacheDirectory, () => this.browserContext())
-    this.native = new NativeWeatherRenderer(origin, cacheDirectory, () => this.browserContext(), maps, () => this.releaseAssetBrowser())
-    this.nativeModes = new NativeModesRenderer(origin, cacheDirectory, () => this.browserContext(), maps, () => this.releaseAssetBrowser())
+    const context: NativeAssetContext = (options) => this.browserContext(options)
+    const maps = new NativeMaps(origin, cacheDirectory, context)
+    this.native = new NativeWeatherRenderer(origin, cacheDirectory, context, maps, () => this.releaseAssetBrowser())
+    this.nativeModes = new NativeModesRenderer(origin, cacheDirectory, context, maps, () => this.releaseAssetBrowser())
   }
 
   async manifest(): Promise<StillManifest> {
@@ -171,14 +175,17 @@ export class StillRenderer {
     return conversion
   }
 
-  private async browserContext(): Promise<BrowserContext> {
+  private async browserContext(options?: { webgl: boolean }): Promise<BrowserContext> {
+    const webgl = options?.webgl !== false || LOOP_MODES.some(({ mode }) => nativeRenderer(mode) === 'playwright')
     if (this.opening) return this.opening
-    if (this.browser?.isConnected() && this.context) return this.context
+    if (this.browser?.isConnected() && this.context && this.webgl === webgl) return this.context
     const opening = (async () => {
+      await this.releaseAssetBrowser()
       this.browser = await chromium.launch({
         executablePath: process.env.MOTREGEN_CHROMIUM_PATH,
-        args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'],
+        args: webgl ? ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] : ['--disable-gpu'],
       })
+      this.webgl = webgl
       this.context = await this.browser.newContext({
         viewport: { width: FRAME.width, height: FRAME.height }, deviceScaleFactor: FRAME.scale,
         locale: 'nl-NL', timezoneId: 'Europe/Amsterdam', reducedMotion: 'reduce', serviceWorkers: 'block',
@@ -231,12 +238,17 @@ export class StillRenderer {
   }
 
   private async renderNativeSequence(mode: LoopMode, manifest: StillManifest, key: string): Promise<RenderedSequence> {
+    const assetsStarted = performance.now()
+    await this.prepareNativeGeneration(manifest)
+    const assetMs = Math.round(performance.now() - assetsStarted)
     await mkdir(this.cacheDirectory, { recursive: true })
     const directory = await mkdtemp(join(this.cacheDirectory, `.frames-${key}-`))
     const loop = this.media({ mode: mode, hour: 'loop' }, manifest)
     try {
       const plan = sequencePlan(mode, manifest)
       const rendered = mode === 'weather' ? await this.native.render(manifest, plan, directory, `${loop.path}.tmp`, () => this.nativeLoops.get(key)?.finish()) : await this.nativeModes.render(mode, manifest, plan, directory, `${loop.path}.tmp`)
+      rendered.renderMs += assetMs
+      rendered.preparationMs += assetMs
       await rename(`${loop.path}.tmp`, loop.path)
       const publishedFrames = this.frameDirectory(key)
       await rm(publishedFrames, { recursive: true, force: true })
@@ -250,6 +262,24 @@ export class StillRenderer {
     } catch (error) {
       throw new StillRenderError(mode, 'native', undefined, error)
     } finally { await rm(directory, { recursive: true, force: true }); global.gc?.() }
+  }
+
+  private prepareNativeGeneration(manifest: StillManifest): Promise<void> {
+    if (LOOP_MODES.some(({ mode }) => nativeRenderer(mode) === 'playwright')) return Promise.resolve()
+    if (this.nativeAssetGeneration?.generated === manifest.generated) return this.nativeAssetGeneration.ready
+    const ready = (async () => {
+      const started = performance.now()
+      for (const { mode } of LOOP_MODES) {
+        const plan = sequencePlan(mode, manifest)
+        if (mode === 'weather') await this.native.prepareAssets(manifest, plan)
+        else await this.nativeModes.prepareAssets(mode, manifest, plan)
+        await this.releaseAssetBrowser()
+        global.gc?.()
+      }
+      console.info(JSON.stringify({ event: 'native-assets-ready', generated: manifest.generated, milliseconds: Math.round(performance.now() - started), ...process.memoryUsage() }))
+    })().catch((error) => { this.nativeAssetGeneration = undefined; throw error })
+    this.nativeAssetGeneration = { generated: manifest.generated, ready }
+    return ready
   }
 
   private async renderSequence(mode: LoopMode, manifest: StillManifest, key: string): Promise<RenderedSequence> {

@@ -1,17 +1,16 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { access, mkdir, rename } from 'node:fs/promises'
+import { access, mkdir, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { BrowserContext } from 'playwright'
-import sharp, { type OverlayOptions } from 'sharp'
+import sharp from 'sharp'
 import { FRAME } from './config.js'
-import { prepareNativeAsset } from './native-assets.js'
+import { prepareNativeAsset, type NativeAssetContext } from './native-assets.js'
 import { textPlacementKey, type TextPlacement, type Glyph } from './native-text.js'
 
 const cell = { width: 48 * FRAME.scale, height: 48 * FRAME.scale }
 const columns = 20
 
-export async function nativeTextAtlas(origin: string, directory: string, context: () => Promise<BrowserContext>, placements: readonly TextPlacement[]): Promise<Map<string, Glyph>> {
-  if (!placements.length) return new Map()
+export async function prepareNativeTextAtlas(origin: string, directory: string, context: NativeAssetContext, placements: readonly TextPlacement[]) {
+  if (!placements.length) return undefined
   const variants = [...new Map(placements.map((placement) => [textPlacementKey(placement), {
     key: textPlacementKey(placement), text: placement.text, color: placement.color, theme: placement.theme,
     angle: Number(placement.angle.toFixed(4)), phaseX: placement.screenX % 1, phaseY: placement.screenY % 1,
@@ -24,7 +23,7 @@ export async function nativeTextAtlas(origin: string, directory: string, context
   // Concurrent full-page captures failed in Chromium; DOM/font preparation can overlap.
   async function preparePng(): Promise<void> {
     try { await access(path); return } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
-    const page = await (await context()).newPage()
+    const page = await (await context({ webgl: false })).newPage()
     try {
       await page.route('**/__native-isoline-text', (route) => route.fulfill({ contentType: 'text/html', body: '<html><body></body></html>' }))
       await page.goto(new URL('/__native-isoline-text', origin).href)
@@ -42,23 +41,21 @@ export async function nativeTextAtlas(origin: string, directory: string, context
         }
         await document.fonts.ready
       }, variants)
-      const batches: OverlayOptions[] = []
-      await prepareNativeAsset(async () => {
-        for (let row = 0; row < Math.ceil(variants.length / columns); row += 16) {
-          const height = Math.min(16, Math.ceil(variants.length / columns) - row) * 48
-          const png = await page.screenshot({ omitBackground: true, fullPage: true, clip: { x: 0, y: row * 48, width: columns * 48, height } })
-          batches.push({ input: png, left: 0, top: row * cell.height })
-        }
-      })
-      await page.close()
+      const png = await prepareNativeAsset(() => page.screenshot({ omitBackground: true, fullPage: true }))
       await mkdir(directory, { recursive: true })
       const temporary = `${path}.${randomUUID()}.tmp`
-      await sharp({ create: { width: columns * cell.width, height: Math.ceil(variants.length / columns) * cell.height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).composite(batches).png().toFile(temporary)
-      await rename(temporary, path)
+      await writeFile(temporary, png); await rename(temporary, path)
       console.info(JSON.stringify({ event: 'native-isoline-text-created', key, glyphs: variants.length }))
     } finally { await page.close() }
   }
   await preparePng()
+  return { path, variants }
+}
+
+export async function nativeTextAtlas(origin: string, directory: string, context: NativeAssetContext, placements: readonly TextPlacement[]): Promise<Map<string, Glyph>> {
+  const prepared = await prepareNativeTextAtlas(origin, directory, context, placements)
+  if (!prepared) return new Map()
+  const { path, variants } = prepared
   const metadata = await sharp(path).metadata()
   if (metadata.width !== cell.width * columns) throw new Error('Isolijntekst heeft verkeerde schaal')
   const glyphs = new Map<string, Glyph>()

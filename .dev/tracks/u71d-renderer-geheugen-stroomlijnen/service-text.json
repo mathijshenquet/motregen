@@ -1,0 +1,104 @@
+{
+  "code": 1,
+  "signal": null,
+  "runtime": "built",
+  "nodeHeapMiB": "192",
+  "maxAnonBytes": 603377664,
+  "maxFileBytes": 173068288,
+  "elapsedSeconds": 94.95420125900002,
+  "memoryPeakBytes": 639557632,
+  "memorySwapPeakBytes": 0,
+  "memorySwapMax": "0",
+  "mallocArenaMax": "2",
+  "mallocMmapThreshold": "131072",
+  "memoryHigh": "629145600",
+  "memoryMax": "838860800",
+  "cpuMax": "200000 100000",
+  "memoryEvents": "low 0\nhigh 468399\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+  "processes": [
+    {
+      "pid": 267938,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 75251712
+    },
+    {
+      "pid": 267950,
+      "name": "time",
+      "executable": "/nix/store/y51431wmnm7vli4l347dpn44nyhmcrw7-time-1.10/bin/time",
+      "maxRssBytes": 1810432
+    },
+    {
+      "pid": 267951,
+      "name": "MainThread",
+      "executable": "/nix/store/bfqsxlviikq7vlp36kasy5hhamlxlkd2-nodejs-slim-24.19.0/bin/node",
+      "maxRssBytes": 415428608
+    },
+    {
+      "pid": 267974,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 51355648
+    },
+    {
+      "pid": 267975,
+      "name": "ffmpeg",
+      "executable": "/nix/store/qrzizdzzzqh4wzhz98szh78n2nmdm1d1-ffmpeg-9.0-bin/bin/ffmpeg",
+      "maxRssBytes": 66580480
+    },
+    {
+      "pid": 268516,
+      "name": "native-raster",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 2768896
+    },
+    {
+      "pid": 268581,
+      "name": "MainThread",
+      "executable": "/home/mathijs/worktrees/motregen/track-u71d-renderer-geheugen-stroomlijnen/bot/dist/bot/native-raster",
+      "maxRssBytes": 12288
+    },
+    {
+      "pid": 268618,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 136589312
+    },
+    {
+      "pid": 268621,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 42262528
+    },
+    {
+      "pid": 268622,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 42319872
+    },
+    {
+      "pid": 268636,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 61132800
+    },
+    {
+      "pid": 268641,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 74366976
+    },
+    {
+      "pid": 268682,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 254324736
+    },
+    {
+      "pid": 269205,
+      "name": "chrome-headless",
+      "executable": "/nix/store/q1n69vfpd7bf1fsks84ra1yza4j1lb16-playwright-chromium-headless-shell/chrome-headless-shell-linux64/chrome-headless-shell",
+      "maxRssBytes": 243294208
+    }
+  ]
+}

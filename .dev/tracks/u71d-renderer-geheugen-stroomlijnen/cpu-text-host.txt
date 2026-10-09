@@ -1,0 +1,10 @@
+2026-10-09T19:24:38Z
+452f355397e5827bf5dc6c01391a4631216465fc
+ bot/native-assets.ts       |  4 ++++
+ bot/native-modes-render.ts |  4 ++--
+ bot/native-text-atlas.ts   |  7 +++----
+ bot/render.ts              | 18 ++++++++++++------
+ 4 files changed, 21 insertions(+), 12 deletions(-)
+2.09 2.69 3.26 3/2185 250533
+5.74 3.78 3.59 2/2242 267249
+systemd-run exit=1

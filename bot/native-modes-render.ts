@@ -1,9 +1,9 @@
 import { NativePressureMarks } from './native-pressure-marks.js'
 import { frameBlend } from '../web/src/core/time-model.js'
-import { nativeTextAtlas } from './native-text-atlas.js'
+import { nativeTextAtlas, prepareNativeTextAtlas } from './native-text-atlas.js'
 import { NativeText, type TextPlacement } from './native-text.js'
 import { writeFile } from 'node:fs/promises'
-import type { BrowserContext } from 'playwright'
+import type { NativeAssetContext } from './native-assets.js'
 import { MAP_FOCUS_SATURATION } from '../web/src/core/map-presentation.js'
 import { FRAME_PIXELS } from './config.js'
 import { encodeRgbLoop } from './encode.js'
@@ -25,7 +25,27 @@ import { nativeFramePath } from './native-render.js'
 import { releaseFileCache } from './native-raster.js'
 
 export class NativeModesRenderer {
-  constructor(private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>, private readonly sharedMaps?: NativeMaps, private readonly assetsReady?: () => Promise<void>) {}
+  constructor(private readonly origin: string, private readonly directory: string, private readonly context: NativeAssetContext, private readonly sharedMaps?: NativeMaps, private readonly assetsReady?: () => Promise<void>) {}
+
+  async prepareAssets(mode: Exclude<LoopMode, 'weather'>, manifest: StillManifest, plan: SequencePlan): Promise<void> {
+    await new NativeOverlay(this.origin, this.directory, this.context, mode).prepare(manifest, [])
+    if (mode === 'wind') await NativePressureMarks.prepare(this.directory, this.context)
+    const placements = await (async () => {
+      const temperature = new NativeTemperatureData(this.origin, manifest, mode === 'feels' ? 'temperature' : 'pressure')
+      const anchors = new NativeIsolineLabels()
+      const placements: TextPlacement[] = []
+      try {
+        await temperature.prepare()
+        for (const epoch of plan.epochs) {
+          const slice = await temperature.slice(epoch, { rasterizeRings: false })
+          placements.push(...anchors.place(slice, rainTheme(epoch)))
+        }
+        return placements
+      } finally { temperature.clear() }
+    })()
+    global.gc?.()
+    await prepareNativeTextAtlas(this.origin, this.directory, this.context, placements)
+  }
 
   async render(mode: Exclude<LoopMode, 'weather'>, manifest: StillManifest, plan: SequencePlan, directory: string, destination: string) {
     const started = performance.now()
@@ -38,7 +58,7 @@ export class NativeModesRenderer {
     const wind = mode === 'wind' ? new NativeWindData(this.origin, manifest) : undefined
     const firstRain = await rain.frame(Date.parse(manifest.now))
     await Promise.all([temperatures?.prefetch(plan.epochs.map(temperatureEpoch)), temperature.prepare(), wind?.prepare(plan.epochs), ...[...new Set(plan.epochs.map(rainTheme))].map(async (theme) => { await maps.get(theme, firstRain.grid) })])
-    await overlay.prepare(manifest)
+    await overlay.prepare(manifest, plan.epochs)
     const geometries: RasterGeometry[] = []
     const placements: TextPlacement[][] = []
     const labelAnchors = new NativeIsolineLabels()
@@ -49,6 +69,7 @@ export class NativeModesRenderer {
     }
     // Reclaim temporary contour arrays before the atlas browser shares this memory budget.
     global.gc?.()
+    console.info(JSON.stringify({ event: 'native-preparation-memory', mode, ...process.memoryUsage() }))
     const firstSlice = geometries[0]!
     const raster = new NativeFieldRaster(firstSlice.grid)
     let rainCompositor: RainCompositor | undefined

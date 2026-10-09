@@ -16,6 +16,18 @@ export function nativeFramePath(directory: string, index: number): string { retu
 export class NativeWeatherRenderer {
   constructor(private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>, private readonly sharedMaps?: NativeMaps, private readonly assetsReady?: () => Promise<void>) {}
 
+  async prepareAssets(manifest: StillManifest, plan: SequencePlan): Promise<void> {
+    const maps = this.sharedMaps ?? new NativeMaps(this.origin, this.directory, this.context)
+    const data = new NativeRainData(this.origin, manifest)
+    const grid = (await data.frame(plan.epochs[0]!)).grid
+    data.clear()
+    global.gc?.()
+    try {
+      await new NativeOverlay(this.origin, this.directory, this.context).prepare(manifest, [])
+      for (const theme of new Set(plan.epochs.map(rainTheme))) await maps.get(theme, grid)
+    } finally { maps.clear() }
+  }
+
   async render(manifest: StillManifest, plan: SequencePlan, directory: string, destination: string, loopComplete: () => void): Promise<{ renderMs: number; encodeMs: number; preparationMs: number; loopMs: number; loopRenderMs: number; bytes: number }> {
     const started = performance.now()
     const maps = this.sharedMaps ?? new NativeMaps(this.origin, this.directory, this.context)
@@ -25,7 +37,7 @@ export class NativeWeatherRenderer {
     const temperatures = hasTemperature ? new NativeRainData(this.origin, manifest, 'feels_like_c') : undefined
     const temperatureEpoch = (epoch: number) => Math.max(temperatures!.timeline[0]!.epoch, Math.min(temperatures!.timeline.at(-1)!.epoch, Math.round(epoch / 600_000) * 600_000))
     const [first] = await Promise.all([
-      data.frame(plan.epochs[0]!), data.prefetch(plan.epochs), overlay.prepare(manifest),
+      data.frame(plan.epochs[0]!), data.prefetch(plan.epochs), overlay.prepare(manifest, plan.epochs),
       ...(temperatures ? [temperatures.prefetch(plan.epochs.map(temperatureEpoch))] : []),
     ])
     const compositor = new RainCompositor(first.grid)
