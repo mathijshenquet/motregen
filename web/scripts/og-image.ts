@@ -29,5 +29,10 @@ await page.evaluate((svg) => {
 }, droplet)
 // Kaart laten herschalen naar de volle breedte en de windsporen laten opbouwen.
 await page.waitForTimeout(5_000)
+// De westrand van het radardomein valt op deze breedte net in beeld (de kaart zit daar tegen
+// zijn grens, slepen helpt niet); iets inzoomen rond Utrecht haalt hem eruit.
+await page.mouse.move(640, 300)
+await page.mouse.wheel(0, -120)
+await page.waitForTimeout(4_000)
 await page.screenshot({ path: new URL('../public/og-image.png', import.meta.url).pathname })
 await browser.close()
