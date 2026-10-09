@@ -238,6 +238,18 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let mapViewTimer: number | undefined
   let stopManifestRefresh: (() => void) | undefined
   let shownFrameRequest = 0
+  let uploadedRainFrame: { epoch: number; blend: ReturnType<typeof frameBlend>; frameEpoch: number; request: number } | undefined
+  let committedRainRequest = 0
+  type RainPair = { leftFrame: TimelineFrame; rightFrame: TimelineFrame; left: Uint8Array; right: Uint8Array; motion?: MotionField }
+  let rainPair: RainPair | undefined
+  let pendingRainPair: { leftFrame: TimelineFrame; rightFrame: TimelineFrame; promise: Promise<RainPair> } | undefined
+  let windInitializationScheduled = false
+  let windInitializationFrame: number | undefined
+  let windInitializationIdle: number | undefined
+  onCleanup(() => {
+    if (windInitializationFrame !== undefined) cancelAnimationFrame(windInitializationFrame)
+    if (windInitializationIdle !== undefined) cancelIdle(windInitializationIdle)
+  })
   let shownWindRequest = 0
   let shownTemperatureRequest = 0
   let shownSunRequest = 0
@@ -354,7 +366,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [cursor, setCursor] = createSignal(0)
   const [playing, setPlaying] = createSignal(!stillMode && initialPresets.epoch === undefined)
   // Tempo van gelijkmatig afspelen (epoch-ms per ms) voor de scrubberbaan; 0 tijdens terugglijden.
-  const [glideRate, setGlideRate] = createSignal(0)
   // Afspelen loopt door de hele tijdlijn (PO 2026-09-25 live; was +8 u, restant van de bereikknoppen).
   const [timeHorizonHours] = createSignal<number | null>(null)
   const initialSavedPlaces = stillMode ? [] : loadSavedPlaces()
@@ -697,6 +708,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [mapReady, setMapReady] = createSignal(false)
   const playbackReady = createMemo(() => mapRendering() && mapReady())
   const playbackActive = createMemo(() => playing() && playbackReady())
+  createEffect(() => { if (!stillMode && mapReady() && !playing()) scheduleWindInitialization() })
   const [resetNotice, setResetNotice] = createSignal(false)
   let resetNoticeTimer: number | undefined
   const [updateReady, setUpdateReady] = createSignal(false)
@@ -950,6 +962,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       }))
       map.on('render', () => {
         mapRepaints++
+        if (perfPhasesEnabled()) mapElement.dataset.tilesLoaded = String(map?.areTilesLoaded())
         // Eerste kaartbeeld: de z4-startkaart, anders de echte basiskaart; een stijl zonder beide (e2e-fixture,
         // externe stijl) telt zijn eerste render als kaartbeeld, anders wacht de splash daar nodeloos op.
         const source = map?.getSource(mapStartSource) ? mapStartSource : map?.getSource('basemap') ? 'basemap' : null
@@ -1170,12 +1183,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
    * buiten Solid om (U41): anders liep elke tik door ~25 effecten en memo's. Reactief op de cursor
    * blijven alleen scrubber, klok en tabel (op frame-index/minuut).
    */
-  function drawLayers(): void {
+  function drawLayers(rainCommitted = false): void {
     if (stillMode || !mapRendering()) return
     const epoch = selectedEpoch()
     const ready = mapReady()
     dayNightLayer?.setEpoch(epoch)
-    if (ready && layer) void showFrame()
+    if (ready && layer && !rainCommitted) void showFrame()
     if (!ready) return
     if (windLayer) void showWind()
     if (map) void showTemperature()
@@ -1211,6 +1224,33 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     let holdUntil: number | undefined
     let waiting: { frame: number; since: number } | undefined
     const framePresent = (index: number) => client.hasFrame(frames[index]!.chunk, frames[index]!.frameIndex)
+    let active = true
+    let rainDrawPending = false
+    const renderPlaybackCursor = (nextCursor: number, committed?: () => void): boolean => {
+      if (rainDrawPending || !layer || !map) return false
+      const epoch = timelineEpochAtCursor(frames, nextCursor)
+      const blend = frameBlend(frames, epoch)
+      const leftFrame = frames[blend.left]!, rightFrame = frames[blend.right]!
+      if (rainPair?.leftFrame !== leftFrame || rainPair.rightFrame !== rightFrame) {
+        void prepareRainPair(leftFrame, rightFrame).catch(() => undefined)
+        return false
+      }
+      const previousCursor = cursor()
+      const request = ++shownFrameRequest
+      rainDrawPending = true
+      drawRainFrame(rainPair, blend, epoch, request, (current) => {
+        rainDrawPending = false
+        if (!current || !active || !playing() || cursor() !== previousCursor) return
+        firstPlaybackTick = false
+        batch(() => {
+          perf.markFirstCursorMove()
+          setCursor(nextCursor)
+        })
+        committed?.()
+        drawLayers(true)
+      }, true)
+      return true
+    }
     frameLoopDrives = true
     const stop = startFrameLoop((now) => {
       const elapsed = now - previous
@@ -1223,12 +1263,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         rewind = { from: timelineEpochAtCursor(frames, cursor()), startedAt: now }
       }
       if (rewind) {
-        setGlideRate(0)
         const progress = Math.min(1, (now - rewind.startedAt) / PLAYBACK_REWIND_MS)
         const eased = progress < 0.5 ? 2 * progress ** 2 : 1 - (2 - 2 * progress) ** 2 / 2
-        setCursor(timelineCursorAtEpoch(frames, rewind.from + (frames[0]!.epoch - rewind.from) * eased))
-        drawLayers()
-        if (progress >= 1) rewind = undefined
+        const nextCursor = timelineCursorAtEpoch(frames, rewind.from + (frames[0]!.epoch - rewind.from) * eased)
+        if (!renderPlaybackCursor(nextCursor, () => { if (progress >= 1) rewind = undefined })) rewind.startedAt += elapsed
         return
       }
       const epoch = timelineEpochAtCursor(frames, cursor())
@@ -1239,8 +1277,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const playbackElapsed = firstPlaybackTick ? Math.min(elapsed, 1_000 / PLAYBACK_MAX_FPS) : elapsed
       const nextEpoch = epoch + playbackElapsed * playbackRate
       if (!Number.isFinite(nextEpoch) || nextEpoch >= lastEpoch) {
-        setCursor(timelineCursorAtEpoch(frames, lastEpoch))
-        holdUntil = now + PLAYBACK_END_HOLD_MS
+        renderPlaybackCursor(timelineCursorAtEpoch(frames, lastEpoch), () => { holdUntil = performance.now() + PLAYBACK_END_HOLD_MS })
         return
       }
       let nextCursor = timelineCursorAtEpoch(frames, nextEpoch)
@@ -1256,17 +1293,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           void load(frames[reach.waitingFor!]!).catch(() => undefined)
         }
         if (!waiting || now - waiting.since < PLAYBACK_FRAME_WAIT_MS) nextCursor = clampPlaybackCursor(nextCursor, reach, 1)
-        if (nextCursor <= cursor()) { setGlideRate(0); return }
+        if (nextCursor <= cursor()) return
       }
-      firstPlaybackTick = false
-      batch(() => {
-        perf.markFirstCursorMove()
-        setCursor(nextCursor)
-        setGlideRate(playbackRate)
-      })
-      drawLayers()
+      renderPlaybackCursor(nextCursor)
     }, requestAnimationFrame, cancelAnimationFrame)
-    onCleanup(() => { stop(); frameLoopDrives = false; setGlideRate(0) })
+    onCleanup(() => { active = false; stop(); frameLoopDrives = false })
   })
   // Eén intent stuurt requests en decodes (MIP-20): van de cursor naar buiten, tijdens afspelen
   // met voorkeur vooruit, tijdens scrubben gemikt op waar de cursor uitkomt.
@@ -1448,18 +1479,66 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       for (const [chunk, indexes] of nearby) client.prefetch(chunk, indexes)
       for (const near of nearbyFrames) client.prefetchMotion(near.chunk, [near.frameIndex])
     }
-    const [left, right, motion] = await Promise.all([
-      load(leftFrame),
-      load(rightFrame),
-      loadPairMotion(leftFrame, rightFrame).catch(() => undefined),
-    ])
+    let pair: RainPair
+    if (!mapReady() && (blend.mix === 0 || blend.mix === 1)) {
+      // Het stilstaande startbeeld heeft geen bewegingsveld nodig; de eerste afspeeltik wacht daar wel op.
+      const [left, right] = await Promise.all([load(leftFrame), load(rightFrame)])
+      pair = { leftFrame, rightFrame, left, right }
+    } else pair = await prepareRainPair(leftFrame, rightFrame)
     if (request !== shownFrameRequest || !layer || !map) return
-    layer.setFrames(left, right, blend.mix, motion, (rightFrame.epoch - leftFrame.epoch) / 60_000)
+    drawRainFrame(pair, blend, epoch, request)
+    if (!mapReady() && playing() && lower + 1 < frames.length) {
+      void prepareRainPair(frames[lower]!, frames[lower + 1]!).catch(() => undefined)
+    }
+    // De eerste locatiereeks haalt dezelfde chunks direct in bulk op. Losse,
+    // overlappende Range-prefetches maken Chromiums sparse HTTP-cache instabiel.
+    if (initialPickStarted && pointLoadStage() !== 'initial' && pointLoadStage() !== 'direct' && playing() && !batchPrefetch) {
+      const nearby = new Map<ManifestChunk, number[]>()
+      for (const near of nearbyFrames) nearby.set(near.chunk, [...(nearby.get(near.chunk) ?? []), near.frameIndex])
+      for (const [chunk, indexes] of nearby) client.prefetch(chunk, indexes)
+      for (const near of nearbyFrames) client.prefetchMotion(near.chunk, [near.frameIndex])
+    }
+  }
+
+  function prepareRainPair(leftFrame: TimelineFrame, rightFrame: TimelineFrame): Promise<RainPair> {
+    if (rainPair?.leftFrame === leftFrame && rainPair.rightFrame === rightFrame) return Promise.resolve(rainPair)
+    if (pendingRainPair?.leftFrame === leftFrame && pendingRainPair.rightFrame === rightFrame) return pendingRainPair.promise
+    const promise = Promise.all([
+      load(leftFrame), load(rightFrame), loadPairMotion(leftFrame, rightFrame).catch(() => undefined),
+    ]).then(([left, right, motion]) => {
+      const pair = { leftFrame, rightFrame, left, right, motion }
+      if (pendingRainPair?.promise === promise) {
+        rainPair = pair
+        pendingRainPair = undefined
+      }
+      return pair
+    })
+    pendingRainPair = { leftFrame, rightFrame, promise }
+    void promise.catch(() => { if (pendingRainPair?.promise === promise) pendingRainPair = undefined })
+    return promise
+  }
+
+  function drawRainFrame(pair: RainPair, blend: ReturnType<typeof frameBlend>, epoch: number, request: number, committed?: (current: boolean) => void, immediate = false): void {
+    if (!layer || !map) return
+    layer.setFrames(pair.left, pair.right, blend.mix, pair.motion, (pair.rightFrame.epoch - pair.leftFrame.epoch) / 60_000)
+    uploadedRainFrame = { epoch, blend, frameEpoch: pair.leftFrame.epoch, request }
     const afterRainDraw = (callback: () => void) => rainOverlay ? rainOverlay.once(callback) : map!.once('render', callback)
     afterRainDraw(() => {
-      if (perfPhasesEnabled()) mapElement.dataset.rainEpoch = String(epoch)
-      const firstPlayback = perf.markRainFrameCommitted({ frameEpoch: leftFrame.epoch, playing: playing() })
+      const current = request === shownFrameRequest
+      committed?.(current)
+      // Meer callbacks kunnen bij één tekening horen; lees de laatste upload, niet hun oudere aanvraag.
+      const drawn = uploadedRainFrame
+      if (!drawn || drawn.request === committedRainRequest) return
+      committedRainRequest = drawn.request
+      if (perfPhasesEnabled()) {
+        const { epoch, blend, request } = drawn
+        mapElement.dataset.rainEpoch = String(epoch)
+        mapElement.dataset.rainCursor = String(blend.left + (blend.right - blend.left) * blend.mix)
+        perf.recordPhase({ phase: 'rain-frame-committed', startTime: performance.now(), duration: 0, detail: { epoch, left: blend.left, right: blend.right, mix: blend.mix, cursor: cursor(), request, uploads: layer?.uploads, tilesLoaded: map?.areTilesLoaded(), mapStart: mapElement.dataset.mapStart ?? 'z4' } })
+      }
+      const firstPlayback = perf.markRainFrameCommitted({ frameEpoch: drawn.frameEpoch, playing: playing() })
       if (firstPlayback || !playing()) schedulePlaces()
+      if (!stillMode && (firstPlayback || !playing())) scheduleWindInitialization()
     })
     if (!mapReady() && !rainReadyPending) {
       const renderedMap = map
@@ -1470,7 +1549,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         setMapReady(true)
         if (stillMode) void prepareStill()
         else {
-          void attachWindLayer()
           scheduleIdle(preloadTemperatureAtCursor, 1_000)
         }
         if (!stillMode && !initialPickStarted) {
@@ -1482,14 +1560,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       })
     }
     if (!rainOverlay) map.triggerRepaint()
-    // De eerste locatiereeks haalt dezelfde chunks direct in bulk op. Losse,
-    // overlappende Range-prefetches maken Chromiums sparse HTTP-cache instabiel.
-    if (initialPickStarted && pointLoadStage() !== 'initial' && pointLoadStage() !== 'direct' && playing() && !batchPrefetch) {
-      const nearby = new Map<ManifestChunk, number[]>()
-      for (const near of nearbyFrames) nearby.set(near.chunk, [...(nearby.get(near.chunk) ?? []), near.frameIndex])
-      for (const [chunk, indexes] of nearby) client.prefetch(chunk, indexes)
-      for (const near of nearbyFrames) client.prefetchMotion(near.chunk, [near.frameIndex])
-    }
+    else if (immediate) rainOverlay.drawNow()
   }
 
   async function loadPairMotion(left: TimelineFrame, right: TimelineFrame): Promise<MotionField | undefined> {
@@ -1516,8 +1587,23 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   async function attachWindLayer(): Promise<void> {
     await discoverWindGrid()
     if (!map || !windGrid || !windTimeline().length || windLayer) return
+    const started = performance.now()
     mountWind(windGrid)
+    if (perfPhasesEnabled()) perf.recordPhase({ phase: 'wind-initialize', startTime: started, duration: performance.now() - started })
     await showWind()
+  }
+
+  function scheduleWindInitialization(): void {
+    if (windInitializationScheduled) return
+    windInitializationScheduled = true
+    // De synchrone wind-shaderopzet blokkeert de hoofddraad; geef de eerste regenwisseling eerst een geschilderd beeld.
+    windInitializationFrame = requestAnimationFrame(() => {
+      windInitializationFrame = undefined
+      windInitializationIdle = scheduleIdle(() => {
+        windInitializationIdle = undefined
+        void attachWindLayer()
+      }, 1_000)
+    })
   }
 
   async function prepareStill(): Promise<void> {
@@ -3404,7 +3490,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           onCursor={scrub}
           onIntent={completeOnIntent}
           onPlaying={setPlayingFromScrubber}
-          glideRate={glideRate()}
+          // Een compositor-glide loopt tijdens lange hoofddraadtaken door terwijl de regencanvas stilstaat.
+          glideRate={0}
           onPlayPressed={() => usage.mark('play')}
           clouds={{ timeline: cloudTimelines(), values: cloudValues() }}
           sky={{ radiation: { timeline: radiationTimeline(), values: radiationSeries() }, sinElevation: sunElevationAt() }}

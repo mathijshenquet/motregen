@@ -1,0 +1,1420 @@
+[
+  {
+    "profile": "po-android",
+    "snapshot": {
+      "capturedAt": "2026-10-09T10:50:48.000Z",
+      "ttfrMs": 1949.4,
+      "styleReadyMs": 547.5,
+      "firstBasemapTileMs": 4087.4,
+      "mapRevealedMs": 2092.6,
+      "firstCursorMs": 1949.4,
+      "firstRainMs": 1758.2,
+      "basemapReadyMs": 4133.1,
+      "ttfhMs": 7532.5,
+      "ttfpMs": 4883,
+      "blankVisibleMs": 8423,
+      "blankSlotSeconds": 571.8,
+      "blankShareSeconds": 5.56,
+      "firstBarMs": 1843.4,
+      "scrub": {
+        "samples": 0,
+        "p50Ms": null,
+        "p95Ms": null
+      },
+      "fps": 60,
+      "network": {
+        "manifest": {
+          "requests": 1,
+          "bytes": 38371
+        },
+        "chunks": {
+          "requests": 109,
+          "bytes": 16559702
+        },
+        "tiles": {
+          "requests": 5,
+          "bytes": 118291
+        },
+        "other": {
+          "requests": 15,
+          "bytes": 565497
+        },
+        "total": {
+          "requests": 130,
+          "bytes": 17281861
+        }
+      },
+      "manifestAgeMs": 0,
+      "phases": {
+        "frame-decode": {
+          "count": 204,
+          "p50Ms": 25.2,
+          "p95Ms": 110.3
+        },
+        "texture-upload": {
+          "count": 16,
+          "p50Ms": 0.2,
+          "p95Ms": 24.9
+        },
+        "wind-step": {
+          "count": 138,
+          "p50Ms": 0.2,
+          "p95Ms": 9.6
+        },
+        "scrubber-paint": {
+          "count": 199,
+          "p50Ms": 0.1,
+          "p95Ms": 14.4
+        },
+        "table-render": {
+          "count": 5,
+          "p50Ms": 2.6,
+          "p95Ms": 49.6
+        },
+        "basemap-tile": {
+          "count": 1,
+          "p50Ms": 2676.1,
+          "p95Ms": 2676.1
+        }
+      },
+      "windowReadyMs": {
+        "cloud_high": 2528,
+        "cloud_mid": 4178,
+        "temp_c": 4328,
+        "feels_like_c": 4328,
+        "cloud_low": 4483,
+        "cloud_frac": 4573,
+        "wind_u": 4573,
+        "wind_v": 4573,
+        "gust_ms": 4573,
+        "uv": 6378,
+        "rain_rate": 7533
+      },
+      "longFrames": [
+        {
+          "startTime": 215.20000004768372,
+          "duration": 403.10000002384186,
+          "blockingDuration": 340.1,
+          "scripts": [
+            {
+              "duration": 289.60000002384186,
+              "sourceURL": "http://127.0.0.1:4391/assets/index-nwwxTSjt.js",
+              "sourceFunctionName": "",
+              "invoker": "http://127.0.0.1:4391/assets/index-nwwxTSjt.js"
+            },
+            {
+              "duration": 50.200000047683716,
+              "sourceURL": "http://127.0.0.1:4391/assets/index-nwwxTSjt.js",
+              "sourceFunctionName": "",
+              "invoker": "ResizeObserverCallback"
+            },
+            {
+              "duration": 29.199999928474426,
+              "sourceURL": "http://127.0.0.1:4391/assets/index-nwwxTSjt.js",
+              "sourceFunctionName": "",
+              "invoker": "FrameRequestCallback"
+            }
+          ]
+        },
+        {
+          "startTime": 623.5,
+          "duration": 274.89999997615814,
+          "blockingDuration": 200.9,
+          "scripts": [
+            {
+              "duration": 216,
+              "sourceURL": "http://127.0.0.1:4391/assets/startup-CG9222yg.js",
+              "sourceFunctionName": "",
+              "invoker": "Promise.resolve"
+            },
+            {
+              "duration": 28.699999928474426,
+              "sourceURL": "http://127.0.0.1:4391/assets/index-nwwxTSjt.js",
+              "sourceFunctionName": "",
+              "invoker": "FrameRequestCallback"
+            }
+          ]
+        },
+        {
+          "startTime": 3397.399999976158,
+          "duration": 236.20000004768372,
+          "blockingDuration": 171.1,
+          "scripts": [
+            {
+              "duration": 185.59999990463257,
+              "sourceURL": "http://127.0.0.1:4391/assets/startup-CG9222yg.js",
+              "sourceFunctionName": "",
+              "invoker": "Worker.onmessage"
+            },
+            {
+              "duration": 9.899999976158142,
+              "sourceURL": "http://127.0.0.1:4391/assets/index-nwwxTSjt.js",
+              "sourceFunctionName": "c",
+              "invoker": "FrameRequestCallback"
+            },
+            {
+              "duration": 5.299999952316284,
+              "sourceURL": "http://127.0.0.1:4391/assets/index-nwwxTSjt.js",
+              "sourceFunctionName": "c",
+              "invoker": "FrameRequestCallback"
+            }
+          ]
+        },
+        {
+          "startTime": 1722.6000000238419,
+          "duration": 196.5,
+          "blockingDuration": 136.9,
+          "scripts": [
+            {
+              "duration": 150.90000009536743,
+              "sourceURL": "http://127.0.0.1:4391/assets/index-nwwxTSjt.js",
+              "sourceFunctionName": "",
+              "invoker": "FrameRequestCallback"
+            },
+            {
+              "duration": 25.399999976158142,
+              "sourceURL": "http://127.0.0.1:4391/assets/startup-CG9222yg.js",
+              "sourceFunctionName": "",
+              "invoker": "Worker.onmessage"
+            }
+          ]
+        },
+        {
+          "startTime": 2362.899999976158,
+          "duration": 190.10000002384186,
+          "blockingDuration": 95.2,
+          "scripts": [
+            {
+              "duration": 84.60000002384186,
+              "sourceURL": "http://127.0.0.1:4391/assets/index-nwwxTSjt.js",
+              "sourceFunctionName": "c",
+              "invoker": "FrameRequestCallback"
+            },
+            {
+              "duration": 14.799999952316284,
+              "sourceURL": "http://127.0.0.1:4391/assets/index-nwwxTSjt.js",
+              "sourceFunctionName": "",
+              "invoker": "TimerHandler:setTimeout"
+            },
+            {
+              "duration": 14.200000047683716,
+              "sourceURL": "http://127.0.0.1:4391/assets/startup-CG9222yg.js",
+              "sourceFunctionName": "",
+              "invoker": "Window.fetch.then"
+            },
+            {
+              "duration": 10.199999928474426,
+              "sourceURL": "http://127.0.0.1:4391/assets/index-nwwxTSjt.js",
+              "sourceFunctionName": "",
+              "invoker": "FrameRequestCallback"
+            },
+            {
+              "duration": 9.899999976158142,
+              "sourceURL": "http://127.0.0.1:4391/assets/index-nwwxTSjt.js",
+              "sourceFunctionName": "R",
+              "invoker": "FrameRequestCallback"
+            }
+          ]
+        }
+      ]
+    },
+    "shots": [
+      {
+        "targetMs": 0,
+        "frameMs": -2.199951171875
+      },
+      {
+        "targetMs": 250,
+        "frameMs": -2.199951171875
+      },
+      {
+        "targetMs": 500,
+        "frameMs": -2.199951171875
+      },
+      {
+        "targetMs": 750,
+        "frameMs": -2.199951171875
+      },
+      {
+        "targetMs": 1000,
+        "frameMs": -2.199951171875,
+        "sample": {
+          "ms": 912.6000000238419,
+          "cursorIndex": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 1250,
+        "frameMs": -2.199951171875,
+        "sample": {
+          "ms": 1213.3999999761581,
+          "cursorIndex": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 1500,
+        "frameMs": 1491.5400390625,
+        "sample": {
+          "ms": 1388.1000000238419,
+          "cursorIndex": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 1750,
+        "frameMs": 1491.5400390625,
+        "sample": {
+          "ms": 1553,
+          "cursorIndex": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 2000,
+        "frameMs": 1938.052978515625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 1758.2000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542700000,
+            "left": 34,
+            "right": 35,
+            "mix": 1,
+            "cursor": 35,
+            "request": 1,
+            "uploads": 3,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 1948.5,
+          "cursorIndex": "35",
+          "rainCursor": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 2250,
+        "frameMs": 2224.0791015625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 1758.2000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542700000,
+            "left": 34,
+            "right": 35,
+            "mix": 1,
+            "cursor": 35,
+            "request": 1,
+            "uploads": 3,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 2102.399999976158,
+          "cursorIndex": "35",
+          "rainCursor": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 2500,
+        "frameMs": 2377.939208984375,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 1758.2000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542700000,
+            "left": 34,
+            "right": 35,
+            "mix": 1,
+            "cursor": 35,
+            "request": 1,
+            "uploads": 3,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 2363.100000023842,
+          "cursorIndex": "36",
+          "rainCursor": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 2750,
+        "frameMs": 2723.194091796875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 1758.2000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542700000,
+            "left": 34,
+            "right": 35,
+            "mix": 1,
+            "cursor": 35,
+            "request": 1,
+            "uploads": 3,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 2363.100000023842,
+          "cursorIndex": "36",
+          "rainCursor": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 3000,
+        "frameMs": 2887.80517578125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 1758.2000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542700000,
+            "left": 34,
+            "right": 35,
+            "mix": 1,
+            "cursor": 35,
+            "request": 1,
+            "uploads": 3,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 2862.899999976158,
+          "cursorIndex": "36",
+          "rainCursor": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 3250,
+        "frameMs": 3227.861083984375,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 1758.2000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542700000,
+            "left": 34,
+            "right": 35,
+            "mix": 1,
+            "cursor": 35,
+            "request": 1,
+            "uploads": 3,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 3082.5,
+          "cursorIndex": "37",
+          "rainCursor": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 3500,
+        "frameMs": 3442.676025390625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 1758.2000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542700000,
+            "left": 34,
+            "right": 35,
+            "mix": 1,
+            "cursor": 35,
+            "request": 1,
+            "uploads": 3,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 3397.399999976158,
+          "cursorIndex": "38",
+          "rainCursor": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 3750,
+        "frameMs": 3744.050048828125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 1758.2000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542700000,
+            "left": 34,
+            "right": 35,
+            "mix": 1,
+            "cursor": 35,
+            "request": 1,
+            "uploads": 3,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 3707.7000000476837,
+          "cursorIndex": "38",
+          "rainCursor": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 4000,
+        "frameMs": 3958.256103515625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 1758.2000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542700000,
+            "left": 34,
+            "right": 35,
+            "mix": 1,
+            "cursor": 35,
+            "request": 1,
+            "uploads": 3,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 3907.5,
+          "cursorIndex": "38",
+          "rainCursor": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 4250,
+        "frameMs": 4042.967041015625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 1758.2000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542700000,
+            "left": 34,
+            "right": 35,
+            "mix": 1,
+            "cursor": 35,
+            "request": 1,
+            "uploads": 3,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 4094.7000000476837,
+          "cursorIndex": "38",
+          "rainCursor": "35",
+          "mapStart": "ready",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 4500,
+        "frameMs": 4492.611083984375,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 1758.2000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542700000,
+            "left": 34,
+            "right": 35,
+            "mix": 1,
+            "cursor": 35,
+            "request": 1,
+            "uploads": 3,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 4392.600000023842,
+          "cursorIndex": "39",
+          "rainCursor": "35",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 4750,
+        "frameMs": 4574.959228515625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 1758.2000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542700000,
+            "left": 34,
+            "right": 35,
+            "mix": 1,
+            "cursor": 35,
+            "request": 1,
+            "uploads": 3,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 4608.100000023842,
+          "cursorIndex": "40",
+          "rainCursor": "35",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 5000,
+        "frameMs": 4995.036865234375,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 4882.899999976158,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791544166327.7966,
+            "left": 39,
+            "right": 40,
+            "mix": 0.8877593221028646,
+            "cursor": 39.887759322102866,
+            "request": 24,
+            "uploads": 6,
+            "tilesLoaded": false,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 4957.600000023842,
+          "cursorIndex": "40",
+          "rainCursor": "39.887759322102866",
+          "mapStart": "ready",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 5250,
+        "frameMs": 5193.1640625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 5153.100000023842,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791544383422.9507,
+            "left": 40,
+            "right": 41,
+            "mix": 0.6114098356119791,
+            "cursor": 40.61140983561198,
+            "request": 27,
+            "uploads": 8,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 5133,
+          "cursorIndex": "40",
+          "rainCursor": "39.887759322102866",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 5500,
+        "frameMs": 5483.651123046875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 5467.700000047684,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791544487297.856,
+            "left": 40,
+            "right": 41,
+            "mix": 0.9576595198567708,
+            "cursor": 41.14645433186849,
+            "request": 30,
+            "uploads": 8,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 5372.5,
+          "cursorIndex": "41",
+          "rainCursor": "40.831733380533855",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 5750,
+        "frameMs": 5731.51611328125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 5647.399999976158,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791544657213.1865,
+            "left": 41,
+            "right": 42,
+            "mix": 0.524043955078125,
+            "cursor": 41.52404395507813,
+            "request": 33,
+            "uploads": 10,
+            "tilesLoaded": false,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 5632.800000071526,
+          "cursorIndex": "41",
+          "rainCursor": "40.95765951985677",
+          "mapStart": "ready",
+          "tilesLoaded": "false"
+        }
+      }
+    ]
+  },
+  {
+    "profile": "po-android",
+    "snapshot": {
+      "capturedAt": "2026-10-09T10:50:48.000Z",
+      "ttfrMs": 2752.3,
+      "styleReadyMs": 557.7,
+      "firstBasemapTileMs": 4418.1,
+      "mapRevealedMs": 2727.5,
+      "firstCursorMs": 2752.3,
+      "firstRainMs": 2053,
+      "basemapReadyMs": 4638.1,
+      "ttfhMs": null,
+      "ttfpMs": 2753,
+      "blankVisibleMs": 10255,
+      "blankSlotSeconds": 911.3,
+      "blankShareSeconds": 8.74,
+      "firstBarMs": 2177.5,
+      "scrub": {
+        "samples": 0,
+        "p50Ms": null,
+        "p95Ms": null
+      },
+      "fps": 5.8,
+      "network": {
+        "manifest": {
+          "requests": 1,
+          "bytes": 38371
+        },
+        "chunks": {
+          "requests": 98,
+          "bytes": 16383500
+        },
+        "tiles": {
+          "requests": 5,
+          "bytes": 118291
+        },
+        "other": {
+          "requests": 14,
+          "bytes": 555285
+        },
+        "total": {
+          "requests": 118,
+          "bytes": 17095447
+        }
+      },
+      "manifestAgeMs": 0,
+      "phases": {
+        "frame-decode": {
+          "count": 104,
+          "p50Ms": 29.7,
+          "p95Ms": 155.4
+        },
+        "texture-upload": {
+          "count": 10,
+          "p50Ms": 0.4,
+          "p95Ms": 22.7
+        },
+        "wind-step": {
+          "count": 32,
+          "p50Ms": 4.8,
+          "p95Ms": 13.5
+        },
+        "scrubber-paint": {
+          "count": 132,
+          "p50Ms": 0.2,
+          "p95Ms": 20.1
+        },
+        "table-render": {
+          "count": 5,
+          "p50Ms": 0.2,
+          "p95Ms": 0.7
+        },
+        "basemap-tile": {
+          "count": 1,
+          "p50Ms": 3231.4,
+          "p95Ms": 3231.4
+        }
+      },
+      "windowReadyMs": {
+        "cloud_high": 5135,
+        "cloud_mid": 5135,
+        "temp_c": 5308,
+        "cloud_low": 5719,
+        "feels_like_c": 5893,
+        "wind_v": 5907,
+        "wind_u": 6268,
+        "cloud_frac": 6597,
+        "gust_ms": 6598,
+        "uv": 10194
+      },
+      "longFrames": [
+        {
+          "startTime": 3802.600000023842,
+          "duration": 561.1000000238419,
+          "blockingDuration": 476.3,
+          "scripts": [
+            {
+              "duration": 475,
+              "sourceURL": "http://127.0.0.1:4351/assets/startup-CG9222yg.js",
+              "sourceFunctionName": "",
+              "invoker": "Worker.onmessage"
+            },
+            {
+              "duration": 25.899999976158142,
+              "sourceURL": "http://127.0.0.1:4351/assets/index-Ca5vj8zh.js",
+              "sourceFunctionName": "c",
+              "invoker": "FrameRequestCallback"
+            }
+          ]
+        },
+        {
+          "startTime": 9352.5,
+          "duration": 557,
+          "blockingDuration": 441.1,
+          "scripts": [
+            {
+              "duration": 344.1999999284744,
+              "sourceURL": "http://127.0.0.1:4351/assets/index-Ca5vj8zh.js",
+              "sourceFunctionName": "c",
+              "invoker": "FrameRequestCallback"
+            },
+            {
+              "duration": 35.39999997615814,
+              "sourceURL": "http://127.0.0.1:4351/assets/index-Ca5vj8zh.js",
+              "sourceFunctionName": "C",
+              "invoker": "FrameRequestCallback"
+            },
+            {
+              "duration": 15.699999928474426,
+              "sourceURL": "",
+              "sourceFunctionName": "",
+              "invoker": "TimerHandler:setInterval"
+            },
+            {
+              "duration": 5.600000023841858,
+              "sourceURL": "http://127.0.0.1:4351/assets/startup-CG9222yg.js",
+              "sourceFunctionName": "",
+              "invoker": "Window.fetch.then"
+            },
+            {
+              "duration": 5.200000047683716,
+              "sourceURL": "http://127.0.0.1:4351/assets/index-Ca5vj8zh.js",
+              "sourceFunctionName": "",
+              "invoker": "FrameRequestCallback"
+            }
+          ]
+        },
+        {
+          "startTime": 1163.5,
+          "duration": 504.2999999523163,
+          "blockingDuration": 400.5,
+          "scripts": [
+            {
+              "duration": 389.6999999284744,
+              "sourceURL": "http://127.0.0.1:4351/assets/index-Ca5vj8zh.js",
+              "sourceFunctionName": "",
+              "invoker": "FrameRequestCallback"
+            },
+            {
+              "duration": 20.700000047683716,
+              "sourceURL": "http://127.0.0.1:4351/assets/index-Ca5vj8zh.js",
+              "sourceFunctionName": "",
+              "invoker": "FrameRequestCallback"
+            },
+            {
+              "duration": 10,
+              "sourceURL": "http://127.0.0.1:4351/assets/index-Ca5vj8zh.js",
+              "sourceFunctionName": "",
+              "invoker": "Worker.onmessage"
+            },
+            {
+              "duration": 9.699999928474426,
+              "sourceURL": "http://127.0.0.1:4351/assets/index-Ca5vj8zh.js",
+              "sourceFunctionName": "",
+              "invoker": "Worker.onmessage"
+            }
+          ]
+        },
+        {
+          "startTime": 233.79999995231628,
+          "duration": 384.5,
+          "blockingDuration": 334.2,
+          "scripts": [
+            {
+              "duration": 294.10000002384186,
+              "sourceURL": "http://127.0.0.1:4351/assets/index-Ca5vj8zh.js",
+              "sourceFunctionName": "",
+              "invoker": "http://127.0.0.1:4351/assets/index-Ca5vj8zh.js"
+            },
+            {
+              "duration": 45.299999952316284,
+              "sourceURL": "http://127.0.0.1:4351/assets/index-Ca5vj8zh.js",
+              "sourceFunctionName": "",
+              "invoker": "ResizeObserverCallback"
+            },
+            {
+              "duration": 29.90000009536743,
+              "sourceURL": "http://127.0.0.1:4351/assets/index-Ca5vj8zh.js",
+              "sourceFunctionName": "",
+              "invoker": "FrameRequestCallback"
+            }
+          ]
+        },
+        {
+          "startTime": 5364.600000023842,
+          "duration": 368,
+          "blockingDuration": 307.7,
+          "scripts": [
+            {
+              "duration": 323.8000000715256,
+              "sourceURL": "http://127.0.0.1:4351/assets/startup-CG9222yg.js",
+              "sourceFunctionName": "",
+              "invoker": "Response.json.then"
+            },
+            {
+              "duration": 15.200000047683716,
+              "sourceURL": "http://127.0.0.1:4351/assets/index-Ca5vj8zh.js",
+              "sourceFunctionName": "c",
+              "invoker": "FrameRequestCallback"
+            },
+            {
+              "duration": 6.300000071525574,
+              "sourceURL": "http://127.0.0.1:4351/assets/startup-CG9222yg.js",
+              "sourceFunctionName": "",
+              "invoker": "ReadableStreamDefaultReader.read.then"
+            }
+          ]
+        }
+      ]
+    },
+    "shots": [
+      {
+        "targetMs": 0,
+        "frameMs": -2.300048828125
+      },
+      {
+        "targetMs": 250,
+        "frameMs": -2.300048828125
+      },
+      {
+        "targetMs": 500,
+        "frameMs": -2.300048828125
+      },
+      {
+        "targetMs": 750,
+        "frameMs": -2.300048828125,
+        "sample": {
+          "ms": 652.6000000238419,
+          "cursorIndex": "35",
+          "mapStart": "z4"
+        }
+      },
+      {
+        "targetMs": 1000,
+        "frameMs": -2.300048828125,
+        "sample": {
+          "ms": 903.5,
+          "cursorIndex": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 1250,
+        "frameMs": -2.300048828125,
+        "sample": {
+          "ms": 1179.7000000476837,
+          "cursorIndex": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 1500,
+        "frameMs": 1430.0419921875,
+        "sample": {
+          "ms": 1179.7000000476837,
+          "cursorIndex": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 1750,
+        "frameMs": 1558.617919921875,
+        "sample": {
+          "ms": 1179.7000000476837,
+          "cursorIndex": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 2000,
+        "frameMs": 1981.56787109375,
+        "sample": {
+          "ms": 1772.3999999761581,
+          "cursorIndex": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 2250,
+        "frameMs": 2213.5888671875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 2052.899999976158,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542700000,
+            "left": 34,
+            "right": 35,
+            "mix": 1,
+            "cursor": 35,
+            "request": 1,
+            "uploads": 2,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 1772.3999999761581,
+          "cursorIndex": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 2500,
+        "frameMs": 2473.697021484375,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 2052.899999976158,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542700000,
+            "left": 34,
+            "right": 35,
+            "mix": 1,
+            "cursor": 35,
+            "request": 1,
+            "uploads": 2,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 2332.7000000476837,
+          "cursorIndex": "35",
+          "rainCursor": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 2750,
+        "frameMs": 2703.43408203125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 2052.899999976158,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542700000,
+            "left": 34,
+            "right": 35,
+            "mix": 1,
+            "cursor": 35,
+            "request": 1,
+            "uploads": 2,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 2617.399999976158,
+          "cursorIndex": "35",
+          "rainCursor": "35",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 3000,
+        "frameMs": 2922.875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 2997.899999976158,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542869820.9333,
+            "left": 35,
+            "right": 36,
+            "mix": 0.5660697778320313,
+            "cursor": 35.566069777832034,
+            "request": 4,
+            "uploads": 4,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 2857.899999976158,
+          "cursorIndex": "35",
+          "rainCursor": "35.06293160400391",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 3250,
+        "frameMs": 3243.14697265625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 3197.2000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542983154.4587,
+            "left": 35,
+            "right": 36,
+            "mix": 0.9438481958007813,
+            "cursor": 35.94384819580078,
+            "request": 5,
+            "uploads": 4,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 3147.7999999523163,
+          "cursorIndex": "36",
+          "rainCursor": "35.566069777832034",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 3500,
+        "frameMs": 3452.091064453125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 3197.2000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542983154.4587,
+            "left": 35,
+            "right": 36,
+            "mix": 0.9438481958007813,
+            "cursor": 35.94384819580078,
+            "request": 5,
+            "uploads": 4,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 3472.2999999523163,
+          "cursorIndex": "36",
+          "rainCursor": "35.94384819580078",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 3750,
+        "frameMs": 3685.288818359375,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 3197.2000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542983154.4587,
+            "left": 35,
+            "right": 36,
+            "mix": 0.9438481958007813,
+            "cursor": 35.94384819580078,
+            "request": 5,
+            "uploads": 4,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 3472.2999999523163,
+          "cursorIndex": "36",
+          "rainCursor": "35.94384819580078",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 4000,
+        "frameMs": 3998.761962890625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 3197.2000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542983154.4587,
+            "left": 35,
+            "right": 36,
+            "mix": 0.9438481958007813,
+            "cursor": 35.94384819580078,
+            "request": 5,
+            "uploads": 4,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 3803.100000023842,
+          "cursorIndex": "36",
+          "rainCursor": "35.94384819580078",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 4250,
+        "frameMs": 4182.370849609375,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 3197.2000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542983154.4587,
+            "left": 35,
+            "right": 36,
+            "mix": 0.9438481958007813,
+            "cursor": 35.94384819580078,
+            "request": 5,
+            "uploads": 4,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 3803.100000023842,
+          "cursorIndex": "36",
+          "rainCursor": "35.94384819580078",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 4500,
+        "frameMs": 4492.56591796875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 3197.2000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542983154.4587,
+            "left": 35,
+            "right": 36,
+            "mix": 0.9438481958007813,
+            "cursor": 35.94384819580078,
+            "request": 5,
+            "uploads": 4,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 3803.100000023842,
+          "cursorIndex": "36",
+          "rainCursor": "35.94384819580078",
+          "mapStart": "z4",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 4750,
+        "frameMs": 4660.61083984375,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 3197.2000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791542983154.4587,
+            "left": 35,
+            "right": 36,
+            "mix": 0.9438481958007813,
+            "cursor": 35.94384819580078,
+            "request": 5,
+            "uploads": 4,
+            "tilesLoaded": false,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 4708.5,
+          "cursorIndex": "36",
+          "rainCursor": "35.94384819580078",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 5000,
+        "frameMs": 4994.8740234375,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 4897.700000047684,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791543068112.124,
+            "left": 36,
+            "right": 37,
+            "mix": 0.22704041341145834,
+            "cursor": 36.22704041341146,
+            "request": 6,
+            "uploads": 6,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 4878.700000047684,
+          "cursorIndex": "36",
+          "rainCursor": "35.94384819580078",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 5250,
+        "frameMs": 5183.151123046875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 5117.899999976158,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791543153069.7893,
+            "left": 36,
+            "right": 37,
+            "mix": 0.5102326310221355,
+            "cursor": 36.510232631022134,
+            "request": 7,
+            "uploads": 6,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 5224.399999976158,
+          "cursorIndex": "37",
+          "rainCursor": "36.510232631022134",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 5500,
+        "frameMs": 5476.125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 5272.299999952316,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791543266346.6763,
+            "left": 36,
+            "right": 37,
+            "mix": 0.8878222542317709,
+            "cursor": 36.88782225423177,
+            "request": 8,
+            "uploads": 6,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 5224.399999976158,
+          "cursorIndex": "37",
+          "rainCursor": "36.510232631022134",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 5750,
+        "frameMs": 5742.1259765625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 5272.299999952316,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791543266346.6763,
+            "left": 36,
+            "right": 37,
+            "mix": 0.8878222542317709,
+            "cursor": 36.88782225423177,
+            "request": 8,
+            "uploads": 6,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 5224.399999976158,
+          "cursorIndex": "37",
+          "rainCursor": "36.510232631022134",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      }
+    ]
+  }
+]

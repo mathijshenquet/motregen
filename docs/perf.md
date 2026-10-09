@@ -1636,3 +1636,68 @@ kaartvoorrang zonder afhankelijkheid van fetch-priority-hints. Regen eerder moun
 buiten style.load is daarom voor deze synchronisatie niet nodig. De afzonderlijke
 prewarm/uitstel-probes op de synthetische fixture waren verkennend; bovenstaande finale
 reeks meet de gekozen combinatie op echte data.
+
+## Regen vanaf de eerste kloktik (U69, 2026-10-09)
+
+De afspeeltik bereidt het regenpaar inclusief bewegingsveld voor, uploadt de texturen en
+tekent de mengstand voordat hij de cursor verplaatst. De overlay tekent binnen dezelfde
+tik; de MapLibre-terugval bevestigt zijn render voordat de cursor verdergaat. Het volgende
+paar wordt al na de upload van het stilstaande startbeeld voorbereid, vóór de puntreeksen.
+Dat startbeeld heeft op een exacte frametijd geen bewegingsveld nodig. De eerste afspeeltik
+wacht daar wel op. De zelfstandige compositor-glide van het histogram is uit: bij een
+geblokkeerde hoofddraad blijven histogram en kaart samen staan. Het tempo blijft hetzelfde.
+
+Het CPU-profiel van de referentie wijst de gemelde lange taak aan als windopzet:
+`attachWindLayer → mountWind → WindLayer.onAdd → link/compile`. In de aparte diagnostische
+opname kostte mountWind inclusief callees 746 ms, waarvan 588 ms in shadercompilatie zelf;
+de overeenkomstige lange frame duurde 753 ms. De windopzet begint nu na het eerste bewegende
+regenbeeld. Dit verplaatst werk; het is geen claim dat shadercompilatie of alle lange frames
+verdwenen zijn. De volgorde z4 → regen → echte kaart en de splashregels van main blijven gelden.
+
+`play-sync.ts` legt elke getekende regenstand vast met bronindices, mengfactor, cursor,
+textuuruploads, `areTilesLoaded` en z4-status. Meerdere callbacks bij één render lezen de
+laatste werkelijk geüploade stand en tellen die eenmaal. `TTFP` behoudt zijn bestaande
+betekenis: wissel van het linker bronframe. De aanvullende `firstRainMotionMs` is de eerste
+getekende verandering van de effectieve regentijd, inclusief tussenliggende mengstanden.
+Zo wordt de afstand tussen klokstart en regenbeweging afzonderlijk meetbaar.
+
+De definitieve vergelijking gebruikt productiegegevens, een vast manifest en Date.now van
+2026-10-09T10:50:48Z, HTTP/1.1 op de eigen Vite-previews en de eigen basiskaart. A is d7066b15
+met dezelfde meetinstrumentatie; B bevat U69 en main tot f613928. Per profiel: A1/B1/A2/B2/A3/B3,
+koude browsercontext, startload ≤ 16, één hostlock per run. Desktop en po-android gebruiken
+de bestaande profielen; opname- en CPU-profiler-overhead zijn uitgesloten van de timingparen.
+De filmstrips tonen iedere 250 ms een compositorbeeld plus cursor-/regenstand, met zowel het
+doelmoment als de echte beeld- en DOM-sampletijd. Het hostlog bewaart ook mislukte en voorlopige runs.
+
+```sh
+MOTREGEN_PERF_PAIRED_RUN=1 bash scripts/perf-lock.sh scripts/e2e-slot.sh pnpm exec tsx scripts/play-sync.ts http://127.0.0.1:4351 tmp/u69/captures/h1-desktop-cold-candidate-1 --profile=desktop --now=2026-10-09T10:50:48Z --manifest=tmp/u69/manifest.json
+pnpm exec tsx scripts/play-sync-report.ts tmp/u69/captures tmp/u69/rapport
+pnpm exec tsx scripts/play-sync-filmstrip.ts tmp/u69/films/desktop-reference tmp/u69/films/desktop-candidate ../docs/perf/u69/filmstrip-desktop.jpg
+```
+
+De twaalf timingruns hadden startload 9,36–14,81. Medianen van drie koude paren:
+
+| profiel | A→B klokstart | A→B eerste bewegende regen / TTFP | A→B klok→regen | A→B grootste frameachterstand | A→B langste LoAF na TTFP |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| desktop | 1014→978 ms | 1739→978 ms | 898→0,5 ms | 0,1→0 frame | 258→854 ms |
+| po-android | 1916→2242 ms | 4922→2242 ms | 3005→0,5 ms | 0,3→0 frame | 237→360 ms |
+
+De mediane gepaarde TTFP-winst is 908 ms op desktop en 2680 ms op po-android. De mobiele klok
+start 325 ms later omdat hij op de voorbereide regenstand wacht. De klok loopt in alle zes
+kandidaatruns vanaf de eerste getekende mengwisseling gelijk met de regen; windopzet begint
+in alle zes daarna. De LoAF-bewaker blijft een restpost: vooral desktop ziet nu de dure
+windopzet **na** TTFP (781–890 ms opzet), waar die bij A vóór de eerste regenbeweging viel.
+Ook na de start kan de gezamenlijke animatie dus haperen. Er is geen wire-budgetwinst geclaimd.
+
+[Meetgegevens](../web/perf/baselines/u69-play-sync.json),
+[desktopfilmstrip](perf/u69/filmstrip-desktop.jpg) met [metadata](perf/u69/filmstrip-desktop.json),
+[po-androidfilmstrip](perf/u69/filmstrip-po-android.jpg) met [metadata](perf/u69/filmstrip-po-android.json).
+De filmstrips zijn afzonderlijke diagnostische opnames en tellen niet mee in bovenstaande medianen.
+
+Typecheck, 529 units en productiebuild zijn groen. De finale volledige run van de geraakte
+desktop/mobile-4g-specs heeft 42 geslaagde tests en 10 profielskips (3,2 min), inclusief
+basemap, focus, dev-panel, decode-budget, tegengehouden volgend frame, vroege pauze,
+vertraagde eerste tik en de MapLibre-terugval. De oorspronkelijke focus-rusttest is behouden
+na de fixture-fix van main.
+Zes Firefox-tests zijn zonder herhaling groen. De perf-gate heeft vier groene tests:
+mobile-4g TTFR koud 1906/warm 1414 ms, warme chunktransfer 0 B en scrub-p95 25 ms.

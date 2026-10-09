@@ -7,6 +7,7 @@ interface Capture {
   profile: string
   warm: boolean
   fixture?: boolean
+  cpuProfile?: boolean
   screenshotOverhead: boolean
   manifestGenerated: string
   capturedAt: string
@@ -36,19 +37,34 @@ const compact = readdirSync(directory).filter((name) => name.endsWith('.json')).
   const weatherHeaders = capture.loads.requests.filter((request) => request.layer === 'header' && !/\/(?:rtcor|nowcast|seamless|uv|uv_clear)-/.test(request.url))
   const queue = header && header.requestStart > 0 ? header.requestStart - header.startTime : null
   const firstMapImage = capture.entries.measures.find((measure) => measure.phase === 'milestone:first-map-image')
+  const rainDraws = capture.entries.measures.filter((measure) => measure.phase === 'rain-frame-committed')
+  const firstRainEpoch = rainDraws[0]?.detail?.epoch
+  const firstRainMotion = rainDraws.find((measure) => measure.detail?.epoch !== firstRainEpoch)
+  const cursorRainGaps = rainDraws.flatMap((measure) => {
+    const detail = measure.detail
+    if (typeof detail?.cursor !== 'number' || typeof detail.left !== 'number' || typeof detail.right !== 'number' || typeof detail.mix !== 'number') return []
+    return [Math.abs(detail.cursor - (detail.left + (detail.right - detail.left) * detail.mix))]
+  })
   const milestoneKeys = ['ttfrMs', 'ttfpMs', 'styleReadyMs', 'firstRainMs', 'firstCursorMs', 'firstBasemapTileMs', 'basemapReadyMs', 'mapRevealedMs', 'ttfhMs'] as const
   const milestones: Record<string, number | null | undefined> = Object.fromEntries(
     milestoneKeys.map((key) => [key, capture.snapshot[key]]),
   )
   milestones.firstMapImageMs = rounded(firstMapImage?.duration)
+  milestones.firstRainMotionMs = rounded(firstRainMotion?.startTime)
+  const windInitialization = capture.entries.measures.find((measure) => measure.phase === 'wind-initialize')
+  milestones.windInitializeStartMs = rounded(windInitialization?.startTime)
+  milestones.windInitializeDurationMs = rounded(windInitialization?.duration)
   return {
     name: name.replace('.json', ''), origin: capture.origin, profile: capture.profile,
     warm: capture.warm, fixture: capture.fixture ?? capture.manifestGenerated.startsWith('2026-08-28'), screenshotOverhead: capture.screenshotOverhead,
+    cpuProfile: capture.cpuProfile ?? false,
     manifestGenerated: capture.manifestGenerated,
     capturedAt: capture.capturedAt, fixedClock: capture.fixedClock,
     startLoad: capture.loadSamples[0]!.load,
     meanLoad: rounded(capture.loadSamples.reduce((sum, sample) => sum + sample.load, 0) / capture.loadSamples.length),
     milestones,
+    clockToRainMotionMs: rounded(firstRainMotion && capture.snapshot.firstCursorMs != null ? firstRainMotion.startTime - capture.snapshot.firstCursorMs : null),
+    cursorRainGap: { maxFrames: rounded(Math.max(0, ...cursorRainGaps)), samples: cursorRainGaps.length },
     firstMapImageSource: firstMapImage?.detail?.source ?? null,
     pmtilesHeader: header ? { startMs: rounded(header.startTime), endMs: rounded(header.responseEnd), queueMs: rounded(queue) } : null,
     harmonieHeaderStartMs: rounded(Math.min(...weatherHeaders.map((request) => request.startMs))),
@@ -61,12 +77,13 @@ const compact = readdirSync(directory).filter((name) => name.endsWith('.json')).
   }
 })
 const rows = ['| transport / profiel / cache | A→B klokstart ms | A→B framewissel ms | A→B style.load ms | A→B eerste tegel ms | A→B volledige kaart ms | mediane Δ klok / framewissel |', '| --- | ---: | ---: | ---: | ---: | ---: | ---: |']
+const syncRows = ['| transport / profiel / cache | A→B eerste bewegende regen ms | A→B klok→regen ms | A→B maximale frameachterstand | A→B langste LoAF na TTFP ms |', '| --- | ---: | ---: | ---: | ---: |']
 const pairs: object[] = []
 for (const transport of ['h1', 'h2']) for (const profile of ['desktop', 'po-android']) for (const cache of ['cold', 'warm']) {
   const paired = [1, 2, 3].flatMap((index) => {
     const prefix = `${transport}-${profile}-${cache}`
-    const reference = compact.find((run) => run.name === `${prefix}-reference-${index}`)
-    const candidate = compact.find((run) => run.name === `${prefix}-candidate-${index}`)
+    const reference = compact.find((run) => run.name === `${prefix}-reference-${index}` && !run.cpuProfile && !run.screenshotOverhead)
+    const candidate = compact.find((run) => run.name === `${prefix}-candidate-${index}` && !run.cpuProfile && !run.screenshotOverhead)
     return reference && candidate ? [{ index, reference, candidate }] : []
   })
   if (!paired.length) continue
@@ -74,11 +91,23 @@ for (const transport of ['h1', 'h2']) for (const profile of ['desktop', 'po-andr
   const delta = (key: string) => median(paired.map((pair) => (pair.candidate.milestones[key] as number) - (pair.reference.milestones[key] as number)))
   const shown = (key: string) => `${rounded(milestone('reference', key))}→${rounded(milestone('candidate', key))}`
   rows.push(`| ${transport} / ${profile} / ${cache} (${paired.length}/3) | ${shown('ttfrMs')} | ${shown('ttfpMs')} | ${shown('styleReadyMs')} | ${shown('firstBasemapTileMs')} | ${shown('basemapReadyMs')} | ${rounded(delta('ttfrMs'))} / ${rounded(delta('ttfpMs'))} ms |`)
+  const comparison = (read: (run: typeof paired[number]['reference']) => number | null) => {
+    const value = (side: 'reference' | 'candidate') => rounded(median(paired.flatMap((pair) => {
+      const observed = read(pair[side])
+      return observed === null ? [] : [observed]
+    })))
+    return `${value('reference')}→${value('candidate')}`
+  }
+  syncRows.push(`| ${transport} / ${profile} / ${cache} (${paired.length}/3) | ${shown('firstRainMotionMs')} | ${comparison((run) => run.clockToRainMotionMs)} | ${comparison((run) => run.cursorRainGap.maxFrames)} | ${comparison((run) => run.afterPlay.maxMs)} |`)
   pairs.push({ transport, profile, cache, paired })
 }
 writeFileSync(`${output}.json`, JSON.stringify({ captures: compact, pairs }, null, 2))
 const fixture = compact.some((capture) => capture.fixture)
-writeFileSync(`${output}.md`, `${rows.join('\n')}\n\nAlle tijden uit gelijke instrumentatie. HTTP1.1: Vite-preview met ${fixture ? 'GRID6-fixture' : 'productiegegevens en vastgezet manifest'}; HTTP2: lokale TLS-reviewproxy op https://motregen.nl, frontend A/B lokaal en weerdata van prod met vastgezet manifest. Geen deploy. Warm = nieuw browserproces met gevulde HTTP- en SW-diskcache. Resource-transferbytes zijn observaties, geen wire-budgetclaim.\n`)
+const transports = [
+  ...(compact.some((capture) => capture.name.startsWith('h1-')) ? [`HTTP1.1: Vite-preview met ${fixture ? 'GRID6-fixture' : 'productiegegevens en vastgezet manifest'}.`] : []),
+  ...(compact.some((capture) => capture.name.startsWith('h2-')) ? ['HTTP2: lokale TLS-reviewproxy op https://motregen.nl, frontend A/B lokaal en weerdata van prod met vastgezet manifest.'] : []),
+]
+writeFileSync(`${output}.md`, `${rows.join('\n')}\n\n${syncRows.join('\n')}\n\nAlle tijden uit gelijke instrumentatie. ${transports.join(' ')} Geen deploy. ${compact.some((capture) => capture.warm) ? 'Warm = nieuw browserproces met gevulde HTTP- en SW-diskcache. ' : ''}Resource-transferbytes zijn observaties, geen wire-budgetclaim.\n`)
 for (const name of readdirSync(directory).filter((name) => name.endsWith('.json'))) {
   const capture = JSON.parse(readFileSync(join(directory, name), 'utf8')) as Capture
   const resources = capture.resources.filter((entry) => entry.startTime < 6_000).sort((left, right) => left.startTime - right.startTime)
@@ -95,3 +124,4 @@ for (const name of readdirSync(directory).filter((name) => name.endsWith('.json'
   writeFileSync(join(directory, name.replace('.json', '.svg')), `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${resources.length * 18 + 65}" font-family="sans-serif"><rect width="100%" height="100%" fill="white"/><text x="8" y="20">${escape(name)}</text>${ticks.join('')}${bars.join('')}</svg>`)
 }
 console.log(rows.join('\n'))
+console.log(syncRows.join('\n'))
