@@ -15,7 +15,7 @@ export function nativeFramePath(directory: string, index: number): string { retu
 export class NativeWeatherRenderer {
   constructor(private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>) {}
 
-  async render(manifest: StillManifest, plan: SequencePlan, directory: string, destination: string, loopComplete: () => void): Promise<{ renderMs: number; encodeMs: number; loopMs: number; loopRenderMs: number; bytes: number }> {
+  async render(manifest: StillManifest, plan: SequencePlan, directory: string, destination: string, loopComplete: () => void): Promise<{ renderMs: number; encodeMs: number; preparationMs: number; loopMs: number; loopRenderMs: number; bytes: number }> {
     const started = performance.now()
     const maps = new NativeMaps(this.origin, this.directory, this.context)
     const overlay = new NativeOverlay(this.origin, this.directory, this.context)
@@ -61,13 +61,14 @@ export class NativeWeatherRenderer {
       }
       async function* frames() { for (let index = 0; index < plan.loopFrames; index++) yield await render(index) }
       const loopStarted = performance.now()
+      const preparationMs = Math.round(loopStarted - started)
       const encoded = await encodeRgbLoop(frames(), destination, plan, FRAME_PIXELS)
       const loopMs = Math.round(performance.now() - loopStarted)
       const loopRenderMs = Math.round(renderMs)
-      console.info(JSON.stringify({ event: 'native-loop-profile', loopMs, renderMs: loopRenderMs, ...Object.fromEntries(Object.entries(phases).map(([key, value]) => [key, Math.round(value)])) }))
+      console.info(JSON.stringify({ event: 'native-loop-profile', preparationMs, loopMs, renderMs: loopRenderMs, ...Object.fromEntries(Object.entries(phases).map(([key, value]) => [key, Math.round(value)])) }))
       loopComplete()
       for (let index = plan.loopFrames; index < plan.epochs.length; index++) await render(index)
-      return { renderMs: Math.round(renderMs + loopStarted - started), encodeMs: Math.max(0, Math.round(performance.now() - started - renderMs - (loopStarted - started))), loopMs, loopRenderMs, bytes: encoded.bytes }
+      return { renderMs: Math.round(renderMs + loopStarted - started), encodeMs: Math.max(0, Math.round(performance.now() - started - renderMs - (loopStarted - started))), preparationMs, loopMs, loopRenderMs, bytes: encoded.bytes }
     } finally { await compositor.close() }
   }
 }

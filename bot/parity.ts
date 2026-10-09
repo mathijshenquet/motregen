@@ -19,7 +19,7 @@ const manifest = validateManifest(JSON.parse(await readFile(manifestPath, 'utf8'
 const origin = process.env.MOTREGEN_ORIGIN ?? 'https://motregen.nl'
 const referenceOrigin = process.env.MOTREGEN_PARITY_ORIGIN ?? origin
 const now = Date.parse(manifest.now)
-const limits = { mean: 0.5, maximum: 50, mapMean: 0.35, mapMaximum: 8 }
+const limits = { mean: 0.5, maximum: 20, mapMean: 0.35, mapMaximum: 8 }
 const browser = await chromium.launch({ executablePath: process.env.MOTREGEN_CHROMIUM_PATH, args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
 try {
   await mkdir(outputDirectory, { recursive: true })
