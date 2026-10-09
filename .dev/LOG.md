@@ -452,6 +452,19 @@
   renderpad < 120 s (wind 83 s is de uitschieter; profiel op de VM zelf, isolijnen per uur cachen, wind goedkoper),
   of (b) renderer terug naar de dev-host.
 
+## 2026-10-09 — sessieafsluiting (23:30): native bot, smoothing, /weer, weer ok?, VM rendert zelf
+- **Gemerged en op prod** (main 08f37ad8): U69 d2 (wind na eerste tik), U70 + app-tempo regenloop −1…+2 u, U71a–d
+  (alle loops native, geheugen 448/768 MiB), U72 (regenveld-smoothing 5×5→9×9, meebewegen, bronovergang), U73 (/weer
+  <plaats>, Expressief), U74 (branding per domein: motregen.nl / weer ok? op weerok.nl, Cloudflare-zone, beide live),
+  rolwissel: VM-bot combined (budget 1600M/1800M). Proeven verwijderd: /regen_rich, /regen_maf. MIP-26/27/28 accepted.
+- **Open met Mathijs**: (1) VM-renderer 212–224 s/generatie (vCPU ~2,5× trager; loopt ≤ 4 min achter) → U71e (VM-pad
+  < 120 s; wind 83 s) of terug naar dev-host; (2) MIP-22 (push) nog niet geschreven; (3) PO-blik op prod-stand.
+- **Open voor agents**: og:image:alt "motregen-druppel" in weerok-build; firefox.table.spec deterministisch; U72-blur
+  ook in de native bot-regenfilm; U69-opstarttaken (docs/perf.md); eerste installatie van de bot-assets 312 s.
+- Nachtelijke volledige e2e (drie profielen) op main gestart bij afsluiting; uitslag morgen in de LOG.
+- Lessen: tijden alleen uit `date` (memory); codex-pane kan op reasoning low vallen → footer checken (memory);
+  jj `new` laat ongecommitte werkkopie als wees achter — eerst committen vóór een merge-`jj new`.
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
