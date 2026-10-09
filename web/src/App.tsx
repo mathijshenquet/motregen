@@ -3432,7 +3432,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         </div>
       </div>
       <Show when={stillMode}>
-        <div class="map-clock still-clock">
+        <div class="map-clock still-clock" data-regime={selectedEpoch() > Date.parse(manifest()?.now ?? '') ? 'forecast' : 'history'}>
           <div class="freshness-trigger">
             <ClockFace time={formatTime(cursorMinute())} day={formatWeekdayShort(cursorMinute())} />
             <small class="clock-day">{{ weather: 'Regen', air: 'Lucht', feels: 'Gevoelstemperatuur', wind: 'Wind' }[initialPresets.mode ?? 'weather']}</small>

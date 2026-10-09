@@ -64,5 +64,9 @@ it('matches the scalar compositor with native bilinear projection, including no-
     const input = frame(left, right, mix)
     const expected = compositor.compose(base, input, false), actual = await compositor.composeFast(base, input, false)
     expect([...actual].every((value, index) => Math.abs(value - expected[index]!) <= 1)).toBe(true)
+    input.motion = { width: 2, height: 2, vectors: new Int8Array([1, 2, -128, -128, 20, 30, 100, 120]) }
+    const warped = await compositor.composeFast(base, input, false)
+    expect(warped).toEqual(compositor.compose(base, input, false))
   }
+  await compositor.close()
 })

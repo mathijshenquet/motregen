@@ -3,6 +3,7 @@
   stdenvNoCC,
   callPackage,
   nodejs,
+  rustc,
   pnpm_10,
   pnpmConfigHook,
   makeWrapper,
@@ -12,7 +13,7 @@ stdenvNoCC.mkDerivation {
   pname = "motregen-bot";
   version = "0.1.0";
   inherit (callPackage ./javascript-deps.nix { }) src pnpmDeps;
-  nativeBuildInputs = [ nodejs pnpm_10 pnpmConfigHook makeWrapper ];
+  nativeBuildInputs = [ nodejs rustc pnpm_10 pnpmConfigHook makeWrapper ];
 
   buildPhase = ''
     runHook preBuild

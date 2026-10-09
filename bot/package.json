@@ -11,9 +11,10 @@
     "dev": "tsx main.ts",
     "smoke": "tsx smoke.ts",
     "render": "tsx smoke.ts --render-only",
+    "parity": "tsx parity.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "build": "tsc"
+    "build": "tsc && rustc native-raster.rs -O -o dist/bot/native-raster"
   },
   "dependencies": {
     "fzstd": "^0.1.1",

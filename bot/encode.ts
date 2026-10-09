@@ -45,7 +45,7 @@ export async function encodeRgbLoop(
     '-hide_banner', '-loglevel', 'error', '-y', '-filter_threads', '1', '-f', 'rawvideo', '-pixel_format', 'rgb24',
     '-video_size', `${size.width}x${size.height}`, '-framerate', String(plan.fps), '-i', 'pipe:0',
     '-vf', `tpad=stop_mode=clone:stop_duration=1,setsar=1`, '-frames:v', String(plan.loopFrames + plan.fps),
-    '-c:v', 'libx264', '-threads', availableParallelism() <= 2 ? '1' : '2', '-preset', 'veryfast', '-crf', '25',
+    '-c:v', 'libx264', '-threads', availableParallelism() <= 2 ? '1' : '2', '-preset', 'superfast', '-crf', '25',
     '-maxrate', String(bitrate), '-bufsize', String(bitrate), '-pix_fmt', 'yuv420p',
     '-movflags', '+faststart', '-an', '-f', 'mp4', destination,
   ], { stdio: ['pipe', 'ignore', 'pipe'] })
