@@ -10,7 +10,7 @@ import { configDefaults } from 'vitest/config'
 import { basemapRangeCache } from './scripts/basemap-range-cache'
 import { manifestStartCache } from './scripts/manifest-start-cache'
 import { pageRoutes } from './scripts/page-routes'
-import { brandName } from './src/core/page-meta'
+import { brandFromEnvironment } from './src/core/brand'
 import { startAssets } from './scripts/start-assets-plugin'
 import { startWebgl } from './scripts/start-webgl-plugin'
 
@@ -19,6 +19,7 @@ const allowedHosts = ['ageq-mthq', 'ageq-dev2']
 
 // dev gebruikt de echte ingest-data via caddy (:8080, MIP-3-contract) of MOTREGEN_DATA_ORIGIN;
 // MOTREGEN_SYNTH=1 valt terug op de synthetische dataset in public/data
+const brand = brandFromEnvironment(process.env)
 const dataOrigin = process.env.MOTREGEN_DATA_ORIGIN
 const dataProxy = (target: string) => ({ '/data': { target, changeOrigin: true, rewrite: (path: string) => path.replace(/^\/data/, '') } })
 const profileProxy = { '/prof': { target: process.env.MOTREGEN_PROF_ORIGIN ?? 'http://127.0.0.1:4331', changeOrigin: true } }
@@ -103,14 +104,14 @@ function usageBeaconEndpoint(): Plugin {
 
 export default defineConfig({
   appType: 'spa',
-  plugins: [earlyManifestEntry(), solid(), tailwindcss(), usageBeaconEndpoint(), localBasemapArchive(), pageRoutes(), startAssets(process.env.VITE_START_ASSETS ?? 'inline'), startWebgl(process.env.VITE_WEBGL_PREWARM), VitePWA({
+  plugins: [earlyManifestEntry(), solid(), tailwindcss(), usageBeaconEndpoint(), localBasemapArchive(), pageRoutes(brand), startAssets(process.env.VITE_START_ASSETS ?? 'inline'), startWebgl(process.env.VITE_WEBGL_PREWARM), VitePWA({
     injectRegister: false,
     registerType: 'prompt',
     includeAssets: ['droplet.svg'],
     pwaAssets: { image: 'public/droplet.svg', preset: 'minimal-2023', overrideManifestIcons: true },
     manifest: {
-      name: brandName,
-      short_name: brandName,
+      name: brand.name,
+      short_name: brand.name,
       description: 'Regenradar en weersverwachting',
       lang: 'nl',
       start_url: '/',

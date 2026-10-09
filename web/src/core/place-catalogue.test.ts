@@ -45,10 +45,10 @@ describe('generated place catalogue', () => {
       expect(remembered.zones.some((zone) => zone.slug === repeated.slug)).toBe(true)
       expect(remembered.zones.some((zone) => zone.slug === 'bergen')).toBe(false)
       expect(parsePresetPath(`/weer/${repeated.slug}`)).toEqual({ mode: 'weather', place: repeated.name, placeSlug: repeated.slug })
-      const url = new URL(shareUrl({ mode: 'weather', epoch: 0, point: repeated, place: 'Bij oma', savedPlace: true }))
+      const url = new URL(shareUrl({ mode: 'weather', epoch: 0, point: repeated, place: 'Bij oma', savedPlace: true }, 'https://motregen.nl'))
       expect(url.pathname).toBe(`/weer/${repeated.slug}`)
       expect(url.href).not.toMatch(/lat=|lon=|oma/)
-      expect(new URL(shareUrl({ mode: 'weather', epoch: 0, point: repeated, place: repeated.name })).pathname).toBe(`/weer/${repeated.slug}`)
+      expect(new URL(shareUrl({ mode: 'weather', epoch: 0, point: repeated, place: repeated.name }, 'https://motregen.nl')).pathname).toBe(`/weer/${repeated.slug}`)
     } finally { vi.unstubAllGlobals() }
   })
 })

@@ -23,11 +23,11 @@ beforeAll(() => {
 describe('about dialog', () => {
   it('opens from the brand via keyboard activation, names the KNMI sources and returns focus on close', async () => {
     render(() => <About windUnit="bft" onWindUnit={() => undefined} theme="light" onTheme={() => undefined} onTripleTap={() => undefined} />)
-    const trigger = screen.getByRole('button', { name: 'Over weer ok? en instellingen' })
+    const trigger = screen.getByRole('button', { name: 'Over motregen en instellingen' })
     expect(document.querySelector('dialog')).toBeNull()
 
     fireEvent.click(trigger)
-    const dialog = await screen.findByRole('dialog', { name: 'weer ok?' }) as HTMLDialogElement
+    const dialog = await screen.findByRole('dialog', { name: 'motregen.nl' }) as HTMLDialogElement
     expect(dialog.open).toBe(true)
     expect(document.querySelector('.about-lead')!.textContent).toBe('Regenradar en weersverwachting')
     // Alles in één tabel, ook privacy en broncode; geen losse alinea's of knop meer.
@@ -46,16 +46,16 @@ describe('about dialog', () => {
   it('states the anonymous usage count and reports each opening', async () => {
     const onOpen = vi.fn()
     render(() => <About windUnit="bft" onWindUnit={() => undefined} theme="light" onTheme={() => undefined} onOpen={onOpen} onTripleTap={() => undefined} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Over weer ok? en instellingen' }), { detail: 0 })
-    await screen.findByRole('dialog', { name: 'weer ok?' })
+    fireEvent.click(screen.getByRole('button', { name: 'Over motregen en instellingen' }), { detail: 0 })
+    await screen.findByRole('dialog', { name: 'motregen.nl' })
     expect(onOpen).toHaveBeenCalledTimes(1)
     expect(screen.getByText('Geen tracking, geen advertenties. Anoniem geteld: sessies en gebruikte functies, zonder IP of identificatie; locatie en favorieten blijven in je browser')).toBeTruthy()
   })
 
   it('closes on a backdrop click but not on a click inside', async () => {
     render(() => <About windUnit="bft" onWindUnit={() => undefined} theme="light" onTheme={() => undefined} onTripleTap={() => undefined} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Over weer ok? en instellingen' }))
-    const dialog = await screen.findByRole('dialog', { name: 'weer ok?' }) as HTMLDialogElement
+    fireEvent.click(screen.getByRole('button', { name: 'Over motregen en instellingen' }))
+    const dialog = await screen.findByRole('dialog', { name: 'motregen.nl' }) as HTMLDialogElement
     fireEvent.click(screen.getByText(/Anoniem geteld/))
     expect(dialog.open).toBe(true)
     fireEvent.click(dialog)
@@ -66,7 +66,7 @@ describe('about dialog', () => {
     vi.useFakeTimers()
     const onTripleTap = vi.fn()
     render(() => <About windUnit="bft" onWindUnit={() => undefined} theme="light" onTheme={() => undefined} onTripleTap={onTripleTap} />)
-    const brand = screen.getByRole('button', { name: 'Over weer ok? en instellingen' })
+    const brand = screen.getByRole('button', { name: 'Over motregen en instellingen' })
     // Alleen de druppel; het woordmerk staat in de modal.
     expect(brand.textContent).toBe('')
     expect(brand.querySelector('img')?.getAttribute('src')).toBe('/droplet.svg')
@@ -97,11 +97,11 @@ describe('about dialog', () => {
     const [expressive, setExpressive] = createSignal(true)
     const onExpressive = vi.fn(setExpressive)
     render(() => <About theme={theme()} onTheme={onTheme} expressive={expressive()} onExpressive={onExpressive} windUnit={windUnit()} onWindUnit={onWindUnit} onTripleTap={() => undefined} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Over weer ok? en instellingen' }))
-    const dialog = await screen.findByRole('dialog', { name: 'weer ok?' })
+    fireEvent.click(screen.getByRole('button', { name: 'Over motregen en instellingen' }))
+    const dialog = await screen.findByRole('dialog', { name: 'motregen.nl' })
     const group = screen.getByRole('group', { name: 'Weergave' })
     expect(dialog.contains(group)).toBe(true)
-    for (const later of [screen.getByRole('heading', { name: 'weer ok?' }), screen.getByText('Regenradar en weersverwachting')]) expect(group.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    for (const later of [screen.getByRole('heading', { name: 'motregen.nl' }), screen.getByText('Regenradar en weersverwachting')]) expect(group.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     const pressed = () => [...dialog.querySelectorAll('.segmented button[aria-pressed="true"]')].map((button) => button.textContent)
     expect(pressed()).toEqual(['Licht', 'Bft'])
     const expressiveSwitch = screen.getByRole('button', { name: /Expressief/ })
@@ -123,8 +123,8 @@ describe('about dialog', () => {
   it('shares the current state from About', async () => {
     const onShare = vi.fn()
     render(() => <About windUnit="bft" onWindUnit={() => undefined} theme="light" onTheme={() => undefined} onShare={onShare} onTripleTap={() => undefined} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Over weer ok? en instellingen' }), { detail: 0 })
-    await screen.findByRole('dialog', { name: 'weer ok?' })
+    fireEvent.click(screen.getByRole('button', { name: 'Over motregen en instellingen' }), { detail: 0 })
+    await screen.findByRole('dialog', { name: 'motregen.nl' })
     fireEvent.click(screen.getByRole('button', { name: 'Deel deze stand' }))
     expect(onShare).toHaveBeenCalledOnce()
   })

@@ -39,20 +39,20 @@ describe('URL presets', () => {
   })
 
   it('builds the production path with the nearest place and time fragment', () => {
-    expect(shareUrl({ mode: 'feels', epoch: now, point: { lng: 5.1236, lat: 52.0874 } })).toBe(
+    expect(shareUrl({ mode: 'feels', epoch: now, point: { lng: 5.1236, lat: 52.0874 } }, 'https://motregen.nl')).toBe(
       'https://motregen.nl/gevoel/utrecht#t=2026-10-07T1200',
     )
   })
 
   it('prefers the place name over coordinates in a share link (reads better, leaks less)', () => {
-    expect(shareUrl({ mode: 'weather', epoch: now, point: { lng: 5.1236, lat: 52.0874 }, place: 'Utrecht' })).toBe(
+    expect(shareUrl({ mode: 'weather', epoch: now, point: { lng: 5.1236, lat: 52.0874 }, place: 'Utrecht' }, 'https://motregen.nl')).toBe(
       'https://motregen.nl/weer/utrecht#t=2026-10-07T1200',
     )
     for (const place of ['Mijn locatie', 'Thuis', 'Werk']) {
       expect(shareablePlace(place)).toBeUndefined()
-      expect(shareUrl({ mode: 'weather', epoch: now, point: { lng: 5.1236, lat: 52.0874 }, place })).toBe('https://motregen.nl/weer/utrecht#t=2026-10-07T1200')
+      expect(shareUrl({ mode: 'weather', epoch: now, point: { lng: 5.1236, lat: 52.0874 }, place }, 'https://motregen.nl')).toBe('https://motregen.nl/weer/utrecht#t=2026-10-07T1200')
     }
-    expect(shareUrl({ mode: 'weather', epoch: now, point: { lng: 5.1236, lat: 52.0874 }, place: 'Bij oma', savedPlace: true })).toBe('https://motregen.nl/weer/utrecht#t=2026-10-07T1200')
+    expect(shareUrl({ mode: 'weather', epoch: now, point: { lng: 5.1236, lat: 52.0874 }, place: 'Bij oma', savedPlace: true }, 'https://motregen.nl')).toBe('https://motregen.nl/weer/utrecht#t=2026-10-07T1200')
   })
 
   it('normalizes names and restores names a geocoder understands', () => {

@@ -42,8 +42,8 @@ test('the beacon waits for hidden visibility, is sent once and carries only whit
   const manifests = manifestRequests(page)
   await openApp(page)
 
-  await page.getByRole('button', { name: 'Over weer ok? en instellingen' }).press('Enter')
-  const about = page.getByRole('dialog', { name: 'weer ok?' })
+  await page.getByRole('button', { name: 'Over motregen en instellingen' }).press('Enter')
+  const about = page.getByRole('dialog', { name: 'motregen.nl' })
   await expect(about).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(about).toBeHidden()

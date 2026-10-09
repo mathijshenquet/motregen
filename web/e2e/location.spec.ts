@@ -162,8 +162,8 @@ test('a click on the about backdrop closes it without touching the map', async (
   await page.goto('/')
   await expect(page.locator('.map-splash.ready')).toBeAttached()
   await expect(scrubber).toHaveAttribute('aria-label', /voor De Bilt$/)
-  await page.getByRole('button', { name: 'Over weer ok? en instellingen' }).press('Enter')
-  const dialog = page.getByRole('dialog', { name: 'weer ok?' })
+  await page.getByRole('button', { name: 'Over motregen en instellingen' }).press('Enter')
+  const dialog = page.getByRole('dialog', { name: 'motregen.nl' })
   await expect(dialog).toBeVisible()
   const map = (await page.locator('.map').boundingBox())!
   const body = (await dialog.boundingBox())!

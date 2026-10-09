@@ -11,6 +11,12 @@ let
   canonicalDomain = builtins.head cfg.domains;
   aliasDomains = builtins.tail cfg.domains;
   publicScheme = if cfg.enableTls then "https" else "http";
+  frontendFor = domain: cfg.frontendPackages.${domain} or cfg.frontendPackage;
+  frontendMatcher = domain: "@frontend-${builtins.replaceStrings [ "." ] [ "-" ] domain}";
+  frontendRoot = package: ''
+    root * ${package}
+    import ${package}/routes.caddy
+  '';
   caddyDataDir = "/run/motregen-data";
   dataHeaders = ''
     header {
@@ -188,7 +194,16 @@ in
       type = lib.types.package;
       default = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-web;
       defaultText = lib.literalExpression "self.packages.\${pkgs.stdenv.hostPlatform.system}.motregen-web";
-      description = "Vite dist tree served by Caddy.";
+      description = "Vite dist tree served by Caddy for every domain without its own entry in frontendPackages.";
+    };
+
+    frontendPackages = lib.mkOption {
+      type = lib.types.attrsOf lib.types.package;
+      default = {
+        "weerok.nl" = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-web-weerok;
+      };
+      defaultText = lib.literalExpression ''{ "weerok.nl" = self.packages.''${pkgs.stdenv.hostPlatform.system}.motregen-web-weerok; }'';
+      description = "Per-domain Vite dist trees: each bundle carries its own name and canonical origin. /data is shared.";
     };
 
     bot = {
@@ -530,8 +545,15 @@ in
           ''}
 
           handle {
-            root * ${cfg.frontendPackage}
-            import ${cfg.frontendPackage}/routes.caddy
+            ${lib.concatMapStrings (domain: ''
+              ${frontendMatcher domain} host ${domain}
+              handle ${frontendMatcher domain} {
+                ${frontendRoot (frontendFor domain)}
+              }
+            '') aliasDomains}
+            handle {
+              ${frontendRoot (frontendFor canonicalDomain)}
+            }
           }
         '';
       };

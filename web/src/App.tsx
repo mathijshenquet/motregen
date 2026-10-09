@@ -68,7 +68,8 @@ import { copyText } from './core/clipboard'
 import { resolveLocation, suggestLocations } from './core/geocoder'
 import { applyPresetUrl, cursorForPresetEpoch, modeForActiveFocus, modeForFocus, parsePresets, sharePlace, shareUrl } from './core/presets'
 import { placeSlug } from './core/place-slug'
-import { brandName, updatePageMetadata } from './core/page-meta'
+import { brand } from './core/active-brand'
+import { updatePageMetadata } from './core/page-meta'
 import { applyTelegramColors, type TelegramWebApp } from './core/telegram'
 import { loadExpressive, storeExpressive } from './core/expressive'
 import { sameFields } from './core/stable'
@@ -3020,15 +3021,15 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const epoch = withTime && timeline().length ? selectedEpoch() : initialPresets.epoch ?? Date.now()
     applyPresetUrl(url, { ...currentShareState(), epoch }, withTime)
     if (url.href !== window.location.href) history.replaceState(history.state, '', url)
-    updatePageMetadata(url.pathname)
+    updatePageMetadata(url.pathname, brand)
   })
 
   async function shareCurrentState(): Promise<void> {
-    const url = shareUrl({ ...currentShareState(), epoch: selectedEpoch() })
+    const url = shareUrl({ ...currentShareState(), epoch: selectedEpoch() }, brand.canonicalOrigin)
     const touch = matchMedia('(pointer: coarse)').matches
     if (touch && typeof navigator.share === 'function') {
       try {
-        await navigator.share({ title: brandName, text: 'Regenradar en weersverwachting', url })
+        await navigator.share({ title: brand.name, text: 'Regenradar en weersverwachting', url })
         usage.mark('share')
         showShareNotice('Link gedeeld')
         return
@@ -3475,7 +3476,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         <div class="map-splash-veil" />
         <div class="map-splash-mark">
           <img src="/droplet.svg" alt="" />
-          <strong>{brandName}</strong>
+          <strong>{brand.name}</strong>
         </div>
       </div>
       <Show when={stillMode}>

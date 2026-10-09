@@ -1,9 +1,11 @@
 import { createSignal, lazy, onCleanup, Show, type JSX } from 'solid-js'
-import { brandName } from '../core/page-meta'
+import { brand } from '../core/active-brand'
+import { spokenBrandName } from '../core/brand'
 import type { WindUnit } from '../core/weather'
 
 const AboutDialog = lazy(() => import('./AboutDialog'))
 
+const aboutLabel = `Over ${spokenBrandName(brand)} en instellingen`
 export const REPOSITORY_URL = 'https://github.com/mathijshenquet/motregen'
 
 /** Wacht zo lang met openen dat een dubbel-/triple-tap op het merk de dialog niet over de volgende taps legt. */
@@ -52,7 +54,7 @@ export default function About(props: AboutProps) {
   }
 
   return <>
-    <button ref={trigger} type="button" class="map-brand round-action" aria-haspopup="dialog" aria-label={`Over ${brandName} en instellingen`} title={`Over ${brandName} en instellingen`} onClick={tapBrand}>
+    <button ref={trigger} type="button" class="map-brand round-action" aria-haspopup="dialog" aria-label={aboutLabel} title={aboutLabel} onClick={tapBrand}>
       <img src="/droplet.svg" alt="" />
     </button>
     <div class="source">{props.sourcePrefix}<span>Bron: KNMI · © OpenStreetMap</span></div>
