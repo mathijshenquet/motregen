@@ -566,11 +566,11 @@ nix build .#checks.x86_64-linux.nixos-vm --no-link
 Telegram-documentatie: [Bot API](https://core.telegram.org/bots/api),
 [Mini Apps en initData](https://core.telegram.org/bots/webapps).
 
-### Native regenrenderer (MIP-26, U71a)
+### Eerste native regenrenderer (MIP-26, U71a)
 
-`weather` kiest standaard native; `MOTREGEN_RAIN_RENDERER=playwright` kiest de bestaande
-browserroute. De routes hebben afzonderlijke cacheversies. Temperatuur en Wind blijven
-Playwright. Rollen en register zijn gelijk gebleven.
+In U71a koos alleen `weather` standaard native; `MOTREGEN_RAIN_RENDERER=playwright` koos de
+browserroute. Temperatuur en Wind gebruikten toen Playwright. Hieronder staan de oorspronkelijke
+U71a-metingen; de actuele route voor alle drie modi staat in de U71b-sectie.
 
 De gedeelde MRF-validatie, predictieve decoder, tijdlijn, regenpalet en motion-selectie komen uit
 `web/src/core`. Node gebruikt native Zstandard-decompressie. Eén kleine Rust-worker per regenreeks
@@ -680,3 +680,146 @@ lege cachemap, geen media of receipts. Kies `playwright` voor de vóórmeting en
 laatste argument voor de onbeperkte meting (laat dan de geheugenlimieten weg). De meegeleverde
 manifest-URL's moeten nog beschikbaar zijn; neem een actueel manifest als ingest oude chunks
 heeft opgeruimd. De meethelper gebruikt `pnpm render` met een dummy token en raakt Telegram niet.
+
+### Native temperatuur en wind (MIP-26, U71b)
+
+`weather`, `feels` en `wind` gebruiken standaard native. `MOTREGEN_NATIVE_RENDERER=weather,wind`
+laat alleen Temperatuur via Playwright lopen; iedere weggelaten modus gebruikt de browserroute.
+`MOTREGEN_NATIVE_RENDERER=playwright` zet alle drie terug. De oude schakelaar
+`MOTREGEN_RAIN_RENDERER` blijft voor Regen werken wanneer de nieuwe variabele ontbreekt.
+Native en browsermedia hebben afzonderlijke cacheversies. Wind heeft één loop en geen stills;
+Regen en Temperatuur hebben ieder één loop en 85 stills: samen 173 media. Rollen, register en
+productie-uitrol vallen buiten U71b.
+
+`native-temperature.ts` gebruikt de uurkeuze, tijdspline, gladstrijking, contourtracer,
+adaptieve isobaarstap en het temperatuurpalet uit `web/src/core`. Een Rust-veldworker vult het
+temperatuurraster op dezelfde halve CSS-resolutie als de app, projecteert en tekent de contouren.
+Drukframes sturen alleen de isobaarsegmenten; een volledig gevuld drukraster is niet nodig.
+Labelankers worden één keer per frame op de gedeelde spline geprojecteerd en volgen dezelfde
+MapLibre-afronding naar CSS-pixels. De app gebruikt nu `Marker.setOpacity`, zodat het toevoegen
+van een marker de ringfade niet meer overschrijft; reduced motion schakelt ook de markertransitie uit.
+
+De tekstvoorbereiding vangt alle benodigde appfont-rotaties en fysieke subpixelfasen in een
+atlas. Daarna blit ieder frame de letterbeelden rechtstreeks op RGB. Deze atlas hangt van de
+veldgeometrie af en kan bij een nieuwe generatie opnieuw nodig zijn; oude isolijnatlassen
+verlopen met de mediacache. Kaartplaten, klok-, plaatsnaam- en H/L-atlassen blijven statische
+assets. DOM en fonts van tekstpagina's worden gelijktijdig voorbereid; hun screenshots blijven
+geserialiseerd. Chromium draait tijdens die voorbereiding; het warme framepad gebruikt geen browser.
+
+`native-wind.ts` leest de fysieke u/v-componenten met tijdinterpolatie en tekent op niveau
+"iets" met de gedeelde dichtheid, levensduur, snelheidsdemping, kleuren, zeedemping,
+kopfade en staartverval. De vorige levensstaart dooft ook na een respawn uit. De opruimvloer
+volgt de RGBA16F-buffer van de app. De deterministische native fase verschilt van de browser;
+de dichtheid en streeplengte worden afzonderlijk getoetst. De synthetische 30-Hz-renderklok
+gebruikt een vast particlebudget: zij kan de echte apparaatframerate niet meten. Gewone
+appbezoeken houden hun adaptieve budget.
+
+Alle modi streamen RGB naar ffmpeg en bewaren alleen benodigde stillframes als PPM.
+De regenworker hergebruikt een geprojecteerd motionveld zolang vectoren, maat, tijdinterval
+en warpgrenzen gelijk blijven; gewijzigde velden of grenzen verversen die cache. De
+onafhankelijke scalarcompositor toetst zowel hergebruik als verversing.
+
+#### Beeldpariteit U71b
+
+Dezelfde pinned generatie en vijf momenten als U71a worden getoetst, met een lokale build
+van de branch als browserreferentie en dezelfde prod-chunks. De bestaande ΔE76-grenzen
+blijven 0,5/20 voor het volledige beeld en 0,35/8 voor de kaart. Alle vijftien beeldparen
+zijn groen. De maxima over de vijf momenten zijn:
+
+| Modus | Kaartgemiddelde | Kaartpixelmax | Beeldgemiddelde | Beeldpixelmax |
+| --- | ---: | ---: | ---: | ---: |
+| Regen | 0,1727 | 2,0842 | 0,1999 | 15,3157 |
+| Temperatuur | 0,0385 | 5,9148 | 0,0453 | 7,1663 |
+| Wind, buiten streepjes | 0,1760 | 2,2713 | 0,1955 | 11,1501 |
+
+Voor Wind blijft de ruwe, fasegevoelige ΔE in het JSON staan. De statische vergelijking
+sluit uitsluitend de unie van de twee gemeten wind-footprints uit, met één fysieke pixel
+randdekking en maximaal 10% van het beeld. Iedere sample heeft een zichtbaar masker.
+Op 1, 3, 5, 7 en 9 simulatieseconden worden verbonden streepjes gemeten; componentaantal,
+gemiddelde lengte en breedte mogen gemiddeld maximaal 10% verschillen, totale alpha-inkt
+maximaal 20%. De grootste afwijkingen zijn respectievelijk 5,17%, 8,21%, 1,48% en 1,20%.
+De meettest detecteert verdubbelde dichtheid en gehalveerde streeplengte ook bij andere posities.
+
+De browser staat links, native rechts. Per map staan historie, −2 uur, nu, verwachting,
+nacht en alle drempels/metingen:
+[Regen](../.dev/tracks/u71b-native-temperatuur-wind/parity-weather/parity.json),
+[Temperatuur](../.dev/tracks/u71b-native-temperatuur-wind/parity-feels/parity.json),
+[Wind](../.dev/tracks/u71b-native-temperatuur-wind/parity-wind/parity.json).
+Voor directe beeldbeoordeling:
+[Temperatuur nu](../.dev/tracks/u71b-native-temperatuur-wind/parity-feels/nu-naast-elkaar.png),
+[Temperatuur nacht](../.dev/tracks/u71b-native-temperatuur-wind/parity-feels/nacht-naast-elkaar.png),
+[Wind nu](../.dev/tracks/u71b-native-temperatuur-wind/parity-wind/nu-naast-elkaar.png),
+[Wind nacht](../.dev/tracks/u71b-native-temperatuur-wind/parity-wind/nacht-naast-elkaar.png).
+De PO-beeldgoedkeuring op PR #102 blijft een afzonderlijke mergevoorwaarde.
+
+```bash
+VITE_DATA_ORIGIN=https://motregen.nl pnpm -C web build
+MOTREGEN_DATA_ORIGIN=https://motregen.nl/data \
+  pnpm -C web preview --host 127.0.0.1 --port 4361
+# In een tweede shell; herhaal met --mode=weather en --mode=wind en de bijbehorende beeldmap:
+MOTREGEN_ORIGIN=https://motregen.nl MOTREGEN_PARITY_ORIGIN=http://127.0.0.1:4361 \
+MOTREGEN_RENDER_CACHE=../tmp/u71b-cache \
+MOTREGEN_CHROMIUM_PATH=/nix/store/j8hc3kdypr2gaa2w3dq0a370lwfzbasf-chromium-151.0.7922.137/bin/chromium \
+  web/scripts/e2e-slot.sh pnpm -C bot parity \
+  ../.dev/tracks/u71b-native-temperatuur-wind/manifest.json \
+  ../.dev/tracks/u71b-native-temperatuur-wind/parity-feels --mode=feels
+```
+
+#### Vóór/ná U71b op twee kernen
+
+Iedere run heeft een nieuwe mediacache, hetzelfde pinned manifest en CPU-affiniteit 0,1.
+Een hostbrede `flock` voorkomt andere geregistreerde perf-metingen tegelijk. GNU `time -v`
+meet het hele proces; de rendererreceipt begint na de Node-opstart en eindigt na alle drie
+loops en 170 JPEGs. De upload-/registercontrole gebruikt uitsluitend een dummy token en
+mock-API, zonder echte Telegram-poller of uploads. De definitieve warme run is op commit
+`dda0091` gedaan met een ongeldig Chromium-pad: alle 173 media zijn nieuw gemaakt.
+
+| Run | Renderer, 173 media | Heel proces | CPU-tijd |
+| --- | ---: | ---: | ---: |
+| U71a: alleen Regen native | 164,349 s | zie U71a-receipt | 304,199 s |
+| U71b: warme assets, eerste run | 49,677 s | 50,61 s | 78,75 s |
+| U71b: warme assets, definitieve run | **51,492 s** | **52,53 s** | **81,79 s** |
+| U71b: kaart/klok warm, nieuwe isolijntekst | 56,790 s | 58,00 s | 82,84 s |
+
+De warme definitieve run houdt 8,508 s marge onder 60 s voor de renderer, 7,47 s voor het
+hele proces. De strengere tekstasset-run maakt ook de 3955 temperatuur- en 2499 drukglyphs
+op diezelfde twee kernen. Volledig koude kaart-/klokassets vallen buiten deze vergelijking.
+U71a had 37 regenloopframes; U71b heeft er 241, plus 169 voor ieder van de andere modi.
+Het aantal media is gelijk, de hoeveelheid framewerk verschilt: de tabel is geen vergelijking
+van identieke looplengtes. De modi lopen gelijktijdig; onderstaande tijden zijn daarom niet optelbaar.
+
+| Modus, definitieve warme run | Loopframes | Voorbereiding | Loop incl. ffmpeg | Alleen loopframewerk | Volledige reeks incl. voorbereiding/encoderrest |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Regen | 241 | 0,998 s | 34,386 s | 31,187 s | 49,435 s, 319 frames |
+| Temperatuur | 169 | 4,182 s | 39,423 s | 36,525 s | 43,605 s, 169 frames |
+| Wind | 169 | 4,288 s | 43,127 s | 41,511 s | 47,414 s, 169 frames |
+
+De 85 regenstillframes kosten gemiddeld 171 ms (mediaan 184, max 450), hun JPEGs gemiddeld
+20 ms (mediaan 17, max 46). De 85 temperatuurstillframes kosten gemiddeld 228 ms (mediaan
+233, max 487), hun JPEGs gemiddeld 49 ms (mediaan 38, max 157). Stillframewerk zit ook in
+de loop wanneer het tijdstip daarvan deel uitmaakt. Alle tijden per frame/conversie staan
+in de log; de samenvatting en alle loopreceipts staan in
+[measurements.json](../.dev/tracks/u71b-native-temperatuur-wind/measurements.json).
+
+GNU time rapporteert voor de definitieve warme run maximaal 4.052.452 KiB RSS (3,86 GiB),
+voor de nieuwe tekstassets 4.129.444 KiB (3,94 GiB). Dit is geen gezamenlijke cgroup-piek.
+Deze runs leggen ook geen MemoryHigh/MemoryMax op; de U71a-geheugenlimieten zijn hiermee
+niet getoetst. De afzonderlijke verhuizing naar de VM moet die geheugenruimte verifiëren.
+De gedeelde host is variabel: eerdere tussenversies kwamen op 63,249 en 62,197 s rendererwerk
+uit. Ook de mislukte parallelle screenshotproef (`2core6`, exit 1) blijft in de meetgegevens;
+de uiteindelijke DOM/font-overlap met geserialiseerde screenshots slaagt (`2core7`, exit 0).
+
+De [meethelper](../.dev/tracks/u71b-native-temperatuur-wind/measure.sh) weigert een bestaande
+cache en kopieert alleen assets. Maak de bronassets vooraf met een renderer-dry-run van
+de volledige matrix. Voor deze snapshot staan ze lokaal in `tmp/u71b-2core7`:
+
+```bash
+# Gebruik steeds een nieuwe naam. Geen media of sequence-receipts kopiëren.
+MOTREGEN_CHROMIUM_PATH=/niet-bestaand/u71b-chromium \
+  bash .dev/tracks/u71b-native-temperatuur-wind/measure.sh eigen-warm tmp/u71b-2core7 warm
+bash .dev/tracks/u71b-native-temperatuur-wind/measure.sh eigen-tekst tmp/u71b-2core7 cold-text
+```
+
+De helper bewaart de exitstatus, hostbelasting, GNU-timegegevens, alle per-modus/per-stillreceipts
+en een mockregister in de trackmap. Het pinned manifest moet nog beschikbare prod-chunks
+aanwijzen; neem een actueel manifest wanneer ingest deze generatie heeft opgeruimd.

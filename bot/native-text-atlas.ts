@@ -21,7 +21,7 @@ export async function nativeTextAtlas(origin: string, directory: string, context
   const styles = [...(await response.text()).matchAll(/<link\b[^>]*href="([^"]+\.css)"[^>]*>/g)].map((match) => new URL(match[1]!, origin).href)
   const key = createHash('sha256').update(JSON.stringify({ styles, cell, variants, version: 6 })).digest('hex').slice(0, 24)
   const path = join(directory, `isoline-text-${key}.png`)
-  // Screenshot viewport changes share Chromium state; only DOM/font preparation can overlap.
+  // Concurrent full-page captures failed in Chromium; DOM/font preparation can overlap.
   async function loadPng(): Promise<Buffer> {
     try { return await readFile(path) } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
     const page = await (await context()).newPage()

@@ -16,13 +16,13 @@
       "epoch": "2026-10-09T11:20:00.000Z",
       "theme": "light",
       "total": {
-        "mean": 0.4063915006827077,
-        "maximum": 48.6439078486149,
+        "mean": 0.4014100478551728,
+        "maximum": 48.54167044725958,
         "pixels": 1221120
       },
       "map": {
-        "mean": 0.39217641014089605,
-        "maximum": 48.6439078486149,
+        "mean": 0.38675952643720085,
+        "maximum": 48.54167044725958,
         "pixels": 1024320
       },
       "wind": {
@@ -36,10 +36,10 @@
           {
             "simulationMs": 1000,
             "browser": {
-              "components": 143,
-              "meanLength": 27.210830122208975,
-              "meanWidth": 2.598945109482515,
-              "ink": 1197.4030501089844
+              "components": 147,
+              "meanLength": 26.12970106671714,
+              "meanWidth": 2.559514197344933,
+              "ink": 1156.5612200436294
             },
             "native": {
               "components": 149,
@@ -51,10 +51,10 @@
           {
             "simulationMs": 3000,
             "browser": {
-              "components": 337,
-              "meanLength": 33.164928612031,
-              "meanWidth": 2.544624602817316,
-              "ink": 3305.406535945597
+              "components": 334,
+              "meanLength": 33.49306516087105,
+              "meanWidth": 2.5560883377325854,
+              "ink": 3340.3416121982086
             },
             "native": {
               "components": 348,
@@ -66,10 +66,10 @@
           {
             "simulationMs": 5000,
             "browser": {
-              "components": 341,
-              "meanLength": 31.569945368357313,
-              "meanWidth": 2.539623134490676,
-              "ink": 3296.099346403174
+              "components": 350,
+              "meanLength": 31.064766689652092,
+              "meanWidth": 2.5224943832051845,
+              "ink": 3244.8993464032155
             },
             "native": {
               "components": 363,
@@ -81,10 +81,10 @@
           {
             "simulationMs": 7000,
             "browser": {
-              "components": 330,
-              "meanLength": 33.46228458764249,
-              "meanWidth": 2.5447761997796725,
-              "ink": 3254.586492372521
+              "components": 338,
+              "meanLength": 32.563696209115236,
+              "meanWidth": 2.5299206281867885,
+              "ink": 3238.197821348655
             },
             "native": {
               "components": 370,
@@ -96,10 +96,10 @@
           {
             "simulationMs": 9000,
             "browser": {
-              "components": 346,
-              "meanLength": 31.800778748672236,
-              "meanWidth": 2.4874451001298237,
-              "ink": 3173.071895422843
+              "components": 340,
+              "meanLength": 32.76702357429994,
+              "meanWidth": 2.526797926495539,
+              "ink": 3251.281917209135
             },
             "native": {
               "components": 357,
@@ -110,10 +110,10 @@
           }
         ],
         "browser": {
-          "components": 299.4,
-          "meanLength": 31.9831024591201,
-          "meanWidth": 2.535491837834981,
-          "ink": 2845.313464050624
+          "components": 301.8,
+          "meanLength": 31.84077898996654,
+          "meanWidth": 2.5361693792377875,
+          "ink": 2846.2563834405687
         },
         "native": {
           "components": 317.4,
@@ -122,21 +122,21 @@
           "ink": 2841.377603484723
         },
         "relative": {
-          "components": 0.06012024048096193,
-          "meanLength": 0.00015941958397870938,
-          "meanWidth": 0.01443722302825613,
-          "ink": 0.0013832783683166328
+          "components": 0.05168986083498994,
+          "meanLength": 0.004309716678364551,
+          "meanWidth": 0.014700517582606485,
+          "ink": 0.0017141041770623504
         },
-        "excludedFraction": 0.09367711609014673,
+        "excludedFraction": 0.09258958988469601,
         "total": {
-          "mean": 0.09300368916630974,
+          "mean": 0.09287869293266694,
           "maximum": 10.521571376326454,
-          "pixels": 1106729
+          "pixels": 1108057
         },
         "map": {
-          "mean": 0.08048380375080806,
+          "mean": 0.08042632332750553,
           "maximum": 1.9922049884049733,
-          "pixels": 934121
+          "pixels": 935065
         },
         "passed": true
       },
