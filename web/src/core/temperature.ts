@@ -1,6 +1,6 @@
 import type { SymbolLayerSpecification } from 'maplibre-gl'
-import type { MapTheme } from './basemap'
-import type { Grid, MrfHeader } from './contract'
+type MapTheme = 'light' | 'dark'
+import type { Grid, MrfHeader } from './contract.js'
 
 export const TEMPERATURE_VARIABLE_ANCHORS = [
   'top', 'bottom', 'left', 'right', 'top-left', 'top-right', 'bottom-left', 'bottom-right',

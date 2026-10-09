@@ -1,4 +1,4 @@
-import type { TimelineFrame } from './contract'
+import type { TimelineFrame } from './contract.js'
 
 export type MotionSelectionKind = 'right' | 'next' | 'left'
 

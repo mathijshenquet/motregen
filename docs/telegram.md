@@ -47,7 +47,7 @@ cacheposts worden verwijderd nadat hun ids zijn opgeslagen. Journallogs
 bevatten alleen gebeurtenisnamen, modi, stappen, manifestversies, rendertijden,
 foutcodes en eventueel het berichtnummer van een verzonden foto; geen chat-id,
 gebruiker, querytekst, token of upstream fouttekst. De cache bevat uitsluitend
-nationale PNG-frames, JPEG-kaarten, MP4-loops, renderreceipts en Telegram-file_id's zonder
+nationale PNG-/PPM-frames, JPEG-kaarten, MP4-loops, renderreceipts en Telegram-file_id's zonder
 locatie of persoonsgegevens. De renderroute stuurt geen sessieteller of
 gebruiksbaken. Alleen een expliciete lokale `MOTREGEN_DEBUG_CHAT_ID` logt daarnaast
 acties uit de aangewezen testchat; die opt-in staat niet in de productie-unit.
@@ -180,8 +180,9 @@ dry-run-prime, zonder browserstart.
 
 ## Rendering en cache
 
-De rendererrol (of de gecombineerde lokale rol) draait met Chromium uit
-`pkgs.playwright-driver.browsers` en ffmpeg uit nixpkgs. Per modus opent hij één
+De rendererrol (of de gecombineerde lokale rol) gebruikt voor Regen standaard de native route
+van MIP-26, hieronder beschreven. Temperatuur en Wind draaien met Chromium uit
+`pkgs.playwright-driver.browsers` en ffmpeg uit nixpkgs. Per browsermodus opent hij één
 pagina van de echte app op `?modus=...&t=<ISO>&still=1`, zonder bediening,
 locatiepin, service worker of manifestpolling. De renderhook zet de tijd per
 frame en wacht expliciet op de actieve weerlagen. Ontbrekende data levert geen
@@ -198,24 +199,25 @@ De drie loops gebruiken dezelfde vijfminutenstap en 10 fps (U66). Regen loopt va
 U70 had −2…+3) en duurt 4,7 seconden inclusief de eindhold; temperatuur en wind beginnen twee uur geleden.
 Temperatuur en Wind eindigen op +12 uur en duren 17,9 seconden inclusief de eindhold.
 Stills en deltaknoppen behouden het bereik −2…+12 uur op het tienminutenraster. Binnen de loophorizon
-delen stills de loop-PNGs; de 54 latere regenstills krijgen elk één extra PNG in dezelfde renderpass.
-De regenreeks kost zo 115 PNGs in plaats van 169, zonder een aparte pagina per still te openen.
+delen stills dezelfde renderpass; zes eerdere en zestig latere regenstills krijgen elk één extra frame.
+Regen rendert 103 frames en bewaart alleen de 85 stilltijdstippen als rauwe PPM. De browserfallback
+bewaart 103 PNGs. Temperatuur en Wind behouden hun PNG-reeksen.
 
 Windparticles krijgen een vaste simulatieklok, met tussenstappen op 30 Hz en
 een seconde opwarming voor het eerste frame. Wandkloktijd en screenshots
 drijven de simulatie niet aan. FFmpeg maakt een geluidloze H.264-MP4 met
 `yuv420p`, `faststart` en een seconde eindhold. CRF 25 is de eerste keuze;
-een bitratefallback begrenst te grote video's tot maximaal 3 MB. JPEGs komen
-met ffmpeg `-q:v 3` rechtstreeks uit de betreffende PNG-frames. Frames voor regenstills na +3 uur
-staan achter de loopframes in dezelfde reeks en komen niet in de MP4. De PNG-reeks blijft in `<loop-key>.frames` twee uur
+een bitratefallback begrenst te grote video's tot maximaal 3 MB. Native JPEGs komen met libvips (kwaliteit 95, 4:4:4) uit de betreffende PPM-frames;
+browser-JPEGs komen met ffmpeg `-q:v 3` uit de PNG-frames. Frames voor regenstills buiten −1…+2 uur
+staan achter de loopframes in dezelfde reeks en komen niet in de MP4. De framereeks blijft in `<loop-key>.frames` twee uur
 op schijf. Alleen aangevraagde JPEGs worden gemaakt; gelijke aanvragen delen
-die conversie. PNGs en receipts zijn privé en worden niet door Caddy geserveerd.
+die conversie. Frames en receipts zijn privé en worden niet door Caddy geserveerd.
 
 Op het beeld staat bovenaan dezelfde klokmarkup en typografie als op
 motregen.nl, in Amsterdamtijd, met de dag ernaast en het moduswoord klein eronder.
 Een dun streepje in de Regen-klok wisselt van
 grijs bij historie naar de accentkleur bij verwachting. Linksonder staat
-“KNMI · OpenFreeMap · © OpenStreetMap”. Het bijschrift is alleen een HTML-link
+“KNMI · © OpenStreetMap”. Het bijschrift is alleen een HTML-link
 `motregen.nl` met tijdpreset; tijd, modus en attributie staan in het beeld.
 
 De manifest-fetch is per reeks vastgezet op de gekozen generatie, terwijl
@@ -226,7 +228,7 @@ hele reeks compleet is. De drie modusreeksen delen één Chromium;
 gelijke verzoeken delen een renderpass. In de gecombineerde modus worden per generatie 3 loops en 10 JPEGs
 vooraf klaargezet: nu/−10m/+10m/−1u/+1u per niet-Wind-modus. Alleen deze **13 media**
 worden vooraf naar Telegram geüpload. De overige tienminutenposities blijven
-beschikbaar als PNG in dezelfde reeks; JPEG en eenmalige upload volgen bij aanvraag.
+beschikbaar als PPM (Regen) of PNG (Temperatuur) in dezelfde reeks; JPEG en eenmalige upload volgen bij aanvraag.
 Daarna gebruikt ook die selectie file_id. De aparte rendererrol maakt en primet alle 173 selecties.
 Het eerdere doel voor render+prime van de 13 prewarm-media is <90 seconden;
 de gemeten tijden staan in het track-LOG.
@@ -299,7 +301,8 @@ De 173-media-rendergeneratie kostte **71301 → 63590 ms**; dry-run-prime met mo
 tussenruimte kostte **84 → 78 ms**, samen **71385 → 63668 ms**. De complete matrix en het
 file_id-antwoord via het register zijn gecontroleerd. Met de 15-seconden-manifestcheck blijft
 **131410 ms** binnen het 210-secondenbudget beschikbaar voor echte Telegram-prime. Die uploadtijd
-is niet gemeten. Regen is 4,7 s inclusief eindhold (−1…+2 u); de overige loops blijven 17,9 s en alle MP4s <3 MB.
+is niet gemeten. In deze U70-meting duurde Regen 7,1 s inclusief eindhold (−2…+3 u);
+de overige loops 17,9 s en alle MP4s bleven <3 MB. De huidige regenloop is daarna verkort naar 37 frames.
 
 Een eerdere koude vergelijking gaf 69658 → 97692 ms inclusief mockprime, terwijl de hostbelasting
 van circa 12 naar 27 steeg en ook de ongewijzigde modi fors vertraagden. Daarom is de vergelijking
@@ -493,3 +496,118 @@ nix build .#checks.x86_64-linux.nixos-vm --no-link
 
 Telegram-documentatie: [Bot API](https://core.telegram.org/bots/api),
 [Mini Apps en initData](https://core.telegram.org/bots/webapps).
+
+### Native regenrenderer (MIP-26, U71a)
+
+`weather` kiest standaard native; `MOTREGEN_RAIN_RENDERER=playwright` kiest de bestaande
+browserroute. De routes hebben afzonderlijke cacheversies. Temperatuur en Wind blijven
+Playwright. Rollen en register zijn gelijk gebleven.
+
+De gedeelde MRF-validatie, predictieve decoder, tijdlijn, regenpalet en motion-selectie komen uit
+`web/src/core`. Node gebruikt native Zstandard-decompressie. Eén kleine Rust-worker per regenreeks
+projecteert de rasters bilineair, met dezelfde motion-warp en canvasblending als de app. Het
+palet, de projectiecoördinaten en motioncaps komen uit de gedeelde TypeScript-code; de scalar
+TypeScript-compositor is de onafhankelijke testreferentie. De worker verwerkt twee beeldhelften
+parallel en houdt de twee actieve rasters vast. `pnpm -C bot build` bouwt de worker met `rustc`;
+het Nix-package bevat de executable. In de devomgeving wordt hij eenmalig per bronhash in de
+lokale tijdelijke map gebouwd.
+
+Een kaartplaat plus atlas van temperatuurcijfers wordt **één keer per stijl/archief/rooster/maat/thema**
+met Chromium gemaakt. De twee thema's volgen de zon bij De Bilt op de kaarttijd, ook in de
+browser-stillroute. Het archief moet een inhoudshash hebben. De atlas bevat 111 varianten
+(−50…60 °C); de gedeelde labelselectie en temperatuursampling kiezen per frame de cijfers.
+De klokachtergrond, attributie en 10094 letterbeelden worden eenmalig per CSS-bundel/maat gecachet.
+Elke weekdag heeft een eigen atlas, zodat de gecentreerde klok dezelfde subpixelpositie als de app heeft.
+Alleen de benodigde dagen worden in geheugen geladen. Zo blijven de echte appfonts behouden.
+Op ageq-dev2 kostte het maken van een kaartatlas ongeveer
+16–21 s per thema en de klokatlas ongeveer 9 s, zonder CPU-beperking. Nieuwe weerdata maakt
+geen nieuwe atlas. Deze bestanden blijven bij cache-pruning behouden; een nieuwe sleutel maakt
+nieuwe assets. Een warme regenreeks werkt ook met een niet-bestaand Chromium-pad.
+
+De 37 RGB-loopframes gaan met backpressure rechtstreeks naar één ffmpeg-proces, zonder PNG-pass.
+De native encoder gebruikt CRF 25, preset `ultrafast`, één encoderthread op twee kernen en een
+begrensde bitrate; de MP4 is 960×1272, 10 fps en 4,7 s inclusief eindhold.
+Alleen de 85 stillframes blijven als P6/PPM in de privé-cache; hun JPEG-conversie gebruikt libvips.
+De korte native loop krijgt voorrang op de browserloops, zodat SwiftShader hem op twee kernen
+niet verdringt. `native-loop-profile` meet het framewerk en de loop inclusief encoder;
+`native-still-frame` meet elk stillframe; `still-encoded` meet elke JPEG-conversie. Een
+sequence-receipt bewaart `preparationMs`, `loopMs` en `loopRenderMs`. De voorbereiding omvat
+assetinlezing, workerstart en het vooraf laden/decoderen van alle benodigde chunks voor de hele reeks.
+`loopMs` begint daarna, bij het eerste RGB-frame. `renderMs` omvat alle 103 regenframes en
+voorbereiding; `encodeMs` is de resterende encoderwachttijd, omdat render en encode overlappen.
+
+#### Beeldpariteit
+
+De pinned generatie `2026-10-09T12:18:21Z` is vergeleken op historie, −2 uur buiten de loop, nu, verwachting en nacht.
+De browserreferentie gebruikte een lokale build van dezelfde branch, zodat de nieuwe
+kaarttijdthema's meedoen. Beide routes lezen de prod-chunks uit hetzelfde manifest.
+De gemiddelde kaart-ΔE76 ligt tussen 0,024 en 0,165; maximaal 1,63. Over het hele beeld is
+het gemiddelde 0,022–0,197 en maximaal 16,12. De grootste verschillen zitten bij de vervaagde
+klokachtergrond. De test begrenst kaartgemiddelde/max op 0,35/8 en het volledige beeld op 0,5/20.
+De kaartregio is y=130…1196; klok en attributie tellen volledig mee in het totaalcijfer.
+
+Beelden staan naast elkaar met **browser links, native rechts**:
+[historie](../.dev/tracks/u71a-native-regenloop/parity/historie-naast-elkaar.png),
+[−2 uur](../.dev/tracks/u71a-native-regenloop/parity/voor-loop-naast-elkaar.png),
+[nu](../.dev/tracks/u71a-native-regenloop/parity/nu-naast-elkaar.png),
+[verwachting](../.dev/tracks/u71a-native-regenloop/parity/verwachting-naast-elkaar.png) en
+[nacht](../.dev/tracks/u71a-native-regenloop/parity/nacht-naast-elkaar.png).
+De waarden en drempels staan in [parity.json](../.dev/tracks/u71a-native-regenloop/parity/parity.json).
+De PO beoordeelt deze beelden op de PR.
+
+```bash
+pnpm -C web exec vite build --outDir ../tmp/u71a-web-dist
+MOTREGEN_DATA_ORIGIN=https://motregen.nl/data \
+  pnpm -C web exec vite preview --outDir ../tmp/u71a-web-dist --host 127.0.0.1 --port 4361
+# In een tweede shell:
+MOTREGEN_ORIGIN=https://motregen.nl MOTREGEN_PARITY_ORIGIN=http://127.0.0.1:4361 \
+MOTREGEN_RENDER_CACHE=../tmp/u71a-parity \
+MOTREGEN_CHROMIUM_PATH=/nix/store/j8hc3kdypr2gaa2w3dq0a370lwfzbasf-chromium-151.0.7922.137/bin/chromium \
+  web/scripts/e2e-slot.sh pnpm -C bot parity \
+  ../.dev/tracks/u71a-native-regenloop/manifest-initial.json ../tmp/u71a-parity-beelden
+```
+
+#### Vóór/ná op ageq-dev2
+
+Alle runs maken 173 media met hetzelfde pinned manifest, 37 regenloopframes en een lege mediacache. De native
+kaart-/klokassets zijn warm. De meting gebruikt de hostbrede perf-lock en een eigen systemd
+user-scope: `cpu.stat` omvat Node, Rust, Chromium en ffmpeg; `memory.peak` omvat ook de filecache.
+De twee-kernscope gebruikt werkelijk `taskset` op CPU 0,1 en MemoryHigh/MemoryMax van
+2200/2600 MiB. `AllowedCPUs` alleen werkt op deze user-cgroup niet, omdat `cpuset` ontbreekt.
+De host zelf is gedeeld; dit zijn renderreceipts, geen uploadmetingen.
+
+| CPU | Regenroute | 173 media | CPU-tijd | Cgroup-geheugenpiek |
+| --- | --- | ---: | ---: | ---: |
+| 2 kernen | Playwright | 169,003 s | 313,758 s | 2,303 GB |
+| 2 kernen | Native | 164,349 s | 304,199 s | 2,310 GB |
+| Onbeperkt | Playwright | 65,353 s | 673,886 s | 2,535 GB |
+| Onbeperkt | Native | 60,564 s | 567,701 s | 3,274 GB |
+
+Op twee kernen kost de native regenloop **1,249 s**, waarvan **1,104 s framewerk**.
+Met **0,573 s voorbereiding** is de film na **1,822 s** gecodeerd. De complete
+103-frame-regenreeks kost 9,273 s render/voorbereiding plus 0,151 s resterende encoderwachttijd,
+tegenover 84,101/0,896 s in de browserroute. De native MP4 is 2,08 MB.
+De native stillframes kosten onder gelijktijdige browserlast gemiddeld 97 ms (mediaan 67, max 486);
+de JPEG-conversie gemiddeld 32 ms (mediaan 27, max 103), tegenover gemiddeld 79 ms voor de
+browser-JPEGs. De stillkosten staan ook per tijdstip in het meetbestand.
+
+De laatste volledige generatie heeft **15,651 s marge onder drie minuten**.
+De eerste volledige generatie kostte 156,519 s; een herhaling bij lagere hostbelasting 171,269 s.
+Een run bij hoge belasting (host-load 44) kostte 198,351 s op twee kernen en 97,236 s onbeperkt.
+Die overschrijding blijft in de meetgegevens staan. Temperatuur en Wind bepalen het resterende
+werk; onder concurrerende hostbelasting is de grens van drie minuten nog geen betrouwbare garantie.
+De dataset, per-loopcijfers en stillsamenvattingen staan in
+[measurements.json](../.dev/tracks/u71a-native-regenloop/measurements.json).
+Exacte meetcommando's staan in [measure.sh](../.dev/tracks/u71a-native-regenloop/measure.sh):
+
+```bash
+flock ~/motregen-perf.lock systemd-run --user --scope --unit=u71a-eigen-meting \
+  -p MemoryAccounting=yes -p MemoryHigh=2200M -p MemoryMax=2600M \
+  bash .dev/tracks/u71a-native-regenloop/measure.sh eigen-meting native matrix eigen-cache 2
+```
+
+Kopieer voor een warme assetmeting alleen de `basemap-*` en `overlay-*` bestanden naar de
+lege cachemap, geen media of receipts. Kies `playwright` voor de vóórmeting en `all` als
+laatste argument voor de onbeperkte meting (laat dan de geheugenlimieten weg). De meegeleverde
+manifest-URL's moeten nog beschikbaar zijn; neem een actueel manifest als ingest oude chunks
+heeft opgeruimd. De meethelper gebruikt `pnpm render` met een dummy token en raakt Telegram niet.
