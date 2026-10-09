@@ -1,6 +1,6 @@
 import type { Grid } from '../web/src/core/contract.js'
 import { frameBlend, timelineCoverage } from '../web/src/core/time-model.js'
-import { blendFrames, blurField, fieldRangeInView, isolineBlurPasses, isolineFrameWeights, adaptiveIsobarStep, ISOLINE_EDGE_FADE_MS, ISOLINE_RING_KM, ISOLINE_TOLERANCE_PX, ISOLINE_WINDOW, isolineFeatures, type IsolineFeatureCollection } from '../web/src/core/isolines.js'
+import { blendFrames, blurField, fieldRangeInView, isolineBlurPasses, isolineFrameWeights, adaptiveIsobarStep, ISOBAR_STEP_HPA, ISOLINE_EDGE_FADE_MS, ISOLINE_RING_KM, ISOLINE_TOLERANCE_PX, ISOLINE_WINDOW, isolineFeatures, type IsolineFeatureCollection } from '../web/src/core/isolines.js'
 import { prepareField, type PreparedField } from '../web/src/core/isoline-field.js'
 import { sliceWeights, type FieldSlice } from '../web/src/core/isoline-spline.js'
 import { blendSlice, buildSegments, traceContours, shortRings, ringFadeRaster, type Contour } from '../web/src/core/isoline-contours.js'
@@ -19,7 +19,10 @@ export class NativeTemperatureData {
   private colors?: Float32Array
   private step = 1
   private readonly labelLines = new Map<string, IsolineFeatureCollection>()
-  constructor(origin: string, private readonly manifest: StillManifest, private readonly kind: 'temperature' | 'pressure' = 'temperature') { this.data = new NativeRainData(origin, manifest, kind === 'pressure' ? 'pressure_hpa' : 'feels_like_c') }
+  constructor(origin: string, private readonly manifest: StillManifest, private readonly kind: 'temperature' | 'pressure' = 'temperature') {
+    this.data = new NativeRainData(origin, manifest, kind === 'pressure' ? 'pressure_hpa' : 'feels_like_c')
+    this.step = kind === 'pressure' ? ISOBAR_STEP_HPA : 1
+  }
 
   field(index: number): Promise<PreparedField> {
     let pending = this.prepared.get(index)
@@ -70,7 +73,7 @@ export class NativeTemperatureData {
     if (this.kind === 'pressure') {
       const nearest = await this.field(Math.round(blend.left + blend.mix))
       const range = fieldRangeInView(nearest.values, nearest.valid, grid, projection.bounds)
-      if (range) this.step = adaptiveIsobarStep(range[0], range[1], this.step === 1 ? undefined : this.step)
+      if (range) this.step = adaptiveIsobarStep(range[0], range[1], this.step)
     }
     const toleranceCells = 2 ** Math.round(Math.log2(ISOLINE_TOLERANCE_PX * projection.cellsPerPixel * FRAME.scale))
     const contours = traceContours(field, grid, { step: this.step, toleranceCells })

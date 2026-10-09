@@ -68,7 +68,7 @@ export function caption(mode: LoopMode, epoch: number): string {
 
 export function cacheKey(selection: MediaSelection, manifest: StillManifest): string {
   const epoch = selection.hour === 'loop' ? Date.parse(manifest.now) : stillEpoch(manifest, selection.hour)
-  const identity = JSON.stringify({ renderer: nativeRenderer(selection.mode) === 'playwright' ? 15 : selection.mode === 'weather' ? 20 : 21, mode: selection.mode, kind: selection.hour === 'loop' ? 'loop' : 'photo', epoch, generated: Date.parse(manifest.generated) })
+  const identity = JSON.stringify({ renderer: nativeRenderer(selection.mode) === 'playwright' ? 15 : selection.mode === 'weather' ? 21 : 22, mode: selection.mode, kind: selection.hour === 'loop' ? 'loop' : 'photo', epoch, generated: Date.parse(manifest.generated) })
   const digest = createHash('sha256').update(identity).digest('hex').slice(0, 24)
   return `${selection.mode}-${selection.hour === 'loop' ? 'loop' : epoch}-${digest}`
 }

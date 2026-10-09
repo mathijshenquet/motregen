@@ -6,6 +6,8 @@ import type { Grid } from './contract'
 import { measurePerfPhase } from './perf'
 import { prepareShaderPrograms } from './shader-programs'
 import { loadedWaterTiles, WaterTileCache, waterMaskNeedsRebuild, waterTileKey, type WaterMaskView, type WaterTile, type WaterMaskRequest, type WaterMaskReply } from './wind-water-mask'
+import { WIND_INITIAL_STAGGER_SECONDS, windLifeScale, trailFloor, halfFloatTrailFloor } from './wind-presentation.js'
+export { WIND_SIMULATION_FPS, trailFloor, halfFloatTrailFloor } from './wind-presentation.js'
 
 export interface WindTuningControl {
   key: keyof WindTuning
@@ -29,7 +31,6 @@ const NARROW_VIEWPORT_PX = 430
 // het gemiddelde net boven 1,03× hangen en kwam de dichtheid na één dip nooit meer terug (U34).
 const BUDGET_RECOVER_FACTOR = 1.1
 const INSTANCE_BYTES = 20
-const INITIAL_STAGGER_SECONDS = 2
 // Zoom/pan/resize (U12): aanvullers komen direct midden in hun leven binnen en faden in de
 // tijd in; overtal (uitzoomen, kleiner budget) faded in de tijd uit. Nooit een lege kaart.
 const FILL_FADE_SECONDS = 0.25
@@ -364,7 +365,7 @@ export class WindLayer implements CustomLayerInterface {
   constructor(private readonly grid: Grid, private theme: MapTheme, tuning: Partial<WindParameters> = {}) {
     this.tuning = { ...WIND_PARAMETERS, ...tuning }
     this.budgetFps = this.tuning.maxFps
-    for (let index = 0; index < MAX_PARTICLES; index++) this.respawn(index, this.random() * INITIAL_STAGGER_SECONDS)
+    for (let index = 0; index < MAX_PARTICLES; index++) this.respawn(index, this.random() * WIND_INITIAL_STAGGER_SECONDS)
   }
 
   onAdd(map: MapLibreMap, context: WebGLRenderingContext | WebGL2RenderingContext): void {
@@ -907,7 +908,7 @@ export class WindLayer implements CustomLayerInterface {
   // compenseert dat in de kopintensiteit.
   private respawn(index: number, delaySeconds: number, fill = false): void {
     // ±20 %: anders sterft een homogeen zeeveld in synchrone golven.
-    const lifeScale = 0.8 + this.random() * 0.4
+    const lifeScale = windLifeScale(this.random())
     this.lifeScales[index] = lifeScale
     this.distances[index] = this.tuning.trailDistance * lifeScale
     if (fill) {
@@ -1171,7 +1172,7 @@ export class WindLayer implements CustomLayerInterface {
       this.active = this.budget
       this.retiring = 0
       this.countCells()
-      for (let index = 0; index < this.active; index++) this.respawn(index, this.random() * INITIAL_STAGGER_SECONDS)
+      for (let index = 0; index < this.active; index++) this.respawn(index, this.random() * WIND_INITIAL_STAGGER_SECONDS)
       this.clearTrails()
       return
     }
@@ -1569,17 +1570,6 @@ export function cellDispersion(xs: ArrayLike<number>, ys: ArrayLike<number>, cou
   let variance = 0
   for (const value of cells) variance += (value - mean) ** 2
   return variance / cells.length / mean
-}
-
-// Per frame minstens 0,6/255 zodat v·d − vloer ook bij 120 Hz nog onder v − ½/255
-// uitkomt en afronding een pixel nooit op zijn waarde laat hangen.
-export function trailFloor(seconds: number): number {
-  return Math.max(0.6, seconds * 60) / 255
-}
-
-/** Vloer voor de RGBA16F-buffer: geen afrondingsghosts, alleen onzichtbare rest opruimen. */
-export function halfFloatTrailFloor(seconds: number): number {
-  return seconds * 2 / 255
 }
 
 export function trailTargetSize(canvasWidth: number, canvasHeight: number, maxTextureSize: number, scale = 1): [number, number] {

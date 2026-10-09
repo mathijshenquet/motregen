@@ -2,6 +2,17 @@ import type { MapTheme } from './map-theme.js'
 
 export const WIND_PARTICLES_PER_MEGAPIXEL = 620
 export const WIND_REFERENCE_ZOOM = 6.4
+export const WIND_INITIAL_STAGGER_SECONDS = 2
+export const WIND_SIMULATION_FPS = 30
+
+export function windLifeScale(random: number): number { return 0.8 + random * 0.4 }
+
+// Per frame minstens 0,6/255 zodat v·d − vloer ook bij 120 Hz nog onder v − ½/255
+// uitkomt en afronding een pixel nooit op zijn waarde laat hangen.
+export function trailFloor(seconds: number): number { return Math.max(0.6, seconds * 60) / 255 }
+
+/** Vloer voor de RGBA16F-buffer: geen afrondingsghosts, alleen onzichtbare rest opruimen. */
+export function halfFloatTrailFloor(seconds: number): number { return seconds * 2 / 255 }
 // v3 (U20): alleen afwijkingen van de default worden bewaard. v4 (U30/MIP-12): alleen de vier
 // knoppen van WindTuning; v3 wordt eenmalig gemigreerd, de rest van v3 (nu constanten) valt weg.
 export const WIND_TUNING_STORAGE_KEY = 'motregen-wind-tuning-v4'

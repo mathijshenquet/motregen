@@ -86,11 +86,11 @@ export class NativeModesRenderer {
         } else {
           const slice = slices[index]!
           rgb = await raster.compose(rgb, slice, theme === 'dark')
-          for (const label of placements[index]!) await text.draw(rgb, label.text, label.screenX, label.screenY, label.angle, label.color, label.theme, label.opacity)
           rgb = await wind!.draw(rgb, epoch, 1000 + index * 1000 / plan.fps, theme, plate.water)
           const pressureBlend = frameBlend(temperature.data.timeline, epoch)
           await pressureMarks!.draw(rgb, slice.grid, await temperature.field(pressureBlend.left), await temperature.field(pressureBlend.right), pressureBlend.mix, theme, slice.opacity)
           rgb = await rainCompositors.get(theme)!.composeFast(rgb, await rain.frame(epoch), theme === 'dark')
+          for (const label of placements[index]!) await text.draw(rgb, label.text, label.screenX, label.screenY, label.angle, label.color, label.theme, label.opacity)
         }
         rgb = await overlay.draw(rgb, epoch, Date.parse(manifest.now))
         if (stillIndexes.has(index)) await writeFile(nativeFramePath(directory, index), [header, rgb])

@@ -60,7 +60,7 @@ import { buildTimeline, epochInWindow, frameBlend, scrubberViewWindow, seriesVal
 import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
 import { WIND_UNITS, type WindUnit } from './core/weather'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
-import { DEFAULT_WIND_TUNING, loadWindTuning, MOBILE_WIND, storeWindTuning, WIND_MAX_FPS, WIND_PARAMETERS, WindLayer, type WindTuning } from './core/wind-layer'
+import { DEFAULT_WIND_TUNING, loadWindTuning, MOBILE_WIND, storeWindTuning, WIND_MAX_FPS, WIND_PARAMETERS, WIND_SIMULATION_FPS, WindLayer, type WindTuning } from './core/wind-layer'
 import { clearTuningStorage } from './core/dev-settings'
 import { watchIdle } from './core/activity'
 import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
@@ -1721,7 +1721,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (mapElement.dataset.stillError) throw new Error(mapElement.dataset.stillError)
     if (windLayer && windOverlay) {
       while (stillSimulationMs < simulationMs) {
-        stillSimulationMs = Math.min(simulationMs, stillSimulationMs + 1_000 / 30)
+        stillSimulationMs = Math.min(simulationMs, stillSimulationMs + 1_000 / WIND_SIMULATION_FPS)
         windLayer.setSimulationTime(stillSimulationMs)
         windOverlay.drawNow()
       }

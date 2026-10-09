@@ -1,4 +1,4 @@
-export function drawStroke(rgb: Buffer, size: { width: number; height: number }, start: [number, number], end: [number, number], width: number, color: readonly number[], opacity: number, decayLength: number, coverage?: Uint8Array, strength?: (distance: number) => number): void {
+export function drawStroke(rgb: Buffer, size: { width: number; height: number }, start: [number, number], end: [number, number], width: number, color: readonly number[], opacityAtDistance: (distance: number, coverage: number) => number, coverage?: Uint8Array): void {
   const deltaX = end[0] - start[0], deltaY = end[1] - start[1]
   const lengthSquared = Math.max(1e-12, deltaX * deltaX + deltaY * deltaY)
   const padding = width / 2 + 1
@@ -8,7 +8,7 @@ export function drawStroke(rgb: Buffer, size: { width: number; height: number },
     const along = Math.max(0, Math.min(1, ((column + 0.5 - start[0]) * deltaX + (row + 0.5 - start[1]) * deltaY) / lengthSquared))
     const distance = Math.hypot(column + 0.5 - start[0] - along * deltaX, row + 0.5 - start[1] - along * deltaY)
     const behind = (1 - along) * Math.sqrt(lengthSquared)
-    const alpha = Math.max(0, Math.min(1, padding - 0.5 - distance)) * Math.exp(-behind / decayLength) * opacity * (strength?.(behind) ?? 1)
+    const alpha = opacityAtDistance(behind, Math.max(0, Math.min(1, padding - 0.5 - distance)))
     if (!alpha) continue
     const offset = (row * size.width + column) * 3
     if (coverage) coverage[row * size.width + column] = Math.round(coverage[row * size.width + column]! * (1 - alpha) + alpha * 255)

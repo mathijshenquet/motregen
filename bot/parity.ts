@@ -106,14 +106,13 @@ try {
         phases.push({ simulationMs, browser: windMetrics(browserAlpha, FRAME_PIXELS.width, FRAME_PIXELS.height, FRAME.scale), native: windMetrics(nativeAlpha, FRAME_PIXELS.width, FRAME_PIXELS.height, FRAME.scale) })
       }
       const browserMetrics = averageWind(phases.map((phase) => phase.browser)), nativeMetrics = averageWind(phases.map((phase) => phase.native))
-      const relative = Object.fromEntries(Object.keys(windLimits).map((key) => {
-        const metric = key as keyof WindMetrics
-        return [metric, Math.abs(nativeMetrics[metric] - browserMetrics[metric]) / Math.max(1e-9, browserMetrics[metric])]
-      })) as WindMetrics
+      const difference = (metric: keyof WindMetrics) => Math.abs(nativeMetrics[metric] - browserMetrics[metric]) / Math.max(1e-9, browserMetrics[metric])
+      const relative: WindMetrics = { components: difference('components'), meanLength: difference('meanLength'), meanWidth: difference('meanWidth'), ink: difference('ink') }
       comparedTotal = colorDifference(unmaskedRgb(referenceRgb, mask!), unmaskedRgb(rgb, mask!))
       const mapMask = mask!.subarray(130 * FRAME_PIXELS.width, 1197 * FRAME_PIXELS.width)
       comparedMap = colorDifference(unmaskedRgb(referenceRgb.subarray(130 * FRAME_PIXELS.width * 3, 1197 * FRAME_PIXELS.width * 3), mapMask), unmaskedRgb(rgb.subarray(130 * FRAME_PIXELS.width * 3, 1197 * FRAME_PIXELS.width * 3), mapMask))
       const excludedFraction = 1 - comparedTotal.pixels / total.pixels
+      await sharp(Buffer.from(mask!), { raw: { ...FRAME_PIXELS, channels: 1 } }).linear(255).png().toFile(join(outputDirectory, `${sample.name}-wind-phase-mask.png`))
       const passed = excludedFraction <= 0.1 && Object.entries(windLimits).every(([key, limit]) => relative[key as keyof WindMetrics] <= limit)
       wind = { limits: windLimits, phases, browser: browserMetrics, native: nativeMetrics, relative, excludedFraction, total: comparedTotal, map: comparedMap, passed }
     }
