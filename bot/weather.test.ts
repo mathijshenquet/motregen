@@ -8,6 +8,7 @@ import { decodeFrame, parseMrfHeader } from '../web/src/core/mrf-codec.js'
 import { buildTimeline, frameBlend, seriesValueAt } from '../web/src/core/time-model.js'
 import { WeatherData, WEATHER_HOUR, rainSummary } from './weather-series.js'
 import { PlaceWeatherRenderer } from './weather.js'
+import { weatherSvg } from './weather-chart.js'
 
 const place = { name: 'Amsterdam', slug: 'amsterdam', lng: 4.9, lat: 52.37 }
 let manifest: Manifest
@@ -90,4 +91,51 @@ it('summarizes dry weather, rain onset and incomplete coverage without claiming 
   expect(rainSummary(series)).toMatch(/^Zware regen tot /)
   series.rain.values.fill(null)
   expect(rainSummary(series)).toContain('onvolledig')
+})
+
+it('renders the expressive day/night sky from chart time while the process clock stays fixed', async () => {
+  fixtureFetch()
+  const series = await new WeatherData('https://fixture.test', manifest).series(place)
+  for (const layer of ['high', 'mid', 'low'] as const) series.clouds.values[layer].fill(0)
+  const renderAt = async (now: number) => {
+    const shifted = structuredClone(series)
+    const offset = now - series.now
+    shifted.now += offset
+    shifted.start += offset
+    shifted.end += offset
+    for (const frame of shifted.rain.timeline) frame.epoch += offset
+    for (const layer of ['high', 'mid', 'low'] as const) for (const frame of shifted.clouds.timeline[layer]) frame.epoch += offset
+    return sharp(Buffer.from(weatherSvg(place, shifted))).removeAlpha().raw().toBuffer()
+  }
+  vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-09T00:00:00Z'))
+  try {
+    const day = await renderAt(Date.parse('2026-10-09T12:00:00Z'))
+    const night = await renderAt(Date.parse('2026-10-09T00:00:00Z'))
+    expect([...night.subarray(0, 3)]).toEqual([10, 24, 32])
+    const [red, green, blue] = day.subarray(0, 3)
+    expect(red).toBeGreaterThan(160)
+    expect(green).toBeGreaterThan(red!)
+    expect(blue).toBeGreaterThan(green!)
+    expect(day.equals(night)).toBe(false)
+  } finally {
+    vi.restoreAllMocks()
+  }
+})
+
+it('draws clouds only from now and clips blurred edges before the cursor', async () => {
+  fixtureFetch()
+  const series = await new WeatherData('https://fixture.test', manifest).series(place)
+  series.rain.values.fill(0)
+  for (const layer of ['high', 'mid', 'low'] as const) series.clouds.values[layer].fill(100)
+  const svg = weatherSvg(place, series)
+  const withoutClouds = svg.replace(/<g id="weather-clouds"[^>]*>.*?<\/g>/s, '')
+  expect(withoutClouds).not.toBe(svg)
+  const nowX = 18 + (series.now - series.start) / (series.end - series.start) * 604
+  const pixels = (source: string, left: number, width: number) => sharp(Buffer.from(source), { density: 144 })
+    .extract({ left, top: 196, width, height: 192 }).raw().toBuffer()
+  // De laatste volledige pixel links van nu telt mee: blur mag geen wolkenrand laten lekken.
+  const pastWidth = Math.floor(nowX * 2) - 36
+  expect((await pixels(svg, 36, pastWidth)).equals(await pixels(withoutClouds, 36, pastWidth))).toBe(true)
+  const futureLeft = Math.ceil(nowX * 2)
+  expect((await pixels(svg, futureLeft, 1244 - futureLeft)).equals(await pixels(withoutClouds, futureLeft, 1244 - futureLeft))).toBe(false)
 })

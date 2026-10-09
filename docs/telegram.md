@@ -19,7 +19,14 @@ leest per frame dezelfde rastercel/kwantisatietabel als `App.readPointSeries` en
 tijd met `seriesValueAt`. De drie HARMONIE-wolkenlagen gebruiken rechtstreeks `cloudBand` (losse
 wolken, gesloten dek vanaf 0,9); het historische deel blijft leeg omdat dit geen wolkenobservaties
 zijn. Het histogram gebruikt de schaal, balkmaten en kleuren uit de app en markeert radar, nowcast,
-naadloos (seamless) en HARMONIE. Dag/nacht volgt de kaarttijd. SVG → `sharp` levert 640×400 CSS-pixels
+naadloos (seamless) en HARMONIE. Het beeld gebruikt **Expressief** (MIP-24): de kop en het kader nemen
+de dag/nacht-kleuren van het cursoruur over, op de zonnestand van de gekozen plaats. De hemel achter
+wolken én regen, de tijdliniaal en de wolkentinten volgen elk uur van de tijdlijn, met dezelfde
+OKLab-kleuren, sterren, hemelstreken en schemergloed als de app. De lichtdoorlating wordt uit de drie
+wolkenlagen geschat met de gedeelde `layerTransmission`-fallback; er worden geen extra stralingsvelden
+opgehaald. Wolkengeometrie begint bij **nu** en wordt na vervaging afgeknipt: links van de cursor staan
+geen wolken, ook niet bij een gesloten dek. Renderkey-versie 2 voorkomt hergebruik van oude sobere PNGs.
+SVG → `sharp` levert 640×400 CSS-pixels
 op 2× resolutie (1280×800 PNG), zonder browser of rastercompositorproces.
 
 De poller en combined-rol halen het manifest op aanvraag op (maximaal 15 s manifestcache). Gecomprimeerde

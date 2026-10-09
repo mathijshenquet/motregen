@@ -38,7 +38,7 @@ export class PlaceWeatherRenderer {
     try {
       const manifest = pinnedManifest ?? await this.manifest()
       epoch = Date.parse(manifest.now)
-      const key = `weer-${createHash('sha256').update(JSON.stringify([1, manifest.generated, place.slug, place.lng, place.lat])).digest('hex').slice(0, 24)}`
+      const key = `weer-${createHash('sha256').update(JSON.stringify([2, manifest.generated, place.slug, place.lng, place.lat])).digest('hex').slice(0, 24)}`
       let task = this.pending.get(key)
       if (!task) {
         task = this.renderImage(place, manifest, key)
