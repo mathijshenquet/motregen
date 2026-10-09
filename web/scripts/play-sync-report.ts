@@ -12,6 +12,7 @@ interface Capture {
   manifestGenerated: string
   capturedAt: string
   durationMs?: number
+  graphics?: Array<{ canvas: string; parallelShaderCompile: boolean }>
   fixedClock?: string
   loadSamples: Array<{ ms: number; load: number }>
   snapshot: PerfSnapshot
@@ -65,6 +66,7 @@ const compact = readdirSync(directory).filter((name) => name.endsWith('.json')).
     cpuProfile: capture.cpuProfile ?? false,
     manifestGenerated: capture.manifestGenerated,
     capturedAt: capture.capturedAt, fixedClock: capture.fixedClock,
+    graphics: capture.graphics,
     startLoad: capture.loadSamples[0]!.load,
     meanLoad: rounded(capture.loadSamples.reduce((sum, sample) => sum + sample.load, 0) / capture.loadSamples.length),
     milestones,

@@ -1,0 +1,2518 @@
+[
+  {
+    "profile": "desktop",
+    "snapshot": {
+      "capturedAt": "2026-10-09T11:54:00.000Z",
+      "ttfrMs": 858.8,
+      "styleReadyMs": 144,
+      "firstBasemapTileMs": 679.5,
+      "mapRevealedMs": 1894,
+      "firstCursorMs": 858.8,
+      "firstRainMs": 764.3,
+      "basemapReadyMs": 763.8,
+      "ttfhMs": 2347.7,
+      "ttfpMs": 859.3,
+      "blankVisibleMs": 1735,
+      "blankSlotSeconds": 162.6,
+      "blankShareSeconds": 1.55,
+      "firstBarMs": 772,
+      "scrub": {
+        "samples": 0,
+        "p50Ms": null,
+        "p95Ms": null
+      },
+      "fps": 60,
+      "network": {
+        "manifest": {
+          "requests": 1,
+          "bytes": 38499
+        },
+        "chunks": {
+          "requests": 65,
+          "bytes": 22493322
+        },
+        "tiles": {
+          "requests": 8,
+          "bytes": 244553
+        },
+        "other": {
+          "requests": 16,
+          "bytes": 564787
+        },
+        "total": {
+          "requests": 90,
+          "bytes": 23341161
+        }
+      },
+      "manifestAgeMs": 74000,
+      "phases": {
+        "frame-decode": {
+          "count": 451,
+          "p50Ms": 0.4,
+          "p95Ms": 8.7
+        },
+        "texture-upload": {
+          "count": 20,
+          "p50Ms": 0.2,
+          "p95Ms": 0.6
+        },
+        "wind-step": {
+          "count": 299,
+          "p50Ms": 0.3,
+          "p95Ms": 0.5
+        },
+        "scrubber-paint": {
+          "count": 66,
+          "p50Ms": 0.1,
+          "p95Ms": 2.9
+        },
+        "table-render": {
+          "count": 5,
+          "p50Ms": 0.1,
+          "p95Ms": 1
+        },
+        "basemap-tile": {
+          "count": 4,
+          "p50Ms": 227.9,
+          "p95Ms": 229.7
+        }
+      },
+      "windowReadyMs": {
+        "temp_c": 2007,
+        "cloud_low": 2095,
+        "uv": 2160,
+        "feels_like_c": 2160,
+        "cloud_frac": 2160,
+        "wind_u": 2160,
+        "wind_v": 2160,
+        "gust_ms": 2160,
+        "rain_rate": 2348,
+        "cloud_high": 2351,
+        "cloud_mid": 2351
+      },
+      "longFrames": [
+        {
+          "startTime": 992.1000000238419,
+          "duration": 906.3999999761581,
+          "blockingDuration": 811.1,
+          "scripts": [
+            {
+              "duration": 856.3999999761581,
+              "sourceURL": "http://127.0.0.1:4391/assets/startup-CG9222yg.js",
+              "sourceFunctionName": "",
+              "invoker": "Promise.resolve"
+            }
+          ]
+        },
+        {
+          "startTime": 463.1999999284744,
+          "duration": 320.5,
+          "blockingDuration": 33.7,
+          "scripts": [
+            {
+              "duration": 56.5,
+              "sourceURL": "http://127.0.0.1:4391/assets/index-Ca5vj8zh.js",
+              "sourceFunctionName": "",
+              "invoker": "FrameRequestCallback"
+            },
+            {
+              "duration": 16.600000023841858,
+              "sourceURL": "http://127.0.0.1:4391/assets/index-Ca5vj8zh.js",
+              "sourceFunctionName": "",
+              "invoker": "FrameRequestCallback"
+            },
+            {
+              "duration": 7,
+              "sourceURL": "http://127.0.0.1:4391/assets/startup-CG9222yg.js",
+              "sourceFunctionName": "",
+              "invoker": "Worker.onmessage"
+            },
+            {
+              "duration": 6,
+              "sourceURL": "",
+              "sourceFunctionName": "",
+              "invoker": "TimerHandler:setInterval"
+            }
+          ]
+        },
+        {
+          "startTime": 163.89999997615814,
+          "duration": 231,
+          "blockingDuration": 176.4,
+          "scripts": [
+            {
+              "duration": 222.60000002384186,
+              "sourceURL": "http://127.0.0.1:4391/assets/index-Ca5vj8zh.js",
+              "sourceFunctionName": "",
+              "invoker": "FrameRequestCallback"
+            }
+          ]
+        },
+        {
+          "startTime": 2753.600000023842,
+          "duration": 139.5,
+          "blockingDuration": 0,
+          "scripts": []
+        },
+        {
+          "startTime": 2222.7999999523163,
+          "duration": 135.39999997615814,
+          "blockingDuration": 0,
+          "scripts": []
+        }
+      ]
+    },
+    "shots": [
+      {
+        "targetMs": 858.8,
+        "frameMs": 852.385009765625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 764.2999999523163,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791546600000,
+            "left": 34,
+            "right": 35,
+            "mix": 1,
+            "cursor": 35,
+            "request": 1,
+            "uploads": 2,
+            "tilesLoaded": true,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 806.6000000238419,
+          "cursorIndex": "35",
+          "rainCursor": "35",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 1108.8,
+        "frameMs": 982.910888671875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 988,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791546694304.9084,
+            "left": 35,
+            "right": 36,
+            "mix": 0.31434969482421876,
+            "cursor": 35.314349694824216,
+            "request": 6,
+            "uploads": 4,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 1010.5,
+          "cursorIndex": "35",
+          "rainCursor": "35.314349694824216",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 1358.8,
+        "frameMs": 982.910888671875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 988,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791546694304.9084,
+            "left": 35,
+            "right": 36,
+            "mix": 0.31434969482421876,
+            "cursor": 35.314349694824216,
+            "request": 6,
+            "uploads": 4,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 1010.5,
+          "cursorIndex": "35",
+          "rainCursor": "35.314349694824216",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 1608.8,
+        "frameMs": 1471.85791015625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 988,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791546694304.9084,
+            "left": 35,
+            "right": 36,
+            "mix": 0.31434969482421876,
+            "cursor": 35.314349694824216,
+            "request": 6,
+            "uploads": 4,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 1010.5,
+          "cursorIndex": "35",
+          "rainCursor": "35.314349694824216",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 1858.8,
+        "frameMs": 1471.85791015625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 988,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791546694304.9084,
+            "left": 35,
+            "right": 36,
+            "mix": 0.31434969482421876,
+            "cursor": 35.314349694824216,
+            "request": 6,
+            "uploads": 4,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 1010.5,
+          "cursorIndex": "35",
+          "rainCursor": "35.314349694824216",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 2108.8,
+        "frameMs": 2054.22509765625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 1896.7999999523163,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791546900000,
+            "left": 35,
+            "right": 36,
+            "mix": 1,
+            "cursor": 36,
+            "request": 7,
+            "uploads": 4,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 2052.1999999284744,
+          "cursorIndex": "36",
+          "rainCursor": "36",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 2358.8,
+        "frameMs": 2336.26806640625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 2342.5,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791547050880.3074,
+            "left": 36,
+            "right": 37,
+            "mix": 0.5029343579101563,
+            "cursor": 36.502934357910156,
+            "request": 12,
+            "uploads": 6,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 2260.5,
+          "cursorIndex": "36",
+          "rainCursor": "36.25146717936198",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 2608.8,
+        "frameMs": 2560.0361328125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 2569.7999999523163,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791547182914.725,
+            "left": 36,
+            "right": 37,
+            "mix": 0.9430490836588542,
+            "cursor": 36.943049083658856,
+            "request": 19,
+            "uploads": 6,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 2516.2999999523163,
+          "cursorIndex": "37",
+          "rainCursor": "36.81722117024739",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 2858.8,
+        "frameMs": 2729.597900390625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 2736.7999999523163,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791547220663.099,
+            "left": 37,
+            "right": 38,
+            "mix": 0.0688769970703125,
+            "cursor": 37.06887699707031,
+            "request": 21,
+            "uploads": 8,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 2760.5,
+          "cursorIndex": "37",
+          "rainCursor": "37.06887699707031",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 3108.8,
+        "frameMs": 2931.784912109375,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 3020,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791547380994.6487,
+            "left": 37,
+            "right": 38,
+            "mix": 0.6033154956054687,
+            "cursor": 37.60331549560547,
+            "request": 26,
+            "uploads": 8,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 3010.5,
+          "cursorIndex": "38",
+          "rainCursor": "37.54049586263021",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 3358.8,
+        "frameMs": 3309.69189453125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 3169.7999999523163,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791547465886.0444,
+            "left": 37,
+            "right": 38,
+            "mix": 0.8862868147786458,
+            "cursor": 37.88628681477864,
+            "request": 29,
+            "uploads": 8,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 3260.5,
+          "cursorIndex": "38",
+          "rainCursor": "37.88628681477864",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 3608.8,
+        "frameMs": 3489.02392578125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 3603.399999976158,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791547597920.4622,
+            "left": 38,
+            "right": 39,
+            "mix": 0.32640154052734377,
+            "cursor": 38.32640154052734,
+            "request": 36,
+            "uploads": 10,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 3513.100000023842,
+          "cursorIndex": "38",
+          "rainCursor": "38.137753994140624",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 3858.8,
+        "frameMs": 3837.58203125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 3836.5,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791547729954.88,
+            "left": 38,
+            "right": 39,
+            "mix": 0.7665162662760416,
+            "cursor": 38.76651626627604,
+            "request": 43,
+            "uploads": 10,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 3760.399999976158,
+          "cursorIndex": "39",
+          "rainCursor": "38.57805736735026",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 4108.8,
+        "frameMs": 4061.094970703125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 4103.100000023842,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791547862045.8918,
+            "left": 39,
+            "right": 40,
+            "mix": 0.20681963948567708,
+            "cursor": 39.20681963948568,
+            "request": 50,
+            "uploads": 12,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 4015.600000023842,
+          "cursorIndex": "39",
+          "rainCursor": "39.01817209309896",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 4358.8,
+        "frameMs": 4329.9619140625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 4336.600000023842,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791547994080.3096,
+            "left": 39,
+            "right": 40,
+            "mix": 0.646934365234375,
+            "cursor": 39.64693436523437,
+            "request": 57,
+            "uploads": 12,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 4260.5,
+          "cursorIndex": "39",
+          "rainCursor": "39.458286818847654",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 4608.8,
+        "frameMs": 4458.393798828125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 4603,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791548126114.7273,
+            "left": 40,
+            "right": 41,
+            "mix": 0.08704909098307291,
+            "cursor": 40.08704909098307,
+            "request": 64,
+            "uploads": 14,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 4510.399999976158,
+          "cursorIndex": "40",
+          "rainCursor": "39.961409825032554",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 4858.8,
+        "frameMs": 4756.875732421875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 4836.199999928474,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791548258149.145,
+            "left": 40,
+            "right": 41,
+            "mix": 0.5271638167317708,
+            "cursor": 40.52716381673177,
+            "request": 71,
+            "uploads": 14,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 4765.399999976158,
+          "cursorIndex": "40",
+          "rainCursor": "40.33851627034505",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 5108.8,
+        "frameMs": 5030.322998046875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 5069.5,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791548390240.157,
+            "left": 40,
+            "right": 41,
+            "mix": 0.9674671899414062,
+            "cursor": 40.96746718994141,
+            "request": 78,
+            "uploads": 14,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 5016,
+          "cursorIndex": "41",
+          "rainCursor": "40.84145062906901",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 5358.8,
+        "frameMs": 5330.026123046875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 5336.5,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791548522274.5747,
+            "left": 41,
+            "right": 42,
+            "mix": 0.40758191569010416,
+            "cursor": 41.4075819156901,
+            "request": 85,
+            "uploads": 16,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 5260.5,
+          "cursorIndex": "41",
+          "rainCursor": "41.21893436930338",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 5608.8,
+        "frameMs": 5590.23974609375,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 5602.899999976158,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791548673211.4766,
+            "left": 41,
+            "right": 42,
+            "mix": 0.910704921875,
+            "cursor": 41.910704921875,
+            "request": 93,
+            "uploads": 16,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 5510.5,
+          "cursorIndex": "42",
+          "rainCursor": "41.721868728027346",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 5858.8,
+        "frameMs": 5773.305908203125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 5836.199999928474,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791548786400.0044,
+            "left": 42,
+            "right": 43,
+            "mix": 0.2880000146484375,
+            "cursor": 42.28800001464844,
+            "request": 99,
+            "uploads": 18,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 5765.199999928474,
+          "cursorIndex": "42",
+          "rainCursor": "42.09935246826172",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 6108.8,
+        "frameMs": 6026.7119140625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 6102.799999952316,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791548937280.312,
+            "left": 42,
+            "right": 43,
+            "mix": 0.7909343733723958,
+            "cursor": 42.790934373372394,
+            "request": 107,
+            "uploads": 18,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 6015.5,
+          "cursorIndex": "43",
+          "rainCursor": "42.602475474446614",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 6358.8,
+        "frameMs": 6333.383056640625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 6336.5,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791549050412.2456,
+            "left": 43,
+            "right": 44,
+            "mix": 0.16804081868489584,
+            "cursor": 43.168040818684894,
+            "request": 113,
+            "uploads": 20,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 6260.5,
+          "cursorIndex": "43",
+          "rainCursor": "42.97958191975911",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 6608.8,
+        "frameMs": 6589.554931640625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 6602.799999952316,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791549201349.1475,
+            "left": 43,
+            "right": 44,
+            "mix": 0.6711638248697916,
+            "cursor": 43.671163824869794,
+            "request": 121,
+            "uploads": 20,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 6510.5,
+          "cursorIndex": "43",
+          "rainCursor": "43.482516278483075",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 6858.8,
+        "frameMs": 6726.087890625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 6836.600000023842,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791549314537.6753,
+            "left": 44,
+            "right": 45,
+            "mix": 0.04845891764322917,
+            "cursor": 44.04845891764323,
+            "request": 127,
+            "uploads": 22,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 6760.5,
+          "cursorIndex": "44",
+          "rainCursor": "43.92263100423177",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 7108.8,
+        "frameMs": 7027.762939453125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 7102.799999952316,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791549465417.983,
+            "left": 44,
+            "right": 45,
+            "mix": 0.5513932763671875,
+            "cursor": 44.551393276367186,
+            "request": 135,
+            "uploads": 22,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 7015.299999952316,
+          "cursorIndex": "44",
+          "rainCursor": "44.362934377441405",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 7358.8,
+        "frameMs": 7292.751953125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 7336.100000023842,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791549597508.9949,
+            "left": 44,
+            "right": 45,
+            "mix": 0.9916966495768229,
+            "cursor": 44.991696649576824,
+            "request": 142,
+            "uploads": 22,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 7260.399999976158,
+          "cursorIndex": "45",
+          "rainCursor": "44.803049103190105",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 7608.8,
+        "frameMs": 7590.798828125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 7603,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791549729543.4126,
+            "left": 45,
+            "right": 46,
+            "mix": 0.43181137532552083,
+            "cursor": 45.43181137532552,
+            "request": 149,
+            "uploads": 24,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 7510.5,
+          "cursorIndex": "45",
+          "rainCursor": "45.24335247639974",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 7858.8,
+        "frameMs": 7723.7431640625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 7836.899999976158,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791549861577.8303,
+            "left": 45,
+            "right": 46,
+            "mix": 0.8719261010742188,
+            "cursor": 45.871926101074216,
+            "request": 156,
+            "uploads": 24,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 7765,
+          "cursorIndex": "46",
+          "rainCursor": "45.683467202148435",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 8108.8,
+        "frameMs": 8022.2587890625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 8102.699999928474,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791549993668.8423,
+            "left": 46,
+            "right": 47,
+            "mix": 0.31222947428385417,
+            "cursor": 46.31222947428385,
+            "request": 163,
+            "uploads": 26,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 8010.5,
+          "cursorIndex": "46",
+          "rainCursor": "46.1233932804362",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 8358.8,
+        "frameMs": 8290.428955078125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 8336.100000023842,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791550125646.6658,
+            "left": 46,
+            "right": 47,
+            "mix": 0.7521555525716146,
+            "cursor": 46.752155552571615,
+            "request": 170,
+            "uploads": 26,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 8264.899999976158,
+          "cursorIndex": "47",
+          "rainCursor": "46.563696653645835",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 8608.8,
+        "frameMs": 8589.484130859375,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 8602.699999928474,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791550257737.6777,
+            "left": 47,
+            "right": 48,
+            "mix": 0.19245892578125,
+            "cursor": 47.19245892578125,
+            "request": 177,
+            "uploads": 28,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 8510.899999976158,
+          "cursorIndex": "47",
+          "rainCursor": "47.003811379394534",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 8858.8,
+        "frameMs": 8725.12890625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 8836.199999928474,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791550389772.0955,
+            "left": 47,
+            "right": 48,
+            "mix": 0.6325736515299479,
+            "cursor": 47.632573651529945,
+            "request": 184,
+            "uploads": 28,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 8765,
+          "cursorIndex": "47",
+          "rainCursor": "47.444114752604165",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 9108.8,
+        "frameMs": 9022.803955078125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 9103.100000023842,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791550521863.1074,
+            "left": 48,
+            "right": 49,
+            "mix": 0.07287702473958334,
+            "cursor": 48.07287702473958,
+            "request": 191,
+            "uploads": 30,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 9010.399999976158,
+          "cursorIndex": "48",
+          "rainCursor": "47.94704911132813",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 9358.8,
+        "frameMs": 9299.203125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 9336.199999928474,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791550653897.5251,
+            "left": 48,
+            "right": 49,
+            "mix": 0.5129917504882813,
+            "cursor": 48.51299175048828,
+            "request": 198,
+            "uploads": 30,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 9264.899999976158,
+          "cursorIndex": "48",
+          "rainCursor": "48.324344204101564",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 9608.8,
+        "frameMs": 9501.78076171875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 9569.199999928474,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791550785931.9429,
+            "left": 48,
+            "right": 49,
+            "mix": 0.9531064762369792,
+            "cursor": 48.95310647623698,
+            "request": 205,
+            "uploads": 30,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 9515.199999928474,
+          "cursorIndex": "49",
+          "rainCursor": "48.82746721028646",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 9858.8,
+        "frameMs": 9758.828125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 9836.199999928474,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791550918079.549,
+            "left": 49,
+            "right": 50,
+            "mix": 0.3935984969075521,
+            "cursor": 49.39359849690755,
+            "request": 212,
+            "uploads": 32,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 9760.5,
+          "cursorIndex": "49",
+          "rainCursor": "49.20495095052083",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 10108.8,
+        "frameMs": 10025.399169921875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 10102.600000023842,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791551068959.8567,
+            "left": 49,
+            "right": 50,
+            "mix": 0.8965328556315104,
+            "cursor": 49.89653285563151,
+            "request": 220,
+            "uploads": 32,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 10015.199999928474,
+          "cursorIndex": "50",
+          "rainCursor": "49.707885309244794",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 10358.8,
+        "frameMs": 10326.0361328125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 10336,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791551182148.3845,
+            "left": 50,
+            "right": 51,
+            "mix": 0.2738279484049479,
+            "cursor": 50.27382794840495,
+            "request": 226,
+            "uploads": 34,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 10260.5,
+          "cursorIndex": "50",
+          "rainCursor": "50.08518040201823",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 10608.8,
+        "frameMs": 10587.283935546875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 10602.799999952316,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791551333085.2864,
+            "left": 50,
+            "right": 51,
+            "mix": 0.7769509545898438,
+            "cursor": 50.77695095458984,
+            "request": 234,
+            "uploads": 34,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 10510.5,
+          "cursorIndex": "51",
+          "rainCursor": "50.588303408203124",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      }
+    ]
+  },
+  {
+    "profile": "desktop",
+    "snapshot": {
+      "capturedAt": "2026-10-09T11:54:00.000Z",
+      "ttfrMs": 845.2,
+      "styleReadyMs": 140.7,
+      "firstBasemapTileMs": 674.3,
+      "mapRevealedMs": 1464.9,
+      "firstCursorMs": 845.2,
+      "firstRainMs": 805,
+      "basemapReadyMs": 804.3,
+      "ttfhMs": 1477.1,
+      "ttfpMs": 845.7,
+      "blankVisibleMs": 792,
+      "blankSlotSeconds": 69.3,
+      "blankShareSeconds": 0.66,
+      "firstBarMs": 812.4,
+      "scrub": {
+        "samples": 0,
+        "p50Ms": null,
+        "p95Ms": null
+      },
+      "fps": 60,
+      "network": {
+        "manifest": {
+          "requests": 1,
+          "bytes": 38499
+        },
+        "chunks": {
+          "requests": 65,
+          "bytes": 22493322
+        },
+        "tiles": {
+          "requests": 8,
+          "bytes": 244553
+        },
+        "other": {
+          "requests": 16,
+          "bytes": 565441
+        },
+        "total": {
+          "requests": 90,
+          "bytes": 23341815
+        }
+      },
+      "manifestAgeMs": 74000,
+      "phases": {
+        "frame-decode": {
+          "count": 451,
+          "p50Ms": 0.4,
+          "p95Ms": 8.1
+        },
+        "texture-upload": {
+          "count": 20,
+          "p50Ms": 0.2,
+          "p95Ms": 0.8
+        },
+        "wind-step": {
+          "count": 194,
+          "p50Ms": 0.3,
+          "p95Ms": 0.6
+        },
+        "scrubber-paint": {
+          "count": 61,
+          "p50Ms": 0.1,
+          "p95Ms": 2.9
+        },
+        "table-render": {
+          "count": 5,
+          "p50Ms": 0.1,
+          "p95Ms": 1
+        },
+        "basemap-tile": {
+          "count": 4,
+          "p50Ms": 218.9,
+          "p95Ms": 222.6
+        }
+      },
+      "windowReadyMs": {
+        "temp_c": 1474,
+        "feels_like_c": 1474,
+        "cloud_frac": 1474,
+        "wind_u": 1474,
+        "wind_v": 1474,
+        "gust_ms": 1474,
+        "rain_rate": 1477,
+        "cloud_mid": 1480,
+        "cloud_low": 1480,
+        "cloud_high": 1480,
+        "uv": 1505
+      },
+      "longFrames": [
+        {
+          "startTime": 1018.8999999761581,
+          "duration": 468.7000000476837,
+          "blockingDuration": 3.2,
+          "scripts": [
+            {
+              "duration": 30.09999990463257,
+              "sourceURL": "http://127.0.0.1:4351/assets/startup-CG9222yg.js",
+              "sourceFunctionName": "",
+              "invoker": "Response.json.then"
+            },
+            {
+              "duration": 21.600000023841858,
+              "sourceURL": "http://127.0.0.1:4351/assets/startup-CG9222yg.js",
+              "sourceFunctionName": "",
+              "invoker": "Worker.onmessage"
+            },
+            {
+              "duration": 13.399999976158142,
+              "sourceURL": "http://127.0.0.1:4351/assets/startup-CG9222yg.js",
+              "sourceFunctionName": "",
+              "invoker": "Promise.resolve"
+            },
+            {
+              "duration": 11.200000047683716,
+              "sourceURL": "http://127.0.0.1:4351/assets/startup-CG9222yg.js",
+              "sourceFunctionName": "",
+              "invoker": "Worker.onmessage"
+            },
+            {
+              "duration": 10.200000047683716,
+              "sourceURL": "http://127.0.0.1:4351/assets/startup-CG9222yg.js",
+              "sourceFunctionName": "",
+              "invoker": "Worker.onmessage"
+            }
+          ]
+        },
+        {
+          "startTime": 476.7000000476837,
+          "duration": 347.1999999284744,
+          "blockingDuration": 45,
+          "scripts": [
+            {
+              "duration": 67.60000002384186,
+              "sourceURL": "http://127.0.0.1:4351/assets/index-CkVmIt-W.js",
+              "sourceFunctionName": "",
+              "invoker": "FrameRequestCallback"
+            },
+            {
+              "duration": 15.599999904632568,
+              "sourceURL": "http://127.0.0.1:4351/assets/index-CkVmIt-W.js",
+              "sourceFunctionName": "",
+              "invoker": "FrameRequestCallback"
+            },
+            {
+              "duration": 7.399999976158142,
+              "sourceURL": "http://127.0.0.1:4351/assets/startup-CG9222yg.js",
+              "sourceFunctionName": "",
+              "invoker": "Worker.onmessage"
+            },
+            {
+              "duration": 5,
+              "sourceURL": "",
+              "sourceFunctionName": "",
+              "invoker": "TimerHandler:setInterval"
+            }
+          ]
+        },
+        {
+          "startTime": 2318.399999976158,
+          "duration": 305,
+          "blockingDuration": 0,
+          "scripts": []
+        },
+        {
+          "startTime": 160.20000004768372,
+          "duration": 235.59999990463257,
+          "blockingDuration": 181.6,
+          "scripts": [
+            {
+              "duration": 227,
+              "sourceURL": "http://127.0.0.1:4351/assets/index-CkVmIt-W.js",
+              "sourceFunctionName": "",
+              "invoker": "FrameRequestCallback"
+            }
+          ]
+        },
+        {
+          "startTime": 1758.2000000476837,
+          "duration": 187.29999995231628,
+          "blockingDuration": 0,
+          "scripts": []
+        }
+      ]
+    },
+    "shots": [
+      {
+        "targetMs": 845.2,
+        "frameMs": -1.800048828125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 805,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791546600000,
+            "left": 34,
+            "right": 35,
+            "mix": 1,
+            "cursor": 35,
+            "request": 1,
+            "uploads": 2,
+            "tilesLoaded": true,
+            "mapStart": "z4"
+          }
+        },
+        "sample": {
+          "ms": 829.2000000476837,
+          "cursorIndex": "35",
+          "rainCursor": "35",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 1095.2,
+        "frameMs": 1012.912841796875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 1004.6000000238419,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791546702492.2117,
+            "left": 35,
+            "right": 36,
+            "mix": 0.34164070556640624,
+            "cursor": 35.341640705566405,
+            "request": 6,
+            "uploads": 4,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 1009.8999999761581,
+          "cursorIndex": "35",
+          "rainCursor": "35.341640705566405",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 1345.2,
+        "frameMs": 1012.912841796875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 1004.6000000238419,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791546702492.2117,
+            "left": 35,
+            "right": 36,
+            "mix": 0.34164070556640624,
+            "cursor": 35.341640705566405,
+            "request": 6,
+            "uploads": 4,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 1260.7999999523163,
+          "cursorIndex": "35",
+          "rainCursor": "35.341640705566405",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 1595.2,
+        "frameMs": 1552.2451171875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 1004.6000000238419,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791546702492.2117,
+            "left": 35,
+            "right": 36,
+            "mix": 0.34164070556640624,
+            "cursor": 35.341640705566405,
+            "request": 6,
+            "uploads": 4,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 1509.2000000476837,
+          "cursorIndex": "35",
+          "rainCursor": "35.341640705566405",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 1845.2,
+        "frameMs": 1552.2451171875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 1730,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791546806286.0913,
+            "left": 35,
+            "right": 36,
+            "mix": 0.6876203043619792,
+            "cursor": 35.68762030436198,
+            "request": 9,
+            "uploads": 4,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 1759.2000000476837,
+          "cursorIndex": "36",
+          "rainCursor": "35.68762030436198",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 2095.2,
+        "frameMs": 1552.2451171875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 2088.7000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791546825131.9812,
+            "left": 35,
+            "right": 36,
+            "mix": 0.7504399373372396,
+            "cursor": 35.75043993733724,
+            "request": 10,
+            "uploads": 4,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 2009.2000000476837,
+          "cursorIndex": "36",
+          "rainCursor": "35.68762030436198",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 2345.2,
+        "frameMs": 2251.1259765625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 2304.600000023842,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791546938207.3203,
+            "left": 36,
+            "right": 37,
+            "mix": 0.127357734375,
+            "cursor": 36.127357734375,
+            "request": 15,
+            "uploads": 6,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 2267.899999976158,
+          "cursorIndex": "36",
+          "rainCursor": "36.00152982096354",
+          "mapStart": "ready",
+          "tilesLoaded": "false"
+        }
+      },
+      {
+        "targetMs": 2595.2,
+        "frameMs": 2251.1259765625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 2304.600000023842,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791546938207.3203,
+            "left": 36,
+            "right": 37,
+            "mix": 0.127357734375,
+            "cursor": 36.127357734375,
+            "request": 15,
+            "uploads": 6,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 2509.2999999523163,
+          "cursorIndex": "36",
+          "rainCursor": "36.127357734375",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 2845.2,
+        "frameMs": 2739.2578125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 2761.600000023842,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791547192881.5073,
+            "left": 36,
+            "right": 37,
+            "mix": 0.9762716910807292,
+            "cursor": 36.976271691080726,
+            "request": 19,
+            "uploads": 6,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 2759.2000000476837,
+          "cursorIndex": "37",
+          "rainCursor": "36.91326341064453",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 3095.2,
+        "frameMs": 3055.349853515625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 3070.7999999523163,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791547287167.551,
+            "left": 37,
+            "right": 38,
+            "mix": 0.29055850341796874,
+            "cursor": 37.29055850341797,
+            "request": 24,
+            "uploads": 8,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 3010.7000000476837,
+          "cursorIndex": "37",
+          "rainCursor": "37.16491923746745",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 3345.2,
+        "frameMs": 3230.614990234375,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 3337.5,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791547438104.453,
+            "left": 37,
+            "right": 38,
+            "mix": 0.7936815096028645,
+            "cursor": 37.79368150960286,
+            "request": 32,
+            "uploads": 8,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 3259.2000000476837,
+          "cursorIndex": "38",
+          "rainCursor": "37.605033963216144",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 3595.2,
+        "frameMs": 3527.2119140625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 3570.7000000476837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791547551292.9807,
+            "left": 38,
+            "right": 39,
+            "mix": 0.17097660237630208,
+            "cursor": 38.1709766023763,
+            "request": 38,
+            "uploads": 10,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 3514,
+          "cursorIndex": "38",
+          "rainCursor": "38.045148688964844",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 3845.2,
+        "frameMs": 3758.39013671875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 3837.100000023842,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791547702229.8826,
+            "left": 38,
+            "right": 39,
+            "mix": 0.6740996085611979,
+            "cursor": 38.6740996085612,
+            "request": 46,
+            "uploads": 10,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 3759.2000000476837,
+          "cursorIndex": "38",
+          "rainCursor": "38.48526341471354",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 4095.2,
+        "frameMs": 4021.73291015625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 4070.600000023842,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791547815418.4104,
+            "left": 39,
+            "right": 40,
+            "mix": 0.05139470133463542,
+            "cursor": 39.05139470133464,
+            "request": 52,
+            "uploads": 12,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 4010.5,
+          "cursorIndex": "39",
+          "rainCursor": "38.988575068359374",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 4345.2,
+        "frameMs": 4322.65185546875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 4336.899999976158,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791547966298.718,
+            "left": 39,
+            "right": 40,
+            "mix": 0.5543290600585937,
+            "cursor": 39.55432906005859,
+            "request": 60,
+            "uploads": 12,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 4259.200000047684,
+          "cursorIndex": "39",
+          "rainCursor": "39.36568151367187",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 4595.2,
+        "frameMs": 4590.4169921875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 4570.399999976158,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791548098389.73,
+            "left": 39,
+            "right": 40,
+            "mix": 0.9946324332682291,
+            "cursor": 39.99463243326823,
+            "request": 67,
+            "uploads": 12,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 4510.299999952316,
+          "cursorIndex": "40",
+          "rainCursor": "39.86880451985677",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 4845.2,
+        "frameMs": 4755.4619140625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 4837.399999976158,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791548230367.5535,
+            "left": 40,
+            "right": 41,
+            "mix": 0.43455851155598957,
+            "cursor": 40.43455851155599,
+            "request": 74,
+            "uploads": 14,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 4759.200000047684,
+          "cursorIndex": "40",
+          "rainCursor": "40.24609961263021",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 5095.2,
+        "frameMs": 5019.329833984375,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 5070.200000047684,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791548362458.5654,
+            "left": 40,
+            "right": 41,
+            "mix": 0.874861884765625,
+            "cursor": 40.87486188476562,
+            "request": 81,
+            "uploads": 14,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 5009.100000023842,
+          "cursorIndex": "41",
+          "rainCursor": "40.749033971354166",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 5345.2,
+        "frameMs": 5322.958984375,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 5336.700000047684,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791548494492.9832,
+            "left": 41,
+            "right": 42,
+            "mix": 0.3149766105143229,
+            "cursor": 41.31497661051432,
+            "request": 88,
+            "uploads": 16,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 5259.200000047684,
+          "cursorIndex": "41",
+          "rainCursor": "41.12651771158854",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 5595.2,
+        "frameMs": 5588.094970703125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 5570.200000047684,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791548626583.995,
+            "left": 41,
+            "right": 42,
+            "mix": 0.7552799837239583,
+            "cursor": 41.75527998372396,
+            "request": 95,
+            "uploads": 16,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 5510.200000047684,
+          "cursorIndex": "42",
+          "rainCursor": "41.6294520703125",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 5845.2,
+        "frameMs": 5757.76904296875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 5837.299999952316,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791548758618.4128,
+            "left": 42,
+            "right": 43,
+            "mix": 0.19539470947265625,
+            "cursor": 42.19539470947266,
+            "request": 102,
+            "uploads": 18,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 5759.200000047684,
+          "cursorIndex": "42",
+          "rainCursor": "42.00674716308594",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 6095.2,
+        "frameMs": 6059.490966796875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 6070.899999976158,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791548890709.4248,
+            "left": 42,
+            "right": 43,
+            "mix": 0.6356980826822917,
+            "cursor": 42.63569808268229,
+            "request": 109,
+            "uploads": 18,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 6016.600000023842,
+          "cursorIndex": "43",
+          "rainCursor": "42.50987016927083",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 6345.2,
+        "frameMs": 6330.614990234375,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 6337,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791549022630.654,
+            "left": 43,
+            "right": 44,
+            "mix": 0.07543551350911458,
+            "cursor": 43.07543551350911,
+            "request": 116,
+            "uploads": 20,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 6259.100000023842,
+          "cursorIndex": "43",
+          "rainCursor": "42.94998489501953",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 6595.2,
+        "frameMs": 6464.501953125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 6570.200000047684,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791549154721.666,
+            "left": 43,
+            "right": 44,
+            "mix": 0.51573888671875,
+            "cursor": 43.51573888671875,
+            "request": 123,
+            "uploads": 20,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 6515.899999976158,
+          "cursorIndex": "43",
+          "rainCursor": "43.39009962076823",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 6845.2,
+        "frameMs": 6727.976806640625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 6803.399999976158,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791549286756.0837,
+            "left": 43,
+            "right": 44,
+            "mix": 0.9558536124674479,
+            "cursor": 43.95585361246745,
+            "request": 130,
+            "uploads": 20,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 6759.100000023842,
+          "cursorIndex": "44",
+          "rainCursor": "43.83002569905599",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 7095.2,
+        "frameMs": 7030.027099609375,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 7070.5,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791549418847.0957,
+            "left": 44,
+            "right": 45,
+            "mix": 0.39615698567708335,
+            "cursor": 44.39615698567708,
+            "request": 137,
+            "uploads": 22,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 7016.100000023842,
+          "cursorIndex": "44",
+          "rainCursor": "44.270329072265625",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 7345.2,
+        "frameMs": 7291.0048828125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 7336.899999976158,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791549569727.4033,
+            "left": 44,
+            "right": 45,
+            "mix": 0.8990913444010417,
+            "cursor": 44.89909134440104,
+            "request": 145,
+            "uploads": 22,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 7265.799999952316,
+          "cursorIndex": "45",
+          "rainCursor": "44.710443798014325",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 7595.2,
+        "frameMs": 7457.9560546875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 7574.600000023842,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791549682915.9312,
+            "left": 45,
+            "right": 46,
+            "mix": 0.2763864371744792,
+            "cursor": 45.27638643717448,
+            "request": 151,
+            "uploads": 24,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 7516.299999952316,
+          "cursorIndex": "45",
+          "rainCursor": "45.150747171223955",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 7845.2,
+        "frameMs": 7766.929931640625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 7837,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791549833852.833,
+            "left": 45,
+            "right": 46,
+            "mix": 0.779509443359375,
+            "cursor": 45.77950944335937,
+            "request": 159,
+            "uploads": 24,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 7759.200000047684,
+          "cursorIndex": "46",
+          "rainCursor": "45.59105054443359",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 8095.2,
+        "frameMs": 8029.51904296875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 8070.299999952316,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791549946984.7666,
+            "left": 46,
+            "right": 47,
+            "mix": 0.156615888671875,
+            "cursor": 46.15661588867187,
+            "request": 165,
+            "uploads": 26,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 8016.700000047684,
+          "cursorIndex": "46",
+          "rainCursor": "46.03078797526042",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 8345.2,
+        "frameMs": 8295.576904296875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 8337.100000023842,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791550097921.6685,
+            "left": 46,
+            "right": 47,
+            "mix": 0.6597388948567708,
+            "cursor": 46.65973889485677,
+            "request": 173,
+            "uploads": 26,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 8259.100000023842,
+          "cursorIndex": "46",
+          "rainCursor": "46.471091348470054",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 8595.2,
+        "frameMs": 8430.93408203125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 8571,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791550211110.1963,
+            "left": 47,
+            "right": 48,
+            "mix": 0.037033987630208334,
+            "cursor": 47.03703398763021,
+            "request": 179,
+            "uploads": 28,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 8516.299999952316,
+          "cursorIndex": "47",
+          "rainCursor": "46.97402570719401",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 8845.2,
+        "frameMs": 8731.48291015625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 8837.200000047684,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791550361990.504,
+            "left": 47,
+            "right": 48,
+            "mix": 0.5399683463541667,
+            "cursor": 47.539968346354165,
+            "request": 187,
+            "uploads": 28,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 8759.200000047684,
+          "cursorIndex": "47",
+          "rainCursor": "47.35113215250651",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 9095.2,
+        "frameMs": 8997.2958984375,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 9070.399999976158,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791550494024.9216,
+            "left": 47,
+            "right": 48,
+            "mix": 0.9800830721028646,
+            "cursor": 47.980083072102865,
+            "request": 194,
+            "uploads": 28,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 9016.399999976158,
+          "cursorIndex": "48",
+          "rainCursor": "47.85444380615235",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 9345.2,
+        "frameMs": 9296.552978515625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 9337.5,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791550626115.9336,
+            "left": 48,
+            "right": 49,
+            "mix": 0.4203864453125,
+            "cursor": 48.4203864453125,
+            "request": 201,
+            "uploads": 30,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 9266.100000023842,
+          "cursorIndex": "48",
+          "rainCursor": "48.231550251464846",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 9595.2,
+        "frameMs": 9558.3779296875,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 9570.299999952316,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791550758093.757,
+            "left": 48,
+            "right": 49,
+            "mix": 0.8603125236002604,
+            "cursor": 48.86031252360026,
+            "request": 208,
+            "uploads": 30,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 9509.100000023842,
+          "cursorIndex": "49",
+          "rainCursor": "48.73486190511068",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 9845.2,
+        "frameMs": 9725.635009765625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 9836.899999976158,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791550890184.769,
+            "left": 49,
+            "right": 50,
+            "mix": 0.3006158968098958,
+            "cursor": 49.300615896809894,
+            "request": 215,
+            "uploads": 32,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 9766,
+          "cursorIndex": "49",
+          "rainCursor": "49.111968350423176",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 10095.2,
+        "frameMs": 9997.343994140625,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 10070.5,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791551022275.781,
+            "left": 49,
+            "right": 50,
+            "mix": 0.7409192700195313,
+            "cursor": 49.74091927001953,
+            "request": 222,
+            "uploads": 32,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 10016.5,
+          "cursorIndex": "50",
+          "rainCursor": "49.615091356608076",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 10345.2,
+        "frameMs": 10297.82080078125,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 10336.799999952316,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791551154366.793,
+            "left": 50,
+            "right": 51,
+            "mix": 0.18122264322916667,
+            "cursor": 50.18122264322917,
+            "request": 229,
+            "uploads": 34,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 10259.100000023842,
+          "cursorIndex": "50",
+          "rainCursor": "49.99238644938151",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      },
+      {
+        "targetMs": 10595.2,
+        "frameMs": 10557.700927734375,
+        "rainDraw": {
+          "phase": "rain-frame-committed",
+          "startTime": 10570.299999952316,
+          "duration": 0,
+          "detail": {
+            "epoch": 1791551286344.6165,
+            "left": 50,
+            "right": 51,
+            "mix": 0.6211487215169271,
+            "cursor": 50.621148721516924,
+            "request": 236,
+            "uploads": 34,
+            "tilesLoaded": true,
+            "mapStart": "ready"
+          }
+        },
+        "sample": {
+          "ms": 10516.700000047684,
+          "cursorIndex": "50",
+          "rainCursor": "50.49532080810547",
+          "mapStart": "ready",
+          "tilesLoaded": "true"
+        }
+      }
+    ]
+  }
+]
