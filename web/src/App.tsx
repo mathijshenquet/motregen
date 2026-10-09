@@ -933,11 +933,16 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         const key = basemapTileKey(event)
         if (key) basemapTiles.set(key, performance.now())
       })
+      // De z4-startkaart blijft liggen tot alle zichtbare echte tegels er zijn; bij de eerste tegel wisselen
+      // liet de rest van het scherm wit (PO 2026-10-09). 'idle' is het vangnet als een tegel nooit laadt.
+      const replaceMapStart = () => {
+        if (!map?.getSource(mapStartSource)) return
+        mapStart?.replace(map)
+        mapElement.dataset.mapStart = 'ready'
+      }
+      map.once('idle', replaceMapStart)
       map.on('sourcedata', (event) => {
-        if (event.sourceId === 'basemap' && event.tile && map?.getSource(mapStartSource)) {
-          mapStart?.replace(map)
-          mapElement.dataset.mapStart = 'ready'
-        }
+        if (event.sourceId === 'basemap' && event.tile && map?.getSource(mapStartSource) && map.areTilesLoaded()) replaceMapStart()
         const key = basemapTileKey(event)
         if (!key) return
         const started = basemapTiles.get(key)

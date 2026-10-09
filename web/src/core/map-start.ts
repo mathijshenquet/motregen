@@ -53,7 +53,8 @@ export function createMapStart(): { style: typeof mapStartStyle; replace: (map: 
   return {
     style: mapStartStyle,
     replace(map) {
-      // Transparante landcover over dezelfde echte lagen verdubbelt de tint. Wissel vóór de volgende paint.
+      // De startlagen liggen onder de echte lagen; zolang beide bestaan verdubbelt de transparante landcover
+      // de tint in al geladen tegels — kort, want de wissel volgt zodra alle zichtbare tegels er zijn.
       for (const layer of map.getStyle().layers) if (layer.id.startsWith(`${mapStartSource}-`)) map.removeLayer(layer.id)
       if (map.getSource(mapStartSource)) map.removeSource(mapStartSource)
     },
