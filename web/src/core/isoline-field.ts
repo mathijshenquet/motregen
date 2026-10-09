@@ -1,4 +1,4 @@
-import type { ScalarField } from './isolines'
+import type { ScalarField } from './isolines.js'
 
 /** Eén frame, geblurd en met no-data opgevuld zodat de bicubische taps aan de rand niets vreemds zien. */
 export interface PreparedField {

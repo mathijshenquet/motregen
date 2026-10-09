@@ -121,6 +121,7 @@ fn compose(
     colors: &[f32],
     mix: f64,
     motion: Option<&Motion<'_>>,
+    multiply: bool,
 ) {
     let width = columns.len();
     for (row, &cell_y) in rows.iter().enumerate() {
@@ -161,7 +162,7 @@ fn compose(
             let coverage = colors[color + 3] as f64;
             let offset = (row * width + column) * 3;
             for channel in 0..3 {
-                rgb[offset + channel] = (colors[color + channel] as f64
+                rgb[offset + channel] = ((if multiply { rgb[offset + channel] as f64 * colors[color + channel] as f64 / 255.0 } else { colors[color + channel] as f64 })
                     + rgb[offset + channel] as f64 * coverage)
                     .round()
                     .min(255.0) as u8;
@@ -179,6 +180,7 @@ fn main() -> io::Result<()> {
     let grid_height = integer(&mut input)?;
     let cap = decimal(&mut input)?;
     let fade = decimal(&mut input)?;
+    let multiply = integer(&mut input)? != 0;
     if width == 0 || height == 0 || grid_width == 0 || grid_height == 0 {
         return Err(io::Error::other("empty grid"));
     }
@@ -253,6 +255,7 @@ fn main() -> io::Result<()> {
                     &colors,
                     mix,
                     motion.as_ref(),
+                    multiply,
                 )
             });
             compose(
@@ -266,6 +269,7 @@ fn main() -> io::Result<()> {
                 &colors,
                 mix,
                 motion.as_ref(),
+                    multiply,
             );
         });
         output.write_all(&rgb)?;

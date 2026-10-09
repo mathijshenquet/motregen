@@ -1,3 +1,5 @@
+import { isolineWidthCss, lineProfile } from './map-presentation.js'
+export { isolineWidthCss, lineProfile } from './map-presentation.js'
 import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap } from 'maplibre-gl'
 import { MercatorCoordinate } from 'maplibre-gl'
 import type { Grid } from './contract'
@@ -762,19 +764,6 @@ export class IsolineLayer implements CustomLayerInterface {
 }
 
 /** Isolijnbreedte in CSS-px: 0,9 tot zoom 5, 1,4 vanaf zoom 9 (U25: ×0,7 t.o.v. 1,3–2,0). */
-export function isolineWidthCss(zoom: number): number {
-  return zoom <= 5 ? 0.9 : zoom >= 9 ? 1.4 : 0.9 + (zoom - 5) * 0.125
-}
-
-/**
- * Capsuleprofiel voor een lijn van `width` doelpixels. Onder 1 px verliest dat profiel zijn
- * behoud van dekking over subpixelposities (bij 0,65 px: 0,83 op een pixelmidden, 0,65
- * ertussen), dus bewegende lijnen flikkeren; daarom minimaal 1 px en de rest als lagere alpha.
- */
-export function lineProfile(width: number): { halfWidth: number; alpha: number } {
-  return width >= 1 ? { halfWidth: width / 2, alpha: 1 } : { halfWidth: 0.5, alpha: Math.max(0, width) }
-}
-
 interface RenderTarget {
   texture: WebGLTexture
   framebuffer: WebGLFramebuffer

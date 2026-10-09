@@ -1,3 +1,4 @@
+import { TEMPERATURE_LINE_OPACITY, ISOBAR_LINE_OPACITY } from './core/map-presentation.js'
 import { batch, createEffect, createMemo, createSignal, lazy, onCleanup, onMount, Show, untrack, type Accessor, type Setter } from 'solid-js'
 import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
 import { registerSW } from 'virtual:pwa-register'
@@ -161,9 +162,9 @@ const CLOUD_VEIL_RANGE = [15, 95] as const
 const CLOUD_VEIL_STEP = 25
 const CITY_TEMPERATURE_STEP_MS = 10 * 60_000
 // Isobaren op een derde van ISOLINE_LINE_OPACITY (0,8) (PO 2026-09-25, MIP-14).
-const ISOBAR_LINE_OPACITY = 0.27
+
 // Temperatuurlijnen half zo zichtbaar als ISOLINE_LINE_OPACITY (0,8) (PO 2026-09-25 live, U34).
-const TEMPERATURE_LINE_OPACITY = 0.4
+
 // Terugglijden aan het eind van een afspeelrondje (PO 2026-09-25 live, U34).
 const PLAYBACK_REWIND_MS = 700
 const PLAYBACK_END_HOLD_MS = 2_000

@@ -1,0 +1,84 @@
+import type { Grid } from '../web/src/core/contract.js'
+import { frameBlend, timelineCoverage } from '../web/src/core/time-model.js'
+import { blendFrames, blurField, fieldRangeInView, isolineBlurPasses, isolineFrameWeights, adaptiveIsobarStep, ISOLINE_EDGE_FADE_MS, ISOLINE_RING_KM, ISOLINE_TOLERANCE_PX, ISOLINE_WINDOW } from '../web/src/core/isolines.js'
+import { prepareField, type PreparedField } from '../web/src/core/isoline-field.js'
+import { sliceWeights } from '../web/src/core/isoline-spline.js'
+import { blendSlice, buildSegments, traceContours, shortRings, ringFadeRaster, type Contour } from '../web/src/core/isoline-contours.js'
+import { paletteRange, paletteStops, bandColor } from '../web/src/core/temperature-palette.js'
+import { NETHERLANDS_FLANDERS_BOUNDS } from '../web/src/core/map-frame.js'
+import { NativeRainData } from './native-rain.js'
+import { nativeProjection } from './native-projection.js'
+import type { StillManifest } from './stills.js'
+
+export interface TemperatureSlice { grid: Grid; field: PreparedField; segments: Float32Array; contours: Contour[]; rings?: Float32Array; colors: Float32Array; opacity: number; kind: 'temperature' | 'pressure'; step: number }
+
+export class NativeTemperatureData {
+  readonly data: NativeRainData
+  private readonly prepared = new Map<number, Promise<PreparedField>>()
+  private colors?: Float32Array
+  private step = 1
+  constructor(origin: string, private readonly manifest: StillManifest, private readonly kind: 'temperature' | 'pressure' = 'temperature') { this.data = new NativeRainData(origin, manifest, kind === 'pressure' ? 'pressure_hpa' : 'feels_like_c') }
+
+  private field(index: number): Promise<PreparedField> {
+    let pending = this.prepared.get(index)
+    if (!pending) {
+      pending = (async () => {
+        const weights = isolineFrameWeights(index, this.data.timeline.length, this.kind)
+        const frames = await Promise.all(weights.map(({ index }) => this.data.frame(this.data.timeline[index]!.epoch)))
+        const grid = frames[0]!.grid
+        return prepareField(blurField(blendFrames(frames.map((frame, position) => ({ data: frame.left, quant: frame.leftHeader.quant, weight: weights[position]!.weight })), grid.width, grid.height), isolineBlurPasses(this.kind)))
+      })()
+      this.prepared.set(index, pending)
+      void pending.catch(() => this.prepared.delete(index))
+    }
+    return pending
+  }
+
+  async prepare(epochs: readonly number[]): Promise<void> {
+    const required = new Set<number>()
+    for (const epoch of epochs) {
+      const blend = frameBlend(this.data.timeline, epoch)
+      for (const weight of sliceWeights(blend.left + blend.mix, this.data.timeline.length, ISOLINE_WINDOW)) required.add(weight.index)
+    }
+    await Promise.all([...required].map((index) => this.field(index)))
+    if (this.kind === 'pressure') { this.colors = new Float32Array(256 * 3); return }
+    let min = Infinity, max = -Infinity
+    const now = Date.parse(this.manifest.now)
+    const horizon = now + 18 * 3600_000
+    for (const entry of this.data.timeline.filter((entry) => entry.epoch >= now && entry.epoch <= horizon)) {
+      const frame = await this.data.frame(entry.epoch)
+      const values = Float32Array.from(frame.left, (code) => frame.leftHeader.quant[code] ?? NaN)
+      const valid = Float32Array.from(values, (value) => Number.isNaN(value) ? 0 : 1)
+      const range = fieldRangeInView(values, valid, frame.grid, NETHERLANDS_FLANDERS_BOUNDS)
+      if (range) { min = Math.min(min, range[0]); max = Math.max(max, range[1]) }
+    }
+    const range = paletteRange(min, max)
+    if (!range) throw new Error('Temperatuurpalet heeft geen geldig bereik')
+    const stops = paletteStops(range)
+    this.colors = Float32Array.from({ length: 256 * 3 }, (_, index) => bandColor(Math.floor(index / 3) - 128, 1, stops)[index % 3]!)
+  }
+
+  async slice(epoch: number): Promise<TemperatureSlice> {
+    const blend = frameBlend(this.data.timeline, epoch)
+    const weights = sliceWeights(blend.left + blend.mix, this.data.timeline.length, ISOLINE_WINDOW).filter(({ weight }) => weight > 0)
+    const fields = await Promise.all(weights.map(({ index }) => this.field(index)))
+    const field = blendSlice(fields, weights.map(({ weight }) => weight))
+    const grid = (await this.data.frame(this.data.timeline[blend.left]!.epoch)).grid
+    const projection = nativeProjection(grid)
+    const clampColumn = (value: number) => Math.max(0, Math.min(grid.width - 1, value))
+    const clampRow = (value: number) => Math.max(0, Math.min(grid.height - 1, value))
+    const window = { left: clampColumn(Math.floor(Math.min(...projection.columns)) - 2), right: clampColumn(Math.ceil(Math.max(...projection.columns)) + 2), top: clampRow(Math.floor(Math.min(...projection.rows)) - 2), bottom: clampRow(Math.ceil(Math.max(...projection.rows)) + 2) }
+    if (this.kind === 'pressure') {
+      const range = fieldRangeInView(field.values, field.valid, grid, NETHERLANDS_FLANDERS_BOUNDS)
+      if (range) this.step = adaptiveIsobarStep(range[0], range[1], this.step === 1 ? undefined : this.step)
+    }
+    const contours = traceContours(field, grid, { step: this.step, toleranceCells: ISOLINE_TOLERANCE_PX * projection.cellsPerPixel, window })
+    const segments = buildSegments(contours, { ringKm: this.kind === 'pressure' ? 0 : ISOLINE_RING_KM }).data
+    for (let offset = 0; offset < segments.length; offset += 6) {
+      const start = projection.point(segments[offset]!, segments[offset + 1]!)
+      const end = projection.point(segments[offset + 2]!, segments[offset + 3]!)
+      segments[offset] = start[0]; segments[offset + 1] = start[1]; segments[offset + 2] = end[0]; segments[offset + 3] = end[1]
+    }
+    return { grid, field, segments, contours, kind: this.kind, step: this.step, rings: ringFadeRaster(shortRings(contours, ISOLINE_RING_KM), grid.width, grid.height), colors: this.colors!, opacity: timelineCoverage(this.data.timeline, epoch, ISOLINE_EDGE_FADE_MS) }
+  }
+}

@@ -5,7 +5,7 @@ import type { BrowserContext } from 'playwright'
 import sharp from 'sharp'
 import { FRAME, FRAME_PIXELS } from './config.js'
 import { openRenderPage } from './render-open.js'
-import type { StillManifest } from './stills.js'
+import type { LoopMode, StillManifest } from './stills.js'
 
 interface Box { left: number; top: number; width: number; height: number }
 interface Glyph { target: { left: number; top: number } }
@@ -20,7 +20,9 @@ const dayFormat = new Intl.DateTimeFormat('nl-NL', { weekday: 'short', timeZone:
 
 export class NativeOverlay {
   private atlas?: Promise<Atlas>
-  constructor(private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>) {}
+  constructor(private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>, private readonly mode: LoopMode = 'weather') {}
+
+  private get title(): string { return this.mode === 'feels' ? 'Temperatuur' : this.mode === 'wind' ? 'Wind' : 'Regen' }
 
   async prepare(manifest: StillManifest): Promise<void> {
     this.atlas ??= this.load(manifest).catch((error) => { this.atlas = undefined; throw error })
@@ -35,7 +37,7 @@ export class NativeOverlay {
     const background = atlas.backgrounds[layout.backgrounds[epoch > now ? 'forecast' : 'history']!]!
     const blurred = await sharp(rgb, { raw: { ...FRAME_PIXELS, channels: 3 } }).extract(clockBox).blur(15).raw().toBuffer()
     this.blit(rgb, background, clockBox, blurred)
-    for (const glyph of [{ text: time, target: layout.time }, { text: day, target: layout.day }, { text: 'Regen', target: layout.title }]) {
+    for (const glyph of [{ text: time, target: layout.time }, { text: day, target: layout.day }, { text: this.title, target: layout.title }]) {
       const patch = glyphs[glyph.text]!
       this.blit(rgb, patch.rgba, { ...patch.box, left: Math.floor(glyph.target.left), top: Math.floor(glyph.target.top) })
     }
@@ -61,7 +63,7 @@ export class NativeOverlay {
     if (!response.ok) throw new Error('App-stijl voor klok ontbreekt')
     const html = await response.text()
     const styles = [...html.matchAll(/<link\b[^>]*href="([^"]+\.css)"[^>]*>/g)].map((match) => match[1])
-    const key = createHash('sha256').update(JSON.stringify({ version: 5, styles, frame: FRAME })).digest('hex').slice(0, 24)
+    const key = createHash('sha256').update(JSON.stringify({ version: 5, styles, frame: FRAME, ...(this.mode === 'weather' ? {} : { mode: this.mode }) })).digest('hex').slice(0, 24)
     const path = join(this.directory, `overlay-${key}.json`)
     let metadata: AtlasMetadata
     try { metadata = JSON.parse(await readFile(path, 'utf8')) as AtlasMetadata } catch (error) {
@@ -101,15 +103,15 @@ export class NativeOverlay {
     const page = await (await this.context()).newPage()
     const metadata: AtlasMetadata = { clocks: {}, glyphs: {}, footer: `overlay-${key}-footer.png`, key }
     try {
-      await openRenderPage(page, this.origin, 'weather', manifest, Date.parse(manifest.now))
+      await openRenderPage(page, this.origin, this.mode, manifest, Date.parse(manifest.now))
       await page.addStyleTag({ content: 'html,body,.app-shell,.map-shell{background:transparent!important}.map,.map-overlay,.map-splash{visibility:hidden!important}.still-clock *{color:transparent!important}.still-clock{backdrop-filter:none!important}' })
       await page.screenshot({ path: join(temporary, metadata.footer), omitBackground: true, clip: { x: footerBox.left / FRAME.scale, y: footerBox.top / FRAME.scale, width: footerBox.width / FRAME.scale, height: footerBox.height / FRAME.scale } })
       for (const day of ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo']) {
-        const targets = await page.evaluate((day) => {
+        const targets = await page.evaluate(({ day, title }) => {
           const clock = document.querySelector<HTMLElement>('.still-clock')!
-          clock.innerHTML = `<div class="freshness-trigger"><span class="clock-main"><strong class="clock-map-time">00:00</strong><small class="clock-day">${day}</small></span><small class="clock-day">Regen</small></div>`
+          clock.innerHTML = `<div class="freshness-trigger"><span class="clock-main"><strong class="clock-map-time">00:00</strong><small class="clock-day">${day}</small></span><small class="clock-day">${title}</small></div>`
           return [...clock.querySelectorAll<HTMLElement>('.clock-map-time,.clock-day')].map((element) => { const box = element.getBoundingClientRect(); return { left: box.left * devicePixelRatio, top: box.top * devicePixelRatio } })
-        }, day)
+        }, { day, title: this.title })
         const layout: ClockLayout = { time: targets[0]!, day: targets[1]!, title: targets[2]!, backgrounds: {} }
         for (const regime of ['history', 'forecast']) {
           await page.locator('.still-clock').evaluate((clock, regime) => { (clock as HTMLElement).dataset.regime = regime }, regime)
@@ -121,8 +123,8 @@ export class NativeOverlay {
       }
       for (const day of Object.keys(metadata.clocks)) {
         const strings = Array.from({ length: 1440 }, (_, minute) => `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`)
-        strings.push(day, 'Regen')
-        const boxes = await page.evaluate(({ strings, day }) => {
+        strings.push(day, this.title)
+        const boxes = await page.evaluate(({ strings, day, title }) => {
           document.body.innerHTML = '<div id="glyphs" style="display:grid;grid-template-columns:repeat(10,128px);width:1280px"></div>'
           const atlas = document.getElementById('glyphs')!
           for (const text of strings.slice(0, 1440)) {
@@ -132,7 +134,7 @@ export class NativeOverlay {
             const clock = document.createElement('div')
             clock.className = 'map-clock still-clock'
             clock.style.left = '64px'
-            clock.innerHTML = '<div class="freshness-trigger"><span class="clock-main"><strong class="clock-map-time">'+text+'</strong><small class="clock-day">'+day+'</small></span><small class="clock-day">Regen</small></div>'
+            clock.innerHTML = '<div class="freshness-trigger"><span class="clock-main"><strong class="clock-map-time">'+text+'</strong><small class="clock-day">'+day+'</small></span><small class="clock-day">'+title+'</small></div>'
             cell.append(clock); atlas.append(cell)
           }
           const elements = [...atlas.querySelectorAll<HTMLElement>('.clock-map-time'), ...atlas.querySelector('.still-clock')!.querySelectorAll<HTMLElement>('.clock-day')]
@@ -140,7 +142,7 @@ export class NativeOverlay {
             const box = element.getBoundingClientRect()
             return { left: Math.floor(box.left * devicePixelRatio), top: Math.floor(box.top * devicePixelRatio), width: Math.ceil(box.width * devicePixelRatio) + 1, height: Math.ceil(box.height * devicePixelRatio) + 1 }
           })
-        }, { strings, day })
+        }, { strings, day, title: this.title })
         await page.addStyleTag({ content: 'html,body{background:transparent!important}.still-clock{background:transparent!important;border-color:transparent!important;box-shadow:none!important;backdrop-filter:none!important}.still-clock *{color:revert!important}.clock-map-time{color:#102630!important}.clock-day{color:#637b85!important}' })
         await page.screenshot({ path: join(temporary, `overlay-${key}-${day}-glyphs.png`), omitBackground: true, fullPage: true })
         metadata.glyphs[day] = Object.fromEntries(strings.map((text, index) => [text, boxes[index]!]))

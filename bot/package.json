@@ -15,7 +15,7 @@
     "typecheck": "tsc --noEmit",
     "pretest": "pnpm --dir ../web synthgen",
     "test": "vitest run",
-    "build": "tsc && rustc native-raster.rs -O -o dist/bot/native-raster"
+    "build": "tsc && rustc native-raster.rs -O -o dist/bot/native-raster && rustc native-field-raster.rs -O -o dist/bot/native-field-raster"
   },
   "dependencies": {
     "fzstd": "^0.1.1",

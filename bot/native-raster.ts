@@ -42,7 +42,7 @@ export class NativeRaster {
   private readonly frames = new Map<Uint8Array, number>()
   private resident = new Set<number>()
   private output?: { bytes: Buffer; offset: number; finish: () => void; fail: (error: Error) => void }
-  constructor(private readonly size: { width: number; height: number }, private readonly grid: { width: number; height: number }, private readonly columns: Float64Array, private readonly rows: Float64Array, private readonly colors: Float32Array) {}
+  constructor(private readonly size: { width: number; height: number }, private readonly grid: { width: number; height: number }, private readonly columns: Float64Array, private readonly rows: Float64Array, private readonly colors: Float32Array, private readonly multiply = false) {}
 
   private async write(bytes: Uint8Array): Promise<void> {
     if (!this.worker!.stdin.write(bytes)) await Promise.race([once(this.worker!.stdin, 'drain'), this.completed!.then(() => { throw new Error('Native raster vroegtijdig gesloten') })])
@@ -71,8 +71,9 @@ export class NativeRaster {
         worker.once('close', (code) => code === 0 ? resolve() : reject(new Error(`Native raster mislukt (${code}): ${diagnostic}`)))
       })
       void this.completed.catch(() => undefined)
-      const header = Buffer.alloc(32)
+      const header = Buffer.alloc(36)
       for (const [index, value] of [this.size.width, this.size.height, this.grid.width, this.grid.height].entries()) header.writeUInt32LE(value, index * 4)
+      header.writeUInt32LE(Number(this.multiply), 32)
       header.writeDoubleLE(WARP_CAP_CELLS, 16); header.writeDoubleLE(WARP_FADE_END_CELLS, 24)
       await this.write(header)
       await this.write(Buffer.from(this.columns.buffer)); await this.write(Buffer.from(this.rows.buffer)); await this.write(Buffer.from(this.colors.buffer))
