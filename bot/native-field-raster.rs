@@ -78,9 +78,21 @@ fn main() -> io::Result<()> {
         let has_rings = u32::from_le_bytes(header[12..16].try_into().unwrap()) != 0;
         let mut rgb = vec![0; width * height * 3];
         input.read_exact(&mut rgb)?;
-        let values = floats(&mut input, grid_width * grid_height)?;
-        let valid = floats(&mut input, grid_width * grid_height)?;
-        let colors = floats(&mut input, 256 * 3)?;
+        let values = if pressure {
+            Vec::new()
+        } else {
+            floats(&mut input, grid_width * grid_height)?
+        };
+        let valid = if pressure {
+            Vec::new()
+        } else {
+            floats(&mut input, grid_width * grid_height)?
+        };
+        let colors = if pressure {
+            Vec::new()
+        } else {
+            floats(&mut input, 256 * 3)?
+        };
         let segments = floats(&mut input, segment_count * 6)?;
         let rings = if has_rings {
             floats(&mut input, grid_width * grid_height * 2)?
@@ -251,6 +263,9 @@ fn main() -> io::Result<()> {
         }
         for (pixel, alpha) in ink.iter().enumerate() {
             let alpha = alpha * line_opacity * opacity;
+            if alpha == 0.0 {
+                continue;
+            }
             for channel in 0..3 {
                 let index = pixel * 3 + channel;
                 rgb[index] =

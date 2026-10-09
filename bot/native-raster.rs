@@ -209,6 +209,53 @@ impl Motion<'_> {
     }
 }
 
+struct ProjectedMotion {
+    vectors: Vec<u8>,
+    width: usize,
+    height: usize,
+    interval: f64,
+    cap: f64,
+    fade: f64,
+    displacements: Vec<(f64, f64)>,
+}
+
+impl ProjectedMotion {
+    fn matches(&self, motion: &Motion<'_>) -> bool {
+        self.vectors == motion.vectors
+            && self.width == motion.width
+            && self.height == motion.height
+            && self.interval == motion.interval
+            && self.cap == motion.cap
+            && self.fade == motion.fade
+    }
+
+    fn new(
+        motion: &Motion<'_>,
+        columns: &[f64],
+        rows: &[f64],
+        grid_width: usize,
+        grid_height: usize,
+    ) -> Self {
+        let displacements = rows
+            .iter()
+            .flat_map(|&row| {
+                columns
+                    .iter()
+                    .map(move |&column| motion.displacement(column, row, grid_width, grid_height))
+            })
+            .collect();
+        Self {
+            vectors: motion.vectors.to_vec(),
+            width: motion.width,
+            height: motion.height,
+            interval: motion.interval,
+            cap: motion.cap,
+            fade: motion.fade,
+            displacements,
+        }
+    }
+}
+
 fn compose(
     rgb: &mut [u8],
     columns: &[f64],
@@ -219,7 +266,7 @@ fn compose(
     right: &[u8],
     colors: &[f32],
     mix: f64,
-    motion: Option<&Motion<'_>>,
+    displacements: Option<&[(f64, f64)]>,
     multiply: bool,
 ) {
     let width = columns.len();
@@ -236,9 +283,8 @@ fn compose(
             } else if mix == 1.0 {
                 sample(right, grid_width, grid_height, cell_x, cell_y)
             } else {
-                let (eastward, southward) = motion.map_or((0.0, 0.0), |field| {
-                    field.displacement(cell_x, cell_y, grid_width, grid_height)
-                });
+                let (eastward, southward) =
+                    displacements.map_or((0.0, 0.0), |field| field[row * width + column]);
                 sample(
                     left,
                     grid_width,
@@ -300,6 +346,7 @@ fn main() -> io::Result<()> {
     }
     let mut rgb = vec![0; width * height * 3];
     let mut frames = HashMap::new();
+    let mut projected_motion: Option<ProjectedMotion> = None;
     loop {
         let mix = match decimal(&mut input) {
             Ok(value) => value,
@@ -345,9 +392,28 @@ fn main() -> io::Result<()> {
                 fade,
             })
         };
+        if let Some(motion) = &motion {
+            if !projected_motion
+                .as_ref()
+                .is_some_and(|cached| cached.matches(motion))
+            {
+                projected_motion = Some(ProjectedMotion::new(
+                    motion,
+                    &columns,
+                    &rows,
+                    grid_width,
+                    grid_height,
+                ));
+            }
+        }
+        let displacements = motion
+            .as_ref()
+            .map(|_| projected_motion.as_ref().unwrap().displacements.as_slice());
         let split = height / 2;
         let (upper, lower) = rgb.split_at_mut(split * width * 3);
         let (upper_rows, lower_rows) = rows.split_at(split);
+        let upper_displacements = displacements.map(|field| &field[..split * width]);
+        let lower_displacements = displacements.map(|field| &field[split * width..]);
         std::thread::scope(|scope| {
             scope.spawn(|| {
                 compose(
@@ -360,7 +426,7 @@ fn main() -> io::Result<()> {
                     right,
                     &colors,
                     mix,
-                    motion.as_ref(),
+                    upper_displacements,
                     multiply,
                 )
             });
@@ -374,7 +440,7 @@ fn main() -> io::Result<()> {
                 right,
                 &colors,
                 mix,
-                motion.as_ref(),
+                lower_displacements,
                 multiply,
             );
         });

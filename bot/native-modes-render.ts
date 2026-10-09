@@ -15,7 +15,7 @@ import { drawTemperatureLabels } from './native-labels.js'
 import { NativeOverlay } from './native-overlay.js'
 import { rainPresentation } from '../web/src/core/rain-presentation.js'
 import { NATIVE_VIEW } from './native-view.js'
-import { NativeTemperatureData, type TemperatureSlice } from './native-temperature.js'
+import { NativeTemperatureData, type RasterSlice } from './native-temperature.js'
 import { NativeFieldRaster } from './native-field-raster.js'
 import { NativeWindData } from './native-wind.js'
 import { NativeIsolineLabels } from './native-isoline-labels.js'
@@ -34,46 +34,46 @@ export class NativeModesRenderer {
     const temperature = new NativeTemperatureData(this.origin, manifest, mode === 'feels' ? 'temperature' : 'pressure')
     const wind = mode === 'wind' ? new NativeWindData(this.origin, manifest) : undefined
     const firstRain = await rain.frame(Date.parse(manifest.now))
-    await Promise.all([temperatures.prefetch(plan.epochs.map(temperatureEpoch)), temperature?.prepare(plan.epochs), wind?.prepare(plan.epochs), ...[...new Set(plan.epochs.map(rainTheme))].map(async (theme) => { await maps.get(theme, firstRain.grid) })])
+    await Promise.all([temperatures.prefetch(plan.epochs.map(temperatureEpoch)), temperature.prepare(plan.epochs), wind?.prepare(plan.epochs), ...[...new Set(plan.epochs.map(rainTheme))].map(async (theme) => { await maps.get(theme, firstRain.grid) })])
     await overlay.prepare(manifest)
-    const slices: TemperatureSlice[] = []
+    const slices: RasterSlice[] = []
     const placements: TextPlacement[][] = []
     const labelAnchors = new NativeIsolineLabels()
     for (const epoch of plan.epochs) {
       const slice = await temperature.slice(epoch)
-      slices.push(slice)
       placements.push(labelAnchors.place(slice, rainTheme(epoch)))
+      slices.push(slice.kind === 'pressure' ? { kind: 'pressure', grid: slice.grid, segments: slice.segments, opacity: slice.opacity } : { kind: 'temperature', grid: slice.grid, segments: slice.segments, opacity: slice.opacity, field: slice.field, rings: slice.rings, colors: slice.colors })
     }
     const firstSlice = slices[0]!
     const raster = new NativeFieldRaster(firstSlice.grid)
     const rainCompositors = new Map<string, RainCompositor>()
     try {
-    if (wind) {
-      await rain.prefetch(plan.epochs)
-      for (const theme of new Set(plan.epochs.map(rainTheme))) {
-        const compositor = new RainCompositor(firstRain.grid, FRAME_PIXELS, NATIVE_VIEW, rainPresentation({ temperatureFocus: 0, windFocus: 1, airFocus: 0, night: theme === 'dark' }))
-        await compositor.prepare()
-        rainCompositors.set(theme, compositor)
-      }
-    }
-    const pressureMarks = wind ? await NativePressureMarks.prepare(this.directory, this.context) : undefined
-    const text = new NativeText(await nativeTextAtlas(this.origin, this.directory, this.context, placements.flat()))
-    await raster?.prepare()
-    const mutedMaps = new Map<string, Buffer>()
-    if (mode === 'feels') {
-      for (const theme of new Set(plan.epochs.map(rainTheme))) {
-        const plate = await maps.get(theme, firstRain.grid)
-        const muted = Buffer.alloc(plate.rgb.length)
-        for (let offset = 0; offset < muted.length; offset += 3) {
-          const gray = plate.rgb[offset]! * 0.213 + plate.rgb[offset + 1]! * 0.715 + plate.rgb[offset + 2]! * 0.072
-          for (let channel = 0; channel < 3; channel++) muted[offset + channel] = Math.round(gray + (plate.rgb[offset + channel]! - gray) * MAP_FOCUS_SATURATION)
+      if (wind) {
+        await rain.prefetch(plan.epochs)
+        for (const theme of new Set(plan.epochs.map(rainTheme))) {
+          const compositor = new RainCompositor(firstRain.grid, FRAME_PIXELS, NATIVE_VIEW, rainPresentation({ temperatureFocus: 0, windFocus: 1, airFocus: 0, night: theme === 'dark' }))
+          await compositor.prepare()
+          rainCompositors.set(theme, compositor)
         }
-        mutedMaps.set(theme, muted)
       }
-    }
-    const stillIndexes = new Set(plan.stillFrames.map((frame) => frame.index))
-    const header = Buffer.from(`P6\n${FRAME_PIXELS.width} ${FRAME_PIXELS.height}\n255\n`)
-    let renderMs = 0
+      const pressureMarks = wind ? await NativePressureMarks.prepare(this.directory, this.context) : undefined
+      const text = new NativeText(await nativeTextAtlas(this.origin, this.directory, this.context, placements.flat()))
+      await raster.prepare()
+      const mutedMaps = new Map<string, Buffer>()
+      if (mode === 'feels') {
+        for (const theme of new Set(plan.epochs.map(rainTheme))) {
+          const plate = await maps.get(theme, firstRain.grid)
+          const muted = Buffer.alloc(plate.rgb.length)
+          for (let offset = 0; offset < muted.length; offset += 3) {
+            const gray = plate.rgb[offset]! * 0.213 + plate.rgb[offset + 1]! * 0.715 + plate.rgb[offset + 2]! * 0.072
+            for (let channel = 0; channel < 3; channel++) muted[offset + channel] = Math.round(gray + (plate.rgb[offset + channel]! - gray) * MAP_FOCUS_SATURATION)
+          }
+          mutedMaps.set(theme, muted)
+        }
+      }
+      const stillIndexes = new Set(plan.stillFrames.map((frame) => frame.index))
+      const header = Buffer.from(`P6\n${FRAME_PIXELS.width} ${FRAME_PIXELS.height}\n255\n`)
+      let renderMs = 0
       const render = async (index: number): Promise<Buffer> => {
         const frameStarted = performance.now(), epoch = plan.epochs[index]!
         const theme = rainTheme(epoch)
@@ -81,7 +81,7 @@ export class NativeModesRenderer {
         let rgb = mode === 'feels' ? Buffer.from(mutedMaps.get(theme)!) : drawTemperatureLabels(plate.rgb, plate.labels, await temperatures.frame(temperatureEpoch(epoch)))
         if (mode === 'feels') {
           const slice = slices[index]!
-          rgb = await raster!.compose(rgb, slice, theme === 'dark')
+          rgb = await raster.compose(rgb, slice, theme === 'dark')
           for (const label of placements[index]!) await text.draw(rgb, label.text, label.screenX, label.screenY, label.angle, label.color, label.theme, label.opacity)
         } else {
           const slice = slices[index]!

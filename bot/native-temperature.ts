@@ -12,6 +12,7 @@ import { nativeProjection } from './native-projection.js'
 import type { StillManifest } from './stills.js'
 
 export interface TemperatureSlice { grid: Grid; field: PreparedField; labelSlice?: FieldSlice; segments: Float32Array; contours: Contour[]; rings?: Float32Array; colors: Float32Array; opacity: number; kind: 'temperature' | 'pressure'; step: number; labelLines?: IsolineFeatureCollection; labelKey?: string }
+export type RasterSlice = Pick<TemperatureSlice, 'grid' | 'segments' | 'opacity'> & ({ kind: 'pressure' } | { kind: 'temperature'; field: PreparedField; rings?: Float32Array; colors: Float32Array })
 
 export class NativeTemperatureData {
   readonly data: NativeRainData
@@ -92,6 +93,6 @@ export class NativeTemperatureData {
       labelLines = isolineFeatures({ width: grid.width, height: grid.height, values }, grid, this.step, ISOLINE_RING_KM, this.kind)
       this.labelLines.set(labelKey, labelLines)
     }
-    return { grid, field, labelSlice: { width: grid.width, height: grid.height, fields, weights: weights.map(({ weight }) => weight) }, segments, contours, labelLines, labelKey, kind: this.kind, step: this.step, rings: ringFadeRaster(shortRings(contours, ISOLINE_RING_KM), grid.width, grid.height), colors: this.colors!, opacity: timelineCoverage(this.data.timeline, epoch, ISOLINE_EDGE_FADE_MS) }
+    return { grid, field, labelSlice: { width: grid.width, height: grid.height, fields, weights: weights.map(({ weight }) => weight) }, segments, contours, labelLines, labelKey, kind: this.kind, step: this.step, rings: this.kind === 'temperature' ? ringFadeRaster(shortRings(contours, ISOLINE_RING_KM), grid.width, grid.height) : undefined, colors: this.colors!, opacity: timelineCoverage(this.data.timeline, epoch, ISOLINE_EDGE_FADE_MS) }
   }
 }

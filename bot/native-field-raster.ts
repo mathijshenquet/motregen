@@ -12,7 +12,7 @@ import { TEMPERATURE_LINE_OPACITY, ISOBAR_LINE_OPACITY, isolineWidthCss, linePro
 import { NATIVE_VIEW } from './native-view.js'
 import { FRAME, FRAME_PIXELS } from './config.js'
 import { nativeProjection } from './native-projection.js'
-import type { TemperatureSlice } from './native-temperature.js'
+import type { RasterSlice } from './native-temperature.js'
 
 const run = promisify(execFile)
 let executablePromise: Promise<string> | undefined
@@ -73,8 +73,8 @@ export class NativeFieldRaster {
     await this.write(Buffer.from(projection.columns.buffer)); await this.write(Buffer.from(projection.rows.buffer))
   }
 
-  async compose(base: Buffer, slice: TemperatureSlice, night: boolean): Promise<Buffer> {
-    if (base.length !== this.size.width * this.size.height * 3 || slice.field.values.length !== this.grid.width * this.grid.height || slice.field.valid.length !== slice.field.values.length) throw new Error('Ongeldige veldframemaat')
+  async compose(base: Buffer, slice: RasterSlice, night: boolean): Promise<Buffer> {
+    if (base.length !== this.size.width * this.size.height * 3 || (slice.kind === 'temperature' && (slice.field.values.length !== this.grid.width * this.grid.height || slice.field.valid.length !== slice.field.values.length))) throw new Error('Ongeldige veldframemaat')
     await this.prepare()
     if (this.output) throw new Error('Veldworker verwerkt al een frame')
     const rgb = Buffer.alloc(base.length)
@@ -82,7 +82,7 @@ export class NativeFieldRaster {
     void received.catch(() => undefined)
     const header = Buffer.alloc(48)
     header.writeFloatLE(slice.opacity, 0); header.writeUInt32LE(night ? 1 : 0, 4)
-    header.writeUInt32LE(slice.segments.length / 6, 8); header.writeUInt32LE(slice.rings ? 1 : 0, 12)
+    header.writeUInt32LE(slice.segments.length / 6, 8); header.writeUInt32LE(slice.kind === 'temperature' && slice.rings ? 1 : 0, 12)
     header.writeUInt32LE(slice.kind === 'pressure' ? 1 : 0, 16)
     const profile = lineProfile(isolineWidthCss(NATIVE_VIEW.zoom) * FRAME.scale)
     header.writeFloatLE(slice.kind === 'pressure' ? 0 : ISOLINE_FILL_OPACITY, 20)
@@ -92,7 +92,8 @@ export class NativeFieldRaster {
     for (let channel = 0; channel < 3; channel++) header.writeFloatLE((color >> ((2 - channel) * 8)) & 255, 32 + channel * 4)
     header.writeFloatLE(ISOLINE_FILL_RESOLUTION / FRAME.scale, 44)
     await this.write(header); await this.write(base)
-    for (const field of [slice.field.values, slice.field.valid, slice.colors, slice.segments, ...(slice.rings ? [slice.rings] : [])]) await this.write(Buffer.from(field.buffer, field.byteOffset, field.byteLength))
+    const fields = slice.kind === 'temperature' ? [slice.field.values, slice.field.valid, slice.colors, slice.segments, ...(slice.rings ? [slice.rings] : [])] : [slice.segments]
+    for (const field of fields) await this.write(Buffer.from(field.buffer, field.byteOffset, field.byteLength))
     await Promise.race([received, this.completed!.then(() => { throw new Error('Veldworker mist uitvoer') })])
     return rgb
   }

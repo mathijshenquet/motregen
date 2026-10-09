@@ -21,7 +21,8 @@ export async function nativeTextAtlas(origin: string, directory: string, context
   const styles = [...(await response.text()).matchAll(/<link\b[^>]*href="([^"]+\.css)"[^>]*>/g)].map((match) => new URL(match[1]!, origin).href)
   const key = createHash('sha256').update(JSON.stringify({ styles, cell, variants, version: 6 })).digest('hex').slice(0, 24)
   const path = join(directory, `isoline-text-${key}.png`)
-  const png = await prepareNativeAsset(async () => {
+  // Screenshot viewport changes share Chromium state; only DOM/font preparation can overlap.
+  async function loadPng(): Promise<Buffer> {
     try { return await readFile(path) } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
     const page = await (await context()).newPage()
     try {
@@ -41,14 +42,15 @@ export async function nativeTextAtlas(origin: string, directory: string, context
         }
         await document.fonts.ready
       }, variants)
-      const png = await page.screenshot({ omitBackground: true, fullPage: true })
+      const png = await prepareNativeAsset(() => page.screenshot({ omitBackground: true, fullPage: true }))
       await mkdir(directory, { recursive: true })
       const temporary = `${path}.${randomUUID()}.tmp`
       await writeFile(temporary, png); await rename(temporary, path)
       console.info(JSON.stringify({ event: 'native-isoline-text-created', key, glyphs: variants.length }))
       return png
     } finally { await page.close() }
-  })
+  }
+  const png = await loadPng()
   const sheet = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
   if (sheet.info.width !== cell.width * columns) throw new Error('Isolijntekst heeft verkeerde schaal')
   return new Map(variants.map((variant, index) => {

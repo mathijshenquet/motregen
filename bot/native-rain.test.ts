@@ -88,3 +88,16 @@ it('prefilters a source-blur impulse in two quantized R8 passes and reuses the f
     expect(await compositor.composeFast(base, input, false)).toEqual(actual)
   } finally { await compositor.close() }
 })
+
+it('reuses a projected motion field across fractions and invalidates it when vectors or interval change', async () => {
+  const compositor = new RainCompositor(grid, { width: 64, height: 64 })
+  const base = new Uint8Array(64 * 64 * 3).fill(100)
+  const left = Uint8Array.from({ length: 16 }, (_, index) => index * 13)
+  const right = Uint8Array.from({ length: 16 }, (_, index) => 220 - index * 7)
+  try {
+    for (const [mix, intervalMinutes, direction] of [[0.25, 5, 1], [0.5, 5, 1], [0.75, 5, -1], [0.5, 3, -1], [0.5, 5, 1]]) {
+      const input = { ...frame(left, right, mix), intervalMinutes: intervalMinutes!, motion: { width: 2, height: 2, vectors: Int8Array.from([1, 2, 3, 4, 2, 1, 4, 3], (value) => value * direction!) } }
+      expect(await compositor.composeFast(base, input, false)).toEqual(compositor.compose(base, input, false))
+    }
+  } finally { await compositor.close() }
+})

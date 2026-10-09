@@ -4,7 +4,7 @@ import { sampleSlice } from '../web/src/core/isoline-spline.js'
 import { NativeFieldRaster } from './native-field-raster.js'
 import { nativeProjection } from './native-projection.js'
 import { NATIVE_VIEW } from './native-view.js'
-import type { TemperatureSlice } from './native-temperature.js'
+import type { RasterSlice, TemperatureSlice } from './native-temperature.js'
 
 it('matches shared cubic sampling and premultiplied band fill, including invalid coverage and edge fade', async () => {
   const meters = 2 * Math.PI * 6378137 / (512 * 2 ** NATIVE_VIEW.zoom * (18 / 640))
@@ -40,5 +40,19 @@ it('matches shared cubic sampling and premultiplied band fill, including invalid
     expect(await raster.compose(base, { ...slice, opacity: 0 }, true)).toEqual(base)
     expect(await raster.compose(base, { ...slice, field: { ...field, valid: new Float32Array(324) } }, false)).toEqual(base)
     await expect(raster.compose(Buffer.alloc(1), slice, false)).rejects.toThrow('framemaat')
+  } finally { await raster.close() }
+}, 15000)
+
+it('renders pressure lines without retaining or transferring an unused filled raster', async () => {
+  const grid: Grid = { crs: 'EPSG:3857', x0: 0, y0: 0, dx: 1, dy: -1, width: 2, height: 2 }
+  const raster = new NativeFieldRaster(grid, { width: 18, height: 18 })
+  const base = Buffer.alloc(18 * 18 * 3, 100)
+  const slice: RasterSlice = { kind: 'pressure', grid, segments: Float32Array.of(3, 9.5, 15, 9.5, 1, 1), opacity: 1 }
+  try {
+    const output = await raster.compose(base, slice, false)
+    expect(output.subarray(0, 3)).toEqual(base.subarray(0, 3))
+    expect(output.subarray((9 * 18 + 9) * 3, (9 * 18 + 9) * 3 + 3)).not.toEqual(Buffer.of(100, 100, 100))
+    expect(await raster.compose(base, { ...slice, opacity: 0 }, true)).toEqual(base)
+    expect(await raster.compose(base, slice, false)).toEqual(output)
   } finally { await raster.close() }
 }, 15000)

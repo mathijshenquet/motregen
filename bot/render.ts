@@ -124,7 +124,8 @@ export class StillRenderer {
     for (const name of await readdir(this.cacheDirectory)) {
       const temporaryFrames = /^\.frames-(weather|air|feels|wind)-loop-[a-f0-9]{24}-[a-zA-Z0-9]+$/.test(name)
       const storedFrames = /^(weather|air|feels|wind)-loop-[a-f0-9]{24}\.frames$/.test(name)
-      if (!temporaryFrames && !storedFrames && !/^(weather|air|feels|wind)-(?:\d+|loop)-[a-f0-9]{24}\.(?:jpg|mp4|sequence\.json)(?:\.file-id\.json)?(?:\.tmp)?$/.test(name)) continue
+      const fieldText = /^isoline-text-[a-f0-9]{24}\.png$/.test(name)
+      if (!temporaryFrames && !storedFrames && !fieldText && !/^(weather|air|feels|wind)-(?:\d+|loop)-[a-f0-9]{24}\.(?:jpg|mp4|sequence\.json)(?:\.file-id\.json)?(?:\.tmp)?$/.test(name)) continue
       const path = join(this.cacheDirectory, name)
       try {
         const metadata = await stat(path)
