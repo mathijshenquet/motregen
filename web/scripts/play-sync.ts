@@ -22,21 +22,40 @@ const options = {
   serviceWorkers: warm ? 'allow' as const : 'block' as const,
   ignoreHTTPSErrors: true,
   ...proxy ? { proxy: { server: proxy } } : {},
-  args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader', ...quota ? [`--renderer-cmd-prefix=systemd-run --user --scope --quiet -p CPUQuota=${quota}% -p CPUQuotaPeriodSec=5ms --`] : []],
+  args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader', ...proxy ? ['--ignore-certificate-errors'] : [], ...quota ? [`--renderer-cmd-prefix=systemd-run --user --scope --quiet -p CPUQuota=${quota}% -p CPUQuotaPeriodSec=5ms --`] : []],
 }
 let context = await chromium.launchPersistentContext(directory, options)
+const prepareContext = async () => {
+  await context.addInitScript({ content: 'globalThis.__name = (value) => value;' })
+  await context.addInitScript(({ fixture, desktop }) => {
+    if (fixture) {
+      const NativeDate = Date
+      const fixedEpoch = NativeDate.parse('2026-08-28T15:00:00Z')
+      globalThis.Date = new Proxy(NativeDate, {
+        construct: (target, args) => Reflect.construct(target, args.length ? args : [fixedEpoch]),
+        apply: () => new NativeDate(fixedEpoch).toString(),
+        get: (target, property, receiver) => property === 'now' ? () => fixedEpoch : Reflect.get(target, property, receiver),
+      })
+    }
+    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => desktop ? 8 : 4 })
+    Object.defineProperty(navigator, 'deviceMemory', { get: () => desktop ? 8 : 4 })
+    performance.setResourceTimingBufferSize(10_000)
+  }, { fixture: flags.includes('--fixture'), desktop: profile.id === 'desktop' })
+}
 try {
+  await prepareContext()
   if (warm) {
     const seed = await context.newPage()
     await seed.goto(`${origin}/weer/utrecht?perf=1`, { waitUntil: 'commit' })
     await seed.waitForFunction(() => window.__motregenPerf?.snapshot().ttfpMs != null, undefined, { timeout: 60_000 })
-    await seed.evaluate(async () => { await navigator.serviceWorker.ready })
+    await seed.waitForFunction(async () => (await navigator.serviceWorker.getRegistration())?.active != null, undefined, { timeout: 60_000 })
     await seed.reload()
     await seed.waitForFunction(() => navigator.serviceWorker.controller !== null)
     await seed.waitForFunction(() => window.__motregenPerf?.snapshot().basemapReadyMs != null, undefined, { timeout: 60_000 })
     await seed.waitForTimeout(3_000)
     await context.close()
     context = await chromium.launchPersistentContext(directory, options)
+    await prepareContext()
   }
   const load = hostLoadAverage()
   if (load > runLoadLimit()) {
@@ -46,7 +65,6 @@ try {
     process.exit(76)
   }
   const page = await context.newPage()
-  await page.addInitScript({ content: 'globalThis.__name = (value) => value;' })
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   const cdp = await context.newCDPSession(page)
@@ -63,19 +81,7 @@ try {
     })
     await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 70, maxWidth: options.viewport.width, maxHeight: options.viewport.height })
   }
-  await page.addInitScript(({ fixture, desktop }) => {
-    if (fixture) {
-      const NativeDate = Date
-      const fixedEpoch = NativeDate.parse('2026-08-28T15:00:00Z')
-      globalThis.Date = new Proxy(NativeDate, {
-        construct: (target, args) => Reflect.construct(target, args.length ? args : [fixedEpoch]),
-        apply: () => new NativeDate(fixedEpoch).toString(),
-        get: (target, property, receiver) => property === 'now' ? () => fixedEpoch : Reflect.get(target, property, receiver),
-      })
-    }
-    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => desktop ? 8 : 4 })
-    Object.defineProperty(navigator, 'deviceMemory', { get: () => desktop ? 8 : 4 })
-    performance.setResourceTimingBufferSize(10_000)
+  await page.addInitScript(() => {
     const samples: object[] = []
     ;(window as unknown as { playSyncSamples: object[] }).playSyncSamples = samples
     const sample = () => {
@@ -88,7 +94,7 @@ try {
     }
     const timer = setInterval(sample, 250)
     setTimeout(() => clearInterval(timer), 12_000)
-  }, { fixture: flags.includes('--fixture'), desktop: profile.id === 'desktop' })
+  })
   const loads = [{ ms: 0, load }]
   const loadTimer = setInterval(() => loads.push({ ms: loads.length * 1_000, load: hostLoadAverage() }), 1_000)
   try {
