@@ -1,4 +1,4 @@
-import { STILL_HOURS, type LoopMode, type StillHour, type StillManifest } from './stills.js'
+import { STILL_HOURS, stillEpoch, type LoopMode, type StillHour, type StillManifest } from './stills.js'
 
 export interface SequencePlan {
   epochs: number[]
@@ -12,10 +12,17 @@ export function sequencePlan(mode: LoopMode, manifest: StillManifest): SequenceP
   const fps = 10
   const stepMinutes = 5
   const startMinutes = -120
-  const endMinutes = 720
+  const endMinutes = mode === 'weather' ? 180 : 720
   const epochs: number[] = []
   for (let minute = startMinutes; minute <= endMinutes; minute += stepMinutes) epochs.push(now + minute * 60_000)
   const loopFrames = epochs.length
-  const stillFrames = mode === 'wind' ? [] : STILL_HOURS.map((hour) => ({ hour, index: epochs.indexOf(now + hour * 3_600_000) }))
+  // Stills voorbij de loophorizon blijven in dezelfde renderpass, buiten de MP4.
+  if (mode !== 'wind') {
+    for (const hour of STILL_HOURS) {
+      const epoch = stillEpoch(manifest, hour)
+      if (!epochs.includes(epoch)) epochs.push(epoch)
+    }
+  }
+  const stillFrames = mode === 'wind' ? [] : STILL_HOURS.map((hour) => ({ hour, index: epochs.indexOf(stillEpoch(manifest, hour)) }))
   return { epochs, loopFrames, fps, stillFrames }
 }
