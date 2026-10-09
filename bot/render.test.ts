@@ -12,7 +12,7 @@ import { framePath } from './encode.js'
 
 const run = promisify(execFile)
 
-it('makes only requested JPEGs from persisted PNGs, shares concurrent conversion and prunes the PNG cache', async () => {
+it('makes requested JPEGs beyond the rain loop horizon, shares concurrent conversion and prunes the PNG cache', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'motregen-png-cache-'))
   const renderer = new StillRenderer('https://motregen.nl', directory)
   try {
@@ -27,7 +27,7 @@ it('makes only requested JPEGs from persisted PNGs, shares concurrent conversion
     await writeFile(join(directory, `${key}.mp4`), 'cached-loop')
     await writeFile(join(directory, `${key}.sequence.json`), JSON.stringify({ key, frames: plan.loopFrames, fps: plan.fps, bytes: 11, renderMs: 10, encodeMs: 10 }))
     expect((await readdir(directory)).filter((name) => name.endsWith('.jpg'))).toHaveLength(0)
-    const selection = { mode: 'weather', hour: 1 / 3 } as const
+    const selection = { mode: 'weather', hour: 12 } as const
     const [first, shared] = await Promise.all([renderer.render(selection, manifest), renderer.render(selection, manifest)])
     expect(first).toBe(shared)
     expect(first.cached).toBe(false)
