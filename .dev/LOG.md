@@ -296,6 +296,15 @@
   sticky thead, semantiek); de problemen zaten in collapse+sticky en themalijnen, nu verholpen. Prod: derde upgrade
   gestart zodat alles erop staat.
 
+- 01:45: z4-wissel was op 4330 "flaky" (PO): kaal `idle` kon vóór de eerste basiskaart-tegel vallen. Nu: wissel
+  pas na een geleverde basemap-tegel + `isSourceLoaded('basemap')` + `areTilesLoaded()`, idle controleert hetzelfde,
+  harde terugval na 15 s. Proef 4× snel + 1× traag op 4330: kaart compleet op het wisselmoment (screenshots). Prod:
+  vierde upgrade gestart. **Nieuw PO-punt (eerste voor morgen)**: "het histogram loopt al, de kaart begint pas laat
+  mee te lopen en springt dan door desynced klokken naar voren" — afspelen start op de scrubberklok zodra frames
+  er zijn, de kaartregen haakt later aan op de dan actuele cursor en springt. Richting: één klok (scrubber start
+  pas als de kaart kan tekenen, of de kaart tweent naar de cursor i.p.v. springen); meet het effect op "spelende
+  tijdlijn"-ttfr. Als voorstel/track uitwerken, niet als nachtfix.
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
