@@ -1593,8 +1593,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (!map || !windGrid || !windTimeline().length || windLayer) return
     const started = performance.now()
     const wind = mountWind(windGrid)
+    const submitMs = performance.now() - started
     await wind?.ready.catch(() => {})
-    if (perfPhasesEnabled()) perf.recordPhase({ phase: 'wind-initialize', startTime: started, duration: performance.now() - started })
+    if (perfPhasesEnabled()) perf.recordPhase({ phase: 'wind-initialize', startTime: started, duration: performance.now() - started, detail: { submitMs, parallel: windParallelCompilation } })
     await showWind()
   }
 
@@ -1736,7 +1737,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const request = ++shownWindRequest
     const blend = frameBlend(windUFrames(), selectedEpoch())
     try {
-      const [left, right] = await Promise.all([loadWind(frames[blend.left]!), loadWind(frames[blend.right]!)])
+      const wind = windLayer
+      const [left, right] = await Promise.all([loadWind(frames[blend.left]!), loadWind(frames[blend.right]!), wind.ready])
       if (request !== shownWindRequest || !windLayer || !map) return
       windLayer.setFrames(left, right, blend.mix)
       if (windOverlay) windOverlay.triggerRepaint()

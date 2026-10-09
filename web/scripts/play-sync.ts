@@ -6,7 +6,7 @@ import { applyEmulation, performanceProfile } from '../e2e/profiles'
 import { hostLoadAverage, runLoadLimit } from './rig-host'
 
 const [origin, output, ...flags] = process.argv.slice(2)
-if (!origin || !output) throw new Error('Gebruik: play-sync.ts ORIGIN UITVOER [--warm] [--filmstrip] [--cpu-profile] [--profile=desktop|po-android] [--fixture] [--now=ISO] [--manifest=PAD] [--proxy=URL]')
+if (!origin || !output) throw new Error('Gebruik: play-sync.ts ORIGIN UITVOER [--warm] [--filmstrip] [--play-window] [--cpu-profile] [--profile=desktop|po-android] [--fixture] [--now=ISO] [--manifest=PAD] [--proxy=URL]')
 const warm = flags.includes('--warm')
 const filmstrip = flags.includes('--filmstrip')
 const playWindow = flags.includes('--play-window')
@@ -119,17 +119,17 @@ try {
       await page.waitForLoadState('domcontentloaded')
       await page.addStyleTag({ content: '.perf-hud { display: none !important; }' })
     }
-    await page.waitForFunction(() => {
+    await page.waitForFunction((windowLength) => {
       const started = window.__motregenPerf?.snapshot().firstCursorMs
-      return started != null && performance.now() >= Math.max(12_000, started + 5_500)
-    })
+      return started != null && performance.now() >= Math.max(12_000, started + windowLength)
+    }, filmstrip && playWindow ? 10_500 : 5_500)
     if (cpuProfile) {
       const { profile: cpu } = await cdp.send('Profiler.stop')
       writeFileSync(`${output}.cpuprofile`, JSON.stringify(cpu))
     }
     if (filmstrip) await cdp.send('Page.stopScreencast')
-    const captured = await page.evaluate(() => ({ timeOrigin: performance.timeOrigin, manifestGenerated: document.querySelector<HTMLElement>('.app-shell')?.dataset.generated, snapshot: window.__motregenPerf!.snapshot(), entries: window.__motregenPerf!.traceSlice(0, 12_000), loads: window.__motregenPerf!.loads.snapshot(), samples: (window as unknown as { playSyncSamples: object[] }).playSyncSamples, rawLongFrames: (window as unknown as { playSyncLongFrames: object[] }).playSyncLongFrames, resources: performance.getEntriesByType('resource').map((entry) => entry.toJSON()), serviceWorkerControlled: Boolean(navigator.serviceWorker.controller), graphics: Array.from(document.querySelectorAll<HTMLCanvasElement>('canvas.map-overlay, canvas.maplibregl-canvas')).map(canvas => ({ canvas: canvas.className, parallelShaderCompile: Boolean(canvas.getContext('webgl2')?.getExtension('KHR_parallel_shader_compile')) })) }))
-    const shots = filmstrip ? Array.from({ length: 24 }, (_, index) => {
+    const captured = await page.evaluate(() => ({ durationMs: performance.now(), timeOrigin: performance.timeOrigin, manifestGenerated: document.querySelector<HTMLElement>('.app-shell')?.dataset.generated, snapshot: window.__motregenPerf!.snapshot(), entries: window.__motregenPerf!.traceSlice(0, performance.now()), loads: window.__motregenPerf!.loads.snapshot(), samples: (window as unknown as { playSyncSamples: object[] }).playSyncSamples, rawLongFrames: (window as unknown as { playSyncLongFrames: object[] }).playSyncLongFrames, resources: performance.getEntriesByType('resource').map((entry) => entry.toJSON()), serviceWorkerControlled: Boolean(navigator.serviceWorker.controller), graphics: Array.from(document.querySelectorAll<HTMLCanvasElement>('canvas.map-overlay, canvas.maplibregl-canvas')).map(canvas => ({ canvas: canvas.className, parallelShaderCompile: Boolean(canvas.getContext('webgl2')?.getExtension('KHR_parallel_shader_compile')) })) }))
+    const shots = filmstrip ? Array.from({ length: playWindow ? 40 : 24 }, (_, index) => {
       const targetMs = index * 250 + (playWindow ? captured.snapshot.firstCursorMs! : 0)
       const frame = frames.filter((frame) => frame.timestamp - captured.timeOrigin <= targetMs).at(-1)
       if (frame) writeFileSync(`${output}/${String(index).padStart(2, '0')}.jpg`, Buffer.from(frame.data, 'base64'))

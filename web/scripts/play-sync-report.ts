@@ -11,6 +11,7 @@ interface Capture {
   screenshotOverhead: boolean
   manifestGenerated: string
   capturedAt: string
+  durationMs?: number
   fixedClock?: string
   loadSamples: Array<{ ms: number; load: number }>
   snapshot: PerfSnapshot
@@ -35,6 +36,7 @@ const compact = readdirSync(directory).filter((name) => name.endsWith('.json')).
   const afterPlay = capture.entries.longFrames.filter((frame) => frame.startTime >= (capture.snapshot.ttfpMs ?? Infinity) && frame.startTime + frame.duration <= 12_000)
   const playStart = capture.snapshot.firstCursorMs ?? Infinity
   const firstFiveSeconds = capture.entries.longFrames.filter((frame) => frame.startTime + frame.duration > playStart && frame.startTime < playStart + 5_000)
+  const startedAfterClock = firstFiveSeconds.filter((frame) => frame.startTime >= playStart)
   const header = capture.resources.find((entry) => entry.name.endsWith('.pmtiles'))
   const weatherHeaders = capture.loads.requests.filter((request) => request.layer === 'header' && !/\/(?:rtcor|nowcast|seamless|uv|uv_clear)-/.test(request.url))
   const queue = header && header.requestStart > 0 ? header.requestStart - header.startTime : null
@@ -56,6 +58,7 @@ const compact = readdirSync(directory).filter((name) => name.endsWith('.json')).
   const windInitialization = capture.entries.measures.find((measure) => measure.phase === 'wind-initialize')
   milestones.windInitializeStartMs = rounded(windInitialization?.startTime)
   milestones.windInitializeDurationMs = rounded(windInitialization?.duration)
+  milestones.windSubmitMs = rounded(windInitialization?.detail?.submitMs as number | undefined)
   return {
     name: name.replace('.json', ''), origin: capture.origin, profile: capture.profile,
     warm: capture.warm, fixture: capture.fixture ?? capture.manifestGenerated.startsWith('2026-08-28'), screenshotOverhead: capture.screenshotOverhead,
@@ -76,11 +79,12 @@ const compact = readdirSync(directory).filter((name) => name.endsWith('.json')).
     decodes: capture.loads.frames.filter((frame) => frame.decodedMs !== undefined).length,
     resourceTransferBytes: capture.resources.reduce((sum, entry) => sum + entry.transferSize, 0),
     afterPlay: { count: afterPlay.length, over250: afterPlay.filter((frame) => frame.duration > 250).length, maxMs: rounded(Math.max(0, ...afterPlay.map((frame) => frame.duration))), totalMs: rounded(afterPlay.reduce((sum, frame) => sum + frame.duration, 0)) },
-    firstFiveSeconds: { startMs: rounded(playStart), endMs: rounded(playStart + 5_000), over100: firstFiveSeconds.filter(frame => frame.duration > 100).length, maxMs: rounded(Math.max(0, ...firstFiveSeconds.map(frame => frame.duration))), frames: firstFiveSeconds.map(frame => ({ startMs: rounded(frame.startTime), durationMs: rounded(frame.duration), blockingMs: rounded(frame.blockingDuration), scripts: frame.scripts })) },
+    firstFiveSeconds: { startMs: rounded(playStart), endMs: rounded(playStart + 5_000), complete: (capture.durationMs ?? 12_000) >= playStart + 5_000, over100: firstFiveSeconds.filter(frame => frame.duration > 100).length, maxMs: rounded(Math.max(0, ...firstFiveSeconds.map(frame => frame.duration))), startedAfterClockMaxMs: rounded(Math.max(0, ...startedAfterClock.map(frame => frame.duration))), frames: firstFiveSeconds.map(frame => ({ startMs: rounded(frame.startTime), durationMs: rounded(frame.duration), blockingMs: rounded(frame.blockingDuration), scripts: frame.scripts })) },
   }
 })
 const rows = ['| transport / profiel / cache | A→B klokstart ms | A→B framewissel ms | A→B style.load ms | A→B eerste tegel ms | A→B volledige kaart ms | mediane Δ klok / framewissel |', '| --- | ---: | ---: | ---: | ---: | ---: | ---: |']
 const syncRows = ['| transport / profiel / cache | A→B eerste bewegende regen ms | A→B klok→regen ms | A→B maximale frameachterstand | A→B langste LoAF na TTFP ms |', '| --- | ---: | ---: | ---: | ---: |']
+const windRows = ['| transport / profiel / cache | A→B windstart vanaf klok ms | A→B windopzet verstreken ms | A→B max LoAF eerste 5 s ms | A→B aantal LoAF >100 ms eerste 5 s |', '| --- | ---: | ---: | ---: | ---: |']
 const pairs: object[] = []
 for (const transport of ['h1', 'h2']) for (const profile of ['desktop', 'po-android']) for (const cache of ['cold', 'warm']) {
   const paired = [1, 2, 3].flatMap((index) => {
@@ -102,6 +106,7 @@ for (const transport of ['h1', 'h2']) for (const profile of ['desktop', 'po-andr
     return `${value('reference')}→${value('candidate')}`
   }
   syncRows.push(`| ${transport} / ${profile} / ${cache} (${paired.length}/3) | ${shown('firstRainMotionMs')} | ${comparison((run) => run.clockToRainMotionMs)} | ${comparison((run) => run.cursorRainGap.maxFrames)} | ${comparison((run) => run.afterPlay.maxMs)} |`)
+  windRows.push(`| ${transport} / ${profile} / ${cache} (${paired.length}/3) | ${comparison(run => run.milestones.windInitializeStartMs == null || run.milestones.firstCursorMs == null ? null : run.milestones.windInitializeStartMs - run.milestones.firstCursorMs)} | ${shown('windInitializeDurationMs')} | ${comparison(run => run.firstFiveSeconds.maxMs)} | ${comparison(run => run.firstFiveSeconds.over100)} |`)
   pairs.push({ transport, profile, cache, paired })
 }
 writeFileSync(`${output}.json`, JSON.stringify({ captures: compact, pairs }, null, 2))
@@ -110,7 +115,7 @@ const transports = [
   ...(compact.some((capture) => capture.name.startsWith('h1-')) ? [`HTTP1.1: Vite-preview met ${fixture ? 'GRID6-fixture' : 'productiegegevens en vastgezet manifest'}.`] : []),
   ...(compact.some((capture) => capture.name.startsWith('h2-')) ? ['HTTP2: lokale TLS-reviewproxy op https://motregen.nl, frontend A/B lokaal en weerdata van prod met vastgezet manifest.'] : []),
 ]
-writeFileSync(`${output}.md`, `${rows.join('\n')}\n\n${syncRows.join('\n')}\n\nAlle tijden uit gelijke instrumentatie. ${transports.join(' ')} Geen deploy. ${compact.some((capture) => capture.warm) ? 'Warm = nieuw browserproces met gevulde HTTP- en SW-diskcache. ' : ''}Resource-transferbytes zijn observaties, geen wire-budgetclaim.\n`)
+writeFileSync(`${output}.md`, `${rows.join('\n')}\n\n${syncRows.join('\n')}\n\n${windRows.join('\n')}\n\nAlle tijden uit gelijke instrumentatie. ${transports.join(' ')} Geen deploy. ${compact.some((capture) => capture.warm) ? 'Warm = nieuw browserproces met gevulde HTTP- en SW-diskcache. ' : ''}Resource-transferbytes zijn observaties, geen wire-budgetclaim. Eerste 5 s telt conservatief ook overlappende frames die vóór de klokstart begonnen. Windopzet is verstreken tijd, inclusief wachten tussen renderbeurten.\n`)
 for (const name of readdirSync(directory).filter((name) => name.endsWith('.json'))) {
   const capture = JSON.parse(readFileSync(join(directory, name), 'utf8')) as Capture
   const resources = capture.resources.filter((entry) => entry.startTime < 6_000).sort((left, right) => left.startTime - right.startTime)
@@ -128,3 +133,4 @@ for (const name of readdirSync(directory).filter((name) => name.endsWith('.json'
 }
 console.log(rows.join('\n'))
 console.log(syncRows.join('\n'))
+console.log(windRows.join('\n'))
