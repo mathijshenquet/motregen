@@ -317,6 +317,14 @@
   na de gate van 6f903333 (klaar 10:20, index-DD5Z2UVN). U68 gestart 10:05 (één klok + kaart vóór de
   HARMONIE-flood + splash geen gate; MIP-19-aanvulling).
 
+- **U68 gemerged** (16e51fd8, 12:15; 2 u, gpt-6.1-sol, PR #96): één klok (cursor/histogram/kaartregen starten
+  samen op mapReady, geen sprong; vroege pauze blijft), splash vloeit in 300 ms weg en is geen gate,
+  PMTiles-header vóór de 34 HARMONIE-headers (koud po-android HTTP/1.1: eerste tegel −1,2 s, volledige kaart
+  −1,4 s; warm mobiel klokstart −0,3 s; HTTP/2 desktop neutraal). Beperkingen eerlijk gemeld: desktop
+  HTTP/1.1-fixture volledige kaart later (1,1→1,7 s), mobiele HTTP/2-framewissel koud trager, lange frames
+  blijven. Filmstrips + 48 gepaarde metingen in docs/perf.md §U68. Gate 529 unit, 28+14+6 e2e, build;
+  4330 herbouwd; prod-upgrade gestart.
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
