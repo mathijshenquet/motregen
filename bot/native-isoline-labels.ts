@@ -2,13 +2,14 @@ import { lineLabelCandidates, LABEL_MIN_DISTANCE_PX, LABEL_SPACING_PX, MAX_LABEL
 import { NativeText } from './native-text.js'
 import { FRAME, FRAME_PIXELS } from './config.js'
 import { nativeProjection } from './native-projection.js'
-import { projectToLevel } from '../web/src/core/isoline-spline.js'
+import { projectToLevel, type SliceSample } from '../web/src/core/isoline-spline.js'
 import { isolineColor } from '../web/src/core/isolines.js'
 import { ringFadeAt, shortRings } from '../web/src/core/isoline-contours.js'
 import type { TemperatureSlice } from './native-temperature.js'
 import type { NativeTheme } from './native-map.js'
 
-interface Anchor { column: number; row: number; level: number }
+// A second projection during drawing changes new anchors relative to the app's single placement step.
+interface Anchor { column: number; row: number; level: number; sample: SliceSample }
 
 export class NativeIsolineLabels {
   private anchors: Anchor[] = []
@@ -18,12 +19,12 @@ export class NativeIsolineLabels {
   async draw(rgb: Buffer, slice: TemperatureSlice, theme: NativeTheme): Promise<Buffer> {
     if (slice.step !== this.step) { this.anchors = []; this.step = slice.step }
     const projection = nativeProjection(slice.grid)
-    const fieldSlice = { width: slice.grid.width, height: slice.grid.height, fields: [slice.field], weights: [1] }
+    const fieldSlice = slice.labelSlice ?? { width: slice.grid.width, height: slice.grid.height, fields: [slice.field], weights: [1] }
     const live: Anchor[] = []
     const separated = (column: number, row: number) => live.every((anchor) => Math.hypot(anchor.column - column, anchor.row - row) / projection.cellsPerPixel >= LABEL_MIN_DISTANCE_PX * FRAME.scale)
     for (const anchor of this.anchors) {
       const projected = projectToLevel(fieldSlice, anchor.column, anchor.row, anchor.level, slice.step)
-      if (projected && separated(projected.column, projected.row)) live.push({ ...anchor, column: projected.column, row: projected.row })
+      if (projected && separated(projected.column, projected.row)) live.push({ ...anchor, ...projected })
     }
     const rings = shortRings(slice.contours, slice.kind === 'pressure' ? 0 : 60)
     if (slice.labelKey !== this.labelKey && slice.labelLines) {
@@ -38,18 +39,14 @@ export class NativeIsolineLabels {
           if (screenX < 0 || screenY < 0 || screenX > FRAME_PIXELS.width || screenY > FRAME_PIXELS.height || !separated(column, row)) continue
           const projected = projectToLevel(fieldSlice, column, row, feature.properties.level, slice.step)
           if (!projected || ringFadeAt(rings, feature.properties.level, projected.column, projected.row) <= 0) continue
-          live.push({ column: projected.column, row: projected.row, level: feature.properties.level })
+          live.push({ ...projected, level: feature.properties.level })
         }
       }
     }
     this.anchors = live
     for (const anchor of live) {
-      const projected = projectToLevel(fieldSlice, anchor.column, anchor.row, anchor.level, slice.step)
-      if (!projected) continue
-      anchor.column = projected.column
-      anchor.row = projected.row
       const [screenX, screenY] = projection.point(anchor.column, anchor.row)
-      let angle = Math.atan2(projected.sample.gy, projected.sample.gx) * 180 / Math.PI + 90
+      let angle = Math.atan2(anchor.sample.gy, anchor.sample.gx) * 180 / Math.PI + 90
       if (angle > 90) angle -= 180
       if (angle <= -90) angle += 180
       const label = slice.kind === 'pressure' ? String(anchor.level) : `${anchor.level}°`
