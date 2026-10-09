@@ -6,6 +6,8 @@
   env.LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
   env.PLAYWRIGHT_BROWSERS_PATH = pkgs.playwright-driver.browsers;
   env.PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = true;
+  env.MOTREGEN_FIREFOX_MESA = pkgs.mesa;
+  env.MOTREGEN_FIREFOX_GL = pkgs.libglvnd;
 
   languages.rust.enable = true;
 
@@ -30,5 +32,6 @@
     pkgs.jq
     pkgs.llvmPackages.libclang
     pkgs.playwright-driver.browsers
+    pkgs.xvfb-run
   ];
 }

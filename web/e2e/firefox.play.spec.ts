@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test'
 
+// Alleen de kaarttest heeft X/EGL nodig; de adresbalktests behouden hun bestaande headless-profiel.
+test.use({ headless: false })
+
 test('Firefox begint de gedeelde klok terwijl de splash nog onthult', async ({ page }) => {
   await page.route('**/assets/index-*.css', async (route) => {
     const response = await route.fetch()

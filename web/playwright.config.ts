@@ -33,7 +33,19 @@ export default defineConfig({
         viewport: { width: 390, height: 844 },
         hasTouch: true,
         // De Chromium-vlaggen hieronder gelden hier niet; WebGL loopt via de softwarerenderer.
-        launchOptions: { firefoxUserPrefs: { 'webgl.force-enabled': true, 'gfx.webrender.software': true } },
+        launchOptions: {
+          firefoxUserPrefs: { 'webgl.force-enabled': true, 'gfx.webrender.software': true },
+          env: {
+            ...process.env,
+            LIBGL_ALWAYS_SOFTWARE: '1',
+            LP_NUM_THREADS: '2',
+            ...process.env.MOTREGEN_FIREFOX_MESA ? {
+              LIBGL_DRIVERS_PATH: `${process.env.MOTREGEN_FIREFOX_MESA}/lib/dri`,
+              __EGL_VENDOR_LIBRARY_FILENAMES: `${process.env.MOTREGEN_FIREFOX_MESA}/share/glvnd/egl_vendor.d/50_mesa.json`,
+              LD_LIBRARY_PATH: `${process.env.MOTREGEN_FIREFOX_MESA}/lib:${process.env.MOTREGEN_FIREFOX_GL}/lib`,
+            } : {},
+          },
+        },
       },
     },
   ],

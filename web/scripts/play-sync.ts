@@ -39,7 +39,12 @@ try {
     context = await chromium.launchPersistentContext(directory, options)
   }
   const load = hostLoadAverage()
-  if (load > runLoadLimit()) throw new Error(`Startload ${load} > ${runLoadLimit()}`)
+  if (load > runLoadLimit()) {
+    console.error(`Startload ${load} > ${runLoadLimit()}; opnieuw buiten de lock wachten`)
+    await context.close()
+    rmSync(directory, { recursive: true, force: true })
+    process.exit(76)
+  }
   const page = await context.newPage()
   await page.addInitScript({ content: 'globalThis.__name = (value) => value;' })
   const errors: string[] = []
@@ -90,7 +95,7 @@ try {
     await page.goto(`${origin}/weer/utrecht?perf=1`, { waitUntil: 'commit' })
     await page.waitForFunction(() => performance.now() >= 12_000)
     if (filmstrip) await cdp.send('Page.stopScreencast')
-    const captured = await page.evaluate(() => ({ timeOrigin: performance.timeOrigin, snapshot: window.__motregenPerf!.snapshot(), entries: window.__motregenPerf!.traceSlice(0, 12_000), loads: window.__motregenPerf!.loads.snapshot(), samples: (window as unknown as { playSyncSamples: object[] }).playSyncSamples, resources: performance.getEntriesByType('resource').map((entry) => entry.toJSON()), serviceWorkerControlled: Boolean(navigator.serviceWorker.controller) }))
+    const captured = await page.evaluate(() => ({ timeOrigin: performance.timeOrigin, manifestGenerated: document.querySelector<HTMLElement>('.app-shell')?.dataset.generated, snapshot: window.__motregenPerf!.snapshot(), entries: window.__motregenPerf!.traceSlice(0, 12_000), loads: window.__motregenPerf!.loads.snapshot(), samples: (window as unknown as { playSyncSamples: object[] }).playSyncSamples, resources: performance.getEntriesByType('resource').map((entry) => entry.toJSON()), serviceWorkerControlled: Boolean(navigator.serviceWorker.controller) }))
     const shots = filmstrip ? Array.from({ length: 24 }, (_, index) => {
       const targetMs = index * 250
       const frame = frames.filter((frame) => frame.timestamp - captured.timeOrigin <= targetMs).at(-1) ?? frames[0]
