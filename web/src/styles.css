@@ -740,7 +740,7 @@ th:first-child { padding-left: 0; text-align: left; }
 td { padding: 10px 6px; border-bottom: 1px solid var(--line); font-size: 13px; text-align: right; white-space: nowrap; }
 td:first-child { padding-left: 0; text-align: left; }
 .time-label strong { display: inline-block; min-width: 44px; font-size: 13px; }
-.forecast-table { table-layout: fixed; }
+.forecast-table { table-layout: fixed; border-collapse: separate; border-spacing: 0; }
 .forecast-table th { padding: 6px 2px 5px; vertical-align: bottom; letter-spacing: 0; text-align: center; text-transform: none; }
 .forecast-table th:first-child { padding-left: 0; text-align: left; }
 .column-mode { display: inline-flex; min-width: 44px; flex-direction: column; align-items: center; gap: 3px; padding: 6px 6px 5px; border: 0; border-radius: 10px; background: none; color: var(--muted); font: inherit; font-size: 12px; font-weight: 700; line-height: 1; }
