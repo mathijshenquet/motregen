@@ -14,6 +14,7 @@ async function mediaFiles(directory) {
   return files.sort()
 }
 const [before, after] = await Promise.all([mediaFiles(source), mediaFiles(target)])
+if (before.length !== 343) throw new Error(`Baseline bevat ${before.length} bestanden; verwacht 343`)
 const missingFiles = before.filter((name) => !after.includes(name))
 const extraFiles = after.filter((name) => !before.includes(name))
 const differences = []

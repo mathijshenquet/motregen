@@ -23,7 +23,7 @@ export async function prepareNativeTextAtlas(origin: string, directory: string, 
   // Concurrent full-page captures failed in Chromium; DOM/font preparation can overlap.
   async function preparePng(): Promise<void> {
     try { await access(path); return } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
-    const page = await (await context({ webgl: false })).newPage()
+    const page = await (await context()).newPage()
     try {
       await page.route('**/__native-isoline-text', (route) => route.fulfill({ contentType: 'text/html', body: '<html><body></body></html>' }))
       await page.goto(new URL('/__native-isoline-text', origin).href)

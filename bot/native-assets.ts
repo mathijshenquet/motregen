@@ -1,6 +1,6 @@
 import type { BrowserContext } from 'playwright'
 
-export type NativeAssetContext = (options?: { webgl: boolean }) => Promise<BrowserContext>
+export type NativeAssetContext = () => Promise<BrowserContext>
 
 let preparation: Promise<unknown> = Promise.resolve()
 

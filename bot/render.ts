@@ -51,7 +51,6 @@ export class StillRenderer {
   private readonly nativeModes: NativeModesRenderer
   private browser?: Browser
   private context?: BrowserContext
-  private webgl?: boolean
   private nativeAssetGeneration?: { generated: string; ready: Promise<void> }
   private queues: Promise<unknown>[] = Array.from({ length: 4 }, () => Promise.resolve())
   private nativeQueue: Promise<unknown> = Promise.resolve()
@@ -61,7 +60,7 @@ export class StillRenderer {
   private pendingStills = new Map<string, Promise<RenderedStill>>()
 
   constructor(private readonly origin: string, private readonly cacheDirectory: string) {
-    const context: NativeAssetContext = (options) => this.browserContext(options)
+    const context: NativeAssetContext = () => this.browserContext()
     const maps = new NativeMaps(origin, cacheDirectory, context)
     this.native = new NativeWeatherRenderer(origin, cacheDirectory, context, maps, () => this.releaseAssetBrowser())
     this.nativeModes = new NativeModesRenderer(origin, cacheDirectory, context, maps, () => this.releaseAssetBrowser())
@@ -175,17 +174,14 @@ export class StillRenderer {
     return conversion
   }
 
-  private async browserContext(options?: { webgl: boolean }): Promise<BrowserContext> {
-    const webgl = options?.webgl !== false || LOOP_MODES.some(({ mode }) => nativeRenderer(mode) === 'playwright')
+  private async browserContext(): Promise<BrowserContext> {
     if (this.opening) return this.opening
-    if (this.browser?.isConnected() && this.context && this.webgl === webgl) return this.context
+    if (this.browser?.isConnected() && this.context) return this.context
     const opening = (async () => {
-      await this.releaseAssetBrowser()
       this.browser = await chromium.launch({
         executablePath: process.env.MOTREGEN_CHROMIUM_PATH,
-        args: webgl ? ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] : ['--disable-gpu'],
+        args: ['--no-startup-window', '--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'],
       })
-      this.webgl = webgl
       this.context = await this.browser.newContext({
         viewport: { width: FRAME.width, height: FRAME.height }, deviceScaleFactor: FRAME.scale,
         locale: 'nl-NL', timezoneId: 'Europe/Amsterdam', reducedMotion: 'reduce', serviceWorkers: 'block',
@@ -238,13 +234,13 @@ export class StillRenderer {
   }
 
   private async renderNativeSequence(mode: LoopMode, manifest: StillManifest, key: string): Promise<RenderedSequence> {
-    const assetsStarted = performance.now()
-    await this.prepareNativeGeneration(manifest)
-    const assetMs = Math.round(performance.now() - assetsStarted)
     await mkdir(this.cacheDirectory, { recursive: true })
     const directory = await mkdtemp(join(this.cacheDirectory, `.frames-${key}-`))
     const loop = this.media({ mode: mode, hour: 'loop' }, manifest)
     try {
+      const assetsStarted = performance.now()
+      await this.prepareNativeGeneration(manifest)
+      const assetMs = Math.round(performance.now() - assetsStarted)
       const plan = sequencePlan(mode, manifest)
       const rendered = mode === 'weather' ? await this.native.render(manifest, plan, directory, `${loop.path}.tmp`, () => this.nativeLoops.get(key)?.finish()) : await this.nativeModes.render(mode, manifest, plan, directory, `${loop.path}.tmp`)
       rendered.renderMs += assetMs
@@ -277,7 +273,11 @@ export class StillRenderer {
         global.gc?.()
       }
       console.info(JSON.stringify({ event: 'native-assets-ready', generated: manifest.generated, milliseconds: Math.round(performance.now() - started), ...process.memoryUsage() }))
-    })().catch((error) => { this.nativeAssetGeneration = undefined; throw error })
+    })().catch(async (error) => {
+      this.nativeAssetGeneration = undefined
+      await this.releaseAssetBrowser()
+      throw error
+    })
     this.nativeAssetGeneration = { generated: manifest.generated, ready }
     return ready
   }

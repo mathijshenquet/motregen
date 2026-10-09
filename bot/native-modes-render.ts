@@ -44,6 +44,7 @@ export class NativeModesRenderer {
       } finally { temperature.clear() }
     })()
     global.gc?.()
+    console.info(JSON.stringify({ event: 'native-atlas-preparation-memory', mode, placements: placements.length, ...process.memoryUsage() }))
     await prepareNativeTextAtlas(this.origin, this.directory, this.context, placements)
   }
 
@@ -67,7 +68,7 @@ export class NativeModesRenderer {
       placements.push(labelAnchors.place(slice, rainTheme(epoch)))
       geometries.push({ kind: slice.kind, grid: slice.grid, segments: slice.segments, opacity: slice.opacity, rings: shortRings(slice.contours, slice.kind === 'pressure' ? 0 : ISOLINE_RING_KM) })
     }
-    // Reclaim temporary contour arrays before the atlas browser shares this memory budget.
+    // Temporary contour arrays are much larger than the retained raster geometry.
     global.gc?.()
     console.info(JSON.stringify({ event: 'native-preparation-memory', mode, ...process.memoryUsage() }))
     const firstSlice = geometries[0]!

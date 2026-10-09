@@ -1,0 +1,11 @@
+2026-10-09T19:46:22Z
+5abeb76b7ec43dfc689b51dbae08983f2affb004
+ bot/native-modes-render.ts |  3 +-
+ bot/native-overlay.ts      | 81 +++++++++++++++++++++++++++-------------------
+ bot/native-text-atlas.ts   | 41 +++++++++++++----------
+ bot/render.test.ts         |  5 +++
+ bot/render.ts              | 17 ++++++----
+ 5 files changed, 89 insertions(+), 58 deletions(-)
+3.19 2.63 2.73 2/2274 305091
+13.99 5.89 3.85 27/2388 311200
+systemd-run exit=1

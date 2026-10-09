@@ -21,8 +21,12 @@ it('serializes native modes and continues after a failed sequence', async () => 
   let active = 0
   let maximum = 0
   const order: string[] = []
+  const prepared: string[] = []
+  vi.spyOn(NativeWeatherRenderer.prototype, 'prepareAssets').mockImplementation(async () => { prepared.push('weather') })
+  vi.spyOn(NativeModesRenderer.prototype, 'prepareAssets').mockImplementation(async (mode) => { prepared.push(mode) })
   const metrics = { renderMs: 1, encodeMs: 1, preparationMs: 1, loopMs: 1, loopRenderMs: 1, bytes: 4 }
   vi.spyOn(NativeWeatherRenderer.prototype, 'render').mockImplementation(async () => {
+    expect(prepared).toEqual(['weather', 'feels', 'wind'])
     order.push('weather')
     throw new Error('Fixture render failed')
   })
@@ -39,6 +43,7 @@ it('serializes native modes and continues after a failed sequence', async () => 
     const results = await Promise.allSettled(['weather', 'feels', 'wind'].map((mode) => renderer.render({ mode: mode as 'weather' | 'feels' | 'wind', hour: 'loop' }, manifest)))
     expect(results.map((result) => result.status)).toEqual(['rejected', 'fulfilled', 'fulfilled'])
     expect(order).toEqual(['weather', 'feels', 'wind'])
+    expect(prepared).toEqual(['weather', 'feels', 'wind'])
     expect(maximum).toBe(1)
   } finally {
     await renderer.close()

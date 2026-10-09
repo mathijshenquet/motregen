@@ -330,7 +330,7 @@ Running as unit: motregen-u71d-released-pages.service
 {"event":"native-still-frame","mode":"feels","epoch":1791582900000,"milliseconds":224}
 
 <--- Last few GCs --->
-mu[225374:0x568061fb9000]    49635 ms: Mark-Compact 107.1 (142.7) -> 106.9 (142.7) MB, pooled: 2 MB, 1.37 / 0.00 ms  (+ 36.9 ms in 368 steps since start of marking, biggest step 7.0 ms, walltime since start of marking 42 ms) (average mu = 0.252, current mu [225374:0x568061fb9000]    49704 ms: Mark-Compact 107.3 (142.7) -> 107.0 (142.7) MB, pooled: 2 MB, 4.48 / 0.00 ms  (+ 37.2 ms in 472 steps since start of marking, biggest step 2.1 ms, walltime since start of marking 46 ms) (average mu = 0.338, current mu 
+mu[225374:0x568061fb9000]    49635 ms: Mark-Compact 107.1 (142.7) -> 106.9 (142.7) MB, pooled: 2 MB, 1.37 / 0.00 ms  (+ 36.9 ms in 368 steps since start of marking, biggest step 7.0 ms, walltime since start of marking 42 ms) (average mu = 0.252, current mu [225374:0x568061fb9000]    49704 ms: Mark-Compact 107.3 (142.7) -> 107.0 (142.7) MB, pooled: 2 MB, 4.48 / 0.00 ms  (+ 37.2 ms in 472 steps since start of marking, biggest step 2.1 ms, walltime since start of marking 46 ms) (average mu = 0.338, current mu
 FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory
 ----- Native stack trace -----
 

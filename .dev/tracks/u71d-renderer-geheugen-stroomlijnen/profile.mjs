@@ -31,7 +31,7 @@ async function sample() {
     } catch (error) { if (error.code !== 'ENOENT' && error.code !== 'ESRCH') throw error }
   }
 }
-const command = runtime === 'built' ? ['node', '--expose-gc', ...(process.env.MOTREGEN_NODE_HEAP ? [`--max-old-space-size=${process.env.MOTREGEN_NODE_HEAP}`] : []), 'dist/bot/smoke.js', '--render-only'] : ['pnpm', 'render']
+const command = runtime === 'built' ? ['node', '--expose-gc', ...(process.env.MOTREGEN_NODE_HEAP ? [`--max-old-space-size=${process.env.MOTREGEN_NODE_HEAP}`, "--max-semi-space-size=4"] : []), 'dist/bot/smoke.js', '--render-only'] : ['pnpm', 'render']
 const child = spawn(process.env.MOTREGEN_TIME_PATH, [
   '-v', '-o', `../${track}/${label}-resource.txt`, 'taskset', '-c', '0,1',
   ...command, '--matrix',
@@ -49,7 +49,7 @@ while (!finished) {
 }
 const result = await completed
 const summary = {
-  ...result, runtime, nodeHeapMiB: process.env.MOTREGEN_NODE_HEAP ?? null, maxAnonBytes, maxFileBytes, elapsedSeconds: (performance.now() - started) / 1000,
+  ...result, runtime, nodeHeapMiB: process.env.MOTREGEN_NODE_HEAP ?? null, nodeSemiSpaceMiB: process.env.MOTREGEN_NODE_HEAP ? 4 : null, maxAnonBytes, maxFileBytes, elapsedSeconds: (performance.now() - started) / 1000,
   memoryPeakBytes: await readNumber('memory.peak'),
   memorySwapPeakBytes: await readNumber('memory.swap.peak'),
   memorySwapMax: (await readFile(join(directory, 'memory.swap.max'), 'utf8')).trim(),
