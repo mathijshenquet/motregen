@@ -28,10 +28,15 @@ export function createMapStart(): { style: typeof mapStartStyle; replace: (map: 
   const data = new Map<string, Promise<ArrayBuffer>>()
   const complete = new Map<string, (data: ArrayBuffer) => void>()
   for (const key of ['4/7/5', '4/8/5']) data.set(key, new Promise((resolve) => complete.set(key, resolve)))
+  // Beide tegels tegelijk vrijgeven: de westtegel (zee, 3,5 kB) is eerder gedecodeerd dan de oosttegel (NL,
+  // 20 kB) en tekende anders eerst alleen, met wit ernaast (PO 2026-10-09).
+  const decoded = new Map<string, ArrayBuffer>()
   worker.onmessage = (event: MessageEvent<{ key: string; data: ArrayBuffer }>) => {
-    complete.get(event.data.key)?.(event.data.data)
-    complete.delete(event.data.key)
-    if (!complete.size) worker.terminate()
+    decoded.set(event.data.key, event.data.data)
+    if (decoded.size < complete.size) return
+    for (const [key, resolve] of complete) resolve(decoded.get(key) ?? new ArrayBuffer(0))
+    complete.clear()
+    worker.terminate()
   }
   worker.onerror = () => {
     for (const resolve of complete.values()) resolve(new ArrayBuffer(0))
@@ -44,9 +49,12 @@ export function createMapStart(): { style: typeof mapStartStyle; replace: (map: 
       const compressed = await response.arrayBuffer()
       if (complete.has(key!)) worker.postMessage({ key, data: compressed }, [compressed])
     }).catch(() => {
-      complete.get(key!)?.(new ArrayBuffer(0))
-      complete.delete(key!)
-      if (!complete.size) worker.terminate()
+      // Een mislukte tegel telt als leeg mee, zodat de andere niet eeuwig wacht.
+      decoded.set(key!, new ArrayBuffer(0))
+      if (decoded.size < complete.size) return
+      for (const [tileKey, resolve] of complete) resolve(decoded.get(tileKey) ?? new ArrayBuffer(0))
+      complete.clear()
+      worker.terminate()
     })
   }
   addProtocol(protocol, async (request) => ({ data: (await data.get(request.url.slice(`${protocol}://`.length)) ?? new ArrayBuffer(0)).slice(0) }))
