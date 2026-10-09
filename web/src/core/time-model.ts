@@ -1,4 +1,4 @@
-import { chunkField, type Field, type Manifest, type Source, type TimelineFrame } from './contract'
+import { chunkField, type Field, type Manifest, type Source, type TimelineFrame } from './contract.js'
 
 const priority: Record<Source, number> = { harmonie: 0, uv: 0, seamless: 1, nowcast: 2, rtcor: 3 }
 const PLAYBACK_FRAME_DURATION_MS = 650

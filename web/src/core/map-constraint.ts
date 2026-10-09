@@ -1,5 +1,6 @@
-import type { MapView } from './location-memory'
-import { NETHERLANDS_FLANDERS_BOUNDS, paddedGeographicBounds, type GeographicBounds } from './map-frame'
+import { NETHERLANDS_FLANDERS_BOUNDS, paddedGeographicBounds, type GeographicBounds } from './map-frame.js'
+
+interface MapView { lng: number; lat: number; zoom: number }
 
 export interface Viewport {
   width: number
