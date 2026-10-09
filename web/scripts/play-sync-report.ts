@@ -7,6 +7,7 @@ interface Capture {
   profile: string
   warm: boolean
   fixture?: boolean
+  cpuProfile?: boolean
   screenshotOverhead: boolean
   manifestGenerated: string
   capturedAt: string
@@ -50,9 +51,13 @@ const compact = readdirSync(directory).filter((name) => name.endsWith('.json')).
   )
   milestones.firstMapImageMs = rounded(firstMapImage?.duration)
   milestones.firstRainMotionMs = rounded(firstRainMotion?.startTime)
+  const windInitialization = capture.entries.measures.find((measure) => measure.phase === 'wind-initialize')
+  milestones.windInitializeStartMs = rounded(windInitialization?.startTime)
+  milestones.windInitializeDurationMs = rounded(windInitialization?.duration)
   return {
     name: name.replace('.json', ''), origin: capture.origin, profile: capture.profile,
     warm: capture.warm, fixture: capture.fixture ?? capture.manifestGenerated.startsWith('2026-08-28'), screenshotOverhead: capture.screenshotOverhead,
+    cpuProfile: capture.cpuProfile ?? false,
     manifestGenerated: capture.manifestGenerated,
     capturedAt: capture.capturedAt, fixedClock: capture.fixedClock,
     startLoad: capture.loadSamples[0]!.load,
@@ -76,8 +81,8 @@ const pairs: object[] = []
 for (const transport of ['h1', 'h2']) for (const profile of ['desktop', 'po-android']) for (const cache of ['cold', 'warm']) {
   const paired = [1, 2, 3].flatMap((index) => {
     const prefix = `${transport}-${profile}-${cache}`
-    const reference = compact.find((run) => run.name === `${prefix}-reference-${index}`)
-    const candidate = compact.find((run) => run.name === `${prefix}-candidate-${index}`)
+    const reference = compact.find((run) => run.name === `${prefix}-reference-${index}` && !run.cpuProfile && !run.screenshotOverhead)
+    const candidate = compact.find((run) => run.name === `${prefix}-candidate-${index}` && !run.cpuProfile && !run.screenshotOverhead)
     return reference && candidate ? [{ index, reference, candidate }] : []
   })
   if (!paired.length) continue

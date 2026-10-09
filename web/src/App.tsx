@@ -238,6 +238,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let mapViewTimer: number | undefined
   let stopManifestRefresh: (() => void) | undefined
   let shownFrameRequest = 0
+  let uploadedRainFrame: { epoch: number; blend: ReturnType<typeof frameBlend>; frameEpoch: number; request: number } | undefined
+  let committedRainRequest = 0
   type RainPair = { leftFrame: TimelineFrame; rightFrame: TimelineFrame; left: Uint8Array; right: Uint8Array; motion?: MotionField }
   let rainPair: RainPair | undefined
   let pendingRainPair: { leftFrame: TimelineFrame; rightFrame: TimelineFrame; promise: Promise<RainPair> } | undefined
@@ -1475,9 +1477,17 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       for (const [chunk, indexes] of nearby) client.prefetch(chunk, indexes)
       for (const near of nearbyFrames) client.prefetchMotion(near.chunk, [near.frameIndex])
     }
-    const pair = await prepareRainPair(leftFrame, rightFrame)
+    let pair: RainPair
+    if (!mapReady() && (blend.mix === 0 || blend.mix === 1)) {
+      // Het stilstaande startbeeld heeft geen bewegingsveld nodig; de eerste afspeeltik wacht daar wel op.
+      const [left, right] = await Promise.all([load(leftFrame), load(rightFrame)])
+      pair = { leftFrame, rightFrame, left, right }
+    } else pair = await prepareRainPair(leftFrame, rightFrame)
     if (request !== shownFrameRequest || !layer || !map) return
     drawRainFrame(pair, blend, epoch, request)
+    if (!mapReady() && playing() && lower + 1 < frames.length) {
+      void prepareRainPair(frames[lower]!, frames[lower + 1]!).catch(() => undefined)
+    }
     // De eerste locatiereeks haalt dezelfde chunks direct in bulk op. Losse,
     // overlappende Range-prefetches maken Chromiums sparse HTTP-cache instabiel.
     if (initialPickStarted && pointLoadStage() !== 'initial' && pointLoadStage() !== 'direct' && playing() && !batchPrefetch) {
@@ -1509,18 +1519,22 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function drawRainFrame(pair: RainPair, blend: ReturnType<typeof frameBlend>, epoch: number, request: number, committed?: (current: boolean) => void, immediate = false): void {
     if (!layer || !map) return
     layer.setFrames(pair.left, pair.right, blend.mix, pair.motion, (pair.rightFrame.epoch - pair.leftFrame.epoch) / 60_000)
+    uploadedRainFrame = { epoch, blend, frameEpoch: pair.leftFrame.epoch, request }
     const afterRainDraw = (callback: () => void) => rainOverlay ? rainOverlay.once(callback) : map!.once('render', callback)
     afterRainDraw(() => {
-      // Een latere upload kan vóór dezelfde tekenbeurt binnenkomen; alleen de werkelijk getoonde snede telt.
       const current = request === shownFrameRequest
       committed?.(current)
-      if (!current) return
+      // Meer callbacks kunnen bij één tekening horen; lees de laatste upload, niet hun oudere aanvraag.
+      const drawn = uploadedRainFrame
+      if (!drawn || drawn.request === committedRainRequest) return
+      committedRainRequest = drawn.request
       if (perfPhasesEnabled()) {
+        const { epoch, blend, request } = drawn
         mapElement.dataset.rainEpoch = String(epoch)
         mapElement.dataset.rainCursor = String(blend.left + (blend.right - blend.left) * blend.mix)
         perf.recordPhase({ phase: 'rain-frame-committed', startTime: performance.now(), duration: 0, detail: { epoch, left: blend.left, right: blend.right, mix: blend.mix, cursor: cursor(), request, uploads: layer?.uploads, tilesLoaded: map?.areTilesLoaded(), mapStart: mapElement.dataset.mapStart ?? 'z4' } })
       }
-      const firstPlayback = perf.markRainFrameCommitted({ frameEpoch: pair.leftFrame.epoch, playing: playing() })
+      const firstPlayback = perf.markRainFrameCommitted({ frameEpoch: drawn.frameEpoch, playing: playing() })
       if (firstPlayback || !playing()) schedulePlaces()
       if (!stillMode && (firstPlayback || !playing())) scheduleWindInitialization()
     })
