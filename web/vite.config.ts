@@ -10,6 +10,7 @@ import { configDefaults } from 'vitest/config'
 import { basemapRangeCache } from './scripts/basemap-range-cache'
 import { manifestStartCache } from './scripts/manifest-start-cache'
 import { pageRoutes } from './scripts/page-routes'
+import { brandName } from './src/core/page-meta'
 import { startAssets } from './scripts/start-assets-plugin'
 import { startWebgl } from './scripts/start-webgl-plugin'
 
@@ -108,8 +109,8 @@ export default defineConfig({
     includeAssets: ['droplet.svg'],
     pwaAssets: { image: 'public/droplet.svg', preset: 'minimal-2023', overrideManifestIcons: true },
     manifest: {
-      name: 'motregen.nl',
-      short_name: 'motregen.nl',
+      name: brandName,
+      short_name: brandName,
       description: 'Regenradar en weersverwachting',
       lang: 'nl',
       start_url: '/',

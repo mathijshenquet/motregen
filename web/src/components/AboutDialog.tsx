@@ -1,5 +1,6 @@
 import { For, onMount } from 'solid-js'
 import { Dynamic } from 'solid-js/web'
+import { brandName } from '../core/page-meta'
 import { WIND_UNITS, type WindUnit } from '../core/weather'
 import { BUTTON_ICON, INLINE_ICON, Moon, Palette, Share2, Sun, SunMoon, X } from './icons'
 import { backdropHandlers } from './modal'
@@ -59,7 +60,7 @@ export default function AboutDialog(props: Props) {
         </section>
         <header>
           <img src="/droplet.svg" alt="" />
-          <h2 id="about-title">motregen.nl</h2>
+          <h2 id="about-title">{brandName}</h2>
         </header>
         <p class="about-lead">Regenradar en weersverwachting</p>
         <div class="about-share"><button type="button" onClick={() => void props.onShare?.()}><Share2 {...INLINE_ICON} />Deel deze stand</button><span aria-live="polite">{props.shareNotice}</span></div>

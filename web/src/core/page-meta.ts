@@ -4,12 +4,15 @@ export const modeTitles: Record<PresetMode, string> = {
   weather: 'Regenradar', air: 'Lucht', feels: 'Gevoelstemperatuur', wind: 'Wind',
 }
 
-export const defaultTitle = 'motregen.nl — Regenradar en weersverwachting'
+// Zichtbare productnaam (MIP-28); hostnamen, canonical en interne identifiers blijven motregen.
+export const brandName = 'weer ok?'
+
+export const defaultTitle = `${brandName} — Regenradar en weersverwachting`
 
 export function pageMetadata(pathname: string): { title: string; canonical: string; place?: string } {
   const { mode, place, placeSlug } = parsePresetPath(pathname)
   return {
-    title: mode ? `${modeTitles[mode]}${place ? ` ${place}` : ''} — motregen.nl` : defaultTitle,
+    title: mode ? `${modeTitles[mode]}${place ? ` ${place}` : ''} — ${brandName}` : defaultTitle,
     canonical: `https://motregen.nl${mode ? presetPath(mode, place, placeSlug) : '/'}`,
     place,
   }

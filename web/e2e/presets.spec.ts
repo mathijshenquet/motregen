@@ -37,7 +37,7 @@ test('a place path opens the selected mode before the first map image', async ({
   await expect(page.locator('.forecast-table')).toHaveAttribute('data-mode', 'wind')
   await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor Utrecht$/)
   await expect(page).toHaveURL(/\/wind\/utrecht$/)
-  await expect(page).toHaveTitle('Wind Utrecht — motregen.nl')
+  await expect(page).toHaveTitle('Wind Utrecht — weer ok?')
 })
 
 test('query place wins over the path and moves time to a fragment while keeping flags', async ({ page }) => {
@@ -86,15 +86,15 @@ test('browser back and forward apply the mode, place and time on the visited ent
     history.pushState(null, '', '/gevoel/groningen#t=2026-10-07T1200')
     window.dispatchEvent(new PopStateEvent('popstate'))
   })
-  await expect(page).toHaveTitle('Gevoelstemperatuur Groningen — motregen.nl')
+  await expect(page).toHaveTitle('Gevoelstemperatuur Groningen — weer ok?')
   await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor Groningen$/)
   await page.goBack()
-  await expect(page).toHaveTitle('Wind Utrecht — motregen.nl')
+  await expect(page).toHaveTitle('Wind Utrecht — weer ok?')
   await expect(page.locator('.forecast-table')).toHaveAttribute('data-mode', 'wind')
   await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor Utrecht$/)
   expect(new URL(page.url()).hash).toBe('')
   await page.goForward()
-  await expect(page).toHaveTitle('Gevoelstemperatuur Groningen — motregen.nl')
+  await expect(page).toHaveTitle('Gevoelstemperatuur Groningen — weer ok?')
   await expect(page.locator('.forecast-table')).toHaveAttribute('data-mode', 'temperature')
   await expect(page.locator('.scrubber')).toHaveAttribute('aria-label', /voor Groningen$/)
   await expect(page.locator('.scrubber')).not.toHaveAttribute('data-playing', '')
@@ -125,8 +125,8 @@ test('the preview build registers its service worker', async ({ page }, testInfo
     display: string
     icons: Array<{ sizes: string; purpose?: string }>
   }>))
-  expect(manifest.name).toBe('motregen.nl')
-  expect(manifest.short_name).toBe('motregen.nl')
+  expect(manifest.name).toBe('weer ok?')
+  expect(manifest.short_name).toBe('weer ok?')
   expect(manifest.display).toBe('standalone')
   expect(manifest.icons).toEqual(expect.arrayContaining([
     expect.objectContaining({ sizes: '192x192' }),

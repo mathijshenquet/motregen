@@ -24,7 +24,7 @@ await page.addStyleTag({ content: `
 await page.evaluate((svg) => {
   const card = document.createElement('div')
   card.className = 'og-card'
-  card.innerHTML = `${svg}<div><b>motregen.nl</b><span>Regenradar en verwachting voor Nederland en Vlaanderen</span></div>`
+  card.innerHTML = `${svg}<div><b>weer ok?</b><span>Regenradar en verwachting voor Nederland en Vlaanderen</span></div>`
   document.querySelector('.map-shell')!.append(card)
 }, droplet)
 // Kaart laten herschalen naar de volle breedte en de windsporen laten opbouwen.

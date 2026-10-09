@@ -146,7 +146,7 @@ test('wind column shows the gust and follows the unit setting across reloads', a
   await expect(reading.locator('.wind-gust')).toHaveText(/^\d+ Bft$/)
   await expect(reading).toHaveAttribute('aria-label', /, windstoten tot \d+ Bft$/)
 
-  await page.getByRole('button', { name: 'Over motregen en instellingen' }).click()
+  await page.getByRole('button', { name: 'Over weer ok? en instellingen' }).click()
   const units = page.getByRole('group', { name: 'Eenheid van de wind' })
   await units.getByRole('button', { name: 'km/u' }).click()
   await expect(units.getByRole('button', { name: 'km/u' })).toHaveAttribute('aria-pressed', 'true')

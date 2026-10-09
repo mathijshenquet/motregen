@@ -1,4 +1,5 @@
 import { createSignal, lazy, onCleanup, Show, type JSX } from 'solid-js'
+import { brandName } from '../core/page-meta'
 import type { WindUnit } from '../core/weather'
 
 const AboutDialog = lazy(() => import('./AboutDialog'))
@@ -51,7 +52,7 @@ export default function About(props: AboutProps) {
   }
 
   return <>
-    <button ref={trigger} type="button" class="map-brand round-action" aria-haspopup="dialog" aria-label="Over motregen en instellingen" title="Over motregen en instellingen" onClick={tapBrand}>
+    <button ref={trigger} type="button" class="map-brand round-action" aria-haspopup="dialog" aria-label={`Over ${brandName} en instellingen`} title={`Over ${brandName} en instellingen`} onClick={tapBrand}>
       <img src="/droplet.svg" alt="" />
     </button>
     <div class="source">{props.sourcePrefix}<span>Bron: KNMI · © OpenStreetMap</span></div>

@@ -49,8 +49,8 @@ async function openAt(page: Page, epoch: number): Promise<void> {
 async function useTheme(page: Page, theme: 'light' | 'dark'): Promise<void> {
   const html = page.locator('html')
   // U22: het thema staat in de modal achter de druppelknop (sectie Weergave).
-  await page.getByRole('button', { name: 'Over motregen en instellingen' }).press('Enter')
-  const dialog = page.getByRole('dialog', { name: 'motregen.nl' })
+  await page.getByRole('button', { name: 'Over weer ok? en instellingen' }).press('Enter')
+  const dialog = page.getByRole('dialog', { name: 'weer ok?' })
   await dialog.getByRole('group', { name: 'Weergave' }).getByRole('button', { name: theme === 'dark' ? 'Donker' : 'Licht' }).dispatchEvent('click')
   await expect(html).toHaveAttribute('data-theme', theme)
   await page.keyboard.press('Escape')

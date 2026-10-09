@@ -13,7 +13,7 @@ test('robots.txt allows the site and excludes /data/', async ({ request }, testI
 test('index.html carries title, description, canonical, social cards and noscript text', async ({ page, request }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'gedrag, geen performance: één profiel volstaat')
   await page.goto('/')
-  await expect(page).toHaveTitle('Regenradar De Bilt — motregen.nl')
+  await expect(page).toHaveTitle('Regenradar De Bilt — weer ok?')
   await expect(page.locator('html')).toHaveAttribute('lang', 'nl')
   const head = page.locator('head')
   await expect(head.locator('meta[name="description"]')).toHaveAttribute('content', /KNMI/)
@@ -28,7 +28,7 @@ test('index.html carries title, description, canonical, social cards and noscrip
 
   // De crawler zonder JS leest de noscript-alinea; de PNG achter og:image bestaat en is 1200×630.
   const html = await (await request.get('/')).text()
-  expect(html).toMatch(/<noscript>\s*<p>motregen\.nl toont[^<]*KNMI[^<]*<\/p>\s*<\/noscript>/)
+  expect(html).toMatch(/<noscript>\s*<p>weer ok\? toont[^<]*KNMI[^<]*<\/p>\s*<\/noscript>/)
   const image = await request.get('/og-image.png')
   expect(image.status()).toBe(200)
   const png = await image.body()
@@ -56,10 +56,10 @@ test('Caddy serves page titles, canonical and place text without JavaScript', as
     const response = await request.get(`${caddyOrigin}${path}`)
     expect(response.status()).toBe(200)
     const html = await response.text()
-    expect(html).toContain(`<title>${title} — motregen.nl</title>`)
-    expect(html).toContain(`content="${title} — motregen.nl"`)
+    expect(html).toContain(`<title>${title} — weer ok?</title>`)
+    expect(html).toContain(`content="${title} — weer ok?"`)
     expect(html).toContain(`href="https://motregen.nl${path}"`)
-    expect(html).toContain(`<p>Het weer voor ${place}. motregen.nl toont`)
+    expect(html).toContain(`<p>Het weer voor ${place}. weer ok? toont`)
     expect(html).not.toContain('{{')
   }
 })

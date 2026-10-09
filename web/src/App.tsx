@@ -68,7 +68,7 @@ import { copyText } from './core/clipboard'
 import { resolveLocation, suggestLocations } from './core/geocoder'
 import { applyPresetUrl, cursorForPresetEpoch, modeForActiveFocus, modeForFocus, parsePresets, sharePlace, shareUrl } from './core/presets'
 import { placeSlug } from './core/place-slug'
-import { updatePageMetadata } from './core/page-meta'
+import { brandName, updatePageMetadata } from './core/page-meta'
 import { applyTelegramColors, type TelegramWebApp } from './core/telegram'
 import { loadExpressive, storeExpressive } from './core/expressive'
 import { sameFields } from './core/stable'
@@ -190,6 +190,8 @@ const PLAY_RULE_STORAGE_KEY = 'motregen-dev-speelregel'
 // Rig-schakelaar (?dev): 'laat' vraagt het eerste regenframe weer pas na de kaart-opzet.
 const FIRST_RAIN_STORAGE_KEY = 'motregen-dev-eerste-regen'
 const VIEWPORT_DIAGNOSE_STORAGE_KEY = 'motregen-dev-viewport'
+// Productiedomeinen (nix `services.motregen.domains`, met www) plus loopback voor e2e/PWA-checks.
+const SERVICE_WORKER_HOSTNAMES = ['motregen.nl', 'www.motregen.nl', 'weerok.nl', 'www.weerok.nl', 'localhost', '127.0.0.1']
 // Zoveel mag het tabelpaneel hooguit worden verlengd als de pagina eindigt vóór het paneel bovenaan staat.
 const TABLE_PANEL_SHORTFALL_MAX_PX = 200
 const TABLE_VIEW_RECHECK_MS = 700
@@ -846,7 +848,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (!('serviceWorker' in navigator)) return
     // SW alleen op prod en op loopback (e2e/PWA-checks): op dev-previews gaf een hangende SW verouderde builds (U42 live).
     const hostname = window.location.hostname
-    const productionPwa = hostname === 'motregen.nl' || hostname === 'www.motregen.nl' || hostname === 'localhost' || hostname === '127.0.0.1'
+    const productionPwa = SERVICE_WORKER_HOSTNAMES.includes(hostname)
     if (!productionPwa) {
       void navigator.serviceWorker.getRegistrations().then(async (registrations) => {
         await Promise.all(registrations.map((registration) => registration.unregister()))
@@ -3026,7 +3028,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const touch = matchMedia('(pointer: coarse)').matches
     if (touch && typeof navigator.share === 'function') {
       try {
-        await navigator.share({ title: 'motregen.nl', text: 'Regenradar en weersverwachting', url })
+        await navigator.share({ title: brandName, text: 'Regenradar en weersverwachting', url })
         usage.mark('share')
         showShareNotice('Link gedeeld')
         return
@@ -3473,7 +3475,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         <div class="map-splash-veil" />
         <div class="map-splash-mark">
           <img src="/droplet.svg" alt="" />
-          <strong>motregen.nl</strong>
+          <strong>{brandName}</strong>
         </div>
       </div>
       <Show when={stillMode}>

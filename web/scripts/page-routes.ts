@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { Plugin, ResolvedConfig } from 'vite'
-import { defaultTitle, modeTitles, pageMetadata } from '../src/core/page-meta'
+import { brandName, defaultTitle, modeTitles, pageMetadata } from '../src/core/page-meta'
 import { slugNames } from '../src/core/place-slug'
 import { places } from '../src/core/places'
 import { parsePresetPath, pathModes, presetPath } from '../src/core/presets'
@@ -13,7 +13,7 @@ function escapeHtml(value: string): string {
 function replaceMetadata(html: string, title: string, canonical: string, place: string): string {
   return html.replaceAll(defaultTitle, title)
     .replaceAll('https://motregen.nl/"', `${canonical}"`)
-    .replace('<p>motregen.nl toont', `<p>${place}motregen.nl toont`)
+    .replace(`<p>${brandName} toont`, `<p>${place}${brandName} toont`)
 }
 
 export function renderPageHtml(html: string, pathname: string): string {
@@ -34,7 +34,7 @@ function caddyPageHtml(html: string): string {
 {{ $mode := index $parts 0 | lower }}
 {{ $slug := "" }}{{ $place := "" }}
 {{ if gt (len $parts) 1 }}{{ $slug = index $parts 1 | lower }}{{ $place = default ($slug | replace "-" " " | title) (get (${dictionary({ ...slugNames })}) $slug) }}{{ end }}
-{{ $title := printf "%s%s — motregen.nl" (get (${dictionary(titles)}) $mode) (ternary (printf " %s" $place) "" (ne $place "")) }}
+{{ $title := printf "%s%s — ${brandName}" (get (${dictionary(titles)}) $mode) (ternary (printf " %s" $place) "" (ne $place "")) }}
 {{ $canonical := printf "https://motregen.nl/%s%s" $mode (ternary (printf "/%s" $slug) "" (ne $slug "")) }}
 `
   return preamble + replaceMetadata(html, '{{ $title | html }}', '{{ $canonical | html }}', '{{ if $place }}Het weer voor {{ $place | html }}. {{ end }}')

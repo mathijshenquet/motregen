@@ -159,7 +159,7 @@
       ("/weer/nieuw-vennep", "Regenradar Nieuw Vennep", "Nieuw Vennep"),
     ]:
       html = machine.succeed(f"curl --silent --show-error --fail http://localhost{path}")
-      assert f"<title>{title} — motregen.nl</title>" in html, html
+      assert f"<title>{title} — weer ok?</title>" in html, html
       assert f'href="https://motregen.nl{path}"' in html, html
       assert f"Het weer voor {place}." in html, html
       assert "{{" not in html, html
@@ -224,6 +224,17 @@
       "curl --silent --output /dev/null --write-out '%{http_code}' http://localhost/data/cams.json"
     )
     assert sidecar_status == "404", sidecar_status
+
+    for domain in ["motregen.nl", "weerok.nl"]:
+      redirect = machine.succeed(
+        f"curl --silent --show-error --dump-header - --output /dev/null --header 'Host: www.{domain}' 'http://localhost/weer/utrecht?x=1'"
+      ).lower()
+      assert " 308 " in redirect.splitlines()[0], redirect
+      assert f"location: http://{domain}/weer/utrecht?x=1" in redirect, redirect
+      apex_status = machine.succeed(
+        f"curl --silent --output /dev/null --write-out '%{{http_code}}' --header 'Host: {domain}' http://localhost/"
+      )
+      assert apex_status == "200", apex_status
 
     robots = machine.succeed("curl --silent --show-error --fail http://localhost/robots.txt")
     assert "Disallow: /data/" in robots, robots
