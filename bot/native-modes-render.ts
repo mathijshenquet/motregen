@@ -1,3 +1,5 @@
+import { NativePressureMarks } from './native-pressure-marks.js'
+import { frameBlend } from '../web/src/core/time-model.js'
 import { nativeTextAtlas } from './native-text-atlas.js'
 import { NativeText } from './native-text.js'
 import { writeFile } from 'node:fs/promises'
@@ -38,6 +40,7 @@ export class NativeModesRenderer {
     const firstSlice = await temperature.slice(plan.epochs[0]!)
     const raster = new NativeFieldRaster(firstSlice.grid)
     const rainCompositors = new Map<string, RainCompositor>()
+    try {
     if (wind) {
       await rain.prefetch(plan.epochs)
       for (const theme of new Set(plan.epochs.map(rainTheme))) {
@@ -46,6 +49,7 @@ export class NativeModesRenderer {
         rainCompositors.set(theme, compositor)
       }
     }
+    const pressureMarks = wind ? await NativePressureMarks.prepare(this.directory, this.context) : undefined
     const labels = new NativeIsolineLabels(new NativeText(await nativeTextAtlas(this.origin, this.directory, this.context)))
     await raster?.prepare()
     const mutedMaps = new Map<string, Buffer>()
@@ -61,7 +65,6 @@ export class NativeModesRenderer {
     const stillIndexes = new Set(plan.stillFrames.map((frame) => frame.index))
     const header = Buffer.from(`P6\n${FRAME_PIXELS.width} ${FRAME_PIXELS.height}\n255\n`)
     let renderMs = 0
-    try {
       const render = async (index: number): Promise<Buffer> => {
         const frameStarted = performance.now(), epoch = plan.epochs[index]!
         const theme = rainTheme(epoch)
@@ -75,7 +78,9 @@ export class NativeModesRenderer {
           const slice = index === 0 ? firstSlice : await temperature.slice(epoch)
           rgb = await raster.compose(rgb, slice, theme === 'dark')
           rgb = await labels.draw(rgb, slice, theme)
-          rgb = await wind!.draw(rgb, epoch, 1000 + index * 1000 / plan.fps, theme)
+          rgb = await wind!.draw(rgb, epoch, 1000 + index * 1000 / plan.fps, theme, plate.water)
+          const pressureBlend = frameBlend(temperature.data.timeline, epoch)
+          await pressureMarks!.draw(rgb, slice.grid, await temperature.field(pressureBlend.left), await temperature.field(pressureBlend.right), pressureBlend.mix, theme, slice.opacity)
           rgb = await rainCompositors.get(theme)!.composeFast(rgb, await rain.frame(epoch), theme === 'dark')
         }
         rgb = await overlay.draw(rgb, epoch, Date.parse(manifest.now))

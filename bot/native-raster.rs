@@ -41,6 +41,105 @@ fn sample(raster: &[u8], width: usize, height: usize, column: f64, row: f64) -> 
     northern + (southern - northern) * vertical
 }
 
+struct Sampling {
+    kind: usize,
+    taps: usize,
+    cell_width: f64,
+    sigma: f64,
+}
+
+impl Sampling {
+    fn read(input: &mut impl Read) -> io::Result<Self> {
+        Ok(Self {
+            kind: integer(input)?,
+            taps: integer(input)?,
+            cell_width: decimal(input)?,
+            sigma: decimal(input)?,
+        })
+    }
+
+    fn weights(&self, length: usize) -> Vec<Vec<(usize, f64)>> {
+        (0..length)
+            .map(|pixel| {
+                let position = (pixel as f64 + 0.5) / self.cell_width - 0.5;
+                let even = self.taps % 2 == 0;
+                let anchor = if even {
+                    position.floor()
+                } else {
+                    (position + 0.5).floor()
+                };
+                let first = if even {
+                    1.0 - self.taps as f64 / 2.0
+                } else {
+                    -(self.taps as f64 - 1.0) / 2.0
+                };
+                (0..self.taps)
+                    .map(|tap| {
+                        let node = anchor + first + tap as f64;
+                        let distance = (node - position).abs();
+                        let weight = match self.kind {
+                            1 => (1.0 - distance).max(0.0),
+                            2 if distance < 1.0 => {
+                                1.5 * distance.powi(3) - 2.5 * distance.powi(2) + 1.0
+                            }
+                            2 if distance < 2.0 => {
+                                -0.5 * distance.powi(3) + 2.5 * distance.powi(2) - 4.0 * distance
+                                    + 2.0
+                            }
+                            2 => 0.0,
+                            _ => ((-distance.powi(2) / (2.0 * self.sigma.powi(2))).exp()
+                                - (-(self.taps as f64 * 0.5).powi(2) / (2.0 * self.sigma.powi(2)))
+                                    .exp())
+                            .max(0.0),
+                        };
+                        let index = ((node + 0.5) * self.cell_width)
+                            .floor()
+                            .clamp(0.0, (length - 1) as f64)
+                            as usize;
+                        (index, weight)
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    fn filter(&self, source: Vec<u8>, width: usize, height: usize) -> Vec<u8> {
+        if self.kind == 0 {
+            return source;
+        }
+        let horizontal = self.weights(width);
+        let vertical = self.weights(height);
+        let pass = |source: &[u8], weights: &[Vec<(usize, f64)>], along_rows: bool| {
+            let mut result = vec![255; source.len()];
+            for row in 0..height {
+                for column in 0..width {
+                    let mut value = 0.0;
+                    let mut validity = 0.0;
+                    let mut total = 0.0;
+                    for &(index, weight) in &weights[if along_rows { column } else { row }] {
+                        let sample = source[if along_rows {
+                            row * width + index
+                        } else {
+                            index * width + column
+                        }];
+                        total += weight;
+                        if sample != 255 {
+                            value += sample as f64 * weight;
+                            validity += weight;
+                        }
+                    }
+                    if validity > 0.0 && validity / total >= 0.5 {
+                        result[row * width + column] =
+                            (value / validity).round().clamp(0.0, 254.0) as u8;
+                    }
+                }
+            }
+            result
+        };
+        pass(&pass(&source, &horizontal, true), &vertical, false)
+    }
+}
+
 struct Motion<'a> {
     vectors: &'a [u8],
     width: usize,
@@ -162,8 +261,11 @@ fn compose(
             let coverage = colors[color + 3] as f64;
             let offset = (row * width + column) * 3;
             for channel in 0..3 {
-                rgb[offset + channel] = ((if multiply { rgb[offset + channel] as f64 * colors[color + channel] as f64 / 255.0 } else { colors[color + channel] as f64 })
-                    + rgb[offset + channel] as f64 * coverage)
+                rgb[offset + channel] = ((if multiply {
+                    rgb[offset + channel] as f64 * colors[color + channel] as f64 / 255.0
+                } else {
+                    colors[color + channel] as f64
+                }) + rgb[offset + channel] as f64 * coverage)
                     .round()
                     .min(255.0) as u8;
             }
@@ -178,8 +280,8 @@ fn main() -> io::Result<()> {
     let height = integer(&mut input)?;
     let grid_width = integer(&mut input)?;
     let grid_height = integer(&mut input)?;
-    let cap = decimal(&mut input)?;
-    let fade = decimal(&mut input)?;
+    let _default_cap = decimal(&mut input)?;
+    let _default_fade = decimal(&mut input)?;
     let multiply = integer(&mut input)? != 0;
     if width == 0 || height == 0 || grid_width == 0 || grid_height == 0 {
         return Err(io::Error::other("empty grid"));
@@ -210,14 +312,18 @@ fn main() -> io::Result<()> {
         let left_id = integer(&mut input)?;
         let right_id = integer(&mut input)?;
         let flags = integer(&mut input)?;
+        let cap = decimal(&mut input)?;
+        let fade = decimal(&mut input)?;
+        let left_sampling = Sampling::read(&mut input)?;
+        let right_sampling = Sampling::read(&mut input)?;
         input.read_exact(&mut rgb)?;
-        for (id, flag) in [(left_id, 1), (right_id, 2)] {
+        for (id, flag, sampling) in [(left_id, 1, &left_sampling), (right_id, 2, &right_sampling)] {
             if flags & flag == 0 {
                 continue;
             }
             let mut raster = vec![0; grid_width * grid_height];
             input.read_exact(&mut raster)?;
-            frames.insert(id, raster);
+            frames.insert(id, sampling.filter(raster, grid_width, grid_height));
         }
         let left = frames
             .get(&left_id)
@@ -269,7 +375,7 @@ fn main() -> io::Result<()> {
                 &colors,
                 mix,
                 motion.as_ref(),
-                    multiply,
+                multiply,
             );
         });
         output.write_all(&rgb)?;

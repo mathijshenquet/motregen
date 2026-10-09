@@ -1647,6 +1647,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     })
   }
 
+  let stillLabelsPrepared = false
   async function prepareStill(): Promise<void> {
     try {
       if (initialPresets.mode === 'wind') await attachWindLayer()
@@ -1665,6 +1666,15 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       while (isolineSets.some((set) => set.active() && set.coverage() > 0 && !set.layer?.readyAtTime(set.time))) {
         if (performance.now() - traceStarted > 15_000) throw new Error('Isolijnsnede is niet klaar')
         await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      }
+      if (!stillLabelsPrepared) {
+        for (const set of isolineSets) {
+          if (!set.active() || !set.labels) continue
+          set.labels.clear()
+          set.key = ''
+          await showIsolines(set)
+        }
+        stillLabelsPrepared = true
       }
       if (windFocus() > 0 && !windLayer) throw new Error('Wind is niet geladen')
       if (hasTemperature() && !temperatureInput) throw new Error('Temperatuurlabels zijn niet geladen')
@@ -1697,6 +1707,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
     await showFrame()
     await prepareStill()
+    windLayer?.setTheme(stillTheme)
     if (mapElement.dataset.stillError) throw new Error(mapElement.dataset.stillError)
     if (windLayer && windOverlay) {
       while (stillSimulationMs < simulationMs) {

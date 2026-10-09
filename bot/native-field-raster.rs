@@ -139,7 +139,24 @@ fn main() -> io::Result<()> {
                             as usize;
                         let index = (source_row * grid_width + source_column) * 2;
                         if (rings[index] - level).abs() < 0.01 {
-                            fade = rings[index + 1];
+                            let horizontal_weight =
+                                (fill_columns[column] - fill_columns[column].floor()) as f32;
+                            let vertical_weight = (fill_rows[row] - fill_rows[row].floor()) as f32;
+                            let west = (fill_columns[column].floor() as isize)
+                                .clamp(0, grid_width as isize - 1)
+                                as usize;
+                            let north = (fill_rows[row].floor() as isize)
+                                .clamp(0, grid_height as isize - 1)
+                                as usize;
+                            let east = (west + 1).min(grid_width - 1);
+                            let south = (north + 1).min(grid_height - 1);
+                            let northern = rings[(north * grid_width + west) * 2 + 1]
+                                * (1.0 - horizontal_weight)
+                                + rings[(north * grid_width + east) * 2 + 1] * horizontal_weight;
+                            let southern = rings[(south * grid_width + west) * 2 + 1]
+                                * (1.0 - horizontal_weight)
+                                + rings[(south * grid_width + east) * 2 + 1] * horizontal_weight;
+                            fade = northern * (1.0 - vertical_weight) + southern * vertical_weight;
                         }
                     }
                     let upper_weight = if fade >= 1.0 {

@@ -13,8 +13,10 @@ interface Anchor { column: number; row: number; level: number }
 export class NativeIsolineLabels {
   private anchors: Anchor[] = []
   private labelKey?: string
+  private step?: number
   constructor(private readonly text = new NativeText()) {}
   async draw(rgb: Buffer, slice: TemperatureSlice, theme: NativeTheme): Promise<Buffer> {
+    if (slice.step !== this.step) { this.anchors = []; this.step = slice.step }
     const projection = nativeProjection(slice.grid)
     const fieldSlice = { width: slice.grid.width, height: slice.grid.height, fields: [slice.field], weights: [1] }
     const live: Anchor[] = []
@@ -32,8 +34,8 @@ export class NativeIsolineLabels {
         const points = feature.geometry.coordinates.map(([lng, lat]): [number, number] => [(lng * Math.PI / 180 * radius - slice.grid.x0) / slice.grid.dx - 0.5, (Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) * radius - slice.grid.y0) / slice.grid.dy - 0.5])
         for (const [column, row] of lineLabelCandidates(points, spacing)) {
           if (live.length >= MAX_LABEL_ANCHORS) break
-          const [x, y] = projection.point(column, row)
-          if (x < 0 || y < 0 || x > FRAME_PIXELS.width || y > FRAME_PIXELS.height || !separated(column, row)) continue
+          const [screenX, screenY] = projection.point(column, row)
+          if (screenX < 0 || screenY < 0 || screenX > FRAME_PIXELS.width || screenY > FRAME_PIXELS.height || !separated(column, row)) continue
           const projected = projectToLevel(fieldSlice, column, row, feature.properties.level, slice.step)
           if (!projected || ringFadeAt(rings, feature.properties.level, projected.column, projected.row) <= 0) continue
           live.push({ column: projected.column, row: projected.row, level: feature.properties.level })
@@ -44,12 +46,12 @@ export class NativeIsolineLabels {
     for (const anchor of live) {
       const projected = projectToLevel(fieldSlice, anchor.column, anchor.row, anchor.level, slice.step)
       if (!projected) continue
-      const [x, y] = projection.point(anchor.column, anchor.row)
+      const [screenX, screenY] = projection.point(anchor.column, anchor.row)
       let angle = Math.atan2(projected.sample.gy, projected.sample.gx) * 180 / Math.PI + 90
       if (angle > 90) angle -= 180
       if (angle <= -90) angle += 180
       const label = slice.kind === 'pressure' ? String(anchor.level) : `${anchor.level}°`
-      await this.text.draw(rgb, label, x, y, angle, isolineColor(theme, slice.kind), theme, slice.opacity * ringFadeAt(rings, anchor.level, anchor.column, anchor.row))
+      await this.text.draw(rgb, label, screenX, screenY, angle, isolineColor(theme, slice.kind), theme, slice.opacity * ringFadeAt(rings, anchor.level, anchor.column, anchor.row))
     }
     return rgb
   }

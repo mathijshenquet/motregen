@@ -26,16 +26,16 @@ export class NativeText {
     return pending
   }
 
-  async draw(rgb: Buffer, text: string, x: number, y: number, angle: number, color: string, theme: NativeTheme, opacity = 1): Promise<void> {
+  async draw(rgb: Buffer, text: string, screenX: number, screenY: number, angle: number, color: string, theme: NativeTheme, opacity = 1, scale = 1): Promise<void> {
     const glyph = await this.glyph(text, color, theme)
     const cosine = Math.cos(angle * Math.PI / 180), sine = Math.sin(angle * Math.PI / 180)
-    const horizontal = (Math.abs(cosine) * glyph.width + Math.abs(sine) * glyph.height) / 2
-    const vertical = (Math.abs(sine) * glyph.width + Math.abs(cosine) * glyph.height) / 2
-    const left = Math.max(0, Math.floor(x - horizontal)), right = Math.min(FRAME_PIXELS.width, Math.ceil(x + horizontal))
-    const top = Math.max(0, Math.floor(y - vertical)), bottom = Math.min(FRAME_PIXELS.height, Math.ceil(y + vertical))
+    const horizontal = (Math.abs(cosine) * glyph.width + Math.abs(sine) * glyph.height) / 2 * scale
+    const vertical = (Math.abs(sine) * glyph.width + Math.abs(cosine) * glyph.height) / 2 * scale
+    const left = Math.max(0, Math.floor(screenX - horizontal)), right = Math.min(FRAME_PIXELS.width, Math.ceil(screenX + horizontal))
+    const top = Math.max(0, Math.floor(screenY - vertical)), bottom = Math.min(FRAME_PIXELS.height, Math.ceil(screenY + vertical))
     for (let row = top; row < bottom; row++) for (let column = left; column < right; column++) {
-      const sourceX = (column + 0.5 - x) * cosine + (row + 0.5 - y) * sine + glyph.width / 2 - 0.5
-      const sourceY = -(column + 0.5 - x) * sine + (row + 0.5 - y) * cosine + glyph.height / 2 - 0.5
+      const sourceX = ((column + 0.5 - screenX) * cosine + (row + 0.5 - screenY) * sine) / scale + glyph.width / 2 - 0.5
+      const sourceY = (-(column + 0.5 - screenX) * sine + (row + 0.5 - screenY) * cosine) / scale + glyph.height / 2 - 0.5
       const west = Math.floor(sourceX), north = Math.floor(sourceY)
       if (west < 0 || north < 0 || west + 1 >= glyph.width || north + 1 >= glyph.height) continue
       const horizontalWeight = sourceX - west, verticalWeight = sourceY - north

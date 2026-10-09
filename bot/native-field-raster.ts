@@ -79,6 +79,7 @@ export class NativeFieldRaster {
     if (this.output) throw new Error('Veldworker verwerkt al een frame')
     const rgb = Buffer.alloc(base.length)
     const received = new Promise<void>((finish, fail) => { this.output = { bytes: rgb, offset: 0, finish, fail } })
+    void received.catch(() => undefined)
     const header = Buffer.alloc(48)
     header.writeFloatLE(slice.opacity, 0); header.writeUInt32LE(night ? 1 : 0, 4)
     header.writeUInt32LE(slice.segments.length / 6, 8); header.writeUInt32LE(slice.rings ? 1 : 0, 12)

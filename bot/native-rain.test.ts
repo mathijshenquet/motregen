@@ -73,3 +73,18 @@ it('matches the scalar compositor with native bilinear projection, including no-
   }
   await compositor.close()
 })
+
+it('prefilters a source-blur impulse in two quantized R8 passes and reuses the filtered frame', async () => {
+  const compositor = new RainCompositor(grid, { width: 64, height: 64 })
+  try {
+    const base = new Uint8Array(64 * 64 * 3).fill(100)
+    const impulse = new Uint8Array(16)
+    impulse[5] = 200
+    const input = { ...frame(impulse), leftSampling: { kernel: 'source-blur' as const, sourceCellWidth: 1, blurSigma: 1 } }
+    const filtered = Uint8Array.from([12, 19, 12, 3, 19, 32, 19, 4, 12, 19, 12, 3, 3, 4, 3, 1])
+    const expected = compositor.compose(base, frame(filtered), false)
+    const actual = await compositor.composeFast(base, input, false)
+    expect([...actual].every((value, index) => Math.abs(value - expected[index]!) <= 1)).toBe(true)
+    expect(await compositor.composeFast(base, input, false)).toEqual(actual)
+  } finally { await compositor.close() }
+})

@@ -1,3 +1,5 @@
+import { kernelTaps, type RainSampling } from '../web/src/core/rain-sampling.js'
+import { rainWarpLimit } from '../web/src/core/rain-smoothing.js'
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { once } from 'node:events'
@@ -98,12 +100,24 @@ export class NativeRaster {
     }
     const leftId = identify(left), rightId = identify(right)
     const sendLeft = !this.resident.has(leftId), sendRight = rightId !== leftId && !this.resident.has(rightId)
-    const header = Buffer.alloc(36)
+    const header = Buffer.alloc(100)
     header.writeDoubleLE(rightWeight / Math.max(0.0001, leftWeight + rightWeight), 0)
     header.writeDoubleLE(frame.intervalMinutes, 8)
     header.writeUInt32LE(frame.motion?.width ?? 0, 16); header.writeUInt32LE(frame.motion?.height ?? 0, 20)
     header.writeUInt32LE(leftId, 24); header.writeUInt32LE(rightId, 28)
     header.writeUInt32LE(Number(sendLeft) | (Number(sendRight) << 1), 32)
+    const warp = rainWarpLimit(frame.intervalMinutes)
+    header.writeDoubleLE(warp.capCells, 36); header.writeDoubleLE(warp.fadeEndCells, 44)
+    const describe = (sampling: RainSampling | undefined, offset: number) => {
+      const kernel = sampling?.kernel ?? 'bilinear'
+      const kind = kernel === 'source-linear' ? 1 : kernel === 'source-cubic' ? 2 : kernel === 'source-blur' ? 3 : 0
+      header.writeUInt32LE(kind, offset)
+      header.writeUInt32LE(kind ? kernelTaps(kernel as Exclude<typeof kernel, 'nearest' | 'bilinear'>, sampling?.blurSigma ?? 0) : 0, offset + 4)
+      header.writeDoubleLE(sampling?.sourceCellWidth ?? 1, offset + 8)
+      header.writeDoubleLE(sampling?.blurSigma ?? 0, offset + 16)
+    }
+    describe(frame.mix === 1 ? frame.rightSampling : frame.leftSampling, 52)
+    describe(frame.mix === 0 ? frame.leftSampling : frame.rightSampling, 76)
     await this.write(header); await this.write(base)
     if (sendLeft) await this.write(left)
     if (sendRight) await this.write(right)

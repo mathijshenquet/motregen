@@ -20,7 +20,7 @@ export class NativeTemperatureData {
   private readonly labelLines = new Map<string, IsolineFeatureCollection>()
   constructor(origin: string, private readonly manifest: StillManifest, private readonly kind: 'temperature' | 'pressure' = 'temperature') { this.data = new NativeRainData(origin, manifest, kind === 'pressure' ? 'pressure_hpa' : 'feels_like_c') }
 
-  private field(index: number): Promise<PreparedField> {
+  field(index: number): Promise<PreparedField> {
     let pending = this.prepared.get(index)
     if (!pending) {
       pending = (async () => {
@@ -67,7 +67,8 @@ export class NativeTemperatureData {
     const grid = (await this.data.frame(this.data.timeline[blend.left]!.epoch)).grid
     const projection = nativeProjection(grid)
     if (this.kind === 'pressure') {
-      const range = fieldRangeInView(field.values, field.valid, grid, NETHERLANDS_FLANDERS_BOUNDS)
+      const nearest = await this.field(Math.round(blend.left + blend.mix))
+      const range = fieldRangeInView(nearest.values, nearest.valid, grid, projection.bounds)
       if (range) this.step = adaptiveIsobarStep(range[0], range[1], this.step === 1 ? undefined : this.step)
     }
     const contours = traceContours(field, grid, { step: this.step, toleranceCells: ISOLINE_TOLERANCE_PX * projection.cellsPerPixel })

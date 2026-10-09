@@ -2,9 +2,9 @@ import { drawStroke } from './native-strokes.js'
 import { NativeRainData, type RainFrame } from './native-rain.js'
 import { nativeProjection } from './native-projection.js'
 import { FRAME, FRAME_PIXELS } from './config.js'
-import { WIND_PARAMETERS, WIND_FOCUS_INTENSITY, windColor, windScreenSpeed, weakWindTempo, speedDamping, particleCountForViewport } from '../web/src/core/wind-presentation.js'
+import { WIND_PARAMETERS, WIND_FOCUS_INTENSITY, windColor, windScreenSpeed, weakWindTempo, speedDamping, particleCountForViewport, headAlpha } from '../web/src/core/wind-presentation.js'
 import type { StillManifest } from './stills.js'
-import type { NativeTheme } from './native-map.js'
+import type { NativeTheme, WaterMask } from './native-map.js'
 
 export function sampleWind(frame: RainFrame, column: number, row: number): number | undefined {
   if (column < 0 || row < 0 || column > frame.grid.width - 1 || row > frame.grid.height - 1) return undefined
@@ -25,29 +25,29 @@ export function sampleWind(frame: RainFrame, column: number, row: number): numbe
 }
 
 export class NativeWindData {
-  readonly u: NativeRainData
-  readonly v: NativeRainData
+  readonly eastwardData: NativeRainData
+  readonly northwardData: NativeRainData
   constructor(origin: string, manifest: StillManifest) {
-    this.u = new NativeRainData(origin, manifest, 'wind_u_ms')
-    this.v = new NativeRainData(origin, manifest, 'wind_v_ms')
-    if (this.u.timeline.length !== this.v.timeline.length || this.u.timeline.some((entry, index) => entry.epoch !== this.v.timeline[index]!.epoch)) throw new Error('Windcomponenten hebben verschillende tijdlijnen')
+    this.eastwardData = new NativeRainData(origin, manifest, 'wind_u_ms')
+    this.northwardData = new NativeRainData(origin, manifest, 'wind_v_ms')
+    if (this.eastwardData.timeline.length !== this.northwardData.timeline.length || this.eastwardData.timeline.some((entry, index) => entry.epoch !== this.northwardData.timeline[index]!.epoch)) throw new Error('Windcomponenten hebben verschillende tijdlijnen')
   }
-  async prepare(epochs: readonly number[]): Promise<void> { await Promise.all([this.u.prefetch(epochs), this.v.prefetch(epochs)]) }
-  async draw(base: Buffer, epoch: number, simulationMs: number, theme: NativeTheme): Promise<Buffer> {
-    const [u, v] = await Promise.all([this.u.frame(epoch), this.v.frame(epoch)])
-    if (JSON.stringify(u.grid) !== JSON.stringify(v.grid)) throw new Error('Windcomponenten hebben verschillende roosters')
-    const projection = nativeProjection(u.grid)
+  async prepare(epochs: readonly number[]): Promise<void> { await Promise.all([this.eastwardData.prefetch(epochs), this.northwardData.prefetch(epochs)]) }
+  async draw(base: Buffer, epoch: number, simulationMs: number, theme: NativeTheme, water: WaterMask): Promise<Buffer> {
+    const [eastwardData, northwardData] = await Promise.all([this.eastwardData.frame(epoch), this.northwardData.frame(epoch)])
+    if (JSON.stringify(eastwardData.grid) !== JSON.stringify(northwardData.grid)) throw new Error('Windcomponenten hebben verschillende roosters')
+    const projection = nativeProjection(eastwardData.grid)
     const count = particleCountForViewport(FRAME.width, FRAME.height)
     const columns = Math.ceil(Math.sqrt(count * FRAME.width / FRAME.height)), rows = Math.ceil(count / columns)
     let randomState = 0x71b
     const random = () => { randomState = (Math.imul(1664525, randomState) + 1013904223) >>> 0; return randomState / 4294967296 }
     const rgb = Buffer.from(base)
     for (let particle = 0; particle < count; particle++) {
-      const x = ((particle % columns) + 0.5 + (random() - 0.5) * WIND_PARAMETERS.spawnJitter) / columns * FRAME_PIXELS.width
-      const y = (Math.floor(particle / columns) + 0.5 + (random() - 0.5) * WIND_PARAMETERS.spawnJitter) / rows * FRAME_PIXELS.height
-      const column = projection.columns[0]! + (projection.columns[1]! - projection.columns[0]!) * (x - 0.5)
-      const row = projection.rows[0]! + (projection.rows[1]! - projection.rows[0]!) * (y - 0.5)
-      const east = sampleWind(u, column, row), north = sampleWind(v, column, row)
+      const screenX = ((particle % columns) + 0.5 + (random() - 0.5) * WIND_PARAMETERS.spawnJitter) / columns * FRAME_PIXELS.width
+      const screenY = (Math.floor(particle / columns) + 0.5 + (random() - 0.5) * WIND_PARAMETERS.spawnJitter) / rows * FRAME_PIXELS.height
+      const column = projection.columns[0]! + (projection.columns[1]! - projection.columns[0]!) * (screenX - 0.5)
+      const row = projection.rows[0]! + (projection.rows[1]! - projection.rows[0]!) * (screenY - 0.5)
+      const east = sampleWind(eastwardData, column, row), north = sampleWind(northwardData, column, row)
       if (east === undefined || north === undefined) continue
       const speed = Math.hypot(east, north)
       if (speed < 0.01) continue
@@ -55,13 +55,19 @@ export class NativeWindData {
       const phase = (random() + simulationMs / 1000 / WIND_PARAMETERS.maxAge) % 1
       const lifeDistance = Math.min(WIND_PARAMETERS.trailDistance, screenSpeed * WIND_PARAMETERS.maxAge)
       const distance = (phase - 0.5) * lifeDistance * FRAME.scale
-      const length = Math.min(lifeDistance * 0.5, screenSpeed / -Math.log(WIND_PARAMETERS.bufferFade)) * FRAME.scale
+      const decayLength = screenSpeed / -Math.log(WIND_PARAMETERS.bufferFade) * FRAME.scale
+      const travelled = phase * lifeDistance
+      const length = Math.min(travelled, 3 * decayLength / FRAME.scale) * FRAME.scale
       const directionX = east / speed, directionY = -north / speed
-      const headX = x + directionX * distance, headY = y + directionY * distance
+      const headX = screenX + directionX * distance, headY = screenY + directionY * distance
       const color = windColor(speed, theme).map((channel) => Math.round(channel * 255))
-      const opacity = WIND_FOCUS_INTENSITY * WIND_PARAMETERS.headIntensity * speedDamping(speed, WIND_PARAMETERS.speedDamping)
+      const life = { age: phase * WIND_PARAMETERS.maxAge, travelled, distance: lifeDistance, remaining: lifeDistance - travelled }
+      const waterColumn = Math.max(0, Math.min(water.width - 1, Math.floor(headX / FRAME_PIXELS.width * water.width)))
+      const waterRow = Math.max(0, Math.min(water.height - 1, Math.floor(headY / FRAME_PIXELS.height * water.height)))
+      const waterFactor = 1 - WIND_PARAMETERS.seaPenalty * water.values[waterRow * water.width + waterColumn]! / 255
+      const opacity = waterFactor * headAlpha(life, WIND_PARAMETERS) * WIND_FOCUS_INTENSITY * WIND_PARAMETERS.headIntensity * speedDamping(speed, WIND_PARAMETERS.speedDamping)
       const tailX = headX - directionX * length, tailY = headY - directionY * length
-      drawStroke(rgb, FRAME_PIXELS, [tailX, tailY], [headX, headY], WIND_PARAMETERS.lineWidth * FRAME.scale, color, opacity)
+      drawStroke(rgb, FRAME_PIXELS, [tailX, tailY], [headX, headY], WIND_PARAMETERS.lineWidth * FRAME.scale, color, opacity, decayLength)
     }
     return rgb
   }

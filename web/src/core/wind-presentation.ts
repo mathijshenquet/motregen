@@ -92,8 +92,6 @@ export const WIND_MAX_FPS = WIND_PARAMETERS.maxFps
 /** Intensiteit bij volle windfocus met de default-tuning (PO 2026-09-25 live, U34; was 1,905). */
 export const WIND_FOCUS_INTENSITY = 0.8
 
-
-
 export function advanceLife(life: ParticleLife, stepPx: number, seconds: number, tuning: Pick<WindParameters, 'maxAge'>): boolean {
   life.age += seconds
   if (life.age <= 0) {
@@ -168,40 +166,29 @@ export function setWindColor(speed: number, theme: MapTheme, color: Float32Array
 
 export const MIN_PARTICLES = 96
 
-
 export const MAX_PARTICLES = 2_400
-
 
 export const ADVECTION_SCALE = 7_000
 
-
 export const WORLD_TILE_SIZE = 512
-
 
 export const DAMPING_REFERENCE_SPEED = 3
 
-
 export const WEAK_WIND_SPEED = 6
-
 
 export const WEAK_WIND_MAX_BOOST = 2.5
 
-
 export const MERCATOR_SCALE = 1 / (2 * Math.PI * 6_378_137)
 
-
 export const BEAUFORT_STOPS = [0, 3.4, 8, 13.9, 20.8, 32.7] as const
-
 
 export const LIGHT_RAMP = [
   [3, 48, 102], [0, 76, 108], [9, 91, 44], [119, 73, 0], [162, 39, 8], [108, 15, 73],
 ] as const
 
-
 export const DARK_RAMP = [
   [255, 255, 255], [255, 255, 255], [255, 255, 255], [255, 255, 255], [255, 255, 255], [255, 255, 255],
 ] as const
-
 
 export interface ParticleLife {
   age: number

@@ -1,5 +1,6 @@
-import type { Source } from './contract'
-import { WARP_CAP_CELLS, WARP_FADE_END_CELLS, type RainKernel, type RainSampling, type RainWarpLimit } from './rain-layer'
+import type { Source } from './contract.js'
+import { WARP_CAP_CELLS, WARP_FADE_END_CELLS } from './rain-motion.js'
+import type { RainKernel, RainSampling, RainWarpLimit } from './rain-sampling.js'
 
 // Hoe het regenveld tussen de cellen wordt ingevuld. `auto` is het product (PO 2026-10-09, U72); de overige
 // standen zijn de dev-override onder ?dev (Kaart › Regenveld).

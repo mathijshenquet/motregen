@@ -18,11 +18,22 @@ it('matches shared cubic sampling and premultiplied band fill, including invalid
   try {
     const native = await raster.compose(base, slice, false)
     const projection = nativeProjection(grid, size)
-    for (let row = 0; row < 16; row++) for (let column = 0; column < 16; column++) {
-      const sample = sampleSlice({ ...grid, fields: [field], weights: [1] }, projection.columns[column]!, projection.rows[row]!)
+    const alpha = Math.round(255 * 0.35 * slice.opacity)
+    const fill = new Uint8Array(8 * 8 * 3)
+    for (let row = 0; row < 8; row++) for (let column = 0; column < 8; column++) {
+      const sample = sampleSlice({ ...grid, fields: [field], weights: [1] }, projection.columns[column * 2]! + 0.5, projection.rows[row * 2]! + 0.5)
       const band = Math.floor(sample.value) + 128
+      for (let channel = 0; channel < 3; channel++) fill[(row * 8 + column) * 3 + channel] = Math.round(colors[band * 3 + channel]! * 255 * 0.35 * slice.opacity)
+    }
+    for (let row = 0; row < 16; row++) for (let column = 0; column < 16; column++) {
+      const sourceX = Math.max(0, Math.min(7, (column + 0.5) / 2 - 0.5)), sourceY = Math.max(0, Math.min(7, (row + 0.5) / 2 - 0.5))
+      const west = Math.floor(sourceX), north = Math.floor(sourceY), east = Math.min(7, west + 1), south = Math.min(7, north + 1)
+      const horizontal = sourceX - west, vertical = sourceY - north
       for (let channel = 0; channel < 3; channel++) {
-        const expected = Math.round(100 * (1 - 0.35 * slice.opacity) + colors[band * 3 + channel]! * 255 * 0.35 * slice.opacity)
+        const at = (x: number, y: number) => fill[(y * 8 + x) * 3 + channel]!
+        const northern = at(west, north) * (1 - horizontal) + at(east, north) * horizontal
+        const southern = at(west, south) * (1 - horizontal) + at(east, south) * horizontal
+        const expected = Math.round(100 * (1 - alpha / 255) + northern * (1 - vertical) + southern * vertical)
         expect(Math.abs(native[(row * 16 + column) * 3 + channel]! - expected)).toBeLessThanOrEqual(1)
       }
     }
