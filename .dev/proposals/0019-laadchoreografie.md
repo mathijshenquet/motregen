@@ -89,3 +89,9 @@ Wat dat voor het laden betekent (uit de PO-opnames van 2026-10-07, koud: eerste 
    vooral"); de zichtbare laadchoreografie (splash, fog, histogram per balk) = U54, live-pane na U42.
 4. Later, als tijd-majeur op de client niet genoeg is: chunk-indeling per tijdsnede over alle
    velden (contractwijziging, MIP-2), zodat ook het netwerk tijd-majeur gaat.
+
+## Aanvulling (PO 2026-10-09 03:15): één klok, splash is geen gate
+PO: "het lijkt me sowieso cleaner om pas de kaart te laten lopen als alles klaar is" en "die sluier is toch
+veel te transparant? Ik zou die animatie niet afwachten." → De scrubber-klok en de kaartregen starten samen
+zodra de kaart kan tekenen (mapReady); de splash-onthulling wacht niet en blokkeert niets (mag korter). ttfr =
+het startmoment van die ene klok. Uitvoering: U68.
