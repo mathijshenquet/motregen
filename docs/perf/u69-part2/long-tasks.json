@@ -551,8 +551,8 @@
               "durationMs": 6.7,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             }
           ]
         },
@@ -746,15 +746,15 @@
               "durationMs": 23.8,
               "invoker": "Worker.onmessage",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 42
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
             },
             {
               "durationMs": 58.5,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             }
           ]
         },
@@ -775,8 +775,8 @@
               "durationMs": 16.1,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             },
             {
               "durationMs": 24.8,
@@ -804,8 +804,8 @@
               "durationMs": 14.6,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             }
           ]
         },
@@ -1021,8 +1021,8 @@
               "durationMs": 9.4,
               "invoker": "Worker.onmessage",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 42
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
             },
             {
               "durationMs": 9.6,
@@ -1063,8 +1063,8 @@
               "durationMs": 30.2,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             }
           ]
         }
@@ -1302,8 +1302,8 @@
               "durationMs": 34.2,
               "invoker": "Worker.onmessage",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 42
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
             },
             {
               "durationMs": 11,
@@ -1316,8 +1316,8 @@
               "durationMs": 29.4,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             }
           ]
         },
@@ -1338,8 +1338,8 @@
               "durationMs": 10.3,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             },
             {
               "durationMs": 10,
@@ -1367,8 +1367,8 @@
               "durationMs": 5.6,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             },
             {
               "durationMs": 29.9,
@@ -1561,8 +1561,8 @@
               "durationMs": 10.2,
               "invoker": "Worker.onmessage",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 42
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
             },
             {
               "durationMs": 9.8,
@@ -1618,8 +1618,8 @@
               "durationMs": 61.1,
               "invoker": "Worker.onmessage",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 42
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
             },
             {
               "durationMs": 34.9,
@@ -1632,8 +1632,8 @@
               "durationMs": 86.1,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             }
           ]
         },
@@ -1661,8 +1661,8 @@
               "durationMs": 15.6,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             },
             {
               "durationMs": 8.9,
@@ -1906,8 +1906,8 @@
               "durationMs": 35,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             }
           ]
         },
@@ -2223,8 +2223,8 @@
               "durationMs": 39.3,
               "invoker": "Worker.onmessage",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 42
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
             },
             {
               "durationMs": 23.6,
@@ -2252,8 +2252,8 @@
               "durationMs": 165.6,
               "invoker": "Worker.onmessage",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 42
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
             },
             {
               "durationMs": 11.7,
@@ -2266,8 +2266,8 @@
               "durationMs": 68.2,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             }
           ]
         },
@@ -2295,8 +2295,8 @@
               "durationMs": 9.8,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             },
             {
               "durationMs": 10.6,
@@ -2331,8 +2331,8 @@
               "durationMs": 5.2,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             }
           ]
         },
@@ -2390,8 +2390,8 @@
               "durationMs": 8.8,
               "invoker": "Worker.onmessage",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 42
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
             },
             {
               "durationMs": 9.8,
@@ -2411,8 +2411,8 @@
               "durationMs": 5.9,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             }
           ]
         },
@@ -2468,8 +2468,8 @@
               "durationMs": 15.9,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             }
           ]
         },
@@ -2497,8 +2497,8 @@
               "durationMs": 25.1,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             },
             {
               "durationMs": 30.1,
@@ -2569,8 +2569,8 @@
               "durationMs": 44.2,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             }
           ]
         },
@@ -2591,8 +2591,8 @@
               "durationMs": 44.4,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             },
             {
               "durationMs": 20.4,
@@ -2791,8 +2791,8 @@
               "durationMs": 65.3,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             }
           ]
         },
@@ -2928,15 +2928,15 @@
               "durationMs": 150.5,
               "invoker": "Worker.onmessage",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 42
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
             },
             {
               "durationMs": 54.1,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             }
           ]
         },
@@ -2957,8 +2957,8 @@
               "durationMs": 10.1,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             },
             {
               "durationMs": 9.2,
@@ -3088,8 +3088,8 @@
               "durationMs": 9.3,
               "invoker": "Worker.onmessage",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 42
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
             },
             {
               "durationMs": 10,
@@ -3102,8 +3102,8 @@
               "durationMs": 6.1,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             },
             {
               "durationMs": 8.9,
@@ -3404,8 +3404,8 @@
               "durationMs": 45.4,
               "invoker": "Worker.onmessage",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 42
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
             },
             {
               "durationMs": 5.6,
@@ -3439,8 +3439,8 @@
               "durationMs": 19.4,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             }
           ]
         },
@@ -3454,8 +3454,8 @@
               "durationMs": 40.4,
               "invoker": "Worker.onmessage",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 42
+              "source": "maplibre-gl/src/util/actor.ts",
+              "line": 83
             },
             {
               "durationMs": 5.4,
@@ -3468,8 +3468,8 @@
               "durationMs": 102.5,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             }
           ]
         },
@@ -3547,8 +3547,8 @@
               "durationMs": 35.7,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             },
             {
               "durationMs": 58.5,
@@ -3883,8 +3883,8 @@
               "durationMs": 27,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             },
             {
               "durationMs": 8.1,
@@ -3926,8 +3926,8 @@
               "durationMs": 15,
               "invoker": "FrameRequestCallback",
               "functionName": "(anonymous)",
-              "source": "node_modules/.pnpm/maplibre-gl@5.24.0/node_modules/maplibre-gl/dist/maplibre-gl.js",
-              "line": 46
+              "source": "maplibre-gl/src/util/browser.ts",
+              "line": 23
             }
           ]
         },

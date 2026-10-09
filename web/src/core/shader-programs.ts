@@ -23,6 +23,7 @@ export async function prepareShaderPrograms(gl: WebGL2RenderingContext, sources:
       if (parallel) {
         while (!gl.getProgramParameter(program, parallel.COMPLETION_STATUS_KHR)) await waitForCompilationTurn(signal)
       } else {
+        // Zonder KHR kan de statusvraag nog op de driver wachten; laat tussen programma's een renderbeurt.
         await waitForCompilationTurn(signal)
       }
       signal.throwIfAborted()
