@@ -358,6 +358,10 @@
   /regen_rich-proef (7efd1a79): lokale poller draait tijdelijk i.p.v. de VM-poller (gestopt 16:05) voor de
   live test; terugzetten na de PO-test. U72 (opus-5.5 live-pane, 4320): smoothing/upsampling regenveld.
 
+- 17:10: /regen_rich-proef afgerond en verwijderd (b3e9587d): slideshow werkt (sendRichMessage, 7 dia's uit de
+  file_id-cache) maar de client-tween tussen dia's is niet uit te zetten; collage "nog slechter". Conclusie: /regen
+  met knoppen (editMessageMedia, wisselt zonder tween) blijft. VM-poller weer actief, lokale poller gestopt.
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
