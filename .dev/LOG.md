@@ -410,6 +410,11 @@
   (exact: true). Cloudflare: zone weerok.nl aangemaakt via API (A/AAAA/www proxied, SSL strict); PO heeft de
   nameservers bij TransIP omgezet (bayan/venus), zone nog pending. Prod-uitrol gestart (nixos-upgrade).
 
+- **Prod uitgerold** (18:10, main 30fae9a0+LOG): nixos-upgrade exit 0, systeem geactiveerd, bot (poller) en Caddy actief;
+  motregen.nl serveert de nieuwe build; weerok.nl-vhost staat klaar maar Caddy krijgt nog geen certificaat (ACME
+  faalt tot de nameserverwissel bij TransIP is doorgedrongen; Cloudflare-zone pending). Lokale poller gestopt
+  (409 toen de VM-poller opkwam). Renderer blijft op ageq-dev2 tot U71b.
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
