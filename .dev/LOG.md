@@ -279,6 +279,14 @@
   (~1,25), kaart dag/nacht in één stap. Adresbalkfix door PO goedgekeurd. Gate 529 unit, 27+14+5 e2e;
   4330 herbouwd. Open: laatste PO-blik op 4330 (nacht-halo, rijlijnen); U62 blijft open.
 
+## 2026-10-09 — nacht: alles op prod, z4-startkaart blijft tot alle tegels er zijn
+- PO 00:05: "het laden is echt super snappy" — maar de z4-kaart verdween na < 10 ms: één echte tegel + wit tot
+  ~1 s. Oorzaak: `replace()` bij de EERSTE basemap-tegel (sourcedata). Fix (55da1e73, orkestrator, micro-
+  fix): wisselen zodra `map.areTilesLoaded()`, `idle` als vangnet; startlagen liggen onder de echte lagen,
+  dus korte dubbele landcover-tint in al geladen tegels is de prijs. Gate: 529 unit, build, 20 e2e
+  (basemap/perf/freshness, desktop + mobiel); 4330 herbouwd; prod-upgrade gestart.
+- Prod stond al om 23:30 op main (`index-DdXphFfb.js`, PO: "merge nu maar alles"); bot-poller actief.
+
 ## 2026-10-08 — sessieafsluiting (23:40): alles gemerged, bot in rollen, lussen afgerond
 - **Gemerged vandaag** (volgorde): U58, U54, U59, U60, U61, U57, U66, U62 d1, U65, U67, U62 d2, U64, U63,
   U62 d3–d5. Main `a8af86b5`; 4330 = main; prod krijgt alles vannacht 03:15 (nixos-upgrade, bot = poller).
