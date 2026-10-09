@@ -568,7 +568,7 @@ button { color: inherit; cursor: pointer; }
 .current-summary { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
 .rain-symbol { color: var(--accent); font-size: 12px; box-shadow: 0 0 0 5px var(--accent-soft); border-radius: 50%; }
 
-.scrubber { padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--surface); font-variant-numeric: tabular-nums; }
+.scrubber { padding: 0 16px; background: var(--surface); font-variant-numeric: tabular-nums; }
 :root:not([data-theme="dark"]) .scrubber { --muted: #58707a; }
 .scrubber-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .time-horizon { margin-left: auto; }
@@ -735,7 +735,7 @@ button { color: inherit; cursor: pointer; }
 /* Rijtinten lopen tot de paneelrand; de tekst lijnt met de scrubber (16 px, desktop 24 px). */
 .table-scroll { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-th { padding: 8px 6px; border-bottom: 1px solid var(--line-strong); color: var(--muted); font-size: 9px; letter-spacing: .08em; text-align: right; text-transform: uppercase; }
+th { padding: 8px 6px; box-shadow: inset 0 -1px 0 var(--line-strong); color: var(--muted); font-size: 9px; letter-spacing: .08em; text-align: right; text-transform: uppercase; }
 th:first-child { padding-left: 0; text-align: left; }
 td { padding: 10px 6px; border-bottom: 1px solid var(--line); font-size: 13px; text-align: right; white-space: nowrap; }
 td:first-child { padding-left: 0; text-align: left; }
