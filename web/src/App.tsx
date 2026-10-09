@@ -244,6 +244,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let frameLoopDrives = false
   let mapRepaints = 0
   let firstMapImage = false
+  // De splash wacht óók op het eerste kaartbeeld (z4 of echte tegels), niet alleen op de eerste regen (PO 2026-10-09).
+  const [firstMapImageShown, setFirstMapImageShown] = createSignal(false)
   let mapStart: ReturnType<typeof createMapStart>
   const basemapTiles = new Map<string, number>()
   const isolineCounters = (): IsolineCounters => ({
@@ -944,6 +946,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         const source = map?.getSource(mapStartSource) ? mapStartSource : 'basemap'
         if (!firstMapImage && map?.getSource(source) && map.isSourceLoaded(source)) {
           firstMapImage = true
+          setFirstMapImageShown(true)
           if (perfPhasesEnabled()) perf.recordPhase({ phase: 'milestone:first-map-image', startTime: 0, duration: performance.now(), detail: { source } })
           mapElement.dataset.firstMapImage = source
         }
@@ -3313,7 +3316,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       style={chromeSky() ? { '--day-overcast': chromeSky()!.overcast.toFixed(2) } : undefined}
       aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainLook().opacity.toFixed(2)} data-rain-blend={rainLook().multiply ? 'multiply' : 'normal'} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
       <div ref={mapElement} class="map" />
-      <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() }} aria-hidden={mapReady()}>
+      <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() && firstMapImageShown() }} aria-hidden={mapReady() && firstMapImageShown()}>
         <div class="map-splash-veil" />
         <div class="map-splash-mark">
           <img src="/droplet.svg" alt="" />
