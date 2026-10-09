@@ -51,6 +51,7 @@ export class StillRenderer {
   private browser?: Browser
   private context?: BrowserContext
   private queues: Promise<unknown>[] = Array.from({ length: 4 }, () => Promise.resolve())
+  private nativeQueue: Promise<unknown> = Promise.resolve()
   private nextQueue = 0
   private opening?: Promise<BrowserContext>
   private pending = new Map<string, Promise<RenderedSequence>>()
@@ -97,6 +98,11 @@ export class StillRenderer {
     // Cache-hits hoeven niet achter een nieuwe Chromium-render te wachten.
     const task = this.readCachedSequence(mode, manifest, key).then((cached) => {
       if (cached) return cached
+      if (nativeRenderer(mode) === 'native') {
+        const render = this.nativeQueue.then(() => this.renderSequence(mode, manifest, key))
+        this.nativeQueue = render.catch(() => undefined)
+        return render
+      }
       const index = this.nextQueue++ % this.queues.length
       const render = this.queues[index]!.then(() => this.renderSequence(mode, manifest, key))
       this.queues[index] = render.catch(() => undefined)
@@ -114,6 +120,7 @@ export class StillRenderer {
     await Promise.allSettled(this.pending.values())
     await Promise.allSettled(this.pendingStills.values())
     await Promise.all(this.queues)
+    await this.nativeQueue
     await this.browser?.close()
     this.browser = undefined
     this.context = undefined

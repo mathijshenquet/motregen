@@ -8,6 +8,9 @@ import { FRAME, FRAME_PIXELS } from './config.js'
 import { openRenderPage } from './render-open.js'
 import type { LoopMode, StillManifest } from './stills.js'
 
+// libvips' operation cache otherwise retains the raw full-frame inputs between renders.
+sharp.cache(false)
+
 interface Box { left: number; top: number; width: number; height: number }
 interface Glyph { target: { left: number; top: number } }
 interface ClockLayout { time: Glyph['target']; day: Glyph['target']; title: Glyph['target']; backgrounds: Record<string, string> }

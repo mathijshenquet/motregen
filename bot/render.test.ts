@@ -3,14 +3,49 @@ import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { StillRenderer } from './render.js'
+import { NativeWeatherRenderer } from './native-render.js'
+import { NativeModesRenderer } from './native-modes-render.js'
 import { sequencePlan } from './sequences.js'
 import { cacheKey, type StillManifest } from './stills.js'
 import { STILL_CACHE_TTL } from './file-ids.js'
 import { framePath } from './encode.js'
 
 const run = promisify(execFile)
+
+it('serializes native modes and continues after a failed sequence', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'motregen-native-queue-'))
+  const renderer = new StillRenderer('https://fixture.test', directory)
+  const manifest: StillManifest = { version: 0, generated: '2026-10-07T12:00:00Z', now: '2026-10-07T12:00:00Z', chunks: [] }
+  let active = 0
+  let maximum = 0
+  const order: string[] = []
+  const metrics = { renderMs: 1, encodeMs: 1, preparationMs: 1, loopMs: 1, loopRenderMs: 1, bytes: 4 }
+  vi.spyOn(NativeWeatherRenderer.prototype, 'render').mockImplementation(async () => {
+    order.push('weather')
+    throw new Error('Fixture render failed')
+  })
+  vi.spyOn(NativeModesRenderer.prototype, 'render').mockImplementation(async (mode, _manifest, _plan, _directory, destination) => {
+    order.push(mode)
+    active++
+    maximum = Math.max(maximum, active)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    await writeFile(destination, 'loop')
+    active--
+    return metrics
+  })
+  try {
+    const results = await Promise.allSettled(['weather', 'feels', 'wind'].map((mode) => renderer.render({ mode: mode as 'weather' | 'feels' | 'wind', hour: 'loop' }, manifest)))
+    expect(results.map((result) => result.status)).toEqual(['rejected', 'fulfilled', 'fulfilled'])
+    expect(order).toEqual(['weather', 'feels', 'wind'])
+    expect(maximum).toBe(1)
+  } finally {
+    await renderer.close()
+    vi.restoreAllMocks()
+    await rm(directory, { recursive: true, force: true })
+  }
+})
 
 it('makes requested JPEGs beyond the rain loop horizon, shares concurrent conversion and prunes the PNG cache', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'motregen-png-cache-'))

@@ -2,7 +2,8 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { NativeTemperatureData } from './native-temperature.js'
 import { NativeRainData } from './native-rain.js'
 import { prepareField } from '../web/src/core/isoline-field.js'
-import { adaptiveIsobarStep } from '../web/src/core/isolines.js'
+import { adaptiveIsobarStep, ISOLINE_RING_KM } from '../web/src/core/isolines.js'
+import { shortRings } from '../web/src/core/isoline-contours.js'
 import type { Grid, MrfHeader } from '../web/src/core/contract.js'
 import type { StillManifest } from './stills.js'
 
@@ -23,7 +24,12 @@ it('uses the right raster at an exact hour and applies the app’s temporal spli
   const data = new NativeTemperatureData('https://fixture.test', manifest)
   await data.prepare([Date.parse(now), Date.parse(now) + 1800000])
   expect(Array.from((await data.slice(Date.parse(now))).field.values)).toEqual(new Array(16).fill(20))
-  for (const value of (await data.slice(Date.parse(now) + 1800000)).field.values) expect(value).toBeCloseTo(25, 5)
+  const epoch = Date.parse(now) + 1800000
+  const eager = await data.slice(epoch)
+  for (const value of eager.field.values) expect(value).toBeCloseTo(25, 5)
+  const compact = await data.slice(epoch, false)
+  const deferred = await data.rasterSlice(epoch, { grid: compact.grid, kind: compact.kind, segments: compact.segments, opacity: compact.opacity, rings: shortRings(compact.contours, ISOLINE_RING_KM) })
+  expect(deferred).toMatchObject({ field: eager.field, rings: eager.rings, colors: eager.colors, segments: eager.segments, opacity: eager.opacity })
   expect((await data.slice(Date.parse(times[0]!) - 1200000)).opacity).toBe(0)
 })
 

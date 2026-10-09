@@ -41,7 +41,8 @@ async function executable(): Promise<string> {
 export class NativeRaster {
   private worker?: ChildProcessWithoutNullStreams
   private completed?: Promise<void>
-  private readonly frames = new Map<Uint8Array, number>()
+  private frames = new WeakMap<Uint8Array, number>()
+  private nextFrameId = 1
   private resident = new Set<number>()
   private output?: { bytes: Buffer; offset: number; finish: () => void; fail: (error: Error) => void }
   constructor(private readonly size: { width: number; height: number }, private readonly grid: { width: number; height: number }, private readonly columns: Float64Array, private readonly rows: Float64Array, private readonly colors: Float32Array, private readonly multiply = false) {}
@@ -95,7 +96,7 @@ export class NativeRaster {
     const right = frame.mix === 0 ? frame.left : frame.right
     const identify = (raster: Uint8Array) => {
       let id = this.frames.get(raster)
-      if (id === undefined) { id = this.frames.size + 1; this.frames.set(raster, id) }
+      if (id === undefined) { id = this.nextFrameId++; this.frames.set(raster, id) }
       return id
     }
     const leftId = identify(left), rightId = identify(right)
@@ -131,5 +132,7 @@ export class NativeRaster {
     if (!this.worker) return
     this.worker.stdin.end()
     await this.completed
+    this.frames = new WeakMap()
+    this.resident.clear()
   }
 }

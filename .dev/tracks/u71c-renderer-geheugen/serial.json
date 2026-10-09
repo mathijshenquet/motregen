@@ -1,0 +1,82 @@
+{
+  "code": 0,
+  "signal": null,
+  "elapsedSeconds": 62.935202667,
+  "memoryPeakBytes": 3015110656,
+  "memoryHigh": "8589934592",
+  "memoryMax": "10737418240",
+  "cpuMax": "200000 100000",
+  "memoryEvents": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+  "processes": [
+    {
+      "pid": 4058430,
+      "name": "MainThread",
+      "maxRssBytes": 72196096
+    },
+    {
+      "pid": 4058441,
+      "name": "time",
+      "maxRssBytes": 1810432
+    },
+    {
+      "pid": 4058442,
+      "name": "MainThread",
+      "maxRssBytes": 149454848
+    },
+    {
+      "pid": 4058476,
+      "name": "MainThread",
+      "maxRssBytes": 65007616
+    },
+    {
+      "pid": 4058494,
+      "name": "MainThread",
+      "maxRssBytes": 2082873344
+    },
+    {
+      "pid": 4058502,
+      "name": "esbuild",
+      "maxRssBytes": 15806464
+    },
+    {
+      "pid": 4058514,
+      "name": "94eecf4a2ff85f3",
+      "maxRssBytes": 80441344
+    },
+    {
+      "pid": 4058525,
+      "name": "ffmpeg",
+      "maxRssBytes": 83185664
+    },
+    {
+      "pid": 4060216,
+      "name": "5d702470cf1a892",
+      "maxRssBytes": 13291520
+    },
+    {
+      "pid": 4060217,
+      "name": "ffmpeg",
+      "maxRssBytes": 87236608
+    },
+    {
+      "pid": 4060473,
+      "name": "94eecf4a2ff85f3",
+      "maxRssBytes": 16834560
+    },
+    {
+      "pid": 4060474,
+      "name": "94eecf4a2ff85f3",
+      "maxRssBytes": 57724928
+    },
+    {
+      "pid": 4060475,
+      "name": "5d702470cf1a892",
+      "maxRssBytes": 11378688
+    },
+    {
+      "pid": 4060476,
+      "name": "ffmpeg",
+      "maxRssBytes": 83316736
+    }
+  ]
+}

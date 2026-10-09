@@ -37,7 +37,10 @@ export class NativeRainData {
         if (!chunks.has(frame.chunk.url)) chunks.set(frame.chunk.url, frame)
       }
     }
-    await Promise.all([...chunks.values()].map((frame) => this.load(frame)))
+    const frames = [...chunks.values()]
+    for (let offset = 0; offset < frames.length; offset += 2) {
+      await Promise.all(frames.slice(offset, offset + 2).map((frame) => this.load(frame)))
+    }
   }
 
   async pointSeries(point: { lng: number; lat: number }, start: number, end: number): Promise<{ timeline: TimelineFrame[]; values: Array<number | null> }> {

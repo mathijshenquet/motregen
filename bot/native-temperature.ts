@@ -3,7 +3,7 @@ import { frameBlend, timelineCoverage } from '../web/src/core/time-model.js'
 import { blendFrames, blurField, fieldRangeInView, isolineBlurPasses, isolineFrameWeights, adaptiveIsobarStep, ISOBAR_STEP_HPA, ISOLINE_EDGE_FADE_MS, ISOLINE_RING_KM, ISOLINE_TOLERANCE_PX, ISOLINE_WINDOW, isolineFeatures, type IsolineFeatureCollection } from '../web/src/core/isolines.js'
 import { prepareField, type PreparedField } from '../web/src/core/isoline-field.js'
 import { sliceWeights, type FieldSlice } from '../web/src/core/isoline-spline.js'
-import { blendSlice, buildSegments, traceContours, shortRings, ringFadeRaster, type Contour } from '../web/src/core/isoline-contours.js'
+import { blendSlice, buildSegments, traceContours, shortRings, ringFadeRaster, type Contour, type ShortRing } from '../web/src/core/isoline-contours.js'
 import { paletteRange, paletteStops, bandColor } from '../web/src/core/temperature-palette.js'
 import { NETHERLANDS_FLANDERS_BOUNDS } from '../web/src/core/map-frame.js'
 import { NativeRainData } from './native-rain.js'
@@ -13,6 +13,7 @@ import type { StillManifest } from './stills.js'
 
 export interface TemperatureSlice { grid: Grid; field: PreparedField; labelSlice?: FieldSlice; segments: Float32Array; contours: Contour[]; rings?: Float32Array; colors: Float32Array; opacity: number; kind: 'temperature' | 'pressure'; step: number; labelLines?: IsolineFeatureCollection; labelKey?: string }
 export type RasterSlice = Pick<TemperatureSlice, 'grid' | 'segments' | 'opacity'> & ({ kind: 'pressure' } | { kind: 'temperature'; field: PreparedField; rings?: Float32Array; colors: Float32Array })
+export type RasterGeometry = Pick<TemperatureSlice, 'grid' | 'segments' | 'opacity' | 'kind'> & { rings: ShortRing[] }
 
 export class NativeTemperatureData {
   readonly data: NativeRainData
@@ -46,7 +47,7 @@ export class NativeTemperatureData {
       const blend = frameBlend(this.data.timeline, epoch)
       for (const weight of sliceWeights(blend.left + blend.mix, this.data.timeline.length, ISOLINE_WINDOW)) required.add(weight.index)
     }
-    await Promise.all([...required].map((index) => this.field(index)))
+    for (const index of required) await this.field(index)
     if (this.kind === 'pressure') { this.colors = new Float32Array(256 * 3); return }
     let min = Infinity, max = -Infinity
     const now = Date.parse(this.manifest.now)
@@ -64,12 +65,23 @@ export class NativeTemperatureData {
     this.colors = Float32Array.from({ length: 256 * 3 }, (_, index) => bandColor(Math.floor(index / 3) - 128, 1, stops)[index % 3]!)
   }
 
-  async slice(epoch: number): Promise<TemperatureSlice> {
+  private async blendedField(epoch: number) {
     const blend = frameBlend(this.data.timeline, epoch)
     const weights = sliceWeights(blend.left + blend.mix, this.data.timeline.length, ISOLINE_WINDOW).filter(({ weight }) => weight > 0)
     const fields = await Promise.all(weights.map(({ index }) => this.field(index)))
     const field = blendSlice(fields, weights.map(({ weight }) => weight))
     const grid = (await this.data.frame(this.data.timeline[blend.left]!.epoch)).grid
+    return { blend, weights, fields, field, grid }
+  }
+
+  async rasterSlice(epoch: number, geometry: RasterGeometry): Promise<RasterSlice> {
+    if (geometry.kind === 'pressure') return { kind: 'pressure', grid: geometry.grid, segments: geometry.segments, opacity: geometry.opacity }
+    const { field } = await this.blendedField(epoch)
+    return { ...geometry, kind: 'temperature', field, rings: ringFadeRaster(geometry.rings, geometry.grid.width, geometry.grid.height), colors: this.colors! }
+  }
+
+  async slice(epoch: number, rasterizeRings = true): Promise<TemperatureSlice> {
+    const { blend, weights, fields, field, grid } = await this.blendedField(epoch)
     const projection = nativeProjection(grid)
     if (this.kind === 'pressure') {
       const nearest = await this.field(Math.round(blend.left + blend.mix))
@@ -93,6 +105,6 @@ export class NativeTemperatureData {
       labelLines = isolineFeatures({ width: grid.width, height: grid.height, values }, grid, this.step, ISOLINE_RING_KM, this.kind)
       this.labelLines.set(labelKey, labelLines)
     }
-    return { grid, field, labelSlice: { width: grid.width, height: grid.height, fields, weights: weights.map(({ weight }) => weight) }, segments, contours, labelLines, labelKey, kind: this.kind, step: this.step, rings: this.kind === 'temperature' ? ringFadeRaster(shortRings(contours, ISOLINE_RING_KM), grid.width, grid.height) : undefined, colors: this.colors!, opacity: timelineCoverage(this.data.timeline, epoch, ISOLINE_EDGE_FADE_MS) }
+    return { grid, field, labelSlice: { width: grid.width, height: grid.height, fields, weights: weights.map(({ weight }) => weight) }, segments, contours, labelLines, labelKey, kind: this.kind, step: this.step, rings: rasterizeRings && this.kind === 'temperature' ? ringFadeRaster(shortRings(contours, ISOLINE_RING_KM), grid.width, grid.height) : undefined, colors: this.colors!, opacity: timelineCoverage(this.data.timeline, epoch, ISOLINE_EDGE_FADE_MS) }
   }
 }
