@@ -196,11 +196,11 @@ export class StillRenderer {
       const metadata = await stat(path)
       if (Date.now() - metadata.mtimeMs >= STILL_CACHE_TTL) return undefined
       const metrics = JSON.parse(await readFile(path, 'utf8')) as SequenceMetrics
-      if (metrics.key !== key || !Number.isFinite(metrics.frames) || !Number.isFinite(metrics.bytes)) return undefined
+      const plan = sequencePlan(mode, manifest)
+      if (metrics.key !== key || metrics.frames !== plan.loopFrames || metrics.fps !== plan.fps || !Number.isFinite(metrics.bytes)) return undefined
       const sequence = this.results(mode, manifest, metrics, true)
       await access(sequence.loop.path)
       const directory = this.frameDirectory(key)
-      const plan = sequencePlan(mode, manifest)
       const indexes = metrics.backend === 'native' ? plan.stillFrames.map((frame) => frame.index) : plan.epochs.map((_epoch, index) => index)
       await Promise.all(indexes.map((index) => access(metrics.backend === 'native' ? nativeFramePath(directory, index) : framePath(directory, index))))
       return sequence

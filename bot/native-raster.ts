@@ -80,7 +80,10 @@ export class NativeRaster {
   }
 
   async compose(base: Uint8Array, frame: RainFrame): Promise<Buffer> {
+    const rasterLength = this.grid.width * this.grid.height
+    if (base.length !== this.size.width * this.size.height * 3 || frame.left.length !== rasterLength || frame.right.length !== rasterLength || (frame.motion && frame.motion.vectors.length !== frame.motion.width * frame.motion.height * 2)) throw new Error('Ongeldige native framemaat')
     await this.prepare()
+    if (this.output) throw new Error('Native frames moeten op volgorde worden verwerkt')
     const leftWeight = (1 - frame.mix) ** FLOW_BLEND_CURVE, rightWeight = frame.mix ** FLOW_BLEND_CURVE
     const rgb = Buffer.allocUnsafe(this.size.width * this.size.height * 3)
     const received = new Promise<void>((finish, fail) => { this.output = { bytes: rgb, offset: 0, finish, fail } })

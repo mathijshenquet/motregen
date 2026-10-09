@@ -61,6 +61,8 @@ it('matches the scalar compositor with native bilinear projection, including no-
   const base = new Uint8Array(64 * 64 * 3).fill(100)
   const left = Uint8Array.from([0, 0, 0, 0, 0, 80, 100, 140, 0, 100, 255, 190, 0, 140, 190, 220])
   const right = new Uint8Array(16).fill(80)
+  await expect(compositor.composeFast(base, { ...frame(left), grid: { ...grid, dx: grid.dx * 2 } }, false)).rejects.toThrow('rooster wisselt')
+  await expect(compositor.composeFast(base, frame(new Uint8Array(15)), false)).rejects.toThrow('framemaat')
   for (const mix of [0, 0.25, 0.5, 1]) {
     const input = frame(left, right, mix)
     const expected = compositor.compose(base, input, false), actual = await compositor.composeFast(base, input, false)
