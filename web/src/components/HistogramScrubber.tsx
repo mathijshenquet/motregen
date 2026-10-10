@@ -3,6 +3,7 @@ import { CLOUD_LAYERS, cloudBand, skyAt, skyStars, skyStops, skyStrokes, sunCros
 import { sameFields, stableByIndex } from '../core/stable'
 import type { TimelineFrame } from '../core/contract'
 import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColor } from '../core/rain-chart'
+import type { RainLook } from '../core/rain-palette'
 import { SCRUBBER_CURSOR_FRACTION, SCRUBBER_VIEW_HOURS, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
 import { cloudModification } from '../core/uv'
 import { summarizeWind, WIND_UNIT_LABELS, type WindUnit } from '../core/weather'
@@ -40,6 +41,8 @@ interface Props {
    * (die nog wel meedonkeren met het licht).
    */
   expressive?: boolean
+  /** Palet van de regenstaven: hetzelfde als de kaartlaag (U77-proef onder ?dev). */
+  rainLook?: RainLook
   sky?: { radiation: { timeline: TimelineFrame[]; values: Array<number | null> }; sinElevation: (epoch: number) => number }
   /** Totale bewolking als één band boven het regenhistogram, in de weermodus (PO 2026-09-25 live, U34). */
   cloudCover?: { timeline: TimelineFrame[]; values: Array<number | null> }
@@ -642,7 +645,7 @@ export default function HistogramScrubber(props: Props) {
             <g class="rain-bars scrub-view" style={layerStyle(rainOpacity())}><Index each={bars()}>{(bar) => <Show
               when={!bar().pending}
               fallback={<rect class="rain-bar pending" x={bar().x} y={plotHeight() - 2} width={bar().width} height="2" rx="1" />}
-            ><rect class="rain-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={rainColor(bar().value)} /></Show>}</Index></g>
+            ><rect class="rain-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={rainColor(bar().value, props.rainLook)} /></Show>}</Index></g>
             <Show when={cloudBands().length}>
               <defs>
                 <filter id={`${cloudId}-soft`} x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="0.9" /></filter>

@@ -2,6 +2,7 @@ import { createSignal, For, type JSX } from 'solid-js'
 import { copyText } from '../core/clipboard'
 import { appendSkyDiaryEntry, SKY_DIARY_CLASSES, skyDiaryJson, type SkyDiaryClass } from '../core/dev-settings'
 import { ISOLINE_FADES, ISOLINE_FILL_STYLES, ISOLINE_STEPS, type IsolineFade, type IsolineFillStyle, type IsolineStep, type IsolineTuning } from '../core/isolines'
+import { RAIN_BLENDS, RAIN_PALETTES, type RainBlendName, type RainLookChoice, type RainPaletteName } from '../core/rain-palette'
 import { RAIN_SMOOTHINGS, type RainFieldTuning, type RainSmoothing } from '../core/rain-smoothing'
 import { sanitizeWindTuning, WIND_TUNING_CONTROLS, type WindTuning } from '../core/wind-layer'
 
@@ -16,6 +17,8 @@ interface Props {
   onWindTuning: (tuning: WindTuning) => void
   rainFieldTuning: RainFieldTuning
   onRainFieldTuning: (patch: Partial<RainFieldTuning>) => void
+  rainLook: RainLookChoice
+  onRainLook: (patch: Partial<RainLookChoice>) => void
   viewportDiagnose: boolean
   onViewportDiagnose: (enabled: boolean) => void
   perfVisible: boolean
@@ -38,6 +41,9 @@ const WIND_HINTS: Record<keyof WindTuning, string> = {
 }
 
 const RAIN_SMOOTHING_HINT = 'Auto: het product (blur 5×5 tot 2 uur vooruit, oplopend naar 9×9 vanaf 3 uur). Blokken: elke rastercel hard. Bilineair: zoals vóór U72. Bronlineair, glad en blur wegen de cellen van de bron zelf: lineair, bicubisch (scherp) of als Gaussische vervaging over 3×3 tot 9×9 broncellen.'
+
+const RAIN_PALETTE_HINT = 'Kleuren van de regen op de kaart en in het histogram. Huidig: lichtblauw, groen, geel, oranje, paars. Blauw-grijs-rood: het PO-voorstel. Blauw-violet-rood: hetzelfde met violet in plaats van grijs. Oplopend-donker: de volgorde zit in de helderheid, overdag steeds donkerder en \'s nachts steeds lichter.'
+const RAIN_BLEND_HINT = 'Hoe regen in Weer over de kaart ligt (Wind en Lucht blijven zoals ze zijn). Huidig: lichte regen telt licht op bij de kaart (de witte halo). Zuiver: echte dekking, verder gelijk. Steil: de hele gladgestreken zoom meteen dekkend. Drempel: niets tot de rand van de data, daar meteen dekkend. Rand: drempel met een dunne contour. Steil, drempel en rand schuiven de beginkleur per thema op tot hij genoeg afsteekt bij land, water en bebouwing.'
 
 export default function DevPanel(props: Props) {
   const [windCopied, setWindCopied] = createSignal(false)
@@ -104,6 +110,16 @@ export default function DevPanel(props: Props) {
       <Action label={windCopied() ? 'Gekopieerd' : 'Kopieer wind als JSON'} hint="Zet de vier windwaarden op het klembord, om terug te sturen." onClick={() => void copyWind()} />
     </Group>
     <Group title="Kaart">
+      <Control label="Regenpalet" output={props.rainLook.palette} hint={RAIN_PALETTE_HINT}>
+        <select value={props.rainLook.palette} onChange={(event) => props.onRainLook({ palette: event.currentTarget.value as RainPaletteName })}>
+          <For each={RAIN_PALETTES}>{(palette) => <option value={palette}>{palette}</option>}</For>
+        </select>
+      </Control>
+      <Control label="Regenmenging" output={props.rainLook.blend} hint={RAIN_BLEND_HINT}>
+        <select value={props.rainLook.blend} onChange={(event) => props.onRainLook({ blend: event.currentTarget.value as RainBlendName })}>
+          <For each={RAIN_BLENDS}>{(blend) => <option value={blend}>{blend}</option>}</For>
+        </select>
+      </Control>
       <Control label="Regenveld radar/nowcast" output={props.rainFieldTuning.radar} hint={`Hoe radar, nowcast en blend tussen de cellen worden ingevuld. ${RAIN_SMOOTHING_HINT}`}>
         <select value={props.rainFieldTuning.radar} onChange={(event) => props.onRainFieldTuning({ radar: event.currentTarget.value as RainSmoothing })}>
           <For each={RAIN_SMOOTHINGS}>{(smoothing) => <option value={smoothing}>{smoothing}</option>}</For>

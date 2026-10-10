@@ -21,6 +21,8 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Wind | Lijnbreedte | dikte van de streepjes | U3 | idem |
 | Wind | Tempo | snelheid van de streepjes | U3b | idem |
 | Wind | Kopieer wind als JSON | de vier waarden naar het klembord (PO-terugkoppelweg) | U20 | blijft zolang de windknoppen er zijn |
+| Kaart | Regenpalet | kleuren van de regen op de kaart en in het histogram: huidig (standaard) / blauw-grijs-rood (PO-voorstel) / blauw-violet-rood / oplopend-donker | U77 | 2026-10-17, of eerder zodra de PO een palet kiest |
+| Kaart | Regenmenging | hoe regen in Weer over de kaart ligt: huidig (standaard; lichte regen telt licht op bij de kaart) / zuiver (echte alfa-over) / steil / drempel / rand; de laatste drie borgen het contrast van de lichtste regen met land, water en bebouwing | U77 | idem |
 | Kaart | Regenveld radar/nowcast | override op het product voor radar, nowcast en blend: auto (standaard) / blokken / bilineair (vóór U72) / bronlineair / glad / blur 3×3 … 9×9 | U72 | 2026-10-16, of eerder als de PO niets meer wil bijstellen |
 | Kaart | Regenveld HARMONIE | dezelfde override voor het weermodel (vanaf ruim 6 uur vooruit) | U72 | idem |
 | Laden | Eerste regen | het eerste regenframe direct na het manifest vragen (vroeg) of pas na de kaart-opzet (laat; herladen) | U54 | zodra een telefoonopname de winst heeft vastgelegd of weerlegd |
@@ -60,6 +62,7 @@ Rig-schakelaar zonder knop: `dev-speelregel` = `venster` zet onder `?dev` de oud
 (`koud-spelend-vensterregel`). Eigenaar U54; vervalt zodra de PO de speelregel heeft bevestigd.
 De knop "Scherm en scroll" schrijft `dev-viewport` (`aan`/`uit`, U62).
 De Regenveld-knoppen schrijven `dev-regenveld-radar` en `dev-regenveld-harmonie` (U72); zonder `?dev` worden ze niet gelezen en geldt `auto`. Rig-schakelaar zonder knop: `dev-regenveld-meet` = `aan` meet onder `?dev` elke voorfilter-pass (wacht op de GPU, dus alleen voor `rig/filter-cost.ts`); eigenaar U72, vervalt met de knoppen.
+De knoppen Regenpalet en Regenmenging schrijven `dev-regenpalet` en `dev-regenmenging` (U77); zonder `?dev` worden ze niet gelezen en geldt `huidig`. In Wind en Lucht geldt altijd de menging `huidig`.
 De knop "Eerste regen" schrijft `dev-eerste-regen`; de rig zet dezelfde sleutel in `koud-spelend-regen-laat`.
 Tuning/debug: `wind-tuning-v4` (v3 wordt bij het laden gemigreerd), `perf` en de eenmalige
 `perf-cold`. Oude sleutels (`wind-tuning`, `-v2`, `-v3`, `splash-slowdown`, `scrubber-view`, `clock-jog`) wist
