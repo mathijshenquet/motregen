@@ -4,23 +4,31 @@ pub fn draw_overlay(text: &mut Text, rgb: &mut [u8], epoch: i64, now: i64, night
     let size = &constants().size;
     let left = (size.width as i32 - 320) / 2;
     let history = epoch <= now;
-    let background = if history {
+    let background = if night {
+        [10, 24, 32]
+    } else if history {
         [239, 247, 236]
     } else {
         [232, 243, 251]
+    };
+    let clock_color = if night { [237, 248, 252] } else { [16, 38, 48] };
+    let muted_color = if night {
+        [145, 170, 181]
+    } else {
+        [99, 123, 133]
     };
     rounded_panel(rgb, left, -16, 320, 138, 24, background, 0.96);
     let (clock, day) = clock_text(epoch);
     let time_width = text.width(&clock, 58);
     let day_width = text.width(day, 24);
     let content_left = (size.width as f32 - time_width - day_width - 16.0) / 2.0;
-    text.draw(rgb, &clock, (content_left, 67), 58, [16, 38, 48], None);
+    text.draw(rgb, &clock, (content_left, 67), 58, clock_color, None);
     text.draw(
         rgb,
         day,
         (content_left + time_width + 16.0, 65),
         24,
-        [99, 123, 133],
+        muted_color,
         None,
     );
     let title_width = text.width("Regen", 24);
@@ -29,7 +37,7 @@ pub fn draw_overlay(text: &mut Text, rgb: &mut [u8], epoch: i64, now: i64, night
         "Regen",
         ((size.width as f32 - title_width) / 2.0, 103),
         24,
-        [99, 123, 133],
+        muted_color,
         None,
     );
     let footer_color = if night { [237, 248, 252] } else { [16, 38, 48] };

@@ -12,6 +12,7 @@ use std::{
     io::{Read, Seek, SeekFrom},
     path::{Component, Path, PathBuf},
     sync::Arc,
+    time::Instant,
 };
 
 #[derive(Debug)]
@@ -28,6 +29,9 @@ pub struct Dataset<'a> {
     headers: HashMap<usize, HeaderIndex>,
     cache: Vec<((usize, usize), Arc<Raster>)>,
     rain: bool,
+    pub sampling_us: u128,
+    pub decode_us: u128,
+    pub loaded: usize,
 }
 
 impl<'a> Dataset<'a> {
@@ -40,6 +44,9 @@ impl<'a> Dataset<'a> {
             headers: HashMap::new(),
             cache: Vec::new(),
             rain: field == "rain_rate",
+            sampling_us: 0,
+            decode_us: 0,
+            loaded: 0,
         })
     }
 
@@ -120,6 +127,7 @@ impl<'a> Dataset<'a> {
         if let Some((_, raster)) = self.cache.iter().find(|(cached, _)| *cached == key) {
             return Ok(Arc::clone(raster));
         }
+        let started = Instant::now();
         let range = self
             .header(frame.chunk_index)?
             .frame_range(frame.frame_index)?;
@@ -128,7 +136,10 @@ impl<'a> Dataset<'a> {
         let mut values = index.decode_frame(frame.frame_index, &compressed)?;
         let grid: Grid = serde_json::from_value(serde_json::to_value(&index.header.grid)?)?;
         let quant = index.header.quant.clone();
+        self.decode_us += started.elapsed().as_micros();
+        self.loaded += 1;
         if self.rain {
+            let started = Instant::now();
             let blur = blur(frame.epoch - epoch(&self.manifest.now)?);
             let source = &self.manifest.chunks[frame.chunk_index].source;
             let cell_width = if source == "harmonie" {
@@ -143,6 +154,7 @@ impl<'a> Dataset<'a> {
                 sigma: blur.sigma,
             }
             .filter(values, grid.width, grid.height);
+            self.sampling_us += started.elapsed().as_micros();
         }
         let raster = Arc::new(Raster {
             grid,

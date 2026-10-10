@@ -42,7 +42,21 @@ pub struct Media {
     pub loop_ms: u128,
     pub encode_ms: u128,
     pub total_ms: u128,
+    pub profile: Profile,
     pub files: Vec<FileMedia>,
+}
+
+#[derive(Debug, Default, Serialize)]
+pub struct Profile {
+    pub output_frames: usize,
+    pub source_frames: usize,
+    pub decode_us: u128,
+    pub sampling_us: u128,
+    pub motion_us: u128,
+    pub mixing_us: u128,
+    pub overlay_us: u128,
+    pub jpeg_us: u128,
+    pub ffmpeg_wait_us: u128,
 }
 
 struct Scene<'a> {
@@ -53,6 +67,7 @@ struct Scene<'a> {
     motion_pair: Option<(usize, usize)>,
     plates: [Vec<u8>; 2],
     now: i64,
+    profile: Profile,
 }
 
 impl Scene<'_> {
@@ -72,6 +87,7 @@ impl Scene<'_> {
         );
         let pair = (blend.left, blend.right);
         if self.motion_pair != Some(pair) {
+            let started = Instant::now();
             let interval = (right_frame.epoch - left_frame.epoch) as f64 / 60_000.0;
             let limit = warp_limit(interval);
             let motion = self.rain.motion(&left_frame, &right_frame)?;
@@ -85,9 +101,11 @@ impl Scene<'_> {
                     fade: limit.fade_end_cells,
                 }));
             self.motion_pair = Some(pair);
+            self.profile.motion_us += started.elapsed().as_micros();
         }
         let night = dark(epoch);
         let mut rgb = self.plates[usize::from(night)].clone();
+        let overlay_started = Instant::now();
         if !self.temperatures.frames.is_empty() {
             let temperature_epoch = ((epoch + 300_000).div_euclid(600_000) * 600_000).clamp(
                 self.temperatures.frames[0].epoch,
@@ -114,6 +132,8 @@ impl Scene<'_> {
                 night,
             );
         }
+        self.profile.overlay_us += overlay_started.elapsed().as_micros();
+        let mixing_started = Instant::now();
         self.compositor.compose(
             &mut rgb,
             RainPair {
@@ -123,7 +143,11 @@ impl Scene<'_> {
             },
             night,
         );
+        self.profile.mixing_us += mixing_started.elapsed().as_micros();
+        let overlay_started = Instant::now();
         draw_overlay(&mut self.text, &mut rgb, epoch, self.now, night);
+        self.profile.overlay_us += overlay_started.elapsed().as_micros();
+        self.profile.output_frames += 1;
         Ok(rgb)
     }
 }
@@ -197,6 +221,7 @@ pub fn render(
         plates,
         now,
         motion_pair: None,
+        profile: Profile::default(),
     };
     fs::create_dir_all(out_directory)?;
     let receipt = out_directory.join("media.json");
@@ -225,7 +250,9 @@ pub fn render(
             .frame(epoch)
             .with_context(|| format!("Rendering map time {epoch}"))?;
         render_ms += frame_started.elapsed().as_micros();
+        let write_started = Instant::now();
         video.frame(&rgb)?;
+        scene.profile.ffmpeg_wait_us += write_started.elapsed().as_micros();
         if let Some(index) = still_pending.iter().position(|pending| *pending == epoch) {
             still_pending.remove(index);
             let jpeg_started = Instant::now();
@@ -233,7 +260,9 @@ pub fn render(
             encode_ms += jpeg_started.elapsed().as_micros();
         }
     }
+    let finish_started = Instant::now();
     let (bytes, loop_ms) = video.finish()?;
+    scene.profile.ffmpeg_wait_us += finish_started.elapsed().as_micros();
     files.insert(
         0,
         FileMedia {
@@ -266,6 +295,10 @@ pub fn render(
             out_directory.join(&file.file),
         )?;
     }
+    scene.profile.sampling_us = scene.rain.sampling_us;
+    scene.profile.decode_us = scene.rain.decode_us + scene.temperatures.decode_us;
+    scene.profile.source_frames = scene.rain.loaded;
+    scene.profile.jpeg_us = encode_ms;
     let media = Media {
         version: 1,
         mode: "weather",
@@ -281,6 +314,7 @@ pub fn render(
         loop_ms,
         encode_ms: encode_ms / 1000,
         total_ms: started.elapsed().as_millis(),
+        profile: scene.profile,
         files,
     };
     fs::write(
