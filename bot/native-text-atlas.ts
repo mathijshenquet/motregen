@@ -7,7 +7,10 @@ import { prepareNativeAsset, type NativeAssetContext } from './native-assets.js'
 import { textPlacementKey, type TextPlacement, type Glyph } from './native-text.js'
 
 const cell = { width: 48 * FRAME.scale, height: 48 * FRAME.scale }
-const columns = 20
+// 100 kolommen: met 20 werd een blad van ~3900 labels ruim 14000 px hoog en herhaalde Chromium vanaf ~8190 px de
+// bovenkant, zodat latere labels de tekst van eerdere kregen (prod 2026-10-10). Breedte 7200 px, hoogte groeit per 100.
+const columns = 100
+const MAX_SHEET_PIXELS = 8000
 
 export async function prepareNativeTextAtlas(origin: string, directory: string, context: NativeAssetContext, placements: readonly TextPlacement[]) {
   if (!placements.length) return undefined
@@ -18,7 +21,7 @@ export async function prepareNativeTextAtlas(origin: string, directory: string, 
   const response = await fetch(origin, { signal: AbortSignal.timeout(15000) })
   if (!response.ok) throw new Error('App-stijl voor isolijntekst ontbreekt')
   const styles = [...(await response.text()).matchAll(/<link\b[^>]*href="([^"]+\.css)"[^>]*>/g)].map((match) => new URL(match[1]!, origin).href)
-  const key = createHash('sha256').update(JSON.stringify({ styles, cell, variants, version: 6 })).digest('hex').slice(0, 24)
+  const key = createHash('sha256').update(JSON.stringify({ styles, cell, variants, version: 7 })).digest('hex').slice(0, 24)
   const path = join(directory, `isoline-text-${key}.png`)
   // Concurrent full-page captures failed in Chromium; DOM/font preparation can overlap.
   async function preparePng(): Promise<void> {
@@ -58,6 +61,7 @@ export async function nativeTextAtlas(origin: string, directory: string, context
   const { path, variants } = prepared
   const metadata = await sharp(path).metadata()
   if (metadata.width !== cell.width * columns) throw new Error('Isolijntekst heeft verkeerde schaal')
+  if (metadata.width! > MAX_SHEET_PIXELS || metadata.height! > MAX_SHEET_PIXELS) throw new Error(`Isolijntekstblad te groot voor één screenshot (${metadata.width}×${metadata.height})`)
   const glyphs = new Map<string, Glyph>()
   const batchSize = columns * 16
   for (let offset = 0; offset < variants.length; offset += batchSize) {
