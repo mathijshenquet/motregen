@@ -484,6 +484,14 @@
   file 235 MB; max-events 970, geen kill). Eén losse `poll-failed getUpdates` (14:26, code 0, herstelt zelf; kwam
   ook vóór vandaag voor). Render blijft 195–247 s op de VM → pas opgelost met MIP-29 C1–C2.
   U77 gestart (opus-5.5 live-pane, 4320): regenpalet + contrast met de kaart (PO-feedback "te low contrast").
+- 14:52: **U76 ronde 1 klaar** (42 min, PR #106): `crates/render-core` (puur, bouwt voor wasm32) + `crates/render`
+  (`motregen-render --data-dir … --basemap-dir … --mode weather --out-dir …`), Inter ingebed, constanten uit TS
+  gegenereerd, Node-schakelaar `MOTREGEN_RUST_RENDERER=weather` (uit). Dev-host 2 kernen: 14,4 s / 164 MiB voor
+  loop + 85 stills. **VM-meting (orkestrator, live data, 400M/200 %)**: 37,4 s wand / 47,1 s CPU / 148 MiB met de bot
+  gepauzeerd (freeze/thaw, geen herstart); 40,0 s met draaiende bot. VM-kern ~2,9× trager dan dev-host, werk vrijwel
+  serieel. PO over de beelden: "ik vind de nieuwe zelfs beter"; wens: klokachtergrond 's nachts donkerder.
+  Ronde 2 gestart: smoothing als voorfilter per bronframe (zoals web U72), frames parallel, doel < 15 s op de VM.
+  Open vraag aan worker: oude route toont op de nachtstill 06:00 waar 23:30 hoort.
 
 ## 2026-10-09 — sessieafsluiting (23:30): native bot, smoothing, /weer, weer ok?, VM rendert zelf
 - **Gemerged en op prod** (main 08f37ad8): U69 d2 (wind na eerste tik), U70 + app-tempo regenloop −1…+2 u, U71a–d
