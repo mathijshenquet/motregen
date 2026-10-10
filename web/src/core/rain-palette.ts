@@ -100,8 +100,8 @@ const PALETTE_STOPS: Record<RainPaletteName, Record<MapTheme, PaletteStop[]>> = 
     light: [
       stopAt(0.1, DAY_LIGHT_BLUE),
       stopAt(1.2, DAY_BLUE),
-      stopAt(3.5, [88, 40, 164]),
-      stopAt(6.5, [120, 24, 124]),
+      stopAt(3.5, [74, 28, 148]),
+      stopAt(6.5, [110, 16, 110]),
       stopAt(11, [214, 36, 52]),
       stopAt(40, [140, 12, 40]),
       stopAt(120, [84, 4, 44]),
@@ -123,9 +123,9 @@ const PALETTE_STOPS: Record<RainPaletteName, Record<MapTheme, PaletteStop[]>> = 
     light: [
       stopAt(0.1, DAY_LIGHT_BLUE),
       stopAt(1, [48, 110, 210]),
-      stopAt(2.5, [50, 70, 170]),
-      stopAt(7.5, [84, 30, 112]),
-      stopAt(20, [72, 8, 40]),
+      stopAt(2.5, [44, 58, 158]),
+      stopAt(7.5, [88, 22, 100]),
+      stopAt(20, [64, 6, 34]),
       stopAt(100, [20, 0, 10]),
     ],
     dark: [
@@ -166,8 +166,11 @@ const BLEND_SHAPES: Record<RainBlendName, BlendShape> = {
 
 const GRADUAL_ALPHA_PER_INDEX = 1.6
 const FULL_ALPHA = 210
-/** Dekking van de lichtste zichtbare regen bij een mengvariant met inzet. */
-export const ONSET_ALPHA = 0.7
+/**
+ * Dekking van de lichtste zichtbare regen bij een mengvariant met inzet. Bewust niet hoger: het weermodel heeft
+ * brede velden motregen, en op 0,7 werd dat een dichte plaat waar plaatsnamen en grenzen onder verdwenen.
+ */
+export const ONSET_ALPHA = 0.55
 
 function alphaAt(index: number, shape: BlendShape): number {
   const gradual = Math.min(FULL_ALPHA, Math.round(index * GRADUAL_ALPHA_PER_INDEX))

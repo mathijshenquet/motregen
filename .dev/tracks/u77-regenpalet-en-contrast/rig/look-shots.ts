@@ -3,7 +3,7 @@
 // gelijk. Magenta scheidt de cellen. Gebruik (vanuit web/, rig gekopieerd naar tmp/u77/):
 //   pnpm exec tsx tmp/u77/look-shots.ts <baseURL> <label> <390|1280> <dag|nacht|nacht-vast> <uren vooruit> <lng,lat,zoom|-> <palet/menging,palet/menging,...>
 // U77_TIME=2026-10-10T1415 zet een vaste kaarttijd (Amsterdam) in plaats van uren vooruit. U77_PANEL=1 neemt het
-// hele kaartvlak met het histogram erbij (één kolom per cel) in plaats van de uitsnede.
+// hele kaartvlak met het histogram erbij (één kolom per cel) in plaats van de uitsnede. U77_MODE=Wind|Lucht kiest de kaartmodus.
 import { chromium, devices } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import sharp from 'sharp'
@@ -52,6 +52,11 @@ async function choose(controlLabel: string, value: string): Promise<void> {
   }, [controlLabel, value])
 }
 
+// U77_MODE=Wind of Lucht: de kaartmodus via de tabelkop, om een palet ook daar te zien (de menging blijft er huidig).
+if (process.env.U77_MODE) {
+  await page.locator('button', { hasText: new RegExp('^' + process.env.U77_MODE + '$') }).first().click()
+  await page.waitForTimeout(2_500)
+}
 const shell = page.locator('.map-shell')
 const cells: Buffer[] = []
 let sources = ''
