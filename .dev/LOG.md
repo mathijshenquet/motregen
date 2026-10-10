@@ -492,6 +492,21 @@
   serieel. PO over de beelden: "ik vind de nieuwe zelfs beter"; wens: klokachtergrond 's nachts donkerder.
   Ronde 2 gestart: smoothing als voorfilter per bronframe (zoals web U72), frames parallel, doel < 15 s op de VM.
   Open vraag aan worker: oude route toont op de nachtstill 06:00 waar 23:30 hoort.
+- 16:00: **Twee prod-fouten gevonden en hersteld (U78, 5f47026b, uitgerold 15:54)**, beide via U76/U75-werk aan het licht:
+  1. **Klok fout vanaf 17:30** (gemeld door de U76-worker, op prod bevestigd door de klokbladen te croppen): het
+     Chromium-klokblad was 11241 px hoog; boven ~8190 px herhaalde de screenshot de bovenkant → 17:30 toonde "00:00",
+     23:30 "06:00" (elk bot-beeld met kaarttijd ≥ 17:30, sinds de native route). Zelfde fout in het isolijnlabelblad
+     (14000 px bij ~3900 labels → late labels kregen tekst van eerdere). Fix: bladen 30/100 kolommen breed, grens
+     8000 px bewaakt, cacheversie omhoog. Op prod na uitrol gecontroleerd: 17:20 / 17:49 / 22:10 kloppen.
+  2. **Schijf VM 99 % vol** (uitrol faalde op "No space left"; ook de oorzaak van de mislukte upgrade van 03:21?):
+     `.frames`-mappen voor de tijdknoppen, ~300 MB per modus per generatie, 2 uur bewaard = 16 GB. Direct opgeruimd
+     (61 %), daarna: frames 20 min bewaren, generatie even lang onthouden, tijdknop op ouder bericht valt terug op de
+     nieuwste generatie (melding "Nieuwste beschikbare generatie getoond.").
+- **U76 ronde 2** (d4529ab): voorfilter per bronframe, frames parallel, nachtklok donker. Dev-host 3,4 s / 6,1 s CPU /
+  218 MiB. **VM**: 19,0 s wand / 34,2 s CPU / 193 MiB met de bot gepauzeerd; 31,8 s met draaiende bot (ronde 1: 37,4 /
+  40,0 s). Doel < 15 s niet gehaald: de VM is een Haswell-vCPU, ~5,6× trager in CPU-tijd dan de dev-host (Ryzen 9950X).
+  Idee: stills op aanvraag renderen (één frame ≈ <1 s) i.p.v. 85 per generatie → geen frames-opslag, loop alleen.
+- U77 klaar voor PO-blik (4320): diagnose = α²-menging + smoothing; advies menging `drempel`; paletkeuze bij de PO.
 
 ## 2026-10-09 — sessieafsluiting (23:30): native bot, smoothing, /weer, weer ok?, VM rendert zelf
 - **Gemerged en op prod** (main 08f37ad8): U69 d2 (wind na eerste tik), U70 + app-tempo regenloop −1…+2 u, U71a–d
