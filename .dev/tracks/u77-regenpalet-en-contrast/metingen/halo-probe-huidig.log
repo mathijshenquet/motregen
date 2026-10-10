@@ -1,0 +1,27 @@
+tijd 2026-10-10T1415 · bronnen rtcor rtcor · instellingen (geen)
+regenpixels 209325 · waarvan onder de inzet (byte < 55, vaste beginkleur) 73431 = 35.1 %
+| klasse | pixels | dekking uit palet (α) | α² | canvas-alfa gemeten |
+| --- | --- | --- | --- | --- |
+| byte 1–15 (< 0,02 mm/u) | 24066 | 0.055 | 0.003 | 0.012 |
+| byte 15–30 (0,02–0,03) | 21706 | 0.137 | 0.019 | 0.029 |
+| byte 30–45 (0,03–0,05) | 16952 | 0.233 | 0.054 | 0.056 |
+| byte 45–55 (0,05–0,08) | 10707 | 0.312 | 0.098 | 0.098 |
+PROBE-EXIT: 0
+tijd 2026-10-10T1415 · bronnen rtcor rtcor · instellingen dev-regenveld-radar=bilineair
+regenpixels 141346 · waarvan onder de inzet (byte < 55, vaste beginkleur) 21063 = 14.9 %
+| klasse | pixels | dekking uit palet (α) | α² | canvas-alfa gemeten |
+| --- | --- | --- | --- | --- |
+| byte 1–15 (< 0,02 mm/u) | 4525 | 0.060 | 0.004 | 0.013 |
+| byte 15–30 (0,02–0,03) | 6541 | 0.138 | 0.019 | 0.029 |
+| byte 30–45 (0,03–0,05) | 5948 | 0.232 | 0.054 | 0.055 |
+| byte 45–55 (0,05–0,08) | 4049 | 0.312 | 0.098 | 0.098 |
+PROBE-EXIT: 0
+tijd 2026-10-10T1415 · bronnen rtcor rtcor · instellingen dev-regenveld-radar=blokken
+regenpixels 125272 · waarvan onder de inzet (byte < 55, vaste beginkleur) 0 = 0.0 %
+| klasse | pixels | dekking uit palet (α) | α² | canvas-alfa gemeten |
+| --- | --- | --- | --- | --- |
+| byte 1–15 (< 0,02 mm/u) | 0 | – | – | – |
+| byte 15–30 (0,02–0,03) | 0 | – | – | – |
+| byte 30–45 (0,03–0,05) | 0 | – | – | – |
+| byte 45–55 (0,05–0,08) | 0 | – | – | – |
+PROBE-EXIT: 0
