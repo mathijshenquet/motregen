@@ -15,6 +15,8 @@
     "soak": "node --max-old-space-size=192 --max-semi-space-size=4 --expose-gc --import tsx soak.ts",
     "soak:upload": "node --expose-gc --import tsx upload-soak.ts",
     "typecheck": "tsc --noEmit",
+    "render:constants": "tsx render-constants.ts",
+    "prebuild": "pnpm render:constants",
     "pretest": "pnpm --dir ../web synthgen",
     "test": "vitest run",
     "build": "tsc && rustc native-raster.rs -O -o dist/bot/native-raster && rustc native-field-raster.rs -O -o dist/bot/native-field-raster"
