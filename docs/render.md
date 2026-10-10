@@ -54,8 +54,7 @@ dezelfde R8-ronding na elke filterpass. Alleen het zichtbare gebied plus de maxi
 wordt berekend. Conservatieve dekkingsmaskers slaan uitsluitend aantoonbaar lege uitvoertegels over.
 Loop en stills delen bronframes en worden in kaarttijdvolgorde met twee werkers samengesteld; JPEG draait
 mee tijdens de loop. Een aparte schrijver geeft de geordende RGB-batches aan ffmpeg door. Eén batch van vier
-frames mag op de schrijver wachten, zodat RGB- en bewegingsvelden begrensd blijven. JPEG gebruikt waar
-beschikbaar AVX2 via runtime-detectie van jpeg-encoder en anders de bestaande scalaire encoder.
+frames mag op de schrijver wachten, zodat RGB- en bewegingsvelden begrensd blijven.
 `pnpm -C bot render:constants` genereert de ingebedde JSON; de botbuild draait dit ook. De constantentest
 faalt bij drift. De kern heeft geen bestands-, netwerk- of systeemkloktoegang en bouwt voor wasm32.
 

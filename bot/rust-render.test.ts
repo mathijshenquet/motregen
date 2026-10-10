@@ -24,7 +24,7 @@ async function media(directory: string): Promise<rust.RustMedia> {
   await Promise.all(files.map((file) => writeFile(join(directory, file.file), 'data')))
   return { version: 1, mode: 'weather', generated: manifest.generated, now: manifest.now, ...FRAME_PIXELS,
     fps: plan.fps, frames: plan.loopFrames, hold_frames: plan.fps, loop_epochs: plan.epochs.slice(0, plan.loopFrames),
-    render_ms: 8, encode_ms: 1, loop_ms: 5, total_ms: 10, files }
+    render_ms: 18, encode_ms: 1, loop_ms: 5, total_ms: 10, files }
 }
 
 it('defaults to the existing renderer and separates cache identities only for rain', () => {
@@ -49,10 +49,10 @@ it('imports all Rust JPEGs directly and reuses the complete cache without native
   const render = vi.spyOn(rust, 'runRustRenderer').mockImplementation((_manifest, directory) => media(directory))
   try {
     const first = await renderer.render({ mode: 'weather', hour: 12 }, manifest)
-    expect(first).toMatchObject({ kind: 'photo', cached: false, epoch: stillEpoch(manifest, 12) })
+    expect(first).toMatchObject({ kind: 'photo', cached: false, epoch: stillEpoch(manifest, 12), milliseconds: 10 })
     expect(await readFile(first.path, 'utf8')).toBe('data')
     const loop = await renderer.render({ mode: 'weather', hour: 'loop' }, manifest)
-    expect(loop).toMatchObject({ backend: 'rust', cached: true, frames: 241, fps: 10 })
+    expect(loop).toMatchObject({ backend: 'rust', cached: true, frames: 241, fps: 10, renderMs: 18, encodeMs: 1, totalMs: 10, milliseconds: 0 })
     expect(render).toHaveBeenCalledOnce()
     expect(weatherPrepare).not.toHaveBeenCalled()
     expect(modesPrepare).not.toHaveBeenCalled()

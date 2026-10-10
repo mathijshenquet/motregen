@@ -37,6 +37,7 @@ export interface RenderedLoop extends RenderedBase {
   bytes: number
   renderMs: number
   encodeMs: number
+  totalMs?: number
   openMs?: number
   backend?: 'native' | 'playwright' | 'rust'
   loopMs?: number
@@ -45,7 +46,7 @@ export interface RenderedLoop extends RenderedBase {
 }
 export type RenderedMedia = RenderedStill | RenderedLoop
 interface RenderedSequence { loop: RenderedLoop; stills: RenderedStill[] }
-interface SequenceMetrics { key: string; frames: number; fps: number; bytes: number; renderMs: number; encodeMs: number; openMs?: number; backend?: 'native' | 'playwright' | 'rust'; loopMs?: number; loopRenderMs?: number; preparationMs?: number }
+interface SequenceMetrics { key: string; frames: number; fps: number; bytes: number; renderMs: number; encodeMs: number; totalMs?: number; openMs?: number; backend?: 'native' | 'playwright' | 'rust'; loopMs?: number; loopRenderMs?: number; preparationMs?: number }
 
 export class StillRenderer {
   private readonly nativeLoops = new Map<string, { ready: Promise<void>; finish: () => void }>()
@@ -209,7 +210,7 @@ export class StillRenderer {
   }
 
   private results(mode: LoopMode, manifest: StillManifest, metrics: SequenceMetrics, cached: boolean): RenderedSequence {
-    const milliseconds = cached ? 0 : metrics.renderMs + metrics.encodeMs
+    const milliseconds = cached ? 0 : metrics.totalMs ?? metrics.renderMs + metrics.encodeMs
     const loop: RenderedLoop = { ...this.media({ mode, hour: 'loop' }, manifest), kind: 'animation', ...metrics, milliseconds, cached }
     const stills: RenderedStill[] = mode === 'wind' ? [] : STILL_HOURS.map((hour) => ({ ...this.media({ mode, hour }, manifest), kind: 'photo', milliseconds, cached }))
     return { loop, stills }
@@ -358,7 +359,7 @@ export class StillRenderer {
     try {
       const media = await runRustRenderer(manifest, directory)
       const metrics: SequenceMetrics = { key, backend: 'rust', frames: media.frames, fps: media.fps, bytes: media.files.find((file) => file.kind === 'animation')!.bytes,
-        renderMs: media.render_ms, encodeMs: media.total_ms - media.render_ms, loopMs: media.loop_ms }
+        renderMs: media.render_ms, encodeMs: media.encode_ms, totalMs: media.total_ms, loopMs: media.loop_ms }
       const results = this.results('weather', manifest, metrics, false)
       await rename(join(directory, 'weather-loop.mp4'), results.loop.path)
       for (const still of results.stills) await rename(join(directory, `weather-${still.epoch}.jpg`), still.path)

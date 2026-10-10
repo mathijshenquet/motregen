@@ -157,6 +157,14 @@ impl Sampling {
         }
         let horizontal = self.weights(width);
         let vertical = self.weights(height);
+        let horizontal_totals: Vec<f64> = horizontal
+            .iter()
+            .map(|weights| weights.iter().map(|&(_, weight)| weight).sum())
+            .collect();
+        let vertical_totals: Vec<f64> = vertical
+            .iter()
+            .map(|weights| weights.iter().map(|&(_, weight)| weight).sum())
+            .collect();
         let needed_rows = vertical[rows.clone()]
             .iter()
             .flatten()
@@ -166,21 +174,37 @@ impl Sampling {
             });
         let pass = |source: &[u8],
                     weights: &[Vec<(usize, f64)>],
+                    totals: &[f64],
                     along_rows,
                     rows: std::ops::Range<usize>| {
             let mut result = vec![255; source.len()];
             let render_row = |row: usize, result: &mut [u8]| {
                 for column in columns.clone() {
-                    let mut value = 0.0;
-                    let mut validity = 0.0;
-                    let mut total = 0.0;
-                    for &(index, weight) in &weights[if along_rows { column } else { row }] {
-                        let sample = source[if along_rows {
+                    let axis = if along_rows { column } else { row };
+                    let weights = &weights[axis];
+                    let total = totals[axis];
+                    let sample_at = |index| {
+                        source[if along_rows {
                             row * width + index
                         } else {
                             index * width + column
-                        }];
-                        total += weight;
+                        }]
+                    };
+                    let Some(&(first_index, _)) = weights.first() else {
+                        continue;
+                    };
+                    let first = sample_at(first_index);
+                    if (first == 0 || first == 255)
+                        && total > 0.0
+                        && weights.iter().all(|&(index, _)| sample_at(index) == first)
+                    {
+                        result[column] = first;
+                        continue;
+                    }
+                    let mut value = 0.0;
+                    let mut validity = 0.0;
+                    for &(index, weight) in weights {
+                        let sample = sample_at(index);
                         if sample != 255 {
                             value += sample as f64 * weight;
                             validity += weight;
@@ -209,8 +233,15 @@ impl Sampling {
             result
         };
         pass(
-            &pass(source, &horizontal, true, needed_rows.0..needed_rows.1),
+            &pass(
+                source,
+                &horizontal,
+                &horizontal_totals,
+                true,
+                needed_rows.0..needed_rows.1,
+            ),
             &vertical,
+            &vertical_totals,
             false,
             rows,
         )
