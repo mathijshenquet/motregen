@@ -1,3 +1,4 @@
+import { readManifestJson } from './data-source.js'
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -21,10 +22,7 @@ export class PlaceWeatherRenderer {
 
   private manifest(): Promise<StillManifest> {
     if (this.manifestCache && this.manifestCache.expires > Date.now()) return this.manifestCache.value
-    const value = fetch(new URL('/data/manifest.json', this.origin), { cache: 'no-store', signal: AbortSignal.timeout(15_000) }).then(async (response) => {
-      if (!response.ok) throw new Error('Manifest ontbreekt')
-      return validateManifest(await response.json())
-    }).catch((error) => {
+    const value = readManifestJson(this.origin).then(validateManifest).catch((error) => {
       this.manifestCache = undefined
       throw error
     })

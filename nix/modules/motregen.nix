@@ -594,6 +594,9 @@ in
         MOTREGEN_RENDER_CACHE = "/var/cache/motregen-bot/stills";
         # Fontconfig (sharp/librsvg voor /weer, MIP-27) wil een schrijfbare cache; anders "No writable cache directories".
         XDG_CACHE_HOME = "/var/cache/motregen-bot";
+      } // lib.optionalAttrs cfg.enable {
+        # De ingest draait op dezelfde machine: lees manifest en chunks van schijf in plaats van via de eigen origin.
+        MOTREGEN_DATA_DIR = caddyDataDir;
       } // lib.optionalAttrs (cfg.bot.role != "poller") {
         PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
         MOTREGEN_CHROMIUM_PATH = "${pkgs.playwright-driver.browsers}/chromium_headless_shell-${pkgs.playwright-driver.browsersJSON."chromium-headless-shell".revision}/chrome-headless-shell-linux64/chrome-headless-shell";
@@ -602,6 +605,7 @@ in
       serviceConfig = hardening // {
         ExecStart = "${lib.getExe cfg.bot.package} --role=${cfg.bot.role}";
         EnvironmentFile = cfg.bot.secretsFile;
+        BindReadOnlyPaths = lib.optional cfg.enable "${cfg.dataDir}:${caddyDataDir}";
         User = "motregen-bot";
         Group = "motregen-bot";
         CacheDirectory = "motregen-bot";

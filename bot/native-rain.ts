@@ -1,3 +1,4 @@
+import { readData } from './data-source.js'
 import { rainSampling, DEFAULT_RAIN_FIELD_TUNING } from '../web/src/core/rain-smoothing.js'
 import type { RainSampling } from '../web/src/core/rain-sampling.js'
 import { NativeRaster } from './native-raster.js'
@@ -87,9 +88,7 @@ export class NativeRainData {
     let pending = this.chunks.get(frame.chunk.url)
     if (!pending) {
       pending = (async () => {
-        const response = await fetch(new URL(frame.chunk.url, new URL('/data/manifest.json', this.origin)), { signal: AbortSignal.timeout(30_000) })
-        if (!response.ok) throw new Error(`Regenchunk laden mislukt (${response.status})`)
-        const bytes = new Uint8Array(await response.arrayBuffer())
+        const bytes = await readData(this.origin, frame.chunk.url, 30_000)
         const headerLength = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(4, true) + 8
         return { header: parseMrfHeader(bytes.subarray(0, headerLength)), bytes, headerLength }
       })().catch((error) => {

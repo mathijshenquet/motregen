@@ -96,6 +96,8 @@
           assert combined.serviceConfig.MemoryHigh == "infinity";
           assert combined.serviceConfig.MemoryMax == "1200M";
           assert combined.serviceConfig.OOMPolicy == "kill";
+          assert combined.environment.MOTREGEN_DATA_DIR == "/run/motregen-data";
+          assert builtins.elem "/var/lib/motregen:/run/motregen-data" combined.serviceConfig.BindReadOnlyPaths;
           assert combined.serviceConfig.Restart == "always";
           assert combined.serviceConfig.MemorySwapMax == "0";
           assert renderer.systemd.services.motregen-bot.environment ? MOTREGEN_CHROMIUM_PATH;

@@ -12,6 +12,8 @@
     "smoke": "node --max-old-space-size=192 --max-semi-space-size=4 --expose-gc --import tsx smoke.ts",
     "render": "node --max-old-space-size=192 --max-semi-space-size=4 --expose-gc --import tsx smoke.ts --render-only",
     "parity": "tsx parity.ts",
+    "soak": "node --max-old-space-size=192 --max-semi-space-size=4 --expose-gc --import tsx soak.ts",
+    "soak:upload": "node --expose-gc --import tsx upload-soak.ts",
     "typecheck": "tsc --noEmit",
     "pretest": "pnpm --dir ../web synthgen",
     "test": "vitest run",
