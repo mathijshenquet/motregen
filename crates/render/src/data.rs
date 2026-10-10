@@ -14,6 +14,7 @@ use std::{
     sync::Arc,
 };
 
+#[derive(Debug)]
 pub struct Raster {
     pub grid: Grid,
     pub quant: Vec<Option<f32>>,
@@ -219,5 +220,136 @@ impl<'a> Dataset<'a> {
             grid.bh as usize,
             index.decode_motion(frame.frame_index, &bytes)?,
         )))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mrf::{ChunkMeta, MotionGrid};
+    use render_core::time::Chunk;
+
+    fn fixture(motions: Vec<Option<Vec<i8>>>) -> (tempfile::TempDir, Manifest) {
+        let directory = tempfile::tempdir().unwrap();
+        let times: Vec<String> = [
+            "2026-08-28T15:00:00Z",
+            "2026-08-28T15:05:00Z",
+            "2026-08-28T15:10:00Z",
+        ]
+        .iter()
+        .map(|time| (*time).into())
+        .collect();
+        let grid = mrf::Grid {
+            crs: "EPSG:3857".into(),
+            x0: 0.0,
+            y0: 4000.0,
+            dx: 1000.0,
+            dy: -1000.0,
+            width: 4,
+            height: 4,
+        };
+        let metadata = ChunkMeta::standard(grid, "rtcor", &times[0], times.clone()).with_pred();
+        let frames = vec![vec![20; 16], vec![40; 16], vec![60; 16]];
+        let bytes = if motions.iter().all(Option::is_none) {
+            mrf::encode(&frames, &metadata)
+        } else {
+            mrf::encode_with_motion(&frames, &metadata, MotionGrid { bw: 1, bh: 1 }, &motions)
+        }
+        .unwrap();
+        std::fs::write(directory.path().join("rain.mrf"), bytes).unwrap();
+        let manifest = Manifest {
+            version: 0,
+            generated: times[0].clone(),
+            now: times[0].clone(),
+            chunks: vec![Chunk {
+                url: "rain.mrf".into(),
+                source: "rtcor".into(),
+                run: times[0].clone(),
+                field: "rain_rate".into(),
+                times,
+            }],
+        };
+        (directory, manifest)
+    }
+
+    #[test]
+    fn reads_predictive_members_and_reuses_filtered_frames() {
+        let (directory, manifest) = fixture(vec![None, None, None]);
+        let mut dataset = Dataset::new(directory.path(), &manifest, "rain_rate").unwrap();
+        let frame = dataset.frames[1].clone();
+        let raster = dataset.load(&frame).unwrap();
+        assert_eq!(raster.values, vec![40; 16]);
+        assert!(Arc::ptr_eq(&raster, &dataset.load(&frame).unwrap()));
+    }
+
+    #[test]
+    fn motion_prefers_right_then_next_then_left() {
+        let (directory, manifest) = fixture(vec![None, Some(vec![10, -10]), Some(vec![20, -20])]);
+        let mut dataset = Dataset::new(directory.path(), &manifest, "rain_rate").unwrap();
+        let frames = dataset.frames.clone();
+        assert_eq!(
+            dataset.motion(&frames[0], &frames[1]).unwrap().unwrap().2,
+            vec![10, -10]
+        );
+
+        let (directory, manifest) = fixture(vec![None, None, Some(vec![20, -20])]);
+        let mut dataset = Dataset::new(directory.path(), &manifest, "rain_rate").unwrap();
+        let frames = dataset.frames.clone();
+        assert_eq!(
+            dataset.motion(&frames[0], &frames[1]).unwrap().unwrap().2,
+            vec![20, -20]
+        );
+
+        let (directory, manifest) = fixture(vec![None, Some(vec![10, -10]), None]);
+        let mut dataset = Dataset::new(directory.path(), &manifest, "rain_rate").unwrap();
+        let frames = dataset.frames.clone();
+        assert_eq!(
+            dataset.motion(&frames[1], &frames[2]).unwrap().unwrap().2,
+            vec![10, -10]
+        );
+        assert!(dataset.motion(&frames[1], &frames[1]).unwrap().is_none());
+    }
+
+    #[test]
+    fn rejects_stale_manifest_times_and_paths_outside_data() {
+        let (directory, mut manifest) = fixture(vec![None, None, None]);
+        manifest.chunks[0].times[1] = "2026-08-28T15:06:00Z".into();
+        let mut dataset = Dataset::new(directory.path(), &manifest, "rain_rate").unwrap();
+        let frame = dataset.frames[1].clone();
+        assert!(
+            dataset
+                .load(&frame)
+                .unwrap_err()
+                .to_string()
+                .contains("MRF times differ")
+        );
+        manifest.chunks[0].url = "../rain.mrf".into();
+        let mut dataset = Dataset::new(directory.path(), &manifest, "rain_rate").unwrap();
+        let frame = dataset.frames[1].clone();
+        assert!(
+            dataset
+                .load(&frame)
+                .unwrap_err()
+                .to_string()
+                .contains("inside data directory")
+        );
+    }
+
+    #[test]
+    fn rejects_truncated_frame_payload() {
+        let (directory, manifest) = fixture(vec![None, None, None]);
+        let path = directory.path().join("rain.mrf");
+        let mut bytes = std::fs::read(&path).unwrap();
+        bytes.truncate(bytes.len() - 1);
+        std::fs::write(path, bytes).unwrap();
+        let mut dataset = Dataset::new(directory.path(), &manifest, "rain_rate").unwrap();
+        let frame = dataset.frames[2].clone();
+        assert!(
+            dataset
+                .load(&frame)
+                .unwrap_err()
+                .to_string()
+                .contains("Truncated MRF member")
+        );
     }
 }

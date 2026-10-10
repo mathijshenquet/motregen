@@ -14,7 +14,33 @@ import { projectPoint } from '../web/src/core/point-value.js'
 import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLayer } from '../web/src/core/temperature.js'
 import { DEFAULT_LOCATION, stillMapTheme } from '../web/src/core/still-theme.js'
 import { buildTimeline, frameBlend } from '../web/src/core/time-model.js'
+import { blendFixture, overlapFixture } from '../web/src/core/time-model.fixtures.js'
 import type { Manifest, Source } from '../web/src/core/contract.js'
+
+function preferredSource(sources: Source[], now: string): Source {
+  const manifest: Manifest = {
+    version: 0, generated: now, now,
+    chunks: sources.map((source) => ({
+      url: `${source}.mrf`, source, run: now, times: [now], header_len: 42, field: 'feels_like_c',
+    })),
+  }
+  return buildTimeline(manifest, 'feels_like_c')[0]!.source
+}
+
+function sourcePriorities(sources: Source[], now: string): Record<string, number> {
+  const priorities: Record<string, number> = {}
+  for (const source of sources) {
+    let priority = 0
+    for (const other of sources) {
+      if (source === other) continue
+      const winsFirst = preferredSource([source, other], now) === source
+      const winsLast = preferredSource([other, source], now) === source
+      if (winsFirst && winsLast) priority++
+    }
+    priorities[source] = priority
+  }
+  return priorities
+}
 
 export function renderConstants() {
   const now = '2026-08-28T15:00:00Z'
@@ -34,7 +60,7 @@ export function renderConstants() {
     warp: Array.from({ length: 61 }, (_, interval) => rainWarpLimit(interval)),
     places: selectTemperaturePlaces(NATIVE_VIEW.zoom, temperatureLabelSpacingPx(FRAME.width, FRAME.height)),
     temperature_style: { light: temperatureLayer('light'), dark: temperatureLayer('dark') },
-    sources,
+    source_priority: sourcePriorities(sources, now),
     loop_offsets: plan.epochs.slice(0, plan.loopFrames).map((epoch) => epoch - Date.parse(now)),
     fps: plan.fps, still_minutes: STILL_MINUTES,
   }
@@ -55,7 +81,7 @@ export function renderFixtures() {
   const time = new Intl.DateTimeFormat('nl-NL', { timeZone: 'Europe/Amsterdam', hour: '2-digit', minute: '2-digit' })
   const day = new Intl.DateTimeFormat('nl-NL', { timeZone: 'Europe/Amsterdam', weekday: 'short' })
   const [centerX, centerY] = projectPoint(NATIVE_VIEW.lng, NATIVE_VIEW.lat)
-  const grid = { crs: 'EPSG:3857', x0: centerX - 2000, y0: centerY + 2000, dx: 1000, dy: -1000, width: 4, height: 4 }
+  const grid = { crs: 'EPSG:3857' as const, x0: centerX - 2000, y0: centerY + 2000, dx: 1000, dy: -1000, width: 4, height: 4 }
   const compositor = new RainCompositor(grid, { width: 1, height: 1 })
   const compositions = [0, 1, 12, 24, 55, 100, 150, 195, 235, 254, 255].flatMap((left) => [0, 0.5, 1].map((mix) => {
     const right = left === 255 ? 100 : 254 - left
@@ -64,6 +90,10 @@ export function renderFixtures() {
   }))
   return {
     compositions,
+    web_timelines: [overlapFixture, blendFixture].map((manifest) => {
+      const frames = buildTimeline(manifest)
+      return { manifest, epochs: frames.map((frame) => frame.epoch), sources: frames.map((frame) => frame.source), blends: [-60, 0, 5, 10, 60].map((minute) => ({ epoch: epoch + minute * 60_000, ...frameBlend(frames, epoch + minute * 60_000) })) }
+    }),
     manifest,
     timeline: timeline.map(({ epoch, source, frameIndex, chunk }) => ({ epoch, source, frame_index: frameIndex, url: chunk.url })),
     blends: [-180, -120, -90, 0, 2.5, 5, 62.5, 120, 150, 720, 800].map((minute) => ({ epoch: epoch + minute * 60_000, ...frameBlend(timeline, epoch + minute * 60_000) })),

@@ -205,7 +205,7 @@ fn main() -> io::Result<()> {
         let lower_displacements = displacements.map(|field| &field[split * width..]);
         std::thread::scope(|scope| {
             scope.spawn(|| {
-                composition::compose(
+                composition::compose_frame(
                     upper,
                     composition::Composition {
                         columns: &columns,
@@ -221,7 +221,7 @@ fn main() -> io::Result<()> {
                     },
                 )
             });
-            composition::compose(
+            composition::compose_frame(
                 lower,
                 composition::Composition {
                     columns: &columns,

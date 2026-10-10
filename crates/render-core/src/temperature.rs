@@ -47,12 +47,12 @@ pub fn draw_temperature(
         };
         // JavaScript Math.round rounds negative halves toward positive infinity.
         let label = format!("{}°", (value + 0.5).floor() as i32);
-        let (x, y) = projection.point(place.lng, place.lat);
+        let (screen_x, screen_y) = projection.point(place.lng, place.lat);
         let width = text.width(&label, 20);
         text.draw(
             rgb,
             &label,
-            (x as f32 - width / 2.0, y.round() as i32 - 21),
+            (screen_x as f32 - width / 2.0, screen_y.round() as i32 - 21),
             20,
             color,
             Some(halo),

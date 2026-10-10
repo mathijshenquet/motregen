@@ -33,7 +33,7 @@ pub struct Constants {
     pub sampling: SamplingConstants,
     pub warp: Vec<WarpLimit>,
     pub places: Vec<Place>,
-    pub sources: Vec<String>,
+    pub source_priority: std::collections::HashMap<String, usize>,
     pub loop_offsets: Vec<i64>,
     pub fps: usize,
     pub still_minutes: Vec<i64>,

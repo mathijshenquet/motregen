@@ -51,9 +51,9 @@ pub fn timeline(manifest: &Manifest, field: &str) -> Result<Vec<TimelineFrame>, 
             continue;
         }
         let priority = constants()
-            .sources
-            .iter()
-            .position(|source| source == &chunk.source)
+            .source_priority
+            .get(&chunk.source)
+            .copied()
             .ok_or_else(|| format!("Unknown source: {}", chunk.source))?;
         let run = epoch(&chunk.run).map_err(|error| error.to_string())?;
         for (frame_index, time) in chunk.times.iter().enumerate() {
@@ -63,9 +63,11 @@ pub fn timeline(manifest: &Manifest, field: &str) -> Result<Vec<TimelineFrame>, 
             }
             if by_time
                 .get(&epoch)
-                .is_none_or(|(previous_priority, previous_run, _)| {
+                .is_none_or(|(previous_priority, previous_run, previous)| {
                     priority > *previous_priority
-                        || priority == *previous_priority && run > *previous_run
+                        || priority == *previous_priority
+                            && manifest.chunks[previous.chunk_index].source == chunk.source
+                            && run > *previous_run
                 })
             {
                 by_time.insert(

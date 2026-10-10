@@ -45,6 +45,85 @@ fn palette_and_quantized_frame_composition_match_typescript() {
 }
 
 #[test]
+fn shares_the_existing_web_time_model_fixtures() {
+    for fixture in fixtures()["web_timelines"].as_array().unwrap() {
+        let manifest: Manifest = serde_json::from_value(fixture["manifest"].clone()).unwrap();
+        let frames = timeline(&manifest, "rain_rate").unwrap();
+        let epochs: Vec<i64> = frames.iter().map(|frame| frame.epoch).collect();
+        let sources: Vec<&str> = frames
+            .iter()
+            .map(|frame| manifest.chunks[frame.chunk_index].source.as_str())
+            .collect();
+        assert_eq!(serde_json::to_value(epochs).unwrap(), fixture["epochs"]);
+        assert_eq!(serde_json::to_value(sources).unwrap(), fixture["sources"]);
+        for expected in fixture["blends"].as_array().unwrap() {
+            let blend = frame_blend(&frames, expected["epoch"].as_i64().unwrap());
+            assert_eq!(blend.left, expected["left"].as_u64().unwrap() as usize);
+            assert_eq!(blend.right, expected["right"].as_u64().unwrap() as usize);
+            assert!((blend.mix - expected["mix"].as_f64().unwrap()).abs() < 1e-12);
+        }
+    }
+}
+
+#[test]
+fn filters_no_data_and_does_not_warp_unreliable_vectors() {
+    use render_core::{motion::Motion, sampling::Sampling};
+    let blur = blur(0);
+    let sampling = Sampling {
+        kind: 3,
+        taps: blur.taps,
+        cell_width: constants().sampling.radar_cell_width,
+        sigma: blur.sigma,
+    };
+    assert_eq!(sampling.filter(vec![255; 81], 9, 9), vec![255; 81]);
+    assert_eq!(sampling.filter(vec![32; 81], 9, 9), vec![32; 81]);
+    let mut impulse = vec![0; 81];
+    impulse[40] = 200;
+    let smooth = Sampling {
+        cell_width: 1.0,
+        ..sampling
+    }
+    .filter(impulse, 9, 9);
+    assert!(smooth[40] > 0 && smooth[40] < 200);
+    assert!(smooth[39] > 0 && smooth[31] > 0);
+    let motion = Motion {
+        vectors: &[10, -4],
+        width: 1,
+        height: 1,
+        interval: 5.0,
+        cap: 15.0,
+        fade: 30.0,
+    };
+    assert_eq!(motion.displacement(4.0, 4.0, 9, 9), (5.0, -2.0));
+    assert_eq!(
+        Motion {
+            vectors: &[-128, -128],
+            ..motion
+        }
+        .displacement(4.0, 4.0, 9, 9),
+        (0.0, 0.0)
+    );
+    assert_eq!(
+        Motion {
+            interval: 60.0,
+            ..motion
+        }
+        .displacement(4.0, 4.0, 9, 9),
+        (0.0, -0.0)
+    );
+    assert_eq!(
+        Motion {
+            interval: 60.0,
+            cap: 120.0,
+            fade: 240.0,
+            ..motion
+        }
+        .displacement(4.0, 4.0, 9, 9),
+        (60.0, -24.0)
+    );
+}
+
+#[test]
 fn timeline_and_blending_follow_typescript() {
     let fixtures = fixtures();
     let manifest: Manifest = serde_json::from_value(fixtures["manifest"].clone()).unwrap();

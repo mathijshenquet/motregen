@@ -49,16 +49,22 @@ impl Text {
         let mut position = left;
         for character in text.chars() {
             let glyph = self.glyph(character, size);
-            let x = position.round() as i32 + glyph.metrics.xmin;
-            let y = baseline - glyph.metrics.ymin - glyph.metrics.height as i32;
+            let glyph_left = position.round() as i32 + glyph.metrics.xmin;
+            let glyph_top = baseline - glyph.metrics.ymin - glyph.metrics.height as i32;
             if let Some(halo) = halo {
                 for offset_y in -2..=2 {
                     for offset_x in -2..=2 {
-                        blit_glyph(rgb, glyph, x + offset_x, y + offset_y, halo);
+                        blit_glyph(
+                            rgb,
+                            glyph,
+                            glyph_left + offset_x,
+                            glyph_top + offset_y,
+                            halo,
+                        );
                     }
                 }
             }
-            blit_glyph(rgb, glyph, x, y, color);
+            blit_glyph(rgb, glyph, glyph_left, glyph_top, color);
             position += glyph.metrics.advance_width;
         }
     }
@@ -67,20 +73,20 @@ impl Text {
 fn blit_glyph(rgb: &mut [u8], glyph: &Glyph, left: i32, top: i32, color: [u8; 3]) {
     let size = &constants().size;
     for row in 0..glyph.metrics.height {
-        let y = top + row as i32;
-        if y < 0 || y >= size.height as i32 {
+        let pixel_row = top + row as i32;
+        if pixel_row < 0 || pixel_row >= size.height as i32 {
             continue;
         }
         for column in 0..glyph.metrics.width {
-            let x = left + column as i32;
-            if x < 0 || x >= size.width as i32 {
+            let pixel_column = left + column as i32;
+            if pixel_column < 0 || pixel_column >= size.width as i32 {
                 continue;
             }
             let alpha = glyph.alpha[row * glyph.metrics.width + column] as f32 / 255.0;
             if alpha == 0.0 {
                 continue;
             }
-            let offset = (y as usize * size.width + x as usize) * 3;
+            let offset = (pixel_row as usize * size.width + pixel_column as usize) * 3;
             for channel in 0..3 {
                 rgb[offset + channel] = (color[channel] as f32 * alpha
                     + rgb[offset + channel] as f32 * (1.0 - alpha))
