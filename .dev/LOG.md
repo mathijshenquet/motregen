@@ -479,6 +479,11 @@
   Delen C1–C5. **U76 gestart** (gpt-6.1-sol xhigh, pane w33): C1 regenfilmpje + stills volledig in Rust.
 - Les: de PO wil eerst een logisch plan en akkoord per stap, geen losse acties; mijn afgebroken commando's hadden
   een deel van het werk stil teruggedraaid — na een afbreking altijd eerst `git status` vóór een claim.
+- 14:26: **U75 op prod bewezen** (5 generaties 14:10–14:26): Node arrayBuffers 16 MB vlak (was 16→95 MB in 22 min),
+  RSS 277–353 MB zonder trend, NRestarts 0, oom 0; cgroup raakt de 1200M-grens alleen met bestandscache (anon 237 MB,
+  file 235 MB; max-events 970, geen kill). Eén losse `poll-failed getUpdates` (14:26, code 0, herstelt zelf; kwam
+  ook vóór vandaag voor). Render blijft 195–247 s op de VM → pas opgelost met MIP-29 C1–C2.
+  U77 gestart (opus-5.5 live-pane, 4320): regenpalet + contrast met de kaart (PO-feedback "te low contrast").
 
 ## 2026-10-09 — sessieafsluiting (23:30): native bot, smoothing, /weer, weer ok?, VM rendert zelf
 - **Gemerged en op prod** (main 08f37ad8): U69 d2 (wind na eerste tik), U70 + app-tempo regenloop −1…+2 u, U71a–d

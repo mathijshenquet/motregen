@@ -16,7 +16,7 @@ modus en dag/nacht — Weer, Lucht, Wind = vermenigvuldigen), U72 (`.dev/tracks/
 voorfilter per frame), `docs/dev-opties.md` (MIP-12: dev-knoppen met eigenaar en vervaldatum), de basiskaartstijlen
 `web/public/basemap/licht.json` en `donker.json` (land-, water- en stadskleuren).
 
-## PO (2026-10-10 ~14:30)
+## PO (2026-10-10 ~14:10)
 "Experimenteer met het regen-colorpalet: het loopt nu van wit over groen naar oranje en dan rood ofzo; mij lijkt
 lichtblauw → blauw → grijs → rood beter. Er is ook iets niet zo nice aan het blenden in Weer-modus: de gesmoothde,
 meest lichte regengebieden zijn nu ~wit en blenden daardoor erg licht en opvallend op de kaart. Maak een ?dev-ding
