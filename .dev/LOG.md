@@ -464,6 +464,9 @@
   `native-raster.ts`, atlas/glyph-buffers, sharp).
 - Bijvangst: nachtelijke `nixos-upgrade` 03:21 mislukt op de build van `motregen-bot` (tijdens het vastlopen); prod
   draait de build van gisteravond.
+- 13:18: noodverband uitgerold (8c3cebf2, PO: "oom = kill"): combined zonder MemoryHigh, MemoryMax 1200M,
+  OOMPolicy=kill, Restart=always (15 s). Bij ~100 MB/uur lek betekent dat een herstart per ~5–6 uur (assets ~40 s,
+  Telegram bewaart wachtende updates). **Open voor agents**: lek vinden + soaktest over tientallen generaties.
 
 ## 2026-10-09 — sessieafsluiting (23:30): native bot, smoothing, /weer, weer ok?, VM rendert zelf
 - **Gemerged en op prod** (main 08f37ad8): U69 d2 (wind na eerste tik), U70 + app-tempo regenloop −1…+2 u, U71a–d
