@@ -1,9 +1,9 @@
 use anyhow::{Context, Result, bail, ensure};
 use mrf::HeaderIndex;
 use render_core::{
-    constants::{blur, constants},
-    projection::Grid,
-    sampling::Sampling,
+    constants::{blur, constants, warp_limit},
+    projection::{Grid, Projection},
+    sampling::{Coverage, Sampling},
     time::{Manifest, TimelineFrame, epoch, timeline},
 };
 use std::{
@@ -20,6 +20,7 @@ pub struct Raster {
     pub grid: Grid,
     pub quant: Vec<Option<f32>>,
     pub values: Vec<u8>,
+    pub coverage: Option<Coverage>,
 }
 
 pub struct Dataset<'a> {
@@ -32,6 +33,7 @@ pub struct Dataset<'a> {
     pub sampling_us: u128,
     pub decode_us: u128,
     pub loaded: usize,
+    pub limit_to_view: bool,
 }
 
 impl<'a> Dataset<'a> {
@@ -47,6 +49,7 @@ impl<'a> Dataset<'a> {
             sampling_us: 0,
             decode_us: 0,
             loaded: 0,
+            limit_to_view: false,
         })
     }
 
@@ -147,25 +150,64 @@ impl<'a> Dataset<'a> {
             } else {
                 constants().sampling.radar_cell_width
             };
-            values = Sampling {
+            let sampling = Sampling {
                 kind: 3,
                 taps: blur.taps,
                 cell_width,
                 sigma: blur.sigma,
-            }
-            .filter(values, grid.width, grid.height);
+            };
+            values = if self.limit_to_view {
+                let position = self
+                    .frames
+                    .iter()
+                    .position(|candidate| candidate == frame)
+                    .unwrap();
+                let interval = |left: usize, right: usize| {
+                    (self.frames[right].epoch - self.frames[left].epoch) as f64 / 60_000.0
+                };
+                let cap = warp_limit(interval(position.saturating_sub(1), position))
+                    .cap_cells
+                    .max(
+                        warp_limit(interval(
+                            position,
+                            (position + 1).min(self.frames.len() - 1),
+                        ))
+                        .cap_cells,
+                    );
+                let (columns, rows) = Projection::new(&grid).sampling_region(&grid, cap);
+                sampling.filter_region(&values, grid.width, grid.height, columns, rows)
+            } else {
+                sampling.filter(values, grid.width, grid.height)
+            };
             self.sampling_us += started.elapsed().as_micros();
         }
+        let started = Instant::now();
+        let coverage = self
+            .rain
+            .then(|| Coverage::new(&values, grid.width, grid.height));
+        self.sampling_us += started.elapsed().as_micros();
         let raster = Arc::new(Raster {
             grid,
             quant,
             values,
+            coverage,
         });
         if self.cache.len() >= 4 {
             self.cache.remove(0);
         }
         self.cache.push((key, Arc::clone(&raster)));
         Ok(raster)
+    }
+
+    pub fn grid(&mut self) -> Result<Grid> {
+        let chunk = self
+            .frames
+            .first()
+            .context("Rain timeline missing")?
+            .chunk_index;
+        Ok(serde_json::from_value(serde_json::to_value(
+            &self.header(chunk)?.header.grid,
+        )?)?)
     }
 
     fn has_motion(&mut self, frame: &TimelineFrame) -> Result<bool> {

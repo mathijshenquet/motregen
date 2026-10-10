@@ -38,11 +38,24 @@ en 4:4:4-kleur. `media.json` versie 1 bevat:
 
 1. `mode`, `generated`, `now`, `width`, `height`, `fps`, `frames`, `hold_frames` en `loop_epochs`.
 2. `files`: bestandsnaam, `kind` (`animation`/`photo`), kaarttijd `epoch`, bytes en beeldmaat.
-3. `render_ms` (compositie), `encode_ms` (JPEG), `loop_ms` (frameproductie en ffmpeg samen), `total_ms`.
+3. `render_ms` (bronvoorbereiding + framecompositie), `encode_ms` (JPEG), `loop_ms` (tot de complete MP4), `total_ms`.
+4. `profile`: `output_frames`, `source_frames` en opgetelde fase-wandduraties in microseconden:
+   `decode_us`, `sampling_us` (bronvoorfilter + dekkingsmasker), `motion_us` (bewegingsveld projecteren),
+   `mixing_us` (bilineair samplen, meebewegen, mengen en regen inkleuren), `overlay_us` (temperatuur/klok/voettekst),
+   `jpeg_us` en `ffmpeg_wait_us` (stdin schrijven en ffmpeg afronden). Deel door `output_frames × 1000`
+   voor ms per samengesteld frame; deel `jpeg_us` door `85 × 1000` voor ms per JPEG. Fase- en
+   renderduraties overlappen bij parallel werk en zijn dus niet optelbaar tot `total_ms`.
 
 De MP4 bevat kaarttijden op basis van `now`; `generated` bepaalt de generatie-identiteit. Beide blijven
 afzonderlijk bewaard. Tijdzone Europe/Amsterdam geldt uitsluitend voor de getekende klok en dag.
 Bronvoorrang, broncelbreedten, palet, smoothing en warp komen uit de bestaande TypeScript-regels.
+Elk bronframe wordt eenmaal voorgefilterd met zijn eigen sigma, op de oorspronkelijke bronlattice en met
+dezelfde R8-ronding na elke filterpass. Alleen het zichtbare gebied plus de maximale warpkap en filterburen
+wordt berekend. Conservatieve dekkingsmaskers slaan uitsluitend aantoonbaar lege uitvoertegels over.
+Loop en stills delen bronframes en worden in kaarttijdvolgorde met twee werkers samengesteld; JPEG draait
+mee tijdens de loop. Een aparte schrijver geeft de geordende RGB-batches aan ffmpeg door. Eén batch van vier
+frames mag op de schrijver wachten, zodat RGB- en bewegingsvelden begrensd blijven. JPEG gebruikt waar
+beschikbaar AVX2 via runtime-detectie van jpeg-encoder en anders de bestaande scalaire encoder.
 `pnpm -C bot render:constants` genereert de ingebedde JSON; de botbuild draait dit ook. De constantentest
 faalt bij drift. De kern heeft geen bestands-, netwerk- of systeemkloktoegang en bouwt voor wasm32.
 

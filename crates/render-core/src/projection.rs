@@ -69,6 +69,27 @@ impl Projection {
             (self.center.1 - north) / self.meters_per_pixel + constants().size.height as f64 / 2.0,
         )
     }
+
+    pub fn sampling_region(
+        &self,
+        grid: &Grid,
+        displacement: f64,
+    ) -> (std::ops::Range<usize>, std::ops::Range<usize>) {
+        let bounds = |coordinates: &[f64], length: usize| {
+            let first = coordinates.iter().copied().fold(f64::INFINITY, f64::min);
+            let last = coordinates
+                .iter()
+                .copied()
+                .fold(f64::NEG_INFINITY, f64::max);
+            let start = (first - displacement).floor().clamp(0.0, length as f64) as usize;
+            let end = (last + displacement + 2.0).ceil().clamp(0.0, length as f64) as usize;
+            start..end
+        };
+        (
+            bounds(&self.columns, grid.width),
+            bounds(&self.rows, grid.height),
+        )
+    }
 }
 
 pub fn point_value(

@@ -1,8 +1,9 @@
 use crate::{
-    data::Dataset,
+    data::{Dataset, Raster},
     encode::{Video, jpeg},
 };
 use anyhow::{Context, Result, ensure};
+use rayon::prelude::*;
 use render_core::{
     constants::{constants, warp_limit},
     motion::Motion,
@@ -14,7 +15,14 @@ use render_core::{
     time::{Manifest, dark, epoch, frame_blend},
 };
 use serde::Serialize;
-use std::{fs, path::Path, time::Instant};
+use std::{
+    collections::BTreeMap,
+    fs,
+    path::Path,
+    sync::{Arc, Mutex, mpsc},
+    thread,
+    time::Instant,
+};
 
 #[derive(Debug, Serialize)]
 pub struct FileMedia {
@@ -59,19 +67,38 @@ pub struct Profile {
     pub ffmpeg_wait_us: u128,
 }
 
+#[derive(Clone, Copy)]
+struct FramePlan {
+    epoch: i64,
+    loop_frame: bool,
+    still: bool,
+}
+
+struct FrameInput {
+    plan: FramePlan,
+    left: Arc<Raster>,
+    right: Arc<Raster>,
+    mix: f64,
+    cap: f64,
+    motion: Option<Arc<Vec<(f64, f64)>>>,
+    temperatures: Option<(Arc<Raster>, Arc<Raster>, f64)>,
+    night: bool,
+}
+
 struct Scene<'a> {
     rain: Dataset<'a>,
     temperatures: Dataset<'a>,
-    compositor: RainCompositor,
-    text: Text,
+    compositor: Arc<RainCompositor>,
     motion_pair: Option<(usize, usize)>,
-    plates: [Vec<u8>; 2],
-    now: i64,
+    motion: Option<Arc<Vec<(f64, f64)>>>,
     profile: Profile,
+    prepare_us: u128,
 }
 
 impl Scene<'_> {
-    fn frame(&mut self, epoch: i64) -> Result<Vec<u8>> {
+    fn prepare(&mut self, plan: FramePlan) -> Result<FrameInput> {
+        let started = Instant::now();
+        let epoch = plan.epoch;
         ensure!(
             epoch >= self.rain.frames[0].epoch && epoch <= self.rain.frames.last().unwrap().epoch,
             "Map time outside rain timeline: {epoch}"
@@ -85,28 +112,36 @@ impl Scene<'_> {
             left.grid == self.compositor.grid && right.grid == left.grid,
             "Rain grid changes within generation"
         );
+        let needs_motion = blend.mix > 0.0 && blend.mix < 1.0;
         let pair = (blend.left, blend.right);
-        if self.motion_pair != Some(pair) {
+        if needs_motion && self.motion_pair != Some(pair) {
             let started = Instant::now();
             let interval = (right_frame.epoch - left_frame.epoch) as f64 / 60_000.0;
             let limit = warp_limit(interval);
             let motion = self.rain.motion(&left_frame, &right_frame)?;
-            self.compositor
-                .set_motion(motion.as_ref().map(|(width, height, vectors)| Motion {
-                    vectors,
-                    width: *width,
-                    height: *height,
-                    interval,
-                    cap: limit.cap_cells,
-                    fade: limit.fade_end_cells,
-                }));
+            self.motion = motion.as_ref().map(|(width, height, vectors)| {
+                Arc::new(self.compositor.project_motion(
+                    Motion {
+                        vectors,
+                        width: *width,
+                        height: *height,
+                        interval,
+                        cap: limit.cap_cells,
+                        fade: limit.fade_end_cells,
+                    },
+                    Some(render_core::composition::CoveragePair {
+                        left: left.coverage.as_ref().unwrap(),
+                        right: right.coverage.as_ref().unwrap(),
+                        displacement: limit.cap_cells,
+                    }),
+                ))
+            });
             self.motion_pair = Some(pair);
             self.profile.motion_us += started.elapsed().as_micros();
         }
-        let night = dark(epoch);
-        let mut rgb = self.plates[usize::from(night)].clone();
-        let overlay_started = Instant::now();
-        if !self.temperatures.frames.is_empty() {
+        let temperatures = if self.temperatures.frames.is_empty() {
+            None
+        } else {
             let temperature_epoch = ((epoch + 300_000).div_euclid(600_000) * 600_000).clamp(
                 self.temperatures.frames[0].epoch,
                 self.temperatures.frames.last().unwrap().epoch,
@@ -114,10 +149,59 @@ impl Scene<'_> {
             let blend = frame_blend(&self.temperatures.frames, temperature_epoch);
             let left_frame = self.temperatures.frames[blend.left].clone();
             let right_frame = self.temperatures.frames[blend.right].clone();
-            let left = self.temperatures.load(&left_frame)?;
-            let right = self.temperatures.load(&right_frame)?;
+            Some((
+                self.temperatures.load(&left_frame)?,
+                self.temperatures.load(&right_frame)?,
+                blend.mix,
+            ))
+        };
+        self.prepare_us += started.elapsed().as_micros();
+        Ok(FrameInput {
+            plan,
+            left,
+            right,
+            mix: blend.mix,
+            cap: if needs_motion {
+                warp_limit((right_frame.epoch - left_frame.epoch) as f64 / 60_000.0).cap_cells
+            } else {
+                0.0
+            },
+            motion: needs_motion.then(|| self.motion.clone()).flatten(),
+            temperatures,
+            night: dark(epoch),
+        })
+    }
+}
+
+struct Painter {
+    compositor: Arc<RainCompositor>,
+    text: [Mutex<Text>; 2],
+    plates: [Vec<u8>; 2],
+    now: i64,
+}
+
+struct FrameOutput {
+    rgb: Option<Vec<u8>>,
+    still: Option<FileMedia>,
+    profile: Profile,
+    render_us: u128,
+}
+
+impl Painter {
+    fn frame(&self, input: &FrameInput, directory: &Path) -> Result<FrameOutput> {
+        let started = Instant::now();
+        let mut text = self.text[rayon::current_thread_index().unwrap_or(0)]
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Text worker panicked"))?;
+        let mut profile = Profile {
+            output_frames: 1,
+            ..Profile::default()
+        };
+        let mut rgb = self.plates[usize::from(input.night)].clone();
+        let overlay_started = Instant::now();
+        if let Some((left, right, mix)) = &input.temperatures {
             draw_temperature(
-                &mut self.text,
+                &mut text,
                 &mut rgb,
                 &self.compositor.projection,
                 TemperaturePair {
@@ -127,29 +211,101 @@ impl Scene<'_> {
                     right: &right.values,
                     left_quant: &left.quant,
                     right_quant: &right.quant,
-                    mix: blend.mix,
+                    mix: *mix,
                 },
-                night,
+                input.night,
             );
         }
-        self.profile.overlay_us += overlay_started.elapsed().as_micros();
+        profile.overlay_us += overlay_started.elapsed().as_micros();
         let mixing_started = Instant::now();
         self.compositor.compose(
             &mut rgb,
             RainPair {
-                left: &left.values,
-                right: &right.values,
-                mix: blend.mix,
+                left: &input.left.values,
+                right: &input.right.values,
+                mix: input.mix,
+                coverage: Some(render_core::composition::CoveragePair {
+                    left: input.left.coverage.as_ref().unwrap(),
+                    right: input.right.coverage.as_ref().unwrap(),
+                    displacement: input.cap,
+                }),
             },
-            night,
+            input.motion.as_deref().map(Vec::as_slice),
+            input.night,
         );
-        self.profile.mixing_us += mixing_started.elapsed().as_micros();
+        profile.mixing_us += mixing_started.elapsed().as_micros();
         let overlay_started = Instant::now();
-        draw_overlay(&mut self.text, &mut rgb, epoch, self.now, night);
-        self.profile.overlay_us += overlay_started.elapsed().as_micros();
-        self.profile.output_frames += 1;
-        Ok(rgb)
+        draw_overlay(&mut text, &mut rgb, input.plan.epoch, self.now, input.night);
+        profile.overlay_us += overlay_started.elapsed().as_micros();
+        let render_us = started.elapsed().as_micros();
+        let jpeg_started = Instant::now();
+        let still = input
+            .plan
+            .still
+            .then(|| still(&rgb, input.plan.epoch, directory))
+            .transpose()?;
+        if input.plan.still {
+            profile.jpeg_us = jpeg_started.elapsed().as_micros();
+        }
+        Ok(FrameOutput {
+            rgb: input.plan.loop_frame.then_some(rgb),
+            still,
+            profile,
+            render_us,
+        })
     }
+}
+
+struct VideoOutput {
+    files: Vec<FileMedia>,
+    bytes: u64,
+    loop_ms: u128,
+    profile: Profile,
+    render_us: u128,
+}
+
+fn write_video(
+    receiver: mpsc::Receiver<Vec<FrameOutput>>,
+    directory: &Path,
+) -> Result<VideoOutput> {
+    let mut video = Some(Video::start(&directory.join("weather-loop.mp4"))?);
+    let mut video_result = None;
+    let mut video_frames = 0;
+    let mut files = Vec::new();
+    let mut profile = Profile::default();
+    let mut render_us = 0;
+    for batch in receiver {
+        for frame in batch {
+            profile.output_frames += frame.profile.output_frames;
+            profile.mixing_us += frame.profile.mixing_us;
+            profile.overlay_us += frame.profile.overlay_us;
+            profile.jpeg_us += frame.profile.jpeg_us;
+            render_us += frame.render_us;
+            if let Some(file) = frame.still {
+                files.push(file);
+            }
+            if let Some(rgb) = frame.rgb {
+                let started = Instant::now();
+                video
+                    .as_mut()
+                    .context("Frame after video completion")?
+                    .frame(&rgb)?;
+                video_frames += 1;
+                if video_frames == constants().loop_offsets.len() {
+                    video_result = Some(video.take().unwrap().finish()?);
+                }
+                profile.ffmpeg_wait_us += started.elapsed().as_micros();
+            }
+        }
+    }
+    let (bytes, loop_ms) = video_result.context("Incomplete video frames")?;
+    Ok(VideoOutput {
+        files,
+        bytes,
+        loop_ms,
+        profile,
+        render_us,
+    })
 }
 
 fn plates(directory: &Path, grid: &Grid) -> Result<[Vec<u8>; 2]> {
@@ -210,18 +366,26 @@ pub fn render(
     let now = epoch(&manifest.now)?;
     let mut rain = Dataset::new(data_directory, manifest, "rain_rate")?;
     ensure!(!rain.frames.is_empty(), "Rain timeline missing");
-    let first_frame = rain.frames[0].clone();
-    let grid = rain.load(&first_frame)?.grid.clone();
-    let plates = plates(basemap_directory, &grid)?;
+    let grid = rain.grid()?;
+    rain.limit_to_view = true;
+    let compositor = Arc::new(RainCompositor::new(grid.clone()));
+    let painter = Painter {
+        compositor: Arc::clone(&compositor),
+        text: [
+            Mutex::new(Text::new().map_err(anyhow::Error::msg)?),
+            Mutex::new(Text::new().map_err(anyhow::Error::msg)?),
+        ],
+        plates: plates(basemap_directory, &grid)?,
+        now,
+    };
     let mut scene = Scene {
         rain,
         temperatures: Dataset::new(data_directory, manifest, "feels_like_c")?,
-        compositor: RainCompositor::new(grid),
-        text: Text::new().map_err(anyhow::Error::msg)?,
-        plates,
-        now,
+        compositor,
         motion_pair: None,
+        motion: None,
         profile: Profile::default(),
+        prepare_us: 0,
     };
     fs::create_dir_all(out_directory)?;
     let receipt = out_directory.join("media.json");
@@ -239,51 +403,89 @@ pub fn render(
         .iter()
         .map(|minute| now + minute * 60_000)
         .collect();
-    let mut still_pending = still_epochs.clone();
-    let mut video = Video::start(&temporary.path().join("weather-loop.mp4"))?;
-    let mut files = Vec::new();
-    let mut render_ms = 0;
-    let mut encode_ms = 0;
+    let mut plans = BTreeMap::new();
     for &epoch in &loop_epochs {
-        let frame_started = Instant::now();
-        let rgb = scene
-            .frame(epoch)
-            .with_context(|| format!("Rendering map time {epoch}"))?;
-        render_ms += frame_started.elapsed().as_micros();
-        let write_started = Instant::now();
-        video.frame(&rgb)?;
-        scene.profile.ffmpeg_wait_us += write_started.elapsed().as_micros();
-        if let Some(index) = still_pending.iter().position(|pending| *pending == epoch) {
-            still_pending.remove(index);
-            let jpeg_started = Instant::now();
-            files.push(still(&rgb, epoch, temporary.path())?);
-            encode_ms += jpeg_started.elapsed().as_micros();
-        }
+        plans.insert(
+            epoch,
+            FramePlan {
+                epoch,
+                loop_frame: true,
+                still: false,
+            },
+        );
     }
-    let finish_started = Instant::now();
-    let (bytes, loop_ms) = video.finish()?;
-    scene.profile.ffmpeg_wait_us += finish_started.elapsed().as_micros();
+    for &epoch in &still_epochs {
+        plans
+            .entry(epoch)
+            .and_modify(|plan| plan.still = true)
+            .or_insert(FramePlan {
+                epoch,
+                loop_frame: false,
+                still: true,
+            });
+    }
+    let plans: Vec<_> = plans.into_values().collect();
+    let mut output = thread::scope(|scope| -> Result<VideoOutput> {
+        // One queued batch bounds RGB/motion memory while ffmpeg consumes the preceding batch.
+        let (sender, receiver) = mpsc::sync_channel(1);
+        let writer = scope.spawn(|| write_video(receiver, temporary.path()));
+        let production = (|| -> Result<()> {
+            for plans in plans.chunks(4) {
+                let inputs = plans
+                    .iter()
+                    .map(|&plan| {
+                        scene
+                            .prepare(plan)
+                            .with_context(|| format!("Preparing map time {}", plan.epoch))
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let frames = inputs
+                    .par_iter()
+                    .map(|input| {
+                        painter
+                            .frame(input, temporary.path())
+                            .with_context(|| format!("Rendering map time {}", input.plan.epoch))
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                sender.send(frames).context("Video writer stopped")?;
+            }
+            Ok(())
+        })();
+        drop(sender);
+        let written = writer
+            .join()
+            .map_err(|_| anyhow::anyhow!("Video writer panicked"))?;
+        match written {
+            Ok(output) => {
+                production?;
+                Ok(output)
+            }
+            Err(error) => match production {
+                Ok(()) => Err(error),
+                Err(production_error) => {
+                    Err(production_error.context(format!("Video output: {error:#}")))
+                }
+            },
+        }
+    })?;
+    let render_ms = scene.prepare_us + output.render_us;
+    let encode_ms = output.profile.jpeg_us;
+    output.profile.sampling_us = scene.rain.sampling_us;
+    output.profile.decode_us = scene.rain.decode_us + scene.temperatures.decode_us;
+    output.profile.source_frames = scene.rain.loaded;
+    output.profile.motion_us = scene.profile.motion_us;
+    let mut files = output.files;
     files.insert(
         0,
         FileMedia {
             file: "weather-loop.mp4".into(),
             kind: "animation",
             epoch: now,
-            bytes,
+            bytes: output.bytes,
             width: constants.size.width,
             height: constants.size.height,
         },
     );
-    for epoch in still_pending {
-        let frame_started = Instant::now();
-        let rgb = scene
-            .frame(epoch)
-            .with_context(|| format!("Rendering still time {epoch}"))?;
-        render_ms += frame_started.elapsed().as_micros();
-        let jpeg_started = Instant::now();
-        files.push(still(&rgb, epoch, temporary.path())?);
-        encode_ms += jpeg_started.elapsed().as_micros();
-    }
     files[1..].sort_by_key(|file| file.epoch);
     ensure!(
         files.len() == still_epochs.len() + 1,
@@ -295,10 +497,6 @@ pub fn render(
             out_directory.join(&file.file),
         )?;
     }
-    scene.profile.sampling_us = scene.rain.sampling_us;
-    scene.profile.decode_us = scene.rain.decode_us + scene.temperatures.decode_us;
-    scene.profile.source_frames = scene.rain.loaded;
-    scene.profile.jpeg_us = encode_ms;
     let media = Media {
         version: 1,
         mode: "weather",
@@ -311,10 +509,10 @@ pub fn render(
         hold_frames: constants.fps,
         loop_epochs,
         render_ms: render_ms / 1000,
-        loop_ms,
+        loop_ms: output.loop_ms,
         encode_ms: encode_ms / 1000,
         total_ms: started.elapsed().as_millis(),
-        profile: scene.profile,
+        profile: output.profile,
         files,
     };
     fs::write(

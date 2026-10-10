@@ -18,6 +18,7 @@ mod composition;
 #[path = "../crates/render-core/src/motion.rs"]
 mod motion;
 #[path = "../crates/render-core/src/sampling.rs"]
+#[allow(dead_code)]
 mod sampling;
 use motion::Motion;
 use sampling::Sampling;
