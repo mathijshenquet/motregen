@@ -24,6 +24,7 @@ pub struct Place {
 
 #[derive(Debug, Deserialize)]
 pub struct Constants {
+    pub frame: Size,
     pub size: Size,
     pub view: View,
     pub location: Place,
@@ -42,6 +43,7 @@ pub struct Constants {
 
 #[derive(Debug, Deserialize)]
 pub struct SamplingConstants {
+    pub kernel_radius: f64,
     pub samples: Vec<Blur>,
     pub radar_cell_width: f64,
     pub harmonie_cell_width: f64,
@@ -77,7 +79,7 @@ pub fn blur(lead_ms: i64) -> Blur {
         + (samples[upper].sigma - samples[lower].sigma) * (minute - lower as f64);
     Blur {
         sigma,
-        taps: (2.6 * sigma).ceil() as usize * 2 + 1,
+        taps: (constants().sampling.kernel_radius * sigma).ceil() as usize * 2 + 1,
     }
 }
 

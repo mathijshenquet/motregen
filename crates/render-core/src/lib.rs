@@ -1,2 +1,11 @@
+pub mod composition;
 pub mod constants;
+pub mod motion;
+pub mod overlay;
+pub mod palette;
+pub mod projection;
+pub mod rain;
+pub mod sampling;
+pub mod temperature;
+pub mod text;
 pub mod time;

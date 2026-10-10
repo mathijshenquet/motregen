@@ -8,7 +8,9 @@ import { rainColormap } from '../web/src/core/rain-chart.js'
 import { rainPresentation } from '../web/src/core/rain-presentation.js'
 import { FLOW_BLEND_CURVE } from '../web/src/core/rain-motion.js'
 import { autoBlurSigma, rainSampling, rainWarpLimit, DEFAULT_RAIN_FIELD_TUNING } from '../web/src/core/rain-smoothing.js'
-import { kernelTaps } from '../web/src/core/rain-sampling.js'
+import { BLUR_RADIUS_SIGMA, kernelTaps } from '../web/src/core/rain-sampling.js'
+import { RainCompositor } from './native-rain.js'
+import { projectPoint } from '../web/src/core/point-value.js'
 import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLayer } from '../web/src/core/temperature.js'
 import { DEFAULT_LOCATION, stillMapTheme } from '../web/src/core/still-theme.js'
 import { buildTimeline, frameBlend } from '../web/src/core/time-model.js'
@@ -28,7 +30,7 @@ export function renderConstants() {
     palette: Array.from(rainColormap()),
     presentation: Object.fromEntries([false, true].map((night) => [night ? 'dark' : 'light', rainPresentation({ temperatureFocus: 0, windFocus: 0, airFocus: 0, night })])),
     flow_curve: FLOW_BLEND_CURVE,
-    sampling: { samples, radar_cell_width: rainSampling('rtcor', 0, DEFAULT_RAIN_FIELD_TUNING).sourceCellWidth, harmonie_cell_width: rainSampling('harmonie', 0, DEFAULT_RAIN_FIELD_TUNING).sourceCellWidth },
+    sampling: { samples, kernel_radius: BLUR_RADIUS_SIGMA, radar_cell_width: rainSampling('rtcor', 0, DEFAULT_RAIN_FIELD_TUNING).sourceCellWidth, harmonie_cell_width: rainSampling('harmonie', 0, DEFAULT_RAIN_FIELD_TUNING).sourceCellWidth },
     warp: Array.from({ length: 61 }, (_, interval) => rainWarpLimit(interval)),
     places: selectTemperaturePlaces(NATIVE_VIEW.zoom, temperatureLabelSpacingPx(FRAME.width, FRAME.height)),
     temperature_style: { light: temperatureLayer('light'), dark: temperatureLayer('dark') },
@@ -52,7 +54,16 @@ export function renderFixtures() {
   const times = ['2026-03-29T00:59:00Z', '2026-03-29T01:00:00Z', '2026-10-25T00:59:00Z', '2026-10-25T01:00:00Z', '2026-10-10T21:59:00Z', '2026-10-10T22:01:00Z']
   const time = new Intl.DateTimeFormat('nl-NL', { timeZone: 'Europe/Amsterdam', hour: '2-digit', minute: '2-digit' })
   const day = new Intl.DateTimeFormat('nl-NL', { timeZone: 'Europe/Amsterdam', weekday: 'short' })
+  const [centerX, centerY] = projectPoint(NATIVE_VIEW.lng, NATIVE_VIEW.lat)
+  const grid = { crs: 'EPSG:3857', x0: centerX - 2000, y0: centerY + 2000, dx: 1000, dy: -1000, width: 4, height: 4 }
+  const compositor = new RainCompositor(grid, { width: 1, height: 1 })
+  const compositions = [0, 1, 12, 24, 55, 100, 150, 195, 235, 254, 255].flatMap((left) => [0, 0.5, 1].map((mix) => {
+    const right = left === 255 ? 100 : 254 - left
+    const rgb = compositor.compose(new Uint8Array([100, 150, 200]), { grid, left: new Uint8Array(16).fill(left), right: new Uint8Array(16).fill(right), mix, leftHeader: {} as never, rightHeader: {} as never, intervalMinutes: 5 }, false)
+    return { left, right, mix, rgb: Array.from(rgb) }
+  }))
   return {
+    compositions,
     manifest,
     timeline: timeline.map(({ epoch, source, frameIndex, chunk }) => ({ epoch, source, frame_index: frameIndex, url: chunk.url })),
     blends: [-180, -120, -90, 0, 2.5, 5, 62.5, 120, 150, 720, 800].map((minute) => ({ epoch: epoch + minute * 60_000, ...frameBlend(timeline, epoch + minute * 60_000) })),

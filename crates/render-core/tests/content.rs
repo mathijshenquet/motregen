@@ -9,6 +9,42 @@ fn fixtures() -> Value {
 }
 
 #[test]
+fn palette_and_quantized_frame_composition_match_typescript() {
+    use render_core::{
+        composition::{Composition, compose},
+        palette::composition_colors,
+    };
+    let colors = composition_colors(false);
+    for fixture in fixtures()["compositions"].as_array().unwrap() {
+        let mut rgb = [100, 150, 200];
+        let left = vec![fixture["left"].as_u64().unwrap() as u8; 16];
+        let right = vec![fixture["right"].as_u64().unwrap() as u8; 16];
+        compose(
+            &mut rgb,
+            Composition {
+                columns: &[1.5],
+                rows: &[1.5],
+                grid_width: 4,
+                grid_height: 4,
+                left: &left,
+                right: &right,
+                mix: fixture["mix"].as_f64().unwrap(),
+                colors: &colors,
+                displacements: None,
+                multiply: false,
+            },
+        );
+        let expected: Vec<u8> = fixture["rgb"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|channel| channel.as_u64().unwrap() as u8)
+            .collect();
+        assert_eq!(rgb.as_slice(), expected, "{fixture}");
+    }
+}
+
+#[test]
 fn timeline_and_blending_follow_typescript() {
     let fixtures = fixtures();
     let manifest: Manifest = serde_json::from_value(fixtures["manifest"].clone()).unwrap();

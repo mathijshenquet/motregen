@@ -8,7 +8,8 @@ import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { STILL_CACHE_TTL } from './file-ids.js'
 import { encodeLoop, encodeStill, framePath } from './encode.js'
-import { nativeRenderer } from './native-settings.js'
+import { nativeRenderer, rustRenderer } from './native-settings.js'
+import { runRustRenderer } from './rust-render.js'
 import { NativeModesRenderer } from './native-modes-render.js'
 import { NativeWeatherRenderer, nativeFramePath } from './native-render.js'
 import { sequencePlan } from './sequences.js'
@@ -37,14 +38,14 @@ export interface RenderedLoop extends RenderedBase {
   renderMs: number
   encodeMs: number
   openMs?: number
-  backend?: 'native' | 'playwright'
+  backend?: 'native' | 'playwright' | 'rust'
   loopMs?: number
   loopRenderMs?: number
   preparationMs?: number
 }
 export type RenderedMedia = RenderedStill | RenderedLoop
 interface RenderedSequence { loop: RenderedLoop; stills: RenderedStill[] }
-interface SequenceMetrics { key: string; frames: number; fps: number; bytes: number; renderMs: number; encodeMs: number; openMs?: number; backend?: 'native' | 'playwright'; loopMs?: number; loopRenderMs?: number; preparationMs?: number }
+interface SequenceMetrics { key: string; frames: number; fps: number; bytes: number; renderMs: number; encodeMs: number; openMs?: number; backend?: 'native' | 'playwright' | 'rust'; loopMs?: number; loopRenderMs?: number; preparationMs?: number }
 
 export class StillRenderer {
   private readonly nativeLoops = new Map<string, { ready: Promise<void>; finish: () => void }>()
@@ -80,6 +81,7 @@ export class StillRenderer {
     const key = cacheKey(selection, manifest)
     const still = sequence.stills.find((candidate) => candidate.key === key)
     if (!still) throw new Error('Still ontbreekt in de framereeks')
+    if (sequence.loop.backend === 'rust') return still
     const frame = sequencePlan(selection.mode, manifest).stillFrames.find((candidate) => candidate.hour === selection.hour)
     if (!frame) throw new Error('Stillframe ontbreekt in de framereeks')
     const loopKey = cacheKey({ mode: selection.mode, hour: 'loop' }, manifest)
@@ -100,7 +102,7 @@ export class StillRenderer {
     // Cache-hits hoeven niet achter een nieuwe Chromium-render te wachten.
     const task = this.readCachedSequence(mode, manifest, key).then((cached) => {
       if (cached) return cached
-      if (nativeRenderer(mode) === 'native') {
+      if (rustRenderer(mode) || nativeRenderer(mode) === 'native') {
         const render = this.nativeQueue.then(() => this.renderSequence(mode, manifest, key))
         this.nativeQueue = render.catch(() => undefined)
         return render
@@ -223,6 +225,10 @@ export class StillRenderer {
       if (metrics.key !== key || metrics.frames !== plan.loopFrames || metrics.fps !== plan.fps || !Number.isFinite(metrics.bytes)) return undefined
       const sequence = this.results(mode, manifest, metrics, true)
       await access(sequence.loop.path)
+      if (metrics.backend === 'rust') {
+        await Promise.all(sequence.stills.map((still) => access(still.path)))
+        return sequence
+      }
       const directory = this.frameDirectory(key)
       const indexes = metrics.backend === 'native' ? plan.stillFrames.map((frame) => frame.index) : plan.epochs.map((_epoch, index) => index)
       await Promise.all(indexes.map((index) => access(metrics.backend === 'native' ? nativeFramePath(directory, index) : framePath(directory, index))))
@@ -265,6 +271,7 @@ export class StillRenderer {
     const ready = (async () => {
       const started = performance.now()
       for (const { mode } of LOOP_MODES) {
+        if (rustRenderer(mode)) continue
         const plan = sequencePlan(mode, manifest)
         if (mode === 'weather') await this.native.prepareAssets(manifest, plan)
         else await this.nativeModes.prepareAssets(mode, manifest, plan)
@@ -282,6 +289,7 @@ export class StillRenderer {
   }
 
   private async renderSequence(mode: LoopMode, manifest: StillManifest, key: string): Promise<RenderedSequence> {
+    if (rustRenderer(mode)) return this.renderRustSequence(manifest, key)
     if (nativeRenderer(mode) === 'native') return this.renderNativeSequence(mode, manifest, key)
     // SwiftShader deelt de twee VM-kernen; laat de korte native loop eerst afmaken.
     await this.nativeLoops.get(cacheKey({ mode: 'weather', hour: 'loop' }, manifest))?.ready
@@ -342,5 +350,25 @@ export class StillRenderer {
         await rm(directory, { recursive: true, force: true })
       }
     }
+  }
+
+  private async renderRustSequence(manifest: StillManifest, key: string): Promise<RenderedSequence> {
+    await mkdir(this.cacheDirectory, { recursive: true })
+    const directory = await mkdtemp(join(this.cacheDirectory, `.frames-${key}-`))
+    try {
+      const media = await runRustRenderer(manifest, directory)
+      const metrics: SequenceMetrics = { key, backend: 'rust', frames: media.frames, fps: media.fps, bytes: media.files.find((file) => file.kind === 'animation')!.bytes,
+        renderMs: media.render_ms, encodeMs: media.total_ms - media.render_ms, loopMs: media.loop_ms }
+      const results = this.results('weather', manifest, metrics, false)
+      await rename(join(directory, 'weather-loop.mp4'), results.loop.path)
+      for (const still of results.stills) await rename(join(directory, `weather-${still.epoch}.jpg`), still.path)
+      const receipt = join(this.cacheDirectory, `${key}.sequence.json`)
+      await writeFile(`${receipt}.tmp`, JSON.stringify(metrics))
+      await rename(`${receipt}.tmp`, receipt)
+      console.info(JSON.stringify({ event: 'sequence-render', mode: 'weather', generated: manifest.generated, ...metrics }))
+      return results
+    } catch (error) {
+      throw new StillRenderError('weather', 'rust', undefined, error)
+    } finally { await rm(directory, { recursive: true, force: true }) }
   }
 }
