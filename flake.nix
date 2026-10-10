@@ -41,7 +41,10 @@
           brandName = "weer ok?";
           canonicalOrigin = "https://weerok.nl";
         };
-        motregen-bot = pkgs.callPackage ./nix/packages/bot.nix { };
+        motregen-render = pkgs.callPackage ./nix/packages/render.nix { inherit rustPlatform; };
+        motregen-bot = pkgs.callPackage ./nix/packages/bot.nix {
+          motregen-render = motregenPackages.motregen-render;
+        };
       };
     in
     {
