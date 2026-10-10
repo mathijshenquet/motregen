@@ -180,7 +180,8 @@ async function handleCallback(query: NonNullable<TelegramUpdate['callback_query'
   }
   const current = await runtime.currentManifest()
   let manifest = requested.generated === undefined || requested.generated === Date.parse(current.generated) ? current : runtime.manifestForGeneration?.(requested.generated)
-  const fallback = !manifest && runtime.config.role === 'poller'
+  // Is de generatie van het bericht niet meer beschikbaar, dan dezelfde kaarttijd uit de nieuwste generatie.
+  const fallback = !manifest
   if (fallback) manifest = current
   if (!manifest) {
     await answerCallback(runtime, query.id, 'Verlopen, stuur /regen opnieuw')
