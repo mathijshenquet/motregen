@@ -607,15 +607,18 @@ in
         CacheDirectory = "motregen-bot";
         CacheDirectoryMode = "0755";
         UMask = "0022";
-        Restart = "on-failure";
+        Restart = "always";
         RestartSec = "15s";
         # U71d begrenst renderbuffers; rolkeuze blijft een aparte uitrolstap.
         Nice = 10;
         CPUWeight = 20;
         CPUQuota = if cfg.bot.role == "poller" then "25%" else "200%";
-        # combined = renderer-budget + poller-marge op de 3,8 GB-VM; 1100M remde op prod (memory.high 1624× in 4 generaties, 2026-10-09).
-        MemoryHigh = if cfg.bot.role == "poller" then "384M" else if cfg.bot.role == "renderer" then "900M" else "1600M";
-        MemoryMax = if cfg.bot.role == "poller" then "512M" else if cfg.bot.role == "renderer" then "1100M" else "1800M";
+        # Combined heeft GEEN MemoryHigh: die remt in plaats van te doden, en een geremd proces beantwoordt ook
+        # geen Telegram meer (prod 2026-10-10: arrayBuffer-lek, 7 uur vast zonder herstart). Harde grens + OOM-kill
+        # + herstart is het noodverband tot het lek gevonden is; warm piekt een generatie rond 450 MiB, koud 770.
+        MemoryHigh = if cfg.bot.role == "poller" then "384M" else if cfg.bot.role == "renderer" then "900M" else "infinity";
+        MemoryMax = if cfg.bot.role == "poller" then "512M" else if cfg.bot.role == "renderer" then "1100M" else "1200M";
+        OOMPolicy = "kill";
         MemorySwapMax = lib.mkIf (cfg.bot.role != "poller") "0";
         TimeoutStopSec = "90s";
         LimitCORE = 0;
