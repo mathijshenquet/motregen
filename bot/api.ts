@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { openAsBlob } from 'node:fs'
 
 interface ApiReply<Result> {
   ok: boolean
@@ -73,8 +73,9 @@ export class TelegramApi {
     for (const [name, value] of Object.entries(fields)) {
       form.set(name, typeof value === 'string' ? value : JSON.stringify(value))
     }
-    const contents = await readFile(path)
-    form.set(attachment.name, new Blob([contents], { type: attachment.mime }), attachment.filename)
+    // Schijf-gebonden blob: een ingelezen Buffer in een Blob blijft in Node 24 na de fetch in het geheugen hangen
+    // (prod 2026-10-10: ~7 MB per generatie, de bot liep na zeven uur vast).
+    form.set(attachment.name, await openAsBlob(path, { type: attachment.mime }), attachment.filename)
     return this.send<Result>(method, form)
   }
 
@@ -82,8 +83,8 @@ export class TelegramApi {
     const form = new FormData()
     for (const [name, value] of Object.entries(fields)) form.set(name, typeof value === 'string' ? value : JSON.stringify(value))
     form.set('media', JSON.stringify(photos.map((photo, index) => ({ type: 'photo', media: `attach://photo${index}`, caption: photo.caption, parse_mode: 'HTML' }))))
-    const contents = await Promise.all(photos.map((photo) => readFile(photo.path)))
-    for (const [index, data] of contents.entries()) form.set(`photo${index}`, new Blob([data], { type: 'image/jpeg' }), `motregen-${index}.jpg`)
+    const contents = await Promise.all(photos.map((photo) => openAsBlob(photo.path, { type: 'image/jpeg' })))
+    for (const [index, blob] of contents.entries()) form.set(`photo${index}`, blob, `motregen-${index}.jpg`)
     return this.send<TelegramMessage[]>('sendMediaGroup', form)
   }
 

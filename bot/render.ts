@@ -1,3 +1,4 @@
+import { readManifestJson } from './data-source.js'
 import { NativeMaps } from './native-map.js'
 import type { NativeAssetContext } from './native-assets.js'
 import { FRAME } from './config.js'
@@ -67,9 +68,7 @@ export class StillRenderer {
   }
 
   async manifest(): Promise<StillManifest> {
-    const response = await fetch(new URL('/data/manifest.json', this.origin), { cache: 'no-store', signal: AbortSignal.timeout(15_000) })
-    if (!response.ok) throw new Error(`Manifest laden mislukt (${response.status})`)
-    return validateManifest(await response.json())
+    return validateManifest(await readManifestJson(this.origin))
   }
 
   render(selection: StillSelection, manifest: StillManifest): Promise<RenderedStill>
