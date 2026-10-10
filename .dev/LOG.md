@@ -467,6 +467,18 @@
 - 13:18: noodverband uitgerold (8c3cebf2, PO: "oom = kill"): combined zonder MemoryHigh, MemoryMax 1200M,
   OOMPolicy=kill, Restart=always (15 s). Bij ~100 MB/uur lek betekent dat een herstart per ~5–6 uur (assets ~40 s,
   Telegram bewaart wachtende updates). **Open voor agents**: lek vinden + soaktest over tientallen generaties.
+- 14:07: **lek gevonden**: niet het renderen (duurtest `pnpm -C bot soak`: 8 generaties in één proces, arrayBuffers 0 MB)
+  maar het uploadpad — `readFile` → `new Blob([buffer])` → FormData → fetch houdt in Node 24 de Buffer vast (lokaal:
+  2,1 MB per upload, 254 MB na 120; `pnpm -C bot soak:upload`). Fix: `openAsBlob(path)` → 0 MB na 480 uploads.
+- **U75 gemerged en uitgerold** (1e5bbb46, 14:06): uploadfix + bot leest manifest/chunks van schijf
+  (`MOTREGEN_DATA_DIR`, BindReadOnlyPaths zoals Caddy) i.p.v. via de eigen origin en Cloudflare. Gate: 115 tests,
+  beide duurtests, nix bot/rollen/toplevel/VM-test. Prod-bewijs over vijf generaties loopt.
+- **MIP-29 accepted** (PO): de VM draait alleen Rust; MapLibre alleen voor de basiskaart (dag/nacht, bij de build);
+  geen pixelgelijkheid met browser of oude bot-beelden; tekst rechtstreeks in Rust; gedeelde kern via WASM in de
+  app; bot raakt geen bestanden aan (aanmelden per URL); renderer als apart programma per generatie.
+  Delen C1–C5. **U76 gestart** (gpt-6.1-sol xhigh, pane w33): C1 regenfilmpje + stills volledig in Rust.
+- Les: de PO wil eerst een logisch plan en akkoord per stap, geen losse acties; mijn afgebroken commando's hadden
+  een deel van het werk stil teruggedraaid — na een afbreking altijd eerst `git status` vóór een claim.
 
 ## 2026-10-09 — sessieafsluiting (23:30): native bot, smoothing, /weer, weer ok?, VM rendert zelf
 - **Gemerged en op prod** (main 08f37ad8): U69 d2 (wind na eerste tik), U70 + app-tempo regenloop −1…+2 u, U71a–d
