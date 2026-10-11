@@ -18,6 +18,18 @@ pub fn draw_overlay(
     night: bool,
     options: ClockOptions,
 ) {
+    draw_overlay_title(text, rgb, (epoch, now), night, options, "Regen");
+}
+
+pub fn draw_overlay_title(
+    text: &mut Text,
+    rgb: &mut [u8],
+    times: (i64, i64),
+    night: bool,
+    options: ClockOptions,
+    title: &str,
+) {
+    let (epoch, now) = times;
     let size = &constants().size;
     let left = (size.width as i32 - 320) / 2;
     let history = epoch <= now;
@@ -64,10 +76,10 @@ pub fn draw_overlay(
         muted_color,
         None,
     );
-    let title_width = text.width("Regen", 24);
+    let title_width = text.width(title, 24);
     text.draw(
         rgb,
-        "Regen",
+        title,
         ((size.width as f32 - title_width) / 2.0, 103),
         24,
         muted_color,

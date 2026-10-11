@@ -1,6 +1,9 @@
 mod data;
 mod encode;
+mod fields;
+mod modes;
 mod renderer;
+mod wind_rain;
 
 use anyhow::{Result, ensure};
 use clap::{Parser, ValueEnum};
@@ -9,6 +12,8 @@ use std::path::PathBuf;
 #[derive(Clone, Debug, ValueEnum)]
 enum Mode {
     Weather,
+    Wind,
+    Feels,
 }
 
 #[derive(Parser)]
@@ -44,15 +49,26 @@ fn main() -> Result<()> {
     ensure!(manifest.version == 0, "Unsupported manifest version");
     render_core::time::epoch(&manifest.now)?;
     render_core::time::epoch(&manifest.generated)?;
-    let media = renderer::render(
-        &arguments.data_dir,
-        &arguments.basemap_dir,
-        &arguments.out_dir,
-        &manifest,
-        arguments
-            .clock_variant
-            .or(render_core::clock::CLOCK_TRANSITION),
-    )?;
+    let clock = arguments
+        .clock_variant
+        .or(render_core::clock::CLOCK_TRANSITION);
+    let media = match arguments.mode {
+        Mode::Weather => renderer::render(
+            &arguments.data_dir,
+            &arguments.basemap_dir,
+            &arguments.out_dir,
+            &manifest,
+            clock,
+        )?,
+        Mode::Wind | Mode::Feels => modes::render(
+            &arguments.data_dir,
+            &arguments.basemap_dir,
+            &arguments.out_dir,
+            &manifest,
+            matches!(arguments.mode, Mode::Wind),
+            clock,
+        )?,
+    };
     println!("{}", serde_json::to_string(&media)?);
     Ok(())
 }

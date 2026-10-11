@@ -14,14 +14,32 @@ pub struct Video {
     path: PathBuf,
     diagnostics: tempfile::NamedTempFile,
     frames: usize,
+    expected_frames: usize,
     started: Instant,
 }
 
 impl Video {
     pub fn start(path: &Path) -> Result<Self> {
         let constants = constants();
-        let duration =
-            (constants.loop_offsets.len() + constants.hold_frames) as f64 / constants.fps;
+        Self::start_plan(
+            path,
+            constants.loop_offsets.len(),
+            constants.hold_frames,
+            (
+                constants.fps_fraction.numerator,
+                constants.fps_fraction.denominator,
+            ),
+        )
+    }
+
+    pub fn start_plan(
+        path: &Path,
+        frames: usize,
+        hold_frames: usize,
+        fps: (usize, usize),
+    ) -> Result<Self> {
+        let constants = constants();
+        let duration = (frames + hold_frames) as f64 * fps.1 as f64 / fps.0 as f64;
         let bitrate = (2_500_000.0 * 8.0 / duration).floor().to_string();
         let diagnostics = tempfile::NamedTempFile::new()?;
         let mut child = Command::new("ffmpeg")
@@ -39,19 +57,13 @@ impl Video {
                 "-video_size",
                 &format!("{}x{}", constants.size.width, constants.size.height),
                 "-framerate",
-                &format!(
-                    "{}/{}",
-                    constants.fps_fraction.numerator, constants.fps_fraction.denominator
-                ),
+                &format!("{}/{}", fps.0, fps.1),
                 "-i",
                 "pipe:0",
                 "-vf",
-                &format!(
-                    "tpad=stop_mode=clone:stop={},setsar=1",
-                    constants.hold_frames
-                ),
+                &format!("tpad=stop_mode=clone:stop={},setsar=1", hold_frames),
                 "-frames:v",
-                &(constants.loop_offsets.len() + constants.hold_frames).to_string(),
+                &(frames + hold_frames).to_string(),
                 "-c:v",
                 "libx264",
                 "-threads",
@@ -85,6 +97,7 @@ impl Video {
             path: path.into(),
             diagnostics,
             frames: 0,
+            expected_frames: frames,
             started: Instant::now(),
         })
     }
@@ -112,7 +125,7 @@ impl Video {
             fs::read_to_string(self.diagnostics.path())?
         );
         ensure!(
-            self.frames == constants().loop_offsets.len(),
+            self.frames == self.expected_frames,
             "Incorrect video frame count"
         );
         let bytes = fs::metadata(&self.path)?.len();

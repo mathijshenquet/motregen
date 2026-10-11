@@ -194,6 +194,239 @@ pub fn ring_fade(contour: &Contour, minimum_km: f64) -> f64 {
     }
 }
 
+pub fn trace(field: &Field, grid: &Grid, step: f64, tolerance: f64) -> Vec<Contour> {
+    assert!(step.is_finite() && step > 0.0 && tolerance > 0.0);
+    let mut horizontal = vec![0.0_f32; field.values.len()];
+    let mut horizontal_valid = vec![0.0_f32; field.values.len()];
+    for row in 0..field.height {
+        for column in 0..field.width {
+            let index = row * field.width + column;
+            let west = row * field.width + column.saturating_sub(1);
+            let east = row * field.width + (column + 1).min(field.width - 1);
+            horizontal[index] = ((f64::from(field.values[west])
+                + 4.0 * f64::from(field.values[index])
+                + f64::from(field.values[east]))
+                / 6.0) as f32;
+            horizontal_valid[index] = ((f64::from(field.valid[west])
+                + 4.0 * f64::from(field.valid[index])
+                + f64::from(field.valid[east]))
+                / 6.0) as f32;
+        }
+    }
+    let mut nodes = vec![f32::NAN; field.values.len()];
+    for row in 0..field.height {
+        for column in 0..field.width {
+            let index = row * field.width + column;
+            let north = row.saturating_sub(1) * field.width + column;
+            let south = (row + 1).min(field.height - 1) * field.width + column;
+            let valid = (f64::from(horizontal_valid[north])
+                + 4.0 * f64::from(horizontal_valid[index])
+                + f64::from(horizontal_valid[south]))
+                / 6.0;
+            if valid >= 0.5 {
+                nodes[index] = ((f64::from(horizontal[north])
+                    + 4.0 * f64::from(horizontal[index])
+                    + f64::from(horizontal[south]))
+                    / 6.0) as f32;
+            }
+        }
+    }
+    let minimum = nodes.iter().copied().fold(f32::INFINITY, f32::min) as f64;
+    let maximum = nodes.iter().copied().fold(f32::NEG_INFINITY, f32::max) as f64;
+    let km_per_row: Vec<_> = (0..grid.height)
+        .map(|row| km_per_cell(grid, row as f64))
+        .collect();
+    let km_at =
+        |row: f64| km_per_row[(row + 0.5).floor().clamp(0.0, (grid.height - 1) as f64) as usize];
+    let mut contours = Vec::new();
+    let mut level = (minimum / step).floor() * step + step;
+    while level <= maximum {
+        for mut line in marching_squares(&nodes, field.width, field.height, level) {
+            let coarse: Vec<_> = line
+                .points
+                .iter()
+                .map(|&point| trace_project(field, point, level).unwrap_or(point))
+                .collect();
+            let segments = if line.closed {
+                coarse.len()
+            } else {
+                coarse.len() - 1
+            };
+            let mut refined = Vec::new();
+            for index in 0..coarse.len() {
+                refined.push(coarse[index]);
+                if index < segments {
+                    refine(
+                        field,
+                        level,
+                        coarse[index],
+                        coarse[(index + 1) % coarse.len()],
+                        tolerance,
+                        0,
+                        &mut refined,
+                    );
+                }
+            }
+            line.points = refined
+                .iter()
+                .map(|point| [point[0] as f32 as f64, point[1] as f32 as f64])
+                .collect();
+            line.gradient = refined
+                .iter()
+                .map(|point| {
+                    let sample = field.sample(point[0], point[1]);
+                    sample.gx.hypot(sample.gy) / km_at(point[1])
+                })
+                .collect();
+            line.length_km = (0..if line.closed {
+                refined.len()
+            } else {
+                refined.len() - 1
+            })
+                .map(|index| {
+                    let start = refined[index];
+                    let end = refined[(index + 1) % refined.len()];
+                    (end[0] - start[0]).hypot(end[1] - start[1]) * km_at((start[1] + end[1]) / 2.0)
+                })
+                .sum();
+            contours.push(line);
+        }
+        level += step;
+    }
+    contours
+}
+
+fn trace_project(field: &Field, point: [f64; 2], level: f64) -> Option<[f64; 2]> {
+    let sample = field.sample(point[0], point[1]);
+    let norm = sample.gx * sample.gx + sample.gy * sample.gy;
+    if sample.valid < 0.5 || norm < 1e-10 {
+        return None;
+    }
+    let delta = (sample.value - level) / norm;
+    if delta.abs() * norm.sqrt() > 1.0 {
+        return None;
+    }
+    Some([point[0] - delta * sample.gx, point[1] - delta * sample.gy])
+}
+
+#[allow(clippy::too_many_arguments)]
+fn refine(
+    field: &Field,
+    level: f64,
+    start: [f64; 2],
+    end: [f64; 2],
+    tolerance: f64,
+    depth: usize,
+    output: &mut Vec<[f64; 2]>,
+) {
+    if depth >= 4 {
+        return;
+    }
+    let middle = [(start[0] + end[0]) / 2.0, (start[1] + end[1]) / 2.0];
+    let Some(projected) = trace_project(field, middle, level) else {
+        return;
+    };
+    if (projected[0] - middle[0]).hypot(projected[1] - middle[1]) <= tolerance {
+        return;
+    }
+    refine(field, level, start, projected, tolerance, depth + 1, output);
+    output.push(projected);
+    refine(field, level, projected, end, tolerance, depth + 1, output);
+}
+
+pub fn ring_fade_at(contours: &[Contour], minimum_km: f64, level: f64, point: [f64; 2]) -> f64 {
+    for contour in contours {
+        if !contour.closed || contour.level != level || contour.length_km >= minimum_km {
+            continue;
+        }
+        for index in 0..contour.points.len() {
+            if segment_distance(
+                point,
+                contour.points[index],
+                contour.points[(index + 1) % contour.points.len()],
+            ) < 1.0
+            {
+                return ring_fade(contour, minimum_km);
+            }
+        }
+    }
+    1.0
+}
+
+pub fn segment_distance(point: [f64; 2], start: [f64; 2], end: [f64; 2]) -> f64 {
+    let delta = [end[0] - start[0], end[1] - start[1]];
+    let along = (((point[0] - start[0]) * delta[0] + (point[1] - start[1]) * delta[1])
+        / (delta[0] * delta[0] + delta[1] * delta[1]).max(1e-12))
+    .clamp(0.0, 1.0);
+    (point[0] - start[0] - delta[0] * along).hypot(point[1] - start[1] - delta[1] * along)
+}
+
+pub fn ring_raster(contours: &[Contour], minimum_km: f64, width: usize, height: usize) -> Vec<f32> {
+    let mut raster = Vec::new();
+    for ring in contours {
+        let fade = ring_fade(ring, minimum_km);
+        if fade >= 1.0 {
+            continue;
+        }
+        if raster.is_empty() {
+            raster = (0..width * height)
+                .flat_map(|_| [-1000.0_f32, 1.0])
+                .collect();
+        }
+        let left = ring
+            .points
+            .iter()
+            .map(|point| point[0])
+            .fold(f64::INFINITY, f64::min);
+        let right = ring
+            .points
+            .iter()
+            .map(|point| point[0])
+            .fold(f64::NEG_INFINITY, f64::max);
+        let top = ring
+            .points
+            .iter()
+            .map(|point| point[1])
+            .fold(f64::INFINITY, f64::min);
+        let bottom = ring
+            .points
+            .iter()
+            .map(|point| point[1])
+            .fold(f64::NEG_INFINITY, f64::max);
+        for row in (top - 2.5).floor().max(0.0) as usize
+            ..=(bottom + 2.5).ceil().min((height - 1) as f64) as usize
+        {
+            for column in (left - 2.5).floor().max(0.0) as usize
+                ..=(right + 2.5).ceil().min((width - 1) as f64) as usize
+            {
+                let point = [column as f64, row as f64];
+                let mut inside = false;
+                let mut distance = f64::INFINITY;
+                for index in 0..ring.points.len() {
+                    let start = ring.points[(index + ring.points.len() - 1) % ring.points.len()];
+                    let end = ring.points[index];
+                    if (start[1] > point[1]) != (end[1] > point[1])
+                        && point[0]
+                            < start[0]
+                                + (point[1] - start[1]) * (end[0] - start[0]) / (end[1] - start[1])
+                    {
+                        inside = !inside;
+                    }
+                    distance = distance.min(segment_distance(point, start, end));
+                }
+                let local_fade =
+                    fade + (1.0 - fade) * smoothstep(1.0, 2.5, if inside { 0.0 } else { distance });
+                let index = (row * width + column) * 2;
+                if local_fade < f64::from(raster[index + 1]) {
+                    raster[index] = ring.level as f32;
+                    raster[index + 1] = local_fade as f32;
+                }
+            }
+        }
+    }
+    raster
+}
+
 pub fn label_lines(field: &Field, grid: &Grid, step: f64, ring_km: f64) -> Vec<Contour> {
     let values: Vec<f32> = field
         .values

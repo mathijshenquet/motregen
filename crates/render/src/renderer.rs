@@ -67,6 +67,11 @@ pub struct Profile {
     pub overlay_us: u128,
     pub jpeg_us: u128,
     pub ffmpeg_wait_us: u128,
+    pub fields_us: u128,
+    pub contours_us: u128,
+    pub labels_us: u128,
+    pub strokes_us: u128,
+    pub composition_us: u128,
 }
 
 #[derive(Clone, Copy)]
@@ -346,7 +351,7 @@ fn write_video(
     })
 }
 
-fn plates(directory: &Path, grid: &Grid) -> Result<[Vec<u8>; 2]> {
+pub(crate) fn plates(directory: &Path, grid: &Grid) -> Result<[Vec<u8>; 2]> {
     let constants = constants();
     let metadata: serde_json::Value =
         serde_json::from_slice(&fs::read(directory.join("basemap.json"))?)?;

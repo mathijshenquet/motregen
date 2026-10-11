@@ -5,8 +5,12 @@ pub fn rain_palette() -> &'static [u8] {
 }
 
 pub fn composition_colors(night: bool) -> Vec<[f32; 4]> {
-    let palette = rain_palette();
     let presentation = &constants().presentation[if night { "dark" } else { "light" }];
+    composition_colors_for(presentation)
+}
+
+pub fn composition_colors_for(presentation: &serde_json::Value) -> Vec<[f32; 4]> {
+    let palette = rain_palette();
     let saturation = presentation["saturation"].as_f64().unwrap();
     let brightness = presentation["brightness"].as_f64().unwrap();
     let opacity = presentation["opacity"].as_f64().unwrap();

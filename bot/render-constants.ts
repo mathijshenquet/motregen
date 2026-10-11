@@ -16,6 +16,8 @@ import { DEFAULT_LOCATION, stillMapTheme } from '../web/src/core/still-theme.js'
 import { buildTimeline, frameBlend } from '../web/src/core/time-model.js'
 import { blendFixture, overlapFixture } from '../web/src/core/time-model.fixtures.js'
 import type { Manifest, Source } from '../web/src/core/contract.js'
+import { generateModeConstants } from './render-mode-constants.js'
+import { generateIsolineFixtures } from './render-isoline-fixtures.js'
 
 function preferredSource(sources: Source[], now: string): Source {
   const manifest: Manifest = {
@@ -113,6 +115,8 @@ const outputs = [
 ] as const
 
 export async function generateRenderConstants(check = false): Promise<void> {
+  await generateModeConstants(check)
+  await generateIsolineFixtures(check)
   for (const [path, generate] of outputs) {
     const expected = JSON.stringify(generate()) + '\n'
     if (check) {
