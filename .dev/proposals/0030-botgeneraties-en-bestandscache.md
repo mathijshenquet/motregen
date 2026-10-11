@@ -1,6 +1,6 @@
 # MIP-30 — Botgeneraties samenvoegen en ruimte voor bestandscache
 
-Status: draft · auteur: PM (sol) · 2026-10-11 14:15 CEST
+Status: accepted (PO 2026-10-11 14:24 CEST, uitsluitend E1) · auteur: PM (sol)
 
 ## 1. Het probleem
 De bot maakt alle drie Rust-films en 170 stills na iedere manifestpublicatie. Ingest publiceert vaak twee tot drie manifesten binnen een halve minuut; daardoor wordt vrijwel dezelfde generatie meerdere keren samengesteld. Een normale generatie duurt ongeveer 40 seconden op de VM.
@@ -18,5 +18,10 @@ MIP-29 verplaatst de beeldgeneratie naar Rust. U80 meldde de dubbele generaties 
 1. E1: MemoryMax naar 1600M voor de gecombineerde bot-unit, of 1200M behouden?
 2. E2: 30 seconden stabiliteit vóór generatie, of meteen bij iedere manifestversie blijven starten?
 
+## 5. Besluit
+1. E1 aangenomen: MemoryMax van de gecombineerde bot-unit wordt 1600M. Neem dit mee in de komende uitrol en controleer de unit en geheugen-/herstartcijfers op prod.
+2. E2 blijft open. De PO vraagt waarom manifesten kort na elkaar verschijnen; een wachttijd van 30 seconden is niet goedgekeurd en wordt niet geïmplementeerd.
+
 ## Changelog
 - 2026-10-11 14:15 CEST: voorstel uit de PM-overdracht, aangevuld met een actuele productiecontrole. Geen implementatie of productieaanpassing voor deze keuzes uitgevoerd.
+- 2026-10-11 14:24 CEST: PO neemt E1 aan; E2 nog onder bespreking.

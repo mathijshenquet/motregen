@@ -1,5 +1,11 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-11 14:24 CEST — MIP-30 E1 aangenomen: bot MemoryMax naar 1600M
+
+PO: A3 ja doe maar; A4 sure? waarom zou een manifest niet stabiel zijn? E1 geautoriseerd en in Nix voor combined aangepast, met de bestaande flakecontractcheck. Poller512M, renderer1100M, swap/hardening gelijk. Wordt met de komende U80-uitrol toegepast en op prod gecontroleerd.
+
+E2 nog open, geen wachttijd gebouwd. Uitleg: nieuwe complete, atomair gepubliceerde versies door nieuwe brondata; twee versies negen seconden uiteen gaven twee generaties. Uit gelijke filmgroottes volgt geen bewijs van gelijke inhoud; eerdere te stellige formulering aan PO gecorrigeerd. Publicatielus wordt nagelezen.
+
 ## 2026-10-11 14:15 CEST — PM-rol overgenomen; U80-wachter actief
 
 PM/orkestrator vanaf nu sol in w33. Overdracht A–F, AGENTS en de PO-feedback gelezen; main-checkout met jj, U76-branch bevroren. Skywatch-samples blijven buiten alle commits. Wachter gestart met `herdr agent wait w35:p1 --timeout 3500000`, zonder --until; U80 werkt met GPT-6.1-Sol xhigh aan U76-integratie en tempo. Na melding 'U76 geïntegreerd + tempo': onafhankelijke gate in integratieworktree → VM-meting → jj-merge → geautoriseerde uitrol → productiecontrole en zelf bekeken films.
