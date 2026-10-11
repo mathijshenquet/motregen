@@ -29,6 +29,25 @@ impl Text {
             .sum()
     }
 
+    pub(crate) fn digit_mask(&mut self, character: char, width: usize, height: usize) -> Vec<u8> {
+        let glyph = self.glyph(character, 58);
+        let left = ((width as f32 - glyph.metrics.advance_width) / 2.0).round() as i32
+            + glyph.metrics.xmin;
+        let top = 52 - glyph.metrics.ymin - glyph.metrics.height as i32;
+        let mut mask = vec![0; width * height];
+        for row in 0..glyph.metrics.height {
+            for column in 0..glyph.metrics.width {
+                let x = left + column as i32;
+                let y = top + row as i32;
+                if x >= 0 && x < width as i32 && y >= 0 && y < height as i32 {
+                    mask[y as usize * width + x as usize] =
+                        glyph.alpha[row * glyph.metrics.width + column];
+                }
+            }
+        }
+        mask
+    }
+
     fn glyph(&mut self, character: char, size: u32) -> &Glyph {
         self.glyphs.entry((character, size)).or_insert_with(|| {
             let (metrics, alpha) = self.font.rasterize(character, size as f32);

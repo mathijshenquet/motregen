@@ -28,6 +28,8 @@ struct Arguments {
     out_dir: PathBuf,
     #[arg(long, help = "Snapshot manifest; defaults to DATA_DIR/manifest.json")]
     manifest: Option<PathBuf>,
+    #[arg(long, help = "PO clock prototype: schuif, klap or kruisfade")]
+    clock_variant: Option<render_core::clock::ClockTransition>,
 }
 
 fn main() -> Result<()> {
@@ -47,6 +49,9 @@ fn main() -> Result<()> {
         &arguments.basemap_dir,
         &arguments.out_dir,
         &manifest,
+        arguments
+            .clock_variant
+            .or(render_core::clock::CLOCK_TRANSITION),
     )?;
     println!("{}", serde_json::to_string(&media)?);
     Ok(())

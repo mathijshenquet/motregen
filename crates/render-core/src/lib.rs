@@ -1,3 +1,4 @@
+pub mod clock;
 pub mod composition;
 pub mod constants;
 pub mod motion;

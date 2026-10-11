@@ -5,9 +5,10 @@ use crate::{
 use anyhow::{Context, Result, ensure};
 use rayon::prelude::*;
 use render_core::{
+    clock::ClockTransition,
     constants::{constants, warp_limit},
     motion::Motion,
-    overlay::draw_overlay,
+    overlay::{ClockOptions, draw_overlay},
     projection::Grid,
     rain::{RainCompositor, RainPair},
     temperature::{TemperaturePair, draw_temperature},
@@ -42,9 +43,10 @@ pub struct Media {
     pub now: String,
     pub width: usize,
     pub height: usize,
-    pub fps: usize,
+    pub fps: f64,
     pub frames: usize,
     pub hold_frames: usize,
+    pub clock_variant: Option<ClockTransition>,
     pub loop_epochs: Vec<i64>,
     pub render_ms: u128,
     pub loop_ms: u128,
@@ -72,6 +74,31 @@ struct FramePlan {
     epoch: i64,
     loop_frame: bool,
     still: bool,
+}
+
+fn frame_plans(loop_epochs: &[i64], still_epochs: &[i64]) -> Vec<FramePlan> {
+    let mut plans = BTreeMap::new();
+    for &epoch in loop_epochs {
+        plans.insert(
+            epoch,
+            FramePlan {
+                epoch,
+                loop_frame: true,
+                still: false,
+            },
+        );
+    }
+    for &epoch in still_epochs {
+        plans
+            .entry(epoch)
+            .and_modify(|plan| plan.still = true)
+            .or_insert(FramePlan {
+                epoch,
+                loop_frame: false,
+                still: true,
+            });
+    }
+    plans.into_values().collect()
 }
 
 struct FrameInput {
@@ -178,6 +205,7 @@ struct Painter {
     text: [Mutex<Text>; 2],
     plates: [Vec<u8>; 2],
     now: i64,
+    clock_variant: Option<ClockTransition>,
 }
 
 struct FrameOutput {
@@ -235,7 +263,17 @@ impl Painter {
         );
         profile.mixing_us += mixing_started.elapsed().as_micros();
         let overlay_started = Instant::now();
-        draw_overlay(&mut text, &mut rgb, input.plan.epoch, self.now, input.night);
+        draw_overlay(
+            &mut text,
+            &mut rgb,
+            input.plan.epoch,
+            self.now,
+            input.night,
+            ClockOptions {
+                transition: self.clock_variant,
+                still: input.plan.still,
+            },
+        );
         profile.overlay_us += overlay_started.elapsed().as_micros();
         let render_us = started.elapsed().as_micros();
         let jpeg_started = Instant::now();
@@ -360,6 +398,7 @@ pub fn render(
     basemap_directory: &Path,
     out_directory: &Path,
     manifest: &Manifest,
+    clock_variant: Option<ClockTransition>,
 ) -> Result<Media> {
     let started = Instant::now();
     let constants = constants();
@@ -377,6 +416,7 @@ pub fn render(
         ],
         plates: plates(basemap_directory, &grid)?,
         now,
+        clock_variant,
     };
     let mut scene = Scene {
         rain,
@@ -403,28 +443,7 @@ pub fn render(
         .iter()
         .map(|minute| now + minute * 60_000)
         .collect();
-    let mut plans = BTreeMap::new();
-    for &epoch in &loop_epochs {
-        plans.insert(
-            epoch,
-            FramePlan {
-                epoch,
-                loop_frame: true,
-                still: false,
-            },
-        );
-    }
-    for &epoch in &still_epochs {
-        plans
-            .entry(epoch)
-            .and_modify(|plan| plan.still = true)
-            .or_insert(FramePlan {
-                epoch,
-                loop_frame: false,
-                still: true,
-            });
-    }
-    let plans: Vec<_> = plans.into_values().collect();
+    let plans = frame_plans(&loop_epochs, &still_epochs);
     let mut output = thread::scope(|scope| -> Result<VideoOutput> {
         // One queued batch bounds RGB/motion memory while ffmpeg consumes the preceding batch.
         let (sender, receiver) = mpsc::sync_channel(1);
@@ -506,7 +525,8 @@ pub fn render(
         height: constants.size.height,
         fps: constants.fps,
         frames: loop_epochs.len(),
-        hold_frames: constants.fps,
+        hold_frames: constants.hold_frames,
+        clock_variant,
         loop_epochs,
         render_ms: render_ms / 1000,
         loop_ms: output.loop_ms,
@@ -534,4 +554,50 @@ fn still(rgb: &[u8], epoch: i64, directory: &Path) -> Result<FileMedia> {
         width: constants().size.width,
         height: constants().size.height,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fractional_rain_plan_composes_each_shared_still_only_once() {
+        let constants = constants();
+        assert_eq!(constants.fps, 4.5);
+        assert_eq!(constants.fps_fraction.numerator, 9);
+        assert_eq!(constants.fps_fraction.denominator, 2);
+        assert_eq!(constants.hold_frames, 5);
+        assert_eq!(constants.loop_offsets.len(), 109);
+        assert_eq!(constants.loop_offsets[0], -3_600_000);
+        assert_eq!(*constants.loop_offsets.last().unwrap(), 7_200_000);
+        assert!(
+            constants
+                .loop_offsets
+                .windows(2)
+                .all(|pair| pair[1] - pair[0] == 100_000)
+        );
+        let stills: Vec<_> = constants
+            .still_minutes
+            .iter()
+            .map(|minute| minute * 60_000)
+            .collect();
+        let plans = frame_plans(&constants.loop_offsets, &stills);
+        assert_eq!(plans.len(), 175);
+        assert_eq!(plans.iter().filter(|plan| plan.loop_frame).count(), 109);
+        assert_eq!(plans.iter().filter(|plan| plan.still).count(), 85);
+        assert_eq!(
+            plans
+                .iter()
+                .filter(|plan| plan.loop_frame && plan.still)
+                .count(),
+            19
+        );
+        assert!(plans.windows(2).all(|pair| pair[0].epoch < pair[1].epoch));
+        assert!(
+            plans
+                .iter()
+                .filter(|plan| plan.still && (-3_600_000..=7_200_000).contains(&plan.epoch))
+                .all(|plan| plan.loop_frame)
+        );
+    }
 }

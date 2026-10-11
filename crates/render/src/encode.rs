@@ -20,7 +20,8 @@ pub struct Video {
 impl Video {
     pub fn start(path: &Path) -> Result<Self> {
         let constants = constants();
-        let duration = (constants.loop_offsets.len() + constants.fps) as f64 / constants.fps as f64;
+        let duration =
+            (constants.loop_offsets.len() + constants.hold_frames) as f64 / constants.fps;
         let bitrate = (2_500_000.0 * 8.0 / duration).floor().to_string();
         let diagnostics = tempfile::NamedTempFile::new()?;
         let mut child = Command::new("ffmpeg")
@@ -38,13 +39,19 @@ impl Video {
                 "-video_size",
                 &format!("{}x{}", constants.size.width, constants.size.height),
                 "-framerate",
-                &constants.fps.to_string(),
+                &format!(
+                    "{}/{}",
+                    constants.fps_fraction.numerator, constants.fps_fraction.denominator
+                ),
                 "-i",
                 "pipe:0",
                 "-vf",
-                "tpad=stop_mode=clone:stop_duration=1,setsar=1",
+                &format!(
+                    "tpad=stop_mode=clone:stop={},setsar=1",
+                    constants.hold_frames
+                ),
                 "-frames:v",
-                &(constants.loop_offsets.len() + constants.fps).to_string(),
+                &(constants.loop_offsets.len() + constants.hold_frames).to_string(),
                 "-c:v",
                 "libx264",
                 "-threads",

@@ -35,10 +35,18 @@ pub struct Constants {
     pub places: Vec<Place>,
     pub source_priority: std::collections::HashMap<String, usize>,
     pub loop_offsets: Vec<i64>,
-    pub fps: usize,
+    pub fps: f64,
+    pub fps_fraction: FrameRate,
+    pub hold_frames: usize,
     pub still_minutes: Vec<i64>,
     pub presentation: serde_json::Value,
     pub temperature_style: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FrameRate {
+    pub numerator: usize,
+    pub denominator: usize,
 }
 
 #[derive(Debug, Deserialize)]

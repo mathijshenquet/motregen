@@ -1,6 +1,23 @@
-use crate::{constants::constants, text::Text, time::clock_text};
+use crate::{
+    clock::{ClockTransition, clock_width, draw_clock},
+    constants::constants,
+    text::Text,
+    time::clock_text,
+};
 
-pub fn draw_overlay(text: &mut Text, rgb: &mut [u8], epoch: i64, now: i64, night: bool) {
+pub struct ClockOptions {
+    pub transition: Option<ClockTransition>,
+    pub still: bool,
+}
+
+pub fn draw_overlay(
+    text: &mut Text,
+    rgb: &mut [u8],
+    epoch: i64,
+    now: i64,
+    night: bool,
+    options: ClockOptions,
+) {
     let size = &constants().size;
     let left = (size.width as i32 - 320) / 2;
     let history = epoch <= now;
@@ -19,10 +36,26 @@ pub fn draw_overlay(text: &mut Text, rgb: &mut [u8], epoch: i64, now: i64, night
     };
     rounded_panel(rgb, left, -16, 320, 138, 24, background, 0.96);
     let (clock, day) = clock_text(epoch);
-    let time_width = text.width(&clock, 58);
+    let time_width = if options.transition.is_some() {
+        clock_width(text)
+    } else {
+        text.width(&clock, 58)
+    };
     let day_width = text.width(day, 24);
     let content_left = (size.width as f32 - time_width - day_width - 16.0) / 2.0;
-    text.draw(rgb, &clock, (content_left, 67), 58, clock_color, None);
+    if let Some(transition) = options.transition {
+        draw_clock(
+            text,
+            rgb,
+            epoch,
+            content_left,
+            clock_color,
+            transition,
+            options.still,
+        );
+    } else {
+        text.draw(rgb, &clock, (content_left, 67), 58, clock_color, None);
+    }
     text.draw(
         rgb,
         day,

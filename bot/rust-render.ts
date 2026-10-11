@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import { readFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { FRAME_PIXELS } from './config.js'
-import { sequencePlan } from './sequences.js'
+import { holdFrames, sequencePlan } from './sequences.js'
 import { STILL_HOURS, stillEpoch, type StillManifest } from './stills.js'
 
 export interface RustMediaFile { file: string; kind: 'photo' | 'animation'; epoch: number; bytes: number; width: number; height: number }
@@ -36,7 +36,7 @@ export async function validateRustMedia(media: RustMedia, manifest: StillManifes
   const plan = sequencePlan('weather', manifest)
   if (media.version !== 1 || media.mode !== 'weather' || media.generated !== manifest.generated || media.now !== manifest.now ||
       media.width !== FRAME_PIXELS.width || media.height !== FRAME_PIXELS.height || media.frames !== plan.loopFrames || media.fps !== plan.fps ||
-      media.hold_frames !== plan.fps || JSON.stringify(media.loop_epochs) !== JSON.stringify(plan.epochs.slice(0, plan.loopFrames)) ||
+      media.hold_frames !== holdFrames(plan) || JSON.stringify(media.loop_epochs) !== JSON.stringify(plan.epochs.slice(0, plan.loopFrames)) ||
       ![media.render_ms, media.encode_ms, media.loop_ms, media.total_ms].every((value) => Number.isFinite(value) && value >= 0)) throw new Error('Rust-media wijkt af van manifest of loopplan')
   const expected = [{ file: 'weather-loop.mp4', kind: 'animation', epoch: Date.parse(manifest.now) },
     ...STILL_HOURS.map((hour) => ({ file: `weather-${stillEpoch(manifest, hour)}.jpg`, kind: 'photo', epoch: stillEpoch(manifest, hour) }))]

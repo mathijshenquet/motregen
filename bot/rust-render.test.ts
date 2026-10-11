@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, expect, it, vi } from 'vitest'
 import * as rust from './rust-render.js'
 import { FRAME_PIXELS } from './config.js'
-import { sequencePlan } from './sequences.js'
+import { holdFrames, sequencePlan } from './sequences.js'
 import { cacheKey, STILL_HOURS, stillEpoch, type StillManifest } from './stills.js'
 import { rustRenderer } from './native-settings.js'
 import { NativeWeatherRenderer } from './native-render.js'
@@ -23,7 +23,7 @@ async function media(directory: string): Promise<rust.RustMedia> {
   ]
   await Promise.all(files.map((file) => writeFile(join(directory, file.file), 'data')))
   return { version: 1, mode: 'weather', generated: manifest.generated, now: manifest.now, ...FRAME_PIXELS,
-    fps: plan.fps, frames: plan.loopFrames, hold_frames: plan.fps, loop_epochs: plan.epochs.slice(0, plan.loopFrames),
+    fps: plan.fps, frames: plan.loopFrames, hold_frames: holdFrames(plan), loop_epochs: plan.epochs.slice(0, plan.loopFrames),
     render_ms: 18, encode_ms: 1, loop_ms: 5, total_ms: 10, files }
 }
 
@@ -52,7 +52,7 @@ it('imports all Rust JPEGs directly and reuses the complete cache without native
     expect(first).toMatchObject({ kind: 'photo', cached: false, epoch: stillEpoch(manifest, 12), milliseconds: 10 })
     expect(await readFile(first.path, 'utf8')).toBe('data')
     const loop = await renderer.render({ mode: 'weather', hour: 'loop' }, manifest)
-    expect(loop).toMatchObject({ backend: 'rust', cached: true, frames: 241, fps: 10, renderMs: 18, encodeMs: 1, totalMs: 10, milliseconds: 0 })
+    expect(loop).toMatchObject({ backend: 'rust', cached: true, frames: 109, fps: 4.5, renderMs: 18, encodeMs: 1, totalMs: 10, milliseconds: 0 })
     expect(render).toHaveBeenCalledOnce()
     expect(weatherPrepare).not.toHaveBeenCalled()
     expect(modesPrepare).not.toHaveBeenCalled()
@@ -69,6 +69,7 @@ it('rejects an incomplete, stale, duplicated or mistimed Rust receipt', async ()
     await rust.validateRustMedia(valid, manifest, directory)
     for (const mutation of [
       { generated: '2026-10-10T11:32:49Z' }, { files: valid.files.slice(1) },
+      { hold_frames: 4.5 }, { fps: 10 }, { frames: 241 },
       { files: [...valid.files.slice(0, -1), valid.files[0]!] }, { loop_epochs: valid.loop_epochs.slice(1) },
       { files: valid.files.map((file, index) => index === 0 ? { ...file, file: '../elsewhere.mp4' } : file) },
     ]) await expect(rust.validateRustMedia({ ...valid, ...mutation }, manifest, directory)).rejects.toThrow()
