@@ -1,7 +1,7 @@
 // U77: combinaties van Regenpalet en Regenmenging naast elkaar op exact hetzelfde frame (naar rig/field-shots.ts van
 // U72). Eén pagina per beeld; de stand wisselt via de dev-knoppen zelf, dus data, tijd en uitsnede zijn per cel
 // gelijk. Magenta scheidt de cellen. Gebruik (vanuit web/, rig gekopieerd naar tmp/u77/):
-//   pnpm exec tsx tmp/u77/look-shots.ts <baseURL> <label> <390|1280> <dag|nacht|nacht-vast> <uren vooruit> <lng,lat,zoom|-> <palet/menging,palet/menging,...>
+//   pnpm exec tsx tmp/u77/look-shots.ts <baseURL> <label> <390|1280> <dag|nacht|dag-vast|nacht-vast> <uren vooruit> <lng,lat,zoom|-> <palet/menging,palet/menging,...>
 // U77_TIME=2026-10-10T1415 zet een vaste kaarttijd (Amsterdam) in plaats van uren vooruit. U77_PANEL=1 neemt het
 // hele kaartvlak met het histogram erbij (één kolom per cel) in plaats van de uitsnede. U77_MODE=Wind|Lucht kiest de kaartmodus.
 import { chromium, devices } from '@playwright/test'
@@ -21,16 +21,16 @@ const wholePanel = process.env.U77_PANEL === '1'
 const browser = await chromium.launch({ args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
 const mobile = device === '390'
 const context = await browser.newContext(mobile ? { ...devices['Pixel 5'], viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 } : { viewport: { width: 1280, height: 800 } })
-await context.addInitScript(([storedView, fixedNight]) => {
+await context.addInitScript(([storedView, fixedTheme]) => {
   if (storedView !== '-') {
     const [lng, lat, zoom] = storedView!.split(',').map(Number)
     localStorage.setItem('motregen-map-view', JSON.stringify({ lng, lat, zoom }))
   }
-  // De kaart volgt de kaarttijd zolang Expressief aan staat; een nachtbeeld op een dagtijd (radar) vraagt dus om
-  // een vast donker thema met Expressief uit.
-  if (fixedNight) { localStorage.setItem('motregen-theme', 'dark'); localStorage.setItem('motregen-expressive', 'off') }
+  // De kaart volgt de kaarttijd zolang Expressief aan staat; een nachtbeeld op een dagtijd (of andersom) van de
+  // radar vraagt dus om een vast thema met Expressief uit.
+  if (fixedTheme) { localStorage.setItem('motregen-theme', fixedTheme); localStorage.setItem('motregen-expressive', 'off') }
   addEventListener('DOMContentLoaded', () => { const style = document.createElement('style'); style.textContent = '.dev-panel { opacity: 0 !important; pointer-events: none !important; }'; document.head.append(style) })
-}, [view, scene === 'nacht-vast' ? 'ja' : ''])
+}, [view, scene === 'nacht-vast' ? 'dark' : scene === 'dag-vast' ? 'light' : ''])
 const page = await context.newPage()
 await page.goto(`${baseURL}/?dev#t=${timeParameter}`)
 await page.locator('.map-splash.ready').waitFor({ state: 'attached', timeout: 60_000 })

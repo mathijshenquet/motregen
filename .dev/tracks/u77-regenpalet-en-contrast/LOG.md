@@ -215,3 +215,110 @@ SwiftShader, dus een bovengrens voor een telefoon-GPU. Palet, zuiver, steil en d
 De eerste e2e-poging gaf exit 1 op mijn eigen nieuwe regels in `dev-panel.spec.ts` (ik las `data-rain-look` van
 `.map` in plaats van `.map-shell`); hersteld, daarna 7 groen. `pnpm test` en de rigs draaien buiten de sandbox (tsx
 opent een IPC-socket). Preview 4320 serveert deze build (`index-bAQpJW04.js`, bevat de nieuwe knoppen). Draft-PR #107.
+
+## 2026-10-11 07:55 — ronde 2 (PO via orkestrator 07:35): langer blauw, zachtere drempel, afspelend bekeken
+
+PO: palet "over violet naar rood vind ik het beste, maar kan het nog wat langer blauw blijven?"; menging "zuiver of
+drempel … kan die drempel nog één tikje subtieler?". Niets als standaard vastgezet.
+
+### Nieuw onder `?dev` › Kaart
+- Regenpalet `violet-klassen`: kleur = onze eigen klasse. Blauw voor heel licht (drie tinten, oplopend in donkerte,
+  tot 2,5 mm/u), violet voor matig (2,5–7,5), rood vanaf zwaar, bordeaux bij extreem. De overgangen zijn kort
+  (2,2 → 2,9 en 6,9 → 8,2 mm/u), zodat een klassegrens ook een kleurgrens is.
+- Regenpalet `violet-laat`: dezelfde kleuren, maar blauw tot ~5, violet 5–10, rood vanaf 10.
+- `blauw-violet-rood` is ongewijzigd (van blauw af bij 1,2, violet bij 3,5, rood bij 11).
+- Regenmenging `drempel-zacht`: dezelfde rand als drempel (byte 31), inzetdekking 0,38 in plaats van 0,55 en een
+  oploop van 24 bytes in plaats van 12. Vanaf 0,1 mm/u is de dekking gelijk aan `zuiver`.
+
+### Contrastregel verfijnd (raakt ook `drempel` uit ronde 1)
+De regel verschoof de hele lichte band lineair mee met de beginkleur. Bij een lagere inzetdekking werd dat te grof:
+het blauw van 0,5 mm/u werd zo donker dat het voor kleurenblinden naast violet viel (13–16 waar de lat 20 is). Nu
+krijgt elke tabelingang van de lichte band de kleinste verschuiving waarmee hij bij zijn eigen dekking de regel haalt
+(`lightBandShift`): meer regen is dekkender en heeft minder nodig. Gevolg: het blauw binnen een bui is helderder dan
+in ronde 1, alleen de rand zelf is donkerder. LET OP: `drempel` ziet er daardoor iets anders uit dan wat de PO in
+ronde 1 beoordeelde (zelfde rand, frisser blauw erbinnen).
+
+### Waar de eisen knellen (`metingen/bandverschil-per-palet.md`, `metingen/contrast-van-de-inzet.md`)
+Kleurverschil CIE76, "normaal / kleurenblind" (het kleinste van protanopie en deuteranopie); lat 20. Gelijk voor
+drempel en drempel-zacht.
+| palet | thema | licht–matig (0,5 · 4,5) | matig–zwaar (4,5 · 15) | grens bij 2,5 (1,8 · 3,5) | grens bij 7,5 (6 · 9,5) |
+| --- | --- | --- | --- | --- | --- |
+| blauw-grijs-rood | dag | 56 / 52 | 76 / 34 | 37 / 34 | 57 / 21 |
+| blauw-violet-rood | dag | 41 / 30 | 85 / 70 | 18 / 13 | 55 / 46 |
+| blauw-violet-rood | nacht | 39 / 29 | 69 / 55 | 21 / 16 | 46 / 37 |
+| violet-klassen | dag | 44 / 31 | 78 / 66 | 29 / **19** | 77 / 65 |
+| violet-klassen | nacht | 38 / 25 | 63 / 53 | 28 / **6** | 66 / 54 |
+| violet-laat | dag | **25 / 17** | 105 / 83 | 6 / 5 | 28 / 23 |
+| violet-laat | nacht | 25 / 23 | 89 / 57 | 11 / 9 | 18 / 10 |
+1. **Violet en kleurenblindheid.** Zonder rood- of groengevoelige kegeltjes is violet een blauw; alleen helderheid
+   scheidt ze. Drie blauwtinten gebruiken die helderheid al. De middens van de klassen halen de lat (25–31), maar
+   de grens licht/matig zelf is bij `violet-klassen` voor kleurenblinden zwak overdag (19) en 's nachts onzichtbaar
+   (6: lichtblauw naast lavendel). Rood blijft voor iedereen duidelijk (54–83). Het PO-palet met grijs uit ronde 1
+   had dit niet (34 op de grens); dat is de prijs van violet.
+2. **`violet-laat` volgt onze klassen niet.** Matig (4,5 mm/u) is nog blauw en verschilt 25 / 17 van licht: onder de
+   lat, ook bij normaal kleurzicht krap. De kleurgrenzen liggen bij 5 en 10 (daar 28 / 20 en 78 / 66), terwijl het
+   histogram en de tabel licht/matig/zwaar op 2,5 en 7,5 leggen. De unit-test toetst dit palet daarom op zijn eigen
+   drie kleuren en zegt dat erbij.
+3. **Lagere dekking kost kleur aan de rand.** De regel geldt bij 0,38, maar de beginkleur moet er overdag 42 % voor
+   naar zwart: van 64,152,238 naar 37,87,137 (bij 0,55 is dat 21 %: 51,120,188). Over het bijna witte land wordt dat
+   een grijsblauwe, wat rokerige zoom. Ondergrens van de dekking:
+   | inzetdekking | dag: naar zwart | beginkleur dag | nacht: naar wit |
+   | --- | --- | --- | --- |
+   | 0,20 | 100 % | zwart: de regel is hier op | 80 % |
+   | 0,30 | 63 % | 24,57,89 | 34 % |
+   | 0,35 | 49 % | 33,78,121 | 23 % |
+   | 0,38 (drempel-zacht) | 42 % | 37,87,137 | 17 % |
+   | 0,45 | 32 % | 44,103,162 | 6 % |
+   | 0,55 (drempel) | 21 % | 51,120,188 | 0 % |
+   Rekenkundig houdt de regel het tot 0,20 vol (dan is de rand zwart); als blauw herkenbaar is het tot ongeveer
+   0,35. Het knelpunt is het lichtblauwe water: daar moet regen 15 L* donkerder dan 158,189,255 zijn.
+
+### Afspelend bekeken (E1 uit ronde 1): `rig/edge-flicker.ts`, `metingen/flikker-motregen-dag.log`
+Eén pagina, uitsnede 360 × 360 px over de losse lichte buitjes boven Brabant en de Kempen (zoom 8), lichte kaart,
+palet violet-klassen, kaarttijd per minuut van 06:55 tot 07:35 (41 beelden per menging, radarverleden). Maat: pixels
+waarvan de helderheid binnen drie opeenvolgende minuten meer dan 12 niveaus heen én terug gaat.
+| menging | knipperpixels per minuut (van 129 600) | pieken |
+| --- | --- | --- |
+| zuiver | 0 in alle 39 minuten | – |
+| drempel | 34–103, op de wissel van radarbeeld 89–180 | elke 5e minuut |
+| drempel-zacht | 3–47, op de wissel 62–151 | elke 5e minuut |
+Wat ik zie in de strips (`beelden/flikker-motregen-dag-per-minuut.webp`, `…-per-radarbeeld.webp`):
+- **De rand van een regengebied flikkert niet.** In negen opeenvolgende minuten schuift en groeit elke rand één
+  kant op. De gemeten knipperpixels zijn hooguit 0,14 % van het beeld en vallen op de wissel van radarbeeld: de rand
+  verspringt daar een pixel. In de strip op halve grootte is dat niet te zien.
+- **Losse motregenbuitjes komen en gaan wel.** Om de vijf minuten bekeken verschijnt en verdwijnt er klein spul
+  (oost van Tilburg 06:55 wel, 07:00 weg; bij Bladel 07:15–07:20 wel, 07:25 weg). Dat zit in de radar zelf. Bij
+  `zuiver` zijn die buitjes zo vaag dat het niet opvalt; bij `drempel` is elk buitje een duidelijk vlekje dat in
+  één à twee minuten inspringt of wegvalt; `drempel-zacht` zit ertussen (vlekjes vager en grijzer).
+- Voorbehoud: één gebied, veertig minuten, alleen de lichte kaart, stilstaande beelden per minuut en geen echte
+  video op een telefoon. Een tweede reeks over de rand van een regenband bij Amersfoort (zoom 9) heb ik bekeken in
+  een eerdere versie van de rig (rand loopt daar vloeiend mee, bij drempel-zacht met een grijze zoom), maar dat
+  beeld is niet bewaard.
+
+### Beelden ronde 2 (`beelden/violet-*`, radar 07:35 vandaag: veel lichte buien met rode kernen)
+`violet-radar-{dag-vast,nacht-vast}-{1280,390}`: rijen blauw-violet-rood · violet-klassen · violet-laat, kolommen
+zuiver · drempel · drempel-zacht. Vast thema met Expressief uit, want om 07:35 is de kaart net voor zonsopkomst nog
+donker. `violet-histogram-dag-vast-1280`: het histogram per palet. Alle vijf zelf bekeken, plus beide flikkerstrips.
+- `violet-klassen`: doet wat de PO vroeg. De buien zijn blauw met violette kernen, rood alleen in de zwaarste
+  kernen; in het histogram zijn de staven van vanochtend (0,4–1,5 mm/u) allemaal blauw waar blauw-violet-rood er
+  twee indigo kleurt.
+- `violet-laat`: bijna alles is blauw, een paar violette spikkels, rood zie je nauwelijks. Rustig, maar een flinke
+  bui (5–8 mm/u) valt niet meer op.
+- 's Nachts: blauw → lichtblauw → lavendel → rood; leest goed, lavendel is duidelijk "meer" dan blauw.
+- `zuiver` oogt onscherp en boven zee blijft lichte regen vaag; `drempel` is strak; `drempel-zacht` is op
+  landelijk niveau bijna gelijk aan drempel met een zachtere rand, de grijze zoom zie je pas ingezoomd.
+
+### Advies ronde 2
+1. **Palet `violet-klassen`.** Langer blauw zonder de klassen los te laten: kaart, histogram en tabel zeggen
+   hetzelfde. `violet-laat` zou ik niet kiezen (punt 2 hierboven, en zware buien verliezen hun signaal).
+2. **Menging `drempel-zacht`**, met één kanttekening: vindt de PO de zoom overdag te grijs, dan de inzetdekking naar
+   0,45 (één constante, `SOFT_THRESHOLD_EDGE`); dat is het "tikje" tussen 0,38 en 0,55. `zuiver` is het rustigst
+   bij afspelen maar verliest de grens "het regent hier (een beetje)" die de PO juist goed vond.
+3. Blijft staan uit ronde 1: dezelfde menging in Wind en Lucht, het water van de lichte kaart (de bron van punt 3),
+   en de bot die de α² nabootst.
+
+### Gate (web/), 07:52
+`pnpm typecheck` 0 · `pnpm test` 0 (84 bestanden, 562 tests) · `pnpm build` 0 ·
+`MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts --project desktop` 0 (7 groen).
+Preview 4320 serveert deze build (`index-BG1C8N4l.js`, bevat `drempel-zacht`). Niet gedaan: de branch bijwerken met
+main (7 commits verder); de perf van `drempel-zacht` is niet gemeten (alleen een andere tabel, de shader is gelijk).

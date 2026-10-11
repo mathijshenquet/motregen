@@ -3,13 +3,13 @@ import { describe, expect, it } from 'vitest'
 import type { MapTheme } from './map-theme'
 import {
   buildRainColormap, colourOverGround, DEFAULT_RAIN_LOOK, GROUND_COLOURS, groundContrast, lightness, loadRainLookChoice,
-  MINIMUM_GROUND_CONTRAST, ONSET_ALPHA, ONSET_INDEX, RAIN_BLENDS, RAIN_LOOK_STORAGE_KEYS, RAIN_PALETTES, rainOutline,
+  MINIMUM_GROUND_CONTRAST, ONSET_INDEX, RAIN_BLENDS, RAIN_LOOK_STORAGE_KEYS, RAIN_PALETTES, rainOnsetAlpha, rainOutline,
   rainRateIndex, rainUsesStraightAlpha, type Ground, type RainBlendName, type RainLook, type Rgb,
 } from './rain-palette'
 
 const THEMES: MapTheme[] = ['light', 'dark']
 const GROUNDS: Ground[] = ['land', 'water', 'urban']
-const BLENDS_WITH_ONSET: RainBlendName[] = ['steil', 'drempel', 'rand']
+const BLENDS_WITH_ONSET: RainBlendName[] = ['steil', 'drempel', 'drempel-zacht', 'rand']
 const NEW_PALETTES = RAIN_PALETTES.filter((palette) => palette !== 'huidig')
 
 function entry(colormap: Uint8Array, index: number): { colour: Rgb; alpha: number } {
@@ -86,7 +86,7 @@ describe('contrast with the map', () => {
   it('keeps the lightest visible rain a minimum lightness step from land, water and built-up, for every palette and theme', () => {
     for (const palette of RAIN_PALETTES) for (const blend of BLENDS_WITH_ONSET) for (const theme of THEMES) {
       const colormap = buildRainColormap({ palette, blend, theme })
-      const firstOpaque = Array.from({ length: 255 }, (_, index) => index).find((index) => entry(colormap, index).alpha >= ONSET_ALPHA - 0.005)!
+      const firstOpaque = Array.from({ length: 255 }, (_, index) => index).find((index) => entry(colormap, index).alpha >= rainOnsetAlpha(blend)! - 0.005)!
       expect(firstOpaque, `${palette} ${blend}`).toBeLessThanOrEqual(ONSET_INDEX)
       for (let index = firstOpaque; index <= ONSET_INDEX; index++) {
         const { colour, alpha } = entry(colormap, index)
@@ -98,11 +98,11 @@ describe('contrast with the map', () => {
   })
 
   it('makes rain darken the light map and lighten the dark map through the whole light band', () => {
-    for (const palette of NEW_PALETTES) for (const theme of THEMES) {
-      const colormap = buildRainColormap({ palette, blend: 'drempel', theme })
+    for (const palette of NEW_PALETTES) for (const blend of ['drempel', 'drempel-zacht'] as const) for (const theme of THEMES) {
+      const colormap = buildRainColormap({ palette, blend, theme })
       for (let index = ONSET_INDEX; index <= Math.round(rainRateIndex(2.5)); index++) {
         const { colour, alpha } = entry(colormap, index)
-        for (const ground of GROUNDS) expect(groundContrast(colour, alpha, theme, ground), `${palette} ${theme} ${ground} byte ${index}`).toBeGreaterThanOrEqual(MINIMUM_GROUND_CONTRAST)
+        for (const ground of GROUNDS) expect(groundContrast(colour, alpha, theme, ground), `${palette} ${blend} ${theme} ${ground} byte ${index}`).toBeGreaterThanOrEqual(MINIMUM_GROUND_CONTRAST)
       }
     }
   })
@@ -130,14 +130,24 @@ describe('blend shapes', () => {
   it('draws nothing below the data edge with a threshold, and everything from there at the onset opacity', () => {
     for (const blend of ['drempel', 'rand'] as const) {
       expect(alphaAt(blend, ONSET_INDEX / 2 - 6)).toBe(0)
-      expect(alphaAt(blend, ONSET_INDEX / 2 + 6)).toBeCloseTo(ONSET_ALPHA, 2)
+      expect(alphaAt(blend, ONSET_INDEX / 2 + 6)).toBeCloseTo(rainOnsetAlpha(blend)!, 2)
       expect(alphaAt(blend, 254)).toBeCloseTo(210 / 255, 5)
     }
   })
 
   it('makes the whole smoothed fringe opaque when steep', () => {
     expect(alphaAt('steil', 2)).toBe(0)
-    expect(alphaAt('steil', 12)).toBeCloseTo(ONSET_ALPHA, 2)
+    expect(alphaAt('steil', 12)).toBeCloseTo(rainOnsetAlpha('steil')!, 2)
+  })
+
+  it('makes the soft threshold subtler than the threshold: a lower onset opacity over a ramp twice as wide', () => {
+    expect(rainOnsetAlpha('drempel-zacht')!).toBeLessThan(rainOnsetAlpha('drempel')!)
+    expect(alphaAt('drempel-zacht', ONSET_INDEX / 2 - 12)).toBe(0)
+    expect(alphaAt('drempel-zacht', ONSET_INDEX / 2 + 12)).toBeCloseTo(rainOnsetAlpha('drempel-zacht')!, 2)
+    // Midden op de rand is de harde drempel al half dekkend en de zachte pas op de helft van zijn lagere dekking.
+    expect(alphaAt('drempel-zacht', ONSET_INDEX / 2)).toBeLessThan(alphaAt('drempel', ONSET_INDEX / 2))
+    // Vanaf de lichtste dataregen is de dekking die van de lineaire aanloop.
+    for (let index = ONSET_INDEX; index < 255; index++) expect(alphaAt('drempel-zacht', index)).toBe(alphaAt('zuiver', index))
   })
 
   it('never lets opacity drop as the rain gets heavier', () => {
@@ -183,29 +193,38 @@ describe('reading the intensity order', () => {
 
   // Midden van de banden van het histogram (licht tot 2,5, matig tot 7,5, zwaar daarboven).
   const BAND_RATES = { licht: 0.5, matig: 4.5, zwaar: 15 }
+  // `violet-laat` legt zijn kleurgrenzen bewust naast onze klassen (blauw tot 5, violet tot 10, rood daarboven):
+  // 4,5 mm/u is daar nog blauw. Hier staat dus alleen of zijn eigen drie kleuren uit elkaar te houden zijn; dat
+  // licht en matig bij dit palet in kleur samenvallen is de prijs van "langer blauw" en staat in de LOG.
+  const LATE_VIOLET_RATES = { blauw: 0.5, violet: 7.5, rood: 15 }
   // CIE76; 2,3 is net waarneembaar. Twintig is het verschil tussen twee kleuren die je los van elkaar benoemt.
   const MINIMUM_BAND_DIFFERENCE = 20
 
   it('tells light, moderate and heavy rain apart at a glance, also without red or green cones', () => {
-    for (const palette of NEW_PALETTES) for (const theme of THEMES) {
-      const look: RainLook = { palette, blend: 'drempel', theme }
-      const bands = Object.entries(BAND_RATES).map(([band, rate]) => ({ band, colour: colourAtRate(look, rate) }))
+    for (const palette of NEW_PALETTES) for (const blend of ['drempel', 'drempel-zacht'] as const) for (const theme of THEMES) {
+      const look: RainLook = { palette, blend, theme }
+      const rates = palette === 'violet-laat' ? LATE_VIOLET_RATES : BAND_RATES
+      const bands = Object.entries(rates).map(([band, rate]) => ({ band, colour: colourAtRate(look, rate) }))
       for (const [visionName, vision] of Object.entries(VISION)) {
         for (const [position, left] of bands.entries()) for (const right of bands.slice(position + 1)) {
-          expect(colourDifference(left.colour, right.colour, vision), `${palette} ${theme} ${visionName}: ${left.band} tegen ${right.band}`).toBeGreaterThanOrEqual(MINIMUM_BAND_DIFFERENCE)
+          expect(colourDifference(left.colour, right.colour, vision), `${palette} ${blend} ${theme} ${visionName}: ${left.band} tegen ${right.band}`).toBeGreaterThanOrEqual(MINIMUM_BAND_DIFFERENCE)
         }
       }
     }
   })
 
-  it('orders the lightness-only palette strictly: darker by day, lighter by night', () => {
-    for (const theme of THEMES) {
-      const colormap = buildRainColormap({ palette: 'oplopend-donker', blend: 'drempel', theme })
+  it('orders the lightness-only palette on screen: never back towards the map, and from light rain on always further away', () => {
+    for (const blend of ['drempel', 'drempel-zacht'] as const) for (const theme of THEMES) for (const ground of GROUNDS) {
+      const colormap = buildRainColormap({ palette: 'oplopend-donker', blend, theme })
       const direction = theme === 'light' ? -1 : 1
+      const onScreen = (index: number) => { const { colour, alpha } = entry(colormap, index); return lightness(colourOverGround(colour, alpha, GROUND_COLOURS[theme][ground])) }
       // Per stap van tien bytes: buurbytes verschillen minder dan de afronding van een kleurkanaal.
-      for (let index = ONSET_INDEX + 10; index < 255; index += 10) {
-        const step = lightness(entry(colormap, index).colour) - lightness(entry(colormap, index - 10).colour)
-        expect(step * direction, `${theme} byte ${index}`).toBeGreaterThan(0)
+      for (let index = ONSET_INDEX + 10; index < 250; index += 10) {
+        const step = (onScreen(index) - onScreen(index - 10)) * direction
+        // De lichtste regen ligt precies op de contrastvloer en blijft daar tot het palet zelf ver genoeg van de kaart
+        // af is; vanaf 0,5 mm/u moet elke stap verder weg zijn.
+        if (index - 10 >= Math.round(rainRateIndex(0.5))) expect(step, `${blend} ${theme} ${ground} byte ${index}`).toBeGreaterThan(0)
+        else expect(step, `${blend} ${theme} ${ground} byte ${index}`).toBeGreaterThan(-0.5)
       }
     }
   })

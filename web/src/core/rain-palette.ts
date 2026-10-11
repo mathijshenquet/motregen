@@ -5,10 +5,10 @@ import type { MapTheme } from './map-theme.js'
 
 export type Rgb = readonly [red: number, green: number, blue: number]
 
-export const RAIN_PALETTES = ['huidig', 'blauw-grijs-rood', 'blauw-violet-rood', 'oplopend-donker'] as const
+export const RAIN_PALETTES = ['huidig', 'blauw-grijs-rood', 'blauw-violet-rood', 'violet-klassen', 'violet-laat', 'oplopend-donker'] as const
 export type RainPaletteName = typeof RAIN_PALETTES[number]
 
-export const RAIN_BLENDS = ['huidig', 'zuiver', 'steil', 'drempel', 'rand'] as const
+export const RAIN_BLENDS = ['huidig', 'zuiver', 'steil', 'drempel', 'drempel-zacht', 'rand'] as const
 export type RainBlendName = typeof RAIN_BLENDS[number]
 
 export interface RainLook {
@@ -116,6 +116,55 @@ const PALETTE_STOPS: Record<RainPaletteName, Record<MapTheme, PaletteStop[]>> = 
       stopAt(120, [255, 212, 204]),
     ],
   },
+  // PO 2026-10-11 ("kan het nog wat langer blauw blijven?"): kleur = onze eigen klasse. De hele lichte klasse is
+  // blauw (drie tinten, oplopend in donkerte), matig is violet, zwaar is rood, extreem bordeaux. De overgangen zijn
+  // kort gehouden zodat een klassegrens ook een kleurgrens is.
+  'violet-klassen': {
+    light: [
+      stopAt(0.1, DAY_LIGHT_BLUE),
+      stopAt(0.8, [40, 108, 226]),
+      stopAt(2.2, [36, 80, 200]),
+      stopAt(2.9, [84, 30, 152]),
+      stopAt(6.9, [108, 18, 112]),
+      stopAt(8.2, [214, 36, 52]),
+      stopAt(40, [140, 12, 40]),
+      stopAt(120, [84, 4, 44]),
+    ],
+    dark: [
+      stopAt(0.1, NIGHT_BLUE),
+      stopAt(0.8, [92, 152, 240]),
+      stopAt(2.2, [136, 192, 255]),
+      stopAt(2.9, [214, 186, 255]),
+      stopAt(6.9, [244, 176, 240]),
+      stopAt(8.2, [250, 84, 88]),
+      stopAt(40, [255, 144, 134]),
+      stopAt(120, [255, 212, 204]),
+    ],
+  },
+  // Dezelfde reeks, maar blauw tot ongeveer 5 mm/u, violet van 5 tot 10 en rood vanaf 10. De kleurgrenzen vallen
+  // dan niet meer op onze klassen licht/matig/zwaar (2,5 en 7,5): het grootste deel van matig is nog blauw.
+  'violet-laat': {
+    light: [
+      stopAt(0.1, DAY_LIGHT_BLUE),
+      stopAt(1.2, [40, 108, 226]),
+      stopAt(4.4, [36, 80, 200]),
+      stopAt(5.6, [84, 30, 152]),
+      stopAt(9.2, [108, 18, 112]),
+      stopAt(10.8, [214, 36, 52]),
+      stopAt(40, [140, 12, 40]),
+      stopAt(120, [84, 4, 44]),
+    ],
+    dark: [
+      stopAt(0.1, NIGHT_BLUE),
+      stopAt(1.2, [92, 152, 240]),
+      stopAt(4.4, [136, 192, 255]),
+      stopAt(5.6, [214, 186, 255]),
+      stopAt(9.2, [244, 176, 240]),
+      stopAt(10.8, [250, 84, 88]),
+      stopAt(40, [255, 144, 134]),
+      stopAt(120, [255, 212, 204]),
+    ],
+  },
   // Volgorde in helderheid: hoe meer regen, hoe verder van de kaart af. Overdag steeds donkerder, 's nachts steeds
   // lichter; leesbaar zonder kleurzicht en in grijstinten. De tint loopt mee van blauw naar warm, zodat de banden
   // ook in kleur verschillen.
@@ -141,10 +190,10 @@ const PALETTE_STOPS: Record<RainPaletteName, Record<MapTheme, PaletteStop[]>> = 
 
 interface BlendShape {
   /**
-   * Bytes waartussen de dekking van nul naar de inzetdekking loopt. Zonder inzet loopt de dekking vanaf byte 0
-   * lineair op, zoals vóór U77.
+   * Bytes waartussen de dekking van nul naar de inzetdekking `alpha` loopt: de dekking van de lichtste zichtbare
+   * regen. Zonder inzet loopt de dekking vanaf byte 0 lineair op, zoals vóór U77.
    */
-  onsetEdge?: { from: number; to: number }
+  onsetEdge?: { from: number; to: number; alpha: number }
   /** Echte alfa-over. Uit = de canvas draagt α² als alfa en telt onder halve dekking licht op bij de kaart. */
   straightAlpha: boolean
   /** Dunne contour op de rand van het regengebied. */
@@ -153,31 +202,37 @@ interface BlendShape {
 
 // Halverwege droog (byte 0) en de lichtste regen in de data: daar ligt na het gladstrijken de rand van de data zelf.
 const DATA_EDGE_INDEX = ONSET_INDEX / 2
-const THRESHOLD_EDGE = { from: DATA_EDGE_INDEX - 6, to: DATA_EDGE_INDEX + 6 }
+// Bewust niet hoger dan 0,55: het weermodel heeft brede velden motregen, en op 0,7 werd dat een dichte plaat waar
+// plaatsnamen en grenzen onder verdwenen.
+const ONSET_ALPHA = 0.55
+const THRESHOLD_EDGE = { from: DATA_EDGE_INDEX - 6, to: DATA_EDGE_INDEX + 6, alpha: ONSET_ALPHA }
+// PO 2026-10-11 ("nog één tikje subtieler"): een lagere dekking op de rand en een oploop die twee keer zo breed is.
+// Boven 0,1 mm/u valt de dekking samen met de lineaire aanloop van `zuiver`.
+const SOFT_THRESHOLD_EDGE = { from: DATA_EDGE_INDEX - 12, to: DATA_EDGE_INDEX + 12, alpha: 0.38 }
 
 const BLEND_SHAPES: Record<RainBlendName, BlendShape> = {
   'huidig': { straightAlpha: false, outline: false },
   'zuiver': { straightAlpha: true, outline: false },
   // De hele gladgestreken zoom meteen dekkend: het getekende gebied is groter dan de data.
-  'steil': { onsetEdge: { from: 2, to: 12 }, straightAlpha: true, outline: false },
+  'steil': { onsetEdge: { from: 2, to: 12, alpha: ONSET_ALPHA }, straightAlpha: true, outline: false },
   'drempel': { onsetEdge: THRESHOLD_EDGE, straightAlpha: true, outline: false },
+  'drempel-zacht': { onsetEdge: SOFT_THRESHOLD_EDGE, straightAlpha: true, outline: false },
   'rand': { onsetEdge: THRESHOLD_EDGE, straightAlpha: true, outline: true },
 }
 
 const GRADUAL_ALPHA_PER_INDEX = 1.6
 const FULL_ALPHA = 210
-/**
- * Dekking van de lichtste zichtbare regen bij een mengvariant met inzet. Bewust niet hoger: het weermodel heeft
- * brede velden motregen, en op 0,7 werd dat een dichte plaat waar plaatsnamen en grenzen onder verdwenen.
- */
-export const ONSET_ALPHA = 0.55
+/** Dekking (0–1) van de lichtste zichtbare regen; `undefined` voor een menging zonder inzet. */
+export function rainOnsetAlpha(blend: RainBlendName): number | undefined {
+  return BLEND_SHAPES[blend].onsetEdge?.alpha
+}
 
 function alphaAt(index: number, shape: BlendShape): number {
   const gradual = Math.min(FULL_ALPHA, Math.round(index * GRADUAL_ALPHA_PER_INDEX))
   const edge = shape.onsetEdge
   if (!edge) return gradual
   if (index <= edge.from) return 0
-  const onsetAlpha = Math.round(ONSET_ALPHA * 255)
+  const onsetAlpha = Math.round(edge.alpha * 255)
   if (index >= edge.to) return Math.max(onsetAlpha, gradual)
   const progress = (index - edge.from) / (edge.to - edge.from)
   const eased = progress * progress * (3 - 2 * progress)
@@ -254,17 +309,17 @@ function hasGroundContrast(colour: Rgb, alpha: number, theme: MapTheme): boolean
   return grounds.every((ground) => groundContrast(colour, alpha, theme, ground) >= MINIMUM_GROUND_CONTRAST)
 }
 
-const CONTRAST_SHIFT_STEPS = 50
+const CONTRAST_SHIFT_STEPS = 200
 
 /**
- * De contrastregel: hoe ver de beginkleur van een palet moet opschuiven (0–1; overdag naar zwart, 's nachts naar
- * wit) tot de lichtste zichtbare regen op land, water én bebouwing minstens `MINIMUM_GROUND_CONTRAST` verschilt.
- * Regen maakt de kaart daardoor overdag altijd donkerder en 's nachts altijd lichter.
+ * De contrastregel: hoe ver een kleur moet opschuiven (0–1; overdag naar zwart, 's nachts naar wit) tot hij met
+ * dekking `alpha` op land, water én bebouwing minstens `MINIMUM_GROUND_CONTRAST` verschilt. Regen maakt de kaart
+ * daardoor overdag altijd donkerder en 's nachts altijd lichter.
  */
-export function onsetContrastShift(onsetColour: Rgb, theme: MapTheme): number {
+export function contrastShiftFor(colour: Rgb, alpha: number, theme: MapTheme): number {
   for (let step = 0; step < CONTRAST_SHIFT_STEPS; step++) {
     const shift = step / CONTRAST_SHIFT_STEPS
-    if (hasGroundContrast(shiftedColour(onsetColour, theme, shift), ONSET_ALPHA, theme)) return shift
+    if (hasGroundContrast(shiftedColour(colour, theme, shift), alpha, theme)) return shift
   }
   return 1
 }
@@ -280,21 +335,31 @@ export function buildRainColormap(look: RainLook): Uint8Array {
   const stops = PALETTE_STOPS[look.palette][look.theme]
   const shape = BLEND_SHAPES[look.blend]
   // Zonder dekkende inzet loopt de dekking vanaf nul op en bestaat er geen "lichtste zichtbare regen" om te borgen.
-  const contrastShift = shape.onsetEdge ? onsetContrastShift(colourAt(stops, ONSET_INDEX), look.theme) : 0
+  const onsetShift = shape.onsetEdge ? contrastShiftFor(colourAt(stops, ONSET_INDEX), shape.onsetEdge.alpha, look.theme) : 0
   const colormap = new Uint8Array(256 * 4)
   for (let index = 0; index <= LAST_RAIN_INDEX; index++) {
-    const colour = shiftedColour(colourAt(stops, index), look.theme, contrastShift * contrastShiftShare(index))
-    colormap.set(colour, index * 4)
-    colormap[index * 4 + 3] = alphaAt(index, shape)
+    const alpha = alphaAt(index, shape)
+    const paletteColour = colourAt(stops, index)
+    const shift = onsetShift === 0 ? 0 : lightBandShift(paletteColour, index, alpha / 255, onsetShift, look.theme)
+    colormap.set(shiftedColour(paletteColour, look.theme, shift), index * 4)
+    colormap[index * 4 + 3] = alpha
   }
   return colormap
 }
 
-/** De verschuiving geldt volledig tot de inzet en loopt over de lichte band uit, zodat matig en zwaar het palet houden. */
-function contrastShiftShare(index: number): number {
-  if (index <= ONSET_INDEX) return 1
+/**
+ * De verschuiving van één tabelingang. Tot de inzet die van de lichtste zichtbare regen. Daarboven de kleinste
+ * waarmee deze kleur bij zijn eigen dekking de regel haalt: meer regen is donkerder en dekkender en heeft minder
+ * nodig. Wat een palet in de lichte band niet kan halen (het geel van `huidig` blijft licht) begrenst de uitloop,
+ * zodat matig en zwaar het palet houden en er geen sprong ontstaat op 2,5 mm/u.
+ */
+function lightBandShift(paletteColour: Rgb, index: number, alpha: number, onsetShift: number, theme: MapTheme): number {
+  if (index <= ONSET_INDEX) return onsetShift
   if (index >= LIGHT_BAND_END_INDEX) return 0
-  return 1 - (index - ONSET_INDEX) / (LIGHT_BAND_END_INDEX - ONSET_INDEX)
+  const progress = (index - ONSET_INDEX) / (LIGHT_BAND_END_INDEX - ONSET_INDEX)
+  // Kwadratisch: de begrenzing blijft lang ruim, zodat een palet dat de regel wél kan halen er niet tegenaan loopt.
+  const limit = onsetShift * (1 - progress * progress)
+  return Math.min(contrastShiftFor(paletteColour, alpha, theme), limit)
 }
 
 /** Of de regencanvas met echte alfa-over mengt (zie `BlendShape.straightAlpha`). */

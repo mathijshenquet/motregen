@@ -21,8 +21,8 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Wind | Lijnbreedte | dikte van de streepjes | U3 | idem |
 | Wind | Tempo | snelheid van de streepjes | U3b | idem |
 | Wind | Kopieer wind als JSON | de vier waarden naar het klembord (PO-terugkoppelweg) | U20 | blijft zolang de windknoppen er zijn |
-| Kaart | Regenpalet | kleuren van de regen op de kaart en in het histogram: huidig (standaard) / blauw-grijs-rood (PO-voorstel) / blauw-violet-rood / oplopend-donker | U77 | 2026-10-17, of eerder zodra de PO een palet kiest |
-| Kaart | Regenmenging | hoe regen in Weer over de kaart ligt: huidig (standaard; lichte regen telt licht op bij de kaart) / zuiver (echte alfa-over) / steil / drempel / rand; de laatste drie borgen het contrast van de lichtste regen met land, water en bebouwing | U77 | idem |
+| Kaart | Regenpalet | kleuren van de regen op de kaart en in het histogram: huidig (standaard) / blauw-grijs-rood (PO-voorstel) / blauw-violet-rood / violet-klassen / violet-laat / oplopend-donker | U77 | 2026-10-17, of eerder zodra de PO een palet kiest |
+| Kaart | Regenmenging | hoe regen in Weer over de kaart ligt: huidig (standaard; lichte regen telt licht op bij de kaart) / zuiver (echte alfa-over) / steil / drempel / drempel-zacht / rand; de laatste vier borgen het contrast van de lichtste regen met land, water en bebouwing | U77 | idem |
 | Kaart | Regenveld radar/nowcast | override op het product voor radar, nowcast en blend: auto (standaard) / blokken / bilineair (vóór U72) / bronlineair / glad / blur 3×3 … 9×9 | U72 | 2026-10-16, of eerder als de PO niets meer wil bijstellen |
 | Kaart | Regenveld HARMONIE | dezelfde override voor het weermodel (vanaf ruim 6 uur vooruit) | U72 | idem |
 | Laden | Eerste regen | het eerste regenframe direct na het manifest vragen (vroeg) of pas na de kaart-opzet (laat; herladen) | U54 | zodra een telefoonopname de winst heeft vastgelegd of weerlegd |
