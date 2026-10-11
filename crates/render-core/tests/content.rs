@@ -14,7 +14,7 @@ fn palette_and_quantized_frame_composition_match_typescript() {
         composition::{Composition, compose},
         palette::composition_colors,
     };
-    let colors = composition_colors(false);
+    let colors = [composition_colors(false), composition_colors(true)];
     for fixture in fixtures()["compositions"].as_array().unwrap() {
         let mut rgb = [100, 150, 200];
         let left = vec![fixture["left"].as_u64().unwrap() as u8; 16];
@@ -29,7 +29,7 @@ fn palette_and_quantized_frame_composition_match_typescript() {
                 left: &left,
                 right: &right,
                 mix: fixture["mix"].as_f64().unwrap(),
-                colors: &colors,
+                colors: &colors[usize::from(fixture["night"].as_bool().unwrap())],
                 displacements: None,
                 multiply: false,
             },
@@ -41,6 +41,28 @@ fn palette_and_quantized_frame_composition_match_typescript() {
             .map(|channel| channel.as_u64().unwrap() as u8)
             .collect();
         assert_eq!(rgb.as_slice(), expected, "{fixture}");
+    }
+}
+
+#[test]
+fn rain_uses_theme_palettes_and_straight_alpha_over() {
+    use render_core::palette::{composition_colors, rain_palette};
+
+    assert_ne!(rain_palette(false), rain_palette(true));
+    for night in [false, true] {
+        let palette = rain_palette(night);
+        let colors = composition_colors(night);
+        assert_eq!(palette[3], 0);
+        assert_eq!(palette[255 * 4 + 3], 0);
+        assert_eq!(colors[65_535], [0.0, 0.0, 0.0, 1.0]);
+        for index in [55, 100, 150, 195, 235] {
+            let color = colors[(index * 255) + 128];
+            let alpha = palette[index * 4 + 3] as f32 / 255.0;
+            assert!((color[3] - (1.0 - alpha)).abs() < 0.0001);
+            for channel in 0..3 {
+                assert!((color[channel] - palette[index * 4 + channel] as f32 * alpha).abs() < 0.6);
+            }
+        }
     }
 }
 

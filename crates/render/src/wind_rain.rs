@@ -4,12 +4,10 @@ use crate::{
 };
 use anyhow::{Result, ensure};
 use render_core::{
-    composition::{Composition, CoveragePair, compose_covered},
-    constants::{constants, warp_limit},
-    mode_constants::mode_constants,
+    composition::CoveragePair,
+    constants::warp_limit,
     motion::Motion,
-    palette::composition_colors_for,
-    rain::RainCompositor,
+    rain::{RainCompositor, RainPair},
     time::{Manifest, frame_blend},
 };
 use std::{path::Path, sync::Arc, time::Instant};
@@ -30,7 +28,6 @@ pub struct WindRain<'a> {
 
 pub struct WindRainPixels {
     pub compositor: RainCompositor,
-    colors: [Vec<[f32; 4]>; 2],
 }
 
 impl<'a> WindRain<'a> {
@@ -42,10 +39,6 @@ impl<'a> WindRain<'a> {
             data,
             pixels: Arc::new(WindRainPixels {
                 compositor: RainCompositor::new(grid),
-                colors: [
-                    composition_colors_for(&mode_constants().rain["light"]),
-                    composition_colors_for(&mode_constants().rain["dark"]),
-                ],
             }),
             motion_pair: None,
             motion: None,
@@ -98,29 +91,20 @@ impl<'a> WindRain<'a> {
 
 impl WindRainPixels {
     pub fn compose(&self, rgb: &mut [u8], input: &RainInput, night: bool) {
-        let left = (1.0 - input.pair.mix).powf(constants().flow_curve);
-        let right = input.pair.mix.powf(constants().flow_curve);
-        compose_covered(
+        self.compositor.compose(
             rgb,
-            Composition {
-                columns: &self.compositor.projection.columns,
-                rows: &self.compositor.projection.rows,
-                grid_width: self.compositor.grid.width,
-                grid_height: self.compositor.grid.height,
+            RainPair {
                 left: &input.pair.left.values,
                 right: &input.pair.right.values,
-                mix: right / (left + right).max(0.0001),
-                colors: &self.colors[usize::from(night)],
-                displacements: input.motion.as_deref().map(Vec::as_slice),
-                multiply: mode_constants().rain[if night { "dark" } else { "light" }]["multiply"]
-                    .as_bool()
-                    .unwrap(),
+                mix: input.pair.mix,
+                coverage: Some(CoveragePair {
+                    left: input.pair.left.coverage.as_ref().unwrap(),
+                    right: input.pair.right.coverage.as_ref().unwrap(),
+                    displacement: input.cap,
+                }),
             },
-            Some(CoveragePair {
-                left: input.pair.left.coverage.as_ref().unwrap(),
-                right: input.pair.right.coverage.as_ref().unwrap(),
-                displacement: input.cap,
-            }),
+            input.motion.as_deref().map(Vec::as_slice),
+            night,
         );
     }
 }

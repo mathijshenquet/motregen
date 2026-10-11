@@ -148,6 +148,7 @@ impl Scene<'_> {
         let pair = (blend.left, blend.right);
         if needs_motion && self.motion_pair != Some(pair) {
             let started = Instant::now();
+            self.motion = None;
             let interval = (right_frame.epoch - left_frame.epoch) as f64 / 60_000.0;
             let limit = warp_limit(interval);
             let motion = self.rain.motion(&left_frame, &right_frame)?;

@@ -8,7 +8,6 @@ import * as isoline from '../web/src/core/isolines.js'
 import * as labels from '../web/src/core/isoline-label-anchors.js'
 import * as map from '../web/src/core/map-presentation.js'
 import * as palette from '../web/src/core/temperature-palette.js'
-import { rainPresentation } from '../web/src/core/rain-presentation.js'
 import { NETHERLANDS_FLANDERS_BOUNDS } from '../web/src/core/map-frame.js'
 
 export function modeConstants() {
@@ -31,7 +30,6 @@ export function modeConstants() {
     labels: { spacing: labels.LABEL_SPACING_PX, distance: labels.LABEL_MIN_DISTANCE_PX, maximum: labels.MAX_LABEL_ANCHORS },
     saturation: map.MAP_FOCUS_SATURATION, bounds: NETHERLANDS_FLANDERS_BOUNDS,
     palette: { ramp: palette.TEMPERATURE_RAMP, cold: palette.COLD_ANCHOR_C, warm: palette.WARM_ANCHOR_C, minimum_span: palette.MIN_SPAN_C },
-    rain: Object.fromEntries([false, true].map((night) => [night ? 'dark' : 'light', rainPresentation({ temperatureFocus: 0, windFocus: 1, airFocus: 0, night })])),
     palette_fixtures: [[-25,-5],[-5,5],[7,14],[20,30],[28,35]].map(([min,max]) => {
       const range = palette.paletteRange(min!, max!)!
       return { min, max, range, colors: Array.from({ length: 81 }, (_, index) => palette.bandColor(index - 30, 1, palette.paletteStops(range))) }

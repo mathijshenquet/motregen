@@ -53,6 +53,8 @@ en 4:4:4-kleur. `media.json` versie 1 bevat:
 De MP4 bevat kaarttijden op basis van `now`; `generated` bepaalt de generatie-identiteit. Beide blijven
 afzonderlijk bewaard. Tijdzone Europe/Amsterdam geldt uitsluitend voor de getekende klok en dag.
 Bronvoorrang, broncelbreedten, palet, smoothing en warp komen uit de bestaande TypeScript-regels.
+Regen gebruikt de U77-standaard `violet-laat`/`drempel-zacht`, met afzonderlijke tabellen voor dag en nacht
+en echte alfa-over: de ondergrond krijgt gewicht `1 − alfa`, geen kwadraat van de dekking.
 Elk bronframe wordt eenmaal voorgefilterd met zijn eigen sigma, op de oorspronkelijke bronlattice en met
 dezelfde R8-ronding na elke filterpass. Alleen het zichtbare gebied plus de maximale warpkap en filterburen
 wordt berekend. Conservatieve dekkingsmaskers slaan uitsluitend aantoonbaar lege uitvoertegels over.
@@ -72,7 +74,8 @@ Temperatuurbanden en koude/warme ankers komen uit dezelfde gegenereerde palettab
 verhuisd uit `native-field-raster.rs` naar `render-core`; de oude helper gebruikt deze kern ook.
 
 Wind tekent temperatuurpunten, isobaren, deterministische windstaarten met zee-demping, H/L op prominente
-drukextremen, regen met de Wind-menging, isolijnlabels en klok/voettekst. Gevoelstemperatuur tekent de gedempte
+drukextremen, regen met voorlopig dezelfde alfa-over als Weer, isolijnlabels en klok/voettekst. De nieuwe
+Wind/Lucht-menging volgt na de U77-productkeuze. Gevoelstemperatuur tekent de gedempte
 basiskaart, kleurvlakken, isothermen en labels. Gedraaide tekst wordt rechtstreeks met Inter gerasterd;
 pixelgelijkheid met de oude browseratlas is geen eis (MIP-29). Per kaartframe bepaalt de gedeelde tijdlogica dag/nacht.
 
@@ -84,7 +87,7 @@ Voorbereiding, twee tekst-/rasterworkers en de ffmpeg-schrijver overlappen met b
 
 `--mode all` start de drie modi tegelijk op dezelfde twee rasterworkers. Kaartplaten en het immutable
 lettertype worden gedeeld. Bronrasters worden per bronframe gezamenlijk gedecodeerd en voorgefilterd;
-weak verwijzingen delen actieve buffers, en een cache van maximaal 8 MiB houdt recente regenbuffers vast
+weak verwijzingen delen actieve buffers, en een cache van maximaal 4 MiB houdt recente regenbuffers vast
 wanneer de drie tijdplannen uiteenlopen. De batches in `all` zijn kleiner dan bij een losse modus.
 `media.json` verschijnt pas na de complete generatie en bevat `mode: "all"`, `generated`, `now`, `width`,
 `height`, `total_ms`, `shared_raster_hits` en een `modes`-object met de volledige individuele receipts.
@@ -121,6 +124,7 @@ in PATH; het Nix-botpakket vult het pad automatisch in. Verwijder de schakelaar 
 Een modus die niet in de lijst staat gebruikt zijn bestaande renderer. Wind importeert alleen de film;
 regen en gevoelstemperatuur importeren ook alle 85 JPEGs zonder opnieuw te encoderen. Node roept per gekozen
 modus de renderer aan; de zelfstandige generatieaanroep kan `--mode all` gebruiken.
+De bestaande Node-pixelroute blijft op `PRE_U77_RAIN_LOOK`; de Rust-route toont het nieuwe regenbeeld.
 
 ## Bouwen en meten
 

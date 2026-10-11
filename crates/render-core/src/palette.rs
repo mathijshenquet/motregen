@@ -1,16 +1,12 @@
 use crate::constants::constants;
 
-pub fn rain_palette() -> &'static [u8] {
-    &constants().palette
+pub fn rain_palette(night: bool) -> &'static [u8] {
+    &constants().palettes[if night { "dark" } else { "light" }]
 }
 
 pub fn composition_colors(night: bool) -> Vec<[f32; 4]> {
     let presentation = &constants().presentation[if night { "dark" } else { "light" }];
-    composition_colors_for(presentation)
-}
-
-pub fn composition_colors_for(presentation: &serde_json::Value) -> Vec<[f32; 4]> {
-    let palette = rain_palette();
+    let palette = rain_palette(night);
     let saturation = presentation["saturation"].as_f64().unwrap();
     let brightness = presentation["brightness"].as_f64().unwrap();
     let opacity = presentation["opacity"].as_f64().unwrap();
@@ -24,22 +20,17 @@ pub fn composition_colors_for(presentation: &serde_json::Value) -> Vec<[f32; 4]>
                 palette[lower * 4 + channel] as f64 * (1.0 - mix)
                     + palette[upper * 4 + channel] as f64 * mix
             };
-            let alpha = interpolate(3) / 255.0;
-            // Match the app's transparent canvas: SRC_ALPHA premultiplies RGB and squares alpha.
-            let mut colors = [
-                interpolate(0) * alpha,
-                interpolate(1) * alpha,
-                interpolate(2) * alpha,
-            ];
+            let alpha = interpolate(3) / 255.0 * opacity;
+            let mut colors = [interpolate(0), interpolate(1), interpolate(2)];
             let gray = colors[0] * 0.2126 + colors[1] * 0.7152 + colors[2] * 0.0722;
             for channel in &mut colors {
-                *channel = (gray + (*channel - gray) * saturation) * brightness * opacity;
+                *channel = (gray + (*channel - gray) * saturation) * brightness * alpha;
             }
             [
                 colors[0] as f32,
                 colors[1] as f32,
                 colors[2] as f32,
-                (1.0 - alpha * alpha * opacity * opacity) as f32,
+                (1.0 - alpha) as f32,
             ]
         })
         .collect()

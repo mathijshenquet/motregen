@@ -46,7 +46,7 @@ impl Inputs {
             .map_err(|_| anyhow::anyhow!("Shared rain cache panicked"))?;
         recent.retain(|(cached, _, _)| cached != key);
         recent.push_back((key.clone(), Arc::clone(raster), bytes));
-        while recent.iter().map(|(_, _, bytes)| bytes).sum::<usize>() > 8 * 1024 * 1024 {
+        while recent.iter().map(|(_, _, bytes)| bytes).sum::<usize>() > 4 * 1024 * 1024 {
             recent.pop_front();
         }
         Ok(())

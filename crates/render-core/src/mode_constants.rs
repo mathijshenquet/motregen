@@ -13,7 +13,6 @@ pub struct ModeConstants {
     pub saturation: f64,
     pub bounds: Bounds,
     pub palette: Palette,
-    pub rain: serde_json::Value,
 }
 
 #[derive(Debug, Deserialize)]

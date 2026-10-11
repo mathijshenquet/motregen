@@ -28,7 +28,7 @@ pub struct Constants {
     pub size: Size,
     pub view: View,
     pub location: Place,
-    pub palette: Vec<u8>,
+    pub palettes: std::collections::HashMap<String, Vec<u8>>,
     pub flow_curve: f64,
     pub sampling: SamplingConstants,
     pub warp: Vec<WarpLimit>,
