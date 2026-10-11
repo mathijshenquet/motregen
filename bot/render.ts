@@ -6,7 +6,7 @@ import { chromium, type Browser, type BrowserContext, type Page } from 'playwrig
 import { access, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
-import { STILL_CACHE_TTL } from './file-ids.js'
+import { FRAME_RETENTION, STILL_CACHE_TTL } from './file-ids.js'
 import { encodeLoop, encodeStill, framePath } from './encode.js'
 import { nativeRenderer } from './native-settings.js'
 import { NativeModesRenderer } from './native-modes-render.js'
@@ -138,7 +138,7 @@ export class StillRenderer {
       const path = join(this.cacheDirectory, name)
       try {
         const metadata = await stat(path)
-        if (now - metadata.mtimeMs > STILL_CACHE_TTL) {
+        if (now - metadata.mtimeMs > (temporaryFrames || storedFrames ? FRAME_RETENTION : STILL_CACHE_TTL)) {
           if (temporaryFrames || storedFrames) await rm(path, { recursive: true, force: true })
           else await unlink(path)
         }
@@ -217,7 +217,7 @@ export class StillRenderer {
     try {
       const path = join(this.cacheDirectory, `${key}.sequence.json`)
       const metadata = await stat(path)
-      if (Date.now() - metadata.mtimeMs >= STILL_CACHE_TTL) return undefined
+      if (Date.now() - metadata.mtimeMs >= FRAME_RETENTION) return undefined
       const metrics = JSON.parse(await readFile(path, 'utf8')) as SequenceMetrics
       const plan = sequencePlan(mode, manifest)
       if (metrics.key !== key || metrics.frames !== plan.loopFrames || metrics.fps !== plan.fps || !Number.isFinite(metrics.bytes)) return undefined

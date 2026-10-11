@@ -5,7 +5,7 @@ import { validateCacheChat, type BotConfig } from './config.js'
 import { configureBot, handleUpdate, type BotRuntime } from './handlers.js'
 import type { StillRenderer, RenderedMedia } from './render.js'
 import { StillRenderError } from './render-error.js'
-import { FileIdCache } from './file-ids.js'
+import { FileIdCache, FRAME_RETENTION } from './file-ids.js'
 import { StillPhotos } from './photos.js'
 import { MessageSelections } from './selections.js'
 import { PREWARM_HOURS, STILL_HOURS, LOOP_MODES, type StillManifest, type MediaSelection } from './stills.js'
@@ -73,7 +73,8 @@ function combinedRuntime(config: BotConfig, api: TelegramApi, identity: { id: nu
   const rememberGeneration = (current: StillManifest) => {
     const now = Date.now()
     for (const [key, entry] of generations) if (entry.expires <= now) generations.delete(key)
-    generations.set(Date.parse(current.generated), { manifest: current, expires: Date.parse(current.generated) + 2 * 3_600_000 })
+    // Niet langer dan de frames bestaan: een oudere generatie zou anders opnieuw gerenderd worden.
+    generations.set(Date.parse(current.generated), { manifest: current, expires: Date.parse(current.generated) + FRAME_RETENTION })
   }
   const runtime: BotRuntime = {
     api, config, renderer, username: identity.username,

@@ -479,6 +479,34 @@
   Delen C1–C5. **U76 gestart** (gpt-6.1-sol xhigh, pane w33): C1 regenfilmpje + stills volledig in Rust.
 - Les: de PO wil eerst een logisch plan en akkoord per stap, geen losse acties; mijn afgebroken commando's hadden
   een deel van het werk stil teruggedraaid — na een afbreking altijd eerst `git status` vóór een claim.
+- 14:26: **U75 op prod bewezen** (5 generaties 14:10–14:26): Node arrayBuffers 16 MB vlak (was 16→95 MB in 22 min),
+  RSS 277–353 MB zonder trend, NRestarts 0, oom 0; cgroup raakt de 1200M-grens alleen met bestandscache (anon 237 MB,
+  file 235 MB; max-events 970, geen kill). Eén losse `poll-failed getUpdates` (14:26, code 0, herstelt zelf; kwam
+  ook vóór vandaag voor). Render blijft 195–247 s op de VM → pas opgelost met MIP-29 C1–C2.
+  U77 gestart (opus-5.5 live-pane, 4320): regenpalet + contrast met de kaart (PO-feedback "te low contrast").
+- 14:52: **U76 ronde 1 klaar** (42 min, PR #106): `crates/render-core` (puur, bouwt voor wasm32) + `crates/render`
+  (`motregen-render --data-dir … --basemap-dir … --mode weather --out-dir …`), Inter ingebed, constanten uit TS
+  gegenereerd, Node-schakelaar `MOTREGEN_RUST_RENDERER=weather` (uit). Dev-host 2 kernen: 14,4 s / 164 MiB voor
+  loop + 85 stills. **VM-meting (orkestrator, live data, 400M/200 %)**: 37,4 s wand / 47,1 s CPU / 148 MiB met de bot
+  gepauzeerd (freeze/thaw, geen herstart); 40,0 s met draaiende bot. VM-kern ~2,9× trager dan dev-host, werk vrijwel
+  serieel. PO over de beelden: "ik vind de nieuwe zelfs beter"; wens: klokachtergrond 's nachts donkerder.
+  Ronde 2 gestart: smoothing als voorfilter per bronframe (zoals web U72), frames parallel, doel < 15 s op de VM.
+  Open vraag aan worker: oude route toont op de nachtstill 06:00 waar 23:30 hoort.
+- 16:00: **Twee prod-fouten gevonden en hersteld (U78, 5f47026b, uitgerold 15:54)**, beide via U76/U75-werk aan het licht:
+  1. **Klok fout vanaf 17:30** (gemeld door de U76-worker, op prod bevestigd door de klokbladen te croppen): het
+     Chromium-klokblad was 11241 px hoog; boven ~8190 px herhaalde de screenshot de bovenkant → 17:30 toonde "00:00",
+     23:30 "06:00" (elk bot-beeld met kaarttijd ≥ 17:30, sinds de native route). Zelfde fout in het isolijnlabelblad
+     (14000 px bij ~3900 labels → late labels kregen tekst van eerdere). Fix: bladen 30/100 kolommen breed, grens
+     8000 px bewaakt, cacheversie omhoog. Op prod na uitrol gecontroleerd: 17:20 / 17:49 / 22:10 kloppen.
+  2. **Schijf VM 99 % vol** (uitrol faalde op "No space left"; ook de oorzaak van de mislukte upgrade van 03:21?):
+     `.frames`-mappen voor de tijdknoppen, ~300 MB per modus per generatie, 2 uur bewaard = 16 GB. Direct opgeruimd
+     (61 %), daarna: frames 20 min bewaren, generatie even lang onthouden, tijdknop op ouder bericht valt terug op de
+     nieuwste generatie (melding "Nieuwste beschikbare generatie getoond.").
+- **U76 ronde 2** (d4529ab): voorfilter per bronframe, frames parallel, nachtklok donker. Dev-host 3,4 s / 6,1 s CPU /
+  218 MiB. **VM**: 19,0 s wand / 34,2 s CPU / 193 MiB met de bot gepauzeerd; 31,8 s met draaiende bot (ronde 1: 37,4 /
+  40,0 s). Doel < 15 s niet gehaald: de VM is een Haswell-vCPU, ~5,6× trager in CPU-tijd dan de dev-host (Ryzen 9950X).
+  Idee: stills op aanvraag renderen (één frame ≈ <1 s) i.p.v. 85 per generatie → geen frames-opslag, loop alleen.
+- U77 klaar voor PO-blik (4320): diagnose = α²-menging + smoothing; advies menging `drempel`; paletkeuze bij de PO.
 
 ## 2026-10-09 — sessieafsluiting (23:30): native bot, smoothing, /weer, weer ok?, VM rendert zelf
 - **Gemerged en op prod** (main 08f37ad8): U69 d2 (wind na eerste tik), U70 + app-tempo regenloop −1…+2 u, U71a–d
