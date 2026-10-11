@@ -41,7 +41,10 @@ interface Props {
    * (die nog wel meedonkeren met het licht).
    */
   expressive?: boolean
-  /** Palet van de regenstaven: hetzelfde als de kaartlaag (U77-proef onder ?dev). */
+  /**
+   * Palet van de regenstaven: hetzelfde als de kaartlaag (U77-proef onder ?dev). Het thema hierin is dat van de kaart
+   * op de cursortijd; zolang de hemel achter de grafiek staat kiest elke staaf zelf dag of nacht.
+   */
   rainLook?: RainLook
   sky?: { radiation: { timeline: TimelineFrame[]; values: Array<number | null> }; sinElevation: (epoch: number) => number }
   /** Totale bewolking als één band boven het regenhistogram, in de weermodus (PO 2026-09-25 live, U34). */
@@ -191,7 +194,7 @@ export default function HistogramScrubber(props: Props) {
       const pending = props.loaded ? !props.loaded[index] : false
       const right = xAt(rightEpoch)
       const barWidth = Math.max(1.2, right - x - gap)
-      return { x: (x + right - barWidth) / 2, width: barWidth, top: barTop(value), value: value ?? 0, pending, past: frame.epoch < props.now }
+      return { x: (x + right - barWidth) / 2, width: barWidth, top: barTop(value), value: value ?? 0, pending, past: frame.epoch < props.now, epoch: frame.epoch }
     })
   })
   // Geen y-as (PO 2026-09-25 live): de waarde staat bij de cursor, niet op hulplijnen.
@@ -247,6 +250,16 @@ export default function HistogramScrubber(props: Props) {
   const skyPxPerHour = () => HOUR * pxPerMs()
   /** Staat de liniaal op deze baan-x boven nachthemel? Bepaalt inkt en sluier van het label daar. */
   const rulerNightAt = (trackX: number) => skyVisible() && skyAt(sky(), Math.max(0, Math.min(1, trackX / cloudWidth()))).daylight < RULER_NIGHT_DAYLIGHT
+  // Een staaf staat tegen de hemel van zijn eigen uur, niet tegen de kaart op de cursortijd (PO 2026-10-11): met het
+  // kaartthema kleurden alle staven om zodra de cursor de zonsondergang passeerde. Dezelfde grens als de liniaal.
+  // Zonder hemel (Expressief uit) is de achtergrond het thema zelf en geldt dat voor elke staaf.
+  const barRainLook = (epoch: number): RainLook | undefined => {
+    const look = props.rainLook
+    if (!look || !skyVisible()) return look
+    const offset = (epoch - timelineStart()) / Math.max(1, timelineEnd() - timelineStart())
+    const night = skyAt(sky(), Math.max(0, Math.min(1, offset))).daylight < RULER_NIGHT_DAYLIGHT
+    return { ...look, theme: night ? 'dark' : 'light' }
+  }
   const strokes = createMemo<SkyStroke[]>((previous) => measurePerfPhase('scrubber-paint', () =>
     stableByIndex(previous, skyVisible() ? skyStrokes(cloudWidth(), plotHeight(), skyPxPerHour(), sky()) : []), { memo: 'hemelstreken' }), [])
   // Een ster die dooft of opkomt verschuift alle posities erna; met dezelfde objecten voor ongewijzigde
@@ -645,7 +658,7 @@ export default function HistogramScrubber(props: Props) {
             <g class="rain-bars scrub-view" style={layerStyle(rainOpacity())}><Index each={bars()}>{(bar) => <Show
               when={!bar().pending}
               fallback={<rect class="rain-bar pending" x={bar().x} y={plotHeight() - 2} width={bar().width} height="2" rx="1" />}
-            ><rect class="rain-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={rainColor(bar().value, props.rainLook)} /></Show>}</Index></g>
+            ><rect class="rain-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={rainColor(bar().value, barRainLook(bar().epoch))} /></Show>}</Index></g>
             <Show when={cloudBands().length}>
               <defs>
                 <filter id={`${cloudId}-soft`} x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="0.9" /></filter>

@@ -423,3 +423,33 @@ beginkleur zelf. Bij `drempel-zacht` (0,38) loopt de lat wel door tot 6.
 `pnpm typecheck` 0 · `pnpm test` 0 (84 bestanden, 564 tests) · `pnpm build` 0 ·
 `MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts --project desktop` 0 (7 groen).
 Preview 4320 serveert deze build (`index-DtVgolwh.js`). Niets als standaard vastgezet.
+
+## 2026-10-11 08:36 — PO-keuze en histogramstaven per uur
+
+### PO-keuze (rechtstreeks in de pane, 08:31)
+"regencontrast kan op 0, drempel-zacht met violet-laat ziet er voor mij het beste uit."
+→ **Regenpalet `violet-laat` · Regenmenging `drempel-zacht` · Regencontrast 0.**
+NOG NIET als standaard vastgezet: dat raakt `rainColormap()` zonder argument, dus ook de bot en U76, en de menging
+in Wind en Lucht (nu nog `huidig`). Wacht op een uitdrukkelijk "zet vast" van de PO of de orkestrator. Wat er dan
+moet gebeuren: `DEFAULT_RAIN_LOOK`, de test die de oude tabel vastpint, het besluit over Wind/Lucht en de bot, en
+de drie knoppen opruimen (MIP-12). Met contrast 0 doet de contrastregel niets meer; of hij als vangnet in de code
+blijft of weg mag is dan ook een keuze.
+
+### Histogram: de kleur van een staaf volgt de hemel achter die staaf
+PO: "de kleur van een balk hangt nu af van de cursorlocatie i.p.v. de achtergrond (c.q. tijd op dat moment)".
+Klopte: alle staven kregen het palet van het kaartthema op de cursortijd, dus ze kleurden samen om zodra de cursor
+de zonsondergang passeerde. Nu kiest elke staaf dag of nacht uit de hemel op zijn eigen uur (`barRainLook` in
+`HistogramScrubber.tsx`; dezelfde grens als de inkt van de liniaal, daglicht 0,5). Zonder hemel (Expressief uit) is
+de achtergrond het thema zelf en geldt dat voor elke staaf. Voor het product (palet `huidig`) verandert er niets:
+dat palet is dag en nacht gelijk.
+- Componenttest: vijf uren met de zon onder bij het derde → staven dag, dag, nacht, nacht, nacht; ongewijzigd als
+  het kaartthema omslaat; met Expressief uit volgen ze het thema.
+- Zelf bekeken: `beelden/histogram-staven-volgen-hemel.webp` (boven cursor 17:30, onder cursor 20:00, zelfde avond
+  met regen rond zonsondergang): de staven van 17 en 18 u houden het dagblauw en die van 19–21 u het nachtblauw in
+  beide beelden. Het verschil tussen dag- en nachtblauw is bij violet-laat klein; de omslag valt per staaf, niet
+  vloeiend.
+
+### Gate (web/), 08:35
+`pnpm typecheck` 0 · `pnpm test` 0 (84 bestanden, 565 tests) · `pnpm build` 0 ·
+`MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts e2e/cloud-section.spec.ts --project desktop` 0 (8 groen).
+Preview 4320 serveert deze build (`index-BK-IHBs5.js`).
