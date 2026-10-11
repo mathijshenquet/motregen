@@ -3569,6 +3569,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           <strong>{brand.name}</strong>
         </div>
       </div>
+      <Show when={devMode && cloudMapSample() !== 'live' && airFocus() > 0}>
+        <aside class="cloud-map-sample">Voorbeeld: {{ gaten: 'gebroken bewolking', sluier: 'dunne sluier', dicht: 'dicht wolkendek', live: '' }[cloudMapSample()]} · gefingeerd</aside>
+      </Show>
       <Show when={stillMode}>
         <div class="map-clock still-clock" data-regime={selectedEpoch() > Date.parse(manifest()?.now ?? '') ? 'forecast' : 'history'}>
           <div class="freshness-trigger">

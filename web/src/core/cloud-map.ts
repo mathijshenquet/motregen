@@ -68,7 +68,8 @@ export function prepareCloudMapField(grid: Grid, field: PreparedField, epoch: nu
       const total = layers.low + layers.mid + layers.high
       hints[cell * 2] = total > 0 ? (0.55 * layers.mid + layers.high) / total : 0
       const light = cloudModification(epoch, sampleBlend(inputs.radiation, x, y), sampleBlend(inputs.radiationNext, x, y), (time) => solarElevationSin(time, longitude, latitude))
-      hints[cell * 2 + 1] = skyDarkness(light ?? layerTransmission(layers))
+      const fallback = low != null && mid != null && high != null ? layerTransmission(layers) : 1 - 0.75 * cover
+      hints[cell * 2 + 1] = skyDarkness(light ?? fallback)
     }
   }
   return { ...field, cloudHints: hints }

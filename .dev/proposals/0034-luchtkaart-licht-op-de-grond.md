@@ -37,7 +37,7 @@ Maak Lucht een **radarachtige kaart van wolkenstructuur en licht**, met bedekkin
 
 Alleen de witte sluier zwakker maken helpt de leesbaarheid, maar houdt dezelfde beperkte betekenis. Alleen een lichtkaart toont regionale helderheid, maar maakt gebroken bewolking en een gesloten sluier onvoldoende verschillend. Satellietstructuur meteen als nieuwe productiebron invoeren vereist extra ingest. Daarom adviseer ik als eerste visuele proef vormen op basis van de bestaande modelvelden, daarna bepalen hoeveel echte detaildata nodig is.
 
-## Plan na akkoord
+## Proef en vervolgstappen
 
 1. Eén proef in de bestaande HMR-dev-app: modelgestuurde vormen, lichttint en coherente tijdsinterpolatie, op dezelfde data en met een vergelijking met de huidige sluier. Toon ook de twee conceptgevallen: gaten tussen donkere wolken tegenover een gesloten dunne sluier. Alleen Lucht verandert. Bestaande regenpresentatie meenemen bij de beoordeling, omdat die nu met de witte sluier mengt.
 2. Zelf zonnige, gedempte en sombere daguren, schemer en nacht op desktop en mobiel bekijken. De PO kiest tint en sterkte live. Typecheck tijdens de iteratie; geen volledige e2e-gate per kleurstap.
@@ -57,3 +57,4 @@ PO 2026-10-12: "ja probeer eens". Eerste vormenproef in de dev-app aangenomen, m
 - 2026-10-11: PO-feedback onderzocht, dag-/nachtkaart zelf bekeken; voorstel opgesteld. Implementatie volgt na de richtingkeuze.
 - 2026-10-11: PO vraagt radarachtige wolkenstructuur en staat gefingeerde details toe. Beschikbare HARMONIE-/satellietgegevens geverifieerd; eigen 8×8-middeling vastgesteld. Voorstel herzien naar bedekking plus lichtdoorlating en modelgestuurde vormen.
 - 2026-10-12: eerste vormenproef aangenomen; vergelijking met de oude sluier en drie expliciet gefingeerde voorbeeldluchten via het dev-paneel. Eigenaar PM, knoppen vervallen na PO-keuze, uiterlijk 2026-10-19.
+- 2026-10-12: eerste proef op http://ageq-dev2:4390/lucht/utrecht, vergelijking en voorbeelden via `?dev` onder Wolkenkaart. Zelf dag/nacht op desktop/mobiel, oude sluier, voorbeelden en afspelen rond zonsopkomst bekeken. Typecheck en 14 gerichte tests groen. Visuele iteratie loopt; geen merge-gate of uitrol uitgevoerd.
