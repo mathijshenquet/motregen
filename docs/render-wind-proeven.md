@@ -5,6 +5,41 @@ Technisch meetbewijs voor de laagkeuze in MIP-31. De PO koos Wind op
 Regen en Gevoelstemperatuur behouden 100 s / 5,6 fps; gewone web-Wind behoudt regen.
 Main is geïntegreerd inclusief MIP-30 E1: MemoryMax1600M voor de gecombineerde bot.
 
+## Definitieve standaard en volledige generatie
+
+De afzonderlijke plannen komen uit `bot/sequences.ts`; Rust ontvangt `loops.wind`
+en `loops.feels`. Wind: 289 kaartframes + acht holdframes, 15/2 fps, 39,600 s.
+Regen: 109+6, 28/5 fps; Gevoelstemperatuur: 217+6, 28/5 fps. De Node-pixelroute
+tekent geen regen in Wind. De browserterugval verbergt regen bij still-Wind;
+gewone Wind houdt regen. De gerichte desktoptest controleert beide routes,
+zichtbare isobaren en de vaste windsimulatieklok. Alle 170 stills blijven behouden.
+
+De productie-Nix-renderer op dezelfde snapshot onder taskset0,1/CPU200%/
+MemoryMax1600M/geen swap: **15,447 s wandtijd, 29,303 CPU s, 510,3 MiB piek**,
+synchroon exit0. MP4-groottes: Regen4.348.101 B, Gevoelstemperatuur5.446.585 B,
+Wind8.541.704 B. De store-bot valideert het volledige mixed-planreceipt, inclusief
+alle stills tot +12 uur. Alle 173 bestanden zijn bytegelijk: regen/temperatuur
+tegen de eerdere standaard, Wind tegen de gekozen regenloze proef. Daardoor
+zijn ook alle gedecodeerde beelden gelijk. De hostmeting is geen VM-meting;
+de PM doet die op zijn vaste snapshot vóór merge/uitrol.
+
+```sh
+systemd-run --user --wait --pipe --unit=u80-mip31-final -p CPUQuota=200% -p MemoryMax=1600M -p MemorySwapMax=0 -p MemoryAccounting=yes --setenv=MALLOC_ARENA_MAX=2 --setenv=MALLOC_MMAP_THRESHOLD_=131072 taskset -c 0,1 /nix/store/11c9qlj4aj6kdzgwckyf286xdwa8ddn0-motregen-render-0.1.0/bin/motregen-render --mode all --data-dir "$PWD/.dev/tracks/u80-rust-wind-temperatuur/data" --basemap-dir /nix/store/11c9qlj4aj6kdzgwckyf286xdwa8ddn0-motregen-render-0.1.0/share/motregen-render/basemaps --out-dir /pad/lege-uitvoer
+```
+
+De [reviewpagina](http://ageq-dev2:4397/review/round5/index.html) bevat de drie
+definitieve films, zes dag-/nachtbeelden, drie klokstroken en de eerdere vier
+laagproeven. `final-measurement.json`, `receipts/final-all.txt` en
+`final-content-proof.json` geven profielen, exact commando en bestandsgelijkheid.
+Encoder veryfast/CRF18, High/yuv420p/faststart en het duurgebonden 20MB-VBV blijven gelijk.
+
+Worker-gate: cargo37tests/clippy/fmt/wasm, bot133tests/typecheck/build,
+web569tests/typecheck/build, zeven gerichte desktoptests in `telegram.spec.ts`,
+proeftools typecheck, `nix flake check --no-build` en Nix render/bot/bot-roles/toplevel.
+Alle exits synchroon geobserveerd0. De Nix-VM-testasserties bewaken nu de
+afzonderlijke fps/frames/hold. De worker heeft geen VM gestart; de PM bouwt/draait
+die test en doet de finale VM-meting. Geen prod- of echte Telegramactie.
+
 ## Reproduceren
 
 Vanuit de actieve devomgeving, met een nieuwe uitvoermap:
