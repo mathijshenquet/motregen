@@ -19,7 +19,8 @@ pub fn draw_overlay(
     options: ClockOptions,
 ) {
     let size = &constants().size;
-    let left = (size.width as i32 - 320) / 2;
+    let left = 16;
+    let panel_width = 280;
     let history = epoch <= now;
     let background = if night {
         [10, 24, 32]
@@ -34,7 +35,7 @@ pub fn draw_overlay(
     } else {
         [99, 123, 133]
     };
-    rounded_panel(rgb, left, -16, 320, 138, 24, background, 0.96);
+    rounded_panel(rgb, left, 10, panel_width, 112, 20, background, 0.96);
     let (clock, day) = if options.transition.is_none() && !options.still {
         loop_clock_text(epoch)
     } else {
@@ -46,7 +47,7 @@ pub fn draw_overlay(
         text.width(&clock, 58)
     };
     let day_width = text.width(day, 24);
-    let content_left = (size.width as f32 - time_width - day_width - 16.0) / 2.0;
+    let content_left = left as f32 + (panel_width as f32 - time_width - day_width - 16.0) / 2.0;
     if let Some(transition) = options.transition {
         draw_clock(
             text,
@@ -72,7 +73,7 @@ pub fn draw_overlay(
     text.draw(
         rgb,
         "Regen",
-        ((size.width as f32 - title_width) / 2.0, 103),
+        (left as f32 + (panel_width as f32 - title_width) / 2.0, 103),
         24,
         muted_color,
         None,

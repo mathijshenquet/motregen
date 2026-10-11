@@ -27,6 +27,9 @@ Het resultaat is `light.png` en `dark.png` (RGB/RGBA, 960×1272 pixels), `water-
 (het bestaande lage-resolutiemasker, dekking in het alfakanaal) en `basemap.json` versie 1 met `size`, `view`
 (Web Mercator centrum en zoom), `grid` (rooster voor het kadermasker) en `inputs` (oorspronkelijke bestandsnamen).
 De kaartplaten bevatten de plaatsnamen. Temperatuurwaarden, klok en voettekst zitten niet in de platen.
+Het native botkader past Nederland (inclusief Zeeland, Limburg en de Wadden), zonder Vlaanderen als
+fitdoel. De klok staat compact linksboven. Na een wijziging van `NATIVE_VIEW` moeten beide basiskaarten
+opnieuw worden vastgelegd; een oude plaat bijsnijden geeft geen passende projectie of labelplaatsing.
 Het watermasker is voor de volgende modi; de regencompositie gebruikt het niet. Deze export start geen browser.
 Basiskaarten bouwen als Nix-artefact volgt in C5.
 
