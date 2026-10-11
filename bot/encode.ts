@@ -4,7 +4,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { availableParallelism } from 'node:os'
 import { promisify } from 'node:util'
-import type { SequencePlan } from './sequences.js'
+import { holdFrames, type SequencePlan } from './sequences.js'
 import sharp from 'sharp'
 import { FRAME_PIXELS } from './config.js'
 import { releaseFileCache } from './native-raster.js'
@@ -30,10 +30,10 @@ export async function encodeStill(frame: string, destination: string): Promise<v
 
 export async function encodeLoop(directory: string, destination: string, plan: SequencePlan): Promise<{ milliseconds: number; bytes: number }> {
   const started = performance.now()
-  const frames = plan.loopFrames + plan.fps
+  const frames = plan.loopFrames + holdFrames(plan)
   const duration = frames / plan.fps
   const input = ['-hide_banner', '-loglevel', 'error', '-y', '-framerate', String(plan.fps), '-i', join(directory, 'frame-%03d.png')]
-  const output = ['-vf', `trim=end_frame=${plan.loopFrames},setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop_duration=1,setsar=1`, '-frames:v', String(frames), '-c:v', 'libx264', '-threads', '2', '-preset', 'veryfast', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', '-f', 'mp4', destination]
+  const output = ['-vf', `trim=end_frame=${plan.loopFrames},setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop=${holdFrames(plan)},setsar=1`, '-frames:v', String(frames), '-c:v', 'libx264', '-threads', '2', '-preset', 'veryfast', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', '-f', 'mp4', destination]
   await run('ffmpeg', [...input, '-crf', '25', ...output])
   let bytes = (await stat(destination)).size
   if (bytes > MAX_LOOP_BYTES) {
@@ -50,12 +50,12 @@ export async function encodeRgbLoop(
   size: { width: number; height: number },
 ): Promise<{ milliseconds: number; bytes: number }> {
   const started = performance.now()
-  const duration = (plan.loopFrames + plan.fps) / plan.fps
+  const duration = (plan.loopFrames + holdFrames(plan)) / plan.fps
   const bitrate = Math.floor(2_500_000 * 8 / duration)
   const encoder = spawn('ffmpeg', [
     '-hide_banner', '-loglevel', 'error', '-y', '-filter_threads', '1', '-f', 'rawvideo', '-pixel_format', 'rgb24',
     '-video_size', `${size.width}x${size.height}`, '-framerate', String(plan.fps), '-i', 'pipe:0',
-    '-vf', `tpad=stop_mode=clone:stop_duration=1,setsar=1`, '-frames:v', String(plan.loopFrames + plan.fps),
+    '-vf', `tpad=stop_mode=clone:stop=${holdFrames(plan)},setsar=1`, '-frames:v', String(plan.loopFrames + holdFrames(plan)),
     '-c:v', 'libx264', '-threads', availableParallelism() <= 2 ? '1' : '2', '-preset', 'ultrafast', '-crf', '25',
     '-maxrate', String(bitrate), '-bufsize', String(bitrate), '-pix_fmt', 'yuv420p',
     '-movflags', '+faststart', '-an', '-f', 'mp4', destination,
