@@ -5,6 +5,7 @@ use std::sync::OnceLock;
 pub struct ModeConstants {
     pub loop_offsets: Vec<i64>,
     pub fps: f64,
+    pub fps_fraction: crate::constants::FrameRate,
     pub hold_frames: usize,
     pub scale: f64,
     pub wind: Wind,

@@ -75,13 +75,13 @@ pub struct Profile {
 }
 
 #[derive(Clone, Copy)]
-struct FramePlan {
-    epoch: i64,
-    loop_frame: bool,
-    still: bool,
+pub(crate) struct FramePlan {
+    pub epoch: i64,
+    pub loop_frame: bool,
+    pub still: bool,
 }
 
-fn frame_plans(loop_epochs: &[i64], still_epochs: &[i64]) -> Vec<FramePlan> {
+pub(crate) fn frame_plans(loop_epochs: &[i64], still_epochs: &[i64]) -> Vec<FramePlan> {
     let mut plans = BTreeMap::new();
     for &epoch in loop_epochs {
         plans.insert(
@@ -584,12 +584,50 @@ mod tests {
     use super::*;
 
     #[test]
+    fn temperature_plan_preserves_stills_outside_the_shorter_film() {
+        let constants = constants();
+        let mode = render_core::mode_constants::mode_constants();
+        assert_eq!(mode.fps, 5.6);
+        assert_eq!(mode.fps_fraction.numerator, 28);
+        assert_eq!(mode.fps_fraction.denominator, 5);
+        assert_eq!(mode.hold_frames, 6);
+        assert_eq!(mode.loop_offsets.len(), 217);
+        assert_eq!(mode.loop_offsets[0], -3_600_000);
+        assert_eq!(*mode.loop_offsets.last().unwrap(), 18_000_000);
+        assert!(
+            mode.loop_offsets
+                .windows(2)
+                .all(|pair| pair[1] - pair[0] == 100_000)
+        );
+        let stills: Vec<_> = constants
+            .still_minutes
+            .iter()
+            .map(|minute| minute * 60_000)
+            .collect();
+        let plans = frame_plans(&mode.loop_offsets, &stills);
+        assert_eq!(plans.len(), 265);
+        assert_eq!(plans.iter().filter(|plan| plan.loop_frame).count(), 217);
+        assert_eq!(plans.iter().filter(|plan| plan.still).count(), 85);
+        assert_eq!(
+            plans
+                .iter()
+                .filter(|plan| plan.loop_frame && plan.still)
+                .count(),
+            37
+        );
+        assert_eq!(plans.last().unwrap().epoch, 43_200_000);
+        assert!(!plans.last().unwrap().loop_frame);
+        assert!(plans.last().unwrap().still);
+        assert!(plans.windows(2).all(|pair| pair[0].epoch < pair[1].epoch));
+    }
+
+    #[test]
     fn fractional_rain_plan_composes_each_shared_still_only_once() {
         let constants = constants();
-        assert_eq!(constants.fps, 4.5);
-        assert_eq!(constants.fps_fraction.numerator, 9);
-        assert_eq!(constants.fps_fraction.denominator, 2);
-        assert_eq!(constants.hold_frames, 5);
+        assert_eq!(constants.fps, 5.6);
+        assert_eq!(constants.fps_fraction.numerator, 28);
+        assert_eq!(constants.fps_fraction.denominator, 5);
+        assert_eq!(constants.hold_frames, 6);
         assert_eq!(constants.loop_offsets.len(), 109);
         assert_eq!(constants.loop_offsets[0], -3_600_000);
         assert_eq!(*constants.loop_offsets.last().unwrap(), 7_200_000);

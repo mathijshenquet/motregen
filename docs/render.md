@@ -1,11 +1,15 @@
 # Weermedia in Rust (MIP-29 C1/C2)
 
-`motregen-render` maakt precies één generatie: regenloop −1…+2 uur (109 kaartframes per 100 seconden,
-4,5 fps, daarna vijf holdframes) en 85 JPEG-stills −2…+12 uur per tien minuten. Alle invoer komt van
+`motregen-render` maakt precies één generatie: regenloop −1…+2 uur (109 kaartframes) en wind- en
+gevoelstemperatuurfilms −1…+5 uur (217 kaartframes). Alle films stappen 100 seconden kaarttijd per frame
+bij 5,6 fps (28/5), gevolgd door zes holdframes: totale duur 20,536 respectievelijk 39,821 seconden.
+Het tempo is 9,33 kaartminuten per seconde; de app met `PLAYBACK_TEMPO_HOURS = 8` mat op 2026-10-11
+9,35. Tempo en vensters staan uitsluitend in `bot/sequences.ts`; beide Rust-plannen worden daaruit gegenereerd.
+Regen en gevoelstemperatuur behouden elk 85 JPEG-stills −2…+12 uur per tien minuten. Alle invoer komt van
 schijf. Het programma start alleen ffmpeg; tekst en temperatuurpunten worden rechtstreeks met het ingebedde
 Inter-lettertype getekend. `--mode wind` maakt de windfilm; `--mode feels` maakt de gevoelstemperatuurfilm
-en 85 stills. Beide films hebben 169 kaartframes van −2…+12 uur per vijf minuten, 10 fps en tien holdframes.
-Alle temperatuur-stills gebruiken hun RGB-loopframe rechtstreeks. De renderer eindigt na deze generatie.
+en 85 stills. Stills binnen het filmvenster delen hun RGB-loopframe; eerdere en latere stills worden in dezelfde
+renderpass alleen als JPEG gemaakt. Geen still verdwijnt door het kortere filmvenster. De renderer eindigt na deze generatie.
 
 ```sh
 motregen-render --data-dir /pad/data --basemap-dir /pad/platen --mode all --out-dir /pad/media
@@ -19,7 +23,7 @@ niet-nul exitstatus. `media.json` verschijnt pas na succesvolle afronding van de
 ## Basiskaartinvoer
 
 De vijf gegenereerde bronbestanden in `crates/render/assets/basemaps/` worden met het renderpakket geïnstalleerd
-in `$out/share/motregen-render/basemaps` (samen 635.032 bytes). Nix kopieert ze; bouwen en renderen starten geen
+in `$out/share/motregen-render/basemaps` (samen 634.040 bytes). Nix kopieert ze; bouwen en renderen starten geen
 Chromium. Ververs ze vanuit een lokaal gemaakte native botcache die bij het huidige `NATIVE_VIEW`,
 `FRAME_PIXELS` en regenrooster hoort. De meest recent gemaakte plaat per thema wordt overgenomen:
 
@@ -119,14 +123,15 @@ de gedeelde kernen; meet losse modi voor hun eigen tijdlat. Parallelle fasetijde
 ## Klok per modus
 
 De gekozen U76-schuifklok is standaard, met tussenposities 1/6 en 15/16. Alleen veranderende cijfers bewegen;
-de overige cijfers en dubbele punt blijven stil. Regen heeft drie frames per vijfminuteninterval, dus fases
-0 → 1/6 → 15/16 → 1. Wind en gevoelstemperatuur stappen exact vijf minuten per frame: de gedeelde kloklogica
-komt daar telkens op fase nul uit en wisselt de volledige cijfers hard. Datum en thema volgen de werkelijke
+de overige cijfers en dubbele punt blijven stil. Alle modi hebben drie frames per vijfminuteninterval, dus fases
+0 → 1/6 → 15/16 → 1. Datum en thema volgen de werkelijke
 kaarttijd; stills tonen hun exacte tijd zonder beweging. De titels zijn Regenradar, Wind en Gevoelstemperatuur.
 
 De constante CLOCK_TRANSITION staat op Some(Schuif). De CLI kan expliciet schuif of klap kiezen; kruisfade
 is verwijderd. Met de constante op None blijft de oude afronding op de dichtstbijzijnde vijf minuten
-beschikbaar in de kern. Rust-cacheversie 30 en de framegrootte voorkomen hergebruik van oude beelden.
+beschikbaar in de kern. Rust-cacheversie 30 en de framegrootte voorkomen hergebruik van oude beelden;
+loopcachekeys bevatten ook het actuele tempo en venster, zodat een gewijzigd plan alle betrokken films ververst
+zonder stills te verwerpen. Het VBV-plafond gebruikt de volledige nieuwe filmduur, inclusief zes holdframes.
 
 ## Optionele Node-aanroep
 

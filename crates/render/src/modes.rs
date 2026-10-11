@@ -2,7 +2,7 @@ use crate::{
     data::Dataset,
     encode::{Video, jpeg},
     fields::{Fields, Pair, Slice, pair, screen},
-    renderer::{FileMedia, Media, Profile, plates},
+    renderer::{FileMedia, Media, Profile, frame_plans, plates},
     wind_rain::{RainInput, WindRain, WindRainPixels},
 };
 use anyhow::{Context, Result, ensure};
@@ -38,6 +38,7 @@ struct Input {
     epoch: i64,
     index: usize,
     still: bool,
+    loop_frame: bool,
     night: bool,
     slice: Slice,
     wind: Option<(Pair, Pair)>,
@@ -76,6 +77,7 @@ fn wind_field(pair: &Pair) -> WindField<'_> {
 
 struct Output {
     rgb: Vec<u8>,
+    loop_frame: bool,
     still: Option<FileMedia>,
     profile: Profile,
 }
@@ -239,6 +241,7 @@ impl Painter<'_> {
         }
         Ok(Output {
             rgb,
+            loop_frame: input.loop_frame,
             still,
             profile,
         })
@@ -349,10 +352,7 @@ pub fn render(
             .map(|minute| now + minute * 60_000)
             .collect()
     };
-    ensure!(
-        still_epochs.iter().all(|epoch| loop_epochs.contains(epoch)),
-        "Temperature still outside loop plan"
-    );
+    let plans = frame_plans(&loop_epochs, &still_epochs);
     let painter_workers = [first?, second?];
     let projection = Projection::new(&fields.grid);
     let field_grid = fields.grid.clone();
@@ -371,7 +371,10 @@ pub fn render(
                 &temporary.path().join(format!("{mode}-loop.mp4")),
                 loop_epochs.len(),
                 mode_constants().hold_frames,
-                (mode_constants().fps as usize, 1),
+                (
+                    mode_constants().fps_fraction.numerator,
+                    mode_constants().fps_fraction.denominator,
+                ),
             )?;
             let mut files = Vec::new();
             let mut profile = Profile::default();
@@ -381,9 +384,11 @@ pub fn render(
                     if let Some(file) = frame.still {
                         files.push(file);
                     }
-                    let started = Instant::now();
-                    video.frame(&frame.rgb)?;
-                    profile.ffmpeg_wait_us += started.elapsed().as_micros();
+                    if frame.loop_frame {
+                        let started = Instant::now();
+                        video.frame(&frame.rgb)?;
+                        profile.ffmpeg_wait_us += started.elapsed().as_micros();
+                    }
                 }
             }
             let started = Instant::now();
@@ -395,12 +400,13 @@ pub fn render(
         let producer = scope.spawn(|| -> Result<u128> {
             let input_sender = input_sender;
             let mut preparation_us = 0;
-            for (batch_index, times) in loop_epochs.chunks(batch_size).enumerate() {
+            for (batch_index, batch) in plans.chunks(batch_size).enumerate() {
                 let preparation_started = Instant::now();
-                let inputs = times
+                let inputs = batch
                     .iter()
                     .enumerate()
-                    .map(|(offset, &time)| -> Result<Input> {
+                    .map(|(offset, plan)| -> Result<Input> {
+                        let time = plan.epoch;
                         let slice = fields.slice(time)?;
                         let wind_pair = if let (Some(east), Some(north)) = (&mut east, &mut north) {
                             Some((pair(east, time)?, pair(north, time)?))
@@ -421,7 +427,8 @@ pub fn render(
                         Ok(Input {
                             epoch: time,
                             index: batch_index * batch_size + offset,
-                            still: still_epochs.contains(&time),
+                            still: plan.still,
+                            loop_frame: plan.loop_frame,
                             night: dark(time),
                             slice,
                             wind: wind_pair,

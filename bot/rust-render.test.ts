@@ -134,7 +134,7 @@ it.each(['feels', 'wind'] as const)('imports the %s matrix and reuses its cache 
   const render = vi.spyOn(rust, 'runRustRenderer').mockImplementation((_manifest, directory, mode) => media(directory, mode))
   try {
     const first = await renderer.render({ mode, hour: 'loop' }, manifest)
-    expect(first).toMatchObject({ backend: 'rust', cached: false, frames: 169, fps: 10 })
+    expect(first).toMatchObject({ backend: 'rust', cached: false, frames: 217, fps: 5.6 })
     expect(await readFile(first.path, 'utf8')).toBe('data')
     expect(await renderer.render({ mode, hour: 'loop' }, manifest)).toMatchObject({ cached: true })
     if (mode === 'feels') expect(await renderer.render({ mode, hour: 6 }, manifest)).toMatchObject({ cached: true, kind: 'photo' })
@@ -159,7 +159,7 @@ it('imports all Rust JPEGs directly and reuses the complete cache without native
     expect(first).toMatchObject({ kind: 'photo', cached: false, epoch: stillEpoch(manifest, 12), milliseconds: 10 })
     expect(await readFile(first.path, 'utf8')).toBe('data')
     const loop = await renderer.render({ mode: 'weather', hour: 'loop' }, manifest)
-    expect(loop).toMatchObject({ backend: 'rust', cached: true, frames: 109, fps: 4.5, renderMs: 18, encodeMs: 1, totalMs: 10, milliseconds: 0 })
+    expect(loop).toMatchObject({ backend: 'rust', cached: true, frames: 109, fps: 5.6, renderMs: 18, encodeMs: 1, totalMs: 10, milliseconds: 0 })
     expect(render).toHaveBeenCalledOnce()
     expect(weatherPrepare).not.toHaveBeenCalled()
     expect(modesPrepare).not.toHaveBeenCalled()

@@ -2,7 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { FRAME, FRAME_PIXELS } from './config.js'
 import { NATIVE_VIEW } from './native-view.js'
-import { holdFrames, sequencePlan } from './sequences.js'
+import { fpsFraction, holdFrames, sequencePlan } from './sequences.js'
 import { STILL_MINUTES } from './stills.js'
 import { rainColormap } from '../web/src/core/rain-chart.js'
 import { colourOverGround, DEFAULT_RAIN_LOOK } from '../web/src/core/rain-palette.js'
@@ -47,10 +47,6 @@ export function renderConstants() {
   const now = '2026-08-28T15:00:00Z'
   const sources: Source[] = ['harmonie', 'uv', 'seamless', 'nowcast', 'rtcor']
   const plan = sequencePlan('weather', { version: 0, generated: now, now, chunks: [] })
-  const denominator = 10 ** (String(plan.fps).split('.')[1]?.length ?? 0)
-  const numerator = plan.fps * denominator
-  const gcd = (left: number, right: number): number => right === 0 ? left : gcd(right, left % right)
-  const divisor = gcd(numerator, denominator)
   const samples = Array.from({ length: 721 }, (_, minute) => {
     const sigma = autoBlurSigma(minute * 60_000)
     return { sigma, taps: kernelTaps('source-blur', sigma) }
@@ -68,7 +64,7 @@ export function renderConstants() {
     temperature_style: { light: temperatureLayer('light'), dark: temperatureLayer('dark') },
     source_priority: sourcePriorities(sources, now),
     loop_offsets: plan.epochs.slice(0, plan.loopFrames).map((epoch) => epoch - Date.parse(now)),
-    fps: plan.fps, fps_fraction: { numerator: numerator / divisor, denominator: denominator / divisor },
+    fps: plan.fps, fps_fraction: fpsFraction(plan.fps),
     hold_frames: holdFrames(plan), still_minutes: STILL_MINUTES,
   }
 }

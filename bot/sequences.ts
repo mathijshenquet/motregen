@@ -1,5 +1,14 @@
 import { STILL_HOURS, stillEpoch, type LoopMode, type StillHour, type StillManifest } from './stills.js'
 
+// PLAYBACK_TEMPO_HOURS = 8 / timelinePlaybackRate in web/src/App.tsx: gemeten 9,35 kaartminuten/s
+// op 2026-10-11. PO: alle films 100 s/frame × 5,6 fps = 9,33 min/s; regen −1…+2 u, overige −1…+5 u.
+export const LOOP_TIMING = {
+  stepSeconds: 100,
+  fps: 5.6,
+  startMinutes: -60,
+  endMinutes: { weather: 120, wind: 300, feels: 300 } satisfies Record<LoopMode, number>,
+}
+
 export interface SequencePlan {
   epochs: number[]
   loopFrames: number
@@ -9,15 +18,8 @@ export interface SequencePlan {
 
 export function sequencePlan(mode: LoopMode, manifest: StillManifest): SequencePlan {
   const now = Date.parse(manifest.now)
-  // Regen op het tempo van de app (5 minuten kaarttijd per 650 ms, PLAYBACK_FRAME_DURATION_MS ≈ 7,5 min/s): 100 s
-  // kaarttijd per frame bij 4,5 fps (PO 2026-10-11). Drie frames per radarbeeld van 5 minuten: elk derde frame is een
-  // echte meting en elke still op een tiental minuten valt op een loopframe. Het was 45 s bij 10 fps; ruim de helft
-  // minder frames voor hetzelfde tempo. Temperatuur en wind blijven 5 min per frame bij 10 fps.
-  const fps = mode === 'weather' ? 4.5 : 10
-  const stepSeconds = mode === 'weather' ? 100 : 300
-  // Regen −1…+2 u (PO 2026-10-09); temperatuur en wind −2…+12 u.
-  const startMinutes = mode === 'weather' ? -60 : -120
-  const endMinutes = mode === 'weather' ? 120 : 720
+  const { fps, stepSeconds, startMinutes } = LOOP_TIMING
+  const endMinutes = LOOP_TIMING.endMinutes[mode]
   const epochs: number[] = []
   for (let second = startMinutes * 60; second <= endMinutes * 60; second += stepSeconds) epochs.push(now + second * 1000)
   const loopFrames = epochs.length
@@ -35,4 +37,12 @@ export function sequencePlan(mode: LoopMode, manifest: StillManifest): SequenceP
 /** Aantal herhalingen van het laatste beeld: ongeveer één seconde, ook bij een gebroken beeldsnelheid. */
 export function holdFrames(plan: Pick<SequencePlan, 'fps'>): number {
   return Math.round(plan.fps)
+}
+
+export function fpsFraction(fps: number): { numerator: number; denominator: number } {
+  const denominator = 10 ** (String(fps).split('.')[1]?.length ?? 0)
+  const numerator = Math.round(fps * denominator)
+  const gcd = (left: number, right: number): number => right === 0 ? left : gcd(right, left % right)
+  const divisor = gcd(numerator, denominator)
+  return { numerator: numerator / divisor, denominator: denominator / divisor }
 }
