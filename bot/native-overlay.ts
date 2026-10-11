@@ -10,6 +10,8 @@ import type { LoopMode, StillManifest } from './stills.js'
 
 // libvips' operation cache otherwise retains the raw full-frame inputs between renders.
 sharp.cache(false)
+// Boven deze maat levert een Chromium-screenshot herhaalde in plaats van echte inhoud.
+const MAX_SHEET_PIXELS = 8000
 sharp.concurrency(1)
 
 interface Box { left: number; top: number; width: number; height: number }
@@ -76,7 +78,7 @@ export class NativeOverlay {
     if (!response.ok) throw new Error('App-stijl voor klok ontbreekt')
     const html = await response.text()
     const styles = [...html.matchAll(/<link\b[^>]*href="([^"]+\.css)"[^>]*>/g)].map((match) => match[1])
-    const key = createHash('sha256').update(JSON.stringify({ version: 7, styles, frame: FRAME, ...(this.mode === 'weather' ? {} : { mode: this.mode, title: this.title }) })).digest('hex').slice(0, 24)
+    const key = createHash('sha256').update(JSON.stringify({ version: 8, styles, frame: FRAME, ...(this.mode === 'weather' ? {} : { mode: this.mode, title: this.title }) })).digest('hex').slice(0, 24)
     const path = join(this.directory, `overlay-${key}.json`)
     let metadata: AtlasMetadata
     try { metadata = JSON.parse(await readFile(path, 'utf8')) as AtlasMetadata } catch (error) {
@@ -154,7 +156,9 @@ export class NativeOverlay {
         const strings = Array.from({ length: 1440 }, (_, minute) => `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`)
         strings.push(day, this.title)
         const boxes = await page.evaluate(({ strings, day, title }) => {
-          document.body.innerHTML = '<div id="glyphs" style="display:grid;grid-template-columns:repeat(10,128px);width:1280px"></div>'
+          // 30 kolommen: met 10 werd het blad ruim 11000 px hoog en herhaalde Chromium vanaf ~8190 px de bovenkant,
+          // zodat elke tijd vanaf 17:30 de klok van 17,5 uur eerder kreeg (prod 2026-10-10).
+          document.body.innerHTML = '<div id="glyphs" style="display:grid;grid-template-columns:repeat(30,128px);width:3840px"></div>'
           const atlas = document.getElementById('glyphs')!
           for (const text of strings.slice(0, 1440)) {
             const cell = document.createElement('div')
@@ -175,7 +179,10 @@ export class NativeOverlay {
           })
         }, { strings, day, title: this.title })
         await page.addStyleTag({ content: 'html,body{background:transparent!important}.still-clock{background:transparent!important;border-color:transparent!important;box-shadow:none!important;backdrop-filter:none!important}.still-clock *{color:revert!important}.clock-map-time{color:#102630!important}.clock-day{color:#637b85!important}' })
-        await page.screenshot({ path: join(temporary, `overlay-${key}-${day}-glyphs.png`), omitBackground: true, fullPage: true })
+        const sheetPath = join(temporary, `overlay-${key}-${day}-glyphs.png`)
+        await page.screenshot({ path: sheetPath, omitBackground: true, fullPage: true })
+        const sheet = await sharp(sheetPath).metadata()
+        if (sheet.width! > MAX_SHEET_PIXELS || sheet.height! > MAX_SHEET_PIXELS) throw new Error(`Klokblad te groot voor één screenshot (${sheet.width}×${sheet.height})`)
         metadata.glyphs[day] = Object.fromEntries(strings.map((text, index) => [text, boxes[index]!]))
       }
       for (const name of await readdir(temporary)) await rename(join(temporary, name), join(this.directory, name))

@@ -201,7 +201,7 @@ describe('still delivery and callbacks', () => {
     expect(calls.at(-1)).toMatchObject({ method: 'sendMessage', fields: { text: 'Beeld kon niet laden, probeer opnieuw' } })
   })
 
-  it('rejects an expired generation and keeps a delta anchored to its original absolute time', async () => {
+  it('keeps a delta anchored to its original absolute time and falls back to the newest generation once its own is gone', async () => {
     const { runtime, calls, render, renew } = await setup()
     const firstManifest = await runtime.currentManifest()
     runtime.manifestForGeneration = (generation) => generation === Date.parse(firstManifest.generated) ? firstManifest : undefined
@@ -210,9 +210,12 @@ describe('still delivery and callbacks', () => {
     expect(render.mock.calls.at(-1)?.[0]).toEqual({ mode: 'weather', hour: 1 / 6 })
     const edits = calls.filter((call) => call.method === 'editMessageMedia').length
     runtime.manifestForGeneration = () => undefined
-    await handleUpdate(callback(`weather:at:${stillEpoch(firstManifest, 1 / 6)}:${Date.parse(firstManifest.generated)}`), runtime)
-    expect(calls.at(-1)?.fields.text).toBe('Verlopen, stuur /regen opnieuw')
-    expect(calls.filter((call) => call.method === 'editMessageMedia')).toHaveLength(edits)
+    // Een andere kaarttijd dan er al staat, anders is het antwoord terecht "Al in beeld".
+    await handleUpdate(callback(`weather:at:${stillEpoch(firstManifest, 1 / 3)}:${Date.parse(firstManifest.generated)}`), runtime)
+    expect(render.mock.calls.at(-1)?.[0]).toEqual({ mode: 'weather', hour: 1 / 3 })
+    expect((render.mock.calls.at(-1) as unknown as [MediaSelection, StillManifest])[1].generated).not.toBe(firstManifest.generated)
+    expect(calls.filter((call) => call.method === 'editMessageMedia')).toHaveLength(edits + 1)
+    expect(JSON.stringify(calls.findLast((call) => call.method === 'editMessageMedia')?.fields)).toContain('Nieuwste beschikbare generatie getoond.')
   })
 
   it('primes an album once, persists every id, and uses an id on the first user edit', async () => {

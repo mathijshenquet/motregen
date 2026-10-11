@@ -3,6 +3,9 @@ import type { TelegramMessage } from './api.js'
 import type { RenderedMedia } from './render.js'
 
 export const STILL_CACHE_TTL = 2 * 3_600_000
+// Losse frames voor de tijdknoppen kosten ~300 MB per modus per generatie; twee uur bewaren vulde op de VM 16 GB en
+// daarmee de schijf (prod 2026-10-10). Twintig minuten is een handvol generaties, ~3 GB.
+export const FRAME_RETENTION = 20 * 60_000
 
 export class FileIdCache {
   private readonly entries = new Map<string, { fileId: string; expires: number }>()
