@@ -18,11 +18,13 @@ niet-nul exitstatus. `media.json` verschijnt pas na succesvolle afronding van de
 
 ## Basiskaartinvoer
 
-De bestaande native botcache levert voorlopig de platen. Gebruik een cache die bij deze beeldmaat, dit
-kaartaanzicht en dit regenrooster is gemaakt. De meest recent gemaakte plaat per thema wordt overgenomen:
+De vijf gegenereerde bronbestanden in `crates/render/assets/basemaps/` worden met het renderpakket geïnstalleerd
+in `$out/share/motregen-render/basemaps` (samen 635.032 bytes). Nix kopieert ze; bouwen en renderen starten geen
+Chromium. Ververs ze vanuit een lokaal gemaakte native botcache die bij het huidige `NATIVE_VIEW`,
+`FRAME_PIXELS` en regenrooster hoort. De meest recent gemaakte plaat per thema wordt overgenomen:
 
 ```sh
-pnpm -C bot exec tsx prepare-rust-basemaps.ts /pad/botcache /pad/data /pad/platen
+pnpm -C bot exec tsx prepare-rust-basemaps.ts /pad/botcache /pad/data ../crates/render/assets/basemaps
 ```
 
 Het resultaat is `light.png` en `dark.png` (RGB/RGBA, 960×1272 pixels), `water-light.png` en `water-dark.png`
@@ -32,8 +34,9 @@ De kaartplaten bevatten de plaatsnamen. Temperatuurwaarden, klok en voettekst zi
 Het native botkader past Nederland (inclusief Zeeland, Limburg en de Wadden), zonder Vlaanderen als
 fitdoel. De klok staat compact linksboven. Na een wijziging van `NATIVE_VIEW` moeten beide basiskaarten
 opnieuw worden vastgelegd; een oude plaat bijsnijden geeft geen passende projectie of labelplaatsing.
-Het watermasker is voor de volgende modi; de regencompositie gebruikt het niet. Deze export start geen browser.
-Basiskaarten bouwen als Nix-artefact volgt in C5.
+Het watermasker dempt de windstaarten op zee; de regencompositie gebruikt het niet. Deze export start geen browser.
+`prepare-rust-basemaps.test.ts` laat de gate falen als maat of view in de metadata afwijkt van de TypeScript-bron;
+de PNG-maten en het alfakanaal van beide watermaskers worden ook gecontroleerd.
 
 ## Uitvoercontract
 
@@ -122,14 +125,51 @@ MOTREGEN_RUST_BASEMAP_DIR=/pad/platen
 MOTREGEN_RENDER_BIN=/pad/motregen-render
 ```
 
-De schakelaar staat standaard uit. Node geeft alleen de manifest-snapshot en paden door, controleert het
+Zonder Nix-module staat de schakelaar standaard uit. Node geeft alleen de manifest-snapshot en paden door, controleert het
 uitvoercontract en neemt de complete MP4/JPEG-matrix over onder de bestaande cachesleutels. De rendereridentiteit
 in de sleutel onderscheidt deze beelden van de oude route. `MOTREGEN_RENDER_BIN` valt terug op `motregen-render`
 in PATH; het Nix-botpakket vult het pad automatisch in. Verwijder de schakelaar voor de bestaande route.
 Een modus die niet in de lijst staat gebruikt zijn bestaande renderer. Wind importeert alleen de film;
-regen en gevoelstemperatuur importeren ook alle 85 JPEGs zonder opnieuw te encoderen. Node roept per gekozen
-modus de renderer aan; de zelfstandige generatieaanroep kan `--mode all` gebruiken.
+regen en gevoelstemperatuur importeren ook alle 85 JPEGs zonder opnieuw te encoderen. Zijn alle drie de modi
+gekozen, dan delen gelijktijdige cache-misses één `--mode all`-proces en worden de drie receipts verdeeld over
+de bestaande sequentiecache. Node valideert eerst de volledige matrix. Een gedeeltelijke keuze gebruikt losse
+modi. Complete cache-hits starten geen renderer; een mislukte generatie kan opnieuw worden geprobeerd.
 De bestaande Node-pixelroute blijft op `PRE_U77_RAIN_LOOK`; de Rust-route toont het nieuwe regenbeeld.
+
+## Nix-unit en terugval
+
+`services.motregen.bot.rustModes` kiest voor `renderer` en `combined` standaard
+`[ "weather" "feels" "wind" ]`. De unit zet `MOTREGEN_RUST_RENDERER` en
+`MOTREGEN_RUST_BASEMAP_DIR` op de store-platen. De botwrapper levert `MOTREGEN_RENDER_BIN`, de renderwrapper
+voegt ffmpeg aan PATH toe. Bij alle drie Rust-modi bevat de unit geen Chromium-pad. Een lege lijst herstelt
+de bestaande Node-route; een gedeeltelijke lijst houdt Chromium voor de overige modi beschikbaar.
+De `poller` krijgt geen Rust- of browseromgeving.
+
+Rust vereist een lokaal snapshot. `services.motregen.bot.dataDir` valt terug op `services.motregen.dataDir`
+en wordt alleen-lezen gemount op `/run/motregen-data`, ook voor een zelfstandige renderer zonder ingest.
+`CacheDirectory=motregen-bot` blijft schrijfbaar onder `ProtectSystem=strict`; binaries en platen zijn
+leesbaar vanuit de store. De bestaande grenzen blijven 1100 MiB voor `renderer` en 1200 MiB voor `combined`,
+ruim boven de gemeten Rust-generatiepiek van 384,6 MiB en met ruimte voor Node en uploads.
+
+## Manifestpublicaties tijdens een generatie
+
+Ingest kan na iedere gewijzigde bron een nieuw atomair manifest publiceren (`finish_refresh`/`publish_after`
+in `crates/ingest/src/main.rs`); de publisher geeft iedere publicatie een nieuwe `generated`-tijd.
+`refreshRendered` in `bot/runtime.ts` leest één manifest voor de hele generatie, wacht op alle renders,
+uploads en registerpublicatie, en leest pas na de daaropvolgende 15 seconden opnieuw. Een nieuw manifest
+onderbreekt de lopende generatie niet. De laatst gelezen snapshot kan dus nog worden gepubliceerd terwijl
+ingest al een nieuwere heeft; bij de volgende ronde wordt uitsluitend het dan nieuwste manifest gekozen.
+Er is geen wachtrij voor alle tussengelegen manifesten.
+
+Bij drie publicaties binnen 30 seconden en circa 36 seconden koude rendertijd zijn dit gewoonlijk één
+generatie (als de bot pas na de reeks leest) of twee (als hij vroeg begint, daarna de laatste versie leest).
+De drie publicaties veroorzaken niet elk automatisch een generatie. Drie renders blijven mogelijk als
+generaties sneller klaar zijn of de publicatiereeks langer duurt; `generated` maakt ook bronwijzigingen die
+de kaartfilms niet raken tot een nieuwe cache-identiteit.
+
+Voorstel voor een aparte productkeuze: wacht met beginnen totdat het laatst waargenomen manifest 30 seconden
+stabiel is. Dat kan de gebruikelijke reeks tot één generatie samenvoegen, tegen extra actualiteitsvertraging
+van ongeveer 30 seconden na de laatste publicatie. Deze ronde verandert die generatielogica niet.
 
 ## Bouwen en meten
 

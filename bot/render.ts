@@ -9,7 +9,7 @@ import { performance } from 'node:perf_hooks'
 import { FRAME_RETENTION, STILL_CACHE_TTL } from './file-ids.js'
 import { encodeLoop, encodeStill, framePath } from './encode.js'
 import { nativeRenderer, rustRenderer } from './native-settings.js'
-import { runRustRenderer } from './rust-render.js'
+import { runRustGeneration, runRustRenderer, type RustMedia } from './rust-render.js'
 import { NativeModesRenderer } from './native-modes-render.js'
 import { NativeWeatherRenderer, nativeFramePath } from './native-render.js'
 import { sequencePlan } from './sequences.js'
@@ -61,6 +61,7 @@ export class StillRenderer {
   private opening?: Promise<BrowserContext>
   private pending = new Map<string, Promise<RenderedSequence>>()
   private pendingStills = new Map<string, Promise<RenderedStill>>()
+  private pendingRustGenerations = new Map<string, Promise<Record<LoopMode, RenderedSequence>>>()
 
   constructor(private readonly origin: string, private readonly cacheDirectory: string) {
     const context: NativeAssetContext = () => this.browserContext()
@@ -103,6 +104,7 @@ export class StillRenderer {
     // Cache-hits hoeven niet achter een nieuwe Chromium-render te wachten.
     const task = this.readCachedSequence(mode, manifest, key).then((cached) => {
       if (cached) return cached
+      if (LOOP_MODES.every(({ mode }) => rustRenderer(mode))) return this.rustGeneration(manifest).then((sequences) => sequences[mode])
       if (rustRenderer(mode) || nativeRenderer(mode) === 'native') {
         const render = this.nativeQueue.then(() => this.renderSequence(mode, manifest, key))
         this.nativeQueue = render.catch(() => undefined)
@@ -358,18 +360,48 @@ export class StillRenderer {
     const directory = await mkdtemp(join(this.cacheDirectory, `.frames-${key}-`))
     try {
       const media = await runRustRenderer(manifest, directory, mode)
-      const metrics: SequenceMetrics = { key, backend: 'rust', frames: media.frames, fps: media.fps, bytes: media.files.find((file) => file.kind === 'animation')!.bytes,
-        renderMs: media.render_ms, encodeMs: media.encode_ms, totalMs: media.total_ms, loopMs: media.loop_ms }
-      const results = this.results(mode, manifest, metrics, false)
-      await rename(join(directory, `${mode}-loop.mp4`), results.loop.path)
-      for (const still of results.stills) await rename(join(directory, `${mode}-${still.epoch}.jpg`), still.path)
-      const receipt = join(this.cacheDirectory, `${key}.sequence.json`)
-      await writeFile(`${receipt}.tmp`, JSON.stringify(metrics))
-      await rename(`${receipt}.tmp`, receipt)
-      console.info(JSON.stringify({ event: 'sequence-render', mode, generated: manifest.generated, ...metrics }))
-      return results
+      return await this.importRustSequence(mode, manifest, directory, media)
     } catch (error) {
       throw new StillRenderError(mode, 'rust', undefined, error)
     } finally { await rm(directory, { recursive: true, force: true }) }
+  }
+
+  private rustGeneration(manifest: StillManifest): Promise<Record<LoopMode, RenderedSequence>> {
+    const key = cacheKey({ mode: 'weather', hour: 'loop' }, manifest)
+    const existing = this.pendingRustGenerations.get(key)
+    if (existing) return existing
+    const task = this.nativeQueue.then(() => this.renderRustGeneration(manifest, key))
+    this.nativeQueue = task.catch(() => undefined)
+    this.pendingRustGenerations.set(key, task)
+    void task.finally(() => this.pendingRustGenerations.delete(key)).catch(() => undefined)
+    return task
+  }
+
+  private async renderRustGeneration(manifest: StillManifest, key: string): Promise<Record<LoopMode, RenderedSequence>> {
+    await mkdir(this.cacheDirectory, { recursive: true })
+    const directory = await mkdtemp(join(this.cacheDirectory, `.frames-${key}-`))
+    try {
+      const generation = await runRustGeneration(manifest, directory)
+      const sequences = {} as Record<LoopMode, RenderedSequence>
+      for (const { mode } of LOOP_MODES) sequences[mode] = await this.importRustSequence(mode, manifest, directory, generation.modes[mode])
+      console.info(JSON.stringify({ event: 'rust-generation-render', generated: manifest.generated, totalMs: generation.total_ms, sharedRasterHits: generation.shared_raster_hits }))
+      return sequences
+    } catch (error) {
+      throw new StillRenderError('weather', 'rust-all', undefined, error)
+    } finally { await rm(directory, { recursive: true, force: true }) }
+  }
+
+  private async importRustSequence(mode: LoopMode, manifest: StillManifest, directory: string, media: RustMedia): Promise<RenderedSequence> {
+    const key = cacheKey({ mode, hour: 'loop' }, manifest)
+    const metrics: SequenceMetrics = { key, backend: 'rust', frames: media.frames, fps: media.fps, bytes: media.files.find((file) => file.kind === 'animation')!.bytes,
+      renderMs: media.render_ms, encodeMs: media.encode_ms, totalMs: media.total_ms, loopMs: media.loop_ms }
+    const results = this.results(mode, manifest, metrics, false)
+    await rename(join(directory, `${mode}-loop.mp4`), results.loop.path)
+    for (const still of results.stills) await rename(join(directory, `${mode}-${still.epoch}.jpg`), still.path)
+    const receipt = join(this.cacheDirectory, `${key}.sequence.json`)
+    await writeFile(`${receipt}.tmp`, JSON.stringify(metrics))
+    await rename(`${receipt}.tmp`, receipt)
+    console.info(JSON.stringify({ event: 'sequence-render', mode, generated: manifest.generated, ...metrics }))
+    return results
   }
 }

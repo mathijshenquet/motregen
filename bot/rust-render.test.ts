@@ -1,11 +1,11 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, expect, it, vi } from 'vitest'
 import * as rust from './rust-render.js'
 import { FRAME_PIXELS } from './config.js'
 import { holdFrames, sequencePlan } from './sequences.js'
-import { cacheKey, STILL_HOURS, stillEpoch, type LoopMode, type StillManifest } from './stills.js'
+import { cacheKey, LOOP_MODES, STILL_HOURS, stillEpoch, type LoopMode, type StillManifest } from './stills.js'
 import { rustRenderer } from './native-settings.js'
 import { NativeWeatherRenderer } from './native-render.js'
 import { NativeModesRenderer } from './native-modes-render.js'
@@ -26,6 +26,67 @@ async function media(directory: string, mode: LoopMode = 'weather'): Promise<rus
     fps: plan.fps, frames: plan.loopFrames, hold_frames: holdFrames(plan), loop_epochs: plan.epochs.slice(0, plan.loopFrames),
     render_ms: 18, encode_ms: 1, loop_ms: 5, total_ms: 10, files }
 }
+
+async function generation(directory: string): Promise<rust.RustGeneration> {
+  const modes = {} as Record<LoopMode, rust.RustMedia>
+  for (const { mode } of LOOP_MODES) modes[mode] = await media(directory, mode)
+  return { version: 1, mode: 'all', generated: manifest.generated, now: manifest.now, ...FRAME_PIXELS, total_ms: 12, shared_raster_hits: 8, modes }
+}
+
+it('shares one complete Rust generation across concurrent modes and persists all caches', async () => {
+  vi.stubEnv('MOTREGEN_RUST_RENDERER', 'weather,feels,wind')
+  const directory = await mkdtemp(join(tmpdir(), 'motregen-rust-all-'))
+  const renderer = new StillRenderer('https://fixture.test', directory)
+  const single = vi.spyOn(rust, 'runRustRenderer').mockRejectedValue(new Error('Unexpected single-mode render'))
+  const all = vi.spyOn(rust, 'runRustGeneration').mockImplementation((_manifest, directory) => generation(directory))
+  const weatherPrepare = vi.spyOn(NativeWeatherRenderer.prototype, 'prepareAssets').mockRejectedValue(new Error('Unexpected browser preparation'))
+  const modesPrepare = vi.spyOn(NativeModesRenderer.prototype, 'prepareAssets').mockRejectedValue(new Error('Unexpected browser preparation'))
+  try {
+    const loops = await Promise.all(LOOP_MODES.map(({ mode }) => renderer.render({ mode, hour: 'loop' }, manifest)))
+    expect(loops).toHaveLength(3)
+    for (const loop of loops) expect(loop).toMatchObject({ backend: 'rust', cached: false })
+    expect(all).toHaveBeenCalledOnce()
+    expect(single).not.toHaveBeenCalled()
+    expect(weatherPrepare).not.toHaveBeenCalled()
+    expect(modesPrepare).not.toHaveBeenCalled()
+    const second = new StillRenderer('https://fixture.test', directory)
+    try {
+      for (const { mode } of LOOP_MODES) {
+        expect(await second.render({ mode, hour: 'loop' }, manifest)).toMatchObject({ backend: 'rust', cached: true })
+        if (mode !== 'wind') for (const hour of STILL_HOURS) expect(await second.render({ mode, hour }, manifest)).toMatchObject({ kind: 'photo', cached: true })
+      }
+    } finally { await second.close() }
+    expect(all).toHaveBeenCalledOnce()
+  } finally { await renderer.close(); await rm(directory, { recursive: true, force: true }) }
+})
+
+it('retries a failed shared generation without publishing incomplete sequence receipts', async () => {
+  vi.stubEnv('MOTREGEN_RUST_RENDERER', 'weather,feels,wind')
+  const directory = await mkdtemp(join(tmpdir(), 'motregen-rust-retry-'))
+  const renderer = new StillRenderer('https://fixture.test', directory)
+  const all = vi.spyOn(rust, 'runRustGeneration').mockRejectedValueOnce(new Error('Incomplete matrix')).mockImplementation((_manifest, directory) => generation(directory))
+  try {
+    const failed = await Promise.allSettled(LOOP_MODES.map(({ mode }) => renderer.render({ mode, hour: 'loop' }, manifest)))
+    expect(failed.every((result) => result.status === 'rejected')).toBe(true)
+    expect(await readdir(directory)).toEqual([])
+    for (const loop of await Promise.all(LOOP_MODES.map(({ mode }) => renderer.render({ mode, hour: 'loop' }, manifest)))) expect(loop.backend).toBe('rust')
+    expect(all).toHaveBeenCalledTimes(2)
+  } finally { await renderer.close(); await rm(directory, { recursive: true, force: true }) }
+})
+
+it('validates every mode before accepting a shared Rust generation', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'motregen-rust-all-receipt-'))
+  try {
+    const valid = await generation(directory)
+    await rust.validateRustGeneration(valid, manifest, directory)
+    for (const mutation of [{ generated: 'stale' }, { now: 'stale' }, { mode: 'weather' }, { total_ms: -1 }, { shared_raster_hits: 0.5 }, { width: 1 },
+      { modes: { weather: valid.modes.weather, feels: valid.modes.feels } },
+      { modes: { ...valid.modes, wind: { ...valid.modes.wind, frames: 1 } } },
+    ]) await expect(rust.validateRustGeneration({ ...valid, ...mutation } as rust.RustGeneration, manifest, directory)).rejects.toThrow()
+    await rm(join(directory, valid.modes.feels.files[1]!.file))
+    await expect(rust.validateRustGeneration(valid, manifest, directory)).rejects.toThrow()
+  } finally { await rm(directory, { recursive: true, force: true }) }
+})
 
 it('defaults to the existing renderer and selects Rust independently per mode', () => {
   expect(rustRenderer('weather', {})).toBe(false)

@@ -11,11 +11,15 @@ rustPlatform.buildRustPackage {
   cargoBuildFlags = [ "-p" "render" ];
   cargoTestFlags = [ "-p" "render-core" "-p" "render" ];
   nativeBuildInputs = [ makeWrapper ];
+  postInstall = ''
+    mkdir -p "$out/share/motregen-render/basemaps"
+    cp crates/render/assets/basemaps/* "$out/share/motregen-render/basemaps/"
+  '';
   postFixup = ''
     wrapProgram "$out/bin/motregen-render" --prefix PATH : ${lib.makeBinPath [ ffmpeg ]}
   '';
   meta = {
-    description = "Rust renderer for national rain loops and stills";
+    description = "Rust renderer for national rain, wind and temperature media";
     license = lib.licenses.mit;
     platforms = lib.platforms.linux;
     mainProgram = "motregen-render";
