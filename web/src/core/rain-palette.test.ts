@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import type { MapTheme } from './map-theme'
 import {
-  buildRainColormap, colourOverGround, DEFAULT_RAIN_LOOK, FOCUS_MODE_RAIN_BLEND, GROUND_COLOURS, groundContrast, lightness, loadRainLookChoice,
+  buildRainColormap, colourOverGround, DEFAULT_RAIN_LOOK, GROUND_COLOURS, groundContrast, lightness, loadRainLookChoice,
   ONSET_INDEX, PRE_U77_RAIN_LOOK, RAIN_BLENDS, RAIN_CONTRAST_RANGE, RAIN_LOOK_STORAGE_KEYS, RAIN_PALETTES, rainOnsetAlpha, rainOutline, sanitizeRainContrast,
   rainRateIndex, rainUsesStraightAlpha, type Ground, type RainBlendName, type RainLook, type Rgb,
 } from './rain-palette'
@@ -41,11 +41,6 @@ describe('the product rain table', () => {
         expect(Array.from(colormap.subarray(index * 4, index * 4 + 4)), `${theme} ${rate} mm/u`).toEqual(rgba)
       }
     }
-  })
-
-  it('keeps Wind and Lucht on the blend from before U77', () => {
-    expect(FOCUS_MODE_RAIN_BLEND).toBe('huidig')
-    expect(rainUsesStraightAlpha(FOCUS_MODE_RAIN_BLEND)).toBe(false)
   })
 
   // De tabel zoals `rainColormap()` hem vóór U77 bouwde, letterlijk overgenomen. Onder ?dev is dat palet `huidig`

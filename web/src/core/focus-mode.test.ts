@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_WIND_TUNING } from './wind-layer'
 import { contextOpacity, DEFAULT_FOCUS_MODE, easeOutCubic, FocusMode, focusValue, rainPresentation, retargetFocus, windFocusIntensity, type FocusKind } from './focus-mode'
+import { DEFAULT_FOCUS_RAIN_VARIANT, FOCUS_RAIN_VARIANTS, focusRainUsesWeatherBlend, PRE_U77_FOCUS_RAIN_VARIANT } from './rain-presentation'
 
 describe('focus tween math', () => {
   it('eases out and clamps', () => {
@@ -162,15 +163,58 @@ describe('rain presentation (U62)', () => {
     }
   })
 
-  it('multiplies the rain with the light map in wind instead of fading it', () => {
-    expect(rainPresentation({ ...base, windFocus: 1 })).toEqual({ opacity: 0.9, saturation: 1, brightness: 1, multiply: true })
-    // De mengmodus wisselt halverwege de focus-tween.
-    expect(rainPresentation({ ...base, windFocus: 0.4 }).multiply).toBe(false)
-    expect(rainPresentation({ ...base, windFocus: 0.5 }).multiply).toBe(true)
+  it('mutes the rain in wind by day instead of multiplying it (U77)', () => {
+    const wind = rainPresentation({ ...base, windFocus: 1 })
+    expect(wind.opacity).toBeCloseTo(0.7)
+    expect(wind.saturation).toBeCloseTo(0.85)
+    expect(wind.brightness).toBe(1)
+    // Dempen loopt traploos mee met de focus-tween; er slaat onderweg geen mengmodus om.
+    for (const windFocus of [0.4, 0.5, 1]) expect(rainPresentation({ ...base, windFocus }).multiply).toBe(false)
   })
 
   it('multiplies the rain with the white cloud veil by day', () => {
     expect(rainPresentation({ ...base, airFocus: 1 })).toEqual({ opacity: 1, saturation: 1, brightness: 1, multiply: true })
+    // De mengmodus wisselt halverwege de focus-tween.
+    expect(rainPresentation({ ...base, airFocus: 0.4 }).multiply).toBe(false)
+    expect(rainPresentation({ ...base, airFocus: 0.5 }).multiply).toBe(true)
+  })
+
+  it('draws the product when no variant is given, with the blend of Weer in every mode (U77)', () => {
+    expect(DEFAULT_FOCUS_RAIN_VARIANT).toBe('per-modus')
+    expect(focusRainUsesWeatherBlend(DEFAULT_FOCUS_RAIN_VARIANT)).toBe(true)
+    for (const night of [false, true]) for (const focus of [{ windFocus: 1 }, { airFocus: 1 }, { windFocus: 0.4, airFocus: 0.2 }]) {
+      expect(rainPresentation({ ...base, ...focus, night })).toEqual(rainPresentation({ ...base, ...focus, night, variant: 'per-modus' }))
+    }
+  })
+
+  it('keeps the picture from before U77 for the bot: multiplied by day in wind and lucht, on the old blend', () => {
+    expect(focusRainUsesWeatherBlend(PRE_U77_FOCUS_RAIN_VARIANT)).toBe(false)
+    const before = { ...base, variant: PRE_U77_FOCUS_RAIN_VARIANT }
+    expect(rainPresentation({ ...before, windFocus: 1 })).toEqual({ opacity: 0.9, saturation: 1, brightness: 1, multiply: true })
+    expect(rainPresentation({ ...before, windFocus: 0.4 }).multiply).toBe(false)
+    expect(rainPresentation({ ...before, airFocus: 1 })).toEqual({ opacity: 1, saturation: 1, brightness: 1, multiply: true })
+  })
+
+  it('offers comparison variants for Wind and Lucht that never change Weer or the temperature fade (U77)', () => {
+    for (const variant of FOCUS_RAIN_VARIANTS) for (const night of [false, true]) {
+      expect(rainPresentation({ ...base, night, variant })).toEqual({ opacity: 1, saturation: 1, brightness: 1, multiply: false })
+      expect(rainPresentation({ ...base, night, variant, temperatureFocus: 1 }).opacity).toBe(0)
+    }
+    // Als-weer treedt nergens terug: de referentie zonder sprong.
+    expect(rainPresentation({ ...base, windFocus: 1, variant: 'als-weer' })).toEqual({ opacity: 1, saturation: 1, brightness: 1, multiply: false })
+    // Gedempt: Wind als het product, en ook Lucht doorzichtiger en grijzer in plaats van vermenigvuldigd.
+    expect(rainPresentation({ ...base, windFocus: 1, variant: 'gedempt' })).toEqual(rainPresentation({ ...base, windFocus: 1 }))
+    const mutedAir = rainPresentation({ ...base, airFocus: 1, variant: 'gedempt' })
+    expect(mutedAir.multiply).toBe(false)
+    expect(mutedAir.opacity).toBeCloseTo(0.65)
+    expect(mutedAir.saturation).toBeCloseTo(0.85)
+    // Vermenigvuldigd: Lucht als het product, en ook Wind vermenigvuldigd op 0,9.
+    expect(rainPresentation({ ...base, airFocus: 1, variant: 'vermenigvuldigd' })).toEqual(rainPresentation({ ...base, airFocus: 1 }))
+    expect(rainPresentation({ ...base, windFocus: 1, variant: 'vermenigvuldigd' })).toEqual({ opacity: 0.9, saturation: 1, brightness: 1, multiply: true })
+    // 's Nachts dempt elke stand behalve als-weer met dezelfde waarden.
+    for (const variant of ['huidig', 'gedempt', 'vermenigvuldigd'] as const) for (const focus of [{ windFocus: 1 }, { airFocus: 1 }]) {
+      expect(rainPresentation({ ...base, ...focus, night: true, variant })).toEqual(rainPresentation({ ...base, ...focus, night: true }))
+    }
   })
 
   it('mutes the rain at night, where multiplying would make it disappear on the dark map', () => {

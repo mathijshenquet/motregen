@@ -13,7 +13,7 @@ import { NativeMaps, type NativeTheme } from './native-map.js'
 import { NativeRainData, RainCompositor, rainTheme } from './native-rain.js'
 import { drawTemperatureLabels } from './native-labels.js'
 import { NativeOverlay } from './native-overlay.js'
-import { rainPresentation } from '../web/src/core/rain-presentation.js'
+import { PRE_U77_FOCUS_RAIN_VARIANT, rainPresentation } from '../web/src/core/rain-presentation.js'
 import { NATIVE_VIEW } from './native-view.js'
 import { NativeTemperatureData, type RasterGeometry } from './native-temperature.js'
 import { shortRings } from '../web/src/core/isoline-contours.js'
@@ -114,7 +114,7 @@ export class NativeModesRenderer {
           await pressureMarks!.draw(rgb, slice.grid, await temperature.field(pressureBlend.left), await temperature.field(pressureBlend.right), pressureBlend.mix, theme, slice.opacity)
           if (compositorTheme !== theme) {
             await rainCompositor?.close()
-            rainCompositor = new RainCompositor(firstRain.grid, FRAME_PIXELS, NATIVE_VIEW, rainPresentation({ temperatureFocus: 0, windFocus: 1, airFocus: 0, night: theme === 'dark' }))
+            rainCompositor = new RainCompositor(firstRain.grid, FRAME_PIXELS, NATIVE_VIEW, rainPresentation({ temperatureFocus: 0, windFocus: 1, airFocus: 0, night: theme === 'dark', variant: PRE_U77_FOCUS_RAIN_VARIANT }))
             compositorTheme = theme
           }
           rgb = await rainCompositor!.composeFast(rgb, await rain.frame(epoch), theme === 'dark')

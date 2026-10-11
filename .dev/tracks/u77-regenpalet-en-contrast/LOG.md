@@ -562,3 +562,82 @@ aparte histogram- of scrubberspec; cloud-section, freshness, sky-window en table
 Preview 4320 serveert deze build (`index-B_Cyi_As.js`).
 Niet gedaan: de volledige e2e-suite in drie profielen (dagelijks op main), `perf.spec`, `telegram.spec`, de mobiele
 profielen; de frametijd van de nieuwe standaard (alleen een andere tabel en mengfunctie, de shader is gelijk).
+
+## 2026-10-11 09:42 — vervolg na de merge (orkestrator 09:30): de sprong tussen Weer en Wind/Lucht
+
+U77 staat op main (`06ed219`) en op prod. Vervolg in dezelfde pane: Wind en Lucht consistent maken met de nieuwe
+standaard, zonder de α²-optelling, met behoud van wat MIP-24 daar bedoelde (regen ondergeschikt aan de windstreepjes
+resp. de lucht). origin/main gemerged (alleen de LOG van de orkestrator). Niets vastgezet.
+
+### `?dev` › Regen › "Regen in Wind/Lucht" (eigenaar U77, vervalt 2026-10-17; sleutel `dev-regen-wind-lucht`)
+| stand | menging van de canvas | overdag | 's nachts |
+| --- | --- | --- | --- |
+| `huidig` (standaard) | vóór U77 (α², geen drempel) | vermenigvuldigd; Wind dekking 0,9 | gedempt (Wind 0,8 · Lucht 0,7; verzadiging 0,7) |
+| `als-weer` | als Weer (alfa-over, drempel-zacht) | precies als Weer, treedt niet terug | idem |
+| `gedempt` | als Weer | doorzichtiger: Wind 0,7 · Lucht 0,65; verzadiging 0,85 | de nachtwaarden van het product |
+| `vermenigvuldigd` | als Weer | vermenigvuldigd; Wind 0,9 (de getallen van het product) | de nachtwaarden van het product |
+Code: `FOCUS_RAIN_VARIANTS` en `rainPresentation(…, variant)` in `web/src/core/rain-presentation.ts`; zonder
+argument geeft `rainPresentation` het product, dus de bot (die hem voor Wind aanroept) en de app zonder `?dev` zijn
+ongewijzigd (unit-test). De shader is niet aangeraakt; frametijd niet gemeten.
+
+### Beelden (`beelden/wind-lucht-{dag-vast,nacht-vast}-{1280,390}.webp`; rig `rig/mode-shots.ts`)
+Rijen: de vier standen; kolommen: Weer · Wind · Lucht. Radar 07:35, vast licht en vast donker thema, één pagina per
+beeld (stand via de dev-knop, modus via de tabelkop). Alle vier zelf bekeken.
+- `huidig`, dag: de sprong. In Wind en Lucht heeft elke bui een witte zoom en is het blauw flets; boven de sluier in
+  Lucht is de zoom een lichte rand om elk buitje.
+- `als-weer`: geen sprong, maar de regen treedt ook niet terug. In Wind liggen de streepjes en de isobaren onder
+  dichte blauwe vlakken; in Lucht dekt de regen de sluier af. Dit is de referentie, niet wat MIP-24 bedoelde.
+- `gedempt`, dag: geen witte zoom, en de regen is duidelijk tweede laag. In Wind lees je plaatsnamen, grenzen en
+  de isobaar door de buien heen; in Lucht liggen ze als een zachte blauwe waas op de sluier. Prijs: de violette en
+  rode kernen verbleken mee (zware regen valt in Wind en Lucht minder op), en het blauw is iets grijzer dan in Weer.
+  Op verzadiging 0,7 (de eerste poging, het nachtgetal van het product) werd het vuilgrijs; nu 0,85.
+- `vermenigvuldigd`, dag: geen witte zoom, kleur vol en zelfs iets donkerder dan in Weer (vermenigvuldigen maakt de
+  kaart onder de regen donkerder). De regen treedt nauwelijks terug: Wind en Lucht lijken op Weer met de extra laag
+  erbij. De kleinste sprong, maar de regen blijft de hoofdrol houden.
+- Nacht: `gedempt` en `vermenigvuldigd` zijn hetzelfde beeld (beide de nachtwaarden van het product) en lijken sterk
+  op `huidig`: iets scherpere randen, geen wit om weg te halen. 's Nachts was de sprong al klein. `als-weer` is ook
+  hier te fel voor Wind en Lucht.
+- 390 px: hetzelfde beeld als 1280; bij `huidig` is de witte zoom op de telefoon het duidelijkst (losse buitjes
+  boven België zijn daar vooral wit).
+
+### Advies
+**`gedempt`.** Het is de enige stand die beide dingen doet: de witte zoom is weg én de regen is in Wind en Lucht
+ondergeschikt, zoals MIP-24 bedoelde. Vindt de PO dat zware buien dan te veel wegvallen, dan `vermenigvuldigd`
+(regen blijft vol, sprong het kleinst) of `gedempt` met een hogere dekking; de dekkingen 0,7 en 0,65 zijn mijn
+keuze, twee getallen in `rainPresentation`.
+Niet gezien, alleen uit de code: de overgang zelf. Bij `huidig` wisselt de tabel halverwege de focus-tween (bij 0,5)
+van menging, bij `vermenigvuldigd` slaat op dat punt het vermenigvuldigen aan; beide kunnen als een tik te zien
+zijn. Bij `gedempt` en `als-weer` verandert alleen de dekking, traploos. Dat moet de PO schakelend beoordelen.
+Niet gedaan: HARMONIE-tijden, afspelen in Wind/Lucht, en de bot (blijft op het beeld van vóór U77).
+
+### Gate (web/ en bot/), 09:40, op de met main gemergde branch
+`pnpm typecheck` 0 · `pnpm test` 0 (84 bestanden, 569 tests) · `pnpm build` 0 ·
+`MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts e2e/focus.spec.ts e2e/cloud-section.spec.ts --project desktop` 0
+(16 groen, 2 overgeslagen: de touch-tests in `focus.spec.ts`). `bot/`: `pnpm typecheck` 0 · `pnpm test` 0 (116 tests).
+Preview 4320 serveert deze build (`index-DgBvPz4B.js`).
+
+## 2026-10-11 12:26 — PO-keuze Wind en Lucht vastgezet als standaard
+
+PO (rechtstreeks in de pane): "doe maar vermenidvuldigd in lucht en doe maar gedempt in regen". Gelezen als: Lucht
+vermenigvuldigd, Wind gedempt ("regen" = de andere modus van de knop "Regen in Wind/Lucht"; Weer treedt niet terug).
+Die lezing is van mij en staat in de melding, zodat de PO hem kan corrigeren.
+
+- Nieuwe stand `per-modus` = het product (`DEFAULT_FOCUS_RAIN_VARIANT`): overdag Wind gedempt (dekking 0,7,
+  verzadiging 0,85, niet vermenigvuldigd), Lucht vermenigvuldigd met de sluier (dekking 1); 's nachts de waarden van
+  U62, ongewijzigd. Palet en menging (echte alfa-over, drempel-zacht) gelden nu in elke modus; `FOCUS_MODE_RAIN_BLEND`
+  is weg, alleen de vergelijkingsstand `huidig` zet Wind/Lucht terug op de menging van vóór U77.
+- De knop blijft tot 2026-10-17 met `huidig`, `als-weer`, `gedempt`, `vermenigvuldigd` ter vergelijking.
+- Bot: `native-modes-render.ts` vraagt Wind nu uitdrukkelijk met `PRE_U77_FOCUS_RAIN_VARIANT` (`huidig`), zodat het
+  botbeeld niet verandert (staande afspraak: bot op het oude beeld tot de Rust-renderer). Zonder die regel zou de bot
+  Wind overdag op 0,7 en onvermenigvuldigd tekenen bovenop zijn α²-compositor.
+- Beelden `beelden/wind-lucht-keuze-{dag-vast,nacht-vast}-{1280,390}.webp` (rij 1 per-modus, rij 2 huidig; kolommen
+  Weer · Wind · Lucht), alle vier bekeken. Dag: geen witte zoom meer in Wind en Lucht; Wind duidelijk tweede laag
+  (isobaar 1008 en plaatsnamen leesbaar door de buien, rode kernen bleker), Lucht vol en iets donkerder dan Weer.
+  Nacht: per-modus en huidig vrijwel gelijk, randen iets scherper. De rig vroeg 07:35 maar het cursorlabel toont
+  09:25: de gevraagde tijd lag buiten het venster en is naar de rand geklemd; alle cellen tonen wel hetzelfde frame.
+- Niet gezien: de overgang schakelend (in Lucht slaat het vermenigvuldigen bij focus 0,5 aan, zoals vóór U77; in Wind
+  nu alleen traploze dekking), Wind → Lucht rechtstreeks, HARMONIE-tijden, afspelen.
+- Gate, alles exit 0: web `pnpm typecheck`, `pnpm test` (84 bestanden, 569 tests), `pnpm build`;
+  `MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts
+  e2e/focus.spec.ts e2e/cloud-section.spec.ts --project desktop` (16 groen, 2 overgeslagen touch-tests); bot
+  `pnpm typecheck`, `pnpm test` (116 tests). Preview 4320 serveert deze build (index-DGKXlIOW.js).

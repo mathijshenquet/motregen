@@ -49,7 +49,8 @@ import { RainLayer, type RainFilterPass } from './core/rain-layer'
 import { DEFAULT_RAIN_FIELD_TUNING, loadRainFieldTuning, RAIN_FIELD_STORAGE_KEYS, RAIN_FILTER_MEASURE_STORAGE_KEY, rainSampling, rainWarpLimit, type RainFieldTuning } from './core/rain-smoothing'
 import { LayerOverlay } from './core/overlay-canvas'
 import { rainColormap } from './core/rain-chart'
-import { DEFAULT_RAIN_LOOK, FOCUS_MODE_RAIN_BLEND, loadRainLookChoice, RAIN_LOOK_STORAGE_KEYS, rainOutline, rainUsesStraightAlpha, type RainLook, type RainLookChoice } from './core/rain-palette'
+import { DEFAULT_FOCUS_RAIN_VARIANT, FOCUS_RAIN_VARIANT_STORAGE_KEY, focusRainUsesWeatherBlend, loadFocusRainVariant } from './core/rain-presentation'
+import { DEFAULT_RAIN_LOOK, loadRainLookChoice, PRE_U77_RAIN_LOOK, RAIN_LOOK_STORAGE_KEYS, rainOutline, rainUsesStraightAlpha, type RainLook, type RainLookChoice } from './core/rain-palette'
 import { grantedStartFix, loadLastLocation, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastLocation, storeLastSavedPlaceId, storeMapView, type StartLocation } from './core/location-memory'
 import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGestures } from './core/pin-navigation'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
@@ -509,6 +510,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let lastViewportHeight = window.visualViewport?.height ?? window.innerHeight
   const [rainFieldTuning, setRainFieldTuning] = createSignal(devMode ? loadRainFieldTuning() : DEFAULT_RAIN_FIELD_TUNING)
   const [rainLookChoice, setRainLookChoice] = createSignal<RainLookChoice>(devMode ? loadRainLookChoice() : DEFAULT_RAIN_LOOK)
+  const [focusRainVariant, setFocusRainVariant] = createSignal(devMode ? loadFocusRainVariant() : DEFAULT_FOCUS_RAIN_VARIANT)
   const [viewportDiagnose, setViewportDiagnose] = createSignal(devMode && localStorage.getItem(VIEWPORT_DIAGNOSE_STORAGE_KEY) === 'aan')
   function applyTableScrollOpen(open: boolean): void {
     if (tableScrollOpen() === open) return
@@ -2966,6 +2968,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setViewportDiagnose(false)
       showRainFieldTuning(DEFAULT_RAIN_FIELD_TUNING)
       setRainLookChoice(DEFAULT_RAIN_LOOK)
+      setFocusRainVariant(DEFAULT_FOCUS_RAIN_VARIANT)
       focusMode.pin(DEFAULT_FOCUS_MODE)
       setFocusPinned(DEFAULT_FOCUS_MODE)
     })
@@ -3220,16 +3223,17 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     for (const set of isolineSets) set.labels?.setTheme(surface)
   })
   const rainLook = createMemo(() => rainPresentation({
-    temperatureFocus: focus(), windFocus: windFocus(), airFocus: airFocus(), night: mapIsNight(),
+    temperatureFocus: focus(), windFocus: windFocus(), airFocus: airFocus(), night: mapIsNight(), variant: focusRainVariant(),
   }), undefined, { equals: sameFields })
   // Lucht-focus en dag/nacht lopen niet via applyFocus.
   createEffect(() => { rainLook(); if (map) { applyRainPresentation(); map.triggerRepaint() } })
-  // Palet en kaartthema gelden in elke modus. De menging is voor Weer gekozen (U77); Wind en Lucht houden de
-  // menging die de PO in U62 koos.
+  // Palet, kaartthema en menging gelden in elke modus (PO 2026-10-11, U77). Alleen de vergelijkingsstand `huidig`
+  // van "Regen in Wind/Lucht" zet Wind en Lucht terug op de menging van vóór U77.
   const rainColourLook = createMemo((): RainLook => {
     const choice = rainLookChoice()
     const weatherMode = windFocus() < 0.5 && airFocus() < 0.5
-    return { palette: choice.palette, blend: weatherMode ? choice.blend : FOCUS_MODE_RAIN_BLEND, theme: mapSurfaceTheme(), contrast: choice.contrast }
+    const weatherBlend = weatherMode || focusRainUsesWeatherBlend(focusRainVariant())
+    return { palette: choice.palette, blend: weatherBlend ? choice.blend : PRE_U77_RAIN_LOOK.blend, theme: mapSurfaceTheme(), contrast: choice.contrast }
   }, undefined, { equals: sameFields })
   createEffect(() => { rainColourLook(); applyRainColours() })
   let basemapBlend: BlendTarget[] | undefined
@@ -3524,7 +3528,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       class="map-shell"
       classList={{ 'sky-day': chromeSky()?.daylight === true, 'sky-night': chromeSky()?.daylight === false }}
       style={chromeSky() ? { '--day-overcast': chromeSky()!.overcast.toFixed(2) } : undefined}
-      aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainLook().opacity.toFixed(2)} data-rain-blend={rainLook().multiply ? 'multiply' : 'normal'} data-rain-look={`${rainColourLook().palette}/${rainColourLook().blend}`} data-rain-contrast={rainColourLook().contrast} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
+      aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainLook().opacity.toFixed(2)} data-rain-blend={rainLook().multiply ? 'multiply' : 'normal'} data-rain-look={`${rainColourLook().palette}/${rainColourLook().blend}`} data-rain-contrast={rainColourLook().contrast} data-rain-focus-variant={focusRainVariant()} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
       <div ref={mapElement} class="map" />
       <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() && firstMapImageShown() }} aria-hidden={mapReady() && firstMapImageShown()}>
         <div class="map-splash-veil" />
@@ -3569,6 +3573,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             onRainFieldTuning={changeRainFieldTuning}
             rainLook={rainLookChoice()}
             onRainLook={changeRainLookChoice}
+            focusRainVariant={focusRainVariant()}
+            onFocusRainVariant={(variant) => { setFocusRainVariant(variant); localStorage.setItem(FOCUS_RAIN_VARIANT_STORAGE_KEY, variant) }}
             viewportDiagnose={viewportDiagnose()}
             onViewportDiagnose={(enabled) => { setViewportDiagnose(enabled); localStorage.setItem(VIEWPORT_DIAGNOSE_STORAGE_KEY, enabled ? 'aan' : 'uit') }}
             perfVisible={perfVisible()}
