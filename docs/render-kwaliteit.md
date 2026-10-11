@@ -1,18 +1,112 @@
-# Filmkwaliteit — meetbewijs U80 ronde 3
+# Filmkwaliteit — meetbewijs U80 ronde 3 v2
 
-Standaard: **ultrafast, CRF 18, High met `8x8dct=1`, yuv420p, faststart**, met een harde veiligheidsgrens
-van **20.000.000 bytes**. Preset, CRF en grens staan in één gedeeld JSON-bestand, met dezelfde omgevingsoverschrijvingen
-in Rust en Node. Geen maxrate, bufsize, doelbitrate of herencode. Dit vervangt de vroegere ~2,5 MB-doelgrootte.
+Standaard: **veryfast / CRF 18 / H.264 High / yuv420p / faststart**, met een veiligheidsgrens van
+**20.000.000 bytes**. Rust en Node lezen hetzelfde `crates/render/assets/video-encoding.json`:
+preset, CRF, grens, VBV-budgetfactor 0,9 en buffertijd 2 seconden. De bestaande omgevingsoverschrijvingen
+voor preset, CRF en grens werken in beide routes. Alleen ultrafast krijgt expliciet `8x8dct=1`; veryfast
+levert vanzelf High. Loopcaches omvatten de instellingen; JPEG-cache en beeldplanning blijven gelijk.
 
-Meetdata: volledige lokale snapshot 2026-10-11, generated=2026-10-11T06:40:24Z, now=2026-10-11T06:35:00Z.
-960×1272 pixels; wind/temperatuur 169 bewegende frames + 10 holdframes bij 10 fps; regen 109 + 5 bij 9/2 fps.
-Alle encodes sequentieel onder `systemd-run --user --wait -p CPUQuota=200% taskset -c 0,1`, x264 één thread.
-Encodeertijd is gemeten wandtijd inclusief het starten/wachten op de unit; elke encoder synchroon exit 0.
+Het plafond is `maxrate = floor(0,9 × maxBytes × 8 / filmduur)` bits/s, met `bufsize = 2 × maxrate` bits.
+De filmduur omvat de holdframes en gebruikt de oorspronkelijke beeldsnelheid, inclusief regen op 9/2 fps.
+Bij 20 MB is dat 8.044.692 bits/s voor wind/temperatuur (17,9 s) en 5.684.210 bits/s voor regen (25⅓ s).
+CRF bepaalt de normale kwaliteit; VBV begrenst drukke uitzonderingen. De harde bestandsgroottecontrole
+blijft het laatste vangnet. Er is geen herencode.
 
-SSIM vergelijkt gedecodeerde video met **exacte ongecomprimeerde RGB-frames vóór ffmpeg**. Beide worden voor SSIM naar
-yuv444p geconverteerd: het verlies door 4:2:0 blijft in de vergelijking zichtbaar. Alleen bewegende frames tellen mee.
-De RGB-stromen zijn met een lokale ffmpeg-tee-wrapper vastgelegd uit de oorspronkelijke store-renderer; JPEGs zijn geen referentie.
-Deze extra schrijf-I/O telt niet mee in de generatie- of encodeertijden. MB hieronder is decimaal.
+## Keuze en volledige generatie
+
+De PM mat op de productie-VM naast de draaiende bot: ultrafast/18 29,4 s en 373 MB piek,
+veryfast/18 36,3 s en 568 MB piek, met overlap van een botgeneratie. Wind was respectievelijk 15,8 en 7,5 MB;
+temperatuur/regen bij veryfast 5,4/3,9 MB. Faster/18 liep tegen 600 MB aan en werd afgebroken wegens OOM.
+De PM ziet op 100%-uitsnedes geen verschil tussen ultrafast/18 en veryfast/18. Veryfast past ruim binnen
+het circa 45 s-budget en houdt veel meer groeimarge onder 20 MB. De gemeten host/VM-factor is ongeveer 2,75.
+Deze VM-cijfers zijn door de PM aangeleverd en dateren van vóór de VBV-wijziging.
+
+De volledige offline-generatie met de **gebouwde Node- en Rust-storepakketten**, inclusief manifestlezen,
+één Rust-all-proces, cache-import, drie films en 170 JPEGs, slaagt synchroon: **15,302 s wall / 28,904 s CPU /
+584 MiB cgroup-piek**, nul swap. CPUQuota=200%, taskset op kernen 0 en 1, MemoryMax=1200M zoals de huidige
+gecombineerde bot-unit. Cachehergebruik is ook met een nieuwe StillRenderer gecontroleerd. Geen browser of netwerk.
+Factor 2,75 voorspelt **42,1 s op de VM**; dit is een schatting. Er is hier geen productie-VM gestart.
+
+| Modus | Nieuwe storefilm (bytes) | MB | SSIM | SSIM oud (~2,5 MB) |
+|---|---:|---:|---:|---:|
+| Wind | 8.407.923 | 8,408 | 0,982210 | 0,916000 |
+| Temperatuur | 4.981.131 | 4,981 | 0,988763 | 0,955658 |
+| Regen | 4.785.525 | 4,786 | 0,985672 | 0,948199 |
+
+Zes native 480×360-uitsnedes tonen drukke regen, windstreepjes, labels, temperatuurvlakken en dag/nacht.
+Op 100% zijn geen storende extra blokken, banding of vegen zichtbaar; vlakken en contouren uit de RGB-bron
+blijven herkenbaar. De films zijn niet verliesloos. De pagina bevat de drie nieuwe **storefilms** en vóór/na/bron.
+
+## Bewijs voor het plafond
+
+Meetdata: volledige snapshot 2026-10-11, generated=2026-10-11T06:40:24Z, now=2026-10-11T06:35:00Z.
+960×1272; wind/temperatuur 169 bewegende frames + 10 holdframes bij 10 fps, regen 109 + 5 bij 9/2 fps.
+Alle encodes sequentieel onder CPUQuota=200%, taskset 0,1, één x264-thread; synchroon exit 0.
+Encodeertijd omvat het starten/wachten op de unit en staat exact in de reviewtabel/receipts.
+SSIM vergelijkt gedecodeerde video met **exacte RGB-frames vóór ffmpeg**, beide geconverteerd naar yuv444p
+zodat 4:2:0-verlies meetelt. Alleen bewegende frames tellen mee. JPEGs zijn geen referentie.
+
+| Modus | Zonder VBV (bytes) | 20 MB VBV (bytes) | Verschil (bytes) | SSIM zonder/met | 2 MB VBV (bytes) | SSIM bij 2 MB |
+|---|---:|---:|---:|---:|---:|---:|
+| Wind | 8.408.158 | 8.407.922 | −236 | 0,982210 / 0,982210 | 1.852.205 | 0,946306 |
+| Temperatuur | 4.981.569 | 4.981.130 | −439 | 0,988763 / 0,988763 | 1.849.357 | 0,975121 |
+| Regen | 4.785.449 | 4.785.524 | +75 | 0,985672 / 0,985672 | 1.791.360 | 0,972192 |
+
+De normale films passen al zonder VBV binnen het berekende bufferbudget: de minimale vulling in een
+packet/DTS-simulatie met initiële vulling 90% is 13.008.958 / 13.078.726 / 8.360.290 bits, telkens positief.
+Het plafond vraagt dus geen vermindering om deze dag te laten passen. SSIM blijft exact gelijk op de zes
+gepubliceerde decimalen; het grootteverschil blijft onder 0,01%. **De bestanden, H.264-payload en gedecodeerde
+pixels zijn niet bytegelijk**: inschakelen van x264-VBV verandert ook kleine coderingskeuzes. Dat verschil is
+werkelijk gemeten, niet alleen een andere SEI-header. De test bewaart beide hashes en presenteert geen
+bitidentiteit als bewijs. De losse meetfilms zijn door container-metadata elk één byte kleiner dan de storefilms.
+
+Daarnaast slaagt de **echte store-renderer met --mode all en MOTREGEN_VIDEO_MAX_BYTES=2000000**:
+wind 1.852.206, temperatuur 1.849.358, regen 1.791.361 bytes; alle drie onder de grens, plus 170 JPEGs.
+Deze volledige generatie: 12,793 s wall / 24,751 s CPU / 587,9 MiB cgroup-piek, onder MemoryMax=600M en
+CPUQuota=200%. Zo is ook de Rust-aanroep, inclusief hold, werkelijk met een bindend plafond gedraaid.
+
+## Reproduceren en gate
+
+Met vastgelegde RGB-stromen in reference/ en before/media.json onder QUALITY_DIR:
+
+```bash
+export MOTREGEN_QUALITY_FFMPEG="$(command -v ffmpeg)"
+pnpm -C bot exec tsx ../tools/verify-video-vbv.mts /absoluut/pad/QUALITY_DIR
+node tools/measure-video-quality.mjs QUALITY_DIR
+node tools/measure-video-quality.mjs QUALITY_DIR --high
+```
+
+De VBV-proef gebruikt de echte Node-encoderargumenten, controleert SSIM/grootte, het bufferbudget van de
+onbegrensde film en de geforceerde 2 MB-grens, en bewaart de volledige gedecodeerde-frame- en payloadhashes.
+De twee oude meetcommando's reproduceren onderstaande matrix zonder VBV en de ultrafast-High-proef.
+MB is overal decimaal; geheugen in MiB is de hele cgroup, inclusief kindprocessen.
+
+Gatecommando's (synchroon uitvoeren):
+
+```bash
+cargo test -p render-core -p render
+cargo clippy --all-targets -- -D warnings
+cargo fmt --check
+pnpm -C bot typecheck
+pnpm -C bot test
+pnpm -C bot build
+nix flake check --no-build
+nix build .#motregen-render .#motregen-bot --no-link --print-out-paths
+nix build .#checks.x86_64-linux.nixos-vm --no-link --print-out-paths -L
+```
+
+De VM-test bouwt en draait beide lokale NixOS-testnodes. De Rust-node gebruikt de standaard drie modi,
+de echte Node→Rust→ffmpeg-keten en alle serviceConfig-hardening uit productie, mechanisch op gelijkheid
+gecontroleerd behalve de offline test-ExecStart. Dit is geen proef op de productie-VM.
+Receipts en de append-only LOG blijven genegeerde lokale werkbestanden.
+
+[Beelden, films en volledige meettabel](http://ageq-dev2:4397/review/quality/index.html).
+Geen Telegram-uploads, pollerstarts of prod-acties.
+
+## Oorspronkelijke 27-variantenmatrix zonder VBV
+
+De ultrafast-rijen hieronder waren Constrained Baseline; de aparte High-proef gebruikte 8x8dct=1.
+De huidige standaard is veryfast/18 met het hierboven gemeten VBV-plafond.
 
 | Modus | Preset | CRF | MB | Encoderen (s) | SSIM | Profiel |
 |---|---|---:|---:|---:|---:|---|
@@ -44,52 +138,3 @@ Deze extra schrijf-I/O telt niet mee in de generatie- of encodeertijden. MB hier
 | Regen | medium | 18 | 4.845 | 5.452 | 0.987840 | High |
 | Regen | medium | 20 | 3.973 | 4.320 | 0.986746 | High |
 
-`-profile:v high` alleen activeert bij ultrafast geen High-gereedschap: ffprobe blijft Constrained Baseline melden.
-Daarom is de gekozen variant nogmaals gemeten met `8x8dct=1`; ffprobe bevestigt nu werkelijk High.
-
-| Modus | Gekozen MB | Encoderen (s) | SSIM nieuw | SSIM oud (~2,5 MB) |
-|---|---:|---:|---:|---:|
-| Wind | 17,020 | 1,212 | 0,982027 | 0,916000 |
-| Temperatuur | 12,439 | 1,133 | 0,990831 | 0,955658 |
-| Regen | 12,032 | 0,739 | 0,986809 | 0,948199 |
-
-Op zes native 480×360-uitsnedes zijn drukke regen, windstreepjes, labels, temperatuurvlakken en dag/nacht bekeken.
-De oude windfilm heeft uitgesproken blokken en rafels; de oude temperatuurfilm heeft ruis langs isolijnen.
-Bij de gekozen CRF 18 zijn geen storende extra blokken, banding of vegen zichtbaar op deze uitsnedes.
-De kleurvakken en contouren die al in de RGB-bron staan, blijven zichtbaar. 4:2:0 en compressie zijn niet verliesloos.
-CRF 20 geeft lagere SSIM en meer verlies aan fijne winddetails; CRF 16/ultrafast overschrijdt de 20 MB-grens bij wind (20,315 MB).
-Veryfast en medium kosten duidelijk meer CPU; bestandsgroottebesparing is geen doel.
-
-De **volledige** nieuwe Rust-generatie (`--mode all`, 3 films + 170 JPEGs) duurt **11,301 s wall / 21,180 s CPU**,
-met een cgroup-piek van **410,6 MiB**, bij dezelfde CPU-affiniteit/quota en MemoryMax=600M.
-De opgegeven factor 3,5 voorspelt **39,6 s op de VM**; dit is een schatting, geen VM-receipt.
-Ter vergelijking: veryfast/18 duurt 14,796 s (VM ~51,8 s), veryfast/16 16,840 s (VM ~58,9 s).
-De oorspronkelijke store-renderer opnieuw gemeten zonder RGB-capture: 12,122 s.
-De PM meldde 34,0 s op prod vóór deze wijziging; de definitieve VM-meting blijft zijn gate.
-
-De volledige offline-generatie via de **gebouwde Node- en Rust-storepakketten** duurt **12,631 s wall / 24,100 s CPU /
-388 MiB piek** onder dezelfde CPU-quota/affiniteit en MemoryMax=600M. Dit omvat manifestlezen, één Rust-all-proces,
-cache-import, 3 films en 170 JPEGs; de cache wordt ook met een nieuwe StillRenderer hergebruikt. Geen netwerk of browser.
-Voor de hele botgeneratie voorspelt factor 3,5 dus **44,2 s op de VM**, binnen ~45 s. De storefilms zijn ieder één byte
-groter door container-metadata (`moov`); de gehele `mdat`-payload is bytegelijk, alle gedecodeerde frames gelijk
-en alle 170 JPEGs bytegelijk aan de review-uitvoer.
-
-Beelden, films, alle varianten en meettabel: [lokale reviewpagina](http://ageq-dev2:4397/review/quality/index.html).
-Er zijn geen Telegram-uploads, pollerstarts of prod-acties uitgevoerd.
-
-Reproduceren met de vastgelegde RGB-stromen en `before/media.json` in QUALITY_DIR:
-
-```bash
-export MOTREGEN_QUALITY_FFMPEG="$(command -v ffmpeg)"
-node tools/measure-video-quality.mjs QUALITY_DIR
-node tools/measure-video-quality.mjs QUALITY_DIR --high
-```
-
-Het meetprogramma bewaart per encode het exacte commando, exit 0, ffprobe-data en SSIM per frame.
-Een volledige generatie meten gebruikt de gebouwde store-renderer, dezelfde datasnapshot en geen kwaliteitsoverschrijvingen.
-Voor reviewbestanden is de 20 MB-grens niet toegepast op afgewezen matrixvarianten; productie weigert overschrijdingen.
-
-Gate synchroon exit 0: cargo test render-core/render (31 tests), clippy --all-targets -D warnings, fmt,
-bot typecheck/test (130 tests)/build, nix flake check --no-build en nix build motregen-render + motregen-bot.
-Browserreview: 84 lokale links HTTP 200, drie films afspeelbaar op 960×1272, alle 18 uitsnedes werkelijk 480×360 op 100%,
-geen paginafouten; desktop en smal scherm bekeken.

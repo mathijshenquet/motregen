@@ -16,6 +16,8 @@ pub struct Settings {
     crf: u8,
     x264_params: String,
     max_bytes: u64,
+    vbv_budget_ratio: f64,
+    vbv_buffer_seconds: f64,
 }
 
 impl Settings {
@@ -71,6 +73,21 @@ impl Settings {
         );
         Ok(())
     }
+
+    fn rate_limit(&self, frames: usize, fps: (usize, usize)) -> Result<(u64, u64)> {
+        ensure!(
+            frames > 0 && fps.0 > 0 && fps.1 > 0,
+            "Invalid video plan for VBV"
+        );
+        let duration = frames as f64 * fps.1 as f64 / fps.0 as f64;
+        let maxrate =
+            (self.vbv_budget_ratio * self.max_bytes as f64 * 8.0 / duration).floor() as u64;
+        ensure!(maxrate > 0, "Video safety limit too small for VBV");
+        Ok((
+            maxrate,
+            (self.vbv_buffer_seconds * maxrate as f64).floor() as u64,
+        ))
+    }
 }
 
 pub struct Video {
@@ -106,49 +123,56 @@ impl Video {
     ) -> Result<Self> {
         let constants = constants();
         let settings = Settings::from_env()?;
+        let (maxrate, bufsize) = settings.rate_limit(frames + hold_frames, fps)?;
         let diagnostics = tempfile::NamedTempFile::new()?;
-        let mut child = Command::new("ffmpeg")
-            .args([
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-y",
-                "-filter_threads",
-                "1",
-                "-f",
-                "rawvideo",
-                "-pixel_format",
-                "rgb24",
-                "-video_size",
-                &format!("{}x{}", constants.size.width, constants.size.height),
-                "-framerate",
-                &format!("{}/{}", fps.0, fps.1),
-                "-i",
-                "pipe:0",
-                "-vf",
-                &format!("tpad=stop_mode=clone:stop={},setsar=1", hold_frames),
-                "-frames:v",
-                &(frames + hold_frames).to_string(),
-                "-c:v",
-                "libx264",
-                "-threads",
-                "1",
-                "-preset",
-                &settings.preset,
-                "-crf",
-                &settings.crf.to_string(),
-                "-profile:v",
-                "high",
-                "-x264-params",
-                &settings.x264_params,
-                "-pix_fmt",
-                "yuv420p",
-                "-movflags",
-                "+faststart",
-                "-an",
-                "-f",
-                "mp4",
-            ])
+        let mut command = Command::new("ffmpeg");
+        command.args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-filter_threads",
+            "1",
+            "-f",
+            "rawvideo",
+            "-pixel_format",
+            "rgb24",
+            "-video_size",
+            &format!("{}x{}", constants.size.width, constants.size.height),
+            "-framerate",
+            &format!("{}/{}", fps.0, fps.1),
+            "-i",
+            "pipe:0",
+            "-vf",
+            &format!("tpad=stop_mode=clone:stop={},setsar=1", hold_frames),
+            "-frames:v",
+            &(frames + hold_frames).to_string(),
+            "-c:v",
+            "libx264",
+            "-threads",
+            "1",
+            "-preset",
+            &settings.preset,
+            "-crf",
+            &settings.crf.to_string(),
+            "-profile:v",
+            "high",
+            "-maxrate",
+            &maxrate.to_string(),
+            "-bufsize",
+            &bufsize.to_string(),
+            "-pix_fmt",
+            "yuv420p",
+            "-movflags",
+            "+faststart",
+            "-an",
+            "-f",
+            "mp4",
+        ]);
+        if settings.preset == "ultrafast" {
+            command.args(["-x264-params", &settings.x264_params]);
+        }
+        let mut child = command
             .arg(path)
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
@@ -200,6 +224,29 @@ impl Video {
     }
 }
 
+impl Drop for Video {
+    fn drop(&mut self) {
+        self.input.take();
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+pub fn jpeg(rgb: &[u8], path: &Path) -> Result<u64> {
+    let constants = constants();
+    let mut writer = BufWriter::new(File::create(path)?);
+    let mut encoder = jpeg_encoder::Encoder::new(&mut writer, 95);
+    encoder.set_sampling_factor(jpeg_encoder::SamplingFactor::F_1_1);
+    encoder.encode(
+        rgb,
+        constants.size.width as u16,
+        constants.size.height as u16,
+        jpeg_encoder::ColorType::Rgb,
+    )?;
+    writer.flush()?;
+    Ok(fs::metadata(path)?.len())
+}
+
 #[cfg(test)]
 mod tests {
     use super::Settings;
@@ -231,34 +278,29 @@ mod tests {
                     preset: preset.into(),
                     crf,
                     x264_params: "8x8dct=1".into(),
-                    max_bytes
+                    max_bytes,
+                    vbv_budget_ratio: 0.9,
+                    vbv_buffer_seconds: 2.0,
                 }
                 .validate()
                 .is_err()
             );
         }
     }
-}
 
-impl Drop for Video {
-    fn drop(&mut self) {
-        self.input.take();
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+    #[test]
+    fn vbv_budget_includes_hold_and_fractional_frame_rate() {
+        let settings: Settings =
+            serde_json::from_str(include_str!("../assets/video-encoding.json")).unwrap();
+        assert_eq!(
+            settings.rate_limit(179, (10, 1)).unwrap(),
+            (8_044_692, 16_089_384)
+        );
+        assert_eq!(
+            settings.rate_limit(114, (9, 2)).unwrap(),
+            (5_684_210, 11_368_420)
+        );
+        assert!(settings.rate_limit(0, (10, 1)).is_err());
+        assert!(settings.rate_limit(179, (0, 1)).is_err());
     }
-}
-
-pub fn jpeg(rgb: &[u8], path: &Path) -> Result<u64> {
-    let constants = constants();
-    let mut writer = BufWriter::new(File::create(path)?);
-    let mut encoder = jpeg_encoder::Encoder::new(&mut writer, 95);
-    encoder.set_sampling_factor(jpeg_encoder::SamplingFactor::F_1_1);
-    encoder.encode(
-        rgb,
-        constants.size.width as u16,
-        constants.size.height as u16,
-        jpeg_encoder::ColorType::Rgb,
-    )?;
-    writer.flush()?;
-    Ok(fs::metadata(path)?.len())
 }

@@ -33,7 +33,7 @@ export async function encodeLoop(directory: string, destination: string, plan: S
   const settings = videoSettings()
   const frames = plan.loopFrames + holdFrames(plan)
   const input = ['-hide_banner', '-loglevel', 'error', '-y', '-framerate', String(plan.fps), '-i', join(directory, 'frame-%03d.png')]
-  const output = ['-vf', `trim=end_frame=${plan.loopFrames},setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop=${holdFrames(plan)},setsar=1`, '-frames:v', String(frames), '-c:v', 'libx264', '-threads', '2', ...videoArguments(settings), '-an', '-f', 'mp4', destination]
+  const output = ['-vf', `trim=end_frame=${plan.loopFrames},setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop=${holdFrames(plan)},setsar=1`, '-frames:v', String(frames), '-c:v', 'libx264', '-threads', '2', ...videoArguments(settings, frames, plan.fps), '-an', '-f', 'mp4', destination]
   await run('ffmpeg', [...input, ...output])
   const bytes = (await stat(destination)).size
   validateLoopBytes(bytes, settings)
@@ -50,7 +50,7 @@ export async function encodeRgbLoop(
     '-hide_banner', '-loglevel', 'error', '-y', '-filter_threads', '1', '-f', 'rawvideo', '-pixel_format', 'rgb24',
     '-video_size', `${size.width}x${size.height}`, '-framerate', String(plan.fps), '-i', 'pipe:0',
     '-vf', `tpad=stop_mode=clone:stop=${holdFrames(plan)},setsar=1`, '-frames:v', String(plan.loopFrames + holdFrames(plan)),
-    '-c:v', 'libx264', '-threads', availableParallelism() <= 2 ? '1' : '2', ...videoArguments(settings),
+    '-c:v', 'libx264', '-threads', availableParallelism() <= 2 ? '1' : '2', ...videoArguments(settings, plan.loopFrames + holdFrames(plan), plan.fps),
     '-an', '-f', 'mp4', destination,
   ], { stdio: ['pipe', 'ignore', 'pipe'] })
   let diagnostic = ''
