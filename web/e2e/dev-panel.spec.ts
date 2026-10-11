@@ -50,7 +50,8 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   // U77-proef: palet, menging en contrastlat van de regen; de keuze staat op de kaart en overleeft een reset niet.
   await groups.locator('> summary', { hasText: /^Regen$/ }).click()
   const rainGroup = groups.filter({ has: page.locator('summary', { hasText: /^Regen$/ }) })
-  await expect(rainGroup.locator('.dev-control label > span')).toHaveText(['Regenpalet', 'Regenmenging', 'Regencontrast'])
+  await expect(rainGroup.locator('.dev-control label > span')).toHaveText(['Regenpalet', 'Regenmenging', 'Regencontrast', 'Regen in Wind/Lucht'])
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-focus-variant', 'huidig')
   // De standaard is de PO-keuze (2026-10-11); `huidig` + `huidig` zet ter vergelijking het beeld van vóór U77 terug.
   await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'violet-laat/drempel-zacht')
   await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-contrast', '0')

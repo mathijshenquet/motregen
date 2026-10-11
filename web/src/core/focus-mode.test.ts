@@ -173,6 +173,33 @@ describe('rain presentation (U62)', () => {
     expect(rainPresentation({ ...base, airFocus: 1 })).toEqual({ opacity: 1, saturation: 1, brightness: 1, multiply: true })
   })
 
+  it('keeps the product when no variant is given, so the bot and the app without ?dev are unchanged', () => {
+    for (const night of [false, true]) for (const focus of [{ windFocus: 1 }, { airFocus: 1 }, { windFocus: 0.4, airFocus: 0.2 }]) {
+      expect(rainPresentation({ ...base, ...focus, night })).toEqual(rainPresentation({ ...base, ...focus, night, variant: 'huidig' }))
+    }
+  })
+
+  it('offers trial variants for Wind and Lucht that never change Weer or the temperature fade (U77)', () => {
+    for (const variant of ['als-weer', 'gedempt', 'vermenigvuldigd'] as const) for (const night of [false, true]) {
+      expect(rainPresentation({ ...base, night, variant })).toEqual({ opacity: 1, saturation: 1, brightness: 1, multiply: false })
+      expect(rainPresentation({ ...base, night, variant, temperatureFocus: 1 }).opacity).toBe(0)
+    }
+    // Als-weer treedt nergens terug: de referentie zonder sprong.
+    expect(rainPresentation({ ...base, windFocus: 1, variant: 'als-weer' })).toEqual({ opacity: 1, saturation: 1, brightness: 1, multiply: false })
+    // Gedempt: overdag doorzichtiger en grijzer, nooit vermenigvuldigd.
+    const mutedWind = rainPresentation({ ...base, windFocus: 1, variant: 'gedempt' })
+    expect(mutedWind.multiply).toBe(false)
+    expect(mutedWind.opacity).toBeCloseTo(0.7)
+    expect(mutedWind.saturation).toBeCloseTo(0.85)
+    expect(rainPresentation({ ...base, airFocus: 1, variant: 'gedempt' }).opacity).toBeCloseTo(0.65)
+    // Vermenigvuldigd: overdag de getallen van het product; alleen de menging van de canvas verschilt.
+    expect(rainPresentation({ ...base, windFocus: 1, variant: 'vermenigvuldigd' })).toEqual(rainPresentation({ ...base, windFocus: 1 }))
+    // 's Nachts dempen gedempt en vermenigvuldigd zoals het product.
+    for (const variant of ['gedempt', 'vermenigvuldigd'] as const) {
+      expect(rainPresentation({ ...base, night: true, airFocus: 1, variant })).toEqual(rainPresentation({ ...base, night: true, airFocus: 1 }))
+    }
+  })
+
   it('mutes the rain at night, where multiplying would make it disappear on the dark map', () => {
     const wind = rainPresentation({ ...base, night: true, windFocus: 1 })
     expect(wind.multiply).toBe(false)
