@@ -26,18 +26,47 @@ fn slide_keeps_first_tick_and_advances_last_tick_without_changing_other_transiti
 }
 
 fn render(epoch: i64, variant: ClockTransition, still: bool) -> Vec<u8> {
+    render_at(epoch, variant, still, 0)
+}
+
+fn render_at(epoch: i64, variant: ClockTransition, still: bool, top: i32) -> Vec<u8> {
     let size = &constants().size;
     let mut rgb = vec![25; size.width * size.height * 3];
     draw_clock(
         &mut Text::new().unwrap(),
         &mut rgb,
         epoch,
-        100.0,
+        (100.0, top),
         [240; 3],
         variant,
         still,
     );
     rgb
+}
+
+#[test]
+fn moving_clock_translates_digits_colon_and_animation_together() {
+    let size = &constants().size;
+    let top = render_core::overlay::CLOCK_PANEL_TOP as usize;
+    let row_bytes = size.width * 3;
+    let start = epoch("2026-10-11T04:55:00Z").unwrap();
+    for variant in VARIANTS {
+        for (offset, still) in [
+            (0, false),
+            (100_000, false),
+            (200_000, false),
+            (60_000, true),
+        ] {
+            let original = render(start + offset, variant, still);
+            let moved = render_at(start + offset, variant, still, top as i32);
+            assert!(moved[..top * row_bytes].iter().all(|&pixel| pixel == 25));
+            assert_eq!(
+                &moved[top * row_bytes..],
+                &original[..(size.height - top) * row_bytes],
+                "{variant:?} offset={offset}, still={still}"
+            );
+        }
+    }
 }
 
 #[test]

@@ -69,11 +69,12 @@ pub fn draw_clock(
     text: &mut Text,
     rgb: &mut [u8],
     epoch: i64,
-    left: f32,
+    position: (f32, i32),
     color: [u8; 3],
     transition: ClockTransition,
     still: bool,
 ) {
+    let (left, top) = position;
     let mut state = clock_state(epoch);
     if still {
         state.from = clock_text(epoch).0;
@@ -85,7 +86,7 @@ pub fn draw_clock(
     let mut position = left;
     for (from, to) in state.from.chars().zip(state.to.chars()) {
         if from == ':' {
-            text.draw(rgb, ":", (position, 67), 58, color, None);
+            text.draw(rgb, ":", (position, top + 67), 58, color, None);
             position += text.width(":", 58);
             continue;
         }
@@ -103,7 +104,7 @@ pub fn draw_clock(
                 width,
                 height,
                 left: position.round() as i32,
-                top: 15,
+                top: top + 15,
                 color,
                 progress,
                 transition,

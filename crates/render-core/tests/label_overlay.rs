@@ -12,7 +12,7 @@ fn rotated_labels_and_halos_do_not_intersect_the_clock_panel() {
     let bounds = clock_panel_bounds(&mut text, "Gevoelstemperatuur");
     assert_eq!(
         clock_panel_bounds(&mut text, "Regenradar"),
-        [0.0, 0.0, 200.0, 154.0]
+        [0.0, 107.0, 200.0, 261.0]
     );
     let original = vec![25; size.width * size.height * 3];
     let mut labels = RotatedText::new().unwrap();
@@ -38,9 +38,12 @@ fn rotated_labels_and_halos_do_not_intersect_the_clock_panel() {
         Some(bounds),
     );
     assert_ne!(excluded, original);
-    for row in 0..bounds[3] as usize {
+    for row in bounds[1] as usize..bounds[3] as usize {
         let start = row * size.width * 3;
         let end = start + bounds[2] as usize * 3;
         assert_eq!(excluded[start..end], original[start..end]);
     }
+    let mut above = original.clone();
+    labels.draw_excluding(&mut above, "9°", [100.0, 60.0], 0.0, style(), Some(bounds));
+    assert_ne!(above, original);
 }

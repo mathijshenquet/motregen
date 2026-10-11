@@ -10,12 +10,15 @@ pub struct ClockOptions {
     pub still: bool,
 }
 
+// MIP-32: 64 pixels op de 576-brede Telegram-screenshot, omgerekend naar 960 uitvoerpixels.
+pub const CLOCK_PANEL_TOP: i32 = 107;
+
 pub fn clock_panel_bounds(text: &mut Text, title: &str) -> [f64; 4] {
     [
         0.0,
-        0.0,
+        f64::from(CLOCK_PANEL_TOP),
         200.0_f64.max((text.width(title, 30) + 32.0).ceil() as f64),
-        154.0,
+        f64::from(CLOCK_PANEL_TOP + 154),
     ]
 }
 
@@ -49,9 +52,18 @@ pub fn draw_overlay_title(
         [232, 243, 251]
     };
     let clock_color = if night { [237, 248, 252] } else { [16, 38, 48] };
-    // De boven- en linkerhoeken vallen buiten beeld; alleen rechtsonder blijft rond.
+    // De linkerhoeken vallen buiten beeld; beide rechterhoeken blijven rond.
     let panel_width = clock_panel_bounds(text, title)[2] as i32 + 20;
-    rounded_panel(rgb, -20, -20, panel_width, 174, 20, background, 0.96);
+    rounded_panel(
+        rgb,
+        -20,
+        CLOCK_PANEL_TOP,
+        panel_width,
+        154,
+        20,
+        background,
+        0.96,
+    );
     let clock_epoch = if options.transition.is_none() && !options.still {
         loop_clock_epoch(epoch)
     } else {
@@ -65,16 +77,37 @@ pub fn draw_overlay_title(
             text,
             rgb,
             epoch,
-            content_left,
+            (content_left, CLOCK_PANEL_TOP),
             clock_color,
             transition,
             options.still,
         );
     } else {
-        text.draw(rgb, &clock, (content_left, 67), 58, clock_color, None);
+        text.draw(
+            rgb,
+            &clock,
+            (content_left, CLOCK_PANEL_TOP + 67),
+            58,
+            clock_color,
+            None,
+        );
     }
-    text.draw(rgb, &date, (content_left, 103), 30, clock_color, None);
-    text.draw(rgb, title, (content_left, 139), 30, clock_color, None);
+    text.draw(
+        rgb,
+        &date,
+        (content_left, CLOCK_PANEL_TOP + 103),
+        30,
+        clock_color,
+        None,
+    );
+    text.draw(
+        rgb,
+        title,
+        (content_left, CLOCK_PANEL_TOP + 139),
+        30,
+        clock_color,
+        None,
+    );
     let footer_color = if night { [237, 248, 252] } else { [16, 38, 48] };
     let footer_background = if night { [7, 19, 25] } else { [245, 249, 250] };
     rounded_panel(

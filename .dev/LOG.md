@@ -1,5 +1,11 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-11 22:01 CEST — PO keurt Telegram-klokpositie goed; hotfix gestart
+
+PO: ja prima doe maar. Keuze uit de mockup: klok64 screenshotpixels vanaf de kaarttop,16 onder de GIF-badge; bij576-brede weergave van960-brede uitvoer is dat afgerond107 videopixels. Beide rechterhoeken rond, linkerrand aangesloten. Vastgelegd als MIP-32 accepted; geen andere productkeuzes open voor deze hotfix.
+
+Plan: gedeelde Rust-overlay en animatiepositie verplaatsen, labeluitsluiting laten volgen; gerichte regressie op vrije bovenband/hoeken/animatie en bestaande gate; vroeg draft-PR; schone integratie voor alle checks en echte dag-/nachtfilms; merge met jj, lokaal Nix-systeem bouwen en kopiëren, geautoriseerde uitrol en productiecontrole. U76/U80-branches blijven bevroren, Skywatch-CSV blijft buiten commits. Scratch en receipts: web/tmp/orkestrator/telegram-clock-hotfix-20261011/.
+
 ## 2026-10-11 21:31 CEST — Telegram GIF-badge gemeten; klokmockup voor PO
 
 PO meldt dat de GIF-badge de klok bedekt en vraagt de hoogte uit zijn screenshot af te leiden plus een mockuppagina. Screenshot 694×924: media links54/boven90/breed576; badge ongeveer links62/boven98/hoog40. Onderkant dus circa48 pixels onder de mediabovenkant. Dit zijn screenshotpixels, geen universele Telegram-clientmaat. Een kloktop op16 overlapt nog; mockup op64 geeft16 pixels ruimte onder de badge (circa107 pixels bij960-brede video).

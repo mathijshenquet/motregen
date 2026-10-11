@@ -1,6 +1,6 @@
 use render_core::{
     constants::constants,
-    overlay::{ClockOptions, draw_overlay},
+    overlay::{CLOCK_PANEL_TOP, ClockOptions, draw_overlay, draw_overlay_title},
     text::Text,
     time::{clock_date, clock_text, epoch, loop_clock_epoch, loop_clock_text},
 };
@@ -91,9 +91,46 @@ fn overlay_rounds_loop_text_but_keeps_still_time_and_actual_history_theme() {
     assert_eq!(overlay(own_time, start - 3_600_000, false), frames[0]);
     let history = overlay(start, start, false);
     let forecast = overlay(start + 100_000, start, false);
-    let panel_pixel = (80 * constants().size.width + 180) * 3;
+    let panel_pixel = ((CLOCK_PANEL_TOP as usize + 80) * constants().size.width + 180) * 3;
     assert_ne!(
         &history[panel_pixel..panel_pixel + 3],
         &forecast[panel_pixel..panel_pixel + 3]
     );
+}
+
+#[test]
+fn clock_leaves_the_badge_band_clear_and_rounds_both_right_corners() {
+    let size = &constants().size;
+    let top = CLOCK_PANEL_TOP as usize;
+    let time = epoch("2026-10-11T04:01:40Z").unwrap();
+    for night in [false, true] {
+        for transition in [None, render_core::clock::CLOCK_TRANSITION] {
+            for still in [false, true] {
+                for title in ["Regenradar", "Wind", "Gevoelstemperatuur"] {
+                    let mut text = Text::new().unwrap();
+                    let mut rgb = vec![25; size.width * size.height * 3];
+                    let bounds = render_core::overlay::clock_panel_bounds(&mut text, title);
+                    draw_overlay_title(
+                        &mut text,
+                        &mut rgb,
+                        (time, time + 3_600_000),
+                        night,
+                        ClockOptions { transition, still },
+                        title,
+                    );
+                    assert!(rgb[..top * size.width * 3].iter().all(|&pixel| pixel == 25));
+                    let pixel = |x: usize, y: usize| {
+                        &rgb[(y * size.width + x) * 3..(y * size.width + x + 1) * 3]
+                    };
+                    let right = bounds[2] as usize - 1;
+                    let bottom = bounds[3] as usize - 1;
+                    assert_ne!(pixel(0, top), [25; 3]);
+                    assert_ne!(pixel(0, bottom), [25; 3]);
+                    assert_eq!(pixel(right, top), [25; 3]);
+                    assert_eq!(pixel(right, bottom), [25; 3]);
+                    assert_ne!(pixel(right, top + 20), [25; 3]);
+                }
+            }
+        }
+    }
 }
