@@ -3,7 +3,7 @@ use crate::{
     encode::{Video, jpeg},
     fields::{Fields, Pair, Slice, pair, screen},
     renderer::{FileMedia, Media, Profile, plates},
-    wind_rain::{RainInput, WindRain},
+    wind_rain::{RainInput, WindRain, WindRainPixels},
 };
 use anyhow::{Context, Result, ensure};
 use rayon::prelude::*;
@@ -23,7 +23,7 @@ use render_core::{
 use std::{
     fs,
     path::Path,
-    sync::{Mutex, mpsc},
+    sync::{Arc, Mutex, mpsc},
     thread,
     time::Instant,
 };
@@ -50,12 +50,12 @@ struct Worker {
     labels: RotatedText,
 }
 
-struct Painter<'a, 'manifest> {
+struct Painter<'a> {
     plates: &'a [Vec<u8>; 2],
     water: &'a [WaterMask; 2],
     projection: &'a Projection,
     grid: &'a render_core::projection::Grid,
-    rain: Option<&'a WindRain<'manifest>>,
+    rain: Option<&'a WindRainPixels>,
     colors: &'a [f32],
     workers: &'a [Mutex<Worker>; 2],
     now: i64,
@@ -80,7 +80,7 @@ struct Output {
     profile: Profile,
 }
 
-impl Painter<'_, '_> {
+impl Painter<'_> {
     fn frame(&self, input: &Input, directory: &Path) -> Result<Output> {
         let mut worker = self.workers[rayon::current_thread_index().unwrap_or(0)]
             .lock()
@@ -284,7 +284,7 @@ pub fn render(
         );
     }
     let rain_grid = if let Some(rain) = &rain {
-        rain.compositor.grid.clone()
+        rain.pixels.compositor.grid.clone()
     } else {
         Dataset::new(data_directory, manifest, "rain_rate")?.grid()?
     };
@@ -352,6 +352,7 @@ pub fn render(
     let painter_workers = [first?, second?];
     let projection = Projection::new(&fields.grid);
     let field_grid = fields.grid.clone();
+    let rain_pixels = rain.as_ref().map(|rain| Arc::clone(&rain.pixels));
     let mut total = Profile::default();
     let mut preparation_us = 0;
     let (mut files, bytes, loop_ms) = thread::scope(|scope| -> Result<_> {
@@ -381,7 +382,10 @@ pub fn render(
             profile.ffmpeg_wait_us += started.elapsed().as_micros();
             Ok((files, bytes, loop_ms, profile))
         });
-        let production = (|| -> Result<()> {
+        let (input_sender, input_receiver) = mpsc::sync_channel(1);
+        let producer = scope.spawn(|| -> Result<u128> {
+            let input_sender = input_sender;
+            let mut preparation_us = 0;
             for (batch_index, times) in loop_epochs.chunks(4).enumerate() {
                 let preparation_started = Instant::now();
                 let inputs = times
@@ -418,12 +422,20 @@ pub fn render(
                     })
                     .collect::<Result<Vec<_>>>()?;
                 preparation_us += preparation_started.elapsed().as_micros();
+                input_sender
+                    .send(inputs)
+                    .context("Field painters stopped")?;
+            }
+            Ok(preparation_us)
+        });
+        let production = (|| -> Result<()> {
+            for inputs in &input_receiver {
                 let painter = Painter {
                     plates: &plates,
                     water: &water,
                     projection: &projection,
                     grid: &field_grid,
-                    rain: rain.as_ref(),
+                    rain: rain_pixels.as_deref(),
                     colors: &colors,
                     workers: &painter_workers,
                     now,
@@ -438,11 +450,16 @@ pub fn render(
             }
             Ok(())
         })();
+        drop(input_receiver);
+        let prepared = producer
+            .join()
+            .map_err(|_| anyhow::anyhow!("Field preparation panicked"))?;
         drop(sender);
         let written = writer
             .join()
             .map_err(|_| anyhow::anyhow!("Field video writer panicked"))?;
         production?;
+        preparation_us = prepared?;
         let (files, bytes, loop_ms, profile) = written?;
         total = profile;
         Ok((files, bytes, loop_ms))

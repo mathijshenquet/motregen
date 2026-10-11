@@ -22,11 +22,15 @@ pub struct RainInput {
 
 pub struct WindRain<'a> {
     pub data: Dataset<'a>,
-    pub compositor: RainCompositor,
-    colors: [Vec<[f32; 4]>; 2],
+    pub pixels: Arc<WindRainPixels>,
     motion_pair: Option<(usize, usize)>,
     motion: Option<Arc<Vec<(f64, f64)>>>,
     pub motion_us: u128,
+}
+
+pub struct WindRainPixels {
+    pub compositor: RainCompositor,
+    colors: [Vec<[f32; 4]>; 2],
 }
 
 impl<'a> WindRain<'a> {
@@ -36,11 +40,13 @@ impl<'a> WindRain<'a> {
         data.limit_to_view = true;
         Ok(Self {
             data,
-            compositor: RainCompositor::new(grid),
-            colors: [
-                composition_colors_for(&mode_constants().rain["light"]),
-                composition_colors_for(&mode_constants().rain["dark"]),
-            ],
+            pixels: Arc::new(WindRainPixels {
+                compositor: RainCompositor::new(grid),
+                colors: [
+                    composition_colors_for(&mode_constants().rain["light"]),
+                    composition_colors_for(&mode_constants().rain["dark"]),
+                ],
+            }),
             motion_pair: None,
             motion: None,
             motion_us: 0,
@@ -53,7 +59,7 @@ impl<'a> WindRain<'a> {
         let right = self.data.frames[blend.right].clone();
         let pair = pair(&mut self.data, time)?;
         ensure!(
-            pair.left.grid == self.compositor.grid,
+            pair.left.grid == self.pixels.compositor.grid,
             "Rain grid changes within generation"
         );
         let needs_motion = blend.mix > 0.0 && blend.mix < 1.0;
@@ -62,7 +68,7 @@ impl<'a> WindRain<'a> {
             let started = Instant::now();
             let motion = self.data.motion(&left, &right)?;
             self.motion = motion.as_ref().map(|(width, height, vectors)| {
-                Arc::new(self.compositor.project_motion(
+                Arc::new(self.pixels.compositor.project_motion(
                     Motion {
                         width: *width,
                         height: *height,
@@ -87,7 +93,9 @@ impl<'a> WindRain<'a> {
             cap: if needs_motion { limit.cap_cells } else { 0.0 },
         })
     }
+}
 
+impl WindRainPixels {
     pub fn compose(&self, rgb: &mut [u8], input: &RainInput, night: bool) {
         let left = (1.0 - input.pair.mix).powf(constants().flow_curve);
         let right = input.pair.mix.powf(constants().flow_curve);
