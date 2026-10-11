@@ -75,10 +75,10 @@ komen uit dezelfde afgeronde tijd in Europe/Amsterdam; de regen, kaartthema en g
 blijven de werkelijke kaarttijd volgen. Stills tonen hun eigen exacte tijd. De 19 gedeelde stills liggen al
 op veelvouden van tien minuten, dus dezelfde compositie past bij loop en still.
 
-De bewaarde proefvarianten zijn te kiezen met `--clock-variant schuif`, `--clock-variant klap` of
-`--clock-variant kruisfade`. Ze animeren uitsluitend de veranderende cijfers tussen vijfminutentijden,
-op de twee tussenframes. `schuif` verplaatst de cijfers op die frames tot ⅕ en ⅘ van de hoogte;
-de andere effecten volgen de gewone ⅓ en ⅔ van de overgang. Vaste cijferkolommen houden de overige cijfers en dubbele punt stil.
+De bewaarde proefvarianten zijn te kiezen met `--clock-variant schuif` of `--clock-variant klap`.
+Ze animeren uitsluitend de veranderende cijfers tussen vijfminutentijden,
+op de twee tussenframes. `schuif` verplaatst de cijfers op die frames tot ⅙ en ⅚ van de hoogte;
+`klap` volgt de gewone ⅓ en ⅔ van de overgang. Vaste cijferkolommen houden de overige cijfers en dubbele punt stil.
 `CLOCK_TRANSITION` in `crates/render-core/src/clock.rs` staat op `None`: de standaard gebruikt afronding
 zonder effect. De CLI-keuze gaat voor de constante; Node geeft geen proefvariant door. `clock_variant`
 registreert de keuze in het receipt. Stills tonen bij iedere variant hun eigen tijd.

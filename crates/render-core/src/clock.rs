@@ -7,7 +7,6 @@ use std::str::FromStr;
 pub enum ClockTransition {
     Schuif,
     Klap,
-    Kruisfade,
 }
 
 // The PO chose rounding without an effect; transitions remain available as optional previews.
@@ -16,9 +15,10 @@ pub const CLOCK_TRANSITION: Option<ClockTransition> = None;
 impl ClockTransition {
     pub fn animation_progress(self, phase: f32) -> f32 {
         if self == Self::Schuif {
-            // PO-proef: de twee tussenframes schuiven tot 1/5 en 4/5.
-            let outgoing = phase * phase;
-            let incoming = (1.0 - phase) * (1.0 - phase);
+            // Exponent log₂(5) maps the two intermediate frames to 1/6 and 5/6.
+            let exponent = 5.0_f32.log2();
+            let outgoing = phase.powf(exponent);
+            let incoming = (1.0 - phase).powf(exponent);
             outgoing / (outgoing + incoming)
         } else {
             phase
@@ -33,8 +33,7 @@ impl FromStr for ClockTransition {
         match value {
             "schuif" => Ok(Self::Schuif),
             "klap" => Ok(Self::Klap),
-            "kruisfade" => Ok(Self::Kruisfade),
-            _ => Err("Kies schuif, klap of kruisfade".into()),
+            _ => Err("Kies schuif of klap".into()),
         }
     }
 }
@@ -145,9 +144,6 @@ fn transition_alpha(old: &[u8], new: &[u8], column: usize, row: usize, digit: &D
         ClockTransition::Schuif => {
             at(old, row as f32 - progress * height)
                 + at(new, row as f32 + (1.0 - progress) * height)
-        }
-        ClockTransition::Kruisfade => {
-            at(old, row as f32) * (1.0 - progress) + at(new, row as f32) * progress
         }
         ClockTransition::Klap => {
             let hinge = height / 2.0;

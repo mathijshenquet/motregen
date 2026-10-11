@@ -5,19 +5,19 @@ use render_core::{
     time::epoch,
 };
 
-const VARIANTS: [ClockTransition; 3] = [
-    ClockTransition::Schuif,
-    ClockTransition::Klap,
-    ClockTransition::Kruisfade,
-];
+const VARIANTS: [ClockTransition; 2] = [ClockTransition::Schuif, ClockTransition::Klap];
 
 #[test]
-fn slide_uses_fifth_positions_without_changing_other_transitions() {
+fn slide_uses_sixth_positions_without_changing_other_transitions() {
     let slide = ClockTransition::Schuif;
-    for (phase, position) in [(0.0, 0.0), (1.0 / 3.0, 0.2), (2.0 / 3.0, 0.8), (1.0, 1.0)] {
+    for (phase, position) in [
+        (0.0, 0.0),
+        (1.0 / 3.0, 1.0 / 6.0),
+        (2.0 / 3.0, 5.0 / 6.0),
+        (1.0, 1.0),
+    ] {
         assert!((slide.animation_progress(phase) - position).abs() < 1e-6);
         assert_eq!(ClockTransition::Klap.animation_progress(phase), phase);
-        assert_eq!(ClockTransition::Kruisfade.animation_progress(phase), phase);
     }
     let positions: Vec<_> = (0..=100)
         .map(|step| slide.animation_progress(step as f32 / 100.0))
@@ -122,10 +122,6 @@ fn digit_animation_keeps_unchanged_columns_and_clips_vertically() {
     assert_ne!(
         render(start + 100_000, VARIANTS[0], false),
         render(start + 100_000, VARIANTS[1], false)
-    );
-    assert_ne!(
-        render(start + 100_000, VARIANTS[1], false),
-        render(start + 100_000, VARIANTS[2], false)
     );
 }
 
