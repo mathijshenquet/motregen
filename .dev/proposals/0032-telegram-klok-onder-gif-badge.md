@@ -21,3 +21,4 @@ Aanvulling van de PO op 2026-10-11: breek de titel voor gevoelstemperatuur af al
 ## Changelog
 - 2026-10-11: screenshot gemeten, mockup zelf bekeken op desktop/mobiel en dag/nacht; PO kiest de voorgestelde positie.
 - 2026-10-11: geïmplementeerd in PR 111 en uitgerold vanaf main `7c9a84a6`. De volledige onafhankelijke gate is groen; drie nieuwe productiefilms zelf bekeken en volledig afgespeeld. Rust-cacheversie 31 vernieuwt films en stills ook bij dezelfde brondata. Productiebeelden: http://ageq-dev2:4397/review/telegram-clock-hotfix/prod/.
+- 2026-10-11: de tweeregelige titel geïmplementeerd in PR 112 en uitgerold vanaf main `71ae5f31`, met Rust-cacheversie 32. De onafhankelijke gate is groen; dag- en nachtstills en de complete film zelf bekeken. Ook een nieuwe productiefilm gecontroleerd en volledig afgespeeld. Beelden: http://ageq-dev2:4397/review/feels-title-hotfix/; productie: http://ageq-dev2:4397/review/feels-title-hotfix/prod/.
