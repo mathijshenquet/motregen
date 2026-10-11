@@ -469,7 +469,7 @@ pub fn render(
         let writer = scope.spawn(|| write_video(receiver, temporary.path()));
         let production = (|| -> Result<()> {
             for plans in plans.chunks(if crate::shared::inputs().is_some() {
-                1
+                2
             } else {
                 4
             }) {

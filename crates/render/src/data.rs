@@ -381,16 +381,24 @@ mod tests {
     fn concurrent_modes_share_active_filtered_rasters() {
         crate::shared::enable();
         let (directory, manifest) = fixture(vec![None, None, None]);
-        let mut first = Dataset::new(directory.path(), &manifest, "rain_rate").unwrap();
-        let mut second = Dataset::new(directory.path(), &manifest, "rain_rate").unwrap();
-        let frame = first.frames[1].clone();
-        let raster = first.load(&frame).unwrap();
-        assert!(Arc::ptr_eq(&raster, &second.load(&frame).unwrap()));
-        assert_eq!(first.loaded, 1);
-        assert_eq!(second.loaded, 0);
+        let barrier = std::sync::Barrier::new(2);
+        let load = || {
+            let mut data = Dataset::new(directory.path(), &manifest, "rain_rate").unwrap();
+            let frame = data.frames[1].clone();
+            barrier.wait();
+            (data.load(&frame).unwrap(), data.loaded)
+        };
+        let (first, second) = std::thread::scope(|scope| {
+            let first = scope.spawn(load);
+            let second = scope.spawn(load);
+            (first.join().unwrap(), second.join().unwrap())
+        });
+        assert!(Arc::ptr_eq(&first.0, &second.0));
+        assert_eq!(first.1 + second.1, 1);
         let mut restricted = Dataset::new(directory.path(), &manifest, "rain_rate").unwrap();
         restricted.limit_to_view = true;
-        assert!(!Arc::ptr_eq(&raster, &restricted.load(&frame).unwrap()));
+        let frame = restricted.frames[1].clone();
+        assert!(!Arc::ptr_eq(&first.0, &restricted.load(&frame).unwrap()));
     }
 
     #[test]
