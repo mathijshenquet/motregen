@@ -323,6 +323,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     ...isolineCounters(),
     cloud: () => ({ ready: cloudIsolines.layer?.readyAtTime(cloudIsolines.time) ?? false, time: cloudIsolines.time,
       uploads: cloudIsolines.layer?.stats.uploads ?? 0, fillPasses: cloudIsolines.layer?.stats.fillPasses ?? 0,
+      fillMs: cloudIsolines.layer?.stats.fillMs ?? 0, flowMs: cloudIsolines.layer?.stats.flowMs ?? 0,
+      timing: cloudIsolines.layer?.stats.timing,
       forms: cloudMapForms(), sample: cloudMapSample() }),
     fillCoverage: () => temperatureIsolines.layer?.fillCoverage() ?? 0,
     field: (index: number) => temperatureIsolines.layer && temperatureIsolines.fields[index] ? { grid: temperatureIsolines.layer.grid, field: temperatureIsolines.fields[index] } : undefined,

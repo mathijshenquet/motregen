@@ -1,5 +1,34 @@
 import { CLOUD_FLOW_HOURS, CLOUD_FLOW_STEPS } from './cloud-map'
 
+const cloudFlowSampling = `vec2 wind(vec2 uv, float age) {
+  // Older travel holds the wind one hour before the cursor, continuously across hour boundaries.
+  float time = max(0.0, u_time - min(age, 1.0));
+  return textureLod(u_cloud_flow, vec3(uv, (time + 0.5) / u_depth), 0.0).rg / u_grid_size;
+}
+
+vec2 backtrace(vec2 uv, float hours) {
+  float dt = hours / float(${CLOUD_FLOW_STEPS});
+  vec2 at = uv;
+  for (int step = 0; step < ${CLOUD_FLOW_STEPS}; step++) {
+    float age = float(step) * dt;
+    vec2 midpoint = at - wind(at, age) * (0.5 * dt);
+    at -= wind(midpoint, age + 0.5 * dt) * dt;
+  }
+  return at;
+}`
+
+export function cloudFlowFragment(sampling: string): string {
+  return `#version 300 es
+${sampling}
+uniform sampler3D u_cloud_flow;
+uniform float u_cloud_phase;
+${cloudFlowSampling}
+void main() {
+  float ageB = mod(u_cloud_phase + ${CLOUD_FLOW_HOURS / 2}.0, ${CLOUD_FLOW_HOURS}.0);
+  color = vec4(backtrace(v_uv, u_cloud_phase) - v_uv, backtrace(v_uv, ageB) - v_uv);
+}`
+}
+
 export function cloudMapFragment(sampling: string): string {
   return `#version 300 es
 ${sampling}
@@ -12,6 +41,19 @@ uniform float u_fill_base;
 uniform vec3 u_veil;
 uniform sampler3D u_cloud_flow;
 uniform float u_cloud_phase;
+uniform highp sampler2D u_cloud_travel;
+uniform vec2 u_cloud_fill_size;
+uniform float u_cloud_cached;
+
+vec4 cloudTravel() {
+  vec2 size = vec2(textureSize(u_cloud_travel, 0));
+  vec2 at = gl_FragCoord.xy / u_cloud_fill_size * size - 0.5;
+  ivec2 cell = ivec2(floor(at));
+  vec2 f = fract(at);
+  // RGBA32F preserves fine detail when zoomed in; interpolate without float-linear extensions.
+  return mix(mix(texelFetch(u_cloud_travel, cell, 0), texelFetch(u_cloud_travel, cell + ivec2(1, 0), 0), f.x),
+             mix(texelFetch(u_cloud_travel, cell + ivec2(0, 1), 0), texelFetch(u_cloud_travel, cell + ivec2(1, 1), 0), f.x), f.y);
+}
 
 float hash(vec2 p) {
   vec3 p3 = fract(vec3(p.xyx) * 0.1031);
@@ -68,23 +110,7 @@ vec3 cloudBodies(vec2 p, vec3 weights) {
   return vec3(low, middle, high);
 }
 
-vec2 wind(vec2 uv, float age) {
-  // Older travel holds the wind one hour before the cursor, continuously across hour boundaries.
-  float time = max(0.0, u_time - min(age, 1.0));
-  return textureLod(u_cloud_flow, vec3(uv, (time + 0.5) / u_depth), 0.0).rg / u_grid_size;
-}
-
-vec2 backtrace(vec2 uv, float hours) {
-  float dt = hours / float(${CLOUD_FLOW_STEPS});
-  vec2 at = uv;
-  for (int step = 0; step < ${CLOUD_FLOW_STEPS}; step++) {
-    float age = float(step) * dt;
-    vec2 midpoint = at - wind(at, age) * (0.5 * dt);
-    at -= wind(midpoint, age + 0.5 * dt) * dt;
-  }
-  return at;
-}
-
+${cloudFlowSampling}
 vec3 typeWeights(float shape) {
   float low = 1.0 - smoothstep(0.0, 0.55, shape);
   float high = smoothstep(0.55, 1.0, shape);
@@ -119,6 +145,8 @@ vec4 transportedCloud(vec2 foot, float cover, float darkness, vec3 weights) {
 }
 
 void main() {
+  // Border taps may fall outside the rendered quad or viewport; trace those pixels directly.
+  vec2 margin = (abs(dFdx(v_uv)) + abs(dFdy(v_uv))) * 8.0;
   vec4 field = sampleField(v_uv, u_time);
   float valid = smoothstep(0.3, 0.7, field.g);
   if (u_cloud_enabled < 0.5) {
@@ -143,7 +171,18 @@ void main() {
   float ageA = u_cloud_phase;
   float ageB = mod(ageA + ${CLOUD_FLOW_HOURS / 2}.0, ${CLOUD_FLOW_HOURS}.0);
   float weightA = pow(sin(ageA * 3.14159265359 / ${CLOUD_FLOW_HOURS}.0), 2.0);
-  vec2 footA = backtrace(v_uv, ageA), footB = backtrace(v_uv, ageB);
+  vec2 pixel = gl_FragCoord.xy;
+  bool interior = all(greaterThan(v_uv, margin)) && all(lessThan(v_uv, 1.0 - margin))
+               && all(greaterThan(pixel, vec2(8.0))) && all(lessThan(pixel, u_cloud_fill_size - 8.0));
+  vec2 footA, footB;
+  if (u_cloud_cached > 0.5 && interior) {
+    vec4 travel = cloudTravel();
+    footA = v_uv + travel.xy;
+    footB = v_uv + travel.zw;
+  } else {
+    footA = backtrace(v_uv, ageA);
+    footB = backtrace(v_uv, ageB);
+  }
   vec3 weights = typeWeights(shape);
   vec4 cloudA = transportedCloud(footA, cover, darkness, weights);
   vec4 cloudB = transportedCloud(footB, cover, darkness, weights);

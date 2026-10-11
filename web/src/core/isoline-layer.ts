@@ -10,8 +10,8 @@ import { measurePerfPhase, recordPerfPhase } from './perf'
 import { sliceWeights } from './isoline-spline'
 import { ISOLINE_FILL_RESOLUTION, ISOLINE_GRADIENT, ISOLINE_LINE_OPACITY, ISOLINE_RING_KM, ISOLINE_TOLERANCE_PX, ISOLINE_WINDOW } from './isolines'
 import { PALETTE_STOPS, paletteUniforms, type PaletteStops } from './temperature-palette'
-import { CLOUD_MAP_SAMPLES, cloudFlowPhase, type CloudMapStyle } from './cloud-map'
-import { cloudMapFragment } from './cloud-map-shader'
+import { CLOUD_MAP_SAMPLES, CLOUD_FLOW_DOWNSAMPLE, cloudFlowPhase, type CloudMapStyle } from './cloud-map'
+import { cloudMapFragment, cloudFlowFragment } from './cloud-map-shader'
 
 export interface IsolineStyle {
   cloudMap?: CloudMapStyle
@@ -245,6 +245,7 @@ export interface IsolinePassStats {
   compositeMs: number
   /** Vlakvulling: passes (altijd samen met een contour-pass) en ms per pass. */
   fillPasses: number
+  flowMs: number
   fillMs: number
   timing: 'gpu' | 'cpu'
   /** Vector: tracer-tijd (worker) van de laatste snede, segmenten en lusjes. */
@@ -265,7 +266,7 @@ export interface IsolinePassStats {
 export class IsolineLayer implements CustomLayerInterface {
   readonly type = 'custom' as const
   readonly renderingMode = '2d' as const
-  readonly stats: IsolinePassStats = { passes: 0, composites: 0, blankDraws: 0, blankReasons: { slice: 0, palette: 0, fill: 0 }, blankAt: [], uploads: 0, passPixels: 0, compositePixels: 0, passMs: 0, compositeMs: 0, fillPasses: 0, fillMs: 0, timing: 'cpu' }
+  readonly stats: IsolinePassStats = { passes: 0, composites: 0, blankDraws: 0, blankReasons: { slice: 0, palette: 0, fill: 0 }, blankAt: [], uploads: 0, passPixels: 0, compositePixels: 0, passMs: 0, compositeMs: 0, fillPasses: 0, flowMs: 0, fillMs: 0, timing: 'cpu' }
   private timer?: GpuTimer
   /** Na elke contour-pass: de snede is veranderd (tijd, kaartbeeld, stijl of lagen). */
   onPass?: () => void
@@ -278,6 +279,8 @@ export class IsolineLayer implements CustomLayerInterface {
   private screen?: WebGLBuffer
   private volume?: WebGLTexture
   private cloudFlowVolume?: WebGLTexture
+  private cloudTravel?: RenderTarget
+  private cloudTravelProgram?: WebGLProgram
   private cloudEpochs: number[] = []
   private fill?: WebGLProgram
   private readonly loaded: Uint8Array
@@ -311,6 +314,10 @@ export class IsolineLayer implements CustomLayerInterface {
     this.map = map
     this.gl = gl
     this.fill = link(gl, quadVertex, this.style.cloudMap ? cloudMapFragment(fieldSampling) : fillFragment)
+    if (this.style.cloudMap && gl.getExtension('EXT_color_buffer_float')) {
+      this.cloudTravel = renderTarget(gl)
+      this.cloudTravelProgram = link(gl, quadVertex, cloudFlowFragment(fieldSampling))
+    }
     this.composite = link(gl, compositeVertex, compositeFragment)
     const west = this.grid.x0
     const east = west + this.grid.dx * this.grid.width
@@ -357,6 +364,13 @@ export class IsolineLayer implements CustomLayerInterface {
     if (this.volume) gl.deleteTexture(this.volume)
     if (this.cloudFlowVolume) gl.deleteTexture(this.cloudFlowVolume)
     this.cloudFlowVolume = undefined
+    if (this.cloudTravel) {
+      gl.deleteTexture(this.cloudTravel.texture)
+      gl.deleteFramebuffer(this.cloudTravel.framebuffer)
+      this.cloudTravel = undefined
+    }
+    if (this.cloudTravelProgram) gl.deleteProgram(this.cloudTravelProgram)
+    this.cloudTravelProgram = undefined
     for (const slice of this.slices) {
       for (const texture of [slice.ringTexture, slice.lines.texture, slice.fill.texture]) gl.deleteTexture(texture)
       for (const target of [slice.lines, slice.fill]) gl.deleteFramebuffer(target.framebuffer)
@@ -694,7 +708,7 @@ export class IsolineLayer implements CustomLayerInterface {
   }
 
   /** GPU-tijd via EXT_disjoint_timer_query_webgl2 (asynchroon, frames later binnen), anders CPU-tijd. */
-  private measure(key: 'passMs' | 'compositeMs' | 'fillMs', draw: () => void): void {
+  private measure(key: 'passMs' | 'compositeMs' | 'fillMs' | 'flowMs', draw: () => void): void {
     if (this.timer) {
       this.timer.collect()
       if (!this.timer.time(draw, (ms) => { this.stats[key] = smooth(this.stats[key], ms) })) draw()
@@ -746,6 +760,16 @@ export class IsolineLayer implements CustomLayerInterface {
     if (this.style.fill <= 0 || !this.style.palette) return
     const [width, height] = this.targetSize(gl, ISOLINE_FILL_RESOLUTION)
     const restore = saveTarget(gl)
+    let cached = false
+    if (this.cloudTravel && this.cloudTravelProgram && this.style.cloudMap?.enabled) {
+      const travelWidth = Math.max(1, Math.ceil(width / CLOUD_FLOW_DOWNSAMPLE)), travelHeight = Math.max(1, Math.ceil(height / CLOUD_FLOW_DOWNSAMPLE))
+      if (bindTarget(gl, this.cloudTravel, travelWidth, travelHeight, true)) {
+        const motionUniform = this.useField(gl, this.cloudTravelProgram, map, matrix, 1, slice.time)
+        this.useCloudFlow(gl, motionUniform, slice.time)
+        this.measure('flowMs', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4))
+        cached = true
+      }
+    }
     bindTarget(gl, slice.fill, width, height)
     const program = this.fill!
     const uniform = this.useField(gl, program, map, matrix, (window.devicePixelRatio || 1) * width / Math.max(1, gl.drawingBufferWidth), slice.time)
@@ -766,18 +790,27 @@ export class IsolineLayer implements CustomLayerInterface {
       gl.uniform1f(uniform('u_cloud_night'), this.style.cloudMap.night ? 1 : 0)
       gl.uniform1f(uniform('u_cloud_sample'), CLOUD_MAP_SAMPLES.indexOf(this.style.cloudMap.sample))
       gl.uniform3f(uniform('u_veil'), ...this.style.color)
-      const left = Math.min(this.depth - 1, Math.floor(slice.time)), right = Math.min(this.depth - 1, left + 1)
-      const epoch = this.cloudEpochs[left]! + (this.cloudEpochs[right]! - this.cloudEpochs[left]!) * (slice.time - left)
-      gl.uniform1f(uniform('u_cloud_phase'), cloudFlowPhase(epoch))
-      gl.activeTexture(gl.TEXTURE1)
-      gl.bindTexture(gl.TEXTURE_3D, this.cloudFlowVolume!)
-      gl.uniform1i(uniform('u_cloud_flow'), 1)
+      this.useCloudFlow(gl, uniform, slice.time)
+      gl.activeTexture(gl.TEXTURE3)
+      gl.bindTexture(gl.TEXTURE_2D, cached ? this.cloudTravel!.texture : null)
+      gl.uniform1i(uniform('u_cloud_travel'), 3)
+      gl.uniform1f(uniform('u_cloud_cached'), cached ? 1 : 0)
+      gl.uniform2f(uniform('u_cloud_fill_size'), width, height)
     }
     this.measure('fillMs', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4))
     this.stats.passPixels += width * height
     restore()
     slice.filled = true
     this.stats.fillPasses++
+  }
+
+  private useCloudFlow(gl: WebGL2RenderingContext, uniform: (name: string) => WebGLUniformLocation | null, time: number): void {
+    const left = Math.min(this.depth - 1, Math.floor(time)), right = Math.min(this.depth - 1, left + 1)
+    const epoch = this.cloudEpochs[left]! + (this.cloudEpochs[right]! - this.cloudEpochs[left]!) * (time - left)
+    gl.uniform1f(uniform('u_cloud_phase'), cloudFlowPhase(epoch))
+    gl.activeTexture(gl.TEXTURE1)
+    gl.bindTexture(gl.TEXTURE_3D, this.cloudFlowVolume!)
+    gl.uniform1i(uniform('u_cloud_flow'), 1)
   }
 
   /** Veldquad en de gedeelde sampling-uniforms; `ratio` is doelpixels per CSS-pixel. */
@@ -826,6 +859,7 @@ interface RenderTarget {
   texture: WebGLTexture
   framebuffer: WebGLFramebuffer
   size: [number, number]
+  complete?: boolean
 }
 
 /** Eén getraceerde snede met zijn offscreen lijnen en vulling. */
@@ -865,20 +899,23 @@ function renderTarget(gl: WebGL2RenderingContext): RenderTarget {
 }
 
 /** Offscreen target van `width`×`height` (her)aanmaken en binden. */
-function bindTarget(gl: WebGL2RenderingContext, target: RenderTarget, width: number, height: number): void {
+function bindTarget(gl: WebGL2RenderingContext, target: RenderTarget, width: number, height: number, floating = false): boolean {
   gl.activeTexture(gl.TEXTURE1)
   gl.bindTexture(gl.TEXTURE_2D, target.texture)
   if (target.size[0] !== width || target.size[1] !== height) {
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+    gl.texImage2D(gl.TEXTURE_2D, 0, floating ? gl.RGBA32F : gl.RGBA8, width, height, 0, gl.RGBA, floating ? gl.FLOAT : gl.UNSIGNED_BYTE, null)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, floating ? gl.NEAREST : gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, floating ? gl.NEAREST : gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
     target.size = [width, height]
+    target.complete = undefined
   }
   gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer)
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, target.texture, 0)
   gl.viewport(0, 0, width, height)
+  if (floating && target.complete === undefined) target.complete = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE
+  return !floating || target.complete === true
 }
 
 /** Framebuffer en viewport van de aanroeper terugzetten na een offscreen pass. */
