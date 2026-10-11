@@ -70,7 +70,11 @@ fn uniform_temperature_paints_the_expected_band_and_preserves_no_data() {
     let opacity = mode_constants().isoline.fill_opacity as f32;
     let alpha = (opacity * 255.0).round();
     let color = palette.color(8.5);
-    for point in [[0, 0], [480, 636], [959, 1271]] {
+    for point in [
+        [0, 0],
+        [size.width / 2, size.height / 2],
+        [size.width - 1, size.height - 1],
+    ] {
         let offset = (point[1] * size.width + point[0]) * 3;
         for channel in 0..3 {
             let paint = (color[channel] as f32 * 255.0 * opacity).round();

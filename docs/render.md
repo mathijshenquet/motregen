@@ -93,7 +93,10 @@ Temperatuurbanden en koude/warme ankers komen uit dezelfde gegenereerde palettab
 verhuisd uit `native-field-raster.rs` naar `render-core`; de oude helper gebruikt deze kern ook.
 
 Wind tekent temperatuurpunten, isobaren, deterministische windstaarten met zee-demping, H/L op prominente
-drukextremen, regen volgens de gedeelde presentatie voor Wind, isolijnlabels en klok/voettekst. Gevoelstemperatuur tekent de gedempte
+drukextremen, regen volgens de gedeelde presentatie voor Wind, isolijnlabels en klok/voettekst. Die presentatie komt
+via de gegenereerde constanten rechtstreeks uit rainPresentation: overdag dekking 0,7/verzadiging 0,85,
+nacht dekking 0,8/verzadiging 0,7/helderheid 0,9. Beide gebruiken echte alfa-over, zonder vermenigvuldigen.
+Gevoelstemperatuur tekent de gedempte
 basiskaart, kleurvlakken, isothermen en labels. Gedraaide tekst wordt rechtstreeks met Inter gerasterd;
 pixelgelijkheid met de oude browseratlas is geen eis (MIP-29). Per kaartframe bepaalt de gedeelde tijdlogica dag/nacht.
 
@@ -111,22 +114,6 @@ wanneer de drie tijdplannen uiteenlopen. De batches in `all` zijn kleiner dan bi
 `height`, `total_ms`, `shared_raster_hits` en een `modes`-object met de volledige individuele receipts.
 Alle MP4/JPEG-bestanden staan rechtstreeks in de uitvoermap. Timing per modus in `all` omvat wachten op
 de gedeelde kernen; meet losse modi voor hun eigen tijdlat. Parallelle fasetijden zijn niet optelbaar.
-
-## Klokproeven voor de PO
-
-De loopklok toont de dichtstbijzijnde vijfminutentijd, zonder overgangseffect. Bij 100 seconden kaarttijd
-per frame wordt `06:00, 06:01:40, 06:03:20, 06:05, 06:06:40, 06:08:20` getoond als
-`06:00, 06:00, 06:05, 06:05, 06:05, 06:10`. Exact halverwege rondt de klok vooruit af. Klok en dag
-komen uit dezelfde afgeronde tijd in Europe/Amsterdam; de regen, kaartthema en geschiedenis-/verwachtingskleur
-blijven de werkelijke kaarttijd volgen. Stills tonen hun eigen exacte tijd. De 19 gedeelde stills liggen al
-op veelvouden van tien minuten, dus dezelfde compositie past bij loop en still.
-
-De bewaarde proefvarianten zijn te kiezen met `--clock-variant schuif`, `--clock-variant klap` of
-`--clock-variant kruisfade`. Ze animeren uitsluitend de veranderende cijfers tussen vijfminutentijden,
-op ⅓ en ⅔ van de overgang. Vaste cijferkolommen houden de overige cijfers en dubbele punt stil.
-`CLOCK_TRANSITION` in `crates/render-core/src/clock.rs` staat op `None`: de standaard gebruikt afronding
-zonder effect. De CLI-keuze gaat voor de constante; Node geeft geen proefvariant door. `clock_variant`
-registreert de keuze in het receipt. Stills tonen bij iedere variant hun eigen tijd.
 
 ## Klok per modus
 

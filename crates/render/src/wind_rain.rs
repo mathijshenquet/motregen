@@ -38,7 +38,7 @@ impl<'a> WindRain<'a> {
         Ok(Self {
             data,
             pixels: Arc::new(WindRainPixels {
-                compositor: RainCompositor::new(grid),
+                compositor: RainCompositor::wind(grid),
             }),
             motion_pair: None,
             motion: None,
