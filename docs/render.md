@@ -115,8 +115,12 @@ Voorbereiding, twee tekst-/rasterworkers en de ffmpeg-schrijver overlappen met b
 lettertype worden gedeeld. Bronrasters worden per bronframe gezamenlijk gedecodeerd en voorgefilterd;
 weak verwijzingen delen actieve buffers, en een cache van maximaal 4 MiB houdt recente regenbuffers vast
 wanneer de drie tijdplannen uiteenlopen. De batches in `all` zijn kleiner dan bij een losse modus.
+Regen en Wind delen ook identieke geprojecteerde bewegingsvelden, onafhankelijk van hun palet. Een cache
+van maximaal twee velden begrenst de retentie wanneer de tijdplannen uiteenlopen; stilstaande bronparen
+worden niet opnieuw geprojecteerd. De bronpaar-identiteit bevat beide chunkpaden, frame-indexen en de
+roosterfilterkeuze. Buiten `all` verandert de projectie niet.
 `media.json` verschijnt pas na de complete generatie en bevat `mode: "all"`, `generated`, `now`, `width`,
-`height`, `total_ms`, `shared_raster_hits` en een `modes`-object met de volledige individuele receipts.
+`height`, `total_ms`, `shared_raster_hits`, `shared_motion_hits` en een `modes`-object met de volledige individuele receipts.
 Alle MP4/JPEG-bestanden staan rechtstreeks in de uitvoermap. Timing per modus in `all` omvat wachten op
 de gedeelde kernen; meet losse modi voor hun eigen tijdlat. Parallelle fasetijden zijn niet optelbaar.
 
@@ -132,6 +136,16 @@ is verwijderd. Met de constante op None blijft de oude afronding op de dichtstbi
 beschikbaar in de kern. Rust-cacheversie 30 en de framegrootte voorkomen hergebruik van oude beelden;
 loopcachekeys bevatten ook het actuele tempo en venster, zodat een gewijzigd plan alle betrokken films ververst
 zonder stills te verwerpen. Het VBV-plafond gebruikt de volledige nieuwe filmduur, inclusief zes holdframes.
+
+De optionele windproef met 75 seconden kaarttijd per frame bij 7,5 fps wordt alleen in een gekopieerde
+Rust-bronboom gebouwd. Productieconstanten en standaardfilms veranderen hierdoor niet:
+
+```sh
+pnpm -C bot exec tsx ../tools/build-wind-tempo-variant.mts /pad/preview
+# De tool meldt de gebouwde binary; gebruik uitsluitend --mode wind voor dit proefplan.
+```
+
+Deze variant heeft 289 kaartframes, acht holdframes en duurt 39,6 seconden (9,375 kaartminuten/s).
 
 ## Optionele Node-aanroep
 

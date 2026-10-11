@@ -18,6 +18,7 @@ pub struct AllMedia {
     height: usize,
     total_ms: u128,
     shared_raster_hits: usize,
+    shared_motion_hits: usize,
     modes: BTreeMap<&'static str, Media>,
 }
 
@@ -95,6 +96,7 @@ pub fn render(
         height: size.height,
         total_ms: started.elapsed().as_millis(),
         shared_raster_hits: inputs.hits.load(Ordering::Relaxed),
+        shared_motion_hits: inputs.motion_hits.load(Ordering::Relaxed),
         modes,
     };
     fs::write(

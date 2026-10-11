@@ -1,8 +1,11 @@
 use anyhow::{Context, Result, bail, ensure};
 use mrf::HeaderIndex;
 use render_core::{
+    composition::CoveragePair,
     constants::{blur, constants, warp_limit},
+    motion::Motion,
     projection::{Grid, Projection},
+    rain::RainCompositor,
     sampling::{Coverage, Sampling},
     time::{Manifest, TimelineFrame, epoch, timeline},
 };
@@ -258,6 +261,57 @@ impl<'a> Dataset<'a> {
             .frames
             .get(frame.frame_index)
             .is_some_and(|frame| frame.motion.is_some()))
+    }
+
+    pub fn projected_motion(
+        &mut self,
+        left_frame: &TimelineFrame,
+        right_frame: &TimelineFrame,
+        compositor: &RainCompositor,
+        left: &Raster,
+        right: &Raster,
+    ) -> Result<Option<crate::shared::ProjectedMotion>> {
+        let key = (
+            (
+                self.path(left_frame.chunk_index)?,
+                left_frame.frame_index,
+                self.limit_to_view,
+            ),
+            (
+                self.path(right_frame.chunk_index)?,
+                right_frame.frame_index,
+                self.limit_to_view,
+            ),
+        );
+        let project = || {
+            let interval = (right_frame.epoch - left_frame.epoch) as f64 / 60_000.0;
+            let limit = warp_limit(interval);
+            Ok(self
+                .motion(left_frame, right_frame)?
+                .map(|(width, height, vectors)| {
+                    Arc::new(compositor.project_motion(
+                        Motion {
+                            vectors: &vectors,
+                            width,
+                            height,
+                            interval,
+                            cap: limit.cap_cells,
+                            fade: limit.fade_end_cells,
+                        },
+                        Some(CoveragePair {
+                            left: left.coverage.as_ref().unwrap(),
+                            right: right.coverage.as_ref().unwrap(),
+                            displacement: limit.cap_cells,
+                        }),
+                    ))
+                }))
+        };
+        if let Some(inputs) = crate::shared::inputs() {
+            inputs.projected_motion(key, project)
+        } else {
+            let mut project = project;
+            project()
+        }
     }
 
     pub fn motion(

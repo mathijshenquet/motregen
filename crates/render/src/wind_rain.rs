@@ -6,7 +6,6 @@ use anyhow::{Result, ensure};
 use render_core::{
     composition::CoveragePair,
     constants::warp_limit,
-    motion::Motion,
     rain::{RainCompositor, RainPair},
     time::{Manifest, frame_blend},
 };
@@ -60,24 +59,13 @@ impl<'a> WindRain<'a> {
         if needs_motion && self.motion_pair != Some((blend.left, blend.right)) {
             let started = Instant::now();
             self.motion = None;
-            let motion = self.data.motion(&left, &right)?;
-            self.motion = motion.as_ref().map(|(width, height, vectors)| {
-                Arc::new(self.pixels.compositor.project_motion(
-                    Motion {
-                        width: *width,
-                        height: *height,
-                        vectors,
-                        interval: (right.epoch - left.epoch) as f64 / 60_000.0,
-                        cap: limit.cap_cells,
-                        fade: limit.fade_end_cells,
-                    },
-                    Some(CoveragePair {
-                        left: pair.left.coverage.as_ref().unwrap(),
-                        right: pair.right.coverage.as_ref().unwrap(),
-                        displacement: limit.cap_cells,
-                    }),
-                ))
-            });
+            self.motion = self.data.projected_motion(
+                &left,
+                &right,
+                &self.pixels.compositor,
+                &pair.left,
+                &pair.right,
+            )?;
             self.motion_pair = Some((blend.left, blend.right));
             self.motion_us += started.elapsed().as_micros();
         }
