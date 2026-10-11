@@ -10,7 +10,7 @@ import { measurePerfPhase, recordPerfPhase } from './perf'
 import { sliceWeights } from './isoline-spline'
 import { ISOLINE_FILL_RESOLUTION, ISOLINE_GRADIENT, ISOLINE_LINE_OPACITY, ISOLINE_RING_KM, ISOLINE_TOLERANCE_PX, ISOLINE_WINDOW } from './isolines'
 import { PALETTE_STOPS, paletteUniforms, type PaletteStops } from './temperature-palette'
-import { CLOUD_MAP_SAMPLES, type CloudMapStyle } from './cloud-map'
+import { CLOUD_MAP_SAMPLES, cloudFlowPhase, type CloudMapStyle } from './cloud-map'
 import { cloudMapFragment } from './cloud-map-shader'
 
 export interface IsolineStyle {
@@ -47,7 +47,7 @@ void main() {
 
 // De tijd is de derde texture-as: de snede t = scrubber kost twee trilineaire fetches per tap
 // (B-spline), ruimtelijk bicubisch met vier taps.
-const fieldSampling = `precision highp float;
+export const fieldSampling = `precision highp float;
 precision highp sampler3D;
 uniform sampler3D u_field;
 uniform vec2 u_grid_size;
@@ -277,6 +277,8 @@ export class IsolineLayer implements CustomLayerInterface {
   private quad?: WebGLBuffer
   private screen?: WebGLBuffer
   private volume?: WebGLTexture
+  private cloudFlowVolume?: WebGLTexture
+  private cloudEpochs: number[] = []
   private fill?: WebGLProgram
   private readonly loaded: Uint8Array
   private frameKeys: string[] = []
@@ -328,6 +330,13 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.texStorage3D(gl.TEXTURE_3D, 1, this.style.cloudMap ? gl.RGBA16F : gl.RG16F, this.grid.width, this.grid.height, this.depth)
     for (const parameter of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_3D, parameter, gl.LINEAR)
     for (const parameter of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T, gl.TEXTURE_WRAP_R]) gl.texParameteri(gl.TEXTURE_3D, parameter, gl.CLAMP_TO_EDGE)
+    if (this.style.cloudMap) {
+      this.cloudFlowVolume = gl.createTexture()!
+      gl.bindTexture(gl.TEXTURE_3D, this.cloudFlowVolume)
+      gl.texStorage3D(gl.TEXTURE_3D, 1, gl.RG16F, this.grid.width, this.grid.height, this.depth)
+      for (const parameter of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_3D, parameter, gl.LINEAR)
+      for (const parameter of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T, gl.TEXTURE_WRAP_R]) gl.texParameteri(gl.TEXTURE_3D, parameter, gl.CLAMP_TO_EDGE)
+    }
     this.line = link(gl, lineVertex, lineFragment)
     this.corners = gl.createBuffer()!
     gl.bindBuffer(gl.ARRAY_BUFFER, this.corners)
@@ -346,6 +355,8 @@ export class IsolineLayer implements CustomLayerInterface {
   onRemove(_map: MapLibreMap, context: WebGLRenderingContext | WebGL2RenderingContext): void {
     const gl = context as WebGL2RenderingContext
     if (this.volume) gl.deleteTexture(this.volume)
+    if (this.cloudFlowVolume) gl.deleteTexture(this.cloudFlowVolume)
+    this.cloudFlowVolume = undefined
     for (const slice of this.slices) {
       for (const texture of [slice.ringTexture, slice.lines.texture, slice.fill.texture]) gl.deleteTexture(texture)
       for (const target of [slice.lines, slice.fill]) gl.deleteFramebuffer(target.framebuffer)
@@ -429,6 +440,11 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.bindTexture(gl.TEXTURE_3D, this.volume)
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
     measurePerfPhase('texture-upload', () => gl.texSubImage3D(gl.TEXTURE_3D, 0, 0, 0, index, this.grid.width, this.grid.height, 1, channels === 4 ? gl.RGBA : gl.RG, gl.FLOAT, interleaved), { layer: this.id })
+    if (this.cloudFlowVolume) {
+      gl.bindTexture(gl.TEXTURE_3D, this.cloudFlowVolume)
+      gl.texSubImage3D(gl.TEXTURE_3D, 0, 0, 0, index, this.grid.width, this.grid.height, 1, gl.RG, gl.FLOAT, field.cloudFlow ?? new Float32Array(field.values.length * 2))
+      this.cloudEpochs[index] = field.cloudEpoch ?? index * 3_600_000
+    }
     if (!this.style.cloudMap) this.tracer.setLayer(index, field)
     // Een eerder mislukte trace (laag ontbrak) mag opnieuw; alleen een vervangen laag maakt
     // bestaande snedes ongeldig, een nieuwe laag hoort bij geen enkele getraceerde snede.
@@ -750,6 +766,12 @@ export class IsolineLayer implements CustomLayerInterface {
       gl.uniform1f(uniform('u_cloud_night'), this.style.cloudMap.night ? 1 : 0)
       gl.uniform1f(uniform('u_cloud_sample'), CLOUD_MAP_SAMPLES.indexOf(this.style.cloudMap.sample))
       gl.uniform3f(uniform('u_veil'), ...this.style.color)
+      const left = Math.min(this.depth - 1, Math.floor(slice.time)), right = Math.min(this.depth - 1, left + 1)
+      const epoch = this.cloudEpochs[left]! + (this.cloudEpochs[right]! - this.cloudEpochs[left]!) * (slice.time - left)
+      gl.uniform1f(uniform('u_cloud_phase'), cloudFlowPhase(epoch))
+      gl.activeTexture(gl.TEXTURE1)
+      gl.bindTexture(gl.TEXTURE_3D, this.cloudFlowVolume!)
+      gl.uniform1i(uniform('u_cloud_flow'), 1)
     }
     this.measure('fillMs', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4))
     this.stats.passPixels += width * height

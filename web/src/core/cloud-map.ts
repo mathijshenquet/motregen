@@ -5,8 +5,15 @@ import { layerTransmission, skyDarkness } from './cloud-section'
 import { solarElevationSin } from './solar'
 import { cloudModification } from './uv'
 
-export const CLOUD_MAP_SAMPLES = ['live', 'gaten', 'sluier', 'dicht'] as const
+export const CLOUD_MAP_SAMPLES = ['live', 'gaten', 'sluier', 'dicht', 'overgang'] as const
 export type CloudMapSample = typeof CLOUD_MAP_SAMPLES[number]
+export const CLOUD_FLOW_STEPS = 24
+export const CLOUD_FLOW_HOURS = 4
+
+export function cloudFlowPhase(epoch: number): number {
+  const hours = epoch / 3_600_000
+  return ((hours % CLOUD_FLOW_HOURS) + CLOUD_FLOW_HOURS) % CLOUD_FLOW_HOURS
+}
 
 export interface CloudMapStyle {
   enabled: boolean
@@ -20,6 +27,8 @@ interface CloudMapInputs {
   high?: FieldBlend
   radiation?: FieldBlend
   radiationNext?: FieldBlend
+  windU?: FieldBlend
+  windV?: FieldBlend
 }
 
 function sampleFrame(header: MrfHeader, data: Uint8Array, x: number, y: number): number | null {
@@ -49,6 +58,7 @@ function sampleBlend(blend: FieldBlend | undefined, x: number, y: number): numbe
 /** Two hints per source cell: shape (low puffs → high streaks) and ground-light darkness. */
 export function prepareCloudMapField(grid: Grid, field: PreparedField, epoch: number, inputs: CloudMapInputs): PreparedField {
   const hints = new Float32Array(field.values.length * 2)
+  const flow = new Float32Array(field.values.length * 2)
   const radius = 6_378_137
   for (let row = 0; row < grid.height; row++) {
     const y = grid.y0 + (row + 0.5) * grid.dy
@@ -70,7 +80,13 @@ export function prepareCloudMapField(grid: Grid, field: PreparedField, epoch: nu
       const light = cloudModification(epoch, sampleBlend(inputs.radiation, x, y), sampleBlend(inputs.radiationNext, x, y), (time) => solarElevationSin(time, longitude, latitude))
       const fallback = low != null && mid != null && high != null ? layerTransmission(layers) : 1 - 0.75 * cover
       hints[cell * 2 + 1] = skyDarkness(light ?? fallback)
+      const east = sampleBlend(inputs.windU, x, y), north = sampleBlend(inputs.windV, x, y)
+      if (east != null && north != null) {
+        const scale = 3_600 / Math.cos(latitude * Math.PI / 180)
+        flow[cell * 2] = east * scale / grid.dx
+        flow[cell * 2 + 1] = north * scale / grid.dy
+      }
     }
   }
-  return { ...field, cloudHints: hints }
+  return { ...field, cloudHints: hints, cloudFlow: flow, cloudEpoch: epoch }
 }

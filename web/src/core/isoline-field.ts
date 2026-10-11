@@ -5,6 +5,8 @@ export interface PreparedField {
   values: Float32Array
   valid: Float32Array
   cloudHints?: Float32Array
+  cloudFlow?: Float32Array
+  cloudEpoch?: number
 }
 
 const FILL_PASSES = 8

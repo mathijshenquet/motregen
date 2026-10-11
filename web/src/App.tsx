@@ -2050,11 +2050,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         const field = prepareField(blurField(blendFrames(frames, grid.width, grid.height), isolineBlurPasses(set.kind)))
         if (set.kind !== 'cloud') return { grid, field }
         const at = (timeline: TimelineFrame[], epoch = frame.epoch) => loadFieldBlend(timeline, epoch, 0).catch(() => undefined)
-        const [low, mid, high, radiation, radiationNext] = await Promise.all([
+        const [low, mid, high, radiation, radiationNext, windU, windV] = await Promise.all([
           at(cloudTimelines().low), at(cloudTimelines().mid), at(cloudTimelines().high),
           at(radiationTimeline()), at(radiationTimeline(), frame.epoch + 3_600_000),
+          at(windUFrames()), at(windVFrames()),
         ])
-        return { grid, field: prepareCloudMapField(grid, field, frame.epoch, { low, mid, high, radiation, radiationNext }) }
+        return { grid, field: prepareCloudMapField(grid, field, frame.epoch, { low, mid, high, radiation, radiationNext, windU, windV }) }
       })
       prepared.catch(() => preparedIsolineFields.delete(key))
       preparedIsolineFields.set(key, prepared)
@@ -2066,7 +2067,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function isolineFrameKey(set: IsolineSet, frame: TimelineFrame): string {
     const key = `${frame.chunk.url}#${frame.frameIndex}`
     if (set.kind !== 'cloud') return key
-    const inputs = [...CLOUD_LAYERS.map((layer) => cloudTimelines()[layer]), radiationTimeline()]
+    const inputs = [...CLOUD_LAYERS.map((layer) => cloudTimelines()[layer]), radiationTimeline(), windUFrames(), windVFrames()]
     return key + '|' + inputs.map((frames) => {
       if (!frames.length) return ''
       const blend = frameBlend(frames, frame.epoch)
@@ -3570,7 +3571,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         </div>
       </div>
       <Show when={devMode && cloudMapSample() !== 'live' && airFocus() > 0}>
-        <aside class="cloud-map-sample">Voorbeeld: {{ gaten: 'gebroken bewolking', sluier: 'dunne sluier', dicht: 'dicht wolkendek', live: '' }[cloudMapSample()]} · gefingeerd</aside>
+        <aside class="cloud-map-sample">Voorbeeld: {{ gaten: 'gebroken bewolking', sluier: 'dunne sluier', dicht: 'dicht wolkendek', overgang: 'overgang tussen wolkentypen', live: '' }[cloudMapSample()]} · gefingeerd</aside>
       </Show>
       <Show when={stillMode}>
         <div class="map-clock still-clock" data-regime={selectedEpoch() > Date.parse(manifest()?.now ?? '') ? 'forecast' : 'history'}>

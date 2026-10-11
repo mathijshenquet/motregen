@@ -1,5 +1,11 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-12 08:39 CEST — PO wolkenronde 2: beweging en type-overgang; GPU-stromingsproef geïmplementeerd
+
+PO vindt historie goed maar detail beweegt niet mee en screenshot17:56 toont ringen; vraagt tijdsveld/particles met compressie/dilutie en continue typen. Oorzaak in code: typeparameter herschaalt patrooncoördinaten per pixel, daardoor vouwen/aliasen patronen over een ruimtelijke typegradiënt. Nu drie vaste patroonvelden, optische dieptemenging; geen typegestuurde coördinaatschaal. Beweging: bestaande10mwind als expliciete proxy, RG16F-windvolume per cloudframe, RK2-terugvolgen24stappen/tweeoverlappende4u-lifetimes. Modeltijdfase is reproducibel bij seeks, reset opnulgewicht. Tijdveld slechts één uur terug echt bekend; oudere advectie houdt T−1u continu aan.
+
+Oppervlakte-Jacobiaan corrigeert renderdichtheid, begrensd0,25..4; numeriek gevouwen mapping valt terug op lokale translatie. Actuele modelbedekking blijft bron, geen volledige conservatieve wolkenmassasimulatie. Eerste webtypecheck exit0. Echte GPUproeven beweging/density/typegradiënt/uur-lifetimegrenzen/seeking + eigen beelden volgen vóór nieuwe previewmelding. BestaandePR115 wordt bijgewerkt; geenprod/ingest/CSV/U76/U80wijzigingen. Nieuwe scratchweb/tmp/orkestrator/cloud-flow-20261012/.
+
 ## 2026-10-12 06:25 CEST — MIP-34-vormenproef klaar in live dev-app; dag/nacht en afspelen zelf bekeken
 
 Vroege draft-PR115 https://github.com/mathijshenquet/motregen/pull/115, branchui/wolkenkaart-vormen boven opdocsPR114/cursorPR113. Eerste head a387f289. Nieuwe Luchtkaart gebruikt modelbedekking, lagen en CMF met wereldvaste illustratieve fijnstructuur; dunne sluier, gebroken wolken en dicht pakket zichtbaar verschillend. De drie voorbeeldluchten hebben een kaartbadge gefingeerd en blijven niet tussen bezoeken bewaard. Oude sluier via dezelfde GPU-sampling te vergelijken, in?dev/Wolkenkaart. Extra ingest nog niet gedaan; beelden zijn illustratieve modelreconstructie, geen waargenomen wolkenposities.

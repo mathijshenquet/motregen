@@ -116,7 +116,7 @@ export default function DevPanel(props: Props) {
           <option value="vormen">vormen</option><option value="sluier">oude sluier</option>
         </select>
       </Control>
-      <Control label="Voorbeeldlucht" output={props.cloudMapSample} hint="Live gebruikt de modeldata. Gaten, sluier en dicht zijn gefingeerde voorbeelden om het verschil te bekijken.">
+      <Control label="Voorbeeldlucht" output={props.cloudMapSample} hint="Live gebruikt de modeldata. Gaten, sluier, dicht en overgang zijn gefingeerde voorbeelden om de vormen en de menging te bekijken.">
         <select aria-label="Voorbeeldlucht" value={props.cloudMapSample} onChange={(event) => props.onCloudMapSample(event.currentTarget.value as CloudMapSample)}>
           <For each={CLOUD_MAP_SAMPLES}>{(sample) => <option value={sample}>{sample}</option>}</For>
         </select>
