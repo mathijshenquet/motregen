@@ -10,7 +10,7 @@ pub enum ClockTransition {
     Kruisfade,
 }
 
-// The PO reviews the three CLI prototypes before a production transition is selected.
+// The PO chose rounding without an effect; transitions remain available as optional previews.
 pub const CLOCK_TRANSITION: Option<ClockTransition> = None;
 
 impl FromStr for ClockTransition {
