@@ -387,3 +387,39 @@ wanneer hij verschijnt), HARMONIE-beelden, en het histogram (dat volgt het palet
 `pnpm typecheck` 0 · `pnpm test` 0 (84 bestanden, 563 tests) · `pnpm build` 0 ·
 `MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts --project desktop` 0 (7 groen).
 Preview 4320 serveert deze build (`index-DbltdCof.js`, bevat `dev-regencontrast`).
+
+## 2026-10-11 08:30 — PO rechtstreeks in de pane: lat als invoerveld, violet weer een verloop
+
+PO: "maak lat ff een input field, 10 lijkt me nog te veel"; daarna "waarom is violet-laat en violet-klasse allebei
+geen gradient meer?" en "ik wil geen drempel, gradient als voorheen was goed, alleen de stops moesten verschoven".
+
+### Violet-klassen en violet-laat: mijn fout, hersteld
+In ronde 2 had ik de overgangen blauw → violet en violet → rood bewust als korte stappen op de grenzen gelegd
+("een klassegrens is ook een kleurgrens"). Dat was mijn eigen invulling, niet gevraagd, en het las als banden. Nu
+komen de drie violet-paletten uit één verloop (`violetGradient` in `rain-palette.ts`: lichtblauw → blauw → violet →
+paars → rood → bordeaux, dezelfde kleuren als blauw-violet-rood) en verschillen ze alleen in waar de stops liggen:
+| palet | blauw | violet | paars | rood |
+| --- | --- | --- | --- | --- |
+| blauw-violet-rood | 1,2 | 3,5 | 6,5 | 11 mm/u |
+| violet-klassen | 2 | 4,5 | 6,5 | 10 |
+| violet-laat | 4 | 7 | 9 | 13 |
+Ik lees "geen drempel" hier als: geen stap in het palet. De mengvariant `drempel` is niet aangeraakt.
+Zelf bekeken: de stroken (alle drie een doorlopend verloop) en `beelden/gradient-radar-dag-vast-1280.webp`.
+LET OP: de beelden `violet-*` en `contrast-*` van rond 07:50–08:05 tonen nog de versie met stappen in de kernen; de
+randen (waar ronde 3 over ging) zijn gelijk gebleven. Kleurenblind-cijfers opnieuw in
+`metingen/bandverschil-per-palet.md`; violet-laat 's nachts is tussen 0,5 en 4,5 mm/u vrijwel één blauw (11 / 10).
+
+### Regencontrast is een invoerveld (0–20 L*, stap 1; opgeslagen als getal, 0 = regel uit)
+De unit-test toetst nu 20, 15, 12, 10, 7,5, 5, 2 en 0. Bijvangst: op 20 haalde de rand de lat net niet (19,94) omdat
+de regel met de nominale dekking 0,55 rekende en de tabel 140/255 bewaart; de regel rekent nu met de byte, en ook
+de kleuren onder de inzet krijgen elk hun eigen kleinste verschuiving.
+**Onder 8,5 doet de lat bij `drempel` niets meer.** De beginkleur van het palet (64,152,238 op dekking 0,55) is uit
+zichzelf al 8,5 L* donkerder dan het water en 20 L* donkerder dan land; lager dan dat schuift er niets
+(`metingen/contrastlat-violet-laat.md`, `beelden/lat-vrij-stad-dag-vast-1280.webp`: 8 en 0 zijn hetzelfde beeld).
+Vindt de PO 10 nog te zwaar, dan zit de rest niet in de regel maar in de dekking van de rand (0,55) of in de
+beginkleur zelf. Bij `drempel-zacht` (0,38) loopt de lat wel door tot 6.
+
+### Gate (web/), 08:28
+`pnpm typecheck` 0 · `pnpm test` 0 (84 bestanden, 564 tests) · `pnpm build` 0 ·
+`MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts --project desktop` 0 (7 groen).
+Preview 4320 serveert deze build (`index-DtVgolwh.js`). Niets als standaard vastgezet.

@@ -2,10 +2,11 @@
 // thema: de beginkleur na de regel, en per ondergrond de kleur op het scherm met het verschil in helderheid (ΔL*) en
 // in kleur als geheel (ΔE, CIE76: helderheid plus tint). Onder ΔE 5 is een vlak naast zijn ondergrond nog net te
 // zien; valt de regen ergens "weg", dan staat het hier.
-// Gebruik (vanuit web/): pnpm exec tsx tmp/u77/contrast-floors.ts [palet]
-import { buildRainColormap, colourOverGround, GROUND_COLOURS, lightness, ONSET_INDEX, RAIN_CONTRASTS, rainOnsetAlpha, type Ground, type RainPaletteName, type Rgb } from '../../src/core/rain-palette'
+// Gebruik (vanuit web/): pnpm exec tsx tmp/u77/contrast-floors.ts [palet] [latten, komma's]
+import { buildRainColormap, colourOverGround, GROUND_COLOURS, lightness, ONSET_INDEX, rainOnsetAlpha, type Ground, type RainPaletteName, type Rgb } from '../../src/core/rain-palette'
 
 const palette = (process.argv[2] ?? 'violet-laat') as RainPaletteName
+const floors = (process.argv[3] ?? '15,12,10,8,6,4,2,0').split(',').map(Number)
 const GROUNDS: Ground[] = ['land', 'water', 'urban']
 const GROUND_NAMES: Record<Ground, string> = { land: 'land', water: 'water', urban: 'bebouwing' }
 
@@ -21,14 +22,15 @@ const colourDifference = (left: Rgb, right: Rgb) => { const a = lab(left), b = l
 
 console.log(`| menging | thema | lat | beginkleur na de regel | ${GROUNDS.map((ground) => `op ${GROUND_NAMES[ground]}: kleur · ΔL* · ΔE`).join(' | ')} |`)
 console.log('| --- | --- | --- | --- | --- | --- | --- |')
-for (const blend of ['drempel', 'drempel-zacht'] as const) for (const theme of ['light', 'dark'] as const) for (const contrast of RAIN_CONTRASTS) {
+for (const blend of ['drempel', 'drempel-zacht'] as const) for (const theme of ['light', 'dark'] as const) for (const contrast of floors) {
   const colormap = buildRainColormap({ palette, blend, theme, contrast })
   const onset: Rgb = [colormap[ONSET_INDEX * 4]!, colormap[ONSET_INDEX * 4 + 1]!, colormap[ONSET_INDEX * 4 + 2]!]
-  const alpha = rainOnsetAlpha(blend)!
+  // De dekking van deze tabelingang zelf (een byte), niet de nominale inzetdekking: daarmee rekent de regel ook.
+  const alpha = colormap[ONSET_INDEX * 4 + 3]! / 255
   const cells = GROUNDS.map((ground) => {
     const groundColour = GROUND_COLOURS[theme][ground]
     const onScreen = colourOverGround(onset, alpha, groundColour)
     return `${onScreen.join(',')} · ${(lightness(onScreen) - lightness(groundColour)).toFixed(1)} · ${colourDifference(onScreen, groundColour).toFixed(0)}`
   })
-  console.log(`| ${blend} (${alpha.toFixed(2)}) | ${theme === 'light' ? 'dag' : 'nacht'} | ${contrast} | ${onset.join(',')} | ${cells.join(' | ')} |`)
+  console.log(`| ${blend} (${rainOnsetAlpha(blend)!.toFixed(2)}) | ${theme === 'light' ? 'dag' : 'nacht'} | ${contrast} | ${onset.join(',')} | ${cells.join(' | ')} |`)
 }

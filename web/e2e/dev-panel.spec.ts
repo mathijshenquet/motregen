@@ -53,10 +53,10 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-contrast', '15')
   await rainGroup.getByLabel('Regenpalet').selectOption('violet-laat')
   await rainGroup.getByLabel('Regenmenging').selectOption('drempel')
-  await rainGroup.getByLabel('Regencontrast').selectOption('12')
+  await rainGroup.getByLabel('Regencontrast').fill('7')
   await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'violet-laat/drempel')
-  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-contrast', '12')
-  await expect.poll(() => page.evaluate(() => ['regenpalet', 'regenmenging', 'regencontrast'].map((name) => localStorage.getItem(`motregen-dev-${name}`)))).toEqual(['violet-laat', 'drempel', '12'])
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-contrast', '7')
+  await expect.poll(() => page.evaluate(() => ['regenpalet', 'regenmenging', 'regencontrast'].map((name) => localStorage.getItem(`motregen-dev-${name}`)))).toEqual(['violet-laat', 'drempel', '7'])
 
   await groups.locator('> summary', { hasText: 'Diagnose' }).click()
   const perfToggle = panel.getByRole('checkbox', { name: /Perf-HUD/ })

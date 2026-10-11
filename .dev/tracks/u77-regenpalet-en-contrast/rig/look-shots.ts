@@ -63,7 +63,13 @@ let sources = ''
 for (const look of looks) {
   await choose('Regenpalet', look.palette)
   await choose('Regenmenging', look.blend)
-  await choose('Regencontrast', look.contrast)
+  // Regencontrast is een invoerveld (vrije waarde), geen keuzelijst.
+  await page.evaluate((value) => {
+    const control = [...document.querySelectorAll('.dev-control')].find((element) => element.querySelector('label > span')?.textContent === 'Regencontrast')
+    const input = control!.querySelector('input')!
+    input.value = value
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  }, look.contrast)
   await page.waitForTimeout(700)
   sources = await page.locator('[data-rain-sources]').getAttribute('data-rain-sources') ?? '?'
   const box = (await shell.boundingBox())!
