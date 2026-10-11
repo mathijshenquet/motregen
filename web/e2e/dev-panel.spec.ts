@@ -13,9 +13,9 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   const panel = page.getByTestId('dev-panel')
   await expect(panel).toBeVisible()
   const groups = panel.locator('.dev-group')
-  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wind', 'Kaart', 'Laden', 'Lucht nu', 'Diagnose'])
+  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wind', 'Regen', 'Kaart', 'Laden', 'Lucht nu', 'Diagnose'])
   // Alleen de eerste groep start open.
-  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false, false])
+  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false, false, false])
   await expect(panel).not.toContainText('Wolkrand')
 
   const controls = panel.locator('.dev-control')
@@ -45,15 +45,18 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   await expect(page.locator('.map-shell')).toHaveClass(/sky-(day|night)/)
   await expect(page.locator('.map')).toHaveAttribute('data-map-night', /^[01]\.\d\d$/)
 
-  // U77-proef: palet en menging van de regen; de keuze staat op de kaart en overleeft een reset niet.
-  await groups.locator('> summary', { hasText: 'Kaart' }).click()
-  const mapGroup = groups.filter({ has: page.locator('summary', { hasText: /^Kaart$/ }) })
-  await expect(mapGroup.locator('.dev-control label > span')).toHaveText(['Regenpalet', 'Regenmenging', 'Regenveld radar/nowcast', 'Regenveld HARMONIE'])
+  // U77-proef: palet, menging en contrastlat van de regen; de keuze staat op de kaart en overleeft een reset niet.
+  await groups.locator('> summary', { hasText: /^Regen$/ }).click()
+  const rainGroup = groups.filter({ has: page.locator('summary', { hasText: /^Regen$/ }) })
+  await expect(rainGroup.locator('.dev-control label > span')).toHaveText(['Regenpalet', 'Regenmenging', 'Regencontrast'])
   await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'huidig/huidig')
-  await mapGroup.getByLabel('Regenpalet').selectOption('blauw-grijs-rood')
-  await mapGroup.getByLabel('Regenmenging').selectOption('drempel')
-  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'blauw-grijs-rood/drempel')
-  await expect.poll(() => page.evaluate(() => [localStorage.getItem('motregen-dev-regenpalet'), localStorage.getItem('motregen-dev-regenmenging')])).toEqual(['blauw-grijs-rood', 'drempel'])
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-contrast', '15')
+  await rainGroup.getByLabel('Regenpalet').selectOption('violet-laat')
+  await rainGroup.getByLabel('Regenmenging').selectOption('drempel')
+  await rainGroup.getByLabel('Regencontrast').selectOption('12')
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'violet-laat/drempel')
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-contrast', '12')
+  await expect.poll(() => page.evaluate(() => ['regenpalet', 'regenmenging', 'regencontrast'].map((name) => localStorage.getItem(`motregen-dev-${name}`)))).toEqual(['violet-laat', 'drempel', '12'])
 
   await groups.locator('> summary', { hasText: 'Diagnose' }).click()
   const perfToggle = panel.getByRole('checkbox', { name: /Perf-HUD/ })
@@ -64,6 +67,7 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   await panel.getByRole('button', { name: 'Reset alle instellingen' }).click()
   await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-wind-tuning-v4'))).toBeNull()
   await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'huidig/huidig')
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-contrast', '15')
   await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-dev-regenpalet'))).toBeNull()
 
   for (const summary of await groups.locator('> summary').all()) {

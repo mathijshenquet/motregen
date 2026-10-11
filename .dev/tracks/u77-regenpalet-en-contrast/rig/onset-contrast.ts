@@ -2,7 +2,7 @@
 // helderheidsverschil (L*) van de lichtste zichtbare regen met land, water en bebouwing, per menging met een inzet.
 // Daaronder: hoe ver de beginkleur bij een lagere inzetdekking moet opschuiven (0 = palet, 1 = zwart of wit), om te
 // zien waar de ondergrens van de dekking ligt. Gebruik (vanuit web/): pnpm exec tsx tmp/u77/onset-contrast.ts
-import { buildRainColormap, groundContrast, MINIMUM_GROUND_CONTRAST, ONSET_INDEX, contrastShiftFor, RAIN_PALETTES, rainOnsetAlpha, type Ground, type RainBlendName, type Rgb } from '../../src/core/rain-palette'
+import { buildRainColormap, groundContrast, DEFAULT_RAIN_CONTRAST, ONSET_INDEX, contrastShiftFor, RAIN_PALETTES, rainOnsetAlpha, type Ground, type RainBlendName, type Rgb } from '../../src/core/rain-palette'
 
 const GROUNDS: Ground[] = ['land', 'water', 'urban']
 const BLENDS: RainBlendName[] = ['drempel', 'drempel-zacht']
@@ -10,7 +10,7 @@ const onsetEntry = (palette: typeof RAIN_PALETTES[number], blend: RainBlendName,
   const colormap = buildRainColormap({ palette, blend, theme })
   return { colour: [colormap[ONSET_INDEX * 4]!, colormap[ONSET_INDEX * 4 + 1]!, colormap[ONSET_INDEX * 4 + 2]!], alpha: colormap[ONSET_INDEX * 4 + 3]! / 255 }
 }
-console.log(`| palet | thema | menging | inzetdekking | beginkleur palet | na de regel | land | water | bebouwing (minimum ${MINIMUM_GROUND_CONTRAST}) |`)
+console.log(`| palet | thema | menging | inzetdekking | beginkleur palet | na de regel | land | water | bebouwing (minimum ${DEFAULT_RAIN_CONTRAST}) |`)
 console.log('| --- | --- | --- | --- | --- | --- | --- | --- | --- |')
 for (const palette of RAIN_PALETTES) for (const theme of ['light', 'dark'] as const) for (const blend of BLENDS) {
   const plain = onsetEntry(palette, 'zuiver', theme)
@@ -27,7 +27,7 @@ const mix = (colour: Rgb, target: number, shift: number) => colour.map((channel)
 for (const alpha of [0.2, 0.25, 0.3, 0.35, 0.38, 0.4, 0.45, 0.55, 0.7]) {
   const day = onsetEntry('violet-klassen', 'zuiver', 'light').colour
   const night = onsetEntry('violet-klassen', 'zuiver', 'dark').colour
-  const dayShift = contrastShiftFor(day, alpha, 'light')
-  const nightShift = contrastShiftFor(night, alpha, 'dark')
+  const dayShift = contrastShiftFor(day, alpha, 'light', DEFAULT_RAIN_CONTRAST)
+  const nightShift = contrastShiftFor(night, alpha, 'dark', DEFAULT_RAIN_CONTRAST)
   console.log(`| ${alpha.toFixed(2)} | ${dayShift.toFixed(2)} | ${mix(day, 0, dayShift)} | ${nightShift.toFixed(2)} | ${mix(night, 255, nightShift)} |`)
 }

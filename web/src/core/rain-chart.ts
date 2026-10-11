@@ -42,7 +42,7 @@ const barColors = new Map<string, string[]>()
 // Same colour as the map overlay for this rate: invert the mrf v0 rain table
 // (docs/mrf.md) to a byte index and read the overlay LUT at full opacity.
 export function rainColor(value: number, look: RainLook = DEFAULT_RAIN_LOOK): string {
-  const lookKey = `${look.palette}|${look.blend}|${look.theme}`
+  const lookKey = `${look.palette}|${look.blend}|${look.theme}|${look.contrast ?? ''}`
   let colors = barColors.get(lookKey)
   if (!colors) {
     const lut = rainColormap(look)

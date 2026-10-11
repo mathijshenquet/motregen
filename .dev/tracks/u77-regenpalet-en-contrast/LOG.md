@@ -322,3 +322,68 @@ donker. `violet-histogram-dag-vast-1280`: het histogram per palet. Alle vijf zel
 `MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts --project desktop` 0 (7 groen).
 Preview 4320 serveert deze build (`index-BG1C8N4l.js`, bevat `drempel-zacht`). Niet gedaan: de branch bijwerken met
 main (7 commits verder); de perf van `drempel-zacht` is niet gemeten (alleen een andere tabel, de shader is gelijk).
+
+## 2026-10-11 08:05 — ronde 3 (PO via orkestrator): violet-laat als kandidaat, de lat van de contrastregel instelbaar
+
+PO: palet "ik vind laat wel beter" (kent de nadelen); menging "wellicht is zachter niet de oplossing maar moet de
+contrastregel een klein beetje naar beneden, bijvoorbeeld 20 %". Niets als standaard vastgezet.
+
+### Gedaan
+- **Branch bijgewerkt met origin/main** (merge `c01457b`, 7 commits: U78-botfixes en LOG; geen conflicten, geen
+  overlap met `web/src`).
+- **`?dev` › Regen › Regencontrast**: 15 L* (standaard, de lat tot nu toe) · 12 L* (−20 %, de PO-suggestie) · 10 L*.
+  De regel is dezelfde regel in de code (`contrastShiftFor(…, minimum)`), alleen met de gekozen lat; `RainLook`
+  heeft er een optioneel veld `contrast` bij (weggelaten = 15, dus `rainColormap()` zonder argument is ongewijzigd).
+  De unit-test toetst elke lat: voor 15, 12 en 10 haalt de lichtste zichtbare regen die lat op land, water en
+  bebouwing, in elk palet en thema, en de hele lichte band ook.
+- **Eigen groep "Regen"** in het dev-paneel (Regenpalet, Regenmenging, Regencontrast). Kaart zou anders vijf knoppen
+  krijgen, en de afspraak is hooguit 3–4 per groep; Kaart houdt de twee Regenveld-knoppen. AFWIJKING van de spec van
+  ronde 1 ("groep Kaart"): graag bevestigen. `docs/dev-opties.md` en `dev-panel.spec.ts` volgen.
+
+### Wat de lagere lat doet (`rig/contrast-floors.ts`, `metingen/contrastlat-violet-laat.md`; violet-laat)
+De lichtste zichtbare regen: beginkleur na de regel, en op het scherm het verschil met de ondergrond in helderheid
+(ΔL*) en in kleur als geheel (ΔE, CIE76).
+| menging | thema | lat | beginkleur | op land ΔL* · ΔE | op water ΔL* · ΔE | op bebouwing ΔL* · ΔE |
+| --- | --- | --- | --- | --- | --- | --- |
+| drempel (0,55) | dag | 15 | 51,120,188 | −26,0 · 36 | −15,1 · 16 | −21,6 · 32 |
+| drempel | dag | 12 | 57,135,212 | −23,1 · 36 | −12,1 · 14 | −18,7 · 33 |
+| drempel | dag | 10 | 61,144,226 | −21,4 · 36 | −10,3 · 13 | −17,0 · 33 |
+| drempel | nacht | 15 = 12 = 10 | 66,120,214 | +23,8 · 39 | +16,8 · 31 | +18,2 · 39 |
+| drempel-zacht (0,38) | dag | 15 | 37,87,137 | −22,3 · 26 | −15,0 · 15 | −19,5 · 23 |
+| drempel-zacht | dag | 12 | 45,108,169 | −19,6 · 25 | −12,1 · 12 | −16,7 · 23 |
+| drempel-zacht | dag | 10 | 51,122,190 | −17,6 · 25 | −10,1 · 11 | −14,6 · 22 |
+| drempel-zacht | nacht | 15 | 99,144,221 | +20,6 · 27 | +15,3 · 21 | +16,1 · 26 |
+| drempel-zacht | nacht | 10 | 66,120,214 | +16,9 · 28 | +11,8 · 22 | +12,5 · 28 |
+- **Valt er iets weg? Nee.** Boven land en bebouwing verandert er in kleurverschil niets (ΔE 32–36 bij drempel,
+  22–26 bij zacht): de rand wordt alleen lichter en blauwer. Het water is de enige plek waar de lat bindt; daar
+  zakt het van 16 naar 14 (lat 12) en 13 (lat 10) bij drempel, en naar 12 en 11 bij drempel-zacht. Zichtbaar, maar
+  bij zacht + 10 het zwakst van alles.
+- 's Nachts doet de lat bij `drempel` niets: het palet zit daar uit zichzelf al op 16,8.
+- De lat is het kleinste verschil, niet het verschil: op land blijft de rand ruim 20 L* donkerder dan de kaart.
+
+### Beelden (`beelden/contrast-*`, zes stuks, alle zes zelf bekeken)
+`contrast-radar-{dag-vast,nacht-vast}-{1280,390}` (radar 07:35) en `contrast-stad-dag-vast-{1280,390}` (zoom 9 bij
+Amersfoort, 07:12, de rand van een regenband): rijen drempel · drempel-zacht, kolommen 15 · 12 · 10 L*.
+- Ingezoomd, `drempel`: bij 15 loopt er een staalgrijze zoom langs de rand; bij 12 is die zoom blauw geworden en
+  nog net een tint donkerder dan de bui; bij 10 is hij weg en eindigt het blauw gewoon. De rand zelf blijft in alle
+  drie even scherp.
+- Ingezoomd, `drempel-zacht`: bij 15 een brede rokerige band; bij 12 veel minder grijs; bij 10 een zachte
+  lichtblauwe uitloop — het mooiste "zachte" beeld, maar de grens regen/geen regen is dan weer een waas.
+- Landelijk, dag: de verschillen tussen 15, 12 en 10 zijn klein; je ziet ze aan de losse buitjes boven de Noordzee
+  en boven België, die per stap iets bleker worden. Bij zacht + 10 zijn de kleinste spikkels boven zee en op de
+  grijze bebouwingsvlakken van het telefoonbeeld flets, maar ze staan er.
+- Nacht: geen zichtbaar verschil tussen de kolommen.
+
+### Advies ronde 3
+**`violet-laat` + `drempel` + Regencontrast 12 L*.** De PO-suggestie doet wat hij ervan verwachtte: de vorm van de
+drempel blijft (duidelijke grens "hier regent het"), de rand is niet meer grijs en zwaar, en boven water houdt de
+lichtste regen een marge (ΔE 14) die ik bij 10 (13, en 11 met zacht) niet zou willen weggeven nu het palet zelf al
+bijna helemaal blauw is op een kaart met blauw water. `drempel-zacht` is met de lagere lat niet meer nodig; als de
+PO toch de zachte rand wil, dan zacht + 12, niet zacht + 10.
+Niet opnieuw gedaan in deze ronde: afspelen (de lat verandert alleen de kleur van de rand, niet waar hij ligt of
+wanneer hij verschijnt), HARMONIE-beelden, en het histogram (dat volgt het palet, niet de lat boven 0,1 mm/u).
+
+### Gate (web/), 08:04, op de gemergde branch
+`pnpm typecheck` 0 · `pnpm test` 0 (84 bestanden, 563 tests) · `pnpm build` 0 ·
+`MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts --project desktop` 0 (7 groen).
+Preview 4320 serveert deze build (`index-DbltdCof.js`, bevat `dev-regencontrast`).

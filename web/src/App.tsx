@@ -1607,7 +1607,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   function changeRainLookChoice(patch: Partial<RainLookChoice>): void {
-    for (const [name, value] of Object.entries(patch)) localStorage.setItem(RAIN_LOOK_STORAGE_KEYS[name as keyof RainLookChoice], value)
+    for (const [name, value] of Object.entries(patch)) localStorage.setItem(RAIN_LOOK_STORAGE_KEYS[name as keyof RainLookChoice], String(value))
     setRainLookChoice({ ...rainLookChoice(), ...patch })
   }
 
@@ -3229,7 +3229,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const rainColourLook = createMemo((): RainLook => {
     const choice = rainLookChoice()
     const weatherMode = windFocus() < 0.5 && airFocus() < 0.5
-    return { palette: choice.palette, blend: weatherMode ? choice.blend : DEFAULT_RAIN_LOOK.blend, theme: mapSurfaceTheme() }
+    return { palette: choice.palette, blend: weatherMode ? choice.blend : DEFAULT_RAIN_LOOK.blend, theme: mapSurfaceTheme(), contrast: choice.contrast }
   }, undefined, { equals: sameFields })
   createEffect(() => { rainColourLook(); applyRainColours() })
   let basemapBlend: BlendTarget[] | undefined
@@ -3524,7 +3524,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       class="map-shell"
       classList={{ 'sky-day': chromeSky()?.daylight === true, 'sky-night': chromeSky()?.daylight === false }}
       style={chromeSky() ? { '--day-overcast': chromeSky()!.overcast.toFixed(2) } : undefined}
-      aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainLook().opacity.toFixed(2)} data-rain-blend={rainLook().multiply ? 'multiply' : 'normal'} data-rain-look={`${rainColourLook().palette}/${rainColourLook().blend}`} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
+      aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainLook().opacity.toFixed(2)} data-rain-blend={rainLook().multiply ? 'multiply' : 'normal'} data-rain-look={`${rainColourLook().palette}/${rainColourLook().blend}`} data-rain-contrast={rainColourLook().contrast} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
       <div ref={mapElement} class="map" />
       <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() && firstMapImageShown() }} aria-hidden={mapReady() && firstMapImageShown()}>
         <div class="map-splash-veil" />

@@ -11,20 +11,30 @@ export type RainPaletteName = typeof RAIN_PALETTES[number]
 export const RAIN_BLENDS = ['huidig', 'zuiver', 'steil', 'drempel', 'drempel-zacht', 'rand'] as const
 export type RainBlendName = typeof RAIN_BLENDS[number]
 
+// De lat van de contrastregel: het kleinste helderheidsverschil (CIE L*, schaal 0–100) tussen de lichtste zichtbare
+// regen en elke ondergrond. Een vangnet, geen oordeel. Tien bleek in ronde 1 te weinig voor blauw op het lichtblauwe
+// water van de kaart, vijftien gaf de rand een donkere zoom; de PO wil er daarom tussen kunnen kiezen (2026-10-11).
+export const RAIN_CONTRASTS = [15, 12, 10] as const
+export type RainContrast = typeof RAIN_CONTRASTS[number]
+export const DEFAULT_RAIN_CONTRAST: RainContrast = 15
+
 export interface RainLook {
   palette: RainPaletteName
   blend: RainBlendName
   theme: MapTheme
+  /** Weggelaten = `DEFAULT_RAIN_CONTRAST`. Telt alleen bij een menging met een dekkende inzet. */
+  contrast?: RainContrast
 }
 
 /** Wat de knoppen kiezen; het thema volgt de kaart. */
-export type RainLookChoice = Pick<RainLook, 'palette' | 'blend'>
+export type RainLookChoice = Pick<RainLook, 'palette' | 'blend' | 'contrast'>
 
-export const DEFAULT_RAIN_LOOK: RainLook = { palette: 'huidig', blend: 'huidig', theme: 'light' }
+export const DEFAULT_RAIN_LOOK: RainLook = { palette: 'huidig', blend: 'huidig', theme: 'light', contrast: DEFAULT_RAIN_CONTRAST }
 
 export const RAIN_LOOK_STORAGE_KEYS = {
   palette: 'motregen-dev-regenpalet',
   blend: 'motregen-dev-regenmenging',
+  contrast: 'motregen-dev-regencontrast',
 } as const
 
 /** Byte van een regenintensiteit (mm/u) in de mrf v0-regentabel (docs/mrf.md); niet afgerond. */
@@ -272,13 +282,6 @@ export const GROUND_COLOURS: Record<MapTheme, Record<Ground, Rgb>> = {
   dark: { land: [16, 29, 33], water: [24, 55, 70], urban: [38, 48, 44] },
 }
 
-/**
- * Het kleinste helderheidsverschil (CIE L*, schaal 0–100) tussen de lichtste zichtbare regen en elke ondergrond.
- * Een vangnet, geen oordeel. Tien bleek in beeld te weinig voor blauw op het lichtblauwe water van de kaart, waar
- * de tint niet meehelpt; vijftien is een stap die je daar zonder zoeken ziet.
- */
-export const MINIMUM_GROUND_CONTRAST = 15
-
 /** CIE L* van een sRGB-kleur. */
 export function lightness(colour: Rgb): number {
   const linear = (channel: number) => {
@@ -304,22 +307,22 @@ export function groundContrast(colour: Rgb, alpha: number, theme: MapTheme, grou
   return theme === 'light' ? -difference : difference
 }
 
-function hasGroundContrast(colour: Rgb, alpha: number, theme: MapTheme): boolean {
+function hasGroundContrast(colour: Rgb, alpha: number, theme: MapTheme, minimum: number): boolean {
   const grounds = Object.keys(GROUND_COLOURS[theme]) as Ground[]
-  return grounds.every((ground) => groundContrast(colour, alpha, theme, ground) >= MINIMUM_GROUND_CONTRAST)
+  return grounds.every((ground) => groundContrast(colour, alpha, theme, ground) >= minimum)
 }
 
 const CONTRAST_SHIFT_STEPS = 200
 
 /**
  * De contrastregel: hoe ver een kleur moet opschuiven (0–1; overdag naar zwart, 's nachts naar wit) tot hij met
- * dekking `alpha` op land, water én bebouwing minstens `MINIMUM_GROUND_CONTRAST` verschilt. Regen maakt de kaart
+ * dekking `alpha` op land, water én bebouwing minstens `minimum` L* verschilt. Regen maakt de kaart
  * daardoor overdag altijd donkerder en 's nachts altijd lichter.
  */
-export function contrastShiftFor(colour: Rgb, alpha: number, theme: MapTheme): number {
+export function contrastShiftFor(colour: Rgb, alpha: number, theme: MapTheme, minimum: number): number {
   for (let step = 0; step < CONTRAST_SHIFT_STEPS; step++) {
     const shift = step / CONTRAST_SHIFT_STEPS
-    if (hasGroundContrast(shiftedColour(colour, theme, shift), alpha, theme)) return shift
+    if (hasGroundContrast(shiftedColour(colour, theme, shift), alpha, theme, minimum)) return shift
   }
   return 1
 }
@@ -335,12 +338,13 @@ export function buildRainColormap(look: RainLook): Uint8Array {
   const stops = PALETTE_STOPS[look.palette][look.theme]
   const shape = BLEND_SHAPES[look.blend]
   // Zonder dekkende inzet loopt de dekking vanaf nul op en bestaat er geen "lichtste zichtbare regen" om te borgen.
-  const onsetShift = shape.onsetEdge ? contrastShiftFor(colourAt(stops, ONSET_INDEX), shape.onsetEdge.alpha, look.theme) : 0
+  const minimum = look.contrast ?? DEFAULT_RAIN_CONTRAST
+  const onsetShift = shape.onsetEdge ? contrastShiftFor(colourAt(stops, ONSET_INDEX), shape.onsetEdge.alpha, look.theme, minimum) : 0
   const colormap = new Uint8Array(256 * 4)
   for (let index = 0; index <= LAST_RAIN_INDEX; index++) {
     const alpha = alphaAt(index, shape)
     const paletteColour = colourAt(stops, index)
-    const shift = onsetShift === 0 ? 0 : lightBandShift(paletteColour, index, alpha / 255, onsetShift, look.theme)
+    const shift = onsetShift === 0 ? 0 : lightBandShift(paletteColour, index, alpha / 255, onsetShift, look.theme, minimum)
     colormap.set(shiftedColour(paletteColour, look.theme, shift), index * 4)
     colormap[index * 4 + 3] = alpha
   }
@@ -353,13 +357,13 @@ export function buildRainColormap(look: RainLook): Uint8Array {
  * nodig. Wat een palet in de lichte band niet kan halen (het geel van `huidig` blijft licht) begrenst de uitloop,
  * zodat matig en zwaar het palet houden en er geen sprong ontstaat op 2,5 mm/u.
  */
-function lightBandShift(paletteColour: Rgb, index: number, alpha: number, onsetShift: number, theme: MapTheme): number {
+function lightBandShift(paletteColour: Rgb, index: number, alpha: number, onsetShift: number, theme: MapTheme, minimum: number): number {
   if (index <= ONSET_INDEX) return onsetShift
   if (index >= LIGHT_BAND_END_INDEX) return 0
   const progress = (index - ONSET_INDEX) / (LIGHT_BAND_END_INDEX - ONSET_INDEX)
   // Kwadratisch: de begrenzing blijft lang ruim, zodat een palet dat de regel wél kan halen er niet tegenaan loopt.
   const limit = onsetShift * (1 - progress * progress)
-  return Math.min(contrastShiftFor(paletteColour, alpha, theme), limit)
+  return Math.min(contrastShiftFor(paletteColour, alpha, theme, minimum), limit)
 }
 
 /** Of de regencanvas met echte alfa-over mengt (zie `BlendShape.straightAlpha`). */
@@ -391,8 +395,10 @@ type LookStorage = Pick<Storage, 'getItem'>
 export function loadRainLookChoice(storage: LookStorage = localStorage): RainLookChoice {
   const storedPalette = storage.getItem(RAIN_LOOK_STORAGE_KEYS.palette) as RainPaletteName
   const storedBlend = storage.getItem(RAIN_LOOK_STORAGE_KEYS.blend) as RainBlendName
+  const storedContrast = Number(storage.getItem(RAIN_LOOK_STORAGE_KEYS.contrast)) as RainContrast
   return {
     palette: RAIN_PALETTES.includes(storedPalette) ? storedPalette : DEFAULT_RAIN_LOOK.palette,
     blend: RAIN_BLENDS.includes(storedBlend) ? storedBlend : DEFAULT_RAIN_LOOK.blend,
+    contrast: RAIN_CONTRASTS.includes(storedContrast) ? storedContrast : DEFAULT_RAIN_CONTRAST,
   }
 }

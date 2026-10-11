@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# U77: de hele beeldmatrix. Gebruik vanuit web/: tmp/u77/run-look-shots.sh <paletten|mengingen|stad|violet> [baseURL]
+# U77: de hele beeldmatrix. Gebruik vanuit web/: tmp/u77/run-look-shots.sh <paletten|mengingen|stad|violet|contrast> [baseURL]
 # `violet` is ronde 2: de drie violet-paletten (rijen) × zuiver, drempel, drempel-zacht (kolommen), radar met een vast
-# licht en een vast donker thema, plus het histogram.
+# licht en een vast donker thema, plus het histogram. `contrast` is ronde 3: violet-laat met drempel en drempel-zacht
+# (rijen) × Regencontrast 15, 12 en 10 L* (kolommen), plus een ingezoomd stadsbeeld overdag op U77_CITY_TIME.
 # Radar: een vaste kaarttijd met lichte én zware regen (U77_RADAR_TIME); de nachtversie daarvan is het vaste donkere
 # thema, want een radartijd overdag heeft geen nacht. HARMONIE begint ruim 6 uur vooruit (daarvoor loopt de blend):
 # +9 u valt vanmiddag in de nacht, +23 u morgen overdag.
 set -u
-group="${1:?paletten, mengingen, stad of violet}"
+group="${1:?paletten, mengingen, stad, violet of contrast}"
 base="${2:-http://127.0.0.1:4320}"
 radar_time="${U77_RADAR_TIME:-2026-10-10T1415}"
 palettes='huidig/huidig,blauw-grijs-rood/huidig,huidig/drempel,blauw-grijs-rood/drempel,blauw-violet-rood/drempel,oplopend-donker/drempel'
@@ -14,6 +15,10 @@ blends='blauw-grijs-rood/huidig,blauw-grijs-rood/zuiver,blauw-grijs-rood/steil,b
 violet=''
 for palette in blauw-violet-rood violet-klassen violet-laat; do
   for blend in zuiver drempel drempel-zacht; do violet="${violet:+$violet,}$palette/$blend"; done
+done
+floors=''
+for blend in drempel drempel-zacht; do
+  for contrast in 15 12 10; do floors="${floors:+$floors,}violet-laat/$blend/$contrast"; done
 done
 failures=0
 shoot() { pnpm exec tsx tmp/u77/look-shots.ts "$base" "$@" 2>&1 | grep -E '\.png ·' || failures=$((failures + 1)); }
@@ -33,6 +38,11 @@ for device in 1280 390; do
     violet)
       U77_TIME="$radar_time" shoot violet-radar "$device" dag-vast 0 - "$violet"
       U77_TIME="$radar_time" shoot violet-radar "$device" nacht-vast 0 - "$violet"
+      ;;
+    contrast)
+      U77_TIME="$radar_time" shoot contrast-radar "$device" dag-vast 0 - "$floors"
+      U77_TIME="$radar_time" shoot contrast-radar "$device" nacht-vast 0 - "$floors"
+      U77_TIME="${U77_CITY_TIME:-$radar_time}" shoot contrast-stad "$device" dag-vast 0 "${U77_CITY_VIEW:-5.3,52.15,9}" "$floors"
       ;;
     *) echo "onbekende groep $group"; exit 2 ;;
   esac

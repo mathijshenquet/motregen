@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { MapTheme } from './map-theme'
 import {
   buildRainColormap, colourOverGround, DEFAULT_RAIN_LOOK, GROUND_COLOURS, groundContrast, lightness, loadRainLookChoice,
-  MINIMUM_GROUND_CONTRAST, ONSET_INDEX, RAIN_BLENDS, RAIN_LOOK_STORAGE_KEYS, RAIN_PALETTES, rainOnsetAlpha, rainOutline,
+  ONSET_INDEX, RAIN_BLENDS, RAIN_CONTRASTS, RAIN_LOOK_STORAGE_KEYS, RAIN_PALETTES, rainOnsetAlpha, rainOutline,
   rainRateIndex, rainUsesStraightAlpha, type Ground, type RainBlendName, type RainLook, type Rgb,
 } from './rain-palette'
 
@@ -83,28 +83,36 @@ describe('ground colours', () => {
 })
 
 describe('contrast with the map', () => {
-  it('keeps the lightest visible rain a minimum lightness step from land, water and built-up, for every palette and theme', () => {
-    for (const palette of RAIN_PALETTES) for (const blend of BLENDS_WITH_ONSET) for (const theme of THEMES) {
-      const colormap = buildRainColormap({ palette, blend, theme })
+  it('keeps the lightest visible rain the chosen lightness step from land, water and built-up, for every palette and theme', () => {
+    for (const contrast of RAIN_CONTRASTS) for (const palette of RAIN_PALETTES) for (const blend of BLENDS_WITH_ONSET) for (const theme of THEMES) {
+      const colormap = buildRainColormap({ palette, blend, theme, contrast })
       const firstOpaque = Array.from({ length: 255 }, (_, index) => index).find((index) => entry(colormap, index).alpha >= rainOnsetAlpha(blend)! - 0.005)!
       expect(firstOpaque, `${palette} ${blend}`).toBeLessThanOrEqual(ONSET_INDEX)
       for (let index = firstOpaque; index <= ONSET_INDEX; index++) {
         const { colour, alpha } = entry(colormap, index)
         for (const ground of GROUNDS) {
-          expect(groundContrast(colour, alpha, theme, ground), `${palette} ${blend} ${theme} ${ground} byte ${index}`).toBeGreaterThanOrEqual(MINIMUM_GROUND_CONTRAST)
+          expect(groundContrast(colour, alpha, theme, ground), `${contrast} L* ${palette} ${blend} ${theme} ${ground} byte ${index}`).toBeGreaterThanOrEqual(contrast)
         }
       }
     }
   })
 
   it('makes rain darken the light map and lighten the dark map through the whole light band', () => {
-    for (const palette of NEW_PALETTES) for (const blend of ['drempel', 'drempel-zacht'] as const) for (const theme of THEMES) {
-      const colormap = buildRainColormap({ palette, blend, theme })
+    for (const contrast of RAIN_CONTRASTS) for (const palette of NEW_PALETTES) for (const blend of ['drempel', 'drempel-zacht'] as const) for (const theme of THEMES) {
+      const colormap = buildRainColormap({ palette, blend, theme, contrast })
       for (let index = ONSET_INDEX; index <= Math.round(rainRateIndex(2.5)); index++) {
         const { colour, alpha } = entry(colormap, index)
-        for (const ground of GROUNDS) expect(groundContrast(colour, alpha, theme, ground), `${palette} ${blend} ${theme} ${ground} byte ${index}`).toBeGreaterThanOrEqual(MINIMUM_GROUND_CONTRAST)
+        for (const ground of GROUNDS) expect(groundContrast(colour, alpha, theme, ground), `${contrast} L* ${palette} ${blend} ${theme} ${ground} byte ${index}`).toBeGreaterThanOrEqual(contrast)
       }
     }
+  })
+
+  it('makes the edge lighter by day when the floor is lowered, and never moves it past the palette colour', () => {
+    const dayOnset = (contrast: typeof RAIN_CONTRASTS[number]) => lightness(entry(buildRainColormap({ palette: 'violet-laat', blend: 'drempel', theme: 'light', contrast }), ONSET_INDEX).colour)
+    const paletteOnset = lightness(entry(buildRainColormap({ palette: 'violet-laat', blend: 'zuiver', theme: 'light' }), ONSET_INDEX).colour)
+    expect(dayOnset(12)).toBeGreaterThan(dayOnset(15))
+    expect(dayOnset(10)).toBeGreaterThan(dayOnset(12))
+    expect(dayOnset(10)).toBeLessThanOrEqual(paletteOnset)
   })
 
   it('cannot give that guarantee for the current blend: by day the lightest rain is as light as the land itself', () => {
@@ -234,11 +242,11 @@ describe('stored choice', () => {
   const storage = (values: Record<string, string>) => ({ getItem: (key: string) => values[key] ?? null })
 
   it('falls back to the product on a missing or unknown value', () => {
-    expect(loadRainLookChoice(storage({}))).toEqual({ palette: 'huidig', blend: 'huidig' })
-    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.palette]: 'regenboog', [RAIN_LOOK_STORAGE_KEYS.blend]: 'oplossen' }))).toEqual({ palette: 'huidig', blend: 'huidig' })
+    expect(loadRainLookChoice(storage({}))).toEqual({ palette: 'huidig', blend: 'huidig', contrast: 15 })
+    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.palette]: 'regenboog', [RAIN_LOOK_STORAGE_KEYS.blend]: 'oplossen', [RAIN_LOOK_STORAGE_KEYS.contrast]: '13' }))).toEqual({ palette: 'huidig', blend: 'huidig', contrast: 15 })
   })
 
-  it('reads a known palette and blend', () => {
-    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.palette]: 'blauw-grijs-rood', [RAIN_LOOK_STORAGE_KEYS.blend]: 'drempel' }))).toEqual({ palette: 'blauw-grijs-rood', blend: 'drempel' })
+  it('reads a known palette, blend and contrast floor', () => {
+    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.palette]: 'violet-laat', [RAIN_LOOK_STORAGE_KEYS.blend]: 'drempel', [RAIN_LOOK_STORAGE_KEYS.contrast]: '12' }))).toEqual({ palette: 'violet-laat', blend: 'drempel', contrast: 12 })
   })
 })

@@ -1,7 +1,7 @@
 // U77: combinaties van Regenpalet en Regenmenging naast elkaar op exact hetzelfde frame (naar rig/field-shots.ts van
 // U72). Eén pagina per beeld; de stand wisselt via de dev-knoppen zelf, dus data, tijd en uitsnede zijn per cel
 // gelijk. Magenta scheidt de cellen. Gebruik (vanuit web/, rig gekopieerd naar tmp/u77/):
-//   pnpm exec tsx tmp/u77/look-shots.ts <baseURL> <label> <390|1280> <dag|nacht|dag-vast|nacht-vast> <uren vooruit> <lng,lat,zoom|-> <palet/menging,palet/menging,...>
+//   pnpm exec tsx tmp/u77/look-shots.ts <baseURL> <label> <390|1280> <dag|nacht|dag-vast|nacht-vast> <uren vooruit> <lng,lat,zoom|-> <palet/menging[/contrast],palet/menging[/contrast],...>
 // U77_TIME=2026-10-10T1415 zet een vaste kaarttijd (Amsterdam) in plaats van uren vooruit. U77_PANEL=1 neemt het
 // hele kaartvlak met het histogram erbij (één kolom per cel) in plaats van de uitsnede. U77_MODE=Wind|Lucht kiest de kaartmodus.
 import { chromium, devices } from '@playwright/test'
@@ -9,7 +9,7 @@ import { mkdirSync } from 'node:fs'
 import sharp from 'sharp'
 
 const [baseURL = 'http://127.0.0.1:4320', label = 'paletten', device = '1280', scene = 'dag', hoursAhead = '0', view = '-', lookList = 'huidig/huidig'] = process.argv.slice(2)
-const looks = lookList.split(',').map((entry) => { const [palette, blend] = entry.split('/'); return { palette: palette!, blend: blend! } })
+const looks = lookList.split(',').map((entry) => { const [palette, blend, contrast = '15'] = entry.split('/'); return { palette: palette!, blend: blend!, contrast } })
 const outputDir = new URL('./out/', import.meta.url).pathname
 mkdirSync(outputDir, { recursive: true })
 
@@ -63,6 +63,7 @@ let sources = ''
 for (const look of looks) {
   await choose('Regenpalet', look.palette)
   await choose('Regenmenging', look.blend)
+  await choose('Regencontrast', look.contrast)
   await page.waitForTimeout(700)
   sources = await page.locator('[data-rain-sources]').getAttribute('data-rain-sources') ?? '?'
   const box = (await shell.boundingBox())!
@@ -74,7 +75,7 @@ for (const look of looks) {
   const shot = await page.screenshot({ clip: wholePanel ? { x: 0, y: 0, width: viewport.width, height: mobile ? viewport.height : 260 } : centreCrop })
   const scale = mobile ? 2 : 1
   const { width: shotWidth = 0 } = await sharp(shot).metadata()
-  const caption = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${shotWidth}" height="${34 * scale}"><rect width="100%" height="100%" fill="#000" fill-opacity="0.72"/><text x="${10 * scale}" y="${23 * scale}" font-family="sans-serif" font-size="${17 * scale}" fill="#fff">${look.palette} · menging ${look.blend}</text></svg>`)
+  const caption = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${shotWidth}" height="${34 * scale}"><rect width="100%" height="100%" fill="#000" fill-opacity="0.72"/><text x="${10 * scale}" y="${23 * scale}" font-family="sans-serif" font-size="${(mobile ? 13 : 17) * scale}" fill="#fff">${look.palette} · menging ${look.blend} · contrast ${look.contrast} L*</text></svg>`)
   cells.push(await sharp(shot).composite([{ input: caption, left: 0, top: wholePanel ? (await sharp(shot).metadata()).height! - 34 * scale : 0 }]).png().toBuffer())
 }
 await browser.close()
@@ -87,4 +88,4 @@ const file = `${outputDir}${label}-${scene}-${device}.png`
 await sharp({ create: { width: (cellWidth + gap) * columns - gap, height: (cellHeight + gap) * rows - gap, channels: 3, background: '#ff00ff' } })
   .composite(cells.map((input, index) => ({ input, left: (index % columns) * (cellWidth + gap), top: Math.floor(index / columns) * (cellHeight + gap) })))
   .png().toFile(file)
-console.log(`${file} · ${timeParameter} · bronnen ${sources} · ${looks.map((look) => `${look.palette}/${look.blend}`).join(' | ')}`)
+console.log(`${file} · ${timeParameter} · bronnen ${sources} · ${looks.map((look) => `${look.palette}/${look.blend}/${look.contrast}`).join(' | ')}`)

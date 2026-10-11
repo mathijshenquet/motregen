@@ -2,7 +2,7 @@ import { createSignal, For, type JSX } from 'solid-js'
 import { copyText } from '../core/clipboard'
 import { appendSkyDiaryEntry, SKY_DIARY_CLASSES, skyDiaryJson, type SkyDiaryClass } from '../core/dev-settings'
 import { ISOLINE_FADES, ISOLINE_FILL_STYLES, ISOLINE_STEPS, type IsolineFade, type IsolineFillStyle, type IsolineStep, type IsolineTuning } from '../core/isolines'
-import { RAIN_BLENDS, RAIN_PALETTES, type RainBlendName, type RainLookChoice, type RainPaletteName } from '../core/rain-palette'
+import { DEFAULT_RAIN_CONTRAST, RAIN_BLENDS, RAIN_CONTRASTS, RAIN_PALETTES, type RainBlendName, type RainContrast, type RainLookChoice, type RainPaletteName } from '../core/rain-palette'
 import { RAIN_SMOOTHINGS, type RainFieldTuning, type RainSmoothing } from '../core/rain-smoothing'
 import { sanitizeWindTuning, WIND_TUNING_CONTROLS, type WindTuning } from '../core/wind-layer'
 
@@ -44,6 +44,7 @@ const RAIN_SMOOTHING_HINT = 'Auto: het product (blur 5×5 tot 2 uur vooruit, opl
 
 const RAIN_PALETTE_HINT = 'Kleuren van de regen op de kaart en in het histogram. Huidig: lichtblauw, groen, geel, oranje, paars. Blauw-grijs-rood: het PO-voorstel. Blauw-violet-rood: hetzelfde met violet in plaats van grijs (violet vanaf ruim 1 mm/u). Violet-klassen: kleur per klasse, blauw voor licht (tot 2,5), violet voor matig, rood vanaf zwaar (7,5). Violet-laat: blauw tot 5, violet tot 10, rood daarboven. Oplopend-donker: de volgorde zit in de helderheid, overdag steeds donkerder en \'s nachts steeds lichter.'
 const RAIN_BLEND_HINT = 'Hoe regen in Weer over de kaart ligt (Wind en Lucht blijven zoals ze zijn). Huidig: lichte regen telt licht op bij de kaart (de witte halo). Zuiver: echte dekking, verder gelijk. Steil: de hele gladgestreken zoom meteen dekkend. Drempel: niets tot de rand van de data, daar meteen dekkend (0,55). Drempel-zacht: dezelfde rand, maar met een lagere dekking (0,38) en een twee keer zo brede oploop. Rand: drempel met een dunne contour. Steil, drempel, drempel-zacht en rand schuiven de lichtste kleuren per thema op tot ze genoeg afsteken bij land, water en bebouwing.'
+const RAIN_CONTRAST_HINT = 'De lat van de contrastregel bij steil, drempel, drempel-zacht en rand: hoe veel de lichtste zichtbare regen in helderheid (L*, schaal 0–100) minstens moet verschillen van land, water en bebouwing. 15: de lat tot nu toe. 12 en 10: een lichtere, minder zware rand, die boven het lichtblauwe water minder afsteekt.'
 
 export default function DevPanel(props: Props) {
   const [windCopied, setWindCopied] = createSignal(false)
@@ -109,7 +110,7 @@ export default function DevPanel(props: Props) {
       }</For>
       <Action label={windCopied() ? 'Gekopieerd' : 'Kopieer wind als JSON'} hint="Zet de vier windwaarden op het klembord, om terug te sturen." onClick={() => void copyWind()} />
     </Group>
-    <Group title="Kaart">
+    <Group title="Regen">
       <Control label="Regenpalet" output={props.rainLook.palette} hint={RAIN_PALETTE_HINT}>
         <select value={props.rainLook.palette} onChange={(event) => props.onRainLook({ palette: event.currentTarget.value as RainPaletteName })}>
           <For each={RAIN_PALETTES}>{(palette) => <option value={palette}>{palette}</option>}</For>
@@ -120,6 +121,13 @@ export default function DevPanel(props: Props) {
           <For each={RAIN_BLENDS}>{(blend) => <option value={blend}>{blend}</option>}</For>
         </select>
       </Control>
+      <Control label="Regencontrast" output={`${props.rainLook.contrast ?? DEFAULT_RAIN_CONTRAST} L*`} hint={RAIN_CONTRAST_HINT}>
+        <select value={props.rainLook.contrast ?? DEFAULT_RAIN_CONTRAST} onChange={(event) => props.onRainLook({ contrast: Number(event.currentTarget.value) as RainContrast })}>
+          <For each={RAIN_CONTRASTS}>{(contrast) => <option value={contrast}>{contrast} L*</option>}</For>
+        </select>
+      </Control>
+    </Group>
+    <Group title="Kaart">
       <Control label="Regenveld radar/nowcast" output={props.rainFieldTuning.radar} hint={`Hoe radar, nowcast en blend tussen de cellen worden ingevuld. ${RAIN_SMOOTHING_HINT}`}>
         <select value={props.rainFieldTuning.radar} onChange={(event) => props.onRainFieldTuning({ radar: event.currentTarget.value as RainSmoothing })}>
           <For each={RAIN_SMOOTHINGS}>{(smoothing) => <option value={smoothing}>{smoothing}</option>}</For>
