@@ -1,5 +1,11 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-11 14:40 CEST — MIP-30 E2: dubbele publicatie verklaard; set met deadline voorgesteld
+
+Prod-ingestlogs bevestigen de twee generaties: om14:07:08CEST radar RAD_NL25_RAC_RT_202610111205.h5 (brontijd14:05CEST), om14:07:17 de bijbehorende nowcast; na iedere gewijzigde bron meteen een volledig atomair manifest. Brontijden gelijk, aankomst/verwerking apart. Logs13:45–14:38 tonen meestal8–15s verschil, één70s. Seamless apart met132–135s verwerking; ingestcadansen UV/seamless15min en AROME3u.
+
+PO-richting: verwachte set afwachten met deadline. MIP-30 aangepast: radar+nowcast per brontijd, harde deadline vanaf eerste radarwaarneming zonder verlenging; PM stelt90s maximum voor vanwege70s-uitbijter. Laatste model/seamless/UV blijft beschikbaar; app direct. E2-deadline en late-productbeleid open, geen runtimewijziging. U80 eigen cache-A/B zonder betrouwbare winst; finale head nog afwachten.
+
 ## 2026-10-11 14:24 CEST — MIP-30 E1 aangenomen: bot MemoryMax naar 1600M
 
 PO: A3 ja doe maar; A4 sure? waarom zou een manifest niet stabiel zijn? E1 geautoriseerd en in Nix voor combined aangepast, met de bestaande flakecontractcheck. Poller512M, renderer1100M, swap/hardening gelijk. Wordt met de komende U80-uitrol toegepast en op prod gecontroleerd.
