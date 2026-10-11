@@ -48,6 +48,23 @@ for (const variant of variants) {
       'let mut rain = wind\n', 'let mut rain = false\n')
   }
   if (!variant.pressure) {
+    await replaceOnce(resolve(source, 'crates/render/src/modes.rs'),
+      `        field_raster::lines(
+            &mut rgb,
+            &input.slice.segments,
+            line_color,
+            self.wind,
+            input.slice.opacity,
+        );`,
+      `        if !self.wind {
+            field_raster::lines(
+                &mut rgb,
+                &input.slice.segments,
+                line_color,
+                self.wind,
+                input.slice.opacity,
+            );
+        }`)
     // Het rooster blijft uit dezelfde header komen; geen drukrasters, contouren, labels of H/L voorbereiden.
     await replaceOnce(resolve(source, 'crates/render/src/fields.rs'),
       'pub fn slice(&mut self, time: i64) -> Result<Slice> {\n',

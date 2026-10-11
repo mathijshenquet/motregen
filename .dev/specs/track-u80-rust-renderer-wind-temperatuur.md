@@ -124,3 +124,9 @@ Constrained Baseline). De grens is van onszelf (uit de Node-route overgenomen). 
 5. Niets aan de standaard veranderen; de PO kiest. Gate: cargo test/clippy/fmt, `nix flake check --no-build`.
 
 Meld "kwaliteitsvarianten klaar" met head-sha en de URL.
+
+## Windproeven — PO-sturing 2026-10-11
+
+De PO vindt 7,5 fps duidelijk beter en overweegt regen en/of isobaren weg te laten. Zie MIP-31 voor de reeds gemeten afzonderlijke VM-budgetten en het open besluit. De PM heeft de onafhankelijke gate van 5aab9d1 afgerond; alles samen kostte 48,285 s op de VM. Uitrol wacht op de vergelijking.
+
+Maak vier geïsoleerde Wind-proeven op dezelfde snapshot, ieder 75 seconden kaarttijd/frame bij 7,5 fps: volledig, zonder regen, zonder isobaren plus drukletters, zonder beide. Behoud klok en overige inhoud. Gebruik bronkopieën/proeftool; verander productiegedrag voorlopig niet en laat geen dode productieopties achter. Lever per variant MP4, bekeken beeld/motionstrook, profiel en dev-hostmeting onder taskset 0,1 / CPUQuota200%, met exacte commando's. Lever kopieerbare Nix-pakketten met renderer en ffmpeg voor onafhankelijke VM-metingen door de PM. Geen VM/prod/Telegramacties door de worker. Houd PR108 en LOG actueel en merge origin/main bij de eerstvolgende coherente commit. Geen algemene caches of andere optimalisaties toevoegen.

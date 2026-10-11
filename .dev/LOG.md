@@ -1,5 +1,11 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-11 14:55 CEST — MIP-31: windvloeiendheid en afzonderlijke VM-budgetten
+
+PO wil de betere7,5fps en overweegt regen/isobaren uit Wind. MIP-31 draft met gemeten budgetten en viergerichteproeven; U80-spec bijgewerkt. Geen lagen verwijderd of productiegedrag veranderd. PM bekijkt en meet varianten voor keuze/uitrol.
+
+Afzonderlijke VM-proeven op exacte snapshotgenerated12:47:47Z,CPUQuota200/MemoryMax900M/swap0,bestaandebotdraait,startbuitenbotrender: Regen10,824s/19,333sCPU/239MiB (109+6frames,85JPEG); Gevoelstemperatuur17,005s/31,067sCPU/239,6MiB (217+6frames,85JPEG); Wind15,226s/26,142sCPU/309,1MiB (217+6frames). Elk synchroonexit0; volledige opdrachten/uitvoer vm-budget-retry.txt en samenvatting vm-budget-summary.json inPMscratch. Volledige generatie48,285s/77,888sCPU/563,6MiB; parallelletijden niet optellen. Nieuwe U80-wachter82839 actief.
+
 ## 2026-10-11 14:52 CEST — U80 onafhankelijke gate groen; VM48,2s; PO wil vloeiender wind
 
 Finale workeroplevering U76 geïntegreerd+tempo op5aab9d182dc696a010a8602eb0c99468dad2ce17. Eigen integratieworktree int-u80-pm-20261011 head47492fab met origin/mainee2db121/E1MemoryMax1600M. Synchrone exits0: cargo fmt--all/check, workspace-clippy--all-targets-Dwarnings,36Rusttests,wasm32-build; web typecheck/569tests/build; bot typecheck/132tests/build; nix flake check--no-build; Nix echte2nodeVM-test34,10s en systeem+renderer. Receipts web/tmp/orkestrator/pm-u80-20261011; gitstatusintegratie schoon. Zelf6dag/nachtbeelden+klokstroken+windmotion bekeken; eigen browser5films/vergelijking41s volledig ended,geenerrors.
