@@ -293,12 +293,12 @@ mod tests {
         let settings: Settings =
             serde_json::from_str(include_str!("../assets/video-encoding.json")).unwrap();
         assert_eq!(
-            settings.rate_limit(179, (10, 1)).unwrap(),
-            (8_044_692, 16_089_384)
+            settings.rate_limit(223, (28, 5)).unwrap(),
+            (3_616_143, 7_232_286)
         );
         assert_eq!(
-            settings.rate_limit(114, (9, 2)).unwrap(),
-            (5_684_210, 11_368_420)
+            settings.rate_limit(115, (28, 5)).unwrap(),
+            (7_012_173, 14_024_346)
         );
         assert!(settings.rate_limit(0, (10, 1)).is_err());
         assert!(settings.rate_limit(179, (0, 1)).is_err());

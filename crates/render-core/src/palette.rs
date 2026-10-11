@@ -1,15 +1,24 @@
-use crate::constants::constants;
+use crate::constants::{RainPresentation, constants};
 
 pub fn rain_palette(night: bool) -> &'static [u8] {
     &constants().palettes[if night { "dark" } else { "light" }]
 }
 
 pub fn composition_colors(night: bool) -> Vec<[f32; 4]> {
-    let presentation = &constants().presentation[if night { "dark" } else { "light" }];
+    composition_colors_for(
+        night,
+        constants().presentation[if night { "dark" } else { "light" }],
+    )
+}
+
+pub fn composition_colors_for(night: bool, presentation: RainPresentation) -> Vec<[f32; 4]> {
     let palette = rain_palette(night);
-    let saturation = presentation["saturation"].as_f64().unwrap();
-    let brightness = presentation["brightness"].as_f64().unwrap();
-    let opacity = presentation["opacity"].as_f64().unwrap();
+    let RainPresentation {
+        saturation,
+        brightness,
+        opacity,
+        ..
+    } = presentation;
     (0..65_536)
         .map(|index| {
             let position = (index as f64 / 255.0 - 0.5).clamp(0.0, 255.0);

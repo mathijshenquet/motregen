@@ -46,6 +46,11 @@ export class NativeRainData {
     }
   }
 
+  async grid(epoch: number): Promise<Grid> {
+    const frame = this.timeline[frameBlend(this.timeline, epoch).left]!
+    return (await this.loadChunk(frame)).header.grid
+  }
+
   async pointSeries(point: { lng: number; lat: number }, start: number, end: number): Promise<{ timeline: TimelineFrame[]; values: Array<number | null> }> {
     const first = frameBlend(this.timeline, start).left
     const last = frameBlend(this.timeline, end).right

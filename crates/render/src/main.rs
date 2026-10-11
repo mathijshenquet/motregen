@@ -5,7 +5,6 @@ mod fields;
 mod modes;
 mod renderer;
 mod shared;
-mod wind_rain;
 
 use anyhow::{Result, ensure};
 use clap::{Parser, ValueEnum};
@@ -36,7 +35,7 @@ struct Arguments {
     out_dir: PathBuf,
     #[arg(long, help = "Snapshot manifest; defaults to DATA_DIR/manifest.json")]
     manifest: Option<PathBuf>,
-    #[arg(long, help = "PO clock prototype: schuif, klap or kruisfade")]
+    #[arg(long, help = "PO clock prototype: schuif or klap")]
     clock_variant: Option<render_core::clock::ClockTransition>,
 }
 

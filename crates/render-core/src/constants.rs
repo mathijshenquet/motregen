@@ -39,8 +39,17 @@ pub struct Constants {
     pub fps_fraction: FrameRate,
     pub hold_frames: usize,
     pub still_minutes: Vec<i64>,
-    pub presentation: serde_json::Value,
+    pub presentation: std::collections::HashMap<String, RainPresentation>,
+    pub wind_presentation: std::collections::HashMap<String, RainPresentation>,
     pub temperature_style: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+pub struct RainPresentation {
+    pub opacity: f64,
+    pub saturation: f64,
+    pub brightness: f64,
+    pub multiply: bool,
 }
 
 #[derive(Debug, Deserialize)]

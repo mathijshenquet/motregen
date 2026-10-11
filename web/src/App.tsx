@@ -3222,9 +3222,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (map.getLayer('motregen-sun')) map.setPaintProperty('motregen-sun', 'text-color', surface === 'dark' ? '#ffd978' : '#e7a900')
     for (const set of isolineSets) set.labels?.setTheme(surface)
   })
-  const rainLook = createMemo(() => rainPresentation({
-    temperatureFocus: focus(), windFocus: windFocus(), airFocus: airFocus(), night: mapIsNight(), variant: focusRainVariant(),
-  }), undefined, { equals: sameFields })
+  const rainLook = createMemo(() => {
+    const look = rainPresentation({
+      temperatureFocus: focus(), windFocus: windFocus(), airFocus: airFocus(), night: mapIsNight(), variant: focusRainVariant(),
+    })
+    // MIP-31 geldt voor botfilms; de gewone Windmodus behoudt de regenpresentatie.
+    return stillMode && initialPresets.mode === 'wind' ? { ...look, opacity: 0 } : look
+  }, undefined, { equals: sameFields })
   // Lucht-focus en dag/nacht lopen niet via applyFocus.
   createEffect(() => { rainLook(); if (map) { applyRainPresentation(); map.triggerRepaint() } })
   // Palet, kaartthema en menging gelden in elke modus (PO 2026-10-11, U77). Alleen de vergelijkingsstand `huidig`

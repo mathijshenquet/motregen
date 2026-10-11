@@ -2,7 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { FRAME, FRAME_PIXELS } from './config.js'
 import { NATIVE_VIEW } from './native-view.js'
-import { holdFrames, sequencePlan } from './sequences.js'
+import { fpsFraction, holdFrames, sequencePlan } from './sequences.js'
 import { STILL_MINUTES } from './stills.js'
 import { rainColormap } from '../web/src/core/rain-chart.js'
 import { colourOverGround, DEFAULT_RAIN_LOOK } from '../web/src/core/rain-palette.js'
@@ -47,10 +47,6 @@ export function renderConstants() {
   const now = '2026-08-28T15:00:00Z'
   const sources: Source[] = ['harmonie', 'uv', 'seamless', 'nowcast', 'rtcor']
   const plan = sequencePlan('weather', { version: 0, generated: now, now, chunks: [] })
-  const denominator = 10 ** (String(plan.fps).split('.')[1]?.length ?? 0)
-  const numerator = plan.fps * denominator
-  const gcd = (left: number, right: number): number => right === 0 ? left : gcd(right, left % right)
-  const divisor = gcd(numerator, denominator)
   const samples = Array.from({ length: 721 }, (_, minute) => {
     const sigma = autoBlurSigma(minute * 60_000)
     return { sigma, taps: kernelTaps('source-blur', sigma) }
@@ -60,6 +56,7 @@ export function renderConstants() {
     frame: FRAME, size: FRAME_PIXELS, view: NATIVE_VIEW, location: DEFAULT_LOCATION,
     palettes: Object.fromEntries(['light', 'dark'].map((theme) => [theme, Array.from(rainColormap({ ...DEFAULT_RAIN_LOOK, theme: theme as 'light' | 'dark' }))])),
     presentation: Object.fromEntries([false, true].map((night) => [night ? 'dark' : 'light', rainPresentation({ temperatureFocus: 0, windFocus: 0, airFocus: 0, night })])),
+    wind_presentation: Object.fromEntries([false, true].map((night) => [night ? 'dark' : 'light', rainPresentation({ temperatureFocus: 0, windFocus: 1, airFocus: 0, night })])),
     flow_curve: FLOW_BLEND_CURVE,
     sampling: { samples, kernel_radius: BLUR_RADIUS_SIGMA, radar_cell_width: rainSampling('rtcor', 0, DEFAULT_RAIN_FIELD_TUNING).sourceCellWidth, harmonie_cell_width: rainSampling('harmonie', 0, DEFAULT_RAIN_FIELD_TUNING).sourceCellWidth },
     warp: Array.from({ length: 61 }, (_, interval) => rainWarpLimit(interval)),
@@ -67,7 +64,7 @@ export function renderConstants() {
     temperature_style: { light: temperatureLayer('light'), dark: temperatureLayer('dark') },
     source_priority: sourcePriorities(sources, now),
     loop_offsets: plan.epochs.slice(0, plan.loopFrames).map((epoch) => epoch - Date.parse(now)),
-    fps: plan.fps, fps_fraction: { numerator: numerator / divisor, denominator: denominator / divisor },
+    fps: plan.fps, fps_fraction: fpsFraction(plan.fps),
     hold_frames: holdFrames(plan), still_minutes: STILL_MINUTES,
   }
 }
@@ -86,18 +83,22 @@ export function renderFixtures() {
   const times = ['2026-03-29T00:59:00Z', '2026-03-29T01:00:00Z', '2026-10-25T00:59:00Z', '2026-10-25T01:00:00Z', '2026-10-10T21:59:00Z', '2026-10-10T22:01:00Z']
   const time = new Intl.DateTimeFormat('nl-NL', { timeZone: 'Europe/Amsterdam', hour: '2-digit', minute: '2-digit' })
   const day = new Intl.DateTimeFormat('nl-NL', { timeZone: 'Europe/Amsterdam', weekday: 'short' })
-  const compositions = ([false, true] as const).flatMap((night) => {
+  const compositions = ([0, 1] as const).flatMap((windFocus) => ([false, true] as const).flatMap((night) => {
     const palette = rainColormap({ ...DEFAULT_RAIN_LOOK, theme: night ? 'dark' : 'light' })
+    const presentation = rainPresentation({ temperatureFocus: 0, windFocus, airFocus: 0, night })
     return [0, 1, 12, 24, 55, 100, 150, 195, 235, 254, 255].flatMap((left) => [0, 0.5, 1].map((mix) => {
       const right = left === 255 ? 100 : 254 - left
       const value = (left === 255 ? 0 : left) * (1 - mix) + right * mix
       const position = Math.max(0, Math.min(255, Math.round(value * 256) / 255 - 0.5))
       const lower = Math.floor(position), upper = Math.min(255, lower + 1), share = position - lower
       const channel = (index: number) => palette[lower * 4 + index]! * (1 - share) + palette[upper * 4 + index]! * share
-      const rgb = colourOverGround([channel(0), channel(1), channel(2)], channel(3) / 255, [100, 150, 200])
-      return { left, right, mix, night, rgb }
+      const colour = [channel(0), channel(1), channel(2)] as [number, number, number]
+      const gray = colour[0] * 0.2126 + colour[1] * 0.7152 + colour[2] * 0.0722
+      const adjusted = colour.map((value) => (gray + (value - gray) * presentation.saturation) * presentation.brightness) as [number, number, number]
+      const rgb = colourOverGround(adjusted, channel(3) / 255 * presentation.opacity, [100, 150, 200])
+      return { left, right, mix, night, wind: windFocus === 1, rgb }
     }))
-  })
+  }))
   return {
     compositions,
     web_timelines: [overlapFixture, blendFixture].map((manifest) => {

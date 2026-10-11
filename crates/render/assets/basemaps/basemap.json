@@ -2,11 +2,11 @@
   "version": 1,
   "size": {
     "width": 960,
-    "height": 1272
+    "height": 1224
   },
   "view": {
     "lng": 5.289999999999992,
-    "lat": 52.25337778567862,
+    "lat": 52.19243283521341,
     "zoom": 6.82119866277952
   },
   "grid": {
@@ -19,7 +19,7 @@
     "height": 1350
   },
   "inputs": {
-    "light": "basemap-light-d5259181bbc00d7beeabb393.png",
-    "dark": "basemap-dark-b1da60cf20041767a36855a2.png"
+    "light": "basemap-light-bc5d560cff56352e0caae441.png",
+    "dark": "basemap-dark-4147f9f19a70c8f25bc3bdb0.png"
   }
 }

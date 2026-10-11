@@ -34,8 +34,8 @@ describe('cache destination validation', () => {
 })
 
 describe('frame size', () => {
-  it('renders portrait media of 960×1272 into the configured cache directory', () => {
-    expect(FRAME_PIXELS).toEqual({ width: 960, height: 1272 })
+  it('renders portrait media of 960×1224 into the configured cache directory', () => {
+    expect(FRAME_PIXELS).toEqual({ width: 960, height: 1224 })
     expect(readConfig({ TG_BOT_KEY: 'test-token', MOTREGEN_RENDER_CACHE: 'tmp/frame-test' }).cacheDirectory).toBe(resolve('tmp/frame-test'))
   })
 })

@@ -1,7 +1,7 @@
 use crate::{
-    constants::constants,
+    constants::{RainPresentation, constants},
     motion::Motion,
-    palette::composition_colors,
+    palette::composition_colors_for,
     projection::{Grid, Projection},
 };
 
@@ -16,14 +16,33 @@ pub struct RainCompositor {
     pub grid: Grid,
     pub projection: Projection,
     colors: [Vec<[f32; 4]>; 2],
+    multiply: [bool; 2],
 }
 
 impl RainCompositor {
     pub fn new(grid: Grid) -> Self {
+        Self::with_presentation(grid, &constants().presentation)
+    }
+
+    pub fn wind(grid: Grid) -> Self {
+        Self::with_presentation(grid, &constants().wind_presentation)
+    }
+
+    fn with_presentation(
+        grid: Grid,
+        presentation: &std::collections::HashMap<String, RainPresentation>,
+    ) -> Self {
         Self {
             projection: Projection::new(&grid),
             grid,
-            colors: [composition_colors(false), composition_colors(true)],
+            colors: [
+                composition_colors_for(false, presentation["light"]),
+                composition_colors_for(true, presentation["dark"]),
+            ],
+            multiply: [
+                presentation["light"].multiply,
+                presentation["dark"].multiply,
+            ],
         }
     }
 
@@ -83,9 +102,7 @@ impl RainCompositor {
         let left_weight = (1.0 - pair.mix).powf(constants().flow_curve);
         let right_weight = pair.mix.powf(constants().flow_curve);
         let mix = right_weight / (left_weight + right_weight).max(0.0001);
-        let multiply = constants().presentation[if night { "dark" } else { "light" }]["multiply"]
-            .as_bool()
-            .unwrap();
+        let multiply = self.multiply[usize::from(night)];
         crate::composition::compose_covered(
             rgb,
             crate::composition::Composition {

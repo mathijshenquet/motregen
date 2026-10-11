@@ -5,11 +5,25 @@ use render_core::{
     time::epoch,
 };
 
-const VARIANTS: [ClockTransition; 3] = [
-    ClockTransition::Schuif,
-    ClockTransition::Klap,
-    ClockTransition::Kruisfade,
-];
+const VARIANTS: [ClockTransition; 2] = [ClockTransition::Schuif, ClockTransition::Klap];
+
+#[test]
+fn slide_keeps_first_tick_and_advances_last_tick_without_changing_other_transitions() {
+    let slide = ClockTransition::Schuif;
+    for (phase, position) in [
+        (0.0, 0.0),
+        (1.0 / 3.0, 1.0 / 6.0),
+        (2.0 / 3.0, 15.0 / 16.0),
+        (1.0, 1.0),
+    ] {
+        assert!((slide.animation_progress(phase) - position).abs() < 1e-6);
+        assert_eq!(ClockTransition::Klap.animation_progress(phase), phase);
+    }
+    let positions: Vec<_> = (0..=100)
+        .map(|step| slide.animation_progress(step as f32 / 100.0))
+        .collect();
+    assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
+}
 
 fn render(epoch: i64, variant: ClockTransition, still: bool) -> Vec<u8> {
     let size = &constants().size;
@@ -108,10 +122,6 @@ fn digit_animation_keeps_unchanged_columns_and_clips_vertically() {
     assert_ne!(
         render(start + 100_000, VARIANTS[0], false),
         render(start + 100_000, VARIANTS[1], false)
-    );
-    assert_ne!(
-        render(start + 100_000, VARIANTS[1], false),
-        render(start + 100_000, VARIANTS[2], false)
     );
 }
 

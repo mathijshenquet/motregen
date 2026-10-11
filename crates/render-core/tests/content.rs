@@ -11,28 +11,39 @@ fn fixtures() -> Value {
 #[test]
 fn palette_and_quantized_frame_composition_match_typescript() {
     use render_core::{
-        composition::{Composition, compose},
-        palette::composition_colors,
+        projection::Grid,
+        rain::{RainCompositor, RainPair},
     };
-    let colors = [composition_colors(false), composition_colors(true)];
+    let grid = Grid {
+        x0: 0.0,
+        y0: 8_000_000.0,
+        dx: 100_000.0,
+        dy: -100_000.0,
+        width: 4,
+        height: 4,
+    };
+    let mut compositors = [
+        RainCompositor::new(grid.clone()),
+        RainCompositor::wind(grid),
+    ];
+    for compositor in &mut compositors {
+        compositor.projection.columns = vec![1.5];
+        compositor.projection.rows = vec![1.5];
+    }
     for fixture in fixtures()["compositions"].as_array().unwrap() {
         let mut rgb = [100, 150, 200];
         let left = vec![fixture["left"].as_u64().unwrap() as u8; 16];
         let right = vec![fixture["right"].as_u64().unwrap() as u8; 16];
-        compose(
+        compositors[usize::from(fixture["wind"].as_bool().unwrap())].compose(
             &mut rgb,
-            Composition {
-                columns: &[1.5],
-                rows: &[1.5],
-                grid_width: 4,
-                grid_height: 4,
+            RainPair {
                 left: &left,
                 right: &right,
                 mix: fixture["mix"].as_f64().unwrap(),
-                colors: &colors[usize::from(fixture["night"].as_bool().unwrap())],
-                displacements: None,
-                multiply: false,
+                coverage: None,
             },
+            None,
+            fixture["night"].as_bool().unwrap(),
         );
         let expected: Vec<u8> = fixture["rgb"]
             .as_array()

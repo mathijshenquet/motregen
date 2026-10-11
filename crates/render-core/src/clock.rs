@@ -7,11 +7,25 @@ use std::str::FromStr;
 pub enum ClockTransition {
     Schuif,
     Klap,
-    Kruisfade,
 }
 
-// The PO chose rounding without an effect; transitions remain available as optional previews.
-pub const CLOCK_TRANSITION: Option<ClockTransition> = None;
+pub const CLOCK_TRANSITION: Option<ClockTransition> = Some(ClockTransition::Schuif);
+const SLIDE_TICKS: [f32; 2] = [1.0 / 6.0, 15.0 / 16.0];
+
+impl ClockTransition {
+    pub fn animation_progress(self, phase: f32) -> f32 {
+        if self == Self::Schuif {
+            // Matching the odds at phases 1/3 and 2/3 fixes both slide positions independently.
+            let [first, last] = SLIDE_TICKS.map(|position| position / (1.0 - position));
+            let exponent = (last / first).log2() / 2.0;
+            let outgoing = phase.powf(exponent) * (first * last).sqrt();
+            let incoming = (1.0 - phase).powf(exponent);
+            outgoing / (outgoing + incoming)
+        } else {
+            phase
+        }
+    }
+}
 
 impl FromStr for ClockTransition {
     type Err = String;
@@ -20,8 +34,7 @@ impl FromStr for ClockTransition {
         match value {
             "schuif" => Ok(Self::Schuif),
             "klap" => Ok(Self::Klap),
-            "kruisfade" => Ok(Self::Kruisfade),
-            _ => Err("Kies schuif, klap of kruisfade".into()),
+            _ => Err("Kies schuif of klap".into()),
         }
     }
 }
@@ -68,6 +81,7 @@ pub fn draw_clock(
     }
     let width = digit_width(text);
     let height = 56;
+    let progress = transition.animation_progress(state.progress);
     let mut position = left;
     for (from, to) in state.from.chars().zip(state.to.chars()) {
         if from == ':' {
@@ -91,7 +105,7 @@ pub fn draw_clock(
                 left: position.round() as i32,
                 top: 15,
                 color,
-                progress: state.progress,
+                progress,
                 transition,
             },
         );
@@ -131,9 +145,6 @@ fn transition_alpha(old: &[u8], new: &[u8], column: usize, row: usize, digit: &D
         ClockTransition::Schuif => {
             at(old, row as f32 - progress * height)
                 + at(new, row as f32 + (1.0 - progress) * height)
-        }
-        ClockTransition::Kruisfade => {
-            at(old, row as f32) * (1.0 - progress) + at(new, row as f32) * progress
         }
         ClockTransition::Klap => {
             let hinge = height / 2.0;

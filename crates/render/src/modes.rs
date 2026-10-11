@@ -2,8 +2,7 @@ use crate::{
     data::Dataset,
     encode::{Video, jpeg},
     fields::{Fields, Pair, Slice, pair, screen},
-    renderer::{FileMedia, Media, Profile, plates},
-    wind_rain::{RainInput, WindRain, WindRainPixels},
+    renderer::{FileMedia, Media, Profile, frame_plans, plates},
 };
 use anyhow::{Context, Result, ensure};
 use rayon::prelude::*;
@@ -12,7 +11,7 @@ use render_core::{
     constants::constants,
     field_raster,
     mode_constants::{color, mode_constants},
-    overlay::{ClockOptions, draw_overlay_title},
+    overlay::{ClockOptions, clock_panel_bounds, draw_overlay_title},
     projection::Projection,
     rotated_text::{RotatedText, TextStyle},
     temperature::{TemperaturePair, draw_temperature},
@@ -38,10 +37,10 @@ struct Input {
     epoch: i64,
     index: usize,
     still: bool,
+    loop_frame: bool,
     night: bool,
     slice: Slice,
     wind: Option<(Pair, Pair)>,
-    rain: Option<RainInput>,
     temperatures: Option<Pair>,
 }
 
@@ -55,7 +54,6 @@ struct Painter<'a> {
     water: &'a [WaterMask; 2],
     projection: &'a Projection,
     grid: &'a render_core::projection::Grid,
-    rain: Option<&'a WindRainPixels>,
     colors: &'a [f32],
     workers: &'a [Mutex<Worker>; 2],
     now: i64,
@@ -76,6 +74,7 @@ fn wind_field(pair: &Pair) -> WindField<'_> {
 
 struct Output {
     rgb: Vec<u8>,
+    loop_frame: bool,
     still: Option<FileMedia>,
     profile: Profile,
 }
@@ -86,6 +85,12 @@ impl Painter<'_> {
             .lock()
             .map_err(|_| anyhow::anyhow!("Field text worker panicked"))?;
         let mut rgb = self.plates[usize::from(input.night)].clone();
+        let title = if self.wind {
+            "Wind"
+        } else {
+            "Gevoelstemperatuur"
+        };
+        let clock_bounds = clock_panel_bounds(&mut worker.text, title);
         let mut profile = Profile {
             output_frames: 1,
             ..Profile::default()
@@ -142,7 +147,7 @@ impl Painter<'_> {
                 &mut rgb,
                 wind_field(east),
                 wind_field(north),
-                1.0 + input.index as f64 / mode_constants().fps,
+                1.0 + input.index as f64 / mode_constants().loops.wind.fps,
                 input.night,
                 Water {
                     width: water.width,
@@ -163,7 +168,7 @@ impl Painter<'_> {
                 ('H', true) => [255, 107, 94],
                 _ => [110, 163, 255],
             };
-            worker.labels.draw(
+            worker.labels.draw_excluding(
                 &mut rgb,
                 &mark.kind.to_string(),
                 point,
@@ -174,17 +179,13 @@ impl Painter<'_> {
                     halo,
                     opacity: mark.opacity * input.slice.opacity,
                 },
+                Some(clock_bounds),
             );
         }
         profile.labels_us += labels_started.elapsed().as_micros();
-        if let (Some(rain), Some(rain_input)) = (&self.rain, &input.rain) {
-            let started = Instant::now();
-            rain.compose(&mut rgb, rain_input, input.night);
-            profile.mixing_us += started.elapsed().as_micros();
-        }
         let labels_started = Instant::now();
         for label in &input.slice.labels {
-            worker.labels.draw(
+            worker.labels.draw_excluding(
                 &mut rgb,
                 &label.text,
                 label.screen,
@@ -195,6 +196,7 @@ impl Painter<'_> {
                     halo,
                     opacity: label.opacity,
                 },
+                Some(clock_bounds),
             );
         }
         profile.labels_us += labels_started.elapsed().as_micros();
@@ -208,11 +210,7 @@ impl Painter<'_> {
                 transition: self.clock,
                 still: input.still,
             },
-            if self.wind {
-                "Wind"
-            } else {
-                "Gevoelstemperatuur"
-            },
+            title,
         );
         profile.overlay_us += overlay_started.elapsed().as_micros();
         let jpeg_started = Instant::now();
@@ -235,6 +233,7 @@ impl Painter<'_> {
         }
         Ok(Output {
             rgb,
+            loop_frame: input.loop_frame,
             still,
             profile,
         })
@@ -261,10 +260,12 @@ pub fn render(
 ) -> Result<Media> {
     let started = Instant::now();
     let now = epoch(&manifest.now)?;
+    let loop_plan = if wind {
+        &mode_constants().loops.wind
+    } else {
+        &mode_constants().loops.feels
+    };
     let mut fields = Fields::new(data_directory, manifest, wind)?;
-    let mut rain = wind
-        .then(|| WindRain::new(data_directory, manifest))
-        .transpose()?;
     let mut east = wind
         .then(|| Dataset::new(data_directory, manifest, "wind_u_ms"))
         .transpose()?;
@@ -283,11 +284,7 @@ pub fn render(
             "Wind components have different timelines"
         );
     }
-    let rain_grid = if let Some(rain) = &rain {
-        rain.pixels.compositor.grid.clone()
-    } else {
-        Dataset::new(data_directory, manifest, "rain_rate")?.grid()?
-    };
+    let rain_grid = Dataset::new(data_directory, manifest, "rain_rate")?.grid()?;
     let mut plates = plates(basemap_directory, &rain_grid)?;
     if !wind {
         for plate in Arc::make_mut(&mut plates) {
@@ -331,7 +328,7 @@ pub fn render(
     }
     let temporary = tempfile::tempdir_in(out_directory)?;
     let mode = if wind { "wind" } else { "feels" };
-    let loop_epochs: Vec<_> = mode_constants()
+    let loop_epochs: Vec<_> = loop_plan
         .loop_offsets
         .iter()
         .map(|offset| now + offset)
@@ -345,14 +342,10 @@ pub fn render(
             .map(|minute| now + minute * 60_000)
             .collect()
     };
-    ensure!(
-        still_epochs.iter().all(|epoch| loop_epochs.contains(epoch)),
-        "Temperature still outside loop plan"
-    );
+    let plans = frame_plans(&loop_epochs, &still_epochs);
     let painter_workers = [first?, second?];
     let projection = Projection::new(&fields.grid);
     let field_grid = fields.grid.clone();
-    let rain_pixels = rain.as_ref().map(|rain| Arc::clone(&rain.pixels));
     let mut total = Profile::default();
     let mut preparation_us = 0;
     let batch_size = if crate::shared::inputs().is_some() {
@@ -366,8 +359,11 @@ pub fn render(
             let mut video = Video::start_plan(
                 &temporary.path().join(format!("{mode}-loop.mp4")),
                 loop_epochs.len(),
-                mode_constants().hold_frames,
-                (mode_constants().fps as usize, 1),
+                loop_plan.hold_frames,
+                (
+                    loop_plan.fps_fraction.numerator,
+                    loop_plan.fps_fraction.denominator,
+                ),
             )?;
             let mut files = Vec::new();
             let mut profile = Profile::default();
@@ -377,9 +373,11 @@ pub fn render(
                     if let Some(file) = frame.still {
                         files.push(file);
                     }
-                    let started = Instant::now();
-                    video.frame(&frame.rgb)?;
-                    profile.ffmpeg_wait_us += started.elapsed().as_micros();
+                    if frame.loop_frame {
+                        let started = Instant::now();
+                        video.frame(&frame.rgb)?;
+                        profile.ffmpeg_wait_us += started.elapsed().as_micros();
+                    }
                 }
             }
             let started = Instant::now();
@@ -391,20 +389,19 @@ pub fn render(
         let producer = scope.spawn(|| -> Result<u128> {
             let input_sender = input_sender;
             let mut preparation_us = 0;
-            for (batch_index, times) in loop_epochs.chunks(batch_size).enumerate() {
+            for (batch_index, batch) in plans.chunks(batch_size).enumerate() {
                 let preparation_started = Instant::now();
-                let inputs = times
+                let inputs = batch
                     .iter()
                     .enumerate()
-                    .map(|(offset, &time)| -> Result<Input> {
+                    .map(|(offset, plan)| -> Result<Input> {
+                        let time = plan.epoch;
                         let slice = fields.slice(time)?;
                         let wind_pair = if let (Some(east), Some(north)) = (&mut east, &mut north) {
                             Some((pair(east, time)?, pair(north, time)?))
                         } else {
                             None
                         };
-                        let rain_input =
-                            rain.as_mut().map(|rain| rain.prepare(time)).transpose()?;
                         let temperature = if let Some(temperatures) = &mut temperatures {
                             let time = ((time + 300_000).div_euclid(600_000) * 600_000).clamp(
                                 temperatures.frames[0].epoch,
@@ -417,11 +414,11 @@ pub fn render(
                         Ok(Input {
                             epoch: time,
                             index: batch_index * batch_size + offset,
-                            still: still_epochs.contains(&time),
+                            still: plan.still,
+                            loop_frame: plan.loop_frame,
                             night: dark(time),
                             slice,
                             wind: wind_pair,
-                            rain: rain_input,
                             temperatures: temperature,
                         })
                     })
@@ -440,7 +437,6 @@ pub fn render(
                     water: &water,
                     projection: &projection,
                     grid: &field_grid,
-                    rain: rain_pixels.as_deref(),
                     colors: &colors,
                     workers: &painter_workers,
                     now,
@@ -495,20 +491,14 @@ pub fn render(
     total.labels_us += fields.labels_us;
     total.decode_us = fields.data.decode_us;
     total.source_frames = fields.data.loaded;
-    for data in [
-        east.as_ref(),
-        north.as_ref(),
-        temperatures.as_ref(),
-        rain.as_ref().map(|rain| &rain.data),
-    ]
-    .into_iter()
-    .flatten()
+    for data in [east.as_ref(), north.as_ref(), temperatures.as_ref()]
+        .into_iter()
+        .flatten()
     {
         total.decode_us += data.decode_us;
         total.source_frames += data.loaded;
         total.sampling_us += data.sampling_us;
     }
-    total.motion_us = rain.as_ref().map_or(0, |rain| rain.motion_us);
     let media = Media {
         version: 1,
         mode,
@@ -516,9 +506,9 @@ pub fn render(
         now: manifest.now.clone(),
         width: constants().size.width,
         height: constants().size.height,
-        fps: mode_constants().fps,
+        fps: loop_plan.fps,
         frames: loop_epochs.len(),
-        hold_frames: mode_constants().hold_frames,
+        hold_frames: loop_plan.hold_frames,
         clock_variant: clock,
         loop_epochs,
         render_ms: (preparation_us

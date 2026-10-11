@@ -3,9 +3,7 @@ use std::sync::OnceLock;
 
 #[derive(Debug, Deserialize)]
 pub struct ModeConstants {
-    pub loop_offsets: Vec<i64>,
-    pub fps: f64,
-    pub hold_frames: usize,
+    pub loops: LoopPlans,
     pub scale: f64,
     pub wind: Wind,
     pub isoline: Isoline,
@@ -13,6 +11,20 @@ pub struct ModeConstants {
     pub saturation: f64,
     pub bounds: Bounds,
     pub palette: Palette,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LoopPlans {
+    pub wind: LoopPlan,
+    pub feels: LoopPlan,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LoopPlan {
+    pub loop_offsets: Vec<i64>,
+    pub fps: f64,
+    pub fps_fraction: crate::constants::FrameRate,
+    pub hold_frames: usize,
 }
 
 #[derive(Debug, Deserialize)]

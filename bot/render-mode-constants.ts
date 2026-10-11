@@ -2,7 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { FRAME } from './config.js'
 import { NATIVE_VIEW } from './native-view.js'
-import { holdFrames, sequencePlan } from './sequences.js'
+import { fpsFraction, holdFrames, sequencePlan } from './sequences.js'
 import * as wind from '../web/src/core/wind-presentation.js'
 import * as isoline from '../web/src/core/isolines.js'
 import * as labels from '../web/src/core/isoline-label-anchors.js'
@@ -12,9 +12,13 @@ import { NETHERLANDS_FLANDERS_BOUNDS } from '../web/src/core/map-frame.js'
 
 export function modeConstants() {
   const now = '2026-08-28T15:00:00Z'
-  const plan = sequencePlan('wind', { version: 0, generated: now, now, chunks: [] })
+  const loop = (mode: 'wind' | 'feels') => {
+    const plan = sequencePlan(mode, { version: 0, generated: now, now, chunks: [] })
+    return { loop_offsets: plan.epochs.slice(0, plan.loopFrames).map((epoch) => epoch - Date.parse(now)),
+      fps: plan.fps, fps_fraction: fpsFraction(plan.fps), hold_frames: holdFrames(plan) }
+  }
   return {
-    loop_offsets: plan.epochs.map((epoch) => epoch - Date.parse(now)), fps: plan.fps, hold_frames: holdFrames(plan), scale: FRAME.scale,
+    loops: { wind: loop('wind'), feels: loop('feels') }, scale: FRAME.scale,
     wind: { ...wind.WIND_PARAMETERS, count: wind.particleCountForViewport(FRAME.width, FRAME.height), focus: wind.WIND_FOCUS_INTENSITY,
       stagger: wind.WIND_INITIAL_STAGGER_SECONDS, simulation_fps: wind.WIND_SIMULATION_FPS, screen_speed: wind.windScreenSpeed(1),
       damping_reference: wind.DAMPING_REFERENCE_SPEED, weak_speed: wind.WEAK_WIND_SPEED, weak_boost: wind.WEAK_WIND_MAX_BOOST,

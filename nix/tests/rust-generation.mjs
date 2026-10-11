@@ -10,6 +10,7 @@ process.once('SIGTERM', () => shutdown.abort())
 globalThis.fetch = async () => { throw new Error('Unexpected network request in Rust hardening test') }
 const { StillRenderer } = await import(pathToFileURL(join(botPackage, 'lib/motregen-bot/dist/bot/render.js')))
 const { LOOP_MODES, STILL_HOURS } = await import(pathToFileURL(join(botPackage, 'lib/motregen-bot/dist/bot/stills.js')))
+const { sequencePlan, holdFrames } = await import(pathToFileURL(join(botPackage, 'lib/motregen-bot/dist/bot/sequences.js')))
 assert.equal(process.env.MOTREGEN_RUST_RENDERER, 'weather,feels,wind')
 assert.ok(process.env.MOTREGEN_RENDER_BIN.startsWith('/nix/store/'))
 assert.ok(process.env.MOTREGEN_RUST_BASEMAP_DIR.startsWith('/nix/store/'))
@@ -34,8 +35,12 @@ try {
     const mode = LOOP_MODES[index].mode
     assert.equal(loop.backend, 'rust')
     assert.equal(loop.cached, false)
-    assert.equal(loop.frames, mode === 'weather' ? 109 : 169)
-    assert.equal(loop.fps, mode === 'weather' ? 4.5 : 10)
+    const plan = sequencePlan(mode, manifest)
+    assert.equal(plan.loopFrames, mode === 'wind' ? 289 : mode === 'weather' ? 109 : 217)
+    assert.equal(plan.fps, mode === 'wind' ? 7.5 : 5.6)
+    assert.equal(holdFrames(plan), mode === 'wind' ? 8 : 6)
+    assert.equal(loop.frames, plan.loopFrames)
+    assert.equal(loop.fps, plan.fps)
     assert.equal((await stat(loop.path)).size, loop.bytes)
     if (mode !== 'wind') for (const hour of STILL_HOURS) {
       const still = await renderer.render({ mode, hour }, manifest)
