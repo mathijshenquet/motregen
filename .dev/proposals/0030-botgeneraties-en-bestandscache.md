@@ -29,3 +29,4 @@ MIP-29 verplaatst de beeldgeneratie naar Rust. U80 meldde de dubbele generaties 
 - 2026-10-11 14:15 CEST: voorstel uit de PM-overdracht, aangevuld met een actuele productiecontrole. Geen implementatie of productieaanpassing voor deze keuzes uitgevoerd.
 - 2026-10-11 14:24 CEST: PO neemt E1 aan; E2 nog onder bespreking.
 - 2026-10-11 14:39 CEST: radar/nowcast-paar en afzonderlijke cadansen uit code en productie-logs bevestigd; PO-richting set met deadline verwerkt, inclusief waargenomen late nowcast en langzaam seamless.
+- 2026-10-11 15:48 CEST: E1 uitgerold met U80/U76. Productiecontrole bevestigt MemoryMax=1600M, CPUQuota=200%, nul herstarts, OOM-kills en hits op de geheugengrens. Normale live generatie na ingest-backfill: 44,457 s. E2 blijft open en is niet geïmplementeerd.

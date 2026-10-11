@@ -1,5 +1,17 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-11 15:57 CEST — U80/U76 en MIP-31 uitgerold; productie gecontroleerd, worker afgesloten
+
+Uitrol geautoriseerd door de PO en synchroon geslaagd: main 9f31c8ed, /run/current-system exact /nix/store/3i9l9703q2qgy1lnvf5fgp6ji8qjxll8-nixos-system-motregen-26.05.20260829.c5c4a43. Vooraf lokaal gebouwd en de volledige closure gekopieerd; nixos-upgrade exit 0. Renderer 11c9ql is dezelfde binary als de gezamenlijke VM-meting van 38,359 s. U76-klokhoek, titel/datum en schuif 1/6 → 15/16 geïntegreerd. Wind volgt MIP-31: 75 s per kaartframe, 7,5 fps, geen regen, wel isobaren/drukletters. Regen en gevoelstemperatuur behouden 100 s / 5,6 fps; temperatuurproef niet opgenomen wegens onbewezen totale winst.
+
+Onafhankelijke gate vóór merge: alle synchrone checks uit de vorige entry groen, inclusief zeven gerichte desktop-e2e-tests en de echte twee-node NixOS-test. Productie: bot, ingest en Caddy actief; nul herstarts, OOM-kills en geheugengrenshits. MemoryMax=1677721600 (1600M), CPUQuota=200%, piek tijdens controle circa 860 MiB. De ingest-backfill gaf eerst 73,798 en 81,320 s; daarna twee normale live generaties van 44,457 en 44,322 s voor drie films en 170 stills. Dit zijn waarnemingen, geen garantie voor iedere snapshot. Eigen VM-meetmappen opgeruimd.
+
+Drie productie-MP4s uit generatie 15:52:38 CEST opgehaald: regen 2.770.784 bytes / 115 frames / 28/5 fps; gevoelstemperatuur 4.708.752 / 223 / 28/5; wind 7.480.667 / 297 / 15/2. Alle H.264 High, yuv420p, 960×1224. Zelf de dag-/nachtframes en browserbeelden bekeken; alle drie films volledig tot ended, geen afspeelfouten, synchrone exit 0. Prod-app Weer/Wind/Lucht zelf bekeken; beide JS-bundles en CSS SHA256-identiek aan de uitgerolde Nix-frontend. Productiefilms voor PO: http://ageq-dev2:4397/review/prod-20261011/. Receipts, exacte scripts en screenshots in genegeerde web/tmp/orkestrator/pm-u80-20261011/.
+
+PO vroeg U80 uit: idle Codex met /exit afgesloten, daarna workspace w35 gesloten; foreground-shell en behouden Caddy-preview gecontroleerd. U77 was al uit; oude preview 4320 gestopt en schone U77-worktree verwijderd. Schone eigen integratieworktree verwijderd. Previews 4396 en 4397 blijven beschikbaar. PRs 106/107/108/109/110 tonen MERGED. Alle eigen test-, meet-, uitrol- en wachtsessies afgerond; geen eigen Telegram-poller of uploads gestart. Skywatch-CSV blijft de enige niet-journalwijziging en buiten commits.
+
+Sessietaak afgerond na deze LOG-commit en push. Open voor volgende sessie: MIP-30 E2 radar/nowcast-set met harde deadline en late-productbeleid (nog geen implementatie); E3 stills op aanvraag; overige overdracht E4/E5 en F1–F4. F3 betreft bekende dagelijkse-suitefouten uit 10-09; de gerichte Telegram-desktoptests zijn nu 7/7 groen. Dit was de merge-gate, geen nieuwe volledige drie-profielenrun.
+
 ## 2026-10-11 15:45 CEST — U80 met U76 en MIP-31 gemerged; volledige onafhankelijke gate groen
 
 Worker759c271d658418e366f56e5e93f18b7b3bae5425, PR108 exactdiehead, geen GitHubCI-workflow geconfigureerd/statusrollup leeg. Productiecode sindsaa3caa1 ongewijzigd, zelfstandig geverifieerd. jj-merge7542749c metmain6e212de1 zonderconflict; actieveCSV-only wijziging met jj rebase onto main behouden, nietgesplitst/gecommit. Uitrol geautoriseerd doorPO.
