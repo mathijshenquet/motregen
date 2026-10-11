@@ -43,7 +43,16 @@ de PNG-maten en het alfakanaal van beide watermaskers worden ook gecontroleerd.
 `weather-loop.mp4` is H.264/yuv420p met faststart, 960×1272, beeldsnelheid `9/2`, 109 bewegende frames en
 vijf holdframes (114 frames, 25⅓ seconde). Beeldsnelheid en het gehele holdaantal worden uit `sequencePlan`
 en `holdFrames` gegenereerd; ffmpeg ontvangt de verkorte breuk en `tpad=stop=5`.
-De bestaande limiet van 3 MB geldt. `weather-EPOCH.jpg` gebruikt kaarttijd in UTC-milliseconden, kwaliteit 95
+Films gebruiken veryfast/CRF 18, H.264 High, yuv420p en faststart. Het VBV-plafond volgt uit de
+veiligheidsgrens en de volledige filmduur, inclusief hold: `maxrate = floor(0,9 × maxBytes × 8 / duur)`,
+`bufsize = 2 × maxrate`. De encoder kan bij extreme beelden kwaliteit inleveren om binnen het budget te blijven.
+De harde controle op 20.000.000 bytes blijft het laatste vangnet; er is geen herencode. Alleen bij een
+ultrafast-overschrijving wordt `8x8dct=1` toegevoegd om High te krijgen. De gedeelde standaard staat
+in `crates/render/assets/video-encoding.json`, ingebed in Rust en geïmporteerd door Node. `MOTREGEN_VIDEO_PRESET`,
+`MOTREGEN_VIDEO_CRF` en `MOTREGEN_VIDEO_MAX_BYTES` overschrijven dezelfde waarden in beide routes. CRF is een geheel
+getal 1…51; de veiligheidsgrens moet positief en onder 50.000.000 bytes blijven. Encoderinstellingen zijn onderdeel
+van de loopcachesleutel; JPEG-sleutels blijven gelijk. Meetbewijs staat in [render-kwaliteit.md](render-kwaliteit.md).
+`weather-EPOCH.jpg` gebruikt kaarttijd in UTC-milliseconden, kwaliteit 95
 en 4:4:4-kleur. `media.json` versie 1 bevat:
 
 1. `mode`, `generated`, `now`, `width`, `height`, `fps`, `frames`, `hold_frames`, `loop_epochs` en `clock_variant`.

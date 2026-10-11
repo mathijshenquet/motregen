@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rm, truncate, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, expect, it, vi } from 'vitest'
@@ -86,6 +86,28 @@ it('validates every mode before accepting a shared Rust generation', async () =>
     await rm(join(directory, valid.modes.feels.files[1]!.file))
     await expect(rust.validateRustGeneration(valid, manifest, directory)).rejects.toThrow()
   } finally { await rm(directory, { recursive: true, force: true }) }
+})
+
+it('accepts Rust films above the former cap and refuses a complete file above the safety limit', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'motregen-rust-size-'))
+  try {
+    const valid = await media(directory, 'wind')
+    const loop = valid.files[0]!
+    loop.bytes = 3_000_001
+    await truncate(join(directory, loop.file), loop.bytes)
+    await rust.validateRustMedia(valid, manifest, directory, 'wind')
+    loop.bytes = 20_000_001
+    await truncate(join(directory, loop.file), loop.bytes)
+    await expect(rust.validateRustMedia(valid, manifest, directory, 'wind')).rejects.toThrow('veiligheidsgrens')
+  } finally { await rm(directory, { recursive: true, force: true }) }
+})
+
+it('changes the loop cache identity with encoding settings and preserves still identities', () => {
+  const loop = cacheKey({ mode: 'wind', hour: 'loop' }, manifest)
+  const still = cacheKey({ mode: 'feels', hour: 0 }, manifest)
+  vi.stubEnv('MOTREGEN_VIDEO_CRF', '16')
+  expect(cacheKey({ mode: 'wind', hour: 'loop' }, manifest)).not.toBe(loop)
+  expect(cacheKey({ mode: 'feels', hour: 0 }, manifest)).toBe(still)
 })
 
 it('defaults to the existing renderer and selects Rust independently per mode', () => {

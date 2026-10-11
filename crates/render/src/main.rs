@@ -42,6 +42,7 @@ struct Arguments {
 
 fn main() -> Result<()> {
     let arguments = Arguments::parse();
+    encode::Settings::from_env()?;
     rayon::ThreadPoolBuilder::new()
         .num_threads(2)
         .build_global()?;

@@ -1,0 +1,8 @@
+{
+  "preset": "veryfast",
+  "crf": 18,
+  "x264Params": "8x8dct=1",
+  "vbvBudgetRatio": 0.9,
+  "vbvBufferSeconds": 2,
+  "maxBytes": 20000000
+}
