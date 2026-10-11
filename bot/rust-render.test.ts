@@ -110,7 +110,7 @@ it('changes the loop cache identity with encoding settings and preserves still i
   expect(cacheKey({ mode: 'feels', hour: 0 }, manifest)).toBe(still)
 })
 
-it('invalidates cached Rust films and stills with the former clock position', () => {
+it('invalidates cached Rust films and stills with former clock layouts', () => {
   vi.stubEnv('MOTREGEN_RUST_RENDERER', 'weather,feels,wind')
   vi.stubEnv('MOTREGEN_VIDEO_PRESET', 'veryfast')
   vi.stubEnv('MOTREGEN_VIDEO_CRF', '18')
@@ -124,6 +124,8 @@ it('invalidates cached Rust films and stills with the former clock position', ()
     ['feels', 0, 'feels-1791631800000-961dd269e8e40e8bb07899bb'],
   ] as const
   for (const [mode, hour, key] of previous) expect(cacheKey({ mode, hour }, manifest)).not.toBe(key)
+  expect(cacheKey({ mode: 'feels', hour: 'loop' }, manifest)).not.toBe('feels-loop-5510442a93e40fee55a7de0b')
+  expect(cacheKey({ mode: 'feels', hour: 0 }, manifest)).not.toBe('feels-1791631800000-364b127fadd7f7048813fe43')
 })
 
 it('defaults to the existing renderer and selects Rust independently per mode', () => {

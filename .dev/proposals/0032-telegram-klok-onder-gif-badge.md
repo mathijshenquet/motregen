@@ -16,6 +16,8 @@ Dit is een vaste rasterpositie gebaseerd op de aangeleverde screenshot. De omvan
 ## Besluit
 De PO keurde de mockup en voorkeur op 2026-10-11 goed: "ja prima doe maar". Voer de hierboven beschreven positie en hoeken uit voor de gedeelde Rust-overlay van alle drie kaartmodi, inclusief stills. Behoud de tijdstappen, schuifovergang, kleuren, kaartuitsnede en voettekst. Gate en visuele controle gaan vooraf aan de hotfix-uitrol.
 
+Aanvulling van de PO op 2026-10-11: breek de titel voor gevoelstemperatuur af als **Gevoels-** en **temperatuur** op twee regels. Het vak past zich aan de breedste regel en de extra regelhoogte aan; de klokpositie en beide rechterhoeken blijven gelijk.
+
 ## Changelog
 - 2026-10-11: screenshot gemeten, mockup zelf bekeken op desktop/mobiel en dag/nacht; PO kiest de voorgestelde positie.
 - 2026-10-11: geïmplementeerd in PR 111 en uitgerold vanaf main `7c9a84a6`. De volledige onafhankelijke gate is groen; drie nieuwe productiefilms zelf bekeken en volledig afgespeeld. Rust-cacheversie 31 vernieuwt films en stills ook bij dezelfde brondata. Productiebeelden: http://ageq-dev2:4397/review/telegram-clock-hotfix/prod/.

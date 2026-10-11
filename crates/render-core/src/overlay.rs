@@ -14,11 +14,16 @@ pub struct ClockOptions {
 pub const CLOCK_PANEL_TOP: i32 = 107;
 
 pub fn clock_panel_bounds(text: &mut Text, title: &str) -> [f64; 4] {
+    let width = title
+        .lines()
+        .map(|line| f64::from((text.width(line, 30) + 32.0).ceil()))
+        .fold(200.0, f64::max);
+    let height = 154 + 36 * title.lines().count().saturating_sub(1) as i32;
     [
         0.0,
         f64::from(CLOCK_PANEL_TOP),
-        200.0_f64.max((text.width(title, 30) + 32.0).ceil() as f64),
-        f64::from(CLOCK_PANEL_TOP + 154),
+        width,
+        f64::from(CLOCK_PANEL_TOP + height),
     ]
 }
 
@@ -53,13 +58,13 @@ pub fn draw_overlay_title(
     };
     let clock_color = if night { [237, 248, 252] } else { [16, 38, 48] };
     // De linkerhoeken vallen buiten beeld; beide rechterhoeken blijven rond.
-    let panel_width = clock_panel_bounds(text, title)[2] as i32 + 20;
+    let bounds = clock_panel_bounds(text, title);
     rounded_panel(
         rgb,
         -20,
         CLOCK_PANEL_TOP,
-        panel_width,
-        154,
+        bounds[2] as i32 + 20,
+        bounds[3] as i32 - CLOCK_PANEL_TOP,
         20,
         background,
         0.96,
@@ -100,14 +105,16 @@ pub fn draw_overlay_title(
         clock_color,
         None,
     );
-    text.draw(
-        rgb,
-        title,
-        (content_left, CLOCK_PANEL_TOP + 139),
-        30,
-        clock_color,
-        None,
-    );
+    for (line, title) in title.lines().enumerate() {
+        text.draw(
+            rgb,
+            title,
+            (content_left, CLOCK_PANEL_TOP + 139 + line as i32 * 36),
+            30,
+            clock_color,
+            None,
+        );
+    }
     let footer_color = if night { [237, 248, 252] } else { [16, 38, 48] };
     let footer_background = if night { [7, 19, 25] } else { [245, 249, 250] };
     rounded_panel(

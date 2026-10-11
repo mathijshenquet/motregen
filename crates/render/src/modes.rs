@@ -88,7 +88,7 @@ impl Painter<'_> {
         let title = if self.wind {
             "Wind"
         } else {
-            "Gevoelstemperatuur"
+            "Gevoels-\ntemperatuur"
         };
         let clock_bounds = clock_panel_bounds(&mut worker.text, title);
         let mut profile = Profile {

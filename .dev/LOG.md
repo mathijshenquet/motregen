@@ -1,5 +1,9 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-11 22:26 CEST — PO vraagt tweeregelige titel Gevoels-/temperatuur
+
+Aanvulling op MIP-32 aangenomen: Gevoels- en temperatuur op twee regels in de gedeelde Rust-overlay. Vak smaller en één regel hoger, bovenpositie 107 px en beide rechterhoeken behouden; labeluitsluiting gebruikt dezelfde berekende grenzen. Rust-cacheversie 31→32. Plan: coherent commit en vroeg draft-PR, schone integratie, bestaande onafhankelijke gate en echte dag-/nachtbeelden, daarna geautoriseerde uitrol en nieuwe productiefilm controleren. Geen worker gestart; U76/U80 blijven bevroren en live Skywatch-CSV blijft buiten commits.
+
 ## 2026-10-11 22:19 CEST — Telegram-klokhotfix live; nieuwe productiefilms gecontroleerd
 
 MIP-32 en PR 111 (MERGED) uitgevoerd. Main 7c9a84a66dfc2d5ebf729b7a582d829c8aafac8b uitgerold; /run/current-system exact /nix/store/mzqwshcjybrl8rlibafw1p6kdq91azi2-nixos-system-motregen-26.05.20260829.c5c4a43, renderer 5xw3caymsx90vjpzr0nj1j57jlsyn6f9. Nix copy en synchrone nixos-upgrade exit 0. Het klokvak staat 107 uitvoerpixels lager, blijft links aangesloten en heeft beide rechterhoeken rond; tijd, datum, titel, animatie en labeluitsluiting volgen. Rust-cacheversie 31 voorkomt hergebruik van de oude opmaak. Verschil tussen gated head 51648b24 en gedeployde main uitsluitend LOG.

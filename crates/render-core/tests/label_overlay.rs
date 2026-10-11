@@ -9,7 +9,7 @@ use render_core::{
 fn rotated_labels_and_halos_do_not_intersect_the_clock_panel() {
     let size = &constants().size;
     let mut text = Text::new().unwrap();
-    let bounds = clock_panel_bounds(&mut text, "Gevoelstemperatuur");
+    let bounds = clock_panel_bounds(&mut text, "Gevoels-\ntemperatuur");
     assert_eq!(
         clock_panel_bounds(&mut text, "Regenradar"),
         [0.0, 107.0, 200.0, 261.0]

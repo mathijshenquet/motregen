@@ -106,7 +106,7 @@ fn clock_leaves_the_badge_band_clear_and_rounds_both_right_corners() {
     for night in [false, true] {
         for transition in [None, render_core::clock::CLOCK_TRANSITION] {
             for still in [false, true] {
-                for title in ["Regenradar", "Wind", "Gevoelstemperatuur"] {
+                for title in ["Regenradar", "Wind", "Gevoels-\ntemperatuur"] {
                     let mut text = Text::new().unwrap();
                     let mut rgb = vec![25; size.width * size.height * 3];
                     let bounds = render_core::overlay::clock_panel_bounds(&mut text, title);
