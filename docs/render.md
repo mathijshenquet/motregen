@@ -115,12 +115,8 @@ Voorbereiding, twee tekst-/rasterworkers en de ffmpeg-schrijver overlappen met b
 lettertype worden gedeeld. Bronrasters worden per bronframe gezamenlijk gedecodeerd en voorgefilterd;
 weak verwijzingen delen actieve buffers, en een cache van maximaal 4 MiB houdt recente regenbuffers vast
 wanneer de drie tijdplannen uiteenlopen. De batches in `all` zijn kleiner dan bij een losse modus.
-Regen en Wind delen ook identieke geprojecteerde bewegingsvelden, onafhankelijk van hun palet. Een cache
-van maximaal twee velden begrenst de retentie wanneer de tijdplannen uiteenlopen; stilstaande bronparen
-worden niet opnieuw geprojecteerd. De bronpaar-identiteit bevat beide chunkpaden, frame-indexen en de
-roosterfilterkeuze. Buiten `all` verandert de projectie niet.
 `media.json` verschijnt pas na de complete generatie en bevat `mode: "all"`, `generated`, `now`, `width`,
-`height`, `total_ms`, `shared_raster_hits`, `shared_motion_hits` en een `modes`-object met de volledige individuele receipts.
+`height`, `total_ms`, `shared_raster_hits` en een `modes`-object met de volledige individuele receipts.
 Alle MP4/JPEG-bestanden staan rechtstreeks in de uitvoermap. Timing per modus in `all` omvat wachten op
 de gedeelde kernen; meet losse modi voor hun eigen tijdlat. Parallelle fasetijden zijn niet optelbaar.
 
@@ -146,6 +142,21 @@ pnpm -C bot exec tsx ../tools/build-wind-tempo-variant.mts /pad/preview
 ```
 
 Deze variant heeft 289 kaartframes, acht holdframes en duurt 39,6 seconden (9,375 kaartminuten/s).
+
+De volledige datasnapshot van 2026-10-11 gaf onder `CPUQuota=200%`, `taskset -c 0,1`,
+`MemoryMax=1200M` twee store-generaties van 17,650 en 17,942 seconden, 34,357 en 35,157 CPU-seconden,
+met pieken van 491,3 en 489,7 MiB (geen swap). Beide maakten 170 JPEGs en films van 4.348.101 bytes
+(Regenradar), 5.446.585 bytes (Gevoelstemperatuur) en 11.549.066 bytes (Wind), bij 960×1224.
+De store-bot valideerde het volledige receipt, inclusief de stills tot +12 uur. Een eerdere meting was
+19,271 seconden; hostbelasting maakt deze tijd een schatting voor de productie-VM. De opgegeven factor
+2,75 voorspelt circa 49 seconden; het doel van circa 45 seconden moet op de VM worden bevestigd.
+
+Losse windrenders: standaard 8,910 seconden / 228,8 MiB; de 7,5 fps-proef 12,005 seconden /
+223 MiB, 12.568.880 bytes. De extra 3,095 hostseconden horen bij wind alleen en zijn geen gemeten
+verschil tussen twee volledige generaties. De proef toont kleinere stappen in de streepjes; voorlopig is
+100 s / 5,6 fps de aanbeveling vanwege het krappe rekenbudget. De PO kiest een eventuele andere standaard.
+Films, zes dag/nachtbeelden, klokstroken en de extra windproef staan op
+`http://ageq-dev2:4397/review/round4/index.html`. Geen productie-VM-meting of uitrol uitgevoerd.
 
 ## Optionele Node-aanroep
 

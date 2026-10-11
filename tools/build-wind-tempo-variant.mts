@@ -11,6 +11,7 @@ const project = fileURLToPath(new URL('..', import.meta.url))
 if (!process.argv[2]) throw new Error('Gebruik: tsx tools/build-wind-tempo-variant.mts /pad/preview')
 const output = resolve(process.argv[2])
 const source = resolve(output, 'source')
+const target = resolve(output, 'target')
 await mkdir(source, { recursive: true })
 for (const path of ['Cargo.toml', 'Cargo.lock', 'crates']) await cp(resolve(project, path), resolve(source, path), { recursive: true })
 
@@ -23,6 +24,6 @@ const { stdout: head } = await run('git', ['rev-parse', 'HEAD'], { cwd: project 
 await writeFile(resolve(output, 'plan.json'), JSON.stringify({ head: head.trim(), mode: 'wind', stepSeconds: 75, fps: constants.fps,
   frames: constants.loop_offsets.length, holdFrames: constants.hold_frames, offsets: constants.loop_offsets }, null, 2) + '\n')
 const { stderr } = await run('cargo', ['build', '--release', '-p', 'render', '--manifest-path', resolve(source, 'Cargo.toml'),
-  '--target-dir', resolve(project, 'target')], { cwd: project })
+  '--target-dir', target], { cwd: project })
 process.stderr.write(stderr)
-console.log(JSON.stringify({ binary: resolve(project, 'target/release/motregen-render'), plan: resolve(output, 'plan.json'), exit: 0 }))
+console.log(JSON.stringify({ binary: resolve(target, 'release/motregen-render'), plan: resolve(output, 'plan.json'), exit: 0 }))

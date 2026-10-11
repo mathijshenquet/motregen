@@ -7,6 +7,7 @@ use rayon::prelude::*;
 use render_core::{
     clock::ClockTransition,
     constants::{constants, warp_limit},
+    motion::Motion,
     overlay::{ClockOptions, draw_overlay},
     projection::Grid,
     rain::{RainCompositor, RainPair},
@@ -148,13 +149,26 @@ impl Scene<'_> {
         if needs_motion && self.motion_pair != Some(pair) {
             let started = Instant::now();
             self.motion = None;
-            self.motion = self.rain.projected_motion(
-                &left_frame,
-                &right_frame,
-                &self.compositor,
-                &left,
-                &right,
-            )?;
+            let interval = (right_frame.epoch - left_frame.epoch) as f64 / 60_000.0;
+            let limit = warp_limit(interval);
+            let motion = self.rain.motion(&left_frame, &right_frame)?;
+            self.motion = motion.as_ref().map(|(width, height, vectors)| {
+                Arc::new(self.compositor.project_motion(
+                    Motion {
+                        vectors,
+                        width: *width,
+                        height: *height,
+                        interval,
+                        cap: limit.cap_cells,
+                        fade: limit.fade_end_cells,
+                    },
+                    Some(render_core::composition::CoveragePair {
+                        left: left.coverage.as_ref().unwrap(),
+                        right: right.coverage.as_ref().unwrap(),
+                        displacement: limit.cap_cells,
+                    }),
+                ))
+            });
             self.motion_pair = Some(pair);
             self.profile.motion_us += started.elapsed().as_micros();
         }
