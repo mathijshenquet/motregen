@@ -8,12 +8,12 @@ use render_core::{
 const VARIANTS: [ClockTransition; 2] = [ClockTransition::Schuif, ClockTransition::Klap];
 
 #[test]
-fn slide_uses_sixth_positions_without_changing_other_transitions() {
+fn slide_keeps_first_tick_and_advances_last_tick_without_changing_other_transitions() {
     let slide = ClockTransition::Schuif;
     for (phase, position) in [
         (0.0, 0.0),
         (1.0 / 3.0, 1.0 / 6.0),
-        (2.0 / 3.0, 5.0 / 6.0),
+        (2.0 / 3.0, 15.0 / 16.0),
         (1.0, 1.0),
     ] {
         assert!((slide.animation_progress(phase) - position).abs() < 1e-6);

@@ -77,7 +77,8 @@ op veelvouden van tien minuten, dus dezelfde compositie past bij loop en still.
 
 De bewaarde proefvarianten zijn te kiezen met `--clock-variant schuif` of `--clock-variant klap`.
 Ze animeren uitsluitend de veranderende cijfers tussen vijfminutentijden,
-op de twee tussenframes. `schuif` verplaatst de cijfers op die frames tot ⅙ en ⅚ van de hoogte;
+op de twee tussenframes. `schuif` verplaatst de cijfers op die frames tot ⅙ en 15/16 van de hoogte;
+het laatste tussenframe toont het nieuwe cijfer bijna op zijn eindpositie. `SLIDE_TICKS` bepaalt beide posities.
 `klap` volgt de gewone ⅓ en ⅔ van de overgang. Vaste cijferkolommen houden de overige cijfers en dubbele punt stil.
 `CLOCK_TRANSITION` in `crates/render-core/src/clock.rs` staat op `None`: de standaard gebruikt afronding
 zonder effect. De CLI-keuze gaat voor de constante; Node geeft geen proefvariant door. `clock_variant`

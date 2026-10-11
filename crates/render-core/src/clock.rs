@@ -11,13 +11,15 @@ pub enum ClockTransition {
 
 // The PO chose rounding without an effect; transitions remain available as optional previews.
 pub const CLOCK_TRANSITION: Option<ClockTransition> = None;
+const SLIDE_TICKS: [f32; 2] = [1.0 / 6.0, 15.0 / 16.0];
 
 impl ClockTransition {
     pub fn animation_progress(self, phase: f32) -> f32 {
         if self == Self::Schuif {
-            // Exponent log₂(5) maps the two intermediate frames to 1/6 and 5/6.
-            let exponent = 5.0_f32.log2();
-            let outgoing = phase.powf(exponent);
+            // Matching the odds at phases 1/3 and 2/3 fixes both slide positions independently.
+            let [first, last] = SLIDE_TICKS.map(|position| position / (1.0 - position));
+            let exponent = (last / first).log2() / 2.0;
+            let outgoing = phase.powf(exponent) * (first * last).sqrt();
             let incoming = (1.0 - phase).powf(exponent);
             outgoing / (outgoing + incoming)
         } else {
