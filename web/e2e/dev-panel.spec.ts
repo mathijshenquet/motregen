@@ -6,6 +6,8 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   await page.goto('/?histogram=wait&zon=markering&uvbalk=stip')
   await expect(page.locator('.map-splash.ready')).toBeAttached()
   await expect(page.getByTestId('dev-panel')).toHaveCount(0)
+  // Zonder ?dev tekent de regen in het product: de PO-keuze van 2026-10-11 (U77).
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'violet-laat/drempel-zacht')
   // De oude losse ?-parameters doen niets meer.
   await expect(page.getByTestId('perf-hud')).toBeHidden()
 
@@ -13,9 +15,9 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   const panel = page.getByTestId('dev-panel')
   await expect(panel).toBeVisible()
   const groups = panel.locator('.dev-group')
-  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wind', 'Kaart', 'Laden', 'Lucht nu', 'Diagnose'])
+  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wind', 'Regen', 'Kaart', 'Laden', 'Lucht nu', 'Diagnose'])
   // Alleen de eerste groep start open.
-  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false, false])
+  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false, false, false])
   await expect(panel).not.toContainText('Wolkrand')
 
   const controls = panel.locator('.dev-control')
@@ -45,6 +47,20 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   await expect(page.locator('.map-shell')).toHaveClass(/sky-(day|night)/)
   await expect(page.locator('.map')).toHaveAttribute('data-map-night', /^[01]\.\d\d$/)
 
+  // U77-proef: palet, menging en contrastlat van de regen; de keuze staat op de kaart en overleeft een reset niet.
+  await groups.locator('> summary', { hasText: /^Regen$/ }).click()
+  const rainGroup = groups.filter({ has: page.locator('summary', { hasText: /^Regen$/ }) })
+  await expect(rainGroup.locator('.dev-control label > span')).toHaveText(['Regenpalet', 'Regenmenging', 'Regencontrast'])
+  // De standaard is de PO-keuze (2026-10-11); `huidig` + `huidig` zet ter vergelijking het beeld van vóór U77 terug.
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'violet-laat/drempel-zacht')
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-contrast', '0')
+  await rainGroup.getByLabel('Regenpalet').selectOption('huidig')
+  await rainGroup.getByLabel('Regenmenging').selectOption('huidig')
+  await rainGroup.getByLabel('Regencontrast').fill('7')
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'huidig/huidig')
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-contrast', '7')
+  await expect.poll(() => page.evaluate(() => ['regenpalet', 'regenmenging', 'regencontrast'].map((name) => localStorage.getItem(`motregen-dev-${name}`)))).toEqual(['huidig', 'huidig', '7'])
+
   await groups.locator('> summary', { hasText: 'Diagnose' }).click()
   const perfToggle = panel.getByRole('checkbox', { name: /Perf-HUD/ })
   await perfToggle.check()
@@ -53,6 +69,9 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   await expect(page.getByTestId('perf-hud')).toBeHidden()
   await panel.getByRole('button', { name: 'Reset alle instellingen' }).click()
   await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-wind-tuning-v4'))).toBeNull()
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'violet-laat/drempel-zacht')
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-contrast', '0')
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-dev-regenpalet'))).toBeNull()
 
   for (const summary of await groups.locator('> summary').all()) {
     if (!await summary.evaluate((element) => (element.parentElement as HTMLDetailsElement).open)) await summary.click()

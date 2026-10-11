@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColor } from './rain-chart'
+import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColor, rainColormap } from './rain-chart'
 
 describe('rain classification bands', () => {
   it('uses light, moderate and heavy meteorological intensity boundaries', () => {
@@ -28,12 +28,33 @@ describe('rain classification bands', () => {
 })
 
 describe('rain bar colour', () => {
-  it('matches the map overlay colour stops at their mrf byte index', () => {
-    const rate = (index: number) => 0.01 * (150 / 0.01) ** ((index - 1) / 253)
-    expect(rainColor(rate(55))).toBe('rgb(54, 183, 255)')
-    expect(rainColor(rate(105))).toBe('rgb(31, 231, 190)')
-    expect(rainColor(rate(150))).toBe('rgb(255, 222, 44)')
-    expect(rainColor(rate(235))).toBe('rgb(188, 45, 214)')
+  const rate = (index: number) => 0.01 * (150 / 0.01) ** ((index - 1) / 253)
+
+  it('reads the map overlay table at the mrf byte index of the rate', () => {
+    const lut = rainColormap()
+    for (const index of [62, 122, 159, 173, 190, 248]) {
+      expect(rainColor(rate(index))).toBe(`rgb(${lut[index * 4]}, ${lut[index * 4 + 1]}, ${lut[index * 4 + 2]})`)
+    }
+    // Het product (U77, PO 2026-10-11): blauw bij lichte regen, rood bij zware.
+    expect(rainColor(0.1)).toBe('rgb(64, 152, 238)')
+    expect(rainColor(13)).toBe('rgb(213, 36, 52)')
     expect(rainColor(500)).toBe(rainColor(150))
+  })
+
+  it('still matches the colour stops from before U77 as palette huidig', () => {
+    const before = { palette: 'huidig', blend: 'huidig', theme: 'light' } as const
+    expect(rainColor(rate(55), before)).toBe('rgb(54, 183, 255)')
+    expect(rainColor(rate(105), before)).toBe('rgb(31, 231, 190)')
+    expect(rainColor(rate(150), before)).toBe('rgb(255, 222, 44)')
+    expect(rainColor(rate(235), before)).toBe('rgb(188, 45, 214)')
+  })
+
+  it('follows the chosen palette and map theme, from the same table as the map', () => {
+    const look = { palette: 'blauw-grijs-rood', blend: 'drempel', theme: 'dark' } as const
+    const lut = rainColormap(look)
+    const index = Math.round(1 + 253 * Math.log(15 / 0.01) / Math.log(150 / 0.01))
+    expect(rainColor(15, look)).toBe(`rgb(${lut[index * 4]}, ${lut[index * 4 + 1]}, ${lut[index * 4 + 2]})`)
+    expect(rainColor(15, look)).not.toBe(rainColor(15))
+    expect(rainColor(15, { ...look, theme: 'light' })).not.toBe(rainColor(15, look))
   })
 })
