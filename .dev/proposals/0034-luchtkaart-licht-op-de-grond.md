@@ -55,6 +55,23 @@ Op verzoek staat regen tijdelijk uit in Lucht, met de focusovergang terug naar d
 
 Als vormreferentie zijn NASA-beelden van [open en gesloten wolkencellen](https://science.nasa.gov/earth/earth-observatory/open-and-closed-cell-clouds-over-the-pacific-ocean-43795/) en [cirrus boven stratocumulus](https://science.nasa.gov/earth/earth-observatory/cirrus-clouds-off-the-coast-of-chile-85943/) zelf bekeken. De proef mengt afgeronde cellen, grotere aaneengesloten structuren en bestaand fijn detail in geleidelijk veranderende gebieden. Hoge patronen blijven langgerekt. Patrooncoördinaten zijn vast per type; alleen gewichten veranderen. Het kleurenpalet blijft gelijk. Deze variatie is illustratief; bedekking/lagen bepalen niet welke celstructuren werkelijk aanwezig zijn.
 
+## Nederlandse referenties en eerste kostenmeting (PO 2026-10-12)
+
+Op PO-verzoek zijn Nederlandse beelden toegevoegd: [KNMI Meteosat](https://www.knmi.nl/nederland-nu/weer/actueel-weer/satellietbeeldenloop), eigen snapshot van 12 oktober 2026 08:00 UTC, en [Buienradar/EUMETSAT/Met Office van 14 april 2023](https://www.buienradar.nl/nederland/zon-en-wolken/satelliet-terugkijken/archief/202304141045). Voor wolkenvormen zijn satellietbeelden de referentie; neerslagradar toont een ander veld. Beelden zelf bekeken. Kenmerken voor deze illustratieve proef: samenhangende banken, rafelige randen, verschillende celgroottes en kleinere structuren binnen grotere groepen. Geen claim dat de proef die waargenomen posities reconstrueert.
+
+Twee eigen beeldrondes met hetzelfde vastgezette manifest: variabele celgroottes en twee schalen, daarna fijne structuren gekoppeld aan grotere groepen. Middelhoge bewolking heeft nu een eigen breder patroon; het reliëf volgt de gekozen wolkenstructuur. De sterke algemene coördinaatvervorming is gehalveerd. Kleurenpalet en regen-uit behouden. Dag/nacht op desktop/mobiel zelf bekeken.
+
+PO vraagt ook hoe het performant kan worden. Gecontroleerde WebGL-microbenchmark,384×256 pixels, SwiftShader, twintig gemeten draws na vier warmups en synchrone pixelreadback: volledig31,5ms; zonder stroming18,1ms; alleen veld/compositie5,4ms (medianen van één diagnose). Dit zijn software-renderertijden inclusief readback, geen telefoon-GPUbudget. De eerste meting met alleen gl.finish gaf onbruikbare nulmetingen en is niet als resultaat gebruikt.
+
+Een beeldneutrale eerste optimalisatie slaat nulgewogen wolkentypen en volledig transparante pixels over. Drie gepaarde runs:33,2→29,8ms;40,9→37,4ms;40,9→37,4ms, ongeveer8–10%. Absolute spreiding blijft zichtbaar; de gecontroleerde GPU-uitkomsten blijven gelijk. Dit neemt de hoofdkosten nog niet weg.
+
+**Aanpak voor grotere winst, nog niet geïmplementeerd:**
+
+1. Vaste procedurele structuren per kaartgebied/detailniveau vooraf berekenen en hergebruiken. Begrens het texturegeheugen en voorkom dat een grote initialisatie het eerste zichtbare beeld ophoudt.
+2. De verplaatsing per kaarttijd op een apart, kleiner raster berekenen. Kies resolutie en precisie met een beeldvergelijking, juist bij convergentie en dichtbij inzoomen; geen blinde kwaliteitsverlaging.
+3. In de zichtbare pixelpass hoofdzakelijk gesmoothde bronvelden, verplaatsing en opgeslagen structuren samplen en mengen.
+4. Kosten van eerste beeld, afspelen, pannen/zoomen en geheugen afzonderlijk meten op de po-android-rig en op echte mobiele GPU. Cachekwaliteit vergelijken tegen de directe shader vóór ingebruikname. De huidige prototypecheck bewijst geen mobiel framebudget.
+
 ## Proef en vervolgstappen
 
 1. Eén proef in de bestaande HMR-dev-app: modelgestuurde vormen, lichttint en coherente tijdsinterpolatie, op dezelfde data en met een vergelijking met de huidige sluier. Toon ook de twee conceptgevallen: gaten tussen donkere wolken tegenover een gesloten dunne sluier. Alleen Lucht verandert. Bestaande regenpresentatie meenemen bij de beoordeling, omdat die nu met de witte sluier mengt.

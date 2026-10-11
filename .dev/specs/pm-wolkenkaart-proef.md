@@ -20,3 +20,5 @@ LOG en receipts: genegeerde `web/tmp/orkestrator/cloud-map-live-20261012/`. Dag-
 Ronde 2: `web/tmp/orkestrator/cloud-flow-20261012/`, met `gpu.mjs` als echte WebGL-proef, JSON-metrieken, voor/na 17:56, dag/nacht1280/390 en afspeelbeelden. Dit zijn gerichte prototypechecks; merge-gate en apparaatmeting volgen na de PO-beeldkeuze.
 
 Ronde 3: regen tijdelijk uit in Lucht op PO-verzoek. Fijn detail behouden, aangevuld met celstructuren en bredere gebieden naar satellietreferenties uit MIP-34. Kleurenpalet gelijk. Receipts in genegeerde `web/tmp/orkestrator/cloud-cologne-20261012/`; zelf 13 oktober 03:00 plus dag, desktop/mobiel en afspelen bekijken.
+
+Nederlandse referentieronde en perf-diagnose: `web/tmp/orkestrator/cloud-nl-20261012/`. Twee beeldrondes met bevroren manifest; vaste bronnen/aanpak in MIP-34. Software-microbenchmark met readback en drie gepaarde runs. Voorberekende structuren/stroming zijn nog niet geïmplementeerd; dit is geen mobiele performancegate.

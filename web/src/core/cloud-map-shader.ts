@@ -38,19 +38,34 @@ float cloudNoise(vec2 p) {
   return value / 1.03125;
 }
 
-float cloudTexture(vec2 p) {
+float cloudCells(vec2 p) {
   vec2 cell = floor(p), f = fract(p);
   float nearest = 2.0;
   for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
     vec2 offset = vec2(x, y);
     vec2 center = vec2(hash(cell + offset), hash(cell + offset + 31.7));
-    nearest = min(nearest, length(offset + center - f));
+    float radius = mix(0.35, 0.8, hash(cell + offset + 71.3));
+    nearest = min(nearest, length(offset + center - f) / radius);
   }
-  float detail = cloudNoise(p);
-  float puffs = 1.0 - smoothstep(0.12, 0.85, nearest);
+  return 1.0 - smoothstep(0.1, 1.0, nearest);
+}
+
+float cloudTexture(vec2 p) {
+  float detail = cloudNoise(p * 2.3);
+  float large = cloudCells(p * 0.65);
+  float small = cloudCells(p * 2.0 + 42.1);
+  float puffs = clamp(large + (small - 0.5) * 0.3, 0.0, 1.0);
   float sheet = cloudNoise(p * 0.23 + 5.7);
   float region = smoothstep(0.25, 0.75, noise(p * 0.11 - 8.3));
-  return mix(detail, mix(sheet, puffs, region), 0.65);
+  return mix(detail, mix(sheet, puffs, region), 0.7);
+}
+
+vec3 cloudBodies(vec2 p, vec3 weights) {
+  float low = weights.x > 0.0 ? cloudTexture(p) : 0.0;
+  float middle = weights.y > 0.0 ? mix(cloudNoise(p * 0.38 + 27.3), cloudNoise(p * 1.6), 0.3) : 0.0;
+  vec2 streak = p * vec2(0.22, 2.8);
+  float high = weights.z > 0.0 ? mix(cloudNoise(streak), cloudNoise(streak * 2.7 + 15.4), 0.25) : 0.0;
+  return vec3(low, middle, high);
 }
 
 vec2 wind(vec2 uv, float age) {
@@ -88,21 +103,16 @@ float cloudOpacity(float body, float cover, float darkness, float veil) {
 vec4 transportedCloud(vec2 foot, float cover, float darkness, vec3 weights) {
   vec2 p = (u_cloud_origin + foot * u_cloud_extent - vec2(500000, 6800000)) / 10000.0;
   vec2 warp = vec2(noise(p * 0.55 + 9.1), noise(p * 0.55 - 12.7)) - 0.5;
-  p = mat2(0.94, -0.34, 0.34, 0.94) * (p + warp * 1.2);
+  p = mat2(0.94, -0.34, 0.34, 0.94) * (p + warp * 0.6);
   // Each type has its own fixed coordinates. Mix optical depths, never the coordinate scales.
-  vec2 streak = p * vec2(0.22, 2.8);
-  float body = cloudTexture(p), highBody = cloudTexture(streak);
-  float reliefStrength = 0.14 * mix(0.25, 1.0, smoothstep(0.25, 0.75, noise(p * 0.11 - 8.3)));
-  float relief = (noise(p + vec2(-0.2, 0.3)) - noise(p + vec2(0.2, -0.3))) * reliefStrength;
-  float highRelief = (noise(streak + vec2(-0.2, 0.3)) - noise(streak + vec2(0.2, -0.3))) * reliefStrength;
-  vec3 opacity = vec3(cloudOpacity(body, cover, darkness, 1.0),
-                      cloudOpacity(body, cover, darkness, 1.0),
-                      cloudOpacity(highBody, cover, darkness, 0.7));
+  vec3 bodies = cloudBodies(p, weights);
+  vec3 relief = clamp((bodies - cloudBodies(p + vec2(-0.12, 0.18), weights)) * 0.22, vec3(-0.05), vec3(0.05));
+  vec3 opacity = vec3(cloudOpacity(bodies.x, cover, darkness, 1.0),
+                      cloudOpacity(bodies.y, cover, darkness, 1.0),
+                      cloudOpacity(bodies.z, cover, darkness, 0.7));
   // Model cover already controls density; surface-wind convergence cannot supply cloud mass.
   float depth = dot(-log(max(vec3(0.001), 1.0 - opacity)), weights);
-  float light = dot(vec3(relief + (body - 0.5) * 0.12,
-                        relief + (body - 0.5) * 0.12,
-                        highRelief + (highBody - 0.5) * 0.12), weights);
+  float light = dot(relief + (bodies - 0.5) * 0.12, weights);
   vec3 day = mix(vec3(0.95, 0.97, 0.98), vec3(0.42, 0.49, 0.55), darkness);
   vec3 night = mix(vec3(0.42, 0.51, 0.59), vec3(0.25, 0.32, 0.39), darkness);
   return vec4(mix(day, night, u_cloud_night) + light, depth);
@@ -129,6 +139,7 @@ void main() {
       darkness = mix(0.6, 0.1, shape);
     }
   }
+  if (cover == 0.0 || valid == 0.0) { color = vec4(0.0); return; }
   float ageA = u_cloud_phase;
   float ageB = mod(ageA + ${CLOUD_FLOW_HOURS / 2}.0, ${CLOUD_FLOW_HOURS}.0);
   float weightA = pow(sin(ageA * 3.14159265359 / ${CLOUD_FLOW_HOURS}.0), 2.0);
