@@ -1,5 +1,13 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-11 22:10 CEST — Telegram-klokhotfix volledig gegated; handmatige integratie en uitrol
+
+PR111 head51648b2463e0e73d2c872a32f1b80fd21fbf2692. Code107px lager, twee rechterhoeken rond, bewegende cijfers/colon/datum/titel samen verplaatst, labeluitsluiting volgt. Rust-cacheversie30→31 met regressie op vijf oude film-/stillkeys. Alle onafhankelijke synchrone exits0: fmt/workspace-clippy/39Rusttests/WASM; webtypecheck/569tests/build; bottypecheck/134tests/build; Telegramdesktop7; flakecheck; echte2nodeNixOS-test32,18s plus renderer/toplevel. Eerste botrun mist fixture door parallelle synthgen/e2e; receipt bewaard, daarna fixture en botchecks sequentieel groen.
+
+Zelf zes echte dag-/nachtbeelden bekeken, vier desktop-/mobiel-/dag-/nachtscreenshots en alle drie films volledig totended, geenerrors. Renderproef taskset0,1: drie films+170stills14058ms; brondata06:40:24Z, kaartnu voor deze visuele proef12:45Z, dus geen liveproductiemeting. Echte films: http://ageq-dev2:4397/review/telegram-clock-hotfix/. Schone integratie. Receipts in web/tmp/orkestrator/telegram-clock-hotfix-20261011/.
+
+PR-head en beoogde checks direct vóór handmatige promotie geverifieerd; geen GitHubCI geconfigureerd. Main wordt met jj vooruitgezet naar de geteste hotfix plus deze entry; Skywatch-CSV blijft buiten commits. Uitrol door PO geautoriseerd. Preflight prod actief/0herstarts/0OOM; sinds de middag wel33266 MemoryMax-hits en piek1600MiB, als bestaande reclaimbelasting vastgelegd voor later, geen geheugengrens gewijzigd in deze hotfix. Nu exacte main-systeemboom lokaal bouwen, closure kopiëren, nixos-upgrade en nieuwe productiebeelden controleren.
+
 ## 2026-10-11 22:01 CEST — PO keurt Telegram-klokpositie goed; hotfix gestart
 
 PO: ja prima doe maar. Keuze uit de mockup: klok64 screenshotpixels vanaf de kaarttop,16 onder de GIF-badge; bij576-brede weergave van960-brede uitvoer is dat afgerond107 videopixels. Beide rechterhoeken rond, linkerrand aangesloten. Vastgelegd als MIP-32 accepted; geen andere productkeuzes open voor deze hotfix.
