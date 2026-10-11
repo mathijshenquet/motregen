@@ -3,6 +3,47 @@
 {
   name = "motregen-deployment";
 
+  nodes.rust =
+    { config, lib, pkgs, ... }:
+    let
+      botPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-bot;
+      renderPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-render;
+      fixture = pkgs.runCommand "motregen-render-fixture" {
+        nativeBuildInputs = [ pkgs.nodejs pkgs.zstd ];
+      } ''
+        node ${../fixtures/render/generate.mjs} "$out" ${../../crates/render/assets/basemaps/basemap.json}
+        cp ${../fixtures/secrets.env} "$out/secrets.env"
+      '';
+      probeBot = pkgs.runCommand "motregen-rust-probe-bot" {
+        nativeBuildInputs = [ pkgs.makeWrapper ];
+        meta.mainProgram = "motregen-bot";
+      } ''
+        mkdir -p "$out/bin"
+        makeWrapper ${lib.getExe pkgs.nodejs} "$out/bin/motregen-bot" \
+          --add-flags "--max-old-space-size=192 --max-semi-space-size=4 --expose-gc" \
+          --set-default MALLOC_ARENA_MAX 2 \
+          --set-default MALLOC_MMAP_THRESHOLD_ 131072 \
+          --set-default MOTREGEN_RENDER_BIN ${lib.getExe renderPackage} \
+          --add-flags "${./rust-generation.mjs} ${botPackage}"
+      '';
+    in
+    {
+      imports = [ self.nixosModules.motregen ];
+      services.motregen.bot = {
+        enable = true;
+        role = "combined";
+        package = probeBot;
+      };
+      assertions = [ {
+        assertion = builtins.removeAttrs config.systemd.services.motregen-bot.serviceConfig [ "ExecStart" ]
+          == builtins.removeAttrs self.nixosConfigurations.motregen.config.systemd.services.motregen-bot.serviceConfig [ "ExecStart" ];
+        message = "The Rust probe must retain every production bot service property except its offline entrypoint.";
+      } ];
+      systemd.tmpfiles.rules = [ "C /var/lib/motregen - - - - ${fixture}" ];
+      virtualisation = { memorySize = 2048; cores = 2; };
+      system.stateVersion = "25.11";
+    };
+
   nodes.machine =
     { lib, pkgs, ... }:
     let
@@ -83,6 +124,11 @@
 
   testScript = ''
     start_all()
+    rust.wait_until_succeeds("journalctl -u motregen-bot --no-pager | grep -F bot-test-rust-ready", timeout=180)
+    rust.succeed("systemctl stop motregen-bot")
+    rust.succeed("test \"$(systemctl show motregen-bot -p ExecMainStatus --value)\" = 0")
+    rust.succeed("test \"$(systemctl show motregen-bot -p Result --value)\" = success")
+    print(rust.succeed("systemctl show motregen-bot -p MemoryMax -p MemoryHigh -p MemorySwapMax -p CPUQuotaPerSecUSec -p User -p Group -p BindReadOnlyPaths -p CacheDirectory -p SystemCallArchitectures -p NoNewPrivileges -p ProtectSystem -p ProtectHome -p PrivateDevices -p PrivateTmp -p RestrictNamespaces -p RestrictAddressFamilies -p CapabilityBoundingSet"))
     machine.wait_for_unit("motregen-ingest.service")
     machine.wait_for_unit("caddy.service")
     machine.wait_for_unit("motregen-bot.service")

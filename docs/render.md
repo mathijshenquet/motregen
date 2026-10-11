@@ -155,6 +155,26 @@ en wordt alleen-lezen gemount op `/run/motregen-data`, ook voor een zelfstandige
 leesbaar vanuit de store. De bestaande grenzen blijven 1100 MiB voor `renderer` en 1200 MiB voor `combined`,
 ruim boven de gemeten Rust-generatiepiek van 384,6 MiB en met ruimte voor Node en uploads.
 
+De extra node `rust` in `nix/tests/motregen.nix` draait de echte Node-sequentielaag, store-renderer en
+ffmpeg-kindprocessen met de standaard Rust-modi. Een kleine, in Nix gegenereerde MRF-fixture bevat droge regen,
+14 °C, 1012 hPa en wind (3, 2) m/s, van −2 tot +12 uur; de kaartplaten en uitvoermaat zijn die van productie.
+De proef importeert drie films en 170 JPEGs, controleert cache-hits en sluit de bot-unit netjes af met exit 0.
+
+Een Nix-assertie vergelijkt alle `serviceConfig`-properties met prod, behalve `ExecStart` voor het offline
+testprogramma. Geen hardening-property wordt aangepast of overgeslagen: user/group, alleen-lezen datamount,
+schrijfbare cache, `ProtectSystem`, `ProtectHome`, `ProtectProc`/`ProcSubset`, private devices/tmp,
+kernel-/klok-/hostname-/cgroupbescherming, namespace-/adresfamilie-/realtime-/SUID-beperkingen,
+lege capabilities, `NoNewPrivileges`, `LockPersonality`, `SystemCallArchitectures`, UMask en corelimiet
+blijven gelijk, net als de geheugen-/CPU-grenzen, OOM- en herstartinstellingen. Het Node-proces controleert
+de ro-mount en een geweigerde schrijfproef (`EROFS`), niet-root uid, lege effectieve capabilities,
+`NoNewPrivs=1` en `Seccomp=2`. Prod configureert geen afzonderlijke `SystemCallFilter`-allowlist;
+wel de seccompbeperkingen via architectuur, adresfamilies en namespaces. `PrivateNetwork=false` blijft gelijk.
+
+Telegram-poller/uploads, echte ingest, live data en de productie-VM maken geen deel uit van deze proef;
+netwerkverzoeken vanuit Node worden geweigerd. De bestaande node toetst daarnaast de Chromium-terugval.
+`nix build .#checks.x86_64-linux.nixos-vm --no-link -L` bouwt én draait beide lokale test-VM's en moet
+synchroon met exit 0 afronden naast `nix flake check --no-build`.
+
 ## Manifestpublicaties tijdens een generatie
 
 Ingest kan na iedere gewijzigde bron een nieuw atomair manifest publiceren (`finish_refresh`/`publish_after`
