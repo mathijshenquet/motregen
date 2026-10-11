@@ -134,7 +134,7 @@ it.each(['feels', 'wind'] as const)('imports the %s matrix and reuses its cache 
   const render = vi.spyOn(rust, 'runRustRenderer').mockImplementation((_manifest, directory, mode) => media(directory, mode))
   try {
     const first = await renderer.render({ mode, hour: 'loop' }, manifest)
-    expect(first).toMatchObject({ backend: 'rust', cached: false, frames: 217, fps: 5.6 })
+    expect(first).toMatchObject({ backend: 'rust', cached: false, frames: mode === 'wind' ? 289 : 217, fps: mode === 'wind' ? 7.5 : 5.6 })
     expect(await readFile(first.path, 'utf8')).toBe('data')
     expect(await renderer.render({ mode, hour: 'loop' }, manifest)).toMatchObject({ cached: true })
     if (mode === 'feels') expect(await renderer.render({ mode, hour: 6 }, manifest)).toMatchObject({ cached: true, kind: 'photo' })

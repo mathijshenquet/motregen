@@ -10,13 +10,14 @@ describe('one frame sequence per mode', () => {
     for (const definition of LOOP_MODES) {
       const plan = sequencePlan(definition.mode, manifest)
       const rain = definition.mode === 'weather'
-      expect(plan).toMatchObject({ fps: 5.6, loopFrames: rain ? 109 : 217 })
-      expect(plan.epochs).toHaveLength(rain ? 175 : definition.mode === 'wind' ? 217 : 265)
+      const wind = definition.mode === 'wind'
+      expect(plan).toMatchObject({ fps: wind ? 7.5 : 5.6, loopFrames: rain ? 109 : wind ? 289 : 217 })
+      expect(plan.epochs).toHaveLength(rain ? 175 : wind ? 289 : 265)
       const loopEpochs = plan.epochs.slice(0, plan.loopFrames)
       expect(loopEpochs[0]).toBe(now - 3_600_000)
       expect(loopEpochs.at(-1)).toBe(now + (rain ? 2 : 5) * 3_600_000)
       for (const [index, epoch] of loopEpochs.entries()) {
-        expect(epoch).toBe(now + (-3600 + index * 100) * 1000)
+        expect(epoch).toBe(now + (-3600 + index * (wind ? 75 : 100)) * 1000)
       }
       expect(new Set(plan.epochs).size).toBe(plan.epochs.length)
     }
@@ -51,7 +52,10 @@ describe('one frame sequence per mode', () => {
     expect(rain.epochs.slice(rain.loopFrames)).toEqual(outside.map((minute) => now + minute * 60_000))
     expect(sequencePlan('wind', manifest).stillFrames).toEqual([])
     expect(holdFrames(rain)).toBe(6)
-    expect(holdFrames(sequencePlan('wind', manifest))).toBe(6)
+    expect(holdFrames(sequencePlan('feels', manifest))).toBe(6)
+    expect(holdFrames(sequencePlan('wind', manifest))).toBe(8)
+    expect(fpsFraction(sequencePlan('wind', manifest).fps)).toEqual({ numerator: 15, denominator: 2 })
+    expect((75 * sequencePlan('wind', manifest).fps) / 60).toBe(9.375)
     expect(fpsFraction(rain.fps)).toEqual({ numerator: 28, denominator: 5 })
     expect((100 * rain.fps) / 60).toBeCloseTo(9.333333)
   })
@@ -60,13 +64,13 @@ describe('one frame sequence per mode', () => {
     const wind = cacheKey({ mode: 'wind', hour: 'loop' }, manifest)
     const feels = cacheKey({ mode: 'feels', hour: 'loop' }, manifest)
     const still = cacheKey({ mode: 'feels', hour: 12 }, manifest)
-    const end = LOOP_TIMING.endMinutes.wind
+    const end = LOOP_TIMING.wind.endMinutes
     try {
-      LOOP_TIMING.endMinutes.wind = 720
+      LOOP_TIMING.wind.endMinutes = 720
       expect(cacheKey({ mode: 'wind', hour: 'loop' }, manifest)).not.toBe(wind)
       expect(cacheKey({ mode: 'feels', hour: 'loop' }, manifest)).toBe(feels)
       expect(cacheKey({ mode: 'feels', hour: 12 }, manifest)).toBe(still)
-    } finally { LOOP_TIMING.endMinutes.wind = end }
+    } finally { LOOP_TIMING.wind.endMinutes = end }
   })
 
   it('isolates loop ids from still ids and all 173 artifacts from a new generation', () => {
@@ -108,6 +112,8 @@ describe('clock on loop frames', () => {
     const plan = sequencePlan('weather', manifest)
     const minutes = plan.epochs.slice(0, 7).map((epoch) => (clockEpoch(epoch) - plan.epochs[0]!) / 60_000)
     expect(minutes).toEqual([0, 0, 5, 5, 5, 10, 10])
+    const wind = sequencePlan('wind', manifest)
+    expect(wind.epochs.slice(0, 8).map((epoch) => (clockEpoch(epoch) - wind.epochs[0]!) / 60_000)).toEqual([0, 0, 5, 5, 5, 5, 10, 10])
     // Stills liggen op tientallen minuten en houden dus hun eigen tijd.
     for (const hour of [-2, 0, 0.5, 12]) expect(clockEpoch(now + hour * 3_600_000)).toBe(now + hour * 3_600_000)
   })

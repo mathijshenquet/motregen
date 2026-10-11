@@ -1,7 +1,8 @@
 # Windlagen: geïsoleerde proeven
 
-Technisch meetbewijs voor de open laagkeuze in MIP-31. De productiebron blijft
-100 s kaarttijd/frame bij 5,6 fps, met regen, isobaren, druklabels en H/L.
+Technisch meetbewijs voor de laagkeuze in MIP-31. De PO koos Wind op
+75 s kaarttijd/frame bij 7,5 fps, zonder regen en met isobaren, druklabels en H/L.
+Regen en Gevoelstemperatuur behouden 100 s / 5,6 fps; gewone web-Wind behoudt regen.
 Main is geïntegreerd inclusief MIP-30 E1: MemoryMax1600M voor de gecombineerde bot.
 
 ## Reproduceren
@@ -14,7 +15,10 @@ pnpm -C bot exec tsx ../tools/measure-wind-layer-variants.mts "$PWD/.dev/tracks/
 pnpm -C bot exec tsx ../tools/build-wind-layer-review.mts "$PWD/.dev/tracks/u80-rust-wind-temperatuur/round5"
 ```
 
-De bouw kopieert uitsluitend Cargo.toml, Cargo.lock en crates. Alleen de kopieën
+De bouw archiveert de bron op `244bf915130e6167139294a2dbbda19f557d3a36`, vóór de
+laagkeuze; zo blijven alle vier proeven reproduceerbaar na het verwijderen van
+de regenlaag uit de Windfilm. Uit dat archief krijgen uitsluitend Cargo.toml,
+Cargo.lock en crates een eigen bouwkopie. Alleen de kopieën
 krijgen het proefplan (75 s, 7,5 fps, 289 kaartframes + acht holdframes, 39,6 s)
 en de laagwijzigingen. De bronvervangingen stoppen bij onverwachte bronwijzigingen.
 De drukloze proef slaat drukrasters, veldvoorbereiding, contouren, ring-/lijnlabels,
@@ -50,7 +54,7 @@ geen swap. Alle acht renders eindigden synchroon met exit 0. MB is 1.000.000 byt
 | Zonder isobaren, druklabels en H/L | 7,428 | 14,162 | 211,4 | 11,440 |
 | Zonder beide | 3,722 | 6,235 | 221,1 | 7,319 |
 
-| Standaard, 5,6 fps | Wandtijd s | CPU s | Piek MiB | MP4 MB | JPEGs |
+| Vóór MIP-31, 5,6 fps | Wandtijd s | CPU s | Piek MiB | MP4 MB | JPEGs |
 |---|---:|---:|---:|---:|---:|
 | Regen | 5,428 | 8,878 | 200,3 | 4,348 | 85 |
 | Gevoelstemperatuur | 6,852 | 11,865 | 199,6 | 5,447 | 85 |
@@ -79,12 +83,12 @@ motionframes96–101=09:35…09:41:15 (Europe/Amsterdam).
 De acht volledige beelden en vier bewegings-/klokstroken zijn zelf bekeken.
 Dezelfde klokhoek en datum blijven leesbaar; drukloze beelden missen lijnen en
 druklabels. Zonder regen zijn de streepjes en temperatuurpunten beter zichtbaar;
-dat levert hier ook de grootste besparing. De PO kiest welke informatie blijft.
+dat levert hier ook de grootste besparing. De PO koos zonder regen, met drukinformatie.
 
 ## Temperatuur: bronanalyse en vervolgproef
 
 Temperatuur maakt 265 composities: 217 filmframes plus 85 stills, met 37 gedeelde
-tijdstippen. Regen maakt175:109+85−19. Wind maakt217 zonder stills. Temperatuur
+tijdstippen. Regen maakt175:109+85−19. Wind maakte217 vóór MIP-31 en maakt nu289 zonder stills. Temperatuur
 heeft dus 51% meer composities dan regen, en berekent per tijdstip temporele
 veldblending, contouren, ringraster, labels, kleurvulling en lijnrasterisatie.
 

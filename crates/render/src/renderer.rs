@@ -586,7 +586,7 @@ mod tests {
     #[test]
     fn temperature_plan_preserves_stills_outside_the_shorter_film() {
         let constants = constants();
-        let mode = render_core::mode_constants::mode_constants();
+        let mode = &render_core::mode_constants::mode_constants().loops.feels;
         assert_eq!(mode.fps, 5.6);
         assert_eq!(mode.fps_fraction.numerator, 28);
         assert_eq!(mode.fps_fraction.denominator, 5);
@@ -619,6 +619,26 @@ mod tests {
         assert!(!plans.last().unwrap().loop_frame);
         assert!(plans.last().unwrap().still);
         assert!(plans.windows(2).all(|pair| pair[0].epoch < pair[1].epoch));
+    }
+
+    #[test]
+    fn wind_plan_has_its_own_faster_clock_and_whole_frame_hold() {
+        let mode = &render_core::mode_constants::mode_constants().loops.wind;
+        assert_eq!(mode.fps, 7.5);
+        assert_eq!(mode.fps_fraction.numerator, 15);
+        assert_eq!(mode.fps_fraction.denominator, 2);
+        assert_eq!(mode.hold_frames, 8);
+        assert_eq!(mode.loop_offsets.len(), 289);
+        assert_eq!(mode.loop_offsets[0], -3_600_000);
+        assert_eq!(*mode.loop_offsets.last().unwrap(), 18_000_000);
+        assert!(
+            mode.loop_offsets
+                .windows(2)
+                .all(|pair| pair[1] - pair[0] == 75_000)
+        );
+        let plans = frame_plans(&mode.loop_offsets, &[]);
+        assert_eq!(plans.len(), 289);
+        assert!(plans.iter().all(|plan| plan.loop_frame && !plan.still));
     }
 
     #[test]

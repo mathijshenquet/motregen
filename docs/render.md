@@ -1,10 +1,18 @@
 # Weermedia in Rust (MIP-29 C1/C2)
 
-`motregen-render` maakt precies één generatie: regenloop −1…+2 uur (109 kaartframes) en wind- en
-gevoelstemperatuurfilms −1…+5 uur (217 kaartframes). Alle films stappen 100 seconden kaarttijd per frame
-bij 5,6 fps (28/5), gevolgd door zes holdframes: totale duur 20,536 respectievelijk 39,821 seconden.
-Het tempo is 9,33 kaartminuten per seconde; de app met `PLAYBACK_TEMPO_HOURS = 8` mat op 2026-10-11
-9,35. Tempo en vensters staan uitsluitend in `bot/sequences.ts`; beide Rust-plannen worden daaruit gegenereerd.
+`motregen-render` maakt precies één generatie: Regenradar −1…+2 uur en Wind en
+Gevoelstemperatuur −1…+5 uur. MIP-31 kiest voor de Windfilm zonder regen, met isobaren en drukletters.
+De gewone Windmodus van de webapp behoudt regen. Tempo en vensters staan uitsluitend in
+`bot/sequences.ts`; Rust krijgt afzonderlijke gegenereerde plannen voor Wind en Gevoelstemperatuur.
+
+| Modus | Kaarttijd/frame | fps | Kaartframes | Holdframes | Filmduur |
+|---|---:|---:|---:|---:|---:|
+| Regenradar | 100 s | 28/5 | 109 | 6 | 20,536 s |
+| Gevoelstemperatuur | 100 s | 28/5 | 217 | 6 | 39,821 s |
+| Wind | 75 s | 15/2 | 289 | 8 | 39,600 s |
+
+Het tempo is 9,33 kaartminuten per seconde voor regen/temperatuur en 9,375 voor Wind;
+de app met `PLAYBACK_TEMPO_HOURS = 8` mat op 2026-10-11 9,35.
 Regen en gevoelstemperatuur behouden elk 85 JPEG-stills −2…+12 uur per tien minuten. Alle invoer komt van
 schijf. Het programma start alleen ffmpeg; tekst en temperatuurpunten worden rechtstreeks met het ingebedde
 Inter-lettertype getekend. `--mode wind` maakt de windfilm; `--mode feels` maakt de gevoelstemperatuurfilm
@@ -49,9 +57,9 @@ de PNG-maten en het alfakanaal van beide watermaskers worden ook gecontroleerd.
 
 ## Uitvoercontract
 
-`weather-loop.mp4` is H.264/yuv420p met faststart, 960×1224, beeldsnelheid `9/2`, 109 bewegende frames en
-vijf holdframes (114 frames, 25⅓ seconde). Beeldsnelheid en het gehele holdaantal worden uit `sequencePlan`
-en `holdFrames` gegenereerd; ffmpeg ontvangt de verkorte breuk en `tpad=stop=5`.
+`weather-loop.mp4` is H.264/yuv420p met faststart, 960×1224, beeldsnelheid `28/5`, 109 bewegende frames en
+zes holdframes (115 frames, 20,536 seconden). Beeldsnelheid en het gehele holdaantal worden uit `sequencePlan`
+en `holdFrames` gegenereerd; ffmpeg ontvangt de verkorte breuk en `tpad=stop=6`.
 Films gebruiken veryfast/CRF 18, H.264 High, yuv420p en faststart. Het VBV-plafond volgt uit de
 veiligheidsgrens en de volledige filmduur, inclusief hold: `maxrate = floor(0,9 × maxBytes × 8 / duur)`,
 `bufsize = 2 × maxrate`. De encoder kan bij extreme beelden kwaliteit inleveren om binnen het budget te blijven.
@@ -98,17 +106,17 @@ Temperatuurbanden en koude/warme ankers komen uit dezelfde gegenereerde palettab
 verhuisd uit `native-field-raster.rs` naar `render-core`; de oude helper gebruikt deze kern ook.
 
 Wind tekent temperatuurpunten, isobaren, deterministische windstaarten met zee-demping, H/L op prominente
-drukextremen, regen volgens de gedeelde presentatie voor Wind, isolijnlabels en klok/voettekst. Die presentatie komt
-via de gegenereerde constanten rechtstreeks uit rainPresentation: overdag dekking 0,7/verzadiging 0,85,
-nacht dekking 0,8/verzadiging 0,7/helderheid 0,9. Beide gebruiken echte alfa-over, zonder vermenigvuldigen.
+drukextremen, isolijnlabels en klok/voettekst. De film verwerkt geen regenrasters, regenmotion of regenmenging.
+De regenroosterheader blijft nodig voor dezelfde kadermaskering. De Node-pixelroute volgt dezelfde laagkeuze;
+de browserterugval verbergt regen uitsluitend bij `stillMode` met het Wind-preset. Gewone web-Wind blijft gelijk.
 Gevoelstemperatuur tekent de gedempte
 basiskaart, kleurvlakken, isothermen en labels. Gedraaide tekst wordt rechtstreeks met Inter gerasterd;
 pixelgelijkheid met de oude browseratlas is geen eis (MIP-29). Per kaartframe bepaalt de gedeelde tijdlogica dag/nacht.
 
-`wind-loop.mp4` en `feels-loop.mp4` hebben 179 gecodeerde frames en duren 17,9 seconden. Alleen `feels` levert
+`wind-loop.mp4` heeft 297 gecodeerde frames bij 15/2 fps; `feels-loop.mp4` heeft 223 bij 28/5 fps. Alleen `feels` levert
 ook `feels-EPOCH.jpg`. Hun individuele `media.json` volgt hetzelfde contract als regen. Het profiel voegt
 `fields_us`, `contours_us`, `labels_us`, `strokes_us` en `composition_us` toe. Deze laatste fase is kleurvulling
-en het tekenen van lijnen; regen staat onder `mixing_us`, klok/temperatuurpunten onder `overlay_us`.
+en het tekenen van lijnen; klok/temperatuurpunten staan onder `overlay_us`.
 Voorbereiding, twee tekst-/rasterworkers en de ffmpeg-schrijver overlappen met begrensde wachtrijen.
 
 `--mode all` start de drie modi tegelijk op dezelfde twee rasterworkers. Kaartplaten en het immutable
@@ -123,27 +131,17 @@ de gedeelde kernen; meet losse modi voor hun eigen tijdlat. Parallelle fasetijde
 ## Klok per modus
 
 De gekozen U76-schuifklok is standaard, met tussenposities 1/6 en 15/16. Alleen veranderende cijfers bewegen;
-de overige cijfers en dubbele punt blijven stil. Alle modi hebben drie frames per vijfminuteninterval, dus fases
-0 → 1/6 → 15/16 → 1. Datum en thema volgen de werkelijke
+de overige cijfers en dubbele punt blijven stil. Regen en Gevoelstemperatuur hebben drie frames per
+vijfminuteninterval, Wind vier. Dezelfde curve met tussenposities 1/6 en 15/16 volgt de kaarttijd. Datum en thema volgen de werkelijke
 kaarttijd; stills tonen hun exacte tijd zonder beweging. De titels zijn Regenradar, Wind en Gevoelstemperatuur.
 
 De constante CLOCK_TRANSITION staat op Some(Schuif). De CLI kan expliciet schuif of klap kiezen; kruisfade
 is verwijderd. Met de constante op None blijft de oude afronding op de dichtstbijzijnde vijf minuten
 beschikbaar in de kern. Rust-cacheversie 30 en de framegrootte voorkomen hergebruik van oude beelden;
 loopcachekeys bevatten ook het actuele tempo en venster, zodat een gewijzigd plan alle betrokken films ververst
-zonder stills te verwerpen. Het VBV-plafond gebruikt de volledige nieuwe filmduur, inclusief zes holdframes.
+zonder stills te verwerpen. Het VBV-plafond gebruikt de volledige filmduur, inclusief de eigen holdframes.
 
-De optionele windproef met 75 seconden kaarttijd per frame bij 7,5 fps wordt alleen in een gekopieerde
-Rust-bronboom gebouwd. Productieconstanten en standaardfilms veranderen hierdoor niet:
-
-```sh
-pnpm -C bot exec tsx ../tools/build-wind-tempo-variant.mts /pad/preview
-# De tool meldt de gebouwde binary; gebruik uitsluitend --mode wind voor dit proefplan.
-```
-
-Deze variant heeft 289 kaartframes, acht holdframes en duurt 39,6 seconden (9,375 kaartminuten/s).
-
-De volledige datasnapshot van 2026-10-11 gaf onder `CPUQuota=200%`, `taskset -c 0,1`,
+Vóór MIP-31 gaf de volledige datasnapshot van 2026-10-11 onder `CPUQuota=200%`, `taskset -c 0,1`,
 `MemoryMax=1200M` twee store-generaties van 17,650 en 17,942 seconden, 34,357 en 35,157 CPU-seconden,
 met pieken van 491,3 en 489,7 MiB (geen swap). Beide maakten 170 JPEGs en films van 4.348.101 bytes
 (Regenradar), 5.446.585 bytes (Gevoelstemperatuur) en 11.549.066 bytes (Wind), bij 960×1224.
@@ -151,12 +149,14 @@ De store-bot valideerde het volledige receipt, inclusief de stills tot +12 uur. 
 19,271 seconden; hostbelasting maakt deze tijd een schatting voor de productie-VM. De opgegeven factor
 2,75 voorspelt circa 49 seconden; het doel van circa 45 seconden moet op de VM worden bevestigd.
 
-Losse windrenders: standaard 8,910 seconden / 228,8 MiB; de 7,5 fps-proef 12,005 seconden /
+Losse windrenders vóór MIP-31: standaard 8,910 seconden / 228,8 MiB; de 7,5 fps-proef met regen 12,005 seconden /
 223 MiB, 12.568.880 bytes. De extra 3,095 hostseconden horen bij wind alleen en zijn geen gemeten
-verschil tussen twee volledige generaties. De proef toont kleinere stappen in de streepjes; voorlopig is
-100 s / 5,6 fps de aanbeveling vanwege het krappe rekenbudget. De PO kiest een eventuele andere standaard.
-Films, zes dag/nachtbeelden, klokstroken en de extra windproef staan op
-`http://ageq-dev2:4397/review/round4/index.html`. Geen productie-VM-meting of uitrol uitgevoerd.
+verschil tussen twee volledige generaties. De vier gerichte laagproeven volgden hierop; de PO koos
+75 s / 7,5 fps zonder regen met behoud van drukinformatie. De temperatuurproef bewees beeldgelijkheid,
+maar geen betrouwbare totale winst; de productiecode voor temperatuur is ongewijzigd.
+Metingen, bronanalyse en reproduceerbare geïsoleerde proeven staan in
+[render-wind-proeven.md](render-wind-proeven.md); beelden op
+`http://ageq-dev2:4397/review/round5/index.html`. De PM doet de finale VM-meting en uitrol.
 
 ## Optionele Node-aanroep
 

@@ -1,13 +1,12 @@
 import { STILL_HOURS, stillEpoch, type LoopMode, type StillHour, type StillManifest } from './stills.js'
 
 // PLAYBACK_TEMPO_HOURS = 8 / timelinePlaybackRate in web/src/App.tsx: gemeten 9,35 kaartminuten/s
-// op 2026-10-11. PO: alle films 100 s/frame × 5,6 fps = 9,33 min/s; regen −1…+2 u, overige −1…+5 u.
+// op 2026-10-11. MIP-31: Wind 75 s/7,5 fps; regen en temperatuur 100 s/5,6 fps (beide circa 9,35 min/s).
 export const LOOP_TIMING = {
-  stepSeconds: 100,
-  fps: 5.6,
-  startMinutes: -60,
-  endMinutes: { weather: 120, wind: 300, feels: 300 } satisfies Record<LoopMode, number>,
-}
+  weather: { stepSeconds: 100, fps: 5.6, startMinutes: -60, endMinutes: 120 },
+  wind: { stepSeconds: 75, fps: 7.5, startMinutes: -60, endMinutes: 300 },
+  feels: { stepSeconds: 100, fps: 5.6, startMinutes: -60, endMinutes: 300 },
+} satisfies Record<LoopMode, { stepSeconds: number; fps: number; startMinutes: number; endMinutes: number }>
 
 export interface SequencePlan {
   epochs: number[]
@@ -18,8 +17,7 @@ export interface SequencePlan {
 
 export function sequencePlan(mode: LoopMode, manifest: StillManifest): SequencePlan {
   const now = Date.parse(manifest.now)
-  const { fps, stepSeconds, startMinutes } = LOOP_TIMING
-  const endMinutes = LOOP_TIMING.endMinutes[mode]
+  const { fps, stepSeconds, startMinutes, endMinutes } = LOOP_TIMING[mode]
   const epochs: number[] = []
   for (let second = startMinutes * 60; second <= endMinutes * 60; second += stepSeconds) epochs.push(now + second * 1000)
   const loopFrames = epochs.length

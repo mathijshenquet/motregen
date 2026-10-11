@@ -20,6 +20,7 @@ test('Telegram launch applies presets and follows the host theme without sending
   await page.goto('/?tg=1')
   await expect(page.locator('.map-splash.ready')).toBeAttached()
   await expect(page.locator('.forecast-table')).toHaveAttribute('data-mode', 'wind')
+  await expect.poll(async () => Number(await page.locator('.app-shell').getAttribute('data-rain-opacity'))).toBeGreaterThan(0)
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   expect(await page.evaluate(() => document.documentElement.style.getPropertyValue('--page'))).toBe('#112233')
   expect(await page.evaluate(() => localStorage.getItem('motregen-theme'))).toBeNull()
@@ -53,13 +54,15 @@ test('skywatch rendering keeps its own route alongside the Telegram bootstrap', 
   expect(telegramRequests).toEqual([])
 })
 
-test('ordinary visits never load the Telegram SDK', async ({ page }) => {
+test('ordinary Wind keeps rain and never loads the Telegram SDK', async ({ page }) => {
   const telegramRequests: string[] = []
   page.on('request', (request) => {
     if (request.url().includes('telegram.org/js/')) telegramRequests.push(request.url())
   })
-  await page.goto('/')
+  await page.goto('/?modus=wind&t=+3u')
   await expect(page.locator('.map-splash.ready')).toBeAttached()
+  await expect(page.locator('.forecast-table')).toHaveAttribute('data-mode', 'wind')
+  await expect.poll(async () => Number(await page.locator('.app-shell').getAttribute('data-rain-opacity'))).toBeGreaterThan(0)
   expect(telegramRequests).toEqual([])
 })
 
@@ -93,6 +96,7 @@ test('wind loop frames advance only with the fixed simulation clock', async ({ p
   await page.setViewportSize({ width: 640, height: 848 })
   await page.goto('/?modus=wind&t=+3u&still=1')
   await expect(page.locator('.map')).toHaveAttribute('data-still-ready', 'true', { timeout: 45_000 })
+  await expect(page.locator('.app-shell')).toHaveAttribute('data-rain-opacity', '0.00')
   const epoch = Number(await page.locator('.app-shell').getAttribute('data-epoch'))
   const render = (simulationMs: number) => page.evaluate(async ({ epoch, simulationMs }) => {
     await (window as unknown as { __motregenRenderFrame: (epoch: number, simulationMs: number) => Promise<void> }).__motregenRenderFrame(epoch, simulationMs)

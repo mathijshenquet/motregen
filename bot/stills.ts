@@ -76,7 +76,7 @@ export function cacheKey(selection: MediaSelection, manifest: StillManifest): st
   const identity = JSON.stringify({
     renderer: backend === 'rust' ? 30 : backend === 'playwright' ? 15 : selection.mode === 'weather' ? 21 : 22,
     video: selection.hour === 'loop' ? videoSettings() : undefined,
-    timing: selection.hour === 'loop' ? { ...LOOP_TIMING, endMinutes: LOOP_TIMING.endMinutes[selection.mode] } : undefined,
+    timing: selection.hour === 'loop' ? LOOP_TIMING[selection.mode] : undefined,
     size: FRAME_PIXELS,
     view: backend === 'playwright' ? undefined : NATIVE_VIEW,
     mode: selection.mode,

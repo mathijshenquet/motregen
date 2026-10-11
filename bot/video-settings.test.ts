@@ -16,9 +16,9 @@ it('overrides quality and the safety limit independently without a size-targeted
   ]) expect(() => videoSettings(environment)).toThrow('MOTREGEN_VIDEO_')
 })
 
-it('budgets both complete windows including their hold at the fractional frame rate', () => {
+it('budgets all three complete films including their own hold and fractional frame rate', () => {
   const settings = videoSettings({})
-  for (const [frames, fps, maxrate] of [[223, 5.6, 3_616_143], [115, 5.6, 7_012_173]]) {
+  for (const [frames, fps, maxrate] of [[223, 5.6, 3_616_143], [115, 5.6, 7_012_173], [297, 7.5, 3_636_363]]) {
     const args = videoArguments(settings, frames!, fps!)
     expect(args.slice(args.indexOf('-maxrate'), args.indexOf('-maxrate') + 4)).toEqual(['-maxrate', String(maxrate), '-bufsize', String(2 * maxrate!)])
     expect(args).not.toContain('-x264-params')

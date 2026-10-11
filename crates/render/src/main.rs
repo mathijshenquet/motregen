@@ -5,7 +5,6 @@ mod fields;
 mod modes;
 mod renderer;
 mod shared;
-mod wind_rain;
 
 use anyhow::{Result, ensure};
 use clap::{Parser, ValueEnum};

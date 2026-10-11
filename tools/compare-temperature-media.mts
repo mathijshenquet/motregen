@@ -24,7 +24,7 @@ function decoder(file: string) {
     child.once('error', fail)
     child.once('close', code => code === 0 ? ok() : fail(new Error(stderr)))
   })
-  async function* frames() {
+  async function* frames(): AsyncGenerator<Buffer, undefined, void> {
     let frame = Buffer.allocUnsafe(frameBytes), used = 0
     for await (const part of child.stdout) {
       const chunk = part as Buffer
@@ -60,6 +60,7 @@ while (true) {
   const [af, bf] = await Promise.all([ad.next(), bd.next()])
   assert.equal(af.done, bf.done, 'Ongelijke filmlengte')
   if (af.done) break
+  if (bf.done) throw new Error('Ongelijke filmlengte')
   const d = delta(af.value!, bf.value!)
   frames++; if (d.bytes) differentFrames++
   frameMax = Math.max(frameMax, d.max); frameDifferentBytes += d.bytes

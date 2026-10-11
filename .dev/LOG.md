@@ -1,5 +1,19 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-11 15:15 CEST — MIP-31 aangenomen: wind 7,5 fps zonder regen, met isobaren
+
+PO koos expliciet de gemeten variant zonder regen, met isobaren (10,716 s afzonderlijk op VM). Wind krijgt 75 s kaarttijd per frame, 15/2 fps en acht holdframes; Regen en Gevoelstemperatuur behouden 100 s / 5,6 fps. Besluit vastgelegd in MIP-31. U80 aangestuurd voor de echte productiestandaard, gedeelde constanten en fallback; geen productie-probeopties.
+
+Worker rondt eerst de begrensde temperatuurproef af: uniforme RGBA-hoeken, gesplitst faseprofiel, AB/BA/AB en beeldvergelijking. Daarna volledige worker-gate en finale head. PM herhaalt de onafhankelijke gate en gemengde mode-all VM-meting vóór merge en geautoriseerde uitrol. MIP-30 E1 gaat mee, E2 blijft open. Skywatch-CSV en bevroren U76-branch blijven buiten commits.
+
+## 2026-10-11 15:10 CEST — Vier windvarianten op VM gemeten; keuze bij PO, temperatuurproef loopt
+
+Alle75s/7,5fps-Windproeven op dezelfde snapshot12:47:47Z/now12:45Z,CPU200/MemoryMax900M/swap0: volledig19,929s/32,913sCPU/303,4MiB; zonderregen10,716s/18,588sCPU/276,9MiB; zonderdruk15,245s/28,862sCPU/299,5MiB; zonderbeide8,607s/14,631sCPU/247,3MiB. 289+8frames,H264,alleunitsSUCCESS. Receipts vm-variants.txt + vm-variants-retry.txt; samenvattingvm-variants-summary.json en exactgebruiktepakketten vm-variant-packages.json. Eersteproefreeks stopte na2successen omdatworkerpakketlijst tijdenskopiërenvernieuwde en druklozepakket ontbrak; eigenpakketlijstbevroren,kopiehersteld,laatste2proeven synchroonexit0. Geenprodservicegewijzigd.
+
+Zelf8dag/nachtbeeldenbekeken en browser4films volledig39,6s totended/geenerrors(41sreceipt). Preview4397/review/round5 heeft workerdata06:35Z; VM-vergelijkinggebruikt vaste12:45Z-data,binnenelkereeksgelijk. PO heeft concrete4opties viaasyncvraag; PMvoorkeurzonderregen/métisobaren voor zichtbarestreepjes en drukcontext. MIP31 bijgewerkt; geenproductlagenbesloten.
+
+PO vraagt efficiënter samplen van lijnen. Code: caches voor bronvelden/labelgeometrie; kleurvlak1/3resolutie,volleupscale; contouren/ringrasterpergemengdframe,temperatuur265compositiesvsregen175. U80 begrensdevervolgproef gevraagd: gesplitstprofiel,danééninhoudgelijkeversnelling,allfilmframes+85JPEGs vergelijken,vóór/na meten. BestaandeU76branchbevroren,PMmainalleenCSVgewijzigd buitencommits.
+
 ## 2026-10-11 14:55 CEST — MIP-31: windvloeiendheid en afzonderlijke VM-budgetten
 
 PO wil de betere7,5fps en overweegt regen/isobaren uit Wind. MIP-31 draft met gemeten budgetten en viergerichteproeven; U80-spec bijgewerkt. Geen lagen verwijderd of productiegedrag veranderd. PM bekijkt en meet varianten voor keuze/uitrol.

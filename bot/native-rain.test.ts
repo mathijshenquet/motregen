@@ -55,6 +55,16 @@ it('chooses the map time’s day/night theme and isolates the fallback cache', (
   expect(() => rainRenderer()).toThrow('native of playwright')
 })
 
+it('reads the map clipping grid without decoding rain rasters for Wind', async () => {
+  const json = Buffer.from(JSON.stringify(header))
+  const prefix = Buffer.alloc(8); prefix.write('mrf0'); prefix.writeUInt32LE(json.length, 4)
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(Buffer.concat([prefix, json, Buffer.alloc(25)]))))
+  const manifest: StillManifest = { version: 0, generated: now, now, chunks: [{ url: 'chunks/rain.mrf', field: 'rain_rate', times: [now], source: 'rtcor', run: now, header_len: prefix.length + json.length }] }
+  const data = new NativeRainData('https://fixture.test', manifest)
+  expect(await data.grid(Date.parse(now))).toEqual(grid)
+  await expect(data.frame(Date.parse(now))).rejects.toThrow()
+})
+
 it('evicts old decoded pairs and decodes them identically without fetching the chunk again', async () => {
   const times = Array.from({ length: 12 }, (_, index) => new Date(Date.parse(now) + index * 300_000).toISOString())
   const frames = times.map((time, index) => ({ time, offset: index * 25, len: 25 }))

@@ -1,17 +1,26 @@
-import { cp, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { cp, mkdir, readFile, symlink, writeFile } from 'node:fs/promises'
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { promisify } from 'node:util'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolve } from 'node:path'
-import { modeConstants } from '../bot/render-mode-constants.js'
-import { LOOP_TIMING } from '../bot/sequences.js'
 
 const run = promisify(execFile)
 const project = fileURLToPath(new URL('..', import.meta.url))
 if (!process.argv[2]) throw new Error('Gebruik: tsx tools/build-wind-layer-variants.mts /pad/preview')
 const output = resolve(process.argv[2])
 const target = resolve(output, 'target')
+// De keuzeproeven blijven reproduceerbaar nadat MIP-31 regen uit de productiefilm verwijderde.
+const sourceRevision = '244bf915130e6167139294a2dbbda19f557d3a36'
+const sourceInput = resolve(output, 'source-input')
+await mkdir(sourceInput, { recursive: true })
+const archive = await run('git', ['archive', '--format=tar', sourceRevision, 'Cargo.toml', 'Cargo.lock', 'crates', 'bot', 'web'],
+  { cwd: project, encoding: 'buffer', maxBuffer: 32 * 1024 * 1024 })
+await writeFile(resolve(output, 'source-input.tar'), archive.stdout)
+await run('tar', ['-xf', resolve(output, 'source-input.tar'), '-C', sourceInput])
+await symlink(resolve(project, 'bot/node_modules'), resolve(sourceInput, 'bot/node_modules'))
+const { modeConstants } = await import(pathToFileURL(resolve(sourceInput, 'bot/render-mode-constants.ts')).href)
+const { LOOP_TIMING } = await import(pathToFileURL(resolve(sourceInput, 'bot/sequences.ts')).href)
 const { stdout: head } = await run('git', ['rev-parse', 'HEAD'], { cwd: project })
 const { stdout: main } = await run('git', ['rev-parse', 'origin/main'], { cwd: project })
 const variants = [
@@ -40,7 +49,7 @@ for (const variant of variants) {
   await mkdir(source, { recursive: true })
   await mkdir(bundle, { recursive: true })
   for (const path of ['Cargo.toml', 'Cargo.lock', 'crates']) {
-    await cp(resolve(project, path), resolve(source, path), { recursive: true })
+    await cp(resolve(sourceInput, path), resolve(source, path), { recursive: true })
   }
   await writeFile(resolve(source, 'crates/render-core/assets/mode-constants.json'), JSON.stringify(constants) + '\n')
   if (!variant.rain) {
@@ -81,7 +90,7 @@ for (const variant of variants) {
   for (const path of ['crates/render/src/modes.rs', 'crates/render/src/fields.rs', 'crates/render-core/assets/mode-constants.json']) {
     fingerprints[path] = createHash('sha256').update(await readFile(resolve(source, path))).digest('hex')
   }
-  const plan = { head: head.trim(), main: main.trim(), mode: 'wind', ...variant, stepSeconds: 75,
+  const plan = { head: sourceRevision, buildHead: head.trim(), main: main.trim(), mode: 'wind', ...variant, stepSeconds: 75,
     fps: constants.fps, fpsFraction: constants.fps_fraction, frames: constants.loop_offsets.length,
     holdFrames: constants.hold_frames, offsets: constants.loop_offsets, fingerprints }
   await writeFile(resolve(bundle, 'plan.json'), JSON.stringify(plan, null, 2) + '\n')
