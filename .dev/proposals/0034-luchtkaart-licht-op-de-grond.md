@@ -47,6 +47,14 @@ De oppervlakte-Jacobiaan van het teruggevolgde veld corrigeert de renderdichthei
 
 Echte GPU-proef op gecontroleerde velden: verschoven patrooncorrelatie 0,9966 tegenover 0,3060 zonder verschuiving; compressie en dilutie respectievelijk circa 0,38% en 0,19% van de analytische referentie. Ruimtelijke type-menging wijkt gemiddeld 0,00171 af in optische dichtheid. Verkleinen van tijdverschillen rond uur-/levensduurgrenzen verkleint de beeldverschillen mee; het exacte cycluspunt en opnieuw bezochte tijd geven nul byteverschillen. Dag/nacht, desktop/mobiel, voorbeeld-overgang, de voor/na-kaart van 17:56 en afspelen rond zonsondergang zelf bekeken. Nog geen uitspraak over het mobiele perf-budget.
 
+## Ronde 3 — textuurvariatie en regen uit de proef (PO 2026-10-12)
+
+De PO zag te sterke, hoekige verdichting rond Keulen om 15:45, vond de eerdere textuur beter en wees op het verschil tussen grondwind en wolkenbeweging. De extra oppervlakte-Jacobiaan is verwijderd: modelbedekking stuurt de dichtheid, de 10m-proxy mag daar geen extra wolkenmassa bij verzinnen. Overlappende levensduren zijn verkort naar twee uur met twaalf midpoint-stappen. De beweging is nog illustratief op basis van 10m-wind; betrouwbare beweging per wolkenlaag vereist andere gegevens. De ingest heeft ook 300m-wind voor regenbeweging, maar ook dat vervangt wind op alle wolkenhoogten niet.
+
+Op verzoek staat regen tijdelijk uit in Lucht, met de focusovergang terug naar de andere modi. Het oorspronkelijke subtiele reliëf is terug. Bij volledig lage en middelhoge bewolking om 03:00 op 13 oktober stond overal dezelfde fijne rimpeling. De PO verduidelijkte: de textuur is goed, maar er moet meer diversiteit in zitten; geen algemene vervaging of andere kleuren.
+
+Als vormreferentie zijn NASA-beelden van [open en gesloten wolkencellen](https://science.nasa.gov/earth/earth-observatory/open-and-closed-cell-clouds-over-the-pacific-ocean-43795/) en [cirrus boven stratocumulus](https://science.nasa.gov/earth/earth-observatory/cirrus-clouds-off-the-coast-of-chile-85943/) zelf bekeken. De proef mengt afgeronde cellen, grotere aaneengesloten structuren en bestaand fijn detail in geleidelijk veranderende gebieden. Hoge patronen blijven langgerekt. Patrooncoördinaten zijn vast per type; alleen gewichten veranderen. Het kleurenpalet blijft gelijk. Deze variatie is illustratief; bedekking/lagen bepalen niet welke celstructuren werkelijk aanwezig zijn.
+
 ## Proef en vervolgstappen
 
 1. Eén proef in de bestaande HMR-dev-app: modelgestuurde vormen, lichttint en coherente tijdsinterpolatie, op dezelfde data en met een vergelijking met de huidige sluier. Toon ook de twee conceptgevallen: gaten tussen donkere wolken tegenover een gesloten dunne sluier. Alleen Lucht verandert. Bestaande regenpresentatie meenemen bij de beoordeling, omdat die nu met de witte sluier mengt.

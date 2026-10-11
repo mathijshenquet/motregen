@@ -7,8 +7,8 @@ import { cloudModification } from './uv'
 
 export const CLOUD_MAP_SAMPLES = ['live', 'gaten', 'sluier', 'dicht', 'overgang'] as const
 export type CloudMapSample = typeof CLOUD_MAP_SAMPLES[number]
-export const CLOUD_FLOW_STEPS = 24
-export const CLOUD_FLOW_HOURS = 4
+export const CLOUD_FLOW_STEPS = 12
+export const CLOUD_FLOW_HOURS = 2
 
 export function cloudFlowPhase(epoch: number): number {
   const hours = epoch / 3_600_000

@@ -1,5 +1,13 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-12 10:31 CEST — Wolkenproef: regen uit, dichtheidsversterking verwijderd, textuurvariatie naar satellietreferenties
+
+PO zag hoekige compressie bij Keulen15:45, verkoos de eerdere textuur en wees op de 10m-windproxy. Daarna regen tijdelijk uit gevraagd; om morgen03:00 was de textuur te monotoon. Verduidelijking: textuur behouden, meer diversiteit, kleuren goed. NASA-celstructuren en cirrusbeelden opgezocht en zelf bekeken; bronnen in MIP-34. Shader mengt nu celstructuren, grotere gebieden en bestaand fijn detail met ruimtelijk variërende gewichten. Geen type-afhankelijke coördinaatschaling. Reliëf terug, kleurenpalet gelijk. Extra Jacobiaanse dichtheid verwijderd; modelbedekking blijft bron. Levensduur2u/12RK2stappen. 10m-bewegingsproxy blijft expliciete beperking, nog geen wind op wolkenhoogte of extra ingest.
+
+Eigen03:00-capture toont lage en middenbewolking100%; voor/na zelf bekeken. Laatste dag12:00/nacht03:00 op1280/390 zelf bekeken; regenopacity in vier echte appgevallen0.00, geen browserfouten. GPU-proef exit0: bewegingscorrelatie0,99494 versus stationair0,28893; geen extra compressiedichtheid (gemiddelde ratio1,0039/0,9941); sterke compressie maxalpha142/255. Typeblendmeanerror0,000807; kleinere tijdsdeltas verkleinen grensverschillen; exact cycluspunt/reseek0bytes. Typecheck exit0 en17gerichte tests exit0. Afspelen en temperatuurcontrole exit0. Live Keulen15:45 gaf inmiddels weinig bewolking en reproduceerde de PO-screenshot niet exact; geen exacte voor/na-claim voor die screenshot. Eigen bewijzen/scripts in genegeerde web/tmp/orkestrator/cloud-cologne-20261012/.
+
+PR115 blijft draft; visuele proef op4390. Geen volledige merge-gate/merge/uitrol; CSV buiten commits, main/U76/U80 ongewijzigd. Nu coherent commit/push en preview exact op die head zetten.
+
 ## 2026-10-12 09:12 CEST — Wolkenronde 2: ringen opgelost, detail beweegt; echte GPU-proef groen
 
 PR115/branchui-wolkenkaart-vormen verder bijgewerkt; eerste ronde2commitc9ff4a3a. Exacte screenshotregio DenHelder17:56 op1280 gereproduceerd metoudeheadf0d8a46: dezelfde concentrische ringen zichtbaar. Na vaste typepatronen/optische-dieptemenging zijn die weg in dezelfde kaartuitsnede. De GPU volgt bestaande10mwind als bewegingsproxy terug met24RK2stappen, tweevieruur-lifetimes, continu verschuivende T−1u-windhold. Reproduceerbaar bij seek. Jacobiaanse dichtheidscompensatie0,25..4/foldtranslatie; actuele modelbedekking blijft bron. Geen volledige conservatieve wolkenwatersimulatie of gemeten cloudhoogtewind geclaimd.

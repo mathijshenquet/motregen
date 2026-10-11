@@ -3256,7 +3256,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       temperatureFocus: focus(), windFocus: windFocus(), airFocus: airFocus(), night: mapIsNight(), variant: focusRainVariant(),
     })
     // MIP-31 geldt voor botfilms; de gewone Windmodus behoudt de regenpresentatie.
-    return stillMode && initialPresets.mode === 'wind' ? { ...look, opacity: 0 } : look
+    if (stillMode && initialPresets.mode === 'wind') return { ...look, opacity: 0 }
+    return { ...look, opacity: look.opacity * (1 - airFocus()) }
   }, undefined, { equals: sameFields })
   // Lucht-focus en dag/nacht lopen niet via applyFocus.
   createEffect(() => { rainLook(); if (map) { applyRainPresentation(); map.triggerRepaint() } })

@@ -38,6 +38,21 @@ float cloudNoise(vec2 p) {
   return value / 1.03125;
 }
 
+float cloudTexture(vec2 p) {
+  vec2 cell = floor(p), f = fract(p);
+  float nearest = 2.0;
+  for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+    vec2 offset = vec2(x, y);
+    vec2 center = vec2(hash(cell + offset), hash(cell + offset + 31.7));
+    nearest = min(nearest, length(offset + center - f));
+  }
+  float detail = cloudNoise(p);
+  float puffs = 1.0 - smoothstep(0.12, 0.85, nearest);
+  float sheet = cloudNoise(p * 0.23 + 5.7);
+  float region = smoothstep(0.25, 0.75, noise(p * 0.11 - 8.3));
+  return mix(detail, mix(sheet, puffs, region), 0.65);
+}
+
 vec2 wind(vec2 uv, float age) {
   // Older travel holds the wind one hour before the cursor, continuously across hour boundaries.
   float time = max(0.0, u_time - min(age, 1.0));
@@ -55,16 +70,13 @@ vec2 backtrace(vec2 uv, float hours) {
   return at;
 }
 
-float areaDet(vec2 x, vec2 y) { return x.x * y.y - x.y * y.x; }
-
 vec3 typeWeights(float shape) {
   float low = 1.0 - smoothstep(0.0, 0.55, shape);
   float high = smoothstep(0.55, 1.0, shape);
   return vec3(low, 1.0 - low - high, high);
 }
 
-float cloudOpacity(vec2 p, float cover, float darkness, float veil) {
-  float body = cloudNoise(p);
+float cloudOpacity(float body, float cover, float darkness, float veil) {
   float threshold = mix(0.84, 0.16, cover);
   float mask = smoothstep(threshold - 0.055, threshold + 0.055, body);
   mask *= smoothstep(0.0, 0.06, cover);
@@ -73,20 +85,27 @@ float cloudOpacity(vec2 p, float cover, float darkness, float veil) {
        * mix(1.0, 0.65, u_cloud_night);
 }
 
-float transportedDepth(vec2 foot, float hours, float cover, float darkness, vec3 weights) {
-  float original = areaDet(dFdx(v_uv), dFdy(v_uv));
-  float jacobian = areaDet(dFdx(foot), dFdy(foot)) / original;
-  // Bound unresolved compression; a folded numerical map falls back to local translation.
-  float density = clamp(jacobian, 0.25, 4.0);
-  if (!(jacobian > 0.0)) { foot = v_uv - wind(v_uv, 0.0) * hours; density = 1.0; }
+vec4 transportedCloud(vec2 foot, float cover, float darkness, vec3 weights) {
   vec2 p = (u_cloud_origin + foot * u_cloud_extent - vec2(500000, 6800000)) / 10000.0;
   vec2 warp = vec2(noise(p * 0.55 + 9.1), noise(p * 0.55 - 12.7)) - 0.5;
   p = mat2(0.94, -0.34, 0.34, 0.94) * (p + warp * 1.2);
   // Each type has its own fixed coordinates. Mix optical depths, never the coordinate scales.
-  vec3 opacity = vec3(cloudOpacity(p, cover, darkness, 1.0),
-                      cloudOpacity(p * vec2(0.7, 1.15) + 27.3, cover, darkness, 1.0),
-                      cloudOpacity(p * vec2(0.22, 2.8), cover, darkness, 0.7));
-  return dot(-log(max(vec3(0.001), 1.0 - opacity)), weights) * density;
+  vec2 streak = p * vec2(0.22, 2.8);
+  float body = cloudTexture(p), highBody = cloudTexture(streak);
+  float reliefStrength = 0.14 * mix(0.25, 1.0, smoothstep(0.25, 0.75, noise(p * 0.11 - 8.3)));
+  float relief = (noise(p + vec2(-0.2, 0.3)) - noise(p + vec2(0.2, -0.3))) * reliefStrength;
+  float highRelief = (noise(streak + vec2(-0.2, 0.3)) - noise(streak + vec2(0.2, -0.3))) * reliefStrength;
+  vec3 opacity = vec3(cloudOpacity(body, cover, darkness, 1.0),
+                      cloudOpacity(body, cover, darkness, 1.0),
+                      cloudOpacity(highBody, cover, darkness, 0.7));
+  // Model cover already controls density; surface-wind convergence cannot supply cloud mass.
+  float depth = dot(-log(max(vec3(0.001), 1.0 - opacity)), weights);
+  float light = dot(vec3(relief + (body - 0.5) * 0.12,
+                        relief + (body - 0.5) * 0.12,
+                        highRelief + (highBody - 0.5) * 0.12), weights);
+  vec3 day = mix(vec3(0.95, 0.97, 0.98), vec3(0.42, 0.49, 0.55), darkness);
+  vec3 night = mix(vec3(0.42, 0.51, 0.59), vec3(0.25, 0.32, 0.39), darkness);
+  return vec4(mix(day, night, u_cloud_night) + light, depth);
 }
 
 void main() {
@@ -115,13 +134,11 @@ void main() {
   float weightA = pow(sin(ageA * 3.14159265359 / ${CLOUD_FLOW_HOURS}.0), 2.0);
   vec2 footA = backtrace(v_uv, ageA), footB = backtrace(v_uv, ageB);
   vec3 weights = typeWeights(shape);
-  float depthA = transportedDepth(footA, ageA, cover, darkness, weights);
-  float depthB = transportedDepth(footB, ageB, cover, darkness, weights);
+  vec4 cloudA = transportedCloud(footA, cover, darkness, weights);
+  vec4 cloudB = transportedCloud(footB, cover, darkness, weights);
   // Two overlapping lifetimes renew the detail at zero weight; seeking depends only on model time.
-  float opacity = (1.0 - exp(-mix(depthB, depthA, weightA))) * valid;
-  vec3 day = mix(vec3(0.95, 0.97, 0.98), vec3(0.42, 0.49, 0.55), darkness);
-  vec3 night = mix(vec3(0.42, 0.51, 0.59), vec3(0.25, 0.32, 0.39), darkness);
-  vec3 cloud = mix(day, night, u_cloud_night);
+  float opacity = (1.0 - exp(-mix(cloudB.a, cloudA.a, weightA))) * valid;
+  vec3 cloud = mix(cloudB.rgb, cloudA.rgb, weightA);
   float shadow = cover * darkness * mix(0.15, 0.08, u_cloud_night) * valid;
   color = vec4(cloud * opacity + vec3(0.22, 0.29, 0.36) * shadow * (1.0 - opacity),
                opacity + shadow * (1.0 - opacity));
