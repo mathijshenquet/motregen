@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sequencePlan } from './sequences.js'
+import { holdFrames, sequencePlan } from './sequences.js'
 import { cacheKey, LOOP_MODES, PREWARM_HOURS, type StillManifest } from './stills.js'
 
 const manifest: StillManifest = { version: 0, generated: '2026-10-07T12:00:00Z', now: '2026-10-07T12:00:00Z', chunks: [] }
@@ -10,13 +10,13 @@ describe('one frame sequence per mode', () => {
     for (const definition of LOOP_MODES) {
       const plan = sequencePlan(definition.mode, manifest)
       const rain = definition.mode === 'weather'
-      expect(plan).toMatchObject({ fps: 10, loopFrames: rain ? 241 : 169 })
-      expect(plan.epochs).toHaveLength(rain ? 319 : 169)
+      expect(plan).toMatchObject({ fps: rain ? 4.5 : 10, loopFrames: rain ? 109 : 169 })
+      expect(plan.epochs).toHaveLength(rain ? 175 : 169)
       const loopEpochs = plan.epochs.slice(0, plan.loopFrames)
       expect(loopEpochs[0]).toBe(now - (rain ? 1 : 2) * 3_600_000)
       expect(loopEpochs.at(-1)).toBe(now + (rain ? 2 : 12) * 3_600_000)
       for (const [index, epoch] of loopEpochs.entries()) {
-        expect(epoch).toBe(now + ((rain ? -60 : -120) + index * (rain ? 0.75 : 5)) * 60_000)
+        expect(epoch).toBe(now + ((rain ? -3600 : -7200) + index * (rain ? 100 : 300)) * 1000)
       }
       expect(new Set(plan.epochs).size).toBe(plan.epochs.length)
     }
@@ -29,25 +29,26 @@ describe('one frame sequence per mode', () => {
       for (const frame of plan.stillFrames) {
         expect(plan.epochs[frame.index]).toBe(now + Math.round(frame.hour * 3_600_000))
         expect(frame.index).toBeGreaterThanOrEqual(0)
-        // Regen: alleen stills binnen −1…+2 u die op het 45-secondenraster vallen (veelvouden van 30 min) delen een loopframe.
-        const inLoop = mode === 'feels' ? true : frame.hour >= -1 && frame.hour <= 2 && Number.isInteger(frame.hour * 2)
+        // Regen: elke still binnen −1…+2 u valt op het 100-secondenraster (600 s = 6 stappen) en deelt dus een loopframe.
+        const inLoop = mode === 'feels' ? true : frame.hour >= -1 && frame.hour <= 2
         if (inLoop) {
-          expect(frame.index).toBe(mode === 'feels' ? Math.round(frame.hour * 12) + 24 : Math.round((frame.hour + 1) * 80))
+          expect(frame.index).toBe(mode === 'feels' ? Math.round(frame.hour * 12) + 24 : Math.round((frame.hour + 1) * 36))
           expect(frame.index).toBeLessThan(plan.loopFrames)
         } else {
           expect(frame.index).toBeGreaterThanOrEqual(plan.loopFrames)
         }
       }
-      expect(plan.stillFrames.find((frame) => frame.hour === 0)?.index).toBe(mode === 'weather' ? 80 : 24)
-      expect(plan.stillFrames.find((frame) => frame.hour === 12)?.index).toBe(mode === 'weather' ? 318 : 168)
+      expect(plan.stillFrames.find((frame) => frame.hour === 0)?.index).toBe(mode === 'weather' ? 36 : 24)
+      expect(plan.stillFrames.find((frame) => frame.hour === 12)?.index).toBe(mode === 'weather' ? 174 : 168)
     }
     const rain = sequencePlan('weather', manifest)
-    expect(rain.stillFrames.filter((frame) => frame.index < rain.loopFrames)).toHaveLength(7)
-    // Buiten de loop, in STILL_HOURS-volgorde: −2 u…−1 u (6), de 10-minutenstills binnen de loop die niet op het 45-s-raster
-    // vallen (12), dan +2 u 10 min…+12 u (60).
-    const outside = Array.from({ length: 85 }, (_, index) => -120 + index * 10).filter((minute) => minute < -60 || minute > 120 || minute % 30 !== 0)
+    expect(rain.stillFrames.filter((frame) => frame.index < rain.loopFrames)).toHaveLength(19)
+    // Buiten de loop, in STILL_HOURS-volgorde: −2 u…−1 u (6), dan +2 u 10 min…+12 u (60).
+    const outside = Array.from({ length: 85 }, (_, index) => -120 + index * 10).filter((minute) => minute < -60 || minute > 120)
     expect(rain.epochs.slice(rain.loopFrames)).toEqual(outside.map((minute) => now + minute * 60_000))
     expect(sequencePlan('wind', manifest).stillFrames).toEqual([])
+    expect(holdFrames(rain)).toBe(5)
+    expect(holdFrames(sequencePlan('wind', manifest))).toBe(10)
   })
 
   it('isolates loop ids from still ids and all 173 artifacts from a new generation', () => {
@@ -80,5 +81,16 @@ describe('one frame sequence per mode', () => {
       expect(plan.stillFrames).toHaveLength(85)
     }
     expect(keys.size).toBe(13)
+  })
+})
+
+describe('clock on loop frames', () => {
+  it('shows the nearest five minutes, so each time stays for three rain frames', async () => {
+    const { clockEpoch } = await import('./native-overlay.js')
+    const plan = sequencePlan('weather', manifest)
+    const minutes = plan.epochs.slice(0, 7).map((epoch) => (clockEpoch(epoch) - plan.epochs[0]!) / 60_000)
+    expect(minutes).toEqual([0, 0, 5, 5, 5, 10, 10])
+    // Stills liggen op tientallen minuten en houden dus hun eigen tijd.
+    for (const hour of [-2, 0, 0.5, 12]) expect(clockEpoch(now + hour * 3_600_000)).toBe(now + hour * 3_600_000)
   })
 })

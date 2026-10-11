@@ -25,6 +25,13 @@ const footerBox: Box = { left: 0, top: 1197, width: 450, height: 75 }
 const timeFormat = new Intl.DateTimeFormat('nl-NL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Amsterdam' })
 const dayFormat = new Intl.DateTimeFormat('nl-NL', { weekday: 'short', timeZone: 'Europe/Amsterdam' })
 
+// De klok toont alleen radartijden: een tussenframe krijgt de dichtstbijzijnde vijf minuten, zodat elk getal drie
+// frames blijft staan in plaats van 6:00, 6:01, 6:03, 6:05 (PO 2026-10-11).
+const CLOCK_STEP = 300_000
+export function clockEpoch(epoch: number): number {
+  return Math.round(epoch / CLOCK_STEP) * CLOCK_STEP
+}
+
 export class NativeOverlay {
   private atlas?: Promise<Atlas>
   constructor(private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>, private readonly mode: LoopMode = 'weather') {}
@@ -36,9 +43,10 @@ export class NativeOverlay {
     const atlas = await this.atlas
     const days = new Map<string, Set<string>>()
     for (const epoch of epochs) {
-      const day = dayFormat.format(epoch)
+      const shown = clockEpoch(epoch)
+      const day = dayFormat.format(shown)
       const texts = days.get(day) ?? new Set([day, this.title])
-      texts.add(timeFormat.format(epoch))
+      texts.add(timeFormat.format(shown))
       days.set(day, texts)
     }
     for (const [day, texts] of days) await this.loadGlyphs(atlas, day, [...texts])
@@ -46,7 +54,8 @@ export class NativeOverlay {
 
   async draw(rgb: Buffer, epoch: number, now: number): Promise<Buffer> {
     const atlas = await this.atlas!
-    const day = dayFormat.format(epoch), time = timeFormat.format(epoch)
+    const shown = clockEpoch(epoch)
+    const day = dayFormat.format(shown), time = timeFormat.format(shown)
     const layout = atlas.metadata.clocks[day]!
     const glyphs = await this.loadGlyphs(atlas, day, [time, day, this.title])
     const background = atlas.backgrounds[layout.backgrounds[epoch > now ? 'forecast' : 'history']!]!

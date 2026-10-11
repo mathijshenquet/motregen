@@ -452,6 +452,43 @@
   renderpad < 120 s (wind 83 s is de uitschieter; profiel op de VM zelf, isolijnen per uur cachen, wind goedkoper),
   of (b) renderer terug naar de dev-host.
 
+## 2026-10-11 — palet, regenloop 100 s, klokovergang (08:24)
+- Nacht rustig: bot zonder herstart sinds 10-10 15:54, schijf 57 %, één `refresh-failed prime sendAnimation` (21:56).
+- **U77** rondes 2–3 (opus-5.5, 4320, PR #107): PO kiest palet `violet-laat` (blauw tot ~5 mm/u, violet 5–10, rood
+  daarboven; referentie Buienradar 0–2/2–5/5–10/10–100/100+), menging `drempel`; contrastregel instelbaar
+  (?dev Regen › Regencontrast 15/12/10 L*, PO-suggestie −20 % = 12). Advies worker en PM: violet-laat + drempel + 12.
+  Wacht op PO-akkoord; daarna standaard maken, Wind/Lucht meenemen, Rust-renderer volgen. Opgemerkt: plaatsnamen
+  onder dichte blauwe regen slecht leesbaar (niet uitgezocht).
+- **U79 gemerged en uitgerold** (e3615e39, 08:19; PO: "acceptabel kwaliteitsverlies voor een grote perf-winst"):
+  regenloop 100 s kaarttijd per frame bij 4,5 fps → 109 i.p.v. 241 frames, zelfde tempo, 25,3 s; elk derde frame een
+  echte meting; alle 19 stills in het venster zijn loopframes; eindhold `holdFrames` (5). Prod: regenloop 26,4 → 16,1 s;
+  generatie blijft ~220 s (wind 75–116 s domineert → MIP-29 C2).
+- Schaling Rust-regen op dev-host: 1/2/3/4/8 kernen = 6,1 / 4,4 / 3,0 / 2,7 / 2,6 s (ffmpeg op 1 draad, batches van 4,
+  voorbereiding serieel). Drie films naast elkaar schalen wel. PO overweegt OVH VPS-2 (4 vCores/8 GB/75 GB volgens
+  prijsoverzicht aug 2026; nu VPS-1 2/4/40). VM meldt "Haswell" = virtueel CPU-model, zegt niets over de echte chip.
+- Ingest publiceert per 5 min 2–3 manifesten binnen ~30 s → snelle renderer moet de reeks afwachten (debounce).
+- **U76 ronde 3 gestart**: plan 100 s/4,5 fps volgen, loopframes hergebruiken voor stills, en PO-idee klok: alleen
+  5-minutentijden tonen met cijferovergang op de tussenframes (varianten schuif / klap / kruisfade als proeffilm).
+  Open PO-vraag: stills op aanvraag i.p.v. 85 per generatie.
+- 08:34: **U80 gestart** (PO: "bouw het dan"; gpt-6.1-sol xhigh, pane w35, branch vanaf de U76-branch): MIP-29 C2 —
+  wind eerst, dan temperatuur, volledig in Rust: isolijnen + labelplaatsing als pure kernmodules (later via WASM in
+  de app), tekst gedraaid in Rust, streepjes, H/L, `--mode all`. Doel dev-host 2 kernen: wind ≤ 5 s, temperatuur ≤ 6 s,
+  alles ≤ 12 s; einddoel hele generatie < 60 s op de VM. Loopt parallel aan U76 ronde 3 (zelfde crates → nieuwe modules).
+- 08:40: **U76 ronde 3 klaar** (5ddb270, 15 min): plan 100 s/4,5 fps gevolgd, 19 stills uit loopframes, klokproef
+  schuif/klap/kruisfade (films + stroken naar de PO; PM-oordeel: klap oogt als storing, schuif leest als teller,
+  kruisfade het rustigst). Dev-host 2 kernen 3,25 s / 4,98 s CPU / 189 MiB. **VM**: 10,6 s wand / 19,1 s CPU / 188 MiB
+  met de bot gepauzeerd, 12,6 s met draaiende bot (ronde 2: 19,0 / 31,8 s) → doel < 15 s op de VM gehaald.
+  Nog te doen vóór merge: onafhankelijke gate, PO-keuze klok, aansluiting (debounce, platen op de VM, schakelaar).
+- 08:56: **Klok op loopframes = dichtstbijzijnde vijf minuten** (PO: "[0 0 5] [5 5 10]", geen overgangseffect; de
+  schuif/klap/kruisfade-proef vervalt). U81 gemerged en uitgerold (8f786e54, 08:49); op prod gecontroleerd: 07:45,
+  07:45, 07:50, 07:50, 07:50, 07:55. U76 volgt (0fa6910) en haalt de proefvarianten weg. De PO stuurt de U76-pane
+  daarnaast rechtstreeks aan (o.a. klok linksboven, Vlaanderen weg) — niet doorkruisen.
+- U80: sessie viel op "refresh token was revoked"; PO heeft de Codex-inlog hersteld; pane stond daarna op effort low →
+  herstart met xhigh en hervat uit LOG (commit cd22c8c: wind/feels-CLI, veldraster in de kern, isolijnfixtures).
+  Volledige datasnapshot voor workers: `~/motregen-profiles/data-snapshots/2026-10-11` (41 chunks, incl. druk/wind).
+- PO-wens "overal 3 frames per 5 minuten" berust op een misverstand: wind en temperatuur staan al op 1 frame per 5 min
+  (169 frames, 10 fps); proeffilms met de helft (10 min, 5 fps) naar de PO gestuurd; nog geen besluit.
+
 ## 2026-10-10 — tg-bot op prod vastgelopen (13:00)
 - Symptoom (PO): bot antwoordt niet. Laatste generatie 05:57; daarna `refresh-failed … TimeoutError` (07:16) en
   `poll-failed getUpdates` — proces actief, NRestarts 0.
