@@ -4,6 +4,7 @@ import type { ScalarField } from './isolines.js'
 export interface PreparedField {
   values: Float32Array
   valid: Float32Array
+  cloudHints?: Float32Array
 }
 
 const FILL_PASSES = 8

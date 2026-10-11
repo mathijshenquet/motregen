@@ -1,5 +1,11 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-12 06:15 CEST — PO neemt MIP-34-vormenproef aan; eerste GPU-implementatie
+
+PO: ja probeer eens. Alleen de eerste dev-proef aangenomen; geen extra ingest of uitrol. Implementatie gebruikt bestaande cloud_frac met twee hints per broncel: laag/midden/hoog voor vormkarakter en bestaande uurmiddel-CMF/skyDarkness voor licht. GPU-detail wereldvast; geometrie groeit/krimpt met dekking en uurdata vloeien over. Wolkenvulling zonder contourworker, aparteRGBA16F in het bestaande cloudvolume. Temp/druk houdenRG16F. Devknoppen vormen/oude sluier plus live/gaten/sluier/dicht; eigenaar PM, vervalPO-keuze of2026-10-19, specpm-wolkenkaart-proef/docsdevopties bijgewerkt.
+
+Eerste webtypecheck synchroon exit0; echte GPU-compile/dag-nacht/mobiel/voorbeelden/afspelen zelf bekijken volgt. Vroege draft-PR opui/wolkenkaart-vormen, boven opdocsPR114/cursorPR113. Daarna HMR-preview4390 bijwerken. MIP34 accepted voor proef, geen merge/uitrol. CSV buiten commits; U76/U80 bevroren. Receipts/scratch genegeerd web/tmp/orkestrator/cloud-map-live-20261012/.
+
 ## 2026-10-11 23:29 CEST — PO vraagt radarachtige wolkenkaart; kwaliteit deels afleidbaar, eigen middeling verklaart verlies
 
 PO: kan data regenwolken/zon afwisselend tegenover gesloten halfgrijs onderscheiden; radarachtig beeld gewenst, gefingeerd waar nodig expliciet toegestaan. Antwoord: bedekking is momentaan, geen tijdspercentage; lagen+straling+regen geven aanwijzingen, geen unieke reconstructie van wolkenvorm/zonminuten. CMF alleen onderscheidt afwisselende en constant gedempte helderheid niet. KNMI primaire documentatie HARMONIE en actuele MSG-/MTG-CPP geraadpleegd: satellietmasker/optische dikte/licht, MTG vanaf aug2026 tienminuten en2km onder satelliet, sommige producten alleen dag.

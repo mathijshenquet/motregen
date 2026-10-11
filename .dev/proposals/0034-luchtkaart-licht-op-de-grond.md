@@ -1,6 +1,6 @@
 # MIP-34 — Luchtkaart: wolkenstructuur en licht op de grond
 
-Status: draft · 2026-10-11 · auteur: PM (sol)
+Status: accepted (PO 2026-10-12, eerste vormenproef) · auteur: PM (sol)
 
 ## Het probleem
 
@@ -50,9 +50,10 @@ Alleen de witte sluier zwakker maken helpt de leesbaarheid, maar houdt dezelfde 
 
 ## Besluit
 
-Gefingeerde vormen waar nodig zijn door de PO expliciet toegestaan. Het uitvoeringsplan en eventuele extra ingest zijn nog niet aangenomen. De huidige dev-app en productiekaart zijn ongewijzigd.
+PO 2026-10-12: "ja probeer eens". Eerste vormenproef in de dev-app aangenomen, met gefingeerde fijnstructuur op de bestaande modelvelden. Extra ingest is een afzonderlijke keuze; de visuele iteratie gaat vooraf aan de merge-gate en uitrol.
 
 ## Changelog
 
 - 2026-10-11: PO-feedback onderzocht, dag-/nachtkaart zelf bekeken; voorstel opgesteld. Implementatie volgt na de richtingkeuze.
 - 2026-10-11: PO vraagt radarachtige wolkenstructuur en staat gefingeerde details toe. Beschikbare HARMONIE-/satellietgegevens geverifieerd; eigen 8×8-middeling vastgesteld. Voorstel herzien naar bedekking plus lichtdoorlating en modelgestuurde vormen.
+- 2026-10-12: eerste vormenproef aangenomen; vergelijking met de oude sluier en drie expliciet gefingeerde voorbeeldluchten via het dev-paneel. Eigenaar PM, knoppen vervallen na PO-keuze, uiterlijk 2026-10-19.

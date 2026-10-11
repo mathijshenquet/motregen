@@ -31,6 +31,7 @@ import { IsolineLabels } from './core/isoline-labels'
 import { sliceWeights } from './core/isoline-spline'
 import { TraceCore } from './core/isoline-tracer'
 import { prepareField, type PreparedField } from './core/isoline-field'
+import { prepareCloudMapField, type CloudMapSample } from './core/cloud-map'
 import { hexColor, IsolineLayer, isolineLayerIndices, type IsolineStyle } from './core/isoline-layer'
 import { cursorAfterTimelineRefresh, isNewerManifest, nextManifestRefreshDelay, reconcileTimelineSeries, scheduleManifestRefresh } from './core/manifest-refresh'
 import { constrainView, containView, containZoom, MAP_CONTAIN_BOUNDS, type Viewport } from './core/map-constraint'
@@ -320,6 +321,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // Meetpunt voor de kostenmeting (track-LOGs U8b/U8c): repaints, contour-passes, blits, label-rondes.
   ;(window as unknown as { __motregenIsolines: () => object }).__motregenIsolines = () => ({
     ...isolineCounters(),
+    cloud: () => ({ ready: cloudIsolines.layer?.readyAtTime(cloudIsolines.time) ?? false, time: cloudIsolines.time,
+      uploads: cloudIsolines.layer?.stats.uploads ?? 0, fillPasses: cloudIsolines.layer?.stats.fillPasses ?? 0,
+      forms: cloudMapForms(), sample: cloudMapSample() }),
     fillCoverage: () => temperatureIsolines.layer?.fillCoverage() ?? 0,
     field: (index: number) => temperatureIsolines.layer && temperatureIsolines.fields[index] ? { grid: temperatureIsolines.layer.grid, field: temperatureIsolines.fields[index] } : undefined,
     // Tracer-kosten zonder worker-overhead: dezelfde code als de worker, op de main thread.
@@ -511,6 +515,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [rainFieldTuning, setRainFieldTuning] = createSignal(devMode ? loadRainFieldTuning() : DEFAULT_RAIN_FIELD_TUNING)
   const [rainLookChoice, setRainLookChoice] = createSignal<RainLookChoice>(devMode ? loadRainLookChoice() : DEFAULT_RAIN_LOOK)
   const [focusRainVariant, setFocusRainVariant] = createSignal(devMode ? loadFocusRainVariant() : DEFAULT_FOCUS_RAIN_VARIANT)
+  const [cloudMapForms, setCloudMapForms] = createSignal(!devMode || localStorage.getItem('motregen-cloud-map') !== 'sluier')
+  const [cloudMapSample, setCloudMapSample] = createSignal<CloudMapSample>('live')
   const [viewportDiagnose, setViewportDiagnose] = createSignal(devMode && localStorage.getItem(VIEWPORT_DIAGNOSE_STORAGE_KEY) === 'aan')
   function applyTableScrollOpen(open: boolean): void {
     if (tableScrollOpen() === open) return
@@ -1933,7 +1939,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function cloudVeilStyle(): IsolineStyle {
     const nightVeil = mapIsNight()
     const veil: [number, number, number] = nightVeil ? CLOUD_VEIL_NIGHT.color : [0.96, 0.97, 0.98]
-    return { step: CLOUD_VEIL_STEP, fill: nightVeil ? CLOUD_VEIL_NIGHT.opacity : CLOUD_VEIL_OPACITY, fillSmooth: true, palette: [[0, veil], [100, veil]], color: veil, gradientFade: false, lines: false, fillByValue: CLOUD_VEIL_RANGE }
+    return { step: CLOUD_VEIL_STEP, fill: nightVeil ? CLOUD_VEIL_NIGHT.opacity : CLOUD_VEIL_OPACITY, fillSmooth: true, palette: [[0, veil], [100, veil]], color: veil, gradientFade: false, lines: false, fillByValue: CLOUD_VEIL_RANGE,
+      cloudMap: { enabled: cloudMapForms(), night: nightVeil, sample: cloudMapSample() } }
   }
 
   let isobarStepHour = Number.NaN
@@ -2036,17 +2043,36 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
   function preparedIsolineField(set: IsolineSet, frame: TimelineFrame): Promise<{ grid: Grid; field: PreparedField }> {
     const preparedIsolineFields = set.prepared
-    const key = `${frame.chunk.url}#${frame.frameIndex}`
+    const key = isolineFrameKey(set, frame)
     let prepared = preparedIsolineFields.get(key)
     if (!prepared) {
-      prepared = isolineFieldFrames(set, frame).then(({ grid, frames }) => {
-        return { grid, field: prepareField(blurField(blendFrames(frames, grid.width, grid.height), isolineBlurPasses(set.kind))) }
+      prepared = isolineFieldFrames(set, frame).then(async ({ grid, frames }) => {
+        const field = prepareField(blurField(blendFrames(frames, grid.width, grid.height), isolineBlurPasses(set.kind)))
+        if (set.kind !== 'cloud') return { grid, field }
+        const at = (timeline: TimelineFrame[], epoch = frame.epoch) => loadFieldBlend(timeline, epoch, 0).catch(() => undefined)
+        const [low, mid, high, radiation, radiationNext] = await Promise.all([
+          at(cloudTimelines().low), at(cloudTimelines().mid), at(cloudTimelines().high),
+          at(radiationTimeline()), at(radiationTimeline(), frame.epoch + 3_600_000),
+        ])
+        return { grid, field: prepareCloudMapField(grid, field, frame.epoch, { low, mid, high, radiation, radiationNext }) }
       })
       prepared.catch(() => preparedIsolineFields.delete(key))
       preparedIsolineFields.set(key, prepared)
       if (preparedIsolineFields.size > 16) preparedIsolineFields.delete(preparedIsolineFields.keys().next().value!)
     }
     return prepared
+  }
+
+  function isolineFrameKey(set: IsolineSet, frame: TimelineFrame): string {
+    const key = `${frame.chunk.url}#${frame.frameIndex}`
+    if (set.kind !== 'cloud') return key
+    const inputs = [...CLOUD_LAYERS.map((layer) => cloudTimelines()[layer]), radiationTimeline()]
+    return key + '|' + inputs.map((frames) => {
+      if (!frames.length) return ''
+      const blend = frameBlend(frames, frame.epoch)
+      return [blend.left, blend.right, Math.min(frames.length - 1, blend.right + 1)]
+        .map((index) => `${frames[index]!.chunk.url}#${frames[index]!.frameIndex}`).join(',')
+    }).join('|')
   }
 
   /**
@@ -2148,7 +2174,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         void showIsolines(set)
       }
       const layer = set.layer
-      if (set.frameKeys.frames !== frames) set.frameKeys = { frames, keys: frames.map((frame) => `${frame.chunk.url}#${frame.frameIndex}`) }
+      if (set.frameKeys.frames !== frames) set.frameKeys = { frames, keys: frames.map((frame) => isolineFrameKey(set, frame)) }
       const frameKeys = set.frameKeys.keys
       for (const index of layer.setFrameKeys(frameKeys)) set.fields[index] = undefined
       // Nooit een lege laag (MIP-19): de snede schuift pas op als haar uurlagen er zijn; tot dan
@@ -2969,6 +2995,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       showRainFieldTuning(DEFAULT_RAIN_FIELD_TUNING)
       setRainLookChoice(DEFAULT_RAIN_LOOK)
       setFocusRainVariant(DEFAULT_FOCUS_RAIN_VARIANT)
+      setCloudMapForms(true)
+      setCloudMapSample('live')
       focusMode.pin(DEFAULT_FOCUS_MODE)
       setFocusPinned(DEFAULT_FOCUS_MODE)
     })
@@ -3567,6 +3595,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         />
         <Show when={devMode}>
           <DevPanel
+            cloudMapForms={cloudMapForms()}
+            onCloudMapForms={(enabled) => { setCloudMapForms(enabled); localStorage.setItem('motregen-cloud-map', enabled ? 'vormen' : 'sluier') }}
+            cloudMapSample={cloudMapSample()}
+            onCloudMapSample={setCloudMapSample}
             isolineTuning={isolineTuning()}
             onIsolineTuning={(patch) => setIsolineTuning((current) => ({ ...current, ...patch }))}
             firstRainLate={firstRainLate()}

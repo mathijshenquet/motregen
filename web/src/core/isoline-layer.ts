@@ -10,8 +10,11 @@ import { measurePerfPhase, recordPerfPhase } from './perf'
 import { sliceWeights } from './isoline-spline'
 import { ISOLINE_FILL_RESOLUTION, ISOLINE_GRADIENT, ISOLINE_LINE_OPACITY, ISOLINE_RING_KM, ISOLINE_TOLERANCE_PX, ISOLINE_WINDOW } from './isolines'
 import { PALETTE_STOPS, paletteUniforms, type PaletteStops } from './temperature-palette'
+import { CLOUD_MAP_SAMPLES, type CloudMapStyle } from './cloud-map'
+import { cloudMapFragment } from './cloud-map-shader'
 
 export interface IsolineStyle {
+  cloudMap?: CloudMapStyle
   step: number
   color: [number, number, number]
   /** Dekking van de bandvulling tussen de lijnen (0 = geen vulling). */
@@ -58,13 +61,13 @@ in vec2 v_uv;
 out vec4 color;
 
 // Eén mipniveau: textureLod mag ook na de (niet-uniforme) vroege return.
-vec2 fetchAt(vec2 uv, float index) {
-  return textureLod(u_field, vec3(uv, (index + 0.5) / u_depth), 0.0).rg;
+vec4 fetchAt(vec2 uv, float index) {
+  return textureLod(u_field, vec3(uv, (index + 0.5) / u_depth), 0.0);
 }
 
 // Kubische B-spline in de tijd met twee lineaire fetches (GPU Gems 2, hfst. 20): C2, dus de
 // lijnen veranderen niet op elk heel uur van richting.
-vec2 sampleTime(vec2 uv, float time) {
+vec4 sampleTime(vec2 uv, float time) {
   float i = floor(time);
   float f = time - i;
   float f2 = f * f, f3 = f2 * f;
@@ -76,7 +79,7 @@ vec2 sampleTime(vec2 uv, float time) {
   return g0 * fetchAt(uv, i - 1.0 + w1 / g0) + g1 * fetchAt(uv, i + 1.0 + w3 / g1);
 }
 
-vec2 sampleField(vec2 uv, float time) {
+vec4 sampleField(vec2 uv, float time) {
   vec2 coord = uv * u_grid_size - 0.5;
   vec2 cell = floor(coord);
   vec2 f = coord - cell;
@@ -125,7 +128,7 @@ vec3 band(float index) {
 }
 
 void main() {
-  vec2 field = sampleField(v_uv, u_time);
+  vec2 field = sampleField(v_uv, u_time).rg;
   float s = field.r / u_step;
   vec2 ds = vec2(dFdx(s), dFdy(s));
   float level = floor(s + 0.5);
@@ -305,7 +308,7 @@ export class IsolineLayer implements CustomLayerInterface {
     const gl = context as WebGL2RenderingContext
     this.map = map
     this.gl = gl
-    this.fill = link(gl, quadVertex, fillFragment)
+    this.fill = link(gl, quadVertex, this.style.cloudMap ? cloudMapFragment(fieldSampling) : fillFragment)
     this.composite = link(gl, compositeVertex, compositeFragment)
     const west = this.grid.x0
     const east = west + this.grid.dx * this.grid.width
@@ -322,7 +325,7 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_3D, this.volume)
     // RG16F is in WebGL2 altijd lineair filterbaar, ook als 3D-texture (RG32F niet zonder extensie).
-    gl.texStorage3D(gl.TEXTURE_3D, 1, gl.RG16F, this.grid.width, this.grid.height, this.depth)
+    gl.texStorage3D(gl.TEXTURE_3D, 1, this.style.cloudMap ? gl.RGBA16F : gl.RG16F, this.grid.width, this.grid.height, this.depth)
     for (const parameter of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_3D, parameter, gl.LINEAR)
     for (const parameter of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T, gl.TEXTURE_WRAP_R]) gl.texParameteri(gl.TEXTURE_3D, parameter, gl.CLAMP_TO_EDGE)
     this.line = link(gl, lineVertex, lineFragment)
@@ -412,16 +415,21 @@ export class IsolineLayer implements CustomLayerInterface {
   setLayer(index: number, field: PreparedField): void {
     const gl = this.gl
     if (!gl || !this.volume || index < 0 || index >= this.depth) return
-    const interleaved = new Float32Array(field.values.length * 2)
+    const channels = this.style.cloudMap ? 4 : 2
+    const interleaved = new Float32Array(field.values.length * channels)
     for (let cell = 0; cell < field.values.length; cell++) {
-      interleaved[cell * 2] = field.values[cell]!
-      interleaved[cell * 2 + 1] = field.valid[cell]!
+      interleaved[cell * channels] = field.values[cell]!
+      interleaved[cell * channels + 1] = field.valid[cell]!
+      if (channels === 4) {
+        interleaved[cell * channels + 2] = field.cloudHints?.[cell * 2] ?? 0
+        interleaved[cell * channels + 3] = field.cloudHints?.[cell * 2 + 1] ?? 0
+      }
     }
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_3D, this.volume)
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
-    measurePerfPhase('texture-upload', () => gl.texSubImage3D(gl.TEXTURE_3D, 0, 0, 0, index, this.grid.width, this.grid.height, 1, gl.RG, gl.FLOAT, interleaved), { layer: this.id })
-    this.tracer.setLayer(index, field)
+    measurePerfPhase('texture-upload', () => gl.texSubImage3D(gl.TEXTURE_3D, 0, 0, 0, index, this.grid.width, this.grid.height, 1, channels === 4 ? gl.RGBA : gl.RG, gl.FLOAT, interleaved), { layer: this.id })
+    if (!this.style.cloudMap) this.tracer.setLayer(index, field)
     // Een eerder mislukte trace (laag ontbrak) mag opnieuw; alleen een vervangen laag maakt
     // bestaande snedes ongeldig, een nieuwe laag hoort bij geen enkele getraceerde snede.
     this.requestedTrace = ''
@@ -465,6 +473,21 @@ export class IsolineLayer implements CustomLayerInterface {
     const gl = context as WebGL2RenderingContext
     const map = this.map
     if (this.paused || !map || !this.line || this.opacity <= 0 || !this.ready()) return
+    if (this.style.cloudMap) {
+      const slice = this.slices[0]!
+      const matrix = options.defaultProjectionData.mainMatrix
+      const camera = `${gl.drawingBufferWidth}x${gl.drawingBufferHeight}:${Array.prototype.join.call(matrix, ',')}:${this.time}:${this.version}`
+      if (slice.passed !== camera) {
+        slice.time = this.time
+        this.vectorPass(gl, map, matrix, 1, 1, slice)
+        this.fillPass(gl, map, matrix, slice)
+        slice.passed = camera
+        this.shown = [{ slice, weight: 1 }]
+        this.shownDominant = slice
+        this.onPass?.()
+      }
+      return
+    }
     this.prerenderVector(gl, map, options.defaultProjectionData.mainMatrix)
   }
 
@@ -720,6 +743,14 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.bindTexture(gl.TEXTURE_2D, slice.ringTexture)
     gl.uniform1i(uniform('u_ring'), 2)
     gl.uniform1f(uniform('u_has_ring'), slice.hasRing ? 1 : 0)
+    if (this.style.cloudMap) {
+      gl.uniform2f(uniform('u_cloud_origin'), this.grid.x0, this.grid.y0)
+      gl.uniform2f(uniform('u_cloud_extent'), this.grid.dx * this.grid.width, this.grid.dy * this.grid.height)
+      gl.uniform1f(uniform('u_cloud_enabled'), this.style.cloudMap.enabled ? 1 : 0)
+      gl.uniform1f(uniform('u_cloud_night'), this.style.cloudMap.night ? 1 : 0)
+      gl.uniform1f(uniform('u_cloud_sample'), CLOUD_MAP_SAMPLES.indexOf(this.style.cloudMap.sample))
+      gl.uniform3f(uniform('u_veil'), ...this.style.color)
+    }
     this.measure('fillMs', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4))
     this.stats.passPixels += width * height
     restore()
