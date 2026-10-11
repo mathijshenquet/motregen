@@ -19,7 +19,9 @@ async function executable(): Promise<string> {
   const packaged = join(directory, 'native-raster')
   try { await access(packaged); return packaged } catch {}
   const source = join(directory, 'native-raster.rs')
-  const key = createHash('sha256').update(await readFile(source)).digest('hex').slice(0, 24)
+  const hash = createHash('sha256').update(await readFile(source))
+  for (const name of ['sampling', 'motion', 'composition']) hash.update(await readFile(join(directory, '../crates/render-core/src', `${name}.rs`)))
+  const key = hash.digest('hex').slice(0, 24)
   let pending = executables.get(key)
   if (!pending) {
     pending = (async () => {

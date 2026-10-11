@@ -13,40 +13,15 @@ fn decimal(reader: &mut impl Read) -> io::Result<f64> {
     Ok(f64::from_le_bytes(bytes))
 }
 
-#[inline(always)]
-fn sample(raster: &[u8], width: usize, height: usize, column: f64, row: f64) -> f64 {
-    if column < 0.0 || row < 0.0 || column > (width - 1) as f64 || row > (height - 1) as f64 {
-        return 0.0;
-    }
-    let west = column as usize;
-    let north = row as usize;
-    let east = (west + 1).min(width - 1);
-    let south = (north + 1).min(height - 1);
-    let values = [
-        raster[north * width + west],
-        raster[north * width + east],
-        raster[south * width + west],
-        raster[south * width + east],
-    ];
-    if values.contains(&255) {
-        return 0.0;
-    }
-    if values[0] == values[1] && values[0] == values[2] && values[0] == values[3] {
-        return values[0] as f64;
-    }
-    let horizontal = column - west as f64;
-    let vertical = row - north as f64;
-    let northern = values[0] as f64 + (values[1] as f64 - values[0] as f64) * horizontal;
-    let southern = values[2] as f64 + (values[3] as f64 - values[2] as f64) * horizontal;
-    northern + (southern - northern) * vertical
-}
-
-struct Sampling {
-    kind: usize,
-    taps: usize,
-    cell_width: f64,
-    sigma: f64,
-}
+#[path = "../crates/render-core/src/composition.rs"]
+mod composition;
+#[path = "../crates/render-core/src/motion.rs"]
+mod motion;
+#[path = "../crates/render-core/src/sampling.rs"]
+#[allow(dead_code)]
+mod sampling;
+use motion::Motion;
+use sampling::Sampling;
 
 impl Sampling {
     fn read(input: &mut impl Read) -> io::Result<Self> {
@@ -57,160 +32,10 @@ impl Sampling {
             sigma: decimal(input)?,
         })
     }
-
-    fn weights(&self, length: usize) -> Vec<Vec<(usize, f64)>> {
-        (0..length)
-            .map(|pixel| {
-                let position = (pixel as f64 + 0.5) / self.cell_width - 0.5;
-                let even = self.taps % 2 == 0;
-                let anchor = if even {
-                    position.floor()
-                } else {
-                    (position + 0.5).floor()
-                };
-                let first = if even {
-                    1.0 - self.taps as f64 / 2.0
-                } else {
-                    -(self.taps as f64 - 1.0) / 2.0
-                };
-                (0..self.taps)
-                    .map(|tap| {
-                        let node = anchor + first + tap as f64;
-                        let distance = (node - position).abs();
-                        let weight = match self.kind {
-                            1 => (1.0 - distance).max(0.0),
-                            2 if distance < 1.0 => {
-                                1.5 * distance.powi(3) - 2.5 * distance.powi(2) + 1.0
-                            }
-                            2 if distance < 2.0 => {
-                                -0.5 * distance.powi(3) + 2.5 * distance.powi(2) - 4.0 * distance
-                                    + 2.0
-                            }
-                            2 => 0.0,
-                            _ => ((-distance.powi(2) / (2.0 * self.sigma.powi(2))).exp()
-                                - (-(self.taps as f64 * 0.5).powi(2) / (2.0 * self.sigma.powi(2)))
-                                    .exp())
-                            .max(0.0),
-                        };
-                        let index = ((node + 0.5) * self.cell_width)
-                            .floor()
-                            .clamp(0.0, (length - 1) as f64)
-                            as usize;
-                        (index, weight)
-                    })
-                    .collect()
-            })
-            .collect()
-    }
-
-    fn filter(&self, source: Vec<u8>, width: usize, height: usize) -> Vec<u8> {
-        if self.kind == 0 {
-            return source;
-        }
-        let horizontal = self.weights(width);
-        let vertical = self.weights(height);
-        let pass = |source: &[u8], weights: &[Vec<(usize, f64)>], along_rows: bool| {
-            let mut result = vec![255; source.len()];
-            for row in 0..height {
-                for column in 0..width {
-                    let mut value = 0.0;
-                    let mut validity = 0.0;
-                    let mut total = 0.0;
-                    for &(index, weight) in &weights[if along_rows { column } else { row }] {
-                        let sample = source[if along_rows {
-                            row * width + index
-                        } else {
-                            index * width + column
-                        }];
-                        total += weight;
-                        if sample != 255 {
-                            value += sample as f64 * weight;
-                            validity += weight;
-                        }
-                    }
-                    if validity > 0.0 && validity / total >= 0.5 {
-                        result[row * width + column] =
-                            (value / validity).round().clamp(0.0, 254.0) as u8;
-                    }
-                }
-            }
-            result
-        };
-        pass(&pass(&source, &horizontal, true), &vertical, false)
-    }
-}
-
-struct Motion<'a> {
-    vectors: &'a [u8],
-    width: usize,
-    height: usize,
-    interval: f64,
-    cap: f64,
-    fade: f64,
-}
-
-impl Motion<'_> {
-    fn displacement(
-        &self,
-        column: f64,
-        row: f64,
-        grid_width: usize,
-        grid_height: usize,
-    ) -> (f64, f64) {
-        let motion_x = ((column + 0.5) / grid_width as f64 * self.width as f64 - 0.5)
-            .clamp(0.0, (self.width - 1) as f64);
-        let motion_y = ((row + 0.5) / grid_height as f64 * self.height as f64 - 0.5)
-            .clamp(0.0, (self.height - 1) as f64);
-        let west = motion_x as usize;
-        let north = motion_y as usize;
-        let east = (west + 1).min(self.width - 1);
-        let south = (north + 1).min(self.height - 1);
-        let horizontal = motion_x - west as f64;
-        let vertical = motion_y - north as f64;
-        let indexes = [
-            north * self.width + west,
-            north * self.width + east,
-            south * self.width + west,
-            south * self.width + east,
-        ];
-        let weights = [
-            (1.0 - horizontal) * (1.0 - vertical),
-            horizontal * (1.0 - vertical),
-            (1.0 - horizontal) * vertical,
-            horizontal * vertical,
-        ];
-        let mut velocity_x = 0.0;
-        let mut velocity_y = 0.0;
-        let mut validity = 0.0;
-        for corner in 0..4 {
-            let eastward = self.vectors[indexes[corner] * 2] as i8;
-            let southward = self.vectors[indexes[corner] * 2 + 1] as i8;
-            if eastward == -128 || southward == -128 {
-                continue;
-            }
-            velocity_x += eastward as f64 * weights[corner];
-            velocity_y += southward as f64 * weights[corner];
-            validity += weights[corner];
-        }
-        let displacement_x = velocity_x * 0.1 * self.interval;
-        let displacement_y = velocity_y * 0.1 * self.interval;
-        let distance = displacement_x.hypot(displacement_y);
-        let strength = if validity < 0.999 || distance >= self.fade {
-            0.0
-        } else if distance <= self.cap {
-            1.0
-        } else {
-            {
-                let position = (distance - self.cap) / (self.fade - self.cap);
-                self.cap / distance * (1.0 - position * position * (3.0 - 2.0 * position))
-            }
-        };
-        (displacement_x * strength, displacement_y * strength)
-    }
 }
 
 struct ProjectedMotion {
-    vectors: Vec<u8>,
+    vectors: Vec<i8>,
     width: usize,
     height: usize,
     interval: f64,
@@ -252,69 +77,6 @@ impl ProjectedMotion {
             cap: motion.cap,
             fade: motion.fade,
             displacements,
-        }
-    }
-}
-
-fn compose(
-    rgb: &mut [u8],
-    columns: &[f64],
-    rows: &[f64],
-    grid_width: usize,
-    grid_height: usize,
-    left: &[u8],
-    right: &[u8],
-    colors: &[f32],
-    mix: f64,
-    displacements: Option<&[(f64, f64)]>,
-    multiply: bool,
-) {
-    let width = columns.len();
-    for (row, &cell_y) in rows.iter().enumerate() {
-        if cell_y < 0.0 || cell_y > (grid_height - 1) as f64 {
-            continue;
-        }
-        for (column, &cell_x) in columns.iter().enumerate() {
-            if cell_x < 0.0 || cell_x > (grid_width - 1) as f64 {
-                continue;
-            }
-            let value = if mix == 0.0 {
-                sample(left, grid_width, grid_height, cell_x, cell_y)
-            } else if mix == 1.0 {
-                sample(right, grid_width, grid_height, cell_x, cell_y)
-            } else {
-                let (eastward, southward) =
-                    displacements.map_or((0.0, 0.0), |field| field[row * width + column]);
-                sample(
-                    left,
-                    grid_width,
-                    grid_height,
-                    cell_x - eastward * mix,
-                    cell_y - southward * mix,
-                ) * (1.0 - mix)
-                    + sample(
-                        right,
-                        grid_width,
-                        grid_height,
-                        cell_x + eastward * (1.0 - mix),
-                        cell_y + southward * (1.0 - mix),
-                    ) * mix
-            };
-            if value <= 0.0 {
-                continue;
-            }
-            let color = ((value * 256.0).round() as usize).min(65535) * 4;
-            let coverage = colors[color + 3] as f64;
-            let offset = (row * width + column) * 3;
-            for channel in 0..3 {
-                rgb[offset + channel] = ((if multiply {
-                    rgb[offset + channel] as f64 * colors[color + channel] as f64 / 255.0
-                } else {
-                    colors[color + channel] as f64
-                }) + rgb[offset + channel] as f64 * coverage)
-                    .round()
-                    .min(255.0) as u8;
-            }
         }
     }
 }
@@ -365,8 +127,8 @@ fn main() -> io::Result<()> {
     let rows = (0..height)
         .map(|_| decimal(&mut input))
         .collect::<io::Result<Vec<_>>>()?;
-    let mut colors = vec![0_f32; 65536 * 4];
-    for color in &mut colors {
+    let mut colors = vec![[0_f32; 4]; 65536];
+    for color in colors.iter_mut().flatten() {
         let mut bytes = [0; 4];
         input.read_exact(&mut bytes)?;
         *color = f32::from_le_bytes(bytes);
@@ -407,6 +169,7 @@ fn main() -> io::Result<()> {
             .ok_or_else(|| io::Error::other("missing right frame"))?;
         let mut vectors = vec![0; motion_width * motion_height * 2];
         input.read_exact(&mut vectors)?;
+        let vectors: Vec<i8> = vectors.into_iter().map(|value| value as i8).collect();
         let motion = if vectors.is_empty() {
             None
         } else {
@@ -443,32 +206,36 @@ fn main() -> io::Result<()> {
         let lower_displacements = displacements.map(|field| &field[split * width..]);
         std::thread::scope(|scope| {
             scope.spawn(|| {
-                compose(
+                composition::compose_frame(
                     upper,
-                    &columns,
-                    upper_rows,
+                    composition::Composition {
+                        columns: &columns,
+                        rows: upper_rows,
+                        grid_width,
+                        grid_height,
+                        left,
+                        right,
+                        colors: &colors,
+                        mix,
+                        displacements: upper_displacements,
+                        multiply,
+                    },
+                )
+            });
+            composition::compose_frame(
+                lower,
+                composition::Composition {
+                    columns: &columns,
+                    rows: lower_rows,
                     grid_width,
                     grid_height,
                     left,
                     right,
-                    &colors,
+                    colors: &colors,
                     mix,
-                    upper_displacements,
+                    displacements: lower_displacements,
                     multiply,
-                )
-            });
-            compose(
-                lower,
-                &columns,
-                lower_rows,
-                grid_width,
-                grid_height,
-                left,
-                right,
-                &colors,
-                mix,
-                lower_displacements,
-                multiply,
+                },
             );
         });
         output.write_all(&rgb)?;

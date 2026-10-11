@@ -8,6 +8,7 @@
   pnpm_10,
   pnpmConfigHook,
   makeWrapper,
+  motregen-render,
 }:
 
 stdenvNoCC.mkDerivation {
@@ -30,6 +31,7 @@ stdenvNoCC.mkDerivation {
       --add-flags "--max-old-space-size=192 --max-semi-space-size=4 --expose-gc" \
       --set-default MALLOC_ARENA_MAX 2 \
       --set-default MALLOC_MMAP_THRESHOLD_ 131072 \
+      --set-default MOTREGEN_RENDER_BIN ${lib.getExe motregen-render} \
       --add-flags "$out/lib/motregen-bot/dist/bot/main.js"
     runHook postInstall
   '';

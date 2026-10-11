@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "size": {
+    "width": 960,
+    "height": 1272
+  },
+  "view": {
+    "lng": 5.289999999999992,
+    "lat": 52.25337778567862,
+    "zoom": 6.82119866277952
+  },
+  "grid": {
+    "crs": "EPSG:3857",
+    "x0": 0,
+    "y0": 7600000,
+    "dx": 1000,
+    "dy": -1000,
+    "width": 1250,
+    "height": 1350
+  },
+  "inputs": {
+    "light": "basemap-light-d5259181bbc00d7beeabb393.png",
+    "dark": "basemap-dark-b1da60cf20041767a36855a2.png"
+  }
+}

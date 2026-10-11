@@ -24,8 +24,9 @@ export interface RainWarpLimit {
 }
 
 // Het venster van de Gauss reikt tot minstens 2,6 sigma; daar is hij op 3 % van zijn top.
+export const BLUR_RADIUS_SIGMA = 2.6
 export function kernelTaps(kernel: Exclude<RainKernel, 'nearest' | 'bilinear'>, sigma: number): number {
   if (kernel === 'source-linear') return 2
   if (kernel === 'source-cubic') return 4
-  return Math.ceil(2.6 * sigma) * 2 + 1
+  return Math.ceil(BLUR_RADIUS_SIGMA * sigma) * 2 + 1
 }

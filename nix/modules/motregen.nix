@@ -18,6 +18,12 @@ let
     import ${package}/routes.caddy
   '';
   caddyDataDir = "/run/motregen-data";
+  renderModes = [ "weather" "feels" "wind" ];
+  botRenders = cfg.bot.role != "poller";
+  botUsesRust = botRenders && cfg.bot.rustModes != [ ];
+  botNeedsBrowser = botRenders && builtins.any (mode: !(builtins.elem mode cfg.bot.rustModes)) renderModes;
+  botUsesLocalData = cfg.enable || botUsesRust;
+  botDataDir = if botUsesRust then cfg.bot.dataDir else cfg.dataDir;
   dataHeaders = ''
     header {
       Access-Control-Allow-Origin "*"
@@ -227,6 +233,16 @@ in
         type = lib.types.package;
         default = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-bot;
         description = "Package providing the Telegram bot and renderer.";
+      };
+      rustModes = lib.mkOption {
+        type = lib.types.listOf (lib.types.enum renderModes);
+        default = renderModes;
+        description = "Modes rendered in Rust for renderer/combined roles; an empty list restores the Node route.";
+      };
+      dataDir = lib.mkOption {
+        type = lib.types.str;
+        default = cfg.dataDir;
+        description = "Local snapshot directory for Rust rendering, including on a standalone renderer host.";
       };
     };
   };
@@ -576,6 +592,10 @@ in
   }) (lib.mkIf cfg.enable {
     services.caddy.virtualHosts = builtins.listToAttrs (map wwwRedirectHost cfg.domains);
   }) (lib.mkIf cfg.bot.enable {
+    assertions = [ {
+      assertion = lib.unique cfg.bot.rustModes == cfg.bot.rustModes;
+      message = "services.motregen.bot.rustModes must not contain duplicate modes.";
+    } ];
     users.users.motregen-bot = {
       isSystemUser = true;
       group = "motregen-bot";
@@ -594,10 +614,13 @@ in
         MOTREGEN_RENDER_CACHE = "/var/cache/motregen-bot/stills";
         # Fontconfig (sharp/librsvg voor /weer, MIP-27) wil een schrijfbare cache; anders "No writable cache directories".
         XDG_CACHE_HOME = "/var/cache/motregen-bot";
-      } // lib.optionalAttrs cfg.enable {
-        # De ingest draait op dezelfde machine: lees manifest en chunks van schijf in plaats van via de eigen origin.
+      } // lib.optionalAttrs botUsesLocalData {
+        # Rust leest ook bij een zelfstandige renderer lokale chunks; de bind mount maakt ze alleen leesbaar.
         MOTREGEN_DATA_DIR = caddyDataDir;
-      } // lib.optionalAttrs (cfg.bot.role != "poller") {
+      } // lib.optionalAttrs botRenders {
+        MOTREGEN_RUST_RENDERER = lib.concatStringsSep "," cfg.bot.rustModes;
+        MOTREGEN_RUST_BASEMAP_DIR = "${self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-render}/share/motregen-render/basemaps";
+      } // lib.optionalAttrs botNeedsBrowser {
         PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
         MOTREGEN_CHROMIUM_PATH = "${pkgs.playwright-driver.browsers}/chromium_headless_shell-${pkgs.playwright-driver.browsersJSON."chromium-headless-shell".revision}/chrome-headless-shell-linux64/chrome-headless-shell";
         PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
@@ -605,7 +628,7 @@ in
       serviceConfig = hardening // {
         ExecStart = "${lib.getExe cfg.bot.package} --role=${cfg.bot.role}";
         EnvironmentFile = cfg.bot.secretsFile;
-        BindReadOnlyPaths = lib.optional cfg.enable "${cfg.dataDir}:${caddyDataDir}";
+        BindReadOnlyPaths = lib.optional botUsesLocalData "${botDataDir}:${caddyDataDir}";
         User = "motregen-bot";
         Group = "motregen-bot";
         CacheDirectory = "motregen-bot";
