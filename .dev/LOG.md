@@ -506,6 +506,16 @@
   nix-module met `MOTREGEN_RUST_RENDERER`, bewijs met Nix-binaries) loopt; spec-sectie "Ronde 2".
   U77-vervolg (PR #109, a2f2c10): vier standen "Regen in Wind/Lucht" onder ?dev op 4320; advies `gedempt`; wacht
   op PO-keuze.
+- 10:28: **U80 ronde 2 "klaar voor uitrol"** (f4cc331, PR #108): platen in `crates/render/assets/basemaps` (635 kB) →
+  store; module-optie `services.motregen.bot.rustModes` (standaard weather,feels,wind; `[ ]` = Node-route terug); bot
+  start één `--mode all` per generatie; prod-closure zonder Chromium (`/weer` gebruikt sharp, nagelezen). Mijn gate
+  vond één fout (flake check faalde op `self` in de module) → hersteld in 65d837b (prod, rolchecks en VM-test
+  laden nu `self.nixosModules.motregen`). Daarna op mijn verzoek een tweede VM-testnode `rust` die onder de echte
+  unit-hardening een generatie draait (3 films, 170 JPEGs, 7,05 s, piek 352 MiB). Zelf herhaald op f4cc331: flake
+  check 0, nixos-vm 0 (log gelezen: drie modi `backend: rust`), toplevel 0; volledige code-gate op 0b75ea5 groen
+  incl. wasm. **Wacht op PO**: akkoord op wind-/temperatuurbeelden → dan merge + uitrol in één keer + controle op
+  prod. Terugval: `rustModes = [ ]` of `nixos-rebuild switch --rollback`. Open: generatie pas starten na 30 s
+  stabiel manifest (voorstel worker), stills op aanvraag.
 
 ## 2026-10-10 — tg-bot op prod vastgelopen (13:00)
 - Symptoom (PO): bot antwoordt niet. Laatste generatie 05:57; daarna `refresh-failed … TimeoutError` (07:16) en
