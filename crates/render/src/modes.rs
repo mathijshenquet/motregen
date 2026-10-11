@@ -12,7 +12,7 @@ use render_core::{
     constants::constants,
     field_raster,
     mode_constants::{color, mode_constants},
-    overlay::{ClockOptions, draw_overlay_title},
+    overlay::{ClockOptions, clock_panel_bounds, draw_overlay_title},
     projection::Projection,
     rotated_text::{RotatedText, TextStyle},
     temperature::{TemperaturePair, draw_temperature},
@@ -86,6 +86,12 @@ impl Painter<'_> {
             .lock()
             .map_err(|_| anyhow::anyhow!("Field text worker panicked"))?;
         let mut rgb = self.plates[usize::from(input.night)].clone();
+        let title = if self.wind {
+            "Wind"
+        } else {
+            "Gevoelstemperatuur"
+        };
+        let clock_bounds = clock_panel_bounds(&mut worker.text, title);
         let mut profile = Profile {
             output_frames: 1,
             ..Profile::default()
@@ -163,7 +169,7 @@ impl Painter<'_> {
                 ('H', true) => [255, 107, 94],
                 _ => [110, 163, 255],
             };
-            worker.labels.draw(
+            worker.labels.draw_excluding(
                 &mut rgb,
                 &mark.kind.to_string(),
                 point,
@@ -174,6 +180,7 @@ impl Painter<'_> {
                     halo,
                     opacity: mark.opacity * input.slice.opacity,
                 },
+                Some(clock_bounds),
             );
         }
         profile.labels_us += labels_started.elapsed().as_micros();
@@ -184,7 +191,7 @@ impl Painter<'_> {
         }
         let labels_started = Instant::now();
         for label in &input.slice.labels {
-            worker.labels.draw(
+            worker.labels.draw_excluding(
                 &mut rgb,
                 &label.text,
                 label.screen,
@@ -195,6 +202,7 @@ impl Painter<'_> {
                     halo,
                     opacity: label.opacity,
                 },
+                Some(clock_bounds),
             );
         }
         profile.labels_us += labels_started.elapsed().as_micros();
@@ -208,11 +216,7 @@ impl Painter<'_> {
                 transition: self.clock,
                 still: input.still,
             },
-            if self.wind {
-                "Wind"
-            } else {
-                "Gevoelstemperatuur"
-            },
+            title,
         );
         profile.overlay_us += overlay_started.elapsed().as_micros();
         let jpeg_started = Instant::now();

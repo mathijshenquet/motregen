@@ -10,6 +10,15 @@ pub struct ClockOptions {
     pub still: bool,
 }
 
+pub fn clock_panel_bounds(text: &mut Text, title: &str) -> [f64; 4] {
+    [
+        0.0,
+        0.0,
+        200.0_f64.max((text.width(title, 30) + 32.0).ceil() as f64),
+        154.0,
+    ]
+}
+
 pub fn draw_overlay(
     text: &mut Text,
     rgb: &mut [u8],
@@ -41,7 +50,7 @@ pub fn draw_overlay_title(
     };
     let clock_color = if night { [237, 248, 252] } else { [16, 38, 48] };
     // De boven- en linkerhoeken vallen buiten beeld; alleen rechtsonder blijft rond.
-    let panel_width = 220.max((text.width(title, 30) + 52.0).ceil() as i32);
+    let panel_width = clock_panel_bounds(text, title)[2] as i32 + 20;
     rounded_panel(rgb, -20, -20, panel_width, 174, 20, background, 0.96);
     let clock_epoch = if options.transition.is_none() && !options.still {
         loop_clock_epoch(epoch)

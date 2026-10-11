@@ -96,6 +96,18 @@ impl RotatedText {
         angle: f64,
         style: TextStyle,
     ) {
+        self.draw_excluding(rgb, text, center, angle, style, None);
+    }
+
+    pub fn draw_excluding(
+        &mut self,
+        rgb: &mut [u8],
+        text: &str,
+        center: [f64; 2],
+        angle: f64,
+        style: TextStyle,
+        excluded: Option<[f64; 4]>,
+    ) {
         if style.opacity <= 0.0 {
             return;
         }
@@ -107,6 +119,14 @@ impl RotatedText {
         let half_height =
             (sine.abs() * stamp.width as f64 + cosine.abs() * stamp.height as f64) / 2.0;
         let size = &constants().size;
+        if excluded.is_some_and(|[left, top, right, bottom]| {
+            center[0] + half_width > left
+                && center[0] - half_width < right
+                && center[1] + half_height > top
+                && center[1] - half_height < bottom
+        }) {
+            return;
+        }
         if center[0] < half_width
             || center[0] + half_width > size.width as f64
             || center[1] < half_height

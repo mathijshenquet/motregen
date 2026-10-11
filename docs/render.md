@@ -36,7 +36,8 @@ fitdoel. De bovenstrook van 48 pixels is verwijderd met behoud van zoom en bodem
 sluit linksboven aan op de beeldrand; alleen rechtsonder is rond. Tijd, Amsterdamse datum (zoals `zo 11 okt`)
 en de eigen modustitel staan op drie regels, 16 pixels van links. Datum en titel zijn 30 pixels en hebben
 hetzelfde contrast als de klok. De regenhoek is 200×154 pixels; alleen een langere modustitel verbreedt
-het paneel zodat tekst erbinnen blijft. Na een wijziging van `NATIVE_VIEW` moeten beide basiskaarten
+het paneel zodat tekst erbinnen blijft. Isolijnlabels en drukletters worden alleen buiten het paneel
+getekend; de volledige gedraaide tekst inclusief halo moet vrij blijven. Na een wijziging van `NATIVE_VIEW` moeten beide basiskaarten
 opnieuw worden vastgelegd; een oude plaat bijsnijden geeft geen passende projectie of labelplaatsing.
 Het watermasker dempt de windstaarten op zee; de regencompositie gebruikt het niet. Deze export start geen browser.
 `prepare-rust-basemaps.test.ts` laat de gate falen als maat of view in de metadata afwijkt van de TypeScript-bron;
