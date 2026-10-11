@@ -1,5 +1,13 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-11 14:52 CEST — U80 onafhankelijke gate groen; VM48,2s; PO wil vloeiender wind
+
+Finale workeroplevering U76 geïntegreerd+tempo op5aab9d182dc696a010a8602eb0c99468dad2ce17. Eigen integratieworktree int-u80-pm-20261011 head47492fab met origin/mainee2db121/E1MemoryMax1600M. Synchrone exits0: cargo fmt--all/check, workspace-clippy--all-targets-Dwarnings,36Rusttests,wasm32-build; web typecheck/569tests/build; bot typecheck/132tests/build; nix flake check--no-build; Nix echte2nodeVM-test34,10s en systeem+renderer. Receipts web/tmp/orkestrator/pm-u80-20261011; gitstatusintegratie schoon. Zelf6dag/nachtbeelden+klokstroken+windmotion bekeken; eigen browser5films/vergelijking41s volledig ended,geenerrors.
+
+VMbenchmark Nixrenderqcnj1k,livegenerated12:47:47Z/now12:45Z,bestaandebotnietgepauzeerd,CPUQuota200/MemoryMax900M/Swap0: all48245ms,wand48,285s,CPU77,888s,cgroup563,6MiB,exit0. Parallelmodusaflooptijden weather33,360s,wind41,891s,feels48,241s zijn geen individuele budgetten. Exacte SSH/systemd-run-opdracht staat in receipts; media.json opgehaald. Toplevelintegrationnd8b8n nog niet uitgerold.
+
+PO:7,5fps ziet duidelijk beter uit, overweegt Wind weglaten/geenregen/geenisobaren en vraagt alle modusbudgetten. Uitrol wacht daarom de nieuwe vergelijking/keuze af. U80 vervolgvraag gequeued en gestart(xhigh): 4geïsoleerde75s/7,5fpsWindproeven volledig/zonderregen/zonderisobaren+drukletters/zonderbeide,MP4/beelden/profiel/devmeting/Nixclosures,geenproductiegedragwijziging. PM meet drie afzonderlijke modi op één vasteVMsnapshot. Eerste snapshot-symlink terecht geweigerd door renderer-containment; hersteld met kopieën van alleen42manifestchunks,geen codeprobleem. E2set/deadline nog open,nietgebouwd.
+
 ## 2026-10-11 14:40 CEST — MIP-30 E2: dubbele publicatie verklaard; set met deadline voorgesteld
 
 Prod-ingestlogs bevestigen de twee generaties: om14:07:08CEST radar RAD_NL25_RAC_RT_202610111205.h5 (brontijd14:05CEST), om14:07:17 de bijbehorende nowcast; na iedere gewijzigde bron meteen een volledig atomair manifest. Brontijden gelijk, aankomst/verwerking apart. Logs13:45–14:38 tonen meestal8–15s verschil, één70s. Seamless apart met132–135s verwerking; ingestcadansen UV/seamless15min en AROME3u.
