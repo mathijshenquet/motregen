@@ -128,18 +128,21 @@ pub fn fill(
             filled[destination + 3] = (alpha * 255.0).round() as u8;
         }
     }
-    for row in 0..height {
-        for column in 0..width {
-            let position_x =
+    let horizontal_samples: Vec<_> = (0..width)
+        .map(|column| {
+            let position =
                 ((column as f64 + 0.5) * scale - 0.5).clamp(0.0, fill_width as f64 - 1.0);
-            let position_y =
-                ((row as f64 + 0.5) * scale - 0.5).clamp(0.0, fill_height as f64 - 1.0);
-            let west = position_x.floor() as usize;
+            let west = position.floor() as usize;
             let east = (west + 1).min(fill_width - 1);
-            let north = position_y.floor() as usize;
-            let south = (north + 1).min(fill_height - 1);
-            let horizontal = (position_x - west as f64) as f32;
-            let vertical = (position_y - north as f64) as f32;
+            (west, east, (position - west as f64) as f32)
+        })
+        .collect();
+    for row in 0..height {
+        let position_y = ((row as f64 + 0.5) * scale - 0.5).clamp(0.0, fill_height as f64 - 1.0);
+        let north = position_y.floor() as usize;
+        let south = (north + 1).min(fill_height - 1);
+        let vertical = (position_y - north as f64) as f32;
+        for (column, &(west, east, horizontal)) in horizontal_samples.iter().enumerate() {
             let indexes = [
                 (north * fill_width + west) * 4,
                 (north * fill_width + east) * 4,
@@ -160,10 +163,10 @@ pub fn fill(
             }
             let destination = (row * width + column) * 3;
             for channel in 0..3 {
-                rgb[destination + channel] =
-                    (rgb[destination + channel] as f32 * (1.0 - rgba[3] / 255.0) + rgba[channel])
-                        .round()
-                        .clamp(0.0, 255.0) as u8;
+                rgb[destination + channel] = (rgb[destination + channel] as f32
+                    * (1.0 - rgba[3] / 255.0)
+                    + rgba[channel]
+                    + 0.5) as u8;
             }
         }
     }

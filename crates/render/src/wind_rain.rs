@@ -66,6 +66,7 @@ impl<'a> WindRain<'a> {
         let limit = warp_limit((right.epoch - left.epoch) as f64 / 60_000.0);
         if needs_motion && self.motion_pair != Some((blend.left, blend.right)) {
             let started = Instant::now();
+            self.motion = None;
             let motion = self.data.motion(&left, &right)?;
             self.motion = motion.as_ref().map(|(width, height, vectors)| {
                 Arc::new(self.pixels.compositor.project_motion(

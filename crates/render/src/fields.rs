@@ -138,7 +138,6 @@ impl<'a> Fields<'a> {
         if let Some((_, field)) = self.prepared.iter().find(|(key, _)| *key == index) {
             return Ok(Arc::clone(field));
         }
-        let started = Instant::now();
         let settings = &mode_constants().isoline;
         let weights = if self.pressure {
             settings
@@ -169,6 +168,7 @@ impl<'a> Fields<'a> {
             );
             rasters.push((raster, weight));
         }
+        let started = Instant::now();
         let values = (0..self.grid.width * self.grid.height)
             .map(|index| {
                 let mut sum = 0.0;
@@ -217,6 +217,8 @@ impl<'a> Fields<'a> {
 
     pub fn slice(&mut self, time: i64) -> Result<Slice> {
         let started = Instant::now();
+        let fields_before = self.fields_us;
+        let decode_before = self.data.decode_us;
         let blend = frame_blend(&self.data.frames, time);
         let weights = slice_weights(blend.left as f64 + blend.mix, self.data.frames.len());
         let mut fields = Vec::new();
@@ -245,7 +247,10 @@ impl<'a> Fields<'a> {
                 self.step = pressure::adaptive_step(minimum, maximum, self.step);
             }
         }
-        self.fields_us += started.elapsed().as_micros();
+        self.fields_us += started
+            .elapsed()
+            .as_micros()
+            .saturating_sub(self.fields_us - fields_before + self.data.decode_us - decode_before);
         let started = Instant::now();
         let ring_km = if self.pressure {
             0.0
@@ -289,6 +294,8 @@ impl<'a> Fields<'a> {
         };
         self.contours_us += started.elapsed().as_micros();
         let started = Instant::now();
+        let fields_before = self.fields_us;
+        let decode_before = self.data.decode_us;
         let label_index = if blend.mix < 0.5 {
             blend.left
         } else {
@@ -343,7 +350,10 @@ impl<'a> Fields<'a> {
         } else {
             Vec::new()
         };
-        self.labels_us += started.elapsed().as_micros();
+        self.labels_us += started
+            .elapsed()
+            .as_micros()
+            .saturating_sub(self.fields_us - fields_before + self.data.decode_us - decode_before);
         Ok(Slice {
             field,
             segments,

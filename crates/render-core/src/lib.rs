@@ -5,6 +5,7 @@ pub mod contours;
 pub mod field;
 pub mod field_palette;
 pub mod field_raster;
+mod font;
 pub mod isoline_labels;
 pub mod mode_constants;
 pub mod motion;

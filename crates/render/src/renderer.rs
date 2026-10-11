@@ -208,7 +208,7 @@ impl Scene<'_> {
 struct Painter {
     compositor: Arc<RainCompositor>,
     text: [Mutex<Text>; 2],
-    plates: [Vec<u8>; 2],
+    plates: crate::shared::Plates,
     now: i64,
     clock_variant: Option<ClockTransition>,
 }
@@ -351,7 +351,7 @@ fn write_video(
     })
 }
 
-pub(crate) fn plates(directory: &Path, grid: &Grid) -> Result<[Vec<u8>; 2]> {
+pub(crate) fn plates(directory: &Path, grid: &Grid) -> Result<crate::shared::Plates> {
     let constants = constants();
     let metadata: serde_json::Value =
         serde_json::from_slice(&fs::read(directory.join("basemap.json"))?)?;
@@ -395,7 +395,20 @@ pub(crate) fn plates(directory: &Path, grid: &Grid) -> Result<[Vec<u8>; 2]> {
         );
         Ok(image.into_raw())
     };
-    Ok([load("light")?, load("dark")?])
+    if let Some(inputs) = crate::shared::inputs() {
+        let mut plates = inputs
+            .plates
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Shared plates panicked"))?;
+        if let Some(plates) = plates.as_ref() {
+            return Ok(Arc::clone(plates));
+        }
+        let loaded = Arc::new([load("light")?, load("dark")?]);
+        *plates = Some(Arc::clone(&loaded));
+        Ok(loaded)
+    } else {
+        Ok(Arc::new([load("light")?, load("dark")?]))
+    }
 }
 
 pub fn render(
@@ -454,7 +467,11 @@ pub fn render(
         let (sender, receiver) = mpsc::sync_channel(1);
         let writer = scope.spawn(|| write_video(receiver, temporary.path()));
         let production = (|| -> Result<()> {
-            for plans in plans.chunks(4) {
+            for plans in plans.chunks(if crate::shared::inputs().is_some() {
+                1
+            } else {
+                4
+            }) {
                 let inputs = plans
                     .iter()
                     .map(|&plan| {

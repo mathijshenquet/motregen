@@ -12,6 +12,7 @@ use std::{
     io::{Read, Seek, SeekFrom},
     path::{Component, Path, PathBuf},
     sync::Arc,
+    sync::atomic::Ordering,
     time::Instant,
 };
 
@@ -130,6 +131,29 @@ impl<'a> Dataset<'a> {
         if let Some((_, raster)) = self.cache.iter().find(|(cached, _)| *cached == key) {
             return Ok(Arc::clone(raster));
         }
+        self.header(frame.chunk_index)?;
+        let shared = crate::shared::inputs();
+        let shared_key = (
+            self.path(frame.chunk_index)?,
+            frame.frame_index,
+            self.limit_to_view,
+        );
+        let slot = shared
+            .map(|inputs| inputs.raster_slot(shared_key.clone()))
+            .transpose()?;
+        let mut shared_raster = slot
+            .as_ref()
+            .map(|slot| slot.lock())
+            .transpose()
+            .map_err(|_| anyhow::anyhow!("Shared raster decode panicked"))?;
+        if let Some(cached) = &shared_raster
+            && let Some(raster) = cached.upgrade()
+        {
+            shared.unwrap().hits.fetch_add(1, Ordering::Relaxed);
+            shared.unwrap().retain_rain(&shared_key, &raster)?;
+            self.remember(key, Arc::clone(&raster));
+            return Ok(raster);
+        }
         let started = Instant::now();
         let range = self
             .header(frame.chunk_index)?
@@ -192,11 +216,28 @@ impl<'a> Dataset<'a> {
             values,
             coverage,
         });
-        if self.cache.len() >= 4 {
+        if let Some(cached) = &mut shared_raster {
+            **cached = Arc::downgrade(&raster);
+            shared.unwrap().retain_rain(&shared_key, &raster)?;
+        }
+        self.remember(key, Arc::clone(&raster));
+        Ok(raster)
+    }
+
+    fn remember(&mut self, key: (usize, usize), raster: Arc<Raster>) {
+        let limit = if self.rain {
+            if crate::shared::inputs().is_some() {
+                2
+            } else {
+                4
+            }
+        } else {
+            6
+        };
+        if self.cache.len() >= limit {
             self.cache.remove(0);
         }
-        self.cache.push((key, Arc::clone(&raster)));
-        Ok(raster)
+        self.cache.push((key, raster));
     }
 
     pub fn grid(&mut self) -> Result<Grid> {
@@ -334,6 +375,22 @@ mod tests {
         let raster = dataset.load(&frame).unwrap();
         assert_eq!(raster.values, vec![40; 16]);
         assert!(Arc::ptr_eq(&raster, &dataset.load(&frame).unwrap()));
+    }
+
+    #[test]
+    fn concurrent_modes_share_active_filtered_rasters() {
+        crate::shared::enable();
+        let (directory, manifest) = fixture(vec![None, None, None]);
+        let mut first = Dataset::new(directory.path(), &manifest, "rain_rate").unwrap();
+        let mut second = Dataset::new(directory.path(), &manifest, "rain_rate").unwrap();
+        let frame = first.frames[1].clone();
+        let raster = first.load(&frame).unwrap();
+        assert!(Arc::ptr_eq(&raster, &second.load(&frame).unwrap()));
+        assert_eq!(first.loaded, 1);
+        assert_eq!(second.loaded, 0);
+        let mut restricted = Dataset::new(directory.path(), &manifest, "rain_rate").unwrap();
+        restricted.limit_to_view = true;
+        assert!(!Arc::ptr_eq(&raster, &restricted.load(&frame).unwrap()));
     }
 
     #[test]

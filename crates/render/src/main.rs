@@ -1,8 +1,10 @@
+mod all;
 mod data;
 mod encode;
 mod fields;
 mod modes;
 mod renderer;
+mod shared;
 mod wind_rain;
 
 use anyhow::{Result, ensure};
@@ -14,13 +16,14 @@ enum Mode {
     Weather,
     Wind,
     Feels,
+    All,
 }
 
 #[derive(Parser)]
 #[command(
     name = "motregen-render",
     version,
-    about = "Render one local rain generation to MP4 and JPEG"
+    about = "Render one local weather generation to MP4 and JPEG"
 )]
 struct Arguments {
     #[arg(long)]
@@ -52,6 +55,17 @@ fn main() -> Result<()> {
     let clock = arguments
         .clock_variant
         .or(render_core::clock::CLOCK_TRANSITION);
+    if matches!(arguments.mode, Mode::All) {
+        let media = all::render(
+            &arguments.data_dir,
+            &arguments.basemap_dir,
+            &arguments.out_dir,
+            &manifest,
+            clock,
+        )?;
+        println!("{}", serde_json::to_string(&media)?);
+        return Ok(());
+    }
     let media = match arguments.mode {
         Mode::Weather => renderer::render(
             &arguments.data_dir,
@@ -68,6 +82,7 @@ fn main() -> Result<()> {
             matches!(arguments.mode, Mode::Wind),
             clock,
         )?,
+        Mode::All => unreachable!(),
     };
     println!("{}", serde_json::to_string(&media)?);
     Ok(())

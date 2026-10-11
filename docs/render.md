@@ -1,16 +1,18 @@
-# Regenmedia in Rust (MIP-29 C1)
+# Weermedia in Rust (MIP-29 C1/C2)
 
 `motregen-render` maakt precies één generatie: regenloop −1…+2 uur (109 kaartframes per 100 seconden,
 4,5 fps, daarna vijf holdframes) en 85 JPEG-stills −2…+12 uur per tien minuten. Alle invoer komt van
 schijf. Het programma start alleen ffmpeg; tekst en temperatuurpunten worden rechtstreeks met het ingebedde
-Inter-lettertype getekend. De renderer eindigt na deze generatie.
+Inter-lettertype getekend. `--mode wind` maakt de windfilm; `--mode feels` maakt de gevoelstemperatuurfilm
+en 85 stills. Beide films hebben 169 kaartframes van −2…+12 uur per vijf minuten, 10 fps en tien holdframes.
+Alle temperatuur-stills gebruiken hun RGB-loopframe rechtstreeks. De renderer eindigt na deze generatie.
 
 ```sh
-motregen-render --data-dir /pad/data --basemap-dir /pad/platen --mode weather --out-dir /pad/media
+motregen-render --data-dir /pad/data --basemap-dir /pad/platen --mode all --out-dir /pad/media
 ```
 
 `--manifest /pad/snapshot.json` kiest een vast manifest in plaats van `DATA_DIR/manifest.json`. Chunks worden
-steeds relatief aan `--data-dir` gelezen. Alleen modus `weather` bestaat in C1. `--help` en `--version` zijn
+steeds relatief aan `--data-dir` gelezen. De modi zijn `weather` (standaard), `wind`, `feels` en `all`. `--help` en `--version` zijn
 beschikbaar. Een ontbrekende chunk, verkeerde plaatprojectie, ontoereikende tijdlijn of encoderfout geeft een
 niet-nul exitstatus. `media.json` verschijnt pas na succesvolle afronding van de volledige matrix.
 
@@ -61,6 +63,34 @@ het loopvenster gebruiken het RGB-loopframe rechtstreeks: 175 composities voor 1
 `pnpm -C bot render:constants` genereert de ingebedde JSON; de botbuild draait dit ook. De constantentest
 faalt bij drift. De kern heeft geen bestands-, netwerk- of systeemkloktoegang en bouwt voor wasm32.
 
+## Wind en gevoelstemperatuur
+
+De pure kern leest een raster met waarden en geldigheid. De temporele en ruimtelijke B-splines, contouren,
+korte ringen, adaptieve isobaarstap en labelankers volgen de bestaande TypeScript-regels. Drie crops uit echte
+velden toetsen veldwaarden exact, contourpunten binnen 0,00001 cel en labels binnen 1,5 pixel/0,1 graad.
+Temperatuurbanden en koude/warme ankers komen uit dezelfde gegenereerde palettabel. De rastervulling is
+verhuisd uit `native-field-raster.rs` naar `render-core`; de oude helper gebruikt deze kern ook.
+
+Wind tekent temperatuurpunten, isobaren, deterministische windstaarten met zee-demping, H/L op prominente
+drukextremen, regen met de Wind-menging, isolijnlabels en klok/voettekst. Gevoelstemperatuur tekent de gedempte
+basiskaart, kleurvlakken, isothermen en labels. Gedraaide tekst wordt rechtstreeks met Inter gerasterd;
+pixelgelijkheid met de oude browseratlas is geen eis (MIP-29). Per kaartframe bepaalt de gedeelde tijdlogica dag/nacht.
+
+`wind-loop.mp4` en `feels-loop.mp4` hebben 179 gecodeerde frames en duren 17,9 seconden. Alleen `feels` levert
+ook `feels-EPOCH.jpg`. Hun individuele `media.json` volgt hetzelfde contract als regen. Het profiel voegt
+`fields_us`, `contours_us`, `labels_us`, `strokes_us` en `composition_us` toe. Deze laatste fase is kleurvulling
+en het tekenen van lijnen; regen staat onder `mixing_us`, klok/temperatuurpunten onder `overlay_us`.
+Voorbereiding, twee tekst-/rasterworkers en de ffmpeg-schrijver overlappen met begrensde wachtrijen.
+
+`--mode all` start de drie modi tegelijk op dezelfde twee rasterworkers. Kaartplaten en het immutable
+lettertype worden gedeeld. Bronrasters worden per bronframe gezamenlijk gedecodeerd en voorgefilterd;
+weak verwijzingen delen actieve buffers, en een cache van maximaal 8 MiB houdt recente regenbuffers vast
+wanneer de drie tijdplannen uiteenlopen. De batches in `all` zijn kleiner dan bij een losse modus.
+`media.json` verschijnt pas na de complete generatie en bevat `mode: "all"`, `generated`, `now`, `width`,
+`height`, `total_ms`, `shared_raster_hits` en een `modes`-object met de volledige individuele receipts.
+Alle MP4/JPEG-bestanden staan rechtstreeks in de uitvoermap. Timing per modus in `all` omvat wachten op
+de gedeelde kernen; meet losse modi voor hun eigen tijdlat. Parallelle fasetijden zijn niet optelbaar.
+
 ## Klokproeven voor de PO
 
 `--clock-variant schuif`, `--clock-variant klap` en `--clock-variant kruisfade` maken dezelfde regenloop met
@@ -78,7 +108,7 @@ de constante; Node geeft geen proefvariant door.
 ## Optionele Node-aanroep
 
 ```sh
-MOTREGEN_RUST_RENDERER=weather
+MOTREGEN_RUST_RENDERER=weather,feels,wind
 MOTREGEN_DATA_DIR=/pad/data
 MOTREGEN_RUST_BASEMAP_DIR=/pad/platen
 MOTREGEN_RENDER_BIN=/pad/motregen-render
@@ -88,7 +118,9 @@ De schakelaar staat standaard uit. Node geeft alleen de manifest-snapshot en pad
 uitvoercontract en neemt de complete MP4/JPEG-matrix over onder de bestaande cachesleutels. De rendereridentiteit
 in de sleutel onderscheidt deze beelden van de oude route. `MOTREGEN_RENDER_BIN` valt terug op `motregen-render`
 in PATH; het Nix-botpakket vult het pad automatisch in. Verwijder de schakelaar voor de bestaande route.
-Temperatuur- en windmodus blijven bij hun huidige renderer.
+Een modus die niet in de lijst staat gebruikt zijn bestaande renderer. Wind importeert alleen de film;
+regen en gevoelstemperatuur importeren ook alle 85 JPEGs zonder opnieuw te encoderen. Node roept per gekozen
+modus de renderer aan; de zelfstandige generatieaanroep kan `--mode all` gebruiken.
 
 ## Bouwen en meten
 
@@ -96,9 +128,9 @@ Temperatuur- en windmodus blijven bij hun huidige renderer.
 nix build .#motregen-render .#motregen-bot
 cargo build -p render --release
 cargo build -p render-core --target wasm32-unknown-unknown
-systemd-run --user --wait --pipe -p MemoryMax=400M -p CPUQuota=200% -p MemoryAccounting=yes \
+systemd-run --user --wait --pipe -p MemoryMax=600M -p CPUQuota=200% -p MemoryAccounting=yes \
   taskset -c 0,1 /absoluut/result/bin/motregen-render \
-  --data-dir /pad/data --basemap-dir /pad/platen --mode weather --out-dir /pad/media
+  --data-dir /pad/data --basemap-dir /pad/platen --mode all --out-dir /pad/media
 ```
 
 De Nix-wrapper zorgt dat ffmpeg ook binnen een systemd-unit gevonden wordt. Voor de Cargo-binary moet de

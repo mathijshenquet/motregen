@@ -290,7 +290,7 @@ pub fn render(
     };
     let mut plates = plates(basemap_directory, &rain_grid)?;
     if !wind {
-        for plate in &mut plates {
+        for plate in Arc::make_mut(&mut plates) {
             for pixel in plate.chunks_exact_mut(3) {
                 let gray = f64::from(pixel[0]) * 0.213
                     + f64::from(pixel[1]) * 0.715
@@ -355,6 +355,11 @@ pub fn render(
     let rain_pixels = rain.as_ref().map(|rain| Arc::clone(&rain.pixels));
     let mut total = Profile::default();
     let mut preparation_us = 0;
+    let batch_size = if crate::shared::inputs().is_some() {
+        1
+    } else {
+        4
+    };
     let (mut files, bytes, loop_ms) = thread::scope(|scope| -> Result<_> {
         let (sender, receiver) = mpsc::sync_channel::<Vec<Output>>(1);
         let writer = scope.spawn(|| -> Result<_> {
@@ -386,7 +391,7 @@ pub fn render(
         let producer = scope.spawn(|| -> Result<u128> {
             let input_sender = input_sender;
             let mut preparation_us = 0;
-            for (batch_index, times) in loop_epochs.chunks(4).enumerate() {
+            for (batch_index, times) in loop_epochs.chunks(batch_size).enumerate() {
                 let preparation_started = Instant::now();
                 let inputs = times
                     .iter()
@@ -411,7 +416,7 @@ pub fn render(
                         };
                         Ok(Input {
                             epoch: time,
-                            index: batch_index * 4 + offset,
+                            index: batch_index * batch_size + offset,
                             still: still_epochs.contains(&time),
                             night: dark(time),
                             slice,

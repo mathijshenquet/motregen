@@ -1,6 +1,6 @@
 use crate::constants::constants;
-use fontdue::{Font, FontSettings, Metrics};
-use std::collections::HashMap;
+use fontdue::{Font, Metrics};
+use std::{collections::HashMap, sync::Arc};
 
 struct Glyph {
     metrics: Metrics,
@@ -8,17 +8,14 @@ struct Glyph {
 }
 
 pub struct Text {
-    font: Font,
+    font: Arc<Font>,
     glyphs: HashMap<(char, u32), Glyph>,
 }
 
 impl Text {
     pub fn new() -> Result<Self, &'static str> {
         Ok(Self {
-            font: Font::from_bytes(
-                include_bytes!("../assets/InterVariable.ttf") as &[u8],
-                FontSettings::default(),
-            )?,
+            font: crate::font::inter()?,
             glyphs: HashMap::new(),
         })
     }

@@ -1,6 +1,6 @@
 use crate::constants::constants;
-use fontdue::{Font, FontSettings};
-use std::collections::HashMap;
+use fontdue::Font;
+use std::{collections::HashMap, sync::Arc};
 
 struct Stamp {
     width: usize,
@@ -10,7 +10,7 @@ struct Stamp {
 }
 
 pub struct RotatedText {
-    font: Font,
+    font: Arc<Font>,
     stamps: HashMap<(String, u32), Stamp>,
 }
 
@@ -24,10 +24,7 @@ pub struct TextStyle {
 impl RotatedText {
     pub fn new() -> Result<Self, &'static str> {
         Ok(Self {
-            font: Font::from_bytes(
-                include_bytes!("../assets/InterVariable.ttf") as &[u8],
-                FontSettings::default(),
-            )?,
+            font: crate::font::inter()?,
             stamps: HashMap::new(),
         })
     }
