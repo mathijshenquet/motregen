@@ -67,6 +67,13 @@ Ter vergelijking: veryfast/18 duurt 14,796 s (VM ~51,8 s), veryfast/16 16,840 s 
 De oorspronkelijke store-renderer opnieuw gemeten zonder RGB-capture: 12,122 s.
 De PM meldde 34,0 s op prod vóór deze wijziging; de definitieve VM-meting blijft zijn gate.
 
+De volledige offline-generatie via de **gebouwde Node- en Rust-storepakketten** duurt **12,631 s wall / 24,100 s CPU /
+388 MiB piek** onder dezelfde CPU-quota/affiniteit en MemoryMax=600M. Dit omvat manifestlezen, één Rust-all-proces,
+cache-import, 3 films en 170 JPEGs; de cache wordt ook met een nieuwe StillRenderer hergebruikt. Geen netwerk of browser.
+Voor de hele botgeneratie voorspelt factor 3,5 dus **44,2 s op de VM**, binnen ~45 s. De storefilms zijn ieder één byte
+groter door container-metadata (`moov`); de gehele `mdat`-payload is bytegelijk, alle gedecodeerde frames gelijk
+en alle 170 JPEGs bytegelijk aan de review-uitvoer.
+
 Beelden, films, alle varianten en meettabel: [lokale reviewpagina](http://ageq-dev2:4397/review/quality/index.html).
 Er zijn geen Telegram-uploads, pollerstarts of prod-acties uitgevoerd.
 
@@ -81,3 +88,8 @@ node tools/measure-video-quality.mjs QUALITY_DIR --high
 Het meetprogramma bewaart per encode het exacte commando, exit 0, ffprobe-data en SSIM per frame.
 Een volledige generatie meten gebruikt de gebouwde store-renderer, dezelfde datasnapshot en geen kwaliteitsoverschrijvingen.
 Voor reviewbestanden is de 20 MB-grens niet toegepast op afgewezen matrixvarianten; productie weigert overschrijdingen.
+
+Gate synchroon exit 0: cargo test render-core/render (31 tests), clippy --all-targets -D warnings, fmt,
+bot typecheck/test (130 tests)/build, nix flake check --no-build en nix build motregen-render + motregen-bot.
+Browserreview: 84 lokale links HTTP 200, drie films afspeelbaar op 960×1272, alle 18 uitsnedes werkelijk 480×360 op 100%,
+geen paginafouten; desktop en smal scherm bekeken.

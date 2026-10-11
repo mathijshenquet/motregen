@@ -28,8 +28,9 @@ for (const mode of ['wind', 'feels', 'weather']) {
     const name = `${mode}-${preset}-${crf}${high ? '-high' : ''}`
     const path = join(directory, `variants/${name}.mp4`)
     const args = ['-hide_banner', '-loglevel', 'error', '-y', '-filter_threads', '1', '-f', 'rawvideo', '-pixel_format', 'rgb24', '-video_size', '960x1272', '-framerate', fps, '-i', raw, '-vf', `tpad=stop_mode=clone:stop=${media.hold_frames},setsar=1`, '-frames:v', String(media.frames + media.hold_frames), '-c:v', 'libx264', '-threads', '1', '-preset', preset, '-crf', String(crf), '-profile:v', 'high', ...(high ? ['-x264-params', '8x8dct=1'] : []), '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', '-f', 'mp4', path]
-    const encoded = await run('systemd-run', ['--user', '--wait', '--pipe', `--unit=u80-${name}`, '-p', 'CPUQuota=200%', `--setenv=PATH=${process.env.PATH}`, 'taskset', '-c', '0,1', ffmpeg, ...args])
-    await writeFile(join(directory, `receipts/${name}-encode.txt`), JSON.stringify({ command: ['systemd-run', '--user', '--wait', '--pipe', `--unit=u80-${name}`, '-p', 'CPUQuota=200%', 'taskset', '-c', '0,1', ffmpeg, ...args], wall_ms: encoded.ms, exit: 0 }) + '\n' + encoded.stderr)
+    const command = ['--user', '--wait', '--pipe', `--unit=u80-${name}`, '-p', 'CPUQuota=200%', `--setenv=PATH=${process.env.PATH}`, 'taskset', '-c', '0,1', ffmpeg, ...args]
+    const encoded = await run('systemd-run', command)
+    await writeFile(join(directory, `receipts/${name}-encode.txt`), JSON.stringify({ command: ['systemd-run', ...command], wall_ms: encoded.ms, exit: 0 }) + '\n' + encoded.stderr)
     const measured = await run(ffmpeg, ['-hide_banner', '-nostats', '-threads', '1', '-i', path, '-f', 'rawvideo', '-pixel_format', 'rgb24', '-video_size', '960x1272', '-framerate', fps, '-i', raw, '-filter_complex_threads', '1', '-lavfi', `[0:v]trim=end_frame=${media.frames},setpts=PTS-STARTPTS,format=yuv444p[dist];[1:v]setpts=PTS-STARTPTS,format=yuv444p[ref];[dist][ref]ssim=stats_file=${join(directory, `receipts/${name}-ssim.frames`)}:shortest=1`, '-frames:v', String(media.frames), '-an', '-f', 'null', '-'])
     await writeFile(join(directory, `receipts/${name}-ssim.txt`), measured.stderr)
     const ssim = Number(measured.stderr.match(/All:([\d.]+)/)?.[1])
