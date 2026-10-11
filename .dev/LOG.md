@@ -1,5 +1,13 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-11 15:45 CEST — U80 met U76 en MIP-31 gemerged; volledige onafhankelijke gate groen
+
+Worker759c271d658418e366f56e5e93f18b7b3bae5425, PR108 exactdiehead, geen GitHubCI-workflow geconfigureerd/statusrollup leeg. Productiecode sindsaa3caa1 ongewijzigd, zelfstandig geverifieerd. jj-merge7542749c metmain6e212de1 zonderconflict; actieveCSV-only wijziging met jj rebase onto main behouden, nietgesplitst/gecommit. Uitrol geautoriseerd doorPO.
+
+Alle onafhankelijke synchrone exits0: cargo fmt --all --check; cargo clippy --workspace --all-targets -- -D warnings; cargo test -p render-core -p render (37); wasm32-build; webtypecheck/569tests/build; bottypecheck/133tests/build; MOTREGEN_E2E_PORT=4392 MOTREGEN_E2E_DATA_PORT=8392 pnpm -C web e2e e2e/telegram.spec.ts --project desktop (7/7,24,8s); nix flake check --no-build; nix build checks.nixos-vm+toplevel+renderer. Exacte scripts/receipts in web/tmp/orkestrator/pm-u80-20261011/final-gate. Schoneintegratie naJS/e2e.
+
+Echte twee lokaleNixOS-testnodes, testscript35,16s, cleanup afgerond; Rust-probe onderechtehardening12104ms/3films/170stills metmixed109/217/289 en5,6/5,6/7,5fps. VM-teststoregd229c, integrationsysteemv17sbf, render11c9ql exactzelfde alsVM38,359s-meting. Definitieve6dag/nachtbeelden zelfbekeken; Windfilmsha gelijkgekeurdevariant, overige172filesgelijkbaseline. Nu exactemainboom bouwen/kopiëren en deployen; LOGpasnaproductiecontrole opnieuwcommitteren.
+
 ## 2026-10-11 15:39 CEST — Gekozen standaard op VM: 38,359 s; PO vraagt uitrol en sessie afsluiten
 
 Nix-renderer11c9ql, zelfde vaste generated12:47:47Z/now12:45Z als de eerdere48,285s-meting. Nieuwe volledige generatie: media38304ms, wand38,359s, CPU69,297s, piek575MiB, geen swap, alle drie films en170JPEG, systemdSUCCESS. Wind289+8/7,5fps zonderregen metdruk; andere plannen gelijk. Alle172regen/temperatuurbestanden SHA256-identiek aan eerdereall. Exacte opdrachten/receipts final-r1-* inPMscratch. De samenvattingsparser miste CPU in min+s-notatie; alleen parser hersteld en bestaande succesvolle receipt opnieuw verwerkt, render niet herhaald.
