@@ -516,6 +516,15 @@
   incl. wasm. **Wacht op PO**: akkoord op wind-/temperatuurbeelden → dan merge + uitrol in één keer + controle op
   prod. Terugval: `rustModes = [ ]` of `nixos-rebuild switch --rollback`. Open: generatie pas starten na 30 s
   stabiel manifest (voorstel worker), stills op aanvraag.
+- 12:14: **Rust-renderer live op prod** (main 631048a = U80 f4cc331 incl. U76; PO: "ja het is wel goed"). Closure
+  op de dev-host gebouwd en met `nix copy` naar de VM gezet (geen Rust-build op de VM), daarna `nixos-upgrade`;
+  actieve systeem = die closure. Bot: `MOTREGEN_RUST_RENDERER=weather,feels,wind`, geen Chromium-env, 0 herstarts.
+  Generaties: 57 s en 70 s en 55 s direct na de uitrol (ingest deed startup-backfill op 89 % CPU), daarna **34,0 s
+  en 34,1 s** (was 170–220 s). Geheugen: ~100 MB anon, rest bestandscache; cgroup-piek 758 MB van 1200. Oude
+  `.frames`-mappen lopen leeg via de bestaande retentie. Prod-beelden zelf bekeken (regen/wind/temperatuur).
+  **PO-vraag filmkwaliteit** ("best low res"): 960×1272, x264 ultrafast, eigen grens 2,5 MB per film → ~1,15 Mbit/s;
+  identiek aan de oude route. U80 ronde 3 loopt: preset/grens instelbaar + zes varianten met tijden en SSIM voor
+  de PO-keuze. Open: generatie pas na 30 s stabiel manifest; stills op aanvraag; regen in Wind/Lucht (app, PR #109).
 
 ## 2026-10-10 — tg-bot op prod vastgelopen (13:00)
 - Symptoom (PO): bot antwoordt niet. Laatste generatie 05:57; daarna `refresh-failed … TimeoutError` (07:16) en
