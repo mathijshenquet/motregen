@@ -102,3 +102,25 @@ de Node-route, dus een tussenstand met Node op het nieuwe kader en de oude klok 
    Geen prod-acties: uitrol en controle op de VM doet de orkestrator.
 
 Meld "klaar voor uitrol" met head-sha. Wacht binnen de turn op je eigen gates; commit elke 15–20 minuten.
+
+## Ronde 3 — filmkwaliteit (2026-10-11, na uitrol van 631048a)
+
+PO over de Rust-films: "het ziet er best low res uit". Feiten: 960×1272, x264 `ultrafast`, crf 25 met `maxrate` =
+2,5 MB / duur; alle drie de films lopen tegen die grens aan (wind en temperatuur ~1,15 Mbit/s, regen ~0,8 Mbit/s,
+Constrained Baseline). De grens is van onszelf (uit de Node-route overgenomen). De generatie op prod duurt nu
+~34 s; er is dus rekentijd over.
+
+1. Maak preset en groottegrens instelbaar (argument of omgevingsvariabele, standaard = huidig gedrag, één plek).
+2. Lever de **wind**film en de **regen**film van dezelfde datasnapshot in deze varianten: (a) huidig; (b) `veryfast`
+   2,5 MB; (c) `medium` 2,5 MB; (d) `ultrafast` 5 MB; (e) `veryfast` 5 MB; (f) `veryfast` 8 MB. Zie je een variant
+   die duidelijk beter past (profiel High, tune, andere bufsize, twee-pass binnen de tijd), voeg hem toe en zeg waarom.
+3. Per variant: bestandsgrootte, werkelijke bitrate, encodetijd en totale tijd op de dev-host onder
+   `systemd-run --user --wait -p CPUQuota=200% taskset -c 0,1` (synchroon exit 0), plus een objectieve maat tegen de
+   ongecomprimeerde frames (SSIM of VMAF, wat ffmpeg hier kan).
+4. Eén beeldenpagina op de bestaande preview (4397): de films per variant, en per variant dezelfde uitsnede op
+   ware grootte (100 %) van één druk frame (streepjes over land met labels; dichte regen met een rode kern), zodat
+   het verschil zonder afspelen te zien is. Bekijk ze zelf en zeg welke je zou kiezen en wat het op de VM kost
+   (de VM is ~3,5× trager dan deze meting).
+5. Niets aan de standaard veranderen; de PO kiest. Gate: cargo test/clippy/fmt, `nix flake check --no-build`.
+
+Meld "kwaliteitsvarianten klaar" met head-sha en de URL.
