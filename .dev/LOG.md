@@ -1,5 +1,9 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-11 22:41 CEST — PO vraagt adaptieve tijdcursor, labels en klokvlag; live dev-preview
+
+MIP-33 legt de expliciete PO-opdracht vast. De grafiek heeft al een hemel en dag/nachtliniaal, maar cursor/labels gebruikten het app-thema. Cursor en labels volgen nu dezelfde hemelgrens op de geselecteerde tijd; zonder Expressief blijft het app-thema leidend. Cursorklok genest onder de lijn en zonder tussenruimte als vlag, links met uitwijk naar rechts aan het begin. Plan: typecheck, vroege draft-PR, geïsoleerde HMR-preview met live data, zelf dag/nacht op desktop/mobiel bekijken. Geen merge/uitrol tijdens deze visuele iteratie. U76/U80 blijven bevroren, live Skywatch-CSV buiten commits.
+
 ## 2026-10-11 22:35 CEST — Tweeregelige temperatuurklok gemerged, uitgerold en gecontroleerd
 
 PO-aanvulling op MIP-32 uitgevoerd: Gevoels- en temperatuur op twee regels. Klokvak past bij de breedste regel en groeit één regel in hoogte; labeluitsluiting volgt dezelfde grenzen. Bovenpositie 107 px, beide rechterhoeken, tijd/datum en schuifovergang behouden. Rust-cacheversie 31→32, met regressie op de vorige temperatuurfilm- en stillkey. PR 112 exact head 71ae5f310243749bd4790002a697131e482f5835, handmatig met jj naar main gepromoveerd na alle onafhankelijke checks; GitHub bevestigt MERGED. Geen GitHub-CI geconfigureerd.

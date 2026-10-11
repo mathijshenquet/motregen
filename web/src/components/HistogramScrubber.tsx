@@ -423,6 +423,7 @@ export default function HistogramScrubber(props: Props) {
   })
   // Voorleestekst op minuten: niet per afspeeltik opnieuw formatteren (U41).
   const cursorMinute = createMemo(() => Math.floor(cursorEpoch() / 60_000) * 60_000)
+  const cursorSky = createMemo(() => skyVisible() ? rulerNightAt(xAt(cursorMinute())) ? 'night' : 'day' : undefined)
   const valueText = createMemo(() => {
     const epoch = cursorMinute()
     const time = formatTime(epoch)
@@ -629,7 +630,7 @@ export default function HistogramScrubber(props: Props) {
         resumeAfterPointerInteraction()
       }}
     >
-      <div class="chart-plot" classList={{ 'sky-ruler': skyVisible() }} ref={plotElement}>
+      <div class="chart-plot" classList={{ 'sky-ruler': skyVisible() }} data-cursor-sky={cursorSky()} ref={plotElement}>
         <div ref={trackElement} class="chart-track" classList={{ tween: tween() }} style={{ width: `${trackWidth()}px`, transform: `translateX(${shownOffset()}px)` }} aria-hidden="true">
           {/* Buiten de tijdlijn: gestreept "geen data" (PO 2026-09-25 live, U34), schuift mee met de baan. */}
           <div class="past-shade" style={{ width: `${nowX()}px` }} />
@@ -747,13 +748,14 @@ export default function HistogramScrubber(props: Props) {
           <div class="scrubber-placeholder" classList={{ "on-sky": skyVisible() }} role="status"><span>{LOADING_LABELS[view()]}</span></div>
         </Show>
         <Show when={!props.loading && !props.values.length}><span class="empty-graph">Kies een locatie voor de regengrafiek</span></Show>
-        <div class="cursor-marker" style={{ left: `${cursorX()}px` }} />
         {/* De kaarttijd aan de cursor (PO 2026-10-11). Links van de lijn: rechts staan de waarden en, in Lucht, het
             label van de hoge wolken. Alleen aan het begin van de tijdlijn, waar de cursor tegen de linkerwand loopt,
             past het daar niet en wijkt het uit naar rechts. */}
-        <Show when={props.timeline.length}>
-          <div class="cursor-time" classList={{ 'right-of-cursor': cursorX() < CURSOR_TIME_ROOM_PX }} style={{ left: `${cursorX()}px` }} aria-hidden="true"><span>{formatTime(cursorMinute())}</span></div>
-        </Show>
+        <div class="cursor-marker" style={{ left: `${cursorX()}px` }}>
+          <Show when={props.timeline.length}>
+            <div class="cursor-time" classList={{ 'right-of-cursor': cursorX() < CURSOR_TIME_ROOM_PX }} aria-hidden="true"><span>{formatTime(cursorMinute())}</span></div>
+          </Show>
+        </div>
         <Show when={!props.loading && (view() === 'rain' || view() === 'cover') && (cursorValue() ?? 0) >= 0.05}>
           <div class="cursor-readout" classList={{ tween: tween() }} style={{ left: `${cursorX()}px`, top: `${barTop(cursorValue())}px` }} aria-hidden="true">
             <span>{formatRate(cursorValue()!)}</span>
