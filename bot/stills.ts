@@ -72,7 +72,7 @@ export function cacheKey(selection: MediaSelection, manifest: StillManifest): st
   const epoch = selection.hour === 'loop' ? Date.parse(manifest.now) : stillEpoch(manifest, selection.hour)
   const backend = rustRenderer(selection.mode) ? 'rust' : nativeRenderer(selection.mode)
   const identity = JSON.stringify({
-    renderer: backend === 'rust' ? 29 : backend === 'playwright' ? 15 : selection.mode === 'weather' ? 21 : 22,
+    renderer: backend === 'rust' ? 30 : backend === 'playwright' ? 15 : selection.mode === 'weather' ? 21 : 22,
     size: FRAME_PIXELS,
     view: backend === 'playwright' ? undefined : NATIVE_VIEW,
     mode: selection.mode,

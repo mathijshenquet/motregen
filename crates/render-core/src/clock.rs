@@ -9,8 +9,7 @@ pub enum ClockTransition {
     Klap,
 }
 
-// The PO chose rounding without an effect; transitions remain available as optional previews.
-pub const CLOCK_TRANSITION: Option<ClockTransition> = None;
+pub const CLOCK_TRANSITION: Option<ClockTransition> = Some(ClockTransition::Schuif);
 const SLIDE_TICKS: [f32; 2] = [1.0 / 6.0, 15.0 / 16.0];
 
 impl ClockTransition {

@@ -68,21 +68,20 @@ het loopvenster gebruiken het RGB-loopframe rechtstreeks: 175 composities voor 1
 `pnpm -C bot render:constants` genereert de ingebedde JSON; de botbuild draait dit ook. De constantentest
 faalt bij drift. De kern heeft geen bestands-, netwerk- of systeemkloktoegang en bouwt voor wasm32.
 
-De loopklok toont de dichtstbijzijnde vijfminutentijd, zonder overgangseffect. Bij 100 seconden kaarttijd
-per frame wordt `06:00, 06:01:40, 06:03:20, 06:05, 06:06:40, 06:08:20` getoond als
-`06:00, 06:00, 06:05, 06:05, 06:05, 06:10`. Exact halverwege rondt de klok vooruit af. Klok en dag
-komen uit dezelfde afgeronde tijd in Europe/Amsterdam; de regen, kaartthema en geschiedenis-/verwachtingskleur
-blijven de werkelijke kaarttijd volgen. Stills tonen hun eigen exacte tijd. De 19 gedeelde stills liggen al
-op veelvouden van tien minuten, dus dezelfde compositie past bij loop en still.
+De loopklok schuift tussen echte vijfminutentijden. Bij 100 seconden kaarttijd per frame zijn de
+schuifposities `0 → 1/6 → 15/16 → 1`: het laatste tussenframe toont het nieuwe cijfer bijna op zijn
+eindpositie. Alleen de veranderende cijfers bewegen; de overige cijfers en dubbele punt blijven stil.
+Dit geldt ook bij brondata met uurstappen. Datum, regen, kaartthema en geschiedenis-/verwachtingskleur
+volgen de werkelijke kaarttijd in Europe/Amsterdam. Stills tonen hun eigen exacte tijd, zonder beweging.
+De 19 gedeelde stills liggen op veelvouden van tien minuten, dus dezelfde compositie past bij loop en still.
 
-De bewaarde proefvarianten zijn te kiezen met `--clock-variant schuif` of `--clock-variant klap`.
-Ze animeren uitsluitend de veranderende cijfers tussen vijfminutentijden,
-op de twee tussenframes. `schuif` verplaatst de cijfers op die frames tot ⅙ en 15/16 van de hoogte;
-het laatste tussenframe toont het nieuwe cijfer bijna op zijn eindpositie. `SLIDE_TICKS` bepaalt beide posities.
-`klap` volgt de gewone ⅓ en ⅔ van de overgang. Vaste cijferkolommen houden de overige cijfers en dubbele punt stil.
-`CLOCK_TRANSITION` in `crates/render-core/src/clock.rs` staat op `None`: de standaard gebruikt afronding
-zonder effect. De CLI-keuze gaat voor de constante; Node geeft geen proefvariant door. `clock_variant`
-registreert de keuze in het receipt. Stills tonen bij iedere variant hun eigen tijd.
+`CLOCK_TRANSITION` in `crates/render-core/src/clock.rs` staat op `Some(ClockTransition::Schuif)`;
+`SLIDE_TICKS` bepaalt beide schuifposities. `--clock-variant schuif` kiest dezelfde standaard expliciet;
+de bewaarde proefvariant `--clock-variant klap` volgt de gewone ⅓ en ⅔ van de overgang.
+De CLI-keuze gaat voor de constante; Node gebruikt de standaard. `clock_variant` registreert de keuze
+in het receipt. Stills tonen bij iedere variant hun eigen tijd. Met de constante op `None` rondt de
+klok op de dichtstbijzijnde vijf minuten af zonder effect: `06:00, 06:00, 06:05, 06:05, 06:05, 06:10`.
+Exact halverwege rondt deze variant vooruit af; klok en datum gebruiken dan dezelfde afgeronde tijd.
 
 ## Optionele Node-aanroep
 
