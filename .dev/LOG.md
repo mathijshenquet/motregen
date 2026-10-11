@@ -1,5 +1,11 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-11 15:18 CEST — Temperatuurproef: beeldgelijkheid onafhankelijk bevestigd, totale winst niet bewezen
+
+Eigen synchrone controle exit 0 van de workerproef: alle 223 gedecodeerde filmframes en 85 JPEG-stills gelijk, maxDelta 0 over 1.085.736.960 RGB-bytes. Bovendien alle 86 uitvoerbestanden byte-identiek. Receipts temperature-independent-proof.txt/json en temperature-file-proof.json in PM-scratch.
+
+Tijdelijke profilering splitst het kleurvlak (sampling en upscale), lijnen, contour-tracing en ringraster. De uniforme-RGBA-hoekenproef versnelt upscale, maar AB/BA/AB geeft wisselende totale wandtijd; daarom voorlopig niet in de productiestandaard. U80 werkt het aangenomen windbesluit uit; PM wacht de finale gated head af. Uitrol blijft geautoriseerd, MIP-30 E2 blijft open.
+
 ## 2026-10-11 15:15 CEST — MIP-31 aangenomen: wind 7,5 fps zonder regen, met isobaren
 
 PO koos expliciet de gemeten variant zonder regen, met isobaren (10,716 s afzonderlijk op VM). Wind krijgt 75 s kaarttijd per frame, 15/2 fps en acht holdframes; Regen en Gevoelstemperatuur behouden 100 s / 5,6 fps. Besluit vastgelegd in MIP-31. U80 aangestuurd voor de echte productiestandaard, gedeelde constanten en fallback; geen productie-probeopties.
