@@ -1,5 +1,17 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-11 23:29 CEST — PO vraagt radarachtige wolkenkaart; kwaliteit deels afleidbaar, eigen middeling verklaart verlies
+
+PO: kan data regenwolken/zon afwisselend tegenover gesloten halfgrijs onderscheiden; radarachtig beeld gewenst, gefingeerd waar nodig expliciet toegestaan. Antwoord: bedekking is momentaan, geen tijdspercentage; lagen+straling+regen geven aanwijzingen, geen unieke reconstructie van wolkenvorm/zonminuten. CMF alleen onderscheidt afwisselende en constant gedempte helderheid niet. KNMI primaire documentatie HARMONIE en actuele MSG-/MTG-CPP geraadpleegd: satellietmasker/optische dikte/licht, MTG vanaf aug2026 tienminuten en2km onder satelliet, sommige producten alleen dag.
+
+In eigen pipeline bewijs: cloud_frac en drie lagen integraal gemiddelde8x8 op HOURLY_GRID2000m, gepubliceerd SUMMARY_GRID16000m (Web-Mercatorafstanden); straling4x4 naar8000m. Daardoor gaat ruimtelijke wolkenstructuur al in ingest verloren, niet alleen door de renderer. CSV niet gelezen/gewijzigd. MIP34 herzien: bedekking→gaten/vormen, licht→tint/grondstemming, coherent kaartvast detail toegestaan. Eerste voorstel modelvormenproef in dev; extra HARMONIE-detail of satellietingest aparte keuze. Status nog draft, geen appcode/prod gewijzigd. DocsPR114 bijgewerkt; cursorpreview4390/PR113 ongewijzigd.
+
+## 2026-10-11 23:24 CEST — PO vindt wolkenkaart wit en weinig informatief; MIP-34 als ontwerpvoorstel
+
+Code en eerdere besluiten MIP-14/18/24 gelezen. Huidige Luchtkaart gebruikt uitsluitend cloud_frac met bijna-witte dekking tot0,55 overdag en grijsblauw tot0,30 nacht. De grafiek heeft al CMF uit straling/heldere-hemelreferentie en lagen-terugval. Echte Luchtkaart op12oct12:00 en11oct22:30 CEST zelf bekeken; witte dagwaas en grote nachtvlakken zichtbaar, baselinecapture synchroon exit0 zonder browserfouten.
+
+MIP-34 status draft: regionale lichtkaart, heldere kaart bij veel licht en koeler/grijzer tot loodgrijs bij weinig licht, beperkt mengen met behoud van labels; lagen-terugval bij onbruikbare straling, aparte nachtlogica. Eerst richting door PO laten kiezen conform eerst-plan-dan-doen en proposals-over-qa. Geen appcode of data gewijzigd, geen merge/uitrol. Eigen HMR-preview4390 met cursorPR113 blijft op9ed94e19 draaien. Skywatch-CSV buiten commits; U76/U80 bevroren. Voorstel wordt als afzonderlijke docsbranch/PR boven op de cursorbranch gepubliceerd. Receipts en beelden in genegeerde web/tmp/orkestrator/cloud-map-design-20261011/.
+
 ## 2026-10-11 22:50 CEST — Adaptieve cursor en klokvlag klaar in live dev-preview; draft-PR 113
 
 MIP-33 geïmplementeerd, vroege draft-PR https://github.com/mathijshenquet/motregen/pull/113 op branch ui/cursor-dag-nacht-vlag. Cursorlijn, meetpuntjes en alle cursorlabels volgen dezelfde dag/nachtgrens als de hemel op de cursortijd. Daginkt donker en nachtdinkt licht, ook wanneer het app-thema anders is; Expressief uit gebruikt de themakleuren. Cursorklok genest aan de lijn als vlag, links en aan de linkerwand rechts, zonder ruimte ertussen. Eerste codecommit d6d39339; laatste dagpaletcorrectie plus deze registratie volgen in een tweede commit.
