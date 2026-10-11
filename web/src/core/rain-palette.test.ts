@@ -212,6 +212,13 @@ describe('reading the intensity order', () => {
   // CIE76; 2,3 is net waarneembaar. Twintig is het verschil tussen twee kleuren die je los van elkaar benoemt.
   const MINIMUM_BAND_DIFFERENCE = 20
 
+  // PO 2026-10-11: het nachtviolet moet er "eng" uitzien; het bleke lavendel dat voor kleurenblinden in helderheid van
+  // het blauw afstak las als vaal en wit. Een verzadigd violet is voor wie geen rood of groen ziet een blauw van
+  // dezelfde helderheid, dus 's nachts is blauw tegen violet in de violet-paletten alleen bij normaal kleurzicht te
+  // onderscheiden. Rood blijft voor iedereen duidelijk; dat toetst de test hieronder nog steeds.
+  const isNightBlueAgainstViolet = (palette: string, theme: MapTheme, pairStartsAt: number) =>
+    theme === 'dark' && ['blauw-violet-rood', 'violet-klassen', 'violet-laat'].includes(palette) && pairStartsAt === 0
+
   it('tells light, moderate and heavy rain apart at a glance, also without red or green cones', () => {
     for (const palette of NEW_PALETTES) for (const blend of ['drempel', 'drempel-zacht'] as const) for (const theme of THEMES) {
       const look: RainLook = { palette, blend, theme }
@@ -219,6 +226,8 @@ describe('reading the intensity order', () => {
       const bands = Object.entries(rates).map(([band, rate]) => ({ band, colour: colourAtRate(look, rate) }))
       for (const [visionName, vision] of Object.entries(VISION)) {
         for (const [position, left] of bands.entries()) for (const right of bands.slice(position + 1)) {
+          const nextBand = bands[position + 1] === right
+          if (visionName !== 'normaal' && nextBand && isNightBlueAgainstViolet(palette, theme, position)) continue
           expect(colourDifference(left.colour, right.colour, vision), `${palette} ${blend} ${theme} ${visionName}: ${left.band} tegen ${right.band}`).toBeGreaterThanOrEqual(MINIMUM_BAND_DIFFERENCE)
         }
       }

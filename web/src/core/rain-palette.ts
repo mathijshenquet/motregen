@@ -104,8 +104,8 @@ function violetGradient(at: { blue: number; violet: number; purple: number; red:
     dark: [
       stopAt(0.1, NIGHT_BLUE),
       stopAt(at.blue, [84, 144, 236]),
-      stopAt(at.violet, [212, 186, 255]),
-      stopAt(at.purple, [244, 184, 244]),
+      stopAt(at.violet, [132, 56, 228]),
+      stopAt(at.purple, [204, 48, 196]),
       stopAt(at.red, [250, 84, 88]),
       stopAt(40, [255, 144, 134]),
       stopAt(120, [255, 212, 204]),

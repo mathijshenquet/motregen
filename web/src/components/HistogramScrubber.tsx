@@ -110,6 +110,8 @@ const SLIDE_TOLERANCE_PX = 2
 const SLIDE_DURATION_MS = 120_000
 // Hoogte van de tijdliniaal boven het plot; gelijk aan `top` van .chart-plot in styles.css.
 const RULER_HEIGHT_PX = 26
+// Breedte die het tijdlabel links van de cursorlijn nodig heeft ("23:59" op 11 px plus marge).
+const CURSOR_TIME_ROOM_PX = 56
 // Onder dit daglicht krijgt de liniaal lichte inkt op een donkere sluier (U62).
 const RULER_NIGHT_DAYLIGHT = 0.5
 
@@ -746,6 +748,12 @@ export default function HistogramScrubber(props: Props) {
         </Show>
         <Show when={!props.loading && !props.values.length}><span class="empty-graph">Kies een locatie voor de regengrafiek</span></Show>
         <div class="cursor-marker" style={{ left: `${cursorX()}px` }} />
+        {/* De kaarttijd aan de cursor (PO 2026-10-11). Links van de lijn: rechts staan de waarden en, in Lucht, het
+            label van de hoge wolken. Alleen aan het begin van de tijdlijn, waar de cursor tegen de linkerwand loopt,
+            past het daar niet en wijkt het uit naar rechts. */}
+        <Show when={props.timeline.length}>
+          <div class="cursor-time" classList={{ 'right-of-cursor': cursorX() < CURSOR_TIME_ROOM_PX }} style={{ left: `${cursorX()}px` }} aria-hidden="true"><span>{formatTime(cursorMinute())}</span></div>
+        </Show>
         <Show when={!props.loading && (view() === 'rain' || view() === 'cover') && (cursorValue() ?? 0) >= 0.05}>
           <div class="cursor-readout" classList={{ tween: tween() }} style={{ left: `${cursorX()}px`, top: `${barTop(cursorValue())}px` }} aria-hidden="true">
             <span>{formatRate(cursorValue()!)}</span>

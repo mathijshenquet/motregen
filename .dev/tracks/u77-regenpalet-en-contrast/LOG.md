@@ -453,3 +453,37 @@ dat palet is dag en nacht gelijk.
 `pnpm typecheck` 0 · `pnpm test` 0 (84 bestanden, 565 tests) · `pnpm build` 0 ·
 `MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts e2e/cloud-section.spec.ts --project desktop` 0 (8 groen).
 Preview 4320 serveert deze build (`index-BK-IHBs5.js`).
+
+## 2026-10-11 08:55 — PO in de pane: nachtviolet te vaal, kaarttijd aan de cursor
+
+### Nachtviolet verzadigd
+PO: "in de nacht ziet de violette categorie histogram bars er nu een beetje vaal/wit uit, niet echt 'eng'" (met twee
+schermbeelden: dezelfde bui met lavendel-roze nachtstaven naast diepviolette dagstaven).
+Oorzaak: het nachtviolet was bewust bleek lavendel (212,186,255 → 244,184,244), zodat het voor kleurenblinden in
+helderheid van het blauw afstak. Sinds de staven het palet van hun eigen uur volgen staat dat lavendel ook in het
+histogram, pal naast het dagviolet. Nu: verzadigd violet 132,56,228 → paarsmagenta 204,48,196, dan rood (in
+`violetGradient`, dus voor alle drie de violet-paletten en ook op de nachtkaart: één tabel).
+Prijs, gemeten (`metingen/bandverschil-per-palet.md`): een verzadigd violet is zonder rood- of groengevoelige
+kegeltjes een blauw van dezelfde helderheid. 's Nachts is blauw tegen violet dan alleen bij normaal kleurzicht te
+zien (blauw-violet-rood 60 / 9, violet-klassen 59 / 20, violet-laat op 0,5 · 4,5 mm/u 12 / 5); rood blijft voor
+iedereen duidelijk (≥ 69). De unit-test zondert precies dat paar uit, met deze reden erbij, en toetst de rest.
+Zelf bekeken: `beelden/nachtviolet-radar-nacht-vast-1280.webp` (kernen nu paars en magenta in plaats van wit-roze).
+NIET in het histogram zelf gezien: op de standaardlocatie (Utrecht) viel vanochtend geen matige regen; de staven
+lezen dezelfde tabel.
+
+### Kaarttijd aan de cursor in het histogram
+PO: "kan jij ook nog even aan de cursor in het histogram bovenaan de current time vastmaken? soortgelijk als de
+10 mm/h-achtige dingetjes maar dan bovenaan" en "je moet ff kijken dat niet botst met 'hoge wolken' in de lucht view".
+`.cursor-time` in `HistogramScrubber.tsx`: de kaarttijd (per minuut) als labeltje bovenaan de cursorlijn, in elke
+weergave. LINKS van de lijn: rechts staan de regen-, temperatuur- en windwaarden en in Lucht de labels van de
+wolkenlagen, met "hoge wolken" bovenaan. Alleen aan het begin van de tijdlijn, waar de cursor tegen de linkerwand
+loopt (minder dan 56 px ruimte), wijkt het uit naar rechts; daar kán het dus wel over "hoge wolken" vallen.
+Zelf bekeken: `beelden/tijdlabel-aan-cursor.webp` (Weer en Lucht op 1280, Lucht op 390). Er waren op dat moment
+geen hoge wolken, dus het label zelf staat niet in beeld; "midden wolken" en "lage wolken" staan rechts van de
+lijn, het tijdlabel links. De oude grote pil boven de cursor (weg sinds U34) is dit niet; de test daarvoor blijft.
+
+### Gate (web/), 08:54
+`pnpm typecheck` 0 · `pnpm test` 0 (84 bestanden, 565 tests) · `pnpm build` 0 ·
+`MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts e2e/cloud-section.spec.ts --project desktop` 0 (8 groen).
+Preview 4320 serveert deze build (`index-B-JZaydH.js`). Het tijdlabel staat ook zonder `?dev` aan (het is geen
+proefknop); het nachtviolet alleen via de violet-paletten onder `?dev`. Nog steeds niets als standaard vastgezet.

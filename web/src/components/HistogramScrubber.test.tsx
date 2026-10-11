@@ -118,6 +118,8 @@ describe('histogram scrubber', () => {
     // U34: geen tijdsbereikknoppen en geen pil boven de cursor.
     expect(screen.queryByRole('group', { name: 'Tijdsbereik' })).toBeNull()
     expect(container.querySelector('.cursor-pill')).toBeNull()
+    // U77: wel de kaarttijd als klein label bovenaan de cursorlijn, zoals de waarde eronder.
+    expect(container.querySelector('.cursor-time')!.textContent).toMatch(/^\d\d:00$/)
     expect(container.querySelectorAll('.rain-bar')).toHaveLength(4)
     expect(container.querySelectorAll('.rain-bar.pending')).toHaveLength(1)
   })
