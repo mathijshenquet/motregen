@@ -96,3 +96,51 @@ proeftool instrumenteert alleen een bronkopie. Vervolg op expliciet PM-verzoek:
 fill/lines en trace/ring apart meten; één proef met gelijke RGBA-hoekjes versnellen,
 zonder resolutie, kleuren, contouren of fade te wijzigen. Pas productiecode alleen
 aan bij gecontroleerde winst en vergelijking van alle filmframes en85 JPEGs.
+
+### Afgeronde temperatuurproef: niet opgenomen
+
+`profile-temperature-preview.mts` maakt twee bronkopieën: `baseline` en
+`equal-corners`. Beide krijgen uitsluitend tijdelijke tijdmetingen; de tweede
+handelt vier gelijke RGBA-bronhoekjes rechtstreeks af. De proef verandert geen
+resolutie, kleuren, contouren, fade of niet-uniforme interpolatie.
+
+| Paar | Baseline s / CPU s | Proef s / CPU s | Upscale baseline / proef s |
+|---|---:|---:|---:|
+| AB | 8,907 / 16,468 | 9,637 / 16,431 | 5,422 / 2,843 |
+| BA | 10,218 / 18,699 | 9,019 / 16,226 | 6,035 / 2,777 |
+| AB | 11,705 / 21,092 | 11,798 / 20,754 | 7,564 / 4,156 |
+
+Het snelpad versnelt de upscale-fase circa45–54%, maar de volledige render wordt
+in twee van drie paren niet sneller. Totale winst is onvoldoende bewezen; daarom
+is **geen temperatuur-optimalisatie in productiecode opgenomen**. Alleen
+fasewinst is geen bewijs van generatiewinst. De overlappende fasewandtijden
+veranderen ook door scheduling en belasting.
+
+Eerste baseline, gesplitst: fill8,548 s (sampling3,126 + upscale5,422), lines3,246;
+trace5,769 s en ring_raster1,097. De proef: fill5,999 (sampling3,156 + upscale2,843),
+lines3,344; trace5,292 en ring_raster1,060. De vaste 1/3-sampling is dus niet de
+hele compositiekost: bilineaire upscale/menging en lijnrasterisatie kosten samen
+meer. Contourtrace is duurder dan het ringraster. Deze cijfers zijn fasetijden,
+geen optelbare CPU-tijden.
+
+De bestaande36 inhoudstests zijn groen in de proefkopie. Volledige vergelijking
+van **223 gedecodeerde RGB-filmframes en85 gedecodeerde JPEGs**: nul afwijkende
+frames/foto's/bytes, maximale afwijking0 (1.085.736.960 RGB-bytes gecontroleerd).
+Dezelfde controle vergelijkt de geïnstrumenteerde baseline met de oorspronkelijke
+store-renderer: eveneens exact gelijk. Beide films zijn5.446.585 bytes.
+
+```sh
+pnpm -C bot exec tsx ../tools/profile-temperature-preview.mts "$PWD/.dev/tracks/u80-rust-wind-temperatuur/round5/temperature-profile" baseline
+pnpm -C bot exec tsx ../tools/profile-temperature-preview.mts "$PWD/.dev/tracks/u80-rust-wind-temperatuur/round5/temperature-fast" equal-corners
+pnpm -C bot exec tsx ../tools/measure-temperature-preview.mts "$PWD/.dev/tracks/u80-rust-wind-temperatuur/round5" "$PWD/.dev/tracks/u80-rust-wind-temperatuur/data" /nix/store/qcnj1kdipkxba2kkfsrbl64r70w0jp2r-motregen-render-0.1.0
+pnpm -C bot exec tsx ../tools/compare-temperature-media.mts "$PWD/.dev/tracks/u80-rust-wind-temperatuur/round5/temperature-baseline-1/media" "$PWD/.dev/tracks/u80-rust-wind-temperatuur/round5/temperature-fast-1/media" "$PWD/.dev/tracks/u80-rust-wind-temperatuur/round5/temperature-proof.json"
+```
+
+Alle zes generaties CPUQuota200%, taskset0,1, MemoryMax1600M, geen swap en dezelfde
+ffmpeg uit de productieclosure; synchrone exit0. Exacte commando's en faseprofielen
+staan in `temperature-measurements.json` en de zes `receipts/temperature-*.txt`.
+Pixelbewijs: `temperature-proof.json` en `temperature-instrumentation-proof.json`
+op de vergelijkingspagina. Hergebruik van de vaste samplingcoördinaten/gewichten
+zou eveneens inhoud kunnen behouden; dat is een onderzoekskandidaat, geen uitgevoerde
+optimalisatie. Lagere resolutie of minder contouren zou de inhoud veranderen en
+is niet onderzocht.
