@@ -27,12 +27,16 @@ Chromium. Ververs ze vanuit een lokaal gemaakte native botcache die bij het huid
 pnpm -C bot exec tsx prepare-rust-basemaps.ts /pad/botcache /pad/data ../crates/render/assets/basemaps
 ```
 
-Het resultaat is `light.png` en `dark.png` (RGB/RGBA, 960×1272 pixels), `water-light.png` en `water-dark.png`
+Het resultaat is `light.png` en `dark.png` (RGB/RGBA, 960×1224 pixels), `water-light.png` en `water-dark.png`
 (het bestaande lage-resolutiemasker, dekking in het alfakanaal) en `basemap.json` versie 1 met `size`, `view`
 (Web Mercator centrum en zoom), `grid` (rooster voor het kadermasker) en `inputs` (oorspronkelijke bestandsnamen).
 De kaartplaten bevatten de plaatsnamen. Temperatuurwaarden, klok en voettekst zitten niet in de platen.
 Het native botkader past Nederland (inclusief Zeeland, Limburg en de Wadden), zonder Vlaanderen als
-fitdoel. De klok staat compact linksboven. Na een wijziging van `NATIVE_VIEW` moeten beide basiskaarten
+fitdoel. De bovenstrook van 48 pixels is verwijderd met behoud van zoom en bodemlijn. Het klokpaneel
+sluit linksboven aan op de beeldrand; alleen rechtsonder is rond. Tijd, Amsterdamse datum (zoals `zo 11 okt`)
+en de eigen modustitel staan op drie regels, 16 pixels van links. Datum en titel zijn 30 pixels en hebben
+hetzelfde contrast als de klok. De regenhoek is 200×154 pixels; alleen een langere modustitel verbreedt
+het paneel zodat tekst erbinnen blijft. Na een wijziging van `NATIVE_VIEW` moeten beide basiskaarten
 opnieuw worden vastgelegd; een oude plaat bijsnijden geeft geen passende projectie of labelplaatsing.
 Het watermasker dempt de windstaarten op zee; de regencompositie gebruikt het niet. Deze export start geen browser.
 `prepare-rust-basemaps.test.ts` laat de gate falen als maat of view in de metadata afwijkt van de TypeScript-bron;
@@ -40,7 +44,7 @@ de PNG-maten en het alfakanaal van beide watermaskers worden ook gecontroleerd.
 
 ## Uitvoercontract
 
-`weather-loop.mp4` is H.264/yuv420p met faststart, 960×1272, beeldsnelheid `9/2`, 109 bewegende frames en
+`weather-loop.mp4` is H.264/yuv420p met faststart, 960×1224, beeldsnelheid `9/2`, 109 bewegende frames en
 vijf holdframes (114 frames, 25⅓ seconde). Beeldsnelheid en het gehele holdaantal worden uit `sequencePlan`
 en `holdFrames` gegenereerd; ffmpeg ontvangt de verkorte breuk en `tpad=stop=5`.
 Films gebruiken veryfast/CRF 18, H.264 High, yuv420p en faststart. Het VBV-plafond volgt uit de
@@ -89,8 +93,7 @@ Temperatuurbanden en koude/warme ankers komen uit dezelfde gegenereerde palettab
 verhuisd uit `native-field-raster.rs` naar `render-core`; de oude helper gebruikt deze kern ook.
 
 Wind tekent temperatuurpunten, isobaren, deterministische windstaarten met zee-demping, H/L op prominente
-drukextremen, regen met voorlopig dezelfde alfa-over als Weer, isolijnlabels en klok/voettekst. De nieuwe
-Wind/Lucht-menging volgt na de U77-productkeuze. Gevoelstemperatuur tekent de gedempte
+drukextremen, regen volgens de gedeelde presentatie voor Wind, isolijnlabels en klok/voettekst. Gevoelstemperatuur tekent de gedempte
 basiskaart, kleurvlakken, isothermen en labels. Gedraaide tekst wordt rechtstreeks met Inter gerasterd;
 pixelgelijkheid met de oude browseratlas is geen eis (MIP-29). Per kaartframe bepaalt de gedeelde tijdlogica dag/nacht.
 
@@ -124,6 +127,18 @@ op ⅓ en ⅔ van de overgang. Vaste cijferkolommen houden de overige cijfers en
 `CLOCK_TRANSITION` in `crates/render-core/src/clock.rs` staat op `None`: de standaard gebruikt afronding
 zonder effect. De CLI-keuze gaat voor de constante; Node geeft geen proefvariant door. `clock_variant`
 registreert de keuze in het receipt. Stills tonen bij iedere variant hun eigen tijd.
+
+## Klok per modus
+
+De gekozen U76-schuifklok is standaard, met tussenposities 1/6 en 15/16. Alleen veranderende cijfers bewegen;
+de overige cijfers en dubbele punt blijven stil. Regen heeft drie frames per vijfminuteninterval, dus fases
+0 → 1/6 → 15/16 → 1. Wind en gevoelstemperatuur stappen exact vijf minuten per frame: de gedeelde kloklogica
+komt daar telkens op fase nul uit en wisselt de volledige cijfers hard. Datum en thema volgen de werkelijke
+kaarttijd; stills tonen hun exacte tijd zonder beweging. De titels zijn Regenradar, Wind en Gevoelstemperatuur.
+
+De constante CLOCK_TRANSITION staat op Some(Schuif). De CLI kan expliciet schuif of klap kiezen; kruisfade
+is verwijderd. Met de constante op None blijft de oude afronding op de dichtstbijzijnde vijf minuten
+beschikbaar in de kern. Rust-cacheversie 30 en de framegrootte voorkomen hergebruik van oude beelden.
 
 ## Optionele Node-aanroep
 

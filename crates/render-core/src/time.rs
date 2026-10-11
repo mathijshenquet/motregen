@@ -115,17 +115,39 @@ pub fn frame_blend(timeline: &[TimelineFrame], epoch: i64) -> Blend {
 }
 
 pub fn clock_text(epoch: i64) -> (String, &'static str) {
-    let time = DateTime::<Utc>::from_timestamp_millis(epoch)
-        .expect("validated map time")
-        .with_timezone(&chrono_tz::Europe::Amsterdam);
-    let day =
-        ["ma", "di", "wo", "do", "vr", "za", "zo"][time.weekday().num_days_from_monday() as usize];
+    let time = amsterdam_time(epoch);
+    let day = WEEKDAYS[time.weekday().num_days_from_monday() as usize];
     (time.format("%H:%M").to_string(), day)
 }
 
-pub fn loop_clock_text(epoch: i64) -> (String, &'static str) {
+const WEEKDAYS: [&str; 7] = ["ma", "di", "wo", "do", "vr", "za", "zo"];
+const MONTHS: [&str; 12] = [
+    "jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec",
+];
+
+fn amsterdam_time(epoch: i64) -> DateTime<chrono_tz::Tz> {
+    DateTime::<Utc>::from_timestamp_millis(epoch)
+        .expect("validated map time")
+        .with_timezone(&chrono_tz::Europe::Amsterdam)
+}
+
+pub fn clock_date(epoch: i64) -> String {
+    let time = amsterdam_time(epoch);
+    format!(
+        "{} {} {}",
+        WEEKDAYS[time.weekday().num_days_from_monday() as usize],
+        time.day(),
+        MONTHS[time.month0() as usize]
+    )
+}
+
+pub fn loop_clock_epoch(epoch: i64) -> i64 {
     let step = 5 * 60_000;
-    clock_text((epoch + step / 2).div_euclid(step) * step)
+    (epoch + step / 2).div_euclid(step) * step
+}
+
+pub fn loop_clock_text(epoch: i64) -> (String, &'static str) {
+    clock_text(loop_clock_epoch(epoch))
 }
 
 pub fn dark(epoch: i64) -> bool {

@@ -1,8 +1,8 @@
 use crate::{
-    clock::{ClockTransition, clock_width, draw_clock},
+    clock::{ClockTransition, draw_clock},
     constants::constants,
     text::Text,
-    time::{clock_text, loop_clock_text},
+    time::{clock_date, clock_text, loop_clock_epoch},
 };
 
 pub struct ClockOptions {
@@ -18,7 +18,7 @@ pub fn draw_overlay(
     night: bool,
     options: ClockOptions,
 ) {
-    draw_overlay_title(text, rgb, (epoch, now), night, options, "Regen");
+    draw_overlay_title(text, rgb, (epoch, now), night, options, "Regenradar");
 }
 
 pub fn draw_overlay_title(
@@ -31,8 +31,6 @@ pub fn draw_overlay_title(
 ) {
     let (epoch, now) = times;
     let size = &constants().size;
-    let left = 16;
-    let panel_width = 280;
     let history = epoch <= now;
     let background = if night {
         [10, 24, 32]
@@ -42,24 +40,17 @@ pub fn draw_overlay_title(
         [232, 243, 251]
     };
     let clock_color = if night { [237, 248, 252] } else { [16, 38, 48] };
-    let muted_color = if night {
-        [145, 170, 181]
+    // De boven- en linkerhoeken vallen buiten beeld; alleen rechtsonder blijft rond.
+    let panel_width = 220.max((text.width(title, 30) + 52.0).ceil() as i32);
+    rounded_panel(rgb, -20, -20, panel_width, 174, 20, background, 0.96);
+    let clock_epoch = if options.transition.is_none() && !options.still {
+        loop_clock_epoch(epoch)
     } else {
-        [99, 123, 133]
+        epoch
     };
-    rounded_panel(rgb, left, 10, panel_width, 112, 20, background, 0.96);
-    let (clock, day) = if options.transition.is_none() && !options.still {
-        loop_clock_text(epoch)
-    } else {
-        clock_text(epoch)
-    };
-    let time_width = if options.transition.is_some() {
-        clock_width(text)
-    } else {
-        text.width(&clock, 58)
-    };
-    let day_width = text.width(day, 24);
-    let content_left = left as f32 + (panel_width as f32 - time_width - day_width - 16.0) / 2.0;
+    let (clock, _) = clock_text(clock_epoch);
+    let date = clock_date(clock_epoch);
+    let content_left = 16.0;
     if let Some(transition) = options.transition {
         draw_clock(
             text,
@@ -73,23 +64,8 @@ pub fn draw_overlay_title(
     } else {
         text.draw(rgb, &clock, (content_left, 67), 58, clock_color, None);
     }
-    text.draw(
-        rgb,
-        day,
-        (content_left + time_width + 16.0, 65),
-        24,
-        muted_color,
-        None,
-    );
-    let title_width = text.width(title, 24);
-    text.draw(
-        rgb,
-        title,
-        (left as f32 + (panel_width as f32 - title_width) / 2.0, 103),
-        24,
-        muted_color,
-        None,
-    );
+    text.draw(rgb, &date, (content_left, 103), 30, clock_color, None);
+    text.draw(rgb, title, (content_left, 139), 30, clock_color, None);
     let footer_color = if night { [237, 248, 252] } else { [16, 38, 48] };
     let footer_background = if night { [7, 19, 25] } else { [245, 249, 250] };
     rounded_panel(

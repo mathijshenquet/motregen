@@ -36,7 +36,7 @@ struct Arguments {
     out_dir: PathBuf,
     #[arg(long, help = "Snapshot manifest; defaults to DATA_DIR/manifest.json")]
     manifest: Option<PathBuf>,
-    #[arg(long, help = "PO clock prototype: schuif, klap or kruisfade")]
+    #[arg(long, help = "PO clock prototype: schuif or klap")]
     clock_variant: Option<render_core::clock::ClockTransition>,
 }
 
