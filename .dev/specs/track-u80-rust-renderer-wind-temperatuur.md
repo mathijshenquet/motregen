@@ -68,3 +68,37 @@ Afhankelijkheden klein houden en verantwoorden. Leesbaarheid: geen één-lettern
 functies die één ding doen, commentaar alleen voor het niet-vanzelfsprekende waarom. Loop je tegen een
 ontwerpkeuze aan die de app-kant raakt (API van de isolijnmodule), leg hem met alternatieven vast en kies.
 Een eerlijke "dit lukt niet zo, want…" is evenveel waard als een groene gate.
+
+## Ronde 2 — aansluiting op prod (2026-10-11, na "klaar voor merge" op 9cad737)
+
+Stand: onafhankelijke gate van de orkestrator groen op 9cad737 + main. VM-meting naast de draaiende bot, live data,
+2 kernen: `all` 35,9 s · wind 12,0 s · temperatuur 12,4 s · regen 13,0 s (nu ~170–220 s per generatie in Node).
+
+Doel van deze ronde: na merge + `nixos-upgrade` rendert de bot op prod alle drie de modi met de Rust-renderer,
+zonder handwerk op de VM. Merge en inschakelen gaan in één uitrol: `NATIVE_VIEW` (Nederland-kader) verandert ook
+de Node-route, dus een tussenstand met Node op het nieuwe kader en de oude klok willen we niet uitrollen.
+
+1. **Kaartplaten zonder Chromium op de VM en zonder Chromium in de nix-build.** Leg de vier platen + `basemap.json`
+   als gegenereerde bron in de repo vast (naast de andere render-assets), met één gedocumenteerd commando om ze te
+   verversen (`prepare-rust-basemaps.ts`) en een test die faalt als `basemap.json` (size, view) niet meer bij
+   `NATIVE_VIEW`/`FRAME_PIXELS` hoort — zo valt een vergeten verversing op in de gate. Het bot-pakket (of het
+   render-pakket) levert ze in de store; meld de totale grootte. Zie je een beter alternatief, leg het vast en kies.
+2. **Nix-module** (`nix/modules/motregen.nix`): optie voor de Rust-modi, standaard `weather,feels,wind` voor de rollen
+   die renderen; zet `MOTREGEN_RUST_RENDERER`, `MOTREGEN_RUST_BASEMAP_DIR` (storepad) en laat `MOTREGEN_RENDER_BIN`
+   via de wrapper lopen. Lege lijst = huidige Node-route (de terugval). Controleer dat de sandbox van de unit de
+   renderer toelaat (`BindReadOnlyPaths` voor de data, schrijfbare cachemap, ffmpeg op PATH via de wrapper) en dat
+   `MemoryMax` van de rol ruim boven de gemeten piek ligt.
+3. **Eén aanroep per generatie als dat zonder botlogica-verbouwing kan.** Nu start Node de renderer per modus (drie
+   processen, elk met eigen decode). Als de bestaande generatielus de drie modi toch na elkaar rendert, laat hem dan
+   één keer `--mode all` draaien en de uitvoer over de drie sequenties verdelen; lukt dat niet in een kleine,
+   leesbare wijziging, laat het per modus en meld waarom. Het verschil op de VM is klein (36 s tegen ~37 s), dus dit
+   is geen doel op zich.
+4. **Reeks manifesten**: ingest publiceert per vijf minuten twee tot drie manifesten binnen ~30 s. Beschrijf (uit de
+   code, niet veranderen) wat de bot doet als er tijdens een generatie een nieuw manifest verschijnt, en of een
+   generatie van ~36 s daardoor twee of drie keer per vijf minuten gaat draaien. Alleen melden, met een voorstel.
+5. **Bewijs**: `nix build .#nixosConfigurations.motregen.config.system.build.toplevel` synchroon exit 0; de unit-env
+   uit de gebouwde config laten zien (de drie variabelen); een echte Node-generatie met de Nix-binaries en de
+   store-platen tegen de datasnapshot, alle drie de modi `backend: rust`, exit 0. Gate uit punt 9 hierboven.
+   Geen prod-acties: uitrol en controle op de VM doet de orkestrator.
+
+Meld "klaar voor uitrol" met head-sha. Wacht binnen de turn op je eigen gates; commit elke 15–20 minuten.
