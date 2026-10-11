@@ -123,6 +123,11 @@ pub fn clock_text(epoch: i64) -> (String, &'static str) {
     (time.format("%H:%M").to_string(), day)
 }
 
+pub fn loop_clock_text(epoch: i64) -> (String, &'static str) {
+    let step = 5 * 60_000;
+    clock_text((epoch + step / 2).div_euclid(step) * step)
+}
+
 pub fn dark(epoch: i64) -> bool {
     let radians = std::f64::consts::PI / 180.0;
     let days = epoch as f64 / 86_400_000.0 + 2_440_587.5 - 2_451_545.0;

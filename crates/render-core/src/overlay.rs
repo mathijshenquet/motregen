@@ -2,7 +2,7 @@ use crate::{
     clock::{ClockTransition, clock_width, draw_clock},
     constants::constants,
     text::Text,
-    time::clock_text,
+    time::{clock_text, loop_clock_text},
 };
 
 pub struct ClockOptions {
@@ -35,7 +35,11 @@ pub fn draw_overlay(
         [99, 123, 133]
     };
     rounded_panel(rgb, left, -16, 320, 138, 24, background, 0.96);
-    let (clock, day) = clock_text(epoch);
+    let (clock, day) = if options.transition.is_none() && !options.still {
+        loop_clock_text(epoch)
+    } else {
+        clock_text(epoch)
+    };
     let time_width = if options.transition.is_some() {
         clock_width(text)
     } else {
