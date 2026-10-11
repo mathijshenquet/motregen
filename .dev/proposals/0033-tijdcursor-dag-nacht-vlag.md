@@ -16,4 +16,4 @@ Het klokvlaggetje sluit direct aan op de bovenkant van de cursorlijn. Het staat 
 De PO vraagt om een lokale kopie van de app op de dev-host om dit te bekijken. Lever een eigen HMR-preview met live data. De visuele iteratie gaat vooraf aan de merge en uitrol.
 
 ## Changelog
-- 2026-10-11: PO-opdracht aangenomen; adaptieve cursor en klokvlag in uitvoering.
+- 2026-10-11: Geïmplementeerd in draft-PR 113. Live HMR-preview met productiedata op http://ageq-dev2:4390/. Dag/nacht op desktop en mobiel, de linkerwand, wind/wolkenlabels en Expressief uit zelf bekeken; typecheck groen. Dagkleuren blijven ook bij een donker app-thema donker op de daghemel. Visuele iteratie loopt; nog geen merge of uitrol.

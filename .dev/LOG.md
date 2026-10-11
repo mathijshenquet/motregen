@@ -1,5 +1,13 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-11 22:50 CEST — Adaptieve cursor en klokvlag klaar in live dev-preview; draft-PR 113
+
+MIP-33 geïmplementeerd, vroege draft-PR https://github.com/mathijshenquet/motregen/pull/113 op branch ui/cursor-dag-nacht-vlag. Cursorlijn, meetpuntjes en alle cursorlabels volgen dezelfde dag/nachtgrens als de hemel op de cursortijd. Daginkt donker en nachtdinkt licht, ook wanneer het app-thema anders is; Expressief uit gebruikt de themakleuren. Cursorklok genest aan de lijn als vlag, links en aan de linkerwand rechts, zonder ruimte ertussen. Eerste codecommit d6d39339; laatste dagpaletcorrectie plus deze registratie volgen in een tweede commit.
+
+Zelf de echte app op desktop 1280 en mobiel 390 voor dag en nacht bekeken, inclusief linkerwand. Vier captures zonder browserfouten; vlagbovenkant en vlagrechterkant exact gelijk aan de lijn in browsermetingen. Daarnaast Wind dag met donker app-thema, Wind nacht met vlagen, Lucht nacht met wolkenlabels en Gevoel met Expressief uit bekeken. Laatste webtypecheck synchroon exit 0: direnv exec . pnpm -C web typecheck. Geen e2e of merge-gate tijdens de visuele iteratie; die volgt bij afronding vóór merge/uitrol.
+
+Live HMR-app http://ageq-dev2:4390/ in afzonderlijke worktree /home/mathijs/worktrees/motregen/preview-cursor-pm-20261011, userunit motregen-cursor-preview.service (actief, nul herstarts). Vite met MOTREGEN_DATA_ORIGIN=https://motregen.nl/data; manifestproxy HTTP200. Alleen lezen van productiedata, geen productiecode gewijzigd. Preview blijft bewust beschikbaar. Main-bookmark 48e3eea9 en U76/U80 bevroren; Skywatch-CSV buiten commits. Alle eigen tijdelijke execsessies afgerond. Scripts, screenshots en synchrone receipts in genegeerde web/tmp/orkestrator/cursor-live-20261011/.
+
 ## 2026-10-11 22:41 CEST — PO vraagt adaptieve tijdcursor, labels en klokvlag; live dev-preview
 
 MIP-33 legt de expliciete PO-opdracht vast. De grafiek heeft al een hemel en dag/nachtliniaal, maar cursor/labels gebruikten het app-thema. Cursor en labels volgen nu dezelfde hemelgrens op de geselecteerde tijd; zonder Expressief blijft het app-thema leidend. Cursorklok genest onder de lijn en zonder tussenruimte als vlag, links met uitwijk naar rechts aan het begin. Plan: typecheck, vroege draft-PR, geïsoleerde HMR-preview met live data, zelf dag/nacht op desktop/mobiel bekijken. Geen merge/uitrol tijdens deze visuele iteratie. U76/U80 blijven bevroren, live Skywatch-CSV buiten commits.

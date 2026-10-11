@@ -594,7 +594,7 @@ button { color: inherit; cursor: pointer; }
 .chart-track { position: absolute; top: 0; bottom: 0; left: 0; will-change: transform; }
 .chart-track.tween { transition: transform .14s ease-out; }
 .chart-plot { --cursor-ink: var(--text); --cursor-surface: var(--surface); --cursor-muted: var(--muted); position: absolute; top: 26px; right: 0; bottom: 0; left: 0; background: color-mix(in srgb, var(--surface-soft) 45%, transparent); }
-.chart-plot[data-cursor-sky="day"] { --cursor-ink: var(--ruler-day-ink); --cursor-surface: var(--ruler-day-chip); --cursor-muted: #3a525c; }
+.chart-plot[data-cursor-sky="day"] { --cursor-ink: #17313b; --cursor-surface: #d3ebfa; --cursor-muted: #3a525c; }
 .chart-plot[data-cursor-sky="night"] { --cursor-ink: var(--ruler-night-ink); --cursor-surface: var(--ruler-night-chip); --cursor-muted: #aec4ce; }
 /* Vast kader (PO 2026-09-25): ook zichtbaar zolang de grafiek laadt of leeg is; als pseudo-element zodat de
    pil en het Nu-label buiten het vlak niet worden afgekapt. */
