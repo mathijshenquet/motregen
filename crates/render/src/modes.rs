@@ -95,7 +95,7 @@ impl Painter<'_, '_> {
             draw_temperature(
                 &mut worker.text,
                 &mut rgb,
-                &self.projection,
+                self.projection,
                 TemperaturePair {
                     left_grid: &pair.left.grid,
                     right_grid: &pair.right.grid,
@@ -121,8 +121,8 @@ impl Painter<'_, '_> {
             field_raster::fill(
                 &mut rgb,
                 &input.slice.field,
-                &self.projection,
-                &self.colors,
+                self.projection,
+                self.colors,
                 &input.slice.rings,
                 input.slice.opacity,
             );

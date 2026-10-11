@@ -290,7 +290,7 @@ export class StillRenderer {
   }
 
   private async renderSequence(mode: LoopMode, manifest: StillManifest, key: string): Promise<RenderedSequence> {
-    if (rustRenderer(mode)) return this.renderRustSequence(manifest, key)
+    if (rustRenderer(mode)) return this.renderRustSequence(mode, manifest, key)
     if (nativeRenderer(mode) === 'native') return this.renderNativeSequence(mode, manifest, key)
     // SwiftShader deelt de twee VM-kernen; laat de korte native loop eerst afmaken.
     await this.nativeLoops.get(cacheKey({ mode: 'weather', hour: 'loop' }, manifest))?.ready
@@ -353,23 +353,23 @@ export class StillRenderer {
     }
   }
 
-  private async renderRustSequence(manifest: StillManifest, key: string): Promise<RenderedSequence> {
+  private async renderRustSequence(mode: LoopMode, manifest: StillManifest, key: string): Promise<RenderedSequence> {
     await mkdir(this.cacheDirectory, { recursive: true })
     const directory = await mkdtemp(join(this.cacheDirectory, `.frames-${key}-`))
     try {
-      const media = await runRustRenderer(manifest, directory)
+      const media = await runRustRenderer(manifest, directory, mode)
       const metrics: SequenceMetrics = { key, backend: 'rust', frames: media.frames, fps: media.fps, bytes: media.files.find((file) => file.kind === 'animation')!.bytes,
         renderMs: media.render_ms, encodeMs: media.encode_ms, totalMs: media.total_ms, loopMs: media.loop_ms }
-      const results = this.results('weather', manifest, metrics, false)
-      await rename(join(directory, 'weather-loop.mp4'), results.loop.path)
-      for (const still of results.stills) await rename(join(directory, `weather-${still.epoch}.jpg`), still.path)
+      const results = this.results(mode, manifest, metrics, false)
+      await rename(join(directory, `${mode}-loop.mp4`), results.loop.path)
+      for (const still of results.stills) await rename(join(directory, `${mode}-${still.epoch}.jpg`), still.path)
       const receipt = join(this.cacheDirectory, `${key}.sequence.json`)
       await writeFile(`${receipt}.tmp`, JSON.stringify(metrics))
       await rename(`${receipt}.tmp`, receipt)
-      console.info(JSON.stringify({ event: 'sequence-render', mode: 'weather', generated: manifest.generated, ...metrics }))
+      console.info(JSON.stringify({ event: 'sequence-render', mode, generated: manifest.generated, ...metrics }))
       return results
     } catch (error) {
-      throw new StillRenderError('weather', 'rust', undefined, error)
+      throw new StillRenderError(mode, 'rust', undefined, error)
     } finally { await rm(directory, { recursive: true, force: true }) }
   }
 }

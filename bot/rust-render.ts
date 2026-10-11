@@ -3,7 +3,7 @@ import { readFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { FRAME_PIXELS } from './config.js'
 import { holdFrames, sequencePlan } from './sequences.js'
-import { STILL_HOURS, stillEpoch, type StillManifest } from './stills.js'
+import { STILL_HOURS, stillEpoch, type LoopMode, type StillManifest } from './stills.js'
 
 export interface RustMediaFile { file: string; kind: 'photo' | 'animation'; epoch: number; bytes: number; width: number; height: number }
 export interface RustMedia {
@@ -12,14 +12,14 @@ export interface RustMedia {
   render_ms: number; encode_ms: number; loop_ms: number; total_ms: number; files: RustMediaFile[]
 }
 
-export async function runRustRenderer(manifest: StillManifest, directory: string): Promise<RustMedia> {
+export async function runRustRenderer(manifest: StillManifest, directory: string, mode: LoopMode = 'weather'): Promise<RustMedia> {
   const dataDirectory = process.env.MOTREGEN_DATA_DIR
   const basemapDirectory = process.env.MOTREGEN_RUST_BASEMAP_DIR
   if (!dataDirectory || !basemapDirectory) throw new Error('Rust-renderer vereist MOTREGEN_DATA_DIR en MOTREGEN_RUST_BASEMAP_DIR')
   const snapshot = join(directory, 'manifest.json')
   await writeFile(snapshot, JSON.stringify(manifest))
   const child = spawn(process.env.MOTREGEN_RENDER_BIN ?? 'motregen-render', [
-    '--data-dir', dataDirectory, '--basemap-dir', basemapDirectory, '--mode', 'weather', '--out-dir', directory, '--manifest', snapshot,
+    '--data-dir', dataDirectory, '--basemap-dir', basemapDirectory, '--mode', mode, '--out-dir', directory, '--manifest', snapshot,
   ], { stdio: ['ignore', 'ignore', 'pipe'] })
   let diagnostic = ''
   child.stderr.on('data', (bytes: Buffer) => { diagnostic = (diagnostic + bytes.toString()).slice(-4000) })
@@ -28,18 +28,18 @@ export async function runRustRenderer(manifest: StillManifest, directory: string
     child.once('close', (code) => code === 0 ? resolve() : reject(new Error(`Rust-renderer mislukt (${code}): ${diagnostic}`)))
   })
   const media = JSON.parse(await readFile(join(directory, 'media.json'), 'utf8')) as RustMedia
-  await validateRustMedia(media, manifest, directory)
+  await validateRustMedia(media, manifest, directory, mode)
   return media
 }
 
-export async function validateRustMedia(media: RustMedia, manifest: StillManifest, directory: string): Promise<void> {
-  const plan = sequencePlan('weather', manifest)
-  if (media.version !== 1 || media.mode !== 'weather' || media.generated !== manifest.generated || media.now !== manifest.now ||
+export async function validateRustMedia(media: RustMedia, manifest: StillManifest, directory: string, mode: LoopMode = 'weather'): Promise<void> {
+  const plan = sequencePlan(mode, manifest)
+  if (media.version !== 1 || media.mode !== mode || media.generated !== manifest.generated || media.now !== manifest.now ||
       media.width !== FRAME_PIXELS.width || media.height !== FRAME_PIXELS.height || media.frames !== plan.loopFrames || media.fps !== plan.fps ||
       media.hold_frames !== holdFrames(plan) || JSON.stringify(media.loop_epochs) !== JSON.stringify(plan.epochs.slice(0, plan.loopFrames)) ||
       ![media.render_ms, media.encode_ms, media.loop_ms, media.total_ms].every((value) => Number.isFinite(value) && value >= 0)) throw new Error('Rust-media wijkt af van manifest of loopplan')
-  const expected = [{ file: 'weather-loop.mp4', kind: 'animation', epoch: Date.parse(manifest.now) },
-    ...STILL_HOURS.map((hour) => ({ file: `weather-${stillEpoch(manifest, hour)}.jpg`, kind: 'photo', epoch: stillEpoch(manifest, hour) }))]
+  const expected = [{ file: `${mode}-loop.mp4`, kind: 'animation', epoch: Date.parse(manifest.now) },
+    ...(mode === 'wind' ? [] : STILL_HOURS.map((hour) => ({ file: `${mode}-${stillEpoch(manifest, hour)}.jpg`, kind: 'photo', epoch: stillEpoch(manifest, hour) })))]
   if (!Array.isArray(media.files) || media.files.length !== expected.length) throw new Error('Onvolledige Rust-mediamatrix')
   for (const entry of expected) {
     const matches = media.files.filter((candidate) => candidate.file === entry.file)

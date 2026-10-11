@@ -2,8 +2,12 @@ export type NativeMode = 'weather' | 'feels' | 'wind'
 
 export function rustRenderer(mode: NativeMode, environment: NodeJS.ProcessEnv = process.env): boolean {
   const value = environment.MOTREGEN_RUST_RENDERER
-  if (value !== undefined && value !== '' && value !== 'weather') throw new Error('MOTREGEN_RUST_RENDERER moet weather zijn of ontbreken')
-  return value === 'weather' && mode === 'weather'
+  if (value === undefined || value === '') return false
+  const modes = value.split(',')
+  if (modes.some((candidate) => !['weather', 'feels', 'wind'].includes(candidate)) || new Set(modes).size !== modes.length) {
+    throw new Error('MOTREGEN_RUST_RENDERER moet een lijst van weather,feels,wind zijn of ontbreken')
+  }
+  return modes.includes(mode)
 }
 
 export function nativeRenderer(mode: NativeMode, environment: NodeJS.ProcessEnv = process.env): 'native' | 'playwright' {

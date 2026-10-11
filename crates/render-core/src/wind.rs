@@ -104,6 +104,7 @@ pub fn draw(
     assert_eq!(east.grid, north.grid);
     let settings = &mode_constants().wind;
     let scale = mode_constants().scale;
+    let fade_log = settings.buffer_fade.ln();
     let size = &constants().size;
     let projection = Projection::new(east.grid);
     let columns = (settings.count as f64 * constants().frame.width as f64
@@ -157,7 +158,7 @@ pub fn draw(
         let life_distance = (settings.trail_distance * life_scale)
             .min(screen_speed * settings.max_age * life_scale);
         let distance = (phase - 0.5) * life_distance * scale;
-        let decay_length = screen_speed / -settings.buffer_fade.ln() * scale;
+        let decay_length = screen_speed / -fade_log * scale;
         let travelled = phase * life_distance;
         let length = travelled.min(3.0 * decay_length / scale) * scale;
         let direction = [east / speed, -north / speed];
@@ -192,9 +193,7 @@ pub fn draw(
                     smoothstep(0.0, settings.fade_in_px, past)
                         * smoothstep(0.0, settings.fade_out_px, remaining)
                 };
-                let decay = settings
-                    .buffer_fade
-                    .powf((since_respawn + behind / scale / screen_speed).max(0.0));
+                let decay = (fade_log * since_respawn - behind / decay_length).exp();
                 (opacity * coverage * strength * decay - floor * (1.0 - decay)).max(0.0)
             }
         };
