@@ -55,7 +55,7 @@ vec2 backtrace(vec2 uv, float hours) {
   return at;
 }
 
-float determinant(vec2 x, vec2 y) { return x.x * y.y - x.y * y.x; }
+float areaDet(vec2 x, vec2 y) { return x.x * y.y - x.y * y.x; }
 
 vec3 typeWeights(float shape) {
   float low = 1.0 - smoothstep(0.0, 0.55, shape);
@@ -74,8 +74,8 @@ float cloudOpacity(vec2 p, float cover, float darkness, float veil) {
 }
 
 float transportedDepth(vec2 foot, float hours, float cover, float darkness, vec3 weights) {
-  float original = determinant(dFdx(v_uv), dFdy(v_uv));
-  float jacobian = determinant(dFdx(foot), dFdy(foot)) / original;
+  float original = areaDet(dFdx(v_uv), dFdy(v_uv));
+  float jacobian = areaDet(dFdx(foot), dFdy(foot)) / original;
   // Bound unresolved compression; a folded numerical map falls back to local translation.
   float density = clamp(jacobian, 0.25, 4.0);
   if (!(jacobian > 0.0)) { foot = v_uv - wind(v_uv, 0.0) * hours; density = 1.0; }

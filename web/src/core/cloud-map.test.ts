@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Grid, MrfHeader } from './contract'
 import type { FieldBlend } from './sun'
-import { prepareCloudMapField } from './cloud-map'
+import { cloudFlowPhase, prepareCloudMapField } from './cloud-map'
 
 const grid: Grid = { crs: 'EPSG:3857', width: 1, height: 1, x0: 560000, y0: 6820000, dx: 16000, dy: -16000 }
 const field = { values: new Float32Array([100]), valid: new Float32Array([1]) }
@@ -38,5 +38,26 @@ describe('cloud map light and structure', () => {
   it('falls back to total cover when a missing layer prevents a complete light estimate', () => {
     const partial = prepareCloudMapField(grid, field, Date.parse('2026-10-12T01:00:00Z'), { mid: constant(0), high: constant(0) })
     expect(partial.cloudHints![1]).toBeGreaterThan(0.5)
+  })
+
+  it('turns north/east ground wind into projected grid travel per model hour', () => {
+    const result = prepareCloudMapField(grid, field, Date.parse('2026-10-12T12:00:00Z'), { windU: constant(12), windV: constant(8) })
+    const latitude = 2 * Math.atan(Math.exp((grid.y0 + grid.dy / 2) / 6378137)) - Math.PI / 2
+    expect(result.cloudFlow![0]! * grid.dx * Math.cos(latitude)).toBeCloseTo(43_200, 2)
+    expect(result.cloudFlow![1]! * grid.dy * Math.cos(latitude)).toBeCloseTo(28_800, 2)
+    expect(result.cloudFlow![1]).toBeLessThan(0)
+  })
+
+  it('leaves movement stationary when a wind component is missing', () => {
+    const result = prepareCloudMapField(grid, field, Date.parse('2026-10-12T12:00:00Z'), { windU: constant(12) })
+    expect([...result.cloudFlow!]).toEqual([0, 0])
+  })
+
+  it('anchors the detail lifetime to model time and repeats independently of visit order', () => {
+    const time = Date.parse('2026-10-12T17:56:00Z')
+    const first = cloudFlowPhase(time)
+    cloudFlowPhase(time + 90 * 60_000)
+    expect(cloudFlowPhase(time)).toBe(first)
+    expect(cloudFlowPhase(time + 4 * 3_600_000)).toBe(first)
   })
 })
