@@ -1,6 +1,8 @@
 pub mod clock;
 pub mod composition;
 pub mod constants;
+pub mod contours;
+pub mod field;
 pub mod motion;
 pub mod overlay;
 pub mod palette;
