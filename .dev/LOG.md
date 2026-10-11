@@ -1,5 +1,13 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-11 15:39 CEST — Gekozen standaard op VM: 38,359 s; PO vraagt uitrol en sessie afsluiten
+
+Nix-renderer11c9ql, zelfde vaste generated12:47:47Z/now12:45Z als de eerdere48,285s-meting. Nieuwe volledige generatie: media38304ms, wand38,359s, CPU69,297s, piek575MiB, geen swap, alle drie films en170JPEG, systemdSUCCESS. Wind289+8/7,5fps zonderregen metdruk; andere plannen gelijk. Alle172regen/temperatuurbestanden SHA256-identiek aan eerdereall. Exacte opdrachten/receipts final-r1-* inPMscratch. De samenvattingsparser miste CPU in min+s-notatie; alleen parser hersteld en bestaande succesvolle receipt opnieuw verwerkt, render niet herhaald.
+
+Onafhankelijke gate op aa3caa1 + main4f6e76f (integratie84a9dbcd) synchroon exit0: fmt/workspace-clippy/37Rusttests/wasm; webtypecheck/569tests/build; bottypecheck/133tests/build. Worker sinds aa3caa1 uitsluitend testselectors en meetdocumentatie, definitieve head nog afwachten. Eigen desktop-telegram.spec en Nix-flake/werkelijke2nodeVM/toplevel volgen op die head.
+
+PO: deploy alles als klaar, daarna sessie afsluiten. Al bestaande uitrolautorisatie expliciet bevestigd. Na finale gate: jjmerge met behoud van live Skywatch-CSV, exacte hoofdboom bouwen/kopiëren, nixos-upgrade, gezondheid/MemoryMax1600M/films/app controleren, LOGcommitpush en alle eigen execwachters afronden. MIP-30 E2 blijft open, geen extra optimalisaties.
+
 ## 2026-10-11 15:18 CEST — Temperatuurproef: beeldgelijkheid onafhankelijk bevestigd, totale winst niet bewezen
 
 Eigen synchrone controle exit 0 van de workerproef: alle 223 gedecodeerde filmframes en 85 JPEG-stills gelijk, maxDelta 0 over 1.085.736.960 RGB-bytes. Bovendien alle 86 uitvoerbestanden byte-identiek. Receipts temperature-independent-proof.txt/json en temperature-file-proof.json in PM-scratch.

@@ -44,3 +44,11 @@ U80 splitst in een geïsoleerde proef het profiel van contouren/ringen en kleurv
 De PO koos op 2026-10-11 na de vergelijking: **Wind op 7,5 fps, zonder regen, met isobaren en drukletters**. Het windplan wordt 75 seconden kaarttijd per frame, 289 kaartframes en acht holdframes; ffmpeg krijgt de breuk 15/2. Alleen Wind krijgt dit plan. Regen en Gevoelstemperatuur houden hun bestaande plan met 100 seconden kaarttijd per frame bij 5,6 fps en hun eigen holdframes. Stills en de gekozen schuifklok blijven behouden.
 
 De worker verwerkt de keuze als productiestandaard in de gedeelde constanten en beide renderroutes. De PM voert daarna de onafhankelijke gate en een nieuwe gezamenlijke VM-meting uit vóór merge en de al gevraagde uitrol. De temperatuurproef wordt alleen opgenomen bij bewezen winst met gelijke beelden. MIP-30 E1 (MemoryMax1600M) gaat met de uitrol mee. Het set-/deadlinebeleid van MIP-30 E2 staat daarvan los en blijft open.
+
+## Verificatie van de gekozen standaard
+
+De gezamenlijke VM-meting op 2026-10-11 15:36 CEST gebruikt exact dezelfde vaste data als de uitgangsmeting: drie films en 170 stills in **38,359 s wandtijd / 69,297 s CPU / 575 MiB piek**, succesvol. De uitgangsmeting was 48,285 s; dit zijn twee waarnemingen bij dezelfde data en cgroup-grenzen, geen garantie voor iedere live generatie. Wind heeft 289 kaartframes plus acht holdframes bij 7,5 fps; de andere plannen blijven gelijk. Alle 172 regen- en temperatuuruitvoerbestanden zijn SHA256-identiek aan de uitgangsmeting. Gebruikte Nix-renderer: `/nix/store/11c9qlj4aj6kdzgwckyf286xdwa8ddn0-motregen-render-0.1.0`.
+
+De temperatuurproef is afgerond en niet opgenomen: vier gelijke RGBA-hoeken sneller afhandelen versnelt de upscale-fase, maar geeft in AB/BA/AB geen consistente winst in totale rendertijd. De volledige proefbeelden zijn gelijk: 223 filmframes en 85 stills met maximale RGB-afwijking nul; de PM bevestigde ook alle 86 bestanden byte-identiek. De temperatuurinhoud blijft behouden.
+
+De PO heeft opnieuw expliciet gevraagd alles te deployen zodra de gate klaar is en daarna de sessie af te sluiten. De onafhankelijke desktop- en Nix-VM-checks en de productiecontrole volgen nog; de hierboven gemeten standaard is op dit moment nog niet uitgerold.
