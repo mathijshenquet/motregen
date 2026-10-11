@@ -721,6 +721,9 @@ button { color: inherit; cursor: pointer; }
 .cursor-marker { position: absolute; top: 0; bottom: 0; left: 33.333%; will-change: left; z-index: 2; width: 0; border-left: 2px solid var(--text); transform: translateX(-1px); pointer-events: none; }
 .cursor-pill { position: absolute; top: -34px; z-index: 3; left: 33.333%; display: inline-flex; align-items: center; justify-content: center; min-width: 58px; pointer-events: none; border: 0; color: var(--surface); background: var(--text); box-shadow: 0 2px 8px rgba(10, 32, 41, .18); transform: translateX(-50%); }
 .cursor-pill::after { position: absolute; inset: -8px -4px; content: ''; }
+.cursor-time { position: absolute; top: 0; left: 33.333%; z-index: 2; width: 0; height: 0; pointer-events: none; }
+.cursor-time span { position: absolute; top: 4px; right: 7px; padding: 2px 6px; border-radius: 6px; color: var(--text); background: color-mix(in srgb, var(--surface) 88%, transparent); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cursor-time.right-of-cursor span { right: auto; left: 7px; }
 .cursor-readout { position: absolute; left: 33.333%; z-index: 2; width: 0; height: 0; pointer-events: none; }
 .cursor-readout::before { position: absolute; top: -4px; left: -4px; width: 8px; height: 8px; border: 2px solid var(--surface); border-radius: 50%; background: var(--text); content: ''; }
 .cursor-readout span { position: absolute; bottom: 5px; left: 7px; padding: 2px 6px; border-radius: 6px; color: var(--text); background: color-mix(in srgb, var(--surface) 88%, transparent); font-size: 11px; font-weight: 700; white-space: nowrap; }

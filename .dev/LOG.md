@@ -470,6 +470,33 @@
 - **U76 ronde 3 gestart**: plan 100 s/4,5 fps volgen, loopframes hergebruiken voor stills, en PO-idee klok: alleen
   5-minutentijden tonen met cijferovergang op de tussenframes (varianten schuif / klap / kruisfade als proeffilm).
   Open PO-vraag: stills op aanvraag i.p.v. 85 per generatie.
+- 08:34: **U80 gestart** (PO: "bouw het dan"; gpt-6.1-sol xhigh, pane w35, branch vanaf de U76-branch): MIP-29 C2 —
+  wind eerst, dan temperatuur, volledig in Rust: isolijnen + labelplaatsing als pure kernmodules (later via WASM in
+  de app), tekst gedraaid in Rust, streepjes, H/L, `--mode all`. Doel dev-host 2 kernen: wind ≤ 5 s, temperatuur ≤ 6 s,
+  alles ≤ 12 s; einddoel hele generatie < 60 s op de VM. Loopt parallel aan U76 ronde 3 (zelfde crates → nieuwe modules).
+- 08:40: **U76 ronde 3 klaar** (5ddb270, 15 min): plan 100 s/4,5 fps gevolgd, 19 stills uit loopframes, klokproef
+  schuif/klap/kruisfade (films + stroken naar de PO; PM-oordeel: klap oogt als storing, schuif leest als teller,
+  kruisfade het rustigst). Dev-host 2 kernen 3,25 s / 4,98 s CPU / 189 MiB. **VM**: 10,6 s wand / 19,1 s CPU / 188 MiB
+  met de bot gepauzeerd, 12,6 s met draaiende bot (ronde 2: 19,0 / 31,8 s) → doel < 15 s op de VM gehaald.
+  Nog te doen vóór merge: onafhankelijke gate, PO-keuze klok, aansluiting (debounce, platen op de VM, schakelaar).
+- 08:56: **Klok op loopframes = dichtstbijzijnde vijf minuten** (PO: "[0 0 5] [5 5 10]", geen overgangseffect; de
+  schuif/klap/kruisfade-proef vervalt). U81 gemerged en uitgerold (8f786e54, 08:49); op prod gecontroleerd: 07:45,
+  07:45, 07:50, 07:50, 07:50, 07:55. U76 volgt (0fa6910) en haalt de proefvarianten weg. De PO stuurt de U76-pane
+  daarnaast rechtstreeks aan (o.a. klok linksboven, Vlaanderen weg) — niet doorkruisen.
+- U80: sessie viel op "refresh token was revoked"; PO heeft de Codex-inlog hersteld; pane stond daarna op effort low →
+  herstart met xhigh en hervat uit LOG (commit cd22c8c: wind/feels-CLI, veldraster in de kern, isolijnfixtures).
+  Volledige datasnapshot voor workers: `~/motregen-profiles/data-snapshots/2026-10-11` (41 chunks, incl. druk/wind).
+- PO-wens "overal 3 frames per 5 minuten" berust op een misverstand: wind en temperatuur staan al op 1 frame per 5 min
+  (169 frames, 10 fps); proeffilms met de helft (10 min, 5 fps) naar de PO gestuurd; nog geen besluit.
+- 09:31: **U77 gemerged en uitgerold** (06ed2191, PR #107; PO heeft zelf in de pane geïtereerd en "mergebaar" gegeven):
+  standaard = palet `violet-laat` (doorlopend verloop; blauw tot 4, violet bij 7, rood bij 13 mm/u), menging
+  `drempel-zacht` in Weer, contrastregel uit (0; regel blijft in de code, ?dev-invoerveld 0–20), nachtviolet
+  verzadigd, histogramstaven kleuren per uur, kaarttijd als label aan de histogramcursor; ?dev-groep "Regen".
+  `rainColormap()`/`rainColor()` geven nu de nieuwe tabel per thema (optioneel argument `look`), dekking bedoeld voor
+  echte alfa-over. **Bot bewust op het oude beeld gepind** (`PRE_U77_RAIN_LOOK` in native-rain.ts en weather-chart.ts)
+  tot de Rust-renderer alfa-over en een tabel per thema heeft. Onafhankelijke gate: web 567, 24 desktop-e2e, bot 116,
+  nix-toplevel. Prod gecontroleerd: motregen.nl en weerok.nl serveren de bundle van main (`index-B_Cyi_As.js`),
+  schermbeeld zelf bekeken. **Open**: Wind en Lucht houden de oude menging → zichtbare sprong vanuit Weer.
 
 ## 2026-10-10 — tg-bot op prod vastgelopen (13:00)
 - Symptoom (PO): bot antwoordt niet. Laatste generatie 05:57; daarna `refresh-failed … TimeoutError` (07:16) en

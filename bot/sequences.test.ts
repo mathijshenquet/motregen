@@ -83,3 +83,14 @@ describe('one frame sequence per mode', () => {
     expect(keys.size).toBe(13)
   })
 })
+
+describe('clock on loop frames', () => {
+  it('shows the nearest five minutes, so each time stays for three rain frames', async () => {
+    const { clockEpoch } = await import('./native-overlay.js')
+    const plan = sequencePlan('weather', manifest)
+    const minutes = plan.epochs.slice(0, 7).map((epoch) => (clockEpoch(epoch) - plan.epochs[0]!) / 60_000)
+    expect(minutes).toEqual([0, 0, 5, 5, 5, 10, 10])
+    // Stills liggen op tientallen minuten en houden dus hun eigen tijd.
+    for (const hour of [-2, 0, 0.5, 12]) expect(clockEpoch(now + hour * 3_600_000)).toBe(now + hour * 3_600_000)
+  })
+})

@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@solidjs/testing-library'
 import { createSignal } from 'solid-js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { TimelineFrame } from '../core/contract'
+import { rainColor } from '../core/rain-chart'
 import HistogramScrubber, { hourLabelStep, stickyKeyframes, wallClamp } from './HistogramScrubber'
 
 afterEach(cleanup)
@@ -117,6 +118,8 @@ describe('histogram scrubber', () => {
     // U34: geen tijdsbereikknoppen en geen pil boven de cursor.
     expect(screen.queryByRole('group', { name: 'Tijdsbereik' })).toBeNull()
     expect(container.querySelector('.cursor-pill')).toBeNull()
+    // U77: wel de kaarttijd als klein label bovenaan de cursorlijn, zoals de waarde eronder.
+    expect(container.querySelector('.cursor-time')!.textContent).toMatch(/^\d\d:00$/)
     expect(container.querySelectorAll('.rain-bar')).toHaveLength(4)
     expect(container.querySelectorAll('.rain-bar.pending')).toHaveLength(1)
   })
@@ -335,6 +338,44 @@ describe('histogram scrubber', () => {
     expect(container.querySelector('.chart-plot')!.classList.contains('sky-ruler')).toBe(false)
     expect(container.querySelector('.x-axis span.night')).toBeNull()
     expect(skyStrength()).toBe('0')
+  })
+
+  it('colours each rain bar for the sky behind that bar, not for the map theme at the cursor (U77)', () => {
+    const timeline = ['14', '15', '16', '17', '18'].map((hour) => frame(`2026-08-28T${hour}:00:00Z`, 'harmonie'))
+    const clouds = { timeline: { high: timeline, mid: timeline, low: timeline }, values: { high: [80, 80, 80, 80, 80], mid: [60, 60, 60, 60, 60], low: [0, 0, 0, 0, 0] } }
+    const [mapTheme, setMapTheme] = createSignal<'light' | 'dark'>('light')
+    const [expressive, setExpressive] = createSignal(true)
+    const look = (theme: 'light' | 'dark') => ({ palette: 'violet-laat', blend: 'drempel-zacht', contrast: 0, theme }) as const
+    const { container } = render(() => <HistogramScrubber
+      timeline={timeline}
+      values={[1, 1, 1, 1, 1]}
+      cursor={0}
+      now={timeline[0]!.epoch}
+      playing={false}
+      loading={false}
+      locationLabel="Utrecht"
+      onCursor={() => undefined}
+      onPlaying={() => undefined}
+      clouds={clouds}
+      sky={{ radiation: { timeline, values: [] }, sinElevation: (epoch) => epoch < timeline[2]!.epoch ? 0.6 : -0.6 }}
+      expressive={expressive()}
+      rainLook={look(mapTheme())}
+      mix={{ wind: 0, air: 0, temperature: 0 }}
+    />)
+    const fills = () => [...container.querySelectorAll<SVGRectElement>('rect.rain-bar')].map((bar) => bar.getAttribute('fill'))
+    const day = rainColor(1, look('light'))
+    const night = rainColor(1, look('dark'))
+    expect(day).not.toBe(night)
+    // De zon gaat bij het derde uur onder; de sluier van de liniaal wisselt op hetzelfde punt.
+    expect(fills()).toEqual([day, day, night, night, night])
+    // De cursor schuift de nacht in en de kaart wordt donker: de staven blijven wat ze waren.
+    setMapTheme('dark')
+    expect(fills()).toEqual([day, day, night, night, night])
+    // Zonder hemel is de achtergrond het thema zelf.
+    setExpressive(false)
+    expect(fills()).toEqual([night, night, night, night, night])
+    setMapTheme('light')
+    expect(fills()).toEqual([day, day, day, day, day])
   })
 
   it('cross-fades to the wind chart on the wind focus, with the reading in the chosen unit (U34)', () => {

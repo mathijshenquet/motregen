@@ -1,0 +1,564 @@
+# U77 — live-pane: regenpalet en contrast met de kaart (opus-5.5)
+
+Append-only. Spec: `.dev/specs/track-u77-regenpalet-en-contrast-live.md`. Preview: http://ageq-dev2:4320/?dev
+
+## 2026-10-10 14:25 — ingelezen, diagnose (opdracht 1)
+
+Preview 4320 draait (`MOTREGEN_DATA_ORIGIN=https://motregen.nl/data pnpm preview --host 0.0.0.0 --port 4320
+--strictPort`, los van de sessie gestart; `scripts/track-preview.sh` uit de spec bestaat niet in deze checkout).
+
+### Correctie op de spec: Weer-modus vermenigvuldigt niet
+`rainPresentation` zet `multiply` alleen bij wind- of luchtfocus ≥ 0,5 (overdag). In Weer ligt de regen met gewone
+alfa over de kaart (`data-rain-blend="normal"`, dekking 1,00 — gecontroleerd op de pagina).
+
+### De oorzaak: de regencanvas optelt licht bij de kaart
+De regen tekent op een eigen canvas (`LayerOverlay`, `premultipliedAlpha: true`) met
+`gl.blendFunc(SRC_ALPHA, ONE_MINUS_SRC_ALPHA)`. Die functie geldt ook voor het alfakanaal: op de lege canvas komt
+kleur × α in RGB en **α × α in alfa**. De browser leest de canvas als voorvermenigvuldigd en mengt dus
+`kleur × α + (1 − α²) × kaart` in plaats van `kleur × α + (1 − α) × kaart`. De gewichten tellen op tot meer dan 1
+(maximaal 1,25 bij α = 0,5): onder halve dekking **maakt regen de kaart lichter** in plaats van hem te kleuren.
+
+Gemeten, niet alleen afgeleid (`rig/halo-probe.ts`, `metingen/halo-probe-huidig.log`; radar 14:15, alleen de
+regencanvas op zwart en op wit, 1280 px):
+| byte (mm/u) | pixels | dekking uit het palet (α) | α² | canvas-alfa gemeten |
+| --- | --- | --- | --- | --- |
+| 1–15 (< 0,02) | 24 066 | 0,055 | 0,003 | 0,012 |
+| 15–30 (0,02–0,03) | 21 706 | 0,137 | 0,019 | 0,029 |
+| 30–45 (0,03–0,05) | 16 952 | 0,233 | 0,054 | 0,056 |
+| 45–55 (0,05–0,08) | 10 707 | 0,312 | 0,098 | 0,098 |
+
+De canvas-alfa volgt α², niet α (de twee laagste klassen wijken af door 8-bit-afronding van een rood-kanaal van 1–7).
+Eerste poging mat op het blauwe kanaal en gaf "alfa = α": de beginkleur heeft blauw = 255 en loopt op wit vast op 255,
+dus die meting kon het verschil niet zien. Weggegooid; rood gebruikt.
+
+### Welke kleur krijgt een pixel? (berekend uit palet × alfacurve × menging; L* = helderheid, Δ t.o.v. de ondergrond)
+Ondergronden uit `licht.json`/`donker.json`: land `#f8f4f0` / `#101d21`, water `rgb(158,189,255)` / `#183746`,
+bebouwing (zoom ≤ 9) ≈ 222,218,217 / `#26302c`. "nu" = wat de canvas doet (α²), "zuiver" = echte alfa-over.
+
+| mm/u | byte | paletkleur | α | ondergrond | nu | zuiver |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0,03 | 30 | 54,183,255 | 0,19 | dag land (L* 96) | 249,255,255 · L* 100 · **Δ +3,2** | 211,233,243 · Δ −5,3 |
+| 0,03 | 30 | | | dag water (L* 77) | 163,217,255 · Δ +7,7 | 138,188,255 · Δ −1,4 |
+| 0,03 | 30 | | | dag bebouwing (L* 87) | 224,245,255 · Δ +8,0 | 190,211,224 · Δ −3,9 |
+| 0,1 | 62 | 51,190,246 | 0,39 | dag land | 230,255,255 · L* 98 · **Δ +1,9** | 172,223,242 · Δ −10,4 |
+| 0,1 | 62 | | | dag water | 154,234,255 · Δ +11,8 | 116,189,252 · Δ −2,3 |
+| 0,1 | 62 | | | dag bebouwing | 208,255,255 · Δ +9,6 | 156,207,228 · Δ −7,0 |
+| 0,3 | 90 | 38,217,210 | 0,56 | dag land | 190,255,255 · L* 96 · **Δ −0,5** | 129,229,223 · Δ −11,4 |
+| 0,3 | 90 | | | dag water | 129,251,255 · Δ +15,5 | 90,205,230 · Δ +0,4 |
+| 0,3 | 90 | | | dag bebouwing | 173,255,255 · Δ +7,7 | 118,217,213 · Δ −6,4 |
+| 1 | 122 | 116,228,135 | 0,76 | dag land | 192,255,203 · L* 95 · **Δ −1,6** | 147,232,160 · Δ −11,2 |
+| 1 | 122 | | | dag water | 154,253,209 · Δ +15,8 | 126,219,163 · Δ +4,0 |
+| 1 | 122 | | | dag bebouwing | 181,255,193 · Δ +6,6 | 141,226,154 · Δ −4,2 |
+| 0,1 | 62 | 51,190,246 | 0,39 | nacht land (L* 10) | 33,98,124 · Δ +29,0 | 30,92,116 · Δ +26,6 |
+| 0,1 | 62 | | | nacht water (L* 21) | 40,120,155 · Δ +25,8 | 34,107,138 · Δ +20,8 |
+| 0,1 | 62 | | | nacht bebouwing (L* 19) | 52,115,133 · Δ +26,4 | 43,103,122 · Δ +21,8 |
+| 1 | 122 | 116,228,135 | 0,76 | nacht land | 95,186,117 · Δ +58,8 | 92,181,111 · Δ +57,1 |
+
+Lezen:
+- **Overdag boven land is alle regen tot 1 mm/u even licht als of lichter dan de kaart zelf** (L* 95–100 tegen 96):
+  een pixel van 0,03–0,1 mm/u wordt 249,255,255 / 230,255,255 — vrijwel wit met een zweem cyaan. Dat is de "witte
+  halo". Het helderheidsverschil met land is 0 tot +3 L*: de regen onderscheidt zich alleen nog in tint. Dat is ook
+  de "low contrast" uit de gebruikersfeedback.
+- Boven water en bebouwing wordt lichte regen duidelijk LICHTER dan de ondergrond (+8 tot +16 L*): dezelfde bui is
+  boven land onzichtbaar-wit en boven de Noordzee een lichte vlek.
+- 's Nachts speelt het nauwelijks: de kaart is donker, optellen en mengen komen op hetzelfde neer (verschil 2–5 L*).
+- Met zuivere menging zou hetzelfde palet de kaart overdag wel donkerder maken (−4 tot −11 L*), maar boven water
+  blijft het ±0: lichtblauw op lichtblauw water. Daar helpt alleen een donkerder begin van het palet.
+
+### De drie factoren, elk gemeten of nagerekend
+1. **Menging (hoofdoorzaak)**: de α²-canvas hierboven. Geldt voor elke dekking onder ~0,6, dus voor alles tot ~0,4 mm/u.
+2. **Alfacurve + paletbegin**: α = min(210, byte × 1,6)/255 loopt vanaf byte 0 lineair op, en het palet is tot byte 55
+   één vaste lichtblauwe kleur. De hele aanloop is dus "een beetje lichtblauw" — precies het gebied waar factor 1 het
+   hardst optelt.
+3. **Smoothing (maakt het gebied groot)**: de ruwe data kent geen waarden onder byte 55 (≈ 0,08 mm/u); alles daaronder
+   ontstaat door interpolatie tussen droog (byte 0) en regen. Zelfde frame, zelfde uitsnede:
+   | regenveld | regenpixels | waarvan onder de inzet (byte < 55) |
+   | --- | --- | --- |
+   | blokken (de data zelf) | 125 272 | 0 (0 %) |
+   | bilineair (vóór U72) | 141 346 | 21 063 (14,9 %) |
+   | auto (blur, sinds U72) | 209 325 | 73 431 (35,1 %) |
+   De blur rekent op de byte (logaritmische schaal), dus een rand van droog naar 1 mm/u wordt een lineaire helling
+   door alle bytes 0…122: een brede zoom van 0,01–0,1 mm/u die in de data niet bestaat. Sinds U72 is ruim een derde van
+   het gekleurde oppervlak zo'n zoom, en het getekende regengebied is 67 % groter dan de data.
+
+Bijvangst voor de orkestrator: dit verklaart ook de U62-bevinding "dimmen via alfa maakt geel crème / solarized" in
+Wind en Lucht. Vermenigvuldigen (MIP-24-aanvulling) omzeilde het symptoom; de oorzaak is dezelfde canvas-alfa.
+Wind/Lucht laat ik in deze track ongemoeid (afbakening: alleen de menging in Weer).
+
+### Plan
+- `rainColormap()` zonder argumenten blijft byte-voor-byte de huidige tabel (de bot en U76 lezen die); palet, menging
+  en thema worden optionele argumenten. Test pint de huidige tabel vast.
+- Paletten in `web/src/core/rain-palette.ts`; mengvarianten: `huidig` (α²-canvas), `zuiver` (echte alfa-over),
+  `drempel` (niets onder de inzet, daarna meteen dekkend), `steil` (de zoom meteen dekkend), `rand` (drempel + dunne
+  contour). De contrastregel werkt op de inzet van de schaal en geldt voor de varianten met een dekkende inzet.
+
+## 14:57 — gebouwd, bekeken, gemeten: klaar voor PO-blik (niets als standaard vastgezet)
+
+### Wat er staat (`?dev` › Kaart; eigenaar U77, vervalt 2026-10-17; `docs/dev-opties.md` bijgewerkt)
+- **Regenpalet**: `huidig` · `blauw-grijs-rood` (PO) · `blauw-violet-rood` · `oplopend-donker`. Elk palet heeft een
+  eigen reeks voor de lichte en de donkere kaart (`PALETTE_STOPS` in `web/src/core/rain-palette.ts`); de laag wisselt
+  de opzoektabel als de kaart omslaat. De grenzen licht/matig/zwaar zijn die van het histogram (2,5 en 7,5 mm/u).
+- **Regenmenging** (alleen Weer; Wind en Lucht houden `huidig`, de PO-keuze uit U62):
+  | stand | dekking | canvas | wat je ziet |
+  | --- | --- | --- | --- |
+  | `huidig` | lineair vanaf byte 0 | α² (telt licht op) | de witte halo |
+  | `zuiver` | idem | echte alfa-over | alleen de fout eruit: zachte blauwe waas, de kaart blijft op kleur |
+  | `steil` | 0 → 0,55 over byte 2–12 | alfa-over | de hele gladgestreken zoom dekkend; het gebied is groter dan de data |
+  | `drempel` | 0 → 0,55 over byte 25–37 | alfa-over | niets tot de rand van de data, daar meteen dekkend |
+  | `rand` | als drempel | alfa-over | plus een dunne contour (shader, `fwidth`) |
+  De drempel ligt op byte 31: halverwege droog en de lichtste radarregen (0,1 mm/u = byte 62). Na het gladstrijken
+  ligt de rand van de data precies daar, dus het getekende gebied is weer het gebied van de data.
+- **Contrastregel** (`onsetContrastShift`, toegepast in `buildRainColormap` voor steil/drempel/rand): de beginkleur
+  schuift per palet en thema op (dag naar zwart, nacht naar wit) tot de lichtste zichtbare regen op land, water én
+  bebouwing minstens 15 L* verschilt; de verschuiving loopt over de lichte band uit, matig en zwaar houden het
+  palet. Regen maakt de kaart daarmee overdag altijd donkerder en 's nachts altijd lichter (de "ondergrens" uit de
+  spec). `huidig` en `zuiver` hebben geen dekkende inzet en dus geen garantie. De ondergronden staan als
+  `GROUND_COLOURS` in de code; de test leest `licht.json`/`donker.json` en faalt als de kaartstijl ervan wegloopt.
+  Wat de regel oplevert (`rig/onset-contrast.ts`, `metingen/contrast-van-de-inzet.md`):
+  | palet | thema | beginkleur palet | na de regel | land | water | bebouwing |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | huidig | dag | 51,190,246 | 34,125,162 | 26,1 | 15,3 | 21,8 |
+  | huidig | nacht | 51,190,246 | ongewijzigd | 36,2 | 29,1 | 30,5 |
+  | de drie blauwe | dag | 64,152,238 | 50,119,186 | 26,4 | 15,1 | 21,7 |
+  | blauw-grijs-rood, blauw-violet-rood | nacht | 66,120,214 | ongewijzigd | 23,7 | 16,8 | 18,2 |
+  | oplopend-donker | nacht | 58,118,188 | ongewijzigd | 22,4 | 15,6 | 16,6 |
+  Eerst stond het minimum op 10: in beeld te weinig voor blauw op het lichtblauwe water. Nu 15.
+- **Histogram**: `rainColor(waarde, look)` leest dezelfde tabel; `beelden/histogram-dag-1280.webp`.
+- **Eén bron**: `rainColormap()` zonder argument is byte voor byte de tabel van vóór U77 (test met de oude code als
+  orakel, beide thema's). VOOR DE ORKESTRATOR/U76: naam en vorm van de export zijn gelijk; er is alleen een optioneel
+  argument `look: { palette, blend, theme }` bij gekomen (ook op `rainColor`). `bot/` is niet aangeraakt.
+
+### Geschrapt: blauw → paars → magenta (de gangbare radarschaal)
+Gebouwd en gemeten, haalt de eis "bruikbaar bij rood-groen-kleurenblindheid" niet: zonder rood- of groengevoelige
+kegeltjes lijken blauw, paars en magenta op elkaar (kleurverschil licht–zwaar 10–15, matig–zwaar 10–11, waar de lat
+20 is). Niet in de knop gezet. De toets (`rain-palette.test.ts`, tabel in `metingen/bandverschil-per-palet.md`;
+CIE76 tussen 0,5 / 4,5 / 15 mm/u, normaal · protanopie · deuteranopie):
+| palet | thema | normaal l–m / m–z / l–z | protanopie | deuteranopie |
+| --- | --- | --- | --- | --- |
+| huidig | dag | 93 / 53 / 122 | 66 / 36 / 45 | 74 / **19** / 64 |
+| blauw-grijs-rood | dag | 48 / 76 / 103 | 45 / 34 / 78 | 49 / 56 / 102 |
+| blauw-grijs-rood | nacht | 43 / 75 / 99 | 40 / 42 / 70 | 46 / 51 / 91 |
+| blauw-violet-rood | dag | 38 / 85 / 102 | 23 / 70 / 75 | 22 / 88 / 100 |
+| blauw-violet-rood | nacht | 39 / 69 / 96 | 29 / 55 / 69 | 40 / 64 / 93 |
+| oplopend-donker | dag | 34 / 35 / 55 | 24 / 32 / 48 | 22 / 38 / 53 |
+| oplopend-donker | nacht | 44 / 37 / 76 | 41 / 34 / 73 | 42 / 38 / 79 |
+Het PO-palet is het sterkst: grijs is voor elk kleurzicht iets anders dan blauw en dan rood. Violet en
+oplopend-donker halen de lat pas nadat ik de matige band ook in helderheid van de lichte heb losgetrokken (ze zaten
+op 13–18). Het huidige palet zakt bij deuteranopie op geel tegen oranjerood (19); de test dekt alleen de nieuwe.
+
+### Beelden (`beelden/`, 22 stuks; rig `rig/look-shots.ts` + `rig/run-look-shots.sh`, kopieer naar `web/tmp/u77/`)
+Elk beeld is één pagina; de stand wisselt via de dev-knoppen, dus elke cel is hetzelfde frame en dezelfde uitsnede.
+- `paletten-{radar,harmonie}-{dag,nacht}-{1280,390}`: nu · PO-palet met menging huidig · huidig + drempel · de drie
+  nieuwe paletten + drempel.
+- `mengingen-{radar,harmonie}-…`: het PO-palet in de vijf mengingen; `mengingen-stad-radar-…` hetzelfde op zoom 9.
+- Radar = 14:15 vandaag (lichte buien én rode kernen in Friesland en Brabant); `nacht-vast` = donker thema met
+  Expressief uit, want een radartijd overdag heeft geen nacht. HARMONIE: de spec vraagt +6 u, maar dat is nog de
+  blend (U72); genomen op +9 u (23:40, nacht) en +23 u (morgen 13:40, dag), bron per beeld `harmonie harmonie`.
+- `histogram-dag-1280`, en `modus-wind-lucht-dag-1280` (de paletten in Wind en Lucht).
+Zelf bekeken: paletten radar dag 1280 + 390, radar nacht 1280 (vorige paletronde), harmonie dag + nacht 1280;
+mengingen radar dag 1280, harmonie dag 1280, stad dag 1280 (vorige ronde), stad nacht 390; histogram; wind/lucht.
+NIET stuk voor stuk bekeken: de overige 390-beelden en mengingen nacht 1280 (wel gemaakt, 0 mislukt).
+
+### Wat ik zie
+- **De menging is het probleem, het palet niet.** `paletten-*`, cel 2: het PO-palet met menging `huidig` houdt de
+  witte waas. Op HARMONIE overdag (`paletten-harmonie-dag-1280`, cel 1 en 2) bleekt de halve kaart wit weg: het
+  weermodel heeft brede velden van 0,01–0,1 mm/u en de 9×9-blur smeert die nog verder uit.
+- `drempel` haalt dat in alle acht scènes weg: de kaart houdt zijn kleur, een bui heeft een rand, en die rand ligt
+  waar de data regen heeft. `zuiver` is de kleinste ingreep maar blijft een waas, boven zee bijna onzichtbaar.
+  `steil` tekent ruim de helft meer oppervlak dan er regen is (op HARMONIE loopt het vlak door tot in Brabant).
+  `rand`: ingezoomd geeft de contour houvast, op landelijk niveau wordt het druk (honderden buitjes met een lijntje).
+- Prijs van `drempel`: breed motregenveld in HARMONIE wordt één vlak met een harde rand en gaten (`…harmonie-dag`).
+  Daarom staat de inzetdekking op 0,55 en niet op 0,7: op 0,7 verdwenen plaatsnamen en grenzen onder de plaat.
+- **Blauw op deze kaart is lastig**: het water van de basiskaart is zelf lichtblauw (158,189,255). "Lichtblauw" als
+  begin van het palet is boven zee onzichtbaar; de regel maakt er overdag middenblauw van (50,119,186). Boven de
+  Noordzee blijven de blauwe paletten het zwakst — daar wint het huidige palet met drempel, omdat turquoise in tint
+  van het water afwijkt. Buiten deze track: een grijzer of bleker water in `licht.json` geeft blauwe regen lucht.
+- Volgorde: in het PO-palet leest matig als een donkere leigrijze kern in het blauw en zwaar als rood daarbinnen;
+  duidelijk, maar vlak. Met violet springen de kernen er meer uit. `oplopend-donker` is overdag het rustigst, maar
+  zware regen is dan bijna zwart en mist het signaal van rood; 's nachts (blauw → ijsblauw → geelwit) is het het mooist.
+- Histogram: blauwe staven op de blauwe hemel van de scrubber vallen minder op dan het huidige turquoise.
+- Wind en Lucht: de paletten werken daar, maar de menging blijft er de oude, dus de halo ook (`modus-wind-lucht`).
+  Schakelen tussen Weer (strak) en Wind (wazig) is dan een zichtbare sprong.
+
+### Advies (wat ik zou kiezen)
+1. **Menging `drempel`**, voor elk palet. Dit is de eigenlijke reparatie; ook met het huidige palet is de halo weg.
+2. **Palet `blauw-grijs-rood`** (het PO-voorstel): als enige ruim boven de lat voor kleurenblindheid, dag en nacht.
+   Vindt de PO het grijs te dof, dan `blauw-violet-rood` (levendiger, krap aan de lat: 22–23 overdag).
+3. Daarna, niet in deze track: (a) dezelfde menging in Wind en Lucht — de vermenigvuldiging uit U62 omzeilde deze
+   canvasfout en is dan misschien niet meer nodig; (b) het water van de lichte kaart; (c) de bot: `bot/native-rain.ts`
+   bootst de α² na (`1 - alpha * alpha`), dus stills en filmpjes hebben dezelfde halo tot dat meegaat.
+Knoppen die ik bewust heb laten liggen voor ronde 2: de drempel op 0,1 mm/u in plaats van 0,03 (kleiner HARMONIE-
+vlak, maar de lichtste radarbuitjes krimpen), en de inzetdekking (0,55).
+
+### Frametijd `rand` (de enige stand die de shader duurder maakt)
+`rig/blend-frames.ts` + `rig/run-blend-frames.sh` (naar U72; po-android, renderer-cgroup 40 %, 25 s laden, 20 s
+afspelen in Weer vanaf nu, gepaard en om en om, perf-lock per run, load bij start 2,9–10,3). `metingen/frametijd-rand-tegen-drempel.log`.
+| | frames in 20 s | p95 | frames > 34 ms | lange frames |
+| --- | --- | --- | --- | --- |
+| drempel | 1185 / 1181 / 1144 | 16,8 / 16,8 / 16,8 | 3 / 3 / 14 | 2 / 1 / 7 |
+| rand | 1179 / 1172 / 1176 | 16,8 / 16,8 / 16,8 | 4 / 6 / 4 | 2 / 3 / 2 |
+Geen meetbaar verschil: de spreiding tussen de drie drempel-runs is groter dan het verschil tussen de standen.
+SwiftShader, dus een bovengrens voor een telefoon-GPU. Palet, zuiver, steil en drempel wisselen alleen de tabel
+(256 texels) en de mengfunctie en zijn niet gemeten.
+
+### Niet gedaan, eerlijk
+- Niet afspelend beoordeeld: alle oordelen komen van stills. Een harde drempel kan bij afspelen flikkeren waar
+  motregen rond de drempel schommelt; dat ziet alleen de PO op 4320.
+- Niet op een echt toestel of in Firefox/Safari gekeken. De α²-optelling is gemeten in headless Chromium; de halo
+  die de PO op zijn telefoon ziet past erbij, maar hoe andere browsers een canvas met kleur > alfa mengen heb ik
+  niet gemeten.
+- Het terugvalpad (regen als MapLibre-laag als de overlay-canvas faalt) mengt in een dekkend doel en had de fout nooit.
+
+### Gate (web/), 14:55
+`pnpm typecheck` 0 · `pnpm test` 0 (84 bestanden, 561 tests) · `pnpm build` 0 ·
+`MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts --project desktop` 0 (7 groen).
+De eerste e2e-poging gaf exit 1 op mijn eigen nieuwe regels in `dev-panel.spec.ts` (ik las `data-rain-look` van
+`.map` in plaats van `.map-shell`); hersteld, daarna 7 groen. `pnpm test` en de rigs draaien buiten de sandbox (tsx
+opent een IPC-socket). Preview 4320 serveert deze build (`index-bAQpJW04.js`, bevat de nieuwe knoppen). Draft-PR #107.
+
+## 2026-10-11 07:55 — ronde 2 (PO via orkestrator 07:35): langer blauw, zachtere drempel, afspelend bekeken
+
+PO: palet "over violet naar rood vind ik het beste, maar kan het nog wat langer blauw blijven?"; menging "zuiver of
+drempel … kan die drempel nog één tikje subtieler?". Niets als standaard vastgezet.
+
+### Nieuw onder `?dev` › Kaart
+- Regenpalet `violet-klassen`: kleur = onze eigen klasse. Blauw voor heel licht (drie tinten, oplopend in donkerte,
+  tot 2,5 mm/u), violet voor matig (2,5–7,5), rood vanaf zwaar, bordeaux bij extreem. De overgangen zijn kort
+  (2,2 → 2,9 en 6,9 → 8,2 mm/u), zodat een klassegrens ook een kleurgrens is.
+- Regenpalet `violet-laat`: dezelfde kleuren, maar blauw tot ~5, violet 5–10, rood vanaf 10.
+- `blauw-violet-rood` is ongewijzigd (van blauw af bij 1,2, violet bij 3,5, rood bij 11).
+- Regenmenging `drempel-zacht`: dezelfde rand als drempel (byte 31), inzetdekking 0,38 in plaats van 0,55 en een
+  oploop van 24 bytes in plaats van 12. Vanaf 0,1 mm/u is de dekking gelijk aan `zuiver`.
+
+### Contrastregel verfijnd (raakt ook `drempel` uit ronde 1)
+De regel verschoof de hele lichte band lineair mee met de beginkleur. Bij een lagere inzetdekking werd dat te grof:
+het blauw van 0,5 mm/u werd zo donker dat het voor kleurenblinden naast violet viel (13–16 waar de lat 20 is). Nu
+krijgt elke tabelingang van de lichte band de kleinste verschuiving waarmee hij bij zijn eigen dekking de regel haalt
+(`lightBandShift`): meer regen is dekkender en heeft minder nodig. Gevolg: het blauw binnen een bui is helderder dan
+in ronde 1, alleen de rand zelf is donkerder. LET OP: `drempel` ziet er daardoor iets anders uit dan wat de PO in
+ronde 1 beoordeelde (zelfde rand, frisser blauw erbinnen).
+
+### Waar de eisen knellen (`metingen/bandverschil-per-palet.md`, `metingen/contrast-van-de-inzet.md`)
+Kleurverschil CIE76, "normaal / kleurenblind" (het kleinste van protanopie en deuteranopie); lat 20. Gelijk voor
+drempel en drempel-zacht.
+| palet | thema | licht–matig (0,5 · 4,5) | matig–zwaar (4,5 · 15) | grens bij 2,5 (1,8 · 3,5) | grens bij 7,5 (6 · 9,5) |
+| --- | --- | --- | --- | --- | --- |
+| blauw-grijs-rood | dag | 56 / 52 | 76 / 34 | 37 / 34 | 57 / 21 |
+| blauw-violet-rood | dag | 41 / 30 | 85 / 70 | 18 / 13 | 55 / 46 |
+| blauw-violet-rood | nacht | 39 / 29 | 69 / 55 | 21 / 16 | 46 / 37 |
+| violet-klassen | dag | 44 / 31 | 78 / 66 | 29 / **19** | 77 / 65 |
+| violet-klassen | nacht | 38 / 25 | 63 / 53 | 28 / **6** | 66 / 54 |
+| violet-laat | dag | **25 / 17** | 105 / 83 | 6 / 5 | 28 / 23 |
+| violet-laat | nacht | 25 / 23 | 89 / 57 | 11 / 9 | 18 / 10 |
+1. **Violet en kleurenblindheid.** Zonder rood- of groengevoelige kegeltjes is violet een blauw; alleen helderheid
+   scheidt ze. Drie blauwtinten gebruiken die helderheid al. De middens van de klassen halen de lat (25–31), maar
+   de grens licht/matig zelf is bij `violet-klassen` voor kleurenblinden zwak overdag (19) en 's nachts onzichtbaar
+   (6: lichtblauw naast lavendel). Rood blijft voor iedereen duidelijk (54–83). Het PO-palet met grijs uit ronde 1
+   had dit niet (34 op de grens); dat is de prijs van violet.
+2. **`violet-laat` volgt onze klassen niet.** Matig (4,5 mm/u) is nog blauw en verschilt 25 / 17 van licht: onder de
+   lat, ook bij normaal kleurzicht krap. De kleurgrenzen liggen bij 5 en 10 (daar 28 / 20 en 78 / 66), terwijl het
+   histogram en de tabel licht/matig/zwaar op 2,5 en 7,5 leggen. De unit-test toetst dit palet daarom op zijn eigen
+   drie kleuren en zegt dat erbij.
+3. **Lagere dekking kost kleur aan de rand.** De regel geldt bij 0,38, maar de beginkleur moet er overdag 42 % voor
+   naar zwart: van 64,152,238 naar 37,87,137 (bij 0,55 is dat 21 %: 51,120,188). Over het bijna witte land wordt dat
+   een grijsblauwe, wat rokerige zoom. Ondergrens van de dekking:
+   | inzetdekking | dag: naar zwart | beginkleur dag | nacht: naar wit |
+   | --- | --- | --- | --- |
+   | 0,20 | 100 % | zwart: de regel is hier op | 80 % |
+   | 0,30 | 63 % | 24,57,89 | 34 % |
+   | 0,35 | 49 % | 33,78,121 | 23 % |
+   | 0,38 (drempel-zacht) | 42 % | 37,87,137 | 17 % |
+   | 0,45 | 32 % | 44,103,162 | 6 % |
+   | 0,55 (drempel) | 21 % | 51,120,188 | 0 % |
+   Rekenkundig houdt de regel het tot 0,20 vol (dan is de rand zwart); als blauw herkenbaar is het tot ongeveer
+   0,35. Het knelpunt is het lichtblauwe water: daar moet regen 15 L* donkerder dan 158,189,255 zijn.
+
+### Afspelend bekeken (E1 uit ronde 1): `rig/edge-flicker.ts`, `metingen/flikker-motregen-dag.log`
+Eén pagina, uitsnede 360 × 360 px over de losse lichte buitjes boven Brabant en de Kempen (zoom 8), lichte kaart,
+palet violet-klassen, kaarttijd per minuut van 06:55 tot 07:35 (41 beelden per menging, radarverleden). Maat: pixels
+waarvan de helderheid binnen drie opeenvolgende minuten meer dan 12 niveaus heen én terug gaat.
+| menging | knipperpixels per minuut (van 129 600) | pieken |
+| --- | --- | --- |
+| zuiver | 0 in alle 39 minuten | – |
+| drempel | 34–103, op de wissel van radarbeeld 89–180 | elke 5e minuut |
+| drempel-zacht | 3–47, op de wissel 62–151 | elke 5e minuut |
+Wat ik zie in de strips (`beelden/flikker-motregen-dag-per-minuut.webp`, `…-per-radarbeeld.webp`):
+- **De rand van een regengebied flikkert niet.** In negen opeenvolgende minuten schuift en groeit elke rand één
+  kant op. De gemeten knipperpixels zijn hooguit 0,14 % van het beeld en vallen op de wissel van radarbeeld: de rand
+  verspringt daar een pixel. In de strip op halve grootte is dat niet te zien.
+- **Losse motregenbuitjes komen en gaan wel.** Om de vijf minuten bekeken verschijnt en verdwijnt er klein spul
+  (oost van Tilburg 06:55 wel, 07:00 weg; bij Bladel 07:15–07:20 wel, 07:25 weg). Dat zit in de radar zelf. Bij
+  `zuiver` zijn die buitjes zo vaag dat het niet opvalt; bij `drempel` is elk buitje een duidelijk vlekje dat in
+  één à twee minuten inspringt of wegvalt; `drempel-zacht` zit ertussen (vlekjes vager en grijzer).
+- Voorbehoud: één gebied, veertig minuten, alleen de lichte kaart, stilstaande beelden per minuut en geen echte
+  video op een telefoon. Een tweede reeks over de rand van een regenband bij Amersfoort (zoom 9) heb ik bekeken in
+  een eerdere versie van de rig (rand loopt daar vloeiend mee, bij drempel-zacht met een grijze zoom), maar dat
+  beeld is niet bewaard.
+
+### Beelden ronde 2 (`beelden/violet-*`, radar 07:35 vandaag: veel lichte buien met rode kernen)
+`violet-radar-{dag-vast,nacht-vast}-{1280,390}`: rijen blauw-violet-rood · violet-klassen · violet-laat, kolommen
+zuiver · drempel · drempel-zacht. Vast thema met Expressief uit, want om 07:35 is de kaart net voor zonsopkomst nog
+donker. `violet-histogram-dag-vast-1280`: het histogram per palet. Alle vijf zelf bekeken, plus beide flikkerstrips.
+- `violet-klassen`: doet wat de PO vroeg. De buien zijn blauw met violette kernen, rood alleen in de zwaarste
+  kernen; in het histogram zijn de staven van vanochtend (0,4–1,5 mm/u) allemaal blauw waar blauw-violet-rood er
+  twee indigo kleurt.
+- `violet-laat`: bijna alles is blauw, een paar violette spikkels, rood zie je nauwelijks. Rustig, maar een flinke
+  bui (5–8 mm/u) valt niet meer op.
+- 's Nachts: blauw → lichtblauw → lavendel → rood; leest goed, lavendel is duidelijk "meer" dan blauw.
+- `zuiver` oogt onscherp en boven zee blijft lichte regen vaag; `drempel` is strak; `drempel-zacht` is op
+  landelijk niveau bijna gelijk aan drempel met een zachtere rand, de grijze zoom zie je pas ingezoomd.
+
+### Advies ronde 2
+1. **Palet `violet-klassen`.** Langer blauw zonder de klassen los te laten: kaart, histogram en tabel zeggen
+   hetzelfde. `violet-laat` zou ik niet kiezen (punt 2 hierboven, en zware buien verliezen hun signaal).
+2. **Menging `drempel-zacht`**, met één kanttekening: vindt de PO de zoom overdag te grijs, dan de inzetdekking naar
+   0,45 (één constante, `SOFT_THRESHOLD_EDGE`); dat is het "tikje" tussen 0,38 en 0,55. `zuiver` is het rustigst
+   bij afspelen maar verliest de grens "het regent hier (een beetje)" die de PO juist goed vond.
+3. Blijft staan uit ronde 1: dezelfde menging in Wind en Lucht, het water van de lichte kaart (de bron van punt 3),
+   en de bot die de α² nabootst.
+
+### Gate (web/), 07:52
+`pnpm typecheck` 0 · `pnpm test` 0 (84 bestanden, 562 tests) · `pnpm build` 0 ·
+`MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts --project desktop` 0 (7 groen).
+Preview 4320 serveert deze build (`index-BG1C8N4l.js`, bevat `drempel-zacht`). Niet gedaan: de branch bijwerken met
+main (7 commits verder); de perf van `drempel-zacht` is niet gemeten (alleen een andere tabel, de shader is gelijk).
+
+## 2026-10-11 08:05 — ronde 3 (PO via orkestrator): violet-laat als kandidaat, de lat van de contrastregel instelbaar
+
+PO: palet "ik vind laat wel beter" (kent de nadelen); menging "wellicht is zachter niet de oplossing maar moet de
+contrastregel een klein beetje naar beneden, bijvoorbeeld 20 %". Niets als standaard vastgezet.
+
+### Gedaan
+- **Branch bijgewerkt met origin/main** (merge `c01457b`, 7 commits: U78-botfixes en LOG; geen conflicten, geen
+  overlap met `web/src`).
+- **`?dev` › Regen › Regencontrast**: 15 L* (standaard, de lat tot nu toe) · 12 L* (−20 %, de PO-suggestie) · 10 L*.
+  De regel is dezelfde regel in de code (`contrastShiftFor(…, minimum)`), alleen met de gekozen lat; `RainLook`
+  heeft er een optioneel veld `contrast` bij (weggelaten = 15, dus `rainColormap()` zonder argument is ongewijzigd).
+  De unit-test toetst elke lat: voor 15, 12 en 10 haalt de lichtste zichtbare regen die lat op land, water en
+  bebouwing, in elk palet en thema, en de hele lichte band ook.
+- **Eigen groep "Regen"** in het dev-paneel (Regenpalet, Regenmenging, Regencontrast). Kaart zou anders vijf knoppen
+  krijgen, en de afspraak is hooguit 3–4 per groep; Kaart houdt de twee Regenveld-knoppen. AFWIJKING van de spec van
+  ronde 1 ("groep Kaart"): graag bevestigen. `docs/dev-opties.md` en `dev-panel.spec.ts` volgen.
+
+### Wat de lagere lat doet (`rig/contrast-floors.ts`, `metingen/contrastlat-violet-laat.md`; violet-laat)
+De lichtste zichtbare regen: beginkleur na de regel, en op het scherm het verschil met de ondergrond in helderheid
+(ΔL*) en in kleur als geheel (ΔE, CIE76).
+| menging | thema | lat | beginkleur | op land ΔL* · ΔE | op water ΔL* · ΔE | op bebouwing ΔL* · ΔE |
+| --- | --- | --- | --- | --- | --- | --- |
+| drempel (0,55) | dag | 15 | 51,120,188 | −26,0 · 36 | −15,1 · 16 | −21,6 · 32 |
+| drempel | dag | 12 | 57,135,212 | −23,1 · 36 | −12,1 · 14 | −18,7 · 33 |
+| drempel | dag | 10 | 61,144,226 | −21,4 · 36 | −10,3 · 13 | −17,0 · 33 |
+| drempel | nacht | 15 = 12 = 10 | 66,120,214 | +23,8 · 39 | +16,8 · 31 | +18,2 · 39 |
+| drempel-zacht (0,38) | dag | 15 | 37,87,137 | −22,3 · 26 | −15,0 · 15 | −19,5 · 23 |
+| drempel-zacht | dag | 12 | 45,108,169 | −19,6 · 25 | −12,1 · 12 | −16,7 · 23 |
+| drempel-zacht | dag | 10 | 51,122,190 | −17,6 · 25 | −10,1 · 11 | −14,6 · 22 |
+| drempel-zacht | nacht | 15 | 99,144,221 | +20,6 · 27 | +15,3 · 21 | +16,1 · 26 |
+| drempel-zacht | nacht | 10 | 66,120,214 | +16,9 · 28 | +11,8 · 22 | +12,5 · 28 |
+- **Valt er iets weg? Nee.** Boven land en bebouwing verandert er in kleurverschil niets (ΔE 32–36 bij drempel,
+  22–26 bij zacht): de rand wordt alleen lichter en blauwer. Het water is de enige plek waar de lat bindt; daar
+  zakt het van 16 naar 14 (lat 12) en 13 (lat 10) bij drempel, en naar 12 en 11 bij drempel-zacht. Zichtbaar, maar
+  bij zacht + 10 het zwakst van alles.
+- 's Nachts doet de lat bij `drempel` niets: het palet zit daar uit zichzelf al op 16,8.
+- De lat is het kleinste verschil, niet het verschil: op land blijft de rand ruim 20 L* donkerder dan de kaart.
+
+### Beelden (`beelden/contrast-*`, zes stuks, alle zes zelf bekeken)
+`contrast-radar-{dag-vast,nacht-vast}-{1280,390}` (radar 07:35) en `contrast-stad-dag-vast-{1280,390}` (zoom 9 bij
+Amersfoort, 07:12, de rand van een regenband): rijen drempel · drempel-zacht, kolommen 15 · 12 · 10 L*.
+- Ingezoomd, `drempel`: bij 15 loopt er een staalgrijze zoom langs de rand; bij 12 is die zoom blauw geworden en
+  nog net een tint donkerder dan de bui; bij 10 is hij weg en eindigt het blauw gewoon. De rand zelf blijft in alle
+  drie even scherp.
+- Ingezoomd, `drempel-zacht`: bij 15 een brede rokerige band; bij 12 veel minder grijs; bij 10 een zachte
+  lichtblauwe uitloop — het mooiste "zachte" beeld, maar de grens regen/geen regen is dan weer een waas.
+- Landelijk, dag: de verschillen tussen 15, 12 en 10 zijn klein; je ziet ze aan de losse buitjes boven de Noordzee
+  en boven België, die per stap iets bleker worden. Bij zacht + 10 zijn de kleinste spikkels boven zee en op de
+  grijze bebouwingsvlakken van het telefoonbeeld flets, maar ze staan er.
+- Nacht: geen zichtbaar verschil tussen de kolommen.
+
+### Advies ronde 3
+**`violet-laat` + `drempel` + Regencontrast 12 L*.** De PO-suggestie doet wat hij ervan verwachtte: de vorm van de
+drempel blijft (duidelijke grens "hier regent het"), de rand is niet meer grijs en zwaar, en boven water houdt de
+lichtste regen een marge (ΔE 14) die ik bij 10 (13, en 11 met zacht) niet zou willen weggeven nu het palet zelf al
+bijna helemaal blauw is op een kaart met blauw water. `drempel-zacht` is met de lagere lat niet meer nodig; als de
+PO toch de zachte rand wil, dan zacht + 12, niet zacht + 10.
+Niet opnieuw gedaan in deze ronde: afspelen (de lat verandert alleen de kleur van de rand, niet waar hij ligt of
+wanneer hij verschijnt), HARMONIE-beelden, en het histogram (dat volgt het palet, niet de lat boven 0,1 mm/u).
+
+### Gate (web/), 08:04, op de gemergde branch
+`pnpm typecheck` 0 · `pnpm test` 0 (84 bestanden, 563 tests) · `pnpm build` 0 ·
+`MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts --project desktop` 0 (7 groen).
+Preview 4320 serveert deze build (`index-DbltdCof.js`, bevat `dev-regencontrast`).
+
+## 2026-10-11 08:30 — PO rechtstreeks in de pane: lat als invoerveld, violet weer een verloop
+
+PO: "maak lat ff een input field, 10 lijkt me nog te veel"; daarna "waarom is violet-laat en violet-klasse allebei
+geen gradient meer?" en "ik wil geen drempel, gradient als voorheen was goed, alleen de stops moesten verschoven".
+
+### Violet-klassen en violet-laat: mijn fout, hersteld
+In ronde 2 had ik de overgangen blauw → violet en violet → rood bewust als korte stappen op de grenzen gelegd
+("een klassegrens is ook een kleurgrens"). Dat was mijn eigen invulling, niet gevraagd, en het las als banden. Nu
+komen de drie violet-paletten uit één verloop (`violetGradient` in `rain-palette.ts`: lichtblauw → blauw → violet →
+paars → rood → bordeaux, dezelfde kleuren als blauw-violet-rood) en verschillen ze alleen in waar de stops liggen:
+| palet | blauw | violet | paars | rood |
+| --- | --- | --- | --- | --- |
+| blauw-violet-rood | 1,2 | 3,5 | 6,5 | 11 mm/u |
+| violet-klassen | 2 | 4,5 | 6,5 | 10 |
+| violet-laat | 4 | 7 | 9 | 13 |
+Ik lees "geen drempel" hier als: geen stap in het palet. De mengvariant `drempel` is niet aangeraakt.
+Zelf bekeken: de stroken (alle drie een doorlopend verloop) en `beelden/gradient-radar-dag-vast-1280.webp`.
+LET OP: de beelden `violet-*` en `contrast-*` van rond 07:50–08:05 tonen nog de versie met stappen in de kernen; de
+randen (waar ronde 3 over ging) zijn gelijk gebleven. Kleurenblind-cijfers opnieuw in
+`metingen/bandverschil-per-palet.md`; violet-laat 's nachts is tussen 0,5 en 4,5 mm/u vrijwel één blauw (11 / 10).
+
+### Regencontrast is een invoerveld (0–20 L*, stap 1; opgeslagen als getal, 0 = regel uit)
+De unit-test toetst nu 20, 15, 12, 10, 7,5, 5, 2 en 0. Bijvangst: op 20 haalde de rand de lat net niet (19,94) omdat
+de regel met de nominale dekking 0,55 rekende en de tabel 140/255 bewaart; de regel rekent nu met de byte, en ook
+de kleuren onder de inzet krijgen elk hun eigen kleinste verschuiving.
+**Onder 8,5 doet de lat bij `drempel` niets meer.** De beginkleur van het palet (64,152,238 op dekking 0,55) is uit
+zichzelf al 8,5 L* donkerder dan het water en 20 L* donkerder dan land; lager dan dat schuift er niets
+(`metingen/contrastlat-violet-laat.md`, `beelden/lat-vrij-stad-dag-vast-1280.webp`: 8 en 0 zijn hetzelfde beeld).
+Vindt de PO 10 nog te zwaar, dan zit de rest niet in de regel maar in de dekking van de rand (0,55) of in de
+beginkleur zelf. Bij `drempel-zacht` (0,38) loopt de lat wel door tot 6.
+
+### Gate (web/), 08:28
+`pnpm typecheck` 0 · `pnpm test` 0 (84 bestanden, 564 tests) · `pnpm build` 0 ·
+`MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts --project desktop` 0 (7 groen).
+Preview 4320 serveert deze build (`index-DtVgolwh.js`). Niets als standaard vastgezet.
+
+## 2026-10-11 08:36 — PO-keuze en histogramstaven per uur
+
+### PO-keuze (rechtstreeks in de pane, 08:31)
+"regencontrast kan op 0, drempel-zacht met violet-laat ziet er voor mij het beste uit."
+→ **Regenpalet `violet-laat` · Regenmenging `drempel-zacht` · Regencontrast 0.**
+NOG NIET als standaard vastgezet: dat raakt `rainColormap()` zonder argument, dus ook de bot en U76, en de menging
+in Wind en Lucht (nu nog `huidig`). Wacht op een uitdrukkelijk "zet vast" van de PO of de orkestrator. Wat er dan
+moet gebeuren: `DEFAULT_RAIN_LOOK`, de test die de oude tabel vastpint, het besluit over Wind/Lucht en de bot, en
+de drie knoppen opruimen (MIP-12). Met contrast 0 doet de contrastregel niets meer; of hij als vangnet in de code
+blijft of weg mag is dan ook een keuze.
+
+### Histogram: de kleur van een staaf volgt de hemel achter die staaf
+PO: "de kleur van een balk hangt nu af van de cursorlocatie i.p.v. de achtergrond (c.q. tijd op dat moment)".
+Klopte: alle staven kregen het palet van het kaartthema op de cursortijd, dus ze kleurden samen om zodra de cursor
+de zonsondergang passeerde. Nu kiest elke staaf dag of nacht uit de hemel op zijn eigen uur (`barRainLook` in
+`HistogramScrubber.tsx`; dezelfde grens als de inkt van de liniaal, daglicht 0,5). Zonder hemel (Expressief uit) is
+de achtergrond het thema zelf en geldt dat voor elke staaf. Voor het product (palet `huidig`) verandert er niets:
+dat palet is dag en nacht gelijk.
+- Componenttest: vijf uren met de zon onder bij het derde → staven dag, dag, nacht, nacht, nacht; ongewijzigd als
+  het kaartthema omslaat; met Expressief uit volgen ze het thema.
+- Zelf bekeken: `beelden/histogram-staven-volgen-hemel.webp` (boven cursor 17:30, onder cursor 20:00, zelfde avond
+  met regen rond zonsondergang): de staven van 17 en 18 u houden het dagblauw en die van 19–21 u het nachtblauw in
+  beide beelden. Het verschil tussen dag- en nachtblauw is bij violet-laat klein; de omslag valt per staaf, niet
+  vloeiend.
+
+### Gate (web/), 08:35
+`pnpm typecheck` 0 · `pnpm test` 0 (84 bestanden, 565 tests) · `pnpm build` 0 ·
+`MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts e2e/cloud-section.spec.ts --project desktop` 0 (8 groen).
+Preview 4320 serveert deze build (`index-BK-IHBs5.js`).
+
+## 2026-10-11 08:55 — PO in de pane: nachtviolet te vaal, kaarttijd aan de cursor
+
+### Nachtviolet verzadigd
+PO: "in de nacht ziet de violette categorie histogram bars er nu een beetje vaal/wit uit, niet echt 'eng'" (met twee
+schermbeelden: dezelfde bui met lavendel-roze nachtstaven naast diepviolette dagstaven).
+Oorzaak: het nachtviolet was bewust bleek lavendel (212,186,255 → 244,184,244), zodat het voor kleurenblinden in
+helderheid van het blauw afstak. Sinds de staven het palet van hun eigen uur volgen staat dat lavendel ook in het
+histogram, pal naast het dagviolet. Nu: verzadigd violet 132,56,228 → paarsmagenta 204,48,196, dan rood (in
+`violetGradient`, dus voor alle drie de violet-paletten en ook op de nachtkaart: één tabel).
+Prijs, gemeten (`metingen/bandverschil-per-palet.md`): een verzadigd violet is zonder rood- of groengevoelige
+kegeltjes een blauw van dezelfde helderheid. 's Nachts is blauw tegen violet dan alleen bij normaal kleurzicht te
+zien (blauw-violet-rood 60 / 9, violet-klassen 59 / 20, violet-laat op 0,5 · 4,5 mm/u 12 / 5); rood blijft voor
+iedereen duidelijk (≥ 69). De unit-test zondert precies dat paar uit, met deze reden erbij, en toetst de rest.
+Zelf bekeken: `beelden/nachtviolet-radar-nacht-vast-1280.webp` (kernen nu paars en magenta in plaats van wit-roze).
+NIET in het histogram zelf gezien: op de standaardlocatie (Utrecht) viel vanochtend geen matige regen; de staven
+lezen dezelfde tabel.
+
+### Kaarttijd aan de cursor in het histogram
+PO: "kan jij ook nog even aan de cursor in het histogram bovenaan de current time vastmaken? soortgelijk als de
+10 mm/h-achtige dingetjes maar dan bovenaan" en "je moet ff kijken dat niet botst met 'hoge wolken' in de lucht view".
+`.cursor-time` in `HistogramScrubber.tsx`: de kaarttijd (per minuut) als labeltje bovenaan de cursorlijn, in elke
+weergave. LINKS van de lijn: rechts staan de regen-, temperatuur- en windwaarden en in Lucht de labels van de
+wolkenlagen, met "hoge wolken" bovenaan. Alleen aan het begin van de tijdlijn, waar de cursor tegen de linkerwand
+loopt (minder dan 56 px ruimte), wijkt het uit naar rechts; daar kán het dus wel over "hoge wolken" vallen.
+Zelf bekeken: `beelden/tijdlabel-aan-cursor.webp` (Weer en Lucht op 1280, Lucht op 390). Er waren op dat moment
+geen hoge wolken, dus het label zelf staat niet in beeld; "midden wolken" en "lage wolken" staan rechts van de
+lijn, het tijdlabel links. De oude grote pil boven de cursor (weg sinds U34) is dit niet; de test daarvoor blijft.
+
+### Gate (web/), 08:54
+`pnpm typecheck` 0 · `pnpm test` 0 (84 bestanden, 565 tests) · `pnpm build` 0 ·
+`MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts e2e/cloud-section.spec.ts --project desktop` 0 (8 groen).
+Preview 4320 serveert deze build (`index-B-JZaydH.js`). Het tijdlabel staat ook zonder `?dev` aan (het is geen
+proefknop); het nachtviolet alleen via de violet-paletten onder `?dev`. Nog steeds niets als standaard vastgezet.
+
+## 2026-10-11 09:22 — PO: "ja top, dit is mergebaar"; keuze vastgezet als standaard (orkestrator 09:10)
+
+### PO-keuzes in deze track
+1. Palet **violet-laat**: lichtblauw → blauw → violet → paars → rood → bordeaux, blauw tot 4, violet bij 7, paars bij
+   9, rood bij 13 mm/u. STANDAARD. De PO kent de nadelen (kleuren vallen niet op onze klassen; blauw/violet zwak
+   bij kleurenblindheid).
+2. **Een doorlopend verloop**, geen stappen op de klassegrenzen ("gradient als voorheen, alleen de stops
+   verschoven"). STANDAARD (zit in het palet).
+3. Menging **drempel-zacht** in Weer (rand op de rand van de data, inzetdekking 0,38, brede oploop, echte
+   alfa-over). STANDAARD.
+4. **Regencontrast 0**: de contrastregel staat uit. STANDAARD. De regel zelf staat nog in de code en is onder `?dev`
+   in te stellen.
+5. **Regencontrast als invoerveld** (0–20) in plaats van drie vaste standen. Alleen onder `?dev`.
+6. **Nachtviolet verzadigd** ("eng") in plaats van bleek lavendel. STANDAARD (zit in het palet); 's nachts is blauw
+   tegen violet dan alleen bij normaal kleurzicht te zien.
+7. **Histogramstaven per uur**: een staaf kleurt naar de hemel achter die staaf, niet naar de kaart op de
+   cursortijd. STANDAARD.
+8. **Kaarttijd als label bovenaan de cursor** in het histogram, links van de lijn zodat het niet botst met "hoge
+   wolken". STANDAARD (geen knop).
+Niet door de PO gekozen maar mijn invulling, graag bevestigen: de eigen dev-groep "Regen" (anders vijf knoppen in
+Kaart). Afgevallen: blauw-grijs-rood (zijn eerste voorstel), blauw-violet-rood, violet-klassen, oplopend-donker,
+de mengingen zuiver/steil/drempel/rand; ze staan tot 2026-10-17 onder `?dev`.
+Verschil tussen de instructie van de orkestrator en wat de PO met mij afsprak: geen. De PO heeft "zet vast" niet
+letterlijk tegen mij gezegd; dat is de lezing van de orkestrator van "dit is mergebaar".
+
+### Wat er vastgezet is
+- `DEFAULT_RAIN_LOOK` = violet-laat · drempel-zacht · contrast 0, `DEFAULT_RAIN_CONTRAST` = 0. Zonder `?dev` tekent
+  de app dit, dag en nacht, kaart en histogram (e2e controleert het zonder `?dev`).
+- Onder `?dev` › Regen blijven de drie schakelaars; palet `huidig` + menging `huidig` is byte voor byte het beeld van
+  vóór U77 (test met de oude code als orakel).
+- Tests die de oude standaard vastlegden zijn omgeschreven: de nieuwe producttabel staat vastgepind (tien regels
+  per thema in `rain-palette.test.ts`), de oude onder `huidig`/`huidig`.
+
+### Exports die van vorm of betekenis veranderen (`web/src/core/`)
+- `rainColormap()` zonder argument: **andere tabel** (violet-laat, drempel-zacht, het LICHTE thema). Nieuw optioneel
+  argument `look: { palette, blend, theme, contrast? }`. De tabel is nu per thema anders: wie een nachtbeeld tekent
+  moet `theme: 'dark'` meegeven.
+- `rainColor(waarde)` zonder tweede argument: de nieuwe kleuren (licht thema); zelfde optionele `look`.
+- De dekking in de tabel is bedoeld voor **echte alfa-over** (`rainUsesStraightAlpha(blend)`), niet meer voor de
+  canvas die α² als alfa draagt.
+- Nieuw in `rain-palette.ts`: `DEFAULT_RAIN_LOOK`, `DEFAULT_RAIN_CONTRAST`, `FOCUS_MODE_RAIN_BLEND`,
+  `PRE_U77_RAIN_LOOK`, `buildRainColormap`, `rainUsesStraightAlpha`, `rainOutline`, `rainOnsetAlpha`, en de lijsten
+  voor de dev-knoppen. `RainLayer` heeft `setColormap`, `setStraightAlpha`, `setOutline` erbij.
+
+### De bot: bewust NIET meegegaan (afwijking van "de bot leest de nieuwe tabel", graag beslissen)
+`bot/native-rain.ts` bouwt zijn kleuren uit `rainColormap()` en mengt als de oude canvas (`1 − alpha²`), met één
+tabel voor dag en nacht. Met de nieuwe standaard zou hij dus (a) lichte regen weer wit optellen, nu met een harde
+rand, en (b) 's nachts het dagpalet tekenen (donkerviolet op de donkere kaart). Zijn test faalde ook meteen
+(81,202,184 → 93,141,204). Ik heb de bot daarom met één regel op het oude beeld gehouden:
+`rainColormap(PRE_U77_RAIN_LOOK)` in `bot/native-rain.ts` en `rainColor(waarde, PRE_U77_RAIN_LOOK)` in
+`bot/weather-chart.ts`. De native bot-uitvoer is daarmee byte-gelijk aan vóór U77; de bot-tests zijn ongewijzigd groen.
+Gevolgen: (1) native stills en filmpjes tonen het oude palet tot de bot of de Rust-renderer (U76) echte alfa-over
+en een tabel per thema heeft; dan volstaat het de twee `PRE_U77_RAIN_LOOK`-verwijzingen weg te halen. (2) De
+Playwright-backend van de bot rendert de app zelf en toont dus wél het nieuwe beeld: bot-uitvoer kan per backend
+verschillen. (3) `bot/parity.ts` vergelijkt native met de app en zal nu verschil melden. (4) Palet `huidig` vervalt
+op 2026-10-17 als dev-keuze, maar de bot hangt eraan zolang (1) niet gedaan is.
+
+### Wind en Lucht (alleen gemeld, niet opgelost)
+Zelfde palet (violet-laat, per thema), maar de menging van vóór U77 (`FOCUS_MODE_RAIN_BLEND = 'huidig'`): de
+lineaire dekking zonder drempel op de canvas die licht optelt, overdag vermenigvuldigd met de kaart en 's nachts
+gedempt, zoals de PO in U62 koos. Schakelen vanuit Weer geeft overdag een duidelijke sprong: in Weer strakke blauwe
+buien, in Wind en Lucht dezelfde buien flets met een witte zoom eromheen (de halo uit de diagnose). 's Nachts is de
+sprong kleiner: de regen wordt doffer en de rand zachter, zonder wit. Zelf bekeken:
+`beelden/standaard-weer-wind-lucht.webp` (radar 07:35, vast licht en vast donker thema).
+
+### Gate (web/ en bot/), 09:21, op de met main gemergde branch
+`pnpm typecheck` 0 · `pnpm test` 0 (84 bestanden, 567 tests) · `pnpm build` 0 ·
+`MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts e2e/cloud-section.spec.ts e2e/focus.spec.ts e2e/freshness.spec.ts e2e/sky-window.spec.ts e2e/table.spec.ts --project desktop` 0
+(28 groen, 4 overgeslagen: de touch-tests in `focus.spec.ts` die niet in het desktopprofiel draaien). Er is geen
+aparte histogram- of scrubberspec; cloud-section, freshness, sky-window en table raken de scrubber.
+`bot/`: `pnpm typecheck` 0 · `pnpm test` 0 (28 bestanden, 116 tests).
+Preview 4320 serveert deze build (`index-B_Cyi_As.js`).
+Niet gedaan: de volledige e2e-suite in drie profielen (dagelijks op main), `perf.spec`, `telegram.spec`, de mobiele
+profielen; de frametijd van de nieuwe standaard (alleen een andere tabel en mengfunctie, de shader is gelijk).
