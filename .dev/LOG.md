@@ -525,6 +525,18 @@
   **PO-vraag filmkwaliteit** ("best low res"): 960×1272, x264 ultrafast, eigen grens 2,5 MB per film → ~1,15 Mbit/s;
   identiek aan de oude route. U80 ronde 3 loopt: preset/grens instelbaar + zes varianten met tijden en SSIM voor
   de PO-keuze. Open: generatie pas na 30 s stabiel manifest; stills op aanvraag; regen in Wind/Lucht (app, PR #109).
+- 13:51: **Filmkwaliteit live** (main a6f9839 = U80 e361dcd; PO: "die compression is wel too much … durov gaat
+  betalen"): x264 veryfast, crf 18, VBV-plafond uit de 20 MB-veiligheidsgrens (grens onhaalbaar i.p.v. fataal).
+  Worker koos eerst ultrafast (wind 17 MB tegen een harde 20 MB-fout); op mijn VM-meting omgezet naar veryfast
+  (zelfde beeld op 100 %, half zo groot). Prod: wind 7,4 · temperatuur 5,5 · regen 4,0 MB, generatie 41 s
+  (direct na de uitrol 68/84 s door ingest-backfill), cgroup-piek 809 MB/1200, 0 herstarts. `faster` = OOM bij 600 MB.
+  **U77-vervolg live** (main 790817f = 52d325e, PR #109; PO-keuze in de pane): regen in Wind gedempt, in Lucht
+  vermenigvuldigd. Gate: web 569, e2e 16, bot 131, cargo, flake check. Prod-bundle = main-build; Weer/Wind/Lucht op
+  prod zelf bekeken. **U76-vervolg** (f20c01b, PO in de pane: klokhoek met titel + datum, schuifklok 1/6→15/16):
+  nog NIET live; U80-worker integreert het in main (alle drie de modi) en zet regen-boven-wind in Rust op gedempt.
+  **Open PO-vraag**: tempo wind/temperatuur. Gemeten: app 9,35 kaartmin/s in elke modus (live manifest,
+  `web/tmp/orkestrator/play-rate.mts`), regenfilm 7,5, wind-/temperatuurfilm 50 (14 u in 17 s; al zo sinds 10-08).
+  Bijvangst: bot rendert bij elk manifest (2–3 per 5 min) → debounce 30 s nog te bouwen.
 
 ## 2026-10-10 — tg-bot op prod vastgelopen (13:00)
 - Symptoom (PO): bot antwoordt niet. Laatste generatie 05:57; daarna `refresh-failed … TimeoutError` (07:16) en
