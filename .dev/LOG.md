@@ -488,6 +488,15 @@
   Volledige datasnapshot voor workers: `~/motregen-profiles/data-snapshots/2026-10-11` (41 chunks, incl. druk/wind).
 - PO-wens "overal 3 frames per 5 minuten" berust op een misverstand: wind en temperatuur staan al op 1 frame per 5 min
   (169 frames, 10 fps); proeffilms met de helft (10 min, 5 fps) naar de PO gestuurd; nog geen besluit.
+- 09:31: **U77 gemerged en uitgerold** (06ed2191, PR #107; PO heeft zelf in de pane geïtereerd en "mergebaar" gegeven):
+  standaard = palet `violet-laat` (doorlopend verloop; blauw tot 4, violet bij 7, rood bij 13 mm/u), menging
+  `drempel-zacht` in Weer, contrastregel uit (0; regel blijft in de code, ?dev-invoerveld 0–20), nachtviolet
+  verzadigd, histogramstaven kleuren per uur, kaarttijd als label aan de histogramcursor; ?dev-groep "Regen".
+  `rainColormap()`/`rainColor()` geven nu de nieuwe tabel per thema (optioneel argument `look`), dekking bedoeld voor
+  echte alfa-over. **Bot bewust op het oude beeld gepind** (`PRE_U77_RAIN_LOOK` in native-rain.ts en weather-chart.ts)
+  tot de Rust-renderer alfa-over en een tabel per thema heeft. Onafhankelijke gate: web 567, 24 desktop-e2e, bot 116,
+  nix-toplevel. Prod gecontroleerd: motregen.nl en weerok.nl serveren de bundle van main (`index-B_Cyi_As.js`),
+  schermbeeld zelf bekeken. **Open**: Wind en Lucht houden de oude menging → zichtbare sprong vanuit Weer.
 
 ## 2026-10-10 — tg-bot op prod vastgelopen (13:00)
 - Symptoom (PO): bot antwoordt niet. Laatste generatie 05:57; daarna `refresh-failed … TimeoutError` (07:16) en
