@@ -137,4 +137,3 @@ De huidige standaard is veryfast/18 met het hierboven gemeten VBV-plafond.
 | Regen | medium | 16 | 5.891 | 4.738 | 0.988718 | High |
 | Regen | medium | 18 | 4.845 | 5.452 | 0.987840 | High |
 | Regen | medium | 20 | 3.973 | 4.320 | 0.986746 | High |
-
