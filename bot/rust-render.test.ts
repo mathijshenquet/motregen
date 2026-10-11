@@ -110,6 +110,22 @@ it('changes the loop cache identity with encoding settings and preserves still i
   expect(cacheKey({ mode: 'feels', hour: 0 }, manifest)).toBe(still)
 })
 
+it('invalidates cached Rust films and stills with the former clock position', () => {
+  vi.stubEnv('MOTREGEN_RUST_RENDERER', 'weather,feels,wind')
+  vi.stubEnv('MOTREGEN_VIDEO_PRESET', 'veryfast')
+  vi.stubEnv('MOTREGEN_VIDEO_CRF', '18')
+  vi.stubEnv('MOTREGEN_VIDEO_MAX_BYTES', '20000000')
+  // Cache-identiteiten van renderer 30, vastgelegd vóór MIP-32 op hetzelfde manifest.
+  const previous = [
+    ['weather', 'loop', 'weather-loop-8294c9292436debbdb0811a9'],
+    ['feels', 'loop', 'feels-loop-850c0c2cb01d57db5ace4586'],
+    ['wind', 'loop', 'wind-loop-ebdca9858eea4e62cff70b39'],
+    ['weather', 0, 'weather-1791631800000-65bd469368e992c2794b1fe7'],
+    ['feels', 0, 'feels-1791631800000-961dd269e8e40e8bb07899bb'],
+  ] as const
+  for (const [mode, hour, key] of previous) expect(cacheKey({ mode, hour }, manifest)).not.toBe(key)
+})
+
 it('defaults to the existing renderer and selects Rust independently per mode', () => {
   expect(rustRenderer('weather', {})).toBe(false)
   expect(rustRenderer('weather', { MOTREGEN_RUST_RENDERER: 'weather' })).toBe(true)
