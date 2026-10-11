@@ -2,7 +2,7 @@ use render_core::{
     constants::constants,
     overlay::{ClockOptions, draw_overlay},
     text::Text,
-    time::{clock_text, epoch, loop_clock_text},
+    time::{clock_date, clock_text, epoch, loop_clock_epoch, loop_clock_text},
 };
 
 #[test]
@@ -40,6 +40,24 @@ fn rounding_handles_half_steps_midnight_and_dst() {
     }
 }
 
+#[test]
+fn clock_date_follows_local_calendar_and_rounded_loop_time() {
+    for (time, date) in [
+        ("2026-09-23T13:30:00Z", "wo 23 sep"),
+        ("2023-10-11T13:30:00Z", "wo 11 okt"),
+        ("2026-10-10T22:00:00Z", "zo 11 okt"),
+        ("2026-03-29T01:00:00Z", "zo 29 mrt"),
+        ("2026-10-25T01:00:00Z", "zo 25 okt"),
+        ("2026-12-31T23:00:00Z", "vr 1 jan"),
+    ] {
+        assert_eq!(clock_date(epoch(time).unwrap()), date);
+    }
+    let before_midnight = epoch("2026-09-30T21:58:20Z").unwrap();
+    assert_eq!(clock_date(before_midnight), "wo 30 sep");
+    assert_eq!(loop_clock_text(before_midnight), ("00:00".into(), "do"));
+    assert_eq!(clock_date(loop_clock_epoch(before_midnight)), "do 1 okt");
+}
+
 fn overlay(time: i64, now: i64, still: bool) -> Vec<u8> {
     let mut rgb = vec![25; constants().size.width * constants().size.height * 3];
     draw_overlay(
@@ -73,7 +91,7 @@ fn overlay_rounds_loop_text_but_keeps_still_time_and_actual_history_theme() {
     assert_eq!(overlay(own_time, start - 3_600_000, false), frames[0]);
     let history = overlay(start, start, false);
     let forecast = overlay(start + 100_000, start, false);
-    let panel_pixel = (80 * constants().size.width + 40) * 3;
+    let panel_pixel = (80 * constants().size.width + 220) * 3;
     assert_ne!(
         &history[panel_pixel..panel_pixel + 3],
         &forecast[panel_pixel..panel_pixel + 3]

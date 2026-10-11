@@ -23,19 +23,21 @@ kaartaanzicht en dit regenrooster is gemaakt. De meest recent gemaakte plaat per
 pnpm -C bot exec tsx prepare-rust-basemaps.ts /pad/botcache /pad/data /pad/platen
 ```
 
-Het resultaat is `light.png` en `dark.png` (RGB/RGBA, 960×1272 pixels), `water-light.png` en `water-dark.png`
+Het resultaat is `light.png` en `dark.png` (RGB/RGBA, 960×1224 pixels), `water-light.png` en `water-dark.png`
 (het bestaande lage-resolutiemasker, dekking in het alfakanaal) en `basemap.json` versie 1 met `size`, `view`
 (Web Mercator centrum en zoom), `grid` (rooster voor het kadermasker) en `inputs` (oorspronkelijke bestandsnamen).
 De kaartplaten bevatten de plaatsnamen. Temperatuurwaarden, klok en voettekst zitten niet in de platen.
 Het native botkader past Nederland (inclusief Zeeland, Limburg en de Wadden), zonder Vlaanderen als
-fitdoel. De klok staat compact linksboven. Na een wijziging van `NATIVE_VIEW` moeten beide basiskaarten
-opnieuw worden vastgelegd; een oude plaat bijsnijden geeft geen passende projectie of labelplaatsing.
+fitdoel. Het beeld is bovenaan 48 pixels korter; de resterende uitsnede behoudt dezelfde zoom en bodemlijn.
+Het klokpaneel sluit linksboven aan op de beeldrand, met alleen rechtsonder een ronde hoek. Tijd, datum
+(bijvoorbeeld `wo 11 okt`) en `Regenradar` staan op drie regels. Na een wijziging van `NATIVE_VIEW` moeten
+beide basiskaarten opnieuw worden vastgelegd; plaatmaat, metadata en labelplaatsing moeten overeenkomen.
 Het watermasker is voor de volgende modi; de regencompositie gebruikt het niet. Deze export start geen browser.
 Basiskaarten bouwen als Nix-artefact volgt in C5.
 
 ## Uitvoercontract
 
-`weather-loop.mp4` is H.264/yuv420p met faststart, 960×1272, beeldsnelheid `9/2`, 109 bewegende frames en
+`weather-loop.mp4` is H.264/yuv420p met faststart, 960×1224, beeldsnelheid `9/2`, 109 bewegende frames en
 vijf holdframes (114 frames, 25⅓ seconde). Beeldsnelheid en het gehele holdaantal worden uit `sequencePlan`
 en `holdFrames` gegenereerd; ffmpeg ontvangt de verkorte breuk en `tpad=stop=5`.
 De bestaande limiet van 3 MB geldt. `weather-EPOCH.jpg` gebruikt kaarttijd in UTC-milliseconden, kwaliteit 95

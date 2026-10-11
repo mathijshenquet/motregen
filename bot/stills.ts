@@ -1,5 +1,6 @@
 import { nativeRenderer, rustRenderer } from './native-settings.js'
 import { NATIVE_VIEW } from './native-view.js'
+import { FRAME_PIXELS } from './config.js'
 import { createHash } from 'node:crypto'
 import type { PresetMode } from '../web/src/core/presets.js'
 import { telegramStartParameter } from '../web/src/core/telegram-presets.js'
@@ -69,7 +70,16 @@ export function caption(mode: LoopMode, epoch: number): string {
 
 export function cacheKey(selection: MediaSelection, manifest: StillManifest): string {
   const epoch = selection.hour === 'loop' ? Date.parse(manifest.now) : stillEpoch(manifest, selection.hour)
-  const identity = JSON.stringify({ renderer: rustRenderer(selection.mode) ? 27 : nativeRenderer(selection.mode) === 'playwright' ? 15 : selection.mode === 'weather' ? 21 : 22, view: rustRenderer(selection.mode) || nativeRenderer(selection.mode) !== 'playwright' ? NATIVE_VIEW : undefined, mode: selection.mode, kind: selection.hour === 'loop' ? 'loop' : 'photo', epoch, generated: Date.parse(manifest.generated) })
+  const backend = rustRenderer(selection.mode) ? 'rust' : nativeRenderer(selection.mode)
+  const identity = JSON.stringify({
+    renderer: backend === 'rust' ? 28 : backend === 'playwright' ? 15 : selection.mode === 'weather' ? 21 : 22,
+    size: FRAME_PIXELS,
+    view: backend === 'playwright' ? undefined : NATIVE_VIEW,
+    mode: selection.mode,
+    kind: selection.hour === 'loop' ? 'loop' : 'photo',
+    epoch,
+    generated: Date.parse(manifest.generated),
+  })
   const digest = createHash('sha256').update(identity).digest('hex').slice(0, 24)
   return `${selection.mode}-${selection.hour === 'loop' ? 'loop' : epoch}-${digest}`
 }
