@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import type { MapTheme } from './map-theme'
 import {
-  buildRainColormap, colourOverGround, DEFAULT_RAIN_LOOK, GROUND_COLOURS, groundContrast, lightness, loadRainLookChoice,
-  ONSET_INDEX, RAIN_BLENDS, RAIN_CONTRAST_RANGE, RAIN_LOOK_STORAGE_KEYS, RAIN_PALETTES, rainOnsetAlpha, rainOutline, sanitizeRainContrast,
+  buildRainColormap, colourOverGround, DEFAULT_RAIN_LOOK, FOCUS_MODE_RAIN_BLEND, GROUND_COLOURS, groundContrast, lightness, loadRainLookChoice,
+  ONSET_INDEX, PRE_U77_RAIN_LOOK, RAIN_BLENDS, RAIN_CONTRAST_RANGE, RAIN_LOOK_STORAGE_KEYS, RAIN_PALETTES, rainOnsetAlpha, rainOutline, sanitizeRainContrast,
   rainRateIndex, rainUsesStraightAlpha, type Ground, type RainBlendName, type RainLook, type Rgb,
 } from './rain-palette'
 
@@ -23,7 +23,33 @@ function colourAtRate(look: RainLook, rate: number): Rgb {
 }
 
 describe('the product rain table', () => {
-  // De tabel zoals `rainColormap()` hem vóór U77 bouwde, letterlijk overgenomen: de bot en de Rust-renderer lezen hem.
+  // De bot en de Rust-renderer lezen deze tabel via `rainColormap()`: een wijziging hier is een wijziging in elk
+  // regenbeeld. Rij: mm/u, byte, RGBA.
+  const PRODUCT_TABLE: Record<MapTheme, Array<[rate: number, index: number, rgba: number[]]>> = {
+    light: [[0.02, 19, [64, 152, 238, 0]], [0.05, 43, [64, 152, 238, 97]], [0.1, 62, [64, 152, 238, 99]], [1, 122, [45, 115, 224, 195]], [4, 159, [35, 90, 214, 210]], [7, 173, [73, 30, 150, 210]], [9, 180, [110, 16, 110, 210]], [13, 190, [213, 36, 52, 210]], [40, 219, [141, 12, 40, 210]], [120, 248, [84, 4, 44, 210]]],
+    dark: [[0.02, 19, [66, 120, 214, 0]], [0.05, 43, [66, 120, 214, 97]], [0.1, 62, [66, 120, 214, 99]], [1, 122, [77, 135, 228, 195]], [4, 159, [85, 142, 236, 210]], [7, 173, [131, 58, 228, 210]], [9, 180, [204, 48, 196, 210]], [13, 190, [250, 85, 89, 210]], [40, 219, [255, 144, 134, 210]], [120, 248, [255, 212, 204, 210]]],
+  }
+
+  it('is the look the PO chose: violet-laat, drempel-zacht, contrast floor 0 (2026-10-11)', () => {
+    expect(DEFAULT_RAIN_LOOK).toEqual({ palette: 'violet-laat', blend: 'drempel-zacht', theme: 'light', contrast: 0 })
+    expect(rainUsesStraightAlpha(DEFAULT_RAIN_LOOK.blend)).toBe(true)
+    expect(rainOutline(DEFAULT_RAIN_LOOK)).toBeUndefined()
+    for (const theme of THEMES) {
+      const colormap = buildRainColormap({ ...DEFAULT_RAIN_LOOK, theme })
+      for (const [rate, index, rgba] of PRODUCT_TABLE[theme]) {
+        expect(Math.round(rainRateIndex(rate)), `${rate} mm/u`).toBe(index)
+        expect(Array.from(colormap.subarray(index * 4, index * 4 + 4)), `${theme} ${rate} mm/u`).toEqual(rgba)
+      }
+    }
+  })
+
+  it('keeps Wind and Lucht on the blend from before U77', () => {
+    expect(FOCUS_MODE_RAIN_BLEND).toBe('huidig')
+    expect(rainUsesStraightAlpha(FOCUS_MODE_RAIN_BLEND)).toBe(false)
+  })
+
+  // De tabel zoals `rainColormap()` hem vóór U77 bouwde, letterlijk overgenomen. Onder ?dev is dat palet `huidig`
+  // met menging `huidig`: de vergelijking met hoe het was moet exact blijven.
   function tableBeforeU77(): Uint8Array {
     const stops = [[0, 54, 183, 255], [55, 54, 183, 255], [105, 31, 231, 190], [150, 255, 222, 44], [195, 255, 82, 35], [235, 188, 45, 214], [255, 188, 45, 214]]
     const lut = new Uint8Array(256 * 4)
@@ -36,14 +62,13 @@ describe('the product rain table', () => {
     return lut
   }
 
-  it('is byte for byte the table from before U77, in both themes', () => {
-    for (const theme of THEMES) expect(Array.from(buildRainColormap({ ...DEFAULT_RAIN_LOOK, theme }))).toEqual(Array.from(tableBeforeU77()))
-  })
-
-  it('keeps the current canvas blending, so nothing changes without ?dev', () => {
-    expect(DEFAULT_RAIN_LOOK).toMatchObject({ palette: 'huidig', blend: 'huidig' })
+  it('still gives the table from before U77 byte for byte as palette huidig with blend huidig, in both themes and at any contrast floor', () => {
+    for (const theme of THEMES) for (const contrast of [0, 15]) {
+      expect(Array.from(buildRainColormap({ palette: 'huidig', blend: 'huidig', theme, contrast }))).toEqual(Array.from(tableBeforeU77()))
+    }
+    // De bot rendert hier nog mee.
+    expect(Array.from(buildRainColormap(PRE_U77_RAIN_LOOK))).toEqual(Array.from(tableBeforeU77()))
     expect(rainUsesStraightAlpha('huidig')).toBe(false)
-    expect(rainOutline(DEFAULT_RAIN_LOOK)).toBeUndefined()
   })
 
   it('leaves the no-data byte transparent in every look', () => {
@@ -120,7 +145,7 @@ describe('contrast with the map', () => {
   })
 
   it('cannot give that guarantee for the current blend: by day the lightest rain is as light as the land itself', () => {
-    const { colour, alpha } = entry(buildRainColormap(DEFAULT_RAIN_LOOK), ONSET_INDEX)
+    const { colour, alpha } = entry(buildRainColormap({ palette: 'huidig', blend: 'huidig', theme: 'light' }), ONSET_INDEX)
     const land = GROUND_COLOURS.light.land
     // De canvas draagt α² als alfa (U77-diagnose): kleur × α komt bóvenop (1 − α²) × kaart.
     const onScreen = colour.map((channel, position) => Math.min(255, Math.round(channel * alpha + (1 - alpha * alpha) * land[position]!))) as unknown as Rgb
@@ -255,9 +280,9 @@ describe('stored choice', () => {
   const storage = (values: Record<string, string>) => ({ getItem: (key: string) => values[key] ?? null })
 
   it('falls back to the product on a missing or unknown value', () => {
-    expect(loadRainLookChoice(storage({}))).toEqual({ palette: 'huidig', blend: 'huidig', contrast: 15 })
-    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.palette]: 'regenboog', [RAIN_LOOK_STORAGE_KEYS.blend]: 'oplossen', [RAIN_LOOK_STORAGE_KEYS.contrast]: 'veel' }))).toEqual({ palette: 'huidig', blend: 'huidig', contrast: 15 })
-    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.contrast]: '' })).contrast).toBe(15)
+    expect(loadRainLookChoice(storage({}))).toEqual({ palette: 'violet-laat', blend: 'drempel-zacht', contrast: 0 })
+    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.palette]: 'regenboog', [RAIN_LOOK_STORAGE_KEYS.blend]: 'oplossen', [RAIN_LOOK_STORAGE_KEYS.contrast]: 'veel' }))).toEqual({ palette: 'violet-laat', blend: 'drempel-zacht', contrast: 0 })
+    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.contrast]: '' })).contrast).toBe(0)
   })
 
   it('reads a known palette, blend and contrast floor', () => {
@@ -268,6 +293,6 @@ describe('stored choice', () => {
   it('keeps a typed contrast floor inside its range', () => {
     expect(sanitizeRainContrast(-3)).toBe(RAIN_CONTRAST_RANGE.minimum)
     expect(sanitizeRainContrast(99)).toBe(RAIN_CONTRAST_RANGE.maximum)
-    expect(sanitizeRainContrast(Number.NaN)).toBe(15)
+    expect(sanitizeRainContrast(Number.NaN)).toBe(0)
   })
 })

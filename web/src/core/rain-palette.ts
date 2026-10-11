@@ -1,7 +1,8 @@
 import type { MapTheme } from './map-theme.js'
 
-// U77-proef (?dev › Kaart › Regenpalet en Regenmenging; eigenaar U77, vervalt 2026-10-17). Het product is
-// `DEFAULT_RAIN_LOOK`: daarmee geeft `buildRainColormap` byte voor byte de tabel van vóór U77.
+// Het regenpalet en hoe regen over de kaart ligt. Het product is `DEFAULT_RAIN_LOOK` (PO 2026-10-11, U77: palet
+// violet-laat, menging drempel-zacht, contrastlat 0). De overige paletten en mengingen zijn de proef onder ?dev ›
+// Regen (eigenaar U77, vervalt 2026-10-17); `huidig` + `huidig` geeft daar byte voor byte de tabel van vóór U77.
 
 export type Rgb = readonly [red: number, green: number, blue: number]
 
@@ -15,8 +16,8 @@ export type RainBlendName = typeof RAIN_BLENDS[number]
 // regen en elke ondergrond. Een vangnet, geen oordeel. Tien bleek in ronde 1 te weinig voor blauw op het lichtblauwe
 // water van de kaart, vijftien gaf de rand een donkere zoom; de PO stelt hem daarom zelf in (2026-10-11: "10 lijkt me
 // nog te veel"). Nul zet de regel uit op de richting na: regen mag de kaart overdag niet lichter maken en 's nachts
-// niet donkerder.
-export const DEFAULT_RAIN_CONTRAST = 15
+// niet donkerder. PO 2026-10-11: "regencontrast kan op 0".
+export const DEFAULT_RAIN_CONTRAST = 0
 export const RAIN_CONTRAST_RANGE = { minimum: 0, maximum: 20, step: 1 } as const
 
 /** Een ingevoerde lat binnen het bereik; geen getal = de standaard. */
@@ -36,7 +37,20 @@ export interface RainLook {
 /** Wat de knoppen kiezen; het thema volgt de kaart. */
 export type RainLookChoice = Pick<RainLook, 'palette' | 'blend' | 'contrast'>
 
-export const DEFAULT_RAIN_LOOK: RainLook = { palette: 'huidig', blend: 'huidig', theme: 'light', contrast: DEFAULT_RAIN_CONTRAST }
+export const DEFAULT_RAIN_LOOK: RainLook = { palette: 'violet-laat', blend: 'drempel-zacht', theme: 'light', contrast: DEFAULT_RAIN_CONTRAST }
+
+/**
+ * Het regenbeeld van vóór U77. De bot rendert hier nog mee: zijn compositor bootst de oude canvas na (α² als alfa)
+ * en kent één tabel voor dag en nacht, dus met het nieuwe product zou hij harde witte vlekken tekenen en 's nachts
+ * het dagpalet. Zodra de bot (of de Rust-renderer, U76) echte alfa-over en een tabel per thema heeft kan dit weg.
+ */
+export const PRE_U77_RAIN_LOOK: RainLook = { palette: 'huidig', blend: 'huidig', theme: 'light' }
+
+/**
+ * De menging in Wind en Lucht: daar ligt de regen nog zoals de PO hem in U62 koos (vermenigvuldigd met de kaart of
+ * gedempt), op de canvas van vóór U77. De nieuwe menging is alleen voor Weer beoordeeld.
+ */
+export const FOCUS_MODE_RAIN_BLEND: RainBlendName = 'huidig'
 
 export const RAIN_LOOK_STORAGE_KEYS = {
   palette: 'motregen-dev-regenpalet',

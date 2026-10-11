@@ -8,6 +8,7 @@ import { decodeFrame, parseMrfHeader } from '../web/src/core/mrf-codec.js'
 import { buildTimeline, frameBlend } from '../web/src/core/time-model.js'
 import { pointValue, projectPoint } from '../web/src/core/point-value.js'
 import { rainColormap } from '../web/src/core/rain-chart.js'
+import { PRE_U77_RAIN_LOOK } from '../web/src/core/rain-palette.js'
 import { rainPresentation, type RainPresentation } from '../web/src/core/rain-presentation.js'
 import { stillMapTheme } from '../web/src/core/still-theme.js'
 import { selectPairMotion } from '../web/src/core/motion-selection.js'
@@ -136,7 +137,9 @@ export class RainCompositor {
   private readonly motionIndexes = new Int32Array(4)
   private readonly motionWeights = new Float64Array(4)
   constructor(private readonly grid: Grid, private readonly size = FRAME_PIXELS, view = NATIVE_VIEW, private readonly presentation?: RainPresentation) {
-    const palette = rainColormap()
+    // Niet het product van de app: zie PRE_U77_RAIN_LOOK. Deze compositor mengt als de oude canvas (1 − alpha²
+    // hieronder) en heeft één tabel voor dag en nacht.
+    const palette = rainColormap(PRE_U77_RAIN_LOOK)
     for (let index = 0; index < 65536; index++) {
       const position = Math.max(0, Math.min(255, index / 255 - 0.5))
       const lower = Math.floor(position), upper = Math.min(255, lower + 1), weight = position - lower

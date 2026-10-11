@@ -1,6 +1,7 @@
 import { CLOUD_LAYERS, cloudBand, skyAt, type CloudLayer } from '../web/src/core/cloud-section.js'
 import type { SearchPlace } from '../web/src/core/place-search.js'
 import { rainChartMaximum, rainChartPosition, rainColor } from '../web/src/core/rain-chart.js'
+import { PRE_U77_RAIN_LOOK } from '../web/src/core/rain-palette.js'
 import { seriesValueAt } from '../web/src/core/time-model.js'
 import { FRAME } from './config.js'
 import { WEATHER_HOUR, weatherTime, type WeatherSeries } from './weather-series.js'
@@ -73,7 +74,7 @@ export function weatherSvg(place: SearchPlace, series: WeatherSeries): string {
     }
     if (value <= 0) continue
     const height = Math.max(2, rainHeight * rainChartPosition(value, maximum))
-    elements.push(`<rect x="${position}" y="${bottom - height}" width="${barWidth}" height="${height + 3}" rx="${Math.min(3, barWidth / 2)}" fill="${rainColor(value)}" opacity="${frame.epoch < series.now ? '.72' : '1'}" stroke="#fff" stroke-opacity=".6" stroke-width="1"/>`)
+    elements.push(`<rect x="${position}" y="${bottom - height}" width="${barWidth}" height="${height + 3}" rx="${Math.min(3, barWidth / 2)}" fill="${rainColor(value, PRE_U77_RAIN_LOOK)}" opacity="${frame.epoch < series.now ? '.72' : '1'}" stroke="#fff" stroke-opacity=".6" stroke-width="1"/>`)
   }
   elements.push('</g></g>')
   elements.push(`<line x1="0" x2="${plotWidth}" y1="${rainTop - 6}" y2="${rainTop - 6}" stroke="#fff" stroke-opacity=".14"/>`)

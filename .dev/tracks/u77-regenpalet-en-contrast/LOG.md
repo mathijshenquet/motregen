@@ -487,3 +487,78 @@ lijn, het tijdlabel links. De oude grote pil boven de cursor (weg sinds U34) is 
 `MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts e2e/cloud-section.spec.ts --project desktop` 0 (8 groen).
 Preview 4320 serveert deze build (`index-B-JZaydH.js`). Het tijdlabel staat ook zonder `?dev` aan (het is geen
 proefknop); het nachtviolet alleen via de violet-paletten onder `?dev`. Nog steeds niets als standaard vastgezet.
+
+## 2026-10-11 09:22 — PO: "ja top, dit is mergebaar"; keuze vastgezet als standaard (orkestrator 09:10)
+
+### PO-keuzes in deze track
+1. Palet **violet-laat**: lichtblauw → blauw → violet → paars → rood → bordeaux, blauw tot 4, violet bij 7, paars bij
+   9, rood bij 13 mm/u. STANDAARD. De PO kent de nadelen (kleuren vallen niet op onze klassen; blauw/violet zwak
+   bij kleurenblindheid).
+2. **Een doorlopend verloop**, geen stappen op de klassegrenzen ("gradient als voorheen, alleen de stops
+   verschoven"). STANDAARD (zit in het palet).
+3. Menging **drempel-zacht** in Weer (rand op de rand van de data, inzetdekking 0,38, brede oploop, echte
+   alfa-over). STANDAARD.
+4. **Regencontrast 0**: de contrastregel staat uit. STANDAARD. De regel zelf staat nog in de code en is onder `?dev`
+   in te stellen.
+5. **Regencontrast als invoerveld** (0–20) in plaats van drie vaste standen. Alleen onder `?dev`.
+6. **Nachtviolet verzadigd** ("eng") in plaats van bleek lavendel. STANDAARD (zit in het palet); 's nachts is blauw
+   tegen violet dan alleen bij normaal kleurzicht te zien.
+7. **Histogramstaven per uur**: een staaf kleurt naar de hemel achter die staaf, niet naar de kaart op de
+   cursortijd. STANDAARD.
+8. **Kaarttijd als label bovenaan de cursor** in het histogram, links van de lijn zodat het niet botst met "hoge
+   wolken". STANDAARD (geen knop).
+Niet door de PO gekozen maar mijn invulling, graag bevestigen: de eigen dev-groep "Regen" (anders vijf knoppen in
+Kaart). Afgevallen: blauw-grijs-rood (zijn eerste voorstel), blauw-violet-rood, violet-klassen, oplopend-donker,
+de mengingen zuiver/steil/drempel/rand; ze staan tot 2026-10-17 onder `?dev`.
+Verschil tussen de instructie van de orkestrator en wat de PO met mij afsprak: geen. De PO heeft "zet vast" niet
+letterlijk tegen mij gezegd; dat is de lezing van de orkestrator van "dit is mergebaar".
+
+### Wat er vastgezet is
+- `DEFAULT_RAIN_LOOK` = violet-laat · drempel-zacht · contrast 0, `DEFAULT_RAIN_CONTRAST` = 0. Zonder `?dev` tekent
+  de app dit, dag en nacht, kaart en histogram (e2e controleert het zonder `?dev`).
+- Onder `?dev` › Regen blijven de drie schakelaars; palet `huidig` + menging `huidig` is byte voor byte het beeld van
+  vóór U77 (test met de oude code als orakel).
+- Tests die de oude standaard vastlegden zijn omgeschreven: de nieuwe producttabel staat vastgepind (tien regels
+  per thema in `rain-palette.test.ts`), de oude onder `huidig`/`huidig`.
+
+### Exports die van vorm of betekenis veranderen (`web/src/core/`)
+- `rainColormap()` zonder argument: **andere tabel** (violet-laat, drempel-zacht, het LICHTE thema). Nieuw optioneel
+  argument `look: { palette, blend, theme, contrast? }`. De tabel is nu per thema anders: wie een nachtbeeld tekent
+  moet `theme: 'dark'` meegeven.
+- `rainColor(waarde)` zonder tweede argument: de nieuwe kleuren (licht thema); zelfde optionele `look`.
+- De dekking in de tabel is bedoeld voor **echte alfa-over** (`rainUsesStraightAlpha(blend)`), niet meer voor de
+  canvas die α² als alfa draagt.
+- Nieuw in `rain-palette.ts`: `DEFAULT_RAIN_LOOK`, `DEFAULT_RAIN_CONTRAST`, `FOCUS_MODE_RAIN_BLEND`,
+  `PRE_U77_RAIN_LOOK`, `buildRainColormap`, `rainUsesStraightAlpha`, `rainOutline`, `rainOnsetAlpha`, en de lijsten
+  voor de dev-knoppen. `RainLayer` heeft `setColormap`, `setStraightAlpha`, `setOutline` erbij.
+
+### De bot: bewust NIET meegegaan (afwijking van "de bot leest de nieuwe tabel", graag beslissen)
+`bot/native-rain.ts` bouwt zijn kleuren uit `rainColormap()` en mengt als de oude canvas (`1 − alpha²`), met één
+tabel voor dag en nacht. Met de nieuwe standaard zou hij dus (a) lichte regen weer wit optellen, nu met een harde
+rand, en (b) 's nachts het dagpalet tekenen (donkerviolet op de donkere kaart). Zijn test faalde ook meteen
+(81,202,184 → 93,141,204). Ik heb de bot daarom met één regel op het oude beeld gehouden:
+`rainColormap(PRE_U77_RAIN_LOOK)` in `bot/native-rain.ts` en `rainColor(waarde, PRE_U77_RAIN_LOOK)` in
+`bot/weather-chart.ts`. De native bot-uitvoer is daarmee byte-gelijk aan vóór U77; de bot-tests zijn ongewijzigd groen.
+Gevolgen: (1) native stills en filmpjes tonen het oude palet tot de bot of de Rust-renderer (U76) echte alfa-over
+en een tabel per thema heeft; dan volstaat het de twee `PRE_U77_RAIN_LOOK`-verwijzingen weg te halen. (2) De
+Playwright-backend van de bot rendert de app zelf en toont dus wél het nieuwe beeld: bot-uitvoer kan per backend
+verschillen. (3) `bot/parity.ts` vergelijkt native met de app en zal nu verschil melden. (4) Palet `huidig` vervalt
+op 2026-10-17 als dev-keuze, maar de bot hangt eraan zolang (1) niet gedaan is.
+
+### Wind en Lucht (alleen gemeld, niet opgelost)
+Zelfde palet (violet-laat, per thema), maar de menging van vóór U77 (`FOCUS_MODE_RAIN_BLEND = 'huidig'`): de
+lineaire dekking zonder drempel op de canvas die licht optelt, overdag vermenigvuldigd met de kaart en 's nachts
+gedempt, zoals de PO in U62 koos. Schakelen vanuit Weer geeft overdag een duidelijke sprong: in Weer strakke blauwe
+buien, in Wind en Lucht dezelfde buien flets met een witte zoom eromheen (de halo uit de diagnose). 's Nachts is de
+sprong kleiner: de regen wordt doffer en de rand zachter, zonder wit. Zelf bekeken:
+`beelden/standaard-weer-wind-lucht.webp` (radar 07:35, vast licht en vast donker thema).
+
+### Gate (web/ en bot/), 09:21, op de met main gemergde branch
+`pnpm typecheck` 0 · `pnpm test` 0 (84 bestanden, 567 tests) · `pnpm build` 0 ·
+`MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts e2e/cloud-section.spec.ts e2e/focus.spec.ts e2e/freshness.spec.ts e2e/sky-window.spec.ts e2e/table.spec.ts --project desktop` 0
+(28 groen, 4 overgeslagen: de touch-tests in `focus.spec.ts` die niet in het desktopprofiel draaien). Er is geen
+aparte histogram- of scrubberspec; cloud-section, freshness, sky-window en table raken de scrubber.
+`bot/`: `pnpm typecheck` 0 · `pnpm test` 0 (28 bestanden, 116 tests).
+Preview 4320 serveert deze build (`index-B_Cyi_As.js`).
+Niet gedaan: de volledige e2e-suite in drie profielen (dagelijks op main), `perf.spec`, `telegram.spec`, de mobiele
+profielen; de frametijd van de nieuwe standaard (alleen een andere tabel en mengfunctie, de shader is gelijk).
