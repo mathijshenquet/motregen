@@ -1,0 +1,6 @@
+{
+  "preset": "ultrafast",
+  "crf": 18,
+  "x264Params": "8x8dct=1",
+  "maxBytes": 20000000
+}

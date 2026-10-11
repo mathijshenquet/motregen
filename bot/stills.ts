@@ -3,6 +3,7 @@ import { NATIVE_VIEW } from './native-view.js'
 import { createHash } from 'node:crypto'
 import type { PresetMode } from '../web/src/core/presets.js'
 import { telegramStartParameter } from '../web/src/core/telegram-presets.js'
+import { videoSettings } from './video-settings.js'
 
 // `command` staat in het commandomenu; `aliases` werken ook maar staan er alleen in als `listed`.
 // `button` is de tekst op de modusknop onder het beeld. `deltaMinutes` zijn de tijdknoppen rond "nu", per
@@ -69,7 +70,7 @@ export function caption(mode: LoopMode, epoch: number): string {
 
 export function cacheKey(selection: MediaSelection, manifest: StillManifest): string {
   const epoch = selection.hour === 'loop' ? Date.parse(manifest.now) : stillEpoch(manifest, selection.hour)
-  const identity = JSON.stringify({ renderer: rustRenderer(selection.mode) ? 28 : nativeRenderer(selection.mode) === 'playwright' ? 15 : selection.mode === 'weather' ? 21 : 22, view: rustRenderer(selection.mode) || nativeRenderer(selection.mode) !== 'playwright' ? NATIVE_VIEW : undefined, mode: selection.mode, kind: selection.hour === 'loop' ? 'loop' : 'photo', epoch, generated: Date.parse(manifest.generated) })
+  const identity = JSON.stringify({ renderer: rustRenderer(selection.mode) ? 28 : nativeRenderer(selection.mode) === 'playwright' ? 15 : selection.mode === 'weather' ? 21 : 22, video: selection.hour === 'loop' ? videoSettings() : undefined, view: rustRenderer(selection.mode) || nativeRenderer(selection.mode) !== 'playwright' ? NATIVE_VIEW : undefined, mode: selection.mode, kind: selection.hour === 'loop' ? 'loop' : 'photo', epoch, generated: Date.parse(manifest.generated) })
   const digest = createHash('sha256').update(identity).digest('hex').slice(0, 24)
   return `${selection.mode}-${selection.hour === 'loop' ? 'loop' : epoch}-${digest}`
 }

@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { FRAME_PIXELS } from './config.js'
 import { holdFrames, sequencePlan } from './sequences.js'
 import { LOOP_MODES, STILL_HOURS, stillEpoch, type LoopMode, type StillManifest } from './stills.js'
+import { validateLoopBytes } from './video-settings.js'
 
 export interface RustMediaFile { file: string; kind: 'photo' | 'animation'; epoch: number; bytes: number; width: number; height: number }
 export interface RustMedia {
@@ -68,5 +69,6 @@ export async function validateRustMedia(media: RustMedia, manifest: StillManifes
     const file = matches[0]
     if (matches.length !== 1 || !file || file.kind !== entry.kind || file.epoch !== entry.epoch || file.width !== FRAME_PIXELS.width || file.height !== FRAME_PIXELS.height ||
         !Number.isFinite(file.bytes) || file.bytes <= 0 || (await stat(join(directory, entry.file))).size !== file.bytes) throw new Error('Ongeldig Rust-mediabestand')
+    if (file.kind === 'animation') validateLoopBytes(file.bytes)
   }
 }

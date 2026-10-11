@@ -3,10 +3,11 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import { expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import { encodeRgbLoop } from './encode.js'
 
 const run = promisify(execFile)
+afterEach(() => vi.unstubAllEnvs())
 it('streams RGB with the correct dimensions, clock and end hold', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'motregen-rgb-'))
   try {
@@ -18,7 +19,10 @@ it('streams RGB with the correct dimensions, clock and end hold', async () => {
     const encoded = await encodeRgbLoop(frames(), path, plan, { width: 32, height: 48 })
     expect(encoded.bytes).toBeGreaterThan(0)
     const probe = await run('ffprobe', ['-v', 'error', '-show_streams', '-of', 'json', path])
-    expect(JSON.parse(probe.stdout).streams[0]).toMatchObject({ width: 32, height: 48, nb_frames: '13', duration: '1.300000', pix_fmt: 'yuv420p' })
+    expect(JSON.parse(probe.stdout).streams[0]).toMatchObject({ profile: 'High', width: 32, height: 48, nb_frames: '13', duration: '1.300000', pix_fmt: 'yuv420p' })
+    vi.stubEnv('MOTREGEN_VIDEO_MAX_BYTES', '1')
+    await expect(encodeRgbLoop(frames(), path, plan, { width: 32, height: 48 })).rejects.toThrow('veiligheidsgrens van 1 bytes')
+    vi.unstubAllEnvs()
     async function* incomplete() { yield new Uint8Array(32 * 48 * 3) }
     await expect(encodeRgbLoop(incomplete(), path, plan, { width: 32, height: 48 })).rejects.toThrow('verwacht 3')
     async function* manyFrames() {

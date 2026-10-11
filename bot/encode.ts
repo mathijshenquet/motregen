@@ -8,9 +8,9 @@ import { holdFrames, type SequencePlan } from './sequences.js'
 import sharp from 'sharp'
 import { FRAME_PIXELS } from './config.js'
 import { releaseFileCache } from './native-raster.js'
+import { videoArguments, videoSettings, validateLoopBytes } from './video-settings.js'
 
 const run = promisify(execFile)
-const MAX_LOOP_BYTES = 3_000_000
 
 export function framePath(directory: string, index: number): string {
   return join(directory, `frame-${String(index).padStart(3, '0')}.png`)
@@ -30,18 +30,13 @@ export async function encodeStill(frame: string, destination: string): Promise<v
 
 export async function encodeLoop(directory: string, destination: string, plan: SequencePlan): Promise<{ milliseconds: number; bytes: number }> {
   const started = performance.now()
+  const settings = videoSettings()
   const frames = plan.loopFrames + holdFrames(plan)
-  const duration = frames / plan.fps
   const input = ['-hide_banner', '-loglevel', 'error', '-y', '-framerate', String(plan.fps), '-i', join(directory, 'frame-%03d.png')]
-  const output = ['-vf', `trim=end_frame=${plan.loopFrames},setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop=${holdFrames(plan)},setsar=1`, '-frames:v', String(frames), '-c:v', 'libx264', '-threads', '2', '-preset', 'veryfast', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', '-f', 'mp4', destination]
-  await run('ffmpeg', [...input, '-crf', '25', ...output])
-  let bytes = (await stat(destination)).size
-  if (bytes > MAX_LOOP_BYTES) {
-    const bitrate = Math.floor(2_500_000 * 8 / duration)
-    await run('ffmpeg', [...input, '-b:v', String(bitrate), '-maxrate', String(bitrate), '-bufsize', String(bitrate), ...output])
-    bytes = (await stat(destination)).size
-  }
-  if (bytes > MAX_LOOP_BYTES) throw new Error('Loop blijft groter dan 3 MB')
+  const output = ['-vf', `trim=end_frame=${plan.loopFrames},setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop=${holdFrames(plan)},setsar=1`, '-frames:v', String(frames), '-c:v', 'libx264', '-threads', '2', ...videoArguments(settings), '-an', '-f', 'mp4', destination]
+  await run('ffmpeg', [...input, ...output])
+  const bytes = (await stat(destination)).size
+  validateLoopBytes(bytes, settings)
   return { milliseconds: Math.round(performance.now() - started), bytes }
 }
 
@@ -50,15 +45,13 @@ export async function encodeRgbLoop(
   size: { width: number; height: number },
 ): Promise<{ milliseconds: number; bytes: number }> {
   const started = performance.now()
-  const duration = (plan.loopFrames + holdFrames(plan)) / plan.fps
-  const bitrate = Math.floor(2_500_000 * 8 / duration)
+  const settings = videoSettings()
   const encoder = spawn('ffmpeg', [
     '-hide_banner', '-loglevel', 'error', '-y', '-filter_threads', '1', '-f', 'rawvideo', '-pixel_format', 'rgb24',
     '-video_size', `${size.width}x${size.height}`, '-framerate', String(plan.fps), '-i', 'pipe:0',
     '-vf', `tpad=stop_mode=clone:stop=${holdFrames(plan)},setsar=1`, '-frames:v', String(plan.loopFrames + holdFrames(plan)),
-    '-c:v', 'libx264', '-threads', availableParallelism() <= 2 ? '1' : '2', '-preset', 'ultrafast', '-crf', '25',
-    '-maxrate', String(bitrate), '-bufsize', String(bitrate), '-pix_fmt', 'yuv420p',
-    '-movflags', '+faststart', '-an', '-f', 'mp4', destination,
+    '-c:v', 'libx264', '-threads', availableParallelism() <= 2 ? '1' : '2', ...videoArguments(settings),
+    '-an', '-f', 'mp4', destination,
   ], { stdio: ['pipe', 'ignore', 'pipe'] })
   let diagnostic = ''
   encoder.stderr.on('data', (bytes: Buffer) => { diagnostic = (diagnostic + bytes.toString()).slice(-4000) })
@@ -84,6 +77,6 @@ export async function encodeRgbLoop(
     throw error
   }
   const bytes = (await stat(destination)).size
-  if (bytes > MAX_LOOP_BYTES) throw new Error('Loop blijft groter dan 3 MB')
+  validateLoopBytes(bytes, settings)
   return { milliseconds: Math.round(performance.now() - started), bytes }
 }
