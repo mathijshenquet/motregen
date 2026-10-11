@@ -11,6 +11,20 @@ const VARIANTS: [ClockTransition; 3] = [
     ClockTransition::Kruisfade,
 ];
 
+#[test]
+fn slide_uses_fifth_positions_without_changing_other_transitions() {
+    let slide = ClockTransition::Schuif;
+    for (phase, position) in [(0.0, 0.0), (1.0 / 3.0, 0.2), (2.0 / 3.0, 0.8), (1.0, 1.0)] {
+        assert!((slide.animation_progress(phase) - position).abs() < 1e-6);
+        assert_eq!(ClockTransition::Klap.animation_progress(phase), phase);
+        assert_eq!(ClockTransition::Kruisfade.animation_progress(phase), phase);
+    }
+    let positions: Vec<_> = (0..=100)
+        .map(|step| slide.animation_progress(step as f32 / 100.0))
+        .collect();
+    assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
+}
+
 fn render(epoch: i64, variant: ClockTransition, still: bool) -> Vec<u8> {
     let size = &constants().size;
     let mut rgb = vec![25; size.width * size.height * 3];

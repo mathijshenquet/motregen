@@ -13,6 +13,19 @@ pub enum ClockTransition {
 // The PO chose rounding without an effect; transitions remain available as optional previews.
 pub const CLOCK_TRANSITION: Option<ClockTransition> = None;
 
+impl ClockTransition {
+    pub fn animation_progress(self, phase: f32) -> f32 {
+        if self == Self::Schuif {
+            // PO-proef: de twee tussenframes schuiven tot 1/5 en 4/5.
+            let outgoing = phase * phase;
+            let incoming = (1.0 - phase) * (1.0 - phase);
+            outgoing / (outgoing + incoming)
+        } else {
+            phase
+        }
+    }
+}
+
 impl FromStr for ClockTransition {
     type Err = String;
 
@@ -68,6 +81,7 @@ pub fn draw_clock(
     }
     let width = digit_width(text);
     let height = 56;
+    let progress = transition.animation_progress(state.progress);
     let mut position = left;
     for (from, to) in state.from.chars().zip(state.to.chars()) {
         if from == ':' {
@@ -91,7 +105,7 @@ pub fn draw_clock(
                 left: position.round() as i32,
                 top: 15,
                 color,
-                progress: state.progress,
+                progress,
                 transition,
             },
         );

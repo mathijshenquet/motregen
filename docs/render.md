@@ -32,6 +32,8 @@ fitdoel. Het beeld is bovenaan 48 pixels korter; de resterende uitsnede behoudt 
 Het klokpaneel sluit linksboven aan op de beeldrand, met alleen rechtsonder een ronde hoek. Tijd, datum
 (bijvoorbeeld `wo 11 okt`) en `Regenradar` staan op drie regels. Na een wijziging van `NATIVE_VIEW` moeten
 beide basiskaarten opnieuw worden vastgelegd; plaatmaat, metadata en labelplaatsing moeten overeenkomen.
+Het paneel meet 200×154 pixels; datum en titel zijn 30 pixels groot en gebruiken dezelfde contrasterende
+tekstkleur als de klok. De tekst staat 16 pixels van de linkerrand.
 Het watermasker is voor de volgende modi; de regencompositie gebruikt het niet. Deze export start geen browser.
 Basiskaarten bouwen als Nix-artefact volgt in C5.
 
@@ -75,7 +77,8 @@ op veelvouden van tien minuten, dus dezelfde compositie past bij loop en still.
 
 De bewaarde proefvarianten zijn te kiezen met `--clock-variant schuif`, `--clock-variant klap` of
 `--clock-variant kruisfade`. Ze animeren uitsluitend de veranderende cijfers tussen vijfminutentijden,
-op ⅓ en ⅔ van de overgang. Vaste cijferkolommen houden de overige cijfers en dubbele punt stil.
+op de twee tussenframes. `schuif` verplaatst de cijfers op die frames tot ⅕ en ⅘ van de hoogte;
+de andere effecten volgen de gewone ⅓ en ⅔ van de overgang. Vaste cijferkolommen houden de overige cijfers en dubbele punt stil.
 `CLOCK_TRANSITION` in `crates/render-core/src/clock.rs` staat op `None`: de standaard gebruikt afronding
 zonder effect. De CLI-keuze gaat voor de constante; Node geeft geen proefvariant door. `clock_variant`
 registreert de keuze in het receipt. Stills tonen bij iedere variant hun eigen tijd.

@@ -91,7 +91,7 @@ fn overlay_rounds_loop_text_but_keeps_still_time_and_actual_history_theme() {
     assert_eq!(overlay(own_time, start - 3_600_000, false), frames[0]);
     let history = overlay(start, start, false);
     let forecast = overlay(start + 100_000, start, false);
-    let panel_pixel = (80 * constants().size.width + 220) * 3;
+    let panel_pixel = (80 * constants().size.width + 180) * 3;
     assert_ne!(
         &history[panel_pixel..panel_pixel + 3],
         &forecast[panel_pixel..panel_pixel + 3]

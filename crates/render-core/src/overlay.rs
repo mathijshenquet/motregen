@@ -28,13 +28,8 @@ pub fn draw_overlay(
         [232, 243, 251]
     };
     let clock_color = if night { [237, 248, 252] } else { [16, 38, 48] };
-    let muted_color = if night {
-        [145, 170, 181]
-    } else {
-        [99, 123, 133]
-    };
     // De boven- en linkerhoeken vallen buiten beeld; alleen rechtsonder blijft rond.
-    rounded_panel(rgb, -20, -20, 260, 168, 20, background, 0.96);
+    rounded_panel(rgb, -20, -20, 220, 174, 20, background, 0.96);
     let clock_epoch = if options.transition.is_none() && !options.still {
         loop_clock_epoch(epoch)
     } else {
@@ -42,7 +37,7 @@ pub fn draw_overlay(
     };
     let (clock, _) = clock_text(clock_epoch);
     let date = clock_date(clock_epoch);
-    let content_left = 22.0;
+    let content_left = 16.0;
     if let Some(transition) = options.transition {
         draw_clock(
             text,
@@ -56,13 +51,13 @@ pub fn draw_overlay(
     } else {
         text.draw(rgb, &clock, (content_left, 67), 58, clock_color, None);
     }
-    text.draw(rgb, &date, (content_left, 98), 24, muted_color, None);
+    text.draw(rgb, &date, (content_left, 103), 30, clock_color, None);
     text.draw(
         rgb,
         "Regenradar",
-        (content_left, 130),
-        24,
-        muted_color,
+        (content_left, 139),
+        30,
+        clock_color,
         None,
     );
     let footer_color = if night { [237, 248, 252] } else { [16, 38, 48] };
