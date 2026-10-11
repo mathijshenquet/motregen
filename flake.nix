@@ -111,7 +111,7 @@
           assert combined.environment.MOTREGEN_RUST_BASEMAP_DIR == "${self.packages.${system}.motregen-render}/share/motregen-render/basemaps";
           assert combined.serviceConfig.CPUQuota == "200%";
           assert combined.serviceConfig.MemoryHigh == "infinity";
-          assert combined.serviceConfig.MemoryMax == "1200M";
+          assert combined.serviceConfig.MemoryMax == "1600M";
           assert combined.serviceConfig.OOMPolicy == "kill";
           assert combined.environment.MOTREGEN_DATA_DIR == "/run/motregen-data";
           assert builtins.elem "/var/lib/motregen:/run/motregen-data" combined.serviceConfig.BindReadOnlyPaths;

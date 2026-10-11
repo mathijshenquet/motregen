@@ -1,5 +1,135 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-11 14:52 CEST — U80 onafhankelijke gate groen; VM48,2s; PO wil vloeiender wind
+
+Finale workeroplevering U76 geïntegreerd+tempo op5aab9d182dc696a010a8602eb0c99468dad2ce17. Eigen integratieworktree int-u80-pm-20261011 head47492fab met origin/mainee2db121/E1MemoryMax1600M. Synchrone exits0: cargo fmt--all/check, workspace-clippy--all-targets-Dwarnings,36Rusttests,wasm32-build; web typecheck/569tests/build; bot typecheck/132tests/build; nix flake check--no-build; Nix echte2nodeVM-test34,10s en systeem+renderer. Receipts web/tmp/orkestrator/pm-u80-20261011; gitstatusintegratie schoon. Zelf6dag/nachtbeelden+klokstroken+windmotion bekeken; eigen browser5films/vergelijking41s volledig ended,geenerrors.
+
+VMbenchmark Nixrenderqcnj1k,livegenerated12:47:47Z/now12:45Z,bestaandebotnietgepauzeerd,CPUQuota200/MemoryMax900M/Swap0: all48245ms,wand48,285s,CPU77,888s,cgroup563,6MiB,exit0. Parallelmodusaflooptijden weather33,360s,wind41,891s,feels48,241s zijn geen individuele budgetten. Exacte SSH/systemd-run-opdracht staat in receipts; media.json opgehaald. Toplevelintegrationnd8b8n nog niet uitgerold.
+
+PO:7,5fps ziet duidelijk beter uit, overweegt Wind weglaten/geenregen/geenisobaren en vraagt alle modusbudgetten. Uitrol wacht daarom de nieuwe vergelijking/keuze af. U80 vervolgvraag gequeued en gestart(xhigh): 4geïsoleerde75s/7,5fpsWindproeven volledig/zonderregen/zonderisobaren+drukletters/zonderbeide,MP4/beelden/profiel/devmeting/Nixclosures,geenproductiegedragwijziging. PM meet drie afzonderlijke modi op één vasteVMsnapshot. Eerste snapshot-symlink terecht geweigerd door renderer-containment; hersteld met kopieën van alleen42manifestchunks,geen codeprobleem. E2set/deadline nog open,nietgebouwd.
+
+## 2026-10-11 14:40 CEST — MIP-30 E2: dubbele publicatie verklaard; set met deadline voorgesteld
+
+Prod-ingestlogs bevestigen de twee generaties: om14:07:08CEST radar RAD_NL25_RAC_RT_202610111205.h5 (brontijd14:05CEST), om14:07:17 de bijbehorende nowcast; na iedere gewijzigde bron meteen een volledig atomair manifest. Brontijden gelijk, aankomst/verwerking apart. Logs13:45–14:38 tonen meestal8–15s verschil, één70s. Seamless apart met132–135s verwerking; ingestcadansen UV/seamless15min en AROME3u.
+
+PO-richting: verwachte set afwachten met deadline. MIP-30 aangepast: radar+nowcast per brontijd, harde deadline vanaf eerste radarwaarneming zonder verlenging; PM stelt90s maximum voor vanwege70s-uitbijter. Laatste model/seamless/UV blijft beschikbaar; app direct. E2-deadline en late-productbeleid open, geen runtimewijziging. U80 eigen cache-A/B zonder betrouwbare winst; finale head nog afwachten.
+
+## 2026-10-11 14:24 CEST — MIP-30 E1 aangenomen: bot MemoryMax naar 1600M
+
+PO: A3 ja doe maar; A4 sure? waarom zou een manifest niet stabiel zijn? E1 geautoriseerd en in Nix voor combined aangepast, met de bestaande flakecontractcheck. Poller512M, renderer1100M, swap/hardening gelijk. Wordt met de komende U80-uitrol toegepast en op prod gecontroleerd.
+
+E2 nog open, geen wachttijd gebouwd. Uitleg: nieuwe complete, atomair gepubliceerde versies door nieuwe brondata; twee versies negen seconden uiteen gaven twee generaties. Uit gelijke filmgroottes volgt geen bewijs van gelijke inhoud; eerdere te stellige formulering aan PO gecorrigeerd. Publicatielus wordt nagelezen.
+
+## 2026-10-11 14:15 CEST — PM-rol overgenomen; U80-wachter actief
+
+PM/orkestrator vanaf nu sol in w33. Overdracht A–F, AGENTS en de PO-feedback gelezen; main-checkout met jj, U76-branch bevroren. Skywatch-samples blijven buiten alle commits. Wachter gestart met `herdr agent wait w35:p1 --timeout 3500000`, zonder --until; U80 werkt met GPT-6.1-Sol xhigh aan U76-integratie en tempo. Na melding 'U76 geïntegreerd + tempo': onafhankelijke gate in integratieworktree → VM-meting → jj-merge → geautoriseerde uitrol → productiecontrole en zelf bekeken films.
+
+Prod read-only gecontroleerd: bot actief, nul herstarts/OOM-kills, MemoryMax1200M; memory.events max404 (was39 bij overdracht), VM3,8GB waarvan2,8GB beschikbaar. Laatste generaties39,3s/43,3s en één61,8s; belasting varieert. E1/E2 vastgelegd als MIP-30 draft: MemoryMax1600M en manifest30s stabiel. Wachten op PO-keuzes; dit blokkeert de gevraagde U80-uitrol niet.
+
+## 2026-10-11 — OVERDRACHT PM-rol: Claude-orkestrator → sol-agent in pane w33 (14:11)
+
+PO: "kan jij anders even jou pm rol aan de sol agent overdagen? zodat jij uit kan". De Claude-orkestrator stopt na
+deze entry. **PM/orkestrator is vanaf nu de codex-agent `u76-rust-renderer-regen` (gpt-6.1-sol, pane `w33:p1`)**;
+de PO praat in die pane. De dagdetails staan in de sectie "2026-10-11 — palet, regenloop 100 s, klokovergang"
+verderop (dit bestand is niet meer netjes nieuwste-eerst; deze entry is de actuele stand).
+
+### A. Rol en werkwijze (lees ook AGENTS.md, ~/.codex/AGENTS.md en de PO-feedback in
+`~/.claude/projects/-home-mathijs-motregen/memory/` — begin bij `MEMORY.md`)
+- A1. Mathijs is PO en beslist over product; de PM specificeert, verifieert onafhankelijk, merget en rolt uit.
+  De PM mag prod muteren (`ssh root@57.129.47.17`). Nooit auto-merge.
+- A2. Bij meer dan één redelijke aanpak: eerst een genummerd plan, dan doen. PO-vragen eerst beantwoorden, daarna
+  pas uitvoeren. Antwoorden in het Nederlands, kort, lijsten genummerd met letterprefix (A1, B1).
+- A3. Elke worker-"groen" opnieuw draaien vóór merge; een receipt is een synchroon gelezen exitstatus. Vandaag ving
+  de eigen gate twee echte fouten (flake check faalde op `self`; ultrafast-film 17 MB tegen een harde 20 MB-fout).
+- A4. Visueel werk eerst zelf bekijken (frames/uitsnedes), dan pas naar de PO. Tijden altijd uit `date`
+  (host = UTC, lokaal = UTC+2; de VM toont lokale tijd in `journalctl`/`date`, UTC met `date -u`).
+- A5. PM-werk gebeurt in de main-checkout `/home/mathijs/motregen` met **jj** (niet in de U76-worktree). De
+  gewijzigde `tools/skywatch/data/samples.csv` daar is van de skywatch-poller: niet committen, niet terugzetten.
+
+### B. Stand op main en prod (main = f2de4b0 + deze entry)
+- B1. Live: Rust-renderer voor regen, wind en temperatuur (`services.motregen.bot.rustModes`, standaard alle drie;
+  `[ ]` = Node-route terug), geen Chromium meer in de prod-closure; uitsnede Nederland, klok linksboven; U77-palet
+  (violet-laat, drempel-zacht, contrast 0) in app én bot; regen in Wind gedempt en in Lucht vermenigvuldigd (app);
+  films op kwaliteit (x264 veryfast, crf 18, VBV-plafond uit 20 MB): wind 7,4 · temperatuur 5,5 · regen 4,0 MB.
+- B2. Prod-gezondheid 14:11: generatie 39–43 s (was 170–220 s in Node), 0 herstarts, schijf 58 %.
+  **Let op geheugen**: de bot-unit raakt `MemoryMax=1200M` (memory.events `max 39`, `oom 0`): het is bestandscache
+  (anon 116 MB in rust, ~560 MB extra tijdens een render), dus er wordt gereclaimd, niet gedood. Voorstel aan de
+  PO: `MemoryMax` naar ~1600M (VM heeft 3,8 GB) — nog niet gedaan, productiewijziging.
+- B3. Direct na elke `nixos-upgrade` herstart de ingest en doet ~1,5 min backfill op ~90 % CPU: de eerste twee à
+  drie generaties duren dan 55–85 s. Meet pas daarna.
+
+### C. Lopend werk (wachten op deze melding)
+- C1. **U80-worker** (`u80-rust-wind-temperatuur`, gpt-6.1-sol xhigh, pane `w35:p1`, worktree
+  `~/worktrees/motregen/track-u80-rust-wind-temperatuur`, branch `track/u80-rust-wind-temperatuur`, spec
+  `.dev/specs/track-u80-rust-renderer-wind-temperatuur.md`, track-LOG in de worktree onder
+  `.dev/tracks/u80-rust-wind-temperatuur/LOG.md`, beeldenpagina http://ageq-dev2:4397/review/). Opdracht (twee
+  gequeuede berichten, 13:45 en 14:12): (1) `origin/track/u76-rust-renderer-regen` @ f20c01b integreren — de PO
+  koos daar klokhoek met titel + datum, compacter, bovenrand getrimd, **schuifklok 1/6 → 15/16** — voor alle
+  drie de modi; (2) regen boven wind in Rust = "gedempt" uit dezelfde bron als de app; (3) **tempo** (PO: "ja kort
+  ze maar in"): alle films 100 s kaarttijd per frame bij 5,6 fps (= 9,33 kaartmin/s, het tempo van de app; app
+  gemeten op 9,35 met `web/tmp/orkestrator/play-rate.mts`), regen −1…+2 u, wind/temperatuur −1…+5 u (217 frames,
+  ~39 s); windfilm zelf beoordelen op vloeiendheid, zo nodig variant 75 s / 7,5 fps ernaast. Meldt
+  **"U76 geïntegreerd + tempo"** met head-sha. Laatst geziene head: 4796626 (14:05).
+- C2. Daarna doet de PM: onafhankelijke gate → VM-meting → merge → uitrol → controle op prod → films naar de PO
+  (recepten in D). De PO heeft om uitrol gevraagd ("rol ook u76 en u77 uit", "ja kort ze maar in"); er is geen
+  extra akkoord nodig, tenzij de worker een keuze voorlegt (75 s/7,5 fps-variant) of het beeld tegenvalt.
+- C3. De U76-branch zelf is bevroren (wordt via U80 gemerged). Wil de PO in w33 nog iets aan de klok, dan eerst
+  `origin/main` mergen nadat C2 klaar is, of het als nieuwe opdracht bij de U80-worker leggen.
+- C4. U77-worker (`u77-regenpalet-contrast`, opus-5.5, pane `w34:p1`): klaar, alles gemerged. Nog opruimen: preview
+  4320 stoppen, workspace sluiten, worktree `track-u77-regenpalet-en-contrast` verwijderen. Preview 4396 (U76) en
+  4397 (U80) blijven tot de PO ze niet meer nodig heeft.
+
+### D. Recepten (vandaag meermaals zo uitgevoerd)
+- D1. **Gate** in een aparte worktree: `git worktree add --no-track -b int/x ~/worktrees/motregen/int-x origin/track/…`,
+  `.env` symlinken, `git merge origin/main`, dan in `devenv shell`: `cargo fmt --all --check`, `cargo clippy
+  --workspace --all-targets -- -D warnings`, `cargo test -p render-core -p render`, `cargo build -p render-core
+  --target wasm32-unknown-unknown`, `web`: `pnpm typecheck`, `pnpm test`, `pnpm build`; `pnpm -C bot typecheck`,
+  `test`, `build`; `nix flake check --no-build`; `nix build .#checks.x86_64-linux.nixos-vm` (tweede node `rust`
+  draait een generatie onder de echte unit-hardening); `nix build
+  .#nixosConfigurations.motregen.config.system.build.toplevel`. Raakt het de app zichtbaar: gerichte desktop-e2e
+  (`MOTREGEN_E2E_PORT=4392 MOTREGEN_E2E_DATA_PORT=8392 pnpm e2e e2e/<spec> --project desktop`). Worktree daarna weg.
+- D2. **VM-meting vóór merge**: `nix build .#motregen-render --print-out-paths` in de worker-worktree →
+  `nix copy --no-check-sigs --to ssh://root@57.129.47.17 <out>` → op de VM `systemd-run --wait --pipe -p
+  MemoryMax=900M -p MemorySwapMax=0 -p CPUQuota=200% <out>/bin/motregen-render --data-dir /var/lib/motregen
+  --basemap-dir <out>/share/motregen-render/basemaps --mode all --out-dir /tmp/meting` (tijd uit `media.json`
+  `total_ms`, piek uit de systemd-uitvoer; overrides `MOTREGEN_VIDEO_PRESET/CRF/MAX_BYTES` met `-E`). Start een
+  meting ná een botgeneratie: wachten met `pgrep -f '[d]ata-dir /run/motregen-data'` — MET de vierkante haken,
+  anders matcht de wachter zichzelf en hangt hij (vandaag gebeurd). `/tmp/meting` daarna opruimen.
+  Referentie op de VM: veryfast/18 = 35,5 s en 557 MB piek voor de huidige 169+169+109 frames.
+- D3. **Merge**: `jj git fetch; jj new main track/x -m "merge track/x: …"`; controleer `jj log -r @` op conflict;
+  `jj bookmark set main -r @; jj new`.
+- D4. **Uitrol zonder Rust-build op de VM**: op de dev-host `nix build
+  .#nixosConfigurations.motregen.config.system.build.toplevel --no-link --print-out-paths`, `nix copy
+  --no-check-sigs --to ssh://root@57.129.47.17 <out>`, dan `jj git push --bookmark main`, dan op de VM `systemctl
+  start nixos-upgrade.service` (exit 0 afwachten) en controleren dat `readlink /run/current-system` = `<out>`.
+- D5. **Controle op prod**: `journalctl -u motregen-bot | grep rust-generation-render` (totalMs, na de backfill),
+  `systemctl show motregen-bot -p NRestarts`, groottes uit de `sequence-render`-regels, films uit
+  `/var/cache/motregen-bot/stills/*-loop-*.mp4` ophalen en frames bekijken. App: bundle-hash op motregen.nl gelijk
+  aan `web/dist` van main; schermbeelden met `web/tmp/orkestrator/prod-modes.mjs`.
+- D6. **Films aan de PO tonen**: de vorige PM stuurde bestanden rechtstreeks; een codex-PM kan dat niet. Zet ze op
+  de beeldenpagina van de worker (4397) of noem het pad, en geef de PO de URL.
+- D7. Worker aansturen: `herdr agent prompt <naam> '<tekst>'` (wordt gequeued als hij werkt), daarna status en
+  footer controleren (`herdr agent get`, `herdr pane read <pane> --source recent-unwrapped --lines 6` → `GPT-6.1-Sol
+  xhigh`), wachter `herdr agent wait <pane> --timeout 3500000`. Bij `blocked`: zie memory `codex-vraag-via-herdr`.
+
+### E. Open bij de PO
+- E1. `MemoryMax` van de bot-unit omhoog (B2).
+- E2. Generatie pas starten als het manifest 30 s stabiel is: de bot rendert nu bij elk manifest, 2–3× per vijf
+  minuten (voorstel van de U80-worker; nog niet gebouwd, nog niet aan de PO voorgelegd als besluit).
+- E3. Stills op aanvraag in plaats van 170 per generatie (MIP-29, minder dringend sinds 40 s).
+- E4. VPS-2 bij OVH (PO overweegt; specificaties eerst op de OVH-site verifiëren).
+- E5. MIP-29-vervolg: C3 `/weer`-grafiek, C4 bot in Rust, C5 Node weg; WASM-kern in de app is een aparte track.
+
+### F. Open voor agents
+- F1. Na C2: `PRE_U77_RAIN_LOOK` en de Node-kaartroutes zijn dood gewicht zodra de PO de terugval niet meer wil.
+- F2. ?dev-schakelaars van U77 (groep Regen) vervallen 2026-10-17: opruimen, `docs/dev-opties.md` bijwerken.
+- F3. Vijf rode tests uit de nachtelijke e2e van 10-09 (isobars ×2, telegram wind-loop ×2, flanders Gent) — de
+  telegram-tests horen bij de Node-route; opnieuw beoordelen na de Rust-overgang. Volledige suite draait max. één
+  keer per dag op main.
+- F4. Plaatsnamen slecht leesbaar onder dichte blauwe regen; `og:image:alt` in de weerok-build; MIP-22.
+- F5. PR's #106/#108/#110 (U76/U80) en #107/#109 (U77): na de laatste merge nalopen dat GitHub ze als gemerged
+  toont; anders sluiten met verwijzing naar de mergecommit.
+
 ## 2026-10-07 — perf-dag: profielmodus, twee gemeten daders gefixt; PWA, Telegram, skywatch; tabel/modi en wolken live
 
 - **Dev-host heet nu ageq-dev2** (was ageq-mthq): Vite `allowedHosts` + AGENTS.md bijgewerkt;
@@ -525,6 +655,18 @@
   **PO-vraag filmkwaliteit** ("best low res"): 960×1272, x264 ultrafast, eigen grens 2,5 MB per film → ~1,15 Mbit/s;
   identiek aan de oude route. U80 ronde 3 loopt: preset/grens instelbaar + zes varianten met tijden en SSIM voor
   de PO-keuze. Open: generatie pas na 30 s stabiel manifest; stills op aanvraag; regen in Wind/Lucht (app, PR #109).
+- 13:51: **Filmkwaliteit live** (main a6f9839 = U80 e361dcd; PO: "die compression is wel too much … durov gaat
+  betalen"): x264 veryfast, crf 18, VBV-plafond uit de 20 MB-veiligheidsgrens (grens onhaalbaar i.p.v. fataal).
+  Worker koos eerst ultrafast (wind 17 MB tegen een harde 20 MB-fout); op mijn VM-meting omgezet naar veryfast
+  (zelfde beeld op 100 %, half zo groot). Prod: wind 7,4 · temperatuur 5,5 · regen 4,0 MB, generatie 41 s
+  (direct na de uitrol 68/84 s door ingest-backfill), cgroup-piek 809 MB/1200, 0 herstarts. `faster` = OOM bij 600 MB.
+  **U77-vervolg live** (main 790817f = 52d325e, PR #109; PO-keuze in de pane): regen in Wind gedempt, in Lucht
+  vermenigvuldigd. Gate: web 569, e2e 16, bot 131, cargo, flake check. Prod-bundle = main-build; Weer/Wind/Lucht op
+  prod zelf bekeken. **U76-vervolg** (f20c01b, PO in de pane: klokhoek met titel + datum, schuifklok 1/6→15/16):
+  nog NIET live; U80-worker integreert het in main (alle drie de modi) en zet regen-boven-wind in Rust op gedempt.
+  **Open PO-vraag**: tempo wind/temperatuur. Gemeten: app 9,35 kaartmin/s in elke modus (live manifest,
+  `web/tmp/orkestrator/play-rate.mts`), regenfilm 7,5, wind-/temperatuurfilm 50 (14 u in 17 s; al zo sinds 10-08).
+  Bijvangst: bot rendert bij elk manifest (2–3 per 5 min) → debounce 30 s nog te bouwen.
 
 ## 2026-10-10 — tg-bot op prod vastgelopen (13:00)
 - Symptoom (PO): bot antwoordt niet. Laatste generatie 05:57; daarna `refresh-failed … TimeoutError` (07:16) en

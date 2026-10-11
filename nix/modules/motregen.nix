@@ -644,7 +644,8 @@ in
         # geen Telegram meer (prod 2026-10-10: arrayBuffer-lek, 7 uur vast zonder herstart). Harde grens + OOM-kill
         # + herstart is het noodverband tot het lek gevonden is; warm piekt een generatie rond 450 MiB, koud 770.
         MemoryHigh = if cfg.bot.role == "poller" then "384M" else if cfg.bot.role == "renderer" then "900M" else "infinity";
-        MemoryMax = if cfg.bot.role == "poller" then "512M" else if cfg.bot.role == "renderer" then "1100M" else "1200M";
+        # MIP-30: ruimte voor Rust-renderbuffers en bestandscache zonder extra reclaim bij iedere generatie.
+        MemoryMax = if cfg.bot.role == "poller" then "512M" else if cfg.bot.role == "renderer" then "1100M" else "1600M";
         OOMPolicy = "kill";
         MemorySwapMax = lib.mkIf (cfg.bot.role != "poller") "0";
         TimeoutStopSec = "90s";
