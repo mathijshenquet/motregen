@@ -145,6 +145,10 @@ voegt ffmpeg aan PATH toe. Bij alle drie Rust-modi bevat de unit geen Chromium-p
 de bestaande Node-route; een gedeeltelijke lijst houdt Chromium voor de overige modi beschikbaar.
 De `poller` krijgt geen Rust- of browseromgeving.
 
+Prod, rolchecks en de NixOS-test gebruiken `nixosModules.motregen` uit de flake. Deze publieke module bindt
+de pakketdefaults aan de flake; afnemers hoeven geen `specialArgs.self` door te geven. De bestaande
+Chromium-proef in de NixOS-test kiest expliciet `rustModes = [ ];` om de Node-terugval te blijven toetsen.
+
 Rust vereist een lokaal snapshot. `services.motregen.bot.dataDir` valt terug op `services.motregen.dataDir`
 en wordt alleen-lezen gemount op `/run/motregen-data`, ook voor een zelfstandige renderer zonder ingest.
 `CacheDirectory=motregen-bot` blijft schrijfbaar onder `ProtectSystem=strict`; binaries en platen zijn
@@ -174,13 +178,18 @@ van ongeveer 30 seconden na de laatste publicatie. Deze ronde verandert die gene
 ## Bouwen en meten
 
 ```sh
+nix flake check --no-build
 nix build .#motregen-render .#motregen-bot
+nix build .#nixosConfigurations.motregen.config.system.build.toplevel
 cargo build -p render --release
 cargo build -p render-core --target wasm32-unknown-unknown
 systemd-run --user --wait --pipe -p MemoryMax=600M -p CPUQuota=200% -p MemoryAccounting=yes \
   taskset -c 0,1 /absoluut/result/bin/motregen-render \
   --data-dir /pad/data --basemap-dir /pad/platen --mode all --out-dir /pad/media
 ```
+
+`nix flake check --no-build` hoort bij de gate: deze evalueert ook alle rolchecks en de NixOS-testdefinitie,
+zonder een test-VM te starten. Daarna moet de NixOS-toplevel-build synchroon met exit 0 afronden.
 
 De Nix-wrapper zorgt dat ffmpeg ook binnen een systemd-unit gevonden wordt. Voor de Cargo-binary moet de
 ffmpeg-PATH expliciet aan de unit worden doorgegeven (`--setenv=PATH=…`). De synchrone systemd-uitvoer meldt

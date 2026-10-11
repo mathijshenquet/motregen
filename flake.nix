@@ -61,9 +61,9 @@
 
       nixosConfigurations.motregen = nixpkgs.lib.nixosSystem {
         inherit system;
-        specialArgs = { inherit self; };
         modules = [
           disko.nixosModules.disko
+          self.nixosModules.motregen
           ./nix/configuration.nix
         ];
       };

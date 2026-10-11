@@ -2,7 +2,6 @@
   imports = [
     ./disko.nix
     ./modules/host.nix
-    ./modules/motregen.nix
   ];
 
   networking = {

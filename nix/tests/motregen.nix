@@ -38,7 +38,7 @@
     {
       imports = [
         ../modules/host.nix
-        ../modules/motregen.nix
+        self.nixosModules.motregen
       ];
 
       services.motregen = {
@@ -53,6 +53,7 @@
           enable = true;
           role = "combined";
           package = fakeBot;
+          rustModes = [ ];
         };
       };
 
