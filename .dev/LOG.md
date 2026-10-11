@@ -1,5 +1,11 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-11 14:15 CEST — PM-rol overgenomen; U80-wachter actief
+
+PM/orkestrator vanaf nu sol in w33. Overdracht A–F, AGENTS en de PO-feedback gelezen; main-checkout met jj, U76-branch bevroren. Skywatch-samples blijven buiten alle commits. Wachter gestart met `herdr agent wait w35:p1 --timeout 3500000`, zonder --until; U80 werkt met GPT-6.1-Sol xhigh aan U76-integratie en tempo. Na melding 'U76 geïntegreerd + tempo': onafhankelijke gate in integratieworktree → VM-meting → jj-merge → geautoriseerde uitrol → productiecontrole en zelf bekeken films.
+
+Prod read-only gecontroleerd: bot actief, nul herstarts/OOM-kills, MemoryMax1200M; memory.events max404 (was39 bij overdracht), VM3,8GB waarvan2,8GB beschikbaar. Laatste generaties39,3s/43,3s en één61,8s; belasting varieert. E1/E2 vastgelegd als MIP-30 draft: MemoryMax1600M en manifest30s stabiel. Wachten op PO-keuzes; dit blokkeert de gevraagde U80-uitrol niet.
+
 ## 2026-10-11 — OVERDRACHT PM-rol: Claude-orkestrator → sol-agent in pane w33 (14:11)
 
 PO: "kan jij anders even jou pm rol aan de sol agent overdagen? zodat jij uit kan". De Claude-orkestrator stopt na
