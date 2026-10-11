@@ -1,5 +1,17 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-11 22:19 CEST — Telegram-klokhotfix live; nieuwe productiefilms gecontroleerd
+
+MIP-32 en PR 111 (MERGED) uitgevoerd. Main 7c9a84a66dfc2d5ebf729b7a582d829c8aafac8b uitgerold; /run/current-system exact /nix/store/mzqwshcjybrl8rlibafw1p6kdq91azi2-nixos-system-motregen-26.05.20260829.c5c4a43, renderer 5xw3caymsx90vjpzr0nj1j57jlsyn6f9. Nix copy en synchrone nixos-upgrade exit 0. Het klokvak staat 107 uitvoerpixels lager, blijft links aangesloten en heeft beide rechterhoeken rond; tijd, datum, titel, animatie en labeluitsluiting volgen. Rust-cacheversie 31 voorkomt hergebruik van de oude opmaak. Verschil tussen gated head 51648b24 en gedeployde main uitsluitend LOG.
+
+Volledige onafhankelijke gate vóór merge groen: fmt, workspace-clippy, 39 Rust-tests, WASM; web typecheck/569 tests/build; bot typecheck/134 tests/build; zeven Telegram-desktop-e2e-tests; Nix-flakecheck, echte twee-node NixOS-test (32,18 s), renderer en systeem. Echte Rust-dag/nachtbeelden voor alle modi zelf bekeken. Eerste botfixturefout en succesvolle sequentiële herhaling beide bewaard; geen GitHub-CI geconfigureerd.
+
+Drie nieuwe productie-MP4s uit generatie 22:14:24 CEST opgehaald, zelf bekeken en volledig afgespeeld tot ended zonder fouten. Regen 1.194.943 bytes / 115 frames / 28/5 fps; gevoelstemperatuur 6.899.308 / 223 / 28/5; wind 8.375.356 / 297 / 15/2. Alle H.264 High, yuv420p, 960×1224. Reviewpagina zelf bekeken op desktop en mobiel met nagebootste GIF-badge uit de PO-screenshot: klok vrij zichtbaar. Beide productie-JavaScriptbundles en CSS SHA256-identiek aan de uitgerolde Nix-frontend. Productiefilms: http://ageq-dev2:4397/review/telegram-clock-hotfix/prod/.
+
+Opstartgeneraties tijdens ingest-backfill: 82,516 en 79,775 s. Eerste generatie daarna (22:17:25 CEST): drie films en 170 stills in 47,672 s; refresh inclusief cachepriming 58,709 s. Gezondheid om 22:18:42: bot/ingest/Caddy actief, nul herstarts, nul OOM-kills en nul MemoryMax-hits sinds herstart; piek 907.845.632 bytes (866 MiB), MemoryMax 1600M, CPUQuota 200%, swap 0. Dit is een korte observatie: de bestaande reclaimbelasting na uren draaien uit de vorige entry blijft een open punt.
+
+Schone eigen integratieworktree verwijderd. Alle eigen test-, afspeel- en uitrolsessies afgerond; previews 4396/4397 blijven beschikbaar, U80-worker blijft afgesloten. Geen eigen Telegram-poller of uploads gestart. U76/U80-branches blijven bevroren; Skywatch-CSV blijft buiten commits. Receipts en exacte scripts: genegeerde web/tmp/orkestrator/telegram-clock-hotfix-20261011/. Alleen deze journalentry en de MIP-32-uitrolregistratie worden nu met jj gecommit en naar main gepusht; geen nieuwe productcode sinds de gecontroleerde uitrol.
+
 ## 2026-10-11 22:10 CEST — Telegram-klokhotfix volledig gegated; handmatige integratie en uitrol
 
 PR111 head51648b2463e0e73d2c872a32f1b80fd21fbf2692. Code107px lager, twee rechterhoeken rond, bewegende cijfers/colon/datum/titel samen verplaatst, labeluitsluiting volgt. Rust-cacheversie30→31 met regressie op vijf oude film-/stillkeys. Alle onafhankelijke synchrone exits0: fmt/workspace-clippy/39Rusttests/WASM; webtypecheck/569tests/build; bottypecheck/134tests/build; Telegramdesktop7; flakecheck; echte2nodeNixOS-test32,18s plus renderer/toplevel. Eerste botrun mist fixture door parallelle synthgen/e2e; receipt bewaard, daarna fixture en botchecks sequentieel groen.
