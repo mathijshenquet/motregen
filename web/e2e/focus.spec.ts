@@ -113,9 +113,9 @@ test('hovering the wind column brings the damped wind to full strength and dims 
   await windHeading(page).hover()
   await expect.poll(async () => Number(await shell(page).getAttribute('data-wind-focus'))).toBeGreaterThan(0)
   await expect(shell(page)).toHaveAttribute('data-wind-focus', '1.00')
-  // Overdag vermenigvuldigt de regen met de kaart op 0,9 in plaats van tot de helft te vervagen (U62).
-  await expect(shell(page)).toHaveAttribute('data-rain-opacity', '0.90')
-  await expect(shell(page)).toHaveAttribute('data-rain-blend', 'multiply')
+  // Overdag treedt de regen in Wind gedempt terug, op dekking 0,7 en zonder vermenigvuldigen (PO 2026-10-11, U77).
+  await expect(shell(page)).toHaveAttribute('data-rain-opacity', '0.70')
+  await expect(shell(page)).toHaveAttribute('data-rain-blend', 'normal')
   expect(await windIntensity(page)).toBeCloseTo(0.8, 1)
   expect(await shell(page).getAttribute('data-focus')).toBe('0.00')
   await page.screenshot({ path: testInfo.outputPath('wind-focus.png') })

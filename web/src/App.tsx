@@ -50,7 +50,7 @@ import { DEFAULT_RAIN_FIELD_TUNING, loadRainFieldTuning, RAIN_FIELD_STORAGE_KEYS
 import { LayerOverlay } from './core/overlay-canvas'
 import { rainColormap } from './core/rain-chart'
 import { DEFAULT_FOCUS_RAIN_VARIANT, FOCUS_RAIN_VARIANT_STORAGE_KEY, focusRainUsesWeatherBlend, loadFocusRainVariant } from './core/rain-presentation'
-import { DEFAULT_RAIN_LOOK, FOCUS_MODE_RAIN_BLEND, loadRainLookChoice, RAIN_LOOK_STORAGE_KEYS, rainOutline, rainUsesStraightAlpha, type RainLook, type RainLookChoice } from './core/rain-palette'
+import { DEFAULT_RAIN_LOOK, loadRainLookChoice, PRE_U77_RAIN_LOOK, RAIN_LOOK_STORAGE_KEYS, rainOutline, rainUsesStraightAlpha, type RainLook, type RainLookChoice } from './core/rain-palette'
 import { grantedStartFix, loadLastLocation, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastLocation, storeLastSavedPlaceId, storeMapView, type StartLocation } from './core/location-memory'
 import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGestures } from './core/pin-navigation'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
@@ -3227,13 +3227,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }), undefined, { equals: sameFields })
   // Lucht-focus en dag/nacht lopen niet via applyFocus.
   createEffect(() => { rainLook(); if (map) { applyRainPresentation(); map.triggerRepaint() } })
-  // Palet en kaartthema gelden in elke modus. De menging is voor Weer gekozen (U77); Wind en Lucht houden de
-  // menging die de PO in U62 koos, tenzij de proefknop "Regen in Wind/Lucht" ze die van Weer geeft.
+  // Palet, kaartthema en menging gelden in elke modus (PO 2026-10-11, U77). Alleen de vergelijkingsstand `huidig`
+  // van "Regen in Wind/Lucht" zet Wind en Lucht terug op de menging van vóór U77.
   const rainColourLook = createMemo((): RainLook => {
     const choice = rainLookChoice()
     const weatherMode = windFocus() < 0.5 && airFocus() < 0.5
     const weatherBlend = weatherMode || focusRainUsesWeatherBlend(focusRainVariant())
-    return { palette: choice.palette, blend: weatherBlend ? choice.blend : FOCUS_MODE_RAIN_BLEND, theme: mapSurfaceTheme(), contrast: choice.contrast }
+    return { palette: choice.palette, blend: weatherBlend ? choice.blend : PRE_U77_RAIN_LOOK.blend, theme: mapSurfaceTheme(), contrast: choice.contrast }
   }, undefined, { equals: sameFields })
   createEffect(() => { rainColourLook(); applyRainColours() })
   let basemapBlend: BlendTarget[] | undefined

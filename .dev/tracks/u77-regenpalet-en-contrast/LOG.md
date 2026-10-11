@@ -615,3 +615,29 @@ Niet gedaan: HARMONIE-tijden, afspelen in Wind/Lucht, en de bot (blijft op het b
 `MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts e2e/focus.spec.ts e2e/cloud-section.spec.ts --project desktop` 0
 (16 groen, 2 overgeslagen: de touch-tests in `focus.spec.ts`). `bot/`: `pnpm typecheck` 0 · `pnpm test` 0 (116 tests).
 Preview 4320 serveert deze build (`index-DgBvPz4B.js`).
+
+## 2026-10-11 12:26 — PO-keuze Wind en Lucht vastgezet als standaard
+
+PO (rechtstreeks in de pane): "doe maar vermenidvuldigd in lucht en doe maar gedempt in regen". Gelezen als: Lucht
+vermenigvuldigd, Wind gedempt ("regen" = de andere modus van de knop "Regen in Wind/Lucht"; Weer treedt niet terug).
+Die lezing is van mij en staat in de melding, zodat de PO hem kan corrigeren.
+
+- Nieuwe stand `per-modus` = het product (`DEFAULT_FOCUS_RAIN_VARIANT`): overdag Wind gedempt (dekking 0,7,
+  verzadiging 0,85, niet vermenigvuldigd), Lucht vermenigvuldigd met de sluier (dekking 1); 's nachts de waarden van
+  U62, ongewijzigd. Palet en menging (echte alfa-over, drempel-zacht) gelden nu in elke modus; `FOCUS_MODE_RAIN_BLEND`
+  is weg, alleen de vergelijkingsstand `huidig` zet Wind/Lucht terug op de menging van vóór U77.
+- De knop blijft tot 2026-10-17 met `huidig`, `als-weer`, `gedempt`, `vermenigvuldigd` ter vergelijking.
+- Bot: `native-modes-render.ts` vraagt Wind nu uitdrukkelijk met `PRE_U77_FOCUS_RAIN_VARIANT` (`huidig`), zodat het
+  botbeeld niet verandert (staande afspraak: bot op het oude beeld tot de Rust-renderer). Zonder die regel zou de bot
+  Wind overdag op 0,7 en onvermenigvuldigd tekenen bovenop zijn α²-compositor.
+- Beelden `beelden/wind-lucht-keuze-{dag-vast,nacht-vast}-{1280,390}.webp` (rij 1 per-modus, rij 2 huidig; kolommen
+  Weer · Wind · Lucht), alle vier bekeken. Dag: geen witte zoom meer in Wind en Lucht; Wind duidelijk tweede laag
+  (isobaar 1008 en plaatsnamen leesbaar door de buien, rode kernen bleker), Lucht vol en iets donkerder dan Weer.
+  Nacht: per-modus en huidig vrijwel gelijk, randen iets scherper. De rig vroeg 07:35 maar het cursorlabel toont
+  09:25: de gevraagde tijd lag buiten het venster en is naar de rand geklemd; alle cellen tonen wel hetzelfde frame.
+- Niet gezien: de overgang schakelend (in Lucht slaat het vermenigvuldigen bij focus 0,5 aan, zoals vóór U77; in Wind
+  nu alleen traploze dekking), Wind → Lucht rechtstreeks, HARMONIE-tijden, afspelen.
+- Gate, alles exit 0: web `pnpm typecheck`, `pnpm test` (84 bestanden, 569 tests), `pnpm build`;
+  `MOTREGEN_E2E_PORT=4390 MOTREGEN_E2E_DATA_PORT=8390 pnpm e2e e2e/dev-panel.spec.ts e2e/rain-playback.spec.ts
+  e2e/focus.spec.ts e2e/cloud-section.spec.ts --project desktop` (16 groen, 2 overgeslagen touch-tests); bot
+  `pnpm typecheck`, `pnpm test` (116 tests). Preview 4320 serveert deze build (index-DGKXlIOW.js).

@@ -46,12 +46,6 @@ export const DEFAULT_RAIN_LOOK: RainLook = { palette: 'violet-laat', blend: 'dre
  */
 export const PRE_U77_RAIN_LOOK: RainLook = { palette: 'huidig', blend: 'huidig', theme: 'light' }
 
-/**
- * De menging in Wind en Lucht: daar ligt de regen nog zoals de PO hem in U62 koos (vermenigvuldigd met de kaart of
- * gedempt), op de canvas van vóór U77. De nieuwe menging is alleen voor Weer beoordeeld.
- */
-export const FOCUS_MODE_RAIN_BLEND: RainBlendName = 'huidig'
-
 export const RAIN_LOOK_STORAGE_KEYS = {
   palette: 'motregen-dev-regenpalet',
   blend: 'motregen-dev-regenmenging',
