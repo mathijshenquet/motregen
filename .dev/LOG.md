@@ -497,6 +497,15 @@
   tot de Rust-renderer alfa-over en een tabel per thema heeft. Onafhankelijke gate: web 567, 24 desktop-e2e, bot 116,
   nix-toplevel. Prod gecontroleerd: motregen.nl en weerok.nl serveren de bundle van main (`index-B_Cyi_As.js`),
   schermbeeld zelf bekeken. **Open**: Wind en Lucht houden de oude menging → zichtbare sprong vanuit Weer.
+- 09:55: **U80 "klaar voor merge"** (9cad737, PR #108; bevat U76 t/m bcdfa9a — Nederland-kader, klok linksboven — en
+  het U77-palet per thema met echte alfa-over). Onafhankelijke gate op 9cad737 + main groen: fmt, clippy, cargo 29,
+  web 567, bot 122 + build, nix render/bot/toplevel (wasm-build niet door mij gedraaid). **VM-meting naast de
+  draaiende bot, live data**: `all` 35,9 s · wind 12,0 s · temperatuur 12,4 s · regen 13,0 s (doel < 60 s; Node nu
+  170–220 s). Beelden zelf bekeken en naar de PO gestuurd. **Nog niet gemerged**: `NATIVE_VIEW` verandert ook de
+  Node-route, dus merge en inschakelen gaan in één uitrol. U80 ronde 2 (aansluiting: platen in de repo/store,
+  nix-module met `MOTREGEN_RUST_RENDERER`, bewijs met Nix-binaries) loopt; spec-sectie "Ronde 2".
+  U77-vervolg (PR #109, a2f2c10): vier standen "Regen in Wind/Lucht" onder ?dev op 4320; advies `gedempt`; wacht
+  op PO-keuze.
 
 ## 2026-10-10 — tg-bot op prod vastgelopen (13:00)
 - Symptoom (PO): bot antwoordt niet. Laatste generatie 05:57; daarna `refresh-failed … TimeoutError` (07:16) en
