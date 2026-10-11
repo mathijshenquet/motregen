@@ -1,3 +1,5 @@
+import { buildRainColormap, DEFAULT_RAIN_LOOK, rainRateIndex, type RainLook } from './rain-palette.js'
+
 export const RAIN_BANDS = [
   { key: 'light', label: 'Licht', minimum: 0, maximum: 2.5 },
   { key: 'moderate', label: 'Matig', minimum: 2.5, maximum: 7.5 },
@@ -27,27 +29,26 @@ function logarithmicFraction(value: number, minimum: number, maximum: number): n
   return Math.log(value / minimum) / Math.log(maximum / minimum)
 }
 
-export function rainColormap(): Uint8Array {
-  const stops = [[0, 54, 183, 255], [55, 54, 183, 255], [105, 31, 231, 190], [150, 255, 222, 44], [195, 255, 82, 35], [235, 188, 45, 214], [255, 188, 45, 214]]
-  const lut = new Uint8Array(256 * 4)
-  for (let value = 0; value < 255; value++) {
-    let stop = 1; while (value > stops[stop]![0]) stop++
-    const a = stops[stop - 1]!, b = stops[stop]!, mix = (value - a[0]!) / (b[0]! - a[0]!)
-    for (let channel = 1; channel < 4; channel++) lut[value * 4 + channel - 1] = Math.round(a[channel]! + (b[channel]! - a[channel]!) * mix)
-    lut[value * 4 + 3] = Math.min(210, Math.round(value * 1.6))
-  }
-  return lut
+/**
+ * De ene palettabel (RGBA per byte) voor de kaartlaag, het histogram en de bot. Zonder argument: het product.
+ * Palet, menging en kaartthema zijn de U77-proef onder ?dev (`rain-palette.ts`).
+ */
+export function rainColormap(look: RainLook = DEFAULT_RAIN_LOOK): Uint8Array {
+  return buildRainColormap(look)
 }
 
-let barColors: string[] | undefined
+const barColors = new Map<string, string[]>()
 
 // Same colour as the map overlay for this rate: invert the mrf v0 rain table
 // (docs/mrf.md) to a byte index and read the overlay LUT at full opacity.
-export function rainColor(value: number): string {
-  if (!barColors) {
-    const lut = rainColormap()
-    barColors = Array.from({ length: 256 }, (_, index) => `rgb(${lut[index * 4]}, ${lut[index * 4 + 1]}, ${lut[index * 4 + 2]})`)
+export function rainColor(value: number, look: RainLook = DEFAULT_RAIN_LOOK): string {
+  const lookKey = `${look.palette}|${look.blend}|${look.theme}`
+  let colors = barColors.get(lookKey)
+  if (!colors) {
+    const lut = rainColormap(look)
+    colors = Array.from({ length: 256 }, (_, index) => `rgb(${lut[index * 4]}, ${lut[index * 4 + 1]}, ${lut[index * 4 + 2]})`)
+    barColors.set(lookKey, colors)
   }
-  const index = value < 0.005 ? 0 : Math.round(1 + 253 * Math.log(value / 0.01) / Math.log(150 / 0.01))
-  return barColors[Math.max(0, Math.min(254, index))]!
+  const index = value < 0.005 ? 0 : Math.round(rainRateIndex(value))
+  return colors[Math.max(0, Math.min(254, index))]!
 }

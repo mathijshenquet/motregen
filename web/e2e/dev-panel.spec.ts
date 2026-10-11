@@ -45,6 +45,16 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   await expect(page.locator('.map-shell')).toHaveClass(/sky-(day|night)/)
   await expect(page.locator('.map')).toHaveAttribute('data-map-night', /^[01]\.\d\d$/)
 
+  // U77-proef: palet en menging van de regen; de keuze staat op de kaart en overleeft een reset niet.
+  await groups.locator('> summary', { hasText: 'Kaart' }).click()
+  const mapGroup = groups.filter({ has: page.locator('summary', { hasText: /^Kaart$/ }) })
+  await expect(mapGroup.locator('.dev-control label > span')).toHaveText(['Regenpalet', 'Regenmenging', 'Regenveld radar/nowcast', 'Regenveld HARMONIE'])
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'huidig/huidig')
+  await mapGroup.getByLabel('Regenpalet').selectOption('blauw-grijs-rood')
+  await mapGroup.getByLabel('Regenmenging').selectOption('drempel')
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'blauw-grijs-rood/drempel')
+  await expect.poll(() => page.evaluate(() => [localStorage.getItem('motregen-dev-regenpalet'), localStorage.getItem('motregen-dev-regenmenging')])).toEqual(['blauw-grijs-rood', 'drempel'])
+
   await groups.locator('> summary', { hasText: 'Diagnose' }).click()
   const perfToggle = panel.getByRole('checkbox', { name: /Perf-HUD/ })
   await perfToggle.check()
@@ -53,6 +63,8 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   await expect(page.getByTestId('perf-hud')).toBeHidden()
   await panel.getByRole('button', { name: 'Reset alle instellingen' }).click()
   await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-wind-tuning-v4'))).toBeNull()
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'huidig/huidig')
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-dev-regenpalet'))).toBeNull()
 
   for (const summary of await groups.locator('> summary').all()) {
     if (!await summary.evaluate((element) => (element.parentElement as HTMLDetailsElement).open)) await summary.click()

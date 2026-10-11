@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColor } from './rain-chart'
+import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColor, rainColormap } from './rain-chart'
 
 describe('rain classification bands', () => {
   it('uses light, moderate and heavy meteorological intensity boundaries', () => {
@@ -35,5 +35,14 @@ describe('rain bar colour', () => {
     expect(rainColor(rate(150))).toBe('rgb(255, 222, 44)')
     expect(rainColor(rate(235))).toBe('rgb(188, 45, 214)')
     expect(rainColor(500)).toBe(rainColor(150))
+  })
+
+  it('follows the chosen palette and map theme, from the same table as the map', () => {
+    const look = { palette: 'blauw-grijs-rood', blend: 'drempel', theme: 'dark' } as const
+    const lut = rainColormap(look)
+    const index = Math.round(1 + 253 * Math.log(15 / 0.01) / Math.log(150 / 0.01))
+    expect(rainColor(15, look)).toBe(`rgb(${lut[index * 4]}, ${lut[index * 4 + 1]}, ${lut[index * 4 + 2]})`)
+    expect(rainColor(15, look)).not.toBe(rainColor(15))
+    expect(rainColor(15, { ...look, theme: 'light' })).not.toBe(rainColor(15, look))
   })
 })

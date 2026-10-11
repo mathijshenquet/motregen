@@ -7,6 +7,7 @@ import type { Grid } from './contract'
 import type { MotionField } from './mrf'
 import { measurePerfPhase } from './perf'
 import { rainColormap } from './rain-chart'
+import type { RainOutline } from './rain-palette.js'
 
 export { rainColormap }
 
@@ -52,6 +53,9 @@ uniform float u_left_nearest;
 uniform float u_right_nearest;
 uniform float u_warp_cap_cells;
 uniform float u_warp_fade_end_cells;
+uniform float u_outline_strength;
+uniform float u_outline_value;
+uniform vec3 u_outline_colour;
 in vec2 v_uv;
 out vec4 color;
 
@@ -113,6 +117,13 @@ void main() {
   // kleur, minder helderheid houdt de tint; dimmen via alfa mengt met de kaart en maakt geel crème.
   float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
   color.rgb = mix(vec3(luma), color.rgb, u_saturation) * u_brightness;
+  // Contour (U77-proef): fwidth is hoeveel de waarde per schermpixel verandert, dus dit is de afstand tot de
+  // isolijn in schermpixels en blijft de lijn op elke zoom even dun.
+  if (u_outline_strength > 0.0) {
+    float pixelsFromOutline = abs(value - u_outline_value) / max(fwidth(value), 0.000001);
+    float outline = (1.0 - smoothstep(0.0, 1.2, pixelsFromOutline)) * u_outline_strength;
+    color = mix(color, vec4(u_outline_colour, 1.0), outline);
+  }
   color.a *= u_opacity;
 }`
 
@@ -215,6 +226,9 @@ export class RainLayer implements CustomLayerInterface {
   private leftSampling = DEFAULT_SAMPLING
   private rightSampling = DEFAULT_SAMPLING
   private warpLimit = DEFAULT_WARP_LIMIT
+  private colormap = rainColormap()
+  private straightAlpha = false
+  private outline?: RainOutline
   private filterProgram?: WebGLProgram
   private filterTarget?: WebGLFramebuffer
   private filterVertexArray?: WebGLVertexArrayObject
@@ -255,7 +269,30 @@ export class RainLayer implements CustomLayerInterface {
     const lut = texture(gl); this.lut = lut
     gl.activeTexture(gl.TEXTURE2)
     gl.bindTexture(gl.TEXTURE_2D, lut)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, rainColormap())
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, this.colormap)
+  }
+
+  /** Een ander palet is alleen een andere opzoektabel: 256 texels opnieuw uploaden, de shader blijft gelijk. */
+  setColormap(colormap: Uint8Array): void {
+    this.colormap = colormap
+    if (!this.gl || !this.lut) return
+    this.gl.activeTexture(this.gl.TEXTURE2)
+    this.gl.bindTexture(this.gl.TEXTURE_2D, this.lut)
+    this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, 256, 1, 0, this.gl.RGBA, this.gl.UNSIGNED_BYTE, colormap)
+  }
+
+  /**
+   * Hoe de laag in zijn canvas mengt. Uit (het product): één mengfunctie voor kleur én alfa, waardoor de canvas
+   * α² als alfa draagt en de browser onder halve dekking licht optelt bij de kaart (U77-diagnose). Aan: echte
+   * alfa-over.
+   */
+  setStraightAlpha(straightAlpha: boolean): void {
+    this.straightAlpha = straightAlpha
+  }
+
+  /** Dunne contour op de isolijn van één byte; `undefined` = geen. */
+  setOutline(outline: RainOutline | undefined): void {
+    this.outline = outline
   }
 
   setFrames(left: Uint8Array, right: Uint8Array, mix: number, motion?: MotionField, intervalMinutes = 0): void {
@@ -327,13 +364,19 @@ export class RainLayer implements CustomLayerInterface {
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_right_nearest'), this.rightSampling.kernel === 'nearest' ? 1 : 0)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_warp_cap_cells'), this.warpLimit.capCells)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_warp_fade_end_cells'), this.warpLimit.fadeEndCells)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_outline_strength'), this.outline ? OUTLINE_STRENGTH : 0)
+    if (this.outline) {
+      gl.uniform1f(gl.getUniformLocation(this.program, 'u_outline_value'), this.outline.index / 255)
+      gl.uniform3f(gl.getUniformLocation(this.program, 'u_outline_colour'), this.outline.colour[0] / 255, this.outline.colour[1] / 255, this.outline.colour[2] / 255)
+    }
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, leftTexture); gl.uniform1i(gl.getUniformLocation(this.program, 'u_left'), 0)
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, rightTexture); gl.uniform1i(gl.getUniformLocation(this.program, 'u_right'), 1)
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, this.lut!); gl.uniform1i(gl.getUniformLocation(this.program, 'u_lut'), 2)
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, this.motion!); gl.uniform1i(gl.getUniformLocation(this.program, 'u_motion'), 3)
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, this.motionMask!); gl.uniform1i(gl.getUniformLocation(this.program, 'u_motion_mask'), 4)
     gl.enable(gl.BLEND)
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    if (this.straightAlpha) gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+    else gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   }
 
@@ -419,6 +462,8 @@ export class RainLayer implements CustomLayerInterface {
     this.filters++
   }
 }
+
+const OUTLINE_STRENGTH = 0.55
 
 interface FilteredFrame {
   texture: WebGLTexture
