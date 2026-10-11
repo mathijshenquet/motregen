@@ -1,5 +1,13 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-11 21:31 CEST — Telegram GIF-badge gemeten; klokmockup voor PO
+
+PO meldt dat de GIF-badge de klok bedekt en vraagt de hoogte uit zijn screenshot af te leiden plus een mockuppagina. Screenshot 694×924: media links54/boven90/breed576; badge ongeveer links62/boven98/hoog40. Onderkant dus circa48 pixels onder de mediabovenkant. Dit zijn screenshotpixels, geen universele Telegram-clientmaat. Een kloktop op16 overlapt nog; mockup op64 geeft16 pixels ruimte onder de badge (circa107 pixels bij960-brede video).
+
+Mockup http://ageq-dev2:4397/review/telegram-clock-mockup/: nieuwe Rust-klokopmaak, vergelijking0/16/64, dag/nacht en instelbare ruimte onder de badge. Klok blijft aan linkerrand, bij lagere positie zijn beide rechterhoeken rond. Originele screenshot zichtbaar met meting. Zelf alle vier desktop-/mobiel-/dag-/nachtbeelden bekeken. Browserreceipt exit0: HTTP, slider, overlapgeometrie en geen overflow/pageerrors. PM-voorkeur voorbeeld3; definitieve exportafstand nog een PO-keuze, geen productiecode gewijzigd.
+
+Alle pagina-assets en de aangeleverde screenshot staan uitsluitend in genegeerde review/scratchmappen; niets daarvan op GitHub. Main blijft PM-checkout met jj, U76/U80-branches bevroren, Skywatch-CSV buiten commits. Alleen deze journalentry wordt gecommit en gepusht. Exacte scripts, ignored LOG en screenshots: web/tmp/orkestrator/pm-u80-20261011/telegram-clock-mockup/.
+
 ## 2026-10-11 15:57 CEST — U80/U76 en MIP-31 uitgerold; productie gecontroleerd, worker afgesloten
 
 Uitrol geautoriseerd door de PO en synchroon geslaagd: main 9f31c8ed, /run/current-system exact /nix/store/3i9l9703q2qgy1lnvf5fgp6ji8qjxll8-nixos-system-motregen-26.05.20260829.c5c4a43. Vooraf lokaal gebouwd en de volledige closure gekopieerd; nixos-upgrade exit 0. Renderer 11c9ql is dezelfde binary als de gezamenlijke VM-meting van 38,359 s. U76-klokhoek, titel/datum en schuif 1/6 → 15/16 geïntegreerd. Wind volgt MIP-31: 75 s per kaartframe, 7,5 fps, geen regen, wel isobaren/drukletters. Regen en gevoelstemperatuur behouden 100 s / 5,6 fps; temperatuurproef niet opgenomen wegens onbewezen totale winst.
