@@ -474,6 +474,11 @@
   wind eerst, dan temperatuur, volledig in Rust: isolijnen + labelplaatsing als pure kernmodules (later via WASM in
   de app), tekst gedraaid in Rust, streepjes, H/L, `--mode all`. Doel dev-host 2 kernen: wind ≤ 5 s, temperatuur ≤ 6 s,
   alles ≤ 12 s; einddoel hele generatie < 60 s op de VM. Loopt parallel aan U76 ronde 3 (zelfde crates → nieuwe modules).
+- 08:40: **U76 ronde 3 klaar** (5ddb270, 15 min): plan 100 s/4,5 fps gevolgd, 19 stills uit loopframes, klokproef
+  schuif/klap/kruisfade (films + stroken naar de PO; PM-oordeel: klap oogt als storing, schuif leest als teller,
+  kruisfade het rustigst). Dev-host 2 kernen 3,25 s / 4,98 s CPU / 189 MiB. **VM**: 10,6 s wand / 19,1 s CPU / 188 MiB
+  met de bot gepauzeerd, 12,6 s met draaiende bot (ronde 2: 19,0 / 31,8 s) → doel < 15 s op de VM gehaald.
+  Nog te doen vóór merge: onafhankelijke gate, PO-keuze klok, aansluiting (debounce, platen op de VM, schakelaar).
 
 ## 2026-10-10 — tg-bot op prod vastgelopen (13:00)
 - Symptoom (PO): bot antwoordt niet. Laatste generatie 05:57; daarna `refresh-failed … TimeoutError` (07:16) en
