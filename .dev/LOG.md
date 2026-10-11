@@ -470,6 +470,10 @@
 - **U76 ronde 3 gestart**: plan 100 s/4,5 fps volgen, loopframes hergebruiken voor stills, en PO-idee klok: alleen
   5-minutentijden tonen met cijferovergang op de tussenframes (varianten schuif / klap / kruisfade als proeffilm).
   Open PO-vraag: stills op aanvraag i.p.v. 85 per generatie.
+- 08:34: **U80 gestart** (PO: "bouw het dan"; gpt-6.1-sol xhigh, pane w35, branch vanaf de U76-branch): MIP-29 C2 —
+  wind eerst, dan temperatuur, volledig in Rust: isolijnen + labelplaatsing als pure kernmodules (later via WASM in
+  de app), tekst gedraaid in Rust, streepjes, H/L, `--mode all`. Doel dev-host 2 kernen: wind ≤ 5 s, temperatuur ≤ 6 s,
+  alles ≤ 12 s; einddoel hele generatie < 60 s op de VM. Loopt parallel aan U76 ronde 3 (zelfde crates → nieuwe modules).
 
 ## 2026-10-10 — tg-bot op prod vastgelopen (13:00)
 - Symptoom (PO): bot antwoordt niet. Laatste generatie 05:57; daarna `refresh-failed … TimeoutError` (07:16) en
