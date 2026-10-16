@@ -334,8 +334,8 @@ describe('histogram scrubber', () => {
     expect(veilNights[0]).toBe(false)
     expect(veilNights.at(-1)).toBe(true)
     expect(veilNights.slice(veilNights.indexOf(true)).every(Boolean)).toBe(true)
-    // In Weer staan de lagen zelf niet in beeld.
-    expect(container.querySelector<SVGGElement>('.cloud-section .scrub-view:last-child')!.style.opacity).toBe('0')
+    // Ook in Weer staan de wolkenlagen in beeld, achter de regen (PO 2026-10-16).
+    expect(container.querySelector<SVGGElement>('.cloud-section .scrub-view:last-child')!.style.opacity).toBe('1')
     setExpressive(false)
     expect(container.querySelector('[data-testid=sky]')).toBeNull()
     expect(container.querySelector('.sky-grain')).toBeNull()
