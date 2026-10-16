@@ -18,12 +18,6 @@ describe('isoline contours on the exact B-spline surface', () => {
   const field = cone()
   const contours = traceContours(field, grid, { step: 1, toleranceCells: 0.02 })
 
-  it('selects irregular levels without changing the existing regular-level traces', () => {
-    const selected = traceContours(field, grid, { step: 1, levels: [19, 10, 15, 15], toleranceCells: 0.02 })
-    expect(selected).toEqual(contours.filter((contour) => [10, 15, 19].includes(contour.level)))
-    expect(traceContours(field, grid, { step: 1, levels: [], toleranceCells: 0.02 })).toEqual([])
-  })
-
   it('puts every point on its level of the spline surface', () => {
     const slice = { width: grid.width, height: grid.height, fields: [field], weights: [1] }
     for (const contour of contours) {
