@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CLOSED_FRACTION, FULL_ROW_FRACTION, cloudBand, cloudExtents, cloudSpansInSlot, layerTransmission, lightDarkness, skyAt, skyDarkness, skyStars, skyStops, skyStrokes, sunCrossings, valueNoise } from './cloud-section'
+import { cloudBand, cloudExtents, layerTransmission, lightDarkness, skyAt, skyDarkness, skyStars, skyStops, skyStrokes, sunCrossings, valueNoise } from './cloud-section'
 import type { ManifestChunk, TimelineFrame } from './contract'
 
 const hour = 3_600_000
@@ -12,60 +12,52 @@ function frames(count: number): TimelineFrame[] {
   }))
 }
 
-describe('cloudSpansInSlot', () => {
-  it('draws nothing for clear sky or missing data', () => {
-    for (const fraction of [0, -0.05, Number.NaN]) expect(cloudSpansInSlot(fraction, 3, 'low')).toEqual([])
-  })
-
-  it('closes the back row into a deck from CLOSED_FRACTION up, with a full front row of clouds before it', () => {
-    for (const fraction of [CLOSED_FRACTION, 1]) {
-      const spans = cloudSpansInSlot(fraction, 3, 'mid')
-      expect(spans.find((span) => span.row === 1)).toEqual({ from: 0, to: 1, closed: true, row: 1 })
-      expect(spans.find((span) => span.row === 0)?.closed).toBe(false)
-    }
-    expect(cloudSpansInSlot(CLOSED_FRACTION - 0.01, 3, 'mid').some((span) => span.closed)).toBe(false)
-  })
-
-  const spans = (fraction: number, layer: 'high' | 'mid' | 'low', row: 0 | 1) =>
-    Array.from({ length: 4_000 }, (_, slot) => cloudSpansInSlot(fraction, slot, layer)).flat().filter((span) => span.row === row)
-
-  it('grows in number, not in size, up to half cover, and covers the fraction there on average (PO 2026-10-16)', () => {
-    for (const layer of ['high', 'mid', 'low'] as const) {
-      const counts = [0.1, 0.25, FULL_ROW_FRACTION].map((fraction) => spans(fraction, layer, 0).length)
-      expect(counts[0]!).toBeLessThan(counts[1]!)
-      expect(counts[1]!).toBeLessThan(counts[2]!)
-      for (const fraction of [0.1, 0.25, FULL_ROW_FRACTION]) {
-        const front = spans(fraction, layer, 0)
-        const lengths = front.map((span) => span.to - span.from)
-        expect(Math.min(...lengths)).toBeGreaterThanOrEqual(0.4)
-        expect(Math.abs(lengths.reduce((sum, length) => sum + length, 0) / 4_000 - fraction)).toBeLessThan(0.03)
-        for (const span of front) { expect(span.from).toBeGreaterThan(0); expect(span.to).toBeLessThan(1) }
-        expect(spans(fraction, layer, 1)).toEqual([])
-      }
-    }
-  })
-
-  it('stacks a second row behind the first above half cover, filling up towards CLOSED_FRACTION', () => {
-    for (const layer of ['high', 'mid', 'low'] as const) {
-      const backCounts = [0.6, 0.75, 0.85].map((fraction) => spans(fraction, layer, 1).length)
-      expect(backCounts[0]!).toBeGreaterThan(0)
-      expect(backCounts[0]!).toBeLessThan(backCounts[1]!)
-      expect(backCounts[1]!).toBeLessThan(backCounts[2]!)
-      expect(spans(0.75, layer, 0)).toHaveLength(4_000)
-    }
-  })
-})
-
 describe('cloudExtents', () => {
-  it('merges neighbouring closed slots into one band and keeps loose clouds apart', () => {
-    const closed = cloudExtents(frames(9), new Array(9).fill(100), 'mid', start, start + 8 * hour, hour).filter((extent) => extent.closed)
-    expect(closed).toHaveLength(1)
-    expect(closed[0]!.row).toBe(1)
-    expect(closed[0]!.to - closed[0]!.from).toBeGreaterThanOrEqual(8 * hour)
-    const broken = cloudExtents(frames(9), new Array(9).fill(50), 'low', start, start + 8 * hour, hour)
-    expect(broken.length).toBeGreaterThan(4)
-    expect(broken.every((extent) => extent.row === 0)).toBe(true)
-    for (let index = 1; index < broken.length; index++) expect(broken[index]!.from).toBeGreaterThan(broken[index - 1]!.to)
+  const span = 96 * hour
+  const period = 2 * hour
+  const constant = (percent: number) => cloudExtents(frames(97), new Array(97).fill(percent), 'low', start, start + span, period)
+  const covered = (extents: ReturnType<typeof constant>) => extents.reduce((sum, extent) => sum + Math.min(start + span, extent.to) - Math.max(start, extent.from), 0) / span
+
+  it('draws nothing for clear sky or missing data', () => {
+    expect(constant(0)).toEqual([])
+  })
+
+  it('grows in number, not in size, up to half cover, and covers the fraction there (PO 2026-10-16)', () => {
+    const counts = [10, 25, 50].map((percent) => constant(percent).filter((extent) => extent.row === 0).length)
+    expect(counts[0]!).toBeLessThan(counts[1]!)
+    expect(counts[1]!).toBeLessThan(counts[2]!)
+    for (const percent of [10, 25, 50]) {
+      const front = constant(percent).filter((extent) => extent.row === 0)
+      expect(Math.abs(covered(front) - percent / 100)).toBeLessThan(0.05)
+      expect(Math.min(...front.map((extent) => extent.to - extent.from))).toBeGreaterThanOrEqual(0.4 * period - 1)
+      expect(constant(percent).some((extent) => extent.row === 1)).toBe(false)
+    }
+  })
+
+  it('leaves no long empty stretch where the cover is high: clouds follow the percentage, not a lottery per slot', () => {
+    for (const percent of [50, 70, 85]) {
+      const front = constant(percent).filter((extent) => extent.row === 0).sort((left, right) => left.from - right.from)
+      for (let index = 1; index < front.length; index++) expect(front[index]!.from - front[index - 1]!.to).toBeLessThanOrEqual(0.65 * period)
+    }
+  })
+
+  it('stacks a second row behind the first above half cover and closes it into a deck from CLOSED_FRACTION up', () => {
+    const backCounts = [60, 75, 85].map((percent) => constant(percent).filter((extent) => extent.row === 1).length)
+    expect(backCounts[0]!).toBeGreaterThan(0)
+    expect(backCounts[0]!).toBeLessThan(backCounts[1]!)
+    expect(backCounts[1]!).toBeLessThan(backCounts[2]!)
+    const overcast = constant(100)
+    expect(overcast.filter((extent) => extent.closed)).toHaveLength(1)
+    expect(overcast.find((extent) => extent.closed)!.row).toBe(1)
+    expect(overcast.filter((extent) => extent.row === 0).length).toBeGreaterThan(0)
+  })
+
+  it('keeps the same clouds when the view scrolls', () => {
+    const values = new Array(97).fill(40)
+    const early = cloudExtents(frames(97), values, 'low', start, start + 48 * hour, period)
+    const later = cloudExtents(frames(97), values, 'low', start + 5 * hour, start + 53 * hour, period)
+    const inBoth = (extent: { from: number; to: number }) => extent.from >= start + 6 * hour && extent.to <= start + 47 * hour
+    expect(later.filter(inBoth)).toEqual(early.filter(inBoth))
   })
 })
 
@@ -77,11 +69,12 @@ describe('cloudBand', () => {
   })
 
   it('draws broken cloud as separate shapes and overcast as one band, inside its strip', () => {
+    // Zestien uur: midden heeft een periode van 5 uur (PO 2026-10-16: meer ruimte tussen de wolken).
+    const wide = { ...geometry, width: 600, end: start + 16 * hour }
     for (const layer of ['high', 'mid', 'low'] as const) {
-      const broken = cloudBand(frames(9), new Array(9).fill(50), layer, geometry)
-      // Midden heeft vakken van 5 uur (PO 2026-10-16: meer ruimte tussen de wolken): in 8 uur minstens twee vormen.
+      const broken = cloudBand(frames(17), new Array(17).fill(50), layer, wide)
       expect(broken.paths.length).toBeGreaterThan(1)
-      const overcast = cloudBand(frames(9), new Array(9).fill(100), layer, geometry)
+      const overcast = cloudBand(frames(17), new Array(17).fill(100), layer, wide)
       // Bewolkt: een dek achter plus een volle rij wolken ervoor; half bewolkt nog geen achterste rij.
       expect(overcast.back.length).toBeGreaterThan(0)
       expect(broken.back).toEqual([])

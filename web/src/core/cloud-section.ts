@@ -12,60 +12,22 @@ export interface CloudSeries {
   values: Record<CloudLayer, Array<number | null>>
 }
 
-/** Vanaf deze fractie is de laag een gesloten band. */
+/** Vanaf deze fractie is de gestapelde rij een doorlopend dek. */
 export const CLOSED_FRACTION = 0.9
-// Tot deze fractie groeit bewolking in aantal, niet in grootte: flinke wolken van vaste maat, steeds meer vakken
-// bezet. Daarboven vult een tweede, gestapelde rij achter de eerste (PO 2026-10-16: "bij 50% wolkenlaag wat grote
+// Tot deze fractie groeit bewolking in aantal, niet in grootte: flinke wolken van vaste maat, steeds dichter op
+// elkaar. Daarboven vult een tweede, gestapelde rij achter de eerste (PO 2026-10-16: "bij 50% wolkenlaag wat grote
 // wolken tekenen, en daarboven een soort stacked wolkenlaag").
 export const FULL_ROW_FRACTION = 0.5
-// Lengte van een losse wolk als deel van haar vak; gemiddeld FULL_ROW_FRACTION, zodat een volle rij die fractie dekt.
+// Lengte van een losse wolk als deel van de periode (wolk plus gat bij een volle rij); gemiddeld FULL_ROW_FRACTION.
 const CLOUD_LENGTH = { minimum: 0.4, maximum: 0.6 }
-// De gestapelde rij is langer en platter: ze spreidt zich horizontaal uit achter de voorste wolken (PO 2026-10-16:
-// "de extra wolken wat meer horizontaal uitspreiden").
+// De gestapelde rij is langer en platter: ze spreidt zich horizontaal uit achter de voorste wolken.
 const BACK_CLOUD_LENGTH = { minimum: 0.75, maximum: 1.05 }
 const BACK_CLOUD_FLATTEN = 1.8
-// Deel van de vrije ruimte in een vak dat minstens aan weerszijden van de wolk open blijft.
-const SLOT_MARGIN = 0.25
-// De achterste rij staat een half vak verschoven, zodat haar wolken in de gaten van de voorste vallen.
-const BACK_ROW_OFFSET = 0.5
-
-export interface CloudSpan {
-  /** Begin en eind van de wolk als deel van het vak, 0–1 (de achterste rij kan in het volgende vak doorlopen). */
-  from: number
-  to: number
-  closed: boolean
-  /** 0 = voorste rij, 1 = gestapelde rij erachter. */
-  row: 0 | 1
-}
-
-/**
- * De tijdas is per laag in vakken verdeeld; elk vak draagt hoogstens één wolk per rij. Tot FULL_ROW_FRACTION is de
- * verwachte bewolkte lengte per vak gelijk aan de fractie; daarboven vult de achterste rij tot CLOSED_FRACTION.
- */
-export function cloudSpansInSlot(fraction: number, slot: number, layer: CloudLayer): CloudSpan[] {
-  if (!(fraction > 0)) return []
-  // Vanaf CLOSED_FRACTION is de achterste rij een doorlopend dek, met de volle voorste rij ervoor: zo blijft
-  // ook bij 100 % zichtbaar dat het om opeengestapelde wolken gaat (PO 2026-10-16: "geen gestapelde rij" bij 100 %).
-  if (fraction >= CLOSED_FRACTION) return [looseCloud(1, slot, layer, 0)!, { from: 0, to: 1, closed: true, row: 1 }]
-  const spans: CloudSpan[] = []
-  const front = looseCloud(Math.min(1, fraction / FULL_ROW_FRACTION), slot, layer, 0)
-  if (front) spans.push(front)
-  if (fraction > FULL_ROW_FRACTION) {
-    const back = looseCloud((fraction - FULL_ROW_FRACTION) / (CLOSED_FRACTION - FULL_ROW_FRACTION), slot, layer, 1)
-    if (back) spans.push(back)
-  }
-  return spans
-}
-
-function looseCloud(occupancy: number, slot: number, layer: CloudLayer, row: 0 | 1): CloudSpan | null {
-  const seed = slot + LAYER_SEEDS[layer] + row * 0.53
-  if (unitHash(seed) >= occupancy) return null
-  const range = row === 1 ? BACK_CLOUD_LENGTH : CLOUD_LENGTH
-  const length = range.minimum + (range.maximum - range.minimum) * unitHash(seed + 0.71)
-  const free = Math.max(0, 1 - length)
-  const from = (row === 1 ? BACK_ROW_OFFSET : 0) + free * (SLOT_MARGIN + (1 - 2 * SLOT_MARGIN) * unitHash(seed + 0.37))
-  return { from, to: from + length, closed: false, row }
-}
+// Wolken worden niet per vak geloot maar langs de tijd verdeeld (PO 2026-10-16: lege plekken bij een hoog
+// percentage): de bewolking telt op, en elke keer dat er een periode vol is komt er een wolk. Het optellen begint op
+// een vast tijdstip, zodat het patroon niet verschuift als je scrubt.
+const ANCHOR_SPAN_MS = 7 * 24 * 3_600_000
+const STEPS_PER_PERIOD = 8
 
 // Deel van het licht dat een gesloten laag tegenhoudt (cirrus τ < 3,6; altostratus 3,6–23; stratus > 23,
 // ISCCP; één gesloten lage laag laat ~25 % door, Kasten & Czeplak 1980). Alleen voor uren zonder straling.
@@ -203,9 +165,6 @@ const CIRRUS_STRAND_LENGTH_PX = 76
 const CIRRUS_SLANT = 0.16
 // Verticale spreiding van de vegen als deel van de strook.
 const CIRRUS_SPREAD = 0.42
-// Schapenwolkjes: afstand tussen de bolletjes en hun halve breedte.
-const CIRROCUMULUS_PITCH_PX = 14
-const CIRROCUMULUS_RADIUS_PX = 7
 const HOUR = 3_600_000
 // De gestapelde rij: hoger (deel van de strookhoogte) en kleiner dan de voorste.
 const BACK_ROW_LIFT = 0.16
@@ -231,22 +190,49 @@ export interface CloudBand {
 interface CloudExtent { from: number; to: number; closed: boolean; row: 0 | 1 }
 
 /** Wolken van één laag op de tijdas (epoch-ms), achterste rij eerst; aangrenzende gesloten vakken vormen één band. */
-export function cloudExtents(frames: TimelineFrame[], values: Array<number | null>, layer: CloudLayer, start: number, end: number, slotMs: number): CloudExtent[] {
-  const rows: [CloudExtent[], CloudExtent[]] = [[], []]
-  const closedThroughSlot: [number | undefined, number | undefined] = [undefined, undefined]
-  for (let slot = Math.floor(start / slotMs); slot * slotMs < end; slot++) {
-    const slotStart = slot * slotMs
-    const percent = seriesValueAt(frames, values, Math.max(start, Math.min(end, slotStart + slotMs / 2)), 30 * 60_000)
-    const fraction = percent == null || !Number.isFinite(percent) ? 0 : Math.min(1, percent / 100)
-    for (const span of cloudSpansInSlot(fraction, slot, layer)) {
-      const extents = rows[span.row]
-      if (span.closed && closedThroughSlot[span.row] === slot - 1) extents.at(-1)!.to = slotStart + slotMs
-      else extents.push({ from: slotStart + span.from * slotMs, to: slotStart + span.to * slotMs, closed: span.closed, row: span.row })
-      if (span.closed) closedThroughSlot[span.row] = slot
+export function cloudExtents(frames: TimelineFrame[], values: Array<number | null>, layer: CloudLayer, start: number, end: number, periodMs: number): CloudExtent[] {
+  const fractionAt = (epoch: number) => {
+    const percent = seriesValueAt(frames, values, epoch, 30 * 60_000)
+    return percent == null || !Number.isFinite(percent) ? 0 : Math.max(0, Math.min(1, percent / 100))
+  }
+  const seed = LAYER_SEEDS[layer]
+  const step = periodMs / STEPS_PER_PERIOD
+  const anchor = Math.floor(start / ANCHOR_SPAN_MS) * ANCHOR_SPAN_MS - periodMs
+  const front: CloudExtent[] = []
+  const back: CloudExtent[] = []
+  const deck: CloudExtent[] = []
+  // De achterste rij begint een halve periode later, zodat haar wolken in de gaten van de voorste vallen.
+  let frontBudget = 0
+  let backBudget = -periodMs / 2
+  let frontCount = 0
+  let backCount = 0
+  const loose = (from: number, count: number, row: 0 | 1): CloudExtent => {
+    const range = row === 1 ? BACK_CLOUD_LENGTH : CLOUD_LENGTH
+    const length = periodMs * (range.minimum + (range.maximum - range.minimum) * unitHash(count + seed + row * 0.53))
+    return { from, to: from + length, closed: false, row }
+  }
+  for (let epoch = anchor; epoch < end + periodMs; epoch += step) {
+    const fraction = fractionAt(epoch + step / 2)
+    if (fraction >= CLOSED_FRACTION) {
+      const last = deck.at(-1)
+      if (last && last.to >= epoch) last.to = epoch + step
+      else deck.push({ from: epoch, to: epoch + step, closed: true, row: 1 })
+    }
+    frontBudget += Math.min(1, fraction / FULL_ROW_FRACTION) * step
+    if (frontBudget >= periodMs) {
+      frontBudget -= periodMs
+      front.push(loose(epoch, frontCount++, 0))
+    }
+    if (fraction < CLOSED_FRACTION) {
+      backBudget += Math.max(0, (fraction - FULL_ROW_FRACTION) / (CLOSED_FRACTION - FULL_ROW_FRACTION)) * step
+      if (backBudget >= periodMs) {
+        backBudget -= periodMs
+        back.push(loose(epoch, backCount++, 1))
+      }
     }
   }
-  const [front, back] = rows
-  return [...back, ...front]
+  const visible = (extent: CloudExtent) => extent.to > start && extent.from < end
+  return [...deck.filter(visible), ...back.filter(visible), ...front.filter(visible)]
 }
 
 /** Omtrek van één vorm: hoogte boven en diepte onder de eigen middellijn op elk monsterpunt, in px. */
@@ -264,11 +250,11 @@ export function cloudBand(frames: TimelineFrame[], values: Array<number | null>,
   const span = Math.max(1, end - start)
   const style = LAYER_STYLES[layer]
   const pxPerHour = width / (span / HOUR)
-  const slotMs = Math.max(style.slotHours, MIN_SLOT_PX / pxPerHour) * HOUR
+  const periodMs = Math.max(style.slotHours, MIN_SLOT_PX / pxPerHour) * HOUR
   const bottom = top + height
   const paths: string[] = []
   const back: string[] = []
-  for (const cloud of cloudExtents(frames, values, layer, start, end, slotMs)) {
+  for (const cloud of cloudExtents(frames, values, layer, start, end, periodMs)) {
     const fromX = (cloud.from - start) / span * width
     const toX = (cloud.to - start) / span * width
     if (Math.min(width, toX) - Math.max(0, fromX) < 1) continue
@@ -356,16 +342,12 @@ function roundedEnd(t: number): number {
 
 /** Cirrus: een bundel dunne, spitse vegen op wisselende hoogte; gesloten overlappen ze tot een sluier. */
 /**
- * Hoge bewolking in drie gedaanten, per wolk gekozen (PO 2026-10-16: "de hoge wolken een diversere look"): vegen
- * (cirrus fibratus), vegen met een omgekrulde staart (cirrus uncinus) en rijtjes schapenwolkjes (cirrocumulus). Een
- * gesloten laag blijft een dichte bundel vegen.
+ * Hoge bewolking als vegen (cirrus fibratus) of vegen met een omgekrulde staart (cirrus uncinus), per wolk gekozen
+ * (PO 2026-10-16: "de hoge wolken een diversere look"). Een gesloten laag blijft een dichte bundel vegen.
+ * Schapenwolkjes (losse stipjes) vielen af: tussen vegen leken ze op een fout.
  */
 function cirrusShapes(shape: CloudShape, width: number, spread: number): Outline[] {
-  if (shape.closed) return cirrusStrands(shape, width, spread, false)
-  const kind = unitHash(shape.key + 0.91)
-  if (kind < 0.45) return cirrusStrands(shape, width, spread, false)
-  if (kind < 0.75) return cirrusStrands(shape, width, spread, true)
-  return cirrocumulus(shape, width, spread)
+  return cirrusStrands(shape, width, spread, !shape.closed && unitHash(shape.key + 0.91) >= 0.55)
 }
 
 function cirrusStrands(shape: CloudShape, width: number, spread: number, hooked: boolean): Outline[] {
@@ -395,24 +377,6 @@ function cirrusStrands(shape: CloudShape, width: number, spread: number, hooked:
     strands.push({ xs, up: profile, down: profile, centre })
   }
   return strands
-}
-
-/** Schapenwolkjes: kleine, platte bolletjes in een of twee onregelmatige rijtjes. */
-function cirrocumulus(shape: CloudShape, width: number, spread: number): Outline[] {
-  const length = shape.toX - shape.fromX
-  const count = Math.max(3, Math.round(length / CIRROCUMULUS_PITCH_PX))
-  const blobs: Outline[] = []
-  for (let index = 0; index < count; index++) {
-    const blobKey = shape.key + index * 5.17
-    const radius = CIRROCUMULUS_RADIUS_PX * (0.7 + 0.6 * unitHash(blobKey + 0.23))
-    const centreX = shape.fromX + length * (index + 0.5) / count + (unitHash(blobKey + 0.41) - 0.5) * CIRROCUMULUS_PITCH_PX * 0.5
-    const row = index % 2 === 0 ? -0.25 : 0.25
-    const centreY = row * spread + (unitHash(blobKey + 0.67) - 0.5) * spread * 0.3
-    const xs = sampleXs(centreX - radius, centreX + radius, width)
-    const height = xs.map((x) => radius * 0.5 * Math.sqrt(Math.max(0, 1 - ((x - centreX) / radius) ** 2)))
-    blobs.push({ xs, up: height, down: height, centre: xs.map(() => centreY) })
-  }
-  return blobs
 }
 
 /** Gladde 1D-ruis in [−1, 1], deterministisch (zelfde vorm bij elke render). */
