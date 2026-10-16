@@ -1,3 +1,4 @@
+import type { CloudDriftSample } from './cloud-map'
 import type { ScalarField } from './isolines.js'
 
 /** Eén frame, geblurd en met no-data opgevuld zodat de bicubische taps aan de rand niets vreemds zien. */
@@ -6,6 +7,7 @@ export interface PreparedField {
   valid: Float32Array
   cloudHints?: Float32Array
   cloudFlow?: Float32Array
+  cloudDrift?: readonly CloudDriftSample[]
   cloudEpoch?: number
 }
 

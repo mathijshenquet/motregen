@@ -1,5 +1,15 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-16 11:12 CEST — Wolkentextuur veert niet meer periodiek terug
+
+PO meldt springende wolken om19:00 en vooral rond00:00 op de Noordzee westelijk Den Haag–Den Helder. Oorzaak: twee kortlevende textuurbanken vernieuwden op hetzelfde wereldvaste patroon. Continu aan de cyclusgrens, maar netto periodiek terugveren; de30minlevensduur maakte dit vaker zichtbaar. Eerdere korte continuïteitstest miste dit.
+
+Fix: beginposities volgen een geïntegreerd gemiddeld bewegingspad uit de regenannexen (uurknopen, vier downloads tegelijk, gedeeld/gecachet per tijdlijn). Tussen knopen exacte integraal van lineair veranderende snelheid; lokale terugtrace en30minbegrenzing blijven behouden. Zowel directe als gecachete shader trekt de bijbehorende beginpositie af. Geen extra shaderpass of langere lokale terugtrace. Bij manifestverversing neemt het pad zijn oorsprong over uit het vorige pad, zodat wegvallende historie geen reset veroorzaakt. Dit is globale textuurverankering, geen nieuw fysisch wolkenmodel; lokale verschillen kunnen nog detailvernieuwing geven. Eerste laden vraagt extra kleine motionannexen over de tijdlijn; geen mobiele laadbudgetmeting gedaan.
+
+Voor/na31 exacte frames23:45–00:15 met vasteU82data op4398 vastgelegd, Noordzee zelf bekeken. PO ziet live verbetering. Nieuwe uniforme-stromingsproef over een uur/twee levensduren: oude shader faalt (correlatie op oorspronkelijke plek1, op verwachte verplaatsing0,102), nieuwe slaagt (verwachte verplaatsing0,986, oorspronkelijke plek0,105). Alle eerdere GPUchecks blijven groen. Typecheck en26 gerichte unit-tests exit0, inclusief veranderende snelheid/middernacht/twee uur bankvernieuwing/verschuivend historie-venster. Eerste micrometerstrenge floating-pointtolerantie in unit-test faalde; tolerantie naar5decimalen in meters, geen productieafronding aangepast.
+
+Repro: direnv exec . node web/tmp/orkestrator/cloud-jump-20261016/gpu.mjs; gpu-old.mjs is de verwachte falende controle. sequence.mjs before/after legt beelden vast. Receipts en LOG in dezelfde genegeerde map. Live4390 en vaste4398 bijgewerkt. Geen prod/VM/Telegram ofCSVwijziging. Volledige mergegate blijft buiten deze beelditeratie.
+
 ## 2026-10-16 10:59 CEST — Wolken volgen regenmatching; kortere textuurlevensduur
 
 Main bijgewerkt tot 1bf299d9 (U82/U83), via merge 31018a80. Wolken gebruiken nu dezelfde regen-motionannex als de regenroute, bilineair omgerekend van geprojecteerde broncellen/minuut naar wolkencellen/uur. Geen 10m-wind meer; ontbrekende vectoren betekenen stilstand. Annex wordt op de uurlijkse wolkentijden bemonsterd. Dit is een bewegingsproxy, geen gemeten wolkenvector en geen uniforme snelheid voor alle atmosferische lagen als definitief model.

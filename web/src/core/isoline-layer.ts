@@ -10,7 +10,7 @@ import { measurePerfPhase, recordPerfPhase } from './perf'
 import { sliceWeights } from './isoline-spline'
 import { ISOLINE_FILL_RESOLUTION, ISOLINE_GRADIENT, ISOLINE_LINE_OPACITY, ISOLINE_RING_KM, ISOLINE_TOLERANCE_PX, ISOLINE_WINDOW } from './isolines'
 import { PALETTE_STOPS, paletteUniforms, type PaletteStops } from './temperature-palette'
-import { CLOUD_MAP_SAMPLES, CLOUD_FLOW_DOWNSAMPLE, cloudFlowPhase, type CloudMapStyle } from './cloud-map'
+import { CLOUD_MAP_SAMPLES, CLOUD_FLOW_DOWNSAMPLE, CLOUD_FLOW_HOURS, cloudDriftAt, cloudFlowPhase, type CloudMapStyle } from './cloud-map'
 import { cloudMapFragment, cloudFlowFragment } from './cloud-map-shader'
 
 export interface IsolineStyle {
@@ -282,6 +282,7 @@ export class IsolineLayer implements CustomLayerInterface {
   private cloudTravel?: RenderTarget
   private cloudTravelProgram?: WebGLProgram
   private cloudEpochs: number[] = []
+  private cloudDrifts: PreparedField['cloudDrift'][] = []
   private fill?: WebGLProgram
   private readonly loaded: Uint8Array
   private frameKeys: string[] = []
@@ -457,6 +458,7 @@ export class IsolineLayer implements CustomLayerInterface {
     if (this.cloudFlowVolume) {
       gl.bindTexture(gl.TEXTURE_3D, this.cloudFlowVolume)
       gl.texSubImage3D(gl.TEXTURE_3D, 0, 0, 0, index, this.grid.width, this.grid.height, 1, gl.RG, gl.FLOAT, field.cloudFlow ?? new Float32Array(field.values.length * 2))
+      this.cloudDrifts[index] = field.cloudDrift
       this.cloudEpochs[index] = field.cloudEpoch ?? index * 3_600_000
     }
     if (!this.style.cloudMap) this.tracer.setLayer(index, field)
@@ -807,7 +809,13 @@ export class IsolineLayer implements CustomLayerInterface {
   private useCloudFlow(gl: WebGL2RenderingContext, uniform: (name: string) => WebGLUniformLocation | null, time: number): void {
     const left = Math.min(this.depth - 1, Math.floor(time)), right = Math.min(this.depth - 1, left + 1)
     const epoch = this.cloudEpochs[left]! + (this.cloudEpochs[right]! - this.cloudEpochs[left]!) * (time - left)
-    gl.uniform1f(uniform('u_cloud_phase'), cloudFlowPhase(epoch))
+    const phase = cloudFlowPhase(epoch)
+    gl.uniform1f(uniform('u_cloud_phase'), phase)
+    const path = this.cloudDrifts[left] ?? []
+    const a = cloudDriftAt(path, epoch - phase * 3_600_000)
+    const b = cloudDriftAt(path, epoch - ((phase + CLOUD_FLOW_HOURS / 2) % CLOUD_FLOW_HOURS) * 3_600_000)
+    gl.uniform4f(uniform('u_cloud_anchor'), a[0] / (this.grid.dx * this.grid.width), a[1] / (this.grid.dy * this.grid.height),
+      b[0] / (this.grid.dx * this.grid.width), b[1] / (this.grid.dy * this.grid.height))
     gl.activeTexture(gl.TEXTURE1)
     gl.bindTexture(gl.TEXTURE_3D, this.cloudFlowVolume!)
     gl.uniform1i(uniform('u_cloud_flow'), 1)

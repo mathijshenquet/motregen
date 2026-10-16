@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Grid, MrfHeader } from './contract'
 import type { FieldBlend } from './sun'
-import { cloudFlowPhase, prepareCloudMapField } from './cloud-map'
+import { cloudDriftAt, cloudDriftPath, cloudMotionMean, cloudFlowPhase, prepareCloudMapField } from './cloud-map'
 
 const grid: Grid = { crs: 'EPSG:3857', width: 1, height: 1, x0: 560000, y0: 6820000, dx: 16000, dy: -16000 }
 const field = { values: new Float32Array([100]), valid: new Float32Array([1]) }
@@ -71,5 +71,49 @@ describe('cloud map light and structure', () => {
     cloudFlowPhase(time + 90 * 60_000)
     expect(cloudFlowPhase(time)).toBe(first)
     expect(cloudFlowPhase(time + 4 * 3_600_000)).toBe(first)
+  })
+})
+
+
+describe('cloud birth trajectory', () => {
+  it('integrates changing bulk motion continuously across hours and midnight', () => {
+    const epoch = Date.parse('2026-10-16T23:00:00+02:00')
+    const path = cloudDriftPath([
+      { epoch, velocity: [10000, -20000] },
+      { epoch: epoch + 3600000, velocity: [30000, -20000] },
+      { epoch: epoch + 7200000, velocity: [10000, -20000] },
+    ])
+    expect(cloudDriftAt(path, epoch + 1800000)).toEqual([7500, -10000])
+    expect(cloudDriftAt(path, epoch + 3600000)).toEqual([20000, -20000])
+    expect(cloudDriftAt(path, epoch + 7200000)).toEqual([40000, -40000])
+    expect(cloudDriftAt(path, epoch + 3600000 - 1)[0]).toBeCloseTo(20000, 1)
+    expect(cloudDriftAt(path, epoch + 3600000 + 1)[0]).toBeCloseTo(20000, 1)
+  })
+
+  it('never rewinds either bank under uniform translation when its lifetime renews', () => {
+    const epoch = Date.parse('2026-10-16T23:00:00+02:00'), speed = 20000
+    const path = cloudDriftPath([{ epoch, velocity: [speed, 0] }])
+    for (let minute = 0; minute <= 120; minute++) {
+      const now = epoch + minute * 60000, phase = cloudFlowPhase(now)
+      for (const age of [phase, (phase + 0.25) % 0.5]) {
+        const anchor = cloudDriftAt(path, now - age * 3600000)[0]
+        expect(-speed * age - anchor).toBeCloseTo(-speed * minute / 60, 5)
+      }
+    }
+    expect(cloudDriftAt(path, epoch)).toEqual([0, 0])
+  })
+
+  it('keeps its origin when a refreshed timeline drops old history', () => {
+    const original = cloudDriftPath([{ epoch: 0, velocity: [10000, 0] }, { epoch: 7200000, velocity: [10000, 0] }])
+    const refreshed = cloudDriftPath([{ epoch: 3600000, velocity: [10000, 0] }, { epoch: 10800000, velocity: [10000, 0] }], original)
+    expect(cloudDriftAt(refreshed, 5400000)).toEqual(cloudDriftAt(original, 5400000))
+  })
+
+  it('averages only valid projected motion pairs and respects the byte offset', () => {
+    const data = new Int8Array([99, 99, 10, -20, -128, 40, 30, -40, 99, 99])
+    expect(cloudMotionMean({grid: {...grid, dx: 1000, dy: -1000}, field: {
+      width: 3, height: 1, vectors: new Uint8Array(data.buffer, 2, 6),
+    }})).toEqual([120000, 180000])
+    expect(cloudMotionMean(undefined)).toEqual([0, 0])
   })
 })

@@ -44,6 +44,7 @@ uniform float u_cloud_phase;
 uniform highp sampler2D u_cloud_travel;
 uniform vec2 u_cloud_fill_size;
 uniform float u_cloud_cached;
+uniform vec4 u_cloud_anchor;
 
 vec4 cloudTravel() {
   vec2 size = vec2(textureSize(u_cloud_travel, 0));
@@ -183,6 +184,9 @@ void main() {
     footA = backtrace(v_uv, ageA);
     footB = backtrace(v_uv, ageB);
   }
+  // Birth positions follow integrated bulk motion, so renewal never resets to a fixed world pattern.
+  footA -= u_cloud_anchor.xy;
+  footB -= u_cloud_anchor.zw;
   vec3 weights = typeWeights(shape);
   vec4 cloudA = transportedCloud(footA, cover, darkness, weights);
   vec4 cloudB = transportedCloud(footB, cover, darkness, weights);

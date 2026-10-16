@@ -31,7 +31,7 @@ import { IsolineLabels } from './core/isoline-labels'
 import { sliceWeights } from './core/isoline-spline'
 import { TraceCore } from './core/isoline-tracer'
 import { prepareField, type PreparedField } from './core/isoline-field'
-import { prepareCloudMapField, type CloudMapSample } from './core/cloud-map'
+import { cloudDriftPath, cloudMotionMean, prepareCloudMapField, type CloudMapSample } from './core/cloud-map'
 import { hexColor, IsolineLayer, isolineLayerIndices, type IsolineStyle } from './core/isoline-layer'
 import { cursorAfterTimelineRefresh, isNewerManifest, nextManifestRefreshDelay, reconcileTimelineSeries, scheduleManifestRefresh } from './core/manifest-refresh'
 import { constrainView, containView, containZoom, MAP_CONTAIN_BOUNDS, type Viewport } from './core/map-constraint'
@@ -2045,14 +2045,44 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
   }
 
-  async function cloudMotionAt(epoch: number): Promise<{ grid: Grid; field: MotionField } | undefined> {
-    const frames = timeline()
+  async function cloudMotionAt(epoch: number, frames = timeline()): Promise<{ grid: Grid; field: MotionField } | undefined> {
     if (frames.length < 2 || epoch < frames[0]!.epoch || epoch > frames[frames.length - 1]!.epoch) return undefined
     const blend = frameBlend(frames, epoch)
     const rightIndex = Math.max(1, blend.right), leftIndex = Math.min(blend.left, rightIndex - 1)
     const left = frames[leftIndex]!, right = frames[rightIndex]!
     const [field, header] = await Promise.all([loadPairMotion(left, right), client.getHeader(right.chunk)])
     return field ? { grid: header.grid, field } : undefined
+  }
+
+  let cloudDriftPending: { key: string; value: Promise<ReturnType<typeof cloudDriftPath>> } | undefined
+  function cloudDriftKey(): string {
+    const frames = timeline()
+    return `${frames[0]?.epoch}:${frames.at(-1)?.epoch}:` + [...new Set(frames.map((frame) => frame.chunk.url))].join('|')
+  }
+  function loadCloudDrift(): Promise<ReturnType<typeof cloudDriftPath>> {
+    const key = cloudDriftKey()
+    if (cloudDriftPending?.key === key) return cloudDriftPending.value
+    const previous = cloudDriftPending?.value
+    const frames = timeline(), first = frames[0]?.epoch, last = frames.at(-1)?.epoch
+    const value = (async () => {
+      if (first === undefined || last === undefined) return []
+      const epochs = [first]
+      for (let epoch = Math.floor(first / 3_600_000 + 1) * 3_600_000; epoch < last; epoch += 3_600_000) epochs.push(epoch)
+      if (last !== first) epochs.push(last)
+      const samples = new Array<{ epoch: number; velocity: [number, number] }>(epochs.length)
+      let index = 0
+      await Promise.all(Array.from({ length: 4 }, async () => {
+        while (index < epochs.length) {
+          const at = index++, epoch = epochs[at]!
+          samples[at] = { epoch, velocity: cloudMotionMean(await cloudMotionAt(epoch, frames)) }
+        }
+      }))
+      // Preserve the trajectory origin when the manifest drops old history frames.
+      return cloudDriftPath(samples, await previous?.catch(() => []))
+    })()
+    cloudDriftPending = { key, value }
+    void value.catch(() => { if (cloudDriftPending?.value === value) cloudDriftPending = undefined })
+    return value
   }
 
   function preparedIsolineField(set: IsolineSet, frame: TimelineFrame): Promise<{ grid: Grid; field: PreparedField }> {
@@ -2064,12 +2094,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         const field = prepareField(blurField(blendFrames(frames, grid.width, grid.height), isolineBlurPasses(set.kind)))
         if (set.kind !== 'cloud') return { grid, field }
         const at = (timeline: TimelineFrame[], epoch = frame.epoch) => loadFieldBlend(timeline, epoch, 0).catch(() => undefined)
-        const [low, mid, high, radiation, radiationNext, motion] = await Promise.all([
+        const [low, mid, high, radiation, radiationNext, motion, drift] = await Promise.all([
           at(cloudTimelines().low), at(cloudTimelines().mid), at(cloudTimelines().high),
           at(radiationTimeline()), at(radiationTimeline(), frame.epoch + 3_600_000),
-          cloudMotionAt(frame.epoch).catch(() => undefined),
+          cloudMotionAt(frame.epoch).catch(() => undefined), loadCloudDrift(),
         ])
-        return { grid, field: prepareCloudMapField(grid, field, frame.epoch, { low, mid, high, radiation, radiationNext, motion }) }
+        return { grid, field: prepareCloudMapField(grid, field, frame.epoch, { low, mid, high, radiation, radiationNext, motion, drift }) }
       })
       prepared.catch(() => preparedIsolineFields.delete(key))
       preparedIsolineFields.set(key, prepared)
@@ -2082,7 +2112,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const key = `${frame.chunk.url}#${frame.frameIndex}`
     if (set.kind !== 'cloud') return key
     const inputs = [...CLOUD_LAYERS.map((layer) => cloudTimelines()[layer]), radiationTimeline(), timeline()]
-    return key + '|' + inputs.map((frames) => {
+    return key + '|' + cloudDriftKey() + '|' + inputs.map((frames) => {
       if (!frames.length) return ''
       const blend = frameBlend(frames, frame.epoch)
       return [blend.left, blend.right, Math.min(frames.length - 1, Math.max(1, blend.right) + 1)]

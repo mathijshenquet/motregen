@@ -23,7 +23,47 @@ export interface CloudMapStyle {
   sample: CloudMapSample
 }
 
+export interface CloudDriftSample {
+  epoch: number
+  velocity: readonly [number, number]
+  position: readonly [number, number]
+}
+
+export function cloudMotionMean(source: CloudMapInputs['motion']): [number, number] {
+  if (!source) return [0, 0]
+  const { grid, field } = source
+  const data = new Int8Array(field.vectors.buffer, field.vectors.byteOffset, field.vectors.byteLength)
+  let x = 0, y = 0, count = 0
+  for (let at = 0; at < data.length; at += 2) {
+    if (data[at] === -128 || data[at + 1] === -128) continue
+    x += data[at]!; y += data[at + 1]!; count++
+  }
+  return count ? [x / count * 6 * grid.dx, y / count * 6 * grid.dy] : [0, 0]
+}
+
+export function cloudDriftPath(samples: readonly { epoch: number; velocity: readonly [number, number] }[], previousPath: readonly CloudDriftSample[] = []): CloudDriftSample[] {
+  return samples.reduce<CloudDriftSample[]>((path, sample) => {
+    const previous = path.at(-1)
+    const hours = previous ? (sample.epoch - previous.epoch) / 3_600_000 : 0
+    path.push({ ...sample, position: [0, 1].map((axis) => previous
+      ? previous.position[axis]! + (previous.velocity[axis]! + sample.velocity[axis]!) * hours / 2 : cloudDriftAt(previousPath, sample.epoch)[axis]!) as [number, number] })
+    return path
+  }, [])
+}
+
+export function cloudDriftAt(path: readonly CloudDriftSample[], epoch: number): [number, number] {
+  if (!path.length) return [0, 0]
+  const right = path.findIndex((sample) => sample.epoch > epoch)
+  const left = path[Math.max(0, right < 0 ? path.length - 1 : right - 1)]!
+  const next = right > 0 ? path[right] : undefined
+  const hours = (epoch - left.epoch) / 3_600_000
+  const mix = next ? (epoch - left.epoch) / (next.epoch - left.epoch) : 0
+  return [0, 1].map((axis) => left.position[axis]! + hours * (left.velocity[axis]!
+    + (next ? next.velocity[axis]! - left.velocity[axis]! : 0) * mix / 2)) as [number, number]
+}
+
 interface CloudMapInputs {
+  drift?: readonly CloudDriftSample[]
   low?: FieldBlend
   mid?: FieldBlend
   high?: FieldBlend
@@ -111,5 +151,5 @@ export function prepareCloudMapField(grid: Grid, field: PreparedField, epoch: nu
       }
     }
   }
-  return { ...field, cloudHints: hints, cloudFlow: flow, cloudEpoch: epoch }
+  return { ...field, cloudHints: hints, cloudFlow: flow, cloudEpoch: epoch, cloudDrift: inputs.drift }
 }
