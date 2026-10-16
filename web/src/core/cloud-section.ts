@@ -166,6 +166,7 @@ const MIN_LOOSE_THICKNESS = 0.35
 const CIRRUS_STRAND_PITCH_PX = 22
 const CIRRUS_FIBRES = 4
 const CIRRUS_VEIL_FADE_PX = 40
+const CIRRUS_VEIL_STREAKS = 5
 const CIRRUS_STRAND_LENGTH_PX = 76
 const CIRRUS_SLANT = 0.16
 // Verticale spreiding van de vegen als deel van de strook.
@@ -279,7 +280,7 @@ export function cloudBand(frames: TimelineFrame[], values: Array<number | null>,
     let shapePaths = shapePathCache.get(cacheKey)
     if (!shapePaths) {
       shapePaths = []
-      const outlines = style.puffs ? [puffOutline(shape, width, style.puffs)] : cloud.closed ? [cirrusVeil(shape, width)] : cirrusShapes(shape, width, height * CIRRUS_SPREAD)
+      const outlines = style.puffs ? [puffOutline(shape, width, style.puffs)] : cloud.closed ? cirrusVeil(shape, width) : cirrusShapes(shape, width, height * CIRRUS_SPREAD)
       for (const outline of outlines) {
         if (outline.xs.length < 2) continue
         const inStrip = (y: number) => Math.min(bottom, Math.max(top, y))
@@ -358,13 +359,27 @@ function cirrusShapes(shape: CloudShape, width: number, spread: number): Outline
   return cirrusStrands(shape, width, spread, !shape.closed && unitHash(shape.key + 0.91) >= 0.55)
 }
 
-/** Cirrostratus: een platte, doorschijnende sluier met zacht uitlopende einden en een licht golvende rand. */
-function cirrusVeil(shape: CloudShape, width: number): Outline {
-  const xs = sampleXs(shape.fromX, shape.toX, width)
+/**
+ * Cirrostratus als lange, dunne, licht golvende banen over de hele bedekte strook: gestreept in plaats van een vlak,
+ * zodat het hoge wolk blijft (PO 2026-10-16: "een vrij vormloze blob, geen streaks meer").
+ */
+function cirrusVeil(shape: CloudShape, width: number): Outline[] {
   const fade = Math.max(1, Math.min(CIRRUS_VEIL_FADE_PX, (shape.toX - shape.fromX) / 2))
   const half = shape.thickness * 0.5
-  const thickness = xs.map((x) => half * Math.min(1, Math.min(x - shape.fromX, shape.toX - x) / fade) * (0.85 + 0.15 * valueNoise(x / 23 + shape.key)))
-  return { xs, up: thickness, down: thickness, centre: xs.map((x) => half * 0.25 * valueNoise(x / 41 + shape.key + 7)) }
+  const streaks: Outline[] = []
+  for (let streak = 0; streak < CIRRUS_VEIL_STREAKS; streak++) {
+    const streakKey = shape.key + streak * 2.37
+    // Elke baan begint en eindigt op een eigen plek, zodat de einden rafelen in plaats van recht af te snijden.
+    const inset = (shape.toX - shape.fromX) * 0.12 * unitHash(streakKey + 0.19)
+    const from = shape.fromX + inset
+    const to = shape.toX - (shape.toX - shape.fromX) * 0.12 * unitHash(streakKey + 0.43)
+    const xs = sampleXs(from, to, width)
+    const level = (streak / (CIRRUS_VEIL_STREAKS - 1) - 0.5) * half * 1.8
+    const streakHalf = half * (0.12 + 0.1 * unitHash(streakKey + 0.67))
+    const thickness = xs.map((x) => streakHalf * Math.min(1, Math.min(x - from, to - x) / fade) * (0.6 + 0.4 * (valueNoise(x / 17 + streakKey) * 0.5 + 0.5)))
+    streaks.push({ xs, up: thickness, down: thickness, centre: xs.map((x) => level + half * 0.18 * valueNoise(x / 53 + streakKey)) })
+  }
+  return streaks
 }
 
 function cirrusStrands(shape: CloudShape, width: number, spread: number, hooked: boolean): Outline[] {
@@ -388,7 +403,7 @@ function cirrusStrands(shape: CloudShape, width: number, spread: number, hooked:
       const fibreLength = strandLength * share
       const fibreFrom = from + (strandLength - fibreLength) * unitHash(fibreKey + 0.33)
       const across = (fibre / (CIRRUS_FIBRES - 1) - 0.5) * half * 1.6 + (unitHash(fibreKey + 0.59) - 0.5) * half * 0.4
-      const fibreHalf = half * (0.22 + 0.18 * unitHash(fibreKey + 0.71))
+      const fibreHalf = half * (0.3 + 0.2 * unitHash(fibreKey + 0.71))
       const xs = sampleXs(fibreFrom, fibreFrom + fibreLength, width)
       const along = xs.map((x) => (x - from) / strandLength)
       const own = xs.map((x) => (x - fibreFrom) / fibreLength)
