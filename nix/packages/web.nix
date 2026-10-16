@@ -2,6 +2,7 @@
   lib,
   stdenvNoCC,
   nodejs,
+  ffmpeg,
   pnpm_10,
   callPackage,
   pnpmConfigHook,
@@ -13,11 +14,12 @@
 
 stdenvNoCC.mkDerivation {
   inherit pname;
-  version = "0.1.0";
+  version = lib.strings.trim (builtins.readFile ../../VERSION);
   inherit (callPackage ./javascript-deps.nix { }) src pnpmDeps;
 
   nativeBuildInputs = [
     nodejs
+    ffmpeg
     pnpm_10
     pnpmConfigHook
   ];

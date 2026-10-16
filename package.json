@@ -2,6 +2,9 @@
   "name": "motregen",
   "private": true,
   "scripts": {
+    "changelog:check": "pnpm --dir web exec tsx ../tools/changelog-check.ts",
+    "changelog:post": "pnpm --dir web exec tsx ../tools/changelog-post.ts",
+    "changelog:compare": "pnpm --dir web exec tsx ../tools/before-after.ts",
     "basemap:build": "bash tools/basemap/build.sh",
     "basemap:places": "pnpm --filter motregen-web exec tsx ../tools/basemap/places.mts",
     "basemap:snapshot": "pnpm --filter motregen-web exec tsx ../tools/basemap/snapshot.mts",
