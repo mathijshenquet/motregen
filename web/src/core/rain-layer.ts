@@ -7,7 +7,7 @@ import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap 
 import { MercatorCoordinate } from 'maplibre-gl'
 import type { Grid } from './contract'
 import type { MotionField } from './mrf'
-import { measurePerfPhase } from './perf'
+import { measurePerfPhase, recordPerfPhase } from './perf'
 import { rainColormap } from './rain-chart'
 import type { RainOutline } from './rain-palette.js'
 
@@ -182,6 +182,7 @@ export class RainLayer implements CustomLayerInterface {
   private map?: MapLibreMap
   private tracer?: RainContourTracer
   private contourRenderer?: RainContourRenderer
+  private readonly readbacks = new Set<() => void>()
   private gl?: WebGL2RenderingContext
   private program?: WebGLProgram
   private buffer?: WebGLBuffer
@@ -330,8 +331,8 @@ export class RainLayer implements CustomLayerInterface {
     const levels = this.outlines.map((outline) => outline.index)
     const contours = (data: Uint8Array | undefined, sampling: RainSampling, sampled: WebGLTexture): RainContourEntry | undefined => {
       if (!data || !levels.length) return undefined
-      return this.tracer?.get(data, JSON.stringify(sampling), levels, () => measurePerfPhase('texture-upload', () =>
-        isSourceKernel(sampling.kernel) ? this.readFiltered(gl, sampled) : data.slice(), { layer: 'rain-contour-readback' }))
+      return this.tracer?.get(data, JSON.stringify(sampling), levels, () =>
+        isSourceKernel(sampling.kernel) ? this.readFiltered(gl, sampled) : data.slice())
     }
     const leftContours = contours(this.leftData, this.leftSampling, leftTexture)
     const rightContours = contours(this.rightData, this.rightSampling, rightTexture)
@@ -375,6 +376,7 @@ export class RainLayer implements CustomLayerInterface {
 
   onRemove(): void {
     this.tracer?.dispose()
+    for (const cancel of this.readbacks) cancel()
     this.contourRenderer?.dispose()
     const gl = this.gl
     if (!gl) return
@@ -390,16 +392,50 @@ export class RainLayer implements CustomLayerInterface {
     this.gl = undefined
   }
 
-  private readFiltered(gl: WebGL2RenderingContext, texture: WebGLTexture): Uint8Array {
+  private readFiltered(gl: WebGL2RenderingContext, texture: WebGLTexture): Promise<Uint8Array | undefined> {
+    const started = performance.now()
     const previous = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
+    const previousPack = gl.getParameter(gl.PIXEL_PACK_BUFFER_BINDING) as WebGLBuffer | null
     this.filterTarget ??= gl.createFramebuffer()!
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.filterTarget)
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
     // RGBA/UNSIGNED_BYTE is ook voor een R8-doel gegarandeerd leesbaar in WebGL2.
-    const rgba = new Uint8Array(this.grid.width * this.grid.height * 4)
-    gl.readPixels(0, 0, this.grid.width, this.grid.height, gl.RGBA, gl.UNSIGNED_BYTE, rgba)
+    const pack = gl.createBuffer()!
+    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pack)
+    gl.bufferData(gl.PIXEL_PACK_BUFFER, this.grid.width * this.grid.height * 4, gl.STREAM_READ)
+    gl.readPixels(0, 0, this.grid.width, this.grid.height, gl.RGBA, gl.UNSIGNED_BYTE, 0)
+    const fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0)!
+    gl.flush()
+    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, previousPack)
     gl.bindFramebuffer(gl.FRAMEBUFFER, previous)
-    return Uint8Array.from({ length: this.grid.width * this.grid.height }, (_, index) => rgba[index * 4]!)
+    return new Promise((resolve) => {
+      let timer: ReturnType<typeof setTimeout>
+      const finish = (bytes?: Uint8Array) => {
+        clearTimeout(timer)
+        gl.deleteSync(fence)
+        gl.deleteBuffer(pack)
+        this.readbacks.delete(cancel)
+        resolve(bytes)
+      }
+      const cancel = () => finish()
+      const collect = () => {
+        const status = gl.clientWaitSync(fence, 0, 0)
+        if (status === gl.WAIT_FAILED || gl.isContextLost()) { finish(); return }
+        if (status === gl.TIMEOUT_EXPIRED) { timer = setTimeout(collect, 16); return }
+        const copying = performance.now()
+        const previousPack = gl.getParameter(gl.PIXEL_PACK_BUFFER_BINDING) as WebGLBuffer | null
+        const rgba = new Uint8Array(this.grid.width * this.grid.height * 4)
+        gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pack)
+        gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, rgba)
+        gl.bindBuffer(gl.PIXEL_PACK_BUFFER, previousPack)
+        const bytes = new Uint8Array(this.grid.width * this.grid.height)
+        for (let index = 0; index < bytes.length; index++) bytes[index] = rgba[index * 4]!
+        recordPerfPhase('texture-upload', performance.now() - copying, { layer: 'rain-contour-readback', waitMs: performance.now() - started })
+        finish(bytes)
+      }
+      this.readbacks.add(cancel)
+      timer = setTimeout(collect, 0)
+    })
   }
 
   /** De textuur die de hoofdshader voor dit frame leest: het ruwe frame, of de voorgefilterde versie ervan. */

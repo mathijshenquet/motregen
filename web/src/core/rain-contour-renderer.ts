@@ -14,7 +14,7 @@ uniform float u_right_frame;
 vec2 displaced(vec2 position) {
   float offset = blendWeight(u_mix) - u_right_frame;
   return position + rainDisplacement((position + 0.5) / u_grid_size) * offset;
-}`, 'displaced(p)')
+}`, 'displaced(position)')
 
 const compositeVertex = `#version 300 es
 out vec2 v_uv;

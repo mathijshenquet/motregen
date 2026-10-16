@@ -21,11 +21,12 @@ export function traceRainContours(bytes: Uint8Array, grid: Grid, levels: readonl
 export interface RainContourEntry {
   result?: RainContours
   pending: boolean
+  failed?: boolean
 }
 
 interface TraceJob {
   entry: RainContourEntry
-  bytes: Uint8Array
+  bytes: Uint8Array | Promise<Uint8Array | undefined>
   levels: readonly number[]
 }
 
@@ -43,7 +44,7 @@ export class RainContourTracer {
 
   constructor(private readonly grid: Grid, private readonly repaint: () => void) {}
 
-  get(frame: Uint8Array, samplingKey: string, levels: readonly number[], read: () => Uint8Array): RainContourEntry {
+  get(frame: Uint8Array, samplingKey: string, levels: readonly number[], read: () => Uint8Array | Promise<Uint8Array | undefined>): RainContourEntry {
     let variants = this.cache.get(frame)
     if (!variants) {
       variants = new Map()
@@ -55,7 +56,7 @@ export class RainContourTracer {
       entry = { pending: false }
       variants.set(key, entry)
     }
-    if (!entry.result && !entry.pending) {
+    if (!entry.result && !entry.pending && !entry.failed) {
       entry.pending = true
       this.queue.push({ entry, bytes: read(), levels })
       this.pump()
@@ -83,24 +84,41 @@ export class RainContourTracer {
     const job = this.queue.shift()
     if (!job) return
     this.busy = job
+    if (job.bytes instanceof Promise) {
+      void job.bytes.then((bytes) => {
+        if (this.busy !== job) return
+        if (bytes) this.trace(job, bytes)
+        else this.complete(undefined)
+      })
+    } else this.trace(job, job.bytes)
+  }
+
+  private trace(job: TraceJob, bytes: Uint8Array): void {
     if (typeof Worker === 'undefined') {
-      this.complete(traceRainContours(job.bytes, this.grid, job.levels))
+      this.complete(traceRainContours(bytes, this.grid, job.levels))
       return
     }
     if (!this.worker) {
       this.worker = new Worker(new URL('./rain-contours.worker.ts', import.meta.url), { type: 'module' })
       this.worker.onmessage = ({ data }: MessageEvent<RainContours>) => this.complete(data)
+      this.worker.onerror = (event) => {
+        console.error('Regencontouren konden niet worden getraceerd', event.message)
+        this.worker?.terminate()
+        this.worker = undefined
+        this.complete(undefined)
+      }
     }
-    this.worker.postMessage({ grid: this.grid, bytes: job.bytes, levels: job.levels } satisfies RainContourMessage, [job.bytes.buffer])
+    this.worker.postMessage({ grid: this.grid, bytes, levels: job.levels } satisfies RainContourMessage, [bytes.buffer])
   }
 
-  private complete(result: RainContours): void {
+  private complete(result: RainContours | undefined): void {
     const job = this.busy
     if (!job) return
     job.entry.result = result
     job.entry.pending = false
+    job.entry.failed = !result
     this.busy = undefined
-    recordPerfPhase('isoline-trace', result.milliseconds, { layer: 'rain', segments: result.levels.reduce((total, level) => total + level.data.length / 6, 0) })
+    if (result) recordPerfPhase('isoline-trace', result.milliseconds, { layer: 'rain', segments: result.levels.reduce((total, level) => total + level.data.length / 6, 0) })
     this.repaint()
     this.pump()
   }
