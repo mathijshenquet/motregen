@@ -1,7 +1,7 @@
 import type { MapTheme } from './map-theme.js'
 
 // Het regenpalet en hoe regen over de kaart ligt. Het product is `DEFAULT_RAIN_LOOK` (PO 2026-10-11, U77: palet
-// violet-laat, menging drempel-zacht, contrastlat 0). De overige paletten en mengingen zijn de proef onder ?dev ›
+// violet-laat, menging drempel-zacht, contrastlat 0; menging rand sinds U83, PO 2026-10-16). De overige paletten en mengingen zijn de proef onder ?dev ›
 // Regen (eigenaar U77, vervalt 2026-10-17); `huidig` + `huidig` geeft daar byte voor byte de tabel van vóór U77.
 
 export type Rgb = readonly [red: number, green: number, blue: number]
@@ -37,7 +37,7 @@ export interface RainLook {
 /** Wat de knoppen kiezen; het thema volgt de kaart. */
 export type RainLookChoice = Pick<RainLook, 'palette' | 'blend' | 'contrast'>
 
-export const DEFAULT_RAIN_LOOK: RainLook = { palette: 'violet-laat', blend: 'drempel-zacht', theme: 'light', contrast: DEFAULT_RAIN_CONTRAST }
+export const DEFAULT_RAIN_LOOK: RainLook = { palette: 'violet-laat', blend: 'rand', theme: 'light', contrast: DEFAULT_RAIN_CONTRAST }
 
 /**
  * Het regenbeeld van vóór U77. De bot rendert hier nog mee: zijn compositor bootst de oude canvas na (α² als alfa)

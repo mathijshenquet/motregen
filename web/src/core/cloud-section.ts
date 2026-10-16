@@ -51,6 +51,9 @@ const DARKEST_HALVINGS = 3
 const FAIR_HALVINGS = 0.35
 // Deel van de schemergloed dat een loodgrijze lucht wegneemt.
 const GLOW_DAMPING = 0.7
+// Breedte van het uitsmeren van de donkerte over de tijd, en de afstand tussen de kleurstops van de hemel.
+const SKY_BLEND_SIGMA_MS = 45 * 60_000
+const SKY_STOP_MS = 20 * 60_000
 
 /** Geschatte lichtdoorlating (0–1) uit de bedekking per laag (fracties), voor nacht en verleden. */
 export function layerTransmission(cover: Record<CloudLayer, number>): number {
@@ -87,18 +90,39 @@ export interface SkyInputs {
   sinElevation: (epoch: number) => number
 }
 
-/** Het dagverloop van de lucht, per heel uur: voedt de hemelachtergrond en de tint van de wolken. */
+/**
+ * Het dagverloop van de lucht: voedt de hemelachtergrond en de tint van de wolken. De donkerte komt per heel uur
+ * (de straling is een uurgemiddelde) en springt van uur tot uur; lineair tussen die uren gaf vlakke stukken met
+ * knikken, die het oog als harde banen leest (PO 2026-10-16). Daarom een gaussisch gewogen gemiddelde over de uren,
+ * bemonsterd op SKY_STOP_MS: een vloeiende kromme zonder knikken.
+ */
 export function skyStops(start: number, end: number, inputs: SkyInputs): SkyStop[] {
   const span = Math.max(1, end - start)
-  // SVG klemt offsets buiten 0–1; daarom de randen zelf plus de hele uren ertussen.
+  const hourly: Array<{ epoch: number; darkness: number }> = []
+  for (let epoch = Math.floor(start / HOUR) * HOUR; epoch <= end + HOUR; epoch += HOUR) {
+    hourly.push({ epoch, darkness: skyDarkness(inputs.lightAt(epoch) ?? layerTransmission(inputs.coverAt(epoch))) })
+  }
+  const blendedDarkness = (epoch: number) => {
+    let weighted = 0
+    let total = 0
+    for (const sample of hourly) {
+      const distance = (epoch - sample.epoch) / SKY_BLEND_SIGMA_MS
+      if (Math.abs(distance) > 3) continue
+      const weight = Math.exp(-0.5 * distance * distance)
+      weighted += weight * sample.darkness
+      total += weight
+    }
+    return total > 0 ? weighted / total : 0
+  }
+  // SVG klemt offsets buiten 0–1; daarom de randen zelf plus de vaste momenten ertussen.
   const epochs = [start]
-  for (let epoch = Math.floor(start / HOUR) * HOUR + HOUR; epoch < end; epoch += HOUR) epochs.push(epoch)
+  for (let epoch = Math.floor(start / SKY_STOP_MS) * SKY_STOP_MS + SKY_STOP_MS; epoch < end; epoch += SKY_STOP_MS) epochs.push(epoch)
   epochs.push(end)
   return epochs.map((epoch) => {
     const elevation = inputs.sinElevation(epoch)
     const twilight = Math.max(0, Math.min(1, (elevation + 0.1) / 0.2))
     const daylight = twilight * twilight * (3 - 2 * twilight)
-    const darkness = skyDarkness(inputs.lightAt(epoch) ?? layerTransmission(inputs.coverAt(epoch)))
+    const darkness = blendedDarkness(epoch)
     return {
       offset: round((epoch - start) / span, 4),
       darkness: round(darkness, 3),
