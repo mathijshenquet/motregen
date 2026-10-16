@@ -67,9 +67,11 @@ const CLOUD_LAYER_LABELS = { high: 'hoge wolken', mid: 'midden wolken', low: 'la
 const CLOUD_COVER_SHARE = 0.3
 const HOUR = 3_600_000
 const HAZE_OPACITY = 0.5
-// Elke strook begint lager en telt op bij de vorige: zo neemt de nevel naar de horizon toe.
-const HAZE_BAND_COUNT = 16
-const HAZE_BANDS = Array.from({ length: HAZE_BAND_COUNT }, (_, index) => ({ from: 0.45 + 0.55 * index / HAZE_BAND_COUNT, opacity: 0.075 }))
+// De nevel begint op deze hoogte (deel van het plot) en neemt naar de horizon toe tot HAZE_MASK_BOTTOM. Eén laag
+// met een masker: de eerdere 16 gestapelde stroken van elk ~0,4 % dekking werden elk op 8 bit afgerond en sprongen
+// dan samen, wat harde verticale banen gaf (PO 2026-10-16).
+const HAZE_TOP = 0.45
+const HAZE_MASK_BOTTOM = 0.9
 // Straal van de schemergloed als deel van de plothoogte (hoogstens één uur breed).
 const DUSK_RADIUS_SHARE = 0.62
 // Gedeeld met het laadvenster in App (U49), dat alleen laadt wat hier in beeld is.
@@ -641,7 +643,7 @@ export default function HistogramScrubber(props: Props) {
               <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-sky)`} />
               <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-depth)`} />
               {/* Oplopend naar de horizon in stroken: een SVG-masker over de hele baan bleek hier niet te werken. */}
-              <For each={HAZE_BANDS}>{(band) => <rect y={plotHeight() * band.from} width={cloudWidth()} height={plotHeight() * (1 - band.from)} fill={`url(#${cloudId}-haze)`} opacity={band.opacity} />}</For>
+              <rect y={plotHeight() * HAZE_TOP} width={cloudWidth()} height={plotHeight() * (1 - HAZE_TOP)} fill={`url(#${cloudId}-haze)`} mask={`url(#${cloudId}-haze-mask)`} />
               {/* Index, niet For: bij elke aanvulling van de reeksen zijn dit nieuwe objecten; per positie bijwerken
                   zet alleen gewijzigde attributen, For bouwde alle knopen opnieuw (72 000 knopen in 12 s, U58). */}
               <Index each={dusks()}>{(dusk) => <g class="dusk" style={{ opacity: dusk().strength }}>
@@ -673,6 +675,10 @@ export default function HistogramScrubber(props: Props) {
                 <linearGradient id={`${cloudId}-haze`} class="sky-haze-gradient" gradientUnits="userSpaceOnUse" x1="0" x2={cloudWidth()} y1="0" y2="0">
                   <Index each={sky()}>{(stop) => <stop offset={stop().offset} stop-opacity={(HAZE_OPACITY * stop().daylight * (1 - stop().darkness)).toFixed(3)} />}</Index>
                 </linearGradient>
+                <linearGradient id={`${cloudId}-haze-fade`} x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0" /><stop offset="1" stop-color="#fff" stop-opacity={HAZE_MASK_BOTTOM} /></linearGradient>
+                <mask id={`${cloudId}-haze-mask`} maskUnits="userSpaceOnUse" x="0" y={plotHeight() * HAZE_TOP} width={cloudWidth()} height={plotHeight() * (1 - HAZE_TOP)}>
+                  <rect y={plotHeight() * HAZE_TOP} width={cloudWidth()} height={plotHeight() * (1 - HAZE_TOP)} fill={`url(#${cloudId}-haze-fade)`} />
+                </mask>
                 <linearGradient id={`${cloudId}-veil`} class="ruler-veil-gradient" gradientUnits="userSpaceOnUse" x1="0" x2={cloudWidth()} y1="0" y2="0">
                   <Index each={sky()}>{(stop) => <stop offset={stop().offset} classList={{ night: stop().daylight < RULER_NIGHT_DAYLIGHT }} />}</Index>
                 </linearGradient>

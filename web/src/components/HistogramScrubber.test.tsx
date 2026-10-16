@@ -329,7 +329,10 @@ describe('histogram scrubber', () => {
     expect(container.querySelector('.ruler-sky')!.getAttribute('y')).toBe('-26')
     const hourLabels = [...container.querySelectorAll<HTMLElement>('.x-axis span:not(.now-tick)')]
     expect(hourLabels.map((label) => label.classList.contains('night'))).toEqual([false, true, true, true])
-    expect([...container.querySelectorAll('.ruler-veil-gradient stop')].map((stop) => stop.classList.contains('night'))).toEqual([false, false, true, true, true])
+    const veilNights = [...container.querySelectorAll('.ruler-veil-gradient stop')].map((stop) => stop.classList.contains('night'))
+    expect(veilNights[0]).toBe(false)
+    expect(veilNights.at(-1)).toBe(true)
+    expect(veilNights.slice(veilNights.indexOf(true)).every(Boolean)).toBe(true)
     // In Weer staan de lagen zelf niet in beeld.
     expect(container.querySelector<SVGGElement>('.cloud-section .scrub-view:last-child')!.style.opacity).toBe('0')
     setExpressive(false)

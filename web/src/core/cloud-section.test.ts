@@ -162,6 +162,21 @@ describe('light and sky', () => {
     expect(Math.max(...stops.map((stop) => stop.glow))).toBeGreaterThan(0.5)
   })
 
+  it('blends the darkness over time instead of jumping per hour', () => {
+    // Om het uur afwisselend heldere en loodgrijze lucht: de uurstops gaven daar harde banen.
+    const stops = skyStops(noon - 6 * hour, noon + 6 * hour, {
+      lightAt: (epoch) => Math.floor(epoch / hour) % 2 === 0 ? 1 : 0.125,
+      coverAt: () => clear,
+      sinElevation,
+    })
+    expect(stops.length).toBeGreaterThan(24)
+    const darkness = stops.map((stop) => stop.darkness)
+    const steps = darkness.slice(1).map((value, index) => Math.abs(value - darkness[index]!))
+    expect(Math.max(...steps)).toBeLessThan(0.15)
+    const bends = darkness.slice(2).map((value, index) => Math.abs(value - 2 * darkness[index + 1]! + darkness[index]!))
+    expect(Math.max(...bends)).toBeLessThan(0.08)
+  })
+
   it('finds sunrise and sunset', () => {
     const crossings = sunCrossings(noon - 12 * hour, noon + 12 * hour, sinElevation)
     expect(crossings.map((crossing) => crossing.rising)).toEqual([true, false])
