@@ -63,8 +63,9 @@ interface Props {
 }
 
 const CLOUD_LAYER_LABELS = { high: 'hoge wolken', mid: 'midden wolken', low: 'lage wolken' } as const
-// Middens van de wolkenlagen als deel van de plothoogte: hoog op 1/3, dan steeds 1/4 lager (PO 2026-10-16).
-const CLOUD_LAYER_FIRST_CENTRE = 1 / 3
+// Middens van de wolkenlagen als deel van de plothoogte: hoog op 1/6, dan steeds 1/4 lager, zodat de lage wolken
+// hoger staan dan bij drie gelijke stroken en er onderin ruimte blijft (PO 2026-10-16).
+const CLOUD_LAYER_FIRST_CENTRE = 1 / 6
 const CLOUD_LAYER_SPACING = 1 / 4
 // Deel van de plothoogte voor de bewolkingsband boven de regen.
 const CLOUD_COVER_SHARE = 0.3
@@ -223,8 +224,8 @@ export default function HistogramScrubber(props: Props) {
     const clouds = props.clouds
     if (!clouds) return []
     const bandHeight = plotHeight() / CLOUD_LAYERS.length
-    // De lagen staan dichter op elkaar dan drie gelijke stroken: middens op 1/3, 7/12 en 5/6 van de hoogte, zodat
-    // er boven de hoge wolken lucht overblijft (PO 2026-10-16). De stroken overlappen dus een stukje.
+    // De lagen staan dichter op elkaar dan drie gelijke stroken: middens op 1/6, 5/12 en 2/3 van de hoogte
+    // (PO 2026-10-16). De stroken overlappen dus een stukje.
     const top = (index: number) => plotHeight() * (CLOUD_LAYER_FIRST_CENTRE + index * CLOUD_LAYER_SPACING) - bandHeight / 2
     return CLOUD_LAYERS.map((layer, index) => ({
       key: layer,
@@ -672,7 +673,7 @@ export default function HistogramScrubber(props: Props) {
             <Show when={cloudBands().length}>
               <defs>
                 <filter id={`${cloudId}-soft`} x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="0.6" /></filter>
-                <filter id={`${cloudId}-drop`} x="-5%" y="-30%" width="110%" height="180%"><feDropShadow class="cloud-drop" dx="1.5" dy="2.5" stdDeviation="1.6" /></filter>
+                <filter id={`${cloudId}-drop`} x="-5%" y="-30%" width="110%" height="180%"><feDropShadow class="cloud-drop" dx="2" dy="3.5" stdDeviation="2" /></filter>
                 <For each={['sky', ...cloudBands().map((band) => band.key)]}>{(key) => <linearGradient id={`${cloudId}-${key}`} class={key === 'sky' ? 'sky-gradient' : `cloud-tone cloud-${key}`} gradientUnits="userSpaceOnUse" x1="0" x2={cloudWidth()} y1="0" y2="0">
                   <Index each={sky().length ? sky() : [{ offset: 0, darkness: 0, daylight: 1, glow: 0 }]}>{(stop) => <stop offset={stop().offset} style={{ '--dark': stop().darkness, '--day': stop().daylight }} />}</Index>
                 </linearGradient>}</For>
