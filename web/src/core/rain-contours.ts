@@ -44,6 +44,10 @@ export class RainContourTracer {
 
   constructor(private readonly grid: Grid, private readonly repaint: () => void) {}
 
+  ready(frame: Uint8Array, samplingKey: string, levels: readonly number[]): boolean {
+    return !!this.cache.get(frame)?.get(`${samplingKey}:${levels.join(',')}`)?.result
+  }
+
   get(frame: Uint8Array, samplingKey: string, levels: readonly number[], read: () => Uint8Array | Promise<Uint8Array | undefined>): RainContourEntry {
     let variants = this.cache.get(frame)
     if (!variants) {

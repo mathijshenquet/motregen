@@ -279,6 +279,14 @@ export class RainLayer implements CustomLayerInterface {
     this.outlines = outlines.slice(0, MAX_OUTLINES)
   }
 
+  contoursReady(): boolean {
+    if (!this.outlines.length || this.opacity <= 0) return true
+    const levels = this.outlines.map((outline) => outline.index)
+    return !!this.leftData && !!this.rightData
+      && !!this.tracer?.ready(this.leftData, JSON.stringify(this.leftSampling), levels)
+      && !!this.tracer?.ready(this.rightData, JSON.stringify(this.rightSampling), levels)
+  }
+
   setFrames(left: Uint8Array, right: Uint8Array, mix: number, motion?: MotionField, intervalMinutes = 0): void {
     if (!this.gl || !this.left || !this.right) return
     // Afspelen zet dit op elke frame; een upload kost op Apple-GPU's een CPU-swizzle in het

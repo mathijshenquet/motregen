@@ -74,4 +74,31 @@ describe('rain contours', () => {
     tracer.dispose()
     expect(terminate).toHaveBeenCalledOnce()
   })
+
+  it('waits for the asynchronous filtered bytes once, and ignores completion after disposal', async () => {
+    vi.stubGlobal('Worker', undefined)
+    let ready: (bytes: Uint8Array) => void
+    const filtered = new Promise<Uint8Array>((resolve) => { ready = resolve })
+    const read = vi.fn(() => filtered)
+    const repaint = vi.fn()
+    const tracer = new RainContourTracer(grid, repaint)
+    const entry = tracer.get(frame, 'blur-5', [31.5], read)
+    expect(tracer.ready(frame, 'blur-5', [31.5])).toBe(false)
+    expect(tracer.get(frame, 'blur-5', [31.5], read)).toBe(entry)
+    expect(read).toHaveBeenCalledOnce()
+    expect(entry.result).toBeUndefined()
+    ready!(frame.slice())
+    await filtered
+    expect(entry.result).toBeDefined()
+    expect(tracer.ready(frame, 'blur-5', [31.5])).toBe(true)
+    expect(tracer.ready(frame, 'blur-9', [31.5])).toBe(false)
+    expect(repaint).toHaveBeenCalledOnce()
+
+    const disposed = new RainContourTracer(grid, repaint)
+    const stale = disposed.get(frame, 'blur-5', [31.5], read)
+    disposed.dispose()
+    await filtered
+    expect(stale.result).toBeUndefined()
+    expect(repaint).toHaveBeenCalledOnce()
+  })
 })

@@ -1697,7 +1697,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         }
       }
       const traceStarted = performance.now()
-      while (isolineSets.some((set) => set.active() && set.coverage() > 0 && !set.layer?.readyAtTime(set.time))) {
+      while ((layer && !layer.contoursReady()) || isolineSets.some((set) => set.active() && set.coverage() > 0 && !set.layer?.readyAtTime(set.time))) {
         if (performance.now() - traceStarted > 15_000) throw new Error('Isolijnsnede is niet klaar')
         await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
       }

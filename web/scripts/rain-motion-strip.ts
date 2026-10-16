@@ -1,13 +1,16 @@
 // Filmstrip van de regenkaart op vaste kaarttijden (bevroren snapshot), om beweging tussen frames te beoordelen.
 // Rig-haak: window.__motregenJumpTo (App.tsx). Gebruik: tsx scripts/rain-motion-strip.ts <origin> <uitmap> <start-ISO> <eind-ISO> <stap-min> [lng lat zoom]
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { chromium } from '@playwright/test'
 const [origin, outDir, startIso, endIso, stepText, cameraLng, cameraLat, cameraZoom] = process.argv.slice(2)
 const browser = await chromium.launch({ args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
 const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1, colorScheme: 'light', timezoneId: 'Europe/Amsterdam' })
 const page = await context.newPage()
 // Klok vast op het moment van de snapshot, anders veroudert de reproductie met de echte tijd.
-const manifest = await (await fetch(`${origin}/data/manifest.json`)).json()
+const manifest = process.env.REPRO_MANIFEST
+  ? JSON.parse(readFileSync(process.env.REPRO_MANIFEST, 'utf8'))
+  : await (await fetch(`${origin}/data/manifest.json`)).json()
+if (process.env.REPRO_MANIFEST) await page.route('**/data/manifest.json*', (route) => route.fulfill({ json: manifest }))
 await page.clock.setFixedTime(new Date(Date.parse(manifest.generated) + 60_000))
 const step = Number(stepText) * 60_000
 for (let epoch = Date.parse(startIso!); epoch <= Date.parse(endIso!); epoch += step) {
