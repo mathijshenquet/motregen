@@ -153,6 +153,26 @@ button { color: inherit; cursor: pointer; }
   font-size: 12px;
 }
 
+.rain-isoline-legend {
+  position: absolute;
+  z-index: 10;
+  left: 12px;
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 7px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+.rain-isoline-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.rain-isoline-legend i { display: inline-block; width: 14px; border-top: 2px solid; }
+.rain-isoline-legend small { color: var(--muted); font-size: 11px; }
+
 .uv-chip {
   --uv-color: var(--uv-moderate);
   display: inline-flex;

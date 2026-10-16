@@ -100,6 +100,32 @@ vec2 nearestSample(sampler2D frame, vec2 uv) {
   return vec2(value, (inside ? 1.0 : 0.0) * (1.0 - step(0.999, value)));
 }
 
+// Kubische B-spline over 4×4 cellen, alleen voor de isolijnen: continu in waarde én helling, dus de lijnen knikken
+// niet op de celgrenzen zoals bij lineair invullen. Cellen zonder data tellen niet mee.
+float smoothRain(sampler2D frame, vec2 uv) {
+  vec2 cell = uv * u_grid_size - 0.5;
+  vec2 base = floor(cell);
+  vec2 fraction = cell - base;
+  vec2 inverse = 1.0 - fraction;
+  vec2 squared = fraction * fraction;
+  vec2 cubed = squared * fraction;
+  vec4 weightX = vec4(inverse.x * inverse.x * inverse.x, 3.0 * cubed.x - 6.0 * squared.x + 4.0, -3.0 * cubed.x + 3.0 * squared.x + 3.0 * fraction.x + 1.0, cubed.x) / 6.0;
+  vec4 weightY = vec4(inverse.y * inverse.y * inverse.y, 3.0 * cubed.y - 6.0 * squared.y + 4.0, -3.0 * cubed.y + 3.0 * squared.y + 3.0 * fraction.y + 1.0, cubed.y) / 6.0;
+  ivec2 lastCell = ivec2(u_grid_size) - 1;
+  float sum = 0.0;
+  float weightSum = 0.0;
+  for (int row = 0; row < 4; row++) {
+    for (int column = 0; column < 4; column++) {
+      ivec2 texel = clamp(ivec2(base) + ivec2(column - 1, row - 1), ivec2(0), lastCell);
+      float raw = texelFetch(frame, texel, 0).r;
+      float weight = weightX[column] * weightY[row] * (1.0 - step(0.999, raw));
+      sum += raw * weight;
+      weightSum += weight;
+    }
+  }
+  return weightSum > 0.0 ? sum / weightSum : 0.0;
+}
+
 vec2 kernelSample(sampler2D frame, vec2 uv, float nearest) {
   return nearest > 0.5 ? nearestSample(frame, uv) : rainSample(frame, uv);
 }
@@ -124,9 +150,11 @@ void main() {
   color.rgb = mix(vec3(luma), color.rgb, u_saturation) * u_brightness;
   // Contour (U77-proef): fwidth is hoeveel de waarde per schermpixel verandert, dus dit is de afstand tot de
   // isolijn in schermpixels en blijft de lijn op elke zoom even dun.
+  float contourValue = u_outline_count > 0 ? mix(smoothRain(u_left, leftUv), smoothRain(u_right, rightUv), weight) : value;
+  float contourStep = max(fwidth(contourValue), 0.000001);
   for (int index = 0; index < MAX_OUTLINES; index++) {
     if (index >= u_outline_count) break;
-    float pixelsFromOutline = abs(value - u_outline_values[index]) / max(fwidth(value), 0.000001);
+    float pixelsFromOutline = abs(contourValue - u_outline_values[index]) / contourStep;
     float outline = (1.0 - smoothstep(0.0, u_outline_half_widths[index], pixelsFromOutline)) * u_outline_styles[index].a;
     color = mix(color, vec4(u_outline_styles[index].rgb, 1.0), outline);
   }
