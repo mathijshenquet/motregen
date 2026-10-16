@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CLOSED_FRACTION, cloudBand, cloudExtents, cloudSpanInSlot, layerTransmission, lightDarkness, skyAt, skyDarkness, skyStars, skyStops, skyStrokes, sunCrossings, valueNoise } from './cloud-section'
+import { CLOSED_FRACTION, FULL_ROW_FRACTION, cloudBand, cloudExtents, cloudSpansInSlot, layerTransmission, lightDarkness, skyAt, skyDarkness, skyStars, skyStops, skyStrokes, sunCrossings, valueNoise } from './cloud-section'
 import type { ManifestChunk, TimelineFrame } from './contract'
 
 const hour = 3_600_000
@@ -12,39 +12,44 @@ function frames(count: number): TimelineFrame[] {
   }))
 }
 
-describe('cloudSpanInSlot', () => {
+describe('cloudSpansInSlot', () => {
   it('draws nothing for clear sky or missing data', () => {
-    for (const fraction of [0, -0.05, Number.NaN]) expect(cloudSpanInSlot(fraction, 3, 'low')).toBeNull()
+    for (const fraction of [0, -0.05, Number.NaN]) expect(cloudSpansInSlot(fraction, 3, 'low')).toEqual([])
   })
 
   it('closes the layer from CLOSED_FRACTION up', () => {
-    expect(cloudSpanInSlot(CLOSED_FRACTION, 3, 'mid')).toEqual({ from: 0, to: 1, closed: true })
-    expect(cloudSpanInSlot(1, 3, 'mid')).toEqual({ from: 0, to: 1, closed: true })
-    expect(cloudSpanInSlot(CLOSED_FRACTION - 0.01, 3, 'mid')?.closed).not.toBe(true)
+    expect(cloudSpansInSlot(CLOSED_FRACTION, 3, 'mid')).toEqual([{ from: 0, to: 1, closed: true, row: 0 }])
+    expect(cloudSpansInSlot(1, 3, 'mid')).toEqual([{ from: 0, to: 1, closed: true, row: 0 }])
+    expect(cloudSpansInSlot(CLOSED_FRACTION - 0.01, 3, 'mid').some((span) => span.closed)).toBe(false)
   })
 
-  it('covers the fraction on average and always leaves air on both sides of a loose cloud', () => {
-    const slots = 4_000
+  const spans = (fraction: number, layer: 'high' | 'mid' | 'low', row: 0 | 1) =>
+    Array.from({ length: 4_000 }, (_, slot) => cloudSpansInSlot(fraction, slot, layer)).flat().filter((span) => span.row === row)
+
+  it('grows in number, not in size, up to half cover, and covers the fraction there on average (PO 2026-10-16)', () => {
     for (const layer of ['high', 'mid', 'low'] as const) {
-      for (const fraction of [0.1, 0.25, 0.5, 0.7, 0.85]) {
-        let covered = 0
-        for (let slot = 0; slot < slots; slot++) {
-          const span = cloudSpanInSlot(fraction, slot, layer)
-          if (!span) continue
-          expect(span.from).toBeGreaterThan(0)
-          expect(span.to).toBeLessThan(1)
-          covered += span.to - span.from
-        }
-        expect(Math.abs(covered / slots - fraction)).toBeLessThan(0.03)
+      const counts = [0.1, 0.25, FULL_ROW_FRACTION].map((fraction) => spans(fraction, layer, 0).length)
+      expect(counts[0]!).toBeLessThan(counts[1]!)
+      expect(counts[1]!).toBeLessThan(counts[2]!)
+      for (const fraction of [0.1, 0.25, FULL_ROW_FRACTION]) {
+        const front = spans(fraction, layer, 0)
+        const lengths = front.map((span) => span.to - span.from)
+        expect(Math.min(...lengths)).toBeGreaterThanOrEqual(0.4)
+        expect(Math.abs(lengths.reduce((sum, length) => sum + length, 0) / 4_000 - fraction)).toBeLessThan(0.03)
+        for (const span of front) { expect(span.from).toBeGreaterThan(0); expect(span.to).toBeLessThan(1) }
+        expect(spans(fraction, layer, 1)).toEqual([])
       }
     }
   })
 
-  it('makes sparse cloud rarer instead of smaller', () => {
-    const lengths = Array.from({ length: 200 }, (_, slot) => cloudSpanInSlot(0.1, slot, 'low')).flatMap((span) => span ? [span.to - span.from] : [])
-    expect(lengths.length).toBeGreaterThan(30)
-    expect(lengths.length).toBeLessThan(110)
-    expect(Math.min(...lengths)).toBeGreaterThan(0.25)
+  it('stacks a second row behind the first above half cover, filling up towards CLOSED_FRACTION', () => {
+    for (const layer of ['high', 'mid', 'low'] as const) {
+      const backCounts = [0.6, 0.75, 0.85].map((fraction) => spans(fraction, layer, 1).length)
+      expect(backCounts[0]!).toBeGreaterThan(0)
+      expect(backCounts[0]!).toBeLessThan(backCounts[1]!)
+      expect(backCounts[1]!).toBeLessThan(backCounts[2]!)
+      expect(spans(0.75, layer, 0)).toHaveLength(4_000)
+    }
   })
 })
 
@@ -55,6 +60,7 @@ describe('cloudExtents', () => {
     expect(closed[0]!.to - closed[0]!.from).toBeGreaterThanOrEqual(8 * hour)
     const broken = cloudExtents(frames(9), new Array(9).fill(50), 'low', start, start + 8 * hour, hour)
     expect(broken.length).toBeGreaterThan(4)
+    expect(broken.every((extent) => extent.row === 0)).toBe(true)
     for (let index = 1; index < broken.length; index++) expect(broken[index]!.from).toBeGreaterThan(broken[index - 1]!.to)
   })
 })
