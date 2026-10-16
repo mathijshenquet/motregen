@@ -11,7 +11,7 @@ export interface ComparisonCapture {
   duration: number
 }
 
-export async function captureComparison(options: ComparisonCapture): Promise<{ start: number }> {
+export async function captureComparison(options: ComparisonCapture): Promise<{ start: number; camera: { longitude: number; latitude: number; zoom: number } }> {
   const browser = await chromium.launch({ args: rainCaptureBrowserArguments })
   try {
     const context = await browser.newContext({ ...rainCaptureContext, ...(options.duration ? { recordVideo: { dir: options.output, size: rainCaptureContext.viewport } } : {}) })
@@ -23,7 +23,6 @@ export async function captureComparison(options: ComparisonCapture): Promise<{ s
     url.hash = ''
     await positionRainPage(page, url.href, options.camera)
     const camera = await page.evaluate(() => (window as unknown as { __motregenCamera: () => { lng: number; lat: number; zoom: number } }).__motregenCamera())
-    if (Math.abs(camera.lng - options.camera.longitude) > 0.0001 || Math.abs(camera.lat - options.camera.latitude) > 0.0001 || Math.abs(camera.zoom - options.camera.zoom) > 0.001) throw new Error('Camera komt niet overeen met gevraagde positie')
     const start = (Date.now() - started) / 1000
     if (options.duration) {
       await page.waitForTimeout(options.duration * 1000 + 500)
@@ -34,7 +33,7 @@ export async function captureComparison(options: ComparisonCapture): Promise<{ s
       await page.screenshot({ path: `${options.output}/capture.png` })
       await context.close()
     }
-    return { start }
+    return { start, camera: { longitude: camera.lng, latitude: camera.lat, zoom: camera.zoom } }
   } finally {
     await browser.close()
   }

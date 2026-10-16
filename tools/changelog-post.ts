@@ -14,9 +14,12 @@ interface PostedState {
   complete: boolean
   pending: 'text' | 'media' | null
   deleted_ids?: number[]
+  layout: 'items' | 'album'
+  media_sent: number
 }
 interface TelegramMessage { message_id: number }
 type Fetch = typeof fetch
+interface PostOptions { dryRun?: boolean; test?: boolean; layout?: 'items' | 'album' }
 
 export function releaseText(release: Release): string {
   const text = `Motregen Updates · v${release.version}\n\n${release.notes.map((note) => `${note.title}\n${note.body}`).join('\n\n')}\n\nhttps://motregen.nl/changelog#v${release.version}`
@@ -24,7 +27,8 @@ export function releaseText(release: Release): string {
   return text
 }
 
-export async function postRelease(root: string, version: string, chatId: string, token: string, fetcher: Fetch = fetch, dryRun = false, test = false): Promise<string> {
+export async function postRelease(root: string, version: string, chatId: string, token: string, fetcher: Fetch = fetch, options: PostOptions = {}): Promise<string> {
+  const { dryRun = false, test = false, layout = 'items' } = options
   if (!/^(?:-?\d+|@[a-zA-Z][a-zA-Z0-9_]{4,})$/.test(chatId)) throw new Error('Ongeldig chat-id of @kanaal')
   const release = readRelease(root, version)
   const text = `${test ? 'TEST\n' : ''}${releaseText(release)}`
@@ -33,18 +37,18 @@ export async function postRelease(root: string, version: string, chatId: string,
   if (media.length > 10) throw new Error('Een release kan maximaal 10 media-items bevatten')
   const fingerprint = createHash('sha256').update(JSON.stringify(release))
   for (const item of media) fingerprint.update(readFileSync(mediaPath(root, item.file)))
-  const digest = fingerprint.digest('hex')
+  const digest = fingerprint.update(layout).digest('hex')
   const directory = resolve(root, `changes/v${version}`)
   const statePath = resolve(directory, test ? 'posted.test.json' : 'posted.json')
   const lockPath = resolve(directory, 'posted.lock')
-  if (dryRun) return `${text}\n\n${media.map((item) => `${item.file}: ${item.caption}`).join('\n')}\nGeen berichten verstuurd.`
+  if (dryRun) return `Chat: ${chatId}\nMedia: ${layout === 'album' ? 'album (los item bij één bestand)' : 'los bericht per item'}\n\n${text}\n\n${media.map((item) => `${item.file}: ${item.caption}`).join('\n')}\nGeen berichten verstuurd.`
   let lock: number
   try { lock = openSync(lockPath, 'wx', 0o600) } catch { throw new Error('Postvergrendeling bestaat; controleer eerst of een andere posttool draait') }
   try {
-    let state: PostedState = { version, chat_id: chatId, fingerprint: digest, message_ids: [], text_sent: false, complete: false, pending: null }
+    let state: PostedState = { version, chat_id: chatId, fingerprint: digest, message_ids: [], text_sent: false, complete: false, pending: null, layout, media_sent: 0 }
     if (existsSync(statePath)) {
       state = JSON.parse(readFileSync(statePath, 'utf8')) as PostedState
-      if (state.version !== version || state.chat_id !== chatId || state.fingerprint !== digest || !Array.isArray(state.message_ids) || !state.message_ids.every(Number.isSafeInteger) || typeof state.complete !== 'boolean' || typeof state.text_sent !== 'boolean' || ![null, 'text', 'media'].includes(state.pending)) throw new Error('posted.json past niet bij deze release/chat of is ongeldig')
+      if (state.version !== version || state.chat_id !== chatId || state.fingerprint !== digest || state.layout !== layout || !Number.isSafeInteger(state.media_sent) || state.media_sent < 0 || state.media_sent > media.length || !Array.isArray(state.message_ids) || !state.message_ids.every(Number.isSafeInteger) || typeof state.complete !== 'boolean' || typeof state.text_sent !== 'boolean' || ![null, 'text', 'media'].includes(state.pending)) throw new Error('posted.json past niet bij deze release/chat/opmaak of is ongeldig')
       if (state.complete) return `v${version} is al gepost (${state.message_ids.join(', ')}).`
       if (state.pending) throw new Error(`Onzekere eerdere ${state.pending}-post: controleer Telegram en herstel posted.json vóór een nieuwe poging`)
     }
@@ -88,24 +92,29 @@ export async function postRelease(root: string, version: string, chatId: string,
       state.text_sent = true
       persist()
     }
-    if (attachments.length) {
-      const body = new FormData()
-      body.set('chat_id', chatId)
-      if (attachments.length === 1) {
-        const attachment = attachments[0]!
+    if (attachments.length > state.media_sent && (layout === 'items' || attachments.length === 1)) {
+      for (const attachment of attachments.slice(state.media_sent)) {
+        const body = new FormData()
+        body.set('chat_id', chatId)
         body.set(attachment.video ? 'video' : 'photo', attachment.blob, attachment.video ? 'media.mp4' : 'media.jpg')
         body.set('caption', attachment.item.caption)
         if (attachment.video) body.set('supports_streaming', 'true')
         await request(attachment.video ? 'sendVideo' : 'sendPhoto', body, 'media')
-      } else {
-        const album = attachments.map((attachment, index) => {
-          const name = `media${index}`
-          body.set(name, attachment.blob, `${name}.${attachment.video ? 'mp4' : 'jpg'}`)
-          return { type: attachment.video ? 'video' : 'photo', media: `attach://${name}`, caption: attachment.item.caption, ...(attachment.video ? { supports_streaming: true } : {}) }
-        })
-        body.set('media', JSON.stringify(album))
-        await request('sendMediaGroup', body, 'media')
+        state.media_sent++
+        persist()
       }
+    } else if (attachments.length > state.media_sent) {
+      const body = new FormData()
+      body.set('chat_id', chatId)
+      const album = attachments.map((attachment, index) => {
+        const name = `media${index}`
+        body.set(name, attachment.blob, `${name}.${attachment.video ? 'mp4' : 'jpg'}`)
+        return { type: attachment.video ? 'video' : 'photo', media: `attach://${name}`, caption: attachment.item.caption, ...(attachment.video ? { supports_streaming: true } : {}) }
+      })
+      body.set('media', JSON.stringify(album))
+      await request('sendMediaGroup', body, 'media')
+      state.media_sent = attachments.length
+      persist()
     }
     state.complete = true
     persist()
@@ -141,10 +150,10 @@ export async function deleteTestPost(root: string, version: string, chatId: stri
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     const [version, chatId, ...flags] = process.argv.slice(2)
-    if (!version || !chatId || flags.some((flag) => !['--dry-run', '--test', '--delete-test'].includes(flag)) || (flags.includes('--delete-test') && flags.length !== 1)) throw new Error('Gebruik: pnpm changelog:post <versie> <chat-id> [--dry-run] [--test] | --delete-test')
+    if (!version || !chatId || flags.some((flag) => !['--dry-run', '--test', '--delete-test', '--album'].includes(flag)) || (flags.includes('--delete-test') && flags.length !== 1)) throw new Error('Gebruik: pnpm changelog:post <versie> <chat-id> [--dry-run] [--test] [--album] | --delete-test')
     const environmentPath = resolve(repositoryRoot, '.env')
     if (existsSync(environmentPath)) process.loadEnvFile(environmentPath)
-    console.log(flags.includes('--delete-test') ? await deleteTestPost(repositoryRoot, version, chatId, process.env.TG_BOT_KEY ?? '') : await postRelease(repositoryRoot, version, chatId, process.env.TG_BOT_KEY ?? '', fetch, flags.includes('--dry-run'), flags.includes('--test')))
+    console.log(flags.includes('--delete-test') ? await deleteTestPost(repositoryRoot, version, chatId, process.env.TG_BOT_KEY ?? '') : await postRelease(repositoryRoot, version, chatId, process.env.TG_BOT_KEY ?? '', fetch, { dryRun: flags.includes('--dry-run'), test: flags.includes('--test'), layout: flags.includes('--album') ? 'album' : 'items' }))
   } catch (error) {
     console.error(error instanceof Error ? error.message : 'Telegram-publicatie mislukt')
     process.exitCode = 1

@@ -57,13 +57,15 @@ pnpm changelog:post 0.1.1 -1004364574650
 ```
 
 `TG_BOT_KEY` komt uit de omgeving of de root-`.env`. Eerst volgt één tekstbericht met versie,
-titels en notities, daarna een album met 2–10 items; bij één item een losse foto/video, bij nul
-alleen tekst. WebP wordt voor Telegram-foto's naar JPEG omgezet. Video's blijven H.264-MP4.
+titels en notities, daarna één los bericht per media-item, met het bijschrift direct zichtbaar.
+De PO koos hiervoor na de echte albumproef. Met `--album` volgt in plaats daarvan een album
+met 2–10 items; bij één item een losse foto/video, bij nul alleen tekst.
+WebP wordt voor Telegram-foto's naar JPEG omgezet. Video's blijven H.264-MP4.
 
 Message-ids en voortgang staan in het genegeerde `changes/vX.Y.Z/posted.json`. Bewaar dit
 bestand bij een checkoutwissel: zonder deze lokale administratie kan de tool een eerdere post
 niet herkennen. Een voltooide post wordt overgeslagen; na een expliciete API-afwijzing hervat
-dezelfde opdracht na de al verstuurde tekst. Bij een verbroken verbinding of crash tussen
+dezelfde opdracht na de al verstuurde tekst en media-items. Bij een verbroken verbinding of crash tussen
 versturen en opslaan weigert de tool opnieuw te sturen: controleer eerst de chat en vul de
 werkelijk verstuurde message-ids/voortgang in. Een bestaand `posted.lock` verwijder je alleen
 nadat is gecontroleerd dat geen andere poster draait.
@@ -77,7 +79,9 @@ een eigen caption. De [clientrichtlijn](https://core.telegram.org/api/files#albu
 zegt voor fotoalbums: één caption staat onder het hele album; bij meerdere captions staat er
 geen gezamenlijke caption en verschijnt het bijschrift pas als je de foto opent. De weergave
 van andere gegroepeerde media kan verschillen per client. Het tekstbericht houdt daarom
-alle titels en notities direct leesbaar.
+alle titels en notities direct leesbaar. In onze proef op 16 oktober 2026 zag de PO in de app
+de bijschriften alleen na openen; het publieke webvoorbeeld toonde alleen het eerste onder
+de fotogroep. Daarom zijn losse berichten de standaard en is `--album` optioneel.
 
 [Telegraph](https://telegra.ph/api#NodeElement) ondersteunt afbeeldingen, video en bijschriften
 in een artikel. Dat kan een prettige doorlopende leesweergave geven, maar biedt geen
@@ -94,9 +98,12 @@ pnpm changelog:compare http://localhost:4301 http://localhost:4302 /weer changes
 pnpm changelog:compare http://localhost:4301 http://localhost:4302 /weer changes/media/regen.mp4 --time 2026-10-16T08:00:00Z --now 2026-10-16T08:01:00Z --duration 4
 ```
 
-Optioneel: `--longitude`, `--latitude`, `--zoom` (standaard 5.3, 52.2, 6.5). Zonder `--now`
-wordt de klok voor beide vastgezet op de generated-tijd van de eerste origin plus één minuut.
+Optioneel: `--longitude`, `--latitude`, `--zoom` (standaard 5.3, 52.2, 6.5). Relatieve
+uitvoerpaden worden vanaf de repositoryroot gelezen. Zonder `--now` wordt de klok voor beide
+vastgezet op de generated-tijd van de eerste origin plus één minuut.
 De tool deelt de opnamevoorbereiding van `web/scripts/rain-motion-strip.ts`, gebruikt de
 camerahaak en zet de beelden met ffmpeg naast elkaar, gelabeld `voor` en `na`.
+Kaartbegrenzing kan de gevraagde camera bijstellen: de tool neemt de werkelijke camera van
+de eerste build over en controleert dat de tweede exact hetzelfde kaartvenster gebruikt.
 De eerste versie neemt clips achtereenvolgens op; animatiefase en netwerkbelasting zijn
 niet gesynchroniseerd. URL, geselecteerde tijd, klok en camera wel.

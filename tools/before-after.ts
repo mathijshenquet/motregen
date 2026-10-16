@@ -1,15 +1,18 @@
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, extname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 import { captureComparison } from '../web/scripts/before-after-capture'
-import { maxMediaBytes } from './changelog'
-import { statSync } from 'node:fs'
+import { maxMediaBytes, repositoryRoot } from './changelog'
 
 export function comparisonFilter(): string {
   return "[0:v]scale=640:400,setsar=1,drawbox=x=0:y=0:w=iw:h=38:color=black@0.7:t=fill,drawtext=text=voor:fontcolor=white:fontsize=24:x=16:y=6[before];[1:v]scale=640:400,setsar=1,drawbox=x=0:y=0:w=iw:h=38:color=black@0.7:t=fill,drawtext=text=na:fontcolor=white:fontsize=24:x=16:y=6[after];[before][after]hstack=inputs=2[out]"
+}
+
+export function sameCamera(left: { longitude: number; latitude: number; zoom: number }, right: { longitude: number; latitude: number; zoom: number }): boolean {
+  return Math.abs(left.longitude - right.longitude) < 0.0001 && Math.abs(left.latitude - right.latitude) < 0.0001 && Math.abs(left.zoom - right.zoom) < 0.001
 }
 
 export async function beforeAfter(arguments_: string[]): Promise<void> {
@@ -21,7 +24,7 @@ export async function beforeAfter(arguments_: string[]): Promise<void> {
   const camera = { longitude: Number(values.longitude), latitude: Number(values.latitude), zoom: Number(values.zoom) }
   if (!Number.isFinite(duration) || duration < 0 || duration > 12 || Object.values(camera).some((value) => !Number.isFinite(value)) || Math.abs(camera.longitude) > 180 || Math.abs(camera.latitude) > 85 || camera.zoom < 0 || camera.zoom > 20) throw new Error('Ongeldige duur of camera')
   if (!Number.isFinite(Date.parse(values.time))) throw new Error('Ongeldige --time')
-  const output = resolve(outputName)
+  const output = resolve(repositoryRoot, outputName)
   if (extname(output) !== (duration ? '.mp4' : '.webp')) throw new Error('Gebruik .webp voor een still, .mp4 met --duration')
   let now = values.now
   if (!now) {
@@ -35,10 +38,13 @@ export async function beforeAfter(arguments_: string[]): Promise<void> {
   mkdirSync(dirname(output), { recursive: true })
   try {
     const starts: number[] = []
+    let effectiveCamera = camera
     for (const [index, origin] of [before, after].entries()) {
       const directory = resolve(scratch, String(index))
       mkdirSync(directory)
-      const captured = await captureComparison({ origin, path, output: directory, time: values.time, now, camera, duration })
+      const captured = await captureComparison({ origin, path, output: directory, time: values.time, now, camera: effectiveCamera, duration })
+      if (index === 0) effectiveCamera = captured.camera
+      else if (!sameCamera(effectiveCamera, captured.camera)) throw new Error('De twee builds begrenzen de camera verschillend; kies een hogere --zoom')
       starts.push(captured.start)
     }
     const inputs = duration ? ['-ss', String(starts[0]), '-i', `${scratch}/0/capture.webm`, '-ss', String(starts[1]), '-i', `${scratch}/1/capture.webm`] : ['-i', `${scratch}/0/capture.png`, '-i', `${scratch}/1/capture.png`]
@@ -46,6 +52,7 @@ export async function beforeAfter(arguments_: string[]): Promise<void> {
     execFileSync('ffmpeg', ['-y', '-v', 'error', ...inputs, '-filter_complex', comparisonFilter(), '-map', '[out]', ...encoding, output], { stdio: 'pipe' })
     if (statSync(output).size > maxMediaBytes) throw new Error('Uitvoer is groter dan 2 MB; kies een kortere clip')
     console.log(`Voor/na opgeslagen: ${output}`)
+    console.log(`Klok: ${now}; kaarttijd: ${values.time}; camera: ${JSON.stringify(effectiveCamera)}`)
   } finally { rmSync(scratch, { recursive: true, force: true }) }
 }
 
