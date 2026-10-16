@@ -180,7 +180,8 @@ const LAYER_STYLES: Record<CloudLayer, LayerStyle> = {
   // Maten naar de PO (2026-10-07 live): fysiek groot, zoals de doorsnede van vóór U47.
   // Vakken twee keer zo lang als vóór 2026-10-16: een wolk van vaste maat (half vak) is dan groot genoeg dat 50 %
   // er als "wat grote wolken" uitziet (PO).
-  high: { slotHours: 2.5, closedBody: 0.24, looseBody: 0.24, aspect: 7, baseline: 0.5 },
+  // Hoog: meer en dikkere wolken, anders vallen ze onder 90 % nauwelijks op (PO 2026-10-16).
+  high: { slotHours: 1.6, closedBody: 0.3, looseBody: 0.38, aspect: 6, baseline: 0.5 },
   mid: { slotHours: 5, closedBody: 0.74, looseBody: 0.6, aspect: 2.6, baseline: 0.64, puffs: { puffAspect: 0.8, underside: 0.3 } },
   // De basis ligt ruim boven de onderrand van het plot (PO 2026-10-07 live): onder de wolk blijft lucht,
   // anders valt de vlakke onderkant, het kenmerk van een stapelwolk, tegen de rand weg.
@@ -197,14 +198,14 @@ const CLOSED_BODY_FLOOR = 0.55
 // Ook het kleinste wolkje houdt deze dikte (deel van de grootste), anders wordt het een streepje.
 const MIN_LOOSE_THICKNESS = 0.35
 // Cirrus: een wolk is een bundel dunne vegen die allemaal dezelfde kant op hellen (één wind).
-const CIRRUS_STRAND_PITCH_PX = 30
+const CIRRUS_STRAND_PITCH_PX = 20
 const CIRRUS_STRAND_LENGTH_PX = 76
 const CIRRUS_SLANT = 0.16
 // Verticale spreiding van de vegen als deel van de strook.
 const CIRRUS_SPREAD = 0.42
 // Schapenwolkjes: afstand tussen de bolletjes en hun halve breedte.
-const CIRROCUMULUS_PITCH_PX = 11
-const CIRROCUMULUS_RADIUS_PX = 5
+const CIRROCUMULUS_PITCH_PX = 14
+const CIRROCUMULUS_RADIUS_PX = 7
 const HOUR = 3_600_000
 // De gestapelde rij: hoger (deel van de strookhoogte) en kleiner dan de voorste.
 const BACK_ROW_LIFT = 0.16
@@ -287,8 +288,9 @@ export function cloudBand(frames: TimelineFrame[], values: Array<number | null>,
       const outlines = style.puffs ? [puffOutline(shape, width, style.puffs)] : cirrusShapes(shape, width, height * CIRRUS_SPREAD)
       for (const outline of outlines) {
         if (outline.xs.length < 2) continue
-        const upper = outline.xs.map((x, index) => `${round(x)} ${round(Math.max(top, baseline + outline.centre[index]! - outline.up[index]!))}`)
-        const lower = outline.xs.map((x, index) => `${round(x)} ${round(Math.min(bottom, baseline + outline.centre[index]! + outline.down[index]!))}`)
+        const inStrip = (y: number) => Math.min(bottom, Math.max(top, y))
+        const upper = outline.xs.map((x, index) => `${round(x)} ${round(inStrip(baseline + outline.centre[index]! - outline.up[index]!))}`)
+        const lower = outline.xs.map((x, index) => `${round(x)} ${round(inStrip(baseline + outline.centre[index]! + outline.down[index]!))}`)
         shapePaths.push(`M${upper.join('L')}L${lower.reverse().join('L')}Z`)
       }
       if (shapePathCache.size >= SHAPE_PATH_CACHE_LIMIT) shapePathCache.clear()
