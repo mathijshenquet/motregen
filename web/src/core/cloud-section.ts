@@ -18,9 +18,6 @@ export const CLOSED_FRACTION = 0.9
 // elkaar. Daarboven vult een tweede, gestapelde rij achter de eerste (PO 2026-10-16: "bij 50% wolkenlaag wat grote
 // wolken tekenen, en daarboven een soort stacked wolkenlaag").
 export const FULL_ROW_FRACTION = 0.5
-// Hoge bewolking: vanaf hier een doorschijnende sluier achter de vegen, anders oogt 85 % als een paar losse vegen
-// (PO 2026-10-16).
-const HIGH_VEIL_FRACTION = 0.6
 // Lengte van een losse wolk als deel van de periode (wolk plus gat bij een volle rij); gemiddeld FULL_ROW_FRACTION.
 const CLOUD_LENGTH = { minimum: 0.4, maximum: 0.6 }
 // De gestapelde rij is langer en platter: ze spreidt zich horizontaal uit achter de voorste wolken.
@@ -145,8 +142,7 @@ const LAYER_STYLES: Record<CloudLayer, LayerStyle> = {
   // Maten naar de PO (2026-10-07 live): fysiek groot, zoals de doorsnede van vóór U47.
   // Vakken twee keer zo lang als vóór 2026-10-16: een wolk van vaste maat (half vak) is dan groot genoeg dat 50 %
   // er als "wat grote wolken" uitziet (PO).
-  // Hoog: meer en dikkere wolken, anders vallen ze onder 90 % nauwelijks op (PO 2026-10-16).
-  high: { slotHours: 1.6, closedBody: 0.3, looseBody: 0.38, aspect: 6, baseline: 0.5 },
+  high: { slotHours: 1.25, closedBody: 0.24, looseBody: 0.24, aspect: 7, baseline: 0.5 },
   mid: { slotHours: 5, closedBody: 0.74, looseBody: 0.6, aspect: 2.6, baseline: 0.64, puffs: { puffAspect: 0.8, underside: 0.3 } },
   // De basis ligt ruim boven de onderrand van het plot (PO 2026-10-07 live): onder de wolk blijft lucht,
   // anders valt de vlakke onderkant, het kenmerk van een stapelwolk, tegen de rand weg.
@@ -163,10 +159,13 @@ const CLOSED_BODY_FLOOR = 0.55
 // Ook het kleinste wolkje houdt deze dikte (deel van de grootste), anders wordt het een streepje.
 const MIN_LOOSE_THICKNESS = 0.35
 // Cirrus: een wolk is een bundel dunne vegen die allemaal dezelfde kant op hellen (één wind).
-const CIRRUS_STRAND_PITCH_PX = 22
-const CIRRUS_FIBRES = 4
-const CIRRUS_VEIL_FADE_PX = 40
-const CIRRUS_VEIL_STREAKS = 5
+const CIRRUS_STRAND_PITCH_PX = 30
+// In een gesloten laag liggen de vegen dichter op elkaar, zodat 100 % "veel" voelt (PO 2026-10-16).
+const CIRRUS_CLOSED_PITCH_PX = 14
+// Vegen in drie rijen met een beetje spreiding, en dunner dan vóór 2026-10-16.
+const CIRRUS_ROWS = 3
+const CIRRUS_ROW_JITTER = 0.15
+const CIRRUS_THINNING = 0.75
 const CIRRUS_STRAND_LENGTH_PX = 76
 const CIRRUS_SLANT = 0.16
 // Verticale spreiding van de vegen als deel van de strook.
@@ -217,9 +216,7 @@ export function cloudExtents(frames: TimelineFrame[], values: Array<number | nul
     const length = periodMs * (range.minimum + (range.maximum - range.minimum) * unitHash(count + seed + row * 0.53))
     return { from, to: from + length, closed: false, row }
   }
-  // Hoge bewolking is boven HIGH_VEIL_FRACTION een sluier (cirrostratus) met vegen erin; lage en middelbare
-  // wolken krijgen pas bij CLOSED_FRACTION een dek.
-  const deckFrom = layer === 'high' ? HIGH_VEIL_FRACTION : CLOSED_FRACTION
+  const deckFrom = CLOSED_FRACTION
   for (let epoch = anchor; epoch < end + periodMs; epoch += step) {
     const fraction = fractionAt(epoch + step / 2)
     if (fraction >= deckFrom) {
@@ -280,7 +277,7 @@ export function cloudBand(frames: TimelineFrame[], values: Array<number | null>,
     let shapePaths = shapePathCache.get(cacheKey)
     if (!shapePaths) {
       shapePaths = []
-      const outlines = style.puffs ? [puffOutline(shape, width, style.puffs)] : cloud.closed ? cirrusVeil(shape, width) : cirrusShapes(shape, width, height * CIRRUS_SPREAD)
+      const outlines = style.puffs ? [puffOutline(shape, width, style.puffs)] : cirrusStrands(shape, width, height * CIRRUS_SPREAD)
       for (const outline of outlines) {
         if (outline.xs.length < 2) continue
         const inStrip = (y: number) => Math.min(bottom, Math.max(top, y))
@@ -349,77 +346,30 @@ function roundedEnd(t: number): number {
   return Math.sqrt(Math.max(0, 1 - (1 - t) ** 2))
 }
 
-/** Cirrus: een bundel dunne, spitse vegen op wisselende hoogte; gesloten overlappen ze tot een sluier. */
 /**
- * Hoge bewolking als vegen (cirrus fibratus) of vegen met een omgekrulde staart (cirrus uncinus), per wolk gekozen
- * (PO 2026-10-16: "de hoge wolken een diversere look"). Een gesloten laag blijft een dichte bundel vegen.
- * Schapenwolkjes (losse stipjes) vielen af: tussen vegen leken ze op een fout.
+ * Hoge bewolking als vegen, zoals vóór 2026-10-16 (de PO vond die mooier), met drie verbeteringen: regelmatiger
+ * (in drie rijen in plaats van willekeurig over de strook), iets dunner, en dichter op elkaar in een gesloten laag zodat
+ * 100 % ook "veel" voelt.
  */
-function cirrusShapes(shape: CloudShape, width: number, spread: number): Outline[] {
-  return cirrusStrands(shape, width, spread, !shape.closed && unitHash(shape.key + 0.91) >= 0.55)
-}
-
-/**
- * Cirrostratus als lange, dunne, licht golvende banen over de hele bedekte strook: gestreept in plaats van een vlak,
- * zodat het hoge wolk blijft (PO 2026-10-16: "een vrij vormloze blob, geen streaks meer").
- */
-function cirrusVeil(shape: CloudShape, width: number): Outline[] {
-  const fade = Math.max(1, Math.min(CIRRUS_VEIL_FADE_PX, (shape.toX - shape.fromX) / 2))
-  const half = shape.thickness * 0.5
-  const streaks: Outline[] = []
-  for (let streak = 0; streak < CIRRUS_VEIL_STREAKS; streak++) {
-    const streakKey = shape.key + streak * 2.37
-    // Elke baan begint en eindigt op een eigen plek, zodat de einden rafelen in plaats van recht af te snijden.
-    const inset = (shape.toX - shape.fromX) * 0.12 * unitHash(streakKey + 0.19)
-    const from = shape.fromX + inset
-    const to = shape.toX - (shape.toX - shape.fromX) * 0.12 * unitHash(streakKey + 0.43)
-    const xs = sampleXs(from, to, width)
-    const level = (streak / (CIRRUS_VEIL_STREAKS - 1) - 0.5) * half * 1.8
-    const streakHalf = half * (0.12 + 0.1 * unitHash(streakKey + 0.67))
-    const thickness = xs.map((x) => streakHalf * Math.min(1, Math.min(x - from, to - x) / fade) * (0.6 + 0.4 * (valueNoise(x / 17 + streakKey) * 0.5 + 0.5)))
-    streaks.push({ xs, up: thickness, down: thickness, centre: xs.map((x) => level + half * 0.18 * valueNoise(x / 53 + streakKey)) })
-  }
-  return streaks
-}
-
-function cirrusStrands(shape: CloudShape, width: number, spread: number, hooked: boolean): Outline[] {
+function cirrusStrands(shape: CloudShape, width: number, spread: number): Outline[] {
   const length = shape.toX - shape.fromX
-  const count = Math.max(1, Math.round(length / CIRRUS_STRAND_PITCH_PX))
-  const fibres: Outline[] = []
+  const pitch = shape.closed ? CIRRUS_CLOSED_PITCH_PX : CIRRUS_STRAND_PITCH_PX
+  const count = Math.max(1, Math.round(length / pitch))
+  const strandLength = Math.min(length, CIRRUS_STRAND_LENGTH_PX)
+  const strands: Outline[] = []
   for (let index = 0; index < count; index++) {
     const strandKey = shape.key + index * 3.71
-    // Elke veeg een eigen lengte, helling en lichte boog, zodat een bundel niet uit kopieën bestaat.
-    const strandLength = Math.min(length, CIRRUS_STRAND_LENGTH_PX * (0.65 + 0.7 * unitHash(strandKey + 0.13)))
-    const slant = CIRRUS_SLANT * (0.5 + unitHash(strandKey + 0.29))
     const from = shape.fromX + (length - strandLength) * (count === 1 ? 0.5 : index / (count - 1))
-    const offset = count === 1 ? 0 : (unitHash(strandKey) - 0.5) * spread
-    const half = shape.thickness * (0.45 + 0.55 * unitHash(strandKey + 0.61)) / 2
-    const bow = (unitHash(strandKey + 0.47) - 0.5) * half * 2
-    // Een veeg is een bundel dunne vezels (PO 2026-10-16: "die hoge wolken nog nicer"): elk een eigen lengte en
-    // een kleine verschuiving dwars op de veeg, zodat de uiteinden in losse draden uitlopen zoals bij cirrus.
-    for (let fibre = 0; fibre < CIRRUS_FIBRES; fibre++) {
-      const fibreKey = strandKey + fibre * 1.93
-      const share = 0.55 + 0.45 * unitHash(fibreKey + 0.17)
-      const fibreLength = strandLength * share
-      const fibreFrom = from + (strandLength - fibreLength) * unitHash(fibreKey + 0.33)
-      const across = (fibre / (CIRRUS_FIBRES - 1) - 0.5) * half * 1.6 + (unitHash(fibreKey + 0.59) - 0.5) * half * 0.4
-      const fibreHalf = half * (0.3 + 0.2 * unitHash(fibreKey + 0.71))
-      const xs = sampleXs(fibreFrom, fibreFrom + fibreLength, width)
-      const along = xs.map((x) => (x - from) / strandLength)
-      const own = xs.map((x) => (x - fibreFrom) / fibreLength)
-      // Uncinus: de vezels lopen dun uit naar een staart die links omhoog krult; anders spoelvormig.
-      const profile = own.map((position, sample) => hooked
-        ? fibreHalf * Math.max(0, Math.sin(Math.PI * Math.min(1, position * 1.1))) * (0.3 + 0.7 * along[sample]!)
-        : fibreHalf * Math.max(0, Math.sin(Math.PI * position)) ** 1.2)
-      const centre = along.map((position) => {
-        const tilt = offset + across + strandLength * slant * (0.5 - position) + bow * Math.sin(Math.PI * position)
-        const curl = hooked ? half * 3 * Math.max(0, (0.3 - position) / 0.3) ** 2 : 0
-        return tilt - curl
-      })
-      fibres.push({ xs, up: profile, down: profile, centre })
-    }
+    const xs = sampleXs(from, from + strandLength, width)
+    const row = count === 1 ? 0 : (index % CIRRUS_ROWS) / (CIRRUS_ROWS - 1) - 0.5
+    const offset = row * spread + (unitHash(strandKey) - 0.5) * spread * CIRRUS_ROW_JITTER
+    const half = shape.thickness * CIRRUS_THINNING * (0.8 + 0.2 * unitHash(strandKey + 0.61)) / 2
+    const along = xs.map((x) => (x - from) / strandLength)
+    const profile = along.map((position) => half * Math.max(0, Math.sin(Math.PI * position)) ** 1.5)
+    // De staart hangt lager dan de kop: de veeg helt naar rechts omhoog.
+    strands.push({ xs, up: profile, down: profile, centre: along.map((position) => offset + strandLength * CIRRUS_SLANT * (0.5 - position)) })
   }
-  return fibres
+  return strands
 }
 
 /** Gladde 1D-ruis in [−1, 1], deterministisch (zelfde vorm bij elke render). */
