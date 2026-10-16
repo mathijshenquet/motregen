@@ -1,5 +1,35 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-16 17:06 CEST — v0.2.0 uitgerold en in @motregen_updates (Claude, w9)
+
+PO: "doe maar 2 [kwartierbalken], daarna u85 en u76 mergen en alles deployen, elk nieuwswaardig item een telegram
+update en /changelog item; daarna u84 pane sluiten".
+
+Gemerged in int/eval-2026-10-16 en main e6b2f8f (fast-forward vanaf 1bf299d): mijn integratiewerk van vandaag (U82
+zonder windprior, regenrand + isolijnen 1·2·13 mm/u met legenda, ook in de Rust-film; wolkenhistogram op aantal met
+gestapelde laag; kwartierbalken in het uurdeel via rain-point-detail.ts, gelijk aan de shaderwarp) plus
+ui/wolkenkaart-vormen b34836a van de PM-agent in w33 (wolkenkaart met structuur, met U85 changelog/versies/Telegram).
+"U76" in de PO-opdracht = die w33-pane; PR106 (U76 zelf) was al op 10-11 gemerged. Fixes bij het samenvoegen:
+Over-test kent de versielink, dev-panel-e2e kent Wolkenkaart en Regenisolijnen, CloudDriftSample/MotionField verplaatst
+zodat de bot-typecheck web/src/core/mrf.ts niet meetrekt.
+
+Releases: v0.1.1 = de drie ochtendupdates, al als kanaalberichten 9/10/11 geplaatst (posted.json met die ids, poster
+slaat over); v0.2.0 = wolkenkaart, regenlijnen, regengrafiek per kwartier, wolken in de tijdlijn, publieke changelog;
+kanaalberichten 13 (tekst) en 14–17 (media, rondlopende links). Tags v0.1.1 (11d129d) en v0.2.0 (65d2e73) gepusht.
+De drie nieuwe notities en voor/na-beelden (motregen.nl vs preview 4300, zelfde data) zijn door mij geschreven, niet
+vooraf door de PO gereviewd: PO-opdracht was expliciet om alles uit te rollen en te posten.
+
+Gate synchroon op 65d2e73/e6b2f8f: cargo fmt/clippy/test render-core+render/wasm 0; bot typecheck/134 tests/build 0;
+web typecheck/629 tests/build 0; desktop-e2e cloud-section, sky-window, rain-playback, dev-panel, startup, seo,
+telegram 0 (dev-panel na testfix, 2/2); nix flake check 0; nixos-vm 0; toplevel 0. Uitrol: nix copy van
+/nix/store/lmiyy6x8s5q8lvz2vqalvgl2rc8bmj5m-nixos-system-motregen-…, nixos-upgrade exit 0, /run/current-system exact
+dat pad; ingest/bot/caddy actief, geen failed units; /changelog en media 200; live Lucht-histogram bekeken.
+U84 gesloten (pane w42, worktree; niets ongecommit, geen open PR). Receipts: genegeerde web/tmp/orkestrator/release-20261016/.
+
+Open met PO: (1) nieuwe notities/beelden achteraf beoordelen (bewerken kan via editMessageCaption, zie changes/README);
+(2) hoge wolken bij 90 % ogen op prod nog dun buiten de eerste uren, nakijken; (3) snapshotrepertoire (opslag/automatisering).
+Open voor agents: geen; w33 gemeld dat zijn branch live staat en op main moet rebasen.
+
 ## 2026-10-16 12:35 CEST — Wolkenoptimalisatie bevestigd in gepaarde appmeting
 
 Gepaarde appmeting van referentie(twaalf stappen, flowfactor2, oude cellfunctie) en4eb06f1a-kandidaat exit0 zonder browsererrors. Projectgrens MOTREGEN_RIG_PAIRED=1 toegepast; hostload liep tijdens de meting weer op door builds, dus absolute tijden indicatief. Som van mediane GPU-passes (flow+textuur+blit), desktopkaart810×1000:37,224→26,985ms (-27,5%); mobielkaart390×618:13,201→8,736ms (-33,8%). Referentie/nieuw gemiddelde desktop42,155/27,635ms, mobiel14,412/9,095ms; gemiddelden sterker beïnvloed door uitschieters. Geen vergelijking van die gemiddelden met de eerdere rustige35,5/11,2ms als precieze winst. Robuuste onderbouwing blijft de drie geïsoleerde CPU-paren met25,2–25,4% minder werkelijk software-renderwerk.
