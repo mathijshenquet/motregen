@@ -1,5 +1,5 @@
 import { immutableWeatherUrl, weatherBytes } from './range-byte-cache'
-import { chunkField, type ManifestChunk, type MrfHeader } from './contract'
+import { chunkField, type ManifestChunk, type MotionField, type MrfHeader } from './contract'
 import { browserDeviceHints, decodeBudget, type DecodeBudget } from './decode-budget'
 import { DecodeCancelled, DecodeQueue } from './decode-queue'
 import { FetchPlanner } from './fetch-planner'
@@ -53,11 +53,7 @@ interface FrameInterest {
 
 interface WorkerReply { id: number; frame?: ArrayBuffer; error?: string; duration?: number }
 
-export interface MotionField {
-  width: number
-  height: number
-  vectors: Uint8Array
-}
+export type { MotionField } from './contract'
 
 type FetchPriority = 'high' | 'low' | 'auto'
 

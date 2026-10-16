@@ -1,6 +1,6 @@
 import type { MotionField } from './mrf'
 import type { Grid, MrfHeader } from './contract'
-import type { PreparedField } from './isoline-field'
+import type { CloudDriftSample, PreparedField } from './isoline-field'
 import type { FieldBlend } from './sun'
 import { layerTransmission, skyDarkness } from './cloud-section'
 import { solarElevationSin } from './solar'
@@ -23,11 +23,7 @@ export interface CloudMapStyle {
   sample: CloudMapSample
 }
 
-export interface CloudDriftSample {
-  epoch: number
-  velocity: readonly [number, number]
-  position: readonly [number, number]
-}
+export type { CloudDriftSample } from './isoline-field'
 
 export function cloudMotionMean(source: CloudMapInputs['motion']): [number, number] {
   if (!source) return [0, 0]

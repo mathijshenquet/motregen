@@ -1,5 +1,4 @@
-import type { MrfHeader } from './contract.js'
-import type { MotionField } from './mrf.js'
+import type { MotionField, MrfHeader } from './contract.js'
 import { WARP_CAP_CELLS, motionWarpStrength } from './rain-motion.js'
 
 /**

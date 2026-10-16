@@ -44,6 +44,13 @@ export interface MotionGrid {
   bh: number
 }
 
+/** Bewegingsvectoren van één frame, int8 per blok (x, y) in 0,1 cel per minuut; −128 = geen vector. */
+export interface MotionField {
+  width: number
+  height: number
+  vectors: Uint8Array
+}
+
 export interface MrfHeader {
   version: 0
   field?: Field

@@ -1,5 +1,11 @@
-import type { CloudDriftSample } from './cloud-map'
 import type { ScalarField } from './isolines.js'
+
+/** Een punt op het gemiddelde bewegingstraject van de wolken (hier, zodat de bot de wolkenkaart niet meetrekt). */
+export interface CloudDriftSample {
+  epoch: number
+  velocity: readonly [number, number]
+  position: readonly [number, number]
+}
 
 /** Eén frame, geblurd en met no-data opgevuld zodat de bicubische taps aan de rand niets vreemds zien. */
 export interface PreparedField {
