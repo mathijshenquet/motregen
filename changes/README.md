@@ -95,7 +95,7 @@ Start de twee builds als aparte origins en gebruik dezelfde bevroren dataset op 
 
 ```sh
 pnpm changelog:compare http://localhost:4301 http://localhost:4302 /weer changes/media/regen.webp --time 2026-10-16T08:00:00Z --now 2026-10-16T08:01:00Z
-pnpm changelog:compare http://localhost:4301 http://localhost:4302 /weer changes/media/regen.mp4 --time 2026-10-16T08:00:00Z --now 2026-10-16T08:01:00Z --duration 4
+pnpm changelog:compare http://localhost:4301 http://localhost:4302 /weer changes/media/regen.mp4 --time 2026-10-16T08:00:00Z --now 2026-10-16T08:01:00Z --duration 8
 ```
 
 Optioneel: `--longitude`, `--latitude`, `--zoom` (standaard 5.3, 52.2, 6.5). Relatieve
