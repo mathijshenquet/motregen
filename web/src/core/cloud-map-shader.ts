@@ -83,14 +83,16 @@ float cloudNoise(vec2 p) {
 
 float cloudCells(vec2 p) {
   vec2 cell = floor(p), f = fract(p);
-  float nearest = 2.0;
+  float nearestSquared = 1.0;
   for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
     vec2 offset = vec2(x, y);
     vec2 center = vec2(hash(cell + offset), hash(cell + offset + 31.7));
+    vec2 delta = offset + center - f;
+    float distanceSquared = dot(delta, delta);
     float radius = mix(0.35, 0.8, hash(cell + offset + 71.3));
-    nearest = min(nearest, length(offset + center - f) / radius);
+    nearestSquared = min(nearestSquared, distanceSquared / (radius * radius));
   }
-  return 1.0 - smoothstep(0.1, 1.0, nearest);
+  return 1.0 - smoothstep(0.1, 1.0, sqrt(nearestSquared));
 }
 
 float cloudTexture(vec2 p) {

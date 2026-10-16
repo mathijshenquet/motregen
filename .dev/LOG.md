@@ -1,5 +1,15 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-16 12:33 CEST — Wolkenberekening lichter; beeldkwaliteit bewaakt
+
+PO vraagt sneller. Definitieve kandidaat: cloudCells vergelijkt gekwadrateerde afstand en neemt één wortel na het minimum i.p.v. negen; RK2-stappen12→8 en flowcachefactor2→3. De uiteindelijke textuurresolutie, patronen, levensduur, trajectankers en kleur blijven gelijk. Flowdoel gebruikt circa44% van de vorige pixels en twee derde van de stappen. Eerste variant met afstandspruning verworpen: dezelfde beelden maar in drie gepaarde microproeven2,7–4,6% trager door extra branches.
+
+Beeldcontrole:45 gevallen (3zooms×5types×3bedekkingen) tegenover oorspronkelijke cellfunctie/twaalf stappen max1/255. Volledige beweging tegenover twaalf stappen/direct samplen: gewone compressie/dilutie max3/255, sterke synthetische compressie max39, gemiddeldeRGBA-afwijking0,433/255;0,303%kanalen verschilt>8. Swirl max18, gemiddelde0,151. Geen bit-identieke beweging beloofd; foutgrens bewaakt door GPU-oracle. Optische type-menging, dichtheid, tijdgrenzen, geen terugveren en reproduceerbaar terugzoeken groen. Dag09:00/12:00 en nacht00:00 zelf bekeken. Eerste still-capture bij grote tijdsprong raakte bestaande 'Kaartlaag cloud is niet geladen'; herhaald via afzonderlijke URL-loads, exit0. Typecheck en23gerichte tests exit0. Referentiebeeldtests toegevoegd aan web/scripts/check-cloud-map.mjs.
+
+Rust-builds belasten dev-host (loadtot85), dus schone wand/GPUmeting wacht. Aanvullende geïsoleerde software-rendererproef zonder appachtergrond, drie afwisselende oude/nieuwe shaderparen384×256,8warmups+20draws met readback. CDP SystemInfo-process.cpuTime telt werkelijk CPU-werk van deze browserprocessen i.p.v. wachttijd op scheduler. Oud214/200/203msCPU per draw → nieuw160/149,5/151,5:25,2–25,4% minder CPU-werk. Wandmedianen18,1/17,8/17,9→13,6/13,6/13,6ms, maar wegens hostload geen schone absolute GPUbaseline. Repro direnv exec . node web/tmp/orkestrator/cloud-fast-20261016/cpu.mjs http://127.0.0.1:4398/.
+
+Volledige appvergelijking reference/optimized desktop/mobiel wacht nog via project-perflock; gepaarde meting gebruikt de bestaande MOTREGEN_RIG_PAIRED=1-grens16. Eerdere wachtjobs metgrens8 bewust beëindigd; niet als groene receipts tellen. Receipts, ruweJSON, screenshots en append-onlyLOG in genegeerde web/tmp/orkestrator/cloud-fast-20261016/. Geen prod/VM/Telegram/CSVwijziging. Preview4390/4398 bijgewerkt, draftPR115 blijft open; volledige merge-/mobiele hardwaregate niet uitgevoerd.
+
 ## 2026-10-16 11:56 CEST — Wind uit Lucht; wolkenbudget opnieuw gemeten
 
 PO vraagt kosten van de nieuwste wolken en winddeeltjes uit Lucht. Windvisibility vermenigvuldigd met1-airFocus; bij volle Lucht stopt de windlus, bewegingsdata voor wolken blijven beschikbaar. Visueel zelf gecontroleerd. Browsercheck Lucht→Wind→Lucht: windDraws2→2,14→33,41→41; geen errors. Typecheck exit0. Geen nieuwe unit-test voor deze eenvoudige visibilitywijziging.

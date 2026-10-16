@@ -7,7 +7,7 @@ try {
     const result = await page.evaluate(async () => {
         const { cloudMapFragment, cloudFlowFragment } = await import('/src/core/cloud-map-shader.ts');
         const { fieldSampling } = await import('/src/core/isoline-layer.ts');
-        const { CLOUD_FLOW_DOWNSAMPLE, CLOUD_FLOW_HOURS } = await import('/src/core/cloud-map.ts');
+        const { CLOUD_FLOW_DOWNSAMPLE, CLOUD_FLOW_HOURS, CLOUD_FLOW_STEPS } = await import('/src/core/cloud-map.ts');
         const width = 384, height = 256, size = 64, depth = 4;
         const canvas = document.createElement('canvas');
         canvas.width = width;
@@ -15,8 +15,14 @@ try {
         const gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: false, preserveDrawingBuffer: true });
         if (!gl)
             throw Error('No WebGL2');
-        const compile = (type, source) => { const shader = gl.createShader(type); gl.shaderSource(shader, source); gl.compileShader(shader); if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
-            throw Error(gl.getShaderInfoLog(shader)); return shader; };
+        const compile = (type, source) => {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
+                throw Error(gl.getShaderInfoLog(shader));
+            return shader;
+        };
         const vertex = compile(gl.VERTEX_SHADER, '#version 300 es\nin vec2 pos;out vec2 v_uv;void main(){gl_Position=vec4(pos,0,1);v_uv=pos*0.5+0.5;}');
         if (!gl.getExtension('EXT_color_buffer_float'))
             throw Error('No float render target');
@@ -40,7 +46,7 @@ try {
             throw Error('Incomplete float target');
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         const fragment = compile(gl.FRAGMENT_SHADER, cloudMapFragment(fieldSampling));
-        const program = gl.createProgram();
+        let program = gl.createProgram();
         gl.attachShader(program, vertex);
         gl.attachShader(program, fragment);
         gl.linkProgram(program);
@@ -53,22 +59,34 @@ try {
         const pos = gl.getAttribLocation(program, 'pos');
         gl.enableVertexAttribArray(pos);
         gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
-        const texture = (unit, format) => { const tex = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_3D, tex); gl.texStorage3D(gl.TEXTURE_3D, 1, format, size, size, depth); for (const p of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER])
-            gl.texParameteri(gl.TEXTURE_3D, p, gl.LINEAR); for (const p of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T, gl.TEXTURE_WRAP_R])
-            gl.texParameteri(gl.TEXTURE_3D, p, gl.CLAMP_TO_EDGE); return tex; };
+        const texture = (unit, format) => {
+            const tex = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE0 + unit);
+            gl.bindTexture(gl.TEXTURE_3D, tex);
+            gl.texStorage3D(gl.TEXTURE_3D, 1, format, size, size, depth);
+            for (const p of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER])
+                gl.texParameteri(gl.TEXTURE_3D, p, gl.LINEAR);
+            for (const p of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T, gl.TEXTURE_WRAP_R])
+                gl.texParameteri(gl.TEXTURE_3D, p, gl.CLAMP_TO_EDGE);
+            return tex;
+        };
         const field = texture(0, gl.RGBA16F), flow = texture(1, gl.RG16F);
         const uniform = name => gl.getUniformLocation(program, name);
-        gl.uniform1i(uniform('u_cloud_travel'), 3);
-        gl.uniform2f(uniform('u_cloud_fill_size'), width, height);
-        gl.uniform1i(uniform('u_field'), 0);
-        gl.uniform1i(uniform('u_cloud_flow'), 1);
-        gl.uniform2f(uniform('u_grid_size'), size, size);
-        gl.uniform1f(uniform('u_depth'), depth);
-        gl.uniform2f(uniform('u_cloud_origin'), 330000, 7250000);
-        gl.uniform2f(uniform('u_cloud_extent'), 420000, -420000);
-        gl.uniform1f(uniform('u_cloud_enabled'), 1);
-        gl.uniform1f(uniform('u_cloud_night'), 0);
-        gl.uniform1f(uniform('u_cloud_sample'), 0);
+        const setup = () => {
+            gl.useProgram(program);
+            gl.uniform1i(uniform('u_cloud_travel'), 3);
+            gl.uniform2f(uniform('u_cloud_fill_size'), width, height);
+            gl.uniform1i(uniform('u_field'), 0);
+            gl.uniform1i(uniform('u_cloud_flow'), 1);
+            gl.uniform2f(uniform('u_grid_size'), size, size);
+            gl.uniform1f(uniform('u_depth'), depth);
+            gl.uniform2f(uniform('u_cloud_origin'), 330000, 7250000);
+            gl.uniform2f(uniform('u_cloud_extent'), 420000, -420000);
+            gl.uniform1f(uniform('u_cloud_enabled'), 1);
+            gl.uniform1f(uniform('u_cloud_night'), 0);
+            gl.uniform1f(uniform('u_cloud_sample'), 0);
+        };
+        setup();
         const draw = (cached, phase, time) => {
             phase *= CLOUD_FLOW_HOURS / 2;
             if (cached) {
@@ -126,11 +144,15 @@ try {
             return pixels;
         };
         const tau = (pixels, at, cover = 0.55) => -Math.log(Math.max(0.0001, (1 - pixels[at * 4 + 3] / 255) / (1 - cover * 0.45 * 0.15)));
-        const average = (pixels, cover) => { let sum = 0, count = 0; for (let y = height / 4; y < height * 3 / 4; y++)
-            for (let x = width / 4; x < width * 3 / 4; x++) {
-                sum += tau(pixels, y * width + x, cover);
-                count++;
-            } return sum / count; };
+        const average = (pixels, cover) => {
+            let sum = 0, count = 0;
+            for (let y = height / 4; y < height * 3 / 4; y++)
+                for (let x = width / 4; x < width * 3 / 4; x++) {
+                    sum += tau(pixels, y * width + x, cover);
+                    count++;
+                }
+            return sum / count;
+        };
         const low = render({ shape: 0 }), mid = render({ shape: 0.55 }), high = render({ shape: 1 }), mixed = render({ shape: 'gradient' });
         const smooth = t => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
         let blendSum = 0, blendMax = 0, count = 0;
@@ -144,22 +166,30 @@ try {
                 count++;
             }
         const before = render({ translate: 0.08, phase: 0.9, time: 0.225, drift: true }), after = render({ translate: 0.08, phase: 1.1, time: 0.275, drift: true });
-        const corr = (a, b, dx) => { let aa = 0, bb = 0, ab = 0, sa = 0, sb = 0, n = 0; for (let y = 16; y < height - 16; y++)
-            for (let x = 32; x < width - 32; x++) {
-                const va = a[(y * width + x) * 4 + 3], vb = b[(y * width + x + dx) * 4 + 3];
-                aa += va * va;
-                bb += vb * vb;
-                ab += va * vb;
-                sa += va;
-                sb += vb;
-                n++;
-            } return (ab - sa * sb / n) / Math.sqrt((aa - sa * sa / n) * (bb - sb * sb / n)); };
+        const corr = (a, b, dx) => {
+            let aa = 0, bb = 0, ab = 0, sa = 0, sb = 0, n = 0;
+            for (let y = 16; y < height - 16; y++)
+                for (let x = 32; x < width - 32; x++) {
+                    const va = a[(y * width + x) * 4 + 3], vb = b[(y * width + x + dx) * 4 + 3];
+                    aa += va * va;
+                    bb += vb * vb;
+                    ab += va * vb;
+                    sa += va;
+                    sb += vb;
+                    n++;
+                }
+            return (ab - sa * sb / n) / Math.sqrt((aa - sa * sa / n) * (bb - sb * sb / n));
+        };
         const shifted = corr(before, after, Math.round(0.08 * 0.2 * width * CLOUD_FLOW_HOURS / 2)), stationary = corr(before, after, 0);
         const reference = average(render({ cover: 1 }), 1);
         const compressed = average(render({ cover: 1, compression: 0.2 }), 1) / reference;
         const diluted = average(render({ cover: 1, compression: -0.2 }), 1) / reference;
-        const mae = (a, b) => { let sum = 0; for (let at = 3; at < a.length; at += 4)
-            sum += Math.abs(a[at] - b[at]); return sum / (width * height); };
+        const mae = (a, b) => {
+            let sum = 0;
+            for (let at = 3; at < a.length; at += 4)
+                sum += Math.abs(a[at] - b[at]);
+            return sum / (width * height);
+        };
         const cycleError = mae(render({ translate: 0.08, phase: 1.999 }), render({ translate: 0.08, phase: 0.001 }));
         const hourError = mae(render({ translate: 0.04, ramp: true, phase: 0.999, time: 1.999 }), render({ translate: 0.04, ramp: true, phase: 2.001, time: 2.001 }));
         const cycleFine = mae(render({ translate: 0.08, phase: 1.9999 }), render({ translate: 0.08, phase: 0.0001 }));
@@ -200,6 +230,55 @@ try {
             comparisons.push({ input, alpha_mae: sum / (width * height), max, over8: over / (width * height) });
         }
         checks.comparisons = comparisons;
+        const optimized = program, cellReference = gl.createProgram();
+        gl.attachShader(cellReference, vertex);
+        gl.attachShader(cellReference, compile(gl.FRAGMENT_SHADER, cloudMapFragment(fieldSampling).replace(`hours / float(${CLOUD_FLOW_STEPS})`, 'hours / float(12)').replace(`step < ${CLOUD_FLOW_STEPS}`, 'step < 12').replace(/float cloudCells\([\s\S]*?(?=float cloudTexture\()/, "float cloudCells(vec2 p) {\n  vec2 cell = floor(p), f = fract(p);\n  float nearest = 2.0;\n  for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {\n    vec2 offset = vec2(x, y);\n    vec2 center = vec2(hash(cell + offset), hash(cell + offset + 31.7));\n    float radius = mix(0.35, 0.8, hash(cell + offset + 71.3));\n    nearest = min(nearest, length(offset + center - f) / radius);\n  }\n  return 1.0 - smoothstep(0.1, 1.0, nearest);\n}\n\n")));
+        gl.linkProgram(cellReference);
+        if (!gl.getProgramParameter(cellReference, gl.LINK_STATUS))
+            throw Error(gl.getProgramInfoLog(cellReference));
+        const quality = [];
+        for (const extent of [84000, 420000, 1264000])
+            for (const shape of [0, 0.3, 0.55, 0.8, 1])
+                for (const cover of [0.2, 0.55, 1]) {
+                    const images = [];
+                    for (const p of [cellReference, optimized]) {
+                        program = p;
+                        setup();
+                        gl.uniform2f(uniform('u_cloud_extent'), extent, -extent);
+                        images.push(render({ shape, cover, phase: 0.7, translate: 0.04, drift: true }));
+                    }
+                    let max = 0, sum = 0;
+                    for (let i = 0; i < images[0].length; i++) {
+                        const d = Math.abs(images[0][i] - images[1][i]);
+                        max = Math.max(max, d);
+                        sum += d;
+                    }
+                    quality.push({ extent, shape, cover, max, mae: sum / images[0].length });
+                }
+        if (quality.some(q => q.max > 1 || q.mae > 0.001))
+            throw Error('Changed texture: ' + JSON.stringify(quality));
+        const motionQuality = [];
+        for (const input of [{ translate: 0.08 }, { compression: 0.2 }, { compression: -0.2 }, { compression: 2 }, { swirl: 0.05 }, { swirl: 0.15 }]) {
+            program = cellReference;
+            setup();
+            const a = render({ ...input, phase: 1.4, shape: 'gradient', cached: false });
+            program = optimized;
+            setup();
+            const b = render({ ...input, phase: 1.4, shape: 'gradient', cached: true });
+            let max = 0, sum = 0, over8 = 0;
+            for (let i = 0; i < a.length; i++) {
+                const d = Math.abs(a[i] - b[i]);
+                max = Math.max(max, d);
+                sum += d;
+                if (d > 8)
+                    over8++;
+            }
+            motionQuality.push({ input, max, mae: sum / a.length, over8: over8 / a.length });
+        }
+        if (motionQuality.some(q => q.mae > 0.5 || q.max > 40 || q.over8 > 0.005))
+            throw Error('Motion image changed: ' + JSON.stringify(motionQuality));
+        checks.cell_quality = { cases: quality.length, max: Math.max(...quality.map(q => q.max)), mae: Math.max(...quality.map(q => q.mae)) };
+        checks.motionQuality = motionQuality;
         return checks;
     });
     console.log(JSON.stringify(result));
