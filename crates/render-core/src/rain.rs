@@ -17,20 +17,33 @@ pub struct RainCompositor {
     pub projection: Projection,
     colors: [Vec<[f32; 4]>; 2],
     multiply: [bool; 2],
+    outlines: [Vec<crate::constants::RainOutline>; 2],
 }
 
 impl RainCompositor {
     pub fn new(grid: Grid) -> Self {
-        Self::with_presentation(grid, &constants().presentation)
+        let outlines = &constants().rain_outlines;
+        let theme = |name: &str| outlines.get(name).cloned().unwrap_or_default();
+        Self::with_presentation(
+            grid,
+            &constants().presentation,
+            [theme("light"), theme("dark")],
+        )
     }
 
+    /// Regen onder de windfilm: zoals de app in Wind, zonder regenlijnen.
     pub fn wind(grid: Grid) -> Self {
-        Self::with_presentation(grid, &constants().wind_presentation)
+        Self::with_presentation(
+            grid,
+            &constants().wind_presentation,
+            [Vec::new(), Vec::new()],
+        )
     }
 
     fn with_presentation(
         grid: Grid,
         presentation: &std::collections::HashMap<String, RainPresentation>,
+        outlines: [Vec<crate::constants::RainOutline>; 2],
     ) -> Self {
         Self {
             projection: Projection::new(&grid),
@@ -43,6 +56,7 @@ impl RainCompositor {
                 presentation["light"].multiply,
                 presentation["dark"].multiply,
             ],
+            outlines,
         }
     }
 
@@ -116,6 +130,7 @@ impl RainCompositor {
                 colors: &self.colors[usize::from(night)],
                 displacements,
                 multiply,
+                outlines: &self.outlines[usize::from(night)],
             },
             pair.coverage,
         );

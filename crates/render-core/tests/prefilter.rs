@@ -108,6 +108,7 @@ fn viewport_prefilter_and_bilinear_motion_match_the_round_one_kernel() {
                                     colors: &colors,
                                     displacements: Some(&[motion]),
                                     multiply: false,
+                                    outlines: &[],
                                 },
                             );
                             assert_eq!(actual, expected);
@@ -125,6 +126,7 @@ fn viewport_prefilter_and_bilinear_motion_match_the_round_one_kernel() {
                                     colors: &colors,
                                     displacements: Some(&[motion]),
                                     multiply: false,
+                                    outlines: &[],
                                 },
                                 Some(CoveragePair {
                                     left: &coverage,
@@ -208,6 +210,7 @@ fn skipping_motion_in_empty_tiles_preserves_every_composed_pixel() {
             colors: &colors,
             displacements: Some(&full_motion),
             multiply: false,
+            outlines: &[],
         };
         compose(&mut full, frame);
         compose_covered(
