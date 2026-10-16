@@ -1,4 +1,4 @@
-# MIP-33: windprior alleen na aangetoonde winst
+# MIP-35: windprior alleen na aangetoonde winst
 
 Status: draft
 Auteur: U84-onderzoek, 2026-10-16

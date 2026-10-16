@@ -11,7 +11,7 @@ lossen dit niet algemeen op. Bij vrijwel afwezige regen kan wind juist extra
 dekking geven. Voor HARMONIE-uurframes is deze meting niet beslissend.
 
 Dit rapport bevat metingen; het beleidsvoorstel staat uitsluitend in
-[MIP-33](../.dev/proposals/0033-windprior-na-validatie.md), met status draft.
+[MIP-35](../.dev/proposals/0035-windprior-na-validatie.md), met status draft.
 
 ## Corpus en meetmethode
 
@@ -323,7 +323,7 @@ leverde het weekcorpus. De kosten/baten van p3 zijn hiermee nog niet bewezen.
    ontbrekende dekking goedkoop met een lineaire pass over het blokraster; op de
    probleemdag bereikt hij alle meetbare gaten. Hij verliest lokale nuance en
    wint niet overal. Beoordeel die fallback apart; geen reden om geldige lokale
-   correlaties ermee te vervangen. Dit voorstel staat ter besluit in MIP-33.
+   correlaties ermee te vervangen. Dit voorstel staat ter besluit in MIP-35.
 3. Introduceer wind alleen opnieuw na een onafhankelijke winstmeting op gaten,
    met dekkingscijfers, ruimtelijk onafhankelijke trainingsmonsters en een
    expliciete afwijzing bij slechte passing. Extra implementatie/validatie is
@@ -380,7 +380,7 @@ Er is geen productiedienst gestart, aangepast of herstart.
 Controles: native export en volledige analyse exit 0; drie synthetische
 instrumenttests exit 0; voorbeeld-rustfmt en gerichte clippy exit 0;
 `cargo test -p motion -p motregen-ingest -p mrf` exit 0 (68 tests). Python typecheck en
-lint zijn gecontroleerd. De algemene workspace-formatcontrole faalt uitsluitend
-op het reeds onopgemaakte `crates/ingest/examples/motion_probe.rs` uit de basisbranch;
-dat bestand is buiten deze onderzoekstrack gelaten. Er zijn geen app- of
+lint zijn gecontroleerd. De algemene workspace-formatcontrole (`cargo fmt --all --check`) slaagt na
+opmaak van `crates/ingest/examples/motion_probe.rs`. Voor deze hernummerings- en
+opmaakcorrectie is uitsluitend die formatcontrole opnieuw uitgevoerd. Er zijn geen app- of
 productiewijzigingen waarvoor een browser- of deploymentgate nodig is.
