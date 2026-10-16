@@ -360,11 +360,17 @@ SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt uv run --script spec/motion_win
   --snapshot-wind .dev/tracks/u84-windkalibratie/data/arome
 cargo run --release -p motregen-ingest --example motion_wind_audit -- \
   .dev/tracks/u84-windkalibratie/data/week/corpus.json .dev/tracks/u84-windkalibratie/export
+ssh root@57.129.47.17 'journalctl -u motregen-ingest --since "2026-10-09 00:00:00 UTC" --until "2026-10-16 07:43:00 UTC" --utc --no-pager | grep "motion wind calibration"' \
+  > .dev/tracks/u84-windkalibratie/journal.txt
 uv run --project spec spec/motion_wind_analyze.py \
-  .dev/tracks/u84-windkalibratie/export .dev/tracks/u84-windkalibratie/results
+  .dev/tracks/u84-windkalibratie/export .dev/tracks/u84-windkalibratie/results \
+  --journal .dev/tracks/u84-windkalibratie/journal.txt
 uv run --project spec spec/motion_wind_analyze.py \
   .dev/tracks/u84-windkalibratie/export .dev/tracks/u84-windkalibratie/results-hourly96 --hourly-reach 96
 uv run --project spec python -m unittest discover -s spec -p test_motion_wind_analysis.py
+uv run --project spec spec/motion_wind_point.py \
+  /home/mathijs/motregen-profiles/data-snapshots/2026-10-16-0810 \
+  .dev/tracks/u84-windkalibratie/data/arome/HA43_N20_202610160300_00300_GB
 ```
 
 De VM-cache is tijdelijk; de lokale opgehaalde GRIB-leden blijven daarom bewaard.
@@ -373,7 +379,7 @@ Er is geen productiedienst gestart, aangepast of herstart.
 
 Controles: native export en volledige analyse exit 0; drie synthetische
 instrumenttests exit 0; voorbeeld-rustfmt en gerichte clippy exit 0;
-`cargo test -p motion -p motregen-ingest -p mrf` exit 0. Python typecheck en
+`cargo test -p motion -p motregen-ingest -p mrf` exit 0 (68 tests). Python typecheck en
 lint zijn gecontroleerd. De algemene workspace-formatcontrole faalt uitsluitend
 op het reeds onopgemaakte `crates/ingest/examples/motion_probe.rs` uit de basisbranch;
 dat bestand is buiten deze onderzoekstrack gelaten. Er zijn geen app- of

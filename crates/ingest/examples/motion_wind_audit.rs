@@ -1,5 +1,9 @@
 //! Read-only export of production correlation, wind and annex candidates for the U84 audit.
-use std::{fs, io::Write, path::PathBuf};
+use std::{
+    fs,
+    io::{BufWriter, Write},
+    path::PathBuf,
+};
 
 use anyhow::{Context, Result, ensure};
 use chrono::{DateTime, Duration, Utc};
@@ -263,10 +267,13 @@ fn main() -> Result<()> {
             eprintln!("{} pair {index}/{}", dataset.label, frames.len() - 1);
         }
         for (index, frame) in frames.iter().enumerate() {
-            let mut file = fs::File::create(target.join(format!("frame-{index:03}.f32")))?;
+            let mut file = BufWriter::new(fs::File::create(
+                target.join(format!("frame-{index:03}.f32")),
+            )?);
             for value in frame {
                 file.write_all(&value.to_le_bytes())?;
             }
+            file.flush()?;
         }
         fs::write(
             target.join("audit.json"),
