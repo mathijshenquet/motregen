@@ -50,7 +50,7 @@ import { DEFAULT_RAIN_FIELD_TUNING, loadRainFieldTuning, RAIN_FIELD_STORAGE_KEYS
 import { LayerOverlay } from './core/overlay-canvas'
 import { rainColormap } from './core/rain-chart'
 import { DEFAULT_FOCUS_RAIN_VARIANT, FOCUS_RAIN_VARIANT_STORAGE_KEY, focusRainUsesWeatherBlend, loadFocusRainVariant } from './core/rain-presentation'
-import { DEFAULT_RAIN_LOOK, loadRainLookChoice, PRE_U77_RAIN_LOOK, RAIN_LOOK_STORAGE_KEYS, rainOutline, rainUsesStraightAlpha, type RainLook, type RainLookChoice } from './core/rain-palette'
+import { DEFAULT_RAIN_LOOK, loadRainLookChoice, PRE_U77_RAIN_LOOK, RAIN_LOOK_STORAGE_KEYS, rainOutlines, rainUsesStraightAlpha, type RainLook, type RainLookChoice } from './core/rain-palette'
 import { grantedStartFix, loadLastLocation, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastLocation, storeLastSavedPlaceId, storeMapView, type StartLocation } from './core/location-memory'
 import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGestures } from './core/pin-navigation'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
@@ -1619,7 +1619,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const look = untrack(rainColourLook)
     layer?.setColormap(rainColormap(look))
     layer?.setStraightAlpha(rainUsesStraightAlpha(look.blend))
-    layer?.setOutline(rainOutline(look))
+    layer?.setOutlines(rainOutlines(look))
     if (rainOverlay) rainOverlay.triggerRepaint()
     else map?.triggerRepaint()
   }
@@ -3239,7 +3239,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const choice = rainLookChoice()
     const weatherMode = windFocus() < 0.5 && airFocus() < 0.5
     const weatherBlend = weatherMode || focusRainUsesWeatherBlend(focusRainVariant())
-    return { palette: choice.palette, blend: weatherBlend ? choice.blend : PRE_U77_RAIN_LOOK.blend, theme: mapSurfaceTheme(), contrast: choice.contrast }
+    return { palette: choice.palette, blend: weatherBlend ? choice.blend : PRE_U77_RAIN_LOOK.blend, theme: mapSurfaceTheme(), contrast: choice.contrast, isolines: choice.isolines }
   }, undefined, { equals: sameFields })
   createEffect(() => { rainColourLook(); applyRainColours() })
   let basemapBlend: BlendTarget[] | undefined
