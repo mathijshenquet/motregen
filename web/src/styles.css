@@ -61,7 +61,6 @@
   --dusk-purple: #7b3989;
   --sky-zenith: #1563d6;
   --cloud-shadow: #1c262d;
-  --cloud-edge: #ffffff;
   --sky-night: #1b2a3b;
   --sky-night-dull: #10161b;
   --table-day-bright: #64c6f2;
@@ -112,7 +111,6 @@
   --dusk-purple: #6e2b80;
   --sky-zenith: #0a2f7a;
   --cloud-shadow: #04080b;
-  --cloud-edge: #c9d3de;
   --sky-night: #0c1a27;
   --sky-night-dull: #05080a;
 }
@@ -629,8 +627,7 @@ button { color: inherit; cursor: pointer; }
 .cloud-band path.cloud-shadow { fill-opacity: 1; }
 /* Gestapelde wolkenrij: donkerder dan de voorste, zodat de rijen niet in elkaar overlopen (PO 2026-10-16). */
 .cloud-band path.cloud-back { fill: var(--cloud-shadow); fill-opacity: .28; }
-.cloud-band path.cloud-edge { fill: none; stroke: var(--cloud-edge); stroke-width: .9; stroke-opacity: .7; }
-.cloud-band[data-layer="high"] path.cloud-edge { display: none; }
+.cloud-drop { flood-color: var(--cloud-shadow); flood-opacity: .38; }
 .cloud-band[data-layer="high"] path.cloud-shadow { display: none; }
 .cloud-shadow-gradient stop { stop-color: var(--cloud-shadow); }
 .cloud-shadow-gradient stop:first-child { stop-opacity: 0; }

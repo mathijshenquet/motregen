@@ -63,6 +63,9 @@ interface Props {
 }
 
 const CLOUD_LAYER_LABELS = { high: 'hoge wolken', mid: 'midden wolken', low: 'lage wolken' } as const
+// Middens van de wolkenlagen als deel van de plothoogte: hoog op 1/3, dan steeds 1/4 lager (PO 2026-10-16).
+const CLOUD_LAYER_FIRST_CENTRE = 1 / 3
+const CLOUD_LAYER_SPACING = 1 / 4
 // Deel van de plothoogte voor de bewolkingsband boven de regen.
 const CLOUD_COVER_SHARE = 0.3
 const HOUR = 3_600_000
@@ -220,12 +223,15 @@ export default function HistogramScrubber(props: Props) {
     const clouds = props.clouds
     if (!clouds) return []
     const bandHeight = plotHeight() / CLOUD_LAYERS.length
+    // De lagen staan dichter op elkaar dan drie gelijke stroken: middens op 1/3, 7/12 en 5/6 van de hoogte, zodat
+    // er boven de hoge wolken lucht overblijft (PO 2026-10-16). De stroken overlappen dus een stukje.
+    const top = (index: number) => plotHeight() * (CLOUD_LAYER_FIRST_CENTRE + index * CLOUD_LAYER_SPACING) - bandHeight / 2
     return CLOUD_LAYERS.map((layer, index) => ({
       key: layer,
       label: CLOUD_LAYER_LABELS[layer],
-      top: index * bandHeight,
+      top: top(index),
       height: bandHeight,
-      ...cloudBand(clouds.timeline[layer], clouds.values[layer], layer, geometry(index * bandHeight, bandHeight)),
+      ...cloudBand(clouds.timeline[layer], clouds.values[layer], layer, geometry(top(index), bandHeight)),
     }))
   })
   const cloudBands = () => [...coverBands(), ...layerBands()]
@@ -666,6 +672,7 @@ export default function HistogramScrubber(props: Props) {
             <Show when={cloudBands().length}>
               <defs>
                 <filter id={`${cloudId}-soft`} x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="0.6" /></filter>
+                <filter id={`${cloudId}-drop`} x="-5%" y="-30%" width="110%" height="180%"><feDropShadow class="cloud-drop" dx="1.5" dy="2.5" stdDeviation="1.6" /></filter>
                 <For each={['sky', ...cloudBands().map((band) => band.key)]}>{(key) => <linearGradient id={`${cloudId}-${key}`} class={key === 'sky' ? 'sky-gradient' : `cloud-tone cloud-${key}`} gradientUnits="userSpaceOnUse" x1="0" x2={cloudWidth()} y1="0" y2="0">
                   <Index each={sky().length ? sky() : [{ offset: 0, darkness: 0, daylight: 1, glow: 0 }]}>{(stop) => <stop offset={stop().offset} style={{ '--dark': stop().darkness, '--day': stop().daylight }} />}</Index>
                 </linearGradient>}</For>
@@ -697,9 +704,9 @@ export default function HistogramScrubber(props: Props) {
                 {/* Het id zit op de binnengroep: <use> kloont ook inline stijl, en de dekking hier is in Lucht 0. */}
                 <g class="scrub-view" style={{ opacity: cloudsBehindOpacity() }}><g class="cloud-layers" id={`${cloudId}-layers`}>
                   <For each={layerBands().map((band) => band.key)}>{(key) => <g class="cloud-band" data-layer={key}>
-                    {/* Eerst de gestapelde rij, iets donkerder (verder weg); dan de voorste wolken met een lichte rand. */}
-                    <For each={layerBands().find((band) => band.key === key)?.back}>{(path) => <><path d={path} fill={`url(#${cloudId}-${key})`} /><path class="cloud-back" d={path} /></>}</For>
-                    <For each={layerBands().find((band) => band.key === key)?.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /><path class="cloud-edge" d={path} /></>}</For>
+                    {/* Kartonnen platen achter elkaar: elke rij werpt een schaduw op wat erachter staat; de gestapelde rij is iets donkerder. */}
+                    <g filter={`url(#${cloudId}-drop)`}><For each={layerBands().find((band) => band.key === key)?.back}>{(path) => <><path d={path} fill={`url(#${cloudId}-${key})`} /><path class="cloud-back" d={path} /></>}</For></g>
+                    <g filter={`url(#${cloudId}-drop)`}><For each={layerBands().find((band) => band.key === key)?.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /></>}</For></g>
                   </g>}</For>
                 </g></g>
               </g>
