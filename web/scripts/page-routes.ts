@@ -6,6 +6,8 @@ import { defaultTitle, modeTitles, pageMetadata } from '../src/core/page-meta'
 import { slugNames } from '../src/core/place-slug'
 import { places } from '../src/core/places'
 import { parsePresetPath, pathModes, presetPath } from '../src/core/presets'
+import { mediaPath, readReleases, repositoryRoot, validateChanges } from '../../tools/changelog'
+import { renderChangelogPage } from './changelog-page'
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!)
@@ -34,7 +36,7 @@ export function robotsTxt(brand: Brand): string {
 }
 
 export function sitemapXml(brand: Brand): string {
-  const paths = ['/', ...Object.values(pathModes).map((mode) => `/${mode}`),
+  const paths = ['/', '/changelog', ...Object.values(pathModes).map((mode) => `/${mode}`),
     ...places.filter((place) => !place.country).flatMap((place) => Object.keys(pathModes).map((mode) => presetPath(mode as keyof typeof pathModes, place.name)))]
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${paths.map((path) => `  <url><loc>${brand.canonicalOrigin}${path}</loc></url>`).join('\n')}\n</urlset>\n`
 }
@@ -57,6 +59,11 @@ function caddyRoutes(): string {
   return `route {
 header /plaatsen-*.json Cache-Control "public, max-age=31536000, immutable"
 header /assets/* Cache-Control "public, max-age=31536000, immutable"
+@changelog path /changelog /changelog/
+route @changelog {
+  rewrite * /changelog/index.html
+  file_server
+}
 @legacyPreset {
   path /
   method GET HEAD
@@ -118,6 +125,21 @@ export function pageRoutes(brand: Brand): Plugin {
   return {
     name: 'motregen-page-routes',
     configResolved(resolved) { config = resolved },
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        const pathname = new URL(request.url ?? '/', 'http://localhost').pathname
+        if (pathname === '/changelog' || pathname === '/changelog/') {
+          response.setHeader('Content-Type', 'text/html; charset=utf-8')
+          response.end(renderChangelogPage(repositoryRoot, brand))
+        } else if (pathname.startsWith('/changes/media/')) {
+          try {
+            const file = mediaPath(repositoryRoot, pathname.slice(1))
+            response.setHeader('Content-Type', file.endsWith('.mp4') ? 'video/mp4' : 'image/webp')
+            response.end(readFileSync(file))
+          } catch { response.statusCode = 404; response.end() }
+        } else next()
+      })
+    },
     transformIndexHtml(html, context) {
       const pathname = new URL(context.originalUrl ?? context.path, 'http://localhost').pathname
       const branded = applyBrand(html, brand)
@@ -127,6 +149,11 @@ export function pageRoutes(brand: Brand): Plugin {
       server.middlewares.use((request, response, next) => {
         if (request.method !== 'GET' && request.method !== 'HEAD') { next(); return }
         const pathname = new URL(request.url ?? '/', 'http://localhost').pathname
+        if (pathname === '/changelog' || pathname === '/changelog/') {
+          response.setHeader('Content-Type', 'text/html; charset=utf-8')
+          response.end(readFileSync(resolve(config.root, config.build.outDir, 'changelog/index.html'), 'utf8'))
+          return
+        }
         if (!parsePresetPath(pathname).mode) { next(); return }
         const html = readFileSync(resolve(config.root, config.build.outDir, 'index.html'), 'utf8')
         response.setHeader('Content-Type', 'text/html; charset=utf-8')
@@ -136,6 +163,10 @@ export function pageRoutes(brand: Brand): Plugin {
     generateBundle: { order: 'post', handler(_options, bundle) {
       const html = bundle['index.html']
       if (!html || html.type !== 'asset') throw new Error('index.html ontbreekt voor de padpagina’s')
+      validateChanges(repositoryRoot)
+      this.emitFile({ type: 'asset', fileName: 'changelog/index.html', source: renderChangelogPage(repositoryRoot, brand) })
+      const media = new Set(readReleases(repositoryRoot, false).flatMap((release) => release.notes.flatMap((note) => note.media.map((item) => item.file))))
+      for (const file of media) this.emitFile({ type: 'asset', fileName: file, source: readFileSync(mediaPath(repositoryRoot, file)) })
       this.emitFile({ type: 'asset', fileName: 'route.html', source: caddyPageHtml(String(html.source), brand) })
       this.emitFile({ type: 'asset', fileName: 'routes.caddy', source: caddyRoutes() })
       this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: sitemapXml(brand) })
