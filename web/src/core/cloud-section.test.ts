@@ -73,17 +73,19 @@ describe('cloudBand', () => {
   const geometry = { width: 300, top: 10, height: 30, start, end: start + 8 * hour }
 
   it('is empty under a clear sky', () => {
-    expect(cloudBand(frames(9), new Array(9).fill(0), 'low', geometry).paths).toEqual([])
+    expect(cloudBand(frames(9), new Array(9).fill(0), 'low', geometry)).toEqual({ paths: [], back: [] })
   })
 
   it('draws broken cloud as separate shapes and overcast as one band, inside its strip', () => {
     for (const layer of ['high', 'mid', 'low'] as const) {
       const broken = cloudBand(frames(9), new Array(9).fill(50), layer, geometry)
-      expect(broken.paths.length).toBeGreaterThan(2)
+      // Midden heeft vakken van 5 uur (PO 2026-10-16: meer ruimte tussen de wolken): in 8 uur minstens twee vormen.
+      expect(broken.paths.length).toBeGreaterThan(1)
       const overcast = cloudBand(frames(9), new Array(9).fill(100), layer, geometry)
-      // Bewolkt: een dek achter plus een volle rij wolken ervoor, dus meer vormen dan half bewolkt.
-      expect(overcast.paths.length).toBeGreaterThan(broken.paths.length)
-      const ys = [...broken.paths, ...overcast.paths].join(' ').match(/-?\d+(\.\d+)?/g)!.map(Number).filter((_, index) => index % 2 === 1)
+      // Bewolkt: een dek achter plus een volle rij wolken ervoor; half bewolkt nog geen achterste rij.
+      expect(overcast.back.length).toBeGreaterThan(0)
+      expect(broken.back).toEqual([])
+      const ys = [...broken.paths, ...overcast.paths, ...overcast.back].join(' ').match(/-?\d+(\.\d+)?/g)!.map(Number).filter((_, index) => index % 2 === 1)
       expect(Math.min(...ys)).toBeGreaterThanOrEqual(geometry.top)
       expect(Math.max(...ys)).toBeLessThanOrEqual(geometry.top + geometry.height)
     }
@@ -109,7 +111,7 @@ describe('low cloud base', () => {
     const geometry = { width: 300, top: 10, height: 30, start, end: start + 8 * hour }
     for (const percent of [50, 100]) {
       const band = cloudBand(frames(9), new Array(9).fill(percent), 'low', geometry)
-      const ys = band.paths.join(' ').match(/-?\d+(\.\d+)?/g)!.map(Number).filter((_, index) => index % 2 === 1)
+      const ys = [...band.paths, ...band.back].join(' ').match(/-?\d+(\.\d+)?/g)!.map(Number).filter((_, index) => index % 2 === 1)
       expect(Math.max(...ys)).toBeLessThan(geometry.top + geometry.height * 0.8)
       expect(Math.min(...ys)).toBeGreaterThan(geometry.top)
     }

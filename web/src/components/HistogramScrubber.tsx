@@ -665,7 +665,7 @@ export default function HistogramScrubber(props: Props) {
                 de wolken, in Lucht een kopie van de wolkenlagen vóór de regen. */}
             <Show when={cloudBands().length}>
               <defs>
-                <filter id={`${cloudId}-soft`} x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="0.9" /></filter>
+                <filter id={`${cloudId}-soft`} x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="0.6" /></filter>
                 <For each={['sky', ...cloudBands().map((band) => band.key)]}>{(key) => <linearGradient id={`${cloudId}-${key}`} class={key === 'sky' ? 'sky-gradient' : `cloud-tone cloud-${key}`} gradientUnits="userSpaceOnUse" x1="0" x2={cloudWidth()} y1="0" y2="0">
                   <Index each={sky().length ? sky() : [{ offset: 0, darkness: 0, daylight: 1, glow: 0 }]}>{(stop) => <stop offset={stop().offset} style={{ '--dark': stop().darkness, '--day': stop().daylight }} />}</Index>
                 </linearGradient>}</For>
@@ -697,7 +697,9 @@ export default function HistogramScrubber(props: Props) {
                 {/* Het id zit op de binnengroep: <use> kloont ook inline stijl, en de dekking hier is in Lucht 0. */}
                 <g class="scrub-view" style={{ opacity: cloudsBehindOpacity() }}><g class="cloud-layers" id={`${cloudId}-layers`}>
                   <For each={layerBands().map((band) => band.key)}>{(key) => <g class="cloud-band" data-layer={key}>
-                    <For each={layerBands().find((band) => band.key === key)?.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /></>}</For>
+                    {/* Eerst de gestapelde rij, iets donkerder (verder weg); dan de voorste wolken met een lichte rand. */}
+                    <For each={layerBands().find((band) => band.key === key)?.back}>{(path) => <><path d={path} fill={`url(#${cloudId}-${key})`} /><path class="cloud-back" d={path} /></>}</For>
+                    <For each={layerBands().find((band) => band.key === key)?.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /><path class="cloud-edge" d={path} /></>}</For>
                   </g>}</For>
                 </g></g>
               </g>

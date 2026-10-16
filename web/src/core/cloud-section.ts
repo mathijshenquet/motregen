@@ -20,6 +20,10 @@ export const CLOSED_FRACTION = 0.9
 export const FULL_ROW_FRACTION = 0.5
 // Lengte van een losse wolk als deel van haar vak; gemiddeld FULL_ROW_FRACTION, zodat een volle rij die fractie dekt.
 const CLOUD_LENGTH = { minimum: 0.4, maximum: 0.6 }
+// De gestapelde rij is langer en platter: ze spreidt zich horizontaal uit achter de voorste wolken (PO 2026-10-16:
+// "de extra wolken wat meer horizontaal uitspreiden").
+const BACK_CLOUD_LENGTH = { minimum: 0.75, maximum: 1.05 }
+const BACK_CLOUD_FLATTEN = 1.8
 // Deel van de vrije ruimte in een vak dat minstens aan weerszijden van de wolk open blijft.
 const SLOT_MARGIN = 0.25
 // De achterste rij staat een half vak verschoven, zodat haar wolken in de gaten van de voorste vallen.
@@ -56,8 +60,9 @@ export function cloudSpansInSlot(fraction: number, slot: number, layer: CloudLay
 function looseCloud(occupancy: number, slot: number, layer: CloudLayer, row: 0 | 1): CloudSpan | null {
   const seed = slot + LAYER_SEEDS[layer] + row * 0.53
   if (unitHash(seed) >= occupancy) return null
-  const length = CLOUD_LENGTH.minimum + (CLOUD_LENGTH.maximum - CLOUD_LENGTH.minimum) * unitHash(seed + 0.71)
-  const free = 1 - length
+  const range = row === 1 ? BACK_CLOUD_LENGTH : CLOUD_LENGTH
+  const length = range.minimum + (range.maximum - range.minimum) * unitHash(seed + 0.71)
+  const free = Math.max(0, 1 - length)
   const from = (row === 1 ? BACK_ROW_OFFSET : 0) + free * (SLOT_MARGIN + (1 - 2 * SLOT_MARGIN) * unitHash(seed + 0.37))
   return { from, to: from + length, closed: false, row }
 }
@@ -176,7 +181,7 @@ const LAYER_STYLES: Record<CloudLayer, LayerStyle> = {
   // Vakken twee keer zo lang als vóór 2026-10-16: een wolk van vaste maat (half vak) is dan groot genoeg dat 50 %
   // er als "wat grote wolken" uitziet (PO).
   high: { slotHours: 2.5, closedBody: 0.24, looseBody: 0.24, aspect: 7, baseline: 0.5 },
-  mid: { slotHours: 3.5, closedBody: 0.74, looseBody: 0.6, aspect: 2.6, baseline: 0.64, puffs: { puffAspect: 0.8, underside: 0.3 } },
+  mid: { slotHours: 5, closedBody: 0.74, looseBody: 0.6, aspect: 2.6, baseline: 0.64, puffs: { puffAspect: 0.8, underside: 0.3 } },
   // De basis ligt ruim boven de onderrand van het plot (PO 2026-10-07 live): onder de wolk blijft lucht,
   // anders valt de vlakke onderkant, het kenmerk van een stapelwolk, tegen de rand weg.
   low: { slotHours: 2, closedBody: 0.66, looseBody: 0.66, aspect: 1.7, baseline: 0.78, puffs: { puffAspect: 0.6, underside: 0 } },
@@ -213,8 +218,10 @@ export interface CloudBandGeometry {
 }
 
 export interface CloudBand {
-  /** Gesloten paden: één per losse wolk of aaneengesloten band. */
+  /** Gesloten paden van de voorste rij: één per losse wolk of aaneengesloten band. */
   paths: string[]
+  /** De gestapelde rij erachter, apart zodat ze een eigen toon krijgt. */
+  back: string[]
 }
 
 interface CloudExtent { from: number; to: number; closed: boolean; row: 0 | 1 }
@@ -256,6 +263,7 @@ export function cloudBand(frames: TimelineFrame[], values: Array<number | null>,
   const slotMs = Math.max(style.slotHours, MIN_SLOT_PX / pxPerHour) * HOUR
   const bottom = top + height
   const paths: string[] = []
+  const back: string[] = []
   for (const cloud of cloudExtents(frames, values, layer, start, end, slotMs)) {
     const fromX = (cloud.from - start) / span * width
     const toX = (cloud.to - start) / span * width
@@ -266,7 +274,8 @@ export function cloudBand(frames: TimelineFrame[], values: Array<number | null>,
     const scale = cloud.row === 1 ? BACK_ROW_SCALE : 1
     const baseline = top + height * (style.baseline - lift)
     const largest = height * style.looseBody * scale
-    const thickness = cloud.closed ? height * style.closedBody * scale : largest * Math.max(MIN_LOOSE_THICKNESS, Math.min(1, (toX - fromX) / (largest * style.aspect)))
+    const aspect = style.aspect * (cloud.row === 1 ? BACK_CLOUD_FLATTEN : 1)
+    const thickness = cloud.closed ? height * style.closedBody * scale : largest * Math.max(MIN_LOOSE_THICKNESS, Math.min(1, (toX - fromX) / (largest * aspect)))
     const shape = { fromX, toX, thickness, closed: cloud.closed, key: cloud.from / HOUR + LAYER_SEEDS[layer] + cloud.row * 0.29 }
     const cacheKey = `${layer}|${cloud.row}|${fromX}|${toX}|${thickness}|${cloud.closed}|${shape.key}|${width}|${top}|${height}`
     let shapePaths = shapePathCache.get(cacheKey)
@@ -282,9 +291,9 @@ export function cloudBand(frames: TimelineFrame[], values: Array<number | null>,
       if (shapePathCache.size >= SHAPE_PATH_CACHE_LIMIT) shapePathCache.clear()
       shapePathCache.set(cacheKey, shapePaths)
     }
-    paths.push(...shapePaths)
+    ;(cloud.row === 1 ? back : paths).push(...shapePaths)
   }
-  return { paths }
+  return { paths, back }
 }
 
 /** Monsterpunten over [from, to], afgekapt op de tijdlijn [0, width]. */
