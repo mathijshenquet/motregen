@@ -48,3 +48,12 @@ product manager (proposals, specs, verification), codex agents
   doc, not comment archaeology.
 - Dev-knoppen: alleen via `?dev`, met eigenaar en vervaldatum in de spec (MIP-12). De
   levende lijst staat in `docs/dev-opties.md`.
+
+## Changelog en releases
+- Elke track levert één `changes/pending/<slug>.md` per gebruikerswijziging mee: Nederlandse
+  `title`, `kind` (`nieuw`, `beter`, `opgelost`) en 1–3 zinnen voor gewone gebruikers.
+  Optionele `media` bevat `file` onder `changes/media/` en een eigen `caption` per item.
+  De PO reviewt de notities vóór de release; formaat en opdrachten: `changes/README.md`.
+- De orkestrator releaset met `tools/release.sh patch|minor|major` (eerst `--dry-run`).
+  `VERSION` is de versiebron; het script verzamelt pending notities, commit en tagt lokaal.
+  Push, uitrol en Telegram-publicatie zijn aparte stappen; uitrol alleen na expliciet akkoord van de PO.

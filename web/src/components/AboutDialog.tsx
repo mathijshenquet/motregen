@@ -5,6 +5,7 @@ import { WIND_UNITS, type WindUnit } from '../core/weather'
 import { BUTTON_ICON, INLINE_ICON, Moon, Palette, Share2, Sun, SunMoon, X } from './icons'
 import { backdropHandlers } from './modal'
 import { REPOSITORY_URL, type AboutProps, type ThemeChoice } from './About'
+import version from '../../../VERSION?raw'
 
 const THEMES = ['light', 'system', 'dark'] as const
 const THEME_CHOICES: Record<ThemeChoice, { icon: typeof Sun; label: string }> = {
@@ -63,6 +64,7 @@ export default function AboutDialog(props: Props) {
           <h2 id="about-title">{brand.name}</h2>
         </header>
         <p class="about-lead">Regenradar en weersverwachting</p>
+        <p><a href="/changelog">Versie {version.trim()} · Wat is er nieuw?</a></p>
         <div class="about-share"><button type="button" onClick={() => void props.onShare?.()}><Share2 {...INLINE_ICON} />Deel deze stand</button><span aria-live="polite">{props.shareNotice}</span></div>
         <dl>
           <dt>Observatie</dt><dd>KNMI-radar, elke 5 min · NL en Vlaanderen</dd>
