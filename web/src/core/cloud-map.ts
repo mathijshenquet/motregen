@@ -1,3 +1,4 @@
+import type { MotionField } from './mrf'
 import type { Grid, MrfHeader } from './contract'
 import type { PreparedField } from './isoline-field'
 import type { FieldBlend } from './sun'
@@ -8,7 +9,7 @@ import { cloudModification } from './uv'
 export const CLOUD_MAP_SAMPLES = ['live', 'gaten', 'sluier', 'dicht', 'overgang'] as const
 export type CloudMapSample = typeof CLOUD_MAP_SAMPLES[number]
 export const CLOUD_FLOW_STEPS = 12
-export const CLOUD_FLOW_HOURS = 2
+export const CLOUD_FLOW_HOURS = 0.5
 export const CLOUD_FLOW_DOWNSAMPLE = 2
 
 export function cloudFlowPhase(epoch: number): number {
@@ -28,8 +29,7 @@ interface CloudMapInputs {
   high?: FieldBlend
   radiation?: FieldBlend
   radiationNext?: FieldBlend
-  windU?: FieldBlend
-  windV?: FieldBlend
+  motion?: { grid: Grid; field: MotionField }
 }
 
 function sampleFrame(header: MrfHeader, data: Uint8Array, x: number, y: number): number | null {
@@ -56,10 +56,33 @@ function sampleBlend(blend: FieldBlend | undefined, x: number, y: number): numbe
   return left == null ? right : right == null ? left : left * (1 - blend.mix) + right * blend.mix
 }
 
+function sampleMotion(source: CloudMapInputs['motion'], signed: Int8Array | undefined, x: number, y: number): [number, number] | undefined {
+  if (!source || !signed) return undefined
+  const { grid, field } = source
+  const u = (x - grid.x0) / (grid.dx * grid.width), v = (y - grid.y0) / (grid.dy * grid.height)
+  if (u < 0 || u > 1 || v < 0 || v > 1) return undefined
+  const column = u * field.width - 0.5, row = v * field.height - 0.5
+  const left = Math.floor(column), top = Math.floor(row), mixX = column - left, mixY = row - top
+  let east = 0, down = 0
+  for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
+    const weight = (dx ? mixX : 1 - mixX) * (dy ? mixY : 1 - mixY)
+    if (weight === 0) continue
+    const at = Math.max(0, Math.min(field.height - 1, top + dy)) * field.width + Math.max(0, Math.min(field.width - 1, left + dx))
+    const a = signed[at * 2], b = signed[at * 2 + 1]
+    if (a == null || b == null || a === -128 || b === -128) return undefined
+    east += a * weight
+    down += b * weight
+  }
+  // Annex units are 0.1 projected source cells/minute, not ground m/s: no latitude factor.
+  return [east * 6 * grid.dx, down * 6 * grid.dy]
+}
+
 /** Two hints per source cell: shape (low puffs → high streaks) and ground-light darkness. */
 export function prepareCloudMapField(grid: Grid, field: PreparedField, epoch: number, inputs: CloudMapInputs): PreparedField {
   const hints = new Float32Array(field.values.length * 2)
   const flow = new Float32Array(field.values.length * 2)
+  const vectors = inputs.motion?.field.vectors
+  const signedMotion = vectors ? new Int8Array(vectors.buffer, vectors.byteOffset, vectors.byteLength) : undefined
   const radius = 6_378_137
   for (let row = 0; row < grid.height; row++) {
     const y = grid.y0 + (row + 0.5) * grid.dy
@@ -81,11 +104,10 @@ export function prepareCloudMapField(grid: Grid, field: PreparedField, epoch: nu
       const light = cloudModification(epoch, sampleBlend(inputs.radiation, x, y), sampleBlend(inputs.radiationNext, x, y), (time) => solarElevationSin(time, longitude, latitude))
       const fallback = low != null && mid != null && high != null ? layerTransmission(layers) : 1 - 0.75 * cover
       hints[cell * 2 + 1] = skyDarkness(light ?? fallback)
-      const east = sampleBlend(inputs.windU, x, y), north = sampleBlend(inputs.windV, x, y)
-      if (east != null && north != null) {
-        const scale = 3_600 / Math.cos(latitude * Math.PI / 180)
-        flow[cell * 2] = east * scale / grid.dx
-        flow[cell * 2 + 1] = north * scale / grid.dy
+      const motion = sampleMotion(inputs.motion, signedMotion, x, y)
+      if (motion) {
+        flow[cell * 2] = motion[0] / grid.dx
+        flow[cell * 2 + 1] = motion[1] / grid.dy
       }
     }
   }

@@ -40,17 +40,29 @@ describe('cloud map light and structure', () => {
     expect(partial.cloudHints![1]).toBeGreaterThan(0.5)
   })
 
-  it('turns north/east ground wind into projected grid travel per model hour', () => {
-    const result = prepareCloudMapField(grid, field, Date.parse('2026-10-12T12:00:00Z'), { windU: constant(12), windV: constant(8) })
-    const latitude = 2 * Math.atan(Math.exp((grid.y0 + grid.dy / 2) / 6378137)) - Math.PI / 2
-    expect(result.cloudFlow![0]! * grid.dx * Math.cos(latitude)).toBeCloseTo(43_200, 2)
-    expect(result.cloudFlow![1]! * grid.dy * Math.cos(latitude)).toBeCloseTo(28_800, 2)
-    expect(result.cloudFlow![1]).toBeLessThan(0)
+  it('uses signed rain-annex vectors with their byte offset and projected cell units', () => {
+    const storage = new Int8Array([99, 99, -20, 30, 99, 99])
+    const motion = { grid: { ...grid, width: 16, height: 16, dx: 1000, dy: -1000 },
+      field: { width: 1, height: 1, vectors: new Uint8Array(storage.buffer, 2, 2) } }
+    const result = prepareCloudMapField(grid, field, 0, { motion })
+    expect([...result.cloudFlow!]).toEqual([-7.5, 11.25])
   })
 
-  it('leaves movement stationary when a wind component is missing', () => {
-    const result = prepareCloudMapField(grid, field, Date.parse('2026-10-12T12:00:00Z'), { windU: constant(12) })
-    expect([...result.cloudFlow!]).toEqual([0, 0])
+  it('bilinearly samples the same normalized motion grid as the rain shader', () => {
+    const motion = { grid, field: { width: 2, height: 2, vectors: new Uint8Array([0, 0, 10, 20, 20, 40, 30, 60]) } }
+    const result = prepareCloudMapField(grid, field, 0, { motion })
+    expect([...result.cloudFlow!]).toEqual([90, 180])
+  })
+
+  it('does not turn an invalid annex component or a missing annex into ground wind', () => {
+    const motion = { grid, field: { width: 1, height: 1, vectors: new Uint8Array([20, 128]) } }
+    expect([...prepareCloudMapField(grid, field, 0, { motion }).cloudFlow!]).toEqual([0, 0])
+    expect([...prepareCloudMapField(grid, field, 0, {}).cloudFlow!]).toEqual([0, 0])
+  })
+
+  it('does not extrapolate motion beyond the rain footprint', () => {
+    const motion = { grid: { ...grid, x0: grid.x0 + 100000 }, field: { width: 1, height: 1, vectors: new Uint8Array([20, 30]) } }
+    expect([...prepareCloudMapField(grid, field, 0, { motion }).cloudFlow!]).toEqual([0, 0])
   })
 
   it('anchors the detail lifetime to model time and repeats independently of visit order', () => {

@@ -1,5 +1,15 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-16 10:59 CEST — Wolken volgen regenmatching; kortere textuurlevensduur
+
+Main bijgewerkt tot 1bf299d9 (U82/U83), via merge 31018a80. Wolken gebruiken nu dezelfde regen-motionannex als de regenroute, bilineair omgerekend van geprojecteerde broncellen/minuut naar wolkencellen/uur. Geen 10m-wind meer; ontbrekende vectoren betekenen stilstand. Annex wordt op de uurlijkse wolkentijden bemonsterd. Dit is een bewegingsproxy, geen gemeten wolkenvector en geen uniforme snelheid voor alle atmosferische lagen als definitief model.
+
+U82 heeft juist de 300m-prior verwijderd. De huidige wolkenpublicatie is 79×85 op 16km/uur: rechtstreeks de 32-cellen regenmatcher toepassen geeft 512km-blokken en slechts circa 3×3 vectoren. Voor eigen wolkenmatching zijn fijnere bronvelden nodig. Een gedeelde matcher met afzonderlijke laagvectoren en betrouwbaarheid is een onderzoeksrichting, geen uitgevoerde ingestwijziging. Luchtdruk pressure_hpa is zeeniveaudruk; hooguit een zwakke dynamische controle, P3-wind op passende hoogte is een directere prior.
+
+Vervormingsproef: texturelevensduur 2 uur → 30 minuten, twee overlappende banken met 15 minuten verschil; vernieuwen bij nul gewicht, zonder textuurvervaging. Numerieke statische terugtrace op het echte 12:00-veld: maximale lokale rek bij 1 uur 2,385×, bij 15 minuten 1,262×. Dit diagnosticeert opgebouwde rek, niet een exact gereproduceerd PO-beeld. GPU-oracle inclusief tijdgrenzen/reseek, translatie, compressie/dilutie en directe/cache-vergelijking exit0. Typecheck en eerst 59 gerichte tests groen; na levensduurwijziging opnieuw typecheck en 22 relevante tests groen. Dag/nacht desktop/mobiel en afspeelbeelden over de 14:00-bronovergang zelf bekeken; geen browsererrors. Geen volledige merge-/mobiele gate.
+
+Preview4390 blijft live productiedata gebruiken; preview4398 gebruikt vastgezette U82-data van 16 oktober08:10, zodat de nieuwe matcher echt getest wordt. Zelfde code, verschillende data. Receipts/scripts in web/tmp/orkestrator/cloud-motion-20261016/. Geen prod/VM/Telegramacties, CSV niet aangeraakt.
+
 ## 2026-10-16 10:40 CEST — Wolkenbeweging vooraf berekend; P3/AMV-bronnen gecontroleerd
 
 PO vraagt verdere performance met behoud van textuur en onderzoekt echte wolkenvectoren. Nieuwe renderpass berekent beide teruggevolgde verplaatsingen op halve vulbreedte/-hoogte, RGBA32F met handmatige bilineaire filtering. Twaalf midpoint-stappen en procedurele textuur ongewijzigd. Bij ontbrekende float-extensie/onvolledig doel of viewport-/modelrand directe shader. Doel hergebruikt en bij layer-remove vrijgegeven; volledigheidscheck alleen na reallocatie. Cameramatrix/tijd/bronversie verversen via bestaande invalidatie. Appdiagnostiek bevat flowMs/fillMs. Geen ingest, prod, VM, Telegram, U76/U80 of CSV-wijziging.

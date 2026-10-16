@@ -2045,6 +2045,16 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
   }
 
+  async function cloudMotionAt(epoch: number): Promise<{ grid: Grid; field: MotionField } | undefined> {
+    const frames = timeline()
+    if (frames.length < 2 || epoch < frames[0]!.epoch || epoch > frames[frames.length - 1]!.epoch) return undefined
+    const blend = frameBlend(frames, epoch)
+    const rightIndex = Math.max(1, blend.right), leftIndex = Math.min(blend.left, rightIndex - 1)
+    const left = frames[leftIndex]!, right = frames[rightIndex]!
+    const [field, header] = await Promise.all([loadPairMotion(left, right), client.getHeader(right.chunk)])
+    return field ? { grid: header.grid, field } : undefined
+  }
+
   function preparedIsolineField(set: IsolineSet, frame: TimelineFrame): Promise<{ grid: Grid; field: PreparedField }> {
     const preparedIsolineFields = set.prepared
     const key = isolineFrameKey(set, frame)
@@ -2054,12 +2064,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         const field = prepareField(blurField(blendFrames(frames, grid.width, grid.height), isolineBlurPasses(set.kind)))
         if (set.kind !== 'cloud') return { grid, field }
         const at = (timeline: TimelineFrame[], epoch = frame.epoch) => loadFieldBlend(timeline, epoch, 0).catch(() => undefined)
-        const [low, mid, high, radiation, radiationNext, windU, windV] = await Promise.all([
+        const [low, mid, high, radiation, radiationNext, motion] = await Promise.all([
           at(cloudTimelines().low), at(cloudTimelines().mid), at(cloudTimelines().high),
           at(radiationTimeline()), at(radiationTimeline(), frame.epoch + 3_600_000),
-          at(windUFrames()), at(windVFrames()),
+          cloudMotionAt(frame.epoch).catch(() => undefined),
         ])
-        return { grid, field: prepareCloudMapField(grid, field, frame.epoch, { low, mid, high, radiation, radiationNext, windU, windV }) }
+        return { grid, field: prepareCloudMapField(grid, field, frame.epoch, { low, mid, high, radiation, radiationNext, motion }) }
       })
       prepared.catch(() => preparedIsolineFields.delete(key))
       preparedIsolineFields.set(key, prepared)
@@ -2071,11 +2081,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function isolineFrameKey(set: IsolineSet, frame: TimelineFrame): string {
     const key = `${frame.chunk.url}#${frame.frameIndex}`
     if (set.kind !== 'cloud') return key
-    const inputs = [...CLOUD_LAYERS.map((layer) => cloudTimelines()[layer]), radiationTimeline(), windUFrames(), windVFrames()]
+    const inputs = [...CLOUD_LAYERS.map((layer) => cloudTimelines()[layer]), radiationTimeline(), timeline()]
     return key + '|' + inputs.map((frames) => {
       if (!frames.length) return ''
       const blend = frameBlend(frames, frame.epoch)
-      return [blend.left, blend.right, Math.min(frames.length - 1, blend.right + 1)]
+      return [blend.left, blend.right, Math.min(frames.length - 1, Math.max(1, blend.right) + 1)]
         .map((index) => `${frames[index]!.chunk.url}#${frames[index]!.frameIndex}`).join(',')
     }).join('|')
   }

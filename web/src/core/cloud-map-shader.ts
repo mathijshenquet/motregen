@@ -24,7 +24,7 @@ uniform sampler3D u_cloud_flow;
 uniform float u_cloud_phase;
 ${cloudFlowSampling}
 void main() {
-  float ageB = mod(u_cloud_phase + ${CLOUD_FLOW_HOURS / 2}.0, ${CLOUD_FLOW_HOURS}.0);
+  float ageB = mod(u_cloud_phase + ${(CLOUD_FLOW_HOURS / 2).toFixed(2)}, ${CLOUD_FLOW_HOURS.toFixed(2)});
   color = vec4(backtrace(v_uv, u_cloud_phase) - v_uv, backtrace(v_uv, ageB) - v_uv);
 }`
 }
@@ -169,8 +169,8 @@ void main() {
   }
   if (cover == 0.0 || valid == 0.0) { color = vec4(0.0); return; }
   float ageA = u_cloud_phase;
-  float ageB = mod(ageA + ${CLOUD_FLOW_HOURS / 2}.0, ${CLOUD_FLOW_HOURS}.0);
-  float weightA = pow(sin(ageA * 3.14159265359 / ${CLOUD_FLOW_HOURS}.0), 2.0);
+  float ageB = mod(ageA + ${(CLOUD_FLOW_HOURS / 2).toFixed(2)}, ${CLOUD_FLOW_HOURS.toFixed(2)});
+  float weightA = pow(sin(ageA * 3.14159265359 / ${CLOUD_FLOW_HOURS.toFixed(2)}), 2.0);
   vec2 pixel = gl_FragCoord.xy;
   bool interior = all(greaterThan(v_uv, margin)) && all(lessThan(v_uv, 1.0 - margin))
                && all(greaterThan(pixel, vec2(8.0))) && all(lessThan(pixel, u_cloud_fill_size - 8.0));
