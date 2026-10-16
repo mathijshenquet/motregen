@@ -219,6 +219,7 @@ fn main() -> io::Result<()> {
                         mix,
                         displacements: upper_displacements,
                         multiply,
+                        outlines: &[],
                     },
                 )
             });
@@ -235,6 +236,7 @@ fn main() -> io::Result<()> {
                     mix,
                     displacements: lower_displacements,
                     multiply,
+                    outlines: &[],
                 },
             );
         });

@@ -1,7 +1,17 @@
-use crate::{
-    constants::RainOutline,
-    sampling::{Coverage, sample},
-};
+use crate::sampling::{Coverage, sample};
+
+/// Eén regenlijn op een vaste veldwaarde, zoals de regenshader van de app hem tekent. Zonder serde: de bot
+/// compileert dit bestand los mee (bot/native-raster.rs).
+#[derive(Debug, Clone, Copy)]
+pub struct RainOutline {
+    /// Veldwaarde (byte) waarop de lijn ligt.
+    pub index: f64,
+    pub colour: [f64; 3],
+    /// Dekking van de lijn over de regenkleur, 0–1.
+    pub strength: f64,
+    /// Halve lijndikte in pixels.
+    pub half_width: f64,
+}
 
 #[derive(Clone, Copy)]
 pub struct CoveragePair<'a> {

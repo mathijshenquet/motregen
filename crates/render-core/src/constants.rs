@@ -44,19 +44,26 @@ pub struct Constants {
     pub temperature_style: serde_json::Value,
     /// Buitenrand en isolijnen van de regen per thema, uit `rainOutlines` in de app (leeg = geen lijnen).
     #[serde(default)]
-    pub rain_outlines: std::collections::HashMap<String, Vec<RainOutline>>,
+    pub rain_outlines: std::collections::HashMap<String, Vec<RainOutlineConstant>>,
 }
 
-/// Eén regenlijn op een vaste veldwaarde, zoals de regenshader van de app hem tekent.
 #[derive(Debug, Clone, Copy, Deserialize)]
-pub struct RainOutline {
-    /// Veldwaarde (byte) waarop de lijn ligt.
+pub struct RainOutlineConstant {
     pub index: f64,
     pub colour: [f64; 3],
-    /// Dekking van de lijn over de regenkleur, 0–1.
     pub strength: f64,
-    /// Halve lijndikte in pixels.
     pub half_width: f64,
+}
+
+impl From<RainOutlineConstant> for crate::composition::RainOutline {
+    fn from(constant: RainOutlineConstant) -> Self {
+        Self {
+            index: constant.index,
+            colour: constant.colour,
+            strength: constant.strength,
+            half_width: constant.half_width,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]

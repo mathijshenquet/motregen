@@ -17,13 +17,18 @@ pub struct RainCompositor {
     pub projection: Projection,
     colors: [Vec<[f32; 4]>; 2],
     multiply: [bool; 2],
-    outlines: [Vec<crate::constants::RainOutline>; 2],
+    outlines: [Vec<crate::composition::RainOutline>; 2],
 }
 
 impl RainCompositor {
     pub fn new(grid: Grid) -> Self {
         let outlines = &constants().rain_outlines;
-        let theme = |name: &str| outlines.get(name).cloned().unwrap_or_default();
+        let theme = |name: &str| {
+            outlines
+                .get(name)
+                .map(|list| list.iter().copied().map(Into::into).collect())
+                .unwrap_or_default()
+        };
         Self::with_presentation(
             grid,
             &constants().presentation,
@@ -43,7 +48,7 @@ impl RainCompositor {
     fn with_presentation(
         grid: Grid,
         presentation: &std::collections::HashMap<String, RainPresentation>,
-        outlines: [Vec<crate::constants::RainOutline>; 2],
+        outlines: [Vec<crate::composition::RainOutline>; 2],
     ) -> Self {
         Self {
             projection: Projection::new(&grid),
