@@ -1,5 +1,5 @@
-#!/usr/bin/env -S uv run --script
 """Download a small, reproducible radar/wind corpus without writing to production."""
+
 from __future__ import annotations
 
 import argparse
@@ -11,8 +11,16 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 API = "https://api.dataplatform.knmi.nl/open-data/v1"
-DEFAULT_TIMES = ["2026-10-09T00:00Z", "2026-10-10T12:00Z", "2026-10-11T06:00Z", "2026-10-12T12:00Z",
-                 "2026-10-13T00:00Z", "2026-10-14T12:00Z", "2026-10-15T21:00Z", "2026-10-16T06:00Z"]
+DEFAULT_TIMES = [
+    "2026-10-09T00:00Z",
+    "2026-10-10T12:00Z",
+    "2026-10-11T06:00Z",
+    "2026-10-12T12:00Z",
+    "2026-10-13T00:00Z",
+    "2026-10-14T12:00Z",
+    "2026-10-15T21:00Z",
+    "2026-10-16T06:00Z",
+]
 
 
 def get_bytes(url: str, headers: dict[str, str] | None = None) -> bytes:
@@ -23,8 +31,12 @@ def get_bytes(url: str, headers: dict[str, str] | None = None) -> bytes:
 
 
 def download_url(dataset: str, filename: str, key: str) -> str:
-    metadata = json.loads(get_bytes(f"{API}/datasets/{dataset}/versions/1.0/files/{filename}/url",
-                                    {"Authorization": key}))
+    metadata = json.loads(
+        get_bytes(
+            f"{API}/datasets/{dataset}/versions/1.0/files/{filename}/url",
+            {"Authorization": key},
+        )
+    )
     return metadata["temporaryDownloadUrl"]
 
 
@@ -42,7 +54,12 @@ def tar_members(url: str, leads: set[int], target: Path) -> list[str]:
             if lead in leads:
                 path = target / name
                 if not path.exists():
-                    path.write_bytes(get_bytes(url, {"Range": f"bytes={offset + 512}-{offset + 511 + size}"}))
+                    path.write_bytes(
+                        get_bytes(
+                            url,
+                            {"Range": f"bytes={offset + 512}-{offset + 511 + size}"},
+                        )
+                    )
                 if path.stat().st_size != size:
                     raise ValueError(f"Short GRIB member {name}")
                 found[lead] = str(path.resolve())
@@ -57,16 +74,21 @@ def main() -> None:
     parser.add_argument("output", type=Path)
     parser.add_argument("--env", type=Path, default=Path(".env"))
     parser.add_argument("--times", nargs="+", default=DEFAULT_TIMES)
+    parser.add_argument("--snapshot", type=Path)
+    parser.add_argument("--snapshot-wind", type=Path)
     arguments = parser.parse_args()
     key = os.environ.get("KNMI_OPEN_DATA_API_KEY")
     if not key:
-        entries = dict(line.strip().split("=", 1) for line in arguments.env.read_text().splitlines()
-                       if "=" in line and not line.lstrip().startswith("#"))
+        entries = dict(
+            line.strip().split("=", 1)
+            for line in arguments.env.read_text().splitlines()
+            if "=" in line and not line.lstrip().startswith("#")
+        )
         key = entries["KNMI_OPEN_DATA_API_KEY"].strip("\"'")
     arguments.output.mkdir(parents=True, exist_ok=True)
     datasets = []
     for timestamp in arguments.times:
-        start = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        start = datetime.fromisoformat(timestamp)
         label = start.strftime("%Y%m%dT%H%M")
         target = arguments.output / label
         target.mkdir(exist_ok=True)
@@ -84,12 +106,42 @@ def main() -> None:
             filename = f"HARM43_V1_P1_{model_run:%Y%m%d%H}.tar"
             url = download_url("harmonie_arome_cy43_p1", filename, key)
             wind_paths = tar_members(url, {3, 4}, target)
-            datasets.append({"label": label, "kind": "rtcor", "rain": radar_paths,
-                             "wind": wind_paths, "wind_run": model_run.isoformat()})
-            print(f"{label}: {len(radar_paths)} radarframes, {len(wind_paths)} GRIB-leden", flush=True)
+            datasets.append(
+                {
+                    "label": label,
+                    "kind": "rtcor",
+                    "rain": radar_paths,
+                    "wind": wind_paths,
+                    "wind_run": model_run.isoformat(),
+                }
+            )
+            print(
+                f"{label}: {len(radar_paths)} radarframes, {len(wind_paths)} GRIB-leden",
+                flush=True,
+            )
         except HTTPError as error:
             print(f"{label}: HTTP {error.code}; corpus incomplete", flush=True)
             raise SystemExit(1) from None
+    if arguments.snapshot:
+        if not arguments.snapshot_wind:
+            parser.error("--snapshot requires --snapshot-wind with cached GRIB members")
+        wind_paths = sorted(arguments.snapshot_wind.glob("*GB"))
+        if len(wind_paths) < 10:
+            parser.error("Snapshot audit needs model leads +0 through +9")
+        model_run = datetime.strptime(wind_paths[0].name.split("_")[2], "%Y%m%d%H%M")
+        manifest = json.loads((arguments.snapshot / "manifest.json").read_text())
+        for chunk in manifest["chunks"]:
+            if chunk["field"] == "rain_rate":
+                datasets.append(
+                    {
+                        "label": "snapshot-" + chunk["source"],
+                        "kind": "mrf",
+                        "rain": [str((arguments.snapshot / chunk["url"]).resolve())],
+                        "wind": [str(path.resolve()) for path in wind_paths],
+                        "wind_run": model_run.isoformat() + "Z",
+                        "frame_limit": 7 if chunk["source"] == "harmonie" else None,
+                    }
+                )
     (arguments.output / "corpus.json").write_text(json.dumps(datasets, indent=2) + "\n")
 
 

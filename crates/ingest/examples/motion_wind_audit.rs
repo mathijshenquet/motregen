@@ -18,6 +18,7 @@ struct Dataset {
     rain: Vec<PathBuf>,
     wind: Vec<PathBuf>,
     wind_run: String,
+    frame_limit: Option<usize>,
 }
 
 fn vector_values(field: &motion::CorrelationField) -> Vec<Option<[f32; 3]>> {
@@ -216,6 +217,11 @@ fn main() -> Result<()> {
                 );
                 times.push(DateTime::parse_from_rfc3339(&frame.time)?.with_timezone(&Utc));
             }
+        }
+        if let Some(limit) = dataset.frame_limit {
+            frames.truncate(limit);
+            times.truncate(limit);
+            stored_annexes.truncate(limit);
         }
         let mut correlations = Vec::new();
         let mut high_series = Vec::new();
