@@ -8,7 +8,8 @@ import { captureComparison } from '../web/scripts/before-after-capture'
 import { maxMediaBytes, repositoryRoot } from './changelog'
 
 export function comparisonFilter(): string {
-  return "[0:v]scale=-2:400,setsar=1,drawbox=x=0:y=0:w=iw:h=38:color=black@0.7:t=fill,drawtext=text=voor:fontcolor=white:fontsize=24:x=16:y=6[before];[1:v]scale=-2:400,setsar=1,drawbox=x=0:y=0:w=iw:h=38:color=black@0.7:t=fill,drawtext=text=na:fontcolor=white:fontsize=24:x=16:y=6[after];[before][after]hstack=inputs=2[out]"
+  const label = (text: string) => `setsar=1,drawtext=text=${text}:fontcolor=white:fontsize=24:x=w-tw-18:y=16:box=1:boxcolor=black@0.6:boxborderw=6`
+  return `[0:v]${label('voor')}[before];[1:v]${label('na')}[after];[before][after]vstack=inputs=2[out]`
 }
 
 interface CaptureRegion { x: number; y: number; width: number; height: number }
@@ -17,7 +18,7 @@ export function comparisonVideoFilter(duration: number, regions: Array<CaptureRe
   const segments = ['voor', 'na'].map((label, index) => {
     const region = regions[index]
     const crop = region ? `crop=${Math.floor(region.width / 2) * 2}:${Math.floor(region.height / 2) * 2}:${Math.floor(region.x / 2) * 2}:${Math.floor(region.y / 2) * 2},` : ''
-    return `[${index}:v]trim=duration=${duration / 2},setpts=PTS-STARTPTS,${crop}scale=960:600:force_original_aspect_ratio=decrease,pad=960:600:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=12,drawbox=x=0:y=0:w=iw:h=44:color=black@0.7:t=fill,drawtext=text=${label}:fontcolor=white:fontsize=28:x=18:y=8[segment${index}]`
+    return `[${index}:v]trim=duration=${duration / 2},setpts=PTS-STARTPTS,${crop}scale=960:800:force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1,fps=12,drawtext=text=${label}:fontcolor=white:fontsize=24:x=w-tw-18:y=16:box=1:boxcolor=black@0.6:boxborderw=6[segment${index}]`
   })
   return `${segments.join(';')};[segment0][segment1]concat=n=2:v=1:a=0[out]`
 }
@@ -61,7 +62,7 @@ export async function beforeAfter(arguments_: string[]): Promise<void> {
       regions.push(captured.region)
     }
     const inputs = duration ? ['-ss', String(starts[0]), '-i', `${scratch}/0/capture.webm`, '-ss', String(starts[1]), '-i', `${scratch}/1/capture.webm`] : ['-i', `${scratch}/0/capture.png`, '-i', `${scratch}/1/capture.png`]
-    const encoding = duration ? ['-t', String(duration), '-r', '12', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '27', '-maxrate', '1000k', '-bufsize', '1000k', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an'] : ['-frames:v', '1', '-c:v', 'libwebp', '-quality', '80']
+    const encoding = duration ? ['-t', String(duration), '-r', '12', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-maxrate', '1000k', '-bufsize', '1000k', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an'] : ['-frames:v', '1', '-c:v', 'libwebp', '-lossless', '1', '-compression_level', '6']
     execFileSync('ffmpeg', ['-y', '-v', 'error', ...inputs, '-filter_complex', duration ? comparisonVideoFilter(duration, regions) : comparisonFilter(), '-map', '[out]', ...encoding, output], { stdio: 'pipe' })
     if (statSync(output).size > maxMediaBytes) throw new Error('Uitvoer is groter dan 2 MB; kies een kortere clip')
     console.log(`Voor/na opgeslagen: ${output}`)

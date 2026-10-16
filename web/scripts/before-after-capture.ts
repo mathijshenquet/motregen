@@ -16,7 +16,7 @@ export interface ComparisonCapture {
 export async function captureComparison(options: ComparisonCapture): Promise<{ start: number; camera: { longitude: number; latitude: number; zoom: number }; region?: { x: number; y: number; width: number; height: number } }> {
   const browser = await chromium.launch({ args: rainCaptureBrowserArguments })
   try {
-    const context = await browser.newContext({ ...rainCaptureContext, ...(options.duration ? { recordVideo: { dir: options.output, size: rainCaptureContext.viewport } } : {}) })
+    const context = await browser.newContext({ ...rainCaptureContext, deviceScaleFactor: options.duration ? 1 : 2, ...(options.duration ? { recordVideo: { dir: options.output, size: rainCaptureContext.viewport } } : {}) })
     const page = await context.newPage()
     const started = Date.now()
     await page.clock.setFixedTime(new Date(options.now))

@@ -9,7 +9,7 @@ title: Regen beter zichtbaar
 kind: beter
 media:
   - file: changes/media/regen-voor-na.webp
-    caption: Links de oude kaart, rechts de nieuwe kaart met duidelijkere regen.
+    caption: Boven de oude kaart, onder de nieuwe kaart met duidelijkere regen.
   - file: changes/media/regen-beweging.mp4
     caption: De buien bewegen rustiger als je de tijdlijn afspeelt.
 ---
@@ -103,7 +103,9 @@ uitvoerpaden worden vanaf de repositoryroot gelezen. Zonder `--now` wordt de klo
 vastgezet op de generated-tijd van de eerste origin plus één minuut.
 De tool deelt de opnamevoorbereiding van `web/scripts/rain-motion-strip.ts`, gebruikt de
 camerahaak en maakt met ffmpeg een vergelijking, gelabeld `voor` en `na`.
-Stills staan naast elkaar; een clip toont eerst vóór en daarna na. `--duration` is de totale
+Stills staan boven elkaar, op dubbele schermresolutie en verliesloos als WebP; een clip
+toont eerst vóór en daarna na, zonder letterboxranden. Kleine hoeklabels duiden de versie aan.
+`--duration` is de totale
 clipduur (maximaal 12 seconden), elke helft duurt even lang. De uitvoer blijft onder 2 MB.
 Met `--selector .scrub-surface` neem je alleen het urenoverzicht op, met `--selector .map-shell`
 alleen de kaart. `--play` start de tijdlijn vóór een clip, zodat je beweging kunt vergelijken.
