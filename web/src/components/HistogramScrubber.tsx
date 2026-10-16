@@ -673,7 +673,6 @@ export default function HistogramScrubber(props: Props) {
             <Show when={cloudBands().length}>
               <defs>
                 <filter id={`${cloudId}-soft`} x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="0.6" /></filter>
-                <filter id={`${cloudId}-drop`} x="-5%" y="-30%" width="110%" height="180%"><feDropShadow class="cloud-drop" dx="2" dy="3.5" stdDeviation="2" /></filter>
                 <For each={['sky', ...cloudBands().map((band) => band.key)]}>{(key) => <linearGradient id={`${cloudId}-${key}`} class={key === 'sky' ? 'sky-gradient' : `cloud-tone cloud-${key}`} gradientUnits="userSpaceOnUse" x1="0" x2={cloudWidth()} y1="0" y2="0">
                   <Index each={sky().length ? sky() : [{ offset: 0, darkness: 0, daylight: 1, glow: 0 }]}>{(stop) => <stop offset={stop().offset} style={{ '--dark': stop().darkness, '--day': stop().daylight }} />}</Index>
                 </linearGradient>}</For>
@@ -705,9 +704,10 @@ export default function HistogramScrubber(props: Props) {
                 {/* Het id zit op de binnengroep: <use> kloont ook inline stijl, en de dekking hier is in Lucht 0. */}
                 <g class="scrub-view" style={{ opacity: cloudsBehindOpacity() }}><g class="cloud-layers" id={`${cloudId}-layers`}>
                   <For each={layerBands().map((band) => band.key)}>{(key) => <g class="cloud-band" data-layer={key}>
-                    {/* Kartonnen platen achter elkaar: elke rij werpt een schaduw op wat erachter staat; de gestapelde rij is iets donkerder. */}
-                    <g filter={`url(#${cloudId}-drop)`}><For each={layerBands().find((band) => band.key === key)?.back}>{(path) => <><path d={path} fill={`url(#${cloudId}-${key})`} /><path class="cloud-back" d={path} /></>}</For></g>
-                    <g filter={`url(#${cloudId}-drop)`}><For each={layerBands().find((band) => band.key === key)?.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /></>}</For></g>
+                    {/* Diepte als tint (PO 2026-10-16): de gestapelde rij erachter donkerder, de voorste rij lichter. Gewone
+                        vulling, geen filter, zodat Weer en Lucht er hetzelfde uitzien. */}
+                    <For each={layerBands().find((band) => band.key === key)?.back}>{(path) => <><path d={path} fill={`url(#${cloudId}-${key})`} /><path class="cloud-back" d={path} /></>}</For>
+                    <For each={layerBands().find((band) => band.key === key)?.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /><path class="cloud-near" d={path} /></>}</For>
                   </g>}</For>
                 </g></g>
               </g>
