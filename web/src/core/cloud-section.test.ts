@@ -17,9 +17,12 @@ describe('cloudSpansInSlot', () => {
     for (const fraction of [0, -0.05, Number.NaN]) expect(cloudSpansInSlot(fraction, 3, 'low')).toEqual([])
   })
 
-  it('closes the layer from CLOSED_FRACTION up', () => {
-    expect(cloudSpansInSlot(CLOSED_FRACTION, 3, 'mid')).toEqual([{ from: 0, to: 1, closed: true, row: 0 }])
-    expect(cloudSpansInSlot(1, 3, 'mid')).toEqual([{ from: 0, to: 1, closed: true, row: 0 }])
+  it('closes the back row into a deck from CLOSED_FRACTION up, with a full front row of clouds before it', () => {
+    for (const fraction of [CLOSED_FRACTION, 1]) {
+      const spans = cloudSpansInSlot(fraction, 3, 'mid')
+      expect(spans.find((span) => span.row === 1)).toEqual({ from: 0, to: 1, closed: true, row: 1 })
+      expect(spans.find((span) => span.row === 0)?.closed).toBe(false)
+    }
     expect(cloudSpansInSlot(CLOSED_FRACTION - 0.01, 3, 'mid').some((span) => span.closed)).toBe(false)
   })
 
@@ -55,8 +58,9 @@ describe('cloudSpansInSlot', () => {
 
 describe('cloudExtents', () => {
   it('merges neighbouring closed slots into one band and keeps loose clouds apart', () => {
-    const closed = cloudExtents(frames(9), new Array(9).fill(100), 'mid', start, start + 8 * hour, hour)
+    const closed = cloudExtents(frames(9), new Array(9).fill(100), 'mid', start, start + 8 * hour, hour).filter((extent) => extent.closed)
     expect(closed).toHaveLength(1)
+    expect(closed[0]!.row).toBe(1)
     expect(closed[0]!.to - closed[0]!.from).toBeGreaterThanOrEqual(8 * hour)
     const broken = cloudExtents(frames(9), new Array(9).fill(50), 'low', start, start + 8 * hour, hour)
     expect(broken.length).toBeGreaterThan(4)
@@ -77,9 +81,8 @@ describe('cloudBand', () => {
       const broken = cloudBand(frames(9), new Array(9).fill(50), layer, geometry)
       expect(broken.paths.length).toBeGreaterThan(2)
       const overcast = cloudBand(frames(9), new Array(9).fill(100), layer, geometry)
-      // Cirrus is ook gesloten een bundel losse vegen; laag en midden sluiten tot één vorm.
-      if (layer === 'high') expect(overcast.paths.length).toBeGreaterThan(broken.paths.length)
-      else expect(overcast.paths).toHaveLength(1)
+      // Bewolkt: een dek achter plus een volle rij wolken ervoor, dus meer vormen dan half bewolkt.
+      expect(overcast.paths.length).toBeGreaterThan(broken.paths.length)
       const ys = [...broken.paths, ...overcast.paths].join(' ').match(/-?\d+(\.\d+)?/g)!.map(Number).filter((_, index) => index % 2 === 1)
       expect(Math.min(...ys)).toBeGreaterThanOrEqual(geometry.top)
       expect(Math.max(...ys)).toBeLessThanOrEqual(geometry.top + geometry.height)

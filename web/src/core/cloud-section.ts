@@ -40,7 +40,9 @@ export interface CloudSpan {
  */
 export function cloudSpansInSlot(fraction: number, slot: number, layer: CloudLayer): CloudSpan[] {
   if (!(fraction > 0)) return []
-  if (fraction >= CLOSED_FRACTION) return [{ from: 0, to: 1, closed: true, row: 0 }]
+  // Vanaf CLOSED_FRACTION is de achterste rij een doorlopend dek, met de volle voorste rij ervoor: zo blijft
+  // ook bij 100 % zichtbaar dat het om opeengestapelde wolken gaat (PO 2026-10-16: "geen gestapelde rij" bij 100 %).
+  if (fraction >= CLOSED_FRACTION) return [looseCloud(1, slot, layer, 0)!, { from: 0, to: 1, closed: true, row: 1 }]
   const spans: CloudSpan[] = []
   const front = looseCloud(Math.min(1, fraction / FULL_ROW_FRACTION), slot, layer, 0)
   if (front) spans.push(front)
@@ -198,6 +200,7 @@ const CIRRUS_SPREAD = 0.42
 const HOUR = 3_600_000
 // De gestapelde rij: hoger (deel van de strookhoogte) en kleiner dan de voorste.
 const BACK_ROW_LIFT = 0.16
+const BACK_DECK_LIFT = 0.06
 const BACK_ROW_SCALE = 0.85
 
 export interface CloudBandGeometry {
@@ -218,21 +221,20 @@ interface CloudExtent { from: number; to: number; closed: boolean; row: 0 | 1 }
 
 /** Wolken van één laag op de tijdas (epoch-ms), achterste rij eerst; aangrenzende gesloten vakken vormen één band. */
 export function cloudExtents(frames: TimelineFrame[], values: Array<number | null>, layer: CloudLayer, start: number, end: number, slotMs: number): CloudExtent[] {
-  const front: CloudExtent[] = []
-  const back: CloudExtent[] = []
-  let closedThroughSlot: number | undefined
+  const rows: [CloudExtent[], CloudExtent[]] = [[], []]
+  const closedThroughSlot: [number | undefined, number | undefined] = [undefined, undefined]
   for (let slot = Math.floor(start / slotMs); slot * slotMs < end; slot++) {
     const slotStart = slot * slotMs
     const percent = seriesValueAt(frames, values, Math.max(start, Math.min(end, slotStart + slotMs / 2)), 30 * 60_000)
     const fraction = percent == null || !Number.isFinite(percent) ? 0 : Math.min(1, percent / 100)
     for (const span of cloudSpansInSlot(fraction, slot, layer)) {
-      const extent = { from: slotStart + span.from * slotMs, to: slotStart + span.to * slotMs, closed: span.closed, row: span.row }
-      if (span.row === 1) { back.push(extent); continue }
-      if (span.closed && closedThroughSlot === slot - 1) front.at(-1)!.to = slotStart + slotMs
-      else front.push(extent)
-      if (span.closed) closedThroughSlot = slot
+      const extents = rows[span.row]
+      if (span.closed && closedThroughSlot[span.row] === slot - 1) extents.at(-1)!.to = slotStart + slotMs
+      else extents.push({ from: slotStart + span.from * slotMs, to: slotStart + span.to * slotMs, closed: span.closed, row: span.row })
+      if (span.closed) closedThroughSlot[span.row] = slot
     }
   }
+  const [front, back] = rows
   return [...back, ...front]
 }
 
@@ -258,10 +260,13 @@ export function cloudBand(frames: TimelineFrame[], values: Array<number | null>,
     const fromX = (cloud.from - start) / span * width
     const toX = (cloud.to - start) / span * width
     if (Math.min(width, toX) - Math.max(0, fromX) < 1) continue
-    // De gestapelde rij ligt iets hoger en is iets dunner, zodat ze achter de voorste rij uitsteekt.
-    const baseline = top + height * (style.baseline - cloud.row * BACK_ROW_LIFT)
-    const largest = height * style.looseBody * (cloud.row === 1 ? BACK_ROW_SCALE : 1)
-    const thickness = cloud.closed ? height * style.closedBody : largest * Math.max(MIN_LOOSE_THICKNESS, Math.min(1, (toX - fromX) / (largest * style.aspect)))
+    // De gestapelde rij ligt iets hoger en is iets dunner, zodat ze achter de voorste rij uitsteekt; het dek
+    // minder hoog, anders raakt het de bovenrand. Cirrus blijft op zijn hoogte: daar maakt de rij de vegen dichter.
+    const lift = !style.puffs || cloud.row === 0 ? 0 : cloud.closed ? BACK_DECK_LIFT : BACK_ROW_LIFT
+    const scale = cloud.row === 1 ? BACK_ROW_SCALE : 1
+    const baseline = top + height * (style.baseline - lift)
+    const largest = height * style.looseBody * scale
+    const thickness = cloud.closed ? height * style.closedBody * scale : largest * Math.max(MIN_LOOSE_THICKNESS, Math.min(1, (toX - fromX) / (largest * style.aspect)))
     const shape = { fromX, toX, thickness, closed: cloud.closed, key: cloud.from / HOUR + LAYER_SEEDS[layer] + cloud.row * 0.29 }
     const cacheKey = `${layer}|${cloud.row}|${fromX}|${toX}|${thickness}|${cloud.closed}|${shape.key}|${width}|${top}|${height}`
     let shapePaths = shapePathCache.get(cacheKey)
