@@ -79,6 +79,12 @@ een passende korte beeldhint. De datum komt uit de release-index en wordt in het
 getoond; `k/n` telt de media-items van de release, in de volgorde van die index en de medialijsten.
 Notities zonder media staan in het eerste tekstbericht. De dry-run toont ook deze volledige bijschriften.
 
+`k/n` linkt naar het volgende mediabericht; het laatste linkt terug naar `1/n`.
+De poster bewaart eerst de echte bericht-id's en vult daarna de links in via
+`editMessageCaption`. Bij één item verwijst `1/1` naar zichzelf. De dry-run toont de
+volgorde; de echte links zijn pas bekend na plaatsen. Gebruik een `@kanaal` voor openbare
+`t.me/<kanaal>/<bericht>`-links, of een `-100…`-chat-id voor `t.me/c/…`-links voor leden.
+
 De PO koos hiervoor na de echte albumproef. Met `--album` volgt in plaats daarvan een album
 met 2–10 items; bij één item een losse foto/video, bij nul alleen tekst.
 WebP wordt voor Telegram-foto's naar JPEG omgezet. Video's blijven H.264-MP4.
@@ -90,6 +96,12 @@ dezelfde opdracht na de al verstuurde tekst en media-items. Bij een verbroken ve
 versturen en opslaan weigert de tool opnieuw te sturen: controleer eerst de chat en vul de
 werkelijk verstuurde message-ids/voortgang in. Een bestaand `posted.lock` verwijder je alleen
 nadat is gecontroleerd dat geen andere poster draait.
+
+De linkfase heeft eigen voortgang (`links_updated`) en maakt geen nieuwe berichten.
+Na een fout in die fase kan dezelfde opdracht veilig verdergaan; een al identiek
+bijschrift telt als voltooid. Een release is pas compleet wanneer alle links bevestigd zijn.
+Eerder volledig geposte releases blijven overgeslagen, ook als hun oude administratie
+nog geen linkfase kent.
 
 Een expliciet toegestane proef krijgt `--test`: zowel bericht als elk bijschrift begint met
 `TEST`; voortgang staat apart in `posted.test.json`. Verwijder na inspectie met dezelfde

@@ -12,3 +12,6 @@ gebruikerswijziging uit. De al door de PO aangepaste kanaalteksten zijn het uitg
 De titelregel wordt vet getoond. Bij gestapelde foto's verwijzen pijlen naar boven en onder;
 bij sequentiële video's naar het eerste en tweede deel. De technische invulling en opdrachten
 staan in `changes/README.md`.
+
+Aanvulling van de PO op dezelfde dag: `k/n` is een link naar het volgende mediabericht.
+Het laatste item linkt terug naar `1/n`, zodat de reeks rondloopt.
