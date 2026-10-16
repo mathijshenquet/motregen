@@ -1,5 +1,15 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-16 11:21 CEST — Eén wolkenpatroon voorkomt verschoven dubbelbeelden
+
+PO meldt resterend springen rond09:00 op de Noordzee westelijk Alkmaar/Noordwijk, bevestigt4390/live en daarna dat het weg is. Diagnose in vasteU82data: lokale en gemiddelde snelheid verschillen, waardoor twee textuurbanken een verschoven afbeelding van dezelfde wolk tonen. Bij09:00 op3,5E/52,5N is de geschatte bankafstand circa3,16km. De vorige fix voorkwam wereldvaste herhaling, maar niet het zichtbaar in-/uitfaden van twee verschoven exemplaren.
+
+Shader mengt nu de twee teruggevolgde posities en bemonstert daar één wolkenpatroon. Menging van wolkentypen blijft optisch; die coördinaten worden niet gemengd. Levensduur/ankers/lokale terugtrace ongewijzigd. Eén procedurele textuurberekening in plaats van twee; geen nieuwe performanceclaim. Voor/na31 exacte frames08:45–09:15 op4398, relevante beelden zelf bekeken. Live4390 dezelfde code, PO bevestigt fix.
+
+Nieuwe GPU-regressie met verschillende lokale en gemiddelde snelheid: oude beeldcrossfade alpha-MAE20,314 t.o.v. één coherent patroon (verwachte exit1), nieuwe0,00986 (exit0). Uniforme translatie over meerdere cycli, type-menging, compressie/dilutie, tijdgrenzen, reseek en direct/cache blijven groen. Oracle nu reviewbaar in web/scripts/check-cloud-map.mjs: direnv exec . node web/scripts/check-cloud-map.mjs http://127.0.0.1:4398/. Typecheck en23 gerichte unit-tests exit0. Bij bijwerken van de oracle eerst de korte translatieproef voorzien van de echte bewegende ankers, daarna de reseek-input gelijkgetrokken; eerdere falende receipts bewaard.
+
+Scratch: web/tmp/orkestrator/cloud-morning-20261016/. Geen prod/VM/Telegram/CSVwijziging. Volledige mergegate niet uitgevoerd tijdens deze beeldproef.
+
 ## 2026-10-16 11:12 CEST — Wolkentextuur veert niet meer periodiek terug
 
 PO meldt springende wolken om19:00 en vooral rond00:00 op de Noordzee westelijk Den Haag–Den Helder. Oorzaak: twee kortlevende textuurbanken vernieuwden op hetzelfde wereldvaste patroon. Continu aan de cyclusgrens, maar netto periodiek terugveren; de30minlevensduur maakte dit vaker zichtbaar. Eerdere korte continuïteitstest miste dit.

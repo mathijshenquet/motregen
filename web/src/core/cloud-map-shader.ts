@@ -188,11 +188,10 @@ void main() {
   footA -= u_cloud_anchor.xy;
   footB -= u_cloud_anchor.zw;
   vec3 weights = typeWeights(shape);
-  vec4 cloudA = transportedCloud(footA, cover, darkness, weights);
-  vec4 cloudB = transportedCloud(footB, cover, darkness, weights);
-  // Two overlapping lifetimes renew the detail at zero weight; seeking depends only on model time.
-  float opacity = (1.0 - exp(-mix(cloudB.a, cloudA.a, weightA))) * valid;
-  vec3 cloud = mix(cloudB.rgb, cloudA.rgb, weightA);
+  // Interpolate trajectories, not two displaced cloud images that would dissolve into each other.
+  vec4 transported = transportedCloud(mix(footB, footA, weightA), cover, darkness, weights);
+  float opacity = (1.0 - exp(-transported.a)) * valid;
+  vec3 cloud = transported.rgb;
   float shadow = cover * darkness * mix(0.15, 0.08, u_cloud_night) * valid;
   color = vec4(cloud * opacity + vec3(0.22, 0.29, 0.36) * shadow * (1.0 - opacity),
                opacity + shadow * (1.0 - opacity));
