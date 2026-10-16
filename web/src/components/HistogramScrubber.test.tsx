@@ -253,7 +253,7 @@ describe('histogram scrubber', () => {
     }
   })
 
-  it('keeps the three cloud layers under rain in weather and brings them forward in air', () => {
+  it('keeps the three cloud layers behind the rain in weather and puts a copy in front in air', () => {
     const timeline = ['14', '15', '16', '17', '18'].map((hour) => frame(`2026-08-28T${hour}:00:00Z`, 'harmonie'))
     const layers = { timeline: { high: timeline, mid: timeline, low: timeline }, values: { high: [80, 80, 80, 80, 80], mid: [60, 60, 60, 60, 60], low: [0, 0, 0, 0, 0] } }
     const [mix, setMix] = createSignal({ wind: 0, air: 0, temperature: 0 })
@@ -283,9 +283,10 @@ describe('histogram scrubber', () => {
     expect(slider.getAttribute('data-scrubber-view')).toBe('air')
     expect(container.querySelectorAll('.rain-bar').length).toBeGreaterThan(0)
     const rain = container.querySelector<SVGGElement>('.rain-bars')!
-    const clouds = container.querySelector<SVGGElement>('.cloud-section')!
-    expect(Number(rain.style.opacity)).toBeCloseTo(0.35)
-    expect(rain.compareDocumentPosition(clouds) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // Alleen de volgorde wisselt (PO 2026-10-16): de regen blijft vol, een kopie van de wolken komt ervoor.
+    const front = container.querySelector<SVGGElement>('.cloud-front')!
+    expect(Number(rain.style.opacity)).toBe(1)
+    expect(rain.compareDocumentPosition(front) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(container.querySelector('.cursor-readout')).toBeNull()
     // Waarden per laag bij de cursor; een lege laag (0 %) krijgt geen label.
     expect([...container.querySelectorAll('.cursor-tags span')].map((label) => label.textContent)).toEqual(['hoge wolken 80%', 'midden wolken 60%'])
@@ -329,9 +330,12 @@ describe('histogram scrubber', () => {
     expect(container.querySelector('.ruler-sky')!.getAttribute('y')).toBe('-26')
     const hourLabels = [...container.querySelectorAll<HTMLElement>('.x-axis span:not(.now-tick)')]
     expect(hourLabels.map((label) => label.classList.contains('night'))).toEqual([false, true, true, true])
-    expect([...container.querySelectorAll('.ruler-veil-gradient stop')].map((stop) => stop.classList.contains('night'))).toEqual([false, false, true, true, true])
-    // In Weer staan de lagen zelf niet in beeld.
-    expect(container.querySelector<SVGGElement>('.cloud-section .scrub-view:last-child')!.style.opacity).toBe('0')
+    const veilNights = [...container.querySelectorAll('.ruler-veil-gradient stop')].map((stop) => stop.classList.contains('night'))
+    expect(veilNights[0]).toBe(false)
+    expect(veilNights.at(-1)).toBe(true)
+    expect(veilNights.slice(veilNights.indexOf(true)).every(Boolean)).toBe(true)
+    // Ook in Weer staan de wolkenlagen in beeld, achter de regen (PO 2026-10-16).
+    expect(container.querySelector<SVGGElement>('.cloud-section .scrub-view:last-child')!.style.opacity).toBe('1')
     setExpressive(false)
     expect(container.querySelector('[data-testid=sky]')).toBeNull()
     expect(container.querySelector('.sky-grain')).toBeNull()

@@ -7,7 +7,7 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   await expect(page.locator('.map-splash.ready')).toBeAttached()
   await expect(page.getByTestId('dev-panel')).toHaveCount(0)
   // Zonder ?dev tekent de regen in het product: de PO-keuze van 2026-10-11 (U77).
-  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'violet-laat/drempel-zacht')
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'violet-laat/rand')
   // De oude losse ?-parameters doen niets meer.
   await expect(page.getByTestId('perf-hud')).toBeHidden()
 
@@ -52,8 +52,8 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   const rainGroup = groups.filter({ has: page.locator('summary', { hasText: /^Regen$/ }) })
   await expect(rainGroup.locator('.dev-control label > span')).toHaveText(['Regenpalet', 'Regenmenging', 'Regencontrast', 'Regen in Wind/Lucht'])
   await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-focus-variant', 'per-modus')
-  // De standaard is de PO-keuze (2026-10-11); `huidig` + `huidig` zet ter vergelijking het beeld van vóór U77 terug.
-  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'violet-laat/drempel-zacht')
+  // De standaard is de PO-keuze (2026-10-11, menging rand sinds 2026-10-16); `huidig` + `huidig` zet ter vergelijking het beeld van vóór U77 terug.
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'violet-laat/rand')
   await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-contrast', '0')
   await rainGroup.getByLabel('Regenpalet').selectOption('huidig')
   await rainGroup.getByLabel('Regenmenging').selectOption('huidig')
@@ -70,7 +70,7 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   await expect(page.getByTestId('perf-hud')).toBeHidden()
   await panel.getByRole('button', { name: 'Reset alle instellingen' }).click()
   await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-wind-tuning-v4'))).toBeNull()
-  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'violet-laat/drempel-zacht')
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'violet-laat/rand')
   await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-contrast', '0')
   await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-dev-regenpalet'))).toBeNull()
 

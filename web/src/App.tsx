@@ -296,6 +296,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   })
   // e2e-meetpunt: exacte schermprojectie van de kaart (marker-positiechecks zonder herberekening).
   ;(window as unknown as { __motregenProject: (lng: number, lat: number) => { x: number; y: number } | undefined }).__motregenProject = (lng, lat) => map?.project([lng, lat])
+  // Rig-haak: zet de camera exact, zodat opeenvolgende opnames hetzelfde kaartvenster hebben (regenbeweging-repro).
+  ;(window as unknown as { __motregenJumpTo: (lng: number, lat: number, zoom: number) => void }).__motregenJumpTo = (lng, lat, zoom) => map?.jumpTo({ center: [lng, lat], zoom })
   // Camera voor de e2e van pin-navigatie en pan/zoom-only (U26).
   ;(window as unknown as { __motregenCamera: () => object | undefined }).__motregenCamera = () => map && {
     ...map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch(), location: location(),
