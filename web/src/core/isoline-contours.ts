@@ -16,6 +16,7 @@ export interface Contour {
 
 export interface ContourOptions {
   step: number
+  levels?: readonly number[]
   /** Maximale afwijking van een koorde tot de echte lijn, in cellen: bepaalt de verdichting. */
   toleranceCells: number
   /** Kolom/rij-venster (inclusief) om te traceren; standaard het hele rooster. */
@@ -140,6 +141,17 @@ export function traceContours(field: PreparedField, grid: Grid, options: Contour
   const nodes = splineNodes(field, width, height, window)
   const sampler = new SplineSampler(field, width, height)
   const { step } = options
+  const requestedLevels = options.levels && [...new Set(options.levels)].sort((left, right) => left - right)
+  const above = (value: number): number => {
+    let lower = 0
+    let upper = requestedLevels!.length
+    while (lower < upper) {
+      const middle = Math.floor((lower + upper) / 2)
+      if (requestedLevels![middle]! <= value) lower = middle + 1
+      else upper = middle
+    }
+    return lower
+  }
   // Eén pass: per niveau de cellen die het kruisen (CSR), zodat marching squares niet per
   // niveau het hele rooster afloopt.
   const w = nodes.width, h = nodes.height, v = nodes.values
@@ -152,8 +164,8 @@ export function traceContours(field: PreparedField, grid: Grid, options: Contour
       // NaN faalt elke vergelijking: zo'n cel krijgt een leeg bereik.
       const min = Math.min(a, b, c, d), max = Math.max(a, b, c, d)
       if (!(min <= max)) { cellLow[cell] = 1; cellHigh[cell] = 0; continue }
-      cellLow[cell] = Math.floor(min / step) + 1
-      cellHigh[cell] = Math.floor(max / step)
+      cellLow[cell] = requestedLevels ? above(min) : Math.floor(min / step) + 1
+      cellHigh[cell] = requestedLevels ? above(max) - 1 : Math.floor(max / step)
       if (cellLow[cell]! <= cellHigh[cell]!) {
         lowest = Math.min(lowest, cellLow[cell]!)
         highest = Math.max(highest, cellHigh[cell]!)
@@ -179,7 +191,7 @@ export function traceContours(field: PreparedField, grid: Grid, options: Contour
   const kmPerRow = Float64Array.from({ length: height }, (_, row) => kmPerCellAt(grid, row))
   const kmAt = (row: number) => kmPerRow[Math.max(0, Math.min(height - 1, Math.round(row)))]!
   for (let k = 0; k < levels; k++) {
-    const level = (k + lowest) * step
+    const level = requestedLevels ? requestedLevels[k + lowest]! : (k + lowest) * step
     const project = (column: number, row: number): TracePoint | undefined => {
       sampler.sample(column, row)
       const norm = sampler.gx * sampler.gx + sampler.gy * sampler.gy

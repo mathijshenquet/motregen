@@ -1,3 +1,5 @@
+import { RainContourTracer, type RainContourEntry } from './rain-contours'
+import { RainContourRenderer } from './rain-contour-renderer'
 import type { RainKernel, RainSampling, RainFilterPass, RainWarpLimit } from './rain-sampling.js'
 import { kernelTaps } from './rain-sampling.js'
 export type { RainKernel, RainSampling, RainFilterPass, RainWarpLimit } from './rain-sampling.js'
@@ -11,7 +13,7 @@ import type { RainOutline } from './rain-palette.js'
 
 export { rainColormap }
 
-import { WARP_CAP_CELLS, WARP_FADE_END_CELLS, FLOW_BLEND_CURVE } from './rain-motion.js'
+import { WARP_CAP_CELLS, WARP_FADE_END_CELLS, rainMotionShader } from './rain-motion.js'
 export { WARP_CAP_CELLS, WARP_FADE_END_CELLS, FLOW_BLEND_CURVE } from './rain-motion.js'
 
 /**
@@ -40,38 +42,19 @@ void main() {
 
 const fragmentSource = `#version 300 es
 precision highp float;
-const int MAX_OUTLINES = ${MAX_OUTLINES};
 uniform sampler2D u_left;
 uniform sampler2D u_right;
 uniform sampler2D u_lut;
-uniform sampler2D u_motion;
-uniform sampler2D u_motion_mask;
 uniform float u_mix;
 uniform float u_opacity;
 uniform float u_saturation;
 uniform float u_brightness;
-uniform float u_has_motion;
-uniform float u_interval_minutes;
-uniform vec2 u_grid_size;
 uniform float u_left_nearest;
 uniform float u_right_nearest;
-uniform float u_warp_cap_cells;
-uniform float u_warp_fade_end_cells;
-uniform int u_outline_count;
-uniform float u_outline_values[MAX_OUTLINES];
-uniform vec4 u_outline_styles[MAX_OUTLINES];
-uniform float u_outline_half_widths[MAX_OUTLINES];
 in vec2 v_uv;
 out vec4 color;
 
-const float FLOW_BLEND_CURVE = ${FLOW_BLEND_CURVE.toFixed(1)};
-
-float blendWeight(float value) {
-  float clamped = clamp(value, 0.0, 1.0);
-  float left = pow(1.0 - clamped, FLOW_BLEND_CURVE);
-  float right = pow(clamped, FLOW_BLEND_CURVE);
-  return right / max(left + right, 0.0001);
-}
+${rainMotionShader}
 
 // Het frame staat als ruwe bytes in een R8-textuur (255 = geen data). De shader mengt de vier
 // buurcellen zelf: zo is er geen tweede kanaal voor geldigheid nodig en hoeft de hoofddraad het
@@ -100,46 +83,15 @@ vec2 nearestSample(sampler2D frame, vec2 uv) {
   return vec2(value, (inside ? 1.0 : 0.0) * (1.0 - step(0.999, value)));
 }
 
-// Kubische B-spline over 4×4 cellen, alleen voor de isolijnen: continu in waarde én helling, dus de lijnen knikken
-// niet op de celgrenzen zoals bij lineair invullen. Cellen zonder data tellen niet mee.
-float smoothRain(sampler2D frame, vec2 uv) {
-  vec2 cell = uv * u_grid_size - 0.5;
-  vec2 base = floor(cell);
-  vec2 fraction = cell - base;
-  vec2 inverse = 1.0 - fraction;
-  vec2 squared = fraction * fraction;
-  vec2 cubed = squared * fraction;
-  vec4 weightX = vec4(inverse.x * inverse.x * inverse.x, 3.0 * cubed.x - 6.0 * squared.x + 4.0, -3.0 * cubed.x + 3.0 * squared.x + 3.0 * fraction.x + 1.0, cubed.x) / 6.0;
-  vec4 weightY = vec4(inverse.y * inverse.y * inverse.y, 3.0 * cubed.y - 6.0 * squared.y + 4.0, -3.0 * cubed.y + 3.0 * squared.y + 3.0 * fraction.y + 1.0, cubed.y) / 6.0;
-  ivec2 lastCell = ivec2(u_grid_size) - 1;
-  float sum = 0.0;
-  float weightSum = 0.0;
-  for (int row = 0; row < 4; row++) {
-    for (int column = 0; column < 4; column++) {
-      ivec2 texel = clamp(ivec2(base) + ivec2(column - 1, row - 1), ivec2(0), lastCell);
-      float raw = texelFetch(frame, texel, 0).r;
-      float weight = weightX[column] * weightY[row] * (1.0 - step(0.999, raw));
-      sum += raw * weight;
-      weightSum += weight;
-    }
-  }
-  return weightSum > 0.0 ? sum / weightSum : 0.0;
-}
-
 vec2 kernelSample(sampler2D frame, vec2 uv, float nearest) {
   return nearest > 0.5 ? nearestSample(frame, uv) : rainSample(frame, uv);
 }
 
 void main() {
   float weight = blendWeight(u_mix);
-  vec2 velocity = (texture(u_motion, v_uv).rg * 255.0 - 128.0) * 0.1;
-  float motionValid = step(0.999, texture(u_motion_mask, v_uv).r) * u_has_motion;
-  float totalDisplacement = length(velocity) * u_interval_minutes;
-  float capScale = min(1.0, u_warp_cap_cells / max(totalDisplacement, 0.0001));
-  float crossfadeFallback = 1.0 - smoothstep(u_warp_cap_cells, u_warp_fade_end_cells, totalDisplacement);
-  vec2 intervalUv = velocity * u_interval_minutes / u_grid_size;
-  vec2 leftUv = v_uv - intervalUv * weight * capScale * crossfadeFallback * motionValid;
-  vec2 rightUv = v_uv + intervalUv * (1.0 - weight) * capScale * crossfadeFallback * motionValid;
+  vec2 intervalUv = rainDisplacement(v_uv) / u_grid_size;
+  vec2 leftUv = v_uv - intervalUv * weight;
+  vec2 rightUv = v_uv + intervalUv * (1.0 - weight);
   vec2 left = kernelSample(u_left, leftUv, u_left_nearest);
   vec2 right = kernelSample(u_right, rightUv, u_right_nearest);
   float value = mix(left.r * left.g, right.r * right.g, weight);
@@ -148,16 +100,6 @@ void main() {
   // kleur, minder helderheid houdt de tint; dimmen via alfa mengt met de kaart en maakt geel crème.
   float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
   color.rgb = mix(vec3(luma), color.rgb, u_saturation) * u_brightness;
-  // Contour (U77-proef): fwidth is hoeveel de waarde per schermpixel verandert, dus dit is de afstand tot de
-  // isolijn in schermpixels en blijft de lijn op elke zoom even dun.
-  float contourValue = u_outline_count > 0 ? mix(smoothRain(u_left, leftUv), smoothRain(u_right, rightUv), weight) : value;
-  float contourStep = max(fwidth(contourValue), 0.000001);
-  for (int index = 0; index < MAX_OUTLINES; index++) {
-    if (index >= u_outline_count) break;
-    float pixelsFromOutline = abs(contourValue - u_outline_values[index]) / contourStep;
-    float outline = (1.0 - smoothstep(0.0, u_outline_half_widths[index], pixelsFromOutline)) * u_outline_styles[index].a;
-    color = mix(color, vec4(u_outline_styles[index].rgb, 1.0), outline);
-  }
   color.a *= u_opacity;
 }`
 
@@ -236,6 +178,10 @@ export class RainLayer implements CustomLayerInterface {
   readonly id = 'motregen-rain'
   readonly type = 'custom' as const
   readonly renderingMode = '2d' as const
+  requestRepaint?: () => void
+  private map?: MapLibreMap
+  private tracer?: RainContourTracer
+  private contourRenderer?: RainContourRenderer
   private gl?: WebGL2RenderingContext
   private program?: WebGLProgram
   private buffer?: WebGLBuffer
@@ -275,9 +221,11 @@ export class RainLayer implements CustomLayerInterface {
 
   constructor(private readonly grid: Grid) {}
 
-  onAdd(_map: MapLibreMap, context: WebGLRenderingContext | WebGL2RenderingContext): void {
+  onAdd(map: MapLibreMap, context: WebGLRenderingContext | WebGL2RenderingContext): void {
     const gl = context as WebGL2RenderingContext
     this.gl = gl
+    this.map = map
+    this.tracer = new RainContourTracer(this.grid, () => this.requestRepaint ? this.requestRepaint() : this.map?.triggerRepaint())
     this.leftData = this.rightData = this.motionData = undefined
     this.program = link(gl, vertexSource, fragmentSource)
     this.filterProgram = this.filterTarget = this.filterVertexArray = this.filterScratch = undefined
@@ -290,6 +238,7 @@ export class RainLayer implements CustomLayerInterface {
     const nw = mercator(west, north), se = mercator(east, south)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer)
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([nw.x, nw.y, 0, 0, se.x, nw.y, 1, 0, nw.x, se.y, 0, 1, se.x, se.y, 1, 1]), gl.STATIC_DRAW)
+    this.contourRenderer = new RainContourRenderer(gl, this.grid)
     this.left = texture(gl, gl.NEAREST)
     this.right = texture(gl, gl.NEAREST)
     this.motion = texture(gl)
@@ -378,6 +327,15 @@ export class RainLayer implements CustomLayerInterface {
     if (!this.program || !this.buffer || this.opacity <= 0) return
     const leftTexture = this.sampledTexture(gl, this.left!, this.leftData, this.leftSampling, this.rightData)
     const rightTexture = this.sampledTexture(gl, this.right!, this.rightData, this.rightSampling, this.leftData)
+    const levels = this.outlines.map((outline) => outline.index)
+    const contours = (data: Uint8Array | undefined, sampling: RainSampling, sampled: WebGLTexture): RainContourEntry | undefined => {
+      if (!data || !levels.length) return undefined
+      return this.tracer?.get(data, JSON.stringify(sampling), levels, () => measurePerfPhase('texture-upload', () =>
+        isSourceKernel(sampling.kernel) ? this.readFiltered(gl, sampled) : data.slice(), { layer: 'rain-contour-readback' }))
+    }
+    const leftContours = contours(this.leftData, this.leftSampling, leftTexture)
+    const rightContours = contours(this.rightData, this.rightSampling, rightTexture)
+    this.tracer?.retain([leftContours, rightContours].filter((entry): entry is RainContourEntry => !!entry))
     gl.useProgram(this.program)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer)
     const position = gl.getAttribLocation(this.program, 'a_pos')
@@ -398,12 +356,6 @@ export class RainLayer implements CustomLayerInterface {
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_right_nearest'), this.rightSampling.kernel === 'nearest' ? 1 : 0)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_warp_cap_cells'), this.warpLimit.capCells)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_warp_fade_end_cells'), this.warpLimit.fadeEndCells)
-    gl.uniform1i(gl.getUniformLocation(this.program, 'u_outline_count'), this.outlines.length)
-    if (this.outlines.length) {
-      gl.uniform1fv(gl.getUniformLocation(this.program, 'u_outline_values'), this.outlines.map((outline) => outline.index / 255))
-      gl.uniform4fv(gl.getUniformLocation(this.program, 'u_outline_styles'), this.outlines.flatMap((outline) => [...outline.colour.map((channel) => channel / 255), outline.strength]))
-      gl.uniform1fv(gl.getUniformLocation(this.program, 'u_outline_half_widths'), this.outlines.map((outline) => outline.halfWidth))
-    }
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, leftTexture); gl.uniform1i(gl.getUniformLocation(this.program, 'u_left'), 0)
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, rightTexture); gl.uniform1i(gl.getUniformLocation(this.program, 'u_right'), 1)
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, this.lut!); gl.uniform1i(gl.getUniformLocation(this.program, 'u_lut'), 2)
@@ -413,6 +365,41 @@ export class RainLayer implements CustomLayerInterface {
     if (this.straightAlpha) gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     else gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+    if (this.map) this.contourRenderer?.draw({
+      matrix: options.defaultProjectionData.mainMatrix, zoom: this.map.getZoom(),
+      left: leftContours, right: rightContours, mix: this.mix, opacity: this.opacity, outlines: this.outlines,
+      motion: this.motion!, motionMask: this.motionMask!, hasMotion: this.hasMotion,
+      intervalMinutes: this.intervalMinutes, warpLimit: this.warpLimit,
+    })
+  }
+
+  onRemove(): void {
+    this.tracer?.dispose()
+    this.contourRenderer?.dispose()
+    const gl = this.gl
+    if (!gl) return
+    for (const texture of [this.left, this.right, this.lut, this.motion, this.motionMask, this.filterScratch, ...this.filteredFrames.map((frame) => frame.texture)]) {
+      if (texture) gl.deleteTexture(texture)
+    }
+    if (this.buffer) gl.deleteBuffer(this.buffer)
+    if (this.program) gl.deleteProgram(this.program)
+    if (this.filterProgram) gl.deleteProgram(this.filterProgram)
+    if (this.filterTarget) gl.deleteFramebuffer(this.filterTarget)
+    if (this.filterVertexArray) gl.deleteVertexArray(this.filterVertexArray)
+    this.map = undefined
+    this.gl = undefined
+  }
+
+  private readFiltered(gl: WebGL2RenderingContext, texture: WebGLTexture): Uint8Array {
+    const previous = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
+    this.filterTarget ??= gl.createFramebuffer()!
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.filterTarget)
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
+    // RGBA/UNSIGNED_BYTE is ook voor een R8-doel gegarandeerd leesbaar in WebGL2.
+    const rgba = new Uint8Array(this.grid.width * this.grid.height * 4)
+    gl.readPixels(0, 0, this.grid.width, this.grid.height, gl.RGBA, gl.UNSIGNED_BYTE, rgba)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, previous)
+    return Uint8Array.from({ length: this.grid.width * this.grid.height }, (_, index) => rgba[index * 4]!)
   }
 
   /** De textuur die de hoofdshader voor dit frame leest: het ruwe frame, of de voorgefilterde versie ervan. */
