@@ -1,5 +1,11 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-16 12:35 CEST — Wolkenoptimalisatie bevestigd in gepaarde appmeting
+
+Gepaarde appmeting van referentie(twaalf stappen, flowfactor2, oude cellfunctie) en4eb06f1a-kandidaat exit0 zonder browsererrors. Projectgrens MOTREGEN_RIG_PAIRED=1 toegepast; hostload liep tijdens de meting weer op door builds, dus absolute tijden indicatief. Som van mediane GPU-passes (flow+textuur+blit), desktopkaart810×1000:37,224→26,985ms (-27,5%); mobielkaart390×618:13,201→8,736ms (-33,8%). Referentie/nieuw gemiddelde desktop42,155/27,635ms, mobiel14,412/9,095ms; gemiddelden sterker beïnvloed door uitschieters. Geen vergelijking van die gemiddelden met de eerdere rustige35,5/11,2ms als precieze winst. Robuuste onderbouwing blijft de drie geïsoleerde CPU-paren met25,2–25,4% minder werkelijk software-renderwerk.
+
+Nieuwe mediane fasen desktop3,081+21,012+2,892ms, mobiel1,056+6,778+0,902ms. Detailresolutie en patronen blijven behouden; de afbeelding van de beweging is een gecontroleerde benadering. GPU-oracle,23gerichte tests en typecheck groen, dag/nacht zelf bekeken. Profilering en ruwe samples: web/tmp/orkestrator/cloud-fast-20261016/gpu-share.json; repro direnv exec . bash -c 'cd web && MOTREGEN_RIG_PAIRED=1 bash scripts/perf-lock.sh node tmp/orkestrator/cloud-fast-20261016/gpu-share.mjs'. Alle eigen tests en perfjobs afgerond; twee vervangen wachtjobs exit143 bewust beëindigd. Preview4390/4398 bijgewerkt; geen prod/VM/Telegram/CSVwijziging. Mobiele hardwaremeting en volledige mergegate blijven open.
+
 ## 2026-10-16 12:33 CEST — Wolkenberekening lichter; beeldkwaliteit bewaakt
 
 PO vraagt sneller. Definitieve kandidaat: cloudCells vergelijkt gekwadrateerde afstand en neemt één wortel na het minimum i.p.v. negen; RK2-stappen12→8 en flowcachefactor2→3. De uiteindelijke textuurresolutie, patronen, levensduur, trajectankers en kleur blijven gelijk. Flowdoel gebruikt circa44% van de vorige pixels en twee derde van de stappen. Eerste variant met afstandspruning verworpen: dezelfde beelden maar in drie gepaarde microproeven2,7–4,6% trager door extra branches.
