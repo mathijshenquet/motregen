@@ -52,8 +52,10 @@ product manager (proposals, specs, verification), codex agents
 ## Changelog en releases
 - Elke track levert één `changes/pending/<slug>.md` per gebruikerswijziging mee: Nederlandse
   `title`, `kind` (`nieuw`, `beter`, `opgelost`) en 1–3 zinnen voor gewone gebruikers.
-  Optionele `media` bevat `file` onder `changes/media/` en een eigen `caption` per item.
-  De PO reviewt de notities vóór de release; formaat en opdrachten: `changes/README.md`.
+  Optionele `media` bevat `file` onder `changes/media/` en een korte beeldhint als `caption`
+  per item; de Telegram-poster voegt titel, omschrijving, datum en `k/n` toe (MIP-33).
+  De PO reviewt de notities vóór de release. Volg `changes/README.md` voor de stappen,
+  broncontrole van voor/na-media, opmaak, rondlopende links en correcties aan bestaande berichten.
 - De orkestrator releaset met `tools/release.sh patch|minor|major` (eerst `--dry-run`).
   `VERSION` is de versiebron; het script verzamelt pending notities, commit en tagt lokaal.
   Push, uitrol en Telegram-publicatie zijn aparte stappen; uitrol alleen na expliciet akkoord van de PO.
