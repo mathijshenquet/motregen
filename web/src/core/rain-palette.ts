@@ -17,10 +17,6 @@ export type RainBlendName = typeof RAIN_BLENDS[number]
 // klassen volgt de WMO-indeling licht/matig/zwaar/zeer zwaar.
 export const RAIN_ISOLINE_SETS = ['kleurgrenzen', 'klassen', 'dicht', 'geen'] as const
 export type RainIsolineSetName = typeof RAIN_ISOLINE_SETS[number]
-// Waar de regenisolijnen vandaan komen (proef, PO 2026-10-16): per pixel in de regenshader, of de bestaande
-// isolijnlaag van temperatuur en druk op het verkleinde regenveld (rain-isoline-field.ts).
-export const RAIN_ISOLINE_SOURCES = ['shader', 'isolijnlaag'] as const
-export type RainIsolineSourceName = typeof RAIN_ISOLINE_SOURCES[number]
 export const RAIN_ISOLINE_RATES: Record<RainIsolineSetName, readonly number[]> = {
   kleurgrenzen: [1, 4, 13],
   klassen: [2.5, 10, 50],
@@ -50,14 +46,12 @@ export interface RainLook {
   contrast?: number
   /** Weggelaten = geen isolijnen binnen de regen; telt alleen bij een menging met contour. */
   isolines?: RainIsolineSetName
-  /** Weggelaten = shader. */
-  isolineSource?: RainIsolineSourceName
 }
 
 /** Wat de knoppen kiezen; het thema volgt de kaart. */
-export type RainLookChoice = Pick<RainLook, 'palette' | 'blend' | 'contrast' | 'isolines' | 'isolineSource'>
+export type RainLookChoice = Pick<RainLook, 'palette' | 'blend' | 'contrast' | 'isolines'>
 
-export const DEFAULT_RAIN_LOOK: RainLook = { palette: 'violet-laat', blend: 'rand', theme: 'light', contrast: DEFAULT_RAIN_CONTRAST, isolines: 'kleurgrenzen', isolineSource: 'shader' }
+export const DEFAULT_RAIN_LOOK: RainLook = { palette: 'violet-laat', blend: 'rand', theme: 'light', contrast: DEFAULT_RAIN_CONTRAST, isolines: 'kleurgrenzen' }
 
 /**
  * Het regenbeeld van vóór U77. De bot rendert hier nog mee: zijn compositor bootst de oude canvas na (α² als alfa)
@@ -71,7 +65,6 @@ export const RAIN_LOOK_STORAGE_KEYS = {
   blend: 'motregen-dev-regenmenging',
   contrast: 'motregen-dev-regencontrast',
   isolines: 'motregen-dev-regenisolijnen',
-  isolineSource: 'motregen-dev-regenisolijnbron',
 } as const
 
 /** Byte van een regenintensiteit (mm/u) in de mrf v0-regentabel (docs/mrf.md); niet afgerond. */
@@ -408,7 +401,7 @@ export function rainOutline(look: RainLook): RainOutline | undefined {
 /** De buitenrand plus de isolijnen binnen de regen, elk in de regenkleur op die intensiteit, een stap donkerder. */
 export function rainOutlines(look: RainLook): RainOutline[] {
   const boundary = rainOutline(look)
-  if (!boundary || look.isolineSource === 'isolijnlaag') return []
+  if (!boundary) return []
   const colormap = buildRainColormap(look)
   const isolines = RAIN_ISOLINE_RATES[look.isolines ?? 'geen'].map((rate): RainOutline => {
     const index = Math.floor(rainRateIndex(rate)) + 0.5
@@ -426,13 +419,11 @@ export function loadRainLookChoice(storage: LookStorage = localStorage): RainLoo
   const storedBlend = storage.getItem(RAIN_LOOK_STORAGE_KEYS.blend) as RainBlendName
   const storedContrast = storage.getItem(RAIN_LOOK_STORAGE_KEYS.contrast)
   const storedIsolines = storage.getItem(RAIN_LOOK_STORAGE_KEYS.isolines) as RainIsolineSetName
-  const storedIsolineSource = storage.getItem(RAIN_LOOK_STORAGE_KEYS.isolineSource) as RainIsolineSourceName
   return {
     palette: RAIN_PALETTES.includes(storedPalette) ? storedPalette : DEFAULT_RAIN_LOOK.palette,
     blend: RAIN_BLENDS.includes(storedBlend) ? storedBlend : DEFAULT_RAIN_LOOK.blend,
     // Number(null) en Number('') zijn 0, en nul is een geldige lat: een ontbrekende waarde apart afvangen.
     contrast: storedContrast === null || storedContrast.trim() === '' ? DEFAULT_RAIN_CONTRAST : sanitizeRainContrast(Number(storedContrast)),
     isolines: RAIN_ISOLINE_SETS.includes(storedIsolines) ? storedIsolines : DEFAULT_RAIN_LOOK.isolines,
-    isolineSource: RAIN_ISOLINE_SOURCES.includes(storedIsolineSource) ? storedIsolineSource : DEFAULT_RAIN_LOOK.isolineSource,
   }
 }

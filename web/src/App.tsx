@@ -37,7 +37,6 @@ import { constrainView, containView, containZoom, MAP_CONTAIN_BOUNDS, type Viewp
 import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS } from './core/map-frame'
 import { basemapBlendTargets, blendedPaintValue, mapNightStep, nightShare, type BlendTarget } from './core/basemap-blend'
 import { MrfClient, type MotionField } from './core/mrf'
-import { rainIsolineField } from './core/rain-isoline-field'
 import { pointValue, projectPoint as project } from './core/point-value'
 import { selectPairMotion } from './core/motion-selection'
 import { findCataloguePlace, isInPlaceZone, loadPlaces, namedCataloguePlace, nearestPlace, places, rememberPlace, rememberSearchedPlace } from './core/places'
@@ -51,7 +50,7 @@ import { DEFAULT_RAIN_FIELD_TUNING, loadRainFieldTuning, RAIN_FIELD_STORAGE_KEYS
 import { LayerOverlay } from './core/overlay-canvas'
 import { rainColormap } from './core/rain-chart'
 import { DEFAULT_FOCUS_RAIN_VARIANT, FOCUS_RAIN_VARIANT_STORAGE_KEY, focusRainUsesWeatherBlend, loadFocusRainVariant } from './core/rain-presentation'
-import { DEFAULT_RAIN_LOOK, loadRainLookChoice, PRE_U77_RAIN_LOOK, RAIN_ISOLINE_RATES, RAIN_LOOK_STORAGE_KEYS, rainOutline, rainOutlines, rainUsesStraightAlpha, type RainLook, type RainLookChoice } from './core/rain-palette'
+import { DEFAULT_RAIN_LOOK, loadRainLookChoice, PRE_U77_RAIN_LOOK, RAIN_ISOLINE_RATES, RAIN_LOOK_STORAGE_KEYS, rainOutlines, rainUsesStraightAlpha, type RainLook, type RainLookChoice } from './core/rain-palette'
 import { grantedStartFix, loadLastLocation, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastLocation, storeLastSavedPlaceId, storeMapView, type StartLocation } from './core/location-memory'
 import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGestures } from './core/pin-navigation'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
@@ -717,15 +716,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     kind: 'cloud', layerId: 'motregen-cloud-veil', timeline: cloudTimeline, focus: airFocus, active: createMemo(() => airFocus() > 0),
     step: () => CLOUD_VEIL_STEP, style: cloudVeilStyle, labelFade: () => undefined, coverage: () => untrack(() => timelineCoverage(cloudTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS)), setCount: () => undefined,
   })
-  // Proef (PO 2026-10-16): de regenisolijnen via dezelfde isolijnlaag als temperatuur en druk, op het verkleinde
-  // regenveld (rain-isoline-field.ts). Alleen in Weer en alleen als onder ?dev › Regen de bron isolijnlaag is.
-  const weatherFocus = () => Math.max(0, 1 - Math.max(focus(), windFocus(), airFocus()))
-  const rainIsolines = isolineSet({
-    kind: 'rain', layerId: 'motregen-rain-isolines', timeline, focus: weatherFocus,
-    active: createMemo(() => weatherFocus() > 0 && rainLookChoice().isolineSource === 'isolijnlaag' && rainLookChoice().blend === 'rand'),
-    step: () => 1, style: rainIsolineStyle, labelFade: () => undefined, coverage: () => 1, setCount: () => undefined,
-  })
-  const isolineSets = [temperatureIsolines, pressureIsolines, cloudIsolines, rainIsolines]
+  const isolineSets = [temperatureIsolines, pressureIsolines, cloudIsolines]
   // Verborgen tab: afspelen en wind staan stil (zichtbaarheid 0 stopt de windlus; de trails blijven).
   const [pageVisible, setPageVisible] = createSignal(document.visibilityState !== 'hidden')
   const mapRendering = createMemo(() => pageVisible() && !(tableViewAvailable() && tableCoversViewport()))
@@ -2014,12 +2005,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
   createEffect(() => { windFocus(); untrack(updatePressureMarks) })
 
-  function rainIsolineStyle(): IsolineStyle {
-    const boundary = rainOutline(rainColourLook())
-    const colour = boundary ? boundary.colour.map((channel) => channel / 255) as [number, number, number] : hexColor(isolineColor(mapSurfaceTheme()))
-    return { step: 1, fill: 0, color: colour, gradientFade: false, lineOpacity: 0.8 }
-  }
-
   function isobarStyle(): IsolineStyle {
     return { step: isobarStep(), fill: 0, color: hexColor(isolineColor(mapSurfaceTheme(), 'pressure')), gradientFade: false, lineOpacity: ISOBAR_LINE_OPACITY }
   }
@@ -2055,16 +2040,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const preparedIsolineFields = set.prepared
     const key = `${frame.chunk.url}#${frame.frameIndex}`
     let prepared = preparedIsolineFields.get(key)
-    if (!prepared && set.kind === 'rain') {
-      const rates = RAIN_ISOLINE_RATES[rainLookChoice().isolines ?? 'geen']
-      prepared = Promise.all([load(frame), client.getHeader(frame.chunk)]).then(([data, header]) => {
-        const { grid, field } = rainIsolineField(data, header.quant, header.grid, rates)
-        return { grid, field: prepareField(blurField(field, isolineBlurPasses(set.kind))) }
-      })
-      prepared.catch(() => preparedIsolineFields.delete(key))
-      preparedIsolineFields.set(key, prepared)
-      if (preparedIsolineFields.size > 16) preparedIsolineFields.delete(preparedIsolineFields.keys().next().value!)
-    }
     if (!prepared) {
       prepared = isolineFieldFrames(set, frame).then(({ grid, frames }) => {
         return { grid, field: prepareField(blurField(blendFrames(frames, grid.width, grid.height), isolineBlurPasses(set.kind))) }
@@ -2163,7 +2138,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         set.layerKey = key
         set.fields = []
         set.labels?.clear()
-        if (set.kind !== 'cloud' && set.kind !== 'rain') {
+        if (set.kind !== 'cloud') {
           set.labels = new IsolineLabels(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, set.kind)
           set.labels.setFade(set.labelFade())
         }
@@ -2206,7 +2181,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
    * het label volgt het dichtstbijzijnde uur. Afspelen kost zo één ronde per uur, rust nul.
    */
   async function showIsolines(set: IsolineSet): Promise<void> {
-    if (!mapRendering() || set.kind === 'cloud' || set.kind === 'rain') return
+    if (!mapRendering() || set.kind === 'cloud') return
     const frames = set.timeline()
     if (!frames.length || !set.labels) return
     const request = ++set.shownRequest
@@ -3264,7 +3239,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const choice = rainLookChoice()
     const weatherMode = windFocus() < 0.5 && airFocus() < 0.5
     const weatherBlend = weatherMode || focusRainUsesWeatherBlend(focusRainVariant())
-    return { palette: choice.palette, blend: weatherBlend ? choice.blend : PRE_U77_RAIN_LOOK.blend, theme: mapSurfaceTheme(), contrast: choice.contrast, isolines: choice.isolines, isolineSource: choice.isolineSource }
+    return { palette: choice.palette, blend: weatherBlend ? choice.blend : PRE_U77_RAIN_LOOK.blend, theme: mapSurfaceTheme(), contrast: choice.contrast, isolines: choice.isolines }
   }, undefined, { equals: sameFields })
   createEffect(() => { rainColourLook(); applyRainColours() })
   let basemapBlend: BlendTarget[] | undefined

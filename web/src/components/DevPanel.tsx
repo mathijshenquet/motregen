@@ -2,7 +2,7 @@ import { createSignal, For, type JSX } from 'solid-js'
 import { copyText } from '../core/clipboard'
 import { appendSkyDiaryEntry, SKY_DIARY_CLASSES, skyDiaryJson, type SkyDiaryClass } from '../core/dev-settings'
 import { ISOLINE_FADES, ISOLINE_FILL_STYLES, ISOLINE_STEPS, type IsolineFade, type IsolineFillStyle, type IsolineStep, type IsolineTuning } from '../core/isolines'
-import { DEFAULT_RAIN_CONTRAST, RAIN_BLENDS, RAIN_CONTRAST_RANGE, RAIN_ISOLINE_RATES, RAIN_ISOLINE_SETS, RAIN_ISOLINE_SOURCES, RAIN_PALETTES, sanitizeRainContrast, type RainBlendName, type RainIsolineSetName, type RainIsolineSourceName, type RainLookChoice, type RainPaletteName } from '../core/rain-palette'
+import { DEFAULT_RAIN_CONTRAST, RAIN_BLENDS, RAIN_CONTRAST_RANGE, RAIN_ISOLINE_RATES, RAIN_ISOLINE_SETS, RAIN_PALETTES, sanitizeRainContrast, type RainBlendName, type RainIsolineSetName, type RainLookChoice, type RainPaletteName } from '../core/rain-palette'
 import { FOCUS_RAIN_VARIANTS, type FocusRainVariant } from '../core/rain-presentation'
 import { RAIN_SMOOTHINGS, type RainFieldTuning, type RainSmoothing } from '../core/rain-smoothing'
 import { sanitizeWindTuning, WIND_TUNING_CONTROLS, type WindTuning } from '../core/wind-layer'
@@ -134,11 +134,6 @@ export default function DevPanel(props: Props) {
       <Control label="Regenisolijnen" output={props.rainLook.isolines ?? 'geen'} hint={RAIN_ISOLINE_HINT}>
         <select value={props.rainLook.isolines ?? 'geen'} onChange={(event) => props.onRainLook({ isolines: event.currentTarget.value as RainIsolineSetName })}>
           <For each={RAIN_ISOLINE_SETS}>{(set) => <option value={set}>{set}{RAIN_ISOLINE_RATES[set].length ? ` (${RAIN_ISOLINE_RATES[set].join(' · ').replaceAll('.', ',')} mm/u)` : ''}</option>}</For>
-        </select>
-      </Control>
-      <Control label="Regenisolijnbron" output={props.rainLook.isolineSource ?? 'shader'} hint="Proef (PO 2026-10-16): shader tekent de lijnen per pixel in de regenlaag; isolijnlaag hergebruikt de laag van temperatuur en druk op het regenveld, verkleind tot blokken van 5 km. Eigenaar U86, vervalt 2026-10-23.">
-        <select value={props.rainLook.isolineSource ?? 'shader'} onChange={(event) => props.onRainLook({ isolineSource: event.currentTarget.value as RainIsolineSourceName })}>
-          <For each={RAIN_ISOLINE_SOURCES}>{(source) => <option value={source}>{source}</option>}</For>
         </select>
       </Control>
       <Control label="Regen in Wind/Lucht" output={props.focusRainVariant} hint={FOCUS_RAIN_HINT}>
