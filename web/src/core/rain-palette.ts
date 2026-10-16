@@ -397,35 +397,26 @@ const BOUNDARY_STRENGTH = 0.55
 const ISOLINE_STRENGTH = 0.32
 const ISOLINE_SHIFT = 0.35
 
-/** Lijnkleur van de buitenrand: de beginkleur van de regen, nog een stap verder van de kaart af. */
-export function rainLineColour(look: RainLook): Rgb {
-  const colormap = buildRainColormap(look)
-  const onsetColour: Rgb = [colormap[ONSET_INDEX * 4]!, colormap[ONSET_INDEX * 4 + 1]!, colormap[ONSET_INDEX * 4 + 2]!]
-  return shiftedColour(onsetColour, look.theme, OUTLINE_SHIFT)
-}
-
-/** De contour om het regengebied; alleen bij een menging met contour (rand). */
+/** De contour om het regengebied: de beginkleur, nog een stap verder van de kaart af. */
 export function rainOutline(look: RainLook): RainOutline | undefined {
   if (!BLEND_SHAPES[look.blend].outline) return undefined
-  return { index: Math.floor(DATA_EDGE_INDEX) + 0.5, colour: rainLineColour(look), strength: BOUNDARY_STRENGTH, halfWidth: 1.2 }
+  const colormap = buildRainColormap(look)
+  const onsetColour: Rgb = [colormap[ONSET_INDEX * 4]!, colormap[ONSET_INDEX * 4 + 1]!, colormap[ONSET_INDEX * 4 + 2]!]
+  return { index: Math.floor(DATA_EDGE_INDEX) + 0.5, colour: shiftedColour(onsetColour, look.theme, OUTLINE_SHIFT), strength: BOUNDARY_STRENGTH, halfWidth: 1.2 }
 }
 
-/** De isolijnen binnen de regen, bij elke menging: elk in de regenkleur op die intensiteit, een stap donkerder. */
-export function rainIsolineOutlines(look: RainLook): RainOutline[] {
+/** De buitenrand plus de isolijnen binnen de regen, elk in de regenkleur op die intensiteit, een stap donkerder. */
+export function rainOutlines(look: RainLook): RainOutline[] {
+  const boundary = rainOutline(look)
+  if (!boundary || look.isolineSource === 'isolijnlaag') return []
   const colormap = buildRainColormap(look)
-  return RAIN_ISOLINE_RATES[look.isolines ?? 'geen'].map((rate): RainOutline => {
+  const isolines = RAIN_ISOLINE_RATES[look.isolines ?? 'geen'].map((rate): RainOutline => {
     const index = Math.floor(rainRateIndex(rate)) + 0.5
     const byte = Math.round(index)
     const colour: Rgb = [colormap[byte * 4]!, colormap[byte * 4 + 1]!, colormap[byte * 4 + 2]!]
     return { index, colour: shiftedColour(colour, look.theme, ISOLINE_SHIFT), strength: ISOLINE_STRENGTH, halfWidth: 0.9 }
   })
-}
-
-/** Wat de regenshader tekent: de buitenrand (bij rand) plus de isolijnen, tenzij de isolijnlaag ze tekent. */
-export function rainOutlines(look: RainLook): RainOutline[] {
-  if (look.isolineSource === 'isolijnlaag') return []
-  const boundary = rainOutline(look)
-  return [...(boundary ? [boundary] : []), ...rainIsolineOutlines(look)]
+  return [boundary, ...isolines]
 }
 
 type LookStorage = Pick<Storage, 'getItem'>

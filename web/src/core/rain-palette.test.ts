@@ -31,7 +31,7 @@ describe('the product rain table', () => {
   }
 
   it('is the look the PO chose: violet-laat, rand (2026-10-16, was drempel-zacht), contrast floor 0', () => {
-    expect(DEFAULT_RAIN_LOOK).toEqual({ palette: 'violet-laat', blend: 'rand', theme: 'light', contrast: 0, isolines: 'kleurgrenzen', isolineSource: 'shader' })
+    expect(DEFAULT_RAIN_LOOK).toEqual({ palette: 'violet-laat', blend: 'rand', theme: 'light', contrast: 0, isolines: 'kleurgrenzen' })
     expect(rainUsesStraightAlpha(DEFAULT_RAIN_LOOK.blend)).toBe(true)
     expect(rainOutline(DEFAULT_RAIN_LOOK)).toBeDefined()
     // De tabel van drempel-zacht blijft vastgepind: die staat onder ?dev nog ter vergelijking.
@@ -202,9 +202,7 @@ describe('blend shapes', () => {
     expect(outlines.slice(1).every((outline) => outline.strength < outlines[0]!.strength && outline.halfWidth < outlines[0]!.halfWidth)).toBe(true)
     expect(outlines.slice(1).map((outline) => outline.index)).toEqual([...outlines.slice(1).map((outline) => outline.index)].sort((a, b) => a - b))
     expect(rainOutlines({ ...DEFAULT_RAIN_LOOK, isolines: 'geen' })).toHaveLength(1)
-    // Zonder contourmenging geen buitenrand, wel de isolijnen (PO 2026-10-16: ook bij zuiver).
-    expect(rainOutlines({ ...DEFAULT_RAIN_LOOK, blend: 'zuiver' })).toHaveLength(RAIN_ISOLINE_RATES.kleurgrenzen.length)
-    expect(rainOutlines({ ...DEFAULT_RAIN_LOOK, isolineSource: 'isolijnlaag' })).toEqual([])
+    expect(rainOutlines({ ...DEFAULT_RAIN_LOOK, blend: 'drempel-zacht' })).toEqual([])
   })
 
   it('keeps the current canvas blending only for the current blend', () => {
@@ -288,13 +286,13 @@ describe('stored choice', () => {
   const storage = (values: Record<string, string>) => ({ getItem: (key: string) => values[key] ?? null })
 
   it('falls back to the product on a missing or unknown value', () => {
-    expect(loadRainLookChoice(storage({}))).toEqual({ palette: 'violet-laat', blend: 'rand', contrast: 0, isolines: 'kleurgrenzen', isolineSource: 'shader' })
-    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.palette]: 'regenboog', [RAIN_LOOK_STORAGE_KEYS.blend]: 'oplossen', [RAIN_LOOK_STORAGE_KEYS.contrast]: 'veel' }))).toEqual({ palette: 'violet-laat', blend: 'rand', contrast: 0, isolines: 'kleurgrenzen', isolineSource: 'shader' })
+    expect(loadRainLookChoice(storage({}))).toEqual({ palette: 'violet-laat', blend: 'rand', contrast: 0, isolines: 'kleurgrenzen' })
+    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.palette]: 'regenboog', [RAIN_LOOK_STORAGE_KEYS.blend]: 'oplossen', [RAIN_LOOK_STORAGE_KEYS.contrast]: 'veel' }))).toEqual({ palette: 'violet-laat', blend: 'rand', contrast: 0, isolines: 'kleurgrenzen' })
     expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.contrast]: '' })).contrast).toBe(0)
   })
 
   it('reads a known palette, blend and contrast floor', () => {
-    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.palette]: 'violet-laat', [RAIN_LOOK_STORAGE_KEYS.blend]: 'drempel', [RAIN_LOOK_STORAGE_KEYS.contrast]: '7.5', [RAIN_LOOK_STORAGE_KEYS.isolines]: 'dicht' }))).toEqual({ palette: 'violet-laat', blend: 'drempel', contrast: 7.5, isolines: 'dicht', isolineSource: 'shader' })
+    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.palette]: 'violet-laat', [RAIN_LOOK_STORAGE_KEYS.blend]: 'drempel', [RAIN_LOOK_STORAGE_KEYS.contrast]: '7.5', [RAIN_LOOK_STORAGE_KEYS.isolines]: 'dicht' }))).toEqual({ palette: 'violet-laat', blend: 'drempel', contrast: 7.5, isolines: 'dicht' })
     expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.contrast]: '0' })).contrast).toBe(0)
   })
 

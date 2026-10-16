@@ -332,8 +332,8 @@ export function ringFadeRaster(rings: readonly ShortRing[], width: number, heigh
   return raster
 }
 
-/** Per segment: ax, ay, bx, by (cellen), alpha a/b, niveau (voor een kleur per lijn). */
-export const SEGMENT_FLOATS = 7
+/** Per segment: ax, ay, bx, by (cellen), alpha a/b. */
+export const SEGMENT_FLOATS = 6
 
 export interface SegmentOptions {
   /** Ringen korter dan dit (km) vervagen; 0 = uit. */
@@ -367,7 +367,7 @@ export function buildSegments(contours: readonly Contour[], options: SegmentOpti
     const alpha = (index: number) => fade * (options.gradient ? smoothstep(options.gradient[0], options.gradient[1], contour.gradient[index]!) : 1)
     for (let index = 0; index < segments; index++) {
       const next = (index + 1) % count
-      data.set([contour.points[index * 2]!, contour.points[index * 2 + 1]!, contour.points[next * 2]!, contour.points[next * 2 + 1]!, alpha(index), alpha(next), contour.level], offset)
+      data.set([contour.points[index * 2]!, contour.points[index * 2 + 1]!, contour.points[next * 2]!, contour.points[next * 2 + 1]!, alpha(index), alpha(next)], offset)
       offset += SEGMENT_FLOATS
     }
   }
