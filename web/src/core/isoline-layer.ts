@@ -26,11 +26,14 @@ export interface IsolineStyle {
   lines?: boolean
   /** Dekking van de lijnen; standaard ISOLINE_LINE_OPACITY. */
   lineOpacity?: number
+  /** Een eigen kleur per lijnniveau (regen, PO 2026-10-16); niveaus zonder kleur krijgen `color`. */
+  lineColours?: ReadonlyArray<{ level: number; colour: [number, number, number] }>
   /** Vuldekking schaalt van 0 naar `fill` tussen deze veldwaarden (bewolkingssluier: helder = doorzichtig). */
   fillByValue?: readonly [number, number]
 }
 
 const EQUATOR_KM = 40_075.017
+const MAX_LINE_COLOURS = 8
 
 const quadVertex = `#version 300 es
 in vec2 a_pos;
@@ -180,10 +183,17 @@ void main() {
 // afstand tot het segment (capsule: ronde koppen), dus naden tussen segmenten zijn naadloos
 // onder MAX-blending.
 const lineVertex = `#version 300 es
+const int MAX_LINE_COLOURS = ${MAX_LINE_COLOURS};
 in vec2 a_corner;
 in vec4 a_segment;
 in vec2 a_alpha;
+in float a_level;
 uniform mat4 u_matrix;
+uniform int u_level_count;
+uniform float u_levels[MAX_LINE_COLOURS];
+uniform vec3 u_level_colours[MAX_LINE_COLOURS];
+uniform vec3 u_color;
+flat out vec3 v_color;
 uniform vec2 u_viewport;
 uniform float u_extent;
 flat out vec2 v_a;
@@ -202,6 +212,11 @@ void main() {
   vec2 normal = vec2(-dir.y, dir.x);
   vec2 p = mix(a - dir * u_extent, b + dir * u_extent, a_corner.x) + normal * u_extent * a_corner.y;
   v_a = a; v_b = b; v_alpha = a_alpha; v_px = p;
+  v_color = u_color;
+  for (int index = 0; index < MAX_LINE_COLOURS; index++) {
+    if (index >= u_level_count) break;
+    if (abs(a_level - u_levels[index]) < 0.001) v_color = u_level_colours[index];
+  }
   gl_Position = vec4(p / u_viewport * 2.0 - 1.0, 0.0, 1.0);
 }`
 
@@ -209,7 +224,7 @@ const lineFragment = `#version 300 es
 precision highp float;
 uniform float u_half_width;
 uniform float u_line_alpha;
-uniform vec3 u_color;
+flat in vec3 v_color;
 flat in vec2 v_a;
 flat in vec2 v_b;
 flat in vec2 v_alpha;
@@ -221,7 +236,7 @@ void main() {
   float d = length(v_px - (v_a + ab * t));
   float line = clamp(u_half_width + 0.5 - d, 0.0, 1.0) * u_line_alpha * mix(v_alpha.x, v_alpha.y, t);
   if (line <= 0.0) discard;
-  color = vec4(u_color * line, line);
+  color = vec4(v_color * line, line);
 }`
 
 export interface IsolinePassStats {
@@ -590,6 +605,12 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.uniform1f(uniform('u_half_width'), halfWidth)
     gl.uniform1f(uniform('u_line_alpha'), alpha)
     gl.uniform3f(uniform('u_color'), ...this.style.color)
+    const lineColours = (this.style.lineColours ?? []).slice(0, MAX_LINE_COLOURS)
+    gl.uniform1i(uniform('u_level_count'), lineColours.length)
+    if (lineColours.length) {
+      gl.uniform1fv(uniform('u_levels'), lineColours.map((entry) => entry.level))
+      gl.uniform3fv(uniform('u_level_colours'), lineColours.flatMap((entry) => entry.colour))
+    }
     const attributes: number[] = []
     const bind = (name: string, buffer: WebGLBuffer, size: number, stride: number, offset: number, divisor: number) => {
       const location = gl.getAttribLocation(program, name)
@@ -604,6 +625,7 @@ export class IsolineLayer implements CustomLayerInterface {
     bind('a_corner', this.corners!, 2, 8, 0, 0)
     bind('a_segment', slice.segments, 4, stride, 0, 1)
     bind('a_alpha', slice.segments, 2, stride, 16, 1)
+    bind('a_level', slice.segments, 1, stride, 24, 1)
     if (slice.segmentCount) this.measure('passMs', () => gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, slice.segmentCount))
     // De context is gedeeld met de vulpass en de blit: divisors terug op 0.
     for (const location of attributes) {

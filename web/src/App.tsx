@@ -51,7 +51,7 @@ import { DEFAULT_RAIN_FIELD_TUNING, loadRainFieldTuning, RAIN_FIELD_STORAGE_KEYS
 import { LayerOverlay } from './core/overlay-canvas'
 import { rainColormap } from './core/rain-chart'
 import { DEFAULT_FOCUS_RAIN_VARIANT, FOCUS_RAIN_VARIANT_STORAGE_KEY, focusRainUsesWeatherBlend, loadFocusRainVariant } from './core/rain-presentation'
-import { DEFAULT_RAIN_LOOK, loadRainLookChoice, PRE_U77_RAIN_LOOK, RAIN_ISOLINE_RATES, RAIN_LOOK_STORAGE_KEYS, rainOutline, rainOutlines, rainUsesStraightAlpha, type RainLook, type RainLookChoice } from './core/rain-palette'
+import { DEFAULT_RAIN_LOOK, loadRainLookChoice, PRE_U77_RAIN_LOOK, RAIN_ISOLINE_RATES, RAIN_LOOK_STORAGE_KEYS, rainIsolineOutlines, rainLineColour, rainOutlines, rainUsesStraightAlpha, type RainLook, type RainLookChoice } from './core/rain-palette'
 import { grantedStartFix, loadLastLocation, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastLocation, storeLastSavedPlaceId, storeMapView, type StartLocation } from './core/location-memory'
 import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGestures } from './core/pin-navigation'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
@@ -722,7 +722,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const weatherFocus = () => Math.max(0, 1 - Math.max(focus(), windFocus(), airFocus()))
   const rainIsolines = isolineSet({
     kind: 'rain', layerId: 'motregen-rain-isolines', timeline, focus: weatherFocus,
-    active: createMemo(() => weatherFocus() > 0 && rainLookChoice().isolineSource === 'isolijnlaag' && rainLookChoice().blend === 'rand'),
+    active: createMemo(() => weatherFocus() > 0 && rainLookChoice().isolineSource === 'isolijnlaag' && rainLookChoice().isolines !== 'geen'),
     step: () => 1, style: rainIsolineStyle, labelFade: () => undefined, coverage: () => 1, setCount: () => undefined,
   })
   const isolineSets = [temperatureIsolines, pressureIsolines, cloudIsolines, rainIsolines]
@@ -2015,9 +2015,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   createEffect(() => { windFocus(); untrack(updatePressureMarks) })
 
   function rainIsolineStyle(): IsolineStyle {
-    const boundary = rainOutline(rainColourLook())
-    const colour = boundary ? boundary.colour.map((channel) => channel / 255) as [number, number, number] : hexColor(isolineColor(mapSurfaceTheme()))
-    return { step: 1, fill: 0, color: colour, gradientFade: false, lineOpacity: 0.8 }
+    const look = rainColourLook()
+    const toUnit = (colour: readonly number[]) => colour.map((channel) => channel / 255) as [number, number, number]
+    // Niveau 1 is de buitenrand, 2, 3, … de isolijnen (rain-isoline-field.ts), elk in de kleur van de shaderlijnen.
+    const lineColours = [{ level: 1, colour: toUnit(rainLineColour(look)) }, ...rainIsolineOutlines(look).map((outline, index) => ({ level: index + 2, colour: toUnit(outline.colour) }))]
+    return { step: 1, fill: 0, color: lineColours[0]!.colour, lineColours, gradientFade: false, lineOpacity: 0.8 }
   }
 
   function isobarStyle(): IsolineStyle {
@@ -3264,7 +3266,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const choice = rainLookChoice()
     const weatherMode = windFocus() < 0.5 && airFocus() < 0.5
     const weatherBlend = weatherMode || focusRainUsesWeatherBlend(focusRainVariant())
-    return { palette: choice.palette, blend: weatherBlend ? choice.blend : PRE_U77_RAIN_LOOK.blend, theme: mapSurfaceTheme(), contrast: choice.contrast, isolines: choice.isolines, isolineSource: choice.isolineSource }
+    return { palette: choice.palette, blend: weatherBlend ? choice.blend : PRE_U77_RAIN_LOOK.blend, theme: mapSurfaceTheme(), contrast: choice.contrast, isolines: weatherMode ? choice.isolines : 'geen', isolineSource: choice.isolineSource }
   }, undefined, { equals: sameFields })
   createEffect(() => { rainColourLook(); applyRainColours() })
   let basemapBlend: BlendTarget[] | undefined
@@ -3329,7 +3331,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const rainIsolineLegend = createMemo(() => {
     const look = rainColourLook()
     const rates = RAIN_ISOLINE_RATES[look.isolines ?? 'geen']
-    return rainOutlines(look).slice(1).map((outline, index) => ({ rate: rates[index]!, colour: `rgb(${outline.colour.join(' ')})` }))
+    return rainIsolineOutlines(look).map((outline, index) => ({ rate: rates[index]!, colour: `rgb(${outline.colour.join(' ')})` }))
   })
   const cloudTimelines = createMemo(() => Object.fromEntries(CLOUD_LAYERS.map((layer) =>
     [layer, manifest() ? buildTimeline(manifest()!, `cloud_${layer}`) : []])) as Record<CloudLayer, TimelineFrame[]>)
