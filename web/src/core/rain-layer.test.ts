@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { encodeMotionTexture, motionWarpStrength, neutralizeNoData, planRainUploads, rainColormap, WARP_CAP_CELLS } from './rain-layer'
+import { DEFAULT_RAIN_LOOK } from './rain-palette'
 
 describe('rain rendering transitions', () => {
-  it('keeps one blue below the lightest rain while the opacity rises from the data edge', () => {
-    const lut = rainColormap()
+  it('keeps one blue below the lightest rain while the opacity rises from the data edge (drempel-zacht)', () => {
+    // `rand` (de standaard sinds 2026-10-16) zet bewust een harde inzet met contour; de zachte oploop hoort bij drempel-zacht.
+    const lut = rainColormap({ ...DEFAULT_RAIN_LOOK, blend: 'drempel-zacht' })
     const color = (index: number) => Array.from(lut.subarray(index * 4, index * 4 + 4))
     expect(color(0)).toEqual([64, 152, 238, 0])
     expect(color(1).slice(0, 3)).toEqual(color(0).slice(0, 3))

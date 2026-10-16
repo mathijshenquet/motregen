@@ -6,10 +6,15 @@ import { DEFAULT_RAIN_CONTRAST, RAIN_BLENDS, RAIN_CONTRAST_RANGE, RAIN_PALETTES,
 import { FOCUS_RAIN_VARIANTS, type FocusRainVariant } from '../core/rain-presentation'
 import { RAIN_SMOOTHINGS, type RainFieldTuning, type RainSmoothing } from '../core/rain-smoothing'
 import { sanitizeWindTuning, WIND_TUNING_CONTROLS, type WindTuning } from '../core/wind-layer'
+import { CLOUD_MAP_SAMPLES, type CloudMapSample } from '../core/cloud-map'
 
 // Alleen via ?dev; hooguit 3–4 knoppen per groep (PO 2026-09-25). Elke knop staat in
 // docs/dev-opties.md met eigenaar en vervaldatum (MIP-12).
 interface Props {
+  cloudMapForms: boolean
+  onCloudMapForms: (enabled: boolean) => void
+  cloudMapSample: CloudMapSample
+  onCloudMapSample: (sample: CloudMapSample) => void
   isolineTuning: IsolineTuning
   onIsolineTuning: (patch: Partial<IsolineTuning>) => void
   firstRainLate: boolean
@@ -102,6 +107,18 @@ export default function DevPanel(props: Props) {
       <Control label="Vervagen" output={props.isolineTuning.fade} hint="Gradiënt: lijnen en kleur vervagen waar de temperatuur nauwelijks verandert.">
         <select value={props.isolineTuning.fade} onChange={(event) => props.onIsolineTuning({ fade: event.currentTarget.value as IsolineFade })}>
           {ISOLINE_FADES.map((fade) => <option value={fade}>{fade}</option>)}
+        </select>
+      </Control>
+    </Group>
+    <Group title="Wolkenkaart">
+      <Control label="Wolkenbeeld" output={props.cloudMapForms ? 'vormen' : 'oude sluier'} hint="Vormen uit bewolking en licht. De fijne structuur is getekend; de regionale velden komen uit het model.">
+        <select aria-label="Wolkenbeeld" value={props.cloudMapForms ? 'vormen' : 'sluier'} onChange={(event) => props.onCloudMapForms(event.currentTarget.value === 'vormen')}>
+          <option value="vormen">vormen</option><option value="sluier">oude sluier</option>
+        </select>
+      </Control>
+      <Control label="Voorbeeldlucht" output={props.cloudMapSample} hint="Live gebruikt de modeldata. Gaten, sluier, dicht en overgang zijn gefingeerde voorbeelden om de vormen en de menging te bekijken.">
+        <select aria-label="Voorbeeldlucht" value={props.cloudMapSample} onChange={(event) => props.onCloudMapSample(event.currentTarget.value as CloudMapSample)}>
+          <For each={CLOUD_MAP_SAMPLES}>{(sample) => <option value={sample}>{sample}</option>}</For>
         </select>
       </Control>
     </Group>

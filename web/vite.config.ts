@@ -124,7 +124,7 @@ export default defineConfig({
       globPatterns: ['**/*.{js,css,html,ico,png,svg}', 'basemap/**/*.{json,pbf}', 'assets/*.pbf-*.gz'],
       globIgnores: ['**/data/**', '**/perf-mobile/**', 'route.html'],
       navigateFallback: '/index.html',
-      navigateFallbackDenylist: [/^\/(?:data|telegram)(?:\/|$)/, /^\/(?:hit|sw\.js|sitemap\.xml|robots\.txt)$/],
+      navigateFallbackDenylist: [/^\/(?:data|telegram|changelog)(?:\/|$)/, /^\/(?:hit|sw\.js|sitemap\.xml|robots\.txt)$/],
       runtimeCaching: [
         ...process.env.VITE_WARM_CACHE === 'manifest' ? [{
           urlPattern: ({ url }: { url: URL }) => url.pathname === '/data/manifest.json' && url.search === '?s=1',

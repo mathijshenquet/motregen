@@ -1,5 +1,8 @@
 .env
 tmp/
+changes/v*/posted.json*
+changes/v*/posted.test.json*
+changes/v*/posted.lock
 .direnv/
 .devenv/
 data/

@@ -12,13 +12,8 @@ const LOCAL_RADIUS: i32 = 8;
 const MIN_SIGNAL_SAMPLES: usize = 4;
 const MIN_CORRELATION_SAMPLES: usize = 8;
 const OUTLIER_DISTANCE: f32 = 6.0;
-const INHERIT_PASSES: usize = 4;
 const NO_DATA: i8 = -128;
-pub const MIN_CALIBRATION_SAMPLES: usize = 12;
 pub const STRONG_CONFIDENCE: f32 = 0.75;
-const MIN_SCALE: f32 = 0.5;
-const MAX_SCALE: f32 = 2.5;
-const MAX_ROTATION_RADIANS: f32 = std::f32::consts::FRAC_PI_3;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MotionGrid {
@@ -31,35 +26,6 @@ pub struct MotionField {
     pub grid: MotionGrid,
     /// Row-major `(u, v)` pairs in 0.1 cell/minute; `(-128, -128)` is no-data.
     pub vectors: Vec<i8>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Calibration {
-    pub scale: f32,
-    pub rotation_radians: f32,
-}
-
-impl Default for Calibration {
-    fn default() -> Self {
-        Self {
-            scale: 1.0,
-            rotation_radians: 0.0,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CalibrationSource {
-    Fitted,
-    PreviousRun,
-    Default,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct CalibrationReport {
-    pub calibration: Calibration,
-    pub source: CalibrationSource,
-    pub reliable_samples: usize,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -87,12 +53,6 @@ pub enum Error {
     CurrentLength { actual: usize, expected: usize },
     #[error("frame interval must be finite and positive")]
     InvalidInterval,
-    #[error("wind field has {actual} vectors; expected {expected}")]
-    WindLength { actual: usize, expected: usize },
-    #[error("correlation and wind series have different frame counts")]
-    SeriesLength,
-    #[error("motion grids differ within a run")]
-    GridMismatch,
 }
 
 pub fn grid_for(width: u32, height: u32) -> Result<MotionGrid, Error> {
@@ -115,15 +75,18 @@ pub fn estimate(
     interval_minutes: f32,
 ) -> Result<MotionField, Error> {
     let correlations = correlate(previous, current, width, height, interval_minutes)?;
+    Ok(complete_correlations(correlations))
+}
+
+fn complete_correlations(correlations: CorrelationField) -> MotionField {
     let mut vectors = correlations
         .vectors
-        .into_iter()
+        .iter()
         .map(|vector| vector.map(|vector| (vector.u_cells_per_minute, vector.v_cells_per_minute)))
         .collect::<Vec<_>>();
-    damp_outliers(&mut vectors, correlations.grid);
     inherit_empty(&mut vectors, correlations.grid);
-    smooth(&mut vectors, correlations.grid);
-    Ok(quantize_field(vectors, correlations.grid))
+    smooth(&mut vectors, &correlations);
+    quantize_field(vectors, correlations.grid)
 }
 
 /// Estimates correlation vectors and their peak-sharpness/energy confidence.
@@ -168,136 +131,6 @@ pub fn correlate(
         vector.v_cells_per_minute /= interval_minutes;
     }
     Ok(CorrelationField { grid, vectors })
-}
-
-/// Fits one scale and rotation for a complete source run.
-pub fn calibrate(
-    correlations: &[CorrelationField],
-    winds: &[Vec<Option<(f32, f32)>>],
-    previous: Option<Calibration>,
-) -> Result<CalibrationReport, Error> {
-    if correlations.len() != winds.len() {
-        return Err(Error::SeriesLength);
-    }
-    let mut numerator_real = 0.0_f64;
-    let mut numerator_imag = 0.0_f64;
-    let mut denominator = 0.0_f64;
-    let mut reliable_samples = 0_usize;
-    for (field, wind) in correlations.iter().zip(winds) {
-        let expected = field.grid.bw as usize * field.grid.bh as usize;
-        if wind.len() != expected {
-            return Err(Error::WindLength {
-                actual: wind.len(),
-                expected,
-            });
-        }
-        for (correlation, wind) in field.vectors.iter().zip(wind) {
-            let (Some(correlation), Some((wind_u, wind_v))) = (correlation, wind) else {
-                continue;
-            };
-            if correlation.confidence < STRONG_CONFIDENCE
-                || !wind_u.is_finite()
-                || !wind_v.is_finite()
-            {
-                continue;
-            }
-            let wind_norm = wind_u * wind_u + wind_v * wind_v;
-            if wind_norm <= 1.0e-4 {
-                continue;
-            }
-            let weight = f64::from(correlation.confidence);
-            numerator_real += weight
-                * f64::from(
-                    wind_u * correlation.u_cells_per_minute
-                        + wind_v * correlation.v_cells_per_minute,
-                );
-            numerator_imag += weight
-                * f64::from(
-                    wind_u * correlation.v_cells_per_minute
-                        - wind_v * correlation.u_cells_per_minute,
-                );
-            denominator += weight * f64::from(wind_norm);
-            reliable_samples += 1;
-        }
-    }
-    if reliable_samples < MIN_CALIBRATION_SAMPLES || denominator <= 1.0e-9 {
-        let (calibration, source) = previous.map_or_else(
-            || (Calibration::default(), CalibrationSource::Default),
-            |calibration| (calibration, CalibrationSource::PreviousRun),
-        );
-        return Ok(CalibrationReport {
-            calibration,
-            source,
-            reliable_samples,
-        });
-    }
-    let real = (numerator_real / denominator) as f32;
-    let imag = (numerator_imag / denominator) as f32;
-    let calibration = Calibration {
-        scale: real.hypot(imag).clamp(MIN_SCALE, MAX_SCALE),
-        rotation_radians: imag
-            .atan2(real)
-            .clamp(-MAX_ROTATION_RADIANS, MAX_ROTATION_RADIANS),
-    };
-    Ok(CalibrationReport {
-        calibration,
-        source: CalibrationSource::Fitted,
-        reliable_samples,
-    })
-}
-
-/// Applies the calibrated wind prior, then performs the existing spatial smoothing.
-pub fn blend_with_wind(
-    correlations: &CorrelationField,
-    wind: &[Option<(f32, f32)>],
-    calibration: Calibration,
-) -> Result<MotionField, Error> {
-    let expected = correlations.grid.bw as usize * correlations.grid.bh as usize;
-    if wind.len() != expected {
-        return Err(Error::WindLength {
-            actual: wind.len(),
-            expected,
-        });
-    }
-    let sine = calibration.rotation_radians.sin();
-    let cosine = calibration.rotation_radians.cos();
-    let mut vectors = correlations
-        .vectors
-        .iter()
-        .zip(wind)
-        .map(|(correlation, wind)| {
-            let prior = wind.and_then(|(u, v)| {
-                if u.is_finite() && v.is_finite() {
-                    Some((
-                        calibration.scale * (cosine * u - sine * v),
-                        calibration.scale * (sine * u + cosine * v),
-                    ))
-                } else {
-                    None
-                }
-            });
-            match (*correlation, prior) {
-                (Some(correlation), _) if correlation.confidence >= STRONG_CONFIDENCE => Some((
-                    correlation.u_cells_per_minute,
-                    correlation.v_cells_per_minute,
-                )),
-                (Some(correlation), Some(prior)) => {
-                    let weight = correlation.confidence.clamp(0.0, 1.0);
-                    Some((
-                        weight * correlation.u_cells_per_minute + (1.0 - weight) * prior.0,
-                        weight * correlation.v_cells_per_minute + (1.0 - weight) * prior.1,
-                    ))
-                }
-                (Some(correlation), None) => Some((
-                    correlation.u_cells_per_minute,
-                    correlation.v_cells_per_minute,
-                )),
-                (None, prior) => prior,
-            }
-        })
-        .collect::<Vec<_>>();
-    smooth(&mut vectors, correlations.grid);
-    Ok(quantize_field(vectors, correlations.grid))
 }
 
 fn global_shift(previous: &[f32], current: &[f32], width: usize, height: usize) -> (i32, i32) {
@@ -526,21 +359,6 @@ fn correlation(
     Some((covariance / (variance_a * variance_b).sqrt()) as f32)
 }
 
-fn damp_outliers(vectors: &mut [Option<(f32, f32)>], grid: MotionGrid) {
-    let original = vectors.to_vec();
-    for (index, vector) in original.iter().copied().enumerate() {
-        let Some(vector) = vector else { continue };
-        let neighbors = neighborhood(&original, grid, index);
-        if neighbors.len() < 3 {
-            continue;
-        }
-        let median = component_median(&neighbors);
-        if (vector.0 - median.0).hypot(vector.1 - median.1) > OUTLIER_DISTANCE {
-            vectors[index] = Some(median);
-        }
-    }
-}
-
 fn damp_correlation_outliers(vectors: &mut [Option<CorrelationVector>], grid: MotionGrid) {
     let raw = vectors
         .iter()
@@ -548,6 +366,9 @@ fn damp_correlation_outliers(vectors: &mut [Option<CorrelationVector>], grid: Mo
         .collect::<Vec<_>>();
     for (index, vector) in vectors.iter_mut().enumerate() {
         let Some(candidate) = vector else { continue };
+        if candidate.confidence >= STRONG_CONFIDENCE {
+            continue;
+        }
         let neighbors = neighborhood(&raw, grid, index);
         if neighbors.len() < 3 {
             continue;
@@ -563,7 +384,7 @@ fn damp_correlation_outliers(vectors: &mut [Option<CorrelationVector>], grid: Mo
 }
 
 fn inherit_empty(vectors: &mut [Option<(f32, f32)>], grid: MotionGrid) {
-    for _ in 0..INHERIT_PASSES {
+    for _ in 0..grid.bw.max(grid.bh) {
         let original = vectors.to_vec();
         let mut changed = false;
         for (index, vector) in vectors.iter_mut().enumerate() {
@@ -571,7 +392,7 @@ fn inherit_empty(vectors: &mut [Option<(f32, f32)>], grid: MotionGrid) {
                 continue;
             }
             let neighbors = neighborhood(&original, grid, index);
-            if neighbors.len() >= 2 {
+            if !neighbors.is_empty() {
                 *vector = Some(component_median(&neighbors));
                 changed = true;
             }
@@ -582,13 +403,16 @@ fn inherit_empty(vectors: &mut [Option<(f32, f32)>], grid: MotionGrid) {
     }
 }
 
-fn smooth(vectors: &mut [Option<(f32, f32)>], grid: MotionGrid) {
+fn smooth(vectors: &mut [Option<(f32, f32)>], correlations: &CorrelationField) {
     let original = vectors.to_vec();
     for (index, vector) in vectors.iter_mut().enumerate() {
-        if vector.is_none() {
+        if vector.is_none()
+            || correlations.vectors[index]
+                .is_some_and(|vector| vector.confidence >= STRONG_CONFIDENCE)
+        {
             continue;
         }
-        let neighbors = neighborhood(&original, grid, index);
+        let neighbors = neighborhood(&original, correlations.grid, index);
         if !neighbors.is_empty() {
             let count = neighbors.len() as f32;
             *vector = Some((
@@ -710,6 +534,54 @@ mod tests {
     }
 
     #[test]
+    fn sparse_strong_translation_reaches_the_entire_grid() {
+        let grid = MotionGrid { bw: 40, bh: 43 };
+        let mut correlations = CorrelationField {
+            grid,
+            vectors: vec![None; grid.bw as usize * grid.bh as usize],
+        };
+        for index in [
+            0,
+            17 * grid.bw as usize + 13,
+            correlations.vectors.len() - 1,
+        ] {
+            correlations.vectors[index] = Some(CorrelationVector {
+                u_cells_per_minute: 1.0,
+                v_cells_per_minute: -0.6,
+                confidence: STRONG_CONFIDENCE,
+            });
+        }
+        let field = complete_correlations(correlations);
+        assert!(field.vectors.chunks_exact(2).all(|pair| pair == [10, -6]));
+    }
+
+    #[test]
+    fn strong_correlation_survives_conflicting_neighbors() {
+        let grid = MotionGrid { bw: 3, bh: 3 };
+        let mut correlations = CorrelationField {
+            grid,
+            vectors: vec![
+                Some(CorrelationVector {
+                    u_cells_per_minute: -12.0,
+                    v_cells_per_minute: 8.0,
+                    confidence: 0.5,
+                });
+                9
+            ],
+        };
+        let anchor = CorrelationVector {
+            u_cells_per_minute: 1.0,
+            v_cells_per_minute: -0.6,
+            confidence: STRONG_CONFIDENCE,
+        };
+        correlations.vectors[4] = Some(anchor);
+        damp_correlation_outliers(&mut correlations.vectors, grid);
+        assert_eq!(correlations.vectors[4], Some(anchor));
+        let field = complete_correlations(correlations);
+        assert_eq!(&field.vectors[8..10], &[10, -6]);
+    }
+
+    #[test]
     fn empty_fields_remain_no_data() {
         let result = estimate(&vec![0.0; 64 * 64], &vec![0.0; 64 * 64], 64, 64, 5.0).unwrap();
         assert_eq!(result.vectors, vec![NO_DATA; 8]);
@@ -728,80 +600,5 @@ mod tests {
             estimate(&[0.0], &[0.0], 1, 1, 0.0),
             Err(Error::InvalidInterval)
         );
-    }
-
-    #[test]
-    fn least_squares_recovers_scale_and_rotation() {
-        let grid = MotionGrid { bw: 4, bh: 3 };
-        let rotation = 20.0_f32.to_radians();
-        let scale = 1.4_f32;
-        let winds = (0..12)
-            .map(|index| {
-                let u = 0.2 + index as f32 * 0.01;
-                let v = -0.1 + index as f32 * 0.005;
-                Some((u, v))
-            })
-            .collect::<Vec<_>>();
-        let vectors = winds
-            .iter()
-            .map(|wind| {
-                let (u, v) = wind.unwrap();
-                Some(CorrelationVector {
-                    u_cells_per_minute: scale * (rotation.cos() * u - rotation.sin() * v),
-                    v_cells_per_minute: scale * (rotation.sin() * u + rotation.cos() * v),
-                    confidence: 0.9,
-                })
-            })
-            .collect();
-        let report = calibrate(&[CorrelationField { grid, vectors }], &[winds], None).unwrap();
-        assert_eq!(report.source, CalibrationSource::Fitted);
-        assert_eq!(report.reliable_samples, 12);
-        assert!((report.calibration.scale - scale).abs() < 1.0e-5);
-        assert!((report.calibration.rotation_radians - rotation).abs() < 1.0e-5);
-    }
-
-    #[test]
-    fn sparse_run_uses_previous_then_default_calibration() {
-        let grid = MotionGrid { bw: 1, bh: 1 };
-        let correlations = [CorrelationField {
-            grid,
-            vectors: vec![None],
-        }];
-        let winds = [vec![Some((0.2, -0.1))]];
-        let previous = Calibration {
-            scale: 1.3,
-            rotation_radians: 0.2,
-        };
-        let reused = calibrate(&correlations, &winds, Some(previous)).unwrap();
-        assert_eq!(reused.source, CalibrationSource::PreviousRun);
-        assert_eq!(reused.calibration, previous);
-        let defaulted = calibrate(&correlations, &winds, None).unwrap();
-        assert_eq!(defaulted.source, CalibrationSource::Default);
-        assert_eq!(defaulted.calibration, Calibration::default());
-    }
-
-    #[test]
-    fn wind_fills_empty_blocks_and_confidence_controls_blend() {
-        let grid = MotionGrid { bw: 3, bh: 1 };
-        let correlations = CorrelationField {
-            grid,
-            vectors: vec![
-                None,
-                Some(CorrelationVector {
-                    u_cells_per_minute: 0.0,
-                    v_cells_per_minute: 0.0,
-                    confidence: 0.5,
-                }),
-                Some(CorrelationVector {
-                    u_cells_per_minute: 0.4,
-                    v_cells_per_minute: 0.0,
-                    confidence: 0.9,
-                }),
-            ],
-        };
-        let wind = vec![Some((0.2, 0.0)); 3];
-        let field = blend_with_wind(&correlations, &wind, Calibration::default()).unwrap();
-        assert!(field.vectors.chunks_exact(2).all(|pair| pair[0] != NO_DATA));
-        assert_eq!(field.vectors, vec![2, 0, 2, 0, 3, 0]);
     }
 }

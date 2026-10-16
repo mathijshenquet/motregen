@@ -1,3 +1,4 @@
+import { immutableWeatherUrl, weatherBytes } from './range-byte-cache'
 import { chunkField, type ManifestChunk, type MrfHeader } from './contract'
 import { browserDeviceHints, decodeBudget, type DecodeBudget } from './decode-budget'
 import { DecodeCancelled, DecodeQueue } from './decode-queue'
@@ -587,9 +588,22 @@ async function fetchRangeBody(
   receive: (chunk: Uint8Array) => void,
   responded: () => void,
 ): Promise<void> {
+  const cacheable = immutableWeatherUrl(url)
+  const cached = cacheable ? await weatherBytes.get(url, start, end) : undefined
+  if (cached) { responded(); receive(cached); return }
+  let store = false
+  const parts: Uint8Array[] = []
+  const deliver = (bytes: Uint8Array) => {
+    if (store) parts.push(bytes.slice())
+    receive(bytes)
+  }
   const response = await fetch(url, { headers: { Range: `bytes=${start}-${end}` }, priority } as RequestInit & { priority: FetchPriority })
   responded()
   if (!response.ok) throw new Error(`Laden mislukt (${response.status})`)
+  const range = /^bytes (\d+)-(\d+)\/(\d+)$/.exec(response.headers.get('Content-Range') ?? '')
+  store = cacheable && end - start + 1 <= 48 * 1024 * 1024
+    && /(?:^|,)\s*immutable\s*(?:,|$)/i.test(response.headers.get('Cache-Control') ?? '')
+    && (response.status === 200 || (response.status === 206 && !!range && Number(range[1]) === start && Number(range[2]) === end && Number(range[3]) > end))
   const wantedLength = end - start + 1
   const sourceStart = response.status === 206 ? 0 : start
   const sourceEnd = sourceStart + wantedLength
@@ -599,7 +613,7 @@ async function fetchRangeBody(
   if (!response.body) {
     const bytes = new Uint8Array(await response.arrayBuffer())
     const selected = bytes.subarray(sourceStart, sourceEnd)
-    receive(selected)
+    deliver(selected)
     received = selected.length
   } else {
     const reader = response.body.getReader()
@@ -612,11 +626,17 @@ async function fetchRangeBody(
       const overlapEnd = Math.min(chunkEnd, sourceEnd)
       if (overlapStart < overlapEnd) {
         const selected = value.subarray(overlapStart - chunkStart, overlapEnd - chunkStart)
-        receive(selected)
+        deliver(selected)
         received += selected.length
       }
       sourceOffset = chunkEnd
     }
   }
   if (received !== wantedLength) throw new Error(`Onvolledig bereik (${received}/${wantedLength} bytes)`)
+  if (store) {
+    const bytes = new Uint8Array(wantedLength)
+    let offset = 0
+    for (const part of parts) { bytes.set(part, offset); offset += part.length }
+    void weatherBytes.put(url, start, end, bytes)
+  }
 }

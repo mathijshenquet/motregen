@@ -13,7 +13,6 @@ use crate::{
         DETAIL_GRID, HOURLY_GRID, IndexMap, RADIATION_GRID, SHARED_GRID, SUMMARY_GRID, UV_GRID,
     },
     publisher::{ProducedChunk, produced_chunk},
-    wind_prior::WindTimeline,
 };
 
 pub const RTCOR_DATASET: &str = "nl_rdr_data_rtcor_5m";
@@ -43,9 +42,7 @@ pub fn build_rtcor_chunk(
     api: &ApiClient,
     cache_root: &Path,
     history_hours: u32,
-    wind: &WindTimeline,
-    previous_calibration: Option<motion::Calibration>,
-) -> Result<(ProducedChunk, RadarGrid, motion::CalibrationReport)> {
+) -> Result<(ProducedChunk, RadarGrid)> {
     let frame_count = usize::try_from(history_hours)?
         .checked_mul(12)
         .context("RTCOR history is too large")?;
@@ -82,36 +79,19 @@ pub fn build_rtcor_chunk(
     }
     let run = times.last().context("RTCOR backfill is empty")?.clone();
     let meta = mrf::ChunkMeta::standard(SHARED_GRID.mrf_grid(), "rtcor", &run, times);
-    let encoded = encode_rain_with_motion(
-        &frames,
-        &meta,
-        wind,
-        previous_calibration,
-        MotionParallelism::Inline,
-    )?;
+    let encoded = encode_rain_with_motion(&frames, &meta)?;
     let filename = generated_chunk_filename(
-        &format!(
-            "rtcor-{}-h{history_hours}-w{}-c{}",
-            compact_timestamp(&run)?,
-            compact_timestamp(&wind.run)?,
-            calibration_suffix(encoded.report)
-        ),
+        &format!("rtcor-{}-h{history_hours}", compact_timestamp(&run)?),
         &meta,
     );
-    Ok((
-        produced_chunk(filename, encoded.bytes)?,
-        grid,
-        encoded.report,
-    ))
+    Ok((produced_chunk(filename, encoded)?, grid))
 }
 
 pub fn build_nowcast_chunk(
     api: &ApiClient,
     cache_root: &Path,
     horizon_minutes: u32,
-    wind: &WindTimeline,
-    previous_calibration: Option<motion::Calibration>,
-) -> Result<(ProducedChunk, RadarGrid, motion::CalibrationReport)> {
+) -> Result<(ProducedChunk, RadarGrid)> {
     let file = latest_files(api, NOWCAST_DATASET, NOWCAST_VERSION, 1)?
         .into_iter()
         .next()
@@ -142,19 +122,15 @@ pub fn build_nowcast_chunk(
         frames,
         &product.grid,
         &format!("m{horizon_minutes}"),
-        wind,
-        previous_calibration,
     )?;
-    Ok((chunk.0, product.grid, chunk.1))
+    Ok((chunk, product.grid))
 }
 
 pub fn build_seamless_chunk(
     api: &ApiClient,
     cache_root: &Path,
     start_after_minutes: u32,
-    wind: &WindTimeline,
-    previous_calibration: Option<motion::Calibration>,
-) -> Result<(ProducedChunk, motion::CalibrationReport)> {
+) -> Result<ProducedChunk> {
     ensure!(
         start_after_minutes < 360,
         "nowcast horizon must be shorter than the seamless horizon"
@@ -163,14 +139,7 @@ pub fn build_seamless_chunk(
         .into_iter()
         .next()
         .expect("checked non-empty file list");
-    build_seamless_chunk_for_file(
-        api,
-        cache_root,
-        &file,
-        start_after_minutes,
-        wind,
-        previous_calibration,
-    )
+    build_seamless_chunk_for_file(api, cache_root, &file, start_after_minutes)
 }
 
 pub fn build_seamless_chunk_for_file(
@@ -178,9 +147,7 @@ pub fn build_seamless_chunk_for_file(
     cache_root: &Path,
     file: &RemoteFile,
     start_after_minutes: u32,
-    wind: &WindTimeline,
-    previous_calibration: Option<motion::Calibration>,
-) -> Result<(ProducedChunk, motion::CalibrationReport)> {
+) -> Result<ProducedChunk> {
     ensure!(
         start_after_minutes < 360,
         "nowcast horizon must be shorter than the seamless horizon"
@@ -210,13 +177,7 @@ pub fn build_seamless_chunk_for_file(
     let meta = mrf::ChunkMeta::standard(SHARED_GRID.mrf_grid(), "seamless", &run, times);
     let frames_elapsed = frames_started.elapsed();
     let motion_started = Instant::now();
-    let encoded = encode_rain_with_motion(
-        &frames,
-        &meta,
-        wind,
-        previous_calibration,
-        MotionParallelism::TwoThreads,
-    )?;
+    let encoded = encode_rain_with_motion(&frames, &meta)?;
     info!(
         frame_prepare_seconds = frames_elapsed.as_secs_f64(),
         motion_encode_seconds = motion_started.elapsed().as_secs_f64(),
@@ -224,14 +185,12 @@ pub fn build_seamless_chunk_for_file(
     );
     let filename = generated_chunk_filename(
         &format!(
-            "seamless-{}-m{first_lead}-{last_lead}-w{}-c{}",
-            compact_timestamp(&run)?,
-            compact_timestamp(&wind.run)?,
-            calibration_suffix(encoded.report)
+            "seamless-{}-m{first_lead}-{last_lead}",
+            compact_timestamp(&run)?
         ),
         &meta,
     );
-    Ok((produced_chunk(filename, encoded.bytes)?, encoded.report))
+    produced_chunk(filename, encoded)
 }
 
 fn radar_frames_to_chunk(
@@ -240,9 +199,7 @@ fn radar_frames_to_chunk(
     frames: Vec<RadarFrame>,
     grid: &RadarGrid,
     variant: &str,
-    wind: &WindTimeline,
-    previous_calibration: Option<motion::Calibration>,
-) -> Result<(ProducedChunk, motion::CalibrationReport)> {
+) -> Result<ProducedChunk> {
     let map = IndexMap::radar(grid)?;
     let mut quantized = Vec::with_capacity(frames.len());
     let mut times = Vec::with_capacity(frames.len());
@@ -251,37 +208,23 @@ fn radar_frames_to_chunk(
         quantized.push(quantize_gathered(&map, &frame.rates_mm_h)?);
     }
     let meta = mrf::ChunkMeta::standard(SHARED_GRID.mrf_grid(), source, run, times);
-    let encoded = encode_rain_with_motion(
-        &quantized,
-        &meta,
-        wind,
-        previous_calibration,
-        MotionParallelism::Inline,
-    )?;
+    let encoded = encode_rain_with_motion(&quantized, &meta)?;
     let filename = generated_chunk_filename(
-        &format!(
-            "{source}-{}-{variant}-w{}-c{}",
-            compact_timestamp(run)?,
-            compact_timestamp(&wind.run)?,
-            calibration_suffix(encoded.report)
-        ),
+        &format!("{source}-{}-{variant}", compact_timestamp(run)?),
         &meta,
     );
-    Ok((produced_chunk(filename, encoded.bytes)?, encoded.report))
+    produced_chunk(filename, encoded)
 }
 
 pub struct AromePublication {
     pub chunks: Vec<ProducedChunk>,
     pub downloaded_bytes: u64,
-    pub wind: WindTimeline,
-    pub calibration: motion::CalibrationReport,
 }
 
 pub fn build_arome_chunks(
     api: &ApiClient,
     cache_root: &Path,
     horizon_hours: u32,
-    previous_calibration: Option<motion::Calibration>,
 ) -> Result<AromePublication> {
     ensure!(
         (1..=60).contains(&horizon_hours),
@@ -291,35 +234,20 @@ pub fn build_arome_chunks(
         .into_iter()
         .next()
         .expect("checked non-empty file list");
-    let mut decoded = decode_arome_run(api, cache_root, &file, horizon_hours, true)?;
+    let decoded = decode_arome_run(api, cache_root, &file, horizon_hours, true)?;
     let run = decoded.run.clone();
     let times = decoded.times.clone();
-    let wind = WindTimeline::new(
-        run.clone(),
-        std::mem::take(&mut decoded.wind_times),
-        std::mem::take(&mut decoded.motion_wind_frames),
-    )?;
 
     let compact_run = compact_timestamp(&run)?;
     let rain_meta =
         mrf::ChunkMeta::standard(SHARED_GRID.mrf_grid(), "harmonie", &run, times.clone());
-    let encoded = encode_rain_with_motion(
-        &decoded.rain_frames,
-        &rain_meta,
-        &wind,
-        previous_calibration,
-        MotionParallelism::Inline,
-    )?;
-    let calibration = encoded.report;
+    let encoded = encode_rain_with_motion(&decoded.rain_frames, &rain_meta)?;
     let rain = produced_chunk(
         generated_chunk_filename(
-            &format!(
-                "harmonie-{compact_run}-h{horizon_hours}-w{compact_run}-c{}",
-                calibration_suffix(encoded.report)
-            ),
+            &format!("harmonie-{compact_run}-h{horizon_hours}"),
             &rain_meta,
         ),
-        encoded.bytes,
+        encoded,
     )?;
     let mut chunks = vec![rain];
     chunks.extend(hourly_field_chunks(&decoded, &format!("h{horizon_hours}"))?);
@@ -327,8 +255,6 @@ pub fn build_arome_chunks(
     Ok(AromePublication {
         chunks,
         downloaded_bytes: decoded.downloaded_bytes,
-        wind,
-        calibration,
     })
 }
 
@@ -405,8 +331,6 @@ struct DecodedArome {
     times: Vec<String>,
     downloaded_bytes: u64,
     rain_frames: Vec<Vec<u8>>,
-    wind_times: Vec<DateTime<Utc>>,
-    motion_wind_frames: Vec<Vec<Option<(f32, f32)>>>,
     temperature: Vec<Vec<u8>>,
     feels_like: Vec<Vec<u8>>,
     wind_u: Vec<Vec<u8>>,
@@ -421,7 +345,7 @@ struct DecodedArome {
 }
 
 /// Decodes leads +1..=`leads` of one AROME run; +0 is only the
-/// de-accumulation base. Rain and the motion wind prior are skipped when
+/// de-accumulation base. Rain is skipped when
 /// `with_rain` is false (history hours are never shown as rain).
 fn decode_arome_run(
     api: &ApiClient,
@@ -453,26 +377,13 @@ fn decode_arome_run(
     validate_arome_fields(&first, &grid)?;
     let rain_map = IndexMap::arome(&grid)?;
     let hourly_map = IndexMap::arome_on(&grid, HOURLY_GRID)?;
-    let motion_wind_map = IndexMap::arome_clamped_on(&grid, SHARED_GRID)?;
     let run_time = DateTime::parse_from_rfc3339(&run)?;
-    let mut wind_times = Vec::new();
-    let mut motion_wind_frames = Vec::new();
-    if with_rain {
-        wind_times.push(run_time.with_timezone(&Utc));
-        motion_wind_frames.push(motion_wind_blocks(
-            &motion_wind_map,
-            &first.motion_wind_u_ms.values,
-            &first.motion_wind_v_ms.values,
-        )?);
-    }
     let capacity = leads as usize;
     let mut out = DecodedArome {
         run: run.clone(),
         times: Vec::with_capacity(capacity),
         downloaded_bytes,
         rain_frames: Vec::with_capacity(capacity),
-        wind_times,
-        motion_wind_frames,
         temperature: Vec::with_capacity(capacity),
         feels_like: Vec::with_capacity(capacity),
         wind_u: Vec::with_capacity(capacity),
@@ -504,12 +415,6 @@ fn decode_arome_run(
         );
         let valid_time = run_time + Duration::hours(lead as i64);
         if with_rain {
-            out.wind_times.push(valid_time.with_timezone(&Utc));
-            out.motion_wind_frames.push(motion_wind_blocks(
-                &motion_wind_map,
-                &current.motion_wind_u_ms.values,
-                &current.motion_wind_v_ms.values,
-            )?);
             let rates = knmi_grib::hourly_precipitation(
                 &previous_precipitation,
                 &current.precipitation_mm,
@@ -852,43 +757,37 @@ fn integrate_values(values: &[f32], factor: usize) -> Result<Vec<f32>> {
     Ok(integrated)
 }
 
-struct EncodedMotion {
-    bytes: Vec<u8>,
-    report: motion::CalibrationReport,
-}
-
 #[derive(Clone, Copy)]
 enum MotionParallelism {
     Inline,
     TwoThreads,
 }
 
-fn encode_rain_with_motion(
+pub fn encode_rain_with_motion(frames: &[Vec<u8>], meta: &mrf::ChunkMeta) -> Result<Vec<u8>> {
+    let parallelism = if meta.source == "seamless" {
+        MotionParallelism::TwoThreads
+    } else {
+        MotionParallelism::Inline
+    };
+    encode_rain_motion(frames, meta, parallelism)
+}
+
+fn encode_rain_motion(
     frames: &[Vec<u8>],
     meta: &mrf::ChunkMeta,
-    wind: &WindTimeline,
-    previous_calibration: Option<motion::Calibration>,
     parallelism: MotionParallelism,
-) -> Result<EncodedMotion> {
+) -> Result<Vec<u8>> {
+    ensure!(
+        meta.field == "rain_rate",
+        "motion is only supported for rain"
+    );
     if frames.len() < 2 {
-        let (calibration, source) = previous_calibration.map_or_else(
-            || {
-                (
-                    motion::Calibration::default(),
-                    motion::CalibrationSource::Default,
-                )
-            },
-            |calibration| (calibration, motion::CalibrationSource::PreviousRun),
-        );
-        return Ok(EncodedMotion {
-            bytes: mrf::encode(frames, meta)?,
-            report: motion::CalibrationReport {
-                calibration,
-                source,
-                reliable_samples: 0,
-            },
-        });
+        return Ok(mrf::encode(frames, meta)?);
     }
+    ensure!(
+        frames.len() == meta.frame_times.len(),
+        "rain time/frame count differs"
+    );
     let width = meta.grid.width;
     let height = meta.grid.height;
     let estimated_grid = motion::grid_for(width, height)?;
@@ -896,11 +795,7 @@ fn encode_rain_with_motion(
         bw: estimated_grid.bw,
         bh: estimated_grid.bh,
     };
-    ensure!(
-        wind.vector_count() == estimated_grid.bw as usize * estimated_grid.bh as usize,
-        "wind prior grid does not match rain motion grid"
-    );
-    let correlate_pair = |index: usize| -> Result<_> {
+    let estimate_pair = |index: usize| -> Result<_> {
         let previous = dequantize_rain_frame(&frames[index - 1], &meta.quant);
         let current = dequantize_rain_frame(&frames[index], &meta.quant);
         let previous_time = DateTime::parse_from_rfc3339(&meta.frame_times[index - 1])?;
@@ -910,17 +805,17 @@ fn encode_rain_with_motion(
             "rain frame times must increase"
         );
         let interval_minutes = (current_time - previous_time).num_seconds() as f32 / 60.0;
-        let field = motion::correlate(&previous, &current, width, height, interval_minutes)?;
+        let field = motion::estimate(&previous, &current, width, height, interval_minutes)?;
         ensure!(
             field.grid == estimated_grid,
             "motion estimator returned a different grid"
         );
-        let midpoint = previous_time + (current_time - previous_time) / 2;
-        Ok((field, wind.interpolate(midpoint.with_timezone(&Utc))))
+        Ok(Some(field.vectors))
     };
-    let pairs = match parallelism {
+    let mut annexes = vec![None];
+    let estimated = match parallelism {
         MotionParallelism::Inline => (1..frames.len())
-            .map(correlate_pair)
+            .map(estimate_pair)
             .collect::<Result<Vec<_>>>()?,
         MotionParallelism::TwoThreads => rayon::ThreadPoolBuilder::new()
             .num_threads(2)
@@ -929,68 +824,17 @@ fn encode_rain_with_motion(
             .install(|| {
                 (1..frames.len())
                     .into_par_iter()
-                    .map(correlate_pair)
+                    .map(estimate_pair)
                     .collect::<Result<Vec<_>>>()
             })?,
     };
-    let (correlations, winds): (Vec<_>, Vec<_>) = pairs.into_iter().unzip();
-    let report = motion::calibrate(&correlations, &winds, previous_calibration)?;
-    let mut annexes = Vec::with_capacity(frames.len());
-    annexes.push(None);
-    for (correlation, wind) in correlations.iter().zip(&winds) {
-        annexes.push(Some(
-            motion::blend_with_wind(correlation, wind, report.calibration)?.vectors,
-        ));
-    }
-    let bytes = match parallelism {
+    annexes.extend(estimated);
+    Ok(match parallelism {
         MotionParallelism::Inline => mrf::encode_with_motion(frames, meta, motion_grid, &annexes)?,
         MotionParallelism::TwoThreads => {
             mrf::encode_with_motion_parallel(frames, meta, motion_grid, &annexes, 2)?
         }
-    };
-    Ok(EncodedMotion { bytes, report })
-}
-
-fn motion_wind_blocks(
-    map: &IndexMap,
-    source_u: &[f32],
-    source_v: &[f32],
-) -> Result<Vec<Option<(f32, f32)>>> {
-    let u = map.gather(source_u)?;
-    let v = map.gather(source_v)?;
-    let grid = motion::grid_for(SHARED_GRID.width, SHARED_GRID.height)?;
-    let mut result = Vec::with_capacity(grid.bw as usize * grid.bh as usize);
-    for block_y in 0..grid.bh as usize {
-        let y0 = block_y * motion::BLOCK_SIZE;
-        let y1 = (y0 + motion::BLOCK_SIZE).min(SHARED_GRID.height as usize);
-        let center_y = SHARED_GRID.y0 + (y0 + y1) as f64 * 0.5 * SHARED_GRID.dy;
-        let latitude = 2.0 * (center_y / 6_378_137.0).exp().atan() - std::f64::consts::FRAC_PI_2;
-        let projected_cells_per_minute = 60.0 / 1_000.0 / latitude.cos() as f32;
-        for block_x in 0..grid.bw as usize {
-            let x0 = block_x * motion::BLOCK_SIZE;
-            let x1 = (x0 + motion::BLOCK_SIZE).min(SHARED_GRID.width as usize);
-            let mut sum_u = 0.0_f32;
-            let mut sum_v = 0.0_f32;
-            let mut count = 0_usize;
-            for y in y0..y1 {
-                for x in x0..x1 {
-                    let index = y * SHARED_GRID.width as usize + x;
-                    if u[index].is_finite() && v[index].is_finite() {
-                        sum_u += u[index];
-                        sum_v += v[index];
-                        count += 1;
-                    }
-                }
-            }
-            result.push((count > 0).then(|| {
-                (
-                    sum_u / count as f32 * projected_cells_per_minute,
-                    -sum_v / count as f32 * projected_cells_per_minute,
-                )
-            }));
-        }
-    }
-    Ok(result)
+    })
 }
 
 fn dequantize_rain_frame(frame: &[u8], quant: &[Option<f32>]) -> Vec<f32> {
@@ -1030,14 +874,6 @@ pub(crate) fn generated_chunk_filename(stem: &str, meta: &mrf::ChunkMeta) -> Str
         }
     }
     format!("{stem}-g{hash:016x}.mrf")
-}
-
-fn calibration_suffix(report: motion::CalibrationReport) -> String {
-    format!(
-        "{:08x}{:08x}",
-        report.calibration.scale.to_bits(),
-        report.calibration.rotation_radians.to_bits()
-    )
 }
 
 pub fn temperature_quantization_table() -> Vec<Option<f32>> {
@@ -1246,8 +1082,6 @@ mod tests {
             times: times.clone(),
             downloaded_bytes: 0,
             rain_frames: Vec::new(),
-            wind_times: Vec::new(),
-            motion_wind_frames: Vec::new(),
             temperature: frames(DETAIL_GRID),
             feels_like: frames(DETAIL_GRID),
             wind_u: frames(DETAIL_GRID),
@@ -1524,44 +1358,46 @@ mod tests {
             mrf::ChunkMeta::standard(grid.clone(), "rtcor", "2026-08-28T12:05:00Z", times.clone());
         let mut previous = vec![0_u8; 64 * 64];
         let mut current = vec![0_u8; 64 * 64];
-        for y in 10..50 {
-            for x in 10..50 {
-                let value = 20 + ((x * 7 + y * 11) % 30) as u8;
-                previous[y * 64 + x] = value;
-                current[(y + 2) * 64 + x + 3] = value;
+        for row in 10..50 {
+            for column in 10..50 {
+                let value = 20 + ((column * 17 + row * 31 + column * row) % 83) as u8;
+                previous[row * 64 + column] = value;
+                current[(row + 2) * 64 + column + 3] = value;
             }
         }
-        let wind = WindTimeline::new(
-            "2026-08-28T12:00:00Z".into(),
-            times
-                .iter()
-                .map(|time| {
-                    DateTime::parse_from_rfc3339(time)
-                        .unwrap()
-                        .with_timezone(&Utc)
-                })
-                .collect(),
-            vec![vec![Some((0.1, 0.0)); 4]; 2],
-        )
-        .unwrap();
-        let rain = mrf::decode(
-            &encode_rain_with_motion(
-                &[previous, current],
-                &meta,
-                &wind,
-                None,
-                MotionParallelism::Inline,
-            )
-            .unwrap()
-            .bytes,
-        )
-        .unwrap();
+        let frames = [previous, current];
+        let rain = mrf::decode(&encode_rain_with_motion(&frames, &meta).unwrap()).unwrap();
         assert_eq!(
             rain.header.motion_grid,
             Some(mrf::MotionGrid { bw: 2, bh: 2 })
         );
         assert!(rain.motions[0].is_none());
         assert!(rain.motions[1].is_some());
+
+        for source in ["rtcor", "nowcast", "seamless", "harmonie"] {
+            let mut source_meta = meta.clone();
+            source_meta.source = source.into();
+            let expected = if source == "harmonie" {
+                source_meta.frame_times[1] = "2026-08-28T13:00:00Z".into();
+                [1_i8, 0]
+            } else {
+                [6_i8, 4]
+            };
+            let encoded = encode_rain_with_motion(&frames, &source_meta).unwrap();
+            let decoded = mrf::decode(&encoded).unwrap();
+            assert_eq!(decoded.frames, frames);
+            assert!(
+                decoded.motions[1]
+                    .as_ref()
+                    .unwrap()
+                    .chunks_exact(2)
+                    .all(|pair| pair.iter().zip(expected).all(|(actual, expected)| {
+                        (i16::from(*actual) - i16::from(expected)).abs() <= 1
+                    })),
+                "{source}: {:?}",
+                decoded.motions[1]
+            );
+        }
 
         let temp_meta = mrf::ChunkMeta::standard(grid, "harmonie", "2026-08-28T12:00:00Z", times)
             .with_field("temp_c", temperature_quantization_table());

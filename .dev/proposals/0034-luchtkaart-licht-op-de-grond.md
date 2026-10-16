@@ -1,6 +1,6 @@
 # MIP-34 — Luchtkaart: wolkenstructuur en licht op de grond
 
-Status: draft · 2026-10-11 · auteur: PM (sol)
+Status: accepted (PO 2026-10-12, eerste vormenproef) · auteur: PM (sol)
 
 ## Het probleem
 
@@ -37,7 +37,42 @@ Maak Lucht een **radarachtige kaart van wolkenstructuur en licht**, met bedekkin
 
 Alleen de witte sluier zwakker maken helpt de leesbaarheid, maar houdt dezelfde beperkte betekenis. Alleen een lichtkaart toont regionale helderheid, maar maakt gebroken bewolking en een gesloten sluier onvoldoende verschillend. Satellietstructuur meteen als nieuwe productiebron invoeren vereist extra ingest. Daarom adviseer ik als eerste visuele proef vormen op basis van de bestaande modelvelden, daarna bepalen hoeveel echte detaildata nodig is.
 
-## Plan na akkoord
+## Ronde 2 — beweging en type-overgangen (PO 2026-10-12)
+
+De PO vindt de historie goed, maar het getekende detail stond stil en vertoonde ringen rond Den Helder bij 17:56. Zijn vermoeden van een type-overgang is bevestigd: de shader herschaalde dezelfde patrooncoördinaten per pixel op basis van het type. Ruimtelijk variërende schaal en gekwantiseerde typewaarden vervormden het veld. De nieuwe proef tekent afzonderlijke lage/midden/hoge patroonvelden en mengt hun optische dichtheid, met vaste coördinaten per type.
+
+Voor beweging volgt de GPU een stromingsveld terug vanaf elke zichtbare plaats, met midpoint-integratie. De bestaande 10m-modelwind dient voorlopig als bewegingsproxy; wind op wolkenhoogte of beweging uit opeenvolgende wolkenvelden is een aparte verbetering. Twee overlappende levensduren van vier modeluren houden vervorming begrensd en vernieuwen het detail op nul gewicht. Beeld en fase hangen uitsluitend van kaarttijd en modeldata af, zodat terugschuiven reproduceerbaar blijft. Oudere reis dan één uur gebruikt de wind van één uur vóór de cursor, met een continu schuivende grens.
+
+De oppervlakte-Jacobiaan van het teruggevolgde veld corrigeert de renderdichtheid: samenstromen verdicht, uitstromen verdunt. Correctie begrensd op 0,25–4, met lokale translatie als een numerieke mapping vouwt. Regionale bedekking blijft uit het model komen; deze proef is geen volledige conservatieve simulatie van wolkenwater. [GPU-backtracking](https://developer.nvidia.com/gpugems/gpugems/part-vi-beyond-triangles/chapter-38-fast-fluid-dynamics-simulation-gpu) en [optische dichtheid/dekking](https://www.pbr-book.org/4ed/Volume_Scattering/Transmittance) zijn de technische basis.
+
+Echte GPU-proef op gecontroleerde velden: verschoven patrooncorrelatie 0,9966 tegenover 0,3060 zonder verschuiving; compressie en dilutie respectievelijk circa 0,38% en 0,19% van de analytische referentie. Ruimtelijke type-menging wijkt gemiddeld 0,00171 af in optische dichtheid. Verkleinen van tijdverschillen rond uur-/levensduurgrenzen verkleint de beeldverschillen mee; het exacte cycluspunt en opnieuw bezochte tijd geven nul byteverschillen. Dag/nacht, desktop/mobiel, voorbeeld-overgang, de voor/na-kaart van 17:56 en afspelen rond zonsondergang zelf bekeken. Nog geen uitspraak over het mobiele perf-budget.
+
+## Ronde 3 — textuurvariatie en regen uit de proef (PO 2026-10-12)
+
+De PO zag te sterke, hoekige verdichting rond Keulen om 15:45, vond de eerdere textuur beter en wees op het verschil tussen grondwind en wolkenbeweging. De extra oppervlakte-Jacobiaan is verwijderd: modelbedekking stuurt de dichtheid, de 10m-proxy mag daar geen extra wolkenmassa bij verzinnen. Overlappende levensduren zijn verkort naar twee uur met twaalf midpoint-stappen. De beweging is nog illustratief op basis van 10m-wind; betrouwbare beweging per wolkenlaag vereist andere gegevens. De ingest heeft ook 300m-wind voor regenbeweging, maar ook dat vervangt wind op alle wolkenhoogten niet.
+
+Op verzoek staat regen tijdelijk uit in Lucht, met de focusovergang terug naar de andere modi. Het oorspronkelijke subtiele reliëf is terug. Bij volledig lage en middelhoge bewolking om 03:00 op 13 oktober stond overal dezelfde fijne rimpeling. De PO verduidelijkte: de textuur is goed, maar er moet meer diversiteit in zitten; geen algemene vervaging of andere kleuren.
+
+Als vormreferentie zijn NASA-beelden van [open en gesloten wolkencellen](https://science.nasa.gov/earth/earth-observatory/open-and-closed-cell-clouds-over-the-pacific-ocean-43795/) en [cirrus boven stratocumulus](https://science.nasa.gov/earth/earth-observatory/cirrus-clouds-off-the-coast-of-chile-85943/) zelf bekeken. De proef mengt afgeronde cellen, grotere aaneengesloten structuren en bestaand fijn detail in geleidelijk veranderende gebieden. Hoge patronen blijven langgerekt. Patrooncoördinaten zijn vast per type; alleen gewichten veranderen. Het kleurenpalet blijft gelijk. Deze variatie is illustratief; bedekking/lagen bepalen niet welke celstructuren werkelijk aanwezig zijn.
+
+## Nederlandse referenties en eerste kostenmeting (PO 2026-10-12)
+
+Op PO-verzoek zijn Nederlandse beelden toegevoegd: [KNMI Meteosat](https://www.knmi.nl/nederland-nu/weer/actueel-weer/satellietbeeldenloop), eigen snapshot van 12 oktober 2026 08:00 UTC, en [Buienradar/EUMETSAT/Met Office van 14 april 2023](https://www.buienradar.nl/nederland/zon-en-wolken/satelliet-terugkijken/archief/202304141045). Voor wolkenvormen zijn satellietbeelden de referentie; neerslagradar toont een ander veld. Beelden zelf bekeken. Kenmerken voor deze illustratieve proef: samenhangende banken, rafelige randen, verschillende celgroottes en kleinere structuren binnen grotere groepen. Geen claim dat de proef die waargenomen posities reconstrueert.
+
+Twee eigen beeldrondes met hetzelfde vastgezette manifest: variabele celgroottes en twee schalen, daarna fijne structuren gekoppeld aan grotere groepen. Middelhoge bewolking heeft nu een eigen breder patroon; het reliëf volgt de gekozen wolkenstructuur. De sterke algemene coördinaatvervorming is gehalveerd. Kleurenpalet en regen-uit behouden. Dag/nacht op desktop/mobiel zelf bekeken.
+
+PO vraagt ook hoe het performant kan worden. Gecontroleerde WebGL-microbenchmark,384×256 pixels, SwiftShader, twintig gemeten draws na vier warmups en synchrone pixelreadback: volledig31,5ms; zonder stroming18,1ms; alleen veld/compositie5,4ms (medianen van één diagnose). Dit zijn software-renderertijden inclusief readback, geen telefoon-GPUbudget. De eerste meting met alleen gl.finish gaf onbruikbare nulmetingen en is niet als resultaat gebruikt.
+
+Een beeldneutrale eerste optimalisatie slaat nulgewogen wolkentypen en volledig transparante pixels over. Drie gepaarde runs:33,2→29,8ms;40,9→37,4ms;40,9→37,4ms, ongeveer8–10%. Absolute spreiding blijft zichtbaar; de gecontroleerde GPU-uitkomsten blijven gelijk. Dit neemt de hoofdkosten nog niet weg.
+
+**Aanpak voor grotere winst, nog niet geïmplementeerd:**
+
+1. Vaste procedurele structuren per kaartgebied/detailniveau vooraf berekenen en hergebruiken. Begrens het texturegeheugen en voorkom dat een grote initialisatie het eerste zichtbare beeld ophoudt.
+2. De verplaatsing per kaarttijd op een apart, kleiner raster berekenen. Kies resolutie en precisie met een beeldvergelijking, juist bij convergentie en dichtbij inzoomen; geen blinde kwaliteitsverlaging.
+3. In de zichtbare pixelpass hoofdzakelijk gesmoothde bronvelden, verplaatsing en opgeslagen structuren samplen en mengen.
+4. Kosten van eerste beeld, afspelen, pannen/zoomen en geheugen afzonderlijk meten op de po-android-rig en op echte mobiele GPU. Cachekwaliteit vergelijken tegen de directe shader vóór ingebruikname. De huidige prototypecheck bewijst geen mobiel framebudget.
+
+## Proef en vervolgstappen
 
 1. Eén proef in de bestaande HMR-dev-app: modelgestuurde vormen, lichttint en coherente tijdsinterpolatie, op dezelfde data en met een vergelijking met de huidige sluier. Toon ook de twee conceptgevallen: gaten tussen donkere wolken tegenover een gesloten dunne sluier. Alleen Lucht verandert. Bestaande regenpresentatie meenemen bij de beoordeling, omdat die nu met de witte sluier mengt.
 2. Zelf zonnige, gedempte en sombere daguren, schemer en nacht op desktop en mobiel bekijken. De PO kiest tint en sterkte live. Typecheck tijdens de iteratie; geen volledige e2e-gate per kleurstap.
@@ -50,9 +85,81 @@ Alleen de witte sluier zwakker maken helpt de leesbaarheid, maar houdt dezelfde 
 
 ## Besluit
 
-Gefingeerde vormen waar nodig zijn door de PO expliciet toegestaan. Het uitvoeringsplan en eventuele extra ingest zijn nog niet aangenomen. De huidige dev-app en productiekaart zijn ongewijzigd.
+PO 2026-10-12: "ja probeer eens". Eerste vormenproef in de dev-app aangenomen, met gefingeerde fijnstructuur op de bestaande modelvelden. Extra ingest is een afzonderlijke keuze; de visuele iteratie gaat vooraf aan de merge-gate en uitrol.
 
 ## Changelog
 
 - 2026-10-11: PO-feedback onderzocht, dag-/nachtkaart zelf bekeken; voorstel opgesteld. Implementatie volgt na de richtingkeuze.
 - 2026-10-11: PO vraagt radarachtige wolkenstructuur en staat gefingeerde details toe. Beschikbare HARMONIE-/satellietgegevens geverifieerd; eigen 8×8-middeling vastgesteld. Voorstel herzien naar bedekking plus lichtdoorlating en modelgestuurde vormen.
+- 2026-10-12: eerste vormenproef aangenomen; vergelijking met de oude sluier en drie expliciet gefingeerde voorbeeldluchten via het dev-paneel. Eigenaar PM, knoppen vervallen na PO-keuze, uiterlijk 2026-10-19.
+- 2026-10-12: eerste proef op http://ageq-dev2:4390/lucht/utrecht, vergelijking en voorbeelden via `?dev` onder Wolkenkaart. Zelf dag/nacht op desktop/mobiel, oude sluier, voorbeelden en afspelen rond zonsopkomst bekeken. Typecheck en 14 gerichte tests groen. Visuele iteratie loopt; geen merge-gate of uitrol uitgevoerd.
+- 2026-10-12: PO-feedback beweging/ringen verwerkt in dezelfde dev-preview en PR115. Afzonderlijke typevelden, windgestuurde adveccie en begrensde dichtheidscompensatie; GPU-proof en 17 gerichte tests groen. Voorbeeldlucht `overgang` toegevoegd. Visuele iteratie blijft open.
+
+## Performance en bewegingsbronnen (PO 2026-10-16)
+
+PO vindt het beeld mooi en vraagt verdere versnelling met voorkeur voor textuur boven een grijze sluier. De aparte bewegingspass uit de kostenaanpak is geïmplementeerd: halve breedte/hoogte van het bestaande vuldoel, RGBA32F en handmatig bilineair samplen. Het aantal integratiestappen en de volledige procedurele textuur blijven behouden. Kwartresolutie was sneller maar faalde de kwaliteitsvergelijking bij sterke convergentie/draaiing en is verworpen. Halve resolutie kost in drie gepaarde SwiftShaderproeven 21,3/21,8/21,6ms tegenover 28,1/28,7/29,1ms voor direct tekenen: circa24–26% minder, inclusief beide passes en readback. Dit is geen hardware-/telefoonmeting. Geen grote textureatlas of extra eerste-framevoorbereiding; het extra raster kost16bytes per pixel, ongeveer0,77MiB bij een810×1000CSS-kaart. Beweging en detail blijven brononafhankelijk, zodat toekomstige wolkenvectoren de renderer kunnen voeden.
+
+De PO noemt MTG-AMV, collectie [EO:EUM:DAT:0676](https://user.eumetsat.int/catalogue/EO:EUM:DAT:0676), en vraagt of HARMONIE wind op wolkenhoogte heeft en een snellere bron beschikbaar is. Onderzoek op16oktober:
+
+1. [KNMI HARMONIE-documentatie](https://www.knmidata.nl/open-data/harmonie): onze P1 geeft U/V op10–300m. P3 geeft ook925/850/700/500/300hPa, P5 op90 modelniveaus. P3 is de eenvoudigste modelkandidaat voor lage/midden/hoge adveccie en toekomstige uren; niveautoewijzing blijft een te toetsen benadering, geen gemeten wolkenhoogte.
+2. [P3-catalogus](https://dataplatform.knmi.nl/dataset/harmonie-arome-cy43-p3-1-0): uuruitvoer. De eigen catalogussteekproef: run16oct06UTC gepubliceerd08:28:56UTC, circa149min na initialisatie,3.396GB. P5 dezelfde run08:29:11UTC,16.926GB. Beschikbare P1-run05UTC07:28:38UTC,0.865GB. P3 is dus geen snellere actuele waarneming; hij voorspelt wel de geldige tijd. Downloadkosten vragen een aparte aanpak; niets gedownload behalve metadata.
+3. Actuele AMV-catalogus zelf opgevraagd: IR105 met venster07:50–08:10UTC, catalogusupdated08:28:04UTC; VIS08 hetzelfde vensterupdated08:31:45UTC. De respectieve verschillen18/22min zijn steekproeven vanaf het venstereinde, niet een gegarandeerde latency of de exacte representatieve vectortijd. [EUMETSAT-productoverzicht](https://masif.eumetsat.int/ossi/pgd/mtgi_0deg_fdss.html) bevestigt de AMV-kanalen en halfuurscyclus. Niet iedere vector is een lage wolk: waterdampkanalen en verschillende hoogtes/kwaliteit moeten onderscheiden worden.
+4. Een snellere kant-en-klare, actuele AMV-feed is nog niet bevestigd. De gevonden5min-RSS-collectie1083 is een klimaatrecord, geen live vervanger. [NWC SAF HRW](https://www.nwcsaf.org/Downloads/GEO/2018.1/Documents/Scientific_Docs/NWC-CDOP3-GEO-AEMET-SCI-UM-Wind_v1.1.pdf) kan met Rapid Scan-beelden werken, maar vergt eigen satelliet-/wolkentopverwerking en rekenbudget. Zelf optische stroming uit frequentere wolkenbeelden afleiden is een onderzoeksoptie, geen reeds beschikbare feed.
+
+Aanbeveling: P3 voor de volledige voorspellingsperiode; AMV als mogelijke correctie/validatie rond nu na toetsing van Nederlandse dekking, hoogte en kwaliteit. De bestaande regenbeweging niet vervangen zonder vergelijking met onze radarbeweging. Geen ingestwijziging gedaan in deze renderproef. Bronnen/metadata en metingen in genegeerde `web/tmp/orkestrator/cloud-perf-20261016/`.
+
+### Proef 16 oktober: gedeelde bewegingsbron en begrensde vervorming
+
+Main bijgewerkt tot 1bf299d9 (U82/U83), via merge 31018a80. Wolken gebruiken nu dezelfde regen-motionannex als de regenroute, bilineair omgerekend van geprojecteerde broncellen/minuut naar wolkencellen/uur. Geen 10m-wind meer; ontbrekende vectoren betekenen stilstand. Annex wordt op de uurlijkse wolkentijden bemonsterd. Dit is een bewegingsproxy, geen gemeten wolkenvector en geen uniforme snelheid voor alle atmosferische lagen als definitief model.
+
+U82 heeft juist de 300m-prior verwijderd. De huidige wolkenpublicatie is 79×85 op 16km/uur: rechtstreeks de 32-cellen regenmatcher toepassen geeft 512km-blokken en slechts circa 3×3 vectoren. Voor eigen wolkenmatching zijn fijnere bronvelden nodig. Een gedeelde matcher met afzonderlijke laagvectoren en betrouwbaarheid is een onderzoeksrichting, geen uitgevoerde ingestwijziging. Luchtdruk pressure_hpa is zeeniveaudruk; hooguit een zwakke dynamische controle, P3-wind op passende hoogte is een directere prior.
+
+Vervormingsproef: texturelevensduur 2 uur → 30 minuten, twee overlappende banken met 15 minuten verschil; vernieuwen bij nul gewicht, zonder textuurvervaging. Numerieke statische terugtrace op het echte 12:00-veld: maximale lokale rek bij 1 uur 2,385×, bij 15 minuten 1,262×. Dit diagnosticeert opgebouwde rek, niet een exact gereproduceerd PO-beeld. GPU-oracle inclusief tijdgrenzen/reseek, translatie, compressie/dilutie en directe/cache-vergelijking exit0. Typecheck en eerst 59 gerichte tests groen; na levensduurwijziging opnieuw typecheck en 22 relevante tests groen. Dag/nacht desktop/mobiel en afspeelbeelden over de 14:00-bronovergang zelf bekeken; geen browsererrors. Geen volledige merge-/mobiele gate.
+
+Preview4390 blijft live productiedata gebruiken; preview4398 gebruikt vastgezette U82-data van 16 oktober08:10, zodat de nieuwe matcher echt getest wordt. Zelfde code, verschillende data. Receipts/scripts in web/tmp/orkestrator/cloud-motion-20261016/. Geen prod/VM/Telegramacties, CSV niet aangeraakt.
+
+### Correctie 16 oktober: vernieuwen zonder terugveren
+
+PO meldt springende wolken om19:00 en vooral rond00:00 op de Noordzee westelijk Den Haag–Den Helder. Oorzaak: twee kortlevende textuurbanken vernieuwden op hetzelfde wereldvaste patroon. Continu aan de cyclusgrens, maar netto periodiek terugveren; de30minlevensduur maakte dit vaker zichtbaar. Eerdere korte continuïteitstest miste dit.
+
+Fix: beginposities volgen een geïntegreerd gemiddeld bewegingspad uit de regenannexen (uurknopen, vier downloads tegelijk, gedeeld/gecachet per tijdlijn). Tussen knopen exacte integraal van lineair veranderende snelheid; lokale terugtrace en30minbegrenzing blijven behouden. Zowel directe als gecachete shader trekt de bijbehorende beginpositie af. Geen extra shaderpass of langere lokale terugtrace. Bij manifestverversing neemt het pad zijn oorsprong over uit het vorige pad, zodat wegvallende historie geen reset veroorzaakt. Dit is globale textuurverankering, geen nieuw fysisch wolkenmodel; lokale verschillen kunnen nog detailvernieuwing geven. Eerste laden vraagt extra kleine motionannexen over de tijdlijn; geen mobiele laadbudgetmeting gedaan.
+
+Voor/na31 exacte frames23:45–00:15 met vasteU82data op4398 vastgelegd, Noordzee zelf bekeken. PO ziet live verbetering. Nieuwe uniforme-stromingsproef over een uur/twee levensduren: oude shader faalt (correlatie op oorspronkelijke plek1, op verwachte verplaatsing0,102), nieuwe slaagt (verwachte verplaatsing0,986, oorspronkelijke plek0,105). Alle eerdere GPUchecks blijven groen. Typecheck en26 gerichte unit-tests exit0, inclusief veranderende snelheid/middernacht/twee uur bankvernieuwing/verschuivend historie-venster. Eerste micrometerstrenge floating-pointtolerantie in unit-test faalde; tolerantie naar5decimalen in meters, geen productieafronding aangepast.
+
+Repro: direnv exec . node web/tmp/orkestrator/cloud-jump-20261016/gpu.mjs; gpu-old.mjs is de verwachte falende controle. sequence.mjs before/after legt beelden vast. Receipts en LOG in dezelfde genegeerde map. Live4390 en vaste4398 bijgewerkt. Geen prod/VM/Telegram ofCSVwijziging. Volledige mergegate blijft buiten deze beelditeratie.
+
+### Correctie 16 oktober: één patroon langs de gemengde trajecten
+
+PO meldt resterend springen rond09:00 op de Noordzee westelijk Alkmaar/Noordwijk, bevestigt4390/live en daarna dat het weg is. Diagnose in vasteU82data: lokale en gemiddelde snelheid verschillen, waardoor twee textuurbanken een verschoven afbeelding van dezelfde wolk tonen. Bij09:00 op3,5E/52,5N is de geschatte bankafstand circa3,16km. De vorige fix voorkwam wereldvaste herhaling, maar niet het zichtbaar in-/uitfaden van twee verschoven exemplaren.
+
+Shader mengt nu de twee teruggevolgde posities en bemonstert daar één wolkenpatroon. Menging van wolkentypen blijft optisch; die coördinaten worden niet gemengd. Levensduur/ankers/lokale terugtrace ongewijzigd. Eén procedurele textuurberekening in plaats van twee; geen nieuwe performanceclaim. Voor/na31 exacte frames08:45–09:15 op4398, relevante beelden zelf bekeken. Live4390 dezelfde code, PO bevestigt fix.
+
+Nieuwe GPU-regressie met verschillende lokale en gemiddelde snelheid: oude beeldcrossfade alpha-MAE20,314 t.o.v. één coherent patroon (verwachte exit1), nieuwe0,00986 (exit0). Uniforme translatie over meerdere cycli, type-menging, compressie/dilutie, tijdgrenzen, reseek en direct/cache blijven groen. Oracle nu reviewbaar in web/scripts/check-cloud-map.mjs: direnv exec . node web/scripts/check-cloud-map.mjs http://127.0.0.1:4398/. Typecheck en23 gerichte unit-tests exit0. Bij bijwerken van de oracle eerst de korte translatieproef voorzien van de echte bewegende ankers, daarna de reseek-input gelijkgetrokken; eerdere falende receipts bewaard.
+
+Scratch: web/tmp/orkestrator/cloud-morning-20261016/. Geen prod/VM/Telegram/CSVwijziging. Volledige mergegate niet uitgevoerd tijdens deze beeldproef.
+
+### PO-besluit en budget 16 oktober: winddeeltjes uit Lucht
+
+PO vraagt kosten van de nieuwste wolken en winddeeltjes uit Lucht. Windvisibility vermenigvuldigd met1-airFocus; bij volle Lucht stopt de windlus, bewegingsdata voor wolken blijven beschikbaar. Visueel zelf gecontroleerd. Browsercheck Lucht→Wind→Lucht: windDraws2→2,14→33,41→41; geen errors. Typecheck exit0. Geen nieuwe unit-test voor deze eenvoudige visibilitywijziging.
+
+Perf onder scripts/perf-lock.sh op rustige host, Chromium/ANGLE/Vulkan SwiftShader, DPR1, vasteU82data. Echt afspelen na opwarming, zes seconden meetvenster, GPU-timerqueries voor bestaande passes én overige WebGL-draws; geen dubbel tellen van geneste queries. Desktopviewport1280×1000, kaart810×1000: gemiddelde flow9,318ms + textuur23,481ms + blit2,733ms =35,532ms per wolkenpass. Mobielviewport390×1000, kaart390×618:2,817+7,515+0,865=11,196ms. Wolken97,35% respectievelijk98,48% van de gemeten WebGL-drawtijd. Basiskaart grotendeels gecachet, regen/wind uit; dit percentage is GEEN totale browser-CPU/wandtijd en deze GPU is GEEN telefoonhardware.113/170 cloudfillupdates in zes seconden; GPU-groepen102/170 complete querysamples, laatste uitstaande desktopqueries niet in teller.
+
+Eerste A/B met20 opgewarmde stillframes (huidig/geenwolken/vorige shader, twee rondes) liet zien dat totale wandtijd op rAF-wachten kwantiseert naar50/66,7ms, dus onbruikbaar voor een kostenaandeel. Eerste EMA-timings bovendien vervuild door shaderopstart; niet als kosten gerapporteerd. Latere warme desktopvergelijking: huidig flow+fill33,77ms vs vorige43,74–47,13ms, indicatief circa25% minder; hoofdrapport gebruikt verse GPU-querysamples. Kleine viewport in still-harness raakte bestaand followTableToEpoch op ontbrekend forecastPanelElement; alleen in harness uitgeschakeld voor alle varianten, productcode niet gewijzigd. Echte app-probe zonder die bypass is foutvrij.
+
+Repro: direnv exec . bash -c 'cd web && bash scripts/perf-lock.sh node tmp/orkestrator/cloud-budget-20261016/gpu-share.mjs'. Losse zichtbaarheid: direnv exec . node web/tmp/orkestrator/cloud-budget-20261016/wind-check.mjs. JSON met ruwe samples, eerdere mislukte/ongeschikte metingen, screenshot en LOG in dezelfde genegeerde map. Volgende optimalisatiekandidaat is procedurele textuur (circa66–67% van wolkenkosten); nog niet uitgevoerd. Geen prod/VM/Telegram/CSVwijziging.
+
+### Performancevervolg 16 oktober: minder werk bij dezelfde textuurresolutie
+
+PO vraagt sneller. Definitieve kandidaat: cloudCells vergelijkt gekwadrateerde afstand en neemt één wortel na het minimum i.p.v. negen; RK2-stappen12→8 en flowcachefactor2→3. De uiteindelijke textuurresolutie, patronen, levensduur, trajectankers en kleur blijven gelijk. Flowdoel gebruikt circa44% van de vorige pixels en twee derde van de stappen. Eerste variant met afstandspruning verworpen: dezelfde beelden maar in drie gepaarde microproeven2,7–4,6% trager door extra branches.
+
+Beeldcontrole:45 gevallen (3zooms×5types×3bedekkingen) tegenover oorspronkelijke cellfunctie/twaalf stappen max1/255. Volledige beweging tegenover twaalf stappen/direct samplen: gewone compressie/dilutie max3/255, sterke synthetische compressie max39, gemiddeldeRGBA-afwijking0,433/255;0,303%kanalen verschilt>8. Swirl max18, gemiddelde0,151. Geen bit-identieke beweging beloofd; foutgrens bewaakt door GPU-oracle. Optische type-menging, dichtheid, tijdgrenzen, geen terugveren en reproduceerbaar terugzoeken groen. Dag09:00/12:00 en nacht00:00 zelf bekeken. Eerste still-capture bij grote tijdsprong raakte bestaande 'Kaartlaag cloud is niet geladen'; herhaald via afzonderlijke URL-loads, exit0. Typecheck en23gerichte tests exit0. Referentiebeeldtests toegevoegd aan web/scripts/check-cloud-map.mjs.
+
+Rust-builds belasten dev-host (loadtot85), dus schone wand/GPUmeting wacht. Aanvullende geïsoleerde software-rendererproef zonder appachtergrond, drie afwisselende oude/nieuwe shaderparen384×256,8warmups+20draws met readback. CDP SystemInfo-process.cpuTime telt werkelijk CPU-werk van deze browserprocessen i.p.v. wachttijd op scheduler. Oud214/200/203msCPU per draw → nieuw160/149,5/151,5:25,2–25,4% minder CPU-werk. Wandmedianen18,1/17,8/17,9→13,6/13,6/13,6ms, maar wegens hostload geen schone absolute GPUbaseline. Repro direnv exec . node web/tmp/orkestrator/cloud-fast-20261016/cpu.mjs http://127.0.0.1:4398/.
+
+Volledige appvergelijking reference/optimized desktop/mobiel wacht nog via project-perflock; gepaarde meting gebruikt de bestaande MOTREGEN_RIG_PAIRED=1-grens16. Eerdere wachtjobs metgrens8 bewust beëindigd; niet als groene receipts tellen. Receipts, ruweJSON, screenshots en append-onlyLOG in genegeerde web/tmp/orkestrator/cloud-fast-20261016/. Geen prod/VM/Telegram/CSVwijziging. Preview4390/4398 bijgewerkt, draftPR115 blijft open; volledige merge-/mobiele hardwaregate niet uitgevoerd.
+
+### Meetresultaat optimalisatie 16 oktober
+
+Gepaarde appmeting van referentie(twaalf stappen, flowfactor2, oude cellfunctie) en4eb06f1a-kandidaat exit0 zonder browsererrors. Projectgrens MOTREGEN_RIG_PAIRED=1 toegepast; hostload liep tijdens de meting weer op door builds, dus absolute tijden indicatief. Som van mediane GPU-passes (flow+textuur+blit), desktopkaart810×1000:37,224→26,985ms (-27,5%); mobielkaart390×618:13,201→8,736ms (-33,8%). Referentie/nieuw gemiddelde desktop42,155/27,635ms, mobiel14,412/9,095ms; gemiddelden sterker beïnvloed door uitschieters. Geen vergelijking van die gemiddelden met de eerdere rustige35,5/11,2ms als precieze winst. Robuuste onderbouwing blijft de drie geïsoleerde CPU-paren met25,2–25,4% minder werkelijk software-renderwerk.
+
+Nieuwe mediane fasen desktop3,081+21,012+2,892ms, mobiel1,056+6,778+0,902ms. Detailresolutie en patronen blijven behouden; de afbeelding van de beweging is een gecontroleerde benadering. GPU-oracle,23gerichte tests en typecheck groen, dag/nacht zelf bekeken. Profilering en ruwe samples: web/tmp/orkestrator/cloud-fast-20261016/gpu-share.json; repro direnv exec . bash -c 'cd web && MOTREGEN_RIG_PAIRED=1 bash scripts/perf-lock.sh node tmp/orkestrator/cloud-fast-20261016/gpu-share.mjs'. Alle eigen tests en perfjobs afgerond; twee vervangen wachtjobs exit143 bewust beëindigd. Preview4390/4398 bijgewerkt; geen prod/VM/Telegram/CSVwijziging. Mobiele hardwaremeting en volledige mergegate blijven open.

@@ -30,12 +30,13 @@ describe('the product rain table', () => {
     dark: [[0.02, 19, [66, 120, 214, 0]], [0.05, 43, [66, 120, 214, 97]], [0.1, 62, [66, 120, 214, 99]], [1, 122, [77, 135, 228, 195]], [4, 159, [85, 142, 236, 210]], [7, 173, [131, 58, 228, 210]], [9, 180, [204, 48, 196, 210]], [13, 190, [250, 85, 89, 210]], [40, 219, [255, 144, 134, 210]], [120, 248, [255, 212, 204, 210]]],
   }
 
-  it('is the look the PO chose: violet-laat, drempel-zacht, contrast floor 0 (2026-10-11)', () => {
-    expect(DEFAULT_RAIN_LOOK).toEqual({ palette: 'violet-laat', blend: 'drempel-zacht', theme: 'light', contrast: 0 })
+  it('is the look the PO chose: violet-laat, rand (2026-10-16, was drempel-zacht), contrast floor 0', () => {
+    expect(DEFAULT_RAIN_LOOK).toEqual({ palette: 'violet-laat', blend: 'rand', theme: 'light', contrast: 0 })
     expect(rainUsesStraightAlpha(DEFAULT_RAIN_LOOK.blend)).toBe(true)
-    expect(rainOutline(DEFAULT_RAIN_LOOK)).toBeUndefined()
+    expect(rainOutline(DEFAULT_RAIN_LOOK)).toBeDefined()
+    // De tabel van drempel-zacht blijft vastgepind: die staat onder ?dev nog ter vergelijking.
     for (const theme of THEMES) {
-      const colormap = buildRainColormap({ ...DEFAULT_RAIN_LOOK, theme })
+      const colormap = buildRainColormap({ ...DEFAULT_RAIN_LOOK, blend: 'drempel-zacht', theme })
       for (const [rate, index, rgba] of PRODUCT_TABLE[theme]) {
         expect(Math.round(rainRateIndex(rate)), `${rate} mm/u`).toBe(index)
         expect(Array.from(colormap.subarray(index * 4, index * 4 + 4)), `${theme} ${rate} mm/u`).toEqual(rgba)
@@ -275,8 +276,8 @@ describe('stored choice', () => {
   const storage = (values: Record<string, string>) => ({ getItem: (key: string) => values[key] ?? null })
 
   it('falls back to the product on a missing or unknown value', () => {
-    expect(loadRainLookChoice(storage({}))).toEqual({ palette: 'violet-laat', blend: 'drempel-zacht', contrast: 0 })
-    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.palette]: 'regenboog', [RAIN_LOOK_STORAGE_KEYS.blend]: 'oplossen', [RAIN_LOOK_STORAGE_KEYS.contrast]: 'veel' }))).toEqual({ palette: 'violet-laat', blend: 'drempel-zacht', contrast: 0 })
+    expect(loadRainLookChoice(storage({}))).toEqual({ palette: 'violet-laat', blend: 'rand', contrast: 0 })
+    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.palette]: 'regenboog', [RAIN_LOOK_STORAGE_KEYS.blend]: 'oplossen', [RAIN_LOOK_STORAGE_KEYS.contrast]: 'veel' }))).toEqual({ palette: 'violet-laat', blend: 'rand', contrast: 0 })
     expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.contrast]: '' })).contrast).toBe(0)
   })
 
