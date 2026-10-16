@@ -65,7 +65,6 @@ in vec2 v_uv;
 out vec4 color;
 
 const float FLOW_BLEND_CURVE = ${FLOW_BLEND_CURVE.toFixed(1)};
-const int MAX_OUTLINES = ${MAX_OUTLINES};
 
 float blendWeight(float value) {
   float clamped = clamp(value, 0.0, 1.0);
