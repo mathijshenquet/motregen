@@ -13,12 +13,12 @@ export const RAIN_BLENDS = ['huidig', 'zuiver', 'steil', 'drempel', 'drempel-zac
 export type RainBlendName = typeof RAIN_BLENDS[number]
 
 // Isolijnen binnen de regen (proef onder ?dev › Regen, PO 2026-10-16: "zullen we nog meer mm/h isolijnen
-// toevoegen?"). kleurgrenzen: lichte regen, matige regen (3 mm/u, PO 2026-10-16; was 4, waar blauw violet wordt), waar rood begint.
+// toevoegen?"). kleurgrenzen: lichte regen, matige regen (2 mm/u, PO 2026-10-16; was 4, waar blauw violet wordt), waar rood begint.
 // klassen volgt de WMO-indeling licht/matig/zwaar/zeer zwaar.
 export const RAIN_ISOLINE_SETS = ['kleurgrenzen', 'klassen', 'dicht', 'geen'] as const
 export type RainIsolineSetName = typeof RAIN_ISOLINE_SETS[number]
 export const RAIN_ISOLINE_RATES: Record<RainIsolineSetName, readonly number[]> = {
-  kleurgrenzen: [1, 3, 13],
+  kleurgrenzen: [1, 2, 13],
   klassen: [2.5, 10, 50],
   dicht: [0.5, 1, 2, 5, 10, 20],
   geen: [],
