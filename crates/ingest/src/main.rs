@@ -18,7 +18,6 @@ use motregen_ingest::{
         build_seamless_chunk_for_file, build_uv_chunks, latest_files, prune_download_cache,
     },
     publisher::{ProducedChunk, publish_with_cams},
-    wind_prior::WindTimeline,
 };
 use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
@@ -98,16 +97,13 @@ fn parse_duration(value: &str) -> Result<Duration, humantime::DurationError> {
 
 struct SeamlessJob {
     file: RemoteFile,
-    wind: WindTimeline,
-    previous_calibration: Option<motion::Calibration>,
 }
 
 struct SeamlessOutcome {
     file: String,
-    wind_run: String,
     checked_at: Instant,
     elapsed: Duration,
-    result: Result<(ProducedChunk, motion::CalibrationReport)>,
+    result: Result<ProducedChunk>,
 }
 
 struct SeamlessWorker {
@@ -126,19 +122,15 @@ impl SeamlessWorker {
                 while let Ok(job) = job_receiver.recv() {
                     let started = Instant::now();
                     let file = job.file.filename.clone();
-                    let wind_run = job.wind.run.clone();
                     let result = build_seamless_chunk_for_file(
                         &api,
                         &cache_root,
                         &job.file,
                         start_after_minutes,
-                        &job.wind,
-                        job.previous_calibration,
                     );
                     if outcome_sender
                         .send(SeamlessOutcome {
                             file,
-                            wind_run,
                             checked_at: started,
                             elapsed: started.elapsed(),
                             result,
@@ -209,11 +201,6 @@ struct Daemon {
     arome_history: Vec<ProducedChunk>,
     uv: Vec<ProducedChunk>,
     cams: cams::Feed,
-    wind: Option<WindTimeline>,
-    rtcor_calibration: Option<motion::Calibration>,
-    nowcast_calibration: Option<motion::Calibration>,
-    seamless_calibration: Option<motion::Calibration>,
-    arome_calibration: Option<motion::Calibration>,
     last_arome_check: Option<Instant>,
     last_seamless_check: Option<Instant>,
     last_uv_check: Option<Instant>,
@@ -248,11 +235,6 @@ impl Daemon {
             arome_history: Vec::new(),
             uv: Vec::new(),
             cams: cams::Feed::default(),
-            wind: None,
-            rtcor_calibration: None,
-            nowcast_calibration: None,
-            seamless_calibration: None,
-            arome_calibration: None,
             last_arome_check: None,
             last_seamless_check: None,
             last_uv_check: None,
@@ -290,18 +272,7 @@ impl Daemon {
         if self.rtcor_id.as_deref() == Some(&latest.filename) {
             return Ok(false);
         }
-        let wind = self
-            .wind
-            .as_ref()
-            .context("AROME wind prior is not ready")?;
-        let (chunk, _, calibration) = build_rtcor_chunk(
-            &self.api,
-            &self.cache_root,
-            self.config.history_hours,
-            wind,
-            self.rtcor_calibration,
-        )?;
-        log_calibration("rtcor", &chunk.manifest.run, calibration);
+        let (chunk, _) = build_rtcor_chunk(&self.api, &self.cache_root, self.config.history_hours)?;
         info!(
             file = latest.filename,
             frames = chunk.manifest.times.len(),
@@ -309,7 +280,6 @@ impl Daemon {
         );
         self.rtcor_id = Some(latest.filename);
         self.rtcor = Some(chunk);
-        self.rtcor_calibration = Some(calibration.calibration);
         Ok(true)
     }
 
@@ -321,18 +291,8 @@ impl Daemon {
         if self.nowcast_id.as_deref() == Some(&latest.filename) {
             return Ok(false);
         }
-        let wind = self
-            .wind
-            .as_ref()
-            .context("AROME wind prior is not ready")?;
-        let (chunk, _, calibration) = build_nowcast_chunk(
-            &self.api,
-            &self.cache_root,
-            self.config.nowcast_minutes,
-            wind,
-            self.nowcast_calibration,
-        )?;
-        log_calibration("nowcast", &chunk.manifest.run, calibration);
+        let (chunk, _) =
+            build_nowcast_chunk(&self.api, &self.cache_root, self.config.nowcast_minutes)?;
         info!(
             file = latest.filename,
             frames = chunk.manifest.times.len(),
@@ -340,7 +300,6 @@ impl Daemon {
         );
         self.nowcast_id = Some(latest.filename);
         self.nowcast = Some(chunk);
-        self.nowcast_calibration = Some(calibration.calibration);
         Ok(true)
     }
 
@@ -358,33 +317,14 @@ impl Daemon {
             info!(file = latest.filename, "seamless check found no newer run");
             return Ok(false);
         }
-        let wind = self
-            .wind
-            .as_ref()
-            .context("AROME wind prior is not ready")?
-            .clone();
         let filename = latest.filename.clone();
-        self.seamless_worker.start(SeamlessJob {
-            file: latest,
-            wind,
-            previous_calibration: self.seamless_calibration,
-        })?;
+        self.seamless_worker.start(SeamlessJob { file: latest })?;
         info!(file = filename, "seamless refresh scheduled in background");
         Ok(true)
     }
 
     fn apply_seamless_outcome(&mut self, outcome: SeamlessOutcome) -> Result<bool> {
-        let (chunk, calibration) = outcome.result?;
-        if self.wind.as_ref().map(|wind| wind.run.as_str()) != Some(outcome.wind_run.as_str()) {
-            warn!(
-                file = outcome.file,
-                wind_run = outcome.wind_run,
-                "discarding seamless refresh built against superseded AROME wind"
-            );
-            self.last_seamless_check = None;
-            return Ok(false);
-        }
-        log_calibration("seamless", &chunk.manifest.run, calibration);
+        let chunk = outcome.result?;
         info!(
             file = outcome.file,
             frames = chunk.manifest.times.len(),
@@ -393,7 +333,6 @@ impl Daemon {
         );
         self.seamless_id = Some(outcome.file);
         self.seamless = Some(chunk);
-        self.seamless_calibration = Some(calibration.calibration);
         self.last_seamless_check = Some(outcome.checked_at);
         Ok(true)
     }
@@ -432,17 +371,7 @@ impl Daemon {
             return Ok(false);
         }
         let started = Instant::now();
-        let publication = build_arome_chunks(
-            &self.api,
-            &self.cache_root,
-            self.config.arome_hours,
-            self.arome_calibration,
-        )?;
-        log_calibration(
-            "harmonie",
-            &publication.chunks[0].manifest.run,
-            publication.calibration,
-        );
+        let publication = build_arome_chunks(&self.api, &self.cache_root, self.config.arome_hours)?;
         info!(
             file = latest.filename,
             chunks = publication.chunks.len(),
@@ -476,12 +405,6 @@ impl Daemon {
         };
         self.arome_id = Some(latest.filename);
         self.arome = publication.chunks;
-        self.wind = Some(publication.wind);
-        self.arome_calibration = Some(publication.calibration.calibration);
-        self.rtcor_id = None;
-        self.nowcast_id = None;
-        self.seamless_id = None;
-        self.last_seamless_check = None;
         self.last_arome_check = Some(checked_at);
         Ok(true)
     }
@@ -659,18 +582,6 @@ impl Daemon {
     }
 }
 
-fn log_calibration(source: &str, run: &str, report: motion::CalibrationReport) {
-    info!(
-        source,
-        run,
-        scale = report.calibration.scale,
-        rotation_degrees = report.calibration.rotation_radians.to_degrees(),
-        reliable_samples = report.reliable_samples,
-        calibration_source = ?report.source,
-        "motion wind calibration"
-    );
-}
-
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
@@ -776,11 +687,6 @@ mod tests {
             arome_history: Vec::new(),
             uv: Vec::new(),
             cams: cams::Feed::default(),
-            wind: None,
-            rtcor_calibration: None,
-            nowcast_calibration: None,
-            seamless_calibration: None,
-            arome_calibration: None,
             last_arome_check: None,
             last_seamless_check: None,
             last_uv_check: None,
@@ -874,6 +780,29 @@ mod tests {
     }
 
     #[test]
+    fn seamless_result_needs_no_arome_run() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut daemon = test_daemon(directory.path().into(), idle_test_worker());
+        let checked_at = Instant::now();
+        let changed = daemon
+            .apply_seamless_outcome(SeamlessOutcome {
+                file: "seamless-current.nc".into(),
+                checked_at,
+                elapsed: Duration::from_secs(1),
+                result: Ok(test_chunk(
+                    "seamless",
+                    "2026-10-16T06:00:00Z",
+                    "seamless-current.mrf",
+                )),
+            })
+            .unwrap();
+        assert!(changed);
+        assert_eq!(daemon.seamless_id.as_deref(), Some("seamless-current.nc"));
+        assert!(daemon.seamless.is_some());
+        assert_eq!(daemon.last_seamless_check, Some(checked_at));
+    }
+
+    #[test]
     fn slow_seamless_does_not_delay_fresh_rtcor_manifest() {
         let directory = tempfile::tempdir().unwrap();
         let (jobs, job_receiver) = mpsc::sync_channel(1);
@@ -890,17 +819,6 @@ mod tests {
             busy: false,
         };
         let mut daemon = test_daemon(directory.path().into(), worker);
-        let wind = WindTimeline::new(
-            "2026-08-31T17:00:00Z".into(),
-            vec![
-                chrono::DateTime::parse_from_rfc3339("2026-08-31T17:00:00Z")
-                    .unwrap()
-                    .with_timezone(&chrono::Utc),
-            ],
-            vec![vec![Some((0.0, 0.0))]],
-        )
-        .unwrap();
-        daemon.wind = Some(wind.clone());
         daemon.rtcor = Some(test_chunk("rtcor", "2026-08-31T20:00:00Z", "rtcor-old.mrf"));
         daemon.nowcast = Some(test_chunk(
             "nowcast",
@@ -926,8 +844,6 @@ mod tests {
                     size: 1,
                     last_modified: "2026-08-31T20:05:00Z".into(),
                 },
-                wind,
-                previous_calibration: None,
             })
             .unwrap();
         started_receiver.recv().unwrap();
