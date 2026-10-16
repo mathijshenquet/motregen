@@ -56,6 +56,10 @@ pnpm changelog:post 0.1.1 -1004364574650 --dry-run
 pnpm changelog:post 0.1.1 -1004364574650
 ```
 
+De kanaalafbeelding gebruikt de bestaande Motregen-druppel. Genereer
+`web/brand-assets/motregen.nl/telegram-avatar.png` opnieuw met
+`pnpm -C web exec tsx scripts/channel-avatar.ts`.
+
 `TG_BOT_KEY` komt uit de omgeving of de root-`.env`. Eerst volgt één tekstbericht met versie,
 titels en notities, daarna één los bericht per media-item, met het bijschrift direct zichtbaar.
 De PO koos hiervoor na de echte albumproef. Met `--album` volgt in plaats daarvan een album
