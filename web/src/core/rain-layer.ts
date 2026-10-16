@@ -25,6 +25,9 @@ const SOURCE_KERNEL_IDS: Record<SourceKernel, number> = { 'source-linear': 0, 's
 const DEFAULT_SAMPLING: RainSampling = { kernel: 'bilinear', sourceCellWidth: 1 }
 const DEFAULT_WARP_LIMIT: RainWarpLimit = { capCells: WARP_CAP_CELLS, fadeEndCells: WARP_FADE_END_CELLS }
 
+// Buitenrand plus maximaal zeven isolijnen binnen de regen.
+const MAX_OUTLINES = 8
+
 const vertexSource = `#version 300 es
 in vec2 a_pos;
 in vec2 a_uv;
@@ -37,6 +40,7 @@ void main() {
 
 const fragmentSource = `#version 300 es
 precision highp float;
+const int MAX_OUTLINES = ${MAX_OUTLINES};
 uniform sampler2D u_left;
 uniform sampler2D u_right;
 uniform sampler2D u_lut;
@@ -53,9 +57,10 @@ uniform float u_left_nearest;
 uniform float u_right_nearest;
 uniform float u_warp_cap_cells;
 uniform float u_warp_fade_end_cells;
-uniform float u_outline_strength;
-uniform float u_outline_value;
-uniform vec3 u_outline_colour;
+uniform int u_outline_count;
+uniform float u_outline_values[MAX_OUTLINES];
+uniform vec4 u_outline_styles[MAX_OUTLINES];
+uniform float u_outline_half_widths[MAX_OUTLINES];
 in vec2 v_uv;
 out vec4 color;
 
@@ -119,10 +124,11 @@ void main() {
   color.rgb = mix(vec3(luma), color.rgb, u_saturation) * u_brightness;
   // Contour (U77-proef): fwidth is hoeveel de waarde per schermpixel verandert, dus dit is de afstand tot de
   // isolijn in schermpixels en blijft de lijn op elke zoom even dun.
-  if (u_outline_strength > 0.0) {
-    float pixelsFromOutline = abs(value - u_outline_value) / max(fwidth(value), 0.000001);
-    float outline = (1.0 - smoothstep(0.0, 1.2, pixelsFromOutline)) * u_outline_strength;
-    color = mix(color, vec4(u_outline_colour, 1.0), outline);
+  for (int index = 0; index < MAX_OUTLINES; index++) {
+    if (index >= u_outline_count) break;
+    float pixelsFromOutline = abs(value - u_outline_values[index]) / max(fwidth(value), 0.000001);
+    float outline = (1.0 - smoothstep(0.0, u_outline_half_widths[index], pixelsFromOutline)) * u_outline_styles[index].a;
+    color = mix(color, vec4(u_outline_styles[index].rgb, 1.0), outline);
   }
   color.a *= u_opacity;
 }`
@@ -228,7 +234,7 @@ export class RainLayer implements CustomLayerInterface {
   private warpLimit = DEFAULT_WARP_LIMIT
   private colormap = rainColormap()
   private straightAlpha = false
-  private outline?: RainOutline
+  private outlines: readonly RainOutline[] = []
   private filterProgram?: WebGLProgram
   private filterTarget?: WebGLFramebuffer
   private filterVertexArray?: WebGLVertexArrayObject
@@ -291,8 +297,8 @@ export class RainLayer implements CustomLayerInterface {
   }
 
   /** Dunne contour op de isolijn van één byte; `undefined` = geen. */
-  setOutline(outline: RainOutline | undefined): void {
-    this.outline = outline
+  setOutlines(outlines: readonly RainOutline[]): void {
+    this.outlines = outlines.slice(0, MAX_OUTLINES)
   }
 
   setFrames(left: Uint8Array, right: Uint8Array, mix: number, motion?: MotionField, intervalMinutes = 0): void {
@@ -364,10 +370,11 @@ export class RainLayer implements CustomLayerInterface {
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_right_nearest'), this.rightSampling.kernel === 'nearest' ? 1 : 0)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_warp_cap_cells'), this.warpLimit.capCells)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_warp_fade_end_cells'), this.warpLimit.fadeEndCells)
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_outline_strength'), this.outline ? OUTLINE_STRENGTH : 0)
-    if (this.outline) {
-      gl.uniform1f(gl.getUniformLocation(this.program, 'u_outline_value'), this.outline.index / 255)
-      gl.uniform3f(gl.getUniformLocation(this.program, 'u_outline_colour'), this.outline.colour[0] / 255, this.outline.colour[1] / 255, this.outline.colour[2] / 255)
+    gl.uniform1i(gl.getUniformLocation(this.program, 'u_outline_count'), this.outlines.length)
+    if (this.outlines.length) {
+      gl.uniform1fv(gl.getUniformLocation(this.program, 'u_outline_values'), this.outlines.map((outline) => outline.index / 255))
+      gl.uniform4fv(gl.getUniformLocation(this.program, 'u_outline_styles'), this.outlines.flatMap((outline) => [...outline.colour.map((channel) => channel / 255), outline.strength]))
+      gl.uniform1fv(gl.getUniformLocation(this.program, 'u_outline_half_widths'), this.outlines.map((outline) => outline.halfWidth))
     }
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, leftTexture); gl.uniform1i(gl.getUniformLocation(this.program, 'u_left'), 0)
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, rightTexture); gl.uniform1i(gl.getUniformLocation(this.program, 'u_right'), 1)
@@ -463,7 +470,6 @@ export class RainLayer implements CustomLayerInterface {
   }
 }
 
-const OUTLINE_STRENGTH = 0.55
 
 interface FilteredFrame {
   texture: WebGLTexture

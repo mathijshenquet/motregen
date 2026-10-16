@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { MapTheme } from './map-theme'
 import {
   buildRainColormap, colourOverGround, DEFAULT_RAIN_LOOK, GROUND_COLOURS, groundContrast, lightness, loadRainLookChoice,
-  ONSET_INDEX, PRE_U77_RAIN_LOOK, RAIN_BLENDS, RAIN_CONTRAST_RANGE, RAIN_LOOK_STORAGE_KEYS, RAIN_PALETTES, rainOnsetAlpha, rainOutline, sanitizeRainContrast,
+  ONSET_INDEX, PRE_U77_RAIN_LOOK, RAIN_BLENDS, RAIN_CONTRAST_RANGE, RAIN_ISOLINE_RATES, RAIN_LOOK_STORAGE_KEYS, RAIN_PALETTES, rainOutlines, rainOnsetAlpha, rainOutline, sanitizeRainContrast,
   rainRateIndex, rainUsesStraightAlpha, type Ground, type RainBlendName, type RainLook, type Rgb,
 } from './rain-palette'
 
@@ -31,7 +31,7 @@ describe('the product rain table', () => {
   }
 
   it('is the look the PO chose: violet-laat, rand (2026-10-16, was drempel-zacht), contrast floor 0', () => {
-    expect(DEFAULT_RAIN_LOOK).toEqual({ palette: 'violet-laat', blend: 'rand', theme: 'light', contrast: 0 })
+    expect(DEFAULT_RAIN_LOOK).toEqual({ palette: 'violet-laat', blend: 'rand', theme: 'light', contrast: 0, isolines: 'kleurgrenzen' })
     expect(rainUsesStraightAlpha(DEFAULT_RAIN_LOOK.blend)).toBe(true)
     expect(rainOutline(DEFAULT_RAIN_LOOK)).toBeDefined()
     // De tabel van drempel-zacht blijft vastgepind: die staat onder ?dev nog ter vergelijking.
@@ -195,6 +195,16 @@ describe('blend shapes', () => {
     }
   })
 
+  it('draws the boundary first, then one thinner, lighter line per isoline rate, each on half a byte', () => {
+    const outlines = rainOutlines({ ...DEFAULT_RAIN_LOOK, isolines: 'kleurgrenzen' })
+    expect(outlines).toHaveLength(1 + RAIN_ISOLINE_RATES.kleurgrenzen.length)
+    expect(outlines.every((outline) => outline.index % 1 === 0.5)).toBe(true)
+    expect(outlines.slice(1).every((outline) => outline.strength < outlines[0]!.strength && outline.halfWidth < outlines[0]!.halfWidth)).toBe(true)
+    expect(outlines.slice(1).map((outline) => outline.index)).toEqual([...outlines.slice(1).map((outline) => outline.index)].sort((a, b) => a - b))
+    expect(rainOutlines({ ...DEFAULT_RAIN_LOOK, isolines: 'geen' })).toHaveLength(1)
+    expect(rainOutlines({ ...DEFAULT_RAIN_LOOK, blend: 'drempel-zacht' })).toEqual([])
+  })
+
   it('keeps the current canvas blending only for the current blend', () => {
     expect(RAIN_BLENDS.filter((blend) => !rainUsesStraightAlpha(blend))).toEqual(['huidig'])
   })
@@ -276,13 +286,13 @@ describe('stored choice', () => {
   const storage = (values: Record<string, string>) => ({ getItem: (key: string) => values[key] ?? null })
 
   it('falls back to the product on a missing or unknown value', () => {
-    expect(loadRainLookChoice(storage({}))).toEqual({ palette: 'violet-laat', blend: 'rand', contrast: 0 })
-    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.palette]: 'regenboog', [RAIN_LOOK_STORAGE_KEYS.blend]: 'oplossen', [RAIN_LOOK_STORAGE_KEYS.contrast]: 'veel' }))).toEqual({ palette: 'violet-laat', blend: 'rand', contrast: 0 })
+    expect(loadRainLookChoice(storage({}))).toEqual({ palette: 'violet-laat', blend: 'rand', contrast: 0, isolines: 'kleurgrenzen' })
+    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.palette]: 'regenboog', [RAIN_LOOK_STORAGE_KEYS.blend]: 'oplossen', [RAIN_LOOK_STORAGE_KEYS.contrast]: 'veel' }))).toEqual({ palette: 'violet-laat', blend: 'rand', contrast: 0, isolines: 'kleurgrenzen' })
     expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.contrast]: '' })).contrast).toBe(0)
   })
 
   it('reads a known palette, blend and contrast floor', () => {
-    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.palette]: 'violet-laat', [RAIN_LOOK_STORAGE_KEYS.blend]: 'drempel', [RAIN_LOOK_STORAGE_KEYS.contrast]: '7.5' }))).toEqual({ palette: 'violet-laat', blend: 'drempel', contrast: 7.5 })
+    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.palette]: 'violet-laat', [RAIN_LOOK_STORAGE_KEYS.blend]: 'drempel', [RAIN_LOOK_STORAGE_KEYS.contrast]: '7.5', [RAIN_LOOK_STORAGE_KEYS.isolines]: 'dicht' }))).toEqual({ palette: 'violet-laat', blend: 'drempel', contrast: 7.5, isolines: 'dicht' })
     expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.contrast]: '0' })).contrast).toBe(0)
   })
 

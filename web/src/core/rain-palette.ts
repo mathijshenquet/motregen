@@ -12,6 +12,18 @@ export type RainPaletteName = typeof RAIN_PALETTES[number]
 export const RAIN_BLENDS = ['huidig', 'zuiver', 'steil', 'drempel', 'drempel-zacht', 'rand'] as const
 export type RainBlendName = typeof RAIN_BLENDS[number]
 
+// Isolijnen binnen de regen (proef onder ?dev › Regen, PO 2026-10-16: "zullen we nog meer mm/h isolijnen
+// toevoegen?"). kleurgrenzen volgt het palet violet-laat: lichte regen, waar blauw violet wordt, waar rood begint.
+// klassen volgt de WMO-indeling licht/matig/zwaar/zeer zwaar.
+export const RAIN_ISOLINE_SETS = ['kleurgrenzen', 'klassen', 'dicht', 'geen'] as const
+export type RainIsolineSetName = typeof RAIN_ISOLINE_SETS[number]
+export const RAIN_ISOLINE_RATES: Record<RainIsolineSetName, readonly number[]> = {
+  kleurgrenzen: [1, 4, 13],
+  klassen: [2.5, 10, 50],
+  dicht: [0.5, 1, 2, 5, 10, 20],
+  geen: [],
+}
+
 // De lat van de contrastregel: het kleinste helderheidsverschil (CIE L*, schaal 0–100) tussen de lichtste zichtbare
 // regen en elke ondergrond. Een vangnet, geen oordeel. Tien bleek in ronde 1 te weinig voor blauw op het lichtblauwe
 // water van de kaart, vijftien gaf de rand een donkere zoom; de PO stelt hem daarom zelf in (2026-10-11: "10 lijkt me
@@ -32,12 +44,14 @@ export interface RainLook {
   theme: MapTheme
   /** Weggelaten = `DEFAULT_RAIN_CONTRAST`. Telt alleen bij een menging met een dekkende inzet. */
   contrast?: number
+  /** Weggelaten = geen isolijnen binnen de regen; telt alleen bij een menging met contour. */
+  isolines?: RainIsolineSetName
 }
 
 /** Wat de knoppen kiezen; het thema volgt de kaart. */
-export type RainLookChoice = Pick<RainLook, 'palette' | 'blend' | 'contrast'>
+export type RainLookChoice = Pick<RainLook, 'palette' | 'blend' | 'contrast' | 'isolines'>
 
-export const DEFAULT_RAIN_LOOK: RainLook = { palette: 'violet-laat', blend: 'rand', theme: 'light', contrast: DEFAULT_RAIN_CONTRAST }
+export const DEFAULT_RAIN_LOOK: RainLook = { palette: 'violet-laat', blend: 'rand', theme: 'light', contrast: DEFAULT_RAIN_CONTRAST, isolines: 'kleurgrenzen' }
 
 /**
  * Het regenbeeld van vóór U77. De bot rendert hier nog mee: zijn compositor bootst de oude canvas na (α² als alfa)
@@ -50,6 +64,7 @@ export const RAIN_LOOK_STORAGE_KEYS = {
   palette: 'motregen-dev-regenpalet',
   blend: 'motregen-dev-regenmenging',
   contrast: 'motregen-dev-regencontrast',
+  isolines: 'motregen-dev-regenisolijnen',
 } as const
 
 /** Byte van een regenintensiteit (mm/u) in de mrf v0-regentabel (docs/mrf.md); niet afgerond. */
@@ -363,16 +378,38 @@ export interface RainOutline {
    */
   index: number
   colour: Rgb
+  /** Hoe sterk de lijn over de regenkleur ligt (0–1). */
+  strength: number
+  /** Halve lijndikte in schermpixels. */
+  halfWidth: number
 }
 
 const OUTLINE_SHIFT = 0.3
+const BOUNDARY_STRENGTH = 0.55
+// Binnenlijnen lichter en dunner dan de buitenrand: ze tekenen de vorm van een bui zonder het beeld druk te maken.
+const ISOLINE_STRENGTH = 0.32
+const ISOLINE_SHIFT = 0.35
 
 /** De contour om het regengebied: de beginkleur, nog een stap verder van de kaart af. */
 export function rainOutline(look: RainLook): RainOutline | undefined {
   if (!BLEND_SHAPES[look.blend].outline) return undefined
   const colormap = buildRainColormap(look)
   const onsetColour: Rgb = [colormap[ONSET_INDEX * 4]!, colormap[ONSET_INDEX * 4 + 1]!, colormap[ONSET_INDEX * 4 + 2]!]
-  return { index: Math.floor(DATA_EDGE_INDEX) + 0.5, colour: shiftedColour(onsetColour, look.theme, OUTLINE_SHIFT) }
+  return { index: Math.floor(DATA_EDGE_INDEX) + 0.5, colour: shiftedColour(onsetColour, look.theme, OUTLINE_SHIFT), strength: BOUNDARY_STRENGTH, halfWidth: 1.2 }
+}
+
+/** De buitenrand plus de isolijnen binnen de regen, elk in de regenkleur op die intensiteit, een stap donkerder. */
+export function rainOutlines(look: RainLook): RainOutline[] {
+  const boundary = rainOutline(look)
+  if (!boundary) return []
+  const colormap = buildRainColormap(look)
+  const isolines = RAIN_ISOLINE_RATES[look.isolines ?? 'geen'].map((rate): RainOutline => {
+    const index = Math.floor(rainRateIndex(rate)) + 0.5
+    const byte = Math.round(index)
+    const colour: Rgb = [colormap[byte * 4]!, colormap[byte * 4 + 1]!, colormap[byte * 4 + 2]!]
+    return { index, colour: shiftedColour(colour, look.theme, ISOLINE_SHIFT), strength: ISOLINE_STRENGTH, halfWidth: 0.9 }
+  })
+  return [boundary, ...isolines]
 }
 
 type LookStorage = Pick<Storage, 'getItem'>
@@ -381,10 +418,12 @@ export function loadRainLookChoice(storage: LookStorage = localStorage): RainLoo
   const storedPalette = storage.getItem(RAIN_LOOK_STORAGE_KEYS.palette) as RainPaletteName
   const storedBlend = storage.getItem(RAIN_LOOK_STORAGE_KEYS.blend) as RainBlendName
   const storedContrast = storage.getItem(RAIN_LOOK_STORAGE_KEYS.contrast)
+  const storedIsolines = storage.getItem(RAIN_LOOK_STORAGE_KEYS.isolines) as RainIsolineSetName
   return {
     palette: RAIN_PALETTES.includes(storedPalette) ? storedPalette : DEFAULT_RAIN_LOOK.palette,
     blend: RAIN_BLENDS.includes(storedBlend) ? storedBlend : DEFAULT_RAIN_LOOK.blend,
     // Number(null) en Number('') zijn 0, en nul is een geldige lat: een ontbrekende waarde apart afvangen.
     contrast: storedContrast === null || storedContrast.trim() === '' ? DEFAULT_RAIN_CONTRAST : sanitizeRainContrast(Number(storedContrast)),
+    isolines: RAIN_ISOLINE_SETS.includes(storedIsolines) ? storedIsolines : DEFAULT_RAIN_LOOK.isolines,
   }
 }

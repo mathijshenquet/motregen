@@ -13,7 +13,7 @@ const step = Number(stepText) * 60_000
 for (let epoch = Date.parse(startIso!); epoch <= Date.parse(endIso!); epoch += step) {
   const time = new Date(epoch).toISOString().replace('.000', '')
   await page.goto(`${origin}/?t=${encodeURIComponent(time)}${process.env.REPRO_QUERY ?? ''}`, { waitUntil: 'load' })
-  await page.waitForTimeout(5000)
+  await page.waitForTimeout(Number(process.env.REPRO_WAIT_MS ?? 5000))
   await page.keyboard.press('Escape')
   await page.waitForTimeout(500)
   if (cameraZoom) {
