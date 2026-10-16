@@ -626,8 +626,8 @@ button { color: inherit; cursor: pointer; }
 .cloud-band[data-layer="high"] path { fill-opacity: .8; }
 .cloud-band path.cloud-shadow { fill-opacity: 1; }
 /* Diepte als tint (PO 2026-10-16): gestapelde rij donkerder, voorste rij lichter, zodat de rijen niet in elkaar overlopen. */
-.cloud-band path.cloud-back { fill: var(--cloud-shadow); fill-opacity: .32; }
-.cloud-band path.cloud-near { fill: #ffffff; fill-opacity: .16; }
+.cloud-band path.cloud-back { fill: var(--cloud-shadow); fill-opacity: .2; }
+.cloud-band path.cloud-near { fill: #ffffff; fill-opacity: .09; }
 .cloud-band[data-layer="high"] path.cloud-shadow { display: none; }
 .cloud-shadow-gradient stop { stop-color: var(--cloud-shadow); }
 .cloud-shadow-gradient stop:first-child { stop-opacity: 0; }

@@ -202,6 +202,9 @@ const CIRRUS_STRAND_LENGTH_PX = 76
 const CIRRUS_SLANT = 0.16
 // Verticale spreiding van de vegen als deel van de strook.
 const CIRRUS_SPREAD = 0.42
+// Schapenwolkjes: afstand tussen de bolletjes en hun halve breedte.
+const CIRROCUMULUS_PITCH_PX = 11
+const CIRROCUMULUS_RADIUS_PX = 5
 const HOUR = 3_600_000
 // De gestapelde rij: hoger (deel van de strookhoogte) en kleiner dan de voorste.
 const BACK_ROW_LIFT = 0.16
@@ -281,7 +284,7 @@ export function cloudBand(frames: TimelineFrame[], values: Array<number | null>,
     let shapePaths = shapePathCache.get(cacheKey)
     if (!shapePaths) {
       shapePaths = []
-      const outlines = style.puffs ? [puffOutline(shape, width, style.puffs)] : cirrusStrands(shape, width, height * CIRRUS_SPREAD)
+      const outlines = style.puffs ? [puffOutline(shape, width, style.puffs)] : cirrusShapes(shape, width, height * CIRRUS_SPREAD)
       for (const outline of outlines) {
         if (outline.xs.length < 2) continue
         const upper = outline.xs.map((x, index) => `${round(x)} ${round(Math.max(top, baseline + outline.centre[index]! - outline.up[index]!))}`)
@@ -350,23 +353,64 @@ function roundedEnd(t: number): number {
 }
 
 /** Cirrus: een bundel dunne, spitse vegen op wisselende hoogte; gesloten overlappen ze tot een sluier. */
-function cirrusStrands(shape: CloudShape, width: number, spread: number): Outline[] {
+/**
+ * Hoge bewolking in drie gedaanten, per wolk gekozen (PO 2026-10-16: "de hoge wolken een diversere look"): vegen
+ * (cirrus fibratus), vegen met een omgekrulde staart (cirrus uncinus) en rijtjes schapenwolkjes (cirrocumulus). Een
+ * gesloten laag blijft een dichte bundel vegen.
+ */
+function cirrusShapes(shape: CloudShape, width: number, spread: number): Outline[] {
+  if (shape.closed) return cirrusStrands(shape, width, spread, false)
+  const kind = unitHash(shape.key + 0.91)
+  if (kind < 0.45) return cirrusStrands(shape, width, spread, false)
+  if (kind < 0.75) return cirrusStrands(shape, width, spread, true)
+  return cirrocumulus(shape, width, spread)
+}
+
+function cirrusStrands(shape: CloudShape, width: number, spread: number, hooked: boolean): Outline[] {
   const length = shape.toX - shape.fromX
   const count = Math.max(1, Math.round(length / CIRRUS_STRAND_PITCH_PX))
-  const strandLength = Math.min(length, CIRRUS_STRAND_LENGTH_PX)
   const strands: Outline[] = []
   for (let index = 0; index < count; index++) {
     const strandKey = shape.key + index * 3.71
+    // Elke veeg een eigen lengte, helling en lichte boog, zodat een bundel niet uit kopieën bestaat.
+    const strandLength = Math.min(length, CIRRUS_STRAND_LENGTH_PX * (0.65 + 0.7 * unitHash(strandKey + 0.13)))
+    const slant = CIRRUS_SLANT * (0.5 + unitHash(strandKey + 0.29))
     const from = shape.fromX + (length - strandLength) * (count === 1 ? 0.5 : index / (count - 1))
     const xs = sampleXs(from, from + strandLength, width)
     const offset = count === 1 ? 0 : (unitHash(strandKey) - 0.5) * spread
-    const half = shape.thickness * (0.55 + 0.45 * unitHash(strandKey + 0.61)) / 2
+    const half = shape.thickness * (0.45 + 0.55 * unitHash(strandKey + 0.61)) / 2
+    const bow = (unitHash(strandKey + 0.47) - 0.5) * half * 2
     const along = xs.map((x) => (x - from) / strandLength)
-    const profile = along.map((position) => half * Math.max(0, Math.sin(Math.PI * position)) ** 1.5)
-    // De staart hangt lager dan de kop: de veeg helt naar rechts omhoog.
-    strands.push({ xs, up: profile, down: profile, centre: along.map((position) => offset + strandLength * CIRRUS_SLANT * (0.5 - position)) })
+    // Uncinus: dik bij de kop (rechts), dun uitlopend naar een staart die links omhoog krult.
+    const profile = along.map((position) => hooked
+      ? half * Math.max(0, Math.sin(Math.PI * Math.min(1, position * 1.15))) * (0.35 + 0.65 * position)
+      : half * Math.max(0, Math.sin(Math.PI * position)) ** 1.5)
+    const centre = along.map((position) => {
+      const tilt = offset + strandLength * slant * (0.5 - position) + bow * Math.sin(Math.PI * position)
+      const curl = hooked ? half * 3 * Math.max(0, (0.3 - position) / 0.3) ** 2 : 0
+      return tilt - curl
+    })
+    strands.push({ xs, up: profile, down: profile, centre })
   }
   return strands
+}
+
+/** Schapenwolkjes: kleine, platte bolletjes in een of twee onregelmatige rijtjes. */
+function cirrocumulus(shape: CloudShape, width: number, spread: number): Outline[] {
+  const length = shape.toX - shape.fromX
+  const count = Math.max(3, Math.round(length / CIRROCUMULUS_PITCH_PX))
+  const blobs: Outline[] = []
+  for (let index = 0; index < count; index++) {
+    const blobKey = shape.key + index * 5.17
+    const radius = CIRROCUMULUS_RADIUS_PX * (0.7 + 0.6 * unitHash(blobKey + 0.23))
+    const centreX = shape.fromX + length * (index + 0.5) / count + (unitHash(blobKey + 0.41) - 0.5) * CIRROCUMULUS_PITCH_PX * 0.5
+    const row = index % 2 === 0 ? -0.25 : 0.25
+    const centreY = row * spread + (unitHash(blobKey + 0.67) - 0.5) * spread * 0.3
+    const xs = sampleXs(centreX - radius, centreX + radius, width)
+    const height = xs.map((x) => radius * 0.5 * Math.sqrt(Math.max(0, 1 - ((x - centreX) / radius) ** 2)))
+    blobs.push({ xs, up: height, down: height, centre: xs.map(() => centreY) })
+  }
+  return blobs
 }
 
 /** Gladde 1D-ruis in [−1, 1], deterministisch (zelfde vorm bij elke render). */
