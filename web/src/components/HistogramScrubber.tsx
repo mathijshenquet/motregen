@@ -15,6 +15,8 @@ import { formatNumber, formatTime, formatWeekdayLong, formatWeekdayShort } from 
 interface Props {
   timeline: TimelineFrame[]
   values: Array<number | null>
+  /** Tussenwaarden per frame, gelijk verdeeld tot het volgende frame (kwartierbalken in het uurdeel). */
+  valuesBetween?: Array<Array<number | null>>
   loaded?: boolean[]
   cursor: number
   now: number
@@ -192,20 +194,30 @@ export default function HistogramScrubber(props: Props) {
   const rainTop = createMemo(() => cloudHeight() && cloudHeight() + 4)
   const y = (value: number) => rainTop() + (plotHeight() - rainTop()) * (1 - rainChartPosition(value, maximum()))
   const barTop = (value: number | null | undefined) => value == null || value <= 0 ? plotHeight() : Math.min(plotHeight() - 2, y(value))
+  // Frames plus hun tussenwaarden, op tijd gesorteerd: één balk per monster.
+  const rainSamples = createMemo(() => props.timeline.flatMap((frame, index) => {
+    const pending = props.loaded ? !props.loaded[index] : false
+    const next = props.timeline[index + 1]
+    const between = next ? props.valuesBetween?.[index] ?? [] : []
+    const nextPending = props.loaded ? !props.loaded[index + 1] : false
+    return [
+      { epoch: frame.epoch, value: props.values[index], pending },
+      ...between.map((value, step) => ({ epoch: frame.epoch + (next!.epoch - frame.epoch) * (step + 1) / (between.length + 1), value, pending: pending || nextPending })),
+    ]
+  }))
   const bars = scrubMemo('regenbalken', () => {
-    const frames = props.timeline
-    if (!frames.length || !baseVisible()) return []
-    const pitch = frames.length > 1 ? xAt(frames[1]!.epoch) - xAt(frames[0]!.epoch) : plotWidth()
+    const samples = rainSamples()
+    if (!samples.length || !baseVisible()) return []
+    const pitch = samples.length > 1 ? xAt(samples[1]!.epoch) - xAt(samples[0]!.epoch) : plotWidth()
     const gap = pitch > 6 ? 1.5 : pitch > 3.5 ? 1 : 0.5
-    return frames.map((frame, index) => {
-      const value = props.values[index]
-      const leftEpoch = index === 0 ? frame.epoch - (frames[1] ? (frames[1].epoch - frame.epoch) / 2 : HOUR / 2) : (frames[index - 1]!.epoch + frame.epoch) / 2
-      const rightEpoch = index === frames.length - 1 ? frame.epoch + (index > 0 ? (frame.epoch - frames[index - 1]!.epoch) / 2 : HOUR / 2) : (frame.epoch + frames[index + 1]!.epoch) / 2
+    return samples.map((sample, index) => {
+      const value = sample.value
+      const leftEpoch = index === 0 ? sample.epoch - (samples[1] ? (samples[1].epoch - sample.epoch) / 2 : HOUR / 2) : (samples[index - 1]!.epoch + sample.epoch) / 2
+      const rightEpoch = index === samples.length - 1 ? sample.epoch + (index > 0 ? (sample.epoch - samples[index - 1]!.epoch) / 2 : HOUR / 2) : (sample.epoch + samples[index + 1]!.epoch) / 2
       const x = xAt(leftEpoch)
-      const pending = props.loaded ? !props.loaded[index] : false
       const right = xAt(rightEpoch)
       const barWidth = Math.max(1.2, right - x - gap)
-      return { x: (x + right - barWidth) / 2, width: barWidth, top: barTop(value), value: value ?? 0, pending, past: frame.epoch < props.now, epoch: frame.epoch }
+      return { x: (x + right - barWidth) / 2, width: barWidth, top: barTop(value), value: value ?? 0, pending: sample.pending, past: sample.epoch < props.now, epoch: sample.epoch }
     })
   })
   // Geen y-as (PO 2026-09-25 live): de waarde staat bij de cursor, niet op hulplijnen.
@@ -382,7 +394,14 @@ export default function HistogramScrubber(props: Props) {
   const wallBounds = () => ({ lower: Math.min(0, plotWidth() - xAt(timelineEnd())), upper: 0 })
   const offset = () => { const { lower, upper } = wallBounds(); return wallClamp(freeOffset(), lower, upper, WALL_KNEE_PX) }
   const cursorX = () => sliding() ? plotWidth() * CURSOR_FRACTION : offset() + xAt(cursorEpoch())
-  const cursorValue = createMemo(() => props.values[Math.round(props.cursor)])
+  const cursorValue = createMemo(() => {
+    const samples = rainSamples()
+    if (!samples.length) return undefined
+    const epoch = cursorEpoch()
+    let nearest = samples[0]!
+    for (const sample of samples) if (Math.abs(sample.epoch - epoch) < Math.abs(nearest.epoch - epoch)) nearest = sample
+    return nearest.value
+  })
   const cursorLayers = createMemo(() => {
     const clouds = props.clouds
     if (!clouds) return []

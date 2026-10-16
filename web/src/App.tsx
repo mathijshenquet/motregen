@@ -38,6 +38,7 @@ import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS } from './core/map-frame'
 import { basemapBlendTargets, blendedPaintValue, mapNightStep, nightShare, type BlendTarget } from './core/basemap-blend'
 import { MrfClient, type MotionField } from './core/mrf'
 import { pointValue, projectPoint as project } from './core/point-value'
+import { rainBetween, rainPatch, type RainPatch } from './core/rain-point-detail'
 import { selectPairMotion } from './core/motion-selection'
 import { findCataloguePlace, isInPlaceZone, loadPlaces, namedCataloguePlace, nearestPlace, places, rememberPlace, rememberSearchedPlace } from './core/places'
 import type { PlaceIdentity, PlaceMemory } from './core/place-memory'
@@ -92,6 +93,7 @@ const TABLE_FOLLOW_MS = 220
 // publiceren gaf tijdens het laden lange frames van ~0,8 s per seconde (prof:capture mobile-4g 2026-10-07);
 // vier keer per seconde vult de grafiek nog zichtbaar aan.
 const SERIES_PUBLISH_INTERVAL_MS = 250
+const RAIN_DETAIL_STEP_MS = 15 * 60_000
 type PointLoadStage = 'initial' | 'direct' | 'window' | 'complete'
 type FetchPriority = 'high' | 'low'
 type ForecastIndex = 'radiationIndex' | 'uvIndex' | 'temperatureIndex' | 'feelsLikeIndex' | 'cloudIndex' | 'windUIndex' | 'windVIndex' | 'gustIndex'
@@ -144,6 +146,8 @@ interface PointLoadState {
   point: { lng: number; lat: number }
   rainValues: Array<number | null>
   rainLoaded: Set<number>
+  /** Stukjes regenframe rond de plek, per frame (url#index), voor de tussenbalken in het histogram. */
+  rainPatches: Map<string, RainPatch>
   rainQueue: Promise<void>
   direct: Promise<void>
   full?: Promise<void>
@@ -381,9 +385,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   client.onFrameDecoded = (url, frameIndex, frame) => {
     const state = pointLoad
     const index = rainTimelineIndex().get(`${url}#${frameIndex}`)
-    if (!state || state.request !== pointRequest || index === undefined || state.rainLoaded.has(index)) return
+    if (!state || state.request !== pointRequest || index === undefined) return
     const header = client.getCachedHeader(timeline()[index]!.chunk)
     if (!header) return
+    keepRainPatch(state, `${url}#${frameIndex}`, header, frame)
+    if (state.rainLoaded.has(index)) return
     state.rainValues[index] = samplePoint(header, frame, state.point)
     state.rainLoaded.add(index)
     state.rainPublisher?.schedule()
@@ -1126,6 +1132,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
     cancelPointLoad(previousState)
     const state = previousState ? newPointLoadState(previousState.point, rain.values, rain.loaded) : undefined
+    if (state && previousState) state.rainPatches = previousState.rainPatches
     pointLoad = state
     batch(() => {
       setManifest(nextManifest)
@@ -2435,6 +2442,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       readCachedPointSeries(client, gustTimeline(), point),
     ]
     const state = newPointLoadState(point, cachedRain.values, cachedRain.loaded)
+    for (const frame of timeline()) {
+      const header = client.getCachedHeader(frame.chunk)
+      const decoded = client.getCachedFrame(frame.chunk, frame.frameIndex)
+      if (header && decoded) keepRainPatch(state, rainFrameKey(frame), header, decoded)
+    }
     const request = state.request
     pointLoad = state
     if (cachedRain.complete && cachedForecast.every((series) => series.complete)) {
@@ -2505,6 +2517,53 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
   }
 
+  function rainFrameKey(frame: TimelineFrame): string {
+    return `${new URL(frame.chunk.url, manifestUrl).href}#${frame.frameIndex}`
+  }
+
+  function keepRainPatch(state: PointLoadState, key: string, header: MrfHeader, decoded: Uint8Array): void {
+    if (state.rainPatches.has(key)) return
+    const [x, y] = project(state.point.lng, state.point.lat)
+    state.rainPatches.set(key, rainPatch(header, decoded, x, y))
+  }
+
+  // Tussenbalken (PO 2026-10-16): waar frames verder dan een kwartier uit elkaar liggen (HARMONIE, per uur) rekent
+  // het histogram elk kwartier de regen uit zoals de kaart hem dan toont, met dezelfde bewegingsvectoren.
+  const [rainDetailMotionVersion, setRainDetailMotionVersion] = createSignal(0)
+  const rainDetailMotions = new Map<string, MotionField | null | 'laden'>()
+  const rainDetail = createMemo(() => {
+    const frames = timeline()
+    const values = rainSeries()
+    rainDetailMotionVersion()
+    const state = pointLoad
+    return frames.map((frame, index) => {
+      const next = frames[index + 1]
+      if (!next) return []
+      const interval = next.epoch - frame.epoch
+      const steps = Math.round(interval / RAIN_DETAIL_STEP_MS)
+      if (steps < 2) return []
+      const leftKey = rainFrameKey(frame)
+      const rightKey = rainFrameKey(next)
+      const left = state?.rainPatches.get(leftKey)
+      const right = state?.rainPatches.get(rightKey)
+      const pairKey = `${leftKey}|${rightKey}`
+      if (left && right && !rainDetailMotions.has(pairKey)) {
+        rainDetailMotions.set(pairKey, 'laden')
+        void loadPairMotion(frame, next)
+          .then((motion) => rainDetailMotions.set(pairKey, motion ?? null), () => rainDetailMotions.set(pairKey, null))
+          .then(() => setRainDetailMotionVersion((version) => version + 1))
+      }
+      const motion = rainDetailMotions.get(pairKey)
+      return Array.from({ length: steps - 1 }, (_, step): number | null => {
+        const weight = (step + 1) / steps
+        if (left && right) return rainBetween(left, right, motion && motion !== 'laden' ? motion : undefined, interval / 60_000, weight)
+        const leftValue = values[index]
+        const rightValue = values[index + 1]
+        return leftValue == null || rightValue == null ? null : leftValue + (rightValue - leftValue) * weight
+      })
+    })
+  })
+
   function newPointLoadState(
     point: { lng: number; lat: number },
     rainValues: Array<number | null>,
@@ -2515,6 +2574,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       point,
       rainValues,
       rainLoaded: new Set(rainLoaded.flatMap((loaded, index) => loaded ? [index] : [])),
+      rainPatches: new Map(),
       rainQueue: Promise.resolve(),
       direct: Promise.resolve(),
       loading: new Map(),
@@ -3619,6 +3679,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         <HistogramScrubber
           timeline={timeline()}
           values={rainSeries()}
+          valuesBetween={rainDetail()}
           loaded={rainLoaded()}
           cursor={cursor()}
           now={manifest() ? Date.parse(manifest()!.now) : 0}
