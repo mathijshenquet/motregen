@@ -1,8 +1,8 @@
 ---
-title: Regen en wolken samen in beeld
+title: Wolken toegevoegd aan tijdlijn in "Weer" modus
 kind: beter
 media:
   - file: changes/media/regen-wolken-voor-na.webp
-    caption: Boven vóór, onder na.
+    caption: voor 🔼 en na ⬇️
 ---
-In Weer staat de regen vooraan, in Lucht de wolken. Je ziet steeds allebei.
+In Weer zie je ook de wolken achter de regen.

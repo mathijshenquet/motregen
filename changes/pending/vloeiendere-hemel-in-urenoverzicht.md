@@ -1,8 +1,8 @@
 ---
-title: Een vloeiendere hemel in het urenoverzicht
+title: Een vloeiendere hemel in de tijdlijn
 kind: beter
 media:
   - file: changes/media/hemel-voor-na.webp
-    caption: Boven vóór, onder na.
+    caption: voor 🔼 en na ⬇️
 ---
-Hemel en nevel lopen vloeiend door, zonder harde stroken tussen de uren.
+De hemelimpressie had harde overlopen, die lopen nu vloeiender in elkaar over.

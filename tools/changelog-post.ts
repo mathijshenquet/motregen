@@ -27,13 +27,25 @@ export function releaseText(release: Release): string {
   return text
 }
 
+export function releaseMedia(release: Release, test = false) {
+  const items = release.notes.flatMap((note) => note.media.map((item) => ({ note, item })))
+  const date = new Intl.DateTimeFormat('nl-NL', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${release.date}T00:00:00Z`))
+  return items.map(({ note, item }, index) => {
+    const prefix = test ? 'TEST\n' : ''
+    const title = `${note.title} (${item.caption})`
+    const caption = `${prefix}${title}\n\n${note.body}\n\n${date}, ${index + 1}/${items.length}`
+    if (caption.length > 1024) throw new Error(`Telegram-bijschrift voor ${item.file} is langer dan 1024 tekens, inclusief titel, datum en eventuele TEST-prefix`)
+    return { file: item.file, caption, caption_entities: [{ type: 'bold', offset: prefix.length, length: title.length }] }
+  })
+}
+
 export async function postRelease(root: string, version: string, chatId: string, token: string, fetcher: Fetch = fetch, options: PostOptions = {}): Promise<string> {
   const { dryRun = false, test = false, layout = 'items' } = options
   if (!/^(?:-?\d+|@[a-zA-Z][a-zA-Z0-9_]{4,})$/.test(chatId)) throw new Error('Ongeldig chat-id of @kanaal')
   const release = readRelease(root, version)
   const text = `${test ? 'TEST\n' : ''}${releaseText(release)}`
-  const media = release.notes.flatMap((note) => note.media).map((item) => ({ ...item, caption: `${test ? 'TEST\n' : ''}${item.caption}` }))
-  if (text.length > 4096 || media.some((item) => item.caption.length > 1024)) throw new Error('TEST-prefix maakt de Telegram-tekst te lang')
+  const media = releaseMedia(release, test)
+  if (text.length > 4096) throw new Error('TEST-prefix maakt de Telegram-tekst te lang')
   if (media.length > 10) throw new Error('Een release kan maximaal 10 media-items bevatten')
   const fingerprint = createHash('sha256').update(JSON.stringify(release))
   for (const item of media) fingerprint.update(readFileSync(mediaPath(root, item.file)))
@@ -98,6 +110,7 @@ export async function postRelease(root: string, version: string, chatId: string,
         body.set('chat_id', chatId)
         body.set(attachment.video ? 'video' : 'photo', attachment.blob, attachment.video ? 'media.mp4' : 'media.jpg')
         body.set('caption', attachment.item.caption)
+        body.set('caption_entities', JSON.stringify(attachment.item.caption_entities))
         if (attachment.video) body.set('supports_streaming', 'true')
         await request(attachment.video ? 'sendVideo' : 'sendPhoto', body, 'media')
         state.media_sent++
@@ -109,7 +122,7 @@ export async function postRelease(root: string, version: string, chatId: string,
       const album = attachments.map((attachment, index) => {
         const name = `media${index}`
         body.set(name, attachment.blob, `${name}.${attachment.video ? 'mp4' : 'jpg'}`)
-        return { type: attachment.video ? 'video' : 'photo', media: `attach://${name}`, caption: attachment.item.caption, ...(attachment.video ? { supports_streaming: true } : {}) }
+        return { type: attachment.video ? 'video' : 'photo', media: `attach://${name}`, caption: attachment.item.caption, caption_entities: attachment.item.caption_entities, ...(attachment.video ? { supports_streaming: true } : {}) }
       })
       body.set('media', JSON.stringify(album))
       await request('sendMediaGroup', body, 'media')

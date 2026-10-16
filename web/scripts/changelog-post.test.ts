@@ -41,7 +41,9 @@ describe('Telegram publication', () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(success({ message_id: 10 })).mockResolvedValueOnce(success({ message_id: 11 })).mockResolvedValueOnce(success({ message_id: 12 }))
     await postRelease(root, '0.1.0', chat, token, fetcher)
     expect(fetcher.mock.calls.map(([url]) => String(url).split('/').at(-1))).toEqual(['sendMessage', 'sendPhoto', 'sendPhoto'])
-    expect((fetcher.mock.calls[1]![1]!.body as FormData).get('caption')).toBe('Bijschrift 1')
+    const photo = fetcher.mock.calls[1]![1]!.body as FormData
+    expect(photo.get('caption')).toBe('Nieuwe kaart (Bijschrift 1)\n\nDe regen is beter zichtbaar.\n\n16 oktober 2026, 1/2')
+    expect(JSON.parse(String(photo.get('caption_entities')))).toEqual([{ type: 'bold', offset: 0, length: 'Nieuwe kaart (Bijschrift 1)'.length }])
     expect(state()).toMatchObject({ complete: true, message_ids: [10, 11, 12], media_sent: 2 })
     await expect(postRelease(root, '0.1.0', chat, '', fetcher)).resolves.toContain('al gepost')
     expect(fetcher).toHaveBeenCalledTimes(3)
@@ -55,8 +57,12 @@ describe('Telegram publication', () => {
     expect(state()).toMatchObject({ text_sent: true, pending: null, complete: false })
     await postRelease(root, '0.1.0', chat, token, fetcher, { layout: 'album' })
     expect(fetcher.mock.calls.map(([url]) => String(url).split('/').at(-1))).toEqual(['sendMessage', 'sendMediaGroup', 'sendMediaGroup'])
-    const album = JSON.parse(String((fetcher.mock.calls[2]![1]!.body as FormData).get('media'))) as { caption: string }[]
-    expect(album.map((item) => item.caption)).toEqual(['Bijschrift 1', 'Bijschrift 2'])
+    const album = JSON.parse(String((fetcher.mock.calls[2]![1]!.body as FormData).get('media'))) as { caption: string; caption_entities: unknown[] }[]
+    expect(album.map((item) => item.caption)).toEqual([
+      'Nieuwe kaart (Bijschrift 1)\n\nDe regen is beter zichtbaar.\n\n16 oktober 2026, 1/2',
+      'Nieuwe kaart (Bijschrift 2)\n\nDe regen is beter zichtbaar.\n\n16 oktober 2026, 2/2',
+    ])
+    expect(album.every((item) => item.caption_entities.length === 1)).toBe(true)
     expect(state()).toMatchObject({ complete: true, message_ids: [20, 21, 22] })
   })
 
@@ -66,7 +72,7 @@ describe('Telegram publication', () => {
     await expect(postRelease(root, '0.1.0', chat, token, fetcher)).rejects.toThrow('af')
     expect(state()).toMatchObject({ media_sent: 1 })
     await postRelease(root, '0.1.0', chat, token, fetcher)
-    expect((fetcher.mock.calls[3]![1]!.body as FormData).get('caption')).toBe('Bijschrift 2')
+    expect((fetcher.mock.calls[3]![1]!.body as FormData).get('caption')).toBe('Nieuwe kaart (Bijschrift 2)\n\nDe regen is beter zichtbaar.\n\n16 oktober 2026, 2/2')
     expect(state()).toMatchObject({ message_ids: [30, 31, 32], complete: true })
   })
 
@@ -100,5 +106,30 @@ describe('Telegram publication', () => {
     expect(fetcher.mock.calls.slice(2).map(([, init]) => (init!.body as URLSearchParams).get('message_id'))).toEqual(['50', '51'])
     await deleteTestPost(root, '0.1.0', chat, token, fetcher)
     expect(fetcher).toHaveBeenCalledTimes(4)
+  })
+
+  it('keeps literal markup and emoji intact while making only the title bold after TEST', async () => {
+    fixture(1)
+    const path = resolve(root, 'changes/v0.1.0/note.md')
+    writeFileSync(path, readFileSync(path, 'utf8').replace('Nieuwe kaart', 'Nieuwe 🌦 kaart <&>').replace('De regen is beter zichtbaar.', '<b>Letterlijke tekst & regen</b>.'))
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(success({ message_id: 60 })).mockResolvedValueOnce(success({ message_id: 61 }))
+    await postRelease(root, '0.1.0', chat, token, fetcher, { test: true })
+    const photo = fetcher.mock.calls[1]![1]!.body as FormData
+    const title = 'Nieuwe 🌦 kaart <&> (Bijschrift 1)'
+    expect(photo.get('caption')).toBe(`TEST\n${title}\n\n<b>Letterlijke tekst & regen</b>.\n\n16 oktober 2026, 1/1`)
+    expect(photo.get('parse_mode')).toBe(null)
+    expect(JSON.parse(String(photo.get('caption_entities')))).toEqual([{ type: 'bold', offset: 5, length: title.length }])
+  })
+
+  it('rejects an oversized complete caption before sending or writing posting state', async () => {
+    fixture(1)
+    const path = resolve(root, 'changes/v0.1.0/note.md')
+    writeFileSync(path, readFileSync(path, 'utf8').replace('De regen is beter zichtbaar.', 'Regen '.repeat(166)))
+    const fetcher = vi.fn<typeof fetch>()
+    // Body blijft binnen de notitielimiet; titel, datum en positie maken het bijschrift te lang.
+    for (const dryRun of [true, false]) await expect(postRelease(root, '0.1.0', chat, token, fetcher, { dryRun })).rejects.toThrow('1024 tekens')
+    expect(fetcher).not.toHaveBeenCalled()
+    expect(existsSync(resolve(root, 'changes/v0.1.0/posted.json'))).toBe(false)
+    expect(existsSync(resolve(root, 'changes/v0.1.0/posted.lock'))).toBe(false)
   })
 })

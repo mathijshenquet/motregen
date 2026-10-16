@@ -9,9 +9,9 @@ title: Regen beter zichtbaar
 kind: beter
 media:
   - file: changes/media/regen-voor-na.webp
-    caption: Boven de oude kaart, onder de nieuwe kaart met duidelijkere regen.
+    caption: voor 🔼 en na ⬇️
   - file: changes/media/regen-beweging.mp4
-    caption: De buien bewegen rustiger als je de tijdlijn afspeelt.
+    caption: voor ⏮️ en na ⏭️
 ---
 Je ziet lichte regen nu gemakkelijker op de kaart, ook in het donker.
 ```
@@ -22,7 +22,8 @@ onbekende of dubbele velden worden geweigerd. `kind` is `nieuw`, `beter` of `opg
 De body is gewone tekst; alinea's blijven behouden, HTML wordt als tekst getoond.
 
 Media staat onder `changes/media/`: WebP of H.264-MP4, maximaal 2.000.000 bytes per bestand,
-video maximaal 12 seconden. Elk item krijgt een eigen bijschrift (maximaal 1024 tekens).
+video maximaal 12 seconden. `caption` is een korte beeldhint bij de titel. De poster voegt
+de omschrijving, datum en positie toe; het volledige Telegram-bijschrift mag maximaal 1024 tekens zijn.
 Per release maximaal tien media-items. Valideer met `pnpm changelog:check`; MP4-validatie
 gebruikt `ffprobe` uit devenv. Publicatie en builds controleren het formaat ook.
 
@@ -61,7 +62,23 @@ De kanaalafbeelding gebruikt de bestaande Motregen-druppel. Genereer
 `pnpm -C web exec tsx scripts/channel-avatar.ts`.
 
 `TG_BOT_KEY` komt uit de omgeving of de root-`.env`. Eerst volgt één tekstbericht met versie,
-titels en notities, daarna één los bericht per media-item, met het bijschrift direct zichtbaar.
+titels en notities, daarna één los bericht per media-item, met het bijschrift direct zichtbaar:
+
+```text
+Regen beter zichtbaar (voor 🔼 en na ⬇️)
+
+Je ziet lichte regen nu gemakkelijker op de kaart, ook in het donker.
+
+16 oktober 2026, 1/3
+```
+
+De eerste regel wordt vet getoond. De titel en omschrijving komen uit de notitie, de hint
+tussen haakjes uit `media.caption`. Voor een foto boven/onder gebruik je `voor 🔼 en na ⬇️`;
+voor een video met eerst vóór en daarna na `voor ⏮️ en na ⏭️`. Bij andere beelden schrijf je
+een passende korte beeldhint. De datum komt uit de release-index en wordt in het Nederlands
+getoond; `k/n` telt de media-items van de release, in de volgorde van die index en de medialijsten.
+Notities zonder media staan in het eerste tekstbericht. De dry-run toont ook deze volledige bijschriften.
+
 De PO koos hiervoor na de echte albumproef. Met `--album` volgt in plaats daarvan een album
 met 2–10 items; bij één item een losse foto/video, bij nul alleen tekst.
 WebP wordt voor Telegram-foto's naar JPEG omgezet. Video's blijven H.264-MP4.
