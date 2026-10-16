@@ -1,5 +1,5 @@
 // Filmstrip van de regenkaart op vaste kaarttijden (bevroren snapshot), om beweging tussen frames te beoordelen.
-// Gebruik: tsx scripts/rain-motion-strip.ts <origin> <uitmap> <start-ISO> <eind-ISO> <stap-min> [lng lat zoom]
+// Rig-haak: window.__motregenJumpTo (App.tsx). Gebruik: tsx scripts/rain-motion-strip.ts <origin> <uitmap> <start-ISO> <eind-ISO> <stap-min> [lng lat zoom]
 import { writeFileSync } from 'node:fs'
 import { chromium } from '@playwright/test'
 const [origin, outDir, startIso, endIso, stepText, cameraLng, cameraLat, cameraZoom] = process.argv.slice(2)

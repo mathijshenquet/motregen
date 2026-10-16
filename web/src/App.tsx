@@ -1550,11 +1550,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function drawRainFrame(pair: RainPair, blend: ReturnType<typeof frameBlend>, epoch: number, request: number, committed?: (current: boolean) => void, immediate = false): void {
     if (!layer || !map) return
     applyRainFieldTuning(pair)
-    // Rig-schakelaar (regenbeweging-repro): ?geenwarp tekent hetzelfde paar zonder bewegingsveld.
-    const reproMotion = new URLSearchParams(window.location.search).has('geenwarp') ? undefined : pair.motion
-    layer.setFrames(pair.left, pair.right, blend.mix, reproMotion, (pair.rightFrame.epoch - pair.leftFrame.epoch) / 60_000)
-    // Rig-meetpunt (regenbeweging-repro): welk framepaar, met of zonder bewegingsveld.
-    ;(window as unknown as { __motregenRainPair: object }).__motregenRainPair = { left: pair.leftFrame.time, leftSource: pair.leftFrame.chunk.source, right: pair.rightFrame.time, rightSource: pair.rightFrame.chunk.source, motion: pair.motion !== undefined, mix: blend.mix, rightIndex: pair.rightFrame.frameIndex, rightUrl: pair.rightFrame.chunk.url, rightHeaderLen: pair.rightFrame.chunk.header_len, motionAll: pair.motion && Array.from(new Int8Array(pair.motion.vectors.buffer, pair.motion.vectors.byteOffset, pair.motion.vectors.byteLength)), motionSize: pair.motion && [pair.motion.width, pair.motion.height] }
+    layer.setFrames(pair.left, pair.right, blend.mix, pair.motion, (pair.rightFrame.epoch - pair.leftFrame.epoch) / 60_000)
     uploadedRainFrame = { epoch, blend, frameEpoch: pair.leftFrame.epoch, request }
     const afterRainDraw = (callback: () => void) => rainOverlay ? rainOverlay.once(callback) : map!.once('render', callback)
     afterRainDraw(() => {
@@ -1637,8 +1633,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   async function loadPairMotion(left: TimelineFrame, right: TimelineFrame): Promise<MotionField | undefined> {
-    // Rig-meetpunt (regenbeweging-repro): welk frame levert het bewegingsveld.
-    void client.getHeader(right.chunk).then((header) => { (window as unknown as { __motregenMotionPick: object }).__motregenMotionPick = { right: right.time, rightIndex: right.frameIndex, motion: header.frames[right.frameIndex]?.motion, frames: header.frames.length, url: right.chunk.url } })
     if (left.epoch >= right.epoch) return undefined
     const [leftHeader, rightHeader] = await Promise.all([client.getHeader(left.chunk), client.getHeader(right.chunk)])
     const selected = selectPairMotion(left, right, (frame) => {
