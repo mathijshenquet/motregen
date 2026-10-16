@@ -1,5 +1,15 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-16 11:56 CEST — Wind uit Lucht; wolkenbudget opnieuw gemeten
+
+PO vraagt kosten van de nieuwste wolken en winddeeltjes uit Lucht. Windvisibility vermenigvuldigd met1-airFocus; bij volle Lucht stopt de windlus, bewegingsdata voor wolken blijven beschikbaar. Visueel zelf gecontroleerd. Browsercheck Lucht→Wind→Lucht: windDraws2→2,14→33,41→41; geen errors. Typecheck exit0. Geen nieuwe unit-test voor deze eenvoudige visibilitywijziging.
+
+Perf onder scripts/perf-lock.sh op rustige host, Chromium/ANGLE/Vulkan SwiftShader, DPR1, vasteU82data. Echt afspelen na opwarming, zes seconden meetvenster, GPU-timerqueries voor bestaande passes én overige WebGL-draws; geen dubbel tellen van geneste queries. Desktopviewport1280×1000, kaart810×1000: gemiddelde flow9,318ms + textuur23,481ms + blit2,733ms =35,532ms per wolkenpass. Mobielviewport390×1000, kaart390×618:2,817+7,515+0,865=11,196ms. Wolken97,35% respectievelijk98,48% van de gemeten WebGL-drawtijd. Basiskaart grotendeels gecachet, regen/wind uit; dit percentage is GEEN totale browser-CPU/wandtijd en deze GPU is GEEN telefoonhardware.113/170 cloudfillupdates in zes seconden; GPU-groepen102/170 complete querysamples, laatste uitstaande desktopqueries niet in teller.
+
+Eerste A/B met20 opgewarmde stillframes (huidig/geenwolken/vorige shader, twee rondes) liet zien dat totale wandtijd op rAF-wachten kwantiseert naar50/66,7ms, dus onbruikbaar voor een kostenaandeel. Eerste EMA-timings bovendien vervuild door shaderopstart; niet als kosten gerapporteerd. Latere warme desktopvergelijking: huidig flow+fill33,77ms vs vorige43,74–47,13ms, indicatief circa25% minder; hoofdrapport gebruikt verse GPU-querysamples. Kleine viewport in still-harness raakte bestaand followTableToEpoch op ontbrekend forecastPanelElement; alleen in harness uitgeschakeld voor alle varianten, productcode niet gewijzigd. Echte app-probe zonder die bypass is foutvrij.
+
+Repro: direnv exec . bash -c 'cd web && bash scripts/perf-lock.sh node tmp/orkestrator/cloud-budget-20261016/gpu-share.mjs'. Losse zichtbaarheid: direnv exec . node web/tmp/orkestrator/cloud-budget-20261016/wind-check.mjs. JSON met ruwe samples, eerdere mislukte/ongeschikte metingen, screenshot en LOG in dezelfde genegeerde map. Volgende optimalisatiekandidaat is procedurele textuur (circa66–67% van wolkenkosten); nog niet uitgevoerd. Geen prod/VM/Telegram/CSVwijziging.
+
 ## 2026-10-16 11:21 CEST — Eén wolkenpatroon voorkomt verschoven dubbelbeelden
 
 PO meldt resterend springen rond09:00 op de Noordzee westelijk Alkmaar/Noordwijk, bevestigt4390/live en daarna dat het weg is. Diagnose in vasteU82data: lokale en gemiddelde snelheid verschillen, waardoor twee textuurbanken een verschoven afbeelding van dezelfde wolk tonen. Bij09:00 op3,5E/52,5N is de geschatte bankafstand circa3,16km. De vorige fix voorkwam wereldvaste herhaling, maar niet het zichtbaar in-/uitfaden van twee verschoven exemplaren.

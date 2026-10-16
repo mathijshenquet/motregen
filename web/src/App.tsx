@@ -737,7 +737,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       intensity: windFocusIntensity(windTuning().intensity, windFocus()) * (1 + (intensityGain - 1) * (1 - windFocus())),
       narrowLineFactor: mobileWindDevice ? MOBILE_WIND.narrowLineFactor : WIND_PARAMETERS.narrowLineFactor,
       seaPenalty: mobileWindDevice ? MOBILE_WIND.seaPenalty : WIND_PARAMETERS.seaPenalty,
-      visibility: mapRendering() ? WIND_PARAMETERS.visibility * contextOpacity(focus(), FOCUS_DIM) : 0,
+      visibility: mapRendering() ? WIND_PARAMETERS.visibility * contextOpacity(focus(), FOCUS_DIM) * (1 - airFocus()) : 0,
       maxFps: userIdle() ? WIND_IDLE_FPS : WIND_MAX_FPS,
     }
   })
