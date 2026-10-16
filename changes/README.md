@@ -1,5 +1,25 @@
 # Changelog en releases
 
+## Stappen in het kort
+
+Voer de opdrachten uit vanaf de repositoryroot, met de devenv-omgeving actief.
+
+1. De track schrijft een korte Nederlandse notitie in `changes/pending/` en maakt bij
+   een zichtbare wijziging echte voor/na-media met `pnpm changelog:compare` (zie hieronder).
+   Bekijk beide beelden en speel de hele clip af. Zet de media in `changes/media/` en Git.
+2. Controleer met `pnpm changelog:check`. Laat de PO titel, uitleg en beelden beoordelen
+   en verwerk zijn tekstwijzigingen in de notitie.
+3. De orkestrator maakt vanuit een schone werkboom eerst een releaseplan met
+   `tools/release.sh patch --dry-run` en daarna de release met `tools/release.sh patch`.
+   Controleer de datum en volgorde in `changes/vX.Y.Z/index.md` vóór publicatie.
+4. Bekijk `pnpm changelog:post X.Y.Z @motregen_updates --dry-run`. Publiceer na opdracht
+   met dezelfde opdracht zonder `--dry-run`. De poster maakt de opmaak en rondlopende
+   tellerlinks automatisch. Push en uitrol zijn aparte stappen; uitrol vereist PO-akkoord.
+5. Controleer de bijschriften, media en tellerlinks in Telegram. Bewaar de lokale
+   `posted.json` met de echte bericht-id's en voortgang.
+
+## Een notitie schrijven
+
 Elke track schrijft één Nederlandse notitie per gebruikerswijziging in
 `changes/pending/<slug>.md`. Houd de tekst bij 1–3 zinnen. De PO reviewt hem vóór de release.
 
@@ -107,6 +127,28 @@ Een expliciet toegestane proef krijgt `--test`: zowel bericht als elk bijschrift
 `TEST`; voortgang staat apart in `posted.test.json`. Verwijder na inspectie met dezelfde
 versie/chat en `--delete-test`. Deze optie verwijdert uitsluitend ids uit de TEST-administratie.
 
+### Bestaande berichten aanpassen
+
+Een gerichte correctie gebruikt de bestaande bericht-id's uit `posted.json`, in dezelfde
+media-volgorde. Voor handmatig geplaatste berichten leg je eerst die volgorde en id's vast.
+
+1. Lees de actuele kanaaltekst en neem eventuele PO-edits over in de bronnotities.
+   Leg de bestaande tekst en bericht-id's vast in de genegeerde taakadministratie.
+2. Bouw de gewenste bijschriften met `releaseMedia` uit
+   [`tools/changelog-post.ts`](../tools/changelog-post.ts), met de oorspronkelijke
+   releasedatum en dezelfde geordende notities. Gebruik `linkedCaption` per item met
+   het echte id van het volgende bericht; bij het laatste is dat het eerste id.
+3. Bekijk de volledige bijschriften vóór de bewerking. Stuur per bestaand bericht
+   `editMessageCaption` met `chat_id`, `message_id`, `caption` en de JSON-gecodeerde
+   `caption_entities` uit de helper. Gebruik de bestaande bot-token uit de omgeving of `.env`.
+   Deze bewerking behoudt het bericht en de bijbehorende media.
+4. Controleer de teruggegeven caption en link-entiteiten en bekijk het resultaat in
+   Telegram. Leg de bewerkte id's en API-bevestigingen vast in de genegeerde taakadministratie.
+
+`changelog:post` slaat een voltooide release over; bestaande bijschriften bijwerken gebeurt
+via bovenstaande gerichte bewerking. Bewaar `posted.json` ook bij een correctie:
+die administratie voorkomt dubbele publicatie.
+
 Volgens de [Bot API](https://core.telegram.org/bots/api#sendmediagroup) heeft ieder albumitem
 een eigen caption. De [clientrichtlijn](https://core.telegram.org/api/files#albums-grouped-media)
 zegt voor fotoalbums: één caption staat onder het hele album; bij meerdere captions staat er
@@ -123,6 +165,12 @@ gebouwd; `/changelog` biedt dezelfde leesweergave op ons eigen domein. Dat is ee
 van het beschikbare API-formaat, geen waargenomen garantie voor iedere Instant View-client.
 
 ## Voor/na opnemen
+
+Kies een bronrevisie van vóór de fix en controleer dat die build het zichtbare probleem
+nog toont. Kies een duidelijk voorbeeld; gebruik waar mogelijk een opvolger met alleen
+de bedoelde fix. Bekijk de uitvoer op werkelijke grootte en speel elke clip volledig af
+vóór publicatie. De afgesproken vorm is een scherpe foto boven/onder of een clip met eerst
+vóór en daarna na, met kleine hoeklabels. Richt op 8 seconden totaal (4 per versie).
 
 Start de twee builds als aparte origins en gebruik dezelfde bevroren dataset op beide.
 
