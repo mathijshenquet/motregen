@@ -174,7 +174,10 @@ export default function HistogramScrubber(props: Props) {
   const windMix = () => props.wind ? props.mix ? props.mix.wind : 1 : 0
   const temperatureMix = () => props.temperature ? props.mix ? props.mix.temperature : 1 : 0
   const baseOpacity = () => 1 - Math.max(windMix(), temperatureMix())
-  const rainOpacity = () => baseOpacity() * (1 - 0.65 * airMix())
+  // De wolkenlagen staan achter de regen (Weer) of er een kopie vóór (Lucht). Bij het wisselen komt de voorste
+  // kopie op terwijl de achterste nog vol staat, en gaat die pas daarna weg: geen dip in de wolken en geen sprong.
+  const cloudsBehindOpacity = () => baseOpacity() * Math.min(1, 2 * (1 - airMix()))
+  const cloudsFrontOpacity = () => baseOpacity() * Math.min(1, 2 * airMix())
   const coverOpacity = () => props.cloudCover ? Math.min(baseOpacity(), 1 - (props.mix?.temperature ?? 0)) : 0
   const baseVisible = createMemo(() => baseOpacity() > 0)
   const view = () => airMix() >= 0.5 ? 'air' : windMix() >= 0.5 ? 'wind' : temperatureMix() >= 0.5 ? 'temperature' : coverOpacity() >= 0.5 ? 'cover' : 'rain'
@@ -658,11 +661,8 @@ export default function HistogramScrubber(props: Props) {
               <Index each={strokes()}>{(stroke) => <path class="sky-stroke" classList={{ light: stroke().light }} d={stroke().path} style={{ '--strength': stroke().strength }} />}</Index>
               <For each={stars()}>{(star) => <circle class="sky-star" cx={star.x} cy={star.y} r={star.radius} opacity={star.brightness} />}</For>
             </g></Show>
-            {/* In Lucht blijft regen context: achter de wolkenlagen en getweend naar 35% dekking. */}
-            <g class="rain-bars scrub-view" style={layerStyle(rainOpacity())}><Index each={bars()}>{(bar) => <Show
-              when={!bar().pending}
-              fallback={<rect class="rain-bar pending" x={bar().x} y={plotHeight() - 2} width={bar().width} height="2" rx="1" />}
-            ><rect class="rain-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={rainColor(bar().value, barRainLook(bar().epoch))} /></Show>}</Index></g>
+            {/* Wolken en regen staan in Weer én Lucht; alleen de volgorde verschilt (PO 2026-10-16): in Weer de regen vóór
+                de wolken, in Lucht een kopie van de wolkenlagen vóór de regen. */}
             <Show when={cloudBands().length}>
               <defs>
                 <filter id={`${cloudId}-soft`} x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="0.9" /></filter>
@@ -694,13 +694,21 @@ export default function HistogramScrubber(props: Props) {
                     <For each={coverBands().find((band) => band.key === key)?.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /></>}</For>
                   </g>}</For>
                 </g>
-                <g class="scrub-view" style={{ opacity: baseOpacity() * airMix() }}>
+                {/* Het id zit op de binnengroep: <use> kloont ook inline stijl, en de dekking hier is in Lucht 0. */}
+                <g class="scrub-view" style={{ opacity: cloudsBehindOpacity() }}><g class="cloud-layers" id={`${cloudId}-layers`}>
                   <For each={layerBands().map((band) => band.key)}>{(key) => <g class="cloud-band" data-layer={key}>
                     <For each={layerBands().find((band) => band.key === key)?.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /></>}</For>
                   </g>}</For>
-                </g>
+                </g></g>
               </g>
               <Show when={props.cloudCover}><line class="cloud-divider" style={{ opacity: coverOpacity() }} x1="0" x2={trackWidth()} y1={cloudHeight() + 1.5} y2={cloudHeight() + 1.5} /></Show>
+            </Show>
+            <g class="rain-bars scrub-view" style={layerStyle(baseOpacity())}><Index each={bars()}>{(bar) => <Show
+              when={!bar().pending}
+              fallback={<rect class="rain-bar pending" x={bar().x} y={plotHeight() - 2} width={bar().width} height="2" rx="1" />}
+            ><rect class="rain-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={rainColor(bar().value, barRainLook(bar().epoch))} /></Show>}</Index></g>
+            <Show when={layerBands().length && cloudsFrontOpacity() > 0}>
+              <g class="cloud-section cloud-front" filter={`url(#${cloudId}-soft)`} style={{ opacity: cloudsFrontOpacity() }}><use href={`#${cloudId}-layers`} /></g>
             </Show>
             <Show when={temperatureMix() > 0 && temperatureChart()}>{(chart) => <g class="temperature-chart scrub-view" data-testid="temperature-chart" style={layerStyle(temperatureMix())}>
               <defs>

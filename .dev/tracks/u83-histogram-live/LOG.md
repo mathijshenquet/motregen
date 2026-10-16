@@ -15,3 +15,16 @@
 - Test toegevoegd (cloud-section: geen sprongen/knikken bij wisselende uren); HistogramScrubber-test telt geen
   vaste stop-aantallen meer.
 - Gate: typecheck 0, test 0 (570), build 0, e2e cloud-section desktop 0. (pnpm test moet buiten de sandbox: tsx-pipe.)
+
+## 2026-10-16 10:04 CEST — slice op verzoek van de orkestrator (punten 1, 2, 4)
+- Orkestrator: slice i.p.v. pakket; alleen `pnpm typecheck` + één eigen schermbeeld; geen e2e/volledige suite.
+- Punt 2: wolkenlagen vóór de regen getekend (Weer), plus een `<use>`-kopie ná de regen (Lucht). Dekking achter
+  min(1, 2·(1−lucht)), vóór min(1, 2·lucht): geen dip, geen sprong. Regen vol in beide modi (was 35 % in Lucht).
+  Het id zit op een binnengroep, omdat <use> ook de inline-dekking kloont. Gecontroleerd op synthdata (:4322, Chromium):
+  Weer regen vóór, Lucht wolken vóór. Firefox-check van <use> niet gedaan (slice).
+- Punt 4: DEFAULT_RAIN_LOOK.blend = 'rand'. Wind/Lucht: rain-presentation 'per-modus' houdt dezelfde menging
+  (gedempt in Wind, vermenigvuldigd in Lucht) en de contour komt dus mee. Telegram-bot: rendert met eigen
+  Rust-palet (crates/render-core/src/palette.rs) zonder contour; 'rand' komt daar niet mee, bot niet gewijzigd.
+- HistogramScrubber-test aangepast aan de volle regen + voorste kopie (niet gedraaid: slice).
+- Punt 3 overgeslagen in deze slice.
+- Gate: typecheck exit 0. Geen unit/e2e/build-gate gedraaid (orkestrator gate op de integratiebranch).
