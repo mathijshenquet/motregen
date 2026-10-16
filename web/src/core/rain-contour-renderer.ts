@@ -41,12 +41,14 @@ interface ContourTarget {
   framebuffer: WebGLFramebuffer
   geometry: WebGLBuffer
   result?: RainContours
+  windowKey?: string
   ranges: Array<{ level: number; first: number; count: number }>
 }
 
 export interface RainContourDraw {
   matrix: ArrayLike<number>
   zoom: number
+  view: { west: number; east: number; north: number; south: number }
   left?: RainContourEntry
   right?: RainContourEntry
   mix: number
@@ -158,10 +160,14 @@ export class RainContourRenderer {
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
     if (!result) return
-    if (result !== target.result) {
-      const data = new Float32Array(result.levels.reduce((total, level) => total + level.data.length, 0))
+    const pixelsPerCell = Math.abs(this.grid.dx) / (2 * Math.PI * 6378137) * 512 * 2 ** input.zoom
+    const visibleWindow = rainContourWindow(this.grid, input.view, input.warpLimit.capCells + 2 + 2 / pixelsPerCell)
+    const windowKey = JSON.stringify(visibleWindow)
+    if (result !== target.result || windowKey !== target.windowKey) {
+      const visible = result.levels.map((level) => ({ level: level.level, data: visibleRainSegments(level.data, visibleWindow) }))
+      const data = new Float32Array(visible.reduce((total, level) => total + level.data.length, 0))
       let offset = 0
-      target.ranges = result.levels.map((level) => {
+      target.ranges = visible.map((level) => {
         data.set(level.data, offset)
         const range = { level: level.level, first: offset / SEGMENT_FLOATS, count: level.data.length / SEGMENT_FLOATS }
         offset += level.data.length
@@ -172,6 +178,7 @@ export class RainContourRenderer {
         gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW)
       }, { layer: 'rain-lines', segments: data.length / SEGMENT_FLOATS })
       target.result = result
+      target.windowKey = windowKey
     }
     const circumference = 2 * Math.PI * 6378137
     const scaleX = this.grid.dx / circumference
@@ -227,6 +234,42 @@ export class RainContourRenderer {
     gl.disableVertexAttribArray(alpha)
     gl.disableVertexAttribArray(corner)
   }
+}
+
+interface SegmentWindow {
+  left: number
+  right: number
+  top: number
+  bottom: number
+}
+
+export function rainContourWindow(grid: Grid, view: RainContourDraw['view'], padding: number): SegmentWindow {
+  const column = (longitude: number) => (longitude * Math.PI / 180 * 6378137 - grid.x0) / grid.dx - 0.5
+  const row = (latitude: number) => (Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360)) * 6378137 - grid.y0) / grid.dy - 0.5
+  const west = column(view.west)
+  const east = column(view.east)
+  const north = row(view.north)
+  const south = row(view.south)
+  return {
+    left: Math.floor(Math.min(west, east) - padding), right: Math.ceil(Math.max(west, east) + padding),
+    top: Math.floor(Math.min(north, south) - padding), bottom: Math.ceil(Math.max(north, south) + padding),
+  }
+}
+
+export function visibleRainSegments(data: Float32Array, window: SegmentWindow): Float32Array {
+  const visible = new Float32Array(data.length)
+  let count = 0
+  for (let offset = 0; offset < data.length; offset += SEGMENT_FLOATS) {
+    const startColumn = data[offset]!
+    const startRow = data[offset + 1]!
+    const endColumn = data[offset + 2]!
+    const endRow = data[offset + 3]!
+    if (Math.max(startColumn, endColumn) < window.left || Math.min(startColumn, endColumn) > window.right
+      || Math.max(startRow, endRow) < window.top || Math.min(startRow, endRow) > window.bottom) continue
+    visible.set(data.subarray(offset, offset + SEGMENT_FLOATS), count)
+    count += SEGMENT_FLOATS
+  }
+  return visible.subarray(0, count)
 }
 
 function link(gl: WebGL2RenderingContext, vertex: string, fragment: string): WebGLProgram {

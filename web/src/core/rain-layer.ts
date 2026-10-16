@@ -374,8 +374,10 @@ export class RainLayer implements CustomLayerInterface {
     if (this.straightAlpha) gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     else gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
-    if (this.map) this.contourRenderer?.draw({
+    const view = this.map?.getBounds()
+    if (this.map && view) this.contourRenderer?.draw({
       matrix: options.defaultProjectionData.mainMatrix, zoom: this.map.getZoom(),
+      view: { west: view.getWest(), east: view.getEast(), north: view.getNorth(), south: view.getSouth() },
       left: leftContours, right: rightContours, mix: this.mix, opacity: this.opacity, outlines: this.outlines,
       motion: this.motion!, motionMask: this.motionMask!, hasMotion: this.hasMotion,
       intervalMinutes: this.intervalMinutes, warpLimit: this.warpLimit,
