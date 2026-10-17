@@ -17,7 +17,7 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Wolkenkaart | Wolkenbeeld | vormen / oude sluier op dezelfde live modeldata | PM / MIP-34 | na PO-keuze, uiterlijk 2026-10-19 |
 | Wolkenkaart | Voorbeeldlucht | live / gaten / sluier / dicht / overgang; laatste vier gefingeerde conceptgevallen, niet bewaard tussen bezoeken | PM / MIP-34 | idem |
 | Tijdlijn | Naar nu | proef: knop terug naar nu als de nu-lijn uit de grafiek is (uit / rand: strook met pijl over de hele hoogte / knop: pil "← Nu" aan de zijkant) | PO-spike 2026-10-17 | na PO-keuze |
-| Tijdlijn | Grafiekhoogte | proef: hoogte van de grafiek op desktop (198 = huidig, 240, 280 px incl. urenbalk) | PO-spike 2026-10-17 | na PO-keuze |
+| Tijdlijn | Grafiekhoogte | proef: hoogte van de grafiek op desktop (2:1 = standaard, 235/260 px; 198 = oud; 280 px; incl. urenbalk) | PO-spike 2026-10-17 | na PO-keuze |
 | Lucht nu | strakblauw · mooie wolkenlucht · melkachtig · grijs · Mordor | tijd, klasse en gekozen locatie op 0,1° als menselijk anker voor de wolkenanalyse | U46 | na de analyse |
 | Lucht nu | Kopieer dagboek | alle lokale luchtmetingen als JSON naar het klembord | U46 | na de analyse |
 | Diagnose | Scherm en scroll | overlay met live schermhoogtes (innerHeight, visualViewport, 100dvh/svh/lvh), scrollstand, snappunt en plek van het tabelpaneel, voor een schermbeeld in een bugtoestand | U62 | zodra de adresbalkbug op Firefox Android is opgelost |
