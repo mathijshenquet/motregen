@@ -81,6 +81,10 @@ const CLOUD_LAYER_FIRST_CENTRE = 1 / 6
 const CLOUD_LAYER_SPACING = 1 / 4
 // Deel van de plothoogte voor de bewolkingsband boven de regen.
 const CLOUD_COVER_SHARE = 0.3
+// De wolkvormen zijn afgesteld op een plot van deze hoogte (desktop tot 2026-10-17). Hun breedte volgt de tijd, niet
+// de hoogte: in een hoger plot werden lage wolken bulten (PO 2026-10-17). Een hoger plot geeft meer lucht, geen
+// dikkere wolken.
+const CLOUD_SHAPE_PLOT_PX = 172
 const HOUR = 3_600_000
 const HAZE_OPACITY = 0.5
 // De nevel begint op deze hoogte (deel van het plot) en neemt naar de horizon toe tot HAZE_MASK_BOTTOM. Eén laag
@@ -199,7 +203,7 @@ export default function HistogramScrubber(props: Props) {
   const view = () => airMix() >= 0.5 ? 'air' : windMix() >= 0.5 ? 'wind' : temperatureMix() >= 0.5 ? 'temperature' : coverOpacity() >= 0.5 ? 'cover' : 'rain'
   // Binnenkomende weergave schuift een paar px omhoog terwijl hij invloeit.
   const layerStyle = (opacity: number) => ({ opacity, transform: `translateY(${((1 - opacity) * VIEW_SHIFT_PX).toFixed(2)}px)` })
-  const cloudHeight = createMemo(() => props.cloudCover ? plotHeight() * CLOUD_COVER_SHARE : 0)
+  const cloudHeight = createMemo(() => props.cloudCover ? Math.min(plotHeight(), CLOUD_SHAPE_PLOT_PX) * CLOUD_COVER_SHARE : 0)
   // Regen valt onder de wolken: de regenschaal begint onder de doorsnede.
   const rainTop = createMemo(() => cloudHeight() && cloudHeight() + 4)
   const y = (value: number) => rainTop() + (plotHeight() - rainTop()) * (1 - rainChartPosition(value, maximum()))
@@ -245,9 +249,10 @@ export default function HistogramScrubber(props: Props) {
   const layerBands = scrubMemo('wolkenlagen', () => {
     const clouds = props.clouds
     if (!clouds) return []
-    const bandHeight = plotHeight() / CLOUD_LAYERS.length
+    const bandHeight = Math.min(plotHeight(), CLOUD_SHAPE_PLOT_PX) / CLOUD_LAYERS.length
     // De lagen staan dichter op elkaar dan drie gelijke stroken: middens op 1/6, 5/12 en 2/3 van de hoogte
     // (PO 2026-10-16). De stroken overlappen dus een stukje.
+    // De middens blijven een deel van de plothoogte; alleen de strook zelf is begrensd.
     const top = (index: number) => plotHeight() * (CLOUD_LAYER_FIRST_CENTRE + index * CLOUD_LAYER_SPACING) - bandHeight / 2
     return CLOUD_LAYERS.map((layer, index) => ({
       key: layer,
