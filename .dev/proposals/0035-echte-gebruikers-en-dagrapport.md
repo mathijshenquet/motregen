@@ -1,6 +1,6 @@
 # MIP-35 — Echte gebruikers tellen, Telegram meten en een dagrapport
 
-Status: draft · auteur: Claude (orkestrator), 2026-10-17
+Status: accepted (PO 2026-10-17) · auteur: Claude (orkestrator), 2026-10-17
 
 ## 1. Het probleem
 
@@ -120,8 +120,22 @@ uitrol volgt pas na jouw akkoord, net als altijd.
 
 ## 5. Besluit
 
-_(volgt bij adoptie)_
+PO, 2026-10-17: "laten we dev traffic eruit filteren als mogelijk, dat kan ook een nieuwe update zijn (zonder
+changelog-item), maak maar wat zinnigs. Doe maar privéchat." Vraag 5: naar eigen inzicht. Vraag 4: de PO gaf het
+bestaande Cloudflare-token alle rechten.
+
+1. **A** komt er als losse uitrol zonder changelog-item. In plaats van `navigator.webdriver` in de client (dat zou
+   de e2e-bakens breken) filtert Caddy headless browsers op de User-Agent, net als crawlers. A4 bleek de automatische
+   http→https-server van Caddy: die neemt het usage-log over zonder de `log_skip`-regels. Een eigen http-site zonder
+   logger lost het op.
+2. **Dagrapport** naar de privéchat van de PO met de bot, om 08:00 lokale tijd.
+3. Vraag 1 en 3, ingevuld door de orkestrator ("maak maar wat zinnigs"): unieke Telegram-gebruikers tellen met een
+   dagzout dat alleen in geheugen bestaat (na een herstart is het een ondergrens); het baken krijgt `tg: true` in
+   de Telegram-webview.
+4. Vraag 4: Cloudflare komt als één grove regel in het rapport, met een apart token dat alleen analytics leest.
+5. Vraag 5: de oude aggregaten blijven zoals ze zijn; het rapport noemt de datum waarop de filters live gingen.
 
 ## Changelog
 
 - 2026-10-17: draft.
+- 2026-10-17: accepted; A in uitvoering, B en C als track U88.
