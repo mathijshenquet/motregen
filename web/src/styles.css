@@ -1383,33 +1383,24 @@ td small { color: var(--muted); font-size: 9px; }
 }
 
 @media (max-width: 959px) and (orientation: portrait) {
-  html { scroll-snap-type: y mandatory; }
-  body { overflow-y: auto; }
-  .app-shell { min-height: 100svh; overflow: visible; }
+  /* Het document scrollt niet: de app-shell is een vaste scrollcontainer over het hele scherm. Zo klapt geen
+     adresbalk in of uit en is de shell-hoogte het enige maat; het tabel-snappunt valt precies op het einde van
+     de scroll (PO 2026-10-17). */
+  html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  .app-shell { position: fixed; inset: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; scroll-snap-type: y mandatory; }
   .map-shell { scroll-snap-align: start; }
   .dashboard { overflow: visible; }
-  /* dvh, niet svh: klapt de adresbalk in (Android Chrome), dan is het scherm hoger dan 100svh en kan de pagina
-     niet ver genoeg scrollen om het paneel bovenaan te laten snappen (PO 2026-10-07: strook histogram bleef staan). */
-  /* --table-panel-shortfall: gemeten tekort als de pagina eindigt vóór het paneel bovenaan staat (U62). */
-  .forecast-panel { position: relative; height: calc(100dvh + var(--table-panel-shortfall, 0px)); min-height: calc(100svh + var(--table-panel-shortfall, 0px)); display: flex; flex-direction: column; padding: 0 0 env(safe-area-inset-bottom); overflow: visible; scroll-snap-align: start; touch-action: pan-y; }
+  .forecast-panel { position: relative; height: var(--shell-height, 100dvh); display: flex; flex-direction: column; padding: 0 0 env(safe-area-inset-bottom); overflow: visible; scroll-snap-align: start; touch-action: pan-y; }
   .table-scroll { min-height: 0; flex: 1 1 auto; overflow-y: hidden; overscroll-behavior-y: auto; touch-action: pan-y; }
   .table-scroll th { top: 0; }
   .forecast-table :is(.time-cell, .time-heading) { width: 20%; padding-right: 3px; }
   .forecast-table .time-heading { padding-left: 2px; }
   .app-shell:not(.table-view-open) .history-toggle-row { display: none; }
   .table-scroll-open .table-scroll { overflow-y: auto; }
-  /* Vangnet (U62): toont de browser toch een strook boven het open tabelpaneel (Firefox voor Android, adresbalk
-     terug), dan staat daar de kleur van de koppenrij en niet de onderkant van de scrubber. Alleen zolang het
-     paneel het scherm dekt; bij het terugscrollen naar de kaart mag de scrubber niet afgedekt blijven. */
-  .table-covers-viewport .forecast-panel::before { position: absolute; top: -120px; right: 0; left: 0; z-index: 6; height: 120px; background: var(--surface); content: ''; pointer-events: none; }
-  .table-covers-viewport .forecast-panel.head-night::before { background: var(--table-night, #0a1820); }
-  .table-covers-viewport .forecast-panel.head-day::before { background: color-mix(in oklab, var(--table-day-bright) var(--table-day-mix, 44%), var(--table-day-base, #fff)); }
   /* Tabelachtergrond volgt de bovenste zichtbare rij: een subpixel-naad tussen koppenrij en eerste rij toont dan
      rijkleur in plaats van wit (PO 2026-10-09). */
   .forecast-panel.head-night .forecast-table { background: var(--table-night, #0a1820); }
   .forecast-panel.head-day .forecast-table { background: color-mix(in oklab, var(--table-day-bright) var(--table-day-mix, 44%), var(--table-day-base, #fff)); }
-  /* Het verlengde stuk van het paneel valt achter de adresbalk: de laatste rijen moeten erboven uit kunnen komen. */
-  .forecast-panel .table-scroll { scroll-padding-bottom: var(--table-panel-shortfall, 0px); padding-bottom: var(--table-panel-shortfall, 0px); }
 }
 
 /* Telefoon liggend: kaart en paneel naast elkaar, zoals desktop; de scrubber schuift mee weg

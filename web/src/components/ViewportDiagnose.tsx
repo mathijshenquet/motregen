@@ -2,31 +2,26 @@ import { createSignal, For, onCleanup, onMount } from 'solid-js'
 
 // Diagnose achter ?dev (U62, eigenaar U62, vervalt zodra de adresbalkbug op Firefox Android is opgelost):
 // toont live wat de browser over het scherm en de scroll zegt, zodat een schermbeeld in de bugtoestand de
-// oorzaak laat zien in plaats van dat we ernaar raden.
-
-interface Props {
-  /** Hoeveel het tabelpaneel is verlengd omdat de pagina eindigde vóór het paneel bovenaan stond. */
-  shortfallPx: () => number
-}
+// oorzaak laat zien in plaats van dat we ernaar raden. Telefoon staand scrolt de app-shell, niet het document.
 
 const UNITS = ['dvh', 'svh', 'lvh', 'vh'] as const
 
-export default function ViewportDiagnose(props: Props) {
+export default function ViewportDiagnose() {
   const [rows, setRows] = createSignal<Array<[string, string]>>([])
   let probes: HTMLDivElement[] = []
   let frame: number | undefined
 
   const read = () => {
     frame = undefined
-    const scroller = document.scrollingElement ?? document.documentElement
+    const shell = document.querySelector<HTMLElement>('.app-shell')
+    const scroller = shell && shell.scrollHeight > shell.clientHeight ? shell : document.scrollingElement ?? document.documentElement
     const visual = window.visualViewport
     const panel = document.querySelector<HTMLElement>('.forecast-panel')
     const scrubber = document.querySelector<HTMLElement>('.scrubber')
-    const shell = document.querySelector<HTMLElement>('.app-shell')
     const panelBounds = panel?.getBoundingClientRect()
     const scrubberBounds = scrubber?.getBoundingClientRect()
     const px = (value: number | undefined) => value === undefined ? '—' : `${Math.round(value * 10) / 10}`
-    const maxScroll = scroller.scrollHeight - window.innerHeight
+    const maxScroll = scroller.scrollHeight - scroller.clientHeight
     setRows([
       ['innerHeight', px(window.innerHeight)],
       ['clientHeight (html)', px(document.documentElement.clientHeight)],
@@ -34,11 +29,11 @@ export default function ViewportDiagnose(props: Props) {
       ...UNITS.map((unit, index): [string, string] => [`100${unit}`, px(probes[index]?.getBoundingClientRect().height)]),
       ['scrollTop / max', `${px(scroller.scrollTop)} / ${px(maxScroll)}`],
       ['scrollHeight', px(scroller.scrollHeight)],
-      ['snappunt tabel (offsetTop)', px(panel ? panel.getBoundingClientRect().top + scroller.scrollTop : undefined)],
+      ['snappunt tabel (offsetTop)', px(panel ? panel.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop : undefined)],
       ['paneel top / hoogte', `${px(panelBounds?.top)} / ${px(panelBounds?.height)}`],
       ['paneel top op het scherm', px(panelBounds && visual ? panelBounds.top - visual.offsetTop : panelBounds?.top)],
       ['scrubber top / onder', `${px(scrubberBounds?.top)} / ${px(scrubberBounds?.bottom)}`],
-      ['tekort paneel', `${px(props.shortfallPx())}`],
+      ['scroller', scroller === shell ? 'app-shell' : 'document'],
       ['tabel', [shell?.classList.contains('table-view-open') ? 'open' : 'dicht', shell?.classList.contains('table-scroll-open') ? 'scrolt' : 'vast'].join(', ')],
       ['dpr', px(window.devicePixelRatio)],
     ])
@@ -53,7 +48,7 @@ export default function ViewportDiagnose(props: Props) {
       return probe
     })
     const targets: Array<[EventTarget | null | undefined, string]> = [
-      [window, 'scroll'], [window, 'resize'], [window.visualViewport, 'resize'], [window.visualViewport, 'scroll'],
+      [window, 'scroll'], [document.querySelector('.app-shell'), 'scroll'], [window, 'resize'], [window.visualViewport, 'resize'], [window.visualViewport, 'scroll'],
     ]
     for (const [target, type] of targets) target?.addEventListener(type, queue, { passive: true })
     // Ook zonder gebeurtenis bijhouden: juist het uitblijven van een resize-event is hier verdacht.

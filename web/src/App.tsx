@@ -187,9 +187,6 @@ const TABLE_JUMP_RESUME_MS = 4_000
 // Zoveel px van de tabelrijen moet in beeld zijn voordat hun reeksen laden (U49): in het mobiele
 // startbeeld steekt de eerste rij 2 px boven de onderrand uit, en dat is nog geen lezen.
 const TABLE_PEEK_PX = 24
-// Hoger dan een ingeklapte adresbalk (Android Chrome ~56 px, iOS Safari ~100 px): staat de pagina aan haar
-// einde en steekt er hooguit zoveel boven het tabelpaneel uit, dan is dat de tabelview — verder komt hij niet.
-const TABLE_SNAP_SLACK_PX = 120
 // H/L van twee opeenvolgende uren horen bij elkaar als ze binnen deze afstand liggen.
 const PRESSURE_MATCH_KM = 300
 // Afspelen tikt op 30 Hz: regen-tween, isolijnsnede en klok zijn traag genoeg; alleen de
@@ -206,13 +203,6 @@ const PLAY_RULE_STORAGE_KEY = 'motregen-dev-speelregel'
 const VIEWPORT_DIAGNOSE_STORAGE_KEY = 'motregen-dev-viewport'
 // Productiedomeinen (nix `services.motregen.domains`, met www) plus loopback voor e2e/PWA-checks.
 const SERVICE_WORKER_HOSTNAMES = ['motregen.nl', 'www.motregen.nl', 'weerok.nl', 'www.weerok.nl', 'localhost', '127.0.0.1']
-// Zoveel mag het tabelpaneel hooguit worden verlengd als de pagina eindigt vóór het paneel bovenaan staat.
-const TABLE_PANEL_SHORTFALL_MAX_PX = 200
-const TABLE_VIEW_RECHECK_MS = 700
-const TABLE_PULLS_PER_GESTURE = 4
-// Zo lang na de laatste scrollbeweging geldt de pagina als in rust. Ruim: de correctie is voor een pagina die
-// blijft hangen, en een haperend frame midden in een scroll mag niet voor rust doorgaan.
-const TABLE_REST_MS = 300
 const TABLE_NAVIGATION_MS = 1_500
 // De rand buiten het rooster is geen laag van de basisstijl maar kleurt wel mee met het thema.
 const GRID_OUTSIDE_PAINT = { light: { color: '#84969b', opacity: 0.48 }, dark: { color: '#071319', opacity: 0.58 } } as const
@@ -511,18 +501,15 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let tableViewResizeTimer: number | undefined
   let tableViewSettleTimer: number | undefined
   let tableTouchActive = false
-  // Sommige browsers (Firefox voor Android met de adresbalk in beeld) laten de pagina eindigen terwijl het
-  // paneel van 100dvh nog niet bovenaan staat: de schermhoogte waarmee ze de scroll begrenzen is dan groter
-  // dan 100dvh. Dat tekort wordt gemeten en bij de paneelhoogte opgeteld, in plaats van te raden welke
-  // eenheid de browser bedoelt (PO 2026-10-08: strook scrubber boven de open tabel).
-  const [tablePanelShortfall, setTablePanelShortfall] = createSignal(0)
-  let tablePullsSinceGesture = 0
-  let lastPageScrollAt = Number.NEGATIVE_INFINITY
+  // Telefoon staand: niet het document scrollt, maar de app-shell (een vaste container over het hele scherm).
+  // Het document staat stil, dus geen browser klapt zijn adresbalk in of uit en de schermhoogte ligt vast: het
+  // tabel-snappunt is dan precies het einde van de scroll (PO 2026-10-17, i.p.v. de U62-tekortmeting voor Firefox
+  // en de afgevallen koppenrij op iOS Safari).
+  let shellElement!: HTMLElement
   // Tot dit moment loopt een tik-navigatie (Tabel ↔ kaart) met haar eigen vloeiende scroll.
   let tableNavigationUntil = Number.NEGATIVE_INFINITY
-  // Dag of nacht van de koppenrij: de vangnetstrook boven het open tabelpaneel voert dezelfde kleur.
+  // Dag of nacht van de koppenrij: de tabelachtergrond voert dezelfde kleur.
   const [tableHeadSky, setTableHeadSky] = createSignal<HourSky>()
-  let lastViewportHeight = window.visualViewport?.height ?? window.innerHeight
   const [rainLookChoice, setRainLookChoice] = createSignal<RainLookChoice>(devMode ? loadRainLookChoice() : DEFAULT_RAIN_LOOK)
   const [cloudMapForms, setCloudMapForms] = createSignal(!devMode || localStorage.getItem('motregen-cloud-map') !== 'sluier')
   const [cloudMapSample, setCloudMapSample] = createSignal<CloudMapSample>('live')
@@ -531,92 +518,35 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (tableScrollOpen() === open) return
     setTableScrollOpen(open)
   }
+  function tablePanelTop(): number {
+    return forecastPanelElement.getBoundingClientRect().top - shellElement.getBoundingClientRect().top
+  }
   function syncTableViewPosition(): void {
     tableViewFrame = undefined
     if (!tableViewAvailable() || !forecastPanelElement) {
       setTableCoversViewport(false)
       return
     }
-    const panelTop = forecastPanelElement.getBoundingClientRect().top
-    if (!tableCoversViewport() && (panelTop <= 0 || tableSnappedAtPageEnd(panelTop))) setTableCoversViewport(true)
+    const panelTop = tablePanelTop()
+    if (!tableCoversViewport() && panelTop <= 1) setTableCoversViewport(true)
     else if (tableCoversViewport() && panelTop > 24) setTableCoversViewport(false)
-  }
-  function tableSnappedAtPageEnd(panelTop: number): boolean {
-    const atPageEnd = window.scrollY >= document.documentElement.scrollHeight - window.innerHeight - 2
-    return atPageEnd && panelTop > 0 && panelTop <= TABLE_SNAP_SLACK_PX
   }
   function queueTableViewSync(): void {
     if (tableViewFrame === undefined) tableViewFrame = requestAnimationFrame(syncTableViewPosition)
-  }
-  /**
-   * Bovenkant van het tabelpaneel ten opzichte van wat er werkelijk op het scherm staat. Firefox voor Android
-   * toont, als de adresbalk terugkomt terwijl de pagina aan haar einde staat, een strook BOVEN de layout-viewport
-   * (`visualViewport.offsetTop` wordt negatief; PO-overlay 2026-10-08: −63,7 px bij paneel top 0). Voor de layout
-   * staat het paneel dan bovenaan, op het scherm niet. Bij knijpzoom zegt de verschuiving iets anders en telt
-   * alleen de layout.
-   */
-  function visibleTablePanelTop(): number {
-    const layoutTop = forecastPanelElement.getBoundingClientRect().top
-    const visual = window.visualViewport
-    return visual && Math.abs(visual.scale - 1) < 0.01 ? layoutTop - visual.offsetTop : layoutTop
-  }
-  /**
-   * Zet het tabelpaneel bovenaan en geeft terug hoeveel er daarna nog boven uitsteekt. Niet uitrekenen of de
-   * pagina "op" is (Firefox voor Android begrenst de scroll met een andere schermhoogte dan `innerHeight` zodra
-   * de adresbalk terugkomt), maar de proef op de som: scrollen, en wat dan nog overblijft is het tekort van
-   * het paneel. Dat wordt bij de paneelhoogte opgeteld, waarna de scroll wel kan.
-   */
-  function pullTablePanelToTop(panelTop: number): number {
-    window.scrollBy({ top: panelTop, behavior: 'auto' })
-    const remaining = visibleTablePanelTop()
-    if (remaining <= 1) return remaining
-    const before = tablePanelShortfall()
-    const grown = before + Math.ceil(remaining)
-    if (grown > TABLE_PANEL_SHORTFALL_MAX_PX) return remaining
-    forecastPanelElement.style.setProperty('--table-panel-shortfall', `${grown}px`)
-    window.scrollBy({ top: Math.ceil(remaining), behavior: 'auto' })
-    const afterGrowth = visibleTablePanelTop()
-    if (afterGrowth >= remaining - 1) {
-      // Verlengen hielp niet (de hoogte ligt elders vast): niet blijven optellen.
-      if (before > 0) forecastPanelElement.style.setProperty('--table-panel-shortfall', `${before}px`)
-      else forecastPanelElement.style.removeProperty('--table-panel-shortfall')
-      return afterGrowth
-    }
-    setTablePanelShortfall(grown)
-    return afterGrowth
   }
   function settleTableView(): void {
     if (tableTouchActive || !tableViewAvailable() || !forecastPanelElement) return
     if (tableViewFrame !== undefined) cancelAnimationFrame(tableViewFrame)
     syncTableViewPosition()
-    let panelTop = visibleTablePanelTop()
-    // De pagina is tot rust gekomen vlak naast het tabel-snappunt (PO 2026-10-08, Firefox voor Android: na een
-    // korte veeg terug komt de adresbalk terug en bleef er een strook scrubber boven de tabel staan). Zelf
-    // afmaken; verder weg is het een gebaar dat nog loopt.
-    let pageEndsAbovePanel = tableSnappedAtPageEnd(panelTop)
-    if (Math.abs(panelTop) > 2 && Math.abs(panelTop) <= TABLE_SNAP_SLACK_PX && tableViewTarget() !== 'map') {
-      // Alleen in rust ingrijpen, en niet tijdens een tik-navigatie met haar eigen vloeiende scroll: een
-      // hercontrole die midden in een scroll viel brak die af en liet de tabel dicht. Later opnieuw kijken.
-      const now = performance.now()
-      if (now - lastPageScrollAt < TABLE_REST_MS || now < tableNavigationUntil) scheduleTableViewSettlement(TABLE_REST_MS)
-      // Hooguit een paar keer achter elkaar: verschuift de browser het zichtbare scherm terug zodra er weer
-      // gescrold kan worden, dan mag dit niet heen en weer blijven gaan. Een nieuw gebaar zet de teller terug.
-      else if (tablePullsSinceGesture < TABLE_PULLS_PER_GESTURE) {
-        tablePullsSinceGesture++
-        panelTop = pullTablePanelToTop(panelTop)
-        // Lukt het ook met verlengen niet, dan is dit de tabelview: verder komt hij niet (U58).
-        pageEndsAbovePanel = panelTop > 2
-      }
-    }
-    const atTable = Math.abs(panelTop) <= 2 || pageEndsAbovePanel
-    const atMap = window.scrollY <= 2
-    // Aan de kaartkant wordt niets teruggezet: een correctie daar brak onder haperende frames de vloeiende
-    // scroll naar de tabel af (herhaalde e2e bij zware load, 2026-10-08), en de PO-bug zit alleen aan de tabelkant.
+    const atTable = Math.abs(tablePanelTop()) <= 2
+    const atMap = shellElement.scrollTop <= 2
     if (!atTable && !atMap) return
-    const open = atTable
-    setTableCoversViewport(open)
-    setTableOpen(open)
-    applyTableScrollOpen(open)
+    // Een tik-navigatie is pas klaar als ze aankomt; een tussenstop aan de andere kant telt niet.
+    const target = tableViewTarget()
+    if (target !== undefined && performance.now() < tableNavigationUntil && atTable !== (target === 'table')) return
+    setTableCoversViewport(atTable)
+    setTableOpen(atTable)
+    applyTableScrollOpen(atTable)
     setTableViewTarget(undefined)
   }
   function scheduleTableViewSettlement(delay = 160): void {
@@ -626,31 +556,17 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       settleTableView()
     }, delay)
   }
-  // Een adresbalk schuift nog door nadat het gebaar of het laatste resize-event voorbij is; daarna nog eens kijken.
-  let tableViewRecheckTimer: number | undefined
-  function scheduleTableViewRecheck(): void {
-    window.clearTimeout(tableViewRecheckTimer)
-    tableViewRecheckTimer = window.setTimeout(settleTableView, TABLE_VIEW_RECHECK_MS)
-  }
   function pageScrolled(): void {
-    lastPageScrollAt = performance.now()
     queueTableViewSync()
     scheduleTableViewSettlement()
   }
   function settleTableViewAfterResize(): void {
-    // Mobiele browserbalken sturen tijdens hun animatie iedere frame een resize-event.
     window.clearTimeout(tableViewResizeTimer)
-    // Wordt het scherm hoger (de adresbalk verdwijnt), dan groeit 100dvh mee en is de verlenging niet meer nodig.
-    const viewportHeight = window.visualViewport?.height ?? window.innerHeight
-    if (viewportHeight > lastViewportHeight + 1 && tablePanelShortfall() > 0) {
-      setTablePanelShortfall(0)
-      forecastPanelElement?.style.removeProperty('--table-panel-shortfall')
-    }
-    lastViewportHeight = viewportHeight
     tableViewResizeTimer = window.setTimeout(() => {
+      // Na een draai of een toetsenbord ligt het snappunt elders: de open tabel blijft bovenaan.
+      if (tableViewAvailable() && tableOpen()) shellElement.scrollTop += tablePanelTop()
       queueTableViewSync()
       scheduleTableViewSettlement()
-      scheduleTableViewRecheck()
     }, 120)
   }
   const [status, setStatus] = createSignal('Regen laden…')
@@ -848,34 +764,31 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   onMount(() => {
     const touchStart = (event: TouchEvent) => {
       tableTouchActive = event.touches.length > 0
-      tablePullsSinceGesture = 0
       window.clearTimeout(tableViewSettleTimer)
     }
     const touchEnd = (event: TouchEvent) => {
       tableTouchActive = event.touches.length > 0
-      if (!tableTouchActive) { scheduleTableViewSettlement(); scheduleTableViewRecheck() }
+      if (!tableTouchActive) scheduleTableViewSettlement()
     }
-    window.addEventListener('scroll', pageScrolled, { passive: true })
-    window.addEventListener('scrollend', settleTableView, { passive: true })
+    shellElement.addEventListener('scroll', pageScrolled, { passive: true })
+    shellElement.addEventListener('scrollend', settleTableView, { passive: true })
     window.addEventListener('resize', settleTableViewAfterResize, { passive: true })
     window.addEventListener('touchstart', touchStart, { passive: true })
     window.addEventListener('touchend', touchEnd, { passive: true })
     window.addEventListener('touchcancel', touchEnd, { passive: true })
-    window.visualViewport?.addEventListener('resize', settleTableViewAfterResize, { passive: true })
-    // Het zichtbare scherm kan ook verschuiven zonder van maat te veranderen.
-    window.visualViewport?.addEventListener('scroll', settleTableViewAfterResize, { passive: true })
+    // Het tabelpaneel is precies één shell hoog, gemeten in px: zo valt zijn snappunt exact op het scrolleinde.
+    const shellSize = new ResizeObserver(() => shellElement.style.setProperty('--shell-height', `${shellElement.clientHeight}px`))
+    shellSize.observe(shellElement)
     syncTableViewPosition()
     scheduleTableViewSettlement(0)
     onCleanup(() => {
-      window.clearTimeout(tableViewRecheckTimer)
-      window.removeEventListener('scroll', pageScrolled)
-      window.removeEventListener('scrollend', settleTableView)
+      shellSize.disconnect()
+      shellElement.removeEventListener('scroll', pageScrolled)
+      shellElement.removeEventListener('scrollend', settleTableView)
       window.removeEventListener('resize', settleTableViewAfterResize)
       window.removeEventListener('touchstart', touchStart)
       window.removeEventListener('touchend', touchEnd)
       window.removeEventListener('touchcancel', touchEnd)
-      window.visualViewport?.removeEventListener('resize', settleTableViewAfterResize)
-      window.visualViewport?.removeEventListener('scroll', settleTableViewAfterResize)
       if (tableViewFrame !== undefined) cancelAnimationFrame(tableViewFrame)
       window.clearTimeout(tableViewResizeTimer)
       window.clearTimeout(tableViewSettleTimer)
@@ -3691,13 +3604,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function scrollToTable(): void {
     tableNavigationUntil = performance.now() + TABLE_NAVIGATION_MS
     setTableViewTarget('table')
-    forecastPanelElement.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' })
+    shellElement.scrollTo({ top: shellElement.scrollTop + tablePanelTop(), behavior: reducedMotion.matches ? 'auto' : 'smooth' })
   }
 
   function scrollToMap(): void {
     tableNavigationUntil = performance.now() + TABLE_NAVIGATION_MS
     setTableViewTarget('map')
-    window.scrollTo({ top: 0, behavior: reducedMotion.matches ? 'auto' : 'smooth' })
+    shellElement.scrollTo({ top: 0, behavior: reducedMotion.matches ? 'auto' : 'smooth' })
   }
 
   function openTableFromPeek(event: MouseEvent): void {
@@ -3706,7 +3619,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     scrollToTable()
   }
 
-  return <main class="app-shell" classList={{ 'still-view': stillMode, 'table-view-open': tableViewOpen(), 'table-covers-viewport': tableViewAvailable() && tableCoversViewport(), 'table-scroll-open': tableViewAvailable() && tableScrollOpen() }} data-generated={manifest()?.generated} data-epoch={cursorMinute()}>
+  return <main ref={shellElement} class="app-shell" classList={{ 'still-view': stillMode, 'table-view-open': tableViewOpen(), 'table-covers-viewport': tableViewAvailable() && tableCoversViewport(), 'table-scroll-open': tableViewAvailable() && tableScrollOpen() }} data-generated={manifest()?.generated} data-epoch={cursorMinute()}>
     <section
       class="map-shell"
       classList={{ 'sky-day': chromeSky()?.daylight === true, 'sky-night': chromeSky()?.daylight === false }}
@@ -3874,7 +3787,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         </section>
       </aside>
     </Show>
-    <Show when={!stillMode && viewportDiagnose()}><ViewportDiagnose shortfallPx={tablePanelShortfall} /></Show>
+    <Show when={!stillMode && viewportDiagnose()}><ViewportDiagnose /></Show>
     <Show when={!stillMode && perfVisible()}><PerfHud
       monitor={perf}
       isolines={isolineCounters}
