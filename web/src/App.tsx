@@ -661,10 +661,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
   }
   const [nowJump, setNowJump] = createSignal<NowJumpStyle>(storedDevChoice(NOW_JUMP_STORAGE_KEY, NOW_JUMP_STYLES, 'uit'))
-  const [chartHeight, setChartHeight] = createSignal<ChartHeight>(storedDevChoice(CHART_HEIGHT_STORAGE_KEY, CHART_HEIGHTS, '2:1'))
+  const [chartHeight, setChartHeight] = createSignal<ChartHeight>(storedDevChoice(CHART_HEIGHT_STORAGE_KEY, CHART_HEIGHTS, 'auto'))
   createEffect(() => {
     const height = chartHeight()
-    if (height === '2:1') document.documentElement.style.removeProperty('--scrub-desktop-height')
+    if (height === 'auto') document.documentElement.style.removeProperty('--scrub-desktop-height')
     else document.documentElement.style.setProperty('--scrub-desktop-height', `${height}px`)
   })
   const usage = createUsageTracker(browserUsageEnvironment(), theme(), windUnit(), usageLabel())

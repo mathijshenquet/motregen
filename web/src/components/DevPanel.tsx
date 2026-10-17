@@ -91,9 +91,9 @@ export default function DevPanel(props: Props) {
           <For each={NOW_JUMP_STYLES}>{(style) => <option value={style}>{style}</option>}</For>
         </select>
       </Control>
-      <Control label="Grafiekhoogte" output={props.chartHeight === '2:1' ? '2:1' : `${props.chartHeight} px`} hint="Proef: hoogte van de grafiek op desktop, inclusief de urenbalk van 26 px. 2:1 (standaard) volgt de zijbalk: 235 px, vanaf 1450 px breed 260. 198 was de oude hoogte.">
-        <select aria-label="Grafiekhoogte" value={props.chartHeight} onChange={(event) => { const value = event.currentTarget.value; props.onChartHeight(value === '2:1' ? '2:1' : Number(value) as ChartHeight) }}>
-          <For each={CHART_HEIGHTS}>{(height) => <option value={height}>{height === '2:1' ? '2:1' : `${height} px`}</option>}</For>
+      <Control label="Grafiekhoogte" output={props.chartHeight === 'auto' ? 'auto' : `${props.chartHeight} px`} hint="Proef: hoogte van de grafiek op desktop, inclusief de urenbalk van 26 px. Auto (standaard): 30 % van de schermhoogte, tussen 198 en 320 px. 198 was de oude vaste hoogte.">
+        <select aria-label="Grafiekhoogte" value={props.chartHeight} onChange={(event) => { const value = event.currentTarget.value; props.onChartHeight(value === 'auto' ? 'auto' : Number(value) as ChartHeight) }}>
+          <For each={CHART_HEIGHTS}>{(height) => <option value={height}>{height === 'auto' ? 'auto' : `${height} px`}</option>}</For>
         </select>
       </Control>
     </Group>

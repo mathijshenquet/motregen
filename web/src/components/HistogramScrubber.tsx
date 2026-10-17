@@ -14,8 +14,8 @@ import { formatNumber, formatTime, formatWeekdayLong, formatWeekdayShort } from 
 
 export const NOW_JUMP_STYLES = ['uit', 'rand', 'knop'] as const
 export type NowJumpStyle = typeof NOW_JUMP_STYLES[number]
-/** Hoogte van de grafiek op desktop, inclusief de urenbalk van 26 px (proef, PO 2026-10-17). `2:1` volgt de zijbalk. */
-export const CHART_HEIGHTS = ['2:1', 198, 280] as const
+/** Hoogte van de grafiek op desktop, inclusief de urenbalk van 26 px (proef, PO 2026-10-17). `auto` volgt de schermhoogte. */
+export const CHART_HEIGHTS = ['auto', 198, 280] as const
 export type ChartHeight = typeof CHART_HEIGHTS[number]
 export const NOW_JUMP_STORAGE_KEY = 'motregen-dev-naar-nu'
 export const CHART_HEIGHT_STORAGE_KEY = 'motregen-dev-grafiekhoogte'
